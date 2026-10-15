@@ -35,6 +35,13 @@ describe( 'buildSystemPrompt', () => {
 		expect( prompt ).not.toContain( 'core/post-content' );
 	} );
 
+	it( 'routes site builds to the build-site skill in every runtime', () => {
+		for ( const prompt of [ buildSystemPrompt( {} ), buildSystemPrompt( { external: true } ) ] ) {
+			expect( prompt ).toContain( 'load the `build-site` skill once the site is picked' );
+			expect( prompt ).toContain( 'validate each one with `filePath`' );
+		}
+	} );
+
 	it( 'routes WordPress.com sites to the remote management skill', () => {
 		const prompt = buildSystemPrompt( {} );
 
@@ -112,14 +119,11 @@ describe( 'buildSystemPrompt', () => {
 	} );
 
 	it( 'describes the screenshot and inspect tools for models without vision', () => {
-		const polishStep = 'You MUST load the `visual-polish` skill and follow its instructions';
 		const withVision = buildSystemPrompt( { tools: toolsFor( { visionEnabled: true } ) } );
-		expect( withVision ).toContain( polishStep );
 		expect( withVision ).toContain( 'Pair with take_screenshot' );
 		expect( withVision ).not.toContain( 'You cannot view' );
 
 		const textOnly = buildSystemPrompt( { tools: toolsFor( { visionEnabled: false } ) } );
-		expect( textOnly ).toContain( polishStep );
 		expect( textOnly ).toContain( 'it still sets the theme screenshot' );
 		expect( textOnly ).toContain( 'pass its directory as `themeScreenshot`' );
 		expect( textOnly ).not.toContain( 'Pair with take_screenshot' );

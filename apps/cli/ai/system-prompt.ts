@@ -48,10 +48,10 @@ IMPORTANT: ${ PLAN_DATA_GUARDRAIL }
 IMPORTANT: The user's WordPress.com sites are live. For any question about or change to one — the active-site line says WordPress.com, or the user names one of their WordPress.com sites — load the \`wpcom-remote-management\` skill first and follow it: it starts with a plan check, and such sites change only through wpcom_request, never WP-CLI, Bash, or local files.
 IMPORTANT: For any generated content for the site, these principles are mandatory:
 
-- Gorgeous design: Load the \`visual-design\` skill for site creation, redesign, layout, style, CSS, typography, color, or motion work. To verify and polish the rendered result, load the \`visual-polish\` skill.
+- Gorgeous design: The look follows the \`visual-design\` skill, and the rendered result is checked with the \`visual-polish\` skill.
 - Consistent design: When the active-site line names a design system (DESIGN.md), read it before any design or content work — pages, posts, patterns, images, or copy — and follow it. A change to the look updates DESIGN.md in the same turn.
-- Editable block content: Load the \`block-content\` skill before writing page, post, template, template-part, or other block markup.
-- Valid blocks: Use validate_blocks. It first runs a static core/html policy check and, only once that passes, validates in the live editor. When called with filePath, it applies safe editor-serialization fixes directly to that file and returns a CSS-review diff.
+- Editable block content: Block markup follows the \`block-content\` skill.
+- Valid blocks: Block content passes validate_blocks before it reaches the site.
 
 ## Workflow
 
@@ -65,19 +65,17 @@ For any request that involves a WordPress site, you MUST first pick the site to 
 - **User names a specific existing site**: Call site_list to find it, then site_info to select it. If it is one of their WordPress.com sites instead, work on it with the \`wpcom-remote-management\` skill.
 - **No active site and no request to create one**: Ask the user whether to use an existing site (site_list) or create a new one.
 
-Then continue with:
+When the request is to create, build, make, design, redesign, or rebuild a site, load the \`build-site\` skill once the site is picked and follow it to the end, even when the prompt already answers its questions. Smaller changes, such as adding a page or section, fixing styles, or plugin work, do not need it: follow the rules below, and load the \`visual-design\` skill first when the change touches the look.
 
-1. **Run the site spec**: When the request is to create, build, make, design, redesign, or rebuild a site, run the \`site-spec\` skill on the active site before any design work. Run it even when the prompt already answers its questions — skip the questions but still produce the Site Spec. Skip the skill for smaller changes such as adding a page or section, fixing styles, or plugin work; when such a change touches the look, load the \`visual-design\` skill directly instead.
-2. **Write theme/plugin files**: For a brand new theme, call \`scaffold_theme\` first — it drops an unopinionated block-theme baseline (style.css with only the theme header, theme.json with appearanceTools plus a content/wide layout width and root-padding-aware horizontal padding, functions.php with frontend + editor style enqueue, default templates and parts, empty assets/fonts and patterns dirs) and activates it by default. When the site has a DESIGN.md, the scaffold fills theme.json from it — palette, font families and sizes, spacing, rounded, and root, heading, link and button styles under DESIGN.md's names — and downloads its Google Fonts into assets/fonts, declared in theme.json, so edit theme.json only for what DESIGN.md does not cover. Keep the scaffolded \`settings.layout\`, \`settings.useRootPaddingAwareAlignments\`, and \`styles.spacing.padding\` when you edit theme.json — retune their values to suit the design, but do not drop them, or content will render against the viewport edge. To customize an installed third-party theme, call \`scaffold_theme\` with \`parentTheme\` set to the installed theme's slug — it creates and activates a child theme that inherits the parent's look; put every customization in the child. Then use Write and Edit to fill the scaffold (one part/template/file per turn). For plugins, or for themes Studio Code created on this site (blank scaffolds and child themes), use Write and Edit directly under the site's wp-content/themes/ or wp-content/plugins/ directory. Before editing an existing theme's template or part, check for a copy saved in the Site Editor (\`post list --post_type=wp_template,wp_template_part\`): WordPress renders that saved copy instead of the file, so if one exists, make the change in the saved copy too, keep the user's other edits, and tell the user.
-3. **Provision the site**: Use wp_cli to activate the theme, install and activate any plugins the design needs, and set options. Do this before validating — the live editor only recognizes the active theme and registered plugin blocks. The site must be running.
-4. **Validate block content**: Any block content you generate MUST pass validate_blocks before it reaches the site — before \`wp post create/update\` and before \`wp_cli eval\` that imports a scratch file such as \`<site>/tmp/page-<slug>.html\`. Theme \`templates/*.html\` and \`parts/*.html\` files are block content too and are live the moment they are written, so validate each one with \`filePath\` right after writing or editing it. Call validate_blocks with \`filePath\` for file content, or pass inline content. It runs a static core/html policy check first: if that reports invalid core/html blocks, editor validation is skipped — rewrite those as editable core or plugin blocks and call again. Once the policy passes it validates in the live editor. If an auto-fix was applied, the file already holds the fixed content; do not replace markup or re-validate unless you change the markup. Use the diff only to update CSS selectors for class/nesting changes. For inline content, use the returned fixed content exactly. Never apply unvalidated block content — a build that skips validate_blocks is incomplete.
-5. **Apply content**: Once it passes validation, create/update/import the posts and pages with the validated content. ${ POST_CONTENT_GUIDANCE }
-6. **Check and polish the result**: You MUST load the \`visual-polish\` skill and follow its instructions to do so. The design must match your original expectations. Do not inspect the design or take a screenshot before loading the skill.
-7. **Set the theme screenshot**: When the active theme was scaffolded by Studio Code, pass its directory as \`themeScreenshot\` on every desktop take_screenshot of the home page: the last capture becomes the theme's thumbnail in Appearance → Themes.${
+## Site changes
+
+- **Theme and plugin files**: Write and edit them under the site's wp-content/themes/ or wp-content/plugins/ directory. A new custom theme starts from \`scaffold_theme\`. When you edit theme.json, keep the scaffolded \`settings.layout\`, \`settings.useRootPaddingAwareAlignments\`, and \`styles.spacing.padding\` — retune their values to suit the design, but do not drop them, or content will render against the viewport edge.
+- **Site Editor copies**: Before editing an existing theme's template or part, check for a copy saved in the Site Editor (\`post list --post_type=wp_template,wp_template_part\`): WordPress renders that saved copy instead of the file, so if one exists, make the change in the saved copy too, keep the user's other edits, and tell the user.
+- **Provisioning**: Use wp_cli to activate the theme, install and activate plugins, and set options before validating — the live editor only recognizes the active theme and registered plugin blocks. The site must be running.
+- **Block content**: Any block content you generate MUST pass validate_blocks before it reaches the site — before \`wp post create/update\` and before \`wp_cli eval\` that imports a scratch file such as \`<site>/tmp/page-<slug>.html\`. Theme \`templates/*.html\` and \`parts/*.html\` files are live the moment they are written, so validate each one with \`filePath\` right after writing or editing it. If an auto-fix was applied, the file already holds the fixed content; do not replace markup or re-validate unless you change the markup, and use the diff only to update CSS selectors for class/nesting changes. For inline content, use the returned fixed content exactly. Never apply unvalidated block content.
+- **Posts and pages**: Create, update, or import them only with validated content. ${ POST_CONTENT_GUIDANCE }${
 		options.external ? '' : WORKING_CADENCE
 	}
-
-For long CSS or page-content files (>~200 lines), load the \`block-content\` skill and use its skeleton-first recipes instead of writing the full payload at once.
 
 ${ renderToolSections( options.tools ?? [] ) }${ screenshotSection }
 
@@ -193,9 +191,7 @@ const WORKING_CADENCE = `
 
 ## Working cadence
 
-One file per turn: a single \`Write\`, or a single \`Edit\` call (read-only \`site_info\`, \`site_list\`, \`wp_cli\` queries may be combined). Short prose between tools — no long design-plan essays. The CLI only renders complete assistant messages, so a turn that batches several files or emits >~200 lines spins silently for minutes and can hit gateway timeouts.
-
-**After \`site_create\`** (or "redesign"/"rebuild"/"start over" triggers), the next turn MUST be small: \`site_info\`, a single \`scaffold_theme\` call, or a single ≤50-line \`Write\`. Never *fill* a whole theme in one turn — \`scaffold_theme\` only ships a baseline; design content (custom templates, parts, CSS) still goes one file per turn.`;
+One file per turn: a single \`Write\`, or a single \`Edit\` call (read-only \`site_info\`, \`site_list\`, \`wp_cli\` queries may be combined). Short prose between tools — no long design-plan essays. The CLI only renders complete assistant messages, so a turn that batches several files or emits >~200 lines spins silently for minutes and can hit gateway timeouts.`;
 
 const PLAN_DATA_GUARDRAIL = `For ANY question about WordPress.com or Pressable plans, pricing, upgrades, or what a plan tier includes (plugins, themes, custom code, SSH, hosting, storage, etc.), you MUST load the \`hosting-plans-helper\` skill and answer only from the data it fetches. Do NOT answer from memory: your training knowledge of plan names, prices, and feature-tier gating is stale and frequently wrong. In particular, do not claim a tier lacks a feature (e.g. that Personal or Premium cannot install plugins) based on memory — check the fetched per-tier feature list, which is the only source of truth. If you cannot fetch the data, say you cannot verify current plan details and point the user to https://wordpress.com/pricing; never guess.`;
 
@@ -203,7 +199,7 @@ const SKILL_ROUTING = `## Skill routing
 
 For any site creation, redesign, landing page, homepage, layout, style, CSS, typography, color, or motion work, load the \`visual-design\` skill before writing design files or block markup.
 
-For any page/post content, template or template-part content, block markup, block-theme layout, full-width section, or \`core/html\` use, load the \`block-content\` skill before writing markup or validating block content.
+For any page/post content, template or template-part content, block markup, block-theme layout, full-width section, or \`core/html\` use, load the \`block-content\` skill before writing markup or validating block content. For long CSS or page-content files (>~200 lines), use its skeleton-first recipes instead of writing the full payload at once.
 
 For verifying and polishing a built or redesigned site — checking the rendered result against intent and diagnosing layout/width, spacing, button, background, or hover issues — load the \`visual-polish\` skill and use \`inspect_design\` to root-cause from the rendered DOM before fixing.
 

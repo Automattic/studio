@@ -341,7 +341,7 @@ tests:
             }
             return { pass: true, score: 1, reason: `validation passed: ${text.split(/\r?\n/).filter(Boolean).slice(0, 2).join(' | ')}` };
           });
-      # Workflow step 7: the home page's desktop take_screenshot captures, with
+      # The home page's desktop take_screenshot captures, with
       # the scaffolded theme's directory as `themeScreenshot`, set its
       # screenshot.jpg (the Appearance → Themes thumbnail). Captures are JPEGs,
       # so the file must carry a real JPEG signature — a hand-crafted or
@@ -955,7 +955,7 @@ tests:
             const created = calls.find(t => t.name === 'site_create');
             if (created) return { pass: false, score: 0, reason: `site_create was called (${JSON.stringify(created.input)}) instead of reusing the active site` };
             const reused = calls.some(t => {
-              if (t.name === 'Skill') return t.input?.name === 'site-spec';
+              if (t.name === 'Skill') return t.input?.name === 'build-site';
               const target = t.input?.nameOrPath;
               return typeof target === 'string' && /eval-active-site|Eval Active Site/i.test(target);
             });

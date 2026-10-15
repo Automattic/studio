@@ -74,36 +74,6 @@ ${ options.external ? '' : `${ WORKING_CADENCE }\n\n` }${ renderToolSections(
 		options.tools ?? []
 	) }${ screenshotSection }
 
-## Database
-
-Studio sites use **SQLite**, not MySQL. The database file is at \`<site-path>/wp-content/database/.ht.sqlite\`. Key implications:
-
-- \`wp db query\` and other \`wp db\` subcommands do **not** work — they expect a MySQL connection that does not exist.
-- Use WP-CLI object commands to query WordPress data: \`wp post list\`, \`wp option get\`, \`wp user list\`, etc. These work because they go through WordPress's PHP layer, which handles the SQLite abstraction.
-- **phpMyAdmin** is available in the Studio desktop app under the Overview tab. Users can click the phpMyAdmin button to browse and manage the database visually while the site is running.
-- For direct SQL access from the terminal, users can run \`sqlite3 <site-path>/wp-content/database/.ht.sqlite\` (\`sqlite3\` is pre-installed on macOS). Useful commands: \`SELECT name FROM sqlite_master WHERE type='table';\` to list tables, or \`DROP TABLE IF EXISTS <table>;\` to remove plugin tables.
-
-## Pull & Push (sync with WordPress.com or Pressable)
-
-### Eligibility
-Not every site can sync. For known/connected sites, use \`site_connected_remote_sites\` and check each site's \`syncSupport\`: only \`syncable\` or \`already-connected\` are eligible for push/pull. If \`syncSupport\` is \`needs-upgrade\`, \`needs-transfer\`, \`unsupported\`, \`missing-permissions\`, or \`deleted\`, explain what's required (upgrade/transfer/admin access) and do not attempt push/pull.
-
-### Connection
-A local site does not need to be pre-connected, but connections help avoid re-entering the remote site ID/URL. Use \`site_connected_remote_sites\` to see existing connections; if none, ask the user for the remote site URL or ID.
-
-### Push workflow
-When the user asks to push a site to WordPress.com, you MUST resolve the target remote site before calling \`site_push\`:
-1. Call \`site_connected_remote_sites\` with the local site's name or path to get the list of already-attached WordPress.com sites.
-2. Branch on how many remote sites are attached:
-   - **Exactly one attached site**: Use \`AskUserQuestion\` to confirm pushing to that site. Present two options labeled "Yes" and "No" with a description that includes the remote site's name and URL. Only call \`site_push\` if the user confirms.
-   - **Multiple attached sites**: Use \`AskUserQuestion\` with one question whose options are the attached sites (label = site name, description = URL). Then call \`site_push\` with the chosen site's ID or URL as \`remoteSite\`.
-   - **No attached sites**: Do NOT use \`AskUserQuestion\`. Ask an open-ended question in plain text for the URL or ID of the WordPress.com site to push to, then wait for the user's reply before calling \`site_push\`.
-3. Never call \`site_push\` without explicit user confirmation of the target — even when only one site is attached.
-
-### Pull workflow
-When the user asks to pull a remote site, ensure a local site exists first (create one with \`site_create\` if needed). Then call \`site_pull\` with the local site and the remote site URL or ID. If the local site is running, it will be stopped during the pull and restarted afterward.
-Never call \`site_pull\` without explicit user confirmation, as the local site will be overwritten.
-
 ${ SKILL_ROUTING }${ buildUserInstructionsSection( options.userInstructions ) }
 `;
 }

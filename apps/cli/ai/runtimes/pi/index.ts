@@ -631,7 +631,13 @@ function buildAgentTools(
 	// pi's tools are registered under Studio's names; the prompt text for them
 	// is Studio's too (file-tool-prompts.ts), so nothing of pi's wording leaks.
 	const renameTool = < S extends TSchema >( tool: AgentTool< S >, name: string ): AgentTool< S > =>
-		( { ...tool, name, label: name, ...getFileToolPrompt( name ) } ) as AgentTool< S >;
+		( {
+			...tool,
+			name,
+			label: name,
+			promptGuidelines: undefined,
+			...getFileToolPrompt( name ),
+		} ) as AgentTool< S >;
 
 	const designSystemPreview = < TTool extends AgentToolAny >( tool: TTool ) =>
 		chatArtifactsEnabled ? withDesignSystemPreview( tool, STUDIO_SITES_ROOT ) : tool;

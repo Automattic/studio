@@ -36,13 +36,8 @@ describe( 'buildSystemPrompt', () => {
 	} );
 
 	it( 'routes site builds to the build-site skill in every runtime', () => {
-		const tools = toolsFor( { visionEnabled: true } );
-		for ( const prompt of [
-			buildSystemPrompt( { tools } ),
-			buildSystemPrompt( { tools, external: true } ),
-		] ) {
+		for ( const prompt of [ buildSystemPrompt( {} ), buildSystemPrompt( { external: true } ) ] ) {
 			expect( prompt ).toContain( 'load the `build-site` skill first' );
-			expect( prompt ).toContain( 'validate each one with `filePath`' );
 		}
 	} );
 
@@ -70,20 +65,6 @@ describe( 'buildSystemPrompt', () => {
 		expect( missingSkillNames ).toEqual( [] );
 	} );
 
-	it( 'lets sites use a scratch file for post_content', () => {
-		const prompt = buildSystemPrompt( { tools: toolsFor( { visionEnabled: true } ) } );
-
-		expect( prompt ).toContain( 'write the validated markup to a scratch file' );
-		expect( prompt ).toContain( 'wp post create <file>' );
-		expect( prompt ).not.toContain( 'virtual temp file' );
-		expect( prompt ).not.toContain( 'cannot read your machine' );
-	} );
-
-	it( 'keeps the no-shell post_content rule', () => {
-		const prompt = buildSystemPrompt( { tools: toolsFor( { visionEnabled: true } ) } );
-		expect( prompt ).toContain( 'takes literal arguments, not shell commands' );
-	} );
-
 	it( 'lists the registered tools and their guidelines', () => {
 		const prompt = buildSystemPrompt( {
 			tools: [
@@ -105,6 +86,7 @@ describe( 'buildSystemPrompt', () => {
 		expect( prompt ).toContain( 'Edit site files with your own file tools' );
 		expect( prompt ).not.toContain( 'WordPress Studio Code' );
 		expect( prompt ).not.toContain( '## Working cadence' );
+		expect( buildSystemPrompt( {} ) ).toContain( 'Write and Edit reject more than 14KB per call' );
 	} );
 
 	it( 'mentions refresh_browser only when chat artifacts are enabled', () => {

@@ -117,7 +117,9 @@ function getUnsupportedWpCliOptionMessage( args: string[] ): string | null {
 export const runWpCliTool = defineTool(
 	'wp_cli',
 	'Runs a WP-CLI command on a specific WordPress site. ' +
-		'Examples: "plugin install woocommerce --activate", "option get blogname", "user list".',
+		'Examples: "plugin install woocommerce --activate", "option get blogname", "user list". ' +
+		'The command takes literal arguments, not shell syntax — never use shell substitution or shell syntax such as `$(cat file)`, backticks, pipes, redirection, or environment variables to provide post content. ' +
+		'For large post content, write the validated markup to a scratch file inside the site directory and pass its path to `post create <file>` (or `post update <id> <file>`) — this avoids the OS command-length limit. For smaller content you may instead pass it inline with `--post_content=...` as the final argument.',
 	{
 		nameOrPath: Type.String( { description: 'The site name or file system path to the site' } ),
 		command: Type.String( {
@@ -179,8 +181,5 @@ export const runWpCliTool = defineTool(
 	},
 	{
 		promptSnippet: 'Run WP-CLI commands on a running site',
-		promptGuidelines: [
-			'wp_cli takes literal arguments, not shell commands — never use shell substitution or shell syntax such as `$(cat file)`, backticks, pipes, redirection, or environment variables to provide post content. For large post content, write the validated markup to a scratch file inside the site directory and pass its path to `wp post create <file>` (or `wp post update <id> <file>`) — this avoids the OS command-length limit. For smaller content you may instead pass it inline with `--post_content=...` as the final argument.',
-		],
 	}
 );

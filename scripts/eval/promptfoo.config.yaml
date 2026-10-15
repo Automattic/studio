@@ -108,9 +108,12 @@ tests:
   # Regression: trunk handles desktop/mobile visual verification as separate
   # screenshot calls. The optimized tool exposes `viewport: "all"` so the agent
   # can satisfy the same user request with one timed call and two PNG payloads.
+  # Pinned to an image-capable tier: for text-only models (the default `fast`)
+  # take_screenshot saves the captures to files and returns no image payloads.
   - description: screenshot verification captures desktop and mobile in one fast call
     vars:
       caseId: screenshot-all-timing
+      model: balanced
       timeoutMs: 240000
       askUserPolicy: allow_all
       prompt: |

@@ -138,7 +138,7 @@ steps:
         agents:
           queue: "{{matrix}}"
         # TEMPORARY (revert before merge): room for the repeated Windows run.
-        timeout_in_minutes: 60
+        timeout_in_minutes: 80
         plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
         matrix:
           - mac

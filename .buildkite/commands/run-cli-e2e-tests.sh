@@ -32,8 +32,8 @@ export STUDIO_E2E_DAEMON_LOGS_DIR=test-results/daemon-logs
 test_exit=0
 # TEMPORARY (revert before merge): repeat the flaky file until it fails, to capture its daemon logs.
 if [ "$PLATFORM" = "windows" ]; then
-  for run in $(seq 1 30); do
-    echo "--- :repeat: site-management.e2e.test.ts run $run/30"
+  for run in $(seq 1 50); do
+    echo "--- :repeat: site-management.e2e.test.ts run $run/50"
     npm test -- --project cli --tagsFilter='e2e' --no-file-parallelism apps/cli/commands/site/tests/site-management.e2e.test.ts || { test_exit=$?; break; }
   done
 else

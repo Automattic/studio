@@ -1,6 +1,6 @@
 ---
 name: block-content
-description: Write editable WordPress block markup and theme files for local Studio sites, including where theme changes go (block themes only, child themes, Site Editor copies), core/html limits, block-theme layout rules, full-width sections, validation, and skeleton-first page/CSS recipes.
+description: Write editable WordPress block markup and theme files for local Studio sites, including where theme changes go (block themes only, child themes), core/html limits, block-theme layout rules, full-width sections, validation, and skeleton-first page/CSS recipes.
 ---
 
 # Block Content
@@ -10,7 +10,6 @@ Use this skill before writing or editing page content, post content, templates, 
 ## Theme Files
 
 - Always build block themes, never classic themes.
-- Before editing an existing theme's template or part, check for a copy saved in the Site Editor (`post list --post_type=wp_template,wp_template_part`): WordPress renders that saved copy instead of the file, so if one exists, make the change in the saved copy too, keep the user's other edits, and tell the user.
 - Do NOT edit the files of installed third-party themes (default themes like twentytwentyfive, marketplace/community themes such as Ollie, anything installed via `wp theme install` or already present on the site) — a theme update silently wipes such edits. Default to a child theme: call `scaffold_theme` with `parentTheme` set to the installed theme's slug, then make every customization (style.css, theme.json, templates, parts, patterns) in the child theme. Themes Studio Code created — their style.css Description says "scaffolded by Studio Code" — are safe to edit directly. If the user explicitly asks you to edit an installed theme's files directly, comply, but first warn once that a theme update will overwrite the changes.
 
 ## Core Policy

@@ -50,12 +50,11 @@ export type ToolHandler< TProps extends TProperties > = (
 	context: ToolContext
 ) => Promise< ToolResult >;
 
-// One-line snippet for the prompt's tool list and short usage guidelines,
-// the way pi's own tools declare them: the system prompt is assembled from
-// the registered tools, so a tool is documented where it is defined.
+// One-line snippet for the prompt's tool list, the way pi's own tools declare
+// it: the system prompt is assembled from the registered tools, so a tool is
+// documented where it is defined.
 export interface ToolPromptOptions {
 	promptSnippet?: string;
-	promptGuidelines?: string[];
 }
 
 // What a call can change, for hosts that ask the user before running a tool
@@ -109,7 +108,6 @@ export interface AnyStudioAgentTool {
 	prepareArguments?: ( args: unknown ) => unknown;
 	executionMode?: unknown;
 	promptSnippet?: string;
-	promptGuidelines?: string[];
 	settlesPendingWork?: boolean;
 	annotations?: ToolAnnotations;
 }
@@ -129,7 +127,6 @@ export function defineTool< TProps extends TProperties >(
 		parameters,
 		label: name,
 		...( options.promptSnippet ? { promptSnippet: options.promptSnippet } : {} ),
-		...( options.promptGuidelines ? { promptGuidelines: options.promptGuidelines } : {} ),
 		...( options.settlesPendingWork ? { settlesPendingWork: true } : {} ),
 		...( options.annotations ? { annotations: options.annotations } : {} ),
 		rawHandler: ( args, context ) => handler( args, context ?? NOOP_TOOL_CONTEXT ),

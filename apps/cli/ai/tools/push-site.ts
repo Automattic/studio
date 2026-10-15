@@ -8,7 +8,11 @@ export const pushSiteTool = defineTool(
 	'site_push',
 	'Pushes a local WordPress site to a WordPress.com site. Requires WordPress.com authentication ' +
 		'(studio auth login). Exports the local site, uploads it, and imports it on the remote site. ' +
-		'This can take several minutes depending on site size.',
+		'This can take several minutes depending on site size. ' +
+		'Never call it without explicit user confirmation of the target remote site, even when only one site is attached. Resolve the target first with site_connected_remote_sites: ' +
+		'with exactly one attached site, confirm it with AskUserQuestion when available (options "Yes" and "No", the description naming the remote site and its URL); ' +
+		"with several, ask which one (one option per site: label = site name, description = URL) and pass the chosen site's ID or URL as remoteSite; " +
+		'with none, ask in plain text for the URL or ID of the WordPress.com site to push to, without AskUserQuestion, and wait for the reply.',
 	{
 		nameOrPath: Type.String( { description: 'The local site name or file system path' } ),
 		remoteSite: Type.String( {

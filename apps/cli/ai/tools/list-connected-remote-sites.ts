@@ -11,6 +11,7 @@ export const listConnectedRemoteSitesTool = defineTool(
 	'Lists the durable WordPress.com remote sites that are already connected/attached to a local Studio site for push/pull syncing. ' +
 		'These are real WordPress.com sites (production or staging) — NOT temporary preview sites. Preview sites are listed by preview_list and must never be described as connected WordPress.com remote sites. ' +
 		'Use this before calling site_push to determine how to ask the user which remote site to push to. ' +
+		"Check each site's `syncSupport`: only `syncable` or `already-connected` sites can be pushed or pulled. For `needs-upgrade`, `needs-transfer`, `unsupported`, `missing-permissions`, or `deleted`, explain what is required (upgrade, transfer, or admin access) and do not attempt push/pull. " +
 		'Returns an empty array when the user has no connections for that local site. ' +
 		'Each entry is tagged with "type": "wpcom-remote".',
 	{

@@ -8,7 +8,9 @@ export const pullSiteTool = defineTool(
 	'site_pull',
 	'Pulls a WordPress.com site to a local WordPress site. Requires WordPress.com authentication ' +
 		'(studio auth login). Creates a remote backup, downloads it, and imports it locally. ' +
-		'This can take several minutes depending on site size.',
+		'This can take several minutes depending on site size. ' +
+		'Make sure a local site exists first (create one with site_create if needed); a running local site is stopped during the pull and restarted afterward. ' +
+		'Never call it without explicit user confirmation: it overwrites the local site.',
 	{
 		nameOrPath: Type.String( { description: 'The local site name or file system path' } ),
 		remoteSite: Type.String( {

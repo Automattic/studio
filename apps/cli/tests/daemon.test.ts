@@ -223,6 +223,34 @@ describe( 'ProcessManagerDaemon', () => {
 		);
 	} );
 
+	it( 'ignores output that arrives while the log streams are closing', async () => {
+		const child = new MockChildProcess();
+		spawnMock.mockReturnValue( child );
+		const { ProcessManagerDaemon } = await import( '../process-manager-daemon' );
+
+		const daemon = new ProcessManagerDaemon();
+		const daemonInternal = daemon as unknown as {
+			handleRequest: ( request: unknown ) => Promise< unknown >;
+			broadcastEvent: ( event: unknown ) => Promise< void >;
+		};
+		vi.spyOn( daemonInternal, 'broadcastEvent' ).mockResolvedValue( undefined );
+
+		await daemonInternal.handleRequest( {
+			type: 'start-process',
+			requestId: '1',
+			processName: testProcessName,
+			scriptPath: '/tmp/test-child.js',
+			env: {},
+			args: [],
+		} );
+
+		child.emit( 'exit', 1 );
+		child.emit( 'close', 1 );
+		// A write between the stream's end() and finish would emit an unhandled 'error'.
+		child.stderr.write( 'late output\n' );
+		await new Promise( ( resolve ) => setTimeout( resolve, 25 ) );
+	} );
+
 	it( 'reuses duplicate starts, forwards messages, and resolves missing stops', async () => {
 		const child = new MockChildProcess();
 		spawnMock.mockReturnValue( child );

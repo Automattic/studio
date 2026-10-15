@@ -84,6 +84,10 @@ function timestampLogLine( line: string ): string {
 }
 
 function writeTimestampedLines( target: WriteStream, content: string ) {
+	// A write between end() and finish emits an unhandled 'error' that kills the daemon.
+	if ( target.writableEnded ) {
+		return;
+	}
 	const normalizedContent = content.split( '\r\n' ).join( '\n' );
 	const lines = normalizedContent.trimEnd().split( '\n' );
 
@@ -439,8 +443,11 @@ export class ProcessManagerDaemon {
 			crlfDelay: Infinity,
 		} );
 
+		// Output can still arrive after the stream is ended, past the stdio drain timeout.
 		lineReader.on( 'line', ( line ) => {
-			void target.write( timestampLogLine( line ) );
+			if ( ! target.writableEnded ) {
+				target.write( timestampLogLine( line ) );
+			}
 			onLine?.( line );
 		} );
 	}

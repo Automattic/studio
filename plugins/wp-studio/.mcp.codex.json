@@ -8,7 +8,8 @@
         "PATH",
         "SHELL",
         "STUDIO_CLI_BIN",
-        "STUDIO_NODE"
+        "STUDIO_NODE",
+        "CODEX_MCP_NODE_PATH"
       ],
       "startup_timeout_sec": 600,
       "tool_timeout_sec": 3600,

@@ -17,11 +17,13 @@ import {
 	renameSync,
 	rmSync,
 	statSync,
+	writeFileSync,
 } from 'node:fs';
 import { homedir } from 'node:os';
 import path from 'node:path';
 import readline from 'node:readline';
 import { pipeline } from 'node:stream/promises';
+import { setTimeout as sleep } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 import { createBrotliDecompress } from 'node:zlib';
 
@@ -30,6 +32,7 @@ const PLUGIN_ROOT = fileURLToPath( new URL( '..', import.meta.url ) );
 const CLI_BUNDLE = path.join( PLUGIN_ROOT, 'cli.tar.br' );
 const BUNDLED_CLI = path.join( PLUGIN_ROOT, 'cli' );
 const BUNDLED_MAIN = path.join( BUNDLED_CLI, 'main.mjs' );
+const UNPACK_LOCK = `${ BUNDLED_CLI }.lock`;
 // A published plugin has the version of the Studio CLI it carries.
 const { version: PLUGIN_VERSION } = JSON.parse(
 	readFileSync( path.join( PLUGIN_ROOT, '.codex-plugin', 'plugin.json' ), 'utf8' )
@@ -136,21 +139,53 @@ async function unpack() {
 			once( tar, 'close' ),
 		] );
 		if ( code !== 0 ) throw new Error( `tar exited with code ${ code }` );
-		try {
-			renameSync( path.join( staging, 'cli' ), BUNDLED_CLI );
-		} catch ( error ) {
-			// Another session unpacked it first.
-			if ( ! existsSync( BUNDLED_MAIN ) ) throw error;
-		}
+		renameSync( path.join( staging, 'cli' ), BUNDLED_CLI );
 	} finally {
 		rmSync( staging, { recursive: true, force: true } );
+	}
+}
+
+const isAlive = ( pid ) => {
+	try {
+		process.kill( pid, 0 );
+		return true;
+	} catch ( error ) {
+		return error.code === 'EPERM';
+	}
+};
+
+// Codex starts several servers at once: the first to take the lock unpacks,
+// the others wait for it. A lock left by a process that died is taken over.
+async function unpackOnce() {
+	while ( ! existsSync( BUNDLED_MAIN ) ) {
+		try {
+			writeFileSync( UNPACK_LOCK, String( process.pid ), { flag: 'wx' } );
+		} catch {
+			let holder = 0;
+			try {
+				holder = Number( readFileSync( UNPACK_LOCK, 'utf8' ) );
+			} catch {
+				// Released meanwhile.
+			}
+			if ( holder > 0 && ! isAlive( holder ) ) {
+				rmSync( UNPACK_LOCK, { force: true } );
+			} else {
+				await sleep( 1000 );
+			}
+			continue;
+		}
+		try {
+			await unpack();
+		} finally {
+			rmSync( UNPACK_LOCK, { force: true } );
+		}
 	}
 }
 
 // Unpacking takes seconds, so the host waits for it and starts with every tool.
 let studio = await findStudio();
 if ( ! studio ) {
-	if ( ! existsSync( BUNDLED_MAIN ) ) await unpack();
+	await unpackOnce();
 	studio = [ process.execPath, BUNDLED_MAIN ];
 }
 const [ command, ...args ] = studio;

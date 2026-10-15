@@ -36,8 +36,12 @@ describe( 'buildSystemPrompt', () => {
 	} );
 
 	it( 'routes site builds to the build-site skill in every runtime', () => {
-		for ( const prompt of [ buildSystemPrompt( {} ), buildSystemPrompt( { external: true } ) ] ) {
-			expect( prompt ).toContain( 'load the `build-site` skill once the site is picked' );
+		const tools = toolsFor( { visionEnabled: true } );
+		for ( const prompt of [
+			buildSystemPrompt( { tools } ),
+			buildSystemPrompt( { tools, external: true } ),
+		] ) {
+			expect( prompt ).toContain( 'load the `build-site` skill first' );
 			expect( prompt ).toContain( 'validate each one with `filePath`' );
 		}
 	} );
@@ -67,7 +71,7 @@ describe( 'buildSystemPrompt', () => {
 	} );
 
 	it( 'lets sites use a scratch file for post_content', () => {
-		const prompt = buildSystemPrompt( {} );
+		const prompt = buildSystemPrompt( { tools: toolsFor( { visionEnabled: true } ) } );
 
 		expect( prompt ).toContain( 'write the validated markup to a scratch file' );
 		expect( prompt ).toContain( 'wp post create <file>' );
@@ -76,7 +80,7 @@ describe( 'buildSystemPrompt', () => {
 	} );
 
 	it( 'keeps the no-shell post_content rule', () => {
-		const prompt = buildSystemPrompt( {} );
+		const prompt = buildSystemPrompt( { tools: toolsFor( { visionEnabled: true } ) } );
 		expect( prompt ).toContain( 'takes literal arguments, not shell commands' );
 	} );
 

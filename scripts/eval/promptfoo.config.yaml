@@ -986,7 +986,8 @@ tests:
             const created = calls.find(t => t.name === 'site_create');
             if (created) return { pass: false, score: 0, reason: `site_create was called (${JSON.stringify(created.input)}) without asking first` };
             const building = ['scaffold_theme', 'Write', 'Edit', 'wp_cli', 'validate_blocks', 'generate_images', 'pick_design', 'Skill'];
-            const built = calls.find(t => building.includes(t.name));
+            // Loading build-site is how the agent learns to ask; any other step means it started building.
+            const built = calls.find(t => building.includes(t.name) && !(t.name === 'Skill' && t.input?.name === 'build-site'));
             if (built) return { pass: false, score: 0, reason: `agent started building (${built.name}) instead of stopping to ask` };
             const text = (d.textSegments ?? []).join('\n');
             const mentionsCurrent = /(current|existing|active)\s+site|Eval Active Site/i.test(text);

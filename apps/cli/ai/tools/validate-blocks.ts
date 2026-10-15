@@ -192,5 +192,8 @@ export const validateBlocksTool = defineTool(
 		annotations: LOCAL_CHANGE,
 		promptSnippet:
 			"Validate block content in two stages and return a combined report. First a static core/html policy check; if it finds invalid core/html blocks it returns only those (rewrite them as editable core or plugin blocks and call again) and skips the editor. Once it passes, validates in the running site's real block editor: with filePath, applies safe editor fixes directly to the file and returns a CSS-review diff; with inline content, returns exact fixed block content plus the diff. Requires a site name or path. Call after every file write/edit that contains block content.",
+		promptGuidelines: [
+			'Validate block content before it reaches the site: before `wp post create/update`, and before `wp_cli eval` that imports a scratch file such as `<site>/tmp/page-<slug>.html`. Theme `templates/*.html` and `parts/*.html` files are live the moment they are written, so validate each one with `filePath` right after writing or editing it. If an auto-fix was applied, the file already holds the fixed content; do not replace markup or re-validate unless you change the markup, and use the diff only to update CSS selectors for class/nesting changes. For inline content, use the returned fixed content exactly.',
+		],
 	}
 );

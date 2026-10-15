@@ -1,6 +1,6 @@
 ---
 name: build-site
-description: Build, design, redesign, or rebuild a whole site on the active site — settle the design and plugins as a Site Spec, then scaffold the theme, provision the site, validate and publish the content, and polish the result. Load it once the site to work on is picked.
+description: Create, build, design, redesign, or rebuild a whole site — pick or create the site, settle the design and plugins as a Site Spec, then scaffold the theme, provision the site, validate and publish the content, and polish the result. Load it before picking or creating the site.
 user-invokable: true
 ---
 
@@ -8,11 +8,15 @@ user-invokable: true
 
 Follow these steps in order. Run every step even when the prompt already answers the discovery questions: skip the questions, but still produce the Site Spec.
 
-## Precondition: an active site
+## 1. Pick or create the site
 
-This skill works on the active site — the one announced at the top of the user's message. If there is no active site, stop and let the user know.
+The build works on exactly one site, settled before anything else: do not plan a design or write files until it is. The active site is the one announced at the top of the user's message.
 
-## 1. Site Spec
+- **Active site, and the prompt gives no site or business name, or gives the active site's name** (including "redesign" / "update" / "change this site"): Build on the active site. Do not ask whether to create a new one.
+- **Active site, and the prompt gives a site or business name that differs from the active site's name** (e.g. active site "Test" and "build a site for Joe's Bakery" or "a site named Joe's Bakery"): STOP and ask before doing anything else. The name may be the brand for the active site or a request for a second site, and only the user can tell you which. Never resolve this yourself, and never call site_create or start building before the answer. Use AskUserQuestion when available with options like "Use current site" and "Create new site"; otherwise ask in your text output and end your turn.
+- **Explicit "new" / "separate" / "another" site, or no active site**: Call site_create. If the prompt gives no name, ask for one in your text output and wait for the reply.
+
+## 2. Site Spec
 
 Before building, gather the user's basic preferences through a short interactive discovery phase. This produces a **Site Spec** that guides all subsequent design and development decisions.
 
@@ -43,7 +47,7 @@ Load the `visual-design` skill first — the catalogs, the DESIGN.md format, and
 
 ### The Site Spec
 
-Before step 2, state the plan in your text output as a short **Site Spec** summary. The summary MUST include a **Concept** line — the signature layout concept settled by `pick_design` or picked by the user, as `Concept: <catalog name> — <one-line adaptation>`, the entry's name verbatim so the user can find it, then the twist — followed by a **Layout map** (as the `visual-design` skill defines it: one line per section of the page saying what the concept does to it), a **Direction** line — the artistic direction behind `DESIGN.md`, as `Direction: <catalog name> — <one-line adaptation>` — and a **Functionality & plugins** line. A side designed from the brief rather than the catalog is stated as `Concept: <the brief's words> — <how it is built>` or `Direction: <the brief's words> — <how it is built>`. For the plugins line: review the requested features, load the `plugin-recommendations` skill, and list the specific plugins the site needs — e.g. WooCommerce for selling products, Jetpack Forms for a contact form, Jetpack Newsletter for email signups, Sensei LMS for courses, Crowdsignal for polls/surveys — or "None — core blocks only" when nothing beyond static content is required. Install the listed plugins in step 3; do not silently hand-build static markup for a feature a plugin should provide.
+Before step 3, state the plan in your text output as a short **Site Spec** summary. The summary MUST include a **Concept** line — the signature layout concept settled by `pick_design` or picked by the user, as `Concept: <catalog name> — <one-line adaptation>`, the entry's name verbatim so the user can find it, then the twist — followed by a **Layout map** (as the `visual-design` skill defines it: one line per section of the page saying what the concept does to it), a **Direction** line — the artistic direction behind `DESIGN.md`, as `Direction: <catalog name> — <one-line adaptation>` — and a **Functionality & plugins** line. A side designed from the brief rather than the catalog is stated as `Concept: <the brief's words> — <how it is built>` or `Direction: <the brief's words> — <how it is built>`. For the plugins line: review the requested features, load the `plugin-recommendations` skill, and list the specific plugins the site needs — e.g. WooCommerce for selling products, Jetpack Forms for a contact form, Jetpack Newsletter for email signups, Sensei LMS for courses, Crowdsignal for polls/surveys — or "None — core blocks only" when nothing beyond static content is required. Install the listed plugins in step 4; do not silently hand-build static markup for a feature a plugin should provide.
 
 ### When to Skip the Questions
 
@@ -51,22 +55,22 @@ Skipping means skipping the interactive questions only — each design step then
 - The user says "just build something" or "surprise me". Pick a bold creative direction yourself and proceed.
 - The user explicitly asks to skip the setup or says they don't want questions.
 
-## 2. Theme files
+## 3. Theme files
 
 With the Site Spec stated, start small: call `scaffold_theme` on its own, and never fill a whole theme at once. For a new custom theme, call it without `parentTheme`. When the site has a DESIGN.md, the scaffold fills theme.json from it and self-hosts its Google Fonts, so edit theme.json only for what DESIGN.md does not cover. Then fill the scaffold one file at a time with Write and Edit: templates, parts, style.css, and patterns.
 
-## 3. Provision the site
+## 4. Provision the site
 
 Use wp_cli to activate the theme, install and activate the plugins the Site Spec lists, and set options. Do this before validating — the live editor only recognizes the active theme and registered plugin blocks. The site must be running.
 
-## 4. Validate and publish the content
+## 5. Validate and publish the content
 
 Validate each template and part with validate_blocks right after writing it, and validate page and post content before it reaches the site. Then create or update the pages and posts with the validated content. A build that skips validate_blocks is incomplete.
 
-## 5. Check and polish the result
+## 6. Check and polish the result
 
 You MUST load the `visual-polish` skill and follow its instructions. The design must match your original expectations. Do not inspect the design or take a screenshot before loading the skill.
 
-## 6. Set the theme screenshot
+## 7. Set the theme screenshot
 
 When the active theme was scaffolded by Studio Code, pass its directory as `themeScreenshot` on every desktop take_screenshot of the home page: the last capture becomes the theme's thumbnail in Appearance → Themes.

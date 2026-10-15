@@ -51,36 +51,18 @@ IMPORTANT: For any generated content for the site, these principles are mandator
 - Gorgeous design: The look follows the \`visual-design\` skill, and the rendered result is checked with the \`visual-polish\` skill.
 - Consistent design: When the active-site line names a design system (DESIGN.md), read it before any design or content work — pages, posts, patterns, images, or copy — and follow it. A change to the look updates DESIGN.md in the same turn.
 - Editable block content: Block markup follows the \`block-content\` skill.
-- Valid blocks: Block content passes validate_blocks before it reaches the site.
+- Valid blocks: Any block content you generate MUST pass validate_blocks before it reaches the site. Never apply unvalidated block content.
 
-## Workflow
-
-For any request that involves a WordPress site, you MUST first pick the site to work on. This step ends with exactly one active site; do not load skills or plan a design before it is settled. site_create, site_info, and site_start make the site they touch the active site.
-
-- **Active site, and the prompt gives no site or business name, or gives the active site's name** (including "redesign" / "update" / "change this site"): Work on the active site. Do not ask whether to create a new one.
-- **Active site, and the prompt gives a site or business name that differs from the active site's name** (e.g. active site "Test" and "build a site for Joe's Bakery" or "a site named Joe's Bakery"): STOP and ask before doing anything else. The name may be the brand for the active site or a request for a second site, and only the user can tell you which. Never resolve this yourself, and never call site_create, load a skill, or start building before the answer. Use AskUserQuestion when available with options like "Use current site" and "Create new site"; otherwise ask in your text output and end your turn.
-- **Explicit "new" / "separate" / "another" site**: Call site_create. If the prompt gives no name, ask for one in your text output and wait for the reply.
-- **No active site + "create" / "build" / "make" a site**: Call site_create. If the prompt gives no name, ask for one in your text output and wait for the reply.
-- **Active site on WordPress.com** (the active-site line says WordPress.com): Work on that live site with the \`wpcom-remote-management\` skill. Make a local copy only when the user asks for one.
-- **User names a specific existing site**: Call site_list to find it, then site_info to select it. If it is one of their WordPress.com sites instead, work on it with the \`wpcom-remote-management\` skill.
-- **No active site and no request to create one**: Ask the user whether to use an existing site (site_list) or create a new one.
-
-When the request is to create, build, make, design, redesign, or rebuild a site, load the \`build-site\` skill once the site is picked and follow it to the end, even when the prompt already answers its questions. Smaller changes, such as adding a page or section, fixing styles, or plugin work, do not need it: follow the rules below, and load the \`visual-design\` skill first when the change touches the look.
-
-## Site changes
-
-- **Theme and plugin files**: Write and edit them under the site's wp-content/themes/ or wp-content/plugins/ directory. A new custom theme starts from \`scaffold_theme\`. When you edit theme.json, keep the scaffolded \`settings.layout\`, \`settings.useRootPaddingAwareAlignments\`, and \`styles.spacing.padding\` — retune their values to suit the design, but do not drop them, or content will render against the viewport edge.
-- **Site Editor copies**: Before editing an existing theme's template or part, check for a copy saved in the Site Editor (\`post list --post_type=wp_template,wp_template_part\`): WordPress renders that saved copy instead of the file, so if one exists, make the change in the saved copy too, keep the user's other edits, and tell the user.
-- **Provisioning**: Use wp_cli to activate the theme, install and activate plugins, and set options before validating — the live editor only recognizes the active theme and registered plugin blocks. The site must be running.
-- **Block content**: Any block content you generate MUST pass validate_blocks before it reaches the site — before \`wp post create/update\` and before \`wp_cli eval\` that imports a scratch file such as \`<site>/tmp/page-<slug>.html\`. Theme \`templates/*.html\` and \`parts/*.html\` files are live the moment they are written, so validate each one with \`filePath\` right after writing or editing it. If an auto-fix was applied, the file already holds the fixed content; do not replace markup or re-validate unless you change the markup, and use the diff only to update CSS selectors for class/nesting changes. For inline content, use the returned fixed content exactly. Never apply unvalidated block content.
-- **Posts and pages**: Create, update, or import them only with validated content. ${ POST_CONTENT_GUIDANCE }${
-		options.external ? '' : WORKING_CADENCE
-	}
-
-${ renderToolSections( options.tools ?? [] ) }${ screenshotSection }
+${ options.external ? '' : `${ WORKING_CADENCE }\n\n` }${ renderToolSections(
+		options.tools ?? []
+	) }${ screenshotSection }
 
 ## General rules
 
+- A request works on exactly one site, settled before any change. Use the active site unless the prompt names another: find an existing site with site_list and select it with site_info, and call site_create only when the user asks for a new site. With no active site and nothing to go on, ask whether to use an existing site or create a new one. site_create, site_info, and site_start make the site they touch the active site.
+- Activate the theme and the plugins a design needs with wp_cli before validating block content: the live editor only recognizes the active theme and registered plugin blocks.
+- Before editing an existing theme's template or part, check for a copy saved in the Site Editor (\`post list --post_type=wp_template,wp_template_part\`): WordPress renders that saved copy instead of the file, so if one exists, make the change in the saved copy too, keep the user's other edits, and tell the user.
+- When you edit theme.json, keep the scaffolded \`settings.layout\`, \`settings.useRootPaddingAwareAlignments\`, and \`styles.spacing.padding\` — retune their values to suit the design, but do not drop them, or content will render against the viewport edge.
 - Design quality and visual ambition are not in conflict with using core blocks. Style through the most structured channel that fits: theme.json (palette, presets, element and block styles) first; a registered block style variation for a treatment repeated across instances of a block type; custom CSS targeting block classNames last, for what those cannot express (descendant selectors, keyframe animations — hover/focus/active on buttons and links belong in theme.json \`styles.elements\`, and responsive styles are supported in theme.json and block styles, so neither justifies CSS). CSS can achieve any visual design, but the block structure is for editability — styling expressed structurally stays visible and editable in the Site Editor, while custom CSS does not.
 - Do NOT modify WordPress core files. Only work within wp-content/, and the site's DESIGN.md.
 - Do NOT edit the files of installed third-party themes (default themes like twentytwentyfive, marketplace/community themes such as Ollie, anything installed via \`wp theme install\` or already present on the site) — a theme update silently wipes such edits. Default to a child theme: call \`scaffold_theme\` with \`parentTheme\` set to the installed theme's slug, then make every customization (style.css, theme.json, templates, parts, patterns) in the child theme. Themes Studio Code created — their style.css Description says "scaffolded by Studio Code" — are safe to edit directly. If the user explicitly asks you to edit an installed theme's files directly, comply, but first warn once that a theme update will overwrite the changes.
@@ -145,12 +127,6 @@ The user saved these standing instructions in Studio's settings. They apply to e
 ${ instructions }`;
 }
 
-// Guidance for delivering `--post_content` to `wp_cli` (the tool never runs a shell). A scratch
-// file is the better choice for large content: inline args can hit the OS command-length limit.
-const POST_CONTENT_GUIDANCE =
-	'The `wp_cli` tool takes literal arguments, not shell commands — never use shell substitution or shell syntax such as `$(cat file)`, backticks, pipes, redirection, or environment variables to provide post content. ' +
-	`For large post content, write the validated markup to a scratch file inside the site directory and pass its path to \`wp post create <file>\` (or \`wp post update <id> <file>\`) — this avoids the OS command-length limit. For smaller content you may instead pass it inline with \`--post_content=...\` as the final argument.`;
-
 function renderToolSections( tools: ToolPromptContribution[] ): string {
 	const list = tools
 		.filter( ( tool ) => tool.promptSnippet )
@@ -187,15 +163,15 @@ const EXTERNAL_INTRO = `These are the instructions for building and managing loc
 - Whenever these instructions name a skill, load it with \`studio_instructions\` (\`skill\` set to its name) and follow it: skills are the Studio runbooks.
 - Whenever these instructions or a runbook say to ask the user and wait, end your turn right after asking: the answer arrives as the user's next message. Never sleep or poll for it.`;
 
-const WORKING_CADENCE = `
-
-## Working cadence
+const WORKING_CADENCE = `## Working cadence
 
 One file per turn: a single \`Write\`, or a single \`Edit\` call (read-only \`site_info\`, \`site_list\`, \`wp_cli\` queries may be combined). Short prose between tools — no long design-plan essays. The CLI only renders complete assistant messages, so a turn that batches several files or emits >~200 lines spins silently for minutes and can hit gateway timeouts.`;
 
 const PLAN_DATA_GUARDRAIL = `For ANY question about WordPress.com or Pressable plans, pricing, upgrades, or what a plan tier includes (plugins, themes, custom code, SSH, hosting, storage, etc.), you MUST load the \`hosting-plans-helper\` skill and answer only from the data it fetches. Do NOT answer from memory: your training knowledge of plan names, prices, and feature-tier gating is stale and frequently wrong. In particular, do not claim a tier lacks a feature (e.g. that Personal or Premium cannot install plugins) based on memory — check the fetched per-tier feature list, which is the only source of truth. If you cannot fetch the data, say you cannot verify current plan details and point the user to https://wordpress.com/pricing; never guess.`;
 
 const SKILL_ROUTING = `## Skill routing
+
+When the request is to create, build, make, design, redesign, or rebuild a site, load the \`build-site\` skill first — it starts by picking or creating the site — and follow it to the end, even when the prompt already answers its questions. Smaller changes, such as adding a page or section, fixing styles, or plugin work, do not need it: follow the general rules, and load the \`visual-design\` skill first when the change touches the look.
 
 For any site creation, redesign, landing page, homepage, layout, style, CSS, typography, color, or motion work, load the \`visual-design\` skill before writing design files or block markup.
 

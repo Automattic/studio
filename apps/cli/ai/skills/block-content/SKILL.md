@@ -9,7 +9,7 @@ Use this skill before writing or editing page content, post content, templates, 
 
 ## Theme Files
 
-- Always build block themes, never classic themes.
+- Build new themes as block themes. Work on an existing classic theme in its own terms rather than converting it, and build a new classic theme only when the user explicitly asks — first say once that Studio's design flow and block tools are built for block themes.
 - Do NOT edit the files of installed third-party themes (default themes like twentytwentyfive, marketplace/community themes such as Ollie, anything installed via `wp theme install` or already present on the site) — a theme update silently wipes such edits. Default to a child theme: call `scaffold_theme` with `parentTheme` set to the installed theme's slug, then make every customization (style.css, theme.json, templates, parts, patterns) in the child theme. Themes Studio Code created — their style.css Description says "scaffolded by Studio Code" — are safe to edit directly. If the user explicitly asks you to edit an installed theme's files directly, comply, but first warn once that a theme update will overwrite the changes.
 
 ## Core Policy

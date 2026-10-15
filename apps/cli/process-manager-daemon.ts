@@ -78,6 +78,11 @@ function timestampLogLine( line: string ): string {
 }
 
 function writeTimestampedLines( target: WriteStream, content: string ) {
+	// Child output can still arrive after the stream is ended, and a write between end() and
+	// finish emits an unhandled 'error' that kills the daemon.
+	if ( target.writableEnded ) {
+		return;
+	}
 	const normalizedContent = content.split( '\r\n' ).join( '\n' );
 	const lines = normalizedContent.trimEnd().split( '\n' );
 
@@ -421,7 +426,9 @@ export class ProcessManagerDaemon {
 		} );
 
 		lineReader.on( 'line', ( line ) => {
-			void target.write( timestampLogLine( line ) );
+			if ( ! target.writableEnded ) {
+				target.write( timestampLogLine( line ) );
+			}
 			onLine?.( line );
 		} );
 	}

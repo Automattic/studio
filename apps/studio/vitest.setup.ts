@@ -75,6 +75,9 @@ vi.mock( 'electron', () => {
 			writeText: vi.fn(),
 		},
 		Notification: vi.fn(),
+		systemPreferences: {
+			setUserDefault: vi.fn(),
+		},
 	};
 } );
 

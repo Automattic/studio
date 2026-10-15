@@ -1,10 +1,10 @@
 ---
-name: wpcom-remote-management
-description: Manage one of the user's live WordPress.com sites with wpcom_request, including the plan check, design limits by plan, API namespace selection, endpoint discovery, content/template/theme/plugin operations, response-size limits, and visual verification.
+name: edit-manage-remote-site
+description: Edit and manage one of the user's live remote sites (WordPress.com, or Pressable through the WordPress.com endpoints) with wpcom_request — answer questions about it, or change its content, templates, styles, theme, and plugins within what its plan allows. Covers the plan check, design limits by plan, API namespaces and endpoints, response-size limits, and visual verification.
 user-invokable: true
 ---
 
-# WordPress.com Remote Management
+# Edit and Manage a Remote Site
 
 Use this skill for any work on one of the user's WordPress.com sites. These sites are live: change them only with `wpcom_request`, never with WP-CLI, Bash, or local site files. Work on a local copy only when the user asks for one (create a local site with `site_create`, then `site_pull` the WordPress.com site into it).
 

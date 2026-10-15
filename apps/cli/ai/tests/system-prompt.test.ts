@@ -125,7 +125,6 @@ describe( 'buildSystemPrompt', () => {
 
 		const textOnly = buildSystemPrompt( { tools: toolsFor( { visionEnabled: false } ) } );
 		expect( textOnly ).toContain( 'it still sets the theme screenshot' );
-		expect( textOnly ).toContain( 'pass its directory as `themeScreenshot`' );
 		expect( textOnly ).not.toContain( 'Pair with take_screenshot' );
 	} );
 

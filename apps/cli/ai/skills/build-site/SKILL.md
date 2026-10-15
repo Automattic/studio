@@ -66,3 +66,7 @@ Validate each template and part with validate_blocks right after writing it, and
 ## 5. Check and polish the result
 
 You MUST load the `visual-polish` skill and follow its instructions. The design must match your original expectations. Do not inspect the design or take a screenshot before loading the skill.
+
+## 6. Set the theme screenshot
+
+When the active theme was scaffolded by Studio Code, pass its directory as `themeScreenshot` on every desktop take_screenshot of the home page: the last capture becomes the theme's thumbnail in Appearance → Themes.

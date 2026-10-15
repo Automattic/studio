@@ -96,6 +96,8 @@ type ExecuteCliCommandOptionsCapture = {
 	output: 'capture';
 	logPrefix?: string;
 	env?: NodeJS.ProcessEnv;
+	// Set by callers that hand the captured stderr to their own caller, so it isn't logged twice.
+	suppressStderrEcho?: boolean;
 };
 type ExecuteCliCommandOptions = ExecuteCliCommandOptionsIgnore | ExecuteCliCommandOptionsCapture;
 
@@ -110,6 +112,12 @@ export interface CliRunnerConfig {
 	nodeBinary?: string;
 	// Optional error sink (the desktop wires Sentry here).
 	onError?: ( error: Error ) => void;
+	// Added to every child's environment, under the per-command `env`.
+	env?: NodeJS.ProcessEnv;
+	// Echo captured stderr to the host console. It carries diagnostics rather than payloads, and a
+	// command that recovers from a failure still exits 0, so this is otherwise the only place a
+	// non-fatal problem would become visible.
+	echoStderr?: boolean;
 }
 
 export type ExecuteCliCommand = CliRunner[ 'executeCliCommand' ];
@@ -117,7 +125,7 @@ export type ExecuteCliCommand = CliRunner[ 'executeCliCommand' ];
 export interface CliRunner {
 	executeCliCommand(
 		args: string[],
-		options: { output: 'capture'; logPrefix?: string; env?: NodeJS.ProcessEnv }
+		options: ExecuteCliCommandOptionsCapture
 	): [ CliCommandEventEmitter< true >, ChildProcess ];
 	executeCliCommand(
 		args: string[],
@@ -170,7 +178,7 @@ export function killChild( child: ChildProcess ): void {
 }
 
 export function createCliRunner( config: CliRunnerConfig ): CliRunner {
-	const { cliBinary, nodeBinary, onError } = config;
+	const { cliBinary, nodeBinary, onError, echoStderr } = config;
 	const liveChildren = new Set< ChildProcess >();
 
 	function executeCliCommand(
@@ -197,7 +205,7 @@ export function createCliRunner( config: CliRunnerConfig ): CliRunner {
 			execPath: nodeBinary,
 			// Don't inherit the host's own Node/V8 flags.
 			execArgv: [],
-			env: { ...process.env, ...options.env },
+			env: { ...process.env, ...config.env, ...options.env },
 		} );
 		liveChildren.add( child );
 		const eventEmitter = new TypedEventEmitter< CliCommandEventMap< boolean > >();
@@ -251,7 +259,12 @@ export function createCliRunner( config: CliRunnerConfig ): CliRunner {
 				}
 			} );
 			child.stderr?.on( 'data', ( data: Buffer ) => {
-				stderr += data.toString();
+				const text = data.toString();
+				stderr += text;
+				const trimmed = text.trimEnd();
+				if ( echoStderr && ! options.suppressStderrEcho && trimmed ) {
+					console.error( `${ logPrefix ?? '[CLI]' } ${ trimmed }` );
+				}
 			} );
 		}
 

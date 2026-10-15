@@ -1,6 +1,6 @@
 import { ExportEvents, exportIpcEventSchema } from '@studio/common/lib/import-export-events';
+import { TypedEventEmitter } from '@studio/common/lib/typed-event-emitter';
 import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
-import { TypedEventEmitter } from 'src/modules/cli/lib/typed-event-emitter';
 
 type ExportCliLifecycleEventMap = {
 	completed: void;

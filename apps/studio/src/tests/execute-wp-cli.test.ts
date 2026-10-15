@@ -15,7 +15,7 @@ vi.mock( '@sentry/electron/main', () => ( {
 } ) );
 import { executeWpCliCommand } from 'src/lib/sites';
 import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
-import type { CliCommandResult } from 'src/modules/cli/lib/execute-command';
+import type { CliCommandResult } from '@studio/common/lib/cli-process';
 
 const mockExecuteCliCommand = vi.mocked( executeCliCommand );
 const mockEventEmitter = new EventEmitter();

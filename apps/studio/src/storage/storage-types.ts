@@ -41,8 +41,6 @@ export interface UserData {
 	betaFeatures?: Record< string, boolean >;
 	quitSitesBehavior?: QuitSitesBehavior;
 	defaultSiteDirectory?: string;
-	/** @deprecated Used only for migration to cliUserUninstalled. Do not write; remove after one release cycle. */
-	cliAutoInstalled?: boolean;
 	cliUserUninstalled?: boolean;
 	wapuuScore?: number;
 	aiSessionPlacements?: Record< string, AiSessionSitePlacement >;

@@ -19,11 +19,7 @@ import { getCurrentUserId } from '@studio/common/lib/shared-config';
 import { suppressPunycodeWarning } from '@studio/common/lib/suppress-punycode-warning';
 import { updateSiteMetadata } from '@studio/common/sites/metadata';
 import { __, _n } from '@wordpress/i18n';
-import {
-	installExtension,
-	REACT_DEVELOPER_TOOLS,
-	REDUX_DEVTOOLS,
-} from 'electron-devtools-installer';
+import { installExtension, REACT_DEVELOPER_TOOLS } from 'electron-devtools-installer';
 import { IPC_VOID_HANDLERS } from 'src/constants';
 import * as ipcHandlers from 'src/ipc-handlers';
 import { markAppQuitting } from 'src/ipc-utils';
@@ -74,11 +70,6 @@ import { getAutoUpdaterState, setupUpdates } from 'src/updates';
 import packageJson from '../package.json';
 
 const STOP_ALL_SERVERS_ON_QUIT_TIMEOUT_MS = process.env.E2E ? 20_000 : 6_000;
-
-// Helper function to get the actual URL for validation
-function getRendererUrl(): string {
-	return getCurrentRendererUrl();
-}
 
 function isOtherSiteThanPreview( contents: WebContents, url: string ) {
 	const currentUrl = parseWebUrl( contents.getURL() );
@@ -287,7 +278,7 @@ async function appBoot() {
 				return;
 			}
 			const { origin } = new URL( navigationUrl );
-			const allowedOrigins = [ new URL( getRendererUrl() ).origin ];
+			const allowedOrigins = [ new URL( getCurrentRendererUrl() ).origin ];
 			if ( ! allowedOrigins.includes( origin ) ) {
 				event.preventDefault();
 			}
@@ -334,7 +325,7 @@ async function appBoot() {
 			);
 		}
 
-		if ( new URL( event.senderFrame.url ).origin === new URL( getRendererUrl() ).origin ) {
+		if ( new URL( event.senderFrame.url ).origin === new URL( getCurrentRendererUrl() ).origin ) {
 			return true;
 		}
 
@@ -410,7 +401,6 @@ async function appBoot() {
 		}
 		if ( process.env.NODE_ENV === 'development' ) {
 			await installExtension( REACT_DEVELOPER_TOOLS );
-			await installExtension( REDUX_DEVTOOLS );
 			await launchExtensionBackgroundWorkers();
 		}
 
@@ -441,7 +431,7 @@ async function appBoot() {
 		session.defaultSession.webRequest.onHeadersReceived( ( details, callback ) => {
 			// Only set a custom CSP header the main window UI. For other pages (like login) we should
 			// use the CSP provided by the server, which is more likely to be up-to-date and complete.
-			if ( details.url !== getRendererUrl() ) {
+			if ( details.url !== getCurrentRendererUrl() ) {
 				callback( details );
 				return;
 			}

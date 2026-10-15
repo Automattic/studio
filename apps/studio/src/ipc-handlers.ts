@@ -1219,9 +1219,7 @@ export async function saveOnboarding( event: IpcMainInvokeEvent, onboardingCompl
 	const { onboardingCompleted: previous = false } = await loadUserData();
 	await updateAppdata( { onboardingCompleted } );
 
-	// Both front-ends funnel through here (Classic on skip/login, the agentic UI when the tour ends), so
-	// this is the one place a completion can be counted. Only on a real transition — a re-save must not
-	// look like a second user finishing onboarding.
+	// Only on a real transition — a re-save must not look like a second user finishing onboarding.
 	if ( onboardingCompleted && ! previous ) {
 		await recordTracksEvent( TRACKS_EVENTS.ONBOARDING_COMPLETE, {
 			// Whether they leave onboarding with an account, which is what "skipped" really meant.

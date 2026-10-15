@@ -71,7 +71,7 @@ Prefer targeted runs: `npm run eval -- --filter-pattern "<case>"`. The full suit
 **Files**: React components (PascalCase), utils (camelCase), tests (.test.ts/.tsx)
 **Theming / colors (CSS)**: Always use `--wpds-color-*` variables for color; the `ThemeProvider` wrapping the UI (`apps/ui/src/app/app-providers.tsx`) makes them adapt to the active theme. Non-color `--wpds-*` tokens (`--wpds-dimension-*`, `--wpds-typography-*`, `--wpds-border-width-*`, `--wpds-elevation-*`, `--wpds-cursor-*`) are theme-independent.
 
-**IPC Handlers** (`apps/studio/src/ipc-handlers.ts`): **MUST** `export async function handlerName(event, ...args): Promise<ReturnType>` | Handler names in `apps/studio/src/constants.ts` | All handlers MUST be async and return Promises
+**IPC Handlers** (`apps/studio/src/ipc-handlers.ts`): every export is registered as a handler under its name, as `handlerName(event, ...args)` | Fire-and-forget handlers (called with `ipcRenderer.send`) are listed in `IPC_VOID_HANDLERS` in `apps/studio/src/constants.ts`
 **Storage**: **CRITICAL** - Always use file locking when writing config. Each config file has its own lockfile and helpers: `lockAppdata()` / `unlockAppdata()` for `app.json` (`apps/studio/src/storage/user-data.ts`), `lockCliConfig()` / `unlockCliConfig()` for `cli.json` (`apps/cli/lib/cli-config/core.ts`), and `lockSharedConfig()` / `unlockSharedConfig()` for `shared.json` (`packages/common/lib/shared-config.ts`).
 **i18n**: `@wordpress/i18n` (`__()` function), `packages/common/translations/`, `<I18nProvider>` (renderer), `loadTranslations()` (CLI)
 **i18n - Never translate at module level**: **CRITICAL** - Do NOT call translation functions (`__()`, `_x()`, `_n()`, `_nx()`) in module-level constants, object literals, or arrays. They run when the module is first imported — before the locale data loads — so the string is captured once and never updates. This matters for the **Desktop main process** (`apps/studio`), which is long-lived and swaps locale data live when the user switches language, so a string evaluated at import time (in a menu or dialog) stays stale in the old language until restart. Always wrap them in a function so they are re-evaluated at call time: use `const getLabel = () => __( 'Label' )` instead of `const LABEL = __( 'Label' )`. `apps/cli` and `apps/ui` are excluded from the rule: the CLI is a one-shot process that loads the locale before importing modules, and the agentic UI reloads the window on language change, so neither can hold a stale string. Enforced by the `studio/no-module-level-translations` ESLint rule (`tools/eslint-plugin-studio`).
@@ -140,8 +140,6 @@ If you've built a substantial new feature — especially one generated with AI a
 **IMPORTANT - CLI Build Required**: Running CLI commands without first running `npm run cli:build` will execute stale/outdated code. Always build before testing CLI changes.
 
 **IMPORTANT - Main Process Restarts**: Hot reload (`rs` or auto-restart) does NOT pick up new IPC handlers or changes to Main process initialization. Full app restart required for Main process changes.
-
-**Async IPC Handlers**: All IPC handlers MUST return Promises. Synchronous handlers will break the IPC communication pattern.
 
 **Context Isolation**: Renderer is sandboxed - direct Node.js API access not available. MUST use IPC (`window.ipcApi.*`) for all Main process operations.
 

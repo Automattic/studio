@@ -7,6 +7,7 @@ import {
 	shell,
 	type WebContents,
 } from 'electron';
+import { getLocalizedLink } from '@studio/common/lib/docs-links';
 import {
 	getAppConfigPath,
 	getCliConfigPath,
@@ -17,7 +18,6 @@ import { openAboutWindow } from 'src/about-menu/open-about-menu';
 import { BUG_REPORT_URL, FEATURE_REQUEST_URL } from 'src/constants';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
 import { applyAppZoomCommand } from 'src/lib/app-zoom';
-import { getLocalizedLink } from 'src/lib/get-localized-link';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
 import { promptWindowsSpeedUpSites } from 'src/lib/windows-helpers';

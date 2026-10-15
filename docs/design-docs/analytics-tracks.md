@@ -128,8 +128,8 @@ where the sender actually runs — see Testing below for what fires in which bui
   `SnapshotManager` fork in `packages/common/sites/snapshots.ts` and the direct `preview delete --all`
   fork), so the CLI is the sole emitter and each action is counted once whether it originated in a UI or
   standalone — `channel`/`ui_version` resolve from `STUDIO_TRACKS_ORIGIN` exactly as for
-  `studio_site_start`. The **`studio_preview_site_open`** event is the exception: opening a preview URL is
-  a renderer-only affordance with no CLI equivalent, so it fires from the renderer.
+  `studio_site_start`. The **`studio_preview_site_open`** event was the exception: it fired from Classic's
+  Previews list and is no longer emitted.
 - **`studio_site_imported`/`studio_site_exported`** are emitted **only** by the CLI, from the `import`
   and `export` commands (`apps/cli/commands/import.ts`, `apps/cli/commands/export.ts`). The desktop
   Import/Export tab, the agentic UI's import and export buttons, and standalone-CLI runs all funnel there —
@@ -141,8 +141,7 @@ where the sender actually runs — see Testing below for what fires in which bui
   process is SIGTERM'd before it can record). Runs in parallel with the MC Stats import/export
   counters for now.
 - **`studio_sync_*`** are the deliberate exception to the CLI-is-the-sole-emitter pattern. Sync has
-  **two independent implementations** — Classic's Redux thunks and pollers
-  (`apps/studio/src/stores/sync/sync-operations-slice.ts`) and the CLI `push`/`pull` commands —
+  **two independent implementations** — Classic's Redux thunks and pollers and the CLI `push`/`pull` commands —
   sharing only the connected-sites storage and the WordPress.com endpoints. Classic never invokes the
   CLI for either operation, so there is no funnel to emit from; each surface emits its own event and
   `channel`/`ui_version` identify it. The agentic UI runs the CLI commands for both operations
@@ -378,7 +377,7 @@ coarse and low-cardinality (the raw error is never sent).
 | `studio_preview_site_update` | CLI `preview update` | `success` (boolean), `time_ms` (update duration). On failure also `failure_reason` (same vocabulary as create). |
 | `studio_preview_site_delete` | CLI `preview delete` (single) | (none). Emitted once per **successful** single delete. |
 | `studio_preview_site_delete_all` | CLI `preview delete --all` | `count` (number of the user's preview sites removed). Emitted once per **successful** delete-all (a single bulk server operation, not per site). |
-| `studio_preview_site_open` | Renderer (Classic Previews list) | (none — opens the preview URL in the OS browser) |
+| `studio_preview_site_open` | Renderer (Classic Previews list, no longer emitted) | (none — opens the preview URL in the OS browser) |
 
 #### Sync events
 

@@ -159,7 +159,7 @@ Changes the CLI makes from anywhere (sites, auth, and the progress of a push, pu
 | OAuth URL building | `lib/oauth.ts` |
 | Error reporting | `lib/error-reporting.ts` (`captureException`) |
 
-The desktop's former private copies of this logic are now thin wrappers over the shared modules (e.g. `apps/studio/.../cli-site-creator.ts` calls `buildSiteCreateArgs`; `apps/studio/src/lib/is-installed.ts` re-exports the shared detector). This keeps the two surfaces from drifting — a change to site creation or app detection lands in one place for both.
+The desktop's former private copies of this logic are now thin wrappers over the shared modules (e.g. `apps/studio/.../cli-site-creator.ts` calls `buildSiteCreateArgs`; the user-settings handlers call the shared installed-app detector). This keeps the two surfaces from drifting — a change to site creation or app detection lands in one place for both.
 
 ### What stays per-surface (by design)
 

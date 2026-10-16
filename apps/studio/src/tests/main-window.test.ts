@@ -18,9 +18,6 @@ import {
 vi.mock( 'fs' );
 vi.mock( 'src/ipc-utils' );
 vi.mock( 'atomically' );
-vi.mock( 'src/lib/app-globals', () => ( {
-	saveWindowBounds: vi.fn(),
-} ) );
 
 // Create a simpler mock that tracks event handlers
 const mockEventHandlers = new Map< string, ( ( ...args: any[] ) => void )[] >();

@@ -1,3 +1,4 @@
+import { getLocalizedLink } from '@studio/common/lib/docs-links';
 import { createRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { CheckboxControl } from '@wordpress/components';
 import { useMediaQuery } from '@wordpress/compose';
@@ -15,7 +16,6 @@ import { useAuthUser, useLogout } from '@/data/queries/use-auth-user';
 import { SITES_QUERY_KEY } from '@/data/queries/use-sites';
 import { useUserLocale } from '@/data/queries/use-user-locale';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
-import { getLocalizedLink } from '@/lib/docs-links';
 import { EmptyBackground } from '../../components/session-view/empty-background';
 import { rootRoute } from '../layout-root';
 import styles from './style.module.css';

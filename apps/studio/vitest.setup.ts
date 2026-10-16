@@ -84,14 +84,12 @@ vi.mock( 'electron', () => {
 vi.mock( import( './src/storage/paths' ), () => ( {
 	getResourcesPath: vi.fn().mockReturnValue( '/mock/resources' ),
 	getUserDataFilePath: vi.fn().mockReturnValue( '/mock/userdata.json' ),
-	getUserDataLockFilePath: vi.fn().mockReturnValue( '/mock/userdata.json.lock' ),
 	getOldAppdataFilePath: vi.fn().mockReturnValue( '/mock/appdata-v1.json' ),
 	getOldUserDataCertificatesPath: vi.fn().mockReturnValue( '/mock/certificates' ),
 	getOldServerFilesPath: vi.fn().mockReturnValue( '/mock/server/files' ),
 	getCliPath: vi.fn().mockReturnValue( '/mock/cli/path' ),
 	getBundledNodeBinaryPath: vi.fn().mockReturnValue( '/mock/node/binary' ),
 	getSiteThumbnailPath: vi.fn().mockReturnValue( '/mock/thumbnail.png' ),
-	DEFAULT_SITE_PATH: '/mock/default/site/path',
 } ) );
 
 vi.mock( 'lockfile', () => {
@@ -111,20 +109,3 @@ vi.mock( 'atomically', () => ( {
 	readFile: vi.fn(),
 	writeFile: vi.fn(),
 } ) );
-
-vi.mock( 'picospinner', () => {
-	class MockSpinner {
-		start = vi.fn().mockReturnThis();
-		stop = vi.fn().mockReturnThis();
-		succeed = vi.fn().mockReturnThis();
-		fail = vi.fn().mockReturnThis();
-		warn = vi.fn().mockReturnThis();
-		info = vi.fn().mockReturnThis();
-		setText = vi.fn().mockReturnThis();
-		refresh = vi.fn().mockReturnThis();
-		running = false;
-	}
-	return {
-		Spinner: MockSpinner,
-	};
-} );

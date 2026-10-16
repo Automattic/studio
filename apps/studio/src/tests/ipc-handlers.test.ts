@@ -43,10 +43,6 @@ vi.mock( 'src/modules/cli/lib/cli-site-creator' );
 vi.mock( '@studio/common/sites/site-path' );
 vi.mock( '@studio/common/sites/site-identity' );
 vi.mock( 'src/main-window' );
-vi.mock( 'src/lib/sqlite-versions', () => ( {
-	keepSqliteIntegrationUpdated: vi.fn().mockResolvedValue( undefined ),
-	installSqliteIntegration: vi.fn().mockResolvedValue( undefined ),
-} ) );
 vi.mock( import( 'src/lib/bump-stats' ), async ( importOriginal ) => {
 	const actual = await importOriginal();
 	return {

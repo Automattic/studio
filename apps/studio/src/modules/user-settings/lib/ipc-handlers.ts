@@ -6,7 +6,6 @@ import {
 import {
 	readAiSettings,
 	saveAnthropicApiKey as saveAnthropicApiKeyToConfig,
-	setAiProvider as setAiProviderInConfig,
 } from '@studio/common/ai/settings-store';
 import { getInstructionsLengthBucket } from '@studio/common/lib/record-tracks-event';
 import {
@@ -33,7 +32,7 @@ import {
 	unlockAppdata,
 	updateAppdata,
 } from 'src/storage/user-data';
-import type { AiProviderId, AiSettings } from '@studio/common/ai/providers';
+import type { AiSettings } from '@studio/common/ai/providers';
 
 export function getInstalledAppsAndTerminals(): InstalledApps {
 	return {
@@ -297,13 +296,6 @@ async function recordAiSettingsChange( previous: AiSettings, next: AiSettings ):
 export async function saveAnthropicApiKey( _event: IpcMainInvokeEvent, key: string | null ) {
 	const previous = await readAiSettings();
 	const settings = await saveAnthropicApiKeyToConfig( key );
-	await recordAiSettingsChange( previous, settings );
-	return settings;
-}
-
-export async function setAiProvider( _event: IpcMainInvokeEvent, provider: AiProviderId ) {
-	const previous = await readAiSettings();
-	const settings = await setAiProviderInConfig( provider );
 	await recordAiSettingsChange( previous, settings );
 	return settings;
 }

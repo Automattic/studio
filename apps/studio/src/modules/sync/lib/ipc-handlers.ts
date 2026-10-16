@@ -145,11 +145,10 @@ export async function getConnectedWpcomSites(
 }
 
 /**
- * Latest rewind (backup) id for a remote site — used by the agentic UI's
- * selective pull to browse the remote backup file tree. Rejects when the site
- * has no backup yet (or the lookup fails), like the classic renderer's query:
- * the dialog relies on the error state to disable per-item selection and
- * force a full sync.
+ * Latest rewind (backup) id for a remote site, used by selective pull to browse
+ * the remote backup file tree. Rejects when the site has no backup yet (or the
+ * lookup fails): the dialog relies on the error state to disable per-item
+ * selection and force a full sync.
  */
 export async function getLatestRewindId(
 	_event: IpcMainInvokeEvent,

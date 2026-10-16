@@ -1,3 +1,4 @@
+import { getLocalizedLink, REPORT_ISSUE_URL } from '@studio/common/lib/docs-links';
 import { __ } from '@wordpress/i18n';
 import { Button, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
@@ -7,7 +8,6 @@ import { useAuthUser, useLogin, useLogout } from '@/data/queries/use-auth-user';
 import { useUserLocale } from '@/data/queries/use-user-locale';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useOffline } from '@/hooks/use-offline';
-import { getLocalizedLink, REPORT_ISSUE_URL } from '@/lib/docs-links';
 import styles from './style.module.css';
 
 function AccountHelpActions() {

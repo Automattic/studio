@@ -7,7 +7,6 @@ const __dirname = import.meta.dirname;
 export default mergeConfig(
 	sharedConfig,
 	defineProject( {
-		assetsInclude: [ '**/*.riv' ],
 		test: {
 			name: 'studio',
 			environment: 'node',

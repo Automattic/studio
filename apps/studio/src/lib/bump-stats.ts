@@ -15,19 +15,11 @@ export enum StatsGroup {
 	STUDIO_SITE_CREATE = 'studio-app-site-create',
 	STUDIO_IMPORT = 'studio-app-import',
 	STUDIO_EXPORT = 'studio-app-export',
-	// Studio Code assistant (pi-agent) usage from the desktop UI. The CLI is
-	// spawned with `--avoid-telemetry`, so these are the only stats that capture
-	// the new assistant's usage.
-	STUDIO_CODE_UI_SEND = 'studio-code-ui-send',
-	STUDIO_CODE_UI_RUN = 'studio-code-ui-run',
-	STUDIO_CODE_UI_WKLY_UNQ = 'studio-code-ui-wk-unq',
-	STUDIO_CODE_UI_MON_UNQ = 'studio-code-ui-mon-unq',
 }
 
 export enum StatsMetric {
 	SUCCESS = 'success',
 	FAILURE = 'failure',
-	INTERRUPTED = 'interrupted',
 	// Export button types
 	FULL_SITE = 'full-site',
 	DATABASE_ONLY = 'database-only',
@@ -44,7 +36,6 @@ export enum StatsMetric {
 	WPRESS_IMPORTER = 'WpressImporter',
 	UNKNOWN_IMPORTER = 'UnknownImporter',
 	// Site creation
-	REMOTE_BLUEPRINT = 'remote-blueprint',
 	FILE_BLUEPRINT = 'file-blueprint',
 	NO_BLUEPRINT = 'no-blueprint',
 }

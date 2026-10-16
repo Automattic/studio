@@ -29,9 +29,7 @@ export { DEFAULT_TERMINAL } from '@studio/common/lib/user-settings/terminal';
 
 // WP-CLI
 export const WP_CLI_DEFAULT_RESPONSE_TIMEOUT = 5 * 60 * 1000; // 5min
-export const WP_CLI_IMPORT_EXPORT_RESPONSE_TIMEOUT_IN_HRS = 6;
-export const WP_CLI_IMPORT_EXPORT_RESPONSE_TIMEOUT =
-	WP_CLI_IMPORT_EXPORT_RESPONSE_TIMEOUT_IN_HRS * 60 * 60 * 1000; // 6hr
+export const WP_CLI_IMPORT_EXPORT_RESPONSE_TIMEOUT = 6 * 60 * 60 * 1000; // 6hr
 
 // IPC handlers that don't return anything (i.e. that are called with `ipcRenderer.send`)
 export const IPC_VOID_HANDLERS = [
@@ -41,7 +39,6 @@ export const IPC_VOID_HANDLERS = [
 	'openStudioLogs',
 	'openURL',
 	'popupAppMenu',
-	'setWindowButtonVisibility',
 	'showErrorMessageBox',
 	'authenticate',
 ] as const;

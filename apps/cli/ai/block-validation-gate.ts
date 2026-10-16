@@ -10,10 +10,11 @@
  * about what it has to change itself.
  */
 import { createHash } from 'crypto';
-import { readFile, writeFile } from 'fs/promises';
+import { mkdir, readFile, rm, stat, writeFile } from 'fs/promises';
 import path from 'path';
 import { validateHtmlBlockPolicy } from 'cli/ai/block-content-policy';
 import { validateBlocks, type ValidationReportBase } from 'cli/ai/block-validator';
+import { splitCommandArgs } from 'cli/ai/wp-cli-args';
 import { getSiteByFolder, getSiteUrl } from 'cli/lib/cli-config/sites';
 import { isServerRunning } from 'cli/lib/wordpress-server-manager';
 
@@ -22,6 +23,7 @@ const SHARED_THEME_MARKUP =
 const THEME_MARKUP =
 	/[\\/]wp-content[\\/]themes[\\/][^\\/]+[\\/](templates|parts)[\\/][^\\/]+\.html$/;
 const SCRATCH_MARKUP = /[\\/]tmp[\\/][^\\/]+\.html$/;
+const POST_CONTENT = '--post_content=';
 
 /** Whether a file holds block markup the gate validates. */
 export function isBlockMarkupFile( filePath: string ): boolean {
@@ -87,15 +89,30 @@ function attributePaths( html: string ): Set< string > {
 	return paths;
 }
 
+function oneLine( html: string, length: number ): string {
+	const flat = html.replace( /\s+/g, ' ' ).trim();
+	return flat.length > length ? `${ flat.slice( 0, length ) }…` : flat;
+}
+
+/**
+ * Each invalid block with every mismatch the editor found, and the HTML the
+ * block saves from its comment attributes — the markup that validates.
+ */
 function describeInvalidBlocks( report: ValidationReportBase ): string[] {
 	return report.results
 		.filter( ( result ) => ! result.isValid )
 		.slice( 0, 5 )
-		.map( ( result ) => {
-			const issue = result.issues[ 0 ] ?? 'does not match what the block saves';
-			const actual = ( result.originalContent ?? '' ).replace( /\s+/g, ' ' ).slice( 0, 160 );
-			return `  - ${ result.blockName }: ${ issue }${ actual ? ` — ${ actual }` : '' }`;
-		} );
+		.flatMap( ( result ) => [
+			`  - ${ result.blockName }: ${
+				result.issues.slice( 0, 3 ).join( '; ' ) || 'does not match what the block saves'
+			}`,
+			...( result.originalContent
+				? [ `    written: ${ oneLine( result.originalContent, 700 ) }` ]
+				: [] ),
+			...( result.expectedContent
+				? [ `    the block saves: ${ oneLine( result.expectedContent, 700 ) }` ]
+				: [] ),
+		] );
 }
 
 interface FileValidation {
@@ -201,7 +218,7 @@ export async function validateBlockMarkupFile(
 						: droppedClasses.length
 						? `drop the classes ${ droppedClasses.join( ' ' ) }`
 						: `drop the attributes ${ droppedAttributes.join( ', ' ) }`
-				}. Put each class and style in the block's comment attributes (className, style) so its saved HTML follows from them:`,
+				}. Change the HTML to what the block saves, or change the comment attributes the block saves it from (className and style carry extra classes and styles):`,
 				...describeInvalidBlocks( report ),
 			].join( '\n' ),
 		};
@@ -212,7 +229,7 @@ export async function validateBlockMarkupFile(
 		summary: `${ label }: ${ report.invalidBlocks } invalid block(s)`,
 		problem: [
 			`${ label }: ${ report.invalidBlocks } block(s) do not match what the block saves, and the editor cannot fix them:`,
-			...describeInvalidBlocks( fix?.report ?? report ),
+			...describeInvalidBlocks( report ),
 		].join( '\n' ),
 	};
 }
@@ -289,17 +306,74 @@ export class BlockValidationGate {
 		}
 	}
 
-	/** Problems still open in files a command reads, to keep them off the site. */
-	openProblemsIn( command: string ): string[] {
-		return [ ...this.files ]
-			.filter( ( [ filePath, tracked ] ) => {
-				if ( ! tracked.result?.problem ) {
-					return false;
-				}
-				const relative = path.relative( tracked.siteRoot, filePath ).split( path.sep ).join( '/' );
-				return command.includes( relative ) || command.includes( filePath );
-			} )
-			.map( ( [ , tracked ] ) => tracked.result!.problem! );
+	/**
+	 * Validates the block markup a WP-CLI command would save as post content —
+	 * every file `post create` or `post update` reads, wherever it lives, and
+	 * inline `--post_content` — and returns the problems that keep it off the
+	 * site. A lossless editor fix to inline content comes back as the command
+	 * to run instead.
+	 */
+	async checkCommand(
+		command: string,
+		siteRoot: string
+	): Promise< { problems: string[]; command: string } > {
+		const args = splitCommandArgs( command );
+		if ( args[ 0 ] !== 'post' || ! [ 'create', 'update' ].includes( args[ 1 ] ) ) {
+			return { problems: [], command };
+		}
+		const problems: string[] = [];
+		for ( const arg of args.slice( 2 ).filter( ( value ) => ! value.startsWith( '-' ) ) ) {
+			const filePath = path.resolve( siteRoot, arg );
+			if ( ! ( await stat( filePath ).catch( () => undefined ) )?.isFile() ) {
+				continue;
+			}
+			const result = await this.resultFor( filePath, siteRoot );
+			if ( result?.problem ) {
+				problems.push( result.problem );
+			}
+		}
+
+		const inline = args
+			.find( ( value ) => value.startsWith( POST_CONTENT ) )
+			?.slice( POST_CONTENT.length );
+		if ( ! inline?.includes( '<!-- wp:' ) || ! command.includes( inline ) ) {
+			return { problems, command };
+		}
+		await mkdir( path.join( siteRoot, 'tmp' ), { recursive: true } );
+		const scratch = path.join(
+			siteRoot,
+			'tmp',
+			`post-content-${ hash( inline ).slice( 0, 12 ) }.html`
+		);
+		await writeFile( scratch, inline, 'utf8' );
+		try {
+			const result = await this.validateFile( scratch, siteRoot ).catch( () => undefined );
+			if ( result?.problem ) {
+				problems.push( result.problem.split( path.basename( scratch ) ).join( '--post_content' ) );
+			}
+			const fixed = await readFile( scratch, 'utf8' );
+			return { problems, command: fixed === inline ? command : command.replace( inline, fixed ) };
+		} finally {
+			await rm( scratch, { force: true } );
+		}
+	}
+
+	/** The validation of a file's current content, reusing the last one when it still holds. */
+	private async resultFor(
+		filePath: string,
+		siteRoot: string
+	): Promise< FileValidation | undefined > {
+		const tracked = this.files.get( filePath ) ?? { siteRoot };
+		let result = tracked.running ? await tracked.running : tracked.result;
+		const current = await readFile( filePath, 'utf8' );
+		if ( ! result || result.contentHash !== hash( current ) ) {
+			result = await this.validateFile( filePath, siteRoot ).catch( () => undefined );
+		}
+		tracked.running = undefined;
+		tracked.result = result;
+		tracked.reported = result && `${ result.contentHash } ${ result.summary }`;
+		this.files.set( filePath, tracked );
+		return result;
 	}
 }
 

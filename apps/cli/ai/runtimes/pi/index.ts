@@ -49,6 +49,7 @@ import { resolveStudioToolDefinitions } from 'cli/ai/tools';
 import { createAskUserQuestionTool } from 'cli/ai/tools/ask-user-question';
 import { createPresentDesignOptionsTool } from 'cli/ai/tools/present-design-options';
 import { createSkillTool } from 'cli/ai/tools/skill';
+import { resolveSite } from 'cli/ai/tools/utils';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import { createConfirmer, describeDestructiveCall, type Confirmer } from './confirmation';
 import { getPendingWork, type PendingWork } from './pending-work';
@@ -632,18 +633,21 @@ function toToolDefinition(
 					[ ...summaries.map( ( line ) => `Block validation: ${ line }` ), ...problems ].join(
 						'\n'
 					) || undefined;
-				const command = ( params as { command?: unknown } ).command;
-				const blocked =
-					tool.name === 'wp_cli' && typeof command === 'string'
-						? blockValidationGate.openProblemsIn( command )
-						: [];
-				if ( blocked.length > 0 ) {
-					throw new Error(
-						[
-							'Not run: this command would put invalid block content on the site. Fix the file, then run it again.',
-							validationReport ?? blocked.join( '\n' ),
-						].join( '\n' )
-					);
+				const wpCli = params as { command?: unknown; nameOrPath?: unknown };
+				if ( tool.name === 'wp_cli' && typeof wpCli.command === 'string' ) {
+					const site = await resolveSite( String( wpCli.nameOrPath ) ).catch( () => undefined );
+					const checked = site
+						? await blockValidationGate.checkCommand( wpCli.command, site.path )
+						: { problems: [], command: wpCli.command };
+					if ( checked.problems.length > 0 ) {
+						throw new Error(
+							[
+								'Not run: this command would put invalid block content on the site. Fix the content, then run it again.',
+								...checked.problems,
+							].join( '\n' )
+						);
+					}
+					wpCli.command = checked.command;
 				}
 			}
 			const result = await tool.execute( toolCallId, params, signal, onUpdate );

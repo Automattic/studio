@@ -107,6 +107,34 @@ describe( 'validating a file', () => {
 		expect( readFileSync( file, 'utf8' ) ).toBe( written );
 	} );
 
+	it( 'shows each mismatch and the HTML the block saves', async () => {
+		const file = write(
+			'tmp/home.html',
+			'<!-- wp:cover {"dimRatio":45} --><div class="wp-block-cover">x</div><!-- /wp:cover -->'
+		);
+		vi.mocked( validateBlocks ).mockResolvedValue( {
+			totalBlocks: 1,
+			validBlocks: 0,
+			invalidBlocks: 1,
+			results: [
+				{
+					blockName: 'core/cover',
+					isValid: false,
+					issues: [ 'Expected attribute `class` of value `a`, saw `b`.' ],
+					originalContent: '<div class="wp-block-cover">x</div>',
+					expectedContent: '<div class="wp-block-cover has-background-dim-50">x</div>',
+				},
+			],
+		} );
+		const result = await validateBlockMarkupFile( file, 'http://localhost:8881' );
+		expect( result.problem ).toContain(
+			'core/cover: Expected attribute `class` of value `a`, saw `b`.'
+		);
+		expect( result.problem ).toContain(
+			'the block saves: <div class="wp-block-cover has-background-dim-50">x</div>'
+		);
+	} );
+
 	it( 'refuses a fix that would change the text', async () => {
 		const file = write( 'tmp/home.html', original );
 		vi.mocked( validateBlocks ).mockResolvedValue(
@@ -163,18 +191,57 @@ describe( 'the gate', () => {
 		expect( ( await gate.settle() ).summaries ).toEqual( [ 'validated v2' ] );
 	} );
 
-	it( 'names open problems for commands that read the file', async () => {
-		const file = write( 'tmp/home.html', 'bad' );
-		const gate = new BlockValidationGate( async () => ( {
-			...ok( 'tmp/home.html: 1 invalid block(s)', 'bad' ),
+	it( 'refuses post content from a file anywhere in the site', async () => {
+		write( 'home-content.html', 'bad' );
+		const validateFile = vi.fn( async () => ( {
+			...ok( 'home-content.html: 1 invalid block(s)', 'bad' ),
 			problem: 'fix it',
 		} ) );
-		gate.track( file, site );
-		expect( ( await gate.settle() ).problems ).toEqual( [ 'fix it' ] );
-		expect( gate.openProblemsIn( 'post create tmp/home.html --post_type=page' ) ).toEqual( [
-			'fix it',
+		const gate = new BlockValidationGate( validateFile );
+		const create = 'post create home-content.html --post_type=page';
+		expect( await gate.checkCommand( create, site ) ).toEqual( {
+			problems: [ 'fix it' ],
+			command: create,
+		} );
+		expect(
+			await gate.checkCommand( `post update 5 ${ path.join( site, 'home-content.html' ) }`, site )
+		).toMatchObject( {
+			problems: [ 'fix it' ],
+		} );
+		expect( validateFile ).toHaveBeenCalledTimes( 1 );
+		expect( await gate.checkCommand( 'option update blogname home-content.html', site ) ).toEqual( {
+			problems: [],
+			command: 'option update blogname home-content.html',
+		} );
+	} );
+
+	it( 'refuses invalid inline post content, naming the argument', async () => {
+		const gate = new BlockValidationGate( async ( filePath ) => ( {
+			...ok( 'x', readFileSync( filePath, 'utf8' ) ),
+			problem: `${ path.basename( filePath ) }: 1 invalid block(s)`,
+		} ) );
+		const command =
+			"post create --post_type=page --post_content='<!-- wp:paragraph --><p>Hi</p><!-- /wp:paragraph -->'";
+		expect( ( await gate.checkCommand( command, site ) ).problems ).toEqual( [
+			'--post_content: 1 invalid block(s)',
 		] );
-		expect( gate.openProblemsIn( 'option update blogname X' ) ).toEqual( [] );
+	} );
+
+	it( 'runs inline post content with its lossless editor fix', async () => {
+		const gate = new BlockValidationGate( async ( filePath ) => {
+			writeFileSync(
+				filePath,
+				'<!-- wp:paragraph --><p class="fixed">Hi</p><!-- /wp:paragraph -->'
+			);
+			return ok( 'fixed', readFileSync( filePath, 'utf8' ) );
+		} );
+		const command =
+			"post update 5 --post_content='<!-- wp:paragraph --><p>Hi</p><!-- /wp:paragraph -->'";
+		expect( await gate.checkCommand( command, site ) ).toEqual( {
+			problems: [],
+			command:
+				'post update 5 --post_content=\'<!-- wp:paragraph --><p class="fixed">Hi</p><!-- /wp:paragraph -->\'',
+		} );
 	} );
 
 	it( 'ignores files that are not block markup', async () => {

@@ -163,20 +163,25 @@ async function isolateSiteRegistry() {
 // turn left the user's other sites alone.
 async function createBystanderSite(): Promise< string > {
 	const bystanderPath = path.join( STUDIO_SITES_ROOT, `eval-bystander-${ process.pid }` );
-	await runCreateSiteCommand(
-		bystanderPath,
-		{
-			name: 'Eval Bystander',
-			wpVersion: 'latest',
-			phpVersion: DEFAULT_PHP_VERSION,
-			fileAccess: SITE_FILE_ACCESS_SITE_DIRECTORY,
-			enableHttps: false,
-			noStart: true,
-			skipBrowser: true,
-			skipLogDetails: true,
-		},
-		new Logger()
-	);
+	try {
+		await runCreateSiteCommand(
+			bystanderPath,
+			{
+				name: 'Eval Bystander',
+				wpVersion: 'latest',
+				phpVersion: DEFAULT_PHP_VERSION,
+				fileAccess: SITE_FILE_ACCESS_SITE_DIRECTORY,
+				enableHttps: false,
+				noStart: true,
+				skipBrowser: true,
+				skipLogDetails: true,
+			},
+			new Logger()
+		);
+	} catch ( error ) {
+		await rm( bystanderPath, { recursive: true, force: true } );
+		throw error;
+	}
 	return bystanderPath;
 }
 

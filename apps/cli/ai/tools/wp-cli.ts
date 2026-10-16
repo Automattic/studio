@@ -2,7 +2,7 @@ import { Type } from 'typebox';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import { getUnsupportedWpCliPostContentMessage } from 'cli/lib/wp-cli-post-content';
-import { defineTool } from './define-tool';
+import { defineTool, REMOTE_OVERWRITE } from './define-tool';
 import { resolveSite } from './utils';
 
 // Split a shell-ish command into args, respecting quotes. Quotes are only
@@ -183,5 +183,6 @@ export const runWpCliTool = defineTool(
 	},
 	{
 		promptSnippet: 'Run WP-CLI commands on a running site',
+		annotations: REMOTE_OVERWRITE,
 	}
 );

@@ -263,7 +263,8 @@ describe( 'Studio AI MCP tools', () => {
 		expect( annotations.site_list ).toEqual( READ_ONLY );
 		expect( annotations.scaffold_theme ).toEqual( LOCAL_CHANGE );
 		for ( const name of [ 'site_delete', 'site_push', 'site_pull', 'wp_cli', 'wpcom_request' ] ) {
-			expect( annotations[ name ] ).toBeUndefined();
+			const { readOnlyHint, destructiveHint, openWorldHint } = annotations[ name ];
+			expect( readOnlyHint || ( ! destructiveHint && ! openWorldHint ) ).toBe( false );
 		}
 	} );
 

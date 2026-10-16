@@ -5,7 +5,7 @@ import { getAiPayloadsPath } from '@studio/common/lib/well-known-paths';
 import wpcomFactory from '@studio/common/lib/wpcom-factory';
 import wpcomXhrRequest from '@studio/common/lib/wpcom-xhr-request-factory';
 import { Type } from 'typebox';
-import { defineTool } from './define-tool';
+import { defineTool, REMOTE_OVERWRITE } from './define-tool';
 import { textResult } from './utils';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -271,5 +271,6 @@ export const wpcomRequestTool = defineTool(
 	{
 		promptSnippet:
 			'Manage a WordPress.com site through WordPress REST API and WordPress.com REST API endpoints, passing its ID as siteId.',
+		annotations: REMOTE_OVERWRITE,
 	}
 );

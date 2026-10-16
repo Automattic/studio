@@ -4,7 +4,7 @@ import {
 	runCommand as runDeletePreviewCommand,
 } from 'cli/commands/preview/delete';
 import { normalizeHostname } from 'cli/lib/utils';
-import { defineTool } from './define-tool';
+import { defineTool, REMOTE_OVERWRITE } from './define-tool';
 import { runPreviewCommand } from './preview-helpers';
 
 export const deletePreviewTool = defineTool(
@@ -25,5 +25,5 @@ export const deletePreviewTool = defineTool(
 			context.onProgress
 		);
 	},
-	{ promptSnippet: 'Delete a preview site by hostname' }
+	{ promptSnippet: 'Delete a preview site by hostname', annotations: REMOTE_OVERWRITE }
 );

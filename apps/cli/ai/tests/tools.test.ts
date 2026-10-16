@@ -375,6 +375,13 @@ describe( 'Studio AI MCP tools', () => {
 		expect( namesWithArtifacts ).toContain( 'refresh_browser' );
 	} );
 
+	it( 'leaves wp_cli out when the agent shell runs Studio WP-CLI', () => {
+		expect( resolveStudioToolDefinitions().map( ( tool ) => tool.name ) ).toContain( 'wp_cli' );
+		expect(
+			resolveStudioToolDefinitions( { shellRunsStudioWp: true } ).map( ( tool ) => tool.name )
+		).not.toContain( 'wp_cli' );
+	} );
+
 	it( 'refresh_browser emits a preview.reload event and is registered', async () => {
 		expect( studioToolDefinitions.map( ( tool ) => tool.name ) ).toContain( 'refresh_browser' );
 		const emitEventMock = vi.mocked( emitEvent );

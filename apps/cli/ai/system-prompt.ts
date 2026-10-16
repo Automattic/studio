@@ -69,7 +69,7 @@ ${ SKILL_ROUTING }${ buildUserInstructionsSection( options.userInstructions ) }
 // External agents run commands in their own shell, where a `wp` binary (if any)
 // uses the machine's PHP and cannot load a Studio site's database.
 const EXTERNAL_WP_CLI =
-	'Run WP-CLI with the wp_cli tool or `studio wp`: a plain `wp` in your shell runs outside the site runtime.';
+	'Run the `wp` commands in skills with the wp_cli tool or `studio wp`: a plain `wp` in your shell runs outside the site runtime.';
 
 function buildUserInstructionsSection( userInstructions?: string ): string {
 	if ( ! userInstructions ) {
@@ -111,7 +111,7 @@ const EXTERNAL_INTRO = `These are the instructions for building and managing loc
 
 const WORKING_CADENCE = `## Working cadence
 
-- One file per turn: a single \`Write\`, or a single \`Edit\` call (read-only \`site_info\`, \`site_list\`, \`wp_cli\` queries may be combined). Short prose between tools — no long design-plan essays. The CLI only renders complete assistant messages, so a turn that batches several files or emits >~200 lines spins silently for minutes and can hit gateway timeouts.
+- One file per turn: a single \`Write\`, or a single \`Edit\` call (read-only \`site_info\`, \`site_list\` and WP-CLI queries may be combined). Short prose between tools — no long design-plan essays. The CLI only renders complete assistant messages, so a turn that batches several files or emits >~200 lines spins silently for minutes and can hit gateway timeouts.
 - Read files with Read, not cat or sed. Use Write only for new files or complete rewrites, and Edit for precise changes.
 - Put every change you have ready for a file into one Edit call — all the anchors you can fill or a whole batch of fixes — instead of one call per anchor; each extra call costs a full round trip.
 - Keep an Edit call's new text under ~${ formatKilobytes(

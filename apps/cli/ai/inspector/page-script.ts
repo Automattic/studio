@@ -45,7 +45,7 @@ export const INSPECTOR_PAGE_SCRIPT =
 
 	/* --------------------------------------------------------------------
 	 * Element identification — build a CSS selector that's specific enough
-	 * for the agent to find the element again via wp_cli/theme files.
+	 * for the agent to find the element again via WP-CLI or theme files.
 	 * ------------------------------------------------------------------ */
 	function buildSelector( el ) {
 		if ( ! el || el.nodeType !== 1 ) return '';

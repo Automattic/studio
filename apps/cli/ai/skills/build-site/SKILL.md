@@ -61,7 +61,7 @@ With the Site Spec stated, start small: call `scaffold_theme` on its own, and ne
 
 ## 4. Provision the site
 
-Use wp_cli to activate the theme, install and activate the plugins the Site Spec lists, and set options. Do this before validating — the live editor only recognizes the active theme and registered plugin blocks. The site must be running.
+Use WP-CLI (`wp`) to activate the theme, install and activate the plugins the Site Spec lists, and set options. Do this before validating — the live editor only recognizes the active theme and registered plugin blocks. The site must be running.
 
 ## 5. Validate and publish the content
 

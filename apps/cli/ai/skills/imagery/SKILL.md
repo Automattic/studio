@@ -69,7 +69,7 @@ The look is picked on one image and the layout on a set, both from the `build-si
 
 When `generate_images` is not available but you have an image tool of your own (such as `image_gen`), make the same images with it, including the look image and the site's set below: plan them exactly as above, and write what you would pass as `siteContext`, `pageContext`, `style` and `imageGrade` into each image's prompt, with no text in the image. Then put each file where its destination says:
 
-- **Content imagery**: copy the files into the site's `tmp/` folder and import them in one `wp_cli` call, `media import tmp/<a>.png tmp/<b>.png --porcelain`, which prints their attachment IDs in order; `post list --post_type=attachment --post__in=<ids> --fields=ID,guid` gives their URLs.
+- **Content imagery**: copy the files into the site's `tmp/` folder and import them in one call, `wp media import tmp/<a>.png tmp/<b>.png --porcelain`, which prints their attachment IDs in order; `post list --post_type=attachment --post__in=<ids> --fields=ID,guid` gives their URLs.
 - **Theme imagery**: copy the file to its path in the theme's `assets/images`.
 
 For the look image, pass the file where your tool saved it as each look's `image`; import it only if the site uses it.

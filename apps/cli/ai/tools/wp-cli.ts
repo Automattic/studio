@@ -1,6 +1,7 @@
 import { Type } from 'typebox';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
+import { getUnsupportedWpCliOptionMessage } from 'cli/lib/wp-cli-options';
 import { getUnsupportedWpCliPostContentMessage } from 'cli/lib/wp-cli-post-content';
 import { defineTool, REMOTE_OVERWRITE } from './define-tool';
 import { resolveSite } from './utils';
@@ -102,16 +103,6 @@ function splitCommandArgs( command: string ): string[] {
 	}
 
 	return splitBasicCommandArgs( command );
-}
-
-// LLMs sometimes emit en/em dashes (`‐porcelain`, `–color`); WP-CLI silently
-// ignores them, so reject up-front and let the agent retry with ASCII hyphens.
-function getUnsupportedWpCliOptionMessage( args: string[] ): string | null {
-	const unsupportedOption = args.find( ( arg ) => /^[‐-―]\S+/.test( arg ) );
-	if ( ! unsupportedOption ) {
-		return null;
-	}
-	return `Unsupported WP-CLI option "${ unsupportedOption }": use ASCII hyphens, for example "--porcelain", not a typographic dash.`;
 }
 
 export const runWpCliTool = defineTool(

@@ -49,8 +49,8 @@ If the user wants to re-annotate, point them back to the open browser and call `
 For each annotation:
 1. **Identify what to change:**
    - Use the CSS selector to find the element in theme templates or stylesheets
-   - Use `wp_cli` with `post list --post_type=wp_template --format=json` to check if it's in a template override
-   - Use `wp_cli` with `eval "echo wp_get_custom_css();"` to check existing custom CSS
+   - Use `wp post list --post_type=wp_template --format=json` to check if it's in a template override
+   - Use `wp eval "echo wp_get_custom_css();"` to check existing custom CSS
 2. **Apply the change using the right approach:**
    - For style changes (colors, sizes, spacing): use Global Styles custom CSS with the selector from the annotation
    - For content changes (text, headings, block structure): edit the template or post content via WP-CLI

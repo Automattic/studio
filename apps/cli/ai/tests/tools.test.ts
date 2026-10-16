@@ -455,6 +455,25 @@ describe( 'Studio AI MCP tools', () => {
 			expect( result.content.map( ( block ) => block.type ) ).toEqual( [ 'text' ] );
 			expect( result.studioArtifacts ).toBeUndefined();
 		} );
+
+		it( 'says when the user sees only the saved file path', async () => {
+			const note = 'The user does not see this capture';
+			const resultWith = async (
+				options: Parameters< typeof resolveStudioToolDefinitions >[ 0 ]
+			) => {
+				mockScreenshotBrowser(
+					createMockPage( { buffer: Buffer.from( 'jpeg' ), documentHeight: 900 } )
+				);
+				const tool = resolveStudioToolDefinitions( options ).find(
+					( definition ) => definition.name === 'take_screenshot'
+				);
+				const result = await tool!.rawHandler( { url: 'http://localhost:8903/' } as never );
+				return result.content.find( ( block ) => block.type === 'text' )?.text ?? '';
+			};
+			expect( await resultWith( {} ) ).toContain( note );
+			expect( await resultWith( { emitChatArtifacts: true } ) ).not.toContain( note );
+			expect( await resultWith( { imageLink: ( file ) => file } ) ).not.toContain( note );
+		} );
 	} );
 
 	it( 'inspect_design returns rendered DOM facts for the requested selectors', async () => {

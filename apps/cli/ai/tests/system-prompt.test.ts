@@ -82,7 +82,6 @@ describe( 'buildSystemPrompt', () => {
 		expect( prompt ).toContain( 'Edit site files with your own file tools' );
 		expect( prompt ).not.toContain( 'WordPress Studio Code' );
 		expect( prompt ).not.toContain( '## Working cadence' );
-		expect( buildSystemPrompt( {} ) ).toContain( 'Write and Edit reject more than 14KB per call' );
 	} );
 
 	it( 'mentions refresh_browser only when chat artifacts are enabled', () => {

@@ -10,13 +10,12 @@
  * about what it has to change itself.
  */
 import { createHash } from 'crypto';
-import { mkdir, readFile, rm, stat, writeFile } from 'fs/promises';
+import { readFile, stat, writeFile } from 'fs/promises';
 import path from 'path';
 import { validateHtmlBlockPolicy } from 'cli/ai/block-content-policy';
 import { validateBlocks, type ValidationReportBase } from 'cli/ai/block-validator';
 import { splitCommandArgs } from 'cli/ai/wp-cli-args';
 import { getSiteByFolder, getSiteUrl } from 'cli/lib/cli-config/sites';
-import { isServerRunning } from 'cli/lib/wordpress-server-manager';
 
 const SHARED_THEME_MARKUP =
 	/[\\/]wp-content[\\/]themes[\\/][^\\/]+[\\/](parts[\\/][^\\/]+|templates[\\/](?!front-page|home)[^\\/]+)\.html$/;
@@ -182,9 +181,7 @@ export async function validateBlockMarkupFile(
 			summary: `${ label }: not validated (${ report.error })`,
 		};
 	}
-	const fix = report.proposedFix;
-	const fixIsValid = !! fix && ! fix.report.error && fix.report.invalidBlocks === 0;
-	if ( report.invalidBlocks === 0 && ! fixIsValid ) {
+	if ( report.invalidBlocks === 0 ) {
 		return {
 			contentHash: hash( content ),
 			summary: `${ label }: ${ report.totalBlocks }/${ report.totalBlocks } blocks valid${
@@ -193,65 +190,50 @@ export async function validateBlockMarkupFile(
 		};
 	}
 
-	if ( fix && fixIsValid ) {
-		const lostText = visibleText( fix.fixedContent ) !== visibleText( content );
-		const originalClasses = classTokens( content );
-		const fixedClasses = classTokens( fix.fixedContent );
-		const droppedClasses = [ ...originalClasses ].filter(
-			( token ) => ! fixedClasses.has( token )
-		);
-		const fixedAttributes = attributePaths( fix.fixedContent );
-		const droppedAttributes = [ ...attributePaths( content ) ].filter(
-			( attribute ) => ! fixedAttributes.has( attribute )
-		);
-		if ( ! lostText && droppedClasses.length === 0 && droppedAttributes.length === 0 ) {
-			await writeFile( filePath, fix.fixedContent, 'utf8' );
-			const addedClasses = [ ...fixedClasses ].filter(
-				( token ) => ! originalClasses.has( token )
-			);
-			if ( report.invalidBlocks > 0 || addedClasses.length > 0 ) {
-				notes.push(
-					`saved through the block editor${
-						report.invalidBlocks ? `, fixing ${ report.invalidBlocks } block(s)` : ''
-					}${ addedClasses.length ? `, adding classes ${ addedClasses.join( ' ' ) }` : '' }`
-				);
-			}
-			return {
-				contentHash: hash( fix.fixedContent ),
-				summary: `${ label }: ${ report.totalBlocks }/${ report.totalBlocks } blocks valid${
-					notes.length ? `; ${ notes.join( '; ' ) }` : ''
-				}`,
-			};
-		}
-		if ( report.invalidBlocks === 0 ) {
-			return {
-				contentHash: hash( content ),
-				summary: `${ label }: ${ report.totalBlocks }/${ report.totalBlocks } blocks valid`,
-			};
-		}
+	const fix = report.proposedFix;
+	if ( ! fix || fix.report.error || fix.report.invalidBlocks > 0 ) {
 		return {
 			contentHash: hash( content ),
 			summary: `${ label }: ${ report.invalidBlocks } invalid block(s)`,
 			problem: [
-				`${ label }: ${
-					report.invalidBlocks
-				} block(s) do not match what the block saves, and the editor's fix would ${
-					lostText
-						? 'change the text'
-						: droppedClasses.length
-						? `drop the classes ${ droppedClasses.join( ' ' ) }`
-						: `drop the attributes ${ droppedAttributes.join( ', ' ) }`
-				}. Change the HTML to what the block saves, or change the comment attributes the block saves it from (className and style carry extra classes and styles):`,
+				`${ label }: ${ report.invalidBlocks } block(s) do not match what the block saves, and the editor cannot fix them:`,
 				...describeInvalidBlocks( report ),
 			].join( '\n' ),
 		};
 	}
 
+	const lostText = visibleText( fix.fixedContent ) !== visibleText( content );
+	const fixedClasses = classTokens( fix.fixedContent );
+	const droppedClasses = [ ...classTokens( content ) ].filter(
+		( token ) => ! fixedClasses.has( token )
+	);
+	const fixedAttributes = attributePaths( fix.fixedContent );
+	const droppedAttributes = [ ...attributePaths( content ) ].filter(
+		( attribute ) => ! fixedAttributes.has( attribute )
+	);
+	if ( ! lostText && droppedClasses.length === 0 && droppedAttributes.length === 0 ) {
+		await writeFile( filePath, fix.fixedContent, 'utf8' );
+		notes.push( `saved through the block editor, fixing ${ report.invalidBlocks } block(s)` );
+		return {
+			contentHash: hash( fix.fixedContent ),
+			summary: `${ label }: ${ report.totalBlocks }/${
+				report.totalBlocks
+			} blocks valid; ${ notes.join( '; ' ) }`,
+		};
+	}
 	return {
 		contentHash: hash( content ),
 		summary: `${ label }: ${ report.invalidBlocks } invalid block(s)`,
 		problem: [
-			`${ label }: ${ report.invalidBlocks } block(s) do not match what the block saves, and the editor cannot fix them:`,
+			`${ label }: ${
+				report.invalidBlocks
+			} block(s) do not match what the block saves, and the editor's fix would ${
+				lostText
+					? 'change the text'
+					: droppedClasses.length
+					? `drop the classes ${ droppedClasses.join( ' ' ) }`
+					: `drop the attributes ${ droppedAttributes.join( ', ' ) }`
+			}. Change the HTML to what the block saves, or change the comment attributes the block saves it from (className and style carry extra classes and styles):`,
 			...describeInvalidBlocks( report ),
 		].join( '\n' ),
 	};
@@ -259,8 +241,7 @@ export async function validateBlockMarkupFile(
 
 interface Tracked {
 	siteRoot: string;
-	running?: Promise< FileValidation | undefined >;
-	result?: FileValidation;
+	result: Promise< FileValidation >;
 	reported?: string;
 }
 
@@ -271,82 +252,56 @@ export class BlockValidationGate {
 		private readonly validateFile: (
 			filePath: string,
 			siteRoot: string
-		) => Promise< FileValidation | undefined > = validateWithRunningSite
+		) => Promise< FileValidation > = validateWithSite
 	) {}
 
 	/** Queues a written file and starts validating it in the background. */
 	track( filePath: string, siteRoot: string ): void {
-		if ( ! isBlockMarkupFile( filePath ) ) {
-			return;
+		if ( isBlockMarkupFile( filePath ) ) {
+			this.files.set( filePath, { siteRoot, result: this.validate( filePath, siteRoot ) } );
 		}
-		const tracked: Tracked = { siteRoot };
-		tracked.running = this.validateFile( filePath, siteRoot ).catch( ( error: unknown ) =>
-			notValidated( filePath, undefined, error )
-		);
-		this.files.set( filePath, tracked );
 	}
 
-	/**
-	 * Waits for every queued file, revalidating any that changed since its
-	 * validation started, and returns what is new to report.
-	 */
+	/** Waits for every queued file and returns what is new to report. */
 	async settle(): Promise< { summaries: string[]; problems: string[] } > {
 		const summaries: string[] = [];
 		const problems: string[] = [];
 		for ( const [ filePath, tracked ] of this.files ) {
-			let result = tracked.running ? await tracked.running : tracked.result;
-			const current = await readFile( filePath, 'utf8' ).catch( () => undefined );
-			if ( current === undefined ) {
+			const result = await this.current( filePath, tracked.siteRoot );
+			if ( ! result ) {
 				this.files.delete( filePath );
 				continue;
 			}
-			if ( ! result || result.contentHash !== hash( current ) ) {
-				tracked.running = undefined;
-				result = await this.validateFile( filePath, tracked.siteRoot ).catch( ( error: unknown ) =>
-					notValidated( filePath, current, error )
-				);
-			}
-			tracked.running = undefined;
-			tracked.result = result;
-			const reportKey = result && `${ result.contentHash } ${ result.summary }`;
-			if ( ! result || reportKey === tracked.reported ) {
-				continue;
-			}
-			tracked.reported = reportKey;
-			summaries.push( result.summary );
-			if ( result.problem ) {
-				problems.push( result.problem );
+			const reportKey = `${ result.contentHash } ${ result.summary }`;
+			if ( reportKey !== tracked.reported ) {
+				tracked.reported = reportKey;
+				summaries.push( result.summary );
+				problems.push( ...( result.problem ? [ result.problem ] : [] ) );
 			}
 		}
 		return { summaries, problems };
 	}
 
 	/**
-	 * Drops every result: activating a theme or plugin changes which blocks the
-	 * editor recognizes, so earlier validations no longer hold.
+	 * Revalidates every file: activating a theme or plugin changes which blocks
+	 * the editor recognizes, so earlier validations no longer hold.
 	 */
 	invalidate(): void {
-		for ( const tracked of this.files.values() ) {
-			tracked.running = undefined;
-			tracked.result = undefined;
+		for ( const [ filePath, tracked ] of this.files ) {
+			tracked.result = this.validate( filePath, tracked.siteRoot );
 			tracked.reported = undefined;
 		}
 	}
 
 	/**
-	 * Validates the block markup a WP-CLI command would save as post content —
-	 * every file `post create` or `post update` reads, wherever it lives, and
-	 * inline `--post_content` — and returns the problems that keep it off the
-	 * site. A lossless editor fix to inline content comes back as the command
-	 * to run instead.
+	 * The problems that keep a WP-CLI command's post content off the site:
+	 * invalid blocks in every file `post create` or `post update` reads, and
+	 * post content that opens as JSON but does not parse.
 	 */
-	async checkCommand(
-		command: string,
-		siteRoot: string
-	): Promise< { problems: string[]; command: string } > {
+	async checkCommand( command: string, siteRoot: string ): Promise< string[] > {
 		const args = splitCommandArgs( command );
 		if ( args[ 0 ] !== 'post' || ! [ 'create', 'update' ].includes( args[ 1 ] ) ) {
-			return { problems: [], command };
+			return [];
 		}
 		const problems: string[] = [];
 		for ( const arg of args.slice( 2 ).filter( ( value ) => ! value.startsWith( '-' ) ) ) {
@@ -355,89 +310,65 @@ export class BlockValidationGate {
 				continue;
 			}
 			const content = await readFile( filePath, 'utf8' );
-			if ( isJsonContent( content ) ) {
-				const jsonProblem = jsonContentProblem( content, arg );
-				problems.push( ...( jsonProblem ? [ jsonProblem ] : [] ) );
-				continue;
-			}
-			const result = await this.resultFor( filePath, siteRoot );
-			if ( result?.problem ) {
-				problems.push( result.problem );
-			}
+			const problem = isJsonContent( content )
+				? jsonContentProblem( content, arg )
+				: ( await this.current( filePath, siteRoot, true ) )?.problem;
+			problems.push( ...( problem ? [ problem ] : [] ) );
 		}
-
 		const inline = args
 			.find( ( value ) => value.startsWith( POST_CONTENT ) )
 			?.slice( POST_CONTENT.length );
-		const jsonProblem = inline !== undefined && jsonContentProblem( inline, '--post_content' );
-		if ( jsonProblem ) {
-			return { problems: [ ...problems, jsonProblem ], command };
+		if ( inline !== undefined ) {
+			const problem = inline.includes( '<!-- wp:' )
+				? `--post_content holds block markup, which is validated from a file: write it to the site's tmp/ folder and pass the file path instead (\`post ${ args[ 1 ] } tmp/<name>.html\`).`
+				: jsonContentProblem( inline, '--post_content' );
+			problems.push( ...( problem ? [ problem ] : [] ) );
 		}
-		if ( ! inline?.includes( '<!-- wp:' ) || ! command.includes( inline ) ) {
-			return { problems, command };
-		}
-		await mkdir( path.join( siteRoot, 'tmp' ), { recursive: true } );
-		const scratch = path.join(
-			siteRoot,
-			'tmp',
-			`post-content-${ hash( inline ).slice( 0, 12 ) }.html`
-		);
-		await writeFile( scratch, inline, 'utf8' );
-		try {
-			const result = await this.validateFile( scratch, siteRoot ).catch( () => undefined );
-			if ( result?.problem ) {
-				problems.push( result.problem.split( path.basename( scratch ) ).join( '--post_content' ) );
-			}
-			const fixed = await readFile( scratch, 'utf8' );
-			return { problems, command: fixed === inline ? command : command.replace( inline, fixed ) };
-		} finally {
-			await rm( scratch, { force: true } );
-		}
+		return problems;
 	}
 
-	/** The validation of a file's current content, reusing the last one when it still holds. */
-	private async resultFor(
+	/**
+	 * The validation of a file's current content, reusing the last one while
+	 * the file is unchanged; undefined once the file is gone.
+	 */
+	private async current(
 		filePath: string,
-		siteRoot: string
+		siteRoot: string,
+		markReported = false
 	): Promise< FileValidation | undefined > {
-		const tracked = this.files.get( filePath ) ?? { siteRoot };
-		let result = tracked.running ? await tracked.running : tracked.result;
-		const current = await readFile( filePath, 'utf8' );
-		if ( ! result || result.contentHash !== hash( current ) ) {
-			result = await this.validateFile( filePath, siteRoot ).catch( () => undefined );
+		const content = await readFile( filePath, 'utf8' ).catch( () => undefined );
+		if ( content === undefined ) {
+			return undefined;
 		}
-		tracked.running = undefined;
-		tracked.result = result;
-		tracked.reported = result && `${ result.contentHash } ${ result.summary }`;
+		const tracked = this.files.get( filePath ) ?? {
+			siteRoot,
+			result: this.validate( filePath, siteRoot ),
+		};
+		let result = await tracked.result;
+		if ( result.contentHash !== hash( content ) ) {
+			tracked.result = this.validate( filePath, siteRoot );
+			result = await tracked.result;
+		}
+		if ( markReported ) {
+			tracked.reported = `${ result.contentHash } ${ result.summary }`;
+		}
 		this.files.set( filePath, tracked );
 		return result;
 	}
-}
 
-async function validateWithRunningSite(
-	filePath: string,
-	siteRoot: string
-): Promise< FileValidation | undefined > {
-	const site = await getSiteByFolder( siteRoot );
-	if ( ! ( await isServerRunning( site.id ) ) ) {
-		return undefined;
+	/** Validates a file; a validation that cannot run is reported, never skipped. */
+	private validate( filePath: string, siteRoot: string ): Promise< FileValidation > {
+		return this.validateFile( filePath, siteRoot ).catch( async ( error: unknown ) => ( {
+			contentHash: hash( ( await readFile( filePath, 'utf8' ).catch( () => '' ) ) ?? '' ),
+			summary: `${ filePath.split( path.sep ).slice( -2 ).join( '/' ) }: not validated (${
+				error instanceof Error ? error.message : String( error )
+			})`,
+		} ) );
 	}
-	return validateBlockMarkupFile( filePath, getSiteUrl( site ) );
 }
 
-/** A validation that could not run is reported, so a file is never passed over in silence. */
-function notValidated(
-	filePath: string,
-	content: string | undefined,
-	error: unknown
-): FileValidation {
-	const label = filePath.split( path.sep ).slice( -2 ).join( '/' );
-	return {
-		contentHash: hash( content ?? '' ),
-		summary: `${ label }: not validated (${
-			error instanceof Error ? error.message : String( error )
-		})`,
-	};
+async function validateWithSite( filePath: string, siteRoot: string ): Promise< FileValidation > {
+	return validateBlockMarkupFile( filePath, getSiteUrl( await getSiteByFolder( siteRoot ) ) );
 }
 
 const gates = new WeakMap< object, BlockValidationGate >();

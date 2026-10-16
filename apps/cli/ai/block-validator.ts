@@ -229,9 +229,10 @@ export async function validateBlocks(
 
 			const initial = validateContent( html );
 
-			// Serialize even when every block is valid: a block can be valid only
-			// through a deprecated save, and the front end renders the stale HTML
-			// it was written with until the block is saved again.
+			if ( initial.report.invalidBlocks === 0 ) {
+				return { report: initial.report };
+			}
+
 			const fixedBlocks = initial.blocks.map( normalizeBlock );
 			const fixedContent = wpBlocks.serialize( fixedBlocks );
 
@@ -239,8 +240,6 @@ export async function validateBlocks(
 				return { report: initial.report };
 			}
 
-			// Re-saving can itself break a block that parsed as valid, so the
-			// re-saved markup is validated before it is proposed.
 			const fixed = validateContent( fixedContent );
 			return {
 				report: initial.report,

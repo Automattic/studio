@@ -636,19 +636,18 @@ function toToolDefinition(
 				const wpCli = params as { command?: unknown; nameOrPath?: unknown };
 				if ( tool.name === 'wp_cli' && typeof wpCli.command === 'string' ) {
 					const site = await resolveSite( String( wpCli.nameOrPath ) ).catch( () => undefined );
-					const checked = site
+					const problems = site
 						? await blockValidationGate.checkCommand( wpCli.command, site.path )
-						: { problems: [], command: wpCli.command };
-					if ( checked.problems.length > 0 ) {
+						: [];
+					if ( problems.length > 0 ) {
 						throw new Error(
 							[
 								'Not run: this command would put invalid block content on the site. Fix the content, then run it again.',
-								...checked.problems,
+								...problems,
 								...( validationReport ? [ validationReport ] : [] ),
 							].join( '\n' )
 						);
 					}
-					wpCli.command = checked.command;
 				}
 			}
 			// The validation report was taken from the gate, so it rides on a failure too.

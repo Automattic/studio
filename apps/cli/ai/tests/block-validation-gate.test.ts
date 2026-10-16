@@ -88,45 +88,6 @@ describe( 'validating a file', () => {
 		expect( readFileSync( file, 'utf8' ) ).toContain( 'class="eyebrow"' );
 	} );
 
-	it( 'keeps valid markup whose re-serialization would drop an attribute', async () => {
-		const written =
-			'<!-- wp:group {"layout":{"type":"constrained"}} --><div class="wp-block-group"></div><!-- /wp:group -->';
-		const file = write( 'tmp/home.html', written );
-		vi.mocked( validateBlocks ).mockResolvedValue( {
-			totalBlocks: 1,
-			validBlocks: 1,
-			invalidBlocks: 0,
-			results: [],
-			proposedFix: {
-				fixedContent: '<!-- wp:group -->\n<div class="wp-block-group"></div>\n<!-- /wp:group -->',
-				report: { totalBlocks: 1, validBlocks: 1, invalidBlocks: 0, results: [] },
-			},
-		} );
-		const result = await validateBlockMarkupFile( file, 'http://localhost:8881' );
-		expect( result.problem ).toBeUndefined();
-		expect( readFileSync( file, 'utf8' ) ).toBe( written );
-	} );
-
-	it( 'keeps valid markup when re-saving it would break a block', async () => {
-		const original = '<!-- wp:paragraph --><p style="max-width:34rem">Hi</p><!-- /wp:paragraph -->';
-		const file = write( 'tmp/home.html', original );
-		vi.mocked( validateBlocks ).mockResolvedValue( {
-			totalBlocks: 1,
-			validBlocks: 1,
-			invalidBlocks: 0,
-			results: [ { blockName: 'core/paragraph', isValid: true, issues: [], originalContent: '' } ],
-			proposedFix: {
-				fixedContent:
-					'<!-- wp:paragraph --><p><p style="max-width:34rem">Hi</p></p><!-- /wp:paragraph -->',
-				report: { totalBlocks: 1, validBlocks: 0, invalidBlocks: 1, results: [] },
-			},
-		} );
-		const result = await validateBlockMarkupFile( file, 'http://localhost:8881' );
-		expect( result ).toMatchObject( { summary: 'tmp/home.html: 1/1 blocks valid' } );
-		expect( result.problem ).toBeUndefined();
-		expect( readFileSync( file, 'utf8' ) ).toBe( original );
-	} );
-
 	it( 'shows each mismatch and the HTML the block saves', async () => {
 		const file = write(
 			'tmp/home.html',
@@ -218,67 +179,52 @@ describe( 'the gate', () => {
 			problem: 'fix it',
 		} ) );
 		const gate = new BlockValidationGate( validateFile );
-		const create = 'post create home-content.html --post_type=page';
-		expect( await gate.checkCommand( create, site ) ).toEqual( {
-			problems: [ 'fix it' ],
-			command: create,
-		} );
+		expect(
+			await gate.checkCommand( 'post create home-content.html --post_type=page', site )
+		).toEqual( [ 'fix it' ] );
 		expect(
 			await gate.checkCommand( `post update 5 ${ path.join( site, 'home-content.html' ) }`, site )
-		).toMatchObject( {
-			problems: [ 'fix it' ],
-		} );
+		).toEqual( [ 'fix it' ] );
 		expect( validateFile ).toHaveBeenCalledTimes( 1 );
-		expect( await gate.checkCommand( 'option update blogname home-content.html', site ) ).toEqual( {
-			problems: [],
-			command: 'option update blogname home-content.html',
-		} );
+		expect( await gate.checkCommand( 'option update blogname home-content.html', site ) ).toEqual(
+			[]
+		);
 	} );
 
 	it( 'refuses post content that opens as JSON but does not parse', async () => {
 		const validateFile = vi.fn();
 		const gate = new BlockValidationGate( validateFile );
 		const broken = `post update 5 --post_content='{"version":3,"styles":{"color":{}}'`;
-		const [ problem ] = ( await gate.checkCommand( broken, site ) ).problems;
+		const [ problem ] = await gate.checkCommand( broken, site );
 		expect( problem ).toMatch( /^--post_content is not valid JSON/ );
 		write( 'styles.json', '{"version":3}' );
-		expect( await gate.checkCommand( 'post update 5 styles.json', site ) ).toMatchObject( {
-			problems: [],
-		} );
+		expect( await gate.checkCommand( 'post update 5 styles.json', site ) ).toEqual( [] );
 		expect(
 			await gate.checkCommand( `post update 5 --post_content='{"version":3}'`, site )
-		).toMatchObject( {
-			problems: [],
-		} );
+		).toEqual( [] );
+		expect( validateFile ).not.toHaveBeenCalled();
 	} );
 
-	it( 'refuses invalid inline post content, naming the argument', async () => {
-		const gate = new BlockValidationGate( async ( filePath ) => ( {
-			...ok( 'x', readFileSync( filePath, 'utf8' ) ),
-			problem: `${ path.basename( filePath ) }: 1 invalid block(s)`,
-		} ) );
+	it( 'sends inline block markup to a file, where it is validated', async () => {
+		const gate = new BlockValidationGate( vi.fn() );
 		const command =
 			"post create --post_type=page --post_content='<!-- wp:paragraph --><p>Hi</p><!-- /wp:paragraph -->'";
-		expect( ( await gate.checkCommand( command, site ) ).problems ).toEqual( [
-			'--post_content: 1 invalid block(s)',
-		] );
+		const [ problem ] = await gate.checkCommand( command, site );
+		expect( problem ).toContain( 'post create tmp/<name>.html' );
+		expect( await gate.checkCommand( "post update 5 --post_content='Plain text'", site ) ).toEqual(
+			[]
+		);
 	} );
 
-	it( 'runs inline post content with its lossless editor fix', async () => {
-		const gate = new BlockValidationGate( async ( filePath ) => {
-			writeFileSync(
-				filePath,
-				'<!-- wp:paragraph --><p class="fixed">Hi</p><!-- /wp:paragraph -->'
-			);
-			return ok( 'fixed', readFileSync( filePath, 'utf8' ) );
+	it( 'reports a file it could not validate', async () => {
+		const gate = new BlockValidationGate( async () => {
+			throw new Error( 'the site is not running' );
 		} );
-		const command =
-			"post update 5 --post_content='<!-- wp:paragraph --><p>Hi</p><!-- /wp:paragraph -->'";
-		expect( await gate.checkCommand( command, site ) ).toEqual( {
-			problems: [],
-			command:
-				'post update 5 --post_content=\'<!-- wp:paragraph --><p class="fixed">Hi</p><!-- /wp:paragraph -->\'',
-		} );
+		gate.track( write( 'wp-content/themes/t/parts/header.html', 'x' ), site );
+		expect( ( await gate.settle() ).summaries ).toEqual( [
+			'parts/header.html: not validated (the site is not running)',
+		] );
+		expect( ( await gate.settle() ).summaries ).toEqual( [] );
 	} );
 
 	it( 'ignores files that are not block markup', async () => {

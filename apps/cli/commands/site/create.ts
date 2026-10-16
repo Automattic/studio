@@ -112,7 +112,7 @@ const PARTIAL_CAPTURE_REPORTED_ROUTES = 10;
 const STATIC_SITE_IMPORT_DIR = '.studio-import';
 const STATIC_SITE_IMPORT_REQUEST_FILE = 'request.json';
 const STATIC_SITE_IMPORT_PROGRESS_INTERVAL_MS = 30_000;
-const DATA_LIBERATION_CAPTURE_RECEIPT_SCHEMA = 'data-liberation/capture-receipt/v1';
+const DATA_LIBERATION_CAPTURE_RECEIPT_SCHEMA = 'blocks-engine-capture/capture-receipt/v1';
 // JSON compiler-evidence sidecars written next to `website/`. Copied into the
 // staged importer source and named in `metadata.reports` so SSI keeps them at
 // the artifact root instead of prefixing `website/`. Large capture directories
@@ -1631,7 +1631,13 @@ export const registerCommand = (
 				argv.from && ! isUrl( argv.from ) && path.extname( argv.from ).toLowerCase() === '.json'
 					? readSiteArtifact( argv.from )
 					: undefined;
-			let siteName = argv.name ?? ( artifact ? artifactTitle( artifact ) : undefined );
+			// A URL is named from its capture once liberated; a local source names
+			// itself only when it is a titled artifact or a captured website.
+			const sourceUrl = argv.from && isUrl( argv.from ) ? argv.from : undefined;
+			let siteName =
+				argv.name ??
+				( artifact ? artifactTitle( artifact ) : undefined ) ??
+				( argv.from && ! sourceUrl ? capturedSourceTitle( argv.from ) : undefined );
 			let sitePath = argv.path;
 			let wpVersion = argv.wp;
 			let phpVersion = argv.php;
@@ -1693,7 +1699,7 @@ export const registerCommand = (
 
 			try {
 				if ( process.stdin.isTTY ) {
-					if ( ! siteName ) {
+					if ( ! siteName && ! sourceUrl ) {
 						const defaultName = await generateSiteName();
 						siteName = await input( {
 							message: __( 'Site name:' ),

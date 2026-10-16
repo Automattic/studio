@@ -454,6 +454,16 @@ async function runEval( input: EvalRunnerInput ) {
 	let error: string | null = null;
 	let timedOut = false;
 	let lastTurnEndedEmpty = false;
+	// Summed from each assistant message's usage, so evals can compare the
+	// token and dollar cost of prompt variants, not just their outcomes.
+	const usage = {
+		input: 0,
+		output: 0,
+		cacheRead: 0,
+		cacheWrite: 0,
+		totalTokens: 0,
+		costUsd: 0,
+	};
 
 	let seeded: SeededFixtures | null = null;
 	let inspections: Inspection[] = [];
@@ -479,6 +489,15 @@ async function runEval( input: EvalRunnerInput ) {
 
 	const handleEvent = ( event: AgentSessionEvent ): void => {
 		if ( event.type === 'message_end' && event.message.role === 'assistant' ) {
+			const messageUsage = event.message.usage;
+			if ( messageUsage ) {
+				usage.input += messageUsage.input;
+				usage.output += messageUsage.output;
+				usage.cacheRead += messageUsage.cacheRead;
+				usage.cacheWrite += messageUsage.cacheWrite;
+				usage.totalTokens += messageUsage.totalTokens;
+				usage.costUsd += messageUsage.cost.total;
+			}
 			const now = Date.now();
 			turnDurationsMs.push( now - turnStart );
 			turnIndex += 1;
@@ -602,6 +621,7 @@ async function runEval( input: EvalRunnerInput ) {
 		autoContinues,
 		phaseTimingsMs,
 		turnDurationsMs,
+		usage,
 		toolCalls,
 		toolResults,
 		toolEvents,

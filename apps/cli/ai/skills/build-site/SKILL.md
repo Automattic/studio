@@ -57,7 +57,7 @@ Skipping means skipping the interactive questions only — each design step then
 
 ## 3. Theme files
 
-With the Site Spec stated, start small: call `scaffold_theme` on its own, and never fill a whole theme at once. For a new custom theme, call it without `parentTheme`; to restyle an installed third-party theme instead of replacing it, follow the `block-content` skill's theme-file rules (a child theme). When the site has a DESIGN.md, the scaffold fills theme.json from it and self-hosts its Google Fonts, so edit theme.json only for what DESIGN.md does not cover. Then fill the scaffold one file at a time with Write and Edit: templates, parts, style.css, and patterns.
+With the Site Spec stated, start small: call `scaffold_theme` on its own, and never fill a whole theme at once. For a new custom theme, call it without `parentTheme`; to restyle an installed third-party theme instead of replacing it, scaffold a child theme (`parentTheme`). When the site has a DESIGN.md, the scaffold fills theme.json from it and self-hosts its Google Fonts, so edit theme.json only for what DESIGN.md does not cover. Then fill the scaffold one file at a time with Write and Edit: templates, parts, style.css, and patterns.
 
 ## 4. Provision the site
 

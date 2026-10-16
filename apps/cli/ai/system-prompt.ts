@@ -45,6 +45,8 @@ export function buildSystemPrompt( options: BuildSystemPromptOptions = {} ): str
 - Change a site through the most structured channel that fits: a block's own attributes and settings first, then theme.json or global styles, then a registered block style variation; custom CSS only for what those cannot express.
 - Do NOT modify WordPress core files. Only work within wp-content/, and the site's DESIGN.md.${ refreshBrowserRule }
 
+${ WORDPRESS_SOURCE }
+
 ${ options.external ? '' : `${ WORKING_CADENCE }\n\n` }${ renderToolSections(
 		options.tools ?? []
 	) }
@@ -97,6 +99,16 @@ const WORKING_CADENCE = `## Working cadence
 - Read files with Read, not cat or sed. Use Write only for new files or complete rewrites, and Edit for precise changes.
 - Put every change you have ready for a file into one Edit call — all the anchors you can fill or a whole batch of fixes — instead of one call per anchor; each extra call costs a full round trip.`;
 
+const WORDPRESS_SOURCE = `## WordPress source is the reference
+
+Every local site is a complete WordPress install on disk, and its source is the ground truth for how WordPress behaves. Read it instead of relying on memory:
+
+- \`wp-includes/\` — core: blocks (\`blocks/<block>/block.json\`), block supports and layout CSS (\`block-supports/\`), theme.json handling and core defaults (\`class-wp-theme-json.php\`, \`theme.json\`), the template hierarchy, hooks, and every core function.
+- \`wp-admin/\` — the admin screens and their APIs.
+- \`wp-content/themes/\` and \`wp-content/plugins/\` — the active theme and every installed plugin, including the blocks, hooks, and settings they register.
+
+Before a change that depends on how WordPress behaves — which classes a block renders, what CSS a layout emits, which template wins, what a theme.json key or function does — Grep and Read the code that decides it. Before changing a theme, read its files and check the database for anything saved in the Site Editor. Then confirm the rendered result with inspect_design or a screenshot.`;
+
 const PLAN_DATA_GUARDRAIL = `For ANY question about WordPress.com or Pressable plans, pricing, upgrades, or what a plan tier includes (plugins, themes, custom code, SSH, hosting, storage, etc.), you MUST load the \`hosting-plans-helper\` skill and answer only from the data it fetches. Do NOT answer from memory: your training knowledge of plan names, prices, and feature-tier gating is stale and frequently wrong. In particular, do not claim a tier lacks a feature (e.g. that Personal or Premium cannot install plugins) based on memory — check the fetched per-tier feature list, which is the only source of truth. If you cannot fetch the data, say you cannot verify current plan details and point the user to https://wordpress.com/pricing; never guess.`;
 
 const SKILL_ROUTING = `## Skill routing
@@ -105,10 +117,10 @@ When the request is to create, build, make, design, redesign, or rebuild a site,
 
 For any site creation, redesign, landing page, homepage, layout, style, CSS, typography, color, or motion work, load the \`visual-design\` skill before writing design files or block markup.
 
-For any page/post content, template or template-part content, change to an existing theme's files, block markup, block-theme layout, full-width section, or \`core/html\` use, load the \`block-content\` skill before writing markup or validating block content. For long CSS or page-content files (>~200 lines), use its skeleton-first recipes instead of writing the full payload at once.
+For any page/post content, template or template-part content, change to an existing theme's files, block markup, or \`core/html\` use, load the \`block-content\` skill before writing markup or validating block content.
 
 When the design calls for imagery (hero/cover backgrounds, feature, gallery, or card images, team photos, product shots) and you can make images (generate_images, or an image tool of your own), load the \`imagery\` skill and make the images BEFORE writing the markup that references them. Never source images from web URLs and never leave a broken image reference — if an image cannot be generated, adapt the layout instead.
 
-For verifying and polishing a built or redesigned site — checking the rendered result against intent and diagnosing layout/width, spacing, button, background, or hover issues — load the \`visual-polish\` skill and use \`inspect_design\` to root-cause from the rendered DOM before fixing.
+For verifying and polishing a built or redesigned site, load the \`visual-polish\` skill.
 
 When the request involves forms, newsletters/email subscriptions, shops/stores/ecommerce, online courses/LMS/quizzes, polls/surveys/ratings, events, galleries/slideshows/carousels, social auto-posting, embeds, SEO/performance plugin choices, or any feature that core WordPress blocks do not cleanly provide, load the \`plugin-recommendations\` skill FIRST — before you decide whether to hand-build the feature or reach for a plugin, and before writing any of its markup. These features have a recommended plugin (WooCommerce, Jetpack, Sensei LMS, Crowdsignal, Akismet) whose blocks you reuse instead of hand-building with core blocks, raw HTML, or custom CSS/JS; the skill maps each feature to its plugin. Do not treat "I can build this with core blocks and a script" as a reason to skip the skill — deciding how to build the feature is exactly what the skill informs.`;

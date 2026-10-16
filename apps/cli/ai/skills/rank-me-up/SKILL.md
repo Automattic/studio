@@ -2,6 +2,7 @@
 name: rank-me-up
 description: Run an on-page SEO audit on a WordPress site and get actionable recommendations to improve search visibility.
 user-invokable: true
+tools: rank_me_up, need_for_speed
 ---
 
 # SEO Audit

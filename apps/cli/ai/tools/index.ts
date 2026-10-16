@@ -17,7 +17,6 @@ import { createPickDesignTool, pickDesignTool } from './pick-design';
 import { pullSiteTool } from './pull-site';
 import { pushSiteTool } from './push-site';
 import { auditSeoTool } from './rank-me-up';
-import { refreshBrowserTool } from './refresh-browser';
 import { scaffoldThemeTool } from './scaffold-theme';
 import { getSiteInfoTool } from './site-info';
 import { startSiteTool } from './start-site';
@@ -44,7 +43,6 @@ export const studioToolDefinitions: AnyStudioAgentTool[] = [
 	updatePreviewTool,
 	deletePreviewTool,
 	runWpCliTool,
-	refreshBrowserTool,
 	scaffoldThemeTool,
 	pickDesignTool,
 	takeScreenshotTool,
@@ -87,21 +85,19 @@ export function resolveStudioToolDefinitions(
 	options: CreateStudioToolsOptions = {}
 ): AnyStudioAgentTool[] {
 	return studioToolDefinitions.flatMap( ( candidate ) => {
-		// refresh_browser only makes sense when a Studio UI with a preview pane
-		// is attached to consume the preview.reload event; emitChatArtifacts is
-		// the existing "UI attached" signal (process.send available).
-		if ( candidate.name === refreshBrowserTool.name && options.emitChatArtifacts !== true ) {
-			return [];
-		}
 		if ( candidate.name === generateImagesTool.name && ! options.imageGeneration ) {
 			return [];
 		}
 		let tool = candidate;
-		if ( candidate.name === takeScreenshotTool.name ) {
+		const userSeesCaptures = options.emitChatArtifacts === true || Boolean( options.imageLink );
+		if (
+			candidate.name === takeScreenshotTool.name &&
+			( options.visionEnabled === false || ! userSeesCaptures )
+		) {
 			tool = createTakeScreenshotTool( {
 				visionEnabled: options.visionEnabled !== false,
 				imageLink: options.imageLink,
-				userSeesCapture: options.emitChatArtifacts === true || Boolean( options.imageLink ),
+				userSeesCaptures,
 			} );
 		}
 		if ( candidate.name === inspectDesignTool.name && options.visionEnabled === false ) {

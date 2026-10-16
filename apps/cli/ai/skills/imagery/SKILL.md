@@ -1,6 +1,7 @@
 ---
 name: imagery
 description: Generate AI images for a site with generate_images, or with an image tool of your own when it is not available — the images the design steps need, where files go, how to write image specs, and how to handle failures.
+tools: generate_images
 ---
 
 # Site Imagery

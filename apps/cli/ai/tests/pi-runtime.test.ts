@@ -140,6 +140,7 @@ class FakeSession {
 	public state: { model: { id: string; provider: string }; messages: unknown[] };
 	public aborted = false;
 	public disposed = false;
+	public activeToolNames: string[] = [];
 
 	constructor( public options: CreateAgentSessionOptions ) {
 		this.state = {
@@ -149,6 +150,10 @@ class FakeSession {
 			},
 			messages: options.sessionManager?.buildSessionContext().messages.slice() ?? [],
 		};
+	}
+
+	setActiveToolsByName( names: string[] ): void {
+		this.activeToolNames = names;
 	}
 
 	subscribe( listener: ( event: AgentSessionEvent ) => void ): () => void {
@@ -249,6 +254,15 @@ describe( 'pi runtime', () => {
 				expect( last.errorMessage ).toMatch( /STUDIO_WPCOM_API_KEY/ );
 			}
 		}
+	} );
+
+	it( 'activates the tools a skill brings once the skill is loaded', async () => {
+		await runRuntime( { prompt: 'hello', session: newSession(), env: WPCOM_ENV } );
+		const session = mocks.createdSessions[ 0 ] as unknown as FakeSession;
+		expect( session.activeToolNames ).toContain( 'wp_cli' );
+		expect( session.activeToolNames ).not.toContain( 'wpcom_request' );
+		await getCreatedTool( 'Skill' ).execute( 't', { name: 'edit-manage-remote-site' } );
+		expect( session.activeToolNames ).toContain( 'wpcom_request' );
 	} );
 
 	it( 'emits a full exchange when AgentSession returns output', async () => {

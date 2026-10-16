@@ -48,8 +48,6 @@ export const pushSiteTool = defineTool(
 		}
 	},
 	{
-		promptSnippet:
-			'Push a local site to a WordPress.com site. Requires authentication (studio auth login). Specify the remote site URL or ID and sync options (all, sqls, uploads, plugins, themes, contents).',
 		annotations: REMOTE_OVERWRITE,
 	}
 );

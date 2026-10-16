@@ -2,6 +2,7 @@
 name: edit-manage-remote-site
 description: Edit and manage one of the user's live remote sites (WordPress.com, or Pressable through the WordPress.com endpoints) with wpcom_request — answer questions about it, or change its content, templates, styles, theme, and plugins within what its plan allows. Covers the plan check, design limits by plan, API namespaces and endpoints, response-size limits, and visual verification.
 user-invokable: true
+tools: wpcom_request
 ---
 
 # Edit and Manage a Remote Site

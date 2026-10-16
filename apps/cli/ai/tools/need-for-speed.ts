@@ -48,7 +48,5 @@ export const auditPerformanceTool = defineTool(
 	},
 	{
 		annotations: READ_ONLY,
-		promptSnippet:
-			'Measure frontend performance metrics (TTFB, FCP, LCP, CLS, page weight, DOM size, JS/CSS/image/font asset breakdown) for a running site. Use this to identify performance bottlenecks and guide optimization.',
 	}
 );

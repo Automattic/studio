@@ -2,6 +2,7 @@
 name: annotate
 description: Open a browser with visual annotation tools. The user clicks elements on their site and leaves feedback — the agent reads annotations and makes changes. Use this when the user wants to point at specific elements to fix, tweak, or redesign.
 user-invokable: true
+tools: open_annotation_browser, wait_for_annotations
 ---
 
 # Visual Annotations

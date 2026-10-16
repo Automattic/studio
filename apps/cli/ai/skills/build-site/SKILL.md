@@ -2,6 +2,7 @@
 name: build-site
 description: Create, build, design, redesign, or rebuild a whole website as a WordPress site with WordPress Studio, on the user's computer — pick or create the site, settle the design and plugins as a Site Spec, then scaffold the theme, provision the site, publish the content, and polish the result. Load it before picking or creating the site.
 user-invokable: true
+tools: scaffold_theme, pick_design, present_design_options, generate_images
 ---
 
 # Build a Site

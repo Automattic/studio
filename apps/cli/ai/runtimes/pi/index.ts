@@ -42,18 +42,21 @@ import { type TSchema } from 'typebox';
 import { getBlockValidationGate, type BlockValidationGate } from 'cli/ai/block-validation-gate';
 import { withDesignSystemPreview } from 'cli/ai/chat-artifacts';
 import { isImageGenerationAvailable } from 'cli/ai/image-generation';
+import { emitEvent } from 'cli/ai/json-events';
 import { withSiteFileGuards } from 'cli/ai/site-file-guards';
-import { buildSystemPrompt, type ToolPromptContribution } from 'cli/ai/system-prompt';
+import { buildSystemPrompt } from 'cli/ai/system-prompt';
 import { resolveStudioToolDefinitions } from 'cli/ai/tools';
 import { createAskUserQuestionTool } from 'cli/ai/tools/ask-user-question';
 import { createPresentDesignOptionsTool } from 'cli/ai/tools/present-design-options';
 import { createSkillTool } from 'cli/ai/tools/skill';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
-import { getFileToolPrompt } from './file-tool-prompts';
 import { getPendingWork, type PendingWork } from './pending-work';
+import { changesPreview } from './preview-reload';
+import { SkillToolScope } from './skill-tool-scope';
 import { stripStaleImagesFromContext } from './strip-stale-images';
 import {
 	getIncompleteToolCallReason,
+	getBashCommandRefusal,
 	getPayloadLimitViolation,
 	type StudioToolPayloadGuardState,
 	updateStudioToolPayloadGuardState,
@@ -233,9 +236,13 @@ async function runAgentSessionTurn(
 	try {
 		session = await createStudioAgentSession( config, family, resolved.creds, payloadGuardState );
 		setActiveSession( session );
+		const previewAttached = typeof process.send === 'function';
 		unsubscribe = session.subscribe( ( event ) => {
 			updateStudioToolPayloadGuardState( event, payloadGuardState );
 			config.onEvent( event );
+			if ( previewAttached && changesPreview( event ) ) {
+				emitEvent( { type: 'preview.reload', timestamp: new Date().toISOString() } );
+			}
 		} );
 
 		if ( controller.signal.aborted ) {
@@ -279,17 +286,19 @@ async function createStudioAgentSession(
 		isImageGenerationAvailable(),
 	] );
 
+	const skillScope = new SkillToolScope( config.session );
+	let activateTools: () => void = () => {};
 	const tools = buildAgentTools(
 		config,
 		chatArtifactsEnabled,
 		imageGenerationEnabled,
-		visionEnabled
+		visionEnabled,
+		( skillName ) => {
+			skillScope.unlock( skillName );
+			activateTools();
+		}
 	);
-	const systemPrompt = buildSystemPrompt( {
-		chatArtifactsEnabled,
-		userInstructions,
-		tools: tools.map( toolPromptContribution ),
-	} );
+	const systemPrompt = buildSystemPrompt( { userInstructions } );
 
 	const pendingWork = getPendingWork( config.session );
 	const blockValidationGate = getBlockValidationGate( config.session );
@@ -326,6 +335,10 @@ async function createStudioAgentSession(
 		sessionStartEvent: { type: 'session_start', reason: 'startup' },
 	} );
 
+	const allToolNames = toolDefinitions.map( ( tool ) => tool.name );
+	activateTools = () =>
+		result.session.setActiveToolsByName( skillScope.activeToolNames( allToolNames ) );
+	activateTools();
 	return result.session;
 }
 
@@ -559,14 +572,6 @@ function createSettingsManager( _env: Record< string, string > ): SettingsManage
 	);
 }
 
-// pi's tools declare a prompt snippet and so do Studio's (see define-tool.ts);
-// the AgentTool type does not carry it, hence the cast.
-type ToolPromptFields = { promptSnippet?: string };
-
-function toolPromptContribution( tool: AgentToolAny ): ToolPromptContribution {
-	return { name: tool.name, promptSnippet: ( tool as ToolPromptFields ).promptSnippet };
-}
-
 const BLOCK_VALIDATION_GATED_TOOLS = new Set( [ 'wp_cli', 'take_screenshot', 'inspect_design' ] );
 
 function toToolDefinition(
@@ -582,15 +587,15 @@ function toToolDefinition(
 		parameters: tool.parameters,
 		prepareArguments: tool.prepareArguments,
 		executionMode: tool.executionMode,
-		promptSnippet: ( tool as ToolPromptFields ).promptSnippet,
 		execute: async ( toolCallId, params, signal, onUpdate ) => {
 			const incompleteToolCallReason = getIncompleteToolCallReason( payloadGuardState, toolCallId );
 			if ( incompleteToolCallReason ) {
 				throw new Error( incompleteToolCallReason );
 			}
-			const payloadLimitViolation = getPayloadLimitViolation( tool.name, params );
-			if ( payloadLimitViolation ) {
-				throw new Error( payloadLimitViolation );
+			const refusal =
+				getPayloadLimitViolation( tool.name, params ) ?? getBashCommandRefusal( tool.name, params );
+			if ( refusal ) {
+				throw new Error( refusal );
 			}
 			if ( ( tool as { settlesPendingWork?: boolean } ).settlesPendingWork ) {
 				await pendingWork.settle();
@@ -643,7 +648,8 @@ function buildAgentTools(
 	config: ResolvedStudioAgentTurnConfig,
 	chatArtifactsEnabled: boolean,
 	imageGenerationEnabled: boolean,
-	visionEnabled: boolean
+	visionEnabled: boolean,
+	onSkillLoad: ( skillName: string ) => void
 ): AgentToolAny[] {
 	const askUserTool: AgentToolAny[] = config.onAskUser
 		? [ createAskUserQuestionTool( config.onAskUser ) ]
@@ -659,13 +665,12 @@ function buildAgentTools(
 			  ]
 			: [];
 
-	const skillToolDef = createSkillTool();
+	const skillToolDef = createSkillTool( ( skill ) => onSkillLoad( skill.name ) );
 	const skillTool: AgentToolAny[] = skillToolDef ? [ skillToolDef ] : [];
 
-	// pi's tools are registered under Studio's names; the prompt text for them
-	// is Studio's too (file-tool-prompts.ts), so nothing of pi's wording leaks.
+	// pi's tools are registered under Studio's names.
 	const renameTool = < S extends TSchema >( tool: AgentTool< S >, name: string ): AgentTool< S > =>
-		( { ...tool, name, label: name, ...getFileToolPrompt( name ) } ) as AgentTool< S >;
+		( { ...tool, name, label: name } ) as AgentTool< S >;
 
 	const designSystemPreview = < TTool extends AgentToolAny >( tool: TTool ) =>
 		withSiteFileGuards(

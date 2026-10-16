@@ -96,9 +96,7 @@ function createTools(
 		},
 		async ( args ) =>
 			textResult(
-				args.skill
-					? renderSkill( args.skill )
-					: buildSystemPrompt( { external: true, tools: [ ...definitions, designOptions ] } )
+				args.skill ? renderSkill( args.skill ) : buildSystemPrompt( { external: true } )
 			),
 		{ annotations: READ_ONLY }
 	);

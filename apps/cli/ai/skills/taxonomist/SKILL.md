@@ -2,6 +2,7 @@
 name: taxonomist
 description: Analyze and optimize a WordPress site's category taxonomy. Exports all posts, uses AI to suggest an improved category structure — merging duplicates, retiring dead categories, creating missing ones, writing descriptions, and re-categorizing posts. Run this when the user wants to clean up or improve their categories.
 user-invokable: true
+tools: install_taxonomy_scripts
 ---
 
 # Taxonomist

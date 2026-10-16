@@ -249,26 +249,6 @@ describe( 'Studio AI MCP tools', () => {
 		expect( text ).toContain( 'cannot be asked in this session' );
 	} );
 
-	it( 'exposes refresh_browser only when a Studio UI is attached', () => {
-		const names = resolveStudioToolDefinitions().map( ( tool ) => tool.name );
-		expect( names ).not.toContain( 'refresh_browser' );
-		const namesWithArtifacts = resolveStudioToolDefinitions( {
-			emitChatArtifacts: true,
-		} ).map( ( tool ) => tool.name );
-		expect( namesWithArtifacts ).toContain( 'refresh_browser' );
-	} );
-
-	it( 'refresh_browser emits a preview.reload event and is registered', async () => {
-		expect( studioToolDefinitions.map( ( tool ) => tool.name ) ).toContain( 'refresh_browser' );
-		const emitEventMock = vi.mocked( emitEvent );
-		emitEventMock.mockClear();
-		const result = await getTool( 'refresh_browser' ).rawHandler( {} as never );
-		expect( getTextContent( result ) ).toBe( 'Reloaded the site preview.' );
-		expect( emitEventMock ).toHaveBeenCalledWith(
-			expect.objectContaining( { type: 'preview.reload' } )
-		);
-	} );
-
 	it( 'deletes a site with progress threaded to the tool logger', async () => {
 		const result = await getTool( 'site_delete' ).rawHandler( {
 			nameOrPath: 'My Site',

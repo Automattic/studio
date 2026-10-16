@@ -269,8 +269,6 @@ export const wpcomRequestTool = defineTool(
 		}
 	},
 	{
-		promptSnippet:
-			'Manage a WordPress.com site through WordPress REST API and WordPress.com REST API endpoints, passing its ID as siteId.',
 		annotations: REMOTE_OVERWRITE,
 	}
 );

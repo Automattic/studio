@@ -55,8 +55,6 @@ export const exportSiteTool = defineTool(
 		}
 	},
 	{
-		promptSnippet:
-			'Export a local site to a backup file. Supports full-site (.zip, .tar.gz) or database-only (.sql) exports.',
 		annotations: LOCAL_OVERWRITE,
 	}
 );

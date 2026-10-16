@@ -182,7 +182,6 @@ export const runWpCliTool = defineTool(
 		}
 	},
 	{
-		promptSnippet: 'Run WP-CLI commands on a running site',
 		annotations: REMOTE_OVERWRITE,
 	}
 );

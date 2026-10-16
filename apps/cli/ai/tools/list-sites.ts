@@ -16,5 +16,5 @@ export const listSitesTool = defineTool(
 			);
 		}
 	},
-	{ promptSnippet: 'List all local WordPress sites with their status', annotations: READ_ONLY }
+	{ annotations: READ_ONLY }
 );

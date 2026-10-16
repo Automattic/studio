@@ -46,8 +46,6 @@ export const pullSiteTool = defineTool(
 		}
 	},
 	{
-		promptSnippet:
-			'Pull a WordPress.com site to a local site. Requires authentication. Specify the remote site URL or ID and sync options.',
 		annotations: REMOTE_OVERWRITE,
 	}
 );

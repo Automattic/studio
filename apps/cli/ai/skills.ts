@@ -8,6 +8,9 @@ export interface Skill {
 	// A top-level skill: something users ask for directly (`user-invokable: true`),
 	// as opposed to a runbook other skills load. Plugins expose these as their own skills.
 	userInvokable: boolean;
+	// Tools this skill brings (`tools: a, b`). A tool any skill declares is
+	// available only once a skill that declares it is loaded.
+	tools: string[];
 }
 
 function parseSkillFile( filePath: string ): Skill | null {
@@ -21,7 +24,11 @@ function parseSkillFile( filePath: string ): Skill | null {
 	if ( ! name || ! description ) return null;
 
 	const userInvokable = /^user-invokable:\s*true\s*$/m.test( frontmatter );
-	return { name, description, body: body.trim(), userInvokable };
+	const tools = ( frontmatter.match( /^tools:\s*(.+)$/m )?.[ 1 ] ?? '' )
+		.split( ',' )
+		.map( ( tool ) => tool.trim() )
+		.filter( Boolean );
+	return { name, description, body: body.trim(), userInvokable, tools };
 }
 
 let cachedSkills: Skill[] | null = null;
@@ -73,4 +80,9 @@ export function loadSkills(): Skill[] {
 
 export function findSkill( name: string ): Skill | undefined {
 	return loadSkills().find( ( skill ) => skill.name === name );
+}
+
+// Every tool some skill brings; these start inactive.
+export function getSkillScopedToolNames(): Set< string > {
+	return new Set( loadSkills().flatMap( ( skill ) => skill.tools ) );
 }

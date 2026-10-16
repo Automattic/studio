@@ -31,7 +31,6 @@ export const deleteSiteTool = defineTool(
 		}
 	},
 	{
-		promptSnippet: 'Delete a site from Studio and optionally move its files to trash',
 		annotations: LOCAL_OVERWRITE,
 	}
 );

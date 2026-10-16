@@ -1,6 +1,7 @@
 ---
 name: visual-design
 description: Plan and execute high-quality visual direction for site creation, redesign, layout, typography, color, motion, and visual polish.
+tools: scaffold_theme, pick_design
 ---
 
 # Visual Design

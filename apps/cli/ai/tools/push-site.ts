@@ -1,7 +1,7 @@
 import { Type } from 'typebox';
 import { runCommand as runPushCommand } from 'cli/commands/push';
 import { parseSyncOptions } from 'cli/lib/sync-api';
-import { defineTool } from './define-tool';
+import { defineTool, REMOTE_OVERWRITE } from './define-tool';
 import { captureCommandOutput, resolveSite, textResult } from './utils';
 
 export const pushSiteTool = defineTool(
@@ -50,5 +50,6 @@ export const pushSiteTool = defineTool(
 	{
 		promptSnippet:
 			'Push a local site to a WordPress.com site. Requires authentication (studio auth login). Specify the remote site URL or ID and sync options (all, sqls, uploads, plugins, themes, contents).',
+		annotations: REMOTE_OVERWRITE,
 	}
 );

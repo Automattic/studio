@@ -1,5 +1,5 @@
 import { emitEvent } from 'cli/ai/json-events';
-import { defineTool } from './define-tool';
+import { defineTool, LOCAL_CHANGE } from './define-tool';
 import { textResult } from './utils';
 
 export const refreshBrowserTool = defineTool(
@@ -13,5 +13,6 @@ export const refreshBrowserTool = defineTool(
 	{
 		promptSnippet:
 			'Reload the in-app site preview so the user sees your latest changes. Reloads in place; never stop/start the site to refresh the preview.',
+		annotations: LOCAL_CHANGE,
 	}
 );

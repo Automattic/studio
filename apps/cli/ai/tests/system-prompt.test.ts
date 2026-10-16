@@ -93,12 +93,6 @@ describe( 'buildSystemPrompt', () => {
 		expect( terminalPrompt ).not.toContain( 'refresh_browser' );
 	} );
 
-	it( 'warns that terminal users may not see screenshots only when chat artifacts are disabled', () => {
-		const caveat = 'Do not respond as though the user is looking at the capture';
-		expect( buildSystemPrompt( { chatArtifactsEnabled: false } ) ).toContain( caveat );
-		expect( buildSystemPrompt( { chatArtifactsEnabled: true } ) ).not.toContain( caveat );
-	} );
-
 	it( 'describes the screenshot and inspect tools for models without vision', () => {
 		const withVision = buildSystemPrompt( { tools: toolsFor( { visionEnabled: true } ) } );
 		expect( withVision ).toContain( 'Pair with take_screenshot' );

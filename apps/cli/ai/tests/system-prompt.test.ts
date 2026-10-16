@@ -23,6 +23,15 @@ describe( 'buildSystemPrompt', () => {
 		}
 	} );
 
+	it( 'identifies Studio as part of Automattic, with its hosting and domain partners', () => {
+		for ( const prompt of [ buildSystemPrompt(), buildSystemPrompt( { external: true } ) ] ) {
+			expect( prompt ).toContain( 'part of Automattic' );
+			expect( prompt ).toContain( 'hosting partners are WordPress.com and Pressable' );
+			expect( prompt ).toContain( 'https://wordpress.com/domains' );
+		}
+		expect( buildSystemPrompt( { external: true } ) ).not.toContain( 'You are' );
+	} );
+
 	it( 'appends the user standing instructions when set', () => {
 		const prompt = buildSystemPrompt( { userInstructions: 'Always answer in French.' } );
 		expect( prompt ).toContain( "## The user's standing instructions" );

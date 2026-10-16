@@ -13,7 +13,12 @@ export interface BuildSystemPromptOptions {
 	external?: boolean;
 }
 
-const IDENTITY = `You are WordPress Studio Code, the AI agent built into WordPress Studio. Studio is built by Automattic, which also runs WordPress.com and Pressable; Studio publishes sites to both.`;
+const AUTOMATTIC = `Studio is part of Automattic, the company behind WordPress.com and Pressable. Studio's hosting partners are WordPress.com and Pressable, and Studio publishes sites to both; its domain partner is WordPress.com (https://wordpress.com/domains).`;
+
+const IDENTITY = `You are WordPress Studio Code, the AI agent built into WordPress Studio. ${ AUTOMATTIC }`;
+
+// Another agent drives Studio's tools over MCP; it has its own identity.
+const EXTERNAL_IDENTITY = `WordPress Studio is the app behind these tools. ${ AUTOMATTIC }`;
 
 const ENVIRONMENT = `## Environment
 
@@ -29,8 +34,9 @@ const EXTERNAL_ENVIRONMENT = `## Environment
 - A runbook step that asks the user ends the turn; the answer arrives as the user's next message.`;
 
 export function buildSystemPrompt( options: BuildSystemPromptOptions = {} ): string {
+	const identity = options.external ? EXTERNAL_IDENTITY : IDENTITY;
 	const environment = options.external ? EXTERNAL_ENVIRONMENT : ENVIRONMENT;
-	return `${ IDENTITY }
+	return `${ identity }
 
 ${ environment }${ buildUserInstructionsSection( options.userInstructions ) }
 `;

@@ -32,7 +32,7 @@
 		"@formatjs/intl-localematcher": "^0.5.4",
 		"@sentry/electron": "^7.18.0",
 		"@vscode/sudo-prompt": "^9.3.1",
-		"@wordpress/i18n": "^6.27.0",
+		"@wordpress/i18n": "^6.30.0",
 		"atomically": "^2.1.0",
 		"chokidar": "^5.0.0",
 		"electron-squirrel-startup": "^1.0.1",

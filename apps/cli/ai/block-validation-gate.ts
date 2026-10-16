@@ -280,7 +280,9 @@ export class BlockValidationGate {
 			return;
 		}
 		const tracked: Tracked = { siteRoot };
-		tracked.running = this.validateFile( filePath, siteRoot ).catch( () => undefined );
+		tracked.running = this.validateFile( filePath, siteRoot ).catch( ( error: unknown ) =>
+			notValidated( filePath, undefined, error )
+		);
 		this.files.set( filePath, tracked );
 	}
 
@@ -300,7 +302,9 @@ export class BlockValidationGate {
 			}
 			if ( ! result || result.contentHash !== hash( current ) ) {
 				tracked.running = undefined;
-				result = await this.validateFile( filePath, tracked.siteRoot ).catch( () => undefined );
+				result = await this.validateFile( filePath, tracked.siteRoot ).catch( ( error: unknown ) =>
+					notValidated( filePath, current, error )
+				);
 			}
 			tracked.running = undefined;
 			tracked.result = result;
@@ -419,6 +423,21 @@ async function validateWithRunningSite(
 		return undefined;
 	}
 	return validateBlockMarkupFile( filePath, getSiteUrl( site ) );
+}
+
+/** A validation that could not run is reported, so a file is never passed over in silence. */
+function notValidated(
+	filePath: string,
+	content: string | undefined,
+	error: unknown
+): FileValidation {
+	const label = filePath.split( path.sep ).slice( -2 ).join( '/' );
+	return {
+		contentHash: hash( content ?? '' ),
+		summary: `${ label }: not validated (${
+			error instanceof Error ? error.message : String( error )
+		})`,
+	};
 }
 
 const gates = new WeakMap< object, BlockValidationGate >();

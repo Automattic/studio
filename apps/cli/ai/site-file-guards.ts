@@ -9,6 +9,9 @@
  */
 import { existsSync, readdirSync, readFileSync, statSync } from 'fs';
 import path from 'path';
+import { resolveSite } from 'cli/ai/tools/utils';
+import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
+import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import type { BlockValidationGate } from 'cli/ai/block-validation-gate';
 
 const STUDIO_THEME_MARKER = 'scaffolded by Studio Code';
@@ -260,6 +263,29 @@ export async function getSiteFileWriteNotes( siteFile: SiteFile ): Promise< stri
 	return notes;
 }
 
+/**
+ * WordPress caches the list of a theme's pattern files (outside theme
+ * development mode), so a pattern file added or changed would not register.
+ * Clears that theme's cache after a write to its patterns/ directory.
+ */
+export async function clearThemePatternCache( siteFile: SiteFile ): Promise< void > {
+	const { siteRoot, theme } = siteFile;
+	if ( ! theme || ! /^patterns\/[^/]+\.php$/.test( theme.file ) ) {
+		return;
+	}
+	const site = await resolveSite( siteRoot );
+	try {
+		await connectToDaemon();
+		await using command = await runWpCliCommand( site, [
+			'eval',
+			`wp_get_theme( ${ JSON.stringify( theme.slug ) } )->delete_pattern_cache();`,
+		] );
+		await command.response.exitCode;
+	} finally {
+		await disconnectFromDaemon();
+	}
+}
+
 interface ToolResult {
 	content?: Array< { type: string; text?: string } >;
 }
@@ -288,6 +314,9 @@ export function withSiteFileGuards< TTool extends FileWritingTool >(
 			const result = ( await tool.execute( toolCallId, params, ...rest ) ) as ToolResult;
 			if ( siteFile && gate ) {
 				gate.track( path.join( siteFile.siteRoot, siteFile.relativePath ), siteFile.siteRoot );
+			}
+			if ( siteFile ) {
+				await clearThemePatternCache( siteFile ).catch( () => undefined );
 			}
 			const notes = siteFile ? await getSiteFileWriteNotes( siteFile ).catch( () => [] ) : [];
 			if ( ! notes.length || ! result || typeof result !== 'object' ) {

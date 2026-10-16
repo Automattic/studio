@@ -23,11 +23,6 @@ const WP_CONFIG_TRANSFORMER_PATH = path.resolve(
 
 const DEFAULT_WP_CONFIG_CONSTANTS = { DB_NAME: 'wordpress' } as const;
 
-// Defined only when the site has not set them itself. Theme development mode
-// makes new theme pattern files and theme.json edits apply on the next load
-// instead of waiting out core's caches.
-const SITE_DEFAULT_WP_CONFIG_CONSTANTS = { WP_DEVELOPMENT_MODE: 'theme' } as const;
-
 type Logger = ( ...args: Parameters< typeof console.log > ) => void;
 
 export async function ensureWpConfig(
@@ -50,11 +45,6 @@ require_once $transformer_path;
 
 $transformer = WP_Config_Transformer::from_file( $wp_config_path );
 $transformer->define_constants( $constants );
-foreach ( json_decode( $argv[4] ?? '', true ) ?: array() as $name => $value ) {
-	if ( ! $transformer->constant_exists( $name ) ) {
-		$transformer->define_constant( $name, $value );
-	}
-}
 $transformer->to_file( $wp_config_path );
 `;
 
@@ -84,7 +74,6 @@ $transformer->to_file( $wp_config_path );
 				WP_CONFIG_TRANSFORMER_PATH,
 				wpConfigPath,
 				JSON.stringify( constants ),
-				JSON.stringify( SITE_DEFAULT_WP_CONFIG_CONSTANTS ),
 			],
 			{ phpVersion, signal }
 		);

@@ -2,15 +2,31 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'fs';
 import { DatabaseSync } from 'node:sqlite';
 import os from 'os';
 import path from 'path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { makeAnchorsHomeRelative } from 'cli/ai/block-validation-gate';
 import {
+	clearThemePatternCache,
 	getSiteFileWriteNotes,
 	getSiteFileWriteRefusal,
 	lintThemeCss,
 	resolveSiteFile,
 	withSiteFileGuards,
 } from 'cli/ai/site-file-guards';
+import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
+
+vi.mock( 'cli/ai/tools/utils', () => ( {
+	resolveSite: vi.fn( async ( sitePath: string ) => ( { path: sitePath } ) ),
+} ) );
+vi.mock( 'cli/lib/daemon-client', () => ( {
+	connectToDaemon: vi.fn(),
+	disconnectFromDaemon: vi.fn(),
+} ) );
+vi.mock( 'cli/lib/run-wp-cli-command', () => ( {
+	runWpCliCommand: vi.fn( async () => ( {
+		response: { exitCode: Promise.resolve( 0 ) },
+		[ Symbol.asyncDispose ]: async () => undefined,
+	} ) ),
+} ) );
 
 let site: string;
 
@@ -171,5 +187,24 @@ describe( 'home-relative anchors', () => {
 		expect( content ).toContain( 'href="/#visit"' );
 		expect( content ).toContain( 'href="/about"' );
 		expect( count ).toBe( 2 );
+	} );
+} );
+
+describe( 'clearThemePatternCache', () => {
+	it( 'clears the cache of the theme whose pattern file changed, and only then', async () => {
+		vi.mocked( runWpCliCommand ).mockClear();
+		write( 'wp-includes/version.php', '' );
+		write( 'wp-content/index.php', '' );
+		await clearThemePatternCache(
+			resolveSiteFile( path.join( site, 'wp-content/themes/acme/style.css' ) )!
+		);
+		expect( runWpCliCommand ).not.toHaveBeenCalled();
+		await clearThemePatternCache(
+			resolveSiteFile( path.join( site, 'wp-content/themes/acme/patterns/hero.php' ) )!
+		);
+		expect( runWpCliCommand ).toHaveBeenCalledWith( { path: site }, [
+			'eval',
+			'wp_get_theme( "acme" )->delete_pattern_cache();',
+		] );
 	} );
 } );

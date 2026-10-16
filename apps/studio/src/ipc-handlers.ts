@@ -28,7 +28,6 @@ import {
 } from '@studio/common/ai/sessions/manage';
 import { findAiSessionOwnerSite } from '@studio/common/ai/sessions/owner-site';
 import { readAiSessionPlacement } from '@studio/common/ai/sessions/placement';
-import { resolveMigratedAiSessionsPath } from '@studio/common/ai/sessions/root-migration';
 import {
 	appendModelChangeEntry,
 	appendStudioEntry,
@@ -64,8 +63,8 @@ import { generateNumberedName, generateSiteName } from '@studio/common/lib/gener
 import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { isMultisite } from '@studio/common/lib/is-multisite';
+import { resolveLocalMediaFile } from '@studio/common/lib/local-media';
 import { checkMaintenanceFile } from '@studio/common/lib/maintenance-file';
-import { getLocalMediaMimeType } from '@studio/common/lib/media-mime';
 import { getAuthenticationUrl, revokeAuthToken } from '@studio/common/lib/oauth';
 import { decodePassword } from '@studio/common/lib/passwords';
 import { isTracksEventName } from '@studio/common/lib/record-tracks-event';
@@ -1161,33 +1160,17 @@ export async function readLocalMediaFile(
 	_event: IpcMainInvokeEvent,
 	path: string
 ): Promise< { name: string; mimeType: string; data: ArrayBuffer } > {
-	let resolvedPath = path;
-	let stats: fs.Stats;
-	try {
-		stats = await fsPromises.stat( resolvedPath );
-	} catch ( error ) {
-		if ( ! isErrnoException( error ) || error.code !== 'ENOENT' ) {
-			throw error;
-		}
-		resolvedPath = resolveMigratedAiSessionsPath( path );
-		if ( resolvedPath === path ) {
-			throw error;
-		}
-		stats = await fsPromises.stat( resolvedPath );
+	const media = await resolveLocalMediaFile( path, [
+		getSessionsDirectory(),
+		...( await readSitePaths() ),
+	] );
+	if ( ! media ) {
+		throw new Error( 'Local media file not found.' );
 	}
-	if ( ! stats.isFile() ) {
-		throw new Error( 'Local media path must be a file.' );
-	}
-
-	const mimeType = getLocalMediaMimeType( path );
-	if ( ! mimeType ) {
-		throw new Error( 'Local media file type is not supported.' );
-	}
-
-	const buffer = await fsPromises.readFile( resolvedPath );
+	const buffer = await fsPromises.readFile( media.path );
 	return {
 		name: nodePath.basename( path ),
-		mimeType,
+		mimeType: media.mimeType,
 		data: buffer.buffer.slice(
 			buffer.byteOffset,
 			buffer.byteOffset + buffer.byteLength

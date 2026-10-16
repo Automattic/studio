@@ -4,7 +4,6 @@
 import { BrowserWindow, IpcMainInvokeEvent, shell } from 'electron';
 import { existsSync } from 'fs';
 import { normalize } from 'path';
-import { resolveMigratedAiSessionsPath } from '@studio/common/ai/sessions/root-migration';
 import { readThemeDetails } from '@studio/common/sites/site-identity';
 import { readSitePath } from '@studio/common/sites/site-path';
 import { readFile } from 'atomically';
@@ -18,7 +17,6 @@ import {
 	loadThemeDetails,
 	openURL,
 	readBlueprintFile,
-	readLocalMediaFile,
 } from 'src/ipc-handlers';
 import { getMainWindow } from 'src/main-window';
 import { createSiteViaCli } from 'src/modules/cli/lib/cli-site-creator';
@@ -30,9 +28,6 @@ vi.mock( 'fs/promises', async () => {
 } );
 vi.mock( 'fs-extra' );
 vi.mock( '@studio/common/lib/fs-utils' );
-vi.mock( '@studio/common/ai/sessions/root-migration', () => ( {
-	resolveMigratedAiSessionsPath: vi.fn( ( path: string ) => path ),
-} ) );
 vi.mock( '@sentry/electron/main', () => ( {
 	captureException: vi.fn(),
 	captureMessage: vi.fn(),
@@ -257,21 +252,6 @@ describe( 'getFileSize', () => {
 		expect( warnSpy ).toHaveBeenCalledWith( expect.stringContaining( 'advanced-cache.php' ) );
 
 		warnSpy.mockRestore();
-	} );
-} );
-
-describe( 'readLocalMediaFile', () => {
-	it( 'reads artifacts from their migrated sessions path', async () => {
-		const legacyPath = '/legacy/sessions/session.screenshots/screenshot.jpg';
-		const migratedPath = '/.studio/sessions/session.screenshots/screenshot.jpg';
-		vol.fromJSON( { [ migratedPath ]: 'image' } );
-		vi.mocked( resolveMigratedAiSessionsPath ).mockReturnValueOnce( migratedPath );
-
-		const file = await readLocalMediaFile( mockIpcMainInvokeEvent, legacyPath );
-
-		expect( resolveMigratedAiSessionsPath ).toHaveBeenCalledWith( legacyPath );
-		expect( file.name ).toBe( 'screenshot.jpg' );
-		expect( Buffer.from( file.data ).toString() ).toBe( 'image' );
 	} );
 } );
 

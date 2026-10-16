@@ -6,7 +6,7 @@
  * promptfoo config, not here.
  */
 
-import { mkdirSync, writeFileSync, writeSync as fsWriteSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, writeFileSync, writeSync as fsWriteSync } from 'node:fs';
 import { rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -33,6 +33,7 @@ import {
 	resolveInitialAiProvider,
 	resolveUnavailableAiProvider,
 } from 'cli/ai/auth';
+import { captureTurnOutcome, fingerprintSites, type TurnOutcome } from 'cli/ai/eval-outcome';
 import { runStudioAgentTurn } from 'cli/ai/runtimes/pi';
 import { formatActiveSitePrefix } from 'cli/ai/site-selection';
 import { runCommand as runCreateSiteCommand } from 'cli/commands/site/create';
@@ -90,6 +91,9 @@ interface EvalRunnerInput {
 	timeoutMs?: number;
 	model?: AiModelId;
 	seed?: EvalSeed;
+	// The site the case asks for. A leftover from an earlier run is deleted
+	// before the turn, so the turn starts without it.
+	siteName?: string;
 }
 
 interface Inspection {
@@ -103,6 +107,7 @@ interface SeededFixtures {
 	cleanup: () => Promise< void >;
 	inspect: () => Promise< Inspection[] >;
 	promptPrefix?: string;
+	activeSitePath?: string;
 }
 
 /**
@@ -277,7 +282,7 @@ async function seedFixtures( seed: EvalSeed ): Promise< SeededFixtures > {
 			}
 		}
 	};
-	return { cleanup, inspect, promptPrefix };
+	return { cleanup, inspect, promptPrefix, activeSitePath };
 }
 
 function extractToolCalls( event: AgentSessionEvent ) {
@@ -402,6 +407,7 @@ function readInput(): EvalRunnerInput {
 		timeoutMs: typeof vars.timeoutMs === 'number' ? vars.timeoutMs : undefined,
 		model,
 		seed,
+		siteName: typeof vars.siteName === 'string' ? vars.siteName : undefined,
 	};
 }
 
@@ -468,6 +474,7 @@ async function runEval( input: EvalRunnerInput ) {
 
 	let seeded: SeededFixtures | null = null;
 	let inspections: Inspection[] = [];
+	let outcome: TurnOutcome | { error: string } | null = null;
 	let prompt = input.prompt.trim();
 	if ( input.seed ) {
 		seeded = await seedFixtures( input.seed );
@@ -585,6 +592,14 @@ async function runEval( input: EvalRunnerInput ) {
 			onEvent: handleEvent,
 			...( input.model ? { model: input.model } : {} ),
 		} );
+	if ( input.siteName ) {
+		const { sites } = await readCliConfig();
+		for ( const leftover of sites.filter( ( site ) => site.name === input.siteName ) ) {
+			await runDeleteSiteCommand( leftover.path, true, new Logger() );
+		}
+	}
+	const sitesBeforeTurn = await fingerprintSites();
+	const turnStartedAt = Date.now();
 	let query = runTurn( prompt );
 	phaseTimingsMs.start_ai_agent_ms = Date.now() - phaseStartedAt;
 
@@ -611,6 +626,14 @@ async function runEval( input: EvalRunnerInput ) {
 		error = caught instanceof Error ? caught.message : String( caught );
 	} finally {
 		clearTimeout( timeout );
+		outcome = await captureTurnOutcome(
+			sitesBeforeTurn,
+			seeded?.activeSitePath,
+			turnStartedAt,
+			mkdtempSync( path.join( os.tmpdir(), 'studio-eval-outcome-' ) )
+		).catch( ( caught ) => ( {
+			error: caught instanceof Error ? caught.message : String( caught ),
+		} ) );
 		if ( seeded ) {
 			inspections = await seeded.inspect().catch( () => [] );
 			await seeded.cleanup().catch( () => undefined );
@@ -635,6 +658,7 @@ async function runEval( input: EvalRunnerInput ) {
 		firstToolError,
 		textSegments,
 		inspections,
+		outcome,
 	};
 }
 

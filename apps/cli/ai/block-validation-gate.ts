@@ -89,6 +89,28 @@ function attributePaths( html: string ): Set< string > {
 	return paths;
 }
 
+function isJsonContent( content: string ): boolean {
+	return /^\s*{/.test( content );
+}
+
+/**
+ * Post content that opens as JSON — global styles, navigation data — must
+ * parse: WordPress drops content it cannot decode without saying so.
+ */
+function jsonContentProblem( content: string, source: string ): string | undefined {
+	if ( ! isJsonContent( content ) ) {
+		return undefined;
+	}
+	try {
+		JSON.parse( content );
+		return undefined;
+	} catch ( error ) {
+		return `${ source } is not valid JSON, and WordPress ignores content it cannot decode: ${
+			error instanceof Error ? error.message : String( error )
+		}`;
+	}
+}
+
 function oneLine( html: string, length: number ): string {
 	const flat = html.replace( /\s+/g, ' ' ).trim();
 	return flat.length > length ? `${ flat.slice( 0, length ) }…` : flat;
@@ -327,6 +349,12 @@ export class BlockValidationGate {
 			if ( ! ( await stat( filePath ).catch( () => undefined ) )?.isFile() ) {
 				continue;
 			}
+			const content = await readFile( filePath, 'utf8' );
+			if ( isJsonContent( content ) ) {
+				const jsonProblem = jsonContentProblem( content, arg );
+				problems.push( ...( jsonProblem ? [ jsonProblem ] : [] ) );
+				continue;
+			}
 			const result = await this.resultFor( filePath, siteRoot );
 			if ( result?.problem ) {
 				problems.push( result.problem );
@@ -336,6 +364,10 @@ export class BlockValidationGate {
 		const inline = args
 			.find( ( value ) => value.startsWith( POST_CONTENT ) )
 			?.slice( POST_CONTENT.length );
+		const jsonProblem = inline !== undefined && jsonContentProblem( inline, '--post_content' );
+		if ( jsonProblem ) {
+			return { problems: [ ...problems, jsonProblem ], command };
+		}
 		if ( ! inline?.includes( '<!-- wp:' ) || ! command.includes( inline ) ) {
 			return { problems, command };
 		}

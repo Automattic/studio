@@ -43,7 +43,7 @@ import {
 } from 'cli/ai/auth';
 import { captureTurnOutcome, fingerprintSites, type TurnOutcome } from 'cli/ai/eval-outcome';
 import { runStudioAgentTurn } from 'cli/ai/runtimes/pi';
-import { formatActiveSitePrefix } from 'cli/ai/site-selection';
+import { formatActiveSitePrefix, NO_ACTIVE_SITE_PREFIX } from 'cli/ai/site-selection';
 import { runCommand as runCreateSiteCommand } from 'cli/commands/site/create';
 import { runCommand as runDeleteSiteCommand } from 'cli/commands/site/delete';
 import { Mode as StopMode, runCommand as runStopSiteCommand } from 'cli/commands/site/stop';
@@ -159,30 +159,46 @@ async function isolateSiteRegistry() {
 	process.env.E2E_CLI_CONFIG_PATH = mkdtempSync( path.join( os.tmpdir(), REGISTRY_PREFIX ) );
 }
 
-// A stopped site the request is not about, so the outcome can show whether the
-// turn left the user's other sites alone.
-async function createBystanderSite(): Promise< string > {
-	const bystanderPath = path.join( STUDIO_SITES_ROOT, `eval-bystander-${ process.pid }` );
-	try {
-		await runCreateSiteCommand(
-			bystanderPath,
-			{
-				name: 'Eval Bystander',
-				wpVersion: 'latest',
-				phpVersion: DEFAULT_PHP_VERSION,
-				fileAccess: SITE_FILE_ACCESS_SITE_DIRECTORY,
-				enableHttps: false,
-				noStart: true,
-				skipBrowser: true,
-				skipLogDetails: true,
-			},
-			new Logger()
+// Stopped sites the request is not about, as a user with a few sites has, so
+// the outcome can show whether the turn left the user's other sites alone.
+const BYSTANDER_SITES = [ 'Portfolio', 'Client Work' ];
+
+async function createBystanderSites(): Promise< string[] > {
+	const created: string[] = [];
+	for ( const name of BYSTANDER_SITES ) {
+		const bystanderPath = path.join(
+			STUDIO_SITES_ROOT,
+			`eval-bystander-${ siteSlug( name ) }-${ process.pid }`
 		);
-	} catch ( error ) {
-		await rm( bystanderPath, { recursive: true, force: true } );
-		throw error;
+		try {
+			await runCreateSiteCommand(
+				bystanderPath,
+				{
+					name,
+					wpVersion: 'latest',
+					phpVersion: DEFAULT_PHP_VERSION,
+					fileAccess: SITE_FILE_ACCESS_SITE_DIRECTORY,
+					enableHttps: false,
+					noStart: true,
+					skipBrowser: true,
+					skipLogDetails: true,
+				},
+				new Logger()
+			);
+		} catch ( error ) {
+			await rm( bystanderPath, { recursive: true, force: true } );
+			await deleteSites( created );
+			throw error;
+		}
+		created.push( bystanderPath );
 	}
-	return bystanderPath;
+	return created;
+}
+
+async function deleteSites( sitePaths: string[] ): Promise< void > {
+	for ( const sitePath of sitePaths ) {
+		await runDeleteSiteCommand( sitePath, true, new Logger() ).catch( () => undefined );
+	}
 }
 
 async function seedFixtures( seed: EvalSeed ): Promise< SeededFixtures > {
@@ -539,7 +555,7 @@ async function runEval( input: EvalRunnerInput ) {
 	};
 
 	await isolateSiteRegistry();
-	const bystanderPath = await createBystanderSite();
+	const bystanderPaths = await createBystanderSites();
 
 	let seeded: SeededFixtures | null = null;
 	let inspections: Inspection[] = [];
@@ -547,10 +563,8 @@ async function runEval( input: EvalRunnerInput ) {
 	let prompt = input.prompt.trim();
 	if ( input.seed ) {
 		seeded = await seedFixtures( input.seed );
-		if ( seeded.promptPrefix ) {
-			prompt = `${ seeded.promptPrefix }\n\n${ prompt }`;
-		}
 	}
+	prompt = `${ seeded?.promptPrefix ?? NO_ACTIVE_SITE_PREFIX }\n\n${ prompt }`;
 
 	phaseStartedAt = Date.now();
 	const sessionDirEnv = process.env.STUDIO_EVAL_SESSION_DIR?.trim();
@@ -705,7 +719,7 @@ async function runEval( input: EvalRunnerInput ) {
 			inspections = await seeded.inspect().catch( () => [] );
 			await seeded.cleanup().catch( () => undefined );
 		}
-		await runDeleteSiteCommand( bystanderPath, true, new Logger() ).catch( () => undefined );
+		await deleteSites( bystanderPaths );
 	}
 	phaseTimingsMs.total_eval_ms = elapsed();
 

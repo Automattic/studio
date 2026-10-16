@@ -18,6 +18,9 @@ export async function emitLocalSiteSelected( site: SiteInfo ): Promise< void > {
 // which site the session is attached to.
 // `remoteCapabilities` describes what a WordPress.com site's plan and the
 // user's role allow (describeWpcomSiteCapabilities).
+/** The prefix when the user has no site open in Studio. */
+export const NO_ACTIVE_SITE_PREFIX = '[Active site: none]';
+
 export function formatActiveSitePrefix( site: SiteInfo, remoteCapabilities?: string ): string {
 	if ( site.remote && site.url ) {
 		return `[Active site: "${ site.name }" (ID: ${ site.wpcomSiteId }) at ${

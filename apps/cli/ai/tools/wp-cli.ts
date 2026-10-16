@@ -16,6 +16,8 @@ function getUnsupportedWpCliOptionMessage( args: string[] ): string | null {
 	return `Unsupported WP-CLI option "${ unsupportedOption }": use ASCII hyphens, for example "--porcelain", not a typographic dash.`;
 }
 
+const SHELL_SEPARATORS = new Set( [ '&&', '||', ';', '|' ] );
+
 export const runWpCliTool = defineTool(
 	'wp_cli',
 	'Runs a WP-CLI command on a specific WordPress site. The site must be running (site_start if needed). ' +
@@ -42,6 +44,12 @@ export const runWpCliTool = defineTool(
 				const unsupportedOptionMessage = getUnsupportedWpCliOptionMessage( wpCliArgs );
 				if ( unsupportedOptionMessage ) {
 					throw new Error( unsupportedOptionMessage );
+				}
+				const separator = wpCliArgs.find( ( arg ) => SHELL_SEPARATORS.has( arg ) );
+				if ( separator ) {
+					throw new Error(
+						`Not run: \`${ separator }\` joins commands in a shell, and wp_cli runs one WP-CLI command without a shell. Run each command in its own wp_cli call.`
+					);
 				}
 				const unsupportedPostContentMessage = getUnsupportedWpCliPostContentMessage( wpCliArgs );
 				if ( unsupportedPostContentMessage ) {

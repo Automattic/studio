@@ -215,6 +215,23 @@ describe( 'the gate', () => {
 		} );
 	} );
 
+	it( 'refuses post content that opens as JSON but does not parse', async () => {
+		const validateFile = vi.fn();
+		const gate = new BlockValidationGate( validateFile );
+		const broken = `post update 5 --post_content='{"version":3,"styles":{"color":{}}'`;
+		const [ problem ] = ( await gate.checkCommand( broken, site ) ).problems;
+		expect( problem ).toMatch( /^--post_content is not valid JSON/ );
+		write( 'styles.json', '{"version":3}' );
+		expect( await gate.checkCommand( 'post update 5 styles.json', site ) ).toMatchObject( {
+			problems: [],
+		} );
+		expect(
+			await gate.checkCommand( `post update 5 --post_content='{"version":3}'`, site )
+		).toMatchObject( {
+			problems: [],
+		} );
+	} );
+
 	it( 'refuses invalid inline post content, naming the argument', async () => {
 		const gate = new BlockValidationGate( async ( filePath ) => ( {
 			...ok( 'x', readFileSync( filePath, 'utf8' ) ),

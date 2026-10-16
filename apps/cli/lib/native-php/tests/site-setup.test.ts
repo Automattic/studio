@@ -18,7 +18,7 @@ async function getWrittenConstants(
 	runPhpCommand.mockClear();
 	await ensureWpConfig( '/nonexistent-site', '8.4', new AbortController().signal, config );
 	const args = runPhpCommand.mock.calls[ 0 ][ 0 ] as string[];
-	return JSON.parse( args[ args.length - 1 ] );
+	return JSON.parse( args[ args.length - 2 ] );
 }
 
 describe( 'ensureWpConfig', () => {
@@ -31,6 +31,14 @@ describe( 'ensureWpConfig', () => {
 
 		expect( constants.SCRIPT_DEBUG ).toBe( false );
 		expect( constants.WP_ENVIRONMENT_TYPE ).toBe( 'local' );
+	} );
+
+	it( 'defaults theme development mode without replacing a site’s own', async () => {
+		runPhpCommand.mockClear();
+		await ensureWpConfig( '/nonexistent-site', '8.4', new AbortController().signal );
+		const args = runPhpCommand.mock.calls[ 0 ][ 0 ] as string[];
+		expect( JSON.parse( args[ args.length - 1 ] ) ).toEqual( { WP_DEVELOPMENT_MODE: 'theme' } );
+		expect( args[ 1 ] ).toContain( 'constant_exists( $name )' );
 	} );
 
 	it( 'writes SCRIPT_DEBUG when script debug is enabled', async () => {

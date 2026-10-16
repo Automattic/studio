@@ -2,6 +2,7 @@ import { DEBUG_LOG_RELATIVE_PATH } from '@studio/common/constants';
 import { getErrorMessage, stripIpcErrorPrefix } from '@studio/common/lib/error-formatting';
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
+import { fetchSnapshotUsage } from '@studio/common/lib/snapshots';
 import {
 	STUDIO_ASSISTANT_QUOTA_URL,
 	studioAssistantQuotaSchema,
@@ -37,6 +38,7 @@ import type {
 	SupportedTerminal,
 	SyncSite,
 	UserPreferences,
+	ThemeDetails,
 } from '../../types';
 import type { AgentRunEvent } from '@studio/common/ai/agent-events';
 import type { AiSettings } from '@studio/common/ai/providers';
@@ -54,23 +56,6 @@ function generateBackupFilename( siteName: string ): string {
 		`${ now.getFullYear() }-${ pad( now.getMonth() + 1 ) }-${ pad( now.getDate() ) }` +
 		`-${ pad( now.getHours() ) }-${ pad( now.getMinutes() ) }-${ pad( now.getSeconds() ) }`;
 	return sanitizeFolderName( `studio-backup-${ siteName }-${ timestamp }` );
-}
-
-function parseSnapshotUsage( response: unknown ): SnapshotUsage {
-	const record = response as Record< string, unknown > | null;
-	if (
-		! record ||
-		typeof record.site_count !== 'number' ||
-		typeof record.site_limit !== 'number' ||
-		typeof record.site_creation_blocked !== 'boolean'
-	) {
-		throw new Error( 'Invalid snapshot usage response.' );
-	}
-	return {
-		siteCount: record.site_count,
-		siteLimit: record.site_limit,
-		siteCreationBlocked: record.site_creation_blocked,
-	};
 }
 
 /**
@@ -135,7 +120,7 @@ export function createIpcConnector(): Connector {
 			// Install the application menu (View > Toggle DevTools, etc.).
 			// The old renderer does this from its app bootstrap; the new UI
 			// needs to opt in explicitly.
-			await ipcApi.setupAppMenu( { needsOnboarding: false } );
+			await ipcApi.setupAppMenu();
 		},
 
 		// Native desktop app: every affordance is available.
@@ -194,7 +179,6 @@ export function createIpcConnector(): Connector {
 				name,
 				path,
 				phpVersion,
-				runtime,
 				fileAccess,
 				wpVersion,
 				customDomain,
@@ -206,10 +190,9 @@ export function createIpcConnector(): Connector {
 				blueprint,
 				flowType,
 			} = params;
-			return ( await ipcApi.createSite( path, {
+			const created = ipcApi.createSite( path, {
 				siteName: name,
 				phpVersion,
-				runtime,
 				fileAccess,
 				wpVersion,
 				customDomain,
@@ -227,7 +210,8 @@ export function createIpcConnector(): Connector {
 					  }
 					: undefined,
 				flowType,
-			} ) ) as SiteDetails;
+			} );
+			return ( await unwrapIpcError( created ) ) as SiteDetails;
 		},
 
 		async deleteSite( id, deleteFiles = true ) {
@@ -246,7 +230,9 @@ export function createIpcConnector(): Connector {
 			const baseName = `${ sourceSite.name } Copy`;
 			const newName = ( await ipcApi.generateNumberedNameFromList( baseName, sites ) ) as string;
 			const newSiteId = crypto.randomUUID();
-			return ( await ipcApi.copySite( sourceSiteId, newSiteId, newName ) ) as SiteDetails;
+			return ( await unwrapIpcError(
+				ipcApi.copySite( sourceSiteId, newSiteId, newName )
+			) ) as SiteDetails;
 		},
 
 		async generateProposedSiteName( usedSites ): Promise< string > {
@@ -320,19 +306,17 @@ export function createIpcConnector(): Connector {
 			return ipcApi.readBlueprintFile( filePath ) as Promise< BlueprintV1Declaration >;
 		},
 
-		async importSiteFromBackup( siteId, backupPath ): Promise< void > {
+		async importSiteFromBackup( siteId, backupPath, options ): Promise< void > {
 			await ipcApi.importSite( siteId, backupPath, {
 				alwaysStartServer: true,
 				showErrorModal: false,
 				showNotification: false,
-				// Onboarding imports are part of the add-site flow, which `studio_site_imported`
-				// deliberately does not count.
-				suppressTracksEvent: true,
+				suppressTracksEvent: options?.suppressTracksEvent ?? false,
 			} );
 		},
 
 		async startSite( id ) {
-			await ipcApi.startServer( id );
+			await unwrapIpcError( ipcApi.startServer( id ) );
 		},
 
 		async stopSite( id ) {
@@ -380,10 +364,12 @@ export function createIpcConnector(): Connector {
 			return ipcApi.fixSiteDesignDrift( siteId, fixes );
 		},
 
-		async getThemeDetails( siteId ): Promise< SiteDetails[ 'themeDetails' ] > {
-			// `false` skips the loading event consumed by Classic; this UI tracks
-			// the same request through React Query.
-			return ( await ipcApi.loadThemeDetails( siteId, false ) ) as SiteDetails[ 'themeDetails' ];
+		async getThemeDetails( siteId ) {
+			return ( await ipcApi.loadThemeDetails( siteId ) ) as ThemeDetails;
+		},
+
+		async getSiteIcon( siteId ) {
+			return ( await ipcApi.getSiteIcon( siteId ) ) as string | null;
 		},
 
 		async exportFullSite( siteId ): Promise< string | null > {
@@ -406,10 +392,11 @@ export function createIpcConnector(): Connector {
 			if ( ! backupFile ) {
 				return null;
 			}
-			// Success notification and error modal are shown by the main-process
-			// handler, mirroring the legacy renderer's export flow.
+			// The main process announces success; failures surface as a toast,
+			// as they do in the browser.
 			await ipcApi.exportSite( site.id, backupFile, {
 				mode: 'full',
+				showErrorModal: false,
 				showItemInFolder: true,
 				showNotification: true,
 			} );
@@ -438,6 +425,7 @@ export function createIpcConnector(): Connector {
 			}
 			await ipcApi.exportSite( site.id, backupFile, {
 				mode: 'db',
+				showErrorModal: false,
 				showItemInFolder: true,
 				showNotification: true,
 			} );
@@ -450,11 +438,8 @@ export function createIpcConnector(): Connector {
 		},
 
 		async getSnapshotUsage(): Promise< SnapshotUsage | null > {
-			const data = await fetchWpcomJson(
-				'https://public-api.wordpress.com/wpcom/v2/jurassic-ninja/usage',
-				'snapshot usage'
-			);
-			return data === null ? null : parseSnapshotUsage( data );
+			const token = ( await ipcApi.getAuthenticationToken() ) as StoredAuthToken | null;
+			return token ? fetchSnapshotUsage( token.accessToken ) : null;
 		},
 
 		async getStudioAssistantQuota(): Promise< StudioAssistantQuota | null > {
@@ -729,10 +714,17 @@ export function createIpcConnector(): Connector {
 			if ( typeof partial.agenticFeaturesEnabled === 'boolean' ) {
 				// Cmd/Ctrl+N belongs to "New chat" only while chat is on, so the
 				// menu has to be rebuilt for the accelerator to change hands.
-				await ipcApi.setupAppMenu( { needsOnboarding: false } );
+				await ipcApi.setupAppMenu();
 			}
 		},
 
+		async isCertificateTrusted(): Promise< boolean > {
+			return ( await ipcApi.isCATrusted() ) as boolean;
+		},
+		async trustCertificate() {
+			// Main reports a failure in its own error dialog.
+			await ipcApi.trustCertificate();
+		},
 		async selectDefaultSiteDirectory( defaultPath ): Promise< string | null > {
 			const response = ( await ipcApi.showOpenFolderDialog(
 				__( 'Select default site directory' ),

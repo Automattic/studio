@@ -3,26 +3,20 @@ import path from 'path';
 
 /**
  * Switches a site's SQLite database out of WAL journal mode and into the
- * rollback (DELETE) journal mode that Playground expects when it boots.
+ * rollback (DELETE) journal mode.
  *
  * Since sqlite-database-integration v3.0.0 the driver connects in WAL mode by
  * default, so any boot that writes to the database persists WAL in the file
  * header — not just imports. WAL needs a shared-memory index (the "-shm" file),
- * which SQLite acquires through file locks. Under PHP-WASM those locks are
- * emulated by the host (see FileLockManagerForWindows/Posix in @php-wasm/node),
- * and on Windows that emulation maps onto real LockFileEx/UnlockFileEx calls
- * released only during orderly cleanup — so a lock outliving its process, or
- * contention between the old and new server around a restart, makes reopening
- * a WAL database fail intermittently with "database is locked".
+ * which SQLite acquires through file locks, and several processes share one
+ * site's database — an export runs a WP-CLI process per table while the site
+ * server keeps serving — so contention for that index makes reopening a WAL
+ * database fail intermittently with "database is locked".
  *
  * The driver swallows that failure (wpdb::bail() only calls wp_die() when
  * show_errors is on, and it defaults to off), leaving $wpdb->dbh null;
  * WordPress then crashes further into boot with "Cannot escape data without an
  * active database connection".
- *
- * Native PHP has no emulation layer, but still shares one database between
- * processes — an export runs a WP-CLI process per table while the site server
- * keeps serving — so it contends for the same `-shm` index and is converted too.
  *
  * Node's built-in SQLite is native, so it can checkpoint the WAL here and
  * rewrite the header back to rollback mode.

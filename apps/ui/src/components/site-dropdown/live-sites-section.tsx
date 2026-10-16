@@ -1,6 +1,7 @@
 import { __, sprintf } from '@wordpress/i18n';
-import { arrowDown, arrowUp, external, Icon, moreHorizontal } from '@wordpress/icons';
+import { arrowDown, arrowUp, caution, external, Icon, moreHorizontal } from '@wordpress/icons';
 import { IconButton } from '@wordpress/ui';
+import { clsx } from 'clsx';
 import * as Menu from '@/components/menu';
 import { useConnector } from '@/data/core';
 import { EnvironmentSection } from './environment-section';
@@ -58,65 +59,90 @@ export function LiveSitesSection( {
 			status={ liveSites.length === 0 ? notice : null }
 		>
 			{ liveSites.map( ( liveSite ) => {
-				const name = liveSite.name || stripProtocol( liveSite.url );
+				const isUnavailable = liveSite.syncSupport === 'deleted';
+				const name = isUnavailable
+					? __( 'Unavailable site' )
+					: liveSite.name || stripProtocol( liveSite.url );
 				const isPulling = pendingFor( liveSite, 'pull' );
 				const isPushing = pendingFor( liveSite, 'push' );
 				const lastSynced = [ getPullLabel( liveSite ), getPushLabel( liveSite ) ]
 					.filter( Boolean )
 					.join( ' · ' );
 				return (
-					<div key={ liveSite.id } className={ styles.row }>
+					<div
+						key={ liveSite.id }
+						className={ clsx( styles.row, isUnavailable && styles.row_expired ) }
+					>
 						<div className={ styles.rowText }>
 							<div className={ styles.nameLine }>
 								<span className={ styles.name }>{ name }</span>
-								<RemoteSiteBadges site={ liveSite } />
+								{ ! isUnavailable && <RemoteSiteBadges site={ liveSite } /> }
 							</div>
-							<button
-								type="button"
-								className={ styles.url }
-								aria-label={ sprintf(
-									/* translators: %s: live site name */
-									__( 'Open %s in your browser' ),
-									name
-								) }
-								onClick={ () => void connector.openExternalUrl( ensureProtocol( liveSite.url ) ) }
-							>
-								<span>{ stripProtocol( liveSite.url ) }</span>
-								<Icon icon={ external } size={ 12 } aria-hidden="true" />
-							</button>
-							{ lastSynced ? <div className={ styles.meta }>{ lastSynced }</div> : null }
+							{ isUnavailable ? (
+								<div className={ clsx( styles.meta, styles.meta_expired ) }>
+									<Icon icon={ caution } size={ 14 } aria-hidden="true" />
+									{ __( 'Deleted, or you no longer have access' ) }
+								</div>
+							) : (
+								<>
+									<button
+										type="button"
+										className={ styles.url }
+										aria-label={ sprintf(
+											/* translators: %s: live site name */
+											__( 'Open %s in your browser' ),
+											name
+										) }
+										onClick={ () =>
+											void connector.openExternalUrl( ensureProtocol( liveSite.url ) )
+										}
+									>
+										<span>{ stripProtocol( liveSite.url ) }</span>
+										<Icon icon={ external } size={ 12 } aria-hidden="true" />
+									</button>
+									{ lastSynced ? <div className={ styles.meta }>{ lastSynced }</div> : null }
+								</>
+							) }
 						</div>
 						<div className={ styles.actions }>
-							<IconButton
-								variant="minimal"
-								tone="neutral"
-								size="small"
-								icon={ arrowDown }
-								label={ getSyncLabel(
-									__( 'Pull from live' ),
-									__( 'Pulling from live…' ),
-									isPulling
-								) }
-								className={ styles.actionButton }
-								loading={ isPulling }
-								loadingAnnouncement={ __( 'Pulling from live' ) }
-								disabled={ ! canSync }
-								focusableWhenDisabled
-								onClick={ () => onPull( liveSite ) }
-							/>
-							<IconButton
-								variant="minimal"
-								tone="neutral"
-								size="small"
-								icon={ arrowUp }
-								label={ getSyncLabel( __( 'Push to live' ), __( 'Pushing to live…' ), isPushing ) }
-								className={ styles.actionButton }
-								loading={ isPushing }
-								loadingAnnouncement={ __( 'Pushing to live' ) }
-								disabled={ ! canSync }
-								focusableWhenDisabled
-								onClick={ () => onPush( liveSite ) }
-							/>
+							{ ! isUnavailable && (
+								<>
+									<IconButton
+										variant="minimal"
+										tone="neutral"
+										size="small"
+										icon={ arrowDown }
+										label={ getSyncLabel(
+											__( 'Pull from live' ),
+											__( 'Pulling from live…' ),
+											isPulling
+										) }
+										className={ styles.actionButton }
+										loading={ isPulling }
+										loadingAnnouncement={ __( 'Pulling from live' ) }
+										disabled={ ! canSync }
+										focusableWhenDisabled
+										onClick={ () => onPull( liveSite ) }
+									/>
+									<IconButton
+										variant="minimal"
+										tone="neutral"
+										size="small"
+										icon={ arrowUp }
+										label={ getSyncLabel(
+											__( 'Push to live' ),
+											__( 'Pushing to live…' ),
+											isPushing
+										) }
+										className={ styles.actionButton }
+										loading={ isPushing }
+										loadingAnnouncement={ __( 'Pushing to live' ) }
+										disabled={ ! canSync }
+										focusableWhenDisabled
+										onClick={ () => onPush( liveSite ) }
+									/>
+								</>
+							) }
 							<Menu.SubmenuRoot>
 								<Menu.SubmenuTrigger
 									className={ styles.moreMenuTrigger }

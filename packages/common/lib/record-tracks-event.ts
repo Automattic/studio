@@ -27,7 +27,6 @@ export const TRACKS_EVENTS = {
 	PREVIEW_SITE_UPDATE: 'studio_preview_site_update',
 	PREVIEW_SITE_DELETE: 'studio_preview_site_delete',
 	PREVIEW_SITE_DELETE_ALL: 'studio_preview_site_delete_all',
-	PREVIEW_SITE_OPEN: 'studio_preview_site_open',
 	PANEL_OPENED: 'studio_panel_opened',
 	SETTING_TELEMETRY_CHANGE: 'studio_setting_telemetry_change',
 	SETTING_APPEARANCE_CHANGE: 'studio_setting_appearance_change',
@@ -38,7 +37,6 @@ export const TRACKS_EVENTS = {
 	SETTING_QUIT_ACTION_CHANGE: 'studio_setting_quit_action_change',
 	SETTING_CLI_CHANGE: 'studio_setting_cli_change',
 	SETTING_AGENTIC_FEATURES_CHANGE: 'studio_setting_agentic_features_change',
-	SETTING_UI_CHANGE: 'studio_setting_ui_change',
 	SETTING_INSTRUCTIONS_CHANGE: 'studio_setting_instructions_change',
 	SETTING_AI_PROVIDER_CHANGE: 'studio_setting_ai_provider_change',
 	CODE_MESSAGE_SENT: 'studio_code_message_sent',
@@ -46,6 +44,7 @@ export const TRACKS_EVENTS = {
 	CODE_SESSION_CREATED: 'studio_code_session_created',
 	CODE_DESIGN_OPTION_PROPOSED: 'studio_code_design_option_proposed',
 	CODE_DESIGN_OPTION_PICKED: 'studio_code_design_option_picked',
+	MCP_SESSION_START: 'studio_mcp_session_start',
 	ONBOARDING_COMPLETE: 'studio_onboarding_complete',
 	WPCOM_AUTH: 'studio_wpcom_auth',
 	SYNC_PULL: 'studio_sync_pull',
@@ -74,10 +73,10 @@ export interface TracksIdentity {
 
 export type TracksProps = Record< string, string | number | boolean | undefined >;
 
-// Which application an event came from: the Electron app, the browser UI served by `studio ui`, or a
-// bare terminal invocation. Orthogonal to `ui_version`, which is the renderer chrome.
-// See `docs/design-docs/analytics-tracks.md`.
-export const TRACKS_CHANNELS = [ 'studio-ui', 'studio-cli', 'studio-web' ] as const;
+// Which application an event came from: the Electron app, the browser UI served by `studio ui`, a
+// bare terminal invocation, or an agent app running `studio mcp`. Orthogonal to `ui_version`, which
+// is the renderer chrome. See `docs/design-docs/analytics-tracks.md`.
+export const TRACKS_CHANNELS = [ 'studio-ui', 'studio-cli', 'studio-web', 'studio-mcp' ] as const;
 export type TracksChannel = ( typeof TRACKS_CHANNELS )[ number ];
 export type TracksUiVersion = 'v1' | 'v2';
 
@@ -118,8 +117,9 @@ export interface TracksAiIdentity {
 	client: TracksAiClient;
 }
 
-// Which AI product the event came from; `channel` still records the surface.
-export type TracksAiClient = 'studio-code';
+// Which AI product the event came from: Studio Code, or an agent app using Studio through
+// `studio mcp`; `channel` still records the surface.
+export type TracksAiClient = 'studio-code' | 'studio-mcp';
 
 // Sent as `length_bucket`; bucketed because the instructions text is never sent.
 export type TracksInstructionsLengthBucket = 'empty' | 'short' | 'medium' | 'long';

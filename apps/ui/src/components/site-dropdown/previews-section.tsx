@@ -19,10 +19,12 @@ import * as Menu from '@/components/menu';
 import { useConnector } from '@/data/core';
 import { usePublishPreviewSite } from '@/data/queries/use-preview-site';
 import { useDeleteSnapshot, useRenameSnapshot } from '@/data/queries/use-snapshots';
+import { useUserLocale } from '@/data/queries/use-user-locale';
 import { EnvironmentSection } from './environment-section';
 import styles from './environment-section.module.css';
 import {
 	ensureProtocol,
+	getSnapshotDatesLabel,
 	getSnapshotExpiredLabel,
 	getSnapshotHostname,
 	getSnapshotTimesLabel,
@@ -233,6 +235,7 @@ function PreviewRow( {
 	onCancelEdit: () => void;
 } ) {
 	const [ menuOpen, setMenuOpen ] = useState( false );
+	const locale = useUserLocale();
 	const name = getSnapshotName( snapshot, site );
 	const expired = isSnapshotExpired( snapshot );
 	const hostname = stripProtocol( snapshot.url );
@@ -242,7 +245,7 @@ function PreviewRow( {
 			<RenameRow
 				initialName={ name }
 				hostname={ hostname }
-				meta={ getSnapshotTimesLabel( snapshot ) }
+				meta={ getSnapshotTimesLabel( snapshot, locale ) }
 				onSubmit={ onRename }
 				onCancel={ onCancelEdit }
 			/>
@@ -258,7 +261,7 @@ function PreviewRow( {
 						<div className={ clsx( styles.url, styles.url_expired ) }>{ hostname }</div>
 						<div className={ clsx( styles.meta, styles.meta_expired ) }>
 							<Icon icon={ scheduled } size={ 14 } aria-hidden="true" />
-							{ getSnapshotExpiredLabel( snapshot ) }
+							{ getSnapshotExpiredLabel( snapshot, locale ) }
 						</div>
 					</>
 				) : (
@@ -276,8 +279,8 @@ function PreviewRow( {
 							<span>{ hostname }</span>
 							<Icon icon={ external } size={ 12 } aria-hidden="true" />
 						</button>
-						<div className={ styles.meta } title={ getSnapshotTimesLabel( snapshot ) }>
-							{ getSnapshotTimesLabel( snapshot ) }
+						<div className={ styles.meta } title={ getSnapshotDatesLabel( snapshot, locale ) }>
+							{ getSnapshotTimesLabel( snapshot, locale ) }
 						</div>
 					</>
 				) }

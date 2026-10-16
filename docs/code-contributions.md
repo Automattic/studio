@@ -43,8 +43,7 @@ As with any Electron app, the code is split into two processes:
 
 1. **Renderer Process** (reloads automatically):
 
-   - All React components and UI code in `apps/studio/src/components/`, `apps/studio/src/modules/*/components/`
-   - Hooks, stores, and utilities used by the UI (`apps/studio/src/hooks/`, `apps/studio/src/stores/`, etc.)
+   - The Agentic UI in `apps/ui/`, served by its own Vite dev server
    - Any code that runs in the browser window context
 
 2. **Main Process** (requires restart):
@@ -86,12 +85,8 @@ The project follows a modular architecture with both global and feature-specific
 | ----------------------------- | ----------------------------------------------------------------------------- |
 | `apps/cli/`                   | Root directory for CLI code                                                   |
 | `apps/studio/src/`            | Root directory for Studio code                                                |
-| `apps/studio/src/components/` | Reusable UI components used across the application                            |
-| `apps/studio/src/hooks/`      | Global React hooks                                                            |
 | `apps/studio/src/lib/`        | Utility functions and helper libraries                                        |
 | `apps/studio/src/modules/`    | Feature-specific code                                                         |
-| `apps/studio/src/stores/`     | Global state management (Redux stores)                                        |
-| `apps/studio/src/api/`        | API interfaces and implementations                                            |
 | `packages/common/`            | Shared code between CLI and Studio (constants, types, utility functions, etc) |
 | `tools/`                      | Development-only tooling (not shipped): benchmarks, perf metrics, etc         |
 | `tools/compare-perf/`         | Compare-perf tooling workspace                                                |
@@ -104,28 +99,11 @@ The project follows a modular architecture with both global and feature-specific
 | `apps/cli/index.ts`           | The entry point for the CLI bundle                                          |
 | `scripts/`                    | Scripts for building and testing the app                                    |
 | `apps/studio/src/index.ts`    | The entry point for the main process                                        |
-| `apps/studio/src/renderer.ts` | The entry point for the "renderer," the code running in the Chromium window |
-| `vendor/wp-now`               | The modified `wp-now` source code                                           |
+| `apps/ui/src/main.tsx`        | The entry point for the "renderer," the code running in the Chromium window |
 
 #### Feature Modules
 
-Feature-specific code is organized in the `apps/studio/src/modules/` directory. Each module follows a consistent internal structure:
-
-```
-apps/studio/src/modules/
-  ├── preview-site/          # Preview sites feature
-  │   ├── components/        # Feature-specific components
-  │   ├── hooks/             # Feature-specific hooks
-  │   └── lib/               # Feature-specific utilities
-  │
-  ├── ai-agent/              # Studio Code AI agent feature
-  │   └── ...
-  │
-  └── sidebar/               # Sites sidebar feature
-      └── ...
-```
-
-Each feature module should be self-contained and include its own components, hooks, and utilities. This organization helps maintain separation of concerns and makes the codebase more maintainable.
+Main-process code for each feature lives in `apps/studio/src/modules/<feature>/lib/` (for example `sync`, `preview-site`, `import-export`, `user-settings`). The UI for those features lives in `apps/ui/src/`.
 
 ### Code Formatting
 
@@ -184,7 +162,7 @@ git push
 
 ## Debugging
 
-The renderer process can be debugged using the Chromium developer tools. To open the developer tools, press <kbd>Cmd</kbd>+<kbd>Option</kbd>+<kbd>I</kbd> on Mac or <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>I</kbd> on Windows. You can also use the [React Developer Tools](https://chromewebstore.google.com/detail/react-developer-tools/fmkadmapgofadopljbjfkapdkoienihi) and [Redux DevTools](https://chromewebstore.google.com/detail/redux-devtools/lmhkpmbekcpmknklioeibfkpmmfibljd) to debug the renderer process.
+The renderer process can be debugged using the Chromium developer tools. To open the developer tools, press <kbd>Cmd</kbd>+<kbd>Option</kbd>+<kbd>I</kbd> on Mac or <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>I</kbd> on Windows. You can also use the [React Developer Tools](https://chromewebstore.google.com/detail/react-developer-tools/fmkadmapgofadopljbjfkapdkoienihi) to debug the renderer process.
 
 The main process can be debugged using the Node.js inspector. To do this, run the app with the `--inspect-brk` and `--sourcemap` flags:
 

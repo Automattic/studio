@@ -7,8 +7,6 @@
  * Flow: wp-login.php → nonce extraction → POST /wp-json/wp/v2/plugins
  */
 
-/* eslint-disable no-console */
-
 import fs from 'fs';
 import chalk from 'chalk';
 
@@ -35,7 +33,7 @@ interface Blueprint {
 /**
  * Parse the blueprint JSON to extract plugin slugs.
  * This is the single source of truth for which plugins to install across
- * all environments (Studio, Playground CLI, Playground Web, custom).
+ * all environments (Studio, Playground Web, custom).
  */
 export function getPluginSlugsFromBlueprint( blueprintPath: string ): string[] {
 	const blueprint: Blueprint = JSON.parse( fs.readFileSync( blueprintPath, 'utf-8' ) );
@@ -151,7 +149,7 @@ async function installPlugin(
  * Installs and activates plugins on a WordPress site using the REST API.
  *
  * Reads plugin slugs from the provided blueprint file (the same file used
- * for Studio and Playground environments), logs in via wp-login.php,
+ * for Studio and Playground Web environments), logs in via wp-login.php,
  * extracts a REST API nonce, and installs each plugin via
  * POST /wp-json/wp/v2/plugins.
  *

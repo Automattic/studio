@@ -7,6 +7,9 @@ relates to the existing **MC Stats** system, the anonymous identity and opt-out 
 of events we send. Keep the event catalog at the bottom up to date whenever an event is added or
 changed.
 
+The classic renderer (Studio Classic, `ui_version: v1`) was removed in October 2026. Mentions of Classic
+below describe where its events came from, which still matters for reading older data.
+
 ## Context
 
 Historically Studio has only had **MC Stats** (`bumpStat`) — anonymous counters incremented per event,
@@ -38,7 +41,7 @@ The pieces mirror the MC Stats layering:
 | Layer | File | Responsibility                                                                                                                                              |
 |---|---|-------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | Shared core | `packages/common/lib/record-tracks-event.ts` | Pure, environment-agnostic URL builder + fire-and-forget pixel sender. No config/opt-out logic. No-ops in E2E/dev.                                          |
-| Desktop wrapper | `apps/studio/src/lib/tracks.ts` | Single entry point for the desktop (Main process). Enforces the opt-out, attaches common props including `channel` and `ui_version` (derived from the active renderer).                                                             |
+| Desktop wrapper | `apps/studio/src/lib/tracks.ts` | Single entry point for the desktop (Main process). Enforces the opt-out, attaches common props including `channel` and `ui_version` (always `v2`).                                                             |
 | CLI wrapper | `apps/cli/lib/tracks.ts` | Single entry point for the CLI **and** the `studio ui` server, which is bundled into it. Enforces the opt-out **and** the build-time `__ENABLE_CLI_TELEMETRY__` switch. Resolves origin from `STUDIO_TRACKS_ORIGIN`. |
 | Identity + opt-out | `packages/common/lib/shared-config.ts` | `getOrCreateAnalyticsInstallId()`, `isAnalyticsOptedOut()`, `isAutomatticianFromToken()`. Persisted in `shared.json`.                                       |
 
@@ -69,8 +72,6 @@ where the sender actually runs — see Testing below for what fires in which bui
   Enforced in both wrappers before any send. The user controls it from several places, all writing the
   same shared flag through the `getAnalyticsEnabled` / `saveAnalyticsEnabled` IPC handlers →
   `updateSharedConfig`:
-  - Legacy renderer Settings → General (`AnalyticsToggle` in `preferences-tab.tsx`).
-  - Onboarding screen (`connect-to-wpcom.tsx`), persisted on skip/login.
   - Agentic renderer (`apps/ui`) Settings → Preferences — folded into `UserPreferences`
     (`analyticsEnabled`) so it rides the existing preferences query/mutation through the connector,
     which calls the same IPC handlers.
@@ -111,7 +112,7 @@ where the sender actually runs — see Testing below for what fires in which bui
   `apps/cli/lib/wordpress-server-manager.ts` — the single point every site start passes through. Every
   desktop site start delegates to the app-spawned CLI, so the CLI is the sole emitter and a start is
   counted exactly once whether it originated in a UI or standalone. The desktop passes its origin to the
-  spawned CLI via the `STUDIO_TRACKS_ORIGIN` env var (`studio-ui:v1` / `studio-ui:v2`), injected in
+  spawned CLI via the `STUDIO_TRACKS_ORIGIN` env var (`studio-ui:v2`), injected in
   `apps/studio/src/modules/cli/lib/execute-command.ts`.
 - **`studio_site_created`** is likewise emitted **only** by the CLI, from the `site create` command
   (`apps/cli/commands/site/create.ts`) on successful creation. Every path a site comes into existence
@@ -127,21 +128,20 @@ where the sender actually runs — see Testing below for what fires in which bui
   `SnapshotManager` fork in `packages/common/sites/snapshots.ts` and the direct `preview delete --all`
   fork), so the CLI is the sole emitter and each action is counted once whether it originated in a UI or
   standalone — `channel`/`ui_version` resolve from `STUDIO_TRACKS_ORIGIN` exactly as for
-  `studio_site_start`. The **`studio_preview_site_open`** event is the exception: opening a preview URL is
-  a renderer-only affordance with no CLI equivalent, so it fires from the renderer.
+  `studio_site_start`. The **`studio_preview_site_open`** event was the exception: it fired from Classic's
+  Previews list and is no longer emitted.
 - **`studio_site_imported`/`studio_site_exported`** are emitted **only** by the CLI, from the `import`
   and `export` commands (`apps/cli/commands/import.ts`, `apps/cli/commands/export.ts`). The desktop
-  Import/Export tab, the agentic UI's export buttons, and standalone-CLI runs all funnel there —
+  Import/Export tab, the agentic UI's import and export buttons, and standalone-CLI runs all funnel there —
   `channel`/`ui_version` resolve from `STUDIO_TRACKS_ORIGIN` exactly as for `studio_site_start`. The
   events deliberately mean **a user imported/exported a backup**: paths that reuse the same CLI
   commands as an implementation detail — add-site-flow imports (Classic add-site, agentic onboarding
-  import, browser-UI import route), sync-pull imports, and Classic's sync-push exports — pass a hidden
+  import in both the desktop app and the browser UI), sync-pull imports, and Classic's sync-push exports — pass a hidden
   `--suppress-tracks-event` flag and emit nothing. An aborted sync export also emits nothing (the CLI
   process is SIGTERM'd before it can record). Runs in parallel with the MC Stats import/export
   counters for now.
 - **`studio_sync_*`** are the deliberate exception to the CLI-is-the-sole-emitter pattern. Sync has
-  **two independent implementations** — Classic's Redux thunks and pollers
-  (`apps/studio/src/stores/sync/sync-operations-slice.ts`) and the CLI `push`/`pull` commands —
+  **two independent implementations** — Classic's Redux thunks and pollers and the CLI `push`/`pull` commands —
   sharing only the connected-sites storage and the WordPress.com endpoints. Classic never invokes the
   CLI for either operation, so there is no funnel to emit from; each surface emits its own event and
   `channel`/`ui_version` identify it. The agentic UI runs the CLI commands for both operations
@@ -168,12 +168,20 @@ where the sender actually runs — see Testing below for what fires in which bui
   (`apps/cli/ai/tools/pick-design.ts`) is the single place catalog entries are drawn, so it records what
   was proposed; `present_design_options` (`apps/cli/ai/tools/present-design-options.ts`) is the single
   place the user's answer lands, so it records the pick. Both take the `ai_session_id` from the running
-  turn (`apps/cli/ai/runtimes/pi/index.ts`); the MCP server builds the tools without a session and
-  records nothing. `channel`/`ui_version` resolve from `STUDIO_TRACKS_ORIGIN` exactly as for
+  turn (`apps/cli/ai/runtimes/pi/index.ts`); the MCP server gives each agent-app connection its own
+  `ai_session_id`, with the app's MCP client name as `agent_name` and `client=studio-mcp`
+  (`apps/cli/ai/runtimes/mcp/index.ts`). `channel`/`ui_version` resolve from `STUDIO_TRACKS_ORIGIN` exactly as for
   `studio_code_message_sent`. **Coverage caveat:** `present_design_options` only exists when a Studio UI
   is attached (rendered previews need a chat pane), so a terminal `studio code` session still records
   proposals but picks made through the generic `AskUserQuestion` tool are not distinguishable and are
   not recorded.
+- **`studio_mcp_session_start`** fires from the MCP server (`apps/cli/ai/runtimes/mcp/index.ts`) once
+  an agent app (Codex, Claude Code, …) has connected to `studio mcp`. `studio mcp` sets
+  `STUDIO_TRACKS_ORIGIN=studio-mcp` for itself, so every event from its process and the processes it
+  starts (the site, preview, sync and design events the agent triggers) carries `channel=studio-mcp`
+  instead of counting as terminal use, plus `mcp_client` and, when the Studio plugin started the server,
+  `plugin` and `plugin_version`: the plugin's MCP config sets `STUDIO_PLUGIN_ID` and its launcher sets
+  `STUDIO_PLUGIN_VERSION`, while a hand-configured `studio mcp` has neither.
 - **`studio_onboarding_complete`** fires from desktop Main (`saveOnboarding`), the single funnel both
   front-ends reach — Studio Classic when the user skips or logs in, the agentic UI when the welcome tour
   ends (`connector.setOnboardingCompleted`). It is emitted only on a genuine `false → true` transition, so
@@ -204,9 +212,8 @@ where the sender actually runs — see Testing below for what fires in which bui
   (settings changes, session creation) and the ones the browser posts to it go through.
 - **Renderer-originated events** go through the `recordAnalyticsEvent` IPC handler
   (`apps/studio/src/ipc-handlers.ts`). Both renderers share the same Main single entry point, and the
-  desktop wrapper's `commonProps()` attaches `channel`/`ui_version` centrally — the `ui_version` is
-  derived from the active renderer via `getPreferredUiVersion()`, so callers pass only event-specific
-  props. The agentic `apps/ui` renderer routes through its `Connector.trackEvent`: the IPC connector
+  desktop wrapper's `commonProps()` attaches `channel`/`ui_version` centrally, so callers pass only
+  event-specific props. The agentic `apps/ui` renderer routes through its `Connector.trackEvent`: the IPC connector
   reaches Main directly, while the `local` connector posts to `POST /api/analytics/event`, the
   browser's equivalent choke point. That route drops unknown event names and strips client-supplied
   `channel`/`ui_version`, so the server stays the only thing that labels an event's origin. The
@@ -220,17 +227,21 @@ none fits, and flag it for registration.
 
 | Property | Meaning | Studio values |
 |---|---|---|
-| `channel` | Entry platform / application | `studio-ui` (Electron app), `studio-web` (browser UI served by `studio ui`), `studio-cli` (bare terminal invocation) |
+| `channel` | Entry platform / application | `studio-ui` (Electron app), `studio-web` (browser UI served by `studio ui`), `studio-cli` (bare terminal invocation), `studio-mcp` (an agent app running `studio mcp`) |
 | `is_a11n` | Automattician flag (shared across products) | `true` / `false` (derived from the auth token email domain) |
 | `platform` | OS | `darwin`, `win32`, `linux` |
 | `arch` | CPU architecture | `arm64`, `x64`, … |
 | `app_version` | Product version | e.g. `1.15.0` |
-| `ui_version` | **Custom (Studio-only):** which renderer chrome is running | `v1` (legacy), `v2` (agentic). Orthogonal to `channel`: it does **not** encode Electron-vs-browser, so the browser UI is `studio-web` + `v2` — it serves the same `apps/ui` bundle the desktop reports as `v2`. Absent for `studio-cli`. No standard slot — must be registered as a Studio-custom property. |
+| `ui_version` | **Custom (Studio-only):** which renderer chrome is running | `v1` (Classic, until October 2026), `v2` (agentic). Orthogonal to `channel`: it does **not** encode Electron-vs-browser, so the browser UI is `studio-web` + `v2` — it serves the same `apps/ui` bundle the desktop reports as `v2`. Absent for `studio-cli` and `studio-mcp`. No standard slot — must be registered as a Studio-custom property. |
+| `mcp_client` | **Custom (Studio-only):** the agent app, on `channel=studio-mcp` | The MCP client name from the handshake: `codex-mcp-client` (Codex, in the ChatGPT app or terminal), `claude-code`, … |
+| `plugin`, `plugin_version` | **Custom (Studio-only):** the Studio plugin that started `studio mcp` | `wp-studio@studio` and the plugin's version; absent when `studio mcp` was configured by hand, which is how plugin and hand-configured use are told apart |
 
 Common props (`platform`, `arch`, `app_version`, `is_a11n`, and `channel`/`ui_version`) are attached by the
 wrappers — pass only event-specific props. On the desktop the wrapper's `commonProps()` attaches
-`channel: studio-ui` and `ui_version` (derived from the active renderer via `getPreferredUiVersion()`); the
-CLI wrapper resolves `channel`/`ui_version` from `STUDIO_TRACKS_ORIGIN`.
+`channel: studio-ui` and `ui_version: v2`; the
+CLI wrapper resolves `channel`/`ui_version` from `STUDIO_TRACKS_ORIGIN`, and on `studio-mcp` adds
+`mcp_client`, `plugin` and `plugin_version` from `STUDIO_MCP_CLIENT`, `STUDIO_PLUGIN_ID` and
+`STUDIO_PLUGIN_VERSION`.
 
 `surface` (in-app area, e.g. `onboarding`/`settings`) is live on `studio_setting_telemetry_change`; the renderer
 supplies it per change (Main can't infer it) and it is meant to generalize to other settings-change
@@ -257,8 +268,8 @@ not drift.
 | Property | Meaning | Studio values |
 |---|---|---|
 | `ai_session_id` | The chat session | The session's `crypto.randomUUID()`. Always the **resolved** id — the IPC/HTTP boundary also accepts an id prefix or `latest`. |
-| `agent_name` | Agent runtime | `pi` |
-| `client` | AI product | `studio-code` — `channel` still records the surface |
+| `agent_name` | Agent runtime | `pi`; for `studio mcp`, the agent app's MCP client name (`codex-mcp-client`, …) |
+| `client` | AI product | `studio-code`, or `studio-mcp` for an agent app using Studio through `studio mcp` — `channel` still records the surface |
 | `ability_name` | Predefined skill invoked | `annotate`/`taxonomist`/`need-for-speed`/`rank-me-up`/`liberate`; absent for an ordinary message |
 | `outcome` | How a turn ended | `success`/`error`/`interrupted`/`max_turns` (mirrors the session log's `TurnStatus`) |
 | `catalog` | **Custom (Studio-only):** which design catalog a design event is about | `directions` (artistic direction, the look), `layouts` (signature concept, the page structure) |
@@ -288,6 +299,7 @@ start / creation is counted once whether it originated in a UI or the standalone
 | Event | Emitted from | Event-specific props |
 |---|---|---|
 | `studio_app_launch` | Desktop Main (`appBoot`); `studio ui` server start | `is_first_launch` (desktop only) |
+| `studio_mcp_session_start` | CLI MCP server, once an agent app connects | `mcp_apps` (boolean — whether the app renders MCP Apps, such as the design picker and the WordPress tab), plus the `studio-mcp` origin props `mcp_client`, `plugin`, `plugin_version`. One per connection: distinct install IDs on it, split by `plugin`, count the people using Studio from agent apps. |
 | `studio_site_start` | CLI site-start funnel | `success` (boolean), `time_ms` (start duration). On success also `running_site_count` (running Studio sites after this one comes up). On failure instead `failure_reason` (coarse, low-cardinality: `timeout`/`port_unavailable`/`php_error`/`process_exited`/`unknown` — the raw error is never sent). |
 | `studio_site_created` | CLI site-create funnel | `flow_type` (`new`/`blueprint`/`import`/`sync`/`duplicate`/`ai`), `php_version`, `wp_version` (resolved from disk; `-` if unknown), `custom_domain` (boolean — the domain string is **never** sent), `ssl_enabled` (boolean), `time_ms` (creation duration). Emitted once per **successful** creation. |
 
@@ -365,7 +377,7 @@ coarse and low-cardinality (the raw error is never sent).
 | `studio_preview_site_update` | CLI `preview update` | `success` (boolean), `time_ms` (update duration). On failure also `failure_reason` (same vocabulary as create). |
 | `studio_preview_site_delete` | CLI `preview delete` (single) | (none). Emitted once per **successful** single delete. |
 | `studio_preview_site_delete_all` | CLI `preview delete --all` | `count` (number of the user's preview sites removed). Emitted once per **successful** delete-all (a single bulk server operation, not per site). |
-| `studio_preview_site_open` | Renderer (Classic Previews list) | (none — opens the preview URL in the OS browser) |
+| `studio_preview_site_open` | Renderer (Classic Previews list, no longer emitted) | (none — opens the preview URL in the OS browser) |
 
 #### Sync events
 
@@ -436,7 +448,7 @@ Sensitive values are never sent as strings (see `is_default` and the directory n
 | `studio_setting_quit_action_change` | `saveQuitSitesBehavior` | `behavior` (`stop`/`stop-and-auto-start`/`leave-running`), `surface` (`settings`) |
 | `studio_setting_cli_change` | `installStudioCli`/`uninstallStudioCli` | `installed` (boolean), `surface` (`settings`) |
 | `studio_setting_agentic_features_change` | `saveAgenticFeaturesEnabled` | `enabled` (boolean), `surface` (`settings`) |
-| `studio_setting_ui_change` | `updateBetaFeature` (`enableAgenticUi` key) | `type` (`classic`/`agentic`), `surface` (`settings`/`banner`/`menu`) — the switch has several entry points; the caller supplies the surface. Not emitted for the boot-time seeding migration (no surface). |
+| `studio_setting_ui_change` | No longer emitted: was the Classic ↔ agentic UI switch, removed with Classic in October 2026 | `type` (`classic`/`agentic`), `surface` (`settings`/`banner`/`menu`) |
 | `studio_setting_instructions_change` | `saveGlobalAgentInstructions` | `has_content` (boolean), `length_bucket` (`empty`/`short` ≤200/`medium` ≤1000/`long`), `surface` (`settings`) — the instructions text is **never** sent. See the edit-session note below. |
 | `studio_setting_ai_provider_change` | `saveAnthropicApiKey`/`setAiProvider` | `provider` (`wpcom`/`anthropic-api-key`), `has_anthropic_api_key` (boolean), `surface` (`settings`) — the API key is **never** sent. One event covers both handlers, since clearing the key also falls the provider back to WordPress.com. `studio ui` emits the same event from its own `/ai-settings` routes. |
 
@@ -564,8 +576,7 @@ What fires depends on the build, so pick the right method:
   in the **Main-process terminal** — not the renderer console, and not the browser devtools.
 - **`studio_app_launch` in a dev run.** Fires from the desktop Main process, which has no
   `__ENABLE_CLI_TELEMETRY__` gate, so a plain `npm start` logs `Would have recorded… studio_app_launch`
-  in the **Main-process terminal** (the shared core no-ops the network send in dev/E2E). Add
-  `enableAgenticUi` to see `ui_version: v2`.
+  in the **Main-process terminal** (the shared core no-ops the network send in dev/E2E).
 - **`studio_site_start` in a dev run.** It fires from the CLI, whose build-time
   `__ENABLE_CLI_TELEMETRY__` gate is compiled to `false` in dev builds. The CLI wrapper treats
   `NODE_ENV === 'development'` as an escape hatch, though, so during a plain `npm start` a UI-triggered

@@ -4,10 +4,10 @@ import {
 	app,
 	BrowserWindow,
 	autoUpdater,
-	MenuItem,
 	shell,
 	type WebContents,
 } from 'electron';
+import { getLocalizedLink } from '@studio/common/lib/docs-links';
 import {
 	getAppConfigPath,
 	getCliConfigPath,
@@ -18,16 +18,8 @@ import { openAboutWindow } from 'src/about-menu/open-about-menu';
 import { BUG_REPORT_URL, FEATURE_REQUEST_URL } from 'src/constants';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
 import { applyAppZoomCommand } from 'src/lib/app-zoom';
-import {
-	FEATURE_FLAGS,
-	FeatureFlagDefinition,
-	getFeatureFlagFromEnv,
-	setFeatureFlagInEnv,
-} from 'src/lib/feature-flags';
-import { getLocalizedLink } from 'src/lib/get-localized-link';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
-import { getPreferredStudioUiMode } from 'src/lib/studio-ui-mode';
 import { promptWindowsSpeedUpSites } from 'src/lib/windows-helpers';
 import { getLogsFilePath } from 'src/logging';
 import { getMainWindow } from 'src/main-window';
@@ -42,16 +34,13 @@ async function withAppWebContents( run: ( contents: WebContents ) => void ) {
 	}
 }
 
-export async function setupMenu( config: {
-	needsOnboarding: boolean;
-	isAddSiteVisible?: boolean;
-} ) {
+export async function setupMenu() {
 	const mainWindow = await getMainWindow();
 	if ( ! mainWindow && process.platform !== 'darwin' ) {
 		Menu.setApplicationMenu( null );
 		return;
 	}
-	const menu = await getAppMenu( mainWindow, config );
+	const menu = await getAppMenu( mainWindow );
 	if ( process.platform === 'darwin' ) {
 		Menu.setApplicationMenu( menu );
 		return;
@@ -75,7 +64,6 @@ export async function popupMenu( position?: { x: number; y: number } ) {
 }
 
 export function buildViewMenuItems( {
-	needsOnboarding,
 	isDevelopment,
 	isAlwaysOnTop,
 	devTools,
@@ -85,7 +73,6 @@ export function buildViewMenuItems( {
 	onZoomIn,
 	onZoomOut,
 }: {
-	needsOnboarding: boolean;
 	isDevelopment: boolean;
 	isAlwaysOnTop?: boolean;
 	devTools: MenuItemConstructorOptions[];
@@ -99,19 +86,13 @@ export function buildViewMenuItems( {
 		{
 			label: __( 'Toggle Sidebar' ),
 			accelerator: 'CommandOrControl+B',
-			enabled: ! needsOnboarding,
 			click: onToggleSidebar,
 		},
-		...( getPreferredStudioUiMode() === 'agentic'
-			? [
-					{
-						label: __( 'Toggle Site Preview' ),
-						accelerator: 'CommandOrControl+Shift+B',
-						enabled: ! needsOnboarding,
-						click: onToggleSitePreview,
-					} as MenuItemConstructorOptions,
-			  ]
-			: [] ),
+		{
+			label: __( 'Toggle Site Preview' ),
+			accelerator: 'CommandOrControl+Shift+B',
+			click: onToggleSitePreview,
+		},
 		...( isDevelopment ? devTools : [] ),
 		{
 			label: __( 'Actual Size' ),
@@ -147,13 +128,7 @@ export function buildViewMenuItems( {
 	];
 }
 
-async function getAppMenu(
-	mainWindow: BrowserWindow | null,
-	{
-		needsOnboarding = false,
-		isAddSiteVisible = false,
-	}: { needsOnboarding?: boolean; isAddSiteVisible?: boolean } = {}
-) {
+async function getAppMenu( mainWindow: BrowserWindow | null ) {
 	const crashTestMenuItems: MenuItemConstructorOptions[] = [
 		{
 			label: __( 'Test Hard Crash (dev only)' ),
@@ -161,25 +136,17 @@ async function getAppMenu(
 				process.crash();
 			},
 		},
-		{
-			label: __( 'Test Render Failure (dev only)' ),
-			click: async () => {
-				void sendIpcEventToRenderer( 'test-render-failure' );
-			},
-		},
 	];
 
-	// Cmd/Ctrl+R belongs to the site preview: the agentic renderer binds it in
-	// the DOM to reload the guest page, so the menu must leave the key alone
-	// there — a menu accelerator would consume it first. That leaves the app
-	// itself with no way to reload, so these target the app window explicitly
-	// rather than using `role: 'reload'`, which acts on whatever webContents
-	// has focus (the preview, once clicked into).
-	const previewOwnsReloadShortcut = getPreferredStudioUiMode() === 'agentic';
+	// Cmd/Ctrl+R belongs to the site preview: the renderer binds it in the DOM
+	// to reload the guest page, so the menu must leave the key alone — a menu
+	// accelerator would consume it first. That leaves the app itself with no way
+	// to reload, so these target the app window explicitly rather than using
+	// `role: 'reload'`, which acts on whatever webContents has focus (the
+	// preview, once clicked into).
 	const devTools: MenuItemConstructorOptions[] = [
 		{
 			label: __( 'Reload App' ),
-			...( previewOwnsReloadShortcut ? {} : { accelerator: 'CommandOrControl+R' } ),
 			click: () => void withAppWebContents( ( contents ) => contents.reload() ),
 		},
 		{
@@ -195,23 +162,10 @@ async function getAppMenu(
 		{ type: 'separator' },
 	];
 
-	const featureFlagsMenu: MenuItemConstructorOptions[] = Object.entries< FeatureFlagDefinition >(
-		FEATURE_FLAGS
-	).map( ( [ flag, definition ] ) => ( {
-		label: definition.label,
-		type: 'checkbox' as const,
-		checked: getFeatureFlagFromEnv( flag as keyof FeatureFlags ),
-		click: ( menuItem: MenuItem ) => {
-			setFeatureFlagInEnv( flag as keyof FeatureFlags, menuItem.checked );
-			void sendIpcEventToRenderer( 'refresh-app-globals' );
-		},
-	} ) );
-
-	// The agentic UI binds Cmd/Ctrl+N to "New chat" in the renderer, so the menu must leave the
-	// key alone there — a menu accelerator would consume it before it reaches the DOM. With chat
-	// switched off nothing binds it, so the shortcut falls back to "Add Site…" as in classic.
-	const rendererOwnsNewShortcut =
-		getPreferredStudioUiMode() === 'agentic' && ( await getAgenticFeaturesEnabled() );
+	// The renderer binds Cmd/Ctrl+N to "New chat", so the menu must leave the key alone there — a
+	// menu accelerator would consume it before it reaches the DOM. With chat switched off nothing
+	// binds it, so the shortcut falls back to "Add Site…".
+	const rendererOwnsNewShortcut = await getAgenticFeaturesEnabled();
 
 	return Menu.buildFromTemplate( [
 		{
@@ -285,11 +239,6 @@ async function getAppMenu(
 									},
 								],
 							},
-							{
-								label: __( 'Feature Flags' ),
-								submenu: featureFlagsMenu,
-								enabled: featureFlagsMenu.length > 0,
-							},
 					  ]
 					: [] ),
 				{ type: 'separator' },
@@ -306,7 +255,6 @@ async function getAppMenu(
 					click: async () => {
 						void sendIpcEventToRenderer( 'add-site' );
 					},
-					enabled: ! needsOnboarding && ! isAddSiteVisible,
 				},
 				...( process.platform === 'win32'
 					? []
@@ -358,7 +306,6 @@ async function getAppMenu(
 			label: __( 'View' ),
 			role: 'viewMenu',
 			submenu: buildViewMenuItems( {
-				needsOnboarding,
 				isDevelopment: process.env.NODE_ENV === 'development',
 				isAlwaysOnTop: mainWindow?.isAlwaysOnTop(),
 				devTools,
@@ -410,14 +357,12 @@ async function getAppMenu(
 					click: async () => {
 						void sendIpcEventToRenderer( 'show-whats-new' );
 					},
-					enabled: ! needsOnboarding,
 				},
 				{
 					label: __( 'Getting Started' ),
 					click: async () => {
 						void sendIpcEventToRenderer( 'show-getting-started' );
 					},
-					enabled: ! needsOnboarding,
 				},
 				{ type: 'separator' },
 				...( process.platform === 'win32'

@@ -2,15 +2,11 @@
  * @vitest-environment node
  */
 import { vi } from 'vitest';
-import { SiteServer } from 'src/site-server';
+import { getSite } from 'src/lib/sites';
 import { fetchSiteRest } from '../wordpress-rest-api';
 import type { IpcMainInvokeEvent } from 'electron';
 
-vi.mock( 'src/site-server', () => ( {
-	SiteServer: {
-		get: vi.fn(),
-	},
-} ) );
+vi.mock( 'src/lib/sites', () => ( { getSite: vi.fn() } ) );
 
 const mockIpcMainInvokeEvent = {} as IpcMainInvokeEvent;
 
@@ -23,28 +19,21 @@ function mockRunningSite( {
 	port?: number;
 	publicUrl?: string;
 } = {} ) {
-	vi.mocked( SiteServer.get ).mockImplementation( ( requestedId ) => {
-		if ( requestedId !== id ) {
-			return undefined;
-		}
-
-		return {
-			details: {
-				id,
-				name: 'Test Site',
-				path: '/test-site',
-				port,
-				phpVersion: '8.4',
-				running: true,
-				url: publicUrl,
-				customDomain: new URL( publicUrl ).hostname,
-				enableHttps: publicUrl.startsWith( 'https:' ),
-			},
-			server: {
-				url: publicUrl,
-			},
-		} as unknown as SiteServer;
-	} );
+	vi.mocked( getSite ).mockImplementation( async ( requestedId ) =>
+		requestedId === id
+			? {
+					id,
+					name: 'Test Site',
+					path: '/test-site',
+					port,
+					phpVersion: '8.4',
+					running: true,
+					url: publicUrl,
+					customDomain: new URL( publicUrl ).hostname,
+					enableHttps: publicUrl.startsWith( 'https:' ),
+			  }
+			: undefined
+	);
 }
 
 function mockRestFetch() {

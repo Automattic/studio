@@ -1,7 +1,6 @@
 import { fork, spawnSync, type ChildProcess, type StdioOptions } from 'node:child_process';
 import { z } from 'zod';
 import { isDevRun } from '@studio/common/lib/dev-run';
-import { getJspiExecArgv, JSPI_FLAG } from '@studio/common/lib/jspi';
 import { TypedEventEmitter } from '@studio/common/lib/typed-event-emitter';
 
 /** Spawns the Studio CLI binary and relays its lifecycle as typed events. */
@@ -97,6 +96,8 @@ type ExecuteCliCommandOptionsCapture = {
 	output: 'capture';
 	logPrefix?: string;
 	env?: NodeJS.ProcessEnv;
+	// Set by callers that hand the captured stderr to their own caller, so it isn't logged twice.
+	suppressStderrEcho?: boolean;
 };
 type ExecuteCliCommandOptions = ExecuteCliCommandOptionsIgnore | ExecuteCliCommandOptionsCapture;
 
@@ -109,11 +110,14 @@ export interface CliRunnerConfig {
 	// host is itself a Node process, like the CLI). The desktop overrides this
 	// with its bundled Node, since its own `execPath` is Electron.
 	nodeBinary?: string;
-	// Extra V8/Node flags for the child. The agent runs WordPress Playground, so
-	// the default enables JSPI.
-	execArgv?: string[];
 	// Optional error sink (the desktop wires Sentry here).
 	onError?: ( error: Error ) => void;
+	// Added to every child's environment, under the per-command `env`.
+	env?: NodeJS.ProcessEnv;
+	// Echo captured stderr to the host console. It carries diagnostics rather than payloads, and a
+	// command that recovers from a failure still exits 0, so this is otherwise the only place a
+	// non-fatal problem would become visible.
+	echoStderr?: boolean;
 }
 
 export type ExecuteCliCommand = CliRunner[ 'executeCliCommand' ];
@@ -121,7 +125,7 @@ export type ExecuteCliCommand = CliRunner[ 'executeCliCommand' ];
 export interface CliRunner {
 	executeCliCommand(
 		args: string[],
-		options: { output: 'capture'; logPrefix?: string; env?: NodeJS.ProcessEnv }
+		options: ExecuteCliCommandOptionsCapture
 	): [ CliCommandEventEmitter< true >, ChildProcess ];
 	executeCliCommand(
 		args: string[],
@@ -132,9 +136,10 @@ export interface CliRunner {
 		options?: ExecuteCliCommandOptions
 	): [ CliCommandEventEmitter< false >, ChildProcess ];
 	// Terminates every still-running child this runner spawned. The host calls
-	// this once on shutdown (desktop: `app.on('will-quit')`; server: process
-	// exit / SIGINT) so forked CLI processes don't outlive it.
-	killAll(): void;
+	// this once on shutdown so forked CLI processes don't outlive it. With
+	// `force: false` it only asks (SIGTERM), so a sync past the point where
+	// stopping is safe can finish (see `exitOnCancel` in the CLI).
+	killAll( options?: { force?: boolean } ): void;
 }
 
 // How long a child gets to exit on SIGTERM before it is killed outright.
@@ -142,7 +147,7 @@ const SIGKILL_GRACE_MS = 2000;
 
 // Only kills the child; its `close` handler still runs so awaiting callers
 // see a failure instead of hanging forever.
-export function killChild( child: ChildProcess ): void {
+export function killChild( child: ChildProcess, { force = true }: { force?: boolean } = {} ): void {
 	const pid = child.pid;
 
 	// `child.kill()` only terminates the forked CLI process; on Windows its
@@ -157,6 +162,9 @@ export function killChild( child: ChildProcess ): void {
 	}
 
 	child.kill();
+	if ( ! force ) {
+		return;
+	}
 
 	// SIGTERM is only a request, and the CLI ignores it: importing
 	// `wordpress-server-manager` registers a handler that aborts a controller
@@ -174,12 +182,7 @@ export function killChild( child: ChildProcess ): void {
 }
 
 export function createCliRunner( config: CliRunnerConfig ): CliRunner {
-	const {
-		cliBinary,
-		nodeBinary,
-		execArgv = nodeBinary ? [ JSPI_FLAG ] : getJspiExecArgv(),
-		onError,
-	} = config;
+	const { cliBinary, nodeBinary, onError, echoStderr } = config;
 	const liveChildren = new Set< ChildProcess >();
 
 	function executeCliCommand(
@@ -204,8 +207,9 @@ export function createCliRunner( config: CliRunnerConfig ): CliRunner {
 		const child = fork( cliBinary, [ ...args, '--avoid-telemetry' ], {
 			stdio,
 			execPath: nodeBinary,
-			execArgv,
-			env: { ...process.env, ...options.env },
+			// Don't inherit the host's own Node/V8 flags.
+			execArgv: [],
+			env: { ...process.env, ...config.env, ...options.env },
 		} );
 		liveChildren.add( child );
 		const eventEmitter = new TypedEventEmitter< CliCommandEventMap< boolean > >();
@@ -259,7 +263,12 @@ export function createCliRunner( config: CliRunnerConfig ): CliRunner {
 				}
 			} );
 			child.stderr?.on( 'data', ( data: Buffer ) => {
-				stderr += data.toString();
+				const text = data.toString();
+				stderr += text;
+				const trimmed = text.trimEnd();
+				if ( echoStderr && ! options.suppressStderrEcho && trimmed ) {
+					console.error( `${ logPrefix ?? '[CLI]' } ${ trimmed }` );
+				}
 			} );
 		}
 
@@ -302,9 +311,9 @@ export function createCliRunner( config: CliRunnerConfig ): CliRunner {
 		return [ eventEmitter, child ];
 	}
 
-	function killAll(): void {
+	function killAll( options?: { force?: boolean } ): void {
 		for ( const child of liveChildren ) {
-			killChild( child );
+			killChild( child, options );
 		}
 		liveChildren.clear();
 	}

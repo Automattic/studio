@@ -4,7 +4,6 @@
 import '@sentry/electron/preload';
 import { IpcRendererEvent, contextBridge, ipcRenderer, webFrame, webUtils } from 'electron';
 import { IpcEvents } from 'src/ipc-utils';
-import type { AgenticUiSurface } from 'src/lib/beta-features';
 
 function ipcRendererInvoke< T extends keyof IpcHandlers >(
 	channel: T,
@@ -22,23 +21,6 @@ function ipcRendererSend< T extends keyof IpcHandlers >(
 }
 
 const api: IpcApi = {
-	exportSiteForPush: ( id, operationId, configuration ) =>
-		ipcRendererInvoke( 'exportSiteForPush', id, operationId, configuration ),
-	pushArchive: (
-		selectedSiteId,
-		remoteSiteId,
-		archivePath,
-		optionsToSync,
-		specificSelectionPaths
-	) =>
-		ipcRendererInvoke(
-			'pushArchive',
-			selectedSiteId,
-			remoteSiteId,
-			archivePath,
-			optionsToSync,
-			specificSelectionPaths
-		),
 	pushSiteToLive: ( selectedSiteId, remoteSiteId, options ) =>
 		ipcRendererInvoke( 'pushSiteToLive', selectedSiteId, remoteSiteId, options ),
 	deleteSite: ( id, deleteFiles ) => ipcRendererInvoke( 'deleteSite', id, deleteFiles ),
@@ -49,30 +31,20 @@ const api: IpcApi = {
 		ipcRendererInvoke( 'updateSite', updatedSite, wpVersion ),
 	connectWpcomSites: ( ...args ) => ipcRendererInvoke( 'connectWpcomSites', ...args ),
 	disconnectWpcomSites: ( ...args ) => ipcRendererInvoke( 'disconnectWpcomSites', ...args ),
-	updateConnectedWpcomSites: ( ...args ) =>
-		ipcRendererInvoke( 'updateConnectedWpcomSites', ...args ),
 	authenticate: ( isSignup, source ) => ipcRendererSend( 'authenticate', isSignup, source ),
 	exportSite: ( site, destinationPath, options ) =>
 		ipcRendererInvoke( 'exportSite', site, destinationPath, options ),
-	isAuthenticated: () => ipcRendererInvoke( 'isAuthenticated' ),
 	getAuthenticationToken: () => ipcRendererInvoke( 'getAuthenticationToken' ),
 	clearAuthenticationToken: () => ipcRendererInvoke( 'clearAuthenticationToken' ),
 	fetchSnapshots: () => ipcRendererInvoke( 'fetchSnapshots' ),
-	createSnapshot: ( siteFolder, name ) => ipcRendererInvoke( 'createSnapshot', siteFolder, name ),
-	updateSnapshot: ( siteFolder, hostname ) =>
-		ipcRendererInvoke( 'updateSnapshot', siteFolder, hostname ),
-	deleteSnapshot: ( hostname ) => ipcRendererInvoke( 'deleteSnapshot', hostname ),
 	publishPreviewSite: ( siteFolder, hostname, name ) =>
 		ipcRendererInvoke( 'publishPreviewSite', siteFolder, hostname, name ),
 	deletePreviewSite: ( hostname ) => ipcRendererInvoke( 'deletePreviewSite', hostname ),
 	renamePreviewSite: ( hostname, name ) => ipcRendererInvoke( 'renamePreviewSite', hostname, name ),
 	deleteAllSnapshots: () => ipcRendererInvoke( 'deleteAllSnapshots' ),
-	setSnapshot: ( hostname, options ) => ipcRendererInvoke( 'setSnapshot', hostname, options ),
 	getLastSeenVersion: () => ipcRendererInvoke( 'getLastSeenVersion' ),
 	saveLastSeenVersion: ( version ) => ipcRendererInvoke( 'saveLastSeenVersion', version ),
 	getSiteDetails: () => ipcRendererInvoke( 'getSiteDetails' ),
-	reconcileSites: () => ipcRendererInvoke( 'reconcileSites' ),
-	getXdebugEnabledSite: () => ipcRendererInvoke( 'getXdebugEnabledSite' ),
 	openSiteURL: ( id, relativeURL = '', { autoLogin = true } = {} ) =>
 		ipcRendererSend( 'openSiteURL', id, relativeURL, { autoLogin } ),
 	openURL: ( url ) => ipcRendererSend( 'openURL', url ),
@@ -82,21 +54,14 @@ const api: IpcApi = {
 	trustCertificate: () => ipcRenderer.invoke( 'trustCertificate' ),
 	showSaveAsDialog: ( options ) => ipcRendererInvoke( 'showSaveAsDialog', options ),
 	saveUserLocale: ( locale ) => ipcRendererInvoke( 'saveUserLocale', locale ),
-	getSentryUserId: () => ipcRendererInvoke( 'getSentryUserId' ),
 	getUserLocale: () => ipcRendererInvoke( 'getUserLocale' ),
 	getDefaultSiteDirectory: () => ipcRendererInvoke( 'getDefaultSiteDirectory' ),
 	saveDefaultSiteDirectory: ( directory ) =>
 		ipcRendererInvoke( 'saveDefaultSiteDirectory', directory ),
-	showUserSettings: ( tabName ) => ipcRendererInvoke( 'showUserSettings', tabName ),
 	startServer: ( id ) => ipcRendererInvoke( 'startServer', id ),
 	stopServer: ( id ) => ipcRendererInvoke( 'stopServer', id ),
-	stopAllServers: () => ipcRendererInvoke( 'stopAllServers' ),
 	copyText: ( text ) => ipcRendererInvoke( 'copyText', text ),
 	getAppGlobals: () => ipcRendererInvoke( 'getAppGlobals' ),
-	enableAgenticUi: ( surface?: AgenticUiSurface ) =>
-		ipcRendererInvoke( 'enableAgenticUi', surface ),
-	dismissAgenticUiBanner: () => ipcRendererInvoke( 'dismissAgenticUiBanner' ),
-	isAgenticUiBannerDismissed: () => ipcRendererInvoke( 'isAgenticUiBannerDismissed' ),
 	getAppUpdateStatus: () => ipcRendererInvoke( 'getAppUpdateStatus' ),
 	installAppUpdate: () => ipcRendererInvoke( 'installAppUpdate' ),
 	getWpVersion: ( id ) => ipcRendererInvoke( 'getWpVersion', id ),
@@ -115,46 +80,26 @@ const api: IpcApi = {
 		ipcRendererInvoke( 'generateNumberedNameFromList', baseName, usedSites ),
 	openLocalPath: ( path ) => ipcRendererSend( 'openLocalPath', path ),
 	openStudioLogs: () => ipcRendererSend( 'openStudioLogs' ),
-	showItemInFolder: ( path ) => ipcRendererSend( 'showItemInFolder', path ),
-	loadThemeDetails: ( id, emitLoadingEvent = true ) =>
-		ipcRendererInvoke( 'loadThemeDetails', id, emitLoadingEvent ),
-	loadSiteIcon: ( id ) => ipcRendererInvoke( 'loadSiteIcon', id ),
+	loadThemeDetails: ( id ) => ipcRendererInvoke( 'loadThemeDetails', id ),
+	getSiteIcon: ( id ) => ipcRendererInvoke( 'getSiteIcon', id ),
 	getThumbnailData: ( id ) => ipcRendererInvoke( 'getThumbnailData', id ),
 	getInstalledAppsAndTerminals: () => ipcRendererInvoke( 'getInstalledAppsAndTerminals' ),
 	importSite: ( siteId, importArchivePath, options ) =>
 		ipcRendererInvoke( 'importSite', siteId, importArchivePath, options ),
-	executeWPCLiInline: ( options ) => ipcRendererInvoke( 'executeWPCLiInline', options ),
 	getOnboardingData: () => ipcRendererInvoke( 'getOnboardingData' ),
 	saveOnboarding: ( onboardingCompleted ) =>
 		ipcRendererInvoke( 'saveOnboarding', onboardingCompleted ),
-	getBetaFeatures: () => ipcRendererInvoke( 'getBetaFeatures' ),
 	openAppAtPath: ( editorKey, filePath, otherFiles?: string[] ) =>
 		ipcRendererInvoke( 'openAppAtPath', editorKey, filePath, otherFiles ),
 	openTerminalAtPath: ( targetPath ) => ipcRendererInvoke( 'openTerminalAtPath', targetPath ),
 	showMessageBox: ( options ) => ipcRendererInvoke( 'showMessageBox', options ),
 	showErrorMessageBox: ( options ) => ipcRendererSend( 'showErrorMessageBox', options ),
-	showNotification: ( options ) => ipcRendererSend( 'showNotification', options ),
-	logRendererMessage: ( level, ...args ) => ipcRendererSend( 'logRendererMessage', level, ...args ),
-	setupAppMenu: ( config ) => ipcRendererInvoke( 'setupAppMenu', config ),
+	setupAppMenu: () => ipcRendererInvoke( 'setupAppMenu' ),
 	popupAppMenu: ( position ) => ipcRendererSend( 'popupAppMenu', position ),
-	openCertificate: () => ipcRendererSend( 'openCertificate' ),
-	promptWindowsSpeedUpSites: ( ...args ) =>
-		ipcRendererInvoke( 'promptWindowsSpeedUpSites', ...args ),
-	setDefaultLocaleData: ( locale ) => ipcRendererInvoke( 'setDefaultLocaleData', locale ),
-	resetDefaultLocaleData: () => ipcRendererInvoke( 'resetDefaultLocaleData' ),
-	toggleMinWindowWidth: ( isSidebarVisible, currentSidebarWidth? ) =>
-		ipcRendererInvoke( 'toggleMinWindowWidth', isSidebarVisible, currentSidebarWidth ),
 	ensureMinWindowWidth: ( minimumWidth ) =>
 		ipcRendererInvoke( 'ensureMinWindowWidth', minimumWidth ),
 	getAbsolutePathFromSite: ( siteId, relativePath ) =>
 		ipcRendererInvoke( 'getAbsolutePathFromSite', siteId, relativePath ),
-	openFileInIDE: ( relativePath, siteId ) =>
-		ipcRendererSend( 'openFileInIDE', relativePath, siteId ),
-	isImportExportSupported: ( siteId ) => ipcRendererInvoke( 'isImportExportSupported', siteId ),
-	checkSyncBackupSize: ( downloadUrl ) => ipcRendererInvoke( 'checkSyncBackupSize', downloadUrl ),
-	downloadSyncBackup: ( remoteSiteId, downloadUrl, operationId ) =>
-		ipcRendererInvoke( 'downloadSyncBackup', remoteSiteId, downloadUrl, operationId ),
-	removeSyncBackup: ( remoteSiteId ) => ipcRendererInvoke( 'removeSyncBackup', remoteSiteId ),
 	getConnectedWpcomSites: ( localSiteId ) =>
 		ipcRendererInvoke( 'getConnectedWpcomSites', localSiteId ),
 	fetchSyncableWpcomSites: () => ipcRendererInvoke( 'fetchSyncableWpcomSites' ),
@@ -165,13 +110,7 @@ const api: IpcApi = {
 		ipcRendererInvoke( 'listRemoteFileTree', remoteSiteId, rewindId, treePath ),
 	pullSiteFromLive: ( siteId, remoteSiteId, options ) =>
 		ipcRendererInvoke( 'pullSiteFromLive', siteId, remoteSiteId, options ),
-	addSyncOperation: ( id, status ) => ipcRendererSend( 'addSyncOperation', id, status ),
-	clearSyncOperation: ( id ) => ipcRendererSend( 'clearSyncOperation', id ),
 	cancelSyncOperation: ( id ) => ipcRendererSend( 'cancelSyncOperation', id ),
-	pauseSyncUpload: ( selectedSiteId, remoteSiteId ) =>
-		ipcRendererInvoke( 'pauseSyncUpload', selectedSiteId, remoteSiteId ),
-	resumeSyncUpload: ( selectedSiteId, remoteSiteId ) =>
-		ipcRendererInvoke( 'resumeSyncUpload', selectedSiteId, remoteSiteId ),
 	getDirectorySize: ( id, subdir ) => ipcRendererInvoke( 'getDirectorySize', id, subdir ),
 	getFileSize: ( id, filePath ) => ipcRendererInvoke( 'getFileSize', id, filePath ),
 	getPathForFile: ( file ) => webUtils.getPathForFile( file ),
@@ -185,7 +124,6 @@ const api: IpcApi = {
 	goToWebviewNavigationHistoryEntry: ( webContentsId, index ) =>
 		ipcRendererInvoke( 'goToWebviewNavigationHistoryEntry', webContentsId, index ),
 	isFullscreen: () => ipcRendererInvoke( 'isFullscreen' ),
-	getAllCustomDomains: () => ipcRendererInvoke( 'getAllCustomDomains' ),
 	saveUserTerminal: ( preferredTerminal ) =>
 		ipcRendererInvoke( 'saveUserTerminal', preferredTerminal ),
 	getUserTerminal: () => ipcRendererInvoke( 'getUserTerminal' ),
@@ -194,8 +132,6 @@ const api: IpcApi = {
 		ipcRendererInvoke( 'saveGlobalAgentInstructions', content, options ),
 	getAiSettings: () => ipcRendererInvoke( 'getAiSettings' ),
 	saveAnthropicApiKey: ( key ) => ipcRendererInvoke( 'saveAnthropicApiKey', key ),
-	setAiProvider: ( provider ) => ipcRendererInvoke( 'setAiProvider', provider ),
-	previewColorScheme: ( colorScheme ) => ipcRendererInvoke( 'previewColorScheme', colorScheme ),
 	saveColorScheme: ( colorScheme ) => ipcRendererInvoke( 'saveColorScheme', colorScheme ),
 	getColorScheme: () => ipcRendererInvoke( 'getColorScheme' ),
 	getAnalyticsEnabled: () => ipcRendererInvoke( 'getAnalyticsEnabled' ),
@@ -216,15 +152,11 @@ const api: IpcApi = {
 	comparePaths: ( path1, path2 ) => ipcRendererInvoke( 'comparePaths', path1, path2 ),
 	listLocalFileTree: ( siteId, path, maxDepth ) =>
 		ipcRenderer.invoke( 'listLocalFileTree', siteId, path, maxDepth ),
-	validateBlueprint: ( blueprintJson ) => ipcRendererInvoke( 'validateBlueprint', blueprintJson ),
 	readBlueprintFile: ( filePath ) => ipcRendererInvoke( 'readBlueprintFile', filePath ),
 	extractBlueprintBundle: ( zipFilePath ) =>
 		ipcRendererInvoke( 'extractBlueprintBundle', zipFilePath ),
 	cleanupBlueprintTempDir: ( tempDir ) => ipcRendererInvoke( 'cleanupBlueprintTempDir', tempDir ),
-	showSiteContextMenu: ( context ) => ipcRendererSend( 'showSiteContextMenu', context ),
 	showTextContextMenu: ( context ) => ipcRendererInvoke( 'showTextContextMenu', context ),
-	setWindowControlVisibility: ( visible ) =>
-		ipcRendererInvoke( 'setWindowControlVisibility', visible ),
 	setTitleBarBackdropEffect: ( enabled ) =>
 		ipcRendererInvoke( 'setTitleBarBackdropEffect', enabled ),
 	setWindowControlsSurface: ( surface ) => ipcRendererInvoke( 'setWindowControlsSurface', surface ),
@@ -235,19 +167,6 @@ const api: IpcApi = {
 	isStudioCliExternallyManaged: () => ipcRendererInvoke( 'isStudioCliExternallyManaged' ),
 	installStudioCli: () => ipcRendererInvoke( 'installStudioCli' ),
 	uninstallStudioCli: () => ipcRendererInvoke( 'uninstallStudioCli' ),
-	getAgentInstructionsStatus: ( siteId ) =>
-		ipcRendererInvoke( 'getAgentInstructionsStatus', siteId ),
-	installAgentInstructions: ( siteId, options ) =>
-		ipcRendererInvoke( 'installAgentInstructions', siteId, options ),
-	removeAgentInstruction: ( siteId, fileType ) =>
-		ipcRendererInvoke( 'removeAgentInstruction', siteId, fileType ),
-	getWordPressSkillsStatus: ( siteId ) => ipcRendererInvoke( 'getWordPressSkillsStatus', siteId ),
-	installWordPressSkills: ( siteId, options ) =>
-		ipcRendererInvoke( 'installWordPressSkills', siteId, options ),
-	installWordPressSkillById: ( siteId, skillId, options ) =>
-		ipcRendererInvoke( 'installWordPressSkillById', siteId, skillId, options ),
-	removeWordPressSkillById: ( siteId, skillId ) =>
-		ipcRendererInvoke( 'removeWordPressSkillById', siteId, skillId ),
 	getWordPressSkillsStatusAllSites: () => ipcRendererInvoke( 'getWordPressSkillsStatusAllSites' ),
 	installWordPressSkillsToAllSites: ( options ) =>
 		ipcRendererInvoke( 'installWordPressSkillsToAllSites', options ),
@@ -257,15 +176,11 @@ const api: IpcApi = {
 		ipcRendererInvoke( 'recordAnalyticsEvent', eventName, props ),
 	listAiSessions: () => ipcRendererInvoke( 'listAiSessions' ),
 	loadAiSession: ( sessionIdOrPrefix ) => ipcRendererInvoke( 'loadAiSession', sessionIdOrPrefix ),
-	deleteAiSession: ( sessionIdOrPrefix ) =>
-		ipcRendererInvoke( 'deleteAiSession', sessionIdOrPrefix ),
 	createAiSession: ( siteId ) => ipcRendererInvoke( 'createAiSession', siteId ),
 	updateAiSessionMetadata: ( sessionIdOrPrefix, patch ) =>
 		ipcRendererInvoke( 'updateAiSessionMetadata', sessionIdOrPrefix, patch ),
 	continueAiSession: ( sessionId, prompt, options ) =>
 		ipcRendererInvoke( 'continueAiSession', sessionId, prompt, options ),
-	markAiMessageEdited: ( sessionId, originalEntryId ) =>
-		ipcRendererInvoke( 'markAiMessageEdited', sessionId, originalEntryId ),
 	listActiveAiAgentRuns: () => ipcRendererInvoke( 'listActiveAiAgentRuns' ),
 	setAiSessionModel: ( sessionId, model ) =>
 		ipcRendererInvoke( 'setAiSessionModel', sessionId, model ),
@@ -274,8 +189,6 @@ const api: IpcApi = {
 	interruptAiAgentRun: ( runId ) => ipcRendererInvoke( 'interruptAiAgentRun', runId ),
 	answerAiAgentQuestion: ( runId, answers ) =>
 		ipcRendererInvoke( 'answerAiAgentQuestion', runId, answers ),
-	setSessionEnvironment: ( sessionId, environment ) =>
-		ipcRendererInvoke( 'setSessionEnvironment', sessionId, environment ),
 };
 
 contextBridge.exposeInMainWorld( 'ipcApi', api );

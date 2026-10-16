@@ -49,8 +49,8 @@ vi.mock( '@/data/core', () => ( {
 	useConnector: () => connector,
 } ) );
 
-vi.mock( '@/data/queries/use-connected-wpcom-sites', () => ( {
-	useConnectedWpcomSites: () => ( { data: connectedSites } ),
+vi.mock( '@/data/queries/use-wpcom-sites', () => ( {
+	useLiveWpcomSites: () => connectedSites,
 } ) );
 
 vi.mock( '@/data/queries/use-agentic-features', () => ( {
@@ -79,6 +79,10 @@ vi.mock( '@/data/queries/use-snapshots', () => ( {
 	useSnapshotUsage: () => ( { data: snapshotUsage } ),
 	useDeleteSnapshot: () => ( { mutate: deleteSnapshotMutate } ),
 	useRenameSnapshot: () => ( { mutate: renameSnapshotMutate } ),
+} ) );
+
+vi.mock( '@/data/queries/use-user-locale', () => ( {
+	useUserLocale: () => undefined,
 } ) );
 
 const cancelSyncMutate = vi.fn();

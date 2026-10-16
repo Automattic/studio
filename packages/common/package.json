@@ -4,8 +4,18 @@
 	"version": "1.0.0",
 	"type": "module",
 	"description": "Shared code between Studio app and CLI",
+	"exports": {
+		"./constants": "./constants.ts",
+		"./logger-actions": "./logger-actions.ts",
+		"./ai/*": "./ai/*.ts",
+		"./lib/*": "./lib/*.ts",
+		"./sites/*": "./sites/*.ts",
+		"./types/*": "./types/*.ts",
+		"./translations": "./translations/index.ts",
+		"./translations/*.json": "./translations/*.json",
+		"./assets/*": "./assets/*"
+	},
 	"scripts": {
-		"build": "tsc -p tsconfig.json",
 		"lint": "eslint .",
 		"typecheck": "tsc -p tsconfig.json --noEmit"
 	},
@@ -13,6 +23,7 @@
 		"@automattic/generate-password": "^0.2.0",
 		"@sentry/core": "^10.50.0",
 		"@studio/design-md": "file:../design-md",
+		"@vscode/sudo-prompt": "^9.3.2",
 		"@wordpress/i18n": "^6.27.0",
 		"atomically": "^2.1.0",
 		"date-fns": "^4.1.0",

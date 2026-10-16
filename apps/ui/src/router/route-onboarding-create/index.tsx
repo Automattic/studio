@@ -3,6 +3,8 @@ import {
 	extractFormValuesFromBlueprint,
 	updateBlueprintWithFormValues,
 } from '@studio/common/lib/blueprint-settings';
+import { generateCustomDomainFromSiteName } from '@studio/common/lib/domains';
+import { getErrorMessage } from '@studio/common/lib/error-formatting';
 import { createRoute, useNavigate } from '@tanstack/react-router';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
@@ -23,18 +25,21 @@ import { pendingPromptSlot } from '@/lib/pending-prompt';
 import { onboardingLayoutRoute, useOnboardingProgress } from '../layout-onboarding';
 import styles from '../layout-onboarding/style.module.css';
 import localStyles from './style.module.css';
-import type { CreateSiteFormValues } from '@/components/create-site-form';
+import type { CreateSiteFormError, CreateSiteFormValues } from '@/components/create-site-form';
 import type { AiModelId } from '@/data/core';
 
 function mapBlueprintSettingsToFormValues(
 	blueprint: SelectedBlueprint
 ): Partial< CreateSiteFormValues > {
 	const settings = extractFormValuesFromBlueprint( blueprint.blueprint );
+	const name = settings.siteName || blueprint.title;
 	return {
-		name: settings.siteName || blueprint.title,
+		name,
 		phpVersion: settings.phpVersion,
 		wpVersion: settings.wpVersion,
-		customDomain: settings.customDomain,
+		customDomain:
+			settings.customDomain ??
+			( settings.requiresCustomDomain ? generateCustomDomainFromSiteName( name ) : undefined ),
 		enableHttps: settings.enableHttps,
 		adminUsername: settings.adminUsername,
 		adminPassword: settings.adminPassword,
@@ -240,12 +245,18 @@ export function CreateSitePage() {
 		useState< Partial< CreateSiteFormValues > | null >( null );
 	const selectedBlueprintRef = useRef< SelectedBlueprint | null >( null );
 	const transferredTempDirRef = useRef< string | null >( null );
-	const [ submitError, setSubmitError ] = useState( '' );
+	const [ submitError, setSubmitError ] = useState< string | CreateSiteFormError >( '' );
 	const pendingBlueprint = useSyncExternalStore(
 		pendingBlueprintSlot.subscribe,
 		pendingBlueprintSlot.getSnapshot
 	);
 	const showBrief = chatEnabled && ! selectedBlueprint;
+	const requiresCustomDomain = useMemo(
+		() =>
+			!! selectedBlueprint &&
+			!! extractFormValuesFromBlueprint( selectedBlueprint.blueprint ).requiresCustomDomain,
+		[ selectedBlueprint ]
+	);
 
 	const cleanupBlueprint = useCallback(
 		( blueprint: SelectedBlueprint | null ) => {
@@ -347,17 +358,15 @@ export function CreateSitePage() {
 		} catch ( error ) {
 			setSubmittedInitialValues( null );
 			setProgress( null );
-			setSubmitError(
-				error instanceof Error ? error.message : __( 'Failed to create site. Please try again.' )
-			);
-			if ( blueprint?.tempDir ) {
-				await connector.cleanupBlueprintTempDir( blueprint.tempDir ).catch( () => undefined );
-				transferredTempDirRef.current = null;
-				if ( selectedBlueprintRef.current === blueprint ) {
-					selectedBlueprintRef.current = null;
-					setSelectedBlueprint( null );
-				}
-			}
+			setSubmitError( {
+				title: __( 'Studio could not create the site.' ),
+				message: blueprint
+					? __( 'Review the Blueprint, the site name and the local folder, then try again.' )
+					: __( 'Review the site name and local folder, then try again.' ),
+				details: getErrorMessage( error ),
+			} );
+			// The server keeps an uploaded bundle when creation fails; it's ours to clean up again.
+			transferredTempDirRef.current = null;
 		}
 	};
 
@@ -376,6 +385,7 @@ export function CreateSitePage() {
 				onCancel={ () => void navigate( { to: '/onboarding' } ) }
 				isSubmitting={ submittedInitialValues !== null }
 				isSubmitDisabled={ ! isBlueprintValid }
+				requiresCustomDomain={ requiresCustomDomain }
 				submitError={ submitError }
 				submitLabel={ selectedBlueprint ? __( 'Create site from Blueprint' ) : undefined }
 				panelFooter={

@@ -226,7 +226,7 @@ test.describe( 'Sites without cleanup in-between', () => {
 
 	test( 'stop all sites and then start the first site again', async () => {
 		const sidebar = new Sidebar( session.mainWindow );
-		await session.mainWindow.evaluate( () => window.ipcApi.stopAllServers() );
+		await session.stopAllSites();
 
 		const [ first ] = await session.getSites();
 		await expect( sidebar.getStatusButton( first.name ) ).toHaveAttribute(

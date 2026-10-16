@@ -15,7 +15,7 @@ import type {
 } from '@studio/common/lib/record-tracks-event';
 import type { SiteFileAccess } from '@studio/common/lib/site-file-access';
 import type { SiteOperation } from '@studio/common/lib/site-operation';
-import type { SiteRuntime } from '@studio/common/lib/site-runtime';
+import type { SnapshotUsage } from '@studio/common/lib/snapshots';
 import type { StudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 import type { StudioAssistantTopUpPricing } from '@studio/common/lib/studio-assistant-top-up-pricing';
 import type { SyncEvent } from '@studio/common/lib/sync/activity';
@@ -25,6 +25,7 @@ import type { SupportedTerminal } from '@studio/common/lib/user-settings/termina
 import type { WordPressVersion } from '@studio/common/lib/wordpress-versions';
 import type { WpEnvironmentType } from '@studio/common/lib/wp-environment-type';
 import type { SiteDesign } from '@studio/common/sites/site-design';
+import type { ThemeDetails } from '@studio/common/sites/site-identity';
 import type { SiteStorageUsage } from '@studio/common/sites/storage-usage';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { Snapshot } from '@studio/common/types/snapshot';
@@ -43,6 +44,8 @@ export type { SessionEntry } from '@earendil-works/pi-coding-agent';
 export type { StudioCustomEntry } from '@studio/common/ai/sessions/entry-types';
 export type { AiModelId } from '@studio/common/ai/models';
 export type { Snapshot } from '@studio/common/types/snapshot';
+export type { ThemeDetails } from '@studio/common/sites/site-identity';
+export type { SnapshotUsage } from '@studio/common/lib/snapshots';
 export type { PullSyncOptions, PushSyncOptions, SyncSite } from '@studio/common/types/sync';
 export type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
 export type { ColorScheme, QuitSitesBehavior } from '@studio/common/lib/user-settings/preferences';
@@ -77,7 +80,6 @@ export interface SiteDetails {
 	customDomain?: string;
 	enableHttps?: boolean;
 	phpVersion: string;
-	runtime?: SiteRuntime;
 	fileAccess?: SiteFileAccess;
 	isWpAutoUpdating?: boolean;
 	adminUsername?: string;
@@ -94,16 +96,6 @@ export interface SiteDetails {
 	// True for sites that were running when the app quit with the
 	// "Stop, restart on next launch" behavior; the renderer starts them on boot.
 	autoStart?: boolean;
-	themeDetails?: {
-		name: string;
-		path: string;
-		slug: string;
-		isBlockTheme: boolean;
-		// Only supplied by the desktop (IPC) connector.
-		supportsWidgets?: boolean;
-		supportsMenus?: boolean;
-	};
-	siteIcon?: string | null;
 	// The Studio operation currently holding the site, from the CLI. Present
 	// regardless of who started it — the user, the desktop app, or the agent.
 	operation?: SiteOperation;
@@ -205,9 +197,10 @@ export interface Connector {
 	// Cached screenshot thumbnail captured by the desktop app while the site
 	// was running. Returns null when the site has not produced a thumbnail yet.
 	getSiteThumbnail( siteId: string ): Promise< string | null >;
-	// Resolves active theme details when the host exposes that capability.
-	// Desktop reuses the same IPC flow as the Classic UI.
-	getThemeDetails?( siteId: string ): Promise< SiteDetails[ 'themeDetails' ] >;
+	// The site's active theme and its Site Icon (a data URL, or null when it has
+	// none), read on demand when the host can inspect local sites.
+	getThemeDetails?( siteId: string ): Promise< ThemeDetails >;
+	getSiteIcon?( siteId: string ): Promise< string | null >;
 	// Size of the local site's files, grouped for the overview's disk summary.
 	// Hosted sites return null because their storage is not on this machine.
 	// Measuring walks the whole site directory, so `signal` is honored all the
@@ -259,7 +252,11 @@ export interface Connector {
 	// Imports a backup into an already-created site and starts the usable site.
 	// `backupPath` comes from `getFilePath` for the currently selected file.
 	// Its progress and result arrive as sync activity (`onSyncActivity`).
-	importSiteFromBackup( siteId: string, backupPath: string ): Promise< void >;
+	importSiteFromBackup(
+		siteId: string,
+		backupPath: string,
+		options?: { suppressTracksEvent?: boolean }
+	): Promise< void >;
 
 	// Preview snapshots (WordPress.com hosted previews of local sites)
 	getSnapshots(): Promise< Snapshot[] >;
@@ -434,6 +431,14 @@ export interface Connector {
 	// Resolves with the chosen path, or `null` when the user cancels (or the
 	// host has no native picker — see capabilities.nativeFolderPicker).
 	selectDefaultSiteDirectory( defaultPath: string ): Promise< string | null >;
+
+	// False when Studio has a root certificate (which signs every HTTPS site's
+	// certificate) that the OS doesn't trust, so browsers warn about those sites.
+	// True before the first HTTPS site: there's no certificate to trust yet.
+	isCertificateTrusted(): Promise< boolean >;
+	// Trusts it (Windows and Linux ask for administrator access). macOS needs a
+	// manual Keychain step, so there it reveals the certificate file instead.
+	trustCertificate(): Promise< void >;
 
 	// The user's global Studio Code instructions, a markdown file injected into
 	// every agent session. Gated by `capabilities.agentInstructions`.
@@ -637,12 +642,6 @@ export interface OnboardingHintsState {
 	migratedFromClassic?: boolean;
 }
 
-export interface SnapshotUsage {
-	siteCount: number;
-	siteLimit: number;
-	siteCreationBlocked: boolean;
-}
-
 export interface SkillStatus {
 	id: string;
 	displayName: string;
@@ -697,7 +696,6 @@ export interface CreateSiteParams {
 	name: string;
 	path: string;
 	phpVersion?: SupportedPHPVersion;
-	runtime?: SiteRuntime;
 	fileAccess?: SiteFileAccess;
 	wpVersion?: string;
 	customDomain?: string;

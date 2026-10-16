@@ -29,5 +29,4 @@ export enum StatsMetric {
 	// Per-site daily active-runtime adoption — see RSM-3958.
 	RUNTIME_NATIVE_SITE_DIR = 'native-site-dir',
 	RUNTIME_NATIVE_ALL_FILES = 'native-all-files',
-	RUNTIME_SANDBOX = 'sandbox',
 }

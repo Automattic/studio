@@ -1,8 +1,3 @@
-import {
-	SITE_RUNTIME_NATIVE_PHP,
-	SITE_RUNTIME_PLAYGROUND,
-	type SiteRuntime,
-} from '@studio/common/lib/site-runtime';
 import { describe, expect, it } from 'vitest';
 import { loadSkills } from '../skills';
 import { buildSystemPrompt } from '../system-prompt';
@@ -18,7 +13,6 @@ const toolsFor = ( options: Parameters< typeof resolveStudioToolDefinitions >[ 0
 	resolveStudioToolDefinitions( options ).map( ( tool ) => ( {
 		name: tool.name,
 		promptSnippet: tool.promptSnippet,
-		promptGuidelines: tool.promptGuidelines,
 	} ) );
 
 describe( 'buildSystemPrompt', () => {
@@ -40,10 +34,16 @@ describe( 'buildSystemPrompt', () => {
 		expect( prompt ).not.toContain( 'core/post-content' );
 	} );
 
+	it( 'routes site builds to the build-site skill in every runtime', () => {
+		for ( const prompt of [ buildSystemPrompt( {} ), buildSystemPrompt( { external: true } ) ] ) {
+			expect( prompt ).toContain( 'load the `build-site` skill first' );
+		}
+	} );
+
 	it( 'routes WordPress.com sites to the remote management skill', () => {
 		const prompt = buildSystemPrompt( {} );
 
-		expect( prompt ).toContain( 'load the `wpcom-remote-management` skill first' );
+		expect( prompt ).toContain( 'load the `edit-manage-remote-site` skill first' );
 		expect( prompt ).not.toContain( '## Common wp/v2 Endpoints' );
 	} );
 
@@ -64,52 +64,17 @@ describe( 'buildSystemPrompt', () => {
 		expect( missingSkillNames ).toEqual( [] );
 	} );
 
-	it( 'gives Playground sites the inline post_content guidance', () => {
-		const prompt = buildSystemPrompt( { runtime: SITE_RUNTIME_PLAYGROUND } );
-
-		expect( prompt ).toContain( 'rewrite large content to a virtual temp file' );
-		expect( prompt ).toContain( 'cannot read your machine' );
-		expect( prompt ).not.toContain( 'write the validated markup to a scratch file' );
-	} );
-
-	it( 'lets native PHP sites use a scratch file for post_content', () => {
-		const prompt = buildSystemPrompt( { runtime: SITE_RUNTIME_NATIVE_PHP } );
-
-		expect( prompt ).toContain( 'write the validated markup to a scratch file' );
-		expect( prompt ).toContain( 'wp post create <file>' );
-		expect( prompt ).not.toContain( 'virtual temp file' );
-		expect( prompt ).not.toContain( 'cannot read your machine' );
-	} );
-
-	it( 'defaults to native PHP post_content guidance when no runtime is given', () => {
-		const prompt = buildSystemPrompt( {} );
-
-		expect( prompt ).toContain( 'write the validated markup to a scratch file' );
-		expect( prompt ).not.toContain( 'virtual temp file' );
-	} );
-
-	it( 'keeps the shared no-shell post_content rule for both runtimes', () => {
-		const runtimes: SiteRuntime[] = [ SITE_RUNTIME_PLAYGROUND, SITE_RUNTIME_NATIVE_PHP ];
-		for ( const runtime of runtimes ) {
-			const prompt = buildSystemPrompt( { runtime } );
-			expect( prompt ).toContain( 'takes literal arguments, not shell commands' );
-		}
-	} );
-
-	it( 'lists the registered tools and their guidelines', () => {
+	it( 'lists the registered tools that have a snippet', () => {
 		const prompt = buildSystemPrompt( {
 			tools: [
 				{ name: 'wp_cli', promptSnippet: 'Run WP-CLI commands on a running site' },
-				{ name: 'Edit', promptGuidelines: [ 'Use one Edit call with multiple entries' ] },
 				{ name: 'hidden' },
 			],
 		} );
 		expect( prompt ).toContain(
 			'## Available tools\n\n- wp_cli: Run WP-CLI commands on a running site'
 		);
-		expect( prompt ).toContain( '## Tool guidelines\n\n- Use one Edit call with multiple entries' );
 		expect( prompt ).not.toContain( '- hidden' );
-		expect( buildSystemPrompt( {} ) ).not.toContain( '## Tool guidelines' );
 	} );
 
 	it( "gives external agents their own intro instead of Studio Code's identity and cadence", () => {
@@ -117,6 +82,7 @@ describe( 'buildSystemPrompt', () => {
 		expect( prompt ).toContain( 'Edit site files with your own file tools' );
 		expect( prompt ).not.toContain( 'WordPress Studio Code' );
 		expect( prompt ).not.toContain( '## Working cadence' );
+		expect( buildSystemPrompt( {} ) ).toContain( 'Write and Edit reject more than 14KB per call' );
 	} );
 
 	it( 'mentions refresh_browser only when chat artifacts are enabled', () => {
@@ -127,31 +93,20 @@ describe( 'buildSystemPrompt', () => {
 		expect( terminalPrompt ).not.toContain( 'refresh_browser' );
 	} );
 
-	it( 'warns that terminal users may not see screenshots when chat artifacts are disabled', () => {
-		const prompt = buildSystemPrompt( { chatArtifactsEnabled: false } );
-
-		expect( prompt ).toContain( '## Screenshots' );
-		expect( prompt ).toContain( 'Do not respond as though the user is looking at the capture' );
+	it( 'warns that terminal users may not see screenshots only when chat artifacts are disabled', () => {
+		const caveat = 'Do not respond as though the user is looking at the capture';
+		expect( buildSystemPrompt( { chatArtifactsEnabled: false } ) ).toContain( caveat );
+		expect( buildSystemPrompt( { chatArtifactsEnabled: true } ) ).not.toContain( caveat );
 	} );
 
 	it( 'describes the screenshot and inspect tools for models without vision', () => {
-		const polishStep = 'You MUST load the `visual-polish` skill and follow its instructions';
 		const withVision = buildSystemPrompt( { tools: toolsFor( { visionEnabled: true } ) } );
-		expect( withVision ).toContain( polishStep );
 		expect( withVision ).toContain( 'Pair with take_screenshot' );
 		expect( withVision ).not.toContain( 'You cannot view' );
 
 		const textOnly = buildSystemPrompt( { tools: toolsFor( { visionEnabled: false } ) } );
-		expect( textOnly ).toContain( polishStep );
 		expect( textOnly ).toContain( 'it still sets the theme screenshot' );
-		expect( textOnly ).toContain( 'pass its directory as `themeScreenshot`' );
 		expect( textOnly ).not.toContain( 'Pair with take_screenshot' );
-	} );
-
-	it( 'omits the terminal screenshot caveat when chat artifacts are enabled', () => {
-		const prompt = buildSystemPrompt( { chatArtifactsEnabled: true } );
-
-		expect( prompt ).not.toContain( 'Do not respond as though the user is looking at the capture' );
 	} );
 
 	it( 'appends the user global instructions when set', () => {
@@ -166,12 +121,5 @@ describe( 'buildSystemPrompt', () => {
 
 		expect( prompt ).toContain( 'was truncated here' );
 		expect( prompt ).not.toContain( 'a'.repeat( 17_000 ) );
-	} );
-
-	it( 'includes the terminal screenshot caveat for terminal sessions', () => {
-		const prompt = buildSystemPrompt( { chatArtifactsEnabled: false } );
-
-		expect( prompt ).toContain( '## Screenshots' );
-		expect( prompt ).toContain( 'Do not respond as though the user is looking at the capture' );
 	} );
 } );

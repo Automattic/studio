@@ -1,4 +1,4 @@
-import { readAppConfig, updateAppConfig } from '@studio/common/lib/app-config';
+import { readAppConfig, updateAppConfig, type AppConfig } from '@studio/common/lib/app-config';
 import { isSupportedLocale } from '@studio/common/lib/locale';
 import {
 	isAnalyticsOptedOutInConfig,
@@ -75,6 +75,15 @@ const APP_CONFIG_KEYS = [
 	[ 'agenticFeaturesEnabled', 'agenticFeaturesEnabled' ],
 ] as const satisfies readonly ( readonly [ keyof UserPreferencesPatch, string ] )[];
 
+function getDefaultSiteDirectory( config: AppConfig, sitesRoot: string ): string {
+	return nonEmptyString.safeParse( config.defaultSiteDirectory ).data ?? sitesRoot;
+}
+
+// Where new and duplicated sites go: the desktop's preference, else the sites root.
+export async function readDefaultSiteDirectory( sitesRoot: string ): Promise< string > {
+	return getDefaultSiteDirectory( await readAppConfig(), sitesRoot );
+}
+
 export async function readUserPreferences( {
 	sitesRoot,
 	installedApps,
@@ -90,7 +99,7 @@ export async function readUserPreferences( {
 		quitSitesBehavior: optionalQuitSitesBehavior.parse( config.quitSitesBehavior ),
 		locale: shared.locale,
 		analyticsEnabled: ! isAnalyticsOptedOutInConfig( shared ),
-		defaultSiteDirectory: nonEmptyString.safeParse( config.defaultSiteDirectory ).data ?? sitesRoot,
+		defaultSiteDirectory: getDefaultSiteDirectory( config, sitesRoot ),
 		agenticFeaturesEnabled: config.agenticFeaturesEnabled !== false,
 	};
 }
@@ -124,33 +133,28 @@ export async function writeUserPreferences( patch: UserPreferencesPatch ): Promi
 	}
 }
 
-// The manual sidebar order lives per site in `app.json`; the CLI's `site list`
-// doesn't carry it. Parsed rather than cast so malformed metadata can't throw
-// mid-write, and `.loose()` so the desktop-only fields stored alongside
-// `sortOrder` (site icon, theme details) survive a write.
-const siteMetadataSchema = z
-	.record( z.string(), z.object( { sortOrder: z.number().optional() } ).loose().catch( {} ) )
-	.catch( {} );
+// The orientation guide's progress, kept in `app.json` like the desktop does so
+// finishing the tour in either front end settles both. `.loose()` keeps any
+// field a newer desktop adds.
+export const onboardingHintsSchema = z
+	.object( {
+		tourCompletedVersion: z.number().optional(),
+		tourDismissedVersion: z.number().optional(),
+		migratedFromClassic: z.boolean().optional(),
+	} )
+	.loose();
 
-export async function readSiteSortOrders(): Promise< Map< string, number > > {
-	const siteMetadata = siteMetadataSchema.parse( ( await readAppConfig() ).siteMetadata );
-	const sortOrders = new Map< string, number >();
-	for ( const [ siteId, { sortOrder } ] of Object.entries( siteMetadata ) ) {
-		if ( sortOrder !== undefined ) {
-			sortOrders.set( siteId, sortOrder );
-		}
-	}
-	return sortOrders;
+type OnboardingHints = z.infer< typeof onboardingHintsSchema >;
+
+export async function readOnboardingHints(): Promise< OnboardingHints > {
+	return onboardingHintsSchema.catch( {} ).parse( ( await readAppConfig() ).onboardingHints );
 }
 
-export async function writeSiteSortOrders(
-	updates: { siteId: string; sortOrder: number }[]
-): Promise< void > {
+export async function writeOnboardingHints( patch: OnboardingHints ): Promise< void > {
 	await updateAppConfig( ( config ) => {
-		const siteMetadata = siteMetadataSchema.parse( config.siteMetadata );
-		for ( const { siteId, sortOrder } of updates ) {
-			siteMetadata[ siteId ] = { ...siteMetadata[ siteId ], sortOrder };
-		}
-		config.siteMetadata = siteMetadata;
+		config.onboardingHints = {
+			...onboardingHintsSchema.catch( {} ).parse( config.onboardingHints ),
+			...patch,
+		};
 	} );
 }

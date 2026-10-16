@@ -122,16 +122,8 @@ describe( 'SitePreview', () => {
 	} );
 
 	it( 'refreshes theme details after activation inside the preview', async () => {
-		const themeDetails = {
-			name: 'Twenty Thirteen',
-			path: '/wp-content/themes/twentythirteen',
-			slug: 'twentythirteen',
-			isBlockTheme: false,
-		};
-		const getThemeDetails = vi.fn().mockResolvedValue( themeDetails );
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn().mockResolvedValue( undefined ),
-			getThemeDetails,
 			trackEvent: vi.fn().mockResolvedValue( undefined ),
 			capabilities: CAPABILITIES,
 		} as never );
@@ -142,11 +134,15 @@ describe( 'SitePreview', () => {
 				reloadNonce={ 0 }
 			/>
 		);
+		queryClient.setQueryData( themeDetailsQueryKey( 'site-1' ), { slug: 'twentytwentyfive' } );
 
 		fireEvent.load( container.querySelector( 'iframe' )! );
 
-		await waitFor( () => expect( getThemeDetails ).toHaveBeenCalledWith( 'site-1' ) );
-		expect( queryClient.getQueryData( themeDetailsQueryKey( 'site-1' ) ) ).toEqual( themeDetails );
+		await waitFor( () =>
+			expect( queryClient.getQueryState( themeDetailsQueryKey( 'site-1' ) )?.isInvalidated ).toBe(
+				true
+			)
+		);
 	} );
 
 	it( 'hides the browser controls and shows the stopped preview treatment when the site is not running', async () => {
@@ -278,6 +274,35 @@ describe( 'SitePreview', () => {
 		fireEvent.click( screen.getByRole( 'textbox', { name: 'Address' } ) );
 		fireEvent.click( await screen.findByRole( 'button', { name: 'Front end' } ) );
 		expect( onPathChange ).not.toHaveBeenCalled();
+	} );
+
+	it( 'opens the front end externally logged out and WP Admin with auto-login', () => {
+		const openSiteUrl = vi.fn().mockResolvedValue( undefined );
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
+			openSiteUrl,
+			capabilities: CAPABILITIES,
+		} as never );
+		const site = createSite( { running: true } );
+
+		const { rerender } = renderPreview(
+			<SitePreview site={ site } path="/sample-page/" reloadNonce={ 0 } onPathChange={ vi.fn() } />
+		);
+		fireEvent.click( screen.getByRole( 'button', { name: 'Open this page in your browser' } ) );
+		expect( openSiteUrl ).toHaveBeenLastCalledWith( 'site-1', '/sample-page/', {
+			autoLogin: false,
+		} );
+
+		rerender(
+			<QueryClientProvider client={ new QueryClient() }>
+				<Tooltip.Provider>
+					<SitePreview site={ site } path="/wp-admin/" reloadNonce={ 0 } onPathChange={ vi.fn() } />
+				</Tooltip.Provider>
+			</QueryClientProvider>
+		);
+		fireEvent.click( screen.getByRole( 'button', { name: 'Open this page in your browser' } ) );
+		expect( openSiteUrl ).toHaveBeenLastCalledWith( 'site-1', '/wp-admin/', { autoLogin: true } );
 	} );
 
 	it( 'records an internal-browser Tracks event when switching realms', async () => {

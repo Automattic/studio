@@ -17,11 +17,6 @@ import {
 	SITE_FILE_ACCESS_SITE_DIRECTORY,
 	type SiteFileAccess,
 } from '@studio/common/lib/site-file-access';
-import {
-	SITE_RUNTIME_NATIVE_PHP,
-	SITE_RUNTIME_PLAYGROUND,
-	type SiteRuntime,
-} from '@studio/common/lib/site-runtime';
 import { getServerFilesPath } from '@studio/common/lib/well-known-paths';
 import { type SupportedPHPVersion } from '@studio/common/types/php-versions';
 import { Blueprint, BlueprintV1Declaration } from '@wp-playground/blueprints';
@@ -40,7 +35,7 @@ import { liberateWebsite } from 'cli/lib/data-liberation-client';
 import { updateServerFiles } from 'cli/lib/dependency-management/setup';
 import { downloadWordPress } from 'cli/lib/dependency-management/wordpress';
 import { copyLanguagePackToSite } from 'cli/lib/language-packs';
-import { runWpCliCommandWithMessaging } from 'cli/lib/run-wp-cli-command';
+import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import { getPreferredSiteLanguage } from 'cli/lib/site-language';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
 import {
@@ -155,7 +150,6 @@ describe( 'CLI: studio create', () => {
 	const defaultTestOptions = {
 		wpVersion: 'latest',
 		phpVersion: '8.3' as const,
-		runtime: SITE_RUNTIME_PLAYGROUND as SiteRuntime,
 		fileAccess: SITE_FILE_ACCESS_SITE_DIRECTORY as SiteFileAccess,
 		enableHttps: false,
 		noStart: false,
@@ -184,7 +178,6 @@ describe( 'CLI: studio create', () => {
 		pmId: 0,
 		status: 'online',
 		pid: 12345,
-		runtime: SITE_RUNTIME_PLAYGROUND,
 	};
 
 	let consoleLogSpy: MockInstance;
@@ -261,7 +254,7 @@ describe( 'CLI: studio create', () => {
 		vi.mocked( setupCustomDomain ).mockResolvedValue( undefined );
 		vi.mocked( startWordPressServer ).mockResolvedValue( mockProcessDescription );
 		vi.mocked( runBlueprint ).mockResolvedValue( undefined );
-		vi.mocked( runWpCliCommandWithMessaging ).mockReset().mockResolvedValue( mockWpCli() );
+		vi.mocked( runWpCliCommand ).mockReset().mockResolvedValue( mockWpCli() );
 		vi.mocked( logSiteDetails ).mockImplementation( () => {} );
 		vi.mocked( openSiteInBrowser ).mockResolvedValue( undefined );
 		vi.mocked( validateBlueprintData ).mockResolvedValue( { valid: true } );
@@ -1269,33 +1262,33 @@ describe( 'CLI: studio create', () => {
 			await runCommand( mockSitePath, { ...defaultTestOptions, blueprint, noStart: true } );
 
 			const importCalls = vi
-				.mocked( runWpCliCommandWithMessaging )
+				.mocked( runWpCliCommand )
 				.mock.calls.filter( ( call ) => call[ 1 ][ 0 ] === 'static-site-importer' );
 			expect( importCalls ).toEqual( [
 				[
 					expect.objectContaining( { path: mockSitePath } ),
 					[ 'static-site-importer', 'import', '--request=.studio-import/request.json' ],
-					{},
+					{ liveOutput: true, onLiveOutput: expect.any( Function ) },
 				],
 			] );
 			expect( writeSpy ).toHaveBeenCalledWith(
 				path.join( mockSitePath, '.studio-import', 'request.json' ),
 				blueprint.staticSiteImport.request
 			);
-			expect( runWpCliCommandWithMessaging ).toHaveBeenCalledTimes( 4 );
-			expect( runWpCliCommandWithMessaging ).toHaveBeenNthCalledWith(
+			expect( runWpCliCommand ).toHaveBeenCalledTimes( 4 );
+			expect( runWpCliCommand ).toHaveBeenNthCalledWith(
 				2,
 				expect.objectContaining( { path: mockSitePath } ),
 				[ 'plugin', 'is-installed', 'static-site-importer' ],
 				{}
 			);
-			expect( runWpCliCommandWithMessaging ).toHaveBeenNthCalledWith(
+			expect( runWpCliCommand ).toHaveBeenNthCalledWith(
 				3,
 				expect.objectContaining( { path: mockSitePath } ),
 				[ 'plugin', 'deactivate', 'static-site-importer', '--quiet' ],
 				{}
 			);
-			expect( runWpCliCommandWithMessaging ).toHaveBeenNthCalledWith(
+			expect( runWpCliCommand ).toHaveBeenNthCalledWith(
 				4,
 				expect.objectContaining( { path: mockSitePath } ),
 				[ 'plugin', 'delete', 'static-site-importer' ],
@@ -1311,7 +1304,7 @@ describe( 'CLI: studio create', () => {
 			const blueprint = buildCapturedSiteBlueprint();
 			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
 			const rmSpy = vi.spyOn( fs, 'rmSync' ).mockImplementation( () => {} );
-			vi.mocked( runWpCliCommandWithMessaging ).mockResolvedValue(
+			vi.mocked( runWpCliCommand ).mockResolvedValue(
 				mockWpCli( { stdout: '{"status":"completed"}' } )
 			);
 
@@ -1348,7 +1341,7 @@ describe( 'CLI: studio create', () => {
 				path.join( mockSitePath, '.studio-import', 'request.json' ),
 				expect.anything()
 			);
-			expect( runWpCliCommandWithMessaging ).toHaveBeenCalledWith(
+			expect( runWpCliCommand ).toHaveBeenCalledWith(
 				existingSite,
 				[ 'static-site-importer', 'import', '--request=.studio-import/request.json' ],
 				expect.objectContaining( {
@@ -1378,7 +1371,7 @@ describe( 'CLI: studio create', () => {
 				runCommand( mockSitePath, { ...defaultTestOptions, blueprint, noStart: true } )
 			).rejects.toThrow( 'The selected directory is already in use.' );
 
-			expect( runWpCliCommandWithMessaging ).not.toHaveBeenCalled();
+			expect( runWpCliCommand ).not.toHaveBeenCalled();
 			expect( rmSpy ).not.toHaveBeenCalledWith( path.join( mockSitePath, '.studio-import' ), {
 				recursive: true,
 				force: true,
@@ -1389,7 +1382,7 @@ describe( 'CLI: studio create', () => {
 			const blueprint = buildCapturedSiteBlueprint();
 			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
 			vi.spyOn( fs, 'rmSync' ).mockImplementation( () => {} );
-			vi.mocked( runWpCliCommandWithMessaging ).mockResolvedValue(
+			vi.mocked( runWpCliCommand ).mockResolvedValue(
 				mockWpCli( {
 					stdout: JSON.stringify( {
 						schema: 'static-site-importer/import-cli-receipt/v1',
@@ -1404,11 +1397,10 @@ describe( 'CLI: studio create', () => {
 				...defaultTestOptions,
 				blueprint,
 				noStart: true,
-				runtime: SITE_RUNTIME_NATIVE_PHP,
 			} );
 
-			expect( runWpCliCommandWithMessaging ).toHaveBeenCalledWith(
-				expect.objectContaining( { runtime: SITE_RUNTIME_NATIVE_PHP } ),
+			expect( runWpCliCommand ).toHaveBeenCalledWith(
+				expect.objectContaining( { path: mockSitePath } ),
 				[ 'static-site-importer', 'import', '--request=.studio-import/request.json' ],
 				expect.objectContaining( {
 					liveOutput: true,
@@ -1422,7 +1414,7 @@ describe( 'CLI: studio create', () => {
 			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
 			const rmSpy = vi.spyOn( fs, 'rmSync' ).mockImplementation( () => {} );
 			const reportErrorSpy = vi.spyOn( Logger.prototype, 'reportError' );
-			vi.mocked( runWpCliCommandWithMessaging )
+			vi.mocked( runWpCliCommand )
 				.mockReset()
 				// import succeeds, the plugin is installed, then deactivation fails.
 				.mockResolvedValueOnce( mockWpCli() )
@@ -1462,10 +1454,9 @@ describe( 'CLI: studio create', () => {
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
 
-		it( 'should persist the runtime and file access on the created site', async () => {
+		it( 'should persist the file access on the created site', async () => {
 			await runCommand( mockSitePath, {
 				...defaultTestOptions,
-				runtime: SITE_RUNTIME_NATIVE_PHP,
 				phpVersion: '8.4',
 				fileAccess: 'all-files',
 			} );
@@ -1474,23 +1465,11 @@ describe( 'CLI: studio create', () => {
 				expect.objectContaining( {
 					sites: expect.arrayContaining( [
 						expect.objectContaining( {
-							runtime: SITE_RUNTIME_NATIVE_PHP,
 							fileAccess: 'all-files',
 						} ),
 					] ),
 				} )
 			);
-		} );
-
-		it( 'should reject "all-files" file access for sandbox sites', async () => {
-			await expect(
-				runCommand( mockSitePath, {
-					...defaultTestOptions,
-					fileAccess: 'all-files',
-				} )
-			).rejects.toThrow( 'File access "all-files" requires the native PHP runtime.' );
-
-			expect( saveCliConfig ).not.toHaveBeenCalled();
 		} );
 
 		it( 'should create site with custom name', async () => {
@@ -1508,7 +1487,7 @@ describe( 'CLI: studio create', () => {
 					] ),
 				} )
 			);
-			// blogname is now set by playground-server-child via buildSetupSteps, not create.ts
+			// blogname is now set by the server child process, not create.ts
 			expect( startWordPressServer ).toHaveBeenCalled();
 		} );
 
@@ -1559,7 +1538,7 @@ describe( 'CLI: studio create', () => {
 				name: 'My Custom Site',
 			} );
 
-			// blogname is now set by playground-server-child via buildSetupSteps, not create.ts
+			// blogname is now set by the server child process, not create.ts
 			expect( startWordPressServer ).toHaveBeenCalled();
 		} );
 
@@ -1674,24 +1653,11 @@ describe( 'CLI: studio create', () => {
 			);
 		} );
 
-		it( 'should not copy specific WordPress versions for Playground runtime', async () => {
+		it( 'should download and copy specific WordPress versions', async () => {
 			vi.mocked( recursiveCopyDirectory ).mockClear();
 
 			await runCommand( mockSitePath, {
 				...defaultTestOptions,
-				wpVersion: '6.4',
-			} );
-
-			expect( downloadWordPress ).not.toHaveBeenCalled();
-			expect( recursiveCopyDirectory ).not.toHaveBeenCalled();
-		} );
-
-		it( 'should download and copy specific WordPress versions for native PHP runtime', async () => {
-			vi.mocked( recursiveCopyDirectory ).mockClear();
-
-			await runCommand( mockSitePath, {
-				...defaultTestOptions,
-				runtime: SITE_RUNTIME_NATIVE_PHP,
 				phpVersion: '8.3',
 				wpVersion: '6.4',
 			} );
@@ -1743,7 +1709,7 @@ describe( 'CLI: studio create', () => {
 				},
 			} );
 
-			// blogname is now set by playground-server-child via buildSetupSteps, not prepended here
+			// blogname is now set by the server child process, not prepended here
 			expect( startWordPressServer ).toHaveBeenCalledWith(
 				expect.anything(),
 				expect.any( Logger ),
@@ -1831,7 +1797,7 @@ describe( 'CLI: studio create', () => {
 				noStart: true,
 			} );
 
-			// No blueprint to run — language steps are applied by playground-server-child on first start
+			// No blueprint to run — language steps are applied by the server child process on first start
 			expect( connectToDaemon ).not.toHaveBeenCalled();
 			expect( runBlueprint ).not.toHaveBeenCalled();
 			expect( startWordPressServer ).not.toHaveBeenCalled();
@@ -1848,7 +1814,7 @@ describe( 'CLI: studio create', () => {
 
 			expect( copyLanguagePackToSite ).toHaveBeenCalledWith( mockSitePath, 'sv_SE' );
 			// Language steps (defineWpConfigConsts / setSiteLanguage) are now built by
-			// playground-server-child's buildSetupSteps, not by create.ts
+			// the server child process, not by create.ts
 			expect( startWordPressServer ).toHaveBeenCalledWith(
 				expect.anything(),
 				expect.any( Logger ),
@@ -1862,7 +1828,7 @@ describe( 'CLI: studio create', () => {
 
 			await runCommand( mockSitePath, { ...defaultTestOptions } );
 
-			// setSiteLanguage vs defineWpConfigConsts is now decided by playground-server-child
+			// setSiteLanguage vs defineWpConfigConsts is now decided by the server child process
 			expect( startWordPressServer ).toHaveBeenCalledWith(
 				expect.anything(),
 				expect.any( Logger ),
@@ -1879,7 +1845,7 @@ describe( 'CLI: studio create', () => {
 			} );
 
 			expect( copyLanguagePackToSite ).not.toHaveBeenCalled();
-			// setSiteLanguage step is now built by playground-server-child, not create.ts
+			// setSiteLanguage step is now built by the server child process, not create.ts
 			expect( startWordPressServer ).toHaveBeenCalledWith(
 				expect.anything(),
 				expect.any( Logger ),
@@ -1930,7 +1896,7 @@ describe( 'CLI: studio create', () => {
 			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
 			const rmSpy = vi.spyOn( fs, 'rmSync' ).mockImplementation( () => {} );
 			const fsRmSpy = vi.spyOn( fs.promises, 'rm' ).mockResolvedValue( undefined );
-			vi.mocked( runWpCliCommandWithMessaging )
+			vi.mocked( runWpCliCommand )
 				.mockReset()
 				.mockResolvedValue(
 					mockWpCli( {
@@ -1961,7 +1927,7 @@ describe( 'CLI: studio create', () => {
 			);
 			expectRetainedImportedSiteReported();
 
-			expect( runWpCliCommandWithMessaging ).toHaveBeenCalledTimes( 1 );
+			expect( runWpCliCommand ).toHaveBeenCalledTimes( 1 );
 			expect( Logger.prototype.reportSuccess ).not.toHaveBeenCalledWith(
 				'Static site imported successfully'
 			);
@@ -1980,7 +1946,7 @@ describe( 'CLI: studio create', () => {
 			const blueprint = buildCapturedSiteBlueprint();
 			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
 			vi.spyOn( fs, 'rmSync' ).mockImplementation( () => {} );
-			vi.mocked( runWpCliCommandWithMessaging ).mockResolvedValue(
+			vi.mocked( runWpCliCommand ).mockResolvedValue(
 				mockWpCli( {
 					stdout: JSON.stringify( {
 						schema: 'static-site-importer/import-cli-receipt/v1',
@@ -2019,7 +1985,7 @@ describe( 'CLI: studio create', () => {
 			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
 			vi.spyOn( fs, 'rmSync' ).mockImplementation( () => {} );
 			const fsRmSpy = vi.spyOn( fs.promises, 'rm' ).mockResolvedValue( undefined );
-			vi.mocked( runWpCliCommandWithMessaging ).mockResolvedValue(
+			vi.mocked( runWpCliCommand ).mockResolvedValue(
 				mockWpCli( {
 					stdout: JSON.stringify( {
 						schema: 'static-site-importer/import-cli-receipt/v1',
@@ -2061,7 +2027,7 @@ describe( 'CLI: studio create', () => {
 			const blueprint = buildCapturedSiteBlueprint();
 			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
 			vi.spyOn( fs, 'rmSync' ).mockImplementation( () => {} );
-			vi.mocked( runWpCliCommandWithMessaging ).mockResolvedValueOnce(
+			vi.mocked( runWpCliCommand ).mockResolvedValueOnce(
 				mockWpCli( {
 					stdout: JSON.stringify( {
 						schema: 'static-site-importer/import-cli-receipt/v1',
@@ -2093,7 +2059,7 @@ describe( 'CLI: studio create', () => {
 			const blueprint = buildCapturedSiteBlueprint();
 			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
 			vi.spyOn( fs, 'rmSync' ).mockImplementation( () => {} );
-			vi.mocked( runWpCliCommandWithMessaging ).mockResolvedValue(
+			vi.mocked( runWpCliCommand ).mockResolvedValue(
 				mockWpCli( {
 					stdout: JSON.stringify( {
 						schema: 'static-site-importer/import-cli-receipt/v1',
@@ -2127,7 +2093,7 @@ describe( 'CLI: studio create', () => {
 			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
 			vi.spyOn( fs, 'rmSync' ).mockImplementation( () => {} );
 			const fsRmSpy = vi.spyOn( fs.promises, 'rm' ).mockResolvedValue( undefined );
-			vi.mocked( runWpCliCommandWithMessaging ).mockResolvedValue(
+			vi.mocked( runWpCliCommand ).mockResolvedValue(
 				mockWpCli( {
 					stdout: JSON.stringify( {
 						schema: 'static-site-importer/import-cli-receipt/v1',
@@ -2167,7 +2133,7 @@ describe( 'CLI: studio create', () => {
 			const artifactPath = createCapturedSiteArtifact();
 			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
 			vi.spyOn( fs, 'rmSync' ).mockImplementation( () => {} );
-			vi.mocked( runWpCliCommandWithMessaging ).mockResolvedValue(
+			vi.mocked( runWpCliCommand ).mockResolvedValue(
 				mockWpCli( {
 					stdout: JSON.stringify( {
 						schema: 'static-site-importer/import-cli-receipt/v1',

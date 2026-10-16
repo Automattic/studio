@@ -3,7 +3,7 @@ import os from 'node:os';
 import { withoutOversizedEnvValues } from 'cli/lib/child-env';
 import { getPhpBinaryPath } from 'cli/lib/dependency-management/paths';
 import { getDefaultPhpArgs } from 'cli/lib/native-php/config';
-import type { NativePhpSupportedVersion } from '@studio/common/lib/php-binary-metadata';
+import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 
 type ErrorLogger = ( ...args: Parameters< typeof console.error > ) => void;
 
@@ -46,12 +46,13 @@ export type BasePhpOptions = {
 	env?: NodeJS.ProcessEnv;
 	enableXdebug?: boolean;
 	onlyPathsThatPhpCanAccess?: string[];
-	phpVersion: NativePhpSupportedVersion;
+	phpVersion: SupportedPHPVersion;
 	siteFolder?: string;
 	signal?: AbortSignal;
 };
 type SpawnPhpProcessOptions = BasePhpOptions & {
 	mode?: 'pipe' | 'no-pipe';
+	workerIndex?: number;
 };
 type RunPhpCommandOptions = BasePhpOptions & {
 	mode?: 'pipe' | 'no-pipe' | 'capture';
@@ -90,6 +91,7 @@ export function spawnPhpProcess(
 		onlyPathsThatPhpCanAccess = [],
 		disallowRiskyFunctions = false,
 		autoPrependFile,
+		workerIndex,
 	}: SpawnPhpProcessOptions
 ): ChildProcess {
 	const defaultArgs = getDefaultPhpArgs( phpVersion, {
@@ -97,6 +99,7 @@ export function spawnPhpProcess(
 		disallowRiskyFunctions,
 		enableXdebug,
 		autoPrependFile,
+		workerIndex,
 	} );
 	const phpArgs = [ ...defaultArgs, ...args ];
 	const phpScriptProcess = spawn( getPhpBinaryPath( phpVersion ), phpArgs, {

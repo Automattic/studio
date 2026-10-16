@@ -46,8 +46,8 @@ const BACKUP_FIXTURES = [
 ] as const;
 
 /**
- * `--runtime sandbox` keeps the run hermetic; `--no-start` defers the slow
- * WordPress install — `studio import` works against the stopped site.
+ * `--no-start` defers the slow WordPress install — `studio import` works
+ * against the stopped site.
  */
 async function createStoppedSite( env: CliEnv, name: string, dirName: string ): Promise< string > {
 	const sitePath = path.join( env.sitesDir, dirName );
@@ -61,8 +61,6 @@ async function createStoppedSite( env: CliEnv, name: string, dirName: string ): 
 			sitePath,
 			'--wp',
 			'latest',
-			'--runtime',
-			'sandbox',
 			'--no-start',
 			'--skip-browser',
 			'--skip-log-details',

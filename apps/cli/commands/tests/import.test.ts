@@ -26,7 +26,6 @@ import type { ImporterResult } from 'cli/lib/import-export/import/importers/impo
 vi.mock( 'cli/lib/cli-config/sites', () => ( {
 	clearSiteLatestCliPid: vi.fn(),
 	getSiteByFolder: vi.fn(),
-	getSiteUrl: vi.fn(),
 	updateSitePhpVersion: vi.fn(),
 } ) );
 vi.mock( 'cli/lib/daemon-client' );

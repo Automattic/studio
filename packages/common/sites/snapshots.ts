@@ -140,6 +140,19 @@ export async function deletePreviewSite(
 	} );
 }
 
+// `preview delete --all` reports no result, so only its exit status matters.
+export function deleteAllPreviewSites( executeCliCommand: ExecuteCliCommand ): Promise< void > {
+	return new Promise( ( resolve, reject ) => {
+		const [ emitter ] = executeCliCommand( [ 'preview', 'delete', '--all' ], {
+			output: 'capture',
+			logPrefix: 'preview',
+		} );
+		emitter.on( 'success', () => resolve() );
+		emitter.on( 'failure', ( { error } ) => reject( error ) );
+		emitter.on( 'error', ( { error } ) => reject( error ) );
+	} );
+}
+
 export async function renamePreviewSite(
 	executeCliCommand: ExecuteCliCommand,
 	hostname: string,

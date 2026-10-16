@@ -4,7 +4,7 @@
 	"private": true,
 	"type": "module",
 	"productName": "Studio",
-	"description": "Local WordPress development environment using Playgrounds",
+	"description": "Local WordPress development environment",
 	"license": "GPL-2.0-or-later",
 	"packageManager": "npm@11.13.0",
 	"devEngines": {
@@ -45,11 +45,13 @@
 		"publish": "npm -w studio-app run publish",
 		"cli:build": "npm -w wp-studio run build",
 		"cli:build:ui": "npm -w @studio/ui run build:local && npm -w wp-studio run build",
+		"cli:build:mcp-ui": "npm -w @studio/mcp-ui run build && npm -w wp-studio run build",
 		"cli:build:prod": "npm -w wp-studio run build:prod",
 		"cli:build:npm": "npm -w wp-studio run build:npm",
 		"cli:package": "npm -w wp-studio run package",
 		"cli:package:standalone": "npm -w wp-studio run package:standalone",
 		"cli:bundle": "node --experimental-strip-types scripts/create-standalone-bundle.ts",
+		"cli:bundle:plugin": "node --experimental-strip-types scripts/create-plugin-bundle.ts",
 		"cli:watch": "npm -w wp-studio run watch",
 		"app:install:bundle": "npm -w studio-app run install:bundle",
 		"compare:perf": "npm -w compare-perf run compare",
@@ -92,7 +94,6 @@
 		"fs-extra": "^11.3.3",
 		"glob": "^13.0.6",
 		"globals": "^17.8.0",
-		"isomorphic-fetch": "^3.0.0",
 		"jsdom": "^24.0.0",
 		"knip": "^5.88.1",
 		"memfs": "^4.57.1",
@@ -106,8 +107,7 @@
 		"undici": "^8.3.0",
 		"vite": "^8.2.1",
 		"vitest": "^4.1.10",
-		"web-streams-polyfill": "^4.2.0",
-		"yargs": "^18.0.0",
+		"yargs": "^18.2.0",
 		"zod": "^4.3.6"
 	}
 }

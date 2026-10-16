@@ -37,11 +37,7 @@ import {
 	type AiModelFamily,
 	type AiModelId,
 } from '@studio/common/ai/models';
-import {
-	getSiteRuntime,
-	SITE_RUNTIME_NATIVE_PHP,
-	type SiteRuntime,
-} from '@studio/common/lib/site-runtime';
+import { getAiTracksIdentity } from '@studio/common/ai/tracks-identity';
 import { type TSchema } from 'typebox';
 import { withDesignSystemPreview } from 'cli/ai/chat-artifacts';
 import { isImageGenerationAvailable } from 'cli/ai/image-generation';
@@ -50,7 +46,6 @@ import { resolveStudioToolDefinitions } from 'cli/ai/tools';
 import { createAskUserQuestionTool } from 'cli/ai/tools/ask-user-question';
 import { createPresentDesignOptionsTool } from 'cli/ai/tools/present-design-options';
 import { createSkillTool } from 'cli/ai/tools/skill';
-import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import { getFileToolPrompt } from './file-tool-prompts';
 import { getPendingWork, type PendingWork } from './pending-work';
@@ -268,25 +263,6 @@ async function runAgentSessionTurn(
 	}
 }
 
-// Resolve the runtime of the active local site so the system prompt can drop
-// Playground-specific WP-CLI guidance for native PHP sites. The active site
-// (a SiteInfo) doesn't carry the runtime, so look it up by path in the CLI
-// config. Falls back to native-php (the default runtime) for unknown, remote,
-// or unreadable sites.
-async function resolveActiveSiteRuntime(
-	activeSite: SiteInfo | null | undefined
-): Promise< SiteRuntime > {
-	if ( ! activeSite || activeSite.remote || ! activeSite.path ) {
-		return SITE_RUNTIME_NATIVE_PHP;
-	}
-	try {
-		const site = await getSiteByFolder( activeSite.path );
-		return getSiteRuntime( site );
-	} catch {
-		return SITE_RUNTIME_NATIVE_PHP;
-	}
-}
-
 async function createStudioAgentSession(
 	config: ResolvedStudioAgentTurnConfig,
 	family: AiModelFamily,
@@ -296,9 +272,8 @@ async function createStudioAgentSession(
 	const model = buildModel( config.model, family, creds );
 	const chatArtifactsEnabled = typeof process.send === 'function';
 	const visionEnabled = aiModelSupportsImages( config.model );
-	const [ userInstructions, runtime, imageGenerationEnabled ] = await Promise.all( [
+	const [ userInstructions, imageGenerationEnabled ] = await Promise.all( [
 		readGlobalInstructions(),
-		resolveActiveSiteRuntime( config.activeSite ),
 		isImageGenerationAvailable(),
 	] );
 
@@ -310,7 +285,6 @@ async function createStudioAgentSession(
 	);
 	const systemPrompt = buildSystemPrompt( {
 		chatArtifactsEnabled,
-		runtime,
 		userInstructions,
 		tools: tools.map( toolPromptContribution ),
 	} );
@@ -582,13 +556,12 @@ function createSettingsManager( _env: Record< string, string > ): SettingsManage
 	);
 }
 
-// pi's tools declare a prompt snippet and guidelines and so do Studio's (see
-// define-tool.ts); the AgentTool type does not carry them, hence the cast.
-type ToolPromptFields = { promptSnippet?: string; promptGuidelines?: string[] };
+// pi's tools declare a prompt snippet and so do Studio's (see define-tool.ts);
+// the AgentTool type does not carry it, hence the cast.
+type ToolPromptFields = { promptSnippet?: string };
 
 function toolPromptContribution( tool: AgentToolAny ): ToolPromptContribution {
-	const { promptSnippet, promptGuidelines } = tool as ToolPromptFields;
-	return { name: tool.name, promptSnippet, promptGuidelines };
+	return { name: tool.name, promptSnippet: ( tool as ToolPromptFields ).promptSnippet };
 }
 
 function toToolDefinition(
@@ -604,7 +577,6 @@ function toToolDefinition(
 		prepareArguments: tool.prepareArguments,
 		executionMode: tool.executionMode,
 		promptSnippet: ( tool as ToolPromptFields ).promptSnippet,
-		promptGuidelines: ( tool as ToolPromptFields ).promptGuidelines,
 		execute: async ( toolCallId, params, signal, onUpdate ) => {
 			const incompleteToolCallReason = getIncompleteToolCallReason( payloadGuardState, toolCallId );
 			if ( incompleteToolCallReason ) {
@@ -640,7 +612,7 @@ function buildAgentTools(
 	const askUserTool: AgentToolAny[] = config.onAskUser
 		? [ createAskUserQuestionTool( config.onAskUser ) ]
 		: [];
-	const tracks = { sessionId: config.session.getSessionId() };
+	const tracks = getAiTracksIdentity( config.session.getSessionId() );
 	const designOptionsTool: AgentToolAny[] =
 		config.onAskUser && chatArtifactsEnabled
 			? [

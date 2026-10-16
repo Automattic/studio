@@ -73,6 +73,26 @@ export function buildLocalUiPlugin() {
 	};
 }
 
+// `studio mcp` serves the WordPress library page (apps/mcp-ui `dist`) from
+// `<chunk dir>/mcp-ui`. Built separately like the browser UI; release configs
+// include `buildMcpUiPlugin`.
+const mcpUiDistPath = resolve( __dirname, '../mcp-ui/dist' );
+
+export function buildMcpUiPlugin() {
+	return {
+		name: 'build-mcp-ui',
+		apply: 'build' as const,
+		buildStart() {
+			execSync( 'npx vite build', { cwd: resolve( __dirname, '../mcp-ui' ), stdio: 'inherit' } );
+			if ( ! existsSync( mcpUiDistPath ) ) {
+				throw new Error(
+					`The MCP Apps page build did not produce ${ mcpUiDistPath }; refusing to ship a CLI without it.`
+				);
+			}
+		},
+	};
+}
+
 export const baseConfig = defineConfig( {
 	oxc: {
 		target: `node${ semver.major( minimumNodeVersion ) }`,
@@ -101,6 +121,9 @@ export const baseConfig = defineConfig( {
 				if ( existsSync( localUiDistPath ) ) {
 					cpSync( localUiDistPath, resolve( outDir, 'ui' ), { recursive: true } );
 				}
+				if ( existsSync( mcpUiDistPath ) ) {
+					cpSync( mcpUiDistPath, resolve( outDir, 'mcp-ui' ), { recursive: true } );
+				}
 			},
 		},
 	],
@@ -111,9 +134,7 @@ export const baseConfig = defineConfig( {
 				main: resolve( __dirname, 'index.ts' ),
 				'process-manager-daemon': resolve( __dirname, 'process-manager-daemon.ts' ),
 				'proxy-daemon': resolve( __dirname, 'proxy-daemon.ts' ),
-				'playground-server-child': resolve( __dirname, 'playground-server-child.ts' ),
 				'php-server-child': resolve( __dirname, 'php-server-child.ts' ),
-				'reprint-child': resolve( __dirname, 'reprint-child.ts' ),
 			},
 			name: 'StudioCLI',
 			formats: [ 'es' ],

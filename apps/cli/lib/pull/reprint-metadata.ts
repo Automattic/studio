@@ -1,6 +1,5 @@
 import { z } from 'zod';
 import { runReprintCommandUntilComplete } from 'cli/lib/pull/migration-client';
-import type { SiteRuntime } from '@studio/common/lib/site-runtime';
 
 const sourceSiteSchema = z.object( {
 	homeUrl: z.string().nullable(),
@@ -45,16 +44,12 @@ export const emptyReprintMetadata: ReprintMetadata = {
 export async function getReprintMetadata( options: {
 	apiUrl: string;
 	stateDirectory: string;
-	rawDirectory: string;
-	runtime: SiteRuntime;
 	verbose: boolean;
 } ): Promise< ReprintMetadata > {
 	const result = await runReprintCommandUntilComplete(
-		options.stateDirectory,
-		options.rawDirectory,
 		[ 'import-metadata', options.apiUrl, `--state-dir=${ options.stateDirectory }` ],
 		undefined,
-		{ runtime: options.runtime, verboseCommands: options.verbose }
+		{ verboseCommands: options.verbose }
 	);
 
 	try {

@@ -4,7 +4,6 @@ import os from 'node:os';
 import path from 'node:path';
 import { type TracksSiteCreateFlowType } from '@studio/common/lib/record-tracks-event';
 import { type SiteFileAccess } from '@studio/common/lib/site-file-access';
-import { siteModeFromRuntime, type SiteRuntime } from '@studio/common/lib/site-runtime';
 import { isWordPressDevVersion } from '@studio/common/lib/wordpress-version-utils';
 import type { Blueprint } from '@wp-playground/blueprints';
 
@@ -13,7 +12,6 @@ export interface SiteCreateOptions {
 	name?: string;
 	wpVersion?: string;
 	phpVersion?: string;
-	runtime?: SiteRuntime;
 	fileAccess?: SiteFileAccess;
 	customDomain?: string;
 	enableHttps?: boolean;
@@ -56,9 +54,6 @@ export function buildSiteCreateArgs( options: SiteCreateOptions ): {
 	}
 	if ( options.phpVersion ) {
 		args.push( '--php', options.phpVersion );
-	}
-	if ( options.runtime ) {
-		args.push( '--runtime', siteModeFromRuntime( options.runtime ) );
 	}
 	if ( options.fileAccess ) {
 		args.push( '--file-access', options.fileAccess );

@@ -46,9 +46,6 @@ const DOCS_LINKS = {
 	docsStudioCode: {
 		en: 'https://developer.wordpress.com/docs/developer-tools/studio/studio-code/',
 	},
-	docsPhpRuntimes: {
-		en: 'https://developer.wordpress.com/docs/developer-tools/studio/php-runtimes/',
-	},
 } satisfies Record< `docs${ string }`, TranslatedLink >;
 
 const BLOG_LINKS = {

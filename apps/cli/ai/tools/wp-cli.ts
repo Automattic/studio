@@ -1,8 +1,8 @@
 import { Type } from 'typebox';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
-import { getUnsupportedWpCliPostContentMessage } from 'cli/lib/rewrite-wp-cli-post-content';
-import { runWpCliCommandWithMessaging } from 'cli/lib/run-wp-cli-command';
-import { defineTool } from './define-tool';
+import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
+import { getUnsupportedWpCliPostContentMessage } from 'cli/lib/wp-cli-post-content';
+import { defineTool, REMOTE_OVERWRITE } from './define-tool';
 import { resolveSite } from './utils';
 
 // Split a shell-ish command into args, respecting quotes. Quotes are only
@@ -116,8 +116,12 @@ function getUnsupportedWpCliOptionMessage( args: string[] ): string | null {
 
 export const runWpCliTool = defineTool(
 	'wp_cli',
-	'Runs a WP-CLI command on a specific WordPress site. ' +
-		'Examples: "plugin install woocommerce --activate", "option get blogname", "user list".',
+	'Runs a WP-CLI command on a specific WordPress site. The site must be running (site_start if needed). ' +
+		'Examples: "plugin install woocommerce --activate", "option get blogname", "user list". ' +
+		'The command takes literal arguments, not shell syntax — never use shell substitution or shell syntax such as `$(cat file)`, backticks, pipes, redirection, or environment variables to provide post content. ' +
+		'For large post content, write the validated markup to a scratch file inside the site directory and pass its path to `post create <file>` (or `post update <id> <file>`) — this avoids the OS command-length limit. For smaller content you may instead pass it inline with `--post_content=...` as the final argument. ' +
+		'Studio sites use SQLite, not MySQL (the database file is `<site-path>/wp-content/database/.ht.sqlite`): `db query` and the other `db` subcommands do not work, so query WordPress data with object commands such as `post list`, `option get`, or `user list`. ' +
+		'Users can browse the database themselves with phpMyAdmin from the site overview in the Studio app while the site is running, or with `sqlite3 <site-path>/wp-content/database/.ht.sqlite` (pre-installed on macOS).',
 	{
 		nameOrPath: Type.String( { description: 'The site name or file system path to the site' } ),
 		command: Type.String( {
@@ -142,7 +146,7 @@ export const runWpCliTool = defineTool(
 					throw new Error( unsupportedPostContentMessage );
 				}
 
-				await using command = await runWpCliCommandWithMessaging( site, wpCliArgs );
+				await using command = await runWpCliCommand( site, wpCliArgs );
 				const exitCode = await command.response.exitCode;
 				const stdout = await command.response.stdoutText;
 				const stderr = await command.response.stderrText;
@@ -177,5 +181,8 @@ export const runWpCliTool = defineTool(
 			);
 		}
 	},
-	{ promptSnippet: 'Run WP-CLI commands on a running site' }
+	{
+		promptSnippet: 'Run WP-CLI commands on a running site',
+		annotations: REMOTE_OVERWRITE,
+	}
 );

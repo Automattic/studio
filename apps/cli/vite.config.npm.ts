@@ -1,10 +1,10 @@
 import { defineConfig, mergeConfig } from 'vite';
-import { baseConfig, buildLocalUiPlugin } from './vite.config.base.ts';
+import { baseConfig, buildLocalUiPlugin, buildMcpUiPlugin } from './vite.config.base.ts';
 
 export default mergeConfig(
 	baseConfig,
 	defineConfig( {
-		plugins: [ buildLocalUiPlugin() ],
+		plugins: [ buildLocalUiPlugin(), buildMcpUiPlugin() ],
 		build: {
 			sourcemap: false,
 		},

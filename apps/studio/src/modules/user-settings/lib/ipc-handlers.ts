@@ -1,4 +1,4 @@
-import { BrowserWindow, IpcMainInvokeEvent, nativeTheme } from 'electron';
+import { IpcMainInvokeEvent, nativeTheme } from 'electron';
 import {
 	readGlobalInstructionsFile,
 	writeGlobalInstructions,
@@ -6,7 +6,6 @@ import {
 import {
 	readAiSettings,
 	saveAnthropicApiKey as saveAnthropicApiKeyToConfig,
-	setAiProvider as setAiProviderInConfig,
 } from '@studio/common/ai/settings-store';
 import { getInstructionsLengthBucket } from '@studio/common/lib/record-tracks-event';
 import {
@@ -14,15 +13,15 @@ import {
 	readSharedConfig,
 	updateSharedConfig,
 } from '@studio/common/lib/shared-config';
-import { getFirstInstalledEditor } from '@studio/common/lib/user-settings/installed-apps';
+import { SupportedEditor } from '@studio/common/lib/user-settings/editor';
+import {
+	getFirstInstalledEditor,
+	isInstalled,
+} from '@studio/common/lib/user-settings/installed-apps';
+import { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
 import { DEFAULT_TERMINAL } from 'src/constants';
-import { sendIpcEventToRenderer, sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
-import { isInstalled } from 'src/lib/is-installed';
-import { getUserLocaleWithFallback } from 'src/lib/locale-node';
+import { getUserLocaleWithFallback, loadLocaleData, setMacAppLanguage } from 'src/lib/locale-node';
 import { recordTracksEvent, TRACKS_EVENTS } from 'src/lib/tracks';
-import { SupportedEditor } from 'src/modules/user-settings/lib/editor';
-import { SupportedTerminal } from 'src/modules/user-settings/lib/terminal';
-import { UserSettingsTabName } from 'src/modules/user-settings/user-settings-types';
 import { defaultSitePath, ensureWritableDirectory } from 'src/storage/paths';
 import { OnboardingHintsState } from 'src/storage/storage-types';
 import {
@@ -33,7 +32,7 @@ import {
 	unlockAppdata,
 	updateAppdata,
 } from 'src/storage/user-data';
-import type { AiProviderId, AiSettings } from '@studio/common/ai/providers';
+import type { AiSettings } from '@studio/common/ai/providers';
 
 export function getInstalledAppsAndTerminals(): InstalledApps {
 	return {
@@ -57,7 +56,6 @@ export async function saveUserTerminal(
 	preferredTerminal: SupportedTerminal
 ) {
 	const previous = ( await loadUserData() ).preferredTerminal || DEFAULT_TERMINAL;
-	await sendIpcEventToRenderer( 'user-preference-changed' );
 	await updateAppdata( { preferredTerminal } );
 	if ( preferredTerminal !== previous ) {
 		await recordTracksEvent( TRACKS_EVENTS.SETTING_TERMINAL_CHANGE, {
@@ -75,6 +73,8 @@ export async function getUserTerminal() {
 export async function saveUserLocale( event: IpcMainInvokeEvent, locale: string ) {
 	const previous = ( await readSharedConfig() ).locale;
 	await updateSharedConfig( { locale } );
+	loadLocaleData( locale );
+	setMacAppLanguage( locale );
 	if ( locale !== previous ) {
 		await recordTracksEvent( TRACKS_EVENTS.SETTING_LANGUAGE_CHANGE, {
 			locale,
@@ -84,9 +84,6 @@ export async function saveUserLocale( event: IpcMainInvokeEvent, locale: string 
 }
 
 export async function saveUserEditor( event: IpcMainInvokeEvent, editor: SupportedEditor ) {
-	const parentWindow = BrowserWindow.fromWebContents( event.sender );
-	sendIpcEventToRendererWithWindow( parentWindow, 'user-preference-changed' );
-
 	const previous = ( await loadUserData() ).preferredEditor;
 	await updateAppdata( { preferredEditor: editor } );
 	if ( editor !== previous ) {
@@ -105,7 +102,6 @@ export async function getDefaultSiteDirectory(): Promise< string > {
 export async function saveDefaultSiteDirectory( event: IpcMainInvokeEvent, directory: string ) {
 	await ensureWritableDirectory( directory );
 	const previous = ( await loadUserData() ).defaultSiteDirectory || defaultSitePath;
-	await sendIpcEventToRenderer( 'user-preference-changed' );
 	await updateAppdata( { defaultSiteDirectory: directory } );
 	if ( directory !== previous ) {
 		await recordTracksEvent( TRACKS_EVENTS.SETTING_DEFAULT_DIRECTORY_CHANGE, {
@@ -122,13 +118,6 @@ export async function getUserLocale() {
 export async function getUserEditor(): Promise< SupportedEditor | null > {
 	const userData = await loadUserData();
 	return userData.preferredEditor ?? getFirstInstalledEditor( getInstalledAppsAndTerminals() );
-}
-
-export async function previewColorScheme(
-	_event: IpcMainInvokeEvent,
-	colorScheme: 'system' | 'light' | 'dark'
-) {
-	nativeTheme.themeSource = colorScheme;
 }
 
 export async function saveColorScheme(
@@ -273,10 +262,8 @@ export async function saveOnboardingHints(
 	await persistOnboardingHints( partial );
 }
 
-// Marks that the user reached the agentic workbench by opting in from classic
-// Studio, so the orientation guide can greet them as a migrating user. Fresh
-// installs get the agentic UI seeded on by default (migration 09) and never
-// hit this path, so they stay "new".
+// Marks a user who came from classic Studio (migration 09), so the orientation
+// guide can greet them as a migrating user. Fresh installs stay "new".
 export async function recordAgenticUiMigration(): Promise< void > {
 	await persistOnboardingHints( { migratedFromClassic: true } );
 }
@@ -313,13 +300,6 @@ export async function saveAnthropicApiKey( _event: IpcMainInvokeEvent, key: stri
 	return settings;
 }
 
-export async function setAiProvider( _event: IpcMainInvokeEvent, provider: AiProviderId ) {
-	const previous = await readAiSettings();
-	const settings = await setAiProviderInConfig( provider );
-	await recordAiSettingsChange( previous, settings );
-	return settings;
-}
-
 export async function saveGlobalAgentInstructions(
 	_event: IpcMainInvokeEvent,
 	content: string,
@@ -338,9 +318,4 @@ export async function saveGlobalAgentInstructions(
 		length_bucket: getInstructionsLengthBucket( content ),
 		surface: 'settings',
 	} );
-}
-
-export function showUserSettings( event: IpcMainInvokeEvent, tabName?: UserSettingsTabName ) {
-	const parentWindow = BrowserWindow.fromWebContents( event.sender );
-	sendIpcEventToRendererWithWindow( parentWindow, 'user-settings', { tabName } );
 }

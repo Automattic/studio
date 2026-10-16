@@ -1,10 +1,11 @@
 /**
  * @vitest-environment node
  */
-import { BrowserWindow, IpcMainInvokeEvent } from 'electron';
+import { BrowserWindow, IpcMainInvokeEvent, shell } from 'electron';
 import { existsSync } from 'fs';
 import { normalize } from 'path';
-import { resolveMigratedAiSessionsPath } from '@studio/common/ai/sessions/root-migration';
+import { readThemeDetails } from '@studio/common/sites/site-identity';
+import { readSitePath } from '@studio/common/sites/site-path';
 import { readFile } from 'atomically';
 import { vol } from 'memfs';
 import { vi } from 'vitest';
@@ -12,15 +13,13 @@ import {
 	createSite,
 	ensureMinWindowWidth,
 	getFileSize,
-	getXdebugEnabledSite,
 	isFullscreen,
 	loadThemeDetails,
+	openURL,
 	readBlueprintFile,
-	readLocalMediaFile,
 } from 'src/ipc-handlers';
-import { captureSiteThumbnail } from 'src/lib/capture-site-thumbnail';
 import { getMainWindow } from 'src/main-window';
-import { SiteServer } from 'src/site-server';
+import { createSiteViaCli } from 'src/modules/cli/lib/cli-site-creator';
 
 vi.mock( 'fs' );
 vi.mock( 'fs/promises', async () => {
@@ -29,20 +28,16 @@ vi.mock( 'fs/promises', async () => {
 } );
 vi.mock( 'fs-extra' );
 vi.mock( '@studio/common/lib/fs-utils' );
-vi.mock( '@studio/common/ai/sessions/root-migration', () => ( {
-	resolveMigratedAiSessionsPath: vi.fn( ( path: string ) => path ),
-} ) );
 vi.mock( '@sentry/electron/main', () => ( {
 	captureException: vi.fn(),
 	captureMessage: vi.fn(),
 	setTag: vi.fn(),
 } ) );
-vi.mock( 'src/site-server' );
+vi.mock( 'src/lib/sites' );
+vi.mock( 'src/modules/cli/lib/cli-site-creator' );
+vi.mock( '@studio/common/sites/site-path' );
+vi.mock( '@studio/common/sites/site-identity' );
 vi.mock( 'src/main-window' );
-vi.mock( 'src/lib/sqlite-versions', () => ( {
-	keepSqliteIntegrationUpdated: vi.fn().mockResolvedValue( undefined ),
-	installSqliteIntegration: vi.fn().mockResolvedValue( undefined ),
-} ) );
 vi.mock( import( 'src/lib/bump-stats' ), async ( importOriginal ) => {
 	const actual = await importOriginal();
 	return {
@@ -59,41 +54,19 @@ vi.mock( 'src/lib/capture-site-thumbnail', () => ( {
 	captureSiteThumbnail: vi.fn(),
 } ) );
 
-vi.mock( '@studio/common/lib/port-finder', () => ( {
-	portFinder: {
-		getOpenPort: vi.fn().mockResolvedValue( 9999 ),
-	},
-} ) );
-
-const mockSiteDetails: StoppedSiteDetails = {
+const mockSiteDetails = {
 	id: 'mock-cli-site-id',
 	name: 'Test',
 	path: '/test',
 	port: 9999,
+	url: 'http://localhost:9999',
 	phpVersion: '8.4',
 	running: false,
 	adminPassword: 'mock-password',
 	isWpAutoUpdating: false,
-	customDomain: undefined,
-	enableHttps: undefined,
 };
 
-vi.mocked( SiteServer.create ).mockResolvedValue( {
-	server: {
-		start: vi.fn(),
-		details: mockSiteDetails,
-		updateSiteDetails: vi.fn(),
-		updateCachedThumbnail: vi.fn().mockResolvedValue( undefined ),
-	} as unknown as SiteServer,
-	details: mockSiteDetails,
-} );
-
-vi.mocked( SiteServer.register, { partial: true } ).mockImplementation( ( details ) => ( {
-	start: vi.fn(),
-	details,
-	updateSiteDetails: vi.fn(),
-	updateCachedThumbnail: vi.fn().mockResolvedValue( undefined ),
-} ) );
+vi.mocked( createSiteViaCli ).mockResolvedValue( mockSiteDetails );
 
 const mockUserData = {
 	sites: [],
@@ -122,27 +95,14 @@ describe( 'createSite', () => {
 			noStart: true,
 		} );
 
-		expect( userData ).toEqual( {
-			adminPassword: 'mock-password',
-			id: 'mock-cli-site-id',
-			name: 'Test',
-			path: '/test',
-			phpVersion: '8.4',
-			port: 9999,
-			running: false,
-			customDomain: undefined,
-			enableHttps: undefined,
-			isWpAutoUpdating: false,
-		} );
-
-		expect( SiteServer.create ).toHaveBeenCalledWith(
+		expect( userData ).toEqual( mockSiteDetails );
+		expect( createSiteViaCli ).toHaveBeenCalledWith(
 			expect.objectContaining( {
 				path: '/test',
 				name: 'Test',
 				wpVersion: '6.4',
 				noStart: true,
-			} ),
-			expect.any( Object )
+			} )
 		);
 	} );
 } );
@@ -235,163 +195,48 @@ describe( 'ensureMinWindowWidth', () => {
 	} );
 } );
 
-describe( 'getXdebugEnabledSite', () => {
-	it( 'should return null when no site has Xdebug enabled', async () => {
-		vi.mocked( SiteServer.getAllDetails ).mockReturnValue( [
-			{
-				id: 'site-1',
-				name: 'Site 1',
-				path: '/path/to/site-1',
-				enableXdebug: false,
-				running: false,
-				phpVersion: '8.4',
-				port: 9999,
-			},
-			{
-				id: 'site-2',
-				name: 'Site 2',
-				path: '/path/to/site-2',
-				running: false,
-				phpVersion: '8.4',
-				port: 9998,
-			},
-		] as SiteDetails[] );
-
-		const result = await getXdebugEnabledSite( mockIpcMainInvokeEvent );
-
-		expect( result ).toBeNull();
-	} );
-
-	it( 'should return the site that has Xdebug enabled', async () => {
-		vi.mocked( SiteServer.getAllDetails ).mockReturnValue( [
-			{
-				id: 'site-1',
-				name: 'Site 1',
-				path: '/path/to/site-1',
-				enableXdebug: false,
-				running: false,
-				phpVersion: '8.4',
-				port: 9999,
-			},
-			{
-				id: 'site-2',
-				name: 'Site 2',
-				path: '/path/to/site-2',
-				enableXdebug: true,
-				running: true,
-				phpVersion: '8.4',
-				port: 9999,
-				url: 'https://site-2.test',
-			},
-		] as SiteDetails[] );
-
-		const result = await getXdebugEnabledSite( mockIpcMainInvokeEvent );
-
-		expect( result ).toEqual( {
-			id: 'site-2',
-			name: 'Site 2',
-			path: '/path/to/site-2',
-			running: true,
-			enableXdebug: true,
-			phpVersion: '8.4',
-			port: 9999,
-			url: 'https://site-2.test',
-		} );
-	} );
-
-	it( 'should return the first site when multiple have Xdebug enabled', async () => {
-		vi.mocked( SiteServer.getAllDetails ).mockReturnValue( [
-			{
-				id: 'site-1',
-				name: 'Site 1',
-				path: '/path/to/site-1',
-				enableXdebug: true,
-				running: false,
-				phpVersion: '8.4',
-				port: 9999,
-			},
-			{
-				id: 'site-2',
-				name: 'Site 2',
-				path: '/path/to/site-2',
-				enableXdebug: true,
-				running: true,
-				phpVersion: '8.4',
-				port: 9998,
-			},
-		] as SiteDetails[] );
-
-		const result = await getXdebugEnabledSite( mockIpcMainInvokeEvent );
-
-		expect( result ).toEqual( {
-			id: 'site-1',
-			name: 'Site 1',
-			path: '/path/to/site-1',
-			running: false,
-			enableXdebug: true,
-			phpVersion: '8.4',
-			port: 9999,
-		} );
-	} );
-} );
-
 describe( 'loadThemeDetails', () => {
-	it( 'should capture thumbnail but not persist theme details when theme has not changed', async () => {
-		const themeDetails = { name: 'Twenty Twenty-Four', path: '/themes/twentytwentyfour' };
-		const mockServer = {
-			details: {
-				id: 'test-site-id',
-				running: true,
-				themeDetails,
-			},
-			getThemeDetails: vi.fn().mockResolvedValue( themeDetails ),
-			persistThemeDetails: vi.fn().mockResolvedValue( undefined ),
+	it( "reads the theme from the site's folder, whether or not it runs", async () => {
+		const themeDetails = {
+			name: 'Twenty Twenty-Five',
+			path: '/themes/twentytwentyfive',
+			slug: 'twentytwentyfive',
+			isBlockTheme: true,
+			supportsWidgets: false,
+			supportsMenus: false,
 		};
-		vi.mocked( SiteServer.get ).mockReturnValue( mockServer as unknown as SiteServer );
+		vi.mocked( readSitePath ).mockResolvedValue( '/test' );
+		vi.mocked( readThemeDetails ).mockResolvedValue( themeDetails );
 
-		await loadThemeDetails( mockIpcMainInvokeEvent, 'test-site-id' );
-
-		expect( mockServer.persistThemeDetails ).not.toHaveBeenCalled();
-		expect( captureSiteThumbnail ).toHaveBeenCalledWith( 'test-site-id', true );
+		await expect( loadThemeDetails( mockIpcMainInvokeEvent, 'site-id' ) ).resolves.toBe(
+			themeDetails
+		);
+		expect( readThemeDetails ).toHaveBeenCalledWith( expect.any( Function ), '/test' );
 	} );
 
-	it( 'should persist theme details and capture thumbnail when theme has changed', async () => {
-		const oldThemeDetails = { name: 'Twenty Twenty-Four', path: '/themes/twentytwentyfour' };
-		const newThemeDetails = { name: 'Twenty Twenty-Five', path: '/themes/twentytwentyfive' };
-		const mockServer = {
-			details: {
-				id: 'test-site-id',
-				running: true,
-				themeDetails: oldThemeDetails,
-			},
-			getThemeDetails: vi.fn().mockResolvedValue( newThemeDetails ),
-			persistThemeDetails: vi.fn().mockResolvedValue( undefined ),
-		};
-		vi.mocked( SiteServer.get ).mockReturnValue( mockServer as unknown as SiteServer );
+	it( 'rejects an unknown site', async () => {
+		vi.mocked( readSitePath ).mockResolvedValue( null );
 
-		await loadThemeDetails( mockIpcMainInvokeEvent, 'test-site-id' );
-
-		expect( mockServer.persistThemeDetails ).toHaveBeenCalled();
-		expect( captureSiteThumbnail ).toHaveBeenCalledWith( 'test-site-id', true );
+		await expect( loadThemeDetails( mockIpcMainInvokeEvent, 'missing' ) ).rejects.toThrow(
+			'Site not found.'
+		);
 	} );
 } );
 
 describe( 'getFileSize', () => {
-	it( 'returns the file size', () => {
-		vi.mocked( SiteServer.get ).mockReturnValue( {
-			details: { path: '/test' },
-		} as unknown as SiteServer );
-		vol.fromJSON( { '/test/wp-content/index.php': '<?php' } );
-
-		expect(
-			getFileSize( mockIpcMainInvokeEvent, 'test-site-id', [ 'wp-content', 'index.php' ] )
-		).toBe( 5 );
+	beforeEach( () => {
+		vi.mocked( readSitePath ).mockResolvedValue( '/test' );
 	} );
 
-	it( 'returns 0 for a dangling symlink instead of throwing', () => {
-		vi.mocked( SiteServer.get ).mockReturnValue( {
-			details: { path: '/test' },
-		} as unknown as SiteServer );
+	it( 'returns the file size', async () => {
+		vol.fromJSON( { '/test/wp-content/index.php': '<?php' } );
+
+		await expect(
+			getFileSize( mockIpcMainInvokeEvent, 'test-site-id', [ 'wp-content', 'index.php' ] )
+		).resolves.toBe( 5 );
+	} );
+
+	it( 'returns 0 for a dangling symlink instead of throwing', async () => {
 		// A broken symlink whose target was never created — mirrors the WP Cloud
 		// `advanced-cache.php` drop-in that a reprint pull leaves dangling.
 		vol.mkdirSync( '/test/wp-content', { recursive: true } );
@@ -401,26 +246,34 @@ describe( 'getFileSize', () => {
 		);
 		const warnSpy = vi.spyOn( console, 'warn' ).mockImplementation( () => {} );
 
-		expect(
+		await expect(
 			getFileSize( mockIpcMainInvokeEvent, 'test-site-id', [ 'wp-content', 'advanced-cache.php' ] )
-		).toBe( 0 );
+		).resolves.toBe( 0 );
 		expect( warnSpy ).toHaveBeenCalledWith( expect.stringContaining( 'advanced-cache.php' ) );
 
 		warnSpy.mockRestore();
 	} );
 } );
 
-describe( 'readLocalMediaFile', () => {
-	it( 'reads artifacts from their migrated sessions path', async () => {
-		const legacyPath = '/legacy/sessions/session.screenshots/screenshot.jpg';
-		const migratedPath = '/.studio/sessions/session.screenshots/screenshot.jpg';
-		vol.fromJSON( { [ migratedPath ]: 'image' } );
-		vi.mocked( resolveMigratedAiSessionsPath ).mockReturnValueOnce( migratedPath );
+describe( 'openURL', () => {
+	it( 'only hands web URLs to the OS', () => {
+		const openExternal = vi.fn().mockResolvedValue( undefined );
+		( shell as unknown as { openExternal: typeof openExternal } ).openExternal = openExternal;
 
-		const file = await readLocalMediaFile( mockIpcMainInvokeEvent, legacyPath );
+		for ( const url of [
+			'https://wordpress.com/',
+			'http://localhost:8881/',
+			'file:///etc/passwd',
+			'vscode://file/tmp',
+			'smb://host/share',
+			'relative/path',
+		] ) {
+			openURL( mockIpcMainInvokeEvent, url );
+		}
 
-		expect( resolveMigratedAiSessionsPath ).toHaveBeenCalledWith( legacyPath );
-		expect( file.name ).toBe( 'screenshot.jpg' );
-		expect( Buffer.from( file.data ).toString() ).toBe( 'image' );
+		expect( openExternal.mock.calls ).toEqual( [
+			[ 'https://wordpress.com/' ],
+			[ 'http://localhost:8881/' ],
+		] );
 	} );
 } );

@@ -1,6 +1,5 @@
 import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
 import { __ } from '@wordpress/i18n';
-import { readOnboardingHints, writeOnboardingHints } from '../browser-onboarding-hints';
 import { applyStoredSiteOrder, storeSiteOrder } from '../browser-site-order';
 import { readLastSeenVersion, writeLastSeenVersion } from '../browser-whats-new';
 import { UnsupportedError } from '../unsupported-error';
@@ -409,6 +408,12 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 			// No native folder picker in a browser.
 			return null;
 		},
+		async isCertificateTrusted() {
+			return true;
+		},
+		async trustCertificate() {
+			throw new UnsupportedError( 'trustCertificate' );
+		},
 		async getAgentInstructions(): Promise< string > {
 			throw new UnsupportedError( 'getAgentInstructions' );
 		},
@@ -534,10 +539,10 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 			return () => {};
 		},
 		async getOnboardingHints() {
-			return readOnboardingHints();
+			return {};
 		},
-		async setOnboardingHints( partial ) {
-			writeOnboardingHints( partial );
+		async setOnboardingHints() {
+			// No-op.
 		},
 		onShowGettingStarted() {
 			// No application menu on the hosted surface.

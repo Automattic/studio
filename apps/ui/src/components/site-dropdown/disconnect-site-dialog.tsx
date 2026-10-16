@@ -56,7 +56,10 @@ export function DisconnectSiteDialog( { localSiteId, liveSite, open, onOpenChang
 			<Dialog.Popup size="small" onKeyDown={ handleKeyDown }>
 				<Dialog.Header>
 					<Dialog.Title>
-						{ sprintf( __( 'Disconnect %s' ), stripProtocol( liveSite.url ) ) }
+						{ sprintf(
+							__( 'Disconnect %s' ),
+							stripProtocol( liveSite.url ) || __( 'Unavailable site' )
+						) }
 					</Dialog.Title>
 				</Dialog.Header>
 				<Dialog.Content>

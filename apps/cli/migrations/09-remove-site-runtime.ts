@@ -4,7 +4,6 @@
  * runs, so their settings don't show a version that isn't used.
  */
 
-import { SITE_RUNTIME_PLAYGROUND } from '@studio/common/lib/site-runtime';
 import { getClosestSupportedPhpVersion } from '@studio/common/types/php-versions';
 import {
 	lockCliConfig,
@@ -13,6 +12,9 @@ import {
 	unlockCliConfig,
 } from 'cli/lib/cli-config/core';
 import type { Migration } from '@studio/common/lib/migration';
+
+// The value older Studio versions stored for sites on the Sandbox runtime.
+const SANDBOX_RUNTIME = 'playground';
 
 export const removeSiteRuntime: Migration = {
 	async needsToRun() {
@@ -28,7 +30,7 @@ export const removeSiteRuntime: Migration = {
 				if ( site.runtime === undefined ) {
 					continue;
 				}
-				if ( site.runtime === SITE_RUNTIME_PLAYGROUND && site.phpVersion ) {
+				if ( site.runtime === SANDBOX_RUNTIME && site.phpVersion ) {
 					site.phpVersion = getClosestSupportedPhpVersion( site.phpVersion ) ?? site.phpVersion;
 				}
 				delete site.runtime;

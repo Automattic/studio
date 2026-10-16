@@ -1,0 +1,20 @@
+{
+  "name": "studio",
+  "interface": {
+    "displayName": "WordPress Studio"
+  },
+  "plugins": [
+    {
+      "name": "wp-studio",
+      "source": {
+        "source": "local",
+        "path": "./wp-studio"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Developer Tools"
+    }
+  ]
+}

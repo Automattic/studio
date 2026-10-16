@@ -1,6 +1,6 @@
 # WordPress Studio CLI
 
-`wp-studio` is the standalone, CLI-only version of [WordPress Studio](https://developer.wordpress.com/studio/) – a fast, free, open source tool for local WordPress development all powered by WordPress Playground and WordPress.com.
+`wp-studio` is the standalone, CLI-only version of [WordPress Studio](https://developer.wordpress.com/studio/) – a fast, free, open source tool for local WordPress development powered by WordPress.com.
 
 If you already have Studio installed, then the easiest way to use the CLI is to open Studio, go to the settings modal and ensure that the "Studio CLI" toggle is enabled.
 
@@ -33,7 +33,7 @@ The Studio CLI lets you:
 
 ## Requirements
 
-`wp-studio` runs best on Node.js 24 or higher, which supports more recent V8 WASM APIs. Node.js 22 or higher is required. You can download the appropriate version from the [Node.js website](https://nodejs.org/en/download).
+`wp-studio` requires Node.js 22 or higher. You can download the appropriate version from the [Node.js website](https://nodejs.org/en/download).
 
 ## Installation
 
@@ -67,7 +67,7 @@ studio list
 studio list --format json
 ```
 
-JSON output prints a fixed set of public fields (site identity, path, status, runtime, version, and URL). Fields outside that set, including admin passwords, are omitted. To read one site's admin password, run `studio config get admin-password --path <site>` and do not log the value.
+JSON output prints a fixed set of public fields (site identity, path, status, version, and URL). Fields outside that set, including admin passwords, are omitted. To read one site's admin password, run `studio config get admin-password --path <site>` and do not log the value.
 
 To start and stop sites, run these commands:
 

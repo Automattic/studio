@@ -49,30 +49,51 @@ describe( 'admin credentials', () => {
 		);
 	} );
 
-	it( 'skips the request when there are no admin credential overrides', async () => {
-		const sendRequest = vi.fn();
+	describe( 'requestSetAdminCredentials', () => {
+		const fetchMock = vi.fn();
 
-		await requestSetAdminCredentials( {}, sendRequest );
+		beforeEach( () => {
+			fetchMock.mockReset();
+			vi.stubGlobal( 'fetch', fetchMock );
+		} );
 
-		expect( sendRequest ).not.toHaveBeenCalled();
-	} );
+		afterEach( () => {
+			vi.unstubAllGlobals();
+		} );
 
-	it( 'sends the shared admin API request when credentials are configured', async () => {
-		const sendRequest = vi.fn();
+		it( 'skips the request when there are no admin credential overrides', async () => {
+			await requestSetAdminCredentials( { port: 8881 } );
 
-		await requestSetAdminCredentials(
-			{ adminUsername: 'site-owner', adminPassword: encodePassword( 'secret' ) },
-			sendRequest
-		);
+			expect( fetchMock ).not.toHaveBeenCalled();
+		} );
 
-		expect( sendRequest ).toHaveBeenCalledWith( {
-			url: '/?studio-admin-api',
-			method: 'POST',
-			body: {
-				action: 'set_admin_password',
-				username: 'site-owner',
-				password: 'secret',
-			},
+		it( "posts the credentials to the running site's admin API", async () => {
+			fetchMock.mockResolvedValue( new Response( '{}' ) );
+			const signal = new AbortController().signal;
+
+			await requestSetAdminCredentials(
+				{ port: 8881, adminUsername: 'site-owner', adminPassword: encodePassword( 'secret' ) },
+				signal
+			);
+
+			expect( fetchMock ).toHaveBeenCalledWith( 'http://localhost:8881/?studio-admin-api', {
+				method: 'POST',
+				body: expect.any( URLSearchParams ),
+				signal,
+			} );
+			expect( fetchMock.mock.calls[ 0 ][ 1 ].body.toString() ).toBe(
+				'action=set_admin_password&password=secret&username=site-owner'
+			);
+		} );
+
+		it( 'throws the admin API error message when the request fails', async () => {
+			fetchMock.mockResolvedValue(
+				new Response( JSON.stringify( { error: 'Invalid username' } ), { status: 400 } )
+			);
+
+			await expect(
+				requestSetAdminCredentials( { port: 8881, adminUsername: 'bad name' } )
+			).rejects.toThrow( 'Invalid username' );
 		} );
 	} );
 } );

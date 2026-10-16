@@ -146,10 +146,9 @@ describe( 'OpenInMenu', () => {
 		fireEvent.click( destination( 'Zed' ) );
 		fireEvent.click( destination( 'Terminal' ) );
 
-		// The browser opens the site's front page through the host's openSiteUrl,
-		// which wraps it in /studio-auto-login — opening it raw would hit the
-		// login form. The preview's address bar owns "open the current page".
-		expect( openSiteUrl ).toHaveBeenCalledWith( 'site-1', '/' );
+		// The browser opens the site's front page logged out; only WP Admin
+		// signs in. The preview's address bar owns "open the current page".
+		expect( openSiteUrl ).toHaveBeenCalledWith( 'site-1', '/', { autoLogin: false } );
 		expect( openExternalUrl ).not.toHaveBeenCalled();
 		expect( openSiteFolder ).toHaveBeenCalledWith( 'site-1' );
 		expect( openSiteInEditor ).toHaveBeenCalledWith( 'site-1' );

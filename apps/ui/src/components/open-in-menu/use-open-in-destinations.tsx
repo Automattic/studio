@@ -89,9 +89,8 @@ export function useOpenInDestinations(
 			open: () => {
 				onOpen?.( 'browser' );
 				void connector.trackEvent( TRACKS_EVENTS.SITE_OPEN_IN_BROWSER, { browser: 'external' } );
-				// Routed through the host rather than `openExternalUrl` so the
-				// URL goes via /studio-auto-login and keeps the session.
-				void connector.openSiteUrl( site.id, '/' ).catch( ( error ) => {
+				// The front end opens logged out; only WP Admin signs the user in.
+				void connector.openSiteUrl( site.id, '/', { autoLogin: false } ).catch( ( error ) => {
 					console.error( 'Failed to open site in browser:', error );
 				} );
 			},

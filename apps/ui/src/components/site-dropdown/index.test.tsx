@@ -14,10 +14,11 @@ const { connectedSites, pullMutate } = vi.hoisted( () => ( {
 } ) );
 
 vi.mock( '@/data/core', () => ( { useConnector: () => ( {} ) } ) );
-vi.mock( '@/data/queries/use-connected-wpcom-sites', () => ( {
-	useConnectedWpcomSites: () => ( { data: connectedSites } ),
+vi.mock( '@/data/queries/use-wpcom-sites', () => ( {
+	useLiveWpcomSites: () => connectedSites,
 } ) );
 vi.mock( '@/data/queries/use-snapshots', () => ( { useSnapshots: () => ( { data: [] } ) } ) );
+vi.mock( '@/data/queries/use-site-icon', () => ( { useSiteIcon: () => null } ) );
 vi.mock( '@/data/queries/use-sites', () => ( {
 	useIsSiteStarting: () => false,
 	useIsSiteStopping: () => false,

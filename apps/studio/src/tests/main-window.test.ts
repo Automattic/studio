@@ -1,12 +1,12 @@
 /**
  * @vitest-environment node
  */
-import { BrowserWindow } from 'electron';
+import { BrowserWindow, app, dialog } from 'electron';
+import path from 'path';
 import { readFile } from 'atomically';
 import { vol } from 'memfs';
 import { vi } from 'vitest';
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
-import { setAgenticUiEnabled } from 'src/lib/studio-ui-mode';
 import {
 	createMainWindow,
 	getExistingMainWindow,
@@ -18,9 +18,6 @@ import {
 vi.mock( 'fs' );
 vi.mock( 'src/ipc-utils' );
 vi.mock( 'atomically' );
-vi.mock( 'src/lib/app-globals', () => ( {
-	saveWindowBounds: vi.fn(),
-} ) );
 
 // Create a simpler mock that tracks event handlers
 const mockEventHandlers = new Map< string, ( ( ...args: any[] ) => void )[] >();
@@ -74,9 +71,11 @@ vi.mock( 'electron', () => {
 			getVersion: vi.fn().mockReturnValue( '1.0.0' ),
 			getPath: vi.fn().mockReturnValue( '/mock/path' ),
 			isPackaged: false,
+			quit: vi.fn(),
 		},
 		dialog: {
 			showMessageBox: vi.fn(),
+			showErrorBox: vi.fn(),
 		},
 		nativeTheme: {
 			themeSource: 'light',
@@ -103,6 +102,8 @@ vi.mock( 'electron', () => {
 	};
 } );
 
+const RENDERER_PATH = path.resolve( __dirname, '../../renderer-ui/index.html' );
+
 const mockUserData = {
 	sites: [],
 };
@@ -111,7 +112,6 @@ vi.mocked( readFile ).mockResolvedValue( Buffer.from( JSON.stringify( mockUserDa
 beforeEach( () => {
 	delete process.env.ENABLE_AGENTIC_UI;
 	delete process.env.ELECTRON_UI_RENDERER_URL;
-	delete process.env.ELECTRON_RENDERER_URL;
 	mockWebContentsEventHandlers.clear();
 } );
 
@@ -120,6 +120,7 @@ describe( 'getMainWindow', () => {
 
 	beforeEach( async () => {
 		vol.reset();
+		vol.fromJSON( { [ RENDERER_PATH ]: '<!doctype html>' } );
 		createdWindow = await createMainWindow();
 	} );
 
@@ -182,26 +183,39 @@ describe( 'getExistingMainWindow', () => {
 } );
 
 describe( 'renderer selection', () => {
+	beforeEach( () => {
+		vol.reset();
+	} );
+
 	afterEach( () => {
-		setAgenticUiEnabled( false );
 		__resetMainWindow();
 	} );
 
-	it( 'loads the legacy renderer by default', async () => {
-		const createdWindow = await createMainWindow();
-		const rendererPath = vi.mocked( createdWindow.loadFile ).mock.calls[ 0 ][ 0 ];
+	it( 'loads the bundled renderer', async () => {
+		vol.fromJSON( { [ RENDERER_PATH ]: '<!doctype html>' } );
 
-		expect( rendererPath.replace( /\\/g, '/' ) ).toContain( 'renderer/index.html' );
+		const createdWindow = await createMainWindow();
+
+		await vi.waitFor( () =>
+			expect( createdWindow.loadFile ).toHaveBeenCalledWith( RENDERER_PATH )
+		);
 		expect( createdWindow.loadURL ).not.toHaveBeenCalled();
 	} );
 
-	it( 'loads the UI dev server when the agentic UI flag is enabled', async () => {
-		setAgenticUiEnabled( true );
+	it( 'loads the UI dev server when one is running', async () => {
 		process.env.ELECTRON_UI_RENDERER_URL = 'http://localhost:5200';
 
 		const createdWindow = await createMainWindow();
 
 		expect( createdWindow.loadURL ).toHaveBeenCalledWith( 'http://localhost:5200' );
+		expect( createdWindow.loadFile ).not.toHaveBeenCalled();
+	} );
+
+	it( 'shows an error and quits when the renderer was not built', async () => {
+		const createdWindow = await createMainWindow();
+
+		await vi.waitFor( () => expect( app.quit ).toHaveBeenCalled() );
+		expect( dialog.showErrorBox ).toHaveBeenCalled();
 		expect( createdWindow.loadFile ).not.toHaveBeenCalled();
 	} );
 } );

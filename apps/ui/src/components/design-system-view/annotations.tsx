@@ -2,6 +2,7 @@ import { __ } from '@wordpress/i18n';
 import { Button, Textarea } from '@wordpress/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import * as Popover from '@/components/popover';
+import { isImeComposing } from '@/lib/is-ime-composing';
 import styles from './style.module.css';
 import type { Annotation, InspectorCommand, InspectorState } from '@/components/site-preview/types';
 import type { MouseEvent } from 'react';
@@ -217,7 +218,7 @@ function NotePopup( {
 					value={ draft.comment }
 					onValueChange={ onChange }
 					onKeyDown={ ( event ) => {
-						if ( event.key === 'Enter' && ! event.shiftKey && ! event.nativeEvent.isComposing ) {
+						if ( event.key === 'Enter' && ! event.shiftKey && ! isImeComposing( event ) ) {
 							event.preventDefault();
 							if ( ! empty ) {
 								onSave();

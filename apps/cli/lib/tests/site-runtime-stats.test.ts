@@ -24,7 +24,6 @@ const nativeAllFilesSite: SiteData = {
 	name: 'My WordPress Site',
 	path: '/home/user/Studio/my-wordpress-site',
 	port: 8888,
-	runtime: 'native-php',
 	fileAccess: 'all-files',
 	phpVersion: DEFAULT_PHP_VERSION,
 } as const;
@@ -49,30 +48,18 @@ afterEach( () => {
 
 describe( 'getSiteRuntimeStat', () => {
 	it( 'maps native + all files to the all-files metric', () => {
-		expect( getSiteRuntimeStat( { runtime: 'native-php', fileAccess: 'all-files' } ) ).toBe(
+		expect( getSiteRuntimeStat( { fileAccess: 'all-files' } ) ).toBe(
 			StatsMetric.RUNTIME_NATIVE_ALL_FILES
 		);
 	} );
 
 	it( 'maps native + site directory to the site-dir metric', () => {
-		expect( getSiteRuntimeStat( { runtime: 'native-php', fileAccess: 'site-directory' } ) ).toBe(
+		expect( getSiteRuntimeStat( { fileAccess: 'site-directory' } ) ).toBe(
 			StatsMetric.RUNTIME_NATIVE_SITE_DIR
 		);
 	} );
 
-	it( 'defaults native without file access to the site-dir metric', () => {
-		expect( getSiteRuntimeStat( { runtime: 'native-php' } ) ).toBe(
-			StatsMetric.RUNTIME_NATIVE_SITE_DIR
-		);
-	} );
-
-	it( 'maps sandbox to the sandbox metric regardless of file access', () => {
-		expect( getSiteRuntimeStat( { runtime: 'playground', fileAccess: 'all-files' } ) ).toBe(
-			StatsMetric.RUNTIME_SANDBOX
-		);
-	} );
-
-	it( 'defaults an unset runtime to native', () => {
+	it( 'defaults an unset file access to the site-dir metric', () => {
 		expect( getSiteRuntimeStat( {} ) ).toBe( StatsMetric.RUNTIME_NATIVE_SITE_DIR );
 	} );
 } );
@@ -119,12 +106,12 @@ describe( 'recordSiteRuntimeUsage', () => {
 		);
 	} );
 
-	it( 'bumps again the same day when the runtime changed', async () => {
+	it( 'bumps again the same day when the file access changed', async () => {
 		const today = Date.UTC( 2024, 1, 6 );
 		vi.spyOn( Date, 'now' ).mockReturnValue( today );
-		// Counted earlier today as sandbox; the site is now native + all files.
+		// Counted earlier today as site directory; the site now has all-files access.
 		mockConfig.siteRuntimeStats = {
-			'site-1': { bumpedAt: today, stat: StatsMetric.RUNTIME_SANDBOX },
+			'site-1': { bumpedAt: today, stat: StatsMetric.RUNTIME_NATIVE_SITE_DIR },
 		};
 
 		await recordSiteRuntimeUsage( nativeAllFilesSite );

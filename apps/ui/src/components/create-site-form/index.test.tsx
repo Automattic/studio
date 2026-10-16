@@ -30,6 +30,11 @@ vi.mock( '@/data/queries/use-sites', () => ( {
 	useSites: vi.fn(),
 } ) );
 
+vi.mock( '@/data/queries/use-certificate-trust', () => ( {
+	useCertificateTrust: () => ( { data: true } ),
+	useTrustCertificate: () => ( { mutate: vi.fn(), isPending: false } ),
+} ) );
+
 vi.mock( '@/data/queries/use-wordpress-versions', () => ( {
 	useWordPressVersions: vi.fn(),
 } ) );
@@ -486,6 +491,42 @@ describe( 'CreateSiteForm', () => {
 		await waitFor( () =>
 			expect( screen.getByRole( 'radio', { name: 'Automatic updates' } ) ).toBeChecked()
 		);
+	} );
+
+	it.each( [ '6.5', '6.5.5' ] )(
+		"pins a suggested %s to its branch's newest release",
+		async ( wpVersion ) => {
+			useWordPressVersionsMock.mockReturnValue( {
+				data: [
+					{ label: '6.8', value: 'latest', isBeta: false, isDevelopment: false },
+					{ label: '6.8.1', value: '6.8.1', isBeta: false, isDevelopment: false },
+					{ label: '6.5.13', value: '6.5.13', isBeta: false, isDevelopment: false },
+				],
+			} );
+			renderForm( { name: 'Old Blueprint', wpVersion } );
+			openAdvancedSettings();
+
+			await waitFor( () => expect( screen.getByLabelText( 'Version' ) ).toHaveValue( '6.5.13' ) );
+			expect( screen.getByRole( 'radio', { name: 'Select a version' } ) ).toBeChecked();
+		}
+	);
+
+	it( "says when a suggested WordPress version can't be installed", async () => {
+		useWordPressVersionsMock.mockReturnValue( {
+			data: [
+				{ label: '6.8', value: 'latest', isBeta: false, isDevelopment: false },
+				{ label: '6.8.1', value: '6.8.1', isBeta: false, isDevelopment: false },
+			],
+		} );
+		renderForm( { name: 'Old Blueprint', wpVersion: '5.9' } );
+		openAdvancedSettings();
+
+		expect(
+			await screen.findByText(
+				"This Blueprint asks for WordPress 5.9, which Studio can't install."
+			)
+		).toBeVisible();
+		expect( screen.getByRole( 'radio', { name: 'Automatic updates' } ) ).toBeChecked();
 	} );
 
 	// The site does not exist yet, so the description names the version it will

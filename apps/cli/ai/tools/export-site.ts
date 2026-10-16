@@ -1,7 +1,7 @@
 import path from 'path';
 import { Type } from 'typebox';
 import { runCommand as runExportCommand } from 'cli/commands/export';
-import { defineTool } from './define-tool';
+import { defineTool, LOCAL_OVERWRITE } from './define-tool';
 import { captureCommandOutput, resolveSite, textResult } from './utils';
 
 export const exportSiteTool = defineTool(
@@ -57,5 +57,6 @@ export const exportSiteTool = defineTool(
 	{
 		promptSnippet:
 			'Export a local site to a backup file. Supports full-site (.zip, .tar.gz) or database-only (.sql) exports.',
+		annotations: LOCAL_OVERWRITE,
 	}
 );

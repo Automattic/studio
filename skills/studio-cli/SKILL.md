@@ -60,7 +60,7 @@ studio create --from https://example.com --name "Example" --path ~/Studio/exampl
 
 ```bash
 studio status --path ~/Studio/my-site              # Table output
-studio status --path ~/Studio/my-site --format json # JSON output (fields: siteUrl, autoLoginUrl, sitePath, status, phpVersion, runtime, fileAccess, wpVersion, xdebug, adminUsername, adminEmail)
+studio status --path ~/Studio/my-site --format json # JSON output (fields: siteUrl, autoLoginUrl, sitePath, status, phpVersion, fileAccess, wpVersion, xdebug, adminUsername, adminEmail)
 ```
 
 Retrieve one site's admin password with an explicit, auditable command. Do not log, pipe into transcripts, or cache the value:
@@ -79,7 +79,7 @@ studio config get --path ~/Studio/my-site --format json  # All settings except a
 studio config get php --path ~/Studio/my-site            # A single setting, printed raw (e.g. "8.4")
 ```
 
-Keys: `name`, `domain`, `https`, `php`, `wp`, `runtime` (`native`/`sandbox`), `file-access` (`site-directory`/`all-files`), `xdebug`, `admin-username`, `admin-password`, `admin-email`, `debug-log`, `debug-display`.
+Keys: `name`, `domain`, `https`, `php`, `wp`, `file-access` (`site-directory`/`all-files`), `xdebug`, `admin-username`, `admin-password`, `admin-email`, `debug-log`, `debug-display`.
 
 Change settings with `studio config set`:
 

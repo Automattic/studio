@@ -11,7 +11,6 @@ import { useId, useState } from 'react';
 import styles from './style.module.css';
 import type { DataFormControlProps, Option } from '@wordpress/dataviews';
 
-// Ported from the legacy UI (apps/studio/src/components/offline-icon.tsx).
 const offlineIcon = (
 	<svg viewBox="0 0 16 14" fill="none" xmlns="http://www.w3.org/2000/svg">
 		<path d="M14.3616 11.2468C15.339 10.682 15.9996 9.60352 15.9996 8.36597C15.9996 6.73087 14.8465 5.37347 13.3331 5.11157L13.3333 5.06597C13.3333 2.63597 11.1843 0.666016 8.5333 0.666016C7.2983 0.666016 6.17225 1.09355 5.32167 1.79598L6.36271 2.88434C6.9296 2.44576 7.67855 2.16602 8.5333 2.16602C10.4814 2.16602 11.8333 3.58458 11.8333 5.06597L11.8332 5.09497L11.8191 6.37187L13.0773 6.58967C13.8512 6.72357 14.4996 7.43967 14.4996 8.36597C14.4996 9.22043 13.9545 9.88797 13.262 10.0972L14.3616 11.2468Z" />
@@ -121,6 +120,7 @@ export function WpVersionControl< Item >( {
 				__nextHasNoMarginBottom
 				label={ field.label }
 				hideLabelFromVision={ hideLabelFromVision }
+				help={ disabled ? undefined : field.description }
 			>
 				<fieldset
 					className={ styles.updateModeControl }

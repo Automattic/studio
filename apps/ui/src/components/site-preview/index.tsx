@@ -31,6 +31,7 @@ import { PREVIEW_TOGGLE_DURATION } from '@/components/preview-split-frame';
 import { useConnector } from '@/data/core';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { siteDesignQueryKey, useSiteDesign } from '@/data/queries/use-site-design';
+import { useSiteIcon } from '@/data/queries/use-site-icon';
 import {
 	useIsSiteBusy,
 	useIsSiteStarting,
@@ -38,7 +39,7 @@ import {
 	useStartSite,
 } from '@/data/queries/use-sites';
 import { useAppZoomFactor } from '@/hooks/use-app-zoom-factor';
-import { refreshThemeDetails } from '@/hooks/use-theme-details';
+import { themeDetailsQueryKey } from '@/hooks/use-theme-details';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import { useTrafficLightsPosition } from '@/hooks/use-traffic-lights-position';
 import { useWindowControlsInset } from '@/hooks/use-window-controls-inset';
@@ -1128,6 +1129,7 @@ export function SitePreview( {
 	const activeRealm = getPreviewRealm( safePath );
 	const activeSurfaceKey = getSurfaceKey( activeRealm );
 	const siteDesign = useSiteDesign( site );
+	const siteIcon = useSiteIcon( site.id );
 	const siteThumbnail = useQuery( {
 		queryKey: [ ...SITE_THUMBNAIL_QUERY_KEY, site.id ],
 		queryFn: () => connector.getSiteThumbnail( site.id ),
@@ -1245,8 +1247,8 @@ export function SitePreview( {
 	);
 	const handleSurfaceNavigation = useCallback(
 		( key: PreviewSurfaceKey, url: string ) => {
-			if ( isThemeActivationUrl( url ) && connector.getThemeDetails ) {
-				void refreshThemeDetails( connector, queryClient, site.id ).catch( () => undefined );
+			if ( isThemeActivationUrl( url ) ) {
+				void queryClient.invalidateQueries( { queryKey: themeDetailsQueryKey( site.id ) } );
 			}
 			const nextPath = getPathFromPreviewUrl( url, siteUrl );
 			if ( ! nextPath ) {
@@ -1261,16 +1263,7 @@ export function SitePreview( {
 				onPathChange?.( nextPath );
 			}
 		},
-		[
-			activeSurfaceKey,
-			connector,
-			onPathChange,
-			patchSurface,
-			queryClient,
-			safePath,
-			site.id,
-			siteUrl,
-		]
+		[ activeSurfaceKey, onPathChange, patchSurface, queryClient, safePath, site.id, siteUrl ]
 	);
 	// Commands are addressed to the surface on screen. Each has its own slot, so
 	// the hidden one never sees a command it should have missed — and never
@@ -1597,6 +1590,7 @@ export function SitePreview( {
 					{ canPreview && ! inspectorState.isPicking ? (
 						<PreviewAddressBar
 							site={ site }
+							siteIcon={ siteIcon }
 							siteUrl={ siteUrl }
 							path={ getSafePath( path ) }
 							onNavigate={ ( nextPath ) => onPathChange?.( nextPath ) }
@@ -1607,16 +1601,19 @@ export function SitePreview( {
 									? undefined
 									: () => {
 											const safePath = getSafePath( path );
+											const realm = getPreviewRealm( safePath );
 											// Matches the realm on screen (front end / WP Admin / phpMyAdmin)
 											// rather than always the front end.
-											void connector.trackEvent( getRealmOpenEvent( getPreviewRealm( safePath ) ), {
+											void connector.trackEvent( getRealmOpenEvent( realm ), {
 												browser: 'external',
 											} );
-											// Via the host so the URL goes through /studio-auto-login; opening
-											// it raw drops the session and lands admin screens on the login form.
-											void connector.openSiteUrl( site.id, safePath ).catch( ( error ) => {
-												console.error( 'Failed to open site in browser:', error );
-											} );
+											// Admin screens go through /studio-auto-login so they don't land on
+											// the login form; the front end opens logged out.
+											void connector
+												.openSiteUrl( site.id, safePath, { autoLogin: realm !== 'frontend' } )
+												.catch( ( error ) => {
+													console.error( 'Failed to open site in browser:', error );
+												} );
 									  }
 							}
 						/>
@@ -2344,7 +2341,9 @@ function WebviewSurface( {
 				ref={ ref }
 				src={ initialSrc }
 				className={ styles.iframe }
-				allowpopups={ true }
+				// @types/react types this as boolean, but React 19 drops `true` on
+				// unknown attributes, which leaves Electron blocking every popup.
+				allowpopups={ 'true' as unknown as boolean }
 				partition="persist:site-preview"
 			/>
 			{ ! ready ? (

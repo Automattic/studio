@@ -159,7 +159,7 @@ describe( 'SettingsView', () => {
 
 		useConnectorMock.mockReturnValue( {
 			selectDefaultSiteDirectory,
-			capabilities: { agentInstructions: false },
+			capabilities: { agentInstructions: false, nativeFolderPicker: true },
 		} as never );
 		useInstalledAppsMock.mockReturnValue( {
 			data: { vscode: true, terminal: true, iterm: true },

@@ -73,13 +73,11 @@ vi.mock( '@/components/session-view/composer', () => ( {
 
 vi.mock( '@/data/core', async ( importOriginal ) => {
 	const actual = await importOriginal< typeof import('@/data/core') >();
-	return {
-		...actual,
-		useConnector: () => ( {
-			cleanupBlueprintTempDir: mocks.cleanup,
-			openExternalUrl: mocks.openExternalUrl,
-		} ),
+	const connector = {
+		cleanupBlueprintTempDir: mocks.cleanup,
+		openExternalUrl: mocks.openExternalUrl,
 	};
+	return { ...actual, useConnector: () => connector };
 } );
 
 vi.mock( '@/data/queries/use-agentic-features', () => ( {
@@ -325,14 +323,28 @@ describe( 'CreateSitePage', () => {
 		expect( mocks.formProps?.isSubmitDisabled ).toBe( false );
 	} );
 
-	it( 'submits the selected Blueprint and restores the form after failure', async () => {
-		mocks.mutateAsync.mockRejectedValue( new Error( 'Creation failed' ) );
+	it( 'requires a custom domain for a multisite Blueprint', () => {
 		render( <CreateSitePage /> );
+		const multisite = blueprint( 'Network' );
+		multisite.blueprint.steps = [ { step: 'enableMultisite' } ];
+		selectBlueprint( multisite );
+
+		expect( mocks.formProps?.requiresCustomDomain ).toBe( true );
+		expect( mocks.formProps?.initialValues ).toMatchObject( { customDomain: 'network.wp.local' } );
+	} );
+
+	it( 'keeps the selected Blueprint for a retry after failure', async () => {
+		mocks.mutateAsync.mockRejectedValue( new Error( 'Creation failed' ) );
+		const { unmount } = render( <CreateSitePage /> );
 		const selected = blueprint( 'Selected', '/tmp/selected' );
 		selectBlueprint( selected );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Submit' } ) );
 
-		await screen.findByText( 'Creation failed' );
+		await waitFor( () =>
+			expect( mocks.formProps?.submitError ).toEqual(
+				expect.objectContaining( { details: 'Creation failed' } )
+			)
+		);
 		expect( mocks.setProgress ).toHaveBeenCalledWith( 'Creating site…' );
 		expect( mocks.setProgress ).toHaveBeenCalledWith( null );
 		expect( mocks.mutateAsync ).toHaveBeenCalledWith(
@@ -342,7 +354,10 @@ describe( 'CreateSitePage', () => {
 				} ),
 			} )
 		);
+		expect( mocks.formProps?.submitLabel ).toBe( 'Create site from Blueprint' );
+		expect( mocks.cleanup ).not.toHaveBeenCalled();
+
+		unmount();
 		expect( mocks.cleanup ).toHaveBeenCalledWith( '/tmp/selected' );
-		expect( mocks.formProps?.submitLabel ).toBeUndefined();
 	} );
 } );

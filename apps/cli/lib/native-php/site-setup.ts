@@ -7,12 +7,12 @@ import {
 	DEFAULT_ADMIN_USERNAME,
 	decodeAdminPassword,
 } from '@studio/common/lib/passwords';
-import { type NativePhpSupportedVersion } from '@studio/common/lib/php-binary-metadata';
 import { getWpEnvironmentType } from '@studio/common/lib/wp-environment-type';
 import { getWpCliPharPath } from 'cli/lib/dependency-management/paths';
 import { ensurePhpBinaryAvailable } from '../dependency-management/php-binary';
 import { runPhpCommand } from './php-process';
 import { getFullyResolvedTmpDirPath } from './tmp-dir';
+import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { ServerConfig } from 'cli/lib/types/wordpress-server-ipc';
 
 const WP_CONFIG_TRANSFORMER_PATH = path.resolve(
@@ -27,7 +27,7 @@ type Logger = ( ...args: Parameters< typeof console.log > ) => void;
 
 export async function ensureWpConfig(
 	siteFolder: string,
-	phpVersion: NativePhpSupportedVersion,
+	phpVersion: SupportedPHPVersion,
 	signal?: AbortSignal,
 	config?: Pick<
 		ServerConfig,
@@ -128,7 +128,7 @@ export function writeSiteUrlPrependFile(
 
 export async function isWordPressInstalled(
 	siteFolder: string,
-	phpVersion: NativePhpSupportedVersion,
+	phpVersion: SupportedPHPVersion,
 	signal: AbortSignal
 ): Promise< boolean > {
 	const installationCheckScript = `
@@ -174,7 +174,7 @@ function isCoreLanguagePackInstalled( sitePath: string, locale: string ): boolea
 
 export async function installWordPress(
 	config: ServerConfig,
-	phpVersion: NativePhpSupportedVersion,
+	phpVersion: SupportedPHPVersion,
 	signal: AbortSignal,
 	setDefaultPermalinksPath: string,
 	logToConsole: Logger

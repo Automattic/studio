@@ -1,3 +1,5 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { getDefaultPhpArgs, getNativePhpIniContents } from 'cli/lib/native-php/config';
 
@@ -36,6 +38,27 @@ describe( 'getNativePhpIniContents', () => {
 } );
 
 describe( 'getDefaultPhpArgs', () => {
+	function getFileCacheDirectory( args: string[] ): string {
+		const directive = args.find( ( arg ) => arg.startsWith( 'opcache.file_cache=' ) );
+		return directive?.match( /^opcache\.file_cache="(.*)"$/ )?.[ 1 ] ?? '';
+	}
+
+	it( 'gives each server worker its own opcache file cache directory', () => {
+		const first = getFileCacheDirectory( getDefaultPhpArgs( '8.4', { workerIndex: 0 } ) );
+		const second = getFileCacheDirectory( getDefaultPhpArgs( '8.4', { workerIndex: 1 } ) );
+
+		expect( first ).not.toBe( second );
+		expect( path.basename( first ) ).toBe( 'worker-0' );
+		expect( fs.existsSync( first ) ).toBe( true );
+		expect( fs.existsSync( second ) ).toBe( true );
+	} );
+
+	it( 'partitions the opcache file cache by PHP version', () => {
+		const cacheDirectory = getFileCacheDirectory( getDefaultPhpArgs( '8.4' ) );
+
+		expect( path.basename( cacheDirectory ) ).toBe( 'php8.4' );
+	} );
+
 	it( 'omits Xdebug directives by default', () => {
 		const args = getDefaultPhpArgs( '8.4' );
 

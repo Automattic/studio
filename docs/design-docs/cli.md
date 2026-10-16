@@ -34,7 +34,7 @@ The first iteration of the CLI shipped commands to create, read, update, and del
 3. Studio reacts when the CLI changes state (see [How the CLI and Studio apps communicate](./cli-host-communication.md)):
 
    - Any CLI process, whether Studio forked it, the agent runs it, or a user typed it in a terminal, publishes an event when it changes something Studio shows: a site is created, changed or deleted, an operation starts or ends on a site, a preview site changes, the user logs in or out, or a sync makes progress.
-   - Every running Studio app (the desktop app and the `studio ui` server) runs the hidden `_events` command, which listens for these events on a socket of its own and forwards them to it. CLI processes send each event to every app's socket, so they all see every change.
+   - Every running Studio app (the desktop app, the `studio ui` server, and `studio mcp` while its WordPress library is open) runs the hidden `_events` command, which listens for these events on a socket of its own and forwards them to it. CLI processes send each event to every app's socket, so they all see every change.
    - Each app relays the events to its UI, which refreshes what changed. That is what lets the UI react the same way whether a change came from its own buttons, the agent, a terminal or another window.
 
 ## Implementation details
@@ -83,6 +83,6 @@ Studio instantiates CLI child processes to execute site operations: creating, st
 
 This approach of forking CLI processes to run business logic has both pros and cons.
 
-The biggest pro is that when the CLI becomes capable of running Studio sites, we can move the Playground dependencies entirely to the CLI and avoid bundling them twice (which would increase the size of the app by several hundred MBs). Moreover, it consolidates the business logic and creates increased incentives for developers to focus on the CLI when shipping new features.
+The biggest pro is that the site runtime dependencies live entirely in the CLI, so they aren't bundled twice (which would increase the size of the app by several hundred MBs). Moreover, it consolidates the business logic and creates increased incentives for developers to focus on the CLI when shipping new features.
 
 The biggest con is that it decreases control in the Studio code, particularly when it comes to error handling. We mitigate this by creating as clear a structure as possible around the `process.send` IPC calls.

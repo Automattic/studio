@@ -18,7 +18,6 @@ import { SiteData } from 'cli/lib/cli-config/core';
 import {
 	clearSiteLatestCliPid,
 	getSiteByFolder,
-	getSiteUrl,
 	updateSitePhpVersion,
 } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/daemon-client';
@@ -356,11 +355,6 @@ async function importBackup(
 			await updateSitePhpVersion( site.id, importedPhpVersion );
 			site.phpVersion = importedPhpVersion;
 		}
-
-		// Something in Playground makes it so the front-end of the site sometimes returns an error page
-		// on the first request. Send that first request from here to hide the error from the user.
-		const siteUrl = getSiteUrl( site );
-		await fetch( siteUrl ).catch( () => {} );
 
 		await emitCliEvent( { event: SITE_EVENTS.UPDATED, data: { siteId: site.id } } );
 	} catch ( error ) {

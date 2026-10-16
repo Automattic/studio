@@ -1,32 +1,32 @@
+import fs from 'fs';
+import nodePath from 'path';
 import { sequential } from '@studio/common/lib/sequential';
-import { sendIpcEventToRenderer } from 'src/ipc-utils';
-import { getImageData } from 'src/lib/get-image-data';
-import { SiteServer } from 'src/site-server';
+import { createScreenshotWindow } from 'src/screenshot-window';
 import { getSiteThumbnailPath } from 'src/storage/paths';
 
-// Capture and cache a site's thumbnail. Uses sequential with deduplicateKey to
+// Capture and cache a running site's thumbnail. Uses sequential with deduplicateKey to
 // prevent concurrent BrowserWindow creation for the same site and to serialize
 // captures across all sites (one at a time).
-export const captureSiteThumbnail = sequential< [ string, boolean? ], void >(
-	async ( id: string, emitLoadingEvent = true ) => {
-		const server = SiteServer.get( id );
-		if ( ! server || ! server.details.running ) {
-			return;
-		}
-
-		if ( emitLoadingEvent ) {
-			await sendIpcEventToRenderer( 'thumbnail-loading', { id } );
-		}
-
+export const captureSiteThumbnail = sequential< [ { id: string; url: string } ], void >(
+	async ( { id, url } ) => {
+		const { window, waitForCapture } = createScreenshotWindow(
+			new URL( '/?studio-hide-adminbar', url ).href
+		);
+		const outPath = getSiteThumbnailPath( id );
+		let image: Electron.NativeImage | undefined;
 		try {
-			await server.updateCachedThumbnail();
-			const thumbnailPath = getSiteThumbnailPath( id );
-			const thumbnailData = await getImageData( thumbnailPath );
-			await sendIpcEventToRenderer( 'thumbnail-loaded', { id, imageData: thumbnailData } );
+			await fs.promises.mkdir( nodePath.dirname( outPath ), { recursive: true } );
+			image = await waitForCapture();
+			await fs.promises.writeFile( outPath, image.toPNG() );
 		} catch ( error ) {
-			await sendIpcEventToRenderer( 'thumbnail-load-error', { id } );
-			console.error( `Failed to update thumbnail for server ${ id }:`, error );
+			// A failed load keeps the previous thumbnail; a failed write must not leave a partial one.
+			if ( image ) {
+				await fs.promises.rm( outPath, { force: true } ).catch( () => undefined );
+			}
+			console.error( `Failed to update thumbnail for site ${ id }:`, error );
+		} finally {
+			window.destroy();
 		}
 	},
-	{ deduplicateKey: ( id ) => id }
+	{ deduplicateKey: ( { id } ) => id }
 );

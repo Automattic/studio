@@ -151,7 +151,7 @@ function PreferenceRow( {
 }: {
 	title: string;
 	description?: ReactNode;
-	children: ReactNode;
+	children?: ReactNode;
 } ) {
 	return (
 		<section className={ styles.preferenceRow }>
@@ -234,7 +234,17 @@ function PreferenceSelect< TValue extends string >( {
 	);
 }
 
-function DefaultSiteDirectoryField( { value, onSelect }: { value: string; onSelect: () => void } ) {
+function DefaultSiteDirectoryField( {
+	value,
+	onSelect,
+}: {
+	value: string;
+	onSelect?: () => void;
+} ) {
+	// Without a native folder picker (the browser), the path is shown, not edited.
+	if ( ! onSelect ) {
+		return <PreferenceRow title={ __( 'Default site directory' ) } description={ value } />;
+	}
 	return (
 		<PreferenceRow title={ __( 'Default site directory' ) }>
 			<button
@@ -267,7 +277,7 @@ function PreferencesPanel( {
 	installedApps: InstalledApps | undefined;
 	saveError: boolean;
 	onColorSchemeChange: ( value: ColorScheme ) => void;
-	onDefaultSiteDirectorySelect: () => void;
+	onDefaultSiteDirectorySelect?: () => void;
 	onChange: ( update: Partial< PreferencesFormData > ) => void;
 } ) {
 	return (
@@ -345,7 +355,7 @@ export function SettingsView( {
 	onTabChange: ( tab: TabId ) => void;
 } ) {
 	const connector = useConnector();
-	const { data: saved, isLoading } = useUserPreferences();
+	const { data: saved, isError: loadFailed } = useUserPreferences();
 	const { data: installedApps } = useInstalledApps();
 	const savePreferences = useSaveUserPreferences();
 
@@ -388,9 +398,14 @@ export function SettingsView( {
 						window.setTimeout( () => window.location.reload(), 250 );
 					}
 				},
+				onError: () => {
+					if ( saved ) {
+						setData( toPreferencesFormData( saved ) );
+					}
+				},
 			} );
 		},
-		[ savePreferences ]
+		[ saved, savePreferences ]
 	);
 
 	const handleColorSchemeChange = useCallback(
@@ -403,12 +418,8 @@ export function SettingsView( {
 		[ handleChange ]
 	);
 
-	if ( isLoading || ! data || ! saved ) {
-		return <div className={ styles.state }>{ __( 'Loading…' ) }</div>;
-	}
-
-	const handleSelectDefaultDirectory = async () => {
-		const directory = await connector.selectDefaultSiteDirectory( data.defaultSiteDirectory );
+	const handleSelectDefaultDirectory = async ( current: string ) => {
+		const directory = await connector.selectDefaultSiteDirectory( current );
 		if ( directory ) {
 			handleChange( { defaultSiteDirectory: directory } );
 		}
@@ -429,14 +440,28 @@ export function SettingsView( {
 				<div className={ styles.scroll }>
 					<div className={ styles.contentBlock }>
 						<Tabs.Panel tabId="preferences">
-							<PreferencesPanel
-								data={ data }
-								installedApps={ installedApps }
-								saveError={ savePreferences.isError }
-								onColorSchemeChange={ handleColorSchemeChange }
-								onDefaultSiteDirectorySelect={ () => void handleSelectDefaultDirectory() }
-								onChange={ handleChange }
-							/>
+							{ data ? (
+								<PreferencesPanel
+									data={ data }
+									installedApps={ installedApps }
+									saveError={ savePreferences.isError }
+									onColorSchemeChange={ handleColorSchemeChange }
+									onDefaultSiteDirectorySelect={
+										connector.capabilities.nativeFolderPicker
+											? () => void handleSelectDefaultDirectory( data.defaultSiteDirectory )
+											: undefined
+									}
+									onChange={ handleChange }
+								/>
+							) : (
+								<div className={ styles.state }>
+									{ loadFailed
+										? __(
+												"Couldn't load your settings. Close Settings and reopen it to try again."
+										  )
+										: __( 'Loading…' ) }
+								</div>
+							) }
 						</Tabs.Panel>
 						<Tabs.Panel tabId="ai">
 							<AiPanel />

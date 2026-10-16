@@ -5,10 +5,9 @@ import {
 	importIpcEventSchema,
 	ValidatorEvents,
 } from '@studio/common/lib/import-export-events';
+import { TypedEventEmitter } from '@studio/common/lib/typed-event-emitter';
 import { z } from 'zod';
-import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
-import { TypedEventEmitter } from 'src/modules/cli/lib/typed-event-emitter';
 
 type ImportCliLifecycleEventMap = {
 	completed: { importerType?: ImporterType };
@@ -20,8 +19,7 @@ const errorMessageSchema = z.object( { message: z.string() } );
 
 export function executeImportCliCommand(
 	siteId: string,
-	args: string[],
-	parentWindow: Electron.BrowserWindow | null
+	args: string[]
 ): ImportCliLifecycleEventEmitter {
 	const [ cliEventEmitter ] = executeCliCommand( args, { output: 'capture', logPrefix: siteId } );
 	const lifecycleEventEmitter = new TypedEventEmitter< ImportCliLifecycleEventMap >();
@@ -52,15 +50,6 @@ export function executeImportCliCommand(
 		}
 		didEmitFinalLifecycleEvent = true;
 
-		if ( structuredImportError === undefined ) {
-			sendIpcEventToRendererWithWindow(
-				parentWindow,
-				'on-import',
-				[ ImporterEvents.IMPORT_ERROR, error.message ],
-				siteId
-			);
-		}
-
 		lifecycleEventEmitter.emit( 'failed', {
 			error,
 			displayError: structuredImportError ?? error,
@@ -76,8 +65,6 @@ export function executeImportCliCommand(
 				eventName === ImporterEvents.IMPORT_ERROR ||
 				eventName === BackupExtractEvents.BACKUP_EXTRACT_ERROR ||
 				eventName === ValidatorEvents.IMPORT_VALIDATION_ERROR;
-
-			sendIpcEventToRendererWithWindow( parentWindow, 'on-import', parsed.data.event, siteId );
 
 			if ( eventName === ImporterEvents.IMPORT_COMPLETE ) {
 				importerType = parsed.data.event[ 1 ];

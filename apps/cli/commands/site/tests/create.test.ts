@@ -1,6 +1,7 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
+import { input, password } from '@inquirer/prompts';
 import { validateBlueprintData } from '@studio/common/lib/blueprint-validation';
 import {
 	isEmptyDir,
@@ -53,6 +54,7 @@ import {
 	runCommand,
 } from '../create';
 
+vi.mock( '@inquirer/prompts' );
 vi.mock( '@studio/common/lib/fs-utils' );
 vi.mock( '@studio/common/lib/network-utils' );
 vi.mock( '@studio/common/lib/port-finder', () => ( {
@@ -512,7 +514,10 @@ describe( 'CLI: studio create', () => {
 			// A staged URL capture carries its receipt next to the page files.
 			await fs.promises.writeFile(
 				path.join( staged, 'source', 'capture-receipt.json' ),
-				JSON.stringify( { schema: 'data-liberation/capture-receipt/v1', websiteRoot: 'website' } )
+				JSON.stringify( {
+					schema: 'blocks-engine-capture/capture-receipt/v1',
+					websiteRoot: 'website',
+				} )
 			);
 			await fs.promises.writeFile( path.join( staged, 'request.json' ), request );
 			const liberate = vi.fn();
@@ -559,7 +564,7 @@ describe( 'CLI: studio create', () => {
 			await fs.promises.writeFile(
 				path.join( root, 'capture-receipt.json' ),
 				JSON.stringify( {
-					schema: 'data-liberation/capture-receipt/v1',
+					schema: 'blocks-engine-capture/capture-receipt/v1',
 					title: '  Example Brand  ',
 				} )
 			);
@@ -596,6 +601,126 @@ describe( 'CLI: studio create', () => {
 				);
 				expect( fallback.siteName ).toBe( 'Imported Site' );
 			} finally {
+				await fs.promises.rm( root, { recursive: true, force: true } );
+			}
+		} );
+
+		it( 'names an interactive URL import from the captured title instead of prompting', async () => {
+			const siteRoot = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-url-tty-' ) );
+			const sitePath = path.join( siteRoot, 'site' );
+			const liberate = vi.fn().mockImplementation( async ( _url, outputDir ) => {
+				const website = path.join( outputDir, 'example.com', 'website' );
+				await fs.promises.mkdir( website, { recursive: true } );
+				await fs.promises.writeFile( path.join( website, 'index.html' ), '<main>Liberated</main>' );
+				await fs.promises.writeFile(
+					path.join( outputDir, 'example.com', 'capture-receipt.json' ),
+					JSON.stringify( {
+						schema: 'blocks-engine-capture/capture-receipt/v1',
+						title: 'Example Brand',
+					} )
+				);
+				return { websiteDir: website, compareCommand: () => '' };
+			} );
+			vi.mocked( input ).mockResolvedValue( '' );
+			vi.mocked( password ).mockResolvedValue( '' );
+			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
+			vi.spyOn( fs.promises, 'cp' ).mockResolvedValue( undefined );
+			const isTTY = process.stdin.isTTY;
+			process.stdin.isTTY = true;
+			const parser = registerCommand(
+				yargs( [] ).option( 'path', { type: 'string', default: sitePath } ),
+				{ liberate }
+			).exitProcess( false );
+
+			try {
+				await parser.parseAsync( [
+					'create',
+					'--from',
+					'https://example.com',
+					'--wp',
+					'latest',
+					'--php',
+					'8.3',
+					'--no-start',
+					'--skip-browser',
+				] );
+
+				expect( input ).not.toHaveBeenCalledWith(
+					expect.objectContaining( { message: 'Site name:' } )
+				);
+				expect( saveCliConfig ).toHaveBeenCalledWith(
+					expect.objectContaining( {
+						sites: expect.arrayContaining( [
+							expect.objectContaining( { path: sitePath, name: 'Example Brand' } ),
+						] ),
+					} )
+				);
+			} finally {
+				process.stdin.isTTY = isTTY;
+				await fs.promises.rm( siteRoot, { recursive: true, force: true } );
+			}
+		} );
+
+		it.each( [
+			[ 'prompts for the name of a plain local directory', false, 'Typed Name' ],
+			[
+				'names a captured website directory from its receipt without prompting',
+				true,
+				'Example Brand',
+			],
+		] )( '%s in an interactive terminal', async ( _label, captured, expectedName ) => {
+			const root = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-dir-tty-' ) );
+			const website = path.join( root, 'website' );
+			const sitePath = path.join( root, 'site' );
+			await fs.promises.mkdir( website );
+			await fs.promises.writeFile( path.join( website, 'index.html' ), '<main>Hello</main>' );
+			if ( captured ) {
+				await fs.promises.writeFile(
+					path.join( root, 'capture-receipt.json' ),
+					JSON.stringify( {
+						schema: 'blocks-engine-capture/capture-receipt/v1',
+						title: 'Example Brand',
+					} )
+				);
+			}
+			vi.mocked( input ).mockImplementation( async ( { message } ) =>
+				message === 'Site name:' ? 'Typed Name' : ''
+			);
+			vi.mocked( password ).mockResolvedValue( '' );
+			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
+			vi.spyOn( fs.promises, 'cp' ).mockResolvedValue( undefined );
+			const isTTY = process.stdin.isTTY;
+			process.stdin.isTTY = true;
+			const parser = registerCommand(
+				yargs( [] ).option( 'path', { type: 'string', default: sitePath } )
+			).exitProcess( false );
+
+			try {
+				await parser.parseAsync( [
+					'create',
+					'--from',
+					website,
+					'--wp',
+					'latest',
+					'--php',
+					'8.3',
+					'--no-start',
+					'--skip-browser',
+				] );
+
+				const prompted = vi
+					.mocked( input )
+					.mock.calls.some( ( [ config ] ) => config.message === 'Site name:' );
+				expect( prompted ).toBe( ! captured );
+				expect( saveCliConfig ).toHaveBeenCalledWith(
+					expect.objectContaining( {
+						sites: expect.arrayContaining( [
+							expect.objectContaining( { path: sitePath, name: expectedName } ),
+						] ),
+					} )
+				);
+			} finally {
+				process.stdin.isTTY = isTTY;
 				await fs.promises.rm( root, { recursive: true, force: true } );
 			}
 		} );
@@ -648,7 +773,7 @@ describe( 'CLI: studio create', () => {
 			await fs.promises.writeFile(
 				path.join( websiteDir, '..', 'capture-receipt.json' ),
 				JSON.stringify( {
-					schema: 'data-liberation/capture-receipt/v1',
+					schema: 'blocks-engine-capture/capture-receipt/v1',
 					summary: { routesDiscovered: 13, routesCaptured: 10, routesSkipped: 0, routesFailed: 6 },
 				} )
 			);
@@ -774,7 +899,7 @@ describe( 'CLI: studio create', () => {
 			await fs.promises.writeFile(
 				path.join( websiteDir, '..', 'capture-receipt.json' ),
 				JSON.stringify( {
-					schema: 'data-liberation/capture-receipt/v1',
+					schema: 'blocks-engine-capture/capture-receipt/v1',
 					entrypoint: 'website/index.html',
 					source: { url: 'https://example.com/' },
 					discoveryDiagnostics: [
@@ -834,7 +959,7 @@ describe( 'CLI: studio create', () => {
 			await fs.promises.writeFile(
 				path.join( websiteDir, '..', 'capture-receipt.json' ),
 				JSON.stringify( {
-					schema: 'data-liberation/capture-receipt/v1',
+					schema: 'blocks-engine-capture/capture-receipt/v1',
 					websiteRoot: 'website',
 					entrypoint: 'website/index.html',
 					source: { url: 'https://example.com/' },
@@ -974,7 +1099,7 @@ describe( 'CLI: studio create', () => {
 			fs.writeFileSync(
 				path.join( captureDir, 'capture-receipt.json' ),
 				JSON.stringify( {
-					schema: 'data-liberation/capture-receipt/v1',
+					schema: 'blocks-engine-capture/capture-receipt/v1',
 					websiteRoot: path.basename( websiteDir ),
 				} )
 			);
@@ -1026,7 +1151,7 @@ describe( 'CLI: studio create', () => {
 			fs.writeFileSync(
 				path.join( captureDir, 'capture-receipt.json' ),
 				JSON.stringify( {
-					schema: 'data-liberation/capture-receipt/v1',
+					schema: 'blocks-engine-capture/capture-receipt/v1',
 					websiteRoot: path.basename( websiteDir ),
 					entrypoint: `${ path.basename( websiteDir ) }/index.html`,
 				} )
@@ -1090,7 +1215,7 @@ describe( 'CLI: studio create', () => {
 			fs.writeFileSync(
 				path.join( captureDir, 'capture-receipt.json' ),
 				JSON.stringify( {
-					schema: 'data-liberation/capture-receipt/v1',
+					schema: 'blocks-engine-capture/capture-receipt/v1',
 					websiteRoot: 'website',
 				} )
 			);
@@ -1113,7 +1238,7 @@ describe( 'CLI: studio create', () => {
 			fs.writeFileSync(
 				path.join( captureDir, 'capture-receipt.json' ),
 				JSON.stringify( {
-					schema: 'data-liberation/capture-receipt/v1',
+					schema: 'blocks-engine-capture/capture-receipt/v1',
 					websiteRoot: path.basename( websiteDir ),
 				} )
 			);
@@ -1184,7 +1309,7 @@ describe( 'CLI: studio create', () => {
 			fs.writeFileSync(
 				path.join( captureDir, 'capture-receipt.json' ),
 				JSON.stringify( {
-					schema: 'data-liberation/capture-receipt/v1',
+					schema: 'blocks-engine-capture/capture-receipt/v1',
 					websiteRoot: path.basename( websiteDir ),
 				} )
 			);

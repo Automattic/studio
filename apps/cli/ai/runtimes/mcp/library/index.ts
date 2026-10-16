@@ -1,5 +1,5 @@
 import { Type } from 'typebox';
-import { defineTool, READ_ONLY } from 'cli/ai/tools/define-tool';
+import { defineTool, READ_ONLY, REMOTE_CHANGE, REMOTE_READ } from 'cli/ai/tools/define-tool';
 import { textResult } from 'cli/ai/tools/utils';
 import { getCliAuthenticationUrl, storeAuthToken } from 'cli/lib/wpcom-auth';
 import { createSiteWatcher } from './site-changes';
@@ -90,7 +90,7 @@ export function createLibraryTools( uri: string ) {
 					...textResult( 'WordPress.com sites.' ),
 					_meta: { wpcom: await readWpcomSites() },
 				} ),
-				{ annotations: READ_ONLY }
+				{ annotations: REMOTE_READ }
 			),
 			listing: { _meta: pageOnly },
 		},
@@ -108,7 +108,8 @@ export function createLibraryTools( uri: string ) {
 					}
 					await storeAuthToken( token.trim() );
 					return textResult( 'Logged in.' );
-				}
+				},
+				{ annotations: REMOTE_CHANGE }
 			),
 			listing: { _meta: pageOnly },
 		},

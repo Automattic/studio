@@ -1,7 +1,10 @@
 import { EventEmitter } from 'node:events';
-import { describe, expect, it } from 'vitest';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { describe, expect, it, vi } from 'vitest';
 import { CliCommandError, type ExecuteCliCommand } from '@studio/common/lib/cli-process';
-import { SiteCapacityError, startSite } from '@studio/common/sites/lifecycle';
+import { SiteStartRefusedError, startSite } from '@studio/common/sites/lifecycle';
 
 function failingWith( lastErrorMessage: string ): ExecuteCliCommand {
 	return ( () => {
@@ -27,8 +30,21 @@ describe( 'startSite', () => {
 			'/site'
 		);
 
-		await expect( start ).rejects.toBeInstanceOf( SiteCapacityError );
+		await expect( start ).rejects.toBeInstanceOf( SiteStartRefusedError );
 		await expect( start ).rejects.toThrow( 'The maximum number of running sites has been reached' );
+	} );
+
+	it( 'refuses a site WordPress is updating without running the command', async () => {
+		const sitePath = mkdtempSync( path.join( os.tmpdir(), 'studio-maintenance-' ) );
+		writeFileSync(
+			path.join( sitePath, '.maintenance' ),
+			`<?php $upgrading = ${ Math.floor( Date.now() / 1000 ) }; ?>`
+		);
+		const execute = vi.fn() as unknown as ExecuteCliCommand;
+
+		await expect( startSite( execute, sitePath ) ).rejects.toBeInstanceOf( SiteStartRefusedError );
+		expect( execute ).not.toHaveBeenCalled();
+		rmSync( sitePath, { recursive: true, force: true } );
 	} );
 
 	it( "reports the command's own error otherwise", async () => {

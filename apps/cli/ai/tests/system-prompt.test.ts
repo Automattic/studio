@@ -43,7 +43,7 @@ describe( 'buildSystemPrompt', () => {
 	it( 'routes WordPress.com sites to the remote management skill', () => {
 		const prompt = buildSystemPrompt( {} );
 
-		expect( prompt ).toContain( 'load the `wpcom-remote-management` skill first' );
+		expect( prompt ).toContain( 'load the `edit-manage-remote-site` skill first' );
 		expect( prompt ).not.toContain( '## Common wp/v2 Endpoints' );
 	} );
 

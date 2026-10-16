@@ -52,6 +52,7 @@ vi.mock( 'src/modules/cli/lib/execute-command', () => {
 	return {
 		executeCliCommand: vi.fn().mockReturnValue( [ mockEventEmitter, mockChildProcess ] ),
 		getTracksOriginEnv: vi.fn( () => 'studio-ui:v1' ),
+		stopCliCommands: vi.fn(),
 	};
 } );
 vi.mock( 'src/modules/cli/lib/windows-installation-manager', () => ( {

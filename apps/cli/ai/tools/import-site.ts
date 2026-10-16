@@ -1,6 +1,6 @@
 import { Type } from 'typebox';
 import { runCommand as runImportCommand } from 'cli/commands/import';
-import { defineTool } from './define-tool';
+import { defineTool, LOCAL_OVERWRITE } from './define-tool';
 import { captureCommandOutput, resolveSite, textResult } from './utils';
 
 export const importSiteTool = defineTool(
@@ -35,5 +35,6 @@ export const importSiteTool = defineTool(
 	{
 		promptSnippet:
 			'Import a backup file (.zip, .tar.gz, .sql, .wpress, .xml WordPress export) into a local site.',
+		annotations: LOCAL_OVERWRITE,
 	}
 );

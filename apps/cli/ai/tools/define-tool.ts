@@ -58,24 +58,41 @@ export interface ToolPromptOptions {
 }
 
 // What a call can change, for hosts that ask the user before running a tool
-// (MCP tool annotations). A tool that declares nothing may destroy data and
-// reach beyond this machine, so hosts ask before each call.
+// (MCP tool annotations). Hosts run read-only tools, and those that neither
+// destroy data nor reach beyond this machine, without asking. Every tool
+// declares all three, as OpenAI's plugin review requires.
 export interface ToolAnnotations {
-	readOnlyHint?: boolean;
-	destructiveHint?: boolean;
-	openWorldHint?: boolean;
+	readOnlyHint: boolean;
+	destructiveHint: boolean;
+	openWorldHint: boolean;
 }
 
-export const READ_ONLY: ToolAnnotations = { readOnlyHint: true };
+export const READ_ONLY: ToolAnnotations = {
+	readOnlyHint: true,
+	destructiveHint: false,
+	openWorldHint: false,
+};
+// Reads only, including from WordPress.com.
+export const REMOTE_READ: ToolAnnotations = { ...READ_ONLY, openWorldHint: true };
 // Changes only this machine, without deleting or overwriting the user's work.
 export const LOCAL_CHANGE: ToolAnnotations = {
 	readOnlyHint: false,
 	destructiveHint: false,
 	openWorldHint: false,
 };
+// Changes something beyond this machine, without deleting or overwriting the user's work.
+export const REMOTE_CHANGE: ToolAnnotations = { ...LOCAL_CHANGE, openWorldHint: true };
+// Can delete or overwrite the user's work on this machine.
+export const LOCAL_OVERWRITE: ToolAnnotations = { ...LOCAL_CHANGE, destructiveHint: true };
+// Can delete or overwrite the user's work, on this machine or beyond it.
+export const REMOTE_OVERWRITE: ToolAnnotations = {
+	readOnlyHint: false,
+	destructiveHint: true,
+	openWorldHint: true,
+};
 
 export interface ToolOptions extends ToolPromptOptions {
-	annotations?: ToolAnnotations;
+	annotations: ToolAnnotations;
 	// The tool renders the site, so it runs only once the pending work of
 	// earlier tools, such as images still being generated, has settled.
 	settlesPendingWork?: boolean;
@@ -109,7 +126,7 @@ export interface AnyStudioAgentTool {
 	executionMode?: unknown;
 	promptSnippet?: string;
 	settlesPendingWork?: boolean;
-	annotations?: ToolAnnotations;
+	annotations: ToolAnnotations;
 }
 
 export function defineTool< TProps extends TProperties >(
@@ -117,7 +134,7 @@ export function defineTool< TProps extends TProperties >(
 	description: string,
 	properties: TProps,
 	handler: ToolHandler< TProps >,
-	options: ToolOptions = {}
+	options: ToolOptions
 ): StudioAgentTool< TProps > {
 	const parameters = Type.Object( properties );
 
@@ -128,7 +145,7 @@ export function defineTool< TProps extends TProperties >(
 		label: name,
 		...( options.promptSnippet ? { promptSnippet: options.promptSnippet } : {} ),
 		...( options.settlesPendingWork ? { settlesPendingWork: true } : {} ),
-		...( options.annotations ? { annotations: options.annotations } : {} ),
+		annotations: options.annotations,
 		rawHandler: ( args, context ) => handler( args, context ?? NOOP_TOOL_CONTEXT ),
 		execute: async ( _toolCallId, params, _signal, onUpdate ) => {
 			const context: ToolContext = {

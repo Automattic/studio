@@ -54,6 +54,7 @@ import {
 	startCliEventsSubscriber,
 	stopCliEventsSubscriber,
 } from 'src/modules/cli/lib/cli-events-subscriber';
+import { stopCliCommands } from 'src/modules/cli/lib/execute-command';
 import { autoInstallLinuxCliIfNeeded } from 'src/modules/cli/lib/linux-installation-manager';
 import { autoInstallMacOSCliIfNeeded } from 'src/modules/cli/lib/macos-installation-manager';
 import { autoInstallWindowsCliIfNeeded } from 'src/modules/cli/lib/windows-installation-manager';
@@ -645,6 +646,7 @@ async function appBoot() {
 		markAppQuitting();
 		globalShortcut.unregisterAll();
 		stopCliEventsSubscriber();
+		stopCliCommands();
 
 		event.preventDefault();
 		void ( async () => {

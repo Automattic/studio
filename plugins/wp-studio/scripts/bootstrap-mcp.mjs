@@ -33,12 +33,24 @@ const CLI_BUNDLE = path.join( PLUGIN_ROOT, 'cli.tar.br' );
 const BUNDLED_CLI = path.join( PLUGIN_ROOT, 'cli' );
 const BUNDLED_MAIN = path.join( BUNDLED_CLI, 'main.mjs' );
 const UNPACK_LOCK = `${ BUNDLED_CLI }.lock`;
+// Only the holder of UNPACK_LOCK unpacks, so it can reuse one staging folder:
+// whatever a stopped holder left there is cleared by the next.
+const UNPACK_STAGING = `${ BUNDLED_CLI }.unpacking`;
 // What `studio mcp` answers Codex's handshake and tool list with, recorded by the plugin build.
 const SNAPSHOT = path.join( PLUGIN_ROOT, 'mcp-snapshot.json' );
 // A published plugin has the version of the Studio CLI it carries.
 const { version: PLUGIN_VERSION } = JSON.parse(
 	readFileSync( path.join( PLUGIN_ROOT, '.codex-plugin', 'plugin.json' ), 'utf8' )
 );
+
+// Processes to stop with this one: tar while unpacking, then `studio mcp`.
+const running = new Set();
+for ( const signal of [ 'SIGINT', 'SIGTERM' ] ) {
+	process.on( signal, () => {
+		running.forEach( ( subprocess ) => subprocess.kill( signal ) );
+		process.exit( 1 );
+	} );
+}
 
 // Studio's usage events tell plugin sessions apart by STUDIO_PLUGIN_ID (from the
 // MCP config) and this version.
@@ -116,7 +128,7 @@ async function findStudio() {
 // session that starts meanwhile never runs a partial CLI.
 async function unpack() {
 	process.stderr.write( 'Unpacking the Studio CLI that comes with the plugin.\n' );
-	const staging = `${ BUNDLED_CLI }.${ process.pid }`;
+	const staging = UNPACK_STAGING;
 	rmSync( staging, { recursive: true, force: true } );
 	mkdirSync( staging );
 	try {
@@ -128,6 +140,7 @@ async function unpack() {
 				stdio: [ 'pipe', 'ignore', 'pipe' ],
 			}
 		);
+		running.add( tar );
 		readline
 			.createInterface( { input: tar.stderr } )
 			.on( 'line', ( line ) => process.stderr.write( `${ line }\n` ) );
@@ -135,6 +148,7 @@ async function unpack() {
 			pipeline( createReadStream( CLI_BUNDLE ), createBrotliDecompress(), tar.stdin ),
 			once( tar, 'close' ),
 		] );
+		running.delete( tar );
 		if ( code !== 0 ) throw new Error( `tar exited with code ${ code }` );
 		renameSync( path.join( staging, 'cli' ), BUNDLED_CLI );
 	} finally {
@@ -247,7 +261,5 @@ if ( studio ) {
 } else {
 	throw new Error( 'No Studio CLI: set STUDIO_CLI_BIN to a development build, or install Studio.' );
 }
-for ( const signal of [ 'SIGINT', 'SIGTERM' ] ) {
-	process.on( signal, () => child.kill( signal ) );
-}
+running.add( child );
 child.on( 'exit', ( code ) => process.exit( code ?? 1 ) );

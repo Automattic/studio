@@ -92,6 +92,10 @@ export interface StudioAgentTurnConfig {
 	model?: AiModelId;
 	activeSite?: SiteInfo | null;
 	onAskUser?: AskUserHandler;
+	// Answers the harness's confirmations of irreversible calls. Defaults to
+	// onAskUser; a scripted user (the eval runner) answers without exposing
+	// AskUserQuestion to the agent.
+	onConfirm?: AskUserHandler;
 	onEvent: ( event: AgentSessionEvent ) => void;
 }
 
@@ -303,7 +307,7 @@ async function createStudioAgentSession(
 
 	const pendingWork = getPendingWork( config.session );
 	const blockValidationGate = getBlockValidationGate( config.session );
-	const confirmDestructive = createDestructiveConfirmer( config.onAskUser );
+	const confirmDestructive = createDestructiveConfirmer( config.onConfirm ?? config.onAskUser );
 	const toolDefinitions = tools.map( ( tool ) =>
 		toToolDefinition(
 			tool,

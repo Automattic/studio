@@ -432,6 +432,7 @@ async function runEval( input: EvalRunnerInput ) {
 	delete env.CLAUDECODE;
 
 	const toolCalls: ToolCallRecord[] = [];
+	const confirmations: string[] = [];
 	const toolResults: {
 		toolUseId: string | null;
 		toolName: string | null;
@@ -576,6 +577,11 @@ async function runEval( input: EvalRunnerInput ) {
 			prompt: turnPrompt,
 			env,
 			session,
+			// The scripted user approves each confirmation; the result records them.
+			onConfirm: async ( questions ) => {
+				confirmations.push( ...questions.map( ( q ) => q.question ) );
+				return Object.fromEntries( questions.map( ( q ) => [ q.question, q.options[ 0 ].label ] ) );
+			},
 			onEvent: handleEvent,
 			...( input.model ? { model: input.model } : {} ),
 		} );
@@ -623,6 +629,7 @@ async function runEval( input: EvalRunnerInput ) {
 		turnDurationsMs,
 		usage,
 		toolCalls,
+		confirmations,
 		toolResults,
 		toolEvents,
 		firstToolError,

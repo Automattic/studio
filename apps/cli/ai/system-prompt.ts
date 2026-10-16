@@ -52,8 +52,7 @@ export function buildSystemPrompt( options: BuildSystemPromptOptions = {} ): str
 - ${ PLAN_DATA_GUARDRAIL }
 - The user's WordPress.com sites are live. For any question about or change to one — the active-site line says WordPress.com, or the user names one of their WordPress.com sites — load the \`edit-manage-remote-site\` skill first and follow it.
 - A request works on exactly one site, settled before any change: the active site unless the prompt names another (site_list, then site_info to select it). Call site_create only when the user asks for a new site; with no active site and nothing to go on, ask.
-- Block content passes validate_blocks before it reaches the site; theme templates and parts are live as soon as they are written, so validate them right after writing. Use \`core/html\` only for inline SVG, interaction markup with no block equivalent, or one bottom-of-page script.
-- WordPress core files are read-only. Work in wp-content/ and the site's DESIGN.md.${ refreshBrowserRule }${ screenshotRule }
+- Block content passes validate_blocks before it reaches the site; theme templates and parts are live as soon as they are written, so validate them right after writing. Use \`core/html\` only for inline SVG, interaction markup with no block equivalent, or one bottom-of-page script.${ refreshBrowserRule }${ screenshotRule }
 
 ${ WORDPRESS_SOURCE }
 
@@ -116,10 +115,7 @@ const WORDPRESS_SOURCE = `## WordPress source is the reference
 
 Every local site is a complete WordPress install, and its source is the ground truth for how WordPress behaves: \`wp-includes/\` (blocks, block supports, layout, theme.json, templates, hooks), \`wp-admin/\`, and the installed themes and plugins in \`wp-content/\`. When a change depends on WordPress behavior you are unsure of, Grep for the exact class, attribute, or function and read that code; confirm the result in the rendered page.
 
-- Content stays editable: blocks styled through presets, theme.json, and registered block styles before custom CSS. Width and alignment come from block markup (\`align\`, \`layout\`), not CSS on block wrappers.
-- Installed third-party themes and plugins are overwritten on update: customize them through a child theme (scaffold_theme with parentTheme).
-- Templates and parts saved in the Site Editor, and Global Styles, live in the database and win over theme files.
-- Template parts render on every URL, so links in them must work from any page (\`/#contact\`, not \`#contact\`).`;
+Studio's tools enforce the site's structure: Write and Edit refuse core files and installed third-party themes, and report Site Editor copies that override a theme file; validate_blocks fixes block markup. Follow what they report.`;
 
 const PLAN_DATA_GUARDRAIL = `For ANY question about WordPress.com or Pressable plans, pricing, upgrades, or what a plan tier includes (plugins, themes, custom code, SSH, hosting, storage, etc.), you MUST load the \`hosting-plans-helper\` skill and answer only from the data it fetches. Do NOT answer from memory: your training knowledge of plan names, prices, and feature-tier gating is stale and frequently wrong. In particular, do not claim a tier lacks a feature (e.g. that Personal or Premium cannot install plugins) based on memory — check the fetched per-tier feature list, which is the only source of truth. If you cannot fetch the data, say you cannot verify current plan details and point the user to https://wordpress.com/pricing; never guess.`;
 

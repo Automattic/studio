@@ -39,6 +39,27 @@ function formatMarkdownFence( language: string, content: string ): string {
 	return `${ fence }${ language }\n${ content }\n${ fence }`;
 }
 
+const SHARED_THEME_MARKUP =
+	/[\\/]wp-content[\\/]themes[\\/][^\\/]+[\\/](parts[\\/][^\\/]+|templates[\\/](?!front-page|home)[^\\/]+)\.html$/;
+
+function isSharedThemeMarkup( filePath: string ): boolean {
+	return SHARED_THEME_MARKUP.test( filePath );
+}
+
+export function makeAnchorsHomeRelative( content: string ): { content: string; count: number } {
+	let count = 0;
+	const rewritten = content
+		.replace( /(href=")#(?=[A-Za-z])/g, ( _match, prefix: string ) => {
+			count++;
+			return `${ prefix }/#`;
+		} )
+		.replace( /("url"\s*:\s*")#(?=[A-Za-z])/g, ( _match, prefix: string ) => {
+			count++;
+			return `${ prefix }/#`;
+		} );
+	return { content: rewritten, count };
+}
+
 export const validateBlocksTool = defineTool(
 	'validate_blocks',
 	"Validates block content: first the core/html policy, then the site's real block editor, which applies safe serialization fixes to the file (filePath) or returns the fixed content (inline). The site must be running with the content's theme and plugins active. After an auto-fix the file is already correct; the diff shows class changes that may affect CSS.",
@@ -64,6 +85,7 @@ export const validateBlocksTool = defineTool(
 			let blockContent: string;
 			let fileName = 'inline content';
 			let filePath: string | undefined;
+			let anchorNote: string | undefined;
 
 			if ( args.filePath ) {
 				filePath = path.resolve( site.path, args.filePath );
@@ -73,6 +95,18 @@ export const validateBlocksTool = defineTool(
 				blockContent = args.content;
 			} else {
 				throw new Error( 'Either content or filePath must be provided.' );
+			}
+
+			// Template parts and shared templates render on every URL that uses them,
+			// where a bare `#anchor` points at the current page instead of the home
+			// page section it names. Rewrite them home-relative before validating.
+			if ( filePath && isSharedThemeMarkup( filePath ) ) {
+				const homeRelative = makeAnchorsHomeRelative( blockContent );
+				if ( homeRelative.count > 0 ) {
+					blockContent = homeRelative.content;
+					await writeFile( filePath, blockContent, 'utf-8' );
+					anchorNote = `Rewrote ${ homeRelative.count } in-page link reference(s) to home-relative \`/#anchor\`: this file renders on every page that uses it, where a bare \`#anchor\` targets the current page.`;
+				}
 			}
 
 			// Stage 1: static core/html policy check. Acts as a gate — if it
@@ -104,6 +138,7 @@ export const validateBlocksTool = defineTool(
 				htmlReport.totalHtmlBlocks === 0
 					? 'HTML block policy: no core/html blocks found.'
 					: `HTML block policy: all ${ htmlReport.totalHtmlBlocks } core/html blocks within policy.`;
+			const summary = anchorNote ? `${ htmlSummary }\n${ anchorNote }` : htmlSummary;
 
 			// Stage 2: validate (and fix) in the site's real block editor.
 			context.onProgress( `Validating and fixing blocks in ${ fileName }…` );
@@ -122,7 +157,7 @@ export const validateBlocksTool = defineTool(
 				context.onProgress( `${ fileName }: all ${ report.totalBlocks } blocks valid` );
 				return textResult(
 					[
-						htmlSummary,
+						summary,
 						`Validation: ${ report.validBlocks }/${ report.totalBlocks } blocks valid`,
 						'No editor serialization fixes needed.',
 					].join( '\n' )
@@ -136,7 +171,7 @@ export const validateBlocksTool = defineTool(
 			context.onProgress( `${ fileName }: ${ report.invalidBlocks } invalid (${ invalidNames })` );
 
 			const lines = [
-				htmlSummary,
+				summary,
 				`Validation: ${ report.validBlocks }/${ report.totalBlocks } blocks valid`,
 				'',
 				'Invalid blocks:',

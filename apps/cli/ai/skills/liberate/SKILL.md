@@ -1,6 +1,7 @@
 ---
 name: liberate
 description: Liberate any website into a portable HTML copy and import it into WordPress using the Studio CLI. Then work with the user to make sure it looks and function like the original. Use this when the user wants to migrate, import, move, liberate, or rebuild a website from a URL.
+user-invokable: true
 ---
 
 ## 1. Bring the site over

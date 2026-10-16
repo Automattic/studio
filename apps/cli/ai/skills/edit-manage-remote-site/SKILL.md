@@ -1,10 +1,10 @@
 ---
-name: wpcom-remote-management
-description: Manage one of the user's live WordPress.com sites with wpcom_request, including the plan check, design limits by plan, API namespace selection, endpoint discovery, content/template/theme/plugin operations, response-size limits, and visual verification.
+name: edit-manage-remote-site
+description: Edit and manage one of the user's live remote sites (WordPress.com, or Pressable through the WordPress.com endpoints) with wpcom_request — answer questions about it, or change its content, templates, styles, theme, and plugins within what its plan allows. Covers the plan check, design limits by plan, API namespaces and endpoints, response-size limits, and visual verification.
 user-invokable: true
 ---
 
-# WordPress.com Remote Management
+# Edit and Manage a Remote Site
 
 Use this skill for any work on one of the user's WordPress.com sites. These sites are live: change them only with `wpcom_request`, never with WP-CLI, Bash, or local site files. Work on a local copy only when the user asks for one (create a local site with `site_create`, then `site_pull` the WordPress.com site into it).
 
@@ -113,7 +113,7 @@ Do not combine `bodyFile` with `body` or `bodyFiles`.
 
 1. Check the site plan first (see above).
 2. Understand the site with lightweight reads, such as `GET /posts` and `GET /themes?status=active`.
-3. Make changes with POST requests to create or update content, manage templates, switch themes, or manage plugins.
+3. Make changes with POST requests to create or update content, manage templates, switch themes, or manage plugins. For content, template, or design changes the plan allows, load the `visual-design` skill first and follow the site's existing palette and theme, styling through block attributes and global styles; its catalogs, DESIGN.md, and `scaffold_theme` are for local sites.
 4. Verify with `take_screenshot` using `viewport: "all"` for desktop and mobile; when you cannot view images, verify from the rendered DOM with `inspect_design` instead.
 5. If an operation fails, inspect the error and try a lightweight GET request to discover the available shape before retrying.
 

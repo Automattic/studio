@@ -514,7 +514,10 @@ describe( 'CLI: studio create', () => {
 			// A staged URL capture carries its receipt next to the page files.
 			await fs.promises.writeFile(
 				path.join( staged, 'source', 'capture-receipt.json' ),
-				JSON.stringify( { schema: 'data-liberation/capture-receipt/v1', websiteRoot: 'website' } )
+				JSON.stringify( {
+					schema: 'blocks-engine-capture/capture-receipt/v1',
+					websiteRoot: 'website',
+				} )
 			);
 			await fs.promises.writeFile( path.join( staged, 'request.json' ), request );
 			const liberate = vi.fn();
@@ -561,7 +564,7 @@ describe( 'CLI: studio create', () => {
 			await fs.promises.writeFile(
 				path.join( root, 'capture-receipt.json' ),
 				JSON.stringify( {
-					schema: 'data-liberation/capture-receipt/v1',
+					schema: 'blocks-engine-capture/capture-receipt/v1',
 					title: '  Example Brand  ',
 				} )
 			);
@@ -611,7 +614,10 @@ describe( 'CLI: studio create', () => {
 				await fs.promises.writeFile( path.join( website, 'index.html' ), '<main>Liberated</main>' );
 				await fs.promises.writeFile(
 					path.join( outputDir, 'example.com', 'capture-receipt.json' ),
-					JSON.stringify( { schema: 'data-liberation/capture-receipt/v1', title: 'Example Brand' } )
+					JSON.stringify( {
+						schema: 'blocks-engine-capture/capture-receipt/v1',
+						title: 'Example Brand',
+					} )
 				);
 				return { websiteDir: website, compareCommand: () => '' };
 			} );
@@ -703,7 +709,7 @@ describe( 'CLI: studio create', () => {
 			await fs.promises.writeFile(
 				path.join( websiteDir, '..', 'capture-receipt.json' ),
 				JSON.stringify( {
-					schema: 'data-liberation/capture-receipt/v1',
+					schema: 'blocks-engine-capture/capture-receipt/v1',
 					summary: { routesDiscovered: 13, routesCaptured: 10, routesSkipped: 0, routesFailed: 6 },
 				} )
 			);
@@ -829,7 +835,7 @@ describe( 'CLI: studio create', () => {
 			await fs.promises.writeFile(
 				path.join( websiteDir, '..', 'capture-receipt.json' ),
 				JSON.stringify( {
-					schema: 'data-liberation/capture-receipt/v1',
+					schema: 'blocks-engine-capture/capture-receipt/v1',
 					entrypoint: 'website/index.html',
 					source: { url: 'https://example.com/' },
 					discoveryDiagnostics: [
@@ -889,7 +895,7 @@ describe( 'CLI: studio create', () => {
 			await fs.promises.writeFile(
 				path.join( websiteDir, '..', 'capture-receipt.json' ),
 				JSON.stringify( {
-					schema: 'data-liberation/capture-receipt/v1',
+					schema: 'blocks-engine-capture/capture-receipt/v1',
 					websiteRoot: 'website',
 					entrypoint: 'website/index.html',
 					source: { url: 'https://example.com/' },
@@ -1029,7 +1035,7 @@ describe( 'CLI: studio create', () => {
 			fs.writeFileSync(
 				path.join( captureDir, 'capture-receipt.json' ),
 				JSON.stringify( {
-					schema: 'data-liberation/capture-receipt/v1',
+					schema: 'blocks-engine-capture/capture-receipt/v1',
 					websiteRoot: path.basename( websiteDir ),
 				} )
 			);
@@ -1081,7 +1087,7 @@ describe( 'CLI: studio create', () => {
 			fs.writeFileSync(
 				path.join( captureDir, 'capture-receipt.json' ),
 				JSON.stringify( {
-					schema: 'data-liberation/capture-receipt/v1',
+					schema: 'blocks-engine-capture/capture-receipt/v1',
 					websiteRoot: path.basename( websiteDir ),
 					entrypoint: `${ path.basename( websiteDir ) }/index.html`,
 				} )
@@ -1145,7 +1151,7 @@ describe( 'CLI: studio create', () => {
 			fs.writeFileSync(
 				path.join( captureDir, 'capture-receipt.json' ),
 				JSON.stringify( {
-					schema: 'data-liberation/capture-receipt/v1',
+					schema: 'blocks-engine-capture/capture-receipt/v1',
 					websiteRoot: 'website',
 				} )
 			);
@@ -1168,7 +1174,7 @@ describe( 'CLI: studio create', () => {
 			fs.writeFileSync(
 				path.join( captureDir, 'capture-receipt.json' ),
 				JSON.stringify( {
-					schema: 'data-liberation/capture-receipt/v1',
+					schema: 'blocks-engine-capture/capture-receipt/v1',
 					websiteRoot: path.basename( websiteDir ),
 				} )
 			);
@@ -1239,7 +1245,7 @@ describe( 'CLI: studio create', () => {
 			fs.writeFileSync(
 				path.join( captureDir, 'capture-receipt.json' ),
 				JSON.stringify( {
-					schema: 'data-liberation/capture-receipt/v1',
+					schema: 'blocks-engine-capture/capture-receipt/v1',
 					websiteRoot: path.basename( websiteDir ),
 				} )
 			);

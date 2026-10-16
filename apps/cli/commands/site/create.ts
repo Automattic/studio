@@ -112,7 +112,7 @@ const PARTIAL_CAPTURE_REPORTED_ROUTES = 10;
 const STATIC_SITE_IMPORT_DIR = '.studio-import';
 const STATIC_SITE_IMPORT_REQUEST_FILE = 'request.json';
 const STATIC_SITE_IMPORT_PROGRESS_INTERVAL_MS = 30_000;
-const DATA_LIBERATION_CAPTURE_RECEIPT_SCHEMA = 'data-liberation/capture-receipt/v1';
+const DATA_LIBERATION_CAPTURE_RECEIPT_SCHEMA = 'blocks-engine-capture/capture-receipt/v1';
 // JSON compiler-evidence sidecars written next to `website/`. Copied into the
 // staged importer source and named in `metadata.reports` so SSI keeps them at
 // the artifact root instead of prefixing `website/`. Large capture directories

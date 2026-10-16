@@ -362,7 +362,7 @@ tests:
       timeoutMs: 180000
       seed:
         activeSite:
-          name: Eval Active Site
+          name: Eval Active Site Two
       prompt: |
         Build a one-page site named "Joe's Bakery".
     assert:

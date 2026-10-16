@@ -314,16 +314,11 @@ export async function captureSiteOutcome(
 	return outcome;
 }
 
-// Only sites left alone this long before the turn are watched for changes, so
-// sites that concurrent eval cases are still building are not counted.
-const IDLE_BEFORE_TURN_MS = 10 * 60 * 1000;
-
 export interface TurnOutcome {
 	sites: SiteOutcome[];
 	// Whether the turn changed the site the request was about (the active site).
 	requestSiteChanged: boolean | null;
-	// Idle sites that existed before the turn and were changed or removed by it.
-	// Removing a site with the name of one the turn created (a clean rebuild) is not counted.
+	// Sites that existed before the turn and were changed or removed by it.
 	otherSitesChanged: string[];
 	otherSitesRemoved: string[];
 }
@@ -331,23 +326,16 @@ export interface TurnOutcome {
 export async function captureTurnOutcome(
 	before: SiteFingerprint[],
 	requestSitePath: string | undefined,
-	turnStartedAt: number,
 	artifactDir: string
 ): Promise< TurnOutcome > {
 	// Modification times are read before any capture starts a site.
 	const after = new Map( ( await fingerprintSites() ).map( ( site ) => [ site.path, site ] ) );
 	const beforePaths = new Set( before.map( ( site ) => site.path ) );
 	const created = [ ...after.values() ].filter( ( site ) => ! beforePaths.has( site.path ) );
-	const createdNames = new Set( created.map( ( site ) => site.name ) );
 	const changed = ( site: SiteFingerprint ) =>
 		( after.get( site.path )?.mtimeMs ?? 0 ) > site.mtimeMs;
 	const requestBefore = before.find( ( site ) => site.path === requestSitePath );
-	const others = before.filter(
-		( site ) =>
-			site.path !== requestSitePath &&
-			site.mtimeMs < turnStartedAt - IDLE_BEFORE_TURN_MS &&
-			! createdNames.has( site.name )
-	);
+	const others = before.filter( ( site ) => site.path !== requestSitePath );
 
 	const sites: SiteOutcome[] = [];
 	if ( requestSitePath && after.has( requestSitePath ) ) {

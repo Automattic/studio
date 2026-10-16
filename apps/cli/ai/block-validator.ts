@@ -239,7 +239,9 @@ export async function validateBlocks(
 				return { report: initial.report };
 			}
 
-			const fixed = initial.report.invalidBlocks === 0 ? initial : validateContent( fixedContent );
+			// Re-saving can itself break a block that parsed as valid, so the
+			// re-saved markup is validated before it is proposed.
+			const fixed = validateContent( fixedContent );
 			return {
 				report: initial.report,
 				proposedFix: {

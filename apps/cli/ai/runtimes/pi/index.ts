@@ -644,13 +644,24 @@ function toToolDefinition(
 							[
 								'Not run: this command would put invalid block content on the site. Fix the content, then run it again.',
 								...checked.problems,
+								...( validationReport ? [ validationReport ] : [] ),
 							].join( '\n' )
 						);
 					}
 					wpCli.command = checked.command;
 				}
 			}
-			const result = await tool.execute( toolCallId, params, signal, onUpdate );
+			// The validation report was taken from the gate, so it rides on a failure too.
+			const result = await tool
+				.execute( toolCallId, params, signal, onUpdate )
+				.catch( ( error: unknown ) => {
+					if ( ! validationReport ) {
+						throw error;
+					}
+					throw new Error(
+						`${ error instanceof Error ? error.message : String( error ) }\n${ validationReport }`
+					);
+				} );
 			if ( tool.name === 'site_create' ) {
 				await sitePin.created( String( ( params as { name?: unknown } ).name ) );
 			}

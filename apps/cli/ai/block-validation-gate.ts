@@ -183,7 +183,8 @@ export async function validateBlockMarkupFile(
 		};
 	}
 	const fix = report.proposedFix;
-	if ( report.invalidBlocks === 0 && ! fix ) {
+	const fixIsValid = !! fix && ! fix.report.error && fix.report.invalidBlocks === 0;
+	if ( report.invalidBlocks === 0 && ! fixIsValid ) {
 		return {
 			contentHash: hash( content ),
 			summary: `${ label }: ${ report.totalBlocks }/${ report.totalBlocks } blocks valid${
@@ -192,7 +193,7 @@ export async function validateBlockMarkupFile(
 		};
 	}
 
-	if ( fix && ! fix.report.error && fix.report.invalidBlocks === 0 ) {
+	if ( fix && fixIsValid ) {
 		const lostText = visibleText( fix.fixedContent ) !== visibleText( content );
 		const originalClasses = classTokens( content );
 		const fixedClasses = classTokens( fix.fixedContent );

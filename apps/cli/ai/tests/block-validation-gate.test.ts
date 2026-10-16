@@ -107,6 +107,26 @@ describe( 'validating a file', () => {
 		expect( readFileSync( file, 'utf8' ) ).toBe( written );
 	} );
 
+	it( 'keeps valid markup when re-saving it would break a block', async () => {
+		const original = '<!-- wp:paragraph --><p style="max-width:34rem">Hi</p><!-- /wp:paragraph -->';
+		const file = write( 'tmp/home.html', original );
+		vi.mocked( validateBlocks ).mockResolvedValue( {
+			totalBlocks: 1,
+			validBlocks: 1,
+			invalidBlocks: 0,
+			results: [ { blockName: 'core/paragraph', isValid: true, issues: [], originalContent: '' } ],
+			proposedFix: {
+				fixedContent:
+					'<!-- wp:paragraph --><p><p style="max-width:34rem">Hi</p></p><!-- /wp:paragraph -->',
+				report: { totalBlocks: 1, validBlocks: 0, invalidBlocks: 1, results: [] },
+			},
+		} );
+		const result = await validateBlockMarkupFile( file, 'http://localhost:8881' );
+		expect( result ).toMatchObject( { summary: 'tmp/home.html: 1/1 blocks valid' } );
+		expect( result.problem ).toBeUndefined();
+		expect( readFileSync( file, 'utf8' ) ).toBe( original );
+	} );
+
 	it( 'shows each mismatch and the HTML the block saves', async () => {
 		const file = write(
 			'tmp/home.html',

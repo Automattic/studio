@@ -83,7 +83,7 @@ describe( 'transformSitesResponse', () => {
 } );
 
 describe( 'withWpcomDetails', () => {
-	it( 'takes details from the site list, keeps the stored sync times, and flags missing sites', () => {
+	it( 'takes details from the site list, keeps the stored sync times, and keeps the stored name and URL of sites gone from WordPress.com', () => {
 		const atomic = { ...simpleBusinessSite(), ID: 3, is_wpcom_atomic: true, jetpack: true };
 		const [ business, free ] = transformSitesResponse( [ atomic, freeSite() ] );
 		const stored = ( id: number ) => ( {
@@ -107,6 +107,11 @@ describe( 'withWpcomDetails', () => {
 			lastPushTimestamp: '2026-10-01T09:00:00.000Z',
 		} );
 		expect( downgraded.syncSupport ).toBe( 'needs-upgrade' );
-		expect( gone ).toMatchObject( { id: 99, name: '', syncSupport: 'deleted' } );
+		expect( gone ).toMatchObject( {
+			id: 99,
+			name: 'Old name',
+			url: business.url,
+			syncSupport: 'deleted',
+		} );
 	} );
 } );

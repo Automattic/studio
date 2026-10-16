@@ -55,6 +55,7 @@ import { replaySessionHistory } from 'cli/ai/sessions/replay';
 import { formatActiveSitePrefix, setLocalSiteSelectedCallback } from 'cli/ai/site-selection';
 import { getActiveSlashCommands, type SlashCommandContext } from 'cli/ai/slash-commands';
 import { AiChatUI } from 'cli/ai/ui';
+import { describeWpcomSiteCapabilities, getWpcomSiteCapabilities } from 'cli/ai/wpcom-capabilities';
 import { runCommand as runLoginCommand } from 'cli/commands/auth/login';
 import { findSiteByFolder, findSiteById } from 'cli/lib/cli-config/sites';
 import { disconnectFromDaemon } from 'cli/lib/daemon-client';
@@ -617,7 +618,14 @@ export async function runCommand( options: {
 			await disconnectFromDaemon();
 		}
 		if ( site ) {
-			enrichedPrompt = `${ formatActiveSitePrefix( site ) }\n\n${ prompt }`;
+			const capabilities =
+				site.remote && site.wpcomSiteId
+					? await getWpcomSiteCapabilities( site.wpcomSiteId )
+					: undefined;
+			enrichedPrompt = `${ formatActiveSitePrefix(
+				site,
+				capabilities && describeWpcomSiteCapabilities( capabilities )
+			) }\n\n${ prompt }`;
 		}
 
 		// Non-image files ride as absolute-path references the agent reads with

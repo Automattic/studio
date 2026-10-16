@@ -5,6 +5,7 @@ import { getAiPayloadsPath } from '@studio/common/lib/well-known-paths';
 import wpcomFactory from '@studio/common/lib/wpcom-factory';
 import wpcomXhrRequest from '@studio/common/lib/wpcom-xhr-request-factory';
 import { Type } from 'typebox';
+import { getWpcomSiteCapabilities, getWpcomWriteRefusal } from 'cli/ai/wpcom-capabilities';
 import { defineTool, REMOTE_OVERWRITE } from './define-tool';
 import { textResult } from './utils';
 
@@ -21,8 +22,8 @@ const BODY_FILE_FIELD_NAME_PATTERN = /^[A-Za-z_][A-Za-z0-9_-]*$/;
  * `features` sub-field alone is 60K+ characters, which can push the tool result past
  * the agent's output budget. The v1.1 API doesn't support
  * sub-field filtering (e.g. `fields=plan.product_slug`), so we can't solve this
- * via query params. The agent only needs a few plan properties to gate features
- * since the `edit-manage-remote-site` skill says what each plan tier can do.
+ * via query params. The active site line states what the plan includes, and
+ * this tool refuses writes it does not (wpcom-capabilities.ts).
  *
  * This is NOT a pattern to follow for other endpoints. For general large responses,
  * the skill instructs the agent to use `_fields` (wp/v2) or `fields` (v1.1)
@@ -213,6 +214,28 @@ export const wpcomRequestTool = defineTool(
 		),
 	},
 	async ( args ) => {
+		const apiNamespace = args.apiNamespace ?? 'wp/v2';
+		const writes = args.method === 'POST' || args.method === 'PUT';
+		if ( ! writes && ( args.bodyFile || args.bodyFiles ) ) {
+			throw new Error( 'bodyFile and bodyFiles can only be used with POST or PUT requests.' );
+		}
+		const body = writes
+			? await resolveRequestBody( args.body, args.bodyFile, args.bodyFiles )
+			: undefined;
+		if ( args.method !== 'GET' && ! args.path.startsWith( '!' ) ) {
+			const capabilities = await getWpcomSiteCapabilities( args.siteId );
+			const refusal =
+				capabilities &&
+				getWpcomWriteRefusal( capabilities, {
+					method: args.method,
+					path: args.path.startsWith( '/' ) ? args.path : `/${ args.path }`,
+					apiNamespace,
+					body,
+				} );
+			if ( refusal ) {
+				throw new Error( refusal );
+			}
+		}
 		try {
 			let fullPath: string;
 			if ( args.path.startsWith( '!' ) ) {
@@ -223,7 +246,6 @@ export const wpcomRequestTool = defineTool(
 			}
 
 			// An empty string means "use WP.com REST API v1.1" (no apiNamespace → isRestAPI=true in wpcom-xhr-request).
-			const apiNamespace = args.apiNamespace ?? 'wp/v2';
 			const queryParams: Record< string, unknown > = { ...( args.query ?? {} ) };
 			if ( apiNamespace ) {
 				queryParams.apiNamespace = apiNamespace;
@@ -233,29 +255,15 @@ export const wpcomRequestTool = defineTool(
 			let result: ApiResponse;
 			switch ( args.method ) {
 				case 'GET':
-					if ( args.bodyFile || args.bodyFiles ) {
-						throw new Error( 'bodyFile and bodyFiles can only be used with POST or PUT requests.' );
-					}
 					result = await wpcom.req.get< ApiResponse >( fullPath, queryParams );
 					break;
 				case 'POST':
-					result = await wpcom.req.post< ApiResponse >(
-						fullPath,
-						queryParams,
-						await resolveRequestBody( args.body, args.bodyFile, args.bodyFiles )
-					);
+					result = await wpcom.req.post< ApiResponse >( fullPath, queryParams, body );
 					break;
 				case 'PUT':
-					result = await wpcom.req.put< ApiResponse >(
-						fullPath,
-						queryParams,
-						await resolveRequestBody( args.body, args.bodyFile, args.bodyFiles )
-					);
+					result = await wpcom.req.put< ApiResponse >( fullPath, queryParams, body );
 					break;
 				case 'DELETE':
-					if ( args.bodyFile || args.bodyFiles ) {
-						throw new Error( 'bodyFile and bodyFiles can only be used with POST or PUT requests.' );
-					}
 					result = await wpcom.req.del< ApiResponse >( fullPath, queryParams );
 					break;
 			}

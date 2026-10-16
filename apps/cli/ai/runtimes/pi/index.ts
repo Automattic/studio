@@ -50,6 +50,7 @@ import { createAskUserQuestionTool } from 'cli/ai/tools/ask-user-question';
 import { createPresentDesignOptionsTool } from 'cli/ai/tools/present-design-options';
 import { createSkillTool } from 'cli/ai/tools/skill';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
+import { createDestructiveConfirmer, type DestructiveConfirmer } from './destructive-confirmation';
 import { getPendingWork, type PendingWork } from './pending-work';
 import { changesPreview } from './preview-reload';
 import { SkillToolScope } from './skill-tool-scope';
@@ -302,8 +303,15 @@ async function createStudioAgentSession(
 
 	const pendingWork = getPendingWork( config.session );
 	const blockValidationGate = getBlockValidationGate( config.session );
+	const confirmDestructive = createDestructiveConfirmer( config.onAskUser );
 	const toolDefinitions = tools.map( ( tool ) =>
-		toToolDefinition( tool, payloadGuardState, pendingWork, blockValidationGate )
+		toToolDefinition(
+			tool,
+			payloadGuardState,
+			pendingWork,
+			blockValidationGate,
+			confirmDestructive
+		)
 	);
 	const modelRuntime = await createModelRuntime( model, family, creds );
 	const settingsManager = createSettingsManager( config.env );
@@ -578,7 +586,8 @@ function toToolDefinition(
 	tool: AgentToolAny,
 	payloadGuardState: StudioToolPayloadGuardState,
 	pendingWork: PendingWork,
-	blockValidationGate: BlockValidationGate
+	blockValidationGate: BlockValidationGate,
+	confirmDestructive: DestructiveConfirmer
 ): ToolDefinition {
 	return {
 		name: tool.name,
@@ -596,6 +605,10 @@ function toToolDefinition(
 				getPayloadLimitViolation( tool.name, params ) ?? getBashCommandRefusal( tool.name, params );
 			if ( refusal ) {
 				throw new Error( refusal );
+			}
+			const declined = await confirmDestructive( tool.name, params );
+			if ( declined ) {
+				throw new Error( declined );
 			}
 			if ( ( tool as { settlesPendingWork?: boolean } ).settlesPendingWork ) {
 				await pendingWork.settle();

@@ -110,4 +110,3 @@ Do not combine `bodyFile` with `body` or `bodyFiles`.
 3. Verify with `take_screenshot` using `viewport: "all"` for desktop and mobile; when you cannot view images, verify from the rendered DOM with `inspect_design` instead.
 4. If an operation fails, inspect the error and try a lightweight GET request to discover the available shape before retrying.
 
-Always confirm destructive operations, including deleting posts or deactivating plugins, before proceeding.

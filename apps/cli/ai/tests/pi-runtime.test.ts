@@ -449,6 +449,15 @@ describe( 'pi runtime', () => {
 		expect( takeScreenshot( 1 )?.description ).not.toContain( 'analyze visually' );
 	} );
 
+	it( 'asks the user before a destructive call runs, and does not run it when declined', async () => {
+		const onAskUser = vi.fn().mockResolvedValue( { 'Delete the site "nope"?': 'No' } );
+		await runRuntime( { prompt: 'hello', session: newSession(), env: WPCOM_ENV, onAskUser } );
+		await expect(
+			getCreatedTool( 'site_delete' ).execute( 't', { nameOrPath: 'nope' } )
+		).rejects.toThrow( 'Not run: the user answered "No" to: Delete the site "nope"?' );
+		expect( onAskUser ).toHaveBeenCalledTimes( 1 );
+	} );
+
 	it( 'rejects oversized direct Write, Edit, and Bash payloads', async () => {
 		await runRuntime( {
 			prompt: 'hello',

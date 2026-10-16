@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createDestructiveConfirmer, describeDestructiveCall } from '../destructive-confirmation';
+import { createConfirmer, describeDestructiveCall } from '../confirmation';
 
 describe( 'describeDestructiveCall', () => {
 	it( 'names the target and consequence of syncs and deletions', () => {
@@ -64,33 +64,37 @@ describe( 'describeDestructiveCall', () => {
 	} );
 } );
 
-describe( 'createDestructiveConfirmer', () => {
+describe( 'createConfirmer', () => {
 	const push = { nameOrPath: 'shop', remoteSite: 'shop.com' };
 	const question = 'Push the local site "shop" to shop.com?';
 
 	it( 'runs the call once the user confirms', async () => {
 		const ask = vi.fn().mockResolvedValue( { [ question ]: 'Yes, go ahead' } );
-		expect( await createDestructiveConfirmer( ask )( 'site_push', push ) ).toBeUndefined();
+		expect(
+			await createConfirmer( ask )( describeDestructiveCall( 'site_push', push ) )
+		).toBeUndefined();
 		expect( ask.mock.calls[ 0 ][ 0 ][ 0 ] ).toMatchObject( { question, allowFreeForm: false } );
 	} );
 
 	it( 'reports the answer when the user declines', async () => {
 		const ask = vi.fn().mockResolvedValue( { [ question ]: 'No' } );
-		expect( await createDestructiveConfirmer( ask )( 'site_push', push ) ).toBe(
+		expect( await createConfirmer( ask )( describeDestructiveCall( 'site_push', push ) ) ).toBe(
 			`Not run: the user answered "No" to: ${ question }`
 		);
 	} );
 
 	it( 'does not ask about other calls', async () => {
 		const ask = vi.fn();
-		expect( await createDestructiveConfirmer( ask )( 'Read', { path: 'x' } ) ).toBeUndefined();
+		expect(
+			await createConfirmer( ask )( describeDestructiveCall( 'Read', { path: 'x' } ) )
+		).toBeUndefined();
 		expect( ask ).not.toHaveBeenCalled();
 	} );
 
 	it( 'does not run the call when the session cannot ask', async () => {
-		expect( await createDestructiveConfirmer( undefined )( 'site_push', push ) ).toContain(
-			'cannot ask for it'
-		);
+		expect(
+			await createConfirmer( undefined )( describeDestructiveCall( 'site_push', push ) )
+		).toContain( 'cannot ask for it' );
 	} );
 
 	it( 'asks one question at a time', async () => {
@@ -102,10 +106,10 @@ describe( 'createDestructiveConfirmer', () => {
 			open--;
 			return { [ questions[ 0 ].question ]: 'Yes, go ahead' };
 		} );
-		const confirm = createDestructiveConfirmer( ask );
+		const confirm = createConfirmer( ask );
 		await Promise.all( [
-			confirm( 'site_delete', { nameOrPath: 'a' } ),
-			confirm( 'site_delete', { nameOrPath: 'b' } ),
+			confirm( describeDestructiveCall( 'site_delete', { nameOrPath: 'a' } ) ),
+			confirm( describeDestructiveCall( 'site_delete', { nameOrPath: 'b' } ) ),
 		] );
 		expect( ask ).toHaveBeenCalledTimes( 2 );
 		expect( maxOpen ).toBe( 1 );

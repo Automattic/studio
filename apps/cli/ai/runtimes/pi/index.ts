@@ -50,9 +50,10 @@ import { createAskUserQuestionTool } from 'cli/ai/tools/ask-user-question';
 import { createPresentDesignOptionsTool } from 'cli/ai/tools/present-design-options';
 import { createSkillTool } from 'cli/ai/tools/skill';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
-import { createDestructiveConfirmer, type DestructiveConfirmer } from './destructive-confirmation';
+import { createConfirmer, describeDestructiveCall, type Confirmer } from './confirmation';
 import { getPendingWork, type PendingWork } from './pending-work';
 import { changesPreview } from './preview-reload';
+import { SitePin } from './site-pin';
 import { SkillToolScope } from './skill-tool-scope';
 import { stripStaleImagesFromContext } from './strip-stale-images';
 import {
@@ -307,15 +308,13 @@ async function createStudioAgentSession(
 
 	const pendingWork = getPendingWork( config.session );
 	const blockValidationGate = getBlockValidationGate( config.session );
-	const confirmDestructive = createDestructiveConfirmer( config.onConfirm ?? config.onAskUser );
+	const confirm = createConfirmer( config.onConfirm ?? config.onAskUser );
+	const sitePin = new SitePin( config.activeSite );
 	const toolDefinitions = tools.map( ( tool ) =>
-		toToolDefinition(
-			tool,
-			payloadGuardState,
-			pendingWork,
-			blockValidationGate,
-			confirmDestructive
-		)
+		toToolDefinition( tool, payloadGuardState, pendingWork, blockValidationGate, {
+			confirm,
+			sitePin,
+		} )
 	);
 	const modelRuntime = await createModelRuntime( model, family, creds );
 	const settingsManager = createSettingsManager( config.env );
@@ -591,7 +590,7 @@ function toToolDefinition(
 	payloadGuardState: StudioToolPayloadGuardState,
 	pendingWork: PendingWork,
 	blockValidationGate: BlockValidationGate,
-	confirmDestructive: DestructiveConfirmer
+	{ confirm, sitePin }: { confirm: Confirmer; sitePin: SitePin }
 ): ToolDefinition {
 	return {
 		name: tool.name,
@@ -610,10 +609,17 @@ function toToolDefinition(
 			if ( refusal ) {
 				throw new Error( refusal );
 			}
-			const declined = await confirmDestructive( tool.name, params );
+			// An irreversible call names its site in its own question, so it
+			// needs no second one about which site it changes.
+			const destructive = describeDestructiveCall( tool.name, params );
+			const crossSite = destructive
+				? undefined
+				: await sitePin.confirmationFor( tool.name, params );
+			const declined = await confirm( destructive ?? crossSite?.confirmation );
 			if ( declined ) {
 				throw new Error( declined );
 			}
+			crossSite?.allow();
 			if ( ( tool as { settlesPendingWork?: boolean } ).settlesPendingWork ) {
 				await pendingWork.settle();
 			}
@@ -641,6 +647,9 @@ function toToolDefinition(
 				}
 			}
 			const result = await tool.execute( toolCallId, params, signal, onUpdate );
+			if ( tool.name === 'site_create' ) {
+				await sitePin.created( String( ( params as { name?: unknown } ).name ) );
+			}
 			if (
 				tool.name === 'wp_cli' &&
 				/^\s*(plugin|theme)\s/.test( String( ( params as { command?: unknown } ).command ) )

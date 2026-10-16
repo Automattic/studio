@@ -29,7 +29,7 @@ const READ_ONLY_WP_CLI_VERBS = new Set( [
 	'verify-checksums',
 ] );
 
-function isReadOnlyWpCli( command: string ): boolean {
+export function isReadOnlyWpCli( command: string ): boolean {
 	const words = command.trim().split( /\s+/ );
 	return words.length < 2 || words[ 0 ] === 'help' || READ_ONLY_WP_CLI_VERBS.has( words[ 1 ] );
 }

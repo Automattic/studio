@@ -1,10 +1,12 @@
 import type { AskUserHandler, AskUserQuestion } from 'cli/ai/types';
 
-// Calls that delete or replace the user's work in a way WordPress cannot undo
-// (no trash, no revision) wait for the user's yes before they run. The harness
-// asks, so the agent cannot skip it and needs no rule telling it to ask.
+// The harness asks the user before calls that need their yes, so the agent
+// cannot skip the question and needs no rule telling it to ask. Calls that
+// delete or replace the user's work in a way WordPress cannot undo (no trash,
+// no revision) are described here; site-pin.ts describes changes to a site
+// other than the request's.
 
-export interface DestructiveCall {
+export interface Confirmation {
 	question: string;
 	consequence: string;
 }
@@ -31,7 +33,7 @@ function stringArg( params: unknown, key: string ): string {
 export function describeDestructiveCall(
 	toolName: string,
 	params: unknown
-): DestructiveCall | undefined {
+): Confirmation | undefined {
 	const site = stringArg( params, 'nameOrPath' );
 	const remote = stringArg( params, 'remoteSite' );
 	switch ( toolName ) {
@@ -102,25 +104,17 @@ export function describeDestructiveCall(
 }
 
 // Returns why the call did not run, or undefined once the user confirms (or
-// the call needs no confirmation). Confirmations are asked one at a time.
-export type DestructiveConfirmer = (
-	toolName: string,
-	params: unknown
-) => Promise< string | undefined >;
+// nothing needs confirming). Questions are asked one at a time.
+export type Confirmer = ( call: Confirmation | undefined ) => Promise< string | undefined >;
 
-export function createDestructiveConfirmer(
-	onAskUser: AskUserHandler | undefined
-): DestructiveConfirmer {
+export function createConfirmer( onAskUser: AskUserHandler | undefined ): Confirmer {
 	let queue: Promise< unknown > = Promise.resolve();
-	return ( toolName, params ) => {
-		const call = describeDestructiveCall( toolName, params );
+	return async ( call ) => {
 		if ( ! call ) {
-			return Promise.resolve( undefined );
+			return undefined;
 		}
 		if ( ! onAskUser ) {
-			return Promise.resolve(
-				`Not run: ${ call.question } needs the user's confirmation, and this session cannot ask for it.`
-			);
+			return `Not run: ${ call.question } needs the user's confirmation, and this session cannot ask for it.`;
 		}
 		const question: AskUserQuestion = {
 			question: call.question,
@@ -132,12 +126,11 @@ export function createDestructiveConfirmer(
 		};
 		const answer = queue.then( () => onAskUser( [ question ] ) );
 		queue = answer.catch( () => undefined );
-		return answer.then( ( answers ) =>
-			answers[ call.question ] === CONFIRM
-				? undefined
-				: `Not run: the user answered "${ answers[ call.question ] ?? DECLINE }" to: ${
-						call.question
-				  }`
-		);
+		const answers = await answer;
+		return answers[ call.question ] === CONFIRM
+			? undefined
+			: `Not run: the user answered "${ answers[ call.question ] ?? DECLINE }" to: ${
+					call.question
+			  }`;
 	};
 }

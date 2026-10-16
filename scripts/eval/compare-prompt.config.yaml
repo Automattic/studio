@@ -1,4 +1,5 @@
-# Trunk vs spike: the WordPress-knowledge cases, each arm run 3 times.
+# Trunk vs spike: the WordPress-knowledge cases. Run with --repeat 3
+# (promptfoo 0.121.4 ignores defaultTest.options.repeat).
 # Arms are prebuilt CLI bundles that differ only in system prompt and skills.
 description: Studio Code prompt comparison (trunk vs read-the-source spike)
 
@@ -8,12 +9,9 @@ evaluateOptions:
 providers:
   - id: exec:node ../../apps/cli/dist-arm-trunk/cli/eval-runner.mjs
     label: trunk
-  - id: exec:node ../../apps/cli/dist-arm-spike/cli/eval-runner.mjs
-    label: spike
+  - id: exec:node ../../apps/cli/dist-arm-v2/cli/eval-runner.mjs
+    label: v2
 
-defaultTest:
-  options:
-    repeat: 3
 
 tests:
   - description: single-page site build keeps every turn under 60s

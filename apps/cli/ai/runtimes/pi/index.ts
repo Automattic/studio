@@ -52,6 +52,7 @@ import { getPendingWork, type PendingWork } from './pending-work';
 import { stripStaleImagesFromContext } from './strip-stale-images';
 import {
 	getIncompleteToolCallReason,
+	getBashCommandRefusal,
 	getPayloadLimitViolation,
 	type StudioToolPayloadGuardState,
 	updateStudioToolPayloadGuardState,
@@ -585,6 +586,10 @@ function toToolDefinition(
 			const payloadLimitViolation = getPayloadLimitViolation( tool.name, params );
 			if ( payloadLimitViolation ) {
 				throw new Error( payloadLimitViolation );
+			}
+			const bashRefusal = tool.name === 'Bash' ? getBashCommandRefusal( params ) : undefined;
+			if ( bashRefusal ) {
+				throw new Error( bashRefusal );
 			}
 			if ( ( tool as { settlesPendingWork?: boolean } ).settlesPendingWork ) {
 				await pendingWork.settle();

@@ -103,6 +103,45 @@ export function getPayloadLimitViolation( toolName: string, params: unknown ): s
 	return undefined;
 }
 
+// The first word of each command in a shell line, ignoring quoted text,
+// leading variable assignments, and wrappers that run the next word.
+function getCommandWords( command: string ): string[] {
+	const unquoted = command.replace( /'[^']*'|"(?:\\.|[^"\\])*"/g, '""' );
+	return unquoted
+		.split( /&&|\|\||[;|&\n(]|\$\(|`/ )
+		.map( ( segment ) => {
+			const words = segment.trim().split( /\s+/ );
+			while (
+				words.length &&
+				( /^\w+=/.test( words[ 0 ] ) || /^(sudo|npx|exec|env)$/.test( words[ 0 ] ) )
+			) {
+				words.shift();
+			}
+			return words[ 0 ] ?? '';
+		} )
+		.filter( Boolean );
+}
+
+/**
+ * Bash runs outside Studio's site runtime, so WP-CLI and the Studio CLI run
+ * there against the wrong PHP and the wrong database. Names the tool that does
+ * the same work inside the runtime.
+ */
+export function getBashCommandRefusal( params: unknown ): string | undefined {
+	const command = getStringParam( params, 'command' );
+	if ( ! command ) {
+		return undefined;
+	}
+	const words = getCommandWords( command ).map( ( word ) => word.split( '/' ).pop() );
+	if ( words.some( ( word ) => word === 'wp' || word === 'wp-cli.phar' ) ) {
+		return 'Not run: Bash has no access to the site runtime, so WP-CLI runs through the wp_cli tool. Call wp_cli with the command after `wp`.';
+	}
+	if ( words.includes( 'studio' ) ) {
+		return 'Not run: Studio sites are managed through the site tools (site_create, site_start, site_stop, site_delete, site_info, site_list) and WP-CLI through wp_cli. Call the matching tool.';
+	}
+	return undefined;
+}
+
 // Only the last content block can be mid-generation when the model hits the
 // output cap — anything earlier was completed before the model moved on.
 function getInProgressToolCall( content: unknown ): { id: string; name: string } | undefined {

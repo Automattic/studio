@@ -50,13 +50,6 @@ export type ToolHandler< TProps extends TProperties > = (
 	context: ToolContext
 ) => Promise< ToolResult >;
 
-// One-line snippet for the prompt's tool list, the way pi's own tools declare
-// it: the system prompt is assembled from the registered tools, so a tool is
-// documented where it is defined.
-export interface ToolPromptOptions {
-	promptSnippet?: string;
-}
-
 // What a call can change, for hosts that ask the user before running a tool
 // (MCP tool annotations). Hosts run read-only tools, and those that neither
 // destroy data nor reach beyond this machine, without asking. Every tool
@@ -91,7 +84,7 @@ export const REMOTE_OVERWRITE: ToolAnnotations = {
 	openWorldHint: true,
 };
 
-export interface ToolOptions extends ToolPromptOptions {
+export interface ToolOptions {
 	annotations: ToolAnnotations;
 	// The tool renders the site, so it runs only once the pending work of
 	// earlier tools, such as images still being generated, has settled.
@@ -124,7 +117,6 @@ export interface AnyStudioAgentTool {
 	) => Promise< { content: ToolContent[]; details?: unknown; terminate?: boolean } >;
 	prepareArguments?: ( args: unknown ) => unknown;
 	executionMode?: unknown;
-	promptSnippet?: string;
 	settlesPendingWork?: boolean;
 	annotations: ToolAnnotations;
 }
@@ -143,7 +135,6 @@ export function defineTool< TProps extends TProperties >(
 		description,
 		parameters,
 		label: name,
-		...( options.promptSnippet ? { promptSnippet: options.promptSnippet } : {} ),
 		...( options.settlesPendingWork ? { settlesPendingWork: true } : {} ),
 		annotations: options.annotations,
 		rawHandler: ( args, context ) => handler( args, context ?? NOOP_TOOL_CONTEXT ),

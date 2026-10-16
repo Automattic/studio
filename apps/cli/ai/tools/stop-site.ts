@@ -25,5 +25,5 @@ export const stopSiteTool = defineTool(
 			);
 		}
 	},
-	{ promptSnippet: 'Stop a running site', annotations: LOCAL_CHANGE }
+	{ annotations: LOCAL_CHANGE }
 );

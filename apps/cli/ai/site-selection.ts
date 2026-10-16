@@ -16,9 +16,16 @@ export async function emitLocalSiteSelected( site: SiteInfo ): Promise< void > {
 
 // Turn-scoped context line prepended to every user prompt so the agent knows
 // which site the session is attached to.
-export function formatActiveSitePrefix( site: SiteInfo ): string {
+// `remoteCapabilities` describes what a WordPress.com site's plan and the
+// user's role allow (describeWpcomSiteCapabilities).
+/** The prefix when the user has no site open in Studio. */
+export const NO_ACTIVE_SITE_PREFIX = '[Active site: none]';
+
+export function formatActiveSitePrefix( site: SiteInfo, remoteCapabilities?: string ): string {
 	if ( site.remote && site.url ) {
-		return `[Active site: "${ site.name }" (ID: ${ site.wpcomSiteId }) at ${ site.url } (WordPress.com)]`;
+		return `[Active site: "${ site.name }" (ID: ${ site.wpcomSiteId }) at ${
+			site.url
+		} (WordPress.com${ remoteCapabilities ? `; ${ remoteCapabilities }` : '' })]`;
 	}
 	const designPath = path.join( site.path, 'DESIGN.md' );
 	const design = existsSync( designPath ) ? `, design system: ${ designPath }` : '';

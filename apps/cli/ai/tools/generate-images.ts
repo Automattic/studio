@@ -237,8 +237,6 @@ export const generateImagesTool = defineTool(
 		};
 	},
 	{
-		promptSnippet:
-			'Generate AI images (PNG) from text specs into a site: images under its wp-content/uploads/ are added to the media library, others (theme imagery) stay files. Batch all the images a page needs into one call. Load the `imagery` skill first for spec-writing rules and file placement.',
 		annotations: REMOTE_CHANGE,
 	}
 );

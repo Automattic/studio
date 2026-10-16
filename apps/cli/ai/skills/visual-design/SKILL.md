@@ -1,22 +1,12 @@
 ---
 name: visual-design
 description: Plan and execute high-quality visual direction for site creation, redesign, layout, typography, color, motion, and visual polish.
+tools: scaffold_theme, pick_design
 ---
 
 # Visual Design
 
 Use this skill before creating or redesigning a site, landing page, homepage, layout, style system, typography, color palette, animation system, or other visual polish.
-
-## Design Direction
-
-Understand the context and commit to a clear aesthetic direction:
-
-- **Purpose**: What problem does this interface solve? Who uses it?
-- **Artistic direction**: the feeling of the site — palette, type, surfaces, shapes, imagery, and motion — settled with `pick_design` from the direction catalog below and written down as the site's `DESIGN.md` (see "Concept and Direction").
-- **Signature concept**: the spatial structure that makes the site memorable, settled with `pick_design` from the layout catalog below.
-- **Constraints**: Account for technical requirements, performance, accessibility, responsive behavior, and WordPress editability.
-
-Execute the settled direction and concept with precision. Bold maximalism and refined minimalism can both work; the important thing is intentionality.
 
 ## Concept and Direction
 
@@ -52,40 +42,12 @@ A sneak peek is a standalone HTML page that lets a layout concept be judged in t
 - **Real content**: the site's real name and plausible copy, never lorem ipsum. Image slots take the site's image set (see the `imagery` skill), a different image per slot with the first-screen scene in the dominant one, never the same image twice in a frame, each under `DESIGN.md`'s `imagery` treatment; a slot the set cannot fill takes a solid color shape in a palette color.
 - **Small and self-contained**: inline CSS, under ~120 lines, no scripts; a Google Fonts `<link>` with a fallback stack is fine.
 
-## Implementation Priorities
+## Craft
 
-Build working code that is:
-
-- Production-grade and functional.
-- Visually striking and memorable.
-- Cohesive, with a clear aesthetic point of view.
-- Refined in typography, spacing, hierarchy, interaction states, and responsive behavior.
-
-Focus on:
-
-- **Styling channel**: Design quality and visual ambition are not in conflict with using core blocks. Style through the most structured channel that fits: theme.json (palette, presets, element and block styles) first; a registered block style variation for a treatment repeated across instances of a block type; custom CSS targeting block classNames last, for what those cannot express (descendant selectors, keyframe animations — hover/focus/active on buttons and links belong in theme.json `styles.elements`, and responsive styles are supported in theme.json and block styles, so neither justifies CSS). CSS can achieve any visual design, but the block structure is for editability — styling expressed structurally stays visible and editable in the Site Editor, while custom CSS does not.
-- **Custom CSS**: Put theme and page-content CSS in the theme's main style.css — no custom stylesheets. A new CSS file that affects the front end must be enqueued in both the editor and the front end (automatic for the scaffold's style.css).
-- **Typography**: Choose the `DESIGN.md` fonts from the direction's Type line. Avoid defaulting to generic choices like Arial, Inter, Roboto, or system fonts unless restraint is clearly part of the brief. Pair display and body typography intentionally.
-- **Color and theme**: Start from `DESIGN.md`'s colors, which `scaffold_theme` writes once into the theme's `theme.json` (`settings.color.palette`) under the same slugs, then drive every section, block, and CSS rule from those palette colors by slug. Use dominant colors and sharp accents deliberately instead of timid, evenly distributed colors. When redesigning or adding sections to a site that already has an active theme, inherit its existing palette rather than inventing new custom colors. When that active theme is an installed third-party theme, put palette overrides and all other design changes in a child theme (scaffold_theme with parentTheme), never in the installed theme's own files — editing its source is wiped by the next update, and if the theme compiles its assets (a `style.min.css` served in production, a `build/` or `dist/` step), the edit never reaches the rendered site at all. Treat the palette as the single source of truth — do not scatter hardcoded hex values across block markup or CSS; introduce a custom color only when the concept genuinely needs one the palette lacks, and add it to the palette first. See the `block-content` skill for how to reference palette colors.
-- **Motion**: Use animation and transitions when they serve the concept. Prefer CSS where possible. A few well-orchestrated moments are better than scattered effects. Scroll animations use progressive enhancement: CSS defines elements in their **final visible state** by default (full opacity, final position), and frontend JavaScript adds the initial hidden state (e.g. `opacity: 0`, `transform`) and the scroll-triggered transitions, so elements stay visible in the block editor (which loads theme CSS but not custom JS). Every animation and transition respects `prefers-reduced-motion`: add a `@media (prefers-reduced-motion: reduce)` block that disables or simplifies them (e.g. `animation: none; transition: none; scroll-behavior: auto;`).
-- **Spatial composition**: Use asymmetry, overlap, diagonal flow, grid-breaking elements, generous negative space, or controlled density when appropriate to the concept.
-- **Content width**: Tune `settings.layout.contentSize` and `wideSize` in `theme.json` to the site type. The scaffold defaults (1000px / 1280px) suit marketing, landing, and business pages, which want 960–1200px content; narrow to 700–860px for editorial reading columns. Keep `wideSize` at 1200–1400px, above `contentSize`. Put columns, card grids, and galleries at `"align":"wide"` (see the `block-content` skill) so they use the wide width. When you edit theme.json, keep the scaffolded `settings.layout`, `settings.useRootPaddingAwareAlignments`, and `styles.spacing.padding` — retune their values to suit the design, but do not drop them, or content will render against the viewport edge.
-- **Backgrounds and visual details**: Add atmosphere and depth with contextual textures, patterns, shadows, borders, transparency, or custom visual treatments when they reinforce the direction.
-
-## Avoid Generic Output
-
-Avoid overused AI-generated aesthetics:
-
-- Purple gradients on white backgrounds unless specifically appropriate.
-- Predictable hero/card/feature-grid layouts with no concept.
-- Generic font stacks when a more distinctive pairing would fit.
-- Reusing the same visual formula across unrelated sites.
-
-Interpret the user's brief creatively and make choices that feel specific to the site. Vary between light and dark themes, typography systems, layout structures, and visual styles across builds.
-
-## Match Complexity To The Vision
-
-Maximalist designs need enough layered detail, motion, and visual systems to feel intentional. Minimalist or refined designs need restraint, exact spacing, strong typography, and careful hierarchy. Do not confuse minimal with unfinished.
+- Build the concept with precision: distinctive type pairings, deliberate dominant colors and accents, intentional spacing, and a real mobile layout. Minimal is not unfinished; maximal needs enough detail to feel intended.
+- Drive every color, font, and size from the theme's presets, which `scaffold_theme` writes from `DESIGN.md` under the same slugs.
+- Motion serves the concept: CSS first, elements visible by default with JavaScript adding the hidden starting state (the editor runs no theme JS), and a `prefers-reduced-motion` fallback.
+- Avoid generic AI output: purple-on-white gradients, conceptless hero/card/feature grids, default font stacks, the same formula on every site.
 
 ## Layout catalog
 

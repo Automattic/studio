@@ -63,12 +63,12 @@ const TEXT_ONLY_NOTE =
 export function createTakeScreenshotTool( {
 	visionEnabled,
 	imageLink,
-	userSeesCapture = true,
+	userSeesCaptures = true,
 }: {
 	visionEnabled: boolean;
 	imageLink?: ( file: string ) => string;
-	// False in a terminal session: no UI shows the capture, only its file path.
-	userSeesCapture?: boolean;
+	// False in a terminal session: the user sees only the saved file's path.
+	userSeesCaptures?: boolean;
 } ) {
 	return defineTool(
 		'take_screenshot',
@@ -212,10 +212,8 @@ export function createTakeScreenshotTool( {
 				if ( ! visionEnabled ) {
 					textLines.push( TEXT_ONLY_NOTE );
 				}
-				if ( ! userSeesCapture ) {
-					textLines.push(
-						'The user does not see this capture: the terminal shows them only the saved file path.'
-					);
+				if ( ! userSeesCaptures && ! imageLink ) {
+					textLines.push( 'The user does not see this capture, only the saved file path.' );
 				}
 				if ( imageLink && args.display !== false ) {
 					textLines.push(
@@ -254,9 +252,6 @@ export function createTakeScreenshotTool( {
 		{
 			settlesPendingWork: true,
 			annotations: LOCAL_CHANGE,
-			promptSnippet: visionEnabled
-				? 'Take a full-page screenshot of a URL (supports desktop, mobile, or `viewport: "all"` for both). Use this to visually check the site after building it.'
-				: 'Save a full-page screenshot of a URL to a file (supports desktop, mobile, or `viewport: "all"` for both). You cannot view the image, but it still sets the theme screenshot.',
 		}
 	);
 }

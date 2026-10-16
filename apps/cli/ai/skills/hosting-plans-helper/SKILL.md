@@ -2,6 +2,7 @@
 name: hosting-plans-helper
 description: Answer WordPress.com plan, pricing, upgrade, and feature-tier questions (plan names, what each tier unlocks — plugins, themes, custom code, SSH, hosting — and current prices) from authoritative live data. Load before answering ANY plan, pricing, or feature-gating question; never answer these from memory.
 user-invokable: true
+tools: wpcom_request
 ---
 
 # Hosting Plans Helper

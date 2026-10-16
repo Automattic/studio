@@ -39,19 +39,27 @@ import {
 } from '@studio/common/ai/models';
 import { getAiTracksIdentity } from '@studio/common/ai/tracks-identity';
 import { type TSchema } from 'typebox';
+import { getBlockValidationGate, type BlockValidationGate } from 'cli/ai/block-validation-gate';
 import { withDesignSystemPreview } from 'cli/ai/chat-artifacts';
 import { isImageGenerationAvailable } from 'cli/ai/image-generation';
-import { buildSystemPrompt, type ToolPromptContribution } from 'cli/ai/system-prompt';
+import { emitEvent } from 'cli/ai/json-events';
+import { withSiteFileGuards } from 'cli/ai/site-file-guards';
+import { buildSystemPrompt } from 'cli/ai/system-prompt';
 import { resolveStudioToolDefinitions } from 'cli/ai/tools';
 import { createAskUserQuestionTool } from 'cli/ai/tools/ask-user-question';
 import { createPresentDesignOptionsTool } from 'cli/ai/tools/present-design-options';
 import { createSkillTool } from 'cli/ai/tools/skill';
+import { resolveSite } from 'cli/ai/tools/utils';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
-import { getFileToolPrompt } from './file-tool-prompts';
+import { createConfirmer, describeDestructiveCall, type Confirmer } from './confirmation';
 import { getPendingWork, type PendingWork } from './pending-work';
+import { changesPreview } from './preview-reload';
+import { SitePin } from './site-pin';
+import { SkillToolScope } from './skill-tool-scope';
 import { stripStaleImagesFromContext } from './strip-stale-images';
 import {
 	getIncompleteToolCallReason,
+	getBashCommandRefusal,
 	getPayloadLimitViolation,
 	type StudioToolPayloadGuardState,
 	updateStudioToolPayloadGuardState,
@@ -86,6 +94,10 @@ export interface StudioAgentTurnConfig {
 	model?: AiModelId;
 	activeSite?: SiteInfo | null;
 	onAskUser?: AskUserHandler;
+	// Answers the harness's confirmations of irreversible calls. Defaults to
+	// onAskUser; a scripted user (the eval runner) answers without exposing
+	// AskUserQuestion to the agent.
+	onConfirm?: AskUserHandler;
 	onEvent: ( event: AgentSessionEvent ) => void;
 }
 
@@ -231,9 +243,13 @@ async function runAgentSessionTurn(
 	try {
 		session = await createStudioAgentSession( config, family, resolved.creds, payloadGuardState );
 		setActiveSession( session );
+		const previewAttached = typeof process.send === 'function';
 		unsubscribe = session.subscribe( ( event ) => {
 			updateStudioToolPayloadGuardState( event, payloadGuardState );
 			config.onEvent( event );
+			if ( previewAttached && changesPreview( event ) ) {
+				emitEvent( { type: 'preview.reload', timestamp: new Date().toISOString() } );
+			}
 		} );
 
 		if ( controller.signal.aborted ) {
@@ -277,21 +293,29 @@ async function createStudioAgentSession(
 		isImageGenerationAvailable(),
 	] );
 
+	const skillScope = new SkillToolScope( config.session );
+	let activateTools: () => void = () => {};
 	const tools = buildAgentTools(
 		config,
 		chatArtifactsEnabled,
 		imageGenerationEnabled,
-		visionEnabled
+		visionEnabled,
+		( skillName ) => {
+			skillScope.unlock( skillName );
+			activateTools();
+		}
 	);
-	const systemPrompt = buildSystemPrompt( {
-		chatArtifactsEnabled,
-		userInstructions,
-		tools: tools.map( toolPromptContribution ),
-	} );
+	const systemPrompt = buildSystemPrompt( { userInstructions } );
 
 	const pendingWork = getPendingWork( config.session );
+	const blockValidationGate = getBlockValidationGate( config.session );
+	const confirm = createConfirmer( config.onConfirm ?? config.onAskUser );
+	const sitePin = new SitePin( config.activeSite );
 	const toolDefinitions = tools.map( ( tool ) =>
-		toToolDefinition( tool, payloadGuardState, pendingWork )
+		toToolDefinition( tool, payloadGuardState, pendingWork, blockValidationGate, {
+			confirm,
+			sitePin,
+		} )
 	);
 	const modelRuntime = await createModelRuntime( model, family, creds );
 	const settingsManager = createSettingsManager( config.env );
@@ -323,6 +347,10 @@ async function createStudioAgentSession(
 		sessionStartEvent: { type: 'session_start', reason: 'startup' },
 	} );
 
+	const allToolNames = toolDefinitions.map( ( tool ) => tool.name );
+	activateTools = () =>
+		result.session.setActiveToolsByName( skillScope.activeToolNames( allToolNames ) );
+	activateTools();
 	return result.session;
 }
 
@@ -556,18 +584,14 @@ function createSettingsManager( _env: Record< string, string > ): SettingsManage
 	);
 }
 
-// pi's tools declare a prompt snippet and so do Studio's (see define-tool.ts);
-// the AgentTool type does not carry it, hence the cast.
-type ToolPromptFields = { promptSnippet?: string };
-
-function toolPromptContribution( tool: AgentToolAny ): ToolPromptContribution {
-	return { name: tool.name, promptSnippet: ( tool as ToolPromptFields ).promptSnippet };
-}
+const BLOCK_VALIDATION_GATED_TOOLS = new Set( [ 'wp_cli', 'take_screenshot', 'inspect_design' ] );
 
 function toToolDefinition(
 	tool: AgentToolAny,
 	payloadGuardState: StudioToolPayloadGuardState,
-	pendingWork: PendingWork
+	pendingWork: PendingWork,
+	blockValidationGate: BlockValidationGate,
+	{ confirm, sitePin }: { confirm: Confirmer; sitePin: SitePin }
 ): ToolDefinition {
 	return {
 		name: tool.name,
@@ -576,26 +600,83 @@ function toToolDefinition(
 		parameters: tool.parameters,
 		prepareArguments: tool.prepareArguments,
 		executionMode: tool.executionMode,
-		promptSnippet: ( tool as ToolPromptFields ).promptSnippet,
 		execute: async ( toolCallId, params, signal, onUpdate ) => {
 			const incompleteToolCallReason = getIncompleteToolCallReason( payloadGuardState, toolCallId );
 			if ( incompleteToolCallReason ) {
 				throw new Error( incompleteToolCallReason );
 			}
-			const payloadLimitViolation = getPayloadLimitViolation( tool.name, params );
-			if ( payloadLimitViolation ) {
-				throw new Error( payloadLimitViolation );
+			const refusal =
+				getPayloadLimitViolation( tool.name, params ) ?? getBashCommandRefusal( tool.name, params );
+			if ( refusal ) {
+				throw new Error( refusal );
 			}
+			// An irreversible call names its site in its own question, so it
+			// needs no second one about which site it changes.
+			const destructive = describeDestructiveCall( tool.name, params );
+			const crossSite = destructive
+				? undefined
+				: await sitePin.confirmationFor( tool.name, params );
+			const declined = await confirm( destructive ?? crossSite?.confirmation );
+			if ( declined ) {
+				throw new Error( declined );
+			}
+			crossSite?.allow();
 			if ( ( tool as { settlesPendingWork?: boolean } ).settlesPendingWork ) {
 				await pendingWork.settle();
 			}
-			const result = await tool.execute( toolCallId, params, signal, onUpdate );
+			// Block markup written since the last check is validated before any
+			// tool puts content on the site or renders it.
+			let validationReport: string | undefined;
+			if ( BLOCK_VALIDATION_GATED_TOOLS.has( tool.name ) ) {
+				const { summaries, problems } = await blockValidationGate.settle();
+				validationReport =
+					[ ...summaries.map( ( line ) => `Block validation: ${ line }` ), ...problems ].join(
+						'\n'
+					) || undefined;
+				const wpCli = params as { command?: unknown; nameOrPath?: unknown };
+				if ( tool.name === 'wp_cli' && typeof wpCli.command === 'string' ) {
+					const site = await resolveSite( String( wpCli.nameOrPath ) ).catch( () => undefined );
+					const problems = site
+						? await blockValidationGate.checkCommand( wpCli.command, site.path )
+						: [];
+					if ( problems.length > 0 ) {
+						throw new Error(
+							[
+								'Not run: this command would put invalid block content on the site. Fix the content, then run it again.',
+								...problems,
+								...( validationReport ? [ validationReport ] : [] ),
+							].join( '\n' )
+						);
+					}
+				}
+			}
+			// The validation report was taken from the gate, so it rides on a failure too.
+			const result = await tool
+				.execute( toolCallId, params, signal, onUpdate )
+				.catch( ( error: unknown ) => {
+					if ( ! validationReport ) {
+						throw error;
+					}
+					throw new Error(
+						`${ error instanceof Error ? error.message : String( error ) }\n${ validationReport }`
+					);
+				} );
+			if ( tool.name === 'site_create' ) {
+				await sitePin.created( String( ( params as { name?: unknown } ).name ) );
+			}
+			if (
+				tool.name === 'wp_cli' &&
+				/^\s*(plugin|theme)\s/.test( String( ( params as { command?: unknown } ).command ) )
+			) {
+				blockValidationGate.invalidate();
+			}
 			const details = result.details as StudioToolResultDetails | undefined;
 			if ( details?.pending ) {
 				pendingWork.add( details.pending );
 				delete details.pending;
 			}
-			const reports = pendingWork.takeReports();
+			const reports =
+				[ validationReport, pendingWork.takeReports() ].filter( Boolean ).join( '\n' ) || undefined;
 			return reports
 				? { ...result, content: [ ...result.content, { type: 'text', text: reports } ] }
 				: result;
@@ -607,7 +688,8 @@ function buildAgentTools(
 	config: ResolvedStudioAgentTurnConfig,
 	chatArtifactsEnabled: boolean,
 	imageGenerationEnabled: boolean,
-	visionEnabled: boolean
+	visionEnabled: boolean,
+	onSkillLoad: ( skillName: string ) => void
 ): AgentToolAny[] {
 	const askUserTool: AgentToolAny[] = config.onAskUser
 		? [ createAskUserQuestionTool( config.onAskUser ) ]
@@ -623,16 +705,19 @@ function buildAgentTools(
 			  ]
 			: [];
 
-	const skillToolDef = createSkillTool();
+	const skillToolDef = createSkillTool( ( skill ) => onSkillLoad( skill.name ) );
 	const skillTool: AgentToolAny[] = skillToolDef ? [ skillToolDef ] : [];
 
-	// pi's tools are registered under Studio's names; the prompt text for them
-	// is Studio's too (file-tool-prompts.ts), so nothing of pi's wording leaks.
+	// pi's tools are registered under Studio's names.
 	const renameTool = < S extends TSchema >( tool: AgentTool< S >, name: string ): AgentTool< S > =>
-		( { ...tool, name, label: name, ...getFileToolPrompt( name ) } ) as AgentTool< S >;
+		( { ...tool, name, label: name } ) as AgentTool< S >;
 
 	const designSystemPreview = < TTool extends AgentToolAny >( tool: TTool ) =>
-		chatArtifactsEnabled ? withDesignSystemPreview( tool, STUDIO_SITES_ROOT ) : tool;
+		withSiteFileGuards(
+			chatArtifactsEnabled ? withDesignSystemPreview( tool, STUDIO_SITES_ROOT ) : tool,
+			STUDIO_SITES_ROOT,
+			getBlockValidationGate( config.session )
+		);
 	const piTools: AgentToolAny[] = [
 		renameTool( createReadTool( STUDIO_SITES_ROOT ), 'Read' ),
 		designSystemPreview( renameTool( createWriteTool( STUDIO_SITES_ROOT ), 'Write' ) ),

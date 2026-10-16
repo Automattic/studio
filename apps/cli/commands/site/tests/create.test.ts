@@ -1,6 +1,7 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
+import { input, password } from '@inquirer/prompts';
 import { validateBlueprintData } from '@studio/common/lib/blueprint-validation';
 import {
 	isEmptyDir,
@@ -53,6 +54,7 @@ import {
 	runCommand,
 } from '../create';
 
+vi.mock( '@inquirer/prompts' );
 vi.mock( '@studio/common/lib/fs-utils' );
 vi.mock( '@studio/common/lib/network-utils' );
 vi.mock( '@studio/common/lib/port-finder', () => ( {
@@ -597,6 +599,59 @@ describe( 'CLI: studio create', () => {
 				expect( fallback.siteName ).toBe( 'Imported Site' );
 			} finally {
 				await fs.promises.rm( root, { recursive: true, force: true } );
+			}
+		} );
+
+		it( 'names an interactive URL import from the captured title instead of prompting', async () => {
+			const siteRoot = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-url-tty-' ) );
+			const sitePath = path.join( siteRoot, 'site' );
+			const liberate = vi.fn().mockImplementation( async ( _url, outputDir ) => {
+				const website = path.join( outputDir, 'example.com', 'website' );
+				await fs.promises.mkdir( website, { recursive: true } );
+				await fs.promises.writeFile( path.join( website, 'index.html' ), '<main>Liberated</main>' );
+				await fs.promises.writeFile(
+					path.join( outputDir, 'example.com', 'capture-receipt.json' ),
+					JSON.stringify( { schema: 'data-liberation/capture-receipt/v1', title: 'Example Brand' } )
+				);
+				return { websiteDir: website, compareCommand: () => '' };
+			} );
+			vi.mocked( input ).mockResolvedValue( '' );
+			vi.mocked( password ).mockResolvedValue( '' );
+			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
+			vi.spyOn( fs.promises, 'cp' ).mockResolvedValue( undefined );
+			const isTTY = process.stdin.isTTY;
+			process.stdin.isTTY = true;
+			const parser = registerCommand(
+				yargs( [] ).option( 'path', { type: 'string', default: sitePath } ),
+				{ liberate }
+			).exitProcess( false );
+
+			try {
+				await parser.parseAsync( [
+					'create',
+					'--from',
+					'https://example.com',
+					'--wp',
+					'latest',
+					'--php',
+					'8.3',
+					'--no-start',
+					'--skip-browser',
+				] );
+
+				expect( input ).not.toHaveBeenCalledWith(
+					expect.objectContaining( { message: 'Site name:' } )
+				);
+				expect( saveCliConfig ).toHaveBeenCalledWith(
+					expect.objectContaining( {
+						sites: expect.arrayContaining( [
+							expect.objectContaining( { path: sitePath, name: 'Example Brand' } ),
+						] ),
+					} )
+				);
+			} finally {
+				process.stdin.isTTY = isTTY;
+				await fs.promises.rm( siteRoot, { recursive: true, force: true } );
 			}
 		} );
 

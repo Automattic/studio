@@ -1693,7 +1693,7 @@ export const registerCommand = (
 
 			try {
 				if ( process.stdin.isTTY ) {
-					if ( ! siteName ) {
+					if ( ! siteName && ! argv.from ) {
 						const defaultName = await generateSiteName();
 						siteName = await input( {
 							message: __( 'Site name:' ),

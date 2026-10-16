@@ -9,7 +9,7 @@ const FILE_TOOL_SNIPPETS: Record< string, string > = {
 	Read: 'Read file contents',
 	Write: 'Create or overwrite files',
 	Edit: 'Make precise file edits with exact text replacement, several disjoint edits in one call',
-	Bash: 'Execute shell commands (ls, grep, find, etc.); `wp` runs WP-CLI on the Studio site that contains the working directory',
+	Bash: 'Execute shell commands (ls, grep, find, etc.)',
 	Grep: 'Search file contents for patterns (respects .gitignore)',
 	Glob: 'Find files by glob pattern (respects .gitignore)',
 	Ls: 'List directory contents',

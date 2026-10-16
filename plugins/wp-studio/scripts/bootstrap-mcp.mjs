@@ -33,6 +33,8 @@ const CLI_BUNDLE = path.join( PLUGIN_ROOT, 'cli.tar.br' );
 const BUNDLED_CLI = path.join( PLUGIN_ROOT, 'cli' );
 const BUNDLED_MAIN = path.join( BUNDLED_CLI, 'main.mjs' );
 const UNPACK_LOCK = `${ BUNDLED_CLI }.lock`;
+// What `studio mcp` answers Codex's handshake and tool list with, recorded by the plugin build.
+const SNAPSHOT = path.join( PLUGIN_ROOT, 'mcp-snapshot.json' );
 // A published plugin has the version of the Studio CLI it carries.
 const { version: PLUGIN_VERSION } = JSON.parse(
 	readFileSync( path.join( PLUGIN_ROOT, '.codex-plugin', 'plugin.json' ), 'utf8' )
@@ -113,11 +115,6 @@ async function findStudio() {
 // Unpacks the bundled CLI aside and moves it in place once complete, so a
 // session that starts meanwhile never runs a partial CLI.
 async function unpack() {
-	if ( ! existsSync( CLI_BUNDLE ) ) {
-		throw new Error(
-			'No Studio CLI: set STUDIO_CLI_BIN to a development build, or install Studio.'
-		);
-	}
 	process.stderr.write( 'Unpacking the Studio CLI that comes with the plugin.\n' );
 	const staging = `${ BUNDLED_CLI }.${ process.pid }`;
 	rmSync( staging, { recursive: true, force: true } );
@@ -182,14 +179,74 @@ async function unpackOnce() {
 	}
 }
 
-// Unpacking takes seconds, so the host waits for it and starts with every tool.
-let studio = await findStudio();
-if ( ! studio ) {
+// Codex gives a server about ten seconds to answer its handshake and list its
+// tools, and unpacking can take longer, Windows especially. Meanwhile, this
+// answers them from the snapshot, holds every other message, then hands the
+// session over to the bundled `studio mcp`.
+async function standIn() {
+	const snapshot = JSON.parse( readFileSync( SNAPSHOT, 'utf8' ) );
+	const write = ( stream, message ) => stream.write( JSON.stringify( message ) + '\n' );
+	const held = [];
+	let initialize = null;
+	let child = null;
+	const host = readline.createInterface( { input: process.stdin } );
+	host.on( 'line', ( line ) => {
+		if ( child ) {
+			child.stdin.write( line + '\n' );
+			return;
+		}
+		const message = JSON.parse( line );
+		if ( message.method === 'initialize' ) {
+			initialize = message;
+			const { protocolVersion } = message.params;
+			write( process.stdout, {
+				jsonrpc: '2.0',
+				id: message.id,
+				result: { ...snapshot.initialize, protocolVersion },
+			} );
+		} else if ( message.method === 'tools/list' || message.method === 'resources/list' ) {
+			const result = message.method === 'tools/list' ? snapshot.tools : snapshot.resources;
+			write( process.stdout, { jsonrpc: '2.0', id: message.id, result } );
+		} else if ( message.method !== 'notifications/initialized' ) {
+			held.push( line );
+		}
+	} );
+	host.on( 'close', () => ( child ? child.stdin.end() : process.exit( 0 ) ) );
+
 	await unpackOnce();
-	studio = [ process.execPath, BUNDLED_MAIN ];
+	child = spawn( process.execPath, [ BUNDLED_MAIN, 'mcp' ], {
+		stdio: [ 'pipe', 'pipe', 'inherit' ],
+	} );
+	const replayed = new Promise( ( resolve ) => {
+		readline.createInterface( { input: child.stdout } ).on( 'line', ( line ) => {
+			if ( JSON.parse( line ).id === 'stand-in' ) {
+				resolve();
+			} else {
+				process.stdout.write( line + '\n' );
+			}
+		} );
+	} );
+	if ( initialize ) {
+		write( child.stdin, { ...initialize, id: 'stand-in' } );
+		await replayed;
+		write( child.stdin, { jsonrpc: '2.0', method: 'notifications/initialized' } );
+	}
+	held.splice( 0 ).forEach( ( line ) => child.stdin.write( line + '\n' ) );
+	return child;
 }
-const [ command, ...args ] = studio;
-const child = spawn( ...commandArgs( command, [ ...args, 'mcp' ], { stdio: 'inherit' } ) );
+
+let child;
+const studio = await findStudio();
+if ( studio ) {
+	const [ command, ...args ] = studio;
+	child = spawn( ...commandArgs( command, [ ...args, 'mcp' ], { stdio: 'inherit' } ) );
+} else if ( existsSync( BUNDLED_MAIN ) ) {
+	child = spawn( process.execPath, [ BUNDLED_MAIN, 'mcp' ], { stdio: 'inherit' } );
+} else if ( existsSync( CLI_BUNDLE ) ) {
+	child = await standIn();
+} else {
+	throw new Error( 'No Studio CLI: set STUDIO_CLI_BIN to a development build, or install Studio.' );
+}
 for ( const signal of [ 'SIGINT', 'SIGTERM' ] ) {
 	process.on( signal, () => child.kill( signal ) );
 }

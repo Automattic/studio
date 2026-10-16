@@ -1,7 +1,6 @@
 ---
 name: visual-polish
 description: Verify and polish a built or redesigned site by diagnosing rendered-DOM defects against intent, fixing them in one planned batch, and re-checking what changed.
-user-invokable: true
 ---
 
 # Visual Polish

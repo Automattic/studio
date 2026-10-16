@@ -39,6 +39,7 @@ import {
 } from '@studio/common/ai/models';
 import { getAiTracksIdentity } from '@studio/common/ai/tracks-identity';
 import { type TSchema } from 'typebox';
+import { getBlockValidationGate, type BlockValidationGate } from 'cli/ai/block-validation-gate';
 import { withDesignSystemPreview } from 'cli/ai/chat-artifacts';
 import { isImageGenerationAvailable } from 'cli/ai/image-generation';
 import { withSiteFileGuards } from 'cli/ai/site-file-guards';
@@ -291,8 +292,9 @@ async function createStudioAgentSession(
 	} );
 
 	const pendingWork = getPendingWork( config.session );
+	const blockValidationGate = getBlockValidationGate( config.session );
 	const toolDefinitions = tools.map( ( tool ) =>
-		toToolDefinition( tool, payloadGuardState, pendingWork )
+		toToolDefinition( tool, payloadGuardState, pendingWork, blockValidationGate )
 	);
 	const modelRuntime = await createModelRuntime( model, family, creds );
 	const settingsManager = createSettingsManager( config.env );
@@ -565,10 +567,13 @@ function toolPromptContribution( tool: AgentToolAny ): ToolPromptContribution {
 	return { name: tool.name, promptSnippet: ( tool as ToolPromptFields ).promptSnippet };
 }
 
+const BLOCK_VALIDATION_GATED_TOOLS = new Set( [ 'wp_cli', 'take_screenshot', 'inspect_design' ] );
+
 function toToolDefinition(
 	tool: AgentToolAny,
 	payloadGuardState: StudioToolPayloadGuardState,
-	pendingWork: PendingWork
+	pendingWork: PendingWork,
+	blockValidationGate: BlockValidationGate
 ): ToolDefinition {
 	return {
 		name: tool.name,
@@ -590,13 +595,43 @@ function toToolDefinition(
 			if ( ( tool as { settlesPendingWork?: boolean } ).settlesPendingWork ) {
 				await pendingWork.settle();
 			}
+			// Block markup written since the last check is validated before any
+			// tool puts content on the site or renders it.
+			let validationReport: string | undefined;
+			if ( BLOCK_VALIDATION_GATED_TOOLS.has( tool.name ) ) {
+				const { summaries, problems } = await blockValidationGate.settle();
+				validationReport =
+					[ ...summaries.map( ( line ) => `Block validation: ${ line }` ), ...problems ].join(
+						'\n'
+					) || undefined;
+				const command = ( params as { command?: unknown } ).command;
+				const blocked =
+					tool.name === 'wp_cli' && typeof command === 'string'
+						? blockValidationGate.openProblemsIn( command )
+						: [];
+				if ( blocked.length > 0 ) {
+					throw new Error(
+						[
+							'Not run: this command would put invalid block content on the site. Fix the file, then run it again.',
+							validationReport ?? blocked.join( '\n' ),
+						].join( '\n' )
+					);
+				}
+			}
 			const result = await tool.execute( toolCallId, params, signal, onUpdate );
+			if (
+				tool.name === 'wp_cli' &&
+				/^\s*(plugin|theme)\s/.test( String( ( params as { command?: unknown } ).command ) )
+			) {
+				blockValidationGate.invalidate();
+			}
 			const details = result.details as StudioToolResultDetails | undefined;
 			if ( details?.pending ) {
 				pendingWork.add( details.pending );
 				delete details.pending;
 			}
-			const reports = pendingWork.takeReports();
+			const reports =
+				[ validationReport, pendingWork.takeReports() ].filter( Boolean ).join( '\n' ) || undefined;
 			return reports
 				? { ...result, content: [ ...result.content, { type: 'text', text: reports } ] }
 				: result;
@@ -635,7 +670,8 @@ function buildAgentTools(
 	const designSystemPreview = < TTool extends AgentToolAny >( tool: TTool ) =>
 		withSiteFileGuards(
 			chatArtifactsEnabled ? withDesignSystemPreview( tool, STUDIO_SITES_ROOT ) : tool,
-			STUDIO_SITES_ROOT
+			STUDIO_SITES_ROOT,
+			getBlockValidationGate( config.session )
 		);
 	const piTools: AgentToolAny[] = [
 		renameTool( createReadTool( STUDIO_SITES_ROOT ), 'Read' ),

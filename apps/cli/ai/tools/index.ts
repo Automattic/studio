@@ -24,7 +24,6 @@ import { startSiteTool } from './start-site';
 import { stopSiteTool } from './stop-site';
 import { createTakeScreenshotTool, takeScreenshotTool } from './take-screenshot';
 import { updatePreviewTool } from './update-preview';
-import { validateBlocksTool } from './validate-blocks';
 import { waitForAnnotationsTool } from './wait-for-annotations';
 import { runWpCliTool } from './wp-cli';
 import { wpcomRequestTool } from './wpcom-request';
@@ -48,7 +47,6 @@ export const studioToolDefinitions: AnyStudioAgentTool[] = [
 	refreshBrowserTool,
 	scaffoldThemeTool,
 	pickDesignTool,
-	validateBlocksTool,
 	takeScreenshotTool,
 	inspectDesignTool,
 	generateImagesTool,

@@ -9,6 +9,7 @@
  */
 import { existsSync, readdirSync, readFileSync, statSync } from 'fs';
 import path from 'path';
+import type { BlockValidationGate } from 'cli/ai/block-validation-gate';
 
 const STUDIO_THEME_MARKER = 'scaffolded by Studio Code';
 const CORE_ROOT_FILE = /^(index|wp-[a-z-]+|xmlrpc)\.php$/;
@@ -270,7 +271,8 @@ interface FileWritingTool {
 /** Wraps Write or Edit with the site file guards. */
 export function withSiteFileGuards< TTool extends FileWritingTool >(
 	tool: TTool,
-	cwd: string
+	cwd: string,
+	gate?: BlockValidationGate
 ): TTool {
 	return {
 		...tool,
@@ -284,6 +286,9 @@ export function withSiteFileGuards< TTool extends FileWritingTool >(
 				throw new Error( refusal );
 			}
 			const result = ( await tool.execute( toolCallId, params, ...rest ) ) as ToolResult;
+			if ( siteFile && gate ) {
+				gate.track( path.join( siteFile.siteRoot, siteFile.relativePath ), siteFile.siteRoot );
+			}
 			const notes = siteFile ? await getSiteFileWriteNotes( siteFile ).catch( () => [] ) : [];
 			if ( ! notes.length || ! result || typeof result !== 'object' ) {
 				return result;

@@ -1,6 +1,6 @@
 ---
 name: build-site
-description: Create, build, design, redesign, or rebuild a whole website as a WordPress site with WordPress Studio, on the user's computer — pick or create the site, settle the design and plugins as a Site Spec, then scaffold the theme, provision the site, validate and publish the content, and polish the result. Load it before picking or creating the site.
+description: Create, build, design, redesign, or rebuild a whole website as a WordPress site with WordPress Studio, on the user's computer — pick or create the site, settle the design and plugins as a Site Spec, then scaffold the theme, provision the site, publish the content, and polish the result. Load it before picking or creating the site.
 user-invokable: true
 ---
 
@@ -57,15 +57,15 @@ Skipping means skipping the interactive questions only — each design step then
 
 ## 3. Theme files
 
-Call `scaffold_theme` on its own: without `parentTheme` for a new theme, with it to restyle an installed theme as a child theme. With a DESIGN.md it fills theme.json and self-hosts the fonts. Then fill the scaffold one file at a time — templates, parts, style.css, patterns — validating each template and part with validate_blocks right after writing it.
+Call `scaffold_theme` on its own: without `parentTheme` for a new theme, with it to restyle an installed theme as a child theme. With a DESIGN.md it fills theme.json and self-hosts the fonts. Then fill the scaffold one file at a time — templates, parts, style.css, patterns.
 
 ## 4. Provision the site
 
-With wp_cli, activate the theme, install and activate the Site Spec's plugins, and set options, before validating page content: the editor only recognizes the active theme and registered blocks.
+With wp_cli, activate the theme, install and activate the Site Spec's plugins, and set options, before writing page content.
 
 ## 5. Publish the content
 
-Write each page's content to a scratch file in the site's `tmp/`, validate it with validate_blocks, then create or update the page from the file.
+Write each page's content to a scratch file in the site's `tmp/`, then create or update the page from the file.
 
 ## 6. Check the result
 

@@ -5,7 +5,6 @@ import { getConnectedWpcomSitesForLocalSite } from '@studio/common/lib/connected
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { fetchSyncableSites } from '@studio/common/lib/sync/sync-api';
 import { vi } from 'vitest';
-import { validateBlocks } from 'cli/ai/block-validator';
 import { getSharedBrowser } from 'cli/ai/browser-utils';
 import { setChatArtifactCallback } from 'cli/ai/chat-artifacts';
 import { generateImages, isImageGenerationAvailable } from 'cli/ai/image-generation';
@@ -200,38 +199,6 @@ describe( 'Studio AI MCP tools', () => {
 		},
 		[ Symbol.dispose ]() {},
 	} );
-	const mockValidatedFix = ( fixedContent: string, blockName = 'core/paragraph' ) => {
-		vi.mocked( validateBlocks ).mockResolvedValue( {
-			totalBlocks: 1,
-			validBlocks: 0,
-			invalidBlocks: 1,
-			results: [
-				{
-					blockName,
-					isValid: false,
-					issues: [],
-					originalContent: '',
-				},
-			],
-			proposedFix: {
-				fixedContent,
-				report: {
-					totalBlocks: 1,
-					validBlocks: 1,
-					invalidBlocks: 0,
-					results: [
-						{
-							blockName,
-							isValid: true,
-							issues: [],
-							originalContent: '',
-						},
-					],
-				},
-			},
-		} );
-	};
-
 	beforeEach( () => {
 		vi.resetAllMocks();
 		process.exitCode = undefined;
@@ -265,90 +232,6 @@ describe( 'Studio AI MCP tools', () => {
 		for ( const name of [ 'site_delete', 'site_push', 'site_pull', 'wp_cli', 'wpcom_request' ] ) {
 			const { readOnlyHint, destructiveHint, openWorldHint } = annotations[ name ];
 			expect( readOnlyHint || ( ! destructiveHint && ! openWorldHint ) ).toBe( false );
-		}
-	} );
-
-	it( 'reports invalid core/html blocks and skips editor validation', async () => {
-		const result = await getTool( 'validate_blocks' ).rawHandler( {
-			nameOrPath: 'My Site',
-			content:
-				'<!-- wp:html --><form><label>Email<input type="email" /></label></form><!-- /wp:html -->',
-		} as never );
-
-		const text = getTextContent( result );
-		expect( text ).toContain( 'HTML block policy: 1/1 core/html blocks invalid' );
-		expect( text ).toContain( '<form>' );
-		// The HTML policy gate short-circuits before the live editor runs.
-		expect( validateBlocks ).not.toHaveBeenCalled();
-	} );
-
-	it( 'returns fixed inline block content', async () => {
-		const originalContent =
-			'<!-- wp:paragraph {"align":"center"} --><p>Hello</p><!-- /wp:paragraph -->';
-		const fixedContent =
-			'<!-- wp:paragraph {"align":"center"} -->\n<p class="has-text-align-center">Hello</p>\n<!-- /wp:paragraph -->';
-		mockValidatedFix( fixedContent );
-
-		const result = await getTool( 'validate_blocks' ).rawHandler( {
-			nameOrPath: 'My Site',
-			content: originalContent,
-		} as never );
-
-		expect( validateBlocks ).toHaveBeenCalledWith(
-			originalContent,
-			expect.stringContaining( 'localhost:8888' )
-		);
-		const text = getTextContent( result );
-		expect( text ).toContain( 'Fixed block content:' );
-		expect( text ).toContain( fixedContent );
-	} );
-
-	it( 'applies valid editor serialization fixes to files', async () => {
-		const tempDir = await mkdtemp( path.join( os.tmpdir(), 'studio-block-fix-' ) );
-		const filePath = path.join( tempDir, 'page.html' );
-		const originalContent =
-			'<!-- wp:separator {"className":"section-rule"} --><hr class="wp-block-separator section-rule"/><!-- /wp:separator -->';
-		const fixedContent =
-			'<!-- wp:separator {"opacity":"css","className":"section-rule"} -->\n<hr class="wp-block-separator has-css-opacity section-rule"/>\n<!-- /wp:separator -->';
-		await writeFile( filePath, originalContent );
-		mockValidatedFix( fixedContent, 'core/separator' );
-
-		try {
-			const result = await getTool( 'validate_blocks' ).rawHandler( {
-				nameOrPath: 'My Site',
-				filePath,
-			} as never );
-
-			await expect( readFile( filePath, 'utf8' ) ).resolves.toBe( fixedContent );
-			const text = getTextContent( result );
-			expect( text ).toContain( 'Auto-fix applied: 1/1 blocks valid' );
-			expect( text ).not.toContain( 'Fixed block content:' );
-		} finally {
-			await rm( tempDir, { recursive: true, force: true } );
-		}
-	} );
-
-	it( 'resolves a relative filePath against the site root', async () => {
-		const siteDir = await mkdtemp( path.join( os.tmpdir(), 'studio-block-fix-' ) );
-		const filePath = path.join( siteDir, 'tmp', 'page-home.html' );
-		const fixedContent = '<!-- wp:paragraph -->\n<p>Hello</p>\n<!-- /wp:paragraph -->';
-		await mkdir( path.dirname( filePath ), { recursive: true } );
-		await writeFile( filePath, '<!-- wp:paragraph --><p>Hello</p><!-- /wp:paragraph -->' );
-		vi.mocked( readCliConfig ).mockResolvedValue( {
-			sites: [ { ...mockSite, path: siteDir } ],
-		} as Awaited< ReturnType< typeof readCliConfig > > );
-		mockValidatedFix( fixedContent );
-
-		try {
-			const result = await getTool( 'validate_blocks' ).rawHandler( {
-				nameOrPath: 'My Site',
-				filePath: 'tmp/page-home.html',
-			} as never );
-
-			await expect( readFile( filePath, 'utf8' ) ).resolves.toBe( fixedContent );
-			expect( getTextContent( result ) ).toContain( 'written to tmp/page-home.html' );
-		} finally {
-			await rm( siteDir, { recursive: true, force: true } );
 		}
 	} );
 

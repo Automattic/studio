@@ -103,6 +103,18 @@ tests:
             const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
             if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
             const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
+            // Arms without validate_blocks validate in the harness: the gated
+            // tools' results carry one `Block validation: <file>: …` line per
+            // file, and the last line for each file is its final state.
+            const gateLines = new Map();
+            for (const r of d.toolResults || []) {
+              for (const m of (r.text || '').matchAll(/^Block validation: ([^:]+): (.*)$/gm)) gateLines.set(m[1], m[2]);
+            }
+            if (gateLines.size > 0) {
+              const failing = [...gateLines].filter(([, line]) => !/blocks valid/.test(line) || /invalid|policy failed|not validated/.test(line));
+              if (failing.length) return { pass: false, score: 0, reason: `final harness validation failed: ${failing.map(([f, l]) => `${f}: ${l}`).join(' | ').slice(0, 500)}` };
+              return { pass: true, score: 1, reason: `harness validation passed for ${[...gateLines.keys()].join(', ')}` };
+            }
             const validationResults = (d.toolResults || []).filter(r => r.toolName === 'validate_blocks');
             if (validationResults.length === 0) {
               return { pass: false, score: 0, reason: 'validate_blocks was not called for block content' };
@@ -176,10 +188,17 @@ tests:
             if (!sitePath) return { pass: false, score: 0, reason: 'no successful site_create result to resolve the site path from' };
             const calls = d.toolCalls || [];
             const isThemeMarkup = p => typeof p === 'string' && /\/(templates|parts)\/[^/]+\.html$/.test(p);
+            // A harness-validated arm reports `Block validation: parts/x.html: …`
+            // in a later tool result; match results to calls by order.
+            const results = d.toolResults || [];
+            const gateValidatedAfter = (i, p) => {
+              const label = p.split('/').slice(-2).join('/');
+              return results.slice(i + 1).some(r => (r.text || '').includes(`Block validation: ${label}:`));
+            };
             const unvalidated = calls
               .map((t, i) => ({ t, i }))
               .filter(({ t }) => (t.name === 'Write' || t.name === 'Edit') && isThemeMarkup(t.input && t.input.path))
-              .filter(({ t, i }) => !calls.slice(i + 1).some(c => c.name === 'validate_blocks' && typeof c.input?.filePath === 'string' && resolve(sitePath, c.input.filePath) === t.input.path))
+              .filter(({ t, i }) => !gateValidatedAfter(i, t.input.path) && !calls.slice(i + 1).some(c => c.name === 'validate_blocks' && typeof c.input?.filePath === 'string' && resolve(sitePath, c.input.filePath) === t.input.path))
               .map(({ t }) => t.input.path.split('/').slice(-2).join('/'));
             if (unvalidated.length > 0) {
               return { pass: false, score: 0, reason: `theme markup written without a following validate_blocks on the file: ${[...new Set(unvalidated)].join(', ')}` };

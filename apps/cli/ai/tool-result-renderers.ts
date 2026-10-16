@@ -269,6 +269,4 @@ export const toolResultRenderers: Record< string, ToolResultRenderer > = {
 	site_create: renderSiteCreateResult,
 	Skill: renderSkillResult,
 	wpcom_request: renderWpcomResult,
-	validate_blocks: ( { text }, expanded ) =>
-		text ? renderGenericToolResult( text, expanded, 2000 ) : null,
 };

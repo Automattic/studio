@@ -3,6 +3,7 @@ import { DatabaseSync } from 'node:sqlite';
 import os from 'os';
 import path from 'path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { makeAnchorsHomeRelative } from 'cli/ai/block-validation-gate';
 import {
 	getSiteFileWriteNotes,
 	getSiteFileWriteRefusal,
@@ -10,7 +11,6 @@ import {
 	resolveSiteFile,
 	withSiteFileGuards,
 } from 'cli/ai/site-file-guards';
-import { makeAnchorsHomeRelative } from 'cli/ai/tools/validate-blocks';
 
 let site: string;
 

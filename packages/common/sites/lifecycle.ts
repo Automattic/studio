@@ -1,4 +1,5 @@
 import { __ } from '@wordpress/i18n';
+import { checkMaintenanceFile } from '@studio/common/lib/maintenance-file';
 import type { ExecuteCliCommand } from '@studio/common/lib/cli-process';
 
 // Start / stop / delete a local site via the Studio CLI's one-shot `site`
@@ -20,11 +21,19 @@ function runSiteCommand(
 	} );
 }
 
-/** Starting the site would exceed the number of sites allowed to run at once. */
-export class SiteCapacityError extends Error {}
+/** The site can't start for an expected reason that its message explains to the user. */
+export class SiteStartRefusedError extends Error {}
 
 /** Start a local site's server via the Studio CLI. Resolves when it's already running. */
 export async function startSite( execute: ExecuteCliCommand, sitePath: string ): Promise< void > {
+	const maintenance = checkMaintenanceFile( sitePath );
+	if ( maintenance.exists && ! maintenance.isStale ) {
+		throw new SiteStartRefusedError(
+			__(
+				'This site is in maintenance mode. WordPress is currently performing an update. The maintenance lock should expire automatically within 10 minutes. Please wait and try again.'
+			)
+		);
+	}
 	try {
 		await runSiteCommand(
 			execute,
@@ -34,7 +43,7 @@ export async function startSite( execute: ExecuteCliCommand, sitePath: string ):
 	} catch ( error ) {
 		const lastErrorMessage = ( error as { lastErrorMessage?: string } ).lastErrorMessage;
 		if ( lastErrorMessage?.includes( 'CAPACITY_LIMIT_REACHED' ) ) {
-			throw new SiteCapacityError(
+			throw new SiteStartRefusedError(
 				__(
 					'The maximum number of running sites has been reached. Stop some running sites before starting new ones.'
 				)

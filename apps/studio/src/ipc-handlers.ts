@@ -48,6 +48,7 @@ import {
 } from '@studio/common/lib/blueprint-bundle';
 import { errorMessageContains } from '@studio/common/lib/cli-error';
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
+import { CliCommandError } from '@studio/common/lib/cli-process';
 import { getConnectedWpcomSitesForLocalSite } from '@studio/common/lib/connected-sites';
 import { stripIpcErrorPrefix } from '@studio/common/lib/error-formatting';
 import {
@@ -164,7 +165,7 @@ import {
 } from 'src/modules/ai-agent/run-manager';
 import { createSiteViaCli } from 'src/modules/cli/lib/cli-site-creator';
 import { editSiteViaCli } from 'src/modules/cli/lib/cli-site-editor';
-import { CliCommandError, executeCliCommand } from 'src/modules/cli/lib/execute-command';
+import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
 import { isStudioCliInstalled } from 'src/modules/cli/lib/ipc-handlers';
 import { STABLE_BIN_DIR_PATH } from 'src/modules/cli/lib/windows-installation-manager';
 import {

@@ -1,6 +1,7 @@
 import { shell, IpcMainInvokeEvent, Notification } from 'electron';
 import fs from 'fs';
 import * as Sentry from '@sentry/electron/main';
+import { CliCommandError } from '@studio/common/lib/cli-process';
 import { getErrorMessage } from '@studio/common/lib/error-formatting';
 import { exportErrorPayloadSchema } from '@studio/common/lib/import-export-events';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
@@ -10,7 +11,6 @@ import { z } from 'zod';
 import { showErrorMessageBox } from 'src/ipc-handlers';
 import { bumpStat, getImporterMetric, StatsGroup, StatsMetric } from 'src/lib/bump-stats';
 import { simplifyErrorForDisplay } from 'src/lib/error-formatting';
-import { CliCommandError } from 'src/modules/cli/lib/execute-command';
 import { executeExportCliCommand } from 'src/modules/cli/lib/execute-export-command';
 import { executeImportCliCommand } from 'src/modules/cli/lib/execute-import-command';
 

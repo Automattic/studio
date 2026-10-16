@@ -81,14 +81,9 @@ const ANCESTOR_DEPTH = 6;
 export function createInspectDesignTool( { visionEnabled }: { visionEnabled: boolean } ) {
 	return defineTool(
 		'inspect_design',
-		'Inspects the RENDERED DOM of a live page to diagnose visual issues at their root cause. ' +
-			"Given CSS selectors, returns each matched element's tag and class list, bounding box (so you can see actual rendered width/height vs intent), " +
-			'curated computed styles (box model, background, typography, flex/grid, borders), ' +
-			'and the ancestor chain of layout classes (is-layout-constrained, alignfull, wp-block-group) that controls width and spacing. ' +
-			'Pass `includeHover: true` to also capture computed styles while hovering the first match — use this for button/link hover states. ' +
-			'Pair this with take_screenshot: the screenshot shows the symptom, inspect_design shows the cause. ' +
-			'Pass `colorScheme: "light"` or `colorScheme: "dark"` to inspect styles under the same prefers-color-scheme mode used by take_screenshot. ' +
-			'Use it before editing CSS so you target the element that actually carries the style (e.g. .wp-block-button__link, not the .wp-block-button wrapper) instead of guessing.',
+		"Inspects the rendered DOM of a live page: for each selector, the matched elements' classes, bounding box, computed styles, and layout ancestors. " +
+			'Pair with take_screenshot: the screenshot shows the symptom, inspect_design the cause. ' +
+			'`includeHover` adds hover styles; `colorScheme` matches take_screenshot.',
 		{
 			url: Type.String( { description: 'The URL of the running site page to inspect' } ),
 			selectors: Type.Array( Type.String(), {

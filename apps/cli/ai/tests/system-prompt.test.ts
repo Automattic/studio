@@ -25,13 +25,12 @@ describe( 'buildSystemPrompt', () => {
 		expect( prompt ).not.toContain( 'wp_cli jetpack module activate contact-form' );
 	} );
 
-	it( 'routes block markup recipes to the block content skill', () => {
-		const prompt = buildSystemPrompt( { chatArtifactsEnabled: true } );
-
-		expect( prompt ).toContain( 'block-content' );
-		expect( prompt ).toContain( 'page/post content, template or template-part content' );
-		expect( prompt ).not.toContain( '## Block-theme layout cascade' );
-		expect( prompt ).not.toContain( 'core/post-content' );
+	it( 'points the agent at the WordPress source instead of re-teaching it', () => {
+		for ( const prompt of [ buildSystemPrompt( {} ), buildSystemPrompt( { external: true } ) ] ) {
+			expect( prompt ).toContain( '## WordPress source is the reference' );
+			expect( prompt ).toContain( 'wp-includes/' );
+			expect( prompt ).not.toContain( 'is-layout-constrained' );
+		}
 	} );
 
 	it( 'routes site builds to the build-site skill in every runtime', () => {

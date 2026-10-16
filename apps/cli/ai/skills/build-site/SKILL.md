@@ -57,20 +57,16 @@ Skipping means skipping the interactive questions only — each design step then
 
 ## 3. Theme files
 
-With the Site Spec stated, start small: call `scaffold_theme` on its own, and never fill a whole theme at once. For a new custom theme, call it without `parentTheme`; to restyle an installed third-party theme instead of replacing it, scaffold a child theme (`parentTheme`). When the site has a DESIGN.md, the scaffold fills theme.json from it and self-hosts its Google Fonts, so edit theme.json only for what DESIGN.md does not cover. Then fill the scaffold one file at a time with Write and Edit: templates, parts, style.css, and patterns.
+Call `scaffold_theme` on its own: without `parentTheme` for a new theme, with it to restyle an installed theme as a child theme. With a DESIGN.md it fills theme.json and self-hosts the fonts. Then fill the scaffold one file at a time — templates, parts, style.css, patterns — validating each template and part with validate_blocks right after writing it.
 
 ## 4. Provision the site
 
-Use wp_cli to activate the theme, install and activate the plugins the Site Spec lists, and set options. Do this before validating — the live editor only recognizes the active theme and registered plugin blocks. The site must be running.
+With wp_cli, activate the theme, install and activate the Site Spec's plugins, and set options, before validating page content: the editor only recognizes the active theme and registered blocks.
 
-## 5. Validate and publish the content
+## 5. Publish the content
 
-Validate each template and part with validate_blocks right after writing it, and validate page and post content before it reaches the site. Then create or update the pages and posts with the validated content. A build that skips validate_blocks is incomplete.
+Write each page's content to a scratch file in the site's `tmp/`, validate it with validate_blocks, then create or update the page from the file.
 
-## 6. Check and polish the result
+## 6. Check the result
 
-You MUST load the `visual-polish` skill and follow its instructions. The design must match your original expectations. Do not inspect the design or take a screenshot before loading the skill.
-
-## 7. Set the theme screenshot
-
-When the active theme was scaffolded by Studio Code, pass its directory as `themeScreenshot` on every desktop take_screenshot of the home page: the last capture becomes the theme's thumbnail in Appearance → Themes.
+Take one `take_screenshot` of each page with `viewport: "all"`. List every real defect against DESIGN.md and the layout map, find each cause with inspect_design and the source that produces it, fix them in one batch, and re-check once. When the theme was scaffolded by Studio Code, pass its directory as `themeScreenshot` on the home page's last desktop capture.

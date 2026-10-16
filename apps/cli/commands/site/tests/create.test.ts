@@ -661,6 +661,70 @@ describe( 'CLI: studio create', () => {
 			}
 		} );
 
+		it.each( [
+			[ 'prompts for the name of a plain local directory', false, 'Typed Name' ],
+			[
+				'names a captured website directory from its receipt without prompting',
+				true,
+				'Example Brand',
+			],
+		] )( '%s in an interactive terminal', async ( _label, captured, expectedName ) => {
+			const root = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-dir-tty-' ) );
+			const website = path.join( root, 'website' );
+			const sitePath = path.join( root, 'site' );
+			await fs.promises.mkdir( website );
+			await fs.promises.writeFile( path.join( website, 'index.html' ), '<main>Hello</main>' );
+			if ( captured ) {
+				await fs.promises.writeFile(
+					path.join( root, 'capture-receipt.json' ),
+					JSON.stringify( {
+						schema: 'blocks-engine-capture/capture-receipt/v1',
+						title: 'Example Brand',
+					} )
+				);
+			}
+			vi.mocked( input ).mockImplementation( async ( { message } ) =>
+				message === 'Site name:' ? 'Typed Name' : ''
+			);
+			vi.mocked( password ).mockResolvedValue( '' );
+			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
+			vi.spyOn( fs.promises, 'cp' ).mockResolvedValue( undefined );
+			const isTTY = process.stdin.isTTY;
+			process.stdin.isTTY = true;
+			const parser = registerCommand(
+				yargs( [] ).option( 'path', { type: 'string', default: sitePath } )
+			).exitProcess( false );
+
+			try {
+				await parser.parseAsync( [
+					'create',
+					'--from',
+					website,
+					'--wp',
+					'latest',
+					'--php',
+					'8.3',
+					'--no-start',
+					'--skip-browser',
+				] );
+
+				const prompted = vi
+					.mocked( input )
+					.mock.calls.some( ( [ config ] ) => config.message === 'Site name:' );
+				expect( prompted ).toBe( ! captured );
+				expect( saveCliConfig ).toHaveBeenCalledWith(
+					expect.objectContaining( {
+						sites: expect.arrayContaining( [
+							expect.objectContaining( { path: sitePath, name: expectedName } ),
+						] ),
+					} )
+				);
+			} finally {
+				process.stdin.isTTY = isTTY;
+				await fs.promises.rm( root, { recursive: true, force: true } );
+			}
+		} );
+
 		it( 'keeps the URL source capture when requested', async () => {
 			const siteRoot = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-url-import-' ) );
 			const sitePath = path.join( siteRoot, 'site' );

@@ -1631,7 +1631,13 @@ export const registerCommand = (
 				argv.from && ! isUrl( argv.from ) && path.extname( argv.from ).toLowerCase() === '.json'
 					? readSiteArtifact( argv.from )
 					: undefined;
-			let siteName = argv.name ?? ( artifact ? artifactTitle( artifact ) : undefined );
+			// A URL is named from its capture once liberated; a local source names
+			// itself only when it is a titled artifact or a captured website.
+			const sourceUrl = argv.from && isUrl( argv.from ) ? argv.from : undefined;
+			let siteName =
+				argv.name ??
+				( artifact ? artifactTitle( artifact ) : undefined ) ??
+				( argv.from && ! sourceUrl ? capturedSourceTitle( argv.from ) : undefined );
 			let sitePath = argv.path;
 			let wpVersion = argv.wp;
 			let phpVersion = argv.php;
@@ -1693,7 +1699,7 @@ export const registerCommand = (
 
 			try {
 				if ( process.stdin.isTTY ) {
-					if ( ! siteName && ! argv.from ) {
+					if ( ! siteName && ! sourceUrl ) {
 						const defaultName = await generateSiteName();
 						siteName = await input( {
 							message: __( 'Site name:' ),

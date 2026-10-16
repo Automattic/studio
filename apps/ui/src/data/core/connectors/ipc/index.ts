@@ -640,14 +640,17 @@ export function createIpcConnector(): Connector {
 		},
 
 		async setUserPreferences( { studioCliInstalled, ...partial }, source ): Promise< void > {
-			const writes: Array< Promise< unknown > > = [
-				ipcApi.setUserPreferences( {
-					...Object.fromEntries(
-						Object.entries( partial ).map( ( [ key, value ] ) => [ key, value ?? null ] )
-					),
-					surface: source?.surface,
-				} ),
-			];
+			const writes: Array< Promise< unknown > > = [];
+			if ( Object.keys( partial ).length > 0 ) {
+				writes.push(
+					ipcApi.setUserPreferences( {
+						...Object.fromEntries(
+							Object.entries( partial ).map( ( [ key, value ] ) => [ key, value ?? null ] )
+						),
+						surface: source?.surface,
+					} )
+				);
+			}
 			if ( typeof studioCliInstalled === 'boolean' ) {
 				writes.push( studioCliInstalled ? ipcApi.installStudioCli() : ipcApi.uninstallStudioCli() );
 			}

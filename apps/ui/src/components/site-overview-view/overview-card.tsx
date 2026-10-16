@@ -22,10 +22,12 @@ export function CopyableRow( {
 	copyLabel: string;
 } ) {
 	return (
-		<div className={ styles.credentialRow }>
+		<div className={ styles.copyableRow }>
 			<span className={ styles.tileLabel }>{ label }</span>
-			<div className={ styles.credentialValue }>
-				<span className={ styles.credentialText }>{ displayValue }</span>
+			<div className={ styles.copyableValue }>
+				<span className={ styles.copyableText } title={ displayValue }>
+					{ displayValue }
+				</span>
 				<CopyButton text={ copyText } label={ copyLabel } />
 			</div>
 		</div>

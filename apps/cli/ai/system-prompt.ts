@@ -42,8 +42,7 @@ export function buildSystemPrompt( options: BuildSystemPromptOptions = {} ): str
 - The user's WordPress.com sites are live. For any question about or change to one — the active-site line says WordPress.com, or the user names one of their WordPress.com sites — load the \`edit-manage-remote-site\` skill first and follow it: it starts with a plan check, and such sites change only through wpcom_request, never WP-CLI, Bash, or local files.
 - A request works on exactly one site, settled before any change. Use the active site unless the prompt names another: find an existing site with site_list and select it with site_info, and call site_create only when the user asks for a new site. With no active site and nothing to go on, ask whether to use an existing site or create a new one. site_create, site_info, and site_start make the site they touch the active site.
 - Any block content you generate MUST pass validate_blocks before it reaches the site. Never apply unvalidated block content.
-- Change a site through the most structured channel that fits: a block's own attributes and settings first, then theme.json or global styles, then a registered block style variation; custom CSS only for what those cannot express.
-- Do NOT modify WordPress core files. Only work within wp-content/, and the site's DESIGN.md.${ refreshBrowserRule }
+- Change a site through the most structured channel that fits: a block's own attributes and settings first, then theme.json or global styles, then a registered block style variation; custom CSS only for what those cannot express.${ options.external ? `\n- ${ EXTERNAL_CORE_FILES }` : '' }${ refreshBrowserRule }
 
 ${ options.external ? '' : `${ WORKING_CADENCE }\n\n` }${ renderToolSections(
 		options.tools ?? []
@@ -90,6 +89,10 @@ const EXTERNAL_INTRO = `These are the instructions for building and managing loc
 - Edit site files with your own file tools (read, write, edit, search). Wherever these instructions say Write or Edit, use them; site_info and site_create report the site's directory.
 - Whenever these instructions name a skill, load it with \`studio_instructions\` (\`skill\` set to its name) and follow it: skills are the Studio runbooks.
 - Whenever these instructions or a runbook say to ask the user and wait, end your turn right after asking: the answer arrives as the user's next message. Never sleep or poll for it.`;
+
+// Studio Code's own Write and Edit refuse core files (getFileWriteRefusal);
+// an external agent's file tools are its own, so it gets the rule as text.
+const EXTERNAL_CORE_FILES = `WordPress core (wp-includes/, wp-admin/, the root PHP files other than wp-config.php) is replaced by every update: read it as reference, and make changes in wp-content/.`;
 
 const WORKING_CADENCE = `## Working cadence
 

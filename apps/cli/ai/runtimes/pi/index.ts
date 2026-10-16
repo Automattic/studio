@@ -1,4 +1,5 @@
 import fs from 'fs';
+import path from 'path';
 import { type AgentTool } from '@earendil-works/pi-agent-core';
 import {
 	type Credential,
@@ -50,6 +51,11 @@ import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import { getFileToolPrompt } from './file-tool-prompts';
 import { getPendingWork, type PendingWork } from './pending-work';
 import { stripStaleImagesFromContext } from './strip-stale-images';
+import {
+	ensureStudioWpShimDirectory,
+	getStudioWpShimScript,
+	prependToPath,
+} from './studio-wp-shim';
 import {
 	getIncompleteToolCallReason,
 	getPayloadLimitViolation,
@@ -603,6 +609,15 @@ function toToolDefinition(
 	};
 }
 
+// Every chunk of the CLI bundle sits next to `main.mjs`, so it is this
+// module's sibling; `STUDIO_CLI_BIN` points elsewhere in development.
+function getStudioWpSpawnHook() {
+	const cliPath = process.env.STUDIO_CLI_BIN ?? path.join( import.meta.dirname, 'main.mjs' );
+	return prependToPath(
+		ensureStudioWpShimDirectory( getStudioWpShimScript( process.execPath, cliPath ) )
+	);
+}
+
 function buildAgentTools(
 	config: ResolvedStudioAgentTurnConfig,
 	chatArtifactsEnabled: boolean,
@@ -637,7 +652,10 @@ function buildAgentTools(
 		renameTool( createReadTool( STUDIO_SITES_ROOT ), 'Read' ),
 		designSystemPreview( renameTool( createWriteTool( STUDIO_SITES_ROOT ), 'Write' ) ),
 		designSystemPreview( renameTool( createEditTool( STUDIO_SITES_ROOT ), 'Edit' ) ),
-		renameTool( createBashTool( STUDIO_SITES_ROOT ), 'Bash' ),
+		renameTool(
+			createBashTool( STUDIO_SITES_ROOT, { spawnHook: getStudioWpSpawnHook() } ),
+			'Bash'
+		),
 		renameTool( createGrepTool( STUDIO_SITES_ROOT ), 'Grep' ),
 		renameTool( createFindTool( STUDIO_SITES_ROOT ), 'Glob' ),
 		renameTool( createLsTool( STUDIO_SITES_ROOT ), 'Ls' ),

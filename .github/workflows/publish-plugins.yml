@@ -31,7 +31,7 @@ jobs:
       # The CLI has the native files of every platform, so one Linux build serves all of them.
       - run: npm run cli:bundle:plugin
 
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: plugin-bundle
           path: standalone-bundles/wp-studio-*.zip

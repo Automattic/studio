@@ -22,7 +22,7 @@ const BODY_FILE_FIELD_NAME_PATTERN = /^[A-Za-z_][A-Za-z0-9_-]*$/;
  * the agent's output budget. The v1.1 API doesn't support
  * sub-field filtering (e.g. `fields=plan.product_slug`), so we can't solve this
  * via query params. The agent only needs a few plan properties to gate features
- * since the `wpcom-remote-management` skill says what each plan tier can do.
+ * since the `edit-manage-remote-site` skill says what each plan tier can do.
  *
  * This is NOT a pattern to follow for other endpoints. For general large responses,
  * the skill instructs the agent to use `_fields` (wp/v2) or `fields` (v1.1)

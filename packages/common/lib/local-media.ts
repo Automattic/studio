@@ -1,4 +1,4 @@
-import { realpath, stat } from 'node:fs/promises';
+import { stat } from 'node:fs/promises';
 import path from 'node:path';
 import { resolveMigratedAiSessionsPath } from '@studio/common/ai/sessions/root-migration';
 import { getLocalMediaMimeType } from '@studio/common/lib/media-mime';
@@ -13,47 +13,36 @@ const LOCAL_MEDIA_MIME_TYPES = new Set( [
 	'image/avif',
 ] );
 
-// `requested` with symlinks resolved, when it lies inside `root` both as
-// written and once resolved.
-async function resolveWithinRoot( root: string, requested: string ): Promise< string | null > {
-	const candidate = path.resolve( root, requested );
-	if ( ! candidate.startsWith( path.resolve( root ) + path.sep ) ) {
-		return null;
-	}
-	try {
-		const resolved = await realpath( candidate );
-		return resolved.startsWith( ( await realpath( root ) ) + path.sep ) ? resolved : null;
-	} catch {
-		return null;
-	}
-}
-
-export interface LocalMediaFile {
-	path: string;
-	mimeType: string;
-	size: number;
-	root: string;
-}
-
 /**
- * Resolves a media file the agent wrote (screenshots in the sessions folder,
- * generated images in a site) to a raster image inside one of `roots`, or null.
- * A path under a pre-migration sessions folder resolves to its new location.
+ * Resolves an image the agent wrote (screenshots in the sessions folder,
+ * generated images in a site) when its path lies inside one of `roots`, or null.
+ * Symlinks are followed, so a theme or uploads folder linked in from elsewhere
+ * still works. A path under a pre-migration sessions folder resolves to its new
+ * location.
  */
 export async function resolveLocalMediaFile(
 	requested: string,
 	roots: string[]
-): Promise< LocalMediaFile | null > {
+): Promise< { path: string; mimeType: string; size: number; root: string } | null > {
 	const mimeType = getLocalMediaMimeType( requested );
 	if ( ! LOCAL_MEDIA_MIME_TYPES.has( mimeType ) ) {
 		return null;
 	}
 	for ( const candidate of new Set( [ requested, resolveMigratedAiSessionsPath( requested ) ] ) ) {
 		for ( const root of roots ) {
-			const resolved = await resolveWithinRoot( root, candidate );
-			const stats = resolved ? await stat( resolved ).catch( () => null ) : null;
-			if ( resolved && stats?.isFile() ) {
-				return { path: resolved, mimeType, size: stats.size, root };
+			const file = path.resolve( root, candidate );
+			const relative = path.relative( root, file );
+			if (
+				! relative ||
+				relative === '..' ||
+				relative.startsWith( `..${ path.sep }` ) ||
+				path.isAbsolute( relative )
+			) {
+				continue;
+			}
+			const stats = await stat( file ).catch( () => null );
+			if ( stats?.isFile() ) {
+				return { path: file, mimeType, size: stats.size, root };
 			}
 		}
 	}

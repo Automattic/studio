@@ -78,6 +78,11 @@ function timestampLogLine( line: string ): string {
 }
 
 function writeTimestampedLines( target: WriteStream, content: string ) {
+	// Child output can still arrive after the stream is ended, and a write between end() and
+	// finish emits an unhandled 'error' that kills the daemon.
+	if ( target.writableEnded ) {
+		return;
+	}
 	const normalizedContent = content.split( '\r\n' ).join( '\n' );
 	const lines = normalizedContent.trimEnd().split( '\n' );
 
@@ -267,6 +272,8 @@ export class ProcessManagerDaemon {
 
 		this.managedProcesses.set( pmId, managedProcess );
 
+		// Tells restarts of the same site apart in its shared log files.
+		writeTimestampedLines( stdoutStream, `[Process manager] Started (pid: ${ child.pid })` );
 		this.pipeOutputWithTimestamp( child.stdout, stdoutStream );
 		this.pipeOutputWithTimestamp( child.stderr, stderrStream, ( line ) => {
 			this.recordStderrLine( managedProcess, line );
@@ -304,8 +311,13 @@ export class ProcessManagerDaemon {
 			void this.handleProcessExit( managedProcess );
 		} );
 
-		child.on( 'exit', () => {
-			void this.handleProcessExit( managedProcess );
+		child.on( 'exit', ( code, signal ) => {
+			// A process killed from outside or crashed natively writes nothing itself; its exit
+			// code (e.g. 3221225477 for an access violation on Windows) is the only trace.
+			void this.handleProcessExit(
+				managedProcess,
+				`[Process manager] Exited (pid: ${ child.pid }, code: ${ code }, signal: ${ signal })`
+			);
 		} );
 
 		await this.broadcastEvent( {
@@ -347,7 +359,7 @@ export class ProcessManagerDaemon {
 		} );
 	}
 
-	private async handleProcessExit( managedProcess: ManagedProcess ) {
+	private async handleProcessExit( managedProcess: ManagedProcess, exitStatus?: string ) {
 		if ( managedProcess.settled ) {
 			return;
 		}
@@ -355,6 +367,10 @@ export class ProcessManagerDaemon {
 		managedProcess.settled = true;
 		managedProcess.status = 'stopped';
 		this.managedProcesses.delete( managedProcess.pmId );
+		if ( exitStatus ) {
+			writeTimestampedLines( managedProcess.stderrStream, exitStatus );
+			this.recordStderrLine( managedProcess, exitStatus );
+		}
 		managedProcess.stdoutStream.end();
 		managedProcess.stderrStream.end();
 
@@ -410,7 +426,9 @@ export class ProcessManagerDaemon {
 		} );
 
 		lineReader.on( 'line', ( line ) => {
-			void target.write( timestampLogLine( line ) );
+			if ( ! target.writableEnded ) {
+				target.write( timestampLogLine( line ) );
+			}
 			onLine?.( line );
 		} );
 	}

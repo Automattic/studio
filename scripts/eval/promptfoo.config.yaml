@@ -739,8 +739,12 @@ tests:
                 return String(i.file_path || i.path || i.filePath || '').includes('/themes/ollie/');
               }
               if (c.name === 'Bash') {
-                // Reads are fine; catch anything that could mutate the parent.
-                return /themes\/ollie\//.test(i.command || '') && /\b(>|>>|sed\s+-i|mv|cp|rm|tee|touch)\b/.test(i.command || '');
+                // Reads are fine, and so is copying out of the parent; catch anything that could mutate it.
+                return String(i.command || '').split(/&&|\|\||;|\n/).some(segment => {
+                  const words = segment.trim().split(/\s+/);
+                  if (/^(cp|mv)$/.test(words[0])) return /themes\/ollie\//.test(words[words.length - 1]);
+                  return />>?\s*["']?[^\s"']*themes\/ollie\//.test(segment) || (/themes\/ollie\//.test(segment) && /\b(sed\s+-i|rm|tee|touch)\b/.test(segment));
+                });
               }
               return false;
             });
@@ -1032,9 +1036,9 @@ tests:
             const calls = d.toolCalls ?? [];
             const created = calls.find(t => t.name === 'site_create');
             if (created) return { pass: false, score: 0, reason: `site_create was called (${JSON.stringify(created.input)}) without asking first` };
-            const building = ['scaffold_theme', 'Write', 'Edit', 'wp_cli', 'validate_blocks', 'generate_images', 'pick_design', 'Skill'];
-            // Loading build-site is how the agent learns to ask; any other step means it started building.
-            const built = calls.find(t => building.includes(t.name) && !(t.name === 'Skill' && t.input?.name === 'build-site'));
+            // Loading skills only reads runbooks (build-site is how the agent learns to ask); any of these means it started building.
+            const building = ['scaffold_theme', 'Write', 'Edit', 'wp_cli', 'validate_blocks', 'generate_images', 'pick_design'];
+            const built = calls.find(t => building.includes(t.name));
             if (built) return { pass: false, score: 0, reason: `agent started building (${built.name}) instead of stopping to ask` };
             const text = (d.textSegments ?? []).join('\n');
             const mentionsCurrent = /(current|existing|active)\s+site|Eval Active Site/i.test(text);

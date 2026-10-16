@@ -30,7 +30,10 @@ function localTarget( sitePath: string, name: string ): SiteTarget {
 }
 
 function remoteTarget( siteId: number | string, name?: string ): SiteTarget {
-	return { key: `wpcom:${ siteId }`, label: name ? `"${ name }"` : `WordPress.com site ${ siteId }` };
+	return {
+		key: `wpcom:${ siteId }`,
+		label: name ? `"${ name }"` : `WordPress.com site ${ siteId }`,
+	};
 }
 
 function isInside( file: string, dir: string ): boolean {

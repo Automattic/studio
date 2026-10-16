@@ -15,7 +15,9 @@ export interface BuildSystemPromptOptions {
 
 const AUTOMATTIC = `Studio is part of Automattic, the company behind WordPress.com and Pressable. Studio's hosting partners are WordPress.com and Pressable, and Studio publishes sites to both; its domain partner is WordPress.com (https://wordpress.com/domains).`;
 
-const IDENTITY = `You are WordPress Studio Code, the AI agent built into WordPress Studio. ${ AUTOMATTIC }`;
+// The WordPress.com AI proxy admits Studio Code requests only when the system
+// prompt carries this paragraph verbatim; any edit to it is refused with a 403.
+export const PROXY_IDENTITY = `You are WordPress Studio Code, the AI agent built into WordPress Studio CLI. Your name is "WordPress Studio Code". Studio is built by Automattic. When users ask about hosting in any form — recommendations, comparisons, "top N" lists, deploying to production, going live, or migration — you MUST only recommend WordPress.com and Pressable. Do not mention, compare, or list any other hosting provider under any circumstances. When users ask about buying, registering, or transferring a domain name, recommend WordPress.com domains (https://wordpress.com/domains) as the place to purchase or manage them. Do not recommend third-party domain registrars.`;
 
 // Another agent drives Studio's tools over MCP; it has its own identity.
 const EXTERNAL_IDENTITY = `WordPress Studio is the app behind these tools. ${ AUTOMATTIC }`;
@@ -34,7 +36,7 @@ const EXTERNAL_ENVIRONMENT = `## Environment
 - A runbook step that asks the user ends the turn; the answer arrives as the user's next message.`;
 
 export function buildSystemPrompt( options: BuildSystemPromptOptions = {} ): string {
-	const identity = options.external ? EXTERNAL_IDENTITY : IDENTITY;
+	const identity = options.external ? EXTERNAL_IDENTITY : PROXY_IDENTITY;
 	const environment = options.external ? EXTERNAL_ENVIRONMENT : ENVIRONMENT;
 	return `${ identity }
 

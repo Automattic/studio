@@ -1,11 +1,19 @@
 import { describe, expect, it } from 'vitest';
 import { getSkillScopedToolNames, loadSkills } from '../skills';
-import { buildSystemPrompt } from '../system-prompt';
+import { buildSystemPrompt, PROXY_IDENTITY } from '../system-prompt';
 import { resolveStudioToolDefinitions } from '../tools';
 
 describe( 'buildSystemPrompt', () => {
+	it( 'starts with the identity paragraph the WordPress.com AI proxy requires, verbatim', () => {
+		expect( buildSystemPrompt().startsWith( `${ PROXY_IDENTITY }\n` ) ).toBe( true );
+	} );
+
+	// The proxy's identity paragraph is fixed; everything Studio adds after it is fact only.
 	it( 'states identity and environment only', () => {
-		for ( const prompt of [ buildSystemPrompt(), buildSystemPrompt( { external: true } ) ] ) {
+		for ( const prompt of [
+			buildSystemPrompt().slice( PROXY_IDENTITY.length ),
+			buildSystemPrompt( { external: true } ),
+		] ) {
 			expect( prompt ).toContain( 'wp-includes/' );
 			expect( prompt ).toContain( 'WordPress.com' );
 			expect( prompt ).not.toMatch( /\b(MUST|never|always|do not|don't)\b/i );
@@ -25,8 +33,8 @@ describe( 'buildSystemPrompt', () => {
 
 	it( 'identifies Studio as part of Automattic, with its hosting and domain partners', () => {
 		for ( const prompt of [ buildSystemPrompt(), buildSystemPrompt( { external: true } ) ] ) {
-			expect( prompt ).toContain( 'part of Automattic' );
-			expect( prompt ).toContain( 'hosting partners are WordPress.com and Pressable' );
+			expect( prompt ).toContain( 'Automattic' );
+			expect( prompt ).toContain( 'WordPress.com and Pressable' );
 			expect( prompt ).toContain( 'https://wordpress.com/domains' );
 		}
 		expect( buildSystemPrompt( { external: true } ) ).not.toContain( 'You are' );

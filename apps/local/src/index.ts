@@ -422,7 +422,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		}
 		const authEvent = cliAuthEventSchema.safeParse( data );
 		if ( authEvent.success ) {
-			sseSend( { channel: 'auth-event', payload: authEvent.data.value } );
+			sseSend( { channel: 'auth-event', payload: { event: authEvent.data.value.event } } );
 		}
 	} );
 
@@ -1343,7 +1343,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 
 	// Reachable cross-origin from the browser, so deliberately not a general
 	// file read: raster images under the sessions root or inside a site folder
-	// (where generated images go) only, symlinks resolved.
+	// (where generated images go) only.
 	api.get(
 		'/media/read',
 		asyncHandler( async ( req: Request, res: Response ) => {

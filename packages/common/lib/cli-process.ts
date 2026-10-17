@@ -166,11 +166,9 @@ export function killChild( child: ChildProcess, { force = true }: { force?: bool
 		return;
 	}
 
-	// SIGTERM is only a request, and the CLI ignores it: importing
-	// `wordpress-server-manager` registers a handler that aborts a controller
-	// without ever exiting, which replaces Node's default terminate. A child
-	// busy importing a site therefore survives `kill()` indefinitely — a
-	// cancelled sync would report "stopped" while still writing to the site.
+	// SIGTERM is only a request: importing `wordpress-server-manager` registers a
+	// handler that aborts a controller without ever exiting, which replaces
+	// Node's default terminate, so a child can survive `kill()` indefinitely.
 	// SIGKILL cannot be caught or ignored.
 	const forceKill = setTimeout( () => {
 		if ( child.exitCode === null && child.signalCode === null ) {

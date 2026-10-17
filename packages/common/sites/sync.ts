@@ -18,15 +18,17 @@ function runSyncCommand(
 
 		const [ emitter, child ] = executeCliCommand( args, { output: 'capture' } );
 
+		// Only asks: the CLI stops if the sync is still safe to stop (`exitOnCancel`), and
+		// otherwise finishes, so the outcome is whatever the command does next.
+		let cancelRequested = false;
 		const cancel = () => {
-			// Reject even if the kill fails — otherwise a cancel would hang the
-			// caller forever instead of stopping.
+			cancelRequested = true;
 			try {
-				killChild( child );
+				killChild( child, { force: false } );
 			} catch ( error ) {
 				console.error( 'Failed to stop the CLI process for', args[ 0 ], error );
+				reject( new SyncCancelledError() );
 			}
-			reject( new SyncCancelledError() );
 		};
 		signal?.addEventListener( 'abort', cancel, { once: true } );
 		const settle = ( run: () => void ) => {
@@ -35,7 +37,9 @@ function runSyncCommand(
 		};
 
 		emitter.on( 'success', () => settle( resolve ) );
-		emitter.on( 'failure', ( { error } ) => settle( () => reject( error ) ) );
+		emitter.on( 'failure', ( { error } ) =>
+			settle( () => reject( cancelRequested ? new SyncCancelledError() : error ) )
+		);
 		emitter.on( 'error', ( { error } ) => settle( () => reject( error ) ) );
 	} );
 }

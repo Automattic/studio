@@ -100,8 +100,11 @@ export function createPreviewReloader( {
 	let lastReload = Date.now();
 	let ranDatabaseWriter = false;
 
-	const reloadNow = ( source: 'tool' | 'request' ) => {
-		lastReload = Date.now();
+	// `changedAt` is the newest change the reload shows. File times can run
+	// ahead of the process clock (on Windows notably), and a later check must
+	// not mistake the change just shown for a new one.
+	const reloadNow = ( source: 'tool' | 'request', changedAt = 0 ) => {
+		lastReload = Math.max( Date.now(), changedAt );
 		reload( source );
 	};
 
@@ -114,11 +117,14 @@ export function createPreviewReloader( {
 			);
 			if ( ! sitePath ) return;
 			const wpContent = wpContentOf( sitePath ) + path.sep;
-			const changedFile = calls.some( ( call ) => {
-				const file = namedPath( call.arguments, cwd );
-				return file?.startsWith( wpContent ) && modifiedAt( file ) > lastReload;
-			} );
-			if ( changedFile ) reloadNow( 'tool' );
+			const changedAt = Math.max(
+				0,
+				...calls.map( ( call ) => {
+					const file = namedPath( call.arguments, cwd );
+					return file?.startsWith( wpContent ) ? modifiedAt( file ) : 0;
+				} )
+			);
+			if ( changedAt > lastReload ) reloadNow( 'tool', changedAt );
 			return;
 		}
 		// An `agent_end` that will retry is not the end of the request.

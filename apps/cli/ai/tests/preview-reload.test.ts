@@ -112,10 +112,8 @@ describe( 'createPreviewReloader', () => {
 
 	it( 'does not reload when the request ends if nothing changed since the last reload', async () => {
 		const { reload, onEvent } = reloader();
-		// Written a moment after the request started, as an agent's edit is.
-		await new Promise( ( resolve ) => setTimeout( resolve, 20 ) );
-		const file = path.join( site, 'wp-content/themes/theme/style.css' );
-		writeFileSync( file, 'y' );
+		// Dated ahead of the process clock, as file times can be on Windows.
+		const file = write( 'wp-content/themes/theme/style.css', 2 );
 		onEvent( turnEnd( [ { path: file } ] ) );
 		expect( reload ).toHaveBeenCalledTimes( 1 );
 		onEvent( agentEnd );

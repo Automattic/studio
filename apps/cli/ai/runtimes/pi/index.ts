@@ -51,7 +51,7 @@ import { createSkillTool } from 'cli/ai/tools/skill';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import { getFileToolPrompt } from './file-tool-prompts';
 import { getPendingWork, type PendingWork } from './pending-work';
-import { createPreviewChangeDetector } from './preview-reload';
+import { createPreviewReloader } from './preview-reload';
 import { stripStaleImagesFromContext } from './strip-stale-images';
 import {
 	getIncompleteToolCallReason,
@@ -235,19 +235,25 @@ async function runAgentSessionTurn(
 		session = await createStudioAgentSession( config, family, resolved.creds, payloadGuardState );
 		setActiveSession( session );
 		// The preview shows the request's active site, or one a tool made active since.
+		// A Studio UI with a preview pane is attached when process.send exists.
 		const selectedAtStart = getLastSelectedLocalSite();
-		const previewChanged = createPreviewChangeDetector( () => {
-			const selected = getLastSelectedLocalSite();
-			const site = selected !== selectedAtStart ? selected : config.activeSite;
-			return site && ! site.remote ? site.path : undefined;
-		} );
+		const reloadPreview =
+			typeof process.send === 'function'
+				? createPreviewReloader( {
+						getSitePath: () => {
+							const selected = getLastSelectedLocalSite();
+							const site = selected !== selectedAtStart ? selected : config.activeSite;
+							return site && ! site.remote ? site.path : undefined;
+						},
+						cwd: STUDIO_SITES_ROOT,
+						reload: () =>
+							emitEvent( { type: 'preview.reload', timestamp: new Date().toISOString() } ),
+				  } )
+				: undefined;
 		unsubscribe = session.subscribe( ( event ) => {
 			updateStudioToolPayloadGuardState( event, payloadGuardState );
 			config.onEvent( event );
-			// A Studio UI with a preview pane is attached when process.send exists.
-			if ( typeof process.send === 'function' && previewChanged( event ) ) {
-				emitEvent( { type: 'preview.reload', timestamp: new Date().toISOString() } );
-			}
+			reloadPreview?.( event );
 		} );
 
 		if ( controller.signal.aborted ) {

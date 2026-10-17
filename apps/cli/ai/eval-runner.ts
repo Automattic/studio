@@ -6,7 +6,14 @@
  * promptfoo config, not here.
  */
 
-import { mkdirSync, writeFileSync, writeSync as fsWriteSync } from 'node:fs';
+import {
+	mkdirSync,
+	mkdtempSync,
+	readdirSync,
+	readFileSync,
+	writeFileSync,
+	writeSync as fsWriteSync,
+} from 'node:fs';
 import { rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -22,6 +29,7 @@ import {
 	addConnectedWpcomSite,
 	removeConnectedWpcomSite,
 } from '@studio/common/lib/connected-sites';
+import { portFinder } from '@studio/common/lib/port-finder';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { SITE_FILE_ACCESS_SITE_DIRECTORY } from '@studio/common/lib/site-file-access';
 import { getGlobalInstructionsPath } from '@studio/common/lib/well-known-paths';
@@ -33,6 +41,7 @@ import {
 	resolveInitialAiProvider,
 	resolveUnavailableAiProvider,
 } from 'cli/ai/auth';
+import { captureTurnOutcome, fingerprintSites, type TurnOutcome } from 'cli/ai/eval-outcome';
 import { runStudioAgentTurn } from 'cli/ai/runtimes/pi';
 import { formatActiveSitePrefix } from 'cli/ai/site-selection';
 import { runCommand as runCreateSiteCommand } from 'cli/commands/site/create';
@@ -103,6 +112,7 @@ interface SeededFixtures {
 	cleanup: () => Promise< void >;
 	inspect: () => Promise< Inspection[] >;
 	promptPrefix?: string;
+	activeSitePath?: string;
 }
 
 /**
@@ -112,6 +122,79 @@ interface SeededFixtures {
  * `globalInstructions` is the exception: it overwrites the user's real
  * instructions file, so cleanup restores the prior content instead.
  */
+// The folder site_create gives a site of this name.
+function siteSlug( name: string ): string {
+	return name
+		.toLowerCase()
+		.replace( /[^a-z0-9]+/g, '-' )
+		.replace( /^-|-$/g, '' );
+}
+
+const REGISTRY_PREFIX = 'studio-eval-registry-';
+
+// Each eval runs against its own Studio site registry (cli.json), so sites that
+// other Studio sessions on this machine create never enter the turn, and
+// concurrent cases do not see each other's sites. Ports already given to the
+// user's sites and to other eval registries stay reserved.
+async function isolateSiteRegistry() {
+	const ports = ( await readCliConfig() ).sites.map( ( site ) => site.port );
+	for ( const entry of readdirSync( os.tmpdir() ) ) {
+		if ( ! entry.startsWith( REGISTRY_PREFIX ) ) continue;
+		try {
+			const registry = JSON.parse(
+				readFileSync( path.join( os.tmpdir(), entry, 'cli.json' ), 'utf8' )
+			) as { sites?: Array< { port: number } > };
+			ports.push( ...( registry.sites ?? [] ).map( ( site ) => site.port ) );
+		} catch {
+			// A registry with no sites yet.
+		}
+	}
+	for ( const port of ports ) {
+		portFinder.addUnavailablePort( port );
+	}
+	process.env.E2E = '1';
+	process.env.E2E_CLI_CONFIG_PATH = mkdtempSync( path.join( os.tmpdir(), REGISTRY_PREFIX ) );
+}
+
+// Stopped sites the request is not about, as a user with a few sites has, so
+// the outcome can show whether the turn left the user's other sites alone.
+const BYSTANDER_SITES = [ 'Portfolio', 'Client Work' ];
+
+async function createBystanderSites(): Promise< string[] > {
+	const created: string[] = [];
+	for ( const name of BYSTANDER_SITES ) {
+		const bystanderPath = path.join( STUDIO_SITES_ROOT, `eval-bystander-${ siteSlug( name ) }` );
+		try {
+			await runCreateSiteCommand(
+				bystanderPath,
+				{
+					name,
+					wpVersion: 'latest',
+					phpVersion: DEFAULT_PHP_VERSION,
+					fileAccess: SITE_FILE_ACCESS_SITE_DIRECTORY,
+					enableHttps: false,
+					noStart: true,
+					skipBrowser: true,
+					skipLogDetails: true,
+				},
+				new Logger()
+			);
+		} catch ( error ) {
+			await rm( bystanderPath, { recursive: true, force: true } );
+			await deleteSites( created );
+			throw error;
+		}
+		created.push( bystanderPath );
+	}
+	return created;
+}
+
+async function deleteSites( sitePaths: string[] ): Promise< void > {
+	for ( const sitePath of sitePaths ) {
+		await runDeleteSiteCommand( sitePath, true, new Logger() ).catch( () => undefined );
+	}
+}
+
 async function seedFixtures( seed: EvalSeed ): Promise< SeededFixtures > {
 	const {
 		localSite,
@@ -172,11 +255,7 @@ async function seedFixtures( seed: EvalSeed ): Promise< SeededFixtures > {
 	let promptPrefix: string | undefined;
 	let activeSitePath: string | undefined;
 	if ( activeSite ) {
-		const slug = activeSite.name
-			.toLowerCase()
-			.replace( /[^a-z0-9]+/g, '-' )
-			.replace( /^-|-$/g, '' );
-		activeSitePath = path.join( STUDIO_SITES_ROOT, slug );
+		activeSitePath = path.join( STUDIO_SITES_ROOT, siteSlug( activeSite.name ) );
 		// WordPress is installed on first start, so WP-CLI seeds need a started site.
 		const needsInstall = !! activeSite.wpCli?.length;
 		await runCreateSiteCommand(
@@ -277,7 +356,7 @@ async function seedFixtures( seed: EvalSeed ): Promise< SeededFixtures > {
 			}
 		}
 	};
-	return { cleanup, inspect, promptPrefix };
+	return { cleanup, inspect, promptPrefix, activeSitePath };
 }
 
 function extractToolCalls( event: AgentSessionEvent ) {
@@ -454,15 +533,29 @@ async function runEval( input: EvalRunnerInput ) {
 	let error: string | null = null;
 	let timedOut = false;
 	let lastTurnEndedEmpty = false;
+	// Summed from each assistant message's usage, so evals can compare the
+	// token and dollar cost of prompt variants, not just their outcomes.
+	const usage = {
+		input: 0,
+		output: 0,
+		cacheRead: 0,
+		cacheWrite: 0,
+		totalTokens: 0,
+		costUsd: 0,
+	};
+
+	await isolateSiteRegistry();
+	const bystanderPaths = await createBystanderSites();
 
 	let seeded: SeededFixtures | null = null;
 	let inspections: Inspection[] = [];
+	let outcome: TurnOutcome | { error: string } | null = null;
 	let prompt = input.prompt.trim();
 	if ( input.seed ) {
 		seeded = await seedFixtures( input.seed );
-		if ( seeded.promptPrefix ) {
-			prompt = `${ seeded.promptPrefix }\n\n${ prompt }`;
-		}
+	}
+	if ( seeded?.promptPrefix ) {
+		prompt = `${ seeded.promptPrefix }\n\n${ prompt }`;
 	}
 
 	phaseStartedAt = Date.now();
@@ -479,6 +572,15 @@ async function runEval( input: EvalRunnerInput ) {
 
 	const handleEvent = ( event: AgentSessionEvent ): void => {
 		if ( event.type === 'message_end' && event.message.role === 'assistant' ) {
+			const messageUsage = event.message.usage;
+			if ( messageUsage ) {
+				usage.input += messageUsage.input;
+				usage.output += messageUsage.output;
+				usage.cacheRead += messageUsage.cacheRead;
+				usage.cacheWrite += messageUsage.cacheWrite;
+				usage.totalTokens += messageUsage.totalTokens;
+				usage.costUsd += messageUsage.cost.total;
+			}
 			const now = Date.now();
 			turnDurationsMs.push( now - turnStart );
 			turnIndex += 1;
@@ -560,6 +662,7 @@ async function runEval( input: EvalRunnerInput ) {
 			onEvent: handleEvent,
 			...( input.model ? { model: input.model } : {} ),
 		} );
+	const sitesBeforeTurn = await fingerprintSites();
 	let query = runTurn( prompt );
 	phaseTimingsMs.start_ai_agent_ms = Date.now() - phaseStartedAt;
 
@@ -586,10 +689,18 @@ async function runEval( input: EvalRunnerInput ) {
 		error = caught instanceof Error ? caught.message : String( caught );
 	} finally {
 		clearTimeout( timeout );
+		outcome = await captureTurnOutcome(
+			sitesBeforeTurn,
+			seeded?.activeSitePath,
+			mkdtempSync( path.join( os.tmpdir(), 'studio-eval-outcome-' ) )
+		).catch( ( caught ) => ( {
+			error: caught instanceof Error ? caught.message : String( caught ),
+		} ) );
 		if ( seeded ) {
 			inspections = await seeded.inspect().catch( () => [] );
 			await seeded.cleanup().catch( () => undefined );
 		}
+		await deleteSites( bystanderPaths );
 	}
 	phaseTimingsMs.total_eval_ms = elapsed();
 
@@ -602,12 +713,14 @@ async function runEval( input: EvalRunnerInput ) {
 		autoContinues,
 		phaseTimingsMs,
 		turnDurationsMs,
+		usage,
 		toolCalls,
 		toolResults,
 		toolEvents,
 		firstToolError,
 		textSegments,
 		inspections,
+		outcome,
 	};
 }
 

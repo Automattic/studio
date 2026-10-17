@@ -42,6 +42,7 @@ import { type TSchema } from 'typebox';
 import { withDesignSystemPreview } from 'cli/ai/chat-artifacts';
 import { isImageGenerationAvailable } from 'cli/ai/image-generation';
 import { emitEvent } from 'cli/ai/json-events';
+import { getLastSelectedLocalSite } from 'cli/ai/site-selection';
 import { buildSystemPrompt, type ToolPromptContribution } from 'cli/ai/system-prompt';
 import { resolveStudioToolDefinitions } from 'cli/ai/tools';
 import { createAskUserQuestionTool } from 'cli/ai/tools/ask-user-question';
@@ -50,7 +51,7 @@ import { createSkillTool } from 'cli/ai/tools/skill';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import { getFileToolPrompt } from './file-tool-prompts';
 import { getPendingWork, type PendingWork } from './pending-work';
-import { changesPreview } from './preview-reload';
+import { createPreviewChangeDetector } from './preview-reload';
 import { stripStaleImagesFromContext } from './strip-stale-images';
 import {
 	getIncompleteToolCallReason,
@@ -233,11 +234,18 @@ async function runAgentSessionTurn(
 	try {
 		session = await createStudioAgentSession( config, family, resolved.creds, payloadGuardState );
 		setActiveSession( session );
+		// The preview shows the turn's active site, or one a tool made active since.
+		const selectedAtStart = getLastSelectedLocalSite();
+		const previewChanged = createPreviewChangeDetector( () => {
+			const selected = getLastSelectedLocalSite();
+			const site = selected !== selectedAtStart ? selected : config.activeSite;
+			return site && ! site.remote ? site.path : undefined;
+		} );
 		unsubscribe = session.subscribe( ( event ) => {
 			updateStudioToolPayloadGuardState( event, payloadGuardState );
 			config.onEvent( event );
 			// A Studio UI with a preview pane is attached when process.send exists.
-			if ( typeof process.send === 'function' && changesPreview( event ) ) {
+			if ( typeof process.send === 'function' && previewChanged( event ) ) {
 				emitEvent( { type: 'preview.reload', timestamp: new Date().toISOString() } );
 			}
 		} );

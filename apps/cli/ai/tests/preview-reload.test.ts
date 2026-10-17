@@ -1,67 +1,66 @@
-import { describe, expect, it } from 'vitest';
-import { changesPreview } from 'cli/ai/runtimes/pi/preview-reload';
+import { mkdirSync, mkdtempSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { createPreviewChangeDetector } from 'cli/ai/runtimes/pi/preview-reload';
 import type { AgentSessionEvent } from '@earendil-works/pi-coding-agent';
 
-function turnEnd(
-	calls: Array< { name: string; args?: Record< string, unknown >; isError?: boolean } >
-): AgentSessionEvent {
-	return {
-		type: 'turn_end',
-		message: {
-			role: 'assistant',
-			content: calls.map( ( call, index ) => ( {
-				type: 'toolCall',
-				id: `call-${ index }`,
-				name: call.name,
-				arguments: call.args ?? {},
-			} ) ),
-		},
-		toolResults: calls.map( ( call, index ) => ( {
-			role: 'toolResult',
-			toolCallId: `call-${ index }`,
-			toolName: call.name,
-			content: [],
-			isError: call.isError ?? false,
-		} ) ),
-	} as unknown as AgentSessionEvent;
+const turnStart = { type: 'turn_start' } as AgentSessionEvent;
+const turnEnd = { type: 'turn_end' } as AgentSessionEvent;
+
+let site: string;
+let clock: number;
+
+// Writes a file with an mtime later than anything written before it.
+function write( relativePath: string, content = 'x' ) {
+	const file = path.join( site, relativePath );
+	mkdirSync( path.dirname( file ), { recursive: true } );
+	writeFileSync( file, content );
+	clock += 10;
+	utimesSync( file, clock, clock );
 }
 
-describe( 'changesPreview', () => {
-	it( 'reloads after a turn that wrote a file or changed the site', () => {
-		expect( changesPreview( turnEnd( [ { name: 'Edit' } ] ) ) ).toBe( true );
-		expect(
-			changesPreview(
-				turnEnd( [ { name: 'wp_cli', args: { command: 'option update blogname Bakery' } } ] )
-			)
-		).toBe( true );
-		expect(
-			changesPreview(
-				turnEnd( [ { name: 'wpcom_request', args: { method: 'POST', path: '/pages/4' } } ] )
-			)
-		).toBe( true );
+beforeEach( () => {
+	site = mkdtempSync( path.join( tmpdir(), 'preview-reload-' ) );
+	clock = Math.floor( Date.now() / 1000 );
+	write( 'wp-content/database/.ht.sqlite' );
+	write( 'wp-content/themes/twentytwentyfive/style.css' );
+} );
+
+afterEach( () => rmSync( site, { recursive: true, force: true } ) );
+
+describe( 'createPreviewChangeDetector', () => {
+	it( 'reports a turn that changed a theme file, plugin, upload or the database', () => {
+		const changed = createPreviewChangeDetector( () => site );
+		for ( const file of [
+			'wp-content/themes/twentytwentyfive/style.css',
+			'wp-content/plugins/new/new.php',
+			'wp-content/uploads/hero.png',
+			'wp-content/database/.ht.sqlite',
+		] ) {
+			changed( turnStart );
+			write( file );
+			expect( changed( turnEnd ) ).toBe( true );
+		}
 	} );
 
-	it( 'does not reload after a turn that only read', () => {
-		expect( changesPreview( turnEnd( [ { name: 'Read' } ] ) ) ).toBe( false );
-		expect(
-			changesPreview( turnEnd( [ { name: 'wp_cli', args: { command: 'post list' } } ] ) )
-		).toBe( false );
-		expect(
-			changesPreview(
-				turnEnd( [ { name: 'wpcom_request', args: { method: 'GET', path: '/posts' } } ] )
-			)
-		).toBe( false );
+	it( 'does not report a turn that left wp-content untouched', () => {
+		const changed = createPreviewChangeDetector( () => site );
+		changed( turnStart );
+		write( 'DESIGN.md' );
+		expect( changed( turnEnd ) ).toBe( false );
 	} );
 
-	it( 'does not reload after a failed change', () => {
-		expect( changesPreview( turnEnd( [ { name: 'Write', isError: true } ] ) ) ).toBe( false );
-	} );
+	it( 'does not report without a local site, or when the site changed mid-turn', () => {
+		const none = createPreviewChangeDetector( () => undefined );
+		none( turnStart );
+		expect( none( turnEnd ) ).toBe( false );
 
-	it( 'reloads once per turn, at its end', () => {
-		const end = turnEnd( [ { name: 'Write' }, { name: 'Edit' } ] );
-		expect( changesPreview( end ) ).toBe( true );
-		expect( changesPreview( { ...end, type: 'tool_execution_end' } as AgentSessionEvent ) ).toBe(
-			false
-		);
+		let current = site;
+		const switched = createPreviewChangeDetector( () => current );
+		switched( turnStart );
+		write( 'wp-content/themes/twentytwentyfive/style.css' );
+		current = path.join( site, 'other' );
+		expect( switched( turnEnd ) ).toBe( false );
 	} );
 } );

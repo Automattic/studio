@@ -25,9 +25,8 @@ export function calculateDirectorySizeForArchive(
 	return new Promise( ( resolve, reject ) => {
 		let totalSize = 0;
 
-		// Symlinked directories are followed, as the archive includes their
-		// contents. `ancestors` holds the real paths above `dirPath`, so a link
-		// back to one of them doesn't recurse forever.
+		// Follows symlinked directories, like the archive does. `ancestors` (the
+		// real paths above `dirPath`) stops a link back to one from looping.
 		async function calculateSize( dirPath: string, ancestors: string[] = [] ): Promise< void > {
 			const realPath = await fsPromises.realpath( dirPath );
 			if ( ancestors.includes( realPath ) ) {

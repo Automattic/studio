@@ -40,13 +40,18 @@ describe( 'calculateDirectorySizeForArchive', () => {
 	} );
 
 	it( 'counts the contents of a symlinked directory', async () => {
-		const target = fs.mkdtempSync( path.join( os.tmpdir(), 'fs-utils-target-' ) );
-		fs.writeFileSync( path.join( target, 'plugin.php' ), '1234567' );
-		fs.symlinkSync( target, path.join( tempDir, 'linked-plugin' ), 'junction' );
+		fs.mkdirSync( path.join( tempDir, 'site' ) );
+		fs.mkdirSync( path.join( tempDir, 'target' ) );
+		fs.writeFileSync( path.join( tempDir, 'target', 'plugin.php' ), '1234567' );
+		fs.symlinkSync(
+			path.join( tempDir, 'target' ),
+			path.join( tempDir, 'site', 'linked' ),
+			'junction'
+		);
 
-		await expect( calculateDirectorySizeForArchive( tempDir ) ).resolves.toBe( 7 );
-
-		fs.rmSync( target, { recursive: true, force: true } );
+		await expect( calculateDirectorySizeForArchive( path.join( tempDir, 'site' ) ) ).resolves.toBe(
+			7
+		);
 	} );
 
 	it( 'stops at a symlink back to a parent directory', async () => {

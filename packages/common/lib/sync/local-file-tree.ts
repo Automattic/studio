@@ -53,11 +53,9 @@ export async function listLocalFileTree(
 			const directoryEntry: RawDirectoryEntry = {
 				name: entry.name,
 				isDirectory,
+				isSymlink,
 				path: itemPath,
 			};
-			if ( isSymlink ) {
-				directoryEntry.isSymlink = true;
-			}
 
 			const shouldLimit = shouldLimitDepth( itemPath );
 			if ( isDirectory && currentDepth < maxDepth && ! shouldLimit ) {

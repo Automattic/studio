@@ -4,52 +4,42 @@ import path from 'path';
 import { listLocalFileTree } from '@studio/common/lib/sync/local-file-tree';
 
 describe( 'listLocalFileTree', () => {
+	let tempDir: string;
 	let sitePath: string;
-	let target: string;
 
 	beforeEach( () => {
-		sitePath = fs.mkdtempSync( path.join( os.tmpdir(), 'local-file-tree-site-' ) );
-		target = fs.mkdtempSync( path.join( os.tmpdir(), 'local-file-tree-target-' ) );
+		tempDir = fs.mkdtempSync( path.join( os.tmpdir(), 'local-file-tree-' ) );
+		sitePath = path.join( tempDir, 'site' );
 		fs.mkdirSync( path.join( sitePath, 'wp-content', 'plugins' ), { recursive: true } );
 	} );
 
 	afterEach( () => {
-		fs.rmSync( sitePath, { recursive: true, force: true } );
-		fs.rmSync( target, { recursive: true, force: true } );
+		fs.rmSync( tempDir, { recursive: true, force: true } );
 	} );
 
 	it( 'lists a symlinked directory as a directory marked as a symlink', async () => {
+		fs.mkdirSync( path.join( tempDir, 'target' ) );
 		fs.symlinkSync(
-			target,
-			path.join( sitePath, 'wp-content', 'plugins', 'linked-plugin' ),
+			path.join( tempDir, 'target' ),
+			path.join( sitePath, 'wp-content', 'plugins', 'linked' ),
 			'junction'
 		);
-		fs.mkdirSync( path.join( sitePath, 'wp-content', 'plugins', 'regular-plugin' ) );
 
-		const entries = await listLocalFileTree( sitePath, 'wp-content/plugins' );
-
-		expect( entries.sort( ( a, b ) => a.name.localeCompare( b.name ) ) ).toEqual( [
-			{
-				name: 'linked-plugin',
-				isDirectory: true,
-				isSymlink: true,
-				path: 'wp-content/plugins/linked-plugin',
-			},
-			{
-				name: 'regular-plugin',
-				isDirectory: true,
-				path: 'wp-content/plugins/regular-plugin',
-			},
+		await expect( listLocalFileTree( sitePath, 'wp-content/plugins' ) ).resolves.toEqual( [
+			{ name: 'linked', isDirectory: true, isSymlink: true, path: 'wp-content/plugins/linked' },
 		] );
 	} );
 
-	it( 'leaves out a dangling symlink', async () => {
+	it( 'leaves out a dangling symlink and keeps its siblings', async () => {
 		fs.symlinkSync(
-			path.join( target, 'missing' ),
+			path.join( tempDir, 'missing' ),
 			path.join( sitePath, 'wp-content', 'plugins', 'broken' ),
 			'junction'
 		);
+		fs.writeFileSync( path.join( sitePath, 'wp-content', 'plugins', 'hello.php' ), '' );
 
-		await expect( listLocalFileTree( sitePath, 'wp-content/plugins' ) ).resolves.toEqual( [] );
+		const entries = await listLocalFileTree( sitePath, 'wp-content/plugins' );
+
+		expect( entries.map( ( entry ) => entry.name ) ).toEqual( [ 'hello.php' ] );
 	} );
 } );

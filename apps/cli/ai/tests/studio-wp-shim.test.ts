@@ -1,4 +1,4 @@
-import { execFileSync } from 'child_process';
+import { execFileSync, spawnSync } from 'child_process';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
@@ -47,6 +47,37 @@ describe.skipIf( process.platform === 'win32' )( 'studio wp shim', () => {
 			'--post_title=Ember & Oak',
 			'page.html',
 		] );
+	} );
+
+	it( 'passes stdin, inline environment variables and exit code through', () => {
+		// Stands in for the CLI entry: echoes stdin and an environment variable, then exits 3.
+		const cliPath = path.join( root, 'main.mjs' );
+		fs.writeFileSync(
+			cliPath,
+			[
+				"import fs from 'fs';",
+				'process.stdout.write( `${ process.env.TAXONOMIST_MODE }:${ fs.readFileSync( 0, "utf8" ) }` );',
+				'process.exit( 3 );',
+			].join( '\n' )
+		);
+		const directory = ensureStudioWpShimDirectory(
+			getStudioWpShimScript( process.execPath, cliPath ),
+			path.join( root, 'agent-bin' )
+		);
+		const { env } = prependToPath( directory )( {
+			command: '',
+			cwd: root,
+			env: { PATH: '/usr/bin:/bin' },
+		} );
+
+		const result = spawnSync(
+			'/bin/sh',
+			[ '-c', 'TAXONOMIST_MODE=apply wp eval-file taxonomist.php' ],
+			{ env, input: 'post content', encoding: 'utf8' }
+		);
+
+		expect( result.stdout ).toBe( 'apply:post content' );
+		expect( result.status ).toBe( 3 );
 	} );
 
 	it( 'reuses the shim directory for the same script', () => {

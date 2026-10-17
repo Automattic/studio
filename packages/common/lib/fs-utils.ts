@@ -25,7 +25,14 @@ export function calculateDirectorySizeForArchive(
 	return new Promise( ( resolve, reject ) => {
 		let totalSize = 0;
 
-		async function calculateSize( dirPath: string ): Promise< void > {
+		// Symlinked directories are followed, as the archive includes their
+		// contents. `ancestors` holds the real paths above `dirPath`, so a link
+		// back to one of them doesn't recurse forever.
+		async function calculateSize( dirPath: string, ancestors: string[] = [] ): Promise< void > {
+			const realPath = await fsPromises.realpath( dirPath );
+			if ( ancestors.includes( realPath ) ) {
+				return;
+			}
 			try {
 				const files = await fsPromises.readdir( dirPath, { withFileTypes: true } );
 
@@ -40,10 +47,10 @@ export function calculateDirectorySizeForArchive(
 							if ( ig.ignores( ignorePath ) ) {
 								return;
 							}
-							if ( file.isDirectory() ) {
-								await calculateSize( filePath );
+							const stats = await fsPromises.stat( filePath );
+							if ( stats.isDirectory() ) {
+								await calculateSize( filePath, [ ...ancestors, realPath ] );
 							} else {
-								const stats = await fsPromises.stat( filePath );
 								totalSize += stats.size;
 							}
 						} catch ( error ) {

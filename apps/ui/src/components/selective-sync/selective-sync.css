@@ -488,6 +488,10 @@
   fill: var(--color-frame-text)
 }
 
+.fill-frame-text-secondary {
+  fill: var(--color-frame-text-secondary)
+}
+
 .fill-white {
   fill: #fff
 }

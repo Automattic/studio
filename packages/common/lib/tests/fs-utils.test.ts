@@ -38,6 +38,24 @@ describe( 'calculateDirectorySizeForArchive', () => {
 
 		warnSpy.mockRestore();
 	} );
+
+	it( 'counts the contents of a symlinked directory', async () => {
+		const target = fs.mkdtempSync( path.join( os.tmpdir(), 'fs-utils-target-' ) );
+		fs.writeFileSync( path.join( target, 'plugin.php' ), '1234567' );
+		fs.symlinkSync( target, path.join( tempDir, 'linked-plugin' ), 'junction' );
+
+		await expect( calculateDirectorySizeForArchive( tempDir ) ).resolves.toBe( 7 );
+
+		fs.rmSync( target, { recursive: true, force: true } );
+	} );
+
+	it( 'stops at a symlink back to a parent directory', async () => {
+		fs.mkdirSync( path.join( tempDir, 'nested' ) );
+		fs.writeFileSync( path.join( tempDir, 'nested', 'a.php' ), '12345' );
+		fs.symlinkSync( tempDir, path.join( tempDir, 'nested', 'loop' ), 'junction' );
+
+		await expect( calculateDirectorySizeForArchive( tempDir ) ).resolves.toBe( 5 );
+	} );
 } );
 
 describe( 'confineToRoot', () => {

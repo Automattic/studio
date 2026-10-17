@@ -13,8 +13,6 @@ export interface BuildSystemPromptOptions {
 	// The tools registered for this session; the prompt lists them instead of
 	// hand-writing the list.
 	tools?: ToolPromptContribution[];
-	// True when a Studio UI is attached and can receive chat artifact events.
-	chatArtifactsEnabled?: boolean;
 	// The user's global instructions (~/.studio/knowledge/instructions.md).
 	userInstructions?: string;
 	// Another agent (Codex, Claude Code, …) drives the Studio tools over MCP,
@@ -23,12 +21,6 @@ export interface BuildSystemPromptOptions {
 }
 
 export function buildSystemPrompt( options: BuildSystemPromptOptions = {} ): string {
-	const chatArtifactsEnabled = options.chatArtifactsEnabled ?? false;
-	const refreshBrowserRule = chatArtifactsEnabled
-		? `
-- After a change that alters what the site renders (content, options/settings, theme, plugins, activation), call refresh_browser so the in-app preview shows the result. Never stop/start the site (site_stop/site_start) just to refresh the preview.`
-		: '';
-
 	const intro = options.external
 		? EXTERNAL_INTRO
 		: `${ AGENT_IDENTITY } You manage and modify local WordPress sites and the user's WordPress.com sites using your Studio tools, and generate content for these sites.`;
@@ -43,7 +35,7 @@ export function buildSystemPrompt( options: BuildSystemPromptOptions = {} ): str
 - A request works on exactly one site, settled before any change. Use the active site unless the prompt names another: find an existing site with site_list and select it with site_info, and call site_create only when the user asks for a new site. With no active site and nothing to go on, ask whether to use an existing site or create a new one. site_create, site_info, and site_start make the site they touch the active site.
 - Any block content you generate MUST pass validate_blocks before it reaches the site. Never apply unvalidated block content.
 - Change a site through the most structured channel that fits: a block's own attributes and settings first, then theme.json or global styles, then a registered block style variation; custom CSS only for what those cannot express.
-- Do NOT modify WordPress core files. Only work within wp-content/, and the site's DESIGN.md.${ refreshBrowserRule }
+- Do NOT modify WordPress core files. Only work within wp-content/, and the site's DESIGN.md.
 
 ${ options.external ? '' : `${ WORKING_CADENCE }\n\n` }${ renderToolSections(
 		options.tools ?? []

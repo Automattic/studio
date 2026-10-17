@@ -41,6 +41,7 @@ import { getAiTracksIdentity } from '@studio/common/ai/tracks-identity';
 import { type TSchema } from 'typebox';
 import { withDesignSystemPreview } from 'cli/ai/chat-artifacts';
 import { isImageGenerationAvailable } from 'cli/ai/image-generation';
+import { emitEvent } from 'cli/ai/json-events';
 import { buildSystemPrompt, type ToolPromptContribution } from 'cli/ai/system-prompt';
 import { resolveStudioToolDefinitions } from 'cli/ai/tools';
 import { createAskUserQuestionTool } from 'cli/ai/tools/ask-user-question';
@@ -49,6 +50,7 @@ import { createSkillTool } from 'cli/ai/tools/skill';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import { getFileToolPrompt } from './file-tool-prompts';
 import { getPendingWork, type PendingWork } from './pending-work';
+import { changesPreview } from './preview-reload';
 import { stripStaleImagesFromContext } from './strip-stale-images';
 import {
 	getIncompleteToolCallReason,
@@ -234,6 +236,10 @@ async function runAgentSessionTurn(
 		unsubscribe = session.subscribe( ( event ) => {
 			updateStudioToolPayloadGuardState( event, payloadGuardState );
 			config.onEvent( event );
+			// A Studio UI with a preview pane is attached when process.send exists.
+			if ( typeof process.send === 'function' && changesPreview( event ) ) {
+				emitEvent( { type: 'preview.reload', timestamp: new Date().toISOString() } );
+			}
 		} );
 
 		if ( controller.signal.aborted ) {
@@ -284,7 +290,6 @@ async function createStudioAgentSession(
 		visionEnabled
 	);
 	const systemPrompt = buildSystemPrompt( {
-		chatArtifactsEnabled,
 		userInstructions,
 		tools: tools.map( toolPromptContribution ),
 	} );

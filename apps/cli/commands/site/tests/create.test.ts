@@ -1037,7 +1037,6 @@ describe( 'CLI: studio create', () => {
 				activate: true,
 				overwrite: true,
 				fail_on_quality: true,
-				write_theme_report_artifacts: true,
 				require_proven_dynamic_client_assets: true,
 				seed_entities: true,
 				materialize_dependencies: true,
@@ -1226,8 +1225,10 @@ describe( 'CLI: studio create', () => {
 				'https://example.com/static-site-importer.zip'
 			);
 
-			expect( JSON.parse( blueprint.staticSiteImport.request ).write_theme_report_artifacts ).toBe(
-				true
+			// Import reports stay in the importer's run storage and the receipt,
+			// never inside the generated theme a user keeps and ships.
+			expect( JSON.parse( blueprint.staticSiteImport.request ) ).not.toHaveProperty(
+				'write_theme_report_artifacts'
 			);
 		} );
 

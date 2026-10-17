@@ -93,7 +93,7 @@ Pick one of the two per page:
 - **Designed page** whose hero carries its own heading (home, landing, anything built from sections): assign the no-title template. Themes from `scaffold_theme` ship `templates/page-no-title.html`, registered in `theme.json` under `customTemplates`. Assign it to the page after creating it:
 
 ```text
-wp_cli post meta update <id> _wp_page_template page-no-title
+wp post meta update <id> _wp_page_template page-no-title
 ```
 
 Do **not** solve this by deleting `core/post-title` from `page.html` — every ordinary page then renders untitled, and a missing `h1` is worse than a duplicated one. In a theme with no no-title template, add one (a copy of `page.html` without the title group) and register it in `customTemplates` rather than stripping the title.
@@ -146,7 +146,7 @@ For long page content:
 1. Create the page empty:
 
 ```text
-wp_cli post create --post_content=""
+wp post create --post_content=""
 ```
 
 2. Write `<site>/tmp/page-<slug>.html`, not a file inside the theme, with small section anchors:
@@ -158,16 +158,16 @@ wp_cli post create --post_content=""
 ```
 
 3. Fill the anchors with editable blocks, several per `Edit` call: one `edits[]` entry per section, under ~8KB of new text per call. Never wrap a section in `core/html`.
-4. **Validate before applying (mandatory gate).** Once all anchors are filled, you MUST call `validate_blocks` with `filePath` pointing at `<site>/tmp/page-<slug>.html` and get a passing result — the core/html policy passes and editor validation reports all blocks valid. This is not optional and not a step you can defer to after `wp_cli eval`: the scratch file is block content, so it must be validated as a file while it still lives in a file. If validation reports invalid blocks, fix them in the file and call `validate_blocks` again until it passes. Never apply block content you have not validated.
+4. **Validate before applying (mandatory gate).** Once all anchors are filled, you MUST call `validate_blocks` with `filePath` pointing at `<site>/tmp/page-<slug>.html` and get a passing result — the core/html policy passes and editor validation reports all blocks valid. This is not optional and not a step you can defer to after `wp eval`: the scratch file is block content, so it must be validated as a file while it still lives in a file. If validation reports invalid blocks, fix them in the file and call `validate_blocks` again until it passes. Never apply block content you have not validated.
 5. Apply the validated content once:
 
 ```text
-wp_cli eval '$content = file_get_contents(ABSPATH . "tmp/page-<slug>.html"); wp_update_post(["ID" => <id>, "post_content" => $content]); echo "ok";'
+wp eval '$content = file_get_contents(ABSPATH . "tmp/page-<slug>.html"); wp_update_post(["ID" => <id>, "post_content" => $content]); echo "ok";'
 ```
 
 Do not use `--post_content-file=<path>`: it is not a WP-CLI option, so WP-CLI never reads the file and the post content is not updated.
 
 ## Validation
 
-- Validation is a mandatory gate, not a cleanup step. You MUST call `validate_blocks` and get a passing result for any block content you generate **before** that content reaches the live site — before `wp_cli post create/update`, before `wp_cli eval`, and before importing a scratch file. Never apply, import, or save block content you have not validated. A build that skips validation is incomplete, even if the page renders.
-- Run `validate_blocks` after every write or edit that creates or changes block content. Call it with `filePath` whenever the content lives in a file — including scratch files such as `<site>/tmp/page-<slug>.html` that you later import with `wp_cli eval`. The scratch file is the block content; validate the file, not just the eventual post. Theme `templates/*.html` and `parts/*.html` files count too — they are live as soon as they are written, so validate each one right after every write or edit. It first runs a static `core/html` policy check: if that reports invalid `core/html` blocks, editor validation is skipped — rewrite only those blocks as editable core or plugin blocks, then call `validate_blocks` again. Once the policy passes it validates in the live editor and applies safe serialization fixes directly to the file. If it says an auto-fix was applied, do not manually replace markup or call validation again unless you intentionally change block markup afterward. Use the diff only to inspect structural changes for CSS impact. Classes added or removed by the validator can affect layout and styling.
+- Validation is a mandatory gate, not a cleanup step. You MUST call `validate_blocks` and get a passing result for any block content you generate **before** that content reaches the live site — before `wp post create/update`, before `wp eval`, and before importing a scratch file. Never apply, import, or save block content you have not validated. A build that skips validation is incomplete, even if the page renders.
+- Run `validate_blocks` after every write or edit that creates or changes block content. Call it with `filePath` whenever the content lives in a file — including scratch files such as `<site>/tmp/page-<slug>.html` that you later import with `wp eval`. The scratch file is the block content; validate the file, not just the eventual post. Theme `templates/*.html` and `parts/*.html` files count too — they are live as soon as they are written, so validate each one right after every write or edit. It first runs a static `core/html` policy check: if that reports invalid `core/html` blocks, editor validation is skipped — rewrite only those blocks as editable core or plugin blocks, then call `validate_blocks` again. Once the policy passes it validates in the live editor and applies safe serialization fixes directly to the file. If it says an auto-fix was applied, do not manually replace markup or call validation again unless you intentionally change block markup afterward. Use the diff only to inspect structural changes for CSS impact. Classes added or removed by the validator can affect layout and styling.

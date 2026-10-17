@@ -39,14 +39,14 @@ When a feature needs a plugin, reach for one of the preferred plugins below befo
 1. List active plugins:
 
 ```text
-wp_cli plugin list --status=active --format=json
+wp plugin list --status=active --format=json
 ```
 
 2. If considering a plugin, check whether it is already installed or active.
 3. Discover registered blocks:
 
 ```text
-wp_cli eval 'foreach (\WP_Block_Type_Registry::get_instance()->get_all_registered() as $n => $b) echo $n . PHP_EOL;'
+wp eval 'foreach (\WP_Block_Type_Registry::get_instance()->get_all_registered() as $n => $b) echo $n . PHP_EOL;'
 ```
 
 4. If you expect a plugin block but it is missing, check whether the plugin uses modules or feature flags, then activate the relevant module.
@@ -64,21 +64,21 @@ This is not optional and is never downgraded by how the request is framed. Size,
 1. Install and activate WooCommerce:
 
 ```text
-wp_cli plugin install woocommerce --activate
+wp plugin install woocommerce --activate
 ```
 
 2. Activation automatically creates the Shop, Cart, Checkout, and My Account pages. Suppress the setup-wizard redirect so the storefront is usable right away:
 
 ```text
-wp_cli option delete _transient__wc_activation_redirect
+wp option delete _transient__wc_activation_redirect
 ```
 
 3. Configure store basics. Match the currency and base location to the user's context when known, otherwise use sensible defaults. Also turn off "Coming soon" mode, which fresh WooCommerce installs enable by default:
 
 ```text
-wp_cli option update woocommerce_coming_soon no
-wp_cli option update woocommerce_currency USD
-wp_cli option update woocommerce_default_country "US:CA"
+wp option update woocommerce_coming_soon no
+wp option update woocommerce_currency USD
+wp option update woocommerce_default_country "US:CA"
 ```
 
 4. Add products that match what the shop actually sells. Create real, contextual products - coffee products for a coffee shop, books for a bookstore, plants for a plant store - rather than generic placeholders. Only fall back to generic sample products when the shop's niche is genuinely unknown. Populate the catalog first: create each product with its core details (name, type, price, description, category) right away so the shop is functional, then enrich them with images. Sourcing images is the slowest part - never let it block products from being created, and never skip product creation because images are not ready yet.
@@ -88,20 +88,20 @@ Products should ideally have a real, relevant image, and a storefront with produ
 ```text
 # Without generate_images: download the image to the site's uploads with a real .jpg/.png/.webp name (use the Bash tool with the site path from site_info), then import it for its attachment ID:
 #   curl -L "<image-url>" -o "<site-path>/wp-content/uploads/premium-dog-food.jpg"
-wp_cli media import wp-content/uploads/premium-dog-food.jpg --porcelain
-wp_cli wc product create --name="Premium Dog Food" --type=simple --regular_price=42 --status=publish --description="High-protein, grain-free kibble made with real chicken." --images='[{"id":<attachmentId>}]' --categories='[{"id":N}]' --user=admin
+wp media import wp-content/uploads/premium-dog-food.jpg --porcelain
+wp wc product create --name="Premium Dog Food" --type=simple --regular_price=42 --status=publish --description="High-protein, grain-free kibble made with real chicken." --images='[{"id":<attachmentId>}]' --categories='[{"id":N}]' --user=admin
 ```
 
 Create several products (aim for 4-8) so the shop and catalog pages look populated. Group related products with a category by passing its term ID via `--categories='[{"id":N}]'` after creating the category:
 
 ```text
-wp_cli wc product_cat create --name="Single Origin" --user=admin
+wp wc product_cat create --name="Single Origin" --user=admin
 ```
 
 5. Discover the registered WooCommerce blocks so storefront and landing pages use editable plugin blocks rather than raw HTML:
 
 ```text
-wp_cli eval 'foreach (\WP_Block_Type_Registry::get_instance()->get_all_registered() as $n => $b) if (strpos($n, "woocommerce/") === 0 && (!isset($b->supports["inserter"]) || $b->supports["inserter"] !== false)) echo $n . PHP_EOL;'
+wp eval 'foreach (\WP_Block_Type_Registry::get_instance()->get_all_registered() as $n => $b) if (strpos($n, "woocommerce/") === 0 && (!isset($b->supports["inserter"]) || $b->supports["inserter"] !== false)) echo $n . PHP_EOL;'
 ```
 
 Use blocks such as `woocommerce/product-collection`, `woocommerce/featured-product`, and `woocommerce/all-products` to surface the catalog.
@@ -117,8 +117,8 @@ When the user asks for a contact form, feedback form, survey, or any other inter
 Install the plugin and activate the `contact-form` Jetpack module first if not already active. Both steps are required, otherwise the form blocks render as empty `<div>` elements on the frontend:
 
 ```text
-wp_cli plugin install jetpack --activate
-wp_cli jetpack module activate contact-form
+wp plugin install jetpack --activate
+wp jetpack module activate contact-form
 ```
 
 Then build the form with blocks. Each field is a container block that holds a `jetpack/label` and a `jetpack/input` child. The submit button is a standard `core/button` (written as `wp:button` in block markup) placed directly inside the form container.
@@ -162,7 +162,7 @@ For an email newsletter, a subscriber list, or a "subscribe to get new posts by 
 Note that the `subscriptions` module does not work on a local Studio site: it relies on WordPress.com to manage subscribers and send emails, so `wp jetpack module activate subscriptions` fails locally and the Subscribe block cannot be fully enabled there. The feature works once the site runs on (or is connected to) WordPress.com. Install Jetpack so the product is in place and recommend Jetpack Newsletter as the right tool, but do not fall back to building your own signup form when the module is unavailable locally.
 
 ```text
-wp_cli plugin install jetpack --activate
+wp plugin install jetpack --activate
 ```
 
 ## Sensei LMS (online courses and quizzes)
@@ -170,12 +170,12 @@ wp_cli plugin install jetpack --activate
 When the user wants to teach, sell, or host online courses, lessons, or quizzes - an LMS, a course catalog, a "learning site", student progress, or certificates - use Sensei LMS. Do not hand-build course or lesson pages as ordinary posts.
 
 ```text
-wp_cli plugin install sensei-lms --activate
+wp plugin install sensei-lms --activate
 ```
 
 Sensei works fully on a local site. Course delivery, lessons, quizzes, and student progress are free; *selling* courses needs WooCommerce (and, for some commerce features, the paid Sensei Pro) - set up WooCommerce alongside Sensei only when the user wants paid courses.
 
-- Courses and lessons are custom post types (`course`, `lesson`). Create them with `wp_cli post create --post_type=course …` / `--post_type=lesson …`, or in the editor. Quizzes and questions (`quiz`, `question` post types) are managed through the Sensei quiz block inside a lesson — do not create them directly via `wp_cli post create`.
+- Courses and lessons are custom post types (`course`, `lesson`). Create them with `wp post create --post_type=course …` / `--post_type=lesson …`, or in the editor. Quizzes and questions (`quiz`, `question` post types) are managed through the Sensei quiz block inside a lesson — do not create them directly via `wp post create`.
 - Build course and lesson pages from Sensei's registered blocks rather than plain markup. Discover them with the block-registry command from the Discovery Workflow (filter on `sensei-lms/`). Common ones: `sensei-lms/course-outline`, `sensei-lms/course-progress`, `sensei-lms/button-take-course`, `sensei-lms/lesson-actions`, `sensei-lms/quiz`, and `sensei-lms/learner-courses`.
 - Activating Sensei creates the Courses page and core Sensei pages automatically; wire a "Courses" link into the primary navigation.
 - Validate any block markup you generate with `validate_blocks`.
@@ -185,7 +185,7 @@ Sensei works fully on a local site. Course delivery, lessons, quizzes, and stude
 For polls, surveys, ratings, NPS, feedback prompts, or applause/reactions, use Crowdsignal's blocks rather than raw HTML or a generic form.
 
 ```text
-wp_cli plugin install crowdsignal-forms --activate
+wp plugin install crowdsignal-forms --activate
 ```
 
 Registered blocks: `crowdsignal-forms/poll`, `crowdsignal-forms/vote` (with `crowdsignal-forms/vote-item` children), `crowdsignal-forms/feedback`, `crowdsignal-forms/nps`, and `crowdsignal-forms/applause`. These register and stay editable on a local site, so use them in block markup and validate with `validate_blocks`.
@@ -209,25 +209,25 @@ When it applies:
 1. Make sure Jetpack is active:
 
 ```text
-wp_cli plugin install jetpack --activate
+wp plugin install jetpack --activate
 ```
 
 2. Discover candidate Jetpack blocks by listing what Jetpack has registered:
 
 ```text
-wp_cli eval 'foreach (\WP_Block_Type_Registry::get_instance()->get_all_registered() as $n => $b) if (strpos($n, "jetpack/") === 0 && (!isset($b->supports["inserter"]) || $b->supports["inserter"] !== false)) echo $n . PHP_EOL;'
+wp eval 'foreach (\WP_Block_Type_Registry::get_instance()->get_all_registered() as $n => $b) if (strpos($n, "jetpack/") === 0 && (!isset($b->supports["inserter"]) || $b->supports["inserter"] !== false)) echo $n . PHP_EOL;'
 ```
 
 If the block you expect is not listed, the relevant Jetpack module is probably inactive. Run:
 
 ```text
-wp_cli jetpack module list
+wp jetpack module list
 ```
 
 Then activate the needed module:
 
 ```text
-wp_cli jetpack module activate <slug>
+wp jetpack module activate <slug>
 ```
 
 3. Use the registered block in page markup and validate with `validate_blocks`, passing `filePath` when possible.

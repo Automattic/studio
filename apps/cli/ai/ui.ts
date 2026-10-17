@@ -903,7 +903,6 @@ export class AiChatUI implements AiOutputAdapter {
 				}
 				break;
 			}
-			case 'wp_cli':
 			case 'preview_create':
 			case 'preview_list':
 			case 'preview_update':

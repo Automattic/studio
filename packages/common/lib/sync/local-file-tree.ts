@@ -9,8 +9,9 @@ import type { Ignore } from 'ignore';
 
 /**
  * The site's files under `path` (relative to the site), as the push dialog's
- * selective-sync tree shows them: entries excluded from sync are left out, and
- * directories are expanded up to `maxDepth` levels.
+ * selective-sync tree shows them: entries excluded from sync are left out,
+ * symlinks are listed as what they point to, and directories are expanded up
+ * to `maxDepth` levels.
  */
 export async function listLocalFileTree(
 	sitePath: string,
@@ -36,11 +37,23 @@ export async function listLocalFileTree(
 				continue;
 			}
 
-			const isDirectory = entry.isDirectory();
+			const isSymlink = entry.isSymbolicLink();
+			let isDirectory = entry.isDirectory();
+			if ( isSymlink ) {
+				try {
+					isDirectory = (
+						await fs.promises.stat( nodePath.join( fullPath, entry.name ) )
+					).isDirectory();
+				} catch {
+					// Dangling symlink: the push skips it, so the tree does too.
+					continue;
+				}
+			}
 
 			const directoryEntry: RawDirectoryEntry = {
 				name: entry.name,
 				isDirectory,
+				isSymlink,
 				path: itemPath,
 			};
 

@@ -3,6 +3,7 @@ import { z } from 'zod';
 export type RawDirectoryEntry = {
 	name: string;
 	isDirectory: boolean;
+	isSymlink?: boolean;
 	path: string;
 	children?: RawDirectoryEntry[];
 };

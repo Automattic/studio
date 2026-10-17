@@ -70,20 +70,25 @@ describe( 'GET /api/media/read', () => {
 		);
 	} );
 
-	it( 'refuses anything but raster images under the sessions root or a site, symlinks resolved', async () => {
+	it( 'follows a theme folder linked into the site from elsewhere', async () => {
+		writeFileSync( path.join( outsideDir, 'hero.png' ), 'png' );
+		const themes = path.join( siteRoot, 'wp-content', 'themes' );
+		mkdirSync( themes, { recursive: true } );
+		symlinkSync( outsideDir, path.join( themes, 'linked' ) );
+
+		const response = await read( path.join( themes, 'linked', 'hero.png' ) );
+
+		expect( response.status ).toBe( 200 );
+	} );
+
+	it( 'refuses anything but raster images under the sessions root or a site', async () => {
 		const secret = path.join( outsideDir, 'secret.png' );
 		writeFileSync( secret, 'nope' );
-		const sessionLink = path.join( sessionsRoot, 'link.png' );
-		symlinkSync( secret, sessionLink );
-		const siteLink = path.join( siteRoot, 'wp-content', 'uploads', 'link.png' );
-		mkdirSync( path.dirname( siteLink ), { recursive: true } );
-		symlinkSync( secret, siteLink );
 
 		for ( const requested of [
 			path.join( siteRoot, 'wp-config.php' ),
+			path.join( siteRoot, 'logo.svg' ),
 			secret,
-			sessionLink,
-			siteLink,
 			[ sessionsRoot, '..', path.basename( outsideDir ), 'secret.png' ].join( path.sep ),
 			[ siteRoot, '..', path.basename( outsideDir ), 'secret.png' ].join( path.sep ),
 		] ) {

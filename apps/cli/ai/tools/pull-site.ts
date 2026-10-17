@@ -1,7 +1,7 @@
 import { Type } from 'typebox';
 import { runCommand as runPullCommand } from 'cli/commands/pull';
 import { parseSyncOptions } from 'cli/lib/sync-api';
-import { defineTool } from './define-tool';
+import { defineTool, REMOTE_OVERWRITE } from './define-tool';
 import { captureCommandOutput, resolveSite, textResult } from './utils';
 
 export const pullSiteTool = defineTool(
@@ -48,5 +48,6 @@ export const pullSiteTool = defineTool(
 	{
 		promptSnippet:
 			'Pull a WordPress.com site to a local site. Requires authentication. Specify the remote site URL or ID and sync options.',
+		annotations: REMOTE_OVERWRITE,
 	}
 );

@@ -1,7 +1,6 @@
 ---
 name: imagery
 description: Generate AI images for a site with generate_images, or with an image tool of your own when it is not available — how to write image specs, pick aspect ratios, place files (theme assets vs media library), and handle failures.
-user-invokable: true
 ---
 
 # Site Imagery

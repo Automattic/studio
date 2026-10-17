@@ -1,4 +1,3 @@
-import { app } from 'electron';
 import * as Sentry from '@sentry/electron/main';
 import {
 	createCliRunner,
@@ -18,18 +17,22 @@ let runner: CliRunner | undefined;
 
 function getRunner(): CliRunner {
 	if ( ! runner ) {
-		const cliRunner = createCliRunner( {
+		runner = createCliRunner( {
 			cliBinary: getCliPath(),
 			nodeBinary: getBundledNodeBinaryPath(),
 			env: { STUDIO_TRACKS_ORIGIN: getTracksOriginEnv() },
 			echoStderr: true,
 			onError: ( error ) => Sentry.captureException( error ),
 		} );
-		app.on( 'will-quit', () => cliRunner.killAll() );
-		runner = cliRunner;
 	}
 	return runner;
 }
 
 export const executeCliCommand = ( ( args, options ) =>
 	getRunner().executeCliCommand( args, options ) ) as ExecuteCliCommand;
+
+// Called on quit before the quit flow starts its own commands, which must not be stopped. Only asks,
+// so a sync past the point where stopping is safe finishes (see `exitOnCancel` in the CLI).
+export function stopCliCommands(): void {
+	runner?.killAll( { force: false } );
+}

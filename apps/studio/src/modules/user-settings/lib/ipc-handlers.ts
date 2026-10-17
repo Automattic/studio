@@ -35,13 +35,13 @@ export function getInstalledAppsAndTerminals(): InstalledApps {
 }
 
 export async function getUserPreferences() {
-	return {
-		...( await readUserPreferences( {
-			sitesRoot: defaultSitePath,
-			installedApps: detectInstalledApps(),
-		} ) ),
-		locale: await getUserLocaleWithFallback(),
-	};
+	const preferences = await readUserPreferences( {
+		sitesRoot: defaultSitePath,
+		installedApps: detectInstalledApps(),
+	} );
+	// The scheme may have been changed from `studio ui`, so the native window follows it here.
+	nativeTheme.themeSource = preferences.colorScheme;
+	return { ...preferences, locale: await getUserLocaleWithFallback() };
 }
 
 export async function setUserPreferences(

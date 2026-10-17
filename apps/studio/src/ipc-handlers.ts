@@ -90,7 +90,7 @@ import {
 import { getSiteEditOptions } from '@studio/common/sites/edit';
 import {
 	deleteSite as deleteSiteViaCli,
-	SiteCapacityError,
+	SiteStartRefusedError,
 	startSite,
 	stopSite,
 } from '@studio/common/sites/lifecycle';
@@ -663,8 +663,8 @@ export async function startServer( event: IpcMainInvokeEvent, id: string ): Prom
 		console.log( `Starting server for '${ site.name }'` );
 		await start();
 	} catch ( error ) {
-		// Capacity limit is expected behavior, not a bug — skip Sentry
-		if ( error instanceof SiteCapacityError ) {
+		// Too many running sites or a WordPress update in progress: expected, not a bug — skip Sentry
+		if ( error instanceof SiteStartRefusedError ) {
 			throw error;
 		}
 

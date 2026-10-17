@@ -43,7 +43,7 @@ describe( 'buildSystemPrompt', () => {
 	it( 'routes WordPress.com sites to the remote management skill', () => {
 		const prompt = buildSystemPrompt( {} );
 
-		expect( prompt ).toContain( 'load the `wpcom-remote-management` skill first' );
+		expect( prompt ).toContain( 'load the `edit-manage-remote-site` skill first' );
 		expect( prompt ).not.toContain( '## Common wp/v2 Endpoints' );
 	} );
 
@@ -82,7 +82,6 @@ describe( 'buildSystemPrompt', () => {
 		expect( prompt ).toContain( 'Edit site files with your own file tools' );
 		expect( prompt ).not.toContain( 'WordPress Studio Code' );
 		expect( prompt ).not.toContain( '## Working cadence' );
-		expect( buildSystemPrompt( {} ) ).toContain( 'Write and Edit reject more than 14KB per call' );
 	} );
 
 	it( 'mentions refresh_browser only when chat artifacts are enabled', () => {
@@ -91,12 +90,6 @@ describe( 'buildSystemPrompt', () => {
 
 		const terminalPrompt = buildSystemPrompt( { chatArtifactsEnabled: false } );
 		expect( terminalPrompt ).not.toContain( 'refresh_browser' );
-	} );
-
-	it( 'warns that terminal users may not see screenshots only when chat artifacts are disabled', () => {
-		const caveat = 'Do not respond as though the user is looking at the capture';
-		expect( buildSystemPrompt( { chatArtifactsEnabled: false } ) ).toContain( caveat );
-		expect( buildSystemPrompt( { chatArtifactsEnabled: true } ) ).not.toContain( caveat );
 	} );
 
 	it( 'describes the screenshot and inspect tools for models without vision', () => {

@@ -136,9 +136,10 @@ export interface CliRunner {
 		options?: ExecuteCliCommandOptions
 	): [ CliCommandEventEmitter< false >, ChildProcess ];
 	// Terminates every still-running child this runner spawned. The host calls
-	// this once on shutdown (desktop: `app.on('will-quit')`; server: process
-	// exit / SIGINT) so forked CLI processes don't outlive it.
-	killAll(): void;
+	// this once on shutdown so forked CLI processes don't outlive it. With
+	// `force: false` it only asks (SIGTERM), so a sync past the point where
+	// stopping is safe can finish (see `exitOnCancel` in the CLI).
+	killAll( options?: { force?: boolean } ): void;
 }
 
 // How long a child gets to exit on SIGTERM before it is killed outright.
@@ -146,7 +147,7 @@ const SIGKILL_GRACE_MS = 2000;
 
 // Only kills the child; its `close` handler still runs so awaiting callers
 // see a failure instead of hanging forever.
-export function killChild( child: ChildProcess ): void {
+export function killChild( child: ChildProcess, { force = true }: { force?: boolean } = {} ): void {
 	const pid = child.pid;
 
 	// `child.kill()` only terminates the forked CLI process; on Windows its
@@ -161,6 +162,9 @@ export function killChild( child: ChildProcess ): void {
 	}
 
 	child.kill();
+	if ( ! force ) {
+		return;
+	}
 
 	// SIGTERM is only a request, and the CLI ignores it: importing
 	// `wordpress-server-manager` registers a handler that aborts a controller
@@ -307,9 +311,9 @@ export function createCliRunner( config: CliRunnerConfig ): CliRunner {
 		return [ eventEmitter, child ];
 	}
 
-	function killAll(): void {
+	function killAll( options?: { force?: boolean } ): void {
 		for ( const child of liveChildren ) {
-			killChild( child );
+			killChild( child, options );
 		}
 		liveChildren.clear();
 	}

@@ -42,7 +42,9 @@ export function buildSystemPrompt( options: BuildSystemPromptOptions = {} ): str
 - The user's WordPress.com sites are live. For any question about or change to one — the active-site line says WordPress.com, or the user names one of their WordPress.com sites — load the \`edit-manage-remote-site\` skill first and follow it: it starts with a plan check, and such sites change only through wpcom_request, never WP-CLI, Bash, or local files.
 - A request works on exactly one site, settled before any change. Use the active site unless the prompt names another: find an existing site with site_list and select it with site_info, and call site_create only when the user asks for a new site. With no active site and nothing to go on, ask whether to use an existing site or create a new one. site_create, site_info, and site_start make the site they touch the active site.
 - Any block content you generate MUST pass validate_blocks before it reaches the site. Never apply unvalidated block content.
-- Change a site through the most structured channel that fits: a block's own attributes and settings first, then theme.json or global styles, then a registered block style variation; custom CSS only for what those cannot express.${ options.external ? `\n- ${ EXTERNAL_CORE_FILES }` : '' }${ refreshBrowserRule }
+- Change a site through the most structured channel that fits: a block's own attributes and settings first, then theme.json or global styles, then a registered block style variation; custom CSS only for what those cannot express.${
+		options.external ? `\n- ${ EXTERNAL_CORE_FILES }` : ''
+	}${ refreshBrowserRule }
 
 ${ options.external ? '' : `${ WORKING_CADENCE }\n\n` }${ renderToolSections(
 		options.tools ?? []

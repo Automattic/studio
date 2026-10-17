@@ -1,10 +1,9 @@
 import { __ } from '@wordpress/i18n';
 import { ArgumentsCamelCase } from 'yargs';
-import yargsParser from 'yargs-parser';
 import { getSiteContainingFolder } from 'cli/lib/cli-config/sites';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
+import { parseStudioWpArguments } from 'cli/lib/studio-wp-command';
 import { validatePhpVersion } from 'cli/lib/utils';
-import { getUnsupportedWpCliOptionMessage } from 'cli/lib/wp-cli-options';
 import { Logger, LoggerError } from 'cli/logger';
 import { GlobalOptions } from 'cli/types';
 
@@ -24,53 +23,11 @@ export async function runCommand(
 	process.exitCode = await command.exitCode;
 }
 
-function removeArgumentFromArgv(
-	argv: string[],
-	argName: string,
-	hasValue: boolean = true
-): string[] {
-	argv = argv.slice( 0 );
-
-	while ( argv.indexOf( `--${ argName }` ) !== -1 ) {
-		const argIndex = argv.indexOf( `--${ argName }` );
-		// Remove 2 elements for --arg value, or 1 element for boolean flags like --no-path
-		argv.splice( argIndex, hasValue ? 2 : 1 );
-	}
-
-	while ( argv.find( ( arg ) => arg.startsWith( `--${ argName }=` ) ) ) {
-		const argIndex = argv.findIndex( ( arg ) => arg.startsWith( `--${ argName }=` ) );
-		argv.splice( argIndex, 1 );
-	}
-
-	return argv;
-}
-
 export async function commandHandler( argv: ArgumentsCamelCase< GlobalOptions > ) {
 	try {
-		let wpCliArgv = removeArgumentFromArgv( process.argv.slice( 3 ), 'path' );
-		const parsedWpCliArgs = yargsParser( wpCliArgv );
-
-		if ( parsedWpCliArgs._[ 0 ] === 'shell' ) {
-			throw new LoggerError(
-				__(
-					'Studio CLI does not support the WP-CLI `shell` command. Consider adding your code to a file and using the `eval` command.'
-				)
-			);
-		}
-
-		const unsupportedOptionMessage = getUnsupportedWpCliOptionMessage( wpCliArgv );
-		if ( unsupportedOptionMessage ) {
-			throw new LoggerError( unsupportedOptionMessage );
-		}
-
-		const phpVersion =
-			parsedWpCliArgs[ 'php-version' ] !== undefined
-				? String( parsedWpCliArgs[ 'php-version' ] )
-				: undefined;
-		wpCliArgv = removeArgumentFromArgv( wpCliArgv, 'php-version' );
-		wpCliArgv = removeArgumentFromArgv( wpCliArgv, 'avoid-telemetry', false );
-
-		await runCommand( argv.path, wpCliArgv, { phpVersion } );
+		// `--path` is Studio's global option, already parsed into `argv.path`.
+		const { args, phpVersion } = parseStudioWpArguments( process.argv.slice( 3 ) );
+		await runCommand( argv.path, args, { phpVersion } );
 	} catch ( error ) {
 		if ( error instanceof LoggerError ) {
 			logger.reportError( error );

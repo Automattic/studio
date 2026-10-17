@@ -192,6 +192,43 @@ type DisposableExitCode = Disposable & {
 	exitCode: Promise< number >;
 };
 
+export type WpCliCommandLine = {
+	command: string;
+	args: string[];
+	cwd: string;
+};
+
+// The PHP process a WP-CLI command runs as, with the site's PHP binary and the
+// mu-plugins it needs in place. Anything that runs WP-CLI for a site spawns this.
+export async function prepareWpCliCommand(
+	site: SiteData,
+	args: string[],
+	options: Pick< RunWpCliCommandOptions, 'phpVersion' | 'requireSqliteCliCommand' > = {}
+): Promise< WpCliCommandLine > {
+	const phpVersion = resolveSupportedPhpVersion( options.phpVersion ?? DEFAULT_PHP_VERSION );
+	await ensurePhpBinaryAvailable( phpVersion );
+	await writeStudioMuPlugins( site.path, site.isWpAutoUpdating );
+
+	// Reprint-pulled sites wire SQLite through runtime.php (loaded as auto_prepend_file),
+	// so load it here too. No-op for normal sites (helper returns undefined).
+	const autoPrependFile = options.requireSqliteCliCommand
+		? undefined
+		: loadImportedRuntimeStartOptions( site )?.autoPrependFile;
+	// Don't apply open_basedir or disable_functions to the WP-CLI process
+	const defaultArgs = getDefaultPhpArgs( phpVersion, { autoPrependFile } );
+	return {
+		command: getPhpBinaryPath( phpVersion ),
+		args: [
+			...defaultArgs,
+			...getWpCliPhpIniArgs(),
+			getWpCliPharPath(),
+			`--path=${ site.path }`,
+			...applyWpCliCommandOptions( args, options ),
+		],
+		cwd: site.path,
+	};
+}
+
 // Passing `stdio: 'inherit'` connects the child to the parent's terminal fds for
 // piped/interactive stdin, live streaming output and TTY detection (colors), and
 // returns only the exit code.
@@ -210,34 +247,13 @@ export async function runWpCliCommand(
 	args: string[],
 	options: RunWpCliCommandOptions = {}
 ): Promise< DisposableWpCliResponse | DisposableExitCode > {
-	const phpVersion = resolveSupportedPhpVersion( options.phpVersion ?? DEFAULT_PHP_VERSION );
-	await ensurePhpBinaryAvailable( phpVersion );
-	await writeStudioMuPlugins( site.path, site.isWpAutoUpdating );
-
-	// Reprint-pulled sites wire SQLite through runtime.php (loaded as auto_prepend_file),
-	// so load it here too. No-op for normal sites (helper returns undefined).
-	const autoPrependFile = options.requireSqliteCliCommand
-		? undefined
-		: loadImportedRuntimeStartOptions( site )?.autoPrependFile;
-	// Don't apply open_basedir or disable_functions to the WP-CLI process
-	const defaultArgs = getDefaultPhpArgs( phpVersion, { autoPrependFile } );
-	const wpCliArgs = applyWpCliCommandOptions( args, options );
-	const child = spawn(
-		getPhpBinaryPath( phpVersion ),
-		[
-			...defaultArgs,
-			...getWpCliPhpIniArgs(),
-			getWpCliPharPath(),
-			`--path=${ site.path }`,
-			...wpCliArgs,
-		],
-		{
-			cwd: site.path,
-			env: getPhpChildEnv(),
-			stdio: options.stdio === 'inherit' ? 'inherit' : [ 'ignore', 'pipe', 'pipe' ],
-			detached: DETACH_FOR_GROUP_KILL,
-		}
-	);
+	const commandLine = await prepareWpCliCommand( site, args, options );
+	const child = spawn( commandLine.command, commandLine.args, {
+		cwd: commandLine.cwd,
+		env: getPhpChildEnv(),
+		stdio: options.stdio === 'inherit' ? 'inherit' : [ 'ignore', 'pipe', 'pipe' ],
+		detached: DETACH_FOR_GROUP_KILL,
+	} );
 
 	await ensureChildSpawned( child );
 	const removeReaper = reapPhpTreeOnInterrupt( child );

@@ -27,19 +27,25 @@ function latestChange( dir: string ): number {
 	return latest;
 }
 
-// Reports, at the end of each model turn, whether the site the preview shows
-// changed on disk during that turn — whatever tool or command changed it.
+// Reports, when the agent finishes a request, whether the site the preview
+// shows changed on disk while it worked — whatever tool or command changed it.
+// Counting per request rather than per turn bounds the reloads that background
+// writes cause (WP-Cron, editor autosaves) to one per request.
 export function createPreviewChangeDetector( getSitePath: () => string | undefined ) {
-	let sitePath: string | undefined;
-	let before = 0;
+	const startPath = getSitePath();
+	const before = startPath ? latestChange( path.join( startPath, 'wp-content' ) ) : 0;
 	return ( event: AgentSessionEvent ): boolean => {
-		if ( event.type === 'turn_start' ) {
-			sitePath = getSitePath();
-			before = sitePath ? latestChange( path.join( sitePath, 'wp-content' ) ) : 0;
+		// An `agent_end` that will retry is not the end of the request.
+		if ( event.type !== 'agent_end' || event.willRetry ) {
 			return false;
 		}
-		if ( event.type !== 'turn_end' || ! sitePath || sitePath !== getSitePath() ) {
+		const sitePath = getSitePath();
+		if ( ! sitePath ) {
 			return false;
+		}
+		// A site the agent made active during the request is new to the preview.
+		if ( sitePath !== startPath ) {
+			return true;
 		}
 		return latestChange( path.join( sitePath, 'wp-content' ) ) > before;
 	};

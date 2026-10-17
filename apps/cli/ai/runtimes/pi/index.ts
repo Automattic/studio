@@ -234,7 +234,7 @@ async function runAgentSessionTurn(
 	try {
 		session = await createStudioAgentSession( config, family, resolved.creds, payloadGuardState );
 		setActiveSession( session );
-		// The preview shows the turn's active site, or one a tool made active since.
+		// The preview shows the request's active site, or one a tool made active since.
 		const selectedAtStart = getLastSelectedLocalSite();
 		const previewChanged = createPreviewChangeDetector( () => {
 			const selected = getLastSelectedLocalSite();

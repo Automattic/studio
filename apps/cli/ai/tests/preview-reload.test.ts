@@ -5,7 +5,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createPreviewChangeDetector } from 'cli/ai/runtimes/pi/preview-reload';
 import type { AgentSessionEvent } from '@earendil-works/pi-coding-agent';
 
-const turnStart = { type: 'turn_start' } as AgentSessionEvent;
+const agentEnd = { type: 'agent_end', messages: [], willRetry: false } as AgentSessionEvent;
+const retryingEnd = { type: 'agent_end', messages: [], willRetry: true } as AgentSessionEvent;
 const turnEnd = { type: 'turn_end' } as AgentSessionEvent;
 
 let site: string;
@@ -30,37 +31,42 @@ beforeEach( () => {
 afterEach( () => rmSync( site, { recursive: true, force: true } ) );
 
 describe( 'createPreviewChangeDetector', () => {
-	it( 'reports a turn that changed a theme file, plugin, upload or the database', () => {
-		const changed = createPreviewChangeDetector( () => site );
+	it( 'reports a request that changed a theme file, plugin, upload or the database', () => {
 		for ( const file of [
 			'wp-content/themes/twentytwentyfive/style.css',
 			'wp-content/plugins/new/new.php',
 			'wp-content/uploads/hero.png',
 			'wp-content/database/.ht.sqlite',
 		] ) {
-			changed( turnStart );
+			const changed = createPreviewChangeDetector( () => site );
 			write( file );
-			expect( changed( turnEnd ) ).toBe( true );
+			expect( changed( agentEnd ) ).toBe( true );
 		}
 	} );
 
-	it( 'does not report a turn that left wp-content untouched', () => {
+	it( 'reports once, when the request ends, not after each turn or before a retry', () => {
 		const changed = createPreviewChangeDetector( () => site );
-		changed( turnStart );
-		write( 'DESIGN.md' );
+		write( 'wp-content/themes/twentytwentyfive/style.css' );
 		expect( changed( turnEnd ) ).toBe( false );
+		expect( changed( retryingEnd ) ).toBe( false );
+		expect( changed( agentEnd ) ).toBe( true );
 	} );
 
-	it( 'does not report without a local site, or when the site changed mid-turn', () => {
-		const none = createPreviewChangeDetector( () => undefined );
-		none( turnStart );
-		expect( none( turnEnd ) ).toBe( false );
+	it( 'does not report a request that left wp-content untouched', () => {
+		const changed = createPreviewChangeDetector( () => site );
+		write( 'DESIGN.md' );
+		expect( changed( agentEnd ) ).toBe( false );
+	} );
 
-		let current = site;
-		const switched = createPreviewChangeDetector( () => current );
-		switched( turnStart );
-		write( 'wp-content/themes/twentytwentyfive/style.css' );
-		current = path.join( site, 'other' );
-		expect( switched( turnEnd ) ).toBe( false );
+	it( 'does not report without a local site', () => {
+		const changed = createPreviewChangeDetector( () => undefined );
+		expect( changed( agentEnd ) ).toBe( false );
+	} );
+
+	it( 'reports a site the agent made active during the request', () => {
+		const active: { path?: string } = {};
+		const changed = createPreviewChangeDetector( () => active.path );
+		active.path = site;
+		expect( changed( agentEnd ) ).toBe( true );
 	} );
 } );

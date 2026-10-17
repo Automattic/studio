@@ -99,9 +99,6 @@ interface EvalRunnerInput {
 	timeoutMs?: number;
 	model?: AiModelId;
 	seed?: EvalSeed;
-	// The site the case asks for. A leftover from an earlier run is deleted
-	// before the turn, so the turn starts without it.
-	siteName?: string;
 }
 
 interface Inspection {
@@ -166,10 +163,7 @@ const BYSTANDER_SITES = [ 'Portfolio', 'Client Work' ];
 async function createBystanderSites(): Promise< string[] > {
 	const created: string[] = [];
 	for ( const name of BYSTANDER_SITES ) {
-		const bystanderPath = path.join(
-			STUDIO_SITES_ROOT,
-			`eval-bystander-${ siteSlug( name ) }-${ process.pid }`
-		);
+		const bystanderPath = path.join( STUDIO_SITES_ROOT, `eval-bystander-${ siteSlug( name ) }` );
 		try {
 			await runCreateSiteCommand(
 				bystanderPath,
@@ -262,8 +256,6 @@ async function seedFixtures( seed: EvalSeed ): Promise< SeededFixtures > {
 	let activeSitePath: string | undefined;
 	if ( activeSite ) {
 		activeSitePath = path.join( STUDIO_SITES_ROOT, siteSlug( activeSite.name ) );
-		// A folder left by an earlier, interrupted run.
-		await rm( activeSitePath, { recursive: true, force: true } );
 		// WordPress is installed on first start, so WP-CLI seeds need a started site.
 		const needsInstall = !! activeSite.wpCli?.length;
 		await runCreateSiteCommand(
@@ -489,7 +481,6 @@ function readInput(): EvalRunnerInput {
 		timeoutMs: typeof vars.timeoutMs === 'number' ? vars.timeoutMs : undefined,
 		model,
 		seed,
-		siteName: typeof vars.siteName === 'string' ? vars.siteName : undefined,
 	};
 }
 
@@ -671,12 +662,6 @@ async function runEval( input: EvalRunnerInput ) {
 			onEvent: handleEvent,
 			...( input.model ? { model: input.model } : {} ),
 		} );
-	if ( input.siteName ) {
-		await rm( path.join( STUDIO_SITES_ROOT, siteSlug( input.siteName ) ), {
-			recursive: true,
-			force: true,
-		} );
-	}
 	const sitesBeforeTurn = await fingerprintSites();
 	let query = runTurn( prompt );
 	phaseTimingsMs.start_ai_agent_ms = Date.now() - phaseStartedAt;

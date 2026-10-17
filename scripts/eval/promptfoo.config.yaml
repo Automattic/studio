@@ -10,8 +10,8 @@
 
 description: Studio Code agent evaluation
 
-# Tests create/delete real local sites; running them in parallel makes two
-# runs fight over ports and on-disk state.
+# Each case creates its sites in its own folder, but two cases starting sites at
+# the same moment can still pick the same free port.
 evaluateOptions:
   maxConcurrency: 1
 

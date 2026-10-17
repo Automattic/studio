@@ -10,7 +10,7 @@ export default mergeConfig(
 		build: {
 			lib: {
 				entry: {
-					'eval-runner': resolve( __dirname, 'ai/eval-runner.ts' ),
+					'eval-runner': resolve( __dirname, 'ai/eval-runner-entry.ts' ),
 				},
 			},
 		},

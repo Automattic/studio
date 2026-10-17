@@ -96,6 +96,15 @@ import { isSyncCancelledError } from '@studio/common/lib/sync/cancel';
 import { getLocalFileSize, listLocalFileTree } from '@studio/common/lib/sync/local-file-tree';
 import { fetchLatestRewindId, fetchSyncableSites } from '@studio/common/lib/sync/sync-api';
 import { detectInstalledApps } from '@studio/common/lib/user-settings/installed-apps';
+import {
+	onboardingHintsSchema,
+	readDefaultSiteDirectory,
+	readOnboardingHints,
+	readUserPreferences,
+	userPreferencesPatchSchema,
+	writeOnboardingHints,
+	writeUserPreferences,
+} from '@studio/common/lib/user-settings/user-preferences';
 import wpcomFactory from '@studio/common/lib/wpcom-factory';
 import wpcomXhrRequest from '@studio/common/lib/wpcom-xhr-request-factory';
 import {
@@ -123,16 +132,6 @@ import express from 'express';
 import { rateLimit } from 'express-rate-limit';
 import { z } from 'zod';
 import { isEditor, isTerminal, openInEditor, openInTerminal, openPath } from './open-in-os';
-import {
-	onboardingHintsSchema,
-	readDefaultSiteDirectory,
-	readOnboardingHints,
-	readUserPreferences,
-	userPreferencesPatchSchema,
-	writeOnboardingHints,
-	writeUserPreferences,
-} from './user-preferences';
-import type { UserPreferencesContext } from './user-preferences';
 import type { StudioChatFileAttachment } from '@studio/common/ai/chat-files';
 import type { StudioChatImage } from '@studio/common/ai/chat-images';
 import type { AiSettings } from '@studio/common/ai/providers';
@@ -144,6 +143,7 @@ import type {
 	TracksSiteCreateFlowType,
 } from '@studio/common/lib/record-tracks-event';
 import type { SiteFileAccess } from '@studio/common/lib/site-file-access';
+import type { UserPreferencesContext } from '@studio/common/lib/user-settings/user-preferences';
 import type { PullSyncOptions, PushSyncOptions, SyncSite } from '@studio/common/types/sync';
 import type { Request, Response } from 'express';
 
@@ -1429,7 +1429,12 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				res.status( 400 ).json( { error: 'Invalid preferences' } );
 				return;
 			}
-			await writeUserPreferences( parsed.data );
+			await writeUserPreferences( parsed.data, {
+				sitesRoot,
+				recordTracksEvent: async ( event, props ) => {
+					await options.recordTracksEvent?.( event, props ).catch( () => undefined );
+				},
+			} );
 			res.status( 204 ).end();
 		} )
 	);

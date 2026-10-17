@@ -109,7 +109,11 @@ import {
 import { readSite, readSitePath, readSitePaths, readSites } from '@studio/common/sites/site-path';
 import { measureSiteStorage, type SiteStorageUsage } from '@studio/common/sites/storage-usage';
 import { __ } from '@wordpress/i18n';
-import { MACOS_TOOLBAR_TRAFFIC_LIGHT_POSITION, MACOS_TRAFFIC_LIGHT_POSITION } from 'src/constants';
+import {
+	DEFAULT_TERMINAL,
+	MACOS_TOOLBAR_TRAFFIC_LIGHT_POSITION,
+	MACOS_TRAFFIC_LIGHT_POSITION,
+} from 'src/constants';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
 import { setPendingAuthContext } from 'src/lib/auth-tracks-context';
 import { bumpStat, getBlueprintMetric, StatsGroup } from 'src/lib/bump-stats';
@@ -163,11 +167,7 @@ import { editSiteViaCli } from 'src/modules/cli/lib/cli-site-editor';
 import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
 import { isStudioCliInstalled } from 'src/modules/cli/lib/ipc-handlers';
 import { STABLE_BIN_DIR_PATH } from 'src/modules/cli/lib/windows-installation-manager';
-import {
-	getUserTerminal,
-	getDefaultSiteDirectory,
-	saveDefaultSiteDirectory,
-} from 'src/modules/user-settings/lib/ipc-handlers';
+import { getDefaultSiteDirectory } from 'src/modules/user-settings/lib/ipc-handlers';
 import { linuxFindEditorPath } from 'src/modules/user-settings/lib/linux-editor-path';
 import { linuxFindTerminalPath } from 'src/modules/user-settings/lib/linux-terminal-path';
 import { winFindEditorPath } from 'src/modules/user-settings/lib/win-editor-path';
@@ -210,31 +210,18 @@ export {
 } from 'src/modules/preview-site/lib/ipc-handlers';
 
 export {
-	getAgenticFeaturesEnabled,
 	getAiSettings,
-	getAnalyticsEnabled,
-	getColorScheme,
 	getGlobalAgentInstructions,
 	getInstalledAppsAndTerminals,
 	getOnboardingHints,
-	getQuitSitesBehavior,
-	getUserEditor,
-	getUserLocale,
-	getUserTerminal,
+	getUserPreferences,
 	getWapuuScore,
-	saveAgenticFeaturesEnabled,
-	saveAnalyticsEnabled,
 	saveAnthropicApiKey,
-	saveColorScheme,
 	saveGlobalAgentInstructions,
 	saveOnboardingHints,
-	saveQuitSitesBehavior,
-	saveUserEditor,
-	saveUserLocale,
-	saveUserTerminal,
 	saveWapuuScore,
+	setUserPreferences,
 } from 'src/modules/user-settings/lib/ipc-handlers';
-export { getDefaultSiteDirectory, saveDefaultSiteDirectory };
 
 export { importSite, exportSite } from 'src/modules/import-export/lib/ipc-handlers';
 
@@ -1209,7 +1196,7 @@ function promiseExec( command: string, options: ExecOptions = {} ): Promise< voi
 export async function openTerminalAtPath( _event: IpcMainInvokeEvent, targetPath: string ) {
 	const platform = process.platform;
 
-	const preferredTerminal = await getUserTerminal();
+	const preferredTerminal = ( await loadUserData() ).preferredTerminal || DEFAULT_TERMINAL;
 
 	// The single funnel for "open in terminal" across both the apps/studio buttons/context-menu and the
 	// apps/ui ipc connector — emitting here counts every path once. Fire-and-forget; the wrapper gates

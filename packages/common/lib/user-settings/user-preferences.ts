@@ -1,5 +1,8 @@
+import fs from 'node:fs/promises';
+import { z } from 'zod';
 import { readAppConfig, updateAppConfig, type AppConfig } from '@studio/common/lib/app-config';
 import { isSupportedLocale } from '@studio/common/lib/locale';
+import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import {
 	isAnalyticsOptedOutInConfig,
 	readSharedConfig,
@@ -13,17 +16,15 @@ import {
 	SUPPORTED_COLOR_SCHEMES,
 } from '@studio/common/lib/user-settings/preferences';
 import { DEFAULT_TERMINAL, SUPPORTED_TERMINALS } from '@studio/common/lib/user-settings/terminal';
-import { z } from 'zod';
+import type { TracksEventName, TracksProps } from '@studio/common/lib/record-tracks-event';
 import type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
 import type { InstalledApps } from '@studio/common/lib/user-settings/installed-apps';
 import type { ColorScheme, QuitSitesBehavior } from '@studio/common/lib/user-settings/preferences';
 import type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
 
 /**
- * Preferences for `studio ui`, read from the files the desktop also uses:
- * `app.json` for the UI preferences, `shared.json` for locale and the analytics
- * opt-out. Defaults mirror the desktop's user-settings handlers, so a
- * preference the user never touched reads the same on either side.
+ * The user's preferences, read and written by both Studio apps: `app.json` for
+ * the UI preferences, `shared.json` for locale and the analytics opt-out.
  */
 
 export interface UserPreferences {
@@ -39,8 +40,14 @@ export interface UserPreferences {
 
 // Passed in, so this stays a pure reader over the config files.
 export interface UserPreferencesContext {
+	// Where new sites go unless the user picked another directory.
 	sitesRoot: string;
 	installedApps: InstalledApps;
+}
+
+export interface UserPreferencesWriteContext {
+	sitesRoot: string;
+	recordTracksEvent?: ( event: TracksEventName, props: TracksProps ) => Promise< void >;
 }
 
 const editorSchema = z.enum( SUPPORTED_EDITORS );
@@ -61,6 +68,8 @@ export const userPreferencesPatchSchema = z.object( {
 	analyticsEnabled: z.boolean().nullish(),
 	defaultSiteDirectory: z.string().nullish(),
 	agenticFeaturesEnabled: z.boolean().nullish(),
+	// Where the change was made (the analytics toggle also appears during onboarding); not stored.
+	surface: z.enum( [ 'onboarding', 'settings' ] ).optional(),
 } );
 
 export type UserPreferencesPatch = z.infer< typeof userPreferencesPatchSchema >;
@@ -92,7 +101,7 @@ export async function readUserPreferences( {
 	const storedEditor = editorSchema.safeParse( config.preferredEditor );
 
 	return {
-		// Unset falls back to the first installed editor, as the desktop does.
+		// Unset falls back to the first installed editor.
 		editor: storedEditor.success ? storedEditor.data : getFirstInstalledEditor( installedApps ),
 		terminal: terminalWithDefault.parse( config.preferredTerminal ),
 		colorScheme: colorSchemeWithDefault.parse( config.colorScheme ),
@@ -104,7 +113,84 @@ export async function readUserPreferences( {
 	};
 }
 
-export async function writeUserPreferences( patch: UserPreferencesPatch ): Promise< void > {
+async function ensureWritableDirectory( directory: string ): Promise< void > {
+	if ( ! ( await fs.stat( directory ) ).isDirectory() ) {
+		throw new Error( 'Selected path is not a directory.' );
+	}
+	await fs.access( directory, fs.constants.W_OK );
+}
+
+// One event per preference the patch changes; never the directory path itself.
+async function getChangeEvents(
+	patch: UserPreferencesPatch,
+	sitesRoot: string
+): Promise< Array< [ TracksEventName, TracksProps ] > > {
+	const surface = patch.surface ?? 'settings';
+	const [ config, shared ] = await Promise.all( [ readAppConfig(), readSharedConfig() ] );
+	const events: Array< [ TracksEventName, TracksProps ] > = [];
+	const { colorScheme, locale, editor, terminal, defaultSiteDirectory, quitSitesBehavior } = patch;
+
+	if ( colorScheme && colorScheme !== colorSchemeWithDefault.parse( config.colorScheme ) ) {
+		events.push( [ TRACKS_EVENTS.SETTING_APPEARANCE_CHANGE, { mode: colorScheme, surface } ] );
+	}
+	if ( locale && locale !== shared.locale ) {
+		events.push( [ TRACKS_EVENTS.SETTING_LANGUAGE_CHANGE, { locale, surface } ] );
+	}
+	if ( editor && editor !== config.preferredEditor ) {
+		events.push( [ TRACKS_EVENTS.SETTING_CODE_EDITOR_CHANGE, { editor, surface } ] );
+	}
+	if ( terminal && terminal !== terminalWithDefault.parse( config.preferredTerminal ) ) {
+		events.push( [ TRACKS_EVENTS.SETTING_TERMINAL_CHANGE, { terminal, surface } ] );
+	}
+	if (
+		defaultSiteDirectory &&
+		defaultSiteDirectory !== getDefaultSiteDirectory( config, sitesRoot )
+	) {
+		events.push( [
+			TRACKS_EVENTS.SETTING_DEFAULT_DIRECTORY_CHANGE,
+			{ is_default: defaultSiteDirectory === sitesRoot, surface },
+		] );
+	}
+	if ( quitSitesBehavior && quitSitesBehavior !== config.quitSitesBehavior ) {
+		events.push( [
+			TRACKS_EVENTS.SETTING_QUIT_ACTION_CHANGE,
+			{ behavior: quitSitesBehavior, surface },
+		] );
+	}
+	if (
+		typeof patch.agenticFeaturesEnabled === 'boolean' &&
+		patch.agenticFeaturesEnabled !== ( config.agenticFeaturesEnabled !== false )
+	) {
+		events.push( [
+			TRACKS_EVENTS.SETTING_AGENTIC_FEATURES_CHANGE,
+			{ enabled: patch.agenticFeaturesEnabled, surface },
+		] );
+	}
+	if ( typeof patch.analyticsEnabled === 'boolean' ) {
+		events.push( [
+			TRACKS_EVENTS.SETTING_TELEMETRY_CHANGE,
+			{ status: patch.analyticsEnabled ? 'on' : 'off', surface },
+		] );
+	}
+	return events;
+}
+
+export async function writeUserPreferences(
+	patch: UserPreferencesPatch,
+	context: UserPreferencesWriteContext
+): Promise< void > {
+	if ( patch.defaultSiteDirectory ) {
+		await ensureWritableDirectory( patch.defaultSiteDirectory );
+	}
+	const { recordTracksEvent } = context;
+	const events = recordTracksEvent ? await getChangeEvents( patch, context.sitesRoot ) : [];
+	// Tracks drops events while analytics is off, so they go out before opting out and after opting in.
+	const record = () =>
+		Promise.all( events.map( ( [ event, props ] ) => recordTracksEvent?.( event, props ) ) );
+	if ( patch.analyticsEnabled === false ) {
+		await record();
+	}
+
 	const appEntries = APP_CONFIG_KEYS.filter( ( [ key ] ) => key in patch );
 
 	if ( appEntries.length > 0 ) {
@@ -130,6 +216,10 @@ export async function writeUserPreferences( patch: UserPreferencesPatch ): Promi
 	}
 	if ( Object.keys( sharedPatch ).length > 0 ) {
 		await updateSharedConfig( sharedPatch );
+	}
+
+	if ( patch.analyticsEnabled !== false ) {
+		await record();
 	}
 }
 

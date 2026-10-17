@@ -9,208 +9,62 @@ import {
 } from '@studio/common/ai/settings-store';
 import { getInstructionsLengthBucket } from '@studio/common/lib/record-tracks-event';
 import {
-	isAnalyticsOptedOut,
-	readSharedConfig,
-	updateSharedConfig,
-} from '@studio/common/lib/shared-config';
-import { SupportedEditor } from '@studio/common/lib/user-settings/editor';
-import {
-	getFirstInstalledEditor,
-	isInstalled,
+	detectInstalledApps,
+	type InstalledApps,
 } from '@studio/common/lib/user-settings/installed-apps';
-import { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
-import { DEFAULT_TERMINAL } from 'src/constants';
+import { DEFAULT_COLOR_SCHEME } from '@studio/common/lib/user-settings/preferences';
+import {
+	onboardingHintsSchema,
+	readDefaultSiteDirectory,
+	readOnboardingHints,
+	readUserPreferences,
+	userPreferencesPatchSchema,
+	writeOnboardingHints,
+	writeUserPreferences,
+	type UserPreferencesPatch,
+} from '@studio/common/lib/user-settings/user-preferences';
 import { getUserLocaleWithFallback, loadLocaleData, setMacAppLanguage } from 'src/lib/locale-node';
 import { recordTracksEvent, TRACKS_EVENTS } from 'src/lib/tracks';
-import { defaultSitePath, ensureWritableDirectory } from 'src/storage/paths';
+import { defaultSitePath } from 'src/storage/paths';
 import { OnboardingHintsState } from 'src/storage/storage-types';
-import {
-	loadUserData,
-	lockAppdata,
-	saveUserData,
-	type QuitSitesBehavior,
-	unlockAppdata,
-	updateAppdata,
-} from 'src/storage/user-data';
+import { loadUserData, lockAppdata, saveUserData, unlockAppdata } from 'src/storage/user-data';
 import type { AiSettings } from '@studio/common/ai/providers';
 
 export function getInstalledAppsAndTerminals(): InstalledApps {
-	return {
-		antigravity: isInstalled( 'antigravity' ),
-		vscode: isInstalled( 'vscode' ),
-		phpstorm: isInstalled( 'phpstorm' ),
-		webstorm: isInstalled( 'webstorm' ),
-		windsurf: isInstalled( 'windsurf' ),
-		cursor: isInstalled( 'cursor' ),
-		sublime: isInstalled( 'sublime' ),
-		zed: isInstalled( 'zed' ),
-		terminal: true, // Terminal.app is always available on macOS
-		iterm: isInstalled( 'iterm' ),
-		warp: isInstalled( 'warp' ),
-		ghostty: isInstalled( 'ghostty' ),
-	};
+	return detectInstalledApps();
 }
 
-export async function saveUserTerminal(
-	event: IpcMainInvokeEvent,
-	preferredTerminal: SupportedTerminal
-) {
-	const previous = ( await loadUserData() ).preferredTerminal || DEFAULT_TERMINAL;
-	await updateAppdata( { preferredTerminal } );
-	if ( preferredTerminal !== previous ) {
-		await recordTracksEvent( TRACKS_EVENTS.SETTING_TERMINAL_CHANGE, {
-			terminal: preferredTerminal,
-			surface: 'settings',
-		} );
+export async function getUserPreferences() {
+	const preferences = await readUserPreferences( {
+		sitesRoot: defaultSitePath,
+		installedApps: detectInstalledApps(),
+	} );
+	// The scheme may have been changed from `studio ui`, so the native window follows it here.
+	nativeTheme.themeSource = preferences.colorScheme;
+	return { ...preferences, locale: await getUserLocaleWithFallback() };
+}
+
+export async function setUserPreferences(
+	_event: IpcMainInvokeEvent,
+	patch: UserPreferencesPatch
+): Promise< void > {
+	const parsed = userPreferencesPatchSchema.parse( patch );
+	await writeUserPreferences( parsed, { sitesRoot: defaultSitePath, recordTracksEvent } );
+	if ( parsed.colorScheme !== undefined ) {
+		nativeTheme.themeSource = parsed.colorScheme ?? DEFAULT_COLOR_SCHEME;
 	}
-}
-
-export async function getUserTerminal() {
-	const userData = await loadUserData();
-	return userData.preferredTerminal || DEFAULT_TERMINAL;
-}
-
-export async function saveUserLocale( event: IpcMainInvokeEvent, locale: string ) {
-	const previous = ( await readSharedConfig() ).locale;
-	await updateSharedConfig( { locale } );
-	loadLocaleData( locale );
-	setMacAppLanguage( locale );
-	if ( locale !== previous ) {
-		await recordTracksEvent( TRACKS_EVENTS.SETTING_LANGUAGE_CHANGE, {
-			locale,
-			surface: 'settings',
-		} );
-	}
-}
-
-export async function saveUserEditor( event: IpcMainInvokeEvent, editor: SupportedEditor ) {
-	const previous = ( await loadUserData() ).preferredEditor;
-	await updateAppdata( { preferredEditor: editor } );
-	if ( editor !== previous ) {
-		await recordTracksEvent( TRACKS_EVENTS.SETTING_CODE_EDITOR_CHANGE, {
-			editor,
-			surface: 'settings',
-		} );
+	if ( parsed.locale ) {
+		loadLocaleData( parsed.locale );
+		setMacAppLanguage( parsed.locale );
 	}
 }
 
 export async function getDefaultSiteDirectory(): Promise< string > {
-	const userData = await loadUserData();
-	return userData.defaultSiteDirectory || defaultSitePath;
-}
-
-export async function saveDefaultSiteDirectory( event: IpcMainInvokeEvent, directory: string ) {
-	await ensureWritableDirectory( directory );
-	const previous = ( await loadUserData() ).defaultSiteDirectory || defaultSitePath;
-	await updateAppdata( { defaultSiteDirectory: directory } );
-	if ( directory !== previous ) {
-		await recordTracksEvent( TRACKS_EVENTS.SETTING_DEFAULT_DIRECTORY_CHANGE, {
-			is_default: directory === defaultSitePath,
-			surface: 'settings',
-		} );
-	}
-}
-
-export async function getUserLocale() {
-	return getUserLocaleWithFallback();
-}
-
-export async function getUserEditor(): Promise< SupportedEditor | null > {
-	const userData = await loadUserData();
-	return userData.preferredEditor ?? getFirstInstalledEditor( getInstalledAppsAndTerminals() );
-}
-
-export async function saveColorScheme(
-	event: IpcMainInvokeEvent,
-	colorScheme: 'system' | 'light' | 'dark'
-) {
-	const previous = ( await loadUserData() ).colorScheme ?? 'light';
-	nativeTheme.themeSource = colorScheme;
-	await updateAppdata( { colorScheme } );
-	if ( colorScheme !== previous ) {
-		await recordTracksEvent( TRACKS_EVENTS.SETTING_APPEARANCE_CHANGE, {
-			mode: colorScheme,
-			surface: 'settings',
-		} );
-	}
-}
-
-export async function getColorScheme(): Promise< 'system' | 'light' | 'dark' > {
-	const userData = await loadUserData();
-	const colorScheme = userData.colorScheme ?? 'light';
-	nativeTheme.themeSource = colorScheme;
-	return colorScheme;
-}
-
-// Analytics opt-out. Stored in shared.json so both Studio and the Studio CLI honor it. Default is
-// opted IN (analytics ON). See `docs/design-docs/analytics-tracks.md`.
-export async function getAnalyticsEnabled(): Promise< boolean > {
-	return ! ( await isAnalyticsOptedOut() );
-}
-
-// Where the toggle was flipped — the renderer supplies the surface; Main can't infer it.
-export interface AnalyticsToggleSource {
-	surface: 'onboarding' | 'settings';
-}
-
-export async function saveAnalyticsEnabled(
-	_event: IpcMainInvokeEvent,
-	enabled: boolean,
-	source: AnalyticsToggleSource
-): Promise< void > {
-	// `recordTracksEvent` is gated by the current opt-out state, so the event must be recorded while
-	// analytics is ON — before turning it off, after turning it on. Order the write around that.
-	const recordEvent = () =>
-		recordTracksEvent( TRACKS_EVENTS.SETTING_TELEMETRY_CHANGE, {
-			surface: source.surface,
-			status: enabled ? 'on' : 'off',
-		} );
-
-	if ( enabled ) {
-		await updateSharedConfig( { analyticsOptOut: false } );
-		await recordEvent();
-	} else {
-		await recordEvent();
-		await updateSharedConfig( { analyticsOptOut: true } );
-	}
-}
-
-export async function saveQuitSitesBehavior(
-	_event: IpcMainInvokeEvent,
-	quitSitesBehavior: QuitSitesBehavior | undefined
-) {
-	const previous = ( await loadUserData() ).quitSitesBehavior;
-	await updateAppdata( { quitSitesBehavior } );
-	if ( quitSitesBehavior && quitSitesBehavior !== previous ) {
-		await recordTracksEvent( TRACKS_EVENTS.SETTING_QUIT_ACTION_CHANGE, {
-			behavior: quitSitesBehavior,
-			surface: 'settings',
-		} );
-	}
-}
-
-export async function getQuitSitesBehavior(): Promise< QuitSitesBehavior | undefined > {
-	const userData = await loadUserData();
-	return userData.quitSitesBehavior;
-}
-
-export async function saveAgenticFeaturesEnabled(
-	_event: IpcMainInvokeEvent,
-	enabled: boolean
-): Promise< void > {
-	const previous = ( await loadUserData() ).agenticFeaturesEnabled ?? true;
-	await updateAppdata( { agenticFeaturesEnabled: enabled } );
-	if ( enabled !== previous ) {
-		await recordTracksEvent( TRACKS_EVENTS.SETTING_AGENTIC_FEATURES_CHANGE, {
-			enabled,
-			surface: 'settings',
-		} );
-	}
+	return readDefaultSiteDirectory( defaultSitePath );
 }
 
 export async function getAgenticFeaturesEnabled(): Promise< boolean > {
-	const userData = await loadUserData();
-	return userData.agenticFeaturesEnabled ?? true;
+	return ( await loadUserData() ).agenticFeaturesEnabled !== false;
 }
 
 export async function saveWapuuScore( _event: IpcMainInvokeEvent, score: number ): Promise< void > {
@@ -235,37 +89,21 @@ export async function getWapuuScore(): Promise< number | undefined > {
 }
 
 // Agentic UI onboarding state (orientation guide seen-state, migration marker).
-// The blob is opaque to the desktop; the renderer owns its meaning.
 export async function getOnboardingHints(): Promise< OnboardingHintsState > {
-	const userData = await loadUserData();
-	return userData.onboardingHints ?? {};
-}
-
-async function persistOnboardingHints( partial: Partial< OnboardingHintsState > ): Promise< void > {
-	if ( ! partial || typeof partial !== 'object' ) {
-		return;
-	}
-	await lockAppdata();
-	try {
-		const userData = await loadUserData();
-		const merged: OnboardingHintsState = { ...( userData.onboardingHints ?? {} ), ...partial };
-		await saveUserData( { ...userData, onboardingHints: merged } );
-	} finally {
-		await unlockAppdata();
-	}
+	return readOnboardingHints();
 }
 
 export async function saveOnboardingHints(
 	_event: IpcMainInvokeEvent,
 	partial: Partial< OnboardingHintsState >
 ): Promise< void > {
-	await persistOnboardingHints( partial );
+	await writeOnboardingHints( onboardingHintsSchema.parse( partial ) );
 }
 
 // Marks a user who came from classic Studio (migration 09), so the orientation
 // guide can greet them as a migrating user. Fresh installs stay "new".
 export async function recordAgenticUiMigration(): Promise< void > {
-	await persistOnboardingHints( { migratedFromClassic: true } );
+	await writeOnboardingHints( { migratedFromClassic: true } );
 }
 
 export async function getGlobalAgentInstructions(): Promise< string > {

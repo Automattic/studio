@@ -44,7 +44,7 @@ import { isImageGenerationAvailable } from 'cli/ai/image-generation';
 import { emitEvent } from 'cli/ai/json-events';
 import { getLastSelectedLocalSite } from 'cli/ai/site-selection';
 import { buildSystemPrompt, type ToolPromptContribution } from 'cli/ai/system-prompt';
-import { resolveStudioToolDefinitions } from 'cli/ai/tools';
+import { resolveStudioToolDefinitions, studioToolDefinitions } from 'cli/ai/tools';
 import { createAskUserQuestionTool } from 'cli/ai/tools/ask-user-question';
 import { createPresentDesignOptionsTool } from 'cli/ai/tools/present-design-options';
 import { createSkillTool } from 'cli/ai/tools/skill';
@@ -246,8 +246,12 @@ async function runAgentSessionTurn(
 							return site && ! site.remote ? site.path : undefined;
 						},
 						cwd: STUDIO_SITES_ROOT,
-						reload: () =>
-							emitEvent( { type: 'preview.reload', timestamp: new Date().toISOString() } ),
+						isDestructive: ( name ) =>
+							studioToolDefinitions.some(
+								( tool ) => tool.name === name && tool.annotations.destructiveHint
+							),
+						reload: ( source ) =>
+							emitEvent( { type: 'preview.reload', source, timestamp: new Date().toISOString() } ),
 				  } )
 				: undefined;
 		unsubscribe = session.subscribe( ( event ) => {

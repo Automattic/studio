@@ -70,11 +70,32 @@ describe( 'useSessionPreviewUI agent reloads', () => {
 
 		act( () => result.current.preview.setSite( 'site-a' ) );
 		act( () => result.current.preview.updatePath( '/about' ) );
-		act( () => result.current.dispatch( { type: 'preview/reload' } ) );
+		act( () => result.current.dispatch( { type: 'preview/reload', source: 'tool' } ) );
 		expect( result.current.preview.path ).toBe( '/about' );
 
 		act( () => result.current.preview.updatePath( DESIGN_SYSTEM_PREVIEW_PATH ) );
-		act( () => result.current.dispatch( { type: 'preview/reload' } ) );
+		act( () => result.current.dispatch( { type: 'preview/reload', source: 'tool' } ) );
 		expect( result.current.preview.path ).toBe( '/' );
+	} );
+
+	it( 'leaves wp-admin alone when the request ends, and reloads it after a tool change', () => {
+		const { result } = renderHook(
+			() => ( { preview: useSessionPreviewUI(), dispatch: useSessionUIDispatch() } ),
+			{ wrapper }
+		);
+		const nonce = () => result.current.preview.reloadNonce;
+
+		act( () => result.current.preview.setSite( 'site-a' ) );
+		act( () => result.current.preview.updatePath( '/wp-admin/post.php?post=1&action=edit' ) );
+		const before = nonce();
+		act( () => result.current.dispatch( { type: 'preview/reload', source: 'request' } ) );
+		expect( nonce() ).toBe( before );
+
+		act( () => result.current.dispatch( { type: 'preview/reload', source: 'tool' } ) );
+		expect( nonce() ).toBe( before + 1 );
+
+		act( () => result.current.preview.updatePath( '/about' ) );
+		act( () => result.current.dispatch( { type: 'preview/reload', source: 'request' } ) );
+		expect( nonce() ).toBe( before + 2 );
 	} );
 } );

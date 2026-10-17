@@ -17,7 +17,9 @@ function write( relativePath: string, offsetSeconds = 5 ) {
 	return file;
 }
 
-function turnEnd( calls: Array< { path: string; isError?: boolean } > ): AgentSessionEvent {
+type Call = { name?: string; path?: string; command?: string; isError?: boolean };
+
+function turnEnd( calls: Call[] ): AgentSessionEvent {
 	return {
 		type: 'turn_end',
 		message: {
@@ -25,8 +27,8 @@ function turnEnd( calls: Array< { path: string; isError?: boolean } > ): AgentSe
 			content: calls.map( ( call, index ) => ( {
 				type: 'toolCall',
 				id: `call-${ index }`,
-				name: 'Edit',
-				arguments: { path: call.path },
+				name: call.name ?? 'Edit',
+				arguments: { path: call.path, command: call.command },
 			} ) ),
 		},
 		toolResults: calls.map( ( call, index ) => ( {
@@ -44,7 +46,11 @@ const retryingEnd = { type: 'agent_end', messages: [], willRetry: true } as Agen
 
 function reloader( getSitePath: () => string | undefined = () => site ) {
 	const reload = vi.fn();
-	return { reload, onEvent: createPreviewReloader( { getSitePath, cwd: site, reload } ) };
+	const isDestructive = ( name: string ) => name === 'site_import';
+	return {
+		reload,
+		onEvent: createPreviewReloader( { getSitePath, cwd: site, isDestructive, reload } ),
+	};
 }
 
 beforeEach( () => {
@@ -60,7 +66,7 @@ describe( 'createPreviewReloader', () => {
 		const { reload, onEvent } = reloader();
 		const file = write( 'wp-content/themes/theme/style.css' );
 		onEvent( turnEnd( [ { path: file } ] ) );
-		expect( reload ).toHaveBeenCalledTimes( 1 );
+		expect( reload ).toHaveBeenCalledWith( 'tool' );
 	} );
 
 	it( 'resolves relative paths against the tools’ working directory', () => {
@@ -79,12 +85,29 @@ describe( 'createPreviewReloader', () => {
 		expect( reload ).not.toHaveBeenCalled();
 	} );
 
-	it( 'reloads once when the request ends if anything else in wp-content changed', async () => {
+	it( 'reloads once when the request ends if a file changed that no tool call named', async () => {
 		const { reload, onEvent } = reloader();
-		write( 'wp-content/database/.ht.sqlite' );
+		write( 'wp-content/themes/theme/theme.json' );
 		onEvent( retryingEnd );
 		onEvent( agentEnd );
-		await vi.waitFor( () => expect( reload ).toHaveBeenCalledTimes( 1 ) );
+		await vi.waitFor( () => expect( reload ).toHaveBeenCalledWith( 'request' ) );
+		expect( reload ).toHaveBeenCalledTimes( 1 );
+	} );
+
+	it( 'ignores database writes unless the request ran a command or a tool that replaces data', async () => {
+		for ( const [ calls, reloads ] of [
+			[ [ { name: 'Read', path: 'DESIGN.md' }, { name: 'take_screenshot' } ], false ],
+			[ [ { name: 'Bash', command: 'wp option update blogname Shop' } ], true ],
+			[ [ { name: 'site_import' } ], true ],
+			[ [ { name: 'Bash', command: 'wp post create', isError: true } ], false ],
+		] as Array< [ Call[], boolean ] > ) {
+			const { reload, onEvent } = reloader();
+			write( 'wp-content/database/.ht.sqlite' );
+			onEvent( turnEnd( calls ) );
+			onEvent( agentEnd );
+			await new Promise( ( resolve ) => setTimeout( resolve, 50 ) );
+			expect( reload.mock.calls.length > 0 ).toBe( reloads );
+		}
 	} );
 
 	it( 'does not reload when the request ends if nothing changed since the last reload', async () => {

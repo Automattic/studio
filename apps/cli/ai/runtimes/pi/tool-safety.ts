@@ -1,3 +1,6 @@
+import { existsSync } from 'fs';
+import os from 'os';
+import path from 'path';
 import type { AgentSessionEvent } from '@earendil-works/pi-coding-agent';
 
 // Keep individual model-generated tool payloads below the range where long
@@ -97,6 +100,59 @@ export function getPayloadLimitViolation( toolName: string, params: unknown ): s
 		}
 	}
 
+	return undefined;
+}
+
+const CORE_ROOT_FILE = /^(index|xmlrpc|wp-(?!config\b)[a-z-]+)\.php$/;
+
+function resolveToolPath( filePath: string, cwd: string ): string {
+	const withoutAt = filePath.replace( /^@/, '' );
+	const expanded =
+		withoutAt === '~' || withoutAt.startsWith( '~/' )
+			? path.join( os.homedir(), withoutAt.slice( 1 ) )
+			: withoutAt;
+	return path.resolve( cwd, expanded );
+}
+
+/** The path of a file relative to the WordPress install it is in, if any. */
+function getPathInWordPress( filePath: string ): string | undefined {
+	for (
+		let dir = path.dirname( filePath );
+		dir !== path.dirname( dir );
+		dir = path.dirname( dir )
+	) {
+		if (
+			existsSync( path.join( dir, 'wp-includes' ) ) &&
+			existsSync( path.join( dir, 'wp-content' ) )
+		) {
+			return path.relative( dir, filePath ).split( path.sep ).join( '/' );
+		}
+	}
+	return undefined;
+}
+
+/**
+ * A WordPress update replaces core files, so a change to one is lost. Refuses
+ * Write and Edit there and names where the change belongs.
+ */
+export function getFileWriteRefusal(
+	toolName: string,
+	params: unknown,
+	cwd: string
+): string | undefined {
+	const filePath = getStringParam( params, 'path' );
+	if ( ( toolName !== 'Write' && toolName !== 'Edit' ) || ! filePath ) {
+		return undefined;
+	}
+	const relativePath = getPathInWordPress( resolveToolPath( filePath, cwd ) );
+	if (
+		relativePath &&
+		( relativePath.startsWith( 'wp-includes/' ) ||
+			relativePath.startsWith( 'wp-admin/' ) ||
+			CORE_ROOT_FILE.test( relativePath ) )
+	) {
+		return `Not run: ${ relativePath } is WordPress core, and a WordPress update replaces it. Read it as reference, and make the change in wp-content/ (a theme, child theme, or plugin).`;
+	}
 	return undefined;
 }
 

@@ -1,5 +1,5 @@
 import { killChild } from '@studio/common/lib/cli-process';
-import { SyncCancelledError } from '@studio/common/lib/sync/cancel';
+import { isSyncCancelledError, SyncCancelledError } from '@studio/common/lib/sync/cancel';
 import type { ExecuteCliCommand } from '@studio/common/lib/cli-process';
 import type { PullSyncOptions, PushSyncOptions } from '@studio/common/types/sync';
 
@@ -94,4 +94,62 @@ export function pullSite(
 		],
 		signal
 	);
+}
+
+export type SyncResult = { cancelled: boolean };
+
+/**
+ * Runs pushes and pulls so the host can cancel one by site and remote site. A cancel resolves
+ * `{ cancelled: true }` rather than rejecting, since it's an intentional stop and not a failure.
+ */
+export function createSyncRunner( execute: ExecuteCliCommand ) {
+	const controllers = new Map< string, AbortController >();
+	const key = ( siteId: string, remoteSiteId: number ) => `${ siteId }-${ remoteSiteId }`;
+
+	async function run(
+		siteId: string,
+		remoteSiteId: number,
+		sync: ( signal: AbortSignal ) => Promise< void >
+	): Promise< SyncResult > {
+		const id = key( siteId, remoteSiteId );
+		const controller = new AbortController();
+		controllers.set( id, controller );
+		try {
+			await sync( controller.signal );
+			return { cancelled: false };
+		} catch ( error ) {
+			if ( isSyncCancelledError( error ) ) {
+				return { cancelled: true };
+			}
+			throw error;
+		} finally {
+			if ( controllers.get( id ) === controller ) {
+				controllers.delete( id );
+			}
+		}
+	}
+
+	return {
+		push: (
+			siteId: string,
+			sitePath: string,
+			remoteSiteId: number,
+			options?: PushSyncOptions
+		): Promise< SyncResult > =>
+			run( siteId, remoteSiteId, ( signal ) =>
+				pushSite( execute, sitePath, remoteSiteId, options, signal )
+			),
+		pull: (
+			siteId: string,
+			sitePath: string,
+			remoteSiteId: number,
+			options?: PullSyncOptions
+		): Promise< SyncResult > =>
+			run( siteId, remoteSiteId, ( signal ) =>
+				pullSite( execute, sitePath, remoteSiteId, options, signal )
+			),
+		cancel: ( siteId: string, remoteSiteId: number ): void => {
+			controllers.get( key( siteId, remoteSiteId ) )?.abort();
+		},
+	};
 }

@@ -41,14 +41,17 @@ import { getAiTracksIdentity } from '@studio/common/ai/tracks-identity';
 import { type TSchema } from 'typebox';
 import { withDesignSystemPreview } from 'cli/ai/chat-artifacts';
 import { isImageGenerationAvailable } from 'cli/ai/image-generation';
+import { emitEvent } from 'cli/ai/json-events';
+import { getLastSelectedLocalSite } from 'cli/ai/site-selection';
 import { buildSystemPrompt, type ToolPromptContribution } from 'cli/ai/system-prompt';
-import { resolveStudioToolDefinitions } from 'cli/ai/tools';
+import { resolveStudioToolDefinitions, studioToolDefinitions } from 'cli/ai/tools';
 import { createAskUserQuestionTool } from 'cli/ai/tools/ask-user-question';
 import { createPresentDesignOptionsTool } from 'cli/ai/tools/present-design-options';
 import { createSkillTool } from 'cli/ai/tools/skill';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import { getFileToolPrompt } from './file-tool-prompts';
 import { getPendingWork, type PendingWork } from './pending-work';
+import { createPreviewReloader } from './preview-reload';
 import { stripStaleImagesFromContext } from './strip-stale-images';
 import {
 	getIncompleteToolCallReason,
@@ -231,9 +234,30 @@ async function runAgentSessionTurn(
 	try {
 		session = await createStudioAgentSession( config, family, resolved.creds, payloadGuardState );
 		setActiveSession( session );
+		// The preview shows the request's active site, or one a tool made active since.
+		// A Studio UI with a preview pane is attached when process.send exists.
+		const selectedAtStart = getLastSelectedLocalSite();
+		const reloadPreview =
+			typeof process.send === 'function'
+				? createPreviewReloader( {
+						getSitePath: () => {
+							const selected = getLastSelectedLocalSite();
+							const site = selected !== selectedAtStart ? selected : config.activeSite;
+							return site && ! site.remote ? site.path : undefined;
+						},
+						cwd: STUDIO_SITES_ROOT,
+						isDestructive: ( name ) =>
+							studioToolDefinitions.some(
+								( tool ) => tool.name === name && tool.annotations.destructiveHint
+							),
+						reload: ( source ) =>
+							emitEvent( { type: 'preview.reload', source, timestamp: new Date().toISOString() } ),
+				  } )
+				: undefined;
 		unsubscribe = session.subscribe( ( event ) => {
 			updateStudioToolPayloadGuardState( event, payloadGuardState );
 			config.onEvent( event );
+			reloadPreview?.( event );
 		} );
 
 		if ( controller.signal.aborted ) {
@@ -284,7 +308,6 @@ async function createStudioAgentSession(
 		visionEnabled
 	);
 	const systemPrompt = buildSystemPrompt( {
-		chatArtifactsEnabled,
 		userInstructions,
 		tools: tools.map( toolPromptContribution ),
 	} );

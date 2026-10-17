@@ -16,7 +16,7 @@ export function useSessionCommands( sessionId: string ): void {
 			if ( payload.sessionId !== sessionId ) return;
 			const event = payload.event;
 			if ( event.type === 'preview.reload' ) {
-				dispatch( { type: 'preview/reload' } );
+				dispatch( { type: 'preview/reload', source: event.source ?? 'tool' } );
 				return;
 			}
 			if ( event.type === 'chat.artifact' && isStudioChatArtifactData( event.artifact ) ) {

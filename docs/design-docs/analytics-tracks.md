@@ -69,12 +69,9 @@ where the sender actually runs — see Testing below for what fires in which bui
   `shared.json`. Because `shared.json` is read by both the desktop app and the CLI, both attribute
   events to the same install. No PII is attached; identity is always `_ut=anon`.
 - **Opt-out.** `analyticsOptOut` in `shared.json` (absent/false = opted **in**; analytics default ON).
-  Enforced in both wrappers before any send. The user controls it from several places, all writing the
-  same shared flag through the `getAnalyticsEnabled` / `saveAnalyticsEnabled` IPC handlers →
-  `updateSharedConfig`:
-  - Agentic renderer (`apps/ui`) Settings → Preferences — folded into `UserPreferences`
-    (`analyticsEnabled`) so it rides the existing preferences query/mutation through the connector,
-    which calls the same IPC handlers.
+  Enforced in both wrappers before any send. The user controls it from Settings → Preferences and the
+  onboarding screen, in both the desktop app and `studio ui`: it is the `analyticsEnabled` preference,
+  written by `writeUserPreferences` (`packages/common/lib/user-settings/user-preferences.ts`).
 - **What opt-out does *not* affect.** MC Stats (aggregate headcount, not behavioral) and Sentry (crash
   reports, not analytics) keep sending. Only Tracks stops.
 - **`--avoid-telemetry`.** This existing CLI flag is unrelated to the Tracks opt-out. It prevents the

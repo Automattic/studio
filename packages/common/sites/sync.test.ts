@@ -20,15 +20,16 @@ function fakeCli() {
 }
 
 describe( 'pullSite', () => {
-	it( 'kills the CLI and rejects as cancelled when the signal aborts', async () => {
-		const { child, execute } = fakeCli();
+	it( 'asks the CLI to stop and rejects as cancelled once it exits', async () => {
+		const { emitter, child, execute } = fakeCli();
 		const controller = new AbortController();
 		const pulling = pullSite( execute, '/sites/local', 42, undefined, controller.signal );
 
 		controller.abort();
+		emitter.emit( 'failure', { error: new Error( 'exited' ) } );
 
 		await expect( pulling ).rejects.toSatisfy( isSyncCancelledError );
-		expect( killChild ).toHaveBeenCalledWith( child );
+		expect( killChild ).toHaveBeenCalledWith( child, { force: false } );
 	} );
 
 	it( 'rejects immediately when the signal is already aborted', async () => {
@@ -149,6 +150,7 @@ describe( 'createSyncRunner', () => {
 		runner.cancel( 'site-1', 7 );
 		first.emitter.emit( 'success' );
 		runner.cancel( 'site-1', 42 );
+		second.emitter.emit( 'failure', { error: new Error( 'exited' ) } );
 
 		await expect( pushing ).resolves.toEqual( { cancelled: false } );
 		await expect( pulling ).resolves.toEqual( { cancelled: true } );

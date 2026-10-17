@@ -26,7 +26,6 @@ import {
 	SettingsManager,
 	type AgentSession,
 	type AgentSessionEvent,
-	type BashSpawnHook,
 	type SessionManager,
 	type ToolDefinition,
 } from '@earendil-works/pi-coding-agent';
@@ -54,9 +53,8 @@ import { getPendingWork, type PendingWork } from './pending-work';
 import { stripStaleImagesFromContext } from './strip-stale-images';
 import {
 	ensureStudioWpShimDirectory,
+	getStudioWpShimScript,
 	prependToPath,
-	startStudioWpBroker,
-	STUDIO_WP_BROKER_ENV,
 } from './studio-wp-shim';
 import {
 	getIncompleteToolCallReason,
@@ -613,16 +611,11 @@ function toToolDefinition(
 
 // Every chunk of the CLI bundle sits next to `main.mjs`, so it is this
 // module's sibling; `STUDIO_CLI_BIN` points elsewhere in development.
-let studioWpSpawnHook: BashSpawnHook | undefined;
-function getStudioWpSpawnHook(): BashSpawnHook {
-	if ( ! studioWpSpawnHook ) {
-		const cliPath = process.env.STUDIO_CLI_BIN ?? path.join( import.meta.dirname, 'main.mjs' );
-		const broker = startStudioWpBroker();
-		studioWpSpawnHook = prependToPath( ensureStudioWpShimDirectory( process.execPath, cliPath ), {
-			[ STUDIO_WP_BROKER_ENV ]: broker.address,
-		} );
-	}
-	return studioWpSpawnHook;
+function getStudioWpSpawnHook() {
+	const cliPath = process.env.STUDIO_CLI_BIN ?? path.join( import.meta.dirname, 'main.mjs' );
+	return prependToPath(
+		ensureStudioWpShimDirectory( getStudioWpShimScript( process.execPath, cliPath ) )
+	);
 }
 
 function buildAgentTools(

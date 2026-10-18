@@ -14,13 +14,7 @@ export type JsonEvent =
 	| { type: 'info'; timestamp: string; message: string }
 	| { type: 'error'; timestamp: string; message: string }
 	| { type: 'chat.artifact'; timestamp: string; artifact: StudioChatArtifactData }
-	| {
-			type: 'preview.reload';
-			timestamp: string;
-			// `tool`: a tool call changed the site. `request`: the request ended and
-			// the site's files changed, which can be WordPress writing on its own.
-			source?: 'tool' | 'request';
-	  }
+	| { type: 'preview.reload'; timestamp: string }
 	| {
 			type: 'question.asked';
 			timestamp: string;

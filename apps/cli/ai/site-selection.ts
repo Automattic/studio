@@ -10,16 +10,8 @@ export function setLocalSiteSelectedCallback( callback: LocalSiteSelectedCallbac
 	localSiteSelectedCallback = callback;
 }
 
-let lastSelectedLocalSite: SiteInfo | null = null;
-
 export async function emitLocalSiteSelected( site: SiteInfo ): Promise< void > {
-	lastSelectedLocalSite = site;
 	await localSiteSelectedCallback?.( site );
-}
-
-// The local site a tool most recently made active, in any turn.
-export function getLastSelectedLocalSite(): SiteInfo | null {
-	return lastSelectedLocalSite;
 }
 
 // Turn-scoped context line prepended to every user prompt so the agent knows

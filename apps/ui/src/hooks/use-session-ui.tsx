@@ -39,10 +39,6 @@ interface PreviewUIState {
 }
 
 // The path a site's preview shows: its last visited path, or home.
-function isWpAdminPath( path: string ): boolean {
-	return path === '/wp-admin' || path.startsWith( '/wp-admin/' );
-}
-
 export function pathForSite(
 	pathsBySiteId: Record< string, string >,
 	siteId: string | null | undefined
@@ -59,7 +55,7 @@ type SessionUIAction =
 	| { type: 'preview/toggle' }
 	| { type: 'preview/set-fullscreen'; value: boolean }
 	| { type: 'preview/navigate'; path: string }
-	| { type: 'preview/reload'; source: 'tool' | 'request' }
+	| { type: 'preview/reload' }
 	| { type: 'preview/update-path'; path: string }
 	| { type: 'preview/set-site'; siteId: string };
 
@@ -108,12 +104,7 @@ function reducer( state: SessionUIState, action: SessionUIAction ): SessionUISta
 					open: true,
 				},
 			};
-		case 'preview/reload': {
-			const currentPath = pathForSite( state.preview.pathsBySiteId, state.preview.siteId );
-			// A reload when the request ends can come from WordPress writing on its
-			// own. In wp-admin the person is working, perhaps with unsaved edits in
-			// the editor, and the agent's result isn't on that screen, so leave it.
-			if ( action.source === 'request' && isWpAdminPath( currentPath ) ) return state;
+		case 'preview/reload':
 			// Reveal the panel so the refresh is visible. The agent reloads to
 			// show the site it changed, so the design system gives way to it.
 			return {
@@ -121,14 +112,14 @@ function reducer( state: SessionUIState, action: SessionUIAction ): SessionUISta
 				preview: {
 					...state.preview,
 					pathsBySiteId:
-						currentPath === DESIGN_SYSTEM_PREVIEW_PATH
+						pathForSite( state.preview.pathsBySiteId, state.preview.siteId ) ===
+						DESIGN_SYSTEM_PREVIEW_PATH
 							? rememberPath( state.preview, '/' )
 							: state.preview.pathsBySiteId,
 					reloadNonce: state.preview.reloadNonce + 1,
 					open: true,
 				},
 			};
-		}
 		case 'preview/update-path': {
 			const pathsBySiteId = rememberPath( state.preview, action.path );
 			return pathsBySiteId === state.preview.pathsBySiteId

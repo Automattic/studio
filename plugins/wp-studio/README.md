@@ -23,7 +23,7 @@ claude plugin marketplace add Automattic/studio-plugins
 claude plugin install wp-studio@studio
 ```
 
-Any other MCP client can run the server directly: add a stdio
+Claude Code runs the plugin with the Node.js on your `PATH`, version 22 or later. Any other MCP client can run the server directly: add a stdio
 server named `wordpress-studio` that runs `studio mcp`.
 
 ## Use

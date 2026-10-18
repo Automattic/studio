@@ -19,7 +19,10 @@
   ],
   "mcpServers": {
     "wordpress-studio": {
-      "command": "${CLAUDE_PLUGIN_ROOT}/scripts/launch-mcp",
+      "command": "node",
+      "args": [
+        "${CLAUDE_PLUGIN_ROOT}/scripts/bootstrap-mcp.mjs"
+      ],
       "env": {
         "STUDIO_PLUGIN_ID": "wp-studio@studio"
       }

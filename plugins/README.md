@@ -23,8 +23,8 @@ claude plugin marketplace add Automattic/studio-plugins
 claude plugin install wp-studio@studio
 ```
 
-Start a new session afterwards, or run `/reload-plugins`. To update, run
-`claude plugin update wp-studio@studio`.
+Claude Code runs the plugin with the Node.js on your `PATH`, version 22 or later. Start a new session
+afterwards, or run `/reload-plugins`. To update, run `claude plugin update wp-studio@studio`.
 
 ## Development
 

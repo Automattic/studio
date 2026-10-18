@@ -2,7 +2,8 @@
 
 Plugins that bring [WordPress Studio](https://developer.wordpress.com/studio/) to agent apps.
 
-- [wp-studio](wp-studio): build, design, and manage WordPress sites from Codex in the ChatGPT app.
+- [wp-studio](wp-studio): build, design, and manage WordPress sites from Codex in the ChatGPT app,
+  and from Claude Code.
 
 ## Install in Codex
 
@@ -15,6 +16,16 @@ Restart the ChatGPT app afterwards. The app ships its own Codex at
 `/Applications/ChatGPT.app/Contents/Resources/codex-cli/bin/codex`. To update, run
 `codex plugin marketplace upgrade studio`, then `codex plugin add wp-studio@studio` again.
 
+## Install in Claude Code
+
+```bash
+claude plugin marketplace add Automattic/studio-plugins
+claude plugin install wp-studio@studio
+```
+
+Start a new session afterwards, or run `/reload-plugins`. To update, run
+`claude plugin update wp-studio@studio`.
+
 ## Development
 
 The plugins are developed in [Automattic/studio](https://github.com/Automattic/studio/tree/trunk/plugins)
@@ -23,6 +34,7 @@ Studio release, versioned as that release and with the Studio CLI inside (`cli.t
 replaces that repository's single commit, so cloning it never fetches older copies of the CLI. Open
 issues and pull requests in Automattic/studio.
 
-To try your changes, add the marketplace from your checkout, `codex plugin marketplace add ./plugins`,
-and point the plugin at a Studio CLI build with `STUDIO_CLI_BIN`. `npm run cli:bundle:plugin` builds
-the plugin with the CLI inside.
+To try your changes, add the marketplace from your checkout (`codex plugin marketplace add ./plugins`,
+or `claude --plugin-dir ./plugins/wp-studio` for one Claude Code session) and point the plugin at a
+Studio CLI build with `STUDIO_CLI_BIN`. `npm run cli:bundle:plugin` builds the plugin with the CLI
+inside.

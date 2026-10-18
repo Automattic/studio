@@ -54,7 +54,7 @@ jobs:
           cd dist
           git checkout -q --orphan release
           git rm -rqf .
-          cp -R ../plugins/.agents ../plugins/README.md ../LICENSE.md .
+          cp -R ../plugins/.agents ../plugins/.claude-plugin ../plugins/README.md ../LICENSE.md .
           unzip -q "../standalone-bundles/wp-studio-$version.zip" -d wp-studio
           git add -A
           git config user.name 'github-actions[bot]'

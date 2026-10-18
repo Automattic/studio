@@ -37,6 +37,14 @@ WP_CLI::add_wp_hook(
 	}
 );
 
+// Keep Simply Static's working copy out of the site's uploads folder. Set on every read, since
+// it creates its temporary folder while booting, before the export command runs.
+function studio_static_temp_files_dir( $options ) {
+	return array_merge( is_array( $options ) ? $options : array(), array( 'temp_files_dir' => __DIR__ . '/temp/' ) );
+}
+WP_CLI::add_wp_hook( 'option_simply-static', 'studio_static_temp_files_dir' );
+WP_CLI::add_wp_hook( 'default_option_simply-static', 'studio_static_temp_files_dir' );
+
 // Run the job queue inline in this process instead of through loopback requests.
 WP_CLI::add_wp_hook( 'wp_archive_creation_job_loopback_available', '__return_false' );
 // GET_LOCK()/IS_USED_LOCK() don't exist on SQLite, and this process is the only worker.
@@ -120,8 +128,6 @@ WP_CLI::add_command(
 		$options
 			->set( 'delivery_method', 'local' )
 			->set( 'local_dir', __DIR__ . '/output/' )
-			// Otherwise Simply Static writes its working copy to the site's uploads folder.
-			->set( 'temp_files_dir', __DIR__ . '/temp/' )
 			->set( 'clear_directory_before_export', true )
 			->set( 'generate_404', true )
 			->set( 'add_feeds', true )

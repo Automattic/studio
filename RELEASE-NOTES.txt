@@ -59,6 +59,7 @@ Unreleased
 * build(deps): bump actions/upload-artifact from 7.0.1 to 7.0.2 #5117
 * Start the WordPress Studio plugin for Codex on Windows #5129
 * Translate the macOS-provided menu items into Studio's language #5131
+* Agentic UI: add copy buttons for the site URL and local path #5021
 **Full Changelog**: https://github.com/Automattic/studio/compare/v1.24.0...v2.0.0
 
 1.24.0

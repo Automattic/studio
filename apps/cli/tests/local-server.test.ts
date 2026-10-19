@@ -23,7 +23,7 @@ const mocks = vi.hoisted( () => ( {
 
 vi.mock( '@studio/common/lib/cli-process', async ( importOriginal ) => ( {
 	...( await importOriginal< typeof import('@studio/common/lib/cli-process') >() ),
-	killChild: vi.fn(),
+	killChild: vi.fn( ( child: { kill: () => void } ) => child.kill() ),
 	createCliRunner: vi.fn( () => ( {
 		executeCliCommand: mocks.execute,
 		killAll: mocks.killAll,
@@ -422,7 +422,9 @@ describe( 'local web server Connect contracts', () => {
 		mocks.execute.mockImplementationOnce( () => {
 			const emitter = new EventEmitter();
 			queueMicrotask( pullStarted );
-			return [ emitter, { kill: () => undefined } ];
+			// Exits when asked to stop, as a pull still safe to cancel does.
+			const kill = () => emitter.emit( 'failure', { error: new Error( 'exited' ) } );
+			return [ emitter, { kill } ];
 		} );
 		const baseUrl = server.url.replace( 'localhost', '127.0.0.1' );
 

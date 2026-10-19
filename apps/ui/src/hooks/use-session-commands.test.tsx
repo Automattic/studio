@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useConnector } from '@/data/core';
 import { useSessionCommands } from './use-session-commands';
@@ -22,13 +22,11 @@ function Harness( { sessionId }: { sessionId: string } ) {
 	return (
 		<>
 			<span data-testid="nonce">{ preview.reloadNonce }</span>
-			<span data-testid="open">{ String( preview.open ) }</span>
-			<button onClick={ () => preview.setOpen( false ) }>close</button>
 		</>
 	);
 }
 
-describe( 'useSessionCommands preview.reload', () => {
+describe( 'useSessionCommands run end', () => {
 	let agentListener: ( event: AgentRunEvent ) => void;
 
 	beforeEach( () => {
@@ -53,40 +51,40 @@ describe( 'useSessionCommands preview.reload', () => {
 		} );
 	}
 
-	it( 'reloads the preview and reveals the panel', async () => {
+	function send( sessionId: string, event: AgentRunEvent[ 'event' ] ) {
+		act( () => agentListener( { runId: 'run-1', sessionId, event } as AgentRunEvent ) );
+	}
+	const nonce = () => Number( screen.getByTestId( 'nonce' ).textContent );
+
+	it( 'reloads the preview when a run exits or is interrupted, and not when it starts', async () => {
 		renderHarness();
 		await waitFor( () => expect( agentListener ).toBeDefined() );
+		const before = nonce();
 
-		// Collapse first to prove the reload re-opens the panel.
-		fireEvent.click( screen.getByText( 'close' ) );
-		expect( screen.getByTestId( 'open' ) ).toHaveTextContent( 'false' );
-		const before = Number( screen.getByTestId( 'nonce' ).textContent );
-
-		act( () => {
-			agentListener( {
-				runId: 'run-1',
-				sessionId: 'session-1',
-				event: { type: 'preview.reload', timestamp: '2026-07-01T00:00:00.000Z' },
-			} as AgentRunEvent );
+		send( 'session-1', { type: 'run.started', timestamp: '2026-07-01T00:00:00.000Z' } );
+		expect( nonce() ).toBe( before );
+		send( 'session-1', {
+			type: 'run.exited',
+			timestamp: '2026-07-01T00:00:00.000Z',
+			status: 'success',
+			code: 0,
 		} );
-
-		expect( Number( screen.getByTestId( 'nonce' ).textContent ) ).toBe( before + 1 );
-		expect( screen.getByTestId( 'open' ) ).toHaveTextContent( 'true' );
+		expect( nonce() ).toBe( before + 1 );
+		send( 'session-1', { type: 'run.interrupted', timestamp: '2026-07-01T00:00:00.000Z' } );
+		expect( nonce() ).toBe( before + 2 );
 	} );
 
-	it( 'ignores reload events for other sessions', async () => {
+	it( 'ignores runs of other sessions', async () => {
 		renderHarness( 'session-1' );
 		await waitFor( () => expect( agentListener ).toBeDefined() );
-		const before = Number( screen.getByTestId( 'nonce' ).textContent );
+		const before = nonce();
 
-		act( () => {
-			agentListener( {
-				runId: 'run-1',
-				sessionId: 'session-2',
-				event: { type: 'preview.reload', timestamp: '2026-07-01T00:00:00.000Z' },
-			} as AgentRunEvent );
+		send( 'session-2', {
+			type: 'run.exited',
+			timestamp: '2026-07-01T00:00:00.000Z',
+			status: 'success',
+			code: 0,
 		} );
-
-		expect( Number( screen.getByTestId( 'nonce' ).textContent ) ).toBe( before );
+		expect( nonce() ).toBe( before );
 	} );
 } );

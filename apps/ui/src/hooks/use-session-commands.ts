@@ -15,7 +15,10 @@ export function useSessionCommands( sessionId: string ): void {
 		return connector.onAgentEvent( ( payload ) => {
 			if ( payload.sessionId !== sessionId ) return;
 			const event = payload.event;
-			if ( event.type === 'preview.reload' ) {
+			// The agent finished a request, so show the site as it left it. The
+			// preview is a browser: it shows a page as it loaded, so a change from
+			// any source (the agent, `wp`, the person) appears on reload.
+			if ( event.type === 'run.exited' || event.type === 'run.interrupted' ) {
 				dispatch( { type: 'preview/reload' } );
 				return;
 			}

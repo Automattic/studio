@@ -9,7 +9,7 @@ import {
 	WP_CLI_DEFAULT_RESPONSE_TIMEOUT,
 	WP_CLI_IMPORT_EXPORT_RESPONSE_TIMEOUT,
 } from 'src/constants';
-import { isInErrorRecovery } from 'src/lib/php-error-recovery';
+import { isInErrorRecovery, stopErrorRecovery } from 'src/lib/php-error-recovery';
 import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
 import { getSiteThumbnailPath } from 'src/storage/paths';
 import type { SiteListItem } from '@studio/common/lib/cli-events';
@@ -37,6 +37,8 @@ export async function getSite( id: string ): Promise< Site | undefined > {
 
 /** Drop the Studio-owned data of a site the CLI no longer knows. */
 export async function forgetSite( id: string ): Promise< void > {
+	// Releases the site's port and stops watching its deleted folder.
+	await stopErrorRecovery( id );
 	await fs.promises.rm( getSiteThumbnailPath( id ), { force: true } );
 	await updateSiteMetadata( { [ id ]: null } );
 }

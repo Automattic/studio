@@ -48,7 +48,12 @@ import { parseWebUrl } from 'src/lib/shell-open-external-wrapper';
 import { getSites, stopAllServers } from 'src/lib/sites';
 import { recordTracksEvent, TRACKS_EVENTS } from 'src/lib/tracks';
 import { setupLogging } from 'src/logging';
-import { createMainWindow, getCurrentRendererUrl, getMainWindow } from 'src/main-window';
+import {
+	createMainWindow,
+	getCurrentRendererUrl,
+	getExistingMainWindow,
+	getMainWindow,
+} from 'src/main-window';
 import { migrations } from 'src/migrations';
 import {
 	startCliEventsSubscriber,
@@ -675,7 +680,7 @@ async function appBoot() {
 			return;
 		}
 
-		if ( BrowserWindow.getAllWindows().length === 0 ) {
+		if ( ! getExistingMainWindow() ) {
 			// On OS X it's common to re-create a window in the app when the
 			// dock icon is clicked and there are no other windows open.
 			void createMainWindow();

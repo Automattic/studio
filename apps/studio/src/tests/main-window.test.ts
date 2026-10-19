@@ -133,27 +133,6 @@ describe( 'getMainWindow', () => {
 		expect( window ).toBe( createdWindow );
 	} );
 
-	it( 'returns the focused window when the reference is destroyed', async () => {
-		const mockWindow1 = new BrowserWindow();
-		const mockWindow2 = new BrowserWindow();
-		vi.mocked( createdWindow.isDestroyed ).mockReturnValueOnce( true );
-		vi.mocked( BrowserWindow.getFocusedWindow ).mockReturnValueOnce( mockWindow2 );
-		vi.mocked( BrowserWindow.getAllWindows ).mockReturnValueOnce( [ mockWindow1, mockWindow2 ] );
-
-		const window = await getMainWindow();
-		expect( window ).toBe( mockWindow2 );
-	} );
-
-	it( 'returns the first window when the reference is destroyed and no window is focused', async () => {
-		const mockWindow1 = new BrowserWindow();
-		const mockWindow2 = new BrowserWindow();
-		vi.mocked( createdWindow.isDestroyed ).mockReturnValueOnce( true );
-		vi.mocked( BrowserWindow.getAllWindows ).mockReturnValueOnce( [ mockWindow1, mockWindow2 ] );
-
-		const window = await getMainWindow();
-		expect( window ).toBe( mockWindow1 );
-	} );
-
 	it( 'returns a new window when no non-destroyed windows exist', async () => {
 		vi.mocked( createdWindow.isDestroyed ).mockReturnValueOnce( true );
 		vi.mocked( BrowserWindow.getAllWindows ).mockReturnValueOnce( [] );

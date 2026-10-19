@@ -78,4 +78,20 @@ describe( 'installBundledDefaultPhp', () => {
 			fs.readFileSync( path.join( getDefaultPhpDestinationDir(), getBinaryName() ), 'utf8' )
 		).toBe( 'existing php' );
 	} );
+
+	it( 'keeps the folder another process installed first', async () => {
+		writeBundledDefaultPhp();
+		await expect( installBundledDefaultPhp.needsToRun() ).resolves.toBe( true );
+		fs.mkdirSync( getDefaultPhpDestinationDir(), { recursive: true } );
+		fs.writeFileSync( path.join( getDefaultPhpDestinationDir(), getBinaryName() ), 'winner php' );
+
+		await installBundledDefaultPhp.run();
+
+		expect(
+			fs.readFileSync( path.join( getDefaultPhpDestinationDir(), getBinaryName() ), 'utf8' )
+		).toBe( 'winner php' );
+		expect( fs.readdirSync( path.dirname( getDefaultPhpDestinationDir() ) ) ).toEqual( [
+			getDefaultPhpPackageId(),
+		] );
+	} );
 } );

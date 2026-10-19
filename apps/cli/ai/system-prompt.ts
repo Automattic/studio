@@ -85,9 +85,7 @@ const EXTERNAL_INTRO = `These are the instructions for building and managing loc
 
 const WORKING_CADENCE = `## Working cadence
 
-- One file per turn: a single \`Write\`, or a single \`Edit\` call (read-only \`site_info\`, \`site_list\`, \`wp_cli\` queries may be combined). Short prose between tools — no long design-plan essays. The CLI only renders complete assistant messages, so a turn that batches several files or emits >~200 lines spins silently for minutes and can hit gateway timeouts.
-- Read files with Read, not cat or sed. Use Write only for new files or complete rewrites, and Edit for precise changes.
-- Put every change you have ready for a file into one Edit call — all the anchors you can fill or a whole batch of fixes — instead of one call per anchor; each extra call costs a full round trip.`;
+- One file per turn: a single \`Write\`, or a single \`Edit\` call (read-only \`site_info\`, \`site_list\`, \`wp_cli\` queries may be combined). Short prose between tools — no long design-plan essays. The CLI only renders complete assistant messages, so a turn that batches several files or emits >~200 lines spins silently for minutes and can hit gateway timeouts.`;
 
 const PLAN_DATA_GUARDRAIL = `For ANY question about WordPress.com or Pressable plans, pricing, upgrades, or what a plan tier includes (plugins, themes, custom code, SSH, hosting, storage, etc.), you MUST load the \`hosting-plans-helper\` skill and answer only from the data it fetches. Do NOT answer from memory: your training knowledge of plan names, prices, and feature-tier gating is stale and frequently wrong. In particular, do not claim a tier lacks a feature (e.g. that Personal or Premium cannot install plugins) based on memory — check the fetched per-tier feature list, which is the only source of truth. If you cannot fetch the data, say you cannot verify current plan details and point the user to https://wordpress.com/pricing; never guess.`;
 

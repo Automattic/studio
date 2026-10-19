@@ -15,10 +15,11 @@ export async function emitLocalSiteSelected( site: SiteInfo ): Promise< void > {
 }
 
 // Turn-scoped context line prepended to every user prompt so the agent knows
-// which site the session is attached to.
+// which site the session is attached to. A WordPress.com site is live, so its
+// line also names the skill that covers working on it.
 export function formatActiveSitePrefix( site: SiteInfo ): string {
 	if ( site.remote && site.url ) {
-		return `[Active site: "${ site.name }" (ID: ${ site.wpcomSiteId }) at ${ site.url } (WordPress.com)]`;
+		return `[Active site: "${ site.name }" (ID: ${ site.wpcomSiteId }) at ${ site.url } (WordPress.com, live: load the edit-manage-remote-site skill before working on it)]`;
 	}
 	const designPath = path.join( site.path, 'DESIGN.md' );
 	const design = existsSync( designPath ) ? `, design system: ${ designPath }` : '';

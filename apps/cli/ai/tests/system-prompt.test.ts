@@ -40,11 +40,12 @@ describe( 'buildSystemPrompt', () => {
 		}
 	} );
 
-	it( 'routes WordPress.com sites to the remote management skill', () => {
-		const prompt = buildSystemPrompt( {} );
+	it( 'leaves WordPress.com sites to the remote management skill index entry', () => {
+		const remote = loadSkills().find( ( skill ) => skill.name === 'edit-manage-remote-site' );
 
-		expect( prompt ).toContain( 'load the `edit-manage-remote-site` skill first' );
-		expect( prompt ).not.toContain( '## Common wp/v2 Endpoints' );
+		expect( remote?.description ).toContain( "the user's live remote sites (WordPress.com" );
+		expect( buildSystemPrompt() ).not.toContain( 'edit-manage-remote-site' );
+		expect( buildSystemPrompt() ).not.toContain( '## Common wp/v2 Endpoints' );
 	} );
 
 	it( 'leaves plan questions to the hosting-plans-helper skill index entry', () => {

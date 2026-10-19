@@ -321,7 +321,7 @@ describe( 'AI runCommand — active site banner running state', () => {
 		expect( findSiteByFolder ).not.toHaveBeenCalled();
 		expect( isSiteRunning ).not.toHaveBeenCalled();
 		expect( dispatchedPrompt() ).toContain(
-			'[Active site: "Live" (ID: 123) at https://example.wordpress.com (WordPress.com)]'
+			'[Active site: "Live" (ID: 123) at https://example.wordpress.com (WordPress.com, live: load the edit-manage-remote-site skill before working on it)]'
 		);
 	} );
 } );

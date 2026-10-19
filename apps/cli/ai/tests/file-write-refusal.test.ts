@@ -11,7 +11,7 @@ vi.mock( 'cli/lib/cli-config/sites', () => ( { findSiteByFolder: vi.fn() } ) );
 
 let root: string;
 const studioSite = () => path.join( root, 'my-site' );
-const develop = () => path.join( root, 'wordpress-develop', 'src' );
+const unmanaged = () => path.join( root, 'wordpress-develop', 'src' );
 const isStudioSite = async ( folder: string ) => arePathsEqual( folder, studioSite() );
 
 function makeWordPressTree( dir: string ) {
@@ -22,7 +22,7 @@ function makeWordPressTree( dir: string ) {
 beforeEach( () => {
 	root = mkdtempSync( path.join( os.tmpdir(), 'studio-core-guard-' ) );
 	makeWordPressTree( studioSite() );
-	makeWordPressTree( develop() );
+	makeWordPressTree( unmanaged() );
 } );
 
 afterEach( () => {
@@ -37,11 +37,10 @@ describe( 'getFileWriteRefusal', () => {
 		'my-site/wp-settings.php',
 		'my-site/index.php',
 		'my-site/xmlrpc.php',
-	] )( "refuses a Studio site's core file %s, naming both routes", async ( file ) => {
+	] )( "refuses a Studio site's core file %s, naming wp-content", async ( file ) => {
 		for ( const tool of [ 'Write', 'Edit' ] ) {
 			const refusal = await getFileWriteRefusal( tool, { path: file }, root, isStudioSite );
 			expect( refusal ).toContain( 'wp-content/' );
-			expect( refusal ).toContain( 'wordpress-develop' );
 		}
 	} );
 
@@ -58,7 +57,7 @@ describe( 'getFileWriteRefusal', () => {
 		'my-site/wp-content/plugins/wp-includes/x.php',
 		'my-site/DESIGN.md',
 		'elsewhere/wp-includes/functions.php',
-		// Changing WordPress itself happens in a checkout that is not a Studio site.
+		// A WordPress tree that Studio doesn't manage.
 		'wordpress-develop/src/wp-includes/functions.php',
 		'wordpress-develop/src/wp-admin/includes/file.php',
 	] )( 'allows %s', async ( file ) => {
@@ -100,8 +99,9 @@ describe( 'getFileWriteRefusal', () => {
 } );
 
 describe( 'core file rule in the prompt', () => {
-	it( 'is text only for external agents, whose file tools Studio does not guard', () => {
-		expect( buildSystemPrompt( { external: true } ) ).toContain( "A Studio site's WordPress core" );
-		expect( buildSystemPrompt( {} ) ).not.toContain( 'WordPress core (wp-includes/' );
+	it( 'is left to the tools, for Studio Code and external agents alike', () => {
+		for ( const prompt of [ buildSystemPrompt( {} ), buildSystemPrompt( { external: true } ) ] ) {
+			expect( prompt ).not.toMatch( /WordPress core|core files/ );
+		}
 	} );
 } );

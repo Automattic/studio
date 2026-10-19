@@ -139,8 +139,7 @@ async function isStudioSiteFolder( folder: string ): Promise< boolean > {
 /**
  * A Studio site's WordPress core is replaced when Studio updates WordPress, so
  * a change there is lost. Refuses Write and Edit on it and names where the
- * change belongs. Other WordPress trees, such as a wordpress-develop checkout,
- * stay writable: changing WordPress itself happens there.
+ * change belongs. WordPress trees that Studio doesn't manage stay writable.
  */
 export async function getFileWriteRefusal(
 	toolName: string,
@@ -165,7 +164,7 @@ export async function getFileWriteRefusal(
 	if ( ! isCore || ! ( await isStudioSite( root ) ) ) {
 		return undefined;
 	}
-	return `Not run: ${ relativePath } is this Studio site's copy of WordPress core, which a WordPress update replaces. Read it as reference. Make site changes in wp-content/ (a theme, child theme, or plugin). To change WordPress itself, edit a wordpress-develop checkout instead.`;
+	return `Not run: ${ relativePath } is this Studio site's copy of WordPress core, which a WordPress update replaces. Read it as reference. Make the change in wp-content/ (a theme, child theme, or plugin).`;
 }
 
 // Only the last content block can be mid-generation when the model hits the

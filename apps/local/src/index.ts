@@ -1,6 +1,5 @@
 import crypto from 'node:crypto';
 import { createReadStream, createWriteStream, existsSync, mkdtempSync, rm } from 'node:fs';
-import { realpath, stat } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { pipeline } from 'node:stream/promises';
@@ -69,8 +68,8 @@ import { generateNumberedName, generateSiteName } from '@studio/common/lib/gener
 import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { isMultisite } from '@studio/common/lib/is-multisite';
+import { resolveLocalMediaFile } from '@studio/common/lib/local-media';
 import { isSupportedLocale } from '@studio/common/lib/locale';
-import { getLocalMediaMimeType } from '@studio/common/lib/media-mime';
 import { getAuthenticationUrl, getSignUpUrl, revokeAuthToken } from '@studio/common/lib/oauth';
 import { decodePassword } from '@studio/common/lib/passwords';
 import {
@@ -93,12 +92,23 @@ import {
 import { fetchSnapshotUsage } from '@studio/common/lib/snapshots';
 import { fetchStudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 import { fetchStudioAssistantTopUpPricing } from '@studio/common/lib/studio-assistant-top-up-pricing';
-import { isSyncCancelledError } from '@studio/common/lib/sync/cancel';
 import { getLocalFileSize, listLocalFileTree } from '@studio/common/lib/sync/local-file-tree';
-import { fetchLatestRewindId, fetchSyncableSites } from '@studio/common/lib/sync/sync-api';
+import {
+	fetchHostingPhpVersion,
+	fetchLatestRewindId,
+	fetchRemoteFileTreeContents,
+	fetchSyncableSites,
+} from '@studio/common/lib/sync/sync-api';
 import { detectInstalledApps } from '@studio/common/lib/user-settings/installed-apps';
-import wpcomFactory from '@studio/common/lib/wpcom-factory';
-import wpcomXhrRequest from '@studio/common/lib/wpcom-xhr-request-factory';
+import {
+	onboardingHintsSchema,
+	readDefaultSiteDirectory,
+	readOnboardingHints,
+	readUserPreferences,
+	userPreferencesPatchSchema,
+	writeOnboardingHints,
+	writeUserPreferences,
+} from '@studio/common/lib/user-settings/user-preferences';
 import {
 	cleanupBlueprintTempDir,
 	extractBlueprintUpload,
@@ -119,21 +129,11 @@ import {
 	renamePreviewSite,
 } from '@studio/common/sites/snapshots';
 import { measureSiteStorage } from '@studio/common/sites/storage-usage';
-import { pullSite, pushSite } from '@studio/common/sites/sync';
+import { createSyncRunner } from '@studio/common/sites/sync';
 import express from 'express';
 import { rateLimit } from 'express-rate-limit';
 import { z } from 'zod';
 import { isEditor, isTerminal, openInEditor, openInTerminal, openPath } from './open-in-os';
-import {
-	onboardingHintsSchema,
-	readDefaultSiteDirectory,
-	readOnboardingHints,
-	readUserPreferences,
-	userPreferencesPatchSchema,
-	writeOnboardingHints,
-	writeUserPreferences,
-} from './user-preferences';
-import type { UserPreferencesContext } from './user-preferences';
 import type { StudioChatFileAttachment } from '@studio/common/ai/chat-files';
 import type { StudioChatImage } from '@studio/common/ai/chat-images';
 import type { AiSettings } from '@studio/common/ai/providers';
@@ -145,6 +145,7 @@ import type {
 	TracksSiteCreateFlowType,
 } from '@studio/common/lib/record-tracks-event';
 import type { SiteFileAccess } from '@studio/common/lib/site-file-access';
+import type { UserPreferencesContext } from '@studio/common/lib/user-settings/user-preferences';
 import type { PullSyncOptions, PushSyncOptions, SyncSite } from '@studio/common/types/sync';
 import type { Request, Response } from 'express';
 
@@ -192,6 +193,12 @@ export interface LocalServer {
 }
 
 const DEFAULT_PORT = 8081;
+
+const LOCAL_HOSTNAMES = new Set( [ 'localhost', '127.0.0.1', '[::1]', 'studio.local' ] );
+
+function isLoopbackHost( host: string ): boolean {
+	return host === 'localhost' || host === '::1' || host.startsWith( '127.' );
+}
 
 // Served at <origin>/auth/callback — the OAuth redirect target for the browser
 // login flow. WordPress.com lands here with the token in the URL fragment
@@ -252,36 +259,6 @@ function backupFilename( siteName: string ): string {
 		`${ now.getFullYear() }-${ pad( now.getMonth() + 1 ) }-${ pad( now.getDate() ) }` +
 		`_${ pad( now.getHours() ) }_${ pad( now.getMinutes() ) }_${ pad( now.getSeconds() ) }`;
 	return sanitizeFolderName( `studio-backup-${ siteName }-${ ts }` );
-}
-
-// Raster formats only: an SVG served from the API origin could run scripts
-// there, and nothing in the transcript needs one.
-const SERVED_MEDIA_MIME_TYPES = new Set( [
-	'image/png',
-	'image/jpeg',
-	'image/webp',
-	'image/gif',
-	'image/avif',
-] );
-
-// `requested` with symlinks resolved, when it lies inside one of `roots` both
-// as written and once resolved.
-async function resolveWithinRoots( roots: string[], requested: string ): Promise< string | null > {
-	for ( const root of roots ) {
-		const candidate = path.resolve( root, requested );
-		if ( ! candidate.startsWith( path.resolve( root ) + path.sep ) ) {
-			continue;
-		}
-		try {
-			const resolved = await realpath( candidate );
-			if ( resolved.startsWith( ( await realpath( root ) ) + path.sep ) ) {
-				return resolved;
-			}
-		} catch {
-			// Missing file or root.
-		}
-	}
-	return null;
 }
 
 // Express 4 doesn't forward async rejections to the error middleware — an
@@ -348,21 +325,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		}
 	}
 
-	// In-flight push/pull, keyed the same way the desktop keys them
-	// (`${siteId}-${remoteSiteId}`), so `/sync/cancel` can abort one.
-	const SYNC_ABORT_CONTROLLERS = new Map< string, AbortController >();
-	function registerSyncAbort( siteId: string, remoteSiteId: number ) {
-		const key = `${ siteId }-${ remoteSiteId }`;
-		const controller = new AbortController();
-		SYNC_ABORT_CONTROLLERS.set( key, controller );
-		const release = () => {
-			if ( SYNC_ABORT_CONTROLLERS.get( key ) === controller ) {
-				SYNC_ABORT_CONTROLLERS.delete( key );
-			}
-		};
-		release.signal = controller.signal;
-		return release;
-	}
+	const syncRunner = createSyncRunner( execute );
 
 	// Background watch for the WordPress.com site the user is about to create via
 	// the "Create new" checkout. A browser tab can't receive the wp-studio://
@@ -459,7 +422,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		}
 		const authEvent = cliAuthEventSchema.safeParse( data );
 		if ( authEvent.success ) {
-			sseSend( { channel: 'auth-event', payload: authEvent.data.value } );
+			sseSend( { channel: 'auth-event', payload: { event: authEvent.data.value.event } } );
 		}
 	} );
 
@@ -467,6 +430,19 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	// All API routes live under `/api` so they can't collide with the SPA's
 	// real-path routes (`/sessions/:id` is both an app URL and an API resource).
 	const api = express.Router();
+
+	// A website can point its own name at 127.0.0.1 (DNS rebinding) and then call
+	// this unauthenticated API same-origin, so on loopback only requests
+	// addressed to a local name get through.
+	if ( isLoopbackHost( host ) ) {
+		app.use( ( req: Request, res: Response, next ) => {
+			if ( ! LOCAL_HOSTNAMES.has( req.hostname ) ) {
+				res.status( 403 ).json( { error: 'Host not allowed' } );
+				return;
+			}
+			next();
+		} );
+	}
 
 	// Restrict cross-origin access to the known `studio ui` origins. The server is
 	// loopback-only, but loopback is reachable from any page in the user's
@@ -1367,32 +1343,27 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 
 	// Reachable cross-origin from the browser, so deliberately not a general
 	// file read: raster images under the sessions root or inside a site folder
-	// (where generated images go) only, symlinks resolved.
+	// (where generated images go) only.
 	api.get(
 		'/media/read',
 		asyncHandler( async ( req: Request, res: Response ) => {
 			const requested = typeof req.query.path === 'string' ? req.query.path : '';
-			const mimeType = getLocalMediaMimeType( requested );
-			if ( ! requested || ! SERVED_MEDIA_MIME_TYPES.has( mimeType ) ) {
-				res.status( 400 ).json( { error: 'Unsupported media path' } );
-				return;
-			}
-			const sessionFile = await resolveWithinRoots( [ sessionsRoot ], requested );
-			const resolved =
-				sessionFile ?? ( await resolveWithinRoots( await readSitePaths(), requested ) );
-			const stats = resolved ? await stat( resolved ) : null;
-			if ( ! resolved || ! stats?.isFile() ) {
+			const media = await resolveLocalMediaFile( requested, [
+				sessionsRoot,
+				...( await readSitePaths() ),
+			] );
+			if ( ! media ) {
 				res.status( 404 ).json( { error: 'Media not found' } );
 				return;
 			}
-			res.setHeader( 'Content-Type', mimeType );
-			res.setHeader( 'Content-Length', stats.size );
+			res.setHeader( 'Content-Type', media.mimeType );
+			res.setHeader( 'Content-Length', media.size );
 			// Session files never change; a site image can be regenerated in place.
 			res.setHeader(
 				'Cache-Control',
-				sessionFile ? 'private, max-age=31536000, immutable' : 'no-cache'
+				media.root === sessionsRoot ? 'private, max-age=31536000, immutable' : 'no-cache'
 			);
-			await pipeline( createReadStream( resolved ), res );
+			await pipeline( createReadStream( media.path ), res );
 		} )
 	);
 
@@ -1446,7 +1417,12 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				res.status( 400 ).json( { error: 'Invalid preferences' } );
 				return;
 			}
-			await writeUserPreferences( parsed.data );
+			await writeUserPreferences( parsed.data, {
+				sitesRoot,
+				recordTracksEvent: async ( event, props ) => {
+					await options.recordTracksEvent?.( event, props ).catch( () => undefined );
+				},
+			} );
 			res.status( 204 ).end();
 		} )
 	);
@@ -1676,21 +1652,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
 				return;
 			}
-			const release = registerSyncAbort( req.params.id, remoteSiteId );
-			try {
-				await pullSite( execute, site.path, remoteSiteId, options, release.signal );
-			} catch ( error ) {
-				// A user cancel is an intentional stop, not a server error — report it
-				// as a result so it doesn't surface as a 500.
-				if ( ! isSyncCancelledError( error ) ) {
-					throw error;
-				}
-				res.json( { cancelled: true } );
-				return;
-			} finally {
-				release();
-			}
-			res.json( { cancelled: false } );
+			res.json( await syncRunner.pull( req.params.id, site.path, remoteSiteId, options ) );
 		} )
 	);
 
@@ -1705,7 +1667,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				res.status( 400 ).json( { error: 'remoteSiteId is required' } );
 				return;
 			}
-			SYNC_ABORT_CONTROLLERS.get( `${ req.params.id }-${ remoteSiteId }` )?.abort();
+			syncRunner.cancel( req.params.id, remoteSiteId );
 			res.sendStatus( 204 );
 		} )
 	);
@@ -1741,24 +1703,14 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				res.status( 400 ).json( { error: 'rewindId and path are required' } );
 				return;
 			}
-			const wpcom = wpcomFactory( token.accessToken, wpcomXhrRequest );
-			const rawResponse = await wpcom.req.post( {
-				path: `/sites/${ Number( req.params.remoteSiteId ) }/rewind/backup/ls`,
-				apiNamespace: 'wpcom/v2',
-				body: { backup_id: rewindId, path: treePath },
-			} );
-			const parsed = z
-				.object( {
-					ok: z.boolean(),
-					error: z.string().optional(),
-					contents: z.record( z.string(), z.unknown() ).optional(),
-				} )
-				.parse( rawResponse );
-			if ( ! parsed.ok ) {
-				res.status( 502 ).json( { error: parsed.error || 'Failed to fetch remote file tree' } );
-				return;
-			}
-			res.json( parsed.contents ?? {} );
+			res.json(
+				await fetchRemoteFileTreeContents(
+					token.accessToken,
+					Number( req.params.remoteSiteId ),
+					rewindId,
+					treePath
+				)
+			);
 		} )
 	);
 
@@ -1770,16 +1722,10 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				res.status( 401 ).json( { error: 'Authentication required.' } );
 				return;
 			}
-			try {
-				const wpcom = wpcomFactory( token.accessToken, wpcomXhrRequest );
-				const response = await wpcom.req.get( {
-					apiNamespace: 'wpcom/v2',
-					path: `/sites/${ Number( req.params.remoteSiteId ) }/hosting/php-version`,
-				} );
-				res.json( z.string().parse( response ) );
-			} catch {
-				res.json( null );
-			}
+			res.json(
+				( await fetchHostingPhpVersion( token.accessToken, Number( req.params.remoteSiteId ) ) ) ??
+					null
+			);
 		} )
 	);
 
@@ -1802,19 +1748,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
 				return;
 			}
-			const release = registerSyncAbort( req.params.id, remoteSiteId );
-			try {
-				await pushSite( execute, site.path, remoteSiteId, options, release.signal );
-			} catch ( error ) {
-				if ( ! isSyncCancelledError( error ) ) {
-					throw error;
-				}
-				res.json( { cancelled: true } );
-				return;
-			} finally {
-				release();
-			}
-			res.json( { cancelled: false } );
+			res.json( await syncRunner.push( req.params.id, site.path, remoteSiteId, options ) );
 		} )
 	);
 

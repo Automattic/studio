@@ -726,11 +726,14 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				studioCliExternallyManaged: false,
 			};
 		},
-		async setUserPreferences( partial ) {
+		async setUserPreferences( partial, source ) {
 			// JSON drops `undefined` keys, so a clear has to travel as null.
-			const patch = Object.fromEntries(
-				Object.entries( partial ).map( ( [ key, value ] ) => [ key, value ?? null ] )
-			);
+			const patch = {
+				...Object.fromEntries(
+					Object.entries( partial ).map( ( [ key, value ] ) => [ key, value ?? null ] )
+				),
+				surface: source?.surface,
+			};
 			await api( '/user-preferences', { method: 'PATCH', body: JSON.stringify( patch ) } );
 		},
 		// Detected on the machine the server runs on (the desktop's installed-app

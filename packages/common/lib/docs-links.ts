@@ -2,11 +2,6 @@ import type { SupportedLocale } from '@studio/common/lib/locale';
 
 type TranslatedLink = Partial< Record< SupportedLocale, string > > & { en: string };
 
-/**
- * Documentation URLs surfaced from `apps/ui`. Keep in sync with the larger
- * catalog in `apps/studio/src/lib/get-localized-link.ts` — only the keys that
- * `apps/ui` actually links to are duplicated here.
- */
 const DOCS_LINKS = {
 	docsCli: {
 		en: 'https://developer.wordpress.com/docs/developer-tools/studio/cli/',

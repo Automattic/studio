@@ -1,7 +1,7 @@
 import { Type } from 'typebox';
 import { runCommand as runDeleteSiteCommand } from 'cli/commands/site/delete';
 import { Logger } from 'cli/logger';
-import { defineTool } from './define-tool';
+import { defineTool, LOCAL_OVERWRITE } from './define-tool';
 import { resolveSite, textResult } from './utils';
 
 export const deleteSiteTool = defineTool(
@@ -30,5 +30,8 @@ export const deleteSiteTool = defineTool(
 			);
 		}
 	},
-	{ promptSnippet: 'Delete a site from Studio and optionally move its files to trash' }
+	{
+		promptSnippet: 'Delete a site from Studio and optionally move its files to trash',
+		annotations: LOCAL_OVERWRITE,
+	}
 );

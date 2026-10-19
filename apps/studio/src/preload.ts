@@ -53,11 +53,6 @@ const api: IpcApi = {
 	isCATrusted: () => ipcRenderer.invoke( 'isCATrusted' ),
 	trustCertificate: () => ipcRenderer.invoke( 'trustCertificate' ),
 	showSaveAsDialog: ( options ) => ipcRendererInvoke( 'showSaveAsDialog', options ),
-	saveUserLocale: ( locale ) => ipcRendererInvoke( 'saveUserLocale', locale ),
-	getUserLocale: () => ipcRendererInvoke( 'getUserLocale' ),
-	getDefaultSiteDirectory: () => ipcRendererInvoke( 'getDefaultSiteDirectory' ),
-	saveDefaultSiteDirectory: ( directory ) =>
-		ipcRendererInvoke( 'saveDefaultSiteDirectory', directory ),
 	startServer: ( id ) => ipcRendererInvoke( 'startServer', id ),
 	stopServer: ( id ) => ipcRendererInvoke( 'stopServer', id ),
 	copyText: ( text ) => ipcRendererInvoke( 'copyText', text ),
@@ -110,7 +105,8 @@ const api: IpcApi = {
 		ipcRendererInvoke( 'listRemoteFileTree', remoteSiteId, rewindId, treePath ),
 	pullSiteFromLive: ( siteId, remoteSiteId, options ) =>
 		ipcRendererInvoke( 'pullSiteFromLive', siteId, remoteSiteId, options ),
-	cancelSyncOperation: ( id ) => ipcRendererSend( 'cancelSyncOperation', id ),
+	cancelSyncOperation: ( siteId, remoteSiteId ) =>
+		ipcRendererSend( 'cancelSyncOperation', siteId, remoteSiteId ),
 	getDirectorySize: ( id, subdir ) => ipcRendererInvoke( 'getDirectorySize', id, subdir ),
 	getFileSize: ( id, filePath ) => ipcRendererInvoke( 'getFileSize', id, filePath ),
 	getPathForFile: ( file ) => webUtils.getPathForFile( file ),
@@ -124,31 +120,17 @@ const api: IpcApi = {
 	goToWebviewNavigationHistoryEntry: ( webContentsId, index ) =>
 		ipcRendererInvoke( 'goToWebviewNavigationHistoryEntry', webContentsId, index ),
 	isFullscreen: () => ipcRendererInvoke( 'isFullscreen' ),
-	saveUserTerminal: ( preferredTerminal ) =>
-		ipcRendererInvoke( 'saveUserTerminal', preferredTerminal ),
-	getUserTerminal: () => ipcRendererInvoke( 'getUserTerminal' ),
 	getGlobalAgentInstructions: () => ipcRendererInvoke( 'getGlobalAgentInstructions' ),
 	saveGlobalAgentInstructions: ( content, options ) =>
 		ipcRendererInvoke( 'saveGlobalAgentInstructions', content, options ),
 	getAiSettings: () => ipcRendererInvoke( 'getAiSettings' ),
 	saveAnthropicApiKey: ( key ) => ipcRendererInvoke( 'saveAnthropicApiKey', key ),
-	saveColorScheme: ( colorScheme ) => ipcRendererInvoke( 'saveColorScheme', colorScheme ),
-	getColorScheme: () => ipcRendererInvoke( 'getColorScheme' ),
-	getAnalyticsEnabled: () => ipcRendererInvoke( 'getAnalyticsEnabled' ),
-	saveAnalyticsEnabled: ( enabled, source ) =>
-		ipcRendererInvoke( 'saveAnalyticsEnabled', enabled, source ),
-	saveQuitSitesBehavior: ( quitSitesBehavior ) =>
-		ipcRendererInvoke( 'saveQuitSitesBehavior', quitSitesBehavior ),
-	getQuitSitesBehavior: () => ipcRendererInvoke( 'getQuitSitesBehavior' ),
-	saveAgenticFeaturesEnabled: ( enabled ) =>
-		ipcRendererInvoke( 'saveAgenticFeaturesEnabled', enabled ),
-	getAgenticFeaturesEnabled: () => ipcRendererInvoke( 'getAgenticFeaturesEnabled' ),
 	saveWapuuScore: ( score ) => ipcRendererInvoke( 'saveWapuuScore', score ),
 	getWapuuScore: () => ipcRendererInvoke( 'getWapuuScore' ),
+	getUserPreferences: () => ipcRendererInvoke( 'getUserPreferences' ),
+	setUserPreferences: ( patch ) => ipcRendererInvoke( 'setUserPreferences', patch ),
 	getOnboardingHints: () => ipcRendererInvoke( 'getOnboardingHints' ),
 	saveOnboardingHints: ( partial ) => ipcRendererInvoke( 'saveOnboardingHints', partial ),
-	getUserEditor: () => ipcRendererInvoke( 'getUserEditor' ),
-	saveUserEditor: ( editor ) => ipcRendererInvoke( 'saveUserEditor', editor ),
 	comparePaths: ( path1, path2 ) => ipcRendererInvoke( 'comparePaths', path1, path2 ),
 	listLocalFileTree: ( siteId, path, maxDepth ) =>
 		ipcRenderer.invoke( 'listLocalFileTree', siteId, path, maxDepth ),

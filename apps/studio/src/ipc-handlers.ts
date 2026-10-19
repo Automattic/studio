@@ -1,4 +1,4 @@
-import { exec, ExecOptions } from 'child_process';
+import { exec, execFile, ExecOptions } from 'child_process';
 import {
 	BrowserWindow,
 	app,
@@ -28,7 +28,6 @@ import {
 } from '@studio/common/ai/sessions/manage';
 import { findAiSessionOwnerSite } from '@studio/common/ai/sessions/owner-site';
 import { readAiSessionPlacement } from '@studio/common/ai/sessions/placement';
-import { resolveMigratedAiSessionsPath } from '@studio/common/ai/sessions/root-migration';
 import {
 	appendModelChangeEntry,
 	appendStudioEntry,
@@ -38,17 +37,13 @@ import { expandSkillCommandPrompt } from '@studio/common/ai/slash-commands';
 import { getAiTracksIdentity } from '@studio/common/ai/tracks-identity';
 import { validateStudioVisualAnnotations } from '@studio/common/ai/visual-annotations';
 import { DEBUG_LOG_RELATIVE_PATH } from '@studio/common/constants';
-import {
-	installSkillToSite,
-	removeSkillFromSite,
-	updateManagedInstructionFiles,
-} from '@studio/common/lib/agent-skills';
+import { installSkillToSite, removeSkillFromSite } from '@studio/common/lib/agent-skills';
 import {
 	downloadAndExtractBlueprintBundle,
 	removeBlueprintTempDir,
 } from '@studio/common/lib/blueprint-bundle';
-import { errorMessageContains } from '@studio/common/lib/cli-error';
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
+import { CliCommandError } from '@studio/common/lib/cli-process';
 import { getConnectedWpcomSitesForLocalSite } from '@studio/common/lib/connected-sites';
 import { stripIpcErrorPrefix } from '@studio/common/lib/error-formatting';
 import {
@@ -64,8 +59,7 @@ import { generateNumberedName, generateSiteName } from '@studio/common/lib/gener
 import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { isMultisite } from '@studio/common/lib/is-multisite';
-import { checkMaintenanceFile } from '@studio/common/lib/maintenance-file';
-import { getLocalMediaMimeType } from '@studio/common/lib/media-mime';
+import { resolveLocalMediaFile } from '@studio/common/lib/local-media';
 import { getAuthenticationUrl, revokeAuthToken } from '@studio/common/lib/oauth';
 import { decodePassword } from '@studio/common/lib/passwords';
 import { isTracksEventName } from '@studio/common/lib/record-tracks-event';
@@ -96,6 +90,7 @@ import {
 import { getSiteEditOptions } from '@studio/common/sites/edit';
 import {
 	deleteSite as deleteSiteViaCli,
+	SiteStartRefusedError,
 	startSite,
 	stopSite,
 } from '@studio/common/sites/lifecycle';
@@ -114,7 +109,11 @@ import {
 import { readSite, readSitePath, readSitePaths, readSites } from '@studio/common/sites/site-path';
 import { measureSiteStorage, type SiteStorageUsage } from '@studio/common/sites/storage-usage';
 import { __ } from '@wordpress/i18n';
-import { MACOS_TOOLBAR_TRAFFIC_LIGHT_POSITION, MACOS_TRAFFIC_LIGHT_POSITION } from 'src/constants';
+import {
+	DEFAULT_TERMINAL,
+	MACOS_TOOLBAR_TRAFFIC_LIGHT_POSITION,
+	MACOS_TRAFFIC_LIGHT_POSITION,
+} from 'src/constants';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
 import { setPendingAuthContext } from 'src/lib/auth-tracks-context';
 import { bumpStat, getBlueprintMetric, StatsGroup } from 'src/lib/bump-stats';
@@ -165,14 +164,10 @@ import {
 } from 'src/modules/ai-agent/run-manager';
 import { createSiteViaCli } from 'src/modules/cli/lib/cli-site-creator';
 import { editSiteViaCli } from 'src/modules/cli/lib/cli-site-editor';
-import { CliCommandError, executeCliCommand } from 'src/modules/cli/lib/execute-command';
+import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
 import { isStudioCliInstalled } from 'src/modules/cli/lib/ipc-handlers';
 import { STABLE_BIN_DIR_PATH } from 'src/modules/cli/lib/windows-installation-manager';
-import {
-	getUserTerminal,
-	getDefaultSiteDirectory,
-	saveDefaultSiteDirectory,
-} from 'src/modules/user-settings/lib/ipc-handlers';
+import { getDefaultSiteDirectory } from 'src/modules/user-settings/lib/ipc-handlers';
 import { linuxFindEditorPath } from 'src/modules/user-settings/lib/linux-editor-path';
 import { linuxFindTerminalPath } from 'src/modules/user-settings/lib/linux-terminal-path';
 import { winFindEditorPath } from 'src/modules/user-settings/lib/win-editor-path';
@@ -215,31 +210,18 @@ export {
 } from 'src/modules/preview-site/lib/ipc-handlers';
 
 export {
-	getAgenticFeaturesEnabled,
 	getAiSettings,
-	getAnalyticsEnabled,
-	getColorScheme,
 	getGlobalAgentInstructions,
 	getInstalledAppsAndTerminals,
 	getOnboardingHints,
-	getQuitSitesBehavior,
-	getUserEditor,
-	getUserLocale,
-	getUserTerminal,
+	getUserPreferences,
 	getWapuuScore,
-	saveAgenticFeaturesEnabled,
-	saveAnalyticsEnabled,
 	saveAnthropicApiKey,
-	saveColorScheme,
 	saveGlobalAgentInstructions,
 	saveOnboardingHints,
-	saveQuitSitesBehavior,
-	saveUserEditor,
-	saveUserLocale,
-	saveUserTerminal,
 	saveWapuuScore,
+	setUserPreferences,
 } from 'src/modules/user-settings/lib/ipc-handlers';
-export { getDefaultSiteDirectory, saveDefaultSiteDirectory };
 
 export { importSite, exportSite } from 'src/modules/import-export/lib/ipc-handlers';
 
@@ -672,15 +654,6 @@ export async function startServer( event: IpcMainInvokeEvent, id: string ): Prom
 		return;
 	}
 
-	const maintenanceCheck = checkMaintenanceFile( site.path );
-	if ( maintenanceCheck.exists && ! maintenanceCheck.isStale ) {
-		throw new Error(
-			__(
-				'This site is in maintenance mode. WordPress is currently performing an update. The maintenance lock should expire automatically within 10 minutes. Please wait and try again.'
-			)
-		);
-	}
-
 	// Release the port held by any active PHP-error recovery before (re)starting the real server,
 	// otherwise the recovery error server still bound to the site's port causes EADDRINUSE.
 	await stopErrorRecovery( id );
@@ -690,13 +663,9 @@ export async function startServer( event: IpcMainInvokeEvent, id: string ): Prom
 		console.log( `Starting server for '${ site.name }'` );
 		await start();
 	} catch ( error ) {
-		// Capacity limit is expected behavior, not a bug — skip Sentry
-		if ( errorMessageContains( error, 'CAPACITY_LIMIT_REACHED' ) ) {
-			throw new Error(
-				__(
-					'The maximum number of running sites has been reached. Stop some running sites before starting new ones.'
-				)
-			);
+		// Too many running sites or a WordPress update in progress: expected, not a bug — skip Sentry
+		if ( error instanceof SiteStartRefusedError ) {
+			throw error;
 		}
 
 		// A fatal error in the user's own PHP (theme/plugin) code stops WordPress from booting.
@@ -766,15 +735,8 @@ export async function startServer( event: IpcMainInvokeEvent, id: string ): Prom
 			contexts,
 		} );
 
-		throw error instanceof CliCommandError && error.lastErrorMessage
-			? new Error( error.lastErrorMessage )
-			: error;
+		throw error;
 	}
-
-	// Keep managed instruction files (STUDIO.md) up-to-date
-	void updateManagedInstructionFiles( site, getAiInstructionsPath() ).catch( ( error ) => {
-		console.error( '[ai-instructions] Failed to update managed instruction files:', error );
-	} );
 
 	console.log( `Server started for '${ site.name }'` );
 }
@@ -1161,33 +1123,17 @@ export async function readLocalMediaFile(
 	_event: IpcMainInvokeEvent,
 	path: string
 ): Promise< { name: string; mimeType: string; data: ArrayBuffer } > {
-	let resolvedPath = path;
-	let stats: fs.Stats;
-	try {
-		stats = await fsPromises.stat( resolvedPath );
-	} catch ( error ) {
-		if ( ! isErrnoException( error ) || error.code !== 'ENOENT' ) {
-			throw error;
-		}
-		resolvedPath = resolveMigratedAiSessionsPath( path );
-		if ( resolvedPath === path ) {
-			throw error;
-		}
-		stats = await fsPromises.stat( resolvedPath );
+	const media = await resolveLocalMediaFile( path, [
+		getSessionsDirectory(),
+		...( await readSitePaths() ),
+	] );
+	if ( ! media ) {
+		throw new Error( 'Local media file not found.' );
 	}
-	if ( ! stats.isFile() ) {
-		throw new Error( 'Local media path must be a file.' );
-	}
-
-	const mimeType = getLocalMediaMimeType( path );
-	if ( ! mimeType ) {
-		throw new Error( 'Local media file type is not supported.' );
-	}
-
-	const buffer = await fsPromises.readFile( resolvedPath );
+	const buffer = await fsPromises.readFile( media.path );
 	return {
 		name: nodePath.basename( path ),
-		mimeType,
+		mimeType: media.mimeType,
 		data: buffer.buffer.slice(
 			buffer.byteOffset,
 			buffer.byteOffset + buffer.byteLength
@@ -1219,9 +1165,7 @@ export async function saveOnboarding( event: IpcMainInvokeEvent, onboardingCompl
 	const { onboardingCompleted: previous = false } = await loadUserData();
 	await updateAppdata( { onboardingCompleted } );
 
-	// Both front-ends funnel through here (Classic on skip/login, the agentic UI when the tour ends), so
-	// this is the one place a completion can be counted. Only on a real transition — a re-save must not
-	// look like a second user finishing onboarding.
+	// Only on a real transition — a re-save must not look like a second user finishing onboarding.
 	if ( onboardingCompleted && ! previous ) {
 		await recordTracksEvent( TRACKS_EVENTS.ONBOARDING_COMPLETE, {
 			// Whether they leave onboarding with an account, which is what "skipped" really meant.
@@ -1239,20 +1183,25 @@ export function getThumbnailData( _event: IpcMainInvokeEvent, id: string ) {
 
 function promiseExec( command: string, options: ExecOptions = {} ): Promise< void > {
 	return new Promise( ( resolve, reject ) => {
-		exec( command, options, ( error ) => {
-			if ( error ) {
-				reject( error );
-				return;
-			}
-			resolve();
-		} );
+		exec( command, options, ( error ) => ( error ? reject( error ) : resolve() ) );
+	} );
+}
+
+// Paths travel as arguments rather than through a shell, so a folder name can't run anything.
+function promiseExecFile(
+	file: string,
+	args: string[],
+	options: ExecOptions = {}
+): Promise< void > {
+	return new Promise( ( resolve, reject ) => {
+		execFile( file, args, options, ( error ) => ( error ? reject( error ) : resolve() ) );
 	} );
 }
 
 export async function openTerminalAtPath( _event: IpcMainInvokeEvent, targetPath: string ) {
 	const platform = process.platform;
 
-	const preferredTerminal = await getUserTerminal();
+	const preferredTerminal = ( await loadUserData() ).preferredTerminal || DEFAULT_TERMINAL;
 
 	// The single funnel for "open in terminal" across both the apps/studio buttons/context-menu and the
 	// apps/ui ipc connector — emitting here counts every path once. Fire-and-forget; the wrapper gates
@@ -1260,14 +1209,13 @@ export async function openTerminalAtPath( _event: IpcMainInvokeEvent, targetPath
 	void recordTracksEvent( TRACKS_EVENTS.SITE_OPEN_IN_TERMINAL, { terminal: preferredTerminal } );
 
 	if ( platform === 'darwin' ) {
-		const escapedPath = targetPath.replace( /\\/g, '\\\\' ).replace( /"/g, '\\"' );
 		const bundleIds = {
 			warp: 'dev.warp.Warp-Stable',
 			ghostty: 'com.mitchellh.ghostty',
 			iterm: 'com.googlecode.iterm2',
 			terminal: 'com.apple.Terminal',
 		};
-		return promiseExec( `open -b ${ bundleIds[ preferredTerminal ] } "${ escapedPath }"` );
+		return promiseExecFile( 'open', [ '-b', bundleIds[ preferredTerminal ], targetPath ] );
 	} else if ( platform === 'win32' ) {
 		const userData = await loadUserData();
 		const preferredTerminal = userData.preferredTerminal;
@@ -1299,8 +1247,6 @@ export async function openTerminalAtPath( _event: IpcMainInvokeEvent, targetPath
 			env,
 		} );
 	} else if ( platform === 'linux' ) {
-		const escapedPath = targetPath.replace( /\\/g, '\\\\' ).replace( /"/g, '\\"' );
-
 		// Warp on Linux currently opens at its configured "new session"
 		// directory regardless of how it is launched — it ignores
 		// `--working-directory`, the `path=` URL scheme query, and the
@@ -1308,19 +1254,13 @@ export async function openTerminalAtPath( _event: IpcMainInvokeEvent, targetPath
 		// Best effort: launch with `cwd` set so we benefit if/when upstream
 		// adds support, and so a fresh launch (no daemon yet) at least has
 		// a chance of inheriting it.
-		const launchers: Record<
-			SupportedTerminal,
-			( ( binary: string ) => { command: string; options?: ExecOptions } ) | null
-		> = {
-			terminal: ( binary ) => ( {
-				command: `"${ binary }" --working-directory="${ escapedPath }"`,
-			} ),
-			warp: ( binary ) => ( { command: `"${ binary }"`, options: { cwd: targetPath } } ),
-			ghostty: ( binary ) => ( {
-				command: `"${ binary }" --working-directory="${ escapedPath }"`,
-			} ),
-			iterm: null,
-		};
+		const launchers: Record< SupportedTerminal, { args: string[]; options?: ExecOptions } | null > =
+			{
+				terminal: { args: [ `--working-directory=${ targetPath }` ] },
+				warp: { args: [], options: { cwd: targetPath } },
+				ghostty: { args: [ `--working-directory=${ targetPath }` ] },
+				iterm: null,
+			};
 
 		const order: SupportedTerminal[] = [ preferredTerminal, 'terminal' ];
 		for ( const candidate of order ) {
@@ -1332,13 +1272,12 @@ export async function openTerminalAtPath( _event: IpcMainInvokeEvent, targetPath
 			if ( ! binary ) {
 				continue;
 			}
-			const { command, options } = launcher( binary );
-			return promiseExec( command, options );
+			return promiseExecFile( binary, launcher.args, launcher.options );
 		}
 
 		// Last-resort fallback that preserves prior behavior even if no
 		// supported terminal binary is on $PATH.
-		return promiseExec( `gnome-terminal --working-directory="${ escapedPath }"` );
+		return promiseExecFile( 'gnome-terminal', [ `--working-directory=${ targetPath }` ] );
 	} else {
 		console.error( 'Unsupported platform:', platform );
 		return;
@@ -1354,11 +1293,9 @@ export async function openAppAtPath(
 	const platform = process.platform;
 	const editor = supportedEditorConfig[ editorKey ];
 	const allPaths = [ filePath, ...otherFiles ];
-	const quotedPaths = allPaths.map( ( p ) => `"${ p }"` ).join( ' ' );
 
 	if ( platform === 'darwin' ) {
-		const cmd = `open -b ${ editor.macOSBundleId } ${ quotedPaths }`;
-		return promiseExec( cmd );
+		return promiseExecFile( 'open', [ '-b', editor.macOSBundleId, ...allPaths ] );
 	}
 
 	if ( platform === 'win32' ) {
@@ -1371,7 +1308,7 @@ export async function openAppAtPath(
 			return;
 		}
 
-		return promiseExec( `"${ editorPath }" ${ quotedPaths }` );
+		return promiseExecFile( editorPath, allPaths );
 	}
 
 	if ( platform === 'linux' ) {
@@ -1384,7 +1321,7 @@ export async function openAppAtPath(
 			return;
 		}
 
-		return promiseExec( `"${ editorPath }" ${ quotedPaths }` );
+		return promiseExecFile( editorPath, allPaths );
 	}
 
 	throw new Error( `Platform ${ platform } is not supported` );

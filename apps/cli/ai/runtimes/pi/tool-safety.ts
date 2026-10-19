@@ -4,9 +4,6 @@ import type { AgentSessionEvent } from '@earendil-works/pi-coding-agent';
 // strings have been observed to arrive incomplete.
 export const STUDIO_FILE_TOOL_MAX_BYTES = 14 * 1024;
 export const STUDIO_BASH_COMMAND_MAX_BYTES = 8 * 1024;
-// Guidance, not a limit: an Edit call this size streams in well under the
-// per-turn budget on every tier.
-export const STUDIO_EDIT_CALL_TARGET_BYTES = 8 * 1024;
 
 export interface StudioToolPayloadGuardState {
 	incompleteToolCallReasons?: Record< string, string >;

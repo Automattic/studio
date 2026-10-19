@@ -1,10 +1,6 @@
 // Defined in electron.vite.config.ts
 declare const COMMIT_HASH: string | undefined;
 
-interface ShowNotificationOptions extends Electron.NotificationConstructorOptions {
-	showIcon: boolean;
-}
-
 type SiteFileAccess = 'site-directory' | 'all-files';
 // Mirrors WpEnvironmentType in @studio/common/lib/wp-environment-type. Declared
 // inline because this file is a global declaration file — adding an import
@@ -107,10 +103,4 @@ interface AppGlobals {
 // Our IPC objects will be attached to the `window` global
 interface Window {
 	ipcApi: IpcApi;
-}
-
-// Network
-interface WpcomNetworkError extends Error {
-	code: string;
-	status: number;
 }

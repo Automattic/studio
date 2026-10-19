@@ -1,9 +1,9 @@
+import { getLocalizedLink } from '@studio/common/lib/docs-links';
 import { __ } from '@wordpress/i18n';
 import { useConnector } from '@/data/core';
 import { useUserLocale } from '@/data/queries/use-user-locale';
-import { getLocalizedLink } from '@/lib/docs-links';
 import styles from './style.module.css';
-import type { DocsLinkKey } from '@/lib/docs-links';
+import type { DocsLinkKey } from '@studio/common/lib/docs-links';
 import type { MouseEvent } from 'react';
 
 interface Props {

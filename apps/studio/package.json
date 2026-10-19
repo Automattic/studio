@@ -40,7 +40,6 @@
 		"follow-redirects": "^1.16.0",
 		"fs-extra": "^11.3.2",
 		"ignore": "^7.0.5",
-		"shell-quote": "^1.12.0",
 		"tus-js-client": "^4.3.1",
 		"zod": "^4.0.0"
 	},
@@ -56,7 +55,7 @@
 		"@types/follow-redirects": "^1.14.4",
 		"@types/fs-extra": "^11.0.4",
 		"@wp-playground/blueprints": "3.1.53",
-		"electron": "44.7.0",
+		"electron": "44.7.2",
 		"electron-devtools-installer": "^4.0.0",
 		"electron-vite": "6.0.0-beta.1",
 		"playwright": "^1.52.0",

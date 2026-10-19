@@ -99,13 +99,11 @@ export function resolveStudioToolDefinitions(
 			return [];
 		}
 		let tool = candidate;
-		if (
-			candidate.name === takeScreenshotTool.name &&
-			( options.visionEnabled === false || options.imageLink )
-		) {
+		if ( candidate.name === takeScreenshotTool.name ) {
 			tool = createTakeScreenshotTool( {
 				visionEnabled: options.visionEnabled !== false,
 				imageLink: options.imageLink,
+				userSeesCapture: options.emitChatArtifacts === true || Boolean( options.imageLink ),
 			} );
 		}
 		if ( candidate.name === inspectDesignTool.name && options.visionEnabled === false ) {

@@ -86,7 +86,7 @@ describe( 'createIpcConnector openSiteInEditor', () => {
 	const getSiteDetails = vi
 		.fn()
 		.mockResolvedValue( [ { id: 'site-1', name: 'Demo', path: '/Users/x/Studio/demo' } ] );
-	const getUserEditor = vi.fn().mockResolvedValue( 'vscode' );
+	const getUserPreferences = vi.fn().mockResolvedValue( { editor: 'vscode' } );
 	const openAppAtPath = vi.fn();
 	const recordAnalyticsEvent = vi.fn().mockResolvedValue( undefined );
 
@@ -94,7 +94,7 @@ describe( 'createIpcConnector openSiteInEditor', () => {
 		vi.clearAllMocks();
 		vi.stubGlobal( 'ipcApi', {
 			getSiteDetails,
-			getUserEditor,
+			getUserPreferences,
 			openAppAtPath,
 			recordAnalyticsEvent,
 		} );
@@ -115,7 +115,7 @@ describe( 'createIpcConnector openSiteInEditor', () => {
 	} );
 
 	it( 'does not record or launch when no editor is configured', async () => {
-		getUserEditor.mockResolvedValueOnce( null );
+		getUserPreferences.mockResolvedValueOnce( { editor: null } );
 
 		await expect( createIpcConnector().openSiteInEditor( 'site-1' ) ).rejects.toThrow();
 

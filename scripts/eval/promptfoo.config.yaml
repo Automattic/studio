@@ -108,9 +108,12 @@ tests:
   # Regression: trunk handles desktop/mobile visual verification as separate
   # screenshot calls. The optimized tool exposes `viewport: "all"` so the agent
   # can satisfy the same user request with one timed call and two PNG payloads.
+  # Pinned to an image-capable tier: for text-only models (the default `fast`)
+  # take_screenshot saves the captures to files and returns no image payloads.
   - description: screenshot verification captures desktop and mobile in one fast call
     vars:
       caseId: screenshot-all-timing
+      model: balanced
       timeoutMs: 240000
       askUserPolicy: allow_all
       prompt: |
@@ -341,7 +344,7 @@ tests:
             }
             return { pass: true, score: 1, reason: `validation passed: ${text.split(/\r?\n/).filter(Boolean).slice(0, 2).join(' | ')}` };
           });
-      # Workflow step 7: the home page's desktop take_screenshot captures, with
+      # The home page's desktop take_screenshot captures, with
       # the scaffolded theme's directory as `themeScreenshot`, set its
       # screenshot.jpg (the Appearance → Themes thumbnail). Captures are JPEGs,
       # so the file must carry a real JPEG signature — a hand-crafted or
@@ -560,6 +563,50 @@ tests:
       # assertions above still guard the tool-output discriminators. Restore the
       # prose guard once the grader can authenticate.
 
+  # Pushing overwrites a live WordPress.com site, so the agent checks the
+  # attached sites and asks before calling site_push (the rules live in the
+  # site_push and site_connected_remote_sites descriptions). The seeded remote
+  # does not exist, so it reports syncSupport "deleted": the agent must not push
+  # and must ask for a target. The runner has no AskUserQuestion, so it asks in text.
+  - description: push request asks before pushing
+    vars:
+      caseId: push-confirms-target
+      timeoutMs: 180000
+      seed:
+        localSite:
+          id: eval-site-push
+          name: Eval Site Push
+          path: /tmp/eval-site-push
+          port: 8882
+        connectedWpcomSites:
+          - id: 112
+            localSiteId: eval-site-push
+            name: My Production Site
+            url: https://myprod.wordpress.com
+            isStaging: false
+            isPressable: false
+            environmentType: production
+            syncSupport: already-connected
+            lastPullTimestamp: null
+            lastPushTimestamp: null
+      prompt: |
+        Push my local site "Eval Site Push" to WordPress.com.
+    assert:
+      - type: javascript
+        value: |
+          return import('node:fs').then(({ readFileSync }) => {
+            const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
+            if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
+            const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
+            const calls = d.toolCalls ?? [];
+            const pushed = calls.find(t => t.name === 'site_push');
+            if (pushed) return { pass: false, score: 0, reason: `site_push was called without confirmation: ${JSON.stringify(pushed.input)}` };
+            if (!calls.some(t => t.name === 'site_connected_remote_sites')) return { pass: false, score: 0, reason: `the attached sites were never listed; tools: ${JSON.stringify(calls.map(t => t.name))}` };
+            const text = (d.textSegments ?? []).join('\n');
+            const asks = /\?|let me know|please (give|provide|share|confirm|tell)/i.test(text);
+            return { pass: asks, score: asks ? 1 : 0, reason: asks ? 'agent checked the attached sites and asked instead of pushing' : `reply did not ask the user: ${text.slice(0, 300)}` };
+          });
+
   - description: agent reaches for Jetpack on slideshow request (catch-all rule)
     vars:
       caseId: jetpack-catchall-slideshow
@@ -692,8 +739,12 @@ tests:
                 return String(i.file_path || i.path || i.filePath || '').includes('/themes/ollie/');
               }
               if (c.name === 'Bash') {
-                // Reads are fine; catch anything that could mutate the parent.
-                return /themes\/ollie\//.test(i.command || '') && /\b(>|>>|sed\s+-i|mv|cp|rm|tee|touch)\b/.test(i.command || '');
+                // Reads are fine, and so is copying out of the parent; catch anything that could mutate it.
+                return String(i.command || '').split(/&&|\|\||;|\n/).some(segment => {
+                  const words = segment.trim().split(/\s+/);
+                  if (/^(cp|mv)$/.test(words[0])) return /themes\/ollie\//.test(words[words.length - 1]);
+                  return />>?\s*["']?[^\s"']*themes\/ollie\//.test(segment) || (/themes\/ollie\//.test(segment) && /\b(sed\s+-i|rm|tee|touch)\b/.test(segment));
+                });
               }
               return false;
             });
@@ -955,7 +1006,7 @@ tests:
             const created = calls.find(t => t.name === 'site_create');
             if (created) return { pass: false, score: 0, reason: `site_create was called (${JSON.stringify(created.input)}) instead of reusing the active site` };
             const reused = calls.some(t => {
-              if (t.name === 'Skill') return t.input?.name === 'site-spec';
+              if (t.name === 'Skill') return t.input?.name === 'build-site';
               const target = t.input?.nameOrPath;
               return typeof target === 'string' && /eval-active-site|Eval Active Site/i.test(target);
             });
@@ -985,13 +1036,14 @@ tests:
             const calls = d.toolCalls ?? [];
             const created = calls.find(t => t.name === 'site_create');
             if (created) return { pass: false, score: 0, reason: `site_create was called (${JSON.stringify(created.input)}) without asking first` };
-            const building = ['scaffold_theme', 'Write', 'Edit', 'wp_cli', 'validate_blocks', 'generate_images', 'pick_design', 'Skill'];
+            // Loading skills only reads runbooks (build-site is how the agent learns to ask); any of these means it started building.
+            const building = ['scaffold_theme', 'Write', 'Edit', 'wp_cli', 'validate_blocks', 'generate_images', 'pick_design'];
             const built = calls.find(t => building.includes(t.name));
             if (built) return { pass: false, score: 0, reason: `agent started building (${built.name}) instead of stopping to ask` };
             const text = (d.textSegments ?? []).join('\n');
             const mentionsCurrent = /(current|existing|active)\s+site|Eval Active Site/i.test(text);
             const mentionsNew = /\b(new|separate|another|second)\b/i.test(text);
-            const asks = mentionsCurrent && mentionsNew && text.includes('?');
+            const asks = mentionsCurrent && mentionsNew && /\?|let me know|which (one )?(do|would) you/i.test(text);
             return { pass: asks, score: asks ? 1 : 0, reason: asks ? 'agent stopped and asked whether to reuse the active site or create a new one' : `reply did not offer the current-vs-new choice: ${text.slice(0, 300)}` };
           });
 

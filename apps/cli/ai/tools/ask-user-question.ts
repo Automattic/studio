@@ -1,5 +1,5 @@
 import { Type } from 'typebox';
-import { defineTool } from './define-tool';
+import { defineTool, READ_ONLY } from './define-tool';
 import type { AgentTool } from '@earendil-works/pi-agent-core';
 import type { AskUserQuestion } from 'cli/ai/types';
 import type { TSchema } from 'typebox';
@@ -43,6 +43,7 @@ export function createAskUserQuestionTool(
 			return {
 				content: [ { type: 'text' as const, text: JSON.stringify( answers ) } ],
 			};
-		}
+		},
+		{ annotations: READ_ONLY }
 	);
 }

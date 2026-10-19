@@ -36,18 +36,24 @@ const LIMITS = { zip: 100 * MiB, unpacked: 512 * MiB, entries: 5000, entry: 100 
 
 // Codex gives a plugin's server about ten seconds to start, less than unpacking the CLI can take,
 // so the plugin answers the handshake and the tool list from what `studio mcp` answers Codex with.
-// Recorded in a throwaway home, with analytics off.
-async function recordMcpSnapshot( file: string ): Promise< void > {
+// Recorded with the plugin's MCP config environment, in a throwaway home with analytics off, which
+// the plugin replaces with the user's in the tool descriptions.
+async function recordMcpSnapshot( pluginDir: string ): Promise< void > {
 	const home = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-mcp-snapshot-' ) );
 	fs.mkdirSync( path.join( home, '.studio' ) );
 	fs.writeFileSync(
 		path.join( home, '.studio', 'shared.json' ),
 		JSON.stringify( { analyticsOptOut: true } )
 	);
+	const { env } = JSON.parse( fs.readFileSync( path.join( pluginDir, '.mcp.json' ), 'utf8' ) )
+		.mcpServers[ 'wordpress-studio' ];
 	const server = spawn(
 		process.execPath,
 		[ path.join( repoRoot, 'apps', 'cli', 'dist', 'cli', 'main.mjs' ), 'mcp' ],
-		{ env: { ...process.env, HOME: home, USERPROFILE: home }, stdio: [ 'pipe', 'pipe', 'inherit' ] }
+		{
+			env: { ...process.env, ...env, HOME: home, USERPROFILE: home },
+			stdio: [ 'pipe', 'pipe', 'inherit' ],
+		}
 	);
 	const lines = readline.createInterface( { input: server.stdout } )[ Symbol.asyncIterator ]();
 	const send = ( message: object ) =>
@@ -66,13 +72,14 @@ async function recordMcpSnapshot( file: string ): Promise< void > {
 	} );
 	send( { method: 'notifications/initialized' } );
 	const snapshot = {
+		home,
 		initialize,
 		tools: await request( 2, 'tools/list' ),
 		resources: await request( 3, 'resources/list' ),
 	};
 	server.kill();
 	fs.rmSync( home, { recursive: true, force: true } );
-	fs.writeFileSync( file, JSON.stringify( snapshot ) );
+	fs.writeFileSync( path.join( pluginDir, 'mcp-snapshot.json' ), JSON.stringify( snapshot ) );
 }
 
 async function main(): Promise< void > {
@@ -86,10 +93,12 @@ async function main(): Promise< void > {
 	console.log( '==> Assembling the plugin...' );
 	fs.rmSync( stagingDir, { recursive: true, force: true } );
 	fs.cpSync( path.join( repoRoot, 'plugins', 'wp-studio' ), stagingDir, { recursive: true } );
-	const manifestPath = path.join( stagingDir, '.codex-plugin', 'plugin.json' );
-	const manifest = JSON.parse( fs.readFileSync( manifestPath, 'utf8' ) );
-	fs.writeFileSync( manifestPath, JSON.stringify( { ...manifest, version }, null, 2 ) + '\n' );
-	await recordMcpSnapshot( path.join( stagingDir, 'mcp-snapshot.json' ) );
+	for ( const host of [ '.codex-plugin', '.claude-plugin' ] ) {
+		const manifestPath = path.join( stagingDir, host, 'plugin.json' );
+		const manifest = JSON.parse( fs.readFileSync( manifestPath, 'utf8' ) );
+		fs.writeFileSync( manifestPath, JSON.stringify( { ...manifest, version }, null, 2 ) + '\n' );
+	}
+	await recordMcpSnapshot( stagingDir );
 
 	// The same prunes as the desktop app and the standalone bundle: browser caches, and AI provider
 	// SDKs that pi-ai loads lazily but Studio never uses.

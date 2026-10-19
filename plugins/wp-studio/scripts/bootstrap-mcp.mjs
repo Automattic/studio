@@ -1,7 +1,7 @@
 // The plugin's MCP server: `studio mcp`, from the Studio CLI the plugin carries
-// (`cli.tar.br`, unpacked inside the plugin on first start, so Codex removes it
-// with this plugin version), or from an installed Studio CLI at least as recent,
-// such as the desktop app's.
+// (`cli.tar.br`, unpacked inside the plugin on first start, so the agent app
+// removes it with this plugin version), or from an installed Studio CLI at
+// least as recent, such as the desktop app's.
 //
 // stdout carries the MCP messages: anything else must go to stderr.
 import { execFile, spawn } from 'node:child_process';
@@ -196,9 +196,15 @@ async function unpackOnce() {
 // Codex gives a server about ten seconds to answer its handshake and list its
 // tools, and unpacking can take longer, Windows especially. Meanwhile, this
 // answers them from the snapshot, holds every other message, then hands the
-// session over to the bundled `studio mcp`.
+// session over to the bundled `studio mcp`. The tools depend on the client, so
+// a client other than Codex is told to list them again.
 async function standIn() {
-	const snapshot = JSON.parse( readFileSync( SNAPSHOT, 'utf8' ) );
+	const recorded = readFileSync( SNAPSHOT, 'utf8' );
+	// Some tool descriptions name folders in the home the snapshot was recorded in.
+	const inJson = ( text ) => JSON.stringify( text ).slice( 1, -1 );
+	const snapshot = JSON.parse(
+		recorded.split( inJson( JSON.parse( recorded ).home ) ).join( inJson( homedir() ) )
+	);
 	const write = ( stream, message ) => stream.write( JSON.stringify( message ) + '\n' );
 	const held = [];
 	let initialize = null;
@@ -213,10 +219,15 @@ async function standIn() {
 		if ( message.method === 'initialize' ) {
 			initialize = message;
 			const { protocolVersion } = message.params;
+			const { capabilities } = snapshot.initialize;
 			write( process.stdout, {
 				jsonrpc: '2.0',
 				id: message.id,
-				result: { ...snapshot.initialize, protocolVersion },
+				result: {
+					...snapshot.initialize,
+					protocolVersion,
+					capabilities: { ...capabilities, tools: { ...capabilities.tools, listChanged: true } },
+				},
 			} );
 		} else if ( message.method === 'tools/list' || message.method === 'resources/list' ) {
 			const result = message.method === 'tools/list' ? snapshot.tools : snapshot.resources;
@@ -231,19 +242,29 @@ async function standIn() {
 	child = spawn( process.execPath, [ BUNDLED_MAIN, 'mcp' ], {
 		stdio: [ 'pipe', 'pipe', 'inherit' ],
 	} );
-	const replayed = new Promise( ( resolve ) => {
-		readline.createInterface( { input: child.stdout } ).on( 'line', ( line ) => {
-			if ( JSON.parse( line ).id === 'stand-in' ) {
-				resolve();
-			} else {
-				process.stdout.write( line + '\n' );
-			}
-		} );
+	// The answers to this process's own requests, which the host never sees.
+	const answers = new Map();
+	readline.createInterface( { input: child.stdout } ).on( 'line', ( line ) => {
+		const { id, result } = JSON.parse( line );
+		if ( answers.has( id ) ) {
+			answers.get( id )( result );
+		} else {
+			process.stdout.write( line + '\n' );
+		}
 	} );
+	const ask = ( message ) =>
+		new Promise( ( resolve ) => {
+			answers.set( message.id, resolve );
+			write( child.stdin, message );
+		} );
 	if ( initialize ) {
-		write( child.stdin, { ...initialize, id: 'stand-in' } );
-		await replayed;
+		await ask( { ...initialize, id: 'stand-in' } );
 		write( child.stdin, { jsonrpc: '2.0', method: 'notifications/initialized' } );
+		const { tools } =
+			( await ask( { jsonrpc: '2.0', id: 'stand-in-tools', method: 'tools/list' } ) ) ?? {};
+		if ( JSON.stringify( tools ) !== JSON.stringify( snapshot.tools.tools ) ) {
+			write( process.stdout, { jsonrpc: '2.0', method: 'notifications/tools/list_changed' } );
+		}
 	}
 	held.splice( 0 ).forEach( ( line ) => child.stdin.write( line + '\n' ) );
 	return child;

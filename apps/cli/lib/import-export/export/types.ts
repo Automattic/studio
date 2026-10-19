@@ -7,6 +7,7 @@ export interface ExportOptions {
 	backupFile: string;
 	includes: { [ index in ExportOptionsIncludes ]: boolean };
 	phpVersion: string;
+	includeWpConfig?: boolean;
 	splitDatabaseDumpByTable?: boolean;
 	specificSelectionPaths?: string[];
 	ignoreFilter?: Ignore;

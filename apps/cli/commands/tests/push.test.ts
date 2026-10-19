@@ -6,7 +6,7 @@ import { getExporter } from 'cli/lib/import-export/export/export-manager';
 import { reportSyncActivity } from 'cli/lib/sync-activity';
 import { fetchSyncableSites, pollImportStatus } from 'cli/lib/sync-api';
 import { runCommand } from '../push';
-import type { SyncSite } from '@studio/common/types/sync';
+import type { SyncSite, SyncOption } from '@studio/common/types/sync';
 import type { SiteData } from 'cli/lib/cli-config/core';
 
 vi.mock( '@studio/common/lib/shared-config', async ( importActual ) => ( {
@@ -60,6 +60,43 @@ describe( 'CLI: studio push', () => {
 			} as never;
 		} );
 	} );
+
+	it.each( [
+		{ name: 'full', options: [ 'all' ], includes: { database: true, wpContent: true } },
+		{ name: 'database-only', options: [ 'sqls' ], includes: { database: true, wpContent: false } },
+		{
+			name: 'content-only',
+			options: [ 'contents' ],
+			includes: { database: false, wpContent: true },
+		},
+		{
+			name: 'selected paths',
+			options: [ 'themes' ],
+			includes: { database: false, wpContent: true },
+			includeOnly: [ 'themes/test-theme' ],
+		},
+	] )(
+		'excludes hosted configuration for $name pushes',
+		async ( { options, includes, ...selection } ) => {
+			vi.mocked( pollImportStatus ).mockResolvedValue( {
+				success: true,
+				status: 'finished',
+			} as never );
+			const includeOnly = 'includeOnly' in selection ? selection.includeOnly : undefined;
+
+			await runCommand( site.path, options as SyncOption[], String( remoteSite.id ), undefined, {
+				includeOnly,
+			} );
+
+			expect( getExporter ).toHaveBeenCalledWith(
+				expect.objectContaining( {
+					includeWpConfig: false,
+					includes,
+					specificSelectionPaths: includeOnly,
+				} )
+			);
+		}
+	);
 
 	// The phase gates cancelling a push, so every UI must see it move on.
 	it( 'reports each phase, then the result', async () => {

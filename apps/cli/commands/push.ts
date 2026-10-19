@@ -197,6 +197,7 @@ async function runPush(
 			site,
 			backupFile: archivePath,
 			includes,
+			includeWpConfig: false,
 			phpVersion: site.phpVersion,
 			splitDatabaseDumpByTable: true,
 			specificSelectionPaths,

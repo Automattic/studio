@@ -24,8 +24,10 @@ The backup format is a tar.gz file that contains the site data. It follows the f
 
 - `wp-content/` folder
 - `sql/` folder with a `.sql` file for each database table
-- `wp-config.php` file
+- `wp-config.php` file (downloaded backups only; omitted from push archives)
 - `meta.json` file
+
+Push archives omit `wp-config.php` so the destination retains its host-owned configuration, including database credentials, authentication keys and salts, and environment settings. Downloaded backups can include it for local import. Ordinary site exports and preview archives retain their existing configuration behavior.
 
 Folders in the archive are optional. If any are missing, they will simply be ignored, allowing for partial syncs. The Jetpack backup process is non-destructive: existing files will not be deleted.
 

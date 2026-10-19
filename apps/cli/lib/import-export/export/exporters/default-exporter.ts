@@ -127,7 +127,9 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 		this.archiveBuilder.pipe( output );
 
 		try {
-			this.addWpConfig();
+			if ( this.options.includeWpConfig !== false ) {
+				this.addWpConfig();
+			}
 			await this.addWpContent();
 			await this.addDatabase();
 			const studioJsonPath = await this.createStudioJsonFile();

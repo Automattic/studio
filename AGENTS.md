@@ -32,24 +32,24 @@ Prefer targeted runs: `npm run eval -- --filter-pattern "<case>"`. The full suit
 ## Architecture
 
 **Electron 3-Process**: Main (Node.js) → Preload (IPC bridge) → Renderer (React)
-**Main Process** (`apps/studio/src/`): IPC handlers, site servers, storage, OAuth, sync, migrations
+**Main Process** (`apps/studio/src/`): IPC handlers, windows and menus, updates, storage, the `wp-studio://` protocol, migrations. Site operations run in the CLI; logic shared with `studio ui` lives in `@studio/common`
 **Renderer**: the `apps/ui` React app (see Directory Structure), built into the Desktop app and loaded by the main process
 **CLI** (`apps/cli/`): native PHP site servers, yargs commands, child process of desktop app
 **Browser UI** (second front end, alongside Electron): `studio ui` starts `@studio/local` (Express + SSE), which serves the `apps/ui` React app and forks the CLI for site and agent operations. `@studio/hosted` is the experimental remote backend for that same UI.
 
 ## Directory Structure
 
-**`/apps/studio/src`**: Main (index.ts, ipc-handlers.ts, storage/, lib/), preload.ts | modules/ (sync, cli, user-settings, preview-site)
+**`/apps/studio/src`**: Main (index.ts, ipc-handlers.ts, storage/, lib/), preload.ts | modules/<feature>/lib/ (sync, cli, user-settings, import-export, …)
 **`/apps/cli`**: index.ts, commands/ (auth, preview, site), lib/ (appdata, i18n, browser)
 **`/apps/ui`**: Agentic UI (`@studio/ui`), the renderer of both the Desktop app and the `studio ui` browser app. app/ (providers, router), components/, data/, hooks/, lib/. Built per target: `build:local` / `build:hosted`; the Desktop build comes from `scripts/build-ui-renderer.ts`.
 **`/apps/local`**, **`/apps/hosted`**: HTTP/SSE backends for `apps/ui`. `local` is bundled into the CLI; `hosted` is experimental.
 **`/apps/mcp-ui`**: MCP Apps pages that agent apps show for `studio mcp` (`@studio/mcp-ui`), currently the WordPress library. React + TanStack Query and plain CSS, built into one HTML document that `studio mcp` serves; the data layer talks to the host through one bridge, with no connectors. Not a target of `apps/ui`: see `docs/design-docs/studio-apps-and-surfaces.md`.
-**`/packages/common`**: Shared lib/ (fs-utils, port-finder, oauth), types/, translations/
+**`/packages/common`**: Electron-free code shared by the Desktop app, `studio ui` and the CLI: ai/ (sessions, run-manager), sites/ (site operations over the CLI), lib/, types/, translations/
 **`/tools/eslint-plugin-studio`**: eslint-plugin-studio
 
 ## Key Patterns
 
-**IPC**: Renderer → `window.ipcApi.*` → Preload (contextBridge) → Main `ipc-handlers.ts` → Business logic
+**IPC**: `apps/ui` `ipc` connector → `window.ipcApi.*` → Preload (contextBridge) → Main `ipc-handlers.ts` → `@studio/common` or the CLI
 **Sites** (`apps/studio/src/lib/sites.ts`): Main keeps no copy of the site list. It asks the CLI (`site list`, or `cli.json` via `@studio/common/sites/site-path` when only a path or name is needed) and merges Studio's per-site fields from `app.json` via `@studio/common/sites/metadata`, shared with `apps/local`
 
 ## Tech Stack
@@ -123,7 +123,7 @@ If you've built a substantial new feature — especially one generated with AI a
 
 **CRITICAL - Dark Mode Color Tokens**: Use `--wpds-color-*` tokens for color — the `ThemeProvider` makes them adapt to the active theme. Always test new/changed UI in BOTH color schemes before declaring done — macOS: System Settings → Appearance → Dark.
 
-**IMPORTANT - Two Front Ends, One Feature**: `apps/ui` runs in both the Desktop app and the `studio ui` browser app, reaching the same data through different connectors (`apps/ui/src/data/core/connectors/`): `ipc` talks to the Electron main process, `local` talks to the `apps/local` HTTP server. Implementing a `Connector` method for only one target leaves a gap in the other, and it fails **silently** — the `local` connector tends to fall back to browser-local defaults rather than error, so the browser UI quietly shows stale or empty values. When you add or change a `Connector` method, do both sides: the main-process IPC handler AND an `apps/local` route. Desktop-owned state in `app.json` is readable from the server via `readAppConfig`/`updateAppConfig` (`packages/common/lib/app-config.ts`) — prefer that over keeping a separate copy in the browser, and put the fallback for an unset value in `packages/common` so the two can't drift. Verify in both: the Desktop app, and `npm run cli:build:ui && node apps/cli/dist/cli/main.mjs ui --no-open`.
+**IMPORTANT - Two Front Ends, One Feature**: `apps/ui` runs in both the Desktop app and the `studio ui` browser app, through two connectors (`apps/ui/src/data/core/connectors/`): `ipc` talks to the Electron main process, `local` talks to the `apps/local` HTTP server. A `Connector` method implemented for only one target fails **silently** in the other — the `local` connector tends to fall back to browser-local defaults, so the browser UI quietly shows stale or empty values. Write the operation once in `@studio/common`, taking the CLI runner and anything else that differs as parameters, and make the main-process IPC handler and the `apps/local` route thin wrappers around it (e.g. `lib/user-settings/user-preferences.ts`, `sites/sync.ts`, `lib/local-media.ts`). Desktop-owned state in `app.json` goes through `@studio/common/lib/app-config.ts` rather than a copy in the browser, with the fallback for an unset value in the shared module. Verify in both: the Desktop app, and `npm run cli:build:ui && node apps/cli/dist/cli/main.mjs ui --no-open`.
 
 **IMPORTANT - One Implementation Per Site Operation**: Site operations the CLI owns (push, pull, preview, import, export, start/stop…) must run through their CLI command from every surface — the Desktop main process, `apps/local`, and the agent tools alike. When a UI needs something the command lacks (structured progress, a non-interactive flag, cancellation), extend the command rather than rebuilding the operation from shared primitives in a host process. Parallel implementations drift: push was once reimplemented as `pushSite` because CLI `push` lacked structured output, after which selective sync, cancel and the remote-import wait each had to be fixed twice, and the agent's push never drove the UI. Commands also run without a terminal (the agent calls `runCommand` in-process, hosts fork the CLI with no stdin), so `runCommand` must never prompt or call `process.exit()`. Behaving differently in a terminal is fine: the yargs handler may prompt when `process.stdin.isTTY` and pass the answer in, and without a terminal the command falls back to a sensible default. See `docs/design-docs/cli-host-communication.md`.
 
@@ -141,7 +141,7 @@ If you've built a substantial new feature — especially one generated with AI a
 
 **IMPORTANT - Main Process Restarts**: Hot reload (`rs` or auto-restart) does NOT pick up new IPC handlers or changes to Main process initialization. Full app restart required for Main process changes.
 
-**Context Isolation**: Renderer is sandboxed - direct Node.js API access not available. MUST use IPC (`window.ipcApi.*`) for all Main process operations.
+**Context Isolation**: Renderer is sandboxed - direct Node.js API access not available. `apps/ui` reaches Main through its `ipc` connector (`window.ipcApi.*`).
 
 **Port Conflicts**: Site servers dynamically allocate ports. Don't hardcode port numbers; use the port-finder utility.
 

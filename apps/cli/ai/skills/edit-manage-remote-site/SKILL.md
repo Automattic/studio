@@ -1,6 +1,6 @@
 ---
 name: edit-manage-remote-site
-description: Edit and manage one of the user's live remote sites (WordPress.com, or Pressable through the WordPress.com endpoints) with wpcom_request — answer questions about it, or change its content, templates, styles, theme, and plugins within what its plan allows. Covers the plan check, design limits by plan, API namespaces and endpoints, response-size limits, and visual verification.
+description: Edit and manage one of the user's live remote sites (WordPress.com, or Pressable through the WordPress.com endpoints) with wpcom_request — answer questions about it, or change its content, templates, styles, theme, and plugins within what its plan allows. Covers the plan check, API namespaces and endpoints, response-size limits, and visual verification.
 user-invokable: true
 ---
 
@@ -10,10 +10,7 @@ Use this skill for any work on one of the user's WordPress.com sites. These site
 
 ## First: Check the Plan
 
-Before any change, call `GET /` with `apiNamespace: ""` and read `plan.product_slug`.
-
-- **Free plans** (e.g. `free_plan`) allow content only: posts, pages, templates, template parts, switching themes, and uploading media. They allow no design customization: no custom CSS, inline styles, style attributes on blocks, global styles, custom JavaScript, animations, custom colors, custom fonts, custom layouts, or plugin management. If the user asks for any design change — even a small one like a color or a font — refuse, explain that it requires a paid WordPress.com plan, and stop. Do not try workarounds such as inline styles or style attributes: they produce invalid blocks on WordPress.com.
-- **Paid plans** (Personal, Premium, Business, eCommerce) progressively add custom CSS, global styles, plugin management, and advanced customization. Check the specific plan for what it allows; for what a plan tier includes, load the `hosting-plans-helper` skill.
+Before any change, call `GET /` with `apiNamespace: ""`. `plan.features.active` lists the features this site's plan includes, such as `global-styles`, `custom-design`, or `install-plugins`. A change that needs a feature the list lacks needs an upgrade: say so, and load the `hosting-plans-helper` skill for which plan adds it. Inline styles and block style attributes are no way around a missing design feature; they produce invalid blocks on WordPress.com.
 
 ## Block Content
 

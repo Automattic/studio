@@ -1,9 +1,11 @@
 import { CheckboxControl, Icon, Spinner } from '@wordpress/components';
-import { file, moreHorizontal, page, plugins, brush, cautionFilled } from '@wordpress/icons';
+import { sprintf } from '@wordpress/i18n';
+import { file, link, moreHorizontal, page, plugins, brush, cautionFilled } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import React from 'react';
 import { RightArrowIcon } from '@/components/selective-sync/icons/right-arrow';
 import { cx } from '@/components/selective-sync/lib/cx';
+import { Tooltip } from '@/components/selective-sync/primitives/tooltip';
 
 type TreeNodeType = 'folder' | 'file' | 'plugin' | 'theme' | 'more' | 'error';
 export type TreeNode = {
@@ -16,6 +18,7 @@ export type TreeNode = {
 	hideExpandButton?: boolean;
 	children?: TreeNode[];
 	type?: TreeNodeType;
+	isSymlink?: boolean;
 	loading?: boolean;
 	hasError?: boolean;
 	pathId?: string;
@@ -112,7 +115,15 @@ const TreeItem = ( {
 				aria-setsize={ siblingsLength }
 				aria-posinset={ index + 1 }
 				aria-checked={ node.indeterminate ? 'mixed' : node.checked }
-				aria-label={ node.label }
+				aria-label={
+					node.isSymlink
+						? sprintf(
+								/* translators: %s: file or folder name */
+								__( '%s (symbolic link)' ),
+								node.label
+						  )
+						: node.label
+				}
 				className={ cx( 'flex items-center py-2 relative gap-2', isFirstLevel && 'py-4' ) }
 			>
 				<label className={ cx( 'flex items-center', disabled && 'cursor-not-allowed opacity-60' ) }>
@@ -134,6 +145,17 @@ const TreeItem = ( {
 					) }
 					{ node.label }
 				</label>
+				{ node.isSymlink && (
+					<Tooltip
+						text={
+							<span className="whitespace-nowrap">
+								{ __( 'Symbolic link. Studio pushes the files it points to.' ) }
+							</span>
+						}
+					>
+						<Icon aria-hidden icon={ link } size={ 16 } className="fill-frame-text-secondary" />
+					</Tooltip>
+				) }
 				{ node.loading && <Spinner className="!w-[9px] !h-[9px] !m-0" /> }
 				{ ! node.loading && node.children && ! node.hideExpandButton && (
 					<button

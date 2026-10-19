@@ -65,37 +65,25 @@ It reaches its backend exclusively through the **`Connector`** interface (`apps/
 | `local` | `connectors/local/` | HTTP + SSE to the local server | `studio ui` |
 | `hosted` | `connectors/hosted/` | Cloud API | Hosted |
 
-The connectors are intentionally **not** unified behind capability negotiation; each is honest to its own backend. Duplication between `local` and `hosted` is accepted so that machine-local features can grow in `local` without risk to the cloud product. The only shared connector helper is `connectors/unsupported-error.ts`.
+Each connector maps the interface onto its own backend; the few helpers they share sit next to them in `connectors/`. Duplication between `local` and `hosted` is accepted so that machine-local features can grow in `local` without risk to the cloud product.
 
 ### Capabilities
 
-Where surfaces genuinely differ (native dialogs, OS integration, preview annotation), the UI branches on a small declarative descriptor instead of sniffing the environment:
-
-```ts
-interface ConnectorCapabilities {
-  nativeFolderPicker: boolean;  // native folder dialog vs. editable path field
-  nativeSaveDialog: boolean;    // native Save-As vs. browser download
-  openInOS: boolean;            // open folder/editor/terminal + app detection
-  annotatePreview: boolean;     // inject the annotation inspector into the preview
-}
-```
-
-For example, the create-site form renders an editable path field when `nativeFolderPicker` is false; exports stream to a browser download when `nativeSaveDialog` is false; the preview's **Annotate** control is hidden entirely when `annotatePreview` is false (a cross-origin `<iframe>` can't host the inspector). A separate `reservesTrafficLightSpace` flag plus `isFullscreen()` tells the UI when to leave room for macOS window controls — true only in the desktop app.
+Where surfaces genuinely differ, the UI branches on the connector's `capabilities` (`ConnectorCapabilities` in `types.ts`) instead of sniffing the environment. For example, the create-site form shows an editable path field when `nativeFolderPicker` is false, and the preview's **Annotate** control is hidden when `annotatePreview` is false (a cross-origin `<iframe>` can't host the inspector). `reservesTrafficLightSpace` plus `isFullscreen()` tells the UI when to leave room for the macOS window controls, which only the desktop app has.
 
 ### Build targets
 
-`apps/ui` builds per target via `STUDIO_TARGET`:
+`apps/ui` builds per target via `STUDIO_TARGET`, each entry constructing its connector and mounting `AppProviders`:
 
+- none → `index.html` / `main.tsx` (the `ipc` connector), built into the desktop app by `scripts/build-ui-renderer.ts`
 - `local` → `index.local.html` / `main.local.tsx` → `dist-local`
 - `hosted` → `index.hosted.html` / `main.hosted.tsx` → `dist-hosted`
-
-The desktop consumes `apps/ui` through its own bundling with the `ipc` connector injected. Each `main.*.tsx` constructs the appropriate connector and mounts `AppProviders`.
 
 ## Surface architectures
 
 ### Desktop (`apps/studio`)
 
-The Electron three-process app: **Main** (Node.js — IPC handlers, site servers, storage, OAuth, sync, migrations), **Preload** (the `contextBridge` exposing `window.ipcApi`), and **Renderer** (React). The renderer is `apps/ui` driven by the `ipc` connector. The Main process holds the business logic by importing `@studio/common` **and** by forking the CLI for true site/agent operations. Electron-only concerns (thumbnails via `capturePage`, native dialogs, the `wp-studio://` protocol handler, `shell.openPath`) stay in the desktop wrapper.
+The Electron three-process app: **Main** (Node.js — IPC handlers, windows and menus, updates, storage, the `wp-studio://` protocol handler, migrations), **Preload** (the `contextBridge` exposing `window.ipcApi`), and **Renderer** (`apps/ui` driven by the `ipc` connector). Main reaches the business logic by importing `@studio/common` and by forking the CLI for site and agent operations; what it implements itself is what needs Electron (dialogs, menus, the preview `<webview>`, thumbnails via `capturePage`, auto-updates).
 
 ### CLI (`apps/cli`)
 
@@ -126,53 +114,31 @@ Site changes reach each `studio mcp` process through an `_events` socket of its 
 
 ## Convergence: local ↔ desktop
 
-The guiding principle (set by the team): for sites, sessions, and the agent, **the desktop app and the local web server run the exact same code**. The only differences are:
+For sites, sessions, and the agent, **the desktop app and the local web server run the exact same code**. They differ only in transport (Electron IPC vs. HTTP routes and an SSE stream) and in how each locates the `studio` binary.
 
-1. **Transport** — Electron IPC (`ipcMain.handle` + `webContents.send`) vs. HTTP routes + an SSE stream.
-2. **CLI binary injection** — how each process locates the `studio` binary to fork.
-
-Everything else is shared in `@studio/common`. Concretely:
+The rule: **when both apps do something, it is written once in `@studio/common`**, taking what differs as parameters, and the desktop's IPC handler and the `apps/local` route only wrap it: validate the input, call it, return the result. For example, `lib/user-settings/user-preferences.ts` reads and writes preferences and records their Tracks events, `sites/sync.ts` runs and cancels pushes and pulls (`createSyncRunner`), and `lib/local-media.ts` decides which images the chat may read. To check whether something is shared, look for its two callers.
 
 ### The seam
 
 Shared modules are constructed with two injected dependencies and nothing Electron-specific:
 
-- **`executeCliCommand`** — produced by `createCliRunner({ cliBinary, nodeBinary })` in `lib/cli-process.ts`. The binary resolves once, from `STUDIO_CLI_BIN ?? process.argv[1]` (the CLI launching the server via `studio ui`), with an env override for development.
-- **`emit`** — a single event sink. The desktop wires it to `webContents.send` on named IPC channels; the local server wires it to SSE channels (`agent`, `placement`, `sync-connect`). There are no per-feature setter functions.
+- **`executeCliCommand`** — produced by `createCliRunner` in `lib/cli-process.ts`. The desktop passes its bundled CLI and Node binaries, the Tracks origin, and echoes the CLI's stderr into its log; the local server passes `STUDIO_CLI_BIN ?? process.argv[1]` (the CLI that launched it).
+- **`emit`** — a single event sink. The desktop wires it to `webContents.send` on named IPC channels; the local server wires it to SSE channels (`agent`, `placement`, `sync-connect`).
 
-So the agent run-manager, for instance, is `createAgentRunManager({ cliBinary, emit, surface, … })`: the desktop and the local server build it with their own `emit`, and the orchestration code is identical.
+So the agent run-manager, for instance, is `createAgentRunManager({ cliBinary, emit, surface, … })`: each app builds it with its own `emit`, and the orchestration code is identical.
 
-Changes the CLI makes from anywhere (sites, auth, and the progress of a push, pull or preview) reach both surfaces the same way: each runs `studio _events`, which receives the CLI's events (see [cli.md](./cli.md)), and forwards them to its UI over its own transport.
+Changes the CLI makes from anywhere (sites, auth, and the progress of a push, pull or preview) reach both apps the same way: each runs `studio _events`, which receives the CLI's events (see [cli.md](./cli.md)), and forwards them to its UI over its own transport.
 
-### What is converged (shared, both surfaces)
+### What differs per surface
 
-| Domain | Shared module(s) |
-| --- | --- |
-| AI sessions | `ai/sessions/manage.ts`, `placement.ts`, `run-manager.ts`, `store.ts`, `agent-stats.ts` |
-| Site lifecycle | `sites/index.ts` (list/start/stop) |
-| Site create / edit | `sites/create.ts` (`buildSiteCreateArgs`), `sites/edit.ts` (`buildSiteSetArgs`) |
-| Snapshots / preview | `sites/snapshots.ts` |
-| Sync (pull/push) | `sites/sync.ts` |
-| Blueprint bundles | `sites/blueprint-extract.ts` |
-| Local media MIME | `lib/media-mime.ts` |
-| Installed-app detection | `lib/user-settings/installed-apps.ts` |
-| OAuth URL building | `lib/oauth.ts` |
-| Error reporting | `lib/error-reporting.ts` (`captureException`) |
-
-The desktop's former private copies of this logic are now thin wrappers over the shared modules (e.g. `apps/studio/.../cli-site-creator.ts` calls `buildSiteCreateArgs`; the user-settings handlers call the shared installed-app detector). This keeps the two surfaces from drifting — a change to site creation or app detection lands in one place for both.
-
-### What stays per-surface (by design)
-
-Some things are *inherently* runtime-specific and are **not** forced into the shared layer — they are the legitimate analog of the transport seam:
-
-- **OS-app launch** — the desktop uses Electron's `shell.openPath`; the local server uses `child_process` (`open`/`xdg-open`/`explorer`). The *targets* (bundle IDs, `$PATH` commands, Windows paths) and *detection* are shared; only the syscall differs.
-- **Native dialogs vs. browser** — folder/save dialogs on desktop; editable text fields, browser downloads, and raw-body uploads in the browser.
-- **Preferences storage** — Electron `app.json` / `nativeTheme` on desktop; `localStorage` in the browser.
+- **Native dialogs vs. browser** — folder and save dialogs on desktop; editable text fields, browser downloads, and uploads in the browser.
+- **Window and OS integration** — menus, the macOS window controls, the preview `<webview>`, and the native window theme exist only on desktop. Folders open with `shell.openPath` on desktop and `open`/`xdg-open`/`explorer` on the server; terminals and editors are launched by each app's own code (`apps/studio/src/ipc-handlers.ts`, `apps/local/src/open-in-os.ts`), with the editors' launch targets and app detection shared in `lib/user-settings/`.
+- **PHP-error recovery** — only the desktop serves a site's PHP fatal error on its port and restarts the site once the file is fixed (`apps/studio/src/lib/php-error-recovery.ts`).
 - **Auth login** — see below.
 
 ## The CLI as the convergence point
 
-Convergence is possible *because* the heavy lifting already lives in one place. The CLI owns the PHP site servers and the site lifecycle, so the machine-local surfaces don't reimplement any of it — they **fork the binary** and stream its structured events. That makes the desktop's IPC handlers and the local server's HTTP routes both thin: resolve inputs, call a `@studio/common` function, forward the CLI's events over the surface's transport.
+Convergence is possible *because* the heavy lifting already lives in one place. The CLI owns the PHP site servers and the site lifecycle, so the machine-local surfaces don't reimplement any of it — they **fork the binary** and stream its structured events.
 
 How the CLI reports what it does back to these surfaces, whoever started the work, is described in [How the CLI and Studio apps communicate](./cli-host-communication.md).
 

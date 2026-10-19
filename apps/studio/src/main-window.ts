@@ -337,15 +337,7 @@ export function getMainWindow() {
 			return;
 		}
 
-		const windows = BrowserWindow.getAllWindows();
-		if ( windows.length > 0 ) {
-			mainWindow = BrowserWindow.getFocusedWindow() || windows[ 0 ];
-			if ( ! mainWindow.webContents.isDestroyed() ) {
-				resolve( mainWindow );
-			}
-			return;
-		}
-
+		// Other windows (About, the hidden thumbnail capture) are never the main one.
 		createMainWindow()
 			.then( ( newWindow ) => {
 				mainWindow = newWindow;
@@ -366,14 +358,6 @@ export function getMainWindow() {
 export function getExistingMainWindow(): BrowserWindow | null {
 	if ( mainWindow && ! mainWindow.isDestroyed() && ! mainWindow.webContents.isDestroyed() ) {
 		return mainWindow;
-	}
-	const windows = BrowserWindow.getAllWindows();
-	if ( windows.length > 0 ) {
-		const focused = BrowserWindow.getFocusedWindow();
-		const win = focused || windows[ 0 ];
-		if ( ! win.isDestroyed() && ! win.webContents.isDestroyed() ) {
-			return win;
-		}
 	}
 	return null;
 }

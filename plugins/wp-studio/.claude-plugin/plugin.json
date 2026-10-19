@@ -17,6 +17,11 @@
     "site-builder",
     "block-theme"
   ],
+  "icon": "./assets/logo.png",
+  "documentationUrl": "https://developer.wordpress.com/docs/developer-tools/studio/",
+  "supportUrl": "https://developer.wordpress.com/contact/",
+  "privacyPolicyUrl": "https://automattic.com/privacy/",
+  "termsOfServiceUrl": "https://wordpress.com/tos/",
   "mcpServers": {
     "wordpress-studio": {
       "command": "node",

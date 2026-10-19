@@ -23,8 +23,11 @@ claude plugin marketplace add Automattic/studio-plugins
 claude plugin install wp-studio@studio
 ```
 
-Claude Code runs the plugin with the Node.js on your `PATH`, version 22 or later. Any other MCP client can run the server directly: add a stdio
-server named `wordpress-studio` that runs `studio mcp`.
+Claude Code runs the plugin with the Node.js on your `PATH`, version 22 or later. In the Claude app,
+it works in the Code tab and in Cowork tasks on your computer, not in regular chats.
+
+Any other MCP client can run the server directly: add a stdio server named `wordpress-studio` that
+runs `studio mcp`.
 
 ## Use
 
@@ -36,10 +39,14 @@ into Studio, or log in to WordPress.com.
 
 ## The Studio CLI
 
-The plugin carries the Studio CLI. It unpacks it the first time it starts, which takes a few
-seconds, or a minute or two on Windows, and it updates with the plugin. A Studio CLI from the
-desktop app or from npm is used instead when it is at least as recent. Like any Studio CLI outside
-the desktop app, it downloads PHP when it first starts a site.
+The plugin carries the Studio CLI of its own version. The copy in Anthropic's directory is too small
+to carry it: the first time it starts, it downloads it from that version's
+[Studio release](https://github.com/Automattic/studio/releases) on GitHub and checks it against the
+SHA-256 it carries. The plugin unpacks the CLI on its first start, which takes a few seconds, or a
+minute or two on Windows, and it updates with the plugin. A Studio CLI from the desktop app or from
+npm is used instead when it is at least as recent. Like any Studio CLI outside the desktop app, it
+downloads PHP from Automattic's CDN (`appscdn.wordpress.com`) when it first starts a site. It
+connects to WordPress.com only for your WordPress.com sites, once you log in.
 
 ## Telemetry
 

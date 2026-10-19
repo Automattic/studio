@@ -6,6 +6,22 @@ import path from 'path';
 // SQLite-compatible drop-ins are preserved.
 const STOCK_DB_DROPIN_MARKER = 'This file is auto-generated and copied from the sqlite plugin.';
 
+function generateDbDropinContent( template: string, sqliteDirname: string ): string {
+	const updatedContent = template.replace(
+		"'{SQLITE_IMPLEMENTATION_FOLDER_PATH}'",
+		`realpath( __DIR__ . '/mu-plugins/${ sqliteDirname }' )`
+	);
+	const dbPathDefinition = `// Studio keeps the SQLite database at a fixed path (wp-content/database/.ht.sqlite).
+if ( ! defined( 'DB_PATH' ) && ! defined( 'FQDB' ) && ! defined( 'DB_DIR' ) && ! defined( 'DB_FILE' ) ) {
+\tdefine( 'DB_PATH', __DIR__ . '/database/.ht.sqlite' );
+}
+`;
+	return updatedContent.replace(
+		/^<\?php\s*/,
+		( openingTag ) => `${ openingTag }${ dbPathDefinition }`
+	);
+}
+
 // Abstract base class for SQLite integration across different contexts
 export abstract class SqliteIntegrationProvider {
 	abstract getSqliteDirname(): string;
@@ -100,10 +116,7 @@ export abstract class SqliteIntegrationProvider {
 				path.join( sqliteSourcePath, 'db.copy' ),
 				'utf8'
 			);
-			const updatedContent = dbCopyContent.replace(
-				"'{SQLITE_IMPLEMENTATION_FOLDER_PATH}'",
-				`realpath( __DIR__ . '/mu-plugins/${ sqliteDirname }' )`
-			);
+			const updatedContent = generateDbDropinContent( dbCopyContent, sqliteDirname );
 			await fs.promises.writeFile( path.join( wpContentPath, 'db.php' ), updatedContent );
 		}
 

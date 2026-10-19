@@ -106,11 +106,56 @@ platformTestSuite( 'SqliteIntegrationProvider', ( { normalize } ) => {
 	} );
 
 	describe( 'installSqliteIntegration', () => {
+		// Shaped like the plugin's db.copy: header with the stock marker, then the loader.
+		const STOCK_DB_COPY = [
+			'<?php',
+			'/**',
+			' * Plugin Name: SQLite integration (Drop-in)',
+			' *',
+			' * This file is auto-generated and copied from the sqlite plugin.',
+			' */',
+			"define( 'SQLITE_DB_DROPIN_VERSION', '1.8.0' );",
+			"$sqlite_plugin_implementation_folder_path = '{SQLITE_IMPLEMENTATION_FOLDER_PATH}';",
+			"require_once $sqlite_plugin_implementation_folder_path . '/wp-includes/sqlite/db.php';",
+		].join( '\n' );
+
 		beforeEach( () => {
 			volFromJSON( {
 				[ normalize( `wp-files/${ SQLITE_DIRNAME }/db.copy` ) ]:
 					"SQLIntegration path: '{SQLITE_IMPLEMENTATION_FOLDER_PATH}'",
 			} );
+		} );
+
+		it( 'should define a fixed DB_PATH before the plugin loads', async () => {
+			volFromJSON( {
+				[ normalize( `wp-files/${ SQLITE_DIRNAME }/db.copy` ) ]: STOCK_DB_COPY,
+			} );
+
+			await provider.installSqliteIntegration( MOCK_SITE_PATH );
+
+			const generated = vi.mocked( fs.promises.writeFile ).mock.calls.at( -1 )?.[ 1 ] as string;
+			const definition = generated.indexOf(
+				"if ( ! defined( 'DB_PATH' ) && ! defined( 'FQDB' ) && ! defined( 'DB_DIR' ) && ! defined( 'DB_FILE' ) ) {\n\tdefine( 'DB_PATH', __DIR__ . '/database/.ht.sqlite' );\n}"
+			);
+			expect( generated.startsWith( '<?php\n' ) ).toBe( true );
+			expect( definition ).toBeGreaterThan( 0 );
+			expect( definition ).toBeLessThan(
+				generated.indexOf( 'require_once $sqlite_plugin_implementation_folder_path' )
+			);
+		} );
+
+		it( 'should keep the generated drop-in recognizable as the stock Studio drop-in', async () => {
+			volFromJSON( {
+				[ normalize( `wp-files/${ SQLITE_DIRNAME }/db.copy` ) ]: STOCK_DB_COPY,
+			} );
+			await provider.installSqliteIntegration( MOCK_SITE_PATH );
+			const generated = vi.mocked( fs.promises.writeFile ).mock.calls.at( -1 )?.[ 1 ] as string;
+
+			volFromJSON( {
+				[ normalize( `${ MOCK_SITE_PATH }/wp-content/db.php` ) ]: generated,
+			} );
+
+			expect( await provider.shouldReplaceDbDropin( MOCK_SITE_PATH ) ).toBe( true );
 		} );
 
 		it( 'should create database directory', async () => {

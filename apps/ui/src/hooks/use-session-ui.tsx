@@ -1,4 +1,3 @@
-import { DESIGN_SYSTEM_PREVIEW_PATH } from '@studio/common/ai/chat-artifacts';
 import {
 	createContext,
 	useCallback,
@@ -38,11 +37,11 @@ interface PreviewUIState {
 	pathsBySiteId: Record< string, string >;
 }
 
-// The path a site's preview shows: its last visited path, or home.
 function isWpAdminPath( path: string ): boolean {
 	return path === '/wp-admin' || path.startsWith( '/wp-admin/' ) || path.startsWith( '/wp-admin?' );
 }
 
+// The path a site's preview shows: its last visited path, or home.
 export function pathForSite(
 	pathsBySiteId: Record< string, string >,
 	siteId: string | null | undefined

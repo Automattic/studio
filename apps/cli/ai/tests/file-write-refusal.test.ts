@@ -1,20 +1,34 @@
 import { mkdirSync, mkdtempSync, rmSync } from 'fs';
 import os from 'os';
 import path from 'path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { arePathsEqual } from '@studio/common/lib/fs-utils';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getFileWriteRefusal } from 'cli/ai/runtimes/pi/tool-safety';
 import { buildSystemPrompt } from 'cli/ai/system-prompt';
+import { findSiteByFolder } from 'cli/lib/cli-config/sites';
+
+vi.mock( 'cli/lib/cli-config/sites', () => ( { findSiteByFolder: vi.fn() } ) );
 
 let root: string;
-const site = () => path.join( root, 'my-site' );
+const studioSite = () => path.join( root, 'my-site' );
+const develop = () => path.join( root, 'wordpress-develop', 'src' );
+const isStudioSite = async ( folder: string ) => arePathsEqual( folder, studioSite() );
+
+function makeWordPressTree( dir: string ) {
+	mkdirSync( path.join( dir, 'wp-includes' ), { recursive: true } );
+	mkdirSync( path.join( dir, 'wp-content' ), { recursive: true } );
+}
 
 beforeEach( () => {
 	root = mkdtempSync( path.join( os.tmpdir(), 'studio-core-guard-' ) );
-	mkdirSync( path.join( site(), 'wp-includes' ), { recursive: true } );
-	mkdirSync( path.join( site(), 'wp-content' ), { recursive: true } );
+	makeWordPressTree( studioSite() );
+	makeWordPressTree( develop() );
 } );
 
-afterEach( () => rmSync( root, { recursive: true, force: true } ) );
+afterEach( () => {
+	rmSync( root, { recursive: true, force: true } );
+	vi.mocked( findSiteByFolder ).mockReset();
+} );
 
 describe( 'getFileWriteRefusal', () => {
 	it.each( [
@@ -23,16 +37,18 @@ describe( 'getFileWriteRefusal', () => {
 		'my-site/wp-settings.php',
 		'my-site/index.php',
 		'my-site/xmlrpc.php',
-	] )( 'refuses core file %s, naming wp-content', ( file ) => {
+	] )( "refuses a Studio site's core file %s, naming both routes", async ( file ) => {
 		for ( const tool of [ 'Write', 'Edit' ] ) {
-			expect( getFileWriteRefusal( tool, { path: file }, root ) ).toContain( 'wp-content/' );
+			const refusal = await getFileWriteRefusal( tool, { path: file }, root, isStudioSite );
+			expect( refusal ).toContain( 'wp-content/' );
+			expect( refusal ).toContain( 'wordpress-develop' );
 		}
 	} );
 
-	it( 'resolves absolute paths too', () => {
-		const file = path.join( site(), 'wp-includes', 'version.php' );
-		expect( getFileWriteRefusal( 'Edit', { path: file }, '/' ) ).toContain(
-			'wp-includes/version.php is WordPress core'
+	it( 'resolves absolute paths too', async () => {
+		const file = path.join( studioSite(), 'wp-includes', 'version.php' );
+		expect( await getFileWriteRefusal( 'Edit', { path: file }, '/', isStudioSite ) ).toContain(
+			"wp-includes/version.php is this Studio site's copy of WordPress core"
 		);
 	} );
 
@@ -42,20 +58,50 @@ describe( 'getFileWriteRefusal', () => {
 		'my-site/wp-content/plugins/wp-includes/x.php',
 		'my-site/DESIGN.md',
 		'elsewhere/wp-includes/functions.php',
-	] )( 'allows %s', ( file ) => {
-		expect( getFileWriteRefusal( 'Write', { path: file }, root ) ).toBeUndefined();
+		// Changing WordPress itself happens in a checkout that is not a Studio site.
+		'wordpress-develop/src/wp-includes/functions.php',
+		'wordpress-develop/src/wp-admin/includes/file.php',
+	] )( 'allows %s', async ( file ) => {
+		expect(
+			await getFileWriteRefusal( 'Write', { path: file }, root, isStudioSite )
+		).toBeUndefined();
 	} );
 
-	it( 'only guards Write and Edit', () => {
+	it( 'only guards Write and Edit', async () => {
 		expect(
-			getFileWriteRefusal( 'Read', { path: 'my-site/wp-includes/functions.php' }, root )
+			await getFileWriteRefusal(
+				'Read',
+				{ path: 'my-site/wp-includes/functions.php' },
+				root,
+				isStudioSite
+			)
+		).toBeUndefined();
+	} );
+
+	it( "asks Studio's site list by default", async () => {
+		vi.mocked( findSiteByFolder ).mockImplementation( async ( folder ) =>
+			arePathsEqual( folder, studioSite() )
+				? ( { id: 'site', name: 'My Site', path: studioSite() } as Awaited<
+						ReturnType< typeof findSiteByFolder >
+				  > )
+				: undefined
+		);
+		expect(
+			await getFileWriteRefusal( 'Edit', { path: 'my-site/wp-includes/functions.php' }, root )
+		).toContain( 'WordPress core' );
+		expect(
+			await getFileWriteRefusal(
+				'Edit',
+				{ path: 'wordpress-develop/src/wp-includes/functions.php' },
+				root
+			)
 		).toBeUndefined();
 	} );
 } );
 
 describe( 'core file rule in the prompt', () => {
 	it( 'is text only for external agents, whose file tools Studio does not guard', () => {
-		expect( buildSystemPrompt( { external: true } ) ).toContain( 'WordPress core (wp-includes/' );
+		expect( buildSystemPrompt( { external: true } ) ).toContain( "A Studio site's WordPress core" );
 		expect( buildSystemPrompt( {} ) ).not.toContain( 'WordPress core (wp-includes/' );
 	} );
 } );

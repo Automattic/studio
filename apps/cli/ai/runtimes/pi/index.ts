@@ -586,7 +586,7 @@ function toToolDefinition(
 			if ( payloadLimitViolation ) {
 				throw new Error( payloadLimitViolation );
 			}
-			const fileWriteRefusal = getFileWriteRefusal( tool.name, params, STUDIO_SITES_ROOT );
+			const fileWriteRefusal = await getFileWriteRefusal( tool.name, params, STUDIO_SITES_ROOT );
 			if ( fileWriteRefusal ) {
 				throw new Error( fileWriteRefusal );
 			}

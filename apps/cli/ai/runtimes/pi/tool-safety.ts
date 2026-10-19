@@ -1,6 +1,7 @@
 import { existsSync } from 'fs';
 import os from 'os';
 import path from 'path';
+import { findSiteByFolder } from 'cli/lib/cli-config/sites';
 import type { AgentSessionEvent } from '@earendil-works/pi-coding-agent';
 
 // Keep individual model-generated tool payloads below the range where long
@@ -114,8 +115,8 @@ function resolveToolPath( filePath: string, cwd: string ): string {
 	return path.resolve( cwd, expanded );
 }
 
-/** The path of a file relative to the WordPress install it is in, if any. */
-function getPathInWordPress( filePath: string ): string | undefined {
+/** The WordPress install a file is in, if any: the nearest folder with wp-includes/ and wp-content/. */
+function findWordPressRoot( filePath: string ): string | undefined {
 	for (
 		let dir = path.dirname( filePath );
 		dir !== path.dirname( dir );
@@ -125,35 +126,46 @@ function getPathInWordPress( filePath: string ): string | undefined {
 			existsSync( path.join( dir, 'wp-includes' ) ) &&
 			existsSync( path.join( dir, 'wp-content' ) )
 		) {
-			return path.relative( dir, filePath ).split( path.sep ).join( '/' );
+			return dir;
 		}
 	}
 	return undefined;
 }
 
+async function isStudioSiteFolder( folder: string ): Promise< boolean > {
+	return Boolean( await findSiteByFolder( folder ) );
+}
+
 /**
- * A WordPress update replaces core files, so a change to one is lost. Refuses
- * Write and Edit there and names where the change belongs.
+ * A Studio site's WordPress core is replaced when Studio updates WordPress, so
+ * a change there is lost. Refuses Write and Edit on it and names where the
+ * change belongs. Other WordPress trees, such as a wordpress-develop checkout,
+ * stay writable: changing WordPress itself happens there.
  */
-export function getFileWriteRefusal(
+export async function getFileWriteRefusal(
 	toolName: string,
 	params: unknown,
-	cwd: string
-): string | undefined {
+	cwd: string,
+	isStudioSite: ( folder: string ) => Promise< boolean > = isStudioSiteFolder
+): Promise< string | undefined > {
 	const filePath = getStringParam( params, 'path' );
 	if ( ( toolName !== 'Write' && toolName !== 'Edit' ) || ! filePath ) {
 		return undefined;
 	}
-	const relativePath = getPathInWordPress( resolveToolPath( filePath, cwd ) );
-	if (
-		relativePath &&
-		( relativePath.startsWith( 'wp-includes/' ) ||
-			relativePath.startsWith( 'wp-admin/' ) ||
-			CORE_ROOT_FILE.test( relativePath ) )
-	) {
-		return `Not run: ${ relativePath } is WordPress core, and a WordPress update replaces it. Read it as reference, and make the change in wp-content/ (a theme, child theme, or plugin).`;
+	const absolutePath = resolveToolPath( filePath, cwd );
+	const root = findWordPressRoot( absolutePath );
+	if ( ! root ) {
+		return undefined;
 	}
-	return undefined;
+	const relativePath = path.relative( root, absolutePath ).split( path.sep ).join( '/' );
+	const isCore =
+		relativePath.startsWith( 'wp-includes/' ) ||
+		relativePath.startsWith( 'wp-admin/' ) ||
+		CORE_ROOT_FILE.test( relativePath );
+	if ( ! isCore || ! ( await isStudioSite( root ) ) ) {
+		return undefined;
+	}
+	return `Not run: ${ relativePath } is this Studio site's copy of WordPress core, which a WordPress update replaces. Read it as reference. Make site changes in wp-content/ (a theme, child theme, or plugin). To change WordPress itself, edit a wordpress-develop checkout instead.`;
 }
 
 // Only the last content block can be mid-generation when the model hits the

@@ -284,7 +284,6 @@ async function createStudioAgentSession(
 		visionEnabled
 	);
 	const systemPrompt = buildSystemPrompt( {
-		chatArtifactsEnabled,
 		userInstructions,
 		tools: tools.map( toolPromptContribution ),
 	} );

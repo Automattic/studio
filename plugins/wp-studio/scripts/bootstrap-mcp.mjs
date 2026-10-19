@@ -260,7 +260,8 @@ async function standIn() {
 	if ( initialize ) {
 		await ask( { ...initialize, id: 'stand-in' } );
 		write( child.stdin, { jsonrpc: '2.0', method: 'notifications/initialized' } );
-		const { tools } = await ask( { jsonrpc: '2.0', id: 'stand-in-tools', method: 'tools/list' } );
+		const { tools } =
+			( await ask( { jsonrpc: '2.0', id: 'stand-in-tools', method: 'tools/list' } ) ) ?? {};
 		if ( JSON.stringify( tools ) !== JSON.stringify( snapshot.tools.tools ) ) {
 			write( process.stdout, { jsonrpc: '2.0', method: 'notifications/tools/list_changed' } );
 		}

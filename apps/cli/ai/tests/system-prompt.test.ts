@@ -47,12 +47,11 @@ describe( 'buildSystemPrompt', () => {
 		expect( prompt ).not.toContain( '## Common wp/v2 Endpoints' );
 	} );
 
-	it( 'guards plan/pricing/feature answers behind the hosting-plans-helper skill', () => {
-		const prompt = buildSystemPrompt();
+	it( 'leaves plan questions to the hosting-plans-helper skill index entry', () => {
+		const helper = loadSkills().find( ( skill ) => skill.name === 'hosting-plans-helper' );
 
-		expect( prompt ).toContain( '`hosting-plans-helper` skill' );
-		expect( prompt ).toContain( 'Do NOT answer from memory' );
-		expect( prompt ).toContain( 'Personal or Premium cannot install plugins' );
+		expect( helper?.description ).toContain( 'Load before answering ANY plan' );
+		expect( buildSystemPrompt() ).not.toContain( 'hosting-plans-helper' );
 	} );
 
 	it( 'references only bundled skills', () => {

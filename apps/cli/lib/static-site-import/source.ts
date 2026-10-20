@@ -6,10 +6,13 @@ import {
 	removeBlueprintTempDirSync,
 } from '@studio/common/lib/blueprint-bundle';
 import { __, sprintf } from '@wordpress/i18n';
-import { SSI_PLUGIN_SLUG } from 'cli/lib/static-site-import/constants';
 import { LoggerError } from 'cli/logger';
 import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 
+// Without an explicit importer, `--from` installs the newest Static Site Importer release (see
+// `cli/lib/import-runtime`), which vendors the matching Blocks Engine. To run an unreleased build, pass a paired zip
+// from the importer's `npm run build:dev-package` to `--static-site-importer-path`.
+export const SSI_PLUGIN_SLUG = 'static-site-importer';
 const DATA_LIBERATION_CAPTURE_RECEIPT_SCHEMA = 'blocks-engine-capture/capture-receipt/v1';
 // JSON compiler-evidence sidecars written next to `website/`. Copied into the
 // staged importer source and named in `metadata.reports` so SSI keeps them at
@@ -33,11 +36,13 @@ const ARTIFACT_ROOT_REPORT_FILES = [
 	'typography.json',
 ] as const;
 
+type ReportFile = { name: string; from: string };
+
 type StaticSiteImporterSource = {
 	path: string;
 	payload: Record< string, unknown >;
 	stagedSourcePath?: string;
-	stagedReportFiles?: Array< { name: string; from: string } >;
+	stagedReportFiles?: ReportFile[];
 };
 
 export type StaticSiteImporterPlugin = string | { path: string };
@@ -47,7 +52,7 @@ export type StaticSiteImportPlan = {
 	request: string;
 	bundlePath?: string;
 	sourcePath?: string;
-	reportFiles?: Array< { name: string; from: string } >;
+	reportFiles?: ReportFile[];
 };
 
 export type StaticSiteImportBlueprint = {
@@ -56,14 +61,13 @@ export type StaticSiteImportBlueprint = {
 	staticSiteImport: StaticSiteImportPlan;
 };
 
-export function readSiteArtifact( artifactPath: string ): Record< string, unknown > {
+function readSiteArtifact( artifactPath: string ): Record< string, unknown > {
 	if ( ! fs.existsSync( artifactPath ) ) {
 		throw new LoggerError( sprintf( __( 'Artifact file not found: %s' ), artifactPath ) );
 	}
 
 	try {
-		const artifactContent = fs.readFileSync( artifactPath, 'utf-8' );
-		const artifact = JSON.parse( artifactContent );
+		const artifact = JSON.parse( fs.readFileSync( artifactPath, 'utf-8' ) );
 		if ( ! artifact || typeof artifact !== 'object' || Array.isArray( artifact ) ) {
 			throw new Error( __( 'Artifact JSON must be an object.' ) );
 		}
@@ -135,10 +139,7 @@ function isDataLiberationCaptureRoot( directory: string ): boolean {
 	}
 }
 
-function collectArtifactRootReports(
-	sourcePath: string,
-	websiteRoot: string
-): Array< { name: string; from: string } > {
+function collectArtifactRootReports( sourcePath: string, websiteRoot: string ): ReportFile[] {
 	// `--from <url>` stages `website/` (liberateWebsite's return value). Sidecars
 	// live on the capture root, one directory up.
 	for ( const candidateRoot of [ sourcePath, path.dirname( sourcePath ) ] ) {
@@ -149,14 +150,10 @@ function collectArtifactRootReports(
 			continue;
 		}
 
-		const files: Array< { name: string; from: string } > = [];
-		for ( const name of ARTIFACT_ROOT_REPORT_FILES ) {
-			const filePath = path.join( candidateRoot, name );
-			if ( fs.existsSync( filePath ) && fs.statSync( filePath ).isFile() ) {
-				files.push( { name, from: filePath } );
-			}
-		}
-		return files;
+		return ARTIFACT_ROOT_REPORT_FILES.flatMap( ( name ) => {
+			const from = path.join( candidateRoot, name );
+			return fs.existsSync( from ) && fs.statSync( from ).isFile() ? [ { name, from } ] : [];
+		} );
 	}
 
 	return [];
@@ -179,10 +176,7 @@ function resolveStaticSiteImporterSource( sourcePath: string ): StaticSiteImport
 		if ( fs.existsSync( artifactPath ) ) {
 			const artifact = readSiteArtifact( artifactPath );
 			if ( artifact.schema === 'blocks-engine/php-transformer/site-artifact/v1' ) {
-				return {
-					path: artifactPath,
-					payload: { artifact },
-				};
+				return { path: artifactPath, payload: { artifact } };
 			}
 		}
 
@@ -206,11 +200,7 @@ function resolveStaticSiteImporterSource( sourcePath: string ): StaticSiteImport
 
 	const extension = path.extname( sourcePath ).toLowerCase();
 	if ( extension === '.json' ) {
-		const artifact = readSiteArtifact( sourcePath );
-		return {
-			path: sourcePath,
-			payload: { artifact },
-		};
+		return { path: sourcePath, payload: { artifact: readSiteArtifact( sourcePath ) } };
 	}
 
 	if ( extension === '.zip' ) {
@@ -335,11 +325,8 @@ export function capturedSourceTitle( websitePath: string ): string | undefined {
 	return typeof title === 'string' && title.trim() ? title.trim() : undefined;
 }
 
-/**
- * The site name for a `--from` source before it is prepared: an explicit name wins, then a local
- * source names itself when it is a titled artifact or a captured website. A URL is named from
- * its capture once liberated.
- */
+// An explicit name wins; a local source names itself when it is a titled artifact or a captured
+// website. A URL is named from its capture once liberated.
 export function sourceSiteName( source: string, name?: string ): string | undefined {
 	if ( isUrl( source ) ) {
 		return name;
@@ -366,7 +353,6 @@ export function buildCreateFromSourceBlueprint(
 	} );
 }
 
-/** The blueprint that installs the importer, carrying the import it will run. */
 export function importerBlueprint(
 	staticSiteImporterPlugin: StaticSiteImporterPlugin,
 	staticSiteImport: Omit< StaticSiteImportPlan, 'bundlePath' >
@@ -379,17 +365,12 @@ export function importerBlueprint(
 			: { resource: 'bundled' as const, path: `${ SSI_PLUGIN_SLUG }.zip` };
 	const blueprint: BlueprintV1Declaration = {
 		landingPage: '/',
-		features: {
-			networking: true,
-		},
+		features: { networking: true },
 		steps: [
 			{
 				step: 'installPlugin',
 				pluginData,
-				options: {
-					activate: true,
-					targetFolderName: SSI_PLUGIN_SLUG,
-				},
+				options: { activate: true, targetFolderName: SSI_PLUGIN_SLUG },
 			},
 		],
 	};

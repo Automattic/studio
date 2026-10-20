@@ -76,14 +76,16 @@ import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/si
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import {
 	completeSourceImport,
-	isUrl,
 	prepareSourceImport,
 	removeStaticSiteImportBundle,
-	sourceSiteName,
-	StaticSiteImportRun,
 	type PreparedSourceImport,
+} from 'cli/lib/static-site-import/prepare';
+import { StaticSiteImportRun } from 'cli/lib/static-site-import/run';
+import {
+	isUrl,
+	sourceSiteName,
 	type StaticSiteImportPlan,
-} from 'cli/lib/static-site-import';
+} from 'cli/lib/static-site-import/source';
 import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { StatsGroup } from 'cli/lib/types/bump-stats';
 import { untildify } from 'cli/lib/utils';

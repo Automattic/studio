@@ -2,7 +2,7 @@ import {
 	decodeStaticSiteImportReceipt,
 	staticSiteImportQualityFailure,
 	staticSiteImportReceiptError,
-} from 'cli/lib/static-site-import/receipt';
+} from 'cli/lib/static-site-import/run';
 
 describe( 'static site import receipts', () => {
 	it( 'decodes the last JSON object line of the importer output', () => {

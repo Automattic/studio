@@ -43,7 +43,7 @@ import {
 	isSqliteIntegrationAvailable,
 	keepSqliteIntegrationUpdated,
 } from 'cli/lib/sqlite-integration';
-import { buildCreateFromSourceBlueprint } from 'cli/lib/static-site-import';
+import { buildCreateFromSourceBlueprint } from 'cli/lib/static-site-import/source';
 import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { ProcessDescription } from 'cli/lib/types/process-manager-ipc';
 import { runBlueprint, startWordPressServer } from 'cli/lib/wordpress-server-manager';

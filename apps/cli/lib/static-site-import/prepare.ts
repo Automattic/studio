@@ -13,7 +13,11 @@ import {
 } from 'cli/lib/data-liberation-client';
 import { resolveStaticSiteImporterPlugin } from 'cli/lib/import-runtime';
 import { isSqliteIntegrationAvailable } from 'cli/lib/sqlite-integration';
-import { STATIC_SITE_IMPORT_PROGRESS_INTERVAL_MS } from 'cli/lib/static-site-import/constants';
+import {
+	STATIC_SITE_IMPORT_PROGRESS_INTERVAL_MS,
+	stagedUrlImport,
+	staticSiteImportSourcePath,
+} from 'cli/lib/static-site-import/run';
 import {
 	artifactTitle,
 	buildCreateFromSourceBlueprint,
@@ -24,7 +28,6 @@ import {
 	type StaticSiteImporterPlugin,
 	type StaticSiteImportPlan,
 } from 'cli/lib/static-site-import/source';
-import { stagedUrlImport, staticSiteImportSourcePath } from 'cli/lib/static-site-import/staging';
 import { Logger, LoggerError } from 'cli/logger';
 
 const PARTIAL_CAPTURE_REPORTED_ROUTES = 10;
@@ -85,10 +88,7 @@ export async function prepareSourceImport(
 	} = {}
 ): Promise< PreparedSourceImport > {
 	const sourceUrl = isUrl( source ) ? source : undefined;
-	let importSource = source;
-	let liberationOutputDir: string | undefined;
-	let compareCommand: ( ( siteUrl: string ) => string ) | undefined;
-	let capturedPartially = false;
+	const captureDir = path.join( path.dirname( sitePath ), `${ path.basename( sitePath ) }-source` );
 	const resumable = sourceUrl ? stagedUrlImport( sitePath, sourceUrl ) : undefined;
 	if ( sourceUrl && resumable ) {
 		// Re-running the command after a failed import resumes it. The staged request already
@@ -98,10 +98,7 @@ export async function prepareSourceImport(
 			options.staticSiteImporter ?? { path: ( await resolveStaticSiteImporterPlugin() ).path },
 			{ request: resumable, sourcePath: staticSiteImportSourcePath( sitePath ) }
 		);
-		const keptCapture = captureRootFor(
-			sourceUrl,
-			path.join( path.dirname( sitePath ), `${ path.basename( sitePath ) }-source` )
-		);
+		const keptCapture = captureRootFor( sourceUrl, captureDir );
 		return {
 			blueprint,
 			siteName: siteName ?? artifactTitle( JSON.parse( resumable ) ) ?? __( 'Imported Site' ),
@@ -111,6 +108,7 @@ export async function prepareSourceImport(
 			capturedPartially: false,
 		};
 	}
+	let liberated: Awaited< ReturnType< typeof liberateWebsite > > | undefined;
 	if ( sourceUrl ) {
 		if ( ! ( await isSqliteIntegrationAvailable() ) ) {
 			throw new LoggerError(
@@ -120,35 +118,25 @@ export async function prepareSourceImport(
 			);
 		}
 		let lastProgressAt = 0;
-		liberationOutputDir = path.join(
-			path.dirname( sitePath ),
-			`${ path.basename( sitePath ) }-source`
-		);
 		logger.reportStart(
 			LoggerAction.IMPORT_SITE,
 			__( 'Preparing source website with Data Liberation…' )
 		);
-		const liberated = await ( options.liberate ?? liberateWebsite )(
-			sourceUrl,
-			liberationOutputDir,
-			{
-				onProgress: ( message ) => {
-					const now = Date.now();
-					if ( now - lastProgressAt >= STATIC_SITE_IMPORT_PROGRESS_INTERVAL_MS ) {
-						lastProgressAt = now;
-						logger.reportProgress( message );
-					}
-				},
-			}
-		);
-		importSource = liberated.websiteDir;
-		compareCommand = liberated.compareCommand;
+		liberated = await ( options.liberate ?? liberateWebsite )( sourceUrl, captureDir, {
+			onProgress: ( message ) => {
+				const now = Date.now();
+				if ( now - lastProgressAt >= STATIC_SITE_IMPORT_PROGRESS_INTERVAL_MS ) {
+					lastProgressAt = now;
+					logger.reportProgress( message );
+				}
+			},
+		} );
 		if ( liberated.partialCapture ) {
-			capturedPartially = true;
 			logger.reportWarning( partialCaptureWarning( liberated.partialCapture ) );
 		}
 		logger.reportSuccess( __( 'Source website prepared' ) );
 	}
+	const importSource = liberated?.websiteDir ?? source;
 	const resolvedSiteName = siteName ?? capturedSourceTitle( importSource ) ?? __( 'Imported Site' );
 	const blueprint = buildCreateFromSourceBlueprint(
 		importSource,
@@ -158,17 +146,13 @@ export async function prepareSourceImport(
 	);
 	return {
 		blueprint,
-		liberationOutputDir,
-		compareCommand,
-		capturedPartially,
+		liberationOutputDir: sourceUrl ? captureDir : undefined,
+		compareCommand: liberated?.compareCommand,
+		capturedPartially: Boolean( liberated?.partialCapture ),
 		siteName: resolvedSiteName,
 	};
 }
 
-/**
- * After the site is created from a prepared source: removes a complete URL capture unless it is
- * kept, otherwise prints how to compare the new site with the original.
- */
 export async function completeSourceImport(
 	prepared: PreparedSourceImport,
 	sitePath: string,
@@ -194,9 +178,7 @@ export async function completeSourceImport(
 	}
 }
 
-export async function removeStaticSiteImportBundle(
-	plan: StaticSiteImportPlan | undefined
-): Promise< void > {
+export async function removeStaticSiteImportBundle( plan?: StaticSiteImportPlan ): Promise< void > {
 	if ( plan?.bundlePath ) {
 		await removeBlueprintTempDir( plan.bundlePath ).catch( () => {} );
 	}

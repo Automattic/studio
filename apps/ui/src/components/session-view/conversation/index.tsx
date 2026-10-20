@@ -1122,7 +1122,7 @@ function QuestionOptionViewer( {
 						alt={ option?.label }
 					/>
 				) : null }
-				<Dialog.CloseIcon className={ styles.questionOptionZoomClose } />
+				<Dialog.CloseIconButton className={ styles.questionOptionZoomClose } />
 				<IconButton
 					className={ clsx( styles.questionOptionZoomStep, styles.questionOptionZoomPrevious ) }
 					variant="minimal"
@@ -1159,7 +1159,7 @@ function QuestionOptionViewer( {
 }
 
 function QuestionOptionCheckIcon() {
-	return <Icon icon={ check } size={ 14 } style={ { fill: 'currentColor' } } aria-hidden="true" />;
+	return <Icon icon={ check } size={ 14 } aria-hidden="true" />;
 }
 
 function getQuestionPickedLabel(

@@ -52,7 +52,7 @@ import {
 	openStudioSession,
 } from 'cli/ai/sessions/pi-session';
 import { replaySessionHistory } from 'cli/ai/sessions/replay';
-import { formatActiveSitePrefix, setLocalSiteSelectedCallback } from 'cli/ai/site-selection';
+import { setLocalSiteSelectedCallback } from 'cli/ai/site-selection';
 import { getActiveSlashCommands, type SlashCommandContext } from 'cli/ai/slash-commands';
 import { AiChatUI } from 'cli/ai/ui';
 import { runCommand as runLoginCommand } from 'cli/commands/auth/login';
@@ -589,8 +589,9 @@ export async function runCommand( options: {
 
 		ui.beginAgentTurn( sessionId );
 
-		// Prepend active site context to the prompt.
-		// Remote (WordPress.com) sites only have a URL and site ID; local sites have a filesystem path and running state.
+		// The active site rides to the runtime, which states it in the system
+		// prompt. Remote (WordPress.com) sites only have a URL and site ID; local
+		// sites have a filesystem path and running state.
 		let enrichedPrompt = prompt;
 		const site = ui.activeSite;
 		// The stored running flag can be absent or stale — the session event log
@@ -615,9 +616,6 @@ export async function runCommand( options: {
 			// (--json) runs alive after turn.completed; close it so the process
 			// can exit naturally.
 			await disconnectFromDaemon();
-		}
-		if ( site ) {
-			enrichedPrompt = `${ formatActiveSitePrefix( site ) }\n\n${ prompt }`;
 		}
 
 		// Non-image files ride as absolute-path references the agent reads with

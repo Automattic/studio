@@ -284,9 +284,9 @@ async function createStudioAgentSession(
 		visionEnabled
 	);
 	const systemPrompt = buildSystemPrompt( {
-		chatArtifactsEnabled,
 		userInstructions,
 		tools: tools.map( toolPromptContribution ),
+		activeSite: config.activeSite,
 	} );
 
 	const pendingWork = getPendingWork( config.session );

@@ -23,7 +23,7 @@ Before any change, call `GET /` with `apiNamespace: ""`. `plan.features.active` 
 
 `wpcom_request` supports both the WordPress REST API and WordPress.com REST API endpoints:
 
-- `siteId`: the site's WordPress.com ID (the active-site line gives it; `site_connected_remote_sites` or `GET !/me/sites` with `apiNamespace: ""` find others)
+- `siteId`: the site's WordPress.com ID (the Active site section gives it; `site_connected_remote_sites` or `GET !/me/sites` with `apiNamespace: ""` find others)
 - `method`: `GET`, `POST`, `PUT`, or `DELETE`
 - `path`: relative to `/sites/{siteId}/`, such as `/posts`, `/posts/123`, or `/templates`
 - `query`: optional query parameters object

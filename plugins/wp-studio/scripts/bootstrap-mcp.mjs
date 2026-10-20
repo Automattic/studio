@@ -1,15 +1,17 @@
 // The plugin's MCP server: `studio mcp`, from the Studio CLI the plugin carries
-// (`cli.tar.br`, unpacked inside the plugin on first start, so the agent app
-// removes it with this plugin version), or from an installed Studio CLI at
-// least as recent, such as the desktop app's.
+// or downloads (`cli.tar.br`, unpacked inside the plugin on first start, so the
+// agent app removes it with this plugin version), or from an installed Studio
+// CLI at least as recent, such as the desktop app's.
 //
 // stdout carries the MCP messages: anything else must go to stderr.
 import { execFile, spawn } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { once } from 'node:events';
 import {
 	accessSync,
 	constants,
 	createReadStream,
+	createWriteStream,
 	existsSync,
 	mkdirSync,
 	readFileSync,
@@ -22,6 +24,7 @@ import {
 import { homedir } from 'node:os';
 import path from 'node:path';
 import readline from 'node:readline';
+import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
@@ -30,17 +33,25 @@ import { createBrotliDecompress } from 'node:zlib';
 const WINDOWS = process.platform === 'win32';
 const PLUGIN_ROOT = fileURLToPath( new URL( '..', import.meta.url ) );
 const CLI_BUNDLE = path.join( PLUGIN_ROOT, 'cli.tar.br' );
+// A plugin that can't carry the CLI, as in Anthropic's directory, downloads the
+// same archive instead: its URL and SHA-256, written by the plugin build.
+const CLI_DOWNLOAD = path.join( PLUGIN_ROOT, 'cli-download.json' );
 const BUNDLED_CLI = path.join( PLUGIN_ROOT, 'cli' );
 const BUNDLED_MAIN = path.join( BUNDLED_CLI, 'main.mjs' );
 const UNPACK_LOCK = `${ BUNDLED_CLI }.lock`;
 // Only the holder of UNPACK_LOCK unpacks, so it can reuse one staging folder:
 // whatever a stopped holder left there is cleared by the next.
 const UNPACK_STAGING = `${ BUNDLED_CLI }.unpacking`;
-// What `studio mcp` answers Codex's handshake and tool list with, recorded by the plugin build.
+// What `studio mcp` answers the handshake and tool list with, for the app the
+// plugin targets, recorded by the plugin build.
 const SNAPSHOT = path.join( PLUGIN_ROOT, 'mcp-snapshot.json' );
-// A published plugin has the version of the Studio CLI it carries.
+// A published plugin has the version of the Studio CLI it carries or downloads,
+// which the build records in the snapshot; a checkout has its manifest's.
 const { version: PLUGIN_VERSION } = JSON.parse(
-	readFileSync( path.join( PLUGIN_ROOT, '.codex-plugin', 'plugin.json' ), 'utf8' )
+	readFileSync(
+		existsSync( SNAPSHOT ) ? SNAPSHOT : path.join( PLUGIN_ROOT, '.codex-plugin', 'plugin.json' ),
+		'utf8'
+	)
 );
 
 // Processes to stop with this one: tar while unpacking, then `studio mcp`.
@@ -124,10 +135,34 @@ async function findStudio() {
 	return null;
 }
 
-// Unpacks the bundled CLI aside and moves it in place once complete, so a
-// session that starts meanwhile never runs a partial CLI.
-async function unpack() {
-	process.stderr.write( 'Unpacking the Studio CLI that comes with the plugin.\n' );
+// Saves the CLI archive and checks it against its SHA-256 before anything unpacks it.
+async function download( file ) {
+	const { url, sha256 } = JSON.parse( readFileSync( CLI_DOWNLOAD, 'utf8' ) );
+	process.stderr.write( `Downloading the Studio CLI from ${ url }.\n` );
+	const response = await fetch( url );
+	if ( ! response.ok ) {
+		throw new Error( `Downloading the Studio CLI failed with HTTP ${ response.status }.` );
+	}
+	const hash = createHash( 'sha256' );
+	await pipeline(
+		Readable.fromWeb( response.body ),
+		async function* ( chunks ) {
+			for await ( const chunk of chunks ) {
+				hash.update( chunk );
+				yield chunk;
+			}
+		},
+		createWriteStream( file )
+	);
+	if ( hash.digest( 'hex' ) !== sha256 ) {
+		throw new Error( 'The downloaded Studio CLI does not match its checksum.' );
+	}
+}
+
+// Unpacks the CLI aside and moves it in place once complete, so a session that
+// starts meanwhile never runs a partial CLI.
+async function unpack( archive ) {
+	process.stderr.write( 'Unpacking the Studio CLI.\n' );
 	const staging = UNPACK_STAGING;
 	rmSync( staging, { recursive: true, force: true } );
 	mkdirSync( staging );
@@ -145,7 +180,7 @@ async function unpack() {
 			.createInterface( { input: tar.stderr } )
 			.on( 'line', ( line ) => process.stderr.write( `${ line }\n` ) );
 		const [ , [ code ] ] = await Promise.all( [
-			pipeline( createReadStream( CLI_BUNDLE ), createBrotliDecompress(), tar.stdin ),
+			pipeline( createReadStream( archive ), createBrotliDecompress(), tar.stdin ),
 			once( tar, 'close' ),
 		] );
 		running.delete( tar );
@@ -185,19 +220,23 @@ async function unpackOnce() {
 			}
 			continue;
 		}
+		const archive = existsSync( CLI_BUNDLE ) ? CLI_BUNDLE : `${ BUNDLED_CLI }.download`;
 		try {
-			await unpack();
+			if ( archive !== CLI_BUNDLE ) await download( archive );
+			await unpack( archive );
 		} finally {
+			if ( archive !== CLI_BUNDLE ) rmSync( archive, { force: true } );
 			rmSync( UNPACK_LOCK, { force: true } );
 		}
 	}
 }
 
 // Codex gives a server about ten seconds to answer its handshake and list its
-// tools, and unpacking can take longer, Windows especially. Meanwhile, this
-// answers them from the snapshot, holds every other message, then hands the
-// session over to the bundled `studio mcp`. The tools depend on the client, so
-// a client other than Codex is told to list them again.
+// tools, and getting the CLI ready can take longer: unpacking it, Windows
+// especially, or downloading it first. Meanwhile, this answers them from the
+// snapshot, holds every other message, then hands the session over to the
+// bundled `studio mcp`. The tools depend on the client, so a client that gets
+// other ones is told to list them again.
 async function standIn() {
 	const recorded = readFileSync( SNAPSHOT, 'utf8' );
 	// Some tool descriptions name folders in the home the snapshot was recorded in.
@@ -277,7 +316,7 @@ if ( studio ) {
 	child = spawn( ...commandArgs( command, [ ...args, 'mcp' ], { stdio: 'inherit' } ) );
 } else if ( existsSync( BUNDLED_MAIN ) ) {
 	child = spawn( process.execPath, [ BUNDLED_MAIN, 'mcp' ], { stdio: 'inherit' } );
-} else if ( existsSync( CLI_BUNDLE ) ) {
+} else if ( existsSync( CLI_BUNDLE ) || existsSync( CLI_DOWNLOAD ) ) {
 	child = await standIn();
 } else {
 	throw new Error( 'No Studio CLI: set STUDIO_CLI_BIN to a development build, or install Studio.' );

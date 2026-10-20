@@ -81,6 +81,9 @@ const evalSeedSchema = z.object( {
 			files: z.record( z.string(), z.string() ).optional(),
 			wpCli: z.array( z.array( z.string() ) ).optional(),
 			inspect: z.array( z.array( z.string() ) ).optional(),
+			// WordPress.com sites connected to this site, whose id is only known
+			// once it exists.
+			connectedWpcomSites: z.array( syncSiteSchema.omit( { localSiteId: true } ) ).optional(),
 		} )
 		.optional(),
 } );
@@ -235,6 +238,12 @@ async function seedFixtures( seed: EvalSeed ): Promise< SeededFixtures > {
 			path: activeSitePath,
 			running: false,
 		};
+		const { id: localSiteId } = await getSiteByFolder( activeSitePath );
+		for ( const connection of activeSite.connectedWpcomSites ?? [] ) {
+			const site = { ...connection, localSiteId };
+			await addConnectedWpcomSite( localSiteId, site );
+			seededConnections.push( site );
+		}
 	}
 
 	const inspect = async (): Promise< Inspection[] > => {

@@ -1,3 +1,6 @@
+import fs from 'fs';
+import os from 'os';
+import path from 'path';
 import { describe, expect, it } from 'vitest';
 import { loadSkills } from '../skills';
 import { buildSystemPrompt } from '../system-prompt';
@@ -91,6 +94,54 @@ describe( 'buildSystemPrompt', () => {
 		const textOnly = buildSystemPrompt( { tools: toolsFor( { visionEnabled: false } ) } );
 		expect( textOnly ).toContain( 'it still sets the theme screenshot' );
 		expect( textOnly ).not.toContain( 'Pair with take_screenshot' );
+	} );
+
+	it( 'states the active site in its own section, above the user instructions', () => {
+		const prompt = buildSystemPrompt( {
+			userInstructions: 'Always answer in French.',
+			activeSite: { name: 'My Site', path: '/sites/my-site', running: true },
+		} );
+
+		expect( prompt ).toContain( '## Active site\n\n"My Site" at /sites/my-site (running)' );
+		expect( prompt.indexOf( '## Active site' ) ).toBeLessThan(
+			prompt.indexOf( "## User's global instructions" )
+		);
+		expect( buildSystemPrompt( {} ) ).not.toContain( '## Active site' );
+	} );
+
+	it( 'states a WordPress.com active site with its ID and URL', () => {
+		const prompt = buildSystemPrompt( {
+			activeSite: {
+				name: 'Live',
+				path: '',
+				running: false,
+				remote: true,
+				url: 'https://example.wordpress.com',
+				wpcomSiteId: 123,
+			},
+		} );
+
+		expect( prompt ).toContain(
+			'## Active site\n\n"Live" (ID: 123) at https://example.wordpress.com (WordPress.com)'
+		);
+	} );
+
+	it( "names the active site's design system when it has a DESIGN.md", () => {
+		const sitePath = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-active-site-' ) );
+		try {
+			fs.writeFileSync( path.join( sitePath, 'DESIGN.md' ), '# Design' );
+			const prompt = buildSystemPrompt( {
+				activeSite: { name: 'Designed', path: sitePath, running: false },
+			} );
+			expect( prompt ).toContain(
+				`"Designed" at ${ sitePath } (stopped), design system: ${ path.join(
+					sitePath,
+					'DESIGN.md'
+				) }`
+			);
+		} finally {
+			fs.rmSync( sitePath, { recursive: true, force: true } );
+		}
 	} );
 
 	it( 'appends the user global instructions when set', () => {

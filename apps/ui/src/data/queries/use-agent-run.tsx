@@ -157,7 +157,9 @@ function reducer( state: State, action: Action ): State {
 				runId: action.runId,
 				startedAt: resolveRunStartedAt( state, action.runId, action.startedAt ),
 				isInterrupting: action.interrupting,
-				pendingQuestions: action.pendingQuestions ?? state.pendingQuestions,
+				pendingQuestions: action.pendingQuestions?.length
+					? action.pendingQuestions
+					: state.pendingQuestions,
 			};
 		case 'send_pending':
 			return {
@@ -333,6 +335,7 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 		let cancelled = false;
 
 		const syncActiveRuns = async () => {
+			const runIdsBefore = [ ...subscribedRunIdsBySessionRef.current ];
 			let runs: ActiveAgentRun[];
 			try {
 				runs = await connector.getActiveAgentRuns();
@@ -343,11 +346,14 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 			if ( cancelled ) {
 				return;
 			}
-			const activeSessionIds = new Set( runs.map( ( run ) => run.sessionId ) );
+			const activeRunIds = new Set( runs.map( ( run ) => run.runId ) );
 			let endedRuns = false;
-			// A run missing from the snapshot ended while events were lost.
-			for ( const sessionId of subscribedRunIdsBySessionRef.current.keys() ) {
-				if ( ! activeSessionIds.has( sessionId ) ) {
+			// A run known before the request but missing from the snapshot ended while events were lost.
+			for ( const [ sessionId, runId ] of runIdsBefore ) {
+				if (
+					! activeRunIds.has( runId ) &&
+					subscribedRunIdsBySessionRef.current.get( sessionId ) === runId
+				) {
 					subscribedRunIdsBySessionRef.current.delete( sessionId );
 					dispatchSession( sessionId, { type: 'run_ended' } );
 					endedRuns = true;

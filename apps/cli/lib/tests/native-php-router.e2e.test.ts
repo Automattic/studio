@@ -13,6 +13,14 @@ import { getPhpBinaryPath } from 'cli/lib/dependency-management/paths';
 const routerPath = path.resolve( import.meta.dirname, '../../php/router.php' );
 const phpBinaryPath = getPhpBinaryPath( resolveSupportedPhpVersion( DEFAULT_PHP_VERSION ) );
 const assetContents = 'asset bytes with a literal plus';
+const databaseContents = 'sqlite database bytes';
+const databaseHtaccessContents = 'database htaccess bytes';
+const databaseBackupContents = 'database backup bytes';
+const gitHeadContents = 'git head bytes';
+const envContents = 'environment file bytes';
+const hiddenStylesheetContents = 'hidden stylesheet bytes';
+const securityTxtContents = 'security.txt bytes';
+const themeStylesheetContents = 'theme stylesheet bytes';
 
 let root: string;
 let fixtureDirectory: string;
@@ -74,6 +82,26 @@ describe( 'native PHP router', { tags: [ 'e2e' ] }, () => {
 		fs.writeFileSync( path.join( root, 'index.php' ), '<?php http_response_code( 404 );' );
 		fs.writeFileSync( path.join( fixtureDirectory, 'secret.txt' ), 'must not be served' );
 
+		fs.mkdirSync( path.join( root, 'wp-content/database' ), { recursive: true } );
+		fs.writeFileSync( path.join( root, 'wp-content/database/.ht.sqlite' ), databaseContents );
+		fs.writeFileSync(
+			path.join( root, 'wp-content/database/.htaccess' ),
+			databaseHtaccessContents
+		);
+		fs.writeFileSync(
+			path.join( root, 'wp-content/database/backup.sqlite' ),
+			databaseBackupContents
+		);
+		fs.mkdirSync( path.join( root, 'wp-content/.hidden' ), { recursive: true } );
+		fs.writeFileSync( path.join( root, 'wp-content/.hidden/file.css' ), hiddenStylesheetContents );
+		fs.mkdirSync( path.join( root, 'wp-content/themes/t' ), { recursive: true } );
+		fs.writeFileSync( path.join( root, 'wp-content/themes/t/style.css' ), themeStylesheetContents );
+		fs.mkdirSync( path.join( root, '.git' ), { recursive: true } );
+		fs.writeFileSync( path.join( root, '.git/HEAD' ), gitHeadContents );
+		fs.writeFileSync( path.join( root, '.env' ), envContents );
+		fs.mkdirSync( path.join( root, '.well-known' ), { recursive: true } );
+		fs.writeFileSync( path.join( root, '.well-known/security.txt' ), securityTxtContents );
+
 		const port = await getAvailablePort();
 		baseUrl = `http://127.0.0.1:${ port }`;
 		server = spawn( phpBinaryPath, [ '-S', `127.0.0.1:${ port }`, routerPath ], {
@@ -109,5 +137,57 @@ describe( 'native PHP router', { tags: [ 'e2e' ] }, () => {
 
 		expect( response.body ).not.toBe( 'must not be served' );
 		expect( response.status ).not.toBe( 200 );
+	} );
+
+	it.each( [
+		[ '/wp-content/database/.ht.sqlite', databaseContents ],
+		[ '/wp-content/database/.htaccess', databaseHtaccessContents ],
+		[ '/wp-content/database/backup.sqlite', databaseBackupContents ],
+		[ '/.git/HEAD', gitHeadContents ],
+		[ '/.env', envContents ],
+		[ '/wp-content/.hidden/file.css', hiddenStylesheetContents ],
+	] )(
+		'does not serve dotfiles and the database directory: %s',
+		async ( requestPath, contents ) => {
+			const response = await request( requestPath );
+
+			expect( response.status ).toBe( 404 );
+			expect( response.body ).not.toContain( contents );
+		}
+	);
+
+	it( 'does not serve the database file through an uppercase path variant', async () => {
+		const response = await request( '/WP-CONTENT/Database/.ht.sqlite' );
+
+		expect( response.status ).toBe( 404 );
+		expect( response.body ).not.toContain( databaseContents );
+	} );
+
+	it( 'does not serve database directory files through an uppercase path variant', async () => {
+		const response = await request( '/WP-CONTENT/DATABASE/backup.sqlite' );
+
+		expect( response.status ).toBe( 404 );
+		expect( response.body ).not.toContain( databaseBackupContents );
+	} );
+
+	it( 'does not serve the database file through an encoded dot', async () => {
+		const response = await request( '/wp-content/database/%2eht.sqlite' );
+
+		expect( response.status ).toBe( 404 );
+		expect( response.body ).not.toContain( databaseContents );
+	} );
+
+	it( 'serves theme stylesheets', async () => {
+		expect( await request( '/wp-content/themes/t/style.css' ) ).toEqual( {
+			status: 200,
+			body: themeStylesheetContents,
+		} );
+	} );
+
+	it( 'serves well-known files', async () => {
+		expect( await request( '/.well-known/security.txt' ) ).toEqual( {
+			status: 200,
+			body: securityTxtContents,
+		} );
 	} );
 } );

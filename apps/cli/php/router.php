@@ -107,6 +107,33 @@ if (
 	return true;
 }
 
+// Apache and nginx keep dotfiles and the wp-content/database directory (the
+// site's SQLite database) private; the built-in server ignores .htaccess, so
+// refuse them here. Deciding on the resolved path also covers symlinks,
+// encodings and case-insensitive path variants.
+$site_root     = rtrim( $root, DIRECTORY_SEPARATOR ) . DIRECTORY_SEPARATOR;
+$resolved_file = realpath( $file );
+$site_relative = '';
+
+if ( false !== $resolved_file && str_starts_with( $resolved_file, $site_root ) ) {
+	$site_relative = str_replace( DIRECTORY_SEPARATOR, '/', substr( $resolved_file, strlen( $site_root ) ) );
+}
+
+if ( '' !== $site_relative ) {
+	foreach ( explode( '/', $site_relative ) as $segment ) {
+		if ( str_starts_with( $segment, '.' ) && '.well-known' !== $segment ) {
+			http_response_code( 404 );
+			return true;
+		}
+	}
+
+	$site_relative_lower = strtolower( $site_relative );
+	if ( 'wp-content/database' === $site_relative_lower || str_starts_with( $site_relative_lower, 'wp-content/database/' ) ) {
+		http_response_code( 404 );
+		return true;
+	}
+}
+
 // Existing file: require PHP scripts ourselves, serve static assets via the
 // server. Returning false for PHP would run it as a second script, firing
 // auto_prepend_file (runtime.php) twice and redeclaring its classes.

@@ -39,11 +39,11 @@ Run one named test with `npm run eval -- --filter-pattern "preview sites"` (rege
 
 ## Running the runner directly
 
-`node apps/cli/dist/cli/eval-runner.mjs "<prompt>" "" '{"vars":{"timeoutMs":1800000}}'` runs one turn outside promptfoo and prints `EVAL_RUNNER_RESULT_FILE=<path>`. Environment variables: `STUDIO_EVAL_MODEL` picks the model (`fast`, `claude-sonnet-5`, …), `STUDIO_EVAL_SESSION_DIR` persists the session JSONL in that directory instead of memory, and `STUDIO_EVAL_AUTO_CONTINUE=<n>` resumes a turn that ended with an empty assistant message (some hosted tiers stop that way when their reasoning budget runs out) with `continue`, up to `n` times; the result reports the count as `autoContinues`.
+`node apps/cli/dist/cli/eval-runner.mjs "<prompt>" "" '{"vars":{"timeoutMs":1800000}}'` runs one turn outside promptfoo and prints `EVAL_RUNNER_RESULT_FILE=<path>`. Environment variables: `STUDIO_EVAL_MODEL` picks the model (`fast`, `claude-sonnet-5`, …), `STUDIO_EVAL_SESSION_DIR` persists the session JSONL in that directory instead of memory, and `STUDIO_EVAL_AUTO_CONTINUE=<n>` resumes a turn that ended with an empty assistant message (some hosted tiers stop that way when their reasoning budget runs out) with `continue`, up to `n` times; the result reports the count as `autoContinues`. A `followUps` var (a list of strings) sends each as a further user message in the same session once the previous one finishes, for cases that measure a conversation rather than a single request.
 
 ## Adding tests
 
-Tests live in `promptfoo.config.yaml`. The runner returns raw JSON (`toolCalls`, `toolResults`, `toolEvents`, `textSegments`, `questions`, `turnDurationsMs`, and `inspections` when the seed asks for them) — write assertions in the YAML, not in the runner. Each `toolResults` entry carries the result's text block plus any image content blocks (`images`, base64) and structured `details` (e.g. `studioArtifacts`).
+Tests live in `promptfoo.config.yaml`. The runner returns raw JSON (`toolCalls`, `toolResults`, `toolEvents`, `textSegments`, `questions`, `turnDurationsMs`, `usage` (input, output, cache read, cache write and total tokens, summed over every assistant message), and `inspections` when the seed asks for them) — write assertions in the YAML, not in the runner. Each `toolResults` entry carries the result's text block plus any image content blocks (`images`, base64) and structured `details` (e.g. `studioArtifacts`).
 
 ### Seeding fixtures
 

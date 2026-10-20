@@ -115,34 +115,18 @@ export interface AuthUser {
 
 // What native affordances the host environment offers, so the UI can choose
 // between a native flow and a browser-friendly fallback (instead of branching on
-// "am I in Electron"). The desktop app has them all; the browser (`studio ui` /
-// hosted) does not — except `openInOS`, which the local server can do because it
-// runs on the user's own machine.
+// "am I in Electron"). The desktop app has them all; the browser (`studio ui`)
+// does not.
 export interface ConnectorCapabilities {
 	// A native OS folder picker is available (`selectSiteFolder`). When false,
 	// the UI offers an editable path field instead.
 	nativeFolderPicker: boolean;
-	// The host can open paths in OS apps (file manager, editor, terminal) and
-	// detect installed apps. True on the desktop and the local server (both on
-	// the user's machine); false when hosted remotely.
-	openInOS: boolean;
 	// The preview can host the annotation inspector (script injection + a bridge
 	// into the previewed page). Only the desktop's <webview> supports this; in a
 	// browser the preview is a cross-origin <iframe> that can't be injected, so
 	// the Annotate control is hidden (except on the design system page, which
 	// Studio renders itself).
 	annotatePreview: boolean;
-	// `readLocalMediaFile` can read media files from the host's disk (used to
-	// render screenshots and generated images inline). The local server limits
-	// it to raster images in the sessions and site folders; hosted can't.
-	readLocalMedia: boolean;
-	// The host can read/write the user's global Studio Code instructions file
-	// (~/.studio/knowledge/instructions.md). False when hosted remotely, which
-	// hides the Studio Code settings tab.
-	agentInstructions: boolean;
-	// The host can read/write the AI provider settings in the CLI config. False
-	// (hosted) hides the Anthropic API key section in AI settings.
-	aiSettings: boolean;
 	// The host keeps a Studio log file the user can open (`openStudioLogs`).
 	// Only the desktop app does — the CLI writes site server output to
 	// `~/.studio/daemon/logs` and everything else to the terminal that started
@@ -202,7 +186,6 @@ export interface Connector {
 	getThemeDetails?( siteId: string ): Promise< ThemeDetails >;
 	getSiteIcon?( siteId: string ): Promise< string | null >;
 	// Size of the local site's files, grouped for the overview's disk summary.
-	// Hosted sites return null because their storage is not on this machine.
 	// Measuring walks the whole site directory, so `signal` is honored all the
 	// way down: aborting it stops the walk rather than leaving it to finish for
 	// a site the user has already left.
@@ -410,6 +393,8 @@ export interface Connector {
 	interruptAgentRun( runId: string ): Promise< void >;
 	answerAgentQuestion( runId: string, answers: Record< string, string > ): Promise< void >;
 	onAgentEvent( listener: ( event: AgentRunEvent ) => void ): () => void;
+	// Fires when a dropped event stream reconnects, so listeners can re-read what they missed.
+	onConnectionRestored?( listener: () => void ): () => void;
 	onSessionPlacementUpdated(
 		listener: ( event: AiSessionPlacementUpdatedEvent ) => void
 	): () => void;
@@ -441,7 +426,7 @@ export interface Connector {
 	trustCertificate(): Promise< void >;
 
 	// The user's global Studio Code instructions, a markdown file injected into
-	// every agent session. Gated by `capabilities.agentInstructions`.
+	// every agent session.
 	getAgentInstructions(): Promise< string >;
 	// `editSession` marks the save that ends an edit session and carries the value
 	// it started from, so it counts as one change. Autosaves omit it.
@@ -450,9 +435,8 @@ export interface Connector {
 		options?: { editSession?: { previousContent: string } }
 	): Promise< void >;
 
-	// AI provider settings stored in the CLI config, gated by
-	// `capabilities.aiSettings`. Clearing the key (null) also falls back to
-	// WordPress.com.
+	// AI provider settings stored in the CLI config. Clearing the key (null)
+	// also falls back to WordPress.com.
 	getAiSettings(): Promise< AiSettings >;
 	saveAnthropicApiKey( key: string | null ): Promise< AiSettings >;
 
@@ -480,7 +464,7 @@ export interface Connector {
 
 	// The site's WordPress debug log, resolved host-side from the site id. Its
 	// existence is a query, not a `SiteDetails` field: the file comes and goes
-	// while the UI is open. Both are gated on `capabilities.openInOS`.
+	// while the UI is open.
 	siteDebugLogExists( siteId: string ): Promise< boolean >;
 	openSiteDebugLog( siteId: string ): Promise< void >;
 
@@ -509,7 +493,7 @@ export interface Connector {
 	// Whether the UI should render a button that opens the app menu via
 	// `popupAppMenu`. True only in the Windows/Linux desktop app, which has no
 	// native menu bar; macOS has the native application menu and the browser
-	// (`studio ui` / hosted) has no app menu at all.
+	// (`studio ui`) has no app menu at all.
 	showsAppMenuButton: boolean;
 
 	// Clipboard — routed to the host so it works where the renderer's
@@ -535,7 +519,7 @@ export interface Connector {
 	// Whether this host overlays macOS window controls ("traffic lights") on the
 	// top-left of the content, so the UI must reserve space for them. True only
 	// in the macOS desktop app; false on other platforms and in the browser
-	// (`studio ui` / hosted), where there are no traffic lights. Combined with
+	// (`studio ui`), where there are no traffic lights. Combined with
 	// `isFullscreen` — macOS hides the traffic lights in fullscreen — to decide
 	// when to actually leave the gap (see `useTrafficLightSpace`).
 	reservesTrafficLightSpace: boolean;
@@ -585,7 +569,7 @@ export interface Connector {
 
 	// Agentic UI onboarding state. Distinct from getOnboardingCompleted (the
 	// pre-workbench first-run welcome flag). setOnboardingHints shallow-merges
-	// its partial. Desktop persists to app.json; hosted/web to localStorage.
+	// its partial. Persisted to app.json.
 	getOnboardingHints(): Promise< OnboardingHintsState >;
 	setOnboardingHints( partial: Partial< OnboardingHintsState > ): Promise< void >;
 

@@ -4,6 +4,7 @@
 // This hook calls signtool directly with SHA256-only parameters.
 
 const { execFileSync } = require( 'child_process' );
+const fs = require( 'fs' );
 const path = require( 'path' );
 const {
 	assertAzureSigningEnv,
@@ -15,8 +16,29 @@ const {
 // in its file list. These are text files that don't need code signing.
 const SKIP_EXTENSIONS = new Set( [ '.ps1', '.vbs', '.wsf' ] );
 
+// Extensions @electron/windows-sign treats as Portable Executables.
+const PE_EXTENSIONS = new Set( [ '.exe', '.dll', '.sys', '.efi', '.scr', '.node' ] );
+
+// Some packages ship prebuilt .node binaries for every platform in one package
+// (e.g. pi-tui's darwin prebuilds), which signtool rejects. Windows PE files
+// start with the "MZ" DOS header.
+function isPortableExecutable( filePath ) {
+	const fd = fs.openSync( filePath, 'r' );
+	try {
+		const header = Buffer.alloc( 2 );
+		return fs.readSync( fd, header, 0, 2, 0 ) === 2 && header.toString( 'latin1' ) === 'MZ';
+	} finally {
+		fs.closeSync( fd );
+	}
+}
+
 module.exports = function ( fileToSign ) {
-	if ( SKIP_EXTENSIONS.has( path.extname( fileToSign ).toLowerCase() ) ) {
+	const extension = path.extname( fileToSign ).toLowerCase();
+	if ( SKIP_EXTENSIONS.has( extension ) ) {
+		return;
+	}
+	if ( PE_EXTENSIONS.has( extension ) && ! isPortableExecutable( fileToSign ) ) {
+		console.log( `Skipping non-PE file: ${ fileToSign }` );
 		return;
 	}
 	assertAzureSigningEnv();

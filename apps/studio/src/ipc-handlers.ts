@@ -19,14 +19,13 @@ import { validateStudioChatFiles } from '@studio/common/ai/chat-files';
 import { validateStudioChatImages } from '@studio/common/ai/chat-images';
 import { isAiModelId } from '@studio/common/ai/models';
 import { isAiProviderId, providerServesModel } from '@studio/common/ai/providers';
-import { deriveEffectiveEnvironment } from '@studio/common/ai/sessions/effective-site';
 import {
 	createHydratedAiSession,
 	hydrateAiSessionSummary,
 	listHydratedAiSessions,
 	loadHydratedAiSession,
+	reconcileSessionEnvironment,
 } from '@studio/common/ai/sessions/manage';
-import { findAiSessionOwnerSite } from '@studio/common/ai/sessions/owner-site';
 import { readAiSessionPlacement } from '@studio/common/ai/sessions/placement';
 import {
 	appendModelChangeEntry,
@@ -37,14 +36,18 @@ import { expandSkillCommandPrompt } from '@studio/common/ai/slash-commands';
 import { getAiTracksIdentity } from '@studio/common/ai/tracks-identity';
 import { validateStudioVisualAnnotations } from '@studio/common/ai/visual-annotations';
 import { DEBUG_LOG_RELATIVE_PATH } from '@studio/common/constants';
-import { installSkillToSite, removeSkillFromSite } from '@studio/common/lib/agent-skills';
+import {
+	getSkillsStatusForAllSites,
+	installSkillToAllSites,
+	removeSkillFromAllSites,
+	type SkillStatus,
+} from '@studio/common/lib/agent-skills';
 import {
 	downloadAndExtractBlueprintBundle,
 	removeBlueprintTempDir,
 } from '@studio/common/lib/blueprint-bundle';
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { CliCommandError } from '@studio/common/lib/cli-process';
-import { getConnectedWpcomSitesForLocalSite } from '@studio/common/lib/connected-sites';
 import { stripIpcErrorPrefix } from '@studio/common/lib/error-formatting';
 import {
 	calculateDirectorySizeForArchive,
@@ -71,7 +74,6 @@ import {
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
 import {
 	readAuthToken,
-	readSharedConfig,
 	updateSharedConfig,
 	updateSharedSession,
 } from '@studio/common/lib/shared-config';
@@ -106,7 +108,7 @@ import {
 	readThemeDetails,
 	type ThemeDetails,
 } from '@studio/common/sites/site-identity';
-import { readSite, readSitePath, readSitePaths, readSites } from '@studio/common/sites/site-path';
+import { readSite, readSitePath, readSitePaths } from '@studio/common/sites/site-path';
 import { measureSiteStorage, type SiteStorageUsage } from '@studio/common/sites/storage-usage';
 import { __ } from '@wordpress/i18n';
 import {
@@ -152,10 +154,6 @@ import {
 	type WindowControlsSurface,
 } from 'src/main-window';
 import { popupMenu, setupMenu } from 'src/menu';
-import {
-	getBundledSkills,
-	type SkillStatus,
-} from 'src/modules/agent-instructions/lib/skills-constants';
 import {
 	answerAgentRun,
 	interruptAgentRun,
@@ -292,46 +290,6 @@ export async function updateAiSessionMetadata(
 	return hydrateAiSessionSummary( summary, metadata, placement );
 }
 
-/**
- * If the session is flagged 'live' but the remote blog id it was targeting is
- * no longer in the user's connected-sites list (e.g. the user disconnected
- * the live site since the last flip), append a `site.selected` event that
- * bumps the session back to its local owner. Keeps the CLI runtime — which
- * only reads the event log — in sync with what the UI already shows.
- *
- * The pill already derives "Local" at render time via the same check; this
- * just records the reconciliation on disk so the agent's system prompt and
- * tool set reflect the same truth on the next turn.
- */
-async function reconcileSessionEnvironmentBeforeRun( sessionId: string ): Promise< void > {
-	const root = getSessionsDirectory();
-	const { summary } = await loadHydratedAiSession( root, sessionId );
-
-	if ( summary.activeEnvironment !== 'live' ) {
-		return;
-	}
-	const ownerSite = findAiSessionOwnerSite( await readSites(), summary );
-	if ( ! ownerSite ) {
-		return;
-	}
-
-	const connectedForOwner = await getConnectedWpcomSitesForLocalSite( ownerSite.id );
-	const connectedIds = new Set( connectedForOwner.map( ( site ) => site.id ) );
-
-	const effective = deriveEffectiveEnvironment( summary, ( blogId ) => connectedIds.has( blogId ) );
-	if ( effective === 'live' ) {
-		return;
-	}
-
-	// Live was disconnected since the last flip. Record the fallback so the
-	// CLI's replay sees Local on the next turn.
-	await appendStudioEntry( root, sessionId, 'studio.site_selected', {
-		siteName: ownerSite.name,
-		sitePath: ownerSite.path,
-		siteId: ownerSite.id,
-	} );
-}
-
 export async function continueAiSession(
 	event: IpcMainInvokeEvent,
 	sessionId: string,
@@ -347,7 +305,7 @@ export async function continueAiSession(
 		throw new Error( __( 'WordPress.com login required. Log in to use Studio Code.' ) );
 	}
 
-	await reconcileSessionEnvironmentBeforeRun( sessionId );
+	await reconcileSessionEnvironment( getSessionsDirectory(), sessionId );
 	const images = validateStudioChatImages( options.images );
 	const files = validateStudioChatFiles( options.files );
 	const visualAnnotations = validateStudioVisualAnnotations( options.visualAnnotations );
@@ -422,51 +380,21 @@ export async function answerAiAgentQuestion(
 export async function getWordPressSkillsStatusAllSites(
 	_event: IpcMainInvokeEvent
 ): Promise< SkillStatus[] > {
-	const sharedConfig = await readSharedConfig();
-	const selectedSkills = sharedConfig.selectedSkills ?? [];
-	return getBundledSkills().map( ( skill ) => ( {
-		...skill,
-		installed: selectedSkills.includes( skill.id ),
-	} ) );
+	return getSkillsStatusForAllSites();
 }
 
 export async function installWordPressSkillsToAllSites(
 	_event: IpcMainInvokeEvent,
 	options: { skillId: string; overwrite?: boolean }
 ): Promise< void > {
-	const overwrite = options.overwrite ?? false;
-	const bundledPath = getAiInstructionsPath();
-	const tasks = ( await readSitePaths() ).map( ( path ) =>
-		installSkillToSite( { path }, bundledPath, options.skillId, overwrite )
-	);
-	const results = await Promise.allSettled( tasks );
-	results.forEach( ( result ) => {
-		if ( result.status === 'rejected' ) {
-			console.error( '[skills] Failed to install skill:', result.reason );
-		}
-	} );
-
-	const sharedConfig = await readSharedConfig();
-	const existing = sharedConfig.selectedSkills ?? [];
-	const merged = Array.from( new Set( [ ...existing, options.skillId ] ) );
-	await updateSharedConfig( { selectedSkills: merged } );
+	await installSkillToAllSites( getAiInstructionsPath(), options.skillId, options.overwrite );
 }
 
 export async function removeWordPressSkillFromAllSites(
 	_event: IpcMainInvokeEvent,
 	skillId: string
 ): Promise< void > {
-	const tasks = ( await readSitePaths() ).map( ( path ) => removeSkillFromSite( path, skillId ) );
-	const results = await Promise.allSettled( tasks );
-	results.forEach( ( result ) => {
-		if ( result.status === 'rejected' ) {
-			console.error( '[skills] Failed to remove skill:', result.reason );
-		}
-	} );
-
-	const sharedConfig = await readSharedConfig();
-	const updated = ( sharedConfig.selectedSkills ?? [] ).filter( ( id ) => id !== skillId );
-	await updateSharedConfig( { selectedSkills: updated } );
+	await removeSkillFromAllSites( skillId );
 }
 
 const DEBUG_LOG_MAX_LINES = 50;

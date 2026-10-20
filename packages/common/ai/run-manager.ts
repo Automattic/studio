@@ -36,6 +36,7 @@ interface AgentRun {
 	interruptAttempts: number;
 	eventQueue: Promise< void >;
 	startedAt: number;
+	pendingQuestions: NonNullable< ActiveAgentRun[ 'pendingQuestions' ] >;
 }
 
 // Everything a run produces for the UI. The host maps each kind to its transport
@@ -139,6 +140,9 @@ export function createAgentRunManager( config: AgentRunManagerConfig ): AgentRun
 				message: error instanceof Error ? error.message : 'Failed to update session placement',
 			} );
 		}
+		if ( event.type === 'question.asked' ) {
+			run.pendingQuestions.push( ...event.questions );
+		}
 		sendEvent( run, event );
 	}
 
@@ -210,6 +214,7 @@ export function createAgentRunManager( config: AgentRunManagerConfig ): AgentRun
 			interruptAttempts: 0,
 			eventQueue: Promise.resolve(),
 			startedAt,
+			pendingQuestions: [],
 		};
 
 		runsBySessionId.set( sessionId, run );
@@ -277,6 +282,7 @@ export function createAgentRunManager( config: AgentRunManagerConfig ): AgentRun
 			sessionId: run.sessionId,
 			startedAt: run.startedAt,
 			phase: run.interrupted ? 'interrupting' : 'running',
+			pendingQuestions: run.pendingQuestions,
 		} ) );
 	}
 
@@ -323,6 +329,7 @@ export function createAgentRunManager( config: AgentRunManagerConfig ): AgentRun
 			return;
 		}
 		run.child.send( { type: 'answer', answers } );
+		run.pendingQuestions = [];
 	}
 
 	return { startAgentRun, listActiveAgentRuns, interruptAgentRun, answerAgentRun };

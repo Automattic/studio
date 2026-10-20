@@ -97,14 +97,12 @@ export function AboutSection( { site, wpVersion }: { site: SiteDetails; wpVersio
 				copyText={ siteUrl }
 				copyLabel={ __( 'Copy site URL' ) }
 			/>
-			{ connector.capabilities.openInOS && (
-				<CopyableRow
-					label={ __( 'Local path' ) }
-					displayValue={ site.path }
-					copyText={ site.path }
-					copyLabel={ __( 'Copy local path' ) }
-				/>
-			) }
+			<CopyableRow
+				label={ __( 'Local path' ) }
+				displayValue={ site.path }
+				copyText={ site.path }
+				copyLabel={ __( 'Copy local path' ) }
+			/>
 			<div className={ styles.storageSection }>
 				<div className={ styles.storageHeader }>
 					<span className={ styles.tileLabel }>{ __( 'Disk' ) }</span>

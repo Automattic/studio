@@ -54,7 +54,6 @@ vi.mock( '@/data/core', async ( importOriginal ) => ( {
 	...( await importOriginal< object >() ),
 	useConnector: () => ( {
 		openExternalUrl: vi.fn(),
-		capabilities: { aiSettings: false },
 		getAiSettings: vi.fn(),
 	} ),
 } ) );

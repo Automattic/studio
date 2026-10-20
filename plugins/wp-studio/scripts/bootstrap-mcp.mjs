@@ -42,14 +42,14 @@ const UNPACK_LOCK = `${ BUNDLED_CLI }.lock`;
 // Only the holder of UNPACK_LOCK unpacks, so it can reuse one staging folder:
 // whatever a stopped holder left there is cleared by the next.
 const UNPACK_STAGING = `${ BUNDLED_CLI }.unpacking`;
-// What `studio mcp` answers Codex's handshake and tool list with, recorded by the plugin build.
+// What `studio mcp` answers the handshake and tool list with, for the app the
+// plugin targets, recorded by the plugin build.
 const SNAPSHOT = path.join( PLUGIN_ROOT, 'mcp-snapshot.json' );
-// A published plugin has the version of the Studio CLI it carries or downloads.
+// A published plugin has the version of the Studio CLI it carries or downloads,
+// which the build records in the snapshot; a checkout has its manifest's.
 const { version: PLUGIN_VERSION } = JSON.parse(
 	readFileSync(
-		[ '.codex-plugin', '.claude-plugin' ]
-			.map( ( dir ) => path.join( PLUGIN_ROOT, dir, 'plugin.json' ) )
-			.find( existsSync ),
+		existsSync( SNAPSHOT ) ? SNAPSHOT : path.join( PLUGIN_ROOT, '.codex-plugin', 'plugin.json' ),
 		'utf8'
 	)
 );
@@ -235,8 +235,8 @@ async function unpackOnce() {
 // tools, and getting the CLI ready can take longer: unpacking it, Windows
 // especially, or downloading it first. Meanwhile, this answers them from the
 // snapshot, holds every other message, then hands the session over to the
-// bundled `studio mcp`. The tools depend on the client, so a client other than
-// Codex is told to list them again.
+// bundled `studio mcp`. The tools depend on the client, so a client that gets
+// other ones is told to list them again.
 async function standIn() {
 	const recorded = readFileSync( SNAPSHOT, 'utf8' );
 	// Some tool descriptions name folders in the home the snapshot was recorded in.

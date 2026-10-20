@@ -80,9 +80,7 @@ export function SidebarLayout( {
 		}
 		updateCollapsed( true );
 	}, [ collapsed, forceCollapsed, onExpand, onForceCollapsedToggle, updateCollapsed ] );
-	const sidebarStyle = effectiveCollapsed
-		? undefined
-		: ( { '--sidebar-width': `${ sidebarResize.width }px` } as CSSProperties );
+	const sidebarStyle = { '--sidebar-width': `${ sidebarResize.width }px` } as CSSProperties;
 
 	useEffect( () => connector.onToggleSidebar( toggleSidebar ), [ connector, toggleSidebar ] );
 	useEffect( () => {
@@ -124,30 +122,32 @@ export function SidebarLayout( {
 				     re-seed and hide the other's unread indicators. */ }
 				<SeenSessionTimestampsProvider>
 					<div ref={ rootRef } className={ styles.root }>
-						<aside
+						<div
 							className={ clsx(
-								styles.sidebar,
+								styles.sidebarFrame,
 								effectiveCollapsed && styles.sidebarCollapsed,
 								sidebarResize.isResizing && styles.sidebarResizing
 							) }
 							style={ sidebarStyle }
 							inert={ effectiveCollapsed }
 						>
-							<SidebarHeader />
-							<SiteList sections />
-							<div className={ styles.sidebarFooter }>
-								{ /* Toasts sit above the persistent cards: the footer is
+							<aside className={ styles.sidebar }>
+								<SidebarHeader />
+								<SiteList sections />
+								<div className={ styles.sidebarFooter }>
+									{ /* Toasts sit above the persistent cards: the footer is
 								     bottom-anchored, so a transient toast arriving below a card
 								     would shove it up and drop it back on expiry. */ }
-								{ ! effectiveCollapsed ? (
-									<>
-										<AppToasts className={ styles.sidebarToasts } appearance="intent" />
-										<AppMessageCards className={ styles.sidebarCards } appearance="intent" />
-									</>
-								) : null }
-								<UserMenu />
-							</div>
-						</aside>
+									{ ! effectiveCollapsed ? (
+										<>
+											<AppToasts className={ styles.sidebarToasts } appearance="intent" />
+											<AppMessageCards className={ styles.sidebarCards } appearance="intent" />
+										</>
+									) : null }
+									<UserMenu />
+								</div>
+							</aside>
+						</div>
 						{ ! effectiveCollapsed ? (
 							<ResizeHandle
 								className={ styles.resizeHandle }

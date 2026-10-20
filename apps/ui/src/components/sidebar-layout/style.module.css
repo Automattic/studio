@@ -25,8 +25,19 @@
 	   avoiding the misalignment you get when the scrollbar lives on an
 	   inner wrapper. */
 	overflow-y: auto;
-	transition: width var(--studio-motion-layout-duration) var(--studio-motion-layout-easing);
 	-webkit-app-region: drag;
+}
+
+/* Collapsing animates this frame's width while the sidebar inside keeps its
+   own, anchored to the main-side edge, so it slides out rather than squeezing
+   its rows. */
+.sidebarFrame {
+	display: flex;
+	justify-content: flex-end;
+	flex-shrink: 0;
+	width: var(--sidebar-width, 320px);
+	overflow: hidden;
+	transition: width var(--studio-motion-layout-duration) var(--studio-motion-layout-easing);
 }
 
 /* While dragging the handle the width updates every frame; the collapse
@@ -51,7 +62,6 @@
 
 .sidebarCollapsed {
 	width: 0;
-	border-inline-end-width: 0;
 }
 
 .main {

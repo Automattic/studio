@@ -34,7 +34,6 @@ import {
 	resolveUnavailableAiProvider,
 } from 'cli/ai/auth';
 import { runStudioAgentTurn } from 'cli/ai/runtimes/pi';
-import { formatActiveSitePrefix } from 'cli/ai/site-selection';
 import { runCommand as runCreateSiteCommand } from 'cli/commands/site/create';
 import { runCommand as runDeleteSiteCommand } from 'cli/commands/site/delete';
 import { Mode as StopMode, runCommand as runStopSiteCommand } from 'cli/commands/site/stop';
@@ -51,6 +50,7 @@ import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import { Logger } from 'cli/logger';
 import type { AgentSessionEvent } from '@earendil-works/pi-coding-agent';
 import type { AiProviderId } from 'cli/ai/providers';
+import type { SiteInfo } from 'cli/ai/types';
 
 // Optional fixtures a test can pre-seed before the agent turn, so flows that
 // depend on connected remote sites and/or preview sites can be exercised
@@ -102,7 +102,7 @@ interface Inspection {
 interface SeededFixtures {
 	cleanup: () => Promise< void >;
 	inspect: () => Promise< Inspection[] >;
-	promptPrefix?: string;
+	activeSite?: SiteInfo;
 }
 
 /**
@@ -169,7 +169,7 @@ async function seedFixtures( seed: EvalSeed ): Promise< SeededFixtures > {
 		seededConnections.push( site );
 	}
 
-	let promptPrefix: string | undefined;
+	let seededSite: SiteInfo | undefined;
 	let activeSitePath: string | undefined;
 	if ( activeSite ) {
 		const slug = activeSite.name
@@ -219,11 +219,11 @@ async function seedFixtures( seed: EvalSeed ): Promise< SeededFixtures > {
 			await runDeleteSiteCommand( activeSitePath, true, new Logger() ).catch( () => undefined );
 			throw error;
 		}
-		promptPrefix = formatActiveSitePrefix( {
+		seededSite = {
 			name: activeSite.name,
 			path: activeSitePath,
 			running: false,
-		} );
+		};
 	}
 
 	const inspect = async (): Promise< Inspection[] > => {
@@ -277,7 +277,7 @@ async function seedFixtures( seed: EvalSeed ): Promise< SeededFixtures > {
 			}
 		}
 	};
-	return { cleanup, inspect, promptPrefix };
+	return { cleanup, inspect, activeSite: seededSite };
 }
 
 function extractToolCalls( event: AgentSessionEvent ) {
@@ -457,12 +457,9 @@ async function runEval( input: EvalRunnerInput ) {
 
 	let seeded: SeededFixtures | null = null;
 	let inspections: Inspection[] = [];
-	let prompt = input.prompt.trim();
+	const prompt = input.prompt.trim();
 	if ( input.seed ) {
 		seeded = await seedFixtures( input.seed );
-		if ( seeded.promptPrefix ) {
-			prompt = `${ seeded.promptPrefix }\n\n${ prompt }`;
-		}
 	}
 
 	phaseStartedAt = Date.now();
@@ -557,6 +554,7 @@ async function runEval( input: EvalRunnerInput ) {
 			prompt: turnPrompt,
 			env,
 			session,
+			activeSite: seeded?.activeSite,
 			onEvent: handleEvent,
 			...( input.model ? { model: input.model } : {} ),
 		} );

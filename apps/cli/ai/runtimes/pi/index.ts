@@ -286,6 +286,7 @@ async function createStudioAgentSession(
 	const systemPrompt = buildSystemPrompt( {
 		userInstructions,
 		tools: tools.map( toolPromptContribution ),
+		activeSite: config.activeSite,
 	} );
 
 	const pendingWork = getPendingWork( config.session );

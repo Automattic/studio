@@ -611,7 +611,10 @@ async function runEval( input: EvalRunnerInput ) {
 			if ( timedOut ) {
 				break;
 			}
-			query = runTurn( followUp.prompt );
+			// Like the app and CLI, every user message carries the active-site line.
+			query = runTurn(
+				seeded?.promptPrefix ? `${ seeded.promptPrefix }\n\n${ followUp.prompt }` : followUp.prompt
+			);
 			await settle();
 		}
 	} catch ( caught ) {

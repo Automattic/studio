@@ -11,7 +11,7 @@
 	flex-direction: column;
 }
 
-/* Rich's 32px rows: 13px text and a 16px leading icon. */
+/* 32px rows: 13px text and a 16px leading icon. */
 .item {
 	display: flex;
 	align-items: center;

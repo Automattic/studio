@@ -11,7 +11,6 @@ import { useSiteAgentActivity } from '@/data/queries/use-agent-run';
 import { useUpdateSessionMetadata } from '@/data/queries/use-sessions';
 import { chatPinKey, useSidebarPins } from '@/data/queries/use-sidebar-pins';
 import { archiveIcon, pinIcon, readStatusIcon, renameIcon, unpinIcon } from '@/lib/icons';
-import styles from './style.module.css';
 import type { AiSessionSummary } from '@/data/core';
 
 export function useChatActions( session: AiSessionSummary, active: boolean ) {
@@ -138,7 +137,7 @@ function RenameChatDialog( {
 						<Dialog.CloseIconButton />
 					</Dialog.Header>
 					<Dialog.Content>
-						<Dialog.Description className={ styles.description }>
+						<Dialog.Description>
 							{ __( 'Choose a name that’s easy to find later.' ) }
 						</Dialog.Description>
 						<InputControl

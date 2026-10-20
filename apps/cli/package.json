@@ -47,7 +47,7 @@
 		"ignore": "^7.0.5",
 		"node-forge": "^1.4.0",
 		"picospinner": "^3.0.0",
-		"playwright": "^1.52.0",
+		"playwright": "^1.64.1",
 		"semver": "^7.7.4",
 		"shell-quote": "^1.10.0",
 		"tar": "^7.5.21",

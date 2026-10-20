@@ -1,4 +1,4 @@
-/* Rich's sidebar footer: the account avatar at the start, Settings and the
+/* The sidebar footer: the account avatar at the start, Settings and the
    notification bell at the end, as 36px controls inset 12px. Pinning to the
    sidebar bottom is handled by the layout's `sidebarFooter` wrapper. */
 .root {

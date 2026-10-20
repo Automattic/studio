@@ -21,6 +21,7 @@ import type {
 	ProposedSitePath,
 	SelectedSiteFolder,
 	SiteDetails,
+	SkillStatus,
 	Snapshot,
 	SnapshotUsage,
 	StudioAssistantQuota,
@@ -843,13 +844,13 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			window.open( target.toString(), '_blank', 'noopener,noreferrer' );
 		},
 		async getWordPressSkillsStatusAllSites() {
-			return [];
+			return api< SkillStatus[] >( '/skills' );
 		},
-		async installWordPressSkillToAllSites() {
-			// No-op: the local server does not manage WordPress skills yet.
+		async installWordPressSkillToAllSites( skillId ) {
+			await api( `/skills/${ encodeURIComponent( skillId ) }`, { method: 'POST' } );
 		},
-		async removeWordPressSkillFromAllSites() {
-			// No-op: the local server does not manage WordPress skills yet.
+		async removeWordPressSkillFromAllSites( skillId ) {
+			await api( `/skills/${ encodeURIComponent( skillId ) }`, { method: 'DELETE' } );
 		},
 
 		// Window chrome — no traffic lights in a browser tab.

@@ -8,6 +8,7 @@ import { MakerZIP } from '@electron-forge/maker-zip';
 import { AutoUnpackNativesPlugin } from '@electron-forge/plugin-auto-unpack-natives';
 import { exec as pkgExec } from '@yao-pkg/pkg';
 import { globSync } from 'glob';
+import { PROTOCOL_PREFIX } from '../../packages/common/constants';
 import { RecommendedPHPVersion } from '../../packages/common/types/php-versions';
 import { windowsSign } from './windowsSign';
 import type { ForgeConfig } from '@electron-forge/shared-types';
@@ -18,6 +19,8 @@ const bundledPhpBinaryRoot = path.join( __dirname, 'php-bin' );
 const config: ForgeConfig = {
 	packagerConfig: {
 		asar: true,
+		// macOS only lets an app handle URL schemes its Info.plist declares.
+		protocols: [ { name: 'Studio', schemes: [ PROTOCOL_PREFIX ] } ],
 		extendInfo: {
 			MDItemKeywords: 'WordPress, WordPress Studio, WP, local WordPress development',
 		},

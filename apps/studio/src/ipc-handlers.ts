@@ -36,7 +36,12 @@ import { expandSkillCommandPrompt } from '@studio/common/ai/slash-commands';
 import { getAiTracksIdentity } from '@studio/common/ai/tracks-identity';
 import { validateStudioVisualAnnotations } from '@studio/common/ai/visual-annotations';
 import { DEBUG_LOG_RELATIVE_PATH } from '@studio/common/constants';
-import { installSkillToSite, removeSkillFromSite } from '@studio/common/lib/agent-skills';
+import {
+	getSkillsStatusForAllSites,
+	installSkillToAllSites,
+	removeSkillFromAllSites,
+	type SkillStatus,
+} from '@studio/common/lib/agent-skills';
 import {
 	downloadAndExtractBlueprintBundle,
 	removeBlueprintTempDir,
@@ -69,7 +74,6 @@ import {
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
 import {
 	readAuthToken,
-	readSharedConfig,
 	updateSharedConfig,
 	updateSharedSession,
 } from '@studio/common/lib/shared-config';
@@ -140,10 +144,6 @@ import {
 	type WindowControlsSurface,
 } from 'src/main-window';
 import { popupMenu, setupMenu } from 'src/menu';
-import {
-	getBundledSkills,
-	type SkillStatus,
-} from 'src/modules/agent-instructions/lib/skills-constants';
 import {
 	answerAgentRun,
 	interruptAgentRun,
@@ -370,51 +370,21 @@ export async function answerAiAgentQuestion(
 export async function getWordPressSkillsStatusAllSites(
 	_event: IpcMainInvokeEvent
 ): Promise< SkillStatus[] > {
-	const sharedConfig = await readSharedConfig();
-	const selectedSkills = sharedConfig.selectedSkills ?? [];
-	return getBundledSkills().map( ( skill ) => ( {
-		...skill,
-		installed: selectedSkills.includes( skill.id ),
-	} ) );
+	return getSkillsStatusForAllSites();
 }
 
 export async function installWordPressSkillsToAllSites(
 	_event: IpcMainInvokeEvent,
 	options: { skillId: string; overwrite?: boolean }
 ): Promise< void > {
-	const overwrite = options.overwrite ?? false;
-	const bundledPath = getAiInstructionsPath();
-	const tasks = ( await readSitePaths() ).map( ( path ) =>
-		installSkillToSite( { path }, bundledPath, options.skillId, overwrite )
-	);
-	const results = await Promise.allSettled( tasks );
-	results.forEach( ( result ) => {
-		if ( result.status === 'rejected' ) {
-			console.error( '[skills] Failed to install skill:', result.reason );
-		}
-	} );
-
-	const sharedConfig = await readSharedConfig();
-	const existing = sharedConfig.selectedSkills ?? [];
-	const merged = Array.from( new Set( [ ...existing, options.skillId ] ) );
-	await updateSharedConfig( { selectedSkills: merged } );
+	await installSkillToAllSites( getAiInstructionsPath(), options.skillId, options.overwrite );
 }
 
 export async function removeWordPressSkillFromAllSites(
 	_event: IpcMainInvokeEvent,
 	skillId: string
 ): Promise< void > {
-	const tasks = ( await readSitePaths() ).map( ( path ) => removeSkillFromSite( path, skillId ) );
-	const results = await Promise.allSettled( tasks );
-	results.forEach( ( result ) => {
-		if ( result.status === 'rejected' ) {
-			console.error( '[skills] Failed to remove skill:', result.reason );
-		}
-	} );
-
-	const sharedConfig = await readSharedConfig();
-	const updated = ( sharedConfig.selectedSkills ?? [] ).filter( ( id ) => id !== skillId );
-	await updateSharedConfig( { selectedSkills: updated } );
+	await removeSkillFromAllSites( skillId );
 }
 
 const DEBUG_LOG_MAX_LINES = 50;

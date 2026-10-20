@@ -36,6 +36,7 @@ import { useConnector } from '@/data/core';
 import { useSiteAgentActivity, type SiteAgentActivity } from '@/data/queries/use-agent-run';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useSessions } from '@/data/queries/use-sessions';
+import { chatPinKey, sitePinKey, useSidebarPins } from '@/data/queries/use-sidebar-pins';
 import {
 	useIsSiteBusy,
 	useIsSiteStarting,
@@ -58,9 +59,11 @@ import {
 	chevronRightIcon,
 	globeIcon,
 	newChatIcon,
+	pinIcon,
 	plusIcon,
 	startSiteIcon,
 	stopSiteIcon,
+	unpinIcon,
 } from '@/lib/icons';
 import styles from './style.module.css';
 import type { AiSessionSummary, SiteDetails } from '@/data/core';
@@ -291,16 +294,27 @@ function ChatRow( {
 									<span className={ styles.unreadDot } role="img" aria-label={ __( 'Unread' ) } />
 								) : null }
 							</SidebarButton>
-							<IconButton
-								variant="minimal"
-								tone="neutral"
-								size="small"
-								icon={ archiveIcon }
-								label={ __( 'Archive chat' ) }
-								className={ clsx( styles.rowAction, styles.chatArchive ) }
-								disabled={ actions.working }
-								onClick={ () => void actions.archive() }
-							/>
+							<span className={ styles.chatActions }>
+								<IconButton
+									variant="minimal"
+									tone="neutral"
+									size="small"
+									icon={ actions.pinned ? unpinIcon : pinIcon }
+									label={ actions.pinned ? __( 'Unpin chat' ) : __( 'Pin chat' ) }
+									className={ styles.rowAction }
+									onClick={ actions.togglePin }
+								/>
+								<IconButton
+									variant="minimal"
+									tone="neutral"
+									size="small"
+									icon={ archiveIcon }
+									label={ __( 'Archive chat' ) }
+									className={ styles.rowAction }
+									disabled={ actions.working }
+									onClick={ () => void actions.archive() }
+								/>
+							</span>
 						</div>
 					}
 				/>
@@ -425,6 +439,8 @@ function SiteActionsMenu( {
 	const stopSite = useStopSite();
 	const busy = useIsSiteBusy( site );
 	const [ deleteOpen, setDeleteOpen ] = useState( false );
+	const { isPinned, togglePin } = useSidebarPins();
+	const pinned = isPinned( sitePinKey( site.id ) );
 	const importInputRef = useRef< HTMLInputElement >( null );
 	const backupImport = useSiteBackupImport( site );
 	const manage = useSiteManagementActions( site, {
@@ -471,6 +487,9 @@ function SiteActionsMenu( {
 						</Menu.Item>
 					) }
 					<Menu.Separator />
+					<Menu.Item onClick={ () => togglePin( sitePinKey( site.id ) ) }>
+						{ pinned ? __( 'Unpin' ) : __( 'Pin' ) }
+					</Menu.Item>
 					<Menu.Item
 						onClick={ () => {
 							onSiteOpen?.();
@@ -728,6 +747,10 @@ function SiteSection( {
 	);
 }
 
+type PinnedItem =
+	| { key: string; row: SiteRow; session?: undefined }
+	| { key: string; row?: undefined; session: AiSessionSummary };
+
 function findSessionSiteKey(
 	rows: SiteRow[],
 	activeSessionId: string | undefined
@@ -761,6 +784,7 @@ export function SiteList( {
 	const activeSiteId = params.siteId;
 	const [ manualSiteOrder, setManualSiteOrder ] = useState< string[] >( [] );
 	const updateSitesSortOrder = useUpdateSitesSortOrder();
+	const { pins, setPins } = useSidebarPins();
 
 	const orderedSites = useMemo(
 		() => sortSitesByManualOrder( sortSites( [ ...( sites ?? [] ) ] ), manualSiteOrder ),
@@ -788,9 +812,25 @@ export function SiteList( {
 		updateSitesSortOrder.mutate( nextSiteIds );
 	};
 
+	// The sidebar moves pinned sites and chats out of their usual place into the Pinned group.
+	const pinned = new Set( sections ? pins : [] );
+	const isChatPinned = ( session: AiSessionSummary ) => pinned.has( chatPinKey( session.id ) );
+	const rowsById = new Map( rows.map( ( row ) => [ row.site.id, row ] ) );
+	const sessionsById = new Map( ( sessions ?? [] ).map( ( session ) => [ session.id, session ] ) );
+	const pinnedItems = [ ...pinned ].flatMap< PinnedItem >( ( key ) => {
+		const id = key.slice( key.indexOf( ':' ) + 1 );
+		const row = key === sitePinKey( id ) ? rowsById.get( id ) : undefined;
+		const session = key === chatPinKey( id ) ? sessionsById.get( id ) : undefined;
+		if ( row ) {
+			return [ { key, row } ];
+		}
+		return session && chatEnabled && ! session.archived ? [ { key, session } ] : [];
+	} );
+	const siteRows = rows.filter( ( row ) => ! pinned.has( sitePinKey( row.site.id ) ) );
+
 	const renderSiteRow = ( row: SiteRow ) => (
 		<SiteSection
-			row={ row }
+			row={ { ...row, chats: row.chats.filter( ( session ) => ! isChatPinned( session ) ) } }
 			isChatActive={ row.site.id === activeChatSiteKey }
 			isContextActive={ row.site.id === activeContextSiteKey }
 			chatEnabled={ chatEnabled }
@@ -811,7 +851,7 @@ export function SiteList( {
 	} else if ( ! reorderable ) {
 		listContent = (
 			<div className={ styles.sites }>
-				{ rows.map( ( row ) => (
+				{ siteRows.map( ( row ) => (
 					<Fragment key={ row.site.id }>{ renderSiteRow( row ) }</Fragment>
 				) ) }
 			</div>
@@ -819,7 +859,7 @@ export function SiteList( {
 	} else {
 		listContent = (
 			<ReorderableList
-				items={ rows }
+				items={ siteRows }
 				getItemId={ ( row ) => row.site.id }
 				renderItem={ renderSiteRow }
 				onReorder={ persistOrder }
@@ -838,13 +878,38 @@ export function SiteList( {
 
 	const recentChats = chatEnabled
 		? ( sessions ?? [] )
-				.filter( ( session ) => ! session.archived )
+				.filter( ( session ) => ! session.archived && ! isChatPinned( session ) )
 				.sort( byMostRecent )
 				.slice( 0, RECENT_CHATS_LIMIT )
 		: [];
 
 	return (
 		<div className={ clsx( styles.root, className ) }>
+			{ pinnedItems.length > 0 ? (
+				<SidebarGroup title={ __( 'Pinned' ) }>
+					<ReorderableList
+						items={ pinnedItems }
+						getItemId={ ( item ) => item.key }
+						renderItem={ ( item ) =>
+							item.row ? (
+								renderSiteRow( item.row )
+							) : (
+								<ChatRow
+									session={ item.session }
+									active={ item.session.id === activeSessionId }
+									onOpen={ onSiteOpen }
+								/>
+							)
+						}
+						onReorder={ setPins }
+						className={ styles.sites }
+						itemClassName={ styles.siteDragWrapper }
+						placeholderClassName={ styles.siteDropPlaceholder }
+						previewClassName={ styles.siteDragPreview }
+						excludeSelector="[data-reorder-exclude]"
+					/>
+				</SidebarGroup>
+			) : null }
 			<SidebarGroup
 				title={ __( 'Sites' ) }
 				action={

@@ -384,6 +384,7 @@
 .group {
 	display: flex;
 	flex-direction: column;
+	padding-block-start: var(--wpds-dimension-padding-xs);
 }
 
 .group + .group {
@@ -485,16 +486,17 @@
 	flex-shrink: 0;
 }
 
-.chatArchive {
+.chatActions {
 	position: absolute;
 	inset-inline-end: 2px;
+	display: flex;
 	opacity: 0;
 }
 
-.chatRow:hover .chatArchive,
-.chatRow:has(:focus-visible) .chatArchive,
-.chatRow[data-popup-open] .chatArchive,
-.chatActive .chatArchive {
+.chatRow:hover .chatActions,
+.chatRow:has(:focus-visible) .chatActions,
+.chatRow[data-popup-open] .chatActions,
+.chatActive .chatActions {
 	opacity: 1;
 }
 
@@ -502,7 +504,7 @@
 .chatRow:has(:focus-visible) .chat,
 .chatRow[data-popup-open] .chat,
 .chatActive .chat {
-	padding-inline-end: calc(var(--site-list-action-size) + var(--site-list-row-padding));
+	padding-inline-end: calc(2 * var(--site-list-action-size) + var(--site-list-row-padding));
 }
 
 .chatTitle {

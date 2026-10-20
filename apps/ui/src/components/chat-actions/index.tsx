@@ -9,7 +9,8 @@ import { getSessionTitle } from '@/components/session-view/session-chat-actions'
 import { toast } from '@/data/app-messages';
 import { useSiteAgentActivity } from '@/data/queries/use-agent-run';
 import { useUpdateSessionMetadata } from '@/data/queries/use-sessions';
-import { archiveIcon, readStatusIcon, renameIcon } from '@/lib/icons';
+import { chatPinKey, useSidebarPins } from '@/data/queries/use-sidebar-pins';
+import { archiveIcon, pinIcon, readStatusIcon, renameIcon, unpinIcon } from '@/lib/icons';
 import styles from './style.module.css';
 import type { AiSessionSummary } from '@/data/core';
 
@@ -18,6 +19,7 @@ export function useChatActions( session: AiSessionSummary, active: boolean ) {
 	const working = useSiteAgentActivity( [ session.id ] ) === 'working';
 	const { mutate, mutateAsync } = useUpdateSessionMetadata();
 	const [ renaming, setRenaming ] = useState( false );
+	const { isPinned, togglePin } = useSidebarPins();
 
 	const archive = async () => {
 		await mutateAsync( { sessionId: session.id, patch: { archived: true } } );
@@ -52,6 +54,8 @@ export function useChatActions( session: AiSessionSummary, active: boolean ) {
 		working,
 		archive,
 		handleShortcut,
+		pinned: isPinned( chatPinKey( session.id ) ),
+		togglePin: () => togglePin( chatPinKey( session.id ) ),
 		rename: () => setRenaming( true ),
 		toggleRead: () => mutate( { sessionId: session.id, patch: { unread: ! session.unread } } ),
 		renameDialog: renaming ? (
@@ -65,6 +69,10 @@ type ChatActions = ReturnType< typeof useChatActions >;
 export function ChatActionsMenuItems( { actions }: { actions: ChatActions } ) {
 	return (
 		<>
+			<Menu.Item onClick={ actions.togglePin }>
+				<Icon icon={ actions.pinned ? unpinIcon : pinIcon } />
+				{ actions.pinned ? __( 'Unpin' ) : __( 'Pin' ) }
+			</Menu.Item>
 			<Menu.Item onClick={ actions.rename }>
 				<Icon icon={ renameIcon } />
 				{ __( 'Rename' ) }

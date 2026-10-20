@@ -49,6 +49,19 @@ vi.mock( '@/data/queries/use-sessions', () => ( {
 	useUpdateSessionMetadata: () => ( { mutateAsync: archiveSession } ),
 } ) );
 
+let pinsMock: string[] = [];
+const togglePin = vi.hoisted( () => vi.fn() );
+
+vi.mock( '@/data/queries/use-sidebar-pins', async ( importOriginal ) => ( {
+	...( await importOriginal< object >() ),
+	useSidebarPins: () => ( {
+		pins: pinsMock,
+		setPins: vi.fn(),
+		isPinned: ( key: string ) => pinsMock.includes( key ),
+		togglePin,
+	} ),
+} ) );
+
 vi.mock( '@/data/queries/use-agent-run', () => ( {
 	useSiteAgentActivity: vi.fn(),
 } ) );
@@ -119,6 +132,7 @@ describe( 'SiteList', () => {
 
 	beforeEach( () => {
 		vi.clearAllMocks();
+		pinsMock = [];
 		paramsMock = {};
 		pathnameMock = '/';
 
@@ -462,6 +476,35 @@ describe( 'SiteList', () => {
 			sessionId: 'other-chat',
 			patch: { archived: true },
 		} );
+	} );
+
+	it( 'moves pinned sites and chats into the Pinned group, in pin order', () => {
+		pinsMock = [ 'chat:other-chat', 'site:stopped-site' ];
+		useSessionsMock.mockReturnValue( {
+			data: [
+				createSession( {
+					id: 'other-chat',
+					firstPrompt: 'Make it blue',
+					ownerSitePath: '/Users/example/Studio/running-site',
+				} ),
+			],
+			isLoading: false,
+		} );
+
+		render( <SiteList sections /> );
+
+		const pinned = screen.getByRole( 'group', { name: 'Pinned' } );
+		expect(
+			within( pinned )
+				.getAllByText( /^(Make it blue|Stopped Site)$/ )
+				.map( ( element ) => element.textContent )
+		).toEqual( [ 'Make it blue', 'Stopped Site' ] );
+		const sites = screen.getByRole( 'group', { name: 'Sites' } );
+		expect( within( sites ).queryByText( 'Stopped Site' ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'group', { name: 'Recent' } ) ).not.toBeInTheDocument();
+
+		fireEvent.click( within( pinned ).getByRole( 'button', { name: 'Unpin chat' } ) );
+		expect( togglePin ).toHaveBeenCalledWith( 'chat:other-chat' );
 	} );
 
 	it( 'marks the site row as contextual on the site settings route', () => {

@@ -205,11 +205,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		// preview is a cross-origin iframe, so the annotation inspector can't run.
 		capabilities: {
 			nativeFolderPicker: false,
-			openInOS: true,
 			annotatePreview: false,
-			readLocalMedia: true,
-			agentInstructions: true,
-			aiSettings: true,
 			studioLogs: false,
 		},
 

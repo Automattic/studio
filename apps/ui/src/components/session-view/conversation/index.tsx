@@ -90,13 +90,13 @@ import {
 import { AiAccessRequiredNotice, AiBlockedNotice } from '@/components/ai-access-required-notice';
 import { CopyButton } from '@/components/copy-button';
 import { Markdown } from '@/components/markdown';
-import { useConnector, type LoadedAiSession } from '@/data/core';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
 import { useLocalMediaDataUrl } from '@/data/queries/use-local-media';
 import { MESSAGE_TEXT_ATTRIBUTE, QUOTABLE_TEXT_ATTRIBUTE } from '@/hooks/use-text-context-menu';
 import { refreshIcon } from '@/lib/icons';
 import { ThinkingIndicator } from '../thinking-indicator';
 import styles from './style.module.css';
+import type { LoadedAiSession } from '@/data/core';
 import type { SessionEntry } from '@earendil-works/pi-coding-agent';
 import type { StudioVisualAnnotationSummary } from '@studio/common/ai/visual-annotations';
 
@@ -215,10 +215,7 @@ function resolveBatchedAnswerForQuestion(
 	return answers[ batchPosition ];
 }
 
-export function entriesToRenderItems(
-	entries: SessionEntry[],
-	options: { canReadLocalMedia?: boolean } = {}
-): RenderItem[] {
+export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 	// First pass: collect tool_call_id → tool_result pairings so each
 	// `toolCall` row can render its output inline.
 	const resultsByToolCallId = new Map< string, NormalizedToolResult >();
@@ -353,13 +350,7 @@ export function entriesToRenderItems(
 			if ( ! isStudioChatArtifactData( data ) ) {
 				continue;
 			}
-			const widgets = data.widgets.filter(
-				( widget ) =>
-					isRenderableMediaWidget( widget ) &&
-					// Without local media access (browser builds), only widgets
-					// with a renderable remote URL are worth showing.
-					( options.canReadLocalMedia !== false || Boolean( getSafeMediaUrl( widget ) ) )
-			);
+			const widgets = data.widgets.filter( isRenderableMediaWidget );
 			if ( widgets.length > 0 ) {
 				items.push( {
 					kind: 'chat-artifact',
@@ -840,8 +831,7 @@ function ChatArtifact( { widgets }: { widgets: StudioChatArtifactWidgetDraft[] }
 }
 
 function MediaArtifactImage( { widget }: { widget: StudioChatArtifactWidgetDraft } ) {
-	const connector = useConnector();
-	const localPath = connector.capabilities.readLocalMedia ? getLocalMediaPath( widget ) : null;
+	const localPath = getLocalMediaPath( widget );
 	const safeUrl = getSafeMediaUrl( widget );
 	const localFileQuery = useLocalMediaDataUrl( localPath );
 
@@ -1076,11 +1066,9 @@ function AgentQuestion( {
 }
 
 function QuestionOptionImage( { path }: { path: string | undefined } ) {
-	const connector = useConnector();
-	const localPath = path && connector.capabilities.readLocalMedia ? path : null;
-	const localFileQuery = useLocalMediaDataUrl( localPath );
+	const localFileQuery = useLocalMediaDataUrl( path ?? null );
 
-	if ( ! localPath || localFileQuery.isError ) {
+	if ( ! path || localFileQuery.isError ) {
 		return (
 			<span className={ styles.questionOptionImageUnavailable } aria-hidden="true">
 				{ path ? __( 'Preview unavailable' ) : null }
@@ -1104,11 +1092,8 @@ function QuestionOptionViewer( {
 	onIndexChange: ( index: number | null ) => void;
 	onChoose?: ( label: string ) => void;
 } ) {
-	const connector = useConnector();
 	const option = index === null ? undefined : options[ index ];
-	const localFileQuery = useLocalMediaDataUrl(
-		option?.image && connector.capabilities.readLocalMedia ? option.image : null
-	);
+	const localFileQuery = useLocalMediaDataUrl( option?.image ?? null );
 	const step = ( delta: number ) =>
 		index !== null && onIndexChange( ( index + delta + options.length ) % options.length );
 	const [ previousIcon, nextIcon ] = isRTL()
@@ -1545,11 +1530,7 @@ export function Conversation( {
 	onChooseFreeForm: ( question: string ) => void;
 } ) {
 	const entries = data.entries;
-	const canReadLocalMedia = useConnector().capabilities.readLocalMedia;
-	const items = useMemo(
-		() => entriesToRenderItems( entries, { canReadLocalMedia } ),
-		[ entries, canReadLocalMedia ]
-	);
+	const items = useMemo( () => entriesToRenderItems( entries ), [ entries ] );
 	const activeStep = useMemo( () => getActiveStep( entries ), [ entries ] );
 
 	// One selected message at a time, so picking a new one closes the last.

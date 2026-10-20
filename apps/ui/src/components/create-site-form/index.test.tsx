@@ -116,11 +116,7 @@ describe( 'CreateSiteForm', () => {
 		useConnectorMock.mockReturnValue( {
 			capabilities: {
 				nativeFolderPicker: false,
-				openInOS: false,
 				annotatePreview: false,
-				readLocalMedia: false,
-				agentInstructions: false,
-				aiSettings: false,
 				studioLogs: false,
 			},
 		} );
@@ -448,11 +444,7 @@ describe( 'CreateSiteForm', () => {
 		useConnectorMock.mockReturnValue( {
 			capabilities: {
 				nativeFolderPicker: true,
-				openInOS: false,
 				annotatePreview: false,
-				readLocalMedia: false,
-				agentInstructions: false,
-				aiSettings: false,
 				studioLogs: false,
 			},
 		} );

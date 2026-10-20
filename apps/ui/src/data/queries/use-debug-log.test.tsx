@@ -19,30 +19,18 @@ function createWrapper( connector: Connector ) {
 	};
 }
 
-function createConnector( openInOS: boolean, siteDebugLogExists: () => Promise< boolean > ) {
-	return { capabilities: { openInOS }, siteDebugLogExists } as unknown as Connector;
+function createConnector( siteDebugLogExists: () => Promise< boolean > ) {
+	return { siteDebugLogExists } as unknown as Connector;
 }
 
 describe( 'useDebugLogExists', () => {
-	it( 'checks for the log where the host can open files', async () => {
+	it( 'checks whether the site has a debug log', async () => {
 		const siteDebugLogExists = vi.fn().mockResolvedValue( true );
 		const { result } = renderHook( () => useDebugLogExists( 'site-1' ), {
-			wrapper: createWrapper( createConnector( true, siteDebugLogExists ) ),
+			wrapper: createWrapper( createConnector( siteDebugLogExists ) ),
 		} );
 
 		await waitFor( () => expect( result.current.data ).toBe( true ) );
 		expect( siteDebugLogExists ).toHaveBeenCalledWith( 'site-1' );
-	} );
-
-	// Hosted rejects this call, so the capability gate is what keeps it unasked.
-	it( 'never asks a host that cannot open files', async () => {
-		const siteDebugLogExists = vi.fn().mockRejectedValue( new Error( 'Unsupported' ) );
-		const { result } = renderHook( () => useDebugLogExists( 'site-1' ), {
-			wrapper: createWrapper( createConnector( false, siteDebugLogExists ) ),
-		} );
-
-		expect( siteDebugLogExists ).not.toHaveBeenCalled();
-		expect( result.current.data ).toBeUndefined();
-		expect( result.current.isError ).toBe( false );
 	} );
 } );

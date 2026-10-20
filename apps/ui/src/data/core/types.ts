@@ -121,27 +121,12 @@ export interface ConnectorCapabilities {
 	// A native OS folder picker is available (`selectSiteFolder`). When false,
 	// the UI offers an editable path field instead.
 	nativeFolderPicker: boolean;
-	// The host can open paths in OS apps (file manager, editor, terminal) and
-	// detect installed apps. True on the desktop and the local server (both on
-	// the user's machine); false when hosted remotely.
-	openInOS: boolean;
 	// The preview can host the annotation inspector (script injection + a bridge
 	// into the previewed page). Only the desktop's <webview> supports this; in a
 	// browser the preview is a cross-origin <iframe> that can't be injected, so
 	// the Annotate control is hidden (except on the design system page, which
 	// Studio renders itself).
 	annotatePreview: boolean;
-	// `readLocalMediaFile` can read media files from the host's disk (used to
-	// render screenshots and generated images inline). The local server limits
-	// it to raster images in the sessions and site folders; hosted can't.
-	readLocalMedia: boolean;
-	// The host can read/write the user's global Studio Code instructions file
-	// (~/.studio/knowledge/instructions.md). False when hosted remotely, which
-	// hides the Studio Code settings tab.
-	agentInstructions: boolean;
-	// The host can read/write the AI provider settings in the CLI config. False
-	// (hosted) hides the Anthropic API key section in AI settings.
-	aiSettings: boolean;
 	// The host keeps a Studio log file the user can open (`openStudioLogs`).
 	// Only the desktop app does — the CLI writes site server output to
 	// `~/.studio/daemon/logs` and everything else to the terminal that started
@@ -439,7 +424,7 @@ export interface Connector {
 	trustCertificate(): Promise< void >;
 
 	// The user's global Studio Code instructions, a markdown file injected into
-	// every agent session. Gated by `capabilities.agentInstructions`.
+	// every agent session.
 	getAgentInstructions(): Promise< string >;
 	// `editSession` marks the save that ends an edit session and carries the value
 	// it started from, so it counts as one change. Autosaves omit it.
@@ -448,9 +433,8 @@ export interface Connector {
 		options?: { editSession?: { previousContent: string } }
 	): Promise< void >;
 
-	// AI provider settings stored in the CLI config, gated by
-	// `capabilities.aiSettings`. Clearing the key (null) also falls back to
-	// WordPress.com.
+	// AI provider settings stored in the CLI config. Clearing the key (null)
+	// also falls back to WordPress.com.
 	getAiSettings(): Promise< AiSettings >;
 	saveAnthropicApiKey( key: string | null ): Promise< AiSettings >;
 
@@ -478,7 +462,7 @@ export interface Connector {
 
 	// The site's WordPress debug log, resolved host-side from the site id. Its
 	// existence is a query, not a `SiteDetails` field: the file comes and goes
-	// while the UI is open. Both are gated on `capabilities.openInOS`.
+	// while the UI is open.
 	siteDebugLogExists( siteId: string ): Promise< boolean >;
 	openSiteDebugLog( siteId: string ): Promise< void >;
 

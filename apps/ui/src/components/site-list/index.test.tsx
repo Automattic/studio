@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useConnector } from '@/data/core';
 import { useSiteAgentActivity } from '@/data/queries/use-agent-run';
@@ -42,8 +42,11 @@ vi.mock( '@/data/core', () => ( {
 	useConnector: vi.fn(),
 } ) );
 
+const archiveSession = vi.hoisted( () => vi.fn() );
+
 vi.mock( '@/data/queries/use-sessions', () => ( {
 	useSessions: vi.fn(),
+	useUpdateSessionMetadata: () => ( { mutateAsync: archiveSession } ),
 } ) );
 
 vi.mock( '@/data/queries/use-agent-run', () => ( {
@@ -509,7 +512,7 @@ describe( 'SiteList', () => {
 		expect( siteButton ).toHaveAttribute( 'aria-current', 'page' );
 	} );
 
-	it( "groups sites with the open site's chats, and lists recent chats", () => {
+	it( "groups sites with the open site's chats, and lists recent chats", async () => {
 		paramsMock = { sessionId: 'site-chat' };
 		pathnameMock = '/sessions/site-chat';
 		useSessionsMock.mockReturnValue( {
@@ -546,6 +549,13 @@ describe( 'SiteList', () => {
 		const recent = screen.getByRole( 'group', { name: 'Recent' } );
 		expect( within( recent ).getByRole( 'button', { name: 'Make it blue' } ) ).toBeInTheDocument();
 		expect( screen.queryByText( 'Old idea' ) ).not.toBeInTheDocument();
+
+		fireEvent.click( within( openSite ).getByRole( 'button', { name: 'Archive chat' } ) );
+		await waitFor( () => expect( navigateMock ).toHaveBeenLastCalledWith( { to: '/' } ) );
+		expect( archiveSession ).toHaveBeenCalledWith( {
+			sessionId: 'site-chat',
+			patch: { archived: true },
+		} );
 	} );
 
 	it( 'marks the site row as contextual on the site settings route', () => {

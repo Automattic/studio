@@ -9,7 +9,7 @@ import {
 } from '@studio/common/lib/studio-assistant-quota';
 import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
-import { arrowDown, closeSmall } from '@wordpress/icons';
+import { arrowDown } from '@wordpress/icons';
 import { IconButton } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import {
@@ -26,7 +26,6 @@ import {
 import { AgenticSigninPrompt } from '@/components/agentic-signin-banner';
 import { OutOfCreditsNotice } from '@/components/ai-access-required-notice';
 import { OpenInMenu } from '@/components/open-in-menu';
-import { usePreviewBeside } from '@/components/preview-split-frame';
 import { PreviewToggleButton } from '@/components/preview-toggle-button';
 import { ProgressiveBlur } from '@/components/progressive-blur';
 import { SidebarToggle } from '@/components/sidebar-toggle';
@@ -41,16 +40,11 @@ import {
 	useCreateSession,
 	useSession,
 	useSessionEffectiveEnvironment,
-	useSessions,
 } from '@/data/queries/use-sessions';
 import { useSites } from '@/data/queries/use-sites';
 import { useIsOutOfAiCredits } from '@/hooks/use-is-out-of-ai-credits';
 import { useSessionCommands } from '@/hooks/use-session-commands';
-import {
-	SessionUIProvider,
-	useOptionalSessionPreviewUI,
-	useSessionPreviewAnnotations,
-} from '@/hooks/use-session-ui';
+import { SessionUIProvider, useSessionPreviewAnnotations } from '@/hooks/use-session-ui';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import { useWindowControlsInset } from '@/hooks/use-window-controls-inset';
@@ -66,7 +60,7 @@ import { Composer, ComposerSkeleton, type ComposerHandle } from './composer';
 import { Conversation } from './conversation';
 import { EmptyBackground } from './empty-background';
 import { QueuedPrompts } from './queued-prompts';
-import { getSiteSessionHistory, SessionChatActions } from './session-chat-actions';
+import { NewChatButton } from './session-chat-actions';
 import styles from './style.module.css';
 import { SuggestedPrompts } from './suggested-prompts';
 import type { SiteDetails } from '@/data/core';
@@ -103,8 +97,6 @@ function SessionHeader( {
 	const sidebarCollapsed = useSidebarCollapsed();
 	const reserveTrafficLightSpace = useTrafficLightSpace().start;
 	const windowControlsInset = useWindowControlsInset( 'toolbar' );
-	const previewBeside = usePreviewBeside();
-	const preview = useOptionalSessionPreviewUI();
 
 	return (
 		<div
@@ -141,19 +133,10 @@ function SessionHeader( {
 				</>
 			) : null }
 			<span className={ styles.headerSpacer } aria-hidden="true" />
-			{ site || ( previewBeside && preview ) ? (
+			{ site ? (
 				<div className={ styles.headerActions }>
-					{ site ? <OpenInMenu key={ site.id } site={ site } /> : null }
-					{ previewBeside && preview ? (
-						<IconButton
-							variant="minimal"
-							tone="neutral"
-							size="small"
-							icon={ closeSmall }
-							label={ __( 'Hide chat' ) }
-							onClick={ () => preview.setChatHidden( true ) }
-						/>
-					) : null }
+					<OpenInMenu key={ site.id } site={ site } />
+					{ effectiveEnvironment === 'local' ? <PreviewToggleButton canHideChat /> : null }
 				</div>
 			) : null }
 		</div>
@@ -164,7 +147,6 @@ interface SessionFrameProps {
 	header?: ReactNode;
 	composer?: ReactNode;
 	footer?: ReactNode;
-	footerEnd?: ReactNode;
 	scrollRef?: Ref< HTMLDivElement >;
 	children?: ReactNode;
 }
@@ -172,14 +154,7 @@ interface SessionFrameProps {
 // Lays out the chat column as fixed chrome over a full-height conversation
 // scroller. The site preview panel lives in the dashboard layout's
 // PreviewSplitFrame, which keeps it mounted across routes.
-function SessionFrame( {
-	header,
-	composer,
-	footer,
-	footerEnd,
-	scrollRef,
-	children,
-}: SessionFrameProps ) {
+function SessionFrame( { header, composer, footer, scrollRef, children }: SessionFrameProps ) {
 	const rootRef = useRef< HTMLDivElement >( null );
 	const headerRef = useRef< HTMLDivElement >( null );
 	const composerRef = useRef< HTMLDivElement >( null );
@@ -258,13 +233,10 @@ function SessionFrame( {
 				</>
 			) : null }
 			{ footer ? (
-				<div className={ clsx( styles.panelFooterControls, styles.panelFooterControlsStart ) }>
-					{ footer }
-				</div>
-			) : null }
-			{ footerEnd ? (
-				<div className={ clsx( styles.panelFooterControls, styles.panelFooterControlsEnd ) }>
-					{ footerEnd }
+				<div className={ styles.footerOuter }>
+					<div className={ clsx( styles.column, styles.composerColumn, styles.footer ) }>
+						{ footer }
+					</div>
 				</div>
 			) : null }
 		</div>
@@ -312,7 +284,6 @@ export function SignedOutSessionView( { siteId }: { siteId: string } ) {
 				<SessionHeader siteName={ site?.name } site={ site } effectiveEnvironment="local" />
 			}
 			footer={ <div aria-hidden /> }
-			footerEnd={ site ? <PreviewToggleButton /> : null }
 		>
 			<AgenticSigninPrompt
 				onTurnedOff={ () => void navigate( { to: '/sites/$siteId', params: { siteId } } ) }
@@ -325,7 +296,6 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	const navigate = useNavigate();
 	const { data, isLoading, error } = useSession( sessionId );
 	const { data: sites } = useSites();
-	const { data: sessions } = useSessions();
 	const { mutateAsync: createSession, isPending: isCreatingSession } = useCreateSession();
 	const ownerSite = findAiSessionOwnerSite( sites, data?.summary );
 	const effectiveEnvironment = useSessionEffectiveEnvironment( data?.summary, ownerSite?.id );
@@ -469,22 +439,6 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	}, [ scrollNode ] );
 	useSessionCommands( sessionId );
 	const canTogglePreview = !! ownerSite && effectiveEnvironment === 'local';
-	const siteSessionHistory = data
-		? getSiteSessionHistory( {
-				currentSession: data.summary,
-				ownerSite,
-				sessions,
-		  } )
-		: [];
-	const archivedSiteSessionHistory = data
-		? getSiteSessionHistory( {
-				currentSession: data.summary,
-				ownerSite,
-				sessions,
-				archived: true,
-		  } )
-		: [];
-
 	const handleAnnotationsDone = useCallback(
 		( annotations: Annotation[] ) => {
 			if ( annotations.length === 0 ) return;
@@ -703,19 +657,10 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 				</div>
 			}
 			footer={
-				ownerSite ? (
-					<SessionChatActions
-						archivedSessions={ archivedSiteSessionHistory }
-						currentSessionId={ sessionId }
-						isCreatingSession={ isCreatingSession }
-						onNewChat={ startNewChat }
-						onSwitchSession={ switchSession }
-						sessions={ siteSessionHistory }
-						showNewChat={ ! isOutOfCredits }
-					/>
+				ownerSite && ! isOutOfCredits ? (
+					<NewChatButton isCreatingSession={ isCreatingSession } onNewChat={ startNewChat } />
 				) : null
 			}
-			footerEnd={ canTogglePreview ? <PreviewToggleButton /> : null }
 		>
 			{ isEmpty && ! pendingPrompt ? <EmptyBackground /> : null }
 			{ isEmpty && ! pendingPrompt && ownerSite && ! isOutOfCredits ? (

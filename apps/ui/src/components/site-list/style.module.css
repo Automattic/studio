@@ -627,6 +627,7 @@
 .chat {
 	--wp-ui-button-height: 30px;
 
+	flex: 1 1 auto;
 	justify-content: flex-start;
 	gap: var(--wpds-dimension-padding-sm);
 	min-width: 0;
@@ -643,9 +644,33 @@
 	);
 }
 
-.chat:hover,
+.chatRow {
+	position: relative;
+	display: flex;
+	align-items: center;
+	border-radius: 6px;
+}
+
+.chatRow:hover,
 .chatActive {
 	background-color: var(--sidebar-row-background);
+}
+
+/* Shown on hover or keyboard focus, over the row's trailing edge. */
+.chatArchive {
+	position: absolute;
+	inset-inline-end: 3px;
+	opacity: 0;
+}
+
+.chatRow:hover .chatArchive,
+.chatRow:focus-within .chatArchive {
+	opacity: 1;
+}
+
+.chatRow:hover .chat,
+.chatRow:focus-within .chat {
+	padding-inline-end: 30px;
 }
 
 .chatTitle {

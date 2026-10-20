@@ -1,6 +1,4 @@
 .root {
-	/* Anchor for the footer toolbar + its progressive blur. */
-	position: relative;
 	display: flex;
 	flex-direction: column;
 	height: 100%;
@@ -30,6 +28,10 @@
 	border-bottom: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral);
 	font-size: var(--wpds-typography-font-size-sm);
 	-webkit-app-region: drag;
+}
+
+.headerSpacer {
+	flex: 1;
 }
 
 .headerSidebarCollapsed {
@@ -62,37 +64,5 @@
 	box-sizing: border-box;
 	width: 100%;
 	max-width: 760px;
-	/* Extra bottom padding keeps the last content clear of the overlaid
-	   footer toolbar. */
-	padding: var(--wpds-dimension-padding-xl) var(--wpds-dimension-padding-xl)
-		calc(var(--wpds-dimension-padding-2xl) + 46px);
-}
-
-/* Fixed bottom toolbar mirroring the chat panel's footer, with the preview
-   toggle at the panel's end. Overlaid on the scroll area so content shows
-   through the progressive blur beneath it. */
-.footerBar {
-	position: absolute;
-	inset-inline: 0;
-	bottom: 0;
-	z-index: 2;
-	display: flex;
-	align-items: center;
-	justify-content: flex-end;
-	min-height: 46px;
-	box-sizing: border-box;
-	padding: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-xl);
-	pointer-events: none;
-}
-
-.footerBar > * {
-	pointer-events: auto;
-}
-
-.footerBlur {
-	inset-inline-start: 0;
-	inset-inline-end: 14px;
-	bottom: 0;
-	z-index: 1;
-	height: calc(46px + var(--wpds-dimension-padding-lg));
+	padding: var(--wpds-dimension-padding-xl);
 }

@@ -1,7 +1,6 @@
 import { __ } from '@wordpress/i18n';
 import { clsx } from 'clsx';
 import { PreviewToggleButton } from '@/components/preview-toggle-button';
-import { ProgressiveBlur } from '@/components/progressive-blur';
 import { SidebarToggle } from '@/components/sidebar-toggle';
 import { SiteDropdown } from '@/components/site-dropdown';
 import { isSiteSettingsTab, SiteSettingsForm } from '@/components/site-settings-view';
@@ -62,6 +61,8 @@ export function SiteSettingsPage( {
 					showStatus={ sidebarCollapsed }
 					floating={ false }
 				/>
+				<span className={ styles.headerSpacer } aria-hidden="true" />
+				<PreviewToggleButton />
 			</div>
 			<div className={ styles.tabs }>
 				<Tabs.Root
@@ -84,10 +85,6 @@ export function SiteSettingsPage( {
 						</main>
 					</div>
 				</Tabs.Root>
-			</div>
-			<ProgressiveBlur direction="up" className={ styles.footerBlur } />
-			<div className={ styles.footerBar }>
-				<PreviewToggleButton />
 			</div>
 		</div>
 	);

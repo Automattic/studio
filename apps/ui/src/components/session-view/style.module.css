@@ -10,8 +10,6 @@
 		0px,
 		calc(var(--column-inline-gutter) - var(--composer-shell-inline-padding))
 	);
-	--panel-control-left: var(--wpds-dimension-padding-xl);
-	--panel-control-gap: var(--wpds-dimension-gap-xs);
 	--header-height: 46px;
 	--composer-height: 0px;
 	--panel-footer-height: 0px;
@@ -151,36 +149,33 @@
 	padding-bottom: var(--wpds-dimension-padding-2xl);
 }
 
-.panelFooterControls {
+.footerOuter {
 	position: absolute;
-	/* Sit the strip low in its reserved band so the controls read as anchored
-	   to the panel's bottom edge rather than floating under the composer. The
-	   strip's own bottom padding keeps the buttons and their focus rings clear
-	   of .root's overflow: hidden edge. */
-	bottom: calc(-1 * var(--wpds-dimension-padding-sm));
+	left: 0;
+	right: 0;
+	bottom: 0;
 	z-index: 3;
+	padding: 0 var(--composer-outer-inline-padding);
+	pointer-events: none;
+}
+
+/* Lines the footer's controls up with the composer box's inline-start edge. */
+.footer {
 	display: flex;
 	align-items: center;
 	min-height: var(--panel-footer-height);
-	padding: var(--wpds-dimension-padding-sm) 0;
+}
+
+.footer > * {
 	pointer-events: auto;
+}
+
+.newChatButton {
+	--wp-ui-button-font-weight: var(--wpds-typography-font-weight-default);
+	--wp-ui-button-font-size: var(--wpds-typography-font-size-sm);
+
+	white-space: nowrap;
 	-webkit-app-region: no-drag;
-}
-
-/* Applied on top of .panelFooterControls to anchor the strip to the inline-
-   start edge, clearing the sidebar toggle that owns the panel's bottom-left
-   corner (see sidebar-layout's `.floatingToggle`). The 24px is its icon box. */
-.panelFooterControlsStart {
-	inset-inline-start: calc(
-		var(--wpds-dimension-padding-xl) + 24px + var(--panel-control-gap)
-	);
-}
-
-/* Applied on top of .panelFooterControls to anchor the strip to the inline-end
-   edge instead (hosts the preview panel toggle). */
-.panelFooterControlsEnd {
-	inset-inline-start: auto;
-	inset-inline-end: var(--panel-control-left);
 }
 
 /* Anchors the scroll-to-latest button to the composer column, floating it
@@ -231,182 +226,6 @@
 	.scrollToLatestButton {
 		animation: none;
 	}
-}
-
-.composerFooter {
-	display: flex;
-	justify-content: flex-start;
-	align-items: center;
-	gap: var(--wpds-dimension-gap-md);
-	box-sizing: border-box;
-}
-
-.composerFooterSide {
-	display: flex;
-	align-items: center;
-	gap: var(--panel-control-gap);
-	min-width: 0;
-}
-
-.composerTextButton {
-	--wp-ui-button-font-weight: var(--wpds-typography-font-weight-default);
-	--wp-ui-button-font-size: var(--wpds-typography-font-size-sm);
-
-	white-space: nowrap;
-	-webkit-app-region: no-drag;
-}
-
-.composerIconButton {
-	--wp-ui-button-aspect-ratio: 1;
-	--wp-ui-button-background-color-active: var(--wpds-color-background-interactive-neutral-weak-active);
-	--wp-ui-button-border-color-active: var(--wpds-color-background-interactive-neutral-weak-active);
-	--wp-ui-button-min-width: unset;
-	--wp-ui-button-padding-inline: 0;
-}
-
-.composerIconButton:hover,
-.composerIconButton:focus,
-.composerIconButton:focus-visible,
-.composerIconButton[data-highlighted] {
-	background: var(--wpds-color-background-interactive-neutral-weak-active);
-}
-
-.composerIcon {
-	/* Match @wordpress/ui IconButton's compensation for the button border. */
-	margin: -2px;
-}
-
-.composerHistoryMenu {
-	width: 280px;
-	max-width: calc(100vw - (var(--wpds-dimension-padding-lg) * 2));
-	max-height: min(360px, calc(100vh - 96px));
-	overflow-y: auto;
-}
-
-.composerHistoryItem {
-	flex-direction: row;
-	align-items: center;
-	gap: var(--wpds-dimension-gap-md);
-	justify-content: space-between;
-	min-width: 0;
-}
-
-.composerHistoryItem[aria-current='page'] {
-	background: var(--wpds-color-background-surface-neutral);
-}
-
-.composerHistoryTitle,
-.composerHistoryMeta {
-	max-width: 100%;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
-}
-
-.composerHistoryTitle {
-	flex: 1;
-	font-weight: var(--wpds-typography-font-weight-default);
-	min-width: 0;
-}
-
-.composerHistoryTrailing {
-	position: relative;
-	display: inline-flex;
-	align-items: center;
-	justify-content: flex-end;
-	min-width: 24px;
-	min-height: 24px;
-	flex-shrink: 0;
-	overflow: visible;
-}
-
-.composerHistoryMeta {
-	color: var(--wpds-color-foreground-content-neutral-weak);
-	flex-shrink: 0;
-	font-size: var(--wpds-typography-font-size-xs);
-	line-height: var(--wpds-typography-line-height-xs);
-}
-
-.composerHistoryArchiveButton {
-	--wp-ui-button-aspect-ratio: 1;
-	--wp-ui-button-background-color-active: var(--wpds-color-background-interactive-neutral-weak-active);
-	--wp-ui-button-border-color-active: var(--wpds-color-background-interactive-neutral-weak-active);
-	--wp-ui-button-foreground-color: var(--wpds-color-foreground-content-neutral-weak);
-	--wp-ui-button-foreground-color-active: var(--wpds-color-foreground-content-neutral);
-	--wp-ui-button-min-width: unset;
-	--wp-ui-button-padding-inline: 0;
-
-	position: absolute;
-	right: 0;
-	opacity: 0;
-	pointer-events: none;
-	transform: translateX(4px);
-}
-
-.composerHistoryArchiveButton:hover,
-.composerHistoryArchiveButton:focus,
-.composerHistoryArchiveButton:focus-visible {
-	background: var(--wpds-color-background-interactive-neutral-weak-active);
-}
-
-.composerHistoryArchiveButton svg {
-	width: 18px;
-	height: 18px;
-}
-
-.composerHistoryTrailing:hover .composerHistoryMeta,
-.composerHistoryTrailing:focus-within .composerHistoryMeta {
-	opacity: 0;
-}
-
-.composerHistoryTrailing:hover .composerHistoryArchiveButton,
-.composerHistoryTrailing:focus-within .composerHistoryArchiveButton {
-	opacity: 1;
-	pointer-events: auto;
-}
-
-.composerHistoryEmpty {
-	padding: var(--wpds-dimension-padding-sm);
-	color: var(--wpds-color-foreground-content-neutral-weak);
-	font-size: var(--wpds-typography-font-size-sm);
-	line-height: var(--wpds-typography-line-height-sm);
-}
-
-.composerHistorySeparator {
-	margin: var(--wpds-dimension-padding-sm) 0;
-	background: var(--wpds-color-stroke-surface-neutral);
-}
-
-.composerArchiveList {
-	display: flex;
-	flex-direction: column;
-	gap: var(--wpds-dimension-gap-xs);
-	max-height: min(420px, calc(100vh - 220px));
-	overflow-y: auto;
-}
-
-.composerArchiveItem {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	gap: var(--wpds-dimension-gap-md);
-	width: 100%;
-	min-width: 0;
-	border: 0;
-	border-radius: 6px;
-	background: transparent;
-	color: var(--wpds-color-foreground-content-neutral);
-	cursor: var(--wpds-cursor-control);
-	font: inherit;
-	padding: var(--wpds-dimension-padding-sm);
-	text-align: left;
-}
-
-.composerArchiveItem:hover,
-.composerArchiveItem:focus,
-.composerArchiveItem:focus-visible {
-	background: var(--wpds-color-background-interactive-neutral-weak-active);
-	outline: none;
 }
 
 /* Composer fade-in after the entitlement check resolves. No fill mode:

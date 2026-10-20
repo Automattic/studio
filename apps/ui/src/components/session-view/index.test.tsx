@@ -105,10 +105,7 @@ vi.mock( './conversation', () => ( {
 } ) );
 
 vi.mock( './session-chat-actions', () => ( {
-	getSiteSessionHistory: () => [],
-	SessionChatActions: ( { showNewChat = true }: { showNewChat?: boolean } ) => (
-		<div data-testid="chat-actions" data-show-new-chat={ String( showNewChat ) } />
-	),
+	NewChatButton: () => <div data-testid="new-chat" />,
 } ) );
 
 vi.mock( './suggested-prompts', () => ( {
@@ -557,7 +554,7 @@ describe( 'SessionView', () => {
 
 		render( <SessionView sessionId="session-1" /> );
 
-		expect( screen.getByTestId( 'chat-actions' ) ).toHaveAttribute( 'data-show-new-chat', 'false' );
+		expect( screen.queryByTestId( 'new-chat' ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'hides the suggested prompts while the credits are spent', () => {
@@ -589,7 +586,7 @@ describe( 'SessionView', () => {
 
 		render( <SessionView sessionId="session-1" /> );
 
-		expect( screen.getByTestId( 'chat-actions' ) ).toHaveAttribute( 'data-show-new-chat', 'true' );
+		expect( screen.getByTestId( 'new-chat' ) ).toBeInTheDocument();
 		expect( screen.getByTestId( 'suggested-prompts' ) ).toBeInTheDocument();
 	} );
 

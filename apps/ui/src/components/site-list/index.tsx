@@ -3,7 +3,7 @@ import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { sortSites } from '@studio/common/lib/sort-sites';
 import { useNavigate, useParams, useRouterState } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
-import { chevronDownSmall, Icon, plus, settings } from '@wordpress/icons';
+import { box, chevronDownSmall, Icon, plus, settings } from '@wordpress/icons';
 import { IconButton, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import {
@@ -38,7 +38,7 @@ import { XdebugIcon } from '@/components/xdebug-icon';
 import { useConnector } from '@/data/core';
 import { useSiteAgentActivity, type SiteAgentActivity } from '@/data/queries/use-agent-run';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
-import { useSessions } from '@/data/queries/use-sessions';
+import { useSessions, useUpdateSessionMetadata } from '@/data/queries/use-sessions';
 import {
 	useIsSiteBusy,
 	useIsSiteStarting,
@@ -276,27 +276,48 @@ function ChatRow( {
 } ) {
 	const navigate = useNavigate();
 	const activity = useSiteAgentActivity( [ session.id ] );
+	const updateSessionMetadata = useUpdateSessionMetadata();
 	return (
-		<SidebarButton
-			className={ clsx( styles.chat, active && styles.chatActive ) }
-			aria-current={ active ? 'page' : undefined }
-			onClick={ () => {
-				onOpen?.();
-				void navigate( { to: '/sessions/$sessionId', params: { sessionId: session.id } } );
-			} }
-		>
-			<span className={ styles.chatTitle }>{ getSessionTitle( session ) }</span>
-			{ activity === 'working' ? (
-				<AgentWorkingIndicator className={ styles.chatActivity } label={ __( 'Working…' ) } />
-			) : null }
-			{ activity === 'pending-question' ? (
-				<span
-					className={ styles.chatQuestion }
-					role="status"
-					aria-label={ __( 'Studio needs an answer.' ) }
-				/>
-			) : null }
-		</SidebarButton>
+		<div className={ clsx( styles.chatRow, active && styles.chatActive ) }>
+			<SidebarButton
+				className={ styles.chat }
+				aria-current={ active ? 'page' : undefined }
+				onClick={ () => {
+					onOpen?.();
+					void navigate( { to: '/sessions/$sessionId', params: { sessionId: session.id } } );
+				} }
+			>
+				<span className={ styles.chatTitle }>{ getSessionTitle( session ) }</span>
+				{ activity === 'working' ? (
+					<AgentWorkingIndicator className={ styles.chatActivity } label={ __( 'Working…' ) } />
+				) : null }
+				{ activity === 'pending-question' ? (
+					<span
+						className={ styles.chatQuestion }
+						role="status"
+						aria-label={ __( 'Studio needs an answer.' ) }
+					/>
+				) : null }
+			</SidebarButton>
+			<IconButton
+				variant="minimal"
+				tone="neutral"
+				size="small"
+				icon={ box }
+				label={ __( 'Archive chat' ) }
+				className={ styles.chatArchive }
+				onClick={ async () => {
+					await updateSessionMetadata.mutateAsync( {
+						sessionId: session.id,
+						patch: { archived: true },
+					} );
+					// Leaving the archived chat lands on the site's next chat, or a new one.
+					if ( active ) {
+						void navigate( { to: '/' } );
+					}
+				} }
+			/>
+		</div>
 	);
 }
 

@@ -33,6 +33,7 @@ import {
 	resolveInitialAiProvider,
 	resolveUnavailableAiProvider,
 } from 'cli/ai/auth';
+import { summarizeTiming, type ModelRequestRecord } from 'cli/ai/eval-timing';
 import { runStudioAgentTurn } from 'cli/ai/runtimes/pi';
 import { runCommand as runCreateSiteCommand } from 'cli/commands/site/create';
 import { runCommand as runDeleteSiteCommand } from 'cli/commands/site/delete';
@@ -317,6 +318,8 @@ type ToolEvent = {
 	endedAtMs?: number;
 	durationMs?: number;
 	isError?: boolean;
+	// Length of the result's text block: what the tool adds to the context.
+	outputChars?: number;
 	turnIndex: number;
 };
 
@@ -451,6 +454,7 @@ async function runEval( input: EvalRunnerInput ) {
 		details?: unknown;
 	}[] = [];
 	const toolEvents: ToolEvent[] = [];
+	const requests: ModelRequestRecord[] = [];
 	const textSegments: string[] = [];
 	const toolNameById = new Map< string, string >();
 	const toolEventById = new Map< string, ToolEvent >();
@@ -500,6 +504,23 @@ async function runEval( input: EvalRunnerInput ) {
 				usage.totalTokens += messageUsage.totalTokens;
 			}
 			const now = Date.now();
+			// pi stamps the assistant message just before it sends the request.
+			const requestStartedAt = event.message.timestamp || turnStart;
+			requests.push( {
+				startedAtMs: requestStartedAt - evalStartedAt,
+				endedAtMs: now - evalStartedAt,
+				durationMs: now - requestStartedAt,
+				contextTokens: messageUsage
+					? messageUsage.input + messageUsage.cacheRead + messageUsage.cacheWrite
+					: 0,
+				outputTokens: messageUsage?.output ?? 0,
+				stopReason: event.message.stopReason,
+				...( event.message.errorMessage ? { errorMessage: event.message.errorMessage } : {} ),
+				hasText: event.message.content.some(
+					( block ) => block.type === 'text' && block.text.trim() !== ''
+				),
+				toolCalls: event.message.content.filter( ( block ) => block.type === 'toolCall' ).length,
+			} );
 			turnDurationsMs.push( now - turnStart );
 			turnIndex += 1;
 			if ( turnIndex === 1 ) {
@@ -531,6 +552,7 @@ async function runEval( input: EvalRunnerInput ) {
 					evt.endedAtMs = elapsed();
 					evt.durationMs = evt.endedAtMs - evt.startedAtMs;
 					evt.isError = tr.isError;
+					evt.outputChars = tr.text?.length ?? 0;
 				}
 				if ( tr.isError && ! firstToolError ) {
 					firstToolError = {
@@ -639,6 +661,8 @@ async function runEval( input: EvalRunnerInput ) {
 		usage,
 		sessionFile: session.getSessionFile() ?? null,
 		phaseTimingsMs,
+		timing: summarizeTiming( requests, toolEvents ),
+		requests,
 		turnDurationsMs,
 		toolCalls,
 		toolResults,

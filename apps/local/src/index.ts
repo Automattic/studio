@@ -17,20 +17,16 @@ import { isAiProviderId, providerServesModel } from '@studio/common/ai/providers
 import { createAgentRunManager } from '@studio/common/ai/run-manager';
 import {
 	createHydratedAiSession,
-	hydrateAiSessionSummary,
 	listHydratedAiSessions,
 	loadHydratedAiSession,
 	reconcileSessionEnvironment,
+	updateHydratedAiSessionMetadata,
 } from '@studio/common/ai/sessions/manage';
-import {
-	deleteAiSessionPlacement,
-	readAiSessionPlacement,
-} from '@studio/common/ai/sessions/placement';
+import { deleteAiSessionPlacement } from '@studio/common/ai/sessions/placement';
 import {
 	appendModelChangeEntry,
 	appendStudioEntry,
 	deleteAiSession,
-	loadAiSession,
 } from '@studio/common/ai/sessions/store';
 import {
 	InvalidAnthropicApiKeyError,
@@ -93,7 +89,6 @@ import {
 	deleteSharedSession,
 	readAuthToken,
 	updateSharedConfig,
-	updateSharedSession,
 } from '@studio/common/lib/shared-config';
 import { fetchSnapshotUsage } from '@studio/common/lib/snapshots';
 import { fetchStudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
@@ -142,6 +137,7 @@ import { isEditor, isTerminal, openInEditor, openInTerminal, openPath } from './
 import type { StudioChatFileAttachment } from '@studio/common/ai/chat-files';
 import type { StudioChatImage } from '@studio/common/ai/chat-images';
 import type { AiSettings } from '@studio/common/ai/providers';
+import type { AiSessionMetadata } from '@studio/common/ai/sessions/types';
 import type { StudioVisualAnnotationSummary } from '@studio/common/ai/visual-annotations';
 import type { SiteListItem } from '@studio/common/lib/cli-events';
 import type {
@@ -1796,13 +1792,13 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	api.patch(
 		'/sessions/:id',
 		asyncHandler( async ( req: Request, res: Response ) => {
-			const { summary } = await loadAiSession( sessionsRoot, req.params.id );
-			const patch = req.body as { archived?: boolean };
-			const [ metadata, placement ] = await Promise.all( [
-				updateSharedSession( summary.id, patch ),
-				readAiSessionPlacement( summary.id ),
-			] );
-			res.json( hydrateAiSessionSummary( summary, metadata, placement ) );
+			res.json(
+				await updateHydratedAiSessionMetadata(
+					sessionsRoot,
+					req.params.id,
+					req.body as AiSessionMetadata
+				)
+			);
 		} )
 	);
 

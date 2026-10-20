@@ -21,17 +21,12 @@ import { isAiModelId } from '@studio/common/ai/models';
 import { isAiProviderId, providerServesModel } from '@studio/common/ai/providers';
 import {
 	createHydratedAiSession,
-	hydrateAiSessionSummary,
 	listHydratedAiSessions,
 	loadHydratedAiSession,
 	reconcileSessionEnvironment,
+	updateHydratedAiSessionMetadata,
 } from '@studio/common/ai/sessions/manage';
-import { readAiSessionPlacement } from '@studio/common/ai/sessions/placement';
-import {
-	appendModelChangeEntry,
-	appendStudioEntry,
-	loadAiSession as loadAiSessionFromStore,
-} from '@studio/common/ai/sessions/store';
+import { appendModelChangeEntry, appendStudioEntry } from '@studio/common/ai/sessions/store';
 import { expandSkillCommandPrompt } from '@studio/common/ai/slash-commands';
 import { getAiTracksIdentity } from '@studio/common/ai/tracks-identity';
 import { validateStudioVisualAnnotations } from '@studio/common/ai/visual-annotations';
@@ -72,11 +67,7 @@ import {
 	trustRootCA,
 } from '@studio/common/lib/root-ca-trust';
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
-import {
-	readAuthToken,
-	updateSharedConfig,
-	updateSharedSession,
-} from '@studio/common/lib/shared-config';
+import { readAuthToken, updateSharedConfig } from '@studio/common/lib/shared-config';
 import {
 	getLocalFileSize,
 	listLocalFileTree as listSiteFileTree,
@@ -165,7 +156,11 @@ import { captureSiteThumbnail } from './lib/capture-site-thumbnail';
 import type { ActiveAgentRun } from '@studio/common/ai/agent-events';
 import type { StudioChatFileAttachment } from '@studio/common/ai/chat-files';
 import type { StudioChatImage } from '@studio/common/ai/chat-images';
-import type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessions/types';
+import type {
+	AiSessionMetadata,
+	AiSessionSummary,
+	LoadedAiSession,
+} from '@studio/common/ai/sessions/types';
 import type { Blueprint } from '@studio/common/lib/studio-blueprints-api';
 import type { RawDirectoryEntry } from '@studio/common/types/sync-tree';
 
@@ -270,14 +265,9 @@ export async function createAiSession(
 export async function updateAiSessionMetadata(
 	_event: IpcMainInvokeEvent,
 	sessionIdOrPrefix: string,
-	patch: Pick< AiSessionSummary, 'archived' >
+	patch: AiSessionMetadata
 ): Promise< AiSessionSummary > {
-	const { summary } = await loadAiSessionFromStore( getSessionsDirectory(), sessionIdOrPrefix );
-	const [ metadata, placement ] = await Promise.all( [
-		updateSharedSession( summary.id, patch ),
-		readAiSessionPlacement( summary.id ),
-	] );
-	return hydrateAiSessionSummary( summary, metadata, placement );
+	return updateHydratedAiSessionMetadata( getSessionsDirectory(), sessionIdOrPrefix, patch );
 }
 
 export async function continueAiSession(

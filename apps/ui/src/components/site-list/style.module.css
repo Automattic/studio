@@ -521,6 +521,14 @@
 	flex-shrink: 0;
 }
 
+.unreadDot {
+	flex-shrink: 0;
+	width: 7px;
+	height: 7px;
+	border-radius: 50%;
+	background-color: var(--wpds-color-background-interactive-brand-strong);
+}
+
 .chatQuestion {
 	flex-shrink: 0;
 	width: 8px;

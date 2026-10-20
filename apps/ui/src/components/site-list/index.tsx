@@ -7,19 +7,15 @@ import { Icon } from '@wordpress/icons';
 import { IconButton, Spinner, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import {
-	createContext,
 	Fragment,
-	useContext,
 	useEffect,
 	useMemo,
 	useRef,
 	useState,
-	type Dispatch,
 	type MouseEvent,
 	type PointerEvent as ReactPointerEvent,
 	type ReactElement,
 	type ReactNode,
-	type SetStateAction,
 } from 'react';
 import { AgentWorkingIndicator } from '@/components/agent-working-indicator';
 import { DeleteSiteDialog } from '@/components/delete-site-dialog';
@@ -30,11 +26,13 @@ import {
 } from '@/components/import-site-dialog';
 import * as Menu from '@/components/menu';
 import { useOpenInDestinations } from '@/components/open-in-menu/use-open-in-destinations';
+import { RenameChatDialog } from '@/components/rename-chat-dialog';
 import { ReorderableList } from '@/components/reorderable-list';
 import { getSessionTitle } from '@/components/session-view/session-chat-actions';
 import { SidebarButton } from '@/components/sidebar-button';
 import { deriveSiteStatus, getSiteStatusName } from '@/components/site-dropdown/utils';
 import { XdebugIcon } from '@/components/xdebug-icon';
+import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { useSiteAgentActivity, type SiteAgentActivity } from '@/data/queries/use-agent-run';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
@@ -62,6 +60,8 @@ import {
 	globeIcon,
 	newChatIcon,
 	plusIcon,
+	readStatusIcon,
+	renameIcon,
 	startSiteIcon,
 	stopSiteIcon,
 } from '@/lib/icons';
@@ -83,38 +83,6 @@ const RECENT_CHATS_LIMIT = 8;
 type SiteRowActivity = SiteAgentActivity | 'new-message' | 'sync' | 'import';
 
 const ACTIVITY_EXIT_DURATION_MS = 180;
-
-type SeenSessionTimestamps = {
-	initialized: boolean;
-	timestamps: Record< string, number >;
-};
-
-type SeenSessionTimestampsState = [
-	SeenSessionTimestamps,
-	Dispatch< SetStateAction< SeenSessionTimestamps > >,
-];
-
-const EMPTY_SEEN_SESSION_TIMESTAMPS: SeenSessionTimestamps = {
-	initialized: false,
-	timestamps: {},
-};
-
-const SeenSessionTimestampsContext = createContext< SeenSessionTimestampsState | null >( null );
-
-/**
- * Shares the "which session updates has the user already seen" bookkeeping
- * between SiteList instances — the expanded sidebar and the collapsed-sidebar
- * switcher popover. Without it, each instance seeds its own state on mount,
- * marking every site as seen and hiding the other's unread indicators.
- */
-export function SeenSessionTimestampsProvider( { children }: { children: ReactNode } ) {
-	const state = useState< SeenSessionTimestamps >( EMPTY_SEEN_SESSION_TIMESTAMPS );
-	return (
-		<SeenSessionTimestampsContext.Provider value={ state }>
-			{ children }
-		</SeenSessionTimestampsContext.Provider>
-	);
-}
 
 function SiteAgentActivityTooltip( {
 	label,
@@ -289,51 +257,102 @@ function ChatRow( {
 } ) {
 	const navigate = useNavigate();
 	const activity = useSiteAgentActivity( [ session.id ] );
-	const updateSessionMetadata = useUpdateSessionMetadata();
+	const { mutate, mutateAsync } = useUpdateSessionMetadata();
+	const [ renaming, setRenaming ] = useState( false );
+	const working = activity === 'working';
+	const archive = async () => {
+		await mutateAsync( { sessionId: session.id, patch: { archived: true } } );
+		toast.success( __( 'Chat archived' ), {
+			action: {
+				label: __( 'Undo' ),
+				onClick: () => mutate( { sessionId: session.id, patch: { archived: false } } ),
+			},
+		} );
+		// Leaving the archived chat lands on the site's next chat, or a new one.
+		if ( active ) {
+			void navigate( { to: '/' } );
+		}
+	};
+
 	return (
-		<div
-			className={ clsx( styles.chatRow, nested && styles.chatNested, active && styles.chatActive ) }
-		>
-			<SidebarButton
-				className={ styles.chat }
-				aria-current={ active ? 'page' : undefined }
-				onClick={ () => {
-					onOpen?.();
-					void navigate( { to: '/sessions/$sessionId', params: { sessionId: session.id } } );
-				} }
-			>
-				{ nested ? null : <Icon icon={ chatIcon } className={ styles.rowIcon } /> }
-				<span className={ styles.chatTitle }>{ getSessionTitle( session ) }</span>
-				{ activity === 'working' ? (
-					<AgentWorkingIndicator className={ styles.chatActivity } label={ __( 'Working…' ) } />
-				) : null }
-				{ activity === 'pending-question' ? (
-					<span
-						className={ styles.chatQuestion }
-						role="status"
-						aria-label={ __( 'Studio needs an answer.' ) }
-					/>
-				) : null }
-			</SidebarButton>
-			<IconButton
-				variant="minimal"
-				tone="neutral"
-				size="small"
-				icon={ archiveIcon }
-				label={ __( 'Archive chat' ) }
-				className={ clsx( styles.rowAction, styles.chatArchive ) }
-				onClick={ async () => {
-					await updateSessionMetadata.mutateAsync( {
-						sessionId: session.id,
-						patch: { archived: true },
-					} );
-					// Leaving the archived chat lands on the site's next chat, or a new one.
-					if ( active ) {
-						void navigate( { to: '/' } );
+		<>
+			<Menu.ContextMenuRoot>
+				<Menu.ContextMenuTrigger
+					render={
+						<div
+							className={ clsx(
+								styles.chatRow,
+								nested && styles.chatNested,
+								active && styles.chatActive
+							) }
+						>
+							<SidebarButton
+								className={ styles.chat }
+								aria-current={ active ? 'page' : undefined }
+								onClick={ () => {
+									onOpen?.();
+									void navigate( {
+										to: '/sessions/$sessionId',
+										params: { sessionId: session.id },
+									} );
+								} }
+							>
+								{ nested ? null : <Icon icon={ chatIcon } className={ styles.rowIcon } /> }
+								<span className={ styles.chatTitle }>{ getSessionTitle( session ) }</span>
+								{ working ? (
+									<AgentWorkingIndicator
+										className={ styles.chatActivity }
+										label={ __( 'Working…' ) }
+									/>
+								) : null }
+								{ activity === 'pending-question' ? (
+									<span
+										className={ styles.chatQuestion }
+										role="status"
+										aria-label={ __( 'Studio needs an answer.' ) }
+									/>
+								) : null }
+								{ session.unread && ! active ? (
+									<span className={ styles.unreadDot } role="img" aria-label={ __( 'Unread' ) } />
+								) : null }
+							</SidebarButton>
+							<IconButton
+								variant="minimal"
+								tone="neutral"
+								size="small"
+								icon={ archiveIcon }
+								label={ __( 'Archive chat' ) }
+								className={ clsx( styles.rowAction, styles.chatArchive ) }
+								disabled={ working }
+								onClick={ () => void archive() }
+							/>
+						</div>
 					}
-				} }
-			/>
-		</div>
+				/>
+				<Menu.ContextPopup>
+					<Menu.Item onClick={ () => setRenaming( true ) }>
+						<Icon icon={ renameIcon } />
+						{ __( 'Rename' ) }
+					</Menu.Item>
+					<Menu.Item
+						onClick={ () =>
+							mutate( { sessionId: session.id, patch: { unread: ! session.unread } } )
+						}
+					>
+						<Icon icon={ readStatusIcon } />
+						{ session.unread ? __( 'Mark as read' ) : __( 'Mark as unread' ) }
+					</Menu.Item>
+					<Menu.Separator />
+					<Menu.Item disabled={ working } onClick={ () => void archive() }>
+						<Icon icon={ archiveIcon } />
+						{ __( 'Archive' ) }
+					</Menu.Item>
+				</Menu.ContextPopup>
+			</Menu.ContextMenuRoot>
+			{ renaming ? (
+				<RenameChatDialog session={ session } onClose={ () => setRenaming( false ) } />
+			) : null }
+		</>
 	);
 }
 
@@ -793,9 +812,6 @@ export function SiteList( {
 	const activeSiteId = params.siteId;
 	const [ manualSiteOrder, setManualSiteOrder ] = useState< string[] >( [] );
 	const updateSitesSortOrder = useUpdateSitesSortOrder();
-	const sharedSeenState = useContext( SeenSessionTimestampsContext );
-	const localSeenState = useState< SeenSessionTimestamps >( EMPTY_SEEN_SESSION_TIMESTAMPS );
-	const [ seenSessionTimestamps, setSeenSessionTimestamps ] = sharedSeenState ?? localSeenState;
 
 	const orderedSites = useMemo(
 		() => sortSitesByManualOrder( sortSites( [ ...( sites ?? [] ) ] ), manualSiteOrder ),
@@ -818,58 +834,19 @@ export function SiteList( {
 	const activeContextSiteKey =
 		activeSettingsSiteKey ??
 		( activeSiteId && pathname === `/sites/${ activeSiteId }` ? activeSiteId : undefined );
-	useEffect( () => {
-		if ( sitesLoading || sessionsLoading || rows.length === 0 ) {
-			return;
-		}
-		setSeenSessionTimestamps( ( current ) => {
-			const shouldSeedSeenTimestamps = ! current.initialized;
-			let timestamps = current.timestamps;
-			let changed = false;
-
-			const updateSeenTimestamp = ( siteId: string, timestamp: number ) => {
-				if ( timestamp <= ( timestamps[ siteId ] ?? 0 ) ) {
-					return;
-				}
-				if ( timestamps === current.timestamps ) {
-					timestamps = { ...current.timestamps };
-				}
-				timestamps[ siteId ] = timestamp;
-				changed = true;
-			};
-
-			for ( const row of rows ) {
-				const latestTimestamp = getTimestamp( row.latestSession );
-				if ( ! latestTimestamp ) {
-					continue;
-				}
-				if ( shouldSeedSeenTimestamps || row.site.id === activeChatSiteKey ) {
-					updateSeenTimestamp( row.site.id, latestTimestamp );
-				}
-			}
-
-			if ( ! changed && current.initialized ) {
-				return current;
-			}
-			return { initialized: true, timestamps };
-		} );
-	}, [ activeChatSiteKey, rows, sessionsLoading, setSeenSessionTimestamps, sitesLoading ] );
-	const unreadSiteIds = useMemo( () => {
-		if ( ! seenSessionTimestamps.initialized ) {
-			return new Set< string >();
-		}
-		const unread = new Set< string >();
-		for ( const row of rows ) {
-			if ( row.site.id === activeChatSiteKey ) {
-				continue;
-			}
-			const latestTimestamp = getTimestamp( row.latestSession );
-			if ( latestTimestamp > ( seenSessionTimestamps.timestamps[ row.site.id ] ?? 0 ) ) {
-				unread.add( row.site.id );
-			}
-		}
-		return unread;
-	}, [ activeChatSiteKey, rows, seenSessionTimestamps ] );
+	// A site whose chats you aren't in has a turn nobody has read yet.
+	const unreadSiteIds = useMemo(
+		() =>
+			new Set(
+				rows
+					.filter(
+						( row ) =>
+							row.site.id !== activeChatSiteKey && row.chats.some( ( chat ) => chat.unread )
+					)
+					.map( ( row ) => row.site.id )
+			),
+		[ activeChatSiteKey, rows ]
+	);
 
 	const persistOrder = ( nextSiteIds: string[] ) => {
 		setManualSiteOrder( nextSiteIds );

@@ -1,6 +1,7 @@
 import { fork } from 'node:child_process';
 import { EventEmitter } from 'node:events';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { updateSharedSession } from '@studio/common/lib/shared-config';
 import { createAgentRunManager } from '../run-manager';
 
 vi.mock( 'node:child_process', () => {
@@ -16,6 +17,9 @@ vi.mock( '@studio/common/ai/sessions/placement', () => ( {
 	setAiSessionSitePlacement: vi.fn(),
 } ) );
 vi.mock( '@studio/common/lib/error-reporting', () => ( { captureException: vi.fn() } ) );
+vi.mock( '@studio/common/lib/shared-config', () => ( {
+	updateSharedSession: vi.fn().mockResolvedValue( undefined ),
+} ) );
 
 const mockFork = vi.mocked( fork );
 
@@ -105,5 +109,26 @@ describe( 'createAgentRunManager active runs', () => {
 
 		manager.answerAgentRun( runId, { 'Which layout?': 'Grid' } );
 		expect( manager.listActiveAgentRuns()[ 0 ].pendingQuestions ).toEqual( [] );
+	} );
+
+	it( 'marks the chat unread when a turn finishes, before reporting the exit', async () => {
+		const child = createChild();
+		mockFork.mockImplementation( () => child as never );
+		const emit = vi.fn();
+		const manager = createAgentRunManager( { cliBinary: '/cli.mjs', surface: 'cliui', emit } );
+		manager.startAgentRun( { sessionId: 'session-1', prompt: 'hello' } );
+
+		child.emit( 'exit', 0 );
+
+		await vi.waitFor( () =>
+			expect( emit ).toHaveBeenCalledWith(
+				expect.objectContaining( {
+					event: expect.objectContaining( {
+						event: expect.objectContaining( { type: 'run.exited' } ),
+					} ),
+				} )
+			)
+		);
+		expect( updateSharedSession ).toHaveBeenCalledWith( 'session-1', { unread: true } );
 	} );
 } );

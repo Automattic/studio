@@ -98,6 +98,8 @@ vi.mock( './conversation', () => ( {
 	Conversation: () => <div />,
 } ) );
 
+vi.mock( '@/hooks/use-mark-chat-read', () => ( { useMarkChatRead: vi.fn() } ) );
+
 vi.mock( './session-chat-actions', () => ( {
 	useNewChatShortcut: () => undefined,
 } ) );

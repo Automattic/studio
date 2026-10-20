@@ -4,37 +4,35 @@ import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import { Logger, type ProgressCallback } from 'cli/logger';
 
-function onlyMatch( sites: SiteData[], nameOrPath: string ): SiteData | undefined {
+async function findSiteByName( name: string ): Promise< SiteData | undefined > {
+	const config = await readCliConfig();
+	const sites = config.sites.filter( ( site ) => site.name.toLowerCase() === name.toLowerCase() );
 	if ( sites.length > 1 ) {
+		const paths = sites.map( ( site ) => site.path ).join( ', ' );
 		throw new Error(
-			`${
-				sites.length
-			} sites match "${ nameOrPath }". Pass the full path of the one you mean: ${ sites
-				.map( ( site ) => site.path )
-				.join( ', ' ) }`
+			`${ sites.length } sites are named "${ name }". Pass the full path of the one you mean: ${ paths }`
 		);
 	}
 	return sites[ 0 ];
 }
 
 export async function resolveSite( nameOrPath: string ): Promise< SiteData > {
-	if ( path.isAbsolute( nameOrPath ) ) {
-		return getSiteByFolder( nameOrPath );
+	const siteByName = await findSiteByName( nameOrPath );
+	if ( siteByName ) {
+		return siteByName;
 	}
 
-	// The agent may also pass the last folder segment of the site path.
-	const { sites } = await readCliConfig();
-	return (
-		onlyMatch(
-			sites.filter( ( site ) => site.name.toLowerCase() === nameOrPath.toLowerCase() ),
-			nameOrPath
-		) ??
-		onlyMatch(
-			sites.filter( ( site ) => path.basename( site.path ) === nameOrPath ),
-			nameOrPath
-		) ??
-		getSiteByFolder( nameOrPath )
-	);
+	// Also try matching by the last folder segment of the site path,
+	// since the agent may pass just the folder name instead of the full path.
+	if ( ! path.isAbsolute( nameOrPath ) ) {
+		const config = await readCliConfig();
+		const siteByFolder = config.sites.find( ( site ) => path.basename( site.path ) === nameOrPath );
+		if ( siteByFolder ) {
+			return siteByFolder;
+		}
+	}
+
+	return getSiteByFolder( nameOrPath );
 }
 
 // Callers connect to the daemon first, like runWpCliCommand requires.

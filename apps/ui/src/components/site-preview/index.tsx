@@ -929,10 +929,8 @@ export function SitePreview( {
 	return (
 		<aside ref={ rootRef } className={ styles.root } aria-label={ __( 'Site preview' ) }>
 			<div
-				hidden={ ! canPreview && ! toolbarStart }
 				className={ clsx(
 					styles.header,
-					! canPreview && ! toolbarStart && styles.browserChromeHidden,
 					inspectorState.isPicking && styles.headerAnnotating,
 					atWindowStart && trafficLightSpace.start && styles.headerTrafficLights
 				) }

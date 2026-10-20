@@ -12,10 +12,6 @@
 	overflow: hidden;
 }
 
-.header.browserChromeHidden {
-	display: none;
-}
-
 /* Navigation at the start, the address centred, actions at the end. The side
    tracks never shrink below their controls. */
 .header {

@@ -87,6 +87,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 	const snapshotEventListeners = new Set< ( event: SnapshotEvent ) => void >();
 	const authListeners = new Set< () => void >();
 	let eventSource: EventSource | undefined;
+	const connectionRestoredListeners = new Set< () => void >();
 	// Last site list fetched via getSites(), so one-off lookups (openSiteUrl)
 	// don't trigger an extra round-trip.
 	let lastSites: SiteDetails[] | undefined;
@@ -175,6 +176,13 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			// The browser's EventSource reconnects automatically.
 			eventSource?.close();
 			eventSource = new EventSource( `${ base }/events` );
+			let hasConnected = false;
+			eventSource.onopen = () => {
+				if ( hasConnected ) {
+					connectionRestoredListeners.forEach( ( listener ) => listener() );
+				}
+				hasConnected = true;
+			};
 			eventSource.onmessage = ( message ) => {
 				let parsed: ServerEvent;
 				try {
@@ -703,6 +711,10 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		onAgentEvent( listener ) {
 			agentListeners.add( listener );
 			return () => agentListeners.delete( listener );
+		},
+		onConnectionRestored( listener ) {
+			connectionRestoredListeners.add( listener );
+			return () => connectionRestoredListeners.delete( listener );
 		},
 		onSessionPlacementUpdated( listener ) {
 			placementListeners.add( listener );

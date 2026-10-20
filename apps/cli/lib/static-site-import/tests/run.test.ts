@@ -1,6 +1,5 @@
 import {
 	decodeStaticSiteImportReceipt,
-	staticSiteImportQualityFailure,
 	staticSiteImportReceiptError,
 } from 'cli/lib/static-site-import/run';
 
@@ -26,31 +25,5 @@ describe( 'static site import receipts', () => {
 			'The site and staged request were preserved: static_site_importer_quality_failed'
 		);
 		expect( staticSiteImportReceiptError( undefined ) ).toBe( '' );
-	} );
-
-	it( 'reports failed quality validation and accepts a passing import', () => {
-		expect(
-			staticSiteImportQualityFailure( {
-				response: {
-					result: {
-						import_validation_result: {
-							status: 'failed',
-							failure_reasons: [ 'raw_html' ],
-							raw_html_count: 2,
-						},
-					},
-				},
-			} )
-		).toBe( 'SSI reported 2 raw_html failures. Review the importer diagnostics and retry.' );
-		expect(
-			staticSiteImportQualityFailure( {
-				response: { import_report_summary: { quality_pass: false, fallback_count: 3 } },
-			} )
-		).toBe( 'SSI reported 3 fallback blocks. Review the importer diagnostics and retry.' );
-		expect(
-			staticSiteImportQualityFailure( {
-				response: { result: { import_validation_result: { status: 'passed' } } },
-			} )
-		).toBeUndefined();
 	} );
 } );

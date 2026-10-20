@@ -136,7 +136,7 @@ export async function prepareSourceImport(
 		}
 		logger.reportSuccess( __( 'Source website prepared' ) );
 	}
-	const importSource = liberated?.websiteDir ?? source;
+	const importSource = sourceUrl ? captureRootFor( sourceUrl, captureDir ) : source;
 	const resolvedSiteName = siteName ?? capturedSourceTitle( importSource ) ?? __( 'Imported Site' );
 	const blueprint = buildCreateFromSourceBlueprint(
 		importSource,

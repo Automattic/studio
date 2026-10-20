@@ -83,7 +83,7 @@ describe( 'prepareSourceImport', () => {
 		const plugin = 'https://example.com/ssi.zip';
 		try {
 			const inferred = await prepareSourceImport(
-				website,
+				root,
 				path.join( root, 'site' ),
 				undefined,
 				new Logger(),
@@ -93,7 +93,7 @@ describe( 'prepareSourceImport', () => {
 			expect( inferred.siteName ).toBe( 'Example Brand' );
 			expect( request ).toMatchObject( { name: 'Example Brand', site_title: 'Example Brand' } );
 			const explicit = await prepareSourceImport(
-				website,
+				root,
 				path.join( root, 'site' ),
 				'Custom Name',
 				new Logger(),
@@ -105,7 +105,7 @@ describe( 'prepareSourceImport', () => {
 			);
 			await fs.promises.writeFile( path.join( root, 'capture-receipt.json' ), '{malformed' );
 			const fallback = await prepareSourceImport(
-				website,
+				root,
 				path.join( root, 'site' ),
 				undefined,
 				new Logger(),

@@ -1,11 +1,15 @@
 import fs from 'fs';
 import path from 'path';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
-import { __, _n, sprintf } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
 import { SiteData } from 'cli/lib/cli-config/core';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import { runWpCliCommand, type RunWpCliCommandOptions } from 'cli/lib/run-wp-cli-command';
-import { SSI_PLUGIN_SLUG, type StaticSiteImportPlan } from 'cli/lib/static-site-import/source';
+import {
+	SSI_PLUGIN_SLUG,
+	isDataLiberationCaptureRoot,
+	type StaticSiteImportPlan,
+} from 'cli/lib/static-site-import/source';
 import { Logger, LoggerError } from 'cli/logger';
 
 export const STATIC_SITE_IMPORT_PROGRESS_INTERVAL_MS = 30_000;
@@ -85,88 +89,32 @@ export function staticSiteImportReceiptError(
 	return detail;
 }
 
-function staticSiteImportResult(
-	receipt: Record< string, unknown > | undefined
-): Record< string, unknown > | undefined {
-	const response = receipt?.response;
-	if ( ! response || typeof response !== 'object' || Array.isArray( response ) ) {
-		return undefined;
-	}
-	const result = ( response as Record< string, unknown > ).result;
-	if ( result && typeof result === 'object' && ! Array.isArray( result ) ) {
-		return result as Record< string, unknown >;
-	}
-	return response as Record< string, unknown >;
-}
-
-export function staticSiteImportQualityFailure(
-	receipt: Record< string, unknown > | undefined
-): string | undefined {
-	const importResult = staticSiteImportResult( receipt );
-	if ( ! importResult ) {
-		return undefined;
-	}
-	const validation = importResult.import_validation_result;
-	const summary = importResult.import_report_summary;
-	const quality =
-		validation && typeof validation === 'object' && ! Array.isArray( validation )
-			? validation
-			: summary && typeof summary === 'object' && ! Array.isArray( summary )
-			? summary
-			: undefined;
-	if ( ! quality ) {
-		return undefined;
-	}
-	const counts = ( quality as Record< string, unknown > ).counts;
-	const {
-		status,
-		quality_pass: qualityPass,
-		fail_import: failImport,
-		fallback_count: fallbackCount,
-		failure_reasons: failureReasons,
-	} = quality as Record< string, unknown >;
-	if ( status !== 'failed' && qualityPass !== false && failImport !== true ) {
-		return undefined;
-	}
-	const failures = Array.isArray( failureReasons )
-		? failureReasons.filter(
-				( reason ): reason is string => typeof reason === 'string' && Boolean( reason )
-		  )
-		: [];
-	const fallbackBlocks =
-		counts && typeof counts === 'object' && ! Array.isArray( counts )
-			? ( counts as Record< string, unknown > ).fallback_blocks
-			: fallbackCount;
-	const detail = failures.length
-		? failures
-				.map( ( reason ) => {
-					const count = ( quality as Record< string, unknown > )[ `${ reason }_count` ];
-					return typeof count === 'number'
-						? sprintf(
-								/* translators: 1: number of failures, 2: Static Site Importer failure reason */
-								_n( 'SSI reported %1$d %2$s failure.', 'SSI reported %1$d %2$s failures.', count ),
-								count,
-								reason
-						  )
-						: sprintf(
-								/* translators: %s: Static Site Importer failure reason */
-								__( 'SSI reported a %s failure.' ),
-								reason
-						  );
-				} )
-				.join( ' ' )
-		: typeof fallbackBlocks === 'number'
-		? sprintf(
-				/* translators: %d: number of fallback blocks */
-				__( 'SSI reported %d fallback blocks.' ),
-				fallbackBlocks
-		  )
-		: __( 'SSI rejected the imported content.' );
-	return sprintf(
-		/* translators: %s: Static Site Importer validation detail */
-		__( '%s Review the importer diagnostics and retry.' ),
-		detail
-	);
+// A capture root stages only what SSI reads from it: the receipt, the website root and the
+// reports the receipt declares, leaving evidence trees such as `resources/` behind.
+function captureStagingFilter( captureRoot: string ): ( source: string ) => boolean {
+	const receipt = JSON.parse(
+		fs.readFileSync( path.join( captureRoot, 'capture-receipt.json' ), 'utf-8' )
+	) as { websiteRoot?: unknown; reports?: unknown };
+	const kept = [
+		'capture-receipt.json',
+		receipt.websiteRoot,
+		...( Array.isArray( receipt.reports ) ? receipt.reports : [] ),
+	]
+		.filter( ( entry ): entry is string => typeof entry === 'string' && Boolean( entry.trim() ) )
+		.map( ( entry ) => path.normalize( entry ) )
+		.filter( ( entry ) => entry !== '..' && ! entry.startsWith( `..${ path.sep }` ) );
+	return ( source ) => {
+		const relative = path.relative( captureRoot, source );
+		return (
+			! relative ||
+			kept.some(
+				( entry ) =>
+					relative === entry ||
+					relative.startsWith( `${ entry }${ path.sep }` ) ||
+					entry.startsWith( `${ relative }${ path.sep }` )
+			)
+		);
+	};
 }
 
 function staticSiteImportProgressMessage( phase: 'import' | 'finalization', elapsedMs: number ) {
@@ -285,7 +233,7 @@ export class StaticSiteImportRun {
 	async run( site: SiteData, resume = false ): Promise< void > {
 		this.outcome = 'attempted';
 		const { logger } = this;
-		const { request, sourcePath, reportFiles = [] } = this.plan;
+		const { request, sourcePath } = this.plan;
 		const requestPath = staticSiteImportRequestPath( site.path );
 		// A resumed run already verified its staged request in `canResumeOn`.
 		if ( ! resume ) {
@@ -296,10 +244,10 @@ export class StaticSiteImportRun {
 					recursive: true,
 					errorOnExist: true,
 					force: false,
+					...( isDataLiberationCaptureRoot( sourcePath )
+						? { filter: captureStagingFilter( sourcePath ) }
+						: {} ),
 				} );
-				for ( const { name, from } of reportFiles ) {
-					await fs.promises.copyFile( from, path.join( stagedSource, name ) );
-				}
 			}
 			fs.writeFileSync( requestPath, request );
 		}
@@ -338,14 +286,6 @@ export class StaticSiteImportRun {
 				new Error( receiptError || stdout.trim() || __( 'The importer did not return a receipt.' ) )
 			);
 		}
-		const qualityFailure = staticSiteImportQualityFailure( receipt );
-		if ( qualityFailure ) {
-			throw new LoggerError(
-				__( 'Static site import failed quality validation' ),
-				new Error( qualityFailure )
-			);
-		}
-
 		const finalizationStartedAt = Date.now();
 		logger.reportProgress( staticSiteImportProgressMessage( 'finalization', 0 ) );
 		const cleanupSucceeded = await cleanupStaticSiteImporterPlugin( site, logger );

@@ -90,17 +90,17 @@ describe( 'static site import sources', () => {
 		).toBe( 'classic' );
 	} );
 
-	it( 'stages only the website root from a Data Liberation capture directory', () => {
+	it( 'stages a Data Liberation capture directory for SSI to resolve', () => {
 		const captureDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-capture-test-' ) );
-		const websiteDir = fs.mkdtempSync( path.join( captureDir, 'website-' ) );
-		fs.writeFileSync( path.join( websiteDir, 'index.html' ), '<main>Captured site</main>' );
+		fs.mkdirSync( path.join( captureDir, 'website' ) );
+		fs.writeFileSync( path.join( captureDir, 'website', 'index.html' ), '<main>Captured</main>' );
 		fs.writeFileSync( path.join( captureDir, 'diagnostics.json' ), '{"failures":[]}' );
-		fs.writeFileSync( path.join( captureDir, 'scroll-states.json' ), '{"pages":[]}' );
 		fs.writeFileSync(
 			path.join( captureDir, 'capture-receipt.json' ),
 			JSON.stringify( {
 				schema: 'blocks-engine-capture/capture-receipt/v1',
-				websiteRoot: path.basename( websiteDir ),
+				websiteRoot: 'website',
+				reports: [ 'diagnostics.json' ],
 			} )
 		);
 
@@ -111,153 +111,9 @@ describe( 'static site import sources', () => {
 		);
 		const request = JSON.parse( blueprint.staticSiteImport.request );
 
-		expect( request.source ).toEqual( {
-			type: 'files',
-			ref: 'request-bundle:source',
-			metadata: {
-				reports: [ 'capture-receipt.json', 'diagnostics.json', 'scroll-states.json' ],
-			},
-		} );
-		expect( blueprint.staticSiteImport.sourcePath ).toBe( websiteDir );
-		expect( blueprint.staticSiteImport.reportFiles ).toEqual( [
-			{
-				name: 'capture-receipt.json',
-				from: path.join( captureDir, 'capture-receipt.json' ),
-			},
-			{
-				name: 'diagnostics.json',
-				from: path.join( captureDir, 'diagnostics.json' ),
-			},
-			{
-				name: 'scroll-states.json',
-				from: path.join( captureDir, 'scroll-states.json' ),
-			},
-		] );
-		expect( blueprint.staticSiteImport.request.length ).toBeLessThan( 4096 );
-	} );
-
-	it( 'forwards capture-root sidecars when the importer source is the website directory', () => {
-		const captureDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-website-source-' ) );
-		const websiteDir = fs.mkdtempSync( path.join( captureDir, 'website-' ) );
-		fs.writeFileSync( path.join( websiteDir, 'index.html' ), '<main>Home</main>' );
-		fs.writeFileSync( path.join( websiteDir, 'contact.html' ), '<main>Contact</main>' );
-		fs.writeFileSync( path.join( captureDir, 'interaction-states.json' ), '{"pages":[]}' );
-		fs.writeFileSync( path.join( captureDir, 'typography.json' ), '{"fonts":[]}' );
-		fs.writeFileSync( path.join( captureDir, 'computed-styles.json' ), '{"pages":[]}' );
-		for ( const excluded of [ 'screenshots', 'media', 'resources', 'layout-geometry' ] ) {
-			const excludedDir = fs.mkdtempSync( path.join( captureDir, `${ excluded }-` ) );
-			fs.writeFileSync( path.join( excludedDir, 'blob.bin' ), 'large' );
-		}
-		fs.writeFileSync(
-			path.join( captureDir, 'capture-receipt.json' ),
-			JSON.stringify( {
-				schema: 'blocks-engine-capture/capture-receipt/v1',
-				websiteRoot: path.basename( websiteDir ),
-				entrypoint: `${ path.basename( websiteDir ) }/index.html`,
-			} )
-		);
-
-		const blueprint = buildCreateFromSourceBlueprint(
-			websiteDir,
-			'Liberated Site',
-			'https://example.com/static-site-importer.zip'
-		);
-		const request = JSON.parse( blueprint.staticSiteImport.request );
-		const reportNames = ( blueprint.staticSiteImport.reportFiles ?? [] ).map(
-			( file ) => file.name
-		);
-
-		expect( blueprint.staticSiteImport.sourcePath ).toBe( websiteDir );
-		expect( request.source ).toEqual( {
-			type: 'files',
-			ref: 'request-bundle:source',
-			metadata: {
-				reports: [
-					'capture-receipt.json',
-					'computed-styles.json',
-					'interaction-states.json',
-					'typography.json',
-				],
-			},
-		} );
-		expect( blueprint.staticSiteImport.reportFiles ).toEqual( [
-			{
-				name: 'capture-receipt.json',
-				from: path.join( captureDir, 'capture-receipt.json' ),
-			},
-			{
-				name: 'computed-styles.json',
-				from: path.join( captureDir, 'computed-styles.json' ),
-			},
-			{
-				name: 'interaction-states.json',
-				from: path.join( captureDir, 'interaction-states.json' ),
-			},
-			{
-				name: 'typography.json',
-				from: path.join( captureDir, 'typography.json' ),
-			},
-		] );
-		for ( const excluded of [ 'screenshots', 'media', 'resources', 'layout-geometry' ] ) {
-			expect( reportNames ).not.toContain( excluded );
-		}
-		expect( request.source ).not.toHaveProperty( 'files' );
-		expect( request.source ).not.toHaveProperty( 'entrypoint' );
-	} );
-
-	it( 'resolves the Data Liberation capture directory from a website/ import source', () => {
-		const captureDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-capture-source-' ) );
-		const websiteDir = path.join( captureDir, 'website' );
-		fs.mkdirSync( websiteDir );
-		fs.writeFileSync( path.join( websiteDir, 'index.html' ), '<main>Home</main>' );
-		fs.writeFileSync(
-			path.join( captureDir, 'capture-receipt.json' ),
-			JSON.stringify( {
-				schema: 'blocks-engine-capture/capture-receipt/v1',
-				websiteRoot: 'website',
-			} )
-		);
-
-		const blueprint = buildCreateFromSourceBlueprint(
-			websiteDir,
-			'Liberated Site',
-			'https://example.com/static-site-importer.zip'
-		);
-
-		// Import reports stay in the importer's run storage and the receipt,
-		// never inside the generated theme a user keeps and ships.
-		expect( JSON.parse( blueprint.staticSiteImport.request ) ).not.toHaveProperty(
-			'write_theme_report_artifacts'
-		);
-	} );
-
-	it( 'imports a capture that has no sidecars', () => {
-		const captureDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-no-sidecars-' ) );
-		const websiteDir = fs.mkdtempSync( path.join( captureDir, 'website-' ) );
-		fs.writeFileSync( path.join( websiteDir, 'index.html' ), '<main>Home</main>' );
-		fs.writeFileSync(
-			path.join( captureDir, 'capture-receipt.json' ),
-			JSON.stringify( {
-				schema: 'blocks-engine-capture/capture-receipt/v1',
-				websiteRoot: path.basename( websiteDir ),
-			} )
-		);
-
-		const blueprint = buildCreateFromSourceBlueprint(
-			websiteDir,
-			'Liberated Site',
-			'https://example.com/static-site-importer.zip'
-		);
-		const request = JSON.parse( blueprint.staticSiteImport.request );
-
-		expect( blueprint.staticSiteImport.sourcePath ).toBe( websiteDir );
-		expect( request.source ).toEqual( {
-			type: 'files',
-			ref: 'request-bundle:source',
-			metadata: {
-				reports: [ 'capture-receipt.json' ],
-			},
-		} );
+		expect( blueprint.staticSiteImport.sourcePath ).toBe( captureDir );
+		expect( request.source ).toEqual( { type: 'files', ref: 'request-bundle:source' } );
+		expect( request ).not.toHaveProperty( 'write_theme_report_artifacts' );
 	} );
 
 	it( 'imports a plain HTML directory that has no capture sidecars', () => {
@@ -272,7 +128,6 @@ describe( 'static site import sources', () => {
 		const request = JSON.parse( blueprint.staticSiteImport.request );
 
 		expect( blueprint.staticSiteImport.sourcePath ).toBe( sourceDir );
-		expect( blueprint.staticSiteImport.reportFiles ).toEqual( [] );
 		expect( request.source ).toEqual( {
 			type: 'files',
 			ref: 'request-bundle:source',
@@ -312,7 +167,8 @@ describe( 'static site import sources', () => {
 
 		expect( sourceSiteName( artifactPath ) ).toBe( 'Titled Artifact' );
 		expect( sourceSiteName( artifactPath, 'Custom' ) ).toBe( 'Custom' );
-		expect( sourceSiteName( websiteDir ) ).toBe( 'Captured Title' );
+		expect( sourceSiteName( captureDir ) ).toBe( 'Captured Title' );
+		expect( sourceSiteName( websiteDir ) ).toBeUndefined();
 		expect( sourceSiteName( 'https://example.com/' ) ).toBeUndefined();
 		expect( sourceSiteName( 'https://example.com/', 'Named' ) ).toBe( 'Named' );
 	} );

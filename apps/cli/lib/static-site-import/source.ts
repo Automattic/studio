@@ -14,35 +14,10 @@ import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 // from the importer's `npm run build:dev-package` to `--static-site-importer-path`.
 export const SSI_PLUGIN_SLUG = 'static-site-importer';
 const DATA_LIBERATION_CAPTURE_RECEIPT_SCHEMA = 'blocks-engine-capture/capture-receipt/v1';
-// JSON compiler-evidence sidecars written next to `website/`. Copied into the
-// staged importer source and named in `metadata.reports` so SSI keeps them at
-// the artifact root instead of prefixing `website/`. Large capture directories
-// (`screenshots/`, `media/`, `resources/`, `layout-geometry/`) and `sections/`
-// (forwarded separately) are excluded.
-const ARTIFACT_ROOT_REPORT_FILES = [
-	'capture-receipt.json',
-	'asset-evidence.json',
-	'breakpoints.json',
-	'cleanup-evidence.json',
-	'computed-styles.json',
-	'css-variables.json',
-	'diagnostics.json',
-	'interaction-states.json',
-	'layout-geometry-proof.json',
-	'layout-geometry-report.json',
-	'palette.json',
-	'scroll-states.json',
-	'source-profile.json',
-	'typography.json',
-] as const;
-
-type ReportFile = { name: string; from: string };
-
 type StaticSiteImporterSource = {
 	path: string;
 	payload: Record< string, unknown >;
 	stagedSourcePath?: string;
-	stagedReportFiles?: ReportFile[];
 };
 
 export type StaticSiteImporterPlugin = string | { path: string };
@@ -52,7 +27,6 @@ export type StaticSiteImportPlan = {
 	request: string;
 	bundlePath?: string;
 	sourcePath?: string;
-	reportFiles?: ReportFile[];
 };
 
 export type StaticSiteImportBlueprint = {
@@ -91,39 +65,7 @@ function sourceFilePayload( filePath: string, relativePath: string ): Record< st
 	};
 }
 
-function resolveDataLiberationWebsiteRoot( sourceDir: string ): string {
-	const receiptPath = path.join( sourceDir, 'capture-receipt.json' );
-	if ( ! fs.existsSync( receiptPath ) ) {
-		return sourceDir;
-	}
-
-	const receipt = readSiteArtifact( receiptPath );
-	if ( receipt.schema !== DATA_LIBERATION_CAPTURE_RECEIPT_SCHEMA ) {
-		return sourceDir;
-	}
-
-	if ( typeof receipt.websiteRoot !== 'string' || ! receipt.websiteRoot.trim() ) {
-		throw new LoggerError( __( 'Data Liberation capture receipt must declare a website root.' ) );
-	}
-
-	const outputRoot = path.resolve( sourceDir );
-	const websiteRoot = path.resolve( sourceDir, receipt.websiteRoot );
-	const relativeRoot = path.relative( outputRoot, websiteRoot );
-	if ( relativeRoot === '..' || relativeRoot.startsWith( `..${ path.sep }` ) ) {
-		throw new LoggerError(
-			__( 'Data Liberation website root must stay inside the capture directory.' )
-		);
-	}
-	if ( ! fs.existsSync( websiteRoot ) || ! fs.statSync( websiteRoot ).isDirectory() ) {
-		throw new LoggerError(
-			sprintf( __( 'Data Liberation capture root not found: %s' ), websiteRoot )
-		);
-	}
-
-	return websiteRoot;
-}
-
-function isDataLiberationCaptureRoot( directory: string ): boolean {
+export function isDataLiberationCaptureRoot( directory: string ): boolean {
 	const receiptPath = path.join( directory, 'capture-receipt.json' );
 	if ( ! fs.existsSync( receiptPath ) || ! fs.statSync( receiptPath ).isFile() ) {
 		return false;
@@ -137,26 +79,6 @@ function isDataLiberationCaptureRoot( directory: string ): boolean {
 	} catch {
 		return false;
 	}
-}
-
-function collectArtifactRootReports( sourcePath: string, websiteRoot: string ): ReportFile[] {
-	// `--from <url>` stages `website/` (liberateWebsite's return value). Sidecars
-	// live on the capture root, one directory up.
-	for ( const candidateRoot of [ sourcePath, path.dirname( sourcePath ) ] ) {
-		if (
-			path.resolve( candidateRoot ) === path.resolve( websiteRoot ) ||
-			! isDataLiberationCaptureRoot( candidateRoot )
-		) {
-			continue;
-		}
-
-		return ARTIFACT_ROOT_REPORT_FILES.flatMap( ( name ) => {
-			const from = path.join( candidateRoot, name );
-			return fs.existsSync( from ) && fs.statSync( from ).isFile() ? [ { name, from } ] : [];
-		} );
-	}
-
-	return [];
 }
 
 function resolveStaticSiteImporterSource( sourcePath: string ): StaticSiteImporterSource {
@@ -180,16 +102,10 @@ function resolveStaticSiteImporterSource( sourcePath: string ): StaticSiteImport
 			}
 		}
 
-		const stagedSourcePath = resolveDataLiberationWebsiteRoot( sourcePath );
-		if ( fs.readdirSync( stagedSourcePath ).length === 0 ) {
+		if ( fs.readdirSync( sourcePath ).length === 0 ) {
 			throw new LoggerError( sprintf( __( 'Import source directory is empty: %s' ), sourcePath ) );
 		}
-		return {
-			path: sourcePath,
-			payload: {},
-			stagedSourcePath,
-			stagedReportFiles: collectArtifactRootReports( sourcePath, stagedSourcePath ),
-		};
+		return { path: sourcePath, payload: {}, stagedSourcePath: sourcePath };
 	}
 
 	if ( ! stat.isFile() ) {
@@ -240,12 +156,7 @@ function buildStaticSiteImporterRequest(
 	const artifact = payload.artifact;
 
 	if ( source.stagedSourcePath ) {
-		const reports = ( source.stagedReportFiles ?? [] ).map( ( file ) => file.name );
-		requestSource = {
-			type: 'files',
-			ref: 'request-bundle:source',
-			...( reports.length > 0 ? { metadata: { reports } } : {} ),
-		};
+		requestSource = { type: 'files', ref: 'request-bundle:source' };
 	} else if ( artifact && typeof artifact === 'object' && ! Array.isArray( artifact ) ) {
 		const {
 			schema: _schema,
@@ -316,11 +227,8 @@ export function artifactTitle( artifact: Record< string, unknown > ): string | u
 	return undefined;
 }
 
-export function capturedSourceTitle( websitePath: string ): string | undefined {
-	const captureRoot = [ websitePath, path.dirname( websitePath ) ].find(
-		isDataLiberationCaptureRoot
-	);
-	if ( ! captureRoot ) return undefined;
+export function capturedSourceTitle( captureRoot: string ): string | undefined {
+	if ( ! isDataLiberationCaptureRoot( captureRoot ) ) return undefined;
 	const title = readSiteArtifact( path.join( captureRoot, 'capture-receipt.json' ) ).title;
 	return typeof title === 'string' && title.trim() ? title.trim() : undefined;
 }
@@ -349,7 +257,6 @@ export function buildCreateFromSourceBlueprint(
 	return importerBlueprint( staticSiteImporterPlugin, {
 		request: `${ JSON.stringify( request, null, 2 ) }\n`,
 		sourcePath: source.stagedSourcePath,
-		reportFiles: source.stagedReportFiles,
 	} );
 }
 

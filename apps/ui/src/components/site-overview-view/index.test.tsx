@@ -197,7 +197,7 @@ describe( 'SiteOverviewView', () => {
 
 	const getFilePath = vi.fn().mockResolvedValue( '/tmp/backup.tar.gz' );
 
-	const connectorStub = ( openInOS = true ) => ( {
+	const connectorStub = () => ( {
 		openSiteUrl,
 		openSiteFolder,
 		openSiteInEditor,
@@ -207,7 +207,7 @@ describe( 'SiteOverviewView', () => {
 		copyText,
 		getFilePath,
 		importSiteFromBackup,
-		capabilities: { openInOS } as ConnectorCapabilities,
+		capabilities: { studioLogs: false } as ConnectorCapabilities,
 	} );
 
 	const preferencesStub = ( editor: SupportedEditor | null ) =>
@@ -830,14 +830,6 @@ describe( 'SiteOverviewView', () => {
 
 		expect( screen.queryByText( 'Visual Studio Code' ) ).not.toBeInTheDocument();
 		expect( screen.getByText( 'Finder' ) ).toBeVisible();
-	} );
-
-	it( 'drops the Open in… section on hosts that cannot open local apps', () => {
-		useConnectorMock.mockReturnValue( connectorStub( false ) );
-
-		renderView();
-
-		expect( screen.queryByRole( 'heading', { name: 'Open in…' } ) ).not.toBeInTheDocument();
 	} );
 
 	// Rendered without a SessionUIProvider, so the open-site-url hook takes

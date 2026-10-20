@@ -67,9 +67,7 @@ type ServerEvent =
  * connector, talking to the local server (`apps/local`, bundled into and
  * launched by the Studio CLI) over HTTP + SSE instead of IPC.
  *
- * Unlike the {@link createHostedConnector} (which targets a cloud backend and
- * WordPress.com sites), this connector points at the user's own machine: the
- * server delegates to the local Studio CLI, so the same business logic the
+ * The server delegates to the local Studio CLI, so the same business logic the
  * desktop app runs is reachable here. The capabilities that depend on the local
  * machine (the real site list, start/stop, the agent) are implemented for real;
  * the rest grow in later increments (site create/export land in Phase 2).
@@ -207,11 +205,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		// preview is a cross-origin iframe, so the annotation inspector can't run.
 		capabilities: {
 			nativeFolderPicker: false,
-			openInOS: true,
 			annotatePreview: false,
-			readLocalMedia: true,
-			agentInstructions: true,
-			aiSettings: true,
 			studioLogs: false,
 		},
 

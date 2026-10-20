@@ -2,11 +2,11 @@
 
 ## About this doc
 
-This document maps the different Studio "surfaces" (desktop, CLI, local web, hosted, external agents), the architecture of each, and the shared layers that let them run the same product. It focuses on how the **agentic UI**, the **`@studio/common` backend**, and the **CLI execution engine** are reused across surfaces, and on the convergence between the local web server and the desktop app.
+This document maps the different Studio "surfaces" (desktop, CLI, local web, external agents), the architecture of each, and the shared layers that let them run the same product. It focuses on how the **agentic UI**, the **`@studio/common` backend**, and the **CLI execution engine** are reused across surfaces, and on the convergence between the local web server and the desktop app.
 
 ## Context
 
-Studio began as a single Electron desktop app. It has since grown a CLI, a cloud-hosted variant, and a local web server, all of which share large amounts of code. Rather than four independent apps, Studio is better understood as **one product rendered through several surfaces**, layered on a common, Electron-free core and a single execution engine (the CLI).
+Studio began as a single Electron desktop app. It has since grown a CLI, a local web server, and an MCP server for external agents, all of which share large amounts of code. Rather than four independent apps, Studio is better understood as **one product rendered through several surfaces**, layered on a common, Electron-free core and a single execution engine (the CLI).
 
 This doc is the map of that structure. It does not replace the per-feature docs ([cli.md](./cli.md), [sync.md](./sync.md), [custom-domains-and-ssl.md](./custom-domains-and-ssl.md)); it explains how the pieces fit together.
 
@@ -17,10 +17,9 @@ This doc is the map of that structure. It does not replace the per-feature docs 
 | **Desktop** | `apps/studio` | Electron (main/preload/renderer) | `apps/ui` | `@studio/common` in-process + forks the CLI | End users on macOS/Windows/Linux |
 | **CLI** | `apps/cli` | Node (via Electron's `ELECTRON_RUN_AS_NODE`, or standalone npm) | none (terminal) | Native PHP site servers | Power users, scripts, and the other surfaces |
 | **Local web** (`studio ui`) | `apps/local` + `apps/ui` | Node (Express + SSE), bundled into the CLI | `apps/ui` (`dist-local`) in the browser | `@studio/common` in-process + forks the CLI | Users who want the agentic UI in a browser, on their own machine |
-| **Hosted** | `apps/hosted` + `apps/ui` | Node server in the cloud | `apps/ui` (`dist-hosted`) in the browser | Cloud backend (WordPress.com / Telex sandbox agent) | Cloud product; no local machine |
 | **External agents** (`studio mcp`) | `apps/cli` + `apps/mcp-ui` | The CLI, started by an agent app over stdio | The agent app's chat, plus MCP Apps pages (`apps/mcp-ui`, the design picker) | The CLI in-process | Users of Codex, ChatGPT, Claude and other agents |
 
-Two of these surfaces run **on the user's machine and own real local WordPress sites** (desktop and local web). One is a pure **execution engine** that the others delegate to (CLI). One targets a **remote backend** with a deliberately reduced scope (hosted). The last runs on the user's machine too, but **inside someone else's agent app**: Studio provides tools and pages, not the app (external agents).
+Two of these surfaces run **on the user's machine and own real local WordPress sites** (desktop and local web). One is a pure **execution engine** that the others delegate to (CLI). The last runs on the user's machine too, but **inside someone else's agent app**: Studio provides tools and pages, not the app (external agents).
 
 ## The layers
 
@@ -28,12 +27,12 @@ Two of these surfaces run **on the user's machine and own real local WordPress s
    ┌─────────────────────────────────────────────────────────────┐
    │                         apps/ui                              │   Shared agentic UI
    │     React app + Connector abstraction + capabilities         │   (one codebase)
-   └───────────────┬───────────────┬───────────────┬─────────────┘
-        ipc        │     local     │    hosted     │   ← 3 connectors (transport)
-   ┌───────────────┴──┐ ┌──────────┴─────┐ ┌───────┴──────────┐
-   │   apps/studio    │ │   apps/local   │ │   apps/hosted    │   Per-surface shells
-   │  (Electron/IPC)  │ │ (Express/SSE)  │ │  (cloud server)  │
-   └───────────────┬──┘ └──────────┬─────┘ └──────────────────┘
+   └───────────────┬───────────────┬─────────────────────────────┘
+        ipc        │     local     │   ← 2 connectors (transport)
+   ┌───────────────┴──┐ ┌──────────┴─────┐
+   │   apps/studio    │ │   apps/local   │   Per-surface shells
+   │  (Electron/IPC)  │ │ (Express/SSE)  │
+   └───────────────┬──┘ └──────────┬─────┘
                    │               │
    ┌───────────────┴───────────────┴─────────────────────────────┐
    │                  @studio/common (packages/common)            │   Shared, Electron-free
@@ -50,12 +49,12 @@ Reading the stack bottom-up:
 
 1. **`apps/cli` — the execution engine.** Everything that actually boots WordPress (native PHP), creates/starts/stops sites, imports/exports, and runs the agent lives here. It is invoked directly as the `studio` command, and it is also the thing every machine-local surface delegates to.
 2. **`@studio/common` (`packages/common`) — shared business logic.** Transport-agnostic, Electron-free TypeScript: session management, site operations, snapshots, sync, the REST proxy, app detection, OAuth URL building, etc. It is the layer that makes the desktop and the local web server run *the same code*.
-3. **Per-surface shells.** Thin adapters that expose `@studio/common` over a transport: `apps/studio` over Electron IPC, `apps/local` over HTTP/SSE, `apps/hosted` over its cloud API.
+3. **Per-surface shells.** Thin adapters that expose `@studio/common` over a transport: `apps/studio` over Electron IPC, and `apps/local` over HTTP/SSE.
 4. **`apps/ui` — the shared agentic UI.** One React application that talks to whichever shell it's running against through a single **Connector** seam.
 
 ## The shared UI layer (`apps/ui`)
 
-`apps/ui` is a single React app (React 19, TanStack Query/Router, `@wordpress/ui` + `@wordpress/dataviews`, themed via `@wordpress/theme`'s `ThemeProvider`). It is rendered by **three** surfaces — desktop, local, hosted — without forking.
+`apps/ui` is a single React app (React 19, TanStack Query/Router, `@wordpress/ui` + `@wordpress/dataviews`, themed via `@wordpress/theme`'s `ThemeProvider`). It is rendered by **two** surfaces — desktop and local — without forking.
 
 It reaches its backend exclusively through the **`Connector`** interface (`apps/ui/src/data/core/types.ts`). The UI never imports IPC, `fetch`, or SSE directly; it calls `connector.getSites()`, `connector.createSite()`, `connector.authenticate()`, etc. Each surface provides one implementation:
 
@@ -63,9 +62,8 @@ It reaches its backend exclusively through the **`Connector`** interface (`apps/
 | --- | --- | --- | --- |
 | `ipc` | `connectors/ipc/` | `window.ipcApi.*` / `ipcListener` (Electron contextBridge) | Desktop |
 | `local` | `connectors/local/` | HTTP + SSE to the local server | `studio ui` |
-| `hosted` | `connectors/hosted/` | Cloud API | Hosted |
 
-Each connector maps the interface onto its own backend; the few helpers they share sit next to them in `connectors/`. Duplication between `local` and `hosted` is accepted so that machine-local features can grow in `local` without risk to the cloud product.
+Each connector maps the interface onto its own backend; browser-only helpers sit next to them in `connectors/`.
 
 ### Capabilities
 
@@ -77,7 +75,6 @@ Where surfaces genuinely differ, the UI branches on the connector's `capabilitie
 
 - none → `index.html` / `main.tsx` (the `ipc` connector), built into the desktop app by `scripts/build-ui-renderer.ts`
 - `local` → `index.local.html` / `main.local.tsx` → `dist-local`
-- `hosted` → `index.hosted.html` / `main.hosted.tsx` → `dist-hosted`
 
 ## Surface architectures
 
@@ -92,10 +89,6 @@ The `studio` command (see [cli.md](./cli.md)). A Node app bundled with Vite, run
 ### Local web — `studio ui` (`apps/local` + `apps/ui`)
 
 `apps/local` (`@studio/local`) is an Express + SSE server that is the **browser analog of the desktop app**. It is bundled *into* the CLI at build time (a Vite alias folds its source into the CLI bundle; the built `dist-local` UI is copied next to it) and launched by `studio ui`. It serves `apps/ui` and exposes the same operations the desktop exposes over IPC, but over HTTP routes and an SSE event stream. Every real site/agent operation is delegated to the CLI by forking the same binary — *exactly* the way the desktop forks it. The dependency direction is **CLI → local server**, never the reverse.
-
-### Hosted (`apps/hosted` + `apps/ui`)
-
-A cloud product (see the package for specifics). It targets WordPress.com / a server-side sandbox agent, deliberately has **no `apps/cli` dependency**, and has a reduced scope (no local sites, no OS integration). It reuses `apps/ui` through the `hosted` connector. It is intentionally *not* the model for the local server — `apps/local` mirrors the **desktop**, not hosted.
 
 ### External agents — `studio mcp` (`apps/cli` + `apps/mcp-ui`)
 
@@ -154,7 +147,7 @@ All surfaces read the same WordPress.com token from `~/.studio/shared.json`, so 
 
 ## Build & distribution
 
-- **`apps/ui`** builds twice (`STUDIO_TARGET=local|hosted`) into `dist-local` / `dist-hosted`; the desktop bundles it with the `ipc` connector.
+- **`apps/ui`** builds into `dist-local` for `studio ui` (`STUDIO_TARGET=local`); the desktop bundles it with the `ipc` connector.
 - **`apps/local`** has no build of its own — the CLI's Vite build folds its source in (via an alias) and copies `dist-local` next to the CLI bundle, so `studio ui` is self-contained.
 - **`apps/mcp-ui`** builds into one HTML document, which the CLI's Vite build copies next to the CLI bundle as for `apps/ui`: release builds build it first, and `npm run cli:build:mcp-ui` does for development builds.
 - **`apps/cli`** is bundled with Vite and shipped inside the desktop app (and standalone to npm). See [cli.md](./cli.md) for installation details.
@@ -162,13 +155,13 @@ All surfaces read the same WordPress.com token from `~/.studio/shared.json`, so 
 
 ## Summary
 
-| Concern | Desktop | CLI | Local web | Hosted | External agents |
-| --- | --- | --- | --- | --- | --- |
-| UI | `apps/ui` (ipc) | none | `apps/ui` (local) | `apps/ui` (hosted) | the agent app + `apps/mcp-ui` pages |
-| Business logic | `@studio/common` | `@studio/common` | `@studio/common` | cloud backend | `@studio/common` |
-| Site execution | forks CLI | **is** the engine | forks CLI | cloud sandbox | **is** the engine |
-| Transport | IPC | process I/O | HTTP/SSE | cloud API | MCP over stdio |
-| Local sites | yes | yes | yes | no | yes |
-| OS integration | full (Electron) | n/a | server-side adapters | none | n/a |
+| Concern | Desktop | CLI | Local web | External agents |
+| --- | --- | --- | --- | --- |
+| UI | `apps/ui` (ipc) | none | `apps/ui` (local) | the agent app + `apps/mcp-ui` pages |
+| Business logic | `@studio/common` | `@studio/common` | `@studio/common` | `@studio/common` |
+| Site execution | forks CLI | **is** the engine | forks CLI | **is** the engine |
+| Transport | IPC | process I/O | HTTP/SSE | MCP over stdio |
+| Local sites | yes | yes | yes | yes |
+| OS integration | full (Electron) | n/a | server-side adapters | n/a |
 
 The shape to keep in mind: **one UI, one shared backend, one execution engine — wrapped by thin, surface-specific transports.** New machine-local features should land in `@studio/common` (shared) and the CLI (execution), with each surface contributing only its transport adapter and its genuinely runtime-specific bits.

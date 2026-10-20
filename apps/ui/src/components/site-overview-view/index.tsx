@@ -424,9 +424,7 @@ function SiteOverviewBody( {
 										/>
 									</ButtonSection>
 
-									{ connector.capabilities.openInOS && (
-										<OpenInSection site={ site } busy={ busy } />
-									) }
+									<OpenInSection site={ site } busy={ busy } />
 
 									<ButtonSection title={ __( 'Manage' ) } transitionName="studio-theme-manage">
 										{ managementActions.map( ( action ) => (

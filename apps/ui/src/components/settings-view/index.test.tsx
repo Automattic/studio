@@ -159,7 +159,7 @@ describe( 'SettingsView', () => {
 
 		useConnectorMock.mockReturnValue( {
 			selectDefaultSiteDirectory,
-			capabilities: { agentInstructions: false, nativeFolderPicker: true },
+			capabilities: { nativeFolderPicker: true },
 		} as never );
 		useInstalledAppsMock.mockReturnValue( {
 			data: { vscode: true, terminal: true, iterm: true },
@@ -229,18 +229,6 @@ describe( 'SettingsView', () => {
 	} );
 
 	it( 'renders the AI tab with its panel', () => {
-		render( <SettingsView activeTab="ai" onTabChange={ vi.fn() } /> );
-
-		expect( screen.getByRole( 'button', { name: 'AI' } ) ).toBeInTheDocument();
-		expect( screen.getByTestId( 'ai-panel' ) ).toBeInTheDocument();
-	} );
-
-	it( 'offers the AI tab on every host, since chat can be toggled anywhere', () => {
-		useConnectorMock.mockReturnValue( {
-			selectDefaultSiteDirectory,
-			capabilities: { agentInstructions: false },
-		} as never );
-
 		render( <SettingsView activeTab="ai" onTabChange={ vi.fn() } /> );
 
 		expect( screen.getByRole( 'button', { name: 'AI' } ) ).toBeInTheDocument();

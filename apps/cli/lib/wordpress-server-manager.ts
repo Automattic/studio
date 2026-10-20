@@ -375,7 +375,7 @@ function buildChildExitedError( processName: string, stderrTail?: string ): Erro
  * buffered (filtered by processName) and replayed once `waitFor(pmId)` is called.
  * Must be disposed via `dispose()` when done.
  */
-async function subscribeForReadyOrExit( processName: string ): Promise< {
+export async function subscribeForReadyOrExit( processName: string ): Promise< {
 	waitFor: ( pmId: number ) => Promise< void >;
 	dispose: () => void;
 } > {
@@ -419,7 +419,11 @@ async function subscribeForReadyOrExit( processName: string ): Promise< {
 
 		return new Promise< void >( ( resolve, reject ) => {
 			timeoutId = setTimeout( () => {
-				reject( new Error( 'Timeout waiting for ready message from server child process' ) );
+				reject(
+					new Error(
+						`Timeout waiting for ready message from server child process "${ processName }"`
+					)
+				);
 			}, SITE_SERVER_INACTIVITY_TIMEOUT );
 			abortListener = () => {
 				reject( new Error( 'Operation aborted' ) );

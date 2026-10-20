@@ -1,4 +1,5 @@
 import http from 'http';
+import { PROXY_PROCESS_NAME } from '@studio/common/constants';
 import { watch as watchPaths, FSWatcher } from 'chokidar';
 
 const WATCH_POLL_INTERVAL_MS = 2000;
@@ -27,7 +28,9 @@ export function isPhpUserError( error: unknown ): boolean {
 	const message = error.message;
 
 	const isInfrastructureError =
-		message.includes( 'EADDRINUSE' ) || message.includes( 'Operation aborted' );
+		message.includes( 'EADDRINUSE' ) ||
+		message.includes( 'Operation aborted' ) ||
+		message.includes( PROXY_PROCESS_NAME );
 
 	return ! isInfrastructureError;
 }

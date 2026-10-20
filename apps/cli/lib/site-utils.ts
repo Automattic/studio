@@ -1,3 +1,5 @@
+import { PROXY_PROCESS_NAME } from '@studio/common/constants';
+import { getProxyPortConflictMessage } from '@studio/common/lib/domains';
 import { decodePassword } from '@studio/common/lib/passwords';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __ } from '@wordpress/i18n';
@@ -12,21 +14,37 @@ import {
 	stopProxyProcess,
 } from 'cli/lib/daemon-client';
 import { addDomainToHosts } from 'cli/lib/hosts-file';
-import { isServerRunning, SITE_PROCESS_PREFIX } from 'cli/lib/wordpress-server-manager';
+import {
+	isServerRunning,
+	SITE_PROCESS_PREFIX,
+	subscribeForReadyOrExit,
+} from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
 
 /**
  * Starts the HTTP proxy server if it's not already running
  */
 export async function startProxyIfNeeded( logger: Logger< LoggerAction > ): Promise< void > {
-	const proxyProcess = await isProxyProcessRunning();
-	if ( ! proxyProcess ) {
-		logger.reportStart( LoggerAction.START_PROXY, __( 'Starting HTTP proxy server…' ) );
-		await startProxyProcess();
-		logger.reportSuccess( __( 'HTTP proxy server started' ) );
-	} else {
+	if ( await isProxyProcessRunning() ) {
 		logger.reportSuccess( __( 'HTTP proxy already running' ) );
+		return;
 	}
+
+	logger.reportStart( LoggerAction.START_PROXY, __( 'Starting HTTP proxy server…' ) );
+	const readyOrExit = await subscribeForReadyOrExit( PROXY_PROCESS_NAME );
+	try {
+		const { pmId } = await startProxyProcess();
+		await readyOrExit.waitFor( pmId );
+	} catch ( error ) {
+		const message = error instanceof Error ? error.message : String( error );
+		throw new LoggerError(
+			getProxyPortConflictMessage( message ) ?? __( 'Failed to start HTTP proxy server' ),
+			error
+		);
+	} finally {
+		readyOrExit.dispose();
+	}
+	logger.reportSuccess( __( 'HTTP proxy server started' ) );
 }
 
 /**

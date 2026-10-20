@@ -2,9 +2,13 @@ import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-a
 import { vi, type Mock } from 'vitest';
 import { openBrowser } from 'cli/lib/browser';
 import { SiteData, readCliConfig } from 'cli/lib/cli-config/core';
-import { isProxyProcessRunning, stopProxyProcess } from 'cli/lib/daemon-client';
-import { openSiteInBrowser, stopProxyIfNoSitesNeedIt } from 'cli/lib/site-utils';
-import { isServerRunning } from 'cli/lib/wordpress-server-manager';
+import { isProxyProcessRunning, startProxyProcess, stopProxyProcess } from 'cli/lib/daemon-client';
+import {
+	openSiteInBrowser,
+	startProxyIfNeeded,
+	stopProxyIfNoSitesNeedIt,
+} from 'cli/lib/site-utils';
+import { isServerRunning, subscribeForReadyOrExit } from 'cli/lib/wordpress-server-manager';
 import { Logger } from 'cli/logger';
 
 vi.mock( 'cli/lib/cli-config/core', async () => {
@@ -17,6 +21,43 @@ vi.mock( 'cli/lib/cli-config/core', async () => {
 vi.mock( 'cli/lib/browser' );
 vi.mock( 'cli/lib/daemon-client' );
 vi.mock( 'cli/lib/wordpress-server-manager' );
+
+describe( 'startProxyIfNeeded', () => {
+	const logger = {
+		reportStart: vi.fn(),
+		reportSuccess: vi.fn(),
+	} as unknown as Logger< LoggerAction >;
+	const waitFor = vi.fn();
+
+	beforeEach( () => {
+		vi.clearAllMocks();
+		( isProxyProcessRunning as Mock ).mockResolvedValue( undefined );
+		( startProxyProcess as Mock ).mockResolvedValue( { pmId: 7 } );
+		( subscribeForReadyOrExit as Mock ).mockResolvedValue( { waitFor, dispose: vi.fn() } );
+	} );
+
+	it( 'reports success only once the proxy is ready', async () => {
+		waitFor.mockResolvedValue( undefined );
+
+		await startProxyIfNeeded( logger );
+
+		expect( waitFor ).toHaveBeenCalledWith( 7 );
+		expect( logger.reportSuccess ).toHaveBeenCalledWith( 'HTTP proxy server started' );
+	} );
+
+	it( 'explains a port held by another app', async () => {
+		waitFor.mockRejectedValue(
+			new Error(
+				'Server child process "studio-proxy" exited before becoming ready.\nError: listen EADDRINUSE: address already in use :::80'
+			)
+		);
+
+		await expect( startProxyIfNeeded( logger ) ).rejects.toThrow(
+			/^Another app is using port 80, which Studio needs for custom domains/
+		);
+		expect( logger.reportSuccess ).not.toHaveBeenCalled();
+	} );
+} );
 
 describe( 'stopProxyIfNoSitesNeedIt', () => {
 	const mockProcessDescription = {

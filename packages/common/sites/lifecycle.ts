@@ -1,4 +1,5 @@
 import { __ } from '@wordpress/i18n';
+import { getProxyPortConflictMessage } from '@studio/common/lib/domains';
 import { checkMaintenanceFile } from '@studio/common/lib/maintenance-file';
 import type { ExecuteCliCommand } from '@studio/common/lib/cli-process';
 
@@ -48,6 +49,10 @@ export async function startSite( execute: ExecuteCliCommand, sitePath: string ):
 					'The maximum number of running sites has been reached. Stop some running sites before starting new ones.'
 				)
 			);
+		}
+		const proxyPortConflict = lastErrorMessage && getProxyPortConflictMessage( lastErrorMessage );
+		if ( proxyPortConflict ) {
+			throw new SiteStartRefusedError( proxyPortConflict );
 		}
 		throw lastErrorMessage ? new Error( lastErrorMessage ) : error;
 	}

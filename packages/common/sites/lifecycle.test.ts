@@ -34,6 +34,18 @@ describe( 'startSite', () => {
 		await expect( start ).rejects.toThrow( 'The maximum number of running sites has been reached' );
 	} );
 
+	it( 'explains a custom domain port held by another app', async () => {
+		const start = startSite(
+			failingWith(
+				'Failed to start HTTP proxy server: Server child process "studio-proxy" exited before becoming ready.\nError: listen EADDRINUSE: address already in use :::443'
+			),
+			'/site'
+		);
+
+		await expect( start ).rejects.toBeInstanceOf( SiteStartRefusedError );
+		await expect( start ).rejects.toThrow( 'Another app is using port 443' );
+	} );
+
 	it( 'refuses a site WordPress is updating without running the command', async () => {
 		const sitePath = mkdtempSync( path.join( os.tmpdir(), 'studio-maintenance-' ) );
 		writeFileSync(

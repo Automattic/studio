@@ -1,11 +1,12 @@
 import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { Icon, offline, settings } from '@wordpress/icons';
-import { Tooltip } from '@wordpress/ui';
+import { IconButton, Tooltip } from '@wordpress/ui';
 import { Gravatar } from '@/components/gravatar';
+import * as Menu from '@/components/menu';
 import { NoticeHistoryButton } from '@/components/notice-history';
 import { SidebarButton } from '@/components/sidebar-button';
-import { useAuthUser } from '@/data/queries/use-auth-user';
+import { useAuthUser, useLogin, useLogout } from '@/data/queries/use-auth-user';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useOffline } from '@/hooks/use-offline';
 import styles from './style.module.css';
@@ -15,24 +16,54 @@ export function UserMenu() {
 	const navigate = useNavigate();
 	const themeIsDark = useColorScheme() === 'dark';
 	const isOffline = useOffline();
+	const login = useLogin( { source: 'settings' } );
+	const logout = useLogout();
+	const openSettings = () => void navigate( { to: '/settings' } );
 
 	return (
 		<div className={ styles.root }>
 			<div className={ styles.row }>
-				<SidebarButton
-					className={ styles.userTrigger }
-					onClick={ () => void navigate( { to: '/settings' } ) }
-				>
-					{ user ? (
-						<Gravatar email={ user.email } isDark={ themeIsDark } />
-					) : (
-						<span className={ styles.settingsAvatar } aria-hidden="true">
-							<Icon icon={ settings } size={ 14 } />
-						</span>
-					) }
-					<span className={ styles.userName }>{ __( 'App settings' ) }</span>
-				</SidebarButton>
+				<Menu.Root>
+					<Menu.Trigger
+						render={
+							<SidebarButton className={ styles.userTrigger } aria-label={ __( 'Account' ) } />
+						}
+					>
+						{ user ? (
+							<Gravatar email={ user.email } isDark={ themeIsDark } />
+						) : (
+							<span className={ styles.settingsAvatar } aria-hidden="true">
+								<Icon icon={ settings } size={ 14 } />
+							</span>
+						) }
+					</Menu.Trigger>
+					<Menu.Popup side="top" align="start">
+						{ user ? (
+							<>
+								<Menu.Group>
+									<Menu.GroupLabel>{ user.displayName || user.email }</Menu.GroupLabel>
+								</Menu.Group>
+								<Menu.Separator />
+							</>
+						) : null }
+						<Menu.Item onClick={ openSettings }>{ __( 'Settings' ) }</Menu.Item>
+						{ user ? (
+							<Menu.Item onClick={ () => logout.mutate() }>{ __( 'Log out' ) }</Menu.Item>
+						) : (
+							<Menu.Item onClick={ () => login.mutate() }>{ __( 'Log in' ) }</Menu.Item>
+						) }
+					</Menu.Popup>
+				</Menu.Root>
+				<span className={ styles.spacer } aria-hidden="true" />
 				{ isOffline && <OfflineIndicator /> }
+				<IconButton
+					variant="minimal"
+					tone="neutral"
+					size="small"
+					icon={ settings }
+					label={ __( 'Settings' ) }
+					onClick={ openSettings }
+				/>
 				<NoticeHistoryButton />
 			</div>
 		</div>

@@ -25,8 +25,6 @@ import type { SupportedTerminal } from '@studio/common/lib/user-settings/termina
 import type { WordPressVersion } from '@studio/common/lib/wordpress-versions';
 import type { WpEnvironmentType } from '@studio/common/lib/wp-environment-type';
 import type { SiteDesign } from '@studio/common/sites/site-design';
-import type { ThemeDetails } from '@studio/common/sites/site-identity';
-import type { SiteStorageUsage } from '@studio/common/sites/storage-usage';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { Snapshot } from '@studio/common/types/snapshot';
 import type { PullSyncOptions, PushSyncOptions, SyncSite } from '@studio/common/types/sync';
@@ -44,7 +42,6 @@ export type { SessionEntry } from '@earendil-works/pi-coding-agent';
 export type { StudioCustomEntry } from '@studio/common/ai/sessions/entry-types';
 export type { AiModelId } from '@studio/common/ai/models';
 export type { Snapshot } from '@studio/common/types/snapshot';
-export type { ThemeDetails } from '@studio/common/sites/site-identity';
 export type { SnapshotUsage } from '@studio/common/lib/snapshots';
 export type { PullSyncOptions, PushSyncOptions, SyncSite } from '@studio/common/types/sync';
 export type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
@@ -54,7 +51,6 @@ export type { SupportedLocale } from '@studio/common/lib/locale';
 export type { StudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 export type { StudioAssistantTopUpPricing } from '@studio/common/lib/studio-assistant-top-up-pricing';
 export type { SiteDesign } from '@studio/common/sites/site-design';
-export type { SiteStorageUsage } from '@studio/common/sites/storage-usage';
 
 export type InstalledApps = Record< SupportedEditor | SupportedTerminal, boolean >;
 
@@ -181,15 +177,9 @@ export interface Connector {
 	// Cached screenshot thumbnail captured by the desktop app while the site
 	// was running. Returns null when the site has not produced a thumbnail yet.
 	getSiteThumbnail( siteId: string ): Promise< string | null >;
-	// The site's active theme and its Site Icon (a data URL, or null when it has
-	// none), read on demand when the host can inspect local sites.
-	getThemeDetails?( siteId: string ): Promise< ThemeDetails >;
+	// The site's Site Icon (a data URL, or null when it has none), read on
+	// demand when the host can inspect local sites.
 	getSiteIcon?( siteId: string ): Promise< string | null >;
-	// Size of the local site's files, grouped for the overview's disk summary.
-	// Measuring walks the whole site directory, so `signal` is honored all the
-	// way down: aborting it stops the walk rather than leaving it to finish for
-	// a site the user has already left.
-	getSiteStorageUsage( siteId: string, signal?: AbortSignal ): Promise< SiteStorageUsage | null >;
 	// The site's DESIGN.md and its active theme's theme.json, or null when it
 	// lacks either.
 	getSiteDesign( siteId: string ): Promise< SiteDesign | null >;

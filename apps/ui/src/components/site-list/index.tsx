@@ -23,6 +23,11 @@ import {
 } from 'react';
 import { AgentWorkingIndicator } from '@/components/agent-working-indicator';
 import { DeleteSiteDialog } from '@/components/delete-site-dialog';
+import {
+	ImportSiteDialog,
+	IMPORT_FILE_ACCEPT,
+	useSiteBackupImport,
+} from '@/components/import-site-dialog';
 import * as Menu from '@/components/menu';
 import { useOpenInDestinations } from '@/components/open-in-menu/use-open-in-destinations';
 import { ReorderableList } from '@/components/reorderable-list';
@@ -306,7 +311,7 @@ function SidebarGroup( {
 } ) {
 	const [ expanded, setExpanded ] = useState( true );
 	return (
-		<section className={ styles.group } aria-label={ title }>
+		<div role="group" className={ styles.group } aria-label={ title }>
 			<div className={ styles.groupHeader }>
 				<button
 					type="button"
@@ -324,19 +329,19 @@ function SidebarGroup( {
 				{ action }
 			</div>
 			{ expanded ? children : null }
-		</section>
+		</div>
 	);
 }
 
-function SiteOverviewButton( {
+function SiteSettingsButton( {
 	site,
-	isOverviewActive,
-	onBackToChat,
+	isSettingsActive,
+	onBackToSite,
 	onSiteOpen,
 }: {
 	site: SiteDetails;
-	isOverviewActive: boolean;
-	onBackToChat: () => void;
+	isSettingsActive: boolean;
+	onBackToSite: () => void;
 	onSiteOpen?: () => void;
 } ) {
 	const navigate = useNavigate();
@@ -348,22 +353,20 @@ function SiteOverviewButton( {
 			tone="neutral"
 			size="small"
 			icon={ settings }
-			label={ __( 'Site overview' ) }
-			aria-pressed={ isOverviewActive }
+			label={ __( 'Site settings' ) }
+			aria-pressed={ isSettingsActive }
 			className={ styles.siteAction }
 			onClick={ ( event ) => {
 				event.stopPropagation();
-				// Going back to chat runs handleOpenSite, which already
-				// notifies onSiteOpen; only the overview navigation needs
-				// the explicit call.
-				if ( isOverviewActive ) {
-					onBackToChat();
+				// Going back runs handleOpenSite, which already notifies onSiteOpen.
+				if ( isSettingsActive ) {
+					onBackToSite();
 					return;
 				}
 				onSiteOpen?.();
-				void connector.trackEvent( TRACKS_EVENTS.PANEL_OPENED, { panel: 'overview' } );
+				void connector.trackEvent( TRACKS_EVENTS.PANEL_OPENED, { panel: 'settings' } );
 				void navigate( {
-					to: '/sites/$siteId/overview',
+					to: '/sites/$siteId/settings',
 					params: { siteId: site.id },
 				} );
 			} }
@@ -493,9 +496,12 @@ function SiteActionsMenu( {
 	const stopSite = useStopSite();
 	const busy = useIsSiteBusy( site );
 	const [ deleteOpen, setDeleteOpen ] = useState( false );
-	// Same source as the overview screen's Manage section, so the two can't drift
-	// on what's blocked or what's in flight. Only the labels differ here.
-	const manage = useSiteManagementActions( site, { onDelete: () => setDeleteOpen( true ) } );
+	const importInputRef = useRef< HTMLInputElement >( null );
+	const backupImport = useSiteBackupImport( site );
+	const manage = useSiteManagementActions( site, {
+		onDelete: () => setDeleteOpen( true ),
+		onImport: () => importInputRef.current?.click(),
+	} );
 	const manageById = Object.fromEntries(
 		manage.map( ( action ) => [ action.id, action ] )
 	) as Record< SiteManagementActionId, SiteManagementAction >;
@@ -506,8 +512,7 @@ function SiteActionsMenu( {
 		event.stopPropagation();
 	};
 
-	// Same entries as the session header's "Open in…" menu and the Overview's
-	// shortcuts, so labels, gating and Tracks events can't drift between them.
+	// Same entries as the session header's "Open in…" menu.
 	const destinations = useOpenInDestinations( site );
 
 	const handleDeleted = () => {
@@ -542,9 +547,8 @@ function SiteActionsMenu( {
 							onSiteOpen?.();
 							void connector.trackEvent( TRACKS_EVENTS.PANEL_OPENED, { panel: 'settings' } );
 							void navigate( {
-								to: '/sites/$siteId/overview',
+								to: '/sites/$siteId/settings',
 								params: { siteId: site.id },
-								search: { tab: 'general' },
 							} );
 						} }
 					>
@@ -571,6 +575,9 @@ function SiteActionsMenu( {
 						</Menu.Item>
 					) ) }
 					<Menu.Separator />
+					<Menu.Item disabled={ manageById.import.disabled } onClick={ manageById.import.run }>
+						{ manageById.import.loading ? __( 'Importing…' ) : __( 'Import backup' ) }
+					</Menu.Item>
 					<Menu.Item disabled={ manageById.export.disabled } onClick={ manageById.export.run }>
 						{ manageById.export.loading ? __( 'Exporting…' ) : __( 'Export entire site' ) }
 					</Menu.Item>
@@ -590,6 +597,25 @@ function SiteActionsMenu( {
 					</Menu.Item>
 				</Menu.ContextPopup>
 			</Menu.ContextMenuRoot>
+			<input
+				ref={ importInputRef }
+				type="file"
+				hidden
+				accept={ IMPORT_FILE_ACCEPT }
+				data-testid="import-backup-file"
+				onChange={ ( event ) => {
+					backupImport.selectFile( event.target.files?.[ 0 ] );
+					// Lets the same file be picked again after a cancel or a failure.
+					event.target.value = '';
+				} }
+			/>
+			<ImportSiteDialog
+				site={ site }
+				file={ backupImport.file }
+				open={ backupImport.isConfirming }
+				onCancel={ backupImport.cancel }
+				onConfirm={ () => void backupImport.confirm() }
+			/>
 			<DeleteSiteDialog
 				site={ site }
 				open={ deleteOpen }
@@ -604,6 +630,7 @@ function SiteSection( {
 	row,
 	isChatActive,
 	isContextActive,
+	isSettingsActive,
 	hasUnreadUpdate,
 	chatEnabled,
 	chatPromptsSignIn,
@@ -614,6 +641,7 @@ function SiteSection( {
 	row: SiteRow;
 	isChatActive: boolean;
 	isContextActive: boolean;
+	isSettingsActive: boolean;
 	hasUnreadUpdate: boolean;
 	chatEnabled: boolean;
 	chatPromptsSignIn: boolean;
@@ -628,8 +656,8 @@ function SiteSection( {
 	const sectionRef = useRef< HTMLElement >( null );
 	const isActive = isChatActive || isContextActive;
 	const canOpenChatSurface = chatEnabled || chatPromptsSignIn;
-	// Offline users and users who switched Studio Code off use Overview as the
-	// site's home. Signed-out users still get the chat surface, where the value
+	// Offline users and users who switched Studio Code off use the site's own
+	// page as its home. Signed-out users still get the chat surface, where the value
 	// of logging in can be explained in context.
 	const isSelected = isChatActive || ( isContextActive && ! canOpenChatSurface );
 	const showContextOutline = isContextActive && canOpenChatSurface;
@@ -668,7 +696,7 @@ function SiteSection( {
 		if ( ! canOpenChatSurface ) {
 			void connector.trackEvent( TRACKS_EVENTS.PANEL_OPENED, { panel: 'overview' } );
 			void navigate( {
-				to: '/sites/$siteId/overview',
+				to: '/sites/$siteId',
 				params: { siteId: site.id },
 			} );
 			return;
@@ -733,14 +761,12 @@ function SiteSection( {
 							</SidebarButton>
 						</div>
 						<div className={ styles.siteActions } data-reorder-exclude>
-							{ canOpenChatSurface ? (
-								<SiteOverviewButton
-									site={ site }
-									isOverviewActive={ isContextActive }
-									onBackToChat={ handleOpenSite }
-									onSiteOpen={ onSiteOpen }
-								/>
-							) : null }
+							<SiteSettingsButton
+								site={ site }
+								isSettingsActive={ isSettingsActive }
+								onBackToSite={ handleOpenSite }
+								onSiteOpen={ onSiteOpen }
+							/>
 							<SiteStatusButton site={ site } isStarting={ isStarting } isStopping={ isStopping } />
 						</div>
 					</header>
@@ -815,8 +841,11 @@ export function SiteList( {
 		return activeSiteId && pathname === `/sites/${ activeSiteId }/new` ? activeSiteId : undefined;
 	}, [ activeSessionId, activeSiteId, pathname, rows ] );
 	// Site ids are UUIDs, so no URL decoding is needed to compare the path.
+	const activeSettingsSiteKey =
+		activeSiteId && pathname === `/sites/${ activeSiteId }/settings` ? activeSiteId : undefined;
 	const activeContextSiteKey =
-		activeSiteId && pathname === `/sites/${ activeSiteId }/overview` ? activeSiteId : undefined;
+		activeSettingsSiteKey ??
+		( activeSiteId && pathname === `/sites/${ activeSiteId }` ? activeSiteId : undefined );
 	useEffect( () => {
 		if ( sitesLoading || sessionsLoading || rows.length === 0 ) {
 			return;
@@ -880,11 +909,14 @@ export function SiteList( {
 			row={ row }
 			isChatActive={ row.site.id === activeChatSiteKey }
 			isContextActive={ row.site.id === activeContextSiteKey }
+			isSettingsActive={ row.site.id === activeSettingsSiteKey }
 			hasUnreadUpdate={ unreadSiteIds.has( row.site.id ) }
 			chatEnabled={ chatEnabled }
 			chatPromptsSignIn={ chatPromptsSignIn }
 			activeSessionId={ activeSessionId }
-			showChats={ sections && row.site.id === activeChatSiteKey }
+			showChats={
+				sections && ( row.site.id === activeChatSiteKey || row.site.id === activeContextSiteKey )
+			}
 			onSiteOpen={ onSiteOpen }
 		/>
 	);

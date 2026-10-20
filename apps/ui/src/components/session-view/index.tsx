@@ -299,7 +299,7 @@ export function SignedOutSessionView( { siteId }: { siteId: string } ) {
 		}
 		if ( isReady && ! enabled && ! chatPromptsSignIn ) {
 			void navigate( {
-				to: '/sites/$siteId/overview',
+				to: '/sites/$siteId',
 				params: { siteId },
 				replace: true,
 			} );
@@ -315,9 +315,7 @@ export function SignedOutSessionView( { siteId }: { siteId: string } ) {
 			footerEnd={ site ? <PreviewToggleButton /> : null }
 		>
 			<AgenticSigninPrompt
-				onOpenOverview={ () =>
-					void navigate( { to: '/sites/$siteId/overview', params: { siteId } } )
-				}
+				onTurnedOff={ () => void navigate( { to: '/sites/$siteId', params: { siteId } } ) }
 			/>
 		</SessionFrame>
 	);

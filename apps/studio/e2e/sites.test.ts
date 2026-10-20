@@ -9,7 +9,7 @@ import fs from 'fs-extra';
 import { E2ESession, launchWithSite } from './e2e-helpers';
 import AddSite from './page-objects/add-site';
 import Sidebar from './page-objects/sidebar';
-import SiteOverview from './page-objects/site-overview';
+import SiteSettings from './page-objects/site-settings';
 import { getUrlWithAutoLogin } from './utils';
 
 const skipTestOnWindows = process.platform === 'win32' ? test.skip : test;
@@ -74,27 +74,27 @@ test.describe( 'Sites', () => {
 		const { siteName } = await launchWithSite( session );
 		const newPhpVersion = ALLOWED_PHP_VERSIONS.find( ( v ) => v !== DEFAULT_PHP_VERSION ) || '8.2';
 
-		const overview = new SiteOverview( session.mainWindow );
-		await overview.open( siteName, 'Settings' );
-		await expect( overview.phpVersionSelect ).toHaveValue( DEFAULT_PHP_VERSION );
+		const settings = new SiteSettings( session.mainWindow );
+		await settings.open( siteName );
+		await expect( settings.phpVersionSelect ).toHaveValue( DEFAULT_PHP_VERSION );
 
-		await overview.phpVersionSelect.selectOption( newPhpVersion );
-		await overview.saveSettings();
+		await settings.phpVersionSelect.selectOption( newPhpVersion );
+		await settings.saveSettings();
 
 		await expect
 			.poll( async () => await session.waitForSite( siteName ) )
 			.toMatchObject( { phpVersion: newPhpVersion } );
-		await expect( overview.phpVersionSelect ).toHaveValue( newPhpVersion );
+		await expect( settings.phpVersionSelect ).toHaveValue( newPhpVersion );
 	} );
 
 	test( 'renames a site', async () => {
 		const { siteName } = await launchWithSite( session );
 		const newSiteName = 'E2E-Test-Site-Renamed';
 
-		const overview = new SiteOverview( session.mainWindow );
-		await overview.open( siteName, 'Settings' );
-		await overview.siteNameInput.fill( newSiteName );
-		await overview.saveSettings();
+		const settings = new SiteSettings( session.mainWindow );
+		await settings.open( siteName );
+		await settings.siteNameInput.fill( newSiteName );
+		await settings.saveSettings();
 
 		await expect( new Sidebar( session.mainWindow ).getSiteButton( newSiteName ) ).toBeVisible();
 		await session.waitForSite( newSiteName );
@@ -177,21 +177,6 @@ test.describe( 'Sites', () => {
 		expect( finalConfig ).toContain( "define( 'DB_USER', 'wp_user' );" );
 		expect( finalConfig ).toContain( "define( 'DB_PASSWORD', 'super-secret-pw' );" );
 		expect( finalConfig ).toContain( "define( 'DB_HOST', 'mysql.example.com' );" );
-	} );
-
-	test( 'duplicates a site from its overview', async () => {
-		const { siteName } = await launchWithSite( session );
-
-		const overview = new SiteOverview( session.mainWindow );
-		await overview.open( siteName );
-		await overview.manageButton( 'Duplicate' ).click();
-
-		const copyName = `${ siteName } Copy`;
-		await expect( new Sidebar( session.mainWindow ).getSiteButton( copyName ) ).toBeVisible( {
-			timeout: 120_000,
-		} );
-		const copy = await session.waitForSite( copyName );
-		expect( await pathExists( path.join( copy.path, 'wp-config.php' ) ) ).toBe( true );
 	} );
 } );
 

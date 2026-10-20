@@ -80,13 +80,13 @@ describe( 'AgenticSigninPrompt', () => {
 		expect( screen.getByRole( 'button', { name: 'Pause the demo' } ) ).toBeVisible();
 	} );
 
-	it( 'turns agentic features off before switching to the overview', () => {
-		const onOpenOverview = vi.fn();
-		render( <AgenticSigninPrompt onOpenOverview={ onOpenOverview } /> );
+	it( 'turns agentic features off before continuing without Studio Code', () => {
+		const onTurnedOff = vi.fn();
+		render( <AgenticSigninPrompt onTurnedOff={ onTurnedOff } /> );
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'Switch to Overview' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Continue without Studio Code' } ) );
 		expect( screen.getByRole( 'dialog', { name: 'Turn off Studio Code?' } ) ).toBeVisible();
-		expect( onOpenOverview ).not.toHaveBeenCalled();
+		expect( onTurnedOff ).not.toHaveBeenCalled();
 
 		fireEvent.click( screen.getByRole( 'button', { name: 'Turn off and switch' } ) );
 
@@ -94,7 +94,7 @@ describe( 'AgenticSigninPrompt', () => {
 			{ agenticFeaturesEnabled: false },
 			expect.anything()
 		);
-		expect( onOpenOverview ).toHaveBeenCalledOnce();
+		expect( onTurnedOff ).toHaveBeenCalledOnce();
 	} );
 
 	it( 'keeps the slide and pause state across a remount (switching sites)', () => {

@@ -99,13 +99,8 @@ import {
 	readSiteDesign,
 	type SiteDesign,
 } from '@studio/common/sites/site-design';
-import {
-	readSiteIcon,
-	readThemeDetails,
-	type ThemeDetails,
-} from '@studio/common/sites/site-identity';
+import { readSiteIcon, readThemeDetails } from '@studio/common/sites/site-identity';
 import { readSite, readSitePath, readSitePaths } from '@studio/common/sites/site-path';
-import { measureSiteStorage, type SiteStorageUsage } from '@studio/common/sites/storage-usage';
 import { __ } from '@wordpress/i18n';
 import { DEFAULT_TERMINAL } from 'src/constants';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
@@ -942,41 +937,6 @@ export async function getWpVersion( _event: IpcMainInvokeEvent, id: string ) {
 	return sitePath ? getWordPressVersion( sitePath ) : '-';
 }
 
-// In-flight storage measurements, keyed by the renderer's request id. Walking a
-// site takes long enough that the renderer is often gone before it finishes, and
-// `ipcRenderer.invoke` has no cancellation of its own, so the renderer cancels
-// through `cancelSiteStorageUsage` instead. Keyed per request rather than per
-// site so one window abandoning a measurement can't stop another's.
-const siteStorageControllers = new Map< string, AbortController >();
-
-export async function getSiteStorageUsage(
-	_event: IpcMainInvokeEvent,
-	id: string,
-	requestId?: string
-): Promise< SiteStorageUsage | null > {
-	const sitePath = await readSitePath( id );
-	if ( ! sitePath ) {
-		return null;
-	}
-	if ( ! requestId ) {
-		return measureSiteStorage( sitePath );
-	}
-	const controller = new AbortController();
-	siteStorageControllers.set( requestId, controller );
-	try {
-		return await measureSiteStorage( sitePath, { signal: controller.signal } );
-	} finally {
-		siteStorageControllers.delete( requestId );
-	}
-}
-
-export async function cancelSiteStorageUsage(
-	_event: IpcMainInvokeEvent,
-	requestId: string
-): Promise< void > {
-	siteStorageControllers.get( requestId )?.abort();
-}
-
 const activeThemeSlug = ( sitePath: string ) => async () =>
 	( await readThemeDetails( executeCliCommand, sitePath ).catch( () => undefined ) )?.slug;
 
@@ -1092,13 +1052,6 @@ export async function readLocalMediaFile(
 			buffer.byteOffset + buffer.byteLength
 		) as ArrayBuffer,
 	};
-}
-
-export async function loadThemeDetails(
-	_event: IpcMainInvokeEvent,
-	id: string
-): Promise< ThemeDetails > {
-	return readThemeDetails( executeCliCommand, await requireSitePath( id ) );
 }
 
 export async function getSiteIcon(

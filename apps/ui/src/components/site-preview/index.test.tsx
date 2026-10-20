@@ -5,7 +5,6 @@ import { Tooltip } from '@wordpress/ui';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { useConnector } from '@/data/core';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
-import { themeDetailsQueryKey } from '@/hooks/use-theme-details';
 import { WindowControlsCornerContext } from '@/hooks/use-window-controls-inset';
 import { useWindowControlsOverlay } from '@/hooks/use-window-controls-overlay';
 import { INSPECTOR_BRIDGE_PREFIX } from './inspector-script';
@@ -13,7 +12,6 @@ import {
 	getBrowserShortcutCommand,
 	getDirectionalHistoryEntries,
 	isOffOriginRedirect,
-	isThemeActivationUrl,
 	getPathFromPreviewUrl,
 	SitePreview,
 } from './index';
@@ -99,43 +97,6 @@ describe( 'SitePreview', () => {
 		expect(
 			getDirectionalHistoryEntries( entries, 2, 'forward' ).map( ( entry ) => entry.index )
 		).toEqual( [ 3, 4 ] );
-	} );
-
-	it( 'recognizes WordPress theme activation navigations', () => {
-		expect(
-			isThemeActivationUrl( 'http://localhost:8881/wp-admin/themes.php?activated=true' )
-		).toBe( true );
-		expect(
-			isThemeActivationUrl(
-				'http://localhost:8881/wp-admin/themes.php?action=activate&stylesheet=twentythirteen'
-			)
-		).toBe( false );
-		expect( isThemeActivationUrl( 'http://localhost:8881/wp-admin/themes.php' ) ).toBe( false );
-		expect( isThemeActivationUrl( 'not a URL' ) ).toBe( false );
-	} );
-
-	it( 'refreshes theme details after activation inside the preview', async () => {
-		useConnectorMock.mockReturnValue( {
-			startSite: vi.fn().mockResolvedValue( undefined ),
-			trackEvent: vi.fn().mockResolvedValue( undefined ),
-			capabilities: CAPABILITIES,
-		} as never );
-		const { container, queryClient } = renderPreview(
-			<SitePreview
-				site={ createSite( { running: true } ) }
-				path="/wp-admin/themes.php?activated=true"
-				reloadNonce={ 0 }
-			/>
-		);
-		queryClient.setQueryData( themeDetailsQueryKey( 'site-1' ), { slug: 'twentytwentyfive' } );
-
-		fireEvent.load( container.querySelector( 'iframe' )! );
-
-		await waitFor( () =>
-			expect( queryClient.getQueryState( themeDetailsQueryKey( 'site-1' ) )?.isInvalidated ).toBe(
-				true
-			)
-		);
 	} );
 
 	it( 'hides the browser controls and shows the stopped preview treatment when the site is not running', async () => {

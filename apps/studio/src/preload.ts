@@ -60,9 +60,6 @@ const api: IpcApi = {
 	getAppUpdateStatus: () => ipcRendererInvoke( 'getAppUpdateStatus' ),
 	installAppUpdate: () => ipcRendererInvoke( 'installAppUpdate' ),
 	getWpVersion: ( id ) => ipcRendererInvoke( 'getWpVersion', id ),
-	getSiteStorageUsage: ( id, requestId ) =>
-		ipcRendererInvoke( 'getSiteStorageUsage', id, requestId ),
-	cancelSiteStorageUsage: ( requestId ) => ipcRendererInvoke( 'cancelSiteStorageUsage', requestId ),
 	getSiteDesign: ( id ) => ipcRendererInvoke( 'getSiteDesign', id ),
 	fixSiteDesignDrift: ( id, fixes ) => ipcRendererInvoke( 'fixSiteDesignDrift', id, fixes ),
 	getIsMultisite: ( id ) => ipcRendererInvoke( 'getIsMultisite', id ),
@@ -75,7 +72,6 @@ const api: IpcApi = {
 		ipcRendererInvoke( 'generateNumberedNameFromList', baseName, usedSites ),
 	openLocalPath: ( path ) => ipcRendererSend( 'openLocalPath', path ),
 	openStudioLogs: () => ipcRendererSend( 'openStudioLogs' ),
-	loadThemeDetails: ( id ) => ipcRendererInvoke( 'loadThemeDetails', id ),
 	getSiteIcon: ( id ) => ipcRendererInvoke( 'getSiteIcon', id ),
 	getThumbnailData: ( id ) => ipcRendererInvoke( 'getThumbnailData', id ),
 	getInstalledAppsAndTerminals: () => ipcRendererInvoke( 'getInstalledAppsAndTerminals' ),

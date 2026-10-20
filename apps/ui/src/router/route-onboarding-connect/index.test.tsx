@@ -323,7 +323,7 @@ describe( 'OnboardingConnectPage', () => {
 
 		await waitFor( () =>
 			expect( mocks.navigate ).toHaveBeenCalledWith( {
-				to: '/sites/$siteId/overview',
+				to: '/sites/$siteId',
 				params: { siteId: 'local-1' },
 				search: { sync: 'pull' },
 			} )
@@ -347,7 +347,7 @@ describe( 'OnboardingConnectPage', () => {
 
 		await waitFor( () =>
 			expect( mocks.navigate ).toHaveBeenCalledWith( {
-				to: '/sites/$siteId/overview',
+				to: '/sites/$siteId',
 				params: { siteId: 'local-1' },
 				search: { sync: 'pull' },
 			} )

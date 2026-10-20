@@ -33,7 +33,7 @@ export const indexRoute = createRoute( {
 		const { chatEnabled, chatPromptsSignIn } = await resolveAgenticFeatures( context );
 		if ( ! chatEnabled ) {
 			throw redirect( {
-				to: chatPromptsSignIn ? '/sites/$siteId/new' : '/sites/$siteId/overview',
+				to: chatPromptsSignIn ? '/sites/$siteId/new' : '/sites/$siteId',
 				params: { siteId: targetSite.id },
 			} );
 		}

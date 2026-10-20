@@ -1,6 +1,6 @@
 import { DESIGN_SYSTEM_PREVIEW_PATH } from '@studio/common/ai/chat-artifacts';
 import { getSiteOperationLabel } from '@studio/common/lib/site-operation-labels';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import {
 	chevronDown,
@@ -26,13 +26,13 @@ import { useConnector } from '@/data/core';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { siteDesignQueryKey, useSiteDesign } from '@/data/queries/use-site-design';
 import { useSiteIcon } from '@/data/queries/use-site-icon';
+import { useSiteThumbnail } from '@/data/queries/use-site-thumbnail';
 import {
 	useIsSiteBusy,
 	useIsSiteStarting,
 	useSiteOperation,
 	useStartSite,
 } from '@/data/queries/use-sites';
-import { themeDetailsQueryKey } from '@/hooks/use-theme-details';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import { useWindowControlsInset } from '@/hooks/use-window-controls-inset';
 import { getSiteUrl } from '@/lib/get-site-url';
@@ -204,18 +204,6 @@ export function isOffOriginRedirect( settledUrl: string, intendedUrl: string ): 
 	}
 }
 
-export function isThemeActivationUrl( url: string ): boolean {
-	try {
-		const parsed = new URL( url );
-		return (
-			parsed.pathname.endsWith( '/wp-admin/themes.php' ) &&
-			parsed.searchParams.get( 'activated' ) === 'true'
-		);
-	} catch {
-		return false;
-	}
-}
-
 const EMPTY_BROWSER_STATE: BrowserNavigationState = {
 	canGoBack: false,
 	canGoForward: false,
@@ -232,8 +220,6 @@ const EMPTY_INSPECTOR_STATE: InspectorState = {
 	annotationCount: 0,
 	hasUnsavedDraft: false,
 };
-
-const SITE_THUMBNAIL_QUERY_KEY = [ 'site-preview-thumbnail' ] as const;
 
 // Where each realm segment lands before its per-realm memory has anything better.
 const DEFAULT_REALM_PATHS: Record< PreviewRealm, string > = {
@@ -746,12 +732,7 @@ export function SitePreview( {
 	const activeSurfaceKey = getSurfaceKey( activeRealm );
 	const siteDesign = useSiteDesign( site );
 	const siteIcon = useSiteIcon( site.id );
-	const siteThumbnail = useQuery( {
-		queryKey: [ ...SITE_THUMBNAIL_QUERY_KEY, site.id ],
-		queryFn: () => connector.getSiteThumbnail( site.id ),
-		enabled: ! canPreview,
-		meta: { persist: false },
-	} );
+	const siteThumbnail = useSiteThumbnail( site.id, { enabled: ! canPreview } );
 	// Surfaces mounted so far. Once created a surface stays mounted and warm;
 	// only the active one is visible.
 	const [ surfaces, setSurfaces ] = useState< MountedSurfaces >( () => ( {
@@ -786,9 +767,6 @@ export function SitePreview( {
 	);
 	const handleSurfaceNavigation = useCallback(
 		( key: PreviewSurfaceKey, url: string ) => {
-			if ( isThemeActivationUrl( url ) ) {
-				void queryClient.invalidateQueries( { queryKey: themeDetailsQueryKey( site.id ) } );
-			}
 			const nextPath = getPathFromPreviewUrl( url, siteUrl );
 			if ( ! nextPath ) {
 				return;
@@ -802,7 +780,7 @@ export function SitePreview( {
 				onPathChange?.( nextPath );
 			}
 		},
-		[ activeSurfaceKey, onPathChange, patchSurface, queryClient, safePath, site.id, siteUrl ]
+		[ activeSurfaceKey, onPathChange, patchSurface, safePath, siteUrl ]
 	);
 	// Commands are addressed to the surface on screen. Each has its own slot, so
 	// the hidden one never sees a command it should have missed — and never

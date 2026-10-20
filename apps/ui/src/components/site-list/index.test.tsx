@@ -87,6 +87,12 @@ vi.mock( '@/data/sync-activity', () => ( {
 	useSiteSyncActivity: vi.fn(),
 } ) );
 
+vi.mock( '@/components/import-site-dialog', () => ( {
+	IMPORT_FILE_ACCEPT: '',
+	ImportSiteDialog: () => null,
+	useSiteBackupImport: () => ( {} ),
+} ) );
+
 const useConnectorMock = vi.mocked( useConnector );
 const useCopySiteMock = vi.mocked( useCopySite, { partial: true } );
 const useDeleteSiteMock = vi.mocked( useDeleteSite, { partial: true } );
@@ -282,9 +288,8 @@ describe( 'SiteList', () => {
 		expect( onSiteOpen ).toHaveBeenCalledTimes( 1 );
 		expect( navigateMock ).toHaveBeenCalledTimes( 1 );
 		expect( navigateMock ).toHaveBeenLastCalledWith( {
-			to: '/sites/$siteId/overview',
+			to: '/sites/$siteId/settings',
 			params: { siteId: 'stopped-site' },
-			search: { tab: 'general' },
 		} );
 		expect( useConnectorMock().trackEvent ).toHaveBeenCalledWith( 'studio_panel_opened', {
 			panel: 'settings',
@@ -324,7 +329,7 @@ describe( 'SiteList', () => {
 		} );
 	} );
 
-	it( 'shows the selected chat and overview shortcut when signed out', () => {
+	it( 'shows the selected chat and settings shortcut when signed out', () => {
 		vi.mocked( useAgenticFeatures ).mockReturnValue( {
 			enabled: false,
 			chatEnabled: false,
@@ -344,10 +349,10 @@ describe( 'SiteList', () => {
 		expect( className ).toContain( 'siteActive' );
 		expect( className ).not.toContain( 'siteContextActive' );
 		expect( siteButton ).toHaveAttribute( 'aria-current', 'page' );
-		expect( within( stoppedRow ).getByRole( 'button', { name: 'Site overview' } ) ).toBeVisible();
+		expect( within( stoppedRow ).getByRole( 'button', { name: 'Site settings' } ) ).toBeVisible();
 	} );
 
-	it( 'keeps the site overview as home when Studio Code is switched off', () => {
+	it( "opens the site's page when Studio Code is switched off", () => {
 		vi.mocked( useAgenticFeatures ).mockReturnValue( {
 			enabled: true,
 			chatEnabled: false,
@@ -361,41 +366,41 @@ describe( 'SiteList', () => {
 		fireEvent.click( screen.getByText( 'Stopped Site' ) );
 
 		expect( navigateMock ).toHaveBeenLastCalledWith( {
-			to: '/sites/$siteId/overview',
+			to: '/sites/$siteId',
 			params: { siteId: 'stopped-site' },
 		} );
 	} );
 
-	it( 'opens the site overview from the row gear without opening the latest chat', () => {
+	it( 'opens site settings from the row gear without opening the latest chat', () => {
 		const onSiteOpen = vi.fn();
 		render( <SiteList onSiteOpen={ onSiteOpen } /> );
 
-		fireEvent.click( screen.getAllByRole( 'button', { name: 'Site overview' } )[ 0 ] );
+		fireEvent.click( screen.getAllByRole( 'button', { name: 'Site settings' } )[ 0 ] );
 
 		expect( onSiteOpen ).toHaveBeenCalledTimes( 1 );
 		expect( useConnectorMock().trackEvent ).toHaveBeenCalledWith( 'studio_panel_opened', {
-			panel: 'overview',
+			panel: 'settings',
 		} );
 		expect( navigateMock ).toHaveBeenCalledTimes( 1 );
 		expect( navigateMock ).toHaveBeenLastCalledWith( {
-			to: '/sites/$siteId/overview',
+			to: '/sites/$siteId/settings',
 			params: { siteId: 'stopped-site' },
 		} );
 	} );
 
-	it( 'shows the overview shortcut as pressed and toggles back to chat', () => {
+	it( 'shows the settings shortcut as pressed and toggles back to chat', () => {
 		paramsMock = { siteId: 'stopped-site' };
-		pathnameMock = '/sites/stopped-site/overview';
+		pathnameMock = '/sites/stopped-site/settings';
 
 		render( <SiteList /> );
 
 		const stoppedRow = screen.getByText( 'Stopped Site' ).closest( 'section' )!;
-		const overviewButton = within( stoppedRow ).getByRole( 'button', {
-			name: 'Site overview',
+		const settingsButton = within( stoppedRow ).getByRole( 'button', {
+			name: 'Site settings',
 		} );
-		expect( overviewButton ).toHaveAttribute( 'aria-pressed', 'true' );
+		expect( settingsButton ).toHaveAttribute( 'aria-pressed', 'true' );
 
-		fireEvent.click( overviewButton );
+		fireEvent.click( settingsButton );
 
 		expect( useConnectorMock().trackEvent ).toHaveBeenCalledWith( 'studio_panel_opened', {
 			panel: 'assistant',
@@ -531,21 +536,21 @@ describe( 'SiteList', () => {
 
 		render( <SiteList sections /> );
 
-		const sites = screen.getByRole( 'region', { name: 'Sites' } );
+		const sites = screen.getByRole( 'group', { name: 'Sites' } );
 		const openSite = within( sites ).getByText( 'Stopped Site' ).closest( 'section' )!;
 		expect( within( openSite ).getByRole( 'button', { name: 'Add a menu' } ) ).toHaveAttribute(
 			'aria-current',
 			'page'
 		);
 		expect( within( sites ).queryByText( 'Make it blue' ) ).not.toBeInTheDocument();
-		const recent = screen.getByRole( 'region', { name: 'Recent' } );
+		const recent = screen.getByRole( 'group', { name: 'Recent' } );
 		expect( within( recent ).getByRole( 'button', { name: 'Make it blue' } ) ).toBeInTheDocument();
 		expect( screen.queryByText( 'Old idea' ) ).not.toBeInTheDocument();
 	} );
 
-	it( 'marks the site row as contextual on the site overview route', () => {
+	it( 'marks the site row as contextual on the site settings route', () => {
 		paramsMock = { siteId: 'stopped-site' };
-		pathnameMock = '/sites/stopped-site/overview';
+		pathnameMock = '/sites/stopped-site/settings';
 
 		render( <SiteList /> );
 

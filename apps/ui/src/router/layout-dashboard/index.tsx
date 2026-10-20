@@ -5,12 +5,14 @@ import { __ } from '@wordpress/i18n';
 import { comment } from '@wordpress/icons';
 import { IconButton } from '@wordpress/ui';
 import { useCallback, useEffect, useState } from 'react';
+import { OpenInMenu } from '@/components/open-in-menu';
 import {
 	PreviewSplitFrame,
 	type PreviewSplitFramePreviewProps,
 } from '@/components/preview-split-frame';
 import { SidebarLayout } from '@/components/sidebar-layout';
 import { SidebarToggle } from '@/components/sidebar-toggle';
+import { SiteDropdown } from '@/components/site-dropdown';
 import { SitePreview } from '@/components/site-preview';
 import { isSiteSettingsTab, siteSettingsTabToPanel } from '@/components/site-settings-view';
 import { SiteWorkspace } from '@/components/site-workspace';
@@ -33,16 +35,21 @@ import { writeLastVisited } from '@/lib/last-visited';
 import { rootRoute } from '../layout-root';
 import type { SiteSettingsTabId } from '@/components/site-settings-view';
 
-// Session detail routes and the site overview host the preview; on every
-// other route (settings, site settings…) the last previewed site stays
-// mounted but hidden.
+// Session detail routes, a site's own page and its settings host the preview;
+// on every other route (app settings…) the last previewed site stays mounted
+// but hidden.
 function getRouteSessionId( pathname: string ): string | undefined {
 	const match = /^\/sessions\/([^/]+)\/?$/.exec( pathname );
 	return match ? decodeURIComponent( match[ 1 ] ) : undefined;
 }
 
-function getRouteOverviewSiteId( pathname: string ): string | undefined {
-	const match = /^\/sites\/([^/]+)\/overview\/?$/.exec( pathname );
+function getRouteSettingsSiteId( pathname: string ): string | undefined {
+	const match = /^\/sites\/([^/]+)\/settings\/?$/.exec( pathname );
+	return match ? decodeURIComponent( match[ 1 ] ) : undefined;
+}
+
+function getRouteHomeSiteId( pathname: string ): string | undefined {
+	const match = /^\/sites\/([^/]+)\/?$/.exec( pathname );
 	return match ? decodeURIComponent( match[ 1 ] ) : undefined;
 }
 
@@ -69,9 +76,10 @@ function DashboardLayoutContent() {
 	const routePreviewContext = useRouterState( {
 		select: ( state ) => ( {
 			sessionId: getRouteSessionId( state.location.pathname ),
-			overviewSiteId: getRouteOverviewSiteId( state.location.pathname ),
+			settingsSiteId: getRouteSettingsSiteId( state.location.pathname ),
+			homeSiteId: getRouteHomeSiteId( state.location.pathname ),
 			newSessionSiteId: getNewSessionSiteId( state.location.pathname ),
-			overviewTab:
+			settingsTab:
 				typeof state.location.search.tab === 'string' &&
 				isSiteSettingsTab( state.location.search.tab )
 					? state.location.search.tab
@@ -79,20 +87,20 @@ function DashboardLayoutContent() {
 			openSiteDropdown: state.location.search.sync === 'pull',
 		} ),
 	} );
-	const { sessionId, overviewSiteId, newSessionSiteId, overviewTab, openSiteDropdown } =
+	const { sessionId, settingsSiteId, homeSiteId, newSessionSiteId, settingsTab, openSiteDropdown } =
 		routePreviewContext;
-	const [ overviewTabsBySite, setOverviewTabsBySite ] = useState<
+	const [ settingsTabsBySite, setSettingsTabsBySite ] = useState<
 		Record< string, SiteSettingsTabId >
 	>( {} );
 	useEffect( () => {
-		if ( overviewSiteId && overviewTab ) {
-			setOverviewTabsBySite( ( current ) =>
-				current[ overviewSiteId ] === overviewTab
+		if ( settingsSiteId && settingsTab ) {
+			setSettingsTabsBySite( ( current ) =>
+				current[ settingsSiteId ] === settingsTab
 					? current
-					: { ...current, [ overviewSiteId ]: overviewTab }
+					: { ...current, [ settingsSiteId ]: settingsTab }
 			);
 		}
-	}, [ overviewSiteId, overviewTab ] );
+	}, [ settingsSiteId, settingsTab ] );
 	const { isReady: agenticFeaturesReady, chatEnabled } = useAgenticFeatures();
 	const { data: sites } = useSites();
 	const { data: sessionData } = useSession( sessionId );
@@ -115,21 +123,24 @@ function DashboardLayoutContent() {
 		sessionData?.summary,
 		sessionSite?.id
 	);
-	const overviewSite = overviewSiteId
-		? sites?.find( ( site ) => site.id === overviewSiteId )
+	const settingsSite = settingsSiteId
+		? sites?.find( ( site ) => site.id === settingsSiteId )
 		: undefined;
+	const homeSite = homeSiteId ? sites?.find( ( site ) => site.id === homeSiteId ) : undefined;
 	const newSessionSite = newSessionSiteId
 		? sites?.find( ( site ) => site.id === newSessionSiteId )
 		: undefined;
 	const routeSite =
-		overviewSite ??
+		settingsSite ??
+		homeSite ??
 		newSessionSite ??
 		( effectiveEnvironment === 'local' ? sessionSite : undefined );
 	// While session or site data is still loading, preview-capable routes stay
 	// preview-capable so navigation doesn't close and reopen the panel around
 	// the fetch.
 	const supportsPreview =
-		overviewSiteId !== undefined ||
+		settingsSiteId !== undefined ||
+		homeSiteId !== undefined ||
 		newSessionSiteId !== undefined ||
 		( sessionId !== undefined && ( sessionData === undefined || !! routeSite ) );
 	// Remember the last previewed site by id (looked up fresh each render so
@@ -164,9 +175,10 @@ function DashboardLayoutContent() {
 	// Look up by the route's site so the path is right even before the
 	// `setPreviewSite` effect lands.
 	const previewPath = pathForSite( preview.pathsBySiteId, previewSiteId );
-	const showPreview = preview.open && supportsPreview && !! previewSite;
+	// A site's own page is its preview, so it shows whether or not the panel is open.
+	const showPreview = ( preview.open || !! homeSiteId ) && supportsPreview && !! previewSite;
 	const previewFullscreen = preview.fullscreen && showPreview;
-	const chatHidden = preview.chatHidden && showPreview && ! previewFullscreen;
+	const chatHidden = ( preview.chatHidden || !! homeSiteId ) && showPreview && ! previewFullscreen;
 	// Opening a chat shows it.
 	const { setChatHidden } = preview;
 	useEffect( () => {
@@ -208,14 +220,27 @@ function DashboardLayoutContent() {
 						chatHidden ? (
 							<>
 								{ sidebarCollapsed ? <SidebarToggle /> : null }
-								<IconButton
-									variant="minimal"
-									tone="neutral"
-									size="small"
-									icon={ comment }
-									label={ __( 'Show chat' ) }
-									onClick={ () => setChatHidden( false ) }
-								/>
+								{ homeSite ? (
+									<>
+										<SiteDropdown
+											site={ homeSite }
+											showSiteIcon
+											showStatus={ sidebarCollapsed }
+											floating={ false }
+											defaultOpen={ openSiteDropdown }
+										/>
+										<OpenInMenu site={ homeSite } />
+									</>
+								) : (
+									<IconButton
+										variant="minimal"
+										tone="neutral"
+										size="small"
+										icon={ comment }
+										label={ __( 'Show chat' ) }
+										onClick={ () => setChatHidden( false ) }
+									/>
+								) }
 							</>
 						) : undefined
 					}
@@ -223,7 +248,9 @@ function DashboardLayoutContent() {
 			) : null,
 		[
 			chatHidden,
+			homeSite,
 			onAnnotationsDone,
+			openSiteDropdown,
 			previewFullscreen,
 			previewPath,
 			preview.reloadNonce,
@@ -235,18 +262,18 @@ function DashboardLayoutContent() {
 		]
 	);
 	const activeWorkspaceView =
-		sessionId || newSessionSiteId ? 'chat' : overviewSiteId ? 'overview' : undefined;
-	const routeWorkspaceSiteId = overviewSiteId ?? newSessionSiteId ?? sessionSite?.id;
+		sessionId || newSessionSiteId ? 'chat' : settingsSiteId ? 'settings' : undefined;
+	const routeWorkspaceSiteId = settingsSiteId ?? newSessionSiteId ?? sessionSite?.id;
 	const [ retainedWorkspaceSiteId, setRetainedWorkspaceSiteId ] = useState( routeWorkspaceSiteId );
 	if ( routeWorkspaceSiteId && routeWorkspaceSiteId !== retainedWorkspaceSiteId ) {
 		setRetainedWorkspaceSiteId( routeWorkspaceSiteId );
 	}
 	const workspaceSiteId =
 		routeWorkspaceSiteId ?? ( activeWorkspaceView ? retainedWorkspaceSiteId : undefined );
-	const activeOverviewTab =
-		overviewTab ??
-		( workspaceSiteId ? overviewTabsBySite[ workspaceSiteId ] : undefined ) ??
-		'overview';
+	const activeSettingsTab =
+		settingsTab ??
+		( workspaceSiteId ? settingsTabsBySite[ workspaceSiteId ] : undefined ) ??
+		'general';
 	const workspace =
 		activeWorkspaceView && workspaceSiteId ? (
 			<SiteWorkspace
@@ -254,10 +281,9 @@ function DashboardLayoutContent() {
 				siteId={ workspaceSiteId }
 				activeView={ activeWorkspaceView }
 				sessionId={ sessionId }
-				overviewTab={ activeOverviewTab }
-				openSiteDropdown={ openSiteDropdown }
-				onOverviewTabChange={ ( next ) => {
-					setOverviewTabsBySite( ( current ) => ( {
+				settingsTab={ activeSettingsTab }
+				onSettingsTabChange={ ( next ) => {
+					setSettingsTabsBySite( ( current ) => ( {
 						...current,
 						[ workspaceSiteId ]: next,
 					} ) );
@@ -265,7 +291,7 @@ function DashboardLayoutContent() {
 						panel: siteSettingsTabToPanel( next ),
 					} );
 					void navigate( {
-						to: '/sites/$siteId/overview',
+						to: '/sites/$siteId/settings',
 						params: { siteId: workspaceSiteId },
 						search: { tab: next },
 						replace: true,

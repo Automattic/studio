@@ -1,0 +1,98 @@
+.root {
+	/* Anchor for the footer toolbar + its progressive blur. */
+	position: relative;
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	min-height: 0;
+	min-width: 0;
+	/* All scrolling lives in .scroll; prevent the outer contentColumn
+	   (preview-split-frame) from seeing overflow and drawing a second bar. */
+	overflow: hidden;
+	color: var(--wpds-color-foreground-content-neutral);
+	background: var(--wpds-color-background-surface-neutral);
+}
+
+.state {
+	padding: var(--wpds-dimension-padding-xl);
+	color: var(--wpds-color-foreground-content-neutral-weak);
+}
+
+/* Matches the chat header, so the site control sits in the same spot. */
+.header {
+	box-sizing: border-box;
+	display: flex;
+	align-items: center;
+	gap: var(--wpds-dimension-padding-sm);
+	padding: var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-sm);
+	min-height: 46px;
+	background-color: var(--wpds-color-background-surface-neutral-strong);
+	border-bottom: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral);
+	font-size: var(--wpds-typography-font-size-sm);
+	-webkit-app-region: drag;
+}
+
+.headerSidebarCollapsed {
+	padding-inline-start: 94px;
+}
+
+.tabs {
+	flex: 1;
+	min-height: 0;
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+}
+
+.tabsBar {
+	flex: 0 0 auto;
+	min-width: 0;
+	border-bottom: 1px solid var(--wpds-color-stroke-surface-neutral);
+	padding: 0 var(--wpds-dimension-padding-xl);
+}
+
+.scroll {
+	flex: 1;
+	min-height: 0;
+	min-width: 0;
+	overflow-y: auto;
+}
+
+.content {
+	box-sizing: border-box;
+	width: 100%;
+	max-width: 760px;
+	/* Extra bottom padding keeps the last content clear of the overlaid
+	   footer toolbar. */
+	padding: var(--wpds-dimension-padding-xl) var(--wpds-dimension-padding-xl)
+		calc(var(--wpds-dimension-padding-2xl) + 46px);
+}
+
+/* Fixed bottom toolbar mirroring the chat panel's footer, with the preview
+   toggle at the panel's end. Overlaid on the scroll area so content shows
+   through the progressive blur beneath it. */
+.footerBar {
+	position: absolute;
+	inset-inline: 0;
+	bottom: 0;
+	z-index: 2;
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	min-height: 46px;
+	box-sizing: border-box;
+	padding: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-xl);
+	pointer-events: none;
+}
+
+.footerBar > * {
+	pointer-events: auto;
+}
+
+.footerBlur {
+	inset-inline-start: 0;
+	inset-inline-end: 14px;
+	bottom: 0;
+	z-index: 1;
+	height: calc(46px + var(--wpds-dimension-padding-lg));
+}

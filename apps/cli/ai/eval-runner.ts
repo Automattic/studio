@@ -464,6 +464,10 @@ async function runEval( input: EvalRunnerInput ) {
 	let error: string | null = null;
 	let timedOut = false;
 	let lastTurnEndedEmpty = false;
+	// From the last assistant message: a provider failure ends the turn with
+	// stopReason "error" and its message here, without throwing.
+	let stopReason: string | null = null;
+	let errorMessage: string | null = null;
 	// Summed from each assistant message's usage, so evals can compare the
 	// token cost of prompt variants, not just their outcomes.
 	const usage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, totalTokens: 0 };
@@ -479,14 +483,12 @@ async function runEval( input: EvalRunnerInput ) {
 	}
 
 	phaseStartedAt = Date.now();
-	const sessionDirEnv = process.env.STUDIO_EVAL_SESSION_DIR?.trim();
-	let session: SessionManager;
-	if ( sessionDirEnv ) {
-		mkdirSync( sessionDirEnv, { recursive: true } );
-		session = SessionManager.create( STUDIO_SITES_ROOT, sessionDirEnv );
-	} else {
-		session = SessionManager.inMemory( STUDIO_SITES_ROOT );
-	}
+	// Every run keeps its session JSONL (the full transcript) and reports its
+	// path as `sessionFile`; STUDIO_EVAL_SESSION_DIR picks the directory.
+	const sessionDir =
+		process.env.STUDIO_EVAL_SESSION_DIR?.trim() || path.join( os.tmpdir(), 'studio-eval-sessions' );
+	mkdirSync( sessionDir, { recursive: true } );
+	const session = SessionManager.create( STUDIO_SITES_ROOT, sessionDir );
 	const queryStartedAt = Date.now();
 	let turnStart = queryStartedAt;
 
@@ -563,6 +565,8 @@ async function runEval( input: EvalRunnerInput ) {
 				! lastAssistant ||
 				( lastAssistant.stopReason !== 'error' && lastAssistant.stopReason !== 'aborted' );
 			numTurnsResult = numTurns;
+			stopReason = lastAssistant?.stopReason ?? null;
+			errorMessage = lastAssistant?.errorMessage ?? null;
 			lastTurnEndedEmpty = Boolean(
 				lastAssistant &&
 					lastAssistant.stopReason === 'stop' &&
@@ -635,7 +639,10 @@ async function runEval( input: EvalRunnerInput ) {
 		model: resolvedModel,
 		numTurns: numTurnsResult,
 		autoContinues,
+		stopReason,
+		errorMessage,
 		usage,
+		sessionFile: session.getSessionFile() ?? null,
 		phaseTimingsMs,
 		turnDurationsMs,
 		toolCalls,

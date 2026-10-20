@@ -75,7 +75,7 @@ const STUDIO_WPCOM_PROVIDER = 'studio-wpcom';
 const STUDIO_AGENT_DIR = STUDIO_SITES_ROOT;
 // A reply with nothing in it ends the turn without the user seeing why (see
 // `isEmptyStop`). Resume it the way a person would, with a "continue" the
-// user doesn't see, up to this many times in a row.
+// user doesn't see, up to this many times per turn.
 const MAX_EMPTY_STOP_CONTINUES = 2;
 const EMPTY_STOP_CONTINUE_TYPE = 'studio.empty_stop_continue';
 const STUDIO_COMPACTION_SETTINGS = {
@@ -241,13 +241,6 @@ async function runAgentSessionTurn(
 		let continueAfterEmptyStop = false;
 		unsubscribe = session.subscribe( ( event ) => {
 			updateStudioToolPayloadGuardState( event, payloadGuardState );
-			if (
-				event.type === 'message_end' &&
-				event.message.role === 'assistant' &&
-				! isEmptyStop( event.message )
-			) {
-				emptyStopContinues = 0;
-			}
 			if (
 				event.type === 'agent_end' &&
 				! event.willRetry &&

@@ -588,24 +588,6 @@ describe( 'pi runtime', () => {
 			] );
 		} );
 
-		it( 'counts continues in a row, so progress in between starts the count again', async () => {
-			const toolCall = assistantMessage( [
-				{ type: 'toolCall', id: 'call-1', name: 'site_info', arguments: {} },
-			] );
-			mocks.nextEvents = runEndingWith( emptyReply() );
-			mocks.continueEvents = [
-				runEndingWith( emptyReply() ),
-				[ toolCall, ...runEndingWith( emptyReply() ) ],
-				runEndingWith( assistantMessage( [ { type: 'text', text: 'Done.' } ] ) ),
-			];
-
-			const events = await runFast();
-
-			expect( mocks.customMessages ).toHaveLength( 3 );
-			expect( agentEnds( events ).at( -1 )?.willRetry ).toBe( false );
-			expect( findAssistantText( events ) ).toBe( 'Done.' );
-		} );
-
 		it( 'leaves a reply with text or a tool call alone', async () => {
 			for ( const content of [
 				[ { type: 'text', text: 'Which colours do you like?' } ],

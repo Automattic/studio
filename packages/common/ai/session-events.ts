@@ -15,8 +15,8 @@ export function findLastAssistant(
 }
 
 // A reply that ends the turn with neither text nor a tool call: the user
-// sees nothing. The fast tier's upstream does this when the model spends
-// its whole reasoning budget (about 4,096 tokens) before answering.
+// sees nothing. Any model can do this; the fast tier does it when the model
+// spends its whole reasoning budget (about 4,096 tokens) before answering.
 export function isEmptyStop( message: AssistantMessage | undefined ): boolean {
 	return Boolean(
 		message &&

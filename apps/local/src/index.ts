@@ -42,6 +42,11 @@ import { expandSkillCommandPrompt } from '@studio/common/ai/slash-commands';
 import { getAiTracksIdentity } from '@studio/common/ai/tracks-identity';
 import { validateStudioVisualAnnotations } from '@studio/common/ai/visual-annotations';
 import { DEBUG_LOG_RELATIVE_PATH, DEFAULT_TOKEN_LIFETIME_MS } from '@studio/common/constants';
+import {
+	getSkillsStatusForAllSites,
+	installSkillToAllSites,
+	removeSkillFromAllSites,
+} from '@studio/common/lib/agent-skills';
 import { downloadAndExtractBlueprintBundle } from '@studio/common/lib/blueprint-bundle';
 import {
 	cliAuthEventSchema,
@@ -1904,6 +1909,32 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				visualAnnotations: validatedVisualAnnotations,
 			} );
 			res.json( { runId } );
+		} )
+	);
+
+	// --- Skills ---------------------------------------------------------------
+	api.get(
+		'/skills',
+		asyncHandler( async ( _req: Request, res: Response ) => {
+			res.json( await getSkillsStatusForAllSites() );
+		} )
+	);
+
+	api.post(
+		'/skills/:id',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			// Bundled next to the CLI entry, as the desktop app finds them.
+			const skillsPath = path.join( path.dirname( cliBinary ), 'wp-files', 'skills' );
+			await installSkillToAllSites( skillsPath, req.params.id );
+			res.sendStatus( 204 );
+		} )
+	);
+
+	api.delete(
+		'/skills/:id',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			await removeSkillFromAllSites( req.params.id );
+			res.sendStatus( 204 );
 		} )
 	);
 

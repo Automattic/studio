@@ -913,6 +913,28 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 	};
 }
 
+function hasUnansweredQuestion( state: State ): boolean {
+	return state.pendingQuestions.some(
+		( pendingQuestion ) => typeof state.pendingAnswers[ pendingQuestion.question ] !== 'string'
+	);
+}
+
+/** Sessions waiting on the user's answer to a question. */
+export function useSessionsNeedingInput(): string[] {
+	const store = useContext( AgentRunContext );
+	if ( ! store ) {
+		throw new Error( 'useSessionsNeedingInput must be used within AgentRunProvider' );
+	}
+	// Joined so the snapshot compares by value; a fresh array would re-render forever.
+	const ids = useSyncExternalStore( store.stateStore.subscribe, () =>
+		Object.entries( store.stateStore.getState() )
+			.filter( ( [ , state ] ) => hasUnansweredQuestion( state ) )
+			.map( ( [ sessionId ] ) => sessionId )
+			.join( ' ' )
+	);
+	return useMemo( () => ( ids ? ids.split( ' ' ) : [] ), [ ids ] );
+}
+
 /**
  * Aggregate read-only activity for a site row. Pending questions outrank
  * active work because they need the user's attention; otherwise any
@@ -930,10 +952,7 @@ export function useSiteAgentActivity( sessionIds: string[] ): SiteAgentActivity 
 			if ( ! state ) {
 				continue;
 			}
-			const hasPendingQuestion = state.pendingQuestions.some(
-				( pendingQuestion ) => typeof state.pendingAnswers[ pendingQuestion.question ] !== 'string'
-			);
-			if ( hasPendingQuestion ) {
+			if ( hasUnansweredQuestion( state ) ) {
 				return 'pending-question';
 			}
 			if ( state.phase === 'starting' || state.phase === 'running' ) {

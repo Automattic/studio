@@ -33,7 +33,11 @@ import { SidebarButton } from '@/components/sidebar-button';
 import { deriveSiteStatus, getSiteStatusName } from '@/components/site-dropdown/utils';
 import { XdebugIcon } from '@/components/xdebug-icon';
 import { useConnector } from '@/data/core';
-import { useSiteAgentActivity, type SiteAgentActivity } from '@/data/queries/use-agent-run';
+import {
+	useSessionsNeedingInput,
+	useSiteAgentActivity,
+	type SiteAgentActivity,
+} from '@/data/queries/use-agent-run';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useSessions } from '@/data/queries/use-sessions';
 import {
@@ -754,6 +758,7 @@ export function SiteList( {
 	const navigate = useNavigate();
 	const { data: sites, isLoading: sitesLoading } = useSites();
 	const { data: sessions, isLoading: sessionsLoading } = useSessions();
+	const needingInput = useSessionsNeedingInput();
 	const { chatEnabled, chatPromptsSignIn } = useAgenticFeatures();
 	const params = useParams( { strict: false } ) as { sessionId?: string; siteId?: string };
 	const pathname = useRouterState( { select: ( state ) => state.location.pathname } );
@@ -836,15 +841,34 @@ export function SiteList( {
 		return <div className={ clsx( styles.root, className ) }>{ listContent }</div>;
 	}
 
-	const recentChats = chatEnabled
-		? ( sessions ?? [] )
-				.filter( ( session ) => ! session.archived )
-				.sort( byMostRecent )
-				.slice( 0, RECENT_CHATS_LIMIT )
+	const openChats = chatEnabled
+		? ( sessions ?? [] ).filter( ( session ) => ! session.archived ).sort( byMostRecent )
 		: [];
+	// Chats waiting on an answer move to the top until it's given.
+	const needsInputChats = openChats.filter( ( session ) => needingInput.includes( session.id ) );
+	const recentChats = openChats
+		.filter( ( session ) => ! needingInput.includes( session.id ) )
+		.slice( 0, RECENT_CHATS_LIMIT );
+	const renderChats = ( chats: AiSessionSummary[] ) => (
+		<div className={ styles.chats }>
+			{ chats.map( ( session ) => (
+				<ChatRow
+					key={ session.id }
+					session={ session }
+					active={ session.id === activeSessionId }
+					onOpen={ onSiteOpen }
+				/>
+			) ) }
+		</div>
+	);
 
 	return (
 		<div className={ clsx( styles.root, className ) }>
+			{ needsInputChats.length > 0 ? (
+				<SidebarGroup title={ __( 'Needs input' ) }>
+					{ renderChats( needsInputChats ) }
+				</SidebarGroup>
+			) : null }
 			<SidebarGroup
 				title={ __( 'Sites' ) }
 				action={
@@ -862,18 +886,7 @@ export function SiteList( {
 				{ listContent }
 			</SidebarGroup>
 			{ recentChats.length > 0 ? (
-				<SidebarGroup title={ __( 'Recent' ) }>
-					<div className={ styles.chats }>
-						{ recentChats.map( ( session ) => (
-							<ChatRow
-								key={ session.id }
-								session={ session }
-								active={ session.id === activeSessionId }
-								onOpen={ onSiteOpen }
-							/>
-						) ) }
-					</div>
-				</SidebarGroup>
+				<SidebarGroup title={ __( 'Recent' ) }>{ renderChats( recentChats ) }</SidebarGroup>
 			) : null }
 		</div>
 	);

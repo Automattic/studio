@@ -28,7 +28,7 @@ describe( 'useResponsivePanels', () => {
 			} )
 		);
 
-		await waitFor( () => expect( ensureWindowWidth ).toHaveBeenCalledWith( 932 ) );
+		await waitFor( () => expect( ensureWindowWidth ).toHaveBeenCalledWith( 920 ) );
 		expect( setPreviewOpen ).not.toHaveBeenCalled();
 	} );
 
@@ -46,7 +46,7 @@ describe( 'useResponsivePanels', () => {
 		);
 
 		await waitFor( () => expect( result.current.sidebarCollapsed ).toBe( true ) );
-		expect( ensureWindowWidth ).toHaveBeenNthCalledWith( 1, 932 );
+		expect( ensureWindowWidth ).toHaveBeenNthCalledWith( 1, 920 );
 		expect( ensureWindowWidth ).toHaveBeenNthCalledWith( 2, 680 );
 	} );
 
@@ -93,7 +93,7 @@ describe( 'useResponsivePanels', () => {
 
 		expect( setPreviewOpen ).toHaveBeenCalledWith( false );
 		expect( ensureWindowWidth ).toHaveBeenNthCalledWith( 1, 680 );
-		expect( ensureWindowWidth ).toHaveBeenNthCalledWith( 2, 932 );
+		expect( ensureWindowWidth ).toHaveBeenNthCalledWith( 2, 920 );
 		expect( ensureWindowWidth ).toHaveBeenNthCalledWith( 3, 660 );
 		expect( result.current.sidebarCollapsed ).toBe( false );
 	} );
@@ -150,7 +150,7 @@ describe( 'useResponsivePanels', () => {
 		expect( result.current.sidebarCollapsed ).toBe( false );
 
 		await act( async () => {
-			resolveGrow?.( 932 );
+			resolveGrow?.( 920 );
 		} );
 		expect( result.current.sidebarCollapsed ).toBe( false );
 	} );
@@ -185,7 +185,7 @@ describe( 'useResponsivePanels', () => {
 
 	it( 'reserves room for the split before leaving fullscreen to show the sidebar', async () => {
 		setViewportWidth( 420 );
-		const ensureWindowWidth = vi.fn().mockResolvedValue( 932 );
+		const ensureWindowWidth = vi.fn().mockResolvedValue( 920 );
 		const { result } = renderHook( () =>
 			useResponsivePanels( {
 				connector: { ensureWindowWidth },
@@ -197,7 +197,7 @@ describe( 'useResponsivePanels', () => {
 
 		await act( () => result.current.openSidebar() );
 
-		expect( ensureWindowWidth ).toHaveBeenCalledWith( 932 );
+		expect( ensureWindowWidth ).toHaveBeenCalledWith( 920 );
 		expect( result.current.sidebarCollapsed ).toBe( false );
 	} );
 } );

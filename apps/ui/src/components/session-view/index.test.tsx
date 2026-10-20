@@ -79,6 +79,7 @@ vi.mock( '@/hooks/use-session-commands', () => ( { useSessionCommands: vi.fn() }
 vi.mock( '@/hooks/use-session-ui', () => ( {
 	SessionUIProvider: ( { children }: { children: React.ReactNode } ) => children,
 	useSessionPreviewAnnotations: vi.fn(),
+	useOptionalSessionPreviewUI: () => null,
 	useSessionPreviewUI: () => ( {
 		pathsBySiteId: { 'site-1': '/wp-admin/' },
 	} ),
@@ -463,7 +464,7 @@ describe( 'SessionView', () => {
 
 		const { container } = render( <SessionView sessionId="session-1" /> );
 
-		expect( container.querySelectorAll( '[class*="fadeToSurface"]' ) ).toHaveLength( 2 );
+		expect( container.querySelectorAll( '[class*="fadeToSurface"]' ) ).toHaveLength( 1 );
 	} );
 
 	it( 'ignores an unverified email when a payment method exists', () => {

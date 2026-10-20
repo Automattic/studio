@@ -9,7 +9,7 @@ import {
 } from '@studio/common/lib/studio-assistant-quota';
 import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
-import { arrowDown } from '@wordpress/icons';
+import { arrowDown, closeSmall } from '@wordpress/icons';
 import { IconButton } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import {
@@ -26,8 +26,10 @@ import {
 import { AgenticSigninPrompt } from '@/components/agentic-signin-banner';
 import { OutOfCreditsNotice } from '@/components/ai-access-required-notice';
 import { OpenInMenu } from '@/components/open-in-menu';
+import { usePreviewBeside } from '@/components/preview-split-frame';
 import { PreviewToggleButton } from '@/components/preview-toggle-button';
 import { ProgressiveBlur } from '@/components/progressive-blur';
+import { SidebarToggle } from '@/components/sidebar-toggle';
 import { SiteDropdown } from '@/components/site-dropdown';
 import { SiteIcon } from '@/components/site-icon';
 import { type Annotation } from '@/components/site-preview/types';
@@ -44,7 +46,11 @@ import {
 import { useSites } from '@/data/queries/use-sites';
 import { useIsOutOfAiCredits } from '@/hooks/use-is-out-of-ai-credits';
 import { useSessionCommands } from '@/hooks/use-session-commands';
-import { SessionUIProvider, useSessionPreviewAnnotations } from '@/hooks/use-session-ui';
+import {
+	SessionUIProvider,
+	useOptionalSessionPreviewUI,
+	useSessionPreviewAnnotations,
+} from '@/hooks/use-session-ui';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import { useWindowControlsInset } from '@/hooks/use-window-controls-inset';
@@ -96,10 +102,9 @@ function SessionHeader( {
 } ) {
 	const sidebarCollapsed = useSidebarCollapsed();
 	const reserveTrafficLightSpace = useTrafficLightSpace().start;
-	const windowControlsInset = useWindowControlsInset( 'content' );
-	if ( ! siteName ) {
-		return null;
-	}
+	const windowControlsInset = useWindowControlsInset( 'toolbar' );
+	const previewBeside = usePreviewBeside();
+	const preview = useOptionalSessionPreviewUI();
 
 	return (
 		<div
@@ -115,14 +120,17 @@ function SessionHeader( {
 					: undefined
 			}
 		>
+			{ sidebarCollapsed ? <SidebarToggle /> : null }
 			{ site ? (
 				<SiteDropdown
 					site={ site }
 					activeEnvironment={ effectiveEnvironment }
 					showSiteIcon
 					showStatus={ sidebarCollapsed }
+					floating={ false }
 				/>
-			) : (
+			) : null }
+			{ ! site && siteName ? (
 				<>
 					<SiteIcon className={ styles.headerSiteIcon } seed={ siteName } />
 					<span className={ styles.headerSite }>{ siteName }</span>
@@ -131,11 +139,21 @@ function SessionHeader( {
 						{ effectiveEnvironment === 'live' ? __( 'Live' ) : __( 'Local' ) }
 					</span>
 				</>
-			) }
+			) : null }
 			<span className={ styles.headerSpacer } aria-hidden="true" />
-			{ site ? (
+			{ site || ( previewBeside && preview ) ? (
 				<div className={ styles.headerActions }>
-					<OpenInMenu key={ site.id } site={ site } />
+					{ site ? <OpenInMenu key={ site.id } site={ site } /> : null }
+					{ previewBeside && preview ? (
+						<IconButton
+							variant="minimal"
+							tone="neutral"
+							size="small"
+							icon={ closeSmall }
+							label={ __( 'Hide chat' ) }
+							onClick={ () => preview.setChatHidden( true ) }
+						/>
+					) : null }
 				</div>
 			) : null }
 		</div>
@@ -231,7 +249,6 @@ function SessionFrame( {
 			<div ref={ scrollRef } className={ styles.scroll }>
 				{ children }
 			</div>
-			<ProgressiveBlur direction="down" className={ styles.headerBlur } fadeToSurface />
 			{ composer ? (
 				<>
 					<ProgressiveBlur direction="up" className={ styles.composerBlur } fadeToSurface />

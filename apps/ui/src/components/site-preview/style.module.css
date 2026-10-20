@@ -25,12 +25,14 @@
 
 .header {
 	position: relative;
+	box-sizing: border-box;
 	display: grid;
 	grid-template-columns: auto minmax(0, 1fr) auto;
 	align-items: center;
 	gap: var(--wpds-dimension-padding-sm);
 	padding: var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-sm);
-	min-height: 32px;
+	/* Level with the chat header beside it. */
+	min-height: 46px;
 	flex-shrink: 0;
 	background-color: var(--wpds-color-background-surface-neutral-strong, #fff);
 	border-bottom: 1px solid var(--wpds-color-stroke-surface-neutral);

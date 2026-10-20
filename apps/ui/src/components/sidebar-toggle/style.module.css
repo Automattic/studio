@@ -1,0 +1,25 @@
+.root {
+	position: relative;
+	display: inline-flex;
+	flex-shrink: 0;
+	-webkit-app-region: no-drag;
+}
+
+/* Replicates @wordpress/ui IconButton's internal sizing (see
+   node_modules/@wordpress/ui/src/icon-button/style.module.css, including the
+   -1px border compensation on the icon). Keep in sync with upstream. */
+.control {
+	--wp-ui-button-aspect-ratio: 1;
+	--wp-ui-button-padding-inline: 0;
+	--wp-ui-button-min-width: unset;
+}
+
+.icon {
+	margin: -1px;
+}
+
+/* The drawer icon depicts the sidebar edge; mirror it when the sidebar sits
+   on the right. */
+.root:dir(rtl) svg {
+	transform: scaleX(-1);
+}

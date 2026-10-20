@@ -1,12 +1,16 @@
 import { findAiSessionOwnerSite } from '@studio/common/ai/sessions/owner-site';
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { createRoute, Outlet, useNavigate, useRouterState } from '@tanstack/react-router';
+import { __ } from '@wordpress/i18n';
+import { comment } from '@wordpress/icons';
+import { IconButton } from '@wordpress/ui';
 import { useCallback, useEffect, useState } from 'react';
 import {
 	PreviewSplitFrame,
 	type PreviewSplitFramePreviewProps,
 } from '@/components/preview-split-frame';
 import { SidebarLayout } from '@/components/sidebar-layout';
+import { SidebarToggle } from '@/components/sidebar-toggle';
 import { SitePreview } from '@/components/site-preview';
 import { isSiteSettingsTab, siteSettingsTabToPanel } from '@/components/site-settings-view';
 import { SiteWorkspace } from '@/components/site-workspace';
@@ -162,6 +166,12 @@ function DashboardLayoutContent() {
 	const previewPath = pathForSite( preview.pathsBySiteId, previewSiteId );
 	const showPreview = preview.open && supportsPreview && !! previewSite;
 	const previewFullscreen = preview.fullscreen && showPreview;
+	const chatHidden = preview.chatHidden && showPreview && ! previewFullscreen;
+	// Opening a chat shows it.
+	const { setChatHidden } = preview;
+	useEffect( () => {
+		setChatHidden( false );
+	}, [ sessionId, setChatHidden ] );
 	const { setOpen: setPreviewOpen } = preview;
 	const { sidebarCollapsed, setSidebarCollapsed, openSidebar, onPreviewContainerWidthChange } =
 		useResponsivePanels( {
@@ -193,16 +203,35 @@ function DashboardLayoutContent() {
 					collapsed={ collapsed }
 					fullscreen={ previewFullscreen }
 					onFullscreenChange={ setPreviewFullscreen }
+					atWindowStart={ previewFullscreen || ( chatHidden && sidebarCollapsed ) }
+					toolbarStart={
+						chatHidden ? (
+							<>
+								{ sidebarCollapsed ? <SidebarToggle /> : null }
+								<IconButton
+									variant="minimal"
+									tone="neutral"
+									size="small"
+									icon={ comment }
+									label={ __( 'Show chat' ) }
+									onClick={ () => setChatHidden( false ) }
+								/>
+							</>
+						) : undefined
+					}
 				/>
 			) : null,
 		[
+			chatHidden,
 			onAnnotationsDone,
 			previewFullscreen,
 			previewPath,
 			preview.reloadNonce,
 			preview.updatePath,
 			previewSite,
+			setChatHidden,
 			setPreviewFullscreen,
+			sidebarCollapsed,
 		]
 	);
 	const activeWorkspaceView =
@@ -258,7 +287,7 @@ function DashboardLayoutContent() {
 			<PreviewSplitFrame
 				previewOpen={ showPreview }
 				previewFullscreen={ previewFullscreen }
-				previewLive={ !! previewSite?.running }
+				chatHidden={ chatHidden }
 				preview={ renderPreview }
 				onContainerWidthChange={ onPreviewContainerWidthChange }
 			>

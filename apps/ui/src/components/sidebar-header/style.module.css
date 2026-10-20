@@ -22,7 +22,7 @@
 	position: sticky;
 	top: 0;
 	z-index: 1;
-	background-color: var(--app-chrome-bg);
+	background-color: var(--studio-sidebar-bg);
 }
 
 /* When there are no traffic lights to clear — non-macOS, the browser

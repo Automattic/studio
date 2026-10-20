@@ -3,6 +3,7 @@ import { __ } from '@wordpress/i18n';
 import { menu, plus } from '@wordpress/icons';
 import { IconButton } from '@wordpress/ui';
 import { clsx } from 'clsx';
+import { SidebarToggle } from '@/components/sidebar-toggle';
 import { useConnector } from '@/data/core';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import { useWindowControlsOverlay } from '@/hooks/use-window-controls-overlay';
@@ -47,6 +48,7 @@ export function SidebarHeader() {
 				/>
 			) }
 			<div className={ styles.actions }>
+				<SidebarToggle />
 				<IconButton
 					variant="minimal"
 					tone="neutral"

@@ -18,11 +18,10 @@ import {
 } from '@wordpress/keycodes';
 import { Button, Dialog, IconButton, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { DesignSystemView } from '@/components/design-system-view';
 import { DotGrid } from '@/components/dot-grid';
 import * as Menu from '@/components/menu';
-import { PREVIEW_TOGGLE_DURATION } from '@/components/preview-split-frame';
 import { useConnector } from '@/data/core';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { siteDesignQueryKey, useSiteDesign } from '@/data/queries/use-site-design';
@@ -35,7 +34,6 @@ import {
 } from '@/data/queries/use-sites';
 import { themeDetailsQueryKey } from '@/hooks/use-theme-details';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
-import { useTrafficLightsPosition } from '@/hooks/use-traffic-lights-position';
 import { useWindowControlsInset } from '@/hooks/use-window-controls-inset';
 import { getSiteUrl } from '@/lib/get-site-url';
 import { browserBackIcon, browserForwardIcon, playIcon, refreshIcon } from '@/lib/icons';
@@ -81,6 +79,11 @@ interface SitePreviewProps {
 	fullscreen?: boolean;
 	// Enters/leaves full preview. The toolbar toggle only renders when provided.
 	onFullscreenChange?: ( value: boolean ) => void;
+	// Controls at the toolbar's start, for when the preview is the leftmost pane.
+	toolbarStart?: ReactNode;
+	// The toolbar reaches the window's start edge, where the macOS traffic
+	// lights sit.
+	atWindowStart?: boolean;
 }
 
 interface InspectorEvent {
@@ -720,6 +723,8 @@ export function SitePreview( {
 	collapsed = false,
 	fullscreen = false,
 	onFullscreenChange,
+	toolbarStart,
+	atWindowStart = false,
 }: SitePreviewProps ) {
 	const connector = useConnector();
 	const queryClient = useQueryClient();
@@ -732,10 +737,6 @@ export function SitePreview( {
 	const canPreview = site.running;
 	const canUseWebview = isElectron();
 	const trafficLightSpace = useTrafficLightSpace();
-	useTrafficLightsPosition(
-		!! fullscreen && canPreview && ( trafficLightSpace.start || trafficLightSpace.end ),
-		PREVIEW_TOGGLE_DURATION
-	);
 	const windowControlsInset = useWindowControlsInset( 'toolbar' );
 	const safePath = getSafePath( path );
 	// Which realm the host is pointing the preview at. Derived from the path
@@ -1009,14 +1010,12 @@ export function SitePreview( {
 			aria-label={ __( 'Site preview' ) }
 		>
 			<div
-				hidden={ ! canPreview }
-				// In full preview the toolbar reaches the window's physical left
-				// edge, where the macOS traffic lights sit.
+				hidden={ ! canPreview && ! toolbarStart }
 				className={ clsx(
 					styles.header,
-					! canPreview && styles.browserChromeHidden,
+					! canPreview && ! toolbarStart && styles.browserChromeHidden,
 					inspectorState.isPicking && styles.headerAnnotating,
-					fullscreen && trafficLightSpace.start && styles.headerTrafficLights
+					atWindowStart && trafficLightSpace.start && styles.headerTrafficLights
 				) }
 				style={ {
 					// In RTL the preview pane sits at the physical left, so the
@@ -1031,6 +1030,7 @@ export function SitePreview( {
 				{ /* Browser navigation stays at the start, the address field fills the
 					available middle track, and preview actions stay at the end. */ }
 				<div className={ styles.headerSide }>
+					{ toolbarStart }
 					{ canPreview && ! inspectorState.isPicking ? (
 						<>
 							<BrowserHistoryButton

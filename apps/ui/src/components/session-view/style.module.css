@@ -15,7 +15,6 @@
 	--header-height: 46px;
 	--composer-height: 0px;
 	--panel-footer-height: 0px;
-	--header-blur-overhang: 16px;
 	--composer-blur-overhang: 40px;
 	--scrollbar-blur-safe-area: 14px;
 
@@ -31,12 +30,15 @@
 }
 
 .header {
+	box-sizing: border-box;
 	display: flex;
 	align-items: center;
 	gap: var(--wpds-dimension-padding-sm);
-	padding-block: var(--wpds-dimension-padding-sm);
+	padding-block: var(--wpds-dimension-padding-xs);
 	padding-inline: var(--wpds-dimension-padding-sm);
 	min-height: 46px;
+	background-color: var(--wpds-color-background-surface-neutral-strong);
+	border-bottom: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral);
 	font-size: var(--wpds-typography-font-size-sm);
 	color: var(--wpds-color-foreground-content-neutral);
 	-webkit-app-region: drag;
@@ -79,11 +81,7 @@
 .headerActions {
 	display: flex;
 	align-items: center;
-	/* Centers against the preview toolbar beside it (32px address bar plus
-	   4px padding above and below), not this taller site-button row. */
-	align-self: flex-start;
-	height: 40px;
-	margin-block-start: calc(-1 * var(--wpds-dimension-padding-sm));
+	gap: var(--wpds-dimension-gap-xs);
 	-webkit-app-region: no-drag;
 }
 
@@ -106,16 +104,10 @@
 	scrollbar-gutter: stable both-edges;
 }
 
-.headerBlur,
 .composerBlur {
 	inset-inline-start: 0;
 	inset-inline-end: var(--scrollbar-blur-safe-area);
 	z-index: 1;
-}
-
-.headerBlur {
-	top: 0;
-	height: calc(var(--header-height) + var(--header-blur-overhang));
 }
 
 .composerBlur {

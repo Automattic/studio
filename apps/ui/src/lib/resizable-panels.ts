@@ -20,10 +20,7 @@ export const SIDEBAR_PANEL_CONFIG: ResizablePanelConfig = {
 // Below this width, keeping the sidebar open would leave less than the
 // agentic window's compact 420px chat surface.
 export const SIDEBAR_AUTO_COLLAPSE_BREAKPOINT = SIDEBAR_PANEL_CONFIG.minWidth + 420;
-// Keep in sync with --panel-frame-gap in preview-split-frame/style.module.css.
-const PREVIEW_FRAME_END_GAP = 12;
-export const ALL_PANELS_MIN_WIDTH =
-	SIDEBAR_PANEL_CONFIG.minWidth + PREVIEW_SPLIT_MIN_WIDTH + PREVIEW_FRAME_END_GAP;
+export const ALL_PANELS_MIN_WIDTH = SIDEBAR_PANEL_CONFIG.minWidth + PREVIEW_SPLIT_MIN_WIDTH;
 
 export function getResizablePanelMaxWidth(
 	viewportWidth: number,

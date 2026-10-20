@@ -36,12 +36,6 @@ describe( 'SidebarHeader', () => {
 		expect( screen.queryByText( 'Import from…' ) ).not.toBeInTheDocument();
 	} );
 
-	it( 'has no sidebar toggle — it lives in the sidebar footer', () => {
-		render( <SidebarHeader /> );
-
-		expect( screen.queryByRole( 'button', { name: 'Hide sidebar' } ) ).not.toBeInTheDocument();
-	} );
-
 	it( 'opens the app menu when the host has no native menu bar', () => {
 		render( <SidebarHeader /> );
 

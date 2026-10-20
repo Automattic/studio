@@ -107,11 +107,7 @@ import {
 import { readSite, readSitePath, readSitePaths } from '@studio/common/sites/site-path';
 import { measureSiteStorage, type SiteStorageUsage } from '@studio/common/sites/storage-usage';
 import { __ } from '@wordpress/i18n';
-import {
-	DEFAULT_TERMINAL,
-	MACOS_TOOLBAR_TRAFFIC_LIGHT_POSITION,
-	MACOS_TRAFFIC_LIGHT_POSITION,
-} from 'src/constants';
+import { DEFAULT_TERMINAL } from 'src/constants';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
 import { setPendingAuthContext } from 'src/lib/auth-tracks-context';
 import { bumpStat, getBlueprintMetric, StatsGroup } from 'src/lib/bump-stats';
@@ -146,7 +142,6 @@ import {
 	getMainWindow,
 	getTitleBarOverlayOptions,
 	setAgenticControlsSurface,
-	type TrafficLightsPosition,
 	type WindowControlsSurface,
 } from 'src/main-window';
 import { popupMenu, setupMenu } from 'src/menu';
@@ -1486,19 +1481,6 @@ export async function setWindowControlsSurface(
 	}
 	setAgenticControlsSurface( surface );
 	parentWindow.setTitleBarOverlay( getTitleBarOverlayOptions() );
-}
-
-export async function setTrafficLightsPosition(
-	event: IpcMainInvokeEvent,
-	position: TrafficLightsPosition
-) {
-	const parentWindow = BrowserWindow.fromWebContents( event.sender );
-	if ( ! parentWindow || process.platform !== 'darwin' ) {
-		return;
-	}
-	parentWindow.setWindowButtonPosition(
-		position === 'toolbar' ? MACOS_TOOLBAR_TRAFFIC_LIGHT_POSITION : MACOS_TRAFFIC_LIGHT_POSITION
-	);
 }
 
 export async function setTitleBarBackdropEffect( event: IpcMainInvokeEvent, enabled: boolean ) {

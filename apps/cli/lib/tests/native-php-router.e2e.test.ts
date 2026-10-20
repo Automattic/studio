@@ -21,6 +21,7 @@ const envContents = 'environment file bytes';
 const hiddenStylesheetContents = 'hidden stylesheet bytes';
 const securityTxtContents = 'security.txt bytes';
 const themeStylesheetContents = 'theme stylesheet bytes';
+const symlinkedGitConfigContents = 'symlinked plugin git config bytes';
 
 let root: string;
 let fixtureDirectory: string;
@@ -102,6 +103,12 @@ describe( 'native PHP router', { tags: [ 'e2e' ] }, () => {
 		fs.mkdirSync( path.join( root, '.well-known' ), { recursive: true } );
 		fs.writeFileSync( path.join( root, '.well-known/security.txt' ), securityTxtContents );
 
+		const pluginCheckout = path.join( fixtureDirectory, 'plugin-checkout' );
+		fs.mkdirSync( path.join( pluginCheckout, '.git' ), { recursive: true } );
+		fs.writeFileSync( path.join( pluginCheckout, '.git/config' ), symlinkedGitConfigContents );
+		fs.mkdirSync( path.join( root, 'wp-content/plugins' ), { recursive: true } );
+		fs.symlinkSync( pluginCheckout, path.join( root, 'wp-content/plugins/linked' ), 'junction' );
+
 		const port = await getAvailablePort();
 		baseUrl = `http://127.0.0.1:${ port }`;
 		server = spawn( phpBinaryPath, [ '-S', `127.0.0.1:${ port }`, routerPath ], {
@@ -146,6 +153,7 @@ describe( 'native PHP router', { tags: [ 'e2e' ] }, () => {
 		[ '/.git/HEAD', gitHeadContents ],
 		[ '/.env', envContents ],
 		[ '/wp-content/.hidden/file.css', hiddenStylesheetContents ],
+		[ '/wp-content/plugins/linked/.git/config', symlinkedGitConfigContents ],
 	] )(
 		'does not serve dotfiles and the database directory: %s',
 		async ( requestPath, contents ) => {

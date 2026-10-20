@@ -51,7 +51,7 @@ import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import { Logger } from 'cli/logger';
 import type { AgentSessionEvent } from '@earendil-works/pi-coding-agent';
 import type { AiProviderId } from 'cli/ai/providers';
-import type { SiteInfo } from 'cli/ai/types';
+import type { AskUserHandler, SiteInfo } from 'cli/ai/types';
 
 // Optional fixtures a test can pre-seed before the agent turn, so flows that
 // depend on connected remote sites and/or preview sites can be exercised
@@ -93,6 +93,11 @@ interface EvalRunnerInput {
 	// Objects rather than strings: promptfoo expands an array of strings into
 	// one test case per element.
 	followUps?: Array< { prompt: string } >;
+	// Scripted replies for the questions the agent asks the user, in order:
+	// each question takes the next label. With answers set, the turn runs with
+	// Studio chat's ask-the-user handler, so AskUserQuestion and tools that
+	// confirm with the user work; once they run out, the user cancels.
+	answers?: Array< { label: string } >;
 	timeoutMs?: number;
 	model?: AiModelId;
 	seed?: EvalSeed;
@@ -409,9 +414,14 @@ function readInput(): EvalRunnerInput {
 		? z.array( z.object( { prompt: z.string() } ) ).parse( vars.followUps )
 		: undefined;
 
+	const answers = vars.answers
+		? z.array( z.object( { label: z.string() } ) ).parse( vars.answers )
+		: undefined;
+
 	return {
 		prompt: ( vars.prompt as string ) ?? prompt,
 		followUps,
+		answers,
 		timeoutMs: typeof vars.timeoutMs === 'number' ? vars.timeoutMs : undefined,
 		model,
 		seed,
@@ -456,6 +466,22 @@ async function runEval( input: EvalRunnerInput ) {
 	const toolEvents: ToolEvent[] = [];
 	const requests: ModelRequestRecord[] = [];
 	const textSegments: string[] = [];
+	const questions: Array< { question: string; options: string[]; answer: string } > = [];
+	const pendingAnswers = [ ...( input.answers ?? [] ) ];
+	const onAskUser: AskUserHandler | undefined = input.answers
+		? async ( asked ) =>
+				Object.fromEntries(
+					asked.map( ( { question, options } ) => {
+						const answer = pendingAnswers.shift()?.label ?? 'Cancel';
+						questions.push( {
+							question,
+							options: options.map( ( option ) => option.label ),
+							answer,
+						} );
+						return [ question, answer ];
+					} )
+				)
+		: undefined;
 	const toolNameById = new Map< string, string >();
 	const toolEventById = new Map< string, ToolEvent >();
 	let firstToolError: FirstToolError | null = null;
@@ -603,6 +629,7 @@ async function runEval( input: EvalRunnerInput ) {
 			session,
 			activeSite: seeded?.activeSite,
 			onEvent: handleEvent,
+			onAskUser,
 			...( input.model ? { model: input.model } : {} ),
 		} );
 	let query = runTurn( prompt );
@@ -669,6 +696,7 @@ async function runEval( input: EvalRunnerInput ) {
 		toolEvents,
 		firstToolError,
 		textSegments,
+		questions,
 		inspections,
 	};
 }

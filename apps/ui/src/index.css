@@ -330,6 +330,7 @@ input[type='checkbox']:focus:not( :focus-visible ) {
 
 .components-input-control__prefix svg,
 .components-input-control__suffix svg {
+	color: var( --wpds-color-foreground-content-neutral-weak );
 	fill: var( --wpds-color-foreground-content-neutral-weak );
 }
 

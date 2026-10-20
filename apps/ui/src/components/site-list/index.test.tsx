@@ -478,7 +478,7 @@ describe( 'SiteList', () => {
 		} );
 	} );
 
-	it( 'moves pinned sites and chats into the Pinned group, in pin order', () => {
+	it( 'moves pinned sites and chats into the Pinned group, in pin order', async () => {
 		pinsMock = [ 'chat:other-chat', 'site:stopped-site' ];
 		useSessionsMock.mockReturnValue( {
 			data: [
@@ -505,6 +505,15 @@ describe( 'SiteList', () => {
 
 		fireEvent.click( within( pinned ).getByRole( 'button', { name: 'Unpin chat' } ) );
 		expect( togglePin ).toHaveBeenCalledWith( 'chat:other-chat' );
+
+		fireEvent.contextMenu( within( sites ).getByText( 'Running Site' ) );
+		fireEvent.keyDown( await screen.findByRole( 'menu' ), {
+			key: 'p',
+			keyCode: 80,
+			ctrlKey: true,
+			altKey: true,
+		} );
+		expect( togglePin ).toHaveBeenLastCalledWith( 'site:running-site' );
 	} );
 
 	it( 'marks the site row as contextual on the site settings route', () => {

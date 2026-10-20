@@ -34,7 +34,7 @@ export function useChatActions( session: AiSessionSummary, active: boolean ) {
 		}
 	};
 
-	// ⌥⌘R renames, ⇧⌘A archives (Ctrl+Alt+R and Ctrl+Shift+A elsewhere).
+	// ⌥⌘R renames, ⌥⌘P pins, ⇧⌘A archives (Ctrl+Alt+R, Ctrl+Alt+P and Ctrl+Shift+A elsewhere).
 	const handleShortcut = ( event: KeyboardEvent ) => {
 		if ( event.defaultPrevented || event.repeat ) {
 			return;
@@ -42,6 +42,9 @@ export function useChatActions( session: AiSessionSummary, active: boolean ) {
 		if ( isKeyboardEvent.primaryAlt( event, 'r' ) ) {
 			event.preventDefault();
 			setRenaming( true );
+		} else if ( isKeyboardEvent.primaryAlt( event, 'p' ) ) {
+			event.preventDefault();
+			togglePin( chatPinKey( session.id ) );
 		} else if ( isKeyboardEvent.primaryShift( event, 'a' ) && ! working ) {
 			event.preventDefault();
 			void archive();
@@ -71,6 +74,7 @@ export function ChatActionsMenuItems( { actions }: { actions: ChatActions } ) {
 			<Menu.Item onClick={ actions.togglePin }>
 				<Icon icon={ actions.pinned ? unpinIcon : pinIcon } />
 				{ actions.pinned ? __( 'Unpin' ) : __( 'Pin' ) }
+				<Menu.Shortcut>{ displayShortcut.primaryAlt( 'p' ) }</Menu.Shortcut>
 			</Menu.Item>
 			<Menu.Item onClick={ actions.rename }>
 				<Icon icon={ renameIcon } />

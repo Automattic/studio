@@ -4,6 +4,7 @@ import { sortSites } from '@studio/common/lib/sort-sites';
 import { useNavigate, useParams, useRouterState } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
 import { Icon } from '@wordpress/icons';
+import { displayShortcut, isKeyboardEvent } from '@wordpress/keycodes';
 import { IconButton, Spinner, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import {
@@ -476,6 +477,12 @@ function SiteActionsMenu( {
 				<Menu.ContextPopup
 					onClick={ stopMenuEventPropagation }
 					onPointerDown={ stopMenuEventPropagation }
+					onKeyDown={ ( event ) => {
+						if ( isKeyboardEvent.primaryAlt( event.nativeEvent, 'p' ) ) {
+							event.preventDefault();
+							togglePin( sitePinKey( site.id ) );
+						}
+					} }
 				>
 					{ site.running ? (
 						<Menu.Item disabled={ busy } onClick={ () => stopSite.mutate( site.id ) }>
@@ -489,6 +496,7 @@ function SiteActionsMenu( {
 					<Menu.Separator />
 					<Menu.Item onClick={ () => togglePin( sitePinKey( site.id ) ) }>
 						{ pinned ? __( 'Unpin' ) : __( 'Pin' ) }
+						<Menu.Shortcut>{ displayShortcut.primaryAlt( 'p' ) }</Menu.Shortcut>
 					</Menu.Item>
 					<Menu.Item
 						onClick={ () => {

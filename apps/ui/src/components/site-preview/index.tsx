@@ -449,6 +449,7 @@ function PreviewAnnotationControls( {
 									tone="neutral"
 									size="small"
 									className={ clsx(
+										'studio-control',
 										styles.annotationToggle,
 										isPicking && styles.annotationToggleActive
 									) }
@@ -598,6 +599,7 @@ function BrowserHistoryButton( {
 			variant="minimal"
 			tone="neutral"
 			size="small"
+			className="studio-control"
 			icon={ back ? browserBackIcon : browserForwardIcon }
 			label={ label }
 			shortcut={ shortcut }
@@ -950,24 +952,29 @@ export function SitePreview( {
 					{ toolbarStart }
 					{ canPreview && ! inspectorState.isPicking ? (
 						<>
-							<BrowserHistoryButton
-								direction="back"
-								browserState={ browserState }
-								shortcut={ browserShortcuts.back }
-								onStep={ () => sendBrowserCommand( 'back' ) }
-								onJump={ goToHistoryIndex }
-							/>
-							<BrowserHistoryButton
-								direction="forward"
-								browserState={ browserState }
-								shortcut={ browserShortcuts.forward }
-								onStep={ () => sendBrowserCommand( 'forward' ) }
-								onJump={ goToHistoryIndex }
-							/>
+							{ browserState.canGoBack || browserState.canGoForward ? (
+								<>
+									<BrowserHistoryButton
+										direction="back"
+										browserState={ browserState }
+										shortcut={ browserShortcuts.back }
+										onStep={ () => sendBrowserCommand( 'back' ) }
+										onJump={ goToHistoryIndex }
+									/>
+									<BrowserHistoryButton
+										direction="forward"
+										browserState={ browserState }
+										shortcut={ browserShortcuts.forward }
+										onStep={ () => sendBrowserCommand( 'forward' ) }
+										onJump={ goToHistoryIndex }
+									/>
+								</>
+							) : null }
 							<IconButton
 								variant="minimal"
 								tone="neutral"
 								size="small"
+								className="studio-control"
 								icon={ refreshIcon }
 								label={ __( 'Refresh' ) }
 								shortcut={ browserShortcuts.reload }

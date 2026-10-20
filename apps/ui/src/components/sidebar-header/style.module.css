@@ -1,21 +1,15 @@
+/* The sidebar's part of the workspace's top band: the app menu (Windows and
+   Linux) and the sidebar toggle at its start, past the macOS traffic lights. */
 .root {
-	/* The action buttons pull back by `sm` (see .actions), so this lands their
-	   trailing edge on `lg` — the same column the site rows' status buttons end
-	   on (row outer inset + row inline-end padding in site-list). Keep the two
-	   in sync. */
-	--sidebar-header-inline-end: calc(
-		var(--wpds-dimension-padding-lg) + var(--wpds-dimension-padding-sm)
-	);
-
+	box-sizing: border-box;
 	display: flex;
 	align-items: center;
-	gap: var(--wpds-dimension-padding-sm);
-	/* Leave room for macOS traffic lights at {20, 20} plus a visible gap.
-	   min-height is tuned so the flex-centered content lines up with the
-	   vertical center of the traffic lights. */
-	padding: var(--wpds-dimension-padding-sm) var(--sidebar-header-inline-end)
-		var(--wpds-dimension-padding-sm) 94px;
-	min-height: 46px;
+	gap: var(--wpds-dimension-gap-xs);
+	height: var(--studio-band-height);
+	flex-shrink: 0;
+	padding-inline: var(--studio-traffic-light-space) var(--wpds-dimension-padding-md);
+	box-shadow: inset 0 calc(-1 * var(--wpds-border-width-xs)) 0
+		var(--wpds-color-stroke-surface-neutral);
 	-webkit-app-region: drag;
 	/* Stay pinned while the sidebar scrolls. Opaque background so
 	   scrolling content doesn't bleed through. */
@@ -25,41 +19,12 @@
 	background-color: var(--studio-sidebar-bg);
 }
 
-/* When there are no traffic lights to clear — non-macOS, the browser
-   (`studio ui`), or macOS fullscreen (which hides them) — reclaim the
-   reserved padding so the menu icon lines up with the site names below. The
-   button's negative inline-start margin cancels its own icon inset, so the
-   glyph lands exactly on this padding; `xl` is where a site row starts its
-   label text (row edge + the row button's own inner padding). */
+/* No traffic lights to clear: non-macOS, the browser (`studio ui`), or macOS
+   fullscreen (which hides them). */
 .flush {
-	padding-left: var(--wpds-dimension-padding-xl);
+	padding-inline-start: var(--wpds-dimension-padding-md);
 }
 
-/* Windows/Linux paint the native window controls in a band at the top of the
-   window that can't be moved or offset, so the header takes exactly that
-   height and its content centers on the same line as the buttons. Border-box
-   because the band's height is the header's total height, padding included;
-   the 46px floor above only exists to clear the macOS traffic lights. */
-.windowControls {
-	box-sizing: border-box;
-	min-height: var(--sidebar-header-controls-height);
-}
-
-.menuButton {
-	margin-inline-start: calc(-1 * var(--wpds-dimension-padding-sm));
-	cursor: var(--wpds-cursor-control);
-}
-
-.actions {
-	display: flex;
-	align-items: center;
-	margin-inline-start: auto;
-	/* Match the site-row action buttons (`.siteActions` in site-list), which
-	   sit flush with no gap. */
-	gap: 0;
-	/* The site rows have their action rail tucked into the row padding. Pull
-	   the header buttons over by the row's inner padding so the add/toggle
-	   controls share those same trailing columns. */
-	margin-inline-end: calc(-1 * var(--wpds-dimension-padding-sm));
+.root > * {
 	-webkit-app-region: no-drag;
 }

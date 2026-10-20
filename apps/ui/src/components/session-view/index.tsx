@@ -25,7 +25,6 @@ import {
 } from 'react';
 import { AgenticSigninPrompt } from '@/components/agentic-signin-banner';
 import { OutOfCreditsNotice } from '@/components/ai-access-required-notice';
-import { OpenInMenu } from '@/components/open-in-menu';
 import { PreviewToggleButton } from '@/components/preview-toggle-button';
 import { ProgressiveBlur } from '@/components/progressive-blur';
 import { HeaderSidebarToggle } from '@/components/sidebar-toggle';
@@ -113,15 +112,7 @@ function SessionHeader( {
 			}
 		>
 			<HeaderSidebarToggle />
-			{ site ? (
-				<SiteDropdown
-					site={ site }
-					activeEnvironment={ effectiveEnvironment }
-					showSiteIcon
-					showStatus={ sidebarCollapsed }
-					floating={ false }
-				/>
-			) : null }
+			{ site ? <SiteDropdown site={ site } activeEnvironment={ effectiveEnvironment } /> : null }
 			{ ! site && siteName ? (
 				<>
 					<SiteIcon className={ styles.headerSiteIcon } seed={ siteName } />
@@ -133,10 +124,9 @@ function SessionHeader( {
 				</>
 			) : null }
 			<span className={ styles.headerSpacer } aria-hidden="true" />
-			{ site ? (
+			{ site && effectiveEnvironment === 'local' ? (
 				<div className={ styles.headerActions } data-header-actions>
-					<OpenInMenu key={ site.id } site={ site } />
-					{ effectiveEnvironment === 'local' ? <PreviewToggleButton canHideChat /> : null }
+					<PreviewToggleButton canHideChat />
 				</div>
 			) : null }
 		</div>

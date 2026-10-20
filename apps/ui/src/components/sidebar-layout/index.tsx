@@ -145,7 +145,7 @@ export function SidebarLayout( {
 								onKeyDown={ sidebarResize.handleKeyDown }
 							/>
 						) : null }
-						<main className={ styles.main }>
+						<main className={ clsx( styles.main, ! collapsed && 'studio-column-edge' ) }>
 							{ children }
 							{ collapsed ? (
 								<AppToasts className={ styles.floatingToasts } fit="content" appearance="intent" />

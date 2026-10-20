@@ -142,7 +142,7 @@ export async function createMainWindow(): Promise< BrowserWindow > {
 		height: DEFAULT_HEIGHT,
 		width: DEFAULT_WIDTH,
 		// The app's surface color, so the window doesn't flash before the renderer paints.
-		backgroundColor: nativeTheme.shouldUseDarkColors ? '#1e1e1e' : '#fcfcfc',
+		backgroundColor: nativeTheme.shouldUseDarkColors ? '#141414' : '#fafafa',
 		minHeight: MAIN_MIN_HEIGHT,
 		minWidth: AGENTIC_MIN_WIDTH,
 		webPreferences: {
@@ -294,10 +294,10 @@ export function getTitleBarOverlayOptions() {
 	const isDark = nativeTheme.shouldUseDarkColors;
 	// The content surface tracks `--wpds-color-background-surface-neutral`; the
 	// toolbars, and the default, `--wpds-color-background-surface-neutral-strong`.
-	const toolbar = isDark ? '#242424' : '#ffffff';
+	const toolbar = isDark ? '#1c1c1c' : '#ffffff';
 	const surfaceColors = {
 		chrome: toolbar,
-		content: isDark ? '#1e1e1e' : '#fcfcfc',
+		content: isDark ? '#141414' : '#fafafa',
 		toolbar,
 	};
 	return {

@@ -2,10 +2,8 @@ import { findAiSessionOwnerSite } from '@studio/common/ai/sessions/owner-site';
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { createRoute, Outlet, useNavigate, useRouterState } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
-import { comment } from '@wordpress/icons';
 import { IconButton } from '@wordpress/ui';
 import { useCallback, useEffect, useState } from 'react';
-import { OpenInMenu } from '@/components/open-in-menu';
 import {
 	PreviewSplitFrame,
 	type PreviewSplitFramePreviewProps,
@@ -31,6 +29,7 @@ import {
 	useSessionPreviewAnnotationsHandler,
 	useSessionPreviewUI,
 } from '@/hooks/use-session-ui';
+import { chatIcon } from '@/lib/icons';
 import { writeLastVisited } from '@/lib/last-visited';
 import { rootRoute } from '../layout-root';
 import type { SiteSettingsTabId } from '@/components/site-settings-view';
@@ -206,22 +205,14 @@ function DashboardLayoutContent() {
 							<>
 								<HeaderSidebarToggle />
 								{ homeSite ? (
-									<>
-										<SiteDropdown
-											site={ homeSite }
-											showSiteIcon
-											showStatus={ sidebarCollapsed }
-											floating={ false }
-											defaultOpen={ openSiteDropdown }
-										/>
-										<OpenInMenu site={ homeSite } />
-									</>
+									<SiteDropdown site={ homeSite } defaultOpen={ openSiteDropdown } />
 								) : (
 									<IconButton
 										variant="minimal"
 										tone="neutral"
 										size="small"
-										icon={ comment }
+										className="studio-control"
+										icon={ chatIcon }
 										label={ __( 'Show chat' ) }
 										onClick={ () => setChatHidden( false ) }
 									/>

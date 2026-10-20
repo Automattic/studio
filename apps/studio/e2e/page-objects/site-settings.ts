@@ -6,10 +6,7 @@ export default class SiteSettings {
 	constructor( private page: Page ) {}
 
 	async open( siteName: string ) {
-		await new Sidebar( this.page )
-			.getSiteRow( siteName )
-			.getByRole( 'button', { name: 'Site settings' } )
-			.click();
+		await new Sidebar( this.page ).openContextMenuItem( siteName, 'Site settings' );
 		await expect( this.page.getByRole( 'tab', { name: 'Settings' } ) ).toHaveAttribute(
 			'aria-selected',
 			'true'

@@ -17,7 +17,6 @@
 	min-width: 0;
 	flex-shrink: 0;
 	background-color: var(--studio-sidebar-bg);
-	border-inline-end: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral);
 	display: flex;
 	flex-direction: column;
 	/* The sidebar itself scrolls so the scrollbar gutter affects the
@@ -71,6 +70,12 @@
 	overflow: hidden;
 	position: relative;
 	isolation: isolate;
+}
+
+/* Above the panels so the sidebar's edge reads across them. */
+.main::before,
+.main::after {
+	z-index: 30;
 }
 
 /* The negative margin cancels the handle's width so it adds no space to the

@@ -187,35 +187,28 @@ describe( 'SiteList', () => {
 		} );
 	} );
 
-	it( 'uses a play glyph for stopped site status and starts the site when clicked', () => {
+	it( 'starts a stopped site and stops a running one from its row', () => {
 		render( <SiteList /> );
 
-		const stoppedButton = screen.getByRole( 'button', {
-			name: 'Site status: Stopped. Start site',
-		} );
-		const statusGlyph = stoppedButton.querySelector( 'svg:first-of-type' );
-
-		expect( statusGlyph ).toHaveAttribute( 'viewBox', '0 0 10 10' );
-		expect( statusGlyph?.querySelector( 'path' ) ).toHaveAttribute( 'd', 'M2.5 1 L9 5 L2.5 9 Z' );
-		expect( statusGlyph?.querySelector( 'rect' ) ).not.toBeInTheDocument();
-
-		fireEvent.click( stoppedButton );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Start Stopped Site' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Stop Running Site' } ) );
 
 		expect( startSite ).toHaveBeenCalledWith( 'stopped-site' );
-		expect( stopSite ).not.toHaveBeenCalled();
+		expect( stopSite ).toHaveBeenCalledWith( 'running-site' );
 		expect( navigateMock ).not.toHaveBeenCalled();
 	} );
 
-	it( 'uses a pause glyph as the running site action', () => {
-		render( <SiteList /> );
+	it( 'opens a new chat for a site from its row', () => {
+		const onSiteOpen = vi.fn();
+		render( <SiteList onSiteOpen={ onSiteOpen } /> );
 
-		const runningButton = screen.getByRole( 'button', {
-			name: 'Site status: Running. Stop site',
+		fireEvent.click( screen.getByRole( 'button', { name: 'New chat for Stopped Site' } ) );
+
+		expect( onSiteOpen ).toHaveBeenCalledTimes( 1 );
+		expect( navigateMock ).toHaveBeenLastCalledWith( {
+			to: '/sites/$siteId/new',
+			params: { siteId: 'stopped-site' },
 		} );
-		const actionGlyph = runningButton.querySelector( 'span[aria-hidden="true"]' );
-
-		expect( runningButton.querySelectorAll( 'svg' ) ).toHaveLength( 1 );
-		expect( actionGlyph?.querySelector( 'span' ) ).toBeInTheDocument();
 	} );
 
 	it( 'opens site actions from a row right-click without opening the latest chat', async () => {
@@ -332,7 +325,7 @@ describe( 'SiteList', () => {
 		} );
 	} );
 
-	it( 'shows the selected chat and settings shortcut when signed out', () => {
+	it( 'shows the selected chat when signed out', () => {
 		vi.mocked( useAgenticFeatures ).mockReturnValue( {
 			enabled: false,
 			chatEnabled: false,
@@ -352,7 +345,6 @@ describe( 'SiteList', () => {
 		expect( className ).toContain( 'siteActive' );
 		expect( className ).not.toContain( 'siteContextActive' );
 		expect( siteButton ).toHaveAttribute( 'aria-current', 'page' );
-		expect( within( stoppedRow ).getByRole( 'button', { name: 'Site settings' } ) ).toBeVisible();
 	} );
 
 	it( "opens the site's page when Studio Code is switched off", () => {
@@ -374,97 +366,7 @@ describe( 'SiteList', () => {
 		} );
 	} );
 
-	it( 'opens site settings from the row gear without opening the latest chat', () => {
-		const onSiteOpen = vi.fn();
-		render( <SiteList onSiteOpen={ onSiteOpen } /> );
-
-		fireEvent.click( screen.getAllByRole( 'button', { name: 'Site settings' } )[ 0 ] );
-
-		expect( onSiteOpen ).toHaveBeenCalledTimes( 1 );
-		expect( useConnectorMock().trackEvent ).toHaveBeenCalledWith( 'studio_panel_opened', {
-			panel: 'settings',
-		} );
-		expect( navigateMock ).toHaveBeenCalledTimes( 1 );
-		expect( navigateMock ).toHaveBeenLastCalledWith( {
-			to: '/sites/$siteId/settings',
-			params: { siteId: 'stopped-site' },
-		} );
-	} );
-
-	it( 'shows the settings shortcut as pressed and toggles back to chat', () => {
-		paramsMock = { siteId: 'stopped-site' };
-		pathnameMock = '/sites/stopped-site/settings';
-
-		render( <SiteList /> );
-
-		const stoppedRow = screen.getByText( 'Stopped Site' ).closest( 'section' )!;
-		const settingsButton = within( stoppedRow ).getByRole( 'button', {
-			name: 'Site settings',
-		} );
-		expect( settingsButton ).toHaveAttribute( 'aria-pressed', 'true' );
-
-		fireEvent.click( settingsButton );
-
-		expect( useConnectorMock().trackEvent ).toHaveBeenCalledWith( 'studio_panel_opened', {
-			panel: 'assistant',
-		} );
-		expect( navigateMock ).toHaveBeenCalledTimes( 1 );
-		expect( navigateMock ).toHaveBeenLastCalledWith( {
-			to: '/sites/$siteId/new',
-			params: { siteId: 'stopped-site' },
-		} );
-	} );
-
-	it( 'dims stopped site titles without dimming running sites', () => {
-		render( <SiteList /> );
-
-		const stoppedSiteClassName = screen.getByText( 'Stopped Site' ).getAttribute( 'class' ) ?? '';
-		const runningSiteClassName = screen.getByText( 'Running Site' ).getAttribute( 'class' ) ?? '';
-
-		expect( stoppedSiteClassName ).toContain( 'siteNameStopped' );
-		expect( runningSiteClassName ).not.toContain( 'siteNameStopped' );
-	} );
-
-	it( 'replaces the status dot with the Xdebug glyph on the Xdebug-enabled site', () => {
-		useSitesMock.mockReturnValue( {
-			data: [
-				createSite( {
-					id: 'xdebug-site',
-					name: 'Xdebug Site',
-					path: '/Users/example/Studio/xdebug-site',
-					running: true,
-					enableXdebug: true,
-				} ),
-				createSite( {
-					id: 'plain-site',
-					name: 'Plain Site',
-					path: '/Users/example/Studio/plain-site',
-					running: true,
-				} ),
-			],
-			isLoading: false,
-		} );
-
-		render( <SiteList /> );
-
-		const xdebugButton = screen.getByRole( 'button', {
-			name: 'Site status: Running. Xdebug enabled. Stop site',
-		} );
-		const xdebugGlyph = xdebugButton.querySelector( 'svg:first-of-type' );
-		const plainButton = screen.getByRole( 'button', {
-			name: 'Site status: Running. Stop site',
-		} );
-
-		expect( xdebugGlyph ).toHaveAttribute( 'viewBox', '0 0 24 24' );
-		expect( xdebugGlyph?.querySelector( 'rect' ) ).not.toBeInTheDocument();
-		expect( plainButton ).not.toHaveAttribute( 'data-xdebug' );
-		expect( plainButton.querySelector( 'svg:first-of-type rect' ) ).toBeInTheDocument();
-
-		fireEvent.click( xdebugButton );
-		expect( stopSite ).toHaveBeenCalledWith( 'xdebug-site' );
-	} );
-
-	it( 'keeps the greyed Xdebug glyph visible while the site is stopped', () => {
+	it( 'shows the Xdebug glyph in place of the site icon', () => {
 		useSitesMock.mockReturnValue( {
 			data: [
 				createSite( {
@@ -480,15 +382,8 @@ describe( 'SiteList', () => {
 
 		render( <SiteList /> );
 
-		const button = screen.getByRole( 'button', {
-			name: 'Site status: Stopped. Xdebug enabled. Start site',
-		} );
-
-		// The stopped-row CSS hides the status button unless `data-xdebug` is
-		// set alongside `data-state`; assert that DOM contract.
-		expect( button ).toHaveAttribute( 'data-state', 'stopped' );
-		expect( button ).toHaveAttribute( 'data-xdebug' );
-		expect( button.querySelector( 'svg:first-of-type' ) ).toHaveAttribute( 'viewBox', '0 0 24 24' );
+		const row = screen.getByText( 'Xdebug Site' ).closest( 'section' )!;
+		expect( within( row ).getByLabelText( 'Xdebug enabled' ) ).toBeInTheDocument();
 	} );
 
 	it( 'marks the site row as current for the active chat', () => {

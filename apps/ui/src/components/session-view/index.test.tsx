@@ -29,12 +29,6 @@ vi.mock( '@/data/queries/use-sites', () => ( {
 	useSites: () => sitesState,
 } ) );
 
-vi.mock( '@/components/open-in-menu', () => ( {
-	OpenInMenu: ( { site }: { site: { name: string } } ) => (
-		<div data-testid="open-in-menu">{ site.name }</div>
-	),
-} ) );
-
 vi.mock( '@/components/site-dropdown', () => ( {
 	SiteDropdown: ( { site }: { site: { name: string } } ) => <div>{ site.name }</div>,
 } ) );
@@ -197,29 +191,7 @@ describe( 'SessionView', () => {
 		} );
 	} );
 
-	it( 'shows the Open in control at the top-right of the chat header', () => {
-		sitesState.data = [
-			{ id: 'site-1', name: 'Example Site', path: '/Users/example/Studio/example-site' },
-		];
-		useSessionMock.mockReturnValue( {
-			data: {
-				summary: {
-					id: 'session-1',
-					ownerSiteId: 'site-1',
-					ownerSiteName: 'Example Site',
-				},
-				entries: [],
-			} as unknown as LoadedAiSession,
-			isLoading: false,
-			error: null,
-		} );
-
-		render( <SessionView sessionId="session-1" /> );
-
-		expect( screen.getByTestId( 'open-in-menu' ) ).toHaveTextContent( 'Example Site' );
-	} );
-
-	it( 'moves the Open in control clear of the Windows/Linux window controls', () => {
+	it( 'moves the chat header clear of the Windows/Linux window controls', () => {
 		sitesState.data = [
 			{ id: 'site-1', name: 'Example Site', path: '/Users/example/Studio/example-site' },
 		];
@@ -237,7 +209,7 @@ describe( 'SessionView', () => {
 				<SessionView sessionId="session-1" />
 			</WindowControlsCornerContext.Provider>
 		);
-		const header = screen.getByTestId( 'open-in-menu' ).parentElement?.parentElement;
+		const header = screen.getByText( 'Example Site' ).parentElement;
 		expect( header?.style.paddingRight ).toBe( 'calc(138px + var(--wpds-dimension-padding-sm))' );
 
 		rerender(

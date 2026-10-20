@@ -28,6 +28,14 @@
 	   the inspector draws on the page all share it, so the feature reads as
 	   one thing rather than borrowing the brand blue. The inspector's
 	   injected stylesheet repeats the violet literally — it can't see these. */
+	/* The workspace's top band, its controls, and the short column separators
+	   drawn inside it. */
+	--studio-band-height: 54px;
+	--studio-control-size: 36px;
+	--studio-band-separator-height: 16px;
+	/* Where the band's first control starts on macOS, past the traffic lights. */
+	--studio-traffic-light-space: 80px;
+
 	/* Shell motion: layout moves (the sidebar, the chat/preview split, header
 	   contents making room) and a quicker ease-out for controls appearing.
 	   The reduced-motion clamp below covers both. */
@@ -77,6 +85,34 @@ body {
 	color: var( --wpds-color-foreground-content-neutral );
 	color-scheme: light dark;
 	scrollbar-color: gray transparent;
+}
+
+/* A column edge: a short separator inside the top band and a full divider
+   below it. Set `--studio-column-edge` to its inline offset. */
+.studio-column-edge::before,
+.studio-column-edge::after {
+	content: '';
+	position: absolute;
+	inset-inline-start: var( --studio-column-edge, 0 );
+	width: var( --wpds-border-width-xs );
+	background-color: var( --wpds-color-stroke-surface-neutral );
+	pointer-events: none;
+}
+
+.studio-column-edge::before {
+	top: calc( ( var( --studio-band-height ) - var( --studio-band-separator-height ) ) / 2 );
+	height: var( --studio-band-separator-height );
+}
+
+.studio-column-edge::after {
+	top: var( --studio-band-height );
+	bottom: 0;
+}
+
+/* A 36px square control for the top band and the sidebar footer. The
+   attribute selector outranks @wordpress/ui's size classes. */
+.studio-control[class] {
+	--wp-ui-button-height: var( --studio-control-size );
 }
 
 /* Unlike `scrollbar-color`, `scrollbar-width` isn't inherited, so inner scroll

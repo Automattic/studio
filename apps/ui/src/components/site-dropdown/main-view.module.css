@@ -7,6 +7,11 @@
 	border-top: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral);
 }
 
+.openIn {
+	display: flex;
+	gap: 2px;
+}
+
 .activityStatus {
 	display: flex;
 	/* Pin the cancel button to the top: centring drifts it down the block as the

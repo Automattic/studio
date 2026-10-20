@@ -55,12 +55,7 @@ export function SiteSettingsPage( {
 				}
 			>
 				<HeaderSidebarToggle />
-				<SiteDropdown
-					site={ site }
-					showSiteIcon
-					showStatus={ sidebarCollapsed }
-					floating={ false }
-				/>
+				<SiteDropdown site={ site } />
 				<span className={ styles.headerSpacer } aria-hidden="true" />
 				<PreviewToggleButton />
 			</div>

@@ -29,6 +29,14 @@
 	width: var(--preview-frame-content-width);
 }
 
+/* Between the content column and the preview, below the resize handle. */
+.root::before,
+.root::after {
+	--studio-column-edge: var(--preview-frame-content-width);
+
+	z-index: 2;
+}
+
 .rootPreviewAnimating .contentColumn {
 	transition: width var(--studio-motion-layout-duration) var(--studio-motion-layout-easing);
 }

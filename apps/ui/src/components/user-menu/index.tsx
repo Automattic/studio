@@ -1,6 +1,6 @@
 import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
-import { Icon, offline, settings } from '@wordpress/icons';
+import { Icon, offline } from '@wordpress/icons';
 import { IconButton, Tooltip } from '@wordpress/ui';
 import { Gravatar } from '@/components/gravatar';
 import * as Menu from '@/components/menu';
@@ -9,6 +9,7 @@ import { SidebarButton } from '@/components/sidebar-button';
 import { useAuthUser, useLogin, useLogout } from '@/data/queries/use-auth-user';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useOffline } from '@/hooks/use-offline';
+import { settingsIcon } from '@/lib/icons';
 import styles from './style.module.css';
 
 export function UserMenu() {
@@ -33,7 +34,7 @@ export function UserMenu() {
 							<Gravatar email={ user.email } isDark={ themeIsDark } />
 						) : (
 							<span className={ styles.settingsAvatar } aria-hidden="true">
-								<Icon icon={ settings } size={ 14 } />
+								<Icon icon={ settingsIcon } />
 							</span>
 						) }
 					</Menu.Trigger>
@@ -60,7 +61,8 @@ export function UserMenu() {
 					variant="minimal"
 					tone="neutral"
 					size="small"
-					icon={ settings }
+					className="studio-control"
+					icon={ settingsIcon }
 					label={ __( 'Settings' ) }
 					onClick={ openSettings }
 				/>

@@ -4,7 +4,7 @@ import { clsx } from 'clsx';
 import { AppMessageCardsDot } from '@/components/app-message-cards';
 import { CollapsedSiteSwitcher } from '@/components/collapsed-site-switcher';
 import { useSidebarCollapsed, useToggleSidebar } from '@/hooks/use-sidebar-collapsed';
-import { drawerIcon } from '@/lib/icons';
+import { sidebarCollapsedIcon, sidebarExpandedIcon } from '@/lib/icons';
 import styles from './style.module.css';
 
 export function SidebarToggle() {
@@ -18,11 +18,11 @@ export function SidebarToggle() {
 			variant="minimal"
 			tone="neutral"
 			size="small"
-			className={ styles.control }
+			className={ clsx( styles.control, 'studio-control' ) }
 			aria-label={ collapsed ? __( 'Show sidebar' ) : __( 'Hide sidebar' ) }
 			onClick={ toggleSidebar }
 		>
-			<Icon icon={ drawerIcon } size={ 24 } className={ styles.icon } />
+			<Icon icon={ collapsed ? sidebarCollapsedIcon : sidebarExpandedIcon } />
 		</Button>
 	);
 

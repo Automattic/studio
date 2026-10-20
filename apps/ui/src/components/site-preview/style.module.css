@@ -1,5 +1,5 @@
-/* Fills the preview slot of the session frame's split layout; the slot owns
-   the panel's width, this panel just provides the border separator. */
+/* Fills the preview slot of the session frame's split layout, which owns the
+   panel's width and draws the separator beside it. */
 .root {
 	display: flex;
 	flex-direction: column;
@@ -9,7 +9,6 @@
 	min-width: 0;
 	min-height: 0;
 	background-color: var(--wpds-color-background-surface-neutral);
-	border-inline-start: 1px solid var(--wpds-color-stroke-surface-neutral);
 	overflow: hidden;
 }
 
@@ -17,20 +16,22 @@
 	display: none;
 }
 
+/* Navigation at the start, the address centred, actions at the end. The side
+   tracks never shrink below their controls. */
 .header {
 	position: relative;
 	box-sizing: border-box;
 	display: grid;
-	grid-template-columns: auto minmax(0, 1fr) auto;
+	grid-template-columns: minmax(max-content, 1fr) minmax(0, 1.4fr) minmax(max-content, 1fr);
 	align-items: center;
-	gap: var(--wpds-dimension-padding-sm);
-	padding: var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-sm);
-	/* Level with the chat header beside it. */
-	min-height: 46px;
+	gap: var(--wpds-dimension-gap-md);
+	padding-inline: var(--wpds-dimension-padding-md) var(--wpds-dimension-padding-sm);
+	height: var(--studio-band-height);
 	flex-shrink: 0;
 	transition: padding var(--studio-motion-layout-duration) var(--studio-motion-layout-easing);
 	background-color: var(--wpds-color-background-surface-neutral-strong, #fff);
-	border-bottom: 1px solid var(--wpds-color-stroke-surface-neutral);
+	box-shadow: inset 0 calc(-1 * var(--wpds-border-width-xs)) 0
+		var(--wpds-color-stroke-surface-neutral);
 	-webkit-app-region: drag;
 	/* Sizes the address segments' narrow-width behavior (the title collapse
 	   in location-omnibox.module.css queries this container). */
@@ -87,7 +88,7 @@
 /* Clears the macOS traffic lights, which always sit at the window's physical
    top-left — hence the physical padding rather than an inline-start one. */
 .headerTrafficLights {
-	padding-left: 94px;
+	padding-left: var(--studio-traffic-light-space);
 }
 
 /* The toolbar doubles as a window drag region; the controls (including the
@@ -106,11 +107,9 @@
 /* The outer tracks size to their controls so the middle selector can use all
    remaining width instead of being squeezed by artificial equal halves. */
 .headerSide {
-	--sidebar-toggle-header-gap: var(--wpds-dimension-padding-xs);
-
 	display: flex;
 	align-items: center;
-	gap: var(--sidebar-toggle-header-gap);
+	gap: var(--wpds-dimension-gap-xs);
 }
 
 .headerSideEnd {

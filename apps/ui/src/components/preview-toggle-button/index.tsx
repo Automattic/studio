@@ -1,9 +1,9 @@
 import { __ } from '@wordpress/i18n';
-import { closeSmall } from '@wordpress/icons';
 import { IconButton } from '@wordpress/ui';
+import { clsx } from 'clsx';
 import { usePreviewBeside } from '@/components/preview-split-frame';
 import { useOptionalSessionPreviewUI } from '@/hooks/use-session-ui';
-import { drawerIcon } from '@/lib/icons';
+import { closeIcon, drawerIcon } from '@/lib/icons';
 import styles from './style.module.css';
 
 /**
@@ -24,7 +24,8 @@ export function PreviewToggleButton( { canHideChat = false }: { canHideChat?: bo
 				variant="minimal"
 				tone="neutral"
 				size="small"
-				icon={ closeSmall }
+				className="studio-control"
+				icon={ closeIcon }
 				label={ __( 'Hide chat' ) }
 				onClick={ () => preview.setChatHidden( true ) }
 			/>
@@ -35,7 +36,7 @@ export function PreviewToggleButton( { canHideChat = false }: { canHideChat?: bo
 			variant="minimal"
 			tone="neutral"
 			size="small"
-			className={ styles.showPreview }
+			className={ clsx( styles.showPreview, 'studio-control' ) }
 			icon={ drawerIcon }
 			label={ __( 'Show preview' ) }
 			onClick={ () => preview.setOpen( true ) }

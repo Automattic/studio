@@ -134,7 +134,7 @@ describe( 'SitePreview', () => {
 		expect( screen.queryByRole( 'button', { name: 'Open in…' } ) ).not.toBeInTheDocument();
 	} );
 
-	it( 'shows a refresh button that reloads the active preview surface', () => {
+	it( 'shows a refresh button, and no history arrows before there is history', () => {
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn().mockResolvedValue( undefined ),
 			trackEvent: vi.fn().mockResolvedValue( undefined ),
@@ -146,21 +146,10 @@ describe( 'SitePreview', () => {
 		);
 
 		const refreshButton = screen.getByRole( 'button', { name: 'Refresh' } );
-		const backButton = screen.getByRole( 'button', { name: 'Back' } );
-		const forwardButton = screen.getByRole( 'button', { name: 'Forward' } );
 		expect( refreshButton ).toBeEnabled();
 		expect( refreshButton ).toHaveAttribute( 'aria-keyshortcuts', expect.stringMatching( /\+R$/ ) );
-		expect( backButton.compareDocumentPosition( forwardButton ) ).toBe(
-			Node.DOCUMENT_POSITION_FOLLOWING
-		);
-		expect( forwardButton.compareDocumentPosition( refreshButton ) ).toBe(
-			Node.DOCUMENT_POSITION_FOLLOWING
-		);
-
-		// jsdom reports a non-Apple platform: the navigation alias is Alt+arrow,
-		// with the bracket chord kept as a secondary shortcut.
-		expect( backButton ).toHaveAttribute( 'aria-keyshortcuts', 'Alt+ArrowLeft Control+[' );
-		expect( forwardButton ).toHaveAttribute( 'aria-keyshortcuts', 'Alt+ArrowRight Control+]' );
+		// No history yet, so no back or forward.
+		expect( screen.queryByRole( 'button', { name: 'Back' } ) ).not.toBeInTheDocument();
 
 		const initialIframe = container.querySelector( 'iframe' );
 		expect( initialIframe ).toBeInTheDocument();

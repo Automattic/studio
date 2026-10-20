@@ -20,6 +20,7 @@ import {
 	hydrateAiSessionSummary,
 	listHydratedAiSessions,
 	loadHydratedAiSession,
+	reconcileSessionEnvironment,
 } from '@studio/common/ai/sessions/manage';
 import {
 	deleteAiSessionPlacement,
@@ -1870,37 +1871,41 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} )
 	);
 
-	api.post( '/sessions/:id/messages', ( req: Request, res: Response ) => {
-		const { prompt, displayMessage, visualAnnotations } = req.body as {
-			prompt?: string;
-			displayMessage?: string;
-			visualAnnotations?: unknown;
-		};
-		if ( ! prompt ) {
-			res.status( 400 ).json( { error: 'prompt is required' } );
-			return;
-		}
-		let images: StudioChatImage[];
-		let files: StudioChatFileAttachment[];
-		let validatedVisualAnnotations: StudioVisualAnnotationSummary[] | undefined;
-		try {
-			images = validateStudioChatImages( req.body.images );
-			files = validateStudioChatFiles( req.body.files );
-			validatedVisualAnnotations = validateStudioVisualAnnotations( visualAnnotations );
-		} catch ( error ) {
-			res.status( 400 ).json( { error: ( error as Error ).message } );
-			return;
-		}
-		const { runId } = runManager.startAgentRun( {
-			sessionId: req.params.id,
-			prompt: expandSkillCommandPrompt( prompt ),
-			displayMessage,
-			images,
-			files,
-			visualAnnotations: validatedVisualAnnotations,
-		} );
-		res.json( { runId } );
-	} );
+	api.post(
+		'/sessions/:id/messages',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const { prompt, displayMessage, visualAnnotations } = req.body as {
+				prompt?: string;
+				displayMessage?: string;
+				visualAnnotations?: unknown;
+			};
+			if ( ! prompt ) {
+				res.status( 400 ).json( { error: 'prompt is required' } );
+				return;
+			}
+			let images: StudioChatImage[];
+			let files: StudioChatFileAttachment[];
+			let validatedVisualAnnotations: StudioVisualAnnotationSummary[] | undefined;
+			try {
+				images = validateStudioChatImages( req.body.images );
+				files = validateStudioChatFiles( req.body.files );
+				validatedVisualAnnotations = validateStudioVisualAnnotations( visualAnnotations );
+			} catch ( error ) {
+				res.status( 400 ).json( { error: ( error as Error ).message } );
+				return;
+			}
+			await reconcileSessionEnvironment( sessionsRoot, req.params.id );
+			const { runId } = runManager.startAgentRun( {
+				sessionId: req.params.id,
+				prompt: expandSkillCommandPrompt( prompt ),
+				displayMessage,
+				images,
+				files,
+				visualAnnotations: validatedVisualAnnotations,
+			} );
+			res.json( { runId } );
+		} )
+	);
 
 	// --- Runs -----------------------------------------------------------------
 	api.get( '/runs/active', ( _req: Request, res: Response ) => {

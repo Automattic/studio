@@ -1,3 +1,5 @@
+import { deriveEffectiveEnvironment } from '@studio/common/ai/sessions/effective-site';
+import { findAiSessionOwnerSite } from '@studio/common/ai/sessions/owner-site';
 import {
 	deleteAiSessionPlacement,
 	hydrateAiSessionSummaryWithPlacement,
@@ -7,17 +9,20 @@ import {
 	type AiSessionSitePlacement,
 } from '@studio/common/ai/sessions/placement';
 import {
+	appendStudioEntry,
 	createAiSession,
 	deleteAiSession,
 	listAiSessions,
 	loadAiSession,
 } from '@studio/common/ai/sessions/store';
+import { getConnectedWpcomSitesForLocalSite } from '@studio/common/lib/connected-sites';
 import { arePathsEqual } from '@studio/common/lib/fs-utils';
 import {
 	deleteSharedSession,
 	readSharedSession,
 	readSharedSessions,
 } from '@studio/common/lib/shared-config';
+import { readSites } from '@studio/common/sites/site-path';
 import type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessions/types';
 
 /**
@@ -127,4 +132,36 @@ export async function createHydratedAiSession(
 		sitePath: site.path,
 	} );
 	return hydrateAiSessionSummary( created, undefined, placement );
+}
+
+/**
+ * A session left on 'live' after its remote site was disconnected falls back to
+ * its local owner site. The UI already derives that at render time; this records
+ * it in the session so the CLI's next turn (prompt and tools) agrees.
+ */
+export async function reconcileSessionEnvironment(
+	root: string,
+	sessionId: string
+): Promise< void > {
+	const { summary } = await loadHydratedAiSession( root, sessionId );
+	if ( summary.activeEnvironment !== 'live' ) {
+		return;
+	}
+	const ownerSite = findAiSessionOwnerSite( await readSites(), summary );
+	if ( ! ownerSite ) {
+		return;
+	}
+	const connectedIds = new Set(
+		( await getConnectedWpcomSitesForLocalSite( ownerSite.id ) ).map( ( site ) => site.id )
+	);
+	if (
+		deriveEffectiveEnvironment( summary, ( blogId ) => connectedIds.has( blogId ) ) === 'live'
+	) {
+		return;
+	}
+	await appendStudioEntry( root, sessionId, 'studio.site_selected', {
+		siteName: ownerSite.name,
+		sitePath: ownerSite.path,
+		siteId: ownerSite.id,
+	} );
 }

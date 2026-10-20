@@ -419,11 +419,7 @@ export async function subscribeForReadyOrExit( processName: string ): Promise< {
 
 		return new Promise< void >( ( resolve, reject ) => {
 			timeoutId = setTimeout( () => {
-				reject(
-					new Error(
-						`Timeout waiting for ready message from server child process "${ processName }"`
-					)
-				);
+				reject( new Error( 'Timeout waiting for ready message from server child process' ) );
 			}, SITE_SERVER_INACTIVITY_TIMEOUT );
 			abortListener = () => {
 				reject( new Error( 'Operation aborted' ) );

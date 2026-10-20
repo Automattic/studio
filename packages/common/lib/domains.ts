@@ -1,9 +1,5 @@
 import { __, sprintf } from '@wordpress/i18n';
-import {
-	DEFAULT_CUSTOM_DOMAIN_SUFFIX,
-	LOCAL_DOMAIN_SUFFIX,
-	PROXY_PROCESS_NAME,
-} from '@studio/common/constants';
+import { DEFAULT_CUSTOM_DOMAIN_SUFFIX, LOCAL_DOMAIN_SUFFIX } from '@studio/common/constants';
 import { sanitizeFolderName } from './sanitize-folder-name';
 
 const DOMAIN_PATTERN =
@@ -60,13 +56,10 @@ export const getDomainNameValidationError = (
 	return '';
 };
 
-/**
- * Explains a custom domain proxy that couldn't start because another app holds port 80 or 443,
- * given the error of the failed start. Returns undefined for any other error.
- */
+// Ports 80 and 443 are only used by the custom domain proxy.
 export function getProxyPortConflictMessage( errorMessage: string ): string | undefined {
 	const port = /EADDRINUSE\b.*?:(80|443)\b/.exec( errorMessage )?.[ 1 ];
-	if ( ! port || ! errorMessage.includes( PROXY_PROCESS_NAME ) ) {
+	if ( ! port ) {
 		return undefined;
 	}
 	return sprintf(

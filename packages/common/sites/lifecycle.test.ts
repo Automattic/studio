@@ -36,9 +36,7 @@ describe( 'startSite', () => {
 
 	it( 'explains a custom domain port held by another app', async () => {
 		const start = startSite(
-			failingWith(
-				'Failed to start HTTP proxy server: Server child process "studio-proxy" exited before becoming ready.\nError: listen EADDRINUSE: address already in use :::443'
-			),
+			failingWith( 'Error: listen EADDRINUSE: address already in use :::443' ),
 			'/site'
 		);
 

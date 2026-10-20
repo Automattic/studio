@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { useConnector } from '@/data/core';
 import { SidebarToggle } from '@/components/sidebar-toggle';
+import { useConnector } from '@/data/core';
 import { SidebarLayout } from './index';
 import type { ReactElement, ReactNode } from 'react';
 

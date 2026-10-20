@@ -366,6 +366,24 @@ describe( 'Studio AI MCP tools', () => {
 		expect( text ).toContain( 'cannot be asked in this session' );
 	} );
 
+	it( 'refuses to guess between sites that share a name', async () => {
+		const twin = { ...mockSite, id: 'site-456', path: '/other/my-site' };
+		vi.mocked( readCliConfig ).mockResolvedValue( {
+			sites: [ mockSite, twin ],
+		} as Awaited< ReturnType< typeof readCliConfig > > );
+
+		await expect(
+			getTool( 'site_delete' ).rawHandler( { nameOrPath: 'My Site' } as never )
+		).rejects.toThrow(
+			'2 sites match "My Site". Pass the full path of the one you mean: /sites/my-site, /other/my-site'
+		);
+		expect( runDeleteSiteCommand ).not.toHaveBeenCalled();
+
+		vi.mocked( getSiteByFolder ).mockResolvedValue( twin );
+		await getTool( 'site_delete' ).rawHandler( { nameOrPath: twin.path } as never );
+		expect( runDeleteSiteCommand ).toHaveBeenCalledWith( twin.path, true, expect.any( Logger ) );
+	} );
+
 	it( 'deletes a site with progress threaded to the tool logger', async () => {
 		const result = await getTool( 'site_delete' ).rawHandler( {
 			nameOrPath: 'My Site',

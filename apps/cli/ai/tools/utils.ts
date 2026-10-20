@@ -4,28 +4,37 @@ import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import { Logger, type ProgressCallback } from 'cli/logger';
 
-async function findSiteByName( name: string ): Promise< SiteData | undefined > {
-	const config = await readCliConfig();
-	return config.sites.find( ( site ) => site.name.toLowerCase() === name.toLowerCase() );
+function onlyMatch( sites: SiteData[], nameOrPath: string ): SiteData | undefined {
+	if ( sites.length > 1 ) {
+		throw new Error(
+			`${
+				sites.length
+			} sites match "${ nameOrPath }". Pass the full path of the one you mean: ${ sites
+				.map( ( site ) => site.path )
+				.join( ', ' ) }`
+		);
+	}
+	return sites[ 0 ];
 }
 
 export async function resolveSite( nameOrPath: string ): Promise< SiteData > {
-	const siteByName = await findSiteByName( nameOrPath );
-	if ( siteByName ) {
-		return siteByName;
+	if ( path.isAbsolute( nameOrPath ) ) {
+		return getSiteByFolder( nameOrPath );
 	}
 
-	// Also try matching by the last folder segment of the site path,
-	// since the agent may pass just the folder name instead of the full path.
-	if ( ! path.isAbsolute( nameOrPath ) ) {
-		const config = await readCliConfig();
-		const siteByFolder = config.sites.find( ( site ) => path.basename( site.path ) === nameOrPath );
-		if ( siteByFolder ) {
-			return siteByFolder;
-		}
-	}
-
-	return getSiteByFolder( nameOrPath );
+	// The agent may also pass the last folder segment of the site path.
+	const { sites } = await readCliConfig();
+	return (
+		onlyMatch(
+			sites.filter( ( site ) => site.name.toLowerCase() === nameOrPath.toLowerCase() ),
+			nameOrPath
+		) ??
+		onlyMatch(
+			sites.filter( ( site ) => path.basename( site.path ) === nameOrPath ),
+			nameOrPath
+		) ??
+		getSiteByFolder( nameOrPath )
+	);
 }
 
 // Callers connect to the daemon first, like runWpCliCommand requires.

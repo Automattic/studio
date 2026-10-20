@@ -239,3 +239,45 @@
 	color: color-mix(in srgb, var(--site-menu-foreground) 72%, transparent);
 	fill: currentColor;
 }
+
+/* Regular header rows (the chat toolbar) get a compact, inline control: the
+   site icon, name and target on one line, on the toolbar's own surface. */
+.trigger.triggerFlat {
+	--site-menu-resting-fill: transparent;
+	--site-menu-active-fill: var(--wpds-color-background-interactive-neutral-weak-active);
+	--site-menu-foreground: var(--wpds-color-foreground-content-neutral);
+	--wp-ui-button-height: 32px;
+
+	gap: var(--wpds-dimension-padding-sm);
+	min-height: 32px;
+	padding-inline: var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-xs);
+	border-radius: var(--wpds-border-radius-md);
+	backdrop-filter: none;
+}
+
+.triggerFlat .siteIconWrap {
+	width: 20px;
+	height: 20px;
+}
+
+.triggerFlat .siteIcon {
+	border-radius: var(--wpds-border-radius-sm);
+}
+
+.triggerFlat .statusBadge_overlay {
+	right: -3px;
+	bottom: -3px;
+	box-shadow: 0 0 0 2px var(--wpds-color-background-surface-neutral-strong);
+}
+
+.triggerFlat .identity {
+	flex-direction: row;
+	align-items: baseline;
+	gap: var(--wpds-dimension-padding-sm);
+}
+
+.triggerFlat .secondary {
+	color: var(--wpds-color-foreground-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-sm);
+	font-weight: var(--wpds-typography-font-weight-default);
+}

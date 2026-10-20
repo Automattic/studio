@@ -61,7 +61,10 @@ export function AppMessageCards( {
 								</Button>
 							</Notice.Actions>
 						) : null }
-						<Notice.CloseIcon label={ __( 'Dismiss' ) } onClick={ () => dismiss( message ) } />
+						<Notice.CloseIconButton
+							label={ __( 'Dismiss' ) }
+							onClick={ () => dismiss( message ) }
+						/>
 					</Notice.Root>
 				</div>
 			) ) }

@@ -106,7 +106,7 @@ export function AppToasts( {
 											) : null }
 										</Notice.Actions>
 									) : null }
-									<Notice.CloseIcon
+									<Notice.CloseIconButton
 										label={ __( 'Dismiss' ) }
 										onClick={ () => dismissToast( item.id ) }
 									/>

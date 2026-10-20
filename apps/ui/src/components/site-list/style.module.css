@@ -1,4 +1,4 @@
-/* Rich's sidebar rows: 36px tall with 8px padding, a 16px icon and 14px text,
+/* Sidebar rows: 36px tall with 8px padding, a 16px icon and 14px text,
    inset 12px from the sidebar's edges. */
 .root {
 	--site-list-row-height: 36px;

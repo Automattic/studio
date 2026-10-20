@@ -1,4 +1,4 @@
-/* Rich's site control: the icon and a chevron on the band's own surface. */
+/* The site control: the icon and a chevron on the band's own surface. */
 .trigger {
 	--wp-ui-button-padding-inline: var(--wpds-dimension-padding-sm);
 

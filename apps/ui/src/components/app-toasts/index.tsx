@@ -1,5 +1,6 @@
 import { __ } from '@wordpress/i18n';
-import { Button, Notice } from '@wordpress/ui';
+import { closeSmall, Icon, info } from '@wordpress/icons';
+import { Button, IconButton } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useEffect } from 'react';
 import { CopyNoticeButton, openNoticeHistory } from '@/components/notice-history';
@@ -11,11 +12,10 @@ import {
 	resumeToastExpiry,
 	useQueuedToasts,
 	useVisibleToasts,
+	type ToastIntent,
 	type ToastMessage,
 } from '@/data/app-messages';
 import styles from './style.module.css';
-
-export type NoticeAppearance = 'neutral' | 'intent';
 
 // Error text is clamped in the toast; these get Copy (the full text) and More
 // (the recent-notifications dialog, where it runs in full).
@@ -23,20 +23,27 @@ function hasErrorDetails( item: ToastMessage ) {
 	return item.intent === 'error' && Boolean( item.description );
 }
 
-export function AppToasts( {
-	className,
-	fit = 'row',
-	appearance = 'neutral',
-}: {
-	className?: string;
-	// 'row' stretches toasts to the shelf width (sidebar footer, matching the
-	// site rows); 'content' lets each toast hug its text up to the shelf's
-	// max-width (the floating collapsed shelf).
-	fit?: 'row' | 'content';
-	// 'neutral' flattens every toast to one quiet card; 'intent' keeps
-	// Notice's tinted surface so an error reads red at a glance.
-	appearance?: NoticeAppearance;
-} ) {
+function StatusIcon( { intent }: { intent: ToastIntent } ) {
+	return (
+		<span className={ styles.status } data-intent={ intent } aria-hidden="true">
+			{ intent === 'info' ? (
+				<Icon icon={ info } size={ 18 } />
+			) : (
+				<svg viewBox="0 0 24 24" fill="none">
+					<path
+						d={ intent === 'success' ? 'M20 6 9 17l-5-5' : 'M18 6 6 18M6 6l12 12' }
+						stroke="currentColor"
+						strokeWidth="3"
+						strokeLinecap="round"
+						strokeLinejoin="round"
+					/>
+				</svg>
+			) }
+		</span>
+	);
+}
+
+export function AppToasts() {
 	const toasts = useVisibleToasts();
 	const queued = useQueuedToasts();
 
@@ -46,84 +53,69 @@ export function AppToasts( {
 	}, [] );
 
 	return (
-		<div
-			className={ clsx( fit === 'content' && styles.shelfHug, className ) }
-			aria-live="polite"
-			aria-relevant="additions"
-		>
-			{ toasts.length > 0 ? (
-				<div className={ styles.stack }>
-					{ toasts.map( ( item ) => (
-						<div
-							key={ item.id }
-							className={ styles.cell }
-							data-leaving={ item.leaving ? '' : undefined }
-						>
-							<div
-								className={ styles.toast }
-								onMouseEnter={ () => pauseToastExpiry( item.id ) }
-								onMouseLeave={ () => resumeToastExpiry( item.id ) }
-							>
-								{ /* Keyed on the notice's shape, not just its id: a toast that is
-							     replaced in place — a running sync becoming its result —
-							     can gain or lose a description, and reusing the same Notice
-							     across that change misaligns its internal hooks. */ }
-								<Notice.Root
-									key={ `${ item.intent }:${ !! item.description }:${ !! item.action }` }
-									intent={ item.intent }
-									className={ clsx( styles.notice, appearance === 'neutral' && styles.neutral ) }
-								>
-									<Notice.Title>{ item.title }</Notice.Title>
-									{ item.description ? (
-										<Notice.Description>{ item.description }</Notice.Description>
-									) : null }
-									{ item.action || hasErrorDetails( item ) ? (
-										<Notice.Actions>
-											{ item.action ? (
-												<Button
-													size="small"
-													variant="solid"
-													tone="neutral"
-													className={ styles.actionButton }
-													onClick={ item.action.onClick }
-												>
-													{ item.action.label }
-												</Button>
-											) : null }
-											{ hasErrorDetails( item ) ? (
-												<>
-													<CopyNoticeButton notice={ item } className={ styles.actionButton } />
-													<Button
-														size="small"
-														variant="solid"
-														tone="neutral"
-														className={ styles.actionButton }
-														onClick={ openNoticeHistory }
-													>
-														{ __( 'More' ) }
-													</Button>
-												</>
-											) : null }
-										</Notice.Actions>
-									) : null }
-									<Notice.CloseIconButton
-										label={ __( 'Dismiss' ) }
-										onClick={ () => dismissToast( item.id ) }
-									/>
-								</Notice.Root>
+		<div className={ styles.viewport } aria-live="polite" aria-relevant="additions">
+			{ toasts.map( ( item ) => (
+				<div
+					key={ item.id }
+					className={ styles.cell }
+					data-leaving={ item.leaving ? '' : undefined }
+				>
+					<div
+						className={ styles.toast }
+						onMouseEnter={ () => pauseToastExpiry( item.id ) }
+						onMouseLeave={ () => resumeToastExpiry( item.id ) }
+					>
+						<div className={ styles.card }>
+							<div className={ styles.row }>
+								<StatusIcon intent={ item.intent } />
+								<p className={ styles.title }>{ item.title }</p>
+								{ item.action ? (
+									<Button
+										variant="solid"
+										tone="neutral"
+										className={ clsx( styles.action, 'studio-control' ) }
+										onClick={ item.action.onClick }
+									>
+										{ item.action.label }
+									</Button>
+								) : null }
 							</div>
+							{ item.description ? (
+								<p className={ styles.description }>{ item.description }</p>
+							) : null }
+							{ hasErrorDetails( item ) ? (
+								<div className={ styles.details }>
+									<CopyNoticeButton notice={ item } variant="outline" />
+									<Button
+										size="small"
+										variant="outline"
+										tone="neutral"
+										onClick={ openNoticeHistory }
+									>
+										{ __( 'More' ) }
+									</Button>
+								</div>
+							) : null }
+							<IconButton
+								className={ styles.close }
+								icon={ closeSmall }
+								label={ __( 'Dismiss' ) }
+								size="small"
+								variant="outline"
+								tone="neutral"
+								onClick={ () => dismissToast( item.id ) }
+							/>
 						</div>
-					) ) }
-					{ queued.slice( 0, 2 ).map( ( item, index ) => (
-						<div
-							key={ item.id }
-							className={ clsx( styles.queuePeek, index === 1 && styles.queuePeekDeeper ) }
-							data-intent={ appearance === 'intent' ? item.intent : undefined }
-							aria-hidden="true"
-						/>
-					) ) }
+					</div>
 				</div>
-			) : null }
+			) ) }
+			{ queued.slice( 0, 2 ).map( ( item, index ) => (
+				<div
+					key={ item.id }
+					className={ clsx( styles.queuePeek, index === 1 && styles.queuePeekDeeper ) }
+					aria-hidden="true"
+				/>
+			) ) }
 		</div>
 	);
 }

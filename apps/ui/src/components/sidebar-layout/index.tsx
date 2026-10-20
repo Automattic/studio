@@ -116,15 +116,7 @@ export function SidebarLayout( {
 							<SidebarHeader />
 							<SiteList sections />
 							<div className={ styles.sidebarFooter }>
-								{ /* Toasts sit above the persistent cards: the footer is
-								     bottom-anchored, so a transient toast arriving below a card
-								     would shove it up and drop it back on expiry. */ }
-								{ ! collapsed ? (
-									<>
-										<AppToasts className={ styles.sidebarToasts } appearance="intent" />
-										<AppMessageCards className={ styles.sidebarCards } appearance="intent" />
-									</>
-								) : null }
+								{ ! collapsed ? <AppMessageCards className={ styles.sidebarCards } /> : null }
 								<UserMenu />
 							</div>
 						</aside>
@@ -143,11 +135,9 @@ export function SidebarLayout( {
 					) : null }
 					<main className={ clsx( styles.main, ! collapsed && 'studio-column-edge' ) }>
 						{ children }
-						{ collapsed ? (
-							<AppToasts className={ styles.floatingToasts } fit="content" appearance="intent" />
-						) : null }
 					</main>
 					{ sidebarResize.isResizing ? <ResizeOverlay /> : null }
+					<AppToasts />
 					<NoticeHistoryDialog />
 					<AppMessageHistoryRecorder />
 				</div>

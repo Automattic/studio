@@ -1,6 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { ariaKeyShortcut } from '@wordpress/keycodes';
 import { Tooltip } from '@wordpress/ui';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { useConnector } from '@/data/core';
@@ -553,75 +552,6 @@ describe( 'SitePreview', () => {
 		} );
 	} );
 
-	it( 'toggles full preview with the keyboard shortcut', () => {
-		useConnectorMock.mockReturnValue( {
-			startSite: vi.fn().mockResolvedValue( undefined ),
-			trackEvent: vi.fn().mockResolvedValue( undefined ),
-			capabilities: CAPABILITIES,
-		} as never );
-		const onFullscreenChange = vi.fn();
-		const queryClient = new QueryClient( {
-			defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-		} );
-		const ui = ( props: Partial< ComponentProps< typeof SitePreview > > ) => (
-			<QueryClientProvider client={ queryClient }>
-				<Tooltip.Provider>
-					<SitePreview
-						site={ createSite( { running: true } ) }
-						path="/"
-						reloadNonce={ 0 }
-						{ ...props }
-					/>
-				</Tooltip.Provider>
-			</QueryClientProvider>
-		);
-		// jsdom reports a non-Apple platform, so the chord is Ctrl+Shift+F.
-		const pressShortcut = () =>
-			fireEvent.keyDown( document, { key: 'f', ctrlKey: true, shiftKey: true } );
-
-		const { rerender, unmount } = render( ui( { onFullscreenChange } ) );
-		pressShortcut();
-		expect( onFullscreenChange ).toHaveBeenLastCalledWith( true );
-
-		// It's a toggle, so it reads the current state on the way back out.
-		rerender( ui( { fullscreen: true, onFullscreenChange } ) );
-		pressShortcut();
-		expect( onFullscreenChange ).toHaveBeenLastCalledWith( false );
-
-		// Without a host toggle the chord stays with the page.
-		unmount();
-		render( ui( {} ) );
-		onFullscreenChange.mockClear();
-		pressShortcut();
-		expect( onFullscreenChange ).not.toHaveBeenCalled();
-	} );
-
-	it( 'toggles full preview directly from the toolbar', () => {
-		useConnectorMock.mockReturnValue( {
-			startSite: vi.fn().mockResolvedValue( undefined ),
-			trackEvent: vi.fn().mockResolvedValue( undefined ),
-			capabilities: CAPABILITIES,
-		} as never );
-		const onFullscreenChange = vi.fn();
-		renderPreview(
-			<SitePreview
-				site={ createSite( { running: true } ) }
-				path="/"
-				reloadNonce={ 0 }
-				onFullscreenChange={ onFullscreenChange }
-			/>
-		);
-
-		const fullPreviewButton = screen.getByRole( 'button', { name: 'Full preview' } );
-		expect( fullPreviewButton ).toHaveAttribute(
-			'aria-keyshortcuts',
-			ariaKeyShortcut.primaryShift( 'f' )
-		);
-		expect( fullPreviewButton ).toHaveAttribute( 'aria-pressed', 'false' );
-		fireEvent.click( fullPreviewButton );
-		expect( onFullscreenChange ).toHaveBeenCalledWith( true );
-	} );
-
 	it( 'clears the Windows/Linux window controls while in the window corner', () => {
 		const setWindowControlsSurface = vi.fn().mockResolvedValue( undefined );
 		useConnectorMock.mockReturnValue( {
@@ -636,13 +566,7 @@ describe( 'SitePreview', () => {
 			<QueryClientProvider client={ queryClient }>
 				<Tooltip.Provider>
 					<WindowControlsCornerContext.Provider value={ inCorner }>
-						<SitePreview
-							site={ createSite( { running: true } ) }
-							path="/"
-							reloadNonce={ 0 }
-							fullscreen
-							onFullscreenChange={ vi.fn() }
-						/>
+						<SitePreview site={ createSite( { running: true } ) } path="/" reloadNonce={ 0 } />
 					</WindowControlsCornerContext.Provider>
 				</Tooltip.Provider>
 			</QueryClientProvider>

@@ -113,27 +113,6 @@ describe( 'SidebarLayout', () => {
 		expect( onCollapsedChange ).toHaveBeenCalledWith( true );
 	} );
 
-	it( 'hands the sidebar shortcut to the forcing feature while force-collapsed', () => {
-		const onForceCollapsedToggle = vi.fn();
-		const onExpand = vi.fn();
-		render(
-			<SidebarLayout
-				forceCollapsed
-				onExpand={ onExpand }
-				onForceCollapsedToggle={ onForceCollapsedToggle }
-			>
-				<SidebarToggle />
-			</SidebarLayout>
-		);
-
-		expect( screen.queryByRole( 'separator', { name: 'Resize sidebar' } ) ).not.toBeInTheDocument();
-
-		act( () => toggleSidebarListener?.() );
-
-		expect( onForceCollapsedToggle ).toHaveBeenCalledTimes( 1 );
-		expect( onExpand ).not.toHaveBeenCalled();
-	} );
-
 	it( 'collapses when the window enters compact width', async () => {
 		render(
 			<SidebarLayout>

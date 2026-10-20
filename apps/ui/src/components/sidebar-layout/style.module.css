@@ -121,8 +121,3 @@
 	-webkit-app-region: no-drag;
 }
 
-/* Fullscreen preview hides the chat column but leaves its composer measured,
-   so ignore that height and sit at the bottom like any composer-less view. */
-.floatingToastsOverPreview {
-	--app-main-composer-height: 0px;
-}

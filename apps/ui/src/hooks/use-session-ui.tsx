@@ -27,9 +27,6 @@ import type { Annotation } from '@/components/site-preview/types';
 
 interface PreviewUIState {
 	open: boolean;
-	// Full preview: the preview fills the window (sidebar and chat hidden).
-	// Only meaningful while `open`; closing the panel always clears it.
-	fullscreen: boolean;
 	// The chat pane is hidden and the preview takes its place; the sidebar stays.
 	// Only meaningful while `open`; closing the panel always clears it.
 	chatHidden: boolean;
@@ -59,7 +56,6 @@ interface SessionUIState {
 type SessionUIAction =
 	| { type: 'preview/set-open'; value: boolean }
 	| { type: 'preview/toggle' }
-	| { type: 'preview/set-fullscreen'; value: boolean }
 	| { type: 'preview/set-chat-hidden'; value: boolean }
 	| { type: 'preview/navigate'; path: string }
 	| { type: 'preview/reload' }
@@ -69,7 +65,6 @@ type SessionUIAction =
 const INITIAL_STATE: SessionUIState = {
 	preview: {
 		open: true,
-		fullscreen: false,
 		chatHidden: false,
 		reloadNonce: 0,
 		siteId: null,
@@ -84,11 +79,9 @@ function reducer( state: SessionUIState, action: SessionUIAction ): SessionUISta
 				? state
 				: {
 						...state,
-						// Closing the panel leaves full preview; reopening starts split.
 						preview: {
 							...state.preview,
 							open: action.value,
-							fullscreen: action.value && state.preview.fullscreen,
 							chatHidden: action.value && state.preview.chatHidden,
 						},
 				  };
@@ -98,22 +91,9 @@ function reducer( state: SessionUIState, action: SessionUIAction ): SessionUISta
 				preview: {
 					...state.preview,
 					open: ! state.preview.open,
-					fullscreen: false,
 					chatHidden: false,
 				},
 			};
-		case 'preview/set-fullscreen':
-			return state.preview.fullscreen === action.value
-				? state
-				: {
-						...state,
-						preview: {
-							...state.preview,
-							fullscreen: action.value,
-							// Entering full preview reveals the panel it expands.
-							open: action.value || state.preview.open,
-						},
-				  };
 		case 'preview/set-chat-hidden':
 			return state.preview.chatHidden === action.value
 				? state
@@ -209,7 +189,6 @@ export function useSessionUIDispatch(): Dispatch< SessionUIAction > {
 
 interface SessionPreviewUI {
 	readonly open: boolean;
-	readonly fullscreen: boolean;
 	readonly chatHidden: boolean;
 	readonly path: string;
 	readonly reloadNonce: number;
@@ -217,7 +196,6 @@ interface SessionPreviewUI {
 	readonly pathsBySiteId: Record< string, string >;
 	setOpen: ( value: boolean ) => void;
 	toggle: () => void;
-	setFullscreen: ( value: boolean ) => void;
 	setChatHidden: ( value: boolean ) => void;
 	updatePath: ( path: string ) => void;
 	setSite: ( siteId: string ) => void;
@@ -234,10 +212,6 @@ export function useOptionalSessionPreviewUI(): SessionPreviewUI | null {
 		[ dispatch ]
 	);
 	const toggle = useCallback( () => dispatch?.( { type: 'preview/toggle' } ), [ dispatch ] );
-	const setFullscreen = useCallback(
-		( value: boolean ) => dispatch?.( { type: 'preview/set-fullscreen', value } ),
-		[ dispatch ]
-	);
 	const setChatHidden = useCallback(
 		( value: boolean ) => dispatch?.( { type: 'preview/set-chat-hidden', value } ),
 		[ dispatch ]
@@ -256,7 +230,6 @@ export function useOptionalSessionPreviewUI(): SessionPreviewUI | null {
 		}
 		return {
 			open: state.preview.open,
-			fullscreen: state.preview.fullscreen,
 			chatHidden: state.preview.chatHidden,
 			path: pathForSite( state.preview.pathsBySiteId, state.preview.siteId ),
 			reloadNonce: state.preview.reloadNonce,
@@ -264,12 +237,11 @@ export function useOptionalSessionPreviewUI(): SessionPreviewUI | null {
 			pathsBySiteId: state.preview.pathsBySiteId,
 			setOpen,
 			toggle,
-			setFullscreen,
 			setChatHidden,
 			updatePath,
 			setSite,
 		};
-	}, [ state, dispatch, setOpen, toggle, setFullscreen, setChatHidden, updatePath, setSite ] );
+	}, [ state, dispatch, setOpen, toggle, setChatHidden, updatePath, setSite ] );
 }
 
 export function useSessionPreviewUI(): SessionPreviewUI {

@@ -13,12 +13,6 @@
 	overflow: hidden;
 }
 
-/* Full preview: the panel spans the whole frame, so the content/preview
-   separator would read as a stray line down the window's edge. */
-.rootFullscreen {
-	border-inline-start: none;
-}
-
 .header.browserChromeHidden {
 	display: none;
 }

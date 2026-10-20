@@ -35,9 +35,6 @@ interface PreviewSplitFrameProps {
 	// handles the open/close slide animation.
 	preview?: ( props: PreviewSplitFramePreviewProps ) => ReactNode;
 	previewOpen?: boolean;
-	// Full preview: the preview takes the whole frame and the content column
-	// collapses to zero width (kept mounted so chat state survives).
-	previewFullscreen?: boolean;
 	// The chat is hidden: the content column collapses the same way, while the
 	// sidebar stays.
 	chatHidden?: boolean;
@@ -48,13 +45,12 @@ interface PreviewSplitFrameProps {
 export function PreviewSplitFrame( {
 	preview,
 	previewOpen = false,
-	previewFullscreen = false,
 	chatHidden = false,
 	onContainerWidthChange,
 	children,
 }: PreviewSplitFrameProps ) {
 	const showPreview = previewOpen && preview != null;
-	const contentCollapsed = showPreview && ( previewFullscreen || chatHidden );
+	const contentCollapsed = showPreview && chatHidden;
 	const { rootRef, containerWidth, contentWidthVar, isResizing, handleProps } = usePreviewSplit( {
 		showPreview,
 	} );
@@ -64,7 +60,7 @@ export function PreviewSplitFrame( {
 		onContainerWidthChange?.( showPreview && ! contentCollapsed ? containerWidth : null );
 	}, [ containerWidth, contentCollapsed, onContainerWidthChange, showPreview ] );
 
-	// Animate only open/close/fullscreen toggles of an already-mounted preview —
+	// Animate only open/close/hide-chat toggles of an already-mounted preview —
 	// never the initial layout, so a route loading with the preview visible
 	// doesn't replay the slide-in. The render-phase update lands the transition
 	// class in the same commit as the width change; an effect-based update would

@@ -25,14 +25,6 @@ interface SidebarLayoutProps {
 	collapsed?: boolean;
 	onCollapsedChange?: ( collapsed: boolean ) => void;
 	onExpand?: () => void;
-	// Hides the sidebar without touching the user's own collapsed state, so
-	// clearing it restores whatever the sidebar was doing before (e.g. while
-	// the site preview is fullscreen).
-	forceCollapsed?: boolean;
-	// Called when the user asks to toggle the sidebar while it is force-
-	// collapsed (the app-menu shortcut), so the forcing feature can stand down.
-	// The sidebar expands alongside it.
-	onForceCollapsedToggle?: () => void;
 }
 
 export function SidebarLayout( {
@@ -40,8 +32,6 @@ export function SidebarLayout( {
 	collapsed: controlledCollapsed,
 	onCollapsedChange,
 	onExpand,
-	forceCollapsed = false,
-	onForceCollapsedToggle,
 }: SidebarLayoutProps ) {
 	const [ internalCollapsed, setInternalCollapsed ] = useState(
 		() => getViewportWidth() < SIDEBAR_AUTO_COLLAPSE_BREAKPOINT
@@ -49,7 +39,6 @@ export function SidebarLayout( {
 	const collapsed = controlledCollapsed ?? internalCollapsed;
 	const wasCompactRef = useRef( getViewportWidth() < SIDEBAR_AUTO_COLLAPSE_BREAKPOINT );
 	const rootRef = useRef< HTMLDivElement >( null );
-	const effectiveCollapsed = collapsed || forceCollapsed;
 	const connector = useConnector();
 	const sidebarResize = useResizablePanel( {
 		config: SIDEBAR_PANEL_CONFIG,
@@ -66,10 +55,6 @@ export function SidebarLayout( {
 		[ controlledCollapsed, onCollapsedChange ]
 	);
 	const toggleSidebar = useCallback( () => {
-		if ( forceCollapsed ) {
-			onForceCollapsedToggle?.();
-			return;
-		}
 		if ( collapsed ) {
 			if ( onExpand ) {
 				onExpand();
@@ -79,7 +64,7 @@ export function SidebarLayout( {
 			return;
 		}
 		updateCollapsed( true );
-	}, [ collapsed, forceCollapsed, onExpand, onForceCollapsedToggle, updateCollapsed ] );
+	}, [ collapsed, onExpand, updateCollapsed ] );
 	const sidebarStyle = { '--sidebar-width': `${ sidebarResize.width }px` } as CSSProperties;
 
 	useEffect( () => connector.onToggleSidebar( toggleSidebar ), [ connector, toggleSidebar ] );
@@ -115,7 +100,7 @@ export function SidebarLayout( {
 	}, [ controlledCollapsed, updateCollapsed ] );
 
 	return (
-		<SidebarCollapsedContext.Provider value={ effectiveCollapsed }>
+		<SidebarCollapsedContext.Provider value={ collapsed }>
 			<SidebarToggleContext.Provider value={ toggleSidebar }>
 				{ /* The aside's list and the collapsed switcher's list must agree on
 				     which session updates the user has seen, or each mount would
@@ -125,11 +110,11 @@ export function SidebarLayout( {
 						<div
 							className={ clsx(
 								styles.sidebarFrame,
-								effectiveCollapsed && styles.sidebarCollapsed,
+								collapsed && styles.sidebarCollapsed,
 								sidebarResize.isResizing && styles.sidebarResizing
 							) }
 							style={ sidebarStyle }
-							inert={ effectiveCollapsed }
+							inert={ collapsed }
 						>
 							<aside className={ styles.sidebar }>
 								<SidebarHeader />
@@ -138,7 +123,7 @@ export function SidebarLayout( {
 									{ /* Toasts sit above the persistent cards: the footer is
 								     bottom-anchored, so a transient toast arriving below a card
 								     would shove it up and drop it back on expiry. */ }
-									{ ! effectiveCollapsed ? (
+									{ ! collapsed ? (
 										<>
 											<AppToasts className={ styles.sidebarToasts } appearance="intent" />
 											<AppMessageCards className={ styles.sidebarCards } appearance="intent" />
@@ -148,7 +133,7 @@ export function SidebarLayout( {
 								</div>
 							</aside>
 						</div>
-						{ ! effectiveCollapsed ? (
+						{ ! collapsed ? (
 							<ResizeHandle
 								className={ styles.resizeHandle }
 								label={ __( 'Resize sidebar' ) }
@@ -162,15 +147,8 @@ export function SidebarLayout( {
 						) : null }
 						<main className={ styles.main }>
 							{ children }
-							{ effectiveCollapsed ? (
-								<AppToasts
-									className={ clsx(
-										styles.floatingToasts,
-										forceCollapsed && styles.floatingToastsOverPreview
-									) }
-									fit="content"
-									appearance="intent"
-								/>
+							{ collapsed ? (
+								<AppToasts className={ styles.floatingToasts } fit="content" appearance="intent" />
 							) : null }
 						</main>
 						{ sidebarResize.isResizing ? <ResizeOverlay /> : null }

@@ -2,13 +2,7 @@ import { DESIGN_SYSTEM_PREVIEW_PATH } from '@studio/common/ai/chat-artifacts';
 import { getSiteOperationLabel } from '@studio/common/lib/site-operation-labels';
 import { useQueryClient } from '@tanstack/react-query';
 import { __, _n, sprintf } from '@wordpress/i18n';
-import {
-	chevronDown,
-	closeSmall,
-	fullscreen as fullscreenIcon,
-	Icon,
-	pencil,
-} from '@wordpress/icons';
+import { chevronDown, closeSmall, Icon, pencil } from '@wordpress/icons';
 import {
 	ariaKeyShortcut,
 	displayShortcut,
@@ -75,10 +69,6 @@ interface SitePreviewProps {
 	// True while the panel is toggled off but kept mounted (so the webview
 	// stays warm). Disables the global browser shortcuts in that state.
 	collapsed?: boolean;
-	// True while the preview fills the whole window (sidebar and chat hidden).
-	fullscreen?: boolean;
-	// Enters/leaves full preview. The toolbar toggle only renders when provided.
-	onFullscreenChange?: ( value: boolean ) => void;
 	// Controls at the toolbar's start, for when the preview is the leftmost pane.
 	toolbarStart?: ReactNode;
 	// The toolbar reaches the window's start edge, where the macOS traffic
@@ -92,7 +82,7 @@ interface InspectorEvent {
 	isPicking?: boolean;
 	annotationCount?: number;
 	hasUnsavedDraft?: boolean;
-	command?: PreviewShortcutCommandType;
+	command?: BrowserShortcutCommandType;
 }
 
 interface BrowserHistoryEntry {
@@ -112,11 +102,6 @@ interface BrowserNavigationState {
 }
 
 type BrowserShortcutCommandType = 'back' | 'forward' | 'reload';
-
-// What the guest page can forward over the console bridge: the browser
-// commands it swallows, plus the full-preview toggle (the webview covers most
-// of the window in full preview, so the host listener alone would miss it).
-type PreviewShortcutCommandType = BrowserShortcutCommandType | 'full-preview';
 
 interface BrowserCommand {
 	id: number;
@@ -390,32 +375,8 @@ export function getBrowserShortcutCommand(
 	return null;
 }
 
-// ⇧⌘F (Ctrl+Shift+F elsewhere) toggles full preview. Listed in Settings →
-// Keyboard alongside the other preview shortcuts.
-const FULL_PREVIEW_SHORTCUT_KEY = 'f';
-
-function getFullPreviewShortcutDescriptor() {
-	return {
-		displayShortcut: displayShortcut.primaryShift( FULL_PREVIEW_SHORTCUT_KEY ),
-		ariaKeyShortcut: ariaKeyShortcut.primaryShift( FULL_PREVIEW_SHORTCUT_KEY ),
-		label: shortcutAriaLabel.primaryShift( FULL_PREVIEW_SHORTCUT_KEY ),
-	};
-}
-
-function isFullPreviewShortcut( event: globalThis.KeyboardEvent ): boolean {
-	if ( event.defaultPrevented || event.repeat ) {
-		return false;
-	}
-	return isKeyboardEvent.primaryShift( event, FULL_PREVIEW_SHORTCUT_KEY );
-}
-
-function isPreviewShortcutCommand( command: unknown ): command is PreviewShortcutCommandType {
-	return (
-		command === 'back' ||
-		command === 'forward' ||
-		command === 'reload' ||
-		command === 'full-preview'
-	);
+function isPreviewShortcutCommand( command: unknown ): command is BrowserShortcutCommandType {
+	return command === 'back' || command === 'forward' || command === 'reload';
 }
 
 // Annotation commands. With nothing pending there's only one command, so the
@@ -707,8 +668,6 @@ export function SitePreview( {
 	onAnnotationsDone,
 	onPathChange,
 	collapsed = false,
-	fullscreen = false,
-	onFullscreenChange,
 	toolbarStart,
 	atWindowStart = false,
 }: SitePreviewProps ) {
@@ -823,19 +782,15 @@ export function SitePreview( {
 		[ activeSurfaceKey, patchSurface ]
 	);
 	// Shortcuts the guest page swallowed and forwarded back over the console
-	// bridge: browser commands go to the webview, full preview to the host.
+	// bridge, for the webview.
 	const handleForwardedShortcut = useCallback(
-		( command: PreviewShortcutCommandType ) => {
-			if ( command === 'full-preview' ) {
-				onFullscreenChange?.( ! fullscreen );
-				return;
-			}
+		( command: BrowserShortcutCommandType ) => {
 			if ( inspectorState.isPicking ) {
 				return;
 			}
 			sendBrowserCommand( command );
 		},
-		[ fullscreen, inspectorState.isPicking, onFullscreenChange, sendBrowserCommand ]
+		[ inspectorState.isPicking, sendBrowserCommand ]
 	);
 
 	// Point the active surface at whatever path the host is asking for, creating
@@ -945,10 +900,7 @@ export function SitePreview( {
 				event.key === 'Escape' &&
 				! ( event.target instanceof Element && event.target.closest( '[role="dialog"]' ) );
 			const command = inspectorState.isPicking ? null : getBrowserShortcutCommand( event );
-			// Only claim the full-preview chord when the host actually offers
-			// the mode, so it stays available to the page otherwise.
-			const fullPreview = ! command && !! onFullscreenChange && isFullPreviewShortcut( event );
-			if ( ! cancelAnnotation && ! command && ! fullPreview ) {
+			if ( ! cancelAnnotation && ! command ) {
 				return;
 			}
 			const activeElement = document.activeElement;
@@ -965,28 +917,15 @@ export function SitePreview( {
 				setAnnotationCancelRequestId( ( current ) => current + 1 );
 			} else if ( command ) {
 				sendBrowserCommand( command );
-			} else {
-				onFullscreenChange?.( ! fullscreen );
 			}
 		};
 
 		document.addEventListener( 'keydown', handleKeyDown, { capture: true } );
 		return () => document.removeEventListener( 'keydown', handleKeyDown, { capture: true } );
-	}, [
-		canPreview,
-		collapsed,
-		fullscreen,
-		inspectorState.isPicking,
-		onFullscreenChange,
-		sendBrowserCommand,
-	] );
+	}, [ canPreview, collapsed, inspectorState.isPicking, sendBrowserCommand ] );
 
 	return (
-		<aside
-			ref={ rootRef }
-			className={ clsx( styles.root, fullscreen && styles.rootFullscreen ) }
-			aria-label={ __( 'Site preview' ) }
-		>
+		<aside ref={ rootRef } className={ styles.root } aria-label={ __( 'Site preview' ) }>
 			<div
 				hidden={ ! canPreview && ! toolbarStart }
 				className={ clsx(
@@ -1090,19 +1029,6 @@ export function SitePreview( {
 								activeSurfaceKey === 'database' ? __( 'Not available for Database' ) : undefined
 							}
 							onCommand={ sendInspectorCommand }
-						/>
-					) : null }
-					{ canPreview && onFullscreenChange ? (
-						<IconButton
-							variant="minimal"
-							tone="neutral"
-							size="small"
-							icon={ fullscreenIcon }
-							label={ fullscreen ? __( 'Exit full preview' ) : __( 'Full preview' ) }
-							shortcut={ getFullPreviewShortcutDescriptor() }
-							aria-pressed={ fullscreen }
-							onClick={ () => onFullscreenChange( ! fullscreen ) }
-							positioner={ <Tooltip.Positioner side="bottom" /> }
 						/>
 					) : null }
 				</div>
@@ -1276,7 +1202,7 @@ interface WebviewSurfaceProps {
 	inspectorCommand?: InspectorCommand | null;
 	browserCommand?: BrowserCommand | null;
 	onBrowserStateChange?: ( state: BrowserNavigationState ) => void;
-	onBrowserCommand?: ( type: PreviewShortcutCommandType ) => void;
+	onBrowserCommand?: ( type: BrowserShortcutCommandType ) => void;
 	onNavigate?: ( url: string ) => void;
 	// Whether to inject the annotation inspector into the guest page. Off for
 	// phpMyAdmin, which can't be annotated.

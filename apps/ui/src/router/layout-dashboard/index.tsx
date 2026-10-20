@@ -177,8 +177,7 @@ function DashboardLayoutContent() {
 	const previewPath = pathForSite( preview.pathsBySiteId, previewSiteId );
 	// A site's own page is its preview, so it shows whether or not the panel is open.
 	const showPreview = ( preview.open || !! homeSiteId ) && supportsPreview && !! previewSite;
-	const previewFullscreen = preview.fullscreen && showPreview;
-	const chatHidden = ( preview.chatHidden || !! homeSiteId ) && showPreview && ! previewFullscreen;
+	const chatHidden = ( preview.chatHidden || !! homeSiteId ) && showPreview;
 	// Opening a chat shows it.
 	const { setChatHidden } = preview;
 	useEffect( () => {
@@ -189,20 +188,8 @@ function DashboardLayoutContent() {
 		useResponsivePanels( {
 			connector,
 			previewOpen: showPreview,
-			previewFullscreen,
 			setPreviewOpen,
 		} );
-	// Leave full preview when the route stops supporting a preview (settings,
-	// site settings…) so the user is never left staring at a hidden layout.
-	const { setFullscreen: setPreviewFullscreen } = preview;
-	useEffect( () => {
-		if ( ! supportsPreview ) {
-			setPreviewFullscreen( false );
-		}
-	}, [ supportsPreview, setPreviewFullscreen ] );
-	const exitPreviewFullscreen = useCallback( () => {
-		void openSidebar().then( () => setPreviewFullscreen( false ) );
-	}, [ openSidebar, setPreviewFullscreen ] );
 	const renderPreview = useCallback(
 		( { collapsed }: PreviewSplitFramePreviewProps ) =>
 			previewSite ? (
@@ -213,9 +200,7 @@ function DashboardLayoutContent() {
 					onAnnotationsDone={ onAnnotationsDone }
 					onPathChange={ preview.updatePath }
 					collapsed={ collapsed }
-					fullscreen={ previewFullscreen }
-					onFullscreenChange={ setPreviewFullscreen }
-					atWindowStart={ previewFullscreen || ( chatHidden && sidebarCollapsed ) }
+					atWindowStart={ chatHidden && sidebarCollapsed }
 					toolbarStart={
 						chatHidden ? (
 							<>
@@ -251,13 +236,11 @@ function DashboardLayoutContent() {
 			homeSite,
 			onAnnotationsDone,
 			openSiteDropdown,
-			previewFullscreen,
 			previewPath,
 			preview.reloadNonce,
 			preview.updatePath,
 			previewSite,
 			setChatHidden,
-			setPreviewFullscreen,
 			sidebarCollapsed,
 		]
 	);
@@ -307,12 +290,9 @@ function DashboardLayoutContent() {
 			collapsed={ sidebarCollapsed }
 			onCollapsedChange={ setSidebarCollapsed }
 			onExpand={ openSidebar }
-			forceCollapsed={ previewFullscreen }
-			onForceCollapsedToggle={ exitPreviewFullscreen }
 		>
 			<PreviewSplitFrame
 				previewOpen={ showPreview }
-				previewFullscreen={ previewFullscreen }
 				chatHidden={ chatHidden }
 				preview={ renderPreview }
 				onContainerWidthChange={ onPreviewContainerWidthChange }

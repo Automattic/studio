@@ -26,7 +26,6 @@ vi.mock( '@tanstack/react-router', () => ( {
 } ) );
 
 const connectorMocks = vi.hoisted( () => ( {
-	capabilities: { aiSettings: false },
 	createSession: vi.fn(),
 	getAiSettings: vi.fn(),
 	getAuthUser: vi.fn(),
@@ -85,11 +84,14 @@ describe( 'Composer menu', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
 		clearComposerDrafts();
-		connectorMocks.capabilities.aiSettings = false;
+		connectorMocks.getAiSettings.mockResolvedValue( {
+			provider: 'wpcom',
+			hasAnthropicApiKey: false,
+			anthropicApiKeyPreview: null,
+		} );
 	} );
 
 	it( 'offers the providers above the models the conversation’s provider serves', async () => {
-		connectorMocks.capabilities.aiSettings = true;
 		connectorMocks.getAiSettings.mockResolvedValue( {
 			provider: 'wpcom',
 			hasAnthropicApiKey: true,
@@ -113,7 +115,6 @@ describe( 'Composer menu', () => {
 	} );
 
 	it( 'falls back to WordPress.com when a pinned conversation has no key', async () => {
-		connectorMocks.capabilities.aiSettings = true;
 		connectorMocks.getAiSettings.mockResolvedValue( {
 			provider: 'wpcom',
 			hasAnthropicApiKey: false,
@@ -133,7 +134,6 @@ describe( 'Composer menu', () => {
 	} );
 
 	it( 'omits the provider section until an Anthropic API key is saved', async () => {
-		connectorMocks.capabilities.aiSettings = true;
 		connectorMocks.getAiSettings.mockResolvedValue( {
 			provider: 'wpcom',
 			hasAnthropicApiKey: false,
@@ -151,7 +151,6 @@ describe( 'Composer menu', () => {
 
 	it( 'pins the conversation to the picked provider, carrying a model it serves', async () => {
 		const queryClient = new QueryClient();
-		connectorMocks.capabilities.aiSettings = true;
 		connectorMocks.getAiSettings.mockResolvedValue( {
 			provider: 'wpcom',
 			hasAnthropicApiKey: true,
@@ -780,7 +779,6 @@ describe( 'Composer menu', () => {
 		const queryClient = new QueryClient();
 		const onSwitchSession = vi.fn();
 		const freshSummary = createSummary( { id: 'fresh-session' } );
-		connectorMocks.capabilities.aiSettings = true;
 		connectorMocks.getAiSettings.mockResolvedValue( {
 			provider: 'wpcom',
 			hasAnthropicApiKey: true,

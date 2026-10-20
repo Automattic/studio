@@ -98,6 +98,9 @@ vi.mock( './conversation', () => ( {
 	Conversation: () => <div />,
 } ) );
 
+vi.mock( '@/components/chat-actions', () => ( { OpenChatShortcuts: () => null } ) );
+vi.mock( '@/hooks/use-mark-chat-read', () => ( { useMarkChatRead: vi.fn() } ) );
+
 vi.mock( './session-chat-actions', () => ( {
 	useNewChatShortcut: () => undefined,
 } ) );

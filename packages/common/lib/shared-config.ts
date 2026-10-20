@@ -29,6 +29,10 @@ const SHARED_CONFIG_VERSION = 1;
 export const sharedSessionMetadataSchema = z
 	.object( {
 		archived: z.boolean().optional(),
+		// A name the user gave the chat, in place of its first prompt.
+		title: z.string().optional(),
+		// A turn finished that nobody has looked at yet.
+		unread: z.boolean().optional(),
 	} )
 	.loose();
 
@@ -134,6 +138,12 @@ export async function updateSharedConfig( update: Partial< SharedConfig > ): Pro
 function pruneSharedSessionMetadata( metadata: SharedSessionMetadata ): void {
 	if ( ! metadata.archived ) {
 		delete metadata.archived;
+	}
+	if ( ! metadata.unread ) {
+		delete metadata.unread;
+	}
+	if ( ! metadata.title?.trim() ) {
+		delete metadata.title;
 	}
 }
 

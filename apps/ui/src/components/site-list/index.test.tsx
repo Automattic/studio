@@ -451,6 +451,17 @@ describe( 'SiteList', () => {
 			sessionId: 'site-chat',
 			patch: { archived: true },
 		} );
+
+		fireEvent.contextMenu( within( recent ).getByText( 'Make it blue' ) );
+		fireEvent.keyDown( await screen.findByRole( 'menu' ), {
+			key: 'A',
+			ctrlKey: true,
+			shiftKey: true,
+		} );
+		expect( archiveSession ).toHaveBeenLastCalledWith( {
+			sessionId: 'other-chat',
+			patch: { archived: true },
+		} );
 	} );
 
 	it( 'marks the site row as contextual on the site settings route', () => {
@@ -769,98 +780,25 @@ describe( 'SiteList', () => {
 		).not.toBeInTheDocument();
 	} );
 
-	it( 'shows a new message indicator when an inactive site chat updates', () => {
-		let sessions = [
-			createSession( {
-				id: 'stopped-chat',
-				ownerSitePath: '/Users/example/Studio/stopped-site',
-				updatedAt: '2026-06-20T12:00:00.000Z',
-			} ),
-		];
-		useSessionsMock.mockImplementation( () => ( {
-			data: sessions,
+	it( 'marks an unread chat until it is open', () => {
+		useSessionsMock.mockReturnValue( {
+			data: [
+				createSession( {
+					id: 'stopped-chat',
+					ownerSitePath: '/Users/example/Studio/stopped-site',
+					unread: true,
+				} ),
+			],
 			isLoading: false,
-		} ) );
+		} );
 
-		const { rerender } = render( <SiteList /> );
+		const { rerender } = render( <SiteList sections /> );
+		expect( screen.getByRole( 'img', { name: 'Unread' } ) ).toBeInTheDocument();
 
-		expect( screen.queryByRole( 'status', { name: 'New message' } ) ).not.toBeInTheDocument();
-
-		sessions = [
-			createSession( {
-				id: 'stopped-chat',
-				ownerSitePath: '/Users/example/Studio/stopped-site',
-				updatedAt: '2026-06-20T12:01:00.000Z',
-			} ),
-		];
-		rerender( <SiteList /> );
-
-		const indicator = screen.getByRole( 'status', { name: 'New message' } );
-		const siteName = screen.getByText( 'Stopped Site' );
-
-		expect( indicator ).toBeInTheDocument();
-		expect( indicator.compareDocumentPosition( siteName ) & Node.DOCUMENT_POSITION_FOLLOWING ).toBe(
-			Node.DOCUMENT_POSITION_FOLLOWING
-		);
-	} );
-
-	it( 'does not show a new message indicator for the open chat', () => {
 		paramsMock = { sessionId: 'stopped-chat' };
 		pathnameMock = '/sessions/stopped-chat';
-		let sessions = [
-			createSession( {
-				id: 'stopped-chat',
-				ownerSitePath: '/Users/example/Studio/stopped-site',
-				updatedAt: '2026-06-20T12:00:00.000Z',
-			} ),
-		];
-		useSessionsMock.mockImplementation( () => ( {
-			data: sessions,
-			isLoading: false,
-		} ) );
-
-		const { rerender } = render( <SiteList /> );
-
-		sessions = [
-			createSession( {
-				id: 'stopped-chat',
-				ownerSitePath: '/Users/example/Studio/stopped-site',
-				updatedAt: '2026-06-20T12:01:00.000Z',
-			} ),
-		];
-		rerender( <SiteList /> );
-
-		expect( screen.queryByRole( 'status', { name: 'New message' } ) ).not.toBeInTheDocument();
-	} );
-
-	it( 'shows a new message indicator while only the site settings are open', () => {
-		// Settings don't show the chat, so an update there is still unseen.
-		paramsMock = { siteId: 'stopped-site' };
-		pathnameMock = '/sites/stopped-site/settings';
-		let sessions = [
-			createSession( {
-				id: 'stopped-chat',
-				ownerSitePath: '/Users/example/Studio/stopped-site',
-				updatedAt: '2026-06-20T12:00:00.000Z',
-			} ),
-		];
-		useSessionsMock.mockImplementation( () => ( {
-			data: sessions,
-			isLoading: false,
-		} ) );
-
-		const { rerender } = render( <SiteList /> );
-
-		sessions = [
-			createSession( {
-				id: 'stopped-chat',
-				ownerSitePath: '/Users/example/Studio/stopped-site',
-				updatedAt: '2026-06-20T12:01:00.000Z',
-			} ),
-		];
-		rerender( <SiteList /> );
-
-		expect( screen.getByRole( 'status', { name: 'New message' } ) ).toBeInTheDocument();
+		rerender( <SiteList sections /> );
+		expect( screen.queryByRole( 'img', { name: 'Unread' } ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'names the configured editor and terminal in the site actions', async () => {

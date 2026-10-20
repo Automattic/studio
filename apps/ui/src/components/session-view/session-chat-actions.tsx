@@ -4,7 +4,7 @@ import { useEffect } from 'react';
 import type { AiSessionSummary } from '@/data/core';
 
 export function getSessionTitle( session: AiSessionSummary ): string {
-	return session.firstPrompt?.trim() || __( 'Untitled chat' );
+	return session.title?.trim() || session.firstPrompt?.trim() || __( 'Untitled chat' );
 }
 
 // ⌘N (Ctrl+N elsewhere) starts a new chat for the site in view.

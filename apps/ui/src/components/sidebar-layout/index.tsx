@@ -6,7 +6,7 @@ import { AppToasts } from '@/components/app-toasts';
 import { NoticeHistoryDialog } from '@/components/notice-history';
 import { ResizeHandle, ResizeOverlay } from '@/components/resize-handle';
 import { SidebarHeader } from '@/components/sidebar-header';
-import { SeenSessionTimestampsProvider, SiteList } from '@/components/site-list';
+import { SiteList } from '@/components/site-list';
 import { UserMenu } from '@/components/user-menu';
 import { useConnector } from '@/data/core';
 import { useResizablePanel } from '@/hooks/use-resizable-panel';
@@ -102,60 +102,55 @@ export function SidebarLayout( {
 	return (
 		<SidebarCollapsedContext.Provider value={ collapsed }>
 			<SidebarToggleContext.Provider value={ toggleSidebar }>
-				{ /* The aside's list and the collapsed switcher's list must agree on
-				     which session updates the user has seen, or each mount would
-				     re-seed and hide the other's unread indicators. */ }
-				<SeenSessionTimestampsProvider>
-					<div ref={ rootRef } className={ styles.root }>
-						<div
-							className={ clsx(
-								styles.sidebarFrame,
-								collapsed && styles.sidebarCollapsed,
-								sidebarResize.isResizing && styles.sidebarResizing
-							) }
-							style={ sidebarStyle }
-							inert={ collapsed }
-						>
-							<aside className={ styles.sidebar }>
-								<SidebarHeader />
-								<SiteList sections />
-								<div className={ styles.sidebarFooter }>
-									{ /* Toasts sit above the persistent cards: the footer is
+				<div ref={ rootRef } className={ styles.root }>
+					<div
+						className={ clsx(
+							styles.sidebarFrame,
+							collapsed && styles.sidebarCollapsed,
+							sidebarResize.isResizing && styles.sidebarResizing
+						) }
+						style={ sidebarStyle }
+						inert={ collapsed }
+					>
+						<aside className={ styles.sidebar }>
+							<SidebarHeader />
+							<SiteList sections />
+							<div className={ styles.sidebarFooter }>
+								{ /* Toasts sit above the persistent cards: the footer is
 								     bottom-anchored, so a transient toast arriving below a card
 								     would shove it up and drop it back on expiry. */ }
-									{ ! collapsed ? (
-										<>
-											<AppToasts className={ styles.sidebarToasts } appearance="intent" />
-											<AppMessageCards className={ styles.sidebarCards } appearance="intent" />
-										</>
-									) : null }
-									<UserMenu />
-								</div>
-							</aside>
-						</div>
-						{ ! collapsed ? (
-							<ResizeHandle
-								className={ styles.resizeHandle }
-								label={ __( 'Resize sidebar' ) }
-								minWidth={ sidebarResize.minWidth }
-								maxWidth={ sidebarResize.maxWidth }
-								width={ sidebarResize.width }
-								isResizing={ sidebarResize.isResizing }
-								onResizeStart={ sidebarResize.handleResizeStart }
-								onKeyDown={ sidebarResize.handleKeyDown }
-							/>
-						) : null }
-						<main className={ clsx( styles.main, ! collapsed && 'studio-column-edge' ) }>
-							{ children }
-							{ collapsed ? (
-								<AppToasts className={ styles.floatingToasts } fit="content" appearance="intent" />
-							) : null }
-						</main>
-						{ sidebarResize.isResizing ? <ResizeOverlay /> : null }
-						<NoticeHistoryDialog />
-						<AppMessageHistoryRecorder />
+								{ ! collapsed ? (
+									<>
+										<AppToasts className={ styles.sidebarToasts } appearance="intent" />
+										<AppMessageCards className={ styles.sidebarCards } appearance="intent" />
+									</>
+								) : null }
+								<UserMenu />
+							</div>
+						</aside>
 					</div>
-				</SeenSessionTimestampsProvider>
+					{ ! collapsed ? (
+						<ResizeHandle
+							className={ styles.resizeHandle }
+							label={ __( 'Resize sidebar' ) }
+							minWidth={ sidebarResize.minWidth }
+							maxWidth={ sidebarResize.maxWidth }
+							width={ sidebarResize.width }
+							isResizing={ sidebarResize.isResizing }
+							onResizeStart={ sidebarResize.handleResizeStart }
+							onKeyDown={ sidebarResize.handleKeyDown }
+						/>
+					) : null }
+					<main className={ clsx( styles.main, ! collapsed && 'studio-column-edge' ) }>
+						{ children }
+						{ collapsed ? (
+							<AppToasts className={ styles.floatingToasts } fit="content" appearance="intent" />
+						) : null }
+					</main>
+					{ sidebarResize.isResizing ? <ResizeOverlay /> : null }
+					<NoticeHistoryDialog />
+					<AppMessageHistoryRecorder />
+				</div>
 			</SidebarToggleContext.Provider>
 		</SidebarCollapsedContext.Provider>
 	);

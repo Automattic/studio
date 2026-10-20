@@ -5,6 +5,7 @@ import { useConnector } from '@/data/core';
 import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
 import type {
 	AiModelId,
+	AiSessionMetadata,
 	AiSessionSummary,
 	Connector,
 	LoadedAiSession,
@@ -113,12 +114,9 @@ export function useCreateSession() {
 
 function mergeSessionMetadata(
 	summary: AiSessionSummary,
-	patch: Pick< AiSessionSummary, 'archived' >
+	patch: AiSessionMetadata
 ): AiSessionSummary {
-	return {
-		...summary,
-		archived: patch.archived,
-	};
+	return { ...summary, ...patch };
 }
 
 export function useUpdateSessionMetadata() {
@@ -129,7 +127,7 @@ export function useUpdateSessionMetadata() {
 		Error,
 		{
 			sessionId: string;
-			patch: Pick< AiSessionSummary, 'archived' >;
+			patch: AiSessionMetadata;
 		},
 		{
 			previousSessions: AiSessionSummary[] | undefined;
@@ -185,6 +183,8 @@ export function useUpdateSessionMetadata() {
 								summary: {
 									...current.summary,
 									archived: summary.archived,
+									title: summary.title,
+									unread: summary.unread,
 								},
 						  }
 						: current

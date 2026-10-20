@@ -84,6 +84,14 @@
 	white-space: nowrap;
 }
 
+.shortcut {
+	margin-inline-start: auto;
+	padding-inline-start: var(--wpds-dimension-padding-md);
+	color: var(--wpds-color-foreground-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-xs);
+	letter-spacing: 0.1em;
+}
+
 .groupLabel {
 	padding: var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-sm) 0;
 	color: var(--wpds-color-foreground-content-neutral-weak);

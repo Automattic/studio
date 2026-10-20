@@ -21,7 +21,7 @@
 		"make:macos-arm64": "electron-vite build --config ./electron.vite.config.ts --outDir=dist && node --experimental-strip-types ../../scripts/build-ui-renderer.ts && SKIP_DMG=true FILE_ARCHITECTURE=arm64 electron-forge make . --arch=arm64 --platform=darwin",
 		"make:linux-x64": "electron-vite build --config ./electron.vite.config.ts --outDir=dist && node --experimental-strip-types ../../scripts/build-ui-renderer.ts && electron-forge make . --arch=x64 --platform=linux",
 		"make:linux-arm64": "electron-vite build --config ./electron.vite.config.ts --outDir=dist && node --experimental-strip-types ../../scripts/build-ui-renderer.ts && electron-forge make . --arch=arm64 --platform=linux",
-		"install:bundle": "npm install --omit=dev --no-audit --no-fund --no-package-lock --no-progress --install-links --no-workspaces && node ../../scripts/apply-available-patches.mjs patches && node ../../scripts/remove-fs-ext-other-platform-binaries.mjs",
+		"install:bundle": "npm install --omit=dev --no-audit --no-fund --no-package-lock --no-progress --install-links --no-workspaces && node ../../scripts/apply-available-patches.mjs patches",
 		"lint": "eslint src e2e",
 		"package": "electron-vite build --config ./electron.vite.config.ts --outDir=dist && node --experimental-strip-types ../../scripts/build-ui-renderer.ts && electron-forge package .",
 		"publish": "electron-forge publish .",
@@ -66,10 +66,5 @@
 	"optionalDependencies": {
 		"@rollup/rollup-linux-x64-gnu": "^4.50.2",
 		"@rollup/rollup-win32-x64-msvc": "^4.50.2"
-	},
-	"overrides": {
-		"fs-ext": {
-			"nan": "2.25.0"
-		}
 	}
 }

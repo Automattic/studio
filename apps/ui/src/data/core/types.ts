@@ -115,9 +115,8 @@ export interface AuthUser {
 
 // What native affordances the host environment offers, so the UI can choose
 // between a native flow and a browser-friendly fallback (instead of branching on
-// "am I in Electron"). The desktop app has them all; the browser (`studio ui` /
-// hosted) does not — except `openInOS`, which the local server can do because it
-// runs on the user's own machine.
+// "am I in Electron"). The desktop app has them all; the browser (`studio ui`)
+// does not.
 export interface ConnectorCapabilities {
 	// A native OS folder picker is available (`selectSiteFolder`). When false,
 	// the UI offers an editable path field instead.
@@ -202,7 +201,6 @@ export interface Connector {
 	getThemeDetails?( siteId: string ): Promise< ThemeDetails >;
 	getSiteIcon?( siteId: string ): Promise< string | null >;
 	// Size of the local site's files, grouped for the overview's disk summary.
-	// Hosted sites return null because their storage is not on this machine.
 	// Measuring walks the whole site directory, so `signal` is honored all the
 	// way down: aborting it stops the walk rather than leaving it to finish for
 	// a site the user has already left.
@@ -509,7 +507,7 @@ export interface Connector {
 	// Whether the UI should render a button that opens the app menu via
 	// `popupAppMenu`. True only in the Windows/Linux desktop app, which has no
 	// native menu bar; macOS has the native application menu and the browser
-	// (`studio ui` / hosted) has no app menu at all.
+	// (`studio ui`) has no app menu at all.
 	showsAppMenuButton: boolean;
 
 	// Clipboard — routed to the host so it works where the renderer's
@@ -535,7 +533,7 @@ export interface Connector {
 	// Whether this host overlays macOS window controls ("traffic lights") on the
 	// top-left of the content, so the UI must reserve space for them. True only
 	// in the macOS desktop app; false on other platforms and in the browser
-	// (`studio ui` / hosted), where there are no traffic lights. Combined with
+	// (`studio ui`), where there are no traffic lights. Combined with
 	// `isFullscreen` — macOS hides the traffic lights in fullscreen — to decide
 	// when to actually leave the gap (see `useTrafficLightSpace`).
 	reservesTrafficLightSpace: boolean;
@@ -585,7 +583,7 @@ export interface Connector {
 
 	// Agentic UI onboarding state. Distinct from getOnboardingCompleted (the
 	// pre-workbench first-run welcome flag). setOnboardingHints shallow-merges
-	// its partial. Desktop persists to app.json; hosted/web to localStorage.
+	// its partial. Persisted to app.json.
 	getOnboardingHints(): Promise< OnboardingHintsState >;
 	setOnboardingHints( partial: Partial< OnboardingHintsState > ): Promise< void >;
 

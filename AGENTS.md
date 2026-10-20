@@ -35,14 +35,14 @@ Prefer targeted runs: `npm run eval -- --filter-pattern "<case>"`. The full suit
 **Main Process** (`apps/studio/src/`): IPC handlers, windows and menus, updates, storage, the `wp-studio://` protocol, migrations. Site operations run in the CLI; logic shared with `studio ui` lives in `@studio/common`
 **Renderer**: the `apps/ui` React app (see Directory Structure), built into the Desktop app and loaded by the main process
 **CLI** (`apps/cli/`): native PHP site servers, yargs commands, child process of desktop app
-**Browser UI** (second front end, alongside Electron): `studio ui` starts `@studio/local` (Express + SSE), which serves the `apps/ui` React app and forks the CLI for site and agent operations. `@studio/hosted` is the experimental remote backend for that same UI.
+**Browser UI** (second front end, alongside Electron): `studio ui` starts `@studio/local` (Express + SSE), which serves the `apps/ui` React app and forks the CLI for site and agent operations.
 
 ## Directory Structure
 
 **`/apps/studio/src`**: Main (index.ts, ipc-handlers.ts, storage/, lib/), preload.ts | modules/<feature>/lib/ (sync, cli, user-settings, import-export, …)
 **`/apps/cli`**: index.ts, commands/ (auth, preview, site), lib/ (appdata, i18n, browser)
-**`/apps/ui`**: Agentic UI (`@studio/ui`), the renderer of both the Desktop app and the `studio ui` browser app. app/ (providers, router), components/, data/, hooks/, lib/. Built per target: `build:local` / `build:hosted`; the Desktop build comes from `scripts/build-ui-renderer.ts`.
-**`/apps/local`**, **`/apps/hosted`**: HTTP/SSE backends for `apps/ui`. `local` is bundled into the CLI; `hosted` is experimental.
+**`/apps/ui`**: Agentic UI (`@studio/ui`), the renderer of both the Desktop app and the `studio ui` browser app. app/ (providers, router), components/, data/, hooks/, lib/. `build:local` builds it for `studio ui`; the Desktop build comes from `scripts/build-ui-renderer.ts`.
+**`/apps/local`**: HTTP/SSE backend for `apps/ui` in the browser, bundled into the CLI.
 **`/apps/mcp-ui`**: MCP Apps pages that agent apps show for `studio mcp` (`@studio/mcp-ui`), currently the WordPress library. React + TanStack Query and plain CSS, built into one HTML document that `studio mcp` serves; the data layer talks to the host through one bridge, with no connectors. Not a target of `apps/ui`: see `docs/design-docs/studio-apps-and-surfaces.md`.
 **`/packages/common`**: Electron-free code shared by the Desktop app, `studio ui` and the CLI: ai/ (sessions, run-manager), sites/ (site operations over the CLI), lib/, types/, translations/
 **`/tools/eslint-plugin-studio`**: eslint-plugin-studio

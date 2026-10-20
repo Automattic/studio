@@ -213,8 +213,7 @@ where the sender actually runs — see Testing below for what fires in which bui
   event-specific props. The agentic `apps/ui` renderer routes through its `Connector.trackEvent`: the IPC connector
   reaches Main directly, while the `local` connector posts to `POST /api/analytics/event`, the
   browser's equivalent choke point. That route drops unknown event names and strips client-supplied
-  `channel`/`ui_version`, so the server stays the only thing that labels an event's origin. The
-  `hosted` connector still no-ops — a multi-user deployment needs an identity and consent model first.
+  `channel`/`ui_version`, so the server stays the only thing that labels an event's origin.
 
 ## Property vocabulary
 

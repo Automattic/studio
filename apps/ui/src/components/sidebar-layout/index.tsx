@@ -131,6 +131,7 @@ export function SidebarLayout( {
 								sidebarResize.isResizing && styles.sidebarResizing
 							) }
 							style={ sidebarStyle }
+							inert={ effectiveCollapsed }
 						>
 							<SidebarHeader />
 							<SiteList sections />

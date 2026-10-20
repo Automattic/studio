@@ -25,6 +25,14 @@
 	   the inspector draws on the page all share it, so the feature reads as
 	   one thing rather than borrowing the brand blue. The inspector's
 	   injected stylesheet repeats the violet literally — it can't see these. */
+	/* Shell motion: layout moves (the sidebar, the chat/preview split, header
+	   contents making room) and a quicker ease-out for controls appearing.
+	   The reduced-motion clamp below covers both. */
+	--studio-motion-layout-duration: 240ms;
+	--studio-motion-layout-easing: cubic-bezier(0.645, 0.045, 0.355, 1);
+	--studio-motion-feedback-duration: 120ms;
+	--studio-motion-enter-easing: cubic-bezier(0.165, 0.84, 0.44, 1);
+
 	--studio-annotate-color: #7c3aed;
 	--studio-annotate-color-active: #6d28d9;
 	--studio-annotate-on-color: #fff;

@@ -34,6 +34,7 @@
 	/* Level with the chat header beside it. */
 	min-height: 46px;
 	flex-shrink: 0;
+	transition: padding var(--studio-motion-layout-duration) var(--studio-motion-layout-easing);
 	background-color: var(--wpds-color-background-surface-neutral-strong, #fff);
 	border-bottom: 1px solid var(--wpds-color-stroke-surface-neutral);
 	-webkit-app-region: drag;
@@ -111,9 +112,11 @@
 /* The outer tracks size to their controls so the middle selector can use all
    remaining width instead of being squeezed by artificial equal halves. */
 .headerSide {
+	--sidebar-toggle-header-gap: var(--wpds-dimension-padding-xs);
+
 	display: flex;
 	align-items: center;
-	gap: var(--wpds-dimension-padding-xs);
+	gap: var(--sidebar-toggle-header-gap);
 }
 
 .headerSideEnd {

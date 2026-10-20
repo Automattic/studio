@@ -28,7 +28,7 @@ import { OutOfCreditsNotice } from '@/components/ai-access-required-notice';
 import { OpenInMenu } from '@/components/open-in-menu';
 import { PreviewToggleButton } from '@/components/preview-toggle-button';
 import { ProgressiveBlur } from '@/components/progressive-blur';
-import { SidebarToggle } from '@/components/sidebar-toggle';
+import { HeaderSidebarToggle } from '@/components/sidebar-toggle';
 import { SiteDropdown } from '@/components/site-dropdown';
 import { SiteIcon } from '@/components/site-icon';
 import { type Annotation } from '@/components/site-preview/types';
@@ -112,7 +112,7 @@ function SessionHeader( {
 					: undefined
 			}
 		>
-			{ sidebarCollapsed ? <SidebarToggle /> : null }
+			<HeaderSidebarToggle />
 			{ site ? (
 				<SiteDropdown
 					site={ site }
@@ -134,7 +134,7 @@ function SessionHeader( {
 			) : null }
 			<span className={ styles.headerSpacer } aria-hidden="true" />
 			{ site ? (
-				<div className={ styles.headerActions }>
+				<div className={ styles.headerActions } data-header-actions>
 					<OpenInMenu key={ site.id } site={ site } />
 					{ effectiveEnvironment === 'local' ? <PreviewToggleButton canHideChat /> : null }
 				</div>

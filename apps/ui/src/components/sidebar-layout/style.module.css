@@ -25,7 +25,7 @@
 	   avoiding the misalignment you get when the scrollbar lives on an
 	   inner wrapper. */
 	overflow-y: auto;
-	transition: width 150ms ease;
+	transition: width var(--studio-motion-layout-duration) var(--studio-motion-layout-easing);
 	-webkit-app-region: drag;
 }
 

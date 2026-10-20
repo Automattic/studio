@@ -1,7 +1,7 @@
 import { __ } from '@wordpress/i18n';
 import { clsx } from 'clsx';
 import { PreviewToggleButton } from '@/components/preview-toggle-button';
-import { SidebarToggle } from '@/components/sidebar-toggle';
+import { HeaderSidebarToggle } from '@/components/sidebar-toggle';
 import { SiteDropdown } from '@/components/site-dropdown';
 import { isSiteSettingsTab, SiteSettingsForm } from '@/components/site-settings-view';
 import * as Tabs from '@/components/tabs';
@@ -54,7 +54,7 @@ export function SiteSettingsPage( {
 						: undefined
 				}
 			>
-				{ sidebarCollapsed ? <SidebarToggle /> : null }
+				<HeaderSidebarToggle />
 				<SiteDropdown
 					site={ site }
 					showSiteIcon

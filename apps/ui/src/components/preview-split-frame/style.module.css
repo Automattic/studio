@@ -30,7 +30,19 @@
 }
 
 .rootPreviewAnimating .contentColumn {
-	transition: width 150ms ease;
+	transition: width var(--studio-motion-layout-duration) var(--studio-motion-layout-easing);
+}
+
+/* The chat header's actions fade back in once the column is halfway open,
+   and leave at once when it closes. */
+.contentColumn [data-header-actions] {
+	transition: opacity var(--studio-motion-feedback-duration) var(--studio-motion-enter-easing)
+		calc(var(--studio-motion-layout-duration) / 2);
+}
+
+.contentColumnCollapsed [data-header-actions] {
+	opacity: 0;
+	transition: none;
 }
 
 /* Full preview: the column is width 0 once the slide finishes; visibility

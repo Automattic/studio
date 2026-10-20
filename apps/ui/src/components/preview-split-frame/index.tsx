@@ -15,7 +15,7 @@ import { WindowControlsCornerContext } from '@/hooks/use-window-controls-inset';
 import styles from './style.module.css';
 
 // Keep in sync with the content-column transition duration in style.module.css.
-export const PREVIEW_TOGGLE_DURATION = 150;
+export const PREVIEW_TOGGLE_DURATION = 240;
 
 // Whether the preview shows beside the content, for controls in the content
 // column that only make sense next to it.
@@ -131,7 +131,11 @@ export function PreviewSplitFrame( {
 				style={ rootStyle }
 			>
 				<div
-					className={ clsx( styles.contentColumn, contentHidden && styles.contentColumnHidden ) }
+					className={ clsx(
+						styles.contentColumn,
+						contentCollapsed && styles.contentColumnCollapsed,
+						contentHidden && styles.contentColumnHidden
+					) }
 					aria-hidden={ contentHidden || undefined }
 				>
 					<WindowControlsCornerContext.Provider value={ contentInCorner }>

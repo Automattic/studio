@@ -23,3 +23,25 @@
 .root:dir(rtl) svg {
 	transform: scaleX(-1);
 }
+
+/* The negative margin cancels the header's gap while the slot is empty. */
+.headerSlot {
+	display: inline-flex;
+	flex-shrink: 0;
+	width: 0;
+	margin-inline-end: calc(-1 * var(--sidebar-toggle-header-gap, var(--wpds-dimension-padding-sm)));
+	overflow: hidden;
+	opacity: 0;
+	transition:
+		width var(--studio-motion-layout-duration) var(--studio-motion-layout-easing),
+		margin var(--studio-motion-layout-duration) var(--studio-motion-layout-easing),
+		opacity var(--studio-motion-feedback-duration) var(--studio-motion-enter-easing);
+}
+
+.headerSlotVisible {
+	width: var(--wpds-dimension-size-sm);
+	margin-inline-end: 0;
+	overflow: visible;
+	opacity: 1;
+	transition-delay: 0s, 0s, calc(var(--studio-motion-layout-duration) / 2);
+}

@@ -1,5 +1,6 @@
 import { __ } from '@wordpress/i18n';
 import { Button, Icon, Tooltip } from '@wordpress/ui';
+import { clsx } from 'clsx';
 import { AppMessageCardsDot } from '@/components/app-message-cards';
 import { CollapsedSiteSwitcher } from '@/components/collapsed-site-switcher';
 import { useSidebarCollapsed, useToggleSidebar } from '@/hooks/use-sidebar-collapsed';
@@ -38,6 +39,21 @@ export function SidebarToggle() {
 				</Tooltip.Root>
 			) }
 			{ collapsed ? <AppMessageCardsDot /> : null }
+		</span>
+	);
+}
+
+// A header's sidebar toggle. Always mounted so it can grow into place as the
+// sidebar collapses, and shrink away as it opens, sliding the rest of the
+// header along instead of jumping.
+export function HeaderSidebarToggle() {
+	const collapsed = useSidebarCollapsed();
+	return (
+		<span
+			className={ clsx( styles.headerSlot, collapsed && styles.headerSlotVisible ) }
+			inert={ ! collapsed }
+		>
+			<SidebarToggle />
 		</span>
 	);
 }

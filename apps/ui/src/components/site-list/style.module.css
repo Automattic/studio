@@ -596,7 +596,7 @@
 
 .groupChevron {
 	fill: currentColor;
-	transition: transform 120ms ease;
+	transition: transform var(--studio-motion-feedback-duration) var(--studio-motion-enter-easing);
 }
 
 .groupChevronCollapsed {

@@ -35,6 +35,7 @@
 	padding-block: var(--wpds-dimension-padding-xs);
 	padding-inline: var(--wpds-dimension-padding-sm);
 	min-height: 46px;
+	transition: padding var(--studio-motion-layout-duration) var(--studio-motion-layout-easing);
 	background-color: var(--wpds-color-background-surface-neutral-strong);
 	border-bottom: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral);
 	font-size: var(--wpds-typography-font-size-sm);

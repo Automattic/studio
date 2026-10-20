@@ -11,7 +11,7 @@ import {
 	type PreviewSplitFramePreviewProps,
 } from '@/components/preview-split-frame';
 import { SidebarLayout } from '@/components/sidebar-layout';
-import { SidebarToggle } from '@/components/sidebar-toggle';
+import { HeaderSidebarToggle } from '@/components/sidebar-toggle';
 import { SiteDropdown } from '@/components/site-dropdown';
 import { SitePreview } from '@/components/site-preview';
 import { isSiteSettingsTab, siteSettingsTabToPanel } from '@/components/site-settings-view';
@@ -219,7 +219,7 @@ function DashboardLayoutContent() {
 					toolbarStart={
 						chatHidden ? (
 							<>
-								{ sidebarCollapsed ? <SidebarToggle /> : null }
+								<HeaderSidebarToggle />
 								{ homeSite ? (
 									<>
 										<SiteDropdown

@@ -10,6 +10,9 @@ const mocks = vi.hoisted( () => ( {
 	createAgentSession: vi.fn(),
 	createdSessions: [] as FakeSession[],
 	nextEvents: null as AgentSessionEvent[] | null,
+	continueEvents: [] as AgentSessionEvent[][],
+	customMessages: [] as Array< { message: unknown; options: unknown } >,
+	onCustomMessage: null as ( () => void ) | null,
 	studioRoot: '/tmp/studio-ai-pi-runtime',
 	configRoot: '/tmp/studio-ai-pi-runtime-config',
 } ) );
@@ -164,6 +167,14 @@ class FakeSession {
 		}
 	}
 
+	async sendCustomMessage( message: unknown, options: unknown ): Promise< void > {
+		mocks.customMessages.push( { message, options } );
+		mocks.onCustomMessage?.();
+		for ( const event of mocks.continueEvents.shift() ?? [] ) {
+			this.listener?.( event );
+		}
+	}
+
 	async abort(): Promise< void > {
 		this.aborted = true;
 	}
@@ -221,6 +232,9 @@ describe( 'pi runtime', () => {
 	beforeEach( () => {
 		mocks.createdSessions.length = 0;
 		mocks.nextEvents = null;
+		mocks.continueEvents = [];
+		mocks.customMessages = [];
+		mocks.onCustomMessage = null;
 		mocks.createAgentSession.mockReset();
 		mocks.createAgentSession.mockImplementation( async ( options: CreateAgentSessionOptions ) => {
 			const session = new FakeSession( options );
@@ -522,6 +536,110 @@ describe( 'pi runtime', () => {
 				baseDelayMs: 2000,
 			}
 		);
+	} );
+
+	describe( 'a reply with neither text nor a tool call', () => {
+		const emptyReply = () => assistantMessage( [ { type: 'thinking', thinking: 'reasoning…' } ] );
+		const runEndingWith = ( message: MessageEndEvent ): AgentSessionEvent[] => [
+			message,
+			{ type: 'agent_end', willRetry: false, messages: [ message.message ] },
+		];
+		const agentEnds = ( events: AgentSessionEvent[] ) =>
+			events.filter(
+				( event ): event is Extract< AgentSessionEvent, { type: 'agent_end' } > =>
+					event.type === 'agent_end'
+			);
+		const runFast = () =>
+			runRuntime( { prompt: 'build it', env: WPCOM_ENV, model: 'fast', session: newSession() } );
+
+		it( 'continues the turn with a message the user does not see', async () => {
+			mocks.nextEvents = runEndingWith( emptyReply() );
+			mocks.continueEvents = [
+				runEndingWith( assistantMessage( [ { type: 'text', text: 'Done.' } ] ) ),
+			];
+
+			const events = await runFast();
+
+			expect( mocks.customMessages ).toEqual( [
+				{
+					message: {
+						customType: 'studio.empty_stop_continue',
+						content: 'continue',
+						display: false,
+					},
+					options: { triggerTurn: true },
+				},
+			] );
+			expect( agentEnds( events ).map( ( event ) => event.willRetry ) ).toEqual( [ true, false ] );
+			expect( findAssistantText( events ) ).toBe( 'Done.' );
+		} );
+
+		it( 'ends the turn after two continues', async () => {
+			mocks.nextEvents = runEndingWith( emptyReply() );
+			mocks.continueEvents = [ runEndingWith( emptyReply() ), runEndingWith( emptyReply() ) ];
+
+			const events = await runFast();
+
+			expect( mocks.customMessages ).toHaveLength( 2 );
+			expect( agentEnds( events ).map( ( event ) => event.willRetry ) ).toEqual( [
+				true,
+				true,
+				false,
+			] );
+		} );
+
+		it( 'counts continues in a row, so progress in between starts the count again', async () => {
+			const toolCall = assistantMessage( [
+				{ type: 'toolCall', id: 'call-1', name: 'site_info', arguments: {} },
+			] );
+			mocks.nextEvents = runEndingWith( emptyReply() );
+			mocks.continueEvents = [
+				runEndingWith( emptyReply() ),
+				[ toolCall, ...runEndingWith( emptyReply() ) ],
+				runEndingWith( assistantMessage( [ { type: 'text', text: 'Done.' } ] ) ),
+			];
+
+			const events = await runFast();
+
+			expect( mocks.customMessages ).toHaveLength( 3 );
+			expect( agentEnds( events ).at( -1 )?.willRetry ).toBe( false );
+			expect( findAssistantText( events ) ).toBe( 'Done.' );
+		} );
+
+		it( 'leaves a reply with text or a tool call alone', async () => {
+			for ( const content of [
+				[ { type: 'text', text: 'Which colours do you like?' } ],
+				[ { type: 'toolCall', id: 'call-1', name: 'site_info', arguments: {} } ],
+			] ) {
+				mocks.nextEvents = runEndingWith( assistantMessage( content ) );
+				const events = await runFast();
+				expect( agentEnds( events ).map( ( event ) => event.willRetry ) ).toEqual( [ false ] );
+			}
+			expect( mocks.customMessages ).toHaveLength( 0 );
+		} );
+
+		it( 'ends the turn as interrupted when the user stops it first', async () => {
+			mocks.nextEvents = runEndingWith( emptyReply() );
+			const events: AgentSessionEvent[] = [];
+			const handle = runStudioAgentTurn( {
+				prompt: 'build it',
+				env: WPCOM_ENV,
+				model: 'fast',
+				session: newSession(),
+				onEvent: ( event ) => {
+					events.push( event );
+					if ( event.type === 'agent_end' && event.willRetry ) {
+						void handle.interrupt();
+					}
+				},
+			} );
+			await handle.result;
+
+			expect( mocks.customMessages ).toHaveLength( 0 );
+			const ends = agentEnds( events );
+			expect( ends.map( ( event ) => event.willRetry ) ).toEqual( [ true, false ] );
+			expect( ends[ 1 ].messages[ 0 ] ).toMatchObject( { stopReason: 'aborted' } );
+		} );
 	} );
 
 	it( 'creates each AgentSession with the requested model', async () => {

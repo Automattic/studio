@@ -14,6 +14,19 @@ export function findLastAssistant(
 	return undefined;
 }
 
+// A reply that ends the turn with neither text nor a tool call: the user
+// sees nothing. The fast tier's upstream does this when the model spends
+// its whole reasoning budget (about 4,096 tokens) before answering.
+export function isEmptyStop( message: AssistantMessage | undefined ): boolean {
+	return Boolean(
+		message &&
+			message.stopReason === 'stop' &&
+			! message.content.some(
+				( block ) => block.type === 'toolCall' || ( block.type === 'text' && block.text.trim() )
+			)
+	);
+}
+
 export interface AgentEndTurnResult {
 	success: boolean;
 	interrupted: boolean;

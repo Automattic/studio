@@ -9,7 +9,6 @@ import { themeDetailsQueryKey } from '@/hooks/use-theme-details';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import { WindowControlsCornerContext } from '@/hooks/use-window-controls-inset';
 import { useWindowControlsOverlay } from '@/hooks/use-window-controls-overlay';
-import { DATABASE_HOME_PATH } from './address-bar';
 import { INSPECTOR_BRIDGE_PREFIX } from './inspector-script';
 import {
 	getBrowserShortcutCommand,
@@ -17,9 +16,6 @@ import {
 	isOffOriginRedirect,
 	isThemeActivationUrl,
 	getPathFromPreviewUrl,
-	getFrameSize,
-	getSimulatedViewport,
-	getZoomedPaneViewport,
 	SitePreview,
 } from './index';
 import type { SiteDetails } from '@/data/core';
@@ -465,7 +461,6 @@ describe( 'SitePreview', () => {
 		expect( screen.queryByRole( 'button', { name: 'Forward' } ) ).not.toBeInTheDocument();
 		expect( screen.queryByRole( 'button', { name: 'Refresh' } ) ).not.toBeInTheDocument();
 		expect( screen.queryByRole( 'textbox', { name: 'Address' } ) ).not.toBeInTheDocument();
-		expect( screen.getByRole( 'button', { name: 'Responsive mode: Responsive' } ) ).toBeVisible();
 
 		Object.defineProperty( navigator, 'userAgent', {
 			configurable: true,
@@ -596,147 +591,6 @@ describe( 'SitePreview', () => {
 			reason: null,
 			isReady: true,
 		} );
-	} );
-
-	it( 'offers responsive modes from the responsive preview menu while running', async () => {
-		useConnectorMock.mockReturnValue( {
-			startSite: vi.fn().mockResolvedValue( undefined ),
-			trackEvent: vi.fn().mockResolvedValue( undefined ),
-			capabilities: CAPABILITIES,
-		} as never );
-
-		renderPreview(
-			<SitePreview site={ createSite( { running: true } ) } path="/" reloadNonce={ 0 } />
-		);
-
-		fireEvent.click( screen.getByRole( 'button', { name: 'Responsive mode: Responsive' } ) );
-
-		expect( await screen.findByText( 'Responsive mode' ) ).toBeVisible();
-		expect( screen.getByRole( 'menuitem', { name: 'Responsive' } ) ).toBeVisible();
-		expect( screen.queryByRole( 'menuitemradio', { name: 'Responsive' } ) ).not.toBeInTheDocument();
-		// The orientation group only accompanies the phone frame.
-		expect( screen.queryByText( 'Mobile orientation' ) ).not.toBeInTheDocument();
-
-		fireEvent.click( screen.getByRole( 'menuitem', { name: 'Mobile · 390×844' } ) );
-		fireEvent.click( screen.getByRole( 'button', { name: 'Responsive mode: Mobile' } ) );
-
-		expect( await screen.findByText( 'Mobile orientation' ) ).toBeVisible();
-		expect( screen.getByRole( 'menuitemradio', { name: 'Portrait' } ) ).toBeChecked();
-
-		// The menu is modal: its backdrop covers the webview, so clicks over
-		// the preview dismiss the menu instead of vanishing into the guest.
-		const backdrop = document.querySelector( '[role="presentation"][data-base-ui-inert]' );
-		expect( backdrop ).toBeInTheDocument();
-		fireEvent.pointerDown( backdrop as Element );
-		await waitFor( () =>
-			expect( screen.queryByText( 'Responsive mode' ) ).not.toBeInTheDocument()
-		);
-	} );
-
-	it( 'disables the responsive mode controls while previewing the database realm', async () => {
-		useConnectorMock.mockReturnValue( {
-			startSite: vi.fn().mockResolvedValue( undefined ),
-			trackEvent: vi.fn().mockResolvedValue( undefined ),
-			capabilities: CAPABILITIES,
-		} as never );
-
-		renderPreview(
-			<SitePreview
-				site={ createSite( { running: true } ) }
-				path={ DATABASE_HOME_PATH }
-				reloadNonce={ 0 }
-			/>
-		);
-
-		const responsiveButton = screen.getByRole( 'button', {
-			name: 'Responsive mode: Responsive',
-		} );
-		expect( responsiveButton ).toHaveAttribute( 'aria-disabled', 'true' );
-		expect( responsiveButton ).toHaveAttribute( 'aria-description', 'Not available for Database' );
-		expect( responsiveButton.parentElement ).toHaveAttribute(
-			'title',
-			'Not available for Database'
-		);
-
-		fireEvent.click( responsiveButton );
-		expect(
-			screen.queryByRole( 'menuitem', { name: 'Mobile · 390×844' } )
-		).not.toBeInTheDocument();
-	} );
-
-	it( 'keeps full preview out of the responsive controls', async () => {
-		useConnectorMock.mockReturnValue( {
-			startSite: vi.fn().mockResolvedValue( undefined ),
-			trackEvent: vi.fn().mockResolvedValue( undefined ),
-			capabilities: CAPABILITIES,
-		} as never );
-
-		renderPreview(
-			<SitePreview site={ createSite( { running: true } ) } path="/" reloadNonce={ 0 } />
-		);
-
-		fireEvent.click( screen.getByRole( 'button', { name: 'Responsive mode: Responsive' } ) );
-
-		expect( await screen.findByText( 'Responsive mode' ) ).toBeVisible();
-		expect( screen.queryByRole( 'menuitem', { name: 'Full preview' } ) ).not.toBeInTheDocument();
-	} );
-
-	it( 'does not force full preview when the Desktop + Mobile comparison is picked', async () => {
-		useConnectorMock.mockReturnValue( {
-			startSite: vi.fn().mockResolvedValue( undefined ),
-			trackEvent: vi.fn().mockResolvedValue( undefined ),
-			capabilities: CAPABILITIES,
-		} as never );
-		const onFullscreenChange = vi.fn();
-
-		renderPreview(
-			<SitePreview
-				site={ createSite( { running: true } ) }
-				path="/"
-				reloadNonce={ 0 }
-				onFullscreenChange={ onFullscreenChange }
-			/>
-		);
-
-		fireEvent.click( screen.getByRole( 'button', { name: 'Responsive mode: Responsive' } ) );
-		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Desktop + Mobile' } ) );
-
-		expect( onFullscreenChange ).not.toHaveBeenCalled();
-	} );
-
-	it( 'keeps the comparison selected when full preview ends', async () => {
-		useConnectorMock.mockReturnValue( {
-			startSite: vi.fn().mockResolvedValue( undefined ),
-			trackEvent: vi.fn().mockResolvedValue( undefined ),
-			capabilities: CAPABILITIES,
-		} as never );
-		const queryClient = new QueryClient( {
-			defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-		} );
-		const ui = ( fullscreen: boolean ) => (
-			<QueryClientProvider client={ queryClient }>
-				<Tooltip.Provider>
-					<SitePreview
-						site={ createSite( { running: true } ) }
-						path="/"
-						reloadNonce={ 0 }
-						fullscreen={ fullscreen }
-						onFullscreenChange={ vi.fn() }
-					/>
-				</Tooltip.Provider>
-			</QueryClientProvider>
-		);
-
-		const { rerender } = render( ui( true ) );
-		fireEvent.click( screen.getByRole( 'button', { name: 'Responsive mode: Responsive' } ) );
-		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Desktop + Mobile' } ) );
-
-		rerender( ui( false ) );
-		fireEvent.click( screen.getByRole( 'button', { name: 'Responsive mode: Desktop + Mobile' } ) );
-		expect( screen.getByRole( 'menuitem', { name: 'Desktop + Mobile' } ) ).toHaveAttribute(
-			'aria-current',
-			'true'
-		);
 	} );
 
 	it( 'toggles full preview with the keyboard shortcut', () => {
@@ -907,62 +761,6 @@ describe( 'SitePreview', () => {
 		vi.useRealTimers();
 		vi.mocked( useTrafficLightSpace ).mockReturnValue( { start: false, end: false } );
 	} );
-
-	it( 'hides the responsive controls when the site is not running', () => {
-		useConnectorMock.mockReturnValue( {
-			startSite: vi.fn().mockResolvedValue( undefined ),
-			trackEvent: vi.fn().mockResolvedValue( undefined ),
-			capabilities: CAPABILITIES,
-		} as never );
-
-		renderPreview( <SitePreview site={ createSite() } path="/" reloadNonce={ 0 } /> );
-
-		expect( screen.queryByRole( 'button', { name: 'Refresh' } ) ).not.toBeInTheDocument();
-		expect( screen.queryByRole( 'textbox', { name: 'Address' } ) ).not.toBeInTheDocument();
-		expect(
-			screen.queryByRole( 'button', { name: 'Responsive mode: Responsive' } )
-		).not.toBeInTheDocument();
-	} );
-
-	it( 'remembers the responsive mode per site during the session', async () => {
-		useConnectorMock.mockReturnValue( {
-			startSite: vi.fn().mockResolvedValue( undefined ),
-			trackEvent: vi.fn().mockResolvedValue( undefined ),
-			capabilities: CAPABILITIES,
-		} as never );
-
-		const queryClient = new QueryClient( {
-			defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-		} );
-		const ui = ( site: SiteDetails ) => (
-			<QueryClientProvider client={ queryClient }>
-				<Tooltip.Provider>
-					<SitePreview site={ site } path="/" reloadNonce={ 0 } />
-				</Tooltip.Provider>
-			</QueryClientProvider>
-		);
-		const siteA = createSite( { id: 'site-a', running: true } );
-		const siteB = createSite( { id: 'site-b', running: true } );
-
-		const { rerender } = render( ui( siteA ) );
-		fireEvent.click( screen.getByRole( 'button', { name: 'Responsive mode: Responsive' } ) );
-		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Mobile · 390×844' } ) );
-
-		// A site without a remembered mode starts from the default…
-		rerender( ui( siteB ) );
-		fireEvent.click( screen.getByRole( 'button', { name: 'Responsive mode: Responsive' } ) );
-		expect( screen.getByRole( 'menuitem', { name: 'Responsive' } ) ).toHaveAttribute(
-			'aria-current',
-			'true'
-		);
-
-		// …and returning to the first site restores its mode.
-		rerender( ui( siteA ) );
-		expect( screen.getByRole( 'menuitem', { name: 'Mobile · 390×844' } ) ).toHaveAttribute(
-			'aria-current',
-			'true'
-		);
-	} );
 } );
 
 describe( 'getBrowserShortcutCommand', () => {
@@ -1050,103 +848,6 @@ describe( 'isOffOriginRedirect', () => {
 	} );
 } );
 
-describe( 'getSimulatedViewport', () => {
-	it( 'returns null without a preset or a measured pane', () => {
-		expect( getSimulatedViewport( null, { width: 520, height: 700 } ) ).toBe( null );
-		expect( getSimulatedViewport( { width: 390, height: 844 }, null ) ).toBe( null );
-		expect( getSimulatedViewport( { width: 390, height: 844 }, { width: 0, height: 700 } ) ).toBe(
-			null
-		);
-	} );
-
-	it( 'keeps presets at their exact dimensions, scaled down to fit both axes', () => {
-		// The height binds: 700 / 844 is smaller than 520 / 390.
-		expect(
-			getSimulatedViewport( { width: 390, height: 844, mobile: true }, { width: 520, height: 700 } )
-		).toEqual( {
-			width: 390,
-			height: 844,
-			scale: 700 / 844,
-			mobile: true,
-		} );
-		// The width binds for a desktop frame in a narrow pane.
-		expect(
-			getSimulatedViewport( { width: 1440, height: 900 }, { width: 720, height: 800 } )
-		).toEqual( {
-			width: 1440,
-			height: 900,
-			scale: 0.5,
-			mobile: false,
-		} );
-	} );
-
-	it( 'never scales up in a larger pane', () => {
-		expect(
-			getSimulatedViewport( { width: 390, height: 844 }, { width: 600, height: 1000 } )
-		).toEqual( {
-			width: 390,
-			height: 844,
-			scale: 1,
-			mobile: false,
-		} );
-	} );
-
-	it( 'fits the pane in device px when the app UI is zoomed', () => {
-		// At 1.25× the pane measures 720 CSS px but is really 900 device px
-		// wide, and that's the space a 1440 px desktop has to fit into.
-		expect(
-			getSimulatedViewport( { width: 1440, height: 900 }, { width: 720, height: 800 }, 1.25 )
-		).toEqual( {
-			width: 1440,
-			height: 900,
-			scale: 0.625,
-			mobile: false,
-		} );
-		// A phone that fits at device size still never scales up.
-		expect(
-			getSimulatedViewport( { width: 390, height: 844 }, { width: 400, height: 900 }, 1.25 )
-		).toEqual( {
-			width: 390,
-			height: 844,
-			scale: 1,
-			mobile: false,
-		} );
-	} );
-} );
-
-describe( 'getZoomedPaneViewport', () => {
-	it( 'shows the pane as is at 100%', () => {
-		expect( getZoomedPaneViewport( { width: 900, height: 700 }, 1, 1 ) ).toBe( null );
-		expect( getZoomedPaneViewport( null, 1, 1.5 ) ).toBe( null );
-	} );
-
-	it( 'lays the page out at the pane device size over the zoom and renders it back up', () => {
-		expect( getZoomedPaneViewport( { width: 900, height: 700 }, 1, 1.5 ) ).toEqual( {
-			width: 600,
-			height: 467,
-			scale: 1.5,
-			mobile: false,
-		} );
-		// The pane is measured in zoomed CSS px; its device size is what the zoom divides.
-		expect( getZoomedPaneViewport( { width: 720, height: 560 }, 1.25, 0.5 ) ).toEqual( {
-			width: 1800,
-			height: 1400,
-			scale: 0.5,
-			mobile: false,
-		} );
-	} );
-} );
-
-describe( 'getFrameSize', () => {
-	it( 'lays the scaled device box out in the host document CSS px', () => {
-		const viewport = { width: 1440, height: 900, scale: 0.5 };
-
-		expect( getFrameSize( viewport ) ).toEqual( { width: 720, height: 450 } );
-		// The app's zoom scales CSS px up, so the same device box takes fewer of them.
-		expect( getFrameSize( viewport, 1.25 ) ).toEqual( { width: 576, height: 360 } );
-	} );
-} );
-
 describe( 'getPathFromPreviewUrl', () => {
 	it( 'extracts the path, search, and hash for same-origin urls', () => {
 		expect(
@@ -1181,36 +882,10 @@ function setUserAgent( userAgent: string ) {
 	Object.defineProperty( window.navigator, 'userAgent', { value: userAgent, configurable: true } );
 }
 
-// The simulated viewport is derived from the observed pane size, and jsdom has
-// no ResizeObserver — without one the preview never leaves "fit pane" and no
-// emulation is ever requested. Reports a fixed pane synchronously on observe.
-const PANE_SIZE = { width: 900, height: 700 };
-
-class ResizeObserverStub {
-	constructor( private readonly callback: ResizeObserverCallback ) {}
-	observe( target: Element ) {
-		this.callback(
-			[ { target, contentRect: PANE_SIZE } ] as unknown as ResizeObserverEntry[],
-			this as unknown as ResizeObserver
-		);
-	}
-	unobserve() {}
-	disconnect() {}
-}
-
-function renderWebviewPreview(
-	props: Partial< ComponentProps< typeof SitePreview > > = {},
-	{ zoomFactor }: { zoomFactor?: number } = {}
-) {
+function renderWebviewPreview( props: Partial< ComponentProps< typeof SitePreview > > = {} ) {
 	setUserAgent( `${ REAL_USER_AGENT } Electron/38.0.0` );
-	vi.stubGlobal( 'ResizeObserver', ResizeObserverStub );
 	const clearWebviewCache = vi.fn().mockResolvedValue( undefined );
-	const setWebviewViewport = vi.fn().mockResolvedValue( undefined );
-	vi.stubGlobal( 'ipcApi', {
-		clearWebviewCache,
-		setWebviewViewport,
-		...( zoomFactor === undefined ? {} : { getAppZoomFactor: () => zoomFactor } ),
-	} );
+	vi.stubGlobal( 'ipcApi', { clearWebviewCache } );
 	useConnectorMock.mockReturnValue( {
 		startSite: vi.fn().mockResolvedValue( undefined ),
 		trackEvent: vi.fn().mockResolvedValue( undefined ),
@@ -1245,20 +920,7 @@ function renderWebviewPreview(
 				</Tooltip.Provider>
 			</QueryClientProvider>
 		);
-	return { webview, clearWebviewCache, setWebviewViewport, update };
-}
-
-// Leaves "Responsive" for one of the simulated presets, which is what turns the
-// CDP emulation on.
-async function selectResponsiveMode( label: string ) {
-	fireEvent.click( screen.getByRole( 'button', { name: /Responsive mode:/ } ) );
-	fireEvent.click( await screen.findByRole( 'menuitem', { name: label } ) );
-}
-
-// Zoom levels are radio items, so picking one leaves the menu open.
-async function selectPreviewZoom( label: string ) {
-	fireEvent.click( screen.getByRole( 'button', { name: /Responsive mode:/ } ) );
-	fireEvent.click( await screen.findByRole( 'menuitemradio', { name: label } ) );
+	return { webview, clearWebviewCache, update };
 }
 
 describe( 'SitePreview webview reload', () => {
@@ -1307,126 +969,5 @@ describe( 'SitePreview webview reload', () => {
 		await waitFor( () => expect( webview.reload ).toHaveBeenCalledTimes( 1 ) );
 		expect( clearWebviewCache ).toHaveBeenCalledWith( 7 );
 		expect( webview.loadURL ).not.toHaveBeenCalled();
-	} );
-} );
-
-describe( 'SitePreview responsive emulation', () => {
-	afterEach( () => {
-		vi.unstubAllGlobals();
-		setUserAgent( REAL_USER_AGENT );
-	} );
-
-	it( 'applies the simulated viewport when a preset is picked', async () => {
-		const { setWebviewViewport } = renderWebviewPreview();
-
-		await selectResponsiveMode( 'Desktop · 1440×900' );
-
-		await waitFor( () =>
-			expect( setWebviewViewport ).toHaveBeenCalledWith( 7, {
-				width: 1440,
-				height: 900,
-				// Scaled to fit the padded pane; its width is the tighter of the two axes.
-				scale: ( PANE_SIZE.width - 32 ) / 1440,
-				mobile: false,
-			} )
-		);
-	} );
-
-	it( 'keeps a preset at device size while the app UI is zoomed', async () => {
-		const { webview, setWebviewViewport } = renderWebviewPreview( {}, { zoomFactor: 1.25 } );
-
-		await selectResponsiveMode( 'Desktop · 1440×900' );
-
-		// The padded pane measures 1.25× narrower in CSS px than the device
-		// space the desktop has to fit, so the emulation scale comes from the
-		// latter, and the frame is laid out in the former.
-		const scale = ( ( PANE_SIZE.width - 32 ) * 1.25 ) / 1440;
-		await waitFor( () =>
-			expect( setWebviewViewport ).toHaveBeenCalledWith(
-				7,
-				expect.objectContaining( { width: 1440, height: 900, scale } )
-			)
-		);
-		expect( webview.parentElement ).toHaveStyle( {
-			width: `${ ( 1440 * scale ) / 1.25 }px`,
-		} );
-	} );
-
-	it( 'zooms the responsive view by laying it out at the pane size over the zoom', async () => {
-		const { webview, setWebviewViewport } = renderWebviewPreview();
-
-		await selectPreviewZoom( '150%' );
-
-		await waitFor( () =>
-			expect( setWebviewViewport ).toHaveBeenCalledWith( 7, {
-				width: 600,
-				height: 467,
-				scale: 1.5,
-				mobile: false,
-			} )
-		);
-		// No device frame: the zoomed page still fills the pane.
-		expect( webview.parentElement ).not.toHaveAttribute( 'style' );
-	} );
-
-	it( 'offers zoom for the responsive view only, and keeps it for the return trip', async () => {
-		const { setWebviewViewport } = renderWebviewPreview();
-
-		await selectPreviewZoom( '150%' );
-		await waitFor( () =>
-			expect( setWebviewViewport ).toHaveBeenLastCalledWith(
-				7,
-				expect.objectContaining( { scale: 1.5 } )
-			)
-		);
-
-		// A preset is already a device frame scaled to fit, so the zoom group
-		// gives way. The radio item left the menu open, so the preset is one
-		// click away.
-		fireEvent.click( screen.getByRole( 'menuitem', { name: 'Desktop · 1440×900' } ) );
-		await waitFor( () =>
-			expect( setWebviewViewport ).toHaveBeenLastCalledWith(
-				7,
-				expect.objectContaining( { width: 1440, scale: ( PANE_SIZE.width - 32 ) / 1440 } )
-			)
-		);
-		fireEvent.click( screen.getByRole( 'button', { name: 'Responsive mode: Desktop' } ) );
-		expect( await screen.findByText( 'Responsive mode' ) ).toBeVisible();
-		expect( screen.queryByText( 'Zoom' ) ).not.toBeInTheDocument();
-
-		fireEvent.click( screen.getByRole( 'menuitem', { name: 'Responsive' } ) );
-		await waitFor( () =>
-			expect( setWebviewViewport ).toHaveBeenLastCalledWith(
-				7,
-				expect.objectContaining( { width: 600, scale: 1.5 } )
-			)
-		);
-		fireEvent.click( screen.getByRole( 'button', { name: 'Responsive mode: Responsive' } ) );
-		expect( await screen.findByRole( 'menuitemradio', { name: '150%' } ) ).toBeChecked();
-	} );
-
-	it( 're-applies the simulated viewport after each load', async () => {
-		const { webview, setWebviewViewport } = renderWebviewPreview();
-		await selectResponsiveMode( 'Desktop · 1440×900' );
-		await waitFor( () => expect( setWebviewViewport ).toHaveBeenCalledTimes( 1 ) );
-
-		// The override lives on the guest's debugger session, so a guest that
-		// went away takes it with it. Re-asserting per load is what heals that.
-		fireEvent( webview, new Event( 'dom-ready' ) );
-
-		await waitFor( () => expect( setWebviewViewport ).toHaveBeenCalledTimes( 2 ) );
-		expect( setWebviewViewport ).toHaveBeenLastCalledWith(
-			7,
-			expect.objectContaining( { width: 1440, height: 900 } )
-		);
-	} );
-
-	it( 'never touches the emulation for a fit-to-pane preview', async () => {
-		const { webview, setWebviewViewport } = renderWebviewPreview();
-
-		fireEvent( webview, new Event( 'dom-ready' ) );
-
-		await waitFor( () => expect( webview.executeJavaScript ).toHaveBeenCalled() );
-		expect( setWebviewViewport ).not.toHaveBeenCalled();
 	} );
 } );

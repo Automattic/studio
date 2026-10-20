@@ -406,8 +406,12 @@ async function appBoot() {
 			setMacAppLanguage( savedLocale );
 		}
 		if ( process.env.NODE_ENV === 'development' ) {
-			await installExtension( REACT_DEVELOPER_TOOLS );
-			await launchExtensionBackgroundWorkers();
+			try {
+				await installExtension( REACT_DEVELOPER_TOOLS );
+				await launchExtensionBackgroundWorkers();
+			} catch ( error ) {
+				console.warn( 'Failed to set up React Developer Tools', error );
+			}
 		}
 
 		console.log( `App version: ${ app.getVersion() }` );

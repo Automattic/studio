@@ -81,7 +81,13 @@ export function setupUpdates() {
 		return;
 	}
 
-	autoUpdater.setFeedURL( { url: buildUpdateFeedUrl() } );
+	try {
+		autoUpdater.setFeedURL( { url: buildUpdateFeedUrl() } );
+	} catch ( error ) {
+		// macOS rejects the feed when the running app has no code signature, as with the
+		// unsigned x64 Electron binary in development on Intel Macs.
+		console.warn( 'Failed to set the update feed URL', error );
+	}
 
 	autoUpdater.on( 'checking-for-update', () => {
 		updaterState = 'checking-for-update';

@@ -215,6 +215,18 @@ describe( 'update status emissions', () => {
 		vi.mocked( dialog.showMessageBox ).mockClear();
 	} );
 
+	it( 'still handles updater events when the feed URL is rejected', async () => {
+		vi.mocked( autoUpdater.setFeedURL ).mockImplementationOnce( () => {
+			throw new Error( 'Could not get code signature for running application' );
+		} );
+		vi.spyOn( console, 'warn' ).mockImplementation( () => {} );
+
+		expect( setupDarwinUpdates ).not.toThrow();
+		await getHandler( 'checking-for-update' )?.();
+
+		expect( getLastEmittedStatus() ).toEqual( { state: 'checking', currentVersion: '1.8.2' } );
+	} );
+
 	it( 'emits a checking state with the current version', async () => {
 		setupDarwinUpdates();
 

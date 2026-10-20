@@ -564,7 +564,8 @@ describe( 'pi runtime', () => {
 				{
 					message: {
 						customType: 'studio.empty_stop_continue',
-						content: 'continue',
+						content:
+							'Your reasoning was cut off before you replied. Continue from where it stopped:\n\nreasoning…',
 						display: false,
 					},
 					options: { triggerTurn: true },

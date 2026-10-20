@@ -74,8 +74,10 @@ type ProviderConfigInput = Parameters< ModelRuntime[ 'registerProvider' ] >[ 1 ]
 const STUDIO_WPCOM_PROVIDER = 'studio-wpcom';
 const STUDIO_AGENT_DIR = STUDIO_SITES_ROOT;
 // A reply with nothing in it ends the turn without the user seeing why (see
-// `isEmptyStop`). Resume it the way a person would, with a "continue" the
-// user doesn't see, up to this many times per turn.
+// `isEmptyStop`). Resume it with a message the user doesn't see, up to this
+// many times per turn. pi leaves a reply that has only reasoning out of the
+// next request, so the message carries that reasoning; otherwise the model
+// starts the same reasoning over and runs out again.
 const MAX_EMPTY_STOP_CONTINUES = 2;
 const EMPTY_STOP_CONTINUE_TYPE = 'studio.empty_stop_continue';
 const STUDIO_COMPACTION_SETTINGS = {
@@ -239,18 +241,25 @@ async function runAgentSessionTurn(
 		setActiveSession( session );
 		let emptyStopContinues = 0;
 		let continueAfterEmptyStop = false;
+		let cutOffReasoning = '';
 		unsubscribe = session.subscribe( ( event ) => {
 			updateStudioToolPayloadGuardState( event, payloadGuardState );
 			if (
 				event.type === 'agent_end' &&
 				! event.willRetry &&
-				emptyStopContinues < MAX_EMPTY_STOP_CONTINUES &&
-				isEmptyStop( findLastAssistant( event.messages ) )
+				emptyStopContinues < MAX_EMPTY_STOP_CONTINUES
 			) {
-				// Not final: consumers wait for the turn's real end.
-				continueAfterEmptyStop = true;
-				config.onEvent( { ...event, willRetry: true } );
-				return;
+				const lastAssistant = findLastAssistant( event.messages );
+				if ( isEmptyStop( lastAssistant ) ) {
+					// Not final: consumers wait for the turn's real end.
+					continueAfterEmptyStop = true;
+					cutOffReasoning = ( lastAssistant?.content ?? [] )
+						.map( ( block ) => ( block.type === 'thinking' ? block.thinking : '' ) )
+						.join( '' )
+						.trim();
+					config.onEvent( { ...event, willRetry: true } );
+					return;
+				}
 			}
 			config.onEvent( event );
 		} );
@@ -278,7 +287,13 @@ async function runAgentSessionTurn(
 			}
 			emptyStopContinues++;
 			await session.sendCustomMessage(
-				{ customType: EMPTY_STOP_CONTINUE_TYPE, content: 'continue', display: false },
+				{
+					customType: EMPTY_STOP_CONTINUE_TYPE,
+					content: cutOffReasoning
+						? `Your reasoning was cut off before you replied. Continue from where it stopped:\n\n${ cutOffReasoning }`
+						: 'continue',
+					display: false,
+				},
 				{ triggerTurn: true }
 			);
 		}

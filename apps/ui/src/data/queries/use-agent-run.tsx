@@ -329,12 +329,10 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 		[ queryClient ]
 	);
 
-	// Runs on mount and after the event stream reconnects, when events may have been missed.
 	useEffect( () => {
 		let cancelled = false;
 
 		const syncActiveRuns = async () => {
-			const runIdsBefore = new Map( subscribedRunIdsBySessionRef.current );
 			let runs: ActiveAgentRun[];
 			try {
 				runs = await connector.getActiveAgentRuns();
@@ -347,12 +345,9 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 			}
 			const activeSessionIds = new Set( runs.map( ( run ) => run.sessionId ) );
 			let endedRuns = false;
-			// A run known before the snapshot but missing from it ended while events were lost.
-			for ( const [ sessionId, runId ] of runIdsBefore ) {
-				if (
-					! activeSessionIds.has( sessionId ) &&
-					subscribedRunIdsBySessionRef.current.get( sessionId ) === runId
-				) {
+			// A run missing from the snapshot ended while events were lost.
+			for ( const sessionId of subscribedRunIdsBySessionRef.current.keys() ) {
+				if ( ! activeSessionIds.has( sessionId ) ) {
 					subscribedRunIdsBySessionRef.current.delete( sessionId );
 					dispatchSession( sessionId, { type: 'run_ended' } );
 					endedRuns = true;
@@ -369,7 +364,6 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 				} );
 			}
 			if ( endedRuns ) {
-				void queryClient.invalidateQueries( { queryKey: ASSISTANT_QUOTA_QUERY_KEY } );
 				void queryClient.invalidateQueries( { queryKey: SESSIONS_QUERY_KEY } );
 			}
 		};

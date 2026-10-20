@@ -142,8 +142,6 @@ export function createAgentRunManager( config: AgentRunManagerConfig ): AgentRun
 		}
 		if ( event.type === 'question.asked' ) {
 			run.pendingQuestions.push( ...event.questions );
-		} else if ( event.type === 'turn.completed' ) {
-			run.pendingQuestions = [];
 		}
 		sendEvent( run, event );
 	}

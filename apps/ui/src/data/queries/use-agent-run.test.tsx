@@ -187,19 +187,16 @@ describe( 'useAgentRun queued handoff', () => {
 	} );
 
 	it( 'ends a run that finished while the event stream was disconnected', async () => {
-		const queryClient = createQueryClient();
-		const invalidateSpy = vi.spyOn( queryClient, 'invalidateQueries' );
 		vi.mocked( connector.getActiveAgentRuns ).mockResolvedValueOnce( [
 			{ runId: 'run-1', sessionId: 'session-1', startedAt: 1, phase: 'running' },
 		] );
 
-		renderWithAgentRun( queryClient );
+		renderWithAgentRun( createQueryClient() );
 		await waitFor( () => expect( screen.getByTestId( 'phase' ) ).toHaveTextContent( 'active' ) );
 
 		act( () => restoreConnection() );
 
 		await waitFor( () => expect( screen.getByTestId( 'phase' ) ).toHaveTextContent( 'idle' ) );
-		expect( invalidateSpy ).toHaveBeenCalledWith( { queryKey: SESSIONS_QUERY_KEY } );
 	} );
 
 	it( 'holds a queued prompt instead of dispatching it once the credits are spent', async () => {

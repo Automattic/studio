@@ -88,10 +88,6 @@ describe( 'createAgentRunManager fork environment', () => {
 describe( 'createAgentRunManager active runs', () => {
 	const question = { question: 'Which layout?', options: [ { label: 'Grid', description: '' } ] };
 
-	beforeEach( () => {
-		mockFork.mockReset();
-	} );
-
 	it( 'lists the questions a run is waiting on until they are answered', async () => {
 		const child = Object.assign( createChild(), { connected: true } );
 		mockFork.mockImplementation( () => child as never );

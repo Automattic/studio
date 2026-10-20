@@ -410,8 +410,7 @@ export interface Connector {
 	interruptAgentRun( runId: string ): Promise< void >;
 	answerAgentQuestion( runId: string, answers: Record< string, string > ): Promise< void >;
 	onAgentEvent( listener: ( event: AgentRunEvent ) => void ): () => void;
-	// Fires when a dropped event stream reconnects: events sent in between are lost, so
-	// listeners re-read whatever they track live (active runs).
+	// Fires when a dropped event stream reconnects, so listeners can re-read what they missed.
 	onConnectionRestored( listener: () => void ): () => void;
 	onSessionPlacementUpdated(
 		listener: ( event: AiSessionPlacementUpdatedEvent ) => void

@@ -62,7 +62,6 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 	const agentListeners = new Set< ( event: AgentRunEvent ) => void >();
 	const placementListeners = new Set< ( event: AiSessionPlacementUpdatedEvent ) => void >();
 	let eventSource: EventSource | undefined;
-	const connectionRestoredListeners = new Set< () => void >();
 	// Last site list fetched via getSites(), so one-off lookups (openSiteUrl)
 	// don't trigger an extra round-trip to the WordPress.com API.
 	let lastSites: SiteDetails[] | undefined;
@@ -101,13 +100,6 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 			// browser's EventSource reconnects automatically.
 			eventSource?.close();
 			eventSource = new EventSource( `${ base }/events` );
-			let hasConnected = false;
-			eventSource.onopen = () => {
-				if ( hasConnected ) {
-					connectionRestoredListeners.forEach( ( listener ) => listener() );
-				}
-				hasConnected = true;
-			};
 			eventSource.onmessage = ( message ) => {
 				let parsed: ServerEvent;
 				try {
@@ -378,9 +370,8 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 			agentListeners.add( listener );
 			return () => agentListeners.delete( listener );
 		},
-		onConnectionRestored( listener ) {
-			connectionRestoredListeners.add( listener );
-			return () => connectionRestoredListeners.delete( listener );
+		onConnectionRestored() {
+			return () => {};
 		},
 		onSessionPlacementUpdated( listener ) {
 			placementListeners.add( listener );

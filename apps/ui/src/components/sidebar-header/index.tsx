@@ -1,6 +1,5 @@
-import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
-import { menu, plus } from '@wordpress/icons';
+import { menu } from '@wordpress/icons';
 import { IconButton } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { SidebarToggle } from '@/components/sidebar-toggle';
@@ -15,7 +14,6 @@ export function SidebarHeader() {
 	// Windows/Linux pin the native window controls to a band at the top of the
 	// window, so this header matches its height and the ☰/+ stay level with them.
 	const windowControls = useWindowControlsOverlay();
-	const navigate = useNavigate();
 	const connector = useConnector();
 	const handleOpenAppMenu = ( event: MouseEvent< HTMLButtonElement > ) => {
 		const rect = event.currentTarget.getBoundingClientRect();
@@ -49,14 +47,6 @@ export function SidebarHeader() {
 			) }
 			<div className={ styles.actions }>
 				<SidebarToggle />
-				<IconButton
-					variant="minimal"
-					tone="neutral"
-					size="small"
-					icon={ plus }
-					label={ __( 'Add site' ) }
-					onClick={ () => void navigate( { to: '/onboarding' } ) }
-				/>
 			</div>
 		</div>
 	);

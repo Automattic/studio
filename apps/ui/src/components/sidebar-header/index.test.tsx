@@ -26,16 +26,6 @@ describe( 'SidebarHeader', () => {
 		useConnectorMock.mockReturnValue( { showsAppMenuButton: true, popupAppMenu } );
 	} );
 
-	it( 'starts the add-site workflow from the plus button', () => {
-		render( <SidebarHeader /> );
-
-		fireEvent.click( screen.getByRole( 'button', { name: 'Add site' } ) );
-
-		expect( navigate ).toHaveBeenCalledWith( { to: '/onboarding' } );
-		expect( screen.queryByText( 'New chat' ) ).not.toBeInTheDocument();
-		expect( screen.queryByText( 'Import from…' ) ).not.toBeInTheDocument();
-	} );
-
 	it( 'opens the app menu when the host has no native menu bar', () => {
 		render( <SidebarHeader /> );
 

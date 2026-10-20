@@ -16,7 +16,7 @@ function getTimestamp( session: AiSessionSummary ): number {
 	return Date.parse( session.updatedAt ) || 0;
 }
 
-function getSessionTitle( session: AiSessionSummary ): string {
+export function getSessionTitle( session: AiSessionSummary ): string {
 	return session.firstPrompt?.trim() || __( 'Untitled chat' );
 }
 

@@ -133,7 +133,7 @@ export function SidebarLayout( {
 							style={ sidebarStyle }
 						>
 							<SidebarHeader />
-							<SiteList />
+							<SiteList sections />
 							<div className={ styles.sidebarFooter }>
 								{ /* Toasts sit above the persistent cards: the footer is
 								     bottom-anchored, so a transient toast arriving below a card

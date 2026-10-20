@@ -504,6 +504,45 @@ describe( 'SiteList', () => {
 		expect( siteButton ).toHaveAttribute( 'aria-current', 'page' );
 	} );
 
+	it( "groups sites with the open site's chats, and lists recent chats", () => {
+		paramsMock = { sessionId: 'site-chat' };
+		pathnameMock = '/sessions/site-chat';
+		useSessionsMock.mockReturnValue( {
+			data: [
+				createSession( {
+					id: 'site-chat',
+					firstPrompt: 'Add a menu',
+					ownerSitePath: '/Users/example/Studio/stopped-site',
+				} ),
+				createSession( {
+					id: 'other-chat',
+					firstPrompt: 'Make it blue',
+					ownerSitePath: '/Users/example/Studio/running-site',
+				} ),
+				createSession( {
+					id: 'archived-chat',
+					firstPrompt: 'Old idea',
+					ownerSitePath: '/Users/example/Studio/stopped-site',
+					archived: true,
+				} ),
+			],
+			isLoading: false,
+		} );
+
+		render( <SiteList sections /> );
+
+		const sites = screen.getByRole( 'region', { name: 'Sites' } );
+		const openSite = within( sites ).getByText( 'Stopped Site' ).closest( 'section' )!;
+		expect( within( openSite ).getByRole( 'button', { name: 'Add a menu' } ) ).toHaveAttribute(
+			'aria-current',
+			'page'
+		);
+		expect( within( sites ).queryByText( 'Make it blue' ) ).not.toBeInTheDocument();
+		const recent = screen.getByRole( 'region', { name: 'Recent' } );
+		expect( within( recent ).getByRole( 'button', { name: 'Make it blue' } ) ).toBeInTheDocument();
+		expect( screen.queryByText( 'Old idea' ) ).not.toBeInTheDocument();
+	} );
+
 	it( 'marks the site row as contextual on the site overview route', () => {
 		paramsMock = { siteId: 'stopped-site' };
 		pathnameMock = '/sites/stopped-site/overview';

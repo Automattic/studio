@@ -3,7 +3,7 @@ import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { sortSites } from '@studio/common/lib/sort-sites';
 import { useNavigate, useParams, useRouterState } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
-import { settings } from '@wordpress/icons';
+import { chevronDownSmall, Icon, plus, settings } from '@wordpress/icons';
 import { IconButton, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import {
@@ -26,6 +26,7 @@ import { DeleteSiteDialog } from '@/components/delete-site-dialog';
 import * as Menu from '@/components/menu';
 import { useOpenInDestinations } from '@/components/open-in-menu/use-open-in-destinations';
 import { ReorderableList } from '@/components/reorderable-list';
+import { getSessionTitle } from '@/components/session-view/session-chat-actions';
 import { SidebarButton } from '@/components/sidebar-button';
 import { deriveSiteStatus, getSiteStatusName } from '@/components/site-dropdown/utils';
 import { XdebugIcon } from '@/components/xdebug-icon';
@@ -56,7 +57,13 @@ type SiteRow = {
 	site: SiteDetails;
 	latestSession?: AiSessionSummary;
 	sessionIds: string[];
+	// Non-archived, most recent first.
+	chats: AiSessionSummary[];
 };
+
+// Chats listed under the selected site, and in the Recent group.
+const SITE_CHATS_LIMIT = 5;
+const RECENT_CHATS_LIMIT = 8;
 
 type SiteRowActivity = SiteAgentActivity | 'new-message' | 'sync' | 'import';
 
@@ -203,6 +210,10 @@ function getTimestamp( session: AiSessionSummary | undefined ): number {
 	return session ? Date.parse( session.updatedAt ) || 0 : 0;
 }
 
+function byMostRecent( a: AiSessionSummary, b: AiSessionSummary ): number {
+	return getTimestamp( b ) - getTimestamp( a );
+}
+
 function createSiteRows(
 	sites: SiteDetails[] | undefined,
 	sessions: AiSessionSummary[] | undefined
@@ -211,6 +222,7 @@ function createSiteRows(
 		site,
 		sessionIds: [],
 		latestSession: undefined,
+		chats: [],
 	} ) );
 	const rowsBySiteId = new Map( rows.map( ( row ) => [ row.site.id, row ] ) );
 
@@ -221,12 +233,14 @@ function createSiteRows(
 			continue;
 		}
 		row.sessionIds.push( session.id );
-		if (
-			! session.archived &&
-			( ! row.latestSession || getTimestamp( session ) > getTimestamp( row.latestSession ) )
-		) {
-			row.latestSession = session;
+		if ( ! session.archived ) {
+			row.chats.push( session );
 		}
+	}
+
+	for ( const row of rows ) {
+		row.chats.sort( byMostRecent );
+		row.latestSession = row.chats[ 0 ];
 	}
 
 	return rows;
@@ -243,6 +257,74 @@ function sortSitesByManualOrder( sites: SiteDetails[], manualOrder: string[] ): 
 		( a, b ) =>
 			( rank.get( a.id ) ?? Number.MAX_SAFE_INTEGER ) -
 			( rank.get( b.id ) ?? Number.MAX_SAFE_INTEGER )
+	);
+}
+
+function ChatRow( {
+	session,
+	active,
+	onOpen,
+}: {
+	session: AiSessionSummary;
+	active: boolean;
+	onOpen?: () => void;
+} ) {
+	const navigate = useNavigate();
+	const activity = useSiteAgentActivity( [ session.id ] );
+	return (
+		<SidebarButton
+			className={ clsx( styles.chat, active && styles.chatActive ) }
+			aria-current={ active ? 'page' : undefined }
+			onClick={ () => {
+				onOpen?.();
+				void navigate( { to: '/sessions/$sessionId', params: { sessionId: session.id } } );
+			} }
+		>
+			<span className={ styles.chatTitle }>{ getSessionTitle( session ) }</span>
+			{ activity === 'working' ? (
+				<AgentWorkingIndicator className={ styles.chatActivity } label={ __( 'Working…' ) } />
+			) : null }
+			{ activity === 'pending-question' ? (
+				<span
+					className={ styles.chatQuestion }
+					role="status"
+					aria-label={ __( 'Studio needs an answer.' ) }
+				/>
+			) : null }
+		</SidebarButton>
+	);
+}
+
+function SidebarGroup( {
+	title,
+	action,
+	children,
+}: {
+	title: string;
+	action?: ReactNode;
+	children: ReactNode;
+} ) {
+	const [ expanded, setExpanded ] = useState( true );
+	return (
+		<section className={ styles.group } aria-label={ title }>
+			<div className={ styles.groupHeader }>
+				<button
+					type="button"
+					className={ styles.groupToggle }
+					aria-expanded={ expanded }
+					onClick={ () => setExpanded( ! expanded ) }
+				>
+					{ title }
+					<Icon
+						icon={ chevronDownSmall }
+						size={ 16 }
+						className={ clsx( styles.groupChevron, ! expanded && styles.groupChevronCollapsed ) }
+					/>
+				</button>
+				{ action }
+			</div>
+			{ expanded ? children : null }
+		</section>
 	);
 }
 
@@ -525,6 +607,8 @@ function SiteSection( {
 	hasUnreadUpdate,
 	chatEnabled,
 	chatPromptsSignIn,
+	activeSessionId,
+	showChats,
 	onSiteOpen,
 }: {
 	row: SiteRow;
@@ -533,6 +617,9 @@ function SiteSection( {
 	hasUnreadUpdate: boolean;
 	chatEnabled: boolean;
 	chatPromptsSignIn: boolean;
+	activeSessionId?: string;
+	// Lists the site's chats under its row.
+	showChats: boolean;
 	onSiteOpen?: () => void;
 } ) {
 	const { site, latestSession } = row;
@@ -546,6 +633,7 @@ function SiteSection( {
 	// of logging in can be explained in context.
 	const isSelected = isChatActive || ( isContextActive && ! canOpenChatSurface );
 	const showContextOutline = isContextActive && canOpenChatSurface;
+	const chats = showChats && chatEnabled ? row.chats.slice( 0, SITE_CHATS_LIMIT ) : [];
 	// Keep the active site visible — e.g. when launch restores a site that
 	// sits below the sidebar's fold. `nearest` no-ops when already visible.
 	useEffect( () => {
@@ -612,7 +700,8 @@ function SiteSection( {
 			className={ clsx(
 				styles.site,
 				isSelected && styles.siteActive,
-				showContextOutline && styles.siteContextActive
+				showContextOutline && styles.siteContextActive,
+				chats.length > 0 && styles.siteWithChats
 			) }
 		>
 			<SiteActionsMenu
@@ -657,6 +746,18 @@ function SiteSection( {
 					</header>
 				}
 			/>
+			{ chats.length > 0 ? (
+				<div className={ styles.chats }>
+					{ chats.map( ( session ) => (
+						<ChatRow
+							key={ session.id }
+							session={ session }
+							active={ session.id === activeSessionId }
+							onOpen={ onSiteOpen }
+						/>
+					) ) }
+				</div>
+			) : null }
 		</section>
 	);
 }
@@ -675,12 +776,16 @@ export function SiteList( {
 	className,
 	onSiteOpen,
 	reorderable = true,
+	sections = false,
 }: {
 	className?: string;
 	onSiteOpen?: () => void;
 	/** The collapsed-sidebar switcher renders a read-only order. */
 	reorderable?: boolean;
+	/** The sidebar groups sites, with the selected site's chats, and recent chats. */
+	sections?: boolean;
 } ) {
+	const navigate = useNavigate();
 	const { data: sites, isLoading: sitesLoading } = useSites();
 	const { data: sessions, isLoading: sessionsLoading } = useSessions();
 	const { chatEnabled, chatPromptsSignIn } = useAgenticFeatures();
@@ -778,6 +883,8 @@ export function SiteList( {
 			hasUnreadUpdate={ unreadSiteIds.has( row.site.id ) }
 			chatEnabled={ chatEnabled }
 			chatPromptsSignIn={ chatPromptsSignIn }
+			activeSessionId={ activeSessionId }
+			showChats={ sections && row.site.id === activeChatSiteKey }
 			onSiteOpen={ onSiteOpen }
 		/>
 	);
@@ -811,5 +918,48 @@ export function SiteList( {
 		);
 	}
 
-	return <div className={ clsx( styles.root, className ) }>{ listContent }</div>;
+	if ( ! sections ) {
+		return <div className={ clsx( styles.root, className ) }>{ listContent }</div>;
+	}
+
+	const recentChats = chatEnabled
+		? ( sessions ?? [] )
+				.filter( ( session ) => ! session.archived )
+				.sort( byMostRecent )
+				.slice( 0, RECENT_CHATS_LIMIT )
+		: [];
+
+	return (
+		<div className={ clsx( styles.root, className ) }>
+			<SidebarGroup
+				title={ __( 'Sites' ) }
+				action={
+					<IconButton
+						variant="minimal"
+						tone="neutral"
+						size="small"
+						icon={ plus }
+						label={ __( 'Add site' ) }
+						onClick={ () => void navigate( { to: '/onboarding' } ) }
+					/>
+				}
+			>
+				{ listContent }
+			</SidebarGroup>
+			{ recentChats.length > 0 ? (
+				<SidebarGroup title={ __( 'Recent' ) }>
+					<div className={ styles.chats }>
+						{ recentChats.map( ( session ) => (
+							<ChatRow
+								key={ session.id }
+								session={ session }
+								active={ session.id === activeSessionId }
+								onOpen={ onSiteOpen }
+							/>
+						) ) }
+					</div>
+				</SidebarGroup>
+			) : null }
+		</div>
+	);
 }

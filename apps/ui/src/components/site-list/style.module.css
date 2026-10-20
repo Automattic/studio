@@ -555,3 +555,122 @@
 	font-size: var(--wpds-typography-font-size-sm);
 	margin: 0;
 }
+
+.group {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.groupHeader {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	min-height: 28px;
+	/* Lines the label up with the rows' text. */
+	padding-inline: calc(var(--site-list-row-leading-inset) + var(--site-list-label-inline-offset)) 0;
+}
+
+.groupToggle {
+	display: inline-flex;
+	align-items: center;
+	gap: 2px;
+	padding: 0;
+	border: none;
+	background: none;
+	color: var(--wpds-color-foreground-content-neutral-weak);
+	font: inherit;
+	font-size: var(--wpds-typography-font-size-sm);
+	cursor: var(--wpds-cursor-control);
+}
+
+.groupToggle:hover {
+	color: var(--wpds-color-foreground-content-neutral);
+}
+
+.groupToggle:focus-visible {
+	outline: 2px solid var(--wpds-color-stroke-focus);
+	outline-offset: 2px;
+	border-radius: 2px;
+}
+
+.groupChevron {
+	fill: currentColor;
+	transition: transform 120ms ease;
+}
+
+.groupChevronCollapsed {
+	transform: rotate(-90deg);
+}
+
+/* The selected site's chats carry the selection, so its own row stays plain
+   unless hovered. */
+.siteWithChats.siteActive .siteHeader {
+	background-color: transparent;
+}
+
+.siteWithChats.siteActive .siteHeader:hover,
+.siteWithChats.siteActive .siteHeader:focus-within {
+	background-color: var(--sidebar-row-background);
+}
+
+.chats {
+	display: flex;
+	flex-direction: column;
+	gap: 1px;
+}
+
+.site .chats {
+	padding-block-start: 1px;
+}
+
+.chat {
+	--wp-ui-button-height: 30px;
+
+	justify-content: flex-start;
+	gap: var(--wpds-dimension-padding-sm);
+	min-width: 0;
+	padding-inline: calc(var(--site-list-row-leading-inset) + var(--site-list-label-inline-offset))
+		var(--wpds-dimension-padding-sm);
+	border-radius: 6px;
+	color: var(--wpds-color-foreground-content-neutral);
+}
+
+.site .chat {
+	padding-inline-start: calc(
+		var(--site-list-row-leading-inset) + var(--site-list-label-inline-offset) +
+			var(--wpds-dimension-padding-lg)
+	);
+}
+
+.chat:hover,
+.chatActive {
+	background-color: var(--sidebar-row-background);
+}
+
+.chatTitle {
+	flex: 1 1 auto;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	text-align: start;
+	font-size: var(--wpds-typography-font-size-md);
+	font-weight: var(--wpds-typography-font-weight-default);
+}
+
+.chatActive .chatTitle {
+	font-weight: var(--wpds-typography-font-weight-emphasis);
+}
+
+.chatActivity {
+	flex-shrink: 0;
+}
+
+.chatQuestion {
+	flex-shrink: 0;
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	background-color: var(--site-list-pending-indicator-bg);
+}

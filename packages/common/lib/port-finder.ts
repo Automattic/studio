@@ -8,17 +8,15 @@ let searchPort = DEFAULT_PORT;
 let openPort: number | null = null;
 const unavailablePorts: Array< number > = [];
 
-// A site listens on localhost, but another app holding the port on a different local address
-// still takes some of its requests: clients try both ::1 and 127.0.0.1, and macOS lets a
-// specific address bind next to a wildcard listener. Binds, not connects, because
-// connect/destroy socket churn crashed Node on Windows.
+// Another app holding the port on any local address takes some of the site's requests.
+// Binds, not connects: connect/destroy socket churn crashed Node on Windows.
 const LOCAL_ADDRESSES = [ '::', '0.0.0.0', '::1', '127.0.0.1' ];
 
 function canBind( port: number, host: string ): Promise< boolean > {
 	return new Promise( ( resolve ) => {
 		const server = net.createServer();
+		// An address the machine lacks (IPv6 turned off) can't hold the port.
 		server.once( 'error', ( error: NodeJS.ErrnoException ) =>
-			// An address this machine lacks (IPv6 turned off) can't hold the port.
 			resolve( error.code === 'EADDRNOTAVAIL' || error.code === 'EAFNOSUPPORT' )
 		);
 		server.listen( port, host, () => server.close( () => resolve( true ) ) );

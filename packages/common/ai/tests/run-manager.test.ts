@@ -84,3 +84,30 @@ describe( 'createAgentRunManager fork environment', () => {
 		expect( getForkEnv().STUDIO_TRACKS_ORIGIN ).toBeUndefined();
 	} );
 } );
+
+describe( 'createAgentRunManager active runs', () => {
+	const question = { question: 'Which layout?', options: [ { label: 'Grid', description: '' } ] };
+
+	beforeEach( () => {
+		mockFork.mockReset();
+	} );
+
+	it( 'lists the questions a run is waiting on until they are answered', async () => {
+		const child = Object.assign( createChild(), { connected: true } );
+		mockFork.mockImplementation( () => child as never );
+		const manager = createAgentRunManager( {
+			cliBinary: '/cli.mjs',
+			surface: 'cliui',
+			emit: vi.fn(),
+		} );
+		const { runId } = manager.startAgentRun( { sessionId: 'session-1', prompt: 'hello' } );
+
+		child.emit( 'message', { type: 'question.asked', timestamp: '', questions: [ question ] } );
+		await vi.waitFor( () =>
+			expect( manager.listActiveAgentRuns()[ 0 ].pendingQuestions ).toEqual( [ question ] )
+		);
+
+		manager.answerAgentRun( runId, { 'Which layout?': 'Grid' } );
+		expect( manager.listActiveAgentRuns()[ 0 ].pendingQuestions ).toEqual( [] );
+	} );
+} );

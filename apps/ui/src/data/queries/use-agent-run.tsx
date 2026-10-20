@@ -29,6 +29,7 @@ import type {
 	StudioCustomEntry,
 	StudioVisualAnnotationSummary,
 } from '@/data/core';
+import type { ActiveAgentRun } from '@studio/common/ai/agent-events';
 
 function nowIso(): string {
 	return new Date().toISOString();
@@ -119,7 +120,13 @@ const initialState: State = {
 };
 
 type Action =
-	| { type: 'hydrate_active_run'; runId: string; startedAt: number; interrupting: boolean }
+	| {
+			type: 'hydrate_active_run';
+			runId: string;
+			startedAt: number;
+			interrupting: boolean;
+			pendingQuestions?: PendingQuestion[];
+	  }
 	| { type: 'send_pending'; startedAt: number }
 	| { type: 'send_start'; runId: string; startedAt: number }
 	| { type: 'turn_completed' }
@@ -150,6 +157,7 @@ function reducer( state: State, action: Action ): State {
 				runId: action.runId,
 				startedAt: resolveRunStartedAt( state, action.runId, action.startedAt ),
 				isInterrupting: action.interrupting,
+				pendingQuestions: action.pendingQuestions ?? state.pendingQuestions,
 			};
 		case 'send_pending':
 			return {
@@ -321,33 +329,58 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 		[ queryClient ]
 	);
 
+	// Runs on mount and after the event stream reconnects, when events may have been missed.
 	useEffect( () => {
 		let cancelled = false;
 
-		void connector
-			.getActiveAgentRuns()
-			.then( ( runs ) => {
-				if ( cancelled ) {
-					return;
-				}
-				for ( const run of runs ) {
-					subscribedRunIdsBySessionRef.current.set( run.sessionId, run.runId );
-					dispatchSession( run.sessionId, {
-						type: 'hydrate_active_run',
-						runId: run.runId,
-						startedAt: run.startedAt,
-						interrupting: run.phase === 'interrupting',
-					} );
-				}
-			} )
-			.catch( () => {
+		const syncActiveRuns = async () => {
+			const runIdsBefore = new Map( subscribedRunIdsBySessionRef.current );
+			let runs: ActiveAgentRun[];
+			try {
+				runs = await connector.getActiveAgentRuns();
+			} catch {
 				// A failed snapshot should not break normal live event handling.
-			} );
+				return;
+			}
+			if ( cancelled ) {
+				return;
+			}
+			const activeSessionIds = new Set( runs.map( ( run ) => run.sessionId ) );
+			let endedRuns = false;
+			// A run known before the snapshot but missing from it ended while events were lost.
+			for ( const [ sessionId, runId ] of runIdsBefore ) {
+				if (
+					! activeSessionIds.has( sessionId ) &&
+					subscribedRunIdsBySessionRef.current.get( sessionId ) === runId
+				) {
+					subscribedRunIdsBySessionRef.current.delete( sessionId );
+					dispatchSession( sessionId, { type: 'run_ended' } );
+					endedRuns = true;
+				}
+			}
+			for ( const run of runs ) {
+				subscribedRunIdsBySessionRef.current.set( run.sessionId, run.runId );
+				dispatchSession( run.sessionId, {
+					type: 'hydrate_active_run',
+					runId: run.runId,
+					startedAt: run.startedAt,
+					interrupting: run.phase === 'interrupting',
+					pendingQuestions: run.pendingQuestions,
+				} );
+			}
+			if ( endedRuns ) {
+				void queryClient.invalidateQueries( { queryKey: ASSISTANT_QUOTA_QUERY_KEY } );
+				void queryClient.invalidateQueries( { queryKey: SESSIONS_QUERY_KEY } );
+			}
+		};
 
+		void syncActiveRuns();
+		const unsubscribe = connector.onConnectionRestored( () => void syncActiveRuns() );
 		return () => {
 			cancelled = true;
+			unsubscribe();
 		};
-	}, [ connector, dispatchSession ] );
+	}, [ connector, dispatchSession, queryClient ] );
 
 	useEffect( () => {
 		return connector.onAgentEvent( ( payload: AgentRunEvent ) => {

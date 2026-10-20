@@ -18,4 +18,6 @@ export interface ActiveAgentRun {
 	sessionId: string;
 	startedAt: number;
 	phase: 'running' | 'interrupting';
+	// Questions the agent is waiting on, so a UI that missed `question.asked` can still answer.
+	pendingQuestions?: Extract< JsonEvent, { type: 'question.asked' } >[ 'questions' ];
 }

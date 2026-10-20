@@ -609,11 +609,6 @@ export function createIpcConnector(): Connector {
 			);
 		},
 
-		// IPC to the main process doesn't drop events.
-		onConnectionRestored() {
-			return () => {};
-		},
-
 		onSessionPlacementUpdated( listener ) {
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			const ipcListener = ( window as any ).ipcListener;

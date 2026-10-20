@@ -370,9 +370,6 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 			agentListeners.add( listener );
 			return () => agentListeners.delete( listener );
 		},
-		onConnectionRestored() {
-			return () => {};
-		},
 		onSessionPlacementUpdated( listener ) {
 			placementListeners.add( listener );
 			return () => placementListeners.delete( listener );

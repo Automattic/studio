@@ -369,10 +369,10 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 		};
 
 		void syncActiveRuns();
-		const unsubscribe = connector.onConnectionRestored( () => void syncActiveRuns() );
+		const unsubscribe = connector.onConnectionRestored?.( () => void syncActiveRuns() );
 		return () => {
 			cancelled = true;
-			unsubscribe();
+			unsubscribe?.();
 		};
 	}, [ connector, dispatchSession, queryClient ] );
 

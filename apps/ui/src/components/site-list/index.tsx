@@ -18,6 +18,7 @@ import {
 	type ReactNode,
 } from 'react';
 import { AgentWorkingIndicator } from '@/components/agent-working-indicator';
+import { ChatActionsMenuItems, useChatActions } from '@/components/chat-actions';
 import { DeleteSiteDialog } from '@/components/delete-site-dialog';
 import {
 	ImportSiteDialog,
@@ -26,17 +27,15 @@ import {
 } from '@/components/import-site-dialog';
 import * as Menu from '@/components/menu';
 import { useOpenInDestinations } from '@/components/open-in-menu/use-open-in-destinations';
-import { RenameChatDialog } from '@/components/rename-chat-dialog';
 import { ReorderableList } from '@/components/reorderable-list';
 import { getSessionTitle } from '@/components/session-view/session-chat-actions';
 import { SidebarButton } from '@/components/sidebar-button';
 import { deriveSiteStatus, getSiteStatusName } from '@/components/site-dropdown/utils';
 import { XdebugIcon } from '@/components/xdebug-icon';
-import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { useSiteAgentActivity, type SiteAgentActivity } from '@/data/queries/use-agent-run';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
-import { useSessions, useUpdateSessionMetadata } from '@/data/queries/use-sessions';
+import { useSessions } from '@/data/queries/use-sessions';
 import {
 	useIsSiteBusy,
 	useIsSiteStarting,
@@ -60,8 +59,6 @@ import {
 	globeIcon,
 	newChatIcon,
 	plusIcon,
-	readStatusIcon,
-	renameIcon,
 	startSiteIcon,
 	stopSiteIcon,
 } from '@/lib/icons';
@@ -80,7 +77,7 @@ type SiteRow = {
 const SITE_CHATS_LIMIT = 5;
 const RECENT_CHATS_LIMIT = 8;
 
-type SiteRowActivity = SiteAgentActivity | 'new-message' | 'sync' | 'import';
+type SiteRowActivity = SiteAgentActivity | 'sync' | 'import';
 
 const ACTIVITY_EXIT_DURATION_MS = 180;
 
@@ -140,7 +137,6 @@ function SiteAgentActivityIndicator( { activity }: { activity: SiteRowActivity }
 	const workingLabel = __( 'Working…' );
 	const pendingQuestionLabel = __( 'Needs an answer' );
 	const pendingQuestionAriaLabel = __( 'Studio needs an answer.' );
-	const newMessageLabel = __( 'New message' );
 	const syncLabel = __( 'Syncing live site' );
 	const importLabel = __( 'Importing backup' );
 
@@ -165,12 +161,6 @@ function SiteAgentActivityIndicator( { activity }: { activity: SiteRowActivity }
 					label={ pendingQuestionLabel }
 					ariaLabel={ pendingQuestionAriaLabel }
 					className={ styles.siteAgentActivityQuestion }
-				/>
-			) : null }
-			{ renderedActivity === 'new-message' ? (
-				<SiteAgentActivityTooltip
-					label={ newMessageLabel }
-					className={ styles.siteAgentActivityMessage }
 				/>
 			) : null }
 			{ renderedActivity === 'sync' || renderedActivity === 'import' ? (
@@ -257,22 +247,7 @@ function ChatRow( {
 } ) {
 	const navigate = useNavigate();
 	const activity = useSiteAgentActivity( [ session.id ] );
-	const { mutate, mutateAsync } = useUpdateSessionMetadata();
-	const [ renaming, setRenaming ] = useState( false );
-	const working = activity === 'working';
-	const archive = async () => {
-		await mutateAsync( { sessionId: session.id, patch: { archived: true } } );
-		toast.success( __( 'Chat archived' ), {
-			action: {
-				label: __( 'Undo' ),
-				onClick: () => mutate( { sessionId: session.id, patch: { archived: false } } ),
-			},
-		} );
-		// Leaving the archived chat lands on the site's next chat, or a new one.
-		if ( active ) {
-			void navigate( { to: '/' } );
-		}
-	};
+	const actions = useChatActions( session, active );
 
 	return (
 		<>
@@ -299,7 +274,7 @@ function ChatRow( {
 							>
 								{ nested ? null : <Icon icon={ chatIcon } className={ styles.rowIcon } /> }
 								<span className={ styles.chatTitle }>{ getSessionTitle( session ) }</span>
-								{ working ? (
+								{ actions.working ? (
 									<AgentWorkingIndicator
 										className={ styles.chatActivity }
 										label={ __( 'Working…' ) }
@@ -323,35 +298,17 @@ function ChatRow( {
 								icon={ archiveIcon }
 								label={ __( 'Archive chat' ) }
 								className={ clsx( styles.rowAction, styles.chatArchive ) }
-								disabled={ working }
-								onClick={ () => void archive() }
+								disabled={ actions.working }
+								onClick={ () => void actions.archive() }
 							/>
 						</div>
 					}
 				/>
-				<Menu.ContextPopup>
-					<Menu.Item onClick={ () => setRenaming( true ) }>
-						<Icon icon={ renameIcon } />
-						{ __( 'Rename' ) }
-					</Menu.Item>
-					<Menu.Item
-						onClick={ () =>
-							mutate( { sessionId: session.id, patch: { unread: ! session.unread } } )
-						}
-					>
-						<Icon icon={ readStatusIcon } />
-						{ session.unread ? __( 'Mark as read' ) : __( 'Mark as unread' ) }
-					</Menu.Item>
-					<Menu.Separator />
-					<Menu.Item disabled={ working } onClick={ () => void archive() }>
-						<Icon icon={ archiveIcon } />
-						{ __( 'Archive' ) }
-					</Menu.Item>
+				<Menu.ContextPopup onKeyDown={ ( event ) => actions.handleShortcut( event.nativeEvent ) }>
+					<ChatActionsMenuItems actions={ actions } />
 				</Menu.ContextPopup>
 			</Menu.ContextMenuRoot>
-			{ renaming ? (
-				<RenameChatDialog session={ session } onClose={ () => setRenaming( false ) } />
-			) : null }
+			{ actions.renameDialog }
 		</>
 	);
 }
@@ -602,7 +559,6 @@ function SiteSection( {
 	row,
 	isChatActive,
 	isContextActive,
-	hasUnreadUpdate,
 	chatEnabled,
 	chatPromptsSignIn,
 	activeSessionId,
@@ -612,7 +568,6 @@ function SiteSection( {
 	row: SiteRow;
 	isChatActive: boolean;
 	isContextActive: boolean;
-	hasUnreadUpdate: boolean;
 	chatEnabled: boolean;
 	chatPromptsSignIn: boolean;
 	activeSessionId?: string;
@@ -654,13 +609,7 @@ function SiteSection( {
 			: pendingDirection === 'push' || pendingDirection === 'pull'
 			? 'sync'
 			: undefined;
-	const displayActivity = siteActivity
-		? siteActivity
-		: agentActivity !== 'idle'
-		? agentActivity
-		: hasUnreadUpdate
-		? 'new-message'
-		: 'idle';
+	const displayActivity = siteActivity ? siteActivity : agentActivity;
 	const handleOpenSite = () => {
 		onSiteOpen?.();
 		if ( ! canOpenChatSurface ) {
@@ -834,20 +783,6 @@ export function SiteList( {
 	const activeContextSiteKey =
 		activeSettingsSiteKey ??
 		( activeSiteId && pathname === `/sites/${ activeSiteId }` ? activeSiteId : undefined );
-	// A site whose chats you aren't in has a turn nobody has read yet.
-	const unreadSiteIds = useMemo(
-		() =>
-			new Set(
-				rows
-					.filter(
-						( row ) =>
-							row.site.id !== activeChatSiteKey && row.chats.some( ( chat ) => chat.unread )
-					)
-					.map( ( row ) => row.site.id )
-			),
-		[ activeChatSiteKey, rows ]
-	);
-
 	const persistOrder = ( nextSiteIds: string[] ) => {
 		setManualSiteOrder( nextSiteIds );
 		updateSitesSortOrder.mutate( nextSiteIds );
@@ -858,7 +793,6 @@ export function SiteList( {
 			row={ row }
 			isChatActive={ row.site.id === activeChatSiteKey }
 			isContextActive={ row.site.id === activeContextSiteKey }
-			hasUnreadUpdate={ unreadSiteIds.has( row.site.id ) }
 			chatEnabled={ chatEnabled }
 			chatPromptsSignIn={ chatPromptsSignIn }
 			activeSessionId={ activeSessionId }

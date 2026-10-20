@@ -451,6 +451,17 @@ describe( 'SiteList', () => {
 			sessionId: 'site-chat',
 			patch: { archived: true },
 		} );
+
+		fireEvent.contextMenu( within( recent ).getByText( 'Make it blue' ) );
+		fireEvent.keyDown( await screen.findByRole( 'menu' ), {
+			key: 'A',
+			ctrlKey: true,
+			shiftKey: true,
+		} );
+		expect( archiveSession ).toHaveBeenLastCalledWith( {
+			sessionId: 'other-chat',
+			patch: { archived: true },
+		} );
 	} );
 
 	it( 'marks the site row as contextual on the site settings route', () => {
@@ -769,7 +780,7 @@ describe( 'SiteList', () => {
 		).not.toBeInTheDocument();
 	} );
 
-	it( 'marks a site whose chat has an unread turn, unless that chat is open', () => {
+	it( 'marks an unread chat until it is open', () => {
 		useSessionsMock.mockReturnValue( {
 			data: [
 				createSession( {
@@ -781,13 +792,13 @@ describe( 'SiteList', () => {
 			isLoading: false,
 		} );
 
-		const { rerender } = render( <SiteList /> );
-		expect( screen.getByRole( 'status', { name: 'New message' } ) ).toBeInTheDocument();
+		const { rerender } = render( <SiteList sections /> );
+		expect( screen.getByRole( 'img', { name: 'Unread' } ) ).toBeInTheDocument();
 
 		paramsMock = { sessionId: 'stopped-chat' };
 		pathnameMock = '/sessions/stopped-chat';
-		rerender( <SiteList /> );
-		expect( screen.queryByRole( 'status', { name: 'New message' } ) ).not.toBeInTheDocument();
+		rerender( <SiteList sections /> );
+		expect( screen.queryByRole( 'img', { name: 'Unread' } ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'names the configured editor and terminal in the site actions', async () => {

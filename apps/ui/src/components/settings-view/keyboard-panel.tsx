@@ -13,6 +13,8 @@ function getShortcutKeyAriaLabel( key: string ): string {
 			return __( 'Command' );
 		case 'Ctrl':
 			return __( 'Control' );
+		case '⌥':
+			return __( 'Option' );
 		case '↩':
 			return __( 'Return' );
 		case 'Esc':
@@ -35,6 +37,13 @@ function getShortcutSections( isApple: boolean ): ShortcutSection[] {
 		{
 			title: __( 'General' ),
 			shortcuts: [ { label: __( 'Open settings' ), keys: [ modifierKey, ',' ] } ],
+		},
+		{
+			title: __( 'Chats' ),
+			shortcuts: [
+				{ label: __( 'Rename chat' ), keys: [ modifierKey, isApple ? '⌥' : 'Alt', 'R' ] },
+				{ label: __( 'Archive chat' ), keys: [ modifierKey, 'Shift', 'A' ] },
+			],
 		},
 		{
 			title: __( 'Composer' ),

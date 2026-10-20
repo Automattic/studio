@@ -25,6 +25,7 @@ import {
 } from 'react';
 import { AgenticSigninPrompt } from '@/components/agentic-signin-banner';
 import { OutOfCreditsNotice } from '@/components/ai-access-required-notice';
+import { OpenChatShortcuts } from '@/components/chat-actions';
 import { PreviewToggleButton } from '@/components/preview-toggle-button';
 import { ProgressiveBlur } from '@/components/progressive-blur';
 import { HeaderSidebarToggle } from '@/components/sidebar-toggle';
@@ -639,6 +640,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 				</div>
 			}
 		>
+			<OpenChatShortcuts session={ data.summary } />
 			{ isEmpty && ! pendingPrompt ? <EmptyBackground /> : null }
 			{ isEmpty && ! pendingPrompt && ownerSite && ! isOutOfCredits ? (
 				<SuggestedPrompts

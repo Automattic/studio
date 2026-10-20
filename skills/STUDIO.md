@@ -272,19 +272,4 @@ exported MySQL dump above)
 
 **Persistence:** The site runs on a native PHP server, so all file writes persist to disk normally and standard WP-Cron behavior applies.
 
-## Available Skills
-
-This site includes WordPress development skills that provide detailed guidance:
-
-- **studio-cli** — Studio CLI commands for site management, auth, and previews
-- **wp-plugin-development** — Plugin architecture, hooks, Settings API, security
-- **wp-block-development** — Gutenberg blocks, block.json, attributes, deprecations
-- **wp-block-themes** — Block themes, theme.json, templates, patterns, style variations
-- **wp-rest-api** — REST API endpoints, controllers, schema, authentication
-- **wp-wpcli-and-ops** — WP-CLI operations, search-replace, cron, automation
-
-These skills are in `.claude/skills/` (or `.agents/skills/`). Reference them for detailed procedures on specific WordPress development tasks.
-
-> **Note:** Remote skills reference `wp` commands directly. In Studio, always prefix with `studio` (e.g., `studio wp plugin list`).
-
-> **Note:** Some skills reference a `wp-project-triage` detection script that is not bundled with Studio. You can skip that step — Studio sites are always valid WordPress projects.
+**Skill triage scripts:** Some skills reference a `wp-project-triage` detection script that is not bundled with Studio. You can skip that step — Studio sites are always valid WordPress projects.

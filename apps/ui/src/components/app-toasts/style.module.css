@@ -1,4 +1,4 @@
-/* Rich's toasts: a neutral card stacked at the window's bottom right, below
+/* Toasts: a neutral card stacked at the window's bottom right, below
    dialogs (700) and above the app chrome. */
 .viewport {
 	position: fixed;

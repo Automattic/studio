@@ -298,7 +298,7 @@ input[type='checkbox']:focus:not( :focus-visible ) {
 	align-items: stretch;
 }
 
-/* Rich's dialog backdrop: a blurred wash, darker in dark mode. */
+/* Dialog backdrop: a blurred wash, darker in dark mode. */
 [class*='__backdrop'] {
 	background-color: var(
 		--studio-dialog-backdrop,
@@ -307,7 +307,7 @@ input[type='checkbox']:focus:not( :focus-visible ) {
 	backdrop-filter: blur( 4px );
 }
 
-/* Rich's dialogs: 14px type, a title row as tall as its outlined close
+/* Dialogs: 14px type, a title row as tall as its outlined close
    button, the description 8px under it and 30px above what follows, and
    36px controls. Confirmations (AlertDialog) are wider and roomier. The
    `:not()` keeps these off headers and footers inside a dialog's body. */
@@ -393,8 +393,7 @@ input[type='checkbox']:focus:not( :focus-visible ) {
    `tone="neutral"`. `role="alertdialog"` is set by Base UI itself (vs.
    `role="dialog"` for the plain `Dialog`), so this only reaches the two
    AlertDialog Cancel buttons — matching values already used by
-   `tone="neutral"` `variant="minimal"` elsewhere, plus the outline Rich's
-   confirmations give it. */
+   `tone="neutral"` `variant="minimal"` elsewhere, plus an outline. */
 [role='alertdialog'] button:first-child {
 	--wp-ui-button-border-color: var( --wpds-color-stroke-interactive-neutral );
 	--wp-ui-button-border-color-active: var( --wpds-color-stroke-interactive-neutral-active );

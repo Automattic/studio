@@ -31,7 +31,7 @@
 		"start": "npm -w studio-app run start",
 		"start:test": "DEV_CONFIG_DIR=/tmp/studio-test npm -w studio-app run start",
 		"start-wayland": "npm -w studio-app run start-wayland",
-		"postinstall": "patch-package --patch-dir apps/studio/patches && node ./scripts/remove-fs-ext-other-platform-binaries.mjs && node --experimental-strip-types ./scripts/download-wp-server-files.ts && node ./scripts/download-available-site-translations.mjs && node --experimental-strip-types ./scripts/download-agent-skills.ts && node --experimental-strip-types ./scripts/download-php-binary.ts",
+		"postinstall": "patch-package --patch-dir apps/studio/patches && node --experimental-strip-types ./scripts/download-wp-server-files.ts && node ./scripts/download-available-site-translations.mjs && node --experimental-strip-types ./scripts/download-agent-skills.ts && node --experimental-strip-types ./scripts/download-php-binary.ts",
 		"package": "node --experimental-strip-types ./scripts/package-in-isolation.ts package",
 		"make": "node --experimental-strip-types ./scripts/package-in-isolation.ts make",
 		"make:windows-x64": "node --experimental-strip-types ./scripts/package-in-isolation.ts make:windows-x64",

@@ -64,7 +64,7 @@
 		"build:prod": "vite build --config ./vite.config.prod.ts",
 		"build:standalone": "vite build --config ./vite.config.standalone.ts",
 		"build:npm": "vite build --config ./vite.config.npm.ts",
-		"install:bundle": "npm install --omit=dev --no-audit --no-fund --no-package-lock --no-progress --install-links --no-workspaces && node ../../scripts/remove-fs-ext-other-platform-binaries.mjs",
+		"install:bundle": "npm install --omit=dev --no-audit --no-fund --no-package-lock --no-progress --install-links --no-workspaces",
 		"package": "npm run install:bundle && npm run build:prod",
 		"package:standalone": "npm run install:bundle && npm run build:standalone",
 		"lint": "eslint .",

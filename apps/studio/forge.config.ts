@@ -249,38 +249,6 @@ const config: ForgeConfig = {
 				}
 			}
 
-			// Clean up fs-ext-extra-prebuilt binaries (file format:
-			// fs-ext-{platform}-{arch}-{runtime}-{version}.node). The root postinstall
-			// already filtered by platform; this strips the unused arch for the target build.
-			const fsExtBinDir = path.join( cliNodeModules, 'fs-ext-extra-prebuilt', 'binaries' );
-			const fsExtPrefix = `fs-ext-${ platform }-${ arch }-`;
-			if ( fs.existsSync( fsExtBinDir ) ) {
-				const fsExtFiles = fs.readdirSync( fsExtBinDir );
-				if ( ! fsExtFiles.some( ( f ) => f.startsWith( fsExtPrefix ) ) ) {
-					console.warn(
-						`Skipping fs-ext cleanup: no file starting with ${ fsExtPrefix } in ${ fsExtBinDir }`
-					);
-				} else {
-					for ( const file of fsExtFiles ) {
-						if ( ! file.startsWith( fsExtPrefix ) ) {
-							// Tolerate transient failures (Windows AV locks, permissions) — this
-							// cleanup is a size optimization; aborting packaging over a stuck file
-							// would be worse than shipping a few hundred extra KB. Mirrors the
-							// behavior of scripts/remove-fs-ext-other-platform-binaries.mjs.
-							try {
-								fs.unlinkSync( path.join( fsExtBinDir, file ) );
-								console.log( `Removed fs-ext-extra-prebuilt/binaries/${ file }` );
-							} catch ( e ) {
-								const message = e instanceof Error ? e.message : String( e );
-								console.warn(
-									`Could not remove fs-ext-extra-prebuilt/binaries/${ file }: ${ message }`
-								);
-							}
-						}
-					}
-				}
-			}
-
 			// Strip AI provider SDKs Studio never loads (Mistral, AWS Bedrock, Google). pi-ai
 			// loads them lazily and Studio only exposes Anthropic/OpenAI, so they're dead weight —
 			// and @mistralai's ~200-char generated filenames, nested under pi-coding-agent, blow

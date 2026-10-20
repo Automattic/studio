@@ -1,0 +1,14 @@
+{
+  "name": "studio",
+  "owner": {
+    "name": "Automattic Inc.",
+    "url": "https://automattic.com"
+  },
+  "description": "WordPress Studio's plugins: build and manage WordPress sites on your computer.",
+  "plugins": [
+    {
+      "name": "wp-studio",
+      "source": "./wp-studio"
+    }
+  ]
+}

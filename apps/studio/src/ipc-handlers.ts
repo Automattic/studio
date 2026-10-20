@@ -1,4 +1,4 @@
-import { exec, ExecOptions } from 'child_process';
+import { exec, execFile, ExecOptions } from 'child_process';
 import {
 	BrowserWindow,
 	app,
@@ -109,7 +109,11 @@ import {
 import { readSite, readSitePath, readSitePaths, readSites } from '@studio/common/sites/site-path';
 import { measureSiteStorage, type SiteStorageUsage } from '@studio/common/sites/storage-usage';
 import { __ } from '@wordpress/i18n';
-import { MACOS_TOOLBAR_TRAFFIC_LIGHT_POSITION, MACOS_TRAFFIC_LIGHT_POSITION } from 'src/constants';
+import {
+	DEFAULT_TERMINAL,
+	MACOS_TOOLBAR_TRAFFIC_LIGHT_POSITION,
+	MACOS_TRAFFIC_LIGHT_POSITION,
+} from 'src/constants';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
 import { setPendingAuthContext } from 'src/lib/auth-tracks-context';
 import { bumpStat, getBlueprintMetric, StatsGroup } from 'src/lib/bump-stats';
@@ -163,11 +167,7 @@ import { editSiteViaCli } from 'src/modules/cli/lib/cli-site-editor';
 import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
 import { isStudioCliInstalled } from 'src/modules/cli/lib/ipc-handlers';
 import { STABLE_BIN_DIR_PATH } from 'src/modules/cli/lib/windows-installation-manager';
-import {
-	getUserTerminal,
-	getDefaultSiteDirectory,
-	saveDefaultSiteDirectory,
-} from 'src/modules/user-settings/lib/ipc-handlers';
+import { getDefaultSiteDirectory } from 'src/modules/user-settings/lib/ipc-handlers';
 import { linuxFindEditorPath } from 'src/modules/user-settings/lib/linux-editor-path';
 import { linuxFindTerminalPath } from 'src/modules/user-settings/lib/linux-terminal-path';
 import { winFindEditorPath } from 'src/modules/user-settings/lib/win-editor-path';
@@ -210,31 +210,18 @@ export {
 } from 'src/modules/preview-site/lib/ipc-handlers';
 
 export {
-	getAgenticFeaturesEnabled,
 	getAiSettings,
-	getAnalyticsEnabled,
-	getColorScheme,
 	getGlobalAgentInstructions,
 	getInstalledAppsAndTerminals,
 	getOnboardingHints,
-	getQuitSitesBehavior,
-	getUserEditor,
-	getUserLocale,
-	getUserTerminal,
+	getUserPreferences,
 	getWapuuScore,
-	saveAgenticFeaturesEnabled,
-	saveAnalyticsEnabled,
 	saveAnthropicApiKey,
-	saveColorScheme,
 	saveGlobalAgentInstructions,
 	saveOnboardingHints,
-	saveQuitSitesBehavior,
-	saveUserEditor,
-	saveUserLocale,
-	saveUserTerminal,
 	saveWapuuScore,
+	setUserPreferences,
 } from 'src/modules/user-settings/lib/ipc-handlers';
-export { getDefaultSiteDirectory, saveDefaultSiteDirectory };
 
 export { importSite, exportSite } from 'src/modules/import-export/lib/ipc-handlers';
 
@@ -1196,20 +1183,25 @@ export function getThumbnailData( _event: IpcMainInvokeEvent, id: string ) {
 
 function promiseExec( command: string, options: ExecOptions = {} ): Promise< void > {
 	return new Promise( ( resolve, reject ) => {
-		exec( command, options, ( error ) => {
-			if ( error ) {
-				reject( error );
-				return;
-			}
-			resolve();
-		} );
+		exec( command, options, ( error ) => ( error ? reject( error ) : resolve() ) );
+	} );
+}
+
+// Paths travel as arguments rather than through a shell, so a folder name can't run anything.
+function promiseExecFile(
+	file: string,
+	args: string[],
+	options: ExecOptions = {}
+): Promise< void > {
+	return new Promise( ( resolve, reject ) => {
+		execFile( file, args, options, ( error ) => ( error ? reject( error ) : resolve() ) );
 	} );
 }
 
 export async function openTerminalAtPath( _event: IpcMainInvokeEvent, targetPath: string ) {
 	const platform = process.platform;
 
-	const preferredTerminal = await getUserTerminal();
+	const preferredTerminal = ( await loadUserData() ).preferredTerminal || DEFAULT_TERMINAL;
 
 	// The single funnel for "open in terminal" across both the apps/studio buttons/context-menu and the
 	// apps/ui ipc connector — emitting here counts every path once. Fire-and-forget; the wrapper gates
@@ -1217,14 +1209,13 @@ export async function openTerminalAtPath( _event: IpcMainInvokeEvent, targetPath
 	void recordTracksEvent( TRACKS_EVENTS.SITE_OPEN_IN_TERMINAL, { terminal: preferredTerminal } );
 
 	if ( platform === 'darwin' ) {
-		const escapedPath = targetPath.replace( /\\/g, '\\\\' ).replace( /"/g, '\\"' );
 		const bundleIds = {
 			warp: 'dev.warp.Warp-Stable',
 			ghostty: 'com.mitchellh.ghostty',
 			iterm: 'com.googlecode.iterm2',
 			terminal: 'com.apple.Terminal',
 		};
-		return promiseExec( `open -b ${ bundleIds[ preferredTerminal ] } "${ escapedPath }"` );
+		return promiseExecFile( 'open', [ '-b', bundleIds[ preferredTerminal ], targetPath ] );
 	} else if ( platform === 'win32' ) {
 		const userData = await loadUserData();
 		const preferredTerminal = userData.preferredTerminal;
@@ -1256,8 +1247,6 @@ export async function openTerminalAtPath( _event: IpcMainInvokeEvent, targetPath
 			env,
 		} );
 	} else if ( platform === 'linux' ) {
-		const escapedPath = targetPath.replace( /\\/g, '\\\\' ).replace( /"/g, '\\"' );
-
 		// Warp on Linux currently opens at its configured "new session"
 		// directory regardless of how it is launched — it ignores
 		// `--working-directory`, the `path=` URL scheme query, and the
@@ -1265,19 +1254,13 @@ export async function openTerminalAtPath( _event: IpcMainInvokeEvent, targetPath
 		// Best effort: launch with `cwd` set so we benefit if/when upstream
 		// adds support, and so a fresh launch (no daemon yet) at least has
 		// a chance of inheriting it.
-		const launchers: Record<
-			SupportedTerminal,
-			( ( binary: string ) => { command: string; options?: ExecOptions } ) | null
-		> = {
-			terminal: ( binary ) => ( {
-				command: `"${ binary }" --working-directory="${ escapedPath }"`,
-			} ),
-			warp: ( binary ) => ( { command: `"${ binary }"`, options: { cwd: targetPath } } ),
-			ghostty: ( binary ) => ( {
-				command: `"${ binary }" --working-directory="${ escapedPath }"`,
-			} ),
-			iterm: null,
-		};
+		const launchers: Record< SupportedTerminal, { args: string[]; options?: ExecOptions } | null > =
+			{
+				terminal: { args: [ `--working-directory=${ targetPath }` ] },
+				warp: { args: [], options: { cwd: targetPath } },
+				ghostty: { args: [ `--working-directory=${ targetPath }` ] },
+				iterm: null,
+			};
 
 		const order: SupportedTerminal[] = [ preferredTerminal, 'terminal' ];
 		for ( const candidate of order ) {
@@ -1289,13 +1272,12 @@ export async function openTerminalAtPath( _event: IpcMainInvokeEvent, targetPath
 			if ( ! binary ) {
 				continue;
 			}
-			const { command, options } = launcher( binary );
-			return promiseExec( command, options );
+			return promiseExecFile( binary, launcher.args, launcher.options );
 		}
 
 		// Last-resort fallback that preserves prior behavior even if no
 		// supported terminal binary is on $PATH.
-		return promiseExec( `gnome-terminal --working-directory="${ escapedPath }"` );
+		return promiseExecFile( 'gnome-terminal', [ `--working-directory=${ targetPath }` ] );
 	} else {
 		console.error( 'Unsupported platform:', platform );
 		return;
@@ -1311,11 +1293,9 @@ export async function openAppAtPath(
 	const platform = process.platform;
 	const editor = supportedEditorConfig[ editorKey ];
 	const allPaths = [ filePath, ...otherFiles ];
-	const quotedPaths = allPaths.map( ( p ) => `"${ p }"` ).join( ' ' );
 
 	if ( platform === 'darwin' ) {
-		const cmd = `open -b ${ editor.macOSBundleId } ${ quotedPaths }`;
-		return promiseExec( cmd );
+		return promiseExecFile( 'open', [ '-b', editor.macOSBundleId, ...allPaths ] );
 	}
 
 	if ( platform === 'win32' ) {
@@ -1328,7 +1308,7 @@ export async function openAppAtPath(
 			return;
 		}
 
-		return promiseExec( `"${ editorPath }" ${ quotedPaths }` );
+		return promiseExecFile( editorPath, allPaths );
 	}
 
 	if ( platform === 'linux' ) {
@@ -1341,7 +1321,7 @@ export async function openAppAtPath(
 			return;
 		}
 
-		return promiseExec( `"${ editorPath }" ${ quotedPaths }` );
+		return promiseExecFile( editorPath, allPaths );
 	}
 
 	throw new Error( `Platform ${ platform } is not supported` );

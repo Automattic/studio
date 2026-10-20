@@ -35,6 +35,7 @@ export const convertRawToTreeNodes = ( rawNodes: RawDirectoryEntry[] ): TreeNode
 				label: rawNode.name,
 				checked: false,
 				type: nodeType,
+				isSymlink: rawNode.isSymlink,
 				path: rawNode.path,
 				pathId: rawNode.path,
 				children,

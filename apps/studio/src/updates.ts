@@ -279,9 +279,11 @@ function setupLinuxUpdates() {
 
 async function pollLinuxUpdates( { channel }: { channel?: 'nightly' } = {} ) {
 	updaterState = 'checking-for-update';
+	// Later polls stay on the channel the user switched to.
+	activeChannel = channel ?? activeChannel;
 
 	try {
-		const response = await fetch( buildUpdateFeedUrl( { channel } ) );
+		const response = await fetch( buildUpdateFeedUrl( { channel: activeChannel } ) );
 
 		if ( response.status === 204 ) {
 			if ( showManualCheckDialogs ) {

@@ -17,7 +17,7 @@ const toolsFor = ( options: Parameters< typeof resolveStudioToolDefinitions >[ 0
 
 describe( 'buildSystemPrompt', () => {
 	it( 'routes plugin-specific feature work to the plugin recommendations skill', () => {
-		const prompt = buildSystemPrompt( { chatArtifactsEnabled: true } );
+		const prompt = buildSystemPrompt();
 
 		expect( prompt ).toContain( 'plugin-recommendations' );
 		expect( prompt ).toContain( 'any feature that core WordPress blocks do not cleanly provide' );
@@ -26,7 +26,7 @@ describe( 'buildSystemPrompt', () => {
 	} );
 
 	it( 'routes block markup recipes to the block content skill', () => {
-		const prompt = buildSystemPrompt( { chatArtifactsEnabled: true } );
+		const prompt = buildSystemPrompt();
 
 		expect( prompt ).toContain( 'block-content' );
 		expect( prompt ).toContain( 'page/post content, template or template-part content' );
@@ -47,19 +47,18 @@ describe( 'buildSystemPrompt', () => {
 		expect( prompt ).not.toContain( '## Common wp/v2 Endpoints' );
 	} );
 
-	it( 'guards plan/pricing/feature answers behind the hosting-plans-helper skill', () => {
-		const prompt = buildSystemPrompt( { chatArtifactsEnabled: true } );
+	it( 'leaves plan questions to the hosting-plans-helper skill index entry', () => {
+		const helper = loadSkills().find( ( skill ) => skill.name === 'hosting-plans-helper' );
 
-		expect( prompt ).toContain( '`hosting-plans-helper` skill' );
-		expect( prompt ).toContain( 'Do NOT answer from memory' );
-		expect( prompt ).toContain( 'Personal or Premium cannot install plugins' );
+		expect( helper?.description ).toContain( 'Load before answering ANY plan' );
+		expect( buildSystemPrompt() ).not.toContain( 'hosting-plans-helper' );
 	} );
 
 	it( 'references only bundled skills', () => {
 		const availableSkillNames = new Set( loadSkills().map( ( skill ) => skill.name ) );
-		const missingSkillNames = extractReferencedSkillNames(
-			buildSystemPrompt( { chatArtifactsEnabled: true } )
-		).filter( ( skillName ) => ! availableSkillNames.has( skillName ) );
+		const missingSkillNames = extractReferencedSkillNames( buildSystemPrompt() ).filter(
+			( skillName ) => ! availableSkillNames.has( skillName )
+		);
 
 		expect( missingSkillNames ).toEqual( [] );
 	} );
@@ -82,14 +81,6 @@ describe( 'buildSystemPrompt', () => {
 		expect( prompt ).toContain( 'Edit site files with your own file tools' );
 		expect( prompt ).not.toContain( 'WordPress Studio Code' );
 		expect( prompt ).not.toContain( '## Working cadence' );
-	} );
-
-	it( 'mentions refresh_browser only when chat artifacts are enabled', () => {
-		const attachedPrompt = buildSystemPrompt( { chatArtifactsEnabled: true } );
-		expect( attachedPrompt ).toContain( 'refresh_browser' );
-
-		const terminalPrompt = buildSystemPrompt( { chatArtifactsEnabled: false } );
-		expect( terminalPrompt ).not.toContain( 'refresh_browser' );
 	} );
 
 	it( 'describes the screenshot and inspect tools for models without vision', () => {

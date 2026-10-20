@@ -96,6 +96,11 @@ type EvalSeed = z.infer< typeof evalSeedSchema >;
 
 interface EvalRunnerInput {
 	prompt: string;
+	// Sent in order, each as a new user message in the same session once the
+	// previous one finishes, so a case can measure a multi-message conversation.
+	// Objects rather than strings: promptfoo expands an array of strings into
+	// one test case per element.
+	followUps?: Array< { prompt: string } >;
 	timeoutMs?: number;
 	model?: AiModelId;
 	seed?: EvalSeed;
@@ -476,8 +481,13 @@ function readInput(): EvalRunnerInput {
 		seed = evalSeedSchema.parse( vars.seed );
 	}
 
+	const followUps = vars.followUps
+		? z.array( z.object( { prompt: z.string() } ) ).parse( vars.followUps )
+		: undefined;
+
 	return {
 		prompt: ( vars.prompt as string ) ?? prompt,
+		followUps,
 		timeoutMs: typeof vars.timeoutMs === 'number' ? vars.timeoutMs : undefined,
 		model,
 		seed,
@@ -533,16 +543,13 @@ async function runEval( input: EvalRunnerInput ) {
 	let error: string | null = null;
 	let timedOut = false;
 	let lastTurnEndedEmpty = false;
+	// From the last assistant message: a provider failure ends the turn with
+	// stopReason "error" and its message here, without throwing.
+	let stopReason: string | null = null;
+	let errorMessage: string | null = null;
 	// Summed from each assistant message's usage, so evals can compare the
-	// token and dollar cost of prompt variants, not just their outcomes.
-	const usage = {
-		input: 0,
-		output: 0,
-		cacheRead: 0,
-		cacheWrite: 0,
-		totalTokens: 0,
-		costUsd: 0,
-	};
+	// token cost of prompt variants, not just their outcomes.
+	const usage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, totalTokens: 0 };
 
 	await isolateSiteRegistry();
 	const bystanderPaths = await createBystanderSites();
@@ -559,14 +566,12 @@ async function runEval( input: EvalRunnerInput ) {
 	}
 
 	phaseStartedAt = Date.now();
-	const sessionDirEnv = process.env.STUDIO_EVAL_SESSION_DIR?.trim();
-	let session: SessionManager;
-	if ( sessionDirEnv ) {
-		mkdirSync( sessionDirEnv, { recursive: true } );
-		session = SessionManager.create( STUDIO_SITES_ROOT, sessionDirEnv );
-	} else {
-		session = SessionManager.inMemory( STUDIO_SITES_ROOT );
-	}
+	// Every run keeps its session JSONL (the full transcript) and reports its
+	// path as `sessionFile`; STUDIO_EVAL_SESSION_DIR picks the directory.
+	const sessionDir =
+		process.env.STUDIO_EVAL_SESSION_DIR?.trim() || path.join( os.tmpdir(), 'studio-eval-sessions' );
+	mkdirSync( sessionDir, { recursive: true } );
+	const session = SessionManager.create( STUDIO_SITES_ROOT, sessionDir );
 	const queryStartedAt = Date.now();
 	let turnStart = queryStartedAt;
 
@@ -579,7 +584,6 @@ async function runEval( input: EvalRunnerInput ) {
 				usage.cacheRead += messageUsage.cacheRead;
 				usage.cacheWrite += messageUsage.cacheWrite;
 				usage.totalTokens += messageUsage.totalTokens;
-				usage.costUsd += messageUsage.cost.total;
 			}
 			const now = Date.now();
 			turnDurationsMs.push( now - turnStart );
@@ -644,6 +648,8 @@ async function runEval( input: EvalRunnerInput ) {
 				! lastAssistant ||
 				( lastAssistant.stopReason !== 'error' && lastAssistant.stopReason !== 'aborted' );
 			numTurnsResult = numTurns;
+			stopReason = lastAssistant?.stopReason ?? null;
+			errorMessage = lastAssistant?.errorMessage ?? null;
 			lastTurnEndedEmpty = Boolean(
 				lastAssistant &&
 					lastAssistant.stopReason === 'stop' &&
@@ -677,13 +683,27 @@ async function runEval( input: EvalRunnerInput ) {
 	const maxAutoContinues = Number( process.env.STUDIO_EVAL_AUTO_CONTINUE ?? 0 ) || 0;
 	let autoContinues = 0;
 
-	try {
+	const settle = async () => {
 		await query.result;
 		while ( autoContinues < maxAutoContinues && ! timedOut && lastTurnEndedEmpty ) {
 			autoContinues++;
 			lastTurnEndedEmpty = false;
 			query = runTurn( 'continue' );
 			await query.result;
+		}
+	};
+
+	try {
+		await settle();
+		for ( const followUp of input.followUps ?? [] ) {
+			if ( timedOut ) {
+				break;
+			}
+			// Like the app and CLI, every user message carries the active-site line.
+			query = runTurn(
+				seeded?.promptPrefix ? `${ seeded.promptPrefix }\n\n${ followUp.prompt }` : followUp.prompt
+			);
+			await settle();
 		}
 	} catch ( caught ) {
 		error = caught instanceof Error ? caught.message : String( caught );
@@ -711,9 +731,12 @@ async function runEval( input: EvalRunnerInput ) {
 		model: resolvedModel,
 		numTurns: numTurnsResult,
 		autoContinues,
+		stopReason,
+		errorMessage,
+		usage,
+		sessionFile: session.getSessionFile() ?? null,
 		phaseTimingsMs,
 		turnDurationsMs,
-		usage,
 		toolCalls,
 		toolResults,
 		toolEvents,

@@ -2891,6 +2891,7 @@ msgid "Site directory"
 msgstr ""
 
 #: apps/cli/commands/site/status.ts:52
+#: apps/ui/src/components/site-overview-view/about-section.tsx:95
 msgid "Site URL"
 msgstr ""
 
@@ -3473,7 +3474,7 @@ msgstr ""
 #: apps/cli/lib/sync-selector.ts:51
 #: apps/ui/src/components/onboarding-guide/illustrations/signin-sync.tsx:267
 #: apps/ui/src/components/selective-sync/hooks/use-top-level-sync-tree.tsx:35
-#: apps/ui/src/components/site-overview-view/about-section.tsx:15
+#: apps/ui/src/components/site-overview-view/about-section.tsx:16
 #: apps/ui/src/components/site-preview/address-bar.tsx:316
 msgid "Database"
 msgstr ""
@@ -4758,6 +4759,7 @@ msgid "Choose…"
 msgstr ""
 
 #: apps/ui/src/components/create-site-form/index.tsx:479
+#: apps/ui/src/components/site-overview-view/about-section.tsx:102
 msgid "Local path"
 msgstr ""
 
@@ -5214,7 +5216,7 @@ msgid "My Happy Website (Dark Mode)"
 msgstr ""
 
 #: apps/ui/src/components/onboarding-guide/illustrations/overview.tsx:219
-#: apps/ui/src/components/site-overview-view/about-section.tsx:94
+#: apps/ui/src/components/site-overview-view/about-section.tsx:110
 msgid "Disk"
 msgstr ""
 
@@ -7251,87 +7253,95 @@ msgstr ""
 msgid "No sites yet"
 msgstr ""
 
-#: apps/ui/src/components/site-overview-view/about-section.tsx:12
+#: apps/ui/src/components/site-overview-view/about-section.tsx:13
 msgid "Media"
 msgstr ""
 
-#: apps/ui/src/components/site-overview-view/about-section.tsx:13
+#: apps/ui/src/components/site-overview-view/about-section.tsx:14
 msgid "Plugins"
 msgstr ""
 
-#: apps/ui/src/components/site-overview-view/about-section.tsx:14
+#: apps/ui/src/components/site-overview-view/about-section.tsx:15
 msgid "Themes"
 msgstr ""
 
-#: apps/ui/src/components/site-overview-view/about-section.tsx:16
+#: apps/ui/src/components/site-overview-view/about-section.tsx:17
 msgid "Other"
 msgstr ""
 
-#: apps/ui/src/components/site-overview-view/about-section.tsx:40
+#: apps/ui/src/components/site-overview-view/about-section.tsx:42
 #. %s: WordPress version number
 msgid "WP v%s"
 msgstr ""
 
-#: apps/ui/src/components/site-overview-view/about-section.tsx:43
+#: apps/ui/src/components/site-overview-view/about-section.tsx:45
 msgid "WP —"
 msgstr ""
 
-#: apps/ui/src/components/site-overview-view/about-section.tsx:46
+#: apps/ui/src/components/site-overview-view/about-section.tsx:48
 #. %s: PHP version number
 msgid "PHP v%s"
 msgstr ""
 
-#: apps/ui/src/components/site-overview-view/about-section.tsx:68
+#: apps/ui/src/components/site-overview-view/about-section.tsx:70
 msgid "Open site in browser"
 msgstr ""
 
-#: apps/ui/src/components/site-overview-view/about-section.tsx:76
+#: apps/ui/src/components/site-overview-view/about-section.tsx:78
 #: apps/ui/src/components/site-preview/index.tsx:1847
 #. %s: site name
 msgid "Screenshot of %s"
 msgstr ""
 
-#: apps/ui/src/components/site-overview-view/about-section.tsx:82
+#: apps/ui/src/components/site-overview-view/about-section.tsx:84
 msgid "Open site"
 msgstr ""
 
-#: apps/ui/src/components/site-overview-view/about-section.tsx:97
+#: apps/ui/src/components/site-overview-view/about-section.tsx:98
+msgid "Copy site URL"
+msgstr ""
+
+#: apps/ui/src/components/site-overview-view/about-section.tsx:105
+msgid "Copy local path"
+msgstr ""
+
+#: apps/ui/src/components/site-overview-view/about-section.tsx:113
 msgid "Measuring…"
 msgstr ""
 
-#: apps/ui/src/components/site-overview-view/about-section.tsx:127
+#: apps/ui/src/components/site-overview-view/about-section.tsx:143
 #. 1: storage category, 2: formatted size, 3: percentage
 msgid "%1$s — %2$s (%3$s)"
 msgstr ""
 
-#: apps/ui/src/components/site-overview-view/about-section.tsx:135
+#: apps/ui/src/components/site-overview-view/about-section.tsx:151
 #. %s: comma-separated disk usage category descriptions
 msgid "Disk usage breakdown: %s"
 msgstr ""
 
-#: apps/ui/src/components/site-overview-view/admin-section.tsx:42
+#: apps/ui/src/components/site-overview-view/admin-section.tsx:18
 msgid "Username"
 msgstr ""
 
-#: apps/ui/src/components/site-overview-view/admin-section.tsx:45
+#: apps/ui/src/components/site-overview-view/admin-section.tsx:21
 #: apps/ui/src/components/site-settings-view/copyable-credential-control.tsx:37
 msgid "Copy admin username"
 msgstr ""
 
-#: apps/ui/src/components/site-overview-view/admin-section.tsx:48
+#: apps/ui/src/components/site-overview-view/admin-section.tsx:24
 msgid "Password"
 msgstr ""
 
-#: apps/ui/src/components/site-overview-view/admin-section.tsx:51
+#: apps/ui/src/components/site-overview-view/admin-section.tsx:27
 #: apps/ui/src/components/site-settings-view/copyable-credential-control.tsx:39
 msgid "Copy admin password"
 msgstr ""
 
-#: apps/ui/src/components/site-overview-view/admin-section.tsx:54
+#: apps/ui/src/components/site-overview-view/admin-section.tsx:30
 msgid "Email"
 msgstr ""
 
-#: apps/ui/src/components/site-overview-view/admin-section.tsx:57
+#: apps/ui/src/components/site-overview-view/admin-section.tsx:33
 #: apps/ui/src/components/site-settings-view/copyable-credential-control.tsx:41
 msgid "Copy admin email"
 msgstr ""

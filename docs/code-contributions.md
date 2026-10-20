@@ -103,7 +103,7 @@ The project follows a modular architecture with both global and feature-specific
 
 #### Feature Modules
 
-Main-process code for each feature lives in `apps/studio/src/modules/<feature>/lib/` (for example `sync`, `preview-site`, `import-export`, `user-settings`). The UI for those features lives in `apps/ui/src/`.
+Main-process code for each feature lives in `apps/studio/src/modules/<feature>/lib/` (for example `sync`, `preview-site`, `import-export`, `user-settings`), and logic it shares with `studio ui` lives in `packages/common/`. The UI for those features lives in `apps/ui/src/`.
 
 ### Code Formatting
 

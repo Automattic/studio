@@ -6,7 +6,12 @@
  * one brotli-compressed tarball that the plugin unpacks on first start. A single archive keeps the
  * package within the directory's limits, which this script checks.
  *
- * Output: standalone-bundles/wp-studio-<version>.zip
+ * Anthropic's directory takes far smaller plugins, so it gets the plugin without the CLI and
+ * without Codex's files: it downloads the same tarball from the matching Studio release instead.
+ *
+ * Output: standalone-bundles/wp-studio-<version>.zip, the plugin for Anthropic's directory in
+ * standalone-bundles/wp-studio-directory, and its CLI download, wp-studio-cli-<version>.tar.br,
+ * to attach to the Studio release.
  *
  * Prerequisites: npm dependencies installed, language packs downloaded (`npm run download-language-packs`)
  *
@@ -14,9 +19,12 @@
  */
 
 import { execFileSync, spawn } from 'child_process';
+import { createHash } from 'crypto';
 import { once } from 'events';
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
+import readline from 'readline';
 import { pipeline } from 'stream/promises';
 import zlib from 'zlib';
 
@@ -27,10 +35,70 @@ const { version } = JSON.parse(
 const outputDir = path.join( repoRoot, 'standalone-bundles' );
 const stagingDir = path.join( outputDir, 'wp-studio' );
 const zipPath = path.join( outputDir, `wp-studio-${ version }.zip` );
+const directoryDir = path.join( outputDir, 'wp-studio-directory' );
+const cliAsset = `wp-studio-cli-${ version }.tar.br`;
 
-// OpenAI's checks on uploaded plugins.
+// OpenAI's checks on uploaded plugins, and Anthropic's on a directory plugin's repository.
 const MiB = 1024 * 1024;
 const LIMITS = { zip: 100 * MiB, unpacked: 512 * MiB, entries: 5000, entry: 100 * MiB };
+const DIRECTORY_LIMITS = { unpacked: 50 * MiB, entries: 512, entry: 5 * MiB };
+
+// What only Codex reads: its manifest, MCP config, app metadata and launchers.
+const CODEX_ONLY = [
+	'.codex-plugin',
+	'.mcp.json',
+	'agents',
+	'scripts/launch-mcp',
+	'scripts/launch-mcp.cmd',
+];
+
+// Codex gives a plugin's server about ten seconds to start, less than unpacking the CLI can take,
+// so the plugin answers the handshake and the tool list from what `studio mcp` answers Codex with.
+// Recorded with the plugin's MCP config environment, in a throwaway home with analytics off, which
+// the plugin replaces with the user's in the tool descriptions.
+async function recordMcpSnapshot( pluginDir: string ): Promise< void > {
+	const home = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-mcp-snapshot-' ) );
+	fs.mkdirSync( path.join( home, '.studio' ) );
+	fs.writeFileSync(
+		path.join( home, '.studio', 'shared.json' ),
+		JSON.stringify( { analyticsOptOut: true } )
+	);
+	const { env } = JSON.parse( fs.readFileSync( path.join( pluginDir, '.mcp.json' ), 'utf8' ) )
+		.mcpServers[ 'wordpress-studio' ];
+	const server = spawn(
+		process.execPath,
+		[ path.join( repoRoot, 'apps', 'cli', 'dist', 'cli', 'main.mjs' ), 'mcp' ],
+		{
+			env: { ...process.env, ...env, HOME: home, USERPROFILE: home },
+			stdio: [ 'pipe', 'pipe', 'inherit' ],
+		}
+	);
+	const lines = readline.createInterface( { input: server.stdout } )[ Symbol.asyncIterator ]();
+	const send = ( message: object ) =>
+		server.stdin.write( JSON.stringify( { jsonrpc: '2.0', ...message } ) + '\n' );
+	const request = async ( id: number, method: string, params: object = {} ) => {
+		send( { id, method, params } );
+		for (;;) {
+			const message = JSON.parse( ( await lines.next() ).value );
+			if ( message.id === id ) return message.result;
+		}
+	};
+	const initialize = await request( 1, 'initialize', {
+		protocolVersion: '2025-06-18',
+		capabilities: {},
+		clientInfo: { name: 'codex-mcp-client', version: '0' },
+	} );
+	send( { method: 'notifications/initialized' } );
+	const snapshot = {
+		home,
+		initialize,
+		tools: await request( 2, 'tools/list' ),
+		resources: await request( 3, 'resources/list' ),
+	};
+	server.kill();
+	fs.rmSync( home, { recursive: true, force: true } );
+	fs.writeFileSync( path.join( pluginDir, 'mcp-snapshot.json' ), JSON.stringify( snapshot ) );
+}
 
 async function main(): Promise< void > {
 	console.log( '==> Building the CLI package...' );
@@ -43,9 +111,12 @@ async function main(): Promise< void > {
 	console.log( '==> Assembling the plugin...' );
 	fs.rmSync( stagingDir, { recursive: true, force: true } );
 	fs.cpSync( path.join( repoRoot, 'plugins', 'wp-studio' ), stagingDir, { recursive: true } );
-	const manifestPath = path.join( stagingDir, '.codex-plugin', 'plugin.json' );
-	const manifest = JSON.parse( fs.readFileSync( manifestPath, 'utf8' ) );
-	fs.writeFileSync( manifestPath, JSON.stringify( { ...manifest, version }, null, 2 ) + '\n' );
+	for ( const host of [ '.codex-plugin', '.claude-plugin' ] ) {
+		const manifestPath = path.join( stagingDir, host, 'plugin.json' );
+		const manifest = JSON.parse( fs.readFileSync( manifestPath, 'utf8' ) );
+		fs.writeFileSync( manifestPath, JSON.stringify( { ...manifest, version }, null, 2 ) + '\n' );
+	}
+	await recordMcpSnapshot( stagingDir );
 
 	// The same prunes as the desktop app and the standalone bundle: browser caches, and AI provider
 	// SDKs that pi-ai loads lazily but Studio never uses.
@@ -88,31 +159,62 @@ async function main(): Promise< void > {
 	console.log( '==> Zipping...' );
 	fs.rmSync( zipPath, { force: true } );
 	execFileSync( 'zip', [ '-r', '-X', '-q', zipPath, '.' ], { cwd: stagingDir, stdio: 'inherit' } );
+	const plugin = { zip: fs.statSync( zipPath ).size, ...measure( stagingDir ) };
 
-	const entries = fs.readdirSync( stagingDir, { recursive: true, withFileTypes: true } );
+	console.log( "==> Assembling the plugin for Anthropic's directory..." );
+	const cliBundle = path.join( stagingDir, 'cli.tar.br' );
+	const sha256 = createHash( 'sha256' ).update( fs.readFileSync( cliBundle ) ).digest( 'hex' );
+	fs.rmSync( directoryDir, { recursive: true, force: true } );
+	fs.cpSync( stagingDir, directoryDir, {
+		recursive: true,
+		filter: ( source ) =>
+			! [ ...CODEX_ONLY, 'cli.tar.br' ].some(
+				( entry ) => source === path.join( stagingDir, entry )
+			),
+	} );
+	fs.writeFileSync(
+		path.join( directoryDir, 'cli-download.json' ),
+		JSON.stringify(
+			{
+				url: `https://github.com/Automattic/studio/releases/download/v${ version }/${ cliAsset }`,
+				sha256,
+			},
+			null,
+			2
+		) + '\n'
+	);
+	fs.renameSync( cliBundle, path.join( outputDir, cliAsset ) );
+	fs.rmSync( stagingDir, { recursive: true, force: true } );
+
+	report( zipPath, plugin, LIMITS, "OpenAI's plugin limits" );
+	report( directoryDir, measure( directoryDir ), DIRECTORY_LIMITS, "Anthropic's directory limits" );
+}
+
+function measure( dir: string ) {
+	const entries = fs.readdirSync( dir, { recursive: true, withFileTypes: true } );
 	const sizes = entries
 		.filter( ( entry ) => entry.isFile() )
 		.map( ( entry ) => fs.statSync( path.join( entry.parentPath, entry.name ) ).size );
-	const measured = {
-		zip: fs.statSync( zipPath ).size,
+	return {
 		unpacked: sizes.reduce( ( total, size ) => total + size, 0 ),
 		entries: entries.length,
 		entry: Math.max( ...sizes ),
 	};
-	fs.rmSync( stagingDir, { recursive: true, force: true } );
+}
 
-	const over = Object.keys( LIMITS ).filter(
-		( key ) => measured[ key as keyof typeof LIMITS ] > LIMITS[ key as keyof typeof LIMITS ]
+function report(
+	output: string,
+	measured: Record< string, number >,
+	limits: Record< string, number >,
+	name: string
+) {
+	const summary = Object.entries( measured ).map( ( [ key, value ] ) =>
+		key === 'entries' ? `${ value } entries` : `${ key } ${ ( value / MiB ).toFixed( 1 ) } MiB`
 	);
-	console.log(
-		`==> ${ zipPath }: ${ ( measured.zip / MiB ).toFixed( 1 ) } MiB, ${ (
-			measured.unpacked / MiB
-		).toFixed( 1 ) } MiB unpacked, ${ measured.entries } entries, largest ${ (
-			measured.entry / MiB
-		).toFixed( 1 ) } MiB`
-	);
+	console.log( `==> ${ output }: ${ summary.join( ', ' ) }` );
+	const over = Object.keys( limits ).filter( ( key ) => measured[ key ] > limits[ key ] );
 	if ( over.length ) {
-		throw new Error( `Over OpenAI's plugin limits: ${ over.join( ', ' ) }` );
+		throw new Error( `Over ${ name }: ${ over.join( ', ' ) }` );
 	}
 }
 

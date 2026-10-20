@@ -43,28 +43,30 @@ const MiB = 1024 * 1024;
 const LIMITS = { zip: 100 * MiB, unpacked: 512 * MiB, entries: 5000, entry: 100 * MiB };
 const DIRECTORY_LIMITS = { unpacked: 50 * MiB, entries: 512, entry: 5 * MiB };
 
-// What only Codex reads: its manifest, MCP config, app metadata and launchers.
+// What only Codex reads: its manifest, MCP config, app metadata, screenshots and launchers.
 const CODEX_ONLY = [
 	'.codex-plugin',
 	'.mcp.json',
 	'agents',
+	'assets/screenshot-layout.png',
+	'assets/screenshot-look.png',
 	'scripts/launch-mcp',
 	'scripts/launch-mcp.cmd',
 ];
 
 // Codex gives a plugin's server about ten seconds to start, less than unpacking the CLI can take,
-// so the plugin answers the handshake and the tool list from what `studio mcp` answers Codex with.
-// Recorded with the plugin's MCP config environment, in a throwaway home with analytics off, which
-// the plugin replaces with the user's in the tool descriptions.
-async function recordMcpSnapshot( pluginDir: string ): Promise< void > {
+// so the plugin answers the handshake and the tool list from what `studio mcp` answers the app it
+// targets with: Codex, or Claude Code for Anthropic's directory. Recorded with the plugin's MCP
+// config environment, in a throwaway home with analytics off, which the plugin replaces with the
+// user's in the tool descriptions. The plugin also reads its version from it.
+async function recordMcpSnapshot( file: string, client: string, config: string ): Promise< void > {
 	const home = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-mcp-snapshot-' ) );
 	fs.mkdirSync( path.join( home, '.studio' ) );
 	fs.writeFileSync(
 		path.join( home, '.studio', 'shared.json' ),
 		JSON.stringify( { analyticsOptOut: true } )
 	);
-	const { env } = JSON.parse( fs.readFileSync( path.join( pluginDir, '.mcp.json' ), 'utf8' ) )
-		.mcpServers[ 'wordpress-studio' ];
+	const { env } = JSON.parse( fs.readFileSync( config, 'utf8' ) ).mcpServers[ 'wordpress-studio' ];
 	const server = spawn(
 		process.execPath,
 		[ path.join( repoRoot, 'apps', 'cli', 'dist', 'cli', 'main.mjs' ), 'mcp' ],
@@ -86,10 +88,11 @@ async function recordMcpSnapshot( pluginDir: string ): Promise< void > {
 	const initialize = await request( 1, 'initialize', {
 		protocolVersion: '2025-06-18',
 		capabilities: {},
-		clientInfo: { name: 'codex-mcp-client', version: '0' },
+		clientInfo: { name: client, version: '0' },
 	} );
 	send( { method: 'notifications/initialized' } );
 	const snapshot = {
+		version,
 		home,
 		initialize,
 		tools: await request( 2, 'tools/list' ),
@@ -97,7 +100,7 @@ async function recordMcpSnapshot( pluginDir: string ): Promise< void > {
 	};
 	server.kill();
 	fs.rmSync( home, { recursive: true, force: true } );
-	fs.writeFileSync( path.join( pluginDir, 'mcp-snapshot.json' ), JSON.stringify( snapshot ) );
+	fs.writeFileSync( file, JSON.stringify( snapshot ) );
 }
 
 async function main(): Promise< void > {
@@ -116,7 +119,11 @@ async function main(): Promise< void > {
 		const manifest = JSON.parse( fs.readFileSync( manifestPath, 'utf8' ) );
 		fs.writeFileSync( manifestPath, JSON.stringify( { ...manifest, version }, null, 2 ) + '\n' );
 	}
-	await recordMcpSnapshot( stagingDir );
+	await recordMcpSnapshot(
+		path.join( stagingDir, 'mcp-snapshot.json' ),
+		'codex-mcp-client',
+		path.join( stagingDir, '.mcp.json' )
+	);
 
 	// The same prunes as the desktop app and the standalone bundle: browser caches, and AI provider
 	// SDKs that pi-ai loads lazily but Studio never uses.
@@ -172,6 +179,11 @@ async function main(): Promise< void > {
 				( entry ) => source === path.join( stagingDir, entry )
 			),
 	} );
+	await recordMcpSnapshot(
+		path.join( directoryDir, 'mcp-snapshot.json' ),
+		'claude-code',
+		path.join( directoryDir, '.claude-plugin', 'plugin.json' )
+	);
 	fs.writeFileSync(
 		path.join( directoryDir, 'cli-download.json' ),
 		JSON.stringify(

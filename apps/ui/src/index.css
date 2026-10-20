@@ -155,6 +155,7 @@ html[data-color-scheme='dark'] {
 	--studio-annotate-surface: #251b3a;
 	--studio-annotate-bar: #6d28d9;
 	--studio-annotate-bar-active: #5b21b6;
+	--studio-dialog-backdrop: color-mix( in srgb, var( --wpds-color-background-surface-neutral ) 80%, transparent );
 }
 
 /* @wordpress/components and @wordpress/dataviews render help text and field
@@ -297,6 +298,94 @@ input[type='checkbox']:focus:not( :focus-visible ) {
 	align-items: stretch;
 }
 
+/* Rich's dialog backdrop: a blurred wash, darker in dark mode. */
+[class*='__backdrop'] {
+	background-color: var(
+		--studio-dialog-backdrop,
+		color-mix( in srgb, var( --wpds-color-foreground-content-neutral ) 30%, transparent )
+	);
+	backdrop-filter: blur( 4px );
+}
+
+/* Rich's dialogs: 14px type, a title row as tall as its outlined close
+   button, the description 8px under it and 30px above what follows, and
+   36px controls. Confirmations (AlertDialog) are wider and roomier. The
+   `:not()` keeps these off headers and footers inside a dialog's body. */
+[data-wp-ui-overlay-modal] {
+	--studio-dialog-inset: 16px;
+	--studio-dialog-description-gap: 30px;
+	border-radius: var( --wpds-border-radius-md );
+	font-size: 14px;
+	line-height: 20px;
+}
+
+[data-wp-ui-overlay-modal][class*='__is-small'] {
+	min-width: 0;
+	max-width: 384px;
+}
+
+[role='alertdialog'][data-wp-ui-overlay-modal] {
+	--studio-dialog-inset: 20px;
+	--studio-dialog-description-gap: 16px;
+	max-width: 420px;
+}
+
+[data-wp-ui-overlay-modal] [class*='__header']:not( [data-wp-ui-overlay-scroll-container] * ) {
+	min-height: 32px;
+	padding: 14px 14px 0 var( --studio-dialog-inset );
+}
+
+[data-wp-ui-overlay-modal] [class*='__header']:not( [data-wp-ui-overlay-scroll-container] * ) [class*='__title'] {
+	font-size: 14px;
+	font-weight: 450;
+	line-height: 20px;
+}
+
+[data-wp-ui-dialog-close-icon] {
+	--wp-ui-button-border-color: var( --wpds-color-stroke-surface-neutral );
+}
+
+/* 30px under the header, counting its 1px scroll separator; a leading
+   description pulls back up to sit 8px under the title. */
+[data-wp-ui-overlay-modal] [data-wp-ui-overlay-scroll-container] {
+	padding: 29px var( --studio-dialog-inset ) 4px;
+}
+
+[data-wp-ui-overlay-scroll-container] > p:first-child {
+	margin-block: -22px var( --studio-dialog-description-gap );
+	font-size: 14px;
+	line-height: 20px;
+}
+
+[data-wp-ui-overlay-scroll-container] > p:first-child:last-child {
+	margin-block-end: calc( var( --studio-dialog-description-gap ) - 16px );
+}
+
+[role='dialog'] [data-wp-ui-overlay-scroll-container] > p:first-child {
+	color: var( --wpds-color-foreground-content-neutral-weak );
+}
+
+[data-wp-ui-overlay-modal] [class*='__input-layout']:not( [class*='__is-size-'] ) {
+	height: var( --studio-control-size );
+	font-size: 14px;
+}
+
+[data-wp-ui-overlay-modal] [class*='__footer']:not( [data-wp-ui-overlay-scroll-container] * ) {
+	gap: 6px;
+	padding: 12px var( --studio-dialog-inset ) var( --studio-dialog-inset );
+}
+
+[role='alertdialog'] [class*='__footer']:not( [data-wp-ui-overlay-scroll-container] * ) {
+	padding: 16px 14px 14px;
+}
+
+[data-wp-ui-overlay-modal] [class*='__footer']:not( [data-wp-ui-overlay-scroll-container] * ) button {
+	--wp-ui-button-height: var( --studio-control-size );
+	--wp-ui-button-font-size: 14px;
+	--wp-ui-button-font-weight: 450;
+	--wp-ui-button-padding-inline: 10px;
+}
+
 /* @wordpress/ui's `AlertDialog.Popup` hardcodes its Cancel button as
    `variant="minimal"` with no way to pass `tone`, so it defaults to brand —
    a blue-tinted "secondary" button style the app doesn't use anywhere else:
@@ -304,8 +393,11 @@ input[type='checkbox']:focus:not( :focus-visible ) {
    `tone="neutral"`. `role="alertdialog"` is set by Base UI itself (vs.
    `role="dialog"` for the plain `Dialog`), so this only reaches the two
    AlertDialog Cancel buttons — matching values already used by
-   `tone="neutral"` `variant="minimal"` elsewhere. */
+   `tone="neutral"` `variant="minimal"` elsewhere, plus the outline Rich's
+   confirmations give it. */
 [role='alertdialog'] button:first-child {
+	--wp-ui-button-border-color: var( --wpds-color-stroke-interactive-neutral );
+	--wp-ui-button-border-color-active: var( --wpds-color-stroke-interactive-neutral-active );
 	--wp-ui-button-background-color: var( --wpds-color-background-interactive-neutral-weak );
 	--wp-ui-button-background-color-active: var( --wpds-color-background-interactive-neutral-weak-active );
 	--wp-ui-button-background-color-disabled: var( --wpds-color-background-interactive-neutral-weak-disabled );

@@ -33,6 +33,9 @@
 	--studio-band-height: 54px;
 	--studio-control-size: 36px;
 	--studio-band-separator-height: 16px;
+	/* Hover and selection on the shell's rows and toggles: a faint wash of the
+	   text color, so it reads the same over light and dark surfaces. */
+	--studio-hover-background: color-mix( in srgb, var( --wpds-color-foreground-content-neutral ) 5%, transparent );
 	/* Where the band's first control starts on macOS, past the traffic lights. */
 	--studio-traffic-light-space: 80px;
 

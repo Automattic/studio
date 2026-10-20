@@ -1,6 +1,7 @@
 import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { Icon, offline } from '@wordpress/icons';
+import { displayShortcut } from '@wordpress/keycodes';
 import { IconButton, Tooltip } from '@wordpress/ui';
 import { Gravatar } from '@/components/gravatar';
 import * as Menu from '@/components/menu';
@@ -9,7 +10,7 @@ import { SidebarButton } from '@/components/sidebar-button';
 import { useAuthUser, useLogin, useLogout } from '@/data/queries/use-auth-user';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useOffline } from '@/hooks/use-offline';
-import { settingsIcon } from '@/lib/icons';
+import { logOutIcon, settingsIcon } from '@/lib/icons';
 import styles from './style.module.css';
 
 export function UserMenu() {
@@ -38,20 +39,37 @@ export function UserMenu() {
 							</span>
 						) }
 					</Menu.Trigger>
-					<Menu.Popup side="top" align="start">
+					<Menu.Popup side="top" align="start" className={ styles.popup }>
 						{ user ? (
 							<>
-								<Menu.Group>
-									<Menu.GroupLabel>{ user.displayName || user.email }</Menu.GroupLabel>
-								</Menu.Group>
+								<div className={ styles.account }>
+									<Gravatar email={ user.email } isDark={ themeIsDark } />
+									<div className={ styles.accountText }>
+										<span className={ styles.accountName }>{ user.displayName || user.email }</span>
+										{ user.displayName ? (
+											<span className={ styles.accountEmail }>{ user.email }</span>
+										) : null }
+									</div>
+								</div>
 								<Menu.Separator />
 							</>
 						) : null }
-						<Menu.Item onClick={ openSettings }>{ __( 'Settings' ) }</Menu.Item>
+						<Menu.Item onClick={ openSettings }>
+							<Icon icon={ settingsIcon } />
+							<span className={ styles.itemLabel }>{ __( 'Settings' ) }</span>
+							<kbd className={ styles.shortcut }>{ displayShortcut.primary( ',' ) }</kbd>
+						</Menu.Item>
+						<Menu.Separator />
 						{ user ? (
-							<Menu.Item onClick={ () => logout.mutate() }>{ __( 'Log out' ) }</Menu.Item>
+							<Menu.Item onClick={ () => logout.mutate() }>
+								<Icon icon={ logOutIcon } />
+								{ __( 'Log out' ) }
+							</Menu.Item>
 						) : (
-							<Menu.Item onClick={ () => login.mutate() }>{ __( 'Log in' ) }</Menu.Item>
+							<Menu.Item onClick={ () => login.mutate() }>
+								<Icon icon={ logOutIcon } />
+								{ __( 'Log in' ) }
+							</Menu.Item>
 						) }
 					</Menu.Popup>
 				</Menu.Root>

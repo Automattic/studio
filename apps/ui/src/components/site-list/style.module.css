@@ -14,7 +14,7 @@
 	--site-list-sync-indicator-bg: var(--studio-color-status-sync);
 	/* Row hover and selection. Declared here so every mount point gets it,
 	   resolved against whatever theme scope wraps the list. */
-	--sidebar-row-background: var(--wpds-color-background-interactive-neutral-weak-active);
+	--sidebar-row-background: var(--studio-hover-background);
 
 	padding: var(--wpds-dimension-padding-md) var(--wpds-dimension-padding-md)
 		var(--wpds-dimension-padding-xl);

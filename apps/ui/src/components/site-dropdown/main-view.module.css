@@ -41,9 +41,7 @@
 	text-wrap: pretty;
 }
 
-/* The popup is an inverted surface, so the design
-   system's own disabled colour lands on the wrong background and the button
-   reads as enabled. */
+/* Pins the neutral colors so the disabled state reads as disabled. */
 .cancelSyncButton {
 	flex: 0 0 auto;
 	width: 28px;
@@ -119,9 +117,8 @@
 	height: 16px;
 }
 
-/* Derived from the popup's remapped tokens so the control tracks the
-   inverted menu surface in both color schemes; scheme media queries
-   would key off the OS instead and land backwards here. */
+/* Derived from the theme's tokens so the control tracks the panel in both
+   color schemes. */
 .localServerControl {
 	--local-server-track-bg: color-mix(
 		in srgb,

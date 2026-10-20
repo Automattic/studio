@@ -226,3 +226,18 @@ export const settingsIcon = (
 		<circle cx="12" cy="12" r="3" />
 	</svg>
 );
+
+export const logOutIcon = (
+	<svg
+		viewBox="0 0 24 24"
+		fill="none"
+		stroke="currentColor"
+		strokeWidth="2"
+		strokeLinecap="round"
+		strokeLinejoin="round"
+	>
+		<path d="m16 17 5-5-5-5" />
+		<path d="M21 12H9" />
+		<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+	</svg>
+);

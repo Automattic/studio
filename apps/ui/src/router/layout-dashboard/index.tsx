@@ -204,9 +204,11 @@ function DashboardLayoutContent() {
 						chatHidden ? (
 							<>
 								<HeaderSidebarToggle />
-								{ homeSite ? (
-									<SiteDropdown site={ homeSite } defaultOpen={ openSiteDropdown } />
-								) : (
+								<SiteDropdown
+									site={ previewSite }
+									defaultOpen={ !! homeSite && openSiteDropdown }
+								/>
+								{ homeSite ? null : (
 									<IconButton
 										variant="minimal"
 										tone="neutral"

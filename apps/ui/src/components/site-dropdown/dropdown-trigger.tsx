@@ -1,8 +1,9 @@
 import { __, sprintf } from '@wordpress/i18n';
-import { chevronDownSmall, globe } from '@wordpress/icons';
+import { chevronDownSmall } from '@wordpress/icons';
 import { Button, Icon, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { forwardRef } from 'react';
+import { globeIcon } from '@/lib/icons';
 import styles from './dropdown-trigger.module.css';
 import type { ComponentProps, ElementRef } from 'react';
 
@@ -28,7 +29,7 @@ export const DropdownTrigger = forwardRef< ElementRef< typeof Button >, Props >(
 					className={ clsx( styles.trigger, 'studio-control', className ) }
 				>
 					<span className={ styles.icon }>
-						<Icon icon={ globe } size={ 20 } />
+						<Icon icon={ globeIcon } />
 						{ environment === 'live' ? (
 							<span className={ styles.liveDot } title={ __( 'Live site' ) } />
 						) : null }

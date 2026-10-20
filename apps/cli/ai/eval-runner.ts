@@ -89,7 +89,9 @@ interface EvalRunnerInput {
 	prompt: string;
 	// Sent in order, each as a new user message in the same session once the
 	// previous one finishes, so a case can measure a multi-message conversation.
-	followUps?: string[];
+	// Objects rather than strings: promptfoo expands an array of strings into
+	// one test case per element.
+	followUps?: Array< { prompt: string } >;
 	timeoutMs?: number;
 	model?: AiModelId;
 	seed?: EvalSeed;
@@ -400,8 +402,8 @@ function readInput(): EvalRunnerInput {
 		seed = evalSeedSchema.parse( vars.seed );
 	}
 
-	const followUps = Array.isArray( vars.followUps )
-		? vars.followUps.filter( ( item ): item is string => typeof item === 'string' )
+	const followUps = vars.followUps
+		? z.array( z.object( { prompt: z.string() } ) ).parse( vars.followUps )
 		: undefined;
 
 	return {
@@ -609,7 +611,7 @@ async function runEval( input: EvalRunnerInput ) {
 			if ( timedOut ) {
 				break;
 			}
-			query = runTurn( followUp );
+			query = runTurn( followUp.prompt );
 			await settle();
 		}
 	} catch ( caught ) {

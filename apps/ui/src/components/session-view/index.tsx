@@ -59,7 +59,7 @@ import { Composer, ComposerSkeleton, type ComposerHandle } from './composer';
 import { Conversation } from './conversation';
 import { EmptyBackground } from './empty-background';
 import { QueuedPrompts } from './queued-prompts';
-import { NewChatButton } from './session-chat-actions';
+import { useNewChatShortcut } from './session-chat-actions';
 import styles from './style.module.css';
 import { SuggestedPrompts } from './suggested-prompts';
 import type { SiteDetails } from '@/data/core';
@@ -136,7 +136,6 @@ function SessionHeader( {
 interface SessionFrameProps {
 	header?: ReactNode;
 	composer?: ReactNode;
-	footer?: ReactNode;
 	scrollRef?: Ref< HTMLDivElement >;
 	children?: ReactNode;
 }
@@ -144,7 +143,7 @@ interface SessionFrameProps {
 // Lays out the chat column as fixed chrome over a full-height conversation
 // scroller. The site preview panel lives in the dashboard layout's
 // PreviewSplitFrame, which keeps it mounted across routes.
-function SessionFrame( { header, composer, footer, scrollRef, children }: SessionFrameProps ) {
+function SessionFrame( { header, composer, scrollRef, children }: SessionFrameProps ) {
 	const rootRef = useRef< HTMLDivElement >( null );
 	const headerRef = useRef< HTMLDivElement >( null );
 	const composerRef = useRef< HTMLDivElement >( null );
@@ -207,7 +206,7 @@ function SessionFrame( { header, composer, footer, scrollRef, children }: Sessio
 	}, [] );
 
 	return (
-		<div ref={ rootRef } className={ clsx( styles.root, footer && styles.rootWithFooter ) }>
+		<div ref={ rootRef } className={ styles.root }>
 			<div ref={ headerRef } className={ styles.headerLayer }>
 				{ header }
 			</div>
@@ -221,13 +220,6 @@ function SessionFrame( { header, composer, footer, scrollRef, children }: Sessio
 						{ composer }
 					</div>
 				</>
-			) : null }
-			{ footer ? (
-				<div className={ styles.footerOuter }>
-					<div className={ clsx( styles.column, styles.composerColumn, styles.footer ) }>
-						{ footer }
-					</div>
-				</div>
 			) : null }
 		</div>
 	);
@@ -273,7 +265,6 @@ export function SignedOutSessionView( { siteId }: { siteId: string } ) {
 			header={
 				<SessionHeader siteName={ site?.name } site={ site } effectiveEnvironment="local" />
 			}
-			footer={ <div aria-hidden /> }
 		>
 			<AgenticSigninPrompt
 				onTurnedOff={ () => void navigate( { to: '/sites/$siteId', params: { siteId } } ) }
@@ -496,6 +487,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	// Out of credits swaps the composer for the purchase offer, unless a run is
 	// still in flight — the Stop button lives in the composer.
 	const isOutOfCredits = useIsOutOfAiCredits();
+	useNewChatShortcut( startNewChat, !! ownerSite && ! isOutOfCredits && ! isCreatingSession );
 	// Fail open when the quota is unavailable (offline, error, older server) —
 	// the WordPress.com proxy enforces the same gate server-side.
 	const isAccessBlocked =
@@ -565,7 +557,6 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 						<ComposerSkeleton />
 					</div>
 				}
-				footer={ <div aria-hidden /> }
 			>
 				<EmptyBackground />
 			</SessionFrame>
@@ -582,7 +573,6 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 						effectiveEnvironment={ effectiveEnvironment }
 					/>
 				}
-				footer={ <div aria-hidden /> }
 			>
 				<EmptyBackground />
 				<AccessRequirements
@@ -645,11 +635,6 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 						/>
 					) }
 				</div>
-			}
-			footer={
-				ownerSite && ! isOutOfCredits ? (
-					<NewChatButton isCreatingSession={ isCreatingSession } onNewChat={ startNewChat } />
-				) : null
 			}
 		>
 			{ isEmpty && ! pendingPrompt ? <EmptyBackground /> : null }

@@ -10,9 +10,10 @@
 		0px,
 		calc(var(--column-inline-gutter) - var(--composer-shell-inline-padding))
 	);
-	--header-height: 46px;
+	--header-height: var(--studio-band-height);
 	--composer-height: 0px;
-	--panel-footer-height: 0px;
+	/* The composer sits this far above the panel's bottom edge. */
+	--composer-bottom-gap: var(--wpds-dimension-padding-md);
 	--composer-blur-overhang: 40px;
 	--scrollbar-blur-safe-area: 14px;
 
@@ -21,10 +22,6 @@
 	min-height: 0;
 	overflow: hidden;
 	isolation: isolate;
-}
-
-.rootWithFooter {
-	--panel-footer-height: 46px;
 }
 
 .header {
@@ -91,7 +88,7 @@
 	overflow-y: auto;
 	overflow-x: hidden;
 	padding-block: var(--header-height)
-		calc(var(--composer-height) + var(--panel-footer-height));
+		calc(var(--composer-height) + var(--composer-bottom-gap));
 	padding-inline: var(--column-inline-gutter);
 	container-type: inline-size;
 	z-index: 0;
@@ -110,7 +107,7 @@
 .composerBlur {
 	bottom: 0;
 	height: calc(
-		var(--composer-height) + var(--panel-footer-height) +
+		var(--composer-height) + var(--composer-bottom-gap) +
 			var(--composer-blur-overhang)
 	);
 }
@@ -127,7 +124,7 @@
 	position: absolute;
 	left: 0;
 	right: 0;
-	bottom: var(--panel-footer-height);
+	bottom: var(--composer-bottom-gap);
 	padding: 0 var(--composer-outer-inline-padding) 0;
 	z-index: 2;
 }
@@ -148,34 +145,6 @@
 	padding-bottom: var(--wpds-dimension-padding-2xl);
 }
 
-.footerOuter {
-	position: absolute;
-	left: 0;
-	right: 0;
-	bottom: 0;
-	z-index: 3;
-	padding: 0 var(--composer-outer-inline-padding);
-	pointer-events: none;
-}
-
-/* Lines the footer's controls up with the composer box's inline-start edge. */
-.footer {
-	display: flex;
-	align-items: center;
-	min-height: var(--panel-footer-height);
-}
-
-.footer > * {
-	pointer-events: auto;
-}
-
-.newChatButton {
-	--wp-ui-button-font-weight: var(--wpds-typography-font-weight-default);
-	--wp-ui-button-font-size: var(--wpds-typography-font-size-sm);
-
-	white-space: nowrap;
-	-webkit-app-region: no-drag;
-}
 
 /* Anchors the scroll-to-latest button to the composer column, floating it
    above the composer without contributing to the measured composer height. */

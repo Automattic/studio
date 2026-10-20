@@ -1,21 +1,18 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, renderHook } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { NewChatButton } from './session-chat-actions';
+import { useNewChatShortcut } from './session-chat-actions';
 
-describe( 'NewChatButton', () => {
-	it( 'starts a new chat from the button and its keyboard shortcut', () => {
+describe( 'useNewChatShortcut', () => {
+	it( 'starts a new chat on the primary modifier + N, only while enabled', () => {
 		const onNewChat = vi.fn();
-		render( <NewChatButton onNewChat={ onNewChat } /> );
-
-		const button = screen.getByRole( 'button', { name: 'New chat' } );
-		fireEvent.click( button );
-		const shortcut = button.getAttribute( 'aria-keyshortcuts' );
-		fireEvent.keyDown( document, {
-			key: 'n',
-			ctrlKey: shortcut?.startsWith( 'Control+' ),
-			metaKey: shortcut?.startsWith( 'Meta+' ),
+		const { rerender } = renderHook( ( { enabled } ) => useNewChatShortcut( onNewChat, enabled ), {
+			initialProps: { enabled: true },
 		} );
 
-		expect( onNewChat ).toHaveBeenCalledTimes( 2 );
+		fireEvent.keyDown( document, { key: 'n', ctrlKey: true } );
+		rerender( { enabled: false } );
+		fireEvent.keyDown( document, { key: 'n', ctrlKey: true } );
+
+		expect( onNewChat ).toHaveBeenCalledTimes( 1 );
 	} );
 } );

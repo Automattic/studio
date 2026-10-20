@@ -99,7 +99,7 @@ vi.mock( './conversation', () => ( {
 } ) );
 
 vi.mock( './session-chat-actions', () => ( {
-	NewChatButton: () => <div data-testid="new-chat" />,
+	useNewChatShortcut: () => undefined,
 } ) );
 
 vi.mock( './suggested-prompts', () => ( {
@@ -510,25 +510,6 @@ describe( 'SessionView', () => {
 		expect( screen.queryByTestId( 'out-of-credits' ) ).not.toBeInTheDocument();
 	} );
 
-	it( 'hides the new chat action while the credits are spent', () => {
-		sitesState.data = [ OWNER_SITE ];
-		useSessionMock.mockReturnValue( {
-			data: makeOwnedSession(),
-			isLoading: false,
-			error: null,
-		} );
-		useStudioAssistantQuotaMock.mockReturnValue( {
-			data: makeSpentQuota(),
-			isLoading: false,
-			isFetching: false,
-			refetch: vi.fn(),
-		} );
-
-		render( <SessionView sessionId="session-1" /> );
-
-		expect( screen.queryByTestId( 'new-chat' ) ).not.toBeInTheDocument();
-	} );
-
 	it( 'hides the suggested prompts while the credits are spent', () => {
 		sitesState.data = [ OWNER_SITE ];
 		useSessionMock.mockReturnValue( {
@@ -548,7 +529,7 @@ describe( 'SessionView', () => {
 		expect( screen.queryByTestId( 'suggested-prompts' ) ).not.toBeInTheDocument();
 	} );
 
-	it( 'keeps the new chat action and suggested prompts while credits remain', () => {
+	it( 'keeps the suggested prompts while credits remain', () => {
 		sitesState.data = [ OWNER_SITE ];
 		useSessionMock.mockReturnValue( {
 			data: makeOwnedSession(),
@@ -558,7 +539,6 @@ describe( 'SessionView', () => {
 
 		render( <SessionView sessionId="session-1" /> );
 
-		expect( screen.getByTestId( 'new-chat' ) ).toBeInTheDocument();
 		expect( screen.getByTestId( 'suggested-prompts' ) ).toBeInTheDocument();
 	} );
 

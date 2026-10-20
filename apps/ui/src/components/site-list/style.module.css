@@ -459,6 +459,7 @@
 }
 
 .chatRow:hover,
+.chatRow[data-popup-open],
 .chatActive {
 	background-color: var(--sidebar-row-background);
 }
@@ -492,12 +493,14 @@
 
 .chatRow:hover .chatArchive,
 .chatRow:has(:focus-visible) .chatArchive,
+.chatRow[data-popup-open] .chatArchive,
 .chatActive .chatArchive {
 	opacity: 1;
 }
 
 .chatRow:hover .chat,
 .chatRow:has(:focus-visible) .chat,
+.chatRow[data-popup-open] .chat,
 .chatActive .chat {
 	padding-inline-end: calc(var(--site-list-action-size) + var(--site-list-row-padding));
 }
@@ -530,7 +533,8 @@
 }
 
 .chatRow:hover .unreadDot,
-.chatRow:has(:focus-visible) .unreadDot {
+.chatRow:has(:focus-visible) .unreadDot,
+.chatRow[data-popup-open] .unreadDot {
 	opacity: 0;
 }
 

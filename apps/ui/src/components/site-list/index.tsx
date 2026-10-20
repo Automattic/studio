@@ -3,8 +3,8 @@ import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { sortSites } from '@studio/common/lib/sort-sites';
 import { useNavigate, useParams, useRouterState } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
-import { settings } from '@wordpress/icons';
-import { IconButton, Tooltip } from '@wordpress/ui';
+import { Icon } from '@wordpress/icons';
+import { IconButton, Spinner, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import {
 	createContext,
@@ -23,16 +23,22 @@ import {
 } from 'react';
 import { AgentWorkingIndicator } from '@/components/agent-working-indicator';
 import { DeleteSiteDialog } from '@/components/delete-site-dialog';
+import {
+	ImportSiteDialog,
+	IMPORT_FILE_ACCEPT,
+	useSiteBackupImport,
+} from '@/components/import-site-dialog';
 import * as Menu from '@/components/menu';
 import { useOpenInDestinations } from '@/components/open-in-menu/use-open-in-destinations';
 import { ReorderableList } from '@/components/reorderable-list';
+import { getSessionTitle } from '@/components/session-view/session-chat-actions';
 import { SidebarButton } from '@/components/sidebar-button';
 import { deriveSiteStatus, getSiteStatusName } from '@/components/site-dropdown/utils';
 import { XdebugIcon } from '@/components/xdebug-icon';
 import { useConnector } from '@/data/core';
 import { useSiteAgentActivity, type SiteAgentActivity } from '@/data/queries/use-agent-run';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
-import { useSessions } from '@/data/queries/use-sessions';
+import { useSessions, useUpdateSessionMetadata } from '@/data/queries/use-sessions';
 import {
 	useIsSiteBusy,
 	useIsSiteStarting,
@@ -49,6 +55,16 @@ import {
 	type SiteManagementAction,
 	type SiteManagementActionId,
 } from '@/hooks/use-site-management-actions';
+import {
+	archiveIcon,
+	chatIcon,
+	chevronRightIcon,
+	globeIcon,
+	newChatIcon,
+	plusIcon,
+	startSiteIcon,
+	stopSiteIcon,
+} from '@/lib/icons';
 import styles from './style.module.css';
 import type { AiSessionSummary, SiteDetails } from '@/data/core';
 
@@ -56,7 +72,13 @@ type SiteRow = {
 	site: SiteDetails;
 	latestSession?: AiSessionSummary;
 	sessionIds: string[];
+	// Non-archived, most recent first.
+	chats: AiSessionSummary[];
 };
+
+// Chats listed under the selected site, and in the Recent group.
+const SITE_CHATS_LIMIT = 5;
+const RECENT_CHATS_LIMIT = 8;
 
 type SiteRowActivity = SiteAgentActivity | 'new-message' | 'sync' | 'import';
 
@@ -203,6 +225,10 @@ function getTimestamp( session: AiSessionSummary | undefined ): number {
 	return session ? Date.parse( session.updatedAt ) || 0 : 0;
 }
 
+function byMostRecent( a: AiSessionSummary, b: AiSessionSummary ): number {
+	return getTimestamp( b ) - getTimestamp( a );
+}
+
 function createSiteRows(
 	sites: SiteDetails[] | undefined,
 	sessions: AiSessionSummary[] | undefined
@@ -211,6 +237,7 @@ function createSiteRows(
 		site,
 		sessionIds: [],
 		latestSession: undefined,
+		chats: [],
 	} ) );
 	const rowsBySiteId = new Map( rows.map( ( row ) => [ row.site.id, row ] ) );
 
@@ -221,12 +248,14 @@ function createSiteRows(
 			continue;
 		}
 		row.sessionIds.push( session.id );
-		if (
-			! session.archived &&
-			( ! row.latestSession || getTimestamp( session ) > getTimestamp( row.latestSession ) )
-		) {
-			row.latestSession = session;
+		if ( ! session.archived ) {
+			row.chats.push( session );
 		}
+	}
+
+	for ( const row of rows ) {
+		row.chats.sort( byMostRecent );
+		row.latestSession = row.chats[ 0 ];
 	}
 
 	return rows;
@@ -246,46 +275,94 @@ function sortSitesByManualOrder( sites: SiteDetails[], manualOrder: string[] ): 
 	);
 }
 
-function SiteOverviewButton( {
-	site,
-	isOverviewActive,
-	onBackToChat,
-	onSiteOpen,
+function ChatRow( {
+	session,
+	active,
+	nested = false,
+	onOpen,
 }: {
-	site: SiteDetails;
-	isOverviewActive: boolean;
-	onBackToChat: () => void;
-	onSiteOpen?: () => void;
+	session: AiSessionSummary;
+	active: boolean;
+	// Under its site the row indents to the site's name and drops its icon.
+	nested?: boolean;
+	onOpen?: () => void;
 } ) {
 	const navigate = useNavigate();
-	const connector = useConnector();
-
+	const activity = useSiteAgentActivity( [ session.id ] );
+	const updateSessionMetadata = useUpdateSessionMetadata();
 	return (
-		<IconButton
-			variant="minimal"
-			tone="neutral"
-			size="small"
-			icon={ settings }
-			label={ __( 'Site overview' ) }
-			aria-pressed={ isOverviewActive }
-			className={ styles.siteAction }
-			onClick={ ( event ) => {
-				event.stopPropagation();
-				// Going back to chat runs handleOpenSite, which already
-				// notifies onSiteOpen; only the overview navigation needs
-				// the explicit call.
-				if ( isOverviewActive ) {
-					onBackToChat();
-					return;
-				}
-				onSiteOpen?.();
-				void connector.trackEvent( TRACKS_EVENTS.PANEL_OPENED, { panel: 'overview' } );
-				void navigate( {
-					to: '/sites/$siteId/overview',
-					params: { siteId: site.id },
-				} );
-			} }
-		/>
+		<div
+			className={ clsx( styles.chatRow, nested && styles.chatNested, active && styles.chatActive ) }
+		>
+			<SidebarButton
+				className={ styles.chat }
+				aria-current={ active ? 'page' : undefined }
+				onClick={ () => {
+					onOpen?.();
+					void navigate( { to: '/sessions/$sessionId', params: { sessionId: session.id } } );
+				} }
+			>
+				{ nested ? null : <Icon icon={ chatIcon } className={ styles.rowIcon } /> }
+				<span className={ styles.chatTitle }>{ getSessionTitle( session ) }</span>
+				{ activity === 'working' ? (
+					<AgentWorkingIndicator className={ styles.chatActivity } label={ __( 'Working…' ) } />
+				) : null }
+				{ activity === 'pending-question' ? (
+					<span
+						className={ styles.chatQuestion }
+						role="status"
+						aria-label={ __( 'Studio needs an answer.' ) }
+					/>
+				) : null }
+			</SidebarButton>
+			<IconButton
+				variant="minimal"
+				tone="neutral"
+				size="small"
+				icon={ archiveIcon }
+				label={ __( 'Archive chat' ) }
+				className={ clsx( styles.rowAction, styles.chatArchive ) }
+				onClick={ async () => {
+					await updateSessionMetadata.mutateAsync( {
+						sessionId: session.id,
+						patch: { archived: true },
+					} );
+					// Leaving the archived chat lands on the site's next chat, or a new one.
+					if ( active ) {
+						void navigate( { to: '/' } );
+					}
+				} }
+			/>
+		</div>
+	);
+}
+
+function SidebarGroup( {
+	title,
+	action,
+	children,
+}: {
+	title: string;
+	action?: ReactNode;
+	children: ReactNode;
+} ) {
+	const [ expanded, setExpanded ] = useState( true );
+	return (
+		<div role="group" className={ styles.group } aria-label={ title }>
+			<div className={ styles.groupHeader }>
+				<button
+					type="button"
+					className={ styles.groupToggle }
+					aria-expanded={ expanded }
+					onClick={ () => setExpanded( ! expanded ) }
+				>
+					{ title }
+					<Icon icon={ chevronRightIcon } className={ styles.groupChevron } />
+				</button>
+				{ action }
+			</div>
+			{ expanded ? children : null }
+		</div>
 	);
 }
 
@@ -311,12 +388,7 @@ function SiteStatusButton( {
 		stopping: isStopping,
 		operation,
 	} );
-	const xdebug = Boolean( site.enableXdebug );
-	const tooltipLabel = xdebug
-		? sprintf( __( 'Site status: %s. Xdebug enabled' ), statusName )
-		: sprintf( __( 'Site status: %s' ), statusName );
-	const actionLabel = site.running ? __( 'Stop site' ) : __( 'Start site' );
-	const label = busy ? tooltipLabel : sprintf( __( '%1$s. %2$s' ), tooltipLabel, actionLabel );
+	const label = sprintf( site.running ? __( 'Stop %s' ) : __( 'Start %s' ), site.name );
 	const handleClick = ( event: MouseEvent< HTMLButtonElement > ) => {
 		event.stopPropagation();
 		if ( busy ) {
@@ -335,53 +407,19 @@ function SiteStatusButton( {
 				render={
 					<button
 						type="button"
-						className={ styles.siteStatus }
-						aria-label={ label }
+						className={ clsx( styles.rowAction, styles.siteStatus ) }
+						aria-label={ busy ? statusName : label }
 						aria-busy={ busy || undefined }
 						aria-disabled={ busy || undefined }
 						data-state={ status }
-						data-xdebug={ xdebug || undefined }
 						onClick={ handleClick }
 					>
-						{ xdebug ? (
-							<XdebugIcon
-								className={ clsx( styles.siteStatusGlyph, styles.siteStatusXdebugGlyph ) }
-							/>
-						) : (
-							<svg
-								className={ styles.siteStatusGlyph }
-								viewBox={ status === 'stopped' ? '0 0 10 10' : '0 0 8 8' }
-								aria-hidden="true"
-								focusable="false"
-							>
-								{ status === 'stopped' ? (
-									<path className={ styles.siteStatusPlayShape } d="M2.5 1 L9 5 L2.5 9 Z" />
-								) : (
-									<rect className={ styles.siteStatusShape } x="0" y="0" width="8" height="8" />
-								) }
-							</svg>
-						) }
-						{ ! busy ? (
-							site.running ? (
-								<span className={ styles.siteStatusActionGlyph } aria-hidden="true">
-									<span className={ styles.siteStatusPauseMark } />
-								</span>
-							) : (
-								<svg
-									className={ styles.siteStatusActionGlyph }
-									viewBox="0 0 10 10"
-									aria-hidden="true"
-									focusable="false"
-								>
-									<path d="M2.5 1 L9 5 L2.5 9 Z" fill="currentColor" />
-								</svg>
-							)
-						) : null }
+						{ busy ? <Spinner /> : <Icon icon={ site.running ? stopSiteIcon : startSiteIcon } /> }
 					</button>
 				}
 			/>
 			<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
-				{ tooltipLabel }
+				{ busy ? statusName : site.running ? __( 'Stop' ) : __( 'Start' ) }
 			</Tooltip.Popup>
 		</Tooltip.Root>
 	);
@@ -411,9 +449,12 @@ function SiteActionsMenu( {
 	const stopSite = useStopSite();
 	const busy = useIsSiteBusy( site );
 	const [ deleteOpen, setDeleteOpen ] = useState( false );
-	// Same source as the overview screen's Manage section, so the two can't drift
-	// on what's blocked or what's in flight. Only the labels differ here.
-	const manage = useSiteManagementActions( site, { onDelete: () => setDeleteOpen( true ) } );
+	const importInputRef = useRef< HTMLInputElement >( null );
+	const backupImport = useSiteBackupImport( site );
+	const manage = useSiteManagementActions( site, {
+		onDelete: () => setDeleteOpen( true ),
+		onImport: () => importInputRef.current?.click(),
+	} );
 	const manageById = Object.fromEntries(
 		manage.map( ( action ) => [ action.id, action ] )
 	) as Record< SiteManagementActionId, SiteManagementAction >;
@@ -424,8 +465,7 @@ function SiteActionsMenu( {
 		event.stopPropagation();
 	};
 
-	// Same entries as the session header's "Open in…" menu and the Overview's
-	// shortcuts, so labels, gating and Tracks events can't drift between them.
+	// Same entries as the session header's "Open in…" menu.
 	const destinations = useOpenInDestinations( site );
 
 	const handleDeleted = () => {
@@ -460,9 +500,8 @@ function SiteActionsMenu( {
 							onSiteOpen?.();
 							void connector.trackEvent( TRACKS_EVENTS.PANEL_OPENED, { panel: 'settings' } );
 							void navigate( {
-								to: '/sites/$siteId/overview',
+								to: '/sites/$siteId/settings',
 								params: { siteId: site.id },
-								search: { tab: 'general' },
 							} );
 						} }
 					>
@@ -489,6 +528,9 @@ function SiteActionsMenu( {
 						</Menu.Item>
 					) ) }
 					<Menu.Separator />
+					<Menu.Item disabled={ manageById.import.disabled } onClick={ manageById.import.run }>
+						{ manageById.import.loading ? __( 'Importing…' ) : __( 'Import backup' ) }
+					</Menu.Item>
 					<Menu.Item disabled={ manageById.export.disabled } onClick={ manageById.export.run }>
 						{ manageById.export.loading ? __( 'Exporting…' ) : __( 'Export entire site' ) }
 					</Menu.Item>
@@ -508,6 +550,25 @@ function SiteActionsMenu( {
 					</Menu.Item>
 				</Menu.ContextPopup>
 			</Menu.ContextMenuRoot>
+			<input
+				ref={ importInputRef }
+				type="file"
+				hidden
+				accept={ IMPORT_FILE_ACCEPT }
+				data-testid="import-backup-file"
+				onChange={ ( event ) => {
+					backupImport.selectFile( event.target.files?.[ 0 ] );
+					// Lets the same file be picked again after a cancel or a failure.
+					event.target.value = '';
+				} }
+			/>
+			<ImportSiteDialog
+				site={ site }
+				file={ backupImport.file }
+				open={ backupImport.isConfirming }
+				onCancel={ backupImport.cancel }
+				onConfirm={ () => void backupImport.confirm() }
+			/>
 			<DeleteSiteDialog
 				site={ site }
 				open={ deleteOpen }
@@ -525,6 +586,8 @@ function SiteSection( {
 	hasUnreadUpdate,
 	chatEnabled,
 	chatPromptsSignIn,
+	activeSessionId,
+	showChats,
 	onSiteOpen,
 }: {
 	row: SiteRow;
@@ -533,6 +596,9 @@ function SiteSection( {
 	hasUnreadUpdate: boolean;
 	chatEnabled: boolean;
 	chatPromptsSignIn: boolean;
+	activeSessionId?: string;
+	// Lists the site's chats under its row.
+	showChats: boolean;
 	onSiteOpen?: () => void;
 } ) {
 	const { site, latestSession } = row;
@@ -541,11 +607,12 @@ function SiteSection( {
 	const sectionRef = useRef< HTMLElement >( null );
 	const isActive = isChatActive || isContextActive;
 	const canOpenChatSurface = chatEnabled || chatPromptsSignIn;
-	// Offline users and users who switched Studio Code off use Overview as the
-	// site's home. Signed-out users still get the chat surface, where the value
+	// Offline users and users who switched Studio Code off use the site's own
+	// page as its home. Signed-out users still get the chat surface, where the value
 	// of logging in can be explained in context.
 	const isSelected = isChatActive || ( isContextActive && ! canOpenChatSurface );
 	const showContextOutline = isContextActive && canOpenChatSurface;
+	const chats = showChats && chatEnabled ? row.chats.slice( 0, SITE_CHATS_LIMIT ) : [];
 	// Keep the active site visible — e.g. when launch restores a site that
 	// sits below the sidebar's fold. `nearest` no-ops when already visible.
 	useEffect( () => {
@@ -580,7 +647,7 @@ function SiteSection( {
 		if ( ! canOpenChatSurface ) {
 			void connector.trackEvent( TRACKS_EVENTS.PANEL_OPENED, { panel: 'overview' } );
 			void navigate( {
-				to: '/sites/$siteId/overview',
+				to: '/sites/$siteId',
 				params: { siteId: site.id },
 			} );
 			return;
@@ -612,7 +679,8 @@ function SiteSection( {
 			className={ clsx(
 				styles.site,
 				isSelected && styles.siteActive,
-				showContextOutline && styles.siteContextActive
+				showContextOutline && styles.siteContextActive,
+				chats.length > 0 && styles.siteWithChats
 			) }
 		>
 			<SiteActionsMenu
@@ -622,6 +690,18 @@ function SiteSection( {
 				onSiteOpen={ onSiteOpen }
 				trigger={
 					<header className={ styles.siteHeader } onClick={ handleOpenSite }>
+						<span
+							className={ styles.siteIcon }
+							role={ site.enableXdebug ? 'img' : undefined }
+							aria-label={ site.enableXdebug ? __( 'Xdebug enabled' ) : undefined }
+						>
+							{ site.enableXdebug ? (
+								<XdebugIcon className={ styles.siteXdebug } />
+							) : (
+								<Icon icon={ globeIcon } />
+							) }
+							{ status === 'running' ? <span className={ styles.runningDot } /> : null }
+						</span>
 						<div className={ styles.siteText }>
 							<SiteAgentActivityIndicator activity={ displayActivity } />
 							<SidebarButton
@@ -635,8 +715,7 @@ function SiteSection( {
 								<span
 									className={ clsx(
 										styles.siteName,
-										status === 'stopped' && styles.siteNameStopped,
-										isStarting && styles.siteNameStarting
+										status === 'transitioning' && styles.siteNameStarting
 									) }
 								>
 									{ site.name }
@@ -644,12 +723,19 @@ function SiteSection( {
 							</SidebarButton>
 						</div>
 						<div className={ styles.siteActions } data-reorder-exclude>
-							{ canOpenChatSurface ? (
-								<SiteOverviewButton
-									site={ site }
-									isOverviewActive={ isContextActive }
-									onBackToChat={ handleOpenSite }
-									onSiteOpen={ onSiteOpen }
+							{ chatEnabled ? (
+								<IconButton
+									variant="minimal"
+									tone="neutral"
+									size="small"
+									icon={ newChatIcon }
+									label={ sprintf( __( 'New chat for %s' ), site.name ) }
+									className={ styles.rowAction }
+									onClick={ ( event ) => {
+										event.stopPropagation();
+										onSiteOpen?.();
+										void navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );
+									} }
 								/>
 							) : null }
 							<SiteStatusButton site={ site } isStarting={ isStarting } isStopping={ isStopping } />
@@ -657,6 +743,19 @@ function SiteSection( {
 					</header>
 				}
 			/>
+			{ chats.length > 0 ? (
+				<div className={ styles.chats }>
+					{ chats.map( ( session ) => (
+						<ChatRow
+							key={ session.id }
+							session={ session }
+							active={ session.id === activeSessionId }
+							nested
+							onOpen={ onSiteOpen }
+						/>
+					) ) }
+				</div>
+			) : null }
 		</section>
 	);
 }
@@ -675,12 +774,16 @@ export function SiteList( {
 	className,
 	onSiteOpen,
 	reorderable = true,
+	sections = false,
 }: {
 	className?: string;
 	onSiteOpen?: () => void;
 	/** The collapsed-sidebar switcher renders a read-only order. */
 	reorderable?: boolean;
+	/** The sidebar groups sites, with the selected site's chats, and recent chats. */
+	sections?: boolean;
 } ) {
+	const navigate = useNavigate();
 	const { data: sites, isLoading: sitesLoading } = useSites();
 	const { data: sessions, isLoading: sessionsLoading } = useSessions();
 	const { chatEnabled, chatPromptsSignIn } = useAgenticFeatures();
@@ -710,8 +813,11 @@ export function SiteList( {
 		return activeSiteId && pathname === `/sites/${ activeSiteId }/new` ? activeSiteId : undefined;
 	}, [ activeSessionId, activeSiteId, pathname, rows ] );
 	// Site ids are UUIDs, so no URL decoding is needed to compare the path.
+	const activeSettingsSiteKey =
+		activeSiteId && pathname === `/sites/${ activeSiteId }/settings` ? activeSiteId : undefined;
 	const activeContextSiteKey =
-		activeSiteId && pathname === `/sites/${ activeSiteId }/overview` ? activeSiteId : undefined;
+		activeSettingsSiteKey ??
+		( activeSiteId && pathname === `/sites/${ activeSiteId }` ? activeSiteId : undefined );
 	useEffect( () => {
 		if ( sitesLoading || sessionsLoading || rows.length === 0 ) {
 			return;
@@ -778,6 +884,10 @@ export function SiteList( {
 			hasUnreadUpdate={ unreadSiteIds.has( row.site.id ) }
 			chatEnabled={ chatEnabled }
 			chatPromptsSignIn={ chatPromptsSignIn }
+			activeSessionId={ activeSessionId }
+			showChats={
+				sections && ( row.site.id === activeChatSiteKey || row.site.id === activeContextSiteKey )
+			}
 			onSiteOpen={ onSiteOpen }
 		/>
 	);
@@ -811,5 +921,49 @@ export function SiteList( {
 		);
 	}
 
-	return <div className={ clsx( styles.root, className ) }>{ listContent }</div>;
+	if ( ! sections ) {
+		return <div className={ clsx( styles.root, className ) }>{ listContent }</div>;
+	}
+
+	const recentChats = chatEnabled
+		? ( sessions ?? [] )
+				.filter( ( session ) => ! session.archived )
+				.sort( byMostRecent )
+				.slice( 0, RECENT_CHATS_LIMIT )
+		: [];
+
+	return (
+		<div className={ clsx( styles.root, className ) }>
+			<SidebarGroup
+				title={ __( 'Sites' ) }
+				action={
+					<IconButton
+						variant="minimal"
+						tone="neutral"
+						size="small"
+						icon={ plusIcon }
+						label={ __( 'Add site' ) }
+						className={ styles.rowAction }
+						onClick={ () => void navigate( { to: '/onboarding' } ) }
+					/>
+				}
+			>
+				{ listContent }
+			</SidebarGroup>
+			{ recentChats.length > 0 ? (
+				<SidebarGroup title={ __( 'Recent' ) }>
+					<div className={ styles.chats }>
+						{ recentChats.map( ( session ) => (
+							<ChatRow
+								key={ session.id }
+								session={ session }
+								active={ session.id === activeSessionId }
+								onOpen={ onSiteOpen }
+							/>
+						) ) }
+					</div>
+				</SidebarGroup>
+			) : null }
+		</div>
+	);
 }

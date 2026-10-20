@@ -45,6 +45,10 @@ vi.mock( '@tanstack/react-query', async ( importOriginal ) => {
 	};
 } );
 
+vi.mock( '@/components/open-in-menu/use-open-in-destinations', () => ( {
+	useOpenInDestinations: () => [],
+} ) );
+
 vi.mock( '@/data/core', () => ( {
 	useConnector: () => connector,
 } ) );

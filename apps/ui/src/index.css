@@ -1,3 +1,5 @@
+@import '@fontsource-variable/inter';
+
 /* Vazirmatn (SIL OFL, see ./fonts/OFL.txt) — the macOS system font lacks
    Central Kurdish glyphs (e.g. ێ ۆ ڵ). Applied to the ckb locale below. */
 @font-face {
@@ -9,8 +11,9 @@
 }
 
 :root {
-	/* Default is 2px; 4px reads a bit softer. */
-	--wpds-border-radius-sm: 4px;
+	--wpds-typography-font-family-body: 'Inter Variable', -apple-system, system-ui, 'Segoe UI',
+		'Roboto', 'Oxygen-Sans', 'Ubuntu', 'Cantarell', 'Helvetica Neue', sans-serif;
+	--wpds-typography-font-family-heading: var( --wpds-typography-font-family-body );
 
 	/* Overlay stacking — portals mount into `document.body` and must beat
 	   app-chrome stacking contexts (sidebar header z-index: 1, floating
@@ -25,6 +28,25 @@
 	   the inspector draws on the page all share it, so the feature reads as
 	   one thing rather than borrowing the brand blue. The inspector's
 	   injected stylesheet repeats the violet literally — it can't see these. */
+	/* The workspace's top band, its controls, and the short column separators
+	   drawn inside it. */
+	--studio-band-height: 54px;
+	--studio-control-size: 36px;
+	--studio-band-separator-height: 16px;
+	/* Hover and selection on the shell's rows and toggles: a faint wash of the
+	   text color, so it reads the same over light and dark surfaces. */
+	--studio-hover-background: color-mix( in srgb, var( --wpds-color-foreground-content-neutral ) 5%, transparent );
+	/* Where the band's first control starts on macOS, past the traffic lights. */
+	--studio-traffic-light-space: 80px;
+
+	/* Shell motion: layout moves (the sidebar, the chat/preview split, header
+	   contents making room) and a quicker ease-out for controls appearing.
+	   The reduced-motion clamp below covers both. */
+	--studio-motion-layout-duration: 240ms;
+	--studio-motion-layout-easing: cubic-bezier(0.645, 0.045, 0.355, 1);
+	--studio-motion-feedback-duration: 120ms;
+	--studio-motion-enter-easing: cubic-bezier(0.165, 0.84, 0.44, 1);
+
 	--studio-annotate-color: #7c3aed;
 	--studio-annotate-color-active: #6d28d9;
 	--studio-annotate-on-color: #fff;
@@ -68,6 +90,34 @@ body {
 	scrollbar-color: gray transparent;
 }
 
+/* A column edge: a short separator inside the top band and a full divider
+   below it. Set `--studio-column-edge` to its inline offset. */
+.studio-column-edge::before,
+.studio-column-edge::after {
+	content: '';
+	position: absolute;
+	inset-inline-start: var( --studio-column-edge, 0 );
+	width: var( --wpds-border-width-xs );
+	background-color: var( --wpds-color-stroke-surface-neutral );
+	pointer-events: none;
+}
+
+.studio-column-edge::before {
+	top: calc( ( var( --studio-band-height ) - var( --studio-band-separator-height ) ) / 2 );
+	height: var( --studio-band-separator-height );
+}
+
+.studio-column-edge::after {
+	top: var( --studio-band-height );
+	bottom: 0;
+}
+
+/* A 36px square control for the top band and the sidebar footer. The
+   attribute selector outranks @wordpress/ui's size classes. */
+.studio-control[class] {
+	--wp-ui-button-height: var( --studio-control-size );
+}
+
 /* Unlike `scrollbar-color`, `scrollbar-width` isn't inherited, so inner scroll
    containers need it set directly. */
 * {
@@ -85,11 +135,11 @@ body {
 
 /* @wordpress/components controls hardcode their own font-family at class
    specificity, so the token override alone doesn't reach them. */
-body:lang( ckb ) input,
-body:lang( ckb ) textarea,
-body:lang( ckb ) select,
-body:lang( ckb ) button,
-body:lang( ckb ) [class*='components-'] {
+body input,
+body textarea,
+body select,
+body button,
+body [class*='components-'] {
 	font-family: var( --wpds-typography-font-family-body );
 }
 

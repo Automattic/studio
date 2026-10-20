@@ -286,7 +286,7 @@ export function OnboardingConnectPage() {
 				},
 				openLocalSite: ( localSiteId ) =>
 					navigate( {
-						to: '/sites/$siteId/overview',
+						to: '/sites/$siteId',
 						params: { siteId: localSiteId },
 						search: { sync: 'pull' },
 					} ),
@@ -312,7 +312,7 @@ export function OnboardingConnectPage() {
 					__( 'Setup did not finish. The local site and WordPress.com connection were kept.' )
 				);
 				await navigate( {
-					to: '/sites/$siteId/overview',
+					to: '/sites/$siteId',
 					params: { siteId: error.localSiteId },
 				} );
 			} else {

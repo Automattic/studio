@@ -4,7 +4,6 @@ import { BACKUP_FIXTURES_DIR } from './constants';
 import { E2ESession, launchWithSite } from './e2e-helpers';
 import AddSite from './page-objects/add-site';
 import Sidebar from './page-objects/sidebar';
-import SiteOverview from './page-objects/site-overview';
 import { getUrlWithAutoLogin } from './utils';
 
 /**
@@ -111,9 +110,10 @@ test.describe( 'Import backup formats', () => {
 		// Import into the site while it's stopped (afterEach stops everything): a
 		// running site spawns WP-CLI processes (theme details, site icon) that race
 		// the database import. The import starts the server itself on completion.
-		const overview = new SiteOverview( session.mainWindow );
-		await overview.open( existingSiteName );
-		await overview.importBackup( path.join( BACKUP_FIXTURES_DIR, 'local-backup.zip' ) );
+		await new Sidebar( session.mainWindow ).importBackup(
+			existingSiteName,
+			path.join( BACKUP_FIXTURES_DIR, 'local-backup.zip' )
+		);
 		await waitForImport();
 
 		await assertImportedSiteContent( page, existingSiteName );

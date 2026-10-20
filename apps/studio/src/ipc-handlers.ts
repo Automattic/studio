@@ -103,19 +103,10 @@ import {
 	readSiteDesign,
 	type SiteDesign,
 } from '@studio/common/sites/site-design';
-import {
-	readSiteIcon,
-	readThemeDetails,
-	type ThemeDetails,
-} from '@studio/common/sites/site-identity';
+import { readSiteIcon, readThemeDetails } from '@studio/common/sites/site-identity';
 import { readSite, readSitePath, readSitePaths } from '@studio/common/sites/site-path';
-import { measureSiteStorage, type SiteStorageUsage } from '@studio/common/sites/storage-usage';
 import { __ } from '@wordpress/i18n';
-import {
-	DEFAULT_TERMINAL,
-	MACOS_TOOLBAR_TRAFFIC_LIGHT_POSITION,
-	MACOS_TRAFFIC_LIGHT_POSITION,
-} from 'src/constants';
+import { DEFAULT_TERMINAL } from 'src/constants';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
 import { setPendingAuthContext } from 'src/lib/auth-tracks-context';
 import { bumpStat, getBlueprintMetric, StatsGroup } from 'src/lib/bump-stats';
@@ -150,7 +141,6 @@ import {
 	getMainWindow,
 	getTitleBarOverlayOptions,
 	setAgenticControlsSurface,
-	type TrafficLightsPosition,
 	type WindowControlsSurface,
 } from 'src/main-window';
 import { popupMenu, setupMenu } from 'src/menu';
@@ -917,41 +907,6 @@ export async function getWpVersion( _event: IpcMainInvokeEvent, id: string ) {
 	return sitePath ? getWordPressVersion( sitePath ) : '-';
 }
 
-// In-flight storage measurements, keyed by the renderer's request id. Walking a
-// site takes long enough that the renderer is often gone before it finishes, and
-// `ipcRenderer.invoke` has no cancellation of its own, so the renderer cancels
-// through `cancelSiteStorageUsage` instead. Keyed per request rather than per
-// site so one window abandoning a measurement can't stop another's.
-const siteStorageControllers = new Map< string, AbortController >();
-
-export async function getSiteStorageUsage(
-	_event: IpcMainInvokeEvent,
-	id: string,
-	requestId?: string
-): Promise< SiteStorageUsage | null > {
-	const sitePath = await readSitePath( id );
-	if ( ! sitePath ) {
-		return null;
-	}
-	if ( ! requestId ) {
-		return measureSiteStorage( sitePath );
-	}
-	const controller = new AbortController();
-	siteStorageControllers.set( requestId, controller );
-	try {
-		return await measureSiteStorage( sitePath, { signal: controller.signal } );
-	} finally {
-		siteStorageControllers.delete( requestId );
-	}
-}
-
-export async function cancelSiteStorageUsage(
-	_event: IpcMainInvokeEvent,
-	requestId: string
-): Promise< void > {
-	siteStorageControllers.get( requestId )?.abort();
-}
-
 const activeThemeSlug = ( sitePath: string ) => async () =>
 	( await readThemeDetails( executeCliCommand, sitePath ).catch( () => undefined ) )?.slug;
 
@@ -1067,13 +1022,6 @@ export async function readLocalMediaFile(
 			buffer.byteOffset + buffer.byteLength
 		) as ArrayBuffer,
 	};
-}
-
-export async function loadThemeDetails(
-	_event: IpcMainInvokeEvent,
-	id: string
-): Promise< ThemeDetails > {
-	return readThemeDetails( executeCliCommand, await requireSitePath( id ) );
 }
 
 export async function getSiteIcon(
@@ -1458,19 +1406,6 @@ export async function setWindowControlsSurface(
 	parentWindow.setTitleBarOverlay( getTitleBarOverlayOptions() );
 }
 
-export async function setTrafficLightsPosition(
-	event: IpcMainInvokeEvent,
-	position: TrafficLightsPosition
-) {
-	const parentWindow = BrowserWindow.fromWebContents( event.sender );
-	if ( ! parentWindow || process.platform !== 'darwin' ) {
-		return;
-	}
-	parentWindow.setWindowButtonPosition(
-		position === 'toolbar' ? MACOS_TOOLBAR_TRAFFIC_LIGHT_POSITION : MACOS_TRAFFIC_LIGHT_POSITION
-	);
-}
-
 export async function setTitleBarBackdropEffect( event: IpcMainInvokeEvent, enabled: boolean ) {
 	void enabled;
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
@@ -1505,61 +1440,6 @@ function getOwnedWebviewContents( event: IpcMainInvokeEvent, webContentsId: numb
 	}
 
 	return target;
-}
-
-function attachDebuggerIfNeeded( target: WebContents ): boolean {
-	if ( target.debugger.isAttached() ) {
-		return false;
-	}
-
-	target.debugger.attach( '1.3' );
-	return true;
-}
-
-async function sendDebuggerCommand< T >(
-	target: WebContents,
-	method: string,
-	params?: Record< string, unknown >
-): Promise< T > {
-	return ( await target.debugger.sendCommand( method, params ) ) as T;
-}
-
-// Simulates a viewport for the preview webview via the CDP device-metrics
-// override that DevTools device mode is built on: the guest lays out at
-// `width`×`height` CSS px and Chromium scales the rendered result by `scale`
-// (down to fit the webview, or up for a zoomed preview), remapping input
-// coordinates to match. `null` returns the guest to the webview's natural
-// size.
-export async function setWebviewViewport(
-	event: IpcMainInvokeEvent,
-	webContentsId: number,
-	viewport: { width: number; height: number; scale: number; mobile?: boolean } | null
-): Promise< void > {
-	const target = getOwnedWebviewContents( event, webContentsId );
-	attachDebuggerIfNeeded( target );
-	if ( ! viewport ) {
-		await sendDebuggerCommand( target, 'Emulation.clearDeviceMetricsOverride' );
-		return;
-	}
-	const { width, height, scale, mobile } = viewport;
-	const isValidDimension = ( value: number ) =>
-		Number.isInteger( value ) && value > 0 && value <= 10000;
-	// Capped at Chromium's own zoom ceiling.
-	const isValidScale =
-		typeof scale === 'number' && Number.isFinite( scale ) && scale > 0 && scale <= 5;
-	if ( ! isValidDimension( width ) || ! isValidDimension( height ) || ! isValidScale ) {
-		throw new Error( 'Unsupported webview viewport.' );
-	}
-	await sendDebuggerCommand( target, 'Emulation.setDeviceMetricsOverride', {
-		width,
-		height,
-		// 0 keeps the display's real device pixel ratio.
-		deviceScaleFactor: 0,
-		// Mobile presets emulate a phone (meta-viewport handling and mobile UA
-		// hints), not just a narrow desktop window.
-		mobile: mobile === true,
-		scale,
-	} );
 }
 
 export async function clearWebviewCache(

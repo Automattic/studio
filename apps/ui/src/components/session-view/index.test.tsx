@@ -29,12 +29,6 @@ vi.mock( '@/data/queries/use-sites', () => ( {
 	useSites: () => sitesState,
 } ) );
 
-vi.mock( '@/components/open-in-menu', () => ( {
-	OpenInMenu: ( { site }: { site: { name: string } } ) => (
-		<div data-testid="open-in-menu">{ site.name }</div>
-	),
-} ) );
-
 vi.mock( '@/components/site-dropdown', () => ( {
 	SiteDropdown: ( { site }: { site: { name: string } } ) => <div>{ site.name }</div>,
 } ) );
@@ -79,6 +73,7 @@ vi.mock( '@/hooks/use-session-commands', () => ( { useSessionCommands: vi.fn() }
 vi.mock( '@/hooks/use-session-ui', () => ( {
 	SessionUIProvider: ( { children }: { children: React.ReactNode } ) => children,
 	useSessionPreviewAnnotations: vi.fn(),
+	useOptionalSessionPreviewUI: () => null,
 	useSessionPreviewUI: () => ( {
 		pathsBySiteId: { 'site-1': '/wp-admin/' },
 	} ),
@@ -104,10 +99,7 @@ vi.mock( './conversation', () => ( {
 } ) );
 
 vi.mock( './session-chat-actions', () => ( {
-	getSiteSessionHistory: () => [],
-	SessionChatActions: ( { showNewChat = true }: { showNewChat?: boolean } ) => (
-		<div data-testid="chat-actions" data-show-new-chat={ String( showNewChat ) } />
-	),
+	useNewChatShortcut: () => undefined,
 } ) );
 
 vi.mock( './suggested-prompts', () => ( {
@@ -199,29 +191,7 @@ describe( 'SessionView', () => {
 		} );
 	} );
 
-	it( 'shows the Open in control at the top-right of the chat header', () => {
-		sitesState.data = [
-			{ id: 'site-1', name: 'Example Site', path: '/Users/example/Studio/example-site' },
-		];
-		useSessionMock.mockReturnValue( {
-			data: {
-				summary: {
-					id: 'session-1',
-					ownerSiteId: 'site-1',
-					ownerSiteName: 'Example Site',
-				},
-				entries: [],
-			} as unknown as LoadedAiSession,
-			isLoading: false,
-			error: null,
-		} );
-
-		render( <SessionView sessionId="session-1" /> );
-
-		expect( screen.getByTestId( 'open-in-menu' ) ).toHaveTextContent( 'Example Site' );
-	} );
-
-	it( 'moves the Open in control clear of the Windows/Linux window controls', () => {
+	it( 'moves the chat header clear of the Windows/Linux window controls', () => {
 		sitesState.data = [
 			{ id: 'site-1', name: 'Example Site', path: '/Users/example/Studio/example-site' },
 		];
@@ -239,7 +209,7 @@ describe( 'SessionView', () => {
 				<SessionView sessionId="session-1" />
 			</WindowControlsCornerContext.Provider>
 		);
-		const header = screen.getByTestId( 'open-in-menu' ).parentElement?.parentElement;
+		const header = screen.getByText( 'Example Site' ).parentElement;
 		expect( header?.style.paddingRight ).toBe( 'calc(138px + var(--wpds-dimension-padding-sm))' );
 
 		rerender(
@@ -463,7 +433,7 @@ describe( 'SessionView', () => {
 
 		const { container } = render( <SessionView sessionId="session-1" /> );
 
-		expect( container.querySelectorAll( '[class*="fadeToSurface"]' ) ).toHaveLength( 2 );
+		expect( container.querySelectorAll( '[class*="fadeToSurface"]' ) ).toHaveLength( 1 );
 	} );
 
 	it( 'ignores an unverified email when a payment method exists', () => {
@@ -540,25 +510,6 @@ describe( 'SessionView', () => {
 		expect( screen.queryByTestId( 'out-of-credits' ) ).not.toBeInTheDocument();
 	} );
 
-	it( 'hides the new chat action while the credits are spent', () => {
-		sitesState.data = [ OWNER_SITE ];
-		useSessionMock.mockReturnValue( {
-			data: makeOwnedSession(),
-			isLoading: false,
-			error: null,
-		} );
-		useStudioAssistantQuotaMock.mockReturnValue( {
-			data: makeSpentQuota(),
-			isLoading: false,
-			isFetching: false,
-			refetch: vi.fn(),
-		} );
-
-		render( <SessionView sessionId="session-1" /> );
-
-		expect( screen.getByTestId( 'chat-actions' ) ).toHaveAttribute( 'data-show-new-chat', 'false' );
-	} );
-
 	it( 'hides the suggested prompts while the credits are spent', () => {
 		sitesState.data = [ OWNER_SITE ];
 		useSessionMock.mockReturnValue( {
@@ -578,7 +529,7 @@ describe( 'SessionView', () => {
 		expect( screen.queryByTestId( 'suggested-prompts' ) ).not.toBeInTheDocument();
 	} );
 
-	it( 'keeps the new chat action and suggested prompts while credits remain', () => {
+	it( 'keeps the suggested prompts while credits remain', () => {
 		sitesState.data = [ OWNER_SITE ];
 		useSessionMock.mockReturnValue( {
 			data: makeOwnedSession(),
@@ -588,7 +539,6 @@ describe( 'SessionView', () => {
 
 		render( <SessionView sessionId="session-1" /> );
 
-		expect( screen.getByTestId( 'chat-actions' ) ).toHaveAttribute( 'data-show-new-chat', 'true' );
 		expect( screen.getByTestId( 'suggested-prompts' ) ).toBeInTheDocument();
 	} );
 

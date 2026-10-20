@@ -1,41 +1,45 @@
 import { __ } from '@wordpress/i18n';
-import { Button, Icon, Tooltip } from '@wordpress/ui';
+import { IconButton } from '@wordpress/ui';
+import { clsx } from 'clsx';
+import { usePreviewBeside } from '@/components/preview-split-frame';
 import { useOptionalSessionPreviewUI } from '@/hooks/use-session-ui';
-import { drawerIcon } from '@/lib/icons';
+import { closeIcon, drawerIcon } from '@/lib/icons';
 import styles from './style.module.css';
 
 /**
- * Bottom-toolbar button that shows/hides the site preview panel. Renders
- * nothing outside the dashboard layout (no SessionUIProvider hosting a
- * preview panel).
+ * The header control for the chat/preview split: hides the chat while the
+ * preview sits beside it, or brings back a preview that was closed (a window
+ * too narrow for both closes it). Renders nothing outside the dashboard layout.
  */
-export function PreviewToggleButton() {
+export function PreviewToggleButton( { canHideChat = false }: { canHideChat?: boolean } ) {
 	const preview = useOptionalSessionPreviewUI();
+	const previewBeside = usePreviewBeside();
 
 	if ( ! preview ) {
 		return null;
 	}
-
-	const label = preview.open ? __( 'Hide preview' ) : __( 'Show preview' );
-
-	return (
-		<Tooltip.Root>
-			<Tooltip.Trigger
-				render={
-					<Button
-						type="button"
-						variant="minimal"
-						tone="neutral"
-						size="small"
-						className={ styles.button }
-						aria-label={ label }
-						onClick={ preview.toggle }
-					/>
-				}
-			>
-				<Icon icon={ drawerIcon } size={ 26 } className={ styles.icon } />
-			</Tooltip.Trigger>
-			<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>{ label }</Tooltip.Popup>
-		</Tooltip.Root>
+	if ( previewBeside ) {
+		return canHideChat ? (
+			<IconButton
+				variant="minimal"
+				tone="neutral"
+				size="small"
+				className="studio-control"
+				icon={ closeIcon }
+				label={ __( 'Hide chat' ) }
+				onClick={ () => preview.setChatHidden( true ) }
+			/>
+		) : null;
+	}
+	return preview.open ? null : (
+		<IconButton
+			variant="minimal"
+			tone="neutral"
+			size="small"
+			className={ clsx( styles.showPreview, 'studio-control' ) }
+			icon={ drawerIcon }
+			label={ __( 'Show preview' ) }
+			onClick={ () => preview.setOpen( true ) }
+		/>
 	);
 }

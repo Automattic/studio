@@ -8,7 +8,6 @@
 
 import fs from 'node:fs';
 import http from 'node:http';
-import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import { writeStudioMuPlugins } from '@studio/common/lib/mu-plugins';
@@ -43,6 +42,7 @@ import {
 	installWordPress,
 	writeSiteUrlPrependFile,
 } from './lib/native-php/site-setup';
+import { getAvailablePorts } from './lib/native-php/worker-ports';
 import { SymlinkWatcher, collectSymlinkAllowlistEntries } from './lib/symlinks';
 import type { ChildProcess } from 'node:child_process';
 
@@ -171,23 +171,6 @@ function pickPhpWorker( req: http.IncomingMessage ): { index: number; port: numb
 
 	const bestIndex = phpWorkerRequestTracker.getFirstFreeWorker();
 	return { index: bestIndex, port: phpWorkerPorts[ bestIndex ] };
-}
-
-async function getAvailablePort(): Promise< number > {
-	return await new Promise< number >( ( resolve, reject ) => {
-		const server = net.createServer();
-		server.unref();
-		server.once( 'error', reject );
-		server.listen( 0, '127.0.0.1', () => {
-			const address = server.address();
-			if ( ! address || typeof address === 'string' ) {
-				server.close( () => reject( new Error( 'Could not allocate a PHP worker port' ) ) );
-				return;
-			}
-			const port = address.port;
-			server.close( () => resolve( port ) );
-		} );
-	} );
 }
 
 async function waitForServerReady( url: string, signal?: AbortSignal ): Promise< void > {
@@ -577,10 +560,7 @@ async function doStartServer(
 		const phpMyAdminWpEnvPath = await writeNativePhpMyAdminWpEnv( config );
 		const siteUrl = config.absoluteUrl || `http://localhost:${ config.port }`;
 		const autoPrependFile = writeSiteUrlPrependFile( siteUrl, config.autoPrependFile );
-		const workerPorts: number[] = [];
-		for ( let index = 0; index < NATIVE_PHP_WORKER_POOL_SIZE; index++ ) {
-			workerPorts.push( await getAvailablePort() );
-		}
+		const workerPorts = await getAvailablePorts( NATIVE_PHP_WORKER_POOL_SIZE );
 
 		phpWorkerPorts = workerPorts;
 		phpWorkerRequestTracker = new PhpWorkerRequestTracker( workerPorts.length );

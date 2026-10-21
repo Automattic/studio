@@ -11,6 +11,7 @@ import {
 	closeSmall,
 	Icon,
 	keyboard,
+	page,
 	plugins,
 	search as searchIcon,
 	settings as slidersIcon,
@@ -23,6 +24,7 @@ import {
 	AiPanel,
 	AppearanceSettings,
 	GeneralSettings,
+	InstructionsSettings,
 	KeyboardPanel,
 	McpPanel,
 	SkillsPanel,
@@ -34,12 +36,23 @@ import { useSites } from '@/data/queries/use-sites';
 import { chatIcon, settingsIcon } from '@/lib/icons';
 import { readLastVisited } from '@/lib/last-visited';
 import { SettingsDialogContext } from './context';
+import { SiteAgentFiles } from './site-agent-files';
 import styles from './style.module.css';
 import type { SiteSettingsSectionId } from './context';
 import type { ReactElement } from 'react';
 
-const STUDIO_SECTIONS = [ 'general', 'appearance', 'ai', 'mcp', 'usage', 'skills', 'keyboard' ];
-const SITE_SECTIONS = [ 'site', 'debugging', 'php' ];
+const STUDIO_SECTIONS = [
+	'general',
+	'appearance',
+	'ai',
+	'mcp',
+	'usage',
+	'skills',
+	'instructions',
+	'keyboard',
+];
+const SITE_SECTIONS = [ 'site', 'debugging', 'php', 'site-skills', 'site-instructions' ];
+const SITE_FORM_SECTIONS = [ 'site', 'debugging', 'php' ];
 
 export type SettingsSectionId =
 	| 'general'
@@ -51,7 +64,10 @@ export type SettingsSectionId =
 	| 'keyboard'
 	| 'site'
 	| 'php'
-	| 'debugging';
+	| 'debugging'
+	| 'instructions'
+	| 'site-skills'
+	| 'site-instructions';
 
 export function isSettingsSection( value: unknown ): value is SettingsSectionId {
 	return typeof value === 'string' && [ ...STUDIO_SECTIONS, ...SITE_SECTIONS ].includes( value );
@@ -97,7 +113,13 @@ function getSections( scope: 'studio' | 'site' ): Section[] {
 				},
 				{ id: 'mcp', label: __( 'MCP' ), icon: plugins, settings: [] },
 				{ id: 'usage', label: __( 'Usage' ), icon: chartBar, settings: [ __( 'AI credits' ) ] },
-				{ id: 'skills', label: __( 'Skills' ), icon: tool, settings: [] },
+				{ id: 'skills', label: __( 'Skills' ), icon: tool, settings: [ __( 'WordPress skills' ) ] },
+				{
+					id: 'instructions',
+					label: __( 'Instructions' ),
+					icon: page,
+					settings: [ __( 'Agent instructions' ) ],
+				},
 				{ id: 'keyboard', label: __( 'Keyboard' ), icon: keyboard, settings: [] },
 		  ]
 		: [
@@ -133,10 +155,28 @@ function getSections( scope: 'studio' | 'site' ): Section[] {
 					icon: code,
 					settings: [ __( 'PHP version' ), __( 'File access' ) ],
 				},
+				{
+					id: 'site-skills',
+					label: __( 'Skills' ),
+					icon: tool,
+					settings: [ __( 'Skills on this site' ) ],
+				},
+				{
+					id: 'site-instructions',
+					label: __( 'Instructions' ),
+					icon: page,
+					settings: [ __( 'Instructions on this site' ) ],
+				},
 		  ];
 }
 
-function StudioSection( { id }: { id: SettingsSectionId } ) {
+function StudioSection( {
+	id,
+	onManageSite,
+}: {
+	id: SettingsSectionId;
+	onManageSite?: () => void;
+} ) {
 	switch ( id ) {
 		case 'appearance':
 			return <AppearanceSettings />;
@@ -148,6 +188,8 @@ function StudioSection( { id }: { id: SettingsSectionId } ) {
 			return <UsagePanel />;
 		case 'skills':
 			return <SkillsPanel />;
+		case 'instructions':
+			return <InstructionsSettings onManageSite={ onManageSite } />;
 		case 'keyboard':
 			return <KeyboardPanel />;
 		default:
@@ -189,9 +231,14 @@ export function SettingsDialog() {
 	const site = useCurrentSiteId( settingsSite );
 	const scope = SITE_SECTIONS.includes( shown ) && site ? 'site' : 'studio';
 	const section = scope === 'site' || ! SITE_SECTIONS.includes( shown ) ? shown : 'general';
-	const [ siteSection, setSiteSection ] = useState< SiteSettingsSectionId >( 'site' );
+	const [ siteSection, setSiteSection ] = useState< SettingsSectionId >( 'site' );
 	if ( scope === 'site' && section !== siteSection ) {
-		setSiteSection( section as SiteSettingsSectionId );
+		setSiteSection( section );
+	}
+	// The form stays on its last section while a skills or instructions section shows.
+	const [ formSection, setFormSection ] = useState< SiteSettingsSectionId >( 'site' );
+	if ( SITE_FORM_SECTIONS.includes( siteSection ) && siteSection !== formSection ) {
+		setFormSection( siteSection as SiteSettingsSectionId );
 	}
 	const [ history, setHistory ] = useState< SettingsSectionId[] >( [] );
 	const [ query, setQuery ] = useState( '' );
@@ -377,16 +424,39 @@ export function SettingsDialog() {
 					</div>
 					<div ref={ content } className={ styles.content }>
 						<SettingsDialogContext.Provider value={ { actions, setDirty } }>
-							{ scope === 'studio' ? <StudioSection id={ section } /> : null }
+							{ scope === 'studio' ? (
+								<StudioSection
+									id={ section }
+									onManageSite={ site ? () => go( 'site-instructions' ) : undefined }
+								/>
+							) : null }
 							{ site ? (
-								<div className={ clsx( scope !== 'site' && styles.hidden ) }>
-									<SiteSettingsForm
-										key={ site.id }
-										site={ site }
-										section={ siteSection }
-										active={ scope === 'site' }
-									/>
-								</div>
+								<>
+									{ scope === 'site' &&
+									( section === 'site-skills' || section === 'site-instructions' ) ? (
+										<SiteAgentFiles
+											key={ `${ site.id }-${ section }` }
+											siteId={ site.id }
+											kind={ section === 'site-skills' ? 'skills' : 'instructions' }
+											onManageAll={ () =>
+												go( section === 'site-skills' ? 'skills' : 'instructions' )
+											}
+										/>
+									) : null }
+									<div
+										className={ clsx(
+											( scope !== 'site' || ! SITE_FORM_SECTIONS.includes( section ) ) &&
+												styles.hidden
+										) }
+									>
+										<SiteSettingsForm
+											key={ site.id }
+											site={ site }
+											section={ formSection }
+											active={ scope === 'site' && SITE_FORM_SECTIONS.includes( section ) }
+										/>
+									</div>
+								</>
 							) : null }
 						</SettingsDialogContext.Provider>
 					</div>

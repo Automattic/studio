@@ -2,6 +2,7 @@ export { ConnectorProvider, useConnector } from './connector-context';
 export { queryClient, persistPromise } from './query-client';
 export type {
 	AiModelId,
+	AiSessionMetadata,
 	AiSessionSummary,
 	AppUpdateStatus,
 	AuthUser,
@@ -18,8 +19,6 @@ export type {
 	SessionEntry,
 	SiteDesign,
 	SiteDetails,
-	ThemeDetails,
-	SiteStorageUsage,
 	SkillStatus,
 	Snapshot,
 	SnapshotUsage,

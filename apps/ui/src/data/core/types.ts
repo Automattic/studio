@@ -3,7 +3,11 @@ import type { StudioChatFileAttachment } from '@studio/common/ai/chat-files';
 import type { StudioChatImage } from '@studio/common/ai/chat-images';
 import type { AiModelId } from '@studio/common/ai/models';
 import type { AiProviderId, AiSettings } from '@studio/common/ai/providers';
-import type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessions/types';
+import type {
+	AiSessionMetadata,
+	AiSessionSummary,
+	LoadedAiSession,
+} from '@studio/common/ai/sessions/types';
 import type { StudioVisualAnnotationSummary } from '@studio/common/ai/visual-annotations';
 import type { SiteEvent, SnapshotEvent } from '@studio/common/lib/cli-events';
 import type { SupportedLocale } from '@studio/common/lib/locale';
@@ -25,8 +29,6 @@ import type { SupportedTerminal } from '@studio/common/lib/user-settings/termina
 import type { WordPressVersion } from '@studio/common/lib/wordpress-versions';
 import type { WpEnvironmentType } from '@studio/common/lib/wp-environment-type';
 import type { SiteDesign } from '@studio/common/sites/site-design';
-import type { ThemeDetails } from '@studio/common/sites/site-identity';
-import type { SiteStorageUsage } from '@studio/common/sites/storage-usage';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { Snapshot } from '@studio/common/types/snapshot';
 import type { PullSyncOptions, PushSyncOptions, SyncSite } from '@studio/common/types/sync';
@@ -38,13 +40,16 @@ import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 export type { ActiveAgentRun, AgentRunEvent } from '@studio/common/ai/agent-events';
 export type { StudioChatFileAttachment } from '@studio/common/ai/chat-files';
 export type { StudioChatImage } from '@studio/common/ai/chat-images';
-export type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessions/types';
+export type {
+	AiSessionMetadata,
+	AiSessionSummary,
+	LoadedAiSession,
+} from '@studio/common/ai/sessions/types';
 export type { StudioVisualAnnotationSummary } from '@studio/common/ai/visual-annotations';
 export type { SessionEntry } from '@earendil-works/pi-coding-agent';
 export type { StudioCustomEntry } from '@studio/common/ai/sessions/entry-types';
 export type { AiModelId } from '@studio/common/ai/models';
 export type { Snapshot } from '@studio/common/types/snapshot';
-export type { ThemeDetails } from '@studio/common/sites/site-identity';
 export type { SnapshotUsage } from '@studio/common/lib/snapshots';
 export type { PullSyncOptions, PushSyncOptions, SyncSite } from '@studio/common/types/sync';
 export type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
@@ -54,7 +59,6 @@ export type { SupportedLocale } from '@studio/common/lib/locale';
 export type { StudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 export type { StudioAssistantTopUpPricing } from '@studio/common/lib/studio-assistant-top-up-pricing';
 export type { SiteDesign } from '@studio/common/sites/site-design';
-export type { SiteStorageUsage } from '@studio/common/sites/storage-usage';
 
 export type InstalledApps = Record< SupportedEditor | SupportedTerminal, boolean >;
 
@@ -181,15 +185,9 @@ export interface Connector {
 	// Cached screenshot thumbnail captured by the desktop app while the site
 	// was running. Returns null when the site has not produced a thumbnail yet.
 	getSiteThumbnail( siteId: string ): Promise< string | null >;
-	// The site's active theme and its Site Icon (a data URL, or null when it has
-	// none), read on demand when the host can inspect local sites.
-	getThemeDetails?( siteId: string ): Promise< ThemeDetails >;
+	// The site's Site Icon (a data URL, or null when it has none), read on
+	// demand when the host can inspect local sites.
 	getSiteIcon?( siteId: string ): Promise< string | null >;
-	// Size of the local site's files, grouped for the overview's disk summary.
-	// Measuring walks the whole site directory, so `signal` is honored all the
-	// way down: aborting it stops the walk rather than leaving it to finish for
-	// a site the user has already left.
-	getSiteStorageUsage( siteId: string, signal?: AbortSignal ): Promise< SiteStorageUsage | null >;
 	// The site's DESIGN.md and its active theme's theme.json, or null when it
 	// lacks either.
 	getSiteDesign( siteId: string ): Promise< SiteDesign | null >;
@@ -355,10 +353,7 @@ export interface Connector {
 	// AI sessions (shared with the CLI — stored as JSONL on disk)
 	getSessions(): Promise< AiSessionSummary[] >;
 	getSession( sessionId: string ): Promise< LoadedAiSession >;
-	updateSessionMetadata(
-		sessionId: string,
-		patch: Pick< AiSessionSummary, 'archived' >
-	): Promise< AiSessionSummary >;
+	updateSessionMetadata( sessionId: string, patch: AiSessionMetadata ): Promise< AiSessionSummary >;
 
 	// Create an empty session file so it appears immediately. When `siteId`
 	// is omitted, the session is a user chat with no owner site.
@@ -393,6 +388,8 @@ export interface Connector {
 	interruptAgentRun( runId: string ): Promise< void >;
 	answerAgentQuestion( runId: string, answers: Record< string, string > ): Promise< void >;
 	onAgentEvent( listener: ( event: AgentRunEvent ) => void ): () => void;
+	// Fires when a dropped event stream reconnects, so listeners can re-read what they missed.
+	onConnectionRestored?( listener: () => void ): () => void;
 	onSessionPlacementUpdated(
 		listener: ( event: AiSessionPlacementUpdatedEvent ) => void
 	): () => void;
@@ -526,11 +523,6 @@ export interface Connector {
 	// sitting on, so it can repaint them to match (see
 	// `useWindowControlsSurface`). Only the Electron host has an overlay.
 	setWindowControlsSurface?( surface: 'chrome' | 'content' | 'toolbar' ): Promise< void >;
-
-	// Moves the macOS traffic lights to line up with the site preview toolbar
-	// while it sits beside them, and back again (see `useTrafficLightsPosition`).
-	// Only the Electron host has traffic lights to move.
-	setTrafficLightsPosition?( position: 'default' | 'toolbar' ): Promise< void >;
 
 	// Window state (macOS fullscreen hides traffic lights, so the UI needs
 	// to reclaim the space we normally leave for them).

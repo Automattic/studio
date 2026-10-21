@@ -21,13 +21,13 @@ import type {
 	ProposedSitePath,
 	SelectedSiteFolder,
 	SiteDetails,
+	SkillStatus,
 	Snapshot,
 	SnapshotUsage,
 	StudioAssistantQuota,
 	StudioAssistantTopUpPricing,
 	SyncSite,
 	UserPreferences,
-	ThemeDetails,
 } from '../../types';
 import type { AgentRunEvent } from '@studio/common/ai/agent-events';
 import type { AiSettings } from '@studio/common/ai/providers';
@@ -87,6 +87,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 	const snapshotEventListeners = new Set< ( event: SnapshotEvent ) => void >();
 	const authListeners = new Set< () => void >();
 	let eventSource: EventSource | undefined;
+	const connectionRestoredListeners = new Set< () => void >();
 	// Last site list fetched via getSites(), so one-off lookups (openSiteUrl)
 	// don't trigger an extra round-trip.
 	let lastSites: SiteDetails[] | undefined;
@@ -175,6 +176,13 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			// The browser's EventSource reconnects automatically.
 			eventSource?.close();
 			eventSource = new EventSource( `${ base }/events` );
+			let hasConnected = false;
+			eventSource.onopen = () => {
+				if ( hasConnected ) {
+					connectionRestoredListeners.forEach( ( listener ) => listener() );
+				}
+				hasConnected = true;
+			};
 			eventSource.onmessage = ( message ) => {
 				let parsed: ServerEvent;
 				try {
@@ -319,14 +327,8 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		async getSiteThumbnail(): Promise< string | null > {
 			return null;
 		},
-		async getThemeDetails( siteId ) {
-			return api< ThemeDetails >( `/sites/${ encodeURIComponent( siteId ) }/theme-details` );
-		},
 		async getSiteIcon( siteId ) {
 			return api< string | null >( `/sites/${ encodeURIComponent( siteId ) }/site-icon` );
-		},
-		async getSiteStorageUsage( siteId, signal ) {
-			return api( `/sites/${ encodeURIComponent( siteId ) }/storage`, { signal } );
 		},
 		async getSiteDesign( siteId ) {
 			return api( `/sites/${ encodeURIComponent( siteId ) }/design` );
@@ -704,6 +706,10 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			agentListeners.add( listener );
 			return () => agentListeners.delete( listener );
 		},
+		onConnectionRestored( listener ) {
+			connectionRestoredListeners.add( listener );
+			return () => connectionRestoredListeners.delete( listener );
+		},
 		onSessionPlacementUpdated( listener ) {
 			placementListeners.add( listener );
 			return () => placementListeners.delete( listener );
@@ -838,13 +844,13 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			window.open( target.toString(), '_blank', 'noopener,noreferrer' );
 		},
 		async getWordPressSkillsStatusAllSites() {
-			return [];
+			return api< SkillStatus[] >( '/skills' );
 		},
-		async installWordPressSkillToAllSites() {
-			// No-op: the local server does not manage WordPress skills yet.
+		async installWordPressSkillToAllSites( skillId ) {
+			await api( `/skills/${ encodeURIComponent( skillId ) }`, { method: 'POST' } );
 		},
-		async removeWordPressSkillFromAllSites() {
-			// No-op: the local server does not manage WordPress skills yet.
+		async removeWordPressSkillFromAllSites( skillId ) {
+			await api( `/skills/${ encodeURIComponent( skillId ) }`, { method: 'DELETE' } );
 		},
 
 		// Window chrome — no traffic lights in a browser tab.

@@ -1,5 +1,4 @@
 import { __ } from '@wordpress/i18n';
-import { bell } from '@wordpress/icons';
 import { Button, Dialog, EmptyState, IconButton, Notice } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useSyncExternalStore } from 'react';
@@ -11,6 +10,7 @@ import {
 	type NoticeRecord,
 } from '@/data/app-messages';
 import { useCopyText } from '@/hooks/use-copy-text';
+import { bellIcon } from '@/lib/icons';
 import styles from './style.module.css';
 
 // The dialog mounts once at the layout level; the bell and a toast's "More"
@@ -57,8 +57,8 @@ export function NoticeHistoryButton( { className }: { className?: string } ) {
 			variant="minimal"
 			tone="neutral"
 			size="small"
-			className={ clsx( styles.bell, className ) }
-			icon={ bell }
+			className={ clsx( styles.bell, 'studio-control', className ) }
+			icon={ bellIcon }
 			label={ __( 'Notification history' ) }
 			onClick={ openNoticeHistory }
 		/>
@@ -113,7 +113,7 @@ export function NoticeHistoryDialog() {
 					<Dialog.Content>
 						{ notices.length === 0 ? (
 							<EmptyState.Root className={ styles.empty }>
-								<EmptyState.Icon icon={ bell } />
+								<EmptyState.Icon icon={ bellIcon } />
 								<EmptyState.Title>{ __( 'No notifications yet' ) }</EmptyState.Title>
 								<EmptyState.Description>
 									{ __( 'Notices Studio shows you collect here, until Studio\u00a0restarts.' ) }

@@ -502,7 +502,6 @@ async function runEval( input: EvalRunnerInput ) {
 	let success = false;
 	let error: string | null = null;
 	let timedOut = false;
-	let lastTurnEndedEmpty = false;
 	// From the last assistant message: a provider failure ends the turn with
 	// stopReason "error" and its message here, without throwing.
 	let stopReason: string | null = null;
@@ -621,13 +620,6 @@ async function runEval( input: EvalRunnerInput ) {
 			numTurnsResult = numTurns;
 			stopReason = lastAssistant?.stopReason ?? null;
 			errorMessage = lastAssistant?.errorMessage ?? null;
-			lastTurnEndedEmpty = Boolean(
-				lastAssistant &&
-					lastAssistant.stopReason === 'stop' &&
-					! lastAssistant.content.some(
-						( block ) => block.type === 'toolCall' || ( block.type === 'text' && block.text.trim() )
-					)
-			);
 		}
 	};
 
@@ -649,30 +641,14 @@ async function runEval( input: EvalRunnerInput ) {
 		void query.interrupt();
 	}, input.timeoutMs ?? 300000 );
 
-	// Some hosted tiers end a turn with an empty message once their reasoning
-	// budget runs out. STUDIO_EVAL_AUTO_CONTINUE=<n> resumes such a turn with
-	// "continue" up to n times, the way a person would.
-	const maxAutoContinues = Number( process.env.STUDIO_EVAL_AUTO_CONTINUE ?? 0 ) || 0;
-	let autoContinues = 0;
-
-	const settle = async () => {
-		await query.result;
-		while ( autoContinues < maxAutoContinues && ! timedOut && lastTurnEndedEmpty ) {
-			autoContinues++;
-			lastTurnEndedEmpty = false;
-			query = runTurn( 'continue' );
-			await query.result;
-		}
-	};
-
 	try {
-		await settle();
+		await query.result;
 		for ( const followUp of input.followUps ?? [] ) {
 			if ( timedOut ) {
 				break;
 			}
 			query = runTurn( followUp.prompt );
-			await settle();
+			await query.result;
 		}
 	} catch ( caught ) {
 		error = caught instanceof Error ? caught.message : String( caught );
@@ -691,7 +667,6 @@ async function runEval( input: EvalRunnerInput ) {
 		timedOut,
 		model: resolvedModel,
 		numTurns: numTurnsResult,
-		autoContinues,
 		stopReason,
 		errorMessage,
 		usage,

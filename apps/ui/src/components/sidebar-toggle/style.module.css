@@ -1,0 +1,43 @@
+.root {
+	position: relative;
+	display: inline-flex;
+	flex-shrink: 0;
+	-webkit-app-region: no-drag;
+}
+
+/* Replicates @wordpress/ui IconButton's internal sizing (see
+   node_modules/@wordpress/ui/src/icon-button/style.module.css, including the
+   -1px border compensation on the icon). Keep in sync with upstream. */
+.control {
+	--wp-ui-button-aspect-ratio: 1;
+	--wp-ui-button-padding-inline: 0;
+	--wp-ui-button-min-width: unset;
+}
+
+/* The drawer icon depicts the sidebar edge; mirror it when the sidebar sits
+   on the right. */
+.root:dir(rtl) svg {
+	transform: scaleX(-1);
+}
+
+/* The negative margin cancels the header's gap while the slot is empty. */
+.headerSlot {
+	display: inline-flex;
+	flex-shrink: 0;
+	width: 0;
+	margin-inline-end: calc(-1 * var(--wpds-dimension-gap-xs));
+	overflow: hidden;
+	opacity: 0;
+	transition:
+		width var(--studio-motion-layout-duration) var(--studio-motion-layout-easing),
+		margin var(--studio-motion-layout-duration) var(--studio-motion-layout-easing),
+		opacity var(--studio-motion-feedback-duration) var(--studio-motion-enter-easing);
+}
+
+.headerSlotVisible {
+	width: var(--studio-control-size);
+	margin-inline-end: 0;
+	overflow: visible;
+	opacity: 1;
+	transition-delay: 0s, 0s, calc(var(--studio-motion-layout-duration) / 2);
+}

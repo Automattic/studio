@@ -1,32 +1,114 @@
 .root {
+	/* Cards sit a step away from the canvas in either scheme: darker in light,
+	   lighter in dark. */
+	--transcript-muted: color-mix(
+		in srgb,
+		var(--wpds-color-foreground-content-neutral) 4%,
+		var(--wpds-color-background-surface-neutral)
+	);
+
 	display: flex;
 	flex-direction: column;
-	gap: var(--wpds-dimension-padding-lg);
+	gap: 24px;
 }
 
-/* User bubbles act as turn anchors; give them generous breathing room above
-   and below so the user's prompt stands apart from the assistant response. */
-.userTurn {
+:global(html[data-color-scheme='dark']) .root {
+	--transcript-muted: color-mix(
+		in srgb,
+		var(--wpds-color-foreground-content-neutral) 12%,
+		var(--wpds-color-background-surface-neutral)
+	);
+}
+
+.message {
+	display: flex;
+	align-items: center;
+	gap: var(--wpds-dimension-padding-sm);
+	min-width: 0;
+}
+
+.message[data-from='user'] {
+	justify-content: flex-end;
+}
+
+.message[data-joined-above],
+.questionCard[data-joined-above] {
+	margin-top: -20px;
+}
+
+.bubble {
 	display: flex;
 	flex-direction: column;
-	margin-right: calc(-1 * var(--composer-shell-inline-padding));
-	padding: var(--wpds-dimension-padding-xl) 0;
+	gap: var(--wpds-dimension-padding-sm);
+	box-sizing: border-box;
+	width: fit-content;
+	min-width: 0;
+	max-width: min(85%, 32rem);
+	padding: 12px 16px;
+	border-radius: 16px;
+	background-color: var(--transcript-muted);
+	color: var(--wpds-color-foreground-content-neutral);
+	font-size: 14px;
+	overflow-wrap: break-word;
 }
 
-.userTurn:first-child {
-	padding-top: 0;
+.message[data-from='user'] .bubble {
+	background-color: var(--wpds-color-background-interactive-neutral-strong);
+	color: var(--wpds-color-foreground-interactive-neutral-strong);
+}
+
+.message[data-from='user'][data-joined-above] .bubble {
+	border-start-end-radius: 4px;
+}
+
+.message[data-from='user'][data-joined-below] .bubble {
+	border-end-end-radius: 4px;
+}
+
+.message[data-from='assistant'][data-joined-above] .bubble {
+	border-start-start-radius: 4px;
+}
+
+.message[data-from='assistant'][data-joined-below] .bubble {
+	border-end-start-radius: 4px;
+}
+
+.userText {
+	white-space: pre-wrap;
+}
+
+.messageCopy {
+	flex-shrink: 0;
+	opacity: 0;
+	transition: opacity 120ms ease;
+}
+
+.messageCopy button {
+	width: 32px;
+	height: 32px;
+}
+
+.message[data-from='user'] .messageCopy {
+	order: -1;
+}
+
+.message:is(:hover, :focus-within) .messageCopy {
+	opacity: 1;
+}
+
+@media (hover: none) {
+	.messageCopy {
+		opacity: 1;
+	}
 }
 
 .userAttachments {
-	align-self: flex-end;
 	display: flex;
 	flex-wrap: wrap;
-	justify-content: flex-end;
 	gap: var(--wpds-dimension-padding-xs);
-	margin: var(--wpds-dimension-padding-xs) 0 0;
+	margin: 0;
 	padding: 0;
 	list-style: none;
-	max-width: 80%;
 }
 
 .userAttachmentChip {
@@ -61,12 +143,9 @@
 }
 
 .annotationAttachment {
-	align-self: flex-end;
 	display: flex;
 	align-items: center;
 	gap: var(--wpds-dimension-padding-xs);
-	max-width: 80%;
-	margin-top: var(--wpds-dimension-padding-xs);
 	padding: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-md);
 	border: 1px solid var(--wpds-color-stroke-surface-neutral);
 	border-radius: var(--wpds-border-radius-md, 8px);
@@ -87,165 +166,173 @@
 	white-space: nowrap;
 }
 
-.userText {
-	align-self: flex-end;
-	padding: var(--wpds-dimension-padding-md) calc(var(--wpds-dimension-padding-lg) + 8px);
-	background-color: color-mix(in srgb, var(--wpds-color-foreground-interactive-brand, #2563eb) 10%, transparent);
-	/* Bottom-right tight so the bubble reads as originating from the user
-	   on the right; other corners round generously. */
-	border-radius: 18px 18px var(--wpds-border-radius-md, 8px) 18px;
-	max-width: 80%;
-	font-size: var(--wpds-typography-font-size-md);
-	line-height: 1.55;
-	color: var(--wpds-color-foreground-content-neutral);
-	white-space: pre-wrap;
-	word-wrap: break-word;
-}
-
-.toolBlock {
+.trace {
 	display: flex;
 	flex-direction: column;
-	gap: 4px;
-}
-
-.toolRow {
-	--tool-trigger-color: color-mix(
-		in srgb,
-		var(--wpds-color-foreground-content-neutral-weak) 70%,
-		transparent
-	);
-	--tool-text-color: var(--tool-trigger-color);
-	--tool-icon-color: var(--tool-trigger-color);
-
-	display: flex;
-	align-items: baseline;
-	gap: var(--wpds-dimension-padding-xs);
-	box-sizing: border-box;
-	max-width: 100%;
-	font-size: var(--wpds-typography-font-size-md);
-	line-height: 1.55;
-	color: var(--tool-text-color);
-	padding: 2px 0;
 	min-width: 0;
-	overflow: hidden;
-	white-space: nowrap;
 }
 
-@media (prefers-color-scheme: light) {
-	.toolRow {
-		--tool-text-color: var(--wpds-color-foreground-content-neutral-weak);
-	}
-}
-
-.toolRowButton {
-	--tool-row-active-background: var(--wpds-color-background-interactive-neutral-weak-active, #ededed);
-
+.traceTrigger {
 	appearance: none;
-	align-self: flex-start;
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	width: fit-content;
 	max-width: 100%;
-	margin: -4px -8px;
-	padding: 4px 8px;
+	min-width: 0;
+	margin: 0;
+	padding: 0;
 	border: 0;
-	border-radius: var(--wpds-border-radius-sm, 4px);
-	background: transparent;
-	font-family: inherit;
-	text-align: left;
+	border-radius: 7px;
+	background: none;
+	color: var(--wpds-color-foreground-content-neutral-weak);
+	font: inherit;
+	text-align: start;
 	cursor: pointer;
-	transition:
-		background-color 120ms ease,
-		color 120ms ease;
+	transition: color 120ms ease;
 }
 
-.toolRowButton:is(:hover, :focus-visible, [data-expanded='true']) {
-	--tool-text-color: var(--wpds-color-foreground-interactive-neutral-active);
-	--tool-icon-color: var(--wpds-color-foreground-interactive-neutral-active);
-
-	background-color: var(--tool-row-active-background);
+.traceTrigger:hover {
+	color: var(--wpds-color-foreground-content-neutral);
 }
 
-.toolRowButton:focus:not(:focus-visible):not([data-expanded='true']) {
-	outline: none;
-	background-color: transparent;
-}
-
-.toolRowButton:is(:hover, :focus-visible, [data-expanded='true']) .toolLabel,
-.toolRowButton:is(:hover, :focus-visible, [data-expanded='true']) .toolDetail {
-	color: var(--tool-text-color);
-}
-
-.toolRowButton:focus-visible {
-	outline: 2px solid var(--wpds-color-stroke-focus, #2563eb);
+.traceTrigger:focus-visible {
+	outline: 2px solid var(--wpds-color-stroke-focus);
 	outline-offset: 2px;
 }
 
-.toolDetailsShell {
+.traceLine {
+	display: flex;
+	align-items: center;
+	gap: var(--wpds-dimension-padding-sm);
+	min-width: 0;
+	max-width: 100%;
+	color: var(--wpds-color-foreground-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-md);
+	line-height: 20px;
+}
+
+.traceTrigger .traceLine {
+	color: inherit;
+}
+
+.traceLine[data-status='error'],
+.traceTrigger:has(.traceLine[data-status='error']) {
+	color: var(--wpds-color-foreground-content-error);
+}
+
+.traceIcon {
+	display: flex;
+	flex-shrink: 0;
+	align-items: center;
+	justify-content: center;
+	width: 16px;
+	height: 16px;
+}
+
+.traceIcon svg {
+	fill: currentColor;
+}
+
+.traceTitle,
+.traceDescription {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.traceDescription {
+	opacity: 0.7;
+}
+
+.traceChevron {
+	flex-shrink: 0;
+	fill: currentColor;
+	transition: transform 180ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+.traceChevron:dir(rtl) {
+	transform: scaleX(-1);
+}
+
+.traceTrigger[aria-expanded='true'] .traceChevron {
+	transform: rotate(90deg);
+}
+
+.traceContent {
 	display: grid;
 	grid-template-rows: 0fr;
-	margin-left: -8px;
 	opacity: 0;
-	overflow: hidden;
-	transform: translateY(-2px);
 	transition:
 		grid-template-rows 180ms cubic-bezier(0.2, 0, 0, 1),
-		opacity 140ms ease,
-		transform 180ms cubic-bezier(0.2, 0, 0, 1);
+		opacity 140ms ease;
 }
 
-.toolDetailsShell[data-expanded='true'] {
+.traceContent[data-open='true'] {
 	grid-template-rows: 1fr;
 	opacity: 1;
-	transform: translateY(0);
-	animation: toolDetailsExpand 180ms cubic-bezier(0.2, 0, 0, 1);
 }
 
-.toolDetailsClip {
+.traceContentClip {
 	min-height: 0;
 	overflow: hidden;
 }
 
-.toolOutputWrap {
-	margin: 8px 0 0;
-	padding: var(--wpds-dimension-padding-lg);
+.traceContentInner {
 	display: flex;
 	flex-direction: column;
-	gap: var(--wpds-dimension-padding-xs);
-	box-sizing: border-box;
+	gap: var(--wpds-dimension-padding-sm);
+	min-width: 0;
+	margin: 8px 0 4px 7px;
+	padding-inline: 12px 4px;
+	border-inline-start: 1px solid var(--wpds-color-stroke-surface-neutral);
+	color: var(--wpds-color-foreground-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-md);
+	line-height: 20px;
+	overflow-wrap: break-word;
+}
+
+.traceContentInner p {
+	margin: 0;
+}
+
+.toolSection {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	min-width: 0;
+}
+
+.toolCode,
+.toolDiff,
+.toolResult {
 	max-height: min(320px, 45vh);
 	overflow: auto;
-	border-radius: var(--wpds-border-radius-sm, 4px);
-	background-color: var(--wpds-color-background-surface-neutral-weak);
 }
 
-.toolInput,
-.toolOutput {
+.toolCode,
+.toolDiff {
+	box-sizing: border-box;
 	margin: 0;
+	padding: 8px;
+	border-radius: 7px;
+	background-color: var(--wpds-color-background-surface-neutral-strong);
 	color: var(--wpds-color-foreground-content-neutral);
 	font-family: var(--wpds-typography-font-family-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
-	font-size: var(--wpds-typography-font-size-xs);
-	line-height: 1.5;
+	font-size: var(--wpds-typography-font-size-md);
+	line-height: 20px;
 	white-space: pre-wrap;
-	word-wrap: break-word;
-	overflow: visible;
+	overflow-wrap: anywhere;
 }
 
-.toolInput {
-	color: var(--wpds-color-foreground-content-neutral-weak);
-}
-
-.toolOutputError {
-	color: var(--wpds-color-foreground-content-error, #dc2626);
+.toolError {
+	color: var(--wpds-color-foreground-content-error);
 }
 
 .toolDiff {
-	margin: 0;
 	display: flex;
 	flex-direction: column;
-	font-family: var(--wpds-typography-font-family-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
-	font-size: var(--wpds-typography-font-size-xs);
-	line-height: 1.5;
-	white-space: pre-wrap;
-	word-wrap: break-word;
-	overflow: visible;
 }
 
 .diffLine {
@@ -260,38 +347,6 @@
 .diffLineRemoved {
 	color: var(--wpds-color-foreground-content-error);
 	background-color: var(--wpds-color-background-surface-error-weak);
-}
-
-.toolLabel {
-	color: var(--tool-text-color);
-	font-weight: 400;
-	min-width: 0;
-	flex: 0 1 auto;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
-}
-
-.toolDetail {
-	color: var(--tool-text-color);
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
-	min-width: 0;
-	flex: 1 1 auto;
-}
-
-.toolIcon {
-	flex: 0 0 auto;
-	width: 18px;
-	height: 18px;
-	color: var(--tool-icon-color);
-	stroke: var(--tool-icon-color);
-	transform: translateY(3px);
-}
-
-.toolIcon:not([fill='none']) {
-	fill: var(--tool-icon-color);
 }
 
 .mediaArtifactGrid {
@@ -312,7 +367,7 @@
 	max-height: min(520px, 58vh);
 	border: 1px solid var(--wpds-color-stroke-surface-neutral);
 	border-radius: var(--wpds-border-radius-md, 8px);
-	background-color: var(--wpds-color-background-surface-neutral-weak);
+	background-color: var(--transcript-muted);
 	object-fit: contain;
 }
 
@@ -322,7 +377,7 @@
 	min-height: 180px;
 	border: 1px solid var(--wpds-color-stroke-surface-neutral);
 	border-radius: var(--wpds-border-radius-md, 8px);
-	background-color: var(--wpds-color-background-surface-neutral-weak);
+	background-color: var(--transcript-muted);
 }
 
 .mediaArtifactLoading {
@@ -345,20 +400,6 @@
 	font-size: var(--wpds-typography-font-size-sm);
 }
 
-@keyframes toolDetailsExpand {
-	from {
-		grid-template-rows: 0fr;
-		opacity: 0;
-		transform: translateY(-2px);
-	}
-
-	to {
-		grid-template-rows: 1fr;
-		opacity: 1;
-		transform: translateY(0);
-	}
-}
-
 @keyframes mediaArtifactLoading {
 	from {
 		background-position: 200% 0;
@@ -370,14 +411,26 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-	.toolRowButton,
-	.toolDetailsShell,
-	.toolDetailsShell[data-expanded='true'],
+	.messageCopy,
+	.traceChevron,
+	.traceContent,
 	.mediaArtifactLoading {
 		animation: none;
-		transform: none;
 		transition: none;
 	}
+}
+
+.questionCard {
+	padding: 16px;
+	border-radius: 16px;
+	background-color: var(--transcript-muted);
+	font-size: 14px;
+}
+
+/* Image options break out of the column, wider than a card could hold. */
+.questionCard:has([data-layout='grid']) {
+	padding: 0;
+	background: none;
 }
 
 .question {
@@ -651,7 +704,7 @@
 	aspect-ratio: 4 / 3;
 	border: 1px solid var(--wpds-color-stroke-surface-neutral);
 	border-radius: var(--wpds-border-radius-md, 8px);
-	background-color: var(--wpds-color-background-surface-neutral-weak);
+	background-color: var(--transcript-muted);
 	transition:
 		border-color 120ms ease,
 		box-shadow 120ms ease;
@@ -834,7 +887,7 @@
 	margin: var(--wpds-dimension-padding-sm) 0;
 	padding: 2px 10px;
 	border-radius: 9999px;
-	background-color: var(--wpds-color-background-surface-neutral-weak);
+	background-color: var(--transcript-muted);
 	color: var(--wpds-color-foreground-content-neutral-weak);
 	font-size: var(--wpds-typography-font-size-xs);
 	text-align: center;
@@ -851,49 +904,4 @@
 	font-size: var(--wpds-typography-font-size-xs);
 	text-align: center;
 	overflow-wrap: anywhere;
-}
-
-/* Action footer for an assistant message: open on the newest reply, and on any
-   older one the reader clicks. A closed turn reserves no space for it. */
-.messageActions {
-	display: grid;
-	grid-template-rows: 0fr;
-	/* Optical alignment of the 16px glyph with the text column. It lives out
-	   here rather than on the row so the negative offset doesn't drag the
-	   button past the clip's edge; the row's inline padding cancels the extra
-	   -sm so the net shift is still (16px - button) / 2. */
-	margin-inline-start: calc((16px - 1.75rem) / 2 - var(--wpds-dimension-padding-sm));
-	opacity: 0;
-	transition:
-		grid-template-rows 180ms cubic-bezier(0.2, 0, 0, 1),
-		opacity 120ms ease;
-}
-
-/* :focus-within keeps the row reachable by keyboard — tabbing to the copy
-   button opens it without a click. */
-.assistantTurn[data-actions-open='true'] .messageActions,
-.assistantTurn:focus-within .messageActions {
-	grid-template-rows: 1fr;
-	opacity: 1;
-}
-
-.messageActionsClip {
-	min-height: 0;
-	overflow: hidden;
-}
-
-/* The clip cuts on every side, so the row carries enough padding for the
-   buttons' hover backgrounds and focus rings to sit fully inside it. */
-.messageActionsRow {
-	display: flex;
-	align-items: center;
-	gap: var(--wpds-dimension-padding-xs);
-	padding: var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-sm)
-		var(--wpds-dimension-padding-sm);
-}
-
-@media (prefers-reduced-motion: reduce) {
-	.messageActions {
-		transition: none;
-	}
 }

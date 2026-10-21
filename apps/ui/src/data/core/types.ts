@@ -641,6 +641,8 @@ export interface UserPreferences {
 	agenticFeaturesEnabled: boolean;
 	// The sidebar's Pinned group, in order, as `site:<id>` and `chat:<id>` keys.
 	sidebarPins?: string[];
+	// Start a stopped local site when a chat message is sent to it.
+	autoStartSiteOnChat?: boolean;
 }
 
 export interface AppGlobals {

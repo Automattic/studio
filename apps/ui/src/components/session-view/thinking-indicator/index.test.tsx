@@ -1,22 +1,5 @@
-import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import { formatElapsedTime, ThinkingIndicator } from './index';
-
-describe( 'ThinkingIndicator', () => {
-	it( 'uses the shared working mark without adding a nested status', () => {
-		const { container } = render(
-			<ThinkingIndicator
-				active
-				startedAt={ Date.now() }
-				stepKey={ null }
-				progressMessage={ null }
-			/>
-		);
-
-		expect( screen.getAllByRole( 'status' ) ).toHaveLength( 1 );
-		expect( container.querySelector( '[aria-hidden="true"]' ) ).toBeInTheDocument();
-	} );
-} );
+import { formatElapsedTime } from './index';
 
 describe( 'formatElapsedTime', () => {
 	it.each( [

@@ -3,7 +3,12 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { createElement, useState } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { Conversation, entriesToRenderItems, getQuestionScrollDelta } from './index';
+import {
+	Conversation,
+	entriesToRenderItems,
+	entriesToTranscriptItems,
+	getQuestionScrollDelta,
+} from './index';
 import type { LoadedAiSession, SessionEntry } from '@/data/core';
 import type { StudioChatArtifactWidgetDraft } from '@studio/common/ai/chat-artifacts';
 
@@ -38,121 +43,55 @@ vi.mock( '@wordpress/ui', () => ( {
 	},
 } ) );
 
-vi.mock( '../thinking-indicator', () => ( {
-	ThinkingIndicator: () => null,
-} ) );
-
 beforeEach( () => {
 	connectorMocks.readLocalMediaFile.mockReset();
 	connectorMocks.copyText.mockReset();
 } );
 
-describe( 'Assistant message copy button', () => {
-	it( 'copies the full message when text blocks are split by tool calls', () => {
-		const data = loadedSession( [
-			{
-				type: 'message',
-				id: 'assistant-multi-block',
-				parentId: null,
-				timestamp: '2026-06-05T12:00:00.000Z',
-				message: {
-					role: 'assistant',
-					content: [
-						{ type: 'text', text: 'First part.' },
-						{ type: 'toolCall', id: 'tool-call-1', name: 'Bash', arguments: {} },
-						{ type: 'text', text: 'Second part.' },
-					],
-				},
-			} as unknown as SessionEntry,
-		] );
-		renderConversation( data );
-
-		const buttons = screen.getAllByRole( 'button', { name: 'Copy message' } );
-		expect( buttons ).toHaveLength( 1 );
-		expect( screen.getByText( 'First part.' ).closest( '[data-message-text]' ) ).toHaveAttribute(
-			'data-message-text',
-			'First part.\n\nSecond part.'
-		);
-		expect( screen.getByText( 'Second part.' ).closest( '[data-message-text]' ) ).toHaveAttribute(
-			'data-message-text',
-			'First part.\n\nSecond part.'
-		);
-
-		fireEvent.click( buttons[ 0 ] );
-		expect( connectorMocks.copyText ).toHaveBeenCalledWith( 'First part.\n\nSecond part.' );
-	} );
-
-	it( 'does not add a copy button to user messages', () => {
-		const data = loadedSession( [
-			{
-				type: 'message',
-				id: 'user-1',
-				parentId: null,
-				timestamp: '2026-06-05T12:00:00.000Z',
-				message: {
-					role: 'user',
-					content: [ { type: 'text', text: 'Hello there' } ],
-				},
-			} as unknown as SessionEntry,
-		] );
-		renderConversation( data );
-
-		expect( screen.queryByRole( 'button', { name: 'Copy message' } ) ).not.toBeInTheDocument();
-	} );
-} );
-
 describe( 'Conversation tool rows', () => {
-	it( 'keeps tool inputs and results hidden until the label row is clicked', () => {
+	it( 'keeps tool inputs and results hidden until the row is clicked', () => {
 		const data = loadedSession( [
 			assistantToolCallEntry( 'Bash', { command: 'npm test' } ),
 			toolResultEntry( 'first output line\nsecond output line' ),
 		] );
 
 		renderConversation( data );
+		openActivity();
 
 		expect( screen.queryByText( 'npm test' ) ).not.toBeInTheDocument();
 		expect( screen.queryByText( /first output line/ ) ).not.toBeInTheDocument();
 
-		const toolRow = screen.getByRole( 'button', { name: 'Run terminal command' } );
+		const toolRow = screen.getByRole( 'button', { name: 'Completed: Run terminal command' } );
 		expect( toolRow ).toHaveAttribute( 'aria-expanded', 'false' );
-		expect( toolRow ).toHaveAttribute( 'data-expanded', 'false' );
 
 		fireEvent.click( toolRow );
 
 		expect( toolRow ).toHaveAttribute( 'aria-expanded', 'true' );
-		expect( toolRow ).toHaveAttribute( 'data-expanded', 'true' );
 		expect( screen.getByText( 'npm test' ) ).toBeInTheDocument();
 		expect( screen.getByText( /first output line/ ) ).toBeInTheDocument();
 
 		fireEvent.click( toolRow );
 
 		expect( toolRow ).toHaveAttribute( 'aria-expanded', 'false' );
-		expect( toolRow ).toHaveAttribute( 'data-expanded', 'false' );
-		const hiddenDetails = screen.getByText( /first output line/ ).closest( '[aria-hidden="true"]' );
-		expect( hiddenDetails ).toBeInTheDocument();
-		fireEvent.transitionEnd( hiddenDetails! );
-		expect( screen.queryByText( /first output line/ ) ).not.toBeInTheDocument();
+		expect( screen.getByText( /first output line/ ).closest( '[data-open]' ) ).toHaveAttribute(
+			'data-open',
+			'false'
+		);
 	} );
 
-	it( 'shows long tool results in the opened details without an extra toggle', () => {
-		const longOutput = Array.from(
-			{ length: 13 },
-			( _, index ) => `output line ${ index + 1 }`
-		).join( '\n' );
+	it( 'opens failed tool rows by default', () => {
 		const data = loadedSession( [
 			assistantToolCallEntry( 'Bash', { command: 'npm test' } ),
-			toolResultEntry( longOutput ),
+			toolResultEntry( 'command not found', true ),
 		] );
 
 		renderConversation( data );
+		openActivity();
 
-		expect( screen.queryByRole( 'button', { name: 'Show more' } ) ).not.toBeInTheDocument();
-
-		fireEvent.click( screen.getByRole( 'button', { name: 'Run terminal command' } ) );
-
-		expect( screen.getByText( /output line 13/ ) ).toBeInTheDocument();
-		expect( screen.queryByRole( 'button', { name: 'Show more' } ) ).not.toBeInTheDocument();
-		expect( screen.queryByRole( 'button', { name: 'Show less' } ) ).not.toBeInTheDocument();
+		expect(
+			screen.getByRole( 'button', { name: 'Failed: Run terminal command' } )
+		).toHaveAttribute( 'aria-expanded', 'true' );
+		expect( screen.getByText( 'command not found' ) ).toBeInTheDocument();
 	} );
 
 	it( 'uses WP-CLI summaries while preserving the raw command in details', () => {
@@ -164,9 +103,9 @@ describe( 'Conversation tool rows', () => {
 		] );
 
 		renderConversation( data );
+		openActivity();
 
-		const toolRow = screen.getByRole( 'button', { name: 'List published posts' } );
-		expect( toolRow ).toBeInTheDocument();
+		const toolRow = screen.getByRole( 'button', { name: 'Completed: List published posts' } );
 		expect( screen.queryByText( /--fields=ID/ ) ).not.toBeInTheDocument();
 
 		fireEvent.click( toolRow );
@@ -176,17 +115,17 @@ describe( 'Conversation tool rows', () => {
 		).toBeInTheDocument();
 	} );
 
-	it( 'combines the tool label and detail in the row accessible name', () => {
+	it( 'names a row by its status, label and detail', () => {
 		const data = loadedSession( [
 			assistantToolCallEntry( 'Read', { file_path: '/tmp/studio/app.tsx' } ),
 		] );
 
 		renderConversation( data );
+		openActivity();
 
-		expect( screen.getByRole( 'button', { name: 'Read studio/app.tsx' } ) ).toHaveAttribute(
-			'aria-label',
-			'Read studio/app.tsx'
-		);
+		expect(
+			screen.getByRole( 'button', { name: 'Stopped: Read studio/app.tsx' } )
+		).toBeInTheDocument();
 	} );
 
 	it( 'hides the raw Ask User tool row while showing the question UI', () => {
@@ -227,10 +166,81 @@ describe( 'Conversation tool rows', () => {
 		] );
 
 		renderConversation( data );
-		fireEvent.click( screen.getByRole( 'button', { name: 'Take screenshot' } ) );
+		openActivity();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Completed: Take screenshot' } ) );
 
 		expect( screen.getByText( /Screenshot captured/ ) ).toBeInTheDocument();
 		expect( screen.queryByText( /mediaWidgetPayload/ ) ).not.toBeInTheDocument();
+	} );
+} );
+
+describe( 'Conversation turn activity', () => {
+	it( 'folds tool calls, the text before them and progress into a line ahead of the reply', () => {
+		const items = entriesToTranscriptItems( [
+			promptEntry( 'Build a site' ),
+			assistantMessageEntry( [
+				{ type: 'text', text: 'Let me check.' },
+				{ type: 'toolCall', id: 'tool-call-1', name: 'Bash', arguments: {} },
+			] ),
+			toolResultEntry( 'ok' ),
+			progressEntry( 'Installing plugin' ),
+			assistantMessageEntry( [ { type: 'text', text: 'Done!' } ] ),
+			turnClosedEntry( 'success' ),
+			promptEntry( 'Thanks' ),
+			assistantMessageEntry( [ { type: 'text', text: 'Anytime.' } ] ),
+			turnClosedEntry( 'success' ),
+		] );
+
+		expect( items ).toMatchObject( [
+			{ kind: 'user-text', text: 'Build a site' },
+			{
+				kind: 'activity',
+				items: [
+					{ kind: 'assistant-text', text: 'Let me check.' },
+					{ kind: 'tool-use', name: 'Bash' },
+					{ kind: 'progress', text: 'Installing plugin' },
+				],
+			},
+			{ kind: 'assistant-text', text: 'Done!' },
+			{ kind: 'user-text', text: 'Thanks' },
+			{ kind: 'activity', items: [] },
+			{ kind: 'assistant-text', text: 'Anytime.' },
+		] );
+	} );
+
+	it.each( [
+		[ 'success', '2026-06-05T12:00:42.900Z', 'Worked for 42s' ],
+		[ 'interrupted', '2026-06-05T12:00:42.900Z', 'Stopped after 42s' ],
+		[ 'error', '2026-06-05T12:00:42.900Z', 'Failed after 42s' ],
+		[ 'max_turns', '2026-06-05T12:00:42.900Z', 'Failed after 42s' ],
+		[ 'success', '', 'Worked' ],
+		[ 'interrupted', '', 'Stopped' ],
+		[ 'error', '', 'Failed' ],
+	] )( 'labels a %s turn closed at "%s" as "%s"', ( status, closedAt, label ) => {
+		renderConversation(
+			loadedSession( [ promptEntry( 'Hi' ), turnClosedEntry( status, undefined, closedAt ) ] )
+		);
+
+		expect( screen.getByText( label ) ).toBeInTheDocument();
+	} );
+
+	it( 'counts a running turn up from the run start and shows its latest progress', async () => {
+		vi.useFakeTimers();
+		try {
+			renderConversation(
+				loadedSession( [ promptEntry( 'Build a site' ), progressEntry( 'Installing plugin' ) ] ),
+				{ isRunning: true, startedAt: Date.now() - 5000 }
+			);
+
+			expect( screen.getByText( 'Working for 5s' ) ).toBeInTheDocument();
+			expect( screen.getByText( 'Installing plugin' ) ).toBeInTheDocument();
+
+			await act( async () => vi.advanceTimersByTime( 1000 ) );
+
+			expect( screen.getByText( 'Working for 6s' ) ).toBeInTheDocument();
+		} finally {
+			vi.useRealTimers();
+		}
 	} );
 } );
 
@@ -903,12 +913,16 @@ function visualAnnotationsEntry(
 	} as SessionEntry;
 }
 
-function turnClosedEntry( status: string, errorMessage?: string ): SessionEntry {
+function turnClosedEntry(
+	status: string,
+	errorMessage?: string,
+	timestamp = '2026-06-05T12:00:03.000Z'
+): SessionEntry {
 	return {
 		type: 'custom',
 		id: `turn-closed-${ status }`,
 		parentId: null,
-		timestamp: '2026-06-05T12:00:03.000Z',
+		timestamp,
 		customType: 'studio.turn_closed',
 		data: { status, ...( errorMessage !== undefined ? { errorMessage } : {} ) },
 	} as SessionEntry;
@@ -1023,7 +1037,7 @@ function assistantToolCallEntry(
 	} as unknown as SessionEntry;
 }
 
-function toolResultEntry( text: string ): SessionEntry {
+function toolResultEntry( text: string, isError = false ): SessionEntry {
 	return {
 		type: 'message',
 		id: 'tool-result',
@@ -1033,8 +1047,45 @@ function toolResultEntry( text: string ): SessionEntry {
 			role: 'toolResult',
 			toolCallId: 'tool-call-1',
 			content: [ { type: 'text', text } ],
+			isError,
 		},
 	} as unknown as SessionEntry;
+}
+
+function assistantMessageEntry( content: Array< Record< string, unknown > > ): SessionEntry {
+	return {
+		type: 'message',
+		id: 'assistant',
+		parentId: null,
+		timestamp: '2026-06-05T12:00:01.000Z',
+		message: { role: 'assistant', content },
+	} as unknown as SessionEntry;
+}
+
+function promptEntry( text: string ): SessionEntry {
+	return {
+		type: 'custom',
+		id: 'prompt',
+		parentId: null,
+		timestamp: '2026-06-05T12:00:00.000Z',
+		customType: 'studio.user_prompt',
+		data: { text, source: 'prompt' },
+	} as SessionEntry;
+}
+
+function progressEntry( message: string ): SessionEntry {
+	return {
+		type: 'custom',
+		id: 'progress',
+		parentId: null,
+		timestamp: '2026-06-05T12:00:02.000Z',
+		customType: 'studio.tool_progress',
+		data: { message },
+	} as SessionEntry;
+}
+
+function openActivity() {
+	fireEvent.click( screen.getByRole( 'button', { name: /^Worked/ } ) );
 }
 
 function agentQuestionEntry(

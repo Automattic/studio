@@ -30,17 +30,24 @@ function extractText( node: ReactNode ): string {
 function CodeBlock( { children }: { children?: ReactNode } ) {
 	// Strip the single trailing newline react-markdown appends to fenced code.
 	const text = useMemo( () => extractText( children ).replace( /\n$/, '' ), [ children ] );
+	const language = isValidElement< { className?: string } >( children )
+		? /language-([\w-]+)/.exec( children.props.className ?? '' )?.[ 1 ]
+		: undefined;
 
 	return (
 		<div className={ styles.codeBlock } { ...{ [ CODE_TEXT_ATTRIBUTE ]: text } }>
+			<div className={ styles.codeHeader }>
+				<span>{ language ?? 'text' }</span>
+				{ text ? (
+					<CopyButton
+						className={ styles.codeCopy }
+						text={ text }
+						label={ __( 'Copy' ) }
+						variant="plain"
+					/>
+				) : null }
+			</div>
 			<pre className={ styles.pre }>{ children }</pre>
-			{ text ? (
-				<CopyButton
-					text={ text }
-					label={ __( 'Copy code' ) }
-					className={ styles.copyButtonContainer }
-				/>
-			) : null }
 		</div>
 	);
 }
@@ -84,7 +91,7 @@ const baseComponents: Components = {
 	pre: ( { children } ) => <CodeBlock>{ children }</CodeBlock>,
 };
 
-export function Markdown( { children, className }: { children: string; className?: string } ) {
+export function Markdown( { children, compact = false }: { children: string; compact?: boolean } ) {
 	const connector = useConnector();
 
 	const components = useMemo< Components >( () => {
@@ -116,7 +123,7 @@ export function Markdown( { children, className }: { children: string; className
 	}, [ connector ] );
 
 	return (
-		<div className={ clsx( styles.root, className ) }>
+		<div className={ clsx( styles.root, compact && styles.compact ) }>
 			<ReactMarkdown remarkPlugins={ [ remarkGfm ] } components={ components }>
 				{ children }
 			</ReactMarkdown>

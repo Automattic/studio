@@ -107,6 +107,16 @@ if (
 	return true;
 }
 
+// Like WordPress's Apache and nginx setups, keep dotfiles (except .well-known)
+// and the SQLite database directory private: the built-in server ignores
+// .htaccess. Checking the requested path also covers symlinked plugin and
+// theme directories, and case-insensitive filesystems.
+$private_path = strtolower( preg_replace( '#[/\\\\]+#', '/', $path ) );
+if ( preg_match( '#/\.(?!well-known(/|$))|^/wp-content/database(/|$)#', $private_path ) ) {
+	http_response_code( 404 );
+	return true;
+}
+
 // Existing file: require PHP scripts ourselves, serve static assets via the
 // server. Returning false for PHP would run it as a second script, firing
 // auto_prepend_file (runtime.php) twice and redeclaring its classes.

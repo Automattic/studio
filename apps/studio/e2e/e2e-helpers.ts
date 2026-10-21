@@ -34,7 +34,7 @@ export class E2ESession {
 	private childProcess?: ChildProcess;
 	private launchedAt = new Date();
 	private stdioClosed: Promise< void > = Promise.resolve();
-	private launchEnv: NodeJS.ProcessEnv = {};
+	private launchEnv: Record< string, string > = {};
 	private resourcesPath = '';
 
 	public constructor() {

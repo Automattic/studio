@@ -214,7 +214,7 @@ test.describe( 'Sites without cleanup in-between', () => {
 		await fs.ensureDir( thumbnailsDir );
 		await fs.writeFile( path.join( thumbnailsDir, `${ site.id }.png` ), 'test-thumbnail-data' );
 
-		await new Sidebar( session.mainWindow ).openContextMenuItem( siteName, 'Duplicate site' );
+		await new Sidebar( session.mainWindow ).openContextMenuItem( siteName, 'Duplicate' );
 
 		const copyName = `${ siteName } Copy`;
 		await expect( new Sidebar( session.mainWindow ).getSiteButton( copyName ) ).toBeVisible( {

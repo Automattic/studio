@@ -49,8 +49,11 @@
 	cursor: not-allowed;
 }
 
-.submenuTrigger {
-	justify-content: space-between;
+.submenuChevron {
+	flex-shrink: 0;
+	margin-inline-start: auto;
+	color: var(--wpds-color-foreground-content-neutral-weak);
+	fill: currentColor;
 }
 
 .radioItem {

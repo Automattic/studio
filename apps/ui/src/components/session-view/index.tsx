@@ -30,7 +30,7 @@ import { PreviewToggleButton } from '@/components/preview-toggle-button';
 import { ProgressiveBlur } from '@/components/progressive-blur';
 import { ShareButton } from '@/components/share-dialog';
 import { HeaderSidebarToggle } from '@/components/sidebar-toggle';
-import { SiteDropdown } from '@/components/site-dropdown';
+import { SiteActionsMenu } from '@/components/site-actions-menu';
 import { SiteIcon } from '@/components/site-icon';
 import { SiteLifecycleButton } from '@/components/site-lifecycle-button';
 import { type Annotation } from '@/components/site-preview/types';
@@ -121,7 +121,7 @@ function SessionHeader( {
 			}
 		>
 			<HeaderSidebarToggle />
-			{ site ? <SiteDropdown site={ site } activeEnvironment={ effectiveEnvironment } /> : null }
+			{ site ? <SiteActionsMenu site={ site } /> : null }
 			{ ! site && siteName ? (
 				<>
 					<SiteIcon className={ styles.headerSiteIcon } seed={ siteName } />

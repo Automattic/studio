@@ -564,11 +564,6 @@
 	white-space: nowrap;
 }
 
-.submenuChevron {
-	flex: 0 0 auto;
-	color: var(--wpds-color-foreground-content-neutral-weak);
-}
-
 .skillsMenuPopup {
 	min-width: 272px;
 	max-width: min(360px, calc(100vw - 32px));

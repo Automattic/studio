@@ -1,5 +1,6 @@
 import { ContextMenu as BaseContextMenu } from '@base-ui/react/context-menu';
 import { Menu as BaseMenu } from '@base-ui/react/menu';
+import { chevronRightSmall, Icon } from '@wordpress/icons';
 import { clsx } from 'clsx';
 import { forwardRef } from 'react';
 import { FloatingSurface } from '@/components/floating-surface';
@@ -30,6 +31,7 @@ type PopupProps = {
 	alignOffset?: number;
 	className?: string;
 	onClick?: MouseEventHandler< HTMLElement >;
+	onKeyDown?: KeyboardEventHandler< HTMLElement >;
 	onPointerDown?: PointerEventHandler< HTMLElement >;
 };
 
@@ -44,6 +46,7 @@ export function Popup( {
 	alignOffset,
 	className,
 	onClick,
+	onKeyDown,
 	onPointerDown,
 }: PopupProps ) {
 	return (
@@ -58,6 +61,7 @@ export function Popup( {
 				<BaseMenu.Popup
 					render={ <FloatingSurface className={ clsx( styles.popup, className ) } /> }
 					onClick={ onClick }
+					onKeyDown={ onKeyDown }
 					onPointerDown={ onPointerDown }
 				>
 					{ children }
@@ -65,6 +69,11 @@ export function Popup( {
 			</BaseMenu.Positioner>
 		</BaseMenu.Portal>
 	);
+}
+
+/** A submenu's popup, opening to the right with its first item level with the trigger. */
+export function SubmenuPopup( props: Omit< PopupProps, 'side' | 'align' > ) {
+	return <Popup side="right" align="start" sideOffset={ 10 } alignOffset={ -6 } { ...props } />;
 }
 
 /** Popup for context menus: no side/align, so Base UI anchors it at the pointer. */
@@ -126,10 +135,11 @@ export const SubmenuTrigger = forwardRef<
 	return (
 		<BaseMenu.SubmenuTrigger
 			ref={ ref }
-			className={ `${ styles.item } ${ styles.submenuTrigger } ${ className ?? '' }` }
+			className={ `${ styles.item } ${ className ?? '' }` }
 			{ ...props }
 		>
 			{ children }
+			<Icon icon={ chevronRightSmall } className={ styles.submenuChevron } />
 		</BaseMenu.SubmenuTrigger>
 	);
 } );

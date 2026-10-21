@@ -139,8 +139,14 @@ function DashboardLayoutContent() {
 	// Look up by the route's site so the path is right even before the
 	// `setPreviewSite` effect lands.
 	const previewPath = pathForSite( preview.pathsBySiteId, previewSiteId );
-	// A site's own page is its preview, so it shows whether or not the panel is open.
-	const showPreview = ( preview.open || !! homeSiteId ) && supportsPreview && !! previewSite;
+	// A site's own page is its preview, so it shows whether or not the panel is
+	// open. Beside a chat, a stopped site has nothing to preview: the chat takes
+	// the room and shows the site's last screenshot instead.
+	const showPreview =
+		( preview.open || !! homeSiteId ) &&
+		supportsPreview &&
+		!! previewSite &&
+		( previewSite.running || !! homeSiteId );
 	const chatHidden = ( preview.chatHidden || !! homeSiteId ) && showPreview;
 	// Opening a chat shows it.
 	const { setChatHidden } = preview;

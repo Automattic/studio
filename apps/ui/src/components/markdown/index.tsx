@@ -1,5 +1,4 @@
 import { __ } from '@wordpress/i18n';
-import { clsx } from 'clsx';
 import { isValidElement, useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -91,7 +90,7 @@ const baseComponents: Components = {
 	pre: ( { children } ) => <CodeBlock>{ children }</CodeBlock>,
 };
 
-export function Markdown( { children, compact = false }: { children: string; compact?: boolean } ) {
+export function Markdown( { children }: { children: string } ) {
 	const connector = useConnector();
 
 	const components = useMemo< Components >( () => {
@@ -123,7 +122,7 @@ export function Markdown( { children, compact = false }: { children: string; com
 	}, [ connector ] );
 
 	return (
-		<div className={ clsx( styles.root, compact && styles.compact ) }>
+		<div className={ styles.root }>
 			<ReactMarkdown remarkPlugins={ [ remarkGfm ] } components={ components }>
 				{ children }
 			</ReactMarkdown>

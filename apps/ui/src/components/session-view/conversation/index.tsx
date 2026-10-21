@@ -27,31 +27,74 @@ import {
 	getToolResultDiff,
 	findOwnFreeFormOptionLabel,
 	STOPPED_WITHOUT_ANSWER,
+	splitCommandArgs,
 	type NormalizedToolResult,
 } from '@studio/common/ai/tools';
 import { formatUsageCapNotice } from '@studio/common/lib/studio-assistant-quota';
 import { useReducedMotion } from '@wordpress/compose';
 import { __, isRTL, sprintf } from '@wordpress/i18n';
 import {
+	blockDefault,
+	brush,
+	capturePhoto,
+	category,
+	chartBar,
 	check,
 	chevronLeft,
 	chevronRight,
-	error as errorIcon,
+	cloud,
+	cloudDownload,
+	cloudUpload,
+	code,
+	create,
+	download,
+	file,
+	globe,
 	image,
-	notAllowed,
+	info,
+	link,
+	list,
+	media,
+	navigation,
+	offline,
 	page,
-	published,
+	pencil,
+	pending,
+	people,
+	plugins,
+	plusCircle,
+	post,
 	search,
+	seen,
+	settings,
+	shuffle,
+	styles as stylesIcon,
+	tag,
+	tool,
+	trash,
+	trendingUp,
+	update,
+	upload,
 } from '@wordpress/icons';
-import { Button, Dialog, Icon, IconButton, Spinner } from '@wordpress/ui';
+import { Button, Dialog, Icon, IconButton } from '@wordpress/ui';
 import { clsx } from 'clsx';
-import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
+import {
+	useEffect,
+	useId,
+	useMemo,
+	useRef,
+	useState,
+	type ReactNode,
+	MouseEvent as ReactMouseEvent,
+} from 'react';
 import { AiAccessRequiredNotice, AiBlockedNotice } from '@/components/ai-access-required-notice';
 import { CopyButton } from '@/components/copy-button';
 import { Markdown } from '@/components/markdown';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
 import { useLocalMediaDataUrl } from '@/data/queries/use-local-media';
 import { MESSAGE_TEXT_ATTRIBUTE, QUOTABLE_TEXT_ATTRIBUTE } from '@/hooks/use-text-context-menu';
+import { refreshIcon } from '@/lib/icons';
+import { ThinkingIndicator } from '../thinking-indicator';
 import styles from './style.module.css';
 import type { LoadedAiSession } from '@/data/core';
 import type { SessionEntry } from '@earendil-works/pi-coding-agent';
@@ -91,23 +134,8 @@ type RenderItem =
 			key: string;
 			widgets: StudioChatArtifactWidgetDraft[];
 	  }
-	| { kind: 'progress'; key: string; text: string }
 	| { kind: 'interrupted-marker'; key: string }
 	| { kind: 'error-marker'; key: string; message: string };
-
-type ActivityDetail = Extract< RenderItem, { kind: 'tool-use' | 'assistant-text' | 'progress' } >;
-type ActivityStatus = 'running' | 'success' | 'interrupted' | 'error';
-
-interface ActivityItem {
-	kind: 'activity';
-	key: string;
-	items: ActivityDetail[];
-	startedAt: number | null;
-	endedAt: number | null;
-	status: ActivityStatus;
-}
-
-type TranscriptItem = Exclude< RenderItem, { kind: 'tool-use' | 'progress' } > | ActivityItem;
 
 interface PiAssistantContentBlock {
 	type: 'text' | 'toolCall' | 'thinking';
@@ -333,14 +361,6 @@ export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 			continue;
 		}
 
-		if ( isStudioCustomEntryOfType( entry, 'studio.tool_progress' ) ) {
-			const text = entry.data?.message?.trim();
-			if ( text ) {
-				items.push( { kind: 'progress', key: `${ entryIndex }:progress`, text } );
-			}
-			continue;
-		}
-
 		if ( isStudioCustomEntryOfType( entry, 'studio.turn_closed' ) ) {
 			const data = ( entry as StudioCustomEntry< 'studio.turn_closed' > ).data;
 			if ( data?.status === 'interrupted' ) {
@@ -362,163 +382,37 @@ export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 	return items;
 }
 
-function isPromptEntry( entry: SessionEntry ): boolean {
-	return (
-		isStudioCustomEntryOfType( entry, 'studio.user_prompt' ) && entry.data?.source === 'prompt'
-	);
+interface ActiveStep {
+	key: string | null;
+	progressMessage: string | null;
 }
 
-function getTimestamp( entry: SessionEntry | undefined ): number | null {
-	const parsed = entry ? Date.parse( entry.timestamp ) : NaN;
-	return Number.isFinite( parsed ) ? parsed : null;
-}
-
-function getItemEntryIndex( item: RenderItem ): number {
-	return parseInt( item.key, 10 );
-}
-
-// A turn runs from a typed prompt to its `studio.turn_closed`. Its tool calls,
-// the text written before the last of them, and progress fold into one
-// activity line placed ahead of the reply.
-export function entriesToTranscriptItems(
-	entries: SessionEntry[],
-	{ running = false, startedAt = null }: { running?: boolean; startedAt?: number | null } = {}
-): TranscriptItem[] {
-	const turns: Array< [ number, number ] > = [];
-	let turnStart = 0;
-	entries.forEach( ( entry, index ) => {
-		if ( index > turnStart && isPromptEntry( entry ) ) {
-			turns.push( [ turnStart, index ] );
-			turnStart = index;
+function getActiveStep( entries: SessionEntry[] ): ActiveStep {
+	let progressMessage: string | null = null;
+	for ( let i = entries.length - 1; i >= 0; i -= 1 ) {
+		const entry = entries[ i ];
+		if ( ! isStudioCustomEntryOfType( entry, 'studio.tool_progress' ) ) {
+			return { key: entry.id, progressMessage };
 		}
-		if ( isStudioCustomEntryOfType( entry, 'studio.turn_closed' ) ) {
-			turns.push( [ turnStart, index + 1 ] );
-			turnStart = index + 1;
+		const data = ( entry as StudioCustomEntry< 'studio.tool_progress' > ).data;
+		if ( progressMessage === null && data ) {
+			progressMessage = data.message;
 		}
-	} );
-	if ( turnStart < entries.length ) {
-		turns.push( [ turnStart, entries.length ] );
 	}
-
-	const items = entriesToRenderItems( entries );
-	const transcript: TranscriptItem[] = [];
-	let cursor = 0;
-	for ( const [ start, end ] of turns ) {
-		const turnItems: RenderItem[] = [];
-		while ( cursor < items.length && getItemEntryIndex( items[ cursor ] ) < end ) {
-			turnItems.push( items[ cursor ] );
-			cursor += 1;
-		}
-		const turnEntries = entries.slice( start, end );
-		const prompt = turnEntries.find( isPromptEntry );
-		const closed = turnEntries.find( ( entry ) =>
-			isStudioCustomEntryOfType( entry, 'studio.turn_closed' )
-		) as StudioCustomEntry< 'studio.turn_closed' > | undefined;
-		const isRunningTurn = running && ! closed && end === entries.length;
-		const lastToolIndex = turnItems.map( ( item ) => item.kind ).lastIndexOf( 'tool-use' );
-		const details: ActivityDetail[] = [];
-		const visible: TranscriptItem[] = [];
-		turnItems.forEach( ( item, index ) => {
-			if (
-				item.kind === 'tool-use' ||
-				item.kind === 'progress' ||
-				( item.kind === 'assistant-text' && index < lastToolIndex )
-			) {
-				details.push( item );
-			} else {
-				visible.push( item );
-			}
-		} );
-
-		const hasReply = visible.some( ( item ) => item.kind === 'assistant-text' );
-		if ( ! details.length && ! isRunningTurn && ( ! prompt || ( ! closed && ! hasReply ) ) ) {
-			transcript.push( ...visible );
-			continue;
-		}
-		const closedStatus = closed?.data?.status;
-		const firstResponseIndex = visible.findIndex( ( item ) => item.kind !== 'user-text' );
-		visible.splice( firstResponseIndex === -1 ? visible.length : firstResponseIndex, 0, {
-			kind: 'activity',
-			key: `${ start }:activity`,
-			items: details,
-			startedAt: ( isRunningTurn ? startedAt : null ) ?? getTimestamp( prompt ),
-			endedAt: getTimestamp( closed ),
-			status: isRunningTurn
-				? 'running'
-				: closedStatus === 'interrupted'
-				? 'interrupted'
-				: closedStatus === 'error' || closedStatus === 'max_turns'
-				? 'error'
-				: 'success',
-		} );
-		transcript.push( ...visible );
-	}
-	return transcript;
-}
-
-function getLiveProgress( entries: SessionEntry[] ): string | undefined {
-	const last = entries[ entries.length - 1 ];
-	return last && isStudioCustomEntryOfType( last, 'studio.tool_progress' )
-		? last.data?.message
-		: undefined;
-}
-
-interface JoinedProps {
-	joinedAbove?: boolean;
-	joinedBelow?: boolean;
-}
-
-function MessageRow( {
-	from,
-	joinedAbove,
-	joinedBelow,
-	copyText,
-	attributes,
-	children,
-}: JoinedProps & {
-	from: 'user' | 'assistant';
-	copyText?: string;
-	attributes: Record< string, string | boolean >;
-	children: ReactNode;
-} ) {
-	return (
-		<div
-			className={ styles.message }
-			data-from={ from }
-			data-joined-above={ joinedAbove || undefined }
-			data-joined-below={ joinedBelow || undefined }
-			{ ...attributes }
-		>
-			<div className={ styles.bubble }>{ children }</div>
-			{ copyText ? (
-				<CopyButton
-					className={ styles.messageCopy }
-					text={ copyText }
-					label={ __( 'Copy message' ) }
-					variant="plain"
-				/>
-			) : null }
-		</div>
-	);
+	return { key: null, progressMessage };
 }
 
 function UserTurn( {
 	text,
 	attachments,
 	annotation,
-	...joined
-}: JoinedProps & {
+}: {
 	text: string;
 	attachments?: StudioChatAttachmentSummary[];
 	annotation?: StudioVisualAnnotationSummary;
 } ) {
 	return (
-		<MessageRow
-			from="user"
-			copyText={ text }
-			attributes={ { [ MESSAGE_TEXT_ATTRIBUTE ]: text } }
-			{ ...joined }
-		>
+		<div className={ styles.userTurn } { ...{ [ MESSAGE_TEXT_ATTRIBUTE ]: text } }>
 			<div className={ styles.userText }>{ text }</div>
 			{ annotation ? (
 				<div className={ styles.annotationAttachment }>
@@ -557,7 +451,64 @@ function UserTurn( {
 					) }
 				</ul>
 			) : null }
-		</MessageRow>
+		</div>
+	);
+}
+
+function AssistantText( {
+	text,
+	messageText,
+	copyText,
+	showActions,
+	onToggleSelect,
+}: {
+	text: string;
+	messageText: string;
+	copyText?: string;
+	showActions: boolean;
+	onToggleSelect: () => void;
+} ) {
+	const handleClick = ( event: ReactMouseEvent< HTMLDivElement > ) => {
+		// Links and the buttons inside code blocks or the action row own their
+		// clicks; only bare message content toggles the actions.
+		if ( ( event.target as HTMLElement | null )?.closest( 'a, button' ) ) {
+			return;
+		}
+		// A click that ends a text drag is a selection, not a tap.
+		const selection = window.getSelection();
+		if ( selection && ! selection.isCollapsed && selection.toString().trim() ) {
+			return;
+		}
+		onToggleSelect();
+	};
+
+	return (
+		// Clicking the message is a mouse convenience for revealing its actions;
+		// keyboard users reach the same buttons by tabbing to them, which opens
+		// the row via :focus-within. Deliberately no button role — the message
+		// holds links, and nesting them inside a control would be invalid.
+		<div
+			className={ styles.assistantTurn }
+			data-actions-open={ showActions ? 'true' : undefined }
+			{ ...{
+				[ MESSAGE_TEXT_ATTRIBUTE ]: messageText,
+				[ QUOTABLE_TEXT_ATTRIBUTE ]: true,
+			} }
+			onClick={ copyText ? handleClick : undefined }
+		>
+			<div className={ styles.assistantBubble }>
+				<Markdown>{ text }</Markdown>
+			</div>
+			{ copyText ? (
+				<div className={ styles.messageActions }>
+					<div className={ styles.messageActionsClip }>
+						<div className={ styles.messageActionsRow }>
+							<CopyButton text={ copyText } label={ __( 'Copy message' ) } />
+						</div>
+					</div>
+				</div>
+			) : null }
+		</div>
 	);
 }
 
@@ -635,6 +586,122 @@ function getClassicToolDisplay(
 	return display;
 }
 
+function getWpCliToolIcon( command: string ) {
+	const [ entity ] = splitCommandArgs( command );
+
+	switch ( entity ) {
+		case 'theme':
+			return stylesIcon;
+		case 'plugin':
+			return plugins;
+		case 'post':
+			return post;
+		case 'option':
+			return settings;
+		case 'user':
+			return people;
+		case 'media':
+			return media;
+		case 'menu':
+			return navigation;
+		case 'term':
+			return tag;
+		case 'cache':
+			return update;
+		case 'rewrite':
+			return link;
+		case 'eval':
+		case 'eval-file':
+			return code;
+		default:
+			return code;
+	}
+}
+
+function getToolIcon( name: string, input: Record< string, unknown > | undefined ) {
+	switch ( name ) {
+		case 'site_create':
+			return plusCircle;
+		case 'site_list':
+			return list;
+		case 'site_info':
+			return info;
+		case 'site_start':
+			return globe;
+		case 'site_stop':
+			return offline;
+		case 'site_delete':
+			return trash;
+		case 'site_push':
+			return cloudUpload;
+		case 'site_pull':
+			return cloudDownload;
+		case 'site_import':
+			return upload;
+		case 'site_export':
+			return download;
+		case 'site_connected_remote_sites':
+			return link;
+		case 'preview_create':
+			return seen;
+		case 'preview_list':
+			return list;
+		case 'preview_update':
+			return update;
+		case 'preview_delete':
+			return trash;
+		case 'wp_cli': {
+			const command = getInputString( input, 'command' );
+			return command ? getWpCliToolIcon( command ) : code;
+		}
+		case 'open_annotation_browser':
+			return pencil;
+		case 'wait_for_annotations':
+			return pending;
+		case 'take_screenshot':
+			return capturePhoto;
+		case 'inspect_design':
+			return search;
+		case 'refresh_browser':
+			return refreshIcon;
+		case 'validate_blocks':
+			return check;
+		case 'scaffold_theme':
+			return brush;
+		case 'pick_design':
+			return shuffle;
+		case 'install_taxonomy_scripts':
+			return category;
+		case 'need_for_speed':
+			return chartBar;
+		case 'rank_me_up':
+			return trendingUp;
+		case 'wpcom_request':
+			return cloud;
+		case 'Read':
+			return file;
+		case 'Write':
+			return create;
+		case 'Edit':
+			return pencil;
+		case 'Bash':
+			return code;
+		case 'Grep':
+		case 'Glob':
+			return search;
+		case 'Ls':
+			return list;
+		case 'Skill':
+			return blockDefault;
+		case 'Task':
+			return tool;
+		case 'TodoWrite':
+			return check;
+		default:
+			return tool;
+	}
+}
+
 function DiffBlock( { diff }: { diff: string } ) {
 	const lines = diff.replace( /\n$/, '' ).split( '\n' );
 	return (
@@ -655,208 +722,103 @@ function DiffBlock( { diff }: { diff: string } ) {
 	);
 }
 
-function TraceCollapsible( {
-	line,
-	label,
-	defaultOpen = false,
-	children,
-}: {
-	line: ReactNode;
-	label?: string;
-	defaultOpen?: boolean;
-	children: ReactNode;
-} ) {
-	const contentId = useId();
-	const [ open, setOpen ] = useState( defaultOpen );
-	const [ hasOpened, setHasOpened ] = useState( defaultOpen );
+function ToolIcon( { name, input }: { name: string; input?: Record< string, unknown > } ) {
 	return (
-		<div className={ styles.trace }>
-			<button
-				type="button"
-				className={ styles.traceTrigger }
-				aria-label={ label }
-				aria-expanded={ open }
-				aria-controls={ contentId }
-				onClick={ () => {
-					setOpen( ! open );
-					setHasOpened( true );
-				} }
-			>
-				{ line }
-				<Icon icon={ chevronRight } size={ 16 } className={ styles.traceChevron } />
-			</button>
-			<div id={ contentId } className={ styles.traceContent } data-open={ open } inert={ ! open }>
-				<div className={ styles.traceContentClip }>
-					<div className={ styles.traceContentInner }>{ hasOpened ? children : null }</div>
-				</div>
-			</div>
-		</div>
+		<Icon
+			icon={ getToolIcon( name, input ) }
+			size={ 18 }
+			className={ styles.toolIcon }
+			aria-hidden="true"
+		/>
 	);
 }
 
-function ToolTrace( {
+function ToolUseRow( {
 	name,
 	input,
 	result,
-	running,
 }: {
 	name: string;
 	input?: Record< string, unknown >;
 	result?: NormalizedToolResult;
-	running: boolean;
 } ) {
 	const display = getClassicToolDisplay( name, input );
-	const title = `${ display.label } ${ display.detail }`.trim();
+	const detailsId = useId();
 	const resultText = result?.text?.trim() ?? '';
-	let status: { label: string; icon: ReactNode; error?: boolean };
-	if ( result?.isError ) {
-		status = { label: __( 'Failed' ), icon: <Icon icon={ errorIcon } size={ 16 } />, error: true };
-	} else if ( result ) {
-		status = { label: __( 'Completed' ), icon: <Icon icon={ published } size={ 16 } /> };
-	} else if ( running ) {
-		status = { label: __( 'Running' ), icon: <Spinner color="currentColor" /> };
-	} else {
-		status = { label: __( 'Stopped' ), icon: <Icon icon={ notAllowed } size={ 16 } /> };
-	}
-	const line = (
-		<span className={ styles.traceLine } data-status={ status.error ? 'error' : undefined }>
-			<span className={ styles.traceIcon } aria-hidden="true">
-				{ status.icon }
-			</span>
-			<span className={ styles.traceTitle }>{ title }</span>
-		</span>
-	);
-	if ( ! display.inputText && ! resultText && ! result?.diff ) {
-		return line;
-	}
-	return (
-		<TraceCollapsible
-			line={ line }
-			label={ `${ status.label }: ${ title }` }
-			defaultOpen={ result?.isError }
-		>
-			{ display.inputText ? (
-				<div className={ styles.toolSection }>
-					<span>{ __( 'Parameters' ) }</span>
-					<pre className={ styles.toolCode }>{ display.inputText }</pre>
-				</div>
-			) : null }
-			{ resultText ? (
-				<div className={ styles.toolSection }>
-					<span>{ result?.isError ? __( 'Error' ) : __( 'Result' ) }</span>
-					{ result?.isError ? (
-						<pre className={ clsx( styles.toolCode, styles.toolError ) }>{ resultText }</pre>
-					) : (
-						<div className={ styles.toolResult }>
-							<Markdown compact>{ resultText }</Markdown>
-						</div>
-					) }
-				</div>
-			) : null }
-			{ result?.diff ? <DiffBlock diff={ result.diff } /> : null }
-		</TraceCollapsible>
-	);
-}
-
-function getActivityLabel( status: ActivityStatus, elapsed: number | null ): string {
-	switch ( status ) {
-		case 'running':
-			// translators: %d: number of seconds the agent has been working.
-			return sprintf( __( 'Working for %ds' ), elapsed ?? 0 );
-		case 'interrupted':
-			return elapsed === null
-				? __( 'Stopped' )
-				: // translators: %d: number of seconds the agent worked before it was stopped.
-				  sprintf( __( 'Stopped after %ds' ), elapsed );
-		case 'error':
-			return elapsed === null
-				? __( 'Failed' )
-				: // translators: %d: number of seconds the agent worked before it failed.
-				  sprintf( __( 'Failed after %ds' ), elapsed );
-		default:
-			return elapsed === null
-				? __( 'Worked' )
-				: // translators: %d: number of seconds the agent worked.
-				  sprintf( __( 'Worked for %ds' ), elapsed );
-	}
-}
-
-function useElapsedSeconds(
-	startedAt: number | null,
-	endedAt: number | null,
-	running: boolean
-): number | null {
-	const [ now, setNow ] = useState( () => Date.now() );
+	const hasOutput = resultText.length > 0;
+	const hasInput = display.inputText.length > 0;
+	const hasDiff = Boolean( result?.diff );
+	const hasExpandableDetails = hasInput || hasOutput || hasDiff;
+	const [ expanded, setExpanded ] = useState( false );
+	const [ detailsMounted, setDetailsMounted ] = useState( false );
 	useEffect( () => {
-		if ( ! running ) {
+		if ( expanded || ! detailsMounted ) {
 			return;
 		}
-		setNow( Date.now() );
-		const intervalId = window.setInterval( () => setNow( Date.now() ), 1000 );
-		return () => window.clearInterval( intervalId );
-	}, [ running ] );
-	const end = running ? now : endedAt;
-	return startedAt === null || end === null
-		? null
-		: Math.max( 0, Math.floor( ( end - startedAt ) / 1000 ) );
-}
-
-function Activity( {
-	activity,
-	progressMessage,
-}: {
-	activity: ActivityItem;
-	progressMessage?: string;
-} ) {
-	const running = activity.status === 'running';
-	const elapsed = useElapsedSeconds( activity.startedAt, activity.endedAt, running );
-	const line = (
-		<span
-			className={ styles.traceLine }
-			data-status={ activity.status === 'error' ? 'error' : undefined }
-		>
-			<span className={ styles.traceTitle }>{ getActivityLabel( activity.status, elapsed ) }</span>
-			{ running && progressMessage ? (
-				<span className={ styles.traceDescription } aria-live="polite">
-					{ progressMessage }
-				</span>
-			) : null }
-		</span>
+		const timeoutId = window.setTimeout( () => setDetailsMounted( false ), 220 );
+		return () => window.clearTimeout( timeoutId );
+	}, [ detailsMounted, expanded ] );
+	const rowContent = (
+		<>
+			<ToolIcon name={ name } input={ input } />
+			<span className={ styles.toolLabel }>{ display.label }</span>
+			{ display.detail ? <span className={ styles.toolDetail }>{ display.detail }</span> : null }
+		</>
 	);
-	if ( ! activity.items.length ) {
-		return <div className={ styles.trace }>{ line }</div>;
-	}
+
 	return (
-		<TraceCollapsible line={ line }>
-			{ activity.items.map( ( item ) => {
-				switch ( item.kind ) {
-					case 'tool-use':
-						return (
-							<ToolTrace
-								key={ item.key }
-								name={ item.name }
-								input={ item.input }
-								result={ item.result }
-								running={ running }
-							/>
-						);
-					case 'assistant-text':
-						return (
-							<div
-								key={ item.key }
-								{ ...{
-									[ MESSAGE_TEXT_ATTRIBUTE ]: item.messageText,
-									[ QUOTABLE_TEXT_ATTRIBUTE ]: true,
-								} }
-							>
-								<Markdown compact>{ item.text }</Markdown>
-							</div>
-						);
-					default:
-						return <p key={ item.key }>{ item.text }</p>;
-				}
-			} ) }
-		</TraceCollapsible>
+		<div className={ styles.toolBlock }>
+			{ hasExpandableDetails ? (
+				<button
+					type="button"
+					className={ clsx( styles.toolRow, styles.toolRowButton ) }
+					aria-label={ display.detail ? `${ display.label } ${ display.detail }` : display.label }
+					aria-expanded={ expanded }
+					aria-controls={ detailsId }
+					data-expanded={ expanded }
+					onClick={ () => {
+						if ( expanded ) {
+							setExpanded( false );
+							return;
+						}
+						setDetailsMounted( true );
+						setExpanded( true );
+					} }
+					title={ expanded ? __( 'Hide tool details' ) : __( 'Show tool details' ) }
+				>
+					{ rowContent }
+				</button>
+			) : (
+				<div className={ styles.toolRow }>{ rowContent }</div>
+			) }
+			{ hasExpandableDetails && detailsMounted ? (
+				<div
+					id={ detailsId }
+					className={ styles.toolDetailsShell }
+					data-expanded={ expanded }
+					aria-hidden={ ! expanded }
+					onTransitionEnd={ ( event ) => {
+						if ( event.currentTarget === event.target && ! expanded ) {
+							setDetailsMounted( false );
+						}
+					} }
+				>
+					<div className={ styles.toolDetailsClip }>
+						<div className={ styles.toolOutputWrap }>
+							{ hasInput ? <pre className={ styles.toolInput }>{ display.inputText }</pre> : null }
+							{ hasOutput ? (
+								<pre
+									className={ clsx( styles.toolOutput, result?.isError && styles.toolOutputError ) }
+								>
+									{ resultText }
+								</pre>
+							) : null }
+							{ hasDiff ? <DiffBlock diff={ result!.diff! } /> : null }
+						</div>
+					</div>
+				</div>
+			) : null }
+		</div>
 	);
 }
 
@@ -1548,16 +1510,6 @@ function TurnErrorMarker( { message }: { message: string } ) {
 	);
 }
 
-function getMessageSender( item: TranscriptItem | undefined ) {
-	if ( item?.kind === 'user-text' ) {
-		return 'user';
-	}
-	if ( item?.kind === 'assistant-text' || item?.kind === 'agent-question-batch' ) {
-		return 'assistant';
-	}
-	return undefined;
-}
-
 export function Conversation( {
 	data,
 	isRunning,
@@ -1580,18 +1532,36 @@ export function Conversation( {
 	onChooseFreeForm: ( question: string ) => void;
 } ) {
 	const entries = data.entries;
-	const items = useMemo(
-		() => entriesToTranscriptItems( entries, { running: isRunning, startedAt } ),
-		[ entries, isRunning, startedAt ]
-	);
-	const progressMessage = isRunning ? getLiveProgress( entries ) : undefined;
+	const items = useMemo( () => entriesToRenderItems( entries ), [ entries ] );
+	const activeStep = useMemo( () => getActiveStep( entries ), [ entries ] );
+
+	// One selected message at a time, so picking a new one closes the last.
+	const [ selectedKey, setSelectedKey ] = useState< string | null >( null );
+	const sessionId = data.summary.id;
+	useEffect( () => {
+		setSelectedKey( null );
+	}, [ sessionId ] );
+
+	// The newest reply keeps its actions open, so copying the answer you just
+	// got never depends on discovering that messages can be clicked. Held back
+	// until the turn settles — mid-run the last text block keeps moving as new
+	// blocks stream in, and the row would hop down the transcript with it.
+	const latestActionableKey = useMemo( () => {
+		if ( isRunning ) {
+			return null;
+		}
+		for ( let index = items.length - 1; index >= 0; index -= 1 ) {
+			const item = items[ index ];
+			if ( item.kind === 'assistant-text' && item.copyText ) {
+				return item.key;
+			}
+		}
+		return null;
+	}, [ isRunning, items ] );
 
 	return (
 		<div className={ styles.root }>
-			{ items.map( ( item, index ) => {
-				const sender = getMessageSender( item );
-				const joinedAbove = !! sender && getMessageSender( items[ index - 1 ] ) === sender;
-				const joinedBelow = !! sender && getMessageSender( items[ index + 1 ] ) === sender;
+			{ items.map( ( item ) => {
 				switch ( item.kind ) {
 					case 'user-text':
 						return (
@@ -1600,46 +1570,41 @@ export function Conversation( {
 								text={ item.text }
 								attachments={ item.attachments }
 								annotation={ item.annotation }
-								joinedAbove={ joinedAbove }
-								joinedBelow={ joinedBelow }
 							/>
 						);
 					case 'assistant-text':
 						return (
-							<MessageRow
+							<AssistantText
 								key={ item.key }
-								from="assistant"
+								text={ item.text }
+								messageText={ item.messageText }
 								copyText={ item.copyText }
-								joinedAbove={ joinedAbove }
-								joinedBelow={ joinedBelow }
-								attributes={ {
-									[ MESSAGE_TEXT_ATTRIBUTE ]: item.messageText,
-									[ QUOTABLE_TEXT_ATTRIBUTE ]: true,
-								} }
-							>
-								<Markdown>{ item.text }</Markdown>
-							</MessageRow>
+								showActions={ selectedKey === item.key || item.key === latestActionableKey }
+								onToggleSelect={ () =>
+									setSelectedKey( ( current ) => ( current === item.key ? null : item.key ) )
+								}
+							/>
 						);
-					case 'activity':
+					case 'tool-use':
 						return (
-							<Activity key={ item.key } activity={ item } progressMessage={ progressMessage } />
+							<ToolUseRow
+								key={ item.key }
+								name={ item.name }
+								input={ item.input }
+								result={ item.result }
+							/>
 						);
 					case 'agent-question-batch':
 						return (
-							<div
+							<AgentQuestionBatch
 								key={ item.key }
-								className={ styles.questionCard }
-								data-joined-above={ joinedAbove || undefined }
-							>
-								<AgentQuestionBatch
-									questions={ item.questions }
-									pendingQuestions={ pendingQuestions }
-									pendingAnswers={ pendingAnswers }
-									freeFormQuestion={ freeFormQuestion }
-									onAnswer={ onAnswerQuestion }
-									onChooseFreeForm={ onChooseFreeForm }
-								/>
-							</div>
+								questions={ item.questions }
+								pendingQuestions={ pendingQuestions }
+								pendingAnswers={ pendingAnswers }
+								freeFormQuestion={ freeFormQuestion }
+								onAnswer={ onAnswerQuestion }
+								onChooseFreeForm={ onChooseFreeForm }
+							/>
 						);
 					case 'chat-artifact':
 						return <ChatArtifact key={ item.key } widgets={ item.widgets } />;
@@ -1655,6 +1620,12 @@ export function Conversation( {
 						return null;
 				}
 			} ) }
+			<ThinkingIndicator
+				active={ isRunning && pendingQuestions.size === 0 }
+				startedAt={ startedAt }
+				stepKey={ activeStep.key }
+				progressMessage={ isRunning ? activeStep.progressMessage : null }
+			/>
 		</div>
 	);
 }

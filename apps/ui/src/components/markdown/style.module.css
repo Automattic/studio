@@ -8,14 +8,6 @@
 	overflow-wrap: break-word;
 }
 
-.compact {
-	--markdown-gap: 8px;
-
-	color: inherit;
-	font-size: var(--wpds-typography-font-size-md);
-	line-height: 20px;
-}
-
 .root > *,
 .blockquote > * {
 	margin-block: 0;
@@ -133,10 +125,6 @@
 	margin-inline-end: -4px;
 }
 
-.compact .codeHeader {
-	padding: 4px 8px;
-}
-
 .pre {
 	margin: 0;
 	padding: 12px;
@@ -146,10 +134,6 @@
 	overflow-x: auto;
 	-webkit-user-select: text;
 	user-select: text;
-}
-
-.compact .pre {
-	padding: 8px;
 }
 
 .pre > code {

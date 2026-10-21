@@ -276,7 +276,7 @@
 	font-size: 13px;
 }
 
-.manageAll {
+.content .manageAll {
 	display: flex;
 	margin-block-start: 4px;
 	padding-inline: 0;

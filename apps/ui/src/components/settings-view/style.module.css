@@ -18,7 +18,7 @@
 	gap: var( --wpds-dimension-padding-md );
 }
 
-.manageLink {
+.preferenceText .manageLink {
 	display: flex;
 	margin-block-start: 4px;
 	padding-inline: 0;

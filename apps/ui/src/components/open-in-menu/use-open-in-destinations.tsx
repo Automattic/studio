@@ -2,13 +2,13 @@ import { captureException } from '@studio/common/lib/error-reporting';
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { supportedEditorConfig } from '@studio/common/lib/user-settings/editor';
 import { terminalConfig } from '@studio/common/lib/user-settings/terminal';
-import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { code, external, wordpress } from '@wordpress/icons';
 import { DATABASE_HOME_PATH } from '@/components/site-preview/address-bar';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
+import { useOpenSettings } from '@/hooks/use-open-settings';
 import {
 	databaseLogo,
 	editorLogos,
@@ -63,7 +63,7 @@ export function useOpenInDestinations(
 	onOpen?: ( destination: OpenInDestination ) => void
 ): OpenInDestinationEntry[] {
 	const connector = useConnector();
-	const navigate = useNavigate();
+	const openSettings = useOpenSettings();
 	const { data: userPreferences } = useUserPreferences();
 
 	const fileManager = getFileManager();
@@ -128,7 +128,7 @@ export function useOpenInDestinations(
 			disabled: false,
 			open: () => {
 				if ( ! userPreferences?.editor ) {
-					void navigate( { to: '/settings' } );
+					openSettings();
 					return;
 				}
 				onOpen?.( 'editor' );

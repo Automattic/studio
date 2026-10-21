@@ -14,6 +14,8 @@ import { DataForm, useFormValidity } from '@wordpress/dataviews';
 import { __ } from '@wordpress/i18n';
 import { Button } from '@wordpress/ui';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { useSettingsDialog } from '@/components/settings-dialog/context';
 import {
 	adminEmailField,
 	adminPasswordField,
@@ -31,7 +33,6 @@ import {
 	wpVersionField,
 } from '@/components/site-fields';
 import { EnableHttpsControl } from '@/components/site-fields/enable-https-control';
-import * as Tabs from '@/components/tabs';
 import { useConnector } from '@/data/core';
 import { useExistingCustomDomains } from '@/data/queries/use-create-site-helpers';
 import { useDebugLogExists } from '@/data/queries/use-debug-log';
@@ -45,15 +46,13 @@ import {
 	SiteNameControl,
 } from './copyable-credential-control';
 import styles from './style.module.css';
+import type { SiteSettingsSectionId } from '@/components/settings-dialog/context';
 import type { SiteDetails } from '@/data/core';
-import type { TracksPanel } from '@studio/common/lib/record-tracks-event';
 import type { SiteFileAccess } from '@studio/common/lib/site-file-access';
 import type { WpEnvironmentType } from '@studio/common/lib/wp-environment-type';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { DataFormControlProps, Field, Form } from '@wordpress/dataviews';
 import type { FormEvent } from 'react';
-
-type TabId = 'general' | 'debugging';
 
 interface FormData {
 	name: string;
@@ -146,12 +145,23 @@ function EnableDebugLogControl( {
 	);
 }
 
+const FORM_ID = 'site-settings-form';
+
 /**
- * The site settings form (General + Debugging), rendered as tab panels inside
- * a `Tabs.Root` owned by the caller — the site overview view. One instance
- * spans both panels so unsaved edits survive tab switches.
+ * The site settings form, one section at a time. One instance spans every
+ * section so unsaved edits survive switching between them; its Discard and
+ * Save buttons sit in the settings dialog's header.
  */
-export function SiteSettingsForm( { site }: { site: SiteDetails } ) {
+export function SiteSettingsForm( {
+	site,
+	section,
+	active,
+}: {
+	site: SiteDetails;
+	section: SiteSettingsSectionId;
+	active: boolean;
+} ) {
+	const dialog = useSettingsDialog();
 	const allDomains = useExistingCustomDomains();
 	const existingDomainNames = useMemo(
 		() => allDomains.filter( ( domain ) => domain !== site.customDomain ),
@@ -254,57 +264,53 @@ export function SiteSettingsForm( { site }: { site: SiteDetails } ) {
 		]
 	);
 
-	const generalForm = useMemo< Form >(
-		() => ( {
-			layout: { type: 'regular', labelPosition: 'top' },
-			fields: [
-				{
-					id: 'siteDetails',
-					label: __( 'Site details' ),
-					layout: { type: 'card', withHeader: true, isCollapsible: false },
-					children: [ 'name', 'wpVersion' ],
-				},
-				{
-					id: 'phpEnvironment',
-					label: __( 'PHP environment' ),
-					layout: { type: 'card', withHeader: true, isCollapsible: false },
-					children: [ 'phpVersion', 'fileAccess' ],
-				},
-				{
-					id: 'wordpressAdmin',
-					label: __( 'WordPress admin' ),
-					layout: { type: 'card', withHeader: true, isCollapsible: false },
-					children: [ 'adminUsername', 'adminPassword', 'adminEmail' ],
-				},
-				{
-					id: 'domain',
-					label: __( 'Domain' ),
-					layout: { type: 'card', withHeader: true, isCollapsible: false },
-					children: [ 'useCustomDomain', 'customDomain', 'enableHttps' ],
-				},
-			],
-		} ),
-		[]
-	);
-	const debuggingForm = useMemo< Form >(
-		() => ( {
-			layout: { type: 'regular', labelPosition: 'top' },
-			fields: [
-				'enableXdebug',
-				'enableDebugLog',
-				'enableDebugDisplay',
-				'enableScriptDebug',
-				'environmentType',
-			],
-		} ),
-		[]
-	);
+	const forms = useMemo< Record< SiteSettingsSectionId, Form > >( () => {
+		const card = ( id: string, label: string, children: string[] ) => ( {
+			id,
+			label,
+			layout: { type: 'card', withHeader: true, isCollapsible: false } as const,
+			children,
+		} );
+		const layout = { type: 'regular' as const, labelPosition: 'top' as const };
+		return {
+			site: {
+				layout,
+				fields: [
+					card( 'siteDetails', __( 'Site details' ), [ 'name', 'wpVersion' ] ),
+					card( 'wordpressAdmin', __( 'WordPress admin' ), [
+						'adminUsername',
+						'adminPassword',
+						'adminEmail',
+					] ),
+					card( 'domain', __( 'Domain' ), [ 'useCustomDomain', 'customDomain', 'enableHttps' ] ),
+				],
+			},
+			php: {
+				layout,
+				fields: [
+					card( 'phpEnvironment', __( 'PHP environment' ), [ 'phpVersion', 'fileAccess' ] ),
+				],
+			},
+			debugging: {
+				layout,
+				fields: [
+					card( 'debugging', __( 'Debugging' ), [
+						'enableXdebug',
+						'enableDebugLog',
+						'enableDebugDisplay',
+						'enableScriptDebug',
+						'environmentType',
+					] ),
+				],
+			},
+		};
+	}, [] );
 	const fullForm = useMemo< Form >(
 		() => ( {
-			layout: { type: 'regular', labelPosition: 'top' },
-			fields: [ ...generalForm.fields!, ...debuggingForm.fields! ],
+			layout: forms.site.layout,
+			fields: [ ...forms.site.fields!, ...forms.php.fields!, ...forms.debugging.fields! ],
 		} ),
-		[ generalForm, debuggingForm ]
+		[ forms ]
 	);
 
 	const { validity, isValid } = useFormValidity( data, fields, fullForm );
@@ -339,6 +345,11 @@ export function SiteSettingsForm( { site }: { site: SiteDetails } ) {
 	const isBusy = useIsSiteBusy( site );
 	const canSubmit =
 		isValid && ! isUnchanged && ! updateSite.isPending && ! xdebugBlocked && ! isBusy;
+
+	const dirty = ! isUnchanged || updateSite.isPending;
+	const { setDirty } = dialog;
+	useEffect( () => setDirty( dirty ), [ dirty, setDirty ] );
+	useEffect( () => () => setDirty( false ), [ setDirty ] );
 
 	const handleSubmit = ( event: FormEvent ) => {
 		event.preventDefault();
@@ -385,52 +396,43 @@ export function SiteSettingsForm( { site }: { site: SiteDetails } ) {
 	};
 
 	return (
-		<form onSubmit={ handleSubmit } className={ styles.form }>
-			<Tabs.Panel tabId="general">
-				<DataForm< FormData >
-					data={ data }
-					fields={ fields }
-					form={ generalForm }
-					onChange={ handleChange }
-					validity={ validity }
-				/>
-			</Tabs.Panel>
-			<Tabs.Panel tabId="debugging">
-				<DataForm< FormData >
-					data={ data }
-					fields={ fields }
-					form={ debuggingForm }
-					onChange={ handleChange }
-					validity={ validity }
-				/>
-			</Tabs.Panel>
-
+		<form id={ FORM_ID } onSubmit={ handleSubmit } className={ styles.form }>
+			<DataForm< FormData >
+				data={ data }
+				fields={ fields }
+				form={ forms[ section ] }
+				onChange={ handleChange }
+				validity={ validity }
+			/>
 			{ submitError && <div className={ styles.submitError }>{ submitError }</div> }
-
-			<div className={ styles.actions }>
-				<Button
-					type="submit"
-					variant="solid"
-					tone="brand"
-					disabled={ ! canSubmit }
-					loading={ updateSite.isPending }
-					loadingAnnouncement={ __( 'Saving settings' ) }
-				>
-					{ __( 'Save settings' ) }
-				</Button>
-			</div>
+			{ active && dirty && dialog.actions
+				? createPortal(
+						<>
+							<Button
+								variant="outline"
+								tone="neutral"
+								size="compact"
+								disabled={ updateSite.isPending }
+								onClick={ () => setData( initial ) }
+							>
+								{ __( 'Discard' ) }
+							</Button>
+							<Button
+								type="submit"
+								form={ FORM_ID }
+								variant="solid"
+								tone="neutral"
+								size="compact"
+								disabled={ ! canSubmit }
+								loading={ updateSite.isPending }
+								loadingAnnouncement={ __( 'Saving settings' ) }
+							>
+								{ __( 'Save' ) }
+							</Button>
+						</>,
+						dialog.actions
+				  )
+				: null }
 		</form>
 	);
-}
-
-export function isSiteSettingsTab( value: string ): value is TabId {
-	return value === 'general' || value === 'debugging';
-}
-
-export type SiteSettingsTabId = TabId;
-
-// The `studio_panel_opened` value for a tab. The General tab reports `settings` so it lines up with
-// Studio Classic's Settings panel; debugging keeps its own name.
-export function siteSettingsTabToPanel( tab: TabId ): TracksPanel {
-	return tab === 'general' ? 'settings' : tab;
 }

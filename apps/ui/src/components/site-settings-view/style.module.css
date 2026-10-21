@@ -13,12 +13,6 @@
 	font-size: 13px;
 }
 
-.actions {
-	display: flex;
-	justify-content: flex-end;
-	gap: var(--wpds-dimension-padding-sm);
-}
-
 .credentialActions {
 	display: flex;
 	align-items: center;

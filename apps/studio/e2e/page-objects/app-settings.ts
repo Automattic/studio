@@ -1,6 +1,6 @@
 import { type ElectronApplication, type Page, expect } from '@playwright/test';
 
-// App settings (`/settings`). Changes save as soon as they're made.
+// Studio settings in the settings dialog. Changes save as soon as they're made.
 export default class AppSettings {
 	constructor( private page: Page ) {}
 
@@ -27,8 +27,15 @@ export default class AppSettings {
 		await expect( this.closeButton ).toBeHidden();
 	}
 
+	async showSection( name: string ) {
+		await this.page
+			.getByRole( 'navigation', { name: 'Settings sections' } )
+			.getByRole( 'button', { name } )
+			.click();
+	}
+
 	appearanceOption( name: 'System' | 'Light' | 'Dark' ) {
-		return this.page.getByRole( 'group', { name: 'Appearance' } ).getByRole( 'button', { name } );
+		return this.page.getByRole( 'group', { name: 'Theme' } ).getByRole( 'button', { name } );
 	}
 
 	async selectColorScheme( name: 'System' | 'Light' | 'Dark' ) {

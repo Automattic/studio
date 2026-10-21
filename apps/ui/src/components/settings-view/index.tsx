@@ -3,27 +3,17 @@ import { SUPPORTED_EDITORS, supportedEditorConfig } from '@studio/common/lib/use
 import { SUPPORTED_TERMINALS, terminalConfig } from '@studio/common/lib/user-settings/terminal';
 import { CheckboxControl } from '@wordpress/components';
 import { __, sprintf } from '@wordpress/i18n';
-import { close } from '@wordpress/icons';
-import { IconButton, SelectControl } from '@wordpress/ui';
+import { SelectControl } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useCallback, useEffect, useState } from 'react';
-import * as Tabs from '@/components/tabs';
 import { useConnector } from '@/data/core';
 import { persister } from '@/data/core/query-client';
 import { useInstalledApps } from '@/data/queries/use-installed-apps';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
-import { useSettingsClose } from '@/hooks/use-settings-close';
-import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
-import { useWindowControlsOverlay } from '@/hooks/use-window-controls-overlay';
 import { AccountSection } from './account-section';
-import { AiPanel } from './ai-panel';
-import { KeyboardPanel } from './keyboard-panel';
-import { McpPanel } from './mcp-panel';
 import { UNSET, toPreferencesFormData, toPreferencesPatch } from './preferences';
-import { SkillsPanel } from './skills-panel';
 import { StudioCliSection } from './studio-cli-section';
 import styles from './style.module.css';
-import { UsagePanel } from './usage-panel';
 import { WapuuScore } from './wapuu-score';
 import type { PreferencesFormData } from './preferences';
 import type {
@@ -35,16 +25,6 @@ import type {
 	SupportedTerminal,
 } from '@/data/core';
 import type { ReactNode } from 'react';
-
-const SETTINGS_TABS = [ 'preferences', 'ai', 'usage', 'keyboard', 'skills', 'mcp' ] as const;
-
-type TabId = ( typeof SETTINGS_TABS )[ number ];
-
-export function isSettingsTab( value: string ): value is TabId {
-	return SETTINGS_TABS.some( ( tab ) => tab === value );
-}
-
-export type SettingsTabId = TabId;
 
 // No "unset" option: the main process resolves a fallback for never-chosen
 // editor/terminal prefs (matching the legacy UI), so an explicit clear can't
@@ -73,10 +53,6 @@ const COLOR_SCHEME_ELEMENTS: { value: ColorScheme; label: string }[] = [
 	{ value: 'dark', label: __( 'Dark' ) },
 ];
 
-function isColorScheme( value: unknown ): value is ColorScheme {
-	return value === 'system' || value === 'light' || value === 'dark';
-}
-
 const QUIT_SITES_BEHAVIOR_ELEMENTS: {
 	value: QuitSitesBehavior | typeof UNSET;
 	label: string;
@@ -90,59 +66,6 @@ const QUIT_SITES_BEHAVIOR_ELEMENTS: {
 const LOCALE_ELEMENTS: { value: SupportedLocale; label: string }[] = Object.entries(
 	supportedLocaleNames
 ).map( ( [ value, label ] ) => ( { value: value as SupportedLocale, label } ) );
-
-function SettingsHeader() {
-	// Settings renders fullscreen, so only the macOS traffic lights need
-	// clearing: at the header's start edge in LTR, at its end edge (next to
-	// the close button) in RTL.
-	const trafficLightSpace = useTrafficLightSpace();
-	// Windows/Linux put the native window controls in the header's end corner,
-	// so the close button swaps to the start — the same move the classic UI
-	// makes in its fullscreen modal. Mutually exclusive with the traffic
-	// lights, which only ever appear on macOS.
-	const closeAtStart = useWindowControlsOverlay() !== null;
-	const onClose = useSettingsClose();
-	const closeButton = onClose ? (
-		<IconButton
-			className={ styles.headerClose }
-			variant="minimal"
-			tone="neutral"
-			size="default"
-			icon={ close }
-			label={ __( 'Close settings' ) }
-			onClick={ onClose }
-		/>
-	) : null;
-	return (
-		<div className={ styles.header }>
-			{ trafficLightSpace.start ? (
-				<div className={ styles.headerStart }>
-					<span className={ styles.toggleSpacer } aria-hidden="true" />
-				</div>
-			) : closeAtStart && closeButton ? (
-				<div className={ clsx( styles.headerStart, styles.headerStartClose ) }>{ closeButton }</div>
-			) : null }
-			<div className={ styles.headerTabs }>
-				<Tabs.List className={ styles.headerTabList }>
-					<Tabs.Tab tabId="preferences">{ __( 'Settings' ) }</Tabs.Tab>
-					<Tabs.Tab tabId="ai">{ __( 'AI' ) }</Tabs.Tab>
-					<Tabs.Tab tabId="usage">{ __( 'Usage' ) }</Tabs.Tab>
-					<Tabs.Tab tabId="keyboard">{ __( 'Keyboard' ) }</Tabs.Tab>
-					<Tabs.Tab tabId="skills">{ __( 'Skills' ) }</Tabs.Tab>
-					<Tabs.Tab tabId="mcp">{ __( 'MCP' ) }</Tabs.Tab>
-				</Tabs.List>
-			</div>
-			{ closeButton && ! closeAtStart ? (
-				<div className={ styles.headerEnd }>
-					{ closeButton }
-					{ trafficLightSpace.end ? (
-						<span className={ styles.toggleSpacer } aria-hidden="true" />
-					) : null }
-				</div>
-			) : null }
-		</div>
-	);
-}
 
 function PreferenceRow( {
 	title,
@@ -177,11 +100,11 @@ function AppearancePicker( {
 	);
 
 	return (
-		<PreferenceRow title={ __( 'Appearance' ) }>
+		<PreferenceRow title={ __( 'Theme' ) } description={ __( 'Choose light, dark, or system.' ) }>
 			<div
 				className={ styles.appearancePicker }
 				role="group"
-				aria-label={ __( 'Appearance' ) }
+				aria-label={ __( 'Theme' ) }
 				data-active-index={ activeIndex }
 			>
 				{ COLOR_SCHEME_ELEMENTS.map( ( option ) => (
@@ -269,27 +192,24 @@ function PreferencesPanel( {
 	data,
 	installedApps,
 	saveError,
-	onColorSchemeChange,
 	onDefaultSiteDirectorySelect,
 	onChange,
 }: {
 	data: PreferencesFormData;
 	installedApps: InstalledApps | undefined;
 	saveError: boolean;
-	onColorSchemeChange: ( value: ColorScheme ) => void;
 	onDefaultSiteDirectorySelect?: () => void;
 	onChange: ( update: Partial< PreferencesFormData > ) => void;
 } ) {
 	return (
 		<div className={ styles.preferencesPanel }>
+			<AccountSection />
 			<section className={ styles.preferenceSectionGroup }>
-				<h2 className={ styles.preferenceSectionHeading }>{ __( 'General' ) }</h2>
 				{ saveError ? (
 					<div className={ styles.errorMessage }>
 						{ __( 'An error occurred while saving settings. Please try again.' ) }
 					</div>
 				) : null }
-				<AppearancePicker value={ data.colorScheme } onChange={ onColorSchemeChange } />
 				<PreferenceRow title={ __( 'Language' ) }>
 					<PreferenceSelect
 						label={ __( 'Language' ) }
@@ -340,23 +260,14 @@ function PreferencesPanel( {
 					/>
 				</PreferenceRow>
 			</section>
-			<AccountSection />
 			<WapuuScore />
 			<StudioCliSection />
 		</div>
 	);
 }
 
-export function SettingsView( {
-	activeTab,
-	onTabChange,
-}: {
-	activeTab: TabId;
-	onTabChange: ( tab: TabId ) => void;
-} ) {
-	const connector = useConnector();
+function usePreferencesForm() {
 	const { data: saved, isError: loadFailed } = useUserPreferences();
-	const { data: installedApps } = useInstalledApps();
 	const savePreferences = useSaveUserPreferences();
 
 	const [ data, setData ] = useState< PreferencesFormData | null >( null );
@@ -408,79 +319,62 @@ export function SettingsView( {
 		[ saved, savePreferences ]
 	);
 
-	const handleColorSchemeChange = useCallback(
-		( colorScheme: ColorScheme ) => {
-			if ( ! isColorScheme( colorScheme ) ) {
-				return;
-			}
-			handleChange( { colorScheme } );
-		},
-		[ handleChange ]
-	);
+	return { data, handleChange, saveError: savePreferences.isError, loadFailed };
+}
 
-	const handleSelectDefaultDirectory = async ( current: string ) => {
-		const directory = await connector.selectDefaultSiteDirectory( current );
+function PreferencesState( { loadFailed }: { loadFailed: boolean } ) {
+	return (
+		<div className={ styles.state }>
+			{ loadFailed
+				? __( "Couldn't load your settings. Close Settings and reopen it to try again." )
+				: __( 'Loading…' ) }
+		</div>
+	);
+}
+
+export function GeneralSettings() {
+	const connector = useConnector();
+	const { data: installedApps } = useInstalledApps();
+	const { data, handleChange, saveError, loadFailed } = usePreferencesForm();
+	if ( ! data ) {
+		return <PreferencesState loadFailed={ loadFailed } />;
+	}
+	const selectDefaultDirectory = async () => {
+		const directory = await connector.selectDefaultSiteDirectory( data.defaultSiteDirectory );
 		if ( directory ) {
 			handleChange( { defaultSiteDirectory: directory } );
 		}
 	};
-
 	return (
-		<div className={ styles.root }>
-			<Tabs.Root
-				selectedTabId={ activeTab }
-				onSelect={ ( tabId ) => {
-					if ( tabId && isSettingsTab( tabId ) ) {
-						onTabChange( tabId );
-					}
-				} }
-			>
-				<SettingsHeader />
-
-				<div className={ styles.scroll }>
-					<div className={ styles.contentBlock }>
-						<Tabs.Panel tabId="preferences">
-							{ data ? (
-								<PreferencesPanel
-									data={ data }
-									installedApps={ installedApps }
-									saveError={ savePreferences.isError }
-									onColorSchemeChange={ handleColorSchemeChange }
-									onDefaultSiteDirectorySelect={
-										connector.capabilities.nativeFolderPicker
-											? () => void handleSelectDefaultDirectory( data.defaultSiteDirectory )
-											: undefined
-									}
-									onChange={ handleChange }
-								/>
-							) : (
-								<div className={ styles.state }>
-									{ loadFailed
-										? __(
-												"Couldn't load your settings. Close Settings and reopen it to try again."
-										  )
-										: __( 'Loading…' ) }
-								</div>
-							) }
-						</Tabs.Panel>
-						<Tabs.Panel tabId="ai">
-							<AiPanel />
-						</Tabs.Panel>
-						<Tabs.Panel tabId="usage">
-							<UsagePanel />
-						</Tabs.Panel>
-						<Tabs.Panel tabId="keyboard">
-							<KeyboardPanel />
-						</Tabs.Panel>
-						<Tabs.Panel tabId="skills">
-							<SkillsPanel />
-						</Tabs.Panel>
-						<Tabs.Panel tabId="mcp">
-							<McpPanel />
-						</Tabs.Panel>
-					</div>
-				</div>
-			</Tabs.Root>
-		</div>
+		<PreferencesPanel
+			data={ data }
+			installedApps={ installedApps }
+			saveError={ saveError }
+			onDefaultSiteDirectorySelect={
+				connector.capabilities.nativeFolderPicker ? () => void selectDefaultDirectory() : undefined
+			}
+			onChange={ handleChange }
+		/>
 	);
 }
+
+export function AppearanceSettings() {
+	const { data, handleChange, loadFailed } = usePreferencesForm();
+	if ( ! data ) {
+		return <PreferencesState loadFailed={ loadFailed } />;
+	}
+	return (
+		<section className={ styles.preferenceSectionGroup }>
+			<AppearancePicker
+				value={ data.colorScheme }
+				onChange={ ( colorScheme ) => handleChange( { colorScheme } ) }
+			/>
+		</section>
+	);
+}
+
+export { AiPanel } from './ai-panel';
+export { KeyboardPanel } from './keyboard-panel';
+export { McpPanel } from './mcp-panel';
+export { SkillsPanel } from './skills-panel';
+export { UsagePanel } from './usage-panel';

@@ -23,6 +23,7 @@ test.describe( 'Appearance', () => {
 	test( 'changes color scheme from settings', async () => {
 		const settings = new AppSettings( session.mainWindow );
 		await settings.open();
+		await settings.showSection( 'Appearance' );
 		await expect( settings.appearanceOption( 'Light' ) ).toHaveAttribute( 'aria-pressed', 'true' );
 
 		await settings.selectColorScheme( 'Dark' );
@@ -40,6 +41,7 @@ test.describe( 'Appearance', () => {
 	test( 'persists color scheme across app restart', async () => {
 		const settings = new AppSettings( session.mainWindow );
 		await settings.open();
+		await settings.showSection( 'Appearance' );
 		await settings.selectColorScheme( 'Dark' );
 
 		await session.restart();
@@ -50,6 +52,7 @@ test.describe( 'Appearance', () => {
 
 		const settingsAfterRestart = new AppSettings( session.mainWindow );
 		await settingsAfterRestart.open();
+		await settingsAfterRestart.showSection( 'Appearance' );
 		await expect( settingsAfterRestart.appearanceOption( 'Dark' ) ).toHaveAttribute(
 			'aria-pressed',
 			'true'

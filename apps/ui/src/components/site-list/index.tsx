@@ -53,6 +53,7 @@ import {
 	useUpdateSitesSortOrder,
 } from '@/data/queries/use-sites';
 import { useSiteSyncActivity } from '@/data/sync-activity';
+import { useOpenSettings } from '@/hooks/use-open-settings';
 import { useOpenSite } from '@/hooks/use-open-site';
 import {
 	useSiteManagementActions,
@@ -443,6 +444,7 @@ function SiteActionsMenu( {
 	onSiteOpen?: () => void;
 } ) {
 	const navigate = useNavigate();
+	const openSettings = useOpenSettings();
 	const params = useParams( { strict: false } ) as { sessionId?: string; siteId?: string };
 	const connector = useConnector();
 	const startSite = useStartSite();
@@ -516,10 +518,7 @@ function SiteActionsMenu( {
 								onClick={ () => {
 									onSiteOpen?.();
 									void connector.trackEvent( TRACKS_EVENTS.PANEL_OPENED, { panel: 'settings' } );
-									void navigate( {
-										to: '/sites/$siteId/settings',
-										params: { siteId: site.id },
-									} );
+									openSettings( 'site', site.id );
 								} }
 							>
 								{ __( 'Site settings' ) }

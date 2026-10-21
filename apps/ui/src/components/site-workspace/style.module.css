@@ -10,11 +10,4 @@
 .layer {
 	position: absolute;
 	inset: 0;
-	visibility: hidden;
-	pointer-events: none;
-}
-
-.layerActive {
-	visibility: visible;
-	pointer-events: auto;
 }

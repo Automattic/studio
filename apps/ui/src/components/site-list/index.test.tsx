@@ -300,9 +300,9 @@ describe( 'SiteList', () => {
 
 		expect( onSiteOpen ).toHaveBeenCalledTimes( 1 );
 		expect( navigateMock ).toHaveBeenCalledTimes( 1 );
-		expect( navigateMock ).toHaveBeenLastCalledWith( {
-			to: '/sites/$siteId/settings',
-			params: { siteId: 'stopped-site' },
+		expect( navigateMock.mock.lastCall?.[ 0 ].search( {} ) ).toEqual( {
+			settings: 'site',
+			settingsSite: 'stopped-site',
 		} );
 		expect( useConnectorMock().trackEvent ).toHaveBeenCalledWith( 'studio_panel_opened', {
 			panel: 'settings',

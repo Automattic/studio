@@ -1,4 +1,3 @@
-import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { Icon, offline } from '@wordpress/icons';
 import { displayShortcut } from '@wordpress/keycodes';
@@ -10,17 +9,18 @@ import { SidebarButton } from '@/components/sidebar-button';
 import { useAuthUser, useLogin, useLogout } from '@/data/queries/use-auth-user';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useOffline } from '@/hooks/use-offline';
+import { useOpenSettings } from '@/hooks/use-open-settings';
 import { logOutIcon, settingsIcon } from '@/lib/icons';
 import styles from './style.module.css';
 
 export function UserMenu() {
 	const { data: user } = useAuthUser();
-	const navigate = useNavigate();
 	const themeIsDark = useColorScheme() === 'dark';
 	const isOffline = useOffline();
 	const login = useLogin( { source: 'settings' } );
 	const logout = useLogout();
-	const openSettings = () => void navigate( { to: '/settings' } );
+	const openSettingsDialog = useOpenSettings();
+	const openSettings = () => openSettingsDialog();
 
 	return (
 		<div className={ styles.root }>

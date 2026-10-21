@@ -1,6 +1,6 @@
 ---
 name: visual-design
-description: Plan and execute high-quality visual direction for site creation, redesign, layout, typography, color, motion, and visual polish.
+description: Plan and execute high-quality visual direction. Load it before writing design files or block markup for a new site, redesign, landing page, homepage, layout, style, CSS, typography, color, or motion work.
 ---
 
 # Visual Design

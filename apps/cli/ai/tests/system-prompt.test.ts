@@ -19,28 +19,22 @@ const toolsFor = ( options: Parameters< typeof resolveStudioToolDefinitions >[ 0
 	} ) );
 
 describe( 'buildSystemPrompt', () => {
-	it( 'routes plugin-specific feature work to the plugin recommendations skill', () => {
-		const prompt = buildSystemPrompt();
-
-		expect( prompt ).toContain( 'plugin-recommendations' );
-		expect( prompt ).toContain( 'any feature that core WordPress blocks do not cleanly provide' );
-		expect( prompt ).not.toContain( '## Jetpack Forms' );
-		expect( prompt ).not.toContain( 'wp_cli jetpack module activate contact-form' );
-	} );
-
-	it( 'routes block markup recipes to the block content skill', () => {
-		const prompt = buildSystemPrompt();
-
-		expect( prompt ).toContain( 'block-content' );
-		expect( prompt ).toContain( 'page/post content, template or template-part content' );
-		expect( prompt ).not.toContain( '## Block-theme layout cascade' );
-		expect( prompt ).not.toContain( 'core/post-content' );
-	} );
-
-	it( 'routes site builds to the build-site skill in every runtime', () => {
+	it( 'lists every skill with the work its description covers, in every runtime', () => {
 		for ( const prompt of [ buildSystemPrompt( {} ), buildSystemPrompt( { external: true } ) ] ) {
-			expect( prompt ).toContain( 'load the `build-site` skill first' );
+			for ( const skill of loadSkills() ) {
+				expect( prompt ).toContain( `- ${ skill.name }: ${ skill.description }` );
+			}
+			expect( prompt ).not.toContain( '## Jetpack Forms' );
+			expect( prompt ).not.toContain( '## Block-theme layout cascade' );
 		}
+	} );
+
+	it( 'leaves when to load a skill to the skill itself', () => {
+		const prompt = buildSystemPrompt();
+		const skillsSection = prompt.slice( prompt.indexOf( '## Skills' ) );
+		const outsideSkills = prompt.slice( 0, prompt.indexOf( '## Skills' ) );
+		expect( skillsSection ).toContain( 'Load a skill before starting that work.' );
+		expect( extractReferencedSkillNames( outsideSkills ) ).toEqual( [] );
 	} );
 
 	it( 'carries the remote-site runbook only when a WordPress.com site is active', () => {
@@ -72,13 +66,6 @@ describe( 'buildSystemPrompt', () => {
 
 		expect( runbook?.userInvokable ).toBe( true );
 		expect( runbook?.description ).toContain( 'live remote sites' );
-	} );
-
-	it( 'leaves plan questions to the hosting-plans-helper skill index entry', () => {
-		const helper = loadSkills().find( ( skill ) => skill.name === 'hosting-plans-helper' );
-
-		expect( helper?.description ).toContain( 'Load before answering ANY plan' );
-		expect( buildSystemPrompt() ).not.toContain( 'hosting-plans-helper' );
 	} );
 
 	it( 'references only bundled skills', () => {

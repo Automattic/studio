@@ -1,6 +1,6 @@
 ---
 name: block-content
-description: Write editable WordPress block markup and theme files for local Studio sites, including where theme changes go (block themes only, child themes), core/html limits, block-theme layout rules, full-width sections, validation, and skeleton-first page/CSS recipes.
+description: Write editable WordPress block markup and theme files for local Studio sites. Load it before writing page or post content, template or template-part content, block markup, a full-width section, or `core/html`, or before changing an existing theme's files. Covers where theme changes go (block themes only, child themes), core/html limits, block-theme layout rules, validation, and skeleton-first recipes for page and CSS files longer than ~200 lines.
 ---
 
 # Block Content

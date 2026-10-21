@@ -1,6 +1,6 @@
 ---
 name: plugin-recommendations
-description: Choose recommended plugins and plugin-provided blocks for features core WordPress blocks do not cover - ecommerce (WooCommerce), forms and newsletters (Jetpack), online courses and quizzes (Sensei LMS), polls, surveys and ratings (Crowdsignal), spam protection (Akismet) - while keeping generated content editable and avoiding raw HTML fallbacks. Any request to sell products or build a shop, store, or storefront requires WooCommerce with products.
+description: Choose the plugin and plugin blocks for features core WordPress blocks do not cleanly provide: forms, newsletters and email subscriptions, shops and ecommerce (WooCommerce, with products), online courses and quizzes (Sensei LMS), polls, surveys and ratings (Crowdsignal), events, galleries, slideshows and carousels, social auto-posting, embeds, SEO and performance, and spam protection (Akismet). Load it before deciding how to build such a feature and before writing its markup.
 ---
 
 # Plugin Recommendations

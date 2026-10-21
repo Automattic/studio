@@ -1,6 +1,6 @@
 ---
 name: imagery
-description: Generate AI images for a site with generate_images, or with an image tool of your own when it is not available — how to write image specs, pick aspect ratios, place files (theme assets vs media library), and handle failures.
+description: Make images for a site. Load it when the design calls for imagery (hero or cover backgrounds, feature, gallery, or card images, team photos, product shots) and you can make images (generate_images, or an image tool of your own). Covers image specs, aspect ratios, placing files (theme assets vs media library), making the images before the markup that uses them, and failures.
 ---
 
 # Site Imagery

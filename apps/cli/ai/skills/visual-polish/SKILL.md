@@ -1,6 +1,6 @@
 ---
 name: visual-polish
-description: Verify and polish a built or redesigned site by diagnosing rendered-DOM defects against intent, fixing them in one planned batch, and re-checking what changed.
+description: Verify and polish a built or redesigned site: check the rendered result against intent, root-cause layout and width, spacing, button, background, or hover defects from the rendered DOM with inspect_design, fix them in one planned batch, and re-check what changed.
 ---
 
 # Visual Polish

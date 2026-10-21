@@ -17,6 +17,10 @@ import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
 import { validateStudioChatFiles } from '@studio/common/ai/chat-files';
 import { validateStudioChatImages } from '@studio/common/ai/chat-images';
+import {
+	getGlobalInstructionsEnabled as readGlobalInstructionsEnabled,
+	setGlobalInstructionsEnabled as writeGlobalInstructionsEnabled,
+} from '@studio/common/ai/global-instructions';
 import { isAiModelId } from '@studio/common/ai/models';
 import { isAiProviderId, providerServesModel } from '@studio/common/ai/providers';
 import {
@@ -32,9 +36,14 @@ import { getAiTracksIdentity } from '@studio/common/ai/tracks-identity';
 import { validateStudioVisualAnnotations } from '@studio/common/ai/visual-annotations';
 import { DEBUG_LOG_RELATIVE_PATH } from '@studio/common/constants';
 import {
+	getSiteAgentFiles as readSiteAgentFiles,
 	getSkillsStatusForAllSites,
 	installSkillToAllSites,
+	removeSiteAgentFile as deleteSiteAgentFile,
 	removeSkillFromAllSites,
+	setSiteAgentFileEnabled as writeSiteAgentFileEnabled,
+	type SiteAgentFile,
+	type SiteAgentFileKind,
 	type SkillStatus,
 } from '@studio/common/lib/agent-skills';
 import {
@@ -375,6 +384,50 @@ export async function removeWordPressSkillFromAllSites(
 	skillId: string
 ): Promise< void > {
 	await removeSkillFromAllSites( skillId );
+}
+
+export async function getSiteAgentFiles(
+	_event: IpcMainInvokeEvent,
+	siteId: string,
+	kind: SiteAgentFileKind
+): Promise< SiteAgentFile[] > {
+	return readSiteAgentFiles( await requireSitePath( siteId ), kind );
+}
+
+export async function setSiteAgentFileEnabled(
+	_event: IpcMainInvokeEvent,
+	siteId: string,
+	kind: SiteAgentFileKind,
+	id: string,
+	enabled: boolean
+): Promise< void > {
+	await writeSiteAgentFileEnabled(
+		await requireSitePath( siteId ),
+		getAiInstructionsPath(),
+		kind,
+		id,
+		enabled
+	);
+}
+
+export async function removeSiteAgentFile(
+	_event: IpcMainInvokeEvent,
+	siteId: string,
+	kind: SiteAgentFileKind,
+	id: string
+): Promise< void > {
+	await deleteSiteAgentFile( await requireSitePath( siteId ), kind, id );
+}
+
+export async function getGlobalInstructionsEnabled(): Promise< boolean > {
+	return readGlobalInstructionsEnabled();
+}
+
+export async function setGlobalInstructionsEnabled(
+	_event: IpcMainInvokeEvent,
+	enabled: boolean
+): Promise< void > {
+	await writeGlobalInstructionsEnabled( enabled );
 }
 
 const DEBUG_LOG_MAX_LINES = 50;

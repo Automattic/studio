@@ -6,7 +6,6 @@ import { clsx } from 'clsx';
 import { useState } from 'react';
 import { useAiSettings, useSaveAnthropicApiKey } from '@/data/queries/use-ai-settings';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
-import { StudioCodePanel } from './studio-code-panel';
 import styles from './style.module.css';
 import { useDebouncedSave } from './use-debounced-save';
 
@@ -97,7 +96,6 @@ export function AiPanel() {
 		<div className={ styles.preferencesPanel }>
 			<AgenticFeaturesSection />
 			<AnthropicApiKeySection />
-			<StudioCodePanel />
 		</div>
 	);
 }

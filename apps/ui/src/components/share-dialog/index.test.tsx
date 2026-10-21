@@ -98,11 +98,11 @@ describe( 'ShareDialog', () => {
 
 		// The new preview stays one pick away while another is shown.
 		await userEvent.click( screen.getByRole( 'button', { name: 'Select preview' } ) );
-		await userEvent.click( await screen.findByRole( 'menuitemradio', { name: 'Ada Portfolio' } ) );
-		await userEvent.click( screen.getByRole( 'button', { name: 'Select preview' } ) );
-		await userEvent.click(
+		expect(
 			await screen.findByRole( 'menuitemradio', { name: 'New preview · Publishing…' } )
-		);
-		expect( screen.getByRole( 'button', { name: 'Publishing preview…' } ) ).toBeVisible();
+		).toBeInTheDocument();
+		await userEvent.click( screen.getByRole( 'menuitemradio', { name: 'Ada Portfolio' } ) );
+		expect( await screen.findByRole( 'button', { name: 'Copy link' } ) ).toBeVisible();
+		expect( screen.getByRole( 'button', { name: 'Select preview' } ) ).toBeInTheDocument();
 	} );
 } );

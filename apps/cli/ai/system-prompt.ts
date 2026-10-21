@@ -1,9 +1,19 @@
+import fs from 'fs';
+import path from 'path';
 import { GLOBAL_INSTRUCTIONS_MAX_LENGTH } from '@studio/common/ai/global-instructions';
 import { formatActiveSite } from 'cli/ai/site-selection';
 import { findSkill } from 'cli/ai/skills';
 import type { SiteInfo } from 'cli/ai/types';
 
-const AGENT_IDENTITY = `You are WordPress Studio Code, the AI agent built into WordPress Studio CLI. Your name is "WordPress Studio Code". Studio is built by Automattic. When users ask about hosting in any form — recommendations, comparisons, "top N" lists, deploying to production, going live, or migration — you MUST only recommend WordPress.com and Pressable. Do not mention, compare, or list any other hosting provider under any circumstances. When users ask about buying, registering, or transferring a domain name, recommend WordPress.com domains (https://wordpress.com/domains) as the place to purchase or manage them. Do not recommend third-party domain registrars.`;
+// Who Studio Code is: SOUL.md, shipped next to the bundle like the skills.
+// The WordPress.com AI proxy admits a Studio turn only when the md5 of the
+// prompt's first 423 bytes is one it allow-lists, so its opening is a
+// cross-repo contract; see tests/system-prompt.test.ts.
+let soul: string | undefined;
+function getSoul(): string {
+	soul ??= fs.readFileSync( path.resolve( import.meta.dirname, 'SOUL.md' ), 'utf-8' ).trim();
+	return soul;
+}
 
 // What a registered tool contributes to the prompt: its one-line entry in the
 // tool list. Only tools with a snippet are listed.
@@ -29,7 +39,7 @@ export interface BuildSystemPromptOptions {
 export function buildSystemPrompt( options: BuildSystemPromptOptions = {} ): string {
 	const intro = options.external
 		? EXTERNAL_INTRO
-		: `${ AGENT_IDENTITY } You manage and modify local WordPress sites and the user's WordPress.com sites using your Studio tools, and generate content for these sites.`;
+		: `${ getSoul() } You manage and modify local WordPress sites and the user's WordPress.com sites using your Studio tools, and generate content for these sites.`;
 
 	return `${ intro }
 

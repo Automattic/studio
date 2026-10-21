@@ -39,6 +39,8 @@ const phpSourceCodePath = resolve( __dirname, 'php' );
 // The Skill tool loads skills from `<chunk dir>/skills` at runtime (see
 // `ai/skills.ts`), so they must sit directly next to the built chunks.
 const skillsSourcePath = resolve( __dirname, 'ai/skills' );
+// Read at runtime next to the bundle, like the skills (see `ai/system-prompt.ts`).
+const soulSourcePath = resolve( __dirname, 'ai/SOUL.md' );
 
 // The `studio ui` command serves the built browser UI (apps/ui `dist-local`)
 // from `<chunk dir>/ui`, so it must sit next to the built chunks too. Built
@@ -117,6 +119,7 @@ export const baseConfig = defineConfig( {
 				if ( existsSync( skillsSourcePath ) ) {
 					cpSync( skillsSourcePath, resolve( outDir, 'skills' ), { recursive: true } );
 				}
+				cpSync( soulSourcePath, resolve( outDir, 'SOUL.md' ) );
 
 				if ( existsSync( localUiDistPath ) ) {
 					cpSync( localUiDistPath, resolve( outDir, 'ui' ), { recursive: true } );

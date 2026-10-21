@@ -1,3 +1,4 @@
+import { createHash } from 'crypto';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
@@ -19,6 +20,22 @@ const toolsFor = ( options: Parameters< typeof resolveStudioToolDefinitions >[ 0
 	} ) );
 
 describe( 'buildSystemPrompt', () => {
+	// The WordPress.com AI proxy (ai-api-proxy.php, STUDIO_KNOWN_SYSTEM_PROMPT_FINGERPRINTS)
+	// admits a Studio Code turn only when the md5 of the prompt's first 423 bytes is
+	// allow-listed. A changed opening is refused with a 403 until WordPress.com lists it.
+	it( 'opens with the soul the WordPress.com AI proxy admits', () => {
+		const opening = Buffer.from( buildSystemPrompt(), 'utf8' ).subarray( 0, 423 );
+		expect( createHash( 'md5' ).update( opening ).digest( 'hex' ) ).toBe(
+			'31dde1712f379f763eddac979a3ceac8'
+		);
+	} );
+
+	it( 'leaves the soul out of the instructions other agents receive', () => {
+		expect( buildSystemPrompt( { external: true } ) ).not.toContain(
+			'You are WordPress Studio Code'
+		);
+	} );
+
 	it( 'routes plugin-specific feature work to the plugin recommendations skill', () => {
 		const prompt = buildSystemPrompt();
 

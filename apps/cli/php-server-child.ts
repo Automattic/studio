@@ -17,6 +17,7 @@ import {
 	getSiteFileAccess,
 	SITE_FILE_ACCESS_SITE_DIRECTORY,
 } from '@studio/common/lib/site-file-access';
+import { getMuPluginsPath } from '@studio/common/lib/well-known-paths';
 import { z } from 'zod';
 import {
 	managerMessageSchema,
@@ -485,7 +486,7 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 			stopSignal.throwIfAborted();
 		}
 
-		const muPluginsPath = await writeStudioMuPlugins( config.sitePath, config.isWpAutoUpdating );
+		await writeStudioMuPlugins( config.sitePath, config.isWpAutoUpdating );
 		stopSignal.throwIfAborted();
 
 		if ( ! isImportedSite ) {
@@ -512,7 +513,10 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 			staticOpenBasedirAllowlist.add( getPhpMyAdminPath() );
 			staticOpenBasedirAllowlist.add( getNativePhpMyAdminWpEnvPath( config ) );
 			staticOpenBasedirAllowlist.add( getPhpMyAdminSessionPath( config ) );
-			staticOpenBasedirAllowlist.add( muPluginsPath );
+			// The whole root, not this start's hashed folder: a WP-CLI run from another
+			// Studio version or with other settings can repoint the loader while the
+			// server runs.
+			staticOpenBasedirAllowlist.add( getMuPluginsPath() );
 			staticOpenBasedirAllowlist.add( os.tmpdir() );
 			if ( config.autoPrependFile ) {
 				staticOpenBasedirAllowlist.add( path.dirname( config.autoPrependFile ) );

@@ -31,16 +31,25 @@ describe( 'stripStudioWpConfigConstants', () => {
 		);
 	} );
 
-	it( 'keeps defines written in another form', () => {
+	it( 'removes defines written in another form', () => {
 		const content = [
 			'<?php',
 			'define("WP_DEBUG",TRUE);',
+			"if ( getenv( 'DEBUG' ) ) {",
 			"\tdefine( 'SCRIPT_DEBUG', true );",
-			"define( 'WP_DEBUG_LOG', '/tmp/debug.log' );",
-			"define( 'WP_DEBUG', getenv( 'WP_DEBUG' ) === '1' );",
+			'}',
+			'define ( \'WP_DEBUG_LOG\' , "/tmp/debug.log" ) ;',
 			"define( 'WP_ENVIRONMENT_TYPE', 'qa' );",
 			'',
 		].join( '\n' );
+
+		expect( stripStudioWpConfigConstants( content ) ).toBe(
+			[ '<?php', "if ( getenv( 'DEBUG' ) ) {", '}', '' ].join( '\n' )
+		);
+	} );
+
+	it( 'keeps defines with computed values', () => {
+		const content = "<?php\ndefine( 'WP_DEBUG', getenv( 'WP_DEBUG' ) === '1' );\n";
 
 		expect( stripStudioWpConfigConstants( content ) ).toBe( content );
 	} );

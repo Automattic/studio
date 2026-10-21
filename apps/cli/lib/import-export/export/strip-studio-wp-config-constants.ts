@@ -1,29 +1,26 @@
-import { WP_ENVIRONMENT_TYPES } from '@studio/common/lib/wp-environment-type';
+const LITERAL_VALUE = `(?:true|false|TRUE|FALSE|'[^'\\\\]*'|"[^"\\\\]*")`;
 
-const BOOLEAN_VALUES = [ 'true', 'false' ];
+// The constants `ensureWpConfig()` writes on every site start. Their values
+// describe the local site, so they must not reach a remote host's wp-config.php.
+// DB_NAME is only Studio's when it still holds Studio's default.
+const STUDIO_MANAGED_CONSTANTS: Array< [ name: string, valuePattern: string ] > = [
+	[ 'WP_ENVIRONMENT_TYPE', LITERAL_VALUE ],
+	[ 'WP_DEBUG', LITERAL_VALUE ],
+	[ 'WP_DEBUG_LOG', LITERAL_VALUE ],
+	[ 'WP_DEBUG_DISPLAY', LITERAL_VALUE ],
+	[ 'SCRIPT_DEBUG', LITERAL_VALUE ],
+	[ 'DB_NAME', `(['"])wordpress\\2` ],
+];
 
-// The constants `ensureWpConfig()` writes on every site start, with the values
-// it writes. They describe the local site, so they must not reach a remote
-// host's wp-config.php. DB_NAME is only Studio's when it still holds Studio's default.
-const STUDIO_MANAGED_CONSTANTS: Record< string, string[] > = {
-	WP_ENVIRONMENT_TYPE: WP_ENVIRONMENT_TYPES.map( ( type ) => `'${ type }'` ),
-	WP_DEBUG: BOOLEAN_VALUES,
-	WP_DEBUG_LOG: BOOLEAN_VALUES,
-	WP_DEBUG_DISPLAY: BOOLEAN_VALUES,
-	SCRIPT_DEBUG: BOOLEAN_VALUES,
-	DB_NAME: [ "'wordpress'" ],
-};
-
-// Matches the exact line WP_Config_Transformer writes: define( 'NAME', value );
-const STUDIO_DEFINE_LINE_REGEX = /^define\( '([A-Z_]+)', (.+) \);[ \t]*$/;
+const STUDIO_DEFINE_LINE_REGEXES = STUDIO_MANAGED_CONSTANTS.map(
+	( [ name, valuePattern ] ) =>
+		new RegExp(
+			`^[ \\t]*define[ \\t]*\\([ \\t]*(['"])${ name }\\1[ \\t]*,[ \\t]*${ valuePattern }[ \\t]*\\)[ \\t]*;[ \\t]*$`
+		)
+);
 
 function isStudioDefineLine( line: string ): boolean {
-	const match = STUDIO_DEFINE_LINE_REGEX.exec( line );
-	if ( ! match ) {
-		return false;
-	}
-	const [ , name, value ] = match;
-	return STUDIO_MANAGED_CONSTANTS[ name ]?.includes( value ) ?? false;
+	return STUDIO_DEFINE_LINE_REGEXES.some( ( regex ) => regex.test( line ) );
 }
 
 // Whether a define after this line is a statement of its own, rather than the
@@ -40,9 +37,10 @@ function endsStatement( line: string ): boolean {
 }
 
 /**
- * Removes the defines Studio writes for its managed constants from wp-config.php
- * content. Like `removeDbConstants()`, it only matches the exact lines Studio
- * writes, so constants a user defines in another form are left as is.
+ * Removes the Studio-managed constants from wp-config.php content. Only a
+ * `define()` with a literal value that is a statement of its own is removed, so
+ * a define computed from an expression or that is the body of a condition is
+ * left as is.
  */
 export function stripStudioWpConfigConstants( content: string ): string {
 	const lines = content.split( /(?<=\n)/ );

@@ -28,6 +28,7 @@ import {
 	listHydratedAiSessions,
 	loadHydratedAiSession,
 	reconcileSessionEnvironment,
+	setSessionEnvironment,
 	updateHydratedAiSessionMetadata,
 } from '@studio/common/ai/sessions/manage';
 import { appendModelChangeEntry, appendStudioEntry } from '@studio/common/ai/sessions/store';
@@ -348,11 +349,12 @@ export async function setAiSessionProvider(
 	} );
 }
 
-export interface SetSessionEnvironmentResult {
-	environment: 'local' | 'live';
-	url?: string;
-	wpcomSiteId?: number;
-	summary: AiSessionSummary;
+export async function setAiSessionEnvironment(
+	_event: IpcMainInvokeEvent,
+	sessionId: string,
+	environment: 'local' | 'live'
+): Promise< void > {
+	await setSessionEnvironment( getSessionsDirectory(), sessionId, environment );
 }
 
 export async function interruptAiAgentRun(

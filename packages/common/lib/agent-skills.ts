@@ -329,10 +329,10 @@ export async function setSiteAgentFileEnabled(
 	sitePath: string,
 	bundledPath: string,
 	kind: SiteAgentFileKind,
-	id: string,
+	requestedId: string,
 	enabled: boolean
 ): Promise< void > {
-	assertKnown( kind, id );
+	const id = getKnownFileId( kind, requestedId );
 	const moved = await moveSiteAgentFile( sitePath, kind, id, enabled );
 	// Switching on a file the site never had installs it.
 	if ( enabled && ! moved ) {
@@ -347,19 +347,22 @@ export async function setSiteAgentFileEnabled(
 export async function removeSiteAgentFile(
 	sitePath: string,
 	kind: SiteAgentFileKind,
-	id: string
+	requestedId: string
 ): Promise< void > {
-	assertKnown( kind, id );
+	const id = getKnownFileId( kind, requestedId );
 	for ( const location of getLocations( sitePath, kind, id ) ) {
 		await fs.promises.rm( location.enabled, { recursive: true, force: true } );
 		await fs.promises.rm( location.disabled, { recursive: true, force: true } );
 	}
 }
 
-function assertKnown( kind: SiteAgentFileKind, id: string ) {
-	if ( ! getCatalog( kind ).some( ( file ) => file.id === id ) ) {
-		throw new Error( `Unknown ${ kind } file: ${ id }` );
+// Paths are built from the catalog's own id, never the requested one.
+function getKnownFileId( kind: SiteAgentFileKind, requestedId: string ): string {
+	const file = getCatalog( kind ).find( ( candidate ) => candidate.id === requestedId );
+	if ( ! file ) {
+		throw new Error( `Unknown ${ kind } file: ${ requestedId }` );
 	}
+	return file.id;
 }
 
 // Unlike `pathExists`, true for a dangling symlink too: `.claude` links move with their target.

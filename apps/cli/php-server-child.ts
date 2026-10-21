@@ -146,18 +146,11 @@ function errorToConsole( ...args: Parameters< typeof console.error > ) {
 	console.error( `[PHP Server]`, ...args );
 }
 
-function shouldUsePrimaryWorker( req: http.IncomingMessage ): boolean {
-	const method = req.method?.toUpperCase() ?? 'GET';
-	if ( ! [ 'GET', 'HEAD', 'OPTIONS' ].includes( method ) ) {
-		return true;
-	}
-
-	const requestUrl = req.url ?? '/';
-	if ( requestUrl.startsWith( '/phpmyadmin' ) ) {
-		return true;
-	}
-
-	return false;
+// phpMyAdmin pins to worker 0 because its file-based session store belongs to a
+// single worker. WordPress keeps its state in the database, so every other
+// request, POSTs included, balances across the pool.
+export function shouldUsePrimaryWorker( req: http.IncomingMessage ): boolean {
+	return ( req.url ?? '/' ).startsWith( '/phpmyadmin' );
 }
 
 function pickPhpWorker( req: http.IncomingMessage ): { index: number; port: number } {

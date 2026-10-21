@@ -49,6 +49,7 @@ vi.mock( '@/data/queries/use-sessions', () => ( {
 	useUpdateSessionMetadata: () => ( { mutateAsync: archiveSession } ),
 } ) );
 
+let needingInputMock: string[] = [];
 let pinsMock: string[] = [];
 const togglePin = vi.hoisted( () => vi.fn() );
 
@@ -64,6 +65,7 @@ vi.mock( '@/data/queries/use-sidebar-pins', async ( importOriginal ) => ( {
 
 vi.mock( '@/data/queries/use-agent-run', () => ( {
 	useSiteAgentActivity: vi.fn(),
+	useSessionsNeedingInput: () => needingInputMock,
 } ) );
 
 vi.mock( '@/data/queries/use-sites', () => ( {
@@ -132,6 +134,7 @@ describe( 'SiteList', () => {
 
 	beforeEach( () => {
 		vi.clearAllMocks();
+		needingInputMock = [];
 		pinsMock = [];
 		paramsMock = {};
 		pathnameMock = '/';
@@ -476,6 +479,35 @@ describe( 'SiteList', () => {
 			sessionId: 'other-chat',
 			patch: { archived: true },
 		} );
+	} );
+
+	it( 'moves chats waiting on an answer to Needs input, out of Recent and Pinned', () => {
+		needingInputMock = [ 'other-chat' ];
+		pinsMock = [ 'chat:other-chat' ];
+		useSessionsMock.mockReturnValue( {
+			data: [
+				createSession( {
+					id: 'other-chat',
+					firstPrompt: 'Make it blue',
+					ownerSitePath: '/Users/example/Studio/running-site',
+				} ),
+				createSession( {
+					id: 'idle-chat',
+					firstPrompt: 'Add a menu',
+					ownerSitePath: '/Users/example/Studio/stopped-site',
+				} ),
+			],
+			isLoading: false,
+		} );
+
+		render( <SiteList sections /> );
+
+		const needsInput = screen.getByRole( 'group', { name: 'Needs input' } );
+		expect( within( needsInput ).getByText( 'Make it blue' ) ).toBeInTheDocument();
+		expect( screen.queryByRole( 'group', { name: 'Pinned' } ) ).not.toBeInTheDocument();
+		const recent = screen.getByRole( 'group', { name: 'Recent' } );
+		expect( within( recent ).queryByText( 'Make it blue' ) ).not.toBeInTheDocument();
+		expect( within( recent ).getByText( 'Add a menu' ) ).toBeInTheDocument();
 	} );
 
 	it( 'moves pinned sites and chats into the Pinned group, in pin order', async () => {

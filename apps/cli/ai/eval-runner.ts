@@ -86,6 +86,15 @@ const evalSeedSchema = z.object( {
 			connectedWpcomSites: z.array( syncSiteSchema.omit( { localSiteId: true } ) ).optional(),
 		} )
 		.optional(),
+	// One of the user's WordPress.com sites, active for the turn as when it is
+	// picked in the app or CLI. Nothing is created; the site must exist.
+	remoteActiveSite: z
+		.object( {
+			name: z.string(),
+			url: z.string(),
+			wpcomSiteId: z.number(),
+		} )
+		.optional(),
 } );
 type EvalSeed = z.infer< typeof evalSeedSchema >;
 
@@ -133,6 +142,7 @@ async function seedFixtures( seed: EvalSeed ): Promise< SeededFixtures > {
 		snapshots = [],
 		globalInstructions,
 		activeSite,
+		remoteActiveSite,
 	} = seed;
 
 	let restoreInstructions: ( () => Promise< void > ) | null = null;
@@ -297,7 +307,13 @@ async function seedFixtures( seed: EvalSeed ): Promise< SeededFixtures > {
 			}
 		}
 	};
-	return { cleanup, inspect, activeSite: seededSite };
+	return {
+		cleanup,
+		inspect,
+		activeSite: remoteActiveSite
+			? { ...remoteActiveSite, path: '', running: false, remote: true }
+			: seededSite,
+	};
 }
 
 function extractToolCalls( event: AgentSessionEvent ) {

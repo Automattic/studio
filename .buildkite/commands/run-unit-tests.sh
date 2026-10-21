@@ -7,6 +7,10 @@ if .buildkite/commands/should-skip-job.sh --job-type validation; then
   exit 0
 fi
 
+source .buildkite/commands/windows-crash-reports.sh
+start_windows_crash_reports
+trap collect_windows_crash_reports EXIT
+
 echo '--- :package: Install deps'
 if [ "$MATRIX" = "linux" ]; then
   # Linux runs inside a Docker container; the a8c-ci-toolkit cache helpers

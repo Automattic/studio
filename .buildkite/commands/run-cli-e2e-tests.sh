@@ -7,6 +7,10 @@ if .buildkite/commands/should-skip-job.sh --job-type validation; then
   exit 0
 fi
 
+source .buildkite/commands/windows-crash-reports.sh
+start_windows_crash_reports
+trap collect_windows_crash_reports EXIT
+
 echo '--- :package: Install deps'
 if [ "$PLATFORM" = "linux" ]; then
   # The a8c-ci-toolkit cache helpers only exist on the host, so

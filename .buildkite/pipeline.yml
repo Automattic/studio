@@ -14,6 +14,7 @@ e2e_config: &e2e_config
     - test-results/**/*.png
     - test-results/**/*error-context.md
     - test-results/daemon-logs/**/*.log
+    - test-results/crash-reports/**/*
   plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
   agents:
     queue: "{{matrix.platform}}"
@@ -57,6 +58,8 @@ steps:
       - label: Unit Tests on {{matrix}}
         key: unit_tests
         command: bash .buildkite/commands/run-unit-tests.sh "{{matrix}}"
+        artifact_paths:
+          - test-results/crash-reports/**/*
         plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
         agents:
           queue: "{{matrix}}"
@@ -135,6 +138,7 @@ steps:
         command: bash .buildkite/commands/run-cli-e2e-tests.sh "{{matrix}}"
         artifact_paths:
           - test-results/daemon-logs/**/*.log
+          - test-results/crash-reports/**/*
         agents:
           queue: "{{matrix}}"
         timeout_in_minutes: 30

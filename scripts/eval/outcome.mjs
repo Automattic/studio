@@ -229,13 +229,15 @@ export const classifiesPreviewAndRemote = check( ( d ) => {
 	return pass( 'preview and connected remote site described as different kinds' );
 } );
 
-// Nothing reached WordPress.com: the push did not run, and the reply asks the user for a target.
+// (the case's scripted answer declines it) or in its final reply.
 export const pushNotRunAndAsks = check( ( d ) => {
 	const pushed = ( d.toolResults || [] ).find( ( r ) => r.toolName === 'site_push' && ! r.isError );
 	if ( pushed ) return fail( `a push ran: ${ ( pushed.text || '' ).slice( 0, 300 ) }` );
+	const asked = d.questions?.[ 0 ];
+	if ( asked ) return pass( `nothing pushed; asked "${ asked.question }"` );
 	return asksUser( finalReply( d ) )
 		? pass( 'nothing pushed; the reply asks the user' )
-		: fail( `the reply does not ask the user: ${ finalReply( d ).slice( 0, 300 ) }` );
+		: fail( `the agent did not ask the user: ${ finalReply( d ).slice( 0, 300 ) }` );
 } );
 
 // No site was created or changed, and the reply asks whether to use the active site or make a new one.

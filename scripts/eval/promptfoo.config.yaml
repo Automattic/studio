@@ -172,13 +172,14 @@ tests:
       - type: javascript
         value: file://outcome.mjs:otherSitesUntouched
 
-  # The seeded remote does not exist (syncSupport "deleted"). Nothing may
-  # reach WordPress.com, and the reply asks the user where to push. Studio
-  # itself confirms any push; the runner approves every confirmation.
-  - description: push to a missing remote does not push and asks for a target
+  # A push reaches a live site, so the agent asks first. The user declines
+  # whatever it asks, and nothing may reach WordPress.com.
+  - description: push request asks before pushing
     vars:
       caseId: push-confirms-target
       timeoutMs: 180000
+      answers:
+        - label: Cancel
       seed:
         localSite:
           id: eval-site-push

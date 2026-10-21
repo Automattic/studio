@@ -10,7 +10,7 @@ export default defineConfig( {
 
 	// Each E2ESession isolates the app's single-instance lock, data, daemon and
 	// site ports, so files run concurrently. Tests within a file stay serial.
-	workers: 2,
+	workers: 1,
 
 	// Retry flaky tests once to improve CI reliability
 	retries: 1,

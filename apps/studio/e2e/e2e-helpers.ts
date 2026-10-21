@@ -1,4 +1,5 @@
 import { randomUUID } from 'crypto';
+import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'os';
 import path from 'path';
 import { expect, type TestInfo } from '@playwright/test';
@@ -31,6 +32,8 @@ export class E2ESession {
 	private stdoutListener?: ( chunk: Buffer | string ) => void;
 	private stderrListener?: ( chunk: Buffer | string ) => void;
 	private childProcess?: ChildProcess;
+	private launchedAt = new Date();
+	private stdioClosed: Promise< void > = Promise.resolve();
 
 	public constructor() {
 		this.sessionPath = path.join( tmpdir(), `studio-app-e2e-session-${ randomUUID() }` );
@@ -132,6 +135,7 @@ export class E2ESession {
 
 		try {
 			await Promise.race( [ exitPromise, timeoutPromise ] );
+			await this.reportProcessesHoldingStdio();
 			await new Promise< void >( ( resolve ) => setTimeout( resolve, 2000 ) );
 			console.log( 'App closed successfully' );
 		} catch ( error ) {
@@ -139,6 +143,69 @@ export class E2ESession {
 		} finally {
 			this.stopCapturingMainProcessLogs();
 		}
+	}
+
+	// DIAGNOSTIC (Windows quit hang): Playwright waits for the app's stdout/stderr to close, not
+	// for its exit. If they stay open after the app exited, a process that inherited them is still
+	// running. List what this app launch left behind, then kill it so the job can finish.
+	private async reportProcessesHoldingStdio() {
+		if ( process.platform !== 'win32' ) {
+			return;
+		}
+		const closed = await Promise.race( [
+			this.stdioClosed.then( () => true ),
+			new Promise< boolean >( ( resolve ) => setTimeout( () => resolve( false ), 10_000 ) ),
+		] );
+		if ( closed ) {
+			return;
+		}
+		const script = [
+			'$since = [datetime]::Parse($env:E2E_DIAG_SINCE)',
+			'Get-CimInstance Win32_Process | Where-Object { $_.CreationDate -ge $since -and $_.ProcessId -ne $PID }',
+			'| Select-Object ProcessId, ParentProcessId, Name, CreationDate, CommandLine | ConvertTo-Json -Compress',
+		].join( ' ' );
+		let survivors: {
+			ProcessId: number;
+			ParentProcessId: number;
+			Name: string;
+			CommandLine?: string;
+		}[] = [];
+		try {
+			const output = execFileSync( 'powershell.exe', [ '-NoProfile', '-Command', script ], {
+				env: { ...process.env, E2E_DIAG_SINCE: this.launchedAt.toISOString() },
+				encoding: 'utf8',
+				windowsHide: true,
+			} );
+			const parsed = JSON.parse( output || '[]' );
+			survivors = Array.isArray( parsed ) ? parsed : [ parsed ];
+		} catch ( error ) {
+			console.log( '[quit-hang diagnostic] could not list processes:', error );
+		}
+		console.log(
+			`[quit-hang diagnostic] app exited but its stdio is still open; processes created since ${ this.launchedAt.toISOString() }:`
+		);
+		for ( const survivor of survivors ) {
+			console.log( '[quit-hang diagnostic]', JSON.stringify( survivor ) );
+		}
+		for ( const survivor of survivors ) {
+			if ( /^(node|php.*|Studio)\.exe$/i.test( survivor.Name ) ) {
+				try {
+					execFileSync( 'taskkill', [ '/F', '/T', '/PID', String( survivor.ProcessId ) ], {
+						stdio: 'ignore',
+						windowsHide: true,
+					} );
+				} catch {
+					// Already gone.
+				}
+			}
+		}
+		const closedAfterKill = await Promise.race( [
+			this.stdioClosed.then( () => true ),
+			new Promise< boolean >( ( resolve ) => setTimeout( () => resolve( false ), 10_000 ) ),
+		] );
+		console.log(
+			`[quit-hang diagnostic] stdio closed after killing survivors: ${ closedAfterKill }`
+		);
 	}
 
 	async getSites(): Promise< PersistedSite[] > {
@@ -245,6 +312,7 @@ export class E2ESession {
 				  ]
 				: [];
 
+		this.launchedAt = new Date();
 		this.electronApp = await electron.launch( {
 			args: [ ...linuxFlags, `--user-data-dir=${ this.userDataPath }`, appInfo.main ],
 			executablePath,
@@ -264,6 +332,10 @@ export class E2ESession {
 		} );
 
 		this.startCapturingMainProcessLogs();
+		const launchedProcess = this.electronApp.process();
+		this.stdioClosed = new Promise< void >( ( resolve ) =>
+			launchedProcess.once( 'close', () => resolve() )
+		);
 
 		this.mainWindow = await this.electronApp.firstWindow( { timeout: 60_000 } );
 	}

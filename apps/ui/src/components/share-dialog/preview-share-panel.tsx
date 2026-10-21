@@ -2,6 +2,7 @@ import { DAY_MS, DEMO_SITE_EXPIRATION_DAYS } from '@studio/common/constants';
 import { __, sprintf } from '@wordpress/i18n';
 import { copy, moreHorizontal, rotateRight } from '@wordpress/icons';
 import { Button, Icon, IconButton, Spinner } from '@wordpress/ui';
+import { clsx } from 'clsx';
 import { useId, useState, type ReactNode } from 'react';
 import * as Menu from '@/components/menu';
 import { MenuSelect } from '@/components/publish-panel/parts';
@@ -130,7 +131,7 @@ export function PreviewSharePanel( {
 				<Button
 					variant="solid"
 					tone="neutral"
-					className={ styles.large }
+					className={ clsx( styles.large, publishing && styles.busy ) }
 					disabled={ locked || ( ! canCreate && ! publishing ) }
 					onClick={ () => onPublish() }
 				>

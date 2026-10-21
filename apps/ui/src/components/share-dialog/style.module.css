@@ -22,7 +22,7 @@
 .content {
 	display: flex;
 	flex-direction: column;
-	gap: 16px;
+	padding-block-end: var(--studio-dialog-inset);
 }
 
 .headerBare {
@@ -159,6 +159,12 @@
 .large {
 	--wp-ui-button-height: 44px;
 	--wp-ui-button-font-size: 14px;
+}
+
+.busy {
+	--wp-ui-button-background-color-disabled: var(--wpds-color-background-interactive-neutral-strong);
+	--wp-ui-button-foreground-color-disabled: var(--wpds-color-foreground-interactive-neutral-strong);
+	--wp-ui-button-border-color-disabled: var(--wpds-color-background-interactive-neutral-strong);
 }
 
 .expiry {

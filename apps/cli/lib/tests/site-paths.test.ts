@@ -29,7 +29,11 @@ describe( 'STUDIO_SITES_ROOT', () => {
 	it( "gives each eval case's sites the folder the case was given", async () => {
 		const a = await loadSitePaths( { E2E: '1', E2E_SITES_ROOT: '/tmp/eval-a' } );
 		const b = await loadSitePaths( { E2E: '1', E2E_SITES_ROOT: '/tmp/eval-b' } );
-		expect( a.getDefaultSitePath( 'Eval Test Site' ) ).toBe( '/tmp/eval-a/eval-test-site' );
-		expect( b.getDefaultSitePath( 'Eval Test Site' ) ).toBe( '/tmp/eval-b/eval-test-site' );
+		expect( a.getDefaultSitePath( 'Eval Test Site' ) ).toBe(
+			path.join( '/tmp/eval-a', 'eval-test-site' )
+		);
+		expect( b.getDefaultSitePath( 'Eval Test Site' ) ).toBe(
+			path.join( '/tmp/eval-b', 'eval-test-site' )
+		);
 	} );
 } );

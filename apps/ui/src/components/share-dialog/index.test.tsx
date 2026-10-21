@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { ConnectorProvider } from '@/data/core';
@@ -59,13 +59,12 @@ function renderDialog( previews: Partial< Snapshot >[] = [] ) {
 }
 
 describe( 'ShareDialog', () => {
-	it( 'publishes a preview when the site has none', async () => {
+	it( 'publishes a preview only when asked to', async () => {
 		const { connector, site } = renderDialog();
 
-		await waitFor( () =>
-			expect( connector.publishPreviewSite ).toHaveBeenCalledWith( site.id, undefined, undefined )
-		);
+		await userEvent.click( await screen.findByRole( 'button', { name: 'Create preview' } ) );
 		expect( connector.publishPreviewSite ).toHaveBeenCalledOnce();
+		expect( connector.publishPreviewSite ).toHaveBeenCalledWith( site.id, undefined, undefined );
 	} );
 
 	it( 'copies the link and updates the preview it shows', async () => {
@@ -82,7 +81,7 @@ describe( 'ShareDialog', () => {
 		);
 	} );
 
-	it( 'creates another preview and renames one from the preview actions', async () => {
+	it( 'renames a preview, and shows a new one publishing from the preview actions', async () => {
 		const { connector, site } = renderDialog( [ { name: 'Ada Portfolio' } ] );
 
 		await userEvent.click( await screen.findByRole( 'button', { name: 'Preview actions' } ) );
@@ -95,5 +94,6 @@ describe( 'ShareDialog', () => {
 		await userEvent.click( screen.getByRole( 'button', { name: 'Preview actions' } ) );
 		await userEvent.click( await screen.findByRole( 'menuitem', { name: 'New preview' } ) );
 		expect( connector.publishPreviewSite ).toHaveBeenCalledWith( site.id, undefined, undefined );
+		expect( await screen.findByRole( 'button', { name: 'Publishing preview…' } ) ).toBeVisible();
 	} );
 } );

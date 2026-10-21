@@ -3,7 +3,7 @@ import { isSnapshotExpired } from '@studio/common/lib/snapshots';
 import { __, sprintf } from '@wordpress/i18n';
 import { Button, Dialog, Icon, Spinner, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { AccountPrompt } from '@/components/account-prompt';
 import { useConnector } from '@/data/core';
 import { markPreviewSeen, usePreviewReady } from '@/data/preview-ready';
@@ -66,7 +66,6 @@ export function ShareDialog( {
 	const siteBusy = useIsSiteBusy( site );
 	const ready = usePreviewReady( site.id );
 	const upgrade = useUpgradePrompt( site, open );
-	const autoPublished = useRef( false );
 	const sitePreviews = ( snapshots.data ?? [] )
 		.filter( ( snapshot ) => snapshot.localSiteId === site.id )
 		.sort( ( a, b ) => b.date - a.date );
@@ -74,6 +73,7 @@ export function ShareDialog( {
 	// A site whose previews all expired gets its new one under the last one's name.
 	const previousName = previews.length ? undefined : sitePreviews[ 0 ]?.name;
 	const publishing = activity?.kind === 'pending' && activity.direction === 'preview';
+	const updatingHostname = publishing ? activity.hostname : undefined;
 	const failed = activity?.kind === 'error' && activity.direction === 'preview';
 	const busy = siteBusy || activity?.kind === 'pending' || snapshots.isFetching;
 	const canCreate =
@@ -97,41 +97,11 @@ export function ShareDialog( {
 			name: hostname ? undefined : previousName,
 		} );
 
-	// Opening Share on a site without a live preview publishes one.
 	useEffect( () => {
-		if ( ! open ) {
-			autoPublished.current = false;
-			return;
-		}
-		if ( ready ) {
+		if ( open && ready ) {
 			markPreviewSeen( site.id );
 		}
-		if (
-			autoPublished.current ||
-			! user.data ||
-			! snapshots.isSuccess ||
-			snapshots.isFetching ||
-			previews.length ||
-			busy ||
-			! canCreate
-		) {
-			return;
-		}
-		autoPublished.current = true;
-		publish( { siteId: site.id, name: previousName } );
-	}, [
-		open,
-		ready,
-		site.id,
-		user.data,
-		snapshots.isSuccess,
-		snapshots.isFetching,
-		previews.length,
-		busy,
-		canCreate,
-		previousName,
-		publish,
-	] );
+	}, [ open, ready, site.id ] );
 
 	const footer = upgrade ? (
 		<div className={ styles.upgrade }>
@@ -211,7 +181,8 @@ export function ShareDialog( {
 								site={ site }
 								previews={ previews }
 								busy={ busy }
-								publishing={ publishing }
+								creating={ publishing && ! updatingHostname }
+								updatingHostname={ updatingHostname }
 								failed={ failed }
 								canCreate={ canCreate }
 								notice={ limitNotice }

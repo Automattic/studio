@@ -19,7 +19,8 @@
 	--studio-share-muted: color-mix(in srgb, var(--wpds-color-foreground-content-neutral) 10%, transparent);
 }
 
-.content {
+/* Outranks the shared dialog rule, which leaves room for a footer this dialog doesn't have. */
+.dialog .content.content {
 	display: flex;
 	flex-direction: column;
 	padding-block-end: var(--studio-dialog-inset);

@@ -85,11 +85,14 @@ export function RenamePreview( { snapshot, onDone }: { snapshot: Snapshot; onDon
 	);
 }
 
+const NEW_PREVIEW = -1;
+
 export function PreviewSharePanel( {
 	site,
 	previews,
 	busy,
-	publishing,
+	creating,
+	updatingHostname,
 	failed,
 	canCreate,
 	notice,
@@ -99,7 +102,9 @@ export function PreviewSharePanel( {
 	site: SiteDetails;
 	previews: Snapshot[];
 	busy: boolean;
-	publishing: boolean;
+	// A new preview is publishing; `updatingHostname` names an existing one being refreshed.
+	creating: boolean;
+	updatingHostname?: string;
 	failed: boolean;
 	canCreate: boolean;
 	notice?: string;
@@ -115,8 +120,32 @@ export function PreviewSharePanel( {
 	const [ imageFailed, setImageFailed ] = useState( false );
 	const remove = useDeleteSnapshot();
 	const thumbnail = useSiteThumbnail( site.id );
-	const snapshot = previews.find( ( item ) => item.atomicSiteId === selectedId ) ?? previews[ 0 ];
+	const showingNew = selectedId === NEW_PREVIEW && creating;
+	const snapshot = showingNew
+		? undefined
+		: previews.find( ( item ) => item.atomicSiteId === selectedId ) ?? previews[ 0 ];
+	const picker =
+		previews.length > 1 || showingNew ? (
+			<MenuSelect
+				value={ snapshot?.atomicSiteId ?? NEW_PREVIEW }
+				label={ __( 'Select preview' ) }
+				disabled={ busy && ! creating }
+				className={ styles.previewSelect }
+				items={ [
+					...( creating ? [ { value: NEW_PREVIEW, label: __( 'New preview…' ) } ] : [] ),
+					...previews.map( ( item ) => ( {
+						value: item.atomicSiteId,
+						label: item.name || __( 'Preview site' ),
+					} ) ),
+				] }
+				onChange={ ( value ) => {
+					setSelectedId( value );
+					setEditing( null );
+				} }
+			/>
+		) : null;
 	const url = snapshot ? getSnapshotUrl( snapshot ) : '';
+	const updating = !! snapshot && updatingHostname === getSnapshotHostname( snapshot );
 	const locked = busy || remove.isPending;
 	const copyLink = async () => {
 		await connector.copyText( url );
@@ -128,15 +157,16 @@ export function PreviewSharePanel( {
 	if ( ! snapshot ) {
 		return (
 			<div className={ styles.panel }>
+				{ picker }
 				<Button
 					variant="solid"
 					tone="neutral"
-					className={ clsx( styles.large, publishing && styles.busy ) }
-					disabled={ locked || ( ! canCreate && ! publishing ) }
+					className={ clsx( styles.large, creating && styles.busy ) }
+					disabled={ locked || ( ! canCreate && ! creating ) }
 					onClick={ () => onPublish() }
 				>
-					{ publishing ? <Spinner /> : null }
-					{ publishing
+					{ creating ? <Spinner /> : null }
+					{ creating
 						? __( 'Publishing preview…' )
 						: failed
 						? __( 'Try again' )
@@ -150,22 +180,7 @@ export function PreviewSharePanel( {
 
 	return (
 		<div className={ styles.panel }>
-			{ previews.length > 1 ? (
-				<MenuSelect
-					value={ snapshot.atomicSiteId }
-					label={ __( 'Select preview' ) }
-					disabled={ locked }
-					className={ styles.previewSelect }
-					items={ previews.map( ( item ) => ( {
-						value: item.atomicSiteId,
-						label: item.name || __( 'Preview site' ),
-					} ) ) }
-					onChange={ ( value ) => {
-						setSelectedId( value );
-						setEditing( null );
-					} }
-				/>
-			) : null }
+			{ picker }
 			<figure className={ styles.frame }>
 				{ thumbnail.data && ! imageFailed ? (
 					<img
@@ -188,8 +203,8 @@ export function PreviewSharePanel( {
 						disabled={ locked }
 						onClick={ () => onPublish( getSnapshotHostname( snapshot ) ) }
 					>
-						{ publishing ? <Spinner /> : <Icon icon={ rotateRight } size={ 20 } /> }
-						{ publishing ? __( 'Updating' ) : failed ? __( 'Try again' ) : __( 'Update preview' ) }
+						{ updating ? <Spinner /> : <Icon icon={ rotateRight } size={ 20 } /> }
+						{ updating ? __( 'Updating' ) : failed ? __( 'Try again' ) : __( 'Update preview' ) }
 					</button>
 				) }
 			</figure>
@@ -258,7 +273,13 @@ export function PreviewSharePanel( {
 							}
 						/>
 						<Menu.Popup side="bottom" align="end">
-							<Menu.Item disabled={ ! canCreate } onClick={ () => onPublish() }>
+							<Menu.Item
+								disabled={ ! canCreate }
+								onClick={ () => {
+									setSelectedId( NEW_PREVIEW );
+									onPublish();
+								} }
+							>
 								{ __( 'New preview' ) }
 							</Menu.Item>
 							<Menu.Item onClick={ () => setEditing( 'rename' ) }>{ __( 'Rename…' ) }</Menu.Item>

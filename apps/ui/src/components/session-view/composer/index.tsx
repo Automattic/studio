@@ -1059,8 +1059,18 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 									{ sessionProvider === 'wpcom' && quota ? (
 										<Menu.Item onClick={ openAddCredits }>{ __( 'Get more credits' ) }</Menu.Item>
 									) : null }
-									<Menu.Item onClick={ () => openSettings( 'ai' ) }>
-										{ __( 'Connect provider…' ) }
+									<Menu.Item
+										className={ styles.describedItem }
+										onClick={ () => openSettings( 'ai' ) }
+									>
+										<span className={ styles.describedItemBody }>
+											<span className={ styles.describedItemLabel }>
+												{ __( 'Connect provider…' ) }
+											</span>
+											<span className={ styles.describedItemDescription }>
+												{ __( 'Add or manage your AI providers' ) }
+											</span>
+										</span>
 									</Menu.Item>
 								</Menu.Popup>
 							</Menu.Root>

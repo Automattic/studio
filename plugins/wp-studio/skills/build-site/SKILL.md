@@ -1,6 +1,6 @@
 ---
 name: build-site
-description: Create, build, design, redesign, or rebuild a whole website as a WordPress site with WordPress Studio, on the user's computer — pick or create the site, settle the design and plugins as a Site Spec, then scaffold the theme, provision the site, validate and publish the content, and polish the result. Load it before picking or creating the site.
+description: Create a new WordPress site with WordPress Studio on the user's computer, or build, design, redesign, or rebuild a whole website as one. Load it first for any request to create a site, also when the request goes on to ask for a single page, section, or feature: it picks or creates the site, settles the design and plugins as a Site Spec, then scaffolds the theme, provisions the site, validates and publishes the content, and polishes the result.
 ---
 
 1. If you have not called the `studio_instructions` tool in this conversation yet, call it first and follow what it returns for the rest of the session.

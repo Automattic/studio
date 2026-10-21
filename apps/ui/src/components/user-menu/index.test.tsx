@@ -43,7 +43,7 @@ describe( 'UserMenu', () => {
 		expect( screen.getByTestId( 'gravatar' ) ).toBeInTheDocument();
 		fireEvent.click( screen.getByRole( 'button', { name: 'Settings' } ) );
 
-		expect( navigateMock ).toHaveBeenCalledWith( { to: '/settings' } );
+		expect( navigateMock.mock.lastCall?.[ 0 ].search( {} ) ).toEqual( { settings: 'general' } );
 	} );
 
 	it( 'offers logging out from the account menu when signed in', async () => {

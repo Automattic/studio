@@ -14,7 +14,7 @@ test.describe( 'Localization', () => {
 		await settings.openFromAppMenu( session.electronApp );
 		await settings.selectLanguage( current, nativeName, lang );
 		current = nativeName;
-		await session.mainWindow.keyboard.press( 'Escape' );
+		await settings.closeWithEscape();
 	};
 
 	test.beforeAll( async () => {

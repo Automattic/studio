@@ -173,6 +173,7 @@ test.describe( 'Site settings', () => {
 		await settings.open( siteName );
 		await settings.siteNameInput.fill( newSiteName );
 		await settings.saveSettings();
+		await settings.close();
 
 		await expect( new Sidebar( session.mainWindow ).getSiteButton( newSiteName ) ).toBeVisible();
 		await session.waitForSite( newSiteName );
@@ -184,15 +185,16 @@ test.describe( 'Site settings', () => {
 
 		const settings = new SiteSettings( session.mainWindow );
 		await settings.open( siteName );
-		await expect( settings.phpVersionSelect ).toHaveValue( DEFAULT_PHP_VERSION );
+		await settings.showSection( 'PHP' );
+		await expect( settings.phpVersionSelect ).toHaveText( DEFAULT_PHP_VERSION );
 
-		await settings.phpVersionSelect.selectOption( newPhpVersion );
+		await settings.selectPhpVersion( newPhpVersion );
 		await settings.saveSettings();
 
 		await expect
 			.poll( async () => await session.waitForSite( siteName ) )
 			.toMatchObject( { phpVersion: newPhpVersion } );
-		await expect( settings.phpVersionSelect ).toHaveValue( newPhpVersion );
+		await expect( settings.phpVersionSelect ).toHaveText( newPhpVersion );
 	} );
 } );
 

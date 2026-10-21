@@ -58,7 +58,7 @@ describe( 'useOpenInDestinations', () => {
 
 		destination( 'editor' ).open();
 
-		expect( navigateMock ).toHaveBeenCalledWith( { to: '/settings' } );
+		expect( navigateMock.mock.lastCall?.[ 0 ].search( {} ) ).toEqual( { settings: 'general' } );
 		expect( openSiteInEditor ).not.toHaveBeenCalled();
 	} );
 } );

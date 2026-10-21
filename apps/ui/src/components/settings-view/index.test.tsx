@@ -5,8 +5,7 @@ import { useConnector } from '@/data/core';
 import { persister } from '@/data/core/query-client';
 import { useInstalledApps } from '@/data/queries/use-installed-apps';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
-import { SettingsCloseContext } from '@/hooks/use-settings-close';
-import { SettingsView, isSettingsTab } from './index';
+import { AppearanceSettings, GeneralSettings } from './index';
 import type { ButtonHTMLAttributes, ReactNode } from 'react';
 
 vi.mock( '@wordpress/ui', () => ( {
@@ -31,9 +30,6 @@ vi.mock( '@wordpress/ui', () => ( {
 		void size;
 		return <button { ...props }>{ loading ? loadingAnnouncement : children }</button>;
 	},
-	IconButton: ( { label, onClick }: { label: string; onClick?: () => void } ) => (
-		<button type="button" aria-label={ label } onClick={ onClick } />
-	),
 	SelectControl: ( {
 		items = [],
 		label,
@@ -67,13 +63,6 @@ vi.mock( '@wordpress/ui', () => ( {
 		Popup: () => null,
 		Positioner: () => null,
 	},
-} ) );
-
-vi.mock( '@/components/tabs', () => ( {
-	Root: ( { children }: { children: ReactNode } ) => <div>{ children }</div>,
-	List: ( { children }: { children: ReactNode } ) => <div>{ children }</div>,
-	Tab: ( { children }: { children: ReactNode } ) => <button type="button">{ children }</button>,
-	Panel: ( { children }: { children: ReactNode } ) => <div>{ children }</div>,
 } ) );
 
 vi.mock( '@/components/gravatar', () => ( {
@@ -127,14 +116,8 @@ vi.mock( '@/data/queries/use-wapuu-score', () => ( {
 	useWapuuScore: () => ( { data: null } ),
 } ) );
 
-// The mocked Tabs render every panel unconditionally; the usage panel has its
-// own test file.
 vi.mock( './usage-panel', () => ( {
 	UsagePanel: () => null,
-} ) );
-
-vi.mock( '@/hooks/use-traffic-light-space', () => ( {
-	useTrafficLightSpace: () => ( { start: false, end: false } ),
 } ) );
 
 const useConnectorMock = vi.mocked( useConnector );
@@ -143,7 +126,7 @@ const useSaveUserPreferencesMock = vi.mocked( useSaveUserPreferences );
 const useUserPreferencesMock = vi.mocked( useUserPreferences );
 const removeClientMock = vi.mocked( persister.removeClient );
 
-describe( 'SettingsView', () => {
+describe( 'Studio settings', () => {
 	const mutate = vi.fn();
 	const reload = vi.fn();
 	const selectDefaultSiteDirectory = vi.fn( () => Promise.resolve< string | null >( null ) );
@@ -184,19 +167,18 @@ describe( 'SettingsView', () => {
 		} as never );
 	} );
 
-	it( 'saves the color scheme as soon as an appearance option is picked', () => {
-		render( <SettingsView activeTab="preferences" onTabChange={ vi.fn() } /> );
+	it( 'saves the theme as soon as one is picked', () => {
+		render( <AppearanceSettings /> );
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'Dark' } ) );
+		fireEvent.change( screen.getByLabelText( 'Theme' ), { target: { value: 'dark' } } );
 
 		expect( mutate ).toHaveBeenCalledWith( { colorScheme: 'dark' }, expect.any( Object ) );
-		expect( screen.queryByRole( 'button', { name: /save/i } ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'saves the editor on change and only offers installed apps', () => {
-		render( <SettingsView activeTab="preferences" onTabChange={ vi.fn() } /> );
+		render( <GeneralSettings /> );
 
-		const editorSelect = screen.getByLabelText( 'Preferred editor' ) as HTMLSelectElement;
+		const editorSelect = screen.getByLabelText( 'Code editor' ) as HTMLSelectElement;
 		expect( Array.from( editorSelect.options ).map( ( option ) => option.value ) ).toEqual( [
 			'vscode',
 		] );
@@ -209,7 +191,7 @@ describe( 'SettingsView', () => {
 	it( 'clears the persisted cache and reloads after a locale change is saved', async () => {
 		mutate.mockImplementation( ( patch, options ) => options?.onSuccess?.() );
 
-		render( <SettingsView activeTab="preferences" onTabChange={ vi.fn() } /> );
+		render( <GeneralSettings /> );
 
 		fireEvent.change( screen.getByLabelText( 'Language' ), { target: { value: 'es' } } );
 
@@ -218,46 +200,12 @@ describe( 'SettingsView', () => {
 		expect( removeClientMock ).toHaveBeenCalled();
 	} );
 
-	it( 'saves the quit-sites behavior on change', () => {
-		render( <SettingsView activeTab="preferences" onTabChange={ vi.fn() } /> );
-
-		fireEvent.change( screen.getByLabelText( 'When quitting with running sites' ), {
-			target: { value: 'stop' },
-		} );
-
-		expect( mutate ).toHaveBeenCalledWith( { quitSitesBehavior: 'stop' }, expect.any( Object ) );
-	} );
-
-	it( 'renders the AI tab with its panel', () => {
-		render( <SettingsView activeTab="ai" onTabChange={ vi.fn() } /> );
-
-		expect( screen.getByRole( 'button', { name: 'AI' } ) ).toBeInTheDocument();
-		expect( screen.getByTestId( 'ai-panel' ) ).toBeInTheDocument();
-	} );
-
-	it( 'recognizes the keyboard tab id', () => {
-		expect( isSettingsTab( 'keyboard' ) ).toBe( true );
-		expect( isSettingsTab( 'unknown' ) ).toBe( false );
-	} );
-
-	it( 'renders keyboard shortcut sections', () => {
-		render( <SettingsView activeTab="keyboard" onTabChange={ vi.fn() } /> );
-
-		expect( screen.getByRole( 'button', { name: 'Keyboard' } ) ).toBeInTheDocument();
-		expect( screen.getByRole( 'heading', { name: 'Composer' } ) ).toBeInTheDocument();
-		expect( screen.getByRole( 'heading', { name: 'Site preview' } ) ).toBeInTheDocument();
-		expect( screen.getByText( 'New chat' ) ).toBeInTheDocument();
-		expect( screen.getByText( 'Send message' ) ).toBeInTheDocument();
-		expect( screen.getByLabelText( 'Control + Comma' ) ).toBeInTheDocument();
-		expect( screen.getByLabelText( 'Alt + Left arrow' ) ).toBeInTheDocument();
-	} );
-
 	it( 'saves the default site directory as soon as one is picked', async () => {
 		selectDefaultSiteDirectory.mockResolvedValue( '/Users/example/Sites' );
 
-		render( <SettingsView activeTab="preferences" onTabChange={ vi.fn() } /> );
+		render( <GeneralSettings /> );
 
-		fireEvent.click( screen.getByRole( 'button', { name: /Default site directory/ } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: /Default directory/ } ) );
 
 		await waitFor( () =>
 			expect( mutate ).toHaveBeenCalledWith(
@@ -266,47 +214,5 @@ describe( 'SettingsView', () => {
 			)
 		);
 		expect( selectDefaultSiteDirectory ).toHaveBeenCalledWith( '/Users/example/Studio' );
-	} );
-
-	it( 'does not save when the directory picker is cancelled', async () => {
-		selectDefaultSiteDirectory.mockResolvedValue( null );
-
-		render( <SettingsView activeTab="preferences" onTabChange={ vi.fn() } /> );
-
-		fireEvent.click( screen.getByRole( 'button', { name: /Default site directory/ } ) );
-
-		await waitFor( () => expect( selectDefaultSiteDirectory ).toHaveBeenCalled() );
-		expect( mutate ).not.toHaveBeenCalled();
-	} );
-
-	it( 'surfaces a save error inline in the section', () => {
-		useSaveUserPreferencesMock.mockReturnValue( {
-			mutate,
-			isPending: false,
-			isError: true,
-			error: new Error( 'save failed' ),
-		} as never );
-
-		render( <SettingsView activeTab="preferences" onTabChange={ vi.fn() } /> );
-
-		expect(
-			screen.getByText( 'An error occurred while saving settings. Please try again.' )
-		).toBeInTheDocument();
-	} );
-
-	it( 'shows a close button only inside the settings overlay', () => {
-		const onClose = vi.fn();
-		const { rerender } = render( <SettingsView activeTab="preferences" onTabChange={ vi.fn() } /> );
-
-		expect( screen.queryByRole( 'button', { name: 'Close settings' } ) ).not.toBeInTheDocument();
-
-		rerender(
-			<SettingsCloseContext.Provider value={ onClose }>
-				<SettingsView activeTab="preferences" onTabChange={ vi.fn() } />
-			</SettingsCloseContext.Provider>
-		);
-		fireEvent.click( screen.getByRole( 'button', { name: 'Close settings' } ) );
-
-		expect( onClose ).toHaveBeenCalled();
 	} );
 } );

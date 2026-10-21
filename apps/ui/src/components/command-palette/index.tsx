@@ -17,6 +17,7 @@ import { sitePinKey, useSidebarPins } from '@/data/queries/use-sidebar-pins';
 import { useIsSiteBusy, useSites, useStartSite, useStopSite } from '@/data/queries/use-sites';
 import { useSaveUserPreferences } from '@/data/queries/use-user-preferences';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useOpenSettings } from '@/hooks/use-open-settings';
 import { useOpenSite } from '@/hooks/use-open-site';
 import { useSessionUIDispatch, useSessionPreviewUI } from '@/hooks/use-session-ui';
 import { useSidebarOpen, useToggleSidebar } from '@/hooks/use-sidebar-collapsed';
@@ -174,6 +175,7 @@ type PaletteProps = {
 
 function useAppCommands(): PaletteCommand[] {
 	const navigate = useNavigate();
+	const openSettings = useOpenSettings();
 	const { data: sites } = useSites();
 	const { data: sessions } = useSessions();
 	const { chatEnabled } = useAgenticFeatures();
@@ -216,7 +218,7 @@ function useAppCommands(): PaletteCommand[] {
 			icon: settingsIcon,
 			priority: 2,
 			keywords: [ __( 'Preferences' ) ],
-			run: () => void navigate( { to: '/settings' } ),
+			run: () => openSettings(),
 		},
 		...chats.slice( 0, RECENT_CHATS_LIMIT ).map(
 			( chat ): PaletteCommand => ( {
@@ -270,6 +272,7 @@ function SiteCommands( {
 	...palette
 }: PaletteProps & { site: SiteDetails; session?: AiSessionSummary; chatHidden?: boolean } ) {
 	const navigate = useNavigate();
+	const openSettings = useOpenSettings();
 	const connector = useConnector();
 	const { chatEnabled } = useAgenticFeatures();
 	const startSite = useStartSite();
@@ -316,7 +319,7 @@ function SiteCommands( {
 			icon: settingsIcon,
 			priority: 2,
 			description,
-			run: () => void navigate( { to: '/sites/$siteId/settings', params: { siteId: site.id } } ),
+			run: () => openSettings( 'site', site.id ),
 		},
 		...destinations
 			.filter( ( destination ) => ! destination.disabled )

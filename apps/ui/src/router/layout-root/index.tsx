@@ -3,12 +3,14 @@ import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { useQueryClient } from '@tanstack/react-query';
 import { createRootRouteWithContext, Outlet, useNavigate, useParams } from '@tanstack/react-router';
 import { useEffect, useRef } from 'react';
+import { isSettingsSection, SettingsDialog } from '@/components/settings-dialog';
 import { WapuuWorldMount } from '@/components/wapuu-world';
 import { useConnector } from '@/data/core';
 import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
 import { SITES_QUERY_KEY } from '@/data/queries/use-sites';
 import { useAiCreditsPurchaseResult } from '@/hooks/use-ai-credits-purchase-result';
 import { useAppMenuNavigation } from '@/hooks/use-app-menu-navigation';
+import type { SettingsSectionId } from '@/components/settings-dialog';
 import type { AiSessionSummary, Connector, SiteDetails } from '@/data/core';
 import type { QueryClient } from '@tanstack/react-query';
 
@@ -85,7 +87,16 @@ export function DeletedSiteRedirect() {
 	return null;
 }
 
+interface SettingsSearch {
+	settings?: SettingsSectionId;
+	settingsSite?: string;
+}
+
 export const rootRoute = createRootRouteWithContext< RouterContext >()( {
+	validateSearch: ( search: Record< string, unknown > ): SettingsSearch => ( {
+		...( isSettingsSection( search.settings ) ? { settings: search.settings } : {} ),
+		...( typeof search.settingsSite === 'string' ? { settingsSite: search.settingsSite } : {} ),
+	} ),
 	component: () => (
 		<>
 			<AppMenuNavigation />
@@ -93,6 +104,7 @@ export const rootRoute = createRootRouteWithContext< RouterContext >()( {
 			<DeletedSiteRedirect />
 			<WapuuWorldMount />
 			<Outlet />
+			<SettingsDialog />
 		</>
 	),
 } );

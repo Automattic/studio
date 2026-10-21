@@ -1,6 +1,6 @@
 import { type ElectronApplication, type Page, expect } from '@playwright/test';
 
-// App settings (`/settings`). Changes save as soon as they're made.
+// Studio settings in the settings dialog. Changes save as soon as they're made.
 export default class AppSettings {
 	constructor( private page: Page ) {}
 
@@ -22,18 +22,33 @@ export default class AppSettings {
 		await expect( this.page.getByRole( 'combobox' ).first() ).toBeVisible();
 	}
 
+	// The language change reloads the window, which reopens settings: wait for it first.
+	async closeWithEscape() {
+		await expect( this.page.getByRole( 'dialog' ) ).toBeVisible();
+		await this.page.keyboard.press( 'Escape' );
+		await expect( this.page.getByRole( 'dialog' ) ).toBeHidden();
+	}
+
 	async close() {
 		await this.closeButton.click();
 		await expect( this.closeButton ).toBeHidden();
 	}
 
-	appearanceOption( name: 'System' | 'Light' | 'Dark' ) {
-		return this.page.getByRole( 'group', { name: 'Appearance' } ).getByRole( 'button', { name } );
+	async showSection( name: string ) {
+		await this.page
+			.getByRole( 'navigation', { name: 'Settings sections' } )
+			.getByRole( 'button', { name } )
+			.click();
+	}
+
+	get themeSelect() {
+		return this.page.getByRole( 'combobox', { name: 'Theme' } );
 	}
 
 	async selectColorScheme( name: 'System' | 'Light' | 'Dark' ) {
-		await this.appearanceOption( name ).click();
-		await expect( this.appearanceOption( name ) ).toHaveAttribute( 'aria-pressed', 'true' );
+		await this.themeSelect.click();
+		await this.page.getByRole( 'option', { name } ).click();
+		await expect( this.themeSelect ).toHaveText( name );
 	}
 
 	/**

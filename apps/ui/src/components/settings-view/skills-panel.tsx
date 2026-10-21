@@ -33,12 +33,14 @@ function SkillRow( {
 				<span className={ styles.skillName }>{ skill.displayName }</span>
 				<span className={ styles.skillDescription }>{ skill.description }</span>
 			</div>
-			<FormToggle
-				checked={ checked }
-				disabled={ disabled }
-				aria-label={ skill.displayName }
-				onChange={ onToggle }
-			/>
+			<span className={ styles.toggleControl }>
+				<FormToggle
+					checked={ checked }
+					disabled={ disabled }
+					aria-label={ skill.displayName }
+					onChange={ onToggle }
+				/>
+			</span>
 		</li>
 	);
 }

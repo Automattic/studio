@@ -5,7 +5,6 @@ import {
 	type AiCreditsMeterIntent,
 } from '@studio/common/lib/studio-assistant-quota';
 import { useQueryClient } from '@tanstack/react-query';
-import { useNavigate } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
 import { Tooltip } from '@wordpress/ui';
 import { useState } from 'react';
@@ -19,6 +18,7 @@ import {
 import { useStudioAssistantTopUpPricing } from '@/data/queries/use-top-up-pricing';
 import { useUserLocale } from '@/data/queries/use-user-locale';
 import { useOpenAiCreditsCheckout } from '@/hooks/use-open-ai-credits-checkout';
+import { useOpenSettings } from '@/hooks/use-open-settings';
 import styles from './style.module.css';
 
 // The ring arc draws the same used-over-total fraction as the Settings →
@@ -64,7 +64,7 @@ function AiCreditsRing( {
 export function AiCreditsControl() {
 	const openCheckout = useOpenAiCreditsCheckout();
 	const locale = useUserLocale();
-	const navigate = useNavigate();
+	const openSettings = useOpenSettings();
 	const queryClient = useQueryClient();
 	const [ menuOpen, setMenuOpen ] = useState( false );
 	const [ detailsOpen, setDetailsOpen ] = useState( false );
@@ -177,9 +177,7 @@ export function AiCreditsControl() {
 					<Menu.Item onClick={ () => setDetailsOpen( true ) }>
 						{ __( 'How AI credits work' ) }
 					</Menu.Item>
-					<Menu.Item
-						onClick={ () => void navigate( { to: '/settings', search: { tab: 'usage' } } ) }
-					>
+					<Menu.Item onClick={ () => openSettings( 'usage' ) }>
 						{ __( 'Usage settings' ) }
 					</Menu.Item>
 				</Menu.Popup>

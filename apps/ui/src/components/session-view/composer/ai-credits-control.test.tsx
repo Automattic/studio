@@ -322,9 +322,6 @@ describe( 'AiCreditsControl', () => {
 		await openMenu();
 		fireEvent.click( screen.getByRole( 'menuitem', { name: 'Usage settings' } ) );
 
-		expect( navigateMock ).toHaveBeenCalledWith( {
-			to: '/settings',
-			search: { tab: 'usage' },
-		} );
+		expect( navigateMock.mock.lastCall?.[ 0 ].search( {} ) ).toEqual( { settings: 'usage' } );
 	} );
 } );

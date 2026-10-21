@@ -171,14 +171,13 @@ if [ "$PLATFORM" = "linux" ]; then
     # right-edge content (e.g. the preferences Save button) below the fold
     # for the split-pane settings layout. 1920x1080 matches a typical
     # desktop and avoids relying on scroll-into-view.
-    # Each test session runs its own daemon; it copies its logs here before
-    # cleanup. Kept only on failure (copied to the artifact dir below).
-    export STUDIO_E2E_DAEMON_LOGS_DIR=/tmp/test-results/daemon-logs
     inner_exit=0
     xvfb-run -a -s "-screen 0 1920x1080x24" \
       npx playwright test --max-failures=1 --output=/tmp/test-results || inner_exit=$?
-    if [ "$inner_exit" -eq 0 ]; then
-      rm -rf "$STUDIO_E2E_DAEMON_LOGS_DIR"
+    # On failure, collect daemon logs into /tmp/test-results (copied to the
+    # artifact dir below). $HOME here is the node user that ran the tests.
+    if [ "$inner_exit" -ne 0 ] && [ -d "$HOME/.studio/daemon/logs" ]; then
+      cp -r "$HOME/.studio/daemon/logs" /tmp/test-results/daemon-logs || true
     fi
     exit "$inner_exit"
   ' || test_exit=$?
@@ -195,13 +194,14 @@ else
   npx playwright install
 
   echo 'Running Playwright tests...'
-  # Each test session runs its own daemon; it copies its logs here before
-  # cleanup. They are uploaded only when the run fails.
-  export STUDIO_E2E_DAEMON_LOGS_DIR=test-results/daemon-logs
+  # Capture the exit code so a failure doesn't trip `set -e` before we collect
+  # the daemon logs (~/.studio/daemon/logs) for artifact upload.
   test_exit=0
   npx playwright test || test_exit=$?
-  if [ "$test_exit" -eq 0 ]; then
-    rm -rf "$STUDIO_E2E_DAEMON_LOGS_DIR"
+
+  if [ "$test_exit" -ne 0 ] && [ -d "$HOME/.studio/daemon/logs" ]; then
+    mkdir -p test-results/daemon-logs
+    cp -r "$HOME/.studio/daemon/logs/." test-results/daemon-logs/ || true
   fi
 
   exit "$test_exit"

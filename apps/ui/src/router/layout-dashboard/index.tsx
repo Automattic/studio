@@ -4,6 +4,7 @@ import { createRoute, Outlet, useNavigate, useRouterState } from '@tanstack/reac
 import { __ } from '@wordpress/i18n';
 import { IconButton } from '@wordpress/ui';
 import { useCallback, useEffect, useState } from 'react';
+import { CommandPalette } from '@/components/command-palette';
 import {
 	PreviewSplitFrame,
 	type PreviewSplitFramePreviewProps,
@@ -291,6 +292,11 @@ function DashboardLayoutContent() {
 			>
 				{ workspace }
 			</PreviewSplitFrame>
+			<CommandPalette
+				site={ settingsSite ?? homeSite ?? newSessionSite ?? sessionSite }
+				session={ sessionData?.summary }
+				chatHidden={ showPreview && ! homeSite ? chatHidden : undefined }
+			/>
 		</SidebarLayout>
 	);
 }

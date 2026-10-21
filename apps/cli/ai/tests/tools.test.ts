@@ -21,6 +21,8 @@ import { runCommand as runListPreviewCommand } from 'cli/commands/preview/list';
 import { runCommand as runUpdatePreviewCommand } from 'cli/commands/preview/update';
 import { runCommand as runCreateSiteCommand } from 'cli/commands/site/create';
 import { runCommand as runDeleteSiteCommand } from 'cli/commands/site/delete';
+import { runCommand as runListSitesCommand } from 'cli/commands/site/list';
+import { getWpComSites } from 'cli/lib/api';
 import { readCliConfig } from 'cli/lib/cli-config/core';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
@@ -33,7 +35,12 @@ import {
 	withChatArtifactEmission,
 } from '../tools';
 import { createSiteTool } from '../tools/create-site';
-import { LOCAL_CHANGE, READ_ONLY, type AnyStudioAgentTool } from '../tools/define-tool';
+import {
+	LOCAL_CHANGE,
+	READ_ONLY,
+	REMOTE_READ,
+	type AnyStudioAgentTool,
+} from '../tools/define-tool';
 import { enrichPreviewListOutput } from '../tools/list-previews';
 import { createTakeScreenshotTool } from '../tools/take-screenshot';
 
@@ -81,6 +88,11 @@ vi.mock( 'cli/commands/site/create', () => ( {
 
 vi.mock( 'cli/commands/site/delete', () => ( {
 	runCommand: vi.fn(),
+} ) );
+
+vi.mock( 'cli/lib/api', async ( importOriginal ) => ( {
+	...( await importOriginal< typeof import('cli/lib/api') >() ),
+	getWpComSites: vi.fn(),
 } ) );
 
 vi.mock( 'cli/commands/site/list', () => ( {
@@ -260,7 +272,8 @@ describe( 'Studio AI MCP tools', () => {
 		const annotations = Object.fromEntries(
 			studioToolDefinitions.map( ( tool ) => [ tool.name, tool.annotations ] )
 		);
-		expect( annotations.site_list ).toEqual( READ_ONLY );
+		expect( annotations.site_list ).toEqual( REMOTE_READ );
+		expect( annotations.site_info ).toEqual( READ_ONLY );
 		expect( annotations.scaffold_theme ).toEqual( LOCAL_CHANGE );
 		for ( const name of [ 'site_delete', 'site_push', 'site_pull', 'wp_cli', 'wpcom_request' ] ) {
 			const { readOnlyHint, destructiveHint, openWorldHint } = annotations[ name ];
@@ -800,6 +813,60 @@ describe( 'Studio AI MCP tools', () => {
 				lastPullTimestamp: null,
 			},
 		] );
+	} );
+
+	describe( 'site_list', () => {
+		beforeEach( () => {
+			vi.mocked( runListSitesCommand ).mockImplementation( async () => {
+				console.log( JSON.stringify( [ { id: 'site-123', name: 'My Site', running: false } ] ) );
+			} );
+		} );
+
+		it( 'lists local and WordPress.com sites together', async () => {
+			vi.mocked( readAuthToken ).mockResolvedValue( { accessToken: 'token' } as never );
+			vi.mocked( getWpComSites ).mockResolvedValue( [
+				{ id: 111, name: 'My Production Site', url: 'https://myprod.wordpress.com' },
+			] );
+
+			const result = await getTool( 'site_list' ).rawHandler( {} as never );
+
+			expect( getWpComSites ).toHaveBeenCalledWith( 'token' );
+			expect( JSON.parse( getTextContent( result )! ) ).toEqual( {
+				local: [ { id: 'site-123', name: 'My Site', running: false } ],
+				wordpressCom: {
+					signedIn: true,
+					sites: [ { id: 111, name: 'My Production Site', url: 'https://myprod.wordpress.com' } ],
+				},
+			} );
+		} );
+
+		it( 'says when the user is not logged in to WordPress.com', async () => {
+			vi.mocked( readAuthToken ).mockResolvedValue( null );
+
+			const result = await getTool( 'site_list' ).rawHandler( {} as never );
+
+			expect( getWpComSites ).not.toHaveBeenCalled();
+			expect( JSON.parse( getTextContent( result )! ).wordpressCom ).toEqual( {
+				signedIn: false,
+				sites: [],
+			} );
+		} );
+
+		it( 'keeps the local sites when WordPress.com cannot be reached', async () => {
+			vi.mocked( readAuthToken ).mockResolvedValue( { accessToken: 'token' } as never );
+			vi.mocked( getWpComSites ).mockRejectedValue( new Error( 'Failed to fetch' ) );
+
+			const parsed = JSON.parse(
+				getTextContent( await getTool( 'site_list' ).rawHandler( {} as never ) )!
+			);
+
+			expect( parsed.local ).toHaveLength( 1 );
+			expect( parsed.wordpressCom ).toEqual( {
+				signedIn: true,
+				sites: [],
+				error: 'Failed to fetch',
+			} );
+		} );
 	} );
 
 	it( 'updates previews with a normalized hostname', async () => {

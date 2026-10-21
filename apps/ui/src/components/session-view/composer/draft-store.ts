@@ -3,7 +3,6 @@ import type { ComposerAttachment } from '@studio/common/ai/composer-attachments'
 interface ComposerDraft {
 	text: string;
 	attachments: ComposerAttachment[];
-	suggestionBaseline: string | null;
 }
 
 const MAX_CACHED_DRAFTS = 10;
@@ -14,7 +13,6 @@ export function getComposerDraft( sessionId: string | undefined ): ComposerDraft
 		( sessionId ? draftsBySessionId.get( sessionId ) : undefined ) ?? {
 			text: '',
 			attachments: [],
-			suggestionBaseline: null,
 		}
 	);
 }
@@ -50,7 +48,6 @@ export function completeComposerDraftSend(
 	saveComposerDraft( sessionId, {
 		text: draft.text.trim() === sentText ? '' : draft.text,
 		attachments: draft.attachments.filter( ( item ) => ! sentAttachmentIds.has( item.id ) ),
-		suggestionBaseline: draft.text.trim() === sentText ? null : draft.suggestionBaseline,
 	} );
 }
 

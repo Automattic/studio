@@ -212,13 +212,12 @@
 	}
 }
 
-/* A stopped site's screenshot fills the empty chat, over its dot field. */
-.stoppedSite {
+/* An empty chat's dot field, with a stopped site's screenshot over it. */
+.emptyState {
 	position: absolute;
-	inset: 0;
+	inset: 0 0 var(--composer-height);
 	display: flex;
 	align-items: center;
 	justify-content: center;
 	padding: var(--wpds-dimension-padding-2xl);
-	padding-bottom: calc(var(--composer-height) + var(--wpds-dimension-padding-2xl));
 }

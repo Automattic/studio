@@ -66,11 +66,9 @@ import {
 } from './annotations';
 import { Composer, ComposerSkeleton, type ComposerHandle } from './composer';
 import { Conversation } from './conversation';
-import { EmptyBackground } from './empty-background';
 import { QueuedPrompts } from './queued-prompts';
 import { useNewChatShortcut } from './session-chat-actions';
 import styles from './style.module.css';
-import { SuggestedPrompts } from './suggested-prompts';
 import type { SiteDetails } from '@/data/core';
 
 // Slack below the bottom edge that still counts as "at the latest message",
@@ -574,7 +572,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	if ( isLoading || notFound || ! data || isQuotaLoading ) {
 		// Use the same SessionFrame with an empty header and a structural
 		// ComposerSkeleton so the scroll area has the exact same dimensions
-		// as the loaded view — otherwise the EmptyBackground canvas jumps
+		// as the loaded view — otherwise the empty-state dots jump
 		// mid-transition.
 		return (
 			<SessionFrame
@@ -585,7 +583,9 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 					</div>
 				}
 			>
-				<EmptyBackground />
+				<div className={ styles.emptyState }>
+					<PreviewParticles />
+				</div>
 			</SessionFrame>
 		);
 	}
@@ -601,7 +601,9 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 					/>
 				}
 			>
-				<EmptyBackground />
+				<div className={ styles.emptyState }>
+					<PreviewParticles />
+				</div>
 				<AccessRequirements
 					quota={ quota }
 					isRechecking={ isQuotaFetching }
@@ -666,30 +668,12 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		>
 			<OpenChatShortcuts session={ data.summary } />
 			{ isEmpty && ! pendingPrompt ? (
-				ownerSite && ( ! ownerSite.running || isSiteStarting ) ? (
-					<div className={ styles.stoppedSite }>
-						<PreviewParticles active={ isSiteStarting } showLogo={ isSiteStarting } />
-						{ isSiteStarting ? null : <StoppedSitePreview site={ ownerSite } /> }
-					</div>
-				) : (
-					<EmptyBackground />
-				)
-			) : null }
-			{ isEmpty && ! pendingPrompt && ownerSite && ! isOutOfCredits ? (
-				<SuggestedPrompts
-					fadeIn={ fadeAfterQuotaCheck }
-					siteName={ ownerSite.name }
-					onPick={ ( prompt ) =>
-						composerRef.current?.replaceDraft( prompt, { suggestionBaseline: prompt } )
-					}
-					getDraft={ () =>
-						composerRef.current?.getDraft() ?? {
-							text: '',
-							hasAttachments: false,
-							suggestionBaseline: null,
-						}
-					}
-				/>
+				<div className={ styles.emptyState }>
+					<PreviewParticles active={ isSiteStarting } showLogo={ isSiteStarting } />
+					{ ownerSite && ! ownerSite.running && ! isSiteStarting ? (
+						<StoppedSitePreview site={ ownerSite } />
+					) : null }
+				</div>
 			) : null }
 			<div className={ clsx( styles.column, styles.conversationSpacing ) }>
 				<Conversation

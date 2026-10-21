@@ -130,10 +130,6 @@ vi.mock( './session-chat-actions', () => ( {
 	useNewChatShortcut: () => undefined,
 } ) );
 
-vi.mock( './suggested-prompts', () => ( {
-	SuggestedPrompts: () => <div data-testid="suggested-prompts" />,
-} ) );
-
 const useSessionMock = vi.mocked( useSession, { partial: true } );
 const useStudioAssistantQuotaMock = vi.mocked( useStudioAssistantQuota, { partial: true } );
 
@@ -176,10 +172,6 @@ function makeOwnedSession(): LoadedAiSession {
 		summary: { id: 'session-1', ownerSiteId: OWNER_SITE.id },
 		entries: [],
 	} as unknown as LoadedAiSession;
-}
-
-function makeSpentQuota() {
-	return makeQuota( { allowanceRemaining: 0, purchasedRemaining: 0 } );
 }
 
 function setScrollMetrics(
@@ -505,38 +497,6 @@ describe( 'SessionView', () => {
 		rerender( <SessionView sessionId="session-1" /> );
 		await composerProps.current?.onSend( 'Hi' );
 		expect( siteMocks.startSite ).toHaveBeenCalledWith( OWNER_SITE.id );
-	} );
-
-	it( 'hides the suggested prompts while the credits are spent', () => {
-		sitesState.data = [ OWNER_SITE ];
-		useSessionMock.mockReturnValue( {
-			data: makeOwnedSession(),
-			isLoading: false,
-			error: null,
-		} );
-		useStudioAssistantQuotaMock.mockReturnValue( {
-			data: makeSpentQuota(),
-			isLoading: false,
-			isFetching: false,
-			refetch: vi.fn(),
-		} );
-
-		render( <SessionView sessionId="session-1" /> );
-
-		expect( screen.queryByTestId( 'suggested-prompts' ) ).not.toBeInTheDocument();
-	} );
-
-	it( 'keeps the suggested prompts while credits remain', () => {
-		sitesState.data = [ OWNER_SITE ];
-		useSessionMock.mockReturnValue( {
-			data: makeOwnedSession(),
-			isLoading: false,
-			error: null,
-		} );
-
-		render( <SessionView sessionId="session-1" /> );
-
-		expect( screen.getByTestId( 'suggested-prompts' ) ).toBeInTheDocument();
 	} );
 
 	it( 'shows a stopped site its last screenshot in an empty chat', () => {

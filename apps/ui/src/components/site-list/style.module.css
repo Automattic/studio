@@ -547,3 +547,27 @@
 	border-radius: 50%;
 	background-color: var(--site-list-pending-indicator-bg);
 }
+
+/* Wraps the sidebar's groups without adding a box of its own. */
+.selection {
+	display: contents;
+}
+
+.siteHeader[data-selected],
+.chatRow[data-selected] {
+	background-color: var(--sidebar-row-background);
+}
+
+/* While several rows are selected, their hover actions step aside. */
+.selection[data-selecting] :is(.chatActions, .siteActions) {
+	visibility: hidden;
+}
+
+.visuallyHidden {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	overflow: hidden;
+	clip-path: inset(50%);
+	white-space: nowrap;
+}

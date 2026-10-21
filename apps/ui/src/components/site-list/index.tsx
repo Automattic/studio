@@ -70,6 +70,7 @@ import {
 	stopSiteIcon,
 	unpinIcon,
 } from '@/lib/icons';
+import { BulkMenuItems, SidebarSelection, useIsBulkTarget, useSelectableRow } from './selection';
 import styles from './style.module.css';
 import type { AiSessionSummary, SiteDetails } from '@/data/core';
 
@@ -256,6 +257,8 @@ function ChatRow( {
 	const navigate = useNavigate();
 	const activity = useSiteAgentActivity( [ session.id ] );
 	const actions = useChatActions( session, active );
+	const selectable = useSelectableRow( chatPinKey( session.id ) );
+	const bulk = useIsBulkTarget( chatPinKey( session.id ) );
 
 	return (
 		<>
@@ -263,6 +266,7 @@ function ChatRow( {
 				<Menu.ContextMenuTrigger
 					render={
 						<div
+							{ ...selectable }
 							className={ clsx(
 								styles.chatRow,
 								nested && styles.chatNested,
@@ -324,7 +328,7 @@ function ChatRow( {
 					}
 				/>
 				<Menu.ContextPopup onKeyDown={ ( event ) => actions.handleShortcut( event.nativeEvent ) }>
-					<ChatActionsMenuItems actions={ actions } />
+					{ bulk ? <BulkMenuItems /> : <ChatActionsMenuItems actions={ actions } /> }
 				</Menu.ContextPopup>
 			</Menu.ContextMenuRoot>
 			{ actions.renameDialog }
@@ -446,6 +450,7 @@ function SiteActionsMenu( {
 	const [ deleteOpen, setDeleteOpen ] = useState( false );
 	const { isPinned, togglePin } = useSidebarPins();
 	const pinned = isPinned( sitePinKey( site.id ) );
+	const bulk = useIsBulkTarget( sitePinKey( site.id ) );
 	const importInputRef = useRef< HTMLInputElement >( null );
 	const backupImport = useSiteBackupImport( site );
 	const manage = useSiteManagementActions( site, {
@@ -488,73 +493,79 @@ function SiteActionsMenu( {
 						}
 					} }
 				>
-					{ site.running ? (
-						<Menu.Item disabled={ busy } onClick={ () => stopSite.mutate( site.id ) }>
-							{ __( 'Stop site' ) }
-						</Menu.Item>
+					{ bulk ? (
+						<BulkMenuItems />
 					) : (
-						<Menu.Item disabled={ busy } onClick={ () => startSite.mutate( site.id ) }>
-							{ isStarting ? __( 'Starting…' ) : __( 'Start site' ) }
-						</Menu.Item>
-					) }
-					<Menu.Separator />
-					<Menu.Item onClick={ () => togglePin( sitePinKey( site.id ) ) }>
-						{ pinned ? __( 'Unpin' ) : __( 'Pin' ) }
-						<Menu.Shortcut>{ displayShortcut.primaryAlt( 'p' ) }</Menu.Shortcut>
-					</Menu.Item>
-					<Menu.Item
-						onClick={ () => {
-							onSiteOpen?.();
-							void connector.trackEvent( TRACKS_EVENTS.PANEL_OPENED, { panel: 'settings' } );
-							void navigate( {
-								to: '/sites/$siteId/settings',
-								params: { siteId: site.id },
-							} );
-						} }
-					>
-						{ __( 'Site settings' ) }
-					</Menu.Item>
-					<Menu.Item
-						disabled={ manageById.duplicate.disabled }
-						onClick={ manageById.duplicate.run }
-					>
-						{ manageById.duplicate.loading ? __( 'Duplicating…' ) : __( 'Duplicate site' ) }
-					</Menu.Item>
-					<Menu.Separator />
-					{ destinations.map( ( destination ) => (
-						<Menu.Item
-							key={ destination.id }
-							disabled={ destination.disabled }
-							onClick={ destination.open }
-						>
-							{ sprintf(
-								/* translators: %s is the name of the app. E.g. "Open in Cursor" */
-								__( 'Open in %s' ),
-								destination.label
+						<>
+							{ site.running ? (
+								<Menu.Item disabled={ busy } onClick={ () => stopSite.mutate( site.id ) }>
+									{ __( 'Stop site' ) }
+								</Menu.Item>
+							) : (
+								<Menu.Item disabled={ busy } onClick={ () => startSite.mutate( site.id ) }>
+									{ isStarting ? __( 'Starting…' ) : __( 'Start site' ) }
+								</Menu.Item>
 							) }
-						</Menu.Item>
-					) ) }
-					<Menu.Separator />
-					<Menu.Item disabled={ manageById.import.disabled } onClick={ manageById.import.run }>
-						{ manageById.import.loading ? __( 'Importing…' ) : __( 'Import backup' ) }
-					</Menu.Item>
-					<Menu.Item disabled={ manageById.export.disabled } onClick={ manageById.export.run }>
-						{ manageById.export.loading ? __( 'Exporting…' ) : __( 'Export entire site' ) }
-					</Menu.Item>
-					<Menu.Item
-						disabled={ manageById[ 'export-db' ].disabled }
-						onClick={ manageById[ 'export-db' ].run }
-					>
-						{ manageById[ 'export-db' ].loading ? __( 'Exporting…' ) : __( 'Export database' ) }
-					</Menu.Item>
-					<Menu.Separator />
-					<Menu.Item
-						destructive={ manageById.delete.destructive }
-						onClick={ manageById.delete.run }
-						disabled={ manageById.delete.disabled }
-					>
-						{ __( 'Delete site' ) }
-					</Menu.Item>
+							<Menu.Separator />
+							<Menu.Item onClick={ () => togglePin( sitePinKey( site.id ) ) }>
+								{ pinned ? __( 'Unpin' ) : __( 'Pin' ) }
+								<Menu.Shortcut>{ displayShortcut.primaryAlt( 'p' ) }</Menu.Shortcut>
+							</Menu.Item>
+							<Menu.Item
+								onClick={ () => {
+									onSiteOpen?.();
+									void connector.trackEvent( TRACKS_EVENTS.PANEL_OPENED, { panel: 'settings' } );
+									void navigate( {
+										to: '/sites/$siteId/settings',
+										params: { siteId: site.id },
+									} );
+								} }
+							>
+								{ __( 'Site settings' ) }
+							</Menu.Item>
+							<Menu.Item
+								disabled={ manageById.duplicate.disabled }
+								onClick={ manageById.duplicate.run }
+							>
+								{ manageById.duplicate.loading ? __( 'Duplicating…' ) : __( 'Duplicate site' ) }
+							</Menu.Item>
+							<Menu.Separator />
+							{ destinations.map( ( destination ) => (
+								<Menu.Item
+									key={ destination.id }
+									disabled={ destination.disabled }
+									onClick={ destination.open }
+								>
+									{ sprintf(
+										/* translators: %s is the name of the app. E.g. "Open in Cursor" */
+										__( 'Open in %s' ),
+										destination.label
+									) }
+								</Menu.Item>
+							) ) }
+							<Menu.Separator />
+							<Menu.Item disabled={ manageById.import.disabled } onClick={ manageById.import.run }>
+								{ manageById.import.loading ? __( 'Importing…' ) : __( 'Import backup' ) }
+							</Menu.Item>
+							<Menu.Item disabled={ manageById.export.disabled } onClick={ manageById.export.run }>
+								{ manageById.export.loading ? __( 'Exporting…' ) : __( 'Export entire site' ) }
+							</Menu.Item>
+							<Menu.Item
+								disabled={ manageById[ 'export-db' ].disabled }
+								onClick={ manageById[ 'export-db' ].run }
+							>
+								{ manageById[ 'export-db' ].loading ? __( 'Exporting…' ) : __( 'Export database' ) }
+							</Menu.Item>
+							<Menu.Separator />
+							<Menu.Item
+								destructive={ manageById.delete.destructive }
+								onClick={ manageById.delete.run }
+								disabled={ manageById.delete.disabled }
+							>
+								{ __( 'Delete site' ) }
+							</Menu.Item>
+						</>
+					) }
 				</Menu.ContextPopup>
 			</Menu.ContextMenuRoot>
 			<input
@@ -577,7 +588,7 @@ function SiteActionsMenu( {
 				onConfirm={ () => void backupImport.confirm() }
 			/>
 			<DeleteSiteDialog
-				site={ site }
+				sites={ [ site ] }
 				open={ deleteOpen }
 				onOpenChange={ setDeleteOpen }
 				onDeleted={ handleDeleted }
@@ -607,6 +618,7 @@ function SiteSection( {
 	onSiteOpen?: () => void;
 } ) {
 	const { site, latestSession } = row;
+	const selectable = useSelectableRow( sitePinKey( site.id ) );
 	const navigate = useNavigate();
 	const connector = useConnector();
 	const sectionRef = useRef< HTMLElement >( null );
@@ -688,7 +700,7 @@ function SiteSection( {
 				isStarting={ isStarting }
 				onSiteOpen={ onSiteOpen }
 				trigger={
-					<header className={ styles.siteHeader } onClick={ handleOpenSite }>
+					<header { ...selectable } className={ styles.siteHeader } onClick={ handleOpenSite }>
 						<span
 							className={ styles.siteIcon }
 							role={ site.enableXdebug ? 'img' : undefined }
@@ -915,68 +927,70 @@ export function SiteList( {
 
 	return (
 		<div className={ clsx( styles.root, className ) }>
-			{ needsInputChats.length > 0 ? (
-				<SidebarGroup title={ __( 'Needs input' ) }>
-					{ renderChats( needsInputChats ) }
-				</SidebarGroup>
-			) : null }
-			{ pinnedItems.length > 0 ? (
+			<SidebarSelection>
+				{ needsInputChats.length > 0 ? (
+					<SidebarGroup title={ __( 'Needs input' ) }>
+						{ renderChats( needsInputChats ) }
+					</SidebarGroup>
+				) : null }
+				{ pinnedItems.length > 0 ? (
+					<SidebarGroup
+						title={ __( 'Pinned' ) }
+						action={
+							<IconButton
+								variant="minimal"
+								tone="neutral"
+								size="small"
+								icon={ plusIcon }
+								label={ __( 'Add pinned site' ) }
+								className={ styles.rowAction }
+								onClick={ () => void navigate( { to: '/onboarding', search: { pin: true } } ) }
+							/>
+						}
+					>
+						<ReorderableList
+							items={ pinnedItems }
+							getItemId={ ( item ) => item.key }
+							renderItem={ ( item ) =>
+								item.row ? (
+									renderSiteRow( item.row )
+								) : (
+									<ChatRow
+										session={ item.session }
+										active={ item.session.id === activeSessionId }
+										onOpen={ onSiteOpen }
+									/>
+								)
+							}
+							onReorder={ setPins }
+							className={ styles.sites }
+							itemClassName={ styles.siteDragWrapper }
+							placeholderClassName={ styles.siteDropPlaceholder }
+							previewClassName={ styles.siteDragPreview }
+							excludeSelector="[data-reorder-exclude]"
+						/>
+					</SidebarGroup>
+				) : null }
 				<SidebarGroup
-					title={ __( 'Pinned' ) }
+					title={ __( 'Sites' ) }
 					action={
 						<IconButton
 							variant="minimal"
 							tone="neutral"
 							size="small"
 							icon={ plusIcon }
-							label={ __( 'Add pinned site' ) }
+							label={ __( 'Add site' ) }
 							className={ styles.rowAction }
-							onClick={ () => void navigate( { to: '/onboarding', search: { pin: true } } ) }
+							onClick={ () => void navigate( { to: '/onboarding' } ) }
 						/>
 					}
 				>
-					<ReorderableList
-						items={ pinnedItems }
-						getItemId={ ( item ) => item.key }
-						renderItem={ ( item ) =>
-							item.row ? (
-								renderSiteRow( item.row )
-							) : (
-								<ChatRow
-									session={ item.session }
-									active={ item.session.id === activeSessionId }
-									onOpen={ onSiteOpen }
-								/>
-							)
-						}
-						onReorder={ setPins }
-						className={ styles.sites }
-						itemClassName={ styles.siteDragWrapper }
-						placeholderClassName={ styles.siteDropPlaceholder }
-						previewClassName={ styles.siteDragPreview }
-						excludeSelector="[data-reorder-exclude]"
-					/>
+					{ listContent }
 				</SidebarGroup>
-			) : null }
-			<SidebarGroup
-				title={ __( 'Sites' ) }
-				action={
-					<IconButton
-						variant="minimal"
-						tone="neutral"
-						size="small"
-						icon={ plusIcon }
-						label={ __( 'Add site' ) }
-						className={ styles.rowAction }
-						onClick={ () => void navigate( { to: '/onboarding' } ) }
-					/>
-				}
-			>
-				{ listContent }
-			</SidebarGroup>
-			{ recentChats.length > 0 ? (
-				<SidebarGroup title={ __( 'Recent' ) }>{ renderChats( recentChats ) }</SidebarGroup>
-			) : null }
+				{ recentChats.length > 0 ? (
+					<SidebarGroup title={ __( 'Recent' ) }>{ renderChats( recentChats ) }</SidebarGroup>
+				) : null }
+			</SidebarSelection>
 		</div>
 	);
 }

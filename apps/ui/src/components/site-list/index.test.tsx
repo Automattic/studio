@@ -481,6 +481,42 @@ describe( 'SiteList', () => {
 		} );
 	} );
 
+	it( 'archives several chats picked with ⌘/Ctrl-click from one menu', async () => {
+		useSessionsMock.mockReturnValue( {
+			data: [
+				createSession( {
+					id: 'chat-a',
+					firstPrompt: 'Make it blue',
+					ownerSitePath: '/Users/example/Studio/running-site',
+				} ),
+				createSession( {
+					id: 'chat-b',
+					firstPrompt: 'Add a menu',
+					ownerSitePath: '/Users/example/Studio/stopped-site',
+				} ),
+			],
+			isLoading: false,
+		} );
+		archiveSession.mockResolvedValue( undefined );
+
+		render( <SiteList sections /> );
+
+		const recent = screen.getByRole( 'group', { name: 'Recent' } );
+		fireEvent.click( within( recent ).getByText( 'Make it blue' ), { metaKey: true } );
+		fireEvent.click( within( recent ).getByText( 'Add a menu' ), { metaKey: true } );
+		expect( screen.getByRole( 'status', { name: '' } ) ).toHaveTextContent( '2 items selected' );
+		expect( navigateMock ).not.toHaveBeenCalled();
+
+		fireEvent.contextMenu( within( recent ).getByText( 'Add a menu' ) );
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Archive 2 chats' } ) );
+
+		await waitFor( () => expect( archiveSession ).toHaveBeenCalledTimes( 2 ) );
+		expect( archiveSession ).toHaveBeenCalledWith( {
+			sessionId: 'chat-a',
+			patch: { archived: true },
+		} );
+	} );
+
 	it( 'moves chats waiting on an answer to Needs input, out of Recent and Pinned', () => {
 		needingInputMock = [ 'other-chat' ];
 		pinsMock = [ 'chat:other-chat' ];

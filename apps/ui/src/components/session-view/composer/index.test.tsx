@@ -347,6 +347,26 @@ describe( 'Composer menu', () => {
 		);
 	} );
 
+	it( 'switches to the live site from the add menu and back from its chip', async () => {
+		const onEnvironmentChange = vi.fn();
+		const { rerenderComposer } = renderComposer( {
+			liveUrl: 'https://example.com',
+			onEnvironmentChange,
+		} );
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Add' } ) );
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: /^Work on live site/ } ) );
+		expect( onEnvironmentChange ).toHaveBeenCalledWith( 'live' );
+
+		rerenderComposer( {
+			environment: 'live',
+			liveUrl: 'https://example.com',
+			onEnvironmentChange,
+		} );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Remove Live' } ) );
+		expect( onEnvironmentChange ).toHaveBeenLastCalledWith( 'local' );
+	} );
+
 	it( 'answers a pending question with typed text, but still queues skill commands', async () => {
 		const onSend = vi.fn< ( prompt: string ) => Promise< void > >();
 		const onAnswer = vi.fn();

@@ -1,4 +1,5 @@
 import type { AiSessionSummary } from './types';
+import type { SyncSite } from '@studio/common/types/sync';
 
 /**
  * Derive the effective environment for a session's next turn. Joins the
@@ -22,4 +23,12 @@ export function deriveEffectiveEnvironment(
 		return 'local';
 	}
 	return isLiveConnected( summary.lastSelectedWpcomSiteId ) ? 'live' : 'local';
+}
+
+// The site a chat works on when switched to Live: the production connection,
+// else the first connected site.
+export function pickLiveSite< T extends Pick< SyncSite, 'isStaging' > >(
+	connected: T[]
+): T | undefined {
+	return connected.find( ( site ) => ! site.isStaging ) ?? connected[ 0 ];
 }

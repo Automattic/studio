@@ -20,6 +20,7 @@ import {
 	listHydratedAiSessions,
 	loadHydratedAiSession,
 	reconcileSessionEnvironment,
+	setSessionEnvironment,
 	updateHydratedAiSessionMetadata,
 } from '@studio/common/ai/sessions/manage';
 import { deleteAiSessionPlacement } from '@studio/common/ai/sessions/placement';
@@ -1831,6 +1832,19 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				provider,
 				model,
 			} );
+			res.sendStatus( 204 );
+		} )
+	);
+
+	api.post(
+		'/sessions/:id/environment',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const { environment } = req.body as { environment?: string };
+			if ( environment !== 'local' && environment !== 'live' ) {
+				res.status( 400 ).json( { error: `Unknown environment: ${ environment }` } );
+				return;
+			}
+			await setSessionEnvironment( sessionsRoot, req.params.id, environment );
 			res.sendStatus( 204 );
 		} )
 	);

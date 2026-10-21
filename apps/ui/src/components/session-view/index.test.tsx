@@ -25,6 +25,11 @@ vi.mock( '@/data/queries/use-sessions', () => ( {
 	useSessionEffectiveEnvironment: () => 'local',
 	useSessions: () => ( { data: [] } ),
 	useCreateSession: () => ( { mutateAsync: vi.fn(), isPending: false } ),
+	useSetSessionEnvironment: () => ( { mutate: vi.fn() } ),
+} ) );
+
+vi.mock( '@/data/queries/use-connected-wpcom-sites', () => ( {
+	useConnectedWpcomSites: () => ( { data: [] } ),
 } ) );
 
 const siteMocks = vi.hoisted( () => ( {

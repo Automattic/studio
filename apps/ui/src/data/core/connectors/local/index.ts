@@ -693,6 +693,12 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				body: JSON.stringify( { provider, model } ),
 			} );
 		},
+		async setSessionEnvironment( sessionId, environment ) {
+			await api( `/sessions/${ encodeURIComponent( sessionId ) }/environment`, {
+				method: 'POST',
+				body: JSON.stringify( { environment } ),
+			} );
+		},
 		async interruptAgentRun( runId ) {
 			await api( `/runs/${ encodeURIComponent( runId ) }/interrupt`, { method: 'POST' } );
 		},

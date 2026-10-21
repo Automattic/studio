@@ -1,6 +1,8 @@
 import { deriveEffectiveEnvironment } from '@studio/common/ai/sessions/effective-site';
 import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
+import { __ } from '@wordpress/i18n';
 import { useEffect, useMemo } from 'react';
+import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
 import type {
@@ -109,6 +111,21 @@ export function useCreateSession() {
 	return useMutation( {
 		mutationFn: ( { siteId, model }: { siteId?: string; model?: AiModelId } ) =>
 			openNewSession( { connector, queryClient }, siteId, model ),
+	} );
+}
+
+export function useSetSessionEnvironment( sessionId: string ) {
+	const connector = useConnector();
+	const queryClient = useQueryClient();
+	return useMutation( {
+		mutationFn: ( environment: 'local' | 'live' ) =>
+			connector.setSessionEnvironment( sessionId, environment ),
+		onError: ( error ) =>
+			toast.error( __( 'Couldn’t switch the site this chat works on' ), {
+				description: error.message,
+			} ),
+		onSettled: () =>
+			queryClient.invalidateQueries( { queryKey: [ ...SESSIONS_QUERY_KEY, sessionId ] } ),
 	} );
 }
 

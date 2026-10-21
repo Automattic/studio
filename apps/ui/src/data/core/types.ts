@@ -385,6 +385,8 @@ export interface Connector {
 		provider: AiProviderId,
 		model: AiModelId
 	): Promise< void >;
+	// Point the session's next turn at its local site or its connected live site.
+	setSessionEnvironment( sessionId: string, environment: 'local' | 'live' ): Promise< void >;
 	interruptAgentRun( runId: string ): Promise< void >;
 	answerAgentQuestion( runId: string, answers: Record< string, string > ): Promise< void >;
 	onAgentEvent( listener: ( event: AgentRunEvent ) => void ): () => void;

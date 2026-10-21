@@ -4,7 +4,6 @@ import {
 	MCP_SERVER_NAME,
 } from '@studio/common/lib/mcp-config';
 import { __ } from '@wordpress/i18n';
-import { startMcpStdioServer } from 'cli/ai/runtimes/mcp';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
@@ -69,6 +68,9 @@ export async function runCommand(): Promise< void > {
 		return;
 	}
 
+	// Loaded here, not at the top: the MCP server brings the whole agent runtime,
+	// and every other `studio` command would pay to load it at startup.
+	const { startMcpStdioServer } = await import( 'cli/ai/runtimes/mcp' );
 	await startMcpStdioServer();
 }
 

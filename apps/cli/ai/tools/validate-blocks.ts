@@ -43,7 +43,9 @@ export const validateBlocksTool = defineTool(
 		if ( content === undefined ) {
 			throw new Error( 'Either content or filePath must be provided.' );
 		}
-		const label = filePath ? path.relative( site.path, filePath ) : 'content';
+		const label = filePath
+			? path.relative( site.path, filePath ).split( path.sep ).join( '/' )
+			: 'content';
 		context.onProgress( `Checking blocks in ${ label }…` );
 		const check = await checkBlockContent( content, getSiteUrl( site ), label );
 		if ( check.content === content ) {

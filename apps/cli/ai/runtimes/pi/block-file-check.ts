@@ -45,7 +45,7 @@ export async function checkBlockFile( filePath: string ): Promise< string | unde
 	if ( ! hasBlockMarkup( content ) ) {
 		return undefined;
 	}
-	const label = path.relative( site.path, filePath );
+	const label = path.relative( site.path, filePath ).split( path.sep ).join( '/' );
 	const check = await checkBlockContent( content, getSiteUrl( site ), label );
 	if ( check.content !== content ) {
 		await writeFile( filePath, check.content, 'utf8' );

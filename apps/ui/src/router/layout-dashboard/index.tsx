@@ -15,7 +15,6 @@ import { SitePreview } from '@/components/site-preview';
 import { isSiteSettingsTab, siteSettingsTabToPanel } from '@/components/site-settings-view';
 import { SiteWorkspace } from '@/components/site-workspace';
 import { useConnector } from '@/data/core';
-import { PREVIEW_SPLIT_MIN_WIDTH } from '@/lib/resizable-panels';
 import { useOrientationAutostart } from '@/data/onboarding/use-orientation-autostart';
 import { useOrientationReplay } from '@/data/onboarding/use-orientation-replay';
 import { useWhatsNewAutostart } from '@/data/onboarding/use-whats-new-autostart';
@@ -31,6 +30,7 @@ import {
 } from '@/hooks/use-session-ui';
 import { chatIcon } from '@/lib/icons';
 import { writeLastVisited } from '@/lib/last-visited';
+import { PREVIEW_SPLIT_MIN_WIDTH } from '@/lib/resizable-panels';
 import { rootRoute } from '../layout-root';
 import type { SiteSettingsTabId } from '@/components/site-settings-view';
 

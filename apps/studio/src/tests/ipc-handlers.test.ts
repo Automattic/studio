@@ -1,7 +1,7 @@
 /**
  * @vitest-environment node
  */
-import { BrowserWindow, IpcMainInvokeEvent, shell } from 'electron';
+import { IpcMainInvokeEvent, shell } from 'electron';
 import { existsSync } from 'fs';
 import { normalize } from 'path';
 import { readSitePath } from '@studio/common/sites/site-path';

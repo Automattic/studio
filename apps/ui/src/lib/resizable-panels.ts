@@ -17,7 +17,6 @@ export const SIDEBAR_PANEL_CONFIG: ResizablePanelConfig = {
 	maxWidthRatio: 0.25,
 };
 
-
 export function getResizablePanelMaxWidth(
 	viewportWidth: number,
 	{ minWidth, maxWidthRatio }: ResizablePanelConfig

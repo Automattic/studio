@@ -3,7 +3,11 @@ import { Button, Icon, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { AppMessageCardsDot } from '@/components/app-message-cards';
 import { CollapsedSiteSwitcher } from '@/components/collapsed-site-switcher';
-import { useSidebarCollapsed, useSidebarOpen, useToggleSidebar } from '@/hooks/use-sidebar-collapsed';
+import {
+	useSidebarCollapsed,
+	useSidebarOpen,
+	useToggleSidebar,
+} from '@/hooks/use-sidebar-collapsed';
 import { sidebarCollapsedIcon, sidebarExpandedIcon } from '@/lib/icons';
 import styles from './style.module.css';
 

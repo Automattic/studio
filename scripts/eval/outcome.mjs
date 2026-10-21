@@ -229,6 +229,7 @@ export const classifiesPreviewAndRemote = check( ( d ) => {
 	return pass( 'preview and connected remote site described as different kinds' );
 } );
 
+// Nothing reached WordPress.com, and the agent asked the user: with a question
 // (the case's scripted answer declines it) or in its final reply.
 export const pushNotRunAndAsks = check( ( d ) => {
 	const pushed = ( d.toolResults || [] ).find( ( r ) => r.toolName === 'site_push' && ! r.isError );
@@ -415,14 +416,28 @@ export const noInlineDisplayOnBlockWrappers = check( ( d, vars ) => {
 			.flatMap( ( m ) => m[ 1 ].split( /\s+/ ) )
 			.filter( Boolean )
 	);
-	const css = all.replace( /\/\*[\s\S]*?\*\//g, ' ' );
+	// Each stylesheet on its own: in a blob joined with block markup, the
+	// first rule's selector would start with the markup before it.
+	const stylesheets = [
+		...Object.entries( s.themeFiles || {} )
+			.filter( ( [ file ] ) => file.endsWith( '.css' ) )
+			.map( ( [ , text ] ) => text ),
+		s.customCss || '',
+		...[ ...all.matchAll( /<style[^>]*>([\s\S]*?)<\/style>/g ) ].map( ( m ) => m[ 1 ] ),
+		...[ ...all.matchAll( /"css"\s*:\s*"((?:[^"\\]|\\.)*)"/g ) ].map( ( m ) =>
+			JSON.parse( `"${ m[ 1 ] }"` )
+		),
+	];
 	const offenders = [];
-	for ( const m of css.matchAll(
-		/([^{}]+)\{([^{}]*display\s*:\s*inline(?:-block|-flex|-grid|-table)?(?![\w-])[^{}]*)\}/g
-	) ) {
-		for ( const selector of m[ 1 ].split( ',' ) ) {
-			const bare = selector.trim().match( /^\.([A-Za-z0-9_-]+)$/ );
-			if ( bare && blockClasses.has( bare[ 1 ] ) ) offenders.push( `.${ bare[ 1 ] }` );
+	for ( const sheet of stylesheets ) {
+		const css = sheet.replace( /\/\*[\s\S]*?\*\//g, ' ' );
+		for ( const m of css.matchAll(
+			/([^{}]+)\{([^{}]*display\s*:\s*inline(?:-block|-flex|-grid|-table)?(?![\w-])[^{}]*)\}/g
+		) ) {
+			for ( const selector of m[ 1 ].split( ',' ) ) {
+				const bare = selector.trim().match( /^\.([A-Za-z0-9_-]+)$/ );
+				if ( bare && blockClasses.has( bare[ 1 ] ) ) offenders.push( `.${ bare[ 1 ] }` );
+			}
 		}
 	}
 	return offenders.length

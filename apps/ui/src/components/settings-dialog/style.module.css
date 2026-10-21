@@ -280,4 +280,6 @@
 	display: flex;
 	margin-block-start: 4px;
 	padding-inline: 0;
+	font-size: 12px;
+	font-weight: 400;
 }

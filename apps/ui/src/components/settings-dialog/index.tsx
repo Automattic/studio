@@ -118,7 +118,7 @@ function getSections( scope: 'studio' | 'site' ): Section[] {
 					id: 'instructions',
 					label: __( 'Instructions' ),
 					icon: page,
-					settings: [ __( 'Agent instructions' ), __( 'Studio instructions' ) ],
+					settings: [ __( 'Agent instructions' ) ],
 				},
 				{ id: 'keyboard', label: __( 'Keyboard' ), icon: keyboard, settings: [] },
 		  ]
@@ -170,7 +170,13 @@ function getSections( scope: 'studio' | 'site' ): Section[] {
 		  ];
 }
 
-function StudioSection( { id }: { id: SettingsSectionId } ) {
+function StudioSection( {
+	id,
+	onManageSite,
+}: {
+	id: SettingsSectionId;
+	onManageSite?: () => void;
+} ) {
 	switch ( id ) {
 		case 'appearance':
 			return <AppearanceSettings />;
@@ -183,7 +189,7 @@ function StudioSection( { id }: { id: SettingsSectionId } ) {
 		case 'skills':
 			return <SkillsPanel />;
 		case 'instructions':
-			return <InstructionsSettings />;
+			return <InstructionsSettings onManageSite={ onManageSite } />;
 		case 'keyboard':
 			return <KeyboardPanel />;
 		default:
@@ -418,7 +424,12 @@ export function SettingsDialog() {
 					</div>
 					<div ref={ content } className={ styles.content }>
 						<SettingsDialogContext.Provider value={ { actions, setDirty } }>
-							{ scope === 'studio' ? <StudioSection id={ section } /> : null }
+							{ scope === 'studio' ? (
+								<StudioSection
+									id={ section }
+									onManageSite={ site ? () => go( 'site-instructions' ) : undefined }
+								/>
+							) : null }
 							{ site ? (
 								<>
 									{ scope === 'site' &&

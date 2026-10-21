@@ -18,20 +18,67 @@
 	gap: var( --wpds-dimension-padding-md );
 }
 
+.manageLink {
+	display: flex;
+	margin-block-start: 4px;
+	padding-inline: 0;
+	font-size: 12px;
+	font-weight: 400;
+}
+
 .instructionsEditor {
 	display: flex;
 	flex-direction: column;
-	gap: 8px;
-	padding-block: 20px;
+	padding-block: 16px 20px;
 }
 
-/* Above the input reset's `:is( textarea, … )` rule. */
-.instructionsEditor :global( textarea[rows] ) {
+.instructionsHeader {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: 8px;
+	color: var( --wpds-color-foreground-content-neutral );
+	font-size: 13px;
+	font-weight: 450;
+	line-height: 18px;
+}
+
+.instructionsDescription {
+	margin: 2px 0 12px;
+	color: var( --wpds-color-foreground-content-neutral-weak );
+	font-size: 12px;
+	line-height: 17.6px;
+}
+
+.instructionsTextarea {
+	box-sizing: border-box;
+	inline-size: 100%;
 	min-block-size: 200px;
+	padding: 8px 10px;
+	border: var( --wpds-border-width-xs ) solid
+		color-mix( in srgb, var( --wpds-color-foreground-content-neutral ) 10%, transparent );
+	border-radius: 9px;
+	background: color-mix( in srgb, var( --wpds-color-background-surface-neutral-strong ) 60%, transparent );
+	color: inherit;
+	font: inherit;
+	font-size: 13px;
+	line-height: 20px;
+	resize: vertical;
+}
+
+.instructionsTextarea::placeholder {
+	color: var( --wpds-color-foreground-content-neutral-weak );
+}
+
+.instructionsTextarea:focus-visible {
+	border-color: var( --wpds-color-stroke-focus );
+	outline: none;
+	box-shadow: inset 0 0 0 1px var( --wpds-color-stroke-focus );
 }
 
 .instructionsCounter {
-	font-size: var( --wpds-typography-font-size-sm );
+	font-size: 13px;
+	font-weight: 400;
 	color: var( --wpds-color-foreground-content-neutral-weak );
 }
 

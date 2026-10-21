@@ -335,7 +335,7 @@ export function AppearanceSettings() {
 	);
 }
 
-export function InstructionsSettings() {
+export function InstructionsSettings( { onManageSite }: { onManageSite?: () => void } ) {
 	const { data: enabled } = useAgentInstructionsEnabled();
 	const setEnabled = useSetAgentInstructionsEnabled();
 	return (
@@ -343,7 +343,24 @@ export function InstructionsSettings() {
 			<SettingsGroup>
 				<SettingsRow
 					title={ __( 'Agent instructions' ) }
-					description={ __( 'Include your instructions in every new chat, across all sites.' ) }
+					description={
+						<>
+							{ __(
+								'Set coding standards, preferred tools, and response style for new chats across all sites.'
+							) }
+							{ onManageSite ? (
+								<Button
+									className={ styles.manageLink }
+									variant="minimal"
+									tone="brand"
+									size="small"
+									onClick={ onManageSite }
+								>
+									{ __( 'Manage instructions for this site' ) }
+								</Button>
+							) : null }
+						</>
+					}
 				>
 					<SettingsToggle
 						label={ __( 'Agent instructions' ) }
@@ -353,12 +370,7 @@ export function InstructionsSettings() {
 					/>
 				</SettingsRow>
 			</SettingsGroup>
-			<SettingsGroup
-				title={ __( 'Studio instructions' ) }
-				description={ __(
-					'Set coding standards, preferred tools, and response style for new chats across all sites.'
-				) }
-			>
+			<SettingsGroup title={ __( 'Custom instructions' ) }>
 				<InstructionsEditor />
 			</SettingsGroup>
 		</div>

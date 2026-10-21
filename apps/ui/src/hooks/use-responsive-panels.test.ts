@@ -23,12 +23,11 @@ describe( 'useResponsivePanels', () => {
 			useResponsivePanels( {
 				connector: { ensureWindowWidth },
 				previewOpen: true,
-				previewFullscreen: false,
 				setPreviewOpen,
 			} )
 		);
 
-		await waitFor( () => expect( ensureWindowWidth ).toHaveBeenCalledWith( 932 ) );
+		await waitFor( () => expect( ensureWindowWidth ).toHaveBeenCalledWith( 936 ) );
 		expect( setPreviewOpen ).not.toHaveBeenCalled();
 	} );
 
@@ -40,13 +39,12 @@ describe( 'useResponsivePanels', () => {
 			useResponsivePanels( {
 				connector: { ensureWindowWidth },
 				previewOpen: true,
-				previewFullscreen: false,
 				setPreviewOpen: vi.fn(),
 			} )
 		);
 
 		await waitFor( () => expect( result.current.sidebarCollapsed ).toBe( true ) );
-		expect( ensureWindowWidth ).toHaveBeenNthCalledWith( 1, 932 );
+		expect( ensureWindowWidth ).toHaveBeenNthCalledWith( 1, 936 );
 		expect( ensureWindowWidth ).toHaveBeenNthCalledWith( 2, 680 );
 	} );
 
@@ -58,7 +56,6 @@ describe( 'useResponsivePanels', () => {
 			useResponsivePanels( {
 				connector: { ensureWindowWidth },
 				previewOpen: true,
-				previewFullscreen: false,
 				setPreviewOpen,
 			} )
 		);
@@ -77,13 +74,12 @@ describe( 'useResponsivePanels', () => {
 			.fn()
 			.mockResolvedValueOnce( 680 )
 			.mockResolvedValueOnce( 800 )
-			.mockResolvedValueOnce( 660 );
+			.mockResolvedValueOnce( 676 );
 		const setPreviewOpen = vi.fn();
 		const { result } = renderHook( () =>
 			useResponsivePanels( {
 				connector: { ensureWindowWidth },
 				previewOpen: true,
-				previewFullscreen: false,
 				setPreviewOpen,
 			} )
 		);
@@ -93,8 +89,8 @@ describe( 'useResponsivePanels', () => {
 
 		expect( setPreviewOpen ).toHaveBeenCalledWith( false );
 		expect( ensureWindowWidth ).toHaveBeenNthCalledWith( 1, 680 );
-		expect( ensureWindowWidth ).toHaveBeenNthCalledWith( 2, 932 );
-		expect( ensureWindowWidth ).toHaveBeenNthCalledWith( 3, 660 );
+		expect( ensureWindowWidth ).toHaveBeenNthCalledWith( 2, 936 );
+		expect( ensureWindowWidth ).toHaveBeenNthCalledWith( 3, 676 );
 		expect( result.current.sidebarCollapsed ).toBe( false );
 	} );
 
@@ -104,7 +100,6 @@ describe( 'useResponsivePanels', () => {
 			useResponsivePanels( {
 				connector: { ensureWindowWidth: vi.fn().mockResolvedValue( 900 ) },
 				previewOpen: false,
-				previewFullscreen: false,
 				setPreviewOpen: vi.fn(),
 			} )
 		);
@@ -132,7 +127,6 @@ describe( 'useResponsivePanels', () => {
 			useResponsivePanels( {
 				connector: { ensureWindowWidth },
 				previewOpen: true,
-				previewFullscreen: false,
 				setPreviewOpen: vi.fn(),
 			} )
 		);
@@ -150,19 +144,18 @@ describe( 'useResponsivePanels', () => {
 		expect( result.current.sidebarCollapsed ).toBe( false );
 
 		await act( async () => {
-			resolveGrow?.( 932 );
+			resolveGrow?.( 936 );
 		} );
 		expect( result.current.sidebarCollapsed ).toBe( false );
 	} );
 
 	it( 'ignores a stale narrow resize that lands right after opening the sidebar', async () => {
 		setViewportWidth( 420 );
-		const ensureWindowWidth = vi.fn().mockResolvedValue( 660 );
+		const ensureWindowWidth = vi.fn().mockResolvedValue( 676 );
 		const { result } = renderHook( () =>
 			useResponsivePanels( {
 				connector: { ensureWindowWidth },
 				previewOpen: false,
-				previewFullscreen: false,
 				setPreviewOpen: vi.fn(),
 			} )
 		);
@@ -180,24 +173,6 @@ describe( 'useResponsivePanels', () => {
 		act( () => {
 			window.dispatchEvent( new Event( 'resize' ) );
 		} );
-		expect( result.current.sidebarCollapsed ).toBe( false );
-	} );
-
-	it( 'reserves room for the split before leaving fullscreen to show the sidebar', async () => {
-		setViewportWidth( 420 );
-		const ensureWindowWidth = vi.fn().mockResolvedValue( 932 );
-		const { result } = renderHook( () =>
-			useResponsivePanels( {
-				connector: { ensureWindowWidth },
-				previewOpen: true,
-				previewFullscreen: true,
-				setPreviewOpen: vi.fn(),
-			} )
-		);
-
-		await act( () => result.current.openSidebar() );
-
-		expect( ensureWindowWidth ).toHaveBeenCalledWith( 932 );
 		expect( result.current.sidebarCollapsed ).toBe( false );
 	} );
 } );

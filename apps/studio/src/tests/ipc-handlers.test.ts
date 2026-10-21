@@ -4,7 +4,6 @@
 import { BrowserWindow, IpcMainInvokeEvent, shell } from 'electron';
 import { existsSync } from 'fs';
 import { normalize } from 'path';
-import { readThemeDetails } from '@studio/common/sites/site-identity';
 import { readSitePath } from '@studio/common/sites/site-path';
 import { readFile } from 'atomically';
 import { vol } from 'memfs';
@@ -14,7 +13,6 @@ import {
 	ensureMinWindowWidth,
 	getFileSize,
 	isFullscreen,
-	loadThemeDetails,
 	openURL,
 	readBlueprintFile,
 } from 'src/ipc-handlers';
@@ -192,34 +190,6 @@ describe( 'ensureMinWindowWidth', () => {
 		const result = await ensureMinWindowWidth( mockIpcMainInvokeEvent, 640 );
 
 		expect( result ).toBe( 600 );
-	} );
-} );
-
-describe( 'loadThemeDetails', () => {
-	it( "reads the theme from the site's folder, whether or not it runs", async () => {
-		const themeDetails = {
-			name: 'Twenty Twenty-Five',
-			path: '/themes/twentytwentyfive',
-			slug: 'twentytwentyfive',
-			isBlockTheme: true,
-			supportsWidgets: false,
-			supportsMenus: false,
-		};
-		vi.mocked( readSitePath ).mockResolvedValue( '/test' );
-		vi.mocked( readThemeDetails ).mockResolvedValue( themeDetails );
-
-		await expect( loadThemeDetails( mockIpcMainInvokeEvent, 'site-id' ) ).resolves.toBe(
-			themeDetails
-		);
-		expect( readThemeDetails ).toHaveBeenCalledWith( expect.any( Function ), '/test' );
-	} );
-
-	it( 'rejects an unknown site', async () => {
-		vi.mocked( readSitePath ).mockResolvedValue( null );
-
-		await expect( loadThemeDetails( mockIpcMainInvokeEvent, 'missing' ) ).rejects.toThrow(
-			'Site not found.'
-		);
 	} );
 } );
 

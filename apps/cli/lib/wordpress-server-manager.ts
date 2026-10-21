@@ -375,7 +375,7 @@ function buildChildExitedError( processName: string, stderrTail?: string ): Erro
  * buffered (filtered by processName) and replayed once `waitFor(pmId)` is called.
  * Must be disposed via `dispose()` when done.
  */
-async function subscribeForReadyOrExit( processName: string ): Promise< {
+export async function subscribeForReadyOrExit( processName: string ): Promise< {
 	waitFor: ( pmId: number ) => Promise< void >;
 	dispose: () => void;
 } > {

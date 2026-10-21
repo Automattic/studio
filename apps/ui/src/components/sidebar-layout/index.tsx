@@ -1,33 +1,22 @@
 import { __ } from '@wordpress/i18n';
-import { ThemeProvider } from '@wordpress/theme';
-import { Button, Icon, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import {
-	AppMessageCards,
-	AppMessageCardsDot,
-	AppMessageHistoryRecorder,
-} from '@/components/app-message-cards';
+import { AppMessageCards, AppMessageHistoryRecorder } from '@/components/app-message-cards';
 import { AppToasts } from '@/components/app-toasts';
-import { CollapsedSiteSwitcher } from '@/components/collapsed-site-switcher';
 import { NoticeHistoryDialog } from '@/components/notice-history';
 import { ResizeHandle, ResizeOverlay } from '@/components/resize-handle';
 import { SidebarHeader } from '@/components/sidebar-header';
-import { SeenSessionTimestampsProvider, SiteList } from '@/components/site-list';
+import { SiteList } from '@/components/site-list';
 import { UserMenu } from '@/components/user-menu';
 import { useConnector } from '@/data/core';
-import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useResizablePanel } from '@/hooks/use-resizable-panel';
-import { SidebarCollapsedContext } from '@/hooks/use-sidebar-collapsed';
-import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
-import { drawerIcon } from '@/lib/icons';
+import { SidebarCollapsedContext, SidebarToggleContext } from '@/hooks/use-sidebar-collapsed';
 import {
 	getViewportWidth,
 	SIDEBAR_AUTO_COLLAPSE_BREAKPOINT,
 	SIDEBAR_PANEL_CONFIG,
 	SIDEBAR_PANEL_STORAGE_KEY,
 } from '@/lib/resizable-panels';
-import { chromeBackground } from '@/lib/window-chrome';
 import styles from './style.module.css';
 import type { CSSProperties, ReactNode } from 'react';
 
@@ -36,15 +25,6 @@ interface SidebarLayoutProps {
 	collapsed?: boolean;
 	onCollapsedChange?: ( collapsed: boolean ) => void;
 	onExpand?: () => void;
-	// Hides the sidebar without touching the user's own collapsed state, so
-	// clearing it restores whatever the sidebar was doing before (e.g. while
-	// the site preview is fullscreen). The floating "Show sidebar" toggle is
-	// suppressed too — the forcing feature owns the exit affordance.
-	forceCollapsed?: boolean;
-	// Called when the user asks to toggle the sidebar while it is force-
-	// collapsed (the app-menu shortcut), so the forcing feature can stand down.
-	// The sidebar expands alongside it.
-	onForceCollapsedToggle?: () => void;
 }
 
 export function SidebarLayout( {
@@ -52,8 +32,6 @@ export function SidebarLayout( {
 	collapsed: controlledCollapsed,
 	onCollapsedChange,
 	onExpand,
-	forceCollapsed = false,
-	onForceCollapsedToggle,
 }: SidebarLayoutProps ) {
 	const [ internalCollapsed, setInternalCollapsed ] = useState(
 		() => getViewportWidth() < SIDEBAR_AUTO_COLLAPSE_BREAKPOINT
@@ -61,11 +39,7 @@ export function SidebarLayout( {
 	const collapsed = controlledCollapsed ?? internalCollapsed;
 	const wasCompactRef = useRef( getViewportWidth() < SIDEBAR_AUTO_COLLAPSE_BREAKPOINT );
 	const rootRef = useRef< HTMLDivElement >( null );
-	const effectiveCollapsed = collapsed || forceCollapsed;
 	const connector = useConnector();
-	const reserveTrafficLightSpace = useTrafficLightSpace().start;
-	const colorScheme = useColorScheme();
-	const chromeBg = chromeBackground( colorScheme );
 	const sidebarResize = useResizablePanel( {
 		config: SIDEBAR_PANEL_CONFIG,
 		edge: 'right',
@@ -81,10 +55,6 @@ export function SidebarLayout( {
 		[ controlledCollapsed, onCollapsedChange ]
 	);
 	const toggleSidebar = useCallback( () => {
-		if ( forceCollapsed ) {
-			onForceCollapsedToggle?.();
-			return;
-		}
 		if ( collapsed ) {
 			if ( onExpand ) {
 				onExpand();
@@ -94,28 +64,8 @@ export function SidebarLayout( {
 			return;
 		}
 		updateCollapsed( true );
-	}, [ collapsed, forceCollapsed, onExpand, onForceCollapsedToggle, updateCollapsed ] );
-	const sidebarStyle = effectiveCollapsed
-		? undefined
-		: ( { '--sidebar-width': `${ sidebarResize.width }px` } as CSSProperties );
-
-	// Not IconButton: while collapsed this is the site switcher's trigger, and
-	// IconButton's unconditional tooltip would fight the hover-opened popover.
-	// The sizing overrides in `.floatingToggleControl` replicate IconButton's
-	// box; see the note in style.module.css.
-	const sidebarToggleControl = (
-		<Button
-			type="button"
-			variant="minimal"
-			tone="neutral"
-			size="small"
-			className={ styles.floatingToggleControl }
-			aria-label={ effectiveCollapsed ? __( 'Show sidebar' ) : __( 'Hide sidebar' ) }
-			onClick={ toggleSidebar }
-		>
-			<Icon icon={ drawerIcon } size={ 24 } className={ styles.floatingToggleIcon } />
-		</Button>
-	);
+	}, [ collapsed, onExpand, updateCollapsed ] );
+	const sidebarStyle = { '--sidebar-width': `${ sidebarResize.width }px` } as CSSProperties;
 
 	useEffect( () => connector.onToggleSidebar( toggleSidebar ), [ connector, toggleSidebar ] );
 	useEffect( () => {
@@ -150,112 +100,48 @@ export function SidebarLayout( {
 	}, [ controlledCollapsed, updateCollapsed ] );
 
 	return (
-		<SidebarCollapsedContext.Provider value={ effectiveCollapsed }>
-			{ /* The aside's list and the collapsed switcher's list must agree on
-			     which session updates the user has seen, or each mount would
-			     re-seed and hide the other's unread indicators. */ }
-			<SeenSessionTimestampsProvider>
-				<div
-					ref={ rootRef }
-					className={ styles.root }
-					style={ { '--app-chrome-bg': chromeBg } as CSSProperties }
-				>
-					<aside
+		<SidebarCollapsedContext.Provider value={ collapsed }>
+			<SidebarToggleContext.Provider value={ toggleSidebar }>
+				<div ref={ rootRef } className={ styles.root }>
+					<div
 						className={ clsx(
-							styles.sidebar,
-							effectiveCollapsed && styles.sidebarCollapsed,
+							styles.sidebarFrame,
+							collapsed && styles.sidebarCollapsed,
 							sidebarResize.isResizing && styles.sidebarResizing
 						) }
 						style={ sidebarStyle }
+						inert={ collapsed }
 					>
-						{ /* The sidebar sits on the dark window chrome in both color
-					     schemes, so its wpds tokens come from a nested dark theme
-					     scope. */ }
-						<ThemeProvider color={ { background: chromeBg } }>
-							<div className={ styles.sidebarThemeScope }>
-								<SidebarHeader />
-								<SiteList />
-								<div className={ styles.sidebarFooter }>
-									{ /* Toasts sit above the persistent cards: the footer is
-								     bottom-anchored, so a transient toast arriving below a card
-								     would shove it up and drop it back on expiry. */ }
-									{ ! effectiveCollapsed ? (
-										// Notices inherit the sidebar's chrome theme scope, so they
-										// sit on the dark chrome in both schemes and keep their
-										// intent tints against it.
-										<>
-											<AppToasts className={ styles.sidebarToasts } appearance="intent" />
-											<AppMessageCards className={ styles.sidebarCards } appearance="intent" />
-										</>
-									) : null }
-									<UserMenu />
-								</div>
+						<aside className={ styles.sidebar }>
+							<SidebarHeader />
+							<SiteList sections />
+							<div className={ styles.sidebarFooter }>
+								{ ! collapsed ? <AppMessageCards className={ styles.sidebarCards } /> : null }
+								<UserMenu />
 							</div>
-						</ThemeProvider>
-					</aside>
-					{ ! effectiveCollapsed ? (
-						// Same dark theme scope as the sidebar so the indicator's
-						// brand token resolves against the dark ramp.
-						<ThemeProvider color={ { background: chromeBg } }>
-							<ResizeHandle
-								className={ styles.resizeHandle }
-								label={ __( 'Resize sidebar' ) }
-								minWidth={ sidebarResize.minWidth }
-								maxWidth={ sidebarResize.maxWidth }
-								width={ sidebarResize.width }
-								isResizing={ sidebarResize.isResizing }
-								onResizeStart={ sidebarResize.handleResizeStart }
-								onKeyDown={ sidebarResize.handleKeyDown }
-							/>
-						</ThemeProvider>
+						</aside>
+					</div>
+					{ ! collapsed ? (
+						<ResizeHandle
+							className={ styles.resizeHandle }
+							label={ __( 'Resize sidebar' ) }
+							minWidth={ sidebarResize.minWidth }
+							maxWidth={ sidebarResize.maxWidth }
+							width={ sidebarResize.width }
+							isResizing={ sidebarResize.isResizing }
+							onResizeStart={ sidebarResize.handleResizeStart }
+							onKeyDown={ sidebarResize.handleKeyDown }
+						/>
 					) : null }
-					<main className={ styles.main }>
-						{ ! forceCollapsed ? (
-							<div
-								className={ clsx(
-									styles.floatingToggle,
-									! effectiveCollapsed && styles.floatingToggleFramed,
-									! reserveTrafficLightSpace && styles.floatingToggleFlush
-								) }
-							>
-								<span className={ styles.floatingToggleButton }>
-									{ effectiveCollapsed ? (
-										<CollapsedSiteSwitcher
-											backgroundColor={ chromeBg }
-											onToggleSidebar={ toggleSidebar }
-											trigger={ sidebarToggleControl }
-										/>
-									) : (
-										// Expanded there is no popover to compete with, so the
-										// button can carry its own tooltip.
-										<Tooltip.Root>
-											<Tooltip.Trigger render={ sidebarToggleControl } />
-											<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
-												{ __( 'Hide sidebar' ) }
-											</Tooltip.Popup>
-										</Tooltip.Root>
-									) }
-									<AppMessageCardsDot />
-								</span>
-							</div>
-						) : null }
+					<main className={ clsx( styles.main, ! collapsed && 'studio-column-edge' ) }>
 						{ children }
-						{ effectiveCollapsed ? (
-							<AppToasts
-								className={ clsx(
-									styles.floatingToasts,
-									forceCollapsed && styles.floatingToastsOverPreview
-								) }
-								fit="content"
-								appearance="intent"
-							/>
-						) : null }
 					</main>
 					{ sidebarResize.isResizing ? <ResizeOverlay /> : null }
+					<AppToasts />
 					<NoticeHistoryDialog />
 					<AppMessageHistoryRecorder />
 				</div>
-			</SeenSessionTimestampsProvider>
+			</SidebarToggleContext.Provider>
 		</SidebarCollapsedContext.Provider>
 	);
 }

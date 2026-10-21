@@ -2,21 +2,13 @@ import { __ } from '@wordpress/i18n';
 import { Button, Notice } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { AddAiCreditsButton } from '@/components/add-ai-credits-button';
-import toastStyles from '@/components/app-toasts/style.module.css';
 import {
 	useActivePersistentMessages,
 	useRecordPersistentMessages,
 } from '@/data/queries/use-app-messages';
 import styles from './style.module.css';
-import type { NoticeAppearance } from '@/components/app-toasts';
 
-export function AppMessageCards( {
-	className,
-	appearance = 'neutral',
-}: {
-	className?: string;
-	appearance?: NoticeAppearance;
-} ) {
+export function AppMessageCards( { className }: { className?: string } ) {
 	const { messages, dismiss } = useActivePersistentMessages();
 
 	if ( ! messages.length ) {
@@ -27,26 +19,14 @@ export function AppMessageCards( {
 		<div className={ clsx( styles.stack, className ) }>
 			{ messages.map( ( message ) => (
 				<div key={ message.id } className={ styles.cell }>
-					<Notice.Root
-						intent={ message.intent }
-						icon={ null }
-						className={ clsx(
-							toastStyles.notice,
-							appearance === 'neutral' && toastStyles.neutral,
-							styles.card
-						) }
-					>
+					<Notice.Root intent={ message.intent } icon={ null } className={ styles.card }>
 						<Notice.Title>{ message.title }</Notice.Title>
 						{ message.description ? (
 							<Notice.Description>{ message.description }</Notice.Description>
 						) : null }
 						{ message.purchaseCta ? (
 							<Notice.Actions>
-								<AddAiCreditsButton
-									variant="solid"
-									tone="neutral"
-									className={ toastStyles.actionButton }
-								/>
+								<AddAiCreditsButton variant="solid" tone="neutral" className={ styles.action } />
 							</Notice.Actions>
 						) : message.cta ? (
 							<Notice.Actions>
@@ -54,14 +34,17 @@ export function AppMessageCards( {
 									size="small"
 									variant="solid"
 									tone="neutral"
-									className={ toastStyles.actionButton }
+									className={ styles.action }
 									onClick={ message.cta.onClick }
 								>
 									{ message.cta.label }
 								</Button>
 							</Notice.Actions>
 						) : null }
-						<Notice.CloseIcon label={ __( 'Dismiss' ) } onClick={ () => dismiss( message ) } />
+						<Notice.CloseIconButton
+							label={ __( 'Dismiss' ) }
+							onClick={ () => dismiss( message ) }
+						/>
 					</Notice.Root>
 				</div>
 			) ) }

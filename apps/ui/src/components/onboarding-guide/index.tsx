@@ -62,7 +62,7 @@ export function OnboardingGuide( { guide, onComplete, onDismiss }: OnboardingGui
 				data-orientation-guide
 			>
 				<GuideIllustration id={ page.illustration } title={ page.title() } />
-				<Dialog.CloseIcon
+				<Dialog.CloseIconButton
 					label={ __( 'Skip' ) }
 					className={ clsx(
 						styles.close,

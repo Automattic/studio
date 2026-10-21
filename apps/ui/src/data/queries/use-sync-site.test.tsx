@@ -5,7 +5,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { connectedWpcomSitesQueryKey } from '@/data/queries/use-connected-wpcom-sites';
-import { siteStorageUsageQueryKey } from '@/data/queries/use-site-storage-usage';
 import { siteThumbnailQueryKey } from '@/data/queries/use-site-thumbnail';
 import { SITES_QUERY_KEY } from '@/data/queries/use-sites';
 import { WP_VERSION_QUERY_KEY } from '@/data/queries/use-wordpress-versions';
@@ -98,14 +97,12 @@ describe( 'usePullSiteFromLive', () => {
 		expect( toast.success ).toHaveBeenCalledWith( 'Pull complete' );
 	} );
 
-	// An import replaces the site wholesale, so everything read off it is stale —
-	// disk usage caches for minutes and the overview never unmounts.
+	// An import replaces the site wholesale, so everything read off it is stale.
 	it( 'refreshes what an import changed once it settles', () => {
 		const queryClient = new QueryClient();
 		const staleKeys = [
 			SITES_QUERY_KEY,
 			[ ...WP_VERSION_QUERY_KEY, 'site-2' ],
-			siteStorageUsageQueryKey( 'site-2' ),
 			siteThumbnailQueryKey( 'site-2' ),
 		];
 		staleKeys.forEach( ( key ) => queryClient.setQueryData( key, 'before-import' ) );

@@ -290,8 +290,7 @@
 	transform: translateY(3px);
 }
 
-.toolIcon,
-.toolIcon :where(path:not([fill='none']), rect:not([fill='none']), circle:not([fill='none']), polygon:not([fill='none'])) {
+.toolIcon:not([fill='none']) {
 	fill: var(--tool-icon-color);
 }
 

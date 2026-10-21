@@ -7,7 +7,6 @@ import { useCallback, useEffect } from 'react';
 import { openStudioLogsAction, toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { connectedWpcomSitesQueryKey } from '@/data/queries/use-connected-wpcom-sites';
-import { siteStorageUsageQueryKey } from '@/data/queries/use-site-storage-usage';
 import { siteThumbnailQueryKey } from '@/data/queries/use-site-thumbnail';
 import { SITES_QUERY_KEY } from '@/data/queries/use-sites';
 import { SNAPSHOTS_QUERY_KEY } from '@/data/queries/use-snapshots';
@@ -57,12 +56,10 @@ export function useSettleSync() {
 			}
 			if ( settled.direction === 'import' ) {
 				// The importer replaces the site's files and database and restarts the
-				// server, so everything read off that site is stale — disk usage in
-				// particular caches for minutes and nothing else would refetch it.
+				// server, so everything read off that site is stale.
 				for ( const queryKey of [
 					SITES_QUERY_KEY,
 					[ ...WP_VERSION_QUERY_KEY, siteId ],
-					siteStorageUsageQueryKey( siteId ),
 					siteThumbnailQueryKey( siteId ),
 				] ) {
 					void queryClient.invalidateQueries( { queryKey } );

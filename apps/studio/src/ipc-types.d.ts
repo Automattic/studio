@@ -89,8 +89,6 @@ type IpcApi = {
 	// function is exception and need to be defined here manually. See
 	// https://www.electronjs.org/docs/latest/breaking-changes#planned-breaking-api-changes-320
 	getPathForFile: ( file: File ) => string;
-	// The renderer's own zoom factor, read synchronously from `webFrame` — also preload-only.
-	getAppZoomFactor: () => number;
 };
 
 interface AppGlobals {

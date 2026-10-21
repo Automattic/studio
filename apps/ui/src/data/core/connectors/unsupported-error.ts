@@ -2,7 +2,7 @@
  * Thrown by connector methods that have no meaning in a browser (native file
  * dialogs, opening an editor/terminal, etc.). Callers in the UI already wrap
  * these affordances in try/catch, so throwing keeps the surface honest without
- * breaking the app. Shared by the `hosted` and `local` browser connectors.
+ * breaking the app. Used by the `local` browser connector.
  */
 export class UnsupportedError extends Error {
 	constructor( operation: string ) {

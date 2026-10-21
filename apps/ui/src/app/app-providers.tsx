@@ -45,7 +45,7 @@ function ThemedApp( { children }: PropsWithChildren ) {
 		document.documentElement.dataset.colorScheme = colorScheme;
 	}, [ colorScheme ] );
 	return (
-		<ThemeProvider isRoot color={ themeColor }>
+		<ThemeProvider isRoot color={ themeColor } cornerRadius="moderate">
 			<Tooltip.Provider>
 				<OnboardingGuideProvider>{ children }</OnboardingGuideProvider>
 			</Tooltip.Provider>

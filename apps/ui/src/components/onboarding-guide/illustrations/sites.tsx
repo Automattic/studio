@@ -16,7 +16,7 @@ const CHROME_BG_DARK = '#161616';
 const LOOP = 11000;
 
 // The pointer's path (offsets from the row centre): drift in → hover the
-// overview button → move to the status button → press → hold while it starts →
+// settings button → move to the status button → press → hold while it starts →
 // leave. Per-segment easing gives it a human cadence.
 const CURSOR_PATH: Keyframe[] = [
 	{ at: 0, x: 168, y: 96, scale: 1, opacity: 0, ease: easings.easeOut },
@@ -80,7 +80,7 @@ function SettingsGlyph() {
 }
 
 // Page 1 — the sidebar. A single site row plays out what the copy points at: a
-// cursor drifts in, hovers the site-overview button (tooltip), moves to the
+// cursor drifts in, hovers the site-settings button (tooltip), moves to the
 // status button and clicks it to start the site — stopped (play) → starting
 // (amber) → running (green) — then leaves and the loop repeats.
 export function SitesIllustration() {
@@ -90,7 +90,7 @@ export function SitesIllustration() {
 
 	const cursor = sample( t, CURSOR_PATH );
 	const dot = statusDot( t );
-	const overviewTip = envelope( t, 770, 440, 2970, 440 );
+	const settingsTip = envelope( t, 770, 440, 2970, 440 );
 	const stoppedTip = envelope( t, 3740, 440, 4840, 330 );
 	const startingTip = envelope( t, 4840, 330, 6820, 330 );
 	const runningTip = envelope( t, 6820, 330, 8580, 440 );
@@ -117,7 +117,7 @@ export function SitesIllustration() {
 								style={ hoverStyle( envelope( t, 770, 440, 2970, 440 ) ) }
 							>
 								<SettingsGlyph />
-								<Tooltip style={ tooltipStyle( overviewTip ) }>{ __( 'Site overview' ) }</Tooltip>
+								<Tooltip style={ tooltipStyle( settingsTip ) }>{ __( 'Site settings' ) }</Tooltip>
 							</div>
 							<div
 								className={ styles.btn }

@@ -24,7 +24,7 @@
 		"@sentry/core": "^10.50.0",
 		"@studio/design-md": "file:../design-md",
 		"@vscode/sudo-prompt": "^9.3.2",
-		"@wordpress/i18n": "^6.27.0",
+		"@wordpress/i18n": "^6.30.0",
 		"atomically": "^2.1.0",
 		"date-fns": "^4.1.0",
 		"fast-deep-equal": "^3.1.3",

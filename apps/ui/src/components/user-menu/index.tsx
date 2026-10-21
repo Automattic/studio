@@ -1,13 +1,16 @@
 import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
-import { Icon, offline, settings } from '@wordpress/icons';
-import { Tooltip } from '@wordpress/ui';
+import { Icon, offline } from '@wordpress/icons';
+import { displayShortcut } from '@wordpress/keycodes';
+import { IconButton, Tooltip } from '@wordpress/ui';
 import { Gravatar } from '@/components/gravatar';
+import * as Menu from '@/components/menu';
 import { NoticeHistoryButton } from '@/components/notice-history';
 import { SidebarButton } from '@/components/sidebar-button';
-import { useAuthUser } from '@/data/queries/use-auth-user';
+import { useAuthUser, useLogin, useLogout } from '@/data/queries/use-auth-user';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useOffline } from '@/hooks/use-offline';
+import { logOutIcon, settingsIcon } from '@/lib/icons';
 import styles from './style.module.css';
 
 export function UserMenu() {
@@ -15,24 +18,72 @@ export function UserMenu() {
 	const navigate = useNavigate();
 	const themeIsDark = useColorScheme() === 'dark';
 	const isOffline = useOffline();
+	const login = useLogin( { source: 'settings' } );
+	const logout = useLogout();
+	const openSettings = () => void navigate( { to: '/settings' } );
 
 	return (
 		<div className={ styles.root }>
 			<div className={ styles.row }>
-				<SidebarButton
-					className={ styles.userTrigger }
-					onClick={ () => void navigate( { to: '/settings' } ) }
-				>
-					{ user ? (
-						<Gravatar email={ user.email } isDark={ themeIsDark } />
-					) : (
-						<span className={ styles.settingsAvatar } aria-hidden="true">
-							<Icon icon={ settings } size={ 14 } />
-						</span>
-					) }
-					<span className={ styles.userName }>{ __( 'App settings' ) }</span>
-				</SidebarButton>
+				<Menu.Root>
+					<Menu.Trigger
+						render={
+							<SidebarButton className={ styles.userTrigger } aria-label={ __( 'Account' ) } />
+						}
+					>
+						{ user ? (
+							<Gravatar email={ user.email } isDark={ themeIsDark } />
+						) : (
+							<span className={ styles.settingsAvatar } aria-hidden="true">
+								<Icon icon={ settingsIcon } />
+							</span>
+						) }
+					</Menu.Trigger>
+					<Menu.Popup side="top" align="start" className={ styles.popup }>
+						{ user ? (
+							<>
+								<div className={ styles.account }>
+									<Gravatar email={ user.email } isDark={ themeIsDark } />
+									<div className={ styles.accountText }>
+										<span className={ styles.accountName }>{ user.displayName || user.email }</span>
+										{ user.displayName ? (
+											<span className={ styles.accountEmail }>{ user.email }</span>
+										) : null }
+									</div>
+								</div>
+								<Menu.Separator />
+							</>
+						) : null }
+						<Menu.Item onClick={ openSettings }>
+							<Icon icon={ settingsIcon } />
+							<span className={ styles.itemLabel }>{ __( 'Settings' ) }</span>
+							<kbd className={ styles.shortcut }>{ displayShortcut.primary( ',' ) }</kbd>
+						</Menu.Item>
+						<Menu.Separator />
+						{ user ? (
+							<Menu.Item onClick={ () => logout.mutate() }>
+								<Icon icon={ logOutIcon } />
+								{ __( 'Log out' ) }
+							</Menu.Item>
+						) : (
+							<Menu.Item onClick={ () => login.mutate() }>
+								<Icon icon={ logOutIcon } />
+								{ __( 'Log in' ) }
+							</Menu.Item>
+						) }
+					</Menu.Popup>
+				</Menu.Root>
+				<span className={ styles.spacer } aria-hidden="true" />
 				{ isOffline && <OfflineIndicator /> }
+				<IconButton
+					variant="minimal"
+					tone="neutral"
+					size="small"
+					className="studio-control"
+					icon={ settingsIcon }
+					label={ __( 'Settings' ) }
+					onClick={ openSettings }
+				/>
 				<NoticeHistoryButton />
 			</div>
 		</div>

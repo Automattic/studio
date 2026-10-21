@@ -113,7 +113,7 @@ describe( 'indexRoute.beforeLoad', () => {
 			[ createSession(), createSession( { id: 'session-2', ownerSiteId: 'site-2' } ) ],
 			false
 		);
-		expect( redirect.to ).toBe( '/sites/$siteId/overview' );
+		expect( redirect.to ).toBe( '/sites/$siteId' );
 		expect( redirect.params ).toEqual( { siteId: 'site-2' } );
 	} );
 
@@ -125,7 +125,7 @@ describe( 'indexRoute.beforeLoad', () => {
 			false,
 			true
 		);
-		expect( redirect.to ).toBe( '/sites/$siteId/overview' );
+		expect( redirect.to ).toBe( '/sites/$siteId' );
 		expect( redirect.params ).toEqual( { siteId: 'site-2' } );
 	} );
 

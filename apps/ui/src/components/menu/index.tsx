@@ -7,6 +7,7 @@ import styles from './style.module.css';
 import type {
 	ComponentPropsWithoutRef,
 	ElementRef,
+	KeyboardEventHandler,
 	MouseEventHandler,
 	PointerEventHandler,
 	ReactNode,
@@ -71,11 +72,13 @@ export function ContextPopup( {
 	children,
 	className,
 	onClick,
+	onKeyDown,
 	onPointerDown,
 }: {
 	children: ReactNode;
 	className?: string;
 	onClick?: MouseEventHandler< HTMLElement >;
+	onKeyDown?: KeyboardEventHandler< HTMLElement >;
 	onPointerDown?: PointerEventHandler< HTMLElement >;
 } ) {
 	return (
@@ -84,6 +87,7 @@ export function ContextPopup( {
 				<BaseMenu.Popup
 					render={ <FloatingSurface className={ clsx( styles.popup, className ) } /> }
 					onClick={ onClick }
+					onKeyDown={ onKeyDown }
 					onPointerDown={ onPointerDown }
 				>
 					{ children }
@@ -158,6 +162,14 @@ export const RadioItem = forwardRef< ElementRef< typeof BaseMenu.RadioItem >, Ra
 		);
 	}
 );
+
+export function Shortcut( { children }: { children: ReactNode } ) {
+	return (
+		<span className={ styles.shortcut } aria-hidden="true">
+			{ children }
+		</span>
+	);
+}
 
 export function GroupLabel( { children }: { children: ReactNode } ) {
 	return <BaseMenu.GroupLabel className={ styles.groupLabel }>{ children }</BaseMenu.GroupLabel>;

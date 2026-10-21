@@ -1,7 +1,10 @@
 import fs from 'fs';
 import path from 'path';
+import { __ } from '@wordpress/i18n';
+import { readSitePaths } from '../sites/site-path';
 import { pathExists, recursiveCopyDirectory } from './fs-utils';
 import { isErrnoException } from './is-errno-exception';
+import { readSharedConfig, updateSharedConfig } from './shared-config';
 
 /**
  * Managed instruction files that are always kept up-to-date on server start.
@@ -141,6 +144,85 @@ async function ensureSkillSymlink(
 			await fs.promises.symlink( path.resolve( agentsSkillPath ), claudeSkillPath, 'junction' );
 		} else {
 			throw error;
+		}
+	}
+}
+
+export interface SkillStatus {
+	id: string;
+	displayName: string;
+	description: string;
+	installed: boolean;
+}
+
+const getBundledSkills = () => [
+	{
+		id: 'studio-cli',
+		displayName: __( 'Studio CLI' ),
+		description: __( 'WordPress development workflows using Studio CLI' ),
+	},
+	{
+		id: 'wp-plugin-development',
+		displayName: __( 'Plugin Development' ),
+		description: __( 'Hooks, settings API, security, and packaging' ),
+	},
+	{
+		id: 'wp-block-development',
+		displayName: __( 'Block Development' ),
+		description: __( 'Block.json, attributes, rendering, and deprecations' ),
+	},
+	{
+		id: 'wp-block-themes',
+		displayName: __( 'Block Themes' ),
+		description: __( 'Theme.json, templates, patterns, and style variations' ),
+	},
+	{
+		id: 'wp-rest-api',
+		displayName: __( 'REST API' ),
+		description: __( 'Routes, endpoints, schema, and authentication' ),
+	},
+	{
+		id: 'wp-wpcli-and-ops',
+		displayName: __( 'WP-CLI & Ops' ),
+		description: __( 'CLI commands, automation, and search-replace' ),
+	},
+];
+
+// "Installed" means selected for every site: new sites get it too, on creation.
+export async function getSkillsStatusForAllSites(): Promise< SkillStatus[] > {
+	const selectedSkills = ( await readSharedConfig() ).selectedSkills ?? [];
+	return getBundledSkills().map( ( skill ) => ( {
+		...skill,
+		installed: selectedSkills.includes( skill.id ),
+	} ) );
+}
+
+export async function installSkillToAllSites(
+	bundledPath: string,
+	skillId: string,
+	overwrite = false
+): Promise< void > {
+	await forEachSite( ( sitePath ) =>
+		installSkillToSite( { path: sitePath }, bundledPath, skillId, overwrite )
+	);
+	const selectedSkills = ( await readSharedConfig() ).selectedSkills ?? [];
+	await updateSharedConfig( {
+		selectedSkills: Array.from( new Set( [ ...selectedSkills, skillId ] ) ),
+	} );
+}
+
+export async function removeSkillFromAllSites( skillId: string ): Promise< void > {
+	await forEachSite( ( sitePath ) => removeSkillFromSite( sitePath, skillId ) );
+	const selectedSkills = ( await readSharedConfig() ).selectedSkills ?? [];
+	await updateSharedConfig( { selectedSkills: selectedSkills.filter( ( id ) => id !== skillId ) } );
+}
+
+// One site failing (moved, unreadable) shouldn't stop the others.
+async function forEachSite( operation: ( sitePath: string ) => Promise< void > ): Promise< void > {
+	const results = await Promise.allSettled( ( await readSitePaths() ).map( operation ) );
+	for ( const result of results ) {
+		if ( result.status === 'rejected' ) {
+			console.error( '[skills] Failed to update a site:', result.reason );
 		}
 	}
 }

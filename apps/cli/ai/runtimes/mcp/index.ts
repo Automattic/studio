@@ -206,8 +206,9 @@ export async function startMcpStdioServer(): Promise< void > {
 		}
 	} );
 
+	// Only clients that render MCP Apps get the pages listed.
 	server.setRequestHandler( ListResourcesRequestSchema, async () => ( {
-		resources: appPages().map( ( { uri, name, _meta } ) => ( {
+		resources: ( client.apps ? appPages() : [] ).map( ( { uri, name, _meta } ) => ( {
 			uri,
 			name,
 			mimeType: MCP_APP_MIME_TYPE,

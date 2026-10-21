@@ -17,19 +17,16 @@ import { isAiProviderId, providerServesModel } from '@studio/common/ai/providers
 import { createAgentRunManager } from '@studio/common/ai/run-manager';
 import {
 	createHydratedAiSession,
-	hydrateAiSessionSummary,
 	listHydratedAiSessions,
 	loadHydratedAiSession,
+	reconcileSessionEnvironment,
+	updateHydratedAiSessionMetadata,
 } from '@studio/common/ai/sessions/manage';
-import {
-	deleteAiSessionPlacement,
-	readAiSessionPlacement,
-} from '@studio/common/ai/sessions/placement';
+import { deleteAiSessionPlacement } from '@studio/common/ai/sessions/placement';
 import {
 	appendModelChangeEntry,
 	appendStudioEntry,
 	deleteAiSession,
-	loadAiSession,
 } from '@studio/common/ai/sessions/store';
 import {
 	InvalidAnthropicApiKeyError,
@@ -41,6 +38,11 @@ import { expandSkillCommandPrompt } from '@studio/common/ai/slash-commands';
 import { getAiTracksIdentity } from '@studio/common/ai/tracks-identity';
 import { validateStudioVisualAnnotations } from '@studio/common/ai/visual-annotations';
 import { DEBUG_LOG_RELATIVE_PATH, DEFAULT_TOKEN_LIFETIME_MS } from '@studio/common/constants';
+import {
+	getSkillsStatusForAllSites,
+	installSkillToAllSites,
+	removeSkillFromAllSites,
+} from '@studio/common/lib/agent-skills';
 import { downloadAndExtractBlueprintBundle } from '@studio/common/lib/blueprint-bundle';
 import {
 	cliAuthEventSchema,
@@ -87,7 +89,6 @@ import {
 	deleteSharedSession,
 	readAuthToken,
 	updateSharedConfig,
-	updateSharedSession,
 } from '@studio/common/lib/shared-config';
 import { fetchSnapshotUsage } from '@studio/common/lib/snapshots';
 import { fetchStudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
@@ -119,7 +120,7 @@ import { deleteSite, startSite, stopSite } from '@studio/common/sites/lifecycle'
 import { listSites } from '@studio/common/sites/list';
 import { listSitesWithMetadata, updateSiteMetadata } from '@studio/common/sites/metadata';
 import { designFixesSchema, fixSiteDesign, readSiteDesign } from '@studio/common/sites/site-design';
-import { readSiteIcon, readThemeDetails } from '@studio/common/sites/site-identity';
+import { readSiteIcon } from '@studio/common/sites/site-identity';
 import { readSitePath, readSitePaths } from '@studio/common/sites/site-path';
 import {
 	deleteAllPreviewSites,
@@ -128,7 +129,6 @@ import {
 	publishPreviewSite,
 	renamePreviewSite,
 } from '@studio/common/sites/snapshots';
-import { measureSiteStorage } from '@studio/common/sites/storage-usage';
 import { createSyncRunner } from '@studio/common/sites/sync';
 import express from 'express';
 import { rateLimit } from 'express-rate-limit';
@@ -137,6 +137,7 @@ import { isEditor, isTerminal, openInEditor, openInTerminal, openPath } from './
 import type { StudioChatFileAttachment } from '@studio/common/ai/chat-files';
 import type { StudioChatImage } from '@studio/common/ai/chat-images';
 import type { AiSettings } from '@studio/common/ai/providers';
+import type { AiSessionMetadata } from '@studio/common/ai/sessions/types';
 import type { StudioVisualAnnotationSummary } from '@studio/common/ai/visual-annotations';
 import type { SiteListItem } from '@studio/common/lib/cli-events';
 import type {
@@ -757,21 +758,9 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} )
 	);
 
-	// Both of these read straight from cli.json via `readSitePath` rather than
-	// forking the CLI for a site list: the UI asks for them on every site
-	// switch, and a fork costs about a second of CPU each time.
-	api.get(
-		'/sites/:id/theme-details',
-		asyncHandler( async ( req: Request, res: Response ) => {
-			const sitePath = await readSitePath( req.params.id );
-			if ( ! sitePath ) {
-				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
-				return;
-			}
-			res.json( await readThemeDetails( execute, sitePath ) );
-		} )
-	);
-
+	// Reads straight from cli.json via `readSitePath` rather than forking the
+	// CLI for a site list: the UI asks for it on every site switch, and a fork
+	// costs about a second of CPU each time.
 	api.get(
 		'/sites/:id/site-icon',
 		asyncHandler( async ( req: Request, res: Response ) => {
@@ -793,30 +782,6 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				return;
 			}
 			res.json( { wpVersion: getWordPressVersion( sitePath ) } );
-		} )
-	);
-
-	api.get(
-		'/sites/:id/storage',
-		asyncHandler( async ( req: Request, res: Response ) => {
-			const sitePath = await readSitePath( req.params.id );
-			if ( ! sitePath ) {
-				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
-				return;
-			}
-			// Walking a site takes long enough that the client often navigates
-			// away first. Tie the walk to the request so an abandoned one stops
-			// instead of running to completion for nobody.
-			const controller = new AbortController();
-			req.on( 'close', () => controller.abort() );
-			try {
-				res.json( await measureSiteStorage( sitePath, { signal: controller.signal } ) );
-			} catch ( error ) {
-				if ( controller.signal.aborted ) {
-					return;
-				}
-				throw error;
-			}
 		} )
 	);
 
@@ -1827,13 +1792,13 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	api.patch(
 		'/sessions/:id',
 		asyncHandler( async ( req: Request, res: Response ) => {
-			const { summary } = await loadAiSession( sessionsRoot, req.params.id );
-			const patch = req.body as { archived?: boolean };
-			const [ metadata, placement ] = await Promise.all( [
-				updateSharedSession( summary.id, patch ),
-				readAiSessionPlacement( summary.id ),
-			] );
-			res.json( hydrateAiSessionSummary( summary, metadata, placement ) );
+			res.json(
+				await updateHydratedAiSessionMetadata(
+					sessionsRoot,
+					req.params.id,
+					req.body as AiSessionMetadata
+				)
+			);
 		} )
 	);
 
@@ -1870,37 +1835,67 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} )
 	);
 
-	api.post( '/sessions/:id/messages', ( req: Request, res: Response ) => {
-		const { prompt, displayMessage, visualAnnotations } = req.body as {
-			prompt?: string;
-			displayMessage?: string;
-			visualAnnotations?: unknown;
-		};
-		if ( ! prompt ) {
-			res.status( 400 ).json( { error: 'prompt is required' } );
-			return;
-		}
-		let images: StudioChatImage[];
-		let files: StudioChatFileAttachment[];
-		let validatedVisualAnnotations: StudioVisualAnnotationSummary[] | undefined;
-		try {
-			images = validateStudioChatImages( req.body.images );
-			files = validateStudioChatFiles( req.body.files );
-			validatedVisualAnnotations = validateStudioVisualAnnotations( visualAnnotations );
-		} catch ( error ) {
-			res.status( 400 ).json( { error: ( error as Error ).message } );
-			return;
-		}
-		const { runId } = runManager.startAgentRun( {
-			sessionId: req.params.id,
-			prompt: expandSkillCommandPrompt( prompt ),
-			displayMessage,
-			images,
-			files,
-			visualAnnotations: validatedVisualAnnotations,
-		} );
-		res.json( { runId } );
-	} );
+	api.post(
+		'/sessions/:id/messages',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const { prompt, displayMessage, visualAnnotations } = req.body as {
+				prompt?: string;
+				displayMessage?: string;
+				visualAnnotations?: unknown;
+			};
+			if ( ! prompt ) {
+				res.status( 400 ).json( { error: 'prompt is required' } );
+				return;
+			}
+			let images: StudioChatImage[];
+			let files: StudioChatFileAttachment[];
+			let validatedVisualAnnotations: StudioVisualAnnotationSummary[] | undefined;
+			try {
+				images = validateStudioChatImages( req.body.images );
+				files = validateStudioChatFiles( req.body.files );
+				validatedVisualAnnotations = validateStudioVisualAnnotations( visualAnnotations );
+			} catch ( error ) {
+				res.status( 400 ).json( { error: ( error as Error ).message } );
+				return;
+			}
+			await reconcileSessionEnvironment( sessionsRoot, req.params.id );
+			const { runId } = runManager.startAgentRun( {
+				sessionId: req.params.id,
+				prompt: expandSkillCommandPrompt( prompt ),
+				displayMessage,
+				images,
+				files,
+				visualAnnotations: validatedVisualAnnotations,
+			} );
+			res.json( { runId } );
+		} )
+	);
+
+	// --- Skills ---------------------------------------------------------------
+	api.get(
+		'/skills',
+		asyncHandler( async ( _req: Request, res: Response ) => {
+			res.json( await getSkillsStatusForAllSites() );
+		} )
+	);
+
+	api.post(
+		'/skills/:id',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			// Bundled next to the CLI entry, as the desktop app finds them.
+			const skillsPath = path.join( path.dirname( cliBinary ), 'wp-files', 'skills' );
+			await installSkillToAllSites( skillsPath, req.params.id );
+			res.sendStatus( 204 );
+		} )
+	);
+
+	api.delete(
+		'/skills/:id',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			await removeSkillFromAllSites( req.params.id );
+			res.sendStatus( 204 );
+		} )
+	);
 
 	// --- Runs -----------------------------------------------------------------
 	api.get( '/runs/active', ( _req: Request, res: Response ) => {

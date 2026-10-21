@@ -18,7 +18,6 @@ For any change to content, templates, or the theme, load the `visual-design` ski
 
 - Before editing an existing theme's template or part, check for a copy saved in the Site Editor (`post list --post_type=wp_template,wp_template_part`): WordPress renders that saved copy instead of the file, so if one exists, make the change in the saved copy too, keep the user's other edits, and tell the user.
 - Change an installed third-party theme only through a child theme, following the `block-content` skill's theme-file rules.
-- Validate every template, part, and piece of content you write with validate_blocks before it reaches the site.
 
 ## 3. Check and report
 

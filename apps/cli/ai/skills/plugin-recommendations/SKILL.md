@@ -51,7 +51,6 @@ wp_cli eval 'foreach (\WP_Block_Type_Registry::get_instance()->get_all_registere
 
 4. If you expect a plugin block but it is missing, check whether the plugin uses modules or feature flags, then activate the relevant module.
 5. Use the registered block in editable block markup.
-6. Validate generated block markup with `validate_blocks`, passing `filePath` when the content lives in a file so safe editor fixes are applied automatically.
 
 ## WooCommerce Shop Sites
 
@@ -178,7 +177,6 @@ Sensei works fully on a local site. Course delivery, lessons, quizzes, and stude
 - Courses and lessons are custom post types (`course`, `lesson`). Create them with `wp_cli post create --post_type=course …` / `--post_type=lesson …`, or in the editor. Quizzes and questions (`quiz`, `question` post types) are managed through the Sensei quiz block inside a lesson — do not create them directly via `wp_cli post create`.
 - Build course and lesson pages from Sensei's registered blocks rather than plain markup. Discover them with the block-registry command from the Discovery Workflow (filter on `sensei-lms/`). Common ones: `sensei-lms/course-outline`, `sensei-lms/course-progress`, `sensei-lms/button-take-course`, `sensei-lms/lesson-actions`, `sensei-lms/quiz`, and `sensei-lms/learner-courses`.
 - Activating Sensei creates the Courses page and core Sensei pages automatically; wire a "Courses" link into the primary navigation.
-- Validate any block markup you generate with `validate_blocks`.
 
 ## Crowdsignal (polls, surveys, ratings)
 
@@ -188,7 +186,7 @@ For polls, surveys, ratings, NPS, feedback prompts, or applause/reactions, use C
 wp_cli plugin install crowdsignal-forms --activate
 ```
 
-Registered blocks: `crowdsignal-forms/poll`, `crowdsignal-forms/vote` (with `crowdsignal-forms/vote-item` children), `crowdsignal-forms/feedback`, `crowdsignal-forms/nps`, and `crowdsignal-forms/applause`. These register and stay editable on a local site, so use them in block markup and validate with `validate_blocks`.
+Registered blocks: `crowdsignal-forms/poll`, `crowdsignal-forms/vote` (with `crowdsignal-forms/vote-item` children), `crowdsignal-forms/feedback`, `crowdsignal-forms/nps`, and `crowdsignal-forms/applause`. These register and stay editable on a local site, so use them in block markup.
 
 Storing real responses requires a free Crowdsignal.com account and API key (the plugin's Settings → Crowdsignal connection); the blocks render and remain editable without it, but won't record results until connected. Mention this when the user expects live results. For a simple contact or data-collection form (not a poll/survey), prefer Jetpack Forms instead.
 
@@ -230,4 +228,4 @@ Then activate the needed module:
 wp_cli jetpack module activate <slug>
 ```
 
-3. Use the registered block in page markup and validate with `validate_blocks`, passing `filePath` when possible.
+3. Use the registered block in page markup.

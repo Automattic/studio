@@ -1,6 +1,6 @@
 ---
 name: build-site
-description: Create, build, design, redesign, or rebuild a whole website as a WordPress site with WordPress Studio, on the user's computer — pick or create the site, settle the design and plugins as a Site Spec, then scaffold the theme, provision the site, validate and publish the content, and polish the result. Load it before picking or creating the site.
+description: Create, build, design, redesign, or rebuild a whole website as a WordPress site with WordPress Studio, on the user's computer — pick or create the site, settle the design and plugins as a Site Spec, then scaffold the theme, provision the site, publish the content, and polish the result. Load it before picking or creating the site.
 user-invokable: true
 ---
 
@@ -61,11 +61,11 @@ With the Site Spec stated, start small: call `scaffold_theme` on its own, and ne
 
 ## 4. Provision the site
 
-Use wp_cli to activate the theme, install and activate the plugins the Site Spec lists, and set options. Do this before validating — the live editor only recognizes the active theme and registered plugin blocks. The site must be running.
+Use wp_cli to activate the theme, install and activate the plugins the Site Spec lists, and set options. Do this before writing content: block content is checked in the site's block editor, which only recognizes the active theme and registered plugin blocks. The site must be running.
 
-## 5. Validate and publish the content
+## 5. Publish the content
 
-Validate each template and part with validate_blocks right after writing it, and validate page and post content before it reaches the site. Then create or update the pages and posts with the validated content. A build that skips validate_blocks is incomplete.
+Create or update the pages and posts with `wp_cli post create` and `post update`.
 
 ## 6. Check and polish the result
 

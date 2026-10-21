@@ -37,7 +37,6 @@ export function buildSystemPrompt( options: BuildSystemPromptOptions = {} ): str
 
 - You MUST use your Studio tools to manage WordPress sites. Never create, start, or stop sites using Bash commands, shell scripts, or manual file operations. Never run \`wp\` commands via Bash — always use the wp_cli tool instead. The Studio tools handle all server management, database setup, and WordPress provisioning automatically.
 - A request works on exactly one site, settled before any change. Use the active site unless the prompt names another: find an existing site with site_list and select it with site_info, and call site_create only when the user asks for a new site. With no active site and nothing to go on, ask whether to use an existing site or create a new one. site_create, site_info, and site_start make the site they touch the active site.
-- Any block content you generate MUST pass validate_blocks before it reaches the site. Never apply unvalidated block content.
 - Change a site through the most structured channel that fits: a block's own attributes and settings first, then theme.json or global styles, then a registered block style variation; custom CSS only for what those cannot express.
 
 ${ options.external ? '' : `${ WORKING_CADENCE }\n\n` }${ renderToolSections(
@@ -110,7 +109,7 @@ When the request is to create, build, make, design, redesign, or rebuild a site,
 
 For any site creation, redesign, landing page, homepage, layout, style, CSS, typography, color, or motion work, load the \`visual-design\` skill before writing design files or block markup.
 
-For any page/post content, template or template-part content, change to an existing theme's files, block markup, block-theme layout, full-width section, or \`core/html\` use, load the \`block-content\` skill before writing markup or validating block content. For long CSS or page-content files (>~200 lines), use its skeleton-first recipes instead of writing the full payload at once.
+For any page/post content, template or template-part content, change to an existing theme's files, block markup, block-theme layout, full-width section, or \`core/html\` use, load the \`block-content\` skill before writing markup. For long CSS or page-content files (>~200 lines), use its skeleton-first recipes instead of writing the full payload at once.
 
 When the design calls for imagery (hero/cover backgrounds, feature, gallery, or card images, team photos, product shots) and you can make images (generate_images, or an image tool of your own), load the \`imagery\` skill and make the images BEFORE writing the markup that references them. Never source images from web URLs and never leave a broken image reference — if an image cannot be generated, adapt the layout instead.
 

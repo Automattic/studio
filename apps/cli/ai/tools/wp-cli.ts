@@ -1,9 +1,15 @@
+import { existsSync, statSync } from 'fs';
+import { readFile, writeFile } from 'fs/promises';
+import path from 'path';
 import { Type } from 'typebox';
+import { checkBlockContent, hasBlockMarkup } from 'cli/ai/block-check';
+import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import { getUnsupportedWpCliPostContentMessage } from 'cli/lib/wp-cli-post-content';
 import { defineTool, REMOTE_OVERWRITE } from './define-tool';
 import { resolveSite } from './utils';
+import type { SiteData } from 'cli/lib/cli-config/core';
 
 // Split a shell-ish command into args, respecting quotes. Quotes are only
 // recognized at arg start or right after `=` so values like `Ember & Oak`
@@ -114,12 +120,62 @@ function getUnsupportedWpCliOptionMessage( args: string[] ): string | null {
 	return `Unsupported WP-CLI option "${ unsupportedOption }": use ASCII hyphens, for example "--porcelain", not a typographic dash.`;
 }
 
+// Post content reaches the site through `post create` and `post update`, inline
+// or from a file. It is checked in the site's block editor first: lossless
+// re-serializations are kept, and content the editor rejects is not saved.
+async function checkPostContent(
+	site: SiteData,
+	args: string[]
+): Promise< { args: string[]; report?: string } > {
+	if ( args[ 0 ] !== 'post' || ( args[ 1 ] !== 'create' && args[ 1 ] !== 'update' ) ) {
+		return { args };
+	}
+	const marker = '--post_content=';
+	const inlineIndex = args.findIndex( ( arg ) => arg.startsWith( marker ) );
+	let label: string;
+	let content: string;
+	let keep: ( fixed: string ) => Promise< string[] >;
+	if ( inlineIndex !== -1 ) {
+		label = 'post_content';
+		content = args[ inlineIndex ].slice( marker.length );
+		keep = async ( fixed ) =>
+			args.map( ( arg, i ) => ( i === inlineIndex ? marker + fixed : arg ) );
+	} else {
+		const file = args
+			.slice( 2 )
+			.filter( ( arg ) => ! arg.startsWith( '-' ) )
+			.map( ( arg ) => ( { arg, filePath: path.resolve( site.path, arg ) } ) )
+			.find( ( { filePath } ) => existsSync( filePath ) && statSync( filePath ).isFile() );
+		if ( ! file ) {
+			return { args };
+		}
+		label = file.arg;
+		content = await readFile( file.filePath, 'utf8' );
+		keep = async ( fixed ) => {
+			await writeFile( file.filePath, fixed, 'utf8' );
+			return args;
+		};
+	}
+	if ( ! hasBlockMarkup( content ) ) {
+		return { args };
+	}
+	const check = await checkBlockContent( content, getSiteUrl( site ), label );
+	if ( ! check.passed ) {
+		throw new Error( `${ check.report }\nNothing was saved.` );
+	}
+	return {
+		args: check.content === content ? args : await keep( check.content ),
+		report: check.report,
+	};
+}
+
 export const runWpCliTool = defineTool(
 	'wp_cli',
 	'Runs a WP-CLI command on a specific WordPress site. The site must be running (site_start if needed). ' +
 		'Examples: "plugin install woocommerce --activate", "option get blogname", "user list". ' +
 		'The command takes literal arguments, not shell syntax — never use shell substitution or shell syntax such as `$(cat file)`, backticks, pipes, redirection, or environment variables to provide post content. ' +
-		'For large post content, write the validated markup to a scratch file inside the site directory and pass its path to `post create <file>` (or `post update <id> <file>`) — this avoids the OS command-length limit. For smaller content you may instead pass it inline with `--post_content=...` as the final argument. ' +
+		'For large post content, write the markup to a scratch file inside the site directory and pass its path to `post create <file>` (or `post update <id> <file>`) — this avoids the OS command-length limit. For smaller content you may instead pass it inline with `--post_content=...` as the final argument. ' +
+		"`post create` and `post update` check block content in the site's block editor before saving it: re-serializations the editor makes without loss are kept and shown as a diff, and content the editor rejects is not saved, with the reasons. " +
 		'Studio sites use SQLite, not MySQL (the database file is `<site-path>/wp-content/database/.ht.sqlite`): `db query` and the other `db` subcommands do not work, so query WordPress data with object commands such as `post list`, `option get`, or `user list`. ' +
 		'Users can browse the database themselves with phpMyAdmin from the site overview in the Studio app while the site is running, or with `sqlite3 <site-path>/wp-content/database/.ht.sqlite` (pre-installed on macOS).',
 	{
@@ -146,7 +202,9 @@ export const runWpCliTool = defineTool(
 					throw new Error( unsupportedPostContentMessage );
 				}
 
-				await using command = await runWpCliCommand( site, wpCliArgs );
+				const postContent = await checkPostContent( site, wpCliArgs );
+
+				await using command = await runWpCliCommand( site, postContent.args );
 				const exitCode = await command.response.exitCode;
 				const stdout = await command.response.stdoutText;
 				const stderr = await command.response.stderrText;
@@ -164,6 +222,10 @@ export const runWpCliTool = defineTool(
 
 				if ( exitCode !== 0 ) {
 					throw new Error( output || `WP-CLI exited with code ${ exitCode }` );
+				}
+				if ( postContent.report ) {
+					output = output.trimEnd();
+					output += ( output ? '\n\n' : '' ) + postContent.report;
 				}
 				return {
 					content: [

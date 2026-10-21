@@ -251,6 +251,12 @@ describe( 'Studio AI MCP tools', () => {
 			sites: [ mockSite ],
 		} as Awaited< ReturnType< typeof readCliConfig > > );
 		vi.mocked( getSiteByFolder ).mockResolvedValue( mockSite );
+		vi.mocked( validateBlocks ).mockResolvedValue( {
+			totalBlocks: 1,
+			validBlocks: 1,
+			invalidBlocks: 0,
+			results: [],
+		} );
 	} );
 
 	afterEach( () => {
@@ -289,7 +295,7 @@ describe( 'Studio AI MCP tools', () => {
 		} as never );
 
 		const text = getTextContent( result );
-		expect( text ).toContain( 'HTML block policy: 1/1 core/html blocks invalid' );
+		expect( text ).toContain( '1/1 core/html blocks hold markup that belongs in editable' );
 		expect( text ).toContain( '<form>' );
 		// The HTML policy gate short-circuits before the live editor runs.
 		expect( validateBlocks ).not.toHaveBeenCalled();
@@ -312,7 +318,7 @@ describe( 'Studio AI MCP tools', () => {
 			expect.stringContaining( 'localhost:8888' )
 		);
 		const text = getTextContent( result );
-		expect( text ).toContain( 'Fixed block content:' );
+		expect( text ).toContain( 'Content to use:' );
 		expect( text ).toContain( fixedContent );
 	} );
 
@@ -334,8 +340,8 @@ describe( 'Studio AI MCP tools', () => {
 
 			await expect( readFile( filePath, 'utf8' ) ).resolves.toBe( fixedContent );
 			const text = getTextContent( result );
-			expect( text ).toContain( 'Auto-fix applied: 1/1 blocks valid' );
-			expect( text ).not.toContain( 'Fixed block content:' );
+			expect( text ).toContain( 're-serialized 1 block(s) (core/separator)' );
+			expect( text ).not.toContain( 'Content to use:' );
 		} finally {
 			await rm( tempDir, { recursive: true, force: true } );
 		}
@@ -359,7 +365,7 @@ describe( 'Studio AI MCP tools', () => {
 			} as never );
 
 			await expect( readFile( filePath, 'utf8' ) ).resolves.toBe( fixedContent );
-			expect( getTextContent( result ) ).toContain( 'written to tmp/page-home.html' );
+			expect( getTextContent( result ) ).toContain( 'tmp/page-home.html: the block editor' );
 		} finally {
 			await rm( siteDir, { recursive: true, force: true } );
 		}
@@ -953,6 +959,107 @@ describe( 'Studio AI MCP tools', () => {
 		).rejects.toThrow( /does not run in a shell/ );
 
 		expect( runWpCliCommand ).not.toHaveBeenCalled();
+	} );
+
+	describe( 'wp_cli post content', () => {
+		const rejected = {
+			totalBlocks: 1,
+			validBlocks: 0,
+			invalidBlocks: 1,
+			results: [
+				{
+					blockName: 'core/button',
+					isValid: false,
+					issues: [ 'Expected attributes differ' ],
+					originalContent: '<div>Go</div>',
+				},
+			],
+		};
+
+		beforeEach( () => {
+			vi.mocked( runWpCliCommand ).mockResolvedValue(
+				mockWpCliResponse( { stdout: 'Success: Updated post 12.' } ) as never
+			);
+		} );
+
+		it( 'saves nothing the block editor rejects', async () => {
+			vi.mocked( validateBlocks ).mockResolvedValue( rejected );
+
+			await expect(
+				getTool( 'wp_cli' ).rawHandler( {
+					nameOrPath: 'My Site',
+					command:
+						'post update 12 --post_content="<!-- wp:button --><div>Go</div><!-- /wp:button -->"',
+				} as never )
+			).rejects.toThrow( /rejects 1\/1 blocks[\s\S]*core\/button[\s\S]*Nothing was saved/ );
+			expect( runWpCliCommand ).not.toHaveBeenCalled();
+		} );
+
+		it( "saves the block editor's lossless re-serialization of inline content", async () => {
+			const fixed = '<!-- wp:paragraph -->\n<p>Hi</p>\n<!-- /wp:paragraph -->';
+			mockValidatedFix( fixed );
+
+			const result = await getTool( 'wp_cli' ).rawHandler( {
+				nameOrPath: 'My Site',
+				command:
+					'post update 12 --post_content="<!-- wp:paragraph --><p>Hi</p><!-- /wp:paragraph -->"',
+			} as never );
+
+			expect( runWpCliCommand ).toHaveBeenCalledWith( mockSite, [
+				'post',
+				'update',
+				'12',
+				`--post_content=${ fixed }`,
+			] );
+			expect( getTextContent( result ) ).toContain( 're-serialized 1 block(s)' );
+		} );
+
+		it( 'checks a content file and keeps the fix in the file', async () => {
+			const siteDir = await mkdtemp( path.join( os.tmpdir(), 'studio-post-content-' ) );
+			const site = { ...mockSite, path: siteDir };
+			const fixed = '<!-- wp:paragraph -->\n<p>Hi</p>\n<!-- /wp:paragraph -->';
+			await mkdir( path.join( siteDir, 'tmp' ) );
+			await writeFile(
+				path.join( siteDir, 'tmp', 'page.html' ),
+				'<!-- wp:paragraph --><p>Hi</p><!-- /wp:paragraph -->'
+			);
+			vi.mocked( readCliConfig ).mockResolvedValue( {
+				sites: [ site ],
+			} as Awaited< ReturnType< typeof readCliConfig > > );
+			mockValidatedFix( fixed );
+
+			try {
+				await getTool( 'wp_cli' ).rawHandler( {
+					nameOrPath: 'My Site',
+					command: 'post update 12 tmp/page.html',
+				} as never );
+
+				await expect( readFile( path.join( siteDir, 'tmp', 'page.html' ), 'utf8' ) ).resolves.toBe(
+					fixed
+				);
+				expect( runWpCliCommand ).toHaveBeenCalledWith( site, [
+					'post',
+					'update',
+					'12',
+					'tmp/page.html',
+				] );
+			} finally {
+				await rm( siteDir, { recursive: true, force: true } );
+			}
+		} );
+
+		it( 'leaves commands without block content unchecked', async () => {
+			await getTool( 'wp_cli' ).rawHandler( {
+				nameOrPath: 'My Site',
+				command: 'post update 12 --post_title="About"',
+			} as never );
+			await getTool( 'wp_cli' ).rawHandler( {
+				nameOrPath: 'My Site',
+				command: 'option get blogname',
+			} as never );
+
+			expect( validateBlocks ).not.toHaveBeenCalled();
+		} );
 	} );
 
 	it( 'treats unquoted post_content as a single trailing literal argument', async () => {

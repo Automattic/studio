@@ -47,7 +47,9 @@ import { resolveStudioToolDefinitions } from 'cli/ai/tools';
 import { createAskUserQuestionTool } from 'cli/ai/tools/ask-user-question';
 import { createPresentDesignOptionsTool } from 'cli/ai/tools/present-design-options';
 import { createSkillTool } from 'cli/ai/tools/skill';
+import { validateBlocksTool } from 'cli/ai/tools/validate-blocks';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
+import { withBlockFileCheck } from './block-file-check';
 import { getFileToolPrompt } from './file-tool-prompts';
 import { getPendingWork, type PendingWork } from './pending-work';
 import { stripStaleImagesFromContext } from './strip-stale-images';
@@ -686,20 +688,32 @@ function buildAgentTools(
 		chatArtifactsEnabled ? withDesignSystemPreview( tool, STUDIO_SITES_ROOT ) : tool;
 	const piTools: AgentToolAny[] = [
 		renameTool( createReadTool( STUDIO_SITES_ROOT ), 'Read' ),
-		designSystemPreview( renameTool( createWriteTool( STUDIO_SITES_ROOT ), 'Write' ) ),
-		designSystemPreview( renameTool( createEditTool( STUDIO_SITES_ROOT ), 'Edit' ) ),
+		designSystemPreview(
+			withBlockFileCheck(
+				renameTool( createWriteTool( STUDIO_SITES_ROOT ), 'Write' ),
+				STUDIO_SITES_ROOT
+			)
+		),
+		designSystemPreview(
+			withBlockFileCheck(
+				renameTool( createEditTool( STUDIO_SITES_ROOT ), 'Edit' ),
+				STUDIO_SITES_ROOT
+			)
+		),
 		renameTool( createBashTool( STUDIO_SITES_ROOT ), 'Bash' ),
 		renameTool( createGrepTool( STUDIO_SITES_ROOT ), 'Grep' ),
 		renameTool( createFindTool( STUDIO_SITES_ROOT ), 'Glob' ),
 		renameTool( createLsTool( STUDIO_SITES_ROOT ), 'Ls' ),
 	];
+	// Write, Edit and wp_cli check block content as they save it, so Studio Code
+	// has no separate validation step to take.
 	const studioTools = resolveStudioToolDefinitions( {
 		emitChatArtifacts: chatArtifactsEnabled,
 		imageGeneration: imageGenerationEnabled,
 		visionEnabled,
 		canAskUser: Boolean( config.onAskUser ),
 		tracks,
-	} ) as unknown as AgentToolAny[];
+	} ).filter( ( tool ) => tool.name !== validateBlocksTool.name ) as unknown as AgentToolAny[];
 	return [ ...studioTools, ...askUserTool, ...designOptionsTool, ...skillTool, ...piTools ];
 }
 

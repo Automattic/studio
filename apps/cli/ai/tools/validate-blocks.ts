@@ -1,34 +1,10 @@
 import { readFile, writeFile } from 'fs/promises';
 import path from 'path';
-import { generateUnifiedPatch } from '@earendil-works/pi-coding-agent';
 import { Type } from 'typebox';
-import { validateHtmlBlockPolicy } from 'cli/ai/block-content-policy';
-import { validateBlocks, type ValidationReportBase } from 'cli/ai/block-validator';
+import { checkBlockContent } from 'cli/ai/block-check';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import { defineTool, LOCAL_CHANGE } from './define-tool';
 import { resolveSite, textResult } from './utils';
-
-function formatPreview( content: string ): string {
-	const compact = content.replace( /\s+/g, ' ' ).trim();
-	return compact.length > 500 ? compact.slice( 0, 500 ) + '…' : compact;
-}
-
-function formatInvalidBlocks( report: ValidationReportBase ): string[] {
-	const lines: string[] = [];
-	for ( const result of report.results ) {
-		if ( ! result.isValid ) {
-			lines.push( `  - ${ result.blockName }` );
-			for ( const issue of result.issues ) {
-				lines.push( `    ${ issue }` );
-			}
-			if ( result.expectedContent !== undefined ) {
-				lines.push( `    Expected: ${ result.expectedContent }` );
-				lines.push( `    Actual:   ${ result.originalContent }` );
-			}
-		}
-	}
-	return lines;
-}
 
 function formatMarkdownFence( language: string, content: string ): string {
 	const longestBacktickRun = Math.max(
@@ -39,9 +15,11 @@ function formatMarkdownFence( language: string, content: string ): string {
 	return `${ fence }${ language }\n${ content }\n${ fence }`;
 }
 
+// Studio Code checks block content as its own tools write it. Agents that
+// write files with their own tools check theme files with this one.
 export const validateBlocksTool = defineTool(
 	'validate_blocks',
-	"Validates WordPress block content in two stages and returns a combined report. First runs a static core/html block policy check; if it finds invalid core/html blocks, it returns only those (rewrite them as editable core or plugin blocks and call again) without touching the editor. Once the policy check passes, it validates the content in the site's real block editor: with filePath it applies safe live-editor serialization fixes directly to the file and returns a CSS-review diff; with inline content it returns the exact fixed block content plus the diff. The site must be running, with the theme and the plugins the content uses already active: the editor only recognizes the active theme and registered plugin blocks. Validate block content before it reaches the site: before `wp post create/update`, and before `wp_cli eval` that imports a scratch file such as `<site>/tmp/page-<slug>.html`. Theme `templates/*.html` and `parts/*.html` files are live the moment they are written, so validate each one with `filePath` right after writing or editing it. If an auto-fix was applied, the file already holds the fixed content; do not replace markup or re-validate unless you change the markup, and use the diff only to update CSS selectors for class/nesting changes. For inline content, use the returned fixed content exactly.",
+	"Checks block content in the site's block editor, the way the editor will load it: core/html blocks holding markup that belongs in editable blocks are reported first, then each block's save output is compared. Re-serializations the editor makes without loss are kept: written back to `filePath`, or returned as the content to use. `wp_cli post create` and `post update` run this check themselves. Theme `templates/*.html` and `parts/*.html` files are live as soon as they are written, so check each one written with your own file tools. The site must be running, with the theme and the plugins the content uses active.",
 	{
 		nameOrPath: Type.String( {
 			description: 'The site name or file system path — the site must be running',
@@ -49,148 +27,39 @@ export const validateBlocksTool = defineTool(
 		filePath: Type.Optional(
 			Type.String( {
 				description:
-					'Path to a file containing WordPress block content to validate and fix — absolute, or relative to the site root',
+					'Path to a file containing WordPress block content — absolute, or relative to the site root',
 			} )
 		),
 		content: Type.Optional(
 			Type.String( {
-				description: 'Raw WordPress block content (HTML with block comments) to validate and fix',
+				description: 'Raw WordPress block content (HTML with block comments)',
 			} )
 		),
 	},
 	async ( args, context ) => {
-		try {
-			const site = await resolveSite( args.nameOrPath );
-			let blockContent: string;
-			let fileName = 'inline content';
-			let filePath: string | undefined;
-
-			if ( args.filePath ) {
-				filePath = path.resolve( site.path, args.filePath );
-				blockContent = await readFile( filePath, 'utf-8' );
-				fileName = filePath.split( path.sep ).slice( -2 ).join( '/' );
-			} else if ( args.content !== undefined ) {
-				blockContent = args.content;
-			} else {
-				throw new Error( 'Either content or filePath must be provided.' );
-			}
-
-			// Stage 1: static core/html policy check. Acts as a gate — if it
-			// fails we stop here instead of paying the live-editor round-trip on
-			// content we already know needs rewriting.
-			context.onProgress( `Checking HTML blocks in ${ fileName }…` );
-			const htmlReport = validateHtmlBlockPolicy( blockContent );
-
-			if ( htmlReport.invalidHtmlBlocks.length > 0 ) {
-				context.onProgress(
-					`${ fileName }: ${ htmlReport.invalidHtmlBlocks.length }/${ htmlReport.totalHtmlBlocks } core/html blocks invalid`
-				);
-				const lines = [
-					`HTML block policy: ${ htmlReport.invalidHtmlBlocks.length }/${ htmlReport.totalHtmlBlocks } core/html blocks invalid`,
-					'',
-					'Invalid HTML blocks:',
-					...htmlReport.invalidHtmlBlocks.flatMap( ( block ) => [
-						`  - #${ block.blockNumber } line ${ block.line }`,
-						...block.issues.map( ( issue ) => `    ${ issue }` ),
-						`    Content: ${ formatPreview( block.content ) }`,
-					] ),
-					'',
-					'Rewrite each invalid core/html block as editable core or plugin blocks, then call validate_blocks again. Editor validation was skipped until the HTML policy passes.',
-				];
-				return textResult( lines.join( '\n' ) );
-			}
-
-			const htmlSummary =
-				htmlReport.totalHtmlBlocks === 0
-					? 'HTML block policy: no core/html blocks found.'
-					: `HTML block policy: all ${ htmlReport.totalHtmlBlocks } core/html blocks within policy.`;
-
-			// Stage 2: validate (and fix) in the site's real block editor.
-			context.onProgress( `Validating and fixing blocks in ${ fileName }…` );
-
-			const siteUrl = getSiteUrl( site );
-			const report = await validateBlocks( blockContent, siteUrl );
-
-			if ( report.error ) {
-				context.onProgress(
-					`Validation failed for ${ fileName }: ${ report.error.slice( 0, 80 ) }`
-				);
-				throw new Error( `Block validation failed: ${ report.error }` );
-			}
-
-			if ( report.invalidBlocks === 0 ) {
-				context.onProgress( `${ fileName }: all ${ report.totalBlocks } blocks valid` );
-				return textResult(
-					[
-						htmlSummary,
-						`Validation: ${ report.validBlocks }/${ report.totalBlocks } blocks valid`,
-						'No editor serialization fixes needed.',
-					].join( '\n' )
-				);
-			}
-
-			const invalidNames = report.results
-				.filter( ( result ) => ! result.isValid )
-				.map( ( result ) => result.blockName )
-				.join( ', ' );
-			context.onProgress( `${ fileName }: ${ report.invalidBlocks } invalid (${ invalidNames })` );
-
-			const lines = [
-				htmlSummary,
-				`Validation: ${ report.validBlocks }/${ report.totalBlocks } blocks valid`,
-				'',
-				'Invalid blocks:',
-				...formatInvalidBlocks( report ),
-			];
-
-			if ( report.proposedFix ) {
-				const fixedReport = report.proposedFix.report;
-				if ( fixedReport.error ) {
-					lines.push( '', `Auto-fix proposal failed validation: ${ fixedReport.error }` );
-				} else if ( fixedReport.invalidBlocks === 0 ) {
-					const fixedContent = report.proposedFix.fixedContent;
-					const diff = generateUnifiedPatch( fileName, blockContent, fixedContent );
-					if ( filePath ) {
-						await writeFile( filePath, fixedContent, 'utf-8' );
-						context.onProgress( `${ fileName }: editor serialization fix applied` );
-						lines.push(
-							'',
-							`Auto-fix applied: ${ fixedReport.validBlocks }/${ fixedReport.totalBlocks } blocks valid after live-editor serialization.`,
-							`The fixed block content has already been written to ${ fileName }. Do not replace it manually. Use the diff only to review class/nesting changes and update CSS selectors if needed.`
-						);
-					} else {
-						lines.push(
-							'',
-							`Auto-fix proposal: ${ fixedReport.validBlocks }/${ fixedReport.totalBlocks } blocks valid after live-editor serialization.`,
-							'Use the fixed block content below as the replacement block content. Use the diff only to review class/nesting changes and update CSS selectors if needed.',
-							'',
-							'Fixed block content:',
-							formatMarkdownFence( 'html', fixedContent )
-						);
-					}
-					lines.push( '', 'Diff for CSS review:', '```diff', diff, '```' );
-				} else {
-					lines.push(
-						'',
-						`Auto-fix proposal still has ${ fixedReport.invalidBlocks } invalid block(s), so no trusted diff is returned.`,
-						'Remaining invalid blocks:',
-						...formatInvalidBlocks( fixedReport )
-					);
-				}
-			} else {
-				lines.push( '', 'No automatic editor serialization fix was available.' );
-			}
-
-			return textResult( lines.join( '\n' ) );
-		} catch ( error ) {
-			throw new Error(
-				`Block validation failed: ${ error instanceof Error ? error.message : String( error ) }`
-			);
+		const site = await resolveSite( args.nameOrPath );
+		const filePath = args.filePath ? path.resolve( site.path, args.filePath ) : undefined;
+		const content = filePath ? await readFile( filePath, 'utf-8' ) : args.content;
+		if ( content === undefined ) {
+			throw new Error( 'Either content or filePath must be provided.' );
 		}
+		const label = filePath ? path.relative( site.path, filePath ) : 'content';
+		context.onProgress( `Checking blocks in ${ label }…` );
+		const check = await checkBlockContent( content, getSiteUrl( site ), label );
+		if ( check.content === content ) {
+			return textResult( check.report );
+		}
+		if ( filePath ) {
+			await writeFile( filePath, check.content, 'utf-8' );
+			return textResult( check.report );
+		}
+		return textResult(
+			`${ check.report }\n\nContent to use:\n${ formatMarkdownFence( 'html', check.content ) }`
+		);
 	},
 	{
 		annotations: LOCAL_CHANGE,
 		promptSnippet:
-			"Validate block content in two stages and return a combined report. First a static core/html policy check; if it finds invalid core/html blocks it returns only those (rewrite them as editable core or plugin blocks and call again) and skips the editor. Once it passes, validates in the running site's real block editor: with filePath, applies safe editor fixes directly to the file and returns a CSS-review diff; with inline content, returns exact fixed block content plus the diff. Requires a site name or path. Call after every file write/edit that contains block content.",
+			"Check block content in the site's block editor; keeps lossless fixes. Theme templates and parts written with your own file tools need it.",
 	}
 );

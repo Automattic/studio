@@ -28,7 +28,8 @@ vi.mock( '@/data/queries/use-sessions', () => ( {
 	useSetSessionEnvironment: () => ( { mutate: vi.fn() } ),
 } ) );
 
-vi.mock( '@/data/queries/use-connected-wpcom-sites', () => ( {
+vi.mock( '@/data/queries/use-connected-wpcom-sites', async ( importOriginal ) => ( {
+	...( await importOriginal< object >() ),
 	useConnectedWpcomSites: () => ( { data: [] } ),
 } ) );
 

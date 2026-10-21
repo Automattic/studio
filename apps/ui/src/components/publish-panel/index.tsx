@@ -241,7 +241,12 @@ export function PublishButton( {
 										<span className={ styles.choiceName } title={ remote.name || remote.url }>
 											{ remote.name || remote.url }
 										</span>
-										<span className={ styles.choiceLabel }>{ websiteLabel( remote ) }</span>
+										<span
+											className={ styles.choiceLabel }
+											title={ `${ websiteAddress( remote ) } · ${ websiteLabel( remote ) }` }
+										>
+											{ websiteAddress( remote ) } · { websiteLabel( remote ) }
+										</span>
 									</button>
 									{ websiteIssue( remote ) ? (
 										<p className={ styles.text }>{ websiteIssue( remote ) }</p>

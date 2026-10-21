@@ -309,7 +309,8 @@
 	cursor: default;
 }
 
-.choiceName {
+.choiceName,
+.choiceLabel {
 	max-width: 100%;
 	overflow: hidden;
 	text-overflow: ellipsis;

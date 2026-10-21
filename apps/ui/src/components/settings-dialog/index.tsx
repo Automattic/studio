@@ -87,7 +87,7 @@ function getSections( scope: 'studio' | 'site' ): Section[] {
 					id: 'appearance',
 					label: __( 'Appearance' ),
 					icon: brush,
-					settings: [ __( 'Theme' ) ],
+					settings: [ __( 'Theme' ), __( 'Color' ), __( 'Intensity' ), __( 'Reset appearance' ) ],
 				},
 				{
 					id: 'ai',

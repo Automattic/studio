@@ -4,7 +4,7 @@ import { I18nProvider } from '@wordpress/react-i18n';
 import { ThemeProvider } from '@wordpress/theme';
 import { Tooltip } from '@wordpress/ui';
 import { useEffect } from 'react';
-import { appThemeColor } from '@/components/app-theme-scope';
+import { AppThemeColorContext, useAppThemeColor } from '@/components/app-theme-scope';
 import { OnboardingGuideProvider } from '@/components/onboarding-guide/use-onboarding-guide';
 import { ConnectorProvider, queryClient } from '@/data/core';
 import { AgentRunProvider } from '@/data/queries/use-agent-run';
@@ -39,16 +39,18 @@ function SiteEventsBridge() {
 // browser, where there's no Electron `nativeTheme` to mirror it.
 function ThemedApp( { children }: PropsWithChildren ) {
 	const colorScheme = useColorScheme();
-	const themeColor = appThemeColor( colorScheme );
+	const themeColor = useAppThemeColor();
 	useEffect( () => {
 		document.documentElement.style.colorScheme = colorScheme;
 		document.documentElement.dataset.colorScheme = colorScheme;
 	}, [ colorScheme ] );
 	return (
 		<ThemeProvider isRoot color={ themeColor } cornerRadius="moderate">
-			<Tooltip.Provider>
-				<OnboardingGuideProvider>{ children }</OnboardingGuideProvider>
-			</Tooltip.Provider>
+			<AppThemeColorContext.Provider value={ themeColor }>
+				<Tooltip.Provider>
+					<OnboardingGuideProvider>{ children }</OnboardingGuideProvider>
+				</Tooltip.Provider>
+			</AppThemeColorContext.Provider>
 		</ThemeProvider>
 	);
 }

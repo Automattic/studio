@@ -641,6 +641,10 @@ export interface UserPreferences {
 	agenticFeaturesEnabled: boolean;
 	// The sidebar's Pinned group, in order, as `site:<id>` and `chat:<id>` keys.
 	sidebarPins?: string[];
+	// A hex accent color, or null for the theme's own.
+	accentColor?: string | null;
+	// How strongly the accent tints the app's surfaces, 0–100.
+	tintIntensity?: number;
 }
 
 export interface AppGlobals {

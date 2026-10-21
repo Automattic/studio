@@ -18,7 +18,6 @@ import styles from './style.module.css';
 import { WapuuScore } from './wapuu-score';
 import type { PreferencesFormData } from './preferences';
 import type {
-	ColorScheme,
 	InstalledApps,
 	QuitSitesBehavior,
 	SupportedEditor,
@@ -46,12 +45,6 @@ function terminalElements( installedApps: InstalledApps | undefined ) {
 		label: terminalConfig[ terminal ].name(),
 	} ) );
 }
-
-const COLOR_SCHEME_ELEMENTS: { value: ColorScheme; label: string }[] = [
-	{ value: 'system', label: __( 'System' ) },
-	{ value: 'light', label: __( 'Light' ) },
-	{ value: 'dark', label: __( 'Dark' ) },
-];
 
 const QUIT_SITES_BEHAVIOR_ELEMENTS: {
 	value: QuitSitesBehavior | typeof UNSET;
@@ -311,26 +304,8 @@ export function GeneralSettings() {
 	);
 }
 
-export function AppearanceSettings() {
-	const { data, handleChange, loadFailed } = usePreferencesForm();
-	if ( ! data ) {
-		return <PreferencesState loadFailed={ loadFailed } />;
-	}
-	return (
-		<SettingsGroup>
-			<SettingsRow title={ __( 'Theme' ) } description={ __( 'Choose light, dark, or system.' ) }>
-				<SettingsSelect
-					label={ __( 'Theme' ) }
-					value={ data.colorScheme }
-					options={ COLOR_SCHEME_ELEMENTS }
-					onChange={ ( colorScheme ) => handleChange( { colorScheme } ) }
-				/>
-			</SettingsRow>
-		</SettingsGroup>
-	);
-}
-
 export { AiPanel } from './ai-panel';
+export { AppearanceSettings } from './appearance-settings';
 export { KeyboardPanel } from './keyboard-panel';
 export { McpPanel } from './mcp-panel';
 export { SkillsPanel } from './skills-panel';

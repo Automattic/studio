@@ -746,3 +746,102 @@
 			transparent 8px 16px
 		);
 }
+
+.swatches {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.swatch {
+	inline-size: 24px;
+	block-size: 24px;
+	padding: 0;
+	border: 0;
+	border-radius: 50%;
+	cursor: var( --wpds-cursor-control );
+}
+
+.swatch[aria-pressed='true'],
+.swatch:focus-visible {
+	outline: 2px solid var( --wpds-color-stroke-focus );
+	outline-offset: 2px;
+}
+
+.hexField {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	inline-size: 128px;
+	block-size: 36px;
+	box-sizing: border-box;
+	margin-inline-start: 4px;
+	padding-inline: 10px;
+	border: var( --wpds-border-width-xs ) solid
+		color-mix( in srgb, var( --wpds-color-foreground-content-neutral ) 10%, transparent );
+	border-radius: 9px;
+	background: color-mix( in srgb, var( --wpds-color-background-surface-neutral-strong ) 60%, transparent );
+}
+
+.hexField:focus-within {
+	border-color: var( --wpds-color-stroke-focus );
+	box-shadow: inset 0 0 0 1px var( --wpds-color-stroke-focus );
+}
+
+.hexField input {
+	flex: 1;
+	min-inline-size: 0;
+	padding: 0;
+	border: 0;
+	background: none;
+	color: inherit;
+	font: inherit;
+	font-size: 13px;
+	outline: none;
+}
+
+.hexSample {
+	flex: none;
+	inline-size: 16px;
+	block-size: 16px;
+	border: var( --wpds-border-width-xs ) solid
+		color-mix( in srgb, var( --wpds-color-foreground-content-neutral ) 10%, transparent );
+	border-radius: 3px;
+}
+
+.slider {
+	inline-size: 192px;
+}
+
+.sliderControl {
+	display: flex;
+	align-items: center;
+	padding-block: 8px;
+	touch-action: none;
+}
+
+.sliderTrack {
+	position: relative;
+	inline-size: 100%;
+	block-size: 4px;
+	border-radius: 2px;
+	background: color-mix( in srgb, var( --wpds-color-foreground-content-neutral ) 12%, transparent );
+}
+
+.sliderIndicator {
+	border-radius: 2px;
+	background: var( --wpds-color-background-interactive-brand-strong );
+}
+
+.sliderThumb {
+	inline-size: 16px;
+	block-size: 16px;
+	border-radius: 50%;
+	background: var( --wpds-color-background-interactive-brand-strong );
+	box-shadow: 0 1px 2px rgba( 0, 0, 0, 0.2 );
+}
+
+.sliderThumb:has( :focus-visible ) {
+	outline: 2px solid var( --wpds-color-stroke-focus );
+	outline-offset: 2px;
+}

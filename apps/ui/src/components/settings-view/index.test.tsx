@@ -69,6 +69,10 @@ vi.mock( '@/components/gravatar', () => ( {
 	Gravatar: () => <span data-testid="gravatar" />,
 } ) );
 
+vi.mock( '@tanstack/react-query', () => ( {
+	useQueryClient: () => ( { setQueryData: vi.fn() } ),
+} ) );
+
 vi.mock( '@/data/core', () => ( {
 	useConnector: vi.fn(),
 } ) );
@@ -172,7 +176,7 @@ describe( 'Studio settings', () => {
 
 		fireEvent.change( screen.getByLabelText( 'Theme' ), { target: { value: 'dark' } } );
 
-		expect( mutate ).toHaveBeenCalledWith( { colorScheme: 'dark' }, expect.any( Object ) );
+		expect( mutate ).toHaveBeenCalledWith( { colorScheme: 'dark' } );
 	} );
 
 	it( 'saves the editor on change and only offers installed apps', () => {

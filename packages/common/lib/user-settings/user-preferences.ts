@@ -38,6 +38,10 @@ export interface UserPreferences {
 	agenticFeaturesEnabled: boolean;
 	// The sidebar's Pinned group, in order, as `site:<id>` and `chat:<id>` keys.
 	sidebarPins: string[];
+	// A hex accent color, or null for the theme's own.
+	accentColor: string | null;
+	// How strongly the accent tints the app's surfaces, 0–100.
+	tintIntensity: number;
 }
 
 // Passed in, so this stays a pure reader over the config files.
@@ -58,6 +62,8 @@ const colorSchemeWithDefault = z.enum( SUPPORTED_COLOR_SCHEMES ).catch( DEFAULT_
 const optionalQuitSitesBehavior = z.enum( QUIT_SITES_BEHAVIORS ).optional().catch( undefined );
 const nonEmptyString = z.string().nonempty();
 const sidebarPinsSchema = z.array( z.string() );
+const accentColorSchema = z.string().regex( /^#[0-9a-f]{6}$/i );
+const tintIntensitySchema = z.number().min( 0 ).max( 100 );
 
 // `null` clears a preference back to its default; JSON drops `undefined` keys,
 // so a clear can't travel as one.
@@ -72,6 +78,8 @@ export const userPreferencesPatchSchema = z.object( {
 	defaultSiteDirectory: z.string().nullish(),
 	agenticFeaturesEnabled: z.boolean().nullish(),
 	sidebarPins: sidebarPinsSchema.nullish(),
+	accentColor: accentColorSchema.nullish(),
+	tintIntensity: tintIntensitySchema.nullish(),
 	// Where the change was made (the analytics toggle also appears during onboarding); not stored.
 	surface: z.enum( [ 'onboarding', 'settings' ] ).optional(),
 } );
@@ -87,6 +95,8 @@ const APP_CONFIG_KEYS = [
 	[ 'defaultSiteDirectory', 'defaultSiteDirectory' ],
 	[ 'agenticFeaturesEnabled', 'agenticFeaturesEnabled' ],
 	[ 'sidebarPins', 'sidebarPins' ],
+	[ 'accentColor', 'accentColor' ],
+	[ 'tintIntensity', 'tintIntensity' ],
 ] as const satisfies readonly ( readonly [ keyof UserPreferencesPatch, string ] )[];
 
 function getDefaultSiteDirectory( config: AppConfig, sitesRoot: string ): string {
@@ -116,6 +126,11 @@ export async function readUserPreferences( {
 		defaultSiteDirectory: getDefaultSiteDirectory( config, sitesRoot ),
 		agenticFeaturesEnabled: config.agenticFeaturesEnabled !== false,
 		sidebarPins: sidebarPinsSchema.catch( [] ).parse( config.sidebarPins ),
+		accentColor: accentColorSchema
+			.nullable()
+			.catch( null )
+			.parse( config.accentColor ?? null ),
+		tintIntensity: tintIntensitySchema.catch( 0 ).parse( config.tintIntensity ),
 	};
 }
 

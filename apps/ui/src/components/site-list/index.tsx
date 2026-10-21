@@ -894,7 +894,20 @@ export function SiteList( {
 	return (
 		<div className={ clsx( styles.root, className ) }>
 			{ pinnedItems.length > 0 ? (
-				<SidebarGroup title={ __( 'Pinned' ) }>
+				<SidebarGroup
+					title={ __( 'Pinned' ) }
+					action={
+						<IconButton
+							variant="minimal"
+							tone="neutral"
+							size="small"
+							icon={ plusIcon }
+							label={ __( 'Add pinned site' ) }
+							className={ styles.rowAction }
+							onClick={ () => void navigate( { to: '/onboarding', search: { pin: true } } ) }
+						/>
+					}
+				>
 					<ReorderableList
 						items={ pinnedItems }
 						getItemId={ ( item ) => item.key }

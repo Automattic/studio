@@ -18,7 +18,7 @@ import { usePullSiteFromLive } from '@/data/queries/use-sync-site';
 import { useUserLocale } from '@/data/queries/use-user-locale';
 import { useSyncableWpcomSites } from '@/data/queries/use-wpcom-sites';
 import { useOffline } from '@/hooks/use-offline';
-import { onboardingLayoutRoute, useOnboardingProgress } from '../layout-onboarding';
+import { onboardingLayoutRoute, useOnboardingProgress, usePinNewSite } from '../layout-onboarding';
 import sharedStyles from '../layout-onboarding/style.module.css';
 import { ConnectSiteLifecycleError, runConnectSiteLifecycle } from './connect-site';
 import { presentRemoteSites, searchRemoteSites, type ConnectSiteGroup } from './site-presentation';
@@ -184,6 +184,7 @@ export function OnboardingConnectPage() {
 		enabled: !! user && ! isOffline,
 	} );
 	const createSite = useCreateSite();
+	const pinNewSite = usePinNewSite();
 	const deleteSite = useDeleteSite();
 	const pullSite = usePullSiteFromLive();
 	const startSite = useStartSite( { silent: true } );
@@ -244,13 +245,16 @@ export function OnboardingConnectPage() {
 			const name = await connector.generateNumberedSiteName( localName, localSites );
 			const { path } = await connector.generateProposedSitePath( name );
 			await runConnectSiteLifecycle( {
-				createLocalSite: () =>
-					createSite.mutateAsync( {
+				createLocalSite: async () => {
+					const site = await createSite.mutateAsync( {
 						name,
 						path,
 						skipStart: true,
 						flowType: 'sync',
-					} ),
+					} );
+					pinNewSite( site.id );
+					return site;
+				},
 				persistConnection: async ( localSiteId ) => {
 					try {
 						await connector.connectWpcomSite( localSiteId, {
@@ -333,6 +337,7 @@ export function OnboardingConnectPage() {
 		connector,
 		localSites,
 		createSite,
+		pinNewSite,
 		pullSite,
 		startSite,
 		navigate,

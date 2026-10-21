@@ -10,11 +10,6 @@ import {
 	type WebContents,
 	SaveDialogOptions,
 } from 'electron';
-import {
-	isSitePreviewPath,
-	readSitePreview,
-	writeSitePreview,
-} from '@studio/common/lib/site-preview-cache';
 import fs from 'fs';
 import fsPromises from 'fs/promises';
 import os from 'os';
@@ -73,6 +68,11 @@ import {
 } from '@studio/common/lib/root-ca-trust';
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
 import { readAuthToken, updateSharedConfig } from '@studio/common/lib/shared-config';
+import {
+	isSitePreviewPath,
+	readSitePreview,
+	writeSitePreview,
+} from '@studio/common/lib/site-preview-cache';
 import {
 	getLocalFileSize,
 	listLocalFileTree as listSiteFileTree,

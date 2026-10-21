@@ -186,6 +186,16 @@ export class E2ESession {
 
 	async cleanup() {
 		await this.closeApp();
+		// CI sets this to upload each session's daemon and site logs when a run fails.
+		const keptLogsDir = process.env.STUDIO_E2E_DAEMON_LOGS_DIR;
+		const daemonLogsDir = path.join( this.daemonHomePath, 'logs' );
+		if ( keptLogsDir && fs.existsSync( daemonLogsDir ) ) {
+			await fs
+				.copy( daemonLogsDir, path.resolve( keptLogsDir, path.basename( this.daemonHomePath ) ) )
+				.catch( () => {
+					// Best effort: missing diagnostics must not fail the test.
+				} );
+		}
 		await rimraf( [ this.sessionPath, this.daemonHomePath ], {
 			backoff: 2,
 			maxBackoff: 2500,

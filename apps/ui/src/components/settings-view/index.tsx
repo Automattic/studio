@@ -380,5 +380,6 @@ export function InstructionsSettings( { onManageSite }: { onManageSite?: () => v
 export { AiPanel } from './ai-panel';
 export { KeyboardPanel } from './keyboard-panel';
 export { McpPanel } from './mcp-panel';
+export { SharingPanel } from './sharing-panel';
 export { SkillsPanel } from './skills-panel';
 export { UsagePanel } from './usage-panel';

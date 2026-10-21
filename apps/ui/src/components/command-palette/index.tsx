@@ -8,7 +8,6 @@ import { isKeyboardEvent } from '@wordpress/keycodes';
 import { useEffect, useState } from 'react';
 import { useChatActions } from '@/components/chat-actions';
 import { useOpenInDestinations } from '@/components/open-in-menu/use-open-in-destinations';
-import { useOpenPublish } from '@/components/publish-panel/request';
 import { getSessionTitle } from '@/components/session-view/session-chat-actions';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
@@ -18,6 +17,7 @@ import { sitePinKey, useSidebarPins } from '@/data/queries/use-sidebar-pins';
 import { useIsSiteBusy, useSites, useStartSite, useStopSite } from '@/data/queries/use-sites';
 import { useSaveUserPreferences } from '@/data/queries/use-user-preferences';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useOpenHeaderPanel } from '@/hooks/use-open-header-panel';
 import { useOpenSettings } from '@/hooks/use-open-settings';
 import { useOpenSite } from '@/hooks/use-open-site';
 import { useSessionUIDispatch, useSessionPreviewUI } from '@/hooks/use-session-ui';
@@ -34,6 +34,7 @@ import {
 	refreshIcon,
 	renameIcon,
 	settingsIcon,
+	shareIcon,
 	sidebarExpandedIcon,
 	startSiteIcon,
 	stopSiteIcon,
@@ -285,7 +286,7 @@ function SiteCommands( {
 	const manage = useSiteManagementActions( site, { onDelete: () => {} } );
 	const preview = useSessionPreviewUI();
 	const dispatch = useSessionUIDispatch();
-	const openPublish = useOpenPublish();
+	const openHeaderPanel = useOpenHeaderPanel();
 	const description = site.name;
 
 	const siteCommands: PaletteCommand[] = [
@@ -363,13 +364,22 @@ function SiteCommands( {
 					},
 			  ] ),
 		{
+			id: 'share',
+			group: 'site',
+			label: __( 'Share site…' ),
+			icon: shareIcon,
+			description,
+			keywords: [ __( 'preview link' ) ],
+			run: () => openHeaderPanel( { panel: 'share', siteId: site.id } ),
+		},
+		{
 			id: 'publish',
 			group: 'site',
 			label: __( 'Publish & Sync…' ),
 			icon: cloudUpload,
 			description,
 			keywords: [ __( 'publish site sync push pull upload download' ) ],
-			run: () => openPublish( { siteId: site.id, view: 'publish' } ),
+			run: () => openHeaderPanel( { panel: 'publish', siteId: site.id, view: 'publish' } ),
 		},
 		{
 			id: 'copy-url',

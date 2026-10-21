@@ -32,6 +32,10 @@ vi.mock( '@/data/queries/use-agentic-features', () => ( {
 } ) );
 
 // jsdom has no 2D canvas context, so swap the animated grid for a bare canvas.
+vi.mock( '@/components/share-dialog', () => ( {
+	ShareButton: () => null,
+} ) );
+
 vi.mock( '@/components/dot-grid', () => ( {
 	DotGrid: () => <canvas data-testid="dot-grid" />,
 } ) );

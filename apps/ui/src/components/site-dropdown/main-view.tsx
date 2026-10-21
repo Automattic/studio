@@ -1,15 +1,12 @@
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { type SiteOperationKind } from '@studio/common/lib/site-operation';
-import { getSiteOperationLabel } from '@studio/common/lib/site-operation-labels';
 import { __, sprintf } from '@wordpress/i18n';
 import { external, Icon } from '@wordpress/icons';
 import { IconButton, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
-import { useMemo } from 'react';
 import { useOpenInDestinations } from '@/components/open-in-menu/use-open-in-destinations';
 import { XdebugIcon } from '@/components/xdebug-icon';
 import { useConnector } from '@/data/core';
-import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import {
 	useIsSiteBusy,
 	useIsSiteStarting,
@@ -18,13 +15,11 @@ import {
 	useStartSite,
 	useStopSite,
 } from '@/data/queries/use-sites';
-import { useSnapshotUsage, useSnapshots } from '@/data/queries/use-snapshots';
 import { getSiteUrl } from '@/lib/get-site-url';
 import styles from './main-view.module.css';
 import { PopoverRow } from './popover-row';
-import { PreviewsSection } from './previews-section';
 import { getSyncActivityLabel } from './trigger-secondary';
-import { deriveSiteStatus, getSiteStatusName, getSiteSnapshots } from './utils';
+import { deriveSiteStatus, getSiteStatusName } from './utils';
 import type { SiteDetails } from '@/data/core';
 import type { SyncActivity } from '@/data/sync-activity';
 
@@ -33,44 +28,9 @@ type Props = {
 	activity: SyncActivity | null;
 };
 
-// Why there is nothing to list yet, or why a new preview can't be created.
-function getPreviewsNotice(
-	agenticEnabled: boolean,
-	isOffline: boolean,
-	hasPreviews: boolean,
-	snapshotUsage?: { siteCount: number; siteLimit: number; siteCreationBlocked: boolean } | null
-): string | null {
-	if ( agenticEnabled ) {
-		if ( snapshotUsage?.siteCreationBlocked ) {
-			return __( 'Preview sites are not available for your account.' );
-		}
-		if ( snapshotUsage && snapshotUsage.siteCount >= snapshotUsage.siteLimit ) {
-			return sprintf(
-				/* translators: %d: maximum number of preview sites allowed */
-				__( "You've used all %d preview sites available on your account." ),
-				snapshotUsage.siteLimit
-			);
-		}
-		return hasPreviews ? null : __( 'Share a review link for this version.' );
-	}
-	if ( isOffline ) {
-		return __( 'Go online to share a review link.' );
-	}
-	return __( 'Sign in to share a review link.' );
-}
-
 export function MainView( { site, activity }: Props ) {
 	const connector = useConnector();
 	const openInDestinations = useOpenInDestinations( site );
-	const { enabled: agenticEnabled, reason: agenticReason } = useAgenticFeatures();
-	const isOffline = agenticReason === 'offline';
-	const { data: snapshots } = useSnapshots();
-	const { data: snapshotUsage } = useSnapshotUsage();
-
-	const siteSnapshots = useMemo(
-		() => getSiteSnapshots( snapshots, site.id ),
-		[ snapshots, site.id ]
-	);
 
 	const startSite = useStartSite();
 	const stopSite = useStopSite();
@@ -79,51 +39,12 @@ export function MainView( { site, activity }: Props ) {
 	const isStopping = useIsSiteStopping( site.id );
 	const isOperationInProgress = useIsSiteBusy( site );
 	const operation = useSiteOperation( site );
-	// Preview / push / pull all mutate the same local site; running them
-	// concurrently would wedge the site runtime. An import replaces that site's
-	// files and database outright, so it locks them out too.
-	const isSyncing = activity?.kind === 'pending';
-	// …and none of them can run while the CLI holds the site either. Gate the
-	// controls on both, so an operation the agent took disables them visibly rather
-	// than leaving buttons that swallow the click.
-	const isSiteBusy = isSyncing || isOperationInProgress;
-
-	const isPreviewLimitReached =
-		snapshotUsage?.siteCreationBlocked === true ||
-		( snapshotUsage?.siteCount ?? 0 ) >= ( snapshotUsage?.siteLimit ?? Infinity );
-
 	const { localSublabel } = deriveSiteStatus( site, isStarting, isStopping, operation );
 	const localSiteUrl = getSiteUrl( site );
 	const canOpenLocalSite = site.running && ! isStopping;
 
 	const openExternal = ( url: string ) => {
 		void connector.openExternalUrl( url );
-	};
-
-	const getSyncActionLabel = ( idle: string, pending: string, isPending: boolean ): string => {
-		if ( isPending ) {
-			return pending;
-		}
-		if ( operation ) {
-			return sprintf(
-				/* translators: 1: a sync action, e.g. "Pull from live". 2: an operation in progress, e.g. "Saving settings". */
-				__( '%1$s (%2$s)' ),
-				idle,
-				getSiteOperationLabel( operation )
-			);
-		}
-		if ( isSyncing ) {
-			// translators: %s: a sync action, e.g. "Pull from live".
-			return sprintf( __( '%s (sync in progress)' ), idle );
-		}
-		if ( ! agenticEnabled ) {
-			return isOffline
-				? // translators: %s: a sync action, e.g. "Pull from live".
-				  sprintf( __( '%s (offline)' ), idle )
-				: // translators: %s: a sync action, e.g. "Pull from live".
-				  sprintf( __( '%s (sign in required)' ), idle );
-		}
-		return idle;
 	};
 
 	const handleStartLocalClick = () => {
@@ -229,21 +150,6 @@ export function MainView( { site, activity }: Props ) {
 						) ) }
 					</div>
 				}
-			/>
-
-			<PreviewsSection
-				site={ site }
-				snapshots={ siteSnapshots }
-				activity={ activity }
-				notice={ getPreviewsNotice(
-					agenticEnabled,
-					isOffline,
-					siteSnapshots.length > 0,
-					snapshotUsage
-				) }
-				canPublish={ ! isSiteBusy && agenticEnabled }
-				canCreate={ ! isPreviewLimitReached }
-				getPublishLabel={ ( idle ) => getSyncActionLabel( idle, __( 'Updating preview…' ), false ) }
 			/>
 		</div>
 	);

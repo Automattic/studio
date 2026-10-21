@@ -31,6 +31,7 @@ import { useOpenInDestinations } from '@/components/open-in-menu/use-open-in-des
 import { SitePublishMenu } from '@/components/publish-panel/publish-menu';
 import { ReorderableList } from '@/components/reorderable-list';
 import { getSessionTitle } from '@/components/session-view/session-chat-actions';
+import { SiteShareMenuItem } from '@/components/share-dialog/share-menu-item';
 import { SidebarButton } from '@/components/sidebar-button';
 import { deriveSiteStatus, getSiteStatusName } from '@/components/site-dropdown/utils';
 import { XdebugIcon } from '@/components/xdebug-icon';
@@ -558,6 +559,7 @@ function SiteActionsMenu( {
 								{ manageById[ 'export-db' ].loading ? __( 'Exporting…' ) : __( 'Export database' ) }
 							</Menu.Item>
 							<Menu.Separator />
+							<SiteShareMenuItem site={ site } disabled={ busy } />
 							<SitePublishMenu site={ site } disabled={ busy } />
 							<Menu.Separator />
 							<Menu.Item

@@ -9,31 +9,85 @@ import site3 from './assets/site-3.png';
 import styles from './style.module.css';
 import type { TracksAuthSource } from '@studio/common/lib/record-tracks-event';
 
+export const previewSiteImage = site2;
+
 // Asks a signed-out user to create a WordPress.com account or log in before
-// something that needs one, like publishing.
-export function AccountPromptDialog( {
-	open,
-	onOpenChange,
+// something that needs one, like publishing or sharing.
+export function AccountPrompt( {
 	title,
 	description,
+	descriptionId,
 	source,
-	finalFocus,
 	onCreateAccount,
 }: {
-	open: boolean;
-	onOpenChange: ( open: boolean ) => void;
 	title: string;
 	description: string;
+	descriptionId?: string;
 	source: TracksAuthSource;
-	finalFocus?: RefObject< HTMLElement | null >;
 	onCreateAccount?: () => void;
 } ) {
-	const descriptionId = useId();
 	const offline = useOffline();
 	const login = useLogin( { source } );
 	const signup = useLogin( { signup: true, source } );
 	const pending = login.isPending || signup.isPending;
 	const error = login.error ?? signup.error;
+	return (
+		<div className={ styles.body }>
+			<div aria-hidden="true" className={ styles.illustration }>
+				<span className={ styles.cardStart } style={ { backgroundImage: `url(${ site1 })` } } />
+				<span className={ styles.cardEnd } style={ { backgroundImage: `url(${ site3 })` } } />
+				<span className={ styles.cardCenter } style={ { backgroundImage: `url(${ site2 })` } } />
+			</div>
+			<h2 className={ styles.title }>{ title }</h2>
+			<p id={ descriptionId } className={ styles.description }>
+				{ offline
+					? __( 'Connect to the internet to create an account or log in.' )
+					: pending
+					? __( 'Finish creating your account or logging in to WordPress.com in your browser.' )
+					: description }
+			</p>
+			{ error ? (
+				<p role="alert" className={ styles.error }>
+					{ error instanceof Error ? error.message : String( error ) }
+				</p>
+			) : null }
+			<Button
+				variant="solid"
+				tone="neutral"
+				className={ styles.createAccount }
+				disabled={ offline || pending }
+				loading={ signup.isPending }
+				onClick={ () => {
+					onCreateAccount?.();
+					signup.mutate();
+				} }
+			>
+				{ __( 'Create account' ) }
+			</Button>
+			<Button
+				variant="unstyled"
+				className={ styles.logIn }
+				disabled={ offline || pending }
+				loading={ login.isPending }
+				onClick={ () => login.mutate() }
+			>
+				{ __( 'Log in to WordPress.com' ) }
+			</Button>
+		</div>
+	);
+}
+
+export function AccountPromptDialog( {
+	open,
+	onOpenChange,
+	finalFocus,
+	...prompt
+}: Parameters< typeof AccountPrompt >[ 0 ] & {
+	open: boolean;
+	onOpenChange: ( open: boolean ) => void;
+	finalFocus?: RefObject< HTMLElement | null >;
+} ) {
+	const descriptionId = useId();
 	return (
 		<Dialog.Root open={ open } onOpenChange={ onOpenChange }>
 			<Dialog.Popup
@@ -44,55 +98,11 @@ export function AccountPromptDialog( {
 			>
 				<Dialog.Header className={ styles.header }>
 					<VisuallyHidden>
-						<Dialog.Title>{ title }</Dialog.Title>
+						<Dialog.Title>{ prompt.title }</Dialog.Title>
 					</VisuallyHidden>
 					<Dialog.CloseIconButton />
 				</Dialog.Header>
-				<div className={ styles.body }>
-					<div aria-hidden="true" className={ styles.illustration }>
-						<span className={ styles.cardStart } style={ { backgroundImage: `url(${ site1 })` } } />
-						<span className={ styles.cardEnd } style={ { backgroundImage: `url(${ site3 })` } } />
-						<span
-							className={ styles.cardCenter }
-							style={ { backgroundImage: `url(${ site2 })` } }
-						/>
-					</div>
-					<h2 className={ styles.title }>{ title }</h2>
-					<p id={ descriptionId } className={ styles.description }>
-						{ offline
-							? __( 'Connect to the internet to create an account or log in.' )
-							: pending
-							? __( 'Finish creating your account or logging in to WordPress.com in your browser.' )
-							: description }
-					</p>
-					{ error ? (
-						<p role="alert" className={ styles.error }>
-							{ error instanceof Error ? error.message : String( error ) }
-						</p>
-					) : null }
-					<Button
-						variant="solid"
-						tone="neutral"
-						className={ styles.createAccount }
-						disabled={ offline || pending }
-						loading={ signup.isPending }
-						onClick={ () => {
-							onCreateAccount?.();
-							signup.mutate();
-						} }
-					>
-						{ __( 'Create account' ) }
-					</Button>
-					<Button
-						variant="unstyled"
-						className={ styles.logIn }
-						disabled={ offline || pending }
-						loading={ login.isPending }
-						onClick={ () => login.mutate() }
-					>
-						{ __( 'Log in to WordPress.com' ) }
-					</Button>
-				</div>
+				<AccountPrompt { ...prompt } descriptionId={ descriptionId } />
 			</Dialog.Popup>
 		</Dialog.Root>
 	);

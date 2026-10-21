@@ -19,15 +19,14 @@ import { useCancelSync, useDisconnectWpcomSite } from '@/data/queries/use-sync-s
 import { usePickableWpcomSites, useSyncableWpcomSites } from '@/data/queries/use-wpcom-sites';
 import { useSiteSyncActivity } from '@/data/sync-activity';
 import { useOffline } from '@/hooks/use-offline';
+import { subscribeHeaderPanelRequest } from '@/hooks/use-open-header-panel';
 import { ConnectedView } from './connected-view';
 import { websiteAddress, websiteIssue, websiteLabel, type PublishView } from './options';
 import { ErrorMessage, PanelBody, PanelHeader, TransferProgress } from './parts';
-import { subscribePublishRequest } from './request';
 import styles from './style.module.css';
 import { TransferIcon } from './transfer-icon';
 import type { SiteDetails, SyncSite } from '@/data/core';
 
-export { useOpenPublish } from './request';
 export { WebsiteMenuItems } from './connected-view';
 
 // The header's Publish button and its panel: connect the site to a
@@ -112,7 +111,7 @@ export function PublishButton( {
 
 	useEffect(
 		() =>
-			subscribePublishRequest( site.id, ( request ) => {
+			subscribeHeaderPanelRequest( site.id, 'publish', ( request ) => {
 				setView( request.view );
 				setSelectedId( request.remoteSiteId ?? null );
 				setWaitingFor( null );

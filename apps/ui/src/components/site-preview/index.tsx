@@ -17,6 +17,7 @@ import { DesignSystemView } from '@/components/design-system-view';
 import * as Menu from '@/components/menu';
 import { PreviewParticles } from '@/components/preview-particles';
 import { PublishButton } from '@/components/publish-panel';
+import { ShareButton } from '@/components/share-dialog';
 import { SiteLifecycleButton } from '@/components/site-lifecycle-button';
 import { StoppedSitePreview } from '@/components/stopped-site-preview';
 import { useConnector } from '@/data/core';
@@ -25,6 +26,7 @@ import { siteDesignQueryKey, useSiteDesign } from '@/data/queries/use-site-desig
 import { useSiteIcon } from '@/data/queries/use-site-icon';
 import { siteThumbnailQueryKey, useSiteThumbnail } from '@/data/queries/use-site-thumbnail';
 import { useIsSiteStarting, useSiteOperation } from '@/data/queries/use-sites';
+import { requestHeaderPanel } from '@/hooks/use-open-header-panel';
 import { useOpenSettings } from '@/hooks/use-open-settings';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
@@ -1073,6 +1075,7 @@ export function SitePreview( {
 						<>
 							<PublishButton site={ site } anchor={ headerRef } />
 							<SiteLifecycleButton site={ site } />
+							<ShareButton site={ site } className={ styles.shareAction } />
 						</>
 					) }
 					{ canPreview && ! inspectorState.isPicking ? (
@@ -1090,6 +1093,12 @@ export function SitePreview( {
 								}
 							/>
 							<Menu.Popup side="bottom" align="end">
+								<Menu.Item
+									onClick={ () => requestHeaderPanel( { panel: 'share', siteId: site.id } ) }
+								>
+									{ __( 'Share' ) }
+								</Menu.Item>
+								<Menu.Separator />
 								<Menu.Item
 									disabled={ ! browserState.canGoBack }
 									onClick={ () => sendBrowserCommand( 'back' ) }

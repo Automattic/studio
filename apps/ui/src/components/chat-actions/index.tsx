@@ -60,9 +60,13 @@ export function useChatActions( session: AiSessionSummary, active: boolean ) {
 		togglePin: () => togglePin( chatPinKey( session.id ) ),
 		rename: () => setRenaming( true ),
 		toggleRead: () => mutate( { sessionId: session.id, patch: { unread: ! session.unread } } ),
-		renameDialog: renaming ? (
-			<RenameChatDialog session={ session } onClose={ () => setRenaming( false ) } />
-		) : null,
+		renameDialog: (
+			<RenameChatDialog
+				session={ session }
+				open={ renaming }
+				onClose={ () => setRenaming( false ) }
+			/>
+		),
 	};
 }
 
@@ -111,8 +115,27 @@ export function OpenChatShortcuts( { session }: { session: AiSessionSummary } ) 
 	return actions.renameDialog;
 }
 
-// Mounted while renaming; closing unmounts it.
+// Stays mounted so it animates open and closed like the other dialogs; the
+// form remounts on each open, starting from the current title.
 function RenameChatDialog( {
+	session,
+	open,
+	onClose,
+}: {
+	session: AiSessionSummary;
+	open: boolean;
+	onClose: () => void;
+} ) {
+	return (
+		<Dialog.Root open={ open } onOpenChange={ ( next ) => ! next && onClose() }>
+			<Dialog.Popup size="small">
+				<RenameChatForm session={ session } onClose={ onClose } />
+			</Dialog.Popup>
+		</Dialog.Root>
+	);
+}
+
+function RenameChatForm( {
 	session,
 	onClose,
 }: {
@@ -123,46 +146,42 @@ function RenameChatDialog( {
 	const [ title, setTitle ] = useState( () => getSessionTitle( session ) );
 
 	return (
-		<Dialog.Root open onOpenChange={ ( next ) => ! next && onClose() }>
-			<Dialog.Popup size="small">
-				<form
-					onSubmit={ ( event ) => {
-						event.preventDefault();
-						// An empty name falls back to the chat's first prompt.
-						updateSessionMetadata.mutate( {
-							sessionId: session.id,
-							patch: { title: title.trim() },
-						} );
-						onClose();
-					} }
-				>
-					<Dialog.Header>
-						<Dialog.Title>{ __( 'Rename chat' ) }</Dialog.Title>
-						<Dialog.CloseIconButton />
-					</Dialog.Header>
-					<Dialog.Content>
-						<Dialog.Description>
-							{ __( 'Choose a name that’s easy to find later.' ) }
-						</Dialog.Description>
-						<InputControl
-							label={ __( 'Chat title' ) }
-							hideLabelFromVision
-							value={ title }
-							onChange={ ( event ) => setTitle( event.target.value ) }
-							onFocus={ ( event ) => event.target.select() }
-							autoFocus
-						/>
-					</Dialog.Content>
-					<Dialog.Footer>
-						<Dialog.Action variant="outline" tone="neutral">
-							{ __( 'Cancel' ) }
-						</Dialog.Action>
-						<Button type="submit" variant="solid" tone="neutral">
-							{ __( 'Save' ) }
-						</Button>
-					</Dialog.Footer>
-				</form>
-			</Dialog.Popup>
-		</Dialog.Root>
+		<form
+			onSubmit={ ( event ) => {
+				event.preventDefault();
+				// An empty name falls back to the chat's first prompt.
+				updateSessionMetadata.mutate( {
+					sessionId: session.id,
+					patch: { title: title.trim() },
+				} );
+				onClose();
+			} }
+		>
+			<Dialog.Header>
+				<Dialog.Title>{ __( 'Rename chat' ) }</Dialog.Title>
+				<Dialog.CloseIconButton />
+			</Dialog.Header>
+			<Dialog.Content>
+				<Dialog.Description>
+					{ __( 'Choose a name that’s easy to find later.' ) }
+				</Dialog.Description>
+				<InputControl
+					label={ __( 'Chat title' ) }
+					hideLabelFromVision
+					value={ title }
+					onChange={ ( event ) => setTitle( event.target.value ) }
+					onFocus={ ( event ) => event.target.select() }
+					autoFocus
+				/>
+			</Dialog.Content>
+			<Dialog.Footer>
+				<Dialog.Action variant="outline" tone="neutral">
+					{ __( 'Cancel' ) }
+				</Dialog.Action>
+				<Button type="submit" variant="solid" tone="neutral">
+					{ __( 'Save' ) }
+				</Button>
+			</Dialog.Footer>
+		</form>
 	);
 }

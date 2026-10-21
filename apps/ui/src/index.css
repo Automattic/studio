@@ -305,6 +305,19 @@ input[type='checkbox']:focus:not( :focus-visible ) {
 		color-mix( in srgb, var( --wpds-color-foreground-content-neutral ) 30%, transparent )
 	);
 	backdrop-filter: blur( 4px );
+	transition-duration: var( --studio-motion-layout-duration );
+	transition-timing-function: var( --studio-motion-enter-easing );
+}
+
+/* Dialogs fade in from 97% on the shell's layout timing, a calmer grow than
+   @wordpress/ui's 90%. */
+[data-wp-ui-overlay-modal] {
+	transition-duration: var( --studio-motion-layout-duration );
+	transition-timing-function: var( --studio-motion-enter-easing );
+}
+
+[data-wp-ui-overlay-modal]:is( [data-starting-style], [data-ending-style] ) {
+	transform: translate( -50%, -50% ) scale( 0.97 );
 }
 
 /* Dialogs: 14px type, a title row as tall as its outlined close

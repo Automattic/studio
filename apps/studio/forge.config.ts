@@ -10,7 +10,7 @@ import { exec as pkgExec } from '@yao-pkg/pkg';
 import { globSync } from 'glob';
 import { PROTOCOL_PREFIX } from '../../packages/common/constants';
 import { RecommendedPHPVersion } from '../../packages/common/types/php-versions';
-import { windowsSign } from './windowsSign';
+import { squirrelWindowsSign, windowsSign } from './windowsSign';
 import type { ForgeConfig } from '@electron-forge/shared-types';
 
 const repoRoot = path.resolve( __dirname, '../..' );
@@ -127,7 +127,7 @@ const config: ForgeConfig = {
 
 				// Sign via the custom Azure Trusted Signing hook (signtool, SHA256-only).
 				// Undefined when SIGN_WINDOWS_BUILD isn't set (e.g. package-only jobs), leaving the build unsigned.
-				...( windowsSign ? { windowsSign } : {} ),
+				...( squirrelWindowsSign ? { windowsSign: squirrelWindowsSign } : {} ),
 			},
 			[ 'win32' ]
 		),

@@ -53,6 +53,7 @@ import { getPendingWork, type PendingWork } from './pending-work';
 import { stripStaleImagesFromContext } from './strip-stale-images';
 import {
 	getIncompleteToolCallReason,
+	getFileWriteRefusal,
 	getPayloadLimitViolation,
 	type StudioToolPayloadGuardState,
 	updateStudioToolPayloadGuardState,
@@ -631,6 +632,10 @@ function toToolDefinition(
 			const payloadLimitViolation = getPayloadLimitViolation( tool.name, params );
 			if ( payloadLimitViolation ) {
 				throw new Error( payloadLimitViolation );
+			}
+			const fileWriteRefusal = await getFileWriteRefusal( tool.name, params, STUDIO_SITES_ROOT );
+			if ( fileWriteRefusal ) {
+				throw new Error( fileWriteRefusal );
 			}
 			if ( ( tool as { settlesPendingWork?: boolean } ).settlesPendingWork ) {
 				await pendingWork.settle();

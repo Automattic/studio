@@ -61,6 +61,20 @@ function createFromBlueprint( env: CliEnv, name: string, slug: string, blueprint
 	);
 }
 
+/**
+ * Runs `studio wp <args>` against the site and returns the last non-empty
+ * line of stdout (PHP notices can precede the value).
+ */
+async function wpLastLine( env: CliEnv, sitePath: string, ...args: string[] ) {
+	const result = await runCli( [ 'wp', ...args, '--path', sitePath ], env );
+	expect( result.code, result.stderr ).toBe( 0 );
+	return result.stdout
+		.split( '\n' )
+		.map( ( line ) => line.trim() )
+		.filter( Boolean )
+		.at( -1 );
+}
+
 describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: studio site create --blueprint', () => {
 	let env: CliEnv | undefined;
 
@@ -139,6 +153,74 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: studio site create --bl
 			expect(
 				fs.existsSync( path.join( sitePath, 'wp-content', 'plugins', 'classic-editor' ) )
 			).toBe( true );
+		}
+	);
+
+	it(
+		'creates a site from a Blueprint that installs and activates a theme',
+		{ tags: [ 'e2e' ], timeout: 120_000 },
+		async () => {
+			env = setupCliEnv();
+			const sitePath = path.join( env.sitesDir, 'bp-activate-theme' );
+			const blueprintPath = writeBlueprint( env, {
+				steps: [
+					{
+						step: 'installTheme',
+						themeData: { resource: 'wordpress.org/themes', slug: 'twentytwentyone' },
+					},
+					{ step: 'activateTheme', themeFolderName: 'twentytwentyone' },
+				],
+			} );
+
+			const result = await createFromBlueprint(
+				env,
+				'Blueprint Theme Activate',
+				'bp-activate-theme',
+				blueprintPath
+			);
+
+			expect( result.code, result.stderr ).toBe( 0 );
+			expect( await wpLastLine( env, sitePath, 'option', 'get', 'stylesheet' ) ).toBe(
+				'twentytwentyone'
+			);
+		}
+	);
+
+	it(
+		'creates a site from a Blueprint that installs and activates a plugin',
+		{ tags: [ 'e2e' ], timeout: 120_000 },
+		async () => {
+			env = setupCliEnv();
+			const sitePath = path.join( env.sitesDir, 'bp-activate-plugin' );
+			const blueprintPath = writeBlueprint( env, {
+				steps: [
+					{
+						step: 'installPlugin',
+						pluginData: { resource: 'wordpress.org/plugins', slug: 'hello-dolly' },
+					},
+					{ step: 'activatePlugin', pluginPath: 'hello-dolly/hello.php' },
+				],
+			} );
+
+			const result = await createFromBlueprint(
+				env,
+				'Blueprint Plugin Activate',
+				'bp-activate-plugin',
+				blueprintPath
+			);
+
+			expect( result.code, result.stderr ).toBe( 0 );
+			expect(
+				await wpLastLine(
+					env,
+					sitePath,
+					'plugin',
+					'list',
+					'--status=active',
+					'--field=name',
+					'--name=hello-dolly'
+				)
+			).toBe( 'hello-dolly' );
 		}
 	);
 

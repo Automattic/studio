@@ -24,7 +24,7 @@
 		"install:bundle": "npm install --omit=dev --no-audit --no-fund --no-package-lock --no-progress --install-links --no-workspaces && node ../../scripts/apply-available-patches.mjs patches",
 		"lint": "eslint src e2e",
 		"package": "electron-vite build --config ./electron.vite.config.ts --outDir=dist && node --experimental-strip-types ../../scripts/build-ui-renderer.ts && electron-forge package .",
-		"publish": "electron-forge publish .",
+		"release": "electron-forge release .",
 		"start-wayland": "npm -w wp-studio run build && electron-vite build --config ./electron.vite.config.ts --outDir=dist && node --experimental-strip-types ../../scripts/build-ui-renderer.ts && electron-forge start . -- --enable-features=UseOzonePlatform --ozone-platform=wayland",
 		"typecheck": "tsc -p tsconfig.json --noEmit"
 	},

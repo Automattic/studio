@@ -50,6 +50,18 @@ vi.mock( '@/data/queries/use-sessions', () => ( {
 } ) );
 
 let needingInputMock: string[] = [];
+let pinsMock: string[] = [];
+const togglePin = vi.hoisted( () => vi.fn() );
+
+vi.mock( '@/data/queries/use-sidebar-pins', async ( importOriginal ) => ( {
+	...( await importOriginal< object >() ),
+	useSidebarPins: () => ( {
+		pins: pinsMock,
+		setPins: vi.fn(),
+		isPinned: ( key: string ) => pinsMock.includes( key ),
+		togglePin,
+	} ),
+} ) );
 
 vi.mock( '@/data/queries/use-agent-run', () => ( {
 	useSiteAgentActivity: vi.fn(),
@@ -123,6 +135,7 @@ describe( 'SiteList', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
 		needingInputMock = [];
+		pinsMock = [];
 		paramsMock = {};
 		pathnameMock = '/';
 
@@ -468,8 +481,9 @@ describe( 'SiteList', () => {
 		} );
 	} );
 
-	it( 'moves chats waiting on an answer from Recent to Needs input', () => {
+	it( 'moves chats waiting on an answer to Needs input, out of Recent and Pinned', () => {
 		needingInputMock = [ 'other-chat' ];
+		pinsMock = [ 'chat:other-chat' ];
 		useSessionsMock.mockReturnValue( {
 			data: [
 				createSession( {
@@ -490,9 +504,48 @@ describe( 'SiteList', () => {
 
 		const needsInput = screen.getByRole( 'group', { name: 'Needs input' } );
 		expect( within( needsInput ).getByText( 'Make it blue' ) ).toBeInTheDocument();
+		expect( screen.queryByRole( 'group', { name: 'Pinned' } ) ).not.toBeInTheDocument();
 		const recent = screen.getByRole( 'group', { name: 'Recent' } );
 		expect( within( recent ).queryByText( 'Make it blue' ) ).not.toBeInTheDocument();
 		expect( within( recent ).getByText( 'Add a menu' ) ).toBeInTheDocument();
+	} );
+
+	it( 'moves pinned sites and chats into the Pinned group, in pin order', async () => {
+		pinsMock = [ 'chat:other-chat', 'site:stopped-site' ];
+		useSessionsMock.mockReturnValue( {
+			data: [
+				createSession( {
+					id: 'other-chat',
+					firstPrompt: 'Make it blue',
+					ownerSitePath: '/Users/example/Studio/running-site',
+				} ),
+			],
+			isLoading: false,
+		} );
+
+		render( <SiteList sections /> );
+
+		const pinned = screen.getByRole( 'group', { name: 'Pinned' } );
+		expect(
+			within( pinned )
+				.getAllByText( /^(Make it blue|Stopped Site)$/ )
+				.map( ( element ) => element.textContent )
+		).toEqual( [ 'Make it blue', 'Stopped Site' ] );
+		const sites = screen.getByRole( 'group', { name: 'Sites' } );
+		expect( within( sites ).queryByText( 'Stopped Site' ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'group', { name: 'Recent' } ) ).not.toBeInTheDocument();
+
+		fireEvent.click( within( pinned ).getByRole( 'button', { name: 'Unpin chat' } ) );
+		expect( togglePin ).toHaveBeenCalledWith( 'chat:other-chat' );
+
+		fireEvent.contextMenu( within( sites ).getByText( 'Running Site' ) );
+		fireEvent.keyDown( await screen.findByRole( 'menu' ), {
+			key: 'p',
+			keyCode: 80,
+			ctrlKey: true,
+			altKey: true,
+		} );
+		expect( togglePin ).toHaveBeenLastCalledWith( 'site:running-site' );
 	} );
 
 	it( 'marks the site row as contextual on the site settings route', () => {

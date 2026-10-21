@@ -53,10 +53,27 @@ export async function stopAllServers( timeoutAfterMs?: number ) {
 
 	return new Promise< void >( ( resolve ) => {
 		const args = [ 'site', 'stop', '--all' ];
-		const [ emitter, childProcess ] = executeCliCommand( args, { output: 'ignore' } );
-		emitter.on( 'success', () => resolve() );
-		emitter.on( 'failure', () => resolve() );
-		emitter.on( 'error', () => resolve() );
+		// DIAGNOSTIC (Windows quit hang): log how the quit-time stop ends.
+		console.log( '[quit-hang diagnostic] site stop --all: starting' );
+		const [ emitter, childProcess ] = executeCliCommand( args, {
+			output: 'capture',
+			logPrefix: 'stop-all',
+		} );
+		emitter.on( 'data', ( { data } ) =>
+			console.log( '[quit-hang diagnostic] site stop --all message:', JSON.stringify( data ) )
+		);
+		emitter.on( 'success', () => {
+			console.log( '[quit-hang diagnostic] site stop --all: success' );
+			resolve();
+		} );
+		emitter.on( 'failure', ( failure ) => {
+			console.log( '[quit-hang diagnostic] site stop --all: failure', JSON.stringify( failure ) );
+			resolve();
+		} );
+		emitter.on( 'error', ( { error } ) => {
+			console.log( '[quit-hang diagnostic] site stop --all: error', String( error ) );
+			resolve();
+		} );
 
 		if ( timeoutAfterMs ) {
 			timeoutId = setTimeout( () => {

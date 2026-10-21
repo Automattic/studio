@@ -130,6 +130,9 @@ export class ProcessManagerDaemon {
 		}
 
 		const request = parsed.data;
+		if ( request.type !== 'ping' ) {
+			diag( `request ${ request.type }` );
+		}
 
 		try {
 			const response = await this.handleRequest( request );
@@ -584,13 +587,30 @@ export class ProcessManagerDaemon {
 	}
 
 	private async finalizeShutdownByClosingSocketServersAndExiting(): Promise< void > {
+		diag( 'closing control server' );
 		await this.controlServer.close();
+		diag( 'closing events server' );
 		await this.eventsServer.close();
+		diag( 'servers closed, exiting' );
 		process.exit( 0 );
 	}
 }
 
+// DIAGNOSTIC (Windows quit hang): the daemon's own lifecycle, next to the site logs.
+function diag( message: string ) {
+	try {
+		fs.appendFileSync(
+			path.join( PROCESS_MANAGER_LOGS_DIR, 'daemon-diag.log' ),
+			`${ new Date().toISOString() } [pid ${ process.pid }] ${ message }\n`
+		);
+	} catch {
+		// Diagnostic only.
+	}
+}
+
 async function main() {
+	diag( `starting (ppid ${ process.ppid })` );
+	process.on( 'exit', ( code ) => diag( `exit ${ code }` ) );
 	try {
 		const daemon = new ProcessManagerDaemon();
 		await daemon.start();

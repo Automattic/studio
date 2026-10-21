@@ -12,6 +12,7 @@ const mocks = vi.hoisted( () => ( {
 	setProgress: vi.fn(),
 	mutateAsync: vi.fn(),
 	createSession: vi.fn( async () => ( { id: 'session-1' } ) ),
+	pinNewSite: vi.fn(),
 	cleanup: vi.fn( async () => undefined ),
 	openExternalUrl: vi.fn( async () => undefined ),
 	proposedName: 'My Studio Site',
@@ -32,7 +33,11 @@ vi.mock( '@tanstack/react-router', async ( importOriginal ) => {
 
 vi.mock( '../layout-onboarding', async ( importOriginal ) => {
 	const actual = await importOriginal< typeof import('../layout-onboarding') >();
-	return { ...actual, useOnboardingProgress: () => ( { setProgress: mocks.setProgress } ) };
+	return {
+		...actual,
+		useOnboardingProgress: () => ( { setProgress: mocks.setProgress } ),
+		usePinNewSite: () => mocks.pinNewSite,
+	};
 } );
 
 vi.mock( '@/components/blueprint-upload', () => ( {
@@ -162,6 +167,7 @@ describe( 'CreateSitePage', () => {
 		} );
 		expect( mocks.mutateAsync.mock.calls[ 0 ][ 0 ] ).not.toHaveProperty( 'runtime' );
 		expect( mocks.createSession ).not.toHaveBeenCalled();
+		expect( mocks.pinNewSite ).toHaveBeenCalledWith( 'site-1' );
 		expect( mocks.navigate ).toHaveBeenCalledWith( {
 			to: '/sites/$siteId/new',
 			params: { siteId: 'site-1' },

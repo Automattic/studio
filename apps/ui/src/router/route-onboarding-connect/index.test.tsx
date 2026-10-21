@@ -36,6 +36,7 @@ vi.mock( '@tanstack/react-router', () => ( {
 vi.mock( '../layout-onboarding', () => ( {
 	onboardingLayoutRoute: {},
 	useOnboardingProgress: () => ( { setProgress: mocks.setProgress } ),
+	usePinNewSite: () => () => {},
 } ) );
 
 vi.mock( '@/data/core', () => ( {

@@ -10,7 +10,7 @@ import { useImportSite } from '@/data/queries/use-import-site';
 import { useCreateSite, useDeleteSite } from '@/data/queries/use-sites';
 import { useSiteSyncActivity } from '@/data/sync-activity';
 import { clearPendingBackup, peekPendingBackup } from '@/lib/pending-backup';
-import { onboardingLayoutRoute, useOnboardingProgress } from '../layout-onboarding';
+import { onboardingLayoutRoute, useOnboardingProgress, usePinNewSite } from '../layout-onboarding';
 import sharedStyles from '../layout-onboarding/style.module.css';
 import type { CreateSiteFormError, CreateSiteFormValues } from '@/components/create-site-form';
 
@@ -58,6 +58,7 @@ export function OnboardingImportPage() {
 
 	const existingDomainNames = useExistingCustomDomains();
 	const createSite = useCreateSite();
+	const pinNewSite = usePinNewSite();
 	const importSite = useImportSite();
 	const deleteSite = useDeleteSite();
 
@@ -120,6 +121,7 @@ export function OnboardingImportPage() {
 				flowType: 'import',
 			} );
 			createdSiteId = site.id;
+			pinNewSite( site.id );
 			phase = 'importing';
 			setProgress( __( 'Importing backup…' ) );
 			setImportingSiteId( site.id );

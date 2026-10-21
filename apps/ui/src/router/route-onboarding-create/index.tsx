@@ -22,7 +22,7 @@ import { useCreateSite, useSites } from '@/data/queries/use-sites';
 import { useWordPressOrgPackageName } from '@/data/queries/use-wordpress-org-package-name';
 import { pendingBlueprintSlot } from '@/lib/pending-blueprint';
 import { pendingPromptSlot } from '@/lib/pending-prompt';
-import { onboardingLayoutRoute, useOnboardingProgress } from '../layout-onboarding';
+import { onboardingLayoutRoute, useOnboardingProgress, usePinNewSite } from '../layout-onboarding';
 import styles from '../layout-onboarding/style.module.css';
 import localStyles from './style.module.css';
 import type { CreateSiteFormError, CreateSiteFormValues } from '@/components/create-site-form';
@@ -235,6 +235,7 @@ export function CreateSitePage() {
 	const existingDomainNames = useExistingCustomDomains();
 	const { data: proposedName } = useProposedSiteName( sites );
 	const createSite = useCreateSite();
+	const pinNewSite = usePinNewSite();
 	const createSession = useCreateSession();
 	const { chatEnabled } = useAgenticFeatures();
 	const composerRef = useRef< ComposerHandle >( null );
@@ -341,6 +342,7 @@ export function CreateSitePage() {
 					  }
 					: {} ),
 			} );
+			pinNewSite( site.id );
 			if ( brief ) {
 				const session = await createSession.mutateAsync( {
 					siteId: site.id,

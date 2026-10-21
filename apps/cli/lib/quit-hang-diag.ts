@@ -18,8 +18,4 @@ export function diag( message: string ) {
 export function traceCliProcess() {
 	diag( `argv ${ JSON.stringify( process.argv.slice( 2 ) ) } (ppid ${ process.ppid })` );
 	process.on( 'exit', ( code ) => diag( `exit ${ code }` ) );
-	process.on( 'disconnect', () => diag( 'ipc disconnected' ) );
-	for ( const signal of [ 'SIGINT', 'SIGTERM', 'SIGBREAK' ] as const ) {
-		process.on( signal, () => diag( `signal ${ signal }` ) );
-	}
 }

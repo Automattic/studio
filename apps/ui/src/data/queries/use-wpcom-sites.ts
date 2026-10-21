@@ -55,9 +55,7 @@ export function usePickableWpcomSites( options: { enabled?: boolean } = {} ) {
 			return undefined;
 		}
 		const connectedIds = new Set( ( connected.data ?? [] ).map( ( site ) => site.id ) );
-		return syncable.data.filter(
-			( site ) => ! connectedIds.has( site.id ) && site.syncSupport === 'syncable'
-		);
+		return syncable.data.filter( ( site ) => ! connectedIds.has( site.id ) );
 	}, [ syncable.data, connected.data ] );
 
 	return {

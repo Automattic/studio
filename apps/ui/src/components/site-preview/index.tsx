@@ -16,6 +16,7 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type React
 import { DesignSystemView } from '@/components/design-system-view';
 import { DotGrid } from '@/components/dot-grid';
 import * as Menu from '@/components/menu';
+import { PublishButton } from '@/components/publish-panel';
 import { useConnector } from '@/data/core';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { siteDesignQueryKey, useSiteDesign } from '@/data/queries/use-site-design';
@@ -764,6 +765,7 @@ export function SitePreview( {
 	const inspectorState = activeSurface?.inspector ?? EMPTY_INSPECTOR_STATE;
 	const [ annotationCancelRequestId, setAnnotationCancelRequestId ] = useState( 0 );
 	const rootRef = useRef< HTMLElement | null >( null );
+	const headerRef = useRef< HTMLDivElement | null >( null );
 	const commandIdRef = useRef( 0 );
 	const canAnnotate = canPreview && inspectorState.ready;
 	const progress = browserState.loading
@@ -1004,6 +1006,7 @@ export function SitePreview( {
 	return (
 		<aside ref={ rootRef } className={ styles.root } aria-label={ __( 'Site preview' ) }>
 			<div
+				ref={ headerRef }
 				className={ clsx(
 					styles.header,
 					inspectorState.isPicking && styles.headerAnnotating,
@@ -1093,7 +1096,12 @@ export function SitePreview( {
 							onCommand={ sendInspectorCommand }
 						/>
 					) : null }
-					{ inspectorState.isPicking ? null : <PreviewLifecycleButton site={ site } /> }
+					{ inspectorState.isPicking ? null : (
+						<>
+							<PublishButton site={ site } anchor={ headerRef } />
+							<PreviewLifecycleButton site={ site } />
+						</>
+					) }
 					{ canPreview && ! inspectorState.isPicking ? (
 						<Menu.Root modal={ false }>
 							<Menu.Trigger

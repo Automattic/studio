@@ -1,0 +1,396 @@
+/* Slides in from the window's end, below the preview header. */
+.panel {
+	display: flex;
+	flex-direction: column;
+	width: 320px;
+	max-width: calc(100vw - 24px);
+	max-height: calc(100dvh - var(--studio-control-size) - 42px);
+	overflow-x: hidden;
+	overflow-y: auto;
+	font-size: 14px;
+	line-height: 20px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+	.panel.panel {
+		transition:
+			translate 240ms cubic-bezier(0.645, 0.045, 0.355, 1),
+			opacity 240ms cubic-bezier(0.645, 0.045, 0.355, 1);
+	}
+
+	.panel.panel[data-starting-style],
+	.panel.panel[data-ending-style] {
+		opacity: 0;
+		transform: none;
+		translate: calc(100% + 12px) 0;
+	}
+}
+
+.panel button {
+	--wp-ui-button-font-weight: 450;
+}
+
+.outline {
+	--wp-ui-button-border-color: color-mix(
+		in srgb,
+		var(--wpds-color-foreground-content-neutral) 10%,
+		transparent
+	);
+}
+
+.triggerLabel {
+	position: relative;
+}
+
+.errorDot {
+	position: absolute;
+	inset-block-start: -2px;
+	inset-inline-end: -8px;
+	width: 6px;
+	height: 6px;
+	border-radius: 50%;
+	background: var(--wpds-color-stroke-surface-error-strong);
+}
+
+.panelHeader {
+	display: flex;
+	flex: none;
+	align-items: center;
+	gap: 12px;
+	padding: 14px 14px 14px 16px;
+}
+
+.body {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	padding: 0 16px 16px;
+}
+
+.bodyInsetTop {
+	padding-top: 16px;
+}
+
+.loading {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	min-height: 128px;
+}
+
+.heading {
+	margin: 0;
+	min-width: 0;
+	overflow-wrap: anywhere;
+	font-size: 14px;
+	font-weight: 450;
+	line-height: 20px;
+	letter-spacing: -0.02em;
+}
+
+.text,
+.description {
+	margin: 0;
+	color: var(--wpds-color-foreground-content-neutral-weak);
+	font-size: 14px;
+	line-height: 1.625;
+}
+
+.description {
+	font-size: 13px;
+	line-height: 20px;
+}
+
+.error {
+	margin: 0;
+	color: var(--wpds-color-foreground-content-error);
+	font-size: 14px;
+	line-height: 1.625;
+}
+
+.errorMessage {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 10px;
+}
+
+.field {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.website {
+	display: flex;
+	align-items: center;
+}
+
+.openWebsite {
+	--wp-ui-button-foreground-color: var(--wpds-color-foreground-content-neutral-weak);
+}
+
+.include {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.include > .text {
+	flex: none;
+}
+
+.select {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	min-width: 0;
+	height: var(--studio-control-size);
+	padding: 0 8px;
+	border: 1px solid transparent;
+	border-radius: var(--wpds-border-radius-md);
+	background: transparent;
+	color: inherit;
+	font: inherit;
+	font-size: 13px;
+	font-weight: 450;
+	cursor: pointer;
+}
+
+.select:hover:not(:disabled, [data-disabled]),
+.select[data-popup-open] {
+	background: color-mix(in srgb, var(--wpds-color-foreground-content-neutral) 6%, transparent);
+}
+
+.select:is(:disabled, [data-disabled]) {
+	opacity: 0.5;
+	cursor: default;
+}
+
+.selectWide {
+	justify-content: space-between;
+	width: 100%;
+	padding: 0 10px;
+	border-color: color-mix(in srgb, var(--wpds-color-foreground-content-neutral) 10%, transparent);
+	font-size: 14px;
+	font-weight: 400;
+}
+
+.selectValue {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.selectPopupWide {
+	width: var(--anchor-width);
+}
+
+.footer {
+	display: flex;
+	gap: 8px;
+}
+
+.primary {
+	--wp-ui-button-height: var(--studio-control-size);
+	flex: 1;
+}
+
+.linkButton {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 2px;
+	padding: 0;
+	border: 0;
+	background: none;
+	color: var(--wpds-color-foreground-content-neutral-weak);
+	font: inherit;
+	font-size: 14px;
+	line-height: 20px;
+	cursor: pointer;
+}
+
+.linkButton:hover:not(:disabled) {
+	color: var(--wpds-color-foreground-content-neutral);
+}
+
+.linkButton:disabled {
+	opacity: 0.5;
+	cursor: default;
+}
+
+.intro {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+
+.introActions {
+	display: flex;
+	flex-direction: column;
+}
+
+.introActions .linkButton {
+	height: var(--studio-control-size);
+	font-size: 13px;
+	font-weight: 450;
+}
+
+.choice {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.choiceButton {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 4px;
+	padding: 8px 10px;
+	border: 1px solid color-mix(in srgb, var(--wpds-color-foreground-content-neutral) 10%, transparent);
+	border-radius: var(--wpds-border-radius-md);
+	background: transparent;
+	color: inherit;
+	font: inherit;
+	font-size: 13px;
+	font-weight: 450;
+	line-height: 20px;
+	text-align: start;
+	cursor: pointer;
+}
+
+.choiceButton:hover:not(:disabled) {
+	background: color-mix(in srgb, var(--wpds-color-foreground-content-neutral) 6%, transparent);
+}
+
+.choiceButton:disabled {
+	color: var(--wpds-color-foreground-content-neutral-weak);
+	opacity: 0.6;
+	cursor: default;
+}
+
+.choiceName {
+	overflow-wrap: anywhere;
+}
+
+.choiceLabel {
+	color: var(--wpds-color-foreground-content-neutral-weak);
+}
+
+.websiteRow {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.websiteRowText {
+	flex: 1;
+	min-width: 0;
+}
+
+.progress,
+.success {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+}
+
+.progressTitle {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.stack,
+.fileNode,
+.fileChildren {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.fileChildren {
+	padding-inline-start: 24px;
+}
+
+.selectionRow {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.disclosure {
+	display: flex;
+	flex: none;
+	align-items: center;
+	justify-content: center;
+	width: 28px;
+	height: 28px;
+}
+
+.selectionLabel {
+	min-width: 0;
+	overflow-wrap: anywhere;
+	font-size: 13px;
+	font-weight: 450;
+	line-height: 1.375;
+}
+
+.symlink {
+	display: inline-flex;
+	flex: none;
+	color: var(--wpds-color-foreground-content-neutral-weak);
+	fill: currentColor;
+}
+
+.visuallyHidden {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	overflow: hidden;
+	clip-path: inset(50%);
+	white-space: nowrap;
+}
+
+@keyframes transfer-dot {
+	0% {
+		opacity: 0;
+		transform: translateY(3px);
+	}
+
+	25%,
+	70% {
+		opacity: 1;
+	}
+
+	100% {
+		opacity: 0;
+		transform: translateY(-3px);
+	}
+}
+
+.transferIcon {
+	flex: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+	.transferIcon circle {
+		animation: transfer-dot 960ms linear infinite;
+		transform-box: fill-box;
+		transform-origin: center;
+	}
+
+	.transferIcon circle:nth-child(2) {
+		animation-delay: -120ms;
+	}
+
+	.transferIcon circle:nth-child(3) {
+		animation-delay: -240ms;
+	}
+
+	.transferIconPull circle {
+		animation-direction: reverse;
+	}
+}

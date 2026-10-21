@@ -28,6 +28,7 @@ import {
 } from '@/components/import-site-dialog';
 import * as Menu from '@/components/menu';
 import { useOpenInDestinations } from '@/components/open-in-menu/use-open-in-destinations';
+import { SitePublishMenu } from '@/components/publish-panel/publish-menu';
 import { ReorderableList } from '@/components/reorderable-list';
 import { getSessionTitle } from '@/components/session-view/session-chat-actions';
 import { SidebarButton } from '@/components/sidebar-button';
@@ -556,6 +557,8 @@ function SiteActionsMenu( {
 							>
 								{ manageById[ 'export-db' ].loading ? __( 'Exporting…' ) : __( 'Export database' ) }
 							</Menu.Item>
+							<Menu.Separator />
+							<SitePublishMenu site={ site } disabled={ busy } />
 							<Menu.Separator />
 							<Menu.Item
 								destructive={ manageById.delete.destructive }

@@ -1,4 +1,3 @@
-import { canCancelSyncActivity } from '@studio/common/lib/sync/cancel';
 import { __, sprintf } from '@wordpress/i18n';
 import { useSyncExternalStore } from 'react';
 import type { SyncActivity } from '@studio/common/lib/sync/activity';
@@ -88,6 +87,10 @@ export function applySyncActivity( siteId: string, activity: SyncActivity ): boo
 	return activity.kind !== 'pending';
 }
 
+export function getSyncActivity( siteId: string ): SyncActivity | undefined {
+	return entries.get( siteId );
+}
+
 function subscribe( listener: () => void ): () => void {
 	listeners.add( listener );
 	return () => {
@@ -101,37 +104,4 @@ export function useSiteSyncActivity( siteId: string | undefined ): SyncActivity 
 		() => ( siteId ? snapshot.get( siteId ) ?? null : null ),
 		() => null
 	);
-}
-
-/**
- * Wording for the cancel affordance, or null when there is nothing to cancel.
- * Shared by the dropdown trigger (always visible while a sync runs) and the
- * progress panel inside the dropdown, so both read identically.
- */
-export function getSyncCancelLabels(
-	activity: SyncActivity | null
-): { label: string; enabled: boolean } | null {
-	if ( activity?.kind !== 'pending' ) {
-		return null;
-	}
-
-	const enabled = canCancelSyncActivity( activity );
-	if ( activity.direction === 'push' ) {
-		return {
-			enabled,
-			label: enabled
-				? __( 'Cancel push' )
-				: __( 'Push can not be cancelled while applying changes to the remote site' ),
-		};
-	}
-	if ( activity.direction === 'pull' ) {
-		return {
-			enabled,
-			label: enabled
-				? __( 'Cancel pull' )
-				: __( 'Pull can not be cancelled while importing changes to your local site' ),
-		};
-	}
-	// Only push and pull can be stopped — a preview or an import offers nothing.
-	return null;
 }

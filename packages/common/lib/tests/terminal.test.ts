@@ -20,6 +20,16 @@ describe( 'resolveLinuxTerminalLaunch', () => {
 		).toEqual( { file: '/usr/bin/x-terminal-emulator', args: [], cwd: SITE } );
 	} );
 
+	it( 'prefers xdg-terminal-exec over x-terminal-emulator', () => {
+		expect(
+			resolveLinuxTerminalLaunch(
+				'terminal',
+				SITE,
+				findIn( 'x-terminal-emulator', 'xdg-terminal-exec' )
+			)
+		).toEqual( { file: '/usr/bin/xdg-terminal-exec', args: [], cwd: SITE } );
+	} );
+
 	it( 'opens Xfce Terminal when GNOME Terminal is not installed', () => {
 		expect( resolveLinuxTerminalLaunch( 'terminal', SITE, findIn( 'xfce4-terminal' ) ) ).toEqual( {
 			file: '/usr/bin/xfce4-terminal',
@@ -55,6 +65,12 @@ describe( 'resolveLinuxTerminalLaunch', () => {
 			args: [ '--directory', SITE ],
 			cwd: SITE,
 		} );
+	} );
+
+	it( 'falls back to a system terminal for a preference with no Linux build', () => {
+		expect( resolveLinuxTerminalLaunch( 'iterm', SITE, findIn( 'x-terminal-emulator' ) ) ).toEqual(
+			{ file: '/usr/bin/x-terminal-emulator', args: [], cwd: SITE }
+		);
 	} );
 
 	it( 'returns null when no known terminal is installed', () => {

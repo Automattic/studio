@@ -36,6 +36,9 @@ export type TerminalConfig = {
 	name: () => string;
 	platforms: TerminalPlatform[];
 	linuxCommands: string[];
+	// Arguments that open the terminal in `cwd` on Linux. "Terminal" has none: it resolves to the
+	// first of `LINUX_SYSTEM_TERMINALS` found, each with its own.
+	linuxArgs?: ( cwd: string ) => string[];
 };
 
 export const terminalConfig: Record< SupportedTerminal, TerminalConfig > = {
@@ -55,12 +58,16 @@ export const terminalConfig: Record< SupportedTerminal, TerminalConfig > = {
 		name: () => __( 'Warp' ),
 		platforms: [ 'darwin', 'win32', 'linux' ],
 		linuxCommands: [ 'warp-terminal' ],
+		// Warp ignores `--working-directory`, its URL scheme's `path=` and the spawn cwd
+		// (warpdotdev/Warp#4974, #6357); launching with `cwd` set is the best we can do.
+		linuxArgs: () => [],
 	},
 	ghostty: {
 		// translators: "Ghostty" is the brand name for a terminal app and does not need to be translated
 		name: () => __( 'Ghostty' ),
 		platforms: [ 'darwin', 'linux' ],
 		linuxCommands: [ 'ghostty' ],
+		linuxArgs: ( cwd ) => [ `--working-directory=${ cwd }` ],
 	},
 };
 
@@ -96,19 +103,12 @@ export function resolveLinuxTerminalLaunch(
 	cwd: string,
 	findOnPath: ( command: string ) => string | null
 ): LinuxTerminalLaunch | null {
-	// Warp ignores `--working-directory`, its URL scheme's `path=` and the spawn cwd
-	// (warpdotdev/Warp#4974, #6357); launching with `cwd` set is the best we can do.
-	const preferredArgs: Partial< Record< SupportedTerminal, ( cwd: string ) => string[] > > = {
-		warp: () => [],
-		ghostty: ( dir ) => [ `--working-directory=${ dir }` ],
-	};
-
-	const getArgs = preferredArgs[ preferredTerminal ];
-	if ( getArgs ) {
-		for ( const command of terminalConfig[ preferredTerminal ].linuxCommands ) {
+	const { linuxCommands, linuxArgs } = terminalConfig[ preferredTerminal ];
+	if ( linuxArgs ) {
+		for ( const command of linuxCommands ) {
 			const file = findOnPath( command );
 			if ( file ) {
-				return { file, args: getArgs( cwd ), cwd };
+				return { file, args: linuxArgs( cwd ), cwd };
 			}
 		}
 	}

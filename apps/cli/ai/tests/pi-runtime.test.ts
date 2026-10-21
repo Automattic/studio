@@ -1,7 +1,9 @@
+import fs from 'fs';
+import path from 'path';
 import { ANTHROPIC_MODELS } from '@earendil-works/pi-ai/providers/anthropic.models';
 import { ModelRegistry, SessionManager } from '@earendil-works/pi-coding-agent';
 import { AI_MODELS } from '@studio/common/ai/models';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { runStudioAgentTurn, type StudioAgentTurnConfig } from 'cli/ai/runtimes/pi';
 import type { AgentSessionEvent, CreateAgentSessionOptions } from '@earendil-works/pi-coding-agent';
 import type { AiModelId } from '@studio/common/ai/models';
@@ -63,6 +65,7 @@ vi.mock( '@studio/common/lib/well-known-paths', async ( importOriginal ) => {
 		...actual,
 		getConfigDirectory: () => mocks.configRoot,
 		getAiPayloadsPath: () => `${ mocks.configRoot }/tmp/ai-payloads`,
+		getAgentDirectory: () => `${ mocks.configRoot }/agent`,
 	};
 } );
 
@@ -718,6 +721,73 @@ describe( 'pi runtime', () => {
 	} );
 
 	// Silent header-drop would surface as an opaque 401 from the wpcom proxy.
+	describe( 'pi extensions', () => {
+		const extensionsDir = path.join( mocks.configRoot, 'agent', 'extensions' );
+
+		beforeEach( () => {
+			fs.rmSync( extensionsDir, { recursive: true, force: true } );
+			fs.mkdirSync( extensionsDir, { recursive: true } );
+		} );
+
+		afterEach( () => {
+			fs.rmSync( extensionsDir, { recursive: true, force: true } );
+		} );
+
+		it( "loads the user's extensions from Studio's agent directory and enables their tools", async () => {
+			fs.writeFileSync(
+				path.join( extensionsDir, 'greeter.js' ),
+				`export default function ( pi ) {
+					pi.registerTool( {
+						name: 'greet',
+						label: 'Greet',
+						description: 'Greets.',
+						parameters: { type: 'object', properties: {} },
+						execute: async () => ( { content: [ { type: 'text', text: 'hi' } ], details: undefined } ),
+					} );
+					pi.on( 'before_agent_start', ( event ) => ( { systemPrompt: event.systemPrompt + ' Greet first.' } ) );
+				}`
+			);
+
+			await runRuntime( {
+				prompt: 'hello',
+				env: WPCOM_ENV,
+				model: 'balanced',
+				session: newSession(),
+			} );
+
+			const options = mocks.createAgentSession.mock.calls[ 0 ][ 0 ] as CreateAgentSessionOptions;
+			const extensions = options.resourceLoader!.getExtensions().extensions;
+			expect( extensions.map( ( extension ) => path.basename( extension.path ) ) ).toEqual( [
+				'greeter.js',
+			] );
+			expect( extensions[ 0 ].handlers.has( 'before_agent_start' ) ).toBe( true );
+			expect( options.tools ).toContain( 'greet' );
+			expect( options.tools ).toContain( 'site_list' );
+		} );
+
+		it( 'warns about an extension that fails to load and runs the turn without it', async () => {
+			fs.writeFileSync( path.join( extensionsDir, 'broken.js' ), 'export default (' );
+			const warnSpy = vi.spyOn( console, 'warn' ).mockImplementation( () => {} );
+
+			try {
+				await runRuntime( {
+					prompt: 'hello',
+					env: WPCOM_ENV,
+					model: 'balanced',
+					session: newSession(),
+				} );
+
+				expect( warnSpy.mock.calls.map( ( call ) => call[ 0 ] ).join( '\n' ) ).toMatch(
+					/Skipped the pi extension .*broken\.js/
+				);
+				const options = mocks.createAgentSession.mock.calls[ 0 ][ 0 ] as CreateAgentSessionOptions;
+				expect( options.resourceLoader!.getExtensions().extensions ).toEqual( [] );
+			} finally {
+				warnSpy.mockRestore();
+			}
+		} );
+	} );
+
 	it( 'warns and continues when STUDIO_WPCOM_DEFAULT_HEADERS is malformed', async () => {
 		const warnSpy = vi.spyOn( console, 'warn' ).mockImplementation( () => {} );
 

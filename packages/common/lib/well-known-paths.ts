@@ -38,6 +38,12 @@ export function getSessionsDirectory(): string {
 	return path.join( getConfigDirectory(), 'sessions' );
 }
 
+// Studio Code's pi agent directory. Extensions in its `extensions/` folder load
+// into every Studio Code session, as they would into pi's own `~/.pi/agent`.
+export function getAgentDirectory(): string {
+	return path.join( getConfigDirectory(), 'agent' );
+}
+
 export function getKnowledgeDirectory(): string {
 	return path.join( getConfigDirectory(), 'knowledge' );
 }

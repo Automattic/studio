@@ -39,6 +39,7 @@ import {
 } from '@studio/common/ai/models';
 import { findLastAssistant, isEmptyStop } from '@studio/common/ai/session-events';
 import { getAiTracksIdentity } from '@studio/common/ai/tracks-identity';
+import { getAgentDirectory } from '@studio/common/lib/well-known-paths';
 import { type TSchema } from 'typebox';
 import { withDesignSystemPreview } from 'cli/ai/chat-artifacts';
 import { isImageGenerationAvailable } from 'cli/ai/image-generation';
@@ -73,7 +74,6 @@ type StudioModel = StudioWpcomModel | Model< 'anthropic-messages' >;
 type ProviderConfigInput = Parameters< ModelRuntime[ 'registerProvider' ] >[ 1 ];
 
 const STUDIO_WPCOM_PROVIDER = 'studio-wpcom';
-const STUDIO_AGENT_DIR = STUDIO_SITES_ROOT;
 // A reply with nothing in it ends the turn without the user seeing why (see
 // `isEmptyStop`). Resume it with a message the user doesn't see, up to this
 // many times per turn. pi leaves a reply that has only reasoning out of the
@@ -342,11 +342,14 @@ async function createStudioAgentSession(
 	);
 	const modelRuntime = await createModelRuntime( model, family, creds );
 	const settingsManager = createSettingsManager( config.env );
+	// pi extensions from Studio's agent directory load into the session: they can
+	// add tools, register providers and extend the prompt on each turn. The sites
+	// root is not a trusted project, so only the user's own extensions load.
+	const agentDir = getAgentDirectory();
 	const resourceLoader = new DefaultResourceLoader( {
 		cwd: STUDIO_SITES_ROOT,
-		agentDir: STUDIO_AGENT_DIR,
+		agentDir,
 		settingsManager,
-		noExtensions: true,
 		noSkills: true,
 		noPromptTemplates: true,
 		noThemes: true,
@@ -355,10 +358,13 @@ async function createStudioAgentSession(
 		appendSystemPrompt: [],
 	} );
 	await resourceLoader.reload();
+	for ( const { path: extensionPath, error } of resourceLoader.getExtensions().errors ) {
+		console.warn( `Skipped the pi extension ${ extensionPath }: ${ error }` );
+	}
 
 	const result = await createAgentSession( {
 		cwd: STUDIO_SITES_ROOT,
-		agentDir: STUDIO_AGENT_DIR,
+		agentDir,
 		modelRuntime,
 		model,
 		thinkingLevel: 'medium',
@@ -366,7 +372,12 @@ async function createStudioAgentSession(
 		settingsManager,
 		resourceLoader,
 		customTools: toolDefinitions,
-		tools: toolDefinitions.map( ( tool ) => tool.name ),
+		tools: [
+			...toolDefinitions.map( ( tool ) => tool.name ),
+			...resourceLoader
+				.getExtensions()
+				.extensions.flatMap( ( extension ) => [ ...extension.tools.keys() ] ),
+		],
 		sessionStartEvent: { type: 'session_start', reason: 'startup' },
 	} );
 

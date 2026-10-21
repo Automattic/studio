@@ -24,6 +24,7 @@ import {
 	readCliConfig,
 	runCli,
 	setupCliEnv,
+	waitForSiteResponse,
 	type CliEnv,
 } from '../site/tests/helpers/cli-e2e';
 
@@ -131,6 +132,25 @@ function assertImportedSiteOnDisk( sitePath: string ): void {
 	expect( fs.statSync( databasePath ).size ).toBeGreaterThan( 0 );
 }
 
+/** Started, the site serves the backup's front end. */
+async function assertServesImportedSite( env: CliEnv, sitePath: string ): Promise< void > {
+	const start = await runCli(
+		[ 'site', 'start', '--path', sitePath, '--skip-browser', '--skip-log-details' ],
+		env
+	);
+	expect( start.code, start.stderr ).toBe( 0 );
+
+	const site = readCliConfig( env ).sites.find( ( entry ) => entry.path === sitePath );
+	const response = await waitForSiteResponse( `http://localhost:${ String( site?.port ) }/`, {
+		expectedStatus: 200,
+		timeoutMs: 60_000,
+	} );
+	expect( response.status ).toBe( 200 );
+	expect( await response.text() ).toMatch(
+		new RegExp( `<title>[^<]*${ FIXTURE_BLOGNAME }[^<]*</title>` )
+	);
+}
+
 describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: studio import', () => {
 	let env: CliEnv | undefined;
 
@@ -172,6 +192,7 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: studio import', () => {
 
 				assertImportedSiteOnDisk( sitePath );
 				await assertImportedContent( env, sitePath );
+				await assertServesImportedSite( env, sitePath );
 			}
 		);
 	}
@@ -207,6 +228,7 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: studio import', () => {
 			expect( await isSiteRunningPerCliList( env, sitePath ) ).toBe( true );
 			assertImportedSiteOnDisk( sitePath );
 			await assertImportedContent( env, sitePath );
+			await assertServesImportedSite( env, sitePath );
 		}
 	);
 } );

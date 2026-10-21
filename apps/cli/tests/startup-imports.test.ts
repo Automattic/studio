@@ -14,7 +14,7 @@ vi.mock( '@earendil-works/pi-coding-agent', () => {
 describe( 'CLI startup', () => {
 	it( 'loads no agent runtime before a command runs', async () => {
 		const entry = readFileSync( path.join( import.meta.dirname, '..', 'index.ts' ), 'utf8' );
-		const staticImports = [ ...entry.matchAll( /^import [^;]*? from '(cli\/[^']+)';$/gms ) ].map(
+		const staticImports = [ ...entry.matchAll( /^import [^;]*? from '(cli\/[^']+)';$/gm ) ].map(
 			( [ , specifier ] ) => specifier
 		);
 		expect( staticImports ).toContain( 'cli/commands/mcp' );

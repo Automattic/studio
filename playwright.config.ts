@@ -10,9 +10,9 @@ export default defineConfig( {
 
 	// Each E2ESession isolates the app's single-instance lock, data, daemon and
 	// site ports, so files run concurrently. Tests within a file stay serial.
-	// Windows stays on one worker: with two, an app can hang on quit, get
-	// force-killed at worker teardown, and leave processes that keep the CI job
-	// running after the suite ends.
+	// Windows stays on one worker: with two, an app quit right after a restart
+	// can fail to exit, which stalls worker teardown and keeps the CI job running
+	// after the suite ends.
 	workers: process.platform === 'win32' ? 1 : 2,
 
 	// Retry flaky tests once to improve CI reliability

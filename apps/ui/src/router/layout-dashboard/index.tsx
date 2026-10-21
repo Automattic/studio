@@ -15,6 +15,7 @@ import { SitePreview } from '@/components/site-preview';
 import { isSiteSettingsTab, siteSettingsTabToPanel } from '@/components/site-settings-view';
 import { SiteWorkspace } from '@/components/site-workspace';
 import { useConnector } from '@/data/core';
+import { PREVIEW_SPLIT_MIN_WIDTH } from '@/lib/resizable-panels';
 import { useOrientationAutostart } from '@/data/onboarding/use-orientation-autostart';
 import { useOrientationReplay } from '@/data/onboarding/use-orientation-replay';
 import { useWhatsNewAutostart } from '@/data/onboarding/use-whats-new-autostart';
@@ -22,7 +23,6 @@ import { useWhatsNewReplay } from '@/data/onboarding/use-whats-new-replay';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useSession, useSessionEffectiveEnvironment } from '@/data/queries/use-sessions';
 import { useSites } from '@/data/queries/use-sites';
-import { useResponsivePanels } from '@/hooks/use-responsive-panels';
 import {
 	pathForSite,
 	SessionUIProvider,
@@ -183,12 +183,16 @@ function DashboardLayoutContent() {
 		setChatHidden( false );
 	}, [ sessionId, setChatHidden ] );
 	const { setOpen: setPreviewOpen } = preview;
-	const { sidebarCollapsed, setSidebarCollapsed, openSidebar, onPreviewContainerWidthChange } =
-		useResponsivePanels( {
-			connector,
-			previewOpen: showPreview,
-			setPreviewOpen,
-		} );
+	// The window never grows to fit; a workspace too narrow for the split
+	// (a narrow browser tab) gives up the preview.
+	const onPreviewContainerWidthChange = useCallback(
+		( width: number | null ) => {
+			if ( width !== null && width < PREVIEW_SPLIT_MIN_WIDTH ) {
+				setPreviewOpen( false );
+			}
+		},
+		[ setPreviewOpen ]
+	);
 	const renderPreview = useCallback(
 		( { collapsed }: PreviewSplitFramePreviewProps ) =>
 			previewSite ? (
@@ -199,7 +203,7 @@ function DashboardLayoutContent() {
 					onAnnotationsDone={ onAnnotationsDone }
 					onPathChange={ preview.updatePath }
 					collapsed={ collapsed }
-					atWindowStart={ chatHidden && sidebarCollapsed }
+					atWindowStart={ chatHidden }
 					toolbarStart={
 						chatHidden ? (
 							<>
@@ -234,7 +238,6 @@ function DashboardLayoutContent() {
 			preview.updatePath,
 			previewSite,
 			setChatHidden,
-			sidebarCollapsed,
 		]
 	);
 	const activeWorkspaceView =
@@ -279,11 +282,7 @@ function DashboardLayoutContent() {
 		);
 
 	return (
-		<SidebarLayout
-			collapsed={ sidebarCollapsed }
-			onCollapsedChange={ setSidebarCollapsed }
-			onExpand={ openSidebar }
-		>
+		<SidebarLayout>
 			<PreviewSplitFrame
 				previewOpen={ showPreview }
 				chatHidden={ chatHidden }

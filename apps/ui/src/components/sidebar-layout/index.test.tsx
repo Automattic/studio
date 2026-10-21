@@ -47,7 +47,6 @@ describe( 'SidebarLayout', () => {
 	let originalInnerWidth: number;
 	beforeEach( () => {
 		vi.clearAllMocks();
-		vi.stubGlobal( 'ResizeObserver', undefined );
 		originalInnerWidth = window.innerWidth;
 		Object.defineProperty( window, 'innerWidth', { configurable: true, value: 1024 } );
 		toggleSidebarListener = undefined;
@@ -100,82 +99,23 @@ describe( 'SidebarLayout', () => {
 		expect( screen.getByRole( 'button', { name: 'Show sidebar' } ) ).toBeInTheDocument();
 	} );
 
-	it( 'collapses the sidebar from the panel toggle', () => {
-		const onCollapsedChange = vi.fn();
-		render(
-			<SidebarLayout collapsed={ false } onCollapsedChange={ onCollapsedChange }>
-				<SidebarToggle />
-			</SidebarLayout>
-		);
-
-		fireEvent.click( screen.getByRole( 'button', { name: 'Hide sidebar' } ) );
-
-		expect( onCollapsedChange ).toHaveBeenCalledWith( true );
-	} );
-
-	it( 'collapses when the window enters compact width', async () => {
+	it( 'opens over the content on a small window, and docks again when it widens', async () => {
+		Object.defineProperty( window, 'innerWidth', { configurable: true, value: 900 } );
 		render(
 			<SidebarLayout>
-				<SidebarToggle />
-			</SidebarLayout>
-		);
-
-		Object.defineProperty( window, 'innerWidth', { configurable: true, value: 659 } );
-		await act( async () => window.dispatchEvent( new Event( 'resize' ) ) );
-
-		expect( screen.getByRole( 'button', { name: 'Show sidebar' } ) ).toBeInTheDocument();
-	} );
-
-	it( 'starts collapsed in a compact window', () => {
-		Object.defineProperty( window, 'innerWidth', { configurable: true, value: 420 } );
-
-		render(
-			<SidebarLayout>
-				<SidebarToggle />
-			</SidebarLayout>
-		);
-
-		expect( screen.getByRole( 'button', { name: 'Show sidebar' } ) ).toBeInTheDocument();
-	} );
-
-	it( 'delegates reopening so the parent can coordinate the panels', () => {
-		Object.defineProperty( window, 'innerWidth', { configurable: true, value: 420 } );
-		const onExpand = vi.fn();
-		render(
-			<SidebarLayout onExpand={ onExpand }>
 				<SidebarToggle />
 			</SidebarLayout>
 		);
 
 		fireEvent.click( screen.getByRole( 'button', { name: 'Show sidebar' } ) );
+		expect( screen.getByRole( 'button', { name: 'Close sidebar' } ) ).toBeInTheDocument();
 
-		expect( onExpand ).toHaveBeenCalledOnce();
-	} );
-
-	it( 'observes the rendered layout width while the window is being resized', () => {
-		let resizeCallback: ResizeObserverCallback | undefined;
-		class ResizeObserverMock {
-			constructor( callback: ResizeObserverCallback ) {
-				resizeCallback = callback;
-			}
-			observe() {}
-			disconnect() {}
-		}
-		vi.stubGlobal( 'ResizeObserver', ResizeObserverMock );
-
-		render(
-			<SidebarLayout>
-				<SidebarToggle />
-			</SidebarLayout>
-		);
-
-		act( () => {
-			resizeCallback?.(
-				[ { contentRect: { width: 659 } } as unknown as ResizeObserverEntry ],
-				{} as ResizeObserver
-			);
-		} );
-
+		fireEvent.keyDown( window, { key: 'Escape' } );
 		expect( screen.getByRole( 'button', { name: 'Show sidebar' } ) ).toBeInTheDocument();
+
+		Object.defineProperty( window, 'innerWidth', { configurable: true, value: 1024 } );
+		await act( async () => window.dispatchEvent( new Event( 'resize' ) ) );
+		expect( screen.getByRole( 'button', { name: 'Hide sidebar' } ) ).toBeInTheDocument();
+		expect( screen.queryByRole( 'button', { name: 'Close sidebar' } ) ).not.toBeInTheDocument();
 	} );
 } );

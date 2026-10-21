@@ -27,6 +27,7 @@ import {
 	useSiteOperation,
 	useStartSite,
 } from '@/data/queries/use-sites';
+import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import { useWindowControlsInset } from '@/hooks/use-window-controls-inset';
 import { getSiteUrl } from '@/lib/get-site-url';
@@ -71,8 +72,8 @@ interface SitePreviewProps {
 	collapsed?: boolean;
 	// Controls at the toolbar's start, for when the preview is the leftmost pane.
 	toolbarStart?: ReactNode;
-	// The toolbar reaches the window's start edge, where the macOS traffic
-	// lights sit.
+	// The preview is the leftmost pane, so with the sidebar out of the way its
+	// toolbar reaches the window's start edge, where the macOS traffic lights sit.
 	atWindowStart?: boolean;
 }
 
@@ -684,6 +685,7 @@ export function SitePreview( {
 	const canPreview = site.running;
 	const canUseWebview = isElectron();
 	const trafficLightSpace = useTrafficLightSpace();
+	const sidebarCollapsed = useSidebarCollapsed();
 	const windowControlsInset = useWindowControlsInset( 'toolbar' );
 	const safePath = getSafePath( path );
 	// Which realm the host is pointing the preview at. Derived from the path
@@ -932,7 +934,7 @@ export function SitePreview( {
 				className={ clsx(
 					styles.header,
 					inspectorState.isPicking && styles.headerAnnotating,
-					atWindowStart && trafficLightSpace.start && styles.headerTrafficLights
+					atWindowStart && sidebarCollapsed && trafficLightSpace.start && styles.headerTrafficLights
 				) }
 				style={ {
 					// In RTL the preview pane sits at the physical left, so the

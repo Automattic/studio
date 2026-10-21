@@ -3,12 +3,12 @@ import { Button, Icon, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { AppMessageCardsDot } from '@/components/app-message-cards';
 import { CollapsedSiteSwitcher } from '@/components/collapsed-site-switcher';
-import { useSidebarCollapsed, useToggleSidebar } from '@/hooks/use-sidebar-collapsed';
+import { useSidebarCollapsed, useSidebarOpen, useToggleSidebar } from '@/hooks/use-sidebar-collapsed';
 import { sidebarCollapsedIcon, sidebarExpandedIcon } from '@/lib/icons';
 import styles from './style.module.css';
 
 export function SidebarToggle() {
-	const collapsed = useSidebarCollapsed();
+	const collapsed = ! useSidebarOpen();
 	const toggleSidebar = useToggleSidebar();
 	// Not IconButton: while collapsed this is the site switcher's trigger, and
 	// IconButton's unconditional tooltip would fight the hover-opened popover.

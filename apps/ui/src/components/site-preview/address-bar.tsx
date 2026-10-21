@@ -1,7 +1,7 @@
 import { DESIGN_SYSTEM_PREVIEW_PATH } from '@studio/common/ai/chat-artifacts';
 import { TRACKS_EVENTS, type TracksEventName } from '@studio/common/lib/record-tracks-event';
 import { __ } from '@wordpress/i18n';
-import { external, Icon, styles as stylesIcon, wordpress } from '@wordpress/icons';
+import { cog, external, Icon, styles as stylesIcon, wordpress } from '@wordpress/icons';
 import { Tooltip, VisuallyHidden } from '@wordpress/ui';
 import { useEffect, useRef, useState } from 'react';
 import * as Popover from '@/components/popover';
@@ -9,7 +9,7 @@ import { SiteIcon } from '@/components/site-icon';
 import { databaseIcon } from '@/lib/icons';
 import styles from './address-bar.module.css';
 import type { SiteDetails } from '@/data/core';
-import type { FormEvent } from 'react';
+import type { FormEvent, ReactElement, SVGProps } from 'react';
 
 export function getPathFromPreviewUrl( url: string, baseUrl: string ) {
 	try {
@@ -101,6 +101,7 @@ interface PreviewAddressBarProps {
 	onSwitchRealm: ( realm: PreviewRealm ) => void;
 	hasDesignSystem?: boolean;
 	onOpenExternal?: () => void;
+	onOpenSettings?: () => void;
 }
 
 interface RecentPreviewLocation {
@@ -165,6 +166,37 @@ function getDisplayUrl( siteUrl: string, path: string ): string {
 	}
 }
 
+// Revealed while the field is hovered or focused, and hidden while typing.
+function AddressAction( {
+	icon,
+	label,
+	tooltip = label,
+	onClick,
+}: {
+	icon: ReactElement< SVGProps< SVGSVGElement > >;
+	label: string;
+	tooltip?: string;
+	onClick: () => void;
+} ) {
+	return (
+		<Tooltip.Root>
+			<Tooltip.Trigger
+				render={
+					<button
+						type="button"
+						className={ styles.action }
+						aria-label={ label }
+						onClick={ onClick }
+					/>
+				}
+			>
+				<Icon icon={ icon } size={ 18 } />
+			</Tooltip.Trigger>
+			<Tooltip.Popup positioner={ <Tooltip.Positioner side="bottom" /> }>{ tooltip }</Tooltip.Popup>
+		</Tooltip.Root>
+	);
+}
+
 export function PreviewAddressBar( {
 	site,
 	siteIcon,
@@ -174,6 +206,7 @@ export function PreviewAddressBar( {
 	onSwitchRealm,
 	hasDesignSystem = false,
 	onOpenExternal,
+	onOpenSettings,
 }: PreviewAddressBarProps ) {
 	const displayUrl = getDisplayUrl( siteUrl, path );
 	const activeRealm = getPreviewRealm( path );
@@ -263,25 +296,23 @@ export function PreviewAddressBar( {
 					aria-label={ __( 'Address' ) }
 					spellCheck={ false }
 				/>
-				{ onOpenExternal ? (
-					<Tooltip.Root>
-						<Tooltip.Trigger
-							render={
-								<button
-									type="button"
-									className={ styles.openExternal }
-									aria-label={ __( 'Open this page in your browser' ) }
-									onClick={ onOpenExternal }
-								/>
-							}
-						>
-							<Icon icon={ external } size={ 18 } />
-						</Tooltip.Trigger>
-						<Tooltip.Popup positioner={ <Tooltip.Positioner side="bottom" /> }>
-							{ __( 'Open this page in your browser' ) }
-						</Tooltip.Popup>
-					</Tooltip.Root>
-				) : null }
+				<span className={ styles.actions }>
+					{ onOpenSettings ? (
+						<AddressAction
+							icon={ cog }
+							label={ __( 'Site settings' ) }
+							onClick={ onOpenSettings }
+						/>
+					) : null }
+					{ onOpenExternal ? (
+						<AddressAction
+							icon={ external }
+							label={ __( 'Open this page in your browser' ) }
+							tooltip={ __( 'Open in browser' ) }
+							onClick={ onOpenExternal }
+						/>
+					) : null }
+				</span>
 			</form>
 			<Popover.Popup
 				anchor={ addressBarRef }

@@ -2,7 +2,15 @@ import { DESIGN_SYSTEM_PREVIEW_PATH } from '@studio/common/ai/chat-artifacts';
 import { getSiteOperationLabel } from '@studio/common/lib/site-operation-labels';
 import { useQueryClient } from '@tanstack/react-query';
 import { __, _n, sprintf } from '@wordpress/i18n';
-import { chevronDown, closeSmall, Icon, pencil } from '@wordpress/icons';
+import {
+	chevronDown,
+	closeSmall,
+	cog,
+	external,
+	Icon,
+	moreHorizontal,
+	pencil,
+} from '@wordpress/icons';
 import {
 	ariaKeyShortcut,
 	displayShortcut,
@@ -10,7 +18,7 @@ import {
 	isKeyboardEvent,
 	shortcutAriaLabel,
 } from '@wordpress/keycodes';
-import { Button, Dialog, IconButton, Tooltip } from '@wordpress/ui';
+import { Button, Dialog, IconButton, Spinner, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { DesignSystemView } from '@/components/design-system-view';
@@ -24,14 +32,24 @@ import { useSiteThumbnail } from '@/data/queries/use-site-thumbnail';
 import {
 	useIsSiteBusy,
 	useIsSiteStarting,
+	useIsSiteStopping,
 	useSiteOperation,
 	useStartSite,
+	useStopSite,
 } from '@/data/queries/use-sites';
+import { useOpenSettings } from '@/hooks/use-open-settings';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import { useWindowControlsInset } from '@/hooks/use-window-controls-inset';
 import { getSiteUrl } from '@/lib/get-site-url';
-import { browserBackIcon, browserForwardIcon, playIcon, refreshIcon } from '@/lib/icons';
+import {
+	browserBackIcon,
+	browserForwardIcon,
+	playIcon,
+	refreshIcon,
+	startSiteIcon,
+	stopSiteIcon,
+} from '@/lib/icons';
 import {
 	DATABASE_HOME_PATH,
 	getPathFromPreviewUrl,
@@ -573,6 +591,52 @@ function getHistoryEntryPath( url: string ) {
 	}
 }
 
+// Starts or stops the site from the header: labeled while stopped, an icon once running.
+function PreviewLifecycleButton( { site }: { site: SiteDetails } ) {
+	const startSite = useStartSite();
+	const stopSite = useStopSite();
+	const isStarting = useIsSiteStarting( site.id );
+	const isStopping = useIsSiteStopping( site.id );
+	const isBusy = useIsSiteBusy( site );
+	const running = site.running || isStopping;
+	const label = isStarting
+		? __( 'Starting' )
+		: isStopping
+		? __( 'Stopping' )
+		: running
+		? __( 'Stop' )
+		: __( 'Start' );
+	return (
+		<Tooltip.Root>
+			<Tooltip.Trigger
+				render={
+					<Button
+						variant={ running ? 'outline' : 'solid' }
+						tone="neutral"
+						size="small"
+						className={ clsx( 'studio-control', running && styles.lifecycleIconOnly ) }
+						disabled={ isBusy }
+						aria-busy={ isStarting || isStopping }
+						onClick={ () => ( running ? stopSite : startSite ).mutate( site.id ) }
+					>
+						{ isStarting || isStopping ? (
+							<Spinner />
+						) : (
+							<Icon icon={ running ? stopSiteIcon : startSiteIcon } size={ 16 } />
+						) }
+						<span className={ running ? styles.visuallyHidden : styles.toolbarLabel }>
+							{ label }
+						</span>
+					</Button>
+				}
+			/>
+			<Tooltip.Popup positioner={ <Tooltip.Positioner side="bottom" /> }>
+				{ running ? __( 'Stop site' ) : __( 'Start site' ) }
+			</Tooltip.Popup>
+		</Tooltip.Root>
+	);
+}
+
 function BrowserHistoryButton( {
 	direction,
 	browserState,
@@ -676,6 +740,7 @@ export function SitePreview( {
 }: SitePreviewProps ) {
 	const connector = useConnector();
 	const queryClient = useQueryClient();
+	const openSettings = useOpenSettings();
 	const { chatEnabled } = useAgenticFeatures();
 	const startSite = useStartSite();
 	const isStarting = useIsSiteStarting( site.id );
@@ -928,6 +993,22 @@ export function SitePreview( {
 		return () => document.removeEventListener( 'keydown', handleKeyDown, { capture: true } );
 	}, [ canPreview, collapsed, inspectorState.isPicking, sendBrowserCommand ] );
 
+	// Matches the realm on screen (front end / WP Admin / phpMyAdmin) rather
+	// than always the front end. Admin screens go through /studio-auto-login so
+	// they don't land on the login form; the front end opens logged out.
+	const openExternal =
+		activeRealm === 'design'
+			? undefined
+			: () => {
+					void connector.trackEvent( getRealmOpenEvent( activeRealm ), { browser: 'external' } );
+					void connector
+						.openSiteUrl( site.id, safePath, { autoLogin: activeRealm !== 'frontend' } )
+						.catch( ( error ) => {
+							console.error( 'Failed to open site in browser:', error );
+						} );
+			  };
+	const openSiteSettings = () => openSettings( 'site', site.id );
+
 	return (
 		<aside ref={ rootRef } className={ styles.root } aria-label={ __( 'Site preview' ) }>
 			<div
@@ -951,7 +1032,7 @@ export function SitePreview( {
 				<div className={ styles.headerSide }>
 					{ toolbarStart }
 					{ canPreview && ! inspectorState.isPicking ? (
-						<>
+						<div className={ styles.navigation }>
 							{ browserState.canGoBack || browserState.canGoForward ? (
 								<>
 									<BrowserHistoryButton
@@ -976,11 +1057,11 @@ export function SitePreview( {
 								size="small"
 								className="studio-control"
 								icon={ refreshIcon }
-								label={ __( 'Refresh' ) }
+								label={ __( 'Reload preview' ) }
 								shortcut={ browserShortcuts.reload }
 								onClick={ () => sendBrowserCommand( 'reload' ) }
 							/>
-						</>
+						</div>
 					) : null }
 				</div>
 				<div className={ styles.browserLocation }>
@@ -998,26 +1079,8 @@ export function SitePreview( {
 							onNavigate={ ( nextPath ) => onPathChange?.( nextPath ) }
 							onSwitchRealm={ handleSwitchRealm }
 							hasDesignSystem={ !! siteDesign.data }
-							onOpenExternal={
-								activeRealm === 'design'
-									? undefined
-									: () => {
-											const safePath = getSafePath( path );
-											const realm = getPreviewRealm( safePath );
-											// Matches the realm on screen (front end / WP Admin / phpMyAdmin)
-											// rather than always the front end.
-											void connector.trackEvent( getRealmOpenEvent( realm ), {
-												browser: 'external',
-											} );
-											// Admin screens go through /studio-auto-login so they don't land on
-											// the login form; the front end opens logged out.
-											void connector
-												.openSiteUrl( site.id, safePath, { autoLogin: realm !== 'frontend' } )
-												.catch( ( error ) => {
-													console.error( 'Failed to open site in browser:', error );
-												} );
-									  }
-							}
+							onOpenExternal={ openExternal }
+							onOpenSettings={ openSiteSettings }
 						/>
 					) : null }
 				</div>
@@ -1037,6 +1100,45 @@ export function SitePreview( {
 							}
 							onCommand={ sendInspectorCommand }
 						/>
+					) : null }
+					{ inspectorState.isPicking ? null : <PreviewLifecycleButton site={ site } /> }
+					{ canPreview && ! inspectorState.isPicking ? (
+						<Menu.Root modal={ false }>
+							<Menu.Trigger
+								render={
+									<IconButton
+										variant="minimal"
+										tone="neutral"
+										size="small"
+										className={ clsx( 'studio-control', styles.moreActions ) }
+										icon={ moreHorizontal }
+										label={ __( 'More preview actions' ) }
+									/>
+								}
+							/>
+							<Menu.Popup side="bottom" align="end">
+								<Menu.Item
+									disabled={ ! browserState.canGoBack }
+									onClick={ () => sendBrowserCommand( 'back' ) }
+								>
+									{ __( 'Back' ) }
+								</Menu.Item>
+								<Menu.Item
+									disabled={ ! browserState.canGoForward }
+									onClick={ () => sendBrowserCommand( 'forward' ) }
+								>
+									{ __( 'Forward' ) }
+								</Menu.Item>
+								<Menu.Item onClick={ () => sendBrowserCommand( 'reload' ) }>
+									{ __( 'Reload preview' ) }
+								</Menu.Item>
+								<Menu.Separator />
+								<Menu.Item onClick={ openSiteSettings }>{ __( 'Site settings' ) }</Menu.Item>
+								{ openExternal ? (
+									<Menu.Item onClick={ openExternal }>{ __( 'Open in browser' ) }</Menu.Item>
+								) : null }
+							</Menu.Popup>
+						</Menu.Root>
 					) : null }
 				</div>
 				{ showLoadingProgress ? (

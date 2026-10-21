@@ -496,7 +496,9 @@ function AssistantText( {
 			} }
 			onClick={ copyText ? handleClick : undefined }
 		>
-			<Markdown>{ text }</Markdown>
+			<div className={ styles.assistantBubble }>
+				<Markdown>{ text }</Markdown>
+			</div>
 			{ copyText ? (
 				<div className={ styles.messageActions }>
 					<div className={ styles.messageActionsClip }>

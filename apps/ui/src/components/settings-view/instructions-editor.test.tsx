@@ -5,23 +5,7 @@ import {
 	useAgentInstructions,
 	useSaveAgentInstructions,
 } from '@/data/queries/use-agent-instructions';
-import { StudioCodePanel } from './studio-code-panel';
-
-vi.mock( '@wordpress/dataviews', () => ( {
-	DataForm: ( {
-		data,
-		onChange,
-	}: {
-		data: { content: string };
-		onChange: ( update: { content: string } ) => void;
-	} ) => (
-		<textarea
-			aria-label="Instructions"
-			value={ data.content }
-			onChange={ ( event ) => onChange( { content: event.target.value } ) }
-		/>
-	),
-} ) );
+import { InstructionsEditor } from './instructions-editor';
 
 vi.mock( '@/data/queries/use-agent-instructions', () => ( {
 	useAgentInstructions: vi.fn(),
@@ -32,7 +16,7 @@ const useAgentInstructionsMock = vi.mocked( useAgentInstructions );
 const useSaveAgentInstructionsMock = vi.mocked( useSaveAgentInstructions );
 
 // These assert the panel supplies `editSession`, not that an event was recorded.
-describe( 'StudioCodePanel', () => {
+describe( 'InstructionsEditor', () => {
 	const save = vi.fn();
 
 	beforeEach( () => {
@@ -47,9 +31,9 @@ describe( 'StudioCodePanel', () => {
 	} );
 
 	it( 'saves once after the user stops typing, not on every keystroke', () => {
-		render( <StudioCodePanel /> );
+		render( <InstructionsEditor /> );
 
-		const textarea = screen.getByLabelText( 'Instructions' );
+		const textarea = screen.getByLabelText( 'Studio instructions' );
 		fireEvent.change( textarea, { target: { value: 'Answer in Spanish' } } );
 		fireEvent.change( textarea, { target: { value: 'Answer in Spanish.' } } );
 
@@ -62,9 +46,9 @@ describe( 'StudioCodePanel', () => {
 	} );
 
 	it( 'flushes a pending edit when the panel unmounts mid-debounce', () => {
-		const { unmount } = render( <StudioCodePanel /> );
+		const { unmount } = render( <InstructionsEditor /> );
 
-		fireEvent.change( screen.getByLabelText( 'Instructions' ), {
+		fireEvent.change( screen.getByLabelText( 'Studio instructions' ), {
 			target: { value: 'Half-typed thought' },
 		} );
 		unmount();
@@ -76,9 +60,9 @@ describe( 'StudioCodePanel', () => {
 	} );
 
 	it( 'does not save while the content still matches what is stored', () => {
-		render( <StudioCodePanel /> );
+		render( <InstructionsEditor /> );
 
-		fireEvent.change( screen.getByLabelText( 'Instructions' ), {
+		fireEvent.change( screen.getByLabelText( 'Studio instructions' ), {
 			target: { value: 'Answer in French.' },
 		} );
 		act( () => void vi.advanceTimersByTime( 800 ) );
@@ -89,9 +73,9 @@ describe( 'StudioCodePanel', () => {
 	// The autosave means the stored value already matches by the time the user leaves, so the
 	// boundary has to carry the value the visit started from.
 	it( 'reports the edit session on unmount after the debounce already saved', () => {
-		const { unmount } = render( <StudioCodePanel /> );
+		const { unmount } = render( <InstructionsEditor /> );
 
-		fireEvent.change( screen.getByLabelText( 'Instructions' ), {
+		fireEvent.change( screen.getByLabelText( 'Studio instructions' ), {
 			target: { value: 'Answer in Spanish.' },
 		} );
 		act( () => void vi.advanceTimersByTime( 800 ) );
@@ -106,7 +90,7 @@ describe( 'StudioCodePanel', () => {
 	} );
 
 	it( 'does not report an edit session when the user only looked at the tab', () => {
-		const { unmount } = render( <StudioCodePanel /> );
+		const { unmount } = render( <InstructionsEditor /> );
 
 		unmount();
 
@@ -116,9 +100,9 @@ describe( 'StudioCodePanel', () => {
 	// The cleanup must key off unmount, not the mutate callback's identity, or a re-render would end
 	// the edit session early and the real unmount would report the same edit a second time.
 	it( 'reports the edit session once even if the mutate callback changes identity', () => {
-		const { rerender, unmount } = render( <StudioCodePanel /> );
+		const { rerender, unmount } = render( <InstructionsEditor /> );
 
-		fireEvent.change( screen.getByLabelText( 'Instructions' ), {
+		fireEvent.change( screen.getByLabelText( 'Studio instructions' ), {
 			target: { value: 'Answer in Spanish.' },
 		} );
 
@@ -126,7 +110,7 @@ describe( 'StudioCodePanel', () => {
 			mutate: ( ...args: unknown[] ) => save( ...args ),
 			isError: false,
 		} as never );
-		rerender( <StudioCodePanel /> );
+		rerender( <InstructionsEditor /> );
 
 		expect( save.mock.calls.filter( ( [ arg ] ) => arg.editSession ) ).toHaveLength( 0 );
 
@@ -138,7 +122,7 @@ describe( 'StudioCodePanel', () => {
 	it( 'surfaces a save failure', () => {
 		useSaveAgentInstructionsMock.mockReturnValue( { mutate: save, isError: true } as never );
 
-		render( <StudioCodePanel /> );
+		render( <InstructionsEditor /> );
 
 		expect(
 			screen.getByText( 'Saving the instructions failed. Please try again.' )

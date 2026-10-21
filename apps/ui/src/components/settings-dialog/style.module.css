@@ -11,6 +11,11 @@
 	line-height: 20px;
 }
 
+/* Steps back while a confirmation or other dialog opens over it. */
+.popup[data-wp-ui-overlay-modal][data-nested-dialog-open] {
+	filter: blur(2px);
+}
+
 .visuallyHidden {
 	position: absolute;
 	width: 1px;
@@ -262,4 +267,24 @@
 	font-size: 13px;
 	font-weight: 450;
 	text-transform: none;
+}
+
+.sections {
+	display: flex;
+	flex-direction: column;
+	gap: 32px;
+}
+
+.error {
+	margin: 0;
+	color: var(--wpds-color-foreground-content-error);
+	font-size: 13px;
+}
+
+.content .manageAll {
+	display: flex;
+	margin-block-start: 4px;
+	padding-inline: 0;
+	font-size: 12px;
+	font-weight: 400;
 }

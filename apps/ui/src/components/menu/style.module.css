@@ -1,6 +1,6 @@
-/* Above app chrome that creates stacking contexts, below tooltips. */
+/* With selects: above dialogs, so a menu opened inside one shows, and below tooltips. */
 .positioner {
-	z-index: 100;
+	z-index: var( --wp-ui-select-z-index );
 	outline: none;
 }
 

@@ -28,11 +28,11 @@ describe( 'Markdown', () => {
 		copyText.mockClear();
 	} );
 
-	it( 'renders a copy button for fenced code blocks and copies the code', async () => {
+	it( 'labels fenced code blocks with their language and copies the code', async () => {
 		renderMarkdown( '```js\nconst a = 1;\n```' );
 
-		const button = screen.getByRole( 'button', { name: 'Copy code' } );
-		expect( button ).toBeInTheDocument();
+		expect( screen.getByText( 'js' ) ).toBeInTheDocument();
+		const button = screen.getByRole( 'button', { name: 'Copy' } );
 		expect( button.closest( `[${ CODE_TEXT_ATTRIBUTE }]` ) ).toHaveAttribute(
 			CODE_TEXT_ATTRIBUTE,
 			'const a = 1;'
@@ -42,17 +42,17 @@ describe( 'Markdown', () => {
 
 		expect( copyText ).toHaveBeenCalledWith( 'const a = 1;' );
 		await waitFor( () => expect( screen.getByRole( 'status' ) ).toHaveTextContent( 'Copied' ) );
-		expect( screen.getByRole( 'button', { name: 'Copy code' } ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'Copy' } ) ).toBeInTheDocument();
 	} );
 
 	it( 'shows a tooltip for the copy button', async () => {
 		renderMarkdown( '```js\nconst a = 1;\n```' );
 
-		const button = screen.getByRole( 'button', { name: 'Copy code' } );
+		const button = screen.getByRole( 'button', { name: 'Copy' } );
 		fireEvent.mouseEnter( button );
 		fireEvent.mouseMove( button, { movementX: 1, movementY: 1 } );
 
-		expect( await screen.findByText( 'Copy code', {}, { timeout: 2000 } ) ).toBeVisible();
+		expect( await screen.findByText( 'Copy', {}, { timeout: 2000 } ) ).toBeVisible();
 	} );
 
 	it( 'does not render a copy button for inline code', () => {

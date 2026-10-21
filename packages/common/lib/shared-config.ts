@@ -44,6 +44,8 @@ export const sharedConfigSchema = z
 		authToken: authTokenSchema.optional(),
 		locale: z.string().optional(),
 		selectedSkills: z.array( z.string() ).optional(),
+		// False when the user switched their global agent instructions off. Absent means on.
+		globalInstructionsEnabled: z.boolean().optional(),
 		sessions: z.record( z.string(), sharedSessionMetadataSchema ).optional(),
 		// WordPress.com sites connected to local sites, keyed by user id.
 		// Both Studio and the Studio CLI read and write this field through

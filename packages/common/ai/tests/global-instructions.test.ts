@@ -4,6 +4,7 @@ import path from 'path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
 	readGlobalInstructions,
+	setGlobalInstructionsEnabled,
 	readGlobalInstructionsFile,
 	writeGlobalInstructions,
 } from '../global-instructions';
@@ -39,6 +40,13 @@ describe( 'global-instructions', () => {
 	it( 'round-trips written instructions, trimmed for the prompt', async () => {
 		await writeGlobalInstructions( '\nAlways answer in French.\n' );
 		expect( await readGlobalInstructions() ).toBe( 'Always answer in French.' );
+	} );
+
+	it( 'leaves the instructions out of the prompt while they are switched off', async () => {
+		await writeGlobalInstructions( 'Always answer in French.' );
+		await setGlobalInstructionsEnabled( false );
+		expect( await readGlobalInstructions() ).toBeUndefined();
+		expect( await readGlobalInstructionsFile() ).toBe( 'Always answer in French.' );
 	} );
 
 	it( 'reads the raw file content for editing, preserving whitespace', async () => {

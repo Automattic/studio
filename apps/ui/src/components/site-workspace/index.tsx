@@ -1,44 +1,41 @@
 import { useState } from 'react';
 import { SessionView, SignedOutSessionView } from '@/components/session-view';
-import { SiteOverviewView } from '@/components/site-overview-view';
+import { SiteSettingsPage } from '@/components/site-settings-page';
 import styles from './style.module.css';
 import type { SiteSettingsTabId } from '@/components/site-settings-view';
 
 interface SiteWorkspaceProps {
 	siteId: string;
-	activeView: 'chat' | 'overview';
+	activeView: 'chat' | 'settings';
 	sessionId?: string;
-	overviewTab: SiteSettingsTabId;
-	openSiteDropdown?: boolean;
-	onOverviewTabChange: ( tab: SiteSettingsTabId ) => void;
+	settingsTab: SiteSettingsTabId;
+	onSettingsTabChange: ( tab: SiteSettingsTabId ) => void;
 }
 
 export function SiteWorkspace( {
 	siteId,
 	activeView,
 	sessionId,
-	overviewTab,
-	openSiteDropdown = false,
-	onOverviewTabChange,
+	settingsTab,
+	onSettingsTabChange,
 }: SiteWorkspaceProps ) {
 	const [ retainedSessionId, setRetainedSessionId ] = useState( sessionId );
-	const [ hasVisitedOverview, setHasVisitedOverview ] = useState( activeView === 'overview' );
-	const [ retainedOverviewTab, setRetainedOverviewTab ] = useState( overviewTab );
+	const [ hasVisitedSettings, setHasVisitedSettings ] = useState( activeView === 'settings' );
+	const [ retainedSettingsTab, setRetainedSettingsTab ] = useState( settingsTab );
 
 	if ( sessionId && sessionId !== retainedSessionId ) {
 		setRetainedSessionId( sessionId );
 	}
-	if ( activeView === 'overview' && ! hasVisitedOverview ) {
-		setHasVisitedOverview( true );
+	if ( activeView === 'settings' && ! hasVisitedSettings ) {
+		setHasVisitedSettings( true );
 	}
-	if ( activeView === 'overview' && overviewTab !== retainedOverviewTab ) {
-		setRetainedOverviewTab( overviewTab );
+	if ( activeView === 'settings' && settingsTab !== retainedSettingsTab ) {
+		setRetainedSettingsTab( settingsTab );
 	}
 
 	const chatActive = activeView === 'chat';
-	const overviewActive = activeView === 'overview';
+	const settingsActive = activeView === 'settings';
 	const renderedSessionId = sessionId ?? retainedSessionId;
-	const renderedOverviewTab = overviewActive ? overviewTab : retainedOverviewTab;
 
 	return (
 		<div className={ styles.root }>
@@ -55,17 +52,16 @@ export function SiteWorkspace( {
 					) }
 				</div>
 			) : null }
-			{ overviewActive || hasVisitedOverview ? (
+			{ settingsActive || hasVisitedSettings ? (
 				<div
-					className={ `${ styles.layer } ${ overviewActive ? styles.layerActive : '' }` }
-					inert={ ! overviewActive }
-					aria-hidden={ ! overviewActive || undefined }
+					className={ `${ styles.layer } ${ settingsActive ? styles.layerActive : '' }` }
+					inert={ ! settingsActive }
+					aria-hidden={ ! settingsActive || undefined }
 				>
-					<SiteOverviewView
+					<SiteSettingsPage
 						siteId={ siteId }
-						activeTab={ renderedOverviewTab }
-						openSiteDropdown={ overviewActive && openSiteDropdown }
-						onTabChange={ onOverviewTabChange }
+						activeTab={ settingsActive ? settingsTab : retainedSettingsTab }
+						onTabChange={ onSettingsTabChange }
 					/>
 				</div>
 			) : null }

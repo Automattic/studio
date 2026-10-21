@@ -1,8 +1,9 @@
 /**
- * Parse JSON from WP-CLI stdout, handling PHP warnings/deprecation notices.
+ * Parse JSON from WP-CLI stdout, handling stray output (PHP notices, plugin echoes) around it.
  *
- * Tries JSON.parse first for the common clean-output case. If that fails,
- * falls back to extracting JSON from the first '{' or '[' in the output.
+ * Tries JSON.parse first for the common clean-output case. If that fails, tries each line,
+ * last first, so a single-line payload such as `null` survives text printed before or after
+ * it. As a last resort, parses from the first '{' or '[' in the output.
  *
  * Defaults to `any` to match JSON.parse behavior; callers can narrow the type
  * via the generic parameter, e.g. `parseJsonFromPhpOutput<string[]>(stdout)`.
@@ -12,7 +13,16 @@ export function parseJsonFromPhpOutput< T = any >( output: string ): T {
 	try {
 		return JSON.parse( output );
 	} catch {
-		// Output likely contains PHP warnings/notices before the JSON.
+		// Output likely contains PHP warnings/notices around the JSON.
+	}
+
+	const lines = output.split( /\r?\n/ ).filter( ( line ) => line.trim() );
+	for ( const line of lines.reverse() ) {
+		try {
+			return JSON.parse( line );
+		} catch {
+			// Not the JSON line.
+		}
 	}
 
 	const objectStart = output.indexOf( '{' );

@@ -92,15 +92,6 @@ export function parseOmniboxInput( raw: string, siteUrl: string ): OmniboxIntent
 	return { type: 'search', term: value };
 }
 
-export function useDebouncedValue< T >( value: T, delayMs: number ): T {
-	const [ debounced, setDebounced ] = useState( value );
-	useEffect( () => {
-		const timer = setTimeout( () => setDebounced( value ), delayMs );
-		return () => clearTimeout( timer );
-	}, [ value, delayMs ] );
-	return debounced;
-}
-
 interface PreviewAddressBarProps {
 	site: SiteDetails;
 	siteIcon?: string | null;

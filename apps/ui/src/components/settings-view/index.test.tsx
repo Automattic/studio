@@ -159,7 +159,7 @@ describe( 'SettingsView', () => {
 
 		useConnectorMock.mockReturnValue( {
 			selectDefaultSiteDirectory,
-			capabilities: { agentInstructions: false, nativeFolderPicker: true },
+			capabilities: { nativeFolderPicker: true },
 		} as never );
 		useInstalledAppsMock.mockReturnValue( {
 			data: { vscode: true, terminal: true, iterm: true },
@@ -235,18 +235,6 @@ describe( 'SettingsView', () => {
 		expect( screen.getByTestId( 'ai-panel' ) ).toBeInTheDocument();
 	} );
 
-	it( 'offers the AI tab on every host, since chat can be toggled anywhere', () => {
-		useConnectorMock.mockReturnValue( {
-			selectDefaultSiteDirectory,
-			capabilities: { agentInstructions: false },
-		} as never );
-
-		render( <SettingsView activeTab="ai" onTabChange={ vi.fn() } /> );
-
-		expect( screen.getByRole( 'button', { name: 'AI' } ) ).toBeInTheDocument();
-		expect( screen.getByTestId( 'ai-panel' ) ).toBeInTheDocument();
-	} );
-
 	it( 'recognizes the keyboard tab id', () => {
 		expect( isSettingsTab( 'keyboard' ) ).toBe( true );
 		expect( isSettingsTab( 'unknown' ) ).toBe( false );
@@ -262,10 +250,6 @@ describe( 'SettingsView', () => {
 		expect( screen.getByText( 'Send message' ) ).toBeInTheDocument();
 		expect( screen.getByLabelText( 'Control + Comma' ) ).toBeInTheDocument();
 		expect( screen.getByLabelText( 'Alt + Left arrow' ) ).toBeInTheDocument();
-		// Keep the listed full-preview chord in step with the one SitePreview
-		// actually handles (Ctrl+Shift+F off Apple platforms).
-		expect( screen.getByText( 'Toggle full preview' ) ).toBeInTheDocument();
-		expect( screen.getByLabelText( 'Control + Shift + F' ) ).toBeInTheDocument();
 	} );
 
 	it( 'saves the default site directory as soon as one is picked', async () => {

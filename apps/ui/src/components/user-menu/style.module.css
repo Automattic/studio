@@ -1,31 +1,13 @@
-/* Pinning to the sidebar bottom is handled by the layout's
-   `sidebarFooter` wrapper. */
+/* The sidebar footer: the account avatar at the start, Settings and the
+   notification bell at the end, as 36px controls inset 12px. Pinning to the
+   sidebar bottom is handled by the layout's `sidebarFooter` wrapper. */
 .root {
-	--user-menu-leading-offset: calc(
-		var(--wpds-dimension-padding-lg) - var(--wpds-dimension-padding-sm)
-	);
-	/* The notice bell pulls back by `sm`, so this lands its trailing edge on
-	   `lg` — the same column the site rows' status buttons and the header's
-	   add button end on. Keep in sync with sidebar-header. */
-	--user-menu-trailing-offset: calc(
-		var(--wpds-dimension-padding-lg) + var(--wpds-dimension-padding-sm)
-	);
-
-	/* SidebarButton adds `sm` inline padding; this offset puts the avatar's
-	   inline edge on the same column as the site icons. Block-end: the avatar
-	   sits 15px from the sidebar's start edge (this offset plus the trigger's
-	   inline padding and border) but only 2px inside the trigger's bottom, so
-	   the bottom padding makes up the difference and the avatar is inset the
-	   same distance from the window's bottom edge as from its side. */
-	padding-block: var(--wpds-dimension-padding-sm)
-		calc(var(--wpds-dimension-padding-md) + var(--wpds-border-width-xs));
-	padding-inline: var(--user-menu-leading-offset) var(--user-menu-trailing-offset);
+	padding: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-md) 10px;
 }
 
 .row {
 	display: flex;
 	align-items: center;
-	gap: var(--wpds-dimension-padding-xs);
 }
 
 .offline {
@@ -37,39 +19,79 @@
 	fill: currentColor;
 }
 
-.userName {
-	color: var(--wpds-color-foreground-content-neutral-weak);
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
-	min-width: 0;
-}
-
 .userTrigger {
-	--user-menu-avatar-offset: 2px;
-
-	flex: 1;
-	font-weight: var(--wpds-typography-font-weight-default);
-	gap: calc(var(--wpds-dimension-gap-sm) + var(--user-menu-avatar-offset));
-	padding-inline-start: calc(var(--wpds-dimension-padding-sm) - var(--user-menu-avatar-offset));
+	flex: 0 0 auto;
+	justify-content: center;
+	width: var(--studio-control-size);
+	height: var(--studio-control-size);
+	padding: 0;
+	border-radius: var(--wpds-border-radius-sm);
 }
 
-/* Signed-out avatar: a circle with the settings (sliders) icon, sized/shaped to
-   match the gravatar it stands in for. */
+.userTrigger img {
+	width: 24px;
+	height: 24px;
+}
+
+.spacer {
+	flex: 1;
+}
+
+/* Signed-out avatar: a circle with the settings icon, sized like the gravatar
+   it stands in for. */
 .settingsAvatar {
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	width: 20px;
-	height: 20px;
+	width: 24px;
+	height: 24px;
 	border-radius: 50%;
 	flex-shrink: 0;
 	background-color: var(--wpds-color-background-surface-neutral);
 	color: var(--wpds-color-foreground-content-neutral-weak);
 }
 
-.settingsAvatar svg {
-	width: 14px;
-	height: 14px;
-	fill: currentColor;
+.popup {
+	min-width: 228px;
+}
+
+.account {
+	display: flex;
+	align-items: center;
+	gap: var(--wpds-dimension-gap-sm);
+	padding: var(--wpds-dimension-padding-sm);
+}
+
+.account img {
+	width: 20px;
+	height: 20px;
+	flex-shrink: 0;
+}
+
+.accountText {
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+	font-size: 14px;
+	line-height: var(--wpds-typography-line-height-sm);
+}
+
+.accountName,
+.accountEmail {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.accountEmail {
+	color: var(--wpds-color-foreground-content-neutral-weak);
+}
+
+.itemLabel {
+	flex: 1;
+}
+
+.shortcut {
+	color: var(--wpds-color-foreground-content-neutral-weak);
+	font: inherit;
 }

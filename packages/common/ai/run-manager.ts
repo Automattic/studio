@@ -11,6 +11,7 @@ import {
 } from '@studio/common/ai/sessions/placement';
 import { isDevRun } from '@studio/common/lib/dev-run';
 import { captureException } from '@studio/common/lib/error-reporting';
+import { updateSharedSession } from '@studio/common/lib/shared-config';
 import type { ActiveAgentRun, AgentRunEvent } from '@studio/common/ai/agent-events';
 import type { StudioChatFileAttachment } from '@studio/common/ai/chat-files';
 import type { StudioAiSessionInputPayload, StudioChatImage } from '@studio/common/ai/chat-images';
@@ -36,6 +37,7 @@ interface AgentRun {
 	interruptAttempts: number;
 	eventQueue: Promise< void >;
 	startedAt: number;
+	pendingQuestions: NonNullable< ActiveAgentRun[ 'pendingQuestions' ] >;
 }
 
 // Everything a run produces for the UI. The host maps each kind to its transport
@@ -139,6 +141,9 @@ export function createAgentRunManager( config: AgentRunManagerConfig ): AgentRun
 				message: error instanceof Error ? error.message : 'Failed to update session placement',
 			} );
 		}
+		if ( event.type === 'question.asked' ) {
+			run.pendingQuestions.push( ...event.questions );
+		}
 		sendEvent( run, event );
 	}
 
@@ -210,6 +215,7 @@ export function createAgentRunManager( config: AgentRunManagerConfig ): AgentRun
 			interruptAttempts: 0,
 			eventQueue: Promise.resolve(),
 			startedAt,
+			pendingQuestions: [],
 		};
 
 		runsBySessionId.set( sessionId, run );
@@ -244,7 +250,12 @@ export function createAgentRunManager( config: AgentRunManagerConfig ): AgentRun
 				} );
 			}
 
-			void run.eventQueue.finally( () => {
+			void run.eventQueue.finally( async () => {
+				// Opening the chat in any Studio app clears it. Written before
+				// `run.exited` so the refetch that event triggers sees it.
+				if ( ! run.interrupted ) {
+					await updateSharedSession( run.sessionId, { unread: true } ).catch( captureException );
+				}
 				if ( run.interrupted ) {
 					sendEvent( run, { type: 'run.interrupted', timestamp: nowIso() } );
 				}
@@ -277,6 +288,7 @@ export function createAgentRunManager( config: AgentRunManagerConfig ): AgentRun
 			sessionId: run.sessionId,
 			startedAt: run.startedAt,
 			phase: run.interrupted ? 'interrupting' : 'running',
+			pendingQuestions: run.pendingQuestions,
 		} ) );
 	}
 
@@ -323,6 +335,7 @@ export function createAgentRunManager( config: AgentRunManagerConfig ): AgentRun
 			return;
 		}
 		run.child.send( { type: 'answer', answers } );
+		run.pendingQuestions = [];
 	}
 
 	return { startAgentRun, listActiveAgentRuns, interruptAgentRun, answerAgentRun };

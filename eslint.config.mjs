@@ -40,8 +40,6 @@ export default defineConfig(
 			parserOptions: {
 				projectService: {
 					allowDefaultProject: [
-						'apps/studio/forge.config.ts',
-						'apps/studio/windowsSign.ts',
 						'apps/mcp-ui/vite.config.ts',
 						'plugins/wp-studio/scripts/*.mjs',
 						'apps/ui/vite.config.ts',

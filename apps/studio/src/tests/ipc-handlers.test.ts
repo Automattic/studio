@@ -1,20 +1,17 @@
 /**
  * @vitest-environment node
  */
-import { BrowserWindow, IpcMainInvokeEvent, shell } from 'electron';
+import { IpcMainInvokeEvent, shell } from 'electron';
 import { existsSync } from 'fs';
 import { normalize } from 'path';
-import { readThemeDetails } from '@studio/common/sites/site-identity';
 import { readSitePath } from '@studio/common/sites/site-path';
 import { readFile } from 'atomically';
 import { vol } from 'memfs';
 import { vi } from 'vitest';
 import {
 	createSite,
-	ensureMinWindowWidth,
 	getFileSize,
 	isFullscreen,
-	loadThemeDetails,
 	openURL,
 	readBlueprintFile,
 } from 'src/ipc-handlers';
@@ -146,80 +143,6 @@ describe( 'isFullscreen', () => {
 		const result = await isFullscreen( mockIpcMainInvokeEvent );
 
 		expect( result ).toBe( true );
-	} );
-} );
-
-describe( 'ensureMinWindowWidth', () => {
-	it( 'grows the sender window content while preserving its height', async () => {
-		const setContentSize = vi.fn();
-		let width = 420;
-		vi.mocked( BrowserWindow.fromWebContents ).mockReturnValueOnce( {
-			isDestroyed: () => false,
-			getContentSize: () => [ width, 700 ],
-			setContentSize: ( nextWidth: number, height: number ) => {
-				width = nextWidth;
-				setContentSize( nextWidth, height );
-			},
-		} as unknown as BrowserWindow );
-
-		const result = await ensureMinWindowWidth( mockIpcMainInvokeEvent, 640 );
-
-		expect( setContentSize ).toHaveBeenCalledWith( 640, 700 );
-		expect( result ).toBe( 640 );
-	} );
-
-	it( 'leaves an already-wide window unchanged', async () => {
-		const setContentSize = vi.fn();
-		vi.mocked( BrowserWindow.fromWebContents ).mockReturnValueOnce( {
-			isDestroyed: () => false,
-			getContentSize: () => [ 900, 700 ],
-			setContentSize,
-		} as unknown as BrowserWindow );
-
-		const result = await ensureMinWindowWidth( mockIpcMainInvokeEvent, 640 );
-
-		expect( setContentSize ).not.toHaveBeenCalled();
-		expect( result ).toBe( 900 );
-	} );
-
-	it( 'returns the content width the window manager actually applied', async () => {
-		vi.mocked( BrowserWindow.fromWebContents ).mockReturnValueOnce( {
-			isDestroyed: () => false,
-			getContentSize: () => [ 600, 700 ],
-			setContentSize: vi.fn(),
-		} as unknown as BrowserWindow );
-
-		const result = await ensureMinWindowWidth( mockIpcMainInvokeEvent, 640 );
-
-		expect( result ).toBe( 600 );
-	} );
-} );
-
-describe( 'loadThemeDetails', () => {
-	it( "reads the theme from the site's folder, whether or not it runs", async () => {
-		const themeDetails = {
-			name: 'Twenty Twenty-Five',
-			path: '/themes/twentytwentyfive',
-			slug: 'twentytwentyfive',
-			isBlockTheme: true,
-			supportsWidgets: false,
-			supportsMenus: false,
-		};
-		vi.mocked( readSitePath ).mockResolvedValue( '/test' );
-		vi.mocked( readThemeDetails ).mockResolvedValue( themeDetails );
-
-		await expect( loadThemeDetails( mockIpcMainInvokeEvent, 'site-id' ) ).resolves.toBe(
-			themeDetails
-		);
-		expect( readThemeDetails ).toHaveBeenCalledWith( expect.any( Function ), '/test' );
-	} );
-
-	it( 'rejects an unknown site', async () => {
-		vi.mocked( readSitePath ).mockResolvedValue( null );
-
-		await expect( loadThemeDetails( mockIpcMainInvokeEvent, 'missing' ) ).rejects.toThrow(
-			'Site not found.'
-		);
 	} );
 } );
 

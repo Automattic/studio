@@ -18,19 +18,19 @@ import {
 	terminalLogos,
 } from '@/lib/logos';
 import type { SiteDetails } from '@/data/core';
-import type { ReactElement } from 'react';
+import type { ReactElement, SVGProps } from 'react';
 
 type OpenInDestination = 'browser' | 'wp-admin' | 'files' | 'editor' | 'terminal' | 'phpmyadmin';
 
 interface OpenInDestinationEntry {
 	id: OpenInDestination;
 	label: string;
-	logo: ReactElement;
+	logo: ReactElement< SVGProps< SVGSVGElement > >;
 	disabled: boolean;
 	open: () => void;
 }
 
-function getFileManager(): { label: string; logo: ReactElement } {
+function getFileManager(): { label: string; logo: ReactElement< SVGProps< SVGSVGElement > > } {
 	const platform = navigator.platform.toLowerCase();
 	if ( platform.includes( 'win' ) ) {
 		return { label: __( 'File Explorer' ), logo: folderLogo };

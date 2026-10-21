@@ -10,6 +10,6 @@
 			"@wp-playground/blueprints/blueprint-schema-validator": [ "../../node_modules/@wp-playground/blueprints/blueprint-schema-validator" ]
 		}
 	},
-	"include": [ "./src/**/*", "e2e/**/*" ],
+	"include": [ "./src/**/*", "e2e/**/*", "forge.config.ts", "windowsSign.ts" ],
 	"exclude": [ "**/__mocks__/**/*", "**/node_modules/**/*", "**/dist/**/*", "**/out/**/*" ]
 }

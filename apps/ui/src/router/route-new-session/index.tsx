@@ -18,7 +18,7 @@ export const newSessionRoute = createRoute( {
 				return;
 			}
 			throw redirect( {
-				to: '/sites/$siteId/overview',
+				to: '/sites/$siteId',
 				params: { siteId: params.siteId },
 			} );
 		}

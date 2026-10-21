@@ -93,10 +93,7 @@ export const INSPECTOR_PAGE_SCRIPT =
 		const hasPrimaryModifier = apple ? event.metaKey : event.ctrlKey;
 		if ( ! hasPrimaryModifier ) return null;
 		const key = event.key.toLowerCase();
-		/* The host owns full preview, but in that mode this page covers most of
-		 * the window — so the chord is caught here and forwarded back. */
 		if ( event.shiftKey ) {
-			if ( key === 'f' ) return 'full-preview';
 			return key === 'r' ? 'reload' : null;
 		}
 		if ( key === 'r' ) return 'reload';

@@ -6,7 +6,14 @@ import { Logger, type ProgressCallback } from 'cli/logger';
 
 async function findSiteByName( name: string ): Promise< SiteData | undefined > {
 	const config = await readCliConfig();
-	return config.sites.find( ( site ) => site.name.toLowerCase() === name.toLowerCase() );
+	const sites = config.sites.filter( ( site ) => site.name.toLowerCase() === name.toLowerCase() );
+	if ( sites.length > 1 ) {
+		const paths = sites.map( ( site ) => site.path ).join( ', ' );
+		throw new Error(
+			`${ sites.length } sites are named "${ name }". Pass the full path of the one you mean: ${ paths }`
+		);
+	}
+	return sites[ 0 ];
 }
 
 export async function resolveSite( nameOrPath: string ): Promise< SiteData > {

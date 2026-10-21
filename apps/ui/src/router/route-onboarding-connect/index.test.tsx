@@ -36,6 +36,7 @@ vi.mock( '@tanstack/react-router', () => ( {
 vi.mock( '../layout-onboarding', () => ( {
 	onboardingLayoutRoute: {},
 	useOnboardingProgress: () => ( { setProgress: mocks.setProgress } ),
+	usePinNewSite: () => () => {},
 } ) );
 
 vi.mock( '@/data/core', () => ( {
@@ -323,7 +324,7 @@ describe( 'OnboardingConnectPage', () => {
 
 		await waitFor( () =>
 			expect( mocks.navigate ).toHaveBeenCalledWith( {
-				to: '/sites/$siteId/overview',
+				to: '/sites/$siteId',
 				params: { siteId: 'local-1' },
 				search: { sync: 'pull' },
 			} )
@@ -347,7 +348,7 @@ describe( 'OnboardingConnectPage', () => {
 
 		await waitFor( () =>
 			expect( mocks.navigate ).toHaveBeenCalledWith( {
-				to: '/sites/$siteId/overview',
+				to: '/sites/$siteId',
 				params: { siteId: 'local-1' },
 				search: { sync: 'pull' },
 			} )

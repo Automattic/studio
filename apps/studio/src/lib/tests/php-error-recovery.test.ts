@@ -64,6 +64,11 @@ describe( 'isPhpUserError', () => {
 			false
 		);
 		expect( isPhpUserError( new Error( 'Operation aborted' ) ) ).toBe( false );
+		expect(
+			isPhpUserError(
+				new Error( 'Server child process "studio-proxy" exited before becoming ready.' )
+			)
+		).toBe( false );
 	} );
 
 	test( 'treats any other Error as a user PHP error', () => {

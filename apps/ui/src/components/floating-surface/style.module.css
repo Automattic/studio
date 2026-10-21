@@ -1,20 +1,6 @@
-/* A fixed dark surface whatever the app theme. Literal colors: the wpds tokens
-   are remapped below, so seeding from them would be circular. */
+/* Menus and popovers float on the chrome surface of the active theme, edged by
+   a faint wash of the text color. */
 .surface {
-	--floating-surface: #1e1e1e;
-	--floating-foreground: #f0f0f0;
-	--floating-surface-subtle: color-mix(in srgb, var(--floating-foreground) 7%, var(--floating-surface));
-	--floating-foreground-weak: color-mix(in srgb, var(--floating-foreground) 72%, transparent);
-	--floating-foreground-disabled: color-mix(in srgb, var(--floating-foreground) 38%, transparent);
-	--floating-border: color-mix(in srgb, var(--floating-foreground) 11%, transparent);
-	--floating-divider: color-mix(in srgb, var(--floating-foreground) 16%, transparent);
-	--wpds-color-background-surface-neutral-strong: var(--floating-surface);
-	--wpds-color-background-surface-neutral: var(--floating-surface-subtle);
-	--wpds-color-stroke-surface-neutral-weak: var(--floating-border);
-	--wpds-color-stroke-surface-neutral: var(--floating-divider);
-	--wpds-color-foreground-content-neutral: var(--floating-foreground);
-	--wpds-color-foreground-content-neutral-weak: var(--floating-foreground-weak);
-	--wpds-color-foreground-interactive-neutral-disabled: var(--floating-foreground-disabled);
 	--studio-floating-surface-width-duration: 0ms;
 	--studio-floating-surface-transform-duration: 180ms;
 	--studio-floating-surface-opacity-duration: 160ms;
@@ -22,8 +8,9 @@
 
 	box-sizing: border-box;
 	background: var(--wpds-color-background-surface-neutral-strong);
-	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral-weak);
-	border-radius: var(--wpds-border-radius-lg);
+	border: var(--wpds-border-width-xs) solid
+		color-mix(in srgb, var(--wpds-color-foreground-content-neutral) 10%, transparent);
+	border-radius: var(--wpds-border-radius-md);
 	box-shadow: 0 2px 3px 0 rgba(0, 0, 0, 0.05), 0 4px 5px 0 rgba(0, 0, 0, 0.04), 0 12px 12px 0 rgba(0, 0, 0, 0.03), 0 16px 16px 0 rgba(0, 0, 0, 0.02);
 	color: var(--wpds-color-foreground-content-neutral);
 	transform-origin: top left;

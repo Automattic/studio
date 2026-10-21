@@ -8,7 +8,7 @@ test.describe( 'Appearance', () => {
 		session.electronApp.evaluate( ( { nativeTheme } ) => nativeTheme.shouldUseDarkColors );
 
 	test.beforeAll( async () => {
-		// The sidebar, which holds App settings, shows once a site exists.
+		// The sidebar, which holds the settings button, shows once a site exists.
 		await launchWithSite( session );
 	} );
 

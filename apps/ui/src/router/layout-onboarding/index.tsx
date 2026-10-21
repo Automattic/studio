@@ -1,7 +1,15 @@
-import { createRoute, Outlet, useLocation, useMatches, useNavigate } from '@tanstack/react-router';
+import {
+	createRoute,
+	Outlet,
+	retainSearchParams,
+	useLocation,
+	useMatches,
+	useNavigate,
+} from '@tanstack/react-router';
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { DotGrid } from '@/components/dot-grid';
 import { OnboardingLayout } from '@/components/onboarding-layout';
+import { sitePinKey, useSidebarPins } from '@/data/queries/use-sidebar-pins';
 import { useSites } from '@/data/queries/use-sites';
 import { rootRoute } from '../layout-root';
 import styles from './style.module.css';
@@ -112,5 +120,21 @@ function OnboardingShell() {
 export const onboardingLayoutRoute = createRoute( {
 	getParentRoute: () => rootRoute,
 	id: 'onboarding-layout',
+	// `pin` marks a flow started from the Pinned group's "+", and stays set
+	// across the flow's steps.
+	validateSearch: ( search: Record< string, unknown > ): { pin?: true } =>
+		search.pin === true || search.pin === 'true' ? { pin: true } : {},
+	search: { middlewares: [ retainSearchParams( [ 'pin' ] ) ] },
 	component: OnboardingShell,
 } );
+
+// Pins a site the flow created when it started from the Pinned group.
+export function usePinNewSite() {
+	const { pin } = onboardingLayoutRoute.useSearch();
+	const { pins, setPins } = useSidebarPins();
+	return ( siteId: string ) => {
+		if ( pin ) {
+			setPins( [ sitePinKey( siteId ), ...pins ] );
+		}
+	};
+}

@@ -28,9 +28,8 @@ export function useSiteBackupImport( site: SiteDetails ) {
 	const connector = useConnector();
 	const importSite = useImportSite();
 	const settleSync = useSettleSync();
-	// Everything here is stamped with a site id: the overview stays mounted when
-	// the user switches sites (the route only swaps the `$siteId` param), so a
-	// plain boolean would follow them and light up the next site's Import button.
+	// Everything here is stamped with a site id, so a pending pick can't follow
+	// the user to another site's surface.
 	const [ pending, setPending ] = useState< PendingImport | null >( null );
 
 	// The activity store is keyed by site and lives outside React, so progress

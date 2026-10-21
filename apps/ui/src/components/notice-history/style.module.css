@@ -3,8 +3,7 @@
    trailing edge on the row's `lg` column (see user-menu's
    `--user-menu-trailing-offset`). */
 .bell {
-	color: var(--wpds-color-foreground-content-neutral-weak);
-	margin-inline-end: calc(-1 * var(--wpds-dimension-padding-sm));
+	color: var(--wpds-color-foreground-content-neutral);
 }
 
 /* A quiet footnote under the list rather than a subtitle above it: it

@@ -27,7 +27,7 @@ beforeEach( () => {
 
 function renderDialog( onDeleted?: () => void ) {
 	return render(
-		<DeleteSiteDialog site={ SITE } open onOpenChange={ vi.fn() } onDeleted={ onDeleted } />
+		<DeleteSiteDialog sites={ [ SITE ] } open onOpenChange={ vi.fn() } onDeleted={ onDeleted } />
 	);
 }
 

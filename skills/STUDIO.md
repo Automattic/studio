@@ -124,7 +124,6 @@ Run `studio mcp --help` for per-assistant install commands and config paths. Doc
 
 | Don't | Do instead |
 |-------|-----------|
-| Edit `wp-includes/` or `wp-admin/` | Use actions/filters in a plugin or child theme |
 | Use bare `wp` CLI | Use `studio wp` |
 | Reference `DB_HOST`, `DB_NAME`, etc. | Use `$wpdb` directly (SQLite handles it) |
 | Delete `wp-content/db.php` | It's the SQLite drop-in — leave it |
@@ -187,16 +186,13 @@ studio auth logout  # Clear stored credentials
 
 **Themes and plugins:** Add custom themes to `wp-content/themes/` and plugins to `wp-content/plugins/`. To customise an existing theme, create a child theme rather than modifying the parent directly.
 
-**Use hooks, not direct edits:** Extend WordPress via actions and filters. NEVER edit core files in `wp-includes/` or `wp-admin/`.
-Core edits are overwritten on every WordPress update, so extend through hooks instead.
+**Use hooks, not direct edits:** Extend WordPress via actions and filters in a plugin or theme, leaving the core files in `wp-includes/` and `wp-admin/` as shipped. Core edits are overwritten on every WordPress update.
 
 ```php
 // Correct: extend via hooks
 add_action( 'wp_enqueue_scripts', function () {
     wp_enqueue_style( 'my-theme', get_stylesheet_uri() );
 } );
-
-// Incorrect: do not edit wp-includes/ or wp-admin/ directly
 ```
 
 **Data handling:** Always sanitize input and escape output.
@@ -211,7 +207,7 @@ add_action( 'wp_enqueue_scripts', function () {
 ## When to Create vs. Modify
 
 - **"Add a plugin/theme"**: Create files in `wp-content/plugins/` or `wp-content/themes/`
-- **"Change the site"**: Modify existing theme/plugin files, NEVER core files
+- **"Change the site"**: Modify existing theme/plugin files
 - **"Install X"**: Use `studio wp plugin install X --activate`
 - **"Debug/fix"**: Enable debug logging first: `studio config set --debug-log`
 
@@ -261,8 +257,6 @@ exported MySQL dump above)
 - Plugins that explicitly check for a MySQL connection and refuse to run may not be compatible
 
 ## Studio-Specific Notes
-
-**WordPress core:** Do NOT modify files inside `wp-includes/` or `wp-admin/`.
 
 **Must-use plugins:** The `wp-content/mu-plugins/` directory contains the SQLite integration. Do NOT remove files from this directory.
 

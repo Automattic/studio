@@ -25,9 +25,10 @@ import {
 } from 'react';
 import { AgenticSigninPrompt } from '@/components/agentic-signin-banner';
 import { OutOfCreditsNotice } from '@/components/ai-access-required-notice';
-import { OpenInMenu } from '@/components/open-in-menu';
+import { OpenChatShortcuts } from '@/components/chat-actions';
 import { PreviewToggleButton } from '@/components/preview-toggle-button';
 import { ProgressiveBlur } from '@/components/progressive-blur';
+import { HeaderSidebarToggle } from '@/components/sidebar-toggle';
 import { SiteDropdown } from '@/components/site-dropdown';
 import { SiteIcon } from '@/components/site-icon';
 import { type Annotation } from '@/components/site-preview/types';
@@ -39,10 +40,10 @@ import {
 	useCreateSession,
 	useSession,
 	useSessionEffectiveEnvironment,
-	useSessions,
 } from '@/data/queries/use-sessions';
 import { useSites } from '@/data/queries/use-sites';
 import { useIsOutOfAiCredits } from '@/hooks/use-is-out-of-ai-credits';
+import { useMarkChatRead } from '@/hooks/use-mark-chat-read';
 import { useSessionCommands } from '@/hooks/use-session-commands';
 import { SessionUIProvider, useSessionPreviewAnnotations } from '@/hooks/use-session-ui';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
@@ -60,7 +61,7 @@ import { Composer, ComposerSkeleton, type ComposerHandle } from './composer';
 import { Conversation } from './conversation';
 import { EmptyBackground } from './empty-background';
 import { QueuedPrompts } from './queued-prompts';
-import { getSiteSessionHistory, SessionChatActions } from './session-chat-actions';
+import { useNewChatShortcut } from './session-chat-actions';
 import styles from './style.module.css';
 import { SuggestedPrompts } from './suggested-prompts';
 import type { SiteDetails } from '@/data/core';
@@ -96,10 +97,7 @@ function SessionHeader( {
 } ) {
 	const sidebarCollapsed = useSidebarCollapsed();
 	const reserveTrafficLightSpace = useTrafficLightSpace().start;
-	const windowControlsInset = useWindowControlsInset( 'content' );
-	if ( ! siteName ) {
-		return null;
-	}
+	const windowControlsInset = useWindowControlsInset( 'toolbar' );
 
 	return (
 		<div
@@ -115,14 +113,9 @@ function SessionHeader( {
 					: undefined
 			}
 		>
-			{ site ? (
-				<SiteDropdown
-					site={ site }
-					activeEnvironment={ effectiveEnvironment }
-					showSiteIcon
-					showStatus={ sidebarCollapsed }
-				/>
-			) : (
+			<HeaderSidebarToggle />
+			{ site ? <SiteDropdown site={ site } activeEnvironment={ effectiveEnvironment } /> : null }
+			{ ! site && siteName ? (
 				<>
 					<SiteIcon className={ styles.headerSiteIcon } seed={ siteName } />
 					<span className={ styles.headerSite }>{ siteName }</span>
@@ -131,11 +124,11 @@ function SessionHeader( {
 						{ effectiveEnvironment === 'live' ? __( 'Live' ) : __( 'Local' ) }
 					</span>
 				</>
-			) }
+			) : null }
 			<span className={ styles.headerSpacer } aria-hidden="true" />
-			{ site ? (
-				<div className={ styles.headerActions }>
-					<OpenInMenu key={ site.id } site={ site } />
+			{ site && effectiveEnvironment === 'local' ? (
+				<div className={ styles.headerActions } data-header-actions>
+					<PreviewToggleButton canHideChat />
 				</div>
 			) : null }
 		</div>
@@ -145,8 +138,6 @@ function SessionHeader( {
 interface SessionFrameProps {
 	header?: ReactNode;
 	composer?: ReactNode;
-	footer?: ReactNode;
-	footerEnd?: ReactNode;
 	scrollRef?: Ref< HTMLDivElement >;
 	children?: ReactNode;
 }
@@ -154,14 +145,7 @@ interface SessionFrameProps {
 // Lays out the chat column as fixed chrome over a full-height conversation
 // scroller. The site preview panel lives in the dashboard layout's
 // PreviewSplitFrame, which keeps it mounted across routes.
-function SessionFrame( {
-	header,
-	composer,
-	footer,
-	footerEnd,
-	scrollRef,
-	children,
-}: SessionFrameProps ) {
+function SessionFrame( { header, composer, scrollRef, children }: SessionFrameProps ) {
 	const rootRef = useRef< HTMLDivElement >( null );
 	const headerRef = useRef< HTMLDivElement >( null );
 	const composerRef = useRef< HTMLDivElement >( null );
@@ -174,39 +158,17 @@ function SessionFrame( {
 
 		const updateChromeSize = () => {
 			root.style.setProperty( '--header-height', `${ headerRef.current?.offsetHeight ?? 0 }px` );
-			const composerHeight = composerRef.current?.offsetHeight ?? 0;
-			root.style.setProperty( '--composer-height', `${ composerHeight }px` );
-			// The collapsed-sidebar toast shelf lives in the layout's <main>, an
-			// ancestor of this root, so it can't inherit the value from here.
-			// Publishing it on the document lets the shelf ride above the composer
-			// however it grows — wrapped text, attachments, or the resize handle.
-			document.documentElement.style.setProperty(
-				'--app-main-composer-height',
-				`${ composerHeight }px`
+			root.style.setProperty(
+				'--composer-height',
+				`${ composerRef.current?.offsetHeight ?? 0 }px`
 			);
-			// The shelf's start edge lines up with the composer box, wherever
-			// the reading column puts it.
-			const composerBox = composerRef.current?.firstElementChild;
-			if ( composerBox && root ) {
-				const left = composerBox.getBoundingClientRect().left - root.getBoundingClientRect().left;
-				document.documentElement.style.setProperty( '--app-main-composer-left', `${ left }px` );
-			}
 		};
 
 		updateChromeSize();
 
-		// Views without a composer must fall back to the shelf's 0px default.
-		const clearComposerHeight = () => {
-			document.documentElement.style.removeProperty( '--app-main-composer-height' );
-			document.documentElement.style.removeProperty( '--app-main-composer-left' );
-		};
-
 		if ( typeof ResizeObserver === 'undefined' ) {
 			window.addEventListener( 'resize', updateChromeSize );
-			return () => {
-				window.removeEventListener( 'resize', updateChromeSize );
-				clearComposerHeight();
-			};
+			return () => window.removeEventListener( 'resize', updateChromeSize );
 		}
 
 		const resizeObserver = new ResizeObserver( updateChromeSize );
@@ -217,21 +179,17 @@ function SessionFrame( {
 			resizeObserver.observe( composerRef.current );
 		}
 
-		return () => {
-			resizeObserver.disconnect();
-			clearComposerHeight();
-		};
+		return () => resizeObserver.disconnect();
 	}, [] );
 
 	return (
-		<div ref={ rootRef } className={ clsx( styles.root, footer && styles.rootWithFooter ) }>
+		<div ref={ rootRef } className={ styles.root }>
 			<div ref={ headerRef } className={ styles.headerLayer }>
 				{ header }
 			</div>
 			<div ref={ scrollRef } className={ styles.scroll }>
 				{ children }
 			</div>
-			<ProgressiveBlur direction="down" className={ styles.headerBlur } fadeToSurface />
 			{ composer ? (
 				<>
 					<ProgressiveBlur direction="up" className={ styles.composerBlur } fadeToSurface />
@@ -239,16 +197,6 @@ function SessionFrame( {
 						{ composer }
 					</div>
 				</>
-			) : null }
-			{ footer ? (
-				<div className={ clsx( styles.panelFooterControls, styles.panelFooterControlsStart ) }>
-					{ footer }
-				</div>
-			) : null }
-			{ footerEnd ? (
-				<div className={ clsx( styles.panelFooterControls, styles.panelFooterControlsEnd ) }>
-					{ footerEnd }
-				</div>
 			) : null }
 		</div>
 	);
@@ -282,7 +230,7 @@ export function SignedOutSessionView( { siteId }: { siteId: string } ) {
 		}
 		if ( isReady && ! enabled && ! chatPromptsSignIn ) {
 			void navigate( {
-				to: '/sites/$siteId/overview',
+				to: '/sites/$siteId',
 				params: { siteId },
 				replace: true,
 			} );
@@ -294,13 +242,9 @@ export function SignedOutSessionView( { siteId }: { siteId: string } ) {
 			header={
 				<SessionHeader siteName={ site?.name } site={ site } effectiveEnvironment="local" />
 			}
-			footer={ <div aria-hidden /> }
-			footerEnd={ site ? <PreviewToggleButton /> : null }
 		>
 			<AgenticSigninPrompt
-				onOpenOverview={ () =>
-					void navigate( { to: '/sites/$siteId/overview', params: { siteId } } )
-				}
+				onTurnedOff={ () => void navigate( { to: '/sites/$siteId', params: { siteId } } ) }
 			/>
 		</SessionFrame>
 	);
@@ -310,7 +254,6 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	const navigate = useNavigate();
 	const { data, isLoading, error } = useSession( sessionId );
 	const { data: sites } = useSites();
-	const { data: sessions } = useSessions();
 	const { mutateAsync: createSession, isPending: isCreatingSession } = useCreateSession();
 	const ownerSite = findAiSessionOwnerSite( sites, data?.summary );
 	const effectiveEnvironment = useSessionEffectiveEnvironment( data?.summary, ownerSite?.id );
@@ -454,22 +397,6 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	}, [ scrollNode ] );
 	useSessionCommands( sessionId );
 	const canTogglePreview = !! ownerSite && effectiveEnvironment === 'local';
-	const siteSessionHistory = data
-		? getSiteSessionHistory( {
-				currentSession: data.summary,
-				ownerSite,
-				sessions,
-		  } )
-		: [];
-	const archivedSiteSessionHistory = data
-		? getSiteSessionHistory( {
-				currentSession: data.summary,
-				ownerSite,
-				sessions,
-				archived: true,
-		  } )
-		: [];
-
 	const handleAnnotationsDone = useCallback(
 		( annotations: Annotation[] ) => {
 			if ( annotations.length === 0 ) return;
@@ -537,6 +464,8 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	// Out of credits swaps the composer for the purchase offer, unless a run is
 	// still in flight — the Stop button lives in the composer.
 	const isOutOfCredits = useIsOutOfAiCredits();
+	useMarkChatRead( sessionId, data?.summary.unread );
+	useNewChatShortcut( startNewChat, !! ownerSite && ! isOutOfCredits && ! isCreatingSession );
 	// Fail open when the quota is unavailable (offline, error, older server) —
 	// the WordPress.com proxy enforces the same gate server-side.
 	const isAccessBlocked =
@@ -606,7 +535,6 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 						<ComposerSkeleton />
 					</div>
 				}
-				footer={ <div aria-hidden /> }
 			>
 				<EmptyBackground />
 			</SessionFrame>
@@ -623,7 +551,6 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 						effectiveEnvironment={ effectiveEnvironment }
 					/>
 				}
-				footer={ <div aria-hidden /> }
 			>
 				<EmptyBackground />
 				<AccessRequirements
@@ -687,21 +614,8 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 					) }
 				</div>
 			}
-			footer={
-				ownerSite ? (
-					<SessionChatActions
-						archivedSessions={ archivedSiteSessionHistory }
-						currentSessionId={ sessionId }
-						isCreatingSession={ isCreatingSession }
-						onNewChat={ startNewChat }
-						onSwitchSession={ switchSession }
-						sessions={ siteSessionHistory }
-						showNewChat={ ! isOutOfCredits }
-					/>
-				) : null
-			}
-			footerEnd={ canTogglePreview ? <PreviewToggleButton /> : null }
 		>
+			<OpenChatShortcuts session={ data.summary } />
 			{ isEmpty && ! pendingPrompt ? <EmptyBackground /> : null }
 			{ isEmpty && ! pendingPrompt && ownerSite && ! isOutOfCredits ? (
 				<SuggestedPrompts

@@ -35,7 +35,6 @@ import type {
 	SupportedEditor,
 	SyncSite,
 	UserPreferences,
-	ThemeDetails,
 } from '../../types';
 import type { AgentRunEvent } from '@studio/common/ai/agent-events';
 import type { AiSettings } from '@studio/common/ai/providers';
@@ -123,11 +122,7 @@ export function createIpcConnector(): Connector {
 		// Native desktop app: every affordance is available.
 		capabilities: {
 			nativeFolderPicker: true,
-			openInOS: true,
 			annotatePreview: true,
-			readLocalMedia: true,
-			agentInstructions: true,
-			aiSettings: true,
 			studioLogs: true,
 		},
 
@@ -331,38 +326,11 @@ export function createIpcConnector(): Connector {
 		async getSiteThumbnail( siteId ): Promise< string | null > {
 			return ( await ipcApi.getThumbnailData( siteId ) ) as string | null;
 		},
-		async getSiteStorageUsage( siteId, signal ) {
-			if ( ! signal ) {
-				return ipcApi.getSiteStorageUsage( siteId );
-			}
-			// `ipcRenderer.invoke` can't be cancelled, so aborting is a second
-			// call telling the main process to stop this measurement. The
-			// `throwIfAborted` calls turn the abort into the rejection React
-			// Query recognizes as a cancellation rather than a failed query.
-			const requestId = crypto.randomUUID();
-			const cancel = () => void ipcApi.cancelSiteStorageUsage( requestId );
-			signal.addEventListener( 'abort', cancel, { once: true } );
-			try {
-				const usage = await ipcApi.getSiteStorageUsage( siteId, requestId );
-				signal.throwIfAborted();
-				return usage;
-			} catch ( error ) {
-				signal.throwIfAborted();
-				throw error;
-			} finally {
-				signal.removeEventListener( 'abort', cancel );
-			}
-		},
-
 		async getSiteDesign( siteId ) {
 			return ipcApi.getSiteDesign( siteId );
 		},
 		async fixSiteDesignDrift( siteId, fixes ) {
 			return ipcApi.fixSiteDesignDrift( siteId, fixes );
-		},
-
-		async getThemeDetails( siteId ) {
-			return ( await ipcApi.loadThemeDetails( siteId ) ) as ThemeDetails;
 		},
 
 		async getSiteIcon( siteId ) {
@@ -813,16 +781,8 @@ export function createIpcConnector(): Connector {
 		// space for them); Windows and Linux don't.
 		reservesTrafficLightSpace: isMacOS,
 
-		async ensureWindowWidth( minimumWidth: number ): Promise< number | null > {
-			return ipcApi.ensureMinWindowWidth( minimumWidth );
-		},
-
 		async setWindowControlsSurface( surface ) {
 			await ipcApi.setWindowControlsSurface( surface );
-		},
-
-		async setTrafficLightsPosition( position ) {
-			await ipcApi.setTrafficLightsPosition( position );
 		},
 
 		async isFullscreen(): Promise< boolean > {

@@ -4,16 +4,14 @@ import { BACKUP_FIXTURES_DIR } from './constants';
 import { E2ESession, launchWithSite } from './e2e-helpers';
 import AddSite from './page-objects/add-site';
 import Sidebar from './page-objects/sidebar';
-import SiteOverview from './page-objects/site-overview';
 import { getUrlWithAutoLogin } from './utils';
 
 /**
- * Imports for the Jetpack, Local, Playground and .wpress backup formats, plus
- * importing a backup into an existing site.
- *
- * The Jetpack fixture mimics the real per-table layout (sql/wp_*.sql +
- * meta.json), exercising the multi-file SQL import path; the release-time test
- * against a genuine WordPress.com backup remains in import.test.ts.
+ * Importing a backup from the Add Site form and into an existing site. The app
+ * hands the file to `studio import`, so every backup format (Jetpack, Local,
+ * Playground, .wpress) is covered by apps/cli/commands/tests/import.e2e.test.ts
+ * with the same content checks; these tests cover the two UI flows reaching it.
+ * The test against a genuine WordPress.com backup remains in import.test.ts.
  *
  * The fixture archives under test-fixtures/backups/ were generated from a demo
  * Studio site (blog name "MyPet") with a custom theme, so each test can prove
@@ -92,28 +90,22 @@ test.describe( 'Import backup formats', () => {
 		await session.cleanup();
 	} );
 
-	for ( const [ format, file ] of [
-		[ 'Jetpack', 'jetpack-backup.tar.gz' ],
-		[ 'Local', 'local-backup.zip' ],
-		[ 'Playground', 'playground-backup.zip' ],
-		[ '.wpress', 'aio-backup.wpress' ],
-	] ) {
-		test( `imports a new site from a ${ format } backup file`, async ( { page } ) => {
-			const siteName = await importNewSiteFromBackup(
-				path.join( BACKUP_FIXTURES_DIR, file ),
-				`${ format.replace( '.', '' ) }-Import-Site`
-			);
-			await assertImportedSiteContent( page, siteName );
-		} );
-	}
+	test( 'imports a new site from a backup file', async ( { page } ) => {
+		const siteName = await importNewSiteFromBackup(
+			path.join( BACKUP_FIXTURES_DIR, 'local-backup.zip' ),
+			'Local-Import-Site'
+		);
+		await assertImportedSiteContent( page, siteName );
+	} );
 
 	test( 'imports a backup file into an existing site', async ( { page } ) => {
 		// Import into the site while it's stopped (afterEach stops everything): a
 		// running site spawns WP-CLI processes (theme details, site icon) that race
 		// the database import. The import starts the server itself on completion.
-		const overview = new SiteOverview( session.mainWindow );
-		await overview.open( existingSiteName );
-		await overview.importBackup( path.join( BACKUP_FIXTURES_DIR, 'local-backup.zip' ) );
+		await new Sidebar( session.mainWindow ).importBackup(
+			existingSiteName,
+			path.join( BACKUP_FIXTURES_DIR, 'local-backup.zip' )
+		);
 		await waitForImport();
 
 		await assertImportedSiteContent( page, existingSiteName );

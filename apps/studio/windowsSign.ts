@@ -1,5 +1,6 @@
 import path from 'path';
-import type { WindowsSignOptions } from '@electron/packager';
+import type { PackagerWindowsSignOptions } from '@electron/packager';
+import type { MakerSquirrelConfig } from '@electron-forge/maker-squirrel';
 
 // Azure Trusted Signing configuration for Windows code signing.
 //
@@ -11,7 +12,7 @@ import type { WindowsSignOptions } from '@electron/packager';
 // unset and get undefined, so this config stays inert there. The throw exists
 // because a build that asked to sign but is missing its Azure env would
 // otherwise fail with an opaque signtool exit code.
-function getWindowsSign(): WindowsSignOptions | undefined {
+function getWindowsSign(): { hookModulePath: string } | undefined {
 	const signWindows = [ '1', 'true' ].includes(
 		( process.env.SIGN_WINDOWS_BUILD ?? '' ).trim().toLowerCase()
 	);
@@ -37,4 +38,10 @@ function getWindowsSign(): WindowsSignOptions | undefined {
 	};
 }
 
-export const windowsSign = getWindowsSign();
+const windowsSignOptions = getWindowsSign();
+
+// Packager and electron-winstaller depend on different major versions of
+// @electron/windows-sign, whose option types are incompatible, so the same
+// options are exported once for each. Both accept `hookModulePath`.
+export const windowsSign: PackagerWindowsSignOptions | undefined = windowsSignOptions;
+export const squirrelWindowsSign: MakerSquirrelConfig[ 'windowsSign' ] = windowsSignOptions;

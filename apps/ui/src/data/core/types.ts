@@ -640,6 +640,8 @@ export interface UserPreferences {
 	studioCliExternallyManaged: boolean;
 	// Whether chat/agent features are offered at all.
 	agenticFeaturesEnabled: boolean;
+	// The sidebar's Pinned group, in order, as `site:<id>` and `chat:<id>` keys.
+	sidebarPins?: string[];
 }
 
 export interface AppGlobals {

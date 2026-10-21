@@ -36,6 +36,8 @@ export interface UserPreferences {
 	analyticsEnabled: boolean;
 	defaultSiteDirectory: string;
 	agenticFeaturesEnabled: boolean;
+	// The sidebar's Pinned group, in order, as `site:<id>` and `chat:<id>` keys.
+	sidebarPins: string[];
 }
 
 // Passed in, so this stays a pure reader over the config files.
@@ -55,6 +57,7 @@ const terminalWithDefault = z.enum( SUPPORTED_TERMINALS ).catch( DEFAULT_TERMINA
 const colorSchemeWithDefault = z.enum( SUPPORTED_COLOR_SCHEMES ).catch( DEFAULT_COLOR_SCHEME );
 const optionalQuitSitesBehavior = z.enum( QUIT_SITES_BEHAVIORS ).optional().catch( undefined );
 const nonEmptyString = z.string().nonempty();
+const sidebarPinsSchema = z.array( z.string() );
 
 // `null` clears a preference back to its default; JSON drops `undefined` keys,
 // so a clear can't travel as one.
@@ -68,6 +71,7 @@ export const userPreferencesPatchSchema = z.object( {
 	analyticsEnabled: z.boolean().nullish(),
 	defaultSiteDirectory: z.string().nullish(),
 	agenticFeaturesEnabled: z.boolean().nullish(),
+	sidebarPins: sidebarPinsSchema.nullish(),
 	// Where the change was made (the analytics toggle also appears during onboarding); not stored.
 	surface: z.enum( [ 'onboarding', 'settings' ] ).optional(),
 } );
@@ -82,6 +86,7 @@ const APP_CONFIG_KEYS = [
 	[ 'quitSitesBehavior', 'quitSitesBehavior' ],
 	[ 'defaultSiteDirectory', 'defaultSiteDirectory' ],
 	[ 'agenticFeaturesEnabled', 'agenticFeaturesEnabled' ],
+	[ 'sidebarPins', 'sidebarPins' ],
 ] as const satisfies readonly ( readonly [ keyof UserPreferencesPatch, string ] )[];
 
 function getDefaultSiteDirectory( config: AppConfig, sitesRoot: string ): string {
@@ -110,6 +115,7 @@ export async function readUserPreferences( {
 		analyticsEnabled: ! isAnalyticsOptedOutInConfig( shared ),
 		defaultSiteDirectory: getDefaultSiteDirectory( config, sitesRoot ),
 		agenticFeaturesEnabled: config.agenticFeaturesEnabled !== false,
+		sidebarPins: sidebarPinsSchema.catch( [] ).parse( config.sidebarPins ),
 	};
 }
 

@@ -42,6 +42,7 @@ function getShortcutSections( isApple: boolean ): ShortcutSection[] {
 			title: __( 'Chats' ),
 			shortcuts: [
 				{ label: __( 'Rename chat' ), keys: [ modifierKey, isApple ? '⌥' : 'Alt', 'R' ] },
+				{ label: __( 'Pin or unpin' ), keys: [ modifierKey, isApple ? '⌥' : 'Alt', 'P' ] },
 				{ label: __( 'Archive chat' ), keys: [ modifierKey, 'Shift', 'A' ] },
 			],
 		},

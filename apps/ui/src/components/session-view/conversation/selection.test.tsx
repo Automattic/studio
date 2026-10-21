@@ -7,7 +7,6 @@ import type { LoadedAiSession, SessionEntry } from '@/data/core';
 
 vi.mock( '@/data/core', () => ( {
 	useConnector: () => ( {
-		capabilities: { readLocalMedia: false },
 		copyText: vi.fn().mockResolvedValue( undefined ),
 	} ),
 } ) );

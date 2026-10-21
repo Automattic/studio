@@ -8,7 +8,6 @@ export function useAgentInstructions() {
 	return useQuery( {
 		queryKey: AGENT_INSTRUCTIONS_QUERY_KEY,
 		queryFn: () => connector.getAgentInstructions(),
-		enabled: connector.capabilities.agentInstructions,
 	} );
 }
 

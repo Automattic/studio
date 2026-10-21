@@ -9,7 +9,6 @@ export type GuideIllustrationId =
 	| 'sites'
 	| 'chat'
 	| 'preview'
-	| 'overview'
 	// What's New.
 	| 'design-picker'
 	| 'model-tiers'

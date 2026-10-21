@@ -17,21 +17,19 @@ const GROW_SETTLE_MS = 200;
 interface UseResponsivePanelsOptions {
 	connector: Pick< Connector, 'ensureWindowWidth' >;
 	previewOpen: boolean;
-	previewFullscreen: boolean;
 	setPreviewOpen: ( open: boolean ) => void;
 }
 
 export function useResponsivePanels( {
 	connector,
 	previewOpen,
-	previewFullscreen,
 	setPreviewOpen,
 }: UseResponsivePanelsOptions ) {
 	const [ sidebarCollapsed, setSidebarCollapsed ] = useState(
 		() => getViewportWidth() < SIDEBAR_AUTO_COLLAPSE_BREAKPOINT
 	);
 	const previewWidthArmedRef = useRef( false );
-	const previousPreviewStateRef = useRef( { open: false, fullscreen: false } );
+	const previousPreviewOpenRef = useRef( false );
 	// Ignore late completions when the user changes panel state while an IPC
 	// resize request is in flight.
 	const operationIdRef = useRef( 0 );
@@ -80,12 +78,11 @@ export function useResponsivePanels( {
 	}, [ collapseSidebarIfViewportTooNarrow ] );
 
 	useEffect( () => {
-		const previous = previousPreviewStateRef.current;
-		previousPreviewStateRef.current = { open: previewOpen, fullscreen: previewFullscreen };
-		const enteringSplit =
-			previewOpen && ! previewFullscreen && ( ! previous.open || previous.fullscreen );
+		const wasOpen = previousPreviewOpenRef.current;
+		previousPreviewOpenRef.current = previewOpen;
+		const enteringSplit = previewOpen && ! wasOpen;
 
-		if ( ! previewOpen || previewFullscreen ) {
+		if ( ! previewOpen ) {
 			previewWidthArmedRef.current = false;
 			operationIdRef.current += 1;
 		}
@@ -128,7 +125,6 @@ export function useResponsivePanels( {
 		void fitPreview();
 	}, [
 		ensureWindowWidth,
-		previewFullscreen,
 		previewOpen,
 		releaseGrowGuardAfterSettle,
 		setPreviewOpen,
@@ -175,7 +171,7 @@ export function useResponsivePanels( {
 
 	const onPreviewContainerWidthChange = useCallback(
 		( width: number | null ) => {
-			if ( ! previewOpen || previewFullscreen || width === null ) {
+			if ( ! previewOpen || width === null ) {
 				previewWidthArmedRef.current = false;
 				return;
 			}
@@ -190,7 +186,7 @@ export function useResponsivePanels( {
 				setPreviewOpen( false );
 			}
 		},
-		[ previewFullscreen, previewOpen, setPreviewOpen ]
+		[ previewOpen, setPreviewOpen ]
 	);
 
 	return {

@@ -2,11 +2,11 @@ import { ThemeProvider } from '@wordpress/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import type { PropsWithChildren } from 'react';
 
-// `#fcfcfc` is the design system's own light seed. Naming it explicitly rather
-// than leaving `color` unset is what lets a nested scope reset back to the app
-// theme: an unset seed inherits from the enclosing provider.
-const APP_BG_LIGHT = '#fcfcfc';
-const APP_BG_DARK = '#1e1e1e';
+// The rebuild's content surfaces. Naming the seed explicitly rather than leaving
+// `color` unset is what lets a nested scope reset back to the app theme: an
+// unset seed inherits from the enclosing provider.
+const APP_BG_LIGHT = '#fafafa';
+const APP_BG_DARK = '#141414';
 
 export function appThemeColor( colorScheme: 'light' | 'dark' ) {
 	return { background: colorScheme === 'dark' ? APP_BG_DARK : APP_BG_LIGHT };

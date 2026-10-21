@@ -268,7 +268,7 @@ function usePathAutoGenerate(
 // On the desktop this is a button that opens the native folder dialog (the
 // value is set by the name→path auto-gen or the dialog, never typed) — which
 // also sidesteps the browser's refusal to expose `validationMessage` on
-// readonly inputs. In the browser (`studio ui` / hosted) there's no native
+// readonly inputs. In the browser (`studio ui`) there's no native
 // picker, so it falls back to an editable text field: the path is still
 // prefilled from the site name, and the server validates the final path on
 // create.

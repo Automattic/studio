@@ -4,7 +4,6 @@ import { error as errorIcon } from '@wordpress/icons';
 import { Icon } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useState } from 'react';
-import { useConnector } from '@/data/core';
 import { useAiSettings, useSaveAnthropicApiKey } from '@/data/queries/use-ai-settings';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
 import { StudioCodePanel } from './studio-code-panel';
@@ -94,12 +93,11 @@ function AnthropicApiKeySection() {
 }
 
 export function AiPanel() {
-	const connector = useConnector();
 	return (
 		<div className={ styles.preferencesPanel }>
 			<AgenticFeaturesSection />
-			{ connector.capabilities.aiSettings && <AnthropicApiKeySection /> }
-			{ connector.capabilities.agentInstructions && <StudioCodePanel /> }
+			<AnthropicApiKeySection />
+			<StudioCodePanel />
 		</div>
 	);
 }

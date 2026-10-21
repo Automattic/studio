@@ -31,11 +31,7 @@
 			"project": "**/*.ts"
 		},
 		"apps/ui": {
-			"entry": ["src/main.hosted.tsx", "src/main.local.tsx"],
-			"project": "src/**/*.{ts,tsx}"
-		},
-		"apps/hosted": {
-			"entry": ["src/index.ts"],
+			"entry": ["src/main.local.tsx"],
 			"project": "src/**/*.{ts,tsx}"
 		},
 		"apps/local": {

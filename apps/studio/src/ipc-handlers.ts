@@ -19,32 +19,30 @@ import { validateStudioChatFiles } from '@studio/common/ai/chat-files';
 import { validateStudioChatImages } from '@studio/common/ai/chat-images';
 import { isAiModelId } from '@studio/common/ai/models';
 import { isAiProviderId, providerServesModel } from '@studio/common/ai/providers';
-import { deriveEffectiveEnvironment } from '@studio/common/ai/sessions/effective-site';
 import {
 	createHydratedAiSession,
-	hydrateAiSessionSummary,
 	listHydratedAiSessions,
 	loadHydratedAiSession,
+	reconcileSessionEnvironment,
+	updateHydratedAiSessionMetadata,
 } from '@studio/common/ai/sessions/manage';
-import { findAiSessionOwnerSite } from '@studio/common/ai/sessions/owner-site';
-import { readAiSessionPlacement } from '@studio/common/ai/sessions/placement';
-import {
-	appendModelChangeEntry,
-	appendStudioEntry,
-	loadAiSession as loadAiSessionFromStore,
-} from '@studio/common/ai/sessions/store';
+import { appendModelChangeEntry, appendStudioEntry } from '@studio/common/ai/sessions/store';
 import { expandSkillCommandPrompt } from '@studio/common/ai/slash-commands';
 import { getAiTracksIdentity } from '@studio/common/ai/tracks-identity';
 import { validateStudioVisualAnnotations } from '@studio/common/ai/visual-annotations';
 import { DEBUG_LOG_RELATIVE_PATH } from '@studio/common/constants';
-import { installSkillToSite, removeSkillFromSite } from '@studio/common/lib/agent-skills';
+import {
+	getSkillsStatusForAllSites,
+	installSkillToAllSites,
+	removeSkillFromAllSites,
+	type SkillStatus,
+} from '@studio/common/lib/agent-skills';
 import {
 	downloadAndExtractBlueprintBundle,
 	removeBlueprintTempDir,
 } from '@studio/common/lib/blueprint-bundle';
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { CliCommandError } from '@studio/common/lib/cli-process';
-import { getConnectedWpcomSitesForLocalSite } from '@studio/common/lib/connected-sites';
 import { stripIpcErrorPrefix } from '@studio/common/lib/error-formatting';
 import {
 	calculateDirectorySizeForArchive,
@@ -69,12 +67,7 @@ import {
 	trustRootCA,
 } from '@studio/common/lib/root-ca-trust';
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
-import {
-	readAuthToken,
-	readSharedConfig,
-	updateSharedConfig,
-	updateSharedSession,
-} from '@studio/common/lib/shared-config';
+import { readAuthToken, updateSharedConfig } from '@studio/common/lib/shared-config';
 import {
 	getLocalFileSize,
 	listLocalFileTree as listSiteFileTree,
@@ -101,19 +94,10 @@ import {
 	readSiteDesign,
 	type SiteDesign,
 } from '@studio/common/sites/site-design';
-import {
-	readSiteIcon,
-	readThemeDetails,
-	type ThemeDetails,
-} from '@studio/common/sites/site-identity';
-import { readSite, readSitePath, readSitePaths, readSites } from '@studio/common/sites/site-path';
-import { measureSiteStorage, type SiteStorageUsage } from '@studio/common/sites/storage-usage';
+import { readSiteIcon, readThemeDetails } from '@studio/common/sites/site-identity';
+import { readSite, readSitePath, readSitePaths } from '@studio/common/sites/site-path';
 import { __ } from '@wordpress/i18n';
-import {
-	DEFAULT_TERMINAL,
-	MACOS_TOOLBAR_TRAFFIC_LIGHT_POSITION,
-	MACOS_TRAFFIC_LIGHT_POSITION,
-} from 'src/constants';
+import { DEFAULT_TERMINAL } from 'src/constants';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
 import { setPendingAuthContext } from 'src/lib/auth-tracks-context';
 import { bumpStat, getBlueprintMetric, StatsGroup } from 'src/lib/bump-stats';
@@ -148,14 +132,9 @@ import {
 	getMainWindow,
 	getTitleBarOverlayOptions,
 	setAgenticControlsSurface,
-	type TrafficLightsPosition,
 	type WindowControlsSurface,
 } from 'src/main-window';
 import { popupMenu, setupMenu } from 'src/menu';
-import {
-	getBundledSkills,
-	type SkillStatus,
-} from 'src/modules/agent-instructions/lib/skills-constants';
 import {
 	answerAgentRun,
 	interruptAgentRun,
@@ -177,7 +156,11 @@ import { captureSiteThumbnail } from './lib/capture-site-thumbnail';
 import type { ActiveAgentRun } from '@studio/common/ai/agent-events';
 import type { StudioChatFileAttachment } from '@studio/common/ai/chat-files';
 import type { StudioChatImage } from '@studio/common/ai/chat-images';
-import type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessions/types';
+import type {
+	AiSessionMetadata,
+	AiSessionSummary,
+	LoadedAiSession,
+} from '@studio/common/ai/sessions/types';
 import type { Blueprint } from '@studio/common/lib/studio-blueprints-api';
 import type { RawDirectoryEntry } from '@studio/common/types/sync-tree';
 
@@ -282,54 +265,9 @@ export async function createAiSession(
 export async function updateAiSessionMetadata(
 	_event: IpcMainInvokeEvent,
 	sessionIdOrPrefix: string,
-	patch: Pick< AiSessionSummary, 'archived' >
+	patch: AiSessionMetadata
 ): Promise< AiSessionSummary > {
-	const { summary } = await loadAiSessionFromStore( getSessionsDirectory(), sessionIdOrPrefix );
-	const [ metadata, placement ] = await Promise.all( [
-		updateSharedSession( summary.id, patch ),
-		readAiSessionPlacement( summary.id ),
-	] );
-	return hydrateAiSessionSummary( summary, metadata, placement );
-}
-
-/**
- * If the session is flagged 'live' but the remote blog id it was targeting is
- * no longer in the user's connected-sites list (e.g. the user disconnected
- * the live site since the last flip), append a `site.selected` event that
- * bumps the session back to its local owner. Keeps the CLI runtime — which
- * only reads the event log — in sync with what the UI already shows.
- *
- * The pill already derives "Local" at render time via the same check; this
- * just records the reconciliation on disk so the agent's system prompt and
- * tool set reflect the same truth on the next turn.
- */
-async function reconcileSessionEnvironmentBeforeRun( sessionId: string ): Promise< void > {
-	const root = getSessionsDirectory();
-	const { summary } = await loadHydratedAiSession( root, sessionId );
-
-	if ( summary.activeEnvironment !== 'live' ) {
-		return;
-	}
-	const ownerSite = findAiSessionOwnerSite( await readSites(), summary );
-	if ( ! ownerSite ) {
-		return;
-	}
-
-	const connectedForOwner = await getConnectedWpcomSitesForLocalSite( ownerSite.id );
-	const connectedIds = new Set( connectedForOwner.map( ( site ) => site.id ) );
-
-	const effective = deriveEffectiveEnvironment( summary, ( blogId ) => connectedIds.has( blogId ) );
-	if ( effective === 'live' ) {
-		return;
-	}
-
-	// Live was disconnected since the last flip. Record the fallback so the
-	// CLI's replay sees Local on the next turn.
-	await appendStudioEntry( root, sessionId, 'studio.site_selected', {
-		siteName: ownerSite.name,
-		sitePath: ownerSite.path,
-		siteId: ownerSite.id,
-	} );
+	return updateHydratedAiSessionMetadata( getSessionsDirectory(), sessionIdOrPrefix, patch );
 }
 
 export async function continueAiSession(
@@ -347,7 +285,7 @@ export async function continueAiSession(
 		throw new Error( __( 'WordPress.com login required. Log in to use Studio Code.' ) );
 	}
 
-	await reconcileSessionEnvironmentBeforeRun( sessionId );
+	await reconcileSessionEnvironment( getSessionsDirectory(), sessionId );
 	const images = validateStudioChatImages( options.images );
 	const files = validateStudioChatFiles( options.files );
 	const visualAnnotations = validateStudioVisualAnnotations( options.visualAnnotations );
@@ -422,51 +360,21 @@ export async function answerAiAgentQuestion(
 export async function getWordPressSkillsStatusAllSites(
 	_event: IpcMainInvokeEvent
 ): Promise< SkillStatus[] > {
-	const sharedConfig = await readSharedConfig();
-	const selectedSkills = sharedConfig.selectedSkills ?? [];
-	return getBundledSkills().map( ( skill ) => ( {
-		...skill,
-		installed: selectedSkills.includes( skill.id ),
-	} ) );
+	return getSkillsStatusForAllSites();
 }
 
 export async function installWordPressSkillsToAllSites(
 	_event: IpcMainInvokeEvent,
 	options: { skillId: string; overwrite?: boolean }
 ): Promise< void > {
-	const overwrite = options.overwrite ?? false;
-	const bundledPath = getAiInstructionsPath();
-	const tasks = ( await readSitePaths() ).map( ( path ) =>
-		installSkillToSite( { path }, bundledPath, options.skillId, overwrite )
-	);
-	const results = await Promise.allSettled( tasks );
-	results.forEach( ( result ) => {
-		if ( result.status === 'rejected' ) {
-			console.error( '[skills] Failed to install skill:', result.reason );
-		}
-	} );
-
-	const sharedConfig = await readSharedConfig();
-	const existing = sharedConfig.selectedSkills ?? [];
-	const merged = Array.from( new Set( [ ...existing, options.skillId ] ) );
-	await updateSharedConfig( { selectedSkills: merged } );
+	await installSkillToAllSites( getAiInstructionsPath(), options.skillId, options.overwrite );
 }
 
 export async function removeWordPressSkillFromAllSites(
 	_event: IpcMainInvokeEvent,
 	skillId: string
 ): Promise< void > {
-	const tasks = ( await readSitePaths() ).map( ( path ) => removeSkillFromSite( path, skillId ) );
-	const results = await Promise.allSettled( tasks );
-	results.forEach( ( result ) => {
-		if ( result.status === 'rejected' ) {
-			console.error( '[skills] Failed to remove skill:', result.reason );
-		}
-	} );
-
-	const sharedConfig = await readSharedConfig();
-	const updated = ( sharedConfig.selectedSkills ?? [] ).filter( ( id ) => id !== skillId );
-	await updateSharedConfig( { selectedSkills: updated } );
+	await removeSkillFromAllSites( skillId );
 }
 
 const DEBUG_LOG_MAX_LINES = 50;
@@ -989,41 +897,6 @@ export async function getWpVersion( _event: IpcMainInvokeEvent, id: string ) {
 	return sitePath ? getWordPressVersion( sitePath ) : '-';
 }
 
-// In-flight storage measurements, keyed by the renderer's request id. Walking a
-// site takes long enough that the renderer is often gone before it finishes, and
-// `ipcRenderer.invoke` has no cancellation of its own, so the renderer cancels
-// through `cancelSiteStorageUsage` instead. Keyed per request rather than per
-// site so one window abandoning a measurement can't stop another's.
-const siteStorageControllers = new Map< string, AbortController >();
-
-export async function getSiteStorageUsage(
-	_event: IpcMainInvokeEvent,
-	id: string,
-	requestId?: string
-): Promise< SiteStorageUsage | null > {
-	const sitePath = await readSitePath( id );
-	if ( ! sitePath ) {
-		return null;
-	}
-	if ( ! requestId ) {
-		return measureSiteStorage( sitePath );
-	}
-	const controller = new AbortController();
-	siteStorageControllers.set( requestId, controller );
-	try {
-		return await measureSiteStorage( sitePath, { signal: controller.signal } );
-	} finally {
-		siteStorageControllers.delete( requestId );
-	}
-}
-
-export async function cancelSiteStorageUsage(
-	_event: IpcMainInvokeEvent,
-	requestId: string
-): Promise< void > {
-	siteStorageControllers.get( requestId )?.abort();
-}
-
 const activeThemeSlug = ( sitePath: string ) => async () =>
 	( await readThemeDetails( executeCliCommand, sitePath ).catch( () => undefined ) )?.slug;
 
@@ -1139,13 +1012,6 @@ export async function readLocalMediaFile(
 			buffer.byteOffset + buffer.byteLength
 		) as ArrayBuffer,
 	};
-}
-
-export async function loadThemeDetails(
-	_event: IpcMainInvokeEvent,
-	id: string
-): Promise< ThemeDetails > {
-	return readThemeDetails( executeCliCommand, await requireSitePath( id ) );
 }
 
 export async function getSiteIcon(
@@ -1530,19 +1396,6 @@ export async function setWindowControlsSurface(
 	parentWindow.setTitleBarOverlay( getTitleBarOverlayOptions() );
 }
 
-export async function setTrafficLightsPosition(
-	event: IpcMainInvokeEvent,
-	position: TrafficLightsPosition
-) {
-	const parentWindow = BrowserWindow.fromWebContents( event.sender );
-	if ( ! parentWindow || process.platform !== 'darwin' ) {
-		return;
-	}
-	parentWindow.setWindowButtonPosition(
-		position === 'toolbar' ? MACOS_TOOLBAR_TRAFFIC_LIGHT_POSITION : MACOS_TRAFFIC_LIGHT_POSITION
-	);
-}
-
 export async function setTitleBarBackdropEffect( event: IpcMainInvokeEvent, enabled: boolean ) {
 	void enabled;
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
@@ -1577,61 +1430,6 @@ function getOwnedWebviewContents( event: IpcMainInvokeEvent, webContentsId: numb
 	}
 
 	return target;
-}
-
-function attachDebuggerIfNeeded( target: WebContents ): boolean {
-	if ( target.debugger.isAttached() ) {
-		return false;
-	}
-
-	target.debugger.attach( '1.3' );
-	return true;
-}
-
-async function sendDebuggerCommand< T >(
-	target: WebContents,
-	method: string,
-	params?: Record< string, unknown >
-): Promise< T > {
-	return ( await target.debugger.sendCommand( method, params ) ) as T;
-}
-
-// Simulates a viewport for the preview webview via the CDP device-metrics
-// override that DevTools device mode is built on: the guest lays out at
-// `width`×`height` CSS px and Chromium scales the rendered result by `scale`
-// (down to fit the webview, or up for a zoomed preview), remapping input
-// coordinates to match. `null` returns the guest to the webview's natural
-// size.
-export async function setWebviewViewport(
-	event: IpcMainInvokeEvent,
-	webContentsId: number,
-	viewport: { width: number; height: number; scale: number; mobile?: boolean } | null
-): Promise< void > {
-	const target = getOwnedWebviewContents( event, webContentsId );
-	attachDebuggerIfNeeded( target );
-	if ( ! viewport ) {
-		await sendDebuggerCommand( target, 'Emulation.clearDeviceMetricsOverride' );
-		return;
-	}
-	const { width, height, scale, mobile } = viewport;
-	const isValidDimension = ( value: number ) =>
-		Number.isInteger( value ) && value > 0 && value <= 10000;
-	// Capped at Chromium's own zoom ceiling.
-	const isValidScale =
-		typeof scale === 'number' && Number.isFinite( scale ) && scale > 0 && scale <= 5;
-	if ( ! isValidDimension( width ) || ! isValidDimension( height ) || ! isValidScale ) {
-		throw new Error( 'Unsupported webview viewport.' );
-	}
-	await sendDebuggerCommand( target, 'Emulation.setDeviceMetricsOverride', {
-		width,
-		height,
-		// 0 keeps the display's real device pixel ratio.
-		deviceScaleFactor: 0,
-		// Mobile presets emulate a phone (meta-viewport handling and mobile UA
-		// hints), not just a narrow desktop window.
-		mobile: mobile === true,
-		scale,
-	} );
 }
 
 export async function clearWebviewCache(

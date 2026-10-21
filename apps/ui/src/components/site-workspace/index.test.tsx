@@ -11,21 +11,10 @@ vi.mock( '@/components/session-view', () => ( {
 	),
 } ) );
 
-vi.mock( '@/components/site-overview-view', () => ( {
-	SiteOverviewView: ( {
-		siteId,
-		activeTab,
-		onTabChange,
-	}: {
-		siteId: string;
-		activeTab: string;
-		onTabChange: ( tab: 'general' ) => void;
-	} ) => (
-		<div data-testid="overview">
-			Overview { siteId } { activeTab }
-			<button type="button" onClick={ () => onTabChange( 'general' ) }>
-				Open general
-			</button>
+vi.mock( '@/components/site-settings-page', () => ( {
+	SiteSettingsPage: ( { siteId, activeTab }: { siteId: string; activeTab: string } ) => (
+		<div data-testid="settings">
+			Settings { siteId } { activeTab }
 		</div>
 	),
 } ) );
@@ -36,8 +25,8 @@ describe( 'SiteWorkspace', () => {
 			<SiteWorkspace
 				siteId="site-1"
 				activeView="chat"
-				overviewTab="overview"
-				onOverviewTabChange={ vi.fn() }
+				settingsTab="general"
+				onSettingsTabChange={ vi.fn() }
 			/>
 		);
 
@@ -45,62 +34,62 @@ describe( 'SiteWorkspace', () => {
 		expect( screen.queryByTestId( 'chat' ) ).not.toBeInTheDocument();
 	} );
 
-	it( 'keeps chat and overview mounted while switching the active layer', () => {
-		const onOverviewTabChange = vi.fn();
+	it( 'keeps chat and settings mounted while switching the active layer', () => {
+		const onSettingsTabChange = vi.fn();
 		const { rerender } = render(
 			<SiteWorkspace
 				siteId="site-1"
 				activeView="chat"
 				sessionId="session-1"
-				overviewTab="overview"
-				onOverviewTabChange={ onOverviewTabChange }
+				settingsTab="general"
+				onSettingsTabChange={ onSettingsTabChange }
 			/>
 		);
 
 		const chat = screen.getByTestId( 'chat' );
-		expect( screen.queryByTestId( 'overview' ) ).not.toBeInTheDocument();
+		expect( screen.queryByTestId( 'settings' ) ).not.toBeInTheDocument();
 		expect( chat.parentElement ).not.toHaveAttribute( 'aria-hidden' );
 
 		rerender(
 			<SiteWorkspace
 				siteId="site-1"
-				activeView="overview"
-				overviewTab="overview"
-				onOverviewTabChange={ onOverviewTabChange }
+				activeView="settings"
+				settingsTab="general"
+				onSettingsTabChange={ onSettingsTabChange }
 			/>
 		);
 
-		const overview = screen.getByTestId( 'overview' );
+		const settings = screen.getByTestId( 'settings' );
 		expect( screen.getByTestId( 'chat' ) ).toBe( chat );
 		expect( chat.parentElement ).toHaveAttribute( 'aria-hidden', 'true' );
 		expect( chat.parentElement ).toHaveAttribute( 'inert' );
-		expect( overview.parentElement ).not.toHaveAttribute( 'aria-hidden' );
+		expect( settings.parentElement ).not.toHaveAttribute( 'aria-hidden' );
 
 		rerender(
 			<SiteWorkspace
 				siteId="site-1"
 				activeView="chat"
 				sessionId="session-1"
-				overviewTab="overview"
-				onOverviewTabChange={ onOverviewTabChange }
+				settingsTab="general"
+				onSettingsTabChange={ onSettingsTabChange }
 			/>
 		);
 
 		expect( screen.getByTestId( 'chat' ) ).toBe( chat );
-		expect( screen.getByTestId( 'overview' ) ).toBe( overview );
+		expect( screen.getByTestId( 'settings' ) ).toBe( settings );
 		expect( chat.parentElement ).not.toHaveAttribute( 'aria-hidden' );
-		expect( overview.parentElement ).toHaveAttribute( 'aria-hidden', 'true' );
-		expect( overview.parentElement ).toHaveAttribute( 'inert' );
+		expect( settings.parentElement ).toHaveAttribute( 'aria-hidden', 'true' );
+		expect( settings.parentElement ).toHaveAttribute( 'inert' );
 	} );
 
-	it( 'keeps the last overview tab while chat is active', () => {
-		const onOverviewTabChange = vi.fn();
+	it( 'keeps the last settings tab while chat is active', () => {
+		const onSettingsTabChange = vi.fn();
 		const { rerender } = render(
 			<SiteWorkspace
 				siteId="site-1"
-				activeView="overview"
-				overviewTab="general"
-				onOverviewTabChange={ onOverviewTabChange }
+				activeView="settings"
+				settingsTab="debugging"
+				onSettingsTabChange={ onSettingsTabChange }
 			/>
 		);
 
@@ -109,11 +98,11 @@ describe( 'SiteWorkspace', () => {
 				siteId="site-1"
 				activeView="chat"
 				sessionId="session-1"
-				overviewTab="overview"
-				onOverviewTabChange={ onOverviewTabChange }
+				settingsTab="general"
+				onSettingsTabChange={ onSettingsTabChange }
 			/>
 		);
 
-		expect( screen.getByTestId( 'overview' ) ).toHaveTextContent( 'general' );
+		expect( screen.getByTestId( 'settings' ) ).toHaveTextContent( 'debugging' );
 	} );
 } );

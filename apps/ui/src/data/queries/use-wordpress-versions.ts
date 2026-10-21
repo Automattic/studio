@@ -15,7 +15,7 @@ export function useWordPressVersions() {
 }
 
 // The WordPress version installed at the site's path. Resolves to '-' when it
-// can't be read; errors (e.g. the hosted connector) surface as `data:
+// can't be read; errors surface as `data:
 // undefined` so callers can fall back gracefully.
 export function useWpVersion( siteId: string ) {
 	const connector = useConnector();

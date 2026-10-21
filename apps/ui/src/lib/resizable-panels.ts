@@ -6,24 +6,21 @@ export interface ResizablePanelConfig {
 
 export const SIDEBAR_PANEL_STORAGE_KEY = 'studio-ui-sidebar-width';
 export const PREVIEW_CONTENT_WIDTH_STORAGE_KEY = 'studio-ui-preview-content-width';
-export const PREVIEW_PANEL_DEFAULT_WIDTH = 520;
+export const PREVIEW_CONTENT_DEFAULT_WIDTH = 360;
 export const PREVIEW_PANEL_MIN_WIDTH = 360;
 const PREVIEW_PANEL_MIN_CONTENT_WIDTH = 320;
 export const PREVIEW_SPLIT_MIN_WIDTH = PREVIEW_PANEL_MIN_WIDTH + PREVIEW_PANEL_MIN_CONTENT_WIDTH;
 
 export const SIDEBAR_PANEL_CONFIG: ResizablePanelConfig = {
-	defaultWidth: 320,
-	minWidth: 240,
+	defaultWidth: 256,
+	minWidth: 256,
 	maxWidthRatio: 0.25,
 };
 
 // Below this width, keeping the sidebar open would leave less than the
 // agentic window's compact 420px chat surface.
 export const SIDEBAR_AUTO_COLLAPSE_BREAKPOINT = SIDEBAR_PANEL_CONFIG.minWidth + 420;
-// Keep in sync with --panel-frame-gap in preview-split-frame/style.module.css.
-const PREVIEW_FRAME_END_GAP = 12;
-export const ALL_PANELS_MIN_WIDTH =
-	SIDEBAR_PANEL_CONFIG.minWidth + PREVIEW_SPLIT_MIN_WIDTH + PREVIEW_FRAME_END_GAP;
+export const ALL_PANELS_MIN_WIDTH = SIDEBAR_PANEL_CONFIG.minWidth + PREVIEW_SPLIT_MIN_WIDTH;
 
 export function getResizablePanelMaxWidth(
 	viewportWidth: number,

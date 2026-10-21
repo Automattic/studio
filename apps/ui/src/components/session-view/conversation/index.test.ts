@@ -10,7 +10,6 @@ import type { StudioChatArtifactWidgetDraft } from '@studio/common/ai/chat-artif
 const connectorMocks = vi.hoisted( () => ( {
 	readLocalMediaFile: vi.fn(),
 	copyText: vi.fn( () => Promise.resolve() ),
-	capabilities: { readLocalMedia: true },
 } ) );
 
 const reducedMotion = vi.hoisted( () => ( { value: false } ) );
@@ -46,7 +45,6 @@ vi.mock( '../thinking-indicator', () => ( {
 beforeEach( () => {
 	connectorMocks.readLocalMediaFile.mockReset();
 	connectorMocks.copyText.mockReset();
-	connectorMocks.capabilities.readLocalMedia = true;
 } );
 
 describe( 'Assistant message copy button', () => {
@@ -301,25 +299,6 @@ describe( 'Conversation chat artifacts', () => {
 
 			expect( entriesToRenderItems( [ entry ] ) ).toEqual( [] );
 		}
-	} );
-
-	it( 'drops local-only media widgets when the connector cannot read local files', () => {
-		const localOnly = chatArtifactEntry( [ localScreenshotWidget() ] );
-		const remote = chatArtifactEntry( [
-			{
-				type: 'media',
-				widgetProps: {
-					url: 'https://example.com/capture.jpg',
-					mediaKind: 'image',
-					alt: 'Remote capture',
-					mediaId: null,
-				},
-			},
-		] );
-
-		expect( entriesToRenderItems( [ localOnly ], { canReadLocalMedia: false } ) ).toEqual( [] );
-		expect( entriesToRenderItems( [ remote ], { canReadLocalMedia: false } ) ).toHaveLength( 1 );
-		expect( entriesToRenderItems( [ localOnly ], { canReadLocalMedia: true } ) ).toHaveLength( 1 );
 	} );
 } );
 

@@ -42,8 +42,8 @@ import {
 	resolveUnavailableAiProvider,
 } from 'cli/ai/auth';
 import { captureTurnOutcome, fingerprintSites, type TurnOutcome } from 'cli/ai/eval-outcome';
+import { summarizeTiming, type ModelRequestRecord } from 'cli/ai/eval-timing';
 import { runStudioAgentTurn } from 'cli/ai/runtimes/pi';
-import { formatActiveSitePrefix } from 'cli/ai/site-selection';
 import { runCommand as runCreateSiteCommand } from 'cli/commands/site/create';
 import { runCommand as runDeleteSiteCommand } from 'cli/commands/site/delete';
 import { Mode as StopMode, runCommand as runStopSiteCommand } from 'cli/commands/site/stop';
@@ -60,6 +60,7 @@ import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import { Logger } from 'cli/logger';
 import type { AgentSessionEvent } from '@earendil-works/pi-coding-agent';
 import type { AiProviderId } from 'cli/ai/providers';
+import type { AskUserHandler, SiteInfo } from 'cli/ai/types';
 
 // Optional fixtures a test can pre-seed before the agent turn, so flows that
 // depend on connected remote sites and/or preview sites can be exercised
@@ -89,6 +90,18 @@ const evalSeedSchema = z.object( {
 			files: z.record( z.string(), z.string() ).optional(),
 			wpCli: z.array( z.array( z.string() ) ).optional(),
 			inspect: z.array( z.array( z.string() ) ).optional(),
+			// WordPress.com sites connected to this site, whose id is only known
+			// once it exists.
+			connectedWpcomSites: z.array( syncSiteSchema.omit( { localSiteId: true } ) ).optional(),
+		} )
+		.optional(),
+	// One of the user's WordPress.com sites, active for the turn as when it is
+	// picked in the app or CLI. Nothing is created; the site must exist.
+	remoteActiveSite: z
+		.object( {
+			name: z.string(),
+			url: z.string(),
+			wpcomSiteId: z.number(),
 		} )
 		.optional(),
 } );
@@ -101,6 +114,11 @@ interface EvalRunnerInput {
 	// Objects rather than strings: promptfoo expands an array of strings into
 	// one test case per element.
 	followUps?: Array< { prompt: string } >;
+	// Scripted replies for the questions the agent asks the user, in order:
+	// each question takes the next label. With answers set, the turn runs with
+	// Studio chat's ask-the-user handler, so AskUserQuestion and tools that
+	// confirm with the user work; once they run out, the user cancels.
+	answers?: Array< { label: string } >;
 	timeoutMs?: number;
 	model?: AiModelId;
 	seed?: EvalSeed;
@@ -116,7 +134,7 @@ interface Inspection {
 interface SeededFixtures {
 	cleanup: () => Promise< void >;
 	inspect: () => Promise< Inspection[] >;
-	promptPrefix?: string;
+	activeSite?: SiteInfo;
 	activeSitePath?: string;
 }
 
@@ -207,6 +225,7 @@ async function seedFixtures( seed: EvalSeed ): Promise< SeededFixtures > {
 		snapshots = [],
 		globalInstructions,
 		activeSite,
+		remoteActiveSite,
 	} = seed;
 
 	let restoreInstructions: ( () => Promise< void > ) | null = null;
@@ -257,7 +276,7 @@ async function seedFixtures( seed: EvalSeed ): Promise< SeededFixtures > {
 		seededConnections.push( site );
 	}
 
-	let promptPrefix: string | undefined;
+	let seededSite: SiteInfo | undefined;
 	let activeSitePath: string | undefined;
 	if ( activeSite ) {
 		activeSitePath = path.join( STUDIO_SITES_ROOT, siteSlug( activeSite.name ) );
@@ -303,11 +322,17 @@ async function seedFixtures( seed: EvalSeed ): Promise< SeededFixtures > {
 			await runDeleteSiteCommand( activeSitePath, true, new Logger() ).catch( () => undefined );
 			throw error;
 		}
-		promptPrefix = formatActiveSitePrefix( {
+		seededSite = {
 			name: activeSite.name,
 			path: activeSitePath,
 			running: false,
-		} );
+		};
+		const { id: localSiteId } = await getSiteByFolder( activeSitePath );
+		for ( const connection of activeSite.connectedWpcomSites ?? [] ) {
+			const site = { ...connection, localSiteId };
+			await addConnectedWpcomSite( localSiteId, site );
+			seededConnections.push( site );
+		}
 	}
 
 	const inspect = async (): Promise< Inspection[] > => {
@@ -361,7 +386,14 @@ async function seedFixtures( seed: EvalSeed ): Promise< SeededFixtures > {
 			}
 		}
 	};
-	return { cleanup, inspect, promptPrefix, activeSitePath };
+	return {
+		cleanup,
+		inspect,
+		activeSitePath,
+		activeSite: remoteActiveSite
+			? { ...remoteActiveSite, path: '', running: false, remote: true }
+			: seededSite,
+	};
 }
 
 function extractToolCalls( event: AgentSessionEvent ) {
@@ -396,6 +428,8 @@ type ToolEvent = {
 	endedAtMs?: number;
 	durationMs?: number;
 	isError?: boolean;
+	// Length of the result's text block: what the tool adds to the context.
+	outputChars?: number;
 	turnIndex: number;
 };
 
@@ -485,9 +519,14 @@ function readInput(): EvalRunnerInput {
 		? z.array( z.object( { prompt: z.string() } ) ).parse( vars.followUps )
 		: undefined;
 
+	const answers = vars.answers
+		? z.array( z.object( { label: z.string() } ) ).parse( vars.answers )
+		: undefined;
+
 	return {
 		prompt: ( vars.prompt as string ) ?? prompt,
 		followUps,
+		answers,
 		timeoutMs: typeof vars.timeoutMs === 'number' ? vars.timeoutMs : undefined,
 		model,
 		seed,
@@ -530,7 +569,24 @@ async function runEval( input: EvalRunnerInput ) {
 		details?: unknown;
 	}[] = [];
 	const toolEvents: ToolEvent[] = [];
+	const requests: ModelRequestRecord[] = [];
 	const textSegments: string[] = [];
+	const questions: Array< { question: string; options: string[]; answer: string } > = [];
+	const pendingAnswers = [ ...( input.answers ?? [] ) ];
+	const onAskUser: AskUserHandler | undefined = input.answers
+		? async ( asked ) =>
+				Object.fromEntries(
+					asked.map( ( { question, options } ) => {
+						const answer = pendingAnswers.shift()?.label ?? 'Cancel';
+						questions.push( {
+							question,
+							options: options.map( ( option ) => option.label ),
+							answer,
+						} );
+						return [ question, answer ];
+					} )
+				)
+		: undefined;
 	const toolNameById = new Map< string, string >();
 	const toolEventById = new Map< string, ToolEvent >();
 	let firstToolError: FirstToolError | null = null;
@@ -542,7 +598,6 @@ async function runEval( input: EvalRunnerInput ) {
 	let success = false;
 	let error: string | null = null;
 	let timedOut = false;
-	let lastTurnEndedEmpty = false;
 	// From the last assistant message: a provider failure ends the turn with
 	// stopReason "error" and its message here, without throwing.
 	let stopReason: string | null = null;
@@ -557,12 +612,9 @@ async function runEval( input: EvalRunnerInput ) {
 	let seeded: SeededFixtures | null = null;
 	let inspections: Inspection[] = [];
 	let outcome: TurnOutcome | { error: string } | null = null;
-	let prompt = input.prompt.trim();
+	const prompt = input.prompt.trim();
 	if ( input.seed ) {
 		seeded = await seedFixtures( input.seed );
-	}
-	if ( seeded?.promptPrefix ) {
-		prompt = `${ seeded.promptPrefix }\n\n${ prompt }`;
 	}
 
 	phaseStartedAt = Date.now();
@@ -586,6 +638,23 @@ async function runEval( input: EvalRunnerInput ) {
 				usage.totalTokens += messageUsage.totalTokens;
 			}
 			const now = Date.now();
+			// pi stamps the assistant message just before it sends the request.
+			const requestStartedAt = event.message.timestamp || turnStart;
+			requests.push( {
+				startedAtMs: requestStartedAt - evalStartedAt,
+				endedAtMs: now - evalStartedAt,
+				durationMs: now - requestStartedAt,
+				contextTokens: messageUsage
+					? messageUsage.input + messageUsage.cacheRead + messageUsage.cacheWrite
+					: 0,
+				outputTokens: messageUsage?.output ?? 0,
+				stopReason: event.message.stopReason,
+				...( event.message.errorMessage ? { errorMessage: event.message.errorMessage } : {} ),
+				hasText: event.message.content.some(
+					( block ) => block.type === 'text' && block.text.trim() !== ''
+				),
+				toolCalls: event.message.content.filter( ( block ) => block.type === 'toolCall' ).length,
+			} );
 			turnDurationsMs.push( now - turnStart );
 			turnIndex += 1;
 			if ( turnIndex === 1 ) {
@@ -617,6 +686,7 @@ async function runEval( input: EvalRunnerInput ) {
 					evt.endedAtMs = elapsed();
 					evt.durationMs = evt.endedAtMs - evt.startedAtMs;
 					evt.isError = tr.isError;
+					evt.outputChars = tr.text?.length ?? 0;
 				}
 				if ( tr.isError && ! firstToolError ) {
 					firstToolError = {
@@ -650,13 +720,6 @@ async function runEval( input: EvalRunnerInput ) {
 			numTurnsResult = numTurns;
 			stopReason = lastAssistant?.stopReason ?? null;
 			errorMessage = lastAssistant?.errorMessage ?? null;
-			lastTurnEndedEmpty = Boolean(
-				lastAssistant &&
-					lastAssistant.stopReason === 'stop' &&
-					! lastAssistant.content.some(
-						( block ) => block.type === 'toolCall' || ( block.type === 'text' && block.text.trim() )
-					)
-			);
 		}
 	};
 
@@ -665,7 +728,9 @@ async function runEval( input: EvalRunnerInput ) {
 			prompt: turnPrompt,
 			env,
 			session,
+			activeSite: seeded?.activeSite,
 			onEvent: handleEvent,
+			onAskUser,
 			...( input.model ? { model: input.model } : {} ),
 		} );
 	const sitesBeforeTurn = await fingerprintSites();
@@ -677,33 +742,14 @@ async function runEval( input: EvalRunnerInput ) {
 		void query.interrupt();
 	}, input.timeoutMs ?? 300000 );
 
-	// Some hosted tiers end a turn with an empty message once their reasoning
-	// budget runs out. STUDIO_EVAL_AUTO_CONTINUE=<n> resumes such a turn with
-	// "continue" up to n times, the way a person would.
-	const maxAutoContinues = Number( process.env.STUDIO_EVAL_AUTO_CONTINUE ?? 0 ) || 0;
-	let autoContinues = 0;
-
-	const settle = async () => {
-		await query.result;
-		while ( autoContinues < maxAutoContinues && ! timedOut && lastTurnEndedEmpty ) {
-			autoContinues++;
-			lastTurnEndedEmpty = false;
-			query = runTurn( 'continue' );
-			await query.result;
-		}
-	};
-
 	try {
-		await settle();
+		await query.result;
 		for ( const followUp of input.followUps ?? [] ) {
 			if ( timedOut ) {
 				break;
 			}
-			// Like the app and CLI, every user message carries the active-site line.
-			query = runTurn(
-				seeded?.promptPrefix ? `${ seeded.promptPrefix }\n\n${ followUp.prompt }` : followUp.prompt
-			);
-			await settle();
+			query = runTurn( followUp.prompt );
+			await query.result;
 		}
 	} catch ( caught ) {
 		error = caught instanceof Error ? caught.message : String( caught );
@@ -730,18 +776,20 @@ async function runEval( input: EvalRunnerInput ) {
 		timedOut,
 		model: resolvedModel,
 		numTurns: numTurnsResult,
-		autoContinues,
 		stopReason,
 		errorMessage,
 		usage,
 		sessionFile: session.getSessionFile() ?? null,
 		phaseTimingsMs,
+		timing: summarizeTiming( requests, toolEvents ),
+		requests,
 		turnDurationsMs,
 		toolCalls,
 		toolResults,
 		toolEvents,
 		firstToolError,
 		textSegments,
+		questions,
 		inspections,
 		outcome,
 	};

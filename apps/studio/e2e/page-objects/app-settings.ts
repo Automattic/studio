@@ -9,7 +9,7 @@ export default class AppSettings {
 	}
 
 	async open() {
-		await this.page.getByRole( 'button', { name: 'App settings' } ).click();
+		await this.page.getByRole( 'button', { name: 'Settings', exact: true } ).click();
 		await expect( this.closeButton ).toBeVisible();
 	}
 

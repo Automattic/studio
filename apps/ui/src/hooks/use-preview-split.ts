@@ -5,7 +5,7 @@ import {
 	getInitialPreviewContentWidth,
 	getPreviewSplitLayout,
 	PREVIEW_CONTENT_WIDTH_STORAGE_KEY,
-	PREVIEW_PANEL_DEFAULT_WIDTH,
+	PREVIEW_CONTENT_DEFAULT_WIDTH,
 	PREVIEW_PANEL_MIN_WIDTH,
 	storeResizablePanelWidth,
 } from '@/lib/resizable-panels';
@@ -27,9 +27,8 @@ interface PreviewSplitHandleProps {
 interface UsePreviewSplitResult {
 	rootRef: RefObject< HTMLDivElement | null >;
 	containerWidth: number | null;
-	// The value for the --preview-frame-content-width CSS var: a px width once
-	// measured, or a `calc(100% - <default>px)` fallback that reserves preview
-	// space before the first measurement.
+	// The value for the --preview-frame-content-width CSS var: the clamped px
+	// width once measured, or the default content width before that.
 	contentWidthVar: string;
 	isResizing: boolean;
 	handleProps: PreviewSplitHandleProps;
@@ -85,10 +84,7 @@ export function usePreviewSplit( { showPreview }: UsePreviewSplitOptions ): UseP
 			if ( preferredRef.current !== null ) {
 				return preferredRef.current;
 			}
-			const next = getPreviewSplitLayout(
-				container,
-				container - PREVIEW_PANEL_DEFAULT_WIDTH
-			).contentWidth;
+			const next = getPreviewSplitLayout( container, PREVIEW_CONTENT_DEFAULT_WIDTH ).contentWidth;
 			setPreferred( next );
 			return next;
 		},
@@ -194,14 +190,14 @@ export function usePreviewSplit( { showPreview }: UsePreviewSplitOptions ): UseP
 				? null
 				: getPreviewSplitLayout(
 						containerWidth,
-						preferredContentWidth ?? containerWidth - PREVIEW_PANEL_DEFAULT_WIDTH
+						preferredContentWidth ?? PREVIEW_CONTENT_DEFAULT_WIDTH
 				  ),
 		[ containerWidth, preferredContentWidth ]
 	);
 
 	const contentWidthVar =
 		layout === null || preferredContentWidth === null
-			? `calc(100% - ${ PREVIEW_PANEL_DEFAULT_WIDTH }px)`
+			? `${ PREVIEW_CONTENT_DEFAULT_WIDTH }px`
 			: `${ layout.contentWidth }px`;
 
 	return {
@@ -211,8 +207,8 @@ export function usePreviewSplit( { showPreview }: UsePreviewSplitOptions ): UseP
 		isResizing: isDragging,
 		handleProps: {
 			minWidth: layout?.previewMinWidth ?? PREVIEW_PANEL_MIN_WIDTH,
-			maxWidth: layout?.previewMaxWidth ?? PREVIEW_PANEL_DEFAULT_WIDTH,
-			width: layout?.previewWidth ?? PREVIEW_PANEL_DEFAULT_WIDTH,
+			maxWidth: layout?.previewMaxWidth ?? PREVIEW_PANEL_MIN_WIDTH,
+			width: layout?.previewWidth ?? PREVIEW_PANEL_MIN_WIDTH,
 			isResizing: isDragging,
 			onResizeStart: onMouseDown,
 			onKeyDown: handleKeyDown,

@@ -134,31 +134,6 @@ export function hasPaidAiCredits(
 	return ( quota?.purchasedRemaining ?? 0 ) > 0;
 }
 
-/** Nudge shown where the paid tiers sit disabled, one string everywhere. */
-export function formatPaidTiersNudge(): string {
-	return __( 'Add AI credits to unlock stronger models.' );
-}
-
-// Dismissal is remembered per renderer via localStorage — a nudge doesn't
-// warrant synced, server-side state.
-export const PAID_TIERS_NUDGE_DISMISSED_STORAGE_KEY = 'studio_code_paid_tiers_nudge_dismissed';
-
-export function readPaidTiersNudgeDismissed(): boolean {
-	try {
-		return localStorage.getItem( PAID_TIERS_NUDGE_DISMISSED_STORAGE_KEY ) === '1';
-	} catch {
-		return false;
-	}
-}
-
-export function persistPaidTiersNudgeDismissed(): void {
-	try {
-		localStorage.setItem( PAID_TIERS_NUDGE_DISMISSED_STORAGE_KEY, '1' );
-	} catch {
-		// Ignore storage errors.
-	}
-}
-
 export type StudioCodeAiAccessState = 'available' | 'blocked' | 'not-enabled';
 
 /**
@@ -486,19 +461,6 @@ export function formatUsageCapNotice( resetDate?: string | null, locale?: string
  */
 export function formatOutOfCreditsNotice(): string {
 	return __( 'You’re out of AI credits. Add more credits to continue using Studio Code.' );
-}
-
-/**
- * Heading for the out-of-credits card on surfaces that render a title and a
- * purchase button separately, rather than the one-sentence notice above.
- */
-export function formatOutOfCreditsTitle(): string {
-	return __( 'No AI credits available' );
-}
-
-/** Body of that card: what happened, and what fixes it. */
-export function formatOutOfCreditsDescription(): string {
-	return __( 'You’ve used your available AI credits. Add more to keep chatting.' );
 }
 
 // Crediting can trail the checkout redirect by a second or two, so a single

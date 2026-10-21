@@ -25,6 +25,7 @@ import { ensureSqliteIntegrationForImportedSite } from 'cli/lib/sqlite-integrati
 import { LoggerError } from 'cli/logger';
 import { ImportExportEventEmitter } from '../../events';
 import { exportDatabaseToFile, exportDatabaseToMultipleFiles } from '../export-database';
+import { stripStudioWpConfigConstants } from '../strip-studio-wp-config-constants';
 import {
 	ExportOptions,
 	BackupContents,
@@ -185,6 +186,13 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 			if ( hasDefaultDbBlock( content ) ) {
 				const modifiedContent = removeDbConstants( content );
 				fs.writeFileSync( wpConfigPath, modifiedContent, 'utf-8' );
+			}
+			if ( this.options.stripStudioWpConfigConstants ) {
+				const archivedContent = stripStudioWpConfigConstants(
+					fs.readFileSync( wpConfigPath, 'utf-8' )
+				);
+				this.archiveBuilder.append( archivedContent, { name: 'wp-config.php' } );
+				return;
 			}
 			this.archiveBuilder.file( wpConfigPath, {
 				name: 'wp-config.php',

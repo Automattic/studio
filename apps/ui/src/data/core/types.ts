@@ -662,6 +662,8 @@ export interface UserPreferences {
 	accentColor?: string | null;
 	// How strongly the accent tints the app's surfaces, 0–100.
 	tintIntensity?: number;
+	// Start a stopped local site when a chat message is sent to it.
+	autoStartSiteOnChat?: boolean;
 }
 
 export interface AppGlobals {

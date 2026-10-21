@@ -8,9 +8,9 @@ export default defineConfig( {
 	// test-fixtures/manifest.json before the suite runs.
 	globalSetup: './apps/studio/e2e/global-setup.ts',
 
-	// Each E2ESession isolates the app's single-instance lock, data, daemon and
-	// site ports, so files run concurrently. Tests within a file stay serial.
-	workers: 2,
+	// The app only allows a single instance to be running at a time, so we can
+	// only run one test at a time.
+	workers: 1,
 
 	// Retry flaky tests once to improve CI reliability
 	retries: 1,

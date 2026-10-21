@@ -15,7 +15,6 @@ import {
 	PROCESS_MANAGER_EVENTS_SOCKET_PATH,
 	PROCESS_MANAGER_CONTROL_SOCKET_PATH,
 	PROCESS_MANAGER_HOME,
-	WINDOWS_PIPE_PREFIX,
 } from 'cli/lib/paths';
 import { SocketStreamClient, SocketMessageDecoder, SocketRequestClient } from 'cli/lib/socket';
 import {
@@ -34,8 +33,9 @@ import type { SocketEvent } from '@studio/common/lib/cli-events';
 
 const CONNECTION_TIMEOUT_MS = 10_000;
 const PROCESS_MANAGER_LOCKFILE_PATH = path.join( PROCESS_MANAGER_HOME, 'pm-connection.lock' );
+// Named pipes on Windows share one system-wide namespace, hence the `studio-` prefix.
 const EVENTS_SOCKET_DIR = process.platform === 'win32' ? '\\\\.\\pipe\\' : PROCESS_MANAGER_HOME;
-const EVENTS_SOCKET_PREFIX = process.platform === 'win32' ? WINDOWS_PIPE_PREFIX : '';
+const EVENTS_SOCKET_PREFIX = process.platform === 'win32' ? 'studio-' : '';
 
 function eventsSocketPath( name: string ): string {
 	return path.join( EVENTS_SOCKET_DIR, `${ EVENTS_SOCKET_PREFIX }${ name }.sock` );

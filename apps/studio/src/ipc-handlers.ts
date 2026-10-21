@@ -431,8 +431,7 @@ export async function setGlobalInstructionsEnabled(
 }
 
 const DEBUG_LOG_MAX_LINES = 50;
-const PROCESS_MANAGER_HOME =
-	process.env.STUDIO_PROCESS_MANAGER_HOME ?? nodePath.join( os.homedir(), '.studio', 'daemon' );
+const PROCESS_MANAGER_HOME = nodePath.join( os.homedir(), '.studio', 'daemon' );
 
 function readWordPressDebugLog( sitePath: string ): string[] | undefined {
 	const debugLogPath = nodePath.join( sitePath, DEBUG_LOG_RELATIVE_PATH );

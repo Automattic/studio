@@ -6,7 +6,14 @@
  * promptfoo config, not here.
  */
 
-import { mkdirSync, writeFileSync, writeSync as fsWriteSync } from 'node:fs';
+import {
+	mkdirSync,
+	mkdtempSync,
+	readdirSync,
+	readFileSync,
+	writeFileSync,
+	writeSync as fsWriteSync,
+} from 'node:fs';
 import { rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -22,6 +29,7 @@ import {
 	addConnectedWpcomSite,
 	removeConnectedWpcomSite,
 } from '@studio/common/lib/connected-sites';
+import { portFinder } from '@studio/common/lib/port-finder';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { SITE_FILE_ACCESS_SITE_DIRECTORY } from '@studio/common/lib/site-file-access';
 import { getGlobalInstructionsPath } from '@studio/common/lib/well-known-paths';
@@ -33,6 +41,7 @@ import {
 	resolveInitialAiProvider,
 	resolveUnavailableAiProvider,
 } from 'cli/ai/auth';
+import { captureTurnOutcome, fingerprintSites, type TurnOutcome } from 'cli/ai/eval-outcome';
 import { summarizeTiming, type ModelRequestRecord } from 'cli/ai/eval-timing';
 import { runStudioAgentTurn } from 'cli/ai/runtimes/pi';
 import { runCommand as runCreateSiteCommand } from 'cli/commands/site/create';
@@ -51,7 +60,7 @@ import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import { Logger } from 'cli/logger';
 import type { AgentSessionEvent } from '@earendil-works/pi-coding-agent';
 import type { AiProviderId } from 'cli/ai/providers';
-import type { SiteInfo } from 'cli/ai/types';
+import type { AskUserHandler, SiteInfo } from 'cli/ai/types';
 
 // Optional fixtures a test can pre-seed before the agent turn, so flows that
 // depend on connected remote sites and/or preview sites can be exercised
@@ -81,6 +90,18 @@ const evalSeedSchema = z.object( {
 			files: z.record( z.string(), z.string() ).optional(),
 			wpCli: z.array( z.array( z.string() ) ).optional(),
 			inspect: z.array( z.array( z.string() ) ).optional(),
+			// WordPress.com sites connected to this site, whose id is only known
+			// once it exists.
+			connectedWpcomSites: z.array( syncSiteSchema.omit( { localSiteId: true } ) ).optional(),
+		} )
+		.optional(),
+	// One of the user's WordPress.com sites, active for the turn as when it is
+	// picked in the app or CLI. Nothing is created; the site must exist.
+	remoteActiveSite: z
+		.object( {
+			name: z.string(),
+			url: z.string(),
+			wpcomSiteId: z.number(),
 		} )
 		.optional(),
 } );
@@ -93,6 +114,11 @@ interface EvalRunnerInput {
 	// Objects rather than strings: promptfoo expands an array of strings into
 	// one test case per element.
 	followUps?: Array< { prompt: string } >;
+	// Scripted replies for the questions the agent asks the user, in order:
+	// each question takes the next label. With answers set, the turn runs with
+	// Studio chat's ask-the-user handler, so AskUserQuestion and tools that
+	// confirm with the user work; once they run out, the user cancels.
+	answers?: Array< { label: string } >;
 	timeoutMs?: number;
 	model?: AiModelId;
 	seed?: EvalSeed;
@@ -109,6 +135,7 @@ interface SeededFixtures {
 	cleanup: () => Promise< void >;
 	inspect: () => Promise< Inspection[] >;
 	activeSite?: SiteInfo;
+	activeSitePath?: string;
 }
 
 /**
@@ -118,6 +145,79 @@ interface SeededFixtures {
  * `globalInstructions` is the exception: it overwrites the user's real
  * instructions file, so cleanup restores the prior content instead.
  */
+// The folder site_create gives a site of this name.
+function siteSlug( name: string ): string {
+	return name
+		.toLowerCase()
+		.replace( /[^a-z0-9]+/g, '-' )
+		.replace( /^-|-$/g, '' );
+}
+
+const REGISTRY_PREFIX = 'studio-eval-registry-';
+
+// Each eval runs against its own Studio site registry (cli.json), so sites that
+// other Studio sessions on this machine create never enter the turn, and
+// concurrent cases do not see each other's sites. Ports already given to the
+// user's sites and to other eval registries stay reserved.
+async function isolateSiteRegistry() {
+	const ports = ( await readCliConfig() ).sites.map( ( site ) => site.port );
+	for ( const entry of readdirSync( os.tmpdir() ) ) {
+		if ( ! entry.startsWith( REGISTRY_PREFIX ) ) continue;
+		try {
+			const registry = JSON.parse(
+				readFileSync( path.join( os.tmpdir(), entry, 'cli.json' ), 'utf8' )
+			) as { sites?: Array< { port: number } > };
+			ports.push( ...( registry.sites ?? [] ).map( ( site ) => site.port ) );
+		} catch {
+			// A registry with no sites yet.
+		}
+	}
+	for ( const port of ports ) {
+		portFinder.addUnavailablePort( port );
+	}
+	process.env.E2E = '1';
+	process.env.E2E_CLI_CONFIG_PATH = mkdtempSync( path.join( os.tmpdir(), REGISTRY_PREFIX ) );
+}
+
+// Stopped sites the request is not about, as a user with a few sites has, so
+// the outcome can show whether the turn left the user's other sites alone.
+const BYSTANDER_SITES = [ 'Portfolio', 'Client Work' ];
+
+async function createBystanderSites(): Promise< string[] > {
+	const created: string[] = [];
+	for ( const name of BYSTANDER_SITES ) {
+		const bystanderPath = path.join( STUDIO_SITES_ROOT, `eval-bystander-${ siteSlug( name ) }` );
+		try {
+			await runCreateSiteCommand(
+				bystanderPath,
+				{
+					name,
+					wpVersion: 'latest',
+					phpVersion: DEFAULT_PHP_VERSION,
+					fileAccess: SITE_FILE_ACCESS_SITE_DIRECTORY,
+					enableHttps: false,
+					noStart: true,
+					skipBrowser: true,
+					skipLogDetails: true,
+				},
+				new Logger()
+			);
+		} catch ( error ) {
+			await rm( bystanderPath, { recursive: true, force: true } );
+			await deleteSites( created );
+			throw error;
+		}
+		created.push( bystanderPath );
+	}
+	return created;
+}
+
+async function deleteSites( sitePaths: string[] ): Promise< void > {
+	for ( const sitePath of sitePaths ) {
+		await runDeleteSiteCommand( sitePath, true, new Logger() ).catch( () => undefined );
+	}
+}
+
 async function seedFixtures( seed: EvalSeed ): Promise< SeededFixtures > {
 	const {
 		localSite,
@@ -125,6 +225,7 @@ async function seedFixtures( seed: EvalSeed ): Promise< SeededFixtures > {
 		snapshots = [],
 		globalInstructions,
 		activeSite,
+		remoteActiveSite,
 	} = seed;
 
 	let restoreInstructions: ( () => Promise< void > ) | null = null;
@@ -178,11 +279,7 @@ async function seedFixtures( seed: EvalSeed ): Promise< SeededFixtures > {
 	let seededSite: SiteInfo | undefined;
 	let activeSitePath: string | undefined;
 	if ( activeSite ) {
-		const slug = activeSite.name
-			.toLowerCase()
-			.replace( /[^a-z0-9]+/g, '-' )
-			.replace( /^-|-$/g, '' );
-		activeSitePath = path.join( STUDIO_SITES_ROOT, slug );
+		activeSitePath = path.join( STUDIO_SITES_ROOT, siteSlug( activeSite.name ) );
 		// WordPress is installed on first start, so WP-CLI seeds need a started site.
 		const needsInstall = !! activeSite.wpCli?.length;
 		await runCreateSiteCommand(
@@ -230,6 +327,12 @@ async function seedFixtures( seed: EvalSeed ): Promise< SeededFixtures > {
 			path: activeSitePath,
 			running: false,
 		};
+		const { id: localSiteId } = await getSiteByFolder( activeSitePath );
+		for ( const connection of activeSite.connectedWpcomSites ?? [] ) {
+			const site = { ...connection, localSiteId };
+			await addConnectedWpcomSite( localSiteId, site );
+			seededConnections.push( site );
+		}
 	}
 
 	const inspect = async (): Promise< Inspection[] > => {
@@ -283,7 +386,14 @@ async function seedFixtures( seed: EvalSeed ): Promise< SeededFixtures > {
 			}
 		}
 	};
-	return { cleanup, inspect, activeSite: seededSite };
+	return {
+		cleanup,
+		inspect,
+		activeSitePath,
+		activeSite: remoteActiveSite
+			? { ...remoteActiveSite, path: '', running: false, remote: true }
+			: seededSite,
+	};
 }
 
 function extractToolCalls( event: AgentSessionEvent ) {
@@ -409,9 +519,14 @@ function readInput(): EvalRunnerInput {
 		? z.array( z.object( { prompt: z.string() } ) ).parse( vars.followUps )
 		: undefined;
 
+	const answers = vars.answers
+		? z.array( z.object( { label: z.string() } ) ).parse( vars.answers )
+		: undefined;
+
 	return {
 		prompt: ( vars.prompt as string ) ?? prompt,
 		followUps,
+		answers,
 		timeoutMs: typeof vars.timeoutMs === 'number' ? vars.timeoutMs : undefined,
 		model,
 		seed,
@@ -456,6 +571,22 @@ async function runEval( input: EvalRunnerInput ) {
 	const toolEvents: ToolEvent[] = [];
 	const requests: ModelRequestRecord[] = [];
 	const textSegments: string[] = [];
+	const questions: Array< { question: string; options: string[]; answer: string } > = [];
+	const pendingAnswers = [ ...( input.answers ?? [] ) ];
+	const onAskUser: AskUserHandler | undefined = input.answers
+		? async ( asked ) =>
+				Object.fromEntries(
+					asked.map( ( { question, options } ) => {
+						const answer = pendingAnswers.shift()?.label ?? 'Cancel';
+						questions.push( {
+							question,
+							options: options.map( ( option ) => option.label ),
+							answer,
+						} );
+						return [ question, answer ];
+					} )
+				)
+		: undefined;
 	const toolNameById = new Map< string, string >();
 	const toolEventById = new Map< string, ToolEvent >();
 	let firstToolError: FirstToolError | null = null;
@@ -475,8 +606,12 @@ async function runEval( input: EvalRunnerInput ) {
 	// token cost of prompt variants, not just their outcomes.
 	const usage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, totalTokens: 0 };
 
+	await isolateSiteRegistry();
+	const bystanderPaths = await createBystanderSites();
+
 	let seeded: SeededFixtures | null = null;
 	let inspections: Inspection[] = [];
+	let outcome: TurnOutcome | { error: string } | null = null;
 	const prompt = input.prompt.trim();
 	if ( input.seed ) {
 		seeded = await seedFixtures( input.seed );
@@ -595,8 +730,10 @@ async function runEval( input: EvalRunnerInput ) {
 			session,
 			activeSite: seeded?.activeSite,
 			onEvent: handleEvent,
+			onAskUser,
 			...( input.model ? { model: input.model } : {} ),
 		} );
+	const sitesBeforeTurn = await fingerprintSites();
 	let query = runTurn( prompt );
 	phaseTimingsMs.start_ai_agent_ms = Date.now() - phaseStartedAt;
 
@@ -618,10 +755,18 @@ async function runEval( input: EvalRunnerInput ) {
 		error = caught instanceof Error ? caught.message : String( caught );
 	} finally {
 		clearTimeout( timeout );
+		outcome = await captureTurnOutcome(
+			sitesBeforeTurn,
+			seeded?.activeSitePath,
+			mkdtempSync( path.join( os.tmpdir(), 'studio-eval-outcome-' ) )
+		).catch( ( caught ) => ( {
+			error: caught instanceof Error ? caught.message : String( caught ),
+		} ) );
 		if ( seeded ) {
 			inspections = await seeded.inspect().catch( () => [] );
 			await seeded.cleanup().catch( () => undefined );
 		}
+		await deleteSites( bystanderPaths );
 	}
 	phaseTimingsMs.total_eval_ms = elapsed();
 
@@ -644,7 +789,9 @@ async function runEval( input: EvalRunnerInput ) {
 		toolEvents,
 		firstToolError,
 		textSegments,
+		questions,
 		inspections,
+		outcome,
 	};
 }
 

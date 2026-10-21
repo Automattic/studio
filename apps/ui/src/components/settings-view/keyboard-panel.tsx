@@ -13,6 +13,8 @@ function getShortcutKeyAriaLabel( key: string ): string {
 			return __( 'Command' );
 		case 'Ctrl':
 			return __( 'Control' );
+		case '⌥':
+			return __( 'Option' );
 		case '↩':
 			return __( 'Return' );
 		case 'Esc':
@@ -37,6 +39,13 @@ function getShortcutSections( isApple: boolean ): ShortcutSection[] {
 			shortcuts: [ { label: __( 'Open settings' ), keys: [ modifierKey, ',' ] } ],
 		},
 		{
+			title: __( 'Chats' ),
+			shortcuts: [
+				{ label: __( 'Rename chat' ), keys: [ modifierKey, isApple ? '⌥' : 'Alt', 'R' ] },
+				{ label: __( 'Archive chat' ), keys: [ modifierKey, 'Shift', 'A' ] },
+			],
+		},
+		{
 			title: __( 'Composer' ),
 			shortcuts: [
 				{ label: __( 'New chat' ), keys: [ modifierKey, 'N' ] },
@@ -49,7 +58,6 @@ function getShortcutSections( isApple: boolean ): ShortcutSection[] {
 			title: __( 'Site preview' ),
 			shortcuts: [
 				{ label: __( 'Toggle site preview' ), keys: [ modifierKey, 'Shift', 'B' ] },
-				{ label: __( 'Toggle full preview' ), keys: [ modifierKey, 'Shift', 'F' ] },
 				{ label: __( 'Reload preview' ), keys: [ modifierKey, 'R' ] },
 				{ label: __( 'Go back in preview' ), keys: [ navModifierKey, '←' ] },
 				{ label: __( 'Go forward in preview' ), keys: [ navModifierKey, '→' ] },

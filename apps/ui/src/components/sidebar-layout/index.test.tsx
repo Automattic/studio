@@ -1,5 +1,6 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { SidebarToggle } from '@/components/sidebar-toggle';
 import { useConnector } from '@/data/core';
 import { SidebarLayout } from './index';
 import type { ReactElement, ReactNode } from 'react';
@@ -69,7 +70,7 @@ describe( 'SidebarLayout', () => {
 	it( 'toggles the sidebar when the connector emits the shortcut command', async () => {
 		render(
 			<SidebarLayout>
-				<div>Content</div>
+				<SidebarToggle />
 			</SidebarLayout>
 		);
 
@@ -87,7 +88,7 @@ describe( 'SidebarLayout', () => {
 	it( 'keeps the toggle in the panel whether or not the sidebar is collapsed', async () => {
 		render(
 			<SidebarLayout>
-				<div>Content</div>
+				<SidebarToggle />
 			</SidebarLayout>
 		);
 
@@ -103,7 +104,7 @@ describe( 'SidebarLayout', () => {
 		const onCollapsedChange = vi.fn();
 		render(
 			<SidebarLayout collapsed={ false } onCollapsedChange={ onCollapsedChange }>
-				<div>Content</div>
+				<SidebarToggle />
 			</SidebarLayout>
 		);
 
@@ -112,35 +113,10 @@ describe( 'SidebarLayout', () => {
 		expect( onCollapsedChange ).toHaveBeenCalledWith( true );
 	} );
 
-	it( 'hands the sidebar shortcut to the forcing feature while force-collapsed', () => {
-		const onForceCollapsedToggle = vi.fn();
-		const onExpand = vi.fn();
-		render(
-			<SidebarLayout
-				forceCollapsed
-				onExpand={ onExpand }
-				onForceCollapsedToggle={ onForceCollapsedToggle }
-			>
-				<div>Content</div>
-			</SidebarLayout>
-		);
-
-		// Collapsed (no resize handle), but its own floating toggle stays away —
-		// the forcing feature (full preview) owns the exit affordance.
-		expect( screen.queryByRole( 'separator', { name: 'Resize sidebar' } ) ).not.toBeInTheDocument();
-		expect( screen.queryByRole( 'button', { name: 'Show sidebar' } ) ).not.toBeInTheDocument();
-		expect( screen.queryByRole( 'button', { name: 'Hide sidebar' } ) ).not.toBeInTheDocument();
-
-		act( () => toggleSidebarListener?.() );
-
-		expect( onForceCollapsedToggle ).toHaveBeenCalledTimes( 1 );
-		expect( onExpand ).not.toHaveBeenCalled();
-	} );
-
 	it( 'collapses when the window enters compact width', async () => {
 		render(
 			<SidebarLayout>
-				<div>Content</div>
+				<SidebarToggle />
 			</SidebarLayout>
 		);
 
@@ -155,7 +131,7 @@ describe( 'SidebarLayout', () => {
 
 		render(
 			<SidebarLayout>
-				<div>Content</div>
+				<SidebarToggle />
 			</SidebarLayout>
 		);
 
@@ -167,7 +143,7 @@ describe( 'SidebarLayout', () => {
 		const onExpand = vi.fn();
 		render(
 			<SidebarLayout onExpand={ onExpand }>
-				<div>Content</div>
+				<SidebarToggle />
 			</SidebarLayout>
 		);
 
@@ -189,7 +165,7 @@ describe( 'SidebarLayout', () => {
 
 		render(
 			<SidebarLayout>
-				<div>Content</div>
+				<SidebarToggle />
 			</SidebarLayout>
 		);
 

@@ -4,13 +4,13 @@
 	width: 100%;
 	flex: 1 1 auto;
 	min-width: 80px;
-	height: 32px;
+	height: var(--studio-control-size);
 	margin: 0;
-	padding-inline: var(--wpds-dimension-padding-sm);
+	padding-inline: var(--wpds-dimension-padding-md) var(--wpds-dimension-padding-xs);
 	align-items: center;
-	border: 0;
-	border-radius: var(--wpds-border-radius-lg);
-	background: var(--wpds-color-background-surface-neutral-weak);
+	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral);
+	border-radius: 999px;
+	background: transparent;
 	overflow: hidden;
 }
 
@@ -80,8 +80,9 @@
 	background: transparent;
 	color: var(--wpds-color-foreground-content-neutral);
 	font: inherit;
-	font-size: var(--wpds-typography-font-size-xs);
-	line-height: var(--wpds-typography-line-height-xs);
+	font-size: var(--wpds-typography-font-size-md);
+	line-height: var(--wpds-typography-line-height-sm);
+	text-align: center;
 	outline: 0;
 }
 

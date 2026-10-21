@@ -47,7 +47,7 @@ describe( 'newSessionRoute.beforeLoad', () => {
 			} as never )
 		).rejects.toMatchObject( {
 			options: {
-				to: '/sites/$siteId/overview',
+				to: '/sites/$siteId',
 				params: { siteId: 'site-1' },
 			},
 		} );
@@ -66,7 +66,7 @@ describe( 'newSessionRoute.beforeLoad', () => {
 			} as never )
 		).rejects.toMatchObject( {
 			options: {
-				to: '/sites/$siteId/overview',
+				to: '/sites/$siteId',
 				params: { siteId: 'site-1' },
 			},
 		} );

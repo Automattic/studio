@@ -1,0 +1,71 @@
+.root {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	min-height: 0;
+	min-width: 0;
+	/* All scrolling lives in .scroll; prevent the outer contentColumn
+	   (preview-split-frame) from seeing overflow and drawing a second bar. */
+	overflow: hidden;
+	color: var(--wpds-color-foreground-content-neutral);
+	background: var(--wpds-color-background-surface-neutral);
+}
+
+.state {
+	padding: var(--wpds-dimension-padding-xl);
+	color: var(--wpds-color-foreground-content-neutral-weak);
+}
+
+/* Matches the chat header, so the site control sits in the same spot. */
+.header {
+	box-sizing: border-box;
+	display: flex;
+	align-items: center;
+	gap: var(--wpds-dimension-gap-xs);
+	padding-inline: var(--wpds-dimension-padding-md);
+	height: var(--studio-band-height);
+	flex-shrink: 0;
+	transition: padding var(--studio-motion-layout-duration) var(--studio-motion-layout-easing);
+	background-color: var(--wpds-color-background-surface-neutral-strong);
+	box-shadow: inset 0 calc(-1 * var(--wpds-border-width-xs)) 0
+		var(--wpds-color-stroke-surface-neutral);
+	font-size: var(--wpds-typography-font-size-sm);
+	-webkit-app-region: drag;
+}
+
+.headerSpacer {
+	flex: 1;
+}
+
+.headerSidebarCollapsed {
+	padding-inline-start: var(--studio-traffic-light-space);
+}
+
+.tabs {
+	flex: 1;
+	min-height: 0;
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+}
+
+.tabsBar {
+	flex: 0 0 auto;
+	min-width: 0;
+	border-bottom: 1px solid var(--wpds-color-stroke-surface-neutral);
+	padding: 0 var(--wpds-dimension-padding-xl);
+}
+
+.scroll {
+	flex: 1;
+	min-height: 0;
+	min-width: 0;
+	overflow-y: auto;
+}
+
+.content {
+	box-sizing: border-box;
+	width: 100%;
+	max-width: 760px;
+	padding: var(--wpds-dimension-padding-xl);
+}

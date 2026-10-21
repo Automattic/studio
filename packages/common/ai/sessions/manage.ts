@@ -21,14 +21,19 @@ import {
 	deleteSharedSession,
 	readSharedSession,
 	readSharedSessions,
+	updateSharedSession,
 } from '@studio/common/lib/shared-config';
 import { readSites } from '@studio/common/sites/site-path';
-import type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessions/types';
+import type {
+	AiSessionMetadata,
+	AiSessionSummary,
+	LoadedAiSession,
+} from '@studio/common/ai/sessions/types';
 
 /**
  * Session listing + creation, hydrated with the metadata that lives outside the
- * session JSONL: the archived flag (shared config) and site placement
- * (app.json).
+ * session JSONL: the archived, title and unread fields (shared config) and site
+ * placement (app.json).
  */
 
 // A local site a session can be bound to.
@@ -40,13 +45,36 @@ export interface SessionSite {
 
 export function hydrateAiSessionSummary(
 	summary: AiSessionSummary,
-	metadata?: Pick< AiSessionSummary, 'archived' >,
+	metadata?: AiSessionMetadata,
 	placement?: AiSessionSitePlacement
 ): AiSessionSummary {
 	return hydrateAiSessionSummaryWithPlacement(
-		{ ...summary, archived: metadata?.archived },
+		{
+			...summary,
+			archived: metadata?.archived,
+			title: metadata?.title,
+			unread: metadata?.unread,
+		},
 		placement
 	);
+}
+
+// Archives, renames, or marks a session read/unread, keeping only the known
+// fields so a host can pass a request body straight through.
+export async function updateHydratedAiSessionMetadata(
+	rootDirectory: string,
+	sessionIdOrPrefix: string,
+	{ archived, title, unread }: AiSessionMetadata
+): Promise< AiSessionSummary > {
+	const { summary } = await loadAiSession( rootDirectory, sessionIdOrPrefix );
+	const patch = Object.fromEntries(
+		Object.entries( { archived, title, unread } ).filter( ( [ , value ] ) => value !== undefined )
+	);
+	const [ metadata, placement ] = await Promise.all( [
+		updateSharedSession( summary.id, patch ),
+		readAiSessionPlacement( summary.id ),
+	] );
+	return hydrateAiSessionSummary( summary, metadata, placement );
 }
 
 export async function listHydratedAiSessions(

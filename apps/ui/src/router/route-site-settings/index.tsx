@@ -1,30 +1,26 @@
-import { createRoute, redirect } from '@tanstack/react-router';
+import { createRoute } from '@tanstack/react-router';
 import { isSiteSettingsTab } from '@/components/site-settings-view';
 import { dashboardLayoutRoute } from '../layout-dashboard';
+import { assertSiteExists, useLeaveDeletedSite } from '../route-site-home';
 import type { SiteSettingsTabId } from '@/components/site-settings-view';
 
 interface SiteSettingsSearch {
 	tab?: SiteSettingsTabId;
 }
 
-// The settings screen moved into the site overview (same tab ids); this route
-// only keeps old deep links working.
+// The page itself renders in the dashboard layout's workspace, beside the preview.
+function SiteSettings() {
+	useLeaveDeletedSite( siteSettingsRoute.useParams().siteId );
+	return null;
+}
+
 export const siteSettingsRoute = createRoute( {
 	getParentRoute: () => dashboardLayoutRoute,
 	path: '/sites/$siteId/settings',
 	validateSearch: ( search: Record< string, unknown > ): SiteSettingsSearch => {
 		const value = search.tab;
-		if ( typeof value === 'string' && isSiteSettingsTab( value ) ) {
-			return { tab: value };
-		}
-		return {};
+		return typeof value === 'string' && isSiteSettingsTab( value ) ? { tab: value } : {};
 	},
-	beforeLoad: ( { params, search } ) => {
-		throw redirect( {
-			to: '/sites/$siteId/overview',
-			params,
-			search,
-			replace: true,
-		} );
-	},
+	beforeLoad: ( { params, context } ) => assertSiteExists( params.siteId, context ),
+	component: SiteSettings,
 } );

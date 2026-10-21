@@ -41,7 +41,7 @@ export class E2ESession {
 	/**
 	 * `firstRun` launches like a fresh install, on the welcome screen. Otherwise the run starts past
 	 * onboarding and the orientation guide, with AI features off so a signed-out site opens on its
-	 * overview rather than on a sign-in prompt.
+	 * preview rather than on a sign-in prompt.
 	 */
 	async launch( testEnv: NodeJS.ProcessEnv = {}, { firstRun = false } = {} ) {
 		await fs.mkdir( this.appDataPath, { recursive: true } );

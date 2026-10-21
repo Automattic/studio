@@ -53,7 +53,7 @@ import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { DataFormControlProps, Field, Form } from '@wordpress/dataviews';
 import type { FormEvent } from 'react';
 
-type TabId = 'overview' | 'general' | 'debugging';
+type TabId = 'general' | 'debugging';
 
 interface FormData {
 	name: string;
@@ -151,7 +151,7 @@ function EnableDebugLogControl( {
  * a `Tabs.Root` owned by the caller — the site overview view. One instance
  * spans both panels so unsaved edits survive tab switches.
  */
-export function SiteSettingsForm( { site, activeTab }: { site: SiteDetails; activeTab: TabId } ) {
+export function SiteSettingsForm( { site }: { site: SiteDetails } ) {
 	const allDomains = useExistingCustomDomains();
 	const existingDomainNames = useMemo(
 		() => allDomains.filter( ( domain ) => domain !== site.customDomain ),
@@ -407,33 +407,30 @@ export function SiteSettingsForm( { site, activeTab }: { site: SiteDetails; acti
 
 			{ submitError && <div className={ styles.submitError }>{ submitError }</div> }
 
-			{ /* The save actions apply to the form tabs only, not Overview. */ }
-			{ activeTab !== 'overview' && (
-				<div className={ styles.actions }>
-					<Button
-						type="submit"
-						variant="solid"
-						tone="brand"
-						disabled={ ! canSubmit }
-						loading={ updateSite.isPending }
-						loadingAnnouncement={ __( 'Saving settings' ) }
-					>
-						{ __( 'Save settings' ) }
-					</Button>
-				</div>
-			) }
+			<div className={ styles.actions }>
+				<Button
+					type="submit"
+					variant="solid"
+					tone="brand"
+					disabled={ ! canSubmit }
+					loading={ updateSite.isPending }
+					loadingAnnouncement={ __( 'Saving settings' ) }
+				>
+					{ __( 'Save settings' ) }
+				</Button>
+			</div>
 		</form>
 	);
 }
 
 export function isSiteSettingsTab( value: string ): value is TabId {
-	return value === 'overview' || value === 'general' || value === 'debugging';
+	return value === 'general' || value === 'debugging';
 }
 
 export type SiteSettingsTabId = TabId;
 
 // The `studio_panel_opened` value for a tab. The General tab reports `settings` so it lines up with
-// Studio Classic's Settings panel; overview and debugging keep their own names.
+// Studio Classic's Settings panel; debugging keeps its own name.
 export function siteSettingsTabToPanel( tab: TabId ): TracksPanel {
 	return tab === 'general' ? 'settings' : tab;
 }

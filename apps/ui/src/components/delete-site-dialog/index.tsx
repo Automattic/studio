@@ -39,7 +39,6 @@ export function DeleteSiteDialog( { site, open, onOpenChange, onDeleted }: Delet
 		<AppThemeScope>
 			<AlertDialog.Root open={ open } onOpenChange={ onOpenChange } onConfirm={ handleConfirm }>
 				<AlertDialog.Popup
-					className={ styles.popup }
 					onKeyDown={ handleKeyDown }
 					intent="irreversible"
 					title={ sprintf( __( 'Delete %s' ), site.name ) }

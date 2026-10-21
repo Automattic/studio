@@ -13,6 +13,7 @@ import {
 	disconnectFromDaemon,
 	killDaemonAndChildren,
 } from 'cli/lib/daemon-client';
+import { diag } from 'cli/lib/quit-hang-diag';
 import { withSiteOperation } from 'cli/lib/site-operations';
 import { stopProxyIfNoSitesNeedIt } from 'cli/lib/site-utils';
 import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
@@ -75,7 +76,9 @@ async function stopSites(
 	logger: Logger< LoggerAction >
 ): Promise< void > {
 	try {
+		diag( 'stop: connecting to daemon' );
 		await connectToDaemon();
+		diag( 'stop: connected' );
 
 		if ( target === Mode.STOP_SINGLE_SITE && siteFolder ) {
 			const site = await getSiteByFolder( siteFolder );
@@ -109,8 +112,10 @@ async function stopSites(
 				}
 			}
 
+			diag( `stop: ${ runningSites.length } running` );
 			if ( ! runningSites.length ) {
 				await killDaemonAndChildren();
+				diag( 'stop: kill-daemon sent' );
 				logger.reportSuccess( __( 'No sites are currently running' ) );
 			} else {
 				try {
@@ -171,6 +176,11 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					await runCommand( Mode.STOP_SINGLE_SITE, argv.path );
 				}
 			} catch ( error ) {
+				diag(
+					`stop: failed ${
+						error instanceof Error ? error.stack : String( error )
+					} cause: ${ String( ( error as { cause?: unknown } )?.cause ) }`
+				);
 				if ( error instanceof LoggerError ) {
 					defaultLogger.reportError( error );
 				} else {

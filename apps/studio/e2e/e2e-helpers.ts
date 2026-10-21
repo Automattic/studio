@@ -253,7 +253,10 @@ export class E2ESession {
 				const text = fs.readFileSync( file, 'utf8' );
 				console.log( `[quit-hang diagnostic] ${ file } (${ text.length } bytes)` );
 				if ( file.endsWith( '.log' ) ) {
-					for ( const line of text.trimEnd().split( '\n' ).slice( -25 ) ) {
+					for ( const line of text
+						.trimEnd()
+						.split( '\n' )
+						.slice( file.includes( '-diag' ) ? -120 : -12 ) ) {
 						console.log( `[quit-hang diagnostic]   ${ line }` );
 					}
 				}

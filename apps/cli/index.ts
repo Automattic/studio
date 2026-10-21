@@ -25,6 +25,7 @@ import {
 } from 'cli/lib/bump-stat';
 import { setupServerFiles } from 'cli/lib/dependency-management/setup';
 import { loadTranslations } from 'cli/lib/i18n';
+import { traceCliProcess } from 'cli/lib/quit-hang-diag';
 import { setupTosNotice } from 'cli/lib/tos-notice';
 import { StatsGroup, StatsMetric } from 'cli/lib/types/bump-stats';
 import { setupUpdateNotifier } from 'cli/lib/update-notifier';
@@ -34,6 +35,7 @@ import { StudioArgv } from 'cli/types';
 const version = __STUDIO_CLI_VERSION__;
 
 suppressPunycodeWarning();
+traceCliProcess();
 
 async function main() {
 	await setupUpdateNotifier( version );

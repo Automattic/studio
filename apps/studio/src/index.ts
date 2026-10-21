@@ -557,6 +557,7 @@ async function appBoot() {
 	};
 
 	app.on( 'before-quit', ( event ) => {
+		console.log( `[quit-hang diagnostic] before-quit (confirmed: ${ isQuittingConfirmed })` );
 		if ( isQuittingConfirmed ) {
 			return;
 		}
@@ -652,6 +653,7 @@ async function appBoot() {
 	} );
 
 	app.on( 'will-quit', ( event ) => {
+		console.log( '[quit-hang diagnostic] will-quit' );
 		markAppQuitting();
 		globalShortcut.unregisterAll();
 		stopCliEventsSubscriber();

@@ -47,6 +47,10 @@ vi.mock( '@/components/site-dropdown', () => ( {
 	SiteDropdown: ( { site }: { site: { name: string } } ) => <div>{ site.name }</div>,
 } ) );
 
+vi.mock( '@/components/site-lifecycle-button', () => ( {
+	SiteLifecycleButton: () => <button type="button">Start</button>,
+} ) );
+
 vi.mock( '@/components/stopped-site-preview', () => ( {
 	StoppedSitePreview: () => <div data-testid="stopped-site-preview" />,
 } ) );
@@ -499,16 +503,18 @@ describe( 'SessionView', () => {
 		expect( siteMocks.startSite ).toHaveBeenCalledWith( OWNER_SITE.id );
 	} );
 
-	it( 'shows a stopped site its last screenshot in an empty chat', () => {
+	it( 'offers a stopped site its last screenshot and a Start button', () => {
 		sitesState.data = [ OWNER_SITE ];
 		useSessionMock.mockReturnValue( { data: makeOwnedSession(), isLoading: false, error: null } );
 
 		const { rerender } = render( <SessionView sessionId="session-1" /> );
 		expect( screen.getByTestId( 'stopped-site-preview' ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'Start' } ) ).toBeInTheDocument();
 
 		sitesState.data = [ { ...OWNER_SITE, running: true } ];
 		rerender( <SessionView sessionId="session-1" /> );
 		expect( screen.queryByTestId( 'stopped-site-preview' ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'button', { name: 'Start' } ) ).not.toBeInTheDocument();
 	} );
 } );
 

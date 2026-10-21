@@ -10,38 +10,26 @@ import {
 	isKeyboardEvent,
 	shortcutAriaLabel,
 } from '@wordpress/keycodes';
-import { Button, Dialog, IconButton, Spinner, Tooltip } from '@wordpress/ui';
+import { Button, Dialog, IconButton, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { DesignSystemView } from '@/components/design-system-view';
 import * as Menu from '@/components/menu';
 import { PreviewParticles } from '@/components/preview-particles';
+import { SiteLifecycleButton } from '@/components/site-lifecycle-button';
 import { StoppedSitePreview } from '@/components/stopped-site-preview';
 import { useConnector } from '@/data/core';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { siteDesignQueryKey, useSiteDesign } from '@/data/queries/use-site-design';
 import { useSiteIcon } from '@/data/queries/use-site-icon';
 import { siteThumbnailQueryKey, useSiteThumbnail } from '@/data/queries/use-site-thumbnail';
-import {
-	useIsSiteBusy,
-	useIsSiteStarting,
-	useIsSiteStopping,
-	useSiteOperation,
-	useStartSite,
-	useStopSite,
-} from '@/data/queries/use-sites';
+import { useIsSiteStarting, useSiteOperation } from '@/data/queries/use-sites';
 import { useOpenSettings } from '@/hooks/use-open-settings';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import { useWindowControlsInset } from '@/hooks/use-window-controls-inset';
 import { getSiteUrl } from '@/lib/get-site-url';
-import {
-	browserBackIcon,
-	browserForwardIcon,
-	refreshIcon,
-	startSiteIcon,
-	stopSiteIcon,
-} from '@/lib/icons';
+import { browserBackIcon, browserForwardIcon, refreshIcon } from '@/lib/icons';
 import {
 	DATABASE_HOME_PATH,
 	getPathFromPreviewUrl,
@@ -583,52 +571,6 @@ function getHistoryEntryPath( url: string ) {
 	}
 }
 
-// Starts or stops the site from the header: labeled while stopped, an icon once running.
-function PreviewLifecycleButton( { site }: { site: SiteDetails } ) {
-	const startSite = useStartSite();
-	const stopSite = useStopSite();
-	const isStarting = useIsSiteStarting( site.id );
-	const isStopping = useIsSiteStopping( site.id );
-	const isBusy = useIsSiteBusy( site );
-	const running = site.running || isStopping;
-	const label = isStarting
-		? __( 'Starting' )
-		: isStopping
-		? __( 'Stopping' )
-		: running
-		? __( 'Stop' )
-		: __( 'Start' );
-	return (
-		<Tooltip.Root>
-			<Tooltip.Trigger
-				render={
-					<Button
-						variant={ running ? 'outline' : 'solid' }
-						tone="neutral"
-						size="small"
-						className={ clsx( 'studio-control', running && styles.lifecycleIconOnly ) }
-						disabled={ isBusy }
-						aria-busy={ isStarting || isStopping }
-						onClick={ () => ( running ? stopSite : startSite ).mutate( site.id ) }
-					>
-						{ isStarting || isStopping ? (
-							<Spinner />
-						) : (
-							<Icon icon={ running ? stopSiteIcon : startSiteIcon } size={ 16 } />
-						) }
-						<span className={ running ? styles.visuallyHidden : styles.toolbarLabel }>
-							{ label }
-						</span>
-					</Button>
-				}
-			/>
-			<Tooltip.Popup positioner={ <Tooltip.Positioner side="bottom" /> }>
-				{ running ? __( 'Stop site' ) : __( 'Start site' ) }
-			</Tooltip.Popup>
-		</Tooltip.Root>
-	);
-}
-
 function BrowserHistoryButton( {
 	direction,
 	browserState,
@@ -1124,7 +1066,7 @@ export function SitePreview( {
 							onCommand={ sendInspectorCommand }
 						/>
 					) : null }
-					{ inspectorState.isPicking ? null : <PreviewLifecycleButton site={ site } /> }
+					{ inspectorState.isPicking ? null : <SiteLifecycleButton site={ site } /> }
 					{ canPreview && ! inspectorState.isPicking ? (
 						<Menu.Root modal={ false }>
 							<Menu.Trigger

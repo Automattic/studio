@@ -31,6 +31,7 @@ import { ProgressiveBlur } from '@/components/progressive-blur';
 import { HeaderSidebarToggle } from '@/components/sidebar-toggle';
 import { SiteDropdown } from '@/components/site-dropdown';
 import { SiteIcon } from '@/components/site-icon';
+import { SiteLifecycleButton } from '@/components/site-lifecycle-button';
 import { type Annotation } from '@/components/site-preview/types';
 import { StoppedSitePreview } from '@/components/stopped-site-preview';
 import { useAgentRun } from '@/data/queries/use-agent-run';
@@ -133,7 +134,11 @@ function SessionHeader( {
 			<span className={ styles.headerSpacer } aria-hidden="true" />
 			{ site && effectiveEnvironment === 'local' ? (
 				<div className={ styles.headerActions } data-header-actions>
-					<PreviewToggleButton canHideChat />
+					{ site.running ? (
+						<PreviewToggleButton canHideChat />
+					) : (
+						<SiteLifecycleButton site={ site } />
+					) }
 				</div>
 			) : null }
 		</div>

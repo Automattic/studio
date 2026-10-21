@@ -95,6 +95,7 @@ export function useResizablePanel( { config, edge, storageKey }: UseResizablePan
 
 	return {
 		width,
+		viewportWidth,
 		minWidth: config.minWidth,
 		maxWidth,
 		isResizing: isDragging,

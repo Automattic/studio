@@ -2,6 +2,7 @@
 	/* The sidebar and its sticky header/footer share one surface. */
 	--studio-sidebar-bg: var(--wpds-color-background-surface-neutral-strong);
 
+	position: relative;
 	display: flex;
 	height: 100vh;
 	overflow: hidden;
@@ -61,6 +62,31 @@
 
 .sidebarCollapsed {
 	width: 0;
+}
+
+/* On a small window the sidebar opens over the content, under the header band
+   that keeps its toggle, instead of taking the content's width. */
+.sidebarOverlay {
+	position: absolute;
+	top: var(--studio-band-height);
+	bottom: 0;
+	inset-inline-start: 0;
+	z-index: 40;
+}
+
+.sidebarOverlay .sidebar {
+	border-inline-end: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral);
+}
+
+/* Clicking anywhere else closes the overlay. */
+.overlayBackdrop {
+	position: absolute;
+	inset: var(--studio-band-height) 0 0;
+	z-index: 39;
+	padding: 0;
+	border: 0;
+	background: transparent;
+	-webkit-app-region: no-drag;
 }
 
 .main {

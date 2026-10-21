@@ -1,6 +1,6 @@
 import { __ } from '@wordpress/i18n';
 import { clsx } from 'clsx';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { AppMessageCards, AppMessageHistoryRecorder } from '@/components/app-message-cards';
 import { AppToasts } from '@/components/app-toasts';
 import { NoticeHistoryDialog } from '@/components/notice-history';
@@ -10,138 +10,117 @@ import { SiteList } from '@/components/site-list';
 import { UserMenu } from '@/components/user-menu';
 import { useConnector } from '@/data/core';
 import { useResizablePanel } from '@/hooks/use-resizable-panel';
-import { SidebarCollapsedContext, SidebarToggleContext } from '@/hooks/use-sidebar-collapsed';
 import {
-	getViewportWidth,
-	SIDEBAR_AUTO_COLLAPSE_BREAKPOINT,
+	SidebarCollapsedContext,
+	SidebarOpenContext,
+	SidebarToggleContext,
+} from '@/hooks/use-sidebar-collapsed';
+import {
+	PREVIEW_SPLIT_MIN_WIDTH,
 	SIDEBAR_PANEL_CONFIG,
 	SIDEBAR_PANEL_STORAGE_KEY,
 } from '@/lib/resizable-panels';
 import styles from './style.module.css';
 import type { CSSProperties, ReactNode } from 'react';
 
-interface SidebarLayoutProps {
-	children: ReactNode;
-	collapsed?: boolean;
-	onCollapsedChange?: ( collapsed: boolean ) => void;
-	onExpand?: () => void;
-}
-
-export function SidebarLayout( {
-	children,
-	collapsed: controlledCollapsed,
-	onCollapsedChange,
-	onExpand,
-}: SidebarLayoutProps ) {
-	const [ internalCollapsed, setInternalCollapsed ] = useState(
-		() => getViewportWidth() < SIDEBAR_AUTO_COLLAPSE_BREAKPOINT
-	);
-	const collapsed = controlledCollapsed ?? internalCollapsed;
-	const wasCompactRef = useRef( getViewportWidth() < SIDEBAR_AUTO_COLLAPSE_BREAKPOINT );
-	const rootRef = useRef< HTMLDivElement >( null );
+export function SidebarLayout( { children }: { children: ReactNode } ) {
 	const connector = useConnector();
 	const sidebarResize = useResizablePanel( {
 		config: SIDEBAR_PANEL_CONFIG,
 		edge: 'right',
 		storageKey: SIDEBAR_PANEL_STORAGE_KEY,
 	} );
-	const updateCollapsed = useCallback(
-		( nextCollapsed: boolean ) => {
-			if ( controlledCollapsed === undefined ) {
-				setInternalCollapsed( nextCollapsed );
-			}
-			onCollapsedChange?.( nextCollapsed );
-		},
-		[ controlledCollapsed, onCollapsedChange ]
-	);
+	const [ collapsed, setCollapsed ] = useState( false );
+	const [ overlayOpen, setOverlayOpen ] = useState( false );
+	// When docking the sidebar would leave the content less than the chat and
+	// preview need, it opens over the content instead, closed by default. The
+	// docked state is kept for when the window widens again.
+	const overlay = sidebarResize.viewportWidth - sidebarResize.width < PREVIEW_SPLIT_MIN_WIDTH;
+	const [ wasOverlay, setWasOverlay ] = useState( overlay );
+	if ( wasOverlay !== overlay ) {
+		setWasOverlay( overlay );
+		setOverlayOpen( false );
+	}
+	const open = overlay ? overlayOpen : ! collapsed;
+	const docked = ! overlay && open;
 	const toggleSidebar = useCallback( () => {
-		if ( collapsed ) {
-			if ( onExpand ) {
-				onExpand();
-			} else {
-				updateCollapsed( false );
-			}
-			return;
+		if ( overlay ) {
+			setOverlayOpen( ( current ) => ! current );
+		} else {
+			setCollapsed( ( current ) => ! current );
 		}
-		updateCollapsed( true );
-	}, [ collapsed, onExpand, updateCollapsed ] );
+	}, [ overlay ] );
 	const sidebarStyle = { '--sidebar-width': `${ sidebarResize.width }px` } as CSSProperties;
 
 	useEffect( () => connector.onToggleSidebar( toggleSidebar ), [ connector, toggleSidebar ] );
 	useEffect( () => {
-		// When a parent controls the collapsed state it owns the responsive
-		// behavior too (see useResponsivePanels), and coordinates it with the
-		// window resizing that opening a panel triggers. Only drive the
-		// uncontrolled fallback from here.
-		if ( controlledCollapsed !== undefined ) {
+		if ( ! overlay || ! overlayOpen ) {
 			return;
 		}
-		const collapseWhenEnteringCompactWidth = ( width: number ) => {
-			const isCompact = width < SIDEBAR_AUTO_COLLAPSE_BREAKPOINT;
-			if ( isCompact && ! wasCompactRef.current ) {
-				updateCollapsed( true );
+		const closeOnEscape = ( event: KeyboardEvent ) => {
+			if ( event.key === 'Escape' && ! event.defaultPrevented ) {
+				setOverlayOpen( false );
 			}
-			wasCompactRef.current = isCompact;
 		};
-		const root = rootRef.current;
-		if ( root && typeof ResizeObserver !== 'undefined' ) {
-			const observer = new ResizeObserver( ( entries ) => {
-				const width = entries[ 0 ]?.contentRect.width;
-				if ( width ) {
-					collapseWhenEnteringCompactWidth( width );
-				}
-			} );
-			observer.observe( root );
-			return () => observer.disconnect();
-		}
-		const handleWindowResize = () => collapseWhenEnteringCompactWidth( getViewportWidth() );
-		window.addEventListener( 'resize', handleWindowResize );
-		return () => window.removeEventListener( 'resize', handleWindowResize );
-	}, [ controlledCollapsed, updateCollapsed ] );
+		window.addEventListener( 'keydown', closeOnEscape );
+		return () => window.removeEventListener( 'keydown', closeOnEscape );
+	}, [ overlay, overlayOpen ] );
 
 	return (
-		<SidebarCollapsedContext.Provider value={ collapsed }>
-			<SidebarToggleContext.Provider value={ toggleSidebar }>
-				<div ref={ rootRef } className={ styles.root }>
-					<div
-						className={ clsx(
-							styles.sidebarFrame,
-							collapsed && styles.sidebarCollapsed,
-							sidebarResize.isResizing && styles.sidebarResizing
-						) }
-						style={ sidebarStyle }
-						inert={ collapsed }
-					>
-						<aside className={ styles.sidebar }>
-							<SidebarHeader />
-							<SiteList sections />
-							<div className={ styles.sidebarFooter }>
-								{ ! collapsed ? <AppMessageCards className={ styles.sidebarCards } /> : null }
-								<UserMenu />
-							</div>
-						</aside>
+		<SidebarCollapsedContext.Provider value={ ! docked }>
+			<SidebarOpenContext.Provider value={ open }>
+				<SidebarToggleContext.Provider value={ toggleSidebar }>
+					<div className={ styles.root }>
+						<div
+							className={ clsx(
+								styles.sidebarFrame,
+								overlay && styles.sidebarOverlay,
+								! open && styles.sidebarCollapsed,
+								sidebarResize.isResizing && styles.sidebarResizing
+							) }
+							style={ sidebarStyle }
+							inert={ ! open }
+						>
+							<aside className={ styles.sidebar }>
+								{ overlay ? null : <SidebarHeader /> }
+								<SiteList sections />
+								<div className={ styles.sidebarFooter }>
+									{ open ? <AppMessageCards className={ styles.sidebarCards } /> : null }
+									<UserMenu />
+								</div>
+							</aside>
+						</div>
+						{ overlay && overlayOpen ? (
+							<button
+								type="button"
+								className={ styles.overlayBackdrop }
+								aria-label={ __( 'Close sidebar' ) }
+								tabIndex={ -1 }
+								onClick={ () => setOverlayOpen( false ) }
+							/>
+						) : null }
+						{ docked ? (
+							<ResizeHandle
+								className={ styles.resizeHandle }
+								label={ __( 'Resize sidebar' ) }
+								minWidth={ sidebarResize.minWidth }
+								maxWidth={ sidebarResize.maxWidth }
+								width={ sidebarResize.width }
+								isResizing={ sidebarResize.isResizing }
+								onResizeStart={ sidebarResize.handleResizeStart }
+								onKeyDown={ sidebarResize.handleKeyDown }
+							/>
+						) : null }
+						<main className={ clsx( styles.main, docked && 'studio-column-edge' ) }>
+							{ children }
+						</main>
+						{ sidebarResize.isResizing ? <ResizeOverlay /> : null }
+						<AppToasts />
+						<NoticeHistoryDialog />
+						<AppMessageHistoryRecorder />
 					</div>
-					{ ! collapsed ? (
-						<ResizeHandle
-							className={ styles.resizeHandle }
-							label={ __( 'Resize sidebar' ) }
-							minWidth={ sidebarResize.minWidth }
-							maxWidth={ sidebarResize.maxWidth }
-							width={ sidebarResize.width }
-							isResizing={ sidebarResize.isResizing }
-							onResizeStart={ sidebarResize.handleResizeStart }
-							onKeyDown={ sidebarResize.handleKeyDown }
-						/>
-					) : null }
-					<main className={ clsx( styles.main, ! collapsed && 'studio-column-edge' ) }>
-						{ children }
-					</main>
-					{ sidebarResize.isResizing ? <ResizeOverlay /> : null }
-					<AppToasts />
-					<NoticeHistoryDialog />
-					<AppMessageHistoryRecorder />
-				</div>
-			</SidebarToggleContext.Provider>
+				</SidebarToggleContext.Provider>
+			</SidebarOpenContext.Provider>
 		</SidebarCollapsedContext.Provider>
 	);
 }

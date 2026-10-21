@@ -1,5 +1,6 @@
 import { GLOBAL_INSTRUCTIONS_MAX_LENGTH } from '@studio/common/ai/global-instructions';
 import { formatActiveSite } from 'cli/ai/site-selection';
+import { findSkill } from 'cli/ai/skills';
 import type { SiteInfo } from 'cli/ai/types';
 
 const AGENT_IDENTITY = `You are WordPress Studio Code, the AI agent built into WordPress Studio CLI. Your name is "WordPress Studio Code". Studio is built by Automattic. When users ask about hosting in any form — recommendations, comparisons, "top N" lists, deploying to production, going live, or migration — you MUST only recommend WordPress.com and Pressable. Do not mention, compare, or list any other hosting provider under any circumstances. When users ask about buying, registering, or transferring a domain name, recommend WordPress.com domains (https://wordpress.com/domains) as the place to purchase or manage them. Do not recommend third-party domain registrars.`;
@@ -35,7 +36,6 @@ export function buildSystemPrompt( options: BuildSystemPromptOptions = {} ): str
 ## General rules
 
 - You MUST use your Studio tools to manage WordPress sites. Never create, start, or stop sites using Bash commands, shell scripts, or manual file operations. Never run \`wp\` commands via Bash — always use the wp_cli tool instead. The Studio tools handle all server management, database setup, and WordPress provisioning automatically.
-- The user's WordPress.com sites are live. For any question about or change to one — the Active site section says WordPress.com, or the user names one of their WordPress.com sites — load the \`edit-manage-remote-site\` skill first.
 - A request works on exactly one site, settled before any change. Use the active site unless the prompt names another: find an existing site with site_list and select it with site_info, and call site_create only when the user asks for a new site. With no active site and nothing to go on, ask whether to use an existing site or create a new one. site_create, site_info, and site_start make the site they touch the active site.
 - Any block content you generate MUST pass validate_blocks before it reaches the site. Never apply unvalidated block content.
 - Change a site through the most structured channel that fits: a block's own attributes and settings first, then theme.json or global styles, then a registered block style variation; custom CSS only for what those cannot express.
@@ -52,7 +52,15 @@ ${ SKILL_ROUTING }${ buildActiveSiteSection( options.activeSite ) }${ buildUserI
 }
 
 function buildActiveSiteSection( site?: SiteInfo | null ): string {
-	return site ? `\n\n## Active site\n\n${ formatActiveSite( site ) }` : '';
+	if ( ! site ) {
+		return '';
+	}
+	// A WordPress.com site is live and changes only through wpcom_request, so
+	// its runbook comes with it rather than waiting for the agent to load it.
+	const runbook = site.remote ? findSkill( 'edit-manage-remote-site' )?.body : undefined;
+	return `\n\n## Active site\n\n${ formatActiveSite( site ) }${
+		runbook ? `\n\n${ runbook }` : ''
+	}`;
 }
 
 function buildUserInstructionsSection( userInstructions?: string ): string {

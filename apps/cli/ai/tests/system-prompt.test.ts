@@ -43,11 +43,35 @@ describe( 'buildSystemPrompt', () => {
 		}
 	} );
 
-	it( 'routes WordPress.com sites to the remote management skill', () => {
-		const prompt = buildSystemPrompt( {} );
+	it( 'carries the remote-site runbook only when a WordPress.com site is active', () => {
+		const remote = buildSystemPrompt( {
+			activeSite: {
+				name: 'Live',
+				path: '',
+				running: false,
+				remote: true,
+				url: 'https://example.wordpress.com',
+				wpcomSiteId: 123,
+			},
+		} );
+		const local = buildSystemPrompt( {
+			activeSite: { name: 'My Site', path: '/sites/my-site', running: true },
+		} );
+		const runbook = loadSkills().find( ( skill ) => skill.name === 'edit-manage-remote-site' );
 
-		expect( prompt ).toContain( 'load the `edit-manage-remote-site` skill first' );
-		expect( prompt ).not.toContain( '## Common wp/v2 Endpoints' );
+		expect( remote ).toContain( runbook?.body );
+		expect( remote.indexOf( '## Active site' ) ).toBeLessThan(
+			remote.indexOf( '## Common wp/v2 Endpoints' )
+		);
+		expect( local ).not.toContain( '## Common wp/v2 Endpoints' );
+		expect( buildSystemPrompt( {} ) ).not.toContain( '## Common wp/v2 Endpoints' );
+	} );
+
+	it( 'lists the remote-site skill with what it covers, for sites the user names', () => {
+		const runbook = loadSkills().find( ( skill ) => skill.name === 'edit-manage-remote-site' );
+
+		expect( runbook?.userInvokable ).toBe( true );
+		expect( runbook?.description ).toContain( 'live remote sites' );
 	} );
 
 	it( 'leaves plan questions to the hosting-plans-helper skill index entry', () => {

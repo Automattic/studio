@@ -11,6 +11,11 @@
 	line-height: 20px;
 }
 
+/* Steps back while a confirmation or other dialog opens over it. */
+.popup[data-wp-ui-overlay-modal][data-nested-dialog-open] {
+	filter: blur(2px);
+}
+
 .visuallyHidden {
 	position: absolute;
 	width: 1px;

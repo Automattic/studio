@@ -68,6 +68,57 @@ describe( 'stripStudioWpConfigConstants', () => {
 		expect( stripStudioWpConfigConstants( content ) ).toBe( content );
 	} );
 
+	it( 'looks past comments for the statement a define belongs to', () => {
+		const content = [
+			'<?php',
+			"if ( getenv( 'X' ) )",
+			'// dev only',
+			"define( 'WP_DEBUG', true );",
+			'else',
+			'/**',
+			' * Production.',
+			' */',
+			"define( 'WP_DEBUG', false );",
+			'if ( $a ) /* dev */',
+			"define( 'SCRIPT_DEBUG', true );",
+			'if ( $b ) # dev',
+			"define( 'WP_DEBUG_LOG', true );",
+			"$table_prefix = 'wp_';",
+			'',
+		].join( '\n' );
+
+		expect( stripStudioWpConfigConstants( content ) ).toBe( content );
+	} );
+
+	it( 'removes a define after a comment that follows a complete statement', () => {
+		const content = [
+			'<?php',
+			"define( 'WP_HOME', 'http://example.com' ); // the URL",
+			'/* For developers: WordPress debugging mode.',
+			" * if ( true ) define( 'WP_DEBUG', true );",
+			' */',
+			"define( 'WP_DEBUG', false );",
+			'',
+		].join( '\n' );
+
+		expect( stripStudioWpConfigConstants( content ) ).toBe(
+			[
+				'<?php',
+				"define( 'WP_HOME', 'http://example.com' ); // the URL",
+				'/* For developers: WordPress debugging mode.',
+				" * if ( true ) define( 'WP_DEBUG', true );",
+				' */',
+				'',
+			].join( '\n' )
+		);
+	} );
+
+	it( 'keeps a define inside a block comment', () => {
+		const content = "<?php\n/*\ndefine( 'WP_DEBUG', true );\n*/\n";
+
+		expect( stripStudioWpConfigConstants( content ) ).toBe( content );
+	} );
+
 	it( 'keeps a DB_NAME that is not the Studio default', () => {
 		const content = "<?php\ndefine( 'DB_NAME', 'my_database' );\n";
 

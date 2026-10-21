@@ -24,16 +24,45 @@ function isStudioDefineLine( line: string ): boolean {
 }
 
 // Whether a define after this line is a statement of its own, rather than the
-// body of a brace-less `if`, `else` or loop.
-function endsStatement( line: string ): boolean {
-	const trimmed = line.trim();
-	return (
-		/[;{}]$/.test( trimmed ) ||
-		trimmed.endsWith( '*/' ) ||
-		trimmed.startsWith( '//' ) ||
-		trimmed.startsWith( '#' ) ||
-		/^<\?php\b/.test( trimmed )
-	);
+// body of a brace-less `if`, `else` or loop. Takes the line's code, without comments.
+function endsStatement( code: string ): boolean {
+	return /(?:[;{}]|<\?php)$/.test( code );
+}
+
+// Returns the code of a line with its comments removed. `state` carries an
+// unterminated `/* */` comment over to the next line.
+function stripComments( line: string, state: { inBlockComment: boolean } ): string {
+	let code = '';
+	let quote: string | null = null;
+	for ( let i = 0; i < line.length; i++ ) {
+		const char = line[ i ];
+		const next = line[ i + 1 ];
+		if ( state.inBlockComment ) {
+			if ( char === '*' && next === '/' ) {
+				state.inBlockComment = false;
+				i++;
+			}
+		} else if ( quote ) {
+			code += char;
+			if ( char === '\\' ) {
+				code += next ?? '';
+				i++;
+			} else if ( char === quote ) {
+				quote = null;
+			}
+		} else if ( char === "'" || char === '"' ) {
+			quote = char;
+			code += char;
+		} else if ( char === '/' && next === '*' ) {
+			state.inBlockComment = true;
+			i++;
+		} else if ( ( char === '/' && next === '/' ) || char === '#' ) {
+			break;
+		} else {
+			code += char;
+		}
+	}
+	return code.trim();
 }
 
 /**
@@ -44,17 +73,20 @@ function endsStatement( line: string ): boolean {
  */
 export function stripStudioWpConfigConstants( content: string ): string {
 	const lines = content.split( /(?<=\n)/ );
-	let previousLine: string | undefined;
+	const commentState = { inBlockComment: false };
+	let previousCode: string | undefined;
 
 	return lines
 		.filter( ( line ) => {
 			const text = line.replace( /\r?\n$/, '' );
-			const isPrecededByStatementEnd = previousLine === undefined || endsStatement( previousLine );
-			if ( isPrecededByStatementEnd && isStudioDefineLine( text ) ) {
+			const startsInComment = commentState.inBlockComment;
+			const code = stripComments( text, commentState );
+			const isPrecededByStatementEnd = previousCode === undefined || endsStatement( previousCode );
+			if ( ! startsInComment && isPrecededByStatementEnd && isStudioDefineLine( text ) ) {
 				return false;
 			}
-			if ( text.trim() !== '' ) {
-				previousLine = text;
+			if ( code !== '' ) {
+				previousCode = code;
 			}
 			return true;
 		} )

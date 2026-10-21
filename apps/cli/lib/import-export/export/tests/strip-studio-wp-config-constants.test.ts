@@ -113,6 +113,24 @@ describe( 'stripStudioWpConfigConstants', () => {
 		);
 	} );
 
+	it( 'removes a define with a trailing comment', () => {
+		const content = [
+			'<?php',
+			"define('WP_DEBUG', true); // keep off in prod",
+			"define( 'SCRIPT_DEBUG', true ); /* dev */",
+			"define( 'WP_DEBUG_LOG', false ); # log",
+			'',
+		].join( '\n' );
+
+		expect( stripStudioWpConfigConstants( content ) ).toBe( '<?php\n' );
+	} );
+
+	it( 'keeps a define that opens a block comment', () => {
+		const content = "<?php\ndefine( 'WP_DEBUG', true ); /* the next line\nis a comment */\n";
+
+		expect( stripStudioWpConfigConstants( content ) ).toBe( content );
+	} );
+
 	it( 'keeps a define inside a block comment', () => {
 		const content = "<?php\n/*\ndefine( 'WP_DEBUG', true );\n*/\n";
 

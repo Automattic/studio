@@ -82,7 +82,9 @@ export function stripStudioWpConfigConstants( content: string ): string {
 			const startsInComment = commentState.inBlockComment;
 			const code = stripComments( text, commentState );
 			const isPrecededByStatementEnd = previousCode === undefined || endsStatement( previousCode );
-			if ( ! startsInComment && isPrecededByStatementEnd && isStudioDefineLine( text ) ) {
+			// A `/*` opened after the define starts a comment the next lines rely on.
+			const isOwnLine = ! startsInComment && ! commentState.inBlockComment;
+			if ( isOwnLine && isPrecededByStatementEnd && isStudioDefineLine( code ) ) {
 				return false;
 			}
 			if ( code !== '' ) {

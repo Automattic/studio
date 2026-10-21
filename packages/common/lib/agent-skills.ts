@@ -101,18 +101,19 @@ export async function installSkillToSite(
 	skillId: string,
 	overwrite: boolean
 ): Promise< void > {
-	// A skill switched off on this site comes back with its edits.
-	const known = getCatalog( 'skills' ).find( ( skill ) => skill.id === skillId );
-	if ( known ) {
-		await moveSiteAgentFile( site.path, 'skills', known.id, true );
+	const id = getBundledSkills().find( ( skill ) => skill.id === skillId )?.id;
+	if ( ! id ) {
+		return;
 	}
-	const src = path.join( bundledPath, skillId );
+	// A skill switched off on this site comes back with its edits.
+	await moveSiteAgentFile( site.path, 'skills', id, true );
+	const src = path.join( bundledPath, id );
 	if ( ! ( await pathExists( src ) ) ) {
 		return;
 	}
 
-	const agentsSkillPath = path.join( site.path, '.agents', 'skills', skillId );
-	const claudeSkillPath = path.join( site.path, '.claude', 'skills', skillId );
+	const agentsSkillPath = path.join( site.path, '.agents', 'skills', id );
+	const claudeSkillPath = path.join( site.path, '.claude', 'skills', id );
 
 	const isInstalled = await pathExists( path.join( agentsSkillPath, 'SKILL.md' ) );
 

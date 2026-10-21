@@ -8,7 +8,6 @@ import {
 	STUDIO_LOADER_MU_PLUGIN_FILENAME,
 	writeStudioMuPlugins,
 } from '@studio/common/lib/mu-plugins';
-import { getMuPluginsPath } from '@studio/common/lib/well-known-paths';
 
 let configDir: string;
 const originalConfigDir = process.env.DEV_CONFIG_DIR;
@@ -115,6 +114,10 @@ describe( 'writeStudioMuPlugins', () => {
 		sitePath = await mkdtemp( join( tmpdir(), 'studio-test-site-' ) );
 	} );
 
+	afterEach( async () => {
+		await rm( sitePath, { recursive: true, force: true } );
+	} );
+
 	it( 'should preserve the auto-update setting for native PHP mu-plugins', async () => {
 		await writeStudioMuPlugins( sitePath, true );
 
@@ -180,13 +183,33 @@ describe( 'writeStudioMuPlugins', () => {
 		expect( disabledDir ).not.toBe( enabledDir );
 	} );
 
-	it( 'should keep the mu-plugins outside the temp directory', async () => {
-		vi.stubEnv( 'TMPDIR', await mkdtemp( join( tmpdir(), 'studio-test-tmpdir-' ) ) );
+	it( 'should keep the loader on the same directory when another TMPDIR writes it (STU-2532)', async () => {
+		const loaderPath = join(
+			sitePath,
+			'wp-content',
+			'mu-plugins',
+			STUDIO_LOADER_MU_PLUGIN_FILENAME
+		);
+		const serverTmpdir = await mkdtemp( join( tmpdir(), 'studio-test-server-tmp-' ) );
+		const cliTmpdir = await mkdtemp( join( tmpdir(), 'studio-test-cli-tmp-' ) );
 		try {
-			const muPluginsDir = await writeStudioMuPlugins( sitePath, false );
-			expect( muPluginsDir.startsWith( getMuPluginsPath() ) ).toBe( true );
+			vi.stubEnv( 'TMPDIR', serverTmpdir );
+			const serverDir = await writeStudioMuPlugins( sitePath, false );
+			const loaderContent = await readFile( loaderPath, 'utf8' );
+
+			// A cleared /tmp, or an agent sandbox with its own /tmp, hides the first
+			// process's temp files from the next one.
+			await rm( serverTmpdir, { recursive: true, force: true } );
+			vi.stubEnv( 'TMPDIR', cliTmpdir );
+			const cliDir = await writeStudioMuPlugins( sitePath, false );
+
+			expect( cliDir ).toBe( serverDir );
+			expect( await readFile( loaderPath, 'utf8' ) ).toBe( loaderContent );
+			expect( await readdir( cliTmpdir ) ).toEqual( [] );
 		} finally {
 			vi.unstubAllEnvs();
+			await rm( serverTmpdir, { recursive: true, force: true } );
+			await rm( cliTmpdir, { recursive: true, force: true } );
 		}
 	} );
 

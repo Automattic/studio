@@ -80,7 +80,7 @@ import {
 	listLocalFileTree as listSiteFileTree,
 } from '@studio/common/lib/sync/local-file-tree';
 import { supportedEditorConfig, SupportedEditor } from '@studio/common/lib/user-settings/editor';
-import { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
+import { resolveLinuxTerminalLaunch } from '@studio/common/lib/user-settings/terminal';
 import { getSessionsDirectory } from '@studio/common/lib/well-known-paths';
 import {
 	cleanupBlueprintTempDir as cleanupBlueprintTempDirShared,
@@ -121,6 +121,7 @@ import {
 	extractErrorFromProcessManagerLogs,
 	simplifyErrorForDisplay,
 } from 'src/lib/error-formatting';
+import { findOnPath } from 'src/lib/find-on-path';
 import { getImageData } from 'src/lib/get-image-data';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
 import { setSentryWpcomUserIdMain } from 'src/lib/main-sentry-utils';
@@ -169,7 +170,6 @@ import { isStudioCliInstalled } from 'src/modules/cli/lib/ipc-handlers';
 import { STABLE_BIN_DIR_PATH } from 'src/modules/cli/lib/windows-installation-manager';
 import { getDefaultSiteDirectory } from 'src/modules/user-settings/lib/ipc-handlers';
 import { linuxFindEditorPath } from 'src/modules/user-settings/lib/linux-editor-path';
-import { linuxFindTerminalPath } from 'src/modules/user-settings/lib/linux-terminal-path';
 import { winFindEditorPath } from 'src/modules/user-settings/lib/win-editor-path';
 import { getSiteThumbnailPath } from 'src/storage/paths';
 import { updateAppdata, loadUserData } from 'src/storage/user-data';
@@ -1247,37 +1247,11 @@ export async function openTerminalAtPath( _event: IpcMainInvokeEvent, targetPath
 			env,
 		} );
 	} else if ( platform === 'linux' ) {
-		// Warp on Linux currently opens at its configured "new session"
-		// directory regardless of how it is launched — it ignores
-		// `--working-directory`, the `path=` URL scheme query, and the
-		// spawn cwd. Tracked upstream in warpdotdev/Warp#4974 and #6357.
-		// Best effort: launch with `cwd` set so we benefit if/when upstream
-		// adds support, and so a fresh launch (no daemon yet) at least has
-		// a chance of inheriting it.
-		const launchers: Record< SupportedTerminal, { args: string[]; options?: ExecOptions } | null > =
-			{
-				terminal: { args: [ `--working-directory=${ targetPath }` ] },
-				warp: { args: [], options: { cwd: targetPath } },
-				ghostty: { args: [ `--working-directory=${ targetPath }` ] },
-				iterm: null,
-			};
-
-		const order: SupportedTerminal[] = [ preferredTerminal, 'terminal' ];
-		for ( const candidate of order ) {
-			const launcher = launchers[ candidate ];
-			if ( ! launcher ) {
-				continue;
-			}
-			const binary = await linuxFindTerminalPath( candidate );
-			if ( ! binary ) {
-				continue;
-			}
-			return promiseExecFile( binary, launcher.args, launcher.options );
+		const launch = resolveLinuxTerminalLaunch( preferredTerminal, targetPath, findOnPath );
+		if ( ! launch ) {
+			throw new Error( 'No supported terminal emulator found on $PATH' );
 		}
-
-		// Last-resort fallback that preserves prior behavior even if no
-		// supported terminal binary is on $PATH.
-		return promiseExecFile( 'gnome-terminal', [ `--working-directory=${ targetPath }` ] );
+		return promiseExecFile( launch.file, launch.args, { cwd: launch.cwd } );
 	} else {
 		console.error( 'Unsupported platform:', platform );
 		return;

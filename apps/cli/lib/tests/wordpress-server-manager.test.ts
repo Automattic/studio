@@ -28,10 +28,12 @@ vi.mock( 'cli/lib/dependency-management/php-binary', () => ( {
 vi.mock( 'cli/lib/site-runtime-stats', () => ( {
 	recordSiteRuntimeUsage: vi.fn(),
 } ) );
-vi.mock( 'cli/lib/sqlite-collations', () => ( {
+vi.mock( '@studio/common/lib/site-database', () => ( {
 	getSiteDatabasePath: vi.fn(
 		( sitePath: string ) => `${ sitePath }/wp-content/database/.ht.sqlite`
 	),
+} ) );
+vi.mock( 'cli/lib/sqlite-collations', () => ( {
 	replaceMysql8OnlyCollations: vi.fn().mockResolvedValue( undefined ),
 } ) );
 vi.mock( 'cli/lib/sqlite-journal-mode', () => ( {

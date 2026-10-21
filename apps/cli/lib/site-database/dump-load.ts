@@ -1,3 +1,4 @@
+import fs from 'fs';
 import path from 'path';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { generateBackupFilename } from '@studio/common/lib/generate-backup-filename';
@@ -8,6 +9,7 @@ import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import { replaceMysql8OnlyCollations } from 'cli/lib/sqlite-collations';
 import { summarizeWpCliStderr } from 'cli/lib/wp-cli-stderr';
 import { LoggerError } from 'cli/logger';
+import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { SiteData } from 'cli/lib/cli-config/core';
 
 async function createDatabaseExportError(
@@ -22,10 +24,7 @@ async function createDatabaseExportError(
 	return new LoggerError( message, new Error( summarizeWpCliStderr( stderr ) ), 'database_export' );
 }
 
-export async function exportDatabaseToFile(
-	site: SiteData,
-	finalDestination: string
-): Promise< void > {
+async function exportDatabaseToFile( site: SiteData, finalDestination: string ): Promise< void > {
 	// Generate a temporary file name in the project directory
 	const tempFileName = `${ generateBackupFilename( 'db-export' ) }.sql`;
 
@@ -55,7 +54,7 @@ export async function exportDatabaseToFile(
 	await move( tempFilePath, finalDestination );
 }
 
-export async function exportDatabaseToMultipleFiles(
+async function exportDatabaseToMultipleFiles(
 	site: SiteData,
 	finalDestinationDir: string
 ): Promise< string[] > {
@@ -146,4 +145,68 @@ export async function exportDatabaseToMultipleFiles(
 	}
 
 	return tmpFiles;
+}
+
+export function dumpDatabase( site: SiteData, destination: string ): Promise< void >;
+export function dumpDatabase(
+	site: SiteData,
+	destination: string,
+	separateTables: true
+): Promise< string[] >;
+export function dumpDatabase( site: SiteData, destination: string, separateTables = false ) {
+	return separateTables
+		? exportDatabaseToMultipleFiles( site, destination )
+		: exportDatabaseToFile( site, destination );
+}
+
+export async function loadDatabase(
+	site: SiteData,
+	files: string[],
+	options: {
+		phpVersion: SupportedPHPVersion;
+		prepareSqlFile: ( file: string ) => Promise< void >;
+		onProgress: ( file: string, processedFiles: number, totalFiles: number ) => void;
+	}
+): Promise< void > {
+	const sortedFiles = files.sort( ( a, b ) => a.localeCompare( b ) );
+	let processedFiles = 0;
+	for ( const sqlFile of sortedFiles ) {
+		const sqlTempFile = `${ generateBackupFilename( 'sql' ) }.sql`;
+		const tmpPath = path.join( site.path, sqlTempFile );
+		options.onProgress( sqlFile, ++processedFiles, sortedFiles.length );
+		try {
+			await move( sqlFile, tmpPath );
+			await options.prepareSqlFile( tmpPath );
+			await using command = await runWpCliCommand(
+				site,
+				[
+					'sqlite',
+					'import',
+					sqlTempFile,
+					'--enable-ast-driver',
+					'--skip-plugins',
+					'--skip-themes',
+				],
+				{ requireSqliteCliCommand: true, phpVersion: options.phpVersion }
+			);
+			const exitCode = await command.response.exitCode;
+			const stderr = await command.response.stderrText;
+			if ( stderr ) {
+				console.error( sprintf( __( 'Error during import of %s:' ), sqlFile ), stderr );
+			}
+			if ( exitCode !== 0 ) {
+				throw new LoggerError(
+					sprintf( __( 'Database import failed: %s' ), summarizeWpCliStderr( stderr ) ),
+					undefined,
+					'database_import'
+				);
+			}
+		} finally {
+			try {
+				await fs.promises.rm( tmpPath, { recursive: true, force: true } );
+			} catch ( error ) {
+				console.error( `Failed to safely delete path ${ tmpPath }:`, error );
+			}
+		}
+	}
 }

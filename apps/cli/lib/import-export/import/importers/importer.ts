@@ -1,26 +1,23 @@
 import fs from 'fs';
 import path from 'path';
 import { createInterface } from 'readline';
-import { generateBackupFilename } from '@studio/common/lib/generate-backup-filename';
 import { ImportEvents } from '@studio/common/lib/import-export-events';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { writeStudioMuPlugins } from '@studio/common/lib/mu-plugins';
 import { serializePlugins } from '@studio/common/lib/serialize-plugins';
+import { getSiteDatabasePath } from '@studio/common/lib/site-database';
 import {
 	RecommendedPHPVersion,
 	SupportedPHPVersions,
 	type SupportedPHPVersion,
 } from '@studio/common/types/php-versions';
-import { __, sprintf } from '@wordpress/i18n';
 import { move } from 'fs-extra';
 import semver from 'semver';
 import trash from 'trash';
 import { SiteData } from 'cli/lib/cli-config/core';
 import { ensureWpConfig } from 'cli/lib/native-php/site-setup';
-import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
-import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
-import { summarizeWpCliStderr } from 'cli/lib/wp-cli-stderr';
-import { LoggerError } from 'cli/logger';
+import { ensureSiteDatabaseReady } from 'cli/lib/site-database';
+import { loadDatabase } from 'cli/lib/site-database/dump-load';
 import { ImportExportEventEmitter } from '../../events';
 import { BackupContents, MetaFileData } from '../types';
 import { updateSiteUrl } from '../update-site-url';
@@ -92,59 +89,17 @@ abstract class BaseImporter extends ImportExportEventEmitter implements Importer
 
 		this.emit( ImportEvents.IMPORT_DATABASE_START );
 
-		const sortedSqlFiles = sqlFiles.sort( ( a, b ) => a.localeCompare( b ) );
-		let processedFiles = 0;
-		const totalFiles = sortedSqlFiles.length;
-
-		for ( const sqlFile of sortedSqlFiles ) {
-			const sqlTempFile = `${ generateBackupFilename( 'sql' ) }.sql`;
-			const tmpPath = path.join( site.path, sqlTempFile );
-			processedFiles++;
-
-			this.emit( ImportEvents.IMPORT_DATABASE_PROGRESS, {
-				currentFile: path.basename( sqlFile ),
-				processedFiles,
-				totalFiles,
-			} );
-
-			try {
-				await move( sqlFile, tmpPath );
-				await this.prepareSqlFile( tmpPath );
-
-				await using command = await runWpCliCommand(
-					site,
-					[
-						'sqlite',
-						'import',
-						sqlTempFile,
-						'--enable-ast-driver',
-						'--skip-plugins',
-						'--skip-themes',
-					],
-					{
-						requireSqliteCliCommand: true,
-						phpVersion: this.resolvePhpVersion( site ),
-					}
-				);
-
-				const exitCode = await command.response.exitCode;
-				const stderr = await command.response.stderrText;
-
-				if ( stderr ) {
-					console.error( sprintf( __( 'Error during import of %s:' ), sqlFile ), stderr );
-				}
-
-				if ( exitCode !== 0 ) {
-					throw new LoggerError(
-						sprintf( __( 'Database import failed: %s' ), summarizeWpCliStderr( stderr ) ),
-						undefined,
-						'database_import'
-					);
-				}
-			} finally {
-				await this.safelyDeletePath( tmpPath );
-			}
-		}
+		await loadDatabase( site, sqlFiles, {
+			phpVersion: this.resolvePhpVersion( site ),
+			prepareSqlFile: ( file ) => this.prepareSqlFile( file ),
+			onProgress: ( sqlFile, processedFiles, totalFiles ) => {
+				this.emit( ImportEvents.IMPORT_DATABASE_PROGRESS, {
+					currentFile: path.basename( sqlFile ),
+					processedFiles,
+					totalFiles,
+				} );
+			},
+		} );
 
 		await updateSiteUrl( site );
 		this.emit( ImportEvents.IMPORT_DATABASE_COMPLETE );
@@ -177,8 +132,7 @@ abstract class BaseBackupImporter extends BaseImporter {
 			await this.importWpConfig( site );
 			await this.importWpContent( site );
 			if ( this.backup.sqlFiles.length ) {
-				const databaseDir = path.join( site.path, 'wp-content', 'database' );
-				const dbPath = path.join( databaseDir, '.ht.sqlite' );
+				const dbPath = getSiteDatabasePath( site.path );
 
 				await this.moveExistingDatabaseToTrash( dbPath );
 				await this.createEmptyDatabase( dbPath );
@@ -307,7 +261,7 @@ abstract class BaseBackupImporter extends BaseImporter {
 			}
 		}
 
-		await keepSqliteIntegrationUpdated( site.path );
+		await ensureSiteDatabaseReady( site.path );
 		await writeStudioMuPlugins( site.path, site.isWpAutoUpdating );
 
 		this.emit( ImportEvents.IMPORT_WP_CONTENT_COMPLETE );
@@ -409,7 +363,7 @@ export class PlaygroundImporter extends BaseBackupImporter {
 		this.emit( ImportEvents.IMPORT_DATABASE_START );
 
 		for ( const sqlFile of sqlFiles ) {
-			await move( sqlFile, path.join( site.path, 'wp-content', 'database', '.ht.sqlite' ), {
+			await move( sqlFile, getSiteDatabasePath( site.path ), {
 				overwrite: true,
 			} );
 		}

@@ -23,8 +23,8 @@ import { __, sprintf } from '@wordpress/i18n';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { getExporter } from 'cli/lib/import-export/export/export-manager';
 import { ExportOptions } from 'cli/lib/import-export/export/types';
+import { ensureSiteDatabaseReady } from 'cli/lib/site-database';
 import { withSiteOperation } from 'cli/lib/site-operations';
-import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { exitOnCancel, reportSyncActivity } from 'cli/lib/sync-activity';
 import {
 	fetchSyncableSites,
@@ -134,7 +134,7 @@ async function runPush(
 		LoggerAction.INSTALL_SQLITE,
 		__( 'Setting up SQLite integration, if needed…' )
 	);
-	await keepSqliteIntegrationUpdated( siteFolder );
+	await ensureSiteDatabaseReady( siteFolder );
 	logger.reportSuccess( __( 'SQLite integration configured as needed' ) );
 
 	logger.reportStart( LoggerAction.FETCH_REMOTE_SITES, __( 'Fetching WordPress.com sites…' ) );

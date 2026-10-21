@@ -20,14 +20,14 @@ export async function isSqliteIntegrationAvailable() {
 	return provider.isSqliteIntegrationAvailable();
 }
 
-export async function keepSqliteIntegrationUpdated( sitePath: string ) {
-	return provider.keepSqliteIntegrationUpdated( sitePath );
+export async function ensureSiteDatabaseReady( sitePath: string ) {
+	return provider.ensureSiteDatabaseReady( sitePath );
 }
 
 /**
  * Installs the SQLite integration for imported (reprint-pulled) sites when it's
  * missing. Those sites wire SQLite through runtime.php and ship no db.php drop-in,
- * so keepSqliteIntegrationUpdated skips them — but tools that need the integration
+ * so ensureSiteDatabaseReady skips them — but tools that need the integration
  * discoverable in wp-content (e.g. `wp sqlite export`) can call this first.
  * No-op for regular sites.
  */

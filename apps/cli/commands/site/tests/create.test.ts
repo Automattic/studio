@@ -37,12 +37,9 @@ import { updateServerFiles } from 'cli/lib/dependency-management/setup';
 import { downloadWordPress } from 'cli/lib/dependency-management/wordpress';
 import { copyLanguagePackToSite } from 'cli/lib/language-packs';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
+import { isSqliteIntegrationAvailable, ensureSiteDatabaseReady } from 'cli/lib/site-database';
 import { getPreferredSiteLanguage } from 'cli/lib/site-language';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
-import {
-	isSqliteIntegrationAvailable,
-	keepSqliteIntegrationUpdated,
-} from 'cli/lib/sqlite-integration';
 import { buildCreateFromSourceBlueprint } from 'cli/lib/static-site-import/source';
 import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { ProcessDescription } from 'cli/lib/types/process-manager-ipc';
@@ -96,7 +93,7 @@ vi.mock( import( '@studio/common/lib/well-known-paths' ), async ( importOriginal
 vi.mock( 'cli/lib/site-language' );
 vi.mock( 'cli/lib/site-utils' );
 vi.mock( '@studio/common/lib/agent-skills' );
-vi.mock( 'cli/lib/sqlite-integration' );
+vi.mock( 'cli/lib/site-database' );
 vi.mock( 'cli/lib/run-wp-cli-command' );
 vi.mock( 'cli/lib/wordpress-server-manager' );
 const { staticSiteImporterFixture } = vi.hoisted( () => {
@@ -254,7 +251,7 @@ describe( 'CLI: studio create', () => {
 		vi.mocked( saveCliConfig ).mockResolvedValue( undefined );
 		vi.mocked( lockCliConfig ).mockResolvedValue( undefined );
 		vi.mocked( unlockCliConfig ).mockResolvedValue( undefined );
-		vi.mocked( keepSqliteIntegrationUpdated ).mockResolvedValue( undefined );
+		vi.mocked( ensureSiteDatabaseReady ).mockResolvedValue( undefined );
 		vi.mocked( isSqliteIntegrationAvailable ).mockResolvedValue( true );
 		vi.mocked( connectToDaemon ).mockResolvedValue( undefined );
 		vi.mocked( disconnectFromDaemon ).mockResolvedValue( undefined );
@@ -449,7 +446,7 @@ describe( 'CLI: studio create', () => {
 		} );
 
 		it( 'should error if SQLite integration is not available', async () => {
-			vi.mocked( keepSqliteIntegrationUpdated ).mockRejectedValue(
+			vi.mocked( ensureSiteDatabaseReady ).mockRejectedValue(
 				new Error( 'SQLite integration files not found. Please ensure Studio is installed.' )
 			);
 
@@ -1232,7 +1229,7 @@ describe( 'CLI: studio create', () => {
 			await runCommand( mockSitePath, { ...defaultTestOptions } );
 
 			expect( fsMkdirSyncSpy ).toHaveBeenCalledWith( mockSitePath, { recursive: true } );
-			expect( keepSqliteIntegrationUpdated ).toHaveBeenCalledWith( mockSitePath );
+			expect( ensureSiteDatabaseReady ).toHaveBeenCalledWith( mockSitePath );
 			expect( loggerReportSuccessSpy ).toHaveBeenCalledWith( 'SQLite integration configured' );
 			expect( portFinder.getOpenPort ).toHaveBeenCalled();
 			expect( lockCliConfig ).toHaveBeenCalled();
@@ -1815,9 +1812,7 @@ describe( 'CLI: studio create', () => {
 		} );
 
 		it( 'should handle SQLite setup failure', async () => {
-			vi.mocked( keepSqliteIntegrationUpdated ).mockRejectedValue(
-				new Error( 'SQLite setup failed' )
-			);
+			vi.mocked( ensureSiteDatabaseReady ).mockRejectedValue( new Error( 'SQLite setup failed' ) );
 
 			await expect( runCommand( mockSitePath, { ...defaultTestOptions } ) ).rejects.toThrow();
 

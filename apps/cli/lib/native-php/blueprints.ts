@@ -4,6 +4,7 @@ import {
 	createBlueprintTempDir,
 	removeBlueprintTempDir,
 } from '@studio/common/lib/blueprint-bundle';
+import { getSiteDatabasePath } from '@studio/common/lib/site-database';
 import { getWpEnvironmentType } from '@studio/common/lib/wp-environment-type';
 import { parse as parseShellCommand } from 'shell-quote';
 import {
@@ -12,7 +13,7 @@ import {
 	getWpCliPharPath,
 } from 'cli/lib/dependency-management/paths';
 import { getFullyResolvedTmpDirPath } from 'cli/lib/native-php/tmp-dir';
-import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
+import { ensureSiteDatabaseReady } from 'cli/lib/site-database';
 import { getWpCliPhpIniArgs } from 'cli/lib/wp-cli-php-ini';
 import { PhpCommandError, runPhpCommand } from './php-process';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
@@ -314,7 +315,7 @@ export async function runBlueprint(
 				`--site-path=${ config.sitePath }`,
 				`--site-url=${ config.absoluteUrl ?? `http://localhost:${ config.port }` }`,
 				'--db-engine=sqlite',
-				`--db-path=${ path.join( config.sitePath, 'wp-content', 'database', '.ht.sqlite' ) }`,
+				`--db-path=${ getSiteDatabasePath( config.sitePath ) }`,
 			],
 			{
 				phpVersion,
@@ -345,7 +346,7 @@ export async function runBlueprint(
 		if ( needsSymlink ) {
 			await removeOwnedSqliteSymlink( pluginsSqlite, symlinkIno! );
 			// The runner may remove the symlink target while managing its SQLite driver.
-			await keepSqliteIntegrationUpdated( config.sitePath );
+			await ensureSiteDatabaseReady( config.sitePath );
 		}
 	}
 }

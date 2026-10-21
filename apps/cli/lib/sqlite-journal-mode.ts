@@ -1,5 +1,5 @@
 import fs from 'fs';
-import path from 'path';
+import { getSiteDatabasePath } from '@studio/common/lib/site-database';
 
 /**
  * Switches a site's SQLite database out of WAL journal mode and into the
@@ -22,7 +22,7 @@ import path from 'path';
  * rewrite the header back to rollback mode.
  */
 export async function resetSqliteJournalModeToRollback( sitePath: string ): Promise< void > {
-	const dbPath = path.join( sitePath, 'wp-content', 'database', '.ht.sqlite' );
+	const dbPath = getSiteDatabasePath( sitePath );
 	if ( ! fs.existsSync( dbPath ) ) {
 		return;
 	}

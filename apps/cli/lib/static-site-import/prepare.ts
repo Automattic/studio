@@ -12,7 +12,7 @@ import {
 	type PartialCaptureReport,
 } from 'cli/lib/data-liberation-client';
 import { resolveStaticSiteImporterPlugin } from 'cli/lib/import-runtime';
-import { isSqliteIntegrationAvailable } from 'cli/lib/sqlite-integration';
+import { isSqliteIntegrationAvailable } from 'cli/lib/site-database';
 import {
 	STATIC_SITE_IMPORT_PROGRESS_INTERVAL_MS,
 	stagedUrlImport,

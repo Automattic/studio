@@ -11,6 +11,7 @@ import os from 'os';
 import path from 'path';
 import { encodePassword } from '@studio/common/lib/passwords';
 import { readAuthToken, type StoredAuthToken } from '@studio/common/lib/shared-config';
+import { getSiteDatabasePath } from '@studio/common/lib/site-database';
 import { PullReprintCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, sprintf } from '@wordpress/i18n';
 import chalk from 'chalk';
@@ -608,9 +609,9 @@ async function applySelection( params: {
 			? path.join( session.rawDirectory, ...contentDir.split( '/' ).filter( Boolean ) )
 			: path.join( session.rawDirectory, 'wp-content' );
 		const candidates = [
-			path.join( session.sitePath, 'wp-content', 'database', '.ht.sqlite' ),
-			path.join( rawContentPath, 'database', '.ht.sqlite' ),
-			path.join( session.rawDirectory, 'wp-content', 'database', '.ht.sqlite' ),
+			getSiteDatabasePath( session.sitePath ),
+			path.join( rawContentPath, path.relative( 'wp-content', getSiteDatabasePath( '' ) ) ),
+			getSiteDatabasePath( session.rawDirectory ),
 		];
 		if ( ! candidates.some( ( candidate ) => fs.existsSync( candidate ) ) ) {
 			throw new LoggerError(
@@ -903,21 +904,20 @@ export async function runFullPull(
 		importedSqlitePath = path.join(
 			metadata.rawDirectory,
 			...contentDir.split( '/' ).filter( Boolean ),
-			'database',
-			'.ht.sqlite'
+			path.relative( 'wp-content', getSiteDatabasePath( '' ) )
 		);
 	} else if ( selection.skipDatabase ) {
-		importedSqlitePath = path.join( metadata.sitePath, 'wp-content', 'database', '.ht.sqlite' );
+		importedSqlitePath = getSiteDatabasePath( metadata.sitePath );
 	} else {
-		importedSqlitePath = path.join( metadata.rawDirectory, 'wp-content', 'database', '.ht.sqlite' );
+		importedSqlitePath = getSiteDatabasePath( metadata.rawDirectory );
 	}
 
 	let sqlitePath = importedSqlitePath;
 	if ( selection.skipDatabase ) {
 		const existingSqlitePath = [
 			importedSqlitePath,
-			path.join( metadata.sitePath, 'wp-content', 'database', '.ht.sqlite' ),
-			path.join( metadata.rawDirectory, 'wp-content', 'database', '.ht.sqlite' ),
+			getSiteDatabasePath( metadata.sitePath ),
+			getSiteDatabasePath( metadata.rawDirectory ),
 		].find( ( candidate ) => fs.existsSync( candidate ) );
 		if ( existingSqlitePath ) {
 			sqlitePath = existingSqlitePath;

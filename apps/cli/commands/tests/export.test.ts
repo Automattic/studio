@@ -6,8 +6,8 @@ import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { ImportExportEventEmitter } from 'cli/lib/import-export/events';
 import { getExporter } from 'cli/lib/import-export/export/export-manager';
+import { ensureSiteDatabaseReady } from 'cli/lib/site-database';
 import { withSiteOperation } from 'cli/lib/site-operations';
-import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { Logger, LoggerError } from 'cli/logger';
 import { registerCommand, runCommand } from '../export';
@@ -29,7 +29,7 @@ vi.mock( 'cli/lib/cli-config/sites', () => ( {
 	getSiteByFolder: vi.fn(),
 } ) );
 vi.mock( 'cli/lib/daemon-client' );
-vi.mock( 'cli/lib/sqlite-integration' );
+vi.mock( 'cli/lib/site-database' );
 vi.mock( import( 'cli/lib/import-export/export/export-manager' ), () => ( {
 	getExporter: vi.fn(),
 } ) );
@@ -79,7 +79,7 @@ describe( 'CLI: studio export', () => {
 		vi.mocked( connectToDaemon ).mockResolvedValue( undefined );
 		vi.mocked( disconnectFromDaemon ).mockResolvedValue( undefined );
 		vi.mocked( getSiteByFolder ).mockResolvedValue( testSite );
-		vi.mocked( keepSqliteIntegrationUpdated ).mockResolvedValue( undefined );
+		vi.mocked( ensureSiteDatabaseReady ).mockResolvedValue( undefined );
 		vi.mocked( getExporter ).mockResolvedValue( createExporter() as never );
 	} );
 
@@ -93,7 +93,7 @@ describe( 'CLI: studio export', () => {
 
 		expect( connectToDaemon ).toHaveBeenCalled();
 		expect( getSiteByFolder ).toHaveBeenCalledWith( testSitePath );
-		expect( keepSqliteIntegrationUpdated ).toHaveBeenCalledWith( testSitePath );
+		expect( ensureSiteDatabaseReady ).toHaveBeenCalledWith( testSitePath );
 		expect( getExporter ).toHaveBeenCalledWith( {
 			site: testSite,
 			backupFile: testExportPath,

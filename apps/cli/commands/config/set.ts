@@ -8,6 +8,7 @@ import {
 	validateAdminEmail,
 	validateAdminUsername,
 } from '@studio/common/lib/passwords';
+import { getSiteDatabasePath } from '@studio/common/lib/site-database';
 import {
 	getSiteFileAccess,
 	siteFileAccessSchema,
@@ -81,7 +82,7 @@ async function isUnprovisionedSite( site: SiteData ): Promise< boolean > {
 	}
 	const [ hasConfig, hasDatabase ] = await Promise.all( [
 		pathExists( path.join( site.path, 'wp-config.php' ) ),
-		pathExists( path.join( site.path, 'wp-content', 'database', '.ht.sqlite' ) ),
+		pathExists( getSiteDatabasePath( site.path ) ),
 	] );
 	return ! hasConfig && ! hasDatabase;
 }

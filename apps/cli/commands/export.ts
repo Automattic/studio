@@ -10,8 +10,8 @@ import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { ImportExportEventEmitter } from 'cli/lib/import-export/events';
 import { getExporter } from 'cli/lib/import-export/export/export-manager';
 import { ExportOptions } from 'cli/lib/import-export/export/types';
+import { ensureSiteDatabaseReady } from 'cli/lib/site-database';
 import { withSiteOperation } from 'cli/lib/site-operations';
-import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { classifyExportFailure, untildify } from 'cli/lib/utils';
 import { Logger, LoggerError } from 'cli/logger';
@@ -169,7 +169,7 @@ async function exportSite(
 			LoggerAction.INSTALL_SQLITE,
 			__( 'Setting up SQLite integration, if needed…' )
 		);
-		await keepSqliteIntegrationUpdated( siteFolder );
+		await ensureSiteDatabaseReady( siteFolder );
 		logger.reportSuccess( __( 'SQLite integration configured as needed' ) );
 
 		const includes: ExportOptions[ 'includes' ] = { database: true, wpContent: true };

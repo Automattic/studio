@@ -14,6 +14,7 @@ import {
 import { readLastLines } from '@studio/common/lib/fs-utils';
 import { STUDIO_ERROR_LOG_FILENAME } from '@studio/common/lib/mu-plugins';
 import { resolveSupportedPhpVersion } from '@studio/common/lib/php-binary-metadata';
+import { getSiteDatabasePath } from '@studio/common/lib/site-database';
 import { getWpEnvironmentType } from '@studio/common/lib/wp-environment-type';
 import { SiteCommandLoggerAction } from '@studio/common/logger-actions';
 import { __ } from '@wordpress/i18n';
@@ -31,7 +32,7 @@ import {
 } from 'cli/lib/daemon-client';
 import { ensurePhpBinaryAvailable } from 'cli/lib/dependency-management/php-binary';
 import { recordSiteRuntimeUsage } from 'cli/lib/site-runtime-stats';
-import { getSiteDatabasePath, replaceMysql8OnlyCollations } from 'cli/lib/sqlite-collations';
+import { replaceMysql8OnlyCollations } from 'cli/lib/sqlite-collations';
 import { resetSqliteJournalModeToRollback } from 'cli/lib/sqlite-journal-mode';
 import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { ProcessDescription } from 'cli/lib/types/process-manager-ipc';

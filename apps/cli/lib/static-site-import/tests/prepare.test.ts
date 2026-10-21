@@ -2,11 +2,11 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { vi } from 'vitest';
-import { isSqliteIntegrationAvailable } from 'cli/lib/sqlite-integration';
+import { isSqliteIntegrationAvailable } from 'cli/lib/site-database';
 import { prepareSourceImport } from 'cli/lib/static-site-import/prepare';
 import { Logger } from 'cli/logger';
 
-vi.mock( 'cli/lib/sqlite-integration' );
+vi.mock( 'cli/lib/site-database' );
 
 describe( 'prepareSourceImport', () => {
 	beforeEach( () => {

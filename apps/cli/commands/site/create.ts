@@ -69,11 +69,11 @@ import { updateServerFiles } from 'cli/lib/dependency-management/setup';
 import { downloadWordPress } from 'cli/lib/dependency-management/wordpress';
 import { copyLanguagePackToSite } from 'cli/lib/language-packs';
 import { validateSupportedPhpVersion } from 'cli/lib/php-versions';
+import { ensureSiteDatabaseReady } from 'cli/lib/site-database';
 import { getPreferredSiteLanguage } from 'cli/lib/site-language';
 import { generateSiteName } from 'cli/lib/site-name';
 import { getDefaultSitePath } from 'cli/lib/site-paths';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
-import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import {
 	completeSourceImport,
 	prepareSourceImport,
@@ -290,7 +290,7 @@ export async function runCommand(
 		}
 
 		logger.reportStart( LoggerAction.INSTALL_SQLITE, __( 'Setting up SQLite integration…' ) );
-		await keepSqliteIntegrationUpdated( sitePath );
+		await ensureSiteDatabaseReady( sitePath );
 		logger.reportSuccess( __( 'SQLite integration configured' ) );
 
 		try {

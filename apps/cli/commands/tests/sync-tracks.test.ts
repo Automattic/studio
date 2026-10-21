@@ -23,7 +23,7 @@ vi.mock( 'cli/lib/cli-config/sites', async ( importActual ) => ( {
 	getSiteByFolder: vi.fn(),
 } ) );
 vi.mock( 'cli/lib/daemon-client' );
-vi.mock( 'cli/lib/sqlite-integration' );
+vi.mock( 'cli/lib/site-database' );
 vi.mock( 'cli/lib/sync-api', async ( importActual ) => ( {
 	...( await importActual< typeof import('cli/lib/sync-api') >() ),
 	fetchSyncableSites: vi.fn(),

@@ -30,7 +30,7 @@ vi.mock( 'cli/lib/import-export/export/export-manager' );
 vi.mock( 'cli/lib/site-operations', () => ( {
 	withSiteOperation: ( _folder: string, _kind: string, fn: () => unknown ) => fn(),
 } ) );
-vi.mock( 'cli/lib/sqlite-integration' );
+vi.mock( 'cli/lib/site-database' );
 vi.mock( 'cli/lib/sync-activity' );
 vi.mock( 'cli/lib/sync-api', async ( importActual ) => ( {
 	...( await importActual< typeof import('cli/lib/sync-api') >() ),

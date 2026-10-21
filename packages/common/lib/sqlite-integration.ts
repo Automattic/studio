@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { getSiteDatabaseEngine } from './site-database';
 
 // Identifies a db.php that Studio generated from db.copy (see the auto-generated
 // header in that template). Stock drop-ins are refreshed on every run; custom,
@@ -30,15 +31,7 @@ export abstract class SqliteIntegrationProvider {
 	 * is still present; skip only when wp-config.php exists and every SQLite artifact is gone.
 	 */
 	async needsSqliteSetup( sitePath: string ): Promise< boolean > {
-		const wpContentPath = path.join( sitePath, 'wp-content' );
-		if ( ! fs.existsSync( path.join( sitePath, 'wp-config.php' ) ) ) {
-			return true;
-		}
-		return (
-			fs.existsSync( path.join( wpContentPath, 'db.php' ) ) ||
-			fs.existsSync( path.join( wpContentPath, 'database', '.ht.sqlite' ) ) ||
-			fs.existsSync( path.join( wpContentPath, 'mu-plugins', this.getSqliteDirname() ) )
-		);
+		return getSiteDatabaseEngine( sitePath, this.getSqliteDirname() ) === 'sqlite';
 	}
 
 	/**
@@ -115,7 +108,7 @@ export abstract class SqliteIntegrationProvider {
 		} );
 	}
 
-	async keepSqliteIntegrationUpdated( sitePath: string ): Promise< void > {
+	async ensureSiteDatabaseReady( sitePath: string ): Promise< void > {
 		if ( await this.needsSqliteSetup( sitePath ) ) {
 			await this.installSqliteIntegration( sitePath );
 		}

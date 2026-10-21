@@ -5,9 +5,9 @@ import { __, sprintf } from '@wordpress/i18n';
 import { getSiteByFolder, updateSiteLatestCliPid } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { getAiInstructionsPath } from 'cli/lib/dependency-management/paths';
+import { ensureSiteDatabaseReady } from 'cli/lib/site-database';
 import { withSiteOperation } from 'cli/lib/site-operations';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
-import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { isServerRunning, startWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
@@ -81,7 +81,7 @@ async function startSite(
 			LoggerAction.INSTALL_SQLITE,
 			__( 'Setting up SQLite integration, if needed…' )
 		);
-		await keepSqliteIntegrationUpdated( sitePath );
+		await ensureSiteDatabaseReady( sitePath );
 		logger.reportSuccess( __( 'SQLite integration configured as needed' ) );
 
 		try {

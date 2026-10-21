@@ -244,7 +244,7 @@ platformTestSuite( 'SqliteIntegrationProvider', ( { normalize } ) => {
 		} );
 	} );
 
-	describe( 'keepSqliteIntegrationUpdated', () => {
+	describe( 'ensureSiteDatabaseReady', () => {
 		beforeEach( () => {
 			volFromJSON( {
 				[ normalize( `wp-files/${ SQLITE_DIRNAME }/db.copy` ) ]:
@@ -255,7 +255,7 @@ platformTestSuite( 'SqliteIntegrationProvider', ( { normalize } ) => {
 		it( 'should install when db.php exists', async () => {
 			volFromJSON( { [ normalize( `${ MOCK_SITE_PATH }/wp-content/db.php` ) ]: '' } );
 
-			await provider.keepSqliteIntegrationUpdated( MOCK_SITE_PATH );
+			await provider.ensureSiteDatabaseReady( MOCK_SITE_PATH );
 
 			expect( vi.mocked( fs.promises.cp ) ).toHaveBeenCalledWith(
 				normalize( `wp-files/${ SQLITE_DIRNAME }` ),
@@ -265,7 +265,7 @@ platformTestSuite( 'SqliteIntegrationProvider', ( { normalize } ) => {
 		} );
 
 		it( 'should install when wp-config.php does not exist', async () => {
-			await provider.keepSqliteIntegrationUpdated( MOCK_SITE_PATH );
+			await provider.ensureSiteDatabaseReady( MOCK_SITE_PATH );
 
 			expect( vi.mocked( fs.promises.cp ) ).toHaveBeenCalledWith(
 				normalize( `wp-files/${ SQLITE_DIRNAME }` ),
@@ -282,7 +282,7 @@ platformTestSuite( 'SqliteIntegrationProvider', ( { normalize } ) => {
 				[ normalize( `${ MOCK_SITE_PATH }/wp-content/database/.ht.sqlite` ) ]: '',
 			} );
 
-			await provider.keepSqliteIntegrationUpdated( MOCK_SITE_PATH );
+			await provider.ensureSiteDatabaseReady( MOCK_SITE_PATH );
 
 			expect( vi.mocked( fs.promises.writeFile ) ).toHaveBeenCalledWith(
 				normalize( `${ MOCK_SITE_PATH }/wp-content/db.php` ),
@@ -301,7 +301,7 @@ platformTestSuite( 'SqliteIntegrationProvider', ( { normalize } ) => {
 			// at MySQL. Studio must not reinstall the SQLite integration over that.
 			volFromJSON( { [ normalize( `${ MOCK_SITE_PATH }/wp-config.php` ) ]: 'config' } );
 
-			await provider.keepSqliteIntegrationUpdated( MOCK_SITE_PATH );
+			await provider.ensureSiteDatabaseReady( MOCK_SITE_PATH );
 
 			expect( vi.mocked( fs.promises.writeFile ) ).not.toHaveBeenCalled();
 			expect( vi.mocked( fs.promises.cp ) ).not.toHaveBeenCalled();

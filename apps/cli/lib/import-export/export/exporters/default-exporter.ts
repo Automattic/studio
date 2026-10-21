@@ -21,10 +21,10 @@ import { glob } from 'glob';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import { getWordPressVersionFromInstallation } from 'cli/lib/dependency-management/wordpress';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
-import { ensureSqliteIntegrationForImportedSite } from 'cli/lib/sqlite-integration';
+import { ensureSqliteIntegrationForImportedSite } from 'cli/lib/site-database';
+import { dumpDatabase } from 'cli/lib/site-database/dump-load';
 import { LoggerError } from 'cli/logger';
 import { ImportExportEventEmitter } from '../../events';
-import { exportDatabaseToFile, exportDatabaseToMultipleFiles } from '../export-database';
 import {
 	ExportOptions,
 	BackupContents,
@@ -289,7 +289,7 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 		const tmpFolder = await fsPromises.mkdtemp( path.join( os.tmpdir(), 'studio_export' ) );
 
 		if ( this.options.splitDatabaseDumpByTable ) {
-			const sqlFiles = await exportDatabaseToMultipleFiles( this.options.site, tmpFolder );
+			const sqlFiles = await dumpDatabase( this.options.site, tmpFolder, true );
 			sqlFiles.forEach( ( file ) =>
 				this.archiveBuilder.file( file, { name: `sql/${ path.basename( file ) }` } )
 			);
@@ -297,7 +297,7 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 		} else {
 			const fileName = `${ generateBackupFilename( 'db-export' ) }.sql`;
 			const sqlDumpPath = path.join( tmpFolder, fileName );
-			await exportDatabaseToFile( this.options.site, sqlDumpPath );
+			await dumpDatabase( this.options.site, sqlDumpPath );
 			this.archiveBuilder.file( sqlDumpPath, { name: `sql/${ fileName }` } );
 			this.backup.sqlFiles.push( sqlDumpPath );
 		}

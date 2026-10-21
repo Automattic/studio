@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { getSiteDatabasePath } from '@studio/common/lib/site-database';
 import { getFullyResolvedTmpDirPath } from './tmp-dir';
 import type { ServerConfig } from 'cli/lib/types/wordpress-server-ipc';
 
@@ -33,7 +34,7 @@ export async function writeNativePhpMyAdminWpEnv( config: ServerConfig ): Promis
 		'database',
 		'load.php'
 	);
-	const sqliteDatabasePath = path.join( config.sitePath, 'wp-content', 'database', '.ht.sqlite' );
+	const sqliteDatabasePath = getSiteDatabasePath( config.sitePath );
 	const wpEnvPhp = `<?php return array (
   'db' => array (
     'type' => 'sqlite',

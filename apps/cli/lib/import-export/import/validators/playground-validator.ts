@@ -1,7 +1,16 @@
 import path from 'path';
+import { getSiteDatabasePath } from '@studio/common/lib/site-database';
 import { ImportExportEventEmitter } from '../../events';
 import { BackupContents } from '../types';
 import { Validator } from './validator';
+
+function isDatabaseFile( file: string ): boolean {
+	const databasePath = getSiteDatabasePath( '' ).split( path.sep ).join( '/' );
+	return (
+		file.startsWith( path.posix.dirname( databasePath ) ) &&
+		file.endsWith( path.posix.basename( databasePath ) )
+	);
+}
 
 export class PlaygroundValidator extends ImportExportEventEmitter implements Validator {
 	canHandle( fileList: string[] ): boolean {
@@ -13,9 +22,7 @@ export class PlaygroundValidator extends ImportExportEventEmitter implements Val
 		];
 		const hasSqliteDatabase =
 			requiredDirs.some( ( dir ) => fileList.some( ( file ) => file.startsWith( dir + '/' ) ) ) &&
-			fileList.some(
-				( file ) => file.startsWith( 'wp-content/database' ) && file.endsWith( '.ht.sqlite' )
-			);
+			fileList.some( isDatabaseFile );
 
 		const hasSqlDumps = fileList.some( ( file ) => file.startsWith( 'sql/' ) );
 
@@ -44,7 +51,7 @@ export class PlaygroundValidator extends ImportExportEventEmitter implements Val
 				continue;
 			}
 
-			if ( file.startsWith( 'wp-content/database' ) && file.endsWith( '.ht.sqlite' ) ) {
+			if ( isDatabaseFile( file ) ) {
 				extractedBackup.sqlFiles.push( fullPath );
 			} else if ( file.startsWith( 'wp-content/' ) ) {
 				extractedBackup.wpContentFiles.push( fullPath );

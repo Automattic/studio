@@ -24,8 +24,8 @@ import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/dae
 import { ImportExportEventEmitter } from 'cli/lib/import-export/events';
 import { DEFAULT_IMPORTER_OPTIONS, getImporter } from 'cli/lib/import-export/import/import-manager';
 import { getBackupFileType } from 'cli/lib/import-export/utils';
+import { ensureSiteDatabaseReady } from 'cli/lib/site-database';
 import { withSiteOperation } from 'cli/lib/site-operations';
-import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { reportSyncActivity } from 'cli/lib/sync-activity';
 import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { classifyImportFailure, untildify } from 'cli/lib/utils';
@@ -366,7 +366,7 @@ async function importBackup(
 					LoggerAction.INSTALL_SQLITE,
 					__( 'Setting up SQLite integration, if needed…' )
 				);
-				await keepSqliteIntegrationUpdated( siteFolder );
+				await ensureSiteDatabaseReady( siteFolder );
 				logger.reportSuccess( __( 'SQLite integration configured as needed' ) );
 
 				logger.reportStart( LoggerAction.START_SITE, __( 'Starting WordPress server…' ) );

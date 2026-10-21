@@ -40,9 +40,13 @@ export async function installAiInstructionsToSite(
 	const tasks: Promise< void >[] = [];
 	for ( const entry of entries ) {
 		if ( entry.isFile() && entry.name.endsWith( '.md' ) ) {
-			tasks.push( installInstructionFile( site.path, bundledPath, entry.name, overwrite ) );
+			if ( ! ( await isSiteAgentFileDisabled( site.path, 'instructions', entry.name ) ) ) {
+				tasks.push( installInstructionFile( site.path, bundledPath, entry.name, overwrite ) );
+			}
 		} else if ( entry.isDirectory() && userSelectedGlobalSkills.includes( entry.name ) ) {
-			tasks.push( installSkillToSite( site, bundledPath, entry.name, overwrite ) );
+			if ( ! ( await isSiteAgentFileDisabled( site.path, 'skills', entry.name ) ) ) {
+				tasks.push( installSkillToSite( site, bundledPath, entry.name, overwrite ) );
+			}
 		}
 	}
 
@@ -88,10 +92,7 @@ async function installInstructionFile(
 }
 
 export async function removeSkillFromSite( sitePath: string, skillId: string ): Promise< void > {
-	const agentsSkillPath = path.join( sitePath, '.agents', 'skills', skillId );
-	const claudeSkillPath = path.join( sitePath, '.claude', 'skills', skillId );
-	await fs.promises.rm( agentsSkillPath, { recursive: true, force: true } );
-	await fs.promises.rm( claudeSkillPath, { recursive: true, force: true } );
+	await removeSiteAgentFile( sitePath, 'skills', skillId );
 }
 
 export async function installSkillToSite(
@@ -100,6 +101,8 @@ export async function installSkillToSite(
 	skillId: string,
 	overwrite: boolean
 ): Promise< void > {
+	// A skill switched off on this site comes back with its edits.
+	await moveSiteAgentFile( site.path, 'skills', skillId, true );
 	const src = path.join( bundledPath, skillId );
 	if ( ! ( await pathExists( src ) ) ) {
 		return;
@@ -155,7 +158,7 @@ export interface SkillStatus {
 	installed: boolean;
 }
 
-const getBundledSkills = () => [
+export const getBundledSkills = () => [
 	{
 		id: 'studio-cli',
 		displayName: __( 'Studio CLI' ),
@@ -224,5 +227,147 @@ async function forEachSite( operation: ( sitePath: string ) => Promise< void > )
 		if ( result.status === 'rejected' ) {
 			console.error( '[skills] Failed to update a site:', result.reason );
 		}
+	}
+}
+
+export type SiteAgentFileKind = 'skills' | 'instructions';
+
+export interface SiteAgentFile {
+	id: string;
+	displayName: string;
+	description: string;
+	// Present on the site, switched on or off.
+	installed: boolean;
+	// Where agents find it.
+	enabled: boolean;
+}
+
+const getInstructionFiles = () => [
+	{
+		id: 'AGENTS.md',
+		displayName: 'AGENTS.md',
+		description: __( 'Instructions for Codex, Goose, and other AI agents.' ),
+	},
+	{
+		id: 'CLAUDE.md',
+		displayName: 'CLAUDE.md',
+		description: __( 'Points Claude Code to AGENTS.md.' ),
+	},
+	{
+		id: 'STUDIO.md',
+		displayName: 'STUDIO.md',
+		description: __( 'Studio-specific WordPress development instructions.' ),
+	},
+];
+
+// A switched-off file keeps its content, out of the folders agents read.
+function getLocations( sitePath: string, kind: SiteAgentFileKind, id: string ) {
+	if ( kind === 'instructions' ) {
+		return [
+			{
+				enabled: path.join( sitePath, id ),
+				disabled: path.join( sitePath, '.agents', 'disabled-instructions', id ),
+			},
+		];
+	}
+	return [ '.agents', '.claude' ].map( ( owner ) => ( {
+		enabled: path.join( sitePath, owner, 'skills', id ),
+		disabled: path.join( sitePath, owner, 'disabled-skills', id ),
+	} ) );
+}
+
+function getCatalog( kind: SiteAgentFileKind ) {
+	return kind === 'skills' ? getBundledSkills() : getInstructionFiles();
+}
+
+export async function getSiteAgentFiles(
+	sitePath: string,
+	kind: SiteAgentFileKind
+): Promise< SiteAgentFile[] > {
+	return Promise.all(
+		getCatalog( kind ).map( async ( file ) => {
+			// Skills live in `.agents`; `.claude` only links to them.
+			const [ location ] = getLocations( sitePath, kind, file.id );
+			const enabled = await pathExists( location.enabled );
+			return {
+				...file,
+				enabled,
+				installed: enabled || ( await pathExists( location.disabled ) ),
+			};
+		} )
+	);
+}
+
+// Whether a file was switched off on this site, so installs leave it off.
+function isSiteAgentFileDisabled( sitePath: string, kind: SiteAgentFileKind, id: string ) {
+	return pathExists( getLocations( sitePath, kind, id )[ 0 ].disabled );
+}
+
+// Moves a file between where agents find it and where switched-off files wait.
+async function moveSiteAgentFile(
+	sitePath: string,
+	kind: SiteAgentFileKind,
+	id: string,
+	enabled: boolean
+): Promise< boolean > {
+	let moved = false;
+	for ( const location of getLocations( sitePath, kind, id ) ) {
+		const from = enabled ? location.disabled : location.enabled;
+		const to = enabled ? location.enabled : location.disabled;
+		if ( ! ( await exists( from ) ) ) {
+			continue;
+		}
+		await fs.promises.rm( to, { recursive: true, force: true } );
+		await fs.promises.mkdir( path.dirname( to ), { recursive: true } );
+		await fs.promises.rename( from, to );
+		moved = true;
+	}
+	return moved;
+}
+
+export async function setSiteAgentFileEnabled(
+	sitePath: string,
+	bundledPath: string,
+	kind: SiteAgentFileKind,
+	id: string,
+	enabled: boolean
+): Promise< void > {
+	assertKnown( kind, id );
+	const moved = await moveSiteAgentFile( sitePath, kind, id, enabled );
+	// Switching on a file the site never had installs it.
+	if ( enabled && ! moved ) {
+		if ( kind === 'skills' ) {
+			await installSkillToSite( { path: sitePath }, bundledPath, id, false );
+		} else {
+			await fs.promises.copyFile( path.join( bundledPath, id ), path.join( sitePath, id ) );
+		}
+	}
+}
+
+export async function removeSiteAgentFile(
+	sitePath: string,
+	kind: SiteAgentFileKind,
+	id: string
+): Promise< void > {
+	assertKnown( kind, id );
+	for ( const location of getLocations( sitePath, kind, id ) ) {
+		await fs.promises.rm( location.enabled, { recursive: true, force: true } );
+		await fs.promises.rm( location.disabled, { recursive: true, force: true } );
+	}
+}
+
+function assertKnown( kind: SiteAgentFileKind, id: string ) {
+	if ( ! getCatalog( kind ).some( ( file ) => file.id === id ) ) {
+		throw new Error( `Unknown ${ kind } file: ${ id }` );
+	}
+}
+
+// Unlike `pathExists`, true for a dangling symlink too: `.claude` links move with their target.
+async function exists( filePath: string ): Promise< boolean > {
+	try {
+		await fs.promises.lstat( filePath );
+		return true;
+	} catch {
+		return false;
 	}
 }

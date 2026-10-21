@@ -19,6 +19,8 @@ export type {
 	SessionEntry,
 	SiteDesign,
 	SiteDetails,
+	SiteAgentFile,
+	SiteAgentFileKind,
 	SkillStatus,
 	Snapshot,
 	SnapshotUsage,

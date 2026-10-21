@@ -1,4 +1,4 @@
-import { GLOBAL_INSTRUCTIONS_MAX_LENGTH } from '@studio/common/ai/global-instructions';
+import { GLOBAL_INSTRUCTIONS_MAX_LENGTH } from '@studio/common/ai/global-instructions-length';
 import { DataForm } from '@wordpress/dataviews';
 import { __ } from '@wordpress/i18n';
 import { useEffect, useRef, useState } from 'react';
@@ -18,21 +18,18 @@ const FIELDS: Field< FormData >[] = [
 	{
 		id: 'content',
 		type: 'text',
-		label: __( 'Instructions' ),
-		description: __(
-			'Global instructions for the Studio Code agent. They are included in every new conversation, across all sites.'
-		),
+		label: __( 'Studio instructions' ),
 		placeholder: __( 'e.g. Always answer in French. My sites are for restaurants.' ),
 		Edit: { control: 'textarea', rows: 12 },
 	},
 ];
 
 const FORM: Form = {
-	layout: { type: 'regular', labelPosition: 'top' },
+	layout: { type: 'regular', labelPosition: 'none' },
 	fields: [ 'content' ],
 };
 
-export function StudioCodePanel() {
+export function InstructionsEditor() {
 	const { data: saved } = useAgentInstructions();
 	const { mutate: save, isError } = useSaveAgentInstructions();
 	const [ edits, setEdits ] = useState< string | null >( null );
@@ -95,7 +92,7 @@ export function StudioCodePanel() {
 	const showCounter = content.length >= GLOBAL_INSTRUCTIONS_MAX_LENGTH * 0.8;
 
 	return (
-		<div className={ styles.preferencesPanel }>
+		<div className={ styles.instructionsEditor }>
 			<DataForm< FormData >
 				data={ { content } }
 				fields={ FIELDS }

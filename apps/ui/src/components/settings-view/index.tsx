@@ -7,10 +7,15 @@ import { Button } from '@wordpress/ui';
 import { useCallback, useEffect, useState } from 'react';
 import { useConnector } from '@/data/core';
 import { persister } from '@/data/core/query-client';
+import {
+	useAgentInstructionsEnabled,
+	useSetAgentInstructionsEnabled,
+} from '@/data/queries/use-agent-instructions';
 import { useInstalledApps } from '@/data/queries/use-installed-apps';
 import { useUserLocale } from '@/data/queries/use-user-locale';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
 import { AccountSection } from './account-section';
+import { InstructionsEditor } from './instructions-editor';
 import { UNSET, toPreferencesFormData, toPreferencesPatch } from './preferences';
 import { SettingsGroup, SettingsRow, SettingsSelect, SettingsToggle } from './rows';
 import { StudioCliSection } from './studio-cli-section';
@@ -327,6 +332,36 @@ export function AppearanceSettings() {
 				/>
 			</SettingsRow>
 		</SettingsGroup>
+	);
+}
+
+export function InstructionsSettings() {
+	const { data: enabled } = useAgentInstructionsEnabled();
+	const setEnabled = useSetAgentInstructionsEnabled();
+	return (
+		<div className={ styles.preferencesPanel }>
+			<SettingsGroup>
+				<SettingsRow
+					title={ __( 'Agent instructions' ) }
+					description={ __( 'Include your instructions in every new chat, across all sites.' ) }
+				>
+					<SettingsToggle
+						label={ __( 'Agent instructions' ) }
+						checked={ enabled ?? true }
+						disabled={ enabled === undefined }
+						onChange={ ( value ) => setEnabled.mutate( value ) }
+					/>
+				</SettingsRow>
+			</SettingsGroup>
+			<SettingsGroup
+				title={ __( 'Studio instructions' ) }
+				description={ __(
+					'Set coding standards, preferred tools, and response style for new chats across all sites.'
+				) }
+			>
+				<InstructionsEditor />
+			</SettingsGroup>
+		</div>
 	);
 }
 

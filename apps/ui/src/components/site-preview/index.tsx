@@ -2,15 +2,7 @@ import { DESIGN_SYSTEM_PREVIEW_PATH } from '@studio/common/ai/chat-artifacts';
 import { getSiteOperationLabel } from '@studio/common/lib/site-operation-labels';
 import { useQueryClient } from '@tanstack/react-query';
 import { __, _n, sprintf } from '@wordpress/i18n';
-import {
-	chevronDown,
-	closeSmall,
-	cog,
-	external,
-	Icon,
-	moreHorizontal,
-	pencil,
-} from '@wordpress/icons';
+import { chevronDown, closeSmall, Icon, moreHorizontal, pencil } from '@wordpress/icons';
 import {
 	ariaKeyShortcut,
 	displayShortcut,

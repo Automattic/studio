@@ -95,5 +95,14 @@ describe( 'ShareDialog', () => {
 		await userEvent.click( await screen.findByRole( 'menuitem', { name: 'New preview' } ) );
 		expect( connector.publishPreviewSite ).toHaveBeenCalledWith( site.id, undefined, undefined );
 		expect( await screen.findByRole( 'button', { name: 'Publishing preview…' } ) ).toBeVisible();
+
+		// The new preview stays one pick away while another is shown.
+		await userEvent.click( screen.getByRole( 'button', { name: 'Select preview' } ) );
+		await userEvent.click( await screen.findByRole( 'menuitemradio', { name: 'Ada Portfolio' } ) );
+		await userEvent.click( screen.getByRole( 'button', { name: 'Select preview' } ) );
+		await userEvent.click(
+			await screen.findByRole( 'menuitemradio', { name: 'New preview · Publishing…' } )
+		);
+		expect( screen.getByRole( 'button', { name: 'Publishing preview…' } ) ).toBeVisible();
 	} );
 } );

@@ -125,14 +125,16 @@ export function PreviewSharePanel( {
 		? undefined
 		: previews.find( ( item ) => item.atomicSiteId === selectedId ) ?? previews[ 0 ];
 	const picker =
-		previews.length > 1 || showingNew ? (
+		previews.length > 1 || creating ? (
 			<MenuSelect
 				value={ snapshot?.atomicSiteId ?? NEW_PREVIEW }
 				label={ __( 'Select preview' ) }
 				disabled={ busy && ! creating }
 				className={ styles.previewSelect }
 				items={ [
-					...( creating ? [ { value: NEW_PREVIEW, label: __( 'New preview…' ) } ] : [] ),
+					...( creating
+						? [ { value: NEW_PREVIEW, label: __( 'New preview · Publishing…' ) } ]
+						: [] ),
 					...previews.map( ( item ) => ( {
 						value: item.atomicSiteId,
 						label: item.name || __( 'Preview site' ),

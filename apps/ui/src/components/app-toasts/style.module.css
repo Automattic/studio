@@ -35,15 +35,20 @@
 
 .toast {
 	min-height: 0;
+	/* Clipped so the row can collapse it, with room inside the clip for the
+	   card's ring, shadow and close button. The padding, not
+	   overflow-clip-margin, makes that room: Safari ignores the latter. */
+	margin: -12px;
+	padding: 12px;
 	overflow: clip;
-	overflow-clip-margin: 12px;
-	pointer-events: auto;
+	pointer-events: none;
 	animation: toast-enter 160ms ease-out;
 	transition: opacity 160ms ease, transform 160ms ease;
 }
 
 .card {
 	position: relative;
+	pointer-events: auto;
 	padding: 16px;
 	border-radius: var(--wpds-border-radius-md);
 	background-color: var(--wpds-color-background-surface-neutral-strong);
@@ -63,6 +68,9 @@
 .cell[data-leaving] .toast {
 	opacity: 0;
 	transform: translateY(4px);
+}
+
+.cell[data-leaving] .card {
 	pointer-events: none;
 }
 

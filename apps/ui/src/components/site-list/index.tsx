@@ -53,6 +53,7 @@ import {
 	useUpdateSitesSortOrder,
 } from '@/data/queries/use-sites';
 import { useSiteSyncActivity } from '@/data/sync-activity';
+import { useOpenSite } from '@/hooks/use-open-site';
 import {
 	useSiteManagementActions,
 	type SiteManagementAction,
@@ -620,7 +621,6 @@ function SiteSection( {
 	const { site, latestSession } = row;
 	const selectable = useSelectableRow( sitePinKey( site.id ) );
 	const navigate = useNavigate();
-	const connector = useConnector();
 	const sectionRef = useRef< HTMLElement >( null );
 	const isActive = isChatActive || isContextActive;
 	const canOpenChatSurface = chatEnabled || chatPromptsSignIn;
@@ -653,35 +653,10 @@ function SiteSection( {
 			? 'sync'
 			: undefined;
 	const displayActivity = siteActivity ? siteActivity : agentActivity;
+	const openSite = useOpenSite();
 	const handleOpenSite = () => {
 		onSiteOpen?.();
-		if ( ! canOpenChatSurface ) {
-			void connector.trackEvent( TRACKS_EVENTS.PANEL_OPENED, { panel: 'overview' } );
-			void navigate( {
-				to: '/sites/$siteId',
-				params: { siteId: site.id },
-			} );
-			return;
-		}
-		void connector.trackEvent( TRACKS_EVENTS.PANEL_OPENED, { panel: 'assistant' } );
-		if ( chatPromptsSignIn ) {
-			void navigate( {
-				to: '/sites/$siteId/new',
-				params: { siteId: site.id },
-			} );
-			return;
-		}
-		if ( latestSession ) {
-			void navigate( {
-				to: '/sessions/$sessionId',
-				params: { sessionId: latestSession.id },
-			} );
-			return;
-		}
-		void navigate( {
-			to: '/sites/$siteId/new',
-			params: { siteId: site.id },
-		} );
+		openSite( site, latestSession );
 	};
 
 	return (

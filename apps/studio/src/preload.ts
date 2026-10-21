@@ -2,7 +2,7 @@
 // https://www.electronjs.org/docs/latest/tutorial/process-model#preload-scripts
 
 import '@sentry/electron/preload';
-import { IpcRendererEvent, contextBridge, ipcRenderer, webFrame, webUtils } from 'electron';
+import { IpcRendererEvent, contextBridge, ipcRenderer, webUtils } from 'electron';
 import { IpcEvents } from 'src/ipc-utils';
 
 function ipcRendererInvoke< T extends keyof IpcHandlers >(
@@ -53,11 +53,6 @@ const api: IpcApi = {
 	isCATrusted: () => ipcRenderer.invoke( 'isCATrusted' ),
 	trustCertificate: () => ipcRenderer.invoke( 'trustCertificate' ),
 	showSaveAsDialog: ( options ) => ipcRendererInvoke( 'showSaveAsDialog', options ),
-	saveUserLocale: ( locale ) => ipcRendererInvoke( 'saveUserLocale', locale ),
-	getUserLocale: () => ipcRendererInvoke( 'getUserLocale' ),
-	getDefaultSiteDirectory: () => ipcRendererInvoke( 'getDefaultSiteDirectory' ),
-	saveDefaultSiteDirectory: ( directory ) =>
-		ipcRendererInvoke( 'saveDefaultSiteDirectory', directory ),
 	startServer: ( id ) => ipcRendererInvoke( 'startServer', id ),
 	stopServer: ( id ) => ipcRendererInvoke( 'stopServer', id ),
 	copyText: ( text ) => ipcRendererInvoke( 'copyText', text ),
@@ -65,9 +60,6 @@ const api: IpcApi = {
 	getAppUpdateStatus: () => ipcRendererInvoke( 'getAppUpdateStatus' ),
 	installAppUpdate: () => ipcRendererInvoke( 'installAppUpdate' ),
 	getWpVersion: ( id ) => ipcRendererInvoke( 'getWpVersion', id ),
-	getSiteStorageUsage: ( id, requestId ) =>
-		ipcRendererInvoke( 'getSiteStorageUsage', id, requestId ),
-	cancelSiteStorageUsage: ( requestId ) => ipcRendererInvoke( 'cancelSiteStorageUsage', requestId ),
 	getSiteDesign: ( id ) => ipcRendererInvoke( 'getSiteDesign', id ),
 	fixSiteDesignDrift: ( id, fixes ) => ipcRendererInvoke( 'fixSiteDesignDrift', id, fixes ),
 	getIsMultisite: ( id ) => ipcRendererInvoke( 'getIsMultisite', id ),
@@ -80,7 +72,6 @@ const api: IpcApi = {
 		ipcRendererInvoke( 'generateNumberedNameFromList', baseName, usedSites ),
 	openLocalPath: ( path ) => ipcRendererSend( 'openLocalPath', path ),
 	openStudioLogs: () => ipcRendererSend( 'openStudioLogs' ),
-	loadThemeDetails: ( id ) => ipcRendererInvoke( 'loadThemeDetails', id ),
 	getSiteIcon: ( id ) => ipcRendererInvoke( 'getSiteIcon', id ),
 	getThumbnailData: ( id ) => ipcRendererInvoke( 'getThumbnailData', id ),
 	getInstalledAppsAndTerminals: () => ipcRendererInvoke( 'getInstalledAppsAndTerminals' ),
@@ -96,8 +87,6 @@ const api: IpcApi = {
 	showErrorMessageBox: ( options ) => ipcRendererSend( 'showErrorMessageBox', options ),
 	setupAppMenu: () => ipcRendererInvoke( 'setupAppMenu' ),
 	popupAppMenu: ( position ) => ipcRendererSend( 'popupAppMenu', position ),
-	ensureMinWindowWidth: ( minimumWidth ) =>
-		ipcRendererInvoke( 'ensureMinWindowWidth', minimumWidth ),
 	getAbsolutePathFromSite: ( siteId, relativePath ) =>
 		ipcRendererInvoke( 'getAbsolutePathFromSite', siteId, relativePath ),
 	getConnectedWpcomSites: ( localSiteId ) =>
@@ -110,45 +99,29 @@ const api: IpcApi = {
 		ipcRendererInvoke( 'listRemoteFileTree', remoteSiteId, rewindId, treePath ),
 	pullSiteFromLive: ( siteId, remoteSiteId, options ) =>
 		ipcRendererInvoke( 'pullSiteFromLive', siteId, remoteSiteId, options ),
-	cancelSyncOperation: ( id ) => ipcRendererSend( 'cancelSyncOperation', id ),
+	cancelSyncOperation: ( siteId, remoteSiteId ) =>
+		ipcRendererSend( 'cancelSyncOperation', siteId, remoteSiteId ),
 	getDirectorySize: ( id, subdir ) => ipcRendererInvoke( 'getDirectorySize', id, subdir ),
 	getFileSize: ( id, filePath ) => ipcRendererInvoke( 'getFileSize', id, filePath ),
 	getPathForFile: ( file ) => webUtils.getPathForFile( file ),
-	getAppZoomFactor: () => webFrame.getZoomFactor(),
 	readLocalMediaFile: ( path ) => ipcRendererInvoke( 'readLocalMediaFile', path ),
-	setWebviewViewport: ( webContentsId, viewport ) =>
-		ipcRendererInvoke( 'setWebviewViewport', webContentsId, viewport ),
 	clearWebviewCache: ( webContentsId ) => ipcRendererInvoke( 'clearWebviewCache', webContentsId ),
 	getWebviewNavigationHistory: ( webContentsId ) =>
 		ipcRendererInvoke( 'getWebviewNavigationHistory', webContentsId ),
 	goToWebviewNavigationHistoryEntry: ( webContentsId, index ) =>
 		ipcRendererInvoke( 'goToWebviewNavigationHistoryEntry', webContentsId, index ),
 	isFullscreen: () => ipcRendererInvoke( 'isFullscreen' ),
-	saveUserTerminal: ( preferredTerminal ) =>
-		ipcRendererInvoke( 'saveUserTerminal', preferredTerminal ),
-	getUserTerminal: () => ipcRendererInvoke( 'getUserTerminal' ),
 	getGlobalAgentInstructions: () => ipcRendererInvoke( 'getGlobalAgentInstructions' ),
 	saveGlobalAgentInstructions: ( content, options ) =>
 		ipcRendererInvoke( 'saveGlobalAgentInstructions', content, options ),
 	getAiSettings: () => ipcRendererInvoke( 'getAiSettings' ),
 	saveAnthropicApiKey: ( key ) => ipcRendererInvoke( 'saveAnthropicApiKey', key ),
-	saveColorScheme: ( colorScheme ) => ipcRendererInvoke( 'saveColorScheme', colorScheme ),
-	getColorScheme: () => ipcRendererInvoke( 'getColorScheme' ),
-	getAnalyticsEnabled: () => ipcRendererInvoke( 'getAnalyticsEnabled' ),
-	saveAnalyticsEnabled: ( enabled, source ) =>
-		ipcRendererInvoke( 'saveAnalyticsEnabled', enabled, source ),
-	saveQuitSitesBehavior: ( quitSitesBehavior ) =>
-		ipcRendererInvoke( 'saveQuitSitesBehavior', quitSitesBehavior ),
-	getQuitSitesBehavior: () => ipcRendererInvoke( 'getQuitSitesBehavior' ),
-	saveAgenticFeaturesEnabled: ( enabled ) =>
-		ipcRendererInvoke( 'saveAgenticFeaturesEnabled', enabled ),
-	getAgenticFeaturesEnabled: () => ipcRendererInvoke( 'getAgenticFeaturesEnabled' ),
 	saveWapuuScore: ( score ) => ipcRendererInvoke( 'saveWapuuScore', score ),
 	getWapuuScore: () => ipcRendererInvoke( 'getWapuuScore' ),
+	getUserPreferences: () => ipcRendererInvoke( 'getUserPreferences' ),
+	setUserPreferences: ( patch ) => ipcRendererInvoke( 'setUserPreferences', patch ),
 	getOnboardingHints: () => ipcRendererInvoke( 'getOnboardingHints' ),
 	saveOnboardingHints: ( partial ) => ipcRendererInvoke( 'saveOnboardingHints', partial ),
-	getUserEditor: () => ipcRendererInvoke( 'getUserEditor' ),
-	saveUserEditor: ( editor ) => ipcRendererInvoke( 'saveUserEditor', editor ),
 	comparePaths: ( path1, path2 ) => ipcRendererInvoke( 'comparePaths', path1, path2 ),
 	listLocalFileTree: ( siteId, path, maxDepth ) =>
 		ipcRenderer.invoke( 'listLocalFileTree', siteId, path, maxDepth ),
@@ -160,8 +133,6 @@ const api: IpcApi = {
 	setTitleBarBackdropEffect: ( enabled ) =>
 		ipcRendererInvoke( 'setTitleBarBackdropEffect', enabled ),
 	setWindowControlsSurface: ( surface ) => ipcRendererInvoke( 'setWindowControlsSurface', surface ),
-	setTrafficLightsPosition: ( position ) =>
-		ipcRendererInvoke( 'setTrafficLightsPosition', position ),
 	updateSitesSortOrder: ( updates ) => ipcRendererInvoke( 'updateSitesSortOrder', updates ),
 	isStudioCliInstalled: () => ipcRendererInvoke( 'isStudioCliInstalled' ),
 	isStudioCliExternallyManaged: () => ipcRendererInvoke( 'isStudioCliExternallyManaged' ),
@@ -172,6 +143,14 @@ const api: IpcApi = {
 		ipcRendererInvoke( 'installWordPressSkillsToAllSites', options ),
 	removeWordPressSkillFromAllSites: ( skillId ) =>
 		ipcRendererInvoke( 'removeWordPressSkillFromAllSites', skillId ),
+	getSiteAgentFiles: ( siteId, kind ) => ipcRendererInvoke( 'getSiteAgentFiles', siteId, kind ),
+	setSiteAgentFileEnabled: ( siteId, kind, id, enabled ) =>
+		ipcRendererInvoke( 'setSiteAgentFileEnabled', siteId, kind, id, enabled ),
+	removeSiteAgentFile: ( siteId, kind, id ) =>
+		ipcRendererInvoke( 'removeSiteAgentFile', siteId, kind, id ),
+	getGlobalInstructionsEnabled: () => ipcRendererInvoke( 'getGlobalInstructionsEnabled' ),
+	setGlobalInstructionsEnabled: ( enabled ) =>
+		ipcRendererInvoke( 'setGlobalInstructionsEnabled', enabled ),
 	recordAnalyticsEvent: ( eventName, props ) =>
 		ipcRendererInvoke( 'recordAnalyticsEvent', eventName, props ),
 	listAiSessions: () => ipcRendererInvoke( 'listAiSessions' ),

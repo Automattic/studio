@@ -1,4 +1,4 @@
-import { exec, ExecOptions } from 'child_process';
+import { exec, execFile, ExecOptions } from 'child_process';
 import {
 	BrowserWindow,
 	app,
@@ -17,39 +17,41 @@ import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
 import { validateStudioChatFiles } from '@studio/common/ai/chat-files';
 import { validateStudioChatImages } from '@studio/common/ai/chat-images';
+import {
+	getGlobalInstructionsEnabled as readGlobalInstructionsEnabled,
+	setGlobalInstructionsEnabled as writeGlobalInstructionsEnabled,
+} from '@studio/common/ai/global-instructions';
 import { isAiModelId } from '@studio/common/ai/models';
 import { isAiProviderId, providerServesModel } from '@studio/common/ai/providers';
-import { deriveEffectiveEnvironment } from '@studio/common/ai/sessions/effective-site';
 import {
 	createHydratedAiSession,
-	hydrateAiSessionSummary,
 	listHydratedAiSessions,
 	loadHydratedAiSession,
+	reconcileSessionEnvironment,
+	updateHydratedAiSessionMetadata,
 } from '@studio/common/ai/sessions/manage';
-import { findAiSessionOwnerSite } from '@studio/common/ai/sessions/owner-site';
-import { readAiSessionPlacement } from '@studio/common/ai/sessions/placement';
-import { resolveMigratedAiSessionsPath } from '@studio/common/ai/sessions/root-migration';
-import {
-	appendModelChangeEntry,
-	appendStudioEntry,
-	loadAiSession as loadAiSessionFromStore,
-} from '@studio/common/ai/sessions/store';
+import { appendModelChangeEntry, appendStudioEntry } from '@studio/common/ai/sessions/store';
 import { expandSkillCommandPrompt } from '@studio/common/ai/slash-commands';
 import { getAiTracksIdentity } from '@studio/common/ai/tracks-identity';
 import { validateStudioVisualAnnotations } from '@studio/common/ai/visual-annotations';
 import { DEBUG_LOG_RELATIVE_PATH } from '@studio/common/constants';
 import {
-	installSkillToSite,
-	removeSkillFromSite,
-	updateManagedInstructionFiles,
+	getSiteAgentFiles as readSiteAgentFiles,
+	getSkillsStatusForAllSites,
+	installSkillToAllSites,
+	removeSiteAgentFile as deleteSiteAgentFile,
+	removeSkillFromAllSites,
+	setSiteAgentFileEnabled as writeSiteAgentFileEnabled,
+	type SiteAgentFile,
+	type SiteAgentFileKind,
+	type SkillStatus,
 } from '@studio/common/lib/agent-skills';
 import {
 	downloadAndExtractBlueprintBundle,
 	removeBlueprintTempDir,
 } from '@studio/common/lib/blueprint-bundle';
-import { errorMessageContains } from '@studio/common/lib/cli-error';
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
-import { getConnectedWpcomSitesForLocalSite } from '@studio/common/lib/connected-sites';
+import { CliCommandError } from '@studio/common/lib/cli-process';
 import { stripIpcErrorPrefix } from '@studio/common/lib/error-formatting';
 import {
 	calculateDirectorySizeForArchive,
@@ -64,8 +66,7 @@ import { generateNumberedName, generateSiteName } from '@studio/common/lib/gener
 import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { isMultisite } from '@studio/common/lib/is-multisite';
-import { checkMaintenanceFile } from '@studio/common/lib/maintenance-file';
-import { getLocalMediaMimeType } from '@studio/common/lib/media-mime';
+import { resolveLocalMediaFile } from '@studio/common/lib/local-media';
 import { getAuthenticationUrl, revokeAuthToken } from '@studio/common/lib/oauth';
 import { decodePassword } from '@studio/common/lib/passwords';
 import { isTracksEventName } from '@studio/common/lib/record-tracks-event';
@@ -75,12 +76,7 @@ import {
 	trustRootCA,
 } from '@studio/common/lib/root-ca-trust';
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
-import {
-	readAuthToken,
-	readSharedConfig,
-	updateSharedConfig,
-	updateSharedSession,
-} from '@studio/common/lib/shared-config';
+import { readAuthToken, updateSharedConfig } from '@studio/common/lib/shared-config';
 import {
 	getLocalFileSize,
 	listLocalFileTree as listSiteFileTree,
@@ -96,6 +92,7 @@ import {
 import { getSiteEditOptions } from '@studio/common/sites/edit';
 import {
 	deleteSite as deleteSiteViaCli,
+	SiteStartRefusedError,
 	startSite,
 	stopSite,
 } from '@studio/common/sites/lifecycle';
@@ -106,15 +103,10 @@ import {
 	readSiteDesign,
 	type SiteDesign,
 } from '@studio/common/sites/site-design';
-import {
-	readSiteIcon,
-	readThemeDetails,
-	type ThemeDetails,
-} from '@studio/common/sites/site-identity';
-import { readSite, readSitePath, readSitePaths, readSites } from '@studio/common/sites/site-path';
-import { measureSiteStorage, type SiteStorageUsage } from '@studio/common/sites/storage-usage';
+import { readSiteIcon, readThemeDetails } from '@studio/common/sites/site-identity';
+import { readSite, readSitePath, readSitePaths } from '@studio/common/sites/site-path';
 import { __ } from '@wordpress/i18n';
-import { MACOS_TOOLBAR_TRAFFIC_LIGHT_POSITION, MACOS_TRAFFIC_LIGHT_POSITION } from 'src/constants';
+import { DEFAULT_TERMINAL } from 'src/constants';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
 import { setPendingAuthContext } from 'src/lib/auth-tracks-context';
 import { bumpStat, getBlueprintMetric, StatsGroup } from 'src/lib/bump-stats';
@@ -149,14 +141,9 @@ import {
 	getMainWindow,
 	getTitleBarOverlayOptions,
 	setAgenticControlsSurface,
-	type TrafficLightsPosition,
 	type WindowControlsSurface,
 } from 'src/main-window';
 import { popupMenu, setupMenu } from 'src/menu';
-import {
-	getBundledSkills,
-	type SkillStatus,
-} from 'src/modules/agent-instructions/lib/skills-constants';
 import {
 	answerAgentRun,
 	interruptAgentRun,
@@ -165,14 +152,10 @@ import {
 } from 'src/modules/ai-agent/run-manager';
 import { createSiteViaCli } from 'src/modules/cli/lib/cli-site-creator';
 import { editSiteViaCli } from 'src/modules/cli/lib/cli-site-editor';
-import { CliCommandError, executeCliCommand } from 'src/modules/cli/lib/execute-command';
+import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
 import { isStudioCliInstalled } from 'src/modules/cli/lib/ipc-handlers';
 import { STABLE_BIN_DIR_PATH } from 'src/modules/cli/lib/windows-installation-manager';
-import {
-	getUserTerminal,
-	getDefaultSiteDirectory,
-	saveDefaultSiteDirectory,
-} from 'src/modules/user-settings/lib/ipc-handlers';
+import { getDefaultSiteDirectory } from 'src/modules/user-settings/lib/ipc-handlers';
 import { linuxFindEditorPath } from 'src/modules/user-settings/lib/linux-editor-path';
 import { linuxFindTerminalPath } from 'src/modules/user-settings/lib/linux-terminal-path';
 import { winFindEditorPath } from 'src/modules/user-settings/lib/win-editor-path';
@@ -182,7 +165,11 @@ import { captureSiteThumbnail } from './lib/capture-site-thumbnail';
 import type { ActiveAgentRun } from '@studio/common/ai/agent-events';
 import type { StudioChatFileAttachment } from '@studio/common/ai/chat-files';
 import type { StudioChatImage } from '@studio/common/ai/chat-images';
-import type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessions/types';
+import type {
+	AiSessionMetadata,
+	AiSessionSummary,
+	LoadedAiSession,
+} from '@studio/common/ai/sessions/types';
 import type { Blueprint } from '@studio/common/lib/studio-blueprints-api';
 import type { RawDirectoryEntry } from '@studio/common/types/sync-tree';
 
@@ -215,31 +202,18 @@ export {
 } from 'src/modules/preview-site/lib/ipc-handlers';
 
 export {
-	getAgenticFeaturesEnabled,
 	getAiSettings,
-	getAnalyticsEnabled,
-	getColorScheme,
 	getGlobalAgentInstructions,
 	getInstalledAppsAndTerminals,
 	getOnboardingHints,
-	getQuitSitesBehavior,
-	getUserEditor,
-	getUserLocale,
-	getUserTerminal,
+	getUserPreferences,
 	getWapuuScore,
-	saveAgenticFeaturesEnabled,
-	saveAnalyticsEnabled,
 	saveAnthropicApiKey,
-	saveColorScheme,
 	saveGlobalAgentInstructions,
 	saveOnboardingHints,
-	saveQuitSitesBehavior,
-	saveUserEditor,
-	saveUserLocale,
-	saveUserTerminal,
 	saveWapuuScore,
+	setUserPreferences,
 } from 'src/modules/user-settings/lib/ipc-handlers';
-export { getDefaultSiteDirectory, saveDefaultSiteDirectory };
 
 export { importSite, exportSite } from 'src/modules/import-export/lib/ipc-handlers';
 
@@ -300,54 +274,9 @@ export async function createAiSession(
 export async function updateAiSessionMetadata(
 	_event: IpcMainInvokeEvent,
 	sessionIdOrPrefix: string,
-	patch: Pick< AiSessionSummary, 'archived' >
+	patch: AiSessionMetadata
 ): Promise< AiSessionSummary > {
-	const { summary } = await loadAiSessionFromStore( getSessionsDirectory(), sessionIdOrPrefix );
-	const [ metadata, placement ] = await Promise.all( [
-		updateSharedSession( summary.id, patch ),
-		readAiSessionPlacement( summary.id ),
-	] );
-	return hydrateAiSessionSummary( summary, metadata, placement );
-}
-
-/**
- * If the session is flagged 'live' but the remote blog id it was targeting is
- * no longer in the user's connected-sites list (e.g. the user disconnected
- * the live site since the last flip), append a `site.selected` event that
- * bumps the session back to its local owner. Keeps the CLI runtime — which
- * only reads the event log — in sync with what the UI already shows.
- *
- * The pill already derives "Local" at render time via the same check; this
- * just records the reconciliation on disk so the agent's system prompt and
- * tool set reflect the same truth on the next turn.
- */
-async function reconcileSessionEnvironmentBeforeRun( sessionId: string ): Promise< void > {
-	const root = getSessionsDirectory();
-	const { summary } = await loadHydratedAiSession( root, sessionId );
-
-	if ( summary.activeEnvironment !== 'live' ) {
-		return;
-	}
-	const ownerSite = findAiSessionOwnerSite( await readSites(), summary );
-	if ( ! ownerSite ) {
-		return;
-	}
-
-	const connectedForOwner = await getConnectedWpcomSitesForLocalSite( ownerSite.id );
-	const connectedIds = new Set( connectedForOwner.map( ( site ) => site.id ) );
-
-	const effective = deriveEffectiveEnvironment( summary, ( blogId ) => connectedIds.has( blogId ) );
-	if ( effective === 'live' ) {
-		return;
-	}
-
-	// Live was disconnected since the last flip. Record the fallback so the
-	// CLI's replay sees Local on the next turn.
-	await appendStudioEntry( root, sessionId, 'studio.site_selected', {
-		siteName: ownerSite.name,
-		sitePath: ownerSite.path,
-		siteId: ownerSite.id,
-	} );
+	return updateHydratedAiSessionMetadata( getSessionsDirectory(), sessionIdOrPrefix, patch );
 }
 
 export async function continueAiSession(
@@ -365,7 +294,7 @@ export async function continueAiSession(
 		throw new Error( __( 'WordPress.com login required. Log in to use Studio Code.' ) );
 	}
 
-	await reconcileSessionEnvironmentBeforeRun( sessionId );
+	await reconcileSessionEnvironment( getSessionsDirectory(), sessionId );
 	const images = validateStudioChatImages( options.images );
 	const files = validateStudioChatFiles( options.files );
 	const visualAnnotations = validateStudioVisualAnnotations( options.visualAnnotations );
@@ -440,55 +369,70 @@ export async function answerAiAgentQuestion(
 export async function getWordPressSkillsStatusAllSites(
 	_event: IpcMainInvokeEvent
 ): Promise< SkillStatus[] > {
-	const sharedConfig = await readSharedConfig();
-	const selectedSkills = sharedConfig.selectedSkills ?? [];
-	return getBundledSkills().map( ( skill ) => ( {
-		...skill,
-		installed: selectedSkills.includes( skill.id ),
-	} ) );
+	return getSkillsStatusForAllSites();
 }
 
 export async function installWordPressSkillsToAllSites(
 	_event: IpcMainInvokeEvent,
 	options: { skillId: string; overwrite?: boolean }
 ): Promise< void > {
-	const overwrite = options.overwrite ?? false;
-	const bundledPath = getAiInstructionsPath();
-	const tasks = ( await readSitePaths() ).map( ( path ) =>
-		installSkillToSite( { path }, bundledPath, options.skillId, overwrite )
-	);
-	const results = await Promise.allSettled( tasks );
-	results.forEach( ( result ) => {
-		if ( result.status === 'rejected' ) {
-			console.error( '[skills] Failed to install skill:', result.reason );
-		}
-	} );
-
-	const sharedConfig = await readSharedConfig();
-	const existing = sharedConfig.selectedSkills ?? [];
-	const merged = Array.from( new Set( [ ...existing, options.skillId ] ) );
-	await updateSharedConfig( { selectedSkills: merged } );
+	await installSkillToAllSites( getAiInstructionsPath(), options.skillId, options.overwrite );
 }
 
 export async function removeWordPressSkillFromAllSites(
 	_event: IpcMainInvokeEvent,
 	skillId: string
 ): Promise< void > {
-	const tasks = ( await readSitePaths() ).map( ( path ) => removeSkillFromSite( path, skillId ) );
-	const results = await Promise.allSettled( tasks );
-	results.forEach( ( result ) => {
-		if ( result.status === 'rejected' ) {
-			console.error( '[skills] Failed to remove skill:', result.reason );
-		}
-	} );
+	await removeSkillFromAllSites( skillId );
+}
 
-	const sharedConfig = await readSharedConfig();
-	const updated = ( sharedConfig.selectedSkills ?? [] ).filter( ( id ) => id !== skillId );
-	await updateSharedConfig( { selectedSkills: updated } );
+export async function getSiteAgentFiles(
+	_event: IpcMainInvokeEvent,
+	siteId: string,
+	kind: SiteAgentFileKind
+): Promise< SiteAgentFile[] > {
+	return readSiteAgentFiles( await requireSitePath( siteId ), kind );
+}
+
+export async function setSiteAgentFileEnabled(
+	_event: IpcMainInvokeEvent,
+	siteId: string,
+	kind: SiteAgentFileKind,
+	id: string,
+	enabled: boolean
+): Promise< void > {
+	await writeSiteAgentFileEnabled(
+		await requireSitePath( siteId ),
+		getAiInstructionsPath(),
+		kind,
+		id,
+		enabled
+	);
+}
+
+export async function removeSiteAgentFile(
+	_event: IpcMainInvokeEvent,
+	siteId: string,
+	kind: SiteAgentFileKind,
+	id: string
+): Promise< void > {
+	await deleteSiteAgentFile( await requireSitePath( siteId ), kind, id );
+}
+
+export async function getGlobalInstructionsEnabled(): Promise< boolean > {
+	return readGlobalInstructionsEnabled();
+}
+
+export async function setGlobalInstructionsEnabled(
+	_event: IpcMainInvokeEvent,
+	enabled: boolean
+): Promise< void > {
+	await writeGlobalInstructionsEnabled( enabled );
 }
 
 const DEBUG_LOG_MAX_LINES = 50;
-const PROCESS_MANAGER_HOME = nodePath.join( os.homedir(), '.studio', 'daemon' );
+const PROCESS_MANAGER_HOME =
+	process.env.STUDIO_PROCESS_MANAGER_HOME ?? nodePath.join( os.homedir(), '.studio', 'daemon' );
 
 function readWordPressDebugLog( sitePath: string ): string[] | undefined {
 	const debugLogPath = nodePath.join( sitePath, DEBUG_LOG_RELATIVE_PATH );
@@ -672,15 +616,6 @@ export async function startServer( event: IpcMainInvokeEvent, id: string ): Prom
 		return;
 	}
 
-	const maintenanceCheck = checkMaintenanceFile( site.path );
-	if ( maintenanceCheck.exists && ! maintenanceCheck.isStale ) {
-		throw new Error(
-			__(
-				'This site is in maintenance mode. WordPress is currently performing an update. The maintenance lock should expire automatically within 10 minutes. Please wait and try again.'
-			)
-		);
-	}
-
 	// Release the port held by any active PHP-error recovery before (re)starting the real server,
 	// otherwise the recovery error server still bound to the site's port causes EADDRINUSE.
 	await stopErrorRecovery( id );
@@ -690,13 +625,9 @@ export async function startServer( event: IpcMainInvokeEvent, id: string ): Prom
 		console.log( `Starting server for '${ site.name }'` );
 		await start();
 	} catch ( error ) {
-		// Capacity limit is expected behavior, not a bug — skip Sentry
-		if ( errorMessageContains( error, 'CAPACITY_LIMIT_REACHED' ) ) {
-			throw new Error(
-				__(
-					'The maximum number of running sites has been reached. Stop some running sites before starting new ones.'
-				)
-			);
+		// Too many running sites or a WordPress update in progress: expected, not a bug — skip Sentry
+		if ( error instanceof SiteStartRefusedError ) {
+			throw error;
 		}
 
 		// A fatal error in the user's own PHP (theme/plugin) code stops WordPress from booting.
@@ -766,15 +697,8 @@ export async function startServer( event: IpcMainInvokeEvent, id: string ): Prom
 			contexts,
 		} );
 
-		throw error instanceof CliCommandError && error.lastErrorMessage
-			? new Error( error.lastErrorMessage )
-			: error;
+		throw error;
 	}
-
-	// Keep managed instruction files (STUDIO.md) up-to-date
-	void updateManagedInstructionFiles( site, getAiInstructionsPath() ).catch( ( error ) => {
-		console.error( '[ai-instructions] Failed to update managed instruction files:', error );
-	} );
 
 	console.log( `Server started for '${ site.name }'` );
 }
@@ -1027,41 +951,6 @@ export async function getWpVersion( _event: IpcMainInvokeEvent, id: string ) {
 	return sitePath ? getWordPressVersion( sitePath ) : '-';
 }
 
-// In-flight storage measurements, keyed by the renderer's request id. Walking a
-// site takes long enough that the renderer is often gone before it finishes, and
-// `ipcRenderer.invoke` has no cancellation of its own, so the renderer cancels
-// through `cancelSiteStorageUsage` instead. Keyed per request rather than per
-// site so one window abandoning a measurement can't stop another's.
-const siteStorageControllers = new Map< string, AbortController >();
-
-export async function getSiteStorageUsage(
-	_event: IpcMainInvokeEvent,
-	id: string,
-	requestId?: string
-): Promise< SiteStorageUsage | null > {
-	const sitePath = await readSitePath( id );
-	if ( ! sitePath ) {
-		return null;
-	}
-	if ( ! requestId ) {
-		return measureSiteStorage( sitePath );
-	}
-	const controller = new AbortController();
-	siteStorageControllers.set( requestId, controller );
-	try {
-		return await measureSiteStorage( sitePath, { signal: controller.signal } );
-	} finally {
-		siteStorageControllers.delete( requestId );
-	}
-}
-
-export async function cancelSiteStorageUsage(
-	_event: IpcMainInvokeEvent,
-	requestId: string
-): Promise< void > {
-	siteStorageControllers.get( requestId )?.abort();
-}
-
 const activeThemeSlug = ( sitePath: string ) => async () =>
 	( await readThemeDetails( executeCliCommand, sitePath ).catch( () => undefined ) )?.slug;
 
@@ -1161,45 +1050,22 @@ export async function readLocalMediaFile(
 	_event: IpcMainInvokeEvent,
 	path: string
 ): Promise< { name: string; mimeType: string; data: ArrayBuffer } > {
-	let resolvedPath = path;
-	let stats: fs.Stats;
-	try {
-		stats = await fsPromises.stat( resolvedPath );
-	} catch ( error ) {
-		if ( ! isErrnoException( error ) || error.code !== 'ENOENT' ) {
-			throw error;
-		}
-		resolvedPath = resolveMigratedAiSessionsPath( path );
-		if ( resolvedPath === path ) {
-			throw error;
-		}
-		stats = await fsPromises.stat( resolvedPath );
+	const media = await resolveLocalMediaFile( path, [
+		getSessionsDirectory(),
+		...( await readSitePaths() ),
+	] );
+	if ( ! media ) {
+		throw new Error( 'Local media file not found.' );
 	}
-	if ( ! stats.isFile() ) {
-		throw new Error( 'Local media path must be a file.' );
-	}
-
-	const mimeType = getLocalMediaMimeType( path );
-	if ( ! mimeType ) {
-		throw new Error( 'Local media file type is not supported.' );
-	}
-
-	const buffer = await fsPromises.readFile( resolvedPath );
+	const buffer = await fsPromises.readFile( media.path );
 	return {
 		name: nodePath.basename( path ),
-		mimeType,
+		mimeType: media.mimeType,
 		data: buffer.buffer.slice(
 			buffer.byteOffset,
 			buffer.byteOffset + buffer.byteLength
 		) as ArrayBuffer,
 	};
-}
-
-export async function loadThemeDetails(
-	_event: IpcMainInvokeEvent,
-	id: string
-): Promise< ThemeDetails > {
-	return readThemeDetails( executeCliCommand, await requireSitePath( id ) );
 }
 
 export async function getSiteIcon(
@@ -1219,9 +1085,7 @@ export async function saveOnboarding( event: IpcMainInvokeEvent, onboardingCompl
 	const { onboardingCompleted: previous = false } = await loadUserData();
 	await updateAppdata( { onboardingCompleted } );
 
-	// Both front-ends funnel through here (Classic on skip/login, the agentic UI when the tour ends), so
-	// this is the one place a completion can be counted. Only on a real transition — a re-save must not
-	// look like a second user finishing onboarding.
+	// Only on a real transition — a re-save must not look like a second user finishing onboarding.
 	if ( onboardingCompleted && ! previous ) {
 		await recordTracksEvent( TRACKS_EVENTS.ONBOARDING_COMPLETE, {
 			// Whether they leave onboarding with an account, which is what "skipped" really meant.
@@ -1239,20 +1103,25 @@ export function getThumbnailData( _event: IpcMainInvokeEvent, id: string ) {
 
 function promiseExec( command: string, options: ExecOptions = {} ): Promise< void > {
 	return new Promise( ( resolve, reject ) => {
-		exec( command, options, ( error ) => {
-			if ( error ) {
-				reject( error );
-				return;
-			}
-			resolve();
-		} );
+		exec( command, options, ( error ) => ( error ? reject( error ) : resolve() ) );
+	} );
+}
+
+// Paths travel as arguments rather than through a shell, so a folder name can't run anything.
+function promiseExecFile(
+	file: string,
+	args: string[],
+	options: ExecOptions = {}
+): Promise< void > {
+	return new Promise( ( resolve, reject ) => {
+		execFile( file, args, options, ( error ) => ( error ? reject( error ) : resolve() ) );
 	} );
 }
 
 export async function openTerminalAtPath( _event: IpcMainInvokeEvent, targetPath: string ) {
 	const platform = process.platform;
 
-	const preferredTerminal = await getUserTerminal();
+	const preferredTerminal = ( await loadUserData() ).preferredTerminal || DEFAULT_TERMINAL;
 
 	// The single funnel for "open in terminal" across both the apps/studio buttons/context-menu and the
 	// apps/ui ipc connector — emitting here counts every path once. Fire-and-forget; the wrapper gates
@@ -1260,14 +1129,13 @@ export async function openTerminalAtPath( _event: IpcMainInvokeEvent, targetPath
 	void recordTracksEvent( TRACKS_EVENTS.SITE_OPEN_IN_TERMINAL, { terminal: preferredTerminal } );
 
 	if ( platform === 'darwin' ) {
-		const escapedPath = targetPath.replace( /\\/g, '\\\\' ).replace( /"/g, '\\"' );
 		const bundleIds = {
 			warp: 'dev.warp.Warp-Stable',
 			ghostty: 'com.mitchellh.ghostty',
 			iterm: 'com.googlecode.iterm2',
 			terminal: 'com.apple.Terminal',
 		};
-		return promiseExec( `open -b ${ bundleIds[ preferredTerminal ] } "${ escapedPath }"` );
+		return promiseExecFile( 'open', [ '-b', bundleIds[ preferredTerminal ], targetPath ] );
 	} else if ( platform === 'win32' ) {
 		const userData = await loadUserData();
 		const preferredTerminal = userData.preferredTerminal;
@@ -1299,8 +1167,6 @@ export async function openTerminalAtPath( _event: IpcMainInvokeEvent, targetPath
 			env,
 		} );
 	} else if ( platform === 'linux' ) {
-		const escapedPath = targetPath.replace( /\\/g, '\\\\' ).replace( /"/g, '\\"' );
-
 		// Warp on Linux currently opens at its configured "new session"
 		// directory regardless of how it is launched — it ignores
 		// `--working-directory`, the `path=` URL scheme query, and the
@@ -1308,19 +1174,13 @@ export async function openTerminalAtPath( _event: IpcMainInvokeEvent, targetPath
 		// Best effort: launch with `cwd` set so we benefit if/when upstream
 		// adds support, and so a fresh launch (no daemon yet) at least has
 		// a chance of inheriting it.
-		const launchers: Record<
-			SupportedTerminal,
-			( ( binary: string ) => { command: string; options?: ExecOptions } ) | null
-		> = {
-			terminal: ( binary ) => ( {
-				command: `"${ binary }" --working-directory="${ escapedPath }"`,
-			} ),
-			warp: ( binary ) => ( { command: `"${ binary }"`, options: { cwd: targetPath } } ),
-			ghostty: ( binary ) => ( {
-				command: `"${ binary }" --working-directory="${ escapedPath }"`,
-			} ),
-			iterm: null,
-		};
+		const launchers: Record< SupportedTerminal, { args: string[]; options?: ExecOptions } | null > =
+			{
+				terminal: { args: [ `--working-directory=${ targetPath }` ] },
+				warp: { args: [], options: { cwd: targetPath } },
+				ghostty: { args: [ `--working-directory=${ targetPath }` ] },
+				iterm: null,
+			};
 
 		const order: SupportedTerminal[] = [ preferredTerminal, 'terminal' ];
 		for ( const candidate of order ) {
@@ -1332,13 +1192,12 @@ export async function openTerminalAtPath( _event: IpcMainInvokeEvent, targetPath
 			if ( ! binary ) {
 				continue;
 			}
-			const { command, options } = launcher( binary );
-			return promiseExec( command, options );
+			return promiseExecFile( binary, launcher.args, launcher.options );
 		}
 
 		// Last-resort fallback that preserves prior behavior even if no
 		// supported terminal binary is on $PATH.
-		return promiseExec( `gnome-terminal --working-directory="${ escapedPath }"` );
+		return promiseExecFile( 'gnome-terminal', [ `--working-directory=${ targetPath }` ] );
 	} else {
 		console.error( 'Unsupported platform:', platform );
 		return;
@@ -1354,11 +1213,9 @@ export async function openAppAtPath(
 	const platform = process.platform;
 	const editor = supportedEditorConfig[ editorKey ];
 	const allPaths = [ filePath, ...otherFiles ];
-	const quotedPaths = allPaths.map( ( p ) => `"${ p }"` ).join( ' ' );
 
 	if ( platform === 'darwin' ) {
-		const cmd = `open -b ${ editor.macOSBundleId } ${ quotedPaths }`;
-		return promiseExec( cmd );
+		return promiseExecFile( 'open', [ '-b', editor.macOSBundleId, ...allPaths ] );
 	}
 
 	if ( platform === 'win32' ) {
@@ -1371,7 +1228,7 @@ export async function openAppAtPath(
 			return;
 		}
 
-		return promiseExec( `"${ editorPath }" ${ quotedPaths }` );
+		return promiseExecFile( editorPath, allPaths );
 	}
 
 	if ( platform === 'linux' ) {
@@ -1384,7 +1241,7 @@ export async function openAppAtPath(
 			return;
 		}
 
-		return promiseExec( `"${ editorPath }" ${ quotedPaths }` );
+		return promiseExecFile( editorPath, allPaths );
 	}
 
 	throw new Error( `Platform ${ platform } is not supported` );
@@ -1440,29 +1297,6 @@ export async function popupAppMenu(
 	position?: { x: number; y: number }
 ) {
 	await popupMenu( position );
-}
-
-export async function ensureMinWindowWidth(
-	event: IpcMainInvokeEvent,
-	minimumWidth: number
-): Promise< number | null > {
-	if ( ! Number.isFinite( minimumWidth ) || minimumWidth <= 0 ) {
-		return null;
-	}
-	const parentWindow = BrowserWindow.fromWebContents( event.sender );
-	if ( ! parentWindow || parentWindow.isDestroyed() || event.sender.isDestroyed() ) {
-		return null;
-	}
-	// Measure and resize the content area, not the whole window. The renderer's
-	// responsive math is entirely in CSS pixels (`window.innerWidth`); on Windows
-	// and Linux the window frame makes that differ from the outer window size, so
-	// growing (and reporting) the content width is what keeps the two in sync.
-	const [ currentWidth, currentHeight ] = parentWindow.getContentSize();
-	const nextWidth = Math.ceil( minimumWidth );
-	if ( currentWidth < nextWidth ) {
-		parentWindow.setContentSize( nextWidth, currentHeight );
-	}
-	return parentWindow.getContentSize()[ 0 ];
 }
 
 async function requireSitePath( siteId: string ): Promise< string > {
@@ -1593,19 +1427,6 @@ export async function setWindowControlsSurface(
 	parentWindow.setTitleBarOverlay( getTitleBarOverlayOptions() );
 }
 
-export async function setTrafficLightsPosition(
-	event: IpcMainInvokeEvent,
-	position: TrafficLightsPosition
-) {
-	const parentWindow = BrowserWindow.fromWebContents( event.sender );
-	if ( ! parentWindow || process.platform !== 'darwin' ) {
-		return;
-	}
-	parentWindow.setWindowButtonPosition(
-		position === 'toolbar' ? MACOS_TOOLBAR_TRAFFIC_LIGHT_POSITION : MACOS_TRAFFIC_LIGHT_POSITION
-	);
-}
-
 export async function setTitleBarBackdropEffect( event: IpcMainInvokeEvent, enabled: boolean ) {
 	void enabled;
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
@@ -1640,61 +1461,6 @@ function getOwnedWebviewContents( event: IpcMainInvokeEvent, webContentsId: numb
 	}
 
 	return target;
-}
-
-function attachDebuggerIfNeeded( target: WebContents ): boolean {
-	if ( target.debugger.isAttached() ) {
-		return false;
-	}
-
-	target.debugger.attach( '1.3' );
-	return true;
-}
-
-async function sendDebuggerCommand< T >(
-	target: WebContents,
-	method: string,
-	params?: Record< string, unknown >
-): Promise< T > {
-	return ( await target.debugger.sendCommand( method, params ) ) as T;
-}
-
-// Simulates a viewport for the preview webview via the CDP device-metrics
-// override that DevTools device mode is built on: the guest lays out at
-// `width`×`height` CSS px and Chromium scales the rendered result by `scale`
-// (down to fit the webview, or up for a zoomed preview), remapping input
-// coordinates to match. `null` returns the guest to the webview's natural
-// size.
-export async function setWebviewViewport(
-	event: IpcMainInvokeEvent,
-	webContentsId: number,
-	viewport: { width: number; height: number; scale: number; mobile?: boolean } | null
-): Promise< void > {
-	const target = getOwnedWebviewContents( event, webContentsId );
-	attachDebuggerIfNeeded( target );
-	if ( ! viewport ) {
-		await sendDebuggerCommand( target, 'Emulation.clearDeviceMetricsOverride' );
-		return;
-	}
-	const { width, height, scale, mobile } = viewport;
-	const isValidDimension = ( value: number ) =>
-		Number.isInteger( value ) && value > 0 && value <= 10000;
-	// Capped at Chromium's own zoom ceiling.
-	const isValidScale =
-		typeof scale === 'number' && Number.isFinite( scale ) && scale > 0 && scale <= 5;
-	if ( ! isValidDimension( width ) || ! isValidDimension( height ) || ! isValidScale ) {
-		throw new Error( 'Unsupported webview viewport.' );
-	}
-	await sendDebuggerCommand( target, 'Emulation.setDeviceMetricsOverride', {
-		width,
-		height,
-		// 0 keeps the display's real device pixel ratio.
-		deviceScaleFactor: 0,
-		// Mobile presets emulate a phone (meta-viewport handling and mobile UA
-		// hints), not just a narrow desktop window.
-		mobile: mobile === true,
-		scale,
-	} );
 }
 
 export async function clearWebviewCache(

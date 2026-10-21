@@ -81,7 +81,11 @@ function createTools(
 	// hosts keep in context for every conversation and may truncate.
 	const instructionsTool = defineTool(
 		'studio_instructions',
-		"Returns how to build and manage WordPress sites with the Studio tools: the site workflow, when to load which skill, and the rules the result must follow. Call it before your first WordPress site task and follow it. With `skill`, returns that skill's runbook instead.",
+		"Returns how to build and manage WordPress sites with the Studio tools: the rules every task follows and when to load which skill. Call it before your first WordPress site task and follow it. With `skill`, returns that skill's runbook instead. The skills for what users ask directly:\n" +
+			loadSkills()
+				.filter( ( skill ) => skill.userInvokable )
+				.map( ( skill ) => `- ${ skill.name }: ${ skill.description }` )
+				.join( '\n' ),
 		{
 			skill: Type.Optional(
 				Type.Enum(

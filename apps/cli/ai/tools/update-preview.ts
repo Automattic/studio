@@ -1,7 +1,7 @@
 import { Type } from 'typebox';
 import { runCommand as runUpdatePreviewCommand } from 'cli/commands/preview/update';
 import { normalizeHostname } from 'cli/lib/utils';
-import { defineTool } from './define-tool';
+import { defineTool, REMOTE_OVERWRITE } from './define-tool';
 import { runPreviewCommand } from './preview-helpers';
 import { resolveSite } from './utils';
 
@@ -35,5 +35,6 @@ export const updatePreviewTool = defineTool(
 	{
 		promptSnippet:
 			'Update an existing preview site from a local site; this can take a few minutes, so tell the user to wait',
+		annotations: REMOTE_OVERWRITE,
 	}
 );

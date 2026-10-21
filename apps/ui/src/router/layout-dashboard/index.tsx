@@ -1,16 +1,18 @@
 import { findAiSessionOwnerSite } from '@studio/common/ai/sessions/owner-site';
-import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { createRoute, Outlet, useNavigate, useRouterState } from '@tanstack/react-router';
+import { __ } from '@wordpress/i18n';
+import { IconButton } from '@wordpress/ui';
 import { useCallback, useEffect, useState } from 'react';
+import { CommandPalette } from '@/components/command-palette';
 import {
 	PreviewSplitFrame,
 	type PreviewSplitFramePreviewProps,
 } from '@/components/preview-split-frame';
 import { SidebarLayout } from '@/components/sidebar-layout';
+import { HeaderSidebarToggle } from '@/components/sidebar-toggle';
+import { SiteDropdown } from '@/components/site-dropdown';
 import { SitePreview } from '@/components/site-preview';
-import { isSiteSettingsTab, siteSettingsTabToPanel } from '@/components/site-settings-view';
 import { SiteWorkspace } from '@/components/site-workspace';
-import { useConnector } from '@/data/core';
 import { useOrientationAutostart } from '@/data/onboarding/use-orientation-autostart';
 import { useOrientationReplay } from '@/data/onboarding/use-orientation-replay';
 import { useWhatsNewAutostart } from '@/data/onboarding/use-whats-new-autostart';
@@ -18,27 +20,27 @@ import { useWhatsNewReplay } from '@/data/onboarding/use-whats-new-replay';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useSession, useSessionEffectiveEnvironment } from '@/data/queries/use-sessions';
 import { useSites } from '@/data/queries/use-sites';
-import { useResponsivePanels } from '@/hooks/use-responsive-panels';
 import {
 	pathForSite,
 	SessionUIProvider,
 	useSessionPreviewAnnotationsHandler,
 	useSessionPreviewUI,
 } from '@/hooks/use-session-ui';
+import { chatIcon } from '@/lib/icons';
 import { writeLastVisited } from '@/lib/last-visited';
+import { PREVIEW_SPLIT_MIN_WIDTH } from '@/lib/resizable-panels';
 import { rootRoute } from '../layout-root';
-import type { SiteSettingsTabId } from '@/components/site-settings-view';
 
-// Session detail routes and the site overview host the preview; on every
-// other route (settings, site settings…) the last previewed site stays
-// mounted but hidden.
+// Session detail routes and a site's own page host the preview;
+// on every other route the last previewed site stays mounted
+// but hidden.
 function getRouteSessionId( pathname: string ): string | undefined {
 	const match = /^\/sessions\/([^/]+)\/?$/.exec( pathname );
 	return match ? decodeURIComponent( match[ 1 ] ) : undefined;
 }
 
-function getRouteOverviewSiteId( pathname: string ): string | undefined {
-	const match = /^\/sites\/([^/]+)\/overview\/?$/.exec( pathname );
+function getRouteHomeSiteId( pathname: string ): string | undefined {
+	const match = /^\/sites\/([^/]+)\/?$/.exec( pathname );
 	return match ? decodeURIComponent( match[ 1 ] ) : undefined;
 }
 
@@ -61,34 +63,15 @@ function DashboardLayout() {
 // last previewed site loaded behind a closed panel.
 function DashboardLayoutContent() {
 	const navigate = useNavigate();
-	const connector = useConnector();
 	const routePreviewContext = useRouterState( {
 		select: ( state ) => ( {
 			sessionId: getRouteSessionId( state.location.pathname ),
-			overviewSiteId: getRouteOverviewSiteId( state.location.pathname ),
+			homeSiteId: getRouteHomeSiteId( state.location.pathname ),
 			newSessionSiteId: getNewSessionSiteId( state.location.pathname ),
-			overviewTab:
-				typeof state.location.search.tab === 'string' &&
-				isSiteSettingsTab( state.location.search.tab )
-					? state.location.search.tab
-					: undefined,
 			openSiteDropdown: state.location.search.sync === 'pull',
 		} ),
 	} );
-	const { sessionId, overviewSiteId, newSessionSiteId, overviewTab, openSiteDropdown } =
-		routePreviewContext;
-	const [ overviewTabsBySite, setOverviewTabsBySite ] = useState<
-		Record< string, SiteSettingsTabId >
-	>( {} );
-	useEffect( () => {
-		if ( overviewSiteId && overviewTab ) {
-			setOverviewTabsBySite( ( current ) =>
-				current[ overviewSiteId ] === overviewTab
-					? current
-					: { ...current, [ overviewSiteId ]: overviewTab }
-			);
-		}
-	}, [ overviewSiteId, overviewTab ] );
+	const { sessionId, homeSiteId, newSessionSiteId, openSiteDropdown } = routePreviewContext;
 	const { isReady: agenticFeaturesReady, chatEnabled } = useAgenticFeatures();
 	const { data: sites } = useSites();
 	const { data: sessionData } = useSession( sessionId );
@@ -111,21 +94,17 @@ function DashboardLayoutContent() {
 		sessionData?.summary,
 		sessionSite?.id
 	);
-	const overviewSite = overviewSiteId
-		? sites?.find( ( site ) => site.id === overviewSiteId )
-		: undefined;
+	const homeSite = homeSiteId ? sites?.find( ( site ) => site.id === homeSiteId ) : undefined;
 	const newSessionSite = newSessionSiteId
 		? sites?.find( ( site ) => site.id === newSessionSiteId )
 		: undefined;
 	const routeSite =
-		overviewSite ??
-		newSessionSite ??
-		( effectiveEnvironment === 'local' ? sessionSite : undefined );
+		homeSite ?? newSessionSite ?? ( effectiveEnvironment === 'local' ? sessionSite : undefined );
 	// While session or site data is still loading, preview-capable routes stay
 	// preview-capable so navigation doesn't close and reopen the panel around
 	// the fetch.
 	const supportsPreview =
-		overviewSiteId !== undefined ||
+		homeSiteId !== undefined ||
 		newSessionSiteId !== undefined ||
 		( sessionId !== undefined && ( sessionData === undefined || !! routeSite ) );
 	// Remember the last previewed site by id (looked up fresh each render so
@@ -160,27 +139,25 @@ function DashboardLayoutContent() {
 	// Look up by the route's site so the path is right even before the
 	// `setPreviewSite` effect lands.
 	const previewPath = pathForSite( preview.pathsBySiteId, previewSiteId );
-	const showPreview = preview.open && supportsPreview && !! previewSite;
-	const previewFullscreen = preview.fullscreen && showPreview;
-	const { setOpen: setPreviewOpen } = preview;
-	const { sidebarCollapsed, setSidebarCollapsed, openSidebar, onPreviewContainerWidthChange } =
-		useResponsivePanels( {
-			connector,
-			previewOpen: showPreview,
-			previewFullscreen,
-			setPreviewOpen,
-		} );
-	// Leave full preview when the route stops supporting a preview (settings,
-	// site settings…) so the user is never left staring at a hidden layout.
-	const { setFullscreen: setPreviewFullscreen } = preview;
+	// A site's own page is its preview, so it shows whether or not the panel is open.
+	const showPreview = ( preview.open || !! homeSiteId ) && supportsPreview && !! previewSite;
+	const chatHidden = ( preview.chatHidden || !! homeSiteId ) && showPreview;
+	// Opening a chat shows it.
+	const { setChatHidden } = preview;
 	useEffect( () => {
-		if ( ! supportsPreview ) {
-			setPreviewFullscreen( false );
-		}
-	}, [ supportsPreview, setPreviewFullscreen ] );
-	const exitPreviewFullscreen = useCallback( () => {
-		void openSidebar().then( () => setPreviewFullscreen( false ) );
-	}, [ openSidebar, setPreviewFullscreen ] );
+		setChatHidden( false );
+	}, [ sessionId, setChatHidden ] );
+	const { setOpen: setPreviewOpen } = preview;
+	// The window never grows to fit; a workspace too narrow for the split
+	// (a narrow browser tab) gives up the preview.
+	const onPreviewContainerWidthChange = useCallback(
+		( width: number | null ) => {
+			if ( width !== null && width < PREVIEW_SPLIT_MIN_WIDTH ) {
+				setPreviewOpen( false );
+			}
+		},
+		[ setPreviewOpen ]
+	);
 	const renderPreview = useCallback(
 		( { collapsed }: PreviewSplitFramePreviewProps ) =>
 			previewSite ? (
@@ -191,79 +168,66 @@ function DashboardLayoutContent() {
 					onAnnotationsDone={ onAnnotationsDone }
 					onPathChange={ preview.updatePath }
 					collapsed={ collapsed }
-					fullscreen={ previewFullscreen }
-					onFullscreenChange={ setPreviewFullscreen }
+					atWindowStart={ chatHidden }
+					toolbarStart={
+						chatHidden ? (
+							<>
+								<HeaderSidebarToggle />
+								<SiteDropdown
+									site={ previewSite }
+									defaultOpen={ !! homeSite && openSiteDropdown }
+								/>
+								{ homeSite ? null : (
+									<IconButton
+										variant="minimal"
+										tone="neutral"
+										size="small"
+										className="studio-control"
+										icon={ chatIcon }
+										label={ __( 'Show chat' ) }
+										onClick={ () => setChatHidden( false ) }
+									/>
+								) }
+							</>
+						) : undefined
+					}
 				/>
 			) : null,
 		[
+			chatHidden,
+			homeSite,
 			onAnnotationsDone,
-			previewFullscreen,
+			openSiteDropdown,
 			previewPath,
 			preview.reloadNonce,
 			preview.updatePath,
 			previewSite,
-			setPreviewFullscreen,
+			setChatHidden,
 		]
 	);
-	const activeWorkspaceView =
-		sessionId || newSessionSiteId ? 'chat' : overviewSiteId ? 'overview' : undefined;
-	const routeWorkspaceSiteId = overviewSiteId ?? newSessionSiteId ?? sessionSite?.id;
-	const [ retainedWorkspaceSiteId, setRetainedWorkspaceSiteId ] = useState( routeWorkspaceSiteId );
-	if ( routeWorkspaceSiteId && routeWorkspaceSiteId !== retainedWorkspaceSiteId ) {
-		setRetainedWorkspaceSiteId( routeWorkspaceSiteId );
-	}
-	const workspaceSiteId =
-		routeWorkspaceSiteId ?? ( activeWorkspaceView ? retainedWorkspaceSiteId : undefined );
-	const activeOverviewTab =
-		overviewTab ??
-		( workspaceSiteId ? overviewTabsBySite[ workspaceSiteId ] : undefined ) ??
-		'overview';
+	const workspaceSiteId = newSessionSiteId ?? sessionSite?.id;
 	const workspace =
-		activeWorkspaceView && workspaceSiteId ? (
-			<SiteWorkspace
-				key={ workspaceSiteId }
-				siteId={ workspaceSiteId }
-				activeView={ activeWorkspaceView }
-				sessionId={ sessionId }
-				overviewTab={ activeOverviewTab }
-				openSiteDropdown={ openSiteDropdown }
-				onOverviewTabChange={ ( next ) => {
-					setOverviewTabsBySite( ( current ) => ( {
-						...current,
-						[ workspaceSiteId ]: next,
-					} ) );
-					void connector.trackEvent( TRACKS_EVENTS.PANEL_OPENED, {
-						panel: siteSettingsTabToPanel( next ),
-					} );
-					void navigate( {
-						to: '/sites/$siteId/overview',
-						params: { siteId: workspaceSiteId },
-						search: { tab: next },
-						replace: true,
-					} );
-				} }
-			/>
+		( sessionId || newSessionSiteId ) && workspaceSiteId ? (
+			<SiteWorkspace key={ workspaceSiteId } siteId={ workspaceSiteId } sessionId={ sessionId } />
 		) : (
 			<Outlet />
 		);
 
 	return (
-		<SidebarLayout
-			collapsed={ sidebarCollapsed }
-			onCollapsedChange={ setSidebarCollapsed }
-			onExpand={ openSidebar }
-			forceCollapsed={ previewFullscreen }
-			onForceCollapsedToggle={ exitPreviewFullscreen }
-		>
+		<SidebarLayout>
 			<PreviewSplitFrame
 				previewOpen={ showPreview }
-				previewFullscreen={ previewFullscreen }
-				previewLive={ !! previewSite?.running }
+				chatHidden={ chatHidden }
 				preview={ renderPreview }
 				onContainerWidthChange={ onPreviewContainerWidthChange }
 			>
 				{ workspace }
 			</PreviewSplitFrame>
+			<CommandPalette
+				site={ homeSite ?? newSessionSite ?? sessionSite }
+				session={ sessionData?.summary }
+				chatHidden={ showPreview && ! homeSite ? chatHidden : undefined }
+			/>
 		</SidebarLayout>
 	);
 }

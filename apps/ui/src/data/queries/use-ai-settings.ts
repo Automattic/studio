@@ -9,7 +9,6 @@ export function useAiSettings() {
 	return useQuery( {
 		queryKey: AI_SETTINGS_QUERY_KEY,
 		queryFn: () => connector.getAiSettings(),
-		enabled: connector.capabilities.aiSettings,
 		staleTime: Infinity,
 	} );
 }

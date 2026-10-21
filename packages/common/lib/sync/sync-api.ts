@@ -202,12 +202,13 @@ export type RemoteFileEntry = {
 	path: string;
 };
 
-export async function fetchRemoteFileTree(
+/** Raw contents of a remote backup directory (rewind backup `ls`), keyed by entry name. */
+export async function fetchRemoteFileTreeContents(
 	token: string,
 	remoteSiteId: number,
 	rewindId: string,
-	treePath: string = '/wp-content/'
-): Promise< RemoteFileEntry[] > {
+	treePath: string
+): Promise< Record< string, unknown > > {
 	const wpcom = wpcomFactory( token, wpcomXhrRequest );
 
 	const rawResponse = await wpcom.req.post( {
@@ -216,14 +217,43 @@ export async function fetchRemoteFileTree(
 		body: { backup_id: rewindId, path: treePath },
 	} );
 
-	const parsed = backupLsResponseBodySchema.parse( rawResponse );
+	const parsed = backupLsResponseBodySchema
+		.partial( { error: true, contents: true } )
+		.parse( rawResponse );
 
 	if ( ! parsed.ok ) {
 		throw new Error( parsed.error || 'Failed to fetch remote file tree' );
 	}
+	return parsed.contents ?? {};
+}
+
+/** PHP version of the remote site's hosting environment, or undefined when it can't be read. */
+export async function fetchHostingPhpVersion(
+	token: string,
+	remoteSiteId: number
+): Promise< string | undefined > {
+	try {
+		const wpcom = wpcomFactory( token, wpcomXhrRequest );
+		const response = await wpcom.req.get( {
+			apiNamespace: 'wpcom/v2',
+			path: `/sites/${ remoteSiteId }/hosting/php-version`,
+		} );
+		return z.string().parse( response );
+	} catch {
+		return undefined;
+	}
+}
+
+export async function fetchRemoteFileTree(
+	token: string,
+	remoteSiteId: number,
+	rewindId: string,
+	treePath: string = '/wp-content/'
+): Promise< RemoteFileEntry[] > {
+	const contents = await fetchRemoteFileTreeContents( token, remoteSiteId, rewindId, treePath );
 
 	const entries: RemoteFileEntry[] = [];
-	for ( const [ name, rawItem ] of Object.entries( parsed.contents ) ) {
+	for ( const [ name, rawItem ] of Object.entries( contents ) ) {
 		const itemResult = backupLsItemSchema.safeParse( rawItem );
 		if ( itemResult.success ) {
 			const item: BackupLsItem = itemResult.data;

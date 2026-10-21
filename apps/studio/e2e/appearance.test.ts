@@ -8,7 +8,7 @@ test.describe( 'Appearance', () => {
 		session.electronApp.evaluate( ( { nativeTheme } ) => nativeTheme.shouldUseDarkColors );
 
 	test.beforeAll( async () => {
-		// The sidebar, which holds App settings, shows once a site exists.
+		// The sidebar, which holds the settings button, shows once a site exists.
 		await launchWithSite( session );
 	} );
 
@@ -23,7 +23,8 @@ test.describe( 'Appearance', () => {
 	test( 'changes color scheme from settings', async () => {
 		const settings = new AppSettings( session.mainWindow );
 		await settings.open();
-		await expect( settings.appearanceOption( 'Light' ) ).toHaveAttribute( 'aria-pressed', 'true' );
+		await settings.showSection( 'Appearance' );
+		await expect( settings.themeSelect ).toHaveText( 'Light' );
 
 		await settings.selectColorScheme( 'Dark' );
 		await expect.poll( isDark ).toBe( true );
@@ -40,6 +41,7 @@ test.describe( 'Appearance', () => {
 	test( 'persists color scheme across app restart', async () => {
 		const settings = new AppSettings( session.mainWindow );
 		await settings.open();
+		await settings.showSection( 'Appearance' );
 		await settings.selectColorScheme( 'Dark' );
 
 		await session.restart();
@@ -50,10 +52,8 @@ test.describe( 'Appearance', () => {
 
 		const settingsAfterRestart = new AppSettings( session.mainWindow );
 		await settingsAfterRestart.open();
-		await expect( settingsAfterRestart.appearanceOption( 'Dark' ) ).toHaveAttribute(
-			'aria-pressed',
-			'true'
-		);
+		await settingsAfterRestart.showSection( 'Appearance' );
+		await expect( settingsAfterRestart.themeSelect ).toHaveText( 'Dark' );
 		await settingsAfterRestart.selectColorScheme( 'Light' );
 	} );
 } );

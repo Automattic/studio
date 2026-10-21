@@ -1,24 +1,19 @@
 /**
  * @vitest-environment node
  */
-import { BrowserWindow, IpcMainInvokeEvent, shell } from 'electron';
+import { IpcMainInvokeEvent, shell } from 'electron';
 import { existsSync } from 'fs';
 import { normalize } from 'path';
-import { resolveMigratedAiSessionsPath } from '@studio/common/ai/sessions/root-migration';
-import { readThemeDetails } from '@studio/common/sites/site-identity';
 import { readSitePath } from '@studio/common/sites/site-path';
 import { readFile } from 'atomically';
 import { vol } from 'memfs';
 import { vi } from 'vitest';
 import {
 	createSite,
-	ensureMinWindowWidth,
 	getFileSize,
 	isFullscreen,
-	loadThemeDetails,
 	openURL,
 	readBlueprintFile,
-	readLocalMediaFile,
 } from 'src/ipc-handlers';
 import { getMainWindow } from 'src/main-window';
 import { createSiteViaCli } from 'src/modules/cli/lib/cli-site-creator';
@@ -30,9 +25,6 @@ vi.mock( 'fs/promises', async () => {
 } );
 vi.mock( 'fs-extra' );
 vi.mock( '@studio/common/lib/fs-utils' );
-vi.mock( '@studio/common/ai/sessions/root-migration', () => ( {
-	resolveMigratedAiSessionsPath: vi.fn( ( path: string ) => path ),
-} ) );
 vi.mock( '@sentry/electron/main', () => ( {
 	captureException: vi.fn(),
 	captureMessage: vi.fn(),
@@ -43,10 +35,6 @@ vi.mock( 'src/modules/cli/lib/cli-site-creator' );
 vi.mock( '@studio/common/sites/site-path' );
 vi.mock( '@studio/common/sites/site-identity' );
 vi.mock( 'src/main-window' );
-vi.mock( 'src/lib/sqlite-versions', () => ( {
-	keepSqliteIntegrationUpdated: vi.fn().mockResolvedValue( undefined ),
-	installSqliteIntegration: vi.fn().mockResolvedValue( undefined ),
-} ) );
 vi.mock( import( 'src/lib/bump-stats' ), async ( importOriginal ) => {
 	const actual = await importOriginal();
 	return {
@@ -158,80 +146,6 @@ describe( 'isFullscreen', () => {
 	} );
 } );
 
-describe( 'ensureMinWindowWidth', () => {
-	it( 'grows the sender window content while preserving its height', async () => {
-		const setContentSize = vi.fn();
-		let width = 420;
-		vi.mocked( BrowserWindow.fromWebContents ).mockReturnValueOnce( {
-			isDestroyed: () => false,
-			getContentSize: () => [ width, 700 ],
-			setContentSize: ( nextWidth: number, height: number ) => {
-				width = nextWidth;
-				setContentSize( nextWidth, height );
-			},
-		} as unknown as BrowserWindow );
-
-		const result = await ensureMinWindowWidth( mockIpcMainInvokeEvent, 640 );
-
-		expect( setContentSize ).toHaveBeenCalledWith( 640, 700 );
-		expect( result ).toBe( 640 );
-	} );
-
-	it( 'leaves an already-wide window unchanged', async () => {
-		const setContentSize = vi.fn();
-		vi.mocked( BrowserWindow.fromWebContents ).mockReturnValueOnce( {
-			isDestroyed: () => false,
-			getContentSize: () => [ 900, 700 ],
-			setContentSize,
-		} as unknown as BrowserWindow );
-
-		const result = await ensureMinWindowWidth( mockIpcMainInvokeEvent, 640 );
-
-		expect( setContentSize ).not.toHaveBeenCalled();
-		expect( result ).toBe( 900 );
-	} );
-
-	it( 'returns the content width the window manager actually applied', async () => {
-		vi.mocked( BrowserWindow.fromWebContents ).mockReturnValueOnce( {
-			isDestroyed: () => false,
-			getContentSize: () => [ 600, 700 ],
-			setContentSize: vi.fn(),
-		} as unknown as BrowserWindow );
-
-		const result = await ensureMinWindowWidth( mockIpcMainInvokeEvent, 640 );
-
-		expect( result ).toBe( 600 );
-	} );
-} );
-
-describe( 'loadThemeDetails', () => {
-	it( "reads the theme from the site's folder, whether or not it runs", async () => {
-		const themeDetails = {
-			name: 'Twenty Twenty-Five',
-			path: '/themes/twentytwentyfive',
-			slug: 'twentytwentyfive',
-			isBlockTheme: true,
-			supportsWidgets: false,
-			supportsMenus: false,
-		};
-		vi.mocked( readSitePath ).mockResolvedValue( '/test' );
-		vi.mocked( readThemeDetails ).mockResolvedValue( themeDetails );
-
-		await expect( loadThemeDetails( mockIpcMainInvokeEvent, 'site-id' ) ).resolves.toBe(
-			themeDetails
-		);
-		expect( readThemeDetails ).toHaveBeenCalledWith( expect.any( Function ), '/test' );
-	} );
-
-	it( 'rejects an unknown site', async () => {
-		vi.mocked( readSitePath ).mockResolvedValue( null );
-
-		await expect( loadThemeDetails( mockIpcMainInvokeEvent, 'missing' ) ).rejects.toThrow(
-			'Site not found.'
-		);
-	} );
-} );
-
 describe( 'getFileSize', () => {
 	beforeEach( () => {
 		vi.mocked( readSitePath ).mockResolvedValue( '/test' );
@@ -261,21 +175,6 @@ describe( 'getFileSize', () => {
 		expect( warnSpy ).toHaveBeenCalledWith( expect.stringContaining( 'advanced-cache.php' ) );
 
 		warnSpy.mockRestore();
-	} );
-} );
-
-describe( 'readLocalMediaFile', () => {
-	it( 'reads artifacts from their migrated sessions path', async () => {
-		const legacyPath = '/legacy/sessions/session.screenshots/screenshot.jpg';
-		const migratedPath = '/.studio/sessions/session.screenshots/screenshot.jpg';
-		vol.fromJSON( { [ migratedPath ]: 'image' } );
-		vi.mocked( resolveMigratedAiSessionsPath ).mockReturnValueOnce( migratedPath );
-
-		const file = await readLocalMediaFile( mockIpcMainInvokeEvent, legacyPath );
-
-		expect( resolveMigratedAiSessionsPath ).toHaveBeenCalledWith( legacyPath );
-		expect( file.name ).toBe( 'screenshot.jpg' );
-		expect( Buffer.from( file.data ).toString() ).toBe( 'image' );
 	} );
 } );
 

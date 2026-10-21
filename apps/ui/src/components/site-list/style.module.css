@@ -1,30 +1,28 @@
+/* Sidebar rows: 36px tall with 8px padding, a 16px icon and 14px text,
+   inset 12px from the sidebar's edges. */
 .root {
-	--site-list-row-height: 34px;
-	--site-list-row-leading-inset: var(--wpds-dimension-padding-sm);
-	--site-list-row-outer-inset: calc(
-		var(--wpds-dimension-padding-lg) - var(--site-list-row-leading-inset)
-	);
+	--site-list-row-height: 36px;
+	--site-list-row-padding: var(--wpds-dimension-padding-sm);
+	--site-list-icon-gap: 6px;
+	/* Where a row's text starts, past its padding and icon. */
+	--site-list-text-inset: calc(var(--site-list-row-padding) + 16px + var(--site-list-icon-gap));
+	--site-list-action-size: 32px;
 	--site-list-chat-status-size: 14px;
-	--site-list-chat-status-start-offset: 4px;
-	--site-list-chat-status-gap: 3px;
-	--site-list-label-inline-offset: 4px;
-	/* The sidebar sits on the dark window chrome in both color schemes, so
-	   the pending indicator is always the vivid on-dark value. */
+	--site-list-chat-status-start-offset: 0px;
+	--site-list-chat-status-gap: var(--site-list-icon-gap);
 	--site-list-pending-indicator-bg: var(--studio-color-status-attention);
 	--site-list-sync-indicator-bg: var(--studio-color-status-sync);
-	/* Row hover/active/drag background. Declared here (not on an ancestor) so
-	   every mount point gets it; it resolves against whatever theme scope
-	   wraps the list — the dark chrome scope in both the sidebar and the
-	   collapsed switcher. */
-	--sidebar-row-background: var(--wpds-color-background-interactive-neutral-weak-active);
+	/* Row hover and selection. Declared here so every mount point gets it,
+	   resolved against whatever theme scope wraps the list. */
+	--sidebar-row-background: var(--studio-hover-background);
 
-	/* Pull the row shape slightly left, then add the inset back inside rows so
-	   labels keep their column while selected rows have breathing room. */
-	padding: 0 var(--site-list-row-outer-inset) var(--wpds-dimension-padding-xl)
-		var(--site-list-row-outer-inset);
+	padding: var(--wpds-dimension-padding-md) var(--wpds-dimension-padding-md)
+		var(--wpds-dimension-padding-xl);
 	display: flex;
 	flex-direction: column;
-	gap: var(--wpds-dimension-padding-sm);
+	gap: var(--wpds-dimension-padding-xs);
+	font-size: 14px;
+	line-height: var(--wpds-typography-line-height-sm);
 	user-select: none;
 	-webkit-app-region: no-drag;
 }
@@ -70,40 +68,51 @@
 }
 
 .siteHeader {
+	position: relative;
 	display: flex;
 	align-items: center;
-	gap: var(--wpds-dimension-padding-xs);
+	gap: var(--site-list-icon-gap);
 	min-width: 0;
 	box-sizing: border-box;
 	height: var(--site-list-row-height);
-	/* The row shape extends left of the content column; this padding keeps the
-	   title column aligned while giving selected rows breathing room. */
-	padding: var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-sm)
-		var(--wpds-dimension-padding-xs) var(--site-list-row-leading-inset);
-	border-radius: 6px;
+	padding-inline: var(--site-list-row-padding);
+	border-radius: var(--wpds-border-radius-sm);
+	color: var(--wpds-color-foreground-content-neutral);
 	cursor: var(--wpds-cursor-control);
-	transition: background-color 80ms ease;
 }
 
 .siteHeader:hover,
-.siteHeader:focus-within {
-	background-color: var(--sidebar-row-background);
-}
-
+.siteHeader:has(:focus-visible),
 .siteActive .siteHeader,
-.siteActive .siteHeader:hover,
-.siteActive .siteHeader:focus-within {
+.siteContextActive .siteHeader {
 	background-color: var(--sidebar-row-background);
 }
 
-.siteContextActive .siteHeader {
-	outline: 1px dashed color-mix(in srgb, var(--wpds-color-stroke-surface-neutral) 78%, transparent);
-	outline-offset: -2px;
+/* The selected site's chats carry the selection, so its own row stays plain
+   unless hovered. */
+.siteWithChats.siteActive .siteHeader:not(:hover, :has(:focus-visible)) {
+	background-color: transparent;
 }
 
-.siteContextActive .siteHeader:hover,
-.siteContextActive .siteHeader:focus-within {
-	background-color: transparent;
+.siteIcon {
+	position: relative;
+	display: inline-flex;
+	flex-shrink: 0;
+}
+
+.siteXdebug {
+	width: 16px;
+	height: 16px;
+}
+
+.runningDot {
+	position: absolute;
+	top: -2px;
+	right: -2px;
+	width: 7px;
+	height: 7px;
+	border-radius: 50%;
+	background-color: var(--wpds-color-background-interactive-brand-strong);
 }
 
 .siteText {
@@ -113,14 +122,20 @@
 	align-items: center;
 }
 
+.siteToggle,
+.chat {
+	--wp-ui-button-font-size: 14px;
+	--wp-ui-button-font-weight: var(--wpds-typography-font-weight-default);
+}
+
 .siteToggle {
 	flex: 1 1 auto;
 	min-width: 0;
 	max-width: 100%;
 	height: auto;
 	gap: 0;
-	/* Keep a little breathing room between the selected row shape and the label. */
-	padding-inline-start: var(--site-list-label-inline-offset);
+	padding: 0;
+	font: inherit;
 }
 
 .siteToggle:focus-visible {
@@ -196,14 +211,6 @@
 	background-color: var(--site-list-pending-indicator-bg);
 }
 
-.siteAgentActivityMessage {
-	display: block;
-	inline-size: 8px;
-	block-size: 6px;
-	border-radius: 3px 3px 3px 1px;
-	background-color: var(--wpds-color-foreground-interactive-brand);
-}
-
 .siteAgentActivitySync {
 	display: inline-grid;
 	place-items: center;
@@ -242,9 +249,6 @@
 }
 
 .siteName {
-	font-size: var(--wpds-typography-font-size-md);
-	line-height: 1.2;
-	font-weight: var(--wpds-typography-font-weight-default);
 	color: var(--wpds-color-foreground-content-neutral);
 	overflow: hidden;
 	text-overflow: ellipsis;
@@ -252,91 +256,60 @@
 	max-width: 100%;
 }
 
-.siteNameStopped {
-	color: var(--wpds-color-foreground-content-neutral-weak);
-}
-
 .siteNameStarting {
 	animation: siteNameStartingPulse 1s ease-in-out infinite;
 }
 
-.siteActive .siteName {
-	font-weight: var(--wpds-typography-font-weight-emphasis);
-}
-
+/* A row's 32px actions, pinned inside its trailing edge. They show on hover,
+   on keyboard focus, and while the row's menu is open; a running start or stop
+   stays visible. The row's text makes room for them. */
 .siteActions {
+	position: absolute;
+	inset-block-start: 2px;
+	inset-inline-end: 2px;
 	display: flex;
-	align-items: center;
-	justify-content: flex-end;
+	gap: 2px;
+}
+
+.rowAction[class] {
+	--wp-ui-button-height: var(--site-list-action-size);
+
 	flex-shrink: 0;
-	gap: 0;
-	max-width: 24px;
-	overflow: hidden;
-	transition: max-width 100ms ease;
+	color: var(--wpds-color-foreground-content-neutral-weak);
 }
 
-.siteAction {
-	flex-shrink: 0;
-	outline-offset: -2px;
+.siteActions .rowAction {
+	opacity: 0;
 }
 
-.siteAction[aria-pressed='true'] {
-	--wp-ui-button-background-color: var(--wpds-color-foreground-content-neutral);
-	--wp-ui-button-background-color-active: var(--wpds-color-foreground-content-neutral);
-	--wp-ui-button-foreground-color: var(--wpds-color-background-surface-neutral);
-	--wp-ui-button-foreground-color-active: var(--wpds-color-background-surface-neutral);
+.siteHeader:hover .rowAction,
+.siteHeader:has(:focus-visible) .rowAction,
+.siteHeader[data-popup-open] .rowAction,
+.siteStatus[aria-busy='true'] {
+	opacity: 1;
 }
 
-/* Collapsed, only the trailing status button shows; hover/focus/active
-   reveals the overview button next to it. The header carries
-   `data-popup-open` while its right-click menu is open (Base UI sets it on
-   the context-menu trigger), keeping the row's controls visible. */
-.siteActive .siteActions,
-.siteContextActive .siteActions,
-.siteHeader:hover .siteActions,
-.siteHeader:focus-within .siteActions,
-.siteHeader[data-popup-open] .siteActions {
-	max-width: 48px;
+.siteHeader:hover,
+.siteHeader:has(:focus-visible),
+.siteHeader[data-popup-open] {
+	padding-inline-end: calc(2 * var(--site-list-action-size) + var(--site-list-row-padding));
 }
 
 .siteStatus {
 	display: inline-grid;
 	place-items: center;
-	flex: 0 0 24px;
-	inline-size: 24px;
-	block-size: 24px;
+	inline-size: var(--site-list-action-size);
+	block-size: var(--site-list-action-size);
 	padding: 0;
 	border: 0;
-	border-radius: 4px;
+	border-radius: var(--wpds-border-radius-sm);
 	background: transparent;
-	color: inherit;
 	cursor: var(--wpds-cursor-control);
-	transition: background-color 100ms ease, opacity 100ms ease;
-}
-
-/* A stopped site carries no signal worth surfacing, so its play affordance
-   stays hidden until the row is hovered, focused, has an open menu, or is the
-   active site; running/transitioning dots remain always visible. */
-.siteStatus[data-state='stopped'] {
-	opacity: 0;
-}
-
-.siteActive .siteStatus[data-state='stopped'],
-.siteContextActive .siteStatus[data-state='stopped'],
-.siteHeader:hover .siteStatus[data-state='stopped'],
-.siteHeader:focus-within .siteStatus[data-state='stopped'],
-.siteHeader[data-popup-open] .siteStatus[data-state='stopped'] {
-	opacity: 1;
-}
-
-/* Xdebug is a persistent single-site setting worth spotting at a glance, so
-   its (greyed) glyph stays visible even while the site is stopped. */
-.siteStatus[data-xdebug][data-state='stopped'] {
-	opacity: 1;
 }
 
 .siteStatus:not([aria-disabled='true']):is(:hover, :focus-visible) {
 	background-color: var(--wpds-color-background-interactive-neutral-weak-active);
+	color: var(--wpds-color-foreground-content-neutral);
 }
 
 .siteStatus:focus-visible {
@@ -346,131 +319,6 @@
 
 .siteStatus[aria-disabled='true'] {
 	cursor: default;
-}
-
-.siteStatus .siteStatusGlyph.siteStatusGlyph {
-	grid-row-start: 1;
-	grid-column-start: 1;
-	inline-size: 8px;
-	block-size: 8px;
-	width: 8px;
-	height: 8px;
-	flex-shrink: 0;
-	overflow: visible;
-	transition: opacity 100ms ease;
-}
-
-/* Classic's Xdebug bug replaces the status dot; its color tracks the same
-   state palette the dot uses. */
-.siteStatus .siteStatusXdebugGlyph.siteStatusXdebugGlyph {
-	inline-size: 20px;
-	block-size: 20px;
-	width: 20px;
-	height: 20px;
-}
-
-.siteStatus[data-state='running'] .siteStatusXdebugGlyph {
-	color: var(--studio-color-status-running);
-}
-
-.siteStatus[data-state='transitioning'] .siteStatusXdebugGlyph {
-	color: var(--studio-color-status-transitioning);
-	animation: siteStatusBlink 1s ease-in-out infinite;
-}
-
-.siteStatus[data-state='stopped'] .siteStatusXdebugGlyph {
-	color: var(--wpds-color-foreground-content-neutral-weak);
-}
-
-/* Hovering the status button itself (not the row) crossfades the status dot
-   into the action it triggers: play when stopped, stop when running. The
-   transitioning state keeps the blinking dot — there's no action to take. */
-.siteStatus .siteStatusActionGlyph.siteStatusActionGlyph {
-	grid-row-start: 1;
-	grid-column-start: 1;
-	display: inline-grid;
-	place-items: center;
-	inline-size: 10px;
-	block-size: 10px;
-	width: 10px;
-	height: 10px;
-	color: var(--wpds-color-foreground-content-neutral);
-	opacity: 0;
-	transition: opacity 100ms ease;
-}
-
-.siteStatus:not([data-state='transitioning']):is(:hover, :focus-visible) .siteStatusGlyph {
-	opacity: 0;
-}
-
-.siteStatus:not([data-state='transitioning']):is(:hover, :focus-visible) .siteStatusActionGlyph {
-	opacity: 1;
-}
-
-.siteStatusPauseMark,
-.siteStatusPauseMark::before,
-.siteStatusPauseMark::after {
-	display: block;
-	height: 8px;
-	border-radius: 1px;
-	background: currentColor;
-}
-
-.siteStatusPauseMark {
-	position: relative;
-	width: 8px;
-	background: transparent;
-}
-
-.siteStatusPauseMark::before,
-.siteStatusPauseMark::after {
-	position: absolute;
-	top: 0;
-	width: 2px;
-	content: '';
-}
-
-.siteStatusPauseMark::before {
-	left: 1px;
-}
-
-.siteStatusPauseMark::after {
-	right: 1px;
-}
-
-.siteStatusShape {
-	x: 0;
-	y: 0;
-	width: 8px;
-	height: 8px;
-	rx: 4px;
-	fill: var(--studio-color-status-running);
-	transition: fill 160ms ease, rx 160ms ease;
-}
-
-.siteStatusPlayShape {
-	fill: var(--wpds-color-foreground-content-neutral);
-}
-
-.siteStatus[data-state='running'] .siteStatusShape {
-	fill: var(--studio-color-status-running);
-	rx: 4px;
-}
-
-.siteStatus[data-state='transitioning'] .siteStatusShape {
-	fill: var(--studio-color-status-transitioning);
-	rx: 4px;
-	animation: siteStatusBlink 1s ease-in-out infinite;
-}
-
-@keyframes siteStatusBlink {
-	0%,
-	100% {
-		opacity: 1;
-	}
-	50% {
-		opacity: 0.25;
-	}
 }
 
 @keyframes siteNameStartingPulse {
@@ -514,34 +362,12 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-	.siteStatusShape {
-		transition: none;
-		animation: none;
-	}
-
-	.siteStatusGlyph,
-	.siteStatusActionGlyph {
-		transition: none;
-	}
-
-	.siteStatusXdebugGlyph {
-		animation: none;
-	}
-
-	.siteAgentActivitySlot {
-		transition: none;
-	}
-
-	.siteNameStarting {
-		animation: none;
-	}
-
-	.siteAgentActivitySyncDot {
-		animation: none;
-	}
-
+	.siteAgentActivitySlot,
+	.siteNameStarting,
+	.siteAgentActivitySyncDot,
 	.siteAgentActivitySyncDots {
 		animation: none;
+		transition: none;
 	}
 
 	.siteDragPreview {
@@ -550,8 +376,198 @@
 }
 
 .empty {
-	padding: var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-sm);
+	padding: var(--wpds-dimension-padding-xs) var(--site-list-row-padding);
 	color: var(--wpds-color-foreground-content-neutral-weak);
-	font-size: var(--wpds-typography-font-size-sm);
 	margin: 0;
+}
+
+.group {
+	display: flex;
+	flex-direction: column;
+	padding-block-start: var(--wpds-dimension-padding-xs);
+}
+
+.group + .group {
+	margin-block-start: var(--wpds-dimension-padding-md);
+}
+
+.groupHeader {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	height: var(--site-list-row-height);
+}
+
+/* The label reads muted; its chevron points down when open and shows on hover,
+   and stays visible pointing right while the group is collapsed. */
+.groupToggle {
+	display: inline-flex;
+	flex: 1;
+	align-items: center;
+	gap: var(--wpds-dimension-gap-xs);
+	height: 100%;
+	padding: 0 var(--site-list-row-padding);
+	border: none;
+	border-radius: var(--wpds-border-radius-sm);
+	background: none;
+	color: var(--wpds-color-foreground-content-neutral-weak);
+	font: inherit;
+	font-weight: 450;
+	cursor: var(--wpds-cursor-control);
+	transition: color var(--studio-motion-feedback-duration) ease;
+}
+
+.groupToggle:hover {
+	color: var(--wpds-color-foreground-content-neutral);
+}
+
+.groupToggle:focus-visible {
+	outline: 2px solid var(--wpds-color-stroke-focus);
+	outline-offset: -2px;
+}
+
+.groupChevron {
+	opacity: 0;
+	transition:
+		rotate var(--studio-motion-feedback-duration) ease,
+		opacity var(--studio-motion-feedback-duration) ease;
+}
+
+.groupToggle[aria-expanded='true'] .groupChevron {
+	rotate: 90deg;
+}
+
+.group:hover .groupChevron,
+.groupToggle[aria-expanded='false'] .groupChevron {
+	opacity: 1;
+}
+
+.chats {
+	display: flex;
+	flex-direction: column;
+	gap: 1px;
+}
+
+.site .chats {
+	padding-block: 1px var(--wpds-dimension-padding-sm);
+}
+
+.chatRow {
+	position: relative;
+	display: flex;
+	align-items: center;
+	border-radius: var(--wpds-border-radius-sm);
+}
+
+.chatRow:hover,
+.chatRow[data-popup-open],
+.chatActive {
+	background-color: var(--sidebar-row-background);
+}
+
+.chat {
+	--wp-ui-button-height: var(--site-list-row-height);
+
+	flex: 1 1 auto;
+	justify-content: flex-start;
+	gap: var(--site-list-icon-gap);
+	min-width: 0;
+	padding-inline: var(--site-list-row-padding);
+	border-radius: var(--wpds-border-radius-sm);
+	color: var(--wpds-color-foreground-content-neutral);
+	font: inherit;
+}
+
+.chatNested .chat {
+	padding-inline-start: var(--site-list-text-inset);
+}
+
+.rowIcon {
+	flex-shrink: 0;
+}
+
+.chatActions {
+	position: absolute;
+	inset-inline-end: 2px;
+	display: flex;
+	opacity: 0;
+}
+
+.chatRow:hover .chatActions,
+.chatRow:has(:focus-visible) .chatActions,
+.chatRow[data-popup-open] .chatActions,
+.chatActive .chatActions {
+	opacity: 1;
+}
+
+.chatRow:hover .chat,
+.chatRow:has(:focus-visible) .chat,
+.chatRow[data-popup-open] .chat,
+.chatActive .chat {
+	padding-inline-end: calc(2 * var(--site-list-action-size) + var(--site-list-row-padding));
+}
+
+.chatTitle {
+	flex: 1 1 auto;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	text-align: start;
+}
+
+.chatActivity {
+	flex-shrink: 0;
+}
+
+/* Sits in the archive button's slot, which takes over on hover. */
+.unreadDot {
+	position: absolute;
+	inset-inline-end: calc(2px + (var(--site-list-action-size) - 7px) / 2);
+	width: 7px;
+	height: 7px;
+	border-radius: 50%;
+	background-color: var(--wpds-color-background-interactive-brand-strong);
+}
+
+.chat:has(.unreadDot) {
+	padding-inline-end: calc(var(--site-list-action-size) + var(--site-list-row-padding));
+}
+
+.chatRow:hover .unreadDot,
+.chatRow:has(:focus-visible) .unreadDot,
+.chatRow[data-popup-open] .unreadDot {
+	opacity: 0;
+}
+
+.chatQuestion {
+	flex-shrink: 0;
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	background-color: var(--site-list-pending-indicator-bg);
+}
+
+/* Wraps the sidebar's groups without adding a box of its own. */
+.selection {
+	display: contents;
+}
+
+.siteHeader[data-selected],
+.chatRow[data-selected] {
+	background-color: var(--sidebar-row-background);
+}
+
+/* While several rows are selected, their hover actions step aside. */
+.selection[data-selecting] :is(.chatActions, .siteActions) {
+	visibility: hidden;
+}
+
+.visuallyHidden {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	overflow: hidden;
+	clip-path: inset(50%);
+	white-space: nowrap;
 }

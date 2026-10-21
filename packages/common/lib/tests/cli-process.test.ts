@@ -55,6 +55,15 @@ describe( 'killChild', () => {
 		expect( child.signals ).toEqual( [ 'SIGTERM', 'SIGKILL' ] );
 	} );
 
+	it( 'only asks when not forced, so a sync that must finish can', () => {
+		const child = createStubbornChild();
+
+		killChild( child, { force: false } );
+		vi.advanceTimersByTime( 5000 );
+
+		expect( child.signals ).toEqual( [ 'SIGTERM' ] );
+	} );
+
 	it( 'leaves a child that exits on SIGTERM alone', () => {
 		const child = createStubbornChild();
 

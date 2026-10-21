@@ -14,7 +14,6 @@ import type { LocalServer } from '../../local/src/index';
 const mocks = vi.hoisted( () => ( {
 	execute: vi.fn(),
 	killAll: vi.fn(),
-	measureSiteStorage: vi.fn(),
 	readSitePath: vi.fn(),
 	readAiSettings: vi.fn(),
 	saveAnthropicApiKey: vi.fn(),
@@ -23,16 +22,13 @@ const mocks = vi.hoisted( () => ( {
 
 vi.mock( '@studio/common/lib/cli-process', async ( importOriginal ) => ( {
 	...( await importOriginal< typeof import('@studio/common/lib/cli-process') >() ),
-	killChild: vi.fn(),
+	killChild: vi.fn( ( child: { kill: () => void } ) => child.kill() ),
 	createCliRunner: vi.fn( () => ( {
 		executeCliCommand: mocks.execute,
 		killAll: mocks.killAll,
 	} ) ),
 } ) );
 vi.mock( '@studio/common/sites/list', () => ( { listSites: vi.fn() } ) );
-vi.mock( '@studio/common/sites/storage-usage', () => ( {
-	measureSiteStorage: mocks.measureSiteStorage,
-} ) );
 vi.mock( '@studio/common/sites/site-path', () => ( { readSitePath: mocks.readSitePath } ) );
 vi.mock( '@studio/common/ai/settings-store', async ( importOriginal ) => ( {
 	...( await importOriginal< typeof import('@studio/common/ai/settings-store') >() ),
@@ -77,14 +73,6 @@ describe( 'local web server Connect contracts', () => {
 		mocks.readSitePath.mockImplementation( async ( siteId: string ) =>
 			siteId === 'local-a' ? '/sites/local-a' : null
 		);
-		mocks.measureSiteStorage.mockResolvedValue( {
-			total: 800,
-			uploads: 400,
-			plugins: 200,
-			themes: 100,
-			database: 50,
-			other: 50,
-		} );
 		mocks.execute.mockImplementation( () => {
 			const emitter = new EventEmitter();
 			queueMicrotask( () => emitter.emit( 'success' ) );
@@ -112,36 +100,6 @@ describe( 'local web server Connect contracts', () => {
 			port: 0,
 			host: '127.0.0.1',
 		} );
-	} );
-
-	it( 'reports a local site storage breakdown', async () => {
-		const response = await fetch(
-			`${ server.url.replace( 'localhost', '127.0.0.1' ) }/api/sites/local-a/storage`
-		);
-
-		expect( response.status ).toBe( 200 );
-		await expect( response.json() ).resolves.toEqual( {
-			total: 800,
-			uploads: 400,
-			plugins: 200,
-			themes: 100,
-			database: 50,
-			other: 50,
-		} );
-		expect( mocks.measureSiteStorage ).toHaveBeenCalledWith( '/sites/local-a', {
-			signal: expect.any( AbortSignal ),
-		} );
-		// The UI asks for this on every site switch, so it must not cost a CLI fork.
-		expect( listSites ).not.toHaveBeenCalled();
-	} );
-
-	it( '404s a storage request for a site that is not in the config', async () => {
-		const response = await fetch(
-			`${ server.url.replace( 'localhost', '127.0.0.1' ) }/api/sites/missing/storage`
-		);
-
-		expect( response.status ).toBe( 404 );
-		expect( mocks.measureSiteStorage ).not.toHaveBeenCalled();
 	} );
 
 	afterEach( async () => {
@@ -422,7 +380,9 @@ describe( 'local web server Connect contracts', () => {
 		mocks.execute.mockImplementationOnce( () => {
 			const emitter = new EventEmitter();
 			queueMicrotask( pullStarted );
-			return [ emitter, { kill: () => undefined } ];
+			// Exits when asked to stop, as a pull still safe to cancel does.
+			const kill = () => emitter.emit( 'failure', { error: new Error( 'exited' ) } );
+			return [ emitter, { kill } ];
 		} );
 		const baseUrl = server.url.replace( 'localhost', '127.0.0.1' );
 

@@ -1,6 +1,5 @@
 import { Popover as BasePopover } from '@base-ui/react/popover';
-import { ThemeProvider } from '@wordpress/theme';
-import { FLOATING_SURFACE_BACKGROUND, FloatingSurface } from '@/components/floating-surface';
+import { FloatingSurface } from '@/components/floating-surface';
 import styles from './style.module.css';
 import type { ComponentProps, CSSProperties, ReactNode } from 'react';
 
@@ -48,9 +47,7 @@ export function Popup( {
 					finalFocus={ finalFocus }
 					render={ <FloatingSurface className={ className } style={ style } /> }
 				>
-					<ThemeProvider color={ { background: FLOATING_SURFACE_BACKGROUND } }>
-						{ children }
-					</ThemeProvider>
+					{ children }
 				</BasePopover.Popup>
 			</BasePopover.Positioner>
 		</BasePopover.Portal>

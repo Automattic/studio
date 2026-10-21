@@ -1,9 +1,9 @@
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { readUserPreferences } from '@studio/common/lib/user-settings/user-preferences';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { startLocalServer, type LocalServer } from '../index';
-import { readUserPreferences } from '../user-preferences';
 import type { InstalledApps } from '@studio/common/lib/user-settings/installed-apps';
 
 // Driven over HTTP: the request validation and the `null`-clears-a-preference

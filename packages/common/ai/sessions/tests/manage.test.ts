@@ -13,11 +13,6 @@ vi.mock( 'atomically', () => ( {
 	readFile: vi.fn(),
 	writeFile: vi.fn(),
 } ) );
-vi.mock( 'node:fs/promises', async ( importOriginal ) => {
-	const actual = await importOriginal< typeof import('node:fs/promises') >();
-	const mkdir = vi.fn().mockResolvedValue( undefined );
-	return { ...actual, default: { ...actual, mkdir }, mkdir };
-} );
 vi.mock( '@studio/common/lib/lockfile', () => ( {
 	lockFileAsync: vi.fn().mockResolvedValue( undefined ),
 	unlockFileAsync: vi.fn().mockResolvedValue( undefined ),

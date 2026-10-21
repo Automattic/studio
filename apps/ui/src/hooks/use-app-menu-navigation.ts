@@ -2,12 +2,14 @@ import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { useEffect } from 'react';
 import { useConnector } from '@/data/core';
+import { useOpenSettings } from '@/hooks/use-open-settings';
 import { createSelectedBlueprint } from '@/lib/blueprint-selection';
 import { pendingBlueprintSlot } from '@/lib/pending-blueprint';
 
 export function useAppMenuNavigation() {
 	const connector = useConnector();
 	const navigate = useNavigate();
+	const openSettings = useOpenSettings();
 
 	useEffect(
 		() => connector.onAddSite( () => void navigate( { to: '/onboarding' } ) ),
@@ -52,8 +54,5 @@ export function useAppMenuNavigation() {
 			} ),
 		[ connector, navigate ]
 	);
-	useEffect(
-		() => connector.onOpenSettings( () => void navigate( { to: '/settings' } ) ),
-		[ connector, navigate ]
-	);
+	useEffect( () => connector.onOpenSettings( () => openSettings() ), [ connector, openSettings ] );
 }

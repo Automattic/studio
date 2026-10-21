@@ -18,7 +18,6 @@ import type {
 	AiSessionPlacementUpdatedEvent,
 	AppGlobals,
 	AuthUser,
-	ColorScheme,
 	Connector,
 	ExtractedBlueprintBundle,
 	InstalledApps,
@@ -26,19 +25,17 @@ import type {
 	LoadedAiSession,
 	AppUpdateStatus,
 	ProposedSitePath,
-	QuitSitesBehavior,
 	SelectedSiteFolder,
 	SiteDetails,
+	SiteAgentFile,
 	SkillStatus,
 	Snapshot,
 	SnapshotUsage,
 	StudioAssistantQuota,
 	StudioAssistantTopUpPricing,
 	SupportedEditor,
-	SupportedTerminal,
 	SyncSite,
 	UserPreferences,
-	ThemeDetails,
 } from '../../types';
 import type { AgentRunEvent } from '@studio/common/ai/agent-events';
 import type { AiSettings } from '@studio/common/ai/providers';
@@ -126,11 +123,7 @@ export function createIpcConnector(): Connector {
 		// Native desktop app: every affordance is available.
 		capabilities: {
 			nativeFolderPicker: true,
-			openInOS: true,
 			annotatePreview: true,
-			readLocalMedia: true,
-			agentInstructions: true,
-			aiSettings: true,
 			studioLogs: true,
 		},
 
@@ -334,38 +327,11 @@ export function createIpcConnector(): Connector {
 		async getSiteThumbnail( siteId ): Promise< string | null > {
 			return ( await ipcApi.getThumbnailData( siteId ) ) as string | null;
 		},
-		async getSiteStorageUsage( siteId, signal ) {
-			if ( ! signal ) {
-				return ipcApi.getSiteStorageUsage( siteId );
-			}
-			// `ipcRenderer.invoke` can't be cancelled, so aborting is a second
-			// call telling the main process to stop this measurement. The
-			// `throwIfAborted` calls turn the abort into the rejection React
-			// Query recognizes as a cancellation rather than a failed query.
-			const requestId = crypto.randomUUID();
-			const cancel = () => void ipcApi.cancelSiteStorageUsage( requestId );
-			signal.addEventListener( 'abort', cancel, { once: true } );
-			try {
-				const usage = await ipcApi.getSiteStorageUsage( siteId, requestId );
-				signal.throwIfAborted();
-				return usage;
-			} catch ( error ) {
-				signal.throwIfAborted();
-				throw error;
-			} finally {
-				signal.removeEventListener( 'abort', cancel );
-			}
-		},
-
 		async getSiteDesign( siteId ) {
 			return ipcApi.getSiteDesign( siteId );
 		},
 		async fixSiteDesignDrift( siteId, fixes ) {
 			return ipcApi.fixSiteDesignDrift( siteId, fixes );
-		},
-
-		async getThemeDetails( siteId ) {
-			return ( await ipcApi.loadThemeDetails( siteId ) ) as ThemeDetails;
 		},
 
 		async getSiteIcon( siteId ) {
@@ -510,9 +476,7 @@ export function createIpcConnector(): Connector {
 		},
 
 		async cancelSync( siteId, remoteSiteId ): Promise< void > {
-			// Same registry the classic renderer cancels through — the operation id
-			// is `${siteId}-${remoteSiteId}`.
-			ipcApi.cancelSyncOperation( `${ siteId }-${ remoteSiteId }` );
+			ipcApi.cancelSyncOperation( siteId, remoteSiteId );
 		},
 
 		async pullSiteFromLive( siteId, remoteSiteId, options ): Promise< void > {
@@ -627,88 +591,35 @@ export function createIpcConnector(): Connector {
 		// per field; we fan out in parallel here so the UI can work with a
 		// single query/mutation pair.
 		async getUserPreferences(): Promise< UserPreferences > {
-			const [
-				editor,
-				terminal,
-				colorScheme,
-				quitSitesBehavior,
-				locale,
-				analyticsEnabled,
-				defaultSiteDirectory,
-				studioCliInstalled,
-				studioCliExternallyManaged,
-				agenticFeaturesEnabled,
-			] = ( await Promise.all( [
-				ipcApi.getUserEditor(),
-				ipcApi.getUserTerminal(),
-				ipcApi.getColorScheme(),
-				ipcApi.getQuitSitesBehavior(),
-				ipcApi.getUserLocale(),
-				ipcApi.getAnalyticsEnabled(),
-				ipcApi.getDefaultSiteDirectory(),
+			const [ preferences, studioCliInstalled, studioCliExternallyManaged ] = await Promise.all( [
+				ipcApi.getUserPreferences(),
 				ipcApi.isStudioCliInstalled(),
 				ipcApi.isStudioCliExternallyManaged(),
-				ipcApi.getAgenticFeaturesEnabled(),
-			] ) ) as [
-				SupportedEditor | null,
-				SupportedTerminal | null,
-				ColorScheme,
-				QuitSitesBehavior | undefined,
-				string | undefined,
-				boolean,
-				string,
-				boolean,
-				boolean,
-				boolean,
-			];
+			] );
 			return {
-				editor,
-				terminal,
-				colorScheme,
-				quitSitesBehavior,
-				locale,
-				analyticsEnabled,
-				defaultSiteDirectory,
-				studioCliInstalled,
-				studioCliExternallyManaged,
-				agenticFeaturesEnabled,
+				...( preferences as Omit<
+					UserPreferences,
+					'studioCliInstalled' | 'studioCliExternallyManaged'
+				> ),
+				studioCliInstalled: studioCliInstalled as boolean,
+				studioCliExternallyManaged: studioCliExternallyManaged as boolean,
 			};
 		},
 
-		async setUserPreferences( partial, source ): Promise< void > {
+		async setUserPreferences( { studioCliInstalled, ...partial }, source ): Promise< void > {
 			const writes: Array< Promise< unknown > > = [];
-			if ( 'editor' in partial ) {
-				writes.push( ipcApi.saveUserEditor( partial.editor ) );
-			}
-			if ( 'terminal' in partial ) {
-				writes.push( ipcApi.saveUserTerminal( partial.terminal ) );
-			}
-			if ( 'colorScheme' in partial && partial.colorScheme ) {
-				writes.push( ipcApi.saveColorScheme( partial.colorScheme ) );
-			}
-			if ( 'quitSitesBehavior' in partial ) {
-				writes.push( ipcApi.saveQuitSitesBehavior( partial.quitSitesBehavior ) );
-			}
-			if ( 'locale' in partial && partial.locale ) {
-				writes.push( ipcApi.saveUserLocale( partial.locale ) );
-			}
-			if ( 'analyticsEnabled' in partial ) {
+			if ( Object.keys( partial ).length > 0 ) {
 				writes.push(
-					ipcApi.saveAnalyticsEnabled( partial.analyticsEnabled, {
-						surface: source?.surface ?? 'settings',
+					ipcApi.setUserPreferences( {
+						...Object.fromEntries(
+							Object.entries( partial ).map( ( [ key, value ] ) => [ key, value ?? null ] )
+						),
+						surface: source?.surface,
 					} )
 				);
 			}
-			if ( 'defaultSiteDirectory' in partial && partial.defaultSiteDirectory ) {
-				writes.push( ipcApi.saveDefaultSiteDirectory( partial.defaultSiteDirectory ) );
-			}
-			if ( 'studioCliInstalled' in partial && typeof partial.studioCliInstalled === 'boolean' ) {
-				writes.push(
-					partial.studioCliInstalled ? ipcApi.installStudioCli() : ipcApi.uninstallStudioCli()
-				);
-			}
-			if ( typeof partial.agenticFeaturesEnabled === 'boolean' ) {
-				writes.push( ipcApi.saveAgenticFeaturesEnabled( partial.agenticFeaturesEnabled ) );
+			if ( typeof studioCliInstalled === 'boolean' ) {
+				writes.push( studioCliInstalled ? ipcApi.installStudioCli() : ipcApi.uninstallStudioCli() );
 			}
 			await Promise.all( writes );
 			if ( typeof partial.agenticFeaturesEnabled === 'boolean' ) {
@@ -735,6 +646,12 @@ export function createIpcConnector(): Connector {
 
 		async getAgentInstructions(): Promise< string > {
 			return ( await ipcApi.getGlobalAgentInstructions() ) as string;
+		},
+		async getAgentInstructionsEnabled() {
+			return ( await ipcApi.getGlobalInstructionsEnabled() ) as boolean;
+		},
+		async setAgentInstructionsEnabled( enabled ) {
+			await ipcApi.setGlobalInstructionsEnabled( enabled );
 		},
 		async saveAgentInstructions(
 			content: string,
@@ -769,7 +686,9 @@ export function createIpcConnector(): Connector {
 
 		async openSiteInEditor( siteId ): Promise< void > {
 			const sitePath = await resolveSiteFolder( siteId );
-			const editor = ( await ipcApi.getUserEditor() ) as SupportedEditor | null;
+			const { editor } = ( await ipcApi.getUserPreferences() ) as {
+				editor: SupportedEditor | null;
+			};
 			if ( ! editor ) {
 				throw new Error( 'No preferred editor configured.' );
 			}
@@ -863,22 +782,23 @@ export function createIpcConnector(): Connector {
 		async removeWordPressSkillFromAllSites( skillId: string ): Promise< void > {
 			await ipcApi.removeWordPressSkillFromAllSites( skillId );
 		},
+		async getSiteAgentFiles( siteId, kind ) {
+			return ( await ipcApi.getSiteAgentFiles( siteId, kind ) ) as SiteAgentFile[];
+		},
+		async setSiteAgentFileEnabled( siteId, kind, id, enabled ) {
+			await ipcApi.setSiteAgentFileEnabled( siteId, kind, id, enabled );
+		},
+		async removeSiteAgentFile( siteId, kind, id ) {
+			await ipcApi.removeSiteAgentFile( siteId, kind, id );
+		},
 
 		// Window state
 		// macOS overlays the traffic lights on the content (so we reserve
 		// space for them); Windows and Linux don't.
 		reservesTrafficLightSpace: isMacOS,
 
-		async ensureWindowWidth( minimumWidth: number ): Promise< number | null > {
-			return ipcApi.ensureMinWindowWidth( minimumWidth );
-		},
-
 		async setWindowControlsSurface( surface ) {
 			await ipcApi.setWindowControlsSurface( surface );
-		},
-
-		async setTrafficLightsPosition( position ) {
-			await ipcApi.setTrafficLightsPosition( position );
 		},
 
 		async isFullscreen(): Promise< boolean > {

@@ -7,6 +7,7 @@ import { wpcomRequestTool } from 'cli/ai/tools/wpcom-request';
 const mocks = vi.hoisted( () => ( {
 	req: {
 		post: vi.fn(),
+		get: vi.fn(),
 	},
 	readAuthToken: vi.fn(),
 	payloadsDir: '',
@@ -86,6 +87,32 @@ describe( 'wpcom_request', () => {
 			{ apiNamespace: 'wp/v2' },
 			globalStylesBody
 		);
+	} );
+
+	it( "keeps the site plan's active features and drops the catalogue of other plans' features", async () => {
+		mocks.req.get.mockResolvedValue( {
+			ID: 123,
+			plan: {
+				product_slug: 'free_plan',
+				product_name_short: 'Free',
+				is_free: true,
+				features: {
+					active: [ 'free-blog', 'stats-basic' ],
+					available: { 'custom-design': [ 'value_bundle', 'business-bundle' ] },
+				},
+			},
+		} );
+
+		const result = await wpcomRequestTool.rawHandler( {
+			siteId: 123,
+			method: 'GET',
+			path: '/',
+			apiNamespace: '',
+		} );
+
+		const site = JSON.parse( ( result.content[ 0 ] as { text: string } ).text );
+		expect( site.plan.features ).toEqual( { active: [ 'free-blog', 'stats-basic' ] } );
+		expect( site.plan.product_slug ).toBe( 'free_plan' );
 	} );
 
 	it( 'needs a stored WordPress.com login', async () => {

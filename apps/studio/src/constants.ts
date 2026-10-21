@@ -1,19 +1,14 @@
 export const DEFAULT_WIDTH = 1100;
 export const DEFAULT_HEIGHT = 820;
 export const MAIN_MIN_HEIGHT = 600;
-// The UI collapses to a single chat column — both the sidebar and the preview
-// panel can be closed. The floor is what the site header still needs: the macOS
-// traffic lights, the site icon, and the Share + Sync actions, with the site
-// name free to truncate between them.
-export const AGENTIC_MIN_WIDTH = 420;
+// Wide enough for the chat and the preview side by side; below the sidebar's
+// share of the width, the sidebar opens over them instead.
+export const AGENTIC_MIN_WIDTH = 800;
 export const SCREENSHOT_WIDTH = 1040;
 export const SCREENSHOT_HEIGHT = 1248;
 export const AUTO_UPDATE_INTERVAL_MS = 60 * 60 * 1000;
 export const NIGHTLY_UPDATE_TTL_MS = 24 * 60 * 60 * 1000;
 export const MACOS_TRAFFIC_LIGHT_POSITION = { x: 20, y: 20 };
-// Centres the lights on the agentic site-preview toolbar, which sits beside them
-// in full preview and is shorter than the headers the default position suits.
-export const MACOS_TOOLBAR_TRAFFIC_LIGHT_POSITION = { x: 20, y: 13 };
 export const WINDOWS_TITLEBAR_HEIGHT = 44;
 // The UI has no title bar of its own to fill, so the controls get their own
 // reserved band (see `WindowTitlebar`) and every pixel of it is empty space.
@@ -29,9 +24,7 @@ export { DEFAULT_TERMINAL } from '@studio/common/lib/user-settings/terminal';
 
 // WP-CLI
 export const WP_CLI_DEFAULT_RESPONSE_TIMEOUT = 5 * 60 * 1000; // 5min
-export const WP_CLI_IMPORT_EXPORT_RESPONSE_TIMEOUT_IN_HRS = 6;
-export const WP_CLI_IMPORT_EXPORT_RESPONSE_TIMEOUT =
-	WP_CLI_IMPORT_EXPORT_RESPONSE_TIMEOUT_IN_HRS * 60 * 60 * 1000; // 6hr
+export const WP_CLI_IMPORT_EXPORT_RESPONSE_TIMEOUT = 6 * 60 * 60 * 1000; // 6hr
 
 // IPC handlers that don't return anything (i.e. that are called with `ipcRenderer.send`)
 export const IPC_VOID_HANDLERS = [
@@ -41,7 +34,6 @@ export const IPC_VOID_HANDLERS = [
 	'openStudioLogs',
 	'openURL',
 	'popupAppMenu',
-	'setWindowButtonVisibility',
 	'showErrorMessageBox',
 	'authenticate',
 ] as const;

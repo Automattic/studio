@@ -141,7 +141,8 @@ export async function createMainWindow(): Promise< BrowserWindow > {
 	let windowOptions: BrowserWindowConstructorOptions = {
 		height: DEFAULT_HEIGHT,
 		width: DEFAULT_WIDTH,
-		backgroundColor: 'rgba(30, 30, 30, 1)',
+		// The app's surface color, so the window doesn't flash before the renderer paints.
+		backgroundColor: nativeTheme.shouldUseDarkColors ? '#141414' : '#fafafa',
 		minHeight: MAIN_MIN_HEIGHT,
 		minWidth: AGENTIC_MIN_WIDTH,
 		webPreferences: {
@@ -277,33 +278,31 @@ export async function createMainWindow(): Promise< BrowserWindow > {
 
 export type WindowControlsSurface = 'chrome' | 'content' | 'toolbar';
 
-// The agentic UI's controls sit in the chrome gap above the content frame,
-// except while a full-window page (settings, site creation) or the flush site
-// preview toolbar covers that chrome. Those surfaces are different shades, so
-// the renderer tells us which one is showing; remembering it here keeps a later theme change from
-// repainting the controls for the wrong one.
+// The window controls sit over whichever header reaches the window's corner:
+// the chat or preview toolbar, or a full-window page (settings, site
+// creation). Those surfaces are different shades, so the renderer tells us
+// which one is showing; remembering it here keeps a later theme change from
+// repainting the controls for the wrong one. `chrome` is the default, before
+// the renderer reports anything.
 let agenticControlsSurface: WindowControlsSurface = 'chrome';
 
 export function setAgenticControlsSurface( surface: WindowControlsSurface ) {
 	agenticControlsSurface = surface;
 }
 
-export type TrafficLightsPosition = 'default' | 'toolbar';
-
 export function getTitleBarOverlayOptions() {
 	const isDark = nativeTheme.shouldUseDarkColors;
-	// Chrome is dark in both schemes; the content surface tracks
-	// `--wpds-color-background-surface-neutral`, the toolbar
-	// `--wpds-color-background-surface-neutral-strong`.
-	const onChrome = agenticControlsSurface === 'chrome';
+	// The content surface tracks `--wpds-color-background-surface-neutral`; the
+	// toolbars, and the default, `--wpds-color-background-surface-neutral-strong`.
+	const toolbar = isDark ? '#1c1c1c' : '#ffffff';
 	const surfaceColors = {
-		chrome: isDark ? '#161616' : '#1e1e1e',
-		content: isDark ? '#1e1e1e' : '#fcfcfc',
-		toolbar: isDark ? '#242424' : '#ffffff',
+		chrome: toolbar,
+		content: isDark ? '#141414' : '#fafafa',
+		toolbar,
 	};
 	return {
 		color: surfaceColors[ agenticControlsSurface ],
-		symbolColor: onChrome || isDark ? '#e0e0e0' : '#1e1e1e',
+		symbolColor: isDark ? '#e0e0e0' : '#1e1e1e',
 		height: AGENTIC_TITLEBAR_HEIGHT,
 	};
 }
@@ -337,15 +336,7 @@ export function getMainWindow() {
 			return;
 		}
 
-		const windows = BrowserWindow.getAllWindows();
-		if ( windows.length > 0 ) {
-			mainWindow = BrowserWindow.getFocusedWindow() || windows[ 0 ];
-			if ( ! mainWindow.webContents.isDestroyed() ) {
-				resolve( mainWindow );
-			}
-			return;
-		}
-
+		// Other windows (About, the hidden thumbnail capture) are never the main one.
 		createMainWindow()
 			.then( ( newWindow ) => {
 				mainWindow = newWindow;
@@ -366,14 +357,6 @@ export function getMainWindow() {
 export function getExistingMainWindow(): BrowserWindow | null {
 	if ( mainWindow && ! mainWindow.isDestroyed() && ! mainWindow.webContents.isDestroyed() ) {
 		return mainWindow;
-	}
-	const windows = BrowserWindow.getAllWindows();
-	if ( windows.length > 0 ) {
-		const focused = BrowserWindow.getFocusedWindow();
-		const win = focused || windows[ 0 ];
-		if ( ! win.isDestroyed() && ! win.webContents.isDestroyed() ) {
-			return win;
-		}
 	}
 	return null;
 }

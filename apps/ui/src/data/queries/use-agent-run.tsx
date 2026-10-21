@@ -29,6 +29,7 @@ import type {
 	StudioCustomEntry,
 	StudioVisualAnnotationSummary,
 } from '@/data/core';
+import type { ActiveAgentRun } from '@studio/common/ai/agent-events';
 
 function nowIso(): string {
 	return new Date().toISOString();
@@ -119,7 +120,13 @@ const initialState: State = {
 };
 
 type Action =
-	| { type: 'hydrate_active_run'; runId: string; startedAt: number; interrupting: boolean }
+	| {
+			type: 'hydrate_active_run';
+			runId: string;
+			startedAt: number;
+			interrupting: boolean;
+			pendingQuestions?: PendingQuestion[];
+	  }
 	| { type: 'send_pending'; startedAt: number }
 	| { type: 'send_start'; runId: string; startedAt: number }
 	| { type: 'turn_completed' }
@@ -150,6 +157,9 @@ function reducer( state: State, action: Action ): State {
 				runId: action.runId,
 				startedAt: resolveRunStartedAt( state, action.runId, action.startedAt ),
 				isInterrupting: action.interrupting,
+				pendingQuestions: action.pendingQuestions?.length
+					? action.pendingQuestions
+					: state.pendingQuestions,
 			};
 		case 'send_pending':
 			return {
@@ -324,30 +334,53 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 	useEffect( () => {
 		let cancelled = false;
 
-		void connector
-			.getActiveAgentRuns()
-			.then( ( runs ) => {
-				if ( cancelled ) {
-					return;
-				}
-				for ( const run of runs ) {
-					subscribedRunIdsBySessionRef.current.set( run.sessionId, run.runId );
-					dispatchSession( run.sessionId, {
-						type: 'hydrate_active_run',
-						runId: run.runId,
-						startedAt: run.startedAt,
-						interrupting: run.phase === 'interrupting',
-					} );
-				}
-			} )
-			.catch( () => {
+		const syncActiveRuns = async () => {
+			const runIdsBefore = [ ...subscribedRunIdsBySessionRef.current ];
+			let runs: ActiveAgentRun[];
+			try {
+				runs = await connector.getActiveAgentRuns();
+			} catch {
 				// A failed snapshot should not break normal live event handling.
-			} );
+				return;
+			}
+			if ( cancelled ) {
+				return;
+			}
+			const activeRunIds = new Set( runs.map( ( run ) => run.runId ) );
+			let endedRuns = false;
+			// A run known before the request but missing from the snapshot ended while events were lost.
+			for ( const [ sessionId, runId ] of runIdsBefore ) {
+				if (
+					! activeRunIds.has( runId ) &&
+					subscribedRunIdsBySessionRef.current.get( sessionId ) === runId
+				) {
+					subscribedRunIdsBySessionRef.current.delete( sessionId );
+					dispatchSession( sessionId, { type: 'run_ended' } );
+					endedRuns = true;
+				}
+			}
+			for ( const run of runs ) {
+				subscribedRunIdsBySessionRef.current.set( run.sessionId, run.runId );
+				dispatchSession( run.sessionId, {
+					type: 'hydrate_active_run',
+					runId: run.runId,
+					startedAt: run.startedAt,
+					interrupting: run.phase === 'interrupting',
+					pendingQuestions: run.pendingQuestions,
+				} );
+			}
+			if ( endedRuns ) {
+				void queryClient.invalidateQueries( { queryKey: SESSIONS_QUERY_KEY } );
+			}
+		};
 
+		void syncActiveRuns();
+		const unsubscribe = connector.onConnectionRestored?.( () => void syncActiveRuns() );
 		return () => {
 			cancelled = true;
+			unsubscribe?.();
 		};
-	}, [ connector, dispatchSession ] );
+	}, [ connector, dispatchSession, queryClient ] );
 
 	useEffect( () => {
 		return connector.onAgentEvent( ( payload: AgentRunEvent ) => {
@@ -880,6 +913,28 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 	};
 }
 
+function hasUnansweredQuestion( state: State ): boolean {
+	return state.pendingQuestions.some(
+		( pendingQuestion ) => typeof state.pendingAnswers[ pendingQuestion.question ] !== 'string'
+	);
+}
+
+/** Sessions waiting on the user's answer to a question. */
+export function useSessionsNeedingInput(): string[] {
+	const store = useContext( AgentRunContext );
+	if ( ! store ) {
+		throw new Error( 'useSessionsNeedingInput must be used within AgentRunProvider' );
+	}
+	// Joined so the snapshot compares by value; a fresh array would re-render forever.
+	const ids = useSyncExternalStore( store.stateStore.subscribe, () =>
+		Object.entries( store.stateStore.getState() )
+			.filter( ( [ , state ] ) => hasUnansweredQuestion( state ) )
+			.map( ( [ sessionId ] ) => sessionId )
+			.join( ' ' )
+	);
+	return useMemo( () => ( ids ? ids.split( ' ' ) : [] ), [ ids ] );
+}
+
 /**
  * Aggregate read-only activity for a site row. Pending questions outrank
  * active work because they need the user's attention; otherwise any
@@ -897,10 +952,7 @@ export function useSiteAgentActivity( sessionIds: string[] ): SiteAgentActivity 
 			if ( ! state ) {
 				continue;
 			}
-			const hasPendingQuestion = state.pendingQuestions.some(
-				( pendingQuestion ) => typeof state.pendingAnswers[ pendingQuestion.question ] !== 'string'
-			);
-			if ( hasPendingQuestion ) {
+			if ( hasUnansweredQuestion( state ) ) {
 				return 'pending-question';
 			}
 			if ( state.phase === 'starting' || state.phase === 'running' ) {

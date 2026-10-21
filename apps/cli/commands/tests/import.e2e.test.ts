@@ -21,8 +21,10 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
 	cleanupCliEnv,
 	cliE2ePrerequisitesMet,
+	readCliConfig,
 	runCli,
 	setupCliEnv,
+	waitForSiteResponse,
 	type CliEnv,
 } from '../site/tests/helpers/cli-e2e';
 
@@ -85,16 +87,39 @@ async function isSiteRunningPerCliList( env: CliEnv, sitePath: string ): Promise
 	return sites.find( ( site ) => site.path === sitePath )?.running === true;
 }
 
-async function getBlogname( env: CliEnv, sitePath: string ): Promise< string | undefined > {
-	const result = await runCli( [ 'wp', 'option', 'get', 'blogname', '--path', sitePath ], env );
+async function wpLines( env: CliEnv, sitePath: string, ...args: string[] ): Promise< string[] > {
+	const result = await runCli( [ 'wp', ...args, '--path', sitePath ], env );
 	expect( result.code, result.stderr ).toBe( 0 );
-	// PHP notices can precede the value on stdout, so assert against the last
-	// non-empty line rather than the whole buffer.
-	const lines = result.stdout
+	// PHP notices can precede the values on stdout, so callers assert against
+	// lines rather than the whole buffer.
+	return result.stdout
 		.split( '\n' )
 		.map( ( line ) => line.trim() )
 		.filter( Boolean );
-	return lines.at( -1 );
+}
+
+/**
+ * The backup's database is the one WordPress reads (its blog name, active
+ * theme, posts and pages), with its URLs rewritten to this site's.
+ */
+async function assertImportedContent( env: CliEnv, sitePath: string ): Promise< void > {
+	const site = readCliConfig( env ).sites.find( ( entry ) => entry.path === sitePath );
+	const siteUrl = `http://localhost:${ String( site?.port ) }`;
+	for ( const option of [ 'siteurl', 'home' ] ) {
+		expect( ( await wpLines( env, sitePath, 'option', 'get', option ) ).at( -1 ) ).toBe( siteUrl );
+	}
+	expect( ( await wpLines( env, sitePath, 'option', 'get', 'blogname' ) ).at( -1 ) ).toBe(
+		FIXTURE_BLOGNAME
+	);
+	expect( ( await wpLines( env, sitePath, 'option', 'get', 'stylesheet' ) ).at( -1 ) ).toBe(
+		'mypet-theme'
+	);
+	expect(
+		await wpLines( env, sitePath, 'post', 'list', '--post_type=post', '--field=post_title' )
+	).toContain( 'Hello world!' );
+	expect(
+		await wpLines( env, sitePath, 'post', 'list', '--post_type=page', '--field=post_title' )
+	).toEqual( expect.arrayContaining( [ 'Services', 'Contact' ] ) );
 }
 
 /** The backup's wp-content and database landed on disk. */
@@ -105,6 +130,25 @@ function assertImportedSiteOnDisk( sitePath: string ): void {
 	const databasePath = path.join( sitePath, 'wp-content', 'database', '.ht.sqlite' );
 	expect( fs.existsSync( databasePath ) ).toBe( true );
 	expect( fs.statSync( databasePath ).size ).toBeGreaterThan( 0 );
+}
+
+/** Started, the site serves the backup's front end. */
+async function assertServesImportedSite( env: CliEnv, sitePath: string ): Promise< void > {
+	const start = await runCli(
+		[ 'site', 'start', '--path', sitePath, '--skip-browser', '--skip-log-details' ],
+		env
+	);
+	expect( start.code, start.stderr ).toBe( 0 );
+
+	const site = readCliConfig( env ).sites.find( ( entry ) => entry.path === sitePath );
+	const response = await waitForSiteResponse( `http://localhost:${ String( site?.port ) }/`, {
+		expectedStatus: 200,
+		timeoutMs: 60_000,
+	} );
+	expect( response.status ).toBe( 200 );
+	expect( await response.text() ).toMatch(
+		new RegExp( `<title>[^<]*${ FIXTURE_BLOGNAME }[^<]*</title>` )
+	);
 }
 
 describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: studio import', () => {
@@ -147,7 +191,8 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: studio import', () => {
 				expect( result.code, result.stderr ).toBe( 0 );
 
 				assertImportedSiteOnDisk( sitePath );
-				expect( await getBlogname( env, sitePath ) ).toBe( FIXTURE_BLOGNAME );
+				await assertImportedContent( env, sitePath );
+				await assertServesImportedSite( env, sitePath );
 			}
 		);
 	}
@@ -182,7 +227,8 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: studio import', () => {
 			// running state after the import completes.
 			expect( await isSiteRunningPerCliList( env, sitePath ) ).toBe( true );
 			assertImportedSiteOnDisk( sitePath );
-			expect( await getBlogname( env, sitePath ) ).toBe( FIXTURE_BLOGNAME );
+			await assertImportedContent( env, sitePath );
+			await assertServesImportedSite( env, sitePath );
 		}
 	);
 } );

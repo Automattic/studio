@@ -8,9 +8,10 @@ export const ORIENTATION_GUIDE_VERSION = 2;
 
 // Two independent axes drive the copy (see the Welcome Tour Figma):
 //   migrating   — coming from classic Studio vs a fresh install (page 1 only)
-//   chatEnabled — whether Studio Code (chat) is on offer (pages 2 and 3). The
-//                 design labels this "signed in", but signed-out, offline, and
-//                 opted-out (Settings → AI) all collapse to the non-chat copy.
+//   chatEnabled — whether Studio Code (chat) is on offer (the chat page and the
+//                 preview copy). The design labels this "signed in", but
+//                 signed-out, offline, and opted-out (Settings → AI) all
+//                 collapse to the non-chat tour.
 export interface OrientationVariant {
 	migrating: boolean;
 	chatEnabled: boolean;
@@ -42,26 +43,14 @@ function sitesPage( migrating: boolean ): GuidePage {
 	};
 }
 
-// Page 2 — the middle beat. Signed-in users learn about building with Studio
-// Code; signed-out users learn about the site overview control panel.
-function workspacePage( chatEnabled: boolean ): GuidePage {
-	if ( chatEnabled ) {
-		return {
-			illustration: 'chat',
-			title: () => __( 'Build by asking' ),
-			description: () =>
-				__(
-					'Describe what you want in plain language. Add a page, change the design, fix a bug — and our AI agent, Studio Code, builds it.'
-				),
-			action: () => __( 'Next' ),
-		};
-	}
+// Page 2 — building with Studio Code, only when chat is on offer.
+function chatPage(): GuidePage {
 	return {
-		illustration: 'overview',
-		title: () => __( 'Manage your site' ),
+		illustration: 'chat',
+		title: () => __( 'Build by asking' ),
 		description: () =>
 			__(
-				'The site overview is your control panel — open the editor and admin tools, or duplicate, export, and manage your site from one place.'
+				'Describe what you want in plain language. Add a page, change the design, fix a bug — and our AI agent, Studio Code, builds it.'
 			),
 		action: () => __( 'Next' ),
 	};
@@ -99,6 +88,8 @@ export function getOrientationGuide( {
 	chatEnabled,
 }: OrientationVariant ): GuideDefinition {
 	return {
-		pages: [ sitesPage( migrating ), workspacePage( chatEnabled ), previewPage( chatEnabled ) ],
+		pages: chatEnabled
+			? [ sitesPage( migrating ), chatPage(), previewPage( chatEnabled ) ]
+			: [ sitesPage( migrating ), previewPage( chatEnabled ) ],
 	};
 }

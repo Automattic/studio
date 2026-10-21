@@ -1,3 +1,4 @@
+import { getLocalizedLink } from '@studio/common/lib/docs-links';
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { classifySyncFailure } from '@studio/common/lib/sync/classify-sync-failure';
 import { createRoute, useNavigate } from '@tanstack/react-router';
@@ -17,8 +18,7 @@ import { usePullSiteFromLive } from '@/data/queries/use-sync-site';
 import { useUserLocale } from '@/data/queries/use-user-locale';
 import { useSyncableWpcomSites } from '@/data/queries/use-wpcom-sites';
 import { useOffline } from '@/hooks/use-offline';
-import { getLocalizedLink } from '@/lib/docs-links';
-import { onboardingLayoutRoute, useOnboardingProgress } from '../layout-onboarding';
+import { onboardingLayoutRoute, useOnboardingProgress, usePinNewSite } from '../layout-onboarding';
 import sharedStyles from '../layout-onboarding/style.module.css';
 import { ConnectSiteLifecycleError, runConnectSiteLifecycle } from './connect-site';
 import { presentRemoteSites, searchRemoteSites, type ConnectSiteGroup } from './site-presentation';
@@ -184,6 +184,7 @@ export function OnboardingConnectPage() {
 		enabled: !! user && ! isOffline,
 	} );
 	const createSite = useCreateSite();
+	const pinNewSite = usePinNewSite();
 	const deleteSite = useDeleteSite();
 	const pullSite = usePullSiteFromLive();
 	const startSite = useStartSite( { silent: true } );
@@ -244,13 +245,16 @@ export function OnboardingConnectPage() {
 			const name = await connector.generateNumberedSiteName( localName, localSites );
 			const { path } = await connector.generateProposedSitePath( name );
 			await runConnectSiteLifecycle( {
-				createLocalSite: () =>
-					createSite.mutateAsync( {
+				createLocalSite: async () => {
+					const site = await createSite.mutateAsync( {
 						name,
 						path,
 						skipStart: true,
 						flowType: 'sync',
-					} ),
+					} );
+					pinNewSite( site.id );
+					return site;
+				},
 				persistConnection: async ( localSiteId ) => {
 					try {
 						await connector.connectWpcomSite( localSiteId, {
@@ -286,7 +290,7 @@ export function OnboardingConnectPage() {
 				},
 				openLocalSite: ( localSiteId ) =>
 					navigate( {
-						to: '/sites/$siteId/overview',
+						to: '/sites/$siteId',
 						params: { siteId: localSiteId },
 						search: { sync: 'pull' },
 					} ),
@@ -312,7 +316,7 @@ export function OnboardingConnectPage() {
 					__( 'Setup did not finish. The local site and WordPress.com connection were kept.' )
 				);
 				await navigate( {
-					to: '/sites/$siteId/overview',
+					to: '/sites/$siteId',
 					params: { siteId: error.localSiteId },
 				} );
 			} else {
@@ -333,6 +337,7 @@ export function OnboardingConnectPage() {
 		connector,
 		localSites,
 		createSite,
+		pinNewSite,
 		pullSite,
 		startSite,
 		navigate,

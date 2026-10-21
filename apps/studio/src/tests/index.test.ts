@@ -26,11 +26,6 @@ vi.mock( import( 'src/lib/bump-stats' ), async ( importOriginal ) => {
 		bumpAggregatedUniqueStat: vi.fn().mockResolvedValue( undefined ),
 	};
 } );
-vi.mock( 'src/lib/user-data-watcher' );
-vi.mock( 'src/setup-wp-server-files', () => ( {
-	setupWPServerFiles: vi.fn().mockResolvedValue( undefined ),
-	updateWPServerFiles: vi.fn().mockResolvedValue( undefined ),
-} ) );
 vi.mock( 'atomically', () => ( {
 	readFile: vi.fn().mockResolvedValue( Buffer.from( JSON.stringify( { sites: [] } ) ) ),
 	writeFile: vi.fn(),
@@ -57,6 +52,7 @@ vi.mock( 'src/modules/cli/lib/execute-command', () => {
 	return {
 		executeCliCommand: vi.fn().mockReturnValue( [ mockEventEmitter, mockChildProcess ] ),
 		getTracksOriginEnv: vi.fn( () => 'studio-ui:v1' ),
+		stopCliCommands: vi.fn(),
 	};
 } );
 vi.mock( 'src/modules/cli/lib/windows-installation-manager', () => ( {
@@ -72,7 +68,6 @@ vi.mock( 'electron-squirrel-startup', () => ( { default: false } ) );
 vi.mock( 'electron-devtools-installer', () => ( {
 	installExtension: vi.fn().mockResolvedValue( { id: 'test-extension' } ),
 	REACT_DEVELOPER_TOOLS: { id: 'fmkadmapgofadopljbjfkapdkoienihi' },
-	REDUX_DEVTOOLS: { id: 'lmhkpmbekcpmknklioeibfkpmmfibljd' },
 } ) );
 
 vol.mkdirSync( normalize( '/path/to/app/temp/com.wordpress.studio' ), { recursive: true } );

@@ -87,7 +87,6 @@ The project follows a modular architecture with both global and feature-specific
 | `apps/studio/src/`            | Root directory for Studio code                                                |
 | `apps/studio/src/lib/`        | Utility functions and helper libraries                                        |
 | `apps/studio/src/modules/`    | Feature-specific code                                                         |
-| `apps/studio/src/api/`        | API interfaces and implementations                                            |
 | `packages/common/`            | Shared code between CLI and Studio (constants, types, utility functions, etc) |
 | `tools/`                      | Development-only tooling (not shipped): benchmarks, perf metrics, etc         |
 | `tools/compare-perf/`         | Compare-perf tooling workspace                                                |
@@ -101,11 +100,10 @@ The project follows a modular architecture with both global and feature-specific
 | `scripts/`                    | Scripts for building and testing the app                                    |
 | `apps/studio/src/index.ts`    | The entry point for the main process                                        |
 | `apps/ui/src/main.tsx`        | The entry point for the "renderer," the code running in the Chromium window |
-| `vendor/wp-now`               | The modified `wp-now` source code                                           |
 
 #### Feature Modules
 
-Main-process code for each feature lives in `apps/studio/src/modules/<feature>/lib/` (for example `sync`, `preview-site`, `import-export`, `user-settings`). The UI for those features lives in `apps/ui/src/`.
+Main-process code for each feature lives in `apps/studio/src/modules/<feature>/lib/` (for example `sync`, `preview-site`, `import-export`, `user-settings`), and logic it shares with `studio ui` lives in `packages/common/`. The UI for those features lives in `apps/ui/src/`.
 
 ### Code Formatting
 

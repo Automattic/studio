@@ -63,9 +63,12 @@ const TEXT_ONLY_NOTE =
 export function createTakeScreenshotTool( {
 	visionEnabled,
 	imageLink,
+	userSeesCapture = true,
 }: {
 	visionEnabled: boolean;
 	imageLink?: ( file: string ) => string;
+	// False in a terminal session: no UI shows the capture, only its file path.
+	userSeesCapture?: boolean;
 } ) {
 	return defineTool(
 		'take_screenshot',
@@ -208,6 +211,11 @@ export function createTakeScreenshotTool( {
 				}
 				if ( ! visionEnabled ) {
 					textLines.push( TEXT_ONLY_NOTE );
+				}
+				if ( ! userSeesCapture ) {
+					textLines.push(
+						'The user does not see this capture: the terminal shows them only the saved file path.'
+					);
 				}
 				if ( imageLink && args.display !== false ) {
 					textLines.push(

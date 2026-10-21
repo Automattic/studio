@@ -5,9 +5,10 @@ import { canCancelSyncActivity } from '@studio/common/lib/sync/cancel';
 import { useIsMutating } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
 import { close, external, Icon } from '@wordpress/icons';
-import { Button, Tooltip } from '@wordpress/ui';
+import { Button, IconButton, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useMemo } from 'react';
+import { useOpenInDestinations } from '@/components/open-in-menu/use-open-in-destinations';
 import { XdebugIcon } from '@/components/xdebug-icon';
 import { useConnector } from '@/data/core';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
@@ -117,6 +118,7 @@ export function MainView( {
 	onPushClick,
 }: Props ) {
 	const connector = useConnector();
+	const openInDestinations = useOpenInDestinations( site );
 	const { enabled: agenticEnabled, reason: agenticReason } = useAgenticFeatures();
 	const isOffline = agenticReason === 'offline';
 	const login = useLogin( { source: 'site_header' } );
@@ -286,6 +288,26 @@ export function MainView( {
 						onStart={ handleStartLocalClick }
 						onStop={ handleStopLocalClick }
 					/>
+				}
+			/>
+
+			<PopoverRow
+				label={ __( 'Open in' ) }
+				action={
+					<div className={ styles.openIn }>
+						{ openInDestinations.map( ( destination ) => (
+							<IconButton
+								key={ destination.id }
+								variant="minimal"
+								tone="neutral"
+								size="small"
+								icon={ destination.logo }
+								label={ destination.label }
+								disabled={ destination.disabled }
+								onClick={ destination.open }
+							/>
+						) ) }
+					</div>
 				}
 			/>
 

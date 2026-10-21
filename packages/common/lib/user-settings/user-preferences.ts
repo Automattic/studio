@@ -38,6 +38,8 @@ export interface UserPreferences {
 	agenticFeaturesEnabled: boolean;
 	// The sidebar's Pinned group, in order, as `site:<id>` and `chat:<id>` keys.
 	sidebarPins: string[];
+	// Start a stopped local site when a chat message is sent to it.
+	autoStartSiteOnChat: boolean;
 }
 
 // Passed in, so this stays a pure reader over the config files.
@@ -72,6 +74,7 @@ export const userPreferencesPatchSchema = z.object( {
 	defaultSiteDirectory: z.string().nullish(),
 	agenticFeaturesEnabled: z.boolean().nullish(),
 	sidebarPins: sidebarPinsSchema.nullish(),
+	autoStartSiteOnChat: z.boolean().nullish(),
 	// Where the change was made (the analytics toggle also appears during onboarding); not stored.
 	surface: z.enum( [ 'onboarding', 'settings' ] ).optional(),
 } );
@@ -87,6 +90,7 @@ const APP_CONFIG_KEYS = [
 	[ 'defaultSiteDirectory', 'defaultSiteDirectory' ],
 	[ 'agenticFeaturesEnabled', 'agenticFeaturesEnabled' ],
 	[ 'sidebarPins', 'sidebarPins' ],
+	[ 'autoStartSiteOnChat', 'autoStartSiteOnChat' ],
 ] as const satisfies readonly ( readonly [ keyof UserPreferencesPatch, string ] )[];
 
 function getDefaultSiteDirectory( config: AppConfig, sitesRoot: string ): string {
@@ -116,6 +120,7 @@ export async function readUserPreferences( {
 		defaultSiteDirectory: getDefaultSiteDirectory( config, sitesRoot ),
 		agenticFeaturesEnabled: config.agenticFeaturesEnabled !== false,
 		sidebarPins: sidebarPinsSchema.catch( [] ).parse( config.sidebarPins ),
+		autoStartSiteOnChat: config.autoStartSiteOnChat === true,
 	};
 }
 

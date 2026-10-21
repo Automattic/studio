@@ -3,11 +3,8 @@ import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import { SUPPORTED_EDITORS, supportedEditorConfig } from '@studio/common/lib/user-settings/editor';
-import { findOnPath } from '@studio/common/lib/user-settings/installed-apps';
-import {
-	SUPPORTED_TERMINALS,
-	resolveLinuxTerminalLaunch,
-} from '@studio/common/lib/user-settings/terminal';
+import { openLinuxTerminal } from '@studio/common/lib/user-settings/open-linux-terminal';
+import { SUPPORTED_TERMINALS } from '@studio/common/lib/user-settings/terminal';
 import type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
 import type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
 
@@ -116,9 +113,5 @@ export async function openInTerminal(
 		);
 		return;
 	}
-	const launch = resolveLinuxTerminalLaunch( terminal, target, findOnPath );
-	if ( ! launch ) {
-		throw new Error( 'No supported terminal emulator found on $PATH' );
-	}
-	await execFileAsync( launch.file, launch.args, { cwd: launch.cwd } );
+	await openLinuxTerminal( terminal, target );
 }

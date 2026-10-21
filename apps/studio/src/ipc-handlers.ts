@@ -80,7 +80,7 @@ import {
 	listLocalFileTree as listSiteFileTree,
 } from '@studio/common/lib/sync/local-file-tree';
 import { supportedEditorConfig, SupportedEditor } from '@studio/common/lib/user-settings/editor';
-import { resolveLinuxTerminalLaunch } from '@studio/common/lib/user-settings/terminal';
+import { openLinuxTerminal } from '@studio/common/lib/user-settings/open-linux-terminal';
 import { getSessionsDirectory } from '@studio/common/lib/well-known-paths';
 import {
 	cleanupBlueprintTempDir as cleanupBlueprintTempDirShared,
@@ -121,7 +121,6 @@ import {
 	extractErrorFromProcessManagerLogs,
 	simplifyErrorForDisplay,
 } from 'src/lib/error-formatting';
-import { findOnPath } from 'src/lib/find-on-path';
 import { getImageData } from 'src/lib/get-image-data';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
 import { setSentryWpcomUserIdMain } from 'src/lib/main-sentry-utils';
@@ -1247,11 +1246,7 @@ export async function openTerminalAtPath( _event: IpcMainInvokeEvent, targetPath
 			env,
 		} );
 	} else if ( platform === 'linux' ) {
-		const launch = resolveLinuxTerminalLaunch( preferredTerminal, targetPath, findOnPath );
-		if ( ! launch ) {
-			throw new Error( 'No supported terminal emulator found on $PATH' );
-		}
-		return promiseExecFile( launch.file, launch.args, { cwd: launch.cwd } );
+		return openLinuxTerminal( preferredTerminal, targetPath );
 	} else {
 		console.error( 'Unsupported platform:', platform );
 		return;

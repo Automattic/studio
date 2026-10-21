@@ -1,5 +1,5 @@
 import { randomUUID } from 'crypto';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { tmpdir } from 'os';
 import path from 'path';
 import { expect, type TestInfo } from '@playwright/test';
@@ -34,6 +34,8 @@ export class E2ESession {
 	private childProcess?: ChildProcess;
 	private launchedAt = new Date();
 	private stdioClosed: Promise< void > = Promise.resolve();
+	private launchEnv: NodeJS.ProcessEnv = {};
+	private resourcesPath = '';
 
 	public constructor() {
 		this.sessionPath = path.join( tmpdir(), `studio-app-e2e-session-${ randomUUID() }` );
@@ -159,6 +161,38 @@ export class E2ESession {
 		if ( closed ) {
 			return;
 		}
+		this.dumpDaemonHome();
+		const stop = spawnSync(
+			path.join( this.resourcesPath, 'bin', 'node.exe' ),
+			[
+				path.join( this.resourcesPath, 'cli', 'main.mjs' ),
+				'site',
+				'stop',
+				'--all',
+				'--avoid-telemetry',
+			],
+			{ env: this.launchEnv, encoding: 'utf8', timeout: 30_000, windowsHide: true }
+		);
+		console.log(
+			'[quit-hang diagnostic] fresh `site stop --all`:',
+			JSON.stringify( {
+				status: stop.status,
+				error: stop.error?.message,
+				stdout: stop.stdout,
+				stderr: stop.stderr,
+			} )
+		);
+		const closedAfterStop = await Promise.race( [
+			this.stdioClosed.then( () => true ),
+			new Promise< boolean >( ( resolve ) => setTimeout( () => resolve( false ), 10_000 ) ),
+		] );
+		console.log(
+			`[quit-hang diagnostic] stdio closed after a fresh stop --all: ${ closedAfterStop }`
+		);
+		this.dumpDaemonHome();
+		if ( closedAfterStop ) {
+			return;
+		}
 		const script = [
 			'$since = [datetime]::Parse($env:E2E_DIAG_SINCE)',
 			'Get-CimInstance Win32_Process | Where-Object { $_.CreationDate -ge $since -and $_.ProcessId -ne $PID } | Select-Object ProcessId, ParentProcessId, Name, CreationDate, CommandLine | ConvertTo-Json -Compress',
@@ -206,6 +240,27 @@ export class E2ESession {
 		console.log(
 			`[quit-hang diagnostic] stdio closed after killing survivors: ${ closedAfterKill }`
 		);
+	}
+
+	private dumpDaemonHome() {
+		const walk = ( dir: string ): string[] =>
+			fs.readdirSync( dir, { withFileTypes: true } ).flatMap( ( entry ) => {
+				const full = path.join( dir, entry.name );
+				return entry.isDirectory() ? walk( full ) : [ full ];
+			} );
+		try {
+			for ( const file of walk( this.daemonHomePath ) ) {
+				const text = fs.readFileSync( file, 'utf8' );
+				console.log( `[quit-hang diagnostic] ${ file } (${ text.length } bytes)` );
+				if ( file.endsWith( '.log' ) ) {
+					for ( const line of text.trimEnd().split( '\n' ).slice( -25 ) ) {
+						console.log( `[quit-hang diagnostic]   ${ line }` );
+					}
+				}
+			}
+		} catch ( error ) {
+			console.log( '[quit-hang diagnostic] could not read daemon home:', error );
+		}
 	}
 
 	async getSites(): Promise< PersistedSite[] > {
@@ -313,21 +368,23 @@ export class E2ESession {
 				: [];
 
 		this.launchedAt = new Date();
+		this.resourcesPath = path.join( path.dirname( executablePath ), 'resources' );
+		this.launchEnv = {
+			...process.env,
+			...testEnv,
+			E2E: 'true',
+			E2E_APP_DATA_PATH: this.appDataPath,
+			E2E_HOME_PATH: this.homePath,
+			E2E_CLI_CONFIG_PATH: this.cliConfigPath,
+			E2E_SHARED_CONFIG_PATH: this.sharedConfigPath,
+			STUDIO_PROCESS_MANAGER_HOME: this.daemonHomePath,
+			// Workers run concurrently, so each assigns site ports from its own range.
+			STUDIO_BASE_PORT: String( 8881 + Number( process.env.TEST_PARALLEL_INDEX ?? 0 ) * 1000 ),
+		};
 		this.electronApp = await electron.launch( {
 			args: [ ...linuxFlags, `--user-data-dir=${ this.userDataPath }`, appInfo.main ],
 			executablePath,
-			env: {
-				...process.env,
-				...testEnv,
-				E2E: 'true',
-				E2E_APP_DATA_PATH: this.appDataPath,
-				E2E_HOME_PATH: this.homePath,
-				E2E_CLI_CONFIG_PATH: this.cliConfigPath,
-				E2E_SHARED_CONFIG_PATH: this.sharedConfigPath,
-				STUDIO_PROCESS_MANAGER_HOME: this.daemonHomePath,
-				// Workers run concurrently, so each assigns site ports from its own range.
-				STUDIO_BASE_PORT: String( 8881 + Number( process.env.TEST_PARALLEL_INDEX ?? 0 ) * 1000 ),
-			},
+			env: this.launchEnv,
 			timeout: 60_000,
 		} );
 

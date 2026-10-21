@@ -161,9 +161,8 @@ export class E2ESession {
 		}
 		const script = [
 			'$since = [datetime]::Parse($env:E2E_DIAG_SINCE)',
-			'Get-CimInstance Win32_Process | Where-Object { $_.CreationDate -ge $since -and $_.ProcessId -ne $PID }',
-			'| Select-Object ProcessId, ParentProcessId, Name, CreationDate, CommandLine | ConvertTo-Json -Compress',
-		].join( ' ' );
+			'Get-CimInstance Win32_Process | Where-Object { $_.CreationDate -ge $since -and $_.ProcessId -ne $PID } | Select-Object ProcessId, ParentProcessId, Name, CreationDate, CommandLine | ConvertTo-Json -Compress',
+		].join( '; ' );
 		let survivors: {
 			ProcessId: number;
 			ParentProcessId: number;
@@ -179,7 +178,8 @@ export class E2ESession {
 			const parsed = JSON.parse( output || '[]' );
 			survivors = Array.isArray( parsed ) ? parsed : [ parsed ];
 		} catch ( error ) {
-			console.log( '[quit-hang diagnostic] could not list processes:', error );
+			const { stderr } = error as { stderr?: string };
+			console.log( '[quit-hang diagnostic] could not list processes:', stderr || error );
 		}
 		console.log(
 			`[quit-hang diagnostic] app exited but its stdio is still open; processes created since ${ this.launchedAt.toISOString() }:`

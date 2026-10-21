@@ -211,3 +211,13 @@
 		opacity: 1;
 	}
 }
+
+/* An empty chat's dot field, with a stopped site's screenshot over it. */
+.emptyState {
+	position: absolute;
+	inset: 0 0 var(--composer-height);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: var(--wpds-dimension-padding-2xl);
+}

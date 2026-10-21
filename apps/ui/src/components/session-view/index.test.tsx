@@ -47,6 +47,14 @@ vi.mock( '@/components/site-dropdown', () => ( {
 	SiteDropdown: ( { site }: { site: { name: string } } ) => <div>{ site.name }</div>,
 } ) );
 
+vi.mock( '@/components/site-lifecycle-button', () => ( {
+	SiteLifecycleButton: () => <button type="button">Start</button>,
+} ) );
+
+vi.mock( '@/components/stopped-site-preview', () => ( {
+	StoppedSitePreview: () => <div data-testid="stopped-site-preview" />,
+} ) );
+
 vi.mock( '@/components/preview-toggle-button', () => ( {
 	PreviewToggleButton: () => null,
 } ) );
@@ -126,10 +134,6 @@ vi.mock( './session-chat-actions', () => ( {
 	useNewChatShortcut: () => undefined,
 } ) );
 
-vi.mock( './suggested-prompts', () => ( {
-	SuggestedPrompts: () => <div data-testid="suggested-prompts" />,
-} ) );
-
 const useSessionMock = vi.mocked( useSession, { partial: true } );
 const useStudioAssistantQuotaMock = vi.mocked( useStudioAssistantQuota, { partial: true } );
 
@@ -172,10 +176,6 @@ function makeOwnedSession(): LoadedAiSession {
 		summary: { id: 'session-1', ownerSiteId: OWNER_SITE.id },
 		entries: [],
 	} as unknown as LoadedAiSession;
-}
-
-function makeSpentQuota() {
-	return makeQuota( { allowanceRemaining: 0, purchasedRemaining: 0 } );
 }
 
 function setScrollMetrics(
@@ -503,36 +503,18 @@ describe( 'SessionView', () => {
 		expect( siteMocks.startSite ).toHaveBeenCalledWith( OWNER_SITE.id );
 	} );
 
-	it( 'hides the suggested prompts while the credits are spent', () => {
+	it( 'offers a stopped site its last screenshot and a Start button', () => {
 		sitesState.data = [ OWNER_SITE ];
-		useSessionMock.mockReturnValue( {
-			data: makeOwnedSession(),
-			isLoading: false,
-			error: null,
-		} );
-		useStudioAssistantQuotaMock.mockReturnValue( {
-			data: makeSpentQuota(),
-			isLoading: false,
-			isFetching: false,
-			refetch: vi.fn(),
-		} );
+		useSessionMock.mockReturnValue( { data: makeOwnedSession(), isLoading: false, error: null } );
 
-		render( <SessionView sessionId="session-1" /> );
+		const { rerender } = render( <SessionView sessionId="session-1" /> );
+		expect( screen.getByTestId( 'stopped-site-preview' ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'Start' } ) ).toBeInTheDocument();
 
-		expect( screen.queryByTestId( 'suggested-prompts' ) ).not.toBeInTheDocument();
-	} );
-
-	it( 'keeps the suggested prompts while credits remain', () => {
-		sitesState.data = [ OWNER_SITE ];
-		useSessionMock.mockReturnValue( {
-			data: makeOwnedSession(),
-			isLoading: false,
-			error: null,
-		} );
-
-		render( <SessionView sessionId="session-1" /> );
-
-		expect( screen.getByTestId( 'suggested-prompts' ) ).toBeInTheDocument();
+		sitesState.data = [ { ...OWNER_SITE, running: true } ];
+		rerender( <SessionView sessionId="session-1" /> );
+		expect( screen.queryByTestId( 'stopped-site-preview' ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'button', { name: 'Start' } ) ).not.toBeInTheDocument();
 	} );
 } );
 

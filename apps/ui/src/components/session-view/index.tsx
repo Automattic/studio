@@ -25,12 +25,15 @@ import {
 } from 'react';
 import { AgenticSigninPrompt } from '@/components/agentic-signin-banner';
 import { OpenChatShortcuts } from '@/components/chat-actions';
+import { PreviewParticles } from '@/components/preview-particles';
 import { PreviewToggleButton } from '@/components/preview-toggle-button';
 import { ProgressiveBlur } from '@/components/progressive-blur';
 import { HeaderSidebarToggle } from '@/components/sidebar-toggle';
 import { SiteDropdown } from '@/components/site-dropdown';
 import { SiteIcon } from '@/components/site-icon';
+import { SiteLifecycleButton } from '@/components/site-lifecycle-button';
 import { type Annotation } from '@/components/site-preview/types';
+import { StoppedSitePreview } from '@/components/stopped-site-preview';
 import { useAgentRun } from '@/data/queries/use-agent-run';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useAiSettings } from '@/data/queries/use-ai-settings';
@@ -64,11 +67,9 @@ import {
 } from './annotations';
 import { Composer, ComposerSkeleton, type ComposerHandle } from './composer';
 import { Conversation } from './conversation';
-import { EmptyBackground } from './empty-background';
 import { QueuedPrompts } from './queued-prompts';
 import { useNewChatShortcut } from './session-chat-actions';
 import styles from './style.module.css';
-import { SuggestedPrompts } from './suggested-prompts';
 import type { SiteDetails } from '@/data/core';
 
 // Slack below the bottom edge that still counts as "at the latest message",
@@ -133,7 +134,11 @@ function SessionHeader( {
 			<span className={ styles.headerSpacer } aria-hidden="true" />
 			{ site && effectiveEnvironment === 'local' ? (
 				<div className={ styles.headerActions } data-header-actions>
-					<PreviewToggleButton canHideChat />
+					{ site.running ? (
+						<PreviewToggleButton canHideChat />
+					) : (
+						<SiteLifecycleButton site={ site } />
+					) }
 				</div>
 			) : null }
 		</div>
@@ -572,7 +577,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	if ( isLoading || notFound || ! data || isQuotaLoading ) {
 		// Use the same SessionFrame with an empty header and a structural
 		// ComposerSkeleton so the scroll area has the exact same dimensions
-		// as the loaded view — otherwise the EmptyBackground canvas jumps
+		// as the loaded view — otherwise the empty-state dots jump
 		// mid-transition.
 		return (
 			<SessionFrame
@@ -583,7 +588,9 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 					</div>
 				}
 			>
-				<EmptyBackground />
+				<div className={ styles.emptyState }>
+					<PreviewParticles />
+				</div>
 			</SessionFrame>
 		);
 	}
@@ -599,7 +606,9 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 					/>
 				}
 			>
-				<EmptyBackground />
+				<div className={ styles.emptyState }>
+					<PreviewParticles />
+				</div>
 				<AccessRequirements
 					quota={ quota }
 					isRechecking={ isQuotaFetching }
@@ -663,22 +672,13 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 			}
 		>
 			<OpenChatShortcuts session={ data.summary } />
-			{ isEmpty && ! pendingPrompt ? <EmptyBackground /> : null }
-			{ isEmpty && ! pendingPrompt && ownerSite && ! isOutOfCredits ? (
-				<SuggestedPrompts
-					fadeIn={ fadeAfterQuotaCheck }
-					siteName={ ownerSite.name }
-					onPick={ ( prompt ) =>
-						composerRef.current?.replaceDraft( prompt, { suggestionBaseline: prompt } )
-					}
-					getDraft={ () =>
-						composerRef.current?.getDraft() ?? {
-							text: '',
-							hasAttachments: false,
-							suggestionBaseline: null,
-						}
-					}
-				/>
+			{ isEmpty && ! pendingPrompt ? (
+				<div className={ styles.emptyState }>
+					<PreviewParticles active={ isSiteStarting } showLogo={ isSiteStarting } />
+					{ ownerSite && ! ownerSite.running && ! isSiteStarting ? (
+						<StoppedSitePreview site={ ownerSite } />
+					) : null }
+				</div>
 			) : null }
 			<div className={ clsx( styles.column, styles.conversationSpacing ) }>
 				<Conversation

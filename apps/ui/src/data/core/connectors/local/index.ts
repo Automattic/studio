@@ -325,8 +325,18 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		async stopSite( id ) {
 			await api( `/sites/${ encodeURIComponent( id ) }/stop`, { method: 'POST' } );
 		},
-		async getSiteThumbnail(): Promise< string | null > {
-			return null;
+		async getSiteThumbnail( siteId ) {
+			const { thumbnail } = await api< { thumbnail: string | null } >(
+				`/sites/${ encodeURIComponent( siteId ) }/thumbnail`
+			);
+			return thumbnail;
+		},
+		async captureSitePreview( siteId, { path, width, height } ) {
+			const { thumbnail } = await api< { thumbnail: string | null } >(
+				`/sites/${ encodeURIComponent( siteId ) }/capture-preview`,
+				{ method: 'POST', body: JSON.stringify( { path, width, height } ) }
+			);
+			return thumbnail;
 		},
 		async getSiteIcon( siteId ) {
 			return api< string | null >( `/sites/${ encodeURIComponent( siteId ) }/site-icon` );

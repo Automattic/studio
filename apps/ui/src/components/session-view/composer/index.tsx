@@ -255,12 +255,8 @@ export interface ComposerHandle {
 		options?: {
 			images?: StudioChatImage[];
 			files?: StudioChatFileAttachment[];
-			suggestionBaseline?: string;
 		}
 	): void;
-	// What replaceDraft would discard — lets callers decide whether the
-	// replacement warrants a confirmation.
-	getDraft(): { text: string; hasAttachments: boolean; suggestionBaseline: string | null };
 	getSubmission(): { prompt: string; attachments: ComposerSendAttachments } | null;
 	focus(): void;
 }
@@ -309,7 +305,6 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 	const isField = variant === 'field';
 	const [ initialDraft ] = useState( () => getComposerDraft( sessionId ) );
 	const [ value, setValue ] = useState( initialDraft.text );
-	const [ suggestionBaseline, setSuggestionBaseline ] = useState( initialDraft.suggestionBaseline );
 	const [ sending, setSending ] = useState( false );
 	const [ submitFeedback, setSubmitFeedback ] = useState< 'shake' | 'error' | null >( null );
 	const [ hoverPreview, setHoverPreview ] = useState< ComposerAttachmentHoverPreviewState | null >(
@@ -392,11 +387,11 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 
 	useEffect( () => {
 		if ( draftEffectInitializedRef.current ) {
-			saveComposerDraft( sessionId, { text: value, attachments, suggestionBaseline } );
+			saveComposerDraft( sessionId, { text: value, attachments } );
 		} else {
 			draftEffectInitializedRef.current = true;
 		}
-	}, [ attachments, sessionId, suggestionBaseline, value ] );
+	}, [ attachments, sessionId, value ] );
 
 	useEffect( () => {
 		if ( submitFeedback === null ) {
@@ -445,12 +440,8 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 			},
 			replaceDraft( text, options ) {
 				setValue( text );
-				setSuggestionBaseline( options?.suggestionBaseline ?? null );
 				restoreAttachments( toComposerDraftAttachments( options ?? {} ) );
 				queueMicrotask( () => focusAtEnd( textareaRef.current ) );
-			},
-			getDraft() {
-				return { text: value, hasAttachments: attachments.length > 0, suggestionBaseline };
 			},
 			getSubmission() {
 				const prompt = value.trim();
@@ -461,7 +452,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 				focusAtEnd( textareaRef.current );
 			},
 		} ),
-		[ restoreAttachments, value, attachments, suggestionBaseline ]
+		[ restoreAttachments, value, attachments ]
 	);
 
 	const answerQuestion =
@@ -479,7 +470,6 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		}
 		if ( answerQuestion ) {
 			setValue( '' );
-			setSuggestionBaseline( null );
 			answerQuestion( trimmed );
 			return;
 		}
@@ -501,7 +491,6 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		completeComposerDraftSend( sessionId, trimmed, sentIds );
 		if ( ( textareaRef.current?.value ?? '' ).trim() === trimmed ) {
 			setValue( '' );
-			setSuggestionBaseline( null );
 		}
 		removeAttachments( sentIds );
 	}, [

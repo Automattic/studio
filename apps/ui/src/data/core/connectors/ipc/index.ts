@@ -27,6 +27,7 @@ import type {
 	ProposedSitePath,
 	SelectedSiteFolder,
 	SiteDetails,
+	SiteAgentFile,
 	SkillStatus,
 	Snapshot,
 	SnapshotUsage,
@@ -649,6 +650,12 @@ export function createIpcConnector(): Connector {
 		async getAgentInstructions(): Promise< string > {
 			return ( await ipcApi.getGlobalAgentInstructions() ) as string;
 		},
+		async getAgentInstructionsEnabled() {
+			return ( await ipcApi.getGlobalInstructionsEnabled() ) as boolean;
+		},
+		async setAgentInstructionsEnabled( enabled ) {
+			await ipcApi.setGlobalInstructionsEnabled( enabled );
+		},
 		async saveAgentInstructions(
 			content: string,
 			options: { editSession?: { previousContent: string } } = {}
@@ -777,6 +784,15 @@ export function createIpcConnector(): Connector {
 
 		async removeWordPressSkillFromAllSites( skillId: string ): Promise< void > {
 			await ipcApi.removeWordPressSkillFromAllSites( skillId );
+		},
+		async getSiteAgentFiles( siteId, kind ) {
+			return ( await ipcApi.getSiteAgentFiles( siteId, kind ) ) as SiteAgentFile[];
+		},
+		async setSiteAgentFileEnabled( siteId, kind, id, enabled ) {
+			await ipcApi.setSiteAgentFileEnabled( siteId, kind, id, enabled );
+		},
+		async removeSiteAgentFile( siteId, kind, id ) {
+			await ipcApi.removeSiteAgentFile( siteId, kind, id );
 		},
 
 		// Window state

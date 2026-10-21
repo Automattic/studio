@@ -145,6 +145,14 @@ const api: IpcApi = {
 		ipcRendererInvoke( 'installWordPressSkillsToAllSites', options ),
 	removeWordPressSkillFromAllSites: ( skillId ) =>
 		ipcRendererInvoke( 'removeWordPressSkillFromAllSites', skillId ),
+	getSiteAgentFiles: ( siteId, kind ) => ipcRendererInvoke( 'getSiteAgentFiles', siteId, kind ),
+	setSiteAgentFileEnabled: ( siteId, kind, id, enabled ) =>
+		ipcRendererInvoke( 'setSiteAgentFileEnabled', siteId, kind, id, enabled ),
+	removeSiteAgentFile: ( siteId, kind, id ) =>
+		ipcRendererInvoke( 'removeSiteAgentFile', siteId, kind, id ),
+	getGlobalInstructionsEnabled: () => ipcRendererInvoke( 'getGlobalInstructionsEnabled' ),
+	setGlobalInstructionsEnabled: ( enabled ) =>
+		ipcRendererInvoke( 'setGlobalInstructionsEnabled', enabled ),
 	recordAnalyticsEvent: ( eventName, props ) =>
 		ipcRendererInvoke( 'recordAnalyticsEvent', eventName, props ),
 	listAiSessions: () => ipcRendererInvoke( 'listAiSessions' ),

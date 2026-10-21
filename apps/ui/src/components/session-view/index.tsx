@@ -8,7 +8,7 @@ import {
 	hasPaidAiCredits,
 } from '@studio/common/lib/studio-assistant-quota';
 import { useNavigate } from '@tanstack/react-router';
-import { __ } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
 import { arrowDown } from '@wordpress/icons';
 import { IconButton } from '@wordpress/ui';
 import { clsx } from 'clsx';
@@ -24,7 +24,6 @@ import {
 	type Ref,
 } from 'react';
 import { AgenticSigninPrompt } from '@/components/agentic-signin-banner';
-import { OutOfCreditsNotice } from '@/components/ai-access-required-notice';
 import { OpenChatShortcuts } from '@/components/chat-actions';
 import { PreviewParticles } from '@/components/preview-particles';
 import { PreviewToggleButton } from '@/components/preview-toggle-button';
@@ -43,7 +42,13 @@ import {
 	useSession,
 	useSessionEffectiveEnvironment,
 } from '@/data/queries/use-sessions';
-import { useIsSiteStarting, useSites } from '@/data/queries/use-sites';
+import {
+	useIsSiteStarting,
+	useIsSiteStopping,
+	useSites,
+	useStartSite,
+} from '@/data/queries/use-sites';
+import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useIsOutOfAiCredits } from '@/hooks/use-is-out-of-ai-credits';
 import { useMarkChatRead } from '@/hooks/use-mark-chat-read';
 import { useSessionCommands } from '@/hooks/use-session-commands';
@@ -141,14 +146,21 @@ interface SessionFrameProps {
 	header?: ReactNode;
 	composer?: ReactNode;
 	scrollRef?: Ref< HTMLDivElement >;
+	rootRef?: ( node: HTMLDivElement | null ) => void;
 	children?: ReactNode;
 }
 
 // Lays out the chat column as fixed chrome over a full-height conversation
 // scroller. The site preview panel lives in the dashboard layout's
 // PreviewSplitFrame, which keeps it mounted across routes.
-function SessionFrame( { header, composer, scrollRef, children }: SessionFrameProps ) {
-	const rootRef = useRef< HTMLDivElement >( null );
+function SessionFrame( {
+	header,
+	composer,
+	scrollRef,
+	rootRef: onRootNode,
+	children,
+}: SessionFrameProps ) {
+	const rootRef = useRef< HTMLDivElement | null >( null );
 	const headerRef = useRef< HTMLDivElement >( null );
 	const composerRef = useRef< HTMLDivElement >( null );
 
@@ -185,7 +197,13 @@ function SessionFrame( { header, composer, scrollRef, children }: SessionFramePr
 	}, [] );
 
 	return (
-		<div ref={ rootRef } className={ styles.root }>
+		<div
+			ref={ ( node ) => {
+				rootRef.current = node;
+				onRootNode?.( node );
+			} }
+			className={ styles.root }
+		>
 			<div ref={ headerRef } className={ styles.headerLayer }>
 				{ header }
 			</div>
@@ -463,16 +481,44 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		queuedPrompts.length,
 	] );
 
-	// Out of credits swaps the composer for the purchase offer, unless a run is
-	// still in flight — the Stop button lives in the composer.
 	const isOutOfCredits = useIsOutOfAiCredits();
-	const isOwnerStarting = useIsSiteStarting( ownerSite?.id );
 	useMarkChatRead( sessionId, data?.summary.unread );
 	useNewChatShortcut( startNewChat, !! ownerSite && ! isOutOfCredits && ! isCreatingSession );
 	// Fail open when the quota is unavailable (offline, error, older server) —
 	// the WordPress.com proxy enforces the same gate server-side.
 	const isAccessBlocked =
 		!! quota && ( getStudioCodeAiAccessState( quota ) !== 'available' || ! quota.hasPaymentMethod );
+
+	const [ frameNode, setFrameNode ] = useState< HTMLDivElement | null >( null );
+	const { data: preferences } = useUserPreferences();
+	const { mutate: startSite } = useStartSite( { silent: true } );
+	const isSiteStarting = useIsSiteStarting( ownerSite?.id );
+	const isSiteStopping = useIsSiteStopping( ownerSite?.id );
+	const canAutoStart = !! ownerSite && effectiveEnvironment === 'local';
+	const sendWithAutoStart = useCallback(
+		( prompt: string, attachments?: Parameters< typeof sendMessage >[ 1 ] ) => {
+			if (
+				canAutoStart &&
+				preferences?.autoStartSiteOnChat &&
+				! ownerSite.running &&
+				! isSiteStarting
+			) {
+				startSite( ownerSite.id );
+			}
+			return sendMessage( prompt, attachments );
+		},
+		[ canAutoStart, isSiteStarting, ownerSite, preferences, sendMessage, startSite ]
+	);
+	const composerPlaceholder = ownerSite
+		? sprintf(
+				isSiteStarting
+					? /* translators: %s: site name. */ __( 'Starting %s' )
+					: isSiteStopping
+					? /* translators: %s: site name. */ __( 'Stopping %s' )
+					: /* translators: %s: site name. */ __( 'Work with %s' ),
+				ownerSite.name
+		  )
+		: undefined;
 
 	// The create-site flow's brief goes out as if typed here, but only once the
 	// chat is usable — it must not be fired into a gated view.
@@ -568,6 +614,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	return (
 		<SessionFrame
 			scrollRef={ setScrollNode }
+			rootRef={ setFrameNode }
 			header={
 				<SessionHeader
 					siteName={ data.summary.ownerSiteName }
@@ -596,34 +643,33 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 							/>
 						</div>
 					) : null }
-					{ isOutOfCredits && ! composerBusy ? (
-						<OutOfCreditsNotice />
-					) : (
-						<Composer
-							ref={ composerRef }
-							busy={ composerBusy }
-							awaitingAnswer={ pendingQuestions.length > 0 }
-							canSubmit={ ! isOutOfCredits }
-							isInterrupting={ isInterrupting }
-							model={ currentModel }
-							onSend={ sendMessage }
-							onAnswer={ targetQuestion ? answerTargetQuestion : undefined }
-							onInterrupt={ interrupt }
-							sessionId={ sessionId }
-							entries={ data.entries }
-							ownerSiteId={ ownerSite?.id }
-							onSwitchSession={ switchSession }
-						/>
-					) }
+					<Composer
+						ref={ composerRef }
+						busy={ composerBusy }
+						awaitingAnswer={ pendingQuestions.length > 0 }
+						isInterrupting={ isInterrupting }
+						model={ currentModel }
+						onSend={ sendWithAutoStart }
+						onAnswer={ targetQuestion ? answerTargetQuestion : undefined }
+						onInterrupt={ interrupt }
+						sessionId={ sessionId }
+						entries={ data.entries }
+						ownerSiteId={ ownerSite?.id }
+						onSwitchSession={ switchSession }
+						placeholder={ composerPlaceholder }
+						placeholderBusy={ isSiteStarting || isSiteStopping }
+						canAutoStart={ canAutoStart }
+						dropTarget={ frameNode }
+					/>
 				</div>
 			}
 		>
 			<OpenChatShortcuts session={ data.summary } />
 			{ isEmpty && ! pendingPrompt ? (
-				ownerSite && ( ! ownerSite.running || isOwnerStarting ) ? (
+				ownerSite && ( ! ownerSite.running || isSiteStarting ) ? (
 					<div className={ styles.stoppedSite }>
-						<PreviewParticles active={ isOwnerStarting } showLogo={ isOwnerStarting } />
-						{ isOwnerStarting ? null : <StoppedSitePreview site={ ownerSite } /> }
+						<PreviewParticles active={ isSiteStarting } showLogo={ isSiteStarting } />
+						{ isSiteStarting ? null : <StoppedSitePreview site={ ownerSite } /> }
 					</div>
 				) : (
 					<EmptyBackground />

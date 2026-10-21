@@ -83,6 +83,19 @@ describe( 'CLI: studio push', () => {
 		expect( reported()[ 1 ] ).toMatchObject( { remoteSiteId: remoteSite.id } );
 	} );
 
+	it( "keeps Studio's local wp-config.php constants out of the pushed archive", async () => {
+		vi.mocked( pollImportStatus ).mockResolvedValue( {
+			success: true,
+			status: 'finished',
+		} as never );
+
+		await runCommand( site.path, [ 'sqls' ], String( remoteSite.id ) );
+
+		expect( getExporter ).toHaveBeenCalledWith(
+			expect.objectContaining( { stripStudioWpConfigConstants: true } )
+		);
+	} );
+
 	it( 'explains a database the live site failed to import', async () => {
 		vi.mocked( pollImportStatus ).mockResolvedValue( {
 			success: false,

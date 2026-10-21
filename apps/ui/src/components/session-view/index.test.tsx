@@ -27,9 +27,20 @@ vi.mock( '@/data/queries/use-sessions', () => ( {
 	useCreateSession: () => ( { mutateAsync: vi.fn(), isPending: false } ),
 } ) );
 
+const siteMocks = vi.hoisted( () => ( {
+	startSite: vi.fn(),
+	preferences: { autoStartSiteOnChat: false },
+} ) );
+
 vi.mock( '@/data/queries/use-sites', () => ( {
 	useSites: () => sitesState,
 	useIsSiteStarting: () => false,
+	useIsSiteStopping: () => false,
+	useStartSite: () => ( { mutate: siteMocks.startSite } ),
+} ) );
+
+vi.mock( '@/data/queries/use-user-preferences', () => ( {
+	useUserPreferences: () => ( { data: siteMocks.preferences } ),
 } ) );
 
 vi.mock( '@/components/site-dropdown', () => ( {
@@ -96,8 +107,15 @@ vi.mock( '@/hooks/use-traffic-light-space', () => ( {
 	useTrafficLightSpace: () => ( { start: false, end: false } ),
 } ) );
 
+const composerProps = vi.hoisted( () => ( {
+	current: undefined as undefined | { onSend: ( prompt: string ) => Promise< void > },
+} ) );
+
 vi.mock( './composer', () => ( {
-	Composer: () => <div data-testid="composer" />,
+	Composer: ( props: { onSend: ( prompt: string ) => Promise< void > } ) => {
+		composerProps.current = props;
+		return <div data-testid="composer" />;
+	},
 	ComposerSkeleton: () => <div data-testid="composer-skeleton" />,
 } ) );
 
@@ -114,12 +132,6 @@ vi.mock( './session-chat-actions', () => ( {
 
 vi.mock( './suggested-prompts', () => ( {
 	SuggestedPrompts: () => <div data-testid="suggested-prompts" />,
-} ) );
-
-// The real notice reaches TanStack Query, which this suite has no provider for.
-vi.mock( '@/components/ai-access-required-notice', async ( importOriginal ) => ( {
-	...( await importOriginal< object >() ),
-	OutOfCreditsNotice: () => <div data-testid="out-of-credits" />,
 } ) );
 
 const useSessionMock = vi.mocked( useSession, { partial: true } );
@@ -190,6 +202,7 @@ describe( 'SessionView', () => {
 		vi.clearAllMocks();
 		agentRunState.hasActiveRun = false;
 		sitesState.data = [];
+		siteMocks.preferences = { autoStartSiteOnChat: false };
 		const pending = pendingPromptSlot.getSnapshot();
 		if ( pending ) pendingPromptSlot.clear( pending );
 		// Entitled account by default; individual tests override.
@@ -480,44 +493,18 @@ describe( 'SessionView', () => {
 		expect( screen.queryByText( 'Studio Code Beta' ) ).not.toBeInTheDocument();
 	} );
 
-	it( 'replaces the composer with the purchase offer when the credits are spent', () => {
-		useSessionMock.mockReturnValue( {
-			data: makeLoadedSession(),
-			isLoading: false,
-			error: null,
-		} );
-		useStudioAssistantQuotaMock.mockReturnValue( {
-			data: makeSpentQuota(),
-			isLoading: false,
-			isFetching: false,
-			refetch: vi.fn(),
-		} );
+	it( 'starts a stopped site on send only when auto-start is on', async () => {
+		sitesState.data = [ { ...OWNER_SITE, running: false } ];
+		useSessionMock.mockReturnValue( { data: makeOwnedSession(), isLoading: false, error: null } );
 
-		render( <SessionView sessionId="session-1" /> );
+		const { rerender } = render( <SessionView sessionId="session-1" /> );
+		await composerProps.current?.onSend( 'Hi' );
+		expect( siteMocks.startSite ).not.toHaveBeenCalled();
 
-		expect( screen.getByTestId( 'out-of-credits' ) ).toBeInTheDocument();
-		expect( screen.queryByTestId( 'composer' ) ).not.toBeInTheDocument();
-	} );
-
-	it( 'keeps the composer while a run is still in flight', () => {
-		agentRunState.hasActiveRun = true;
-		useSessionMock.mockReturnValue( {
-			data: makeLoadedSession(),
-			isLoading: false,
-			error: null,
-		} );
-		useStudioAssistantQuotaMock.mockReturnValue( {
-			data: makeSpentQuota(),
-			isLoading: false,
-			isFetching: false,
-			refetch: vi.fn(),
-		} );
-
-		render( <SessionView sessionId="session-1" /> );
-
-		// The composer carries the Stop button, so it has to outlive the balance.
-		expect( screen.getByTestId( 'composer' ) ).toBeInTheDocument();
-		expect( screen.queryByTestId( 'out-of-credits' ) ).not.toBeInTheDocument();
+		siteMocks.preferences = { autoStartSiteOnChat: true };
+		rerender( <SessionView sessionId="session-1" /> );
+		await composerProps.current?.onSend( 'Hi' );
+		expect( siteMocks.startSite ).toHaveBeenCalledWith( OWNER_SITE.id );
 	} );
 
 	it( 'hides the suggested prompts while the credits are spent', () => {

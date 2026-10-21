@@ -1,3 +1,5 @@
+import fs from 'fs';
+import os from 'os';
 import path from 'path';
 import { DefaultExporter } from '../default-exporter';
 import type { ExportOptions } from '../../types';
@@ -57,6 +59,53 @@ describe( 'DefaultExporter', () => {
 			expect( exporter.isExactPathExcluded( p( 'wp-content', 'database', '.ht.sqlite' ) ) ).toBe(
 				true
 			);
+		} );
+	} );
+
+	describe( 'addWpConfig', () => {
+		const wpConfig = "<?php\ndefine( 'WP_ENVIRONMENT_TYPE', 'local' );\n$table_prefix = 'wp_';\n";
+		let sitePath: string;
+
+		beforeEach( () => {
+			sitePath = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-default-exporter-' ) );
+			fs.writeFileSync( path.join( sitePath, 'wp-config.php' ), wpConfig );
+		} );
+
+		afterEach( () => {
+			fs.rmSync( sitePath, { recursive: true, force: true } );
+		} );
+
+		function addWpConfig( options: Partial< ExportOptions > ) {
+			const siteExporter = new DefaultExporter( {
+				site: { id: 'site-1', name: 'Test Site', path: sitePath },
+				backupFile: '/tmp/backup.tar.gz',
+				includes: { wpContent: true, database: true },
+				phpVersion: '8.3',
+				...options,
+			} as ExportOptions );
+			const archiveBuilder = { file: vi.fn(), append: vi.fn() };
+			Object.assign( siteExporter, { archiveBuilder } );
+			( siteExporter as unknown as { addWpConfig(): void } ).addWpConfig();
+			return archiveBuilder;
+		}
+
+		it( 'archives the stripped content without changing the local file', () => {
+			const archiveBuilder = addWpConfig( { stripStudioWpConfigConstants: true } );
+
+			expect( archiveBuilder.file ).not.toHaveBeenCalled();
+			expect( archiveBuilder.append ).toHaveBeenCalledWith( "<?php\n$table_prefix = 'wp_';\n", {
+				name: 'wp-config.php',
+			} );
+			expect( fs.readFileSync( path.join( sitePath, 'wp-config.php' ), 'utf-8' ) ).toBe( wpConfig );
+		} );
+
+		it( 'archives the local file as is by default', () => {
+			const archiveBuilder = addWpConfig( {} );
+
+			expect( archiveBuilder.append ).not.toHaveBeenCalled();
+			expect( archiveBuilder.file ).toHaveBeenCalledWith( path.join( sitePath, 'wp-config.php' ), {
+				name: 'wp-config.php',
+			} );
 		} );
 	} );
 

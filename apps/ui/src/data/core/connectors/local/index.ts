@@ -21,6 +21,7 @@ import type {
 	ProposedSitePath,
 	SelectedSiteFolder,
 	SiteDetails,
+	SiteAgentFile,
 	SkillStatus,
 	Snapshot,
 	SnapshotUsage,
@@ -760,6 +761,16 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			const { content } = await api< { content: string } >( '/agent-instructions' );
 			return content;
 		},
+		async getAgentInstructionsEnabled() {
+			const { enabled } = await api< { enabled: boolean } >( '/agent-instructions/enabled' );
+			return enabled;
+		},
+		async setAgentInstructionsEnabled( enabled ) {
+			await api( '/agent-instructions/enabled', {
+				method: 'PUT',
+				body: JSON.stringify( { enabled } ),
+			} );
+		},
 		async saveAgentInstructions(
 			content: string,
 			options: { editSession?: { previousContent: string } } = {}
@@ -861,6 +872,27 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		},
 		async removeWordPressSkillFromAllSites( skillId ) {
 			await api( `/skills/${ encodeURIComponent( skillId ) }`, { method: 'DELETE' } );
+		},
+		async getSiteAgentFiles( siteId, kind ) {
+			return api< SiteAgentFile[] >(
+				`/sites/${ encodeURIComponent( siteId ) }/agent-files/${ kind }`
+			);
+		},
+		async setSiteAgentFileEnabled( siteId, kind, id, enabled ) {
+			await api(
+				`/sites/${ encodeURIComponent( siteId ) }/agent-files/${ kind }/${ encodeURIComponent(
+					id
+				) }`,
+				{ method: 'PUT', body: JSON.stringify( { enabled } ) }
+			);
+		},
+		async removeSiteAgentFile( siteId, kind, id ) {
+			await api(
+				`/sites/${ encodeURIComponent( siteId ) }/agent-files/${ kind }/${ encodeURIComponent(
+					id
+				) }`,
+				{ method: 'DELETE' }
+			);
 		},
 
 		// Window chrome — no traffic lights in a browser tab.

@@ -181,13 +181,12 @@ describe( 'writeStudioMuPlugins', () => {
 	} );
 
 	it( 'should keep the mu-plugins outside the temp directory', async () => {
-		const originalTmpdir = process.env.TMPDIR;
-		process.env.TMPDIR = await mkdtemp( join( tmpdir(), 'studio-test-tmpdir-' ) );
+		vi.stubEnv( 'TMPDIR', await mkdtemp( join( tmpdir(), 'studio-test-tmpdir-' ) ) );
 		try {
 			const muPluginsDir = await writeStudioMuPlugins( sitePath, false );
 			expect( muPluginsDir.startsWith( getMuPluginsPath() ) ).toBe( true );
 		} finally {
-			process.env.TMPDIR = originalTmpdir;
+			vi.unstubAllEnvs();
 		}
 	} );
 

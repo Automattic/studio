@@ -9,6 +9,7 @@ import type {
 	LoadedAiSession,
 } from '@studio/common/ai/sessions/types';
 import type { StudioVisualAnnotationSummary } from '@studio/common/ai/visual-annotations';
+import type { SiteAgentFile, SiteAgentFileKind } from '@studio/common/lib/agent-skills';
 import type { SiteEvent, SnapshotEvent } from '@studio/common/lib/cli-events';
 import type { SupportedLocale } from '@studio/common/lib/locale';
 import type {
@@ -425,6 +426,9 @@ export interface Connector {
 	// The user's global Studio Code instructions, a markdown file injected into
 	// every agent session.
 	getAgentInstructions(): Promise< string >;
+	// Whether those instructions reach the agent.
+	getAgentInstructionsEnabled(): Promise< boolean >;
+	setAgentInstructionsEnabled( enabled: boolean ): Promise< void >;
 	// `editSession` marks the save that ends an edit session and carries the value
 	// it started from, so it counts as one change. Autosaves omit it.
 	saveAgentInstructions(
@@ -486,6 +490,17 @@ export interface Connector {
 	getWordPressSkillsStatusAllSites(): Promise< SkillStatus[] >;
 	installWordPressSkillToAllSites( skillId: string ): Promise< void >;
 	removeWordPressSkillFromAllSites( skillId: string ): Promise< void >;
+
+	// One site's skills and instruction files. Switching one off keeps its
+	// edits, out of the folders agents read.
+	getSiteAgentFiles( siteId: string, kind: SiteAgentFileKind ): Promise< SiteAgentFile[] >;
+	setSiteAgentFileEnabled(
+		siteId: string,
+		kind: SiteAgentFileKind,
+		id: string,
+		enabled: boolean
+	): Promise< void >;
+	removeSiteAgentFile( siteId: string, kind: SiteAgentFileKind, id: string ): Promise< void >;
 
 	// Whether the UI should render a button that opens the app menu via
 	// `popupAppMenu`. True only in the Windows/Linux desktop app, which has no
@@ -616,6 +631,8 @@ export interface OnboardingHintsState {
 	// "Welcome to WordPress Studio 2.0" migrating copy.
 	migratedFromClassic?: boolean;
 }
+
+export type { SiteAgentFile, SiteAgentFileKind };
 
 export interface SkillStatus {
 	id: string;

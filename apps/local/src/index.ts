@@ -9,7 +9,9 @@ import {
 	validateStudioChatImages,
 } from '@studio/common/ai/chat-images';
 import {
+	getGlobalInstructionsEnabled,
 	readGlobalInstructionsFile,
+	setGlobalInstructionsEnabled,
 	writeGlobalInstructions,
 } from '@studio/common/ai/global-instructions';
 import { isAiModelId } from '@studio/common/ai/models';
@@ -40,9 +42,13 @@ import { getAiTracksIdentity } from '@studio/common/ai/tracks-identity';
 import { validateStudioVisualAnnotations } from '@studio/common/ai/visual-annotations';
 import { DEBUG_LOG_RELATIVE_PATH, DEFAULT_TOKEN_LIFETIME_MS } from '@studio/common/constants';
 import {
+	getSiteAgentFiles,
 	getSkillsStatusForAllSites,
 	installSkillToAllSites,
+	removeSiteAgentFile,
 	removeSkillFromAllSites,
+	setSiteAgentFileEnabled,
+	type SiteAgentFileKind,
 } from '@studio/common/lib/agent-skills';
 import { downloadAndExtractBlueprintBundle } from '@studio/common/lib/blueprint-bundle';
 import {
@@ -615,6 +621,25 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		'/agent-instructions',
 		asyncHandler( async ( _req: Request, res: Response ) => {
 			res.json( { content: ( await readGlobalInstructionsFile() ) ?? '' } );
+		} )
+	);
+
+	api.get(
+		'/agent-instructions/enabled',
+		asyncHandler( async ( _req: Request, res: Response ) => {
+			res.json( { enabled: await getGlobalInstructionsEnabled() } );
+		} )
+	);
+
+	api.put(
+		'/agent-instructions/enabled',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			if ( typeof req.body?.enabled !== 'boolean' ) {
+				res.status( 400 ).json( { error: 'enabled required' } );
+				return;
+			}
+			await setGlobalInstructionsEnabled( req.body.enabled );
+			res.sendStatus( 204 );
 		} )
 	);
 
@@ -1893,13 +1918,68 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} )
 	);
 
+	// Bundled next to the CLI entry, as the desktop app finds them.
+	const bundledSkillsPath = path.join( path.dirname( cliBinary ), 'wp-files', 'skills' );
+
 	api.post(
 		'/skills/:id',
 		asyncHandler( async ( req: Request, res: Response ) => {
-			// Bundled next to the CLI entry, as the desktop app finds them.
-			const skillsPath = path.join( path.dirname( cliBinary ), 'wp-files', 'skills' );
-			await installSkillToAllSites( skillsPath, req.params.id );
+			await installSkillToAllSites( bundledSkillsPath, req.params.id );
 			res.sendStatus( 204 );
+		} )
+	);
+
+	// --- A site's skills and instruction files ---------------------------------
+	const readAgentFileRequest = async ( req: Request, res: Response ) => {
+		const kind = req.params.kind;
+		const sitePath = await readSitePath( req.params.id );
+		if ( ( kind !== 'skills' && kind !== 'instructions' ) || ! sitePath ) {
+			res.status( 404 ).json( { error: 'Not found' } );
+			return null;
+		}
+		return { sitePath, kind: kind as SiteAgentFileKind };
+	};
+
+	api.get(
+		'/sites/:id/agent-files/:kind',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const target = await readAgentFileRequest( req, res );
+			if ( target ) {
+				res.json( await getSiteAgentFiles( target.sitePath, target.kind ) );
+			}
+		} )
+	);
+
+	api.put(
+		'/sites/:id/agent-files/:kind/:fileId',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const target = await readAgentFileRequest( req, res );
+			if ( ! target ) {
+				return;
+			}
+			if ( typeof req.body?.enabled !== 'boolean' ) {
+				res.status( 400 ).json( { error: 'enabled required' } );
+				return;
+			}
+			await setSiteAgentFileEnabled(
+				target.sitePath,
+				bundledSkillsPath,
+				target.kind,
+				req.params.fileId,
+				req.body.enabled
+			);
+			res.sendStatus( 204 );
+		} )
+	);
+
+	api.delete(
+		'/sites/:id/agent-files/:kind/:fileId',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const target = await readAgentFileRequest( req, res );
+			if ( target ) {
+				await removeSiteAgentFile( target.sitePath, target.kind, req.params.fileId );
+				res.sendStatus( 204 );
+			}
 		} )
 	);
 

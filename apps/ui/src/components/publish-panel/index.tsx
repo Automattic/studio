@@ -121,6 +121,14 @@ export function PublishButton( {
 		[ site.id ]
 	);
 
+	// The site created at checkout publishes right away; show its progress.
+	const createdId = created?.id;
+	useEffect( () => {
+		if ( createdId !== undefined ) {
+			setView( 'publish' );
+		}
+	}, [ createdId ] );
+
 	// Someone who just created an account has no website yet: take them to checkout.
 	useEffect( () => {
 		if ( setupAfterSignup && user.data && connected.isSuccess ) {
@@ -300,20 +308,24 @@ export function PublishButton( {
 						<button
 							type="button"
 							className={ styles.linkButton }
-							disabled={ busy || offline }
-							onClick={ () => {
-								setView( 'publish' );
-								startSetup();
-							} }
+							disabled={ busy || offline || settingUp }
+							aria-live="polite"
+							onClick={ startSetup }
 						>
-							{ __( 'Publish on WordPress.com' ) }
-							<Icon icon={ arrowUpRight } size={ 16 } />
+							{ settingUp ? (
+								__( 'Waiting for WordPress.com…' )
+							) : (
+								<>
+									{ __( 'Create a new WordPress.com site' ) }
+									<Icon icon={ arrowUpRight } size={ 16 } />
+								</>
+							) }
 						</button>
 					</PanelBody>
 				</>
 			);
 		}
-		if ( destination && ! settingUp ) {
+		if ( destination ) {
 			return (
 				<ConnectedView
 					key={ destination.id }

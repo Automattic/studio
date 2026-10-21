@@ -74,6 +74,8 @@ const api: IpcApi = {
 	openStudioLogs: () => ipcRendererSend( 'openStudioLogs' ),
 	getSiteIcon: ( id ) => ipcRendererInvoke( 'getSiteIcon', id ),
 	getThumbnailData: ( id ) => ipcRendererInvoke( 'getThumbnailData', id ),
+	captureSitePreview: ( siteId, guestId, pagePath ) =>
+		ipcRendererInvoke( 'captureSitePreview', siteId, guestId, pagePath ),
 	getInstalledAppsAndTerminals: () => ipcRendererInvoke( 'getInstalledAppsAndTerminals' ),
 	importSite: ( siteId, importArchivePath, options ) =>
 		ipcRendererInvoke( 'importSite', siteId, importArchivePath, options ),

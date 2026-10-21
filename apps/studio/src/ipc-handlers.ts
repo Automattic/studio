@@ -10,6 +10,11 @@ import {
 	type WebContents,
 	SaveDialogOptions,
 } from 'electron';
+import {
+	isSitePreviewPath,
+	readSitePreview,
+	writeSitePreview,
+} from '@studio/common/lib/site-preview-cache';
 import fs from 'fs';
 import fsPromises from 'fs/promises';
 import os from 'os';
@@ -105,7 +110,6 @@ import {
 	extractErrorFromProcessManagerLogs,
 	simplifyErrorForDisplay,
 } from 'src/lib/error-formatting';
-import { getImageData } from 'src/lib/get-image-data';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
 import { setSentryWpcomUserIdMain } from 'src/lib/main-sentry-utils';
 import * as oauthClient from 'src/lib/oauth';
@@ -1044,8 +1048,24 @@ export async function saveOnboarding( event: IpcMainInvokeEvent, onboardingCompl
 export { getAppUpdateStatus, installAppUpdate } from 'src/updates';
 
 export function getThumbnailData( _event: IpcMainInvokeEvent, id: string ) {
-	const path = getSiteThumbnailPath( id );
-	return getImageData( path );
+	return readSitePreview( id, getSiteThumbnailPath( id ) );
+}
+
+// Saves what the preview webview shows, so a stopped site still has a picture.
+// Only the window hosting the webview may capture it.
+export async function captureSitePreview(
+	event: IpcMainInvokeEvent,
+	siteId: string,
+	guestId: number,
+	pagePath: string
+): Promise< string | null > {
+	const guest = webContents.fromId( guestId );
+	if ( ! guest || guest.hostWebContents !== event.sender || ! isSitePreviewPath( pagePath ) ) {
+		return null;
+	}
+	const png = ( await guest.capturePage() ).toPNG();
+	await writeSitePreview( siteId, png );
+	return `data:image/png;base64,${ png.toString( 'base64' ) }`;
 }
 
 function promiseExec( command: string, options: ExecOptions = {} ): Promise< void > {

@@ -113,13 +113,14 @@ describe( 'SitePreview', () => {
 		expect( screen.queryByRole( 'button', { name: 'Reload preview' } ) ).not.toBeInTheDocument();
 		expect( screen.queryByRole( 'button', { name: 'Annotate' } ) ).not.toBeInTheDocument();
 		expect( screen.queryByText( 'WordPress' ) ).not.toBeInTheDocument();
-		expect( screen.getByRole( 'button', { name: 'Start site' } ) ).toBeVisible();
 		expect( container.querySelector( 'canvas' ) ).toBeInTheDocument();
 		await waitFor( () => expect( getSiteThumbnail ).toHaveBeenCalledWith( 'site-1' ) );
 
-		expect(
-			await screen.findByRole( 'img', { name: 'Screenshot of Example Site' } )
-		).toHaveAttribute( 'src', 'data:image/png;base64,thumbnail' );
+		expect( await screen.findByRole( 'img', { name: 'Saved site preview' } ) ).toHaveAttribute(
+			'src',
+			'data:image/png;base64,thumbnail'
+		);
+		expect( screen.getByRole( 'button', { name: 'Start from preview' } ) ).toBeEnabled();
 	} );
 
 	it( 'starts a stopped site and stops a running one from the header', async () => {
@@ -181,6 +182,33 @@ describe( 'SitePreview', () => {
 		fireEvent.click( refreshButton );
 
 		expect( container.querySelector( 'iframe' ) ).not.toBe( initialIframe );
+	} );
+
+	it( 'keeps the page that loaded as the site screenshot', async () => {
+		const captureSitePreview = vi.fn().mockResolvedValue( 'data:image/png;base64,new' );
+		useConnectorMock.mockReturnValue( {
+			captureSitePreview,
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
+			capabilities: CAPABILITIES,
+		} as never );
+		const { container } = renderPreview(
+			<SitePreview site={ createSite( { running: true } ) } path="/about/" reloadNonce={ 0 } />
+		);
+		const iframe = container.querySelector( 'iframe' )!;
+		for ( const [ key, value ] of Object.entries( { clientWidth: 800, clientHeight: 600 } ) ) {
+			Object.defineProperty( iframe.closest( 'div[class*="previewViewport"]' ), key, { value } );
+		}
+
+		fireEvent.load( iframe );
+
+		await waitFor( () =>
+			expect( captureSitePreview ).toHaveBeenCalledWith( 'site-1', {
+				path: '/about/',
+				width: 800,
+				height: 600,
+				guestId: undefined,
+			} )
+		);
 	} );
 
 	it( 'reloads the preview on the primary-modifier+R shortcut', () => {

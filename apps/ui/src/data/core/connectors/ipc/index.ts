@@ -326,6 +326,9 @@ export function createIpcConnector(): Connector {
 		async getSiteThumbnail( siteId ): Promise< string | null > {
 			return ( await ipcApi.getThumbnailData( siteId ) ) as string | null;
 		},
+		async captureSitePreview( siteId, { path, guestId } ) {
+			return guestId === undefined ? null : ipcApi.captureSitePreview( siteId, guestId, path );
+		},
 		async getSiteDesign( siteId ) {
 			return ipcApi.getSiteDesign( siteId );
 		},

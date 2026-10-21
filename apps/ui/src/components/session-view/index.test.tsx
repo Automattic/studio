@@ -11,7 +11,9 @@ import type { LoadedAiSession } from '@/data/core';
 const { navigateMock, agentRunState, sitesState } = vi.hoisted( () => ( {
 	navigateMock: vi.fn(),
 	agentRunState: { hasActiveRun: false, sendMessage: vi.fn( async () => undefined ) },
-	sitesState: { data: [] as Array< { id: string; path: string; name: string } > },
+	sitesState: {
+		data: [] as Array< { id: string; path: string; name: string; running?: boolean } >,
+	},
 } ) );
 
 vi.mock( '@tanstack/react-router', () => ( {
@@ -27,10 +29,15 @@ vi.mock( '@/data/queries/use-sessions', () => ( {
 
 vi.mock( '@/data/queries/use-sites', () => ( {
 	useSites: () => sitesState,
+	useIsSiteStarting: () => false,
 } ) );
 
 vi.mock( '@/components/site-dropdown', () => ( {
 	SiteDropdown: ( { site }: { site: { name: string } } ) => <div>{ site.name }</div>,
+} ) );
+
+vi.mock( '@/components/stopped-site-preview', () => ( {
+	StoppedSitePreview: () => <div data-testid="stopped-site-preview" />,
 } ) );
 
 vi.mock( '@/components/preview-toggle-button', () => ( {
@@ -543,6 +550,18 @@ describe( 'SessionView', () => {
 		render( <SessionView sessionId="session-1" /> );
 
 		expect( screen.getByTestId( 'suggested-prompts' ) ).toBeInTheDocument();
+	} );
+
+	it( 'shows a stopped site its last screenshot in an empty chat', () => {
+		sitesState.data = [ OWNER_SITE ];
+		useSessionMock.mockReturnValue( { data: makeOwnedSession(), isLoading: false, error: null } );
+
+		const { rerender } = render( <SessionView sessionId="session-1" /> );
+		expect( screen.getByTestId( 'stopped-site-preview' ) ).toBeInTheDocument();
+
+		sitesState.data = [ { ...OWNER_SITE, running: true } ];
+		rerender( <SessionView sessionId="session-1" /> );
+		expect( screen.queryByTestId( 'stopped-site-preview' ) ).not.toBeInTheDocument();
 	} );
 } );
 

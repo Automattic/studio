@@ -211,3 +211,14 @@
 		opacity: 1;
 	}
 }
+
+/* A stopped site's screenshot fills the empty chat, over its dot field. */
+.stoppedSite {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: var(--wpds-dimension-padding-2xl);
+	padding-bottom: calc(var(--composer-height) + var(--wpds-dimension-padding-2xl));
+}

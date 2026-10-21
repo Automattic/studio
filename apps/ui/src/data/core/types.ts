@@ -182,9 +182,16 @@ export interface Connector {
 	// Persists the sidebar's manual site order (the same per-site `sortOrder`
 	// the legacy desktop sidebar uses).
 	updateSitesSortOrder( updates: { siteId: string; sortOrder: number }[] ): Promise< void >;
-	// Cached screenshot thumbnail captured by the desktop app while the site
-	// was running. Returns null when the site has not produced a thumbnail yet.
+	// The last page of the site captured in a preview, shown while it's stopped.
+	// Null when the site has not been captured yet.
 	getSiteThumbnail( siteId: string ): Promise< string | null >;
+	// Captures the preview's page as the site's thumbnail and returns it, or null
+	// when that page isn't kept (sign-in and admin screens). The Desktop app
+	// captures the preview webview, named by `guestId`.
+	captureSitePreview(
+		siteId: string,
+		capture: { path: string; width: number; height: number; guestId?: number }
+	): Promise< string | null >;
 	// The site's Site Icon (a data URL, or null when it has none), read on
 	// demand when the host can inspect local sites.
 	getSiteIcon?( siteId: string ): Promise< string | null >;

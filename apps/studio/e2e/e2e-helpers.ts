@@ -41,7 +41,7 @@ export class E2ESession {
 		// Electron keys its single-instance lock to the user data directory.
 		this.userDataPath = path.join( this.sessionPath, 'userData' );
 		// Each session runs its own process-manager daemon: quitting the app stops the daemon and
-		// every site it runs, which must not reach another worker's sites. Kept short and directly
+		// every site it runs, which must not reach sites outside the session. Kept short and directly
 		// under tmpdir because the daemon's Unix socket path is limited to ~104 characters on macOS.
 		this.daemonHomePath = path.join( tmpdir(), `sd-${ randomUUID().slice( 0, 8 ) }` );
 	}
@@ -257,8 +257,6 @@ export class E2ESession {
 				E2E_CLI_CONFIG_PATH: this.cliConfigPath,
 				E2E_SHARED_CONFIG_PATH: this.sharedConfigPath,
 				STUDIO_PROCESS_MANAGER_HOME: this.daemonHomePath,
-				// Workers run concurrently, so each assigns site ports from its own range.
-				STUDIO_BASE_PORT: String( 8881 + Number( process.env.TEST_PARALLEL_INDEX ?? 0 ) * 1000 ),
 			},
 			timeout: 60_000,
 		} );

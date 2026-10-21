@@ -214,7 +214,9 @@ export function ConnectedView( {
 							/>
 						) : (
 							<div className={ styles.website }>
-								<span className={ styles.heading }>{ websiteAddress( remote ) }</span>
+								<span className={ styles.address } title={ websiteAddress( remote ) }>
+									{ websiteAddress( remote ) }
+								</span>
 								<IconButton
 									variant="minimal"
 									tone="neutral"

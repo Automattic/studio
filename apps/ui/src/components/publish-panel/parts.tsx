@@ -2,7 +2,7 @@ import { canCancelSyncActivity } from '@studio/common/lib/sync/cancel';
 import { useIsMutating } from '@tanstack/react-query';
 import { __ } from '@wordpress/i18n';
 import { chevronDownSmall, chevronLeft } from '@wordpress/icons';
-import { Button, Icon, IconButton, Progress, Spinner } from '@wordpress/ui';
+import { Button, Icon, Progress, Spinner } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useEffect, useRef, type ReactNode } from 'react';
 import * as Menu from '@/components/menu';
@@ -22,7 +22,9 @@ export function PanelHeader( { title, onBack }: { title: string; onBack?: () => 
 		if ( ! hasBack ) {
 			return;
 		}
-		const frame = requestAnimationFrame( () => back.current?.focus() );
+		const frame = requestAnimationFrame(
+			() => back.current?.focus( { focusVisible: false } as FocusOptions )
+		);
 		return () => cancelAnimationFrame( frame );
 	}, [ hasBack, title ] );
 	if ( ! onBack ) {
@@ -30,16 +32,15 @@ export function PanelHeader( { title, onBack }: { title: string; onBack?: () => 
 	}
 	return (
 		<div className={ styles.panelHeader }>
-			<IconButton
+			<button
 				ref={ back }
-				variant="outline"
-				tone="neutral"
-				size="compact"
-				className={ styles.outline }
-				icon={ chevronLeft }
-				label={ __( 'Back to Publish' ) }
+				type="button"
+				className={ styles.back }
+				aria-label={ __( 'Back to Publish' ) }
 				onClick={ onBack }
-			/>
+			>
+				<Icon icon={ chevronLeft } size={ 20 } />
+			</button>
 			<Popover.Title className={ styles.heading }>{ title }</Popover.Title>
 		</div>
 	);
@@ -180,10 +181,11 @@ export function TransferProgress( {
 			{ activity.progress !== undefined ? (
 				<Progress.Root
 					value={ activity.progress }
+					className={ styles.progressBar }
 					aria-label={ pushing ? __( 'Publishing progress' ) : __( 'Pull progress' ) }
 				>
-					<Progress.Track>
-						<Progress.Indicator />
+					<Progress.Track className={ styles.progressTrack }>
+						<Progress.Indicator color="var(--wpds-color-foreground-content-neutral)" />
 					</Progress.Track>
 				</Progress.Root>
 			) : null }

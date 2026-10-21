@@ -1,6 +1,6 @@
 import { __, sprintf } from '@wordpress/i18n';
 import { chevronDown, chevronRight, link } from '@wordpress/icons';
-import { Checkbox, Icon, IconButton, Spinner, Tooltip } from '@wordpress/ui';
+import { Checkbox, Icon, Spinner, Tooltip } from '@wordpress/ui';
 import { useId, useState, type ReactNode } from 'react';
 import styles from './style.module.css';
 import type { SyncNode } from './selection';
@@ -81,12 +81,10 @@ function FileNode( { node, selection }: { node: SyncNode; selection: TransferSel
 				onChange={ ( checked ) => selection.change( node.id, checked ) }
 				disclosure={
 					node.expandable ? (
-						<IconButton
-							variant="minimal"
-							tone="neutral"
-							size="small"
-							icon={ loading ? <Spinner /> : expanded ? chevronDown : chevronRight }
-							label={ sprintf(
+						<button
+							type="button"
+							className={ styles.disclosureButton }
+							aria-label={ sprintf(
 								/* translators: %s: folder name */
 								expanded ? __( 'Collapse %s' ) : __( 'Expand %s' ),
 								node.name
@@ -94,7 +92,13 @@ function FileNode( { node, selection }: { node: SyncNode; selection: TransferSel
 							aria-expanded={ expanded }
 							disabled={ loading }
 							onClick={ toggle }
-						/>
+						>
+							{ loading ? (
+								<Spinner />
+							) : (
+								<Icon icon={ expanded ? chevronDown : chevronRight } size={ 16 } />
+							) }
+						</button>
 					) : null
 				}
 			/>

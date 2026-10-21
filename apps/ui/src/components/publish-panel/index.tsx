@@ -230,7 +230,9 @@ export function PublishButton( {
 										disabled={ offline || busy || Boolean( websiteIssue( remote ) ) }
 										onClick={ () => connect.mutate( remote ) }
 									>
-										<span className={ styles.choiceName }>{ remote.name || remote.url }</span>
+										<span className={ styles.choiceName } title={ remote.name || remote.url }>
+											{ remote.name || remote.url }
+										</span>
 										<span className={ styles.choiceLabel }>{ websiteLabel( remote ) }</span>
 									</button>
 									{ websiteIssue( remote ) ? (
@@ -263,13 +265,16 @@ export function PublishButton( {
 						{ websites.map( ( remote ) => (
 							<div key={ remote.id } className={ styles.websiteRow }>
 								<div className={ styles.websiteRowText }>
-									<span className={ styles.heading }>{ websiteAddress( remote ) }</span>
+									<span className={ styles.address } title={ websiteAddress( remote ) }>
+										{ websiteAddress( remote ) }
+									</span>
 									<p className={ styles.text }>{ websiteLabel( remote ) }</p>
 								</div>
 								<Button
 									variant="minimal"
 									tone="neutral"
 									size="compact"
+									className={ styles.disconnect }
 									disabled={ busy || offline }
 									onClick={ () => {
 										void connector.trackEvent( TRACKS_EVENTS.SYNC_DISCONNECT );

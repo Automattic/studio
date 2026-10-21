@@ -30,6 +30,11 @@ export default class SiteSettings {
 		return this.page.getByRole( 'combobox', { name: 'PHP version' } );
 	}
 
+	async selectPhpVersion( version: string ) {
+		await this.phpVersionSelect.click();
+		await this.page.getByRole( 'option', { name: version, exact: true } ).click();
+	}
+
 	async saveSettings() {
 		await this.page.getByRole( 'button', { name: 'Save', exact: true } ).click();
 		await expect( this.page.getByText( 'Settings saved' ) ).toBeVisible( { timeout: 120_000 } );

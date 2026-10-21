@@ -39,7 +39,7 @@ import type { SiteSettingsSectionId } from './context';
 import type { ReactElement } from 'react';
 
 const STUDIO_SECTIONS = [ 'general', 'appearance', 'ai', 'mcp', 'usage', 'skills', 'keyboard' ];
-const SITE_SECTIONS = [ 'site', 'php', 'debugging' ];
+const SITE_SECTIONS = [ 'site', 'debugging', 'php' ];
 
 export type SettingsSectionId =
 	| 'general'
@@ -74,11 +74,13 @@ function getSections( scope: 'studio' | 'site' ): Section[] {
 					icon: settingsIcon,
 					settings: [
 						__( 'Language' ),
-						__( 'Preferred editor' ),
-						__( 'Preferred terminal' ),
-						__( 'Default site directory' ),
-						__( 'When quitting with running sites' ),
-						__( 'Usage statistics' ),
+						__( 'Code editor' ),
+						__( 'Terminal' ),
+						__( 'Default directory' ),
+						__( 'Improve Studio for everyone' ),
+						__( 'When Studio quits' ),
+						__( 'Documentation' ),
+						__( 'Report an issue' ),
 					],
 				},
 				{
@@ -106,10 +108,23 @@ function getSections( scope: 'studio' | 'site' ): Section[] {
 					settings: [
 						__( 'Site name' ),
 						__( 'WordPress version' ),
-						__( 'Admin username' ),
-						__( 'Admin password' ),
-						__( 'Admin email' ),
+						__( 'Automatic updates' ),
 						__( 'Use custom domain' ),
+						__( 'Username' ),
+						__( 'Password' ),
+						__( 'Email' ),
+					],
+				},
+				{
+					id: 'debugging',
+					label: __( 'Debug' ),
+					icon: bug,
+					settings: [
+						__( 'Environment' ),
+						__( 'Xdebug' ),
+						__( 'Debug log' ),
+						__( 'Script debugging' ),
+						__( 'Show errors in browser' ),
 					],
 				},
 				{
@@ -117,18 +132,6 @@ function getSections( scope: 'studio' | 'site' ): Section[] {
 					label: __( 'PHP' ),
 					icon: code,
 					settings: [ __( 'PHP version' ), __( 'File access' ) ],
-				},
-				{
-					id: 'debugging',
-					label: __( 'Debug' ),
-					icon: bug,
-					settings: [
-						__( 'Environment type' ),
-						__( 'Enable Xdebug' ),
-						__( 'Enable debug log' ),
-						__( 'Show errors in browser' ),
-						__( 'Enable script debug' ),
-					],
 				},
 		  ];
 }
@@ -239,12 +242,9 @@ export function SettingsDialog() {
 		if ( ! highlight ) {
 			return;
 		}
-		const label = [ ...( content.current?.querySelectorAll( 'h2, label, legend' ) ?? [] ) ].find(
-			( element ) => element.textContent?.trim() === highlight
-		);
-		const row =
-			label?.closest< HTMLElement >( '[data-settings-row], .dataforms-layouts-regular__field' ) ??
-			( label as HTMLElement | undefined );
+		const row = [ ...( content.current?.querySelectorAll( 'h2' ) ?? [] ) ]
+			.find( ( title ) => title.textContent?.trim() === highlight )
+			?.closest< HTMLElement >( '[data-settings-row]' );
 		row?.scrollIntoView( { block: 'center' } );
 		row?.setAttribute( 'data-settings-match', '' );
 		const timeout = setTimeout( () => row?.removeAttribute( 'data-settings-match' ), 2000 );

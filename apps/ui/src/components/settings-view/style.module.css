@@ -114,200 +114,76 @@
 	border-color: var( --wpds-color-stroke-surface-error-strong );
 }
 
-.appearancePicker {
-	position: relative;
-	display: grid;
-	grid-template-columns: repeat( 3, minmax( 72px, 1fr ) );
-	align-items: center;
-	gap: 0;
-	border: var( --wpds-border-width-xs ) solid var( --wpds-color-stroke-surface-neutral );
-	border-radius: var( --wpds-border-radius-sm );
-	background: var( --wpds-color-background-interactive-neutral-weak );
-	color: var( --wpds-color-foreground-interactive-neutral );
-	font-family: var( --wpds-typography-font-family-body );
-	font-size: var( --wpds-typography-font-size-md );
-	line-height: 1;
-}
-
-.appearancePicker::before {
-	content: '';
-	position: absolute;
-	inset-block: calc( var( --wpds-border-width-xs ) * -1 );
-	inset-inline-start: 0;
-	box-sizing: border-box;
-	inline-size: calc( 100% / 3 );
-	border: 1px solid var( --wpds-color-stroke-interactive-neutral );
-	border-radius: var( --wpds-border-radius-sm );
-	background: var( --wpds-color-background-interactive-neutral-weak );
-	pointer-events: none;
-	transform: translateX(
-		calc( var( --appearance-active-index, 0 ) * 100% + var( --appearance-edge-shift, 0px ) )
-	);
-}
-
-/* The indicator is positioned with a logical inset but animated with a
-   physical translateX, so RTL needs the sign flipped to slide toward the
-   selected option instead of away from it. */
-.appearancePicker:dir( rtl )::before {
-	transform: translateX(
-		calc( var( --appearance-active-index, 0 ) * -100% - var( --appearance-edge-shift, 0px ) )
-	);
-}
-
-/* At the first/last segment, slide the indicator one border-width outward so
-   its border overlays the container's, leaving a single continuous edge
-   instead of a double border. */
-.appearancePicker[data-active-index='0'] {
-	--appearance-active-index: 0;
-	--appearance-edge-shift: calc( var( --wpds-border-width-xs ) * -1 );
-}
-
-.appearancePicker[data-active-index='1'] {
-	--appearance-active-index: 1;
-}
-
-.appearancePicker[data-active-index='2'] {
-	--appearance-active-index: 2;
-	--appearance-edge-shift: var( --wpds-border-width-xs );
-}
-
-@media not ( prefers-reduced-motion ) {
-	.appearancePicker::before {
-		transition: transform 180ms cubic-bezier( 0.2, 0, 0, 1 );
-	}
-}
-
-.appearanceButton {
-	position: relative;
-	z-index: 1;
-	min-height: 32px;
-	padding: 0 var( --wpds-dimension-padding-lg );
-	border: 0;
-	border-radius: var( --wpds-border-radius-sm );
-	background: transparent;
-	color: var( --wpds-color-foreground-content-neutral-weak );
-	font: inherit;
-	/* Match SelectControl's trigger text so all controls in a card read the
-	   same size. */
-	font-size: var( --wpds-typography-font-size-md );
-	line-height: var( --wpds-typography-line-height-sm );
-	cursor: pointer;
-}
-
-.appearanceButton:hover,
-.appearanceButtonActive {
-	color: var( --wpds-color-foreground-content-neutral );
-}
-
-.appearanceButton:focus-visible,
 .selectControl:focus-visible {
 	outline: var( --wpds-border-width-focus ) solid var( --wpds-color-stroke-focus );
 	outline-offset: 2px;
 }
 
+/* Compact selects that size to their value, as in the settings rows. */
 .selectControl {
-	inline-size: 156px;
-	max-inline-size: 100%;
+	max-inline-size: 240px;
 }
 
-/* Stretch the trigger to the control's width, but skip the visually-hidden
-   label `hideLabelFromVision` renders: it's absolutely positioned, so
-   stretching it makes it hang past the layout and create horizontal
-   overflow. */
-.selectControl > *:not( [data-visually-hidden] ) {
-	inline-size: 100%;
+.selectControl :global( div:has( > [role='combobox'] ) ) {
+	border-color: color-mix( in srgb, var( --wpds-color-foreground-content-neutral ) 10%, transparent );
+	border-radius: 9px;
+	background: color-mix( in srgb, var( --wpds-color-background-surface-neutral-strong ) 60%, transparent );
 }
 
-.selectControlWide {
-	inline-size: 240px;
+.selectControl :global( [role='combobox'] ) {
+	padding-inline: 10px 6px;
+	font-size: 13px;
+	font-weight: 450;
 }
 
-.accountSectionHeader {
+.settingsGroup {
 	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	gap: var( --wpds-dimension-padding-xl );
-	margin-block-end: var( --wpds-dimension-padding-xl );
+	flex-direction: column;
+	gap: 8px;
 }
 
-.accountHeading {
-	margin-block-end: 0;
-}
-
-.accountActions {
-	display: flex;
-	gap: var( --wpds-dimension-padding-md );
-	flex-wrap: wrap;
-}
-
-.accountSummary {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	gap: var( --wpds-dimension-padding-xl );
-	min-width: 0;
-}
-
-.accountButtons {
-	display: flex;
-	align-items: center;
-	justify-content: flex-end;
-	gap: var( --wpds-dimension-padding-sm );
-	flex-wrap: wrap;
-	flex-shrink: 0;
-}
-
-.accountIdentity {
-	display: flex;
-	align-items: center;
-	gap: var( --wpds-dimension-padding-md );
-	min-width: 0;
-}
-
-.accountAvatar {
-	flex: 0 0 44px;
-	inline-size: 44px;
-	block-size: 44px;
-	border-radius: 50%;
-	object-fit: cover;
-}
-
-.accountDetails {
+.settingsGroupHeader {
 	display: flex;
 	flex-direction: column;
 	gap: 2px;
-	min-width: 0;
+	padding: 8px 20px 0;
 }
 
-.accountDetails h2 {
+.settingsGroupHeader h3 {
 	margin: 0;
 	color: var( --wpds-color-foreground-content-neutral );
-	font-size: var( --wpds-typography-font-size-md );
-	font-weight: 600;
-	line-height: var( --wpds-typography-line-height-sm );
+	font-size: 14px;
+	font-weight: 450;
+	line-height: 20px;
 }
 
-.accountDetails p {
+.settingsGroupHeader p {
 	margin: 0;
 	color: var( --wpds-color-foreground-content-neutral-weak );
-	font-size: var( --wpds-typography-font-size-sm );
-	line-height: var( --wpds-typography-line-height-sm );
-	overflow-wrap: anywhere;
+	font-size: 12px;
+	line-height: 17.6px;
 }
 
-/* Mirror the InputLayout recipe SelectControl triggers use (height, surface,
-   border, inline padding) so the picker reads as one of the standard Settings
-   controls. */
+.preferenceRowStacked {
+	grid-template-columns: minmax( 0, 1fr );
+	row-gap: 8px;
+}
+
+.preferenceRowStacked .preferenceControl {
+	justify-content: flex-start;
+}
+
+/* A text field that opens the folder picker. */
 .pathPickerButton {
 	box-sizing: border-box;
 	display: flex;
 	align-items: center;
-	inline-size: 240px;
-	max-inline-size: 100%;
-	block-size: 40px;
-	padding: 0 var( --wpds-dimension-padding-md );
-	border: var( --wpds-border-width-xs ) solid var( --wpds-color-stroke-interactive-neutral );
-	border-radius: var( --wpds-border-radius-sm );
+	inline-size: 100%;
+	block-size: 36px;
+	padding: 0 10px;
+	border: var( --wpds-border-width-xs ) solid
+		color-mix( in srgb, var( --wpds-color-foreground-content-neutral ) 10%, transparent );
+	border-radius: 9px;
 	background: var( --wpds-color-background-interactive-neutral-weak );
 	color: var( --wpds-color-foreground-interactive-neutral );
 	font-family: var( --wpds-typography-font-family-body );
@@ -592,17 +468,19 @@
 }
 
 .toggleControl :global( .components-form-toggle .components-form-toggle__track ) {
-	background-color: var( --wpds-color-background-track-neutral-weak );
-	border-color: var( --wpds-color-stroke-interactive-neutral );
+	border-color: transparent;
+	background-color: color-mix( in srgb, var( --wpds-color-foreground-content-neutral ) 12%, transparent );
 }
 
 .toggleControl :global( .components-form-toggle .components-form-toggle__thumb ) {
-	background-color: var( --wpds-color-background-thumb-neutral-weak );
+	border: 0;
+	background-color: var( --wpds-color-foreground-interactive-brand-strong );
+	box-shadow: 0 1px 2px rgba( 0, 0, 0, 0.2 );
 }
 
 .toggleControl :global( .components-form-toggle.is-checked .components-form-toggle__track ) {
+	border-color: transparent;
 	background-color: var( --wpds-color-background-interactive-brand-strong );
-	border-color: var( --wpds-color-stroke-interactive-brand );
 }
 
 .toggleControl :global( .components-form-toggle.is-checked .components-form-toggle__thumb ) {

@@ -24,7 +24,7 @@ test.describe( 'Appearance', () => {
 		const settings = new AppSettings( session.mainWindow );
 		await settings.open();
 		await settings.showSection( 'Appearance' );
-		await expect( settings.appearanceOption( 'Light' ) ).toHaveAttribute( 'aria-pressed', 'true' );
+		await expect( settings.themeSelect ).toHaveText( 'Light' );
 
 		await settings.selectColorScheme( 'Dark' );
 		await expect.poll( isDark ).toBe( true );
@@ -53,10 +53,7 @@ test.describe( 'Appearance', () => {
 		const settingsAfterRestart = new AppSettings( session.mainWindow );
 		await settingsAfterRestart.open();
 		await settingsAfterRestart.showSection( 'Appearance' );
-		await expect( settingsAfterRestart.appearanceOption( 'Dark' ) ).toHaveAttribute(
-			'aria-pressed',
-			'true'
-		);
+		await expect( settingsAfterRestart.themeSelect ).toHaveText( 'Dark' );
 		await settingsAfterRestart.selectColorScheme( 'Light' );
 	} );
 } );

@@ -22,6 +22,13 @@ export default class AppSettings {
 		await expect( this.page.getByRole( 'combobox' ).first() ).toBeVisible();
 	}
 
+	// The language change reloads the window, which reopens settings: wait for it first.
+	async closeWithEscape() {
+		await expect( this.page.getByRole( 'dialog' ) ).toBeVisible();
+		await this.page.keyboard.press( 'Escape' );
+		await expect( this.page.getByRole( 'dialog' ) ).toBeHidden();
+	}
+
 	async close() {
 		await this.closeButton.click();
 		await expect( this.closeButton ).toBeHidden();
@@ -34,13 +41,14 @@ export default class AppSettings {
 			.click();
 	}
 
-	appearanceOption( name: 'System' | 'Light' | 'Dark' ) {
-		return this.page.getByRole( 'group', { name: 'Theme' } ).getByRole( 'button', { name } );
+	get themeSelect() {
+		return this.page.getByRole( 'combobox', { name: 'Theme' } );
 	}
 
 	async selectColorScheme( name: 'System' | 'Light' | 'Dark' ) {
-		await this.appearanceOption( name ).click();
-		await expect( this.appearanceOption( name ) ).toHaveAttribute( 'aria-pressed', 'true' );
+		await this.themeSelect.click();
+		await this.page.getByRole( 'option', { name } ).click();
+		await expect( this.themeSelect ).toHaveText( name );
 	}
 
 	/**

@@ -1,17 +1,18 @@
+import { getLocalizedLink, REPORT_ISSUE_URL } from '@studio/common/lib/docs-links';
 import { supportedLocaleNames } from '@studio/common/lib/locale';
 import { SUPPORTED_EDITORS, supportedEditorConfig } from '@studio/common/lib/user-settings/editor';
 import { SUPPORTED_TERMINALS, terminalConfig } from '@studio/common/lib/user-settings/terminal';
-import { CheckboxControl } from '@wordpress/components';
 import { __, sprintf } from '@wordpress/i18n';
-import { SelectControl } from '@wordpress/ui';
-import { clsx } from 'clsx';
+import { Button } from '@wordpress/ui';
 import { useCallback, useEffect, useState } from 'react';
 import { useConnector } from '@/data/core';
 import { persister } from '@/data/core/query-client';
 import { useInstalledApps } from '@/data/queries/use-installed-apps';
+import { useUserLocale } from '@/data/queries/use-user-locale';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
 import { AccountSection } from './account-section';
 import { UNSET, toPreferencesFormData, toPreferencesPatch } from './preferences';
+import { SettingsGroup, SettingsRow, SettingsSelect, SettingsToggle } from './rows';
 import { StudioCliSection } from './studio-cli-section';
 import styles from './style.module.css';
 import { WapuuScore } from './wapuu-score';
@@ -24,7 +25,6 @@ import type {
 	SupportedLocale,
 	SupportedTerminal,
 } from '@/data/core';
-import type { ReactNode } from 'react';
 
 // No "unset" option: the main process resolves a fallback for never-chosen
 // editor/terminal prefs (matching the legacy UI), so an explicit clear can't
@@ -67,116 +67,26 @@ const LOCALE_ELEMENTS: { value: SupportedLocale; label: string }[] = Object.entr
 	supportedLocaleNames
 ).map( ( [ value, label ] ) => ( { value: value as SupportedLocale, label } ) );
 
-function PreferenceRow( {
-	title,
-	description,
-	children,
-}: {
-	title: string;
-	description?: ReactNode;
-	children?: ReactNode;
-} ) {
-	return (
-		<section className={ styles.preferenceRow }>
-			<div className={ styles.preferenceText }>
-				<h2>{ title }</h2>
-				{ description ? <p>{ description }</p> : null }
-			</div>
-			<div className={ styles.preferenceControl }>{ children }</div>
-		</section>
-	);
-}
-
-function AppearancePicker( {
-	value,
-	onChange,
-}: {
-	value: ColorScheme;
-	onChange: ( value: ColorScheme ) => void;
-} ) {
-	const activeIndex = Math.max(
-		0,
-		COLOR_SCHEME_ELEMENTS.findIndex( ( option ) => option.value === value )
-	);
-
-	return (
-		<PreferenceRow title={ __( 'Theme' ) } description={ __( 'Choose light, dark, or system.' ) }>
-			<div
-				className={ styles.appearancePicker }
-				role="group"
-				aria-label={ __( 'Theme' ) }
-				data-active-index={ activeIndex }
-			>
-				{ COLOR_SCHEME_ELEMENTS.map( ( option ) => (
-					<button
-						key={ option.value }
-						type="button"
-						className={ clsx(
-							styles.appearanceButton,
-							option.value === value && styles.appearanceButtonActive
-						) }
-						aria-pressed={ option.value === value }
-						onClick={ () => onChange( option.value ) }
-					>
-						{ option.label }
-					</button>
-				) ) }
-			</div>
-		</PreferenceRow>
-	);
-}
-
-function PreferenceSelect< TValue extends string >( {
-	label,
-	value,
-	options,
-	onChange,
-	className,
-}: {
-	label: string;
-	value: TValue;
-	options: Array< { value: TValue; label: string } >;
-	onChange: ( value: TValue ) => void;
-	className?: string;
-} ) {
-	const selectedItem = options.find( ( option ) => option.value === value );
-
-	return (
-		<SelectControl
-			hideLabelFromVision
-			className={ clsx( styles.selectControl, className ) }
-			items={ options }
-			label={ label }
-			value={ selectedItem ?? null }
-			onValueChange={ ( item ) => {
-				if ( item?.value !== undefined && item.value !== null ) {
-					onChange( item.value as TValue );
-				}
-			} }
-		/>
-	);
-}
-
-function DefaultSiteDirectoryField( {
-	value,
-	onSelect,
-}: {
-	value: string;
-	onSelect?: () => void;
-} ) {
+function DefaultSiteDirectoryRow( { value, onSelect }: { value: string; onSelect?: () => void } ) {
+	const title = __( 'Default directory' );
+	const description = __( 'The folder where Studio creates new sites.' );
 	// Without a native folder picker (the browser), the path is shown, not edited.
 	if ( ! onSelect ) {
-		return <PreferenceRow title={ __( 'Default site directory' ) } description={ value } />;
+		return (
+			<SettingsRow title={ title } description={ description } stacked>
+				<span className={ styles.pathPickerValue }>{ value }</span>
+			</SettingsRow>
+		);
 	}
 	return (
-		<PreferenceRow title={ __( 'Default site directory' ) }>
+		<SettingsRow title={ title } description={ description } stacked>
 			<button
 				type="button"
 				className={ styles.pathPickerButton }
 				aria-label={
 					value
-						? sprintf( __( 'Default site directory: %s. Choose a different folder.' ), value )
-						: __( 'Choose a default site directory' )
+						? sprintf( __( 'Default directory: %s. Choose a different folder.' ), value )
+						: __( 'Choose a default directory' )
 				}
 				onClick={ onSelect }
 			>
@@ -184,7 +94,7 @@ function DefaultSiteDirectoryField( {
 					{ value || __( 'Choose a folder…' ) }
 				</span>
 			</button>
-		</PreferenceRow>
+		</SettingsRow>
 	);
 }
 
@@ -201,67 +111,110 @@ function PreferencesPanel( {
 	onDefaultSiteDirectorySelect?: () => void;
 	onChange: ( update: Partial< PreferencesFormData > ) => void;
 } ) {
+	const connector = useConnector();
+	const locale = useUserLocale();
 	return (
 		<div className={ styles.preferencesPanel }>
 			<AccountSection />
-			<section className={ styles.preferenceSectionGroup }>
-				{ saveError ? (
-					<div className={ styles.errorMessage }>
-						{ __( 'An error occurred while saving settings. Please try again.' ) }
-					</div>
-				) : null }
-				<PreferenceRow title={ __( 'Language' ) }>
-					<PreferenceSelect
+			{ saveError ? (
+				<div className={ styles.errorMessage }>
+					{ __( 'An error occurred while saving settings. Please try again.' ) }
+				</div>
+			) : null }
+			<SettingsGroup>
+				<SettingsRow
+					title={ __( 'Language' ) }
+					description={ __( 'Default language for Studio.' ) }
+				>
+					<SettingsSelect
 						label={ __( 'Language' ) }
 						value={ data.locale }
 						options={ LOCALE_ELEMENTS }
 						onChange={ ( locale ) => onChange( { locale } ) }
 					/>
-				</PreferenceRow>
-				<PreferenceRow title={ __( 'Preferred editor' ) }>
-					<PreferenceSelect< SupportedEditor | typeof UNSET >
-						label={ __( 'Preferred editor' ) }
+				</SettingsRow>
+				<SettingsRow
+					title={ __( 'Code editor' ) }
+					description={ __( 'The default code editor for your sites.' ) }
+				>
+					<SettingsSelect< SupportedEditor | typeof UNSET >
+						label={ __( 'Code editor' ) }
 						value={ data.editor }
 						options={ editorElements( installedApps ) }
 						onChange={ ( editor ) => onChange( { editor } ) }
 					/>
-				</PreferenceRow>
-				<PreferenceRow title={ __( 'Preferred terminal' ) }>
-					<PreferenceSelect< SupportedTerminal | typeof UNSET >
-						label={ __( 'Preferred terminal' ) }
+				</SettingsRow>
+				<SettingsRow
+					title={ __( 'Terminal' ) }
+					description={ __( 'The default terminal for your sites.' ) }
+				>
+					<SettingsSelect< SupportedTerminal | typeof UNSET >
+						label={ __( 'Terminal' ) }
 						value={ data.terminal }
 						options={ terminalElements( installedApps ) }
 						onChange={ ( terminal ) => onChange( { terminal } ) }
 					/>
-				</PreferenceRow>
-				<DefaultSiteDirectoryField
+				</SettingsRow>
+				<DefaultSiteDirectoryRow
 					value={ data.defaultSiteDirectory }
 					onSelect={ onDefaultSiteDirectorySelect }
 				/>
-				<PreferenceRow title={ __( 'When quitting with running sites' ) }>
-					<PreferenceSelect< QuitSitesBehavior | typeof UNSET >
-						label={ __( 'When quitting with running sites' ) }
-						className={ styles.selectControlWide }
+				<SettingsRow
+					title={ __( 'Improve Studio for everyone' ) }
+					description={ __( 'Share anonymous usage statistics to improve Studio.' ) }
+				>
+					<SettingsToggle
+						label={ __( 'Improve Studio for everyone' ) }
+						checked={ data.analyticsEnabled }
+						onChange={ ( analyticsEnabled ) => onChange( { analyticsEnabled } ) }
+					/>
+				</SettingsRow>
+			</SettingsGroup>
+			<SettingsGroup title={ __( 'Interface' ) }>
+				<SettingsRow
+					title={ __( 'When Studio quits' ) }
+					description={ __( 'Choose what happens to running sites when you quit Studio.' ) }
+				>
+					<SettingsSelect< QuitSitesBehavior | typeof UNSET >
+						label={ __( 'When Studio quits' ) }
 						value={ data.quitSitesBehavior }
 						options={ QUIT_SITES_BEHAVIOR_ELEMENTS }
 						onChange={ ( quitSitesBehavior ) => onChange( { quitSitesBehavior } ) }
 					/>
-				</PreferenceRow>
-				<PreferenceRow
-					title={ __( 'Usage statistics' ) }
-					description={ __( 'Help improve Studio by sharing anonymous usage statistics' ) }
-				>
-					<CheckboxControl
-						__nextHasNoMarginBottom
-						label=""
-						aria-label={ __( 'Usage statistics' ) }
-						checked={ data.analyticsEnabled }
-						onChange={ ( analyticsEnabled ) => onChange( { analyticsEnabled } ) }
-					/>
-				</PreferenceRow>
-			</section>
-			<WapuuScore />
+				</SettingsRow>
+			</SettingsGroup>
 			<StudioCliSection />
+			<WapuuScore />
+			<SettingsGroup title={ __( 'Help' ) }>
+				<SettingsRow
+					title={ __( 'Documentation' ) }
+					description={ __( 'Guides for building and managing sites with Studio.' ) }
+				>
+					<Button
+						variant="outline"
+						tone="neutral"
+						size="compact"
+						onClick={ () =>
+							void connector.openExternalUrl( getLocalizedLink( locale, 'docsStudio' ) )
+						}
+					>
+						{ __( 'Open docs' ) }
+					</Button>
+				</SettingsRow>
+				<SettingsRow
+					title={ __( 'Report an issue' ) }
+					description={ __( 'Report a bug or request a feature.' ) }
+				>
+					<Button
+						variant="outline"
+						tone="neutral"
+						size="compact"
+						onClick={ () => void connector.openExternalUrl( REPORT_ISSUE_URL ) }
+					>
+						{ __( 'Report' ) }
+					</Button>
+				</SettingsRow>
+			</SettingsGroup>
 		</div>
 	);
 }
@@ -364,12 +317,16 @@ export function AppearanceSettings() {
 		return <PreferencesState loadFailed={ loadFailed } />;
 	}
 	return (
-		<section className={ styles.preferenceSectionGroup }>
-			<AppearancePicker
-				value={ data.colorScheme }
-				onChange={ ( colorScheme ) => handleChange( { colorScheme } ) }
-			/>
-		</section>
+		<SettingsGroup>
+			<SettingsRow title={ __( 'Theme' ) } description={ __( 'Choose light, dark, or system.' ) }>
+				<SettingsSelect
+					label={ __( 'Theme' ) }
+					value={ data.colorScheme }
+					options={ COLOR_SCHEME_ELEMENTS }
+					onChange={ ( colorScheme ) => handleChange( { colorScheme } ) }
+				/>
+			</SettingsRow>
+		</SettingsGroup>
 	);
 }
 

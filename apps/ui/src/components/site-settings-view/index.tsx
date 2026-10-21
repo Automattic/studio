@@ -9,13 +9,13 @@ import {
 import { getSiteFileAccess } from '@studio/common/lib/site-file-access';
 import { getWpEnvironmentType } from '@studio/common/lib/wp-environment-type';
 import { RecommendedPHPVersion } from '@studio/common/types/php-versions';
-import { CheckboxControl } from '@wordpress/components';
 import { DataForm, useFormValidity } from '@wordpress/dataviews';
 import { __ } from '@wordpress/i18n';
 import { Button } from '@wordpress/ui';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useSettingsDialog } from '@/components/settings-dialog/context';
+import { SettingsGroup, SettingsRow, SettingsToggle } from '@/components/settings-view/rows';
 import {
 	adminEmailField,
 	adminPasswordField,
@@ -32,7 +32,7 @@ import {
 	siteNameField,
 	wpVersionField,
 } from '@/components/site-fields';
-import { EnableHttpsControl } from '@/components/site-fields/enable-https-control';
+import { CertificateTrustNotice } from '@/components/site-fields/enable-https-control';
 import { useConnector } from '@/data/core';
 import { useExistingCustomDomains } from '@/data/queries/use-create-site-helpers';
 import { useDebugLogExists } from '@/data/queries/use-debug-log';
@@ -45,6 +45,7 @@ import {
 	AdminUsernameControl,
 	SiteNameControl,
 } from './copyable-credential-control';
+import { selectRow, textRow, toggleRow } from './rows';
 import styles from './style.module.css';
 import type { SiteSettingsSectionId } from '@/components/settings-dialog/context';
 import type { SiteDetails } from '@/data/core';
@@ -105,47 +106,21 @@ function initialFormData( site: SiteDetails, installedWpVersion?: string ): Form
 	};
 }
 
-/**
- * The debug log checkbox, plus a shortcut to the log once one exists. A custom
- * `Edit` replaces DataForm's rendering, so the description is re-emitted here.
- */
-function EnableDebugLogControl( {
-	data: item,
-	field,
-	onChange,
-	logExists,
-	onOpenLog,
-}: DataFormControlProps< FormData > & { logExists: boolean; onOpenLog: () => void } ) {
-	return (
-		<CheckboxControl
-			__nextHasNoMarginBottom
-			label={ field.label }
-			checked={ item.enableDebugLog }
-			onChange={ ( checked ) => onChange( { enableDebugLog: checked } ) }
-			help={
-				<>
-					{ field.description }
-					{ /* A span, not a div: `help` renders inside a paragraph. */ }
-					{ logExists && (
-						<span className={ styles.debugLogAction }>
-							<Button
-								type="button"
-								variant="outline"
-								tone="neutral"
-								size="compact"
-								onClick={ onOpenLog }
-							>
-								{ __( 'Open log file' ) }
-							</Button>
-						</span>
-					) }
-				</>
-			}
-		/>
-	);
-}
-
 const FORM_ID = 'site-settings-form';
+const FORM_LAYOUT = { type: 'regular', labelPosition: 'none' } as const;
+const SECTION_GROUPS: Record< SiteSettingsSectionId, string[][] > = {
+	site: [
+		[ 'name', 'wpVersion' ],
+		[ 'useCustomDomain', 'customDomain', 'enableHttps' ],
+		[ 'adminUsername', 'adminPassword', 'adminEmail' ],
+	],
+	php: [ [ 'phpVersion', 'fileAccess' ] ],
+	debugging: [
+		[ 'environmentType' ],
+		[ 'enableXdebug', 'enableDebugLog', 'enableScriptDebug', 'enableDebugDisplay' ],
+	],
+};
+const FULL_FORM: Form = { layout: FORM_LAYOUT, fields: Object.values( SECTION_GROUPS ).flat( 2 ) };
 
 /**
  * The site settings form, one section at a time. One instance spans every
@@ -210,110 +185,183 @@ export function SiteSettingsForm( {
 		setSubmitError( null );
 	}, [ site ] );
 
-	const fields = useMemo< Field< FormData >[] >(
-		() => [
-			{ ...siteNameField< FormData >(), Edit: SiteNameControl },
-			phpVersionField< FormData >(),
-			fileAccessField< FormData >(),
-			wpVersionField< FormData >( DEFAULT_WORDPRESS_VERSION, wpVersions, {
-				latestValue: '',
-				currentVersion:
-					installedWpVersion && installedWpVersion !== '-' ? installedWpVersion : undefined,
-				// Current selection, not `site.isWpAutoUpdating`: the persisted flag
-				// lags a save by a site-updated event, which would drop the version
-				// from the label right after switching to auto-update.
-				autoUpdateVersion: data.wpVersion === '' ? installedWpVersion : undefined,
-				offline: isOffline,
-			} ),
-			{ ...adminUsernameField< FormData >(), Edit: AdminUsernameControl },
-			{ ...adminPasswordField< FormData >(), Edit: AdminPasswordControl },
-			{ ...adminEmailField< FormData >(), Edit: AdminEmailControl },
-			customDomainToggleField< FormData >(),
-			customDomainField< FormData >( existingDomainNames ),
+	const fields = useMemo< Field< FormData >[] >( () => {
+		const currentWpVersion =
+			installedWpVersion && installedWpVersion !== '-' ? installedWpVersion : undefined;
+		const wpVersion = wpVersionField< FormData >( DEFAULT_WORDPRESS_VERSION, wpVersions, {
+			latestValue: '',
+			currentVersion: currentWpVersion,
+			// Current selection, not `site.isWpAutoUpdating`: the persisted flag
+			// lags a save by a site-updated event, which would drop the version
+			// from the label right after switching to auto-update.
+			autoUpdateVersion: data.wpVersion === '' ? installedWpVersion : undefined,
+			offline: isOffline,
+		} );
+		const VersionRow = selectRow< FormData >(
+			__( 'WordPress version' ),
+			__( 'Choose the WordPress release for this site.' )
+		);
+		return [
+			{
+				...siteNameField< FormData >(),
+				Edit: textRow< FormData >(
+					SiteNameControl,
+					__( 'Site name' ),
+					__( 'Name shown in Studio.' )
+				),
+			},
+			{
+				...wpVersion,
+				Edit: ( props: DataFormControlProps< FormData > ) => (
+					<>
+						<VersionRow { ...props } />
+						<SettingsRow
+							title={ __( 'Automatic updates' ) }
+							description={ __( 'Keep WordPress updated to the latest released version.' ) }
+						>
+							<SettingsToggle
+								label={ __( 'Automatic updates' ) }
+								checked={ props.data.wpVersion === '' }
+								disabled={ isOffline }
+								onChange={ ( automatic ) =>
+									props.onChange( {
+										wpVersion: automatic ? '' : currentWpVersion ?? DEFAULT_WORDPRESS_VERSION,
+									} )
+								}
+							/>
+						</SettingsRow>
+					</>
+				),
+			},
+			{
+				...customDomainToggleField< FormData >(),
+				Edit: toggleRow< FormData >(
+					__( 'Use custom domain' ),
+					__( 'Use a local address like my-site.local.' )
+				),
+			},
+			{
+				...customDomainField< FormData >( existingDomainNames ),
+				Edit: textRow< FormData >( SiteNameControl, __( 'Domain' ) ),
+			},
 			{
 				id: 'enableHttps',
 				type: 'boolean',
 				label: __( 'Enable HTTPS' ),
 				isVisible: ( item: FormData ) => item.useCustomDomain,
-				Edit: EnableHttpsControl< FormData >,
-			},
-			enableXdebugField< FormData >( { conflictingSiteName: xdebugConflictSiteName } ),
-			{
-				...enableDebugLogField< FormData >(),
-				Edit: ( props: DataFormControlProps< FormData > ) => (
-					<EnableDebugLogControl
-						{ ...props }
-						logExists={ !! logExists }
-						onOpenLog={ handleOpenLog }
-					/>
+				Edit: toggleRow< FormData >(
+					__( 'Enable HTTPS' ),
+					<>
+						{ __( 'Use a secure local connection with an SSL certificate.' ) }{ ' ' }
+						<CertificateTrustNotice />
+					</>
 				),
 			},
-			enableDebugDisplayField< FormData >(),
-			enableScriptDebugField< FormData >(),
-			environmentTypeField< FormData >(),
-		],
-		[
-			data.wpVersion,
-			existingDomainNames,
-			handleOpenLog,
-			installedWpVersion,
-			isOffline,
-			logExists,
-			wpVersions,
-			xdebugConflictSiteName,
-		]
-	);
+			{
+				...adminUsernameField< FormData >(),
+				Edit: textRow< FormData >(
+					AdminUsernameControl,
+					__( 'Username' ),
+					__( 'The username used to log in to WordPress Admin.' )
+				),
+			},
+			{
+				...adminPasswordField< FormData >(),
+				Edit: textRow< FormData >(
+					AdminPasswordControl,
+					__( 'Password' ),
+					__( 'The password used to log in to WordPress Admin.' )
+				),
+			},
+			{
+				...adminEmailField< FormData >(),
+				Edit: textRow< FormData >(
+					AdminEmailControl,
+					__( 'Email' ),
+					__( 'The email address used to log in to WordPress Admin.' )
+				),
+			},
+			{
+				...phpVersionField< FormData >(),
+				Edit: selectRow< FormData >(
+					__( 'PHP version' ),
+					__( 'The PHP version used to run WordPress on this site.' )
+				),
+			},
+			{
+				...fileAccessField< FormData >(),
+				Edit: selectRow< FormData >(
+					__( 'File access' ),
+					__(
+						'Choose whether this site can access only its own folder or other files on your computer.'
+					)
+				),
+			},
+			{ ...environmentTypeField< FormData >(), Edit: selectRow< FormData >( __( 'Environment' ) ) },
+			{
+				...enableXdebugField< FormData >( { conflictingSiteName: xdebugConflictSiteName } ),
+				Edit: toggleRow< FormData >(
+					__( 'Xdebug' ),
+					xdebugConflictSiteName
+						? undefined
+						: __(
+								'Connect a debugger to inspect PHP execution. Only one site can have Xdebug enabled at a time.'
+						  )
+				),
+			},
+			{
+				...enableDebugLogField< FormData >(),
+				Edit: toggleRow< FormData >(
+					__( 'Debug log' ),
+					<>
+						{ __( 'Write PHP errors to wp-content/debug.log.' ) }
+						{ logExists ? (
+							<span className={ styles.debugLogAction }>
+								<Button variant="outline" tone="neutral" size="compact" onClick={ handleOpenLog }>
+									{ __( 'Open log file' ) }
+								</Button>
+							</span>
+						) : null }
+					</>
+				),
+			},
+			{
+				...enableScriptDebugField< FormData >(),
+				Edit: toggleRow< FormData >(
+					__( 'Script debugging' ),
+					__( 'Load unminified WordPress JavaScript and CSS for easier debugging.' )
+				),
+			},
+			{
+				...enableDebugDisplayField< FormData >(),
+				Edit: toggleRow< FormData >(
+					__( 'Show errors in browser' ),
+					__( 'Display PHP errors, warnings, and notices.' )
+				),
+			},
+		];
+	}, [
+		data.wpVersion,
+		existingDomainNames,
+		handleOpenLog,
+		installedWpVersion,
+		isOffline,
+		logExists,
+		wpVersions,
+		xdebugConflictSiteName,
+	] );
 
-	const forms = useMemo< Record< SiteSettingsSectionId, Form > >( () => {
-		const card = ( id: string, label: string, children: string[] ) => ( {
-			id,
-			label,
-			layout: { type: 'card', withHeader: true, isCollapsible: false } as const,
-			children,
-		} );
-		const layout = { type: 'regular' as const, labelPosition: 'top' as const };
-		return {
-			site: {
-				layout,
-				fields: [
-					card( 'siteDetails', __( 'Site details' ), [ 'name', 'wpVersion' ] ),
-					card( 'wordpressAdmin', __( 'WordPress admin' ), [
-						'adminUsername',
-						'adminPassword',
-						'adminEmail',
-					] ),
-					card( 'domain', __( 'Domain' ), [ 'useCustomDomain', 'customDomain', 'enableHttps' ] ),
-				],
-			},
-			php: {
-				layout,
-				fields: [
-					card( 'phpEnvironment', __( 'PHP environment' ), [ 'phpVersion', 'fileAccess' ] ),
-				],
-			},
-			debugging: {
-				layout,
-				fields: [
-					card( 'debugging', __( 'Debugging' ), [
-						'enableXdebug',
-						'enableDebugLog',
-						'enableDebugDisplay',
-						'enableScriptDebug',
-						'environmentType',
-					] ),
-				],
-			},
-		};
-	}, [] );
-	const fullForm = useMemo< Form >(
-		() => ( {
-			layout: forms.site.layout,
-			fields: [ ...forms.site.fields!, ...forms.php.fields!, ...forms.debugging.fields! ],
-		} ),
-		[ forms ]
-	);
+	// Headings for the groups that have one, by their first field.
+	const headings: Record< string, { title: string; description?: string } > = {
+		useCustomDomain: { title: __( 'Local domain' ) },
+		adminUsername: {
+			title: __( 'WordPress credentials' ),
+			description: __( 'Sign-in details for this site and its previews.' ),
+		},
+		enableXdebug: { title: __( 'Debugging' ) },
+	};
 
-	const { validity, isValid } = useFormValidity( data, fields, fullForm );
+	const { validity, isValid } = useFormValidity( data, fields, FULL_FORM );
 
 	const handleChange = useCallback( ( update: Record< string, unknown > ) => {
 		setData( ( prev ) => {
@@ -397,13 +445,21 @@ export function SiteSettingsForm( {
 
 	return (
 		<form id={ FORM_ID } onSubmit={ handleSubmit } className={ styles.form }>
-			<DataForm< FormData >
-				data={ data }
-				fields={ fields }
-				form={ forms[ section ] }
-				onChange={ handleChange }
-				validity={ validity }
-			/>
+			{ SECTION_GROUPS[ section ].map( ( group ) => (
+				<SettingsGroup
+					key={ group[ 0 ] }
+					title={ headings[ group[ 0 ] ]?.title }
+					description={ headings[ group[ 0 ] ]?.description }
+				>
+					<DataForm< FormData >
+						data={ data }
+						fields={ fields }
+						form={ { layout: FORM_LAYOUT, fields: group } }
+						onChange={ handleChange }
+						validity={ validity }
+					/>
+				</SettingsGroup>
+			) ) }
 			{ submitError && <div className={ styles.submitError }>{ submitError }</div> }
 			{ active && dirty && dialog.actions
 				? createPortal(

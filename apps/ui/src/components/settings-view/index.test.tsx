@@ -167,19 +167,18 @@ describe( 'Studio settings', () => {
 		} as never );
 	} );
 
-	it( 'saves the color scheme as soon as an appearance option is picked', () => {
+	it( 'saves the theme as soon as one is picked', () => {
 		render( <AppearanceSettings /> );
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'Dark' } ) );
+		fireEvent.change( screen.getByLabelText( 'Theme' ), { target: { value: 'dark' } } );
 
 		expect( mutate ).toHaveBeenCalledWith( { colorScheme: 'dark' }, expect.any( Object ) );
-		expect( screen.queryByRole( 'button', { name: /save/i } ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'saves the editor on change and only offers installed apps', () => {
 		render( <GeneralSettings /> );
 
-		const editorSelect = screen.getByLabelText( 'Preferred editor' ) as HTMLSelectElement;
+		const editorSelect = screen.getByLabelText( 'Code editor' ) as HTMLSelectElement;
 		expect( Array.from( editorSelect.options ).map( ( option ) => option.value ) ).toEqual( [
 			'vscode',
 		] );
@@ -206,7 +205,7 @@ describe( 'Studio settings', () => {
 
 		render( <GeneralSettings /> );
 
-		fireEvent.click( screen.getByRole( 'button', { name: /Default site directory/ } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: /Default directory/ } ) );
 
 		await waitFor( () =>
 			expect( mutate ).toHaveBeenCalledWith(

@@ -142,6 +142,10 @@
 
 .navIcon {
 	flex: none;
+}
+
+/* WordPress icons; ours bring their own fills. */
+.navIcon:not([fill]) {
 	fill: currentColor;
 }
 
@@ -208,36 +212,50 @@
 
 /* The setting picked from the search results. */
 .content :global([data-settings-match]) {
-	margin: -8px;
-	padding: 8px;
+	margin-inline: -12px;
+	padding-inline: 12px;
 	border-radius: 8px;
 	background: color-mix(in srgb, var(--wpds-color-foreground-interactive-brand) 12%, transparent);
 	transition: background-color var(--studio-motion-layout-duration);
 }
 
-/* DataForm cards and labels, in the same grey cards as the Studio sections. */
-.content :global(.dataforms-layouts-card__field) {
-	--wp-ui-card-padding: 20px;
-
-	border-radius: 12px;
-	background: color-mix(in srgb, var(--wpds-color-foreground-content-neutral) 5%, transparent);
+/* DataForm's fields render as rows in the settings cards: no gaps, a
+   divider between fields. */
+/* DataForm sets the gap inline. */
+.content :global(.dataforms-layouts__wrapper) {
+	gap: 0 !important;
 }
 
-.content :global(.dataforms-layouts-card__field + .dataforms-layouts-card__field) {
-	margin-block-start: 16px;
-	padding-block-start: 0;
-	border-top: 0;
+.content :global(.dataforms-layouts-regular__field + .dataforms-layouts-regular__field) {
+	border-top: 1px solid
+		color-mix(in srgb, var(--wpds-color-foreground-content-neutral) 8%, transparent);
 }
 
-/* Above the dialog header rule in index.css. */
-.popup[data-wp-ui-overlay-modal] .content :global(.dataforms-layouts-card__field > [class*='__header']) {
-	min-height: 0;
-	padding: 20px 20px 0;
-	font-size: 14px;
-	font-weight: 500;
+/* Text fields keep one width, as in the rebuild. */
+.content :global(.dataforms-layouts-regular__field .components-base-control) {
+	inline-size: 224px;
 }
 
-/* Above the controls' own label styles, which triple their class. */
+/* Inputs as in the rebuild: 36px, a faint border, a lighter fill. Above the
+   controls' own styles, which triple their class. */
+.popup[data-wp-ui-overlay-modal] .content :global(.components-input-control__container) {
+	border-radius: 9px;
+	background: color-mix(in srgb, var(--wpds-color-background-surface-neutral-strong) 60%, transparent);
+}
+
+.popup[data-wp-ui-overlay-modal] .content :global(.components-input-control__backdrop) {
+	border-color: color-mix(in srgb, var(--wpds-color-foreground-content-neutral) 10%, transparent);
+	border-radius: 9px;
+}
+
+.popup[data-wp-ui-overlay-modal] .content :global(.components-input-control__input) {
+	height: 34px;
+	min-height: 34px;
+	font-size: 13px;
+}
+
+/* Field labels in sentence case. Above the controls' own label styles, which
+   triple their class. */
 .popup[data-wp-ui-overlay-modal]
 	.content
 	:global(:is(.components-base-control__label, .components-input-control__label)) {

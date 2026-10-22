@@ -45,6 +45,7 @@ import { captureTurnOutcome, fingerprintSites, type TurnOutcome } from 'cli/ai/e
 import { matchesStopRule, stopRuleSchema, type StopRule } from 'cli/ai/eval-stop';
 import { summarizeTiming, type ModelRequestRecord } from 'cli/ai/eval-timing';
 import { runStudioAgentTurn } from 'cli/ai/runtimes/pi';
+import { addAssistantMessageUsage, createTokenUsage } from 'cli/ai/token-usage';
 import { runCommand as runCreateSiteCommand } from 'cli/commands/site/create';
 import { runCommand as runDeleteSiteCommand } from 'cli/commands/site/delete';
 import { Mode as StopMode, runCommand as runStopSiteCommand } from 'cli/commands/site/stop';
@@ -610,7 +611,7 @@ async function runEval( input: EvalRunnerInput ) {
 	let errorMessage: string | null = null;
 	// Summed from each assistant message's usage, so evals can compare the
 	// token cost of prompt variants, not just their outcomes.
-	const usage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, totalTokens: 0 };
+	const usage = createTokenUsage();
 
 	await isolateSiteRegistry();
 	const bystanderPaths = await createBystanderSites();
@@ -635,14 +636,7 @@ async function runEval( input: EvalRunnerInput ) {
 
 	const handleEvent = ( event: AgentSessionEvent ): void => {
 		if ( event.type === 'message_end' && event.message.role === 'assistant' ) {
-			const messageUsage = event.message.usage;
-			if ( messageUsage ) {
-				usage.input += messageUsage.input;
-				usage.output += messageUsage.output;
-				usage.cacheRead += messageUsage.cacheRead;
-				usage.cacheWrite += messageUsage.cacheWrite;
-				usage.totalTokens += messageUsage.totalTokens;
-			}
+			const messageUsage = addAssistantMessageUsage( usage, event );
 			const now = Date.now();
 			// pi stamps the assistant message just before it sends the request.
 			const requestStartedAt = event.message.timestamp || turnStart;

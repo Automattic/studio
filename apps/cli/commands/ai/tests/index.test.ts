@@ -391,6 +391,65 @@ describe( 'AI runCommand — Tracks events', () => {
 		expect( props.duration_ms ).toBeTypeOf( 'number' );
 	} );
 
+	it( 'adds the turn stats gathered from the agent events', async () => {
+		( runStudioAgentTurn as Mock ).mockImplementationOnce(
+			( { onEvent }: { onEvent: ( event: unknown ) => void } ) => {
+				onEvent( {
+					type: 'message_end',
+					message: {
+						role: 'assistant',
+						content: [],
+						stopReason: 'toolUse',
+						usage: { input: 120, output: 30, cacheRead: 0, cacheWrite: 0, totalTokens: 150 },
+					},
+				} );
+				onEvent( {
+					type: 'tool_execution_end',
+					toolCallId: '1',
+					toolName: 'Edit',
+					result: {},
+					isError: false,
+				} );
+				onEvent( {
+					type: 'tool_execution_end',
+					toolCallId: '2',
+					toolName: 'mcp__custom__tool',
+					result: {},
+					isError: true,
+				} );
+				const failed = {
+					role: 'assistant',
+					content: [],
+					stopReason: 'error',
+					errorMessage: '402 studio_out_of_credits',
+					usage: { input: 10, output: 0, cacheRead: 0, cacheWrite: 0, totalTokens: 10 },
+				};
+				onEvent( { type: 'message_end', message: failed } );
+				onEvent( { type: 'agent_end', messages: [ failed ] } );
+				return { result: Promise.resolve(), interrupt: vi.fn() };
+			}
+		);
+
+		await runCommand( { adapter: new JsonAdapter(), initialMessage: 'hello' } );
+
+		const [ , props ] = ( recordTracksEvent as Mock ).mock.calls.find(
+			( [ name ] ) => name === TRACKS_EVENTS.CODE_TURN_COMPLETED
+		) as [ string, Record< string, unknown > ];
+		expect( props ).toMatchObject( {
+			outcome: 'error',
+			tool_calls: 2,
+			tool_errors: 1,
+			failed_tools: 'other',
+			edits: 1,
+			checked_after_change: false,
+			model_requests: 2,
+			input_tokens: 130,
+			output_tokens: 30,
+			error_kind: 'out_of_credits',
+			site_kind: 'none',
+		} );
+	} );
+
 	// One call sits on the turn's critical path, the other in a `finally` where a rejection would
 	// mask the turn's own error. Analytics must never break the chat.
 	it( 'completes the turn even when recording fails', async () => {

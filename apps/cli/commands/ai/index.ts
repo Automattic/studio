@@ -54,6 +54,7 @@ import {
 import { replaySessionHistory } from 'cli/ai/sessions/replay';
 import { setLocalSiteSelectedCallback } from 'cli/ai/site-selection';
 import { getActiveSlashCommands, type SlashCommandContext } from 'cli/ai/slash-commands';
+import { createTurnStatsTracker } from 'cli/ai/turn-stats';
 import { AiChatUI } from 'cli/ai/ui';
 import { runCommand as runLoginCommand } from 'cli/commands/auth/login';
 import { findSiteByFolder, findSiteById } from 'cli/lib/cli-config/sites';
@@ -655,7 +656,10 @@ export async function runCommand( options: {
 			} )
 		);
 
-		const turnState: { status: TurnStatus; errorMessage?: string } = { status: 'interrupted' };
+		const turnState: { status: TurnStatus; errorMessage?: string; failure?: unknown } = {
+			status: 'interrupted',
+		};
+		const turnStats = createTurnStatsTracker();
 
 		const agentQuery = runStudioAgentTurn( {
 			prompt: enrichedPrompt,
@@ -667,6 +671,7 @@ export async function runCommand( options: {
 			onAskUser: ( questions ) => askUserAndPersistAnswers( questions ),
 			onEvent: ( event ) => {
 				ui.handleEvent( event );
+				turnStats.handleEvent( event );
 				// An `agent_end` with `willRetry` is not final — the session
 				// restarts the turn after a backoff.
 				if ( event.type !== 'agent_end' || event.willRetry ) {
@@ -679,6 +684,7 @@ export async function runCommand( options: {
 					turnState.status = result.success ? 'success' : 'error';
 				}
 				turnState.errorMessage = getAgentEndFailure( event )?.message || undefined;
+				turnState.failure = turnState.errorMessage;
 			},
 		} );
 
@@ -688,6 +694,7 @@ export async function runCommand( options: {
 
 		const consumeAgentTurnResult = agentQuery.result.catch( ( error ) => {
 			turnState.status = 'error';
+			turnState.failure = error;
 			// If the UI already surfaced a descriptive terminal error (e.g.
 			// the AI usage cap was reached), suppress the generic SDK exit
 			// error (e.g. "Claude Code process exited with code 1").
@@ -717,6 +724,11 @@ export async function runCommand( options: {
 				...tracksProps,
 				outcome: turnState.status,
 				duration_ms: Date.now() - turnStartedAt,
+				...turnStats.getProps( {
+					outcome: turnState.status,
+					failure: turnState.failure,
+					site,
+				} ),
 			} );
 			ui.endAgentTurn();
 		}

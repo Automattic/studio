@@ -862,18 +862,18 @@ describe( 'Conversation turn-closed markers', () => {
 } );
 
 describe( 'Conversation turn timing', () => {
-	it( 'times a closed turn from its prompt to its close', () => {
+	it( 'closes each turn with its time, from the prompt to the close', () => {
 		const items = entriesToRenderItems( [ promptEntry( 'Go' ), turnClosedEntry( 'interrupted' ) ] );
 
 		expect( items ).toMatchObject( [
 			{ kind: 'user-text' },
+			{ kind: 'interrupted-marker' },
 			{
 				kind: 'turn-timing',
 				status: 'interrupted',
 				startedAt: Date.parse( '2026-06-05T12:00:00.000Z' ),
 				endedAt: Date.parse( '2026-06-05T12:00:03.000Z' ),
 			},
-			{ kind: 'interrupted-marker' },
 		] );
 	} );
 

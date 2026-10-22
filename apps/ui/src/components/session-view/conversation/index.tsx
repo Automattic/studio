@@ -303,13 +303,16 @@ export function entriesToRenderItems(
 	}
 
 	const items: RenderItem[] = [];
+	// Each turn's timing closes the turn, after everything it produced.
+	let turnTiming: RenderItem[] = [];
 	for ( let entryIndex = 0; entryIndex < entries.length; entryIndex += 1 ) {
 		const entry = entries[ entryIndex ];
 		if ( isStudioCustomEntryOfType( entry, 'studio.user_prompt' ) ) {
 			const data = ( entry as StudioCustomEntry< 'studio.user_prompt' > ).data;
 			if ( ! data || data.source !== 'prompt' ) continue;
+			items.push( ...turnTiming );
 			const timing = getTurnTiming( entries, entryIndex, run );
-			const timingItem: RenderItem[] = timing
+			turnTiming = timing
 				? [ { kind: 'turn-timing', key: `${ entryIndex }:timing`, ...timing } ]
 				: [];
 			if ( data.visualAnnotations?.length ) {
@@ -330,18 +333,14 @@ export function entriesToRenderItems(
 						annotation,
 					} );
 				} );
-				items.push( ...timingItem );
 				continue;
 			}
-			items.push(
-				{
-					kind: 'user-text',
-					key: `${ entryIndex }:user`,
-					text: data.text,
-					attachments: data.attachments,
-				},
-				...timingItem
-			);
+			items.push( {
+				kind: 'user-text',
+				key: `${ entryIndex }:user`,
+				text: data.text,
+				attachments: data.attachments,
+			} );
 			continue;
 		}
 
@@ -461,6 +460,7 @@ export function entriesToRenderItems(
 			continue;
 		}
 	}
+	items.push( ...turnTiming );
 
 	return items;
 }

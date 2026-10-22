@@ -113,8 +113,7 @@
 }
 
 .turnTiming {
-	margin-top: -12px;
-	padding-bottom: 8px;
+	padding: 4px 0 8px;
 	color: var(--muted-foreground);
 	font-size: var(--text-xs);
 	font-variant-numeric: tabular-nums;

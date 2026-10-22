@@ -1,87 +1,46 @@
 .root {
 	display: flex;
 	flex-direction: column;
-	gap: 8px;
-	margin-bottom: 12px;
+	gap: 2px;
+	margin: 0 0 8px;
+	padding: 6px;
+	list-style: none;
+	max-height: 160px;
+	overflow-y: auto;
+	border: 1px solid var(--border);
+	border-radius: var(--radius-xl);
+	background-color: var(--background);
 }
 
 .item {
-	position: relative;
-	align-self: flex-end;
 	display: flex;
-	align-items: flex-start;
-	gap: 8px;
-	padding: 12px 16px;
-	/* Match the user bubble shape but lighter so staged follow-ups read as
-	   "drafted, not sent". Mirrors `.userText` (right-aligned, bottom-right
-	   tight corner). */
-	background-color: color-mix(in srgb, var(--accent-text) 4%, transparent);
-	border: 1px dashed color-mix(in srgb, var(--accent-text) 30%, transparent);
-	border-radius: 18px 18px 12px 18px;
-	max-width: 80%;
-	font-size: var(--text-xs);
-	line-height: 1.55;
-	color: var(--muted-foreground);
-	cursor: pointer;
-	outline: none;
-	transition:
-		background-color 120ms ease,
-		border-color 120ms ease,
-		color 120ms ease;
+	align-items: center;
+	gap: 4px;
+	padding: 2px 2px 2px 8px;
+	border-radius: var(--radius-md);
+	font-size: var(--text-sm);
 }
 
-.item:hover,
-.item:focus-visible {
-	background-color: color-mix(
-		in srgb,
-		var(--accent-text) 7%,
-		transparent
-	);
-	border-color: color-mix(
-		in srgb,
-		var(--accent-text) 42%,
-		transparent
-	);
-	color: var(--foreground);
+.body {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	min-width: 0;
 }
 
-.item:focus-visible {
-	outline: 2px solid var(--ring);
-	outline-offset: 2px;
+.text,
+.attachments {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 .text {
-	flex: 1;
-	min-width: 0;
-	white-space: pre-wrap;
-	word-wrap: break-word;
-}
-
-.remove {
-	appearance: none;
-	flex-shrink: 0;
-	width: 22px;
-	height: 22px;
-	margin: -2px -6px -2px 0;
-	border: 0;
-	border-radius: 50%;
-	padding: 0;
-	background: transparent;
 	color: var(--muted-foreground);
-	font: inherit;
-	font-size: var(--text-base);
-	line-height: 1;
-	cursor: pointer;
-	opacity: 0.6;
 }
 
-.item:hover .remove,
-.remove:focus-visible {
-	opacity: 1;
-}
-
-.remove:hover,
-.remove:focus-visible {
-	background-color: color-mix(in srgb, var(--accent-text) 12%, transparent);
-	color: var(--foreground);
+.attachments {
+	font-size: var(--text-xs);
+	color: var(--muted-foreground);
+	opacity: 0.8;
 }

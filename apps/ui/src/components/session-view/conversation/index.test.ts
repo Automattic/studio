@@ -27,10 +27,6 @@ vi.mock( '@/data/core', () => ( {
 	useConnector: () => connectorMocks,
 } ) );
 
-vi.mock( '../thinking-indicator', () => ( {
-	ThinkingIndicator: () => null,
-} ) );
-
 beforeEach( () => {
 	connectorMocks.readLocalMediaFile.mockReset();
 	connectorMocks.copyText.mockReset();
@@ -71,22 +67,11 @@ describe( 'Assistant message copy button', () => {
 		expect( connectorMocks.copyText ).toHaveBeenCalledWith( 'First part.\n\nSecond part.' );
 	} );
 
-	it( 'does not add a copy button to user messages', () => {
-		const data = loadedSession( [
-			{
-				type: 'message',
-				id: 'user-1',
-				parentId: null,
-				timestamp: '2026-06-05T12:00:00.000Z',
-				message: {
-					role: 'user',
-					content: [ { type: 'text', text: 'Hello there' } ],
-				},
-			} as unknown as SessionEntry,
-		] );
-		renderConversation( data );
+	it( 'copies a prompt the user sent', () => {
+		renderConversation( loadedSession( [ promptEntry( 'Hello there' ) ] ) );
 
-		expect( screen.queryByRole( 'button', { name: 'Copy message' } ) ).not.toBeInTheDocument();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Copy message' } ) );
+		expect( connectorMocks.copyText ).toHaveBeenCalledWith( 'Hello there' );
 	} );
 } );
 
@@ -121,6 +106,22 @@ describe( 'Conversation tool rows', () => {
 		expect( hiddenDetails ).toBeInTheDocument();
 		fireEvent.transitionEnd( hiddenDetails! );
 		expect( screen.queryByText( /first output line/ ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'opens a failed tool row with its error, without terminal color codes', () => {
+		const escape = String.fromCharCode( 27 );
+		renderConversation(
+			loadedSession( [
+				assistantToolCallEntry( 'Bash', { command: 'npm test' } ),
+				toolResultEntry( `${ escape }[31mcommand failed${ escape }[0m`, true ),
+			] )
+		);
+
+		expect( screen.getByRole( 'button', { name: 'Run terminal command' } ) ).toHaveAttribute(
+			'aria-expanded',
+			'true'
+		);
+		expect( screen.getByText( 'command failed' ) ).toBeInTheDocument();
 	} );
 
 	it( 'shows long tool results in the opened details without an extra toggle', () => {
@@ -845,6 +846,46 @@ describe( 'Conversation turn-closed markers', () => {
 	it( 'renders no marker for successful turns', () => {
 		expect( entriesToRenderItems( [ turnClosedEntry( 'success' ) ] ) ).toEqual( [] );
 	} );
+
+	it( 'strips terminal color codes from error markers', () => {
+		const escape = String.fromCharCode( 27 );
+		const items = entriesToRenderItems( [
+			turnClosedEntry( 'error', `${ escape }[31mBuild failed${ escape }[0m` ),
+		] );
+
+		expect( items ).toMatchObject( [ { kind: 'error-marker', message: 'Build failed' } ] );
+	} );
+} );
+
+describe( 'Conversation turn timing', () => {
+	it( 'closes each turn with its time, from the prompt to the close', () => {
+		const items = entriesToRenderItems( [ promptEntry( 'Go' ), turnClosedEntry( 'interrupted' ) ] );
+
+		expect( items ).toMatchObject( [
+			{ kind: 'user-text' },
+			{ kind: 'interrupted-marker' },
+			{
+				kind: 'turn-timing',
+				status: 'interrupted',
+				startedAt: Date.parse( '2026-06-05T12:00:00.000Z' ),
+				endedAt: Date.parse( '2026-06-05T12:00:03.000Z' ),
+			},
+		] );
+	} );
+
+	it( 'counts the open turn from the live run while the agent works', () => {
+		const items = entriesToRenderItems( [ promptEntry( 'Go' ) ], {
+			running: true,
+			startedAt: 42,
+		} );
+
+		expect( items[ 1 ] ).toMatchObject( {
+			kind: 'turn-timing',
+			status: 'running',
+			startedAt: 42,
+			endedAt: null,
+		} );
+	} );
 } );
 
 describe( 'Conversation reasoning', () => {
@@ -951,6 +992,17 @@ function visualAnnotationsEntry(
 			source: 'prompt',
 			visualAnnotations,
 		},
+	} as SessionEntry;
+}
+
+function promptEntry( text: string ): SessionEntry {
+	return {
+		type: 'custom',
+		id: `prompt-${ text }`,
+		parentId: null,
+		timestamp: '2026-06-05T12:00:00.000Z',
+		customType: 'studio.user_prompt',
+		data: { text, source: 'prompt' },
 	} as SessionEntry;
 }
 
@@ -1091,7 +1143,7 @@ function assistantToolCallEntry(
 	} as unknown as SessionEntry;
 }
 
-function toolResultEntry( text: string ): SessionEntry {
+function toolResultEntry( text: string, isError = false ): SessionEntry {
 	return {
 		type: 'message',
 		id: 'tool-result',
@@ -1101,6 +1153,7 @@ function toolResultEntry( text: string ): SessionEntry {
 			role: 'toolResult',
 			toolCallId: 'tool-call-1',
 			content: [ { type: 'text', text } ],
+			isError,
 		},
 	} as unknown as SessionEntry;
 }

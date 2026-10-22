@@ -87,6 +87,61 @@
 	white-space: nowrap;
 }
 
+.userTextRow {
+	align-self: flex-end;
+	display: flex;
+	align-items: flex-end;
+	justify-content: flex-end;
+	gap: 4px;
+	max-width: 100%;
+}
+
+.userCopy {
+	opacity: 0;
+	transition: opacity 120ms ease;
+}
+
+.userTextRow:hover .userCopy,
+.userCopy:focus-within {
+	opacity: 1;
+}
+
+@media (hover: none) {
+	.userCopy {
+		opacity: 1;
+	}
+}
+
+.turnTiming {
+	display: flex;
+	flex-direction: column;
+	padding: 4px 0 8px;
+	color: var(--muted-foreground);
+	font-size: var(--text-xs);
+	line-height: 1.55;
+	font-variant-numeric: tabular-nums;
+}
+
+.turnTimingHead {
+	display: flex;
+	align-items: center;
+	gap: 2px;
+}
+
+.turnTimingIndicator {
+	inline-size: 18px;
+	flex-shrink: 0;
+	transform: translateX(-1px);
+}
+
+.turnTimingProgress {
+	padding-left: 20px;
+	opacity: 0.8;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
 .userText {
 	align-self: flex-end;
 	box-sizing: border-box;

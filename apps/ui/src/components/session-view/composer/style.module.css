@@ -314,6 +314,10 @@
 	overflow-y: auto;
 }
 
+.autocompletePopup > * {
+	flex-shrink: 0;
+}
+
 .commandItem {
 	display: flex;
 	flex-direction: column;
@@ -459,6 +463,21 @@
 .modeChip:hover .modeChipRemove,
 .modeChip:focus-visible .modeChipRemove {
 	display: block;
+}
+
+.modeChip:disabled,
+.modelButton:is(:disabled, [data-disabled]) {
+	background-color: transparent;
+	color: var(--muted-foreground);
+	cursor: default;
+}
+
+.modeChip:disabled .modeChipIcon {
+	display: block;
+}
+
+.modeChip:disabled .modeChipRemove {
+	display: none;
 }
 
 .sendButton {

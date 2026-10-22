@@ -88,6 +88,7 @@ export async function launchStudio({
     args: [`--user-data-dir=${dirs.userData}`],
     env: {
       ...process.env,
+      DEV_CONFIG_DIR: dirs.sharedConfig,
       E2E: 'true',
       E2E_APP_DATA_PATH: dirs.appData,
       E2E_HOME_PATH: dirs.home,

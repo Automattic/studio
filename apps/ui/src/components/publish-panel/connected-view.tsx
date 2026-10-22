@@ -9,7 +9,7 @@ import {
 	Icon,
 	moreHorizontal,
 } from '@wordpress/icons';
-import { useId, useRef, useState, type ReactNode } from 'react';
+import { useId, useRef, useState } from 'react';
 import { Button, IconButton } from '@/components/ui/button';
 import * as Menu from '@/components/ui/menu';
 import { useConnector } from '@/data/core';
@@ -106,7 +106,6 @@ export function ConnectedView( {
 	disabled,
 	offline,
 	accessIssue,
-	notice,
 }: {
 	site: SiteDetails;
 	remote: SyncSite;
@@ -119,7 +118,6 @@ export function ConnectedView( {
 	disabled: boolean;
 	offline: boolean;
 	accessIssue?: string;
-	notice?: ReactNode;
 } ) {
 	const id = useId();
 	const connector = useConnector();
@@ -329,7 +327,6 @@ export function ConnectedView( {
 						) : null }
 						{ selection.warning ? <p className={ styles.text }>{ selection.warning }</p> : null }
 						<ErrorMessage error={ selection.error } retry={ selection.retry } />
-						{ notice }
 						{ finished?.kind === 'error' ? <ErrorMessage error={ finished.message } /> : null }
 						{ finished?.kind === 'cancelled' ? (
 							<p className={ styles.text } role="status">

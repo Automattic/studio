@@ -72,6 +72,26 @@
 	min-width: 0;
 }
 
+/* Holds the address field's place while the site starts or stops. */
+.addressStatus {
+	display: flex;
+	box-sizing: border-box;
+	flex: 1 1 auto;
+	min-width: 80px;
+	height: var(--control-size);
+	align-items: center;
+	justify-content: center;
+	padding-inline: 12px;
+	border: 1px solid var(--border);
+	border-radius: 999px;
+	color: var(--muted-foreground);
+	font-size: var(--text-xxs);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	user-select: none;
+}
+
 .historyEntry {
 	display: flex;
 	width: min(320px, calc(100vw - 64px));

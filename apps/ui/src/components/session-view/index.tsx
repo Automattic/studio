@@ -552,15 +552,14 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 			stageAnnotations( annotationSiteId, noteIds );
 			if ( composerBusy ) return;
 			if ( ! noteIds ) {
-				void composerRef.current?.send();
-				return;
+				return composerRef.current?.send();
 			}
 			const notes = getSiteAnnotations( annotationSiteId ).notes.filter(
 				( note ) => noteIds.includes( note.id ) && hasAnnotationContent( note )
 			);
 			try {
 				const { prompt, options } = annotationSubmission( '', [], notes );
-				void sendMessage( prompt, options )
+				return sendMessage( prompt, options )
 					.then( () => removeAnnotations( annotationSiteId, noteIds ) )
 					.catch( () => undefined );
 			} catch ( error ) {

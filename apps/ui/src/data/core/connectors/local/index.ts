@@ -808,10 +808,12 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		async openSiteFolder( siteId ) {
 			await api( `/sites/${ encodeURIComponent( siteId ) }/open-folder`, { method: 'POST' } );
 		},
-		// The server resolves the preference; a 400 means none is configured and
-		// callers route the user to Settings, matching the desktop contract.
-		async openSiteInEditor( siteId ) {
-			await api( `/sites/${ encodeURIComponent( siteId ) }/open-in-editor`, { method: 'POST' } );
+		// Without `editor` the server resolves the preference; a 400 means there's none.
+		async openSiteInEditor( siteId, editor ) {
+			await api( `/sites/${ encodeURIComponent( siteId ) }/open-in-editor`, {
+				method: 'POST',
+				body: JSON.stringify( { editor } ),
+			} );
 		},
 		async openSiteInTerminal( siteId ) {
 			await api( `/sites/${ encodeURIComponent( siteId ) }/open-in-terminal`, { method: 'POST' } );

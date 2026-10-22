@@ -19,6 +19,11 @@
 	outline-offset: 1px;
 }
 
+.addressBar:has(.input[aria-invalid='true']) {
+	border-color: var(--destructive);
+	outline-color: var(--destructive);
+}
+
 .siteIcon {
 	display: inline-flex;
 	width: 16px;

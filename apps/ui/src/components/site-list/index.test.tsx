@@ -101,6 +101,10 @@ vi.mock( '@/data/queries/use-user-preferences', () => ( {
 	useUserPreferences: vi.fn(),
 } ) );
 
+vi.mock( '@/data/queries/use-installed-apps', () => ( {
+	useInstalledApps: () => ( { data: undefined } ),
+} ) );
+
 vi.mock( '@/data/sync-activity', () => ( {
 	useSiteSyncActivity: vi.fn(),
 } ) );
@@ -290,7 +294,7 @@ describe( 'SiteList', () => {
 		await openIn( 'Stopped Site' );
 
 		expect( await screen.findByText( 'Browser' ) ).toHaveAttribute( 'aria-disabled', 'true' );
-		expect( screen.getByText( 'phpMyAdmin' ) ).toHaveAttribute( 'aria-disabled', 'true' );
+		expect( screen.getByText( 'phpMyAdmin' ) ).not.toHaveAttribute( 'aria-disabled' );
 		expect( screen.getByText( 'Browser (WP Admin)' ) ).toHaveAttribute( 'aria-disabled', 'true' );
 		expect( screen.getByText( FILE_MANAGER ) ).not.toHaveAttribute( 'aria-disabled' );
 	} );
@@ -948,7 +952,7 @@ describe( 'SiteList', () => {
 		expect( screen.getByText( 'Terminal' ) ).toBeInTheDocument();
 
 		fireEvent.click( editorItem );
-		expect( useConnectorMock().openSiteInEditor ).toHaveBeenCalledWith( 'stopped-site' );
+		expect( useConnectorMock().openSiteInEditor ).toHaveBeenCalledWith( 'stopped-site', 'zed' );
 	} );
 } );
 

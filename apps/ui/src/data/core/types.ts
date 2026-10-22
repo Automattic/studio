@@ -463,11 +463,11 @@ export interface Connector {
 	// like the preview omnibox search can query site content directly.
 	fetchSiteRest( siteId: string, request: SiteRestRequest ): Promise< SiteRestResponse >;
 
-	// Open the given site's folder in the system file manager, preferred
-	// editor, or preferred terminal. When no editor/terminal preference is
-	// set these reject — callers are expected to route the user to Settings.
+	// Open the given site's folder in the system file manager, an editor
+	// (`editor`, else the preferred one), or the preferred terminal. Without an
+	// editor or a terminal these reject.
 	openSiteFolder( siteId: string ): Promise< void >;
-	openSiteInEditor( siteId: string ): Promise< void >;
+	openSiteInEditor( siteId: string, editor?: SupportedEditor ): Promise< void >;
 	openSiteInTerminal( siteId: string ): Promise< void >;
 
 	// The site's WordPress debug log, resolved host-side from the site id. Its

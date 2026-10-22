@@ -691,11 +691,11 @@ export function createIpcConnector(): Connector {
 			ipcApi.openLocalPath( sitePath );
 		},
 
-		async openSiteInEditor( siteId ): Promise< void > {
+		async openSiteInEditor( siteId, requested ): Promise< void > {
 			const sitePath = await resolveSiteFolder( siteId );
-			const { editor } = ( await ipcApi.getUserPreferences() ) as {
-				editor: SupportedEditor | null;
-			};
+			const editor =
+				requested ??
+				( ( await ipcApi.getUserPreferences() ) as { editor: SupportedEditor | null } ).editor;
 			if ( ! editor ) {
 				throw new Error( 'No preferred editor configured.' );
 			}

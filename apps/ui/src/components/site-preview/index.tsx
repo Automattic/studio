@@ -24,6 +24,7 @@ import {
 	editAnnotation,
 	escapeAnnotations,
 	getSiteAnnotations,
+	isAnnotationsBusy,
 	pickAnnotation,
 	setAnnotating,
 	useSiteAnnotations,
@@ -45,7 +46,7 @@ import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { siteDesignQueryKey, useSiteDesign } from '@/data/queries/use-site-design';
 import { useSiteIcon } from '@/data/queries/use-site-icon';
 import { siteThumbnailQueryKey, useSiteThumbnail } from '@/data/queries/use-site-thumbnail';
-import { useIsSiteStarting, useSiteOperation } from '@/data/queries/use-sites';
+import { useIsSiteStarting, useIsSiteStopping, useSiteOperation } from '@/data/queries/use-sites';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { requestHeaderPanel } from '@/hooks/use-open-header-panel';
 import { useOpenSettings } from '@/hooks/use-open-settings';
@@ -453,11 +454,13 @@ function BrowserHistoryButton( {
 	direction,
 	browserState,
 	shortcut,
+	disabled: disabledByHost,
 	onStep,
 	onJump,
 }: {
 	direction: 'back' | 'forward';
 	browserState: BrowserNavigationState;
+	disabled: boolean;
 	shortcut: ReturnType< typeof getNavigationShortcutDescriptor >;
 	onStep: () => void;
 	onJump: ( index: number ) => void;
@@ -469,7 +472,8 @@ function BrowserHistoryButton( {
 	);
 	const back = direction === 'back';
 	const label = back ? __( 'Back' ) : __( 'Forward' );
-	const disabled = back ? ! browserState.canGoBack : ! browserState.canGoForward;
+	const disabled =
+		disabledByHost || ( back ? ! browserState.canGoBack : ! browserState.canGoForward );
 	const [ menuOpen, setMenuOpen ] = useState( false );
 	const trigger = (
 		<IconButton
@@ -529,7 +533,9 @@ function PreviewLoadFailed( { onRetry }: { onRetry: () => void } ) {
 				<Icon icon={ globeIcon } />
 			</EmptyMedia>
 			<EmptyTitle>{ __( 'Preview could not load' ) }</EmptyTitle>
-			<EmptyDescription>{ __( 'Check that your site is running, then try again.' ) }</EmptyDescription>
+			<EmptyDescription>
+				{ __( 'Check that your site is running, then try again.' ) }
+			</EmptyDescription>
 			<Button variant="outline" onClick={ onRetry }>
 				{ __( 'Try again' ) }
 			</Button>
@@ -569,6 +575,7 @@ export function SitePreview( {
 	const openSettings = useOpenSettings();
 	const { chatEnabled } = useAgenticFeatures();
 	const isStarting = useIsSiteStarting( site.id );
+	const isStopping = useIsSiteStopping( site.id );
 	const operation = useSiteOperation( site );
 	const siteUrl = getSiteUrl( site );
 	const canPreview = site.running;
@@ -703,8 +710,9 @@ export function SitePreview( {
 	}, [] );
 	const handleAnnotationPick = useCallback(
 		( target: VisualAnnotationTarget, anchor: AnnotationAnchor ) => {
-			pickAnnotation( site.id, target );
-			setAnnotationAnchor( toViewportAnchor( anchor ) );
+			if ( pickAnnotation( site.id, target ) ) {
+				setAnnotationAnchor( toViewportAnchor( anchor ) );
+			}
 		},
 		[ site.id, toViewportAnchor ]
 	);
@@ -885,7 +893,7 @@ export function SitePreview( {
 	// guest page are forwarded by the inspector script through the console
 	// bridge instead.
 	useEffect( () => {
-		if ( ! canPreview || collapsed ) {
+		if ( ! canPreview || isStopping || collapsed ) {
 			return;
 		}
 		const handleKeyDown = ( event: globalThis.KeyboardEvent ) => {
@@ -908,7 +916,7 @@ export function SitePreview( {
 
 		document.addEventListener( 'keydown', handleKeyDown, { capture: true } );
 		return () => document.removeEventListener( 'keydown', handleKeyDown, { capture: true } );
-	}, [ canPreview, collapsed, sendBrowserCommand ] );
+	}, [ canPreview, collapsed, isStopping, sendBrowserCommand ] );
 
 	// Matches the realm on screen (front end / WP Admin / phpMyAdmin) rather
 	// than always the front end. Admin screens go through /studio-auto-login so
@@ -956,6 +964,7 @@ export function SitePreview( {
 										direction="back"
 										browserState={ browserState }
 										shortcut={ browserShortcuts.back }
+										disabled={ isStopping }
 										onStep={ () => sendBrowserCommand( 'back' ) }
 										onJump={ goToHistoryIndex }
 									/>
@@ -963,6 +972,7 @@ export function SitePreview( {
 										direction="forward"
 										browserState={ browserState }
 										shortcut={ browserShortcuts.forward }
+										disabled={ isStopping }
 										onStep={ () => sendBrowserCommand( 'forward' ) }
 										onJump={ goToHistoryIndex }
 									/>
@@ -973,13 +983,18 @@ export function SitePreview( {
 								label={ __( 'Reload preview' ) }
 								shortcut={ browserShortcuts.reload }
 								tooltipSide="bottom"
+								disabled={ isStopping }
 								onClick={ () => sendBrowserCommand( 'reload' ) }
 							/>
 						</div>
 					) : null }
 				</div>
 				<div className={ styles.browserLocation }>
-					{ canPreview ? (
+					{ isStarting || isStopping ? (
+						<span role="status" className={ styles.addressStatus }>
+							{ isStopping ? __( 'Stopping site…' ) : __( 'Starting site…' ) }
+						</span>
+					) : canPreview ? (
 						<PreviewAddressBar
 							site={ site }
 							siteIcon={ siteIcon }
@@ -997,7 +1012,7 @@ export function SitePreview( {
 					{ showAnnotate ? (
 						<AnnotateButton
 							active={ annotations.active }
-							disabled={ ! canAnnotate }
+							disabled={ ! canAnnotate || isAnnotationsBusy( annotations ) }
 							disabledReason={
 								activeSurfaceKey === 'database' ? __( 'Not available for Database' ) : undefined
 							}
@@ -1072,109 +1087,115 @@ export function SitePreview( {
 			</div>
 			<div className={ styles.body }>
 				<div ref={ viewportRef } className={ styles.previewViewport }>
-					{ canPreview ? (
-						// One stacked layer per mounted surface. Only the active layer is
-						// visible; the other stays mounted and laid out at its own size, so
-						// coming back to it is a reload with nothing to resize or re-emulate.
-						( Object.keys( surfaces.byKey ) as PreviewSurfaceKey[] ).map( ( key ) => {
-							const surface = surfaces.byKey[ key ];
-							if ( ! surface ) {
-								return null;
-							}
-							const active = key === activeSurfaceKey;
-							const surfaceUrl = `${ siteUrl }${ surface.path }`;
-							if ( key === 'design' ) {
+					{ canPreview
+						? // One stacked layer per mounted surface. Only the active layer is
+						  // visible; the other stays mounted and laid out at its own size, so
+						  // coming back to it is a reload with nothing to resize or re-emulate.
+						  ( Object.keys( surfaces.byKey ) as PreviewSurfaceKey[] ).map( ( key ) => {
+								const surface = surfaces.byKey[ key ];
+								if ( ! surface ) {
+									return null;
+								}
+								const active = key === activeSurfaceKey;
+								const surfaceUrl = `${ siteUrl }${ surface.path }`;
+								if ( key === 'design' ) {
+									return (
+										<div
+											key={ key }
+											className={ clsx( styles.realmLayer, ! active && styles.realmLayerHidden ) }
+											inert={ active ? undefined : true }
+										>
+											<div className={ clsx( styles.surfaceFrame, styles.designSurface ) }>
+												{ /* The view waits for the site's font stylesheet; only this pane should. */ }
+												<Suspense fallback={ null }>
+													{ siteDesign.isPending ||
+													( siteDesign.isFetching && ! siteDesign.data ) ? null : (
+														<DesignSystemView
+															siteId={ site.id }
+															siteDesign={ siteDesign.data ?? null }
+															onAnnotationPick={ handleAnnotationPick }
+															onAnnotationAnchor={ ( anchor: AnnotationAnchor ) =>
+																setAnnotationAnchor( toViewportAnchor( anchor ) )
+															}
+														/>
+													) }
+												</Suspense>
+											</div>
+										</div>
+									);
+								}
 								return (
 									<div
 										key={ key }
 										className={ clsx( styles.realmLayer, ! active && styles.realmLayerHidden ) }
 										inert={ active ? undefined : true }
 									>
-										<div className={ clsx( styles.surfaceFrame, styles.designSurface ) }>
-											{ /* The view waits for the site's font stylesheet; only this pane should. */ }
-											<Suspense fallback={ null }>
-												{ siteDesign.isPending ||
-												( siteDesign.isFetching && ! siteDesign.data ) ? null : (
-													<DesignSystemView
-														siteId={ site.id }
-														siteDesign={ siteDesign.data ?? null }
-														onAnnotationPick={ handleAnnotationPick }
-														onAnnotationAnchor={ ( anchor: AnnotationAnchor ) =>
-															setAnnotationAnchor( toViewportAnchor( anchor ) )
-														}
-													/>
-												) }
-											</Suspense>
+										<div className={ styles.surfaceFrame }>
+											{ canUseWebview ? (
+												<WebviewSurface
+													key={ `${ site.id }-${ key }` }
+													url={ surfaceUrl }
+													reloadNonce={ surface.reloadNonce }
+													// phpMyAdmin isn't an annotation target, so the
+													// inspector never goes near it.
+													inspector={ key === 'site' }
+													annotations={ key === 'site' ? annotations : undefined }
+													onInspectorReady={ ( inspectorReady ) => {
+														patchSurface( key, { inspectorReady } );
+														if ( ! inspectorReady ) setAnnotationAnchor( null );
+													} }
+													onInspectorEvent={ handleInspectorEvent }
+													browserCommand={ surface.browserCommand }
+													onBrowserStateChange={ ( state ) =>
+														handleSurfaceBrowserState( key, state )
+													}
+													onNavigate={ ( url ) => handleSurfaceNavigation( key, url ) }
+													onLoad={ ( url, guestId ) => handleSurfaceLoad( key, url, guestId ) }
+												/>
+											) : (
+												// Non-Electron fallback: plain iframe, no inspector. Reloads
+												// by remounting; back/forward aren't reachable from the host.
+												<iframe
+													key={ `${ surfaceUrl }#${ surface.reloadNonce }#${
+														surface.browserCommand?.type === 'reload'
+															? surface.browserCommand.id
+															: 0
+													}` }
+													className={ styles.iframe }
+													src={ surfaceUrl }
+													title={ site.name }
+													onLoad={ ( event ) => {
+														const { src } = event.currentTarget;
+														const title = getIframeTitle( event.currentTarget );
+														handleSurfaceNavigation( key, src );
+														// A frame fires `load` for the browser's own error page too, and
+														// it's cross-origin, so ask the server whether it's there at all.
+														void fetch( src, {
+															method: 'HEAD',
+															mode: 'no-cors',
+															cache: 'no-store',
+														} ).then(
+															() => {
+																handleSurfaceLoad( key, src );
+																handleSurfaceBrowserState( key, { ...EMPTY_BROWSER_STATE, title } );
+															},
+															() =>
+																handleSurfaceBrowserState( key, {
+																	...EMPTY_BROWSER_STATE,
+																	failed: true,
+																} )
+														);
+													} }
+												/>
+											) }
+											{ surface.browser.failed ? (
+												<PreviewLoadFailed onRetry={ () => sendSurfaceCommand( key, 'reload' ) } />
+											) : null }
 										</div>
 									</div>
 								);
-							}
-							return (
-								<div
-									key={ key }
-									className={ clsx( styles.realmLayer, ! active && styles.realmLayerHidden ) }
-									inert={ active ? undefined : true }
-								>
-									<div className={ styles.surfaceFrame }>
-										{ canUseWebview ? (
-											<WebviewSurface
-												key={ `${ site.id }-${ key }` }
-												url={ surfaceUrl }
-												reloadNonce={ surface.reloadNonce }
-												// phpMyAdmin isn't an annotation target, so the
-												// inspector never goes near it.
-												inspector={ key === 'site' }
-												annotations={ key === 'site' ? annotations : undefined }
-												onInspectorReady={ ( inspectorReady ) => {
-													patchSurface( key, { inspectorReady } );
-													if ( ! inspectorReady ) setAnnotationAnchor( null );
-												} }
-												onInspectorEvent={ handleInspectorEvent }
-												browserCommand={ surface.browserCommand }
-												onBrowserStateChange={ ( state ) =>
-													handleSurfaceBrowserState( key, state )
-												}
-												onNavigate={ ( url ) => handleSurfaceNavigation( key, url ) }
-												onLoad={ ( url, guestId ) => handleSurfaceLoad( key, url, guestId ) }
-											/>
-										) : (
-											// Non-Electron fallback: plain iframe, no inspector. Reloads
-											// by remounting; back/forward aren't reachable from the host.
-											<iframe
-												key={ `${ surfaceUrl }#${ surface.reloadNonce }#${
-													surface.browserCommand?.type === 'reload' ? surface.browserCommand.id : 0
-												}` }
-												className={ styles.iframe }
-												src={ surfaceUrl }
-												title={ site.name }
-												onLoad={ ( event ) => {
-													const { src } = event.currentTarget;
-													const title = getIframeTitle( event.currentTarget );
-													handleSurfaceNavigation( key, src );
-													// A frame fires `load` for the browser's own error page too, and
-													// it's cross-origin, so ask the server whether it's there at all.
-													void fetch( src, { method: 'HEAD', mode: 'no-cors', cache: 'no-store' } ).then(
-														() => {
-															handleSurfaceLoad( key, src );
-															handleSurfaceBrowserState( key, { ...EMPTY_BROWSER_STATE, title } );
-														},
-														() =>
-															handleSurfaceBrowserState( key, {
-																...EMPTY_BROWSER_STATE,
-																failed: true,
-															} )
-													);
-												} }
-											/>
-										) }
-										{ surface.browser.failed ? (
-											<PreviewLoadFailed onRetry={ () => sendSurfaceCommand( key, 'reload' ) } />
-										) : null }
-									</div>
-								</div>
-							);
-						} )
-					) : null }
+						  } )
+						: null }
 					<SiteContextMenu site={ site } disabled={ canPreview }>
 						<div
 							className={ styles.empty }

@@ -293,7 +293,7 @@ describe( 'Composer menu', () => {
 
 	it( 'sends staged annotations with the message once the agent is idle', async () => {
 		const onSend = vi.fn().mockResolvedValue( undefined );
-		const id = pickAnnotation( 'composer-site', { tag: 'h1', selector: 'h1', path: '/' } );
+		const id = pickAnnotation( 'composer-site', { tag: 'h1', selector: 'h1', path: '/' } )!;
 		changeAnnotation( 'composer-site', id, { comment: 'Make this bigger' } );
 		stageAnnotations( 'composer-site' );
 		const { rerenderComposer } = renderComposer( {

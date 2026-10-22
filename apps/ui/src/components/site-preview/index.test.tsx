@@ -566,9 +566,7 @@ describe( 'SitePreview', () => {
 	it( 'keeps the loading stage over a just-started site until its first page loads', async () => {
 		let finishStart = () => {};
 		useConnectorMock.mockReturnValue( {
-			startSite: vi.fn(
-				() => new Promise< void >( ( resolve ) => ( finishStart = resolve ) )
-			),
+			startSite: vi.fn( () => new Promise< void >( ( resolve ) => ( finishStart = resolve ) ) ),
 			getSiteThumbnail: vi.fn().mockResolvedValue( null ),
 			trackEvent: vi.fn().mockResolvedValue( undefined ),
 			capabilities: CAPABILITIES,
@@ -826,7 +824,10 @@ describe( 'SitePreview webview reload', () => {
 	it( 'offers a retry when the page fails to load, but not for a replaced load', async () => {
 		const { webview, clearWebviewCache } = renderWebviewPreview();
 		const fail = ( errorCode: number ) =>
-			fireEvent( webview, Object.assign( new Event( 'did-fail-load' ), { errorCode, isMainFrame: true } ) );
+			fireEvent(
+				webview,
+				Object.assign( new Event( 'did-fail-load' ), { errorCode, isMainFrame: true } )
+			);
 
 		fail( -3 );
 		expect( screen.queryByText( 'Preview could not load' ) ).not.toBeInTheDocument();

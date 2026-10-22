@@ -37,7 +37,9 @@ describe( 'DeleteSiteDialog', () => {
 		expect(
 			screen.getByRole( 'alertdialog', { name: 'Remove “My Site” from Studio?' } )
 		).toBeInTheDocument();
-		expect( screen.getByRole( 'checkbox', { name: 'Also move files and database to Trash' } ) ).not.toBeChecked();
+		expect(
+			screen.getByRole( 'checkbox', { name: 'Also move files and database to Trash' } )
+		).not.toBeChecked();
 		await waitFor( () => expect( screen.getByRole( 'button', { name: 'Cancel' } ) ).toHaveFocus() );
 		fireEvent.keyDown( screen.getByRole( 'checkbox' ), { key: 'Enter' } );
 		expect( mutateAsync ).not.toHaveBeenCalled();

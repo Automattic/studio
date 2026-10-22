@@ -1,11 +1,8 @@
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { classifySyncFailure } from '@studio/common/lib/sync/classify-sync-failure';
-import {
-	SYNC_PUSH_SIZE_LIMIT_BYTES,
-	SYNC_PUSH_SIZE_LIMIT_GB,
-} from '@studio/common/lib/sync/constants';
+import { SYNC_PUSH_SIZE_LIMIT_BYTES } from '@studio/common/lib/sync/constants';
 import { useQueryClient } from '@tanstack/react-query';
-import { __, sprintf } from '@wordpress/i18n';
+import { __ } from '@wordpress/i18n';
 import { useEffect, useEffectEvent, useSyncExternalStore } from 'react';
 import { websiteIssue } from '@/components/publish-panel/options';
 import { useConnector } from '@/data/core';
@@ -94,7 +91,8 @@ export function useSyncConnectSiteListener(): void {
 				success: true,
 				num_of_sites: connectedSites().filter( ( { id } ) => id !== remoteSiteId ).length + 1,
 			} );
-			// A site created by the Publish flow starts empty, so publish all of it.
+			// A site created by the Publish flow starts empty, so publish all of it,
+			// unless the Publish panel has to warn about it first.
 			if ( ! autoOpenPush ) {
 				return;
 			}
@@ -102,19 +100,8 @@ export function useSyncConnectSiteListener(): void {
 				connector.getDirectorySize( studioSiteId, [ 'wp-content' ] ),
 				connector.getIsMultisite( studioSiteId ),
 			] );
-			if ( multisite && ! remote.isPressable ) {
-				throw new Error(
-					__( 'WordPress.com does not support publishing a WordPress Multisite network.' )
-				);
-			}
-			if ( size > SYNC_PUSH_SIZE_LIMIT_BYTES ) {
-				throw new Error(
-					sprintf(
-						/* translators: %s: the publishing size limit in GB */
-						__( 'This site exceeds the %s GB publishing limit. Choose fewer files to publish.' ),
-						String( SYNC_PUSH_SIZE_LIMIT_GB )
-					)
-				);
+			if ( ( multisite && ! remote.isPressable ) || size > SYNC_PUSH_SIZE_LIMIT_BYTES ) {
+				return;
 			}
 			pushSite( {
 				siteId: studioSiteId,

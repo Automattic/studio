@@ -355,7 +355,6 @@ export function PublishButton( {
 					disabled={ busy || offline }
 					offline={ offline }
 					accessIssue={ accessIssue }
-					notice={ setupErrorMessage }
 				/>
 			);
 		}

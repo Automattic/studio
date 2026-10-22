@@ -77,11 +77,7 @@ export function DeleteSiteDialog( {
 			onOpenChange={ ( next ) => ! pending && onOpenChange( next ) }
 			onOpenChangeComplete={ ( next ) => ! next && setError( undefined ) }
 		>
-			<DialogContent
-				layout="confirmation"
-				showCloseButton={ ! pending }
-				initialFocus={ cancelRef }
-			>
+			<DialogContent layout="confirmation" showCloseButton={ ! pending } initialFocus={ cancelRef }>
 				<DialogHeader>
 					<DialogTitle>
 						{ count === 1

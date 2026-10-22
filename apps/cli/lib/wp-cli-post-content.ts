@@ -13,26 +13,7 @@ function getPostContentArg( args: string[] ): string | undefined {
 	return contentArg.slice( '--post_content='.length );
 }
 
-// The file a `--post_content` value names, absolute or relative to the site,
-// as in `--post_content=tmp/page.html`. Unquoted content runs to the end of the
-// command, so flags after the path (`--porcelain`) are part of the value.
-function namedFile( value: string, sitePath?: string ): string | undefined {
-	const [ candidate, ...rest ] = value.split( /\s+/ );
-	if (
-		! candidate ||
-		candidate.includes( '<' ) ||
-		rest.some( ( arg ) => ! arg.startsWith( '--' ) )
-	) {
-		return undefined;
-	}
-	const filePath = path.resolve( sitePath ?? '', candidate );
-	return existsSync( filePath ) && statSync( filePath ).isFile() ? candidate : undefined;
-}
-
-export function getUnsupportedWpCliPostContentMessage(
-	args: string[],
-	sitePath?: string
-): string | null {
+export function getUnsupportedWpCliPostContentMessage( args: string[] ): string | null {
 	const isPostCommand =
 		args[ 0 ] === 'post' && ( args[ 1 ] === 'create' || args[ 1 ] === 'update' );
 	if ( ! isPostCommand ) {
@@ -49,15 +30,40 @@ export function getUnsupportedWpCliPostContentMessage(
 		/^[`'"]?\$\(\s*cat\b[\s\S]*$/.test( trimmedContent ) ||
 		/^[`'"]?`cat\b[\s\S]*$/.test( trimmedContent );
 
-	if ( hasCatCommandSubstitution ) {
-		return UNSUPPORTED_WP_CLI_POST_CONTENT_MESSAGE;
-	}
+	return hasCatCommandSubstitution ? UNSUPPORTED_WP_CLI_POST_CONTENT_MESSAGE : null;
+}
 
-	const file = namedFile( trimmedContent, sitePath );
-	if ( file ) {
-		const target = args[ 1 ] === 'update' ? `post update ${ args[ 2 ] ?? '<id>' }` : 'post create';
-		return `\`--post_content\` takes the content itself, and \`${ file }\` is the path of a file, so the post would be saved with that path as its content. Nothing was saved. \`${ target } ${ file }\` saves the file's content.`;
+/**
+ * `post create` / `post update` with `--post_content=<file>`, where the value
+ * is the path of a file (absolute or relative to the site): the same command
+ * with the file as the positional argument WP-CLI reads content from, so the
+ * post gets the file's content rather than its path. Unquoted content runs to
+ * the end of the command, so flags after the path (`--porcelain`) are split
+ * back out. Undefined for any other command.
+ */
+export function routePostContentFile(
+	args: string[],
+	sitePath?: string
+): { args: string[]; file: string } | undefined {
+	const isPostCommand =
+		args[ 0 ] === 'post' && ( args[ 1 ] === 'create' || args[ 1 ] === 'update' );
+	const contentIndex = args.findIndex( ( arg ) => arg.startsWith( '--post_content=' ) );
+	if ( ! isPostCommand || contentIndex === -1 ) {
+		return undefined;
 	}
-
-	return null;
+	const [ file, ...flags ] = args[ contentIndex ]
+		.slice( '--post_content='.length )
+		.trim()
+		.split( /\s+/ );
+	if ( ! file || file.includes( '<' ) || flags.some( ( flag ) => ! flag.startsWith( '--' ) ) ) {
+		return undefined;
+	}
+	const filePath = path.resolve( sitePath ?? '', file );
+	if ( ! existsSync( filePath ) || ! statSync( filePath ).isFile() ) {
+		return undefined;
+	}
+	return {
+		args: [ ...args.slice( 0, contentIndex ), ...args.slice( contentIndex + 1 ), ...flags, file ],
+		file,
+	};
 }

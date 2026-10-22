@@ -62,6 +62,10 @@
 		color: var( --foreground );
 	}
 
+	:root[data-color-scheme='dark'] .content[data-surface='composer'] {
+		--muted: var( --surface-4 );
+	}
+
 	.content[data-layout='confirmation'] {
 		max-width: 420px;
 		padding: 20px;
@@ -170,6 +174,7 @@
 	.footer {
 		display: flex;
 		gap: 6px;
+		align-items: center;
 		justify-content: flex-end;
 	}
 

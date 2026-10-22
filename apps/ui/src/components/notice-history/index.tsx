@@ -1,8 +1,17 @@
 import { __ } from '@wordpress/i18n';
-import { Dialog, EmptyState, Notice } from '@wordpress/ui';
+import { EmptyState, Notice } from '@wordpress/ui';
 import { useSyncExternalStore } from 'react';
-import { AppThemeScope } from '@/components/app-theme-scope';
 import { Button, IconButton } from '@/components/ui/button';
+import {
+	Dialog,
+	DialogClose,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogScrollArea,
+	DialogTitle,
+} from '@/components/ui/dialog';
 import {
 	clearNoticeHistory,
 	noticeToText,
@@ -88,72 +97,62 @@ export function NoticeHistoryDialog() {
 	const notices = useNoticeHistory();
 
 	return (
-		// Opened from the sidebar's dark chrome scope; without this the dialog
-		// inherits that palette and renders dark on top of the light app.
-		<AppThemeScope>
-			<Dialog.Root open={ open } onOpenChange={ setOpen }>
-				<Dialog.Popup size="medium">
-					<Dialog.Header>
-						<Dialog.Title>{ __( 'Notification history' ) }</Dialog.Title>
-					</Dialog.Header>
-					<Dialog.Content>
-						{ notices.length === 0 ? (
-							<EmptyState.Root className={ styles.empty }>
-								<EmptyState.Icon icon={ bellIcon } />
-								<EmptyState.Title>{ __( 'No notifications yet' ) }</EmptyState.Title>
-								<EmptyState.Description>
-									{ __( 'Notices Studio shows you collect here, until Studio\u00a0restarts.' ) }
-								</EmptyState.Description>
-							</EmptyState.Root>
-						) : (
-							<>
-								<ul className={ styles.list }>
-									{ notices.map( ( notice ) => (
-										<li key={ `${ notice.id }:${ notice.shownAt }` }>
-											<Notice.Root intent={ notice.intent } className={ styles.notice }>
-												<Notice.Title>{ notice.title }</Notice.Title>
-												{ notice.description ? (
-													<Notice.Description className={ styles.description }>
-														{ notice.description }
-													</Notice.Description>
-												) : null }
-												<time
-													className={ styles.time }
-													dateTime={ new Date( notice.shownAt ).toISOString() }
-												>
-													{ formatTime( notice.shownAt ) }
-												</time>
-												{ notice.description ? (
-													<Notice.Actions>
-														<CopyNoticeButton notice={ notice } />
-													</Notice.Actions>
-												) : null }
-											</Notice.Root>
-										</li>
-									) ) }
-								</ul>
-								{ /* Description drops a passed className, so the note lives on a
-								     wrapper. */ }
-								<div className={ styles.outro }>
-									<Dialog.Description>
-										{ __( 'Notifications are cleared automatically when Studio restarts.' ) }
-									</Dialog.Description>
-								</div>
-							</>
-						) }
-					</Dialog.Content>
-					<Dialog.Footer>
-						{ notices.length > 0 ? (
-							<Button variant="ghost" className={ styles.clearAll } onClick={ clearNoticeHistory }>
-								{ __( 'Clear all' ) }
-							</Button>
-						) : null }
-						<Dialog.Action variant="minimal" tone="neutral">
-							{ __( 'Close' ) }
-						</Dialog.Action>
-					</Dialog.Footer>
-				</Dialog.Popup>
-			</Dialog.Root>
-		</AppThemeScope>
+		<Dialog open={ open } onOpenChange={ setOpen }>
+			<DialogContent showCloseButton={ false } className={ styles.dialog }>
+				<DialogHeader>
+					<DialogTitle>{ __( 'Notification history' ) }</DialogTitle>
+				</DialogHeader>
+				<DialogScrollArea>
+					{ notices.length === 0 ? (
+						<EmptyState.Root className={ styles.empty }>
+							<EmptyState.Icon icon={ bellIcon } />
+							<EmptyState.Title>{ __( 'No notifications yet' ) }</EmptyState.Title>
+							<EmptyState.Description>
+								{ __( 'Notices Studio shows you collect here, until Studio\u00a0restarts.' ) }
+							</EmptyState.Description>
+						</EmptyState.Root>
+					) : (
+						<>
+							<ul className={ styles.list }>
+								{ notices.map( ( notice ) => (
+									<li key={ `${ notice.id }:${ notice.shownAt }` }>
+										<Notice.Root intent={ notice.intent } className={ styles.notice }>
+											<Notice.Title>{ notice.title }</Notice.Title>
+											{ notice.description ? (
+												<Notice.Description className={ styles.description }>
+													{ notice.description }
+												</Notice.Description>
+											) : null }
+											<time
+												className={ styles.time }
+												dateTime={ new Date( notice.shownAt ).toISOString() }
+											>
+												{ formatTime( notice.shownAt ) }
+											</time>
+											{ notice.description ? (
+												<Notice.Actions>
+													<CopyNoticeButton notice={ notice } />
+												</Notice.Actions>
+											) : null }
+										</Notice.Root>
+									</li>
+								) ) }
+							</ul>
+							<DialogDescription className={ styles.outro }>
+								{ __( 'Notifications are cleared automatically when Studio restarts.' ) }
+							</DialogDescription>
+						</>
+					) }
+				</DialogScrollArea>
+				<DialogFooter>
+					{ notices.length > 0 ? (
+						<Button variant="ghost" className={ styles.clearAll } onClick={ clearNoticeHistory }>
+							{ __( 'Clear all' ) }
+						</Button>
+					) : null }
+					<DialogClose render={ <Button variant="outline" /> }>{ __( 'Close' ) }</DialogClose>
+				</DialogFooter>
+			</DialogContent>
+		</Dialog>
 	);
 }

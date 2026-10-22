@@ -3,7 +3,7 @@ import { getComposerAttachmentImageSrc } from '@studio/common/ai/composer-attach
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { arrowUp, closeSmall, Icon } from '@wordpress/icons';
 import { isAppleOS } from '@wordpress/keycodes';
-import { AlertDialog, Checkbox } from '@wordpress/ui';
+import { Checkbox } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
@@ -11,6 +11,14 @@ import {
 	useFileDrop,
 } from '@/components/session-view/composer/use-composer-attachments';
 import { Button, IconButton } from '@/components/ui/button';
+import {
+	AlertDialog,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from '@/components/ui/dialog';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { toast } from '@/data/app-messages';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
@@ -56,6 +64,7 @@ export function AnnotationOverlay( { siteId, anchor, onSend }: AnnotationOverlay
 	const stagedCount = notes.filter( isStagedAnnotation ).length;
 	const [ confirming, setConfirming ] = useState( false );
 	const [ dontAsk, setDontAsk ] = useState( false );
+	const cancelRef = useRef< HTMLButtonElement >( null );
 	const { data: preferences } = useUserPreferences();
 	const savePreferences = useSaveUserPreferences();
 
@@ -125,38 +134,47 @@ export function AnnotationOverlay( { siteId, anchor, onSend }: AnnotationOverlay
 					) : null }
 				</Button>
 			</div>
-			<AlertDialog.Root
-				open={ active && confirming }
-				onOpenChange={ setConfirming }
-				onConfirm={ () => {
-					if ( dontAsk ) savePreferences.mutate( { confirmDeleteAnnotations: false } );
-					clearAnnotations( siteId );
-				} }
-			>
-				<AlertDialog.Popup
-					intent="irreversible"
-					title={
-						count === 1
-							? __( 'Delete annotation?' )
-							: sprintf(
-									/* translators: %d: number of annotations. */
-									__( 'Delete %d annotations?' ),
-									count
-							  )
-					}
-					description={ _n(
-						'This note and its attached images will be deleted.',
-						'These notes and their attached images will be deleted.',
-						count
-					) }
-					confirmButtonText={ __( 'Delete annotations' ) }
-				>
+			<AlertDialog open={ active && confirming } onOpenChange={ setConfirming }>
+				<DialogContent layout="confirmation" initialFocus={ cancelRef }>
+					<DialogHeader>
+						<DialogTitle>
+							{ count === 1
+								? __( 'Delete annotation?' )
+								: sprintf(
+										/* translators: %d: number of annotations. */
+										__( 'Delete %d annotations?' ),
+										count
+								  ) }
+						</DialogTitle>
+						<DialogDescription tone="default">
+							{ _n(
+								'This note and its attached images will be deleted.',
+								'These notes and their attached images will be deleted.',
+								count
+							) }
+						</DialogDescription>
+					</DialogHeader>
 					<label className={ styles.dialogCheckbox }>
 						<Checkbox checked={ dontAsk } onCheckedChange={ setDontAsk } />
 						{ __( 'Don’t ask again' ) }
 					</label>
-				</AlertDialog.Popup>
-			</AlertDialog.Root>
+					<DialogFooter>
+						<Button ref={ cancelRef } variant="outline" onClick={ () => setConfirming( false ) }>
+							{ __( 'Cancel' ) }
+						</Button>
+						<Button
+							variant="destructive"
+							onClick={ () => {
+								if ( dontAsk ) savePreferences.mutate( { confirmDeleteAnnotations: false } );
+								setConfirming( false );
+								clearAnnotations( siteId );
+							} }
+						>
+							{ __( 'Delete annotations' ) }
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</AlertDialog>
 		</div>
 	);
 }

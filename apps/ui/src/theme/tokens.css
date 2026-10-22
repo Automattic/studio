@@ -1,3 +1,8 @@
+/* Primitives (`components/ui`) sit in the `ui` layer, so feature styles, which
+   are unlayered, always override them. Declared here, in the first stylesheet
+   the entry points load, because layers rank in the order they first appear. */
+@layer wp-ui, base, ui;
+
 /* The app's design tokens. Colors derive from four appearance inputs set on
    the root by theme.ts — `--tint-hue`, `--tint-intensity` (with
    `--tint-saturation`), `--contrast` and `--accent-fill` — so a theme change

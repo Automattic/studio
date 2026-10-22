@@ -1,27 +1,5 @@
-.popup[data-wp-ui-overlay-modal] {
-
+.popup {
 	flex-direction: row;
-	width: min(752px, calc(100vw - 48px));
-	height: min(600px, calc(100dvh - 48px));
-	min-width: 0;
-	padding: 0;
-	border-radius: 16px;
-	font-size: var(--text-sm);
-	line-height: 20px;
-}
-
-/* Steps back while a confirmation or other dialog opens over it. */
-.popup[data-wp-ui-overlay-modal][data-nested-dialog-open] {
-	filter: blur(2px);
-}
-
-.visuallyHidden {
-	position: absolute;
-	width: 1px;
-	height: 1px;
-	overflow: hidden;
-	clip-path: inset(50%);
-	white-space: nowrap;
 }
 
 .sidebar {
@@ -172,42 +150,8 @@
 	padding: 8px;
 }
 
-.main {
-	display: flex;
-	flex: 1;
-	flex-direction: column;
-	min-width: 0;
-}
-
-.header {
-	display: flex;
-	flex: none;
-	align-items: center;
-	gap: 12px;
-	min-height: 60px;
-	box-sizing: border-box;
-	padding: 14px 14px 14px 16px;
-}
-
-.title {
-	flex: 1;
-	min-width: 0;
-	margin: 0;
-	font-size: var(--text-sm);
-	font-weight: 500;
-	line-height: 20px;
-}
-
 .actions {
-	display: flex;
-	gap: 8px;
-}
-
-.content {
-	flex: 1;
-	min-height: 0;
-	padding: 0 16px 16px;
-	overflow-y: auto;
+	display: contents;
 }
 
 .hidden {
@@ -242,17 +186,17 @@
 
 /* Inputs as in the rebuild: 36px, a faint border, a lighter fill. Above the
    controls' own styles, which triple their class. */
-.popup[data-wp-ui-overlay-modal] .content :global(.components-input-control__container) {
+.popup[data-layout] .content :global(.components-input-control__container) {
 	border-radius: 9px;
 	background: color-mix(in srgb, var(--chrome) 60%, transparent);
 }
 
-.popup[data-wp-ui-overlay-modal] .content :global(.components-input-control__backdrop) {
+.popup[data-layout] .content :global(.components-input-control__backdrop) {
 	border-color: var(--border);
 	border-radius: 9px;
 }
 
-.popup[data-wp-ui-overlay-modal] .content :global(.components-input-control__input) {
+.popup[data-layout] .content :global(.components-input-control__input) {
 	height: 34px;
 	min-height: 34px;
 	font-size: var(--text-xs);
@@ -260,7 +204,7 @@
 
 /* Field labels in sentence case. Above the controls' own label styles, which
    triple their class. */
-.popup[data-wp-ui-overlay-modal]
+.popup[data-layout]
 	.content
 	:global(:is(.components-base-control__label, .components-input-control__label)) {
 	font-size: var(--text-xs);

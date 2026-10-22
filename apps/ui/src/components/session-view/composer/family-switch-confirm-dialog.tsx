@@ -1,8 +1,17 @@
 import { getAiModelLabel } from '@studio/common/ai/models';
 import { createInterpolateElement } from '@wordpress/element';
 import { __, sprintf } from '@wordpress/i18n';
-import { Dialog } from '@wordpress/ui';
+import { useRef } from 'react';
 import { Button } from '@/components/ui/button';
+import {
+	Dialog,
+	DialogClose,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from '@/components/ui/dialog';
 import { useConfirmOnEnter } from '@/hooks/use-confirm-on-enter';
 import styles from './style.module.css';
 import type { AiModelId } from '@/data/core';
@@ -32,22 +41,21 @@ export function FamilySwitchConfirmDialog( {
 } ) {
 	const confirmLabel = __( 'Yes, new chat' );
 	const handleKeyDown = useConfirmOnEnter( confirmLabel );
+	const cancelRef = useRef< HTMLButtonElement >( null );
 
 	return (
-		<Dialog.Root
+		<Dialog
 			open={ pendingModel !== null }
-			onOpenChange={ ( next ) => {
-				if ( ! next ) {
-					onCancel();
-				}
-			} }
+			onOpenChange={ ( next ) => ! next && ! inFlight && onCancel() }
 		>
-			<Dialog.Popup size="small" onKeyDown={ handleKeyDown }>
-				<Dialog.Header>
-					<Dialog.Title>{ __( 'Start a new chat?' ) }</Dialog.Title>
-				</Dialog.Header>
-				<Dialog.Content>
-					<Dialog.Description className={ styles.dialogDescription }>
+			<DialogContent
+				showCloseButton={ ! inFlight }
+				initialFocus={ cancelRef }
+				onKeyDown={ handleKeyDown }
+			>
+				<DialogHeader>
+					<DialogTitle>{ __( 'Start a new chat?' ) }</DialogTitle>
+					<DialogDescription className={ styles.dialogDescription }>
 						{ pendingModel
 							? createInterpolateElement(
 									sprintf(
@@ -61,12 +69,16 @@ export function FamilySwitchConfirmDialog( {
 									{ history: <strong /> }
 							  )
 							: '' }
-					</Dialog.Description>
-				</Dialog.Content>
-				<Dialog.Footer>
-					<Dialog.Action variant="minimal" tone="neutral" disabled={ inFlight }>
+					</DialogDescription>
+				</DialogHeader>
+				<DialogFooter>
+					<DialogClose
+						ref={ cancelRef }
+						disabled={ inFlight }
+						render={ <Button variant="outline" /> }
+					>
 						{ __( 'Cancel' ) }
-					</Dialog.Action>
+					</DialogClose>
 					<Button
 						loading={ inFlight }
 						loadingAnnouncement={ __( 'Starting new chat' ) }
@@ -74,8 +86,8 @@ export function FamilySwitchConfirmDialog( {
 					>
 						{ confirmLabel }
 					</Button>
-				</Dialog.Footer>
-			</Dialog.Popup>
-		</Dialog.Root>
+				</DialogFooter>
+			</DialogContent>
+		</Dialog>
 	);
 }

@@ -2,18 +2,12 @@
 	display: flex;
 	flex-direction: column;
 	gap: 12px;
-	color: var(--foreground);
-	line-height: 20px;
 }
 
 .introduction,
 .section p,
 .section ul {
 	margin: 0;
-}
-
-.introduction {
-	color: var(--foreground);
 }
 
 .section {
@@ -41,4 +35,8 @@
 	color: var(--accent-text);
 	text-decoration: underline;
 	text-wrap: wrap;
+}
+
+.learnMoreButton {
+	align-self: center;
 }

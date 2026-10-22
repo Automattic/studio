@@ -1,7 +1,5 @@
 /* Validation output can be a long, unbroken schema path, so let it wrap. */
 .message {
-	margin: 0;
-	color: var(--foreground);
 	overflow-wrap: anywhere;
 	white-space: pre-wrap;
 }

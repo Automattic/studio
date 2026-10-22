@@ -2,11 +2,17 @@ import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { isSnapshotExpired } from '@studio/common/lib/snapshots';
 import { __, sprintf } from '@wordpress/i18n';
 import { Icon } from '@wordpress/icons';
-import { Dialog } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useEffect, useId, useState } from 'react';
 import { AccountPrompt } from '@/components/account-prompt';
 import { Button } from '@/components/ui/button';
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogHeader,
+	DialogTitle,
+} from '@/components/ui/dialog';
 import { Spinner } from '@/components/ui/spinner';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useConnector } from '@/data/core';
@@ -129,30 +135,14 @@ export function ShareDialog( {
 	) : null;
 
 	return (
-		<Dialog.Root open={ open } onOpenChange={ onOpenChange }>
-			<Dialog.Popup
-				size="small"
-				className={ styles.dialog }
-				aria-describedby={ signedOut ? descriptionId : undefined }
-			>
-				<Dialog.Header className={ signedOut ? styles.headerBare : undefined }>
-					<Dialog.Title className={ signedOut ? styles.visuallyHidden : undefined }>
+		<Dialog open={ open } onOpenChange={ onOpenChange }>
+			<DialogContent aria-describedby={ signedOut ? descriptionId : undefined }>
+				<DialogHeader>
+					<DialogTitle className={ signedOut ? styles.visuallyHidden : undefined }>
 						{ __( 'Share' ) }
-					</Dialog.Title>
-					<Dialog.CloseIconButton />
-				</Dialog.Header>
-				{ signedOut ? (
-					<AccountPrompt
-						title={ __( 'Share your WordPress' ) }
-						description={ __(
-							'Create an account or log in to share previews and keep your sites in sync.'
-						) }
-						descriptionId={ descriptionId }
-						source="previews_tab"
-					/>
-				) : (
-					<Dialog.Content className={ styles.content }>
-						<Dialog.Description className={ styles.description }>
+					</DialogTitle>
+					{ signedOut ? null : (
+						<DialogDescription>
 							{ __( 'Share a live preview to show your progress and get feedback.' ) }{ ' ' }
 							<Button
 								variant="inline-accent"
@@ -165,38 +155,47 @@ export function ShareDialog( {
 							>
 								{ __( 'Learn more' ) }
 							</Button>
-						</Dialog.Description>
-						{ snapshots.error ? (
-							<div className={ styles.error } role="alert">
-								<p>{ snapshots.error.message }</p>
-								<Button variant="outline" onClick={ () => snapshots.refetch() }>
-									{ __( 'Try again' ) }
-								</Button>
-							</div>
-						) : user.isPending || snapshots.isPending ? (
-							<div className={ styles.loading } role="status">
-								<Spinner />
-								{ __( 'Loading…' ) }
-							</div>
-						) : (
-							<PreviewSharePanel
-								key={ site.id }
-								site={ site }
-								previews={ previews }
-								busy={ busy }
-								creating={ publishing && ! updatingHostname }
-								updatingHostname={ updatingHostname }
-								failed={ failed }
-								canCreate={ canCreate }
-								notice={ limitNotice }
-								footer={ footer }
-								onPublish={ publishPreview }
-							/>
+						</DialogDescription>
+					) }
+				</DialogHeader>
+				{ signedOut ? (
+					<AccountPrompt
+						title={ __( 'Share your WordPress' ) }
+						description={ __(
+							'Create an account or log in to share previews and keep your sites in sync.'
 						) }
-					</Dialog.Content>
+						descriptionId={ descriptionId }
+						source="previews_tab"
+					/>
+				) : snapshots.error ? (
+					<div className={ styles.error } role="alert">
+						<p>{ snapshots.error.message }</p>
+						<Button variant="outline" onClick={ () => snapshots.refetch() }>
+							{ __( 'Try again' ) }
+						</Button>
+					</div>
+				) : user.isPending || snapshots.isPending ? (
+					<div className={ styles.loading } role="status">
+						<Spinner />
+						{ __( 'Loading…' ) }
+					</div>
+				) : (
+					<PreviewSharePanel
+						key={ site.id }
+						site={ site }
+						previews={ previews }
+						busy={ busy }
+						creating={ publishing && ! updatingHostname }
+						updatingHostname={ updatingHostname }
+						failed={ failed }
+						canCreate={ canCreate }
+						notice={ limitNotice }
+						footer={ footer }
+						onPublish={ publishPreview }
+					/>
 				) }
-			</Dialog.Popup>
-		</Dialog.Root>
+			</DialogContent>
+		</Dialog>
 	);
 }
 

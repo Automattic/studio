@@ -15,27 +15,6 @@
 	pointer-events: none;
 }
 
-.dialog {
-}
-
-/* Outranks the shared dialog rule, which leaves room for a footer this dialog doesn't have. */
-.dialog .content.content {
-	display: flex;
-	flex-direction: column;
-	padding-block-end: var(--studio-dialog-inset);
-}
-
-.headerBare {
-	justify-content: flex-end;
-}
-
-.description {
-	margin: 0;
-	color: var(--muted-foreground);
-	font-size: var(--text-sm);
-	line-height: 20px;
-}
-
 .loading {
 	display: flex;
 	align-items: center;

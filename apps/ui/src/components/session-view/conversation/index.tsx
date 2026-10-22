@@ -76,7 +76,6 @@ import {
 	update,
 	upload,
 } from '@wordpress/icons';
-import { Dialog } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import {
 	useEffect,
@@ -91,6 +90,7 @@ import { AiAccessRequiredNotice, AiBlockedNotice } from '@/components/ai-access-
 import { CopyButton } from '@/components/copy-button';
 import { Markdown } from '@/components/markdown';
 import { Button, IconButton } from '@/components/ui/button';
+import { Dialog, DialogClose, DialogContent, DialogDismissButton } from '@/components/ui/dialog';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
 import { useLocalMediaDataUrl } from '@/data/queries/use-local-media';
 import { MESSAGE_TEXT_ATTRIBUTE, QUOTABLE_TEXT_ATTRIBUTE } from '@/hooks/use-text-context-menu';
@@ -1106,11 +1106,11 @@ function QuestionOptionViewer( {
 		: [ chevronLeft, chevronRight ];
 
 	return (
-		<Dialog.Root
+		<Dialog
 			open={ option !== undefined }
 			onOpenChange={ ( open ) => ! open && onIndexChange( null ) }
 		>
-			<Dialog.Popup
+			<DialogContent
 				className={ styles.questionOptionZoomPopup }
 				aria-label={ option?.label }
 				onKeyDown={ ( event ) => {
@@ -1127,7 +1127,10 @@ function QuestionOptionViewer( {
 						alt={ option?.label }
 					/>
 				) : null }
-				<Dialog.CloseIconButton className={ styles.questionOptionZoomClose } />
+				<DialogClose
+					className={ styles.questionOptionZoomClose }
+					render={ <DialogDismissButton variant="ghost" size="icon-2xs" /> }
+				/>
 				<IconButton
 					className={ clsx( styles.questionOptionZoomStep, styles.questionOptionZoomPrevious ) }
 					size="icon-2xs"
@@ -1155,8 +1158,8 @@ function QuestionOptionViewer( {
 						{ __( 'Choose' ) }
 					</Button>
 				) : null }
-			</Dialog.Popup>
-		</Dialog.Root>
+			</DialogContent>
+		</Dialog>
 	);
 }
 

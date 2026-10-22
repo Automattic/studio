@@ -1,27 +1,12 @@
-.overlay {
-	position: fixed;
-	inset: 0;
-	z-index: 100;
-}
-
 /* Sits a little above center, and stays put as results narrow. */
 .popup {
-	position: fixed;
-	z-index: 100;
 	top: max(16px, calc(50dvh - 168px));
-	left: 50%;
-	transform: translateX(-50%);
-	box-sizing: border-box;
-	width: min(448px, calc(100vw - 32px));
+	display: block;
+	max-width: 448px;
+	overflow: hidden;
 	padding: 10px;
-	border: 1px solid
-		var(--border);
-	border-radius: 24px;
-	background: var(--chrome);
-	color: var(--foreground);
-	font-size: var(--text-sm);
-	line-height: 20px;
-	outline: none;
+	transform: translateX(-50%);
+	transition: none;
 }
 
 .inputGroup {

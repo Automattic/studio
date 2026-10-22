@@ -1,9 +1,18 @@
 import { __ } from '@wordpress/i18n';
-import { Dialog, Text, VisuallyHidden } from '@wordpress/ui';
+import { Text, VisuallyHidden } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useRef, useState } from 'react';
 import { LearnMoreLink } from '@/components/learn-more';
 import { Button } from '@/components/ui/button';
+import {
+	Dialog,
+	DialogClose,
+	DialogContent,
+	DialogDescription,
+	DialogDismissButton,
+	DialogFooter,
+	DialogTitle,
+} from '@/components/ui/dialog';
 import { GuideIllustration, isDarkGuideIllustration, needsCloseScrim } from './illustrations';
 import styles from './style.module.css';
 import type { GuideDefinition } from '@/data/onboarding/guide';
@@ -41,7 +50,7 @@ export function OnboardingGuide( { guide, onComplete, onDismiss }: OnboardingGui
 	const goBack = () => setPageIndex( ( index ) => Math.max( 0, index - 1 ) );
 
 	return (
-		<Dialog.Root
+		<Dialog
 			open
 			modal
 			// No dismissal by clicking the backdrop — only the close button, Esc,
@@ -56,27 +65,27 @@ export function OnboardingGuide( { guide, onComplete, onDismiss }: OnboardingGui
 				}
 			} }
 		>
-			<Dialog.Popup
-				size="small"
+			<DialogContent
+				showCloseButton={ false }
 				className={ styles.popup }
 				initialFocus={ advanceRef }
 				data-orientation-guide
 			>
 				<GuideIllustration id={ page.illustration } title={ page.title() } />
-				<Dialog.CloseIconButton
-					label={ __( 'Skip' ) }
+				<DialogClose
 					className={ clsx(
 						styles.close,
 						isDarkGuideIllustration( page.illustration ) && styles.closeOnDark,
 						needsCloseScrim( page.illustration ) && styles.closeOverArt
 					) }
+					render={ <DialogDismissButton label={ __( 'Skip' ) } /> }
 				/>
-				<Dialog.Content className={ styles.content }>
+				<div className={ styles.content }>
 					{ /* The dialog's accessible name and description follow the active page.
 					     The visible copy is rendered separately below so that every page can
 					     share one grid cell. */ }
-					<VisuallyHidden render={ <Dialog.Title /> }>{ page.title() }</VisuallyHidden>
-					<VisuallyHidden render={ <Dialog.Description /> }>{ page.description() }</VisuallyHidden>
+					<VisuallyHidden render={ <DialogTitle /> }>{ page.title() }</VisuallyHidden>
+					<VisuallyHidden render={ <DialogDescription /> }>{ page.description() }</VisuallyHidden>
 					{ /* All pages occupy the same grid cell, so the box is as tall as the
 					     longest one and advancing never resizes the modal. Rendering them
 					     identically — rather than measuring the active page — is what keeps
@@ -101,8 +110,8 @@ export function OnboardingGuide( { guide, onComplete, onDismiss }: OnboardingGui
 							) : null }
 						</div>
 					) ) }
-				</Dialog.Content>
-				<Dialog.Footer className={ styles.footer }>
+				</div>
+				<DialogFooter className={ styles.footer }>
 					<div className={ styles.footerStart }>
 						{ /* Kept mounted on the first page and faded out instead of unmounted,
 						     so it eases in alongside the pager rather than appearing from
@@ -128,8 +137,8 @@ export function OnboardingGuide( { guide, onComplete, onDismiss }: OnboardingGui
 							{ page.action() }
 						</Button>
 					</div>
-				</Dialog.Footer>
-			</Dialog.Popup>
-		</Dialog.Root>
+				</DialogFooter>
+			</DialogContent>
+		</Dialog>
 	);
 }

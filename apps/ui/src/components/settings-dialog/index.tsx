@@ -16,7 +16,6 @@ import {
 	settings as slidersIcon,
 	tool,
 } from '@wordpress/icons';
-import { Dialog } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -32,7 +31,14 @@ import {
 } from '@/components/settings-view';
 import { SiteSettingsForm } from '@/components/site-settings-view';
 import { IconButton } from '@/components/ui/button';
-import { DialogDismissButton } from '@/components/ui/dialog';
+import {
+	Dialog,
+	DialogContent,
+	DialogPanel,
+	DialogTitle,
+	PanelHeader,
+} from '@/components/ui/dialog';
+import { VisuallyHidden } from '@/components/ui/visually-hidden';
 import { useSessions } from '@/data/queries/use-sessions';
 import { useSites } from '@/data/queries/use-sites';
 import { chatIcon, settingsIcon, shareIcon } from '@/lib/icons';
@@ -338,7 +344,7 @@ export function SettingsDialog() {
 	const current = getSections( scope ).find( ( entry ) => entry.id === section )!;
 
 	return (
-		<Dialog.Root
+		<Dialog
 			open={ !! settings }
 			onOpenChange={ ( open ) => ! open && close() }
 			// Focuses the setting the dialog was opened for.
@@ -346,8 +352,8 @@ export function SettingsDialog() {
 				open && settingsFocus && findRow( settingsFocus )?.querySelector( 'input' )?.select()
 			}
 		>
-			<Dialog.Popup size="stretch" className={ styles.popup }>
-				<Dialog.Title className={ styles.visuallyHidden }>{ __( 'Settings' ) }</Dialog.Title>
+			<DialogContent layout="settings" className={ styles.popup }>
+				<DialogTitle render={ <VisuallyHidden /> }>{ __( 'Settings' ) }</DialogTitle>
 				<div className={ styles.sidebar }>
 					<div className={ styles.scopes } role="group" aria-label={ __( 'Settings for' ) }>
 						{ ( [ 'studio', 'site' ] as const ).map( ( candidate ) => (
@@ -422,63 +428,69 @@ export function SettingsDialog() {
 						) ) }
 					</nav>
 				</div>
-				<div className={ styles.main }>
-					<div className={ styles.header }>
-						<IconButton
-							variant="segmented"
-							size="icon-sm"
-							icon={ chevronLeft }
-							label={ __( 'Back' ) }
-							disabled={ ! history.length }
-							onClick={ () => {
-								go( history.at( -1 )!, { back: true } );
-								setHistory( ( previous ) => previous.slice( 0, -1 ) );
-							} }
-						/>
-						<h2 className={ styles.title }>{ current.label }</h2>
-						<div ref={ setActions } className={ styles.actions } />
-						<DialogDismissButton label={ __( 'Close settings' ) } onClick={ close } />
-					</div>
-					<div ref={ content } className={ styles.content }>
-						<SettingsDialogContext.Provider value={ { actions, setDirty } }>
-							{ scope === 'studio' ? (
-								<StudioSection
-									id={ section }
-									onManageSite={ site ? () => go( 'site-instructions' ) : undefined }
+				<DialogPanel
+					className={ styles.content }
+					scrollRef={ content }
+					header={
+						<PanelHeader
+							leading={
+								<IconButton
+									variant="segmented"
+									size="icon-sm"
+									icon={ chevronLeft }
+									label={ __( 'Back' ) }
+									disabled={ ! history.length }
+									onClick={ () => {
+										go( history.at( -1 )!, { back: true } );
+										setHistory( ( previous ) => previous.slice( 0, -1 ) );
+									} }
 								/>
-							) : null }
-							{ site ? (
-								<>
-									{ scope === 'site' &&
-									( section === 'site-skills' || section === 'site-instructions' ) ? (
-										<SiteAgentFiles
-											key={ `${ site.id }-${ section }` }
-											siteId={ site.id }
-											kind={ section === 'site-skills' ? 'skills' : 'instructions' }
-											onManageAll={ () =>
-												go( section === 'site-skills' ? 'skills' : 'instructions' )
-											}
-										/>
-									) : null }
-									<div
-										className={ clsx(
-											( scope !== 'site' || ! SITE_FORM_SECTIONS.includes( section ) ) &&
-												styles.hidden
-										) }
-									>
-										<SiteSettingsForm
-											key={ site.id }
-											site={ site }
-											section={ formSection }
-											active={ scope === 'site' && SITE_FORM_SECTIONS.includes( section ) }
-										/>
-									</div>
-								</>
-							) : null }
-						</SettingsDialogContext.Provider>
-					</div>
-				</div>
-			</Dialog.Popup>
-		</Dialog.Root>
+							}
+							title={ current.label }
+							actions={ <div ref={ setActions } className={ styles.actions } /> }
+							onClose={ close }
+							closeLabel={ __( 'Close settings' ) }
+						/>
+					}
+				>
+					<SettingsDialogContext.Provider value={ { actions, setDirty } }>
+						{ scope === 'studio' ? (
+							<StudioSection
+								id={ section }
+								onManageSite={ site ? () => go( 'site-instructions' ) : undefined }
+							/>
+						) : null }
+						{ site ? (
+							<>
+								{ scope === 'site' &&
+								( section === 'site-skills' || section === 'site-instructions' ) ? (
+									<SiteAgentFiles
+										key={ `${ site.id }-${ section }` }
+										siteId={ site.id }
+										kind={ section === 'site-skills' ? 'skills' : 'instructions' }
+										onManageAll={ () =>
+											go( section === 'site-skills' ? 'skills' : 'instructions' )
+										}
+									/>
+								) : null }
+								<div
+									className={ clsx(
+										( scope !== 'site' || ! SITE_FORM_SECTIONS.includes( section ) ) &&
+											styles.hidden
+									) }
+								>
+									<SiteSettingsForm
+										key={ site.id }
+										site={ site }
+										section={ formSection }
+										active={ scope === 'site' && SITE_FORM_SECTIONS.includes( section ) }
+									/>
+								</div>
+							</>
+						) : null }
+					</SettingsDialogContext.Provider>
+				</DialogPanel>
+			</DialogContent>
+		</Dialog>
 	);
 }

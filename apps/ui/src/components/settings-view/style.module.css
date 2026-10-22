@@ -825,3 +825,8 @@
 	object-fit: cover;
 	object-position: top;
 }
+
+.dialogError {
+	margin: 0;
+	color: var(--destructive);
+}

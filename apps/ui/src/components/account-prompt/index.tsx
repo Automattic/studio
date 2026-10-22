@@ -1,7 +1,8 @@
 import { __ } from '@wordpress/i18n';
-import { Dialog, VisuallyHidden } from '@wordpress/ui';
+import { VisuallyHidden } from '@wordpress/ui';
 import { useId, type RefObject } from 'react';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useLogin } from '@/data/queries/use-auth-user';
 import { useOffline } from '@/hooks/use-offline';
 import site1 from './assets/site-1.png';
@@ -90,21 +91,15 @@ export function AccountPromptDialog( {
 } ) {
 	const descriptionId = useId();
 	return (
-		<Dialog.Root open={ open } onOpenChange={ onOpenChange }>
-			<Dialog.Popup
-				size="small"
-				className={ styles.popup }
-				aria-describedby={ descriptionId }
-				finalFocus={ finalFocus }
-			>
-				<Dialog.Header className={ styles.header }>
+		<Dialog open={ open } onOpenChange={ onOpenChange }>
+			<DialogContent aria-describedby={ descriptionId } finalFocus={ finalFocus }>
+				<DialogHeader>
 					<VisuallyHidden>
-						<Dialog.Title>{ prompt.title }</Dialog.Title>
+						<DialogTitle>{ prompt.title }</DialogTitle>
 					</VisuallyHidden>
-					<Dialog.CloseIconButton />
-				</Dialog.Header>
+				</DialogHeader>
 				<AccountPrompt { ...prompt } descriptionId={ descriptionId } />
-			</Dialog.Popup>
-		</Dialog.Root>
+			</DialogContent>
+		</Dialog>
 	);
 }

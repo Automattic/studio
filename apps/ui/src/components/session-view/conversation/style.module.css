@@ -569,8 +569,10 @@
 
 .questionOptionZoomPopup {
 	width: fit-content;
-	min-width: 0;
 	max-width: none;
+	padding: 0;
+	overflow: hidden;
+	border-radius: var(--radius-lg);
 }
 
 .questionOptionZoomImage {
@@ -586,13 +588,12 @@
 }
 
 .questionOptionZoom,
+.questionOptionZoomClose,
 .questionOptionZoomStep {
 	--button-background: var(--chat);
 }
 
 .questionOptionZoomClose {
-	--wp-ui-button-background-color: var(--chat);
-
 	top: 8px;
 	inset-inline-end: 8px;
 }

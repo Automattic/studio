@@ -2,16 +2,26 @@ import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { Icon } from '@wordpress/icons';
 import { displayShortcut, isKeyboardEvent } from '@wordpress/keycodes';
-import { Dialog, InputControl } from '@wordpress/ui';
+import { InputControl } from '@wordpress/ui';
 import { useEffect, useEffectEvent, useState } from 'react';
 import * as Menu from '@/components/menu';
 import { getSessionTitle } from '@/components/session-view/session-chat-actions';
 import { Button } from '@/components/ui/button';
+import {
+	Dialog,
+	DialogClose,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from '@/components/ui/dialog';
 import { toast } from '@/data/app-messages';
 import { useSiteAgentActivity } from '@/data/queries/use-agent-run';
 import { useUpdateSessionMetadata } from '@/data/queries/use-sessions';
 import { chatPinKey, useSidebarPins } from '@/data/queries/use-sidebar-pins';
 import { archiveIcon, pinIcon, readStatusIcon, renameIcon, unpinIcon } from '@/lib/icons';
+import styles from './style.module.css';
 import type { AiSessionSummary } from '@/data/core';
 
 export function useChatActions( session: AiSessionSummary, active: boolean ) {
@@ -128,11 +138,11 @@ function RenameChatDialog( {
 	onClose: () => void;
 } ) {
 	return (
-		<Dialog.Root open={ open } onOpenChange={ ( next ) => ! next && onClose() }>
-			<Dialog.Popup size="small">
+		<Dialog open={ open } onOpenChange={ ( next ) => ! next && onClose() }>
+			<DialogContent>
 				<RenameChatForm session={ session } onClose={ onClose } />
-			</Dialog.Popup>
-		</Dialog.Root>
+			</DialogContent>
+		</Dialog>
 	);
 }
 
@@ -148,6 +158,7 @@ function RenameChatForm( {
 
 	return (
 		<form
+			className={ styles.form }
 			onSubmit={ ( event ) => {
 				event.preventDefault();
 				// An empty name falls back to the chat's first prompt.
@@ -158,29 +169,22 @@ function RenameChatForm( {
 				onClose();
 			} }
 		>
-			<Dialog.Header>
-				<Dialog.Title>{ __( 'Rename chat' ) }</Dialog.Title>
-				<Dialog.CloseIconButton />
-			</Dialog.Header>
-			<Dialog.Content>
-				<Dialog.Description>
-					{ __( 'Choose a name that’s easy to find later.' ) }
-				</Dialog.Description>
-				<InputControl
-					label={ __( 'Chat title' ) }
-					hideLabelFromVision
-					value={ title }
-					onChange={ ( event ) => setTitle( event.target.value ) }
-					onFocus={ ( event ) => event.target.select() }
-					autoFocus
-				/>
-			</Dialog.Content>
-			<Dialog.Footer>
-				<Dialog.Action variant="outline" tone="neutral">
-					{ __( 'Cancel' ) }
-				</Dialog.Action>
+			<DialogHeader>
+				<DialogTitle>{ __( 'Rename chat' ) }</DialogTitle>
+				<DialogDescription>{ __( 'Choose a name that’s easy to find later.' ) }</DialogDescription>
+			</DialogHeader>
+			<InputControl
+				label={ __( 'Chat title' ) }
+				hideLabelFromVision
+				value={ title }
+				onChange={ ( event ) => setTitle( event.target.value ) }
+				onFocus={ ( event ) => event.target.select() }
+				autoFocus
+			/>
+			<DialogFooter>
+				<DialogClose render={ <Button variant="outline" /> }>{ __( 'Cancel' ) }</DialogClose>
 				<Button type="submit">{ __( 'Save' ) }</Button>
-			</Dialog.Footer>
+			</DialogFooter>
 		</form>
 	);
 }

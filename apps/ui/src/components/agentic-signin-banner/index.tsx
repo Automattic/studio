@@ -1,6 +1,6 @@
 import { __ } from '@wordpress/i18n';
 import { chevronLeft, chevronRight } from '@wordpress/icons';
-import { Dialog, VisuallyHidden } from '@wordpress/ui';
+import { VisuallyHidden } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import {
 	useEffect,
@@ -18,6 +18,15 @@ import { SigninAnnotateIllustration } from '@/components/onboarding-guide/illust
 import { SigninChatIllustration } from '@/components/onboarding-guide/illustrations/signin-chat';
 import { SigninSyncIllustration } from '@/components/onboarding-guide/illustrations/signin-sync';
 import { Button, IconButton } from '@/components/ui/button';
+import {
+	Dialog,
+	DialogClose,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from '@/components/ui/dialog';
 import { useLogin } from '@/data/queries/use-auth-user';
 import { useSaveUserPreferences } from '@/data/queries/use-user-preferences';
 import { useConfirmOnEnter } from '@/hooks/use-confirm-on-enter';
@@ -232,7 +241,7 @@ function TurnOffStudioCodeDialog( {
 		);
 
 	return (
-		<Dialog.Root
+		<Dialog
 			open={ open }
 			onOpenChange={ ( next ) => {
 				if ( ! savePreferences.isPending ) {
@@ -240,21 +249,22 @@ function TurnOffStudioCodeDialog( {
 				}
 			} }
 		>
-			<Dialog.Popup size="small" onKeyDown={ handleKeyDown }>
-				<Dialog.Header>
-					<Dialog.Title>{ __( 'Turn off Studio Code?' ) }</Dialog.Title>
-				</Dialog.Header>
-				<Dialog.Content>
-					<Dialog.Description>
+			<DialogContent showCloseButton={ false } onKeyDown={ handleKeyDown }>
+				<DialogHeader>
+					<DialogTitle>{ __( 'Turn off Studio Code?' ) }</DialogTitle>
+					<DialogDescription>
 						{ __(
 							'This turns off Studio Code, so your sites open to their preview instead of a chat. You can turn it back on any time in settings.'
 						) }
-					</Dialog.Description>
-				</Dialog.Content>
-				<Dialog.Footer>
-					<Dialog.Action variant="minimal" tone="neutral" disabled={ savePreferences.isPending }>
+					</DialogDescription>
+				</DialogHeader>
+				<DialogFooter>
+					<DialogClose
+						disabled={ savePreferences.isPending }
+						render={ <Button variant="outline" /> }
+					>
 						{ __( 'Cancel' ) }
-					</Dialog.Action>
+					</DialogClose>
 					<Button
 						variant="accent"
 						loading={ savePreferences.isPending }
@@ -263,9 +273,9 @@ function TurnOffStudioCodeDialog( {
 					>
 						{ confirmLabel }
 					</Button>
-				</Dialog.Footer>
-			</Dialog.Popup>
-		</Dialog.Root>
+				</DialogFooter>
+			</DialogContent>
+		</Dialog>
 	);
 }
 

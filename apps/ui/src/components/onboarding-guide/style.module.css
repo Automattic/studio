@@ -1,13 +1,8 @@
-/* Width only. The wpds dialog popup owns its own positioning
-   (position: fixed + translate centering) and clipping inside
-   @layer wp-ui-components — this module's classes are unlayered and would
-   silently clobber any property repeated here, which is exactly how an
-   earlier `position: relative` dropped the dialog into document flow and
-   broke both its centering and the app layout behind it. Add properties
-   only after checking them against the base popup styles. */
 .popup {
+	gap: 0;
 	width: 380px;
 	max-width: calc(100vw - 32px);
+	padding: 0;
 }
 
 .close {
@@ -34,7 +29,7 @@
 /* This artwork stays dark in both themes, so match the dark theme's neutral
    hover fill and keep the icon light in both themes. */
 .closeOnDark {
-	--wp-ui-button-background-color-active: #282828;
+	--button-hover-background: #282828;
 }
 
 .closeOnDark,
@@ -47,11 +42,9 @@
    movable while the tour is open. The popup itself can't be a drag handle —
    it's centered with a CSS transform, and Chromium ignores -webkit-app-region
    under a transformed ancestor — but the backdrop isn't transformed, so make it
-   the drag surface. Scoped to this guide's backdrop (the sibling preceding our
-   popup) so every other dialog keeps its click-outside-to-dismiss. */
-:global(
-	[data-testid='dialog-backdrop']:has(~ [data-orientation-guide], ~ * [data-orientation-guide])
-) {
+   the drag surface. Scoped to this guide's backdrops (the siblings preceding
+   our popup) so every other dialog keeps its click-outside-to-dismiss. */
+:global([role='presentation']:has(~ [data-orientation-guide])) {
 	-webkit-app-region: drag;
 }
 

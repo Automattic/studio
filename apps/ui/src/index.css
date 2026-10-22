@@ -1,9 +1,4 @@
-/* Primitives (`components/ui`) sit in the `ui` layer, so feature styles, which
-   are unlayered, always override them. */
-@layer wp-ui, base, ui;
-
 @import '@fontsource-variable/inter';
-@import './theme/tokens.css';
 
 /* Vazirmatn (SIL OFL, see ./fonts/OFL.txt) — the macOS system font lacks
    Central Kurdish glyphs (e.g. ێ ۆ ڵ). Applied to the ckb locale below. */
@@ -28,7 +23,6 @@
 	--wp-ui-popover-z-index: var( --z-popover );
 	--wp-ui-autocomplete-z-index: var( --z-popover );
 	--wp-ui-combobox-z-index: var( --z-popover );
-	--wp-ui-dialog-z-index: var( --z-popover );
 	--wp-ui-drawer-z-index: var( --z-popover );
 	--wp-ui-select-z-index: var( --z-select );
 	--wp-ui-tooltip-z-index: var( --z-tooltip );
@@ -147,46 +141,48 @@ form .dataforms-layouts-card__field + .dataforms-layouts-card__field {
    margin — identical. Components can still override via their own class
    where a specific context demands it, but bare `<h1>`…`<h6>` elements
    pick up a consistent look for free. */
-h1,
-h2,
-h3,
-h4,
-h5,
-h6 {
-	font-family: var(--font-sans);
-	font-weight: var(--font-weight-normal);
-	color: var(--foreground);
-	margin: 0;
-}
+@layer base {
+	h1,
+	h2,
+	h3,
+	h4,
+	h5,
+	h6 {
+		font-family: var(--font-sans);
+		font-weight: var(--font-weight-normal);
+		color: var(--foreground);
+		margin: 0;
+	}
 
-h1 {
-	font-size: 32px;
-	line-height: 40px;
-}
+	h1 {
+		font-size: 32px;
+		line-height: 40px;
+	}
 
-h2 {
-	font-size: 20px;
-	line-height: 32px;
-}
+	h2 {
+		font-size: 20px;
+		line-height: 32px;
+	}
 
-h3 {
-	font-size: 15px;
-	line-height: 28px;
-}
+	h3 {
+		font-size: 15px;
+		line-height: 28px;
+	}
 
-h4 {
-	font-size: var(--text-xs);
-	line-height: 24px;
-}
+	h4 {
+		font-size: var(--text-xs);
+		line-height: 24px;
+	}
 
-h5 {
-	font-size: var(--text-xxs);
-	line-height: 20px;
-}
+	h5 {
+		font-size: var(--text-xxs);
+		line-height: 20px;
+	}
 
-h6 {
-	font-size: 11px;
-	line-height: 16px;
+	h6 {
+		font-size: 11px;
+		line-height: 16px;
+	}
 }
 
 /* Interactive elements inside drag-region ancestors (title bars, section
@@ -232,135 +228,6 @@ a:not( [data-slot='button'] ):focus:not( :focus-visible ):not( :hover, :active, 
 input[type='checkbox']:focus:not( :focus-visible ) {
 	box-shadow: none;
 	outline: none;
-}
-
-/* @wordpress/ui's AlertDialog footer stacks an actions row and an optional
-   error message in a column, and relies on its own `align-items: stretch`
-   beating the shared overlay `.footer` row rule — same specificity, same
-   cascade layer, so whichever stylesheet lands last wins. Vite's dev server
-   injects them in the opposite order to the production bundle, leaving the
-   action buttons shrink-wrapped and centered instead of pinned to the inline
-   end. Restore the intended layout regardless of injection order. */
-[data-wp-ui-overlay-modal] [class*='__footer-column'] {
-	align-items: stretch;
-}
-
-/* Dialog backdrop: a blurred wash, darker in dark mode. Not the input
-   controls' own `components-input-control__backdrop` border. */
-[class*='__backdrop']:not( [class*='components-'] ) {
-	background-color: var( --backdrop );
-	backdrop-filter: blur( 4px );
-	transition-duration: var( --motion-duration-layout );
-	transition-timing-function: var( --motion-ease-enter );
-}
-
-/* Dialogs fade in from 97% on the shell's layout timing, a calmer grow than
-   @wordpress/ui's 90%. */
-[data-wp-ui-overlay-modal] {
-	transition-duration: var( --motion-duration-layout );
-	transition-timing-function: var( --motion-ease-enter );
-}
-
-[data-wp-ui-overlay-modal]:is( [data-starting-style], [data-ending-style] ) {
-	transform: translate( -50%, -50% ) scale( 0.97 );
-}
-
-/* Dialogs: 14px type, a title row as tall as its outlined close
-   button, the description 8px under it and 30px above what follows, and
-   36px controls. Confirmations (AlertDialog) are wider and roomier. The
-   `:not()` keeps these off headers and footers inside a dialog's body. */
-[data-wp-ui-overlay-modal] {
-	--studio-dialog-inset: 16px;
-	--studio-dialog-description-gap: 30px;
-	border-radius: 12px;
-	font-size: var(--text-sm);
-	line-height: 20px;
-}
-
-[data-wp-ui-overlay-modal][class*='__is-small'] {
-	min-width: 0;
-	max-width: 384px;
-}
-
-[role='alertdialog'][data-wp-ui-overlay-modal] {
-	--studio-dialog-inset: 20px;
-	--studio-dialog-description-gap: 16px;
-	max-width: 420px;
-}
-
-[data-wp-ui-overlay-modal] [class*='__header']:not( [data-wp-ui-overlay-scroll-container] * ) {
-	min-height: 32px;
-	padding: 14px 14px 0 var( --studio-dialog-inset );
-}
-
-[data-wp-ui-overlay-modal] [class*='__header']:not( [data-wp-ui-overlay-scroll-container] * ) [class*='__title'] {
-	font-size: var(--text-sm);
-	font-weight: var(--font-weight-medium);
-	line-height: 20px;
-}
-
-[data-wp-ui-dialog-close-icon] {
-	--wp-ui-button-border-color: var(--border);
-}
-
-/* 30px under the header, counting its 1px scroll separator; a leading
-   description pulls back up to sit 8px under the title. */
-[data-wp-ui-overlay-modal] [data-wp-ui-overlay-scroll-container] {
-	padding: 29px var( --studio-dialog-inset ) 4px;
-}
-
-[data-wp-ui-overlay-scroll-container] > p:first-child {
-	margin-block: -22px var( --studio-dialog-description-gap );
-	font-size: var(--text-sm);
-	line-height: 20px;
-}
-
-[data-wp-ui-overlay-scroll-container] > p:first-child:last-child {
-	margin-block-end: calc( var( --studio-dialog-description-gap ) - 16px );
-}
-
-[role='dialog'] [data-wp-ui-overlay-scroll-container] > p:first-child {
-	color: var(--muted-foreground);
-}
-
-[data-wp-ui-overlay-modal] [class*='__input-layout']:not( [class*='__is-size-'] ) {
-	height: var( --control-size );
-	font-size: var(--text-sm);
-}
-
-[data-wp-ui-overlay-modal] [class*='__footer']:not( [data-wp-ui-overlay-scroll-container] * ) {
-	gap: 6px;
-	padding: 12px var( --studio-dialog-inset ) var( --studio-dialog-inset );
-}
-
-[role='alertdialog'] [class*='__footer']:not( [data-wp-ui-overlay-scroll-container] * ) {
-	padding: 16px 14px 14px;
-}
-
-[data-wp-ui-overlay-modal] [class*='__footer']:not( [data-wp-ui-overlay-scroll-container] * ) button {
-	--wp-ui-button-height: var( --control-size );
-	--wp-ui-button-font-size: var(--text-sm);
-	--wp-ui-button-font-weight: var(--font-weight-medium);
-	--wp-ui-button-padding-inline: 10px;
-}
-
-/* @wordpress/ui's `AlertDialog.Popup` hardcodes its Cancel button as
-   `variant="minimal"` with no way to pass `tone`, so it defaults to brand —
-   a blue-tinted "secondary" button style the app doesn't use anywhere else:
-   every other Cancel/Back/Close in the app explicitly passes
-   `tone="neutral"`. `role="alertdialog"` is set by Base UI itself (vs.
-   `role="dialog"` for the plain `Dialog`), so this only reaches the two
-   AlertDialog Cancel buttons — matching values already used by
-   `tone="neutral"` `variant="minimal"` elsewhere, plus an outline. */
-[role='alertdialog'] button:first-child {
-	--wp-ui-button-border-color: var(--input);
-	--wp-ui-button-border-color-active: var(--muted-foreground);
-	--wp-ui-button-background-color: transparent;
-	--wp-ui-button-background-color-active: var(--hover);
-	--wp-ui-button-background-color-disabled: transparent;
-	--wp-ui-button-foreground-color: var(--foreground);
-	--wp-ui-button-foreground-color-active: var(--foreground);
-	--wp-ui-button-foreground-color-disabled: var(--muted-foreground);
 }
 
 /* @wordpress/icons draws SVGs at 24x24; the app's icons are 16px unless a
@@ -467,41 +334,5 @@ select option {
 @supports not ( backdrop-filter: blur( 1px ) ) {
 	:root {
 		--surface-alpha: 100%;
-	}
-}
-
-html:active-view-transition-type(theme-details)::view-transition-old(root),
-html:active-view-transition-type(theme-details)::view-transition-new(root) {
-	animation: none;
-	mix-blend-mode: normal;
-}
-
-html:active-view-transition-type(theme-details)::view-transition-group(studio-theme-shortcuts),
-html:active-view-transition-type(theme-details)::view-transition-group(studio-theme-open-in),
-html:active-view-transition-type(theme-details)::view-transition-group(studio-theme-manage),
-html:active-view-transition-type(theme-details)::view-transition-group(.studio-theme-shortcut) {
-	animation-duration: 220ms;
-	animation-timing-function: cubic-bezier( 0.2, 0, 0, 1 );
-}
-
-html:active-view-transition-type(theme-details)::view-transition-old(.studio-theme-shortcut) {
-	animation: studio-theme-shortcut-out 140ms ease-in both;
-}
-
-html:active-view-transition-type(theme-details)::view-transition-new(.studio-theme-shortcut) {
-	animation: studio-theme-shortcut-in 180ms 40ms ease-out both;
-}
-
-@keyframes studio-theme-shortcut-out {
-	to {
-		opacity: 0;
-		transform: scale( 0.96 );
-	}
-}
-
-@keyframes studio-theme-shortcut-in {
-	from {
-		opacity: 0;
-		transform: scale( 0.96 );
 	}
 }

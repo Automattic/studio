@@ -1,7 +1,4 @@
 .fileName {
-	margin: 8px 0 0;
-	font-size: var(--text-xxs);
-	line-height: 20px;
-	color: var(--foreground);
+	margin: 0;
 	overflow-wrap: anywhere;
 }

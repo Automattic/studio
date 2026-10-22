@@ -1,11 +1,18 @@
 import { isSnapshotExpired } from '@studio/common/lib/snapshots';
 import { __, sprintf } from '@wordpress/i18n';
 import { check, copy, pencil, trash } from '@wordpress/icons';
-import { AlertDialog } from '@wordpress/ui';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { AccountPrompt, previewSiteImage } from '@/components/account-prompt';
 import { previewExpiry, RenamePreview } from '@/components/share-dialog/preview-share-panel';
-import { IconButton } from '@/components/ui/button';
+import { Button, IconButton } from '@/components/ui/button';
+import {
+	AlertDialog,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from '@/components/ui/dialog';
 import { useConnector } from '@/data/core';
 import { useAuthUser } from '@/data/queries/use-auth-user';
 import { useDeleteSnapshot, useSnapshotUsage, useSnapshots } from '@/data/queries/use-snapshots';
@@ -121,6 +128,7 @@ export function SharingPanel() {
 	const remove = useDeleteSnapshot();
 	const [ deleting, setDeleting ] = useState< Snapshot | null >( null );
 	const [ showExpired, setShowExpired ] = useState( false );
+	const cancelRef = useRef< HTMLButtonElement >( null );
 
 	if ( user.isPending ) {
 		return <div className={ styles.state }>{ __( 'Loading…' ) }</div>;
@@ -220,32 +228,54 @@ export function SharingPanel() {
 					) : null }
 				</div>
 			) : null }
-			<AlertDialog.Root
+			<AlertDialog
 				open={ deleting !== null }
-				onOpenChange={ ( open ) => ! open && setDeleting( null ) }
-				onConfirm={ async () => {
-					try {
-						if ( deleting ) {
-							await remove.mutateAsync( { hostname: getSnapshotHostname( deleting ) } );
-						}
-					} catch ( error ) {
-						return { error: error instanceof Error ? error.message : String( error ) };
-					}
-				} }
+				onOpenChange={ ( open ) => ! open && ! remove.isPending && setDeleting( null ) }
+				onOpenChangeComplete={ ( open ) => ! open && remove.reset() }
 			>
-				<AlertDialog.Popup
-					intent="irreversible"
-					title={ __( 'Delete preview' ) }
-					description={ sprintf(
-						/* translators: %s: preview name */
-						__(
-							'Anyone you’ve shared “%s” with will no longer be able to view it. Your site will not be deleted.'
-						),
-						deleting?.name || __( 'Preview site' )
-					) }
-					confirmButtonText={ __( 'Delete preview' ) }
-				/>
-			</AlertDialog.Root>
+				<DialogContent
+					layout="confirmation"
+					showCloseButton={ ! remove.isPending }
+					initialFocus={ cancelRef }
+				>
+					<DialogHeader>
+						<DialogTitle>{ __( 'Delete preview' ) }</DialogTitle>
+						<DialogDescription tone="default">
+							{ sprintf(
+								/* translators: %s: preview name */
+								__(
+									'Anyone you’ve shared “%s” with will no longer be able to view it. Your site will not be deleted.'
+								),
+								deleting?.name || __( 'Preview site' )
+							) }
+						</DialogDescription>
+					</DialogHeader>
+					{ remove.error ? <p className={ styles.dialogError }>{ remove.error.message }</p> : null }
+					<DialogFooter>
+						<Button
+							ref={ cancelRef }
+							variant="outline"
+							disabled={ remove.isPending }
+							onClick={ () => setDeleting( null ) }
+						>
+							{ __( 'Cancel' ) }
+						</Button>
+						<Button
+							variant="destructive"
+							loading={ remove.isPending }
+							onClick={ () =>
+								deleting &&
+								remove.mutate(
+									{ hostname: getSnapshotHostname( deleting ) },
+									{ onSuccess: () => setDeleting( null ) }
+								)
+							}
+						>
+							{ __( 'Delete preview' ) }
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</AlertDialog>
 		</div>
 	);
 }

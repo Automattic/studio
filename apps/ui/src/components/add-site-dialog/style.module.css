@@ -1,22 +1,5 @@
-.popup[data-wp-ui-overlay-modal] {
-
+.popup {
 	flex-direction: row;
-	width: min(896px, calc(100vw - 32px));
-	height: min(624px, calc(100dvh - 32px));
-	min-width: 0;
-	padding: 0;
-	border-radius: 16px;
-	font-size: var(--text-sm);
-	line-height: 20px;
-}
-
-.visuallyHidden {
-	position: absolute;
-	width: 1px;
-	height: 1px;
-	overflow: hidden;
-	clip-path: inset(50%);
-	white-space: nowrap;
 }
 
 .sidebar {
@@ -85,31 +68,15 @@
 	line-height: 20px;
 }
 
-.main {
+.leading {
 	display: flex;
-	flex: 1;
-	flex-direction: column;
-	min-width: 0;
-}
-
-.header {
-	display: flex;
-	flex: none;
 	align-items: center;
 	gap: 12px;
-	min-height: 56px;
-	box-sizing: border-box;
-	padding: 14px 14px 10px 16px;
 }
 
 .title {
-	flex: 1;
-	min-width: 0;
-	margin: 0;
+	display: block;
 	overflow: hidden;
-	font-size: var(--text-sm);
-	font-weight: var(--font-weight-medium);
-	line-height: 20px;
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
@@ -130,25 +97,13 @@
 }
 
 .actions {
-	display: flex;
-	gap: 8px;
-}
-
-.actions:empty {
-	display: none;
+	display: contents;
 }
 
 .content {
-	flex: 1;
-	min-height: 0;
 	/* Room above the first row for a focused card's outline. */
-	padding: 4px 16px 16px;
-	overflow-y: auto;
+	padding-top: 4px;
 	container-type: inline-size;
-}
-
-.content button {
-	--wp-ui-button-font-weight: var(--font-weight-medium);
 }
 
 /* Fields as in Settings: a faint border, rounder corners and sentence-case

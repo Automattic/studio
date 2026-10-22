@@ -1,3 +1,8 @@
+.dialog {
+	grid-template-rows: auto minmax( 0, 1fr ) auto;
+	max-width: 560px;
+}
+
 /* A quiet footnote under the list rather than a subtitle above it: it
    explains the log's lifetime, which the reader only wants once. */
 .outro {

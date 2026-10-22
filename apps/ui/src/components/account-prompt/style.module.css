@@ -1,11 +1,3 @@
-.popup {
-	max-width: min(384px, calc(100vw - 32px));
-}
-
-.header {
-	justify-content: flex-end;
-}
-
 .body {
 	display: flex;
 	flex-direction: column;

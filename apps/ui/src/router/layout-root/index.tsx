@@ -93,6 +93,7 @@ export function DeletedSiteRedirect() {
 interface RootSearch {
 	settings?: SettingsSectionId;
 	settingsSite?: string;
+	settingsFocus?: string;
 	addSite?: AddSiteSection;
 	pin?: true;
 }
@@ -101,6 +102,7 @@ export const rootRoute = createRootRouteWithContext< RouterContext >()( {
 	validateSearch: ( search: Record< string, unknown > ): RootSearch => ( {
 		...( isSettingsSection( search.settings ) ? { settings: search.settings } : {} ),
 		...( typeof search.settingsSite === 'string' ? { settingsSite: search.settingsSite } : {} ),
+		...( typeof search.settingsFocus === 'string' ? { settingsFocus: search.settingsFocus } : {} ),
 		...( isAddSiteSection( search.addSite ) ? { addSite: search.addSite } : {} ),
 		...( search.pin === true || search.pin === 'true' ? { pin: true } : {} ),
 	} ),

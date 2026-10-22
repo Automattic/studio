@@ -16,6 +16,8 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type React
 import { DesignSystemView } from '@/components/design-system-view';
 import * as Menu from '@/components/menu';
 import { PreviewParticles } from '@/components/preview-particles';
+import { PublishButton } from '@/components/publish-panel';
+import { ShareButton } from '@/components/share-dialog';
 import { SiteLifecycleButton } from '@/components/site-lifecycle-button';
 import { StoppedSitePreview } from '@/components/stopped-site-preview';
 import { useConnector } from '@/data/core';
@@ -24,6 +26,7 @@ import { siteDesignQueryKey, useSiteDesign } from '@/data/queries/use-site-desig
 import { useSiteIcon } from '@/data/queries/use-site-icon';
 import { siteThumbnailQueryKey, useSiteThumbnail } from '@/data/queries/use-site-thumbnail';
 import { useIsSiteStarting, useSiteOperation } from '@/data/queries/use-sites';
+import { requestHeaderPanel } from '@/hooks/use-open-header-panel';
 import { useOpenSettings } from '@/hooks/use-open-settings';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
@@ -704,6 +707,7 @@ export function SitePreview( {
 	const inspectorState = activeSurface?.inspector ?? EMPTY_INSPECTOR_STATE;
 	const [ annotationCancelRequestId, setAnnotationCancelRequestId ] = useState( 0 );
 	const rootRef = useRef< HTMLElement | null >( null );
+	const headerRef = useRef< HTMLDivElement | null >( null );
 	const commandIdRef = useRef( 0 );
 	const canAnnotate = canPreview && inspectorState.ready;
 	const progress = browserState.loading
@@ -977,6 +981,7 @@ export function SitePreview( {
 	return (
 		<aside ref={ rootRef } className={ styles.root } aria-label={ __( 'Site preview' ) }>
 			<div
+				ref={ headerRef }
 				className={ clsx(
 					styles.header,
 					inspectorState.isPicking && styles.headerAnnotating,
@@ -1066,7 +1071,13 @@ export function SitePreview( {
 							onCommand={ sendInspectorCommand }
 						/>
 					) : null }
-					{ inspectorState.isPicking ? null : <SiteLifecycleButton site={ site } /> }
+					{ inspectorState.isPicking ? null : (
+						<>
+							<PublishButton site={ site } anchor={ headerRef } />
+							<SiteLifecycleButton site={ site } />
+							<ShareButton site={ site } className={ styles.shareAction } />
+						</>
+					) }
 					{ canPreview && ! inspectorState.isPicking ? (
 						<Menu.Root modal={ false }>
 							<Menu.Trigger
@@ -1082,6 +1093,12 @@ export function SitePreview( {
 								}
 							/>
 							<Menu.Popup side="bottom" align="end">
+								<Menu.Item
+									onClick={ () => requestHeaderPanel( { panel: 'share', siteId: site.id } ) }
+								>
+									{ __( 'Share' ) }
+								</Menu.Item>
+								<Menu.Separator />
 								<Menu.Item
 									disabled={ ! browserState.canGoBack }
 									onClick={ () => sendBrowserCommand( 'back' ) }

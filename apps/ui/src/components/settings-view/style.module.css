@@ -753,3 +753,101 @@
 			transparent 8px 16px
 		);
 }
+
+.inlineLink {
+	padding: 0;
+	border: 0;
+	background: none;
+	color: var( --wpds-color-foreground-interactive-brand );
+	font: inherit;
+	cursor: pointer;
+}
+
+.previewExpired > .inlineLink {
+	margin-inline: 16px;
+	margin-block-end: 16px;
+	color: var( --wpds-color-foreground-content-neutral-weak );
+}
+
+.inlineLink:hover {
+	text-decoration: underline;
+}
+
+.previewUsage,
+.previewUrl,
+.previewLink,
+.previewExpiry {
+	display: block;
+}
+
+.previewUsage {
+	margin-block-start: 8px;
+}
+
+.previewLink {
+	max-width: 100%;
+	overflow: hidden;
+	padding: 0;
+	border: 0;
+	background: none;
+	color: var( --wpds-color-foreground-interactive-brand );
+	font: inherit;
+	text-align: start;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	cursor: pointer;
+}
+
+.previewLink:hover {
+	text-decoration: underline;
+}
+
+.previewActions {
+	display: flex;
+	gap: 4px;
+}
+
+.previewActions button {
+	--wp-ui-button-foreground-color: var( --wpds-color-foreground-content-neutral-weak );
+}
+
+.previewRename {
+	padding-block: 16px;
+	border-bottom: 1px solid
+		color-mix( in srgb, var( --wpds-color-foreground-content-neutral ) 8%, transparent );
+}
+
+.previewIllustration {
+	width: 176px;
+	overflow: hidden;
+	border: 1px solid color-mix( in srgb, var( --wpds-color-foreground-content-neutral ) 10%, transparent );
+	border-radius: 12px;
+	background: var( --wpds-color-background-surface-neutral-strong );
+	box-shadow: 0 1px 2px rgb( 0 0 0 / 5% );
+}
+
+.previewIllustrationBar {
+	display: flex;
+	justify-content: flex-end;
+	padding: 8px 12px;
+	border-bottom: 1px solid
+		color-mix( in srgb, var( --wpds-color-foreground-content-neutral ) 10%, transparent );
+}
+
+.previewIllustrationButton {
+	padding: 2px 8px;
+	border: 1px solid color-mix( in srgb, var( --wpds-color-foreground-content-neutral ) 10%, transparent );
+	border-radius: 6px;
+	box-shadow: 0 0 0 3px
+		color-mix( in srgb, var( --wpds-color-background-interactive-brand-strong ) 25%, transparent );
+	font-size: 12px;
+	font-weight: 450;
+}
+
+.previewIllustration img {
+	display: block;
+	width: 100%;
+	aspect-ratio: 2 / 1;
+	object-fit: cover;
+	object-position: top;
+}

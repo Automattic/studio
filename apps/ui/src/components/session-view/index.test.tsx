@@ -49,8 +49,12 @@ vi.mock( '@/data/queries/use-user-preferences', () => ( {
 	useUserPreferences: () => ( { data: siteMocks.preferences } ),
 } ) );
 
-vi.mock( '@/components/site-dropdown', () => ( {
-	SiteDropdown: ( { site }: { site: { name: string } } ) => <div>{ site.name }</div>,
+vi.mock( '@/components/site-actions-menu', () => ( {
+	SiteActionsMenu: ( { site }: { site: { name: string } } ) => <div>{ site.name }</div>,
+} ) );
+
+vi.mock( '@/components/share-dialog', () => ( {
+	ShareButton: () => null,
 } ) );
 
 vi.mock( '@/components/site-lifecycle-button', () => ( {

@@ -6,7 +6,7 @@ export default class SiteSettings {
 	constructor( private page: Page ) {}
 
 	async open( siteName: string ) {
-		await new Sidebar( this.page ).openContextMenuItem( siteName, 'Site settings' );
+		await new Sidebar( this.page ).openContextMenuItem( siteName, 'Settings' );
 		await expect( this.siteNameInput ).toBeVisible();
 	}
 

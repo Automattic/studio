@@ -1,0 +1,16 @@
+.trigger {
+	--wp-ui-button-padding-inline: var(--wpds-dimension-padding-sm);
+
+	gap: 2px;
+	color: var(--wpds-color-foreground-content-neutral);
+	-webkit-app-region: no-drag;
+}
+
+.chevron {
+	color: var(--wpds-color-foreground-content-neutral-weak);
+	fill: currentColor;
+}
+
+.items {
+	min-width: 200px;
+}

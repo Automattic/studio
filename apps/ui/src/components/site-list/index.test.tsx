@@ -23,7 +23,7 @@ import { SiteList } from './index';
 import type { AiSessionSummary, SiteDetails } from '@/data/core';
 
 const navigateMock = vi.fn();
-const OPEN_IN_FILE_MANAGER = /^Open in (Finder|File Explorer|File manager)$/;
+const FILE_MANAGER = /^(Finder|File Explorer|File manager)$/;
 let paramsMock: { sessionId?: string; siteId?: string } = {};
 let pathnameMock = '/';
 
@@ -103,6 +103,18 @@ vi.mock( '@/data/queries/use-user-preferences', () => ( {
 
 vi.mock( '@/data/sync-activity', () => ( {
 	useSiteSyncActivity: vi.fn(),
+} ) );
+
+vi.mock( '@/hooks/use-session-ui', () => ( {
+	useSessionPreviewUI: () => ( { siteId: null } ),
+} ) );
+
+vi.mock( '@/components/publish-panel/publish-menu', () => ( {
+	SitePublishMenu: () => null,
+} ) );
+
+vi.mock( '@/components/share-dialog/share-menu-item', () => ( {
+	SiteShareMenuItem: () => null,
 } ) );
 
 vi.mock( '@/components/import-site-dialog', () => ( {
@@ -234,18 +246,16 @@ describe( 'SiteList', () => {
 		fireEvent.contextMenu( screen.getByText( 'Stopped Site' ) );
 
 		expect( navigateMock ).not.toHaveBeenCalled();
-		expect( await screen.findByText( 'Site settings' ) ).toBeInTheDocument();
-		expect( screen.getByText( 'Duplicate site' ) ).toBeInTheDocument();
-		expect( screen.getByText( OPEN_IN_FILE_MANAGER ) ).toBeInTheDocument();
-		expect( screen.getByText( 'Export entire site' ) ).toBeInTheDocument();
+		expect( await screen.findByText( 'Settings' ) ).toBeInTheDocument();
+		expect( screen.getByText( 'Duplicate' ) ).toBeInTheDocument();
 		expect( screen.getByText( 'Delete site' ) ).toBeInTheDocument();
 	} );
 
 	it( 'opens the site folder through the connector and records a Tracks event', async () => {
 		render( <SiteList /> );
 
-		fireEvent.contextMenu( screen.getByText( 'Stopped Site' ) );
-		fireEvent.click( await screen.findByText( OPEN_IN_FILE_MANAGER ) );
+		await openIn( 'Stopped Site' );
+		fireEvent.click( await screen.findByText( FILE_MANAGER ) );
 
 		expect( useConnectorMock().openSiteFolder ).toHaveBeenCalledWith( 'stopped-site' );
 		expect( useConnectorMock().trackEvent ).toHaveBeenCalledWith( 'studio_site_open_folder' );
@@ -254,11 +264,11 @@ describe( 'SiteList', () => {
 	it( 'opens phpMyAdmin and WP Admin through the host so the session is kept', async () => {
 		render( <SiteList /> );
 
-		fireEvent.contextMenu( screen.getByText( 'Running Site' ) );
-		fireEvent.click( await screen.findByText( 'Open in phpMyAdmin' ) );
+		await openIn( 'Running Site' );
+		fireEvent.click( await screen.findByText( 'phpMyAdmin' ) );
 
-		fireEvent.contextMenu( screen.getByText( 'Running Site' ) );
-		fireEvent.click( await screen.findByText( 'Open in Browser (WP Admin)' ) );
+		await openIn( 'Running Site' );
+		fireEvent.click( await screen.findByText( 'Browser (WP Admin)' ) );
 
 		expect( useConnectorMock().openSiteUrl ).toHaveBeenCalledWith(
 			'running-site',
@@ -277,18 +287,12 @@ describe( 'SiteList', () => {
 	it( 'disables the browser-only destinations while the site is stopped', async () => {
 		render( <SiteList /> );
 
-		fireEvent.contextMenu( screen.getByText( 'Stopped Site' ) );
+		await openIn( 'Stopped Site' );
 
-		expect( await screen.findByText( 'Open in Browser' ) ).toHaveAttribute(
-			'aria-disabled',
-			'true'
-		);
-		expect( screen.getByText( 'Open in phpMyAdmin' ) ).toHaveAttribute( 'aria-disabled', 'true' );
-		expect( screen.getByText( 'Open in Browser (WP Admin)' ) ).toHaveAttribute(
-			'aria-disabled',
-			'true'
-		);
-		expect( screen.getByText( OPEN_IN_FILE_MANAGER ) ).not.toHaveAttribute( 'aria-disabled' );
+		expect( await screen.findByText( 'Browser' ) ).toHaveAttribute( 'aria-disabled', 'true' );
+		expect( screen.getByText( 'phpMyAdmin' ) ).toHaveAttribute( 'aria-disabled', 'true' );
+		expect( screen.getByText( 'Browser (WP Admin)' ) ).toHaveAttribute( 'aria-disabled', 'true' );
+		expect( screen.getByText( FILE_MANAGER ) ).not.toHaveAttribute( 'aria-disabled' );
 	} );
 
 	it( 'opens site settings from the site actions menu', async () => {
@@ -296,7 +300,7 @@ describe( 'SiteList', () => {
 		render( <SiteList onSiteOpen={ onSiteOpen } /> );
 
 		fireEvent.contextMenu( screen.getByText( 'Stopped Site' ) );
-		fireEvent.click( await screen.findByText( 'Site settings' ) );
+		fireEvent.click( await screen.findByText( 'Settings' ) );
 
 		expect( onSiteOpen ).toHaveBeenCalledTimes( 1 );
 		expect( navigateMock ).toHaveBeenCalledTimes( 1 );
@@ -938,15 +942,20 @@ describe( 'SiteList', () => {
 
 		render( <SiteList /> );
 
-		fireEvent.contextMenu( screen.getByText( 'Stopped Site' ) );
+		await openIn( 'Stopped Site' );
 
-		const editorItem = await screen.findByText( 'Open in Zed' );
-		expect( screen.getByText( 'Open in Terminal' ) ).toBeInTheDocument();
+		const editorItem = await screen.findByText( 'Zed' );
+		expect( screen.getByText( 'Terminal' ) ).toBeInTheDocument();
 
 		fireEvent.click( editorItem );
 		expect( useConnectorMock().openSiteInEditor ).toHaveBeenCalledWith( 'stopped-site' );
 	} );
 } );
+
+async function openIn( siteName: string ) {
+	fireEvent.contextMenu( screen.getByText( siteName ) );
+	fireEvent.click( await screen.findByText( 'Open in' ) );
+}
 
 function createPointerEvent(
 	type: 'pointerdown' | 'pointermove' | 'pointerup',

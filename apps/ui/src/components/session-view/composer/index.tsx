@@ -29,16 +29,7 @@ import { isAutomatticianEmail } from '@studio/common/lib/automattician';
 import { hasPaidAiCredits } from '@studio/common/lib/studio-assistant-quota';
 import { useQueryClient } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
-import {
-	arrowUp,
-	chevronDownSmall,
-	chevronRightSmall,
-	closeSmall,
-	globe,
-	page,
-	play,
-	plus,
-} from '@wordpress/icons';
+import { arrowUp, chevronDownSmall, closeSmall, globe, page, play, plus } from '@wordpress/icons';
 import { Button, Icon, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import {
@@ -984,14 +975,8 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 									<Menu.SubmenuRoot>
 										<Menu.SubmenuTrigger className={ styles.skillsSubmenuTrigger }>
 											<span>{ __( 'Skills' ) }</span>
-											<Icon
-												icon={ chevronRightSmall }
-												size={ 16 }
-												className={ styles.submenuChevron }
-												aria-hidden="true"
-											/>
 										</Menu.SubmenuTrigger>
-										<Menu.Popup side="right" align="start" className={ styles.skillsMenuPopup }>
+										<Menu.SubmenuPopup className={ styles.skillsMenuPopup }>
 											{ getAiSkillCommands().map( ( command ) => (
 												<Menu.Item
 													key={ command.name }
@@ -1010,7 +995,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 													</span>
 												</Menu.Item>
 											) ) }
-										</Menu.Popup>
+										</Menu.SubmenuPopup>
 									</Menu.SubmenuRoot>
 								</Menu.Popup>
 							</Menu.Root>

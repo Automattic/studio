@@ -77,7 +77,11 @@ test.describe( 'Export / Import round trip', () => {
 			{ exportPath }
 		);
 
-		await new Sidebar( session.mainWindow ).openContextMenuItem( siteName, 'Export entire site' );
+		await new Sidebar( session.mainWindow ).openContextMenuItem(
+			siteName,
+			'Export',
+			'Export site'
+		);
 		await expect
 			.poll(
 				() =>

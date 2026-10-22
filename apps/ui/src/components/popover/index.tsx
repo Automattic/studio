@@ -17,7 +17,9 @@ export function Popup( {
 	side = 'bottom',
 	align = 'start',
 	sideOffset = 4,
+	alignOffset,
 	anchor,
+	backdrop = false,
 	className,
 	style,
 	initialFocus,
@@ -27,7 +29,10 @@ export function Popup( {
 	side?: PositionerProps[ 'side' ];
 	align?: PositionerProps[ 'align' ];
 	sideOffset?: number;
+	alignOffset?: number;
 	anchor?: PositionerProps[ 'anchor' ];
+	// Catches outside clicks that would otherwise land in a webview and never dismiss it.
+	backdrop?: boolean;
 	className?: string;
 	style?: CSSProperties;
 	initialFocus?: PopupProps[ 'initialFocus' ];
@@ -35,10 +40,12 @@ export function Popup( {
 } ) {
 	return (
 		<BasePopover.Portal>
+			{ backdrop ? <BasePopover.Backdrop className={ styles.backdrop } /> : null }
 			<BasePopover.Positioner
 				side={ side }
 				align={ align }
 				sideOffset={ sideOffset }
+				alignOffset={ alignOffset }
 				anchor={ anchor }
 				className={ styles.positioner }
 			>

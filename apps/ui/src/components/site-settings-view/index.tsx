@@ -75,6 +75,20 @@ interface FormData {
 	environmentType: WpEnvironmentType;
 }
 
+// Outside the fields memo, which rebuilds as WordPress versions load: a new row
+// component there would remount the input and drop the focus Rename gives it.
+function SiteNameRow( props: DataFormControlProps< FormData > ) {
+	return (
+		<SettingsRow title={ __( 'Site name' ) } description={ __( 'Name shown in Studio.' ) }>
+			<SiteNameControl
+				{ ...props }
+				hideLabelFromVision
+				field={ { ...props.field, description: undefined } }
+			/>
+		</SettingsRow>
+	);
+}
+
 function getEffectiveWpVersion( site: SiteDetails, installedVersion?: string ): string {
 	// Mirrors the legacy apps/studio behavior: sites created before the auto-
 	// updating flag existed count as auto-updating too.
@@ -202,14 +216,7 @@ export function SiteSettingsForm( {
 			__( 'Choose the WordPress release for this site.' )
 		);
 		return [
-			{
-				...siteNameField< FormData >(),
-				Edit: textRow< FormData >(
-					SiteNameControl,
-					__( 'Site name' ),
-					__( 'Name shown in Studio.' )
-				),
-			},
+			{ ...siteNameField< FormData >(), Edit: SiteNameRow },
 			{
 				...wpVersion,
 				Edit: ( props: DataFormControlProps< FormData > ) => (

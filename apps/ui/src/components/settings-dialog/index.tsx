@@ -27,13 +27,14 @@ import {
 	InstructionsSettings,
 	KeyboardPanel,
 	McpPanel,
+	SharingPanel,
 	SkillsPanel,
 	UsagePanel,
 } from '@/components/settings-view';
 import { SiteSettingsForm } from '@/components/site-settings-view';
 import { useSessions } from '@/data/queries/use-sessions';
 import { useSites } from '@/data/queries/use-sites';
-import { chatIcon, settingsIcon } from '@/lib/icons';
+import { chatIcon, settingsIcon, shareIcon } from '@/lib/icons';
 import { readLastVisited } from '@/lib/last-visited';
 import { SettingsDialogContext } from './context';
 import { SiteAgentFiles } from './site-agent-files';
@@ -44,6 +45,7 @@ import type { ReactElement } from 'react';
 const STUDIO_SECTIONS = [
 	'general',
 	'appearance',
+	'sharing',
 	'ai',
 	'mcp',
 	'usage',
@@ -57,6 +59,7 @@ const SITE_FORM_SECTIONS = [ 'site', 'debugging', 'php' ];
 export type SettingsSectionId =
 	| 'general'
 	| 'appearance'
+	| 'sharing'
 	| 'ai'
 	| 'mcp'
 	| 'usage'
@@ -104,6 +107,12 @@ function getSections( scope: 'studio' | 'site' ): Section[] {
 					label: __( 'Appearance' ),
 					icon: brush,
 					settings: [ __( 'Theme' ) ],
+				},
+				{
+					id: 'sharing',
+					label: __( 'Sharing' ),
+					icon: shareIcon,
+					settings: [ __( 'Sharing previews on WordPress.com' ), __( 'Live previews' ) ],
 				},
 				{
 					id: 'ai',
@@ -180,6 +189,8 @@ function StudioSection( {
 	switch ( id ) {
 		case 'appearance':
 			return <AppearanceSettings />;
+		case 'sharing':
+			return <SharingPanel />;
 		case 'ai':
 			return <AiPanel />;
 		case 'mcp':
@@ -219,9 +230,10 @@ function useCurrentSiteId( requested?: string ) {
 export function SettingsDialog() {
 	const router = useRouter();
 	const navigate = useNavigate();
-	const { settings, settingsSite } = useSearch( { strict: false } ) as {
+	const { settings, settingsSite, settingsFocus } = useSearch( { strict: false } ) as {
 		settings?: SettingsSectionId;
 		settingsSite?: string;
+		settingsFocus?: string;
 	};
 	// Kept while the dialog animates closed.
 	const [ shown, setShown ] = useState< SettingsSectionId >( settings ?? 'general' );
@@ -278,20 +290,27 @@ export function SettingsDialog() {
 		}
 		void navigate( {
 			to: '.',
-			search: ( { settings: _section, settingsSite: _site, ...rest }: Record< string, unknown > ) =>
-				rest,
+			search: ( {
+				settings: _section,
+				settingsSite: _site,
+				settingsFocus: _focus,
+				...rest
+			}: Record< string, unknown > ) => rest,
 			replace: true,
 		} );
 	};
+
+	const findRow = ( title: string ) =>
+		[ ...( content.current?.querySelectorAll( 'h2' ) ?? [] ) ]
+			.find( ( heading ) => heading.textContent?.trim() === title )
+			?.closest< HTMLElement >( '[data-settings-row]' );
 
 	// Shows the setting picked from the search results.
 	useEffect( () => {
 		if ( ! highlight ) {
 			return;
 		}
-		const row = [ ...( content.current?.querySelectorAll( 'h2' ) ?? [] ) ]
-			.find( ( title ) => title.textContent?.trim() === highlight )
-			?.closest< HTMLElement >( '[data-settings-row]' );
+		const row = findRow( highlight );
 		row?.scrollIntoView( { block: 'center' } );
 		row?.setAttribute( 'data-settings-match', '' );
 		const timeout = setTimeout( () => row?.removeAttribute( 'data-settings-match' ), 2000 );
@@ -318,7 +337,14 @@ export function SettingsDialog() {
 	const current = getSections( scope ).find( ( entry ) => entry.id === section )!;
 
 	return (
-		<Dialog.Root open={ !! settings } onOpenChange={ ( open ) => ! open && close() }>
+		<Dialog.Root
+			open={ !! settings }
+			onOpenChange={ ( open ) => ! open && close() }
+			// Focuses the setting the dialog was opened for.
+			onOpenChangeComplete={ ( open ) =>
+				open && settingsFocus && findRow( settingsFocus )?.querySelector( 'input' )?.select()
+			}
+		>
 			<Dialog.Popup size="stretch" className={ styles.popup }>
 				<Dialog.Title className={ styles.visuallyHidden }>{ __( 'Settings' ) }</Dialog.Title>
 				<div className={ styles.sidebar }>

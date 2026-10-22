@@ -99,6 +99,7 @@ export function MenuSelect< Value extends string | number >( {
 	display,
 	disabled,
 	wide = false,
+	className,
 	onChange,
 }: {
 	id?: string;
@@ -108,6 +109,7 @@ export function MenuSelect< Value extends string | number >( {
 	display?: ReactNode;
 	disabled?: boolean;
 	wide?: boolean;
+	className?: string;
 	onChange: ( value: Value ) => void;
 } ) {
 	return (
@@ -116,7 +118,7 @@ export function MenuSelect< Value extends string | number >( {
 				id={ id }
 				disabled={ disabled }
 				aria-label={ label }
-				className={ clsx( styles.select, wide && styles.selectWide ) }
+				className={ clsx( styles.select, wide && styles.selectWide, className ) }
 			>
 				<span className={ styles.selectValue }>
 					{ display ?? items.find( ( item ) => item.value === value )?.label }

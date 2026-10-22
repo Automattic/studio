@@ -29,6 +29,7 @@ import { OpenChatShortcuts } from '@/components/chat-actions';
 import { PreviewParticles } from '@/components/preview-particles';
 import { PreviewToggleButton } from '@/components/preview-toggle-button';
 import { ProgressiveBlur } from '@/components/progressive-blur';
+import { ShareButton } from '@/components/share-dialog';
 import { HeaderSidebarToggle } from '@/components/sidebar-toggle';
 import { SiteDropdown } from '@/components/site-dropdown';
 import { SiteIcon } from '@/components/site-icon';
@@ -140,7 +141,10 @@ function SessionHeader( {
 					{ site.running ? (
 						<PreviewToggleButton canHideChat />
 					) : (
-						<SiteLifecycleButton site={ site } />
+						<>
+							<SiteLifecycleButton site={ site } />
+							<ShareButton site={ site } />
+						</>
 					) }
 				</div>
 			) : null }

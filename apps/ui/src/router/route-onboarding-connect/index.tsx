@@ -10,7 +10,6 @@ import { clsx } from 'clsx';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AuthActions } from '@/components/auth-actions';
 import { OnboardingFooter } from '@/components/onboarding-footer';
-import { requestPublish } from '@/components/publish-panel/request';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { useAuthUser } from '@/data/queries/use-auth-user';
@@ -19,6 +18,7 @@ import { usePullSiteFromLive } from '@/data/queries/use-sync-site';
 import { useUserLocale } from '@/data/queries/use-user-locale';
 import { useSyncableWpcomSites } from '@/data/queries/use-wpcom-sites';
 import { useOffline } from '@/hooks/use-offline';
+import { requestHeaderPanel } from '@/hooks/use-open-header-panel';
 import { onboardingLayoutRoute, useOnboardingProgress, usePinNewSite } from '../layout-onboarding';
 import sharedStyles from '../layout-onboarding/style.module.css';
 import { ConnectSiteLifecycleError, runConnectSiteLifecycle } from './connect-site';
@@ -290,7 +290,7 @@ export function OnboardingConnectPage() {
 					await startSite.mutateAsync( localSiteId );
 				},
 				openLocalSite: ( localSiteId ) => {
-					requestPublish( { siteId: localSiteId, view: 'pull' } );
+					requestHeaderPanel( { panel: 'publish', siteId: localSiteId, view: 'pull' } );
 					return navigate( { to: '/sites/$siteId', params: { siteId: localSiteId } } );
 				},
 				deleteLocalSite: ( localSiteId ) =>

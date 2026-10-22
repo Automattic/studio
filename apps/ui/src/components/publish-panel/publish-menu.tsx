@@ -2,20 +2,20 @@ import { __ } from '@wordpress/i18n';
 import * as Menu from '@/components/menu';
 import { useAuthUser } from '@/data/queries/use-auth-user';
 import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
+import { useOpenHeaderPanel } from '@/hooks/use-open-header-panel';
 import { WebsiteMenuItems } from './connected-view';
 import { websiteAddress } from './options';
-import { useOpenPublish, type PublishRequest } from './request';
 import type { SiteDetails } from '@/data/core';
 
 // The site menu's Publish entry: a submenu per connected website, or a plain
 // item that opens the panel to set one up.
 export function SitePublishMenu( { site, disabled }: { site: SiteDetails; disabled: boolean } ) {
-	const openPublish = useOpenPublish();
+	const openHeaderPanel = useOpenHeaderPanel();
 	const user = useAuthUser();
 	const connected = useConnectedWpcomSites( site.id );
 	const websites = user.data ? connected.data ?? [] : [];
-	const open = ( view: PublishRequest[ 'view' ], remoteSiteId?: number ) =>
-		openPublish( { siteId: site.id, view, remoteSiteId } );
+	const open = ( view: 'publish' | 'pull' | 'websites', remoteSiteId?: number ) =>
+		openHeaderPanel( { panel: 'publish', siteId: site.id, view, remoteSiteId } );
 	if ( ! websites.length ) {
 		return (
 			<Menu.Item disabled={ disabled } onClick={ () => open( 'publish' ) }>

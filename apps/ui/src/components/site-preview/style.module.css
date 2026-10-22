@@ -402,7 +402,8 @@
 
 /* Too narrow for the navigation buttons: they move into the More menu. */
 @container studio-preview-toolbar (max-width: 520px) {
-	.navigation {
+	.navigation,
+	.shareAction {
 		display: none;
 	}
 

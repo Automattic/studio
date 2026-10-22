@@ -2,7 +2,8 @@
 //
 // Each check judges what the turn left behind — the site's WordPress state,
 // its rendered home page, its theme files, and what the user was told — not
-// which tools the agent called. The runner captures that state after the turn
+// which tools the agent called. The one exception is `skillsLoadedFirst`, for
+// routing cases: which runbooks the agent read before starting the work. The runner captures that state after the turn
 // (apps/cli/ai/eval-outcome.ts) into the result's `outcome` field.
 //
 // Use from promptfoo.config.yaml as `type: javascript` with
@@ -508,4 +509,21 @@ export const designTokenReachedTheme = check( ( d, vars ) => {
 	return inPalette
 		? pass( `DESIGN.md ${ vars.token } is ${ value }, and the theme palette has it` )
 		: fail( `DESIGN.md ${ vars.token } is ${ value }, but the theme palette does not have it` );
+} );
+
+// Routing: every skill in `vars.skills` was loaded before the run's stop call
+// (`vars.stopAt`), that is, before the agent started the work. A run that never
+// reached a stop call is judged on all of its calls.
+export const skillsLoadedFirst = check( ( d, vars ) => {
+	const calls = d.stoppedAt
+		? ( d.toolCalls || [] ).slice( 0, d.stoppedAt.index )
+		: d.toolCalls || [];
+	const loaded = calls.filter( ( c ) => c.name === 'Skill' ).map( ( c ) => c.input?.name );
+	const missing = ( vars.skills || [] ).filter( ( name ) => ! loaded.includes( name ) );
+	const before = d.stoppedAt ? `before ${ d.stoppedAt.toolName }` : 'in the whole run';
+	return missing.length
+		? fail(
+				`not loaded ${ before }: ${ missing.join( ', ' ) }; loaded: ${ JSON.stringify( loaded ) }`
+		  )
+		: pass( `loaded ${ before }: ${ JSON.stringify( loaded ) }` );
 } );

@@ -645,3 +645,214 @@ tests:
             if (!kept) return { pass: false, score: 0, reason: `the user's saved Site Editor styles were discarded${asked ? '' : ' without asking'}; ${state}` };
             return { pass: false, score: 0, reason: `change never reached the rendered styles and the agent did not ask; ${state}; final reply: ${finalText.slice(0, 300)}` };
           });
+
+  # Routing: which skills (runbooks) the agent loads before it starts the work.
+  # Each run stops at its first call that does the work (`stopAt`), so a case
+  # costs only the turns up to that point, and `skillsLoadedFirst` checks the
+  # skills named in `skills` were loaded before it. The new-site cases also stop
+  # at the site's creation. The outcome cases above judge the work itself.
+  - description: "routing: a request to make a site loads build-site before creating it"
+    vars:
+      caseId: routing-new-site-make
+      timeoutMs: 300000
+      skills: [build-site]
+      stopAt:
+        - tool: site_create
+        - tool: scaffold_theme
+        - tool: Write
+        - tool: Edit
+        - tool: generate_images
+        - tool: wp_cli
+          input:
+            command: '\b(post|plugin|theme|option|menu|media|term|widget)\s+(create|update|install|activate|import|add|set)\b'
+      prompt: Make me a website for my bakery, Flour & Ember. Skip the questions and go.
+    assert:
+      - type: javascript
+        value: file://outcome.mjs:skillsLoadedFirst
+  - description: "routing: a new site with a form loads build-site and plugin-recommendations before the work"
+    vars:
+      caseId: routing-new-site-contact-form
+      timeoutMs: 300000
+      skills: [build-site, plugin-recommendations]
+      stopAt: &stopAtWork
+        - tool: Write
+        - tool: Edit
+        - tool: generate_images
+        - tool: wp_cli
+          input:
+            command: '\b(post|plugin|theme|option|menu|media|term|widget)\s+(create|update|install|activate|import|add|set)\b'
+      prompt: Create a site named Harbor Dental and add a contact page with a form patients can use to request an appointment.
+    assert:
+      - type: javascript
+        value: file://outcome.mjs:skillsLoadedFirst
+  - description: "routing: a new site with a slideshow loads build-site and plugin-recommendations before the work"
+    vars:
+      caseId: routing-new-site-slideshow
+      timeoutMs: 300000
+      skills: [build-site, plugin-recommendations]
+      stopAt: *stopAtWork
+      prompt: Create a new site named "Routing Slideshow Site" and add a slideshow of three placeholder images to its homepage.
+    assert:
+      - type: javascript
+        value: file://outcome.mjs:skillsLoadedFirst
+  - description: "routing: a contact form loads plugin-recommendations before the work"
+    vars:
+      caseId: routing-form
+      timeoutMs: 300000
+      skills: [plugin-recommendations]
+      stopAt: *stopAtWork
+      seed:
+        activeSite:
+          name: Eval Routing Site
+      prompt: Add a contact form to the homepage.
+    assert:
+      - type: javascript
+        value: file://outcome.mjs:skillsLoadedFirst
+  - description: "routing: a carousel loads plugin-recommendations before the work"
+    vars:
+      caseId: routing-carousel
+      timeoutMs: 300000
+      skills: [plugin-recommendations]
+      stopAt: *stopAtWork
+      seed:
+        activeSite:
+          name: Eval Routing Site
+      prompt: Add a carousel of our recent projects to the homepage.
+    assert:
+      - type: javascript
+        value: file://outcome.mjs:skillsLoadedFirst
+  - description: "routing: a newsletter signup loads plugin-recommendations before the work"
+    vars:
+      caseId: routing-newsletter
+      timeoutMs: 300000
+      skills: [plugin-recommendations]
+      stopAt: *stopAtWork
+      seed:
+        activeSite:
+          name: Eval Routing Site
+      prompt: Add a newsletter signup to the footer.
+    assert:
+      - type: javascript
+        value: file://outcome.mjs:skillsLoadedFirst
+  - description: "routing: a poll loads plugin-recommendations before the work"
+    vars:
+      caseId: routing-poll
+      timeoutMs: 300000
+      skills: [plugin-recommendations]
+      stopAt: *stopAtWork
+      seed:
+        activeSite:
+          name: Eval Routing Site
+      prompt: Add a quick poll asking visitors which pastry we should bake next.
+    assert:
+      - type: javascript
+        value: file://outcome.mjs:skillsLoadedFirst
+  - description: "routing: an events page loads plugin-recommendations before the work"
+    vars:
+      caseId: routing-events
+      timeoutMs: 300000
+      skills: [plugin-recommendations]
+      stopAt: *stopAtWork
+      seed:
+        activeSite:
+          name: Eval Routing Site
+      prompt: Add an upcoming events page listing our three spring workshops.
+    assert:
+      - type: javascript
+        value: file://outcome.mjs:skillsLoadedFirst
+  - description: "routing: a typography change loads visual-design before the work"
+    vars:
+      caseId: routing-typography
+      timeoutMs: 300000
+      skills: [visual-design]
+      stopAt: *stopAtWork
+      seed:
+        activeSite:
+          name: Eval Routing Site
+      prompt: Make the headings use a more elegant serif font.
+    assert:
+      - type: javascript
+        value: file://outcome.mjs:skillsLoadedFirst
+  - description: "routing: a redesign loads visual-design before the work"
+    vars:
+      caseId: routing-redesign
+      timeoutMs: 300000
+      skills: [visual-design]
+      stopAt: *stopAtWork
+      seed:
+        activeSite:
+          name: Eval Routing Site
+      prompt: Redesign this site to feel like a modern Scandinavian design studio.
+    assert:
+      - type: javascript
+        value: file://outcome.mjs:skillsLoadedFirst
+  - description: "routing: a new section loads block-content before the work"
+    vars:
+      caseId: routing-section
+      timeoutMs: 300000
+      skills: [block-content]
+      stopAt: *stopAtWork
+      seed:
+        activeSite:
+          name: Eval Routing Site
+      prompt: Add a testimonials section with three customer quotes to the homepage.
+    assert:
+      - type: javascript
+        value: file://outcome.mjs:skillsLoadedFirst
+  - description: "routing: a template part edit loads block-content before the work"
+    vars:
+      caseId: routing-template-part
+      timeoutMs: 300000
+      skills: [block-content]
+      stopAt: *stopAtWork
+      seed:
+        activeSite:
+          name: Eval Routing Site
+      prompt: Add a search block to the header template part.
+    assert:
+      - type: javascript
+        value: file://outcome.mjs:skillsLoadedFirst
+  - description: "routing: a section with a photo loads block-content and imagery before the work"
+    vars:
+      caseId: routing-hero-image
+      timeoutMs: 300000
+      skills: [block-content, imagery]
+      stopAt: *stopAtWork
+      seed:
+        activeSite:
+          name: Eval Routing Site
+      prompt: Add a hero section to the homepage with a photo of a sunlit bakery counter.
+    assert:
+      - type: javascript
+        value: file://outcome.mjs:skillsLoadedFirst
+  - description: "routing: a layout complaint loads visual-polish before the work"
+    vars:
+      caseId: routing-polish
+      timeoutMs: 300000
+      skills: [visual-polish]
+      stopAt: *stopAtWork
+      seed:
+        activeSite:
+          name: Eval Routing Site
+          wpCli:
+            - - eval
+              - |
+                $content = '<!-- wp:group {"style":{"spacing":{"padding":{"top":"8px","bottom":"120px","left":"4px","right":"60px"}}}} --><div class="wp-block-group" style="padding-top:8px;padding-right:60px;padding-bottom:120px;padding-left:4px"><!-- wp:heading {"level":1} --><h1 class="wp-block-heading">Fresh bread every morning</h1><!-- /wp:heading --><!-- wp:paragraph --><p>Sourdough, rye, and pastries baked before sunrise.</p><!-- /wp:paragraph --><!-- wp:buttons --><div class="wp-block-buttons"><!-- wp:button {"style":{"spacing":{"padding":{"top":"2px","bottom":"30px"}}}} --><div class="wp-block-button"><a class="wp-block-button__link wp-element-button" style="padding-top:2px;padding-bottom:30px">Order now</a></div><!-- /wp:button --><!-- wp:button {"style":{"spacing":{"padding":{"left":"80px"}}}} --><div class="wp-block-button"><a class="wp-block-button__link wp-element-button" style="padding-left:80px">Visit us</a></div><!-- /wp:button --></div><!-- /wp:buttons --></div><!-- /wp:group --><!-- wp:group {"style":{"spacing":{"padding":{"top":"0px","bottom":"0px"}}}} --><div class="wp-block-group" style="padding-top:0px;padding-bottom:0px"><!-- wp:heading --><h2 class="wp-block-heading">Our story</h2><!-- /wp:heading --><!-- wp:paragraph --><p>A family bakery since 1987.</p><!-- /wp:paragraph --></div><!-- /wp:group -->';
+                $id = wp_insert_post( array( 'post_type' => 'page', 'post_status' => 'publish', 'post_title' => 'Home', 'post_content' => $content ) );
+                if ( ! $id ) { echo 'SEED_ERROR'; }
+                update_option( 'show_on_front', 'page' );
+                update_option( 'page_on_front', $id );
+      prompt: The homepage spacing looks off and the buttons are misaligned. Fix it.
+    assert:
+      - type: javascript
+        value: file://outcome.mjs:skillsLoadedFirst
+  - description: "routing: a plan question loads hosting-plans-helper"
+    vars:
+      caseId: routing-plan-question
+      timeoutMs: 300000
+      skills: [hosting-plans-helper]
+      stopAt: *stopAtWork
+      prompt: Which WordPress.com plan do I need to install my own plugins?
+    assert:
+      - type: javascript
+        value: file://outcome.mjs:skillsLoadedFirst

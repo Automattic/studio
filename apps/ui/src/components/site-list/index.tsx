@@ -54,7 +54,6 @@ import {
 	chatIcon,
 	chevronRightIcon,
 	collapseAllIcon,
-	moreIcon,
 	globeIcon,
 	newChatIcon,
 	pinIcon,
@@ -794,10 +793,9 @@ function SiteSection( {
 					) }
 					{ chats.length > chatCount ? (
 						<SidebarButton
-							className={ clsx( styles.chat, styles.mutedRow, styles.showMore ) }
+							className={ clsx( styles.chat, styles.mutedRow ) }
 							onClick={ () => setChatCount( ( count ) => count + CHATS_PAGE_SIZE ) }
 						>
-							<Icon icon={ moreIcon } className={ styles.rowIcon } />
 							<span className={ styles.chatTitle }>{ __( 'Show more' ) }</span>
 						</SidebarButton>
 					) : null }

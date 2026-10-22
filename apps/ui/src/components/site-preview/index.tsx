@@ -2,7 +2,7 @@ import { DESIGN_SYSTEM_PREVIEW_PATH } from '@studio/common/ai/chat-artifacts';
 import { getSiteOperationLabel } from '@studio/common/lib/site-operation-labels';
 import { useQueryClient } from '@tanstack/react-query';
 import { __, _n, sprintf } from '@wordpress/i18n';
-import { chevronDown, closeSmall, Icon, pencil } from '@wordpress/icons';
+import { chevronDown, closeSmall, Icon, moreHorizontal, pencil } from '@wordpress/icons';
 import {
 	ariaKeyShortcut,
 	displayShortcut,
@@ -14,24 +14,25 @@ import { Button, Dialog, IconButton, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { DesignSystemView } from '@/components/design-system-view';
-import { DotGrid } from '@/components/dot-grid';
 import * as Menu from '@/components/menu';
+import { PreviewParticles } from '@/components/preview-particles';
+import { PublishButton } from '@/components/publish-panel';
+import { ShareButton } from '@/components/share-dialog';
+import { SiteLifecycleButton } from '@/components/site-lifecycle-button';
+import { StoppedSitePreview } from '@/components/stopped-site-preview';
 import { useConnector } from '@/data/core';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { siteDesignQueryKey, useSiteDesign } from '@/data/queries/use-site-design';
 import { useSiteIcon } from '@/data/queries/use-site-icon';
-import { useSiteThumbnail } from '@/data/queries/use-site-thumbnail';
-import {
-	useIsSiteBusy,
-	useIsSiteStarting,
-	useSiteOperation,
-	useStartSite,
-} from '@/data/queries/use-sites';
+import { siteThumbnailQueryKey, useSiteThumbnail } from '@/data/queries/use-site-thumbnail';
+import { useIsSiteStarting, useSiteOperation } from '@/data/queries/use-sites';
+import { requestHeaderPanel } from '@/hooks/use-open-header-panel';
+import { useOpenSettings } from '@/hooks/use-open-settings';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import { useWindowControlsInset } from '@/hooks/use-window-controls-inset';
 import { getSiteUrl } from '@/lib/get-site-url';
-import { browserBackIcon, browserForwardIcon, playIcon, refreshIcon } from '@/lib/icons';
+import { browserBackIcon, browserForwardIcon, refreshIcon } from '@/lib/icons';
 import {
 	DATABASE_HOME_PATH,
 	getPathFromPreviewUrl,
@@ -676,10 +677,9 @@ export function SitePreview( {
 }: SitePreviewProps ) {
 	const connector = useConnector();
 	const queryClient = useQueryClient();
+	const openSettings = useOpenSettings();
 	const { chatEnabled } = useAgenticFeatures();
-	const startSite = useStartSite();
 	const isStarting = useIsSiteStarting( site.id );
-	const isBusy = useIsSiteBusy( site );
 	const operation = useSiteOperation( site );
 	const siteUrl = getSiteUrl( site );
 	const canPreview = site.running;
@@ -707,6 +707,7 @@ export function SitePreview( {
 	const inspectorState = activeSurface?.inspector ?? EMPTY_INSPECTOR_STATE;
 	const [ annotationCancelRequestId, setAnnotationCancelRequestId ] = useState( 0 );
 	const rootRef = useRef< HTMLElement | null >( null );
+	const headerRef = useRef< HTMLDivElement | null >( null );
 	const commandIdRef = useRef( 0 );
 	const canAnnotate = canPreview && inspectorState.ready;
 	const progress = browserState.loading
@@ -785,6 +786,39 @@ export function SitePreview( {
 		},
 		[ activeSurfaceKey, patchSurface ]
 	);
+	// Keeps the page that just loaded as the site's picture for while it's
+	// stopped, once the page has had a moment to settle.
+	const viewportRef = useRef< HTMLDivElement | null >( null );
+	const [ loadedPage, setLoadedPage ] = useState< { url: string; guestId?: number } | null >(
+		null
+	);
+	useEffect( () => {
+		const pagePath = loadedPage && getPathFromPreviewUrl( loadedPage.url, siteUrl );
+		if ( ! pagePath ) {
+			return;
+		}
+		const timer = setTimeout( () => {
+			const viewport = viewportRef.current;
+			if ( ! viewport?.clientWidth || ! viewport.clientHeight ) {
+				return;
+			}
+			void connector
+				.captureSitePreview( site.id, {
+					path: pagePath,
+					width: Math.min( viewport.clientWidth, 2400 ),
+					height: Math.min( viewport.clientHeight, 2400 ),
+					guestId: loadedPage.guestId,
+				} )
+				.then( ( thumbnail ) => {
+					if ( thumbnail ) {
+						queryClient.setQueryData( siteThumbnailQueryKey( site.id ), thumbnail );
+					}
+				} )
+				.catch( () => undefined );
+		}, 240 );
+		return () => clearTimeout( timer );
+	}, [ connector, loadedPage, queryClient, site.id, siteUrl ] );
+
 	// Shortcuts the guest page swallowed and forwarded back over the console
 	// bridge, for the webview.
 	const handleForwardedShortcut = useCallback(
@@ -928,9 +962,26 @@ export function SitePreview( {
 		return () => document.removeEventListener( 'keydown', handleKeyDown, { capture: true } );
 	}, [ canPreview, collapsed, inspectorState.isPicking, sendBrowserCommand ] );
 
+	// Matches the realm on screen (front end / WP Admin / phpMyAdmin) rather
+	// than always the front end. Admin screens go through /studio-auto-login so
+	// they don't land on the login form; the front end opens logged out.
+	const openExternal =
+		activeRealm === 'design'
+			? undefined
+			: () => {
+					void connector.trackEvent( getRealmOpenEvent( activeRealm ), { browser: 'external' } );
+					void connector
+						.openSiteUrl( site.id, safePath, { autoLogin: activeRealm !== 'frontend' } )
+						.catch( ( error ) => {
+							console.error( 'Failed to open site in browser:', error );
+						} );
+			  };
+	const openSiteSettings = () => openSettings( 'site', site.id );
+
 	return (
 		<aside ref={ rootRef } className={ styles.root } aria-label={ __( 'Site preview' ) }>
 			<div
+				ref={ headerRef }
 				className={ clsx(
 					styles.header,
 					inspectorState.isPicking && styles.headerAnnotating,
@@ -951,7 +1002,7 @@ export function SitePreview( {
 				<div className={ styles.headerSide }>
 					{ toolbarStart }
 					{ canPreview && ! inspectorState.isPicking ? (
-						<>
+						<div className={ styles.navigation }>
 							{ browserState.canGoBack || browserState.canGoForward ? (
 								<>
 									<BrowserHistoryButton
@@ -976,11 +1027,11 @@ export function SitePreview( {
 								size="small"
 								className="studio-control"
 								icon={ refreshIcon }
-								label={ __( 'Refresh' ) }
+								label={ __( 'Reload preview' ) }
 								shortcut={ browserShortcuts.reload }
 								onClick={ () => sendBrowserCommand( 'reload' ) }
 							/>
-						</>
+						</div>
 					) : null }
 				</div>
 				<div className={ styles.browserLocation }>
@@ -998,26 +1049,8 @@ export function SitePreview( {
 							onNavigate={ ( nextPath ) => onPathChange?.( nextPath ) }
 							onSwitchRealm={ handleSwitchRealm }
 							hasDesignSystem={ !! siteDesign.data }
-							onOpenExternal={
-								activeRealm === 'design'
-									? undefined
-									: () => {
-											const safePath = getSafePath( path );
-											const realm = getPreviewRealm( safePath );
-											// Matches the realm on screen (front end / WP Admin / phpMyAdmin)
-											// rather than always the front end.
-											void connector.trackEvent( getRealmOpenEvent( realm ), {
-												browser: 'external',
-											} );
-											// Admin screens go through /studio-auto-login so they don't land on
-											// the login form; the front end opens logged out.
-											void connector
-												.openSiteUrl( site.id, safePath, { autoLogin: realm !== 'frontend' } )
-												.catch( ( error ) => {
-													console.error( 'Failed to open site in browser:', error );
-												} );
-									  }
-							}
+							onOpenExternal={ openExternal }
+							onOpenSettings={ openSiteSettings }
 						/>
 					) : null }
 				</div>
@@ -1038,6 +1071,57 @@ export function SitePreview( {
 							onCommand={ sendInspectorCommand }
 						/>
 					) : null }
+					{ inspectorState.isPicking ? null : (
+						<>
+							<PublishButton site={ site } anchor={ headerRef } />
+							<SiteLifecycleButton site={ site } />
+							<ShareButton site={ site } className={ styles.shareAction } />
+						</>
+					) }
+					{ canPreview && ! inspectorState.isPicking ? (
+						<Menu.Root modal={ false }>
+							<Menu.Trigger
+								render={
+									<IconButton
+										variant="minimal"
+										tone="neutral"
+										size="small"
+										className={ clsx( 'studio-control', styles.moreActions ) }
+										icon={ moreHorizontal }
+										label={ __( 'More preview actions' ) }
+									/>
+								}
+							/>
+							<Menu.Popup side="bottom" align="end">
+								<Menu.Item
+									onClick={ () => requestHeaderPanel( { panel: 'share', siteId: site.id } ) }
+								>
+									{ __( 'Share' ) }
+								</Menu.Item>
+								<Menu.Separator />
+								<Menu.Item
+									disabled={ ! browserState.canGoBack }
+									onClick={ () => sendBrowserCommand( 'back' ) }
+								>
+									{ __( 'Back' ) }
+								</Menu.Item>
+								<Menu.Item
+									disabled={ ! browserState.canGoForward }
+									onClick={ () => sendBrowserCommand( 'forward' ) }
+								>
+									{ __( 'Forward' ) }
+								</Menu.Item>
+								<Menu.Item onClick={ () => sendBrowserCommand( 'reload' ) }>
+									{ __( 'Reload preview' ) }
+								</Menu.Item>
+								<Menu.Separator />
+								<Menu.Item onClick={ openSiteSettings }>{ __( 'Site settings' ) }</Menu.Item>
+								{ openExternal ? (
+									<Menu.Item onClick={ openExternal }>{ __( 'Open in browser' ) }</Menu.Item>
+								) : null }
+							</Menu.Popup>
+						</Menu.Root>
+					) : null }
 				</div>
 				{ showLoadingProgress ? (
 					<div className={ styles.loadingProgress } aria-hidden="true">
@@ -1046,7 +1130,7 @@ export function SitePreview( {
 				) : null }
 			</div>
 			<div className={ styles.body }>
-				<div className={ styles.previewViewport }>
+				<div ref={ viewportRef } className={ styles.previewViewport }>
 					{ canPreview ? (
 						// One stacked layer per mounted surface. Only the active layer is
 						// visible; the other stays mounted and laid out at its own size, so
@@ -1112,6 +1196,11 @@ export function SitePreview( {
 												} }
 												onBrowserCommand={ handleForwardedShortcut }
 												onNavigate={ ( url ) => handleSurfaceNavigation( key, url ) }
+												onLoad={
+													key === 'site'
+														? ( url, guestId ) => setLoadedPage( { url, guestId } )
+														: undefined
+												}
 											/>
 										) : (
 											// Non-Electron fallback: plain iframe, no inspector. Reloads
@@ -1126,6 +1215,9 @@ export function SitePreview( {
 												onLoad={ ( event ) => {
 													const title = getIframeTitle( event.currentTarget );
 													handleSurfaceNavigation( key, event.currentTarget.src );
+													if ( key === 'site' ) {
+														setLoadedPage( { url: event.currentTarget.src } );
+													}
 													patchSurface( key, {
 														browser: {
 															...surface.browser,
@@ -1143,50 +1235,20 @@ export function SitePreview( {
 						} )
 					) : (
 						<div className={ styles.empty }>
-							<div className={ styles.emptyGrid } aria-hidden="true">
-								<DotGrid
-									spacing={ 32 }
-									crossSize={ 5 }
-									crossThickness={ 0.75 }
-									opacity={ 0.16 }
-									intro={ false }
-								/>
-							</div>
+							<PreviewParticles active={ isStarting } showLogo={ isStarting } />
 							<div className={ styles.emptyContent }>
-								{ siteThumbnail.data ? (
-									<div className={ styles.emptyThumbnail }>
-										<img
-											src={ siteThumbnail.data }
-											alt={ sprintf(
-												/* translators: %s: site name */
-												__( 'Screenshot of %s' ),
-												site.name
-											) }
-										/>
-									</div>
+								{ isStarting ? null : <StoppedSitePreview site={ site } /> }
+								{ operation || ( ! isStarting && ! siteThumbnail.data ) ? (
+									<p className={ styles.emptyText }>
+										{ operation
+											? sprintf(
+													/* translators: %s: an operation in progress, e.g. "Saving settings". */
+													__( '%s… the site can start once this finishes.' ),
+													getSiteOperationLabel( operation )
+											  )
+											: __( 'Start the site to see a live preview.' ) }
+									</p>
 								) : null }
-								<p className={ styles.emptyText }>
-									{ operation
-										? sprintf(
-												/* translators: %s: an operation in progress, e.g. "Saving settings". */
-												__( '%s… the site can start once this finishes.' ),
-												getSiteOperationLabel( operation )
-										  )
-										: __( 'Start the site to see a live preview.' ) }
-								</p>
-								<Button
-									variant="solid"
-									tone="brand"
-									loading={ isStarting }
-									loadingAnnouncement={ __( 'Starting site' ) }
-									disabled={ isBusy }
-									onClick={ () => startSite.mutate( site.id ) }
-								>
-									<span className={ styles.startIcon } aria-hidden="true">
-										{ playIcon }
-									</span>
-									{ __( 'Start site' ) }
-								</Button>
 							</div>
 						</div>
 					) }
@@ -1211,6 +1273,8 @@ interface WebviewSurfaceProps {
 	onBrowserStateChange?: ( state: BrowserNavigationState ) => void;
 	onBrowserCommand?: ( type: BrowserShortcutCommandType ) => void;
 	onNavigate?: ( url: string ) => void;
+	// A page finished loading, with the webview's guest id for capturing it.
+	onLoad?: ( url: string, guestId: number ) => void;
 	// Whether to inject the annotation inspector into the guest page. Off for
 	// phpMyAdmin, which can't be annotated.
 	inspector?: boolean;
@@ -1235,6 +1299,7 @@ function WebviewSurface( {
 	onBrowserStateChange,
 	onBrowserCommand,
 	onNavigate,
+	onLoad,
 	inspector = true,
 }: WebviewSurfaceProps ) {
 	const ref = useRef< HTMLElement | null >( null );
@@ -1245,6 +1310,7 @@ function WebviewSurface( {
 	const onBrowserStateChangeRef = useRef( onBrowserStateChange );
 	const onBrowserCommandRef = useRef( onBrowserCommand );
 	const onNavigateRef = useRef( onNavigate );
+	const onLoadRef = useRef( onLoad );
 	const browserStateRef = useRef< BrowserNavigationState >( EMPTY_BROWSER_STATE );
 	const domReadyRef = useRef( false );
 	const inspectorEnabledRef = useRef( inspector );
@@ -1271,6 +1337,9 @@ function WebviewSurface( {
 	useEffect( () => {
 		onNavigateRef.current = onNavigate;
 	}, [ onNavigate ] );
+	useEffect( () => {
+		onLoadRef.current = onLoad;
+	}, [ onLoad ] );
 	useEffect( () => {
 		inspectorEnabledRef.current = inspector;
 	}, [ inspector ] );
@@ -1515,6 +1584,9 @@ function WebviewSurface( {
 		webview.addEventListener( 'did-stop-loading', handleStopLoading );
 		webview.addEventListener( 'did-fail-load', handleStopLoading );
 		webview.addEventListener( 'did-finish-load', handleStopLoading );
+		const handleFinishLoad = () =>
+			onLoadRef.current?.( currentUrlRef.current, getWebviewContentsId( webview ) );
+		webview.addEventListener( 'did-finish-load', handleFinishLoad );
 		publishBrowserState();
 		return () => {
 			domReadyRef.current = false;
@@ -1526,6 +1598,7 @@ function WebviewSurface( {
 			webview.removeEventListener( 'did-navigate-in-page', handleNavigate );
 			webview.removeEventListener( 'did-start-loading', handleStartLoading );
 			webview.removeEventListener( 'did-stop-loading', handleStopLoading );
+			webview.removeEventListener( 'did-finish-load', handleFinishLoad );
 			webview.removeEventListener( 'did-fail-load', handleStopLoading );
 			webview.removeEventListener( 'did-finish-load', handleStopLoading );
 		};

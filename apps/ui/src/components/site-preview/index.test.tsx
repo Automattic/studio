@@ -32,6 +32,10 @@ vi.mock( '@/data/queries/use-agentic-features', () => ( {
 } ) );
 
 // jsdom has no 2D canvas context, so swap the animated grid for a bare canvas.
+vi.mock( '@/components/share-dialog', () => ( {
+	ShareButton: () => null,
+} ) );
+
 vi.mock( '@/components/dot-grid', () => ( {
 	DotGrid: () => <canvas data-testid="dot-grid" />,
 } ) );
@@ -110,16 +114,41 @@ describe( 'SitePreview', () => {
 			<SitePreview site={ createSite() } path="/wp-admin/" reloadNonce={ 0 } />
 		);
 
-		expect( screen.queryByRole( 'button', { name: 'Refresh' } ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'button', { name: 'Reload preview' } ) ).not.toBeInTheDocument();
 		expect( screen.queryByRole( 'button', { name: 'Annotate' } ) ).not.toBeInTheDocument();
 		expect( screen.queryByText( 'WordPress' ) ).not.toBeInTheDocument();
-		expect( screen.getByRole( 'button', { name: 'Start site' } ) ).toBeVisible();
 		expect( container.querySelector( 'canvas' ) ).toBeInTheDocument();
 		await waitFor( () => expect( getSiteThumbnail ).toHaveBeenCalledWith( 'site-1' ) );
 
-		expect(
-			await screen.findByRole( 'img', { name: 'Screenshot of Example Site' } )
-		).toHaveAttribute( 'src', 'data:image/png;base64,thumbnail' );
+		expect( await screen.findByRole( 'img', { name: 'Saved site preview' } ) ).toHaveAttribute(
+			'src',
+			'data:image/png;base64,thumbnail'
+		);
+		expect( screen.getByRole( 'button', { name: 'Start from preview' } ) ).toBeEnabled();
+	} );
+
+	it( 'starts a stopped site and stops a running one from the header', async () => {
+		const startSite = vi.fn().mockResolvedValue( undefined );
+		const stopSite = vi.fn().mockResolvedValue( undefined );
+		useConnectorMock.mockReturnValue( {
+			startSite,
+			stopSite,
+			getSiteThumbnail: vi.fn().mockResolvedValue( null ),
+			capabilities: CAPABILITIES,
+		} as never );
+
+		const { unmount } = renderPreview(
+			<SitePreview site={ createSite() } path="/" reloadNonce={ 0 } />
+		);
+		fireEvent.click( screen.getByRole( 'button', { name: 'Start' } ) );
+		await waitFor( () => expect( startSite ).toHaveBeenCalledWith( 'site-1' ) );
+		unmount();
+
+		renderPreview(
+			<SitePreview site={ createSite( { running: true } ) } path="/" reloadNonce={ 0 } />
+		);
+		fireEvent.click( screen.getByRole( 'button', { name: 'Stop' } ) );
+		await waitFor( () => expect( stopSite ).toHaveBeenCalledWith( 'site-1' ) );
 	} );
 
 	it( 'does not render the chat-level Open in control in the preview toolbar', () => {
@@ -145,7 +174,7 @@ describe( 'SitePreview', () => {
 			<SitePreview site={ createSite( { running: true } ) } path="/" reloadNonce={ 0 } />
 		);
 
-		const refreshButton = screen.getByRole( 'button', { name: 'Refresh' } );
+		const refreshButton = screen.getByRole( 'button', { name: 'Reload preview' } );
 		expect( refreshButton ).toBeEnabled();
 		expect( refreshButton ).toHaveAttribute( 'aria-keyshortcuts', expect.stringMatching( /\+R$/ ) );
 		// No history yet, so no back or forward.
@@ -157,6 +186,33 @@ describe( 'SitePreview', () => {
 		fireEvent.click( refreshButton );
 
 		expect( container.querySelector( 'iframe' ) ).not.toBe( initialIframe );
+	} );
+
+	it( 'keeps the page that loaded as the site screenshot', async () => {
+		const captureSitePreview = vi.fn().mockResolvedValue( 'data:image/png;base64,new' );
+		useConnectorMock.mockReturnValue( {
+			captureSitePreview,
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
+			capabilities: CAPABILITIES,
+		} as never );
+		const { container } = renderPreview(
+			<SitePreview site={ createSite( { running: true } ) } path="/about/" reloadNonce={ 0 } />
+		);
+		const iframe = container.querySelector( 'iframe' )!;
+		for ( const [ key, value ] of Object.entries( { clientWidth: 800, clientHeight: 600 } ) ) {
+			Object.defineProperty( iframe.closest( 'div[class*="previewViewport"]' ), key, { value } );
+		}
+
+		fireEvent.load( iframe );
+
+		await waitFor( () =>
+			expect( captureSitePreview ).toHaveBeenCalledWith( 'site-1', {
+				path: '/about/',
+				width: 800,
+				height: 600,
+				guestId: undefined,
+			} )
+		);
 	} );
 
 	it( 'reloads the preview on the primary-modifier+R shortcut', () => {
@@ -355,8 +411,8 @@ describe( 'SitePreview', () => {
 			<SitePreview site={ createSite( { running: true } ) } path="/" reloadNonce={ 0 } />
 		);
 
-		// The toolbar is present (Refresh shows) but Annotate is omitted entirely.
-		expect( screen.getByRole( 'button', { name: 'Refresh' } ) ).toBeVisible();
+		// The toolbar is present (Reload preview shows) but Annotate is omitted entirely.
+		expect( screen.getByRole( 'button', { name: 'Reload preview' } ) ).toBeVisible();
 		expect( screen.queryByRole( 'button', { name: 'Annotate' } ) ).not.toBeInTheDocument();
 	} );
 
@@ -407,7 +463,7 @@ describe( 'SitePreview', () => {
 		expect( cancelButton ).not.toHaveAttribute( 'aria-pressed' );
 		expect( screen.queryByRole( 'button', { name: 'Back' } ) ).not.toBeInTheDocument();
 		expect( screen.queryByRole( 'button', { name: 'Forward' } ) ).not.toBeInTheDocument();
-		expect( screen.queryByRole( 'button', { name: 'Refresh' } ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'button', { name: 'Reload preview' } ) ).not.toBeInTheDocument();
 		expect( screen.queryByRole( 'textbox', { name: 'Address' } ) ).not.toBeInTheDocument();
 
 		Object.defineProperty( navigator, 'userAgent', {
@@ -563,7 +619,8 @@ describe( 'SitePreview', () => {
 		const queryClient = new QueryClient();
 		const { rerender } = render( preview( true ) );
 
-		const header = screen.getByRole( 'button', { name: 'Refresh' } ).parentElement?.parentElement;
+		const header = screen.getByRole( 'button', { name: 'Reload preview' } ).parentElement
+			?.parentElement?.parentElement;
 		expect( header?.style.paddingRight ).toBe( 'calc(138px + var(--wpds-dimension-padding-sm))' );
 		expect( setWindowControlsSurface ).toHaveBeenLastCalledWith( 'toolbar' );
 

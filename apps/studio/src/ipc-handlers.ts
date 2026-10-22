@@ -28,6 +28,7 @@ import {
 	listHydratedAiSessions,
 	loadHydratedAiSession,
 	reconcileSessionEnvironment,
+	setSessionEnvironment,
 	updateHydratedAiSessionMetadata,
 } from '@studio/common/ai/sessions/manage';
 import { appendModelChangeEntry, appendStudioEntry } from '@studio/common/ai/sessions/store';
@@ -78,11 +79,16 @@ import {
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
 import { readAuthToken, updateSharedConfig } from '@studio/common/lib/shared-config';
 import {
+	isSitePreviewPath,
+	readSitePreview,
+	writeSitePreview,
+} from '@studio/common/lib/site-preview-cache';
+import {
 	getLocalFileSize,
 	listLocalFileTree as listSiteFileTree,
 } from '@studio/common/lib/sync/local-file-tree';
 import { supportedEditorConfig, SupportedEditor } from '@studio/common/lib/user-settings/editor';
-import { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
+import { openLinuxTerminal } from '@studio/common/lib/user-settings/open-linux-terminal';
 import { getSessionsDirectory } from '@studio/common/lib/well-known-paths';
 import {
 	cleanupBlueprintTempDir as cleanupBlueprintTempDirShared,
@@ -114,7 +120,6 @@ import {
 	extractErrorFromProcessManagerLogs,
 	simplifyErrorForDisplay,
 } from 'src/lib/error-formatting';
-import { getImageData } from 'src/lib/get-image-data';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
 import { setSentryWpcomUserIdMain } from 'src/lib/main-sentry-utils';
 import * as oauthClient from 'src/lib/oauth';
@@ -157,7 +162,6 @@ import { isStudioCliInstalled } from 'src/modules/cli/lib/ipc-handlers';
 import { STABLE_BIN_DIR_PATH } from 'src/modules/cli/lib/windows-installation-manager';
 import { getDefaultSiteDirectory } from 'src/modules/user-settings/lib/ipc-handlers';
 import { linuxFindEditorPath } from 'src/modules/user-settings/lib/linux-editor-path';
-import { linuxFindTerminalPath } from 'src/modules/user-settings/lib/linux-terminal-path';
 import { winFindEditorPath } from 'src/modules/user-settings/lib/win-editor-path';
 import { getSiteThumbnailPath } from 'src/storage/paths';
 import { updateAppdata, loadUserData } from 'src/storage/user-data';
@@ -344,11 +348,12 @@ export async function setAiSessionProvider(
 	} );
 }
 
-export interface SetSessionEnvironmentResult {
-	environment: 'local' | 'live';
-	url?: string;
-	wpcomSiteId?: number;
-	summary: AiSessionSummary;
+export async function setAiSessionEnvironment(
+	_event: IpcMainInvokeEvent,
+	sessionId: string,
+	environment: 'local' | 'live'
+): Promise< void > {
+	await setSessionEnvironment( getSessionsDirectory(), sessionId, environment );
 }
 
 export async function interruptAiAgentRun(
@@ -1097,8 +1102,24 @@ export async function saveOnboarding( event: IpcMainInvokeEvent, onboardingCompl
 export { getAppUpdateStatus, installAppUpdate } from 'src/updates';
 
 export function getThumbnailData( _event: IpcMainInvokeEvent, id: string ) {
-	const path = getSiteThumbnailPath( id );
-	return getImageData( path );
+	return readSitePreview( id, getSiteThumbnailPath( id ) );
+}
+
+// Saves what the preview webview shows, so a stopped site still has a picture.
+// Only the window hosting the webview may capture it.
+export async function captureSitePreview(
+	event: IpcMainInvokeEvent,
+	siteId: string,
+	guestId: number,
+	pagePath: string
+): Promise< string | null > {
+	const guest = webContents.fromId( guestId );
+	if ( ! guest || guest.hostWebContents !== event.sender || ! isSitePreviewPath( pagePath ) ) {
+		return null;
+	}
+	const png = ( await guest.capturePage() ).toPNG();
+	await writeSitePreview( siteId, png );
+	return `data:image/png;base64,${ png.toString( 'base64' ) }`;
 }
 
 function promiseExec( command: string, options: ExecOptions = {} ): Promise< void > {
@@ -1167,37 +1188,7 @@ export async function openTerminalAtPath( _event: IpcMainInvokeEvent, targetPath
 			env,
 		} );
 	} else if ( platform === 'linux' ) {
-		// Warp on Linux currently opens at its configured "new session"
-		// directory regardless of how it is launched — it ignores
-		// `--working-directory`, the `path=` URL scheme query, and the
-		// spawn cwd. Tracked upstream in warpdotdev/Warp#4974 and #6357.
-		// Best effort: launch with `cwd` set so we benefit if/when upstream
-		// adds support, and so a fresh launch (no daemon yet) at least has
-		// a chance of inheriting it.
-		const launchers: Record< SupportedTerminal, { args: string[]; options?: ExecOptions } | null > =
-			{
-				terminal: { args: [ `--working-directory=${ targetPath }` ] },
-				warp: { args: [], options: { cwd: targetPath } },
-				ghostty: { args: [ `--working-directory=${ targetPath }` ] },
-				iterm: null,
-			};
-
-		const order: SupportedTerminal[] = [ preferredTerminal, 'terminal' ];
-		for ( const candidate of order ) {
-			const launcher = launchers[ candidate ];
-			if ( ! launcher ) {
-				continue;
-			}
-			const binary = await linuxFindTerminalPath( candidate );
-			if ( ! binary ) {
-				continue;
-			}
-			return promiseExecFile( binary, launcher.args, launcher.options );
-		}
-
-		// Last-resort fallback that preserves prior behavior even if no
-		// supported terminal binary is on $PATH.
-		return promiseExecFile( 'gnome-terminal', [ `--working-directory=${ targetPath }` ] );
+		return openLinuxTerminal( preferredTerminal, targetPath );
 	} else {
 		console.error( 'Unsupported platform:', platform );
 		return;

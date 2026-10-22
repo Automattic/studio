@@ -1,12 +1,16 @@
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { classifySyncFailure } from '@studio/common/lib/sync/classify-sync-failure';
+import {
+	SYNC_PUSH_SIZE_LIMIT_BYTES,
+	SYNC_PUSH_SIZE_LIMIT_GB,
+} from '@studio/common/lib/sync/constants';
 import { useQueryClient } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
-import { useEffect } from 'react';
-import { stripProtocol } from '@/components/site-dropdown/utils';
+import { useEffect, useEffectEvent } from 'react';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { connectedWpcomSitesQueryKey } from '@/data/queries/use-connected-wpcom-sites';
+import { usePushSiteToLive } from '@/data/queries/use-sync-site';
 import { SYNCABLE_WPCOM_SITES_QUERY_KEY } from '@/data/queries/use-wpcom-sites';
 import type { SyncSite } from '@/data/core';
 
@@ -14,11 +18,41 @@ import type { SyncSite } from '@/data/core';
 // main-process routes the URL through `handleSyncConnectSiteDeeplink`, which
 // fires a `sync-connect-site` IPC event carrying the freshly picked remote
 // site id and the local Studio site id the connection belongs to. This hook
-// persists the connection and refreshes the cache so the dropdown updates
+// persists the connection and refreshes the cache so the Publish panel updates
 // without requiring a full app reload.
 export function useSyncConnectSiteListener(): void {
 	const connector = useConnector();
 	const queryClient = useQueryClient();
+	const { mutate: pushSite } = usePushSiteToLive();
+
+	const publishEverything = useEffectEvent( async ( siteId: string, remote: SyncSite ) => {
+		const [ size, multisite ] = await Promise.all( [
+			connector.getDirectorySize( siteId, [ 'wp-content' ] ),
+			connector.getIsMultisite( siteId ),
+		] );
+		if ( multisite && ! remote.isPressable ) {
+			toast.error( __( 'Publishing didn’t finish' ), {
+				description: __(
+					'WordPress.com does not support publishing a WordPress Multisite network.'
+				),
+			} );
+		} else if ( size > SYNC_PUSH_SIZE_LIMIT_BYTES ) {
+			toast.error( __( 'Publishing didn’t finish' ), {
+				description: sprintf(
+					/* translators: %s: the publishing size limit in GB */
+					__( 'This site exceeds the %s GB publishing limit. Choose fewer files to publish.' ),
+					String( SYNC_PUSH_SIZE_LIMIT_GB )
+				),
+			} );
+		} else {
+			pushSite( {
+				siteId,
+				remoteSiteId: remote.id,
+				options: { optionsToSync: [ 'all' ] },
+				syncSite: remote,
+			} );
+		}
+	} );
 
 	useEffect( () => {
 		return connector.onSyncConnectSite( async ( { remoteSiteId, studioSiteId, autoOpenPush } ) => {
@@ -51,18 +85,9 @@ export function useSyncConnectSiteListener(): void {
 							lastPushTimestamp: null,
 					  };
 				await connector.connectWpcomSite( studioSiteId, siteToSave );
-				// A site created by the Publish flow starts empty: say what's left to do.
+				// A site created by the Publish flow starts empty, so publish all of it.
 				if ( autoOpenPush ) {
-					toast.success(
-						siteToSave.url
-							? sprintf(
-									/* translators: %s: address of the newly connected WordPress.com site */
-									__( '%s is connected' ),
-									stripProtocol( siteToSave.url )
-							  )
-							: __( 'Your new WordPress.com site is connected' ),
-						{ description: __( 'Push your site to publish it.' ) }
-					);
+					void publishEverything( studioSiteId, siteToSave );
 				}
 				const connected =
 					queryClient.getQueryData< SyncSite[] >( connectedWpcomSitesQueryKey( studioSiteId ) ) ??

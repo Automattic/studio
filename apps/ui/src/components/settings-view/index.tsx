@@ -355,5 +355,6 @@ export { AiPanel } from './ai-panel';
 export { AppearanceSettings } from './appearance-settings';
 export { KeyboardPanel } from './keyboard-panel';
 export { McpPanel } from './mcp-panel';
+export { SharingPanel } from './sharing-panel';
 export { SkillsPanel } from './skills-panel';
 export { UsagePanel } from './usage-panel';

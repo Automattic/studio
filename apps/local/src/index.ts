@@ -22,6 +22,7 @@ import {
 	listHydratedAiSessions,
 	loadHydratedAiSession,
 	reconcileSessionEnvironment,
+	setSessionEnvironment,
 	updateHydratedAiSessionMetadata,
 } from '@studio/common/ai/sessions/manage';
 import { deleteAiSessionPlacement } from '@studio/common/ai/sessions/placement';
@@ -96,6 +97,11 @@ import {
 	readAuthToken,
 	updateSharedConfig,
 } from '@studio/common/lib/shared-config';
+import {
+	isSitePreviewPath,
+	readSitePreview,
+	writeSitePreview,
+} from '@studio/common/lib/site-preview-cache';
 import { fetchSnapshotUsage } from '@studio/common/lib/snapshots';
 import { fetchStudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 import { fetchStudioAssistantTopUpPricing } from '@studio/common/lib/studio-assistant-top-up-pricing';
@@ -191,6 +197,8 @@ export interface LocalServerOptions {
 	// Injected by `studio ui` rather than imported, so this package doesn't depend
 	// on the CLI.
 	recordTracksEvent?: ( event: TracksEventName, props?: TracksProps ) => Promise< void >;
+	// Screenshots a page of a running site; absent when no browser is available.
+	capturePreview?: ( url: string, size: { width: number; height: number } ) => Promise< Buffer >;
 }
 
 export interface LocalServer {
@@ -752,6 +760,54 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				)
 			);
 			res.status( 204 ).end();
+		} )
+	);
+
+	api.get(
+		'/sites/:id/thumbnail',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			res.json( { thumbnail: await readSitePreview( req.params.id ) } );
+		} )
+	);
+
+	api.post(
+		'/sites/:id/capture-preview',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const parsed = z
+				.object( {
+					path: z.string(),
+					width: z.number().int().min( 1 ).max( 2400 ),
+					height: z.number().int().min( 1 ).max( 2400 ),
+				} )
+				.safeParse( req.body );
+			if ( ! parsed.success ) {
+				res.status( 400 ).json( { error: 'path, width and height required' } );
+				return;
+			}
+			const { path: pagePath, width, height } = parsed.data;
+			if ( ! options.capturePreview || ! isSitePreviewPath( pagePath ) ) {
+				res.json( { thumbnail: null } );
+				return;
+			}
+			const site = ( await listSites( execute ) ).find( ( item ) => item.id === req.params.id );
+			if ( ! site?.running ) {
+				res.json( { thumbnail: null } );
+				return;
+			}
+			const url = new URL( pagePath, site.url );
+			if ( url.origin !== new URL( site.url ).origin ) {
+				res.status( 400 ).json( { error: 'The page must be on the site.' } );
+				return;
+			}
+			const png = await options
+				.capturePreview( url.toString(), { width, height } )
+				.catch( () => null );
+			if ( ! png ) {
+				res.json( { thumbnail: null } );
+				return;
+			}
+			await writeSitePreview( site.id, png );
+			res.json( { thumbnail: `data:image/png;base64,${ png.toString( 'base64' ) }` } );
 		} )
 	);
 
@@ -1856,6 +1912,19 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				provider,
 				model,
 			} );
+			res.sendStatus( 204 );
+		} )
+	);
+
+	api.post(
+		'/sessions/:id/environment',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const { environment } = req.body as { environment?: string };
+			if ( environment !== 'local' && environment !== 'live' ) {
+				res.status( 400 ).json( { error: `Unknown environment: ${ environment }` } );
+				return;
+			}
+			await setSessionEnvironment( sessionsRoot, req.params.id, environment );
 			res.sendStatus( 204 );
 		} )
 	);

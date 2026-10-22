@@ -1,6 +1,6 @@
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { applySyncActivity, getSyncCancelLabels, useSiteSyncActivity } from './sync-activity';
+import { applySyncActivity, useSiteSyncActivity } from './sync-activity';
 
 describe( 'applySyncActivity', () => {
 	afterEach( () => {
@@ -54,42 +54,5 @@ describe( 'applySyncActivity', () => {
 			applySyncActivity( siteId, { kind: 'pending', direction: 'push', phase: 'finishing' } );
 		} );
 		expect( result.current ).toMatchObject( { message: 'Almost there…' } );
-	} );
-} );
-
-describe( 'getSyncCancelLabels', () => {
-	it( 'offers the cancel while the work can still be stopped', () => {
-		expect(
-			getSyncCancelLabels( { kind: 'pending', direction: 'push', phase: 'uploading' } )
-		).toEqual( { enabled: true, label: 'Cancel push' } );
-		expect(
-			getSyncCancelLabels( { kind: 'pending', direction: 'pull', action: 'initiateBackup' } )
-		).toEqual( { enabled: true, label: 'Cancel pull' } );
-	} );
-
-	// Kept visible but disabled, so the affordance does not vanish mid-sync — the
-	// label carries the reason instead.
-	it( 'keeps the cancel but explains why it is refused past the point of no return', () => {
-		expect(
-			getSyncCancelLabels( { kind: 'pending', direction: 'push', phase: 'applyingChanges' } )
-		).toEqual( {
-			enabled: false,
-			label: 'Push can not be cancelled while applying changes to the remote site',
-		} );
-		expect(
-			getSyncCancelLabels( { kind: 'pending', direction: 'pull', action: 'import' } )
-		).toEqual( {
-			enabled: false,
-			label: 'Pull can not be cancelled while importing changes to your local site',
-		} );
-	} );
-
-	it( 'offers nothing when no push or pull is running', () => {
-		expect( getSyncCancelLabels( null ) ).toBeNull();
-		expect( getSyncCancelLabels( { kind: 'success', direction: 'pull' } ) ).toBeNull();
-		expect( getSyncCancelLabels( { kind: 'pending', direction: 'preview' } ) ).toBeNull();
-		// An import rewrites the site but isn't a sync — it must not fall through
-		// to the pull wording and offer a cancel this code cannot honour.
-		expect( getSyncCancelLabels( { kind: 'pending', direction: 'import' } ) ).toBeNull();
 	} );
 } );

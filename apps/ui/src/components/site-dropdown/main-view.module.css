@@ -32,35 +32,6 @@
 	flex: 1;
 }
 
-.activityStatusNote {
-	color: var(--wpds-color-foreground-content-neutral-weak);
-	font-size: var(--wpds-typography-font-size-xs);
-	/* Matches the smaller font size — inheriting the row's `sm` line height
-	   leaves this sentence too airy once it wraps onto a second line. */
-	line-height: var(--wpds-typography-line-height-xs);
-	text-wrap: pretty;
-}
-
-/* Pins the neutral colors so the disabled state reads as disabled. */
-.cancelSyncButton {
-	flex: 0 0 auto;
-	width: 28px;
-	height: 28px;
-	padding: 0;
-	justify-content: center;
-	color: var(--wpds-color-foreground-interactive-neutral);
-}
-
-.cancelSyncButton:is([data-disabled], :disabled) {
-	color: var(--wpds-color-foreground-interactive-neutral-disabled);
-}
-
-.cancelSyncButton svg {
-	width: 14px;
-	height: 14px;
-	fill: currentColor;
-}
-
 /* The popup keeps `overflow: visible`, so this — the only row that fills to the
    popup edge — has to round its own top corners or it squares off the popup's.
    Inset by the border width so the curve nests inside it instead of cutting it. */

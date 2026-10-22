@@ -27,13 +27,14 @@ import {
 	InstructionsSettings,
 	KeyboardPanel,
 	McpPanel,
+	SharingPanel,
 	SkillsPanel,
 	UsagePanel,
 } from '@/components/settings-view';
 import { SiteSettingsForm } from '@/components/site-settings-view';
 import { useSessions } from '@/data/queries/use-sessions';
 import { useSites } from '@/data/queries/use-sites';
-import { chatIcon, settingsIcon } from '@/lib/icons';
+import { chatIcon, settingsIcon, shareIcon } from '@/lib/icons';
 import { readLastVisited } from '@/lib/last-visited';
 import { SettingsDialogContext } from './context';
 import { SiteAgentFiles } from './site-agent-files';
@@ -44,6 +45,7 @@ import type { ReactElement } from 'react';
 const STUDIO_SECTIONS = [
 	'general',
 	'appearance',
+	'sharing',
 	'ai',
 	'mcp',
 	'usage',
@@ -57,6 +59,7 @@ const SITE_FORM_SECTIONS = [ 'site', 'debugging', 'php' ];
 export type SettingsSectionId =
 	| 'general'
 	| 'appearance'
+	| 'sharing'
 	| 'ai'
 	| 'mcp'
 	| 'usage'
@@ -104,6 +107,12 @@ function getSections( scope: 'studio' | 'site' ): Section[] {
 					label: __( 'Appearance' ),
 					icon: brush,
 					settings: [ __( 'Theme' ), __( 'Color' ), __( 'Intensity' ), __( 'Reset appearance' ) ],
+				},
+				{
+					id: 'sharing',
+					label: __( 'Sharing' ),
+					icon: shareIcon,
+					settings: [ __( 'Sharing previews on WordPress.com' ), __( 'Live previews' ) ],
 				},
 				{
 					id: 'ai',
@@ -180,6 +189,8 @@ function StudioSection( {
 	switch ( id ) {
 		case 'appearance':
 			return <AppearanceSettings />;
+		case 'sharing':
+			return <SharingPanel />;
 		case 'ai':
 			return <AiPanel />;
 		case 'mcp':

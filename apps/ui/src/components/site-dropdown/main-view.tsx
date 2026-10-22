@@ -1,18 +1,12 @@
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { type SiteOperationKind } from '@studio/common/lib/site-operation';
-import { getSiteOperationLabel } from '@studio/common/lib/site-operation-labels';
-import { canCancelSyncActivity } from '@studio/common/lib/sync/cancel';
-import { useIsMutating } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
-import { close, external, Icon } from '@wordpress/icons';
-import { Button, IconButton, Tooltip } from '@wordpress/ui';
+import { external, Icon } from '@wordpress/icons';
+import { IconButton, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
-import { useMemo } from 'react';
 import { useOpenInDestinations } from '@/components/open-in-menu/use-open-in-destinations';
 import { XdebugIcon } from '@/components/xdebug-icon';
 import { useConnector } from '@/data/core';
-import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
-import { useLogin } from '@/data/queries/use-auth-user';
 import {
 	useIsSiteBusy,
 	useIsSiteStarting,
@@ -21,176 +15,36 @@ import {
 	useStartSite,
 	useStopSite,
 } from '@/data/queries/use-sites';
-import { useSnapshotUsage, useSnapshots } from '@/data/queries/use-snapshots';
-import {
-	PULL_FROM_LIVE_MUTATION_KEY,
-	PUSH_TO_LIVE_MUTATION_KEY,
-	useCancelSync,
-} from '@/data/queries/use-sync-site';
-import { useLiveWpcomSites } from '@/data/queries/use-wpcom-sites';
-import { getSyncCancelLabels } from '@/data/sync-activity';
 import { getSiteUrl } from '@/lib/get-site-url';
-import { LiveSitesSection } from './live-sites-section';
 import styles from './main-view.module.css';
 import { PopoverRow } from './popover-row';
-import { PreviewsSection } from './previews-section';
 import { getSyncActivityLabel } from './trigger-secondary';
-import { deriveSiteStatus, getSiteStatusName, getSiteSnapshots } from './utils';
-import type { SiteDetails, SyncSite } from '@/data/core';
+import { deriveSiteStatus, getSiteStatusName } from './utils';
+import type { SiteDetails } from '@/data/core';
 import type { SyncActivity } from '@/data/sync-activity';
 
 type Props = {
 	site: SiteDetails;
 	activity: SyncActivity | null;
-	// Switches the dropdown to the publish picker. Lives in the parent because
-	// the picker is a sibling view at the popup level.
-	onSetupClick: () => void;
-	// Opens the disconnect-site confirmation dialog; owned by the parent so the
-	// dialog persists after the dropdown closes.
-	onDisconnectClick: ( liveSite: SyncSite ) => void;
-	// Open the selective-sync dialog for pull/push; owned by the parent for the
-	// same reason as the disconnect dialog.
-	onPullClick: ( liveSite: SyncSite ) => void;
-	onPushClick: ( liveSite: SyncSite ) => void;
 };
 
-// Push/pull mutations this window has in flight for the site, across hook
-// instances. Only those can be cancelled: a sync the agent or a terminal runs is
-// out of this window's reach.
-function useSyncsStartedHere( siteId: string ): { push: boolean; pull: boolean } {
-	const push =
-		useIsMutating( {
-			mutationKey: PUSH_TO_LIVE_MUTATION_KEY,
-			predicate: ( mutation ) =>
-				( mutation.state.variables as { siteId: string } | undefined )?.siteId === siteId,
-		} ) > 0;
-	const pull =
-		useIsMutating( {
-			mutationKey: PULL_FROM_LIVE_MUTATION_KEY,
-			predicate: ( mutation ) =>
-				( mutation.state.variables as { siteId: string } | undefined )?.siteId === siteId,
-		} ) > 0;
-	return { push, pull };
-}
-
-// Why there is nothing to list yet, or why a new preview can't be created.
-function getPreviewsNotice(
-	agenticEnabled: boolean,
-	isOffline: boolean,
-	hasPreviews: boolean,
-	snapshotUsage?: { siteCount: number; siteLimit: number; siteCreationBlocked: boolean } | null
-): string | null {
-	if ( agenticEnabled ) {
-		if ( snapshotUsage?.siteCreationBlocked ) {
-			return __( 'Preview sites are not available for your account.' );
-		}
-		if ( snapshotUsage && snapshotUsage.siteCount >= snapshotUsage.siteLimit ) {
-			return sprintf(
-				/* translators: %d: maximum number of preview sites allowed */
-				__( "You've used all %d preview sites available on your account." ),
-				snapshotUsage.siteLimit
-			);
-		}
-		return hasPreviews ? null : __( 'Share a review link for this version.' );
-	}
-	if ( isOffline ) {
-		return __( 'Go online to share a review link.' );
-	}
-	return __( 'Sign in to share a review link.' );
-}
-
-function getLivePanelCopy( agenticEnabled: boolean, isOffline: boolean ): string {
-	if ( agenticEnabled ) {
-		return __( 'No connected site.' );
-	}
-	if ( isOffline ) {
-		return __( 'Go online to connect a live site.' );
-	}
-	return __( 'Sign in to connect a live site.' );
-}
-
-export function MainView( {
-	site,
-	activity,
-	onSetupClick,
-	onDisconnectClick,
-	onPullClick,
-	onPushClick,
-}: Props ) {
+export function MainView( { site, activity }: Props ) {
 	const connector = useConnector();
 	const openInDestinations = useOpenInDestinations( site );
-	const { enabled: agenticEnabled, reason: agenticReason } = useAgenticFeatures();
-	const isOffline = agenticReason === 'offline';
-	const login = useLogin( { source: 'site_header' } );
-	const { data: snapshots } = useSnapshots();
-	const { data: snapshotUsage } = useSnapshotUsage();
-	const connectedSites = useLiveWpcomSites( site.id );
-
-	const siteSnapshots = useMemo(
-		() => getSiteSnapshots( snapshots, site.id ),
-		[ snapshots, site.id ]
-	);
 
 	const startSite = useStartSite();
 	const stopSite = useStopSite();
-	const cancelSync = useCancelSync();
 
 	const isStarting = useIsSiteStarting( site.id );
 	const isStopping = useIsSiteStopping( site.id );
 	const isOperationInProgress = useIsSiteBusy( site );
 	const operation = useSiteOperation( site );
-	const startedHere = useSyncsStartedHere( site.id );
-	// Preview / push / pull all mutate the same local site; running them
-	// concurrently would wedge the site runtime. An import replaces that site's
-	// files and database outright, so it locks them out too.
-	const syncing = activity?.kind === 'pending' ? activity.direction : null;
-	const isSyncing = syncing !== null;
-	const isPreviewPending = syncing === 'preview';
-	const isPushPending = syncing === 'push';
-	const isPullPending = syncing === 'pull';
-	const canStopSync =
-		( isPushPending && startedHere.push ) || ( isPullPending && startedHere.pull );
-	// …and none of them can run while the CLI holds the site either. Gate the
-	// controls on both, so an operation the agent took disables them visibly rather
-	// than leaving buttons that swallow the click.
-	const isSiteBusy = isSyncing || isOperationInProgress;
-
-	const isPreviewLimitReached =
-		snapshotUsage?.siteCreationBlocked === true ||
-		( snapshotUsage?.siteCount ?? 0 ) >= ( snapshotUsage?.siteLimit ?? Infinity );
-
 	const { localSublabel } = deriveSiteStatus( site, isStarting, isStopping, operation );
 	const localSiteUrl = getSiteUrl( site );
 	const canOpenLocalSite = site.running && ! isStopping;
 
 	const openExternal = ( url: string ) => {
 		void connector.openExternalUrl( url );
-	};
-
-	const getSyncActionLabel = ( idle: string, pending: string, isPending: boolean ): string => {
-		if ( isPending ) {
-			return pending;
-		}
-		if ( operation ) {
-			return sprintf(
-				/* translators: 1: a sync action, e.g. "Pull from live". 2: an operation in progress, e.g. "Saving settings". */
-				__( '%1$s (%2$s)' ),
-				idle,
-				getSiteOperationLabel( operation )
-			);
-		}
-		if ( isSyncing ) {
-			// translators: %s: a sync action, e.g. "Pull from live".
-			return sprintf( __( '%s (sync in progress)' ), idle );
-		}
-		if ( ! agenticEnabled ) {
-			return isOffline
-				? // translators: %s: a sync action, e.g. "Pull from live".
-				  sprintf( __( '%s (offline)' ), idle )
-				: // translators: %s: a sync action, e.g. "Pull from live".
-				  sprintf( __( '%s (sign in required)' ), idle );
-		}
-		return idle;
 	};
 
 	const handleStartLocalClick = () => {
@@ -237,22 +91,9 @@ export function MainView( {
 
 	return (
 		<div className={ styles.rows }>
-			{ ( activity?.kind === 'pending' && ! isPreviewPending ) || activity?.kind === 'error' ? (
-				<SyncActivityDetails
-					activity={ activity }
-					showCancel={ canStopSync }
-					onCancel={
-						activity.kind === 'pending' &&
-						activity.remoteSiteId !== undefined &&
-						canCancelSyncActivity( activity )
-							? () =>
-									cancelSync.mutate( {
-										siteId: site.id,
-										remoteSiteId: activity.remoteSiteId as number,
-									} )
-							: undefined
-					}
-				/>
+			{ activity?.direction === 'import' &&
+			( activity.kind === 'pending' || activity.kind === 'error' ) ? (
+				<SyncActivityDetails activity={ activity } />
 			) : null }
 
 			<PopoverRow
@@ -310,36 +151,6 @@ export function MainView( {
 					</div>
 				}
 			/>
-
-			<PreviewsSection
-				site={ site }
-				snapshots={ siteSnapshots }
-				activity={ activity }
-				notice={ getPreviewsNotice(
-					agenticEnabled,
-					isOffline,
-					siteSnapshots.length > 0,
-					snapshotUsage
-				) }
-				canPublish={ ! isSiteBusy && agenticEnabled }
-				canCreate={ ! isPreviewLimitReached }
-				getPublishLabel={ ( idle ) => getSyncActionLabel( idle, __( 'Updating preview…' ), false ) }
-			/>
-
-			<LiveSitesSection
-				liveSites={ connectedSites }
-				activity={ activity }
-				notice={ getLivePanelCopy( agenticEnabled, isOffline ) }
-				actionLabel={ agenticEnabled || isOffline ? __( 'Connect site' ) : __( 'Log in' ) }
-				actionDisabled={ isSiteBusy || isOffline }
-				actionLoading={ ! agenticEnabled && login.isPending }
-				onAction={ agenticEnabled ? onSetupClick : () => login.mutate() }
-				canSync={ ! isSiteBusy && agenticEnabled }
-				getSyncLabel={ getSyncActionLabel }
-				onPull={ onPullClick }
-				onPush={ onPushClick }
-				onDisconnect={ onDisconnectClick }
-			/>
 		</div>
 	);
 }
@@ -367,17 +178,9 @@ function XdebugBadge( { running }: { running: boolean } ) {
 
 function SyncActivityDetails( {
 	activity,
-	showCancel,
-	onCancel,
 }: {
 	activity: Extract< SyncActivity, { kind: 'pending' | 'error' } >;
-	showCancel: boolean;
-	onCancel?: () => void;
 } ) {
-	// Same wording as the classic renderer.
-	const cancel = showCancel ? getSyncCancelLabels( activity ) : null;
-	const blockedLabel = cancel && ! cancel.enabled ? cancel.label : null;
-
 	return (
 		<div
 			className={ clsx(
@@ -388,33 +191,9 @@ function SyncActivityDetails( {
 			<div className={ styles.activityStatusText } role="status" aria-live="polite">
 				<div className={ styles.activityStatusTitle }>{ getSyncActivityLabel( activity ) }</div>
 				<div className={ styles.activityStatusMessage }>
-					{ activity.message ??
-						( activity.direction === 'import'
-							? __( 'Preparing the backup…' )
-							: __( 'Preparing the live site…' ) ) }
+					{ activity.message ?? __( 'Preparing the backup…' ) }
 				</div>
-				{ blockedLabel ? (
-					// Stating this inline rather than leaving it to the disabled
-					// button's tooltip: nobody hovers a control that looks inert.
-					<div className={ styles.activityStatusNote }>{ blockedLabel }</div>
-				) : null }
 			</div>
-			{ cancel ? (
-				// A plain Button, not an IconButton: IconButton always wraps itself in
-				// a Tooltip, and tooltips never render inside this menu anyway.
-				<Button
-					className={ styles.cancelSyncButton }
-					variant="minimal"
-					tone="neutral"
-					size="small"
-					aria-label={ cancel.label }
-					disabled={ ! cancel.enabled }
-					focusableWhenDisabled
-					onClick={ () => onCancel?.() }
-				>
-					<Icon icon={ close } size={ 20 } />
-				</Button>
-			) : null }
 		</div>
 	);
 }

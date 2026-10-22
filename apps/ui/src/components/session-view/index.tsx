@@ -2,6 +2,7 @@ import {
 	getEffectiveSessionProvider,
 	resolveSessionModelForProvider,
 } from '@studio/common/ai/providers';
+import { pickLiveSite } from '@studio/common/ai/sessions/effective-site';
 import { findAiSessionOwnerSite } from '@studio/common/ai/sessions/owner-site';
 import {
 	getStudioCodeAiAccessState,
@@ -25,20 +26,26 @@ import {
 } from 'react';
 import { AgenticSigninPrompt } from '@/components/agentic-signin-banner';
 import { OpenChatShortcuts } from '@/components/chat-actions';
+import { PreviewParticles } from '@/components/preview-particles';
 import { PreviewToggleButton } from '@/components/preview-toggle-button';
 import { ProgressiveBlur } from '@/components/progressive-blur';
+import { ShareButton } from '@/components/share-dialog';
 import { HeaderSidebarToggle } from '@/components/sidebar-toggle';
 import { SiteDropdown } from '@/components/site-dropdown';
 import { SiteIcon } from '@/components/site-icon';
+import { SiteLifecycleButton } from '@/components/site-lifecycle-button';
 import { type Annotation } from '@/components/site-preview/types';
+import { StoppedSitePreview } from '@/components/stopped-site-preview';
 import { useAgentRun } from '@/data/queries/use-agent-run';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useAiSettings } from '@/data/queries/use-ai-settings';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
+import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
 import {
 	useCreateSession,
 	useSession,
 	useSessionEffectiveEnvironment,
+	useSetSessionEnvironment,
 } from '@/data/queries/use-sessions';
 import {
 	useIsSiteStarting,
@@ -64,11 +71,9 @@ import {
 } from './annotations';
 import { Composer, ComposerSkeleton, type ComposerHandle } from './composer';
 import { Conversation } from './conversation';
-import { EmptyBackground } from './empty-background';
 import { QueuedPrompts } from './queued-prompts';
 import { useNewChatShortcut } from './session-chat-actions';
 import styles from './style.module.css';
-import { SuggestedPrompts } from './suggested-prompts';
 import type { SiteDetails } from '@/data/core';
 
 // Slack below the bottom edge that still counts as "at the latest message",
@@ -133,7 +138,14 @@ function SessionHeader( {
 			<span className={ styles.headerSpacer } aria-hidden="true" />
 			{ site && effectiveEnvironment === 'local' ? (
 				<div className={ styles.headerActions } data-header-actions>
-					<PreviewToggleButton canHideChat />
+					{ site.running ? (
+						<PreviewToggleButton canHideChat />
+					) : (
+						<>
+							<SiteLifecycleButton site={ site } />
+							<ShareButton site={ site } />
+						</>
+					) }
 				</div>
 			) : null }
 		</div>
@@ -493,6 +505,9 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	const isSiteStarting = useIsSiteStarting( ownerSite?.id );
 	const isSiteStopping = useIsSiteStopping( ownerSite?.id );
 	const canAutoStart = !! ownerSite && effectiveEnvironment === 'local';
+	const { data: connectedSites } = useConnectedWpcomSites( ownerSite?.id );
+	const liveSite = pickLiveSite( connectedSites ?? [] );
+	const { mutate: setEnvironment } = useSetSessionEnvironment( sessionId );
 	const sendWithAutoStart = useCallback(
 		( prompt: string, attachments?: Parameters< typeof sendMessage >[ 1 ] ) => {
 			if (
@@ -572,7 +587,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	if ( isLoading || notFound || ! data || isQuotaLoading ) {
 		// Use the same SessionFrame with an empty header and a structural
 		// ComposerSkeleton so the scroll area has the exact same dimensions
-		// as the loaded view — otherwise the EmptyBackground canvas jumps
+		// as the loaded view — otherwise the empty-state dots jump
 		// mid-transition.
 		return (
 			<SessionFrame
@@ -583,7 +598,9 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 					</div>
 				}
 			>
-				<EmptyBackground />
+				<div className={ styles.emptyState }>
+					<PreviewParticles />
+				</div>
 			</SessionFrame>
 		);
 	}
@@ -599,7 +616,9 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 					/>
 				}
 			>
-				<EmptyBackground />
+				<div className={ styles.emptyState }>
+					<PreviewParticles />
+				</div>
 				<AccessRequirements
 					quota={ quota }
 					isRechecking={ isQuotaFetching }
@@ -657,28 +676,22 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 						placeholder={ composerPlaceholder }
 						placeholderBusy={ isSiteStarting || isSiteStopping }
 						canAutoStart={ canAutoStart }
+						environment={ effectiveEnvironment }
+						liveUrl={ liveSite?.url }
+						onEnvironmentChange={ ownerSite ? setEnvironment : undefined }
 						dropTarget={ frameNode }
 					/>
 				</div>
 			}
 		>
 			<OpenChatShortcuts session={ data.summary } />
-			{ isEmpty && ! pendingPrompt ? <EmptyBackground /> : null }
-			{ isEmpty && ! pendingPrompt && ownerSite && ! isOutOfCredits ? (
-				<SuggestedPrompts
-					fadeIn={ fadeAfterQuotaCheck }
-					siteName={ ownerSite.name }
-					onPick={ ( prompt ) =>
-						composerRef.current?.replaceDraft( prompt, { suggestionBaseline: prompt } )
-					}
-					getDraft={ () =>
-						composerRef.current?.getDraft() ?? {
-							text: '',
-							hasAttachments: false,
-							suggestionBaseline: null,
-						}
-					}
-				/>
+			{ isEmpty && ! pendingPrompt ? (
+				<div className={ styles.emptyState }>
+					<PreviewParticles active={ isSiteStarting } showLogo={ isSiteStarting } />
+					{ ownerSite && ! ownerSite.running && ! isSiteStarting ? (
+						<StoppedSitePreview site={ ownerSite } />
+					) : null }
+				</div>
 			) : null }
 			<div className={ clsx( styles.column, styles.conversationSpacing ) }>
 				<Conversation

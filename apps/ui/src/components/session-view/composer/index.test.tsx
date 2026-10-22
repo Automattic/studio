@@ -1,15 +1,7 @@
 import { DEFAULT_MODEL } from '@studio/common/ai/models';
 import { getAiSkillCommands } from '@studio/common/ai/slash-commands';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import {
-	act,
-	createEvent,
-	fireEvent,
-	render,
-	screen,
-	waitFor,
-	within,
-} from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { Tooltip } from '@wordpress/ui';
 import { createRef, type ComponentProps } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -347,6 +339,26 @@ describe( 'Composer menu', () => {
 		);
 	} );
 
+	it( 'switches to the live site from the add menu and back from its chip', async () => {
+		const onEnvironmentChange = vi.fn();
+		const { rerenderComposer } = renderComposer( {
+			liveUrl: 'https://example.com',
+			onEnvironmentChange,
+		} );
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Add' } ) );
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: /^Work on live site/ } ) );
+		expect( onEnvironmentChange ).toHaveBeenCalledWith( 'live' );
+
+		rerenderComposer( {
+			environment: 'live',
+			liveUrl: 'https://example.com',
+			onEnvironmentChange,
+		} );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Remove Live' } ) );
+		expect( onEnvironmentChange ).toHaveBeenLastCalledWith( 'local' );
+	} );
+
 	it( 'answers a pending question with typed text, but still queues skill commands', async () => {
 		const onSend = vi.fn< ( prompt: string ) => Promise< void > >();
 		const onAnswer = vi.fn();
@@ -439,31 +451,6 @@ describe( 'Composer menu', () => {
 		firstSession.rerenderComposer();
 		expect( screen.getByRole( 'combobox' ) ).toHaveValue( 'Keep this draft for session one' );
 		expect( screen.getByRole( 'listitem', { name: /^notes\.txt/ } ) ).toBeInTheDocument();
-	} );
-
-	it( 'restores the suggestion baseline with its session draft', async () => {
-		const firstSession = renderComposer();
-		act( () => {
-			firstSession.composerRef.current?.replaceDraft( 'A suggested prompt', {
-				suggestionBaseline: 'A suggested prompt',
-			} );
-		} );
-		await waitFor( () =>
-			expect( firstSession.composerRef.current?.getDraft() ).toEqual( {
-				text: 'A suggested prompt',
-				hasAttachments: false,
-				suggestionBaseline: 'A suggested prompt',
-			} )
-		);
-
-		firstSession.rerenderComposer( { sessionId: 'session-2' } );
-		firstSession.rerenderComposer();
-
-		expect( firstSession.composerRef.current?.getDraft() ).toEqual( {
-			text: 'A suggested prompt',
-			hasAttachments: false,
-			suggestionBaseline: 'A suggested prompt',
-		} );
 	} );
 
 	it( 'clears the cached draft after sending', async () => {

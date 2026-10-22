@@ -34,6 +34,7 @@ import {
 	chevronDownSmall,
 	chevronRightSmall,
 	closeSmall,
+	globe,
 	page,
 	play,
 	plus,
@@ -51,6 +52,8 @@ import {
 	useState,
 	type ChangeEvent,
 	type MouseEvent,
+	type ReactElement,
+	type SVGProps,
 } from 'react';
 import { createPortal } from 'react-dom';
 import { AiCreditsPurchaseDialog } from '@/components/ai-credits-purchase-dialog';
@@ -193,6 +196,44 @@ const AI_PROVIDER_OPTIONS = AI_PROVIDER_IDS.map( ( id ) => ( {
 const SUBMIT_SHAKE_MS = 240;
 const SUBMIT_FEEDBACK_MS = 900;
 
+// A mode the composer is in; hovering offers to remove it.
+function ModeChip( {
+	icon,
+	label,
+	onRemove,
+}: {
+	icon: ReactElement< SVGProps< SVGSVGElement > >;
+	label: string;
+	onRemove: () => void;
+} ) {
+	const removeLabel = sprintf(
+		/* translators: %s: name of a composer mode, e.g. "Auto-start". */
+		__( 'Remove %s' ),
+		label
+	);
+	return (
+		<Tooltip.Root>
+			<Tooltip.Trigger
+				render={
+					<button
+						type="button"
+						className={ styles.modeChip }
+						aria-label={ removeLabel }
+						onClick={ onRemove }
+					/>
+				}
+			>
+				<Icon icon={ icon } size={ 16 } className={ styles.modeChipIcon } />
+				<Icon icon={ closeSmall } size={ 16 } className={ styles.modeChipRemove } />
+				<span>{ label }</span>
+			</Tooltip.Trigger>
+			<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
+				{ removeLabel }
+			</Tooltip.Popup>
+		</Tooltip.Root>
+	);
+}
+
 /**
  * Invisible structural placeholder that mirrors Composer's outer DOM, so the
  * loading state reserves the same vertical space without a visible composer.
@@ -237,6 +278,10 @@ interface ComposerProps {
 	placeholderBusy?: boolean;
 	// Offers the auto-start preference, for a chat on a local site.
 	canAutoStart?: boolean;
+	// The site the chat works on, and the connected live site it can switch to.
+	environment?: 'local' | 'live';
+	liveUrl?: string;
+	onEnvironmentChange?: ( environment: 'local' | 'live' ) => void;
 	// Where files can be dropped; the composer itself when absent.
 	dropTarget?: HTMLElement | null;
 	onModelChange?: ( model: AiModelId ) => void;
@@ -255,12 +300,8 @@ export interface ComposerHandle {
 		options?: {
 			images?: StudioChatImage[];
 			files?: StudioChatFileAttachment[];
-			suggestionBaseline?: string;
 		}
 	): void;
-	// What replaceDraft would discard — lets callers decide whether the
-	// replacement warrants a confirmation.
-	getDraft(): { text: string; hasAttachments: boolean; suggestionBaseline: string | null };
 	getSubmission(): { prompt: string; attachments: ComposerSendAttachments } | null;
 	focus(): void;
 }
@@ -301,6 +342,9 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		placeholder: placeholderOverride,
 		placeholderBusy = false,
 		canAutoStart = false,
+		environment = 'local',
+		liveUrl,
+		onEnvironmentChange,
 		dropTarget,
 		onModelChange,
 	},
@@ -309,7 +353,6 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 	const isField = variant === 'field';
 	const [ initialDraft ] = useState( () => getComposerDraft( sessionId ) );
 	const [ value, setValue ] = useState( initialDraft.text );
-	const [ suggestionBaseline, setSuggestionBaseline ] = useState( initialDraft.suggestionBaseline );
 	const [ sending, setSending ] = useState( false );
 	const [ submitFeedback, setSubmitFeedback ] = useState< 'shake' | 'error' | null >( null );
 	const [ hoverPreview, setHoverPreview ] = useState< ComposerAttachmentHoverPreviewState | null >(
@@ -392,11 +435,11 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 
 	useEffect( () => {
 		if ( draftEffectInitializedRef.current ) {
-			saveComposerDraft( sessionId, { text: value, attachments, suggestionBaseline } );
+			saveComposerDraft( sessionId, { text: value, attachments } );
 		} else {
 			draftEffectInitializedRef.current = true;
 		}
-	}, [ attachments, sessionId, suggestionBaseline, value ] );
+	}, [ attachments, sessionId, value ] );
 
 	useEffect( () => {
 		if ( submitFeedback === null ) {
@@ -445,12 +488,8 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 			},
 			replaceDraft( text, options ) {
 				setValue( text );
-				setSuggestionBaseline( options?.suggestionBaseline ?? null );
 				restoreAttachments( toComposerDraftAttachments( options ?? {} ) );
 				queueMicrotask( () => focusAtEnd( textareaRef.current ) );
-			},
-			getDraft() {
-				return { text: value, hasAttachments: attachments.length > 0, suggestionBaseline };
 			},
 			getSubmission() {
 				const prompt = value.trim();
@@ -461,7 +500,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 				focusAtEnd( textareaRef.current );
 			},
 		} ),
-		[ restoreAttachments, value, attachments, suggestionBaseline ]
+		[ restoreAttachments, value, attachments ]
 	);
 
 	const answerQuestion =
@@ -479,7 +518,6 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		}
 		if ( answerQuestion ) {
 			setValue( '' );
-			setSuggestionBaseline( null );
 			answerQuestion( trimmed );
 			return;
 		}
@@ -501,7 +539,6 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		completeComposerDraftSend( sessionId, trimmed, sentIds );
 		if ( ( textareaRef.current?.value ?? '' ).trim() === trimmed ) {
 			setValue( '' );
-			setSuggestionBaseline( null );
 		}
 		removeAttachments( sentIds );
 	}, [
@@ -914,6 +951,36 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 											</span>
 										</Menu.Item>
 									) : null }
+									{ onEnvironmentChange && environment === 'local' && liveUrl ? (
+										<Menu.Item
+											className={ styles.describedItem }
+											disabled={ busy }
+											onClick={ () => onEnvironmentChange( 'live' ) }
+										>
+											<span className={ styles.describedItemBody }>
+												<span className={ styles.describedItemLabel }>
+													{ __( 'Work on live site' ) }
+												</span>
+												<span className={ styles.describedItemDescription }>{ liveUrl }</span>
+											</span>
+										</Menu.Item>
+									) : null }
+									{ onEnvironmentChange && environment === 'live' ? (
+										<Menu.Item
+											className={ styles.describedItem }
+											disabled={ busy }
+											onClick={ () => onEnvironmentChange( 'local' ) }
+										>
+											<span className={ styles.describedItemBody }>
+												<span className={ styles.describedItemLabel }>
+													{ __( 'Work on local site' ) }
+												</span>
+												<span className={ styles.describedItemDescription }>
+													{ __( 'Work on the local site on your computer.' ) }
+												</span>
+											</span>
+										</Menu.Item>
+									) : null }
 									<Menu.SubmenuRoot>
 										<Menu.SubmenuTrigger className={ styles.skillsSubmenuTrigger }>
 											<span>{ __( 'Skills' ) }</span>
@@ -948,33 +1015,18 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 								</Menu.Popup>
 							</Menu.Root>
 							{ autoStartOn ? (
-								<Tooltip.Root>
-									<Tooltip.Trigger
-										render={
-											<button
-												type="button"
-												className={ styles.modeChip }
-												aria-label={ sprintf(
-													/* translators: %s: name of a composer mode, e.g. "Auto-start". */
-													__( 'Remove %s' ),
-													__( 'Auto-start' )
-												) }
-												onClick={ () => setAutoStart( false ) }
-											/>
-										}
-									>
-										<Icon icon={ play } size={ 16 } className={ styles.modeChipIcon } />
-										<Icon icon={ closeSmall } size={ 16 } className={ styles.modeChipRemove } />
-										<span>{ __( 'Auto-start' ) }</span>
-									</Tooltip.Trigger>
-									<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
-										{ sprintf(
-											/* translators: %s: name of a composer mode, e.g. "Auto-start". */
-											__( 'Remove %s' ),
-											__( 'Auto-start' )
-										) }
-									</Tooltip.Popup>
-								</Tooltip.Root>
+								<ModeChip
+									icon={ play }
+									label={ __( 'Auto-start' ) }
+									onRemove={ () => setAutoStart( false ) }
+								/>
+							) : null }
+							{ environment === 'live' ? (
+								<ModeChip
+									icon={ globe }
+									label={ __( 'Live' ) }
+									onRemove={ () => onEnvironmentChange?.( 'local' ) }
+								/>
 							) : null }
 							<input
 								ref={ fileInputRef }

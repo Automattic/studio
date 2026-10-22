@@ -1,6 +1,10 @@
 Unreleased
 ==========
 
+2.0.4
+=====
+* Native PHP: Update the bundled PHP binaries to 8.2.35, 8.3.36, 8.4.27 and 8.5.12 #5266 #5269 #5268 #5267
+
 2.0.0
 =====
 <!-- Release notes generated using configuration in .github/release.yml at HEAD -->

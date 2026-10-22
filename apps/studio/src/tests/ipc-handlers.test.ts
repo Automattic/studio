@@ -44,9 +44,6 @@ vi.mock( import( 'src/lib/bump-stats' ), async ( importOriginal ) => {
 	};
 } );
 vi.mock( 'atomically' );
-vi.mock( 'src/lib/get-image-data', () => ( {
-	getImageData: vi.fn().mockResolvedValue( 'data:image/png;base64,mock' ),
-} ) );
 vi.mock( 'src/lib/capture-site-thumbnail', () => ( {
 	captureSiteThumbnail: vi.fn(),
 } ) );

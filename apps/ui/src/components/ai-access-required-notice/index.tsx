@@ -6,7 +6,6 @@ import {
 	type StudioAssistantQuota,
 } from '@studio/common/lib/studio-assistant-quota';
 import { createInterpolateElement } from '@wordpress/element';
-import { Notice } from '@wordpress/ui';
 import { useConnector } from '@/data/core';
 import type { ReactNode } from 'react';
 

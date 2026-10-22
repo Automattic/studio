@@ -326,7 +326,6 @@ describe( 'OnboardingConnectPage', () => {
 			expect( mocks.navigate ).toHaveBeenCalledWith( {
 				to: '/sites/$siteId',
 				params: { siteId: 'local-1' },
-				search: { sync: 'pull' },
 			} )
 		);
 		expect( mocks.generateNumberedSiteName ).toHaveBeenCalledOnce();
@@ -350,7 +349,6 @@ describe( 'OnboardingConnectPage', () => {
 			expect( mocks.navigate ).toHaveBeenCalledWith( {
 				to: '/sites/$siteId',
 				params: { siteId: 'local-1' },
-				search: { sync: 'pull' },
 			} )
 		);
 		expect( mocks.deleteSite ).not.toHaveBeenCalled();

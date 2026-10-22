@@ -105,6 +105,14 @@ vi.mock( '@/data/sync-activity', () => ( {
 	useSiteSyncActivity: vi.fn(),
 } ) );
 
+vi.mock( '@/components/publish-panel/publish-menu', () => ( {
+	SitePublishMenu: () => null,
+} ) );
+
+vi.mock( '@/components/share-dialog/share-menu-item', () => ( {
+	SiteShareMenuItem: () => null,
+} ) );
+
 vi.mock( '@/components/import-site-dialog', () => ( {
 	IMPORT_FILE_ACCEPT: '',
 	ImportSiteDialog: () => null,

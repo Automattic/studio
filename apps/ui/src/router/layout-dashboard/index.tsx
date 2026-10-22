@@ -68,10 +68,9 @@ function DashboardLayoutContent() {
 			sessionId: getRouteSessionId( state.location.pathname ),
 			homeSiteId: getRouteHomeSiteId( state.location.pathname ),
 			newSessionSiteId: getNewSessionSiteId( state.location.pathname ),
-			openSiteDropdown: state.location.search.sync === 'pull',
 		} ),
 	} );
-	const { sessionId, homeSiteId, newSessionSiteId, openSiteDropdown } = routePreviewContext;
+	const { sessionId, homeSiteId, newSessionSiteId } = routePreviewContext;
 	const { isReady: agenticFeaturesReady, chatEnabled } = useAgenticFeatures();
 	const { data: sites } = useSites();
 	const { data: sessionData } = useSession( sessionId );
@@ -139,8 +138,14 @@ function DashboardLayoutContent() {
 	// Look up by the route's site so the path is right even before the
 	// `setPreviewSite` effect lands.
 	const previewPath = pathForSite( preview.pathsBySiteId, previewSiteId );
-	// A site's own page is its preview, so it shows whether or not the panel is open.
-	const showPreview = ( preview.open || !! homeSiteId ) && supportsPreview && !! previewSite;
+	// A site's own page is its preview, so it shows whether or not the panel is
+	// open. Beside a chat, a stopped site has nothing to preview: the chat takes
+	// the room and shows the site's last screenshot instead.
+	const showPreview =
+		( preview.open || !! homeSiteId ) &&
+		supportsPreview &&
+		!! previewSite &&
+		( previewSite.running || !! homeSiteId );
 	const chatHidden = ( preview.chatHidden || !! homeSiteId ) && showPreview;
 	// Opening a chat shows it.
 	const { setChatHidden } = preview;
@@ -173,10 +178,7 @@ function DashboardLayoutContent() {
 						chatHidden ? (
 							<>
 								<HeaderSidebarToggle />
-								<SiteDropdown
-									site={ previewSite }
-									defaultOpen={ !! homeSite && openSiteDropdown }
-								/>
+								<SiteDropdown site={ previewSite } />
 								{ homeSite ? null : (
 									<IconButton
 										variant="minimal"
@@ -197,7 +199,6 @@ function DashboardLayoutContent() {
 			chatHidden,
 			homeSite,
 			onAnnotationsDone,
-			openSiteDropdown,
 			previewPath,
 			preview.reloadNonce,
 			preview.updatePath,

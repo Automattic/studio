@@ -2,17 +2,25 @@ import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { buildSyncEventProps } from '@studio/common/lib/sync/build-sync-event-props';
 import { isSyncCancelledError } from '@studio/common/lib/sync/cancel';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { __ } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
 import { useCallback, useEffect } from 'react';
 import { openStudioLogsAction, toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
+import { markPreviewReady, markPreviewSeen } from '@/data/preview-ready';
 import { connectedWpcomSitesQueryKey } from '@/data/queries/use-connected-wpcom-sites';
 import { siteThumbnailQueryKey } from '@/data/queries/use-site-thumbnail';
 import { SITES_QUERY_KEY } from '@/data/queries/use-sites';
 import { SNAPSHOTS_QUERY_KEY } from '@/data/queries/use-snapshots';
 import { WP_VERSION_QUERY_KEY } from '@/data/queries/use-wordpress-versions';
-import { applySyncActivity } from '@/data/sync-activity';
-import type { Connector, PullSyncOptions, PushSyncOptions } from '@/data/core';
+import { applySyncActivity, getSyncActivity } from '@/data/sync-activity';
+import { getSnapshotUrl } from '@/lib/snapshot-url';
+import type {
+	Connector,
+	PullSyncOptions,
+	PushSyncOptions,
+	SiteDetails,
+	Snapshot,
+} from '@/data/core';
 import type { SyncActivity, SyncDirection } from '@studio/common/lib/sync/activity';
 import type { SyncSite } from '@studio/common/types/sync';
 
@@ -38,6 +46,7 @@ export function useSettleSync() {
 				activity.kind === 'error' && plainMessage
 					? { ...activity, message: plainMessage }
 					: activity;
+			const previous = getSyncActivity( siteId );
 			if ( ! applySyncActivity( siteId, settled ) ) {
 				return;
 			}
@@ -45,12 +54,36 @@ export function useSettleSync() {
 				console.error( 'Sync activity failed:', activity.direction, activity.message );
 			}
 
+			const siteName = () =>
+				queryClient
+					.getQueryData< SiteDetails[] >( SITES_QUERY_KEY )
+					?.find( ( { id } ) => id === siteId )?.name ?? '';
 			if ( settled.direction === 'preview' ) {
 				void queryClient.invalidateQueries( { queryKey: SNAPSHOTS_QUERY_KEY } );
 				if ( settled.kind === 'success' ) {
-					toast.success( __( 'Preview site published' ) );
+					markPreviewReady( siteId );
+					/* translators: %s: site name */
+					toast.success( sprintf( __( '%s preview ready' ), siteName() ), {
+						action: {
+							label: __( 'Copy link' ),
+							onClick: () => {
+								const latest = queryClient
+									.getQueryData< Snapshot[] >( SNAPSHOTS_QUERY_KEY )
+									?.filter( ( snapshot ) => snapshot.localSiteId === siteId )
+									.sort( ( a, b ) => b.date - a.date )[ 0 ];
+								if ( latest ) {
+									void connector
+										.copyText( getSnapshotUrl( latest ) )
+										.then( () => markPreviewSeen( siteId ) );
+								}
+							},
+						},
+					} );
 				} else if ( settled.kind === 'error' ) {
-					toast.error( __( 'Failed to publish preview site' ), { description: settled.message } );
+					/* translators: %s: site name */
+					toast.error( sprintf( __( 'Couldn’t publish preview: %s' ), siteName() ), {
+						description: settled.message,
+					} );
 				}
 				return;
 			}
@@ -81,11 +114,24 @@ export function useSettleSync() {
 			}
 			const isPush = settled.direction === 'push';
 			if ( settled.kind === 'success' ) {
-				toast.success( isPush ? __( 'Push complete' ) : __( 'Pull complete' ) );
-			} else if ( settled.kind === 'cancelled' ) {
-				toast.success( isPush ? __( 'Push cancelled' ) : __( 'Pull cancelled' ) );
-			} else {
-				toast.error( isPush ? __( "Push didn't complete" ) : __( "Pull didn't complete" ), {
+				const remote = queryClient
+					.getQueryData< SyncSite[] >( connectedWpcomSitesQueryKey( siteId ) )
+					?.find( ( { id } ) => previous?.kind === 'pending' && id === previous.remoteSiteId );
+				const viewSite = isPush
+					? remote && ( () => connector.openExternalUrl( remote.url ) )
+					: () => connector.openSiteUrl( siteId, '', { autoLogin: false } );
+				toast.success(
+					sprintf(
+						/* translators: %s: site name */
+						isPush ? __( 'Published %s' ) : __( 'Changes pulled into %s' ),
+						siteName()
+					),
+					{
+						action: viewSite && { label: __( 'View site' ), onClick: () => void viewSite() },
+					}
+				);
+			} else if ( settled.kind === 'error' ) {
+				toast.error( isPush ? __( 'Publishing didn’t finish' ) : __( 'Pulling didn’t finish' ), {
 					description: settled.message,
 					action: openStudioLogsAction( connector ),
 				} );

@@ -1,7 +1,6 @@
-/* Overlays the empty-state canvas like suggested-prompts: the copy sits just
-   below the W's center so it only overlaps the logo's lower legs, and a
-   progressive frost blurs the dots more the farther down they go. The layer
-   itself never takes pointer events; only the content does. */
+/* Overlays the empty chat's dot field: the copy sits just below the center,
+   and a progressive frost blurs the dots more the farther down they go. The
+   layer itself never takes pointer events; only the content does. */
 .root {
 	position: absolute;
 	inset: 0;

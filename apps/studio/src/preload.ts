@@ -74,6 +74,8 @@ const api: IpcApi = {
 	openStudioLogs: () => ipcRendererSend( 'openStudioLogs' ),
 	getSiteIcon: ( id ) => ipcRendererInvoke( 'getSiteIcon', id ),
 	getThumbnailData: ( id ) => ipcRendererInvoke( 'getThumbnailData', id ),
+	captureSitePreview: ( siteId, guestId, pagePath ) =>
+		ipcRendererInvoke( 'captureSitePreview', siteId, guestId, pagePath ),
 	getInstalledAppsAndTerminals: () => ipcRendererInvoke( 'getInstalledAppsAndTerminals' ),
 	importSite: ( siteId, importArchivePath, options ) =>
 		ipcRendererInvoke( 'importSite', siteId, importArchivePath, options ),
@@ -165,6 +167,8 @@ const api: IpcApi = {
 		ipcRendererInvoke( 'setAiSessionModel', sessionId, model ),
 	setAiSessionProvider: ( sessionId, provider, model ) =>
 		ipcRendererInvoke( 'setAiSessionProvider', sessionId, provider, model ),
+	setAiSessionEnvironment: ( sessionId, environment ) =>
+		ipcRendererInvoke( 'setAiSessionEnvironment', sessionId, environment ),
 	interruptAiAgentRun: ( runId ) => ipcRendererInvoke( 'interruptAiAgentRun', runId ),
 	answerAiAgentQuestion: ( runId, answers ) =>
 		ipcRendererInvoke( 'answerAiAgentQuestion', runId, answers ),

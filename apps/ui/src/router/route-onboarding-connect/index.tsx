@@ -18,6 +18,7 @@ import { usePullSiteFromLive } from '@/data/queries/use-sync-site';
 import { useUserLocale } from '@/data/queries/use-user-locale';
 import { useSyncableWpcomSites } from '@/data/queries/use-wpcom-sites';
 import { useOffline } from '@/hooks/use-offline';
+import { requestHeaderPanel } from '@/hooks/use-open-header-panel';
 import { onboardingLayoutRoute, useOnboardingProgress, usePinNewSite } from '../layout-onboarding';
 import sharedStyles from '../layout-onboarding/style.module.css';
 import { ConnectSiteLifecycleError, runConnectSiteLifecycle } from './connect-site';
@@ -288,12 +289,10 @@ export function OnboardingConnectPage() {
 				startLocalSite: async ( localSiteId ) => {
 					await startSite.mutateAsync( localSiteId );
 				},
-				openLocalSite: ( localSiteId ) =>
-					navigate( {
-						to: '/sites/$siteId',
-						params: { siteId: localSiteId },
-						search: { sync: 'pull' },
-					} ),
+				openLocalSite: ( localSiteId ) => {
+					requestHeaderPanel( { panel: 'publish', siteId: localSiteId, view: 'pull' } );
+					return navigate( { to: '/sites/$siteId', params: { siteId: localSiteId } } );
+				},
 				deleteLocalSite: ( localSiteId ) =>
 					deleteSite.mutateAsync( { id: localSiteId, deleteFiles: true } ),
 				onStage: ( stage ) => {

@@ -104,7 +104,6 @@ vi.mock( '@/hooks/use-session-commands', () => ( { useSessionCommands: vi.fn() }
 
 vi.mock( '@/hooks/use-session-ui', () => ( {
 	SessionUIProvider: ( { children }: { children: React.ReactNode } ) => children,
-	useSessionPreviewAnnotations: vi.fn(),
 	useOptionalSessionPreviewUI: () => null,
 	useSessionPreviewUI: () => ( {
 		pathsBySiteId: { 'site-1': '/wp-admin/' },

@@ -58,12 +58,12 @@ function proseSections( design: string ): Array< { title: string; body: string }
 export function DesignSystemView( {
 	siteId,
 	siteDesign,
-	annotations,
+	onAnnotationPick,
+	onAnnotationAnchor,
 }: {
 	siteId: string;
 	siteDesign: SiteDesign | null;
-	annotations?: DesignAnnotationProps;
-} ) {
+} & DesignAnnotationProps ) {
 	const view = useMemo( () => {
 		if ( ! siteDesign ) {
 			return null;
@@ -80,10 +80,7 @@ export function DesignSystemView( {
 			return { error: error instanceof Error ? error.message : String( error ) };
 		}
 	}, [ siteDesign ] );
-	const annotate = useDesignAnnotations( {
-		...annotations,
-		ready: !! view && ! ( 'error' in view ),
-	} );
+	const annotate = useDesignAnnotations( { siteId, onAnnotationPick, onAnnotationAnchor } );
 
 	if ( ! view ) {
 		return (
@@ -175,7 +172,6 @@ export function DesignSystemView( {
 			onClickCapture={ annotate.onClickCapture }
 		>
 			{ fontsUrl ? <link rel="stylesheet" href={ fontsUrl } precedence="default" /> : null }
-			{ annotate.popup }
 			<header className={ styles.header }>
 				<p className={ styles.eyebrow } style={ fontStyle( sheet.label ) }>
 					{ __( 'Design system' ) }

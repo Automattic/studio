@@ -1947,7 +1947,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			try {
 				images = validateStudioChatImages( req.body.images );
 				files = validateStudioChatFiles( req.body.files );
-				validatedVisualAnnotations = validateStudioVisualAnnotations( visualAnnotations );
+				validatedVisualAnnotations = validateStudioVisualAnnotations( visualAnnotations, images );
 			} catch ( error ) {
 				res.status( 400 ).json( { error: ( error as Error ).message } );
 				return;

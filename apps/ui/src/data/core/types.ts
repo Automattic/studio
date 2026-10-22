@@ -669,6 +669,8 @@ export interface UserPreferences {
 	sidebarPins?: string[];
 	// Start a stopped local site when a chat message is sent to it.
 	autoStartSiteOnChat?: boolean;
+	// Ask before discarding preview annotations.
+	confirmDeleteAnnotations?: boolean;
 }
 
 export interface AppGlobals {

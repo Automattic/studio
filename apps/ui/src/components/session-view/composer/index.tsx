@@ -48,7 +48,18 @@ import {
 } from 'react';
 import { createPortal } from 'react-dom';
 import { AiCreditsPurchaseDialog } from '@/components/ai-credits-purchase-dialog';
+import {
+	getStagedAnnotations,
+	isStagedAnnotation,
+	removeAnnotations,
+	useSiteAnnotations,
+} from '@/components/annotations/store';
+import {
+	annotationSubmission,
+	getAnnotationsAttachment,
+} from '@/components/annotations/submission';
 import * as Menu from '@/components/menu';
+import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { useAiSettings } from '@/data/queries/use-ai-settings';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
@@ -65,6 +76,7 @@ import { useAddAiCreditsUrl } from '@/hooks/use-add-ai-credits-url';
 import { useAiCreditsMeter } from '@/hooks/use-ai-credits-meter';
 import { useIsOutOfAiCredits } from '@/hooks/use-is-out-of-ai-credits';
 import { useOpenSettings } from '@/hooks/use-open-settings';
+import { annotationIcon } from '@/lib/icons';
 import { isImeComposing } from '@/lib/is-ime-composing';
 import { completeComposerDraftSend, getComposerDraft, saveComposerDraft } from './draft-store';
 import { FamilySwitchConfirmDialog } from './family-switch-confirm-dialog';
@@ -83,6 +95,7 @@ import type {
 	SessionEntry,
 	StudioChatFileAttachment,
 	StudioChatImage,
+	StudioVisualAnnotationSummary,
 } from '@/data/core';
 
 function AttachmentHoverTextPreview( { text }: { text: string } ) {
@@ -249,7 +262,13 @@ interface ComposerProps {
 	awaitingAnswer?: boolean;
 	isInterrupting?: boolean;
 	model: AiModelId;
-	onSend: ( prompt: string, attachments?: ComposerSendAttachments ) => Promise< void >;
+	onSend: (
+		prompt: string,
+		options?: ComposerSendAttachments & {
+			displayMessage?: string;
+			visualAnnotations?: StudioVisualAnnotationSummary[];
+		}
+	) => Promise< void >;
 	onAnswer?: ( answer: string ) => void;
 	onInterrupt: () => Promise< void >;
 	sessionId?: string;
@@ -275,6 +294,8 @@ interface ComposerProps {
 	onEnvironmentChange?: ( environment: 'local' | 'live' ) => void;
 	// Where files can be dropped; the composer itself when absent.
 	dropTarget?: HTMLElement | null;
+	// The site whose preview annotations go out with the next message.
+	annotationSiteId?: string;
 	onModelChange?: ( model: AiModelId ) => void;
 }
 
@@ -295,6 +316,7 @@ export interface ComposerHandle {
 	): void;
 	getSubmission(): { prompt: string; attachments: ComposerSendAttachments } | null;
 	focus(): void;
+	send(): Promise< void >;
 }
 
 function focusAtEnd( node: HTMLTextAreaElement | null ) {
@@ -337,6 +359,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		liveUrl,
 		onEnvironmentChange,
 		dropTarget,
+		annotationSiteId,
 		onModelChange,
 	},
 	ref
@@ -414,6 +437,12 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		pasteHandlers,
 	} = useComposerAttachments( initialDraft.attachments, awaitingAnswer );
 	const hasAttachments = attachments.length > 0;
+	const { notes } = useSiteAnnotations( annotationSiteId );
+	const stagedNotes = useMemo( () => notes.filter( isStagedAnnotation ), [ notes ] );
+	const annotationsAttachment = stagedNotes.length ? getAnnotationsAttachment( stagedNotes ) : null;
+	const shownAttachments = annotationsAttachment
+		? [ annotationsAttachment, ...attachments ]
+		: attachments;
 	const dropFiles = useCallback(
 		( files: FileList ) => {
 			void addFiles( files );
@@ -465,6 +494,76 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		} );
 	}, [ addFiles ] );
 
+	const answerQuestion =
+		onAnswer && ! hasAttachments && ! resolveSkillFromPrompt( value ) ? onAnswer : undefined;
+	// Notes wait for the agent to finish: they point at the page as it is now.
+	const hasContent =
+		value.trim().length > 0 || hasAttachments || ( ! busy && stagedNotes.length > 0 );
+
+	const send = useCallback( async () => {
+		const trimmed = value.trim();
+		// Read at send time: the preview may have staged notes a moment ago.
+		const sentNotes = busy ? [] : getStagedAnnotations( annotationSiteId );
+		if ( sending || ( ! trimmed && attachments.length === 0 && sentNotes.length === 0 ) ) {
+			return;
+		}
+		if ( isOutOfCredits ) {
+			setSubmitFeedback( 'shake' );
+			return;
+		}
+		if ( answerQuestion && trimmed ) {
+			setValue( '' );
+			answerQuestion( trimmed );
+			return;
+		}
+		let submission;
+		try {
+			submission = sentNotes.length
+				? annotationSubmission( trimmed, attachments, sentNotes )
+				: {
+						prompt: trimmed || __( 'Please review the attached files.' ),
+						options: toComposerSendAttachments( attachments ),
+				  };
+		} catch ( error ) {
+			toast.error( ( error as Error ).message );
+			return;
+		}
+		// The draft stays editable until the send is accepted; only then is what
+		// was sent removed, keeping anything typed or attached in the meantime.
+		const sentIds = new Set( attachments.map( ( item ) => item.id ) );
+		setSending( true );
+		try {
+			await onSend( submission.prompt, submission.options );
+		} catch {
+			// The parent reports the failure in a toast; the draft is untouched.
+			return;
+		} finally {
+			setSending( false );
+		}
+		completeComposerDraftSend( sessionId, trimmed, sentIds );
+		if ( ( textareaRef.current?.value ?? '' ).trim() === trimmed ) {
+			setValue( '' );
+		}
+		removeAttachments( sentIds );
+		if ( annotationSiteId && sentNotes.length ) {
+			removeAnnotations(
+				annotationSiteId,
+				sentNotes.map( ( note ) => note.id )
+			);
+		}
+	}, [
+		value,
+		sending,
+		attachments,
+		busy,
+		isOutOfCredits,
+		answerQuestion,
+		onSend,
+		sessionId,
+		removeAttachments,
+		annotationSiteId,
+	] );
+
 	useImperativeHandle(
 		ref,
 		() => ( {
@@ -490,58 +589,10 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 			focus() {
 				focusAtEnd( textareaRef.current );
 			},
+			send,
 		} ),
-		[ restoreAttachments, value, attachments ]
+		[ restoreAttachments, value, attachments, send ]
 	);
-
-	const answerQuestion =
-		onAnswer && ! hasAttachments && ! resolveSkillFromPrompt( value ) ? onAnswer : undefined;
-	const hasContent = value.trim().length > 0 || hasAttachments;
-
-	const send = useCallback( async () => {
-		const trimmed = value.trim();
-		if ( sending || ( ! trimmed && attachments.length === 0 ) ) {
-			return;
-		}
-		if ( isOutOfCredits ) {
-			setSubmitFeedback( 'shake' );
-			return;
-		}
-		if ( answerQuestion ) {
-			setValue( '' );
-			answerQuestion( trimmed );
-			return;
-		}
-		// The draft stays editable until the send is accepted; only then is what
-		// was sent removed, keeping anything typed or attached in the meantime.
-		const sentIds = new Set( attachments.map( ( item ) => item.id ) );
-		setSending( true );
-		try {
-			await onSend(
-				trimmed || __( 'Please review the attached files.' ),
-				toComposerSendAttachments( attachments )
-			);
-		} catch {
-			// The parent reports the failure in a toast; the draft is untouched.
-			return;
-		} finally {
-			setSending( false );
-		}
-		completeComposerDraftSend( sessionId, trimmed, sentIds );
-		if ( ( textareaRef.current?.value ?? '' ).trim() === trimmed ) {
-			setValue( '' );
-		}
-		removeAttachments( sentIds );
-	}, [
-		value,
-		sending,
-		attachments,
-		isOutOfCredits,
-		answerQuestion,
-		onSend,
-		sessionId,
-		removeAttachments,
-	] );
 
 	const openFilePicker = useCallback( () => {
 		fileInputRef.current?.click();
@@ -730,7 +781,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		);
 	}
 	const hoveredAttachment = hoverPreview
-		? attachments.find( ( attachment ) => attachment.id === hoverPreview.id )
+		? shownAttachments.find( ( attachment ) => attachment.id === hoverPreview.id )
 		: undefined;
 
 	const addButton = (
@@ -790,9 +841,9 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 								fileDropTarget
 						  )
 						: null }
-					{ hasAttachments ? (
+					{ shownAttachments.length ? (
 						<ul className={ styles.attachments } aria-label={ __( 'Attachments' ) }>
-							{ attachments.map( ( attachment ) => {
+							{ shownAttachments.map( ( attachment ) => {
 								const imageSrc =
 									attachment.kind === 'image' ? getComposerAttachmentImageSrc( attachment ) : null;
 								const sizeLabel = formatComposerAttachmentSize( attachment.size );
@@ -832,7 +883,10 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 											<img className={ styles.attachmentThumb } src={ imageSrc } alt="" />
 										) : (
 											<>
-												<Icon icon={ page } size={ 16 } />
+												<Icon
+													icon={ attachment === annotationsAttachment ? annotationIcon : page }
+													size={ 16 }
+												/>
 												<span className={ styles.attachmentName }>{ attachment.name }</span>
 											</>
 										) }
@@ -840,7 +894,14 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 											type="button"
 											className={ styles.attachmentRemove }
 											aria-label={ __( 'Remove attachment' ) }
-											onClick={ () => removeAttachment( attachment.id ) }
+											onClick={ () =>
+												attachment === annotationsAttachment && annotationSiteId
+													? removeAnnotations(
+															annotationSiteId,
+															stagedNotes.map( ( note ) => note.id )
+													  )
+													: removeAttachment( attachment.id )
+											}
 										>
 											<Icon icon={ closeSmall } size={ 16 } />
 										</button>

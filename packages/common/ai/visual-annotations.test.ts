@@ -40,4 +40,17 @@ describe( 'validateStudioVisualAnnotations', () => {
 			validateStudioVisualAnnotations( [ { comment: 'x'.repeat( 1_000_001 ) } ] )
 		).toThrow( 'too much data' );
 	} );
+
+	it( 'accepts image references only to the message’s own images', () => {
+		const images = [ { id: 'shot' } ];
+		expect(
+			validateStudioVisualAnnotations( [ { comment: '', imageIds: [ 'shot' ] } ], images )
+		).toEqual( [ expect.objectContaining( { comment: '', imageIds: [ 'shot' ] } ) ] );
+		expect( () =>
+			validateStudioVisualAnnotations(
+				[ { comment: 'See this', imageIds: [ 'missing' ] } ],
+				images
+			)
+		).toThrow( 'Invalid annotation image references' );
+	} );
 } );

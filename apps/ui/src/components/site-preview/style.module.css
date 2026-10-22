@@ -241,8 +241,8 @@
 }
 
 .empty {
-	position: relative;
-	flex: 1;
+	position: absolute;
+	inset: 0;
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -252,6 +252,22 @@
 	font-size: var(--text-xxs);
 	text-align: center;
 	overflow: hidden;
+}
+
+/* Fades off the first page of a site that was just started. */
+.empty[data-revealed] {
+	opacity: 0;
+	visibility: hidden;
+	pointer-events: none;
+	transition:
+		opacity var(--motion-duration-reveal) var(--motion-ease-enter),
+		visibility 0s linear var(--motion-duration-reveal);
+}
+
+.loadFailed {
+	position: absolute;
+	inset: 0;
+	background-color: var(--chat);
 }
 
 .emptyContent {

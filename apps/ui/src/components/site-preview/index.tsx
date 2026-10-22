@@ -32,12 +32,14 @@ import {
 import { DesignSystemView } from '@/components/design-system-view';
 import { PreviewParticles } from '@/components/preview-particles';
 import { PublishButton } from '@/components/publish-panel';
-import { ShareButton } from '@/components/share-dialog';
+import { ShareButton, ShareStatusIcon, useShareStatus } from '@/components/share-dialog';
 import { SiteLifecycleButton } from '@/components/site-lifecycle-button';
-import { StoppedSitePreview } from '@/components/stopped-site-preview';
+import { SiteContextMenu, StoppedSitePreview } from '@/components/stopped-site-preview';
 import { Button, IconButton } from '@/components/ui/button';
+import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
 import * as Menu from '@/components/ui/menu';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { VisuallyHidden } from '@/components/ui/visually-hidden';
 import { useConnector } from '@/data/core';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { siteDesignQueryKey, useSiteDesign } from '@/data/queries/use-site-design';
@@ -51,7 +53,14 @@ import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import { useWindowControlsInset } from '@/hooks/use-window-controls-inset';
 import { getSiteUrl } from '@/lib/get-site-url';
-import { annotateIcon, browserBackIcon, browserForwardIcon, refreshIcon } from '@/lib/icons';
+import {
+	annotateIcon,
+	browserBackIcon,
+	browserForwardIcon,
+	globeIcon,
+	refreshIcon,
+	shareIcon,
+} from '@/lib/icons';
 import {
 	DATABASE_HOME_PATH,
 	getPathFromPreviewUrl,
@@ -106,6 +115,8 @@ interface BrowserNavigationState {
 	title: string | null;
 	historyEntries: BrowserHistoryEntry[];
 	activeHistoryIndex: number;
+	// The last main-frame load failed, so the page on screen is the browser's error page.
+	failed: boolean;
 }
 
 interface BrowserCommand {
@@ -136,6 +147,14 @@ interface WebviewConsoleEvent extends Event {
 interface WebviewPageTitleUpdatedEvent extends Event {
 	title?: string;
 }
+
+interface WebviewFailLoadEvent extends Event {
+	errorCode: number;
+	isMainFrame: boolean;
+}
+
+// Chromium's ERR_ABORTED: a load replaced by another one, not a failure.
+const ERR_ABORTED = -3;
 
 // Best-effort UA sniff: webview is only meaningful inside Electron. Outside
 // (e.g. running apps/ui standalone in a regular browser) the tag is inert, so
@@ -202,6 +221,7 @@ const EMPTY_BROWSER_STATE: BrowserNavigationState = {
 	title: null,
 	historyEntries: [],
 	activeHistoryIndex: -1,
+	failed: false,
 };
 
 // Where each realm segment lands before its per-realm memory has anything better.
@@ -502,6 +522,21 @@ function BrowserHistoryButton( {
 	);
 }
 
+function PreviewLoadFailed( { onRetry }: { onRetry: () => void } ) {
+	return (
+		<Empty className={ styles.loadFailed }>
+			<EmptyMedia>
+				<Icon icon={ globeIcon } />
+			</EmptyMedia>
+			<EmptyTitle>{ __( 'Preview could not load' ) }</EmptyTitle>
+			<EmptyDescription>{ __( 'Check that your site is running, then try again.' ) }</EmptyDescription>
+			<Button variant="outline" onClick={ onRetry }>
+				{ __( 'Try again' ) }
+			</Button>
+		</Empty>
+	);
+}
+
 function areBrowserStatesEqual( a: BrowserNavigationState, b: BrowserNavigationState ) {
 	return (
 		a.canGoBack === b.canGoBack &&
@@ -509,6 +544,7 @@ function areBrowserStatesEqual( a: BrowserNavigationState, b: BrowserNavigationS
 		a.loading === b.loading &&
 		a.progress === b.progress &&
 		a.title === b.title &&
+		a.failed === b.failed &&
 		a.activeHistoryIndex === b.activeHistoryIndex &&
 		a.historyEntries.length === b.historyEntries.length &&
 		a.historyEntries.every( ( entry, index ) => {
@@ -558,6 +594,18 @@ export function SitePreview( {
 	const activeSurface = surfaces.byKey[ activeSurfaceKey ];
 	const browserState = activeSurface?.browser ?? EMPTY_BROWSER_STATE;
 	const annotations = useSiteAnnotations( site.id );
+	const shareStatus = useShareStatus( site.id );
+	// A site that was just started keeps its loading stage over the preview
+	// until the first page arrives.
+	const [ awaitingReveal, setAwaitingReveal ] = useState( false );
+	useEffect( () => {
+		if ( isStarting ) {
+			setAwaitingReveal( true );
+		} else if ( ! canPreview ) {
+			setAwaitingReveal( false );
+		}
+	}, [ canPreview, isStarting ] );
+	const loadingStage = isStarting || ( awaitingReveal && activeSurfaceKey !== 'design' );
 	const [ annotationAnchor, setAnnotationAnchor ] = useState< AnnotationAnchor | null >( null );
 	const rootRef = useRef< HTMLElement | null >( null );
 	const headerRef = useRef< HTMLDivElement | null >( null );
@@ -674,6 +722,24 @@ export function SitePreview( {
 	const viewportRef = useRef< HTMLDivElement | null >( null );
 	const [ loadedPage, setLoadedPage ] = useState< { url: string; guestId?: number } | null >(
 		null
+	);
+	const handleSurfaceLoad = useCallback(
+		( key: PreviewSurfaceKey, url: string, guestId?: number ) => {
+			setAwaitingReveal( false );
+			if ( key === 'site' ) {
+				setLoadedPage( { url, guestId } );
+			}
+		},
+		[]
+	);
+	const handleSurfaceBrowserState = useCallback(
+		( key: PreviewSurfaceKey, browser: BrowserNavigationState ) => {
+			patchSurface( key, { browser } );
+			if ( browser.failed ) {
+				setAwaitingReveal( false );
+			}
+		},
+		[ patchSurface ]
 	);
 	useEffect( () => {
 		const pagePath = loadedPage && getPathFromPreviewUrl( loadedPage.url, siteUrl );
@@ -941,48 +1007,62 @@ export function SitePreview( {
 					<PublishButton site={ site } anchor={ headerRef } />
 					<SiteLifecycleButton site={ site } />
 					<ShareButton site={ site } className={ styles.shareAction } />
-					{ canPreview ? (
-						<Menu.Root modal={ false }>
+					<Menu.Root modal={ false }>
+						<Tooltip>
 							<Menu.Trigger
 								render={
-									<IconButton
-										className={ styles.moreActions }
-										icon={ moreHorizontal }
-										tooltipSide="bottom"
-										label={ __( 'More preview actions' ) }
+									<TooltipTrigger
+										render={
+											<Button
+												variant="ghost"
+												size="icon"
+												className={ styles.moreActions }
+												aria-label={ __( 'More preview actions' ) }
+												aria-description={ shareStatus.label }
+											/>
+										}
 									/>
 								}
-							/>
-							<Menu.Popup side="bottom" align="end">
-								<Menu.Item
-									onClick={ () => requestHeaderPanel( { panel: 'share', siteId: site.id } ) }
-								>
-									{ __( 'Share' ) }
-								</Menu.Item>
-								<Menu.Separator />
-								<Menu.Item
-									disabled={ ! browserState.canGoBack }
-									onClick={ () => sendBrowserCommand( 'back' ) }
-								>
-									{ __( 'Back' ) }
-								</Menu.Item>
-								<Menu.Item
-									disabled={ ! browserState.canGoForward }
-									onClick={ () => sendBrowserCommand( 'forward' ) }
-								>
-									{ __( 'Forward' ) }
-								</Menu.Item>
-								<Menu.Item onClick={ () => sendBrowserCommand( 'reload' ) }>
-									{ __( 'Reload preview' ) }
-								</Menu.Item>
-								<Menu.Separator />
-								<Menu.Item onClick={ openSiteSettings }>{ __( 'Site settings' ) }</Menu.Item>
-								{ openExternal ? (
-									<Menu.Item onClick={ openExternal }>{ __( 'Open in browser' ) }</Menu.Item>
-								) : null }
-							</Menu.Popup>
-						</Menu.Root>
-					) : null }
+							>
+								<ShareStatusIcon icon={ moreHorizontal } status={ shareStatus } />
+							</Menu.Trigger>
+							<TooltipContent side="bottom">{ __( 'More preview actions' ) }</TooltipContent>
+						</Tooltip>
+						<Menu.Popup side="bottom" align="end">
+							<Menu.Item
+								aria-description={ shareStatus.label }
+								onClick={ () => requestHeaderPanel( { panel: 'share', siteId: site.id } ) }
+							>
+								<ShareStatusIcon icon={ shareIcon } status={ shareStatus } />
+								{ __( 'Share' ) }
+							</Menu.Item>
+							{ canPreview ? (
+								<>
+									<Menu.Separator />
+									<Menu.Item
+										disabled={ ! browserState.canGoBack }
+										onClick={ () => sendBrowserCommand( 'back' ) }
+									>
+										{ __( 'Back' ) }
+									</Menu.Item>
+									<Menu.Item
+										disabled={ ! browserState.canGoForward }
+										onClick={ () => sendBrowserCommand( 'forward' ) }
+									>
+										{ __( 'Forward' ) }
+									</Menu.Item>
+									<Menu.Item onClick={ () => sendBrowserCommand( 'reload' ) }>
+										{ __( 'Reload preview' ) }
+									</Menu.Item>
+									<Menu.Separator />
+									<Menu.Item onClick={ openSiteSettings }>{ __( 'Site settings' ) }</Menu.Item>
+									{ openExternal ? (
+										<Menu.Item onClick={ openExternal }>{ __( 'Open in browser' ) }</Menu.Item>
+									) : null }
+								</>
+							) : null }
+						</Menu.Popup>
+					</Menu.Root>
 				</div>
 				{ showLoadingProgress ? (
 					<div className={ styles.loadingProgress } aria-hidden="true">
@@ -1051,15 +1131,11 @@ export function SitePreview( {
 												} }
 												onInspectorEvent={ handleInspectorEvent }
 												browserCommand={ surface.browserCommand }
-												onBrowserStateChange={ ( state ) => {
-													patchSurface( key, { browser: state } );
-												} }
-												onNavigate={ ( url ) => handleSurfaceNavigation( key, url ) }
-												onLoad={
-													key === 'site'
-														? ( url, guestId ) => setLoadedPage( { url, guestId } )
-														: undefined
+												onBrowserStateChange={ ( state ) =>
+													handleSurfaceBrowserState( key, state )
 												}
+												onNavigate={ ( url ) => handleSurfaceNavigation( key, url ) }
+												onLoad={ ( url, guestId ) => handleSurfaceLoad( key, url, guestId ) }
 											/>
 										) : (
 											// Non-Electron fallback: plain iframe, no inspector. Reloads
@@ -1072,45 +1148,60 @@ export function SitePreview( {
 												src={ surfaceUrl }
 												title={ site.name }
 												onLoad={ ( event ) => {
+													const { src } = event.currentTarget;
 													const title = getIframeTitle( event.currentTarget );
-													handleSurfaceNavigation( key, event.currentTarget.src );
-													if ( key === 'site' ) {
-														setLoadedPage( { url: event.currentTarget.src } );
-													}
-													patchSurface( key, {
-														browser: {
-															...surface.browser,
-															loading: false,
-															progress: 0,
-															title,
+													handleSurfaceNavigation( key, src );
+													// A frame fires `load` for the browser's own error page too, and
+													// it's cross-origin, so ask the server whether it's there at all.
+													void fetch( src, { method: 'HEAD', mode: 'no-cors', cache: 'no-store' } ).then(
+														() => {
+															handleSurfaceLoad( key, src );
+															handleSurfaceBrowserState( key, { ...EMPTY_BROWSER_STATE, title } );
 														},
-													} );
+														() =>
+															handleSurfaceBrowserState( key, {
+																...EMPTY_BROWSER_STATE,
+																failed: true,
+															} )
+													);
 												} }
 											/>
 										) }
+										{ surface.browser.failed ? (
+											<PreviewLoadFailed onRetry={ () => sendSurfaceCommand( key, 'reload' ) } />
+										) : null }
 									</div>
 								</div>
 							);
 						} )
-					) : (
-						<div className={ styles.empty }>
-							<PreviewParticles active={ isStarting } showLogo={ isStarting } />
-							<div className={ styles.emptyContent }>
-								{ isStarting ? null : <StoppedSitePreview site={ site } /> }
-								{ operation || ( ! isStarting && ! siteThumbnail.data ) ? (
-									<p className={ styles.emptyText }>
-										{ operation
-											? sprintf(
-													/* translators: %s: an operation in progress, e.g. "Saving settings". */
-													__( '%s… the site can start once this finishes.' ),
-													getSiteOperationLabel( operation )
-											  )
-											: __( 'Start the site to see a live preview.' ) }
-									</p>
-								) : null }
-							</div>
+					) : null }
+					<SiteContextMenu site={ site } disabled={ canPreview }>
+						<div
+							className={ styles.empty }
+							data-revealed={ canPreview && ! loadingStage ? true : undefined }
+						>
+							<PreviewParticles active={ loadingStage } showLogo={ loadingStage } />
+							{ loadingStage ? (
+								<VisuallyHidden role="status">{ __( 'Loading site preview' ) }</VisuallyHidden>
+							) : null }
+							{ canPreview ? null : (
+								<div className={ styles.emptyContent }>
+									{ isStarting ? null : <StoppedSitePreview site={ site } /> }
+									{ operation || ( ! isStarting && ! siteThumbnail.data ) ? (
+										<p className={ styles.emptyText }>
+											{ operation
+												? sprintf(
+														/* translators: %s: an operation in progress, e.g. "Saving settings". */
+														__( '%s… the site can start once this finishes.' ),
+														getSiteOperationLabel( operation )
+												  )
+												: __( 'Start the site to see a live preview.' ) }
+										</p>
+									) : null }
+								</div>
+							) }
 						</div>
-					) }
+					</SiteContextMenu>
 					{ canAnnotateSurface ? (
 						<AnnotationOverlay
 							siteId={ site.id }
@@ -1372,7 +1463,7 @@ function WebviewSurface( {
 				setInspectorReady( false );
 				onInspectorReadyRef.current?.( false );
 			}
-			publishBrowserState( { title: null } );
+			publishBrowserState( { title: null, failed: false } );
 			startProgress();
 		};
 		const handleStopLoading = () => {
@@ -1391,10 +1482,20 @@ function WebviewSurface( {
 		webview.addEventListener( 'did-navigate-in-page', handleNavigate );
 		webview.addEventListener( 'did-start-loading', handleStartLoading );
 		webview.addEventListener( 'did-stop-loading', handleStopLoading );
-		webview.addEventListener( 'did-fail-load', handleStopLoading );
+		const handleFailLoad = ( event: Event ) => {
+			const { errorCode, isMainFrame } = event as WebviewFailLoadEvent;
+			if ( isMainFrame && errorCode !== ERR_ABORTED ) {
+				publishBrowserState( { failed: true } );
+			}
+			handleStopLoading();
+		};
+		webview.addEventListener( 'did-fail-load', handleFailLoad );
 		webview.addEventListener( 'did-finish-load', handleStopLoading );
-		const handleFinishLoad = () =>
-			onLoadRef.current?.( currentUrlRef.current, getWebviewContentsId( webview ) );
+		const handleFinishLoad = () => {
+			if ( ! browserStateRef.current.failed ) {
+				onLoadRef.current?.( currentUrlRef.current, getWebviewContentsId( webview ) );
+			}
+		};
 		webview.addEventListener( 'did-finish-load', handleFinishLoad );
 		publishBrowserState();
 		return () => {
@@ -1408,7 +1509,7 @@ function WebviewSurface( {
 			webview.removeEventListener( 'did-start-loading', handleStartLoading );
 			webview.removeEventListener( 'did-stop-loading', handleStopLoading );
 			webview.removeEventListener( 'did-finish-load', handleFinishLoad );
-			webview.removeEventListener( 'did-fail-load', handleStopLoading );
+			webview.removeEventListener( 'did-fail-load', handleFailLoad );
 			webview.removeEventListener( 'did-finish-load', handleStopLoading );
 		};
 	}, [ clearProgressTimers, finishProgress, publishBrowserState, startProgress ] );

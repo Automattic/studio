@@ -1,7 +1,8 @@
 import { INSPECTOR_BRIDGE_PREFIX } from '@studio/common/ai/inspector/page-script';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import userEvent from '@testing-library/user-event';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { useConnector } from '@/data/core';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
@@ -32,7 +33,8 @@ vi.mock( '@/data/queries/use-agentic-features', () => ( {
 } ) );
 
 // jsdom has no 2D canvas context, so swap the animated grid for a bare canvas.
-vi.mock( '@/components/share-dialog', () => ( {
+vi.mock( '@/components/share-dialog', async ( importOriginal ) => ( {
+	...( await importOriginal< typeof import('@/components/share-dialog') >() ),
 	ShareButton: () => null,
 } ) );
 
@@ -85,6 +87,14 @@ function createSite( overrides: Partial< SiteDetails > = {} ): SiteDetails {
 }
 
 describe( 'SitePreview', () => {
+	// The browser fallback asks the site's server whether a framed page is there.
+	const probeSite = vi.fn();
+	beforeEach( () => {
+		probeSite.mockReset().mockResolvedValue( new Response() );
+		vi.stubGlobal( 'fetch', probeSite );
+	} );
+	afterEach( () => vi.unstubAllGlobals() );
+
 	it( 'orders back and forward history from the current page outward', () => {
 		const entries = [
 			{ index: 0, title: 'Home', url: 'http://localhost/' },
@@ -519,6 +529,75 @@ describe( 'SitePreview', () => {
 		} );
 	} );
 
+	it( 'offers a retry when a framed page fails to load', async () => {
+		useConnectorMock.mockReturnValue( {
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
+			capabilities: CAPABILITIES,
+		} as never );
+		probeSite.mockRejectedValueOnce( new TypeError( 'Failed to fetch' ) );
+		const { container } = renderPreview(
+			<SitePreview site={ createSite( { running: true } ) } path="/" reloadNonce={ 0 } />
+		);
+
+		fireEvent.load( container.querySelector( 'iframe' )! );
+		await userEvent.click( await screen.findByRole( 'button', { name: 'Try again' } ) );
+		expect( screen.getByText( 'Preview could not load' ) ).toBeInTheDocument();
+		fireEvent.load( container.querySelector( 'iframe' )! );
+
+		await waitFor( () =>
+			expect( screen.queryByText( 'Preview could not load' ) ).not.toBeInTheDocument()
+		);
+		expect( probeSite ).toHaveBeenCalledWith( 'http://localhost:8881/', expect.anything() );
+	} );
+
+	it( 'keeps Share in the More menu while the site is stopped', async () => {
+		useConnectorMock.mockReturnValue( {
+			getSiteThumbnail: vi.fn().mockResolvedValue( null ),
+			capabilities: CAPABILITIES,
+		} as never );
+		renderPreview( <SitePreview site={ createSite() } path="/" reloadNonce={ 0 } /> );
+
+		await userEvent.click( screen.getByRole( 'button', { name: 'More preview actions' } ) );
+
+		expect( await screen.findByRole( 'menuitem', { name: 'Share' } ) ).toBeInTheDocument();
+		expect( screen.queryByRole( 'menuitem', { name: 'Reload preview' } ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'keeps the loading stage over a just-started site until its first page loads', async () => {
+		let finishStart = () => {};
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn(
+				() => new Promise< void >( ( resolve ) => ( finishStart = resolve ) )
+			),
+			getSiteThumbnail: vi.fn().mockResolvedValue( null ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
+			capabilities: CAPABILITIES,
+		} as never );
+		const { container, queryClient, rerender } = renderPreview(
+			<SitePreview site={ createSite() } path="/" reloadNonce={ 0 } />
+		);
+		const preview = ( running: boolean ) => (
+			<QueryClientProvider client={ queryClient }>
+				<TooltipProvider>
+					<SitePreview site={ createSite( { running } ) } path="/" reloadNonce={ 0 } />
+				</TooltipProvider>
+			</QueryClientProvider>
+		);
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Start' } ) );
+		expect( await screen.findByText( 'Loading site preview' ) ).toBeInTheDocument();
+		rerender( preview( true ) );
+		finishStart();
+		await waitFor( () => expect( queryClient.isMutating() ).toBe( 0 ) );
+		expect( screen.getByText( 'Loading site preview' ) ).toBeInTheDocument();
+
+		fireEvent.load( container.querySelector( 'iframe' )! );
+
+		await waitFor( () =>
+			expect( screen.queryByText( 'Loading site preview' ) ).not.toBeInTheDocument()
+		);
+	} );
+
 	it( 'clears the Windows/Linux window controls while in the window corner', () => {
 		const setWindowControlsSurface = vi.fn().mockResolvedValue( undefined );
 		useConnectorMock.mockReturnValue( {
@@ -742,6 +821,22 @@ describe( 'SitePreview webview reload', () => {
 		);
 		expect( webview.reload ).not.toHaveBeenCalled();
 		expect( clearWebviewCache ).not.toHaveBeenCalled();
+	} );
+
+	it( 'offers a retry when the page fails to load, but not for a replaced load', async () => {
+		const { webview, clearWebviewCache } = renderWebviewPreview();
+		const fail = ( errorCode: number ) =>
+			fireEvent( webview, Object.assign( new Event( 'did-fail-load' ), { errorCode, isMainFrame: true } ) );
+
+		fail( -3 );
+		expect( screen.queryByText( 'Preview could not load' ) ).not.toBeInTheDocument();
+		fail( -102 );
+		await userEvent.click( await screen.findByRole( 'button', { name: 'Try again' } ) );
+
+		await waitFor( () => expect( webview.reload ).toHaveBeenCalledTimes( 1 ) );
+		expect( clearWebviewCache ).toHaveBeenCalledWith( 7 );
+		fireEvent( webview, new Event( 'did-start-loading' ) );
+		expect( screen.queryByText( 'Preview could not load' ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'still reloads in place after the preview navigated itself', async () => {

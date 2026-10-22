@@ -492,7 +492,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 
 	const [ frameNode, setFrameNode ] = useState< HTMLDivElement | null >( null );
 	const { data: preferences } = useUserPreferences();
-	const { mutate: startSite } = useStartSite( { silent: true } );
+	const { mutate: startSite } = useStartSite();
 	const isSiteStarting = useIsSiteStarting( ownerSite?.id );
 	const isSiteStopping = useIsSiteStopping( ownerSite?.id );
 	const canAutoStart = !! ownerSite && effectiveEnvironment === 'local';

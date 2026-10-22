@@ -117,6 +117,9 @@ async function main() {
   const mismatches = results.filter((r) => r.status === 'mismatch');
   const errors = results.filter((r) => r.status === 'error');
   const skipped = results.filter((r) => r.status === 'skipped');
+  if (mismatches.length || errors.length || skipped.length) {
+    process.exitCode = 1;
+  }
 
   console.log(
     `\n${verified}/${results.length} verified, ${mismatches.length} mismatch(es), ${errors.length} error(s), ${skipped.length} skipped.`

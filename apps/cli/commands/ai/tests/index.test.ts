@@ -445,6 +445,8 @@ describe( 'AI runCommand — Tracks events', () => {
 			model_requests: 2,
 			input_tokens: 130,
 			output_tokens: 30,
+			cache_read_tokens: 0,
+			cache_write_tokens: 0,
 			error_kind: 'out_of_credits',
 			site_kind: 'none',
 		} );

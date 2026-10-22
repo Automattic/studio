@@ -54,6 +54,8 @@ describe( 'createTurnStatsTracker', () => {
 			model_requests: 0,
 			input_tokens: 0,
 			output_tokens: 0,
+			cache_read_tokens: 0,
+			cache_write_tokens: 0,
 			site_kind: 'none',
 		} );
 	} );
@@ -145,6 +147,8 @@ describe( 'createTurnStatsTracker', () => {
 		expect( props.model_requests ).toBe( 2 );
 		expect( props.input_tokens ).toBe( 400 );
 		expect( props.output_tokens ).toBe( 60 );
+		expect( props.cache_read_tokens ).toBe( 20 );
+		expect( props.cache_write_tokens ).toBe( 10 );
 	} );
 
 	it( 'keeps counting across an attempt that will be retried', () => {

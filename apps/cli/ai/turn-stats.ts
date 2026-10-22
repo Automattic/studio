@@ -42,6 +42,8 @@ export interface TurnStatsProps {
 	model_requests: number;
 	input_tokens: number;
 	output_tokens: number;
+	cache_read_tokens: number;
+	cache_write_tokens: number;
 	error_kind?: TurnErrorKind;
 	site_kind: TurnSiteKind;
 }
@@ -104,8 +106,12 @@ const MODEL_UNAVAILABLE_PATTERN =
 const AUTH_PATTERN =
 	/\b(?:401|403)\b|unauthori[sz]ed|forbidden|authentication|invalid[ _-](?:x-)?api[ _-]key|api[ _-]key|credentials?\b|not logged in|logged out/i;
 const RATE_LIMIT_PATTERN = /\b429\b|rate[ _-]?limit|too many requests/i;
-const NETWORK_PATTERN =
-	/\b(?:ECONNREFUSED|ECONNRESET|ENOTFOUND|ETIMEDOUT|EAI_AGAIN|EHOSTUNREACH|ENETUNREACH)\b|fetch failed|network|socket hang up|timed? ?out|connection (?:error|refused|reset|closed)/i;
+const NETWORK_PATTERN = new RegExp(
+	`\\b(?:${ [ ...NETWORK_ERROR_CODES ].join(
+		'|'
+	) })\\b|fetch failed|network|socket hang up|timed? ?out|connection (?:error|refused|reset|closed)`,
+	'i'
+);
 
 /**
  * Sorts a failed turn into a fixed category. Takes whatever the turn captured
@@ -186,6 +192,8 @@ export function createTurnStatsTracker(): TurnStatsTracker {
 				model_requests: modelRequests,
 				input_tokens: usage.input,
 				output_tokens: usage.output,
+				cache_read_tokens: usage.cacheRead,
+				cache_write_tokens: usage.cacheWrite,
 				...( outcome === 'error' ? { error_kind: classifyTurnError( failure ) } : {} ),
 				site_kind: getTurnSiteKind( site ),
 			};

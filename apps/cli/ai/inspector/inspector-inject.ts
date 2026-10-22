@@ -1,31 +1,64 @@
 /**
- * Opens a headed Playwright browser on a Studio site with the Studio
- * annotation inspector injected.
- *
- * The inspector is a self-contained vanilla-DOM widget defined in
- * `./page-script.ts` — no React, no esm.sh, no external dependencies, no
- * page-CSS conflicts. The user clicks elements, types comments, and clicks
- * "Done" to send everything back to the CLI via `window.__studioAnnotateDone`.
+ * Opens a headed Playwright browser on a Studio site for annotating it. The
+ * page gets the inspector the Desktop preview uses (markers and picking) and
+ * the CLI's note editor on top. The notes live here; Send hands them to
+ * `annotateInBrowser()` and closes the browser.
  */
 
+import { randomUUID } from 'crypto';
+import {
+	getStudioChatImageDecodedBytes,
+	isStudioChatImageMimeType,
+	STUDIO_CHAT_MAX_IMAGE_BYTES,
+	STUDIO_CHAT_MAX_IMAGES,
+	STUDIO_CHAT_MAX_TOTAL_IMAGE_BYTES,
+	toImageDataUrl,
+	type StudioChatImage,
+} from '@studio/common/ai/chat-images';
+import {
+	INSPECTOR_COMMAND_EVENT,
+	INSPECTOR_PAGE_SCRIPT,
+	parseInspectorMessage,
+	type InspectorEvent,
+} from '@studio/common/ai/inspector/page-script';
+import { __, _n, isRTL, sprintf } from '@wordpress/i18n';
 import { launchChromiumWithInstall } from 'cli/ai/browser-utils';
-import { INSPECTOR_PAGE_SCRIPT } from 'cli/ai/inspector/page-script';
+import {
+	NOTE_EDITOR_BINDING,
+	NOTE_EDITOR_EVENT,
+	NOTE_EDITOR_SCRIPT,
+} from 'cli/ai/inspector/note-editor';
+import type { VisualAnnotation } from '@studio/common/ai/visual-annotations';
 
 type Browser = Awaited< ReturnType< ( typeof import('playwright') )[ 'chromium' ][ 'launch' ] > >;
 type Page = Awaited< ReturnType< Browser[ 'newPage' ] > >;
 
-let inspectorBrowser: Browser | null = null;
-let inspectorPage: Page | null = null;
+export interface BrowserAnnotation extends VisualAnnotation {
+	images: StudioChatImage[];
+}
+
+interface Anchor {
+	left: number;
+	top: number;
+}
+
+interface Session {
+	browser: Browser;
+	page: Page;
+	notes: BrowserAnnotation[];
+	editingId: string | null;
+	anchor: Anchor | null;
+	finish: ( notes: BrowserAnnotation[] | null ) => void;
+}
+
+let session: Session | null = null;
+// Settles with the sent notes, or null when the user cancels or closes the
+// window. Kept after the session ends, so a call that timed out still gets them.
+let pending: Promise< BrowserAnnotation[] | null > | null = null;
 let processExitHookInstalled = false;
 
-async function shutdownBrowser(): Promise< void > {
-	const browser = inspectorBrowser;
-	inspectorBrowser = null;
-	inspectorPage = null;
-	if ( browser ) {
-		await browser.close().catch( () => undefined );
-	}
-}
+const hasContent = ( note: BrowserAnnotation ) =>
+	Boolean( note.comment.trim() || note.images.length );
 
 function installProcessExitHook(): void {
 	if ( processExitHookInstalled ) {
@@ -34,165 +67,284 @@ function installProcessExitHook(): void {
 	processExitHookInstalled = true;
 	// Tear down the chromium process when the CLI exits so its dock icon
 	// doesn't linger on macOS.
-	const cleanup = () => {
-		void shutdownBrowser();
-	};
+	const cleanup = () => session?.finish( null );
 	process.once( 'exit', cleanup );
 	process.once( 'SIGINT', cleanup );
 	process.once( 'SIGTERM', cleanup );
 	process.once( 'SIGHUP', cleanup );
 }
 
-async function injectInspector( page: Page ): Promise< void > {
-	// Re-evaluate the page script. The script itself is idempotent (returns
-	// early via `window.__studioInspectorMounted`), but for reloads/refreshes
-	// we want to ensure it runs again. To handle that we also clear the flag
-	// before running, when the marker host element is missing.
-	await page.evaluate( ( script: string ) => {
-		// Reset the mount flag if the previous host element is gone (e.g. the
-		// user navigated to a different page within the site).
-		const w = window as unknown as { __studioInspectorMounted?: boolean };
-		if ( ! document.getElementById( '__studio-inspector-host' ) ) {
-			delete w.__studioInspectorMounted;
-		}
+async function dispatch( page: Page, event: string, detail: unknown ): Promise< void > {
+	await page
+		.evaluate(
+			( [ name, data ] ) => window.dispatchEvent( new CustomEvent( name, { detail: data } ) ),
+			[ event, detail ] as const
+		)
+		.catch( () => undefined );
+}
 
-		new Function( script )();
-	}, INSPECTOR_PAGE_SCRIPT );
-
-	await page.waitForSelector( '#__studio-inspector-host', {
-		timeout: 5_000,
-		state: 'attached',
+// `withEditor` reloads the open note into the editor, images included, so it is
+// left out on the high-frequency anchor updates.
+async function render( current: Session, withEditor = true ): Promise< void > {
+	const { page, notes, editingId } = current;
+	const count = notes.filter( hasContent ).length;
+	const note = notes.find( ( item ) => item.id === editingId );
+	await dispatch( page, INSPECTOR_COMMAND_EVENT, {
+		active: true,
+		editingId,
+		notes: notes.map( ( { id, number, selector, url, documentRect, point } ) => ( {
+			id,
+			number,
+			selector,
+			url,
+			documentRect,
+			point,
+		} ) ),
+		annotationLabel: __( 'Annotation' ),
+		accent: '#3858e9',
+		onAccent: '#eff0f2',
+	} );
+	if ( ! withEditor ) {
+		return;
+	}
+	await dispatch( page, NOTE_EDITOR_EVENT, {
+		anchor: current.anchor,
+		count,
+		editing: note
+			? {
+					id: note.id,
+					comment: note.comment,
+					images: note.images.map( ( image ) => ( {
+						id: image.id,
+						name: image.name,
+						src: toImageDataUrl( image.mimeType, image.dataBase64 ),
+					} ) ),
+			  }
+			: null,
+		labels: {
+			rtl: isRTL(),
+			annotation: __( 'Annotation' ),
+			annotations: __( 'Annotations' ),
+			placeholder: __( 'Leave a note…' ),
+			attach: __( 'Attach image' ),
+			remove: __( 'Delete annotation' ),
+			removeImage: __( 'Remove attachment' ),
+			save: __( 'Save annotation (Enter)' ),
+			cancel: __( 'Cancel' ),
+			send: __( 'Send' ),
+			/* translators: %d: number of annotations. */
+			sendCount: sprintf( _n( 'Send %d annotation', 'Send %d annotations', count ), count ),
+			status: count
+				? /* translators: %d: number of annotations. */
+				  sprintf( _n( '%d annotation', '%d annotations', count ), count )
+				: __( 'Click anything on the page to leave a note' ),
+		},
 	} );
 }
 
-export interface AnnotationDoneResult {
-	capturedAt: number;
-	url: string;
-	annotations: unknown[];
+// An empty note only exists while its editor is open.
+function closeEditor( current: Session, keepId?: string ): void {
+	current.notes = current.notes.filter( ( note ) => note.id === keepId || hasContent( note ) );
+	current.editingId = keepId ?? null;
+}
+
+function onInspectorEvent( current: Session, event: InspectorEvent ): void {
+	switch ( event.type ) {
+		case 'pick': {
+			closeEditor( current );
+			const id = randomUUID();
+			const number = Math.max( 0, ...current.notes.map( ( note ) => note.number ) ) + 1;
+			current.notes.push( { ...event.target, id, number, comment: '', images: [] } );
+			current.editingId = id;
+			current.anchor = event.anchor;
+			void render( current );
+			return;
+		}
+		case 'edit':
+			closeEditor( current, event.id );
+			current.anchor = event.anchor;
+			void render( current );
+			return;
+		case 'anchor':
+			if ( event.id === current.editingId ) {
+				current.anchor = event.anchor;
+				void dispatch( current.page, NOTE_EDITOR_EVENT, { anchor: event.anchor } );
+			}
+			return;
+		case 'escape':
+			if ( current.editingId ) {
+				closeEditor( current );
+				void render( current );
+			}
+			return;
+		case 'browser-command': {
+			const { page } = current;
+			const navigate =
+				event.command === 'reload'
+					? page.reload()
+					: event.command === 'back'
+					? page.goBack()
+					: page.goForward();
+			void navigate.catch( () => undefined );
+		}
+	}
+}
+
+// Keeps the images the model accepts, within one message's limits.
+function acceptImages( current: Session, noteId: string, value: unknown ): StudioChatImage[] {
+	const others = current.notes
+		.filter( ( note ) => note.id !== noteId )
+		.flatMap( ( note ) => note.images );
+	let count = others.length;
+	let total = others.reduce( ( sum, image ) => sum + image.size, 0 );
+	const accepted: StudioChatImage[] = [];
+	for ( const item of Array.isArray( value ) ? value : [] ) {
+		const match =
+			typeof item?.src === 'string' ? /^data:([^;,]+);base64,(.+)$/.exec( item.src ) : null;
+		if ( ! match || ! isStudioChatImageMimeType( match[ 1 ] ) ) continue;
+		const size = getStudioChatImageDecodedBytes( match[ 2 ] );
+		if (
+			count >= STUDIO_CHAT_MAX_IMAGES ||
+			size > STUDIO_CHAT_MAX_IMAGE_BYTES ||
+			total + size > STUDIO_CHAT_MAX_TOTAL_IMAGE_BYTES
+		) {
+			continue;
+		}
+		count++;
+		total += size;
+		accepted.push( {
+			id: typeof item.id === 'string' ? item.id.slice( 0, 100 ) : randomUUID(),
+			name: typeof item.name === 'string' ? item.name.slice( 0, 200 ) : 'image',
+			mimeType: match[ 1 ],
+			size,
+			dataBase64: match[ 2 ],
+		} );
+	}
+	return accepted;
+}
+
+function onEditorAction( current: Session, action: unknown ): void {
+	if ( typeof action !== 'object' || action === null ) return;
+	const data = action as Record< string, unknown >;
+	switch ( data.type ) {
+		case 'change': {
+			const note = current.notes.find( ( item ) => item.id === data.id );
+			if ( ! note ) return;
+			if ( typeof data.comment === 'string' ) note.comment = data.comment.slice( 0, 10_000 );
+			if ( 'images' in data ) {
+				note.images = acceptImages( current, note.id, data.images );
+				if ( note.images.length !== ( data.images as unknown[] ).length ) void render( current );
+			}
+			return;
+		}
+		case 'save':
+			closeEditor( current );
+			void render( current );
+			return;
+		case 'delete':
+			current.notes = current.notes.filter( ( note ) => note.id !== data.id );
+			closeEditor( current );
+			void render( current );
+			return;
+		case 'send': {
+			const notes = current.notes.filter( hasContent );
+			if ( notes.length ) current.finish( notes );
+			return;
+		}
+		case 'cancel':
+			current.finish( null );
+	}
+}
+
+async function inject( current: Session ): Promise< void > {
+	await current.page.evaluate( INSPECTOR_PAGE_SCRIPT );
+	await current.page.evaluate( NOTE_EDITOR_SCRIPT );
+	await render( current );
 }
 
 /**
- * Block until the user clicks "Done" in the inspector toolbar, then return
- * the annotations. Reads from `window.__studioAnnotateDone` which the page
- * script populates from its in-memory state and localStorage.
+ * Opens the annotation browser on `siteUrl`, or brings back the open one, and
+ * blocks until the user clicks Send. Resolves to null when the user cancels or
+ * closes the browser. After a timeout the browser stays open with its notes,
+ * so calling this again keeps waiting.
  */
-export async function waitForAnnotationsDone(
-	options: { timeoutMs?: number } = {}
-): Promise< AnnotationDoneResult > {
-	if ( ! inspectorPage || inspectorPage.isClosed() ) {
-		throw new Error( 'No annotation browser is open. Call open_annotation_browser first.' );
+export async function annotateInBrowser(
+	siteUrl: string,
+	timeoutMs = 30 * 60 * 1000
+): Promise< BrowserAnnotation[] | null > {
+	if ( session ) {
+		await session.page.bringToFront().catch( () => undefined );
+		await inject( session ).catch( () => undefined );
+	} else if ( ! pending ) {
+		await launch( siteUrl );
 	}
-
-	const timeoutMs = options.timeoutMs ?? 30 * 60 * 1000; // 30 minutes default
-
-	const handle = await inspectorPage.waitForFunction(
-		() => {
-			const w = window as unknown as {
-				__studioAnnotateDone?: AnnotationDoneResult;
-			};
-			return w.__studioAnnotateDone ?? null;
-		},
-		undefined,
-		{ timeout: timeoutMs, polling: 500 }
-	);
-
-	const value = ( await handle.jsonValue() ) as AnnotationDoneResult | null;
-	if ( ! value ) {
-		throw new Error( 'Annotation submission was cleared before it could be read.' );
+	const done = pending as Promise< BrowserAnnotation[] | null >;
+	let timer: NodeJS.Timeout | undefined;
+	const timeout = new Promise< never >( ( _, reject ) => {
+		timer = setTimeout(
+			() =>
+				reject(
+					new Error(
+						'The user has not sent annotations yet. The browser is still open: call open_annotation_browser again to keep waiting.'
+					)
+				),
+			timeoutMs
+		);
+	} );
+	try {
+		const notes = await Promise.race( [ done, timeout ] );
+		if ( pending === done ) pending = null;
+		return notes;
+	} finally {
+		clearTimeout( timer );
 	}
-
-	// Auto-close the browser once we've captured the annotations. This
-	// makes the lifecycle unambiguous from the user's point of view —
-	// clicking "Done" closes the window — and removes the failure mode
-	// where a user re-annotates after the agent has already moved on, with
-	// the new payload sitting on `window.__studioAnnotateDone` but nobody
-	// polling for it. To start another round, the user just re-runs the
-	// skill, which opens a fresh browser.
-	//
-	// The short delay lets the page-side "Sent N annotation(s)" toast
-	// stay visible long enough for the user to register what happened
-	// before the window disappears.
-	const browserToClose = inspectorBrowser;
-	inspectorBrowser = null;
-	inspectorPage = null;
-	if ( browserToClose ) {
-		setTimeout( () => {
-			browserToClose.close().catch( () => undefined );
-		}, 10_000 );
-	}
-
-	return value;
 }
 
-export async function openAnnotationBrowser( siteUrl: string ): Promise< string > {
-	// Always re-inject when the skill is invoked. A previous run may have left
-	// the browser on a different page or in a broken state; replaying the
-	// inject is cheap and keeps the contract simple.
-	if ( inspectorBrowser && inspectorPage && ! inspectorPage.isClosed() ) {
-		try {
-			await inspectorPage.bringToFront();
-			await injectInspector( inspectorPage );
-			return 'Inspector reattached to the open browser. Click "Annotate" to pick an element, then "Done" when finished.';
-		} catch {
-			await shutdownBrowser();
-		}
-	}
-
-	// Reuse the shared launcher so a missing/outdated Playwright Chromium is
-	// auto-installed on demand, exactly like the screenshot and validation
-	// tools — instead of failing with a raw "please run install" error.
-	inspectorBrowser = await launchChromiumWithInstall(
+async function launch( siteUrl: string ): Promise< void > {
+	const browser = await launchChromiumWithInstall(
 		{
 			headless: false,
-			// 1280x800 fits comfortably on a 13" MacBook (1440x900 native) once
-			// macOS chrome and the Chrome url bar are accounted for. With a larger
-			// window the bottom of the page can be clipped off-screen, hiding the
-			// `position: fixed; bottom: 1.25rem` toolbar.
+			// 1280x800 fits a 13" MacBook once the macOS and Chrome chrome are
+			// accounted for, so the bottom Send bar stays on screen.
 			args: [ '--ignore-certificate-errors', '--window-size=1280,800' ],
 		},
 		'the Studio annotation browser'
 	);
-
-	// `viewport: null` makes the page area follow the actual window size, so
-	// `position: fixed` lands inside the visible region regardless of the
-	// host screen.
-	inspectorPage = await inspectorBrowser.newPage( {
-		viewport: null,
-		ignoreHTTPSErrors: true,
+	// `viewport: null` makes the page follow the window size, so the fixed
+	// editor and bar land inside the visible region.
+	const page = await browser.newPage( { viewport: null, ignoreHTTPSErrors: true } );
+	let finish: Session[ 'finish' ] = () => undefined;
+	pending = new Promise( ( resolve ) => {
+		let finished = false;
+		finish = ( notes ) => {
+			if ( finished ) return;
+			finished = true;
+			resolve( notes );
+			if ( session?.browser === browser ) session = null;
+			void browser.close().catch( () => undefined );
+		};
 	} );
+	const current: Session = { browser, page, notes: [], editingId: null, anchor: null, finish };
+	session = current;
 
-	await inspectorPage.goto( siteUrl, {
-		waitUntil: 'domcontentloaded',
-		timeout: 30_000,
+	await page.exposeFunction( NOTE_EDITOR_BINDING, ( action: unknown ) =>
+		onEditorAction( current, action )
+	);
+	page.on( 'console', ( message ) => {
+		const event = parseInspectorMessage( message.text() );
+		if ( event ) onInspectorEvent( current, event );
 	} );
-	await inspectorPage.waitForLoadState( 'networkidle', { timeout: 10_000 } ).catch( () => {} );
-
-	await injectInspector( inspectorPage );
-
-	// Re-inject after client-side navigations within the WordPress site so
-	// the toolbar doesn't disappear if the user clicks a link.
-	inspectorPage.on( 'framenavigated', ( frame ) => {
-		if ( frame === inspectorPage?.mainFrame() ) {
-			void injectInspector( inspectorPage ).catch( () => undefined );
-		}
+	page.on( 'domcontentloaded', () => {
+		closeEditor( current );
+		void inject( current ).catch( () => undefined );
 	} );
-
-	// macOS chromium often opens behind the terminal — make sure the user
-	// actually sees the new window.
-	await inspectorPage.bringToFront();
-
-	// Closing the page (red traffic-light button) has to tear down the whole
-	// chromium process or its dock icon stays around — Playwright's chromium
-	// has no real app menu so the regular Cmd+Q path doesn't reach it.
-	inspectorPage.on( 'close', () => {
-		void shutdownBrowser();
-	} );
-	inspectorBrowser.on( 'disconnected', () => {
-		inspectorBrowser = null;
-		inspectorPage = null;
-	} );
-
+	// Playwright's chromium has no app menu, so closing the window is how the
+	// user quits it; the whole process has to go or its dock icon stays.
+	page.on( 'close', () => finish( null ) );
+	browser.on( 'disconnected', () => finish( null ) );
 	installProcessExitHook();
 
-	return `Annotation browser opened at ${ siteUrl }. Click "Annotate" in the bottom-right toolbar, click an element, type your feedback, then click "Done" when you're finished.`;
+	await page.goto( siteUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 } );
+	// macOS chromium often opens behind the terminal.
+	await page.bringToFront();
 }

@@ -1,3 +1,4 @@
+import { INSPECTOR_BRIDGE_PREFIX } from '@studio/common/ai/inspector/page-script';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { Tooltip } from '@wordpress/ui';
@@ -6,7 +7,6 @@ import { useConnector } from '@/data/core';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { WindowControlsCornerContext } from '@/hooks/use-window-controls-inset';
 import { useWindowControlsOverlay } from '@/hooks/use-window-controls-overlay';
-import { INSPECTOR_BRIDGE_PREFIX } from './inspector-script';
 import {
 	getBrowserShortcutCommand,
 	getDirectionalHistoryEntries,

@@ -1,22 +1,22 @@
 /**
- * Annotation inspector injected into the site-preview `<webview>` with
- * `webview.executeJavaScript()` after each load.
+ * Annotation inspector injected into a site page: the Desktop preview's
+ * `<webview>` and the CLI's annotation browser both evaluate it after each load.
  *
- * The guest only handles page geometry: hover highlight, picking an element,
- * and the numbered markers. Note text and attachments stay in Studio, which
- * draws the note editor over the preview.
+ * The page only handles geometry: hover highlight, picking an element, and the
+ * numbered markers. Note text and attachments stay with the host, which draws
+ * the note editor. Elements with a `data-studio-inspector` attribute are the
+ * host's own UI, so the inspector ignores pointer events inside them.
  *
- *   host -> guest: `INSPECTOR_COMMAND_EVENT` on `window`, with the annotation
- *                  state as its detail (active, notes, editingId, colors).
- *   guest -> host: `console.log( INSPECTOR_BRIDGE_PREFIX + JSON )`, read from
- *                  the webview's `console-message` event:
- *                  pick | edit | anchor | escape | browser-command.
+ *   host -> page: `INSPECTOR_COMMAND_EVENT` on `window`, with the annotation
+ *                 state as its detail (active, notes, editingId, colors).
+ *   page -> host: `console.log( INSPECTOR_BRIDGE_PREFIX + JSON )`:
+ *                 pick | edit | anchor | escape | browser-command.
  *
  * Browser shortcuts (reload, back, forward) pressed inside the page are
- * forwarded too, so the host toolbar can handle them.
+ * forwarded too, so the host can handle them.
  */
 
-import type { AnnotationTarget } from '@/components/annotations/store';
+import type { VisualAnnotationTarget } from '../visual-annotations';
 
 export const INSPECTOR_BRIDGE_PREFIX = '__studio-inspector__:';
 export const INSPECTOR_COMMAND_EVENT = '__studio-inspector-command';
@@ -29,6 +29,7 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 	const PREFIX = '${ INSPECTOR_BRIDGE_PREFIX }';
 	const host = document.createElement('div');
 	host.id = '__studio-inspector-host';
+	host.dataset.studioInspector = '';
 	host.style.cssText = 'all:initial;position:fixed;inset:0;pointer-events:none;z-index:2147483647';
 	host.hidden = true;
 	document.documentElement.append(host);
@@ -168,6 +169,9 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 			highlight.hidden = false;
 		} else highlight.hidden = true;
 	}
+	function isOwnUi(e) {
+		return e.composedPath().some((node) => node instanceof Element && node.hasAttribute('data-studio-inspector'));
+	}
 	function schedule() {
 		if (!frame) frame = requestAnimationFrame(render);
 	}
@@ -179,7 +183,7 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 		const apple = /mac|iphone|ipad|ipod/i.test(navigator.platform || navigator.userAgent || '');
 		if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
 			const chord = apple ? e.metaKey && !e.ctrlKey && !e.altKey : e.altKey && !e.ctrlKey && !e.metaKey;
-			if (!chord || e.shiftKey || isTextEntry(e.target)) return null;
+			if (!chord || e.shiftKey || isTextEntry(e.composedPath()[0])) return null;
 			return e.key === 'ArrowLeft' ? 'back' : 'forward';
 		}
 		if (e.altKey || !(apple ? e.metaKey : e.ctrlKey)) return null;
@@ -209,7 +213,7 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 		'pointermove',
 		(e) => {
 			if (!state.active) return;
-			hovered = e.composedPath().includes(host) ? null : e.target;
+			hovered = isOwnUi(e) ? null : e.target;
 			schedule();
 		},
 		{ capture: true, signal: abort.signal }
@@ -226,7 +230,7 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 	document.addEventListener(
 		'click',
 		(e) => {
-			if (!state.active || e.composedPath().includes(host)) return;
+			if (!state.active || isOwnUi(e)) return;
 			e.preventDefault();
 			e.stopImmediatePropagation();
 			if (!(e.target instanceof Element)) return;
@@ -280,7 +284,7 @@ interface Point {
 }
 
 export type InspectorEvent =
-	| { type: 'pick'; target: AnnotationTarget; anchor: Point }
+	| { type: 'pick'; target: VisualAnnotationTarget; anchor: Point }
 	| { type: 'edit'; id: string; anchor: Point }
 	| { type: 'anchor'; id: string; anchor: Point | null }
 	| { type: 'escape' }
@@ -314,7 +318,7 @@ function box( value: unknown ) {
 
 // The page can log anything, and a picked target ends up in the agent's
 // prompt, so only well-formed fields of bounded size get through.
-function target( value: unknown ): AnnotationTarget | null {
+function target( value: unknown ): VisualAnnotationTarget | null {
 	if ( ! isData( value ) || typeof value.selector !== 'string' || typeof value.tag !== 'string' ) {
 		return null;
 	}

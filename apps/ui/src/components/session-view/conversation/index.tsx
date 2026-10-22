@@ -59,7 +59,6 @@ import {
 	offline,
 	page,
 	pencil,
-	pending,
 	people,
 	plugins,
 	plusCircle,
@@ -585,7 +584,6 @@ function getClassicToolDisplay(
 		case 'take_screenshot':
 		case 'inspect_design':
 		case 'open_annotation_browser':
-		case 'wait_for_annotations':
 			display.detail = '';
 			break;
 	}
@@ -664,8 +662,6 @@ function getToolIcon( name: string, input: Record< string, unknown > | undefined
 		}
 		case 'open_annotation_browser':
 			return pencil;
-		case 'wait_for_annotations':
-			return pending;
 		case 'take_screenshot':
 			return capturePhoto;
 		case 'inspect_design':

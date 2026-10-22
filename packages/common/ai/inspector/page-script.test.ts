@@ -4,11 +4,12 @@ import {
 	INSPECTOR_COMMAND_EVENT,
 	INSPECTOR_PAGE_SCRIPT,
 	parseInspectorMessage,
-} from './inspector-script';
+} from './page-script';
 
 function mount() {
 	const log = vi.spyOn( console, 'log' ).mockImplementation( () => undefined );
 	vi.stubGlobal( 'requestAnimationFrame', () => 0 );
+	vi.stubGlobal( 'CSS', { escape: ( value: string ) => value } );
 	vi.stubGlobal(
 		'ResizeObserver',
 		class {
@@ -78,10 +79,22 @@ describe( 'annotation inspector', () => {
 		} );
 		const root = ( document.getElementById( '__studio-inspector-host' ) as HTMLElement )
 			.shadowRoot as ShadowRoot;
-		const marker = root.querySelector( 'button' ) as HTMLButtonElement;
-		expect( marker ).toHaveTextContent( '1' );
-		marker.click();
+		const markers = Array.from( root.querySelectorAll( 'button' ) );
+		expect( markers.map( ( marker ) => marker.textContent ) ).toEqual( [ '1' ] );
+		markers[ 0 ].click();
 		expect( events().at( -1 ) ).toMatchObject( { type: 'edit', id: 'n1' } );
+	} );
+
+	it( "ignores clicks in the host's own UI", () => {
+		document.body.innerHTML = '<div data-studio-inspector><button>Send</button></div>';
+		const events = mount();
+		publish( { active: true } );
+
+		const click = new MouseEvent( 'click', { bubbles: true, cancelable: true } );
+		document.querySelector( 'button' )?.dispatchEvent( click );
+
+		expect( click.defaultPrevented ).toBe( false );
+		expect( events() ).toEqual( [] );
 	} );
 
 	it( 'leaves the page alone outside annotation mode but forwards browser shortcuts', () => {

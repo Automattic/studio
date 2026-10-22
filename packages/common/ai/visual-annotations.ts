@@ -1,5 +1,31 @@
 import { STUDIO_CHAT_MAX_IMAGES } from './chat-images';
 
+// What a note points at: an element on a site page, or a DESIGN.md token on
+// the design system page.
+export interface VisualAnnotationTarget {
+	selector?: string;
+	tag?: string;
+	classes?: string[];
+	nearbyText?: string;
+	url?: string;
+	path?: string;
+	viewport?: { width: number; height: number };
+	documentRect?: { left: number; top: number; width: number; height: number };
+	// Where the click landed inside the element, as fractions of its box.
+	point?: { x: number; y: number };
+	computedStyles?: Record< string, string >;
+	designToken?: string;
+	// Design targets are unique, so picking one again edits its note.
+	designKey?: string;
+}
+
+export interface VisualAnnotation extends VisualAnnotationTarget {
+	id: string;
+	number: number;
+	comment: string;
+	images: ReadonlyArray< { id: string } >;
+}
+
 export interface StudioVisualAnnotationSummary {
 	comment: string;
 	imageIds?: string[];
@@ -82,4 +108,77 @@ export function validateStudioVisualAnnotations(
 			nearbyText: typed.nearbyText?.trim() || undefined,
 		};
 	} );
+}
+
+function truncateText( text: string, maxLength: number ): string {
+	return text.length <= maxLength ? text : `${ text.slice( 0, maxLength - 1 ) }...`;
+}
+
+function isDesignSystemAnnotation( note: VisualAnnotation ): boolean {
+	return note.path === 'DESIGN.md';
+}
+
+/**
+ * The agent's view of the notes. `images` is the message's attachment order,
+ * which the notes' images are numbered by.
+ */
+export function formatVisualAnnotationsPrompt(
+	notes: VisualAnnotation[],
+	images: ReadonlyArray< { id: string } >
+): string {
+	const lines: string[] = [
+		`The user submitted ${
+			notes.length === 1 ? '1 visual annotation' : `${ notes.length } visual annotations`
+		} from the site preview.`,
+		'',
+		'Make the requested changes. When there are several annotations, address them in the order they were submitted.',
+		'',
+		'When you reference an annotation for the user, identify the element by what is visible on the page rather than by selector. Use selectors and raw annotation data only for implementation.',
+		'',
+	];
+	if ( notes.some( isDesignSystemAnnotation ) ) {
+		lines.push(
+			"Annotations from the Design system page are about the site's DESIGN.md: make the change there, then update the matching presets in the active theme's theme.json so the site follows it.",
+			''
+		);
+	}
+	lines.push( '## Submitted Annotations', '' );
+
+	notes.forEach( ( note, index ) => {
+		const tag = note.designToken
+			? `design token \`${ note.designToken }\``
+			: note.tag
+			? `<${ note.tag }>`
+			: 'element';
+		const nearbyText = note.nearbyText?.trim()
+			? ` - "${ truncateText( note.nearbyText.trim(), 120 ) }"`
+			: '';
+		const page = isDesignSystemAnnotation( note )
+			? 'Design system (DESIGN.md)'
+			: note.url || note.path || '/';
+		const imageNumbers = note.images.map(
+			( image ) => images.findIndex( ( item ) => item.id === image.id ) + 1
+		);
+		const { images: _images, number: _number, designKey: _key, ...data } = note;
+
+		lines.push(
+			`### ${ index + 1 }. ${ tag }${ nearbyText }`,
+			`- Page: ${ page }`,
+			`- Comment: ${ note.comment.trim() }`
+		);
+		if ( note.selector ) {
+			lines.push( `- Selector: \`${ note.selector }\`` );
+		}
+		if ( note.viewport ) {
+			lines.push(
+				`- Viewport when annotated: ${ note.viewport.width }×${ note.viewport.height } CSS px`
+			);
+		}
+		if ( imageNumbers.length ) {
+			lines.push( `- Attached images (in attachment order): ${ imageNumbers.join( ', ' ) }` );
+		}
+		lines.push( '', '```json', JSON.stringify( data, null, 2 ), '```', '' );
+	} );
+
+	return lines.join( '\n' ).trimEnd();
 }

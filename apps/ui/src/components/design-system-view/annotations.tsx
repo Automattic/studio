@@ -1,19 +1,20 @@
 import { useEffect, useRef } from 'react';
-import { useSiteAnnotations, type AnnotationTarget } from '@/components/annotations/store';
+import { useSiteAnnotations } from '@/components/annotations/store';
 import styles from './style.module.css';
 import type { AnnotationAnchor } from '@/components/annotations/overlay';
+import type { VisualAnnotationTarget } from '@studio/common/ai/visual-annotations';
 import type { MouseEvent } from 'react';
 
 export interface DesignAnnotationProps {
 	// A token was picked; the anchor is in client coordinates.
-	onAnnotationPick?: ( target: AnnotationTarget, anchor: AnnotationAnchor ) => void;
+	onAnnotationPick?: ( target: VisualAnnotationTarget, anchor: AnnotationAnchor ) => void;
 	// The open note's token moved on screen.
 	onAnnotationAnchor?: ( anchor: AnnotationAnchor ) => void;
 }
 
 const TARGET_ATTRIBUTE = 'data-annotation-target';
 
-function anchorFor( element: Element, point: AnnotationTarget[ 'point' ] ): AnnotationAnchor {
+function anchorFor( element: Element, point: VisualAnnotationTarget[ 'point' ] ): AnnotationAnchor {
 	const box = element.getBoundingClientRect();
 	return {
 		left: box.left + box.width * ( point?.x ?? 1 ),
@@ -31,7 +32,7 @@ export function useDesignAnnotations( {
 	onAnnotationAnchor,
 }: DesignAnnotationProps & { siteId: string } ) {
 	const { active, notes, editingId } = useSiteAnnotations( siteId );
-	const targets = useRef( new Map< string, AnnotationTarget >() );
+	const targets = useRef( new Map< string, VisualAnnotationTarget >() );
 	const editing = notes.find( ( note ) => note.id === editingId && note.designKey );
 
 	useEffect( () => {

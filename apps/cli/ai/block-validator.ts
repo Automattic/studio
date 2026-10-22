@@ -99,9 +99,76 @@ export async function validateBlocks(
 				return issues;
 			}
 
+			// The block's registered attributes, with those of its deprecated
+			// versions, which the editor migrates.
+			function knownAttributes( blockType: any ): Record< string, any > {
+				const known: Record< string, any > = {};
+				for ( const version of [ ...( blockType.deprecated ?? [] ) ].reverse() ) {
+					Object.assign( known, version.attributes );
+				}
+				return Object.assign( known, blockType.attributes );
+			}
+
+			function describeAttribute( name: string, schema: any ): string {
+				return Array.isArray( schema?.enum )
+					? `${ name } (${ schema.enum
+							.map( ( value: unknown ) =>
+								typeof value === 'string' && value ? value : JSON.stringify( value )
+							)
+							.join( ' | ' ) })`
+					: name;
+			}
+
+			// Attributes in a block's comment delimiter that its type does not
+			// declare, or values outside a declared enum. wp.blocks.parse drops
+			// both without a word, so they are read from the raw delimiters. One
+			// entry per registered block, in the order validateRecursive meets them.
+			function attributeIssues( blockHtml: string ): string[][] {
+				const rawParse = ( window as any ).wp?.blockSerializationDefaultParser?.parse;
+				if ( typeof rawParse !== 'function' ) {
+					return [];
+				}
+				const perBlock: string[][] = [];
+				const walk = ( raw: any ) => {
+					if ( ! raw.blockName ) return;
+					const name = raw.blockName.includes( '/' ) ? raw.blockName : `core/${ raw.blockName }`;
+					const blockType = wpBlocks.getBlockType( name );
+					// Unregistered blocks parse to core/missing, which is not checked.
+					if ( ! blockType || name === 'core/freeform' ) return;
+					const known = knownAttributes( blockType );
+					const issues: string[] = [];
+					for ( const [ key, value ] of Object.entries( raw.attrs ?? {} ) ) {
+						const schema = known[ key ];
+						if ( ! schema ) {
+							issues.push(
+								`"${ key }" is not an attribute of ${ name }, so WordPress ignores it.`
+							);
+						} else if ( Array.isArray( schema.enum ) && ! schema.enum.includes( value ) ) {
+							issues.push(
+								`${ JSON.stringify(
+									value
+								) } is not a value of ${ name }'s "${ key }", so WordPress ignores it.`
+							);
+						}
+					}
+					if ( issues.length ) {
+						const attributes = Object.entries( blockType.attributes ?? {} )
+							.filter( ( [ , schema ]: [ string, any ] ) => ! schema?.source )
+							.map( ( [ key, schema ] ) => describeAttribute( key, schema ) );
+						issues.push( `${ name } attributes: ${ attributes.join( ', ' ) }.` );
+					}
+					perBlock.push( issues );
+					( raw.innerBlocks ?? [] ).forEach( walk );
+				};
+				rawParse( blockHtml ).forEach( walk );
+				return perBlock;
+			}
+
 			function validateContent( blockHtml: string ) {
 				const blocks = wpBlocks.parse( blockHtml );
 				const results: any[] = [];
+				const rawIssues = attributeIssues( blockHtml );
+				let blockIndex = 0;
 
 				function validateRecursive( block: any ) {
 					if ( ! block.name ) {
@@ -115,6 +182,7 @@ export async function validateBlocks(
 					let issues: string[] = [];
 					let isValid = true;
 					let expectedContent: string | undefined;
+					const unknownAttributeIssues = rawIssues[ blockIndex++ ] ?? [];
 
 					if ( ! blockType ) {
 						isValid = false;
@@ -151,6 +219,8 @@ export async function validateBlocks(
 						}
 					}
 
+					// Expected content shows how the save output differs, so only a
+					// failed save comparison gets it.
 					if ( blockType && ! isValid ) {
 						// Re-render expected HTML including inner blocks for comparison
 						try {
@@ -162,6 +232,11 @@ export async function validateBlocks(
 						} catch {
 							// If re-rendering fails, skip expected content
 						}
+					}
+
+					if ( unknownAttributeIssues.length ) {
+						isValid = false;
+						issues = [ ...issues, ...unknownAttributeIssues ];
 					}
 
 					results.push( {

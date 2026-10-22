@@ -17,6 +17,7 @@ import { sitePinKey, useSidebarPins } from '@/data/queries/use-sidebar-pins';
 import { useIsSiteBusy, useSites, useStartSite, useStopSite } from '@/data/queries/use-sites';
 import { useSaveUserPreferences } from '@/data/queries/use-user-preferences';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useOpenAddSite } from '@/hooks/use-open-add-site';
 import { useOpenHeaderPanel } from '@/hooks/use-open-header-panel';
 import { useOpenSettings } from '@/hooks/use-open-settings';
 import { useOpenSite } from '@/hooks/use-open-site';
@@ -178,6 +179,7 @@ type PaletteProps = {
 function useAppCommands(): PaletteCommand[] {
 	const navigate = useNavigate();
 	const openSettings = useOpenSettings();
+	const openAddSite = useOpenAddSite();
 	const { data: sites } = useSites();
 	const { data: sessions } = useSessions();
 	const { chatEnabled } = useAgenticFeatures();
@@ -211,7 +213,7 @@ function useAppCommands(): PaletteCommand[] {
 			label: __( 'New site' ),
 			icon: plusIcon,
 			keywords: [ __( 'Add site' ), __( 'Create site' ) ],
-			run: () => void navigate( { to: '/onboarding' } ),
+			run: () => openAddSite(),
 		},
 		{
 			id: 'settings',

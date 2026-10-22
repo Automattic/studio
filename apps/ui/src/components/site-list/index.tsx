@@ -43,6 +43,7 @@ import {
 	useUpdateSitesSortOrder,
 } from '@/data/queries/use-sites';
 import { useSiteSyncActivity } from '@/data/sync-activity';
+import { useOpenAddSite } from '@/hooks/use-open-add-site';
 import { useOpenSite } from '@/hooks/use-open-site';
 import {
 	archiveIcon,
@@ -623,7 +624,7 @@ export function SiteList( {
 	/** The sidebar groups sites, with the selected site's chats, and recent chats. */
 	sections?: boolean;
 } ) {
-	const navigate = useNavigate();
+	const openAddSite = useOpenAddSite();
 	const { data: sites, isLoading: sitesLoading } = useSites();
 	const { data: sessions, isLoading: sessionsLoading } = useSessions();
 	const needingInput = useSessionsNeedingInput();
@@ -769,7 +770,7 @@ export function SiteList( {
 								icon={ plusIcon }
 								label={ __( 'Add pinned site' ) }
 								className={ styles.rowAction }
-								onClick={ () => void navigate( { to: '/onboarding', search: { pin: true } } ) }
+								onClick={ () => openAddSite( 'create', { pin: true } ) }
 							/>
 						}
 					>
@@ -806,7 +807,7 @@ export function SiteList( {
 							icon={ plusIcon }
 							label={ __( 'Add site' ) }
 							className={ styles.rowAction }
-							onClick={ () => void navigate( { to: '/onboarding' } ) }
+							onClick={ () => openAddSite() }
 						/>
 					}
 				>

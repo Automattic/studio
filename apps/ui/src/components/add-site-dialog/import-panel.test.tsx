@@ -1,8 +1,6 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { applySyncActivity } from '@/data/sync-activity';
-import { clearPendingBackup, peekPendingBackup, setPendingBackup } from '@/lib/pending-backup';
-import { OnboardingImportPage } from './index';
+import { ImportPanel } from './import-panel';
 import type { CreateSiteFormError, CreateSiteFormValues } from '@/components/create-site-form';
 
 const mocks = vi.hoisted( () => ( {
@@ -13,17 +11,22 @@ const mocks = vi.hoisted( () => ( {
 	importSite: vi.fn(),
 	deleteSite: vi.fn(),
 	formProps: null as Record< string, unknown > | null,
+	followSite: vi.fn(),
+	onCancel: vi.fn(),
+	onChooseAnother: vi.fn(),
 } ) );
 
 vi.mock( '@tanstack/react-router', () => ( {
-	createRoute: ( config: Record< string, unknown > ) => config,
 	useNavigate: () => mocks.navigate,
 } ) );
 
-vi.mock( '../layout-onboarding', () => ( {
-	onboardingLayoutRoute: {},
-	useOnboardingProgress: () => ( { setProgress: mocks.setProgress } ),
-	usePinNewSite: () => () => {},
+vi.mock( './context', () => ( {
+	useAddSite: () => ( {
+		setProgress: mocks.setProgress,
+		followSite: mocks.followSite,
+		pinNewSite: () => {},
+		actions: null,
+	} ),
 } ) );
 
 vi.mock( '@/components/create-site-form', () => ( {
@@ -94,17 +97,21 @@ const formValues: CreateSiteFormValues = {
 };
 
 async function renderConfiguredImport( file = selectedBackup ) {
-	setPendingBackup( file );
-	const view = render( <OnboardingImportPage /> );
+	const view = render(
+		<ImportPanel
+			backup={ file }
+			onCancel={ mocks.onCancel }
+			onChooseAnother={ mocks.onChooseAnother }
+		/>
+	);
 	await waitFor( () => expect( mocks.formProps ).not.toBeNull() );
 	return view;
 }
 
-describe( 'OnboardingImportPage', () => {
+describe( 'ImportPanel', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
 		mocks.formProps = null;
-		clearPendingBackup();
 		mocks.getFilePath.mockResolvedValue( '/tmp/backup.zip' );
 		mocks.createSite.mockResolvedValue( { id: 'site-1' } );
 		mocks.importSite.mockResolvedValue( undefined );
@@ -117,18 +124,6 @@ describe( 'OnboardingImportPage', () => {
 		expect( mocks.getFilePath ).not.toHaveBeenCalled();
 		expect( mocks.formProps?.initialValues ).toEqual( { name: 'My Store' } );
 		expect( mocks.formProps?.isSubmitting ).toBe( false );
-		expect( peekPendingBackup() ).toBeNull();
-	} );
-
-	it( 'redirects direct visits without a selected File to Add a site', async () => {
-		render( <OnboardingImportPage /> );
-
-		await waitFor( () =>
-			expect( mocks.navigate ).toHaveBeenCalledWith( {
-				to: '/onboarding',
-				replace: true,
-			} )
-		);
 	} );
 
 	it( 'rolls back a failed import and retries the same File with a fresh path', async () => {
@@ -182,25 +177,18 @@ describe( 'OnboardingImportPage', () => {
 		await waitFor( () => expect( mocks.formProps?.isSubmitting ).toBe( false ) );
 	} );
 
-	it( 'shows the import progress the CLI publishes in the onboarding notification', async () => {
+	it( 'follows the CLI progress of the site it imports into', async () => {
 		let finishImport = () => {};
-		mocks.importSite.mockImplementationOnce( ( { siteId }: { siteId: string } ) => {
-			applySyncActivity( siteId, {
-				kind: 'pending',
-				direction: 'import',
-				message: '25% · Extracting…',
-			} );
-			return new Promise< void >( ( resolve ) => {
-				finishImport = resolve;
-			} );
-		} );
+		mocks.importSite.mockImplementationOnce(
+			() => new Promise< void >( ( resolve ) => ( finishImport = resolve ) )
+		);
 		await renderConfiguredImport();
 
 		fireEvent.click( screen.getByRole( 'button', { name: 'Import site' } ) );
 
-		await waitFor( () => expect( mocks.setProgress ).toHaveBeenCalledWith( '25% · Extracting…' ) );
+		await waitFor( () => expect( mocks.followSite ).toHaveBeenCalledWith( 'site-1' ) );
 		finishImport();
-		await waitFor( () => expect( mocks.setProgress ).toHaveBeenLastCalledWith( null ) );
+		await waitFor( () => expect( mocks.followSite ).toHaveBeenLastCalledWith( undefined ) );
 	} );
 
 	it( 'restores interaction when resolving the selected File fails', async () => {

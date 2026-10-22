@@ -11,11 +11,10 @@ import { RecommendedPHPVersion } from '@studio/common/types/php-versions';
 import { BaseControl, TextControl } from '@wordpress/components';
 import { DataForm, useFormValidity } from '@wordpress/dataviews';
 import { __, _n, sprintf } from '@wordpress/i18n';
-import { chevronDown, chevronLeft, chevronRight, error as errorIcon } from '@wordpress/icons';
+import { chevronDown, chevronRight, error as errorIcon } from '@wordpress/icons';
 import { Button, Icon } from '@wordpress/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { LearnMoreLink } from '@/components/learn-more';
-import { OnboardingFooter } from '@/components/onboarding-footer';
 import {
 	adminEmailField,
 	adminPasswordField,
@@ -672,13 +671,12 @@ export function CreateSiteForm( {
 		<>
 			<Button
 				type="button"
-				variant="minimal"
+				variant="outline"
 				tone="neutral"
 				onClick={ onCancel }
 				disabled={ isSubmitting }
 			>
-				<Icon icon={ chevronLeft } size={ 16 } />
-				<span>{ cancelLabel ?? __( 'Back' ) }</span>
+				{ cancelLabel ?? __( 'Cancel' ) }
 			</Button>
 			<Button
 				type="submit"
@@ -769,7 +767,7 @@ export function CreateSiteForm( {
 				{ panelFooter && <div className={ styles.panelFooter }>{ panelFooter }</div> }
 			</div>
 
-			<OnboardingFooter>{ actions }</OnboardingFooter>
+			<div className={ styles.actions }>{ actions }</div>
 		</form>
 	);
 }

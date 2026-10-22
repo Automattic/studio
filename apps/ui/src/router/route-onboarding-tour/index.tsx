@@ -95,7 +95,7 @@ function OnboardingTourPage() {
 
 	const finishTour = useCallback( async () => {
 		await connector.setOnboardingCompleted( true );
-		void navigate( { to: '/onboarding' } );
+		void navigate( { to: '/' } );
 	}, [ connector, navigate ] );
 
 	return (

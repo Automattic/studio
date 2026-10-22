@@ -96,22 +96,26 @@
 		var(--wpds-color-stroke-focus);
 }
 
-/* WPDS text-input chrome instead of the chat composer. */
+/* Text-input chrome, like the form inputs beside it, instead of the chat composer. */
 .shellField {
-	border-color: var(--wpds-color-stroke-interactive-neutral);
-	border-radius: 2px;
-	background-color: var(--wpds-color-background-interactive-neutral-weak);
-	transition: border-color 0.15s, box-shadow 0.15s;
+	border-color: color-mix(in srgb, var(--wpds-color-foreground-content-neutral) 10%, transparent);
+	border-radius: 9px;
+	background-color: color-mix(
+		in srgb,
+		var(--wpds-color-background-surface-neutral-strong) 60%,
+		transparent
+	);
 }
 
-.shellField:hover,
 .shellField:has(.input:focus-visible) {
-	border-color: var(--wpds-color-stroke-interactive-neutral-active);
-	box-shadow: 0 0 0 0.5px var(--wpds-color-stroke-interactive-neutral-active);
+	border-color: color-mix(in srgb, var(--wpds-color-foreground-content-neutral) 10%, transparent);
+	box-shadow: none;
+	outline: var(--wpds-border-width-focus) solid var(--wpds-color-stroke-focus);
+	outline-offset: var(--wpds-border-width-focus);
 }
 
 .shellField .input {
-	min-height: 48px;
+	min-height: calc(3lh + 28px);
 }
 
 .dropOverlay {

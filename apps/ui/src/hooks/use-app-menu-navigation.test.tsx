@@ -57,15 +57,18 @@ describe( 'useAppMenuNavigation', () => {
 		} );
 	} );
 
-	it( 'routes Add Site commands to onboarding', () => {
+	const addSiteOpened = () =>
+		expect( navigate ).toHaveBeenCalledWith( expect.objectContaining( { to: '.' } ) );
+
+	it( 'opens Add site from the app menu', () => {
 		renderAppMenuNavigation();
 
 		act( () => addSiteListener() );
 
-		expect( navigate ).toHaveBeenCalledWith( { to: '/onboarding' } );
+		addSiteOpened();
 	} );
 
-	it( 'hands a Blueprint deep link to the unified Create route', async () => {
+	it( 'opens Add site with a deep-linked Blueprint', async () => {
 		readBlueprintFile.mockResolvedValue( {
 			meta: { title: 'Deep-linked Blueprint', author: 'Studio' },
 		} );
@@ -73,7 +76,7 @@ describe( 'useAppMenuNavigation', () => {
 
 		act( () => blueprintListener( { blueprintPath: '/tmp/deep-link.json' } ) );
 
-		await waitFor( () => expect( navigate ).toHaveBeenCalledWith( { to: '/onboarding/create' } ) );
+		await waitFor( addSiteOpened );
 		expect( readBlueprintFile ).toHaveBeenCalledWith( '/tmp/deep-link.json' );
 		expect( pendingBlueprintSlot.getSnapshot() ).toMatchObject( {
 			title: 'Deep-linked Blueprint',

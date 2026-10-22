@@ -7,6 +7,9 @@ import { SITES_QUERY_KEY } from '@/data/queries/use-sites';
 import { readLastVisited } from '@/lib/last-visited';
 import { rootRoute } from '../layout-root';
 
+// Without sites, the workspace offers Add site once, until a site exists again.
+let addSiteOffered = false;
+
 export const indexRoute = createRoute( {
 	getParentRoute: () => rootRoute,
 	path: '/',
@@ -17,9 +20,14 @@ export const indexRoute = createRoute( {
 		} );
 		const firstSite = sites[ 0 ];
 		if ( ! firstSite ) {
-			const onboardingCompleted = await context.connector.getOnboardingCompleted();
-			throw redirect( { to: onboardingCompleted ? '/onboarding' : '/welcome' } );
+			if ( ! ( await context.connector.getOnboardingCompleted() ) ) {
+				throw redirect( { to: '/welcome' } );
+			}
+			const offer = ! addSiteOffered;
+			addSiteOffered = true;
+			throw redirect( { to: '/sites', search: offer ? { addSite: 'create' } : {} } );
 		}
+		addSiteOffered = false;
 
 		// Return the user to their last visited site (recorded by the dashboard
 		// layout), validating against live data so a stale id from a deleted

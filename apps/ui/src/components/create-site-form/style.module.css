@@ -6,15 +6,13 @@
 	display: flex;
 	flex-direction: column;
 	gap: 16px;
-	padding: 32px;
-	border: var( --wpds-border-width-xs ) solid var( --wpds-color-stroke-surface-neutral );
-	border-radius: 12px;
-	background: color-mix(
-		in srgb,
-		var( --wpds-color-background-surface-neutral-strong ) var( --surface-alpha, 50% ),
-		transparent
-	);
-	backdrop-filter: blur( 12px );
+}
+
+.actions {
+	display: flex;
+	justify-content: flex-end;
+	gap: 8px;
+	margin-top: 28px;
 }
 
 /* The path trigger is a <button>, but we style it to sit within the

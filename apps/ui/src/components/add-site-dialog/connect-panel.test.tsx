@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { OnboardingConnectPage } from './index';
+import { ConnectPanel } from './connect-panel';
 import type { SiteDetails, SyncSite } from '@/data/core';
 
 const mocks = vi.hoisted( () => ( {
@@ -29,14 +29,15 @@ const mocks = vi.hoisted( () => ( {
 } ) );
 
 vi.mock( '@tanstack/react-router', () => ( {
-	createRoute: () => ( {} ),
 	useNavigate: () => mocks.navigate,
 } ) );
 
-vi.mock( '../layout-onboarding', () => ( {
-	onboardingLayoutRoute: {},
-	useOnboardingProgress: () => ( { setProgress: mocks.setProgress } ),
-	usePinNewSite: () => () => {},
+vi.mock( './context', () => ( {
+	useAddSite: () => ( {
+		setProgress: mocks.setProgress,
+		pinNewSite: () => {},
+		actions: document.body,
+	} ),
 } ) );
 
 vi.mock( '@/data/core', () => ( {
@@ -106,7 +107,7 @@ function site( id: number, overrides: Partial< SyncSite > = {} ): SyncSite {
 	};
 }
 
-describe( 'OnboardingConnectPage', () => {
+describe( 'ConnectPanel', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
 		mocks.user = null;
@@ -133,7 +134,7 @@ describe( 'OnboardingConnectPage', () => {
 	} );
 
 	it( 'offers login and signup without leaving the Connect flow', () => {
-		render( <OnboardingConnectPage /> );
+		render( <ConnectPanel /> );
 
 		expect(
 			screen.getByText( 'Log in with your WordPress.com account to see your sites.' )
@@ -158,7 +159,7 @@ describe( 'OnboardingConnectPage', () => {
 			site( 3, { name: 'Free site', syncSupport: 'needs-upgrade', planName: 'Free' } ),
 		];
 
-		render( <OnboardingConnectPage /> );
+		render( <ConnectPanel /> );
 
 		expect( screen.getByText( 'Pressable' ) ).toBeInTheDocument();
 		expect( screen.getByText( 'Staging' ) ).toBeInTheDocument();
@@ -192,7 +193,7 @@ describe( 'OnboardingConnectPage', () => {
 		mocks.user = { id: 1, email: 'user@example.com', displayName: 'User' };
 		mocks.isOffline = true;
 
-		render( <OnboardingConnectPage /> );
+		render( <ConnectPanel /> );
 
 		expect( screen.getByRole( 'status' ) ).toHaveTextContent( "You're offline" );
 		expect( screen.getByRole( 'button', { name: 'Connect site' } ) ).toHaveAttribute(
@@ -204,12 +205,12 @@ describe( 'OnboardingConnectPage', () => {
 	it( 'shows loading and empty account states', () => {
 		mocks.user = { id: 1, email: 'user@example.com', displayName: 'User' };
 		mocks.remoteLoading = true;
-		const { rerender } = render( <OnboardingConnectPage /> );
+		const { rerender } = render( <ConnectPanel /> );
 
 		expect( screen.getByRole( 'status' ) ).toHaveTextContent( 'Loading your sites…' );
 
 		mocks.remoteLoading = false;
-		rerender( <OnboardingConnectPage /> );
+		rerender( <ConnectPanel /> );
 		expect( screen.getByRole( 'heading', { name: 'No sites found' } ) ).toBeInTheDocument();
 	} );
 
@@ -217,9 +218,8 @@ describe( 'OnboardingConnectPage', () => {
 		mocks.user = { id: 1, email: 'user@example.com', displayName: 'User' };
 		mocks.remoteSites = [ site( 1, { name: 'Only site' } ) ];
 
-		render( <OnboardingConnectPage /> );
+		render( <ConnectPanel /> );
 
-		expect( screen.getByRole( 'heading', { name: 'Connect your site' } ) ).toBeInTheDocument();
 		expect( screen.queryByRole( 'searchbox' ) ).not.toBeInTheDocument();
 		await waitFor( () =>
 			expect( screen.getByRole( 'button', { name: 'Connect site' } ) ).toHaveAttribute(
@@ -233,7 +233,7 @@ describe( 'OnboardingConnectPage', () => {
 		mocks.user = { id: 1, email: 'user@example.com', displayName: 'User' };
 		mocks.remoteSites = [ site( 1, { syncSupport: 'needs-upgrade' } ) ];
 
-		render( <OnboardingConnectPage /> );
+		render( <ConnectPanel /> );
 
 		expect( screen.getByRole( 'heading', { name: 'Unavailable' } ) ).toBeInTheDocument();
 		expect(
@@ -249,7 +249,7 @@ describe( 'OnboardingConnectPage', () => {
 		mocks.user = { id: 1, email: 'user@example.com', displayName: 'User' };
 		mocks.remoteError = new Error( 'network failed' );
 
-		render( <OnboardingConnectPage /> );
+		render( <ConnectPanel /> );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Retry' } ) );
 
 		expect( mocks.remoteRefetch ).toHaveBeenCalledOnce();
@@ -259,7 +259,7 @@ describe( 'OnboardingConnectPage', () => {
 		mocks.user = { id: 1, email: 'user@example.com', displayName: 'User' };
 		mocks.remoteSites = [ site( 1 ), site( 2 ) ];
 
-		render( <OnboardingConnectPage /> );
+		render( <ConnectPanel /> );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Refresh list' } ) );
 		fireEvent.click( screen.getByRole( 'button', { name: /Supported sites/ } ) );
 
@@ -274,7 +274,7 @@ describe( 'OnboardingConnectPage', () => {
 		mocks.remoteSites = [ site( 1 ) ];
 		mocks.connectWpcomSite.mockRejectedValue( new Error( 'Connection failed' ) );
 
-		render( <OnboardingConnectPage /> );
+		render( <ConnectPanel /> );
 		const connectButton = screen.getByRole( 'button', { name: 'Connect site' } );
 		await waitFor( () => expect( connectButton ).toHaveAttribute( 'aria-disabled', 'false' ) );
 		fireEvent.click( connectButton );
@@ -291,7 +291,7 @@ describe( 'OnboardingConnectPage', () => {
 		mocks.user = { id: 1, email: 'user@example.com', displayName: 'User' };
 		mocks.remoteSites = [ site( 1, { isPressable: true } ) ];
 
-		render( <OnboardingConnectPage /> );
+		render( <ConnectPanel /> );
 		const connectButton = screen.getByRole( 'button', { name: 'Connect site' } );
 		await waitFor( () => expect( connectButton ).toHaveAttribute( 'aria-disabled', 'false' ) );
 		fireEvent.click( connectButton );
@@ -317,7 +317,7 @@ describe( 'OnboardingConnectPage', () => {
 			} );
 		} );
 
-		render( <OnboardingConnectPage /> );
+		render( <ConnectPanel /> );
 		const connectButton = screen.getByRole( 'button', { name: 'Connect site' } );
 		await waitFor( () => expect( connectButton ).toHaveAttribute( 'aria-disabled', 'false' ) );
 		fireEvent.click( connectButton );
@@ -340,7 +340,7 @@ describe( 'OnboardingConnectPage', () => {
 		mocks.remoteSites = [ site( 1, { name: 'Remote site' } ) ];
 		mocks.pullSite.mockRejectedValue( new Error( 'Remote backup failed' ) );
 
-		render( <OnboardingConnectPage /> );
+		render( <ConnectPanel /> );
 		const connectButton = screen.getByRole( 'button', { name: 'Connect site' } );
 		await waitFor( () => expect( connectButton ).toHaveAttribute( 'aria-disabled', 'false' ) );
 		fireEvent.click( connectButton );

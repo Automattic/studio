@@ -331,7 +331,7 @@ export class E2ESession {
 }
 
 /**
- * Launches Studio and creates a site through "Add a site", resolving once it runs. `folder` makes
+ * Launches Studio and creates a site through Add site, resolving once it runs. `folder` makes
  * the mocked folder dialog return `~/Studio/<folder>`, and has the form pick it.
  */
 export async function launchWithSite(

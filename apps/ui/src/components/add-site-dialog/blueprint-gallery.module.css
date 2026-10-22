@@ -1,0 +1,203 @@
+.root {
+	display: flex;
+	flex-direction: column;
+	gap: 24px;
+}
+
+.notice {
+	margin: 0;
+	color: var(--wpds-color-foreground-content-neutral-weak);
+}
+
+.grid {
+	display: grid;
+	grid-template-columns: 1fr;
+	gap: 28px 24px;
+}
+
+@container (min-width: 384px) {
+	.grid {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+}
+
+.card {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	min-width: 0;
+	padding: 0;
+	border: 0;
+	background: none;
+	color: var(--wpds-color-foreground-content-neutral);
+	font: inherit;
+	font-size: 13px;
+	font-weight: 450;
+	text-align: start;
+	cursor: var(--wpds-cursor-control);
+}
+
+.card:focus-visible {
+	outline: none;
+}
+
+.cardTitle {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+/* The screenshot frame shared with Blueprint details. */
+.frame {
+	position: relative;
+	display: block;
+	width: 100%;
+	aspect-ratio: 16 / 10;
+	overflow: hidden;
+	border-radius: 6px;
+	background: color-mix(in srgb, var(--wpds-color-foreground-content-neutral) 6%, transparent);
+}
+
+.frame::after {
+	content: '';
+	position: absolute;
+	inset: 0;
+	z-index: 1;
+	border-radius: inherit;
+	box-shadow: inset 0 0 0 1px
+		color-mix(in srgb, var(--wpds-color-foreground-content-neutral) 10%, transparent);
+	pointer-events: none;
+}
+
+.image {
+	display: block;
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+	object-position: top;
+	transition: opacity var(--studio-motion-layout-duration, 150ms);
+}
+
+.skeleton {
+	position: absolute;
+	inset: 0;
+	background: color-mix(in srgb, var(--wpds-color-foreground-content-neutral) 6%, transparent);
+	animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulse {
+	50% {
+		opacity: 0.5;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.skeleton {
+		animation: none;
+	}
+}
+
+.thumbnail,
+.blank {
+	border-radius: 6px;
+}
+
+.thumbnail {
+	position: relative;
+	display: block;
+}
+
+.card:focus-visible .thumbnail {
+	outline: 2px solid var(--wpds-color-stroke-focus);
+	outline-offset: 2px;
+}
+
+.blank {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.blank svg {
+	width: 20px;
+	height: 20px;
+}
+
+.blank::after {
+	box-shadow: none;
+	border: 1px dotted color-mix(in srgb, var(--wpds-color-foreground-content-neutral) 10%, transparent);
+}
+
+/* Hover and keyboard focus share one ring. */
+.card:is(:hover, :focus-visible) .blank {
+	background: color-mix(in srgb, var(--wpds-color-background-interactive-brand-strong) 10%, transparent);
+	color: var(--wpds-color-foreground-interactive-brand);
+}
+
+.card:is(:hover, :focus-visible) .blank::after {
+	border: 2px solid var(--wpds-color-stroke-focus);
+}
+
+.card:is(:hover, :focus-visible):has(.blank) {
+	color: var(--wpds-color-foreground-interactive-brand);
+}
+
+.card:hover .thumbnail .frame,
+.card:focus-visible .thumbnail .frame {
+	background: var(--wpds-color-background-interactive-brand-strong);
+}
+
+.card:hover .image,
+.card:focus-visible .image {
+	opacity: 0.7;
+}
+
+.action {
+	position: absolute;
+	inset: 0;
+	z-index: 2;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	pointer-events: none;
+}
+
+@media (hover: hover) {
+	.action {
+		opacity: 0;
+	}
+
+	.card:hover .action,
+	.card:focus-visible .action {
+		opacity: 1;
+	}
+}
+
+.actionLabel {
+	display: flex;
+	align-items: center;
+	height: 32px;
+	box-sizing: border-box;
+	padding: 0 10px;
+	border-radius: 7px;
+	background: var(--wpds-color-background-interactive-brand-strong);
+	color: var(--wpds-color-foreground-interactive-brand-strong);
+	font-size: 13px;
+	font-weight: 450;
+	line-height: 20px;
+}
+
+.details {
+	display: flex;
+	flex-direction: column;
+	gap: 24px;
+}
+
+.error {
+	margin: 0;
+	padding: 12px 16px;
+	border-radius: 9px;
+	background: var(--wpds-color-background-surface-error-weak);
+	color: var(--wpds-color-foreground-content-error);
+}

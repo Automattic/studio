@@ -1109,12 +1109,15 @@ describe( 'SiteList', () => {
 		expect( archiveSession ).not.toHaveBeenCalled();
 	} );
 
-	it( 'leaves an archived open chat for the site’s top chat still open, in sidebar order', async () => {
+	it( 'leaves an archived open chat for the site’s top chat still listed, in sidebar order', async () => {
 		paramsMock = { sessionId: 'chat-1' };
 		pathnameMock = '/sessions/chat-1';
-		sidebarPreferencesMock.chatOrder = { 'stopped-site': [ 'chat-1', 'chat-3', 'chat-2' ] };
+		pinsMock = [ 'chat:chat-4' ];
+		sidebarPreferencesMock.chatOrder = {
+			'stopped-site': [ 'chat-1', 'chat-4', 'chat-3', 'chat-2' ],
+		};
 		useSessionsMock.mockReturnValue( {
-			data: createChats( '/Users/example/Studio/stopped-site', 3 ),
+			data: createChats( '/Users/example/Studio/stopped-site', 4 ),
 			isLoading: false,
 		} );
 

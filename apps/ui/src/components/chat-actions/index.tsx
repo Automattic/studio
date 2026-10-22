@@ -39,14 +39,15 @@ export const getArchiveBlockedReason = () =>
 	__( 'Wait for active chats and queued prompts to finish.' );
 
 /**
- * Leaves an open chat that was just archived for its site's top chat that is
- * still open, or a new chat when none is left.
+ * Leaves an open chat that was just archived for the top chat still listed
+ * under its site, then one of the site's pinned chats, or a new chat when none
+ * is left.
  */
 export function useLeaveArchivedChat() {
 	const navigate = useNavigate();
 	const { data: sites } = useSites();
 	const { data: sessions } = useSessions();
-	const { chatOrder } = useSidebarPreferences();
+	const { pins, chatOrder } = useSidebarPreferences();
 	return ( viewing: AiSessionSummary, archivedIds: string[] ) => {
 		const site = findAiSessionOwnerSite( sites, viewing );
 		if ( ! site ) {
@@ -61,6 +62,10 @@ export function useLeaveArchivedChat() {
 					aiSessionBelongsToSite( session, site )
 			),
 			chatOrder[ site.id ]
+		).sort(
+			( a, b ) =>
+				Number( pins.includes( chatPinKey( a.id ) ) ) -
+				Number( pins.includes( chatPinKey( b.id ) ) )
 		);
 		void navigate(
 			next

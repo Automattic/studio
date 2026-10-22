@@ -135,8 +135,17 @@ type RenderItem =
 			key: string;
 			widgets: StudioChatArtifactWidgetDraft[];
 	  }
+	| {
+			kind: 'turn-timing';
+			key: string;
+			startedAt: number;
+			endedAt: number | null;
+			status: TurnStatus;
+	  }
 	| { kind: 'interrupted-marker'; key: string }
 	| { kind: 'error-marker'; key: string; message: string };
+
+type TurnStatus = 'running' | 'success' | 'interrupted' | 'error';
 
 interface PiAssistantContentBlock {
 	type: 'text' | 'toolCall' | 'thinking';
@@ -160,6 +169,7 @@ interface PiToolResultLike {
 }
 
 const HIDDEN_TOOL_ROWS = new Set( [ 'AskUserQuestion', 'present_design_options' ] );
+const ANSI_STYLE_SEQUENCE = new RegExp( `${ String.fromCharCode( 27 ) }\\[[\\d;]*m`, 'g' );
 const QUESTION_COLLAPSE_DELAY_MS = 650;
 const QUESTION_SCROLL_TOP_MARGIN_PX = 12;
 // Only a pre-layout fallback. The scroller spans the full column with the
@@ -216,7 +226,62 @@ function resolveBatchedAnswerForQuestion(
 	return answers[ batchPosition ];
 }
 
-export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
+function isPromptEntry( entry: SessionEntry ): boolean {
+	return (
+		isStudioCustomEntryOfType( entry, 'studio.user_prompt' ) &&
+		( entry as StudioCustomEntry< 'studio.user_prompt' > ).data?.source === 'prompt'
+	);
+}
+
+// A turn runs from its prompt to its `studio.turn_closed`; a turn the agent is
+// still on counts from the live run's start.
+function getTurnTiming(
+	entries: SessionEntry[],
+	promptIndex: number,
+	run: { running: boolean; startedAt: number | null }
+): Omit< Extract< RenderItem, { kind: 'turn-timing' } >, 'kind' | 'key' > | null {
+	let lastIndex = promptIndex;
+	let closed: StudioCustomEntry< 'studio.turn_closed' > | undefined;
+	for ( let index = promptIndex + 1; index < entries.length; index += 1 ) {
+		const entry = entries[ index ];
+		if ( isPromptEntry( entry ) ) {
+			break;
+		}
+		lastIndex = index;
+		if ( isStudioCustomEntryOfType( entry, 'studio.turn_closed' ) ) {
+			closed = entry as StudioCustomEntry< 'studio.turn_closed' >;
+			break;
+		}
+	}
+	const promptedAt = Date.parse( entries[ promptIndex ].timestamp );
+	if ( ! closed && run.running && lastIndex === entries.length - 1 ) {
+		return { startedAt: run.startedAt ?? promptedAt, endedAt: null, status: 'running' };
+	}
+	const endedAt = Date.parse( ( closed ?? entries[ lastIndex ] ).timestamp );
+	if (
+		lastIndex === promptIndex ||
+		! Number.isFinite( promptedAt ) ||
+		! Number.isFinite( endedAt )
+	) {
+		return null;
+	}
+	const status = closed?.data?.status;
+	return {
+		startedAt: promptedAt,
+		endedAt,
+		status:
+			status === 'interrupted'
+				? 'interrupted'
+				: status === 'error' || status === 'max_turns'
+				? 'error'
+				: 'success',
+	};
+}
+
+export function entriesToRenderItems(
+	entries: SessionEntry[],
+	run: { running: boolean; startedAt: number | null } = { running: false, startedAt: null }
+): RenderItem[] {
 	// First pass: collect tool_call_id → tool_result pairings so each
 	// `toolCall` row can render its output inline.
 	const resultsByToolCallId = new Map< string, NormalizedToolResult >();
@@ -231,7 +296,7 @@ export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 		resultsByToolCallId.set( message.toolCallId, {
 			// Old transcripts embed media widget payload markers in screenshot
 			// results; strip them from every tool's display text.
-			text: stripMediaWidgetPayloadLines( text ),
+			text: stripMediaWidgetPayloadLines( text ).replace( ANSI_STYLE_SEQUENCE, '' ),
 			isError: message.isError === true,
 			diff: message.isError === true ? undefined : getToolResultDiff( message.details ),
 		} );
@@ -243,6 +308,10 @@ export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 		if ( isStudioCustomEntryOfType( entry, 'studio.user_prompt' ) ) {
 			const data = ( entry as StudioCustomEntry< 'studio.user_prompt' > ).data;
 			if ( ! data || data.source !== 'prompt' ) continue;
+			const timing = getTurnTiming( entries, entryIndex, run );
+			const timingItem: RenderItem[] = timing
+				? [ { kind: 'turn-timing', key: `${ entryIndex }:timing`, ...timing } ]
+				: [];
 			if ( data.visualAnnotations?.length ) {
 				// Each note shows its own images; the first bubble takes the rest.
 				const noteImageIds = new Set(
@@ -261,14 +330,18 @@ export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 						annotation,
 					} );
 				} );
+				items.push( ...timingItem );
 				continue;
 			}
-			items.push( {
-				kind: 'user-text',
-				key: `${ entryIndex }:user`,
-				text: data.text,
-				attachments: data.attachments,
-			} );
+			items.push(
+				{
+					kind: 'user-text',
+					key: `${ entryIndex }:user`,
+					text: data.text,
+					attachments: data.attachments,
+				},
+				...timingItem
+			);
 			continue;
 		}
 
@@ -382,7 +455,7 @@ export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 				items.push( {
 					kind: 'error-marker',
 					key: `${ entryIndex }:error`,
-					message: data.errorMessage ?? '',
+					message: ( data.errorMessage ?? '' ).replace( ANSI_STYLE_SEQUENCE, '' ),
 				} );
 			}
 			continue;
@@ -423,7 +496,12 @@ function UserTurn( {
 } ) {
 	return (
 		<div className={ styles.userTurn } { ...{ [ MESSAGE_TEXT_ATTRIBUTE ]: text } }>
-			{ text ? <div className={ styles.userText }>{ text }</div> : null }
+			{ text ? (
+				<div className={ styles.userTextRow }>
+					<CopyButton className={ styles.userCopy } text={ text } label={ __( 'Copy message' ) } />
+					<div className={ styles.userText }>{ text }</div>
+				</div>
+			) : null }
 			{ annotation?.elementLabel || annotation?.tag ? (
 				<div className={ styles.annotationAttachment }>
 					<span className={ styles.annotationElementTag }>
@@ -755,7 +833,8 @@ function ToolUseRow( {
 	const hasInput = display.inputText.length > 0;
 	const hasDiff = Boolean( result?.diff );
 	const hasExpandableDetails = hasInput || hasOutput || hasDiff;
-	const [ expanded, setExpanded ] = useState( false );
+	const [ toggledOpen, setToggledOpen ] = useState< boolean | null >( null );
+	const expanded = toggledOpen ?? result?.isError === true;
 	const [ detailsMounted, setDetailsMounted ] = useState( false );
 	useEffect( () => {
 		if ( expanded || ! detailsMounted ) {
@@ -783,12 +862,8 @@ function ToolUseRow( {
 					aria-controls={ detailsId }
 					data-expanded={ expanded }
 					onClick={ () => {
-						if ( expanded ) {
-							setExpanded( false );
-							return;
-						}
 						setDetailsMounted( true );
-						setExpanded( true );
+						setToggledOpen( ! expanded );
 					} }
 					title={ expanded ? __( 'Hide tool details' ) : __( 'Show tool details' ) }
 				>
@@ -797,7 +872,7 @@ function ToolUseRow( {
 			) : (
 				<div className={ styles.toolRow }>{ rowContent }</div>
 			) }
-			{ hasExpandableDetails && detailsMounted ? (
+			{ hasExpandableDetails && ( expanded || detailsMounted ) ? (
 				<div
 					id={ detailsId }
 					className={ styles.toolDetailsShell }
@@ -1481,6 +1556,43 @@ function AgentQuestionBatch( {
 	);
 }
 
+function TurnTiming( {
+	startedAt,
+	endedAt,
+	status,
+}: {
+	startedAt: number;
+	endedAt: number | null;
+	status: TurnStatus;
+} ) {
+	const running = status === 'running';
+	const [ now, setNow ] = useState( Date.now );
+	useEffect( () => {
+		if ( ! running ) {
+			return;
+		}
+		setNow( Date.now() );
+		const timer = window.setInterval( () => setNow( Date.now() ), 1000 );
+		return () => window.clearInterval( timer );
+	}, [ running ] );
+	const seconds = Math.max( 0, Math.floor( ( ( endedAt ?? now ) - startedAt ) / 1000 ) );
+	const label = {
+		/* translators: %d: number of seconds. */
+		running: __( 'Working for %ds' ),
+		/* translators: %d: number of seconds. */
+		success: __( 'Worked for %ds' ),
+		/* translators: %d: number of seconds. */
+		interrupted: __( 'Stopped after %ds' ),
+		/* translators: %d: number of seconds. */
+		error: __( 'Failed after %ds' ),
+	}[ status ];
+	return (
+		<div className={ styles.turnTiming } data-status={ status }>
+			{ sprintf( label, seconds ) }
+		</div>
+	);
+}
+
 // In-flow marker for a turn that ended in an error. The proxy's quota
 // refusals get dedicated copy instead of the raw provider message: the
 // monthly usage cap shows the reset date once the quota query resolves, and
@@ -1535,7 +1647,10 @@ export function Conversation( {
 	onChooseFreeForm: ( question: string ) => void;
 } ) {
 	const entries = data.entries;
-	const items = useMemo( () => entriesToRenderItems( entries ), [ entries ] );
+	const items = useMemo(
+		() => entriesToRenderItems( entries, { running: isRunning, startedAt } ),
+		[ entries, isRunning, startedAt ]
+	);
 	const activeStep = useMemo( () => getActiveStep( entries ), [ entries ] );
 
 	// One selected message at a time, so picking a new one closes the last.
@@ -1611,6 +1726,15 @@ export function Conversation( {
 						);
 					case 'chat-artifact':
 						return <ChatArtifact key={ item.key } widgets={ item.widgets } />;
+					case 'turn-timing':
+						return (
+							<TurnTiming
+								key={ item.key }
+								startedAt={ item.startedAt }
+								endedAt={ item.endedAt }
+								status={ item.status }
+							/>
+						);
 					case 'interrupted-marker':
 						return (
 							<div key={ item.key } className={ styles.interruptedMarker } role="status">
@@ -1625,7 +1749,6 @@ export function Conversation( {
 			} ) }
 			<ThinkingIndicator
 				active={ isRunning && pendingQuestions.size === 0 }
-				startedAt={ startedAt }
 				stepKey={ activeStep.key }
 				progressMessage={ isRunning ? activeStep.progressMessage : null }
 			/>

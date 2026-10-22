@@ -115,7 +115,9 @@ describe( 'Composer menu', () => {
 		renderComposer( { entries: [ createSessionContextEntry( 'anthropic-api-key' ) ] } );
 
 		const trigger = screen.getByRole( 'button', { name: 'Model' } );
-		await waitFor( () => expect( trigger ).toHaveAccessibleDescription( 'Fast · WordPress.com' ) );
+		await waitFor( () =>
+			expect( trigger ).toHaveAccessibleDescription( 'Fast · WordPress.com · AI usage unavailable' )
+		);
 
 		fireEvent.click( trigger );
 		await waitFor( () =>
@@ -356,6 +358,54 @@ describe( 'Composer menu', () => {
 		expect( onSend ).not.toHaveBeenCalled();
 		expect( notice ).toHaveAttribute( 'data-feedback' );
 		expect( screen.getByRole( 'combobox' ) ).toHaveValue( 'One more' );
+	} );
+
+	it( 'does not hold an Anthropic chat behind WordPress.com credits', async () => {
+		connectorMocks.getAiSettings.mockResolvedValue( {
+			provider: 'wpcom',
+			hasAnthropicApiKey: true,
+			anthropicApiKeyPreview: null,
+		} );
+		connectorMocks.getStudioAssistantQuota.mockResolvedValue( {
+			costCap: 100,
+			studioCodeAiHasAccess: true,
+			hasPaymentMethod: true,
+			allowanceRemaining: 0,
+			purchasedRemaining: 0,
+		} );
+		const onSend = vi.fn< ( prompt: string ) => Promise< void > >();
+		renderComposer( {
+			onSend,
+			model: 'claude-sonnet-5',
+			entries: [ createSessionContextEntry( 'anthropic-api-key' ) ],
+		} );
+		await waitFor( () =>
+			expect( screen.getByRole( 'button', { name: 'Model' } ) ).toHaveAccessibleDescription(
+				'Sonnet 5 · Anthropic API'
+			)
+		);
+
+		fireEvent.change( screen.getByRole( 'combobox' ), { target: { value: 'One more' } } );
+		fireEvent.keyDown( screen.getByRole( 'combobox' ), { key: 'Enter' } );
+
+		await waitFor( () => expect( onSend ).toHaveBeenCalled() );
+		expect( screen.queryByRole( 'alert' ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'inserts a skill from the add menu at the cursor instead of sending it', async () => {
+		const onSend = vi.fn< ( prompt: string ) => Promise< void > >();
+		renderComposer( { onSend } );
+		const textarea = screen.getByRole< HTMLTextAreaElement >( 'combobox' );
+		fireEvent.change( textarea, { target: { value: 'Please audit' } } );
+		textarea.setSelectionRange( 6, 6 );
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Add' } ) );
+		const skills = await screen.findByRole( 'menuitem', { name: /Skills/ } );
+		fireEvent.keyDown( skills, { key: 'ArrowRight' } );
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: /^Rank Me Up/ } ) );
+
+		expect( textarea ).toHaveValue( 'Please /rank-me-up audit' );
+		expect( onSend ).not.toHaveBeenCalled();
 	} );
 
 	it( 'turns auto-start on from the add menu and off from its chip', async () => {

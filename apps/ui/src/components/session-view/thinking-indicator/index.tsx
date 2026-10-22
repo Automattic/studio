@@ -83,17 +83,14 @@ export function AnimatedElapsedTime( { elapsedSeconds }: { elapsedSeconds: numbe
 
 export function ThinkingIndicator( {
 	active,
-	startedAt,
 	stepKey,
 	progressMessage,
 }: {
 	active: boolean;
-	startedAt: number | null;
 	stepKey: string | null;
 	progressMessage: string | null;
 } ) {
 	const [ message, setMessage ] = useState( () => randomThinkingMessage() );
-	const [ elapsedSeconds, setElapsedSeconds ] = useState( 0 );
 
 	useEffect( () => {
 		if ( ! active ) {
@@ -101,20 +98,6 @@ export function ThinkingIndicator( {
 		}
 		setMessage( randomThinkingMessage() );
 	}, [ active, stepKey ] );
-
-	useEffect( () => {
-		if ( ! active || startedAt === null ) {
-			return;
-		}
-		const updateElapsed = () => {
-			setElapsedSeconds( Math.max( 0, Math.floor( ( Date.now() - startedAt ) / 1000 ) ) );
-		};
-		updateElapsed();
-		const tickInterval = window.setInterval( () => {
-			updateElapsed();
-		}, 1000 );
-		return () => window.clearInterval( tickInterval );
-	}, [ active, startedAt ] );
 
 	return (
 		<div
@@ -127,7 +110,6 @@ export function ThinkingIndicator( {
 				<div className={ styles.head }>
 					<AgentWorkingIndicator className={ styles.indicator } label={ null } ambient />
 					<span className={ styles.label }>{ message }</span>
-					<AnimatedElapsedTime elapsedSeconds={ elapsedSeconds } />
 				</div>
 				{ progressMessage ? <span className={ styles.progress }>{ progressMessage }</span> : null }
 			</div>

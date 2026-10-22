@@ -49,7 +49,7 @@ export type {
 export type { StudioVisualAnnotationSummary } from '@studio/common/ai/visual-annotations';
 export type { SessionEntry } from '@earendil-works/pi-coding-agent';
 export type { StudioCustomEntry } from '@studio/common/ai/sessions/entry-types';
-export type { AiModelId } from '@studio/common/ai/models';
+export type { AiModelId, SelectedModelId } from '@studio/common/ai/models';
 export type { Snapshot } from '@studio/common/types/snapshot';
 export type { SnapshotUsage } from '@studio/common/lib/snapshots';
 export type { PullSyncOptions, PushSyncOptions, SyncSite } from '@studio/common/types/sync';

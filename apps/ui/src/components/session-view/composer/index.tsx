@@ -14,13 +14,15 @@ import {
 	aiModelSupportsImages,
 	getAiModelFamily,
 	getAiModelLabel,
+	type SelectedModelId,
 } from '@studio/common/ai/models';
 import {
-	AI_PROVIDER_IDS,
 	AI_PROVIDER_LABELS,
+	UI_AI_PROVIDER_IDS,
 	getAiProviderDefaultModel,
 	getAiProviderModels,
 	getEffectiveSessionProvider,
+	isUiSelectableProvider,
 	providerServesModel,
 	type AiProviderId,
 } from '@studio/common/ai/providers';
@@ -241,7 +243,7 @@ function createSessionContextEntry( provider: AiProviderId, model: AiModelId ): 
 }
 
 // Brand names, so no translation and no per-render rebuild.
-const AI_PROVIDER_OPTIONS = AI_PROVIDER_IDS.map( ( id ) => ( {
+const AI_PROVIDER_OPTIONS = UI_AI_PROVIDER_IDS.map( ( id ) => ( {
 	id,
 	label: AI_PROVIDER_LABELS[ id ],
 } ) );
@@ -309,7 +311,7 @@ export function ComposerSkeleton() {
 interface ComposerProps {
 	busy: boolean;
 	isInterrupting?: boolean;
-	model: AiModelId;
+	model: SelectedModelId;
 	onSend: (
 		prompt: string,
 		options?: ComposerSendAttachments & {
@@ -435,7 +437,11 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		() => getEffectiveSessionProvider( entries ?? [], aiSettings ),
 		[ entries, aiSettings ]
 	);
-	const canPickProvider = Boolean( aiSettings?.hasAnthropicApiKey && sessionId );
+	// A provider configured outside the app (`openai-compatible`) isn't in the
+	// options, so offering the switcher would render a selection matching no item.
+	const canPickProvider = Boolean(
+		aiSettings?.hasAnthropicApiKey && sessionId && isUiSelectableProvider( sessionProvider )
+	);
 
 	// Only offer models the conversation's provider can serve. The paid tiers
 	// are listed but disabled for accounts without purchased credits;
@@ -1259,34 +1265,40 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 											<Menu.Separator />
 										</>
 									) : null }
-									<Menu.RadioGroup
-										value={ model }
-										onValueChange={ ( picked ) => handleModelChange( picked as AiModelId ) }
-									>
-										{ offeredModels.map( ( { id } ) => (
-											<Menu.RadioItem
-												key={ id }
-												value={ id }
-												disabled={ isModelLocked( id ) }
-												className={ styles.describedItem }
-											>
-												<span className={ styles.describedItemBody }>
-													<span className={ styles.describedItemLabel }>
-														{ getAiModelLabel( id ) }
+									{ offeredModels.length > 0 ? (
+										<Menu.RadioGroup
+											value={ model }
+											onValueChange={ ( picked ) => handleModelChange( picked as AiModelId ) }
+										>
+											{ offeredModels.map( ( { id } ) => (
+												<Menu.RadioItem
+													key={ id }
+													value={ id }
+													disabled={ isModelLocked( id ) }
+													className={ styles.describedItem }
+												>
+													<span className={ styles.describedItemBody }>
+														<span className={ styles.describedItemLabel }>
+															{ getAiModelLabel( id ) }
+														</span>
+														<span className={ styles.describedItemDescription }>
+															{ isModelLocked( id )
+																? sprintf(
+																		/* translators: %s: what the model is good at. */
+																		__( '%s · Purchased credits required' ),
+																		getModelDescription( id )
+																  )
+																: getModelDescription( id ) }
+														</span>
 													</span>
-													<span className={ styles.describedItemDescription }>
-														{ isModelLocked( id )
-															? sprintf(
-																	/* translators: %s: what the model is good at. */
-																	__( '%s · Purchased credits required' ),
-																	getModelDescription( id )
-															  )
-															: getModelDescription( id ) }
-													</span>
-												</span>
-											</Menu.RadioItem>
-										) ) }
-									</Menu.RadioGroup>
+												</Menu.RadioItem>
+											) ) }
+										</Menu.RadioGroup>
+									) : (
+										// The endpoint's models are configured through the CLI, so
+										// show what's running instead of an empty menu.
+										<Menu.Item disabled>{ modelLabel }</Menu.Item>
+									) }
 									<Menu.Separator />
 									{ canPurchaseCredits ? (
 										<Menu.Item className={ styles.describedItem } onClick={ openAddCredits }>

@@ -95,6 +95,7 @@ describe( 'useAgentRun queued handoff', () => {
 				provider: 'wpcom',
 				hasAnthropicApiKey: false,
 				anthropicApiKeyPreview: null,
+				openAiCompatibleModel: null,
 			} ),
 			getActiveAgentRuns: vi.fn().mockResolvedValue( [] ),
 			onAgentEvent: vi.fn( ( listener ) => {
@@ -473,6 +474,7 @@ describe( 'useAgentRun queued handoff', () => {
 			provider: 'anthropic-api-key',
 			hasAnthropicApiKey: true,
 			anthropicApiKeyPreview: null,
+			openAiCompatibleModel: null,
 		} );
 		outOfCreditsState.value = true;
 		const queryClient = createQueryClient();

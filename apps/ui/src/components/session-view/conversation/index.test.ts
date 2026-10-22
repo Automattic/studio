@@ -888,6 +888,34 @@ describe( 'Conversation turn timing', () => {
 	} );
 } );
 
+describe( 'Conversation reasoning', () => {
+	it( 'renders a thinking block as its own row', () => {
+		const items = entriesToRenderItems( [
+			assistantThinkingEntry( 'Weighing the options', 'Done' ),
+		] );
+		expect( items.map( ( item ) => item.kind ) ).toEqual( [ 'thinking', 'assistant-text' ] );
+		expect( items[ 0 ] ).toMatchObject( { kind: 'thinking', text: 'Weighing the options' } );
+	} );
+
+	it( 'drops an empty thinking block', () => {
+		// Some endpoints emit an empty reasoning block; an empty disclosure
+		// row is just noise.
+		const items = entriesToRenderItems( [ assistantThinkingEntry( '   ', 'Done' ) ] );
+		expect( items.map( ( item ) => item.kind ) ).toEqual( [ 'assistant-text' ] );
+	} );
+
+	it( 'keeps the reasoning collapsed until asked for', () => {
+		renderConversation(
+			loadedSession( [ assistantThinkingEntry( 'Weighing the options', 'Done' ) ] )
+		);
+		const summary = screen.getByText( 'Thought process' );
+		expect( summary.closest( 'details' ) ).not.toHaveAttribute( 'open' );
+		fireEvent.click( summary );
+		expect( summary.closest( 'details' ) ).toHaveAttribute( 'open' );
+		expect( screen.getByText( 'Weighing the options' ) ).toBeInTheDocument();
+	} );
+} );
+
 describe( 'getQuestionScrollDelta', () => {
 	// The scroller spans the full column, so its bottom sits *under* the
 	// floating composer. `reservedBottomSpace` is the scroller padding holding
@@ -1073,6 +1101,23 @@ function loadedSession( entries: SessionEntry[] ): LoadedAiSession {
 		},
 		entries,
 	};
+}
+
+function assistantThinkingEntry( thinking: string, text?: string ): SessionEntry {
+	return {
+		type: 'message',
+		id: `assistant-thinking-${ thinking.length }`,
+		parentId: null,
+		timestamp: '2026-06-05T12:00:00.000Z',
+		message: {
+			role: 'assistant',
+			content: [
+				// Reasoning arrives in `thinking`, never in `text`.
+				{ type: 'thinking', thinking },
+				...( text ? [ { type: 'text', text } ] : [] ),
+			],
+		},
+	} as unknown as SessionEntry;
 }
 
 function assistantToolCallEntry(

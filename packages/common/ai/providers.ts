@@ -2,9 +2,11 @@ import {
 	AI_MODELS,
 	DEFAULT_MODEL,
 	PAID_DEFAULT_MODEL,
+	readRecordedSessionModel,
 	resolveSessionModel,
 	type AiModelFamily,
 	type AiModelId,
+	type SelectedModelId,
 } from './models';
 import { isStudioCustomEntryOfType } from './sessions/entry-types';
 import type { SessionEntry } from '@earendil-works/pi-coding-agent';
@@ -16,7 +18,7 @@ type AiProviderModel = ( typeof AI_MODELS )[ number ];
 // Persisted in shared.json (`aiProvider`), so treat the list as append-only:
 // readers narrow with `isAiProviderId` and fall back to the default on values
 // they don't know.
-export const AI_PROVIDER_IDS = [ 'wpcom', 'anthropic-api-key' ] as const;
+export const AI_PROVIDER_IDS = [ 'wpcom', 'anthropic-api-key', 'openai-compatible' ] as const;
 
 export type AiProviderId = ( typeof AI_PROVIDER_IDS )[ number ];
 
@@ -26,7 +28,15 @@ export const DEFAULT_AI_PROVIDER: AiProviderId = 'wpcom';
 export const AI_PROVIDER_LABELS: Record< AiProviderId, string > = {
 	wpcom: 'WordPress.com',
 	'anthropic-api-key': 'Anthropic API',
+	'openai-compatible': 'OpenAI-compatible',
 };
+
+// `openai-compatible` is configured through CLI slash commands (`/openai-config`)
+// against a local endpoint the user runs; the desktop and browser pickers stay
+// on the built-in model catalog, so they offer only these.
+export const UI_AI_PROVIDER_IDS: readonly AiProviderId[] = AI_PROVIDER_IDS.filter(
+	( id ): id is AiProviderId => id !== 'openai-compatible'
+);
 
 // Which model families each provider can service. `wpcom` serves only the
 // studio capability tiers (resolved to upstream models by the proxy);
@@ -34,6 +44,9 @@ export const AI_PROVIDER_LABELS: Record< AiProviderId, string > = {
 const PROVIDER_MODEL_FAMILIES: Record< AiProviderId, readonly AiModelFamily[] > = {
 	wpcom: [ 'studio' ],
 	'anthropic-api-key': [ 'anthropic' ],
+	// Models come from the endpoint at runtime (`listDynamicModels`), not the
+	// built-in catalog, so no built-in family matches.
+	'openai-compatible': [],
 };
 
 // Precomputed so callers get a stable reference (the composer calls this per
@@ -58,7 +71,10 @@ export function getAiProviderModels( provider: AiProviderId ): readonly AiProvid
 	return PROVIDER_MODELS.get( provider ) ?? [];
 }
 
-export function providerServesModel( provider: AiProviderId, model: AiModelId ): boolean {
+export function providerServesModel(
+	provider: AiProviderId,
+	model: SelectedModelId
+): model is AiModelId {
 	return getAiProviderModels( provider ).some( ( entry ) => entry.id === model );
 }
 
@@ -80,13 +96,25 @@ export function getAiProviderDefaultModel(
 /**
  * `resolveSessionModel` constrained to what the provider can serve: a
  * recorded model it no longer offers snaps to the provider's default.
+ *
+ * A provider whose models come from a runtime endpoint (`openai-compatible`)
+ * has no built-in catalog to check against, so its recorded model is kept
+ * verbatim — snapping it would misreport what the session actually runs on.
  */
 export function resolveSessionModelForProvider(
 	entries: SessionEntry[],
 	provider: AiProviderId,
-	options?: { hasPaidAiCredits?: boolean }
-): AiModelId {
+	options?: { hasPaidAiCredits?: boolean; localModel?: string | null }
+): SelectedModelId {
 	const defaultModel = getAiProviderDefaultModel( provider, options );
+	if ( getAiProviderModels( provider ).length === 0 ) {
+		// No catalog to default to, so `getAiProviderDefaultModel` can only
+		// offer a built-in id — which would name a model the turn will never
+		// run on (the endpoint's own model is what the CLI resolves). Prefer
+		// what the session recorded, then the configured endpoint, and fall
+		// back to the built-in default only before either is known.
+		return readRecordedSessionModel( entries ) ?? options?.localModel ?? defaultModel;
+	}
 	const model = resolveSessionModel( entries, defaultModel );
 	return providerServesModel( provider, model ) ? model : defaultModel;
 }
@@ -112,17 +140,31 @@ export function resolveSessionProvider( entries: SessionEntry[] ): AiProviderId 
 
 /**
  * The provider a conversation effectively runs on: its pinned choice first,
- * then the saved global selection. Without a saved Anthropic key the pin is
- * unusable (as are missing/unloaded settings), so WordPress.com wins.
+ * then the saved global selection.
+ *
+ * Only `anthropic-api-key` is dropped when its key is missing — every agent
+ * turn runs inside the CLI (see `runStudioAgentTurn`), so a pin the UI can't
+ * configure, such as `openai-compatible`, still runs and must be reported
+ * honestly rather than silently reading back as WordPress.com.
  */
 export function getEffectiveSessionProvider(
 	entries: SessionEntry[],
 	settings?: Pick< AiSettings, 'provider' | 'hasAnthropicApiKey' > | null
 ): AiProviderId {
-	if ( ! settings?.hasAnthropicApiKey ) {
+	const effective = resolveSessionProvider( entries ) ?? settings?.provider ?? DEFAULT_AI_PROVIDER;
+	if ( effective === 'anthropic-api-key' && ! settings?.hasAnthropicApiKey ) {
 		return DEFAULT_AI_PROVIDER;
 	}
-	return resolveSessionProvider( entries ) ?? settings.provider;
+	return effective;
+}
+
+/**
+ * Whether the desktop/browser pickers can offer this provider. `openai-compatible`
+ * is configured through CLI slash commands against a local endpoint, so the UI
+ * displays it but never offers it as a choice.
+ */
+export function isUiSelectableProvider( provider: AiProviderId ): boolean {
+	return UI_AI_PROVIDER_IDS.includes( provider );
 }
 
 /**
@@ -135,4 +177,11 @@ export interface AiSettings {
 	hasAnthropicApiKey: boolean;
 	/** Truncated key for display (`sk-ant-…abcd`), or null when none is saved. */
 	anthropicApiKeyPreview: string | null;
+	/**
+	 * Model id the active `openai-compatible` endpoint is configured with, or
+	 * null when no endpoint is set up. The base URL and key stay server-side —
+	 * this is only what the pickers need to name the running model. Ids outside
+	 * `AI_MODELS` are expected here; that's the whole point of the provider.
+	 */
+	openAiCompatibleModel: string | null;
 }

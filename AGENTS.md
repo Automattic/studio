@@ -152,6 +152,7 @@ If you've built a substantial new feature — especially one generated with AI a
 
 For in-depth information, see these docs:
 - **CLI Design**: `docs/design-docs/cli.md` - CLI architecture, installation, IPC communication, data flow
+- **Local AI Providers**: `docs/design-docs/local-ai-providers.md` - OpenAI-compatible provider, endpoint/model discovery, pi-native compaction
 - **CLI ↔ App Communication**: `docs/design-docs/cli-host-communication.md` - How operations publish their state and activity to every Studio app, and the principles behind it
 - **Custom Domains/SSL**: `docs/design-docs/custom-domains-and-ssl.md` - Proxy server, certificates, hosts file
 - **Analytics (Tracks)**: `docs/design-docs/analytics-tracks.md` - Tracks vs MC Stats, anonymous identity, opt-out, event catalog

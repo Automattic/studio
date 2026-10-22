@@ -82,6 +82,7 @@ describe( 'AiPanel', () => {
 				provider: 'wpcom',
 				hasAnthropicApiKey: false,
 				anthropicApiKeyPreview: null,
+				openAiCompatibleModel: null,
 			} );
 			render( <AiPanel /> );
 
@@ -107,6 +108,7 @@ describe( 'AiPanel', () => {
 				provider: 'anthropic-api-key',
 				hasAnthropicApiKey: true,
 				anthropicApiKeyPreview: 'sk-ant-api03-tes...1234',
+				openAiCompatibleModel: null,
 			} );
 			render( <AiPanel /> );
 
@@ -128,6 +130,7 @@ describe( 'AiPanel', () => {
 			provider: 'anthropic-api-key',
 			hasAnthropicApiKey: true,
 			anthropicApiKeyPreview: 'sk-ant-api03-tes...1234',
+			openAiCompatibleModel: null,
 		} );
 		render( <AiPanel /> );
 
@@ -142,6 +145,7 @@ describe( 'AiPanel', () => {
 			provider: 'wpcom',
 			hasAnthropicApiKey: false,
 			anthropicApiKeyPreview: null,
+			openAiCompatibleModel: null,
 		} );
 		useSaveAnthropicApiKeyMock.mockReturnValue( {
 			mutate: saveKey,

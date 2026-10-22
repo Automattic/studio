@@ -320,8 +320,9 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		() =>
 			resolveSessionModelForProvider( data?.entries ?? [], sessionProvider, {
 				hasPaidAiCredits: hasPaidAiCredits( quota ),
+				localModel: aiSettings?.openAiCompatibleModel,
 			} ),
-		[ data?.entries, sessionProvider, quota ]
+		[ data?.entries, sessionProvider, quota, aiSettings?.openAiCompatibleModel ]
 	);
 	const pendingQuestionTexts = useMemo(
 		() => new Set( pendingQuestions.map( ( q ) => q.question ) ),

@@ -118,6 +118,7 @@ type RenderItem =
 			annotation?: StudioVisualAnnotationSummary;
 	  }
 	| { kind: 'assistant-text'; key: string; text: string; messageText: string; copyText?: string }
+	| { kind: 'thinking'; key: string; text: string }
 	| {
 			kind: 'tool-use';
 			key: string;
@@ -150,6 +151,8 @@ type TurnStatus = 'running' | 'success' | 'interrupted' | 'error';
 interface PiAssistantContentBlock {
 	type: 'text' | 'toolCall' | 'thinking';
 	text?: string;
+	/** Reasoning text. A separate field from `text`, which stays empty here. */
+	thinking?: string;
 	id?: string;
 	name?: string;
 	arguments?: Record< string, unknown >;
@@ -374,6 +377,15 @@ export function entriesToRenderItems(
 							copyText: block === lastTextBlock ? fullMessageText : undefined,
 						} );
 					}
+				} else if ( block.type === 'thinking' && typeof block.thinking === 'string' ) {
+					const thinking = block.thinking.trim();
+					if ( thinking ) {
+						items.push( {
+							kind: 'thinking',
+							key: `${ entryIndex }:${ blockIndex }:thinking`,
+							text: thinking,
+						} );
+					}
 				} else if (
 					block.type === 'toolCall' &&
 					typeof block.id === 'string' &&
@@ -527,6 +539,18 @@ function UserTurn( {
 				</ul>
 			) : null }
 		</div>
+	);
+}
+
+// Collapsed by default: reasoning is usually longer than the answer, and
+// scrolling past it to reach the reply is worse than one click to open it.
+// `<details>` carries the disclosure semantics and keyboard handling itself.
+function ThinkingRow( { text }: { text: string } ) {
+	return (
+		<details className={ styles.thinkingBlock }>
+			<summary className={ styles.thinkingSummary }>{ __( 'Thought process' ) }</summary>
+			<div className={ styles.thinkingBody }>{ text }</div>
+		</details>
 	);
 }
 
@@ -1703,6 +1727,8 @@ export function Conversation( {
 								}
 							/>
 						);
+					case 'thinking':
+						return <ThinkingRow key={ item.key } text={ item.text } />;
 					case 'tool-use':
 						return (
 							<ToolUseRow

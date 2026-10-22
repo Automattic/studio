@@ -20,7 +20,7 @@ export async function runCommand(): Promise< void > {
 			return;
 		}
 
-		await revokeAuthToken( token.accessToken );
+		await revokeAuthToken( token.accessToken ).catch( () => undefined );
 		await updateSharedConfig( { authToken: undefined } );
 	} catch ( error ) {
 		if ( error instanceof LoggerError ) {

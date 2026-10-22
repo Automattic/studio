@@ -66,13 +66,20 @@ describe( 'Auth Logout Command', () => {
 		expect( mockReportSuccess ).toHaveBeenCalledWith( 'Successfully logged out' );
 	} );
 
-	it( 'should report an error if revoking the token fails', async () => {
-		vi.mocked( revokeAuthToken ).mockRejectedValue( new Error( 'Failed to revoke token' ) );
+	it( 'should clear the token even if revoking it fails', async () => {
+		vi.mocked( revokeAuthToken ).mockRejectedValue( new Error( 'Failed to revoke token: 401' ) );
 
 		await runCommand();
 
-		expect( readAuthToken ).toHaveBeenCalled();
-		expect( mockReportError ).toHaveBeenCalled();
+		expect( updateSharedConfig ).toHaveBeenCalledWith( { authToken: undefined } );
+		expect( mockReportSuccess ).toHaveBeenCalledWith( 'Successfully logged out' );
+	} );
+
+	it( 'should report an error if clearing the token fails', async () => {
+		vi.mocked( updateSharedConfig ).mockRejectedValue( new Error( 'Failed to write config' ) );
+
+		await runCommand();
+
 		expect( mockReportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
 	} );
 

@@ -4,7 +4,7 @@ export default class Sidebar {
 	constructor( private page: Page ) {}
 
 	get addSiteButton() {
-		return this.page.getByRole( 'button', { name: 'Add site' } );
+		return this.page.getByRole( 'button', { name: 'Add site', exact: true } );
 	}
 
 	get locator() {

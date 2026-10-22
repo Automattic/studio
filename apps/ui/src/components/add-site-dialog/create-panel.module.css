@@ -163,3 +163,9 @@
 		aspect-ratio: 16 / 9;
 	}
 }
+
+.page {
+	width: 100%;
+	max-width: 448px;
+	margin-inline: auto;
+}

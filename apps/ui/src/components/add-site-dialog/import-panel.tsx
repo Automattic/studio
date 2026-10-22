@@ -1,17 +1,21 @@
-import { getSuggestedSiteNameFromBackupFilename } from '@studio/common/lib/backup-files';
+import { ACCEPTED_ADD_SITE_FILE_TYPES } from '@studio/common/constants';
+import {
+	getSuggestedSiteNameFromBackupFilename,
+	isSupportedBackupFilename,
+} from '@studio/common/lib/backup-files';
 import { getErrorMessage } from '@studio/common/lib/error-formatting';
-import { createRoute, useNavigate } from '@tanstack/react-router';
+import { useNavigate } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
-import { useEffect, useRef, useState } from 'react';
+import { upload } from '@wordpress/icons';
+import { Button, Icon } from '@wordpress/ui';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { CreateSiteForm } from '@/components/create-site-form';
 import { useConnector } from '@/data/core';
 import { useExistingCustomDomains } from '@/data/queries/use-create-site-helpers';
 import { useImportSite } from '@/data/queries/use-import-site';
 import { useCreateSite, useDeleteSite } from '@/data/queries/use-sites';
-import { useSiteSyncActivity } from '@/data/sync-activity';
-import { clearPendingBackup, peekPendingBackup } from '@/lib/pending-backup';
-import { onboardingLayoutRoute, useOnboardingProgress, usePinNewSite } from '../layout-onboarding';
-import sharedStyles from '../layout-onboarding/style.module.css';
+import { useAddSite } from './context';
+import styles from './import-panel.module.css';
 import type { CreateSiteFormError, CreateSiteFormValues } from '@/components/create-site-form';
 
 type ImportPhase = 'preparing' | 'creating' | 'importing';
@@ -51,44 +55,101 @@ function createFailure( phase: ImportPhase, details: string ): CreateSiteFormErr
 	};
 }
 
-export function OnboardingImportPage() {
+export function BackupDropZone( { onFile }: { onFile: ( file: File ) => void } ) {
+	const inputRef = useRef< HTMLInputElement >( null );
+	const [ isDragging, setIsDragging ] = useState( false );
+	const [ error, setError ] = useState( '' );
+
+	const handleFile = ( file?: File ) => {
+		if ( ! file ) return;
+		// A .sql dump is a database without the files that go with it, so it can
+		// only be imported over an existing site — not used to create one.
+		if ( ! isSupportedBackupFilename( file.name, ACCEPTED_ADD_SITE_FILE_TYPES ) ) {
+			setError(
+				__(
+					'This file type is not supported. Please use a .zip, .gz, .gzip, .tar, .tar.gz, .wpress, or .xml file.'
+				)
+			);
+			return;
+		}
+		setError( '' );
+		onFile( file );
+	};
+
+	return (
+		<div
+			className={ styles.dropZone }
+			data-dragging={ isDragging || undefined }
+			onDragOver={ ( event ) => {
+				event.preventDefault();
+				setIsDragging( true );
+			} }
+			onDragLeave={ ( event ) => {
+				if ( event.currentTarget.contains( event.relatedTarget as Node | null ) ) return;
+				setIsDragging( false );
+			} }
+			onDrop={ ( event ) => {
+				event.preventDefault();
+				setIsDragging( false );
+				handleFile( event.dataTransfer.files[ 0 ] );
+			} }
+		>
+			<Icon icon={ upload } size={ 24 } className={ styles.dropIcon } />
+			<p className={ styles.dropLabel }>{ __( 'Drop a WordPress backup here.' ) }</p>
+			<input
+				ref={ inputRef }
+				type="file"
+				accept={ ACCEPTED_ADD_SITE_FILE_TYPES.join( ',' ) }
+				hidden
+				onChange={ ( event ) => {
+					handleFile( event.target.files?.[ 0 ] );
+					event.target.value = '';
+				} }
+			/>
+			<Button
+				type="button"
+				variant="outline"
+				tone="neutral"
+				onClick={ () => inputRef.current?.click() }
+			>
+				{ __( 'Choose file' ) }
+			</Button>
+			{ error ? (
+				<p role="alert" className={ styles.dropError }>
+					{ error }
+				</p>
+			) : null }
+		</div>
+	);
+}
+
+export function ImportPanel( {
+	backup: selectedFile,
+	onCancel,
+	onChooseAnother,
+}: {
+	backup: File;
+	onCancel: () => void;
+	onChooseAnother: () => void;
+} ) {
 	const navigate = useNavigate();
 	const connector = useConnector();
-	const { setProgress } = useOnboardingProgress();
+	const { setProgress, followSite, pinNewSite } = useAddSite();
 
 	const existingDomainNames = useExistingCustomDomains();
 	const createSite = useCreateSite();
-	const pinNewSite = usePinNewSite();
 	const importSite = useImportSite();
 	const deleteSite = useDeleteSite();
 
-	const [ selectedFile ] = useState< File | null >( peekPendingBackup );
 	const [ submitError, setSubmitError ] = useState< CreateSiteFormError | null >( null );
 	const [ hasFailed, setHasFailed ] = useState( false );
 	const [ isWorking, setIsWorking ] = useState( false );
 	const isWorkingRef = useRef( false );
 
-	useEffect( () => {
-		clearPendingBackup();
-	}, [] );
-
-	useEffect( () => {
-		if ( selectedFile ) return;
-		void navigate( { to: '/onboarding', replace: true } );
-	}, [ navigate, selectedFile ] );
-
 	useEffect( () => () => setProgress( null ), [ setProgress ] );
 
-	const [ importingSiteId, setImportingSiteId ] = useState< string >();
-	const importActivity = useSiteSyncActivity( importingSiteId );
-	useEffect( () => {
-		if ( importActivity?.kind === 'pending' && importActivity.message ) {
-			setProgress( importActivity.message );
-		}
-	}, [ importActivity, setProgress ] );
-
 	const handleSubmit = async ( values: CreateSiteFormValues ) => {
-		if ( ! selectedFile || isWorkingRef.current ) return;
+		if ( isWorkingRef.current ) return;
 		isWorkingRef.current = true;
 		setIsWorking( true );
 		setSubmitError( null );
@@ -124,7 +185,7 @@ export function OnboardingImportPage() {
 			pinNewSite( site.id );
 			phase = 'importing';
 			setProgress( __( 'Importing backup…' ) );
-			setImportingSiteId( site.id );
+			followSite( site.id );
 			await importSite.mutateAsync( {
 				siteId: site.id,
 				backupPath,
@@ -163,28 +224,25 @@ export function OnboardingImportPage() {
 		} finally {
 			isWorkingRef.current = false;
 			setIsWorking( false );
-			setImportingSiteId( undefined );
+			followSite( undefined );
 			setProgress( null );
 		}
 	};
 
-	if ( ! selectedFile ) return null;
-
-	const initialValues: Partial< CreateSiteFormValues > = {
-		name: getSuggestedSiteNameFromBackupFilename( selectedFile.name ) || __( 'Imported site' ),
-	};
+	const initialValues = useMemo< Partial< CreateSiteFormValues > >(
+		() => ( {
+			name: getSuggestedSiteNameFromBackupFilename( selectedFile.name ) || __( 'Imported site' ),
+		} ),
+		[ selectedFile ]
+	);
 
 	return (
-		<div className={ sharedStyles.page }>
-			<h1 className={ sharedStyles.title }>{ __( 'Set up your imported site' ) }</h1>
-			<p className={ sharedStyles.subtitle }>
-				{ __( 'Choose a name and local folder. The backup will restore on top of this new site.' ) }
-			</p>
+		<div className={ styles.page }>
 			<CreateSiteForm
 				initialValues={ initialValues }
 				existingDomainNames={ existingDomainNames }
 				onSubmit={ handleSubmit }
-				onCancel={ () => void navigate( { to: '/onboarding' } ) }
+				onCancel={ hasFailed ? onChooseAnother : onCancel }
 				isSubmitting={ isWorking }
 				submitError={ submitError ?? undefined }
 				submitLabel={ hasFailed ? __( 'Retry import' ) : __( 'Import site' ) }
@@ -194,9 +252,3 @@ export function OnboardingImportPage() {
 		</div>
 	);
 }
-
-export const onboardingImportRoute = createRoute( {
-	getParentRoute: () => onboardingLayoutRoute,
-	path: '/onboarding/import',
-	component: OnboardingImportPage,
-} );

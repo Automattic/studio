@@ -1,15 +1,15 @@
 import { getLocalizedLink } from '@studio/common/lib/docs-links';
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { classifySyncFailure } from '@studio/common/lib/sync/classify-sync-failure';
-import { createRoute, useNavigate } from '@tanstack/react-router';
+import { useNavigate } from '@tanstack/react-router';
 import { Spinner, VisuallyHidden } from '@wordpress/components';
 import { __, _x, sprintf } from '@wordpress/i18n';
-import { check, chevronLeft, external, search } from '@wordpress/icons';
+import { check, external, search } from '@wordpress/icons';
 import { Badge, Button, Icon } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { AuthActions } from '@/components/auth-actions';
-import { OnboardingFooter } from '@/components/onboarding-footer';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { useAuthUser } from '@/data/queries/use-auth-user';
@@ -18,11 +18,10 @@ import { usePullSiteFromLive } from '@/data/queries/use-sync-site';
 import { useUserLocale } from '@/data/queries/use-user-locale';
 import { useSyncableWpcomSites } from '@/data/queries/use-wpcom-sites';
 import { useOffline } from '@/hooks/use-offline';
-import { onboardingLayoutRoute, useOnboardingProgress, usePinNewSite } from '../layout-onboarding';
-import sharedStyles from '../layout-onboarding/style.module.css';
+import styles from './connect-panel.module.css';
 import { ConnectSiteLifecycleError, runConnectSiteLifecycle } from './connect-site';
+import { useAddSite } from './context';
 import { presentRemoteSites, searchRemoteSites, type ConnectSiteGroup } from './site-presentation';
-import styles from './style.module.css';
 import type { SyncSite } from '@/data/core';
 
 const createWpcomSiteUrl = new URL( 'https://wordpress.com/setup/new-hosted-site' );
@@ -165,17 +164,15 @@ function SignedOutView() {
 					<span>{ __( 'Supports staging and production sites.' ) }</span>
 				</li>
 			</ul>
-			{ /* Despite the `/onboarding/connect` path, this is the add-site flow's
-			     "connect a site" step, not first-run onboarding. */ }
 			<AuthActions className={ styles.authActions } source="add_site" />
 		</div>
 	);
 }
 
-export function OnboardingConnectPage() {
+export function ConnectPanel() {
 	const connector = useConnector();
 	const navigate = useNavigate();
-	const { setProgress } = useOnboardingProgress();
+	const { actions, setProgress, pinNewSite } = useAddSite();
 	const { data: user, isLoading: isAuthLoading } = useAuthUser();
 	const { data: localSites = [] } = useSites();
 	const locale = useUserLocale();
@@ -184,7 +181,6 @@ export function OnboardingConnectPage() {
 		enabled: !! user && ! isOffline,
 	} );
 	const createSite = useCreateSite();
-	const pinNewSite = usePinNewSite();
 	const deleteSite = useDeleteSite();
 	const pullSite = usePullSiteFromLive();
 	const startSite = useStartSite( { silent: true } );
@@ -346,17 +342,14 @@ export function OnboardingConnectPage() {
 	] );
 
 	return (
-		<div className={ `${ sharedStyles.page } ${ styles.page }` }>
-			<h1 className={ sharedStyles.title }>
-				{ user && isSingleAvailableSite ? __( 'Connect your site' ) : __( 'Connect a site' ) }
-			</h1>
-			<p className={ sharedStyles.subtitle }>
+		<div className={ styles.page }>
+			<p className={ styles.intro }>
 				{ user
 					? __( 'Select a WordPress.com or Pressable site to bring into your Studio.' )
 					: __( 'Log in with your WordPress.com account to see your sites.' ) }
 			</p>
 			{ submitError && (
-				<p role="alert" className={ `${ sharedStyles.progress } ${ styles.connectError }` }>
+				<p role="alert" className={ styles.connectError }>
 					{ submitError }
 				</p>
 			) }
@@ -509,36 +502,22 @@ export function OnboardingConnectPage() {
 				</>
 			) }
 
-			<OnboardingFooter>
-				<Button
-					type="button"
-					variant="minimal"
-					tone="neutral"
-					disabled={ isConnecting }
-					onClick={ () => void navigate( { to: '/onboarding' } ) }
-				>
-					<Icon icon={ chevronLeft } size={ 16 } />
-					<span>{ __( 'Back' ) }</span>
-				</Button>
-				{ user && (
-					<Button
-						type="button"
-						variant="solid"
-						tone="brand"
-						disabled={ ! selectedSite || isOffline || isConnecting }
-						loading={ isConnecting }
-						onClick={ () => void handleConnect() }
-					>
-						{ __( 'Connect site' ) }
-					</Button>
-				) }
-			</OnboardingFooter>
+			{ user && actions
+				? createPortal(
+						<Button
+							type="button"
+							variant="solid"
+							tone="brand"
+							size="compact"
+							disabled={ ! selectedSite || isOffline || isConnecting }
+							loading={ isConnecting }
+							onClick={ () => void handleConnect() }
+						>
+							{ __( 'Connect site' ) }
+						</Button>,
+						actions
+				  )
+				: null }
 		</div>
 	);
 }
-
-export const onboardingConnectRoute = createRoute( {
-	getParentRoute: () => onboardingLayoutRoute,
-	path: '/onboarding/connect',
-	component: OnboardingConnectPage,
-} );

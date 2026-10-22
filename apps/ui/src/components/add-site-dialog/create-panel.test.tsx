@@ -2,7 +2,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { forwardRef, useImperativeHandle } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { pendingPromptSlot } from '@/lib/pending-prompt';
-import { CreateSitePage } from './index';
+import { CreatePanel } from './create-panel';
 import type { SelectedBlueprint } from '@/components/blueprint-upload';
 import type { CreateSiteFormValues } from '@/components/create-site-form';
 import type { ReactNode } from 'react';
@@ -31,14 +31,13 @@ vi.mock( '@tanstack/react-router', async ( importOriginal ) => {
 	return { ...actual, useNavigate: () => mocks.navigate };
 } );
 
-vi.mock( '../layout-onboarding', async ( importOriginal ) => {
-	const actual = await importOriginal< typeof import('../layout-onboarding') >();
-	return {
-		...actual,
-		useOnboardingProgress: () => ( { setProgress: mocks.setProgress } ),
-		usePinNewSite: () => mocks.pinNewSite,
-	};
-} );
+vi.mock( './context', () => ( {
+	useAddSite: () => ( {
+		setProgress: mocks.setProgress,
+		pinNewSite: mocks.pinNewSite,
+		actions: null,
+	} ),
+} ) );
 
 vi.mock( '@/components/blueprint-upload', () => ( {
 	BlueprintUpload: ( props: Record< string, unknown > ) => {
@@ -141,7 +140,7 @@ function selectBlueprint( selected: SelectedBlueprint ) {
 	act( () => ( mocks.uploadProps?.onSelect as ( value: SelectedBlueprint ) => void )( selected ) );
 }
 
-describe( 'CreateSitePage', () => {
+describe( 'CreatePanel', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
 		mocks.formProps = null;
@@ -156,7 +155,7 @@ describe( 'CreateSitePage', () => {
 	} );
 
 	it( 'creates a blank site without a Blueprint payload', async () => {
-		render( <CreateSitePage /> );
+		render( <CreatePanel onCancel={ vi.fn() } /> );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Submit' } ) );
 
 		await waitFor( () => expect( mocks.mutateAsync ).toHaveBeenCalledOnce() );
@@ -175,7 +174,7 @@ describe( 'CreateSitePage', () => {
 	} );
 
 	it( 'offers the brief only while chat is available and no Blueprint is selected', () => {
-		const { rerender } = render( <CreateSitePage /> );
+		const { rerender } = render( <CreatePanel onCancel={ vi.fn() } /> );
 		expect( screen.getByText( 'What should we create?' ) ).toBeInTheDocument();
 		expect( screen.getByTestId( 'composer' ) ).toBeInTheDocument();
 
@@ -185,13 +184,13 @@ describe( 'CreateSitePage', () => {
 		expect( screen.getByTestId( 'composer' ) ).toBeInTheDocument();
 
 		mocks.chatEnabled = false;
-		rerender( <CreateSitePage /> );
+		rerender( <CreatePanel onCancel={ vi.fn() } /> );
 		expect( screen.queryByTestId( 'composer' ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'opens a session with the brief as its first prompt after creating the site', async () => {
 		mocks.submission = { prompt: 'A bakery site', attachments: { images: [], files: [] } };
-		render( <CreateSitePage /> );
+		render( <CreatePanel onCancel={ vi.fn() } /> );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Submit' } ) );
 
 		await waitFor( () =>
@@ -214,7 +213,7 @@ describe( 'CreateSitePage', () => {
 	it( 'records a picked model on the session and stands in for an attachments-only brief', async () => {
 		const image = { id: 'image-1', name: 'moodboard.png' };
 		mocks.submission = { prompt: '', attachments: { images: [ image ], files: [] } };
-		render( <CreateSitePage /> );
+		render( <CreatePanel onCancel={ vi.fn() } /> );
 
 		act( () =>
 			( mocks.composerProps?.onModelChange as ( model: string ) => void )( 'claude-opus-5' )
@@ -240,12 +239,12 @@ describe( 'CreateSitePage', () => {
 					finishNavigation = () => resolve( undefined );
 				} )
 		);
-		const { rerender } = render( <CreateSitePage /> );
+		const { rerender } = render( <CreatePanel onCancel={ vi.fn() } /> );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Submit' } ) );
 		await waitFor( () => expect( mocks.navigate ).toHaveBeenCalledOnce() );
 
 		mocks.proposedName = 'My Next Studio Site';
-		rerender( <CreateSitePage /> );
+		rerender( <CreatePanel onCancel={ vi.fn() } /> );
 
 		expect( mocks.formProps?.initialValues ).toEqual( { name: 'My Studio Site' } );
 		expect( mocks.formProps?.isSubmitting ).toBe( true );
@@ -253,7 +252,7 @@ describe( 'CreateSitePage', () => {
 	} );
 
 	it( 'replaces and removes Blueprints while cleaning extracted temporary files', async () => {
-		render( <CreateSitePage /> );
+		render( <CreatePanel onCancel={ vi.fn() } /> );
 		const first = blueprint( 'First', '/tmp/first' );
 		const second = blueprint( 'Second', '/tmp/second' );
 
@@ -267,7 +266,7 @@ describe( 'CreateSitePage', () => {
 	} );
 
 	it( 'shows what the selected Blueprint will create', () => {
-		const { container } = render( <CreateSitePage /> );
+		const { container } = render( <CreatePanel onCancel={ vi.fn() } /> );
 		const selected: SelectedBlueprint = {
 			slug: 'development',
 			title: 'Theme & plugin development',
@@ -320,7 +319,7 @@ describe( 'CreateSitePage', () => {
 	} );
 
 	it( 'blocks submission while the Blueprint upload is invalid', () => {
-		render( <CreateSitePage /> );
+		render( <CreatePanel onCancel={ vi.fn() } /> );
 
 		act( () => ( mocks.uploadProps?.onValidityChange as ( isValid: boolean ) => void )( false ) );
 		expect( mocks.formProps?.isSubmitDisabled ).toBe( true );
@@ -330,7 +329,7 @@ describe( 'CreateSitePage', () => {
 	} );
 
 	it( 'requires a custom domain for a multisite Blueprint', () => {
-		render( <CreateSitePage /> );
+		render( <CreatePanel onCancel={ vi.fn() } /> );
 		const multisite = blueprint( 'Network' );
 		multisite.blueprint.steps = [ { step: 'enableMultisite' } ];
 		selectBlueprint( multisite );
@@ -341,7 +340,7 @@ describe( 'CreateSitePage', () => {
 
 	it( 'keeps the selected Blueprint for a retry after failure', async () => {
 		mocks.mutateAsync.mockRejectedValue( new Error( 'Creation failed' ) );
-		const { unmount } = render( <CreateSitePage /> );
+		const { unmount } = render( <CreatePanel onCancel={ vi.fn() } /> );
 		const selected = blueprint( 'Selected', '/tmp/selected' );
 		selectBlueprint( selected );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Submit' } ) );

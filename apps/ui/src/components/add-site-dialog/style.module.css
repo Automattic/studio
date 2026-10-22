@@ -1,0 +1,193 @@
+.popup[data-wp-ui-overlay-modal] {
+	--add-site-divider: color-mix(in srgb, var(--wpds-color-foreground-content-neutral) 10%, transparent);
+
+	flex-direction: row;
+	width: min(896px, calc(100vw - 32px));
+	height: min(624px, calc(100dvh - 32px));
+	min-width: 0;
+	padding: 0;
+	border-radius: 16px;
+	font-size: 14px;
+	line-height: 20px;
+}
+
+.visuallyHidden {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	overflow: hidden;
+	clip-path: inset(50%);
+	white-space: nowrap;
+}
+
+.sidebar {
+	display: flex;
+	flex: none;
+	flex-direction: column;
+	gap: 1px;
+	width: 216px;
+	box-sizing: border-box;
+	padding: 12px;
+	overflow-y: auto;
+	border-inline-end: var(--wpds-border-width-xs) solid var(--add-site-divider);
+}
+
+.navItem {
+	display: flex;
+	flex: none;
+	align-items: center;
+	gap: 6px;
+	height: 36px;
+	padding: 2px 8px;
+	border: 0;
+	border-radius: 7px;
+	background: none;
+	color: var(--wpds-color-foreground-content-neutral);
+	font: inherit;
+	text-align: start;
+	cursor: var(--wpds-cursor-control);
+}
+
+.navItem:hover,
+.navItem[aria-current='page'] {
+	background: var(--studio-hover-background);
+}
+
+.navItem:focus-visible,
+.crumb:focus-visible {
+	outline: var(--wpds-border-width-focus) solid var(--wpds-color-stroke-focus);
+	outline-offset: -2px;
+}
+
+.navIcon {
+	flex: none;
+}
+
+.navIcon:not([fill]) {
+	fill: currentColor;
+}
+
+.navLabel {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.navGroup {
+	display: flex;
+	flex: none;
+	align-items: center;
+	height: 36px;
+	margin: 16px 0 0;
+	padding: 0 8px;
+	color: var(--wpds-color-foreground-content-neutral-weak);
+	font-size: 14px;
+	font-weight: 450;
+	line-height: 20px;
+}
+
+.main {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	min-width: 0;
+}
+
+.header {
+	display: flex;
+	flex: none;
+	align-items: center;
+	gap: 12px;
+	min-height: 60px;
+	box-sizing: border-box;
+	padding: 14px 14px 14px 16px;
+}
+
+.title {
+	flex: 1;
+	min-width: 0;
+	margin: 0;
+	overflow: hidden;
+	font-size: 14px;
+	font-weight: 450;
+	line-height: 20px;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.crumb {
+	flex: none;
+	padding: 0;
+	border: 0;
+	border-radius: 4px;
+	background: none;
+	color: var(--wpds-color-foreground-content-neutral-weak);
+	font: inherit;
+	cursor: var(--wpds-cursor-control);
+}
+
+.crumb:hover:not(:disabled) {
+	text-decoration: underline;
+	text-underline-offset: 2px;
+}
+
+.crumbSeparator {
+	color: var(--wpds-color-foreground-content-neutral-weak);
+}
+
+.progress {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin: 0;
+	overflow: hidden;
+	color: var(--wpds-color-foreground-content-neutral-weak);
+	font-size: 13px;
+	white-space: nowrap;
+}
+
+.actions {
+	display: flex;
+	gap: 8px;
+}
+
+.header button {
+	--wp-ui-button-font-size: 13px;
+	--wp-ui-button-font-weight: 450;
+	--wp-ui-button-padding-inline: 10px;
+}
+
+.header button[class*='__is-outline'] {
+	--wp-ui-button-border-color: var(--add-site-divider);
+}
+
+.actions:empty {
+	display: none;
+}
+
+.content {
+	flex: 1;
+	min-height: 0;
+	padding: 0 16px 16px;
+	overflow-y: auto;
+	container-type: inline-size;
+}
+
+.content button {
+	--wp-ui-button-font-weight: 450;
+}
+
+/* Fields as in Settings: a faint border, rounder corners and sentence-case
+   labels. */
+.content [class*='__input-layout'][class*='__layout'] {
+	border-color: var(--add-site-divider);
+	border-radius: 9px;
+	background-color: color-mix(in srgb, var(--wpds-color-background-surface-neutral-strong) 60%, transparent);
+}
+
+.content label[class*='__label'] {
+	font-size: 13px;
+	font-weight: 450;
+	text-transform: none;
+}

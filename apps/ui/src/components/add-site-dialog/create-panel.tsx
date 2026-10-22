@@ -5,7 +5,7 @@ import {
 } from '@studio/common/lib/blueprint-settings';
 import { generateCustomDomainFromSiteName } from '@studio/common/lib/domains';
 import { getErrorMessage } from '@studio/common/lib/error-formatting';
-import { createRoute, useNavigate } from '@tanstack/react-router';
+import { useNavigate } from '@tanstack/react-router';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { BlueprintUpload, type SelectedBlueprint } from '@/components/blueprint-upload';
@@ -22,9 +22,8 @@ import { useCreateSite, useSites } from '@/data/queries/use-sites';
 import { useWordPressOrgPackageName } from '@/data/queries/use-wordpress-org-package-name';
 import { pendingBlueprintSlot } from '@/lib/pending-blueprint';
 import { pendingPromptSlot } from '@/lib/pending-prompt';
-import { onboardingLayoutRoute, useOnboardingProgress, usePinNewSite } from '../layout-onboarding';
-import styles from '../layout-onboarding/style.module.css';
-import localStyles from './style.module.css';
+import { useAddSite } from './context';
+import localStyles from './create-panel.module.css';
 import type { CreateSiteFormError, CreateSiteFormValues } from '@/components/create-site-form';
 import type { AiModelId } from '@/data/core';
 
@@ -227,15 +226,14 @@ function SelectedBlueprintSummary( {
 	);
 }
 
-export function CreateSitePage() {
+export function CreatePanel( { onCancel }: { onCancel: () => void } ) {
 	const connector = useConnector();
 	const navigate = useNavigate();
-	const { setProgress } = useOnboardingProgress();
+	const { setProgress, pinNewSite } = useAddSite();
 	const { data: sites } = useSites();
 	const existingDomainNames = useExistingCustomDomains();
 	const { data: proposedName } = useProposedSiteName( sites );
 	const createSite = useCreateSite();
-	const pinNewSite = usePinNewSite();
 	const createSession = useCreateSession();
 	const { chatEnabled } = useAgenticFeatures();
 	const composerRef = useRef< ComposerHandle >( null );
@@ -373,18 +371,12 @@ export function CreateSitePage() {
 	};
 
 	return (
-		<div className={ styles.page }>
-			<h1 className={ styles.title }>{ __( 'Create a new site' ) }</h1>
-			<p className={ styles.subtitle }>
-				{ chatEnabled
-					? __( 'Describe it with AI, start from a Blueprint, or build it from scratch.' )
-					: __( "Choose a name and we'll set up a fresh WordPress site on your machine." ) }
-			</p>
+		<div className={ localStyles.page }>
 			<CreateSiteForm
 				initialValues={ submittedInitialValues ?? initialValues }
 				existingDomainNames={ existingDomainNames }
 				onSubmit={ handleSubmit }
-				onCancel={ () => void navigate( { to: '/onboarding' } ) }
+				onCancel={ onCancel }
 				isSubmitting={ submittedInitialValues !== null }
 				isSubmitDisabled={ ! isBlueprintValid }
 				requiresCustomDomain={ requiresCustomDomain }
@@ -437,9 +429,3 @@ export function CreateSitePage() {
 		</div>
 	);
 }
-
-export const onboardingCreateRoute = createRoute( {
-	getParentRoute: () => onboardingLayoutRoute,
-	path: '/onboarding/create',
-	component: CreateSitePage,
-} );

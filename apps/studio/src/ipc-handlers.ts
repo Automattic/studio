@@ -28,6 +28,7 @@ import {
 	listHydratedAiSessions,
 	loadHydratedAiSession,
 	reconcileSessionEnvironment,
+	setSessionEnvironment,
 	updateHydratedAiSessionMetadata,
 } from '@studio/common/ai/sessions/manage';
 import { appendModelChangeEntry, appendStudioEntry } from '@studio/common/ai/sessions/store';
@@ -87,7 +88,7 @@ import {
 	listLocalFileTree as listSiteFileTree,
 } from '@studio/common/lib/sync/local-file-tree';
 import { supportedEditorConfig, SupportedEditor } from '@studio/common/lib/user-settings/editor';
-import { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
+import { openLinuxTerminal } from '@studio/common/lib/user-settings/open-linux-terminal';
 import { getSessionsDirectory } from '@studio/common/lib/well-known-paths';
 import {
 	cleanupBlueprintTempDir as cleanupBlueprintTempDirShared,
@@ -161,7 +162,6 @@ import { isStudioCliInstalled } from 'src/modules/cli/lib/ipc-handlers';
 import { STABLE_BIN_DIR_PATH } from 'src/modules/cli/lib/windows-installation-manager';
 import { getDefaultSiteDirectory } from 'src/modules/user-settings/lib/ipc-handlers';
 import { linuxFindEditorPath } from 'src/modules/user-settings/lib/linux-editor-path';
-import { linuxFindTerminalPath } from 'src/modules/user-settings/lib/linux-terminal-path';
 import { winFindEditorPath } from 'src/modules/user-settings/lib/win-editor-path';
 import { getSiteThumbnailPath } from 'src/storage/paths';
 import { updateAppdata, loadUserData } from 'src/storage/user-data';
@@ -348,11 +348,12 @@ export async function setAiSessionProvider(
 	} );
 }
 
-export interface SetSessionEnvironmentResult {
-	environment: 'local' | 'live';
-	url?: string;
-	wpcomSiteId?: number;
-	summary: AiSessionSummary;
+export async function setAiSessionEnvironment(
+	_event: IpcMainInvokeEvent,
+	sessionId: string,
+	environment: 'local' | 'live'
+): Promise< void > {
+	await setSessionEnvironment( getSessionsDirectory(), sessionId, environment );
 }
 
 export async function interruptAiAgentRun(
@@ -1187,37 +1188,7 @@ export async function openTerminalAtPath( _event: IpcMainInvokeEvent, targetPath
 			env,
 		} );
 	} else if ( platform === 'linux' ) {
-		// Warp on Linux currently opens at its configured "new session"
-		// directory regardless of how it is launched — it ignores
-		// `--working-directory`, the `path=` URL scheme query, and the
-		// spawn cwd. Tracked upstream in warpdotdev/Warp#4974 and #6357.
-		// Best effort: launch with `cwd` set so we benefit if/when upstream
-		// adds support, and so a fresh launch (no daemon yet) at least has
-		// a chance of inheriting it.
-		const launchers: Record< SupportedTerminal, { args: string[]; options?: ExecOptions } | null > =
-			{
-				terminal: { args: [ `--working-directory=${ targetPath }` ] },
-				warp: { args: [], options: { cwd: targetPath } },
-				ghostty: { args: [ `--working-directory=${ targetPath }` ] },
-				iterm: null,
-			};
-
-		const order: SupportedTerminal[] = [ preferredTerminal, 'terminal' ];
-		for ( const candidate of order ) {
-			const launcher = launchers[ candidate ];
-			if ( ! launcher ) {
-				continue;
-			}
-			const binary = await linuxFindTerminalPath( candidate );
-			if ( ! binary ) {
-				continue;
-			}
-			return promiseExecFile( binary, launcher.args, launcher.options );
-		}
-
-		// Last-resort fallback that preserves prior behavior even if no
-		// supported terminal binary is on $PATH.
-		return promiseExecFile( 'gnome-terminal', [ `--working-directory=${ targetPath }` ] );
+		return openLinuxTerminal( preferredTerminal, targetPath );
 	} else {
 		console.error( 'Unsupported platform:', platform );
 		return;

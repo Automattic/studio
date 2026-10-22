@@ -2,6 +2,7 @@ import {
 	getEffectiveSessionProvider,
 	resolveSessionModelForProvider,
 } from '@studio/common/ai/providers';
+import { pickLiveSite } from '@studio/common/ai/sessions/effective-site';
 import { findAiSessionOwnerSite } from '@studio/common/ai/sessions/owner-site';
 import {
 	getStudioCodeAiAccessState,
@@ -47,10 +48,12 @@ import { useAgentRun } from '@/data/queries/use-agent-run';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useAiSettings } from '@/data/queries/use-ai-settings';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
+import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
 import {
 	useCreateSession,
 	useSession,
 	useSessionEffectiveEnvironment,
+	useSetSessionEnvironment,
 } from '@/data/queries/use-sessions';
 import {
 	useIsSiteStarting,
@@ -493,6 +496,9 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	const isSiteStarting = useIsSiteStarting( ownerSite?.id );
 	const isSiteStopping = useIsSiteStopping( ownerSite?.id );
 	const canAutoStart = !! ownerSite && effectiveEnvironment === 'local';
+	const { data: connectedSites } = useConnectedWpcomSites( ownerSite?.id );
+	const liveSite = pickLiveSite( connectedSites ?? [] );
+	const { mutate: setEnvironment } = useSetSessionEnvironment( sessionId );
 	const sendWithAutoStart = useCallback(
 		( prompt: string, attachments?: Parameters< typeof sendMessage >[ 1 ] ) => {
 			if (
@@ -687,6 +693,9 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 						placeholder={ composerPlaceholder }
 						placeholderBusy={ isSiteStarting || isSiteStopping }
 						canAutoStart={ canAutoStart }
+						environment={ effectiveEnvironment }
+						liveUrl={ liveSite?.url }
+						onEnvironmentChange={ ownerSite ? setEnvironment : undefined }
 						dropTarget={ frameNode }
 						annotationSiteId={ annotationSiteId }
 					/>

@@ -3,7 +3,8 @@ import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import { SUPPORTED_EDITORS, supportedEditorConfig } from '@studio/common/lib/user-settings/editor';
-import { SUPPORTED_TERMINALS, terminalConfig } from '@studio/common/lib/user-settings/terminal';
+import { openLinuxTerminal } from '@studio/common/lib/user-settings/open-linux-terminal';
+import { SUPPORTED_TERMINALS } from '@studio/common/lib/user-settings/terminal';
 import type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
 import type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
 
@@ -112,11 +113,5 @@ export async function openInTerminal(
 		);
 		return;
 	}
-	// Linux: prefer the chosen terminal's command, falling back to gnome-terminal.
-	const command = terminalConfig[ terminal ].linuxCommands.find( ( c ) => existsOnPath( c ) );
-	if ( command === 'warp-terminal' ) {
-		await execFileAsync( command, [], { cwd: target } );
-	} else {
-		await execFileAsync( command ?? 'gnome-terminal', [ `--working-directory=${ target }` ] );
-	}
+	await openLinuxTerminal( terminal, target );
 }

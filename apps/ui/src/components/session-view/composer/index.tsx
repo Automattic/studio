@@ -34,6 +34,7 @@ import {
 	chevronDownSmall,
 	chevronRightSmall,
 	closeSmall,
+	globe,
 	page,
 	play,
 	plus,
@@ -51,6 +52,8 @@ import {
 	useState,
 	type ChangeEvent,
 	type MouseEvent,
+	type ReactElement,
+	type SVGProps,
 } from 'react';
 import { createPortal } from 'react-dom';
 import { AiCreditsPurchaseDialog } from '@/components/ai-credits-purchase-dialog';
@@ -206,6 +209,44 @@ const AI_PROVIDER_OPTIONS = AI_PROVIDER_IDS.map( ( id ) => ( {
 const SUBMIT_SHAKE_MS = 240;
 const SUBMIT_FEEDBACK_MS = 900;
 
+// A mode the composer is in; hovering offers to remove it.
+function ModeChip( {
+	icon,
+	label,
+	onRemove,
+}: {
+	icon: ReactElement< SVGProps< SVGSVGElement > >;
+	label: string;
+	onRemove: () => void;
+} ) {
+	const removeLabel = sprintf(
+		/* translators: %s: name of a composer mode, e.g. "Auto-start". */
+		__( 'Remove %s' ),
+		label
+	);
+	return (
+		<Tooltip.Root>
+			<Tooltip.Trigger
+				render={
+					<button
+						type="button"
+						className={ styles.modeChip }
+						aria-label={ removeLabel }
+						onClick={ onRemove }
+					/>
+				}
+			>
+				<Icon icon={ icon } size={ 16 } className={ styles.modeChipIcon } />
+				<Icon icon={ closeSmall } size={ 16 } className={ styles.modeChipRemove } />
+				<span>{ label }</span>
+			</Tooltip.Trigger>
+			<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
+				{ removeLabel }
+			</Tooltip.Popup>
+		</Tooltip.Root>
+	);
+}
+
 /**
  * Invisible structural placeholder that mirrors Composer's outer DOM, so the
  * loading state reserves the same vertical space without a visible composer.
@@ -256,6 +297,10 @@ interface ComposerProps {
 	placeholderBusy?: boolean;
 	// Offers the auto-start preference, for a chat on a local site.
 	canAutoStart?: boolean;
+	// The site the chat works on, and the connected live site it can switch to.
+	environment?: 'local' | 'live';
+	liveUrl?: string;
+	onEnvironmentChange?: ( environment: 'local' | 'live' ) => void;
 	// Where files can be dropped; the composer itself when absent.
 	dropTarget?: HTMLElement | null;
 	// The site whose preview annotations go out with the next message.
@@ -319,6 +364,9 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		placeholder: placeholderOverride,
 		placeholderBusy = false,
 		canAutoStart = false,
+		environment = 'local',
+		liveUrl,
+		onEnvironmentChange,
 		dropTarget,
 		annotationSiteId,
 		onModelChange,
@@ -964,6 +1012,36 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 											</span>
 										</Menu.Item>
 									) : null }
+									{ onEnvironmentChange && environment === 'local' && liveUrl ? (
+										<Menu.Item
+											className={ styles.describedItem }
+											disabled={ busy }
+											onClick={ () => onEnvironmentChange( 'live' ) }
+										>
+											<span className={ styles.describedItemBody }>
+												<span className={ styles.describedItemLabel }>
+													{ __( 'Work on live site' ) }
+												</span>
+												<span className={ styles.describedItemDescription }>{ liveUrl }</span>
+											</span>
+										</Menu.Item>
+									) : null }
+									{ onEnvironmentChange && environment === 'live' ? (
+										<Menu.Item
+											className={ styles.describedItem }
+											disabled={ busy }
+											onClick={ () => onEnvironmentChange( 'local' ) }
+										>
+											<span className={ styles.describedItemBody }>
+												<span className={ styles.describedItemLabel }>
+													{ __( 'Work on local site' ) }
+												</span>
+												<span className={ styles.describedItemDescription }>
+													{ __( 'Work on the local site on your computer.' ) }
+												</span>
+											</span>
+										</Menu.Item>
+									) : null }
 									<Menu.SubmenuRoot>
 										<Menu.SubmenuTrigger className={ styles.skillsSubmenuTrigger }>
 											<span>{ __( 'Skills' ) }</span>
@@ -998,33 +1076,18 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 								</Menu.Popup>
 							</Menu.Root>
 							{ autoStartOn ? (
-								<Tooltip.Root>
-									<Tooltip.Trigger
-										render={
-											<button
-												type="button"
-												className={ styles.modeChip }
-												aria-label={ sprintf(
-													/* translators: %s: name of a composer mode, e.g. "Auto-start". */
-													__( 'Remove %s' ),
-													__( 'Auto-start' )
-												) }
-												onClick={ () => setAutoStart( false ) }
-											/>
-										}
-									>
-										<Icon icon={ play } size={ 16 } className={ styles.modeChipIcon } />
-										<Icon icon={ closeSmall } size={ 16 } className={ styles.modeChipRemove } />
-										<span>{ __( 'Auto-start' ) }</span>
-									</Tooltip.Trigger>
-									<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
-										{ sprintf(
-											/* translators: %s: name of a composer mode, e.g. "Auto-start". */
-											__( 'Remove %s' ),
-											__( 'Auto-start' )
-										) }
-									</Tooltip.Popup>
-								</Tooltip.Root>
+								<ModeChip
+									icon={ play }
+									label={ __( 'Auto-start' ) }
+									onRemove={ () => setAutoStart( false ) }
+								/>
+							) : null }
+							{ environment === 'live' ? (
+								<ModeChip
+									icon={ globe }
+									label={ __( 'Live' ) }
+									onRemove={ () => onEnvironmentChange?.( 'local' ) }
+								/>
 							) : null }
 							<input
 								ref={ fileInputRef }

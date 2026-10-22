@@ -17,9 +17,17 @@ export interface SavedCopy {
 	id: number;
 	// The template or part's slug (the file name without .html).
 	slug: string;
-	// For Global Styles: what they set, as paths such as `styles.color.background`.
+	// For a template or part: whether the theme (or its parent) has a file for it.
+	hasThemeFile?: boolean;
+	// For Global Styles: the areas they set, such as `color` or `14 block styles`.
 	sets?: string[];
 }
+
+// The theme folders WordPress reads a template or part's file from.
+const THEME_FILE_DIRS: Record< 'wp_template' | 'wp_template_part', string[] > = {
+	wp_template: [ 'templates', 'block-templates' ],
+	wp_template_part: [ 'parts', 'block-template-parts' ],
+};
 
 function tablePrefix( root: string ): string {
 	try {
@@ -30,27 +38,22 @@ function tablePrefix( root: string ): string {
 	}
 }
 
-// Paths of what saved Global Styles set, to two levels below styles/settings.
-function stylePaths( content: string ): string[] {
-	let data: Record< string, unknown >;
+// The areas saved Global Styles set: each style and setting they hold, with
+// per-block styles counted.
+function styleAreas( content: string ): string[] {
+	let data: { styles?: Record< string, unknown >; settings?: Record< string, unknown > };
 	try {
-		data = JSON.parse( content ) as Record< string, unknown >;
+		data = JSON.parse( content );
 	} catch {
 		return [];
 	}
-	const paths: string[] = [];
-	for ( const top of [ 'styles', 'settings' ] ) {
-		const section = data[ top ];
-		if ( ! section || typeof section !== 'object' ) continue;
-		for ( const [ key, value ] of Object.entries( section ) ) {
-			if ( value && typeof value === 'object' && ! Array.isArray( value ) ) {
-				paths.push( ...Object.keys( value ).map( ( child ) => `${ top }.${ key }.${ child }` ) );
-			} else {
-				paths.push( `${ top }.${ key }` );
-			}
-		}
-	}
-	return paths;
+	const { blocks, ...styles } = data.styles ?? {};
+	const blockCount = blocks && typeof blocks === 'object' ? Object.keys( blocks ).length : 0;
+	return [
+		...Object.keys( styles ),
+		...( blockCount ? [ `${ blockCount } block style${ blockCount === 1 ? '' : 's' }` ] : [] ),
+		...Object.keys( data.settings ?? {} ).map( ( key ) => `${ key } settings` ),
+	];
 }
 
 /**
@@ -68,14 +71,17 @@ export async function readSavedCopies( root: string ): Promise< SavedCopy[] > {
 		const db = new DatabaseSync( dbPath, { readOnly: true } );
 		try {
 			const prefix = tablePrefix( root );
-			const stylesheet = (
-				db
-					.prepare(
-						`SELECT option_value AS value FROM ${ prefix }options WHERE option_name = 'stylesheet'`
-					)
-					.get() as { value: string } | undefined
-			 )?.value;
+			const option = ( name: string ) =>
+				(
+					db
+						.prepare( `SELECT option_value AS value FROM ${ prefix }options WHERE option_name = ?` )
+						.get( name ) as { value: string } | undefined
+				 )?.value;
+			const stylesheet = option( 'stylesheet' );
 			if ( ! stylesheet ) return [];
+			const themeDirs = [ stylesheet, option( 'template' ) ?? stylesheet ].map( ( theme ) =>
+				path.join( root, 'wp-content', 'themes', theme )
+			);
 			// The latest published post per type and slug, for the theme its
 			// wp_theme term names.
 			const rows = db
@@ -97,12 +103,17 @@ export async function readSavedCopies( root: string ): Promise< SavedCopy[] > {
 					row.postType === 'wp_global_styles' ? row.postType : `${ row.postType }/${ row.slug }`;
 				if ( seen.has( key ) ) continue;
 				seen.add( key );
-				if ( row.postType !== 'wp_global_styles' ) {
-					copies.push( row );
+				if ( row.postType === 'wp_global_styles' ) {
+					const sets = styleAreas( content );
+					if ( sets.length ) copies.push( { ...row, sets } );
 					continue;
 				}
-				const sets = stylePaths( content );
-				if ( sets.length ) copies.push( { ...row, sets } );
+				const hasThemeFile = themeDirs.some( ( themeDir ) =>
+					THEME_FILE_DIRS[ row.postType as 'wp_template' | 'wp_template_part' ].some( ( dir ) =>
+						existsSync( path.join( themeDir, dir, `${ row.slug }.html` ) )
+					)
+				);
+				copies.push( { ...row, hasThemeFile } );
 			}
 			return copies;
 		} finally {
@@ -113,22 +124,46 @@ export async function readSavedCopies( root: string ): Promise< SavedCopy[] > {
 	}
 }
 
+// "templates index (post 8), single (9); template parts header (5)"
+function listByType( copies: SavedCopy[] ): string {
+	const groups = (
+		[
+			[ 'wp_template', 'template', 'templates' ],
+			[ 'wp_template_part', 'template part', 'template parts' ],
+		] as const
+	 )
+		.map( ( [ postType, one, many ] ) => {
+			const ofType = copies.filter( ( copy ) => copy.postType === postType );
+			const items = ofType.map(
+				( copy, i ) => `${ copy.slug } (${ i === 0 ? 'post ' : '' }${ copy.id })`
+			);
+			return ofType.length ? `${ ofType.length === 1 ? one : many } ${ items.join( ', ' ) }` : '';
+		} )
+		.filter( Boolean );
+	return groups.join( '; ' );
+}
+
 /** One line for the active site's facts, or undefined when nothing is saved. */
 export function formatSavedCopies( copies: SavedCopy[] ): string | undefined {
-	if ( ! copies.length ) return undefined;
-	const items = copies.map( ( copy ) => {
-		switch ( copy.postType ) {
-			case 'wp_global_styles':
-				return `Global Styles (post ${
-					copy.id
-				}), which WordPress applies over theme.json; they set ${ copy.sets?.join( ', ' ) }`;
-			case 'wp_template':
-				return `template \`${ copy.slug }\` (post ${ copy.id }), which WordPress renders instead of templates/${ copy.slug }.html`;
-			case 'wp_template_part':
-				return `template part \`${ copy.slug }\` (post ${ copy.id }), which WordPress renders instead of parts/${ copy.slug }.html`;
-		}
-	} );
-	return `Saved in the Site Editor: ${ items.join( '; ' ) }.`;
+	const overriding = listByType( copies.filter( ( copy ) => copy.hasThemeFile ) );
+	const editorOnly = listByType( copies.filter( ( copy ) => copy.hasThemeFile === false ) );
+	const styles = copies.find( ( copy ) => copy.postType === 'wp_global_styles' );
+	const sentences = [
+		overriding &&
+			`Saved in the Site Editor, which WordPress uses instead of the theme's files: ${ overriding }.`,
+		editorOnly && `Only in the Site Editor: ${ editorOnly }.`,
+		styles &&
+			`Global Styles (post ${ styles.id }), applied over theme.json, set ${ joinList(
+				styles.sets ?? []
+			) }.`,
+	].filter( Boolean );
+	return sentences.length ? sentences.join( ' ' ) : undefined;
+}
+
+function joinList( items: string[] ): string {
+	return items.length < 3
+		? items.join( ' and ' )
+		: `${ items.slice( 0, -1 ).join( ', ' ) }, and ${ items[ items.length - 1 ] }`;
 }
 
 /**

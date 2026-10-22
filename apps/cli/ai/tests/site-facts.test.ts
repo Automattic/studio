@@ -11,6 +11,17 @@ function makeSite( prefix = 'wp_' ) {
 	mkdirSync( path.join( root, 'wp-includes' ) );
 	mkdirSync( path.join( root, 'wp-content', 'database' ), { recursive: true } );
 	writeFileSync( path.join( root, 'wp-config.php' ), `<?php\n$table_prefix = '${ prefix }';\n` );
+	// bakery is a child theme: its own header part, and index and single
+	// templates from its parent.
+	const themeFile = ( file: string ) => {
+		mkdirSync( path.dirname( path.join( root, 'wp-content', 'themes', file ) ), {
+			recursive: true,
+		} );
+		writeFileSync( path.join( root, 'wp-content', 'themes', file ), '' );
+	};
+	themeFile( 'bakery/parts/header.html' );
+	themeFile( 'bakery-parent/templates/index.html' );
+	themeFile( 'bakery-parent/templates/single.html' );
 	const db = new DatabaseSync( path.join( root, 'wp-content', 'database', '.ht.sqlite' ) );
 	db.exec( `
 		CREATE TABLE ${ prefix }posts ( ID INTEGER PRIMARY KEY, post_type TEXT, post_status TEXT, post_name TEXT, post_content TEXT, post_date TEXT );
@@ -18,7 +29,7 @@ function makeSite( prefix = 'wp_' ) {
 		CREATE TABLE ${ prefix }term_taxonomy ( term_taxonomy_id INTEGER PRIMARY KEY, term_id INTEGER, taxonomy TEXT );
 		CREATE TABLE ${ prefix }term_relationships ( object_id INTEGER, term_taxonomy_id INTEGER );
 		CREATE TABLE ${ prefix }options ( option_name TEXT, option_value TEXT );
-		INSERT INTO ${ prefix }options VALUES ( 'stylesheet', 'bakery' );
+		INSERT INTO ${ prefix }options VALUES ( 'stylesheet', 'bakery' ), ( 'template', 'bakery-parent' );
 		INSERT INTO ${ prefix }terms VALUES ( 1, 'bakery' ), ( 2, 'other-theme' );
 		INSERT INTO ${ prefix }term_taxonomy VALUES ( 1, 1, 'wp_theme' ), ( 2, 2, 'wp_theme' );
 	` );
@@ -45,26 +56,32 @@ function makeSite( prefix = 'wp_' ) {
 }
 
 describe( 'readSavedCopies', () => {
-	it( "states the active theme's saved copies and what each overrides", async () => {
+	it( "states the active theme's saved copies, grouped, and which replace a theme file", async () => {
 		const site = makeSite();
 		site.save( 'wp_template_part', 'header', '' );
 		site.save( 'wp_template', 'index', '' );
+		site.save( 'wp_template', 'single', '' );
+		site.save( 'wp_template', 'page-about', '' );
+		site.save( 'wp_template_part', 'promo', '' );
 		site.save(
 			'wp_global_styles',
 			'wp-global-styles-bakery',
 			JSON.stringify( {
 				version: 3,
-				styles: { color: { background: '#fff' }, typography: { lineHeight: '1.7' } },
-				settings: {},
+				styles: {
+					color: { background: '#fff' },
+					typography: { lineHeight: '1.7' },
+					blocks: { 'core/button': {}, 'core/quote': {} },
+				},
+				settings: { color: { palette: {} } },
 			} )
 		);
 		site.close();
 
 		expect( formatSavedCopies( await readSavedCopies( site.root ) ) ).toBe(
-			'Saved in the Site Editor: ' +
-				'Global Styles (post 13), which WordPress applies over theme.json; they set styles.color.background, styles.typography.lineHeight; ' +
-				'template `index` (post 12), which WordPress renders instead of templates/index.html; ' +
-				'template part `header` (post 11), which WordPress renders instead of parts/header.html.'
+			"Saved in the Site Editor, which WordPress uses instead of the theme's files: templates index (post 12), single (13); template part header (post 11). " +
+				'Only in the Site Editor: template page-about (post 14); template part promo (post 15). ' +
+				'Global Styles (post 16), applied over theme.json, set color, typography, 2 block styles, and color settings.'
 		);
 	} );
 
@@ -77,7 +94,7 @@ describe( 'readSavedCopies', () => {
 		site.close();
 
 		expect( await readSavedCopies( site.root ) ).toEqual( [
-			{ postType: 'wp_template_part', id: 14, slug: 'header' },
+			{ postType: 'wp_template_part', id: 14, slug: 'header', hasThemeFile: true },
 		] );
 	} );
 

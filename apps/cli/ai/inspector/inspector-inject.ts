@@ -2,7 +2,7 @@
  * Opens a headed Playwright browser on a Studio site for annotating it. The
  * page gets the inspector the Desktop preview uses (markers and picking) and
  * the CLI's note editor on top. The notes live here; Send hands them to
- * `waitForAnnotationsDone()` and closes the browser.
+ * `annotateInBrowser()` and closes the browser.
  */
 
 import { randomUUID } from 'crypto';
@@ -53,7 +53,7 @@ interface Session {
 
 let session: Session | null = null;
 // Settles with the sent notes, or null when the user cancels or closes the
-// window. Kept after the session ends so a later wait still reads it.
+// window. Kept after the session ends, so a call that timed out still gets them.
 let pending: Promise< BrowserAnnotation[] | null > | null = null;
 let processExitHookInstalled = false;
 
@@ -263,21 +263,32 @@ async function inject( current: Session ): Promise< void > {
 }
 
 /**
- * Block until the user clicks Send, then return the notes. Resolves to null
- * when the user cancels or closes the browser.
+ * Opens the annotation browser on `siteUrl`, or brings back the open one, and
+ * blocks until the user clicks Send. Resolves to null when the user cancels or
+ * closes the browser. After a timeout the browser stays open with its notes,
+ * so calling this again keeps waiting.
  */
-export async function waitForAnnotationsDone(
-	options: { timeoutMs?: number } = {}
+export async function annotateInBrowser(
+	siteUrl: string,
+	timeoutMs = 30 * 60 * 1000
 ): Promise< BrowserAnnotation[] | null > {
-	const done = pending;
-	if ( ! done ) {
-		throw new Error( 'No annotation browser is open. Call open_annotation_browser first.' );
+	if ( session ) {
+		await session.page.bringToFront().catch( () => undefined );
+		await inject( session ).catch( () => undefined );
+	} else if ( ! pending ) {
+		await launch( siteUrl );
 	}
+	const done = pending as Promise< BrowserAnnotation[] | null >;
 	let timer: NodeJS.Timeout | undefined;
 	const timeout = new Promise< never >( ( _, reject ) => {
 		timer = setTimeout(
-			() => reject( new Error( 'Timed out waiting for the user to send annotations.' ) ),
-			options.timeoutMs ?? 30 * 60 * 1000
+			() =>
+				reject(
+					new Error(
+						'The user has not sent annotations yet. The browser is still open: call open_annotation_browser again to keep waiting.'
+					)
+				),
+			timeoutMs
 		);
 	} );
 	try {
@@ -289,17 +300,7 @@ export async function waitForAnnotationsDone(
 	}
 }
 
-export async function openAnnotationBrowser( siteUrl: string ): Promise< string > {
-	if ( session && ! session.page.isClosed() ) {
-		try {
-			await session.page.bringToFront();
-			await inject( session );
-			return 'Annotation browser reattached. The user clicks elements, leaves notes, then clicks Send.';
-		} catch {
-			session.finish( null );
-		}
-	}
-
+async function launch( siteUrl: string ): Promise< void > {
 	const browser = await launchChromiumWithInstall(
 		{
 			headless: false,
@@ -346,6 +347,4 @@ export async function openAnnotationBrowser( siteUrl: string ): Promise< string 
 	await page.goto( siteUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 } );
 	// macOS chromium often opens behind the terminal.
 	await page.bringToFront();
-
-	return `Annotation browser opened at ${ siteUrl }. The user clicks an element, writes a note (and can paste images), presses Enter to save it, then clicks Send.`;
 }

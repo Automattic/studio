@@ -22,14 +22,14 @@ Then identify the target site. If there's an active site, use it. If there are m
 
 Call `site_info` to get the site URL — do NOT guess the URL or port.
 
-Use the `open_annotation_browser` tool with the site URL. This opens a headed browser where clicking an element opens a note editor next to it, with a **Cancel** / **Send** bar at the bottom of the page.
+In the same message, tell the user:
+> I'm opening your site in a browser. Click any element on the page and leave a note — you can paste images too — then press Enter to save it. Click **Send** when you're finished.
 
-Tell the user:
-> The browser is open. Click any element on the page and leave a note — you can paste images too — then press Enter to save it. Click **Send** when you're finished.
+Then call `open_annotation_browser` with the site URL. It opens a headed browser where clicking an element opens a note editor next to it, with a **Cancel** / **Send** bar at the bottom of the page, and waits there until the user is done.
 
-### 2. Wait for the user to send
+### 2. Read the annotations
 
-Call `wait_for_annotations`. This blocks until the user clicks **Send** and returns their annotations in the same format as annotations sent from the Studio preview, with any images they attached. If the user cancels or closes the window instead, it says so.
+When the user clicks **Send**, `open_annotation_browser` returns their annotations in the same format as annotations sent from the Studio preview, with any images they attached. If the user cancels or closes the window instead, it says so. If it times out, the browser is still open with the user's notes: call it again to keep waiting.
 
 Each annotation includes the page, the user's comment, and the element's selector, nearby text and computed styles.
 

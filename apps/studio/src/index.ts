@@ -651,13 +651,22 @@ async function appBoot() {
 		} )();
 	} );
 
+	let isQuitCleanupRunning = false;
 	app.on( 'will-quit', ( event ) => {
+		event.preventDefault();
+		// `will-quit` fires again if anything calls `app.quit()` while the cleanup runs, for example
+		// `window-all-closed` on Windows and Linux. Cleanup ends in `app.exit()`, so a repeat only
+		// waits: running it again would kill the `site stop --all` this one started.
+		if ( isQuitCleanupRunning ) {
+			return;
+		}
+		isQuitCleanupRunning = true;
+
 		markAppQuitting();
 		globalShortcut.unregisterAll();
 		stopCliEventsSubscriber();
 		stopCliCommands();
 
-		event.preventDefault();
 		void ( async () => {
 			try {
 				// The sites running now start again on the next launch, unless the user chose to stop them.

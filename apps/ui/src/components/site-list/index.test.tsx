@@ -101,6 +101,10 @@ vi.mock( '@/data/queries/use-user-preferences', () => ( {
 	useUserPreferences: vi.fn(),
 } ) );
 
+vi.mock( '@/data/queries/use-installed-apps', () => ( {
+	useInstalledApps: () => ( { data: undefined } ),
+} ) );
+
 vi.mock( '@/data/sync-activity', () => ( {
 	useSiteSyncActivity: vi.fn(),
 } ) );

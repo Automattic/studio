@@ -1,12 +1,16 @@
 import { captureException } from '@studio/common/lib/error-reporting';
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
-import { supportedEditorConfig } from '@studio/common/lib/user-settings/editor';
+import {
+	getFirstInstalledEditor,
+	supportedEditorConfig,
+} from '@studio/common/lib/user-settings/editor';
 import { terminalConfig } from '@studio/common/lib/user-settings/terminal';
 import { __ } from '@wordpress/i18n';
 import { code, external, wordpress } from '@wordpress/icons';
 import { DATABASE_HOME_PATH } from '@/components/site-preview/address-bar';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
+import { useInstalledApps } from '@/data/queries/use-installed-apps';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useOpenSettings } from '@/hooks/use-open-settings';
 import {
@@ -65,12 +69,13 @@ export function useOpenInDestinations(
 	const connector = useConnector();
 	const openSettings = useOpenSettings();
 	const { data: userPreferences } = useUserPreferences();
+	const { data: installedApps } = useInstalledApps();
+	const editor =
+		userPreferences?.editor ?? ( installedApps ? getFirstInstalledEditor( installedApps ) : null );
 
 	const fileManager = getFileManager();
-	const editorLabel = userPreferences?.editor
-		? supportedEditorConfig[ userPreferences.editor ].label()
-		: __( 'Editor' );
-	const editorLogo = userPreferences?.editor ? editorLogos[ userPreferences.editor ] : undefined;
+	const editorLabel = editor ? supportedEditorConfig[ editor ].label() : __( 'Editor' );
+	const editorLogo = editor ? editorLogos[ editor ] : undefined;
 	const terminalLabel = userPreferences?.terminal
 		? terminalConfig[ userPreferences.terminal ].name()
 		: __( 'Terminal' );
@@ -127,7 +132,7 @@ export function useOpenInDestinations(
 			logo: editorLogo ?? code,
 			disabled: false,
 			open: () => {
-				if ( ! userPreferences?.editor ) {
+				if ( ! editor ) {
 					openSettings();
 					return;
 				}

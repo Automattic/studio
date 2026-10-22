@@ -4,6 +4,7 @@ import { usePointerDrag } from '@/hooks/use-pointer-drag';
 import {
 	getInitialPreviewContentWidth,
 	getPreviewSplitLayout,
+	PANEL_WIDTHS_RESET_EVENT,
 	PREVIEW_CONTENT_WIDTH_STORAGE_KEY,
 	PREVIEW_CONTENT_DEFAULT_WIDTH,
 	PREVIEW_PANEL_MIN_WIDTH,
@@ -102,6 +103,19 @@ export function usePreviewSplit( { showPreview }: UsePreviewSplitOptions ): UseP
 			ensurePreferred( width );
 		}
 	}, [ ensurePreferred, measureRootWidth, showPreview ] );
+
+	useEffect( () => {
+		const reset = () => {
+			preferredRef.current = null;
+			setPreferredContentWidth( null );
+			const width = measureRootWidth();
+			if ( width !== null ) {
+				ensurePreferred( width );
+			}
+		};
+		window.addEventListener( PANEL_WIDTHS_RESET_EVENT, reset );
+		return () => window.removeEventListener( PANEL_WIDTHS_RESET_EVENT, reset );
+	}, [ ensurePreferred, measureRootWidth ] );
 
 	// Keep the measured container fresh so the displayed width and the handle's
 	// aria values track window/sidebar resizes. CSS no longer absorbs resizes,

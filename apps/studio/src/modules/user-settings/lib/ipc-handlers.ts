@@ -3,9 +3,11 @@ import {
 	readGlobalInstructionsFile,
 	writeGlobalInstructions,
 } from '@studio/common/ai/global-instructions';
+import { isAiProviderId } from '@studio/common/ai/providers';
 import {
 	readAiSettings,
 	saveAnthropicApiKey as saveAnthropicApiKeyToConfig,
+	setAiProvider as setAiProviderInConfig,
 } from '@studio/common/ai/settings-store';
 import { getInstructionsLengthBucket } from '@studio/common/lib/record-tracks-event';
 import {
@@ -35,10 +37,7 @@ export function getInstalledAppsAndTerminals(): InstalledApps {
 }
 
 export async function getUserPreferences() {
-	const preferences = await readUserPreferences( {
-		sitesRoot: defaultSitePath,
-		installedApps: detectInstalledApps(),
-	} );
+	const preferences = await readUserPreferences( { sitesRoot: defaultSitePath } );
 	// The scheme may have been changed from `studio ui`, so the native window follows it here.
 	nativeTheme.themeSource = preferences.colorScheme;
 	return { ...preferences, locale: await getUserLocaleWithFallback() };
@@ -134,6 +133,16 @@ async function recordAiSettingsChange( previous: AiSettings, next: AiSettings ):
 export async function saveAnthropicApiKey( _event: IpcMainInvokeEvent, key: string | null ) {
 	const previous = await readAiSettings();
 	const settings = await saveAnthropicApiKeyToConfig( key );
+	await recordAiSettingsChange( previous, settings );
+	return settings;
+}
+
+export async function setAiProvider( _event: IpcMainInvokeEvent, provider: string ) {
+	if ( ! isAiProviderId( provider ) ) {
+		throw new Error( `Unknown AI provider: ${ provider }` );
+	}
+	const previous = await readAiSettings();
+	const settings = await setAiProviderInConfig( provider );
 	await recordAiSettingsChange( previous, settings );
 	return settings;
 }

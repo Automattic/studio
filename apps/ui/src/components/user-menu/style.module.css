@@ -5,6 +5,10 @@
 	padding: 8px 12px 10px;
 }
 
+.alert {
+	margin-block-end: 8px;
+}
+
 .row {
 	display: flex;
 	align-items: center;

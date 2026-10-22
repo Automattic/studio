@@ -5,8 +5,10 @@
  * For each site the turn created, and the seeded active site, the capture
  * records the WordPress state (theme, plugins, published content as parsed
  * blocks, registered block styles, global styles), the rendered home page,
- * block validity in the site's own editor, the active theme's files, and
- * whether an installed parent theme still matches its WordPress.org release.
+ * block validity in the site's own editor, the active theme's files, the
+ * code (themes, plugins, mu-plugins) the turn added or changed on the active
+ * site, and whether an installed parent theme still matches its WordPress.org
+ * release.
  * Sites that existed before the turn are compared by their database and
  * wp-content modification times, so a change to an unrelated site shows up.
  */
@@ -39,6 +41,9 @@ export interface SiteFingerprint {
 	path: string;
 	name: string;
 	mtimeMs: number;
+	// Content hashes of the site's code (themes, plugins, mu-plugins), keyed by
+	// path relative to wp-content, so the files a turn adds or changes show up.
+	code: Record< string, string >;
 }
 
 // The newest modification time under a site's database and wp-content, which
@@ -71,7 +76,12 @@ export async function fingerprintSites(): Promise< SiteFingerprint[] > {
 	const { sites } = await readCliConfig();
 	return sites
 		.filter( ( site ) => existsSync( site.path ) )
-		.map( ( site ) => ( { path: site.path, name: site.name, mtimeMs: newestMtime( site.path ) } ) );
+		.map( ( site ) => ( {
+			path: site.path,
+			name: site.name,
+			mtimeMs: newestMtime( site.path ),
+			code: hashCode( site.path ),
+		} ) );
 }
 
 const PROBE_PHP = String.raw`
@@ -97,6 +107,10 @@ $palette = array();
 foreach ( (array) ( $merged['settings']['color']['palette'] ?? array() ) as $entries ) {
 	foreach ( (array) $entries as $entry ) { $palette[] = $entry; }
 }
+$font_families = array();
+foreach ( (array) ( $merged['settings']['typography']['fontFamilies'] ?? array() ) as $entries ) {
+	foreach ( (array) $entries as $entry ) { $font_families[] = array( 'slug' => $entry['slug'] ?? '', 'fontFamily' => $entry['fontFamily'] ?? '' ); }
+}
 $plugins = array();
 foreach ( (array) get_option( 'active_plugins' ) as $plugin ) { $plugins[] = dirname( $plugin ) === '.' ? basename( $plugin, '.php' ) : dirname( $plugin ); }
 echo 'OUTCOME_JSON=' . wp_json_encode( array(
@@ -107,6 +121,7 @@ echo 'OUTCOME_JSON=' . wp_json_encode( array(
 	'products' => post_type_exists( 'product' ) ? (int) wp_count_posts( 'product' )->publish : 0,
 	'blockStyles' => $styles,
 	'palette' => $palette,
+	'fontFamilies' => $font_families,
 	'mergedStyles' => $merged['styles'] ?? array(),
 	'userGlobalStyles' => WP_Theme_JSON_Resolver::get_user_data()->get_raw_data(),
 	'customCss' => wp_get_custom_css(),
@@ -142,6 +157,54 @@ function hashFiles( dir: string ): Record< string, string > {
 	};
 	if ( existsSync( dir ) ) walk( dir );
 	return hashes;
+}
+
+const CODE_DIRS = [ 'themes', 'plugins', 'mu-plugins' ];
+const CODE_TEXT_FILE = /\.(css|json|html|php|js|mjs|ts|tsx|jsx|md|txt)$/;
+
+function hashCode( sitePath: string ): Record< string, string > {
+	const hashes: Record< string, string > = {};
+	for ( const dir of CODE_DIRS ) {
+		for ( const [ file, hash ] of Object.entries(
+			hashFiles( path.join( sitePath, 'wp-content', dir ) )
+		) ) {
+			hashes[ `${ dir }/${ file }` ] = hash;
+		}
+	}
+	return hashes;
+}
+
+export interface CodeChange {
+	file: string;
+	status: 'added' | 'changed' | 'removed';
+	text?: string;
+}
+
+// The code files (relative to wp-content) a turn added, changed or removed,
+// with the text of the added and changed ones.
+function diffCode(
+	sitePath: string,
+	before: Record< string, string >,
+	after: Record< string, string >
+): CodeChange[] {
+	const changes: CodeChange[] = [];
+	for ( const file of [
+		...new Set( [ ...Object.keys( before ), ...Object.keys( after ) ] ),
+	].sort() ) {
+		if ( before[ file ] === after[ file ] ) continue;
+		const status = ! after[ file ] ? 'removed' : ! before[ file ] ? 'added' : 'changed';
+		const change: CodeChange = { file, status };
+		if ( status !== 'removed' && CODE_TEXT_FILE.test( file ) ) {
+			try {
+				const text = readFileSync( path.join( sitePath, 'wp-content', file ), 'utf8' );
+				if ( text.length < 200_000 ) change.text = text;
+			} catch {
+				// Removed after the hashes were taken.
+			}
+		}
+		changes.push( change );
+	}
+	return changes;
 }
 
 function readThemeText( dir: string ): Record< string, string > {
@@ -226,10 +289,13 @@ export interface SiteOutcome {
 export async function captureSiteOutcome(
 	sitePath: string,
 	created: boolean,
-	artifactDir: string
+	artifactDir: string,
+	code?: { before: Record< string, string >; after: Record< string, string > }
 ): Promise< SiteOutcome > {
 	const site = await getSiteByFolder( sitePath );
 	const outcome: SiteOutcome = { name: site.name, path: sitePath, created };
+	// Code files the turn added, changed or removed (null for sites it created).
+	outcome.codeChanges = code ? diffCode( sitePath, code.before, code.after ) : null;
 	try {
 		await connectToDaemon();
 		await runStartSiteCommand( sitePath, true, true, new Logger() );
@@ -338,8 +404,16 @@ export async function captureTurnOutcome(
 	const others = before.filter( ( site ) => site.path !== requestSitePath );
 
 	const sites: SiteOutcome[] = [];
-	if ( requestSitePath && after.has( requestSitePath ) ) {
-		sites.push( await captureSiteOutcome( requestSitePath, false, artifactDir ) );
+	const requestAfter = requestSitePath ? after.get( requestSitePath ) : undefined;
+	if ( requestSitePath && requestAfter ) {
+		sites.push(
+			await captureSiteOutcome(
+				requestSitePath,
+				false,
+				artifactDir,
+				requestBefore ? { before: requestBefore.code, after: requestAfter.code } : undefined
+			)
+		);
 	}
 	for ( const site of created ) {
 		sites.push( await captureSiteOutcome( site.path, true, artifactDir ) );

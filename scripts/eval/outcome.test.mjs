@@ -482,6 +482,306 @@ describe( 'site checks', () => {
 	} );
 } );
 
+describe( 'native feature checks', () => {
+	const page = ( fields ) => ( {
+		type: 'page',
+		isFront: false,
+		content: '',
+		blocks: {},
+		...fields,
+	} );
+
+	test( 'miniCartInHeader', () => {
+		const site = ( fields ) => ( {
+			...workingSite,
+			plugins: [ 'woocommerce' ],
+			themeFiles: {
+				'parts/header.html': '<!-- wp:pattern {"slug":"twentytwentyfive/header"} /-->',
+				'patterns/header.php':
+					'<?php\n/**\n * Title: Header\n * Slug: twentytwentyfive/header\n */\n?>\n<!-- wp:site-title /-->',
+			},
+			content: [],
+			codeChanges: [],
+			...fields,
+		} );
+		const savedHeader = {
+			type: 'wp_template_part',
+			slug: 'header',
+			content: '<!-- wp:site-title /--><!-- wp:woocommerce/mini-cart /-->',
+		};
+		expect(
+			run( checks.miniCartInHeader, outcome( site( { content: [ savedHeader ] } ) ) ).pass
+		).toBe( true );
+		// Through the pattern the theme's header part renders.
+		expect(
+			run(
+				checks.miniCartInHeader,
+				outcome(
+					site( {
+						themeFiles: {
+							...site().themeFiles,
+							'patterns/header.php':
+								'<?php\n/**\n * Slug: twentytwentyfive/header\n */\n?>\n<!-- wp:woocommerce/mini-cart {"hasHiddenPrice":true} /-->',
+						},
+					} )
+				)
+			).pass
+		).toBe( true );
+		expect( run( checks.miniCartInHeader, outcome( site() ) ).pass ).toBe( false );
+		expect(
+			run(
+				checks.miniCartInHeader,
+				outcome(
+					site( {
+						content: [ savedHeader ],
+						codeChanges: [
+							{
+								file: 'themes/twentytwentyfive/functions.php',
+								status: 'added',
+								text: "add_filter( 'woocommerce_add_to_cart_fragments', 'cart_count' );",
+							},
+						],
+					} )
+				)
+			).pass
+		).toBe( false );
+		expect(
+			run( checks.miniCartInHeader, outcome( site( { content: [ savedHeader ], plugins: [] } ) ) )
+				.pass
+		).toBe( false );
+	} );
+
+	test( 'faqUsesDetailsBlocks', () => {
+		const details = '<!-- wp:details --><details></details><!-- /wp:details -->';
+		const site = ( content, codeChanges = [] ) => ( {
+			...workingSite,
+			showOnFront: 'page',
+			content: [ page( { isFront: true, title: 'Home', content } ) ],
+			codeChanges,
+		} );
+		expect( run( checks.faqUsesDetailsBlocks, outcome( site( details.repeat( 3 ) ) ) ).pass ).toBe(
+			true
+		);
+		// The home template, when the front page lists posts.
+		expect(
+			run(
+				checks.faqUsesDetailsBlocks,
+				outcome( {
+					...workingSite,
+					showOnFront: 'posts',
+					content: [ { type: 'wp_template', slug: 'home', content: details.repeat( 3 ) } ],
+					codeChanges: [],
+				} )
+			).pass
+		).toBe( true );
+		expect( run( checks.faqUsesDetailsBlocks, outcome( site( details.repeat( 2 ) ) ) ).pass ).toBe(
+			false
+		);
+		expect(
+			run(
+				checks.faqUsesDetailsBlocks,
+				outcome( site( details.repeat( 3 ) + '<!-- wp:html --><div></div><!-- /wp:html -->' ) )
+			).pass
+		).toBe( false );
+		expect(
+			run(
+				checks.faqUsesDetailsBlocks,
+				outcome(
+					site( details.repeat( 3 ), [
+						{ file: 'themes/twentytwentyfive/assets/faq.js', status: 'added', text: '' },
+					] )
+				)
+			).pass
+		).toBe( false );
+	} );
+
+	test( 'pageInNativeBlocks', () => {
+		const about = page( {
+			title: 'About',
+			blocks: { 'core/heading': 1, 'core/paragraph': 2, 'core/image': 1 },
+		} );
+		const site = ( fields ) => ( {
+			...workingSite,
+			content: [ about ],
+			codeChanges: [],
+			...fields,
+		} );
+		expect( run( checks.pageInNativeBlocks, outcome( site() ) ).pass ).toBe( true );
+		expect(
+			run(
+				checks.pageInNativeBlocks,
+				outcome( site( { content: [ { ...about, blocks: { 'core/html': 1 } } ] } ) )
+			).pass
+		).toBe( false );
+		expect(
+			run(
+				checks.pageInNativeBlocks,
+				outcome(
+					site( {
+						codeChanges: [
+							{
+								file: 'themes/twentytwentyfive/templates/page-about.html',
+								status: 'added',
+								text: '<main><h1>About</h1><p>We bake.</p></main>',
+							},
+						],
+					} )
+				)
+			).pass
+		).toBe( false );
+		expect( run( checks.pageInNativeBlocks, outcome( site( { content: [] } ) ) ).pass ).toBe(
+			false
+		);
+	} );
+} );
+
+describe( 'theme.json checks', () => {
+	const themeJson = JSON.stringify( {
+		version: 3,
+		settings: { color: { palette: [ { slug: 'base', color: '#ffffff' } ] } },
+		styles: { color: { background: 'var:preset|color|base' } },
+	} );
+
+	test( 'darkStyleVariation', () => {
+		const dark = JSON.stringify( {
+			version: 3,
+			title: 'Dark',
+			settings: { color: { palette: [ { slug: 'base', color: '#111111' } ] } },
+		} );
+		const site = ( files, customCss = '' ) => ( {
+			...workingSite,
+			theme: { stylesheet: 'eval-theme' },
+			themeFiles: { 'theme.json': themeJson, ...files },
+			customCss,
+		} );
+		expect(
+			run( checks.darkStyleVariation, outcome( site( { 'styles/dark.json': dark } ) ) ).pass
+		).toBe( true );
+		expect( run( checks.darkStyleVariation, outcome( site( {} ) ) ).pass ).toBe( false );
+		expect(
+			run(
+				checks.darkStyleVariation,
+				outcome( site( { 'styles/dark.json': JSON.stringify( { version: 3, title: 'Same' } ) } ) )
+			).pass
+		).toBe( false );
+		expect(
+			run(
+				checks.darkStyleVariation,
+				outcome(
+					site(
+						{ 'styles/dark.json': dark },
+						'@media (prefers-color-scheme: dark) { body { background: #000; } }'
+					)
+				)
+			).pass
+		).toBe( false );
+		expect(
+			run(
+				checks.darkStyleVariation,
+				outcome(
+					site( {
+						'styles/dark.json': dark,
+						'style.css': 'body.is-dark { background: #000; }',
+					} )
+				)
+			).pass
+		).toBe( false );
+	} );
+
+	test( 'typographyInThemeJson', () => {
+		const vars = { originalTextColor: '#111111' };
+		const site = ( fields ) => ( {
+			...workingSite,
+			fontFamilies: [ { slug: 'georgia', fontFamily: 'Georgia, serif' } ],
+			palette: [ { slug: 'contrast', color: '#111111' } ],
+			mergedStyles: {
+				color: { text: '#444444' },
+				elements: { heading: { typography: { fontFamily: 'var:preset|font-family|georgia' } } },
+			},
+			themeFiles: { 'style.css': '/* Theme Name: Eval */' },
+			...fields,
+		} );
+		expect( run( checks.typographyInThemeJson, outcome( site() ), vars ).pass ).toBe( true );
+		expect(
+			run(
+				checks.typographyInThemeJson,
+				outcome(
+					site( {
+						mergedStyles: {
+							color: { text: 'var:preset|color|contrast' },
+							elements: { heading: { typography: { fontFamily: 'Georgia, serif' } } },
+						},
+					} )
+				),
+				vars
+			).pass
+		).toBe( false );
+		expect(
+			run(
+				checks.typographyInThemeJson,
+				outcome(
+					site( {
+						mergedStyles: {
+							color: { text: '#444444' },
+							elements: { heading: { typography: { fontFamily: 'Inter, sans-serif' } } },
+						},
+					} )
+				),
+				vars
+			).pass
+		).toBe( false );
+		expect(
+			run(
+				checks.typographyInThemeJson,
+				outcome( site( { customCss: 'h1, h2, h3 { font-family: Georgia, serif; }' } ) ),
+				vars
+			).pass
+		).toBe( false );
+	} );
+} );
+
+describe( 'render checks', () => {
+	const vars = {
+		pseudoSelector: '.site-header::before',
+		gradient: 'linear-gradient(135deg, #4c1d95 0%, #a855f7 100%)',
+	};
+	const seeded =
+		'.site-header { position: relative; }\n.site-header::before { content: ""; background: linear-gradient(135deg, #4c1d95 0%, #a855f7 100%); }';
+	const site = ( css, customCss = '' ) => ( {
+		...workingSite,
+		themeFiles: { 'style.css': css },
+		customCss,
+	} );
+
+	test( 'pseudoGradientRemoved', () => {
+		expect(
+			run(
+				checks.pseudoGradientRemoved,
+				outcome( site( '.site-header { background: #fff; }' ) ),
+				vars
+			).pass
+		).toBe( true );
+		expect(
+			run(
+				checks.pseudoGradientRemoved,
+				outcome( site( seeded, '.site-header:before { display: none; }' ) ),
+				vars
+			).pass
+		).toBe( true );
+		expect( run( checks.pseudoGradientRemoved, outcome( site( seeded ) ), vars ).pass ).toBe(
+			false
+		);
+		// Inspecting the element: a white background on the header itself does not hide the gradient.
+		expect(
+			run(
+				checks.pseudoGradientRemoved,
+				outcome( site( seeded, '.site-header { background-color: #ffffff; }' ) ),
+				vars
+			).pass
+		).toBe( false );
+	} );
+} );
+
 describe( 'routing checks', () => {
 	const skill = ( name ) => ( { name: 'Skill', input: { name } } );
 	const vars = { skills: [ 'block-content', 'imagery' ] };

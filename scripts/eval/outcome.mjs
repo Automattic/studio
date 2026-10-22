@@ -75,6 +75,142 @@ function siteDesignText( s, { includeThemeJson = true } = {} ) {
 	return [ ...content, ...files, s.customCss || '' ].join( '\n' );
 }
 
+// Every stylesheet that reaches the page, each on its own (in a blob joined
+// with block markup, the first rule's selector would start with the markup
+// before it), in roughly the order they load, comments stripped: theme `.css`
+// files, `css` in theme.json files and saved Global Styles, `<style>` blocks
+// in content, and custom CSS.
+function stylesheets( s ) {
+	const all = siteDesignText( s );
+	const jsonCss = [
+		...Object.entries( s.themeFiles || {} )
+			.filter( ( [ file ] ) => file.endsWith( '.json' ) )
+			.map( ( [ , text ] ) => text ),
+		JSON.stringify( s.userGlobalStyles ?? {} ),
+	].join( '\n' );
+	const sheets = [
+		...Object.entries( s.themeFiles || {} )
+			.filter( ( [ file ] ) => file.endsWith( '.css' ) )
+			.map( ( [ file, css ] ) => ( { source: file, css } ) ),
+		...[ ...jsonCss.matchAll( /"css"\s*:\s*"((?:[^"\\]|\\.)*)"/g ) ].map( ( m ) => ( {
+			source: 'theme.json css',
+			css: JSON.parse( `"${ m[ 1 ] }"` ),
+		} ) ),
+		...[ ...all.matchAll( /<style[^>]*>([\s\S]*?)<\/style>/g ) ].map( ( m ) => ( {
+			source: '<style>',
+			css: m[ 1 ],
+		} ) ),
+		{ source: 'custom CSS', css: s.customCss || '' },
+	];
+	return sheets.map( ( sheet ) => ( {
+		...sheet,
+		css: sheet.css.replace( /\/\*[\s\S]*?\*\//g, ' ' ),
+	} ) );
+}
+
+// Each rule of a stylesheet, innermost first for rules nested in at-rules:
+// its selectors (whitespace collapsed) and declaration block.
+function cssRules( css ) {
+	return [ ...css.matchAll( /([^{}]+)\{([^{}]*)\}/g ) ].map( ( m ) => ( {
+		selectors: m[ 1 ]
+			.split( ',' )
+			.map( ( sel ) => sel.trim().replace( /\s+/g, ' ' ) )
+			.filter( Boolean ),
+		body: m[ 2 ],
+	} ) );
+}
+
+// The code files the turn added or changed on the active site.
+function codeChanges( s ) {
+	if ( ! Array.isArray( s.codeChanges ) )
+		throw new Error( `no record of the code the turn changed on "${ s.name }"` );
+	return s.codeChanges.filter( ( c ) => c.status !== 'removed' );
+}
+
+// Block markup with each `wp:pattern` and synced pattern (`wp:block`) it
+// references replaced by that pattern's content, a few levels deep.
+function expandPatterns( s, text, depth = 3 ) {
+	if ( depth <= 0 ) return text;
+	const patterns = Object.entries( s.themeFiles || {} )
+		.filter( ( [ file ] ) => /^patterns\/.+\.php$/.test( file ) )
+		.map( ( [ , src ] ) => [ src.match( /^[\s*]*Slug:\s*(\S+)/m )?.[ 1 ], src ] );
+	return text
+		.replace( /<!-- wp:pattern (\{.*?\}) \/-->/g, ( whole, attrs ) => {
+			const slug = attrs.match( /"slug"\s*:\s*"([^"]+)"/ )?.[ 1 ];
+			const file = patterns.find( ( [ patternSlug ] ) => slug && patternSlug === slug );
+			return file ? expandPatterns( s, file[ 1 ], depth - 1 ) : whole;
+		} )
+		.replace( /<!-- wp:block (\{.*?\}) \/-->/g, ( whole, attrs ) => {
+			const ref = Number( attrs.match( /"ref"\s*:\s*(\d+)/ )?.[ 1 ] );
+			const block = ( s.content || [] ).find( ( c ) => c.type === 'wp_block' && c.id === ref );
+			return block ? expandPatterns( s, block.content, depth - 1 ) : whole;
+		} );
+}
+
+// The template part WordPress renders for each slug: the copy saved in the
+// Site Editor, otherwise the theme's file, with its patterns expanded.
+function renderedParts( s ) {
+	const parts = {};
+	for ( const [ file, text ] of Object.entries( s.themeFiles || {} ) ) {
+		const slug = file.match( /^parts\/(.+)\.html$/ )?.[ 1 ];
+		if ( slug ) parts[ slug ] = text;
+	}
+	for ( const c of s.content || [] ) {
+		if ( c.type === 'wp_template_part' ) parts[ c.slug ] = c.content;
+	}
+	return Object.fromEntries(
+		Object.entries( parts ).map( ( [ slug, text ] ) => [ slug, expandPatterns( s, text ) ] )
+	);
+}
+
+// The markup the home page is built from: the static front page's content,
+// otherwise the front-page or home template (saved or theme file).
+function frontMarkup( s ) {
+	const front = frontPage( s );
+	if ( s.showOnFront === 'page' && front )
+		return { source: `page "${ front.title }"`, text: expandPatterns( s, front.content ) };
+	for ( const slug of [ 'front-page', 'home', 'index' ] ) {
+		const saved = ( s.content || [] ).find( ( c ) => c.type === 'wp_template' && c.slug === slug );
+		const text = saved?.content ?? s.themeFiles?.[ `templates/${ slug }.html` ];
+		if ( text !== undefined )
+			return {
+				source: `${ saved ? 'saved' : 'theme' } ${ slug } template`,
+				text: expandPatterns( s, text ),
+			};
+	}
+	return { source: 'nothing', text: '' };
+}
+
+const countBlocks = ( text, name ) =>
+	( text.match( new RegExp( `<!-- wp:${ name }(?=[\\s/])`, 'g' ) ) || [] ).length;
+
+// A preset reference (`var:preset|<kind>|slug` or `var(--wp--preset--<kind>--slug)`) resolved
+// against the site's presets, or the value as is.
+function resolvePreset( value, kind, presets, field ) {
+	const slug = String( value ?? '' ).match(
+		new RegExp(
+			`^(?:var:preset\\|${ kind }\\|([\\w-]+)|var\\(\\s*--wp--preset--${ kind }--([\\w-]+)\\s*\\))$`
+		)
+	);
+	if ( ! slug ) return value;
+	const found = ( presets || [] ).find( ( p ) => p.slug === ( slug[ 1 ] ?? slug[ 2 ] ) );
+	return found ? found[ field ] : value;
+}
+
+// [r, g, b] of a hex or rgb() color, or null.
+function rgb( color ) {
+	const c = String( color ?? '' )
+		.trim()
+		.toLowerCase();
+	const hex = c.match( /^#([0-9a-f]{3}|[0-9a-f]{6})$/ );
+	if ( hex ) {
+		const h = hex[ 1 ].length === 3 ? [ ...hex[ 1 ] ].map( ( x ) => x + x ).join( '' ) : hex[ 1 ];
+		return [ 0, 2, 4 ].map( ( i ) => parseInt( h.slice( i, i + 2 ), 16 ) );
+	}
+	const fn = c.match( /^rgba?\(\s*(\d+)[\s,]+(\d+)[\s,]+(\d+)/ );
+	return fn ? fn.slice( 1, 4 ).map( Number ) : null;
+}
+
 // --- Shared outcome checks ---------------------------------------------------
 
 // The site the case is about exists, renders, and every published page,
@@ -436,21 +572,8 @@ export const noInlineDisplayOnBlockWrappers = check( ( d, vars ) => {
 			.flatMap( ( m ) => m[ 1 ].split( /\s+/ ) )
 			.filter( Boolean )
 	);
-	// Each stylesheet on its own: in a blob joined with block markup, the
-	// first rule's selector would start with the markup before it.
-	const stylesheets = [
-		...Object.entries( s.themeFiles || {} )
-			.filter( ( [ file ] ) => file.endsWith( '.css' ) )
-			.map( ( [ , text ] ) => text ),
-		s.customCss || '',
-		...[ ...all.matchAll( /<style[^>]*>([\s\S]*?)<\/style>/g ) ].map( ( m ) => m[ 1 ] ),
-		...[ ...all.matchAll( /"css"\s*:\s*"((?:[^"\\]|\\.)*)"/g ) ].map( ( m ) =>
-			JSON.parse( `"${ m[ 1 ] }"` )
-		),
-	];
 	const offenders = [];
-	for ( const sheet of stylesheets ) {
-		const css = sheet.replace( /\/\*[\s\S]*?\*\//g, ' ' );
+	for ( const { css } of stylesheets( s ) ) {
 		for ( const m of css.matchAll(
 			/([^{}]+)\{([^{}]*display\s*:\s*inline(?:-block|-flex|-grid|-table)?(?![\w-])[^{}]*)\}/g
 		) ) {
@@ -528,6 +651,244 @@ export const designTokenReachedTheme = check( ( d, vars ) => {
 	return inPalette
 		? pass( `DESIGN.md ${ vars.token } is ${ value }, and the theme palette has it` )
 		: fail( `DESIGN.md ${ vars.token } is ${ value }, but the theme palette does not have it` );
+} );
+
+// --- Native WordPress features over custom code ------------------------------
+
+// The header WordPress renders carries WooCommerce's Mini-Cart block, and the
+// turn added no cart-count code of its own to themes or plugins.
+export const miniCartInHeader = check( ( d, vars ) => {
+	const s = site( d, vars );
+	if ( ! ( s.plugins || [] ).includes( 'woocommerce' ) )
+		return fail( `WooCommerce is not active: ${ JSON.stringify( s.plugins ) }` );
+	const custom = codeChanges( s ).filter(
+		( c ) =>
+			/\.(php|m?js|jsx|tsx?)$/.test( c.file ) &&
+			! c.file.startsWith( 'plugins/woocommerce/' ) &&
+			/woocommerce_add_to_cart_fragments|add_to_cart_fragments|get_cart_contents_count|cart_contents_count|wc_cart_fragments|wc-cart-fragments|added_to_cart|wc_fragments/.test(
+				c.text || ''
+			)
+	);
+	if ( custom.length )
+		return fail( `custom cart-count code added: ${ custom.map( ( c ) => c.file ).join( ', ' ) }` );
+	const headers = Object.entries( renderedParts( s ) ).filter( ( [ slug ] ) =>
+		/header/.test( slug )
+	);
+	const withCart = headers.filter( ( [ , text ] ) => countBlocks( text, 'woocommerce/mini-cart' ) );
+	return withCart.length
+		? pass(
+				`header part ${ withCart
+					.map( ( [ slug ] ) => `"${ slug }"` )
+					.join( ', ' ) } has the Mini-Cart block`
+		  )
+		: fail(
+				`no woocommerce/mini-cart block in the header parts ${ JSON.stringify(
+					headers.map( ( [ slug ] ) => slug )
+				) }`
+		  );
+} );
+
+// The home page has at least three Details (or Accordion item) blocks, no
+// Custom HTML block or inline script, and the turn added no JavaScript file.
+export const faqUsesDetailsBlocks = check( ( d, vars ) => {
+	const s = site( d, vars );
+	const { source, text } = frontMarkup( s );
+	const items = countBlocks( text, 'details' ) + countBlocks( text, 'accordion-item' );
+	if ( items < 3 )
+		return fail( `${ source } has ${ items } Details/Accordion item block(s), not three` );
+	if ( countBlocks( text, 'html' ) ) return fail( `${ source } has a Custom HTML block` );
+	if ( /<script\b/i.test( text ) ) return fail( `${ source } has an inline script` );
+	const scripts = codeChanges( s ).filter( ( c ) => /\.(m?js|jsx|tsx?)$/.test( c.file ) );
+	if ( scripts.length )
+		return fail( `JavaScript added: ${ scripts.map( ( c ) => c.file ).join( ', ' ) }` );
+	return pass(
+		`${ source } has ${ items } Details/Accordion item blocks and no custom HTML or JS`
+	);
+} );
+
+// A published About page built from native blocks (heading, paragraph, image),
+// with no Custom HTML block, and no theme template of raw HTML from the turn.
+export const pageInNativeBlocks = check( ( d, vars ) => {
+	const s = site( d, vars );
+	const title = new RegExp( vars.pageTitle ?? 'about', 'i' );
+	const page = ( s.content || [] ).find( ( c ) => c.type === 'page' && title.test( c.title ) );
+	if ( ! page ) return fail( `no published page titled like ${ title }` );
+	const blocks = page.blocks || {};
+	if ( blocks[ 'core/html' ] ) return fail( `"${ page.title }" has a Custom HTML block` );
+	const missing = [
+		[ 'heading', [ 'core/heading' ] ],
+		[ 'paragraph', [ 'core/paragraph' ] ],
+		[ 'image', [ 'core/image', 'core/cover', 'core/media-text' ] ],
+	].filter( ( [ , names ] ) => ! names.some( ( n ) => blocks[ n ] ) );
+	if ( missing.length )
+		return fail(
+			`"${ page.title }" has no ${ missing
+				.map( ( [ k ] ) => k )
+				.join( ', ' ) } block: ${ JSON.stringify( blocks ) }`
+		);
+	const rawHtml = ( text ) =>
+		countBlocks( text, 'html' ) > 0 || ( ! text.includes( '<!-- wp:' ) && /<[a-z]/i.test( text ) );
+	const templates = [
+		...codeChanges( s )
+			.filter(
+				( c ) =>
+					/^themes\/[^/]+\/(templates|parts)\/.+\.html$/.test( c.file ) && rawHtml( c.text || '' )
+			)
+			.map( ( c ) => c.file ),
+		...codeChanges( s )
+			.filter(
+				( c ) =>
+					/^themes\/[^/]+\/(?:templates\/[^/]+|(?:page|front-page|home|index|singular|single)[\w-]*)\.php$/.test(
+						c.file
+					) || /Template Name:/.test( c.text || '' )
+			)
+			.map( ( c ) => c.file ),
+		...( s.content || [] )
+			.filter( ( c ) => c.type === 'wp_template' && rawHtml( c.content ) )
+			.map( ( c ) => `saved template "${ c.slug }"` ),
+	];
+	if ( templates.length ) return fail( `templates of raw HTML: ${ templates.join( ', ' ) }` );
+	return pass( `"${ page.title }" built from blocks: ${ Object.keys( blocks ).join( ', ' ) }` );
+} );
+
+// --- Design changes through theme.json -----------------------------------------
+
+// The theme has a valid style variation (`styles/*.json`) whose palette or
+// background differs from the theme's own, and no stylesheet carries a
+// dark mode of its own (`prefers-color-scheme`, `.dark`-style selectors).
+export const darkStyleVariation = check( ( d, vars ) => {
+	const s = site( d, vars );
+	const parse = ( text ) => {
+		try {
+			return JSON.parse( text );
+		} catch {
+			return null;
+		}
+	};
+	const base = parse( s.themeFiles?.[ 'theme.json' ] || '{}' ) || {};
+	const look = ( json ) =>
+		JSON.stringify( [
+			json?.settings?.color?.palette ?? null,
+			json?.styles?.color?.background ?? null,
+		] );
+	const variations = Object.entries( s.themeFiles || {} ).filter( ( [ file ] ) =>
+		/^styles\/[^/]+\.json$/.test( file )
+	);
+	if ( ! variations.length )
+		return fail( `${ s.theme?.stylesheet } has no styles/*.json variation` );
+	const invalid = variations.filter( ( [ , text ] ) => ! parse( text )?.version );
+	if ( invalid.length )
+		return fail( `invalid variation(s): ${ invalid.map( ( [ file ] ) => file ).join( ', ' ) }` );
+	const effective = ( json ) =>
+		look( {
+			settings: {
+				color: { palette: json.settings?.color?.palette ?? base.settings?.color?.palette },
+			},
+			styles: {
+				color: { background: json.styles?.color?.background ?? base.styles?.color?.background },
+			},
+		} );
+	const differing = variations.filter(
+		( [ , text ] ) => effective( parse( text ) ) !== look( base )
+	);
+	if ( ! differing.length )
+		return fail(
+			`no variation changes the palette or background: ${ variations
+				.map( ( [ f ] ) => f )
+				.join( ', ' ) }`
+		);
+	const darkCss = stylesheets( s ).filter( ( { css } ) =>
+		/prefers-color-scheme|(?:^|[\s,>+~}(])(?:html|body)?\.(?:is-)?dark(?:-mode|-theme)?(?![\w-])|\[data-(?:theme|color-scheme|mode)\s*=\s*["']?dark/i.test(
+			css
+		)
+	);
+	if ( darkCss.length )
+		return fail( `dark-mode CSS in ${ darkCss.map( ( c ) => c.source ).join( ', ' ) }` );
+	return pass(
+		`variation ${ differing
+			.map( ( [ f ] ) => f )
+			.join( ', ' ) } changes the colors, no dark-mode CSS`
+	);
+} );
+
+// Headings use Georgia and body text is a dark gray, set in theme.json or
+// saved Global Styles, and no stylesheet has a rule for headings or the body.
+export const typographyInThemeJson = check( ( d, vars ) => {
+	const s = site( d, vars );
+	const elements = s.mergedStyles?.elements || {};
+	const font = ( el ) =>
+		resolvePreset( el?.typography?.fontFamily, 'font-family', s.fontFamilies, 'fontFamily' );
+	const fonts = [ 1, 2, 3, 4, 5, 6 ].map(
+		( n ) => font( elements[ `h${ n }` ] ) ?? font( elements.heading )
+	);
+	const notGeorgia = fonts.filter( ( f ) => ! /georgia/i.test( String( f ?? '' ) ) );
+	if ( notGeorgia.length )
+		return fail( `heading font families in the merged styles: ${ JSON.stringify( fonts ) }` );
+	const text = resolvePreset( s.mergedStyles?.color?.text, 'color', s.palette, 'color' );
+	const channels = rgb( text );
+	const original = vars.originalTextColor && rgb( vars.originalTextColor );
+	const average = channels && channels.reduce( ( a, b ) => a + b, 0 ) / 3;
+	const darkGray =
+		channels &&
+		Math.max( ...channels ) - Math.min( ...channels ) <= 0x20 &&
+		average >= 0x20 &&
+		average <= 0x90 &&
+		! ( original && original.every( ( v, i ) => v === channels[ i ] ) );
+	if ( ! darkGray )
+		return fail( `body text color in the merged styles is ${ text ?? 'unset' }, not a dark gray` );
+	const target =
+		/(?:^|[\s>+~(])(?:h[1-6]|body)(?![\w-])|\.wp-block-(?:heading|post-title)(?![\w-])/;
+	const rules = stylesheets( s ).flatMap( ( { source, css } ) =>
+		cssRules( css )
+			.filter( ( r ) => ! r.selectors[ 0 ]?.startsWith( '@' ) )
+			.flatMap( ( r ) => r.selectors.filter( ( sel ) => target.test( sel ) ) )
+			.map( ( sel ) => `${ sel } (${ source })` )
+	);
+	if ( rules.length )
+		return fail( `CSS rules for headings or the body: ${ rules.slice( 0, 6 ).join( ', ' ) }` );
+	return pass( `headings in ${ fonts[ 0 ] }, body text ${ text }, no heading or body CSS` );
+} );
+
+// --- Visual fixes that reach the render ----------------------------------------
+
+// The seeded gradient (vars.gradient) no longer applies to vars.pseudoSelector:
+// its declaration is gone, or a later rule for the same pseudo-element sets
+// `background` to none/transparent/white or `display`/`content` to none.
+export const pseudoGradientRemoved = check( ( d, vars ) => {
+	const s = site( d, vars );
+	const norm = ( text ) => String( text ).toLowerCase().replace( /\s+/g, '' );
+	const pseudo = ( sel ) =>
+		sel
+			.toLowerCase()
+			.replace( /\s+/g, ' ' )
+			.trim()
+			.replace( /(?<!:):(before|after)$/, '::$1' );
+	const target = pseudo( vars.pseudoSelector );
+	const gradient = norm( vars.gradient );
+	// The pseudo-element itself, alone or under a more specific ancestor.
+	const matches = ( sel ) => {
+		const p = pseudo( sel );
+		return p === target || p.endsWith( ` ${ target }` ) || p.endsWith( `>${ target }` );
+	};
+	const rules = stylesheets( s ).flatMap( ( { source, css } ) =>
+		cssRules( css )
+			.filter( ( r ) => r.selectors.some( matches ) )
+			.map( ( r ) => ( { source, body: norm( r.body ) } ) )
+	);
+	const seeded = rules.findLastIndex( ( r ) => r.body.includes( gradient ) );
+	if ( seeded < 0 ) return pass( `the gradient on ${ vars.pseudoSelector } is gone` );
+	const override = rules
+		.slice( seeded + 1 )
+		.find( ( r ) =>
+			/(?:^|;)(?:background:(?:none|transparent|white|#fff|#ffffff|var\(--wp--preset--color--(?:base|white)\))(?:!important)?(?:;|$)|background-image:none|display:none|content:none)/.test(
+				r.body
+			)
+		);
+	return override
+		? pass( `a later ${ vars.pseudoSelector } rule in ${ override.source } overrides the gradient` )
+		: fail(
+				`the gradient still applies to ${ vars.pseudoSelector } (${ rules[ seeded ].source })`
+		  );
 } );
 
 // Routing: every skill in `vars.skills` was loaded before the run's stop call

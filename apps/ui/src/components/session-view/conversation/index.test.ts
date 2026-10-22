@@ -281,6 +281,40 @@ describe( 'Conversation chat artifacts', () => {
 		expect( await screen.findByRole( 'status' ) ).toHaveTextContent( 'Image unavailable' );
 	} );
 
+	it( 'shows each annotation with its own images, and the rest on the first bubble', () => {
+		const image = ( id: string ) => ( {
+			kind: 'image' as const,
+			id,
+			name: `${ id }.png`,
+			mimeType: 'image/png' as const,
+			size: 1,
+		} );
+		const entry = {
+			type: 'custom',
+			id: 'annotated-prompt',
+			parentId: null,
+			timestamp: '2026-06-05T12:00:02.000Z',
+			customType: 'studio.user_prompt',
+			data: {
+				text: 'Also check spacing',
+				source: 'prompt',
+				attachments: [ image( 'own' ), image( 'note' ), { kind: 'file', name: 'brief.md' } ],
+				visualAnnotations: [
+					{ comment: 'Also check spacing', imageIds: [ 'own' ] },
+					{ comment: 'Use this photo', tag: 'img', imageIds: [ 'note' ] },
+				],
+			},
+		} as unknown as SessionEntry;
+
+		expect(
+			entriesToRenderItems( [ entry ] ).map( ( item ) =>
+				item.kind === 'user-text'
+					? item.attachments?.map( ( attachment ) => attachment.name )
+					: null
+			)
+		).toEqual( [ [ 'own.png', 'brief.md' ], [ 'note.png' ] ] );
+	} );
+
 	it( 'skips malformed chat artifact entries without crashing', () => {
 		const malformed = [
 			{ version: 1, id: 'artifact-1' }, // missing widgets

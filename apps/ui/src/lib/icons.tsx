@@ -299,6 +299,56 @@ export const shareIcon = (
 	</svg>
 );
 
+export const annotateIcon = (
+	<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+		<path
+			d="M16 6V6.5C16 7.32843 16.6716 8 17.5 8H18M16 6V5.5C16 4.67157 16.6716 4 17.5 4H18.5C19.3284 4 20 4.67157 20 5.5V6.5C20 7.32843 19.3284 8 18.5 8H18M16 6H8M6 8V16M8 18H10M18 8V10M5.5 20H6.5C7.32843 20 8 19.3284 8 18.5V17.5C8 16.6716 7.32843 16 6.5 16H5.5C4.67157 16 4 16.6716 4 17.5V18.5C4 19.3284 4.67157 20 5.5 20ZM5.5 8H6.5C7.32843 8 8 7.32843 8 6.5V5.5C8 4.67157 7.32843 4 6.5 4H5.5C4.67157 4 4 4.67157 4 5.5V6.5C4 7.32843 4.67157 8 5.5 8ZM13.1154 12.4972L19.5674 14.3407C19.9988 14.4639 20.0621 15.049 19.6671 15.2617L16.9356 16.7325C16.8495 16.7788 16.7788 16.8495 16.7325 16.9356L15.2617 19.6671C15.049 20.0621 14.4639 19.9988 14.3407 19.5674L12.4972 13.1154C12.3895 12.7382 12.7382 12.3895 13.1154 12.4972Z"
+			stroke="currentColor"
+			strokeWidth="2"
+			strokeLinecap="round"
+			strokeLinejoin="round"
+		/>
+	</svg>
+);
+
+export const annotationIcon = (
+	<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+		<path
+			d="M11.9998 7.99999L11.9998 11M11.9998 11V14M11.9998 11H8.99976M11.9998 11H14.9998M11.9977 20.5358L14.7377 18.2657C14.9171 18.1171 15.1427 18.0358 15.3757 18.0358L17.002 18.0358C18.6588 18.0358 20.002 16.6926 20.002 15.0358V7C20.002 5.34314 18.6588 4 17.0019 4L7.00195 4.00002C5.3451 4.00002 4.00195 5.34317 4.00195 7.00002V15.0358C4.00195 16.6926 5.3451 18.0358 7.00195 18.0358H8.65157C8.8865 18.0358 9.11393 18.1185 9.29398 18.2694L11.9977 20.5358Z"
+			stroke="currentColor"
+			strokeWidth="2"
+			strokeLinecap="round"
+			strokeLinejoin="round"
+		/>
+	</svg>
+);
+
+export const paperclipIcon = (
+	<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+		<path
+			d="m16 6-8.414 8.586a2 2 0 0 0 2.829 2.829l8.414-8.586a4 4 0 1 0-5.657-5.657l-8.379 8.551a6 6 0 1 0 8.485 8.485l8.379-8.551"
+			stroke="currentColor"
+			strokeWidth="2"
+			strokeLinecap="round"
+			strokeLinejoin="round"
+		/>
+	</svg>
+);
+
+export const trashIcon = (
+	<svg
+		viewBox="0 0 24 24"
+		fill="none"
+		stroke="currentColor"
+		strokeWidth="2"
+		strokeLinecap="round"
+		strokeLinejoin="round"
+		xmlns="http://www.w3.org/2000/svg"
+	>
+		<path d="M10 11v6M14 11v6M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+	</svg>
+);
+
 export const uploadIcon = (
 	<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none">
 		<path

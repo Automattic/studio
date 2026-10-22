@@ -1,1191 +1,388 @@
 /**
- * Annotation inspector injected into the site-preview `<webview>` via
- * `webview.executeJavaScript()`.
+ * Annotation inspector injected into the site-preview `<webview>` with
+ * `webview.executeJavaScript()` after each load.
  *
- * Runs in the cross-origin guest page so it uses vanilla DOM in a Shadow DOM
- * root — React isn't loaded there. Communicates with the host renderer via a
- * structured `console.log` line that the host receives through the webview's
- * `console-message` event:
- *   guest -> host: `__studio-inspector__:{ "type": "done", ... }`
+ * The guest only handles page geometry: hover highlight, picking an element,
+ * and the numbered markers. Note text and attachments stay in Studio, which
+ * draws the note editor over the preview.
  *
- * The same bridge also reports picking/annotation-count state changes and
- * forwards browser keyboard shortcuts (reload, back, forward) pressed while
- * focus is inside the guest page, so the host toolbar can handle them:
- *   guest -> host: `__studio-inspector__:{ "type": "state", ... }`
- *   guest -> host: `__studio-inspector__:{ "type": "browser-command", ... }`
+ *   host -> guest: `INSPECTOR_COMMAND_EVENT` on `window`, with the annotation
+ *                  state as its detail (active, notes, editingId, colors).
+ *   guest -> host: `console.log( INSPECTOR_BRIDGE_PREFIX + JSON )`, read from
+ *                  the webview's `console-message` event:
+ *                  pick | edit | anchor | escape | browser-command.
  *
- * The annotation controls live in the host toolbar (not in the page), and
- * drive the inspector by dispatching `INSPECTOR_COMMAND_EVENT` custom events
- * on the guest `window` via `webview.executeJavaScript()`:
- *   host -> guest: `{ "type": "toggle-picking" | "submit" | "report-state" }`
- *
- * Layout strategy: markers and the picking highlight use `position: absolute`
- * anchored at *document* coordinates (viewport rect + scroll offset), so they
- * scroll with the page for free and are only re-measured on reflow. The popup
- * and the annotation scrim use `position: fixed` to stay in the viewport; the
- * scrim's hole is a document rect, so it is re-cut on scroll as well.
+ * Browser shortcuts (reload, back, forward) pressed inside the page are
+ * forwarded too, so the host toolbar can handle them.
  */
+
+import type { AnnotationTarget } from '@/components/annotations/store';
 
 export const INSPECTOR_BRIDGE_PREFIX = '__studio-inspector__:';
 export const INSPECTOR_COMMAND_EVENT = '__studio-inspector-command';
 
-export const INSPECTOR_PAGE_SCRIPT =
-	String.raw`
-( () => {
-	if ( window.__studioInspectorMounted ) {
-		window.dispatchEvent(
-			new CustomEvent( '` +
-	INSPECTOR_COMMAND_EVENT +
-	String.raw`', { detail: { type: 'report-state' } } )
-		);
-		return;
-	}
-	/* A stale instance can outlive its host element (the mount flag is per
-	 * document, its listeners are not), so retire it before taking over. */
-	if ( typeof window.__studioInspectorDispose === 'function' ) {
-		window.__studioInspectorDispose();
-	}
-	window.__studioInspectorMounted = true;
-	const teardown = new AbortController();
+export const INSPECTOR_PAGE_SCRIPT = String.raw`
+(() => {
+	const KEY = '__studioInspectorDispose';
+	if (typeof window[KEY] === 'function') window[KEY]();
+	const abort = new AbortController();
+	const PREFIX = '${ INSPECTOR_BRIDGE_PREFIX }';
+	const host = document.createElement('div');
+	host.id = '__studio-inspector-host';
+	host.style.cssText = 'all:initial;position:fixed;inset:0;pointer-events:none;z-index:2147483647';
+	host.hidden = true;
+	document.documentElement.append(host);
+	const root = host.attachShadow({ mode: 'open' });
+	const cursorStyle = document.createElement('style');
+	document.documentElement.append(cursorStyle);
+	const style = document.createElement('style');
+	style.textContent =
+		'.highlight{position:fixed;pointer-events:none;box-sizing:border-box;border:2px solid var(--accent);background:color-mix(in srgb,var(--accent) 8%,transparent)}' +
+		'button{position:fixed;transform:translate(-50%,-50%);border:0;border-radius:50%;width:32px;height:32px;padding:0;font:600 12px system-ui;background:var(--marker) center/contain no-repeat;color:var(--on-accent);cursor:pointer;pointer-events:auto}' +
+		'button:focus-visible{outline:2px solid var(--accent);outline-offset:3px}';
+	root.append(style);
+	const highlight = document.createElement('div');
+	highlight.className = 'highlight';
+	highlight.hidden = true;
+	root.append(highlight);
+	const markers = document.createElement('div');
+	root.append(markers);
+	let state = { active: false, notes: [], editingId: null };
+	let hovered = null;
+	let selected = null;
+	let frame = 0;
 
-	const BRIDGE_PREFIX = '` +
-	INSPECTOR_BRIDGE_PREFIX +
-	String.raw`';
-	const COMMAND_EVENT = '` +
-	INSPECTOR_COMMAND_EVENT +
-	String.raw`';
-	const HOST_ID = '__studio-inspector-host';
-
-	function send( payload ) {
+	function emit(event) {
 		try {
-			console.log( BRIDGE_PREFIX + JSON.stringify( payload ) );
-		} catch ( err ) {
-			/* JSON.stringify can fail on cycles; the host treats missing
-			 * messages as no-ops, so we swallow rather than crash the page. */
-		}
+			console.log(PREFIX + JSON.stringify(event));
+		} catch {}
 	}
-
-	function isApplePlatform() {
-		return /mac|iphone|ipad|ipod/i.test( navigator.platform || navigator.userAgent || '' );
+	/* The marker and the cursor: the accent shape inside a white ring. */
+	function art(accent, shape) {
+		const path = shape === 'bubble' ? 'M5 27V16a11 11 0 1 1 11 11H5Z' : 'M16 5a11 11 0 1 1 0 22a11 11 0 1 1 0-22Z';
+		const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><defs><filter id="s" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="1" stdDeviation="1.5" flood-opacity="0.1"/></filter></defs><g filter="url(#s)" fill="' + accent + '" stroke-linejoin="round"><path d="' + path + '" stroke="' + accent + '" stroke-width="4"/><path d="' + path + '" stroke="white" stroke-width="2"/></g></svg>';
+		return 'url("data:image/svg+xml,' + encodeURIComponent(svg) + '")';
 	}
-
-	function isTextEntryTarget( el ) {
-		if ( ! el || el.nodeType !== 1 ) return false;
-		if ( el.isContentEditable ) return true;
-		const tag = el.tagName.toLowerCase();
-		return tag === 'input' || tag === 'textarea' || tag === 'select';
-	}
-
-	function getBrowserShortcutCommand( event ) {
-		if ( event.defaultPrevented || event.repeat ) return null;
-		const apple = isApplePlatform();
-		if ( event.key === 'ArrowLeft' || event.key === 'ArrowRight' ) {
-			/* Layout-independent back/forward aliases: the bracket chords need
-			 * Option/AltGr on many European layouts. Skipped while editing text
-			 * to keep native caret movement. */
-			const hasNavModifier = apple
-				? event.metaKey && ! event.ctrlKey && ! event.altKey
-				: event.altKey && ! event.ctrlKey && ! event.metaKey;
-			if ( ! hasNavModifier || event.shiftKey || isTextEntryTarget( event.target ) ) return null;
-			return event.key === 'ArrowLeft' ? 'back' : 'forward';
-		}
-		if ( event.altKey ) return null;
-		const hasPrimaryModifier = apple ? event.metaKey : event.ctrlKey;
-		if ( ! hasPrimaryModifier ) return null;
-		const key = event.key.toLowerCase();
-		if ( event.shiftKey ) {
-			return key === 'r' ? 'reload' : null;
-		}
-		if ( key === 'r' ) return 'reload';
-		if ( key === '[' ) return 'back';
-		if ( key === ']' ) return 'forward';
-		return null;
-	}
-
-	function buildSelector( el ) {
-		if ( ! el || el.nodeType !== 1 ) return '';
-		if ( el.id ) return '#' + CSS.escape( el.id );
+	function selector(el) {
+		if (el.id) return '#' + CSS.escape(el.id);
 		const parts = [];
 		let node = el;
-		while ( node && node.nodeType === 1 && node !== document.documentElement ) {
+		while (node && node !== document.documentElement) {
 			let part = node.tagName.toLowerCase();
-			if ( node.classList && node.classList.length ) {
-				const classes = Array.from( node.classList )
-					.filter( ( c ) => ! c.startsWith( '__studio-' ) )
-					.slice( 0, 3 )
-					.map( ( c ) => '.' + CSS.escape( c ) )
-					.join( '' );
-				part += classes;
-			}
+			part += Array.from(node.classList)
+				.filter((c) => !c.startsWith('__studio-'))
+				.slice(0, 3)
+				.map((c) => '.' + CSS.escape(c))
+				.join('');
 			const parent = node.parentElement;
-			if ( parent ) {
-				const sameTagSiblings = Array.from( parent.children ).filter(
-					( c ) => c.tagName === node.tagName
-				);
-				if ( sameTagSiblings.length > 1 ) {
-					part += ':nth-of-type(' + ( sameTagSiblings.indexOf( node ) + 1 ) + ')';
-				}
+			if (parent) {
+				const siblings = Array.from(parent.children).filter((c) => c.tagName === node.tagName);
+				if (siblings.length > 1) part += ':nth-of-type(' + (siblings.indexOf(node) + 1) + ')';
 			}
-			parts.unshift( part );
+			parts.unshift(part);
 			node = parent;
-			if ( parts.length >= 6 ) break;
+			if (parts.length >= 6) break;
 		}
-		return parts.join( ' > ' );
+		return parts.join(' > ');
 	}
-
-	function nearbyText( el ) {
-		const text = ( el.innerText || el.textContent || '' )
-			.replace( /\s+/g, ' ' )
-			.trim();
-		return text.length > 200 ? text.slice( 0, 200 ) + '…' : text;
-	}
-
-	function pickComputedStyles( el ) {
-		const cs = window.getComputedStyle( el );
-		const keys = [
-			'color', 'background-color', 'font-size', 'font-weight',
-			'font-family', 'line-height', 'padding', 'margin',
-			'border', 'display', 'width', 'height',
-		];
-		const out = {};
-		for ( const k of keys ) {
-			out[ k ] = cs.getPropertyValue( k );
-		}
-		return out;
-	}
-
-	function uid() {
-		return 'a_' + Math.random().toString( 36 ).slice( 2, 10 );
-	}
-
-	function documentRect( el ) {
+	function metadata(el, event) {
+		const cs = getComputedStyle(el);
+		const computedStyles = {};
+		for (const key of ['color', 'background-color', 'font-size', 'font-weight', 'font-family', 'line-height', 'padding', 'margin', 'border', 'display', 'width', 'height'])
+			computedStyles[key] = cs.getPropertyValue(key);
 		const r = el.getBoundingClientRect();
 		return {
-			left: r.left + window.scrollX,
-			top: r.top + window.scrollY,
-			width: r.width,
-			height: r.height,
+			selector: selector(el),
+			tag: el.tagName.toLowerCase(),
+			classes: Array.from(el.classList).slice(0, 10),
+			nearbyText: (el.innerText || el.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 200),
+			url: location.href,
+			path: location.pathname,
+			viewport: { width: innerWidth, height: innerHeight },
+			documentRect: { left: r.left + scrollX, top: r.top + scrollY, width: r.width, height: r.height },
+			point: {
+				x: Math.max(0, Math.min(1, (event.clientX - r.left) / Math.max(1, r.width))),
+				y: Math.max(0, Math.min(1, (event.clientY - r.top) / Math.max(1, r.height))),
+			},
+			computedStyles,
 		};
 	}
-
-	/* ------------------------------------------------------------------
-	 * Shadow DOM host. The host is \`position: absolute; top: 0; left: 0\`
-	 * with zero size — this anchors all absolutely-positioned descendants
-	 * at the document origin so their coordinates are document-relative
-	 * (and therefore scroll naturally with the page).
-	 * ---------------------------------------------------------------- */
-	const oldHost = document.getElementById( HOST_ID );
-	if ( oldHost ) oldHost.remove();
-	const host = document.createElement( 'div' );
-	host.id = HOST_ID;
-	host.style.cssText =
-		'all: initial; position: absolute; top: 0; left: 0; width: 0; height: 0; pointer-events: none; z-index: 2147483647;';
-	document.body.appendChild( host );
-	const root = host.attachShadow( { mode: 'open' } );
-
-	window.__studioInspectorDispose = () => {
-		teardown.abort();
-		host.remove();
-		delete window.__studioInspectorMounted;
-		delete window.__studioInspectorDispose;
-	};
-
-	const style = document.createElement( 'style' );
-	style.textContent = ` +
-	'`' +
-	String.raw`
-		:host { all: initial; }
-		* { box-sizing: border-box; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-		.highlight {
-			position: absolute; pointer-events: none;
-			border: 2px solid #7c3aed;
-			background: rgba(124,58,237,0.12);
-			border-radius: 2px;
-			z-index: 2;
-		}
-		/* Four viewport-fixed panels around the element being annotated,
-		   so the rest of the page dims and the selection reads as isolated.
-		   Sits above the markers, below the highlight and popup. */
-		.scrim {
-			position: fixed; pointer-events: none;
-			background: rgba(0,0,0,0.52);
-			z-index: 1;
-		}
-		.marker {
-			position: absolute; pointer-events: auto; cursor: pointer;
-			width: 22px; height: 22px;
-			background: #7c3aed; color: #fff;
-			border: 2px solid #fff;
-			border-radius: 50%;
-			box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-			font: 700 11px/1 inherit;
-			display: inline-flex; align-items: center; justify-content: center;
-			transform: translate(-50%, -50%);
-		}
-		.marker.otherViewport { opacity: 0.55; border-style: dashed; }
-		.popup {
-			position: fixed; width: min(320px, calc(100vw - 16px)); z-index: 3;
-			background: #1a1a1a; color: #fff;
-			border-radius: 12px;
-			box-shadow: 0 4px 24px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.08);
-			padding: 12px;
-			pointer-events: auto;
-			display: flex; flex-direction: column; gap: 8px;
-		}
-		.popup .target {
-			display: flex; align-items: center; justify-content: space-between; gap: 8px;
-			font-size: 11px; color: rgba(255,255,255,0.5);
-			cursor: grab; user-select: none;
-		}
-		.popup .target.dragging { cursor: grabbing; }
-		.popup .target .element {
-			flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-		}
-		.popup .layers {
-			display: inline-flex; align-items: center; flex: none; gap: 2px;
-			padding: 1px;
-			border: 1px solid rgba(255,255,255,0.14);
-			border-radius: 7px;
-		}
-		.popup .layers button {
-			width: 18px; height: 18px; padding: 0 0 2px; border-radius: 5px;
-			display: inline-flex; align-items: center; justify-content: center;
-			background: transparent; color: rgba(255,255,255,0.6);
-			font-size: 15px; line-height: 1;
-		}
-		.popup .layers button:hover:not([disabled]) { background: rgba(255,255,255,0.1); color: #fff; }
-		.popup .layers button[disabled] { opacity: 0.35; cursor: default; }
-		.popup .layers .count {
-			min-width: 24px; text-align: center; font-size: 10px;
-			color: rgba(255,255,255,0.5);
-		}
-		.popup .target .element code {
-			font: 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace; color: rgba(255,255,255,0.7);
-		}
-		.popup .target .viewport { flex: 0 0 auto; white-space: nowrap; }
-		.popup textarea {
-			width: 100%; min-height: 72px; resize: vertical;
-			background: rgba(255,255,255,0.05); color: #fff;
-			border: 1px solid rgba(255,255,255,0.15); border-radius: 8px;
-			padding: 8px; font: 13px/1.4 inherit; outline: none;
-		}
-		.popup textarea:focus { border-color: #7c3aed; }
-		.popup .actions { display: flex; justify-content: flex-end; gap: 4px; }
-		/* Sized so Delete/Cancel/Update/Send to chat all fit one row of the
-		   320px popup; nowrap keeps a tight fit from wrapping a label onto a
-		   second line instead of the row overflowing visibly. */
-		.popup button {
-			padding: 6px 8px; border-radius: 16px; border: none;
-			font: 600 11px/1 inherit; white-space: nowrap; cursor: pointer;
-		}
-		.popup .delete { background: transparent; color: rgba(255,255,255,0.5); margin-right: auto; }
-		.popup .delete:hover { color: #ef4444; }
-		.popup .cancel { background: transparent; color: rgba(255,255,255,0.7); }
-		.popup .cancel:hover { background: rgba(255,255,255,0.08); }
-		.popup .save { background: #fff; color: #1a1a1a; }
-		.popup .save[disabled] { opacity: 0.4; cursor: default; }
-		.popup .submit { background: #7c3aed; color: #fff; }
-		.popup .submit:hover:not([disabled]) { background: #6d28d9; }
-		.popup .submit[disabled] { opacity: 0.4; cursor: default; }
-		.popup button[data-tooltip] { position: relative; }
-		.popup button[data-tooltip]::after {
-			position: absolute; z-index: 5; pointer-events: none;
-			visibility: hidden;
-		}
-		.popup button[data-tooltip]::after {
-			content: attr(data-tooltip); left: var(--tooltip-left, 0px); bottom: calc(100% + 4px);
-			width: max-content; max-width: min(320px, calc(100vw - 16px));
-			padding: 4px 8px; border: none; border-radius: 4px;
-			/* Match the reversed @wordpress/ui tooltip variables used by Studio
-			   in dark mode so the tooltip separates from this dark surface. */
-			background: #fff; color: #000;
-			box-shadow: 0 1px 2px rgba(0,0,0,0.05), 0 2px 3px rgba(0,0,0,0.04),
-				0 6px 6px rgba(0,0,0,0.03), 0 8px 8px rgba(0,0,0,0.02);
-			font-size: 12px; font-weight: 400; line-height: 1.4;
-			white-space: normal; text-align: start;
-		}
-		.popup button.tooltip-open::after { visibility: visible; }
-	` +
-	'`' +
-	String.raw`;
-	root.appendChild( style );
-
-	/* ------------------------------------------------------------------
-	 * State + DOM
-	 * ---------------------------------------------------------------- */
-	let isPicking = false;
-	let hoveredEl = null;
-	let activePopup = null; /* { id?, target, comment, fromPicker? } */
-	let annotations = Array.isArray( window.__studioInspectorState )
-		? window.__studioInspectorState.slice()
-		: [];
-
-	const markerNodes = new Map(); /* id -> marker element */
-	const scrimNodes = [];
-	let highlightNode = null;
-	let highlightEl = null;
-	let popupNode = null;
-	let tooltipTimer = 0;
-	let tooltipButton = null;
-	let tooltipWarmUntil = 0;
-
-	function hideTooltip() {
-		clearTimeout( tooltipTimer );
-		if ( tooltipButton ) {
-			if ( tooltipButton.classList.contains( 'tooltip-open' ) ) {
-				tooltipWarmUntil = Date.now() + 400;
-			}
-			tooltipButton.classList.remove( 'tooltip-open' );
-			tooltipButton = null;
-		}
-	}
-
-	function attachTooltip( button, text ) {
-		button.dataset.tooltip = text;
-		button.setAttribute( 'aria-description', text );
-		const open = ( immediate ) => {
-			hideTooltip();
-			if ( button.disabled ) return;
-			const measurement = document.createElement( 'span' );
-			measurement.textContent = text;
-			measurement.style.cssText =
-				'position:fixed;visibility:hidden;width:max-content;max-width:min(320px,calc(100vw - 16px));padding:4px 8px;font-size:12px;font-weight:400;line-height:1.4;';
-			root.appendChild( measurement );
-			const width = measurement.getBoundingClientRect().width;
-			measurement.remove();
-			const rect = button.getBoundingClientRect();
-			const left = Math.min(
-				Math.max( 8, rect.left + ( rect.width - width ) / 2 ),
-				window.innerWidth - width - 8
-			);
-			button.style.setProperty( '--tooltip-left', left - rect.left + 'px' );
-			tooltipButton = button;
-			const delay = immediate || Date.now() < tooltipWarmUntil ? 0 : 600;
-			if ( ! delay ) {
-				button.classList.add( 'tooltip-open' );
-			} else {
-				tooltipTimer = setTimeout( () => button.classList.add( 'tooltip-open' ), delay );
-			}
-		};
-		button.addEventListener( 'mouseenter', () => open( false ) );
-		button.addEventListener( 'mousemove', () => {
-			if ( ! button.classList.contains( 'tooltip-open' ) ) open( false );
-		} );
-		button.addEventListener( 'mouseleave', hideTooltip );
-		button.addEventListener( 'focus', () => {
-			if ( button.matches( ':focus-visible' ) ) open( true );
-		} );
-		button.addEventListener( 'blur', hideTooltip );
-		button.addEventListener( 'click', hideTooltip );
-		button.addEventListener( 'keydown', ( event ) => {
-			if ( event.key === 'Escape' ) hideTooltip();
-		} );
-	}
-	teardown.signal.addEventListener( 'abort', hideTooltip );
-
-	let scrollLock = null;
-
-	/* Lock page scrolling while a note is open so the highlight and popup
-	 * stay put over the element being described. */
-	function syncScrollLock() {
-		if ( activePopup && ! scrollLock ) {
-			scrollLock = {
-				documentOverflow: document.documentElement.style.overflow,
-				bodyOverflow: document.body.style.overflow,
-			};
-			document.documentElement.style.overflow = 'hidden';
-			document.body.style.overflow = 'hidden';
-		} else if ( ! activePopup && scrollLock ) {
-			document.documentElement.style.overflow = scrollLock.documentOverflow;
-			document.body.style.overflow = scrollLock.bodyOverflow;
-			scrollLock = null;
-		}
-	}
-	teardown.signal.addEventListener( 'abort', () => {
-		activePopup = null;
-		syncScrollLock();
-	} );
-
-	/* Width of the viewport a note was made in vs. now. Beyond this the pin
-	 * is drawn muted so it reads as "from another viewport". */
-	const OTHER_VIEWPORT_TOLERANCE = 48;
-
-	function resolveAnnotationElement( ann ) {
-		if ( ! ann || ! ann.selector ) return null;
+	function resolve(note) {
 		try {
-			return document.querySelector( ann.selector );
+			return document.querySelector(note.selector);
 		} catch {
 			return null;
 		}
 	}
-
-	function positionMarker( marker, ann ) {
-		/* Re-measure from the live element when it can be found: the page
-		 * reflows when the viewport changes, and a rect captured at save
-		 * time would leave the pin stranded. Fall back to the saved rect. */
-		const el = resolveAnnotationElement( ann );
-		const box = el
-			? documentRect( el )
-			: ann.documentRect || ann.boundingBox || { left: 0, top: 0, width: 0, height: 0 };
-		marker.style.left = box.left + box.width + 'px';
-		marker.style.top = box.top + 'px';
-		const madeAt = ann.viewport && ann.viewport.width;
-		const other = !! madeAt && Math.abs( madeAt - window.innerWidth ) > OTHER_VIEWPORT_TOLERANCE;
-		marker.classList.toggle( 'otherViewport', other );
-		marker.title = other ? ann.comment + ' (' + madeAt + 'px wide)' : ann.comment;
-	}
-
-	function persistAnnotations() {
-		window.__studioInspectorState = annotations;
-		send( { type: 'annotations-updated', annotations: annotations.slice() } );
-	}
-
-	function sendState() {
-		send( {
-			type: 'state',
-			isPicking,
-			annotationCount: annotations.length,
-			hasUnsavedDraft: hasDraft(),
-		} );
-	}
-
-	function syncMarkers() {
-		const currentPath = window.location.pathname + window.location.search;
-		const ids = new Set( annotations.map( ( a ) => a.id ) );
-		for ( const [ id, marker ] of markerNodes ) {
-			if ( ! ids.has( id ) ) {
-				marker.remove();
-				markerNodes.delete( id );
-			}
-		}
-		annotations.forEach( ( ann, idx ) => {
-			/* Only render markers for annotations made on the current page.
-			 * Annotations from other pages are preserved for submission but
-			 * their document-coordinate positions would be meaningless here. */
-			const onCurrentPage = ! ann.path || ann.path === currentPath;
-			let marker = markerNodes.get( ann.id );
-			if ( ! onCurrentPage ) {
-				if ( marker ) {
-					marker.remove();
-					markerNodes.delete( ann.id );
-				}
-				return;
-			}
-			if ( ! marker ) {
-				marker = document.createElement( 'div' );
-				marker.className = 'marker';
-				marker.addEventListener( 'click', ( e ) => {
-					e.stopPropagation();
-					const current = annotations.find( ( a ) => a.id === ann.id );
-					if ( current ) openPopupForAnnotation( current );
-				} );
-				root.appendChild( marker );
-				markerNodes.set( ann.id, marker );
-			}
-			marker.textContent = String( idx + 1 );
-			positionMarker( marker, ann );
-		} );
-	}
-
-	/* Markers and the highlight live in document coordinates, which follow
-	 * scrolling for free but not reflow. Re-measure everything after the
-	 * viewport changes (responsive presets, pane resizes) so pins stay on
-	 * their elements and a highlight sized for a wide layout can't stretch
-	 * a narrow one. */
-	let relayoutFrame = 0;
-	function relayout() {
-		if ( relayoutFrame ) return;
-		relayoutFrame = requestAnimationFrame( () => {
-			relayoutFrame = 0;
-			annotations.forEach( ( ann ) => {
-				const marker = markerNodes.get( ann.id );
-				if ( marker ) positionMarker( marker, ann );
-			} );
-			if ( highlightNode ) {
-				placeHighlight( highlightRect() );
-			}
-			if ( popupNode && activePopup ) {
-				positionPopup( popupNode, activePopup );
-			}
-			syncScrim();
-		} );
-	}
-	window.addEventListener( 'resize', relayout, { signal: teardown.signal } );
-	/* The scrim is viewport-fixed while its hole is a document rect, so it
-	 * has to be re-cut on every scroll, not just on reflow. */
-	window.addEventListener( 'scroll', syncScrim, { capture: true, signal: teardown.signal } );
-	const reflowObserver =
-		typeof ResizeObserver === 'function' ? new ResizeObserver( relayout ) : null;
-	if ( reflowObserver ) reflowObserver.observe( document.documentElement );
-	teardown.signal.addEventListener( 'abort', () => {
-		if ( reflowObserver ) reflowObserver.disconnect();
-		if ( relayoutFrame ) cancelAnimationFrame( relayoutFrame );
-	} );
-
-	function placeHighlight( r ) {
-		if ( ! r ) return;
-		highlightNode.style.left = r.left + 'px';
-		highlightNode.style.top = r.top + 'px';
-		highlightNode.style.width = r.width + 'px';
-		highlightNode.style.height = r.height + 'px';
-	}
-
-	/* While a note is open the outline tracks the popup's target (which the
-	 * layer picker can change); otherwise it follows the hovered element. */
-	function highlightRect() {
-		if ( activePopup ) return resolveTargetRect( activePopup.target );
-		return highlightEl ? documentRect( highlightEl ) : null;
-	}
-
-	function showHighlight( el ) {
-		if ( highlightNode ) {
-			highlightNode.remove();
-			highlightNode = null;
-			highlightEl = null;
-		}
-		if ( ! isPicking ) return;
-		highlightEl = el;
-		const rect = highlightRect();
-		if ( ! rect ) return;
-		highlightNode = document.createElement( 'div' );
-		highlightNode.className = 'highlight';
-		placeHighlight( rect );
-		root.appendChild( highlightNode );
-	}
-
-	function resolveTargetRect( target ) {
-		let el = null;
+	function onPage(note) {
 		try {
-			el = target.selector ? document.querySelector( target.selector ) : null;
-		} catch {}
-		return el ? documentRect( el ) : target.documentRect || target.boundingBox || null;
-	}
-
-	function syncScrim() {
-		const rect = activePopup ? resolveTargetRect( activePopup.target ) : null;
-		/* A saved note whose element is gone falls back to the rect captured at
-		 * save time, which can be empty. Cutting a zero-size hole would dim the
-		 * whole page with nothing left clear, so skip the scrim instead. */
-		if ( ! rect || rect.width <= 0 || rect.height <= 0 ) {
-			scrimNodes.splice( 0 ).forEach( ( node ) => node.remove() );
-			return;
-		}
-		while ( scrimNodes.length < 4 ) {
-			const node = document.createElement( 'div' );
-			node.className = 'scrim';
-			root.appendChild( node );
-			scrimNodes.push( node );
-		}
-		const vw = window.innerWidth;
-		const vh = window.innerHeight;
-		const left = Math.min( vw, Math.max( 0, rect.left - window.scrollX ) );
-		const top = Math.min( vh, Math.max( 0, rect.top - window.scrollY ) );
-		const right = Math.min( vw, Math.max( left, rect.left + rect.width - window.scrollX ) );
-		const bottom = Math.min( vh, Math.max( top, rect.top + rect.height - window.scrollY ) );
-		const panels = [
-			{ left: 0, top: 0, width: vw, height: top },
-			{ left: 0, top: bottom, width: vw, height: vh - bottom },
-			{ left: 0, top, width: left, height: bottom - top },
-			{ left: right, top, width: vw - right, height: bottom - top },
-		];
-		scrimNodes.forEach( ( node, index ) => {
-			const panel = panels[ index ];
-			node.style.left = panel.left + 'px';
-			node.style.top = panel.top + 'px';
-			node.style.width = panel.width + 'px';
-			node.style.height = panel.height + 'px';
-		} );
-	}
-
-	function showPopup() {
-		hideTooltip();
-		if ( popupNode ) {
-			popupNode.remove();
-			popupNode = null;
-		}
-		if ( activePopup ) {
-			popupNode = buildPopup( activePopup );
-			root.appendChild( popupNode );
+			const u = new URL(note.url);
+			return u.origin === location.origin && u.pathname === location.pathname;
+		} catch {
+			return false;
 		}
 	}
-
+	function anchor(note) {
+		const el = resolve(note);
+		const r = el
+			? el.getBoundingClientRect()
+			: {
+					left: note.documentRect.left - scrollX,
+					top: note.documentRect.top - scrollY,
+					width: note.documentRect.width,
+					height: note.documentRect.height,
+			  };
+		return {
+			left: r.left + r.width * (note.point ? note.point.x : 1),
+			top: r.top + r.height * (note.point ? note.point.y : 0),
+		};
+	}
 	function render() {
-		syncScrollLock();
-		syncMarkers();
-		syncScrim();
-		showHighlight( hoveredEl );
-		showPopup();
-		sendState();
-	}
-
-	function togglePicking() {
-		isPicking = ! isPicking;
-		if ( ! isPicking ) hoveredEl = null;
-		activePopup = null;
-		persistAnnotations();
-		render();
-	}
-
-	function commitActivePopup() {
-		if ( ! activePopup ) return true;
-		const state = activePopup;
-		const trimmed = ( state.comment || '' ).trim();
-		if ( ! trimmed ) return false;
-		if ( state.id ) {
-			annotations = annotations.map( ( annotation ) =>
-				annotation.id === state.id
-					? Object.assign( {}, annotation, { comment: trimmed, updatedAt: Date.now() } )
-					: annotation
-			);
-		} else {
-			annotations = annotations.concat( [
-				{
-					id: uid(),
-					comment: trimmed,
-					selector: state.target.selector,
-					tag: state.target.tag,
-					classes: state.target.classes,
-					nearbyText: state.target.nearbyText,
-					boundingBox: state.target.boundingBox,
-					documentRect: state.target.documentRect,
-					computedStyles: state.target.computedStyles,
-					viewport: { width: window.innerWidth, height: window.innerHeight },
-					path: window.location.pathname + window.location.search,
-					url: window.location.href,
-					timestamp: Date.now(),
-				},
-			] );
+		frame = 0;
+		host.hidden = !state.active;
+		markers.replaceChildren();
+		if (!state.active) return;
+		for (const note of state.notes) {
+			if (!onPage(note)) continue;
+			const p = anchor(note);
+			const marker = document.createElement('button');
+			marker.textContent = String(note.number);
+			marker.setAttribute('aria-label', state.annotationLabel + ' ' + note.number);
+			marker.style.left = Math.max(16, Math.min(innerWidth - 16, p.left)) + 'px';
+			marker.style.top = p.top + 'px';
+			marker.onclick = (e) => {
+				e.preventDefault();
+				e.stopPropagation();
+				hovered = null;
+				selected = resolve(note);
+				emit({ type: 'edit', id: note.id, anchor: p });
+			};
+			markers.append(marker);
 		}
-		persistAnnotations();
-		return true;
+		const note = state.notes.find((n) => n.id === state.editingId);
+		if (note) emit({ type: 'anchor', id: note.id, anchor: onPage(note) ? anchor(note) : null });
+		const el = hovered || selected;
+		if (el && el.isConnected) {
+			const r = el.getBoundingClientRect();
+			Object.assign(highlight.style, { left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px' });
+			highlight.hidden = false;
+		} else highlight.hidden = true;
 	}
-
-	function hasDraft() {
-		return !! ( activePopup && ( activePopup.comment || '' ).trim() );
+	function schedule() {
+		if (!frame) frame = requestAnimationFrame(render);
 	}
-
-	function submitAnnotations() {
-		if ( annotations.length === 0 && ! hasDraft() ) {
-			sendState();
-			return;
+	function isTextEntry(el) {
+		return !!el && (el.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName));
+	}
+	function shortcut(e) {
+		if (e.defaultPrevented || e.repeat) return null;
+		const apple = /mac|iphone|ipad|ipod/i.test(navigator.platform || navigator.userAgent || '');
+		if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+			const chord = apple ? e.metaKey && !e.ctrlKey && !e.altKey : e.altKey && !e.ctrlKey && !e.metaKey;
+			if (!chord || e.shiftKey || isTextEntry(e.target)) return null;
+			return e.key === 'ArrowLeft' ? 'back' : 'forward';
 		}
-		/* An untouched popup is a draft the user never filled in — drop it
-		 * rather than blocking the notes they did save. */
-		if ( hasDraft() ) {
-			commitActivePopup();
-		} else {
-			activePopup = null;
-		}
-		send( { type: 'done', annotations: annotations.slice() } );
-		annotations = [];
-		activePopup = null;
-		isPicking = false;
-		hoveredEl = null;
-		persistAnnotations();
-		render();
-	}
-
-	function cancelAnnotations() {
-		annotations = [];
-		activePopup = null;
-		isPicking = false;
-		hoveredEl = null;
-		persistAnnotations();
-		render();
+		if (e.altKey || !(apple ? e.metaKey : e.ctrlKey)) return null;
+		const key = e.key.toLowerCase();
+		if (key === 'r') return 'reload';
+		if (e.shiftKey) return null;
+		return key === '[' ? 'back' : key === ']' ? 'forward' : null;
 	}
 
 	window.addEventListener(
-		COMMAND_EVENT,
-		( event ) => {
-			const command = event.detail || {};
-			if ( command.type === 'cancel' ) {
-				cancelAnnotations();
-				return;
-			}
-			if ( command.type === 'toggle-picking' ) {
-				togglePicking();
-				return;
-			}
-			if ( command.type === 'submit' ) {
-				submitAnnotations();
-				return;
-			}
-			if ( command.type === 'report-state' ) {
-				sendState();
-				return;
-			}
+		'${ INSPECTOR_COMMAND_EVENT }',
+		(e) => {
+			if (!e.detail) return;
+			state = e.detail;
+			if (!state.active) hovered = null;
+			host.style.setProperty('--accent', state.accent);
+			host.style.setProperty('--on-accent', state.onAccent);
+			host.style.setProperty('--marker', art(state.accent, 'circle'));
+			cursorStyle.textContent = state.active ? '*{cursor:' + art(state.accent, 'bubble') + ' 5 27,crosshair!important}' : '';
+			const note = state.notes.find((n) => n.id === state.editingId);
+			selected = note && onPage(note) ? resolve(note) : null;
+			render();
 		},
-		{ signal: teardown.signal }
+		{ signal: abort.signal }
 	);
-
-	function popupWidth( popup ) {
-		return popup.offsetWidth || Math.min( 320, window.innerWidth - 16 );
-	}
-
-	function clampToViewport( popup, pos ) {
-		const height = popup.offsetHeight || 200;
-		return {
-			left: Math.min(
-				Math.max( 8, pos.left ),
-				Math.max( 8, window.innerWidth - popupWidth( popup ) - 8 )
-			),
-			top: Math.min( Math.max( 8, pos.top ), Math.max( 8, window.innerHeight - height - 8 ) ),
-		};
-	}
-
-	function applyPosition( popup, pos ) {
-		popup.style.left = pos.left + 'px';
-		popup.style.top = pos.top + 'px';
-		popup.style.transform = '';
-	}
-
-	/* Position the popup in viewport coords (it's \`position: fixed\`). Re-run
-	 * on relayout. \`popupPosition\` is set only by a drag and holds the spot
-	 * the user chose: it is clamped for display, so a pane that shrinks can't
-	 * strand the note out of reach, but kept unclamped so widening the pane
-	 * gives the note back. Any other note anchors under its element, or
-	 * centers if the element can't be located. */
-	function positionPopup( popup, state ) {
-		if ( state.popupPosition ) {
-			applyPosition( popup, clampToViewport( popup, state.popupPosition ) );
-			return;
-		}
-		const el = resolveAnnotationElement( state.target );
-		if ( ! el ) {
-			popup.style.left = '50%';
-			popup.style.top = '50%';
-			popup.style.transform = 'translate(-50%, -50%)';
-			return;
-		}
-		const r = el.getBoundingClientRect();
-		const gap = 12;
-		let top = r.bottom + gap;
-		if ( top + 200 > window.innerHeight ) {
-			top = r.top - 200 - gap;
-		}
-		applyPosition(
-			popup,
-			clampToViewport( popup, { left: r.left + r.width / 2 - popupWidth( popup ) / 2, top } )
-		);
-	}
-
-	function buildPopup( state ) {
-		const popup = document.createElement( 'div' );
-		popup.className = 'popup';
-
-		positionPopup( popup, state );
-
-		const target = document.createElement( 'div' );
-		target.className = 'target';
-		makeDraggable( popup, target, state );
-		const element = document.createElement( 'span' );
-		element.className = 'element';
-		const tagCode = document.createElement( 'code' );
-		const classes = state.target.classes || [];
-		tagCode.textContent = '<' + state.target.tag + '>';
-		/* Class lists are often long; keep the line for the content and show
-		 * the full opening tag on hover instead. */
-		tagCode.title =
-			'<' + state.target.tag + ( classes.length ? ' class="' + classes.join( ' ' ) + '"' : '' ) + '>';
-		element.appendChild( tagCode );
-		if ( state.target.nearbyText ) {
-			element.appendChild( document.createTextNode( ' ' + state.target.nearbyText ) );
-		}
-		element.title = state.target.nearbyText || '';
-		target.appendChild( element );
-
-		/* A saved note keeps the viewport it was made in; a new one reports
-		 * the current one, which is what gets stamped on save. */
-		const vp = state.viewport || { width: window.innerWidth, height: window.innerHeight };
-		const viewportSpan = document.createElement( 'span' );
-		viewportSpan.className = 'viewport';
-		viewportSpan.textContent = vp.width + '×' + vp.height;
-		viewportSpan.title = 'Viewport when annotated';
-		target.appendChild( viewportSpan );
-		if ( state.layers && state.layers.length > 1 ) {
-			target.appendChild( buildLayerControls( state ) );
-		}
-		popup.appendChild( target );
-
-		state.comment = state.comment || '';
-		const ta = document.createElement( 'textarea' );
-		ta.placeholder = 'What should change about this element?';
-		ta.value = state.comment;
-		popup.appendChild( ta );
-		setTimeout( () => ta.focus(), 0 );
-
-		const actions = document.createElement( 'div' );
-		actions.className = 'actions';
-
-		if ( state.id ) {
-			const del = document.createElement( 'button' );
-			del.className = 'delete';
-			del.textContent = 'Delete';
-			del.addEventListener( 'click', () => {
-				annotations = annotations.filter( ( a ) => a.id !== state.id );
-				activePopup = null;
-				persistAnnotations();
-				render();
-			} );
-			actions.appendChild( del );
-		}
-
-		const closePopup = () => {
-			activePopup = null;
-			hoveredEl = null;
-			persistAnnotations();
-			render();
-		};
-
-		const cancel = document.createElement( 'button' );
-		cancel.className = 'cancel';
-		cancel.textContent = 'Cancel';
-		cancel.addEventListener( 'click', closePopup );
-		actions.appendChild( cancel );
-
-		const save = document.createElement( 'button' );
-		save.className = 'save';
-		save.textContent = state.id ? 'Update' : 'Save';
-		if ( ! state.id ) {
-			attachTooltip( save, 'Save this note and keep annotating.' );
-		}
-		save.addEventListener( 'click', () => {
-			if ( ! commitActivePopup() ) return;
-			closePopup();
-		} );
-		actions.appendChild( save );
-
-		const submit = document.createElement( 'button' );
-		submit.className = 'submit';
-		submit.textContent = 'Send to chat';
-		attachTooltip( submit, 'Send all notes to chat and finish annotating.' );
-		submit.addEventListener( 'click', submitAnnotations );
-		actions.appendChild( submit );
-
-		function syncActions() {
-			save.disabled = ! state.comment.trim();
-			/* Sending stays available while notes are already saved, even if
-			 * this popup is an untouched draft — submit discards it. */
-			submit.disabled = save.disabled && annotations.length === 0;
-		}
-		syncActions();
-
-		ta.addEventListener( 'input', () => {
-			state.comment = ta.value;
-			syncActions();
-			sendState();
-		} );
-		ta.addEventListener( 'keydown', ( event ) => {
-			if ( event.key !== 'Enter' || event.isComposing || event.keyCode === 229 ) return;
-			if ( event.metaKey || event.ctrlKey ) {
-				event.preventDefault();
-				const start = ta.selectionStart;
-				const end = ta.selectionEnd;
-				ta.value = ta.value.slice( 0, start ) + '\n' + ta.value.slice( end );
-				state.comment = ta.value;
-				ta.setSelectionRange( start + 1, start + 1 );
-				syncActions();
-				return;
-			}
-			if ( event.shiftKey ) return;
-			event.preventDefault();
-			save.click();
-		} );
-
-		popup.appendChild( actions );
-
-		popup.addEventListener( 'click', ( e ) => e.stopPropagation() );
-		popup.addEventListener( 'mousemove', ( e ) => e.stopPropagation() );
-
-		return popup;
-	}
-
-	/* ‹ 2/5 › — step through the elements stacked under the click point.
-	 * Changing the target re-renders the popup, which keeps its comment;
-	 * the outline, scrim hole and element line move to the chosen layer.
-	 * ‹ walks toward the front of the stack and › deeper into it, so the
-	 * counter reads left to right. The ends don't wrap: wrapping would jump
-	 * from the frontmost element to the backmost while the button says
-	 * "in front of this one". */
-	function buildLayerControls( state ) {
-		const controls = document.createElement( 'span' );
-		controls.className = 'layers';
-		const total = state.layers.length;
-		const change = ( offset ) => {
-			const index = state.targetIndex + offset;
-			if ( index < 0 || index >= total ) return;
-			state.targetIndex = index;
-			state.target = targetAt( state, index );
-			render();
-		};
-		const front = document.createElement( 'button' );
-		front.type = 'button';
-		front.textContent = '‹';
-		front.title = 'Select the element in front of this one';
-		front.setAttribute( 'aria-label', front.title );
-		front.disabled = state.targetIndex <= 0;
-		front.addEventListener( 'click', () => change( -1 ) );
-		const count = document.createElement( 'span' );
-		count.className = 'count';
-		count.textContent = state.targetIndex + 1 + '/' + total;
-		const back = document.createElement( 'button' );
-		back.type = 'button';
-		back.textContent = '›';
-		back.title = 'Select the element behind this one';
-		back.setAttribute( 'aria-label', back.title );
-		back.disabled = state.targetIndex >= total - 1;
-		back.addEventListener( 'click', () => change( 1 ) );
-		controls.append( front, count, back );
-		return controls;
-	}
-
-	/* Drag the popup by its target row. Movement is applied as a transform
-	 * during the drag and folded into the stored position on release, so a
-	 * re-render mid-drag can't snap it back. */
-	function makeDraggable( popup, handle, state ) {
-		handle.addEventListener( 'mousedown', ( event ) => {
-			if ( event.button !== 0 || event.target.closest( 'button' ) ) return;
-			event.preventDefault();
-			/* Start from where the popup actually sits: an anchored note has no
-			 * stored position, and a dragged one may be rendered clamped. */
-			const origin = popup.getBoundingClientRect();
-			const startX = event.clientX;
-			const startY = event.clientY;
-			const startLeft = origin.left;
-			const startTop = origin.top;
-			let next = { left: startLeft, top: startTop };
-			let frame = null;
-			let didDrag = false;
-			handle.classList.add( 'dragging' );
-			const move = ( e ) => {
-				e.preventDefault();
-				e.stopPropagation();
-				if ( Math.abs( e.clientX - startX ) > 2 || Math.abs( e.clientY - startY ) > 2 ) {
-					didDrag = true;
-				}
-				next = clampToViewport( popup, {
-					left: startLeft + e.clientX - startX,
-					top: startTop + e.clientY - startY,
-				} );
-				if ( frame !== null ) return;
-				frame = requestAnimationFrame( () => {
-					frame = null;
-					popup.style.transform =
-						'translate(' + ( next.left - startLeft ) + 'px, ' + ( next.top - startTop ) + 'px)';
-				} );
-			};
-			const stop = () => {
-				if ( frame !== null ) cancelAnimationFrame( frame );
-				frame = null;
-				handle.classList.remove( 'dragging' );
-				window.removeEventListener( 'mousemove', move, true );
-				window.removeEventListener( 'mouseup', stop, true );
-				window.removeEventListener( 'blur', stop, true );
-				/* A click on the header is not a move: leave the note anchored. */
-				if ( ! didDrag ) {
-					popup.style.transform = '';
-					return;
-				}
-				state.popupPosition = next;
-				applyPosition( popup, next );
-				/* Swallow the click that ends the drag so the page (and our
-				 * own picker) doesn't treat it as a selection. */
-				const suppress = ( e ) => {
-					e.preventDefault();
-					e.stopPropagation();
-				};
-				window.addEventListener( 'click', suppress, {
-					capture: true,
-					once: true,
-					signal: teardown.signal,
-				} );
-				setTimeout( () => window.removeEventListener( 'click', suppress, true ), 0 );
-			};
-			window.addEventListener( 'mousemove', move, true );
-			window.addEventListener( 'mouseup', stop, true );
-			window.addEventListener( 'blur', stop, true );
-		} );
-	}
-
-	/* Editing an existing note leaves picking mode alone: markers stay
-	 * clickable when picking is off, and silently switching it on would
-	 * swallow every subsequent link click in the page. */
-	function openPopupForAnnotation( ann ) {
-		hoveredEl = null;
-		activePopup = {
-			id: ann.id,
-			comment: ann.comment,
-			viewport: ann.viewport,
-			target: {
-				selector: ann.selector,
-				tag: ann.tag,
-				classes: ann.classes,
-				nearbyText: ann.nearbyText,
-				boundingBox: ann.boundingBox,
-				documentRect: ann.documentRect,
-				computedStyles: ann.computedStyles,
-			},
-		};
-		persistAnnotations();
-		render();
-	}
-
-	function targetForElement( el ) {
-		const viewport = el.getBoundingClientRect();
-		return {
-			selector: buildSelector( el ),
-			tag: el.tagName.toLowerCase(),
-			classes: Array.from( el.classList || [] ).filter( ( c ) => ! c.startsWith( '__studio-' ) ),
-			nearbyText: nearbyText( el ),
-			boundingBox: { x: viewport.x, y: viewport.y, width: viewport.width, height: viewport.height },
-			documentRect: documentRect( el ),
-			computedStyles: pickComputedStyles( el ),
-		};
-	}
-
-	/* Everything stacked under the click point, front to back: the hit
-	 * element, then the rest of the hit-test stack, then (bounded) any other
-	 * element whose box contains the point — this catches things behind a
-	 * pointer-events:none overlay or a full-bleed wrapper. */
-	function elementsAtPoint( initial, clientX, clientY ) {
-		const MAX_CANDIDATES = 30;
-		const MAX_FALLBACK_ELEMENTS = 5000;
-		const MAX_FALLBACK_MS = 20;
-		const candidates = [];
-		const seen = new Set();
-		const add = ( el ) => {
-			if ( candidates.length >= MAX_CANDIDATES || ! el || seen.has( el ) || isOurElement( el ) )
-				return;
-			if ( el === document.documentElement || el === document.body ) return;
-			const rect = el.getBoundingClientRect();
-			if ( rect.width <= 0 || rect.height <= 0 ) return;
-			const style = window.getComputedStyle( el );
-			if ( style.display === 'none' || style.visibility === 'hidden' ) return;
-			seen.add( el );
-			candidates.push( el );
-		};
-		add( initial );
-		if ( typeof document.elementsFromPoint === 'function' ) {
-			document.elementsFromPoint( clientX, clientY ).forEach( add );
-		}
-		const behind = [];
-		const startedAt = performance.now();
-		let scanned = 0;
-		for ( const el of document.querySelectorAll( 'body *' ) ) {
-			scanned += 1;
-			if (
-				scanned > MAX_FALLBACK_ELEMENTS ||
-				( scanned % 50 === 0 && performance.now() - startedAt > MAX_FALLBACK_MS )
-			) {
-				break;
-			}
-			if ( seen.has( el ) || isOurElement( el ) ) continue;
-			const rect = el.getBoundingClientRect();
-			if (
-				rect.width > 0 &&
-				rect.height > 0 &&
-				clientX >= rect.left &&
-				clientX <= rect.right &&
-				clientY >= rect.top &&
-				clientY <= rect.bottom
-			) {
-				behind.push( { el, area: rect.width * rect.height } );
-			}
-		}
-		behind.sort( ( a, b ) => a.area - b.area ).forEach( ( item ) => add( item.el ) );
-		return candidates;
-	}
-
-	/* Describing an element is expensive — \`nearbyText\` reads \`innerText\`,
-	 * which forces layout over the whole subtree — and the stack can hold
-	 * 30 of them, so only the layer actually on screen is ever built. */
-	function targetAt( state, index ) {
-		if ( ! state.targetCache[ index ] ) {
-			state.targetCache[ index ] = targetForElement( state.layers[ index ] );
-		}
-		return state.targetCache[ index ];
-	}
-
-	function openPopupForElement( el, clientX, clientY ) {
-		const elements = elementsAtPoint( el, clientX, clientY );
-		activePopup = {
-			fromPicker: true,
-			comment: '',
-			layers: elements.length ? elements : [ el ],
-			targetCache: [],
-			targetIndex: 0,
-		};
-		activePopup.target = targetAt( activePopup, 0 );
-		persistAnnotations();
-		render();
-	}
-
-	function isOurElement( el ) {
-		return !! ( el && el.closest && el.closest( '#' + HOST_ID ) );
-	}
-
-	/* ------------------------------------------------------------------
-	 * Picking interactions. Only the highlight is updated on mousemove —
-	 * markers are document-anchored and don't move with mouse position.
-	 * ---------------------------------------------------------------- */
 	document.addEventListener(
-		'mousemove',
-		( e ) => {
-			if ( ! isPicking || activePopup ) return;
-			if ( isOurElement( e.target ) ) {
-				if ( hoveredEl !== null ) {
-					hoveredEl = null;
-					showHighlight( null );
-				}
-				return;
-			}
-			if ( hoveredEl !== e.target ) {
-				hoveredEl = e.target;
-				showHighlight( hoveredEl );
-			}
+		'pointermove',
+		(e) => {
+			if (!state.active) return;
+			hovered = e.composedPath().includes(host) ? null : e.target;
+			schedule();
 		},
-		{ capture: true, signal: teardown.signal }
+		{ capture: true, signal: abort.signal }
 	);
-
+	document.addEventListener(
+		'pointerout',
+		(e) => {
+			if (!state.active || e.relatedTarget) return;
+			hovered = null;
+			schedule();
+		},
+		{ capture: true, signal: abort.signal }
+	);
 	document.addEventListener(
 		'click',
-		( e ) => {
-			if ( ! isPicking || activePopup ) return;
-			if ( isOurElement( e.target ) ) return;
+		(e) => {
+			if (!state.active || e.composedPath().includes(host)) return;
 			e.preventDefault();
-			e.stopPropagation();
-			openPopupForElement( e.target, e.clientX, e.clientY );
+			e.stopImmediatePropagation();
+			if (!(e.target instanceof Element)) return;
+			selected = e.target;
+			hovered = selected;
+			emit({ type: 'pick', target: metadata(selected, e), anchor: { left: e.clientX, top: e.clientY } });
 		},
-		{ capture: true, signal: teardown.signal }
+		{ capture: true, signal: abort.signal }
 	);
-
 	document.addEventListener(
 		'keydown',
-		( e ) => {
-			const browserCommand = getBrowserShortcutCommand( e );
-			if ( browserCommand ) {
+		(e) => {
+			if (state.active && e.key === 'Escape') {
 				e.preventDefault();
 				e.stopPropagation();
-				send( { type: 'browser-command', command: browserCommand } );
+				emit({ type: 'escape' });
 				return;
 			}
-			if ( e.key !== 'Escape' ) return;
-			if ( activePopup ) {
+			const command = shortcut(e);
+			if (command) {
 				e.preventDefault();
 				e.stopPropagation();
-				activePopup = null;
-				persistAnnotations();
-				sendState();
-				render();
-			} else if ( isPicking ) {
-				e.preventDefault();
-				e.stopPropagation();
-				send( { type: 'cancel-requested' } );
+				emit({ type: 'browser-command', command });
 			}
 		},
-		{ capture: true, signal: teardown.signal }
+		{ capture: true, signal: abort.signal }
 	);
-
-	render();
-} )();
+	document.addEventListener('scroll', schedule, { capture: true, passive: true, signal: abort.signal });
+	window.addEventListener('resize', schedule, { signal: abort.signal });
+	const resize = new ResizeObserver(schedule);
+	resize.observe(document.documentElement);
+	const mutation = new MutationObserver(schedule);
+	mutation.observe(document.body || document.documentElement, { subtree: true, childList: true, attributes: true });
+	window[KEY] = () => {
+		abort.abort();
+		resize.disconnect();
+		mutation.disconnect();
+		cancelAnimationFrame(frame);
+		host.remove();
+		cursorStyle.remove();
+		delete window[KEY];
+	};
+})();
 `;
+
+export type BrowserShortcutCommand = 'back' | 'forward' | 'reload';
+
+interface Point {
+	left: number;
+	top: number;
+}
+
+export type InspectorEvent =
+	| { type: 'pick'; target: AnnotationTarget; anchor: Point }
+	| { type: 'edit'; id: string; anchor: Point }
+	| { type: 'anchor'; id: string; anchor: Point | null }
+	| { type: 'escape' }
+	| { type: 'browser-command'; command: BrowserShortcutCommand };
+
+const MAX_MESSAGE_LENGTH = 100_000;
+
+type Data = Record< string, unknown >;
+const isData = ( value: unknown ): value is Data => typeof value === 'object' && value !== null;
+const isNumber = ( value: unknown ): value is number =>
+	typeof value === 'number' && Number.isFinite( value );
+const text = ( value: unknown, max: number ) =>
+	typeof value === 'string' ? value.slice( 0, max ) : '';
+
+function point( value: unknown, offset: Point ): Point | null {
+	return isData( value ) && isNumber( value.left ) && isNumber( value.top )
+		? { left: value.left + offset.left, top: value.top + offset.top }
+		: null;
+}
+
+function box( value: unknown ) {
+	return isData( value ) && [ value.left, value.top, value.width, value.height ].every( isNumber )
+		? {
+				left: value.left as number,
+				top: value.top as number,
+				width: value.width as number,
+				height: value.height as number,
+		  }
+		: undefined;
+}
+
+// The page can log anything, and a picked target ends up in the agent's
+// prompt, so only well-formed fields of bounded size get through.
+function target( value: unknown ): AnnotationTarget | null {
+	if ( ! isData( value ) || typeof value.selector !== 'string' || typeof value.tag !== 'string' ) {
+		return null;
+	}
+	const viewport = isData( value.viewport ) ? value.viewport : {};
+	const where = isData( value.point ) ? value.point : {};
+	const styles = isData( value.computedStyles ) ? value.computedStyles : {};
+	return {
+		selector: text( value.selector, 10_000 ),
+		tag: text( value.tag, 100 ),
+		classes: Array.isArray( value.classes )
+			? value.classes.slice( 0, 10 ).map( ( item ) => text( item, 1000 ) )
+			: [],
+		nearbyText: text( value.nearbyText, 1000 ),
+		url: text( value.url, 10_000 ),
+		path: text( value.path, 10_000 ),
+		viewport:
+			isNumber( viewport.width ) && isNumber( viewport.height )
+				? { width: viewport.width, height: viewport.height }
+				: undefined,
+		documentRect: box( value.documentRect ),
+		point:
+			isNumber( where.x ) && isNumber( where.y )
+				? { x: Math.min( 1, Math.max( 0, where.x ) ), y: Math.min( 1, Math.max( 0, where.y ) ) }
+				: undefined,
+		computedStyles: Object.fromEntries(
+			Object.entries( styles )
+				.slice( 0, 20 )
+				.map( ( [ key, style ] ) => [ text( key, 100 ), text( style, 1000 ) ] )
+		),
+	};
+}
+
+// `offset` moves anchors from the page's viewport into the host's coordinates.
+export function parseInspectorMessage(
+	message: unknown,
+	offset: Point = { left: 0, top: 0 }
+): InspectorEvent | null {
+	if (
+		typeof message !== 'string' ||
+		! message.startsWith( INSPECTOR_BRIDGE_PREFIX ) ||
+		message.length > MAX_MESSAGE_LENGTH
+	) {
+		return null;
+	}
+	let data: unknown;
+	try {
+		data = JSON.parse( message.slice( INSPECTOR_BRIDGE_PREFIX.length ) );
+	} catch {
+		return null;
+	}
+	if ( ! isData( data ) ) return null;
+	const anchor = point( data.anchor, offset );
+	switch ( data.type ) {
+		case 'pick': {
+			const picked = target( data.target );
+			return picked && anchor ? { type: 'pick', target: picked, anchor } : null;
+		}
+		case 'edit':
+			return typeof data.id === 'string' && anchor ? { type: 'edit', id: data.id, anchor } : null;
+		case 'anchor':
+			return typeof data.id === 'string' ? { type: 'anchor', id: data.id, anchor } : null;
+		case 'escape':
+			return { type: 'escape' };
+		case 'browser-command':
+			return data.command === 'back' || data.command === 'forward' || data.command === 'reload'
+				? { type: 'browser-command', command: data.command }
+				: null;
+		default:
+			return null;
+	}
+}

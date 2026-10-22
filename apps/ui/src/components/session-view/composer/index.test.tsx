@@ -5,6 +5,12 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import { Tooltip } from '@wordpress/ui';
 import { createRef, type ComponentProps } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+	changeAnnotation,
+	getSiteAnnotations,
+	pickAnnotation,
+	stageAnnotations,
+} from '@/components/annotations/store';
 import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
 import { clearComposerDrafts } from './draft-store';
 import { Composer, type ComposerHandle } from '.';
@@ -283,6 +289,38 @@ describe( 'Composer menu', () => {
 		fireEvent.change( textarea, { target: { value: 'Second message, edited meanwhile' } } );
 		await act( async () => acceptSend() );
 		expect( textarea ).toHaveValue( 'Second message, edited meanwhile' );
+	} );
+
+	it( 'sends staged annotations with the message once the agent is idle', async () => {
+		const onSend = vi.fn().mockResolvedValue( undefined );
+		const id = pickAnnotation( 'composer-site', { tag: 'h1', selector: 'h1', path: '/' } );
+		changeAnnotation( 'composer-site', id, { comment: 'Make this bigger' } );
+		stageAnnotations( 'composer-site' );
+		const { rerenderComposer } = renderComposer( {
+			busy: true,
+			onSend,
+			annotationSiteId: 'composer-site',
+		} );
+
+		expect( screen.getByRole( 'listitem', { name: /^1 annotation/ } ) ).toBeVisible();
+		expect( screen.getByRole( 'button', { name: 'Stop response' } ) ).toBeVisible();
+
+		rerenderComposer( { onSend, annotationSiteId: 'composer-site' } );
+		fireEvent.change( screen.getByRole( 'combobox' ), { target: { value: 'Also tighten it' } } );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Send message' } ) );
+
+		await waitFor( () => expect( getSiteAnnotations( 'composer-site' ).notes ).toEqual( [] ) );
+		expect( onSend ).toHaveBeenCalledWith(
+			expect.stringMatching( /^Also tighten it\n\nThe user submitted 1 visual annotation/ ),
+			expect.objectContaining( {
+				displayMessage: 'Also tighten it',
+				visualAnnotations: [
+					{ comment: 'Also tighten it' },
+					expect.objectContaining( { comment: 'Make this bigger', tag: 'h1' } ),
+				],
+			} )
+		);
+		expect( screen.queryByRole( 'listitem', { name: /annotation/ } ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'keeps the draft when the send is rejected', async () => {

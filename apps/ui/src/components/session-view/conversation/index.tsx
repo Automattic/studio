@@ -243,11 +243,20 @@ export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 			const data = ( entry as StudioCustomEntry< 'studio.user_prompt' > ).data;
 			if ( ! data || data.source !== 'prompt' ) continue;
 			if ( data.visualAnnotations?.length ) {
+				// Each note shows its own images; the first bubble takes the rest.
+				const noteImageIds = new Set(
+					data.visualAnnotations.flatMap( ( annotation ) => annotation.imageIds ?? [] )
+				);
 				data.visualAnnotations.forEach( ( annotation, annotationIndex ) => {
 					items.push( {
 						kind: 'user-text',
 						key: `${ entryIndex }:annotation:${ annotationIndex }`,
 						text: annotation.comment,
+						attachments: data.attachments?.filter( ( attachment ) =>
+							attachment.kind === 'image' && noteImageIds.has( attachment.id )
+								? annotation.imageIds?.includes( attachment.id )
+								: annotationIndex === 0
+						),
 						annotation,
 					} );
 				} );
@@ -413,12 +422,11 @@ function UserTurn( {
 } ) {
 	return (
 		<div className={ styles.userTurn } { ...{ [ MESSAGE_TEXT_ATTRIBUTE ]: text } }>
-			<div className={ styles.userText }>{ text }</div>
-			{ annotation ? (
+			{ text ? <div className={ styles.userText }>{ text }</div> : null }
+			{ annotation?.elementLabel || annotation?.tag ? (
 				<div className={ styles.annotationAttachment }>
 					<span className={ styles.annotationElementTag }>
-						{ annotation.elementLabel ??
-							( annotation.tag ? `<${ annotation.tag }>` : __( 'Element' ) ) }
+						{ annotation.elementLabel ?? `<${ annotation.tag }>` }
 					</span>
 					{ annotation.nearbyText ? (
 						<span className={ styles.annotationElementText }>{ annotation.nearbyText }</span>

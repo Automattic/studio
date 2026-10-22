@@ -5,13 +5,10 @@ import {
 	useEffect,
 	useMemo,
 	useReducer,
-	useRef,
 	type Dispatch,
-	type MutableRefObject,
 	type ReactNode,
 } from 'react';
 import { useConnector } from '@/data/core';
-import type { Annotation } from '@/components/site-preview/types';
 
 // Dashboard-scoped UI store (mounted once in the dashboard layout, shared by
 // every route under it). Holds the slices of UI state that the chat agent
@@ -139,11 +136,6 @@ function rememberPath( preview: PreviewUIState, path: string ): Record< string, 
 // `useSessionCommands`) don't re-run on every state change.
 const SessionUIStateContext = createContext< SessionUIState | null >( null );
 const SessionUIDispatchContext = createContext< Dispatch< SessionUIAction > | null >( null );
-// Ref (not state) so registering/unregistering the handler never re-renders
-// the tree; the dashboard-level preview reads it lazily on submit.
-const SessionUIPreviewAnnotationsContext = createContext< MutableRefObject<
-	( ( annotations: Annotation[] ) => void ) | undefined
-> | null >( null );
 
 export function SessionUIProvider( { children }: { children: ReactNode } ) {
 	// Views mount their own provider so they stay usable standalone (e.g. in
@@ -159,9 +151,6 @@ export function SessionUIProvider( { children }: { children: ReactNode } ) {
 
 function SessionUIProviderRoot( { children }: { children: ReactNode } ) {
 	const [ state, dispatch ] = useReducer( reducer, INITIAL_STATE );
-	const previewAnnotationsRef = useRef< ( ( annotations: Annotation[] ) => void ) | undefined >(
-		undefined
-	);
 	const connector = useConnector();
 	useEffect( () => {
 		return connector.onToggleSitePreview( () => {
@@ -170,11 +159,7 @@ function SessionUIProviderRoot( { children }: { children: ReactNode } ) {
 	}, [ connector ] );
 	return (
 		<SessionUIDispatchContext.Provider value={ dispatch }>
-			<SessionUIPreviewAnnotationsContext.Provider value={ previewAnnotationsRef }>
-				<SessionUIStateContext.Provider value={ state }>
-					{ children }
-				</SessionUIStateContext.Provider>
-			</SessionUIPreviewAnnotationsContext.Provider>
+			<SessionUIStateContext.Provider value={ state }>{ children }</SessionUIStateContext.Provider>
 		</SessionUIDispatchContext.Provider>
 	);
 }
@@ -250,46 +235,4 @@ export function useSessionPreviewUI(): SessionPreviewUI {
 		throw new Error( 'useSessionPreviewUI must be used within a SessionUIProvider' );
 	}
 	return ui;
-}
-
-// Registers the on-screen session's annotations handler (its "send to chat")
-// with the shared store, so the dashboard-level preview can submit
-// annotations to whichever session is currently displayed.
-export function useSessionPreviewAnnotations(
-	onAnnotationsDone: ( annotations: Annotation[] ) => void,
-	enabled: boolean
-): void {
-	const ref = useContext( SessionUIPreviewAnnotationsContext );
-	if ( ! ref ) {
-		throw new Error( 'useSessionPreviewAnnotations must be used within a SessionUIProvider' );
-	}
-	useEffect( () => {
-		if ( ! enabled ) {
-			return;
-		}
-		ref.current = onAnnotationsDone;
-		return () => {
-			if ( ref.current === onAnnotationsDone ) {
-				ref.current = undefined;
-			}
-		};
-	}, [ enabled, onAnnotationsDone, ref ] );
-}
-
-export function useSessionPreviewAnnotationsHandler(): ( annotations: Annotation[] ) => void {
-	const ref = useContext( SessionUIPreviewAnnotationsContext );
-	const dispatch = useContext( SessionUIDispatchContext );
-	if ( ! ref ) {
-		throw new Error(
-			'useSessionPreviewAnnotationsHandler must be used within a SessionUIProvider'
-		);
-	}
-	// The notes land in the chat, so it has to be visible.
-	return useCallback(
-		( annotations: Annotation[] ) => {
-			dispatch?.( { type: 'preview/set-chat-hidden', value: false } );
-			ref.current?.( annotations );
-		},
-		[ dispatch, ref ]
-	);
 }

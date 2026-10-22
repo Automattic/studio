@@ -42,6 +42,7 @@ import {
 	resolveUnavailableAiProvider,
 } from 'cli/ai/auth';
 import { captureTurnOutcome, fingerprintSites, type TurnOutcome } from 'cli/ai/eval-outcome';
+import { matchesStopRule, stopRuleSchema, type StopRule } from 'cli/ai/eval-stop';
 import { summarizeTiming, type ModelRequestRecord } from 'cli/ai/eval-timing';
 import { runStudioAgentTurn } from 'cli/ai/runtimes/pi';
 import { runCommand as runCreateSiteCommand } from 'cli/commands/site/create';
@@ -122,6 +123,9 @@ interface EvalRunnerInput {
 	timeoutMs?: number;
 	model?: AiModelId;
 	seed?: EvalSeed;
+	// Ends the run at the first tool call matching one of these rules, before
+	// any follow-ups; the result's `stoppedAt` names it.
+	stopAt?: StopRule[];
 }
 
 interface Inspection {
@@ -528,6 +532,7 @@ function readInput(): EvalRunnerInput {
 		followUps,
 		answers,
 		timeoutMs: typeof vars.timeoutMs === 'number' ? vars.timeoutMs : undefined,
+		stopAt: vars.stopAt ? z.array( stopRuleSchema ).parse( vars.stopAt ) : undefined,
 		model,
 		seed,
 	};
@@ -598,6 +603,7 @@ async function runEval( input: EvalRunnerInput ) {
 	let success = false;
 	let error: string | null = null;
 	let timedOut = false;
+	let stoppedAt: { toolUseId: string; toolName: string; index: number } | null = null;
 	// From the last assistant message: a provider failure ends the turn with
 	// stopReason "error" and its message here, without throwing.
 	let stopReason: string | null = null;
@@ -663,6 +669,10 @@ async function runEval( input: EvalRunnerInput ) {
 			turnStart = now;
 		}
 		for ( const tc of extractToolCalls( event ) ) {
+			if ( input.stopAt && ! stoppedAt && matchesStopRule( tc, input.stopAt ) ) {
+				stoppedAt = { toolUseId: tc.id, toolName: tc.name, index: toolCalls.length };
+				void query.interrupt();
+			}
 			toolCalls.push( tc );
 			toolNameById.set( tc.id, tc.name );
 			const evt: ToolEvent = {
@@ -745,7 +755,7 @@ async function runEval( input: EvalRunnerInput ) {
 	try {
 		await query.result;
 		for ( const followUp of input.followUps ?? [] ) {
-			if ( timedOut ) {
+			if ( timedOut || stoppedAt ) {
 				break;
 			}
 			query = runTurn( followUp.prompt );
@@ -774,6 +784,7 @@ async function runEval( input: EvalRunnerInput ) {
 		success,
 		error,
 		timedOut,
+		stoppedAt,
 		model: resolvedModel,
 		numTurns: numTurnsResult,
 		stopReason,

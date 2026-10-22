@@ -111,7 +111,7 @@ export function AddSiteDialog() {
 			followSite,
 			actions,
 			pinNewSite: ( siteId: string ) => {
-				if ( pin ) setPins( [ sitePinKey( siteId ), ...pins ] );
+				if ( pin ) setPins( [ ...pins, sitePinKey( siteId ) ] );
 			},
 		} ),
 		[ actions, pin, pins, setPins ]

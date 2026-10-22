@@ -4,6 +4,7 @@ import { SUPPORTED_EDITORS, supportedEditorConfig } from '@studio/common/lib/use
 import { SUPPORTED_TERMINALS, terminalConfig } from '@studio/common/lib/user-settings/terminal';
 import { __, sprintf } from '@wordpress/i18n';
 import { useCallback, useEffect, useState } from 'react';
+import { SidebarSettings } from '@/components/site-list/sidebar-settings';
 import { Button } from '@/components/ui/button';
 import { useConnector } from '@/data/core';
 import { persister } from '@/data/core/query-client';
@@ -189,6 +190,7 @@ function PreferencesPanel( {
 						onChange={ ( quitSitesBehavior ) => onChange( { quitSitesBehavior } ) }
 					/>
 				</SettingsRow>
+				<SidebarSettings />
 			</SettingsGroup>
 			<StudioCliSection />
 			<WapuuScore />

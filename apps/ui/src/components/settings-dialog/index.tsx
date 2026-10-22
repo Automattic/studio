@@ -29,6 +29,7 @@ import {
 	SkillsPanel,
 	UsagePanel,
 } from '@/components/settings-view';
+import { getSidebarSettingTitles } from '@/components/site-list/sidebar-settings';
 import { SiteSettingsForm } from '@/components/site-settings-view';
 import { IconButton } from '@/components/ui/button';
 import {
@@ -107,6 +108,7 @@ function getSections( scope: 'studio' | 'site' ): Section[] {
 						__( 'Improve Studio for everyone' ),
 						__( 'When adding a site' ),
 						__( 'When Studio quits' ),
+						...getSidebarSettingTitles(),
 						__( 'Documentation' ),
 						__( 'Report an issue' ),
 					],

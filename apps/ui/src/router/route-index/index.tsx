@@ -4,7 +4,7 @@ import { createRoute, redirect } from '@tanstack/react-router';
 import { resolveAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
 import { SITES_QUERY_KEY } from '@/data/queries/use-sites';
-import { readLastVisited } from '@/lib/last-visited';
+import { readLastVisited, resumeChat } from '@/lib/last-visited';
 import { rootRoute } from '../layout-root';
 
 // Without sites, the workspace offers Add site once, until a site exists again.
@@ -57,10 +57,13 @@ export const indexRoute = createRoute( {
 			queryFn: () => context.connector.getSessions(),
 		} );
 
-		// Sessions arrive sorted newest-first, so the first session owned by
-		// the site is its most recently updated active one.
-		const topSession = sessions.find(
-			( session ) => ! session.archived && aiSessionBelongsToSite( session, targetSite )
+		// Sessions arrive sorted newest-first, so without a chat to return to
+		// the site opens its most recently updated active one.
+		const topSession = resumeChat(
+			targetSite.id,
+			sessions.filter(
+				( session ) => ! session.archived && aiSessionBelongsToSite( session, targetSite )
+			)
 		);
 		if ( topSession ) {
 			throw redirect( { to: '/sessions/$sessionId', params: { sessionId: topSession.id } } );

@@ -43,6 +43,11 @@ export interface UserPreferences {
 	agenticFeaturesEnabled: boolean;
 	// The sidebar's Pinned group, in order, as `site:<id>` and `chat:<id>` keys.
 	sidebarPins: string[];
+	// Each site's chats in the order the user dragged them into, by site id.
+	sidebarChatOrder: Record< string, string[] >;
+	showRecentChats: boolean;
+	// Opening a site's chats in the sidebar folds the others.
+	autoCollapseSites: boolean;
 	// Start a stopped local site when a chat message is sent to it.
 	autoStartSiteOnChat: boolean;
 	// Ask before discarding preview annotations.
@@ -68,6 +73,7 @@ const colorSchemeWithDefault = z.enum( SUPPORTED_COLOR_SCHEMES ).catch( DEFAULT_
 const optionalQuitSitesBehavior = z.enum( QUIT_SITES_BEHAVIORS ).optional().catch( undefined );
 const nonEmptyString = z.string().nonempty();
 const sidebarPinsSchema = z.array( z.string() );
+const sidebarChatOrderSchema = z.record( z.string(), z.array( z.string() ) );
 
 // `null` clears a preference back to its default; JSON drops `undefined` keys,
 // so a clear can't travel as one.
@@ -82,6 +88,9 @@ export const userPreferencesPatchSchema = z.object( {
 	defaultSiteDirectory: z.string().nullish(),
 	agenticFeaturesEnabled: z.boolean().nullish(),
 	sidebarPins: sidebarPinsSchema.nullish(),
+	sidebarChatOrder: sidebarChatOrderSchema.nullish(),
+	showRecentChats: z.boolean().nullish(),
+	autoCollapseSites: z.boolean().nullish(),
 	autoStartSiteOnChat: z.boolean().nullish(),
 	confirmDeleteAnnotations: z.boolean().nullish(),
 	newSiteBehavior: z.enum( NEW_SITE_BEHAVIORS ).nullish(),
@@ -100,6 +109,9 @@ const APP_CONFIG_KEYS = [
 	[ 'defaultSiteDirectory', 'defaultSiteDirectory' ],
 	[ 'agenticFeaturesEnabled', 'agenticFeaturesEnabled' ],
 	[ 'sidebarPins', 'sidebarPins' ],
+	[ 'sidebarChatOrder', 'sidebarChatOrder' ],
+	[ 'showRecentChats', 'showRecentChats' ],
+	[ 'autoCollapseSites', 'autoCollapseSites' ],
 	[ 'autoStartSiteOnChat', 'autoStartSiteOnChat' ],
 	[ 'confirmDeleteAnnotations', 'confirmDeleteAnnotations' ],
 	[ 'newSiteBehavior', 'newSiteBehavior' ],
@@ -132,6 +144,9 @@ export async function readUserPreferences( {
 		defaultSiteDirectory: getDefaultSiteDirectory( config, sitesRoot ),
 		agenticFeaturesEnabled: config.agenticFeaturesEnabled !== false,
 		sidebarPins: sidebarPinsSchema.catch( [] ).parse( config.sidebarPins ),
+		sidebarChatOrder: sidebarChatOrderSchema.catch( {} ).parse( config.sidebarChatOrder ?? {} ),
+		showRecentChats: config.showRecentChats !== false,
+		autoCollapseSites: config.autoCollapseSites !== false,
 		autoStartSiteOnChat: config.autoStartSiteOnChat === true,
 		confirmDeleteAnnotations: config.confirmDeleteAnnotations !== false,
 		newSiteBehavior: z.enum( NEW_SITE_BEHAVIORS ).catch( 'choose' ).parse( config.newSiteBehavior ),

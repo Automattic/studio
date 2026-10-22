@@ -671,6 +671,11 @@ export interface UserPreferences {
 	agenticFeaturesEnabled: boolean;
 	// The sidebar's Pinned group, in order, as `site:<id>` and `chat:<id>` keys.
 	sidebarPins?: string[];
+	// Each site's chats in the order the user dragged them into, by site id.
+	sidebarChatOrder?: Record< string, string[] >;
+	showRecentChats?: boolean;
+	// Opening a site's chats in the sidebar folds the others.
+	autoCollapseSites?: boolean;
 	// Start a stopped local site when a chat message is sent to it.
 	autoStartSiteOnChat?: boolean;
 	// Ask before discarding preview annotations.

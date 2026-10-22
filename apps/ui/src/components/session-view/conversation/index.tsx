@@ -18,6 +18,7 @@ import {
 	type StudioChatAttachmentSummary,
 	type StudioCustomEntry,
 } from '@studio/common/ai/sessions/entry-types';
+import { getStreamingToolCallStatus } from '@studio/common/ai/streaming-message';
 import {
 	getFreeFormOptionDescription,
 	getFreeFormOptionLabel,
@@ -93,11 +94,13 @@ import { Button, IconButton } from '@/components/ui/button';
 import { Dialog, DialogClose, DialogContent, DialogDismissButton } from '@/components/ui/dialog';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
 import { useLocalMediaDataUrl } from '@/data/queries/use-local-media';
+import { useSmoothStreamingText } from '@/hooks/use-smooth-streaming-text';
 import { MESSAGE_TEXT_ATTRIBUTE, QUOTABLE_TEXT_ATTRIBUTE } from '@/hooks/use-text-context-menu';
 import { refreshIcon } from '@/lib/icons';
 import { ThinkingIndicator } from '../thinking-indicator';
 import styles from './style.module.css';
 import type { LoadedAiSession } from '@/data/core';
+import type { StreamingReply } from '@/data/queries/streaming-reply';
 import type { SessionEntry } from '@earendil-works/pi-coding-agent';
 import type { StudioVisualAnnotationSummary } from '@studio/common/ai/visual-annotations';
 
@@ -117,7 +120,25 @@ type RenderItem =
 			attachments?: StudioChatAttachmentSummary[];
 			annotation?: StudioVisualAnnotationSummary;
 	  }
-	| { kind: 'assistant-text'; key: string; text: string; messageText: string; copyText?: string }
+	| {
+			kind: 'assistant-text';
+			key: string;
+			text: string;
+			messageText: string;
+			copyText?: string;
+			// The block still receiving tokens: the last block of the reply
+			// being streamed.
+			isStreaming?: boolean;
+	  }
+	| {
+			// A tool call whose arguments are still streaming. Never shown as the
+			// call itself: the completed row replaces it once the message ends.
+			kind: 'tool-use-pending';
+			key: string;
+			name: string;
+			label: string;
+			progress?: string;
+	  }
 	| {
 			kind: 'tool-use';
 			key: string;
@@ -392,6 +413,54 @@ export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 	return items;
 }
 
+/**
+ * Render items for the reply still streaming in. Keys use the index the final
+ * entry will take when `message_end` appends it, so each text block keeps its
+ * component (and its reveal position) when the final message replaces it.
+ */
+export function streamingReplyToRenderItems(
+	reply: StreamingReply,
+	entryIndex: number
+): RenderItem[] {
+	const blocks = reply.message.content;
+	let lastBlockIndex = -1;
+	blocks.forEach( ( block, index ) => {
+		if ( block ) {
+			lastBlockIndex = index;
+		}
+	} );
+	const messageText = blocks
+		.map( ( block ) => ( block?.type === 'text' ? block.text.trim() : '' ) )
+		.filter( Boolean )
+		.join( '\n\n' );
+
+	const items: RenderItem[] = [];
+	blocks.forEach( ( block, blockIndex ) => {
+		if ( block?.type === 'text' ) {
+			const text = block.text.trim();
+			if ( text ) {
+				items.push( {
+					kind: 'assistant-text',
+					key: `${ entryIndex }:${ blockIndex }:text`,
+					text,
+					messageText,
+					isStreaming: blockIndex === lastBlockIndex,
+				} );
+			}
+		} else if ( block?.type === 'toolCall' && ! HIDDEN_TOOL_ROWS.has( block.name ) ) {
+			const status = getStreamingToolCallStatus( block );
+			items.push( {
+				kind: 'tool-use-pending',
+				key: `${ entryIndex }:${ blockIndex }:tool-pending`,
+				name: block.name,
+				label: status.label,
+				progress: status.progress,
+			} );
+		}
+	} );
+	return items;
+}
+
 interface ActiveStep {
 	key: string | null;
 	progressMessage: string | null;
@@ -468,15 +537,18 @@ function AssistantText( {
 	text,
 	messageText,
 	copyText,
+	isStreaming = false,
 	showActions,
 	onToggleSelect,
 }: {
 	text: string;
 	messageText: string;
 	copyText?: string;
+	isStreaming?: boolean;
 	showActions: boolean;
 	onToggleSelect: () => void;
 } ) {
+	const visibleText = useSmoothStreamingText( text, isStreaming );
 	const handleClick = ( event: ReactMouseEvent< HTMLDivElement > ) => {
 		// Links and the buttons inside code blocks or the action row own their
 		// clicks; only bare message content toggles the actions.
@@ -506,7 +578,7 @@ function AssistantText( {
 			onClick={ copyText ? handleClick : undefined }
 		>
 			<div className={ styles.assistantBubble }>
-				<Markdown>{ text }</Markdown>
+				<Markdown>{ visibleText }</Markdown>
 			</div>
 			{ copyText ? (
 				<div className={ styles.messageActions }>
@@ -824,6 +896,26 @@ function ToolUseRow( {
 					</div>
 				</div>
 			) : null }
+		</div>
+	);
+}
+
+function PendingToolUseRow( {
+	name,
+	label,
+	progress,
+}: {
+	name: string;
+	label: string;
+	progress?: string;
+} ) {
+	return (
+		<div className={ styles.toolBlock } data-pending="true">
+			<div className={ styles.toolRow }>
+				<ToolIcon name={ name } />
+				<span className={ styles.toolLabel }>{ label }</span>
+				{ progress ? <span className={ styles.toolDetail }>{ progress }</span> : null }
+			</div>
 		</div>
 	);
 }
@@ -1515,6 +1607,7 @@ function TurnErrorMarker( { message }: { message: string } ) {
 
 export function Conversation( {
 	data,
+	streamingReply = null,
 	isRunning,
 	startedAt,
 	pendingQuestions,
@@ -1524,6 +1617,9 @@ export function Conversation( {
 	onChooseFreeForm,
 }: {
 	data: LoadedAiSession;
+	// The reply still streaming in, drawn after the transcript until its final
+	// message lands in `data`.
+	streamingReply?: StreamingReply | null;
 	isRunning: boolean;
 	startedAt: number | null;
 	pendingQuestions: Set< string >;
@@ -1535,7 +1631,14 @@ export function Conversation( {
 	onChooseFreeForm: ( question: string ) => void;
 } ) {
 	const entries = data.entries;
-	const items = useMemo( () => entriesToRenderItems( entries ), [ entries ] );
+	const entryItems = useMemo( () => entriesToRenderItems( entries ), [ entries ] );
+	const items = useMemo(
+		() =>
+			streamingReply
+				? [ ...entryItems, ...streamingReplyToRenderItems( streamingReply, entries.length ) ]
+				: entryItems,
+		[ entries.length, entryItems, streamingReply ]
+	);
 	const activeStep = useMemo( () => getActiveStep( entries ), [ entries ] );
 
 	// One selected message at a time, so picking a new one closes the last.
@@ -1582,6 +1685,7 @@ export function Conversation( {
 								text={ item.text }
 								messageText={ item.messageText }
 								copyText={ item.copyText }
+								isStreaming={ item.isStreaming }
 								showActions={ selectedKey === item.key || item.key === latestActionableKey }
 								onToggleSelect={ () =>
 									setSelectedKey( ( current ) => ( current === item.key ? null : item.key ) )
@@ -1595,6 +1699,15 @@ export function Conversation( {
 								name={ item.name }
 								input={ item.input }
 								result={ item.result }
+							/>
+						);
+					case 'tool-use-pending':
+						return (
+							<PendingToolUseRow
+								key={ item.key }
+								name={ item.name }
+								label={ item.label }
+								progress={ item.progress }
 							/>
 						);
 					case 'agent-question-batch':

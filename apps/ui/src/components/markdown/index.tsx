@@ -1,5 +1,5 @@
 import { __ } from '@wordpress/i18n';
-import { isValidElement, useMemo } from 'react';
+import { isValidElement, memo, useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { CopyButton } from '@/components/copy-button';
@@ -90,7 +90,9 @@ const baseComponents: Components = {
 	pre: ( { children } ) => <CodeBlock>{ children }</CodeBlock>,
 };
 
-export function Markdown( { children }: { children: string } ) {
+// Memoized: the transcript re-renders every frame while a reply streams, and
+// only the block still receiving text should pay for a Markdown parse.
+export const Markdown = memo( function Markdown( { children }: { children: string } ) {
 	const connector = useConnector();
 
 	const components = useMemo< Components >( () => {
@@ -128,4 +130,4 @@ export function Markdown( { children }: { children: string } ) {
 			</ReactMarkdown>
 		</div>
 	);
-}
+} );

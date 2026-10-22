@@ -16,6 +16,11 @@ import {
 } from 'react';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
+import {
+	streamingReplyReducer,
+	type StreamingReply,
+	type StreamingReplyAction,
+} from '@/data/queries/streaming-reply';
 import { ASSISTANT_QUOTA_QUERY_KEY } from '@/data/queries/use-assistant-quota';
 import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
 import { useIsOutOfAiCredits } from '@/hooks/use-is-out-of-ai-credits';
@@ -30,6 +35,7 @@ import type {
 	StudioVisualAnnotationSummary,
 } from '@/data/core';
 import type { ActiveAgentRun } from '@studio/common/ai/agent-events';
+import type { AssistantMessageDelta } from '@studio/common/ai/json-events';
 
 function nowIso(): string {
 	return new Date().toISOString();
@@ -287,8 +293,62 @@ function createSessionStateStore(): SessionStateStore {
 	};
 }
 
+// The streaming reply lives in its own store: it changes every frame while a
+// reply streams, and only the transcript should re-render for that, not every
+// consumer of the run state.
+interface StreamingReplyStore {
+	get: ( sessionId: string ) => StreamingReply | null;
+	dispatch: ( sessionId: string, action: StreamingReplyAction ) => void;
+	subscribe: ( listener: () => void ) => () => void;
+}
+
+function createStreamingReplyStore(): StreamingReplyStore {
+	const replies = new Map< string, StreamingReply >();
+	const listeners = new Set< () => void >();
+	return {
+		get: ( sessionId ) => replies.get( sessionId ) ?? null,
+		dispatch: ( sessionId, action ) => {
+			const previous = replies.get( sessionId ) ?? null;
+			const next = streamingReplyReducer( previous, action );
+			if ( next === previous ) {
+				return;
+			}
+			if ( next ) {
+				replies.set( sessionId, next );
+			} else {
+				replies.delete( sessionId );
+			}
+			listeners.forEach( ( listener ) => listener() );
+		},
+		subscribe: ( listener ) => {
+			listeners.add( listener );
+			return () => {
+				listeners.delete( listener );
+			};
+		},
+	};
+}
+
+interface PendingDeltas {
+	deltas: AssistantMessageDelta[];
+	entryId: string;
+	timestamp: string;
+}
+
+// Run-state transitions that end whatever reply was streaming.
+const STREAM_ENDING_ACTIONS = new Set< Action[ 'type' ] >( [
+	'turn_completed',
+	'run_ended',
+	'interrupt_requested',
+] );
+
+function isAssistantMessage( message: unknown ): boolean {
+	return ( message as { role?: string } | null | undefined )?.role === 'assistant';
+}
+
 interface AgentRunStore {
 	stateStore: SessionStateStore;
+	streamStore: StreamingReplyStore;
 	dispatchSession: ( sessionId: string, action: Action ) => void;
 	startRun: ( sessionId: string, prompt: string, options?: SendMessageOptions ) => Promise< void >;
 	interrupt: ( sessionId: string ) => Promise< void >;
@@ -302,17 +362,70 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 	const connector = useConnector();
 	const queryClient = useQueryClient();
 	const [ stateStore ] = useState( createSessionStateStore );
+	const [ streamStore ] = useState( createStreamingReplyStore );
+	// Deltas arrive per token; they're applied once per frame so a long reply
+	// doesn't re-render the transcript hundreds of times a second.
+	const pendingDeltasBySessionRef = useRef< Map< string, PendingDeltas > >( new Map() );
+	const cancelDeltaFlushRef = useRef< ( () => void ) | null >( null );
 	const subscribedRunIdsBySessionRef = useRef< Map< string, string > >( new Map() );
 	const ignoredRunIdsRef = useRef< Set< string > >( new Set() );
 	const interruptRequestsBySessionRef = useRef< Map< string, Promise< void > > >( new Map() );
 	const interruptPendingStartSessionIdsRef = useRef< Set< string > >( new Set() );
 
+	const endStream = useCallback(
+		( sessionId: string ) => {
+			pendingDeltasBySessionRef.current.delete( sessionId );
+			streamStore.dispatch( sessionId, { type: 'stream_ended' } );
+		},
+		[ streamStore ]
+	);
+
 	const dispatchSession = useCallback(
 		( sessionId: string, action: Action ) => {
 			stateStore.dispatch( { sessionId, action } );
+			if ( STREAM_ENDING_ACTIONS.has( action.type ) ) {
+				endStream( sessionId );
+			}
 		},
-		[ stateStore ]
+		[ endStream, stateStore ]
 	);
+
+	const flushDeltas = useCallback( () => {
+		cancelDeltaFlushRef.current = null;
+		const pending = Array.from( pendingDeltasBySessionRef.current );
+		pendingDeltasBySessionRef.current.clear();
+		for ( const [ sessionId, { deltas, entryId, timestamp } ] of pending ) {
+			streamStore.dispatch( sessionId, { type: 'stream_deltas', deltas, entryId, timestamp } );
+		}
+	}, [ streamStore ] );
+
+	const queueDelta = useCallback(
+		( sessionId: string, delta: AssistantMessageDelta, timestamp: string ) => {
+			const pending = pendingDeltasBySessionRef.current.get( sessionId );
+			if ( pending ) {
+				pending.deltas.push( delta );
+			} else {
+				pendingDeltasBySessionRef.current.set( sessionId, {
+					deltas: [ delta ],
+					entryId: shortEntryId(),
+					timestamp,
+				} );
+			}
+			if ( cancelDeltaFlushRef.current ) {
+				return;
+			}
+			if ( typeof requestAnimationFrame === 'function' ) {
+				const handle = requestAnimationFrame( flushDeltas );
+				cancelDeltaFlushRef.current = () => cancelAnimationFrame( handle );
+				return;
+			}
+			const handle = setTimeout( flushDeltas, 16 );
+			cancelDeltaFlushRef.current = () => clearTimeout( handle );
+		},
+		[ flushDeltas ]
+	);
+
+	useEffect( () => () => cancelDeltaFlushRef.current?.(), [] );
 
 	const updateCache = useCallback(
 		( sessionId: string, updater: ( entries: SessionEntry[] ) => SessionEntry[] ) => {
@@ -334,7 +447,7 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 	useEffect( () => {
 		let cancelled = false;
 
-		const syncActiveRuns = async () => {
+		const syncActiveRuns = async ( { restored = false }: { restored?: boolean } = {} ) => {
 			const runIdsBefore = [ ...subscribedRunIdsBySessionRef.current ];
 			let runs: ActiveAgentRun[];
 			try {
@@ -360,6 +473,11 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 				}
 			}
 			for ( const run of runs ) {
+				// Deltas sent while the connection was down are gone; restart the
+				// reply from the next one rather than show it with a gap.
+				if ( restored ) {
+					endStream( run.sessionId );
+				}
 				subscribedRunIdsBySessionRef.current.set( run.sessionId, run.runId );
 				dispatchSession( run.sessionId, {
 					type: 'hydrate_active_run',
@@ -375,12 +493,14 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 		};
 
 		void syncActiveRuns();
-		const unsubscribe = connector.onConnectionRestored?.( () => void syncActiveRuns() );
+		const unsubscribe = connector.onConnectionRestored?.(
+			() => void syncActiveRuns( { restored: true } )
+		);
 		return () => {
 			cancelled = true;
 			unsubscribe?.();
 		};
-	}, [ connector, dispatchSession, queryClient ] );
+	}, [ connector, dispatchSession, endStream, queryClient ] );
 
 	useEffect( () => {
 		return connector.onAgentEvent( ( payload: AgentRunEvent ) => {
@@ -477,17 +597,31 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 						return;
 					}
 					// Only message-bearing pi event variants need optimistic entries.
-					if (
-						inner.type === 'message_end' &&
-						( inner.message as { role?: string } ).role === 'assistant'
-					) {
+					if ( inner.type === 'message_start' ) {
+						if ( isAssistantMessage( inner.message ) ) {
+							pendingDeltasBySessionRef.current.delete( payload.sessionId );
+							streamStore.dispatch( payload.sessionId, {
+								type: 'stream_started',
+								entryId: shortEntryId(),
+								timestamp: event.timestamp,
+							} );
+						}
+					} else if ( inner.type === 'message_update' ) {
+						if ( inner.assistantMessageEvent ) {
+							queueDelta( payload.sessionId, inner.assistantMessageEvent, event.timestamp );
+						}
+					} else if ( inner.type === 'message_end' && isAssistantMessage( inner.message ) ) {
+						// The final message replaces the streamed reply in the same
+						// update, under the same id, so it never shows twice.
+						const streamed = streamStore.get( payload.sessionId );
+						endStream( payload.sessionId );
 						updateCache( payload.sessionId, ( entries ) => [
 							...entries,
 							{
 								type: 'message',
-								id: shortEntryId(),
+								id: streamed?.entryId ?? shortEntryId(),
 								parentId: null,
-								timestamp: event.timestamp,
+								timestamp: streamed?.timestamp ?? event.timestamp,
 								message: inner.message,
 							} as unknown as SessionEntry,
 						] );
@@ -562,7 +696,16 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 					return;
 			}
 		} );
-	}, [ connector, dispatchSession, queryClient, stateStore, updateCache ] );
+	}, [
+		connector,
+		dispatchSession,
+		endStream,
+		queryClient,
+		queueDelta,
+		stateStore,
+		streamStore,
+		updateCache,
+	] );
 
 	const startRun = useCallback(
 		async ( sessionId: string, prompt: string, options: SendMessageOptions = {} ) => {
@@ -759,13 +902,22 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 	const value = useMemo< AgentRunStore >(
 		() => ( {
 			stateStore,
+			streamStore,
 			dispatchSession,
 			startRun,
 			interrupt,
 			answerQuestion,
 			clearQuestionAnswer,
 		} ),
-		[ answerQuestion, clearQuestionAnswer, dispatchSession, interrupt, startRun, stateStore ]
+		[
+			answerQuestion,
+			clearQuestionAnswer,
+			dispatchSession,
+			interrupt,
+			startRun,
+			stateStore,
+			streamStore,
+		]
 	);
 
 	return <AgentRunContext.Provider value={ value }>{ children }</AgentRunContext.Provider>;
@@ -911,6 +1063,21 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 		clearQuestionAnswer,
 		removeQueuedPrompt,
 	};
+}
+
+/**
+ * The assistant reply still streaming into a session, or `null`. Kept apart
+ * from `useAgentRun` so only the transcript re-renders as tokens arrive.
+ */
+export function useStreamingReply( sessionId: string | undefined ): StreamingReply | null {
+	const store = useContext( AgentRunContext );
+	if ( ! store ) {
+		throw new Error( 'useStreamingReply must be used within AgentRunProvider' );
+	}
+	const { streamStore } = store;
+	return useSyncExternalStore( streamStore.subscribe, () =>
+		sessionId ? streamStore.get( sessionId ) : null
+	);
 }
 
 function hasUnansweredQuestion( state: State ): boolean {

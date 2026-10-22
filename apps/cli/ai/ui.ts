@@ -27,9 +27,19 @@ import {
 	truncateToWidth,
 	CURSOR_MARKER,
 } from '@earendil-works/pi-tui';
-import { isOutOfCreditsError, isUsageCapError } from '@studio/common/ai/json-events';
+import {
+	isOutOfCreditsError,
+	isUsageCapError,
+	toAgentWireEvent,
+	type AssistantMessageDelta,
+} from '@studio/common/ai/json-events';
 import { DEFAULT_MODEL, getAiModelLabel, type AiModelId } from '@studio/common/ai/models';
 import { findLastAssistant } from '@studio/common/ai/session-events';
+import {
+	applyAssistantMessageDelta,
+	getStreamingToolCallStatus,
+	type StreamingAssistantMessage,
+} from '@studio/common/ai/streaming-message';
 import { randomThinkingMessage } from '@studio/common/ai/thinking-messages';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import {
@@ -237,6 +247,23 @@ const editorTheme: EditorTheme = {
 	},
 };
 
+// The assistant message still streaming in, drawn as a preview until
+// `message_end` replaces it with the final rendering.
+interface StreamPreview {
+	message: StreamingAssistantMessage;
+	// Response block state before the preview, restored when it is cleared.
+	baseMarkdown: Markdown | null;
+	baseResponseText: string;
+	baseHasShownResponseMarker: boolean;
+	// Components the preview added to the transcript.
+	ownMarkdown: Markdown | null;
+	toolRows: Map< number, Text >;
+}
+
+function formatResponseMarkdown( text: string ): string {
+	return '\n' + theme.fg( 'accent', '⏺' ) + ' ' + text;
+}
+
 export class AiChatUI implements AiOutputAdapter {
 	private tui: TUI;
 	private editor: PromptEditor;
@@ -268,6 +295,7 @@ export class AiChatUI implements AiOutputAdapter {
 		{ component: ToolExecutionComponent; toolName: string; input: Record< string, unknown > }
 	>();
 	private renderedToolResultIds = new Set< string >();
+	private streamPreview: StreamPreview | null = null;
 	currentModel: AiModelId = DEFAULT_MODEL;
 	currentProvider: AiProviderId = DEFAULT_AI_PROVIDER;
 	private numTurns = 0;
@@ -1398,6 +1426,7 @@ export class AiChatUI implements AiOutputAdapter {
 		this.pendingToolCalls.clear();
 		this.renderedToolResultIds.clear();
 		this.fallbackProgressText = null;
+		this.streamPreview = null;
 	}
 
 	/**
@@ -1405,6 +1434,7 @@ export class AiChatUI implements AiOutputAdapter {
 	 */
 	endAgentTurn(): void {
 		this.hideLoader();
+		this.abandonStreamPreview();
 		this.interruptCallback = null;
 		this._inAgentTurn = false;
 		this.pendingToolCalls.clear();
@@ -1811,6 +1841,106 @@ export class AiChatUI implements AiOutputAdapter {
 		return answers;
 	}
 
+	private updateStreamPreview( delta: AssistantMessageDelta ): void {
+		let preview = this.streamPreview;
+		if ( ! preview ) {
+			preview = {
+				message: { content: [] },
+				baseMarkdown: this.currentMarkdown,
+				baseResponseText: this.currentResponseText,
+				baseHasShownResponseMarker: this.hasShownResponseMarker,
+				ownMarkdown: null,
+				toolRows: new Map(),
+			};
+			this.streamPreview = preview;
+		}
+		const message = applyAssistantMessageDelta( preview.message, delta );
+		if ( message === preview.message ) {
+			return;
+		}
+		preview.message = message;
+		this.renderStreamPreview( preview );
+	}
+
+	private renderStreamPreview( preview: StreamPreview ): void {
+		// Mirrors how `message_end` joins text blocks, so the final rendering
+		// lands where the preview was without the text jumping.
+		let text = preview.baseMarkdown ? preview.baseResponseText : '';
+		let hasText = false;
+		preview.message.content.forEach( ( block, index ) => {
+			if ( block?.type === 'text' && block.text.trim() ) {
+				hasText = true;
+				if ( text && ! text.endsWith( '\n' ) ) {
+					text += '\n';
+				}
+				text += block.text;
+			} else if ( block?.type === 'toolCall' ) {
+				let row = preview.toolRows.get( index );
+				if ( ! row ) {
+					row = new Text( '', 1, 0 );
+					preview.toolRows.set( index, row );
+					this.messages.addChild( row );
+				}
+				const status = getStreamingToolCallStatus( block );
+				row.setText(
+					'\n' +
+						theme.fg( 'muted', '⏺' ) +
+						' ' +
+						theme.bold( status.label ) +
+						( status.progress ? ' ' + theme.fg( 'muted', status.progress ) : '' )
+				);
+			}
+		} );
+		if ( hasText ) {
+			this.hideLoader();
+			let markdown = preview.baseMarkdown ?? preview.ownMarkdown;
+			if ( ! markdown ) {
+				markdown = new Markdown( '\n', 1, 0, getMarkdownTheme() );
+				preview.ownMarkdown = markdown;
+				this.messages.addChild( markdown );
+			}
+			markdown.setText( formatResponseMarkdown( text ) );
+		}
+		this.tui.requestRender();
+	}
+
+	// Undo the preview so `message_end` can render the final message from the
+	// same starting point as a message that never streamed.
+	private clearStreamPreview(): void {
+		const preview = this.streamPreview;
+		if ( ! preview ) {
+			return;
+		}
+		this.streamPreview = null;
+		for ( const row of preview.toolRows.values() ) {
+			this.messages.removeChild( row );
+		}
+		if ( preview.ownMarkdown ) {
+			this.messages.removeChild( preview.ownMarkdown );
+		}
+		if ( preview.baseMarkdown ) {
+			preview.baseMarkdown.setText( formatResponseMarkdown( preview.baseResponseText ) );
+		}
+		this.currentMarkdown = preview.baseMarkdown;
+		this.currentResponseText = preview.baseResponseText;
+		this.hasShownResponseMarker = preview.baseHasShownResponseMarker;
+	}
+
+	// The turn ended without a final message for the preview (interrupted or
+	// failed mid-stream): keep the text that was shown, but drop tool rows for
+	// calls that never ran.
+	private abandonStreamPreview(): void {
+		const preview = this.streamPreview;
+		if ( ! preview ) {
+			return;
+		}
+		this.streamPreview = null;
+		for ( const row of preview.toolRows.values() ) {
+			this.messages.removeChild( row );
+		}
+		this.tui.requestRender();
+	}
+
 	/**
 	 * Process a runtime event and update the UI.
 	 * Returns session result when the agent turn is complete.
@@ -1832,11 +1962,24 @@ export class AiChatUI implements AiOutputAdapter {
 					this.showInfo( __( 'Conversation history compacted' ) );
 				}
 				return;
+			case 'message_update': {
+				if ( event.message.role !== 'assistant' ) {
+					return;
+				}
+				const update = toAgentWireEvent( event );
+				if ( update?.type === 'message_update' ) {
+					this.updateStreamPreview( update.assistantMessageEvent );
+				}
+				return;
+			}
 			case 'message_end': {
 				const message = event.message;
 				if ( message.role !== 'assistant' ) {
 					return;
 				}
+				// The final message is authoritative: drop the streamed preview
+				// and render the message exactly as a non-streamed one.
+				this.clearStreamPreview();
 
 				// Detect the WordPress.com proxy's quota refusals — the monthly
 				// usage cap (429) and out-of-credits (402, STU-2236). pi-ai
@@ -1884,9 +2027,7 @@ export class AiChatUI implements AiOutputAdapter {
 							this.currentResponseText += '\n';
 						}
 						this.currentResponseText += block.text;
-						this.currentMarkdown!.setText(
-							'\n' + theme.fg( 'accent', '⏺' ) + ' ' + this.currentResponseText
-						);
+						this.currentMarkdown!.setText( formatResponseMarkdown( this.currentResponseText ) );
 						this.tui.requestRender();
 					} else if ( block.type === 'toolCall' ) {
 						const input = ( block.arguments ?? {} ) as Record< string, unknown >;
@@ -1958,6 +2099,7 @@ export class AiChatUI implements AiOutputAdapter {
 					return;
 				}
 				this.hideLoader();
+				this.abandonStreamPreview();
 
 				if ( this.usageCapReached ) {
 					return;
@@ -2000,10 +2142,8 @@ export class AiChatUI implements AiOutputAdapter {
 				return;
 			}
 			default:
-				// agent_start / turn_start / message_start / message_update /
-				// tool_execution_end / auto_retry_end — UI doesn't act on these
-				// directly; pi events drive incremental state but the visible
-				// transitions happen at message_end / turn_end / agent_end.
+				// agent_start / turn_start / message_start / auto_retry_end — UI
+				// doesn't act on these directly.
 				return;
 		}
 	}

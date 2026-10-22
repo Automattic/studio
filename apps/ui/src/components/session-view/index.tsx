@@ -44,7 +44,7 @@ import { SiteLifecycleButton } from '@/components/site-lifecycle-button';
 import { StoppedSitePreview } from '@/components/stopped-site-preview';
 import { IconButton } from '@/components/ui/button';
 import { toast } from '@/data/app-messages';
-import { useAgentRun } from '@/data/queries/use-agent-run';
+import { useAgentRun, useStreamingReply } from '@/data/queries/use-agent-run';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useAiSettings } from '@/data/queries/use-ai-settings';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
@@ -304,6 +304,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		clearQuestionAnswer,
 		removeQueuedPrompt,
 	} = useAgentRun( sessionId );
+	const streamingReply = useStreamingReply( sessionId );
 	const {
 		data: quota,
 		isLoading: isQuotaLoading,
@@ -391,6 +392,11 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		[ answerQuestion, targetQuestion ]
 	);
 	const [ isScrolledAway, setIsScrolledAway ] = useState( false );
+	// Whether new content should pull the view to the bottom. A ref rather than
+	// state: while a reply streams the pin runs every frame, so the decision has
+	// to be current the instant the user scrolls, not one render later.
+	const followLatestRef = useRef( true );
+	const lastScrollTopRef = useRef( 0 );
 
 	const updateIsScrolledAway = useCallback( () => {
 		if ( scrollNode ) {
@@ -402,9 +408,37 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		if ( ! scrollNode ) {
 			return;
 		}
+		lastScrollTopRef.current = scrollNode.scrollTop;
 		updateIsScrolledAway();
-		scrollNode.addEventListener( 'scroll', updateIsScrolledAway, { passive: true } );
-		return () => scrollNode.removeEventListener( 'scroll', updateIsScrolledAway );
+		// Any upward wheel is a request to read, even one that hasn't moved past
+		// the "scrolled away" slack yet — a trackpad starts in single pixels.
+		const handleWheel = ( event: WheelEvent ) => {
+			if ( event.deltaY < 0 ) {
+				followLatestRef.current = false;
+			}
+		};
+		const handleScroll = () => {
+			const away = isScrolledAwayFromLatest( scrollNode );
+			const movedUp = scrollNode.scrollTop < lastScrollTopRef.current - 1;
+			lastScrollTopRef.current = scrollNode.scrollTop;
+			if ( movedUp ) {
+				// Scrollbar drags and keyboard jumps have no wheel event, so a
+				// clear move up counts too. A nudge inside the slack doesn't: that
+				// is content reflow, not the user.
+				if ( away ) {
+					followLatestRef.current = false;
+				}
+			} else if ( ! away ) {
+				followLatestRef.current = true;
+			}
+			setIsScrolledAway( away );
+		};
+		scrollNode.addEventListener( 'wheel', handleWheel, { passive: true } );
+		scrollNode.addEventListener( 'scroll', handleScroll, { passive: true } );
+		return () => {
+			scrollNode.removeEventListener( 'wheel', handleWheel );
+			scrollNode.removeEventListener( 'scroll', handleScroll );
+		};
 	}, [ scrollNode, updateIsScrolledAway ] );
 
 	// Content can grow without emitting scroll events (e.g. while the
@@ -415,6 +449,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	}, [ data, pendingQuestions.length, queuedPrompts.length, updateIsScrolledAway ] );
 
 	useLayoutEffect( () => {
+		followLatestRef.current = true;
 		setIsScrolledAway( false );
 	}, [ sessionId ] );
 
@@ -465,20 +500,41 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		}
 	}, [ createSession, isEmpty, ownerSite, switchSession ] );
 
+	// A streaming reply is revealed at a metered pace, so the transcript grows
+	// between renders of this view. Follow that growth too.
+	const hasPendingQuestions = pendingQuestions.length > 0;
+	useEffect( () => {
+		if ( ! scrollNode || typeof ResizeObserver === 'undefined' ) {
+			return;
+		}
+		const observer = new ResizeObserver( () => {
+			if ( followLatestRef.current && ! hasPendingQuestions ) {
+				scrollToEnd( scrollNode );
+			}
+		} );
+		Array.from( scrollNode.children ).forEach( ( child ) => observer.observe( child ) );
+		return () => observer.disconnect();
+	}, [ hasPendingQuestions, scrollNode, sessionId ] );
+
 	useLayoutEffect( () => {
-		if ( ! scrollNode || isScrolledAway || pendingQuestions.length > 0 ) {
+		if ( ! scrollNode || ! followLatestRef.current || hasPendingQuestions ) {
 			return;
 		}
 		scrollToEnd( scrollNode );
-		const id = requestAnimationFrame( () => scrollToEnd( scrollNode ) );
+		const id = requestAnimationFrame( () => {
+			if ( followLatestRef.current ) {
+				scrollToEnd( scrollNode );
+			}
+		} );
 		return () => cancelAnimationFrame( id );
 	}, [
 		scrollNode,
 		sessionId,
 		data,
+		streamingReply,
 		isRunning,
 		isScrolledAway,
-		pendingQuestions.length,
+		hasPendingQuestions,
 		queuedPrompts.length,
 	] );
 
@@ -713,6 +769,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 			<div className={ clsx( styles.column, styles.conversationSpacing ) }>
 				<Conversation
 					data={ data }
+					streamingReply={ streamingReply }
 					isRunning={ isRunning }
 					startedAt={ startedAt }
 					pendingQuestions={ pendingQuestionTexts }

@@ -40,9 +40,7 @@ export function buildSystemPrompt( options: BuildSystemPromptOptions = {} ): str
 - Any block content you generate MUST pass validate_blocks before it reaches the site. Never apply unvalidated block content.
 - Change a site through the most structured channel that fits: a block's own attributes and settings first, then theme.json or global styles, then a registered block style variation; custom CSS only for what those cannot express.
 
-${ options.external ? '' : `${ WORKING_CADENCE }\n\n` }${ renderToolSections(
-		options.tools ?? []
-	) }
+${ renderToolSections( options.tools ?? [] ) }
 
 ${ SKILL_ROUTING }${ buildActiveSiteSection( options.activeSite ) }${ buildUserInstructionsSection(
 		options.userInstructions
@@ -99,10 +97,6 @@ const EXTERNAL_INTRO = `These are the instructions for building and managing loc
 - Edit site files with your own file tools (read, write, edit, search). Wherever these instructions say Write or Edit, use them; site_info and site_create report the site's directory.
 - Whenever these instructions name a skill, load it with \`studio_instructions\` (\`skill\` set to its name) and follow it: skills are the Studio runbooks.
 - Whenever these instructions or a runbook say to ask the user and wait, end your turn right after asking: the answer arrives as the user's next message. Never sleep or poll for it.`;
-
-const WORKING_CADENCE = `## Working cadence
-
-- One file per turn: a single \`Write\`, or a single \`Edit\` call (read-only \`site_info\`, \`site_list\`, \`wp_cli\` queries may be combined). Short prose between tools — no long design-plan essays. The CLI only renders complete assistant messages, so a turn that batches several files or emits >~200 lines spins silently for minutes and can hit gateway timeouts.`;
 
 const SKILL_ROUTING = `## Skill routing
 

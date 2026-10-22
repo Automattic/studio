@@ -1,3 +1,4 @@
+import { toAgentWireEvent } from '@studio/common/ai/json-events';
 import { DEFAULT_MODEL, type AiModelId } from '@studio/common/ai/models';
 import { emitEvent, type TurnCompletedStatus } from 'cli/ai/json-events';
 import { formatTosNoticeLines } from 'cli/lib/tos-notice';
@@ -135,10 +136,16 @@ export class JsonAdapter implements AiOutputAdapter {
 	}
 
 	handleEvent( event: AgentSessionEvent ): void {
-		// Forward the event verbatim so the desktop main process can re-derive
-		// state without loading the JSONL itself. The wire keeps the existing
-		// `'message'` envelope, with a native AgentSessionEvent as the payload.
-		emitEvent( { type: 'message', timestamp: new Date().toISOString(), message: event } );
+		// Forward the event so the desktop main process can re-derive state
+		// without loading the JSONL itself. The wire keeps the `'message'`
+		// envelope around a pi event, except that `message_update` carries only
+		// its delta: the full partial message on every token would make a long
+		// reply cost quadratic bytes. `message_end` still carries the whole message.
+		const message = toAgentWireEvent( event );
+		if ( ! message ) {
+			return;
+		}
+		emitEvent( { type: 'message', timestamp: new Date().toISOString(), message } );
 	}
 
 	emitTurnCompleted(

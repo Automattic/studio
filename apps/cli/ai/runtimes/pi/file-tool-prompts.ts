@@ -4,7 +4,7 @@ export interface FileToolPrompt {
 
 // What the system prompt's tool list says about the file and shell tools
 // Studio takes from pi, under the names Studio registers them with. How big
-// each call may be is part of the working cadence (system-prompt.ts).
+// each call may be is enforced by the payload limits in tool-safety.ts.
 const FILE_TOOL_SNIPPETS: Record< string, string > = {
 	Read: 'Read file contents',
 	Write: 'Create or overwrite files',

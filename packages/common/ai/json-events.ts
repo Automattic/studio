@@ -3,10 +3,77 @@ import type { AgentSessionEvent } from '@earendil-works/pi-coding-agent';
 
 export type TurnCompletedStatus = 'success' | 'error' | 'paused' | 'max_turns';
 
+/**
+ * One step of a streaming assistant message, as sent over the wire. pi's
+ * `message_update` carries the whole partial message on every token, so a long
+ * reply would move quadratic bytes; the wire carries only what changed and
+ * consumers rebuild the partial message themselves. `message_end` still
+ * carries the full, final message.
+ */
+export type AssistantMessageDelta =
+	| { type: 'text_start' | 'thinking_start'; contentIndex: number }
+	| {
+			type: 'text_delta' | 'thinking_delta' | 'toolcall_delta';
+			contentIndex: number;
+			delta: string;
+	  }
+	| { type: 'toolcall_start'; contentIndex: number; id: string; name: string }
+	| { type: 'text_end' | 'thinking_end' | 'toolcall_end'; contentIndex: number };
+
+export interface AgentMessageDeltaEvent {
+	type: 'message_update';
+	assistantMessageEvent: AssistantMessageDelta;
+}
+
+export type AgentWireEvent =
+	| Exclude< AgentSessionEvent, { type: 'message_update' } >
+	| AgentMessageDeltaEvent;
+
 export interface AgentMessageJsonEvent {
 	type: 'message';
 	timestamp: string;
-	message: AgentSessionEvent;
+	message: AgentWireEvent;
+}
+
+/**
+ * Convert a pi session event to its wire form: `message_update` drops the
+ * partial message and keeps only the delta. Returns `null` for updates that
+ * carry nothing a consumer needs (`start`, `done`, `error`: `message_start`
+ * and `message_end` already cover them).
+ */
+export function toAgentWireEvent( event: AgentSessionEvent ): AgentWireEvent | null {
+	if ( event.type !== 'message_update' ) {
+		return event;
+	}
+	const update = event.assistantMessageEvent;
+	let delta: AssistantMessageDelta;
+	switch ( update.type ) {
+		case 'text_start':
+		case 'thinking_start':
+		case 'text_end':
+		case 'thinking_end':
+		case 'toolcall_end':
+			delta = { type: update.type, contentIndex: update.contentIndex };
+			break;
+		case 'text_delta':
+		case 'thinking_delta':
+		case 'toolcall_delta':
+			delta = { type: update.type, contentIndex: update.contentIndex, delta: update.delta };
+			break;
+		case 'toolcall_start': {
+			const block = update.partial?.content?.[ update.contentIndex ];
+			delta = {
+				type: 'toolcall_start',
+				contentIndex: update.contentIndex,
+				id: block?.type === 'toolCall' ? block.id : '',
+				name: block?.type === 'toolCall' ? block.name : '',
+			};
+			break;
+		}
+		default:
+			return null;
+	}
+	return { type: 'message_update', assistantMessageEvent: delta };
 }
 
 export type JsonEvent =
@@ -109,7 +176,9 @@ export function isAiAccessRequiredError( message: string | undefined | null ): b
  * Returns `null` for successful, interrupted, or will-retry ends — and a
  * possibly-empty `message` for failures, so callers can show fallback copy.
  */
-export function getAgentEndFailure( event: AgentSessionEvent ): { message: string } | null {
+export function getAgentEndFailure(
+	event: AgentSessionEvent | AgentWireEvent
+): { message: string } | null {
 	if ( event.type !== 'agent_end' || event.willRetry ) {
 		return null;
 	}

@@ -3,8 +3,14 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { createElement, useState } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { Conversation, entriesToRenderItems, getQuestionScrollDelta } from './index';
+import {
+	Conversation,
+	entriesToRenderItems,
+	getQuestionScrollDelta,
+	streamingReplyToRenderItems,
+} from './index';
 import type { LoadedAiSession, SessionEntry } from '@/data/core';
+import type { StreamingReply } from '@/data/queries/streaming-reply';
 import type { StudioChatArtifactWidgetDraft } from '@studio/common/ai/chat-artifacts';
 
 const connectorMocks = vi.hoisted( () => ( {
@@ -25,6 +31,11 @@ vi.mock( '@/components/markdown', () => ( {
 
 vi.mock( '@/data/core', () => ( {
 	useConnector: () => connectorMocks,
+} ) );
+
+// The metered reveal has its own tests; here the streamed text shows as is.
+vi.mock( '@/hooks/use-smooth-streaming-text', () => ( {
+	useSmoothStreamingText: ( text: string ) => text,
 } ) );
 
 vi.mock( '../thinking-indicator', () => ( {
@@ -831,6 +842,102 @@ describe( 'Conversation Ask User questions', () => {
 	} );
 } );
 
+describe( 'Conversation streamed replies', () => {
+	const streamingReply = (
+		content: StreamingReply[ 'message' ][ 'content' ]
+	): StreamingReply => ( {
+		entryId: 'streamed',
+		timestamp: '2026-06-05T12:00:02.000Z',
+		message: { content },
+	} );
+
+	it( 'keys streamed blocks by the index the final entry will take', () => {
+		const items = streamingReplyToRenderItems(
+			streamingReply( [
+				{ type: 'text', text: 'First ' },
+				{ type: 'toolCall', id: 'call-1', name: 'Write', argumentsJson: '{"path":"a/style.css"' },
+				{ type: 'text', text: 'Then' },
+			] ),
+			3
+		);
+		expect( items ).toEqual( [
+			expect.objectContaining( { kind: 'assistant-text', key: '3:0:text', isStreaming: false } ),
+			expect.objectContaining( { kind: 'tool-use-pending', key: '3:1:tool-pending' } ),
+			expect.objectContaining( { kind: 'assistant-text', key: '3:2:text', isStreaming: true } ),
+		] );
+	} );
+
+	it( 'shows a tool call in progress without presenting its partial arguments', () => {
+		renderConversation( loadedSession( [] ), {
+			isRunning: true,
+			streamingReply: streamingReply( [
+				{ type: 'text', text: 'Writing the stylesheet.' },
+				{
+					type: 'toolCall',
+					id: 'call-1',
+					name: 'Write',
+					argumentsJson: '{"path":"themes/demo/style.css","content":"body {\\n  color: red;\\n',
+				},
+			] ),
+		} );
+
+		expect( screen.getByText( 'Writing the stylesheet.' ) ).toBeInTheDocument();
+		expect( screen.getByText( 'Writing style.css…' ) ).toBeInTheDocument();
+		expect( screen.getByText( '3 lines' ) ).toBeInTheDocument();
+		expect( screen.queryByText( /color: red/ ) ).not.toBeInTheDocument();
+		// Not the expandable completed row.
+		expect( screen.queryByRole( 'button', { name: /style\.css/ } ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'hands the streamed reply over to the final message without a duplicate', () => {
+		const queryClient = new QueryClient();
+		const { rerender } = render(
+			conversationElement( queryClient, loadedSession( [] ), {
+				isRunning: true,
+				streamingReply: streamingReply( [
+					{ type: 'text', text: 'Hello there' },
+					{ type: 'toolCall', id: 'call-1', name: 'Bash', argumentsJson: '{"command":"np' },
+				] ),
+			} )
+		);
+		const streamedNode = screen.getByText( 'Hello there' );
+		expect( screen.getByText( 'Running command…' ) ).toBeInTheDocument();
+
+		rerender(
+			conversationElement(
+				queryClient,
+				loadedSession( [
+					{
+						type: 'message',
+						id: 'streamed',
+						parentId: null,
+						timestamp: '2026-06-05T12:00:02.000Z',
+						message: {
+							role: 'assistant',
+							content: [
+								{ type: 'text', text: 'Hello there' },
+								{
+									type: 'toolCall',
+									id: 'call-1',
+									name: 'Bash',
+									arguments: { command: 'npm test' },
+								},
+							],
+						},
+					} as unknown as SessionEntry,
+				] ),
+				{ isRunning: true, streamingReply: null }
+			)
+		);
+
+		expect( screen.getAllByText( 'Hello there' ) ).toHaveLength( 1 );
+		// Same component: the reveal continues rather than restarting.
+		expect( screen.getByText( 'Hello there' ) ).toBe( streamedNode );
+		expect( screen.queryByText( 'Running command…' ) ).not.toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'Run terminal command' } ) ).toBeInTheDocument();
+	} );
+} );
+
 describe( 'Conversation turn-closed markers', () => {
 	it( 'renders an error marker with the persisted message for errored turns', () => {
 		const items = entriesToRenderItems( [
@@ -938,6 +1045,7 @@ function turnClosedEntry( status: string, errorMessage?: string ): SessionEntry 
 }
 
 interface RenderConversationOptions {
+	streamingReply?: StreamingReply | null;
 	isRunning?: boolean;
 	startedAt?: number | null;
 	pendingQuestions?: Set< string >;
@@ -951,21 +1059,28 @@ function renderConversation( data: LoadedAiSession, options: RenderConversationO
 	const queryClient = new QueryClient( {
 		defaultOptions: { queries: { retry: false } },
 	} );
-	return render(
-		createElement(
-			QueryClientProvider,
-			{ client: queryClient },
-			createElement( Conversation, {
-				data,
-				isRunning: options.isRunning ?? false,
-				startedAt: options.startedAt ?? null,
-				pendingQuestions: options.pendingQuestions ?? new Set< string >(),
-				pendingAnswers: options.pendingAnswers ?? {},
-				freeFormQuestion: options.freeFormQuestion ?? null,
-				onAnswerQuestion: options.onAnswerQuestion ?? vi.fn(),
-				onChooseFreeForm: options.onChooseFreeForm ?? vi.fn(),
-			} )
-		)
+	return render( conversationElement( queryClient, data, options ) );
+}
+
+function conversationElement(
+	queryClient: QueryClient,
+	data: LoadedAiSession,
+	options: RenderConversationOptions = {}
+) {
+	return createElement(
+		QueryClientProvider,
+		{ client: queryClient },
+		createElement( Conversation, {
+			data,
+			streamingReply: options.streamingReply ?? null,
+			isRunning: options.isRunning ?? false,
+			startedAt: options.startedAt ?? null,
+			pendingQuestions: options.pendingQuestions ?? new Set< string >(),
+			pendingAnswers: options.pendingAnswers ?? {},
+			freeFormQuestion: options.freeFormQuestion ?? null,
+			onAnswerQuestion: options.onAnswerQuestion ?? vi.fn(),
+			onChooseFreeForm: options.onChooseFreeForm ?? vi.fn(),
+		} )
 	);
 }
 

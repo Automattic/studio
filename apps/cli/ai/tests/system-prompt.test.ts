@@ -103,11 +103,18 @@ describe( 'buildSystemPrompt', () => {
 		expect( prompt ).not.toContain( '- hidden' );
 	} );
 
-	it( "gives external agents their own intro instead of Studio Code's identity and cadence", () => {
+	it( "gives external agents their own intro instead of Studio Code's identity", () => {
 		const prompt = buildSystemPrompt( { external: true } );
 		expect( prompt ).toContain( 'Edit site files with your own file tools' );
 		expect( prompt ).not.toContain( 'WordPress Studio Code' );
-		expect( prompt ).not.toContain( '## Working cadence' );
+	} );
+
+	it( 'does not limit the agent to one file per turn', () => {
+		for ( const prompt of [ buildSystemPrompt(), buildSystemPrompt( { external: true } ) ] ) {
+			expect( prompt ).not.toContain( 'Working cadence' );
+			expect( prompt ).not.toContain( 'One file per turn' );
+			expect( prompt ).not.toContain( 'only renders complete assistant messages' );
+		}
 	} );
 
 	it( 'describes the screenshot and inspect tools for models without vision', () => {

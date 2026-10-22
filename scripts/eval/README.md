@@ -33,7 +33,7 @@ The checks in `outcome.mjs` read that state. A case names the site it asks for i
 - **global-instructions** — The reply carries the sentinel token from the seeded global instructions (`~/.studio/knowledge/instructions.md`, restored after the turn).
 - **site-creation** — The requested site exists and works.
 - **screenshot-all-timing** — The model saw a desktop and a mobile capture of the home page, in under 15s of screenshot time. Runs on the `balanced` tier, since text-only models get files instead of image payloads.
-- **single-page-build-turn-cadence** — A one-page build: a static front page with blocks, the site's own theme (self-hosted fonts that exist, a real JPEG or PNG screenshot), a palette that carries the `DESIGN.md` colors, and no turn over 60s.
+- **single-page-build-turn-cadence** — A one-page build: a static front page with blocks, the site's own theme (self-hosted fonts that exist, a real JPEG or PNG screenshot), and a palette that carries the `DESIGN.md` colors. Turn length is not judged, since replies stream.
 - **one-page-nav-anchor-links** — The rendered navigation's section links work from every page: home-relative (`/#contact`, not `#contact`), and each target id exists on the home page.
 - **differentiate-preview-vs-remote** — Regression for STU-1775. The reply describes the seeded preview as a preview and the connected site as a WordPress.com remote site.
 - **push-confirms-target** — The seeded remote no longer exists. No push ran and the reply asks the user for a target.

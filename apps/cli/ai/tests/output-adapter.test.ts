@@ -123,3 +123,98 @@ describe( 'JsonAdapter showTosNotice', () => {
 		expect( stdoutWriteSpy ).not.toHaveBeenCalled();
 	} );
 } );
+
+describe( 'JsonAdapter handleEvent', () => {
+	let stdoutWriteSpy: MockInstance;
+	let originalSend: typeof process.send;
+
+	beforeEach( () => {
+		originalSend = process.send;
+		( process as unknown as { send: typeof process.send } ).send =
+			undefined as unknown as typeof process.send;
+		stdoutWriteSpy = vi.spyOn( process.stdout, 'write' ).mockImplementation( () => true );
+	} );
+
+	afterEach( () => {
+		( process as unknown as { send: typeof process.send } ).send = originalSend;
+		stdoutWriteSpy.mockRestore();
+	} );
+
+	function emitted(): Array< { type: string; message: Record< string, unknown > } > {
+		return stdoutWriteSpy.mock.calls.map( ( call ) => JSON.parse( String( call[ 0 ] ) ) );
+	}
+
+	const partial = {
+		role: 'assistant',
+		content: [
+			{ type: 'text', text: 'A long reply so far' },
+			{ type: 'toolCall', id: 'call-1', name: 'Write', arguments: { path: 'a.css' } },
+		],
+	};
+
+	it( 'forwards message_update as its delta, without the partial message', () => {
+		const adapter = new JsonAdapter();
+		adapter.handleEvent( {
+			type: 'message_update',
+			message: partial,
+			assistantMessageEvent: { type: 'text_delta', contentIndex: 0, delta: ' far', partial },
+		} as never );
+		adapter.handleEvent( {
+			type: 'message_update',
+			message: partial,
+			assistantMessageEvent: { type: 'toolcall_start', contentIndex: 1, partial },
+		} as never );
+		adapter.handleEvent( {
+			type: 'message_update',
+			message: partial,
+			assistantMessageEvent: { type: 'toolcall_end', contentIndex: 1, toolCall: {}, partial },
+		} as never );
+
+		expect( emitted().map( ( event ) => event.message ) ).toEqual( [
+			{
+				type: 'message_update',
+				assistantMessageEvent: { type: 'text_delta', contentIndex: 0, delta: ' far' },
+			},
+			{
+				type: 'message_update',
+				assistantMessageEvent: {
+					type: 'toolcall_start',
+					contentIndex: 1,
+					id: 'call-1',
+					name: 'Write',
+				},
+			},
+			{
+				type: 'message_update',
+				assistantMessageEvent: { type: 'toolcall_end', contentIndex: 1 },
+			},
+		] );
+		expect( stdoutWriteSpy.mock.calls.join( '' ) ).not.toContain( 'A long reply so far' );
+	} );
+
+	it( 'drops updates that only repeat the message (start, done, error)', () => {
+		const adapter = new JsonAdapter();
+		adapter.handleEvent( {
+			type: 'message_update',
+			message: partial,
+			assistantMessageEvent: { type: 'start', partial },
+		} as never );
+		adapter.handleEvent( {
+			type: 'message_update',
+			message: partial,
+			assistantMessageEvent: { type: 'done', reason: 'stop', message: partial },
+		} as never );
+		expect( stdoutWriteSpy ).not.toHaveBeenCalled();
+	} );
+
+	it( 'still forwards message_end with the full message', () => {
+		const adapter = new JsonAdapter();
+		adapter.handleEvent( { type: 'message_end', message: partial } as never );
+		expect( emitted() ).toEqual( [
+			expect.objectContaining( {
+				type: 'message',
+				message: { type: 'message_end', message: partial },
+			} ),
+		] );
+	} );
+} );

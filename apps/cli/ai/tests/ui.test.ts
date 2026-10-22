@@ -658,6 +658,114 @@ describe( 'AiChatUI.handleEvent', () => {
 		expect( expanded ).not.toContain( 'earlier lines' );
 	} );
 
+	describe( 'streaming', () => {
+		const streamUpdate = (
+			content: Array< Record< string, unknown > >,
+			assistantMessageEvent: Record< string, unknown >
+		) => {
+			const partial = { role: 'assistant', content };
+			return {
+				type: 'message_update',
+				message: partial,
+				assistantMessageEvent: { ...assistantMessageEvent, partial },
+			};
+		};
+
+		it( 'renders assistant text as it streams and the final message once', () => {
+			const { ui, messages } = makeRenderUi();
+
+			ui.handleEvent(
+				streamUpdate( [ { type: 'text', text: 'Hello' } ], {
+					type: 'text_delta',
+					contentIndex: 0,
+					delta: 'Hello',
+				} )
+			);
+			expect( renderedContainerText( messages ) ).toContain( 'Hello' );
+
+			ui.handleEvent(
+				streamUpdate( [ { type: 'text', text: 'Hello world' } ], {
+					type: 'text_delta',
+					contentIndex: 0,
+					delta: ' world',
+				} )
+			);
+			expect( renderedContainerText( messages ) ).toContain( 'Hello world' );
+
+			ui.handleEvent( {
+				type: 'message_end',
+				message: { role: 'assistant', content: [ { type: 'text', text: 'Hello world!' } ] },
+			} );
+			const rendered = renderedContainerText( messages );
+			expect( rendered.match( /Hello world/g ) ).toHaveLength( 1 );
+			expect( rendered ).toContain( 'Hello world!' );
+		} );
+
+		it( 'shows an in-progress tool row while arguments stream, replaced at message_end', () => {
+			const { ui, messages } = makeRenderUi();
+			const call = { type: 'toolCall', id: 'toolu_write', name: 'Write', arguments: {} };
+
+			ui.handleEvent( streamUpdate( [ call ], { type: 'toolcall_start', contentIndex: 0 } ) );
+			expect( renderedContainerText( messages ) ).toContain( 'Writing file…' );
+
+			ui.handleEvent(
+				streamUpdate( [ call ], {
+					type: 'toolcall_delta',
+					contentIndex: 0,
+					delta: '{"path":"themes/demo/style.css","content":"body {\\n  color: red;\\n',
+				} )
+			);
+			const streaming = renderedContainerText( messages );
+			expect( streaming ).toContain( 'Writing style.css… 3 lines' );
+			// The half-built call is not rendered as a real tool row.
+			expect( messages.children.some( ( child ) => child instanceof ToolExecutionComponent ) ).toBe(
+				false
+			);
+
+			ui.handleEvent( {
+				type: 'message_end',
+				message: {
+					role: 'assistant',
+					content: [
+						{
+							...call,
+							arguments: { path: 'themes/demo/style.css', content: 'body {\n  color: red;\n}' },
+						},
+					],
+				},
+			} );
+			const final = renderedContainerText( messages );
+			expect( final ).not.toContain( 'Writing style.css…' );
+			expect( messages.children ).toHaveLength( 1 );
+			expect( messages.children[ 0 ] ).toBeInstanceOf( ToolExecutionComponent );
+		} );
+
+		it( 'drops in-progress tool rows when the turn ends without a final message', () => {
+			const { ui, messages } = makeRenderUi();
+			Object.assign( ui, { usageCapReached: true } );
+			const call = { type: 'toolCall', id: 'toolu_write', name: 'Write', arguments: {} };
+
+			ui.handleEvent(
+				streamUpdate( [ { type: 'text', text: 'Writing now' }, call ], {
+					type: 'text_delta',
+					contentIndex: 0,
+					delta: 'Writing now',
+				} )
+			);
+			ui.handleEvent(
+				streamUpdate( [ { type: 'text', text: 'Writing now' }, call ], {
+					type: 'toolcall_start',
+					contentIndex: 1,
+				} )
+			);
+			ui.handleEvent( { type: 'agent_end', messages: [] } );
+
+			const rendered = renderedContainerText( messages );
+			expect( rendered ).toContain( 'Writing now' );
+			expect( rendered ).not.toContain( 'Writing file…' );
+		} );
+	} );
+
 	it( 'renders a result at tool_execution_end without duplicating it at turn_end', () => {
 		const { ui, messages } = makeRenderUi( 1000 );
 

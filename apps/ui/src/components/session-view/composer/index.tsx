@@ -4,7 +4,6 @@ import {
 	getComposerAttachmentImageSrc,
 	getComposerAttachmentTextPreview,
 	getComposerAttachmentTypeDescription,
-	getComposerAttachmentTypeLabel,
 	hasComposerAttachmentVisualPreview,
 	watchComposerAttachmentTextScroll,
 	type ComposerAttachmentHoverPreviewState,
@@ -29,24 +28,19 @@ import {
 import { isStudioCustomEntryOfType } from '@studio/common/ai/sessions/entry-types';
 import { getAiSkillCommands, resolveSkillFromPrompt } from '@studio/common/ai/slash-commands';
 import { isAutomatticianEmail } from '@studio/common/lib/automattician';
-import {
-	formatPaidTiersNudge,
-	getAiCreditsMeterIntent,
-	hasPaidAiCredits,
-	persistPaidTiersNudgeDismissed,
-	readPaidTiersNudgeDismissed,
-} from '@studio/common/lib/studio-assistant-quota';
+import { hasPaidAiCredits } from '@studio/common/lib/studio-assistant-quota';
 import { useQueryClient } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
 import {
 	arrowUp,
 	chevronDownSmall,
-	chevronRightSmall,
 	closeSmall,
+	globe,
+	Icon,
 	page,
+	play,
 	plus,
 } from '@wordpress/icons';
-import { Icon, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import {
 	forwardRef,
@@ -58,13 +52,27 @@ import {
 	useRef,
 	useState,
 	type ChangeEvent,
-	type KeyboardEvent,
 	type MouseEvent,
-	type PointerEvent,
+	type ReactElement,
+	type SVGProps,
 } from 'react';
 import { createPortal } from 'react-dom';
 import { AiCreditsPurchaseDialog } from '@/components/ai-credits-purchase-dialog';
-import * as Menu from '@/components/menu';
+import {
+	getStagedAnnotations,
+	isStagedAnnotation,
+	removeAnnotations,
+	useSiteAnnotations,
+} from '@/components/annotations/store';
+import {
+	annotationSubmission,
+	getAnnotationsAttachment,
+} from '@/components/annotations/submission';
+import { Button } from '@/components/ui/button';
+import { InputGroup, InputGroupTextarea } from '@/components/ui/input-group';
+import * as Menu from '@/components/ui/menu';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { useAiSettings } from '@/data/queries/use-ai-settings';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
@@ -76,16 +84,20 @@ import {
 	SESSIONS_QUERY_KEY,
 } from '@/data/queries/use-sessions';
 import { useStudioAssistantTopUpPricing } from '@/data/queries/use-top-up-pricing';
+import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useAddAiCreditsUrl } from '@/hooks/use-add-ai-credits-url';
 import { useAiCreditsMeter } from '@/hooks/use-ai-credits-meter';
-import { AiCreditsControl } from './ai-credits-control';
-import { AiCreditsWarningStrip } from './ai-credits-warning-strip';
-import { clearComposerDraft, getComposerDraft, saveComposerDraft } from './draft-store';
+import { useIsOutOfAiCredits } from '@/hooks/use-is-out-of-ai-credits';
+import { useOpenSettings } from '@/hooks/use-open-settings';
+import { annotationIcon } from '@/lib/icons';
+import { isImeComposing } from '@/lib/is-ime-composing';
+import { completeComposerDraftSend, getComposerDraft, saveComposerDraft } from './draft-store';
 import { FamilySwitchConfirmDialog } from './family-switch-confirm-dialog';
 import styles from './style.module.css';
 import {
 	toComposerSendAttachments,
 	useComposerAttachments,
+	useFileDrop,
 	type ComposerAttachment,
 	type ComposerSendAttachments,
 } from './use-composer-attachments';
@@ -96,15 +108,8 @@ import type {
 	SessionEntry,
 	StudioChatFileAttachment,
 	StudioChatImage,
+	StudioVisualAnnotationSummary,
 } from '@/data/core';
-
-const COMPOSER_TEXTAREA_MIN_HEIGHT = 48;
-const COMPOSER_TEXTAREA_MIN_MAX_HEIGHT = 180;
-const COMPOSER_TEXTAREA_MAX_HEIGHT = 320;
-const COMPOSER_TEXTAREA_MAX_VIEWPORT_RATIO = 0.4;
-const COMPOSER_TEXTAREA_MANUAL_MAX_HEIGHT = 560;
-const COMPOSER_TEXTAREA_MANUAL_MAX_VIEWPORT_RATIO = 0.7;
-const COMPOSER_TEXTAREA_RESIZE_STEP = 16;
 
 function AttachmentHoverTextPreview( { text }: { text: string } ) {
 	const viewportRef = useRef< HTMLDivElement | null >( null );
@@ -123,44 +128,13 @@ function AttachmentHoverTextPreview( { text }: { text: string } ) {
 	);
 }
 
-function renderAttachmentVisual(
-	attachment: ComposerAttachment,
-	variant: 'tile' | 'hover',
-	fallbackTypeLabel: string,
-	imageAlt = ''
-) {
-	const isHover = variant === 'hover';
-	const imageClassName = isHover ? styles.attachmentHoverImage : styles.attachmentPreviewImage;
-	const imageProps = imageAlt ? { alt: imageAlt } : { alt: '', 'aria-hidden': true };
+function renderAttachmentHoverVisual( attachment: ComposerAttachment ) {
 	const imageSrc = getComposerAttachmentImageSrc( attachment );
-
 	if ( imageSrc ) {
-		return <img className={ imageClassName } src={ imageSrc } { ...imageProps } />;
+		return <img className={ styles.attachmentHoverImage } src={ imageSrc } alt="" />;
 	}
-
 	const textPreview = getComposerAttachmentTextPreview( attachment );
-	if ( textPreview ) {
-		if ( isHover ) {
-			return <AttachmentHoverTextPreview text={ textPreview } />;
-		}
-
-		return (
-			<pre className={ styles.attachmentPreviewText } aria-hidden="true">
-				{ textPreview }
-			</pre>
-		);
-	}
-
-	return (
-		<span className={ styles.attachmentPreviewFallback } aria-hidden="true">
-			<Icon icon={ page } size={ 18 } />
-			<span>{ getComposerAttachmentTypeLabel( attachment.name, fallbackTypeLabel ) }</span>
-		</span>
-	);
-}
-
-function getAttachmentDetailsId( attachmentId: string ): string {
-	return `composer-attachment-details-${ attachmentId }`;
+	return textPreview ? <AttachmentHoverTextPreview text={ textPreview } /> : null;
 }
 
 function formatSkillLabel( name: string ): string {
@@ -168,6 +142,21 @@ function formatSkillLabel( name: string ): string {
 		.split( '-' )
 		.map( ( word ) => word.charAt( 0 ).toUpperCase() + word.slice( 1 ) )
 		.join( ' ' );
+}
+
+function getModelDescription( id: AiModelId ): string {
+	switch ( id ) {
+		case 'fast':
+			return __( 'Quick fixes and questions' );
+		case 'balanced':
+		case 'claude-sonnet-5':
+			return __( 'Build features, style pages, and fix bugs' );
+		case 'strong':
+		case 'claude-opus-5':
+			return __( 'Plan complex builds and solve harder problems' );
+		default:
+			return '';
+	}
 }
 
 function toComposerDraftAttachments( {
@@ -202,7 +191,7 @@ function toComposerDraftAttachments( {
 }
 
 // Optimistic mirror of the `studio.session_context` entry the backend appends
-// for a provider switch, so the pill updates before the write lands.
+// for a provider switch, so the picker updates before the write lands.
 function createSessionContextEntry( provider: AiProviderId, model: AiModelId ): SessionEntry {
 	return {
 		type: 'custom',
@@ -220,19 +209,57 @@ const AI_PROVIDER_OPTIONS = UI_AI_PROVIDER_IDS.map( ( id ) => ( {
 	label: AI_PROVIDER_LABELS[ id ],
 } ) );
 
+// A blocked send shakes the notice, then holds it in the error color briefly.
+const SUBMIT_SHAKE_MS = 240;
+const SUBMIT_FEEDBACK_MS = 900;
+
+// A mode the composer is in; hovering offers to remove it.
+function ModeChip( {
+	icon,
+	label,
+	onRemove,
+}: {
+	icon: ReactElement< SVGProps< SVGSVGElement > >;
+	label: string;
+	onRemove: () => void;
+} ) {
+	const removeLabel = sprintf(
+		/* translators: %s: name of a composer mode, e.g. "Auto-start". */
+		__( 'Remove %s' ),
+		label
+	);
+	return (
+		<Tooltip>
+			<TooltipTrigger
+				render={
+					<button
+						type="button"
+						className={ styles.modeChip }
+						aria-label={ removeLabel }
+						onClick={ onRemove }
+					/>
+				}
+			>
+				<Icon icon={ icon } size={ 16 } className={ styles.modeChipIcon } />
+				<Icon icon={ closeSmall } size={ 16 } className={ styles.modeChipRemove } />
+				<span>{ label }</span>
+			</TooltipTrigger>
+			<TooltipContent>{ removeLabel }</TooltipContent>
+		</Tooltip>
+	);
+}
+
 /**
- * Invisible structural placeholder that mirrors Composer's outer DOM (shell +
- * textarea + toolbar) so the loading state can reserve the exact same vertical
- * space without rendering a visible composer. Heights track the real composer's
- * CSS automatically — no magic numbers that drift when the composer changes.
+ * Invisible structural placeholder that mirrors Composer's outer DOM, so the
+ * loading state reserves the same vertical space without a visible composer.
  */
 export function ComposerSkeleton() {
 	return (
 		<div className={ styles.root } style={ { visibility: 'hidden' } } aria-hidden="true">
 			<div className={ styles.shell }>
-				<textarea className={ styles.input } rows={ 2 } disabled tabIndex={ -1 } />
+				<textarea className={ styles.input } rows={ 1 } disabled tabIndex={ -1 } />
 				<div className={ styles.toolbar }>
-					<span className={ styles.pill } />
+					<span className={ styles.controlButton } />
 				</div>
 			</div>
 		</div>
@@ -244,13 +271,15 @@ interface ComposerProps {
 	// The agent is blocked on `ask_user`. Sending answers the question it is
 	// waiting on, so this is a send, not a queue.
 	awaitingAnswer?: boolean;
-	// Blocks sending and queueing while leaving the rest of the composer alone,
-	// so a run already in flight keeps its Stop control.
-	canSubmit?: boolean;
 	isInterrupting?: boolean;
-	error: string | null;
 	model: SelectedModelId;
-	onSend: ( prompt: string, attachments?: ComposerSendAttachments ) => Promise< void >;
+	onSend: (
+		prompt: string,
+		options?: ComposerSendAttachments & {
+			displayMessage?: string;
+			visualAnnotations?: StudioVisualAnnotationSummary[];
+		}
+	) => Promise< void >;
 	onAnswer?: ( answer: string ) => void;
 	onInterrupt: () => Promise< void >;
 	sessionId?: string;
@@ -266,6 +295,18 @@ interface ComposerProps {
 	// `getSubmission()` — no Send/Stop control, Enter inserts a newline.
 	variant?: 'chat' | 'field';
 	placeholder?: string;
+	// The placeholder describes work in progress (e.g. the site starting).
+	placeholderBusy?: boolean;
+	// Offers the auto-start preference, for a chat on a local site.
+	canAutoStart?: boolean;
+	// The site the chat works on, and the connected live site it can switch to.
+	environment?: 'local' | 'live';
+	liveUrl?: string;
+	onEnvironmentChange?: ( environment: 'local' | 'live' ) => void;
+	// Where files can be dropped; the composer itself when absent.
+	dropTarget?: HTMLElement | null;
+	// The site whose preview annotations go out with the next message.
+	annotationSiteId?: string;
 	onModelChange?: ( model: AiModelId ) => void;
 }
 
@@ -282,14 +323,11 @@ export interface ComposerHandle {
 		options?: {
 			images?: StudioChatImage[];
 			files?: StudioChatFileAttachment[];
-			suggestionBaseline?: string;
 		}
 	): void;
-	// What replaceDraft would discard — lets callers decide whether the
-	// replacement warrants a confirmation.
-	getDraft(): { text: string; hasAttachments: boolean; suggestionBaseline: string | null };
 	getSubmission(): { prompt: string; attachments: ComposerSendAttachments } | null;
 	focus(): void;
+	send(): Promise< void >;
 }
 
 function focusAtEnd( node: HTMLTextAreaElement | null ) {
@@ -306,58 +344,15 @@ function shouldShellFocusTextarea( target: EventTarget ) {
 		return true;
 	}
 	return ! target.closest(
-		'button, input, textarea, select, a, [role="button"], [role="menuitem"], [role="separator"]'
+		'button, input, textarea, select, a, [role="button"], [role="menuitem"]'
 	);
-}
-
-function getComposerTextareaMaxHeight( isManual = false ) {
-	const viewportHeight = window.visualViewport?.height ?? window.innerHeight;
-	const maxHeight = isManual ? COMPOSER_TEXTAREA_MANUAL_MAX_HEIGHT : COMPOSER_TEXTAREA_MAX_HEIGHT;
-	const viewportRatio = isManual
-		? COMPOSER_TEXTAREA_MANUAL_MAX_VIEWPORT_RATIO
-		: COMPOSER_TEXTAREA_MAX_VIEWPORT_RATIO;
-
-	if ( ! Number.isFinite( viewportHeight ) || viewportHeight <= 0 ) {
-		return maxHeight;
-	}
-
-	return Math.min(
-		maxHeight,
-		Math.max( COMPOSER_TEXTAREA_MIN_MAX_HEIGHT, Math.floor( viewportHeight * viewportRatio ) )
-	);
-}
-
-function clampComposerTextareaHeight( height: number, isManual = true ) {
-	return Math.min(
-		Math.max( height, COMPOSER_TEXTAREA_MIN_HEIGHT ),
-		getComposerTextareaMaxHeight( isManual )
-	);
-}
-
-function resizeComposerTextarea(
-	node: HTMLTextAreaElement | null,
-	manualHeight: number | null = null
-) {
-	if ( ! node ) {
-		return null;
-	}
-	node.style.height = 'auto';
-	const nextHeight =
-		manualHeight === null
-			? clampComposerTextareaHeight( node.scrollHeight, false )
-			: clampComposerTextareaHeight( manualHeight, true );
-	node.style.height = `${ nextHeight }px`;
-	node.style.overflowY = node.scrollHeight > nextHeight ? 'auto' : 'hidden';
-	return nextHeight;
 }
 
 const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function ComposerContent(
 	{
 		busy,
 		awaitingAnswer = false,
-		canSubmit = true,
 		isInterrupting = false,
-		error,
 		model,
 		onSend,
 		onAnswer,
@@ -369,6 +364,13 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		autoFocus = false,
 		variant = 'chat',
 		placeholder: placeholderOverride,
+		placeholderBusy = false,
+		canAutoStart = false,
+		environment = 'local',
+		liveUrl,
+		onEnvironmentChange,
+		dropTarget,
+		annotationSiteId,
 		onModelChange,
 	},
 	ref
@@ -376,21 +378,18 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 	const isField = variant === 'field';
 	const [ initialDraft ] = useState( () => getComposerDraft( sessionId ) );
 	const [ value, setValue ] = useState( initialDraft.text );
-	const [ suggestionBaseline, setSuggestionBaseline ] = useState( initialDraft.suggestionBaseline );
-	const [ placeholderIndex, setPlaceholderIndex ] = useState( 0 );
+	const [ sending, setSending ] = useState( false );
+	const [ submitFeedback, setSubmitFeedback ] = useState< 'shake' | 'error' | null >( null );
 	const [ hoverPreview, setHoverPreview ] = useState< ComposerAttachmentHoverPreviewState | null >(
 		null
 	);
-	const [ manualTextareaHeight, setManualTextareaHeight ] = useState< number | null >( null );
-	const [ textareaHeight, setTextareaHeight ] = useState( COMPOSER_TEXTAREA_MIN_HEIGHT );
-	const [ isResizingComposer, setIsResizingComposer ] = useState( false );
+	const [ shellNode, setShellNode ] = useState< HTMLDivElement | null >( null );
 	const textareaRef = useRef< HTMLTextAreaElement | null >( null );
 	const fileInputRef = useRef< HTMLInputElement | null >( null );
 	const draftEffectInitializedRef = useRef( false );
-	const manualTextareaHeightRef = useRef< number | null >( null );
-	const resizeDragRef = useRef< { startY: number; startHeight: number } | null >( null );
 	const connector = useConnector();
 	const queryClient = useQueryClient();
+	const openSettings = useOpenSettings();
 
 	const { data: aiSettings } = useAiSettings();
 	const sessionProvider = useMemo(
@@ -402,17 +401,6 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 	const canPickProvider = Boolean(
 		aiSettings?.hasAnthropicApiKey && sessionId && isUiSelectableProvider( sessionProvider )
 	);
-	// Short badge so the pill names what the conversation actually runs on
-	// rather than showing a bare model name for every provider.
-	const providerPillPrefix = useMemo( () => {
-		if ( sessionProvider === 'anthropic-api-key' ) {
-			return __( 'API' );
-		}
-		if ( sessionProvider === 'openai-compatible' ) {
-			return __( 'Local' );
-		}
-		return null;
-	}, [ sessionProvider ] );
 
 	// Only offer models the conversation's provider can serve. The paid tiers
 	// are listed but disabled for accounts without purchased credits;
@@ -425,27 +413,11 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		( id: AiModelId ) => aiModelRequiresPaidCredits( id ) && ! canUsePaidTiers,
 		[ canUsePaidTiers ]
 	);
-	const hasLockedModels = offeredModels.some( ( { id } ) => isModelLocked( id ) );
-
-	// Nudge free-allowance accounts toward the paid tiers: a footer in the
-	// model picker plus a dismissible line above the prompt. Never shown while
-	// the quota is still loading, nor from 80% usage — the warning ladder
-	// carries the same CTA with more urgency.
-	const [ paidTiersNudgeDismissed, setPaidTiersNudgeDismissed ] = useState(
-		readPaidTiersNudgeDismissed
-	);
-	const dismissPaidTiersNudge = () => {
-		setPaidTiersNudgeDismissed( true );
-		persistPaidTiersNudgeDismissed();
-	};
 	const creditsMeter = useAiCreditsMeter();
-	const usageWarningActive =
-		!! creditsMeter && getAiCreditsMeterIntent( creditsMeter.fraction ) !== 'ok';
-	const showPaidTiersNudge =
-		Boolean( quota ) && hasLockedModels && ! paidTiersNudgeDismissed && ! usageWarningActive;
+	const isOutOfCredits = useIsOutOfAiCredits() && ! isField;
 
-	// Mirrors AiCreditsControl: the chooser when priced options exist, else
-	// straight to checkout for the single fixed top-up.
+	// The chooser when priced options exist, else straight to checkout for the
+	// single fixed top-up.
 	const addAiCreditsUrl = useAddAiCreditsUrl();
 	const { data: topUpPricing } = useStudioAssistantTopUpPricing();
 	const [ creditsPurchaseOpen, setCreditsPurchaseOpen ] = useState( false );
@@ -457,34 +429,63 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		void connector.openExternalUrl( addAiCreditsUrl );
 	};
 
+	const { data: preferences } = useUserPreferences();
+	const savePreferences = useSaveUserPreferences();
+	const autoStartOn = canAutoStart && preferences?.autoStartSiteOnChat === true;
+	const setAutoStart = ( autoStartSiteOnChat: boolean ) =>
+		savePreferences.mutate( { autoStartSiteOnChat } );
+
 	const slash = useSlashCommands( {
 		value,
 		setValue,
 		textareaRef,
 	} );
 
-	// File/image attachments (attach button + drag-and-drop). Images ride as
+	// File/image attachments (attach button, drop and paste). Images ride as
 	// base64 content blocks; other files are referenced by disk path.
 	const {
 		attachments,
-		error: attachmentError,
-		isDraggingOver,
 		addFiles,
 		removeAttachment,
-		clear: clearAttachments,
+		removeAttachments,
 		restore: restoreAttachments,
-		dragHandlers,
 		pasteHandlers,
 	} = useComposerAttachments( initialDraft.attachments, awaitingAnswer );
 	const hasAttachments = attachments.length > 0;
+	const { notes } = useSiteAnnotations( annotationSiteId );
+	const stagedNotes = useMemo( () => notes.filter( isStagedAnnotation ), [ notes ] );
+	const annotationsAttachment = stagedNotes.length ? getAnnotationsAttachment( stagedNotes ) : null;
+	const shownAttachments = annotationsAttachment
+		? [ annotationsAttachment, ...attachments ]
+		: attachments;
+	const dropFiles = useCallback(
+		( files: FileList ) => {
+			void addFiles( files );
+			textareaRef.current?.focus();
+		},
+		[ addFiles ]
+	);
+	const fileDropTarget = dropTarget ?? shellNode;
+	const isDraggingFiles = useFileDrop( fileDropTarget, dropFiles );
 
 	useEffect( () => {
 		if ( draftEffectInitializedRef.current ) {
-			saveComposerDraft( sessionId, { text: value, attachments, suggestionBaseline } );
+			saveComposerDraft( sessionId, { text: value, attachments } );
 		} else {
 			draftEffectInitializedRef.current = true;
 		}
-	}, [ attachments, sessionId, suggestionBaseline, value ] );
+	}, [ attachments, sessionId, value ] );
+
+	useEffect( () => {
+		if ( submitFeedback === null ) {
+			return;
+		}
+		const timer = window.setTimeout(
+			() => setSubmitFeedback( submitFeedback === 'shake' ? 'error' : null ),
+			submitFeedback === 'shake' ? SUBMIT_SHAKE_MS : SUBMIT_FEEDBACK_MS - SUBMIT_SHAKE_MS
+		);
+		return () => window.clearTimeout( timer );
+	}, [ submitFeedback ] );
 
 	// Cross-family swap state. We hold the picked model (and provider, when
 	// the swap came from the provider picker) here while the confirmation
@@ -494,13 +495,6 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		provider?: AiProviderId;
 	} | null >( null );
 	const [ familySwitchInFlight, setFamilySwitchInFlight ] = useState( false );
-
-	const setComposerManualTextareaHeight = useCallback( ( height: number | null ) => {
-		const nextHeight = height === null ? null : clampComposerTextareaHeight( height, true );
-		manualTextareaHeightRef.current = nextHeight;
-		setManualTextareaHeight( nextHeight );
-		return nextHeight;
-	}, [] );
 
 	useEffect( () => {
 		if ( autoFocus ) {
@@ -515,28 +509,75 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		} );
 	}, [ addFiles ] );
 
-	useLayoutEffect( () => {
-		const nextHeight = resizeComposerTextarea( textareaRef.current, manualTextareaHeight );
-		if ( nextHeight !== null ) {
-			setTextareaHeight( ( current ) => ( current === nextHeight ? current : nextHeight ) );
-		}
-	}, [ manualTextareaHeight, value, hasAttachments ] );
+	const answerQuestion =
+		onAnswer && ! hasAttachments && ! resolveSkillFromPrompt( value ) ? onAnswer : undefined;
+	// Notes wait for the agent to finish: they point at the page as it is now.
+	const hasContent =
+		value.trim().length > 0 || hasAttachments || ( ! busy && stagedNotes.length > 0 );
 
-	useEffect( () => {
-		const handleViewportResize = () => {
-			const nextManualHeight = setComposerManualTextareaHeight( manualTextareaHeightRef.current );
-			const nextHeight = resizeComposerTextarea( textareaRef.current, nextManualHeight );
-			if ( nextHeight !== null ) {
-				setTextareaHeight( ( current ) => ( current === nextHeight ? current : nextHeight ) );
-			}
-		};
-		window.addEventListener( 'resize', handleViewportResize );
-		window.visualViewport?.addEventListener( 'resize', handleViewportResize );
-		return () => {
-			window.removeEventListener( 'resize', handleViewportResize );
-			window.visualViewport?.removeEventListener( 'resize', handleViewportResize );
-		};
-	}, [ setComposerManualTextareaHeight ] );
+	const send = useCallback( async () => {
+		const trimmed = value.trim();
+		// Read at send time: the preview may have staged notes a moment ago.
+		const sentNotes = busy ? [] : getStagedAnnotations( annotationSiteId );
+		if ( sending || ( ! trimmed && attachments.length === 0 && sentNotes.length === 0 ) ) {
+			return;
+		}
+		if ( isOutOfCredits ) {
+			setSubmitFeedback( 'shake' );
+			return;
+		}
+		if ( answerQuestion && trimmed ) {
+			setValue( '' );
+			answerQuestion( trimmed );
+			return;
+		}
+		let submission;
+		try {
+			submission = sentNotes.length
+				? annotationSubmission( trimmed, attachments, sentNotes )
+				: {
+						prompt: trimmed || __( 'Please review the attached files.' ),
+						options: toComposerSendAttachments( attachments ),
+				  };
+		} catch ( error ) {
+			toast.error( ( error as Error ).message );
+			return;
+		}
+		// The draft stays editable until the send is accepted; only then is what
+		// was sent removed, keeping anything typed or attached in the meantime.
+		const sentIds = new Set( attachments.map( ( item ) => item.id ) );
+		setSending( true );
+		try {
+			await onSend( submission.prompt, submission.options );
+		} catch {
+			// The parent reports the failure in a toast; the draft is untouched.
+			return;
+		} finally {
+			setSending( false );
+		}
+		completeComposerDraftSend( sessionId, trimmed, sentIds );
+		if ( ( textareaRef.current?.value ?? '' ).trim() === trimmed ) {
+			setValue( '' );
+		}
+		removeAttachments( sentIds );
+		if ( annotationSiteId && sentNotes.length ) {
+			removeAnnotations(
+				annotationSiteId,
+				sentNotes.map( ( note ) => note.id )
+			);
+		}
+	}, [
+		value,
+		sending,
+		attachments,
+		busy,
+		isOutOfCredits,
+		answerQuestion,
+		onSend,
+		sessionId,
+		removeAttachments,
+		annotationSiteId,
+	] );
 
 	useImperativeHandle(
 		ref,
@@ -552,12 +593,8 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 			},
 			replaceDraft( text, options ) {
 				setValue( text );
-				setSuggestionBaseline( options?.suggestionBaseline ?? null );
 				restoreAttachments( toComposerDraftAttachments( options ?? {} ) );
 				queueMicrotask( () => focusAtEnd( textareaRef.current ) );
-			},
-			getDraft() {
-				return { text: value, hasAttachments: attachments.length > 0, suggestionBaseline };
 			},
 			getSubmission() {
 				const prompt = value.trim();
@@ -567,68 +604,10 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 			focus() {
 				focusAtEnd( textareaRef.current );
 			},
+			send,
 		} ),
-		[ restoreAttachments, value, attachments, suggestionBaseline ]
+		[ restoreAttachments, value, attachments, send ]
 	);
-
-	const answerQuestion =
-		onAnswer && ! hasAttachments && ! resolveSkillFromPrompt( value ) ? onAnswer : undefined;
-
-	const send = useCallback( async () => {
-		// Guarded here as well as on the button: Enter reaches this directly, and
-		// while busy a send becomes a queued prompt that would dispatch later.
-		if ( ! canSubmit ) {
-			return;
-		}
-		const trimmed = value.trim();
-		// Allow sending attachments on their own; fall back to a minimal prompt so
-		// the backend (which requires a non-empty message) still has one.
-		if ( ! trimmed && attachments.length === 0 ) {
-			return;
-		}
-		const prompt = trimmed || __( 'Please review the attached files.' );
-		const sentAttachments = attachments;
-		const sentSuggestionBaseline = suggestionBaseline;
-		clearComposerDraft( sessionId );
-		setValue( '' );
-		setSuggestionBaseline( null );
-		clearAttachments();
-		// A send is the only thing that swaps the suggestion; it is static
-		// otherwise, so the empty composer never changes under the user.
-		setPlaceholderIndex( ( current ) => current + 1 );
-		if ( answerQuestion ) {
-			answerQuestion( trimmed );
-			return;
-		}
-		try {
-			await onSend( prompt, toComposerSendAttachments( sentAttachments ) );
-		} catch {
-			// Restore the draft and attachments so the user can retry; the parent
-			// surfaces the error message via `error`. Queued sends never throw from
-			// onSend (the parent swallows the failure and clears the queue instead),
-			// so this path only trips for direct sends from the idle state.
-			// Saved directly (not left to the state-sync effect) so the retry isn't
-			// lost if the user already switched away from this session.
-			saveComposerDraft( sessionId, {
-				text: trimmed,
-				attachments: sentAttachments,
-				suggestionBaseline: sentSuggestionBaseline,
-			} );
-			setValue( trimmed );
-			setSuggestionBaseline( sentSuggestionBaseline );
-			restoreAttachments( sentAttachments );
-		}
-	}, [
-		canSubmit,
-		value,
-		attachments,
-		suggestionBaseline,
-		clearAttachments,
-		restoreAttachments,
-		onSend,
-		answerQuestion,
-		sessionId,
-	] );
 
 	const openFilePicker = useCallback( () => {
 		fileInputRef.current?.click();
@@ -641,78 +620,6 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		event.preventDefault();
 		textareaRef.current?.focus();
 	}, [] );
-
-	const startComposerResize = useCallback(
-		( event: PointerEvent< HTMLDivElement > ) => {
-			if ( event.pointerType === 'mouse' && event.button !== 0 ) {
-				return;
-			}
-			event.preventDefault();
-			const startHeight = textareaRef.current?.getBoundingClientRect().height ?? textareaHeight;
-			resizeDragRef.current = {
-				startY: event.clientY,
-				startHeight,
-			};
-			setIsResizingComposer( true );
-			setComposerManualTextareaHeight( startHeight );
-			if ( typeof event.currentTarget.setPointerCapture === 'function' ) {
-				event.currentTarget.setPointerCapture( event.pointerId );
-			}
-		},
-		[ setComposerManualTextareaHeight, textareaHeight ]
-	);
-
-	const updateComposerResize = useCallback(
-		( event: PointerEvent< HTMLDivElement > ) => {
-			const drag = resizeDragRef.current;
-			if ( ! drag ) {
-				return;
-			}
-			event.preventDefault();
-			setComposerManualTextareaHeight( drag.startHeight + drag.startY - event.clientY );
-		},
-		[ setComposerManualTextareaHeight ]
-	);
-
-	const finishComposerResize = useCallback( ( event: PointerEvent< HTMLDivElement > ) => {
-		if ( ! resizeDragRef.current ) {
-			return;
-		}
-		resizeDragRef.current = null;
-		setIsResizingComposer( false );
-		if (
-			typeof event.currentTarget.releasePointerCapture === 'function' &&
-			typeof event.currentTarget.hasPointerCapture === 'function' &&
-			event.currentTarget.hasPointerCapture( event.pointerId )
-		) {
-			event.currentTarget.releasePointerCapture( event.pointerId );
-		}
-	}, [] );
-
-	const handleComposerResizeKeyDown = useCallback(
-		( event: KeyboardEvent< HTMLDivElement > ) => {
-			const currentHeight = textareaRef.current?.getBoundingClientRect().height ?? textareaHeight;
-			let nextHeight: number | null = null;
-
-			if ( event.key === 'ArrowUp' ) {
-				nextHeight = currentHeight + COMPOSER_TEXTAREA_RESIZE_STEP;
-			} else if ( event.key === 'ArrowDown' ) {
-				nextHeight = currentHeight - COMPOSER_TEXTAREA_RESIZE_STEP;
-			} else if ( event.key === 'Home' ) {
-				nextHeight = COMPOSER_TEXTAREA_MIN_HEIGHT;
-			} else if ( event.key === 'End' ) {
-				nextHeight = getComposerTextareaMaxHeight( true );
-			}
-
-			if ( nextHeight === null ) {
-				return;
-			}
-
-			event.preventDefault();
-			setComposerManualTextareaHeight( nextHeight );
-		},
-		[ setComposerManualTextareaHeight, textareaHeight ]
-	);
 
 	const onFileInputChange = useCallback(
 		( event: ChangeEvent< HTMLInputElement > ) => {
@@ -863,207 +770,153 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		}
 	}, [ connector, onSwitchSession, ownerSiteId, pendingFamilyChange, queryClient ] );
 
-	const canSend = canSubmit && ( value.trim().length > 0 || attachments.length > 0 );
-	const placeholderOptions = busy
-		? [
-				__( 'Queue the next message while I work…' ),
-				__( 'Type a follow-up and I’ll send it next…' ),
-				__( 'Add the next step to the queue…' ),
-		  ]
-		: [
-				__( 'What should we make better?' ),
-				__( 'What’s the next move?' ),
-				__( 'Tell me what to change next…' ),
-				__( 'Drop the next idea here…' ),
-				__( 'What are we tuning now?' ),
-		  ];
-	const placeholder =
-		placeholderOverride ??
-		( answerQuestion
-			? __( 'Or type your own answer…' )
-			: placeholderOptions[ placeholderIndex % placeholderOptions.length ] );
-	const showPlaceholderText = value.length === 0;
-	const composerResizeMaxHeight = getComposerTextareaMaxHeight( true );
-	const sendAriaLabel = answerQuestion ? __( 'Answer' ) : busy ? __( 'Queue' ) : __( 'Send' );
-	const sendShortcutLabel = __( 'Return to send' );
-	const addLabel = isField ? __( 'Upload attachment' ) : __( 'Add skill or attachment' );
+	const showStop = ! isField && busy && ( sending || ! hasContent );
+	const canSend = hasContent && ! sending;
+	const placeholder = answerQuestion
+		? __( 'Your answer' )
+		: placeholderOverride ??
+		  /* translators: %s: the product name. */
+		  sprintf( __( 'Work with %s' ), 'WordPress Studio' );
+	const sendLabel = answerQuestion
+		? __( 'Send answer' )
+		: busy
+		? __( 'Queue message' )
+		: __( 'Send message' );
+	const stopLabel = isInterrupting ? __( 'Force stop' ) : __( 'Stop response' );
+	const addLabel = isField ? __( 'Upload attachment' ) : __( 'Add' );
+	const modelLabel = getAiModelLabel( model );
+	const modelDetails = [ modelLabel, AI_PROVIDER_LABELS[ sessionProvider ] ];
+	if ( creditsMeter && creditsMeter.totalCredits > 0 ) {
+		modelDetails.push(
+			sprintf(
+				/* translators: %d: percentage of AI credits left. */
+				__( 'AI credits: %d%% remaining' ),
+				Math.round( ( creditsMeter.remainingCredits / creditsMeter.totalCredits ) * 100 )
+			)
+		);
+	}
+	const hoveredAttachment = hoverPreview
+		? shownAttachments.find( ( attachment ) => attachment.id === hoverPreview.id )
+		: undefined;
+
 	const addButton = (
-		<Tooltip.Trigger
+		<TooltipTrigger
 			render={
 				<button
 					type="button"
-					className={ styles.iconButton }
+					className={ styles.controlButton }
 					aria-label={ addLabel }
 					onClick={ isField ? openFilePicker : undefined }
 				/>
 			}
 		>
 			<Icon icon={ plus } size={ 16 } />
-		</Tooltip.Trigger>
+		</TooltipTrigger>
 	);
-	const composerError = attachmentError ?? error;
-	const stopTooltipLabel = isInterrupting
-		? __( 'Stopping… click again to force stop' )
-		: __( 'Stop' );
-	const hoveredAttachment = hoverPreview
-		? attachments.find( ( attachment ) => attachment.id === hoverPreview.id )
-		: undefined;
-	const hoveredAttachmentSizeLabel = hoveredAttachment
-		? formatComposerAttachmentSize( hoveredAttachment.size )
-		: '';
-	const fallbackAttachmentTypeLabel = __( 'FILE' );
-	const fallbackAttachmentTypeDescription = __( 'File' );
-	const hoveredAttachmentTypeLabel = hoveredAttachment
-		? getComposerAttachmentTypeDescription( hoveredAttachment, fallbackAttachmentTypeDescription )
-		: '';
-	const hoveredAttachmentHasVisualPreview = hoveredAttachment
-		? hasComposerAttachmentVisualPreview( hoveredAttachment )
-		: false;
 
 	return (
 		<>
 			<div className={ styles.root }>
-				{ showPaidTiersNudge ? (
-					<div className={ styles.paidTiersNudge }>
-						<span>{ formatPaidTiersNudge() }</span>
-						<button
-							type="button"
-							className={ styles.paidTiersNudgeAction }
-							onClick={ openAddCredits }
+				{ isOutOfCredits ? (
+					<div
+						className={ styles.notice }
+						role="alert"
+						data-feedback={ submitFeedback ?? undefined }
+					>
+						<div
+							className={ styles.noticeContent }
+							data-submit-feedback={ submitFeedback ?? undefined }
 						>
-							{ __( 'Add credits' ) }
-						</button>
-						<button
-							type="button"
-							className={ styles.paidTiersNudgeDismiss }
-							onClick={ dismissPaidTiersNudge }
-							aria-label={ __( 'Dismiss' ) }
-						>
-							<Icon icon={ closeSmall } size={ 16 } />
-						</button>
+							<span className={ styles.noticeMessage }>
+								{ __( 'Add AI credits to send another message.' ) }
+							</span>
+							<Button
+								size="composer-notice"
+								shape="round"
+								variant={ submitFeedback ? 'destructive' : 'default' }
+								onClick={ openAddCredits }
+							>
+								{ __( 'Add credits' ) }
+							</Button>
+						</div>
 					</div>
 				) : null }
-				<div
+				<InputGroup
+					ref={ setShellNode }
+					variant="composer"
 					data-session-composer
-					className={ clsx(
-						styles.shell,
-						isField && styles.shellField,
-						isDraggingOver && styles.shellDragging,
-						isResizingComposer && styles.shellResizing
-					) }
+					className={ clsx( styles.shell, isField && styles.shellField ) }
 					onMouseDown={ focusTextareaFromShell }
-					onDragOver={ dragHandlers.onDragOver }
-					onDragLeave={ dragHandlers.onDragLeave }
-					onDrop={ dragHandlers.onDrop }
 				>
-					<AiCreditsWarningStrip />
-					<div
-						className={ styles.resizeHandle }
-						role="separator"
-						aria-orientation="horizontal"
-						aria-label={ __( 'Resize composer' ) }
-						aria-valuemin={ COMPOSER_TEXTAREA_MIN_HEIGHT }
-						aria-valuemax={ composerResizeMaxHeight }
-						aria-valuenow={ Math.round( textareaHeight ) }
-						tabIndex={ 0 }
-						onPointerDown={ startComposerResize }
-						onPointerMove={ updateComposerResize }
-						onPointerUp={ finishComposerResize }
-						onPointerCancel={ finishComposerResize }
-						onLostPointerCapture={ finishComposerResize }
-						onKeyDown={ handleComposerResizeKeyDown }
-					>
-						<span className={ styles.resizeHandleIndicator } aria-hidden="true" />
-					</div>
-					{ isDraggingOver ? (
-						<div className={ styles.dropOverlay } aria-hidden="true">
-							{ __( 'Drop files to attach' ) }
-						</div>
-					) : null }
-					{ hasAttachments ? (
+					{ isDraggingFiles && fileDropTarget
+						? createPortal(
+								<div className={ styles.dropOverlay } aria-hidden="true">
+									<span>{ __( 'Drop to attach' ) }</span>
+								</div>,
+								fileDropTarget
+						  )
+						: null }
+					{ shownAttachments.length ? (
 						<ul className={ styles.attachments } aria-label={ __( 'Attachments' ) }>
-							{ attachments.map( ( attachment ) => {
-								const attachmentDetailsId = getAttachmentDetailsId( attachment.id );
-								const attachmentSizeLabel = formatComposerAttachmentSize( attachment.size );
-								const attachmentTypeDescription = getComposerAttachmentTypeDescription(
-									attachment,
-									fallbackAttachmentTypeDescription
-								);
-								const attachmentDetails = attachmentSizeLabel
-									? sprintf(
-											/* translators: 1: attachment file name, 2: attachment type, 3: attachment size. */
-											__( 'Attachment: %1$s, %2$s, %3$s' ),
-											attachment.name,
-											attachmentTypeDescription,
-											attachmentSizeLabel
-									  )
-									: sprintf(
-											/* translators: 1: attachment file name, 2: attachment type. */
-											__( 'Attachment: %1$s, %2$s' ),
-											attachment.name,
-											attachmentTypeDescription
-									  );
-								const showAttachmentPreview = ( element: HTMLElement ) => {
-									setHoverPreview( {
-										id: attachment.id,
-										...getComposerAttachmentHoverPreviewPosition( element, attachment ),
-									} );
+							{ shownAttachments.map( ( attachment ) => {
+								const imageSrc =
+									attachment.kind === 'image' ? getComposerAttachmentImageSrc( attachment ) : null;
+								const sizeLabel = formatComposerAttachmentSize( attachment.size );
+								const showPreview = ( element: HTMLElement ) => {
+									if ( hasComposerAttachmentVisualPreview( attachment ) ) {
+										setHoverPreview( {
+											id: attachment.id,
+											...getComposerAttachmentHoverPreviewPosition( element, attachment ),
+										} );
+									}
 								};
-								const hideAttachmentPreview = () => {
+								const hidePreview = () =>
 									setHoverPreview( ( current ) =>
 										current?.id === attachment.id ? null : current
 									);
-								};
-
 								return (
 									<li
 										key={ attachment.id }
-										className={ styles.attachmentItem }
-										onPointerEnter={ ( event ) => {
-											showAttachmentPreview( event.currentTarget );
-										} }
-										onPointerLeave={ ( event ) => {
-											const activeElement = document.activeElement;
-											if (
-												activeElement instanceof Node &&
-												event.currentTarget.contains( activeElement )
-											) {
-												return;
-											}
-											hideAttachmentPreview();
-										} }
-										onFocus={ ( event ) => {
-											showAttachmentPreview( event.currentTarget );
-										} }
-										onBlur={ ( event ) => {
-											const nextFocusedElement = event.relatedTarget;
-											if (
-												nextFocusedElement instanceof Node &&
-												event.currentTarget.contains( nextFocusedElement )
-											) {
-												return;
-											}
-											hideAttachmentPreview();
-										} }
+										className={ clsx(
+											styles.attachment,
+											imageSrc ? styles.attachmentImage : styles.attachmentFile
+										) }
+										aria-label={
+											sizeLabel
+												? sprintf(
+														/* translators: 1: attachment file name, 2: attachment size. */
+														__( '%1$s, %2$s' ),
+														attachment.name,
+														sizeLabel
+												  )
+												: attachment.name
+										}
+										onPointerEnter={ ( event ) => showPreview( event.currentTarget ) }
+										onPointerLeave={ hidePreview }
 									>
-										<div className={ styles.attachmentTile } aria-hidden="true">
-											{ renderAttachmentVisual( attachment, 'tile', fallbackAttachmentTypeLabel ) }
-										</div>
-										<span id={ attachmentDetailsId } className={ styles.attachmentAssistiveText }>
-											{ attachmentDetails }
-										</span>
+										{ imageSrc ? (
+											<img className={ styles.attachmentThumb } src={ imageSrc } alt="" />
+										) : (
+											<>
+												<Icon
+													icon={ attachment === annotationsAttachment ? annotationIcon : page }
+													size={ 16 }
+												/>
+												<span className={ styles.attachmentName }>{ attachment.name }</span>
+											</>
+										) }
 										<button
 											type="button"
 											className={ styles.attachmentRemove }
-											aria-label={ sprintf(
-												/* translators: %s: attachment file name. */
-												__( 'Remove attachment: %s' ),
-												attachment.name
-											) }
-											aria-describedby={ attachmentDetailsId }
-											onClick={ () => {
-												removeAttachment( attachment.id );
-											} }
+											aria-label={ __( 'Remove attachment' ) }
+											onClick={ () =>
+												attachment === annotationsAttachment && annotationSiteId
+													? removeAnnotations(
+															annotationSiteId,
+															stagedNotes.map( ( note ) => note.id )
+													  )
+													: removeAttachment( attachment.id )
+											}
 										>
 											<Icon icon={ closeSmall } size={ 16 } />
 										</button>
@@ -1083,53 +936,45 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 										width: hoverPreview.width,
 									} }
 								>
-									{ hoveredAttachmentHasVisualPreview ? (
-										<div className={ styles.attachmentHoverArtwork }>
-											{ renderAttachmentVisual(
-												hoveredAttachment,
-												'hover',
-												fallbackAttachmentTypeLabel
-											) }
-										</div>
-									) : null }
+									<div className={ styles.attachmentHoverArtwork }>
+										{ renderAttachmentHoverVisual( hoveredAttachment ) }
+									</div>
 									<div className={ styles.attachmentHoverDetails }>
 										<span className={ styles.attachmentHoverName }>{ hoveredAttachment.name }</span>
 										<span className={ styles.attachmentHoverMeta }>
-											<span className={ styles.attachmentHoverType }>
-												{ hoveredAttachmentTypeLabel }
-											</span>
-											{ hoveredAttachmentSizeLabel ? (
-												<>
-													<span aria-hidden="true">·</span>
-													<span>{ hoveredAttachmentSizeLabel }</span>
-												</>
-											) : null }
+											{ [
+												getComposerAttachmentTypeDescription( hoveredAttachment, __( 'File' ) ),
+												formatComposerAttachmentSize( hoveredAttachment.size ),
+											]
+												.filter( Boolean )
+												.join( ' · ' ) }
 										</span>
 									</div>
 								</div>,
 								document.body
 						  )
 						: null }
-					<div
-						className={ clsx(
-							styles.inputArea,
-							hasAttachments && styles.inputAreaWithAttachments
-						) }
-					>
-						{ showPlaceholderText ? (
-							<div className={ styles.placeholderText } aria-hidden="true">
+					<div className={ styles.inputArea }>
+						{ placeholderBusy && value.length === 0 ? (
+							<span className={ styles.placeholderShimmer } aria-hidden="true">
 								{ placeholder }
-							</div>
+							</span>
 						) : null }
-						<textarea
+						<InputGroupTextarea
 							ref={ textareaRef }
-							className={ styles.input }
+							className={ clsx( styles.input, placeholderBusy && styles.inputShimmering ) }
 							placeholder={ placeholder }
+							aria-label={
+								answerQuestion ? __( 'Answer WordPress Studio' ) : __( 'Message WordPress Studio' )
+							}
 							value={ value }
 							{ ...slash.comboboxProps }
 							onChange={ ( event ) => setValue( event.target.value ) }
 							onPaste={ pasteHandlers.onPaste }
 							onKeyDown={ ( event ) => {
+								if ( isImeComposing( event ) ) {
+									return;
+								}
 								if ( slash.handleKeyDown( event ) ) {
 									return;
 								}
@@ -1138,123 +983,149 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 									void onInterrupt();
 									return;
 								}
-								if ( event.key === 'Enter' && ( event.metaKey || event.ctrlKey ) ) {
-									event.preventDefault();
-									const node = event.currentTarget;
-									const start = node.selectionStart;
-									const end = node.selectionEnd;
-									const nextValue = `${ node.value.slice( 0, start ) }\n${ node.value.slice(
-										end
-									) }`;
-									setValue( nextValue );
-									queueMicrotask( () => {
-										textareaRef.current?.setSelectionRange( start + 1, start + 1 );
-									} );
-									return;
-								}
 								if ( ! isField && event.key === 'Enter' && ! event.shiftKey ) {
 									event.preventDefault();
 									void send();
 								}
 							} }
-							rows={ 2 }
+							rows={ 1 }
 						/>
 						{ slash.popup }
 					</div>
 					<div className={ styles.toolbar }>
 						<div className={ styles.leftActions }>
 							<Menu.Root modal={ false }>
-								<Tooltip.Root>
+								<Tooltip>
 									{ isField ? addButton : <Menu.Trigger render={ addButton } /> }
-									<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
-										{ addLabel }
-									</Tooltip.Popup>
-								</Tooltip.Root>
+									<TooltipContent>{ addLabel }</TooltipContent>
+								</Tooltip>
 								<Menu.Popup side="top" align="start" className={ styles.commandsMenuPopup }>
 									<Menu.Item disabled={ awaitingAnswer } onClick={ openFilePicker }>
-										{ __( 'Upload attachment' ) }
+										{ __( 'Add files' ) }
 									</Menu.Item>
+									{ canAutoStart && ! autoStartOn ? (
+										<Menu.Item
+											className={ styles.describedItem }
+											onClick={ () => setAutoStart( true ) }
+										>
+											<span className={ styles.describedItemBody }>
+												<span className={ styles.describedItemLabel }>{ __( 'Auto-start' ) }</span>
+												<span className={ styles.describedItemDescription }>
+													{ __( 'Start stopped sites when you send a chat message.' ) }
+												</span>
+											</span>
+										</Menu.Item>
+									) : null }
+									{ onEnvironmentChange && environment === 'local' && liveUrl ? (
+										<Menu.Item
+											className={ styles.describedItem }
+											disabled={ busy }
+											onClick={ () => onEnvironmentChange( 'live' ) }
+										>
+											<span className={ styles.describedItemBody }>
+												<span className={ styles.describedItemLabel }>
+													{ __( 'Work on live site' ) }
+												</span>
+												<span className={ styles.describedItemDescription }>{ liveUrl }</span>
+											</span>
+										</Menu.Item>
+									) : null }
+									{ onEnvironmentChange && environment === 'live' ? (
+										<Menu.Item
+											className={ styles.describedItem }
+											disabled={ busy }
+											onClick={ () => onEnvironmentChange( 'local' ) }
+										>
+											<span className={ styles.describedItemBody }>
+												<span className={ styles.describedItemLabel }>
+													{ __( 'Work on local site' ) }
+												</span>
+												<span className={ styles.describedItemDescription }>
+													{ __( 'Work on the local site on your computer.' ) }
+												</span>
+											</span>
+										</Menu.Item>
+									) : null }
 									<Menu.SubmenuRoot>
 										<Menu.SubmenuTrigger className={ styles.skillsSubmenuTrigger }>
 											<span>{ __( 'Skills' ) }</span>
-											<Icon
-												icon={ chevronRightSmall }
-												size={ 16 }
-												className={ styles.submenuChevron }
-												aria-hidden="true"
-											/>
 										</Menu.SubmenuTrigger>
-										<Menu.Popup side="right" align="start" className={ styles.skillsMenuPopup }>
+										<Menu.SubmenuPopup className={ styles.skillsMenuPopup }>
 											{ getAiSkillCommands().map( ( command ) => (
 												<Menu.Item
 													key={ command.name }
-													className={ styles.skillMenuItem }
+													className={ styles.describedItem }
 													onClick={ () => {
 														void onSend( `/${ command.name }` );
 													} }
 												>
-													<span className={ styles.skillMenuItemBody }>
-														<span className={ styles.skillMenuItemLabel }>
+													<span className={ styles.describedItemBody }>
+														<span className={ styles.describedItemLabel }>
 															{ formatSkillLabel( command.name ) }
 														</span>
-														<span className={ styles.skillMenuItemDescription }>
+														<span className={ styles.describedItemDescription }>
 															{ command.description }
 														</span>
 													</span>
 												</Menu.Item>
 											) ) }
-										</Menu.Popup>
+										</Menu.SubmenuPopup>
 									</Menu.SubmenuRoot>
 								</Menu.Popup>
 							</Menu.Root>
+							{ autoStartOn ? (
+								<ModeChip
+									icon={ play }
+									label={ __( 'Auto-start' ) }
+									onRemove={ () => setAutoStart( false ) }
+								/>
+							) : null }
+							{ environment === 'live' ? (
+								<ModeChip
+									icon={ globe }
+									label={ __( 'Live' ) }
+									onRemove={ () => onEnvironmentChange?.( 'local' ) }
+								/>
+							) : null }
 							<input
 								ref={ fileInputRef }
 								type="file"
 								multiple
 								className={ styles.fileInput }
+								aria-label={ __( 'Upload attachments' ) }
 								onChange={ onFileInputChange }
 							/>
 						</div>
 						<div className={ styles.rightActions }>
-							<AiCreditsControl />
 							<Menu.Root modal={ false }>
-								<Tooltip.Root>
+								<Tooltip>
 									<Menu.Trigger
 										render={
-											<Tooltip.Trigger
+											<TooltipTrigger
 												render={
 													<button
 														type="button"
-														className={ styles.pill }
-														aria-label={ __( 'Select model' ) }
+														className={ styles.modelButton }
+														aria-label={ __( 'Model' ) }
+														aria-description={ modelDetails.join( ' · ' ) }
 													/>
 												}
 											>
-												<span>
-													{ providerPillPrefix ? (
-														<>
-															<strong className={ styles.pillProviderPrefix }>
-																{ providerPillPrefix }
-															</strong>
-															{ ' · ' }
-														</>
-													) : null }
-													{ getAiModelLabel( model ) }
-												</span>
+												<span>{ modelLabel }</span>
 												<Icon icon={ chevronDownSmall } size={ 16 } />
-											</Tooltip.Trigger>
+											</TooltipTrigger>
 										}
 									/>
-									<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
-										{ __( 'Select model' ) }
-									</Tooltip.Popup>
-								</Tooltip.Root>
-								<Menu.Popup side="top" align="end">
+									<TooltipContent>{ modelDetails.join( ' · ' ) }</TooltipContent>
+								</Tooltip>
+								<Menu.Popup side="top" align="end" className={ styles.modelMenuPopup }>
 									{ canPickProvider ? (
 										<>
 											<Menu.RadioGroup
 												value={ sessionProvider }
-												onValueChange={ ( value ) => handleProviderChange( value as AiProviderId ) }
+												onValueChange={ ( picked ) =>
+													handleProviderChange( picked as AiProviderId )
+												}
 											>
 												{ AI_PROVIDER_OPTIONS.map( ( { id, label } ) => (
 													<Menu.RadioItem key={ id } value={ id }>
@@ -1268,75 +1139,92 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 									{ offeredModels.length > 0 ? (
 										<Menu.RadioGroup
 											value={ model }
-											onValueChange={ ( value ) => handleModelChange( value as AiModelId ) }
+											onValueChange={ ( picked ) => handleModelChange( picked as AiModelId ) }
 										>
 											{ offeredModels.map( ( { id } ) => (
-												<Menu.RadioItem key={ id } value={ id } disabled={ isModelLocked( id ) }>
-													{ getAiModelLabel( id ) }
+												<Menu.RadioItem
+													key={ id }
+													value={ id }
+													disabled={ isModelLocked( id ) }
+													className={ styles.describedItem }
+												>
+													<span className={ styles.describedItemBody }>
+														<span className={ styles.describedItemLabel }>
+															{ getAiModelLabel( id ) }
+														</span>
+														<span className={ styles.describedItemDescription }>
+															{ isModelLocked( id )
+																? sprintf(
+																		/* translators: %s: what the model is good at. */
+																		__( '%s · Purchased credits required' ),
+																		getModelDescription( id )
+																  )
+																: getModelDescription( id ) }
+														</span>
+													</span>
 												</Menu.RadioItem>
 											) ) }
 										</Menu.RadioGroup>
 									) : (
 										// The endpoint's models are configured through the CLI, so
 										// show what's running instead of an empty menu.
-										<Menu.Item disabled>{ getAiModelLabel( model ) }</Menu.Item>
+										<Menu.Item disabled>{ modelLabel }</Menu.Item>
 									) }
-									{ hasLockedModels ? (
-										<>
-											<Menu.Separator />
-											<Menu.Item onClick={ openAddCredits }>{ formatPaidTiersNudge() }</Menu.Item>
-										</>
+									<Menu.Separator />
+									{ sessionProvider === 'wpcom' && quota ? (
+										<Menu.Item onClick={ openAddCredits }>{ __( 'Get more credits' ) }</Menu.Item>
 									) : null }
+									<Menu.Item
+										className={ styles.describedItem }
+										onClick={ () => openSettings( 'ai' ) }
+									>
+										<span className={ styles.describedItemBody }>
+											<span className={ styles.describedItemLabel }>
+												{ __( 'Connect provider…' ) }
+											</span>
+											<span className={ styles.describedItemDescription }>
+												{ __( 'Add or manage your AI providers' ) }
+											</span>
+										</span>
+									</Menu.Item>
 								</Menu.Popup>
 							</Menu.Root>
-							{ busy ? (
-								<Tooltip.Root>
-									<Tooltip.Trigger
-										render={
-											<button
-												type="button"
-												className={ styles.stopButton }
-												onClick={ () => void onInterrupt() }
-												aria-label={ isInterrupting ? __( 'Stopping' ) : __( 'Stop' ) }
-												aria-busy={ isInterrupting }
-											/>
-										}
-									>
-										<span className={ styles.stopGlyph } aria-hidden="true" />
-									</Tooltip.Trigger>
-									<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
-										{ stopTooltipLabel }
-									</Tooltip.Popup>
-								</Tooltip.Root>
-							) : null }
 							{ isField ? null : (
-								<Tooltip.Root>
-									<Tooltip.Trigger
+								<Tooltip>
+									<TooltipTrigger
 										render={
-											<button
-												type="button"
-												className={ styles.sendButton }
-												onClick={ () => void send() }
-												disabled={ ! canSend }
-												aria-label={ sendAriaLabel }
-											/>
+											showStop ? (
+												<button
+													type="button"
+													className={ styles.stopButton }
+													onClick={ () => void onInterrupt() }
+													aria-label={ stopLabel }
+													aria-busy={ isInterrupting }
+												/>
+											) : (
+												<button
+													type="button"
+													className={ styles.sendButton }
+													data-feedback={ submitFeedback ? 'error' : undefined }
+													onClick={ () => void send() }
+													disabled={ ! canSend }
+													aria-label={ sendLabel }
+												/>
+											)
 										}
 									>
-										<Icon icon={ arrowUp } size={ 18 } />
-									</Tooltip.Trigger>
-									<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
-										{ sendShortcutLabel }
-									</Tooltip.Popup>
-								</Tooltip.Root>
+										{ showStop ? (
+											<span className={ styles.stopGlyph } aria-hidden="true" />
+										) : (
+											<Icon icon={ arrowUp } size={ 18 } />
+										) }
+									</TooltipTrigger>
+									<TooltipContent>{ showStop ? stopLabel : sendLabel }</TooltipContent>
+								</Tooltip>
 							) }
 						</div>
 					</div>
-				</div>
-				{ composerError ? (
-					<div className={ styles.meta }>
-						<span className={ styles.error }>{ composerError }</span>
-					</div>
-				) : null }
+				</InputGroup>
 			</div>
 			<FamilySwitchConfirmDialog
 				currentModel={ model }

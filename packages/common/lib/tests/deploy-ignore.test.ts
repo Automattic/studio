@@ -2,6 +2,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { createDeployIgnoreFilter } from '@studio/common/lib/deploy-ignore';
+import { SYNC_IGNORE_DEFAULTS } from '@studio/common/lib/sync/constants';
 
 function createTempDir(): string {
 	return fs.mkdtempSync( path.join( os.tmpdir(), 'deploy-ignore-test-' ) );
@@ -91,5 +92,17 @@ describe( 'createDeployIgnoreFilter', () => {
 		const ig = await createDeployIgnoreFilter( tempDir );
 		expect( ig.ignores( '.git' ) ).toBe( true );
 		expect( ig.ignores( 'wp-content/index.php' ) ).toBe( false );
+	} );
+
+	it( 'should only exclude the wp-content cache directory with sync defaults', async () => {
+		const ig = await createDeployIgnoreFilter( tempDir, SYNC_IGNORE_DEFAULTS );
+		expect( ig.ignores( 'wp-content/cache' ) ).toBe( true );
+		expect( ig.ignores( 'wp-content/cache/page.html' ) ).toBe( true );
+		expect(
+			ig.ignores(
+				'wp-content/plugins/elementor/modules/interactions/cache/interactions-postmeta.php'
+			)
+		).toBe( false );
+		expect( ig.ignores( 'wp-content/plugins/foo/vendor/symfony/cache/Adapter.php' ) ).toBe( false );
 	} );
 } );

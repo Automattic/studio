@@ -1,21 +1,22 @@
+import { getLocalizedLink } from '@studio/common/lib/docs-links';
 import { createRoute, redirect, useNavigate } from '@tanstack/react-router';
-import { CheckboxControl } from '@wordpress/components';
+import { useMediaQuery } from '@wordpress/compose';
 import { createInterpolateElement } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
-import { chevronRight } from '@wordpress/icons';
-import { Button, Icon } from '@wordpress/ui';
-import { useCallback, useEffect, useRef } from 'react';
+import { chevronRight, Icon } from '@wordpress/icons';
+import { useCallback, useEffect, useId, useRef } from 'react';
 import { AuthActions } from '@/components/auth-actions';
 import { DotGrid } from '@/components/dot-grid';
 import { FeatureList } from '@/components/feature-list';
 import { Gravatar } from '@/components/gravatar';
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Field, FieldLabel } from '@/components/ui/field';
 import { useConnector } from '@/data/core';
 import { useAuthUser, useLogout } from '@/data/queries/use-auth-user';
 import { SITES_QUERY_KEY } from '@/data/queries/use-sites';
 import { useUserLocale } from '@/data/queries/use-user-locale';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
-import { usePrefersColorScheme } from '@/hooks/use-prefers-color-scheme';
-import { getLocalizedLink } from '@/lib/docs-links';
 import { EmptyBackground } from '../../components/session-view/empty-background';
 import { rootRoute } from '../layout-root';
 import styles from './style.module.css';
@@ -28,7 +29,8 @@ function WelcomePage() {
 	const locale = useUserLocale();
 	const { data: preferences } = useUserPreferences();
 	const saveUserPreferences = useSaveUserPreferences();
-	const isDark = usePrefersColorScheme() === 'dark';
+	const analyticsId = useId();
+	const isDark = useMediaQuery( '(prefers-color-scheme: dark)' );
 
 	// The welcome screen owns the account story: these are the features a
 	// WordPress.com login unlocks.
@@ -83,13 +85,12 @@ function WelcomePage() {
 
 			<Button
 				type="button"
-				variant="minimal"
-				tone="neutral"
+				variant="ghost"
 				className={ styles.skipButton }
 				onClick={ continueToTour }
 			>
-				<span>{ authUser ? __( 'Continue' ) : __( 'Skip' ) }</span>
-				<Icon icon={ chevronRight } size={ 16 } />
+				{ authUser ? __( 'Continue' ) : __( 'Skip' ) }
+				<Icon icon={ chevronRight } data-icon="inline-end" />
 			</Button>
 
 			<div className={ styles.contentArea }>
@@ -110,19 +111,21 @@ function WelcomePage() {
 					</div>
 				</div>
 
-				<div className={ styles.analyticsPreference }>
-					<CheckboxControl
-						__nextHasNoMarginBottom
-						label={ __( 'Help improve Studio by sharing anonymous usage statistics' ) }
+				<Field orientation="horizontal" className={ styles.analyticsPreference }>
+					<Checkbox
+						id={ analyticsId }
 						checked={ preferences?.analyticsEnabled ?? true }
-						onChange={ ( analyticsEnabled ) =>
+						onCheckedChange={ ( analyticsEnabled ) =>
 							saveUserPreferences.mutate( {
 								analyticsEnabled,
 								source: { surface: 'onboarding' },
 							} )
 						}
 					/>
-				</div>
+					<FieldLabel htmlFor={ analyticsId } tone="muted">
+						{ __( 'Help improve Studio by sharing anonymous usage statistics' ) }
+					</FieldLabel>
+				</Field>
 			</div>
 
 			<div className={ styles.footer }>
@@ -164,7 +167,6 @@ function WelcomePage() {
 							<Button
 								type="button"
 								variant="outline"
-								tone="neutral"
 								loading={ logout.isPending }
 								onClick={ () => logout.mutate() }
 							>

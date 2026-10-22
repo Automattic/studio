@@ -2,7 +2,7 @@ import fs from 'fs/promises';
 import os from 'os';
 import path from 'path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { createAiSession, listAiSessions, readPiFileEntries } from '../store';
+import { createAiSession, listAiSessions, loadAiSession, readPiFileEntries } from '../store';
 
 describe( 'createAiSession', () => {
 	let rootDirectory: string | undefined;
@@ -40,5 +40,19 @@ describe( 'createAiSession', () => {
 			customType: 'studio.site_selected',
 			data: { siteId: 'site-1', siteName: 'My Site', sitePath: '/tmp/my-site' },
 		} );
+	} );
+
+	it( 'loads a session by id prefix, including files named off-contract', async () => {
+		rootDirectory = await fs.mkdtemp( path.join( os.tmpdir(), 'studio-create-session-' ) );
+		const created = await createAiSession( rootDirectory );
+		const renamed = path.join( rootDirectory, 'renamed.jsonl' );
+		const other = await createAiSession( rootDirectory );
+		await fs.rename( other.filePath, renamed );
+
+		const byPrefix = await loadAiSession( rootDirectory, created.id.slice( 0, 8 ) );
+		expect( byPrefix.summary.filePath ).toBe( created.filePath );
+
+		const offContract = await loadAiSession( rootDirectory, other.id );
+		expect( offContract.summary.filePath ).toBe( renamed );
 	} );
 } );

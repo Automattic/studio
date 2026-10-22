@@ -45,6 +45,7 @@ updates:
       - dependency-name: "jest"
       - dependency-name: "jest-*"
       - dependency-name: "@playwright/*"
+      - dependency-name: "playwright"
       - dependency-name: "electron-playwright-helpers"
       - dependency-name: "vitest"
       - dependency-name: "@vitest/*"
@@ -60,10 +61,6 @@ updates:
 
       # Sentry monitoring
       - dependency-name: "@sentry/*"
-
-      # Redux ecosystem
-      - dependency-name: "@reduxjs/*"
-      - dependency-name: "react-redux"
 
       # React ecosystem
       - dependency-name: "react"
@@ -121,18 +118,11 @@ updates:
       - dependency-name: "appdmg"
       - dependency-name: "@vscode/sudo-prompt"
 
-      # Polyfills
-      - dependency-name: "web-streams-polyfill"
-      - dependency-name: "resize-observer-polyfill"
-      - dependency-name: "isomorphic-fetch"
-
       # Binary packaging
       - dependency-name: "@yao-pkg/*"
 
       # Dev tools
       - dependency-name: "prettier"
-      - dependency-name: "postcss"
-      - dependency-name: "tailwindcss"
       - dependency-name: "nock"
       - dependency-name: "jsdom"
       - dependency-name: "electron-devtools-installer"
@@ -181,6 +171,7 @@ updates:
           - "vitest"
           - "@vitest/*"
           - "@playwright/*"
+          - "playwright"
           - "electron-playwright-helpers"
           - "@testing-library/*"
           - "jest"
@@ -252,8 +243,8 @@ updates:
       - dependency-name: "eslint-plugin-studio"
       - dependency-name: "winreg" # v1.2.5 has a known issue: https://github.com/fresc81/node-winreg/issues/65
       - dependency-name: "@types/glob" # glob@7 (transitive) has no bundled types; @types/glob@9 is a stub for glob@9+ only
-      - dependency-name: "@wp-playground/*" # must be pinned exactly and bumped manually in lockstep — version mismatches cause runtime failures and ~450 MB bundle bloat
-      - dependency-name: "@php-wasm/*" # must be pinned exactly and bumped manually in lockstep — version mismatches cause runtime failures and ~450 MB bundle bloat
+      - dependency-name: "@wp-playground/*" # must be pinned exactly and bumped manually in lockstep — mismatched versions install duplicate nested copies
+      - dependency-name: "@php-wasm/*" # pulled in by @wp-playground/blueprints; bumped together with it
 
   # Enable version updates for GitHub Actions
   - package-ecosystem: "github-actions"

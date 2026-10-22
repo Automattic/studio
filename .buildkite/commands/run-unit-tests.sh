@@ -18,5 +18,4 @@ else
 fi
 
 echo '--- :npm: Run Unit Tests'
-npm run test
-
+npm run test -- --tagsFilter='!e2e'

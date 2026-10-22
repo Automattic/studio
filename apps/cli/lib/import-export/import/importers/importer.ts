@@ -4,9 +4,8 @@ import { createInterface } from 'readline';
 import { generateBackupFilename } from '@studio/common/lib/generate-backup-filename';
 import { ImportEvents } from '@studio/common/lib/import-export-events';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
-import { writeStudioMuPluginsForNativePhpRuntime } from '@studio/common/lib/mu-plugins';
+import { writeStudioMuPlugins } from '@studio/common/lib/mu-plugins';
 import { serializePlugins } from '@studio/common/lib/serialize-plugins';
-import { getSiteRuntime } from '@studio/common/lib/site-runtime';
 import {
 	RecommendedPHPVersion,
 	SupportedPHPVersions,
@@ -20,6 +19,7 @@ import { SiteData } from 'cli/lib/cli-config/core';
 import { ensureWpConfig } from 'cli/lib/native-php/site-setup';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
+import { summarizeWpCliStderr } from 'cli/lib/wp-cli-stderr';
 import { LoggerError } from 'cli/logger';
 import { ImportExportEventEmitter } from '../../events';
 import { BackupContents, MetaFileData } from '../types';
@@ -136,7 +136,7 @@ abstract class BaseImporter extends ImportExportEventEmitter implements Importer
 
 				if ( exitCode !== 0 ) {
 					throw new LoggerError(
-						sprintf( __( 'Database import failed: %s' ), stderr ),
+						sprintf( __( 'Database import failed: %s' ), summarizeWpCliStderr( stderr ) ),
 						undefined,
 						'database_import'
 					);
@@ -253,7 +253,7 @@ abstract class BaseBackupImporter extends BaseImporter {
 			await fs.promises.copyFile( wpConfigSamplePath, wpConfigPath );
 		}
 
-		if ( getSiteRuntime( site ) === 'native-php' && ! site.runtimeBlueprintPath ) {
+		if ( ! site.runtimeBlueprintPath ) {
 			await ensureWpConfig( site.path, this.resolvePhpVersion( site ) );
 		}
 	}
@@ -308,9 +308,7 @@ abstract class BaseBackupImporter extends BaseImporter {
 		}
 
 		await keepSqliteIntegrationUpdated( site.path );
-		if ( getSiteRuntime( site ) === 'native-php' ) {
-			await writeStudioMuPluginsForNativePhpRuntime( site.path, site.isWpAutoUpdating );
-		}
+		await writeStudioMuPlugins( site.path, site.isWpAutoUpdating );
 
 		this.emit( ImportEvents.IMPORT_WP_CONTENT_COMPLETE );
 	}

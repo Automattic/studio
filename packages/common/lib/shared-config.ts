@@ -29,6 +29,10 @@ const SHARED_CONFIG_VERSION = 1;
 export const sharedSessionMetadataSchema = z
 	.object( {
 		archived: z.boolean().optional(),
+		// A name the user gave the chat, in place of its first prompt.
+		title: z.string().optional(),
+		// A turn finished that nobody has looked at yet.
+		unread: z.boolean().optional(),
 	} )
 	.loose();
 
@@ -56,6 +60,8 @@ export const sharedConfigSchema = z
 		authToken: authTokenSchema.optional(),
 		locale: z.string().optional(),
 		selectedSkills: z.array( z.string() ).optional(),
+		// False when the user switched their global agent instructions off. Absent means on.
+		globalInstructionsEnabled: z.boolean().optional(),
 		sessions: z.record( z.string(), sharedSessionMetadataSchema ).optional(),
 		// WordPress.com sites connected to local sites, keyed by user id.
 		// Both Studio and the Studio CLI read and write this field through
@@ -155,6 +161,12 @@ export async function updateSharedConfig( update: Partial< SharedConfig > ): Pro
 function pruneSharedSessionMetadata( metadata: SharedSessionMetadata ): void {
 	if ( ! metadata.archived ) {
 		delete metadata.archived;
+	}
+	if ( ! metadata.unread ) {
+		delete metadata.unread;
+	}
+	if ( ! metadata.title?.trim() ) {
+		delete metadata.title;
 	}
 }
 

@@ -55,7 +55,7 @@ import {
 	openStudioSession,
 } from 'cli/ai/sessions/pi-session';
 import { replaySessionHistory } from 'cli/ai/sessions/replay';
-import { formatActiveSitePrefix, setLocalSiteSelectedCallback } from 'cli/ai/site-selection';
+import { setLocalSiteSelectedCallback } from 'cli/ai/site-selection';
 import { getActiveSlashCommands, type SlashCommandContext } from 'cli/ai/slash-commands';
 import { AiChatUI } from 'cli/ai/ui';
 import { runCommand as runLoginCommand } from 'cli/commands/auth/login';
@@ -615,8 +615,9 @@ export async function runCommand( options: {
 
 		ui.beginAgentTurn( sessionId );
 
-		// Prepend active site context to the prompt.
-		// Remote (WordPress.com) sites only have a URL and site ID; local sites have a filesystem path and running state.
+		// The active site rides to the runtime, which states it in the system
+		// prompt. Remote (WordPress.com) sites only have a URL and site ID; local
+		// sites have a filesystem path and running state.
 		let enrichedPrompt = prompt;
 		const site = ui.activeSite;
 		// The stored running flag can be absent or stale — the session event log
@@ -642,21 +643,11 @@ export async function runCommand( options: {
 			// can exit naturally.
 			await disconnectFromDaemon();
 		}
-		if ( site ) {
-			enrichedPrompt = `${ formatActiveSitePrefix( site ) }\n\n${ prompt }`;
-		}
 
 		// Non-image files ride as absolute-path references the agent reads with
 		// its file tools (images travel separately as multimodal content blocks).
 		if ( files.length > 0 ) {
 			enrichedPrompt = `${ enrichedPrompt }${ buildAttachedFilesPromptBlock( files ) }`;
-		}
-
-		// Read the WP.com access token for remote sites
-		let wpcomAccessToken: string | undefined;
-		if ( site?.remote ) {
-			const token = await readAuthToken();
-			wpcomAccessToken = token?.accessToken;
 		}
 
 		await persistSessionContext();
@@ -702,7 +693,6 @@ export async function runCommand( options: {
 			model: currentModel,
 			session: sm,
 			activeSite: site,
-			wpcomAccessToken,
 			onAskUser: ( questions ) => askUserAndPersistAnswers( questions ),
 			onEvent: ( event ) => {
 				ui.handleEvent( event );

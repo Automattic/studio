@@ -3,6 +3,7 @@ import http from 'http';
 import os from 'os';
 import nodePath from 'path';
 import nock from 'nock';
+import { vi } from 'vitest';
 import {
 	isInErrorRecovery,
 	isPhpUserError,
@@ -43,6 +44,14 @@ function httpGet( port: number ): Promise< { status?: number; body: string } > {
 	} );
 }
 
+function activeHandleNames(): string[] {
+	return ( process as unknown as { _getActiveHandles: () => unknown[] } )
+		._getActiveHandles()
+		.map(
+			( handle ) => ( handle as { constructor?: { name?: string } } )?.constructor?.name ?? ''
+		);
+}
+
 describe( 'isPhpUserError', () => {
 	test( 'returns false for non-Error values', () => {
 		expect( isPhpUserError( 'boom' ) ).toBe( false );
@@ -51,16 +60,15 @@ describe( 'isPhpUserError', () => {
 	} );
 
 	test( 'returns false for known infrastructure errors', () => {
-		expect( isPhpUserError( new Error( 'Cannot allocate Wasm memory for new instance' ) ) ).toBe(
-			false
-		);
 		expect( isPhpUserError( new Error( 'listen EADDRINUSE: address already in use' ) ) ).toBe(
 			false
 		);
 		expect( isPhpUserError( new Error( 'Operation aborted' ) ) ).toBe( false );
-		expect( isPhpUserError( new Error( '"unreachable" WASM instruction executed' ) ) ).toBe(
-			false
-		);
+		expect(
+			isPhpUserError(
+				new Error( 'Server child process "studio-proxy" exited before becoming ready.' )
+			)
+		).toBe( false );
 	} );
 
 	test( 'treats any other Error as a user PHP error', () => {
@@ -105,30 +113,58 @@ describe( 'parsePhpError', () => {
 	} );
 } );
 
-describe( 'error recovery port lifecycle', () => {
-	test( 'holds the port and marks the site running, then releases both on stop', async () => {
+describe( 'error recovery watcher', () => {
+	test( 'watches without holding file descriptors, and still detects a nested PHP change', async () => {
 		const port = await getFreePort();
-		const dir = fs.mkdtempSync( nodePath.join( os.tmpdir(), 'php-recovery-test-' ) );
-		const siteServer = {
-			details: { id: 'test-site', port, path: dir } as {
-				id: string;
-				port: number;
-				path: string;
-				running?: boolean;
-				url?: string;
-			},
-			server: {} as { url?: string },
-			inErrorRecovery: false,
-			start: async () => {},
-		};
+		const dir = fs.mkdtempSync( nodePath.join( os.tmpdir(), 'php-recovery-watch-' ) );
+		// Plugin PHP sits several levels down, so the watcher has to recurse to reach it.
+		const pluginDir = nodePath.join( dir, 'wp-content', 'plugins', 'example' );
+		fs.mkdirSync( pluginDir, { recursive: true } );
+		const pluginFile = nodePath.join( pluginDir, 'example.php' );
+		fs.writeFileSync( pluginFile, '<?php // broken' );
+
+		let startCalls = 0;
 
 		try {
-			await startErrorRecovery( siteServer as never, 'Fatal error: boom', () => ( {} ) );
+			await startErrorRecovery(
+				{ id: 'watch-site', port, path: dir },
+				'Fatal error: boom',
+				() => ( {} ),
+				async () => {
+					startCalls++;
+				}
+			);
+			// startErrorRecovery does not await the initial scan; without this the assertion below
+			// samples an empty set and passes even against a descriptor-backed watcher.
+			await vi.waitFor( () => expect( activeHandleNames() ).toContain( 'StatWatcher' ), {
+				timeout: 10000,
+				interval: 100,
+			} );
+			expect( activeHandleNames() ).not.toContain( 'FSWatcher' );
+
+			fs.writeFileSync( pluginFile, '<?php // fixed' );
+			await vi.waitFor( () => expect( startCalls ).toBe( 1 ), { timeout: 15000, interval: 250 } );
+		} finally {
+			await stopErrorRecovery( 'watch-site' );
+			fs.rmSync( dir, { recursive: true, force: true } );
+		}
+	}, 30000 );
+} );
+
+describe( 'error recovery port lifecycle', () => {
+	test( 'holds the port while in recovery, then releases it on stop', async () => {
+		const port = await getFreePort();
+		const dir = fs.mkdtempSync( nodePath.join( os.tmpdir(), 'php-recovery-test-' ) );
+
+		try {
+			await startErrorRecovery(
+				{ id: 'test-site', port, path: dir },
+				'Fatal error: boom',
+				() => ( {} ),
+				async () => {}
+			);
 			expect( isInErrorRecovery( 'test-site' ) ).toBe( true );
-			// The recovery error server holds the port; the site shows as running and in recovery.
 			expect( await canBind( port ) ).toBe( false );
-			expect( siteServer.details.running ).toBe( true );
-			expect( siteServer.inErrorRecovery ).toBe( true );
 			// The error page is served with status 200 so the thumbnail screenshot can capture it
 			// (the screenshot window rejects responses with status >= 500).
 			nock.enableNetConnect( '127.0.0.1' );
@@ -143,10 +179,8 @@ describe( 'error recovery port lifecycle', () => {
 
 			await stopErrorRecovery( 'test-site' );
 			expect( isInErrorRecovery( 'test-site' ) ).toBe( false );
-			// The port is released and the running/recovery state cleared, so a real restart can proceed.
+			// The port is released, so a real restart can proceed.
 			expect( await canBind( port ) ).toBe( true );
-			expect( siteServer.details.running ).toBe( false );
-			expect( siteServer.inErrorRecovery ).toBe( false );
 		} finally {
 			await stopErrorRecovery( 'test-site' );
 			fs.rmSync( dir, { recursive: true, force: true } );

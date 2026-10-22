@@ -44,9 +44,6 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: site navigation', () =>
 				sitePath,
 				'--wp',
 				'latest',
-				// Sandbox is bundled; the default native runtime downloads PHP on start.
-				'--runtime',
-				'sandbox',
 				'--skip-browser',
 				'--skip-log-details',
 			],
@@ -109,8 +106,6 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: site navigation', () =>
 	} );
 
 	it( 'uploads media', { tags: [ 'e2e' ], timeout: 120_000 }, async () => {
-		// Playground wp-cli only mounts the site directory (its cwd), so the
-		// file must live there and be passed as a relative path.
 		fs.writeFileSync( path.join( sitePath, 'e2e-test-image.png' ), TINY_PNG );
 
 		await wp( 'media', 'import', 'e2e-test-image.png' );
@@ -151,8 +146,6 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: site navigation', () =>
 	} );
 
 	it( '"Post name" permalink structure works', { tags: [ 'e2e' ], timeout: 120_000 }, async () => {
-		// `wp rewrite structure` spawns a child `wp rewrite flush` process, which hangs
-		// under Playground; set the option and clear the cached rules instead.
 		await wp( 'option', 'update', 'permalink_structure', '/%postname%/' );
 		await wp( 'option', 'delete', 'rewrite_rules' );
 

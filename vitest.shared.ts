@@ -29,7 +29,7 @@ export default defineConfig( {
 		globalSetup: path.resolve( __dirname, './vitest.global-setup.ts' ),
 		server: {
 			deps: {
-				inline: [ '@php-wasm', '@wp-playground' ],
+				inline: [ '@wp-playground' ],
 				external: [ 'electron' ],
 			},
 		},

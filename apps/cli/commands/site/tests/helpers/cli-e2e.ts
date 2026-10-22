@@ -20,6 +20,9 @@ const CLI_MAIN = path.resolve( import.meta.dirname, '../../../../dist/cli/main.m
 // isolated config dir to let `--wp latest` copy it offline and deterministically.
 const REAL_SERVER_FILES = path.join( os.homedir(), '.studio', 'server-files' );
 const BUNDLED_LATEST_WP = path.join( REAL_SERVER_FILES, 'wordpress-versions', 'latest' );
+// Native PHP binaries are downloaded on first use; sharing the real cache means
+// each run downloads a given version at most once instead of per isolated env.
+const REAL_PHP_BIN = path.join( os.homedir(), '.studio', 'php-bin' );
 
 export interface CliEnv {
 	root: string;
@@ -64,6 +67,8 @@ export function setupCliEnv(): CliEnv {
 	// Reuse the real bundled WordPress without copying hundreds of MB. The copy
 	// the CLI performs only reads from here, so the symlink is never written to.
 	fs.symlinkSync( REAL_SERVER_FILES, path.join( configDir, 'server-files' ), 'junction' );
+	fs.mkdirSync( REAL_PHP_BIN, { recursive: true } );
+	fs.symlinkSync( REAL_PHP_BIN, path.join( configDir, 'php-bin' ), 'junction' );
 
 	// Pre-seed cli.json with a recent dependency-check timestamp so the spawned
 	// CLI skips its 24h WordPress-version update: keeps the run offline and
@@ -83,6 +88,18 @@ export function setupCliEnv(): CliEnv {
 }
 
 export function cleanupCliEnv( env: CliEnv ): void {
+	// CI sets this to keep the daemon logs, which record why a site process died, for upload.
+	const keptLogsDir = process.env.STUDIO_E2E_DAEMON_LOGS_DIR;
+	const daemonLogsDir = path.join( env.daemonHome, 'logs' );
+	if ( keptLogsDir && fs.existsSync( daemonLogsDir ) ) {
+		try {
+			fs.cpSync( daemonLogsDir, path.resolve( keptLogsDir, path.basename( env.daemonHome ) ), {
+				recursive: true,
+			} );
+		} catch {
+			// Best effort: missing diagnostics must not fail the test.
+		}
+	}
 	fs.rmSync( env.root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 } );
 	fs.rmSync( env.daemonHome, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 } );
 }

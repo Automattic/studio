@@ -32,8 +32,8 @@ function findSite( env: CliEnv, sitePath: string ): Record< string, unknown > | 
 }
 
 /**
- * `--runtime sandbox` keeps the run hermetic; `--no-start` defers the slow
- * WordPress install, so callers needing a live WordPress start the site.
+ * `--no-start` defers the slow WordPress install, so callers needing a live
+ * WordPress start the site.
  */
 async function createStoppedSite( env: CliEnv, name: string, dirName: string ): Promise< string > {
 	const sitePath = path.join( env.sitesDir, dirName );
@@ -47,8 +47,6 @@ async function createStoppedSite( env: CliEnv, name: string, dirName: string ): 
 			sitePath,
 			'--wp',
 			'latest',
-			'--runtime',
-			'sandbox',
 			'--no-start',
 			'--skip-browser',
 			'--skip-log-details',

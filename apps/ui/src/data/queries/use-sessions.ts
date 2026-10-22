@@ -1,10 +1,13 @@
 import { deriveEffectiveEnvironment } from '@studio/common/ai/sessions/effective-site';
 import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
+import { __ } from '@wordpress/i18n';
 import { useEffect, useMemo } from 'react';
+import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
 import type {
 	AiModelId,
+	AiSessionMetadata,
 	AiSessionSummary,
 	Connector,
 	LoadedAiSession,
@@ -92,7 +95,10 @@ export function useSession( sessionId: string | undefined ) {
 		enabled: !! sessionId,
 		// `useAgentRun` mutates the cache during a live run and invalidates
 		// explicitly on `run.exited`. Any implicit refetch would race those
-		// cache writes and flicker the transcript.
+		// cache writes and flicker the transcript. A transcript restored from the
+		// persisted cache can miss entries, so only that one refetches on mount.
+		refetchOnMount: ( query ) =>
+			query.state.dataUpdatedAt < performance.timeOrigin ? 'always' : false,
 		refetchOnWindowFocus: false,
 		refetchOnReconnect: false,
 		staleTime: Infinity,
@@ -108,14 +114,26 @@ export function useCreateSession() {
 	} );
 }
 
+export function useSetSessionEnvironment( sessionId: string ) {
+	const connector = useConnector();
+	const queryClient = useQueryClient();
+	return useMutation( {
+		mutationFn: ( environment: 'local' | 'live' ) =>
+			connector.setSessionEnvironment( sessionId, environment ),
+		onError: ( error ) =>
+			toast.error( __( 'Couldn’t switch the site this chat works on' ), {
+				description: error.message,
+			} ),
+		onSettled: () =>
+			queryClient.invalidateQueries( { queryKey: [ ...SESSIONS_QUERY_KEY, sessionId ] } ),
+	} );
+}
+
 function mergeSessionMetadata(
 	summary: AiSessionSummary,
-	patch: Pick< AiSessionSummary, 'archived' >
+	patch: AiSessionMetadata
 ): AiSessionSummary {
-	return {
-		...summary,
-		archived: patch.archived,
-	};
+	return { ...summary, ...patch };
 }
 
 export function useUpdateSessionMetadata() {
@@ -126,7 +144,7 @@ export function useUpdateSessionMetadata() {
 		Error,
 		{
 			sessionId: string;
-			patch: Pick< AiSessionSummary, 'archived' >;
+			patch: AiSessionMetadata;
 		},
 		{
 			previousSessions: AiSessionSummary[] | undefined;
@@ -182,6 +200,8 @@ export function useUpdateSessionMetadata() {
 								summary: {
 									...current.summary,
 									archived: summary.archived,
+									title: summary.title,
+									unread: summary.unread,
 								},
 						  }
 						: current

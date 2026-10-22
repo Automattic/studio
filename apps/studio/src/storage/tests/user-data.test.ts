@@ -9,19 +9,15 @@ import { vi } from 'vitest';
 import { loadUserData, lockAppdata, unlockAppdata, saveUserData } from 'src/storage/user-data';
 import { UserData } from '../storage-types';
 
-const { getUserDataFilePathMock, getAppConfigLockFilePathMock } = vi.hoisted( () => {
+const { getUserDataFilePathMock } = vi.hoisted( () => {
 	return {
 		getUserDataFilePathMock: vi.fn().mockReturnValue( '/path/to/app/.studio/app.json' ),
-		getAppConfigLockFilePathMock: vi.fn().mockReturnValue( '/path/to/app/.studio/app.json.lock' ),
 	};
 } );
 
 vi.mock( 'fs' );
 vi.mock( 'src/storage/paths', () => ( {
 	getUserDataFilePath: getUserDataFilePathMock,
-} ) );
-vi.mock( '@studio/common/lib/config-paths', () => ( {
-	getAppConfigLockFilePath: getAppConfigLockFilePathMock,
 } ) );
 
 vi.mock( 'atomically', () => ( {
@@ -43,17 +39,7 @@ vi.mock( 'atomically', () => ( {
 const mockedUserData: UserData = {
 	version: 1,
 	siteMetadata: {
-		'site-1': {
-			sortOrder: 0,
-			themeDetails: {
-				name: 'Twenty Twenty-Four',
-				path: '/themes/twentytwentyfour',
-				slug: 'twentytwentyfour',
-				isBlockTheme: true,
-				supportsWidgets: false,
-				supportsMenus: false,
-			},
-		},
+		'site-1': { sortOrder: 0, autoStart: true },
 		'site-2': { sortOrder: 1 },
 	},
 	onboardingCompleted: true,

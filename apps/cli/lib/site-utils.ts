@@ -1,9 +1,6 @@
+import { PROXY_PROCESS_NAME } from '@studio/common/constants';
+import { getProxyPortConflictMessage } from '@studio/common/lib/domains';
 import { decodePassword } from '@studio/common/lib/passwords';
-import {
-	getSiteRuntime,
-	SITE_RUNTIME_NATIVE_PHP,
-	type SiteRuntime,
-} from '@studio/common/lib/site-runtime';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __ } from '@wordpress/i18n';
 import { openBrowser } from 'cli/lib/browser';
@@ -17,7 +14,11 @@ import {
 	stopProxyProcess,
 } from 'cli/lib/daemon-client';
 import { addDomainToHosts } from 'cli/lib/hosts-file';
-import { isServerRunning, SITE_PROCESS_PREFIX } from 'cli/lib/wordpress-server-manager';
+import {
+	isServerRunning,
+	SITE_PROCESS_PREFIX,
+	subscribeForReadyOrExit,
+} from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
 
 /**
@@ -27,7 +28,18 @@ export async function startProxyIfNeeded( logger: Logger< LoggerAction > ): Prom
 	const proxyProcess = await isProxyProcessRunning();
 	if ( ! proxyProcess ) {
 		logger.reportStart( LoggerAction.START_PROXY, __( 'Starting HTTP proxy server…' ) );
-		await startProxyProcess();
+		const readyOrExit = await subscribeForReadyOrExit( PROXY_PROCESS_NAME );
+		try {
+			const { pmId } = await startProxyProcess();
+			await readyOrExit.waitFor( pmId );
+		} catch ( error ) {
+			throw new LoggerError(
+				getProxyPortConflictMessage( String( error ) ) ?? __( 'Failed to start HTTP proxy server' ),
+				error
+			);
+		} finally {
+			readyOrExit.dispose();
+		}
 		logger.reportSuccess( __( 'HTTP proxy server started' ) );
 	} else {
 		logger.reportSuccess( __( 'HTTP proxy already running' ) );
@@ -40,15 +52,7 @@ export async function startProxyIfNeeded( logger: Logger< LoggerAction > ): Prom
  * Centralised here so every caller agrees on the query-param shape
  * the studio-auto-login mu-plugin expects.
  */
-export function buildAutoLoginUrl(
-	runtime: SiteRuntime,
-	siteUrl: string,
-	redirectTo?: string
-): string {
-	if ( runtime === SITE_RUNTIME_NATIVE_PHP ) {
-		return `${ siteUrl }/`;
-	}
-
+export function buildAutoLoginUrl( siteUrl: string, redirectTo?: string ): string {
 	const base = `${ siteUrl }/studio-auto-login`;
 	if ( ! redirectTo ) {
 		return base;
@@ -57,18 +61,16 @@ export function buildAutoLoginUrl(
 }
 
 /**
- * Opens the site in the browser with auto-login.
- *
- * If the site was created from a Blueprint with a `landingPage`, that path is
- * used as the redirect target. Otherwise the CLI falls back to `/wp-admin/`,
- * preserving the historical behavior for sites created without one.
+ * Opens the site in the browser: the Blueprint `landingPage` when the site has one, logged in so
+ * admin landing pages don't bounce to the login screen, and the front page otherwise.
  */
 export async function openSiteInBrowser( site: SiteData ): Promise< void > {
 	const siteUrl = getSiteUrl( site );
 	try {
-		const targetPath = site.landingPage || '/wp-admin/';
-		const target = new URL( targetPath, siteUrl ).toString();
-		await openBrowser( buildAutoLoginUrl( getSiteRuntime( site ), siteUrl, target ) );
+		const url = site.landingPage
+			? buildAutoLoginUrl( siteUrl, new URL( site.landingPage, siteUrl ).toString() )
+			: `${ siteUrl }/`;
+		await openBrowser( url );
 	} catch ( error ) {
 		// Silently fail if browser can't be opened
 	}

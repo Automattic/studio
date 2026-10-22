@@ -38,10 +38,6 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: studio site start/stop'
 
 	// Create the site once (no --start); the ordered cases below share it — start
 	// must precede stop, and one create avoids a second slow WordPress copy.
-	//
-	// `--runtime sandbox` (bundled Playground/WASM) keeps this hermetic. Native PHP
-	// would download its ~25 MB binary into the config dir on first run, so covering
-	// it hermetically needs CI to provision that binary — a follow-up.
 	beforeAll( async () => {
 		env = setupCliEnv();
 		sitePath = path.join( env.sitesDir, 'lifecycle-e2e-site' );
@@ -56,8 +52,6 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: studio site start/stop'
 				sitePath,
 				'--wp',
 				'latest',
-				'--runtime',
-				'sandbox',
 				'--no-start',
 				'--skip-browser',
 				'--skip-log-details',

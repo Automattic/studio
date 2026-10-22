@@ -1,13 +1,12 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen } from '@testing-library/react';
-import { Tooltip } from '@wordpress/ui';
 import { describe, expect, it, vi } from 'vitest';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { Conversation } from '.';
 import type { LoadedAiSession, SessionEntry } from '@/data/core';
 
 vi.mock( '@/data/core', () => ( {
 	useConnector: () => ( {
-		capabilities: { readLocalMedia: false },
 		copyText: vi.fn().mockResolvedValue( undefined ),
 	} ),
 } ) );
@@ -27,7 +26,7 @@ function renderConversation( { isRunning = false }: { isRunning?: boolean } = {}
 
 	return render(
 		<QueryClientProvider client={ new QueryClient() }>
-			<Tooltip.Provider delay={ 0 }>
+			<TooltipProvider delay={ 0 }>
 				<Conversation
 					data={ data }
 					isRunning={ isRunning }
@@ -38,7 +37,7 @@ function renderConversation( { isRunning = false }: { isRunning?: boolean } = {}
 					onAnswerQuestion={ vi.fn() }
 					onChooseFreeForm={ vi.fn() }
 				/>
-			</Tooltip.Provider>
+			</TooltipProvider>
 		</QueryClientProvider>
 	);
 }

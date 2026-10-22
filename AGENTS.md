@@ -1,6 +1,6 @@
 # AI Instructions
 
-WordPress Studio - Electron desktop app for managing local WordPress sites. Built with React + TypeScript, uses WordPress Playground (PHP WASM) for running sites.
+WordPress Studio - Electron desktop app for managing local WordPress sites. Built with React + TypeScript, runs sites with a bundled native PHP binary.
 
 ## Essential Commands
 
@@ -19,6 +19,7 @@ WordPress Studio - Electron desktop app for managing local WordPress sites. Buil
 - **Preview Sites**: See `apps/cli/commands/preview/`
 - **Local Sites**: See `apps/cli/commands/site/`
 - **Agentic UI (`apps/ui`)**: To verify UI changes, run `npm run cli:build:ui && node apps/cli/dist/cli/main.mjs ui --no-open`, then open http://localhost:8081 with a browser tool (Playwright/Chrome MCP) and check both light and dark themes. Note: plain `cli:build` does NOT rebuild `apps/ui` — use `cli:build:ui`. Default port 8081 (`--port` to override).
+- **MCP Apps (`apps/mcp-ui`)**: `npm run cli:build:mcp-ui` builds the page into the CLI; plain `cli:build` does NOT rebuild it. Verify it in an agent app that renders MCP Apps, in light and dark; the WordPress library opens from the ChatGPT app's sidebar once the Studio plugin is installed.
 
 ## Agent Evals (Studio Code)
 
@@ -31,32 +32,31 @@ Prefer targeted runs: `npm run eval -- --filter-pattern "<case>"`. The full suit
 ## Architecture
 
 **Electron 3-Process**: Main (Node.js) → Preload (IPC bridge) → Renderer (React)
-**Main Process** (`apps/studio/src/`): IPC handlers, site servers, storage, OAuth, sync, migrations
-**Renderer** (`apps/studio/src/components`, `apps/studio/src/hooks`): React UI, Redux stores, TailwindCSS
-**CLI** (`apps/cli/`): WordPress Playground (PHP WASM), yargs commands, child process of desktop app
-**Browser UI** (second front end, alongside Electron): `studio ui` starts `@studio/local` (Express + SSE), which serves the `apps/ui` React app and forks the CLI for site and agent operations. `@studio/hosted` is the experimental remote backend for that same UI.
+**Main Process** (`apps/studio/src/`): IPC handlers, windows and menus, updates, storage, the `wp-studio://` protocol, migrations. Site operations run in the CLI; logic shared with `studio ui` lives in `@studio/common`
+**Renderer**: the `apps/ui` React app (see Directory Structure), built into the Desktop app and loaded by the main process
+**CLI** (`apps/cli/`): native PHP site servers, yargs commands, child process of desktop app
+**Browser UI** (second front end, alongside Electron): `studio ui` starts `@studio/local` (Express + SSE), which serves the `apps/ui` React app and forks the CLI for site and agent operations.
 
 ## Directory Structure
 
-**`/apps/studio/src`**: Main (index.ts, ipc-handlers.ts, site-server.ts, storage/, lib/) | Renderer (components/, hooks/, stores/) | modules/ (sync, cli, user-settings, preview-site)
+**`/apps/studio/src`**: Main (index.ts, ipc-handlers.ts, storage/, lib/), preload.ts | modules/<feature>/lib/ (sync, cli, user-settings, import-export, …)
 **`/apps/cli`**: index.ts, commands/ (auth, preview, site), lib/ (appdata, i18n, browser)
-**`/apps/ui`**: Agentic browser UI (`@studio/ui`). app/ (providers, router), components/, data/, hooks/, lib/. **Different stack from `apps/studio`** — React 19, TanStack Query + Router, `@wordpress/ui` + `ThemeProvider`; no Redux, no Tailwind. Built per target: `build:local` / `build:hosted`.
-**`/apps/local`**, **`/apps/hosted`**: HTTP/SSE backends for `apps/ui`. `local` is bundled into the CLI; `hosted` is experimental.
-**`/packages/common`**: Shared lib/ (fs-utils, port-finder, oauth), types/, translations/
+**`/apps/ui`**: Agentic UI (`@studio/ui`), the renderer of both the Desktop app and the `studio ui` browser app. app/ (providers, router), components/, data/, hooks/, lib/. `build:local` builds it for `studio ui`; the Desktop build comes from `scripts/build-ui-renderer.ts`.
+**`/apps/local`**: HTTP/SSE backend for `apps/ui` in the browser, bundled into the CLI.
+**`/apps/mcp-ui`**: MCP Apps pages that agent apps show for `studio mcp` (`@studio/mcp-ui`), currently the WordPress library. React + TanStack Query and plain CSS, built into one HTML document that `studio mcp` serves; the data layer talks to the host through one bridge, with no connectors. Not a target of `apps/ui`: see `docs/design-docs/studio-apps-and-surfaces.md`.
+**`/packages/common`**: Electron-free code shared by the Desktop app, `studio ui` and the CLI: ai/ (sessions, run-manager), sites/ (site operations over the CLI), lib/, types/, translations/
 **`/tools/eslint-plugin-studio`**: eslint-plugin-studio
 
 ## Key Patterns
 
-**IPC**: Renderer → `window.ipcApi.*` → Preload (contextBridge) → Main `ipc-handlers.ts` → Business logic
-**CliServerProcess**: Desktop spawns CLI as child process (`apps/studio/src/modules/cli/lib/cli-server-process.ts`)
-**Redux Stores**: chat, sync, connectedSites, snapshot, onboarding | RTK Query APIs: wpcomApi, installedAppsApi, wordpressVersionsApi
-**SiteServer** (`apps/studio/src/site-server.ts`): Manages site instances, server start/stop, SSL certs, ports
+**IPC**: `apps/ui` `ipc` connector → `window.ipcApi.*` → Preload (contextBridge) → Main `ipc-handlers.ts` → `@studio/common` or the CLI
+**Sites** (`apps/studio/src/lib/sites.ts`): Main keeps no copy of the site list. It asks the CLI (`site list`, or `cli.json` via `@studio/common/sites/site-path` when only a path or name is needed) and merges Studio's per-site fields from `app.json` via `@studio/common/sites/metadata`, shared with `apps/local`
 
 ## Tech Stack
 
-**Frontend**: React 18, Redux Toolkit + RTK Query, @wordpress/components, TailwindCSS, TypeScript, Vite
+**Frontend** (`apps/ui`): React 19, TanStack Query + Router, Base UI with the app's own primitives (`src/components/ui/`) and theme tokens (`src/theme/`), `@wordpress/icons`, TypeScript, Vite
 **Main**: Electron
-**CLI**: @wp-playground/cli, @php-wasm/node, @wp-playground/blueprints
+**CLI**: native PHP binaries, WP-CLI, @wp-playground/blueprints (Blueprint types and schema validation)
 **Dev**: electron-vite, electron-forge, Vitest, Playwright
 **Other**: Sentry, wpcom, zod, yargs
 
@@ -69,16 +69,13 @@ Prefer targeted runs: `npm run eval -- --filter-pattern "<case>"`. The full suit
 ## Conventions
 
 **Files**: React components (PascalCase), utils (camelCase), tests (.test.ts/.tsx)
-**Class names (`cx`)**: Use `cx()` (`apps/studio/src/lib/cx.ts`) only to join classes with conditions (e.g. `cx( 'base', isActive && 'active' )`). For a single static string, pass the bare string instead of wrapping it — `className="h-full"`, not `className={ cx( 'h-full' ) }`. Enforced (and auto-fixed) by the `studio/no-redundant-cx` ESLint rule (`tools/eslint-plugin-studio`).
-**Theming / colors (renderer CSS)**: Each app in `apps/` has its own dark-mode strategy — identify which app a file belongs to before picking color tokens:
-- **`apps/studio` (legacy renderer)**: supports light + dark via `@media (prefers-color-scheme: dark)`. For any **color** (text, background, border, fill, brand/theme, error/running states) **MUST** use Studio's dark-aware `--color-frame-*` tokens defined in `apps/studio/src/index.css` (e.g. `--color-frame-text`, `--color-frame-bg`, `--color-frame-surface`, `--color-frame-border`, `--color-frame-theme`, `--color-frame-error`). **NEVER** use `--wpds-color-*` tokens for color here — no app-wide color `ThemeProvider` wraps this app (only density-scoped ones inside Studio Code), so they fall back to light-only values from `@wordpress/ui` and render broken (invisible text, wrong borders) in dark mode. When a needed color has no `--color-frame-*` token, add one (with both light and dark values) rather than reaching for `--wpds-color-*`. As of June 2026 there is no plan to refactor `apps/studio` onto `ThemeProvider` — it may be replaced entirely.
-- **`apps/ui` (agentic UI)**: the whole canvas is wrapped in `ThemeProvider` (`apps/ui/src/app/app-providers.tsx`), so the rule is the **opposite** — always use `--wpds-color-*` variables for color; they adapt to the active theme. Do not use `--color-frame-*` tokens here.
-- Non-color `--wpds-*` tokens (`--wpds-dimension-*`, `--wpds-typography-*`, `--wpds-border-width-*`, `--wpds-elevation-*`, `--wpds-cursor-*`) are theme-independent and fine to use in any app.
+**Theming / colors (CSS)**: Always use the theme tokens in `apps/ui/src/theme/tokens.css` (`--foreground`, `--muted-foreground`, `--border`, `--muted`, `--accent`, …) for color; they follow the color scheme and the Appearance settings. Type, radius, motion and shell metrics have tokens there too (`--text-*`, `--font-weight-*`, `--radius-*`, `--motion-*`, `--control-size`). See the `apps/ui` README.
 
-**IPC Handlers** (`apps/studio/src/ipc-handlers.ts`): **MUST** `export async function handlerName(event, ...args): Promise<ReturnType>` | Handler names in `apps/studio/src/constants.ts` | All handlers MUST be async and return Promises
+**UI primitives** (`apps/ui/src/components/ui/`): Button, IconButton, Dialog, Menu, Select, Field, Tooltip… built on Base UI, styled after the rebuild's kit. Feature code uses these rather than Base UI directly wherever a primitive exists; `@wordpress/ui`, `@wordpress/components`, `@wordpress/dataviews` and `@wordpress/theme` are not used (lint-enforced). Primitives sit in the `ui` cascade layer, so a feature's CSS module overrides them without specificity tricks; change a button's resting fill with `--button-background`, not `background-color`. Primitives import nothing from app code (`data/`, `hooks/`, the router; lint-enforced).
+**IPC Handlers** (`apps/studio/src/ipc-handlers.ts`): every export is registered as a handler under its name, as `handlerName(event, ...args)` | Fire-and-forget handlers (called with `ipcRenderer.send`) are listed in `IPC_VOID_HANDLERS` in `apps/studio/src/constants.ts`
 **Storage**: **CRITICAL** - Always use file locking when writing config. Each config file has its own lockfile and helpers: `lockAppdata()` / `unlockAppdata()` for `app.json` (`apps/studio/src/storage/user-data.ts`), `lockCliConfig()` / `unlockCliConfig()` for `cli.json` (`apps/cli/lib/cli-config/core.ts`), and `lockSharedConfig()` / `unlockSharedConfig()` for `shared.json` (`packages/common/lib/shared-config.ts`).
 **i18n**: `@wordpress/i18n` (`__()` function), `packages/common/translations/`, `<I18nProvider>` (renderer), `loadTranslations()` (CLI)
-**i18n - Never translate at module level**: **CRITICAL** - Do NOT call translation functions (`__()`, `_x()`, `_n()`, `_nx()`) in module-level constants, object literals, or arrays. They run when the module is first imported — before the locale data loads — so the string is captured once and never updates. This matters for the **legacy `apps/studio` renderer**, which is long-lived and swaps locale data live when the user switches language, so a string evaluated at import time stays stale in the old language until restart. Always wrap them in a function so they are re-evaluated at render/call time: use `const getLabel = () => __( 'Label' )` instead of `const LABEL = __( 'Label' )`. `apps/cli` and `apps/ui` are excluded from the rule: the CLI is a one-shot process that loads the locale before importing modules, and the agentic UI reloads the window on language change, so neither can hold a stale string. Enforced by the `studio/no-module-level-translations` ESLint rule (`tools/eslint-plugin-studio`).
+**i18n - Never translate at module level**: **CRITICAL** - Do NOT call translation functions (`__()`, `_x()`, `_n()`, `_nx()`) in module-level constants, object literals, or arrays. They run when the module is first imported — before the locale data loads — so the string is captured once and never updates. This matters for the **Desktop main process** (`apps/studio`), which is long-lived and swaps locale data live when the user switches language, so a string evaluated at import time (in a menu or dialog) stays stale in the old language until restart. Always wrap them in a function so they are re-evaluated at call time: use `const getLabel = () => __( 'Label' )` instead of `const LABEL = __( 'Label' )`. `apps/cli` and `apps/ui` are excluded from the rule: the CLI is a one-shot process that loads the locale before importing modules, and the agentic UI reloads the window on language change, so neither can hold a stale string. Enforced by the `studio/no-module-level-translations` ESLint rule (`tools/eslint-plugin-studio`).
 
 ## WordPress Studio Paths
 
@@ -109,9 +106,9 @@ Studio issues on the **Studio App & CLI** Linear team (`STU-*`) can be picked up
 
 - **Stay in scope.** Touch only the files the issue requires. Prefer the smallest change that resolves it; avoid unrelated refactors.
 - **Verify before claiming done.** Run `npx eslint --fix` on modified files, `npm run typecheck`, and `npm test -- <path>` for affected tests. e2e (`npm run e2e`) usually isn't runnable in the sandbox — rely on unit tests; if it is available, run it last, after everything else passes. If the toolchain or a dependency install is unavailable in the sandbox, say so explicitly — never assert a change is verified when it isn't.
-- **You cannot see the Desktop Classic UI.** Visual and dark-mode correctness of `apps/studio` can't be confirmed headless. For UI/CSS changes there, use the `--color-frame-*` tokens (never `--wpds-color-*`) and flag the PR for human visual review. Add this line to the PR description so reviewers don't miss it: `> ⚠️ Visual change: needs human review in light + dark mode.` Exception: `apps/ui` (Agentic UI) IS verifiable — serve it via `npm run cli:build:ui && node apps/cli/dist/cli/main.mjs ui --no-open` (http://localhost:8081) and inspect with a browser tool if available.
+- **Verify UI changes in the browser.** `apps/ui` (Agentic UI) is verifiable headless — serve it via `npm run cli:build:ui && node apps/cli/dist/cli/main.mjs ui --no-open` (http://localhost:8081) and inspect it with a browser tool, in light and dark. When no browser tool is available, add this line to the PR description so reviewers don't miss it: `> ⚠️ Visual change: needs human review in light + dark mode.`
 - **Agent-behavior changes need evals.** If you touch the Studio Code system prompt, tools (including their result formats), or agent skills, update the affected assertions in `scripts/eval/promptfoo.config.yaml` and run them (`npm run eval -- --filter-pattern "<case>"`). Evals need `studio auth login`; when auth is unavailable in the sandbox, say so in the PR and flag it for a human eval run instead of skipping silently.
-- **Open a draft PoC for big or speculative work.** If the change adds a new dependency, spans a new architectural boundary (e.g. a new IPC handler + Redux slice + UI), or touches many files, open it as a draft Proof of Concept (see below) instead of merge-ready.
+- **Open a draft PoC for big or speculative work.** If the change adds a new dependency, spans a new architectural boundary (e.g. a new IPC handler + connector method + UI), or touches many files, open it as a draft Proof of Concept (see below) instead of merge-ready.
 
 ## Large & Exploratory Contributions (Vibe-Coded Features)
 
@@ -121,17 +118,23 @@ If you've built a substantial new feature — especially one generated with AI a
 - **Open a companion issue first** (or reference an existing one). The CONTRIBUTING.md recommends this for new features — it lets the team review the plan before implementation work begins.
 - **Describe intent clearly in the PR body**: What problem does this solve? What tradeoffs were made? What would need to change before this could be merged into core?
 - **Don't expect a fast merge path**: Proof of Concept PRs are valuable as starting points and discussion anchors, but the team will likely want to revisit architecture, tests, and polish before landing them.
-- **Keep scope visible**: If the change touches many files or crosses architectural boundaries (e.g., new IPC handlers + new Redux slices + new UI), call that out explicitly so reviewers know what they're evaluating.
+- **Keep scope visible**: If the change touches many files or crosses architectural boundaries (e.g., new IPC handlers + new connector methods + new UI), call that out explicitly so reviewers know what they're evaluating.
 
 ## Common Pitfalls
 
-**CRITICAL - Dark Mode Color Tokens**: The right color tokens depend on the app. In `apps/studio`, use `--color-frame-*` tokens for all colors, never `--wpds-color-*` — without a `ThemeProvider`, the wpds color tokens keep their hardcoded light fallbacks and do not respond to dark mode, so components look correct in light mode but break in dark (regression fixed in "Fix Dark theme for Studio Code"). In `apps/ui`, do the opposite: use `--wpds-color-*` tokens — the app-wide `ThemeProvider` makes them adapt to the active theme. In all apps, always test new/changed UI in BOTH color schemes before declaring done — macOS: System Settings → Appearance → Dark.
+**CRITICAL - Dark Mode Color Tokens**: Use the theme's color tokens (`apps/ui/src/theme/tokens.css`), never literal colors — they adapt to the active scheme. Always test new/changed UI in BOTH color schemes before declaring done — macOS: System Settings → Appearance → Dark.
 
-**IMPORTANT - Two Front Ends, One Feature**: `apps/ui` runs in both the Desktop app and the `studio ui` browser app, reaching the same data through different connectors (`apps/ui/src/data/core/connectors/`): `ipc` talks to the Electron main process, `local` talks to the `apps/local` HTTP server. Implementing a `Connector` method for only one target leaves a gap in the other, and it fails **silently** — the `local` connector tends to fall back to browser-local defaults rather than error, so the browser UI quietly shows stale or empty values. When you add or change a `Connector` method, do both sides: the main-process IPC handler AND an `apps/local` route. Desktop-owned state in `app.json` is readable from the server via `readAppConfig`/`updateAppConfig` (`packages/common/lib/app-config.ts`) — prefer that over keeping a separate copy in the browser, and put the fallback for an unset value in `packages/common` so the two can't drift. Verify in both: the Desktop app, and `npm run cli:build:ui && node apps/cli/dist/cli/main.mjs ui --no-open`.
+**IMPORTANT - Two Front Ends, One Feature**: `apps/ui` runs in both the Desktop app and the `studio ui` browser app, through two connectors (`apps/ui/src/data/core/connectors/`): `ipc` talks to the Electron main process, `local` talks to the `apps/local` HTTP server. A `Connector` method implemented for only one target fails **silently** in the other — the `local` connector tends to fall back to browser-local defaults, so the browser UI quietly shows stale or empty values. Write the operation once in `@studio/common`, taking the CLI runner and anything else that differs as parameters, and make the main-process IPC handler and the `apps/local` route thin wrappers around it (e.g. `lib/user-settings/user-preferences.ts`, `sites/sync.ts`, `lib/local-media.ts`). Desktop-owned state in `app.json` goes through `@studio/common/lib/app-config.ts` rather than a copy in the browser, with the fallback for an unset value in the shared module. Verify in both: the Desktop app, and `npm run cli:build:ui && node apps/cli/dist/cli/main.mjs ui --no-open`.
 
-**IMPORTANT - Gate App-Specific Agent Tools**: The Studio Code agent tools (`apps/cli/ai/tools/`) run in several contexts: forked by the Desktop app or the `studio ui` server (a Studio UI is attached), standalone terminal `studio code` sessions, and the MCP server. A tool or prompt instruction that only makes sense in one of them (e.g. `refresh_browser` reloading the preview pane, `studio_present` widgets — both need a UI attached) **leaks into the other contexts unless explicitly gated** — the model gets told to call a tool that does nothing there. When adding an app- or context-specific tool or behavior, gate BOTH sides on the right flag in `resolveStudioToolDefinitions` (`apps/cli/ai/tools/index.ts`) — `emitChatArtifacts` = UI attached (derived from `process.send`) — AND its mentions in the system prompt (`buildLocalIntro` in `apps/cli/ai/system-prompt.ts`, which receives the same flags). The prompt's tool list itself is generated from the registered tools (each tool's `promptSnippet` and `promptGuidelines`, see `define-tool.ts`), so it never needs gating; only behavioral mentions elsewhere in the prompt do. Add tests for both branches (present when flagged, absent by default); the MCP server calls `resolveStudioToolDefinitions()` with no options, so correct gating covers it automatically.
+**IMPORTANT - One Implementation Per Site Operation**: Site operations the CLI owns (push, pull, preview, import, export, start/stop…) must run through their CLI command from every surface — the Desktop main process, `apps/local`, and the agent tools alike. When a UI needs something the command lacks (structured progress, a non-interactive flag, cancellation), extend the command rather than rebuilding the operation from shared primitives in a host process. Parallel implementations drift: push was once reimplemented as `pushSite` because CLI `push` lacked structured output, after which selective sync, cancel and the remote-import wait each had to be fixed twice, and the agent's push never drove the UI. Commands also run without a terminal (the agent calls `runCommand` in-process, hosts fork the CLI with no stdin), so `runCommand` must never prompt or call `process.exit()`. Behaving differently in a terminal is fine: the yargs handler may prompt when `process.stdin.isTTY` and pass the answer in, and without a terminal the command falls back to a sensible default. See `docs/design-docs/cli-host-communication.md`.
 
-**CRITICAL - WordPress Core Files**: Do NOT edit WordPress core files within site directories. Studio uses WordPress Playground (PHP WASM), and core modifications won't persist or function correctly.
+**IMPORTANT - Avoid Mirroring State in Host Processes**: Sites belong to the CLI and Studio's per-site fields to `app.json`. Avoid keeping copies in the Desktop main process or `apps/local`; read what you need when you need it, and leave caching to the UI's TanStack Query cache. Prefer reading cheap derived data on demand over persisting it. Mirrors drift: main once kept the site list in memory and needed reconciliation passes to undo it.
+
+**IMPORTANT - Gate App-Specific Agent Tools**: The Studio Code agent tools (`apps/cli/ai/tools/`) run in several contexts: forked by the Desktop app or the `studio ui` server (a Studio UI is attached), standalone terminal `studio code` sessions, and the MCP server. A tool or prompt instruction that only makes sense in one of them (e.g. a tool that opens the in-app preview, which needs a UI attached) **leaks into the other contexts unless explicitly gated** — the model gets told to call a tool that does nothing there. When adding an app- or context-specific tool or behavior, gate BOTH sides on the right flag in `resolveStudioToolDefinitions` (`apps/cli/ai/tools/index.ts`) — `emitChatArtifacts` = UI attached (derived from `process.send`) — AND its mentions in the system prompt (`buildSystemPrompt` in `apps/cli/ai/system-prompt.ts`, which receives the same flags). The prompt's tool list itself is generated from the registered tools (each tool's `promptSnippet`, see `define-tool.ts`), so it never needs gating; only behavioral mentions elsewhere in the prompt do. Add tests for both branches (present when flagged, absent by default); the MCP server never passes `emitChatArtifacts` to `resolveStudioToolDefinitions()`, so correct gating covers it automatically.
+
+**IMPORTANT - Where Agent Guidance Goes**: The system prompt (`apps/cli/ai/system-prompt.ts`) holds only what is always true, plus skill routing. Procedures go in skills (`apps/cli/ai/skills/`), and facts about a single tool go in that tool's description. Studio Code and `studio mcp` share this split, so guidance reaches every agent.
+
+**CRITICAL - WordPress Core Files**: Do NOT edit WordPress core files within site directories. WordPress core updates replace those files, so modifications are lost.
 
 **CRITICAL - Config File Locking**: Each config file has its own lockfile and helper pair — ensure that any write operation uses the correct pair for that specific file. Use `lockAppdata()` / `unlockAppdata()` for `app.json`, `lockCliConfig()` / `unlockCliConfig()` for `cli.json`, and `lockSharedConfig()` / `unlockSharedConfig()` for `shared.json`. Concurrent unlocked writes will corrupt the file.
 
@@ -139,19 +142,18 @@ If you've built a substantial new feature — especially one generated with AI a
 
 **IMPORTANT - Main Process Restarts**: Hot reload (`rs` or auto-restart) does NOT pick up new IPC handlers or changes to Main process initialization. Full app restart required for Main process changes.
 
-**Async IPC Handlers**: All IPC handlers MUST return Promises. Synchronous handlers will break the IPC communication pattern.
-
-**Context Isolation**: Renderer is sandboxed - direct Node.js API access not available. MUST use IPC (`window.ipcApi.*`) for all Main process operations.
+**Context Isolation**: Renderer is sandboxed - direct Node.js API access not available. `apps/ui` reaches Main through its `ipc` connector (`window.ipcApi.*`).
 
 **Port Conflicts**: Site servers dynamically allocate ports. Don't hardcode port numbers; use the port-finder utility.
 
-**CRITICAL - Playground/PHP-WASM Package Versions**: Always pin `@wp-playground/*` and `@php-wasm/*` packages to **exact versions** (no `^` or `~` ranges) in all `package.json` files. A caret range causes `install:bundle` to resolve a newer version when one publishes, creating a version conflict. npm then installs duplicate copies of all PHP WASM packages nested under the conflicting package's `node_modules/`. The `prune-php-wasm` vite plugin only removes top-level asyncify directories and misses nested copies, resulting in ~450 MB of bloat in the app bundle. More critically, different parts of Studio end up running mismatched Playground/PHP-WASM versions, which can cause subtle and hard-to-diagnose runtime failures in core site operations.
+**CRITICAL - Playground Package Versions**: Always pin `@wp-playground/*` packages (and any `@php-wasm/*` they pull in) to **exact versions** (no `^` or `~` ranges) in all `package.json` files, and bump them in lockstep. A caret range causes `install:bundle` to resolve a newer version when one publishes, creating a version conflict, and npm then installs duplicate nested copies of the shared Playground packages. Studio no longer runs sites on Playground; it only uses `@wp-playground/blueprints` for Blueprint types and schema validation, and `@wp-playground/tools` for the phpMyAdmin files. Keep `@wp-playground/blueprints` a devDependency everywhere: import only types from it (the schema validator is bundled by Vite, and `__isStepDefinition` lives in `packages/common/lib/blueprint-settings.ts`). A runtime import makes the CLI bundle ship it with ~100 MB of transitive dependencies (Octokit, isomorphic-git).
 
 ## Detailed Documentation
 
 For in-depth information, see these docs:
 - **CLI Design**: `docs/design-docs/cli.md` - CLI architecture, installation, IPC communication, data flow
 - **Local AI Providers**: `docs/design-docs/local-ai-providers.md` - OpenAI-compatible provider, endpoint/model discovery, pi-native compaction
+- **CLI ↔ App Communication**: `docs/design-docs/cli-host-communication.md` - How operations publish their state and activity to every Studio app, and the principles behind it
 - **Custom Domains/SSL**: `docs/design-docs/custom-domains-and-ssl.md` - Proxy server, certificates, hosts file
 - **Analytics (Tracks)**: `docs/design-docs/analytics-tracks.md` - Tracks vs MC Stats, anonymous identity, opt-out, event catalog
 - **Localization**: `docs/localization.md` - GlotPress workflow, translation process
@@ -160,8 +162,8 @@ For in-depth information, see these docs:
 
 ## Quick Reference
 
-**WP Playground**: CLI runs WordPress via PHP WASM, Blueprints for config, `validateBlueprintData()` for schema validation
-**Sync**: OAuth via `packages/common/lib/oauth.ts`, Redux `sync` slice, pull/push WordPress.com sites
+**Sites**: CLI runs WordPress with native PHP (`apps/cli/php-server-child.ts`), Blueprints applied via `blueprints.phar`, `validateBlueprintData()` for schema validation
+**Sync**: OAuth via `packages/common/lib/oauth.ts`, pull/push WordPress.com sites through the CLI `push`/`pull` commands
 **Security**: Renderer sandboxed, IPC validation, strict CSP, no Node integration, self-signed HTTPS certs
 
 ---

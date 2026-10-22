@@ -1,6 +1,8 @@
 import { __ } from '@wordpress/i18n';
 import { check, copy, Icon } from '@wordpress/icons';
-import { Tooltip } from '@wordpress/ui';
+import { clsx } from 'clsx';
+import { Button } from '@/components/ui/button';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useCopyText } from '@/hooks/use-copy-text';
 import styles from './style.module.css';
 
@@ -22,30 +24,22 @@ export function CopyButton( {
 
 	return (
 		<div className={ className }>
-			<Tooltip.Root>
-				<Tooltip.Trigger
+			<Tooltip>
+				<TooltipTrigger
 					render={
-						<button
-							type="button"
-							className={ styles.copyButton }
+						<Button
+							variant="muted-ghost"
+							size="icon-xs"
+							className={ clsx( variant === 'filled' && styles.filled, copied && styles.copied ) }
 							onClick={ handleCopy }
 							aria-label={ label }
-							data-copied={ copied ? 'true' : undefined }
-							data-variant={ variant }
 						>
-							<Icon
-								icon={ copied ? check : copy }
-								size={ copied ? 20 : 16 }
-								fill="currentColor"
-								aria-hidden="true"
-							/>
-						</button>
+							<Icon icon={ copied ? check : copy } fill="currentColor" aria-hidden="true" />
+						</Button>
 					}
 				/>
-				<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
-					{ tooltipLabel }
-				</Tooltip.Popup>
-			</Tooltip.Root>
+				<TooltipContent>{ tooltipLabel }</TooltipContent>
+			</Tooltip>
 			<span className={ styles.visuallyHidden } role="status" aria-live="polite" aria-atomic="true">
 				{ copied ? copiedLabel : '' }
 			</span>

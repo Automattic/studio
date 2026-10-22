@@ -1,6 +1,7 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
+import { input, password } from '@inquirer/prompts';
 import { validateBlueprintData } from '@studio/common/lib/blueprint-validation';
 import {
 	isEmptyDir,
@@ -17,11 +18,6 @@ import {
 	SITE_FILE_ACCESS_SITE_DIRECTORY,
 	type SiteFileAccess,
 } from '@studio/common/lib/site-file-access';
-import {
-	SITE_RUNTIME_NATIVE_PHP,
-	SITE_RUNTIME_PLAYGROUND,
-	type SiteRuntime,
-} from '@studio/common/lib/site-runtime';
 import { getServerFilesPath } from '@studio/common/lib/well-known-paths';
 import { type SupportedPHPVersion } from '@studio/common/types/php-versions';
 import { Blueprint, BlueprintV1Declaration } from '@wp-playground/blueprints';
@@ -36,19 +32,25 @@ import {
 } from 'cli/lib/cli-config/core';
 import { removeSiteFromConfig } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
+import { liberateWebsite } from 'cli/lib/data-liberation-client';
 import { updateServerFiles } from 'cli/lib/dependency-management/setup';
 import { downloadWordPress } from 'cli/lib/dependency-management/wordpress';
 import { copyLanguagePackToSite } from 'cli/lib/language-packs';
-import { runWpCliCommandWithMessaging } from 'cli/lib/run-wp-cli-command';
+import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import { getPreferredSiteLanguage } from 'cli/lib/site-language';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
-import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
+import {
+	isSqliteIntegrationAvailable,
+	keepSqliteIntegrationUpdated,
+} from 'cli/lib/sqlite-integration';
+import { buildCreateFromSourceBlueprint } from 'cli/lib/static-site-import/source';
 import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { ProcessDescription } from 'cli/lib/types/process-manager-ipc';
 import { runBlueprint, startWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { Logger } from 'cli/logger';
-import { buildCreateFromSourceBlueprint, registerCommand, runCommand } from '../create';
+import { registerCommand, runCommand } from '../create';
 
+vi.mock( '@inquirer/prompts' );
 vi.mock( '@studio/common/lib/fs-utils' );
 vi.mock( '@studio/common/lib/network-utils' );
 vi.mock( '@studio/common/lib/port-finder', () => ( {
@@ -97,6 +99,23 @@ vi.mock( '@studio/common/lib/agent-skills' );
 vi.mock( 'cli/lib/sqlite-integration' );
 vi.mock( 'cli/lib/run-wp-cli-command' );
 vi.mock( 'cli/lib/wordpress-server-manager' );
+const { staticSiteImporterFixture } = vi.hoisted( () => {
+	const nodeFs = require( 'node:fs' ) as typeof import('node:fs');
+
+	const nodePath = require( 'node:path' ) as typeof import('node:path');
+
+	const nodeOs = require( 'node:os' ) as typeof import('node:os');
+	const directory = nodeFs.mkdtempSync( nodePath.join( nodeOs.tmpdir(), 'studio-ssi-release-' ) );
+	const zip = nodePath.join( directory, 'static-site-importer-html-site-import.zip' );
+	nodeFs.writeFileSync( zip, 'release zip' );
+	return { staticSiteImporterFixture: zip };
+} );
+vi.mock( 'cli/lib/import-runtime', () => ( {
+	resolveStaticSiteImporterPlugin: vi
+		.fn()
+		.mockResolvedValue( { path: staticSiteImporterFixture, version: '1.14.6' } ),
+	loadCaptureEngine: vi.fn(),
+} ) );
 vi.mock( 'cli/lib/tracks', async ( importActual ) => {
 	const actual = await importActual< typeof import('cli/lib/tracks') >();
 	return { ...actual, recordTracksEvent: vi.fn() };
@@ -108,6 +127,17 @@ describe( 'CLI: studio create', () => {
 	const mockPort = 8881;
 	const completedSsiReceipt =
 		'{"schema":"static-site-importer/import-cli-receipt/v1","status":"completed","steps":1,"response":{"success":true}}';
+	const qualityFailedReceipt = JSON.stringify( {
+		schema: 'static-site-importer/import-cli-receipt/v1',
+		status: 'failed',
+		response: {
+			success: false,
+			error: {
+				code: 'static_site_importer_quality_failed',
+				message: 'SSI reported 10 core_html_block failures.',
+			},
+		},
+	} );
 	const mockWpCli = ( {
 		exitCode = 0,
 		stdout = completedSsiReceipt,
@@ -129,7 +159,6 @@ describe( 'CLI: studio create', () => {
 	const defaultTestOptions = {
 		wpVersion: 'latest',
 		phpVersion: '8.3' as const,
-		runtime: SITE_RUNTIME_PLAYGROUND as SiteRuntime,
 		fileAccess: SITE_FILE_ACCESS_SITE_DIRECTORY as SiteFileAccess,
 		enableHttps: false,
 		noStart: false,
@@ -158,12 +187,36 @@ describe( 'CLI: studio create', () => {
 		pmId: 0,
 		status: 'online',
 		pid: 12345,
-		runtime: SITE_RUNTIME_PLAYGROUND,
 	};
 
 	let consoleLogSpy: MockInstance;
 	let fsMkdirSyncSpy: MockInstance;
 	let loggerReportSuccessSpy: MockInstance;
+
+	const printedOutput = () =>
+		consoleLogSpy.mock.calls.map( ( args ) => args.map( String ).join( ' ' ) ).join( '\n' );
+
+	const expectRetainedImportedSiteReported = ( {
+		sitePath = mockSitePath,
+		url = `http://localhost:${ mockPort }`,
+		running = false,
+	}: {
+		sitePath?: string;
+		url?: string;
+		running?: boolean;
+	} = {} ) => {
+		const output = printedOutput();
+		expect( output ).toContain( sitePath );
+		expect( output ).toContain( url );
+		expect( output ).toContain(
+			running
+				? 'The site is running and can be inspected.'
+				: 'The imported site was kept and can be inspected.'
+		);
+		expect( output ).toContain( 'Re-run the same command to resume the import.' );
+		expect( output ).not.toContain( 'generated-password-123' );
+		expect( logSiteDetails ).not.toHaveBeenCalled();
+	};
 
 	const createPathExistsMock = ( sitePathExists = false ) => {
 		const path = require( 'path' );
@@ -202,6 +255,7 @@ describe( 'CLI: studio create', () => {
 		vi.mocked( lockCliConfig ).mockResolvedValue( undefined );
 		vi.mocked( unlockCliConfig ).mockResolvedValue( undefined );
 		vi.mocked( keepSqliteIntegrationUpdated ).mockResolvedValue( undefined );
+		vi.mocked( isSqliteIntegrationAvailable ).mockResolvedValue( true );
 		vi.mocked( connectToDaemon ).mockResolvedValue( undefined );
 		vi.mocked( disconnectFromDaemon ).mockResolvedValue( undefined );
 		vi.mocked( updateServerFiles ).mockResolvedValue( true );
@@ -209,7 +263,7 @@ describe( 'CLI: studio create', () => {
 		vi.mocked( setupCustomDomain ).mockResolvedValue( undefined );
 		vi.mocked( startWordPressServer ).mockResolvedValue( mockProcessDescription );
 		vi.mocked( runBlueprint ).mockResolvedValue( undefined );
-		vi.mocked( runWpCliCommandWithMessaging ).mockReset().mockResolvedValue( mockWpCli() );
+		vi.mocked( runWpCliCommand ).mockReset().mockResolvedValue( mockWpCli() );
 		vi.mocked( logSiteDetails ).mockImplementation( () => {} );
 		vi.mocked( openSiteInBrowser ).mockResolvedValue( undefined );
 		vi.mocked( validateBlueprintData ).mockResolvedValue( { valid: true } );
@@ -249,6 +303,20 @@ describe( 'CLI: studio create', () => {
 	};
 
 	describe( 'Validation Errors', () => {
+		it( 'requires a URL source when keeping a capture', () => {
+			const createParser = () =>
+				registerCommand(
+					yargs( [] ).option( 'path', { type: 'string', default: mockSitePath } )
+				).exitProcess( false );
+
+			expect( () => createParser().parse( [ 'create', '--keep-source' ] ) ).toThrow(
+				'keep-source -> from'
+			);
+			expect( () =>
+				createParser().parse( [ 'create', '--from', '/tmp/source', '--keep-source' ] )
+			).toThrow( '--keep-source requires --from with an HTTP(S) URL' );
+		} );
+
 		it( 'validates and resolves the local Static Site Importer zip option', async () => {
 			const pluginDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-ssi-plugin-' ) );
 			const createParser = () =>
@@ -394,6 +462,263 @@ describe( 'CLI: studio create', () => {
 	} );
 
 	describe( 'Success Cases', () => {
+		it( 'removes the URL source capture after importing by default', async () => {
+			const siteRoot = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-url-import-' ) );
+			const sitePath = path.join( siteRoot, 'site' );
+			const capturePath = `${ sitePath }-source`;
+			const liberate = vi.fn().mockImplementation( async ( _url, outputDir ) => {
+				const website = path.join( outputDir, 'example.com', 'website' );
+				await fs.promises.mkdir( website, { recursive: true } );
+				await fs.promises.writeFile( path.join( website, 'index.html' ), '<main>Liberated</main>' );
+				return { websiteDir: website, compareCommand: () => '' };
+			} );
+			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
+			const copySpy = vi.spyOn( fs.promises, 'cp' ).mockResolvedValue( undefined );
+			const parser = registerCommand(
+				yargs( [] ).option( 'path', { type: 'string', default: sitePath } ),
+				{ liberate }
+			).exitProcess( false );
+
+			try {
+				await parser.parseAsync( [
+					'create',
+					'--from',
+					'https://example.com',
+					'--name',
+					'Liberated Site',
+					'--no-start',
+					'--skip-browser',
+				] );
+
+				expect( liberate ).toHaveBeenCalledWith(
+					'https://example.com',
+					capturePath,
+					expect.objectContaining( { onProgress: expect.any( Function ) } )
+				);
+				expect( copySpy ).toHaveBeenCalledWith(
+					path.join( capturePath, 'example.com' ),
+					path.join( sitePath, '.studio-import', 'source' ),
+					{ recursive: true, errorOnExist: true, force: false }
+				);
+				expect( fs.existsSync( capturePath ) ).toBe( false );
+			} finally {
+				await fs.promises.rm( siteRoot, { recursive: true, force: true } );
+			}
+		} );
+
+		it( 'names an interactive URL import from the captured title instead of prompting', async () => {
+			const siteRoot = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-url-tty-' ) );
+			const sitePath = path.join( siteRoot, 'site' );
+			const liberate = vi.fn().mockImplementation( async ( _url, outputDir ) => {
+				const website = path.join( outputDir, 'example.com', 'website' );
+				await fs.promises.mkdir( website, { recursive: true } );
+				await fs.promises.writeFile( path.join( website, 'index.html' ), '<main>Liberated</main>' );
+				await fs.promises.writeFile(
+					path.join( outputDir, 'example.com', 'capture-receipt.json' ),
+					JSON.stringify( {
+						schema: 'blocks-engine-capture/capture-receipt/v1',
+						title: 'Example Brand',
+					} )
+				);
+				return { websiteDir: website, compareCommand: () => '' };
+			} );
+			vi.mocked( input ).mockResolvedValue( '' );
+			vi.mocked( password ).mockResolvedValue( '' );
+			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
+			vi.spyOn( fs.promises, 'cp' ).mockResolvedValue( undefined );
+			const isTTY = process.stdin.isTTY;
+			process.stdin.isTTY = true;
+			const parser = registerCommand(
+				yargs( [] ).option( 'path', { type: 'string', default: sitePath } ),
+				{ liberate }
+			).exitProcess( false );
+
+			try {
+				await parser.parseAsync( [
+					'create',
+					'--from',
+					'https://example.com',
+					'--wp',
+					'latest',
+					'--php',
+					'8.3',
+					'--no-start',
+					'--skip-browser',
+				] );
+
+				expect( input ).not.toHaveBeenCalledWith(
+					expect.objectContaining( { message: 'Site name:' } )
+				);
+				expect( saveCliConfig ).toHaveBeenCalledWith(
+					expect.objectContaining( {
+						sites: expect.arrayContaining( [
+							expect.objectContaining( { path: sitePath, name: 'Example Brand' } ),
+						] ),
+					} )
+				);
+			} finally {
+				process.stdin.isTTY = isTTY;
+				await fs.promises.rm( siteRoot, { recursive: true, force: true } );
+			}
+		} );
+
+		it.each( [
+			[ 'prompts for the name of a plain local directory', false, 'Typed Name' ],
+			[ 'names a capture directory from its receipt without prompting', true, 'Example Brand' ],
+		] )( '%s in an interactive terminal', async ( _label, captured, expectedName ) => {
+			const root = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-dir-tty-' ) );
+			const capture = path.join( root, 'capture' );
+			const website = path.join( capture, 'website' );
+			const sitePath = path.join( root, 'site' );
+			await fs.promises.mkdir( website, { recursive: true } );
+			await fs.promises.writeFile( path.join( website, 'index.html' ), '<main>Hello</main>' );
+			if ( captured ) {
+				await fs.promises.writeFile(
+					path.join( capture, 'capture-receipt.json' ),
+					JSON.stringify( {
+						schema: 'blocks-engine-capture/capture-receipt/v1',
+						websiteRoot: 'website',
+						title: 'Example Brand',
+					} )
+				);
+			}
+			vi.mocked( input ).mockImplementation( async ( { message } ) =>
+				message === 'Site name:' ? 'Typed Name' : ''
+			);
+			vi.mocked( password ).mockResolvedValue( '' );
+			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
+			vi.spyOn( fs.promises, 'cp' ).mockResolvedValue( undefined );
+			const isTTY = process.stdin.isTTY;
+			process.stdin.isTTY = true;
+			const parser = registerCommand(
+				yargs( [] ).option( 'path', { type: 'string', default: sitePath } )
+			).exitProcess( false );
+
+			try {
+				await parser.parseAsync( [
+					'create',
+					'--from',
+					captured ? capture : website,
+					'--wp',
+					'latest',
+					'--php',
+					'8.3',
+					'--no-start',
+					'--skip-browser',
+				] );
+
+				const prompted = vi
+					.mocked( input )
+					.mock.calls.some( ( [ config ] ) => config.message === 'Site name:' );
+				expect( prompted ).toBe( ! captured );
+				expect( saveCliConfig ).toHaveBeenCalledWith(
+					expect.objectContaining( {
+						sites: expect.arrayContaining( [
+							expect.objectContaining( { path: sitePath, name: expectedName } ),
+						] ),
+					} )
+				);
+			} finally {
+				process.stdin.isTTY = isTTY;
+				await fs.promises.rm( root, { recursive: true, force: true } );
+			}
+		} );
+
+		it( 'keeps the URL source capture when requested', async () => {
+			const siteRoot = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-url-import-' ) );
+			const sitePath = path.join( siteRoot, 'site' );
+			const capturePath = `${ sitePath }-source`;
+			const liberate = vi.fn().mockImplementation( async ( _url, outputDir ) => {
+				const website = path.join( outputDir, 'example.com', 'website' );
+				await fs.promises.mkdir( website, { recursive: true } );
+				await fs.promises.writeFile( path.join( website, 'index.html' ), '<main>Liberated</main>' );
+				return { websiteDir: website, compareCommand: () => '' };
+			} );
+			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
+			vi.spyOn( fs.promises, 'cp' ).mockResolvedValue( undefined );
+			const parser = registerCommand(
+				yargs( [] ).option( 'path', { type: 'string', default: sitePath } ),
+				{ liberate }
+			).exitProcess( false );
+
+			try {
+				await parser.parseAsync( [
+					'create',
+					'--from',
+					'https://example.com',
+					'--keep-source',
+					'--name',
+					'Liberated Site',
+					'--no-start',
+					'--skip-browser',
+				] );
+
+				expect(
+					fs.readFileSync(
+						path.join( capturePath, 'example.com', 'website', 'index.html' ),
+						'utf8'
+					)
+				).toBe( '<main>Liberated</main>' );
+			} finally {
+				await fs.promises.rm( siteRoot, { recursive: true, force: true } );
+			}
+		} );
+
+		it( 'retains failed captures without creating a WordPress site', async () => {
+			const siteRoot = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-failed-capture-' ) );
+			const sitePath = path.join( siteRoot, 'site' );
+			const websiteDir = path.join( `${ sitePath }-source`, 'example.com', 'website' );
+			await fs.promises.mkdir( websiteDir, { recursive: true } );
+			await fs.promises.writeFile( path.join( websiteDir, 'index.html' ), '<main>Partial</main>' );
+			await fs.promises.writeFile(
+				path.join( websiteDir, '..', 'capture-receipt.json' ),
+				JSON.stringify( {
+					schema: 'blocks-engine-capture/capture-receipt/v1',
+					summary: { routesDiscovered: 13, routesCaptured: 10, routesSkipped: 0, routesFailed: 6 },
+				} )
+			);
+			const parser = registerCommand(
+				yargs( [] ).option( 'path', { type: 'string', default: sitePath } ),
+				{
+					liberate: ( url, outputBase, options ) =>
+						liberateWebsite( url, outputBase, {
+							...options,
+							loadEngine: async () => ( {
+								version: '9.9.9',
+								packageUrl: 'https://example.com/data-liberation-9.9.9.tgz',
+								captureWebsite: async ( { outputDir } ) => ( {
+									captureReceiptPath: path.join( outputDir, 'capture-receipt.json' ),
+									outputDir,
+									summary: {
+										routesDiscovered: 13,
+										routesCaptured: 10,
+										routesSkipped: 0,
+										routesFailed: 6,
+									},
+								} ),
+							} ),
+						} ),
+				}
+			).exitProcess( false );
+
+			try {
+				await parser.parseAsync( [
+					'create',
+					'--from',
+					'https://example.com',
+					'--name',
+					'Import',
+				] );
+				expect( process.exitCode ).toBe( 1 );
+				expect( saveCliConfig ).not.toHaveBeenCalled();
+				expect( runBlueprint ).not.toHaveBeenCalled();
+				expect( fs.existsSync( websiteDir ) ).toBe( true );
+				expect( fs.existsSync( sitePath ) ).toBe( false );
+			} finally {
+				await fs.promises.rm( siteRoot, { recursive: true, force: true } );
+			}
+		} );
+
 		it( 'bundles a local Static Site Importer zip until Blueprint execution finishes', async () => {
 			const sourceDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-source-test-' ) );
 			const pluginDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-ssi-plugin-' ) );
@@ -465,95 +790,139 @@ describe( 'CLI: studio create', () => {
 			expect( process.exitCode ).toBe( 1 );
 		} );
 
-		it( 'stages the canonical Static Site Importer request', () => {
-			const blueprint = buildCapturedSiteBlueprint();
-			const request = JSON.parse( blueprint.staticSiteImport.request );
-
-			expect( request ).toMatchObject( {
-				operation: 'apply',
-				name: 'Captured Site',
-				site_title: 'Captured Site',
-				activate: true,
-				overwrite: true,
-				fail_on_quality: true,
-				require_proven_dynamic_client_assets: true,
-				seed_entities: true,
-				materialize_dependencies: true,
-				client_script_policy: 'isolated_preview',
-				source_metadata: {
-					source: 'studio-create-from',
-					source_path: 'https://example.com/',
-				},
-				source: {
-					type: 'files',
-					entrypoint: 'website/index.html',
-					files: [ { path: 'website/index.html', content: '<main>Captured</main>' } ],
-				},
-			} );
-			expect( blueprint.staticSiteImport ).not.toHaveProperty( 'code' );
-			expect( blueprint.staticSiteImport ).not.toHaveProperty( 'source' );
-			expect(
-				JSON.parse(
-					buildCreateFromSourceBlueprint(
-						createCapturedSiteArtifact(),
-						'Captured Site',
-						'https://example.com/static-site-importer.zip',
-						'https://example.com/'
-					).staticSiteImport.request
-				)
-			).toMatchObject( { operation: 'apply', fail_on_quality: true } );
-		} );
-
-		it( 'forwards artifact-declared classic materialization on the request', () => {
-			const artifactDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-classic-artifact-' ) );
-			const artifactPath = path.join( artifactDir, 'artifact.json' );
-			fs.writeFileSync(
-				artifactPath,
+		it( 'refuses a capture whose entry route failed', async () => {
+			const siteRoot = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-entry-capture-' ) );
+			const sitePath = path.join( siteRoot, 'site' );
+			const websiteDir = path.join( `${ sitePath }-source`, 'example.com', 'website' );
+			await fs.promises.mkdir( websiteDir, { recursive: true } );
+			await fs.promises.writeFile( path.join( websiteDir, 'index.html' ), '<main>Stub</main>' );
+			await fs.promises.writeFile(
+				path.join( websiteDir, '..', 'capture-receipt.json' ),
 				JSON.stringify( {
-					schema: 'blocks-engine/php-transformer/site-artifact/v1',
+					schema: 'blocks-engine-capture/capture-receipt/v1',
 					entrypoint: 'website/index.html',
-					theme_materialization: 'classic',
-					files: [ { path: 'website/index.html', content: '<main>Home</main>' } ],
+					source: { url: 'https://example.com/' },
+					discoveryDiagnostics: [
+						{ code: 'route_capture_failed', url: 'https://example.com/', reason: 'HTTP 503' },
+					],
+					summary: { routesDiscovered: 14, routesCaptured: 13, routesSkipped: 0, routesFailed: 2 },
 				} )
 			);
+			const parser = registerCommand(
+				yargs( [] ).option( 'path', { type: 'string', default: sitePath } ),
+				{
+					liberate: ( url, outputBase, options ) =>
+						liberateWebsite( url, outputBase, {
+							...options,
+							loadEngine: async () => ( {
+								version: '9.9.9',
+								packageUrl: 'https://example.com/data-liberation-9.9.9.tgz',
+								captureWebsite: async ( { outputDir } ) => ( {
+									captureReceiptPath: path.join( outputDir, 'capture-receipt.json' ),
+									outputDir,
+									summary: {
+										routesDiscovered: 14,
+										routesCaptured: 12,
+										routesSkipped: 0,
+										routesFailed: 2,
+									},
+								} ),
+							} ),
+						} ),
+				}
+			).exitProcess( false );
 
-			expect(
-				JSON.parse(
-					buildCreateFromSourceBlueprint(
-						artifactPath,
-						'Classic Site',
-						'https://example.com/static-site-importer.zip'
-					).staticSiteImport.request
-				).theme_materialization
-			).toBe( 'classic' );
+			try {
+				await parser.parseAsync( [
+					'create',
+					'--from',
+					'https://example.com',
+					'--name',
+					'Import',
+				] );
+				expect( process.exitCode ).toBe( 1 );
+				expect( runBlueprint ).not.toHaveBeenCalled();
+				expect( fs.existsSync( websiteDir ) ).toBe( true );
+				expect( fs.existsSync( sitePath ) ).toBe( false );
+			} finally {
+				await fs.promises.rm( siteRoot, { recursive: true, force: true } );
+			}
 		} );
 
-		it( 'stages only the website root from a Data Liberation capture directory', () => {
-			const captureDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-capture-test-' ) );
-			const websiteDir = fs.mkdtempSync( path.join( captureDir, 'website-' ) );
-			fs.writeFileSync( path.join( websiteDir, 'index.html' ), '<main>Captured site</main>' );
-			fs.writeFileSync( path.join( captureDir, 'diagnostics.json' ), '{"failures":[]}' );
-			fs.writeFileSync(
-				path.join( captureDir, 'capture-receipt.json' ),
+		it( 'imports a capture that lost a few routes and keeps it for review', async () => {
+			const siteRoot = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-partial-capture-' ) );
+			const sitePath = path.join( siteRoot, 'site' );
+			const capturePath = `${ sitePath }-source`;
+			const websiteDir = path.join( capturePath, 'example.com', 'website' );
+			await fs.promises.mkdir( websiteDir, { recursive: true } );
+			await fs.promises.writeFile( path.join( websiteDir, 'index.html' ), '<main>Home</main>' );
+			await fs.promises.writeFile(
+				path.join( websiteDir, '..', 'capture-receipt.json' ),
 				JSON.stringify( {
-					schema: 'data-liberation/capture-receipt/v1',
-					websiteRoot: path.basename( websiteDir ),
+					schema: 'blocks-engine-capture/capture-receipt/v1',
+					websiteRoot: 'website',
+					entrypoint: 'website/index.html',
+					source: { url: 'https://example.com/' },
+					discoveryDiagnostics: [
+						{
+							code: 'route_capture_failed',
+							url: 'https://example.com/contact',
+							reason: 'HTTP 500',
+						},
+					],
+					summary: { routesDiscovered: 14, routesCaptured: 13, routesSkipped: 0, routesFailed: 2 },
 				} )
 			);
+			const reportWarning = vi.spyOn( Logger.prototype, 'reportWarning' );
+			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
+			vi.spyOn( fs.promises, 'cp' ).mockResolvedValue( undefined );
+			const parser = registerCommand(
+				yargs( [] ).option( 'path', { type: 'string', default: sitePath } ),
+				{
+					liberate: ( url, outputBase, options ) =>
+						liberateWebsite( url, outputBase, {
+							...options,
+							loadEngine: async () => ( {
+								version: '9.9.9',
+								packageUrl: 'https://example.com/data-liberation-9.9.9.tgz',
+								captureWebsite: async ( { outputDir } ) => ( {
+									captureReceiptPath: path.join( outputDir, 'capture-receipt.json' ),
+									outputDir,
+									summary: {
+										routesDiscovered: 14,
+										routesCaptured: 12,
+										routesSkipped: 0,
+										routesFailed: 2,
+									},
+								} ),
+							} ),
+						} ),
+				}
+			).exitProcess( false );
 
-			const blueprint = buildCreateFromSourceBlueprint(
-				captureDir,
-				'Liberated Site',
-				'https://example.com/static-site-importer.zip'
-			);
-			const request = JSON.parse( blueprint.staticSiteImport.request );
+			try {
+				await parser.parseAsync( [
+					'create',
+					'--from',
+					'https://example.com',
+					'--name',
+					'Import',
+					'--no-start',
+					'--skip-browser',
+				] );
 
-			expect( request.source ).toEqual( {
-				type: 'files',
-				ref: 'request-bundle:source',
-			} );
-			expect( blueprint.staticSiteImport.sourcePath ).toBe( websiteDir );
-			expect( blueprint.staticSiteImport.request.length ).toBeLessThan( 4096 );
+				expect( process.exitCode ).toBeUndefined();
+				expect( runBlueprint ).toHaveBeenCalled();
+				expect( reportWarning ).toHaveBeenCalledWith(
+					expect.stringContaining( 'could not capture 1 of 14 routes' )
+				);
+				expect( reportWarning ).toHaveBeenCalledWith(
+					expect.stringContaining( 'https://example.com/contact: HTTP 500' )
+				);
+				expect( fs.existsSync( capturePath ) ).toBe( true );
+			} finally {
+				await fs.promises.rm( siteRoot, { recursive: true, force: true } );
+			}
 		} );
 
 		it( 'copies a request-bundled directory into the site before import', async () => {
@@ -577,17 +946,102 @@ describe( 'CLI: studio create', () => {
 			);
 		} );
 
-		it( 'rejects sources outside the canonical importer contract', () => {
-			expect( () =>
-				buildCreateFromSourceBlueprint( 'https://example.com/', 'Remote Site' )
-			).toThrow( 'must be rendered by Data Liberation' );
-
-			const sourceDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-figma-source-' ) );
-			const figmaPath = path.join( sourceDir, 'design.fig' );
-			fs.writeFileSync( figmaPath, 'figma' );
-			expect( () => buildCreateFromSourceBlueprint( figmaPath, 'Figma Site' ) ).toThrow(
-				'Figma files are not supported by the canonical Static Site Importer command.'
+		it( 'stages only the receipt, website root and declared reports of a capture', async () => {
+			const captureDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-capture-copy-' ) );
+			const stagedDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-capture-staged-' ) );
+			for ( const [ file, content ] of [
+				[ 'website/index.html', '<main>Home</main>' ],
+				[ 'website/about/index.html', '<main>About</main>' ],
+				[ 'reports/typography.json', '{"fonts":[]}' ],
+				[ 'interaction-states.json', '{"pages":[]}' ],
+				[ 'undeclared.json', '{}' ],
+				[ 'resources/blob.bin', 'large' ],
+				[ 'screenshots/home.png', 'large' ],
+			] ) {
+				await fs.promises.mkdir( path.dirname( path.join( captureDir, file ) ), {
+					recursive: true,
+				} );
+				await fs.promises.writeFile( path.join( captureDir, file ), content );
+			}
+			fs.writeFileSync(
+				path.join( captureDir, 'capture-receipt.json' ),
+				JSON.stringify( {
+					schema: 'blocks-engine-capture/capture-receipt/v1',
+					websiteRoot: 'website',
+					reports: [ 'interaction-states.json', 'reports/typography.json', '../outside.json' ],
+				} )
 			);
+			const blueprint = buildCreateFromSourceBlueprint(
+				captureDir,
+				'Liberated Site',
+				'https://example.com/static-site-importer.zip'
+			);
+			const copySpy = vi.spyOn( fs.promises, 'cp' ).mockResolvedValue( undefined );
+			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
+			vi.spyOn( fs, 'rmSync' ).mockImplementation( () => {} );
+
+			try {
+				await runCommand( mockSitePath, { ...defaultTestOptions, blueprint, noStart: true } );
+
+				expect( JSON.parse( blueprint.staticSiteImport.request ).source ).toEqual( {
+					type: 'files',
+					ref: 'request-bundle:source',
+				} );
+				expect( copySpy ).toHaveBeenCalledWith(
+					captureDir,
+					path.join( mockSitePath, '.studio-import', 'source' ),
+					expect.objectContaining( { recursive: true, filter: expect.any( Function ) } )
+				);
+				const [ , , options ] = copySpy.mock.calls[ 0 ];
+				copySpy.mockRestore();
+				const staged = path.join( stagedDir, 'source' );
+				await fs.promises.cp( captureDir, staged, options );
+
+				const stagedFiles = (
+					await fs.promises.readdir( staged, { recursive: true, withFileTypes: true } )
+				)
+					.filter( ( entry ) => entry.isFile() )
+					.map( ( entry ) =>
+						path
+							.relative( staged, path.join( entry.parentPath, entry.name ) )
+							.split( path.sep )
+							.join( '/' )
+					)
+					.sort();
+				expect( stagedFiles ).toEqual( [
+					'capture-receipt.json',
+					'interaction-states.json',
+					'reports/typography.json',
+					'website/about/index.html',
+					'website/index.html',
+				] );
+			} finally {
+				await fs.promises.rm( captureDir, { recursive: true, force: true } );
+				await fs.promises.rm( stagedDir, { recursive: true, force: true } );
+			}
+		} );
+
+		it( 'checks bundled SQLite before capturing a URL source', async () => {
+			const liberate = vi.fn();
+			vi.mocked( isSqliteIntegrationAvailable ).mockResolvedValue( false );
+			const parser = registerCommand(
+				yargs( [] ).option( 'path', { type: 'string', default: mockSitePath } ),
+				{ liberate }
+			).exitProcess( false );
+
+			await parser.parseAsync( [
+				'create',
+				'--from',
+				'https://example.com',
+				'--name',
+				'Imported Site',
+				'--no-start',
+				'--skip-browser',
+			] );
+
+			expect( liberate ).not.toHaveBeenCalled();
+			expect( fsMkdirSyncSpy ).not.toHaveBeenCalledWith( mockSitePath, { recursive: true } );
+			expect( process.exitCode ).toBe( 1 );
 		} );
 
 		it( 'invokes the SSI host command once and consumes its terminal receipt', async () => {
@@ -598,33 +1052,33 @@ describe( 'CLI: studio create', () => {
 			await runCommand( mockSitePath, { ...defaultTestOptions, blueprint, noStart: true } );
 
 			const importCalls = vi
-				.mocked( runWpCliCommandWithMessaging )
+				.mocked( runWpCliCommand )
 				.mock.calls.filter( ( call ) => call[ 1 ][ 0 ] === 'static-site-importer' );
 			expect( importCalls ).toEqual( [
 				[
 					expect.objectContaining( { path: mockSitePath } ),
 					[ 'static-site-importer', 'import', '--request=.studio-import/request.json' ],
-					{},
+					{ liveOutput: true, onLiveOutput: expect.any( Function ) },
 				],
 			] );
 			expect( writeSpy ).toHaveBeenCalledWith(
 				path.join( mockSitePath, '.studio-import', 'request.json' ),
 				blueprint.staticSiteImport.request
 			);
-			expect( runWpCliCommandWithMessaging ).toHaveBeenCalledTimes( 4 );
-			expect( runWpCliCommandWithMessaging ).toHaveBeenNthCalledWith(
+			expect( runWpCliCommand ).toHaveBeenCalledTimes( 4 );
+			expect( runWpCliCommand ).toHaveBeenNthCalledWith(
 				2,
 				expect.objectContaining( { path: mockSitePath } ),
 				[ 'plugin', 'is-installed', 'static-site-importer' ],
 				{}
 			);
-			expect( runWpCliCommandWithMessaging ).toHaveBeenNthCalledWith(
+			expect( runWpCliCommand ).toHaveBeenNthCalledWith(
 				3,
 				expect.objectContaining( { path: mockSitePath } ),
 				[ 'plugin', 'deactivate', 'static-site-importer', '--quiet' ],
 				{}
 			);
-			expect( runWpCliCommandWithMessaging ).toHaveBeenNthCalledWith(
+			expect( runWpCliCommand ).toHaveBeenNthCalledWith(
 				4,
 				expect.objectContaining( { path: mockSitePath } ),
 				[ 'plugin', 'delete', 'static-site-importer' ],
@@ -640,7 +1094,7 @@ describe( 'CLI: studio create', () => {
 			const blueprint = buildCapturedSiteBlueprint();
 			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
 			const rmSpy = vi.spyOn( fs, 'rmSync' ).mockImplementation( () => {} );
-			vi.mocked( runWpCliCommandWithMessaging ).mockResolvedValue(
+			vi.mocked( runWpCliCommand ).mockResolvedValue(
 				mockWpCli( { stdout: '{"status":"completed"}' } )
 			);
 
@@ -677,7 +1131,7 @@ describe( 'CLI: studio create', () => {
 				path.join( mockSitePath, '.studio-import', 'request.json' ),
 				expect.anything()
 			);
-			expect( runWpCliCommandWithMessaging ).toHaveBeenCalledWith(
+			expect( runWpCliCommand ).toHaveBeenCalledWith(
 				existingSite,
 				[ 'static-site-importer', 'import', '--request=.studio-import/request.json' ],
 				expect.objectContaining( {
@@ -707,7 +1161,7 @@ describe( 'CLI: studio create', () => {
 				runCommand( mockSitePath, { ...defaultTestOptions, blueprint, noStart: true } )
 			).rejects.toThrow( 'The selected directory is already in use.' );
 
-			expect( runWpCliCommandWithMessaging ).not.toHaveBeenCalled();
+			expect( runWpCliCommand ).not.toHaveBeenCalled();
 			expect( rmSpy ).not.toHaveBeenCalledWith( path.join( mockSitePath, '.studio-import' ), {
 				recursive: true,
 				force: true,
@@ -718,7 +1172,7 @@ describe( 'CLI: studio create', () => {
 			const blueprint = buildCapturedSiteBlueprint();
 			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
 			vi.spyOn( fs, 'rmSync' ).mockImplementation( () => {} );
-			vi.mocked( runWpCliCommandWithMessaging ).mockResolvedValue(
+			vi.mocked( runWpCliCommand ).mockResolvedValue(
 				mockWpCli( {
 					stdout: JSON.stringify( {
 						schema: 'static-site-importer/import-cli-receipt/v1',
@@ -733,11 +1187,10 @@ describe( 'CLI: studio create', () => {
 				...defaultTestOptions,
 				blueprint,
 				noStart: true,
-				runtime: SITE_RUNTIME_NATIVE_PHP,
 			} );
 
-			expect( runWpCliCommandWithMessaging ).toHaveBeenCalledWith(
-				expect.objectContaining( { runtime: SITE_RUNTIME_NATIVE_PHP } ),
+			expect( runWpCliCommand ).toHaveBeenCalledWith(
+				expect.objectContaining( { path: mockSitePath } ),
 				[ 'static-site-importer', 'import', '--request=.studio-import/request.json' ],
 				expect.objectContaining( {
 					liveOutput: true,
@@ -751,7 +1204,7 @@ describe( 'CLI: studio create', () => {
 			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
 			const rmSpy = vi.spyOn( fs, 'rmSync' ).mockImplementation( () => {} );
 			const reportErrorSpy = vi.spyOn( Logger.prototype, 'reportError' );
-			vi.mocked( runWpCliCommandWithMessaging )
+			vi.mocked( runWpCliCommand )
 				.mockReset()
 				// import succeeds, the plugin is installed, then deactivation fails.
 				.mockResolvedValueOnce( mockWpCli() )
@@ -791,10 +1244,9 @@ describe( 'CLI: studio create', () => {
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
 
-		it( 'should persist the runtime and file access on the created site', async () => {
+		it( 'should persist the file access on the created site', async () => {
 			await runCommand( mockSitePath, {
 				...defaultTestOptions,
-				runtime: SITE_RUNTIME_NATIVE_PHP,
 				phpVersion: '8.4',
 				fileAccess: 'all-files',
 			} );
@@ -803,23 +1255,11 @@ describe( 'CLI: studio create', () => {
 				expect.objectContaining( {
 					sites: expect.arrayContaining( [
 						expect.objectContaining( {
-							runtime: SITE_RUNTIME_NATIVE_PHP,
 							fileAccess: 'all-files',
 						} ),
 					] ),
 				} )
 			);
-		} );
-
-		it( 'should reject "all-files" file access for sandbox sites', async () => {
-			await expect(
-				runCommand( mockSitePath, {
-					...defaultTestOptions,
-					fileAccess: 'all-files',
-				} )
-			).rejects.toThrow( 'File access "all-files" requires the native PHP runtime.' );
-
-			expect( saveCliConfig ).not.toHaveBeenCalled();
 		} );
 
 		it( 'should create site with custom name', async () => {
@@ -837,7 +1277,7 @@ describe( 'CLI: studio create', () => {
 					] ),
 				} )
 			);
-			// blogname is now set by playground-server-child via buildSetupSteps, not create.ts
+			// blogname is now set by the server child process, not create.ts
 			expect( startWordPressServer ).toHaveBeenCalled();
 		} );
 
@@ -888,7 +1328,7 @@ describe( 'CLI: studio create', () => {
 				name: 'My Custom Site',
 			} );
 
-			// blogname is now set by playground-server-child via buildSetupSteps, not create.ts
+			// blogname is now set by the server child process, not create.ts
 			expect( startWordPressServer ).toHaveBeenCalled();
 		} );
 
@@ -1003,24 +1443,11 @@ describe( 'CLI: studio create', () => {
 			);
 		} );
 
-		it( 'should not copy specific WordPress versions for Playground runtime', async () => {
+		it( 'should download and copy specific WordPress versions', async () => {
 			vi.mocked( recursiveCopyDirectory ).mockClear();
 
 			await runCommand( mockSitePath, {
 				...defaultTestOptions,
-				wpVersion: '6.4',
-			} );
-
-			expect( downloadWordPress ).not.toHaveBeenCalled();
-			expect( recursiveCopyDirectory ).not.toHaveBeenCalled();
-		} );
-
-		it( 'should download and copy specific WordPress versions for native PHP runtime', async () => {
-			vi.mocked( recursiveCopyDirectory ).mockClear();
-
-			await runCommand( mockSitePath, {
-				...defaultTestOptions,
-				runtime: SITE_RUNTIME_NATIVE_PHP,
 				phpVersion: '8.3',
 				wpVersion: '6.4',
 			} );
@@ -1072,7 +1499,7 @@ describe( 'CLI: studio create', () => {
 				},
 			} );
 
-			// blogname is now set by playground-server-child via buildSetupSteps, not prepended here
+			// blogname is now set by the server child process, not prepended here
 			expect( startWordPressServer ).toHaveBeenCalledWith(
 				expect.anything(),
 				expect.any( Logger ),
@@ -1160,7 +1587,7 @@ describe( 'CLI: studio create', () => {
 				noStart: true,
 			} );
 
-			// No blueprint to run — language steps are applied by playground-server-child on first start
+			// No blueprint to run — language steps are applied by the server child process on first start
 			expect( connectToDaemon ).not.toHaveBeenCalled();
 			expect( runBlueprint ).not.toHaveBeenCalled();
 			expect( startWordPressServer ).not.toHaveBeenCalled();
@@ -1177,7 +1604,7 @@ describe( 'CLI: studio create', () => {
 
 			expect( copyLanguagePackToSite ).toHaveBeenCalledWith( mockSitePath, 'sv_SE' );
 			// Language steps (defineWpConfigConsts / setSiteLanguage) are now built by
-			// playground-server-child's buildSetupSteps, not by create.ts
+			// the server child process, not by create.ts
 			expect( startWordPressServer ).toHaveBeenCalledWith(
 				expect.anything(),
 				expect.any( Logger ),
@@ -1191,7 +1618,7 @@ describe( 'CLI: studio create', () => {
 
 			await runCommand( mockSitePath, { ...defaultTestOptions } );
 
-			// setSiteLanguage vs defineWpConfigConsts is now decided by playground-server-child
+			// setSiteLanguage vs defineWpConfigConsts is now decided by the server child process
 			expect( startWordPressServer ).toHaveBeenCalledWith(
 				expect.anything(),
 				expect.any( Logger ),
@@ -1208,7 +1635,7 @@ describe( 'CLI: studio create', () => {
 			} );
 
 			expect( copyLanguagePackToSite ).not.toHaveBeenCalled();
-			// setSiteLanguage step is now built by playground-server-child, not create.ts
+			// setSiteLanguage step is now built by the server child process, not create.ts
 			expect( startWordPressServer ).toHaveBeenCalledWith(
 				expect.anything(),
 				expect.any( Logger ),
@@ -1254,12 +1681,12 @@ describe( 'CLI: studio create', () => {
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
 
-		it( 'should retain a new site and its state when the out-of-band static import fails', async () => {
+		it( 'retains a quality-failed SSI preview without reporting import success', async () => {
 			const blueprint = buildCapturedSiteBlueprint();
 			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
 			const rmSpy = vi.spyOn( fs, 'rmSync' ).mockImplementation( () => {} );
 			const fsRmSpy = vi.spyOn( fs.promises, 'rm' ).mockResolvedValue( undefined );
-			vi.mocked( runWpCliCommandWithMessaging )
+			vi.mocked( runWpCliCommand )
 				.mockReset()
 				.mockResolvedValue(
 					mockWpCli( {
@@ -1285,9 +1712,15 @@ describe( 'CLI: studio create', () => {
 					blueprint,
 					noStart: true,
 				} )
-			).rejects.toThrow( /quality gate failed/ );
+			).rejects.toThrow(
+				/preview but did not accept it.*site and staged request were preserved.*quality gate failed/
+			);
+			expectRetainedImportedSiteReported();
 
-			expect( runWpCliCommandWithMessaging ).toHaveBeenCalledTimes( 1 );
+			expect( runWpCliCommand ).toHaveBeenCalledTimes( 1 );
+			expect( Logger.prototype.reportSuccess ).not.toHaveBeenCalledWith(
+				'Static site imported successfully'
+			);
 			expect( removeSiteFromConfig ).not.toHaveBeenCalled();
 			expect( fsRmSpy ).not.toHaveBeenCalledWith( mockSitePath, {
 				recursive: true,
@@ -1297,6 +1730,88 @@ describe( 'CLI: studio create', () => {
 				recursive: true,
 				force: true,
 			} );
+		} );
+
+		it( 'accepts a completed SSI receipt with zero fallback blocks', async () => {
+			const blueprint = buildCapturedSiteBlueprint();
+			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
+			vi.spyOn( fs, 'rmSync' ).mockImplementation( () => {} );
+			vi.mocked( runWpCliCommand ).mockResolvedValueOnce(
+				mockWpCli( {
+					stdout: JSON.stringify( {
+						schema: 'static-site-importer/import-cli-receipt/v1',
+						status: 'completed',
+						response: {
+							success: true,
+							result: {
+								import_report_summary: {
+									status: 'completed',
+									quality_pass: true,
+									fail_import: false,
+									fallback_count: 0,
+								},
+							},
+						},
+					} ),
+				} )
+			);
+
+			await expect(
+				runCommand( mockSitePath, { ...defaultTestOptions, blueprint, noStart: true } )
+			).resolves.toBeUndefined();
+			expect( Logger.prototype.reportSuccess ).toHaveBeenCalledWith(
+				'Static site imported successfully'
+			);
+		} );
+
+		it( 'reports a surviving started site when quality validation fails', async () => {
+			const blueprint = buildCapturedSiteBlueprint();
+			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
+			vi.spyOn( fs, 'rmSync' ).mockImplementation( () => {} );
+			const fsRmSpy = vi.spyOn( fs.promises, 'rm' ).mockResolvedValue( undefined );
+			vi.mocked( runWpCliCommand ).mockResolvedValue(
+				mockWpCli( { exitCode: 1, stdout: qualityFailedReceipt } )
+			);
+
+			await expect(
+				runCommand( mockSitePath, { ...defaultTestOptions, blueprint } )
+			).rejects.toThrow(
+				/preview but did not accept it.*site and staged request were preserved.*core_html_block/
+			);
+
+			expectRetainedImportedSiteReported( { running: true } );
+			expect( startWordPressServer ).toHaveBeenCalled();
+			expect( removeSiteFromConfig ).not.toHaveBeenCalled();
+			expect( fsRmSpy ).not.toHaveBeenCalledWith( mockSitePath, {
+				recursive: true,
+				force: true,
+			} );
+			expect( openSiteInBrowser ).not.toHaveBeenCalled();
+			expect( process.exitCode ).toBeUndefined();
+		} );
+
+		it( 'exits non-zero through the CLI handler after a quality-failed import', async () => {
+			const artifactPath = createCapturedSiteArtifact();
+			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
+			vi.spyOn( fs, 'rmSync' ).mockImplementation( () => {} );
+			vi.mocked( runWpCliCommand ).mockResolvedValue(
+				mockWpCli( { exitCode: 1, stdout: qualityFailedReceipt } )
+			);
+			const parser = registerCommand(
+				yargs( [] ).option( 'path', { type: 'string', default: mockSitePath } )
+			).exitProcess( false );
+
+			await parser.parseAsync( [
+				'create',
+				'--from',
+				artifactPath,
+				'--name',
+				'Imported Site',
+				'--skip-browser',
+			] );
+
+			expect( process.exitCode ).toBe( 1 );
+			expectRetainedImportedSiteReported( { running: true } );
 		} );
 
 		it( 'should handle SQLite setup failure', async () => {

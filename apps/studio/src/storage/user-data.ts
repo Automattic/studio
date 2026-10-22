@@ -77,16 +77,14 @@ type UserDataSafeKeys =
 	| 'lastSeenVersion'
 	| 'preferredTerminal'
 	| 'preferredEditor'
-	| 'betaFeatures'
 	| 'colorScheme'
 	| 'defaultSiteDirectory'
-	| 'cliAutoInstalled'
 	| 'cliUserUninstalled'
 	| 'wapuuScore'
 	| 'onboardingHints'
 	| 'lastNightlyUpdateCheck'
 	| 'nightlyPromptResult'
-	| 'agenticUiBannerDismissed'
+	| 'dontShowArm64Warning'
 	| 'agenticFeaturesEnabled';
 
 type PartialUserDataWithSafeKeysToUpdate = Partial< Pick< UserData, UserDataSafeKeys > >;

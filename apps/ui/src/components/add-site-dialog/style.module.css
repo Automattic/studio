@@ -1,0 +1,107 @@
+.popup {
+	flex-direction: row;
+}
+
+.sidebar {
+	display: flex;
+	flex: none;
+	flex-direction: column;
+	gap: 1px;
+	width: 216px;
+	box-sizing: border-box;
+	padding: 12px;
+	overflow-y: auto;
+	border-inline-end: 1px solid var(--border);
+}
+
+.navItem {
+	display: flex;
+	flex: none;
+	align-items: center;
+	gap: 6px;
+	height: 36px;
+	padding: 2px 8px;
+	border: 0;
+	border-radius: 7px;
+	background: none;
+	color: var(--foreground);
+	font: inherit;
+	text-align: start;
+	cursor: pointer;
+}
+
+.navItem:hover,
+.navItem[aria-current='page'] {
+	background: var(--hover);
+}
+
+.navItem:focus-visible {
+	outline: var(--focus-width) solid var(--ring);
+	outline-offset: -2px;
+}
+
+.navIcon {
+	flex: none;
+}
+
+.navIcon:not([fill]) {
+	fill: currentColor;
+}
+
+.navLabel {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.navGroup {
+	display: flex;
+	flex: none;
+	align-items: center;
+	height: 36px;
+	margin: 16px 0 0;
+	padding: 0 8px;
+	color: var(--muted-foreground);
+	font-size: var(--text-sm);
+	font-weight: var(--font-weight-medium);
+	line-height: 20px;
+}
+
+.leading {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+}
+
+.title {
+	display: block;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.crumbSeparator {
+	color: var(--muted-foreground);
+}
+
+.progress {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin: 0;
+	overflow: hidden;
+	color: var(--muted-foreground);
+	font-size: var(--text-xs);
+	white-space: nowrap;
+}
+
+.actions {
+	display: contents;
+}
+
+.content {
+	/* Room above the first row for a focused card's outline. */
+	padding-top: 4px;
+	container-type: inline-size;
+}

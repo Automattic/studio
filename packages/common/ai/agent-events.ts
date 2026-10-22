@@ -18,4 +18,5 @@ export interface ActiveAgentRun {
 	sessionId: string;
 	startedAt: number;
 	phase: 'running' | 'interrupting';
+	pendingQuestions?: Extract< JsonEvent, { type: 'question.asked' } >[ 'questions' ];
 }

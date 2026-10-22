@@ -9,6 +9,7 @@ import {
 	dialog,
 	MessageBoxSyncOptions,
 	shell,
+	type WebContents,
 } from 'electron';
 import path from 'path';
 import * as Sentry from '@sentry/electron/main';
@@ -16,21 +17,17 @@ import { PROTOCOL_PREFIX } from '@studio/common/constants';
 import { runMigrations } from '@studio/common/lib/migration';
 import { getCurrentUserId } from '@studio/common/lib/shared-config';
 import { suppressPunycodeWarning } from '@studio/common/lib/suppress-punycode-warning';
+import { updateSiteMetadata } from '@studio/common/sites/metadata';
 import { __, _n } from '@wordpress/i18n';
-import {
-	installExtension,
-	REACT_DEVELOPER_TOOLS,
-	REDUX_DEVTOOLS,
-} from 'electron-devtools-installer';
+import { installExtension, REACT_DEVELOPER_TOOLS } from 'electron-devtools-installer';
 import { IPC_VOID_HANDLERS } from 'src/constants';
 import * as ipcHandlers from 'src/ipc-handlers';
 import { markAppQuitting } from 'src/ipc-utils';
 import {
 	hasActiveSyncOperations,
-	hasUploadingPushOperations,
+	hasCancellableSyncOperations,
 } from 'src/lib/active-sync-operations';
 import { applyAppZoomCommand, getAppZoomCommand, resetPreviewZoom } from 'src/lib/app-zoom';
-import { getBetaFeatures } from 'src/lib/beta-features';
 import {
 	bumpStat,
 	bumpAggregatedUniqueStat,
@@ -38,28 +35,34 @@ import {
 	StatsGroup,
 } from 'src/lib/bump-stats';
 import { handleDeeplink } from 'src/lib/deeplink';
-import { getUserLocaleWithFallback } from 'src/lib/locale-node';
+import {
+	getSavedLocale,
+	getSupportedLocale,
+	loadLocaleData,
+	setMacAppLanguage,
+} from 'src/lib/locale-node';
 import { setSentryWpcomUserIdMain } from 'src/lib/main-sentry-utils';
 import { maybePromptNightlySwitch, startNightlyPromptPoller } from 'src/lib/nightly-prompt';
 import { getSentryReleaseInfo } from 'src/lib/sentry-release';
-import { setAgenticUiEnabled } from 'src/lib/studio-ui-mode';
+import { parseWebUrl } from 'src/lib/shell-open-external-wrapper';
+import { getSites, stopAllServers } from 'src/lib/sites';
 import { recordTracksEvent, TRACKS_EVENTS } from 'src/lib/tracks';
 import { setupLogging } from 'src/logging';
-import { createMainWindow, getCurrentRendererUrl, getMainWindow } from 'src/main-window';
+import {
+	createMainWindow,
+	getCurrentRendererUrl,
+	getExistingMainWindow,
+	getMainWindow,
+} from 'src/main-window';
 import { migrations } from 'src/migrations';
 import {
 	startCliEventsSubscriber,
 	stopCliEventsSubscriber,
 } from 'src/modules/cli/lib/cli-events-subscriber';
+import { stopCliCommands } from 'src/modules/cli/lib/execute-command';
 import { autoInstallLinuxCliIfNeeded } from 'src/modules/cli/lib/linux-installation-manager';
 import { autoInstallMacOSCliIfNeeded } from 'src/modules/cli/lib/macos-installation-manager';
 import { autoInstallWindowsCliIfNeeded } from 'src/modules/cli/lib/windows-installation-manager';
-import {
-	getRunningSiteCount,
-	persistAutoStartForRunningSites,
-	SiteServer,
-	stopAllServers,
-} from 'src/site-server';
 import {
 	loadUserData,
 	lockAppdata,
@@ -74,21 +77,68 @@ import packageJson from '../package.json';
 
 const STOP_ALL_SERVERS_ON_QUIT_TIMEOUT_MS = process.env.E2E ? 20_000 : 6_000;
 
-// Helper function to get the actual URL for validation
-function getRendererUrl(): string {
-	return getCurrentRendererUrl();
+function isOtherSiteThanPreview( contents: WebContents, url: string ) {
+	const currentUrl = parseWebUrl( contents.getURL() );
+	return ! currentUrl || new URL( url ).origin !== new URL( currentUrl ).origin;
 }
 
-function openExternalWebUrl( url: string ): void {
-	try {
-		const parsedUrl = new URL( url );
-		if ( ! [ 'http:', 'https:' ].includes( parsedUrl.protocol ) ) {
-			return;
-		}
-		void shell.openExternal( parsedUrl.toString() ).catch( () => undefined );
-	} catch {
-		// Ignore malformed URLs from untrusted pages.
+// Links to the site shown in the pane open in the pane; others open in the
+// user's browser.
+function openSitePreviewPopupUrl( contents: WebContents, url: string ) {
+	if ( contents.isDestroyed() ) {
+		return;
 	}
+	if ( isOtherSiteThanPreview( contents, url ) ) {
+		void shell.openExternal( url ).catch( () => undefined );
+	} else {
+		void contents.loadURL( url ).catch( () => undefined );
+	}
+}
+
+// The site preview is a single pane, so it has nowhere to open new windows.
+// Scripts like the block editor's Preview open a blank window and point it at
+// the real URL later, so those get a hidden window that is followed instead.
+function handleSitePreviewPopups( contents: WebContents ) {
+	contents.setWindowOpenHandler( ( details ) => {
+		const url = parseWebUrl( details.url );
+		if ( url ) {
+			openSitePreviewPopupUrl( contents, url );
+			return { action: 'deny' };
+		}
+		if ( details.url === '' || details.url === 'about:blank' ) {
+			return { action: 'allow', overrideBrowserWindowOptions: { show: false } };
+		}
+		return { action: 'deny' };
+	} );
+
+	contents.on( 'did-create-window', ( popup ) => {
+		const closePopup = () => {
+			if ( ! popup.isDestroyed() ) {
+				popup.destroy();
+			}
+		};
+		const followPopup = ( targetUrl: string ) => {
+			const url = parseWebUrl( targetUrl );
+			if ( ! url ) {
+				return false;
+			}
+			closePopup();
+			openSitePreviewPopupUrl( contents, url );
+			return true;
+		};
+		popup.webContents.on( 'will-navigate', ( event ) => {
+			if ( followPopup( event.url ) ) {
+				event.preventDefault();
+			}
+		} );
+		popup.webContents.on( 'did-start-navigation', ( event ) => {
+			if ( event.isMainFrame ) {
+				followPopup( event.url );
+			}
+		} );
+		contents.once( 'did-navigate', closePopup );
+		contents.once( 'destroyed', closePopup );
+	} );
 }
 
 if ( ! process.env.IS_DEV_BUILD ) {
@@ -226,10 +276,15 @@ async function appBoot() {
 
 		contents.on( 'will-navigate', ( event, navigationUrl ) => {
 			if ( isSitePreviewWebview ) {
+				const url = parseWebUrl( navigationUrl );
+				if ( url && parseWebUrl( contents.getURL() ) && isOtherSiteThanPreview( contents, url ) ) {
+					event.preventDefault();
+					void shell.openExternal( url ).catch( () => undefined );
+				}
 				return;
 			}
 			const { origin } = new URL( navigationUrl );
-			const allowedOrigins = [ new URL( getRendererUrl() ).origin ];
+			const allowedOrigins = [ new URL( getCurrentRendererUrl() ).origin ];
 			if ( ! allowedOrigins.includes( origin ) ) {
 				event.preventDefault();
 			}
@@ -262,14 +317,11 @@ async function appBoot() {
 				event.preventDefault();
 			}
 		} );
-		contents.setWindowOpenHandler( ( details ) => {
-			// Site-preview popups (target="_blank", admin-bar links, …) open
-			// in the user's browser rather than spawning a new Electron window.
-			if ( isSitePreviewWebview ) {
-				openExternalWebUrl( details.url );
-			}
-			return { action: 'deny' };
-		} );
+		if ( isSitePreviewWebview ) {
+			handleSitePreviewPopups( contents );
+		} else {
+			contents.setWindowOpenHandler( () => ( { action: 'deny' } ) );
+		}
 	} );
 
 	function validateIpcSender( event: IpcMainInvokeEvent ) {
@@ -279,7 +331,7 @@ async function appBoot() {
 			);
 		}
 
-		if ( new URL( event.senderFrame.url ).origin === new URL( getRendererUrl() ).origin ) {
+		if ( new URL( event.senderFrame.url ).origin === new URL( getCurrentRendererUrl() ).origin ) {
 			return true;
 		}
 
@@ -346,11 +398,20 @@ async function appBoot() {
 	}
 
 	app.on( 'ready', async () => {
-		const locale = await getUserLocaleWithFallback();
+		const savedLocale = await getSavedLocale();
+		const locale = savedLocale ?? getSupportedLocale();
+		loadLocaleData( locale );
+		// The locale may have been changed outside the app (e.g. from `studio ui`).
+		if ( savedLocale ) {
+			setMacAppLanguage( savedLocale );
+		}
 		if ( process.env.NODE_ENV === 'development' ) {
-			await installExtension( REACT_DEVELOPER_TOOLS );
-			await installExtension( REDUX_DEVTOOLS );
-			await launchExtensionBackgroundWorkers();
+			try {
+				await installExtension( REACT_DEVELOPER_TOOLS );
+				await launchExtensionBackgroundWorkers();
+			} catch ( error ) {
+				console.warn( 'Failed to set up React Developer Tools', error );
+			}
 		}
 
 		console.log( `App version: ${ app.getVersion() }` );
@@ -380,7 +441,7 @@ async function appBoot() {
 		session.defaultSession.webRequest.onHeadersReceived( ( details, callback ) => {
 			// Only set a custom CSP header the main window UI. For other pages (like login) we should
 			// use the CSP provided by the server, which is more likely to be up-to-date and complete.
-			if ( details.url !== getRendererUrl() ) {
+			if ( details.url !== getCurrentRendererUrl() ) {
 				callback( details );
 				return;
 			}
@@ -389,10 +450,12 @@ async function appBoot() {
 				"default-src 'self'", // Allow resources from these domains
 				"script-src-attr 'none'",
 				"img-src 'self' https://*.gravatar.com https://*.wp.com https://blueprintlibrary.wordpress.com https://blueprintslibraryv2.wpcomstaging.com data:",
-				"style-src 'self' 'unsafe-inline'", // unsafe-inline used by tailwindcss in development, and also in production after the app rename
+				"style-src 'self' 'unsafe-inline' https://fonts.googleapis.com", // unsafe-inline: components inject their styles at runtime
+				// The agentic UI's design system view loads DESIGN.md fonts.
+				"font-src 'self' https://fonts.gstatic.com",
 				process.env.NODE_ENV === 'development'
-					? "script-src 'self' 'unsafe-eval' 'unsafe-inline' 'wasm-unsafe-eval' data: http://localhost:*"
-					: "script-src 'self' 'wasm-unsafe-eval'", // allow WebAssembly to compile and instantiate
+					? "script-src 'self' 'unsafe-eval' 'unsafe-inline' data: http://localhost:*"
+					: "script-src 'self'",
 				// Site preview uses `<webview>` to host local WordPress sites
 				// served from arbitrary localhost ports and (optionally) HTTPS
 				// custom domains.
@@ -423,17 +486,11 @@ async function appBoot() {
 
 		await runMigrations( migrations ).catch( Sentry.captureException );
 
-		await setupSentryUserId();
-		const betaFeatures = await getBetaFeatures();
-		setAgenticUiEnabled( betaFeatures.enableAgenticUi );
-
-		// Fetch data from CLI and subscribe to CLI events before starting the user data
-		// watcher. The watcher can trigger getMainWindow() which creates the window early,
-		// so sites must be loaded first.
-		await SiteServer.fetchAll();
 		await startCliEventsSubscriber();
 
 		await createMainWindow();
+
+		void setupSentryUserId().catch( Sentry.captureException );
 
 		void maybePromptNightlySwitch().catch( Sentry.captureException );
 		startNightlyPromptPoller();
@@ -491,12 +548,12 @@ async function appBoot() {
 	 * - There are running sites, and the user has confirmed they want to stop them upon closing the app
 	 */
 	let shouldStopSitesOnQuit = true;
-	let clearAutoStartOnQuit = false;
 	let isQuittingConfirmed = false;
+	let restartSitesOnLaunch = true;
 
 	const applyQuitSitesBehavior = ( behavior: QuitSitesBehavior ) => {
 		shouldStopSitesOnQuit = behavior !== 'leave-running';
-		clearAutoStartOnQuit = behavior === 'stop';
+		restartSitesOnLaunch = behavior !== 'stop';
 	};
 
 	app.on( 'before-quit', ( event ) => {
@@ -509,7 +566,7 @@ async function appBoot() {
 			const CANCEL_BUTTON_INDEX = 1;
 
 			const messageInformation: Pick< MessageBoxSyncOptions, 'message' | 'detail' | 'type' > =
-				hasUploadingPushOperations()
+				hasCancellableSyncOperations()
 					? {
 							message: __( 'Sync is in progress' ),
 							detail: __(
@@ -519,9 +576,7 @@ async function appBoot() {
 					  }
 					: {
 							message: __( 'Sync will continue' ),
-							detail: __(
-								'The sync process will continue running remotely after you quit Studio. We will send you an email once it is complete.'
-							),
+							detail: __( 'The sync will keep running after you quit Studio.' ),
 							type: 'info',
 					  };
 
@@ -540,26 +595,21 @@ async function appBoot() {
 			}
 		}
 
-		const runningSiteCount = getRunningSiteCount();
-		if ( getAutoUpdaterState() !== 'waiting-for-restart' && runningSiteCount > 0 ) {
-			event.preventDefault();
+		if ( getAutoUpdaterState() === 'waiting-for-restart' ) {
+			return;
+		}
 
-			void ( async () => {
-				const userData = await loadUserData();
+		event.preventDefault();
 
-				if ( userData.quitSitesBehavior !== undefined ) {
-					applyQuitSitesBehavior( userData.quitSitesBehavior );
-					isQuittingConfirmed = true;
-					app.quit();
-					return;
-				}
+		void ( async () => {
+			const runningSiteCount = ( await getSites().catch( () => [] ) ).filter(
+				( site ) => site.running
+			).length;
+			const userData = runningSiteCount > 0 ? await loadUserData() : undefined;
 
-				if ( process.env.E2E ) {
-					isQuittingConfirmed = true;
-					app.quit();
-					return;
-				}
-
+			if ( userData && userData.quitSitesBehavior !== undefined ) {
+				applyQuitSitesBehavior( userData.quitSitesBehavior );
+			} else if ( userData && ! process.env.E2E ) {
 				const STOP_SITES_BUTTON_INDEX = 0;
 				const KEEP_RUNNING_BUTTON_INDEX = 1;
 				const CANCEL_BUTTON_INDEX = 2;
@@ -594,33 +644,48 @@ async function appBoot() {
 				}
 
 				applyQuitSitesBehavior( behavior );
-				isQuittingConfirmed = true;
-				app.quit();
-			} )();
+			}
 
-			return;
-		}
+			isQuittingConfirmed = true;
+			app.quit();
+		} )();
 	} );
 
+	let isQuitCleanupRunning = false;
 	app.on( 'will-quit', ( event ) => {
+		event.preventDefault();
+		// `will-quit` fires again if anything calls `app.quit()` while the cleanup runs, for example
+		// `window-all-closed` on Windows and Linux. Cleanup ends in `app.exit()`, so a repeat only
+		// waits: running it again would kill the `site stop --all` this one started.
+		if ( isQuitCleanupRunning ) {
+			return;
+		}
+		isQuitCleanupRunning = true;
+
 		markAppQuitting();
 		globalShortcut.unregisterAll();
 		stopCliEventsSubscriber();
+		stopCliCommands();
 
-		if ( shouldStopSitesOnQuit ) {
-			event.preventDefault();
-			void ( async () => {
-				try {
-					// The events subscriber is already stopped, so the "Stop" choice clears autoStart here.
-					if ( clearAutoStartOnQuit ) {
-						await persistAutoStartForRunningSites( false );
-					}
+		void ( async () => {
+			try {
+				// The sites running now start again on the next launch, unless the user chose to stop them.
+				const sites = await getSites().catch( () => [] );
+				await updateSiteMetadata(
+					Object.fromEntries(
+						sites.map( ( site ) => [
+							site.id,
+							{ autoStart: restartSitesOnLaunch && site.running },
+						] )
+					)
+				).catch( ( error ) => console.error( 'Failed to save auto-start on quit:', error ) );
+				if ( shouldStopSitesOnQuit ) {
 					await stopAllServers( STOP_ALL_SERVERS_ON_QUIT_TIMEOUT_MS );
-				} finally {
-					app.exit();
 				}
-			} )();
-		}
+			} finally {
+				app.exit();
+			}
+		} )();
 	} );
 
 	app.on( 'activate', () => {
@@ -628,7 +693,7 @@ async function appBoot() {
 			return;
 		}
 
-		if ( BrowserWindow.getAllWindows().length === 0 ) {
+		if ( ! getExistingMainWindow() ) {
 			// On OS X it's common to re-create a window in the app when the
 			// dock icon is clicked and there are no other windows open.
 			void createMainWindow();

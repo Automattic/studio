@@ -1,9 +1,11 @@
 export const STUDIO_CHAT_ARTIFACT_VERSION = 1 as const;
 
+// Not a URL path: Studio renders the design system page itself.
+export const DESIGN_SYSTEM_PREVIEW_PATH = 'studio:design-system';
+
 export interface StudioChatArtifactWidgetDraft {
 	type: string;
 	widgetProps: Record< string, unknown >;
-	shapeProps?: Record< string, unknown >;
 }
 
 export interface StudioChatArtifactData {
@@ -28,10 +30,7 @@ export function isStudioChatArtifactWidgetDraft(
 ): value is StudioChatArtifactWidgetDraft {
 	const candidate = value as Partial< StudioChatArtifactWidgetDraft >;
 	return (
-		isRecord( value ) &&
-		typeof candidate.type === 'string' &&
-		isRecord( candidate.widgetProps ) &&
-		( candidate.shapeProps === undefined || isRecord( candidate.shapeProps ) )
+		isRecord( value ) && typeof candidate.type === 'string' && isRecord( candidate.widgetProps )
 	);
 }
 

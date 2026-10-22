@@ -17,7 +17,7 @@ type PlatformPaths = {
 
 // Resolve a command on $PATH (an executable regular file), used on Linux where
 // editors/terminals live in many places (apt, snap, flatpak, ~/.local/bin…).
-function findOnPath( command: string ): string | null {
+export function findOnPath( command: string ): string | null {
 	const pathEntries = ( process.env.PATH ?? '' ).split( path.posix.delimiter ).filter( Boolean );
 	for ( const dir of pathEntries ) {
 		const candidate = path.posix.join( dir, command );

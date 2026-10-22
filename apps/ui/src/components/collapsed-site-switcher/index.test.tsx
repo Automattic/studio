@@ -17,7 +17,6 @@ vi.mock( '@/components/site-list', () => ( {
 function renderSwitcher( onToggleSidebar: () => void = () => {} ) {
 	render(
 		<CollapsedSiteSwitcher
-			backgroundColor="#1e1e1e"
 			onToggleSidebar={ onToggleSidebar }
 			trigger={ <button aria-label="Show sidebar">Toggle</button> }
 		/>
@@ -34,9 +33,6 @@ describe( 'CollapsedSiteSwitcher', () => {
 		fireEvent.click( trigger );
 
 		expect( screen.getByTestId( 'site-list' ) ).toBeInTheDocument();
-		expect( screen.getByTestId( 'site-list' ).parentElement?.parentElement ).toHaveStyle( {
-			backgroundColor: '#1e1e1e',
-		} );
 	} );
 
 	it( 'closes after a site opens', () => {

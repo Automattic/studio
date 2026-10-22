@@ -7,9 +7,9 @@ const __dirname = import.meta.dirname;
 export default mergeConfig(
 	sharedConfig,
 	defineProject( {
-		assetsInclude: [ '**/*.riv' ],
 		test: {
 			name: 'studio',
+			environment: 'node',
 			include: [ 'src/**/*.test.{ts,tsx}' ],
 			setupFiles: [ path.resolve( __dirname, './vitest.setup.ts' ) ],
 			env: {

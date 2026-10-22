@@ -52,7 +52,15 @@ async function runBeforeLoad(
 	try {
 		await indexRoute.options.beforeLoad?.( { context } as never );
 	} catch ( thrown ) {
-		return ( thrown as { options: { to: string; params?: Record< string, string > } } ).options;
+		return (
+			thrown as {
+				options: {
+					to: string;
+					params?: Record< string, string >;
+					search?: Record< string, string >;
+				};
+			}
+		 ).options;
 	}
 	throw new Error( 'Expected beforeLoad to throw a redirect' );
 }
@@ -62,9 +70,15 @@ describe( 'indexRoute.beforeLoad', () => {
 		window.localStorage.clear();
 	} );
 
-	it( 'redirects to onboarding when there are no sites', async () => {
-		const redirect = await runBeforeLoad( [], [] );
-		expect( redirect.to ).toBe( '/onboarding' );
+	it( 'offers Add site once over the empty workspace until a site exists', async () => {
+		expect( await runBeforeLoad( [], [] ) ).toMatchObject( {
+			to: '/sites',
+			search: { addSite: 'create' },
+		} );
+		expect( ( await runBeforeLoad( [], [] ) ).search ).toEqual( {} );
+
+		await runBeforeLoad( [ createSite() ], [] );
+		expect( ( await runBeforeLoad( [], [] ) ).search ).toEqual( { addSite: 'create' } );
 	} );
 
 	it( "redirects to the last visited site's newest active session", async () => {
@@ -113,7 +127,7 @@ describe( 'indexRoute.beforeLoad', () => {
 			[ createSession(), createSession( { id: 'session-2', ownerSiteId: 'site-2' } ) ],
 			false
 		);
-		expect( redirect.to ).toBe( '/sites/$siteId/overview' );
+		expect( redirect.to ).toBe( '/sites/$siteId' );
 		expect( redirect.params ).toEqual( { siteId: 'site-2' } );
 	} );
 
@@ -125,7 +139,7 @@ describe( 'indexRoute.beforeLoad', () => {
 			false,
 			true
 		);
-		expect( redirect.to ).toBe( '/sites/$siteId/overview' );
+		expect( redirect.to ).toBe( '/sites/$siteId' );
 		expect( redirect.params ).toEqual( { siteId: 'site-2' } );
 	} );
 

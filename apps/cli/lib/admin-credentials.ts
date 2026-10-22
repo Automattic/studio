@@ -6,20 +6,14 @@ type AdminCredentialsConfig = Pick<
 	'adminUsername' | 'adminPassword' | 'adminEmail'
 >;
 
-export type SetAdminCredentialsRequestBody = {
+const ADMIN_API_PATH = '/?studio-admin-api';
+
+type SetAdminCredentialsRequestBody = {
 	action: 'set_admin_password';
 	username?: string;
 	password?: string;
 	email?: string;
 };
-
-export type SetAdminCredentialsRequest = {
-	url: '/?studio-admin-api';
-	method: 'POST';
-	body: SetAdminCredentialsRequestBody;
-};
-
-type SendSetAdminCredentialsRequest = ( request: SetAdminCredentialsRequest ) => Promise< void >;
 
 export function shouldSetAdminCredentials( config: AdminCredentialsConfig ): boolean {
 	return Boolean( config.adminPassword || config.adminUsername || config.adminEmail );
@@ -38,21 +32,33 @@ export function getSetAdminCredentialsRequestBody(
 	};
 }
 
+// Applies the configured admin credentials through the running site's admin API.
 export async function requestSetAdminCredentials(
-	config: AdminCredentialsConfig,
-	sendRequest: SendSetAdminCredentialsRequest
+	config: AdminCredentialsConfig & Pick< ServerConfig, 'port' >,
+	signal?: AbortSignal
 ): Promise< void > {
 	if ( ! shouldSetAdminCredentials( config ) ) {
 		return;
 	}
 
-	// Share the admin API request shape, but let each runtime use its natural transport:
-	// Playground uses its in-memory request API; native PHP posts to the local PHP server.
-	await sendRequest( {
-		url: '/?studio-admin-api',
+	const response = await fetch( `http://localhost:${ config.port }${ ADMIN_API_PATH }`, {
 		method: 'POST',
-		body: getSetAdminCredentialsRequestBody( config ),
+		body: toUrlSearchParams( getSetAdminCredentialsRequestBody( config ) ),
+		signal,
 	} );
+	if ( ! response.ok ) {
+		throw new Error( await getAdminApiErrorMessage( response ) );
+	}
+}
+
+async function getAdminApiErrorMessage( response: Response ): Promise< string > {
+	const text = await response.text();
+	try {
+		const result = JSON.parse( text ) as { error?: string };
+		return result.error ?? text;
+	} catch {
+		return text || response.statusText;
+	}
 }
 
 export function toUrlSearchParams( body: SetAdminCredentialsRequestBody ): URLSearchParams {

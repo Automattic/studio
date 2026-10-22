@@ -1,0 +1,102 @@
+name: Publish Plugins
+
+# Builds the Studio plugins with the Studio CLI inside and publishes them as Automattic/studio-plugins,
+# the marketplace agent apps install them from. The package for OpenAI's plugin directory is kept as
+# a workflow artifact. On releases, the plugin for Anthropic's directory, which downloads its CLI from
+# the release, goes to the claude-directory branch of the same repository.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  # To attach the CLI download to the release.
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    env:
+      # The postinstall downloads use the GitHub API, which rate-limits anonymous runners.
+      GITHUB_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: '.nvmrc'
+
+      - run: npm ci
+
+      - run: npm run download-language-packs
+
+      # The CLI has the native files of every platform, so one Linux build serves all of them.
+      - run: npm run cli:bundle:plugin
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: plugin-bundle
+          path: standalone-bundles/wp-studio-*.zip
+          compression-level: 0
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: claude-directory-plugin
+          path: |
+            standalone-bundles/wp-studio-directory
+            standalone-bundles/wp-studio-cli-*.tar.br
+          include-hidden-files: true
+          compression-level: 0
+
+      # Only released code: a release tag, or trunk to republish by hand.
+      - if: github.ref == 'refs/heads/trunk' || startsWith( github.ref, 'refs/tags/' )
+        uses: actions/checkout@v7
+        with:
+          repository: Automattic/studio-plugins
+          ssh-key: ${{ secrets.STUDIO_PLUGINS_DEPLOY_KEY }}
+          path: dist
+
+      # Each release replaces the repository's single commit, so cloning it never fetches older
+      # copies of the CLI.
+      - name: Publish to Automattic/studio-plugins
+        if: github.ref == 'refs/heads/trunk' || startsWith( github.ref, 'refs/tags/' )
+        run: |
+          version=$(jq -r .version apps/cli/package.json)
+          cd dist
+          git checkout -q --orphan release
+          git rm -rqf .
+          cp -R ../plugins/.agents ../plugins/.claude-plugin ../plugins/README.md ../LICENSE.md .
+          unzip -q "../standalone-bundles/wp-studio-$version.zip" -d wp-studio
+          git add -A
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -qm "WordPress Studio $version" -m "Published from Automattic/studio@$GITHUB_SHA."
+          git push --force origin HEAD:trunk
+
+      # The plugin for Anthropic's directory downloads this file, from the URL the build gave it.
+      - name: Attach the CLI download to the release
+        if: startsWith( github.ref, 'refs/tags/' )
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version=$(jq -r .version apps/cli/package.json)
+          if [ "$GITHUB_REF_NAME" != "v$version" ]; then
+            echo "::error::The release tag $GITHUB_REF_NAME does not match the CLI version $version."
+            exit 1
+          fi
+          gh release upload "$GITHUB_REF_NAME" "standalone-bundles/wp-studio-cli-$version.tar.br" --clobber
+
+      # Anthropic's directory reads a plugin from the root of a small repository, so it gets a branch
+      # of its own, replaced on each release like trunk.
+      - name: Publish the plugin for Anthropic's directory
+        if: startsWith( github.ref, 'refs/tags/' )
+        run: |
+          version=$(jq -r .version apps/cli/package.json)
+          cd dist
+          git checkout -q --orphan directory
+          git rm -rqf .
+          cp -R ../standalone-bundles/wp-studio-directory/. .
+          cp ../LICENSE.md .
+          git add -A
+          git commit -qm "WordPress Studio $version for Anthropic's directory" -m "Published from Automattic/studio@$GITHUB_SHA."
+          git push --force origin HEAD:claude-directory

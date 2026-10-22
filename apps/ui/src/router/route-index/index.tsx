@@ -7,6 +7,9 @@ import { SITES_QUERY_KEY } from '@/data/queries/use-sites';
 import { readLastVisited } from '@/lib/last-visited';
 import { rootRoute } from '../layout-root';
 
+// Without sites, the workspace offers Add site once, until a site exists again.
+let addSiteOffered = false;
+
 export const indexRoute = createRoute( {
 	getParentRoute: () => rootRoute,
 	path: '/',
@@ -17,9 +20,14 @@ export const indexRoute = createRoute( {
 		} );
 		const firstSite = sites[ 0 ];
 		if ( ! firstSite ) {
-			const onboardingCompleted = await context.connector.getOnboardingCompleted();
-			throw redirect( { to: onboardingCompleted ? '/onboarding' : '/welcome' } );
+			if ( ! ( await context.connector.getOnboardingCompleted() ) ) {
+				throw redirect( { to: '/welcome' } );
+			}
+			const offer = ! addSiteOffered;
+			addSiteOffered = true;
+			throw redirect( { to: '/sites', search: offer ? { addSite: 'create' } : {} } );
 		}
+		addSiteOffered = false;
 
 		// Return the user to their last visited site (recorded by the dashboard
 		// layout), validating against live data so a stale id from a deleted
@@ -33,7 +41,7 @@ export const indexRoute = createRoute( {
 		const { chatEnabled, chatPromptsSignIn } = await resolveAgenticFeatures( context );
 		if ( ! chatEnabled ) {
 			throw redirect( {
-				to: chatPromptsSignIn ? '/sites/$siteId/new' : '/sites/$siteId/overview',
+				to: chatPromptsSignIn ? '/sites/$siteId/new' : '/sites/$siteId',
 				params: { siteId: targetSite.id },
 			} );
 		}
@@ -52,7 +60,7 @@ export const indexRoute = createRoute( {
 			throw redirect( { to: '/sessions/$sessionId', params: { sessionId: topSession.id } } );
 		}
 
-		// No sessions yet: the new-session route creates (or reuses) an empty
+		// No sessions yet: the new-session route creates an empty
 		// session for the site and redirects to it.
 		throw redirect( { to: '/sites/$siteId/new', params: { siteId: targetSite.id } } );
 	},

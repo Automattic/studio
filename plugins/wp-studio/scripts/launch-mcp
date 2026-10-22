@@ -1,0 +1,34 @@
+#!/bin/sh
+# Starts the plugin's MCP server, bootstrap-mcp.mjs. It prefers the Node.js of
+# Studio or the ChatGPT app, recent enough to run the Studio CLI the plugin
+# carries, then looks past the user's shell PATH, which desktop agents often
+# start plugin servers without. Without a Node.js, it runs an installed Studio
+# CLI directly.
+#
+# stdout carries the MCP messages: anything else must go to stderr.
+
+find_node() {
+	if [ -n "$STUDIO_NODE" ]; then
+		echo "$STUDIO_NODE"
+	elif [ -x /Applications/Studio.app/Contents/Resources/bin/node ]; then
+		echo /Applications/Studio.app/Contents/Resources/bin/node
+	elif [ -x /Applications/ChatGPT.app/Contents/Resources/cua_node/bin/node ]; then
+		echo /Applications/ChatGPT.app/Contents/Resources/cua_node/bin/node
+	elif command -v node >/dev/null 2>&1; then
+		command -v node
+	else
+		"${SHELL:-/bin/sh}" -lic 'command -v node' 2>/dev/null | tail -n 1
+	fi
+}
+
+NODE="$(find_node)"
+if [ -n "$NODE" ] && [ -x "$NODE" ]; then
+	exec "$NODE" "$(dirname "$0")/bootstrap-mcp.mjs"
+fi
+
+if command -v studio >/dev/null 2>&1; then
+	exec studio mcp
+fi
+
+echo 'WordPress Studio needs Node.js 22 or later, or the Studio desktop app.' >&2
+exit 1

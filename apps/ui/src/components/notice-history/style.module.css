@@ -1,21 +1,17 @@
-/* Trailing control of the sidebar footer row: the button paints its own
-   foreground, so the color has to land on it, and the pull-back lands its
-   trailing edge on the row's `lg` column (see user-menu's
-   `--user-menu-trailing-offset`). */
-.bell {
-	color: var(--wpds-color-foreground-content-neutral-weak);
-	margin-inline-end: calc(-1 * var(--wpds-dimension-padding-sm));
+.dialog {
+	grid-template-rows: auto minmax( 0, 1fr ) auto;
+	max-width: 560px;
 }
 
 /* A quiet footnote under the list rather than a subtitle above it: it
    explains the log's lifetime, which the reader only wants once. */
 .outro {
-	margin-block-start: var(--wpds-dimension-gap-lg);
-	font-size: var(--wpds-typography-font-size-xs);
+	margin-block-start: 16px;
+	font-size: 11px;
 	/* A step below the notice body text, which is already `-weak`. */
 	color: color-mix(
 		in srgb,
-		var(--wpds-color-foreground-content-neutral-weak) 75%,
+		var(--muted-foreground) 75%,
 		transparent
 	);
 }
@@ -26,18 +22,7 @@
 	padding: 0;
 	display: flex;
 	flex-direction: column;
-	gap: var(--wpds-dimension-gap-sm);
-}
-
-.notice {
-	width: 100%;
-	box-sizing: border-box;
-}
-
-/* Notice sizes its title row for a 24px icon, but at this density the glyph
-   renders smaller and sits high; center it on the title row instead. */
-.notice > svg {
-	align-self: center;
+	gap: 8px;
 }
 
 /* The toast clamps this; here it runs in full, but a stack trace can be
@@ -53,16 +38,14 @@
 	overflow-wrap: anywhere;
 }
 
-/* Notice lays out as `auto 1fr auto`; the timestamp takes the trailing cell
-   on the title row, aligned to the title's own text padding. */
+/* The timestamp takes the trailing cell on the title row. */
 .time {
 	grid-column: 3;
 	grid-row: 1;
-	padding-block: var(--text-vertical-padding);
-	margin-inline-start: var(--wpds-dimension-gap-sm);
-	font-size: var(--wpds-typography-font-size-xs);
-	line-height: var(--wpds-typography-line-height-xs);
-	color: var(--wpds-color-foreground-content-neutral-weak);
+	align-self: center;
+	font-size: 11px;
+	line-height: 16px;
+	color: var(--muted-foreground);
 	white-space: nowrap;
 	font-variant-numeric: tabular-nums;
 }
@@ -74,7 +57,7 @@
 	margin-inline: auto;
 	justify-content: center;
 	min-height: 200px;
-	padding-block: var(--wpds-dimension-padding-2xl);
+	padding-block: 24px;
 }
 
 /* Footer actions sit at the end; push the destructive-ish one to the start. */

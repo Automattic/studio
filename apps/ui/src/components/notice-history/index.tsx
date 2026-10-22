@@ -1,9 +1,25 @@
 import { __ } from '@wordpress/i18n';
-import { bell } from '@wordpress/icons';
-import { Button, Dialog, EmptyState, IconButton, Notice } from '@wordpress/ui';
-import { clsx } from 'clsx';
+import { caution, error, Icon, info, published } from '@wordpress/icons';
 import { useSyncExternalStore } from 'react';
-import { AppThemeScope } from '@/components/app-theme-scope';
+import {
+	Alert,
+	AlertActions,
+	AlertDescription,
+	AlertTitle,
+	INTENT_VARIANTS,
+} from '@/components/ui/alert';
+import { Button, IconButton } from '@/components/ui/button';
+import {
+	Dialog,
+	DialogClose,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogScrollArea,
+	DialogTitle,
+} from '@/components/ui/dialog';
+import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
 import {
 	clearNoticeHistory,
 	noticeToText,
@@ -11,7 +27,10 @@ import {
 	type NoticeRecord,
 } from '@/data/app-messages';
 import { useCopyText } from '@/hooks/use-copy-text';
+import { bellIcon } from '@/lib/icons';
 import styles from './style.module.css';
+
+const INTENT_ICONS = { info, success: published, warning: caution, error };
 
 // The dialog mounts once at the layout level; the bell and a toast's "More"
 // both open it through this, so it works with the sidebar collapsed too.
@@ -51,14 +70,10 @@ function useNoticeHistoryOpen(): boolean {
 	);
 }
 
-export function NoticeHistoryButton( { className }: { className?: string } ) {
+export function NoticeHistoryButton() {
 	return (
 		<IconButton
-			variant="minimal"
-			tone="neutral"
-			size="small"
-			className={ clsx( styles.bell, className ) }
-			icon={ bell }
+			icon={ bellIcon }
 			label={ __( 'Notification history' ) }
 			onClick={ openNoticeHistory }
 		/>
@@ -69,23 +84,13 @@ export function NoticeHistoryButton( { className }: { className?: string } ) {
 // toast about copying a notice would itself land in the list.
 export function CopyNoticeButton( {
 	notice,
-	className,
-	variant = 'solid',
 }: {
 	notice: Pick< NoticeRecord, 'title' | 'description' >;
-	className?: string;
-	variant?: 'solid' | 'outline';
 } ) {
 	const { copied, copy } = useCopyText( noticeToText( notice ) );
 
 	return (
-		<Button
-			size="small"
-			variant={ variant }
-			tone="neutral"
-			className={ className }
-			onClick={ copy }
-		>
+		<Button variant="outline" size="2xs" onClick={ copy }>
 			{ copied ? __( 'Copied' ) : __( 'Copy' ) }
 		</Button>
 	);
@@ -102,77 +107,63 @@ export function NoticeHistoryDialog() {
 	const notices = useNoticeHistory();
 
 	return (
-		// Opened from the sidebar's dark chrome scope; without this the dialog
-		// inherits that palette and renders dark on top of the light app.
-		<AppThemeScope>
-			<Dialog.Root open={ open } onOpenChange={ setOpen }>
-				<Dialog.Popup size="medium">
-					<Dialog.Header>
-						<Dialog.Title>{ __( 'Notification history' ) }</Dialog.Title>
-					</Dialog.Header>
-					<Dialog.Content>
-						{ notices.length === 0 ? (
-							<EmptyState.Root className={ styles.empty }>
-								<EmptyState.Icon icon={ bell } />
-								<EmptyState.Title>{ __( 'No notifications yet' ) }</EmptyState.Title>
-								<EmptyState.Description>
-									{ __( 'Notices Studio shows you collect here, until Studio\u00a0restarts.' ) }
-								</EmptyState.Description>
-							</EmptyState.Root>
-						) : (
-							<>
-								<ul className={ styles.list }>
-									{ notices.map( ( notice ) => (
-										<li key={ `${ notice.id }:${ notice.shownAt }` }>
-											<Notice.Root intent={ notice.intent } className={ styles.notice }>
-												<Notice.Title>{ notice.title }</Notice.Title>
-												{ notice.description ? (
-													<Notice.Description className={ styles.description }>
-														{ notice.description }
-													</Notice.Description>
-												) : null }
-												<time
-													className={ styles.time }
-													dateTime={ new Date( notice.shownAt ).toISOString() }
-												>
-													{ formatTime( notice.shownAt ) }
-												</time>
-												{ notice.description ? (
-													<Notice.Actions>
-														<CopyNoticeButton notice={ notice } variant="outline" />
-													</Notice.Actions>
-												) : null }
-											</Notice.Root>
-										</li>
-									) ) }
-								</ul>
-								{ /* Description drops a passed className, so the note lives on a
-								     wrapper. */ }
-								<div className={ styles.outro }>
-									<Dialog.Description>
-										{ __( 'Notifications are cleared automatically when Studio restarts.' ) }
-									</Dialog.Description>
-								</div>
-							</>
-						) }
-					</Dialog.Content>
-					<Dialog.Footer>
-						{ notices.length > 0 ? (
-							<Button
-								variant="minimal"
-								tone="neutral"
-								className={ styles.clearAll }
-								onClick={ clearNoticeHistory }
-							>
-								{ __( 'Clear all' ) }
-							</Button>
-						) : null }
-						<Dialog.Action variant="minimal" tone="neutral">
-							{ __( 'Close' ) }
-						</Dialog.Action>
-					</Dialog.Footer>
-				</Dialog.Popup>
-			</Dialog.Root>
-		</AppThemeScope>
+		<Dialog open={ open } onOpenChange={ setOpen }>
+			<DialogContent showCloseButton={ false } className={ styles.dialog }>
+				<DialogHeader>
+					<DialogTitle>{ __( 'Notification history' ) }</DialogTitle>
+				</DialogHeader>
+				<DialogScrollArea>
+					{ notices.length === 0 ? (
+						<Empty className={ styles.empty }>
+							<EmptyMedia>{ bellIcon }</EmptyMedia>
+							<EmptyTitle>{ __( 'No notifications yet' ) }</EmptyTitle>
+							<EmptyDescription>
+								{ __( 'Notices Studio shows you collect here, until Studio\u00a0restarts.' ) }
+							</EmptyDescription>
+						</Empty>
+					) : (
+						<>
+							<ul className={ styles.list }>
+								{ notices.map( ( notice ) => (
+									<li key={ `${ notice.id }:${ notice.shownAt }` }>
+										<Alert variant={ INTENT_VARIANTS[ notice.intent ] } role="none">
+											<Icon icon={ INTENT_ICONS[ notice.intent ] } />
+											<AlertTitle>{ notice.title }</AlertTitle>
+											{ notice.description ? (
+												<AlertDescription className={ styles.description }>
+													{ notice.description }
+												</AlertDescription>
+											) : null }
+											<time
+												className={ styles.time }
+												dateTime={ new Date( notice.shownAt ).toISOString() }
+											>
+												{ formatTime( notice.shownAt ) }
+											</time>
+											{ notice.description ? (
+												<AlertActions>
+													<CopyNoticeButton notice={ notice } />
+												</AlertActions>
+											) : null }
+										</Alert>
+									</li>
+								) ) }
+							</ul>
+							<DialogDescription className={ styles.outro }>
+								{ __( 'Notifications are cleared automatically when Studio restarts.' ) }
+							</DialogDescription>
+						</>
+					) }
+				</DialogScrollArea>
+				<DialogFooter>
+					{ notices.length > 0 ? (
+						<Button variant="ghost" className={ styles.clearAll } onClick={ clearNoticeHistory }>
+							{ __( 'Clear all' ) }
+						</Button>
+					) : null }
+					<DialogClose render={ <Button variant="outline" /> }>{ __( 'Close' ) }</DialogClose>
+				</DialogFooter>
+			</DialogContent>
+		</Dialog>
 	);
 }

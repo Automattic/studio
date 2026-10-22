@@ -69,6 +69,7 @@ export async function runCommand(
 			} );
 			await recordPreviewDeleteEvent( TRACKS_EVENTS.PREVIEW_SITE_DELETE );
 			logger.reportSuccess( __( 'Deletion successful' ) );
+			logger.reportResult( { url: snapshotToDelete.url } );
 		} else {
 			logger.reportStart( LoggerAction.DELETE_ALL, __( 'Deleting all preview sites…' ) );
 

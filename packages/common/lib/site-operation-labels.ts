@@ -18,6 +18,10 @@ export function getSiteOperationLabel( kind: SiteOperationKind ): string {
 			return __( 'Saving settings' );
 		case 'duplicate':
 			return __( 'Duplicating' );
+		case 'import':
+			return __( 'Importing' );
+		case 'export':
+			return __( 'Exporting' );
 	}
 }
 
@@ -36,5 +40,9 @@ export function getSiteOperationNoun( kind: SiteOperationKind ): string {
 			return __( 'a settings change' );
 		case 'duplicate':
 			return __( 'a duplication' );
+		case 'import':
+			return __( 'an import' );
+		case 'export':
+			return __( 'an export' );
 	}
 }

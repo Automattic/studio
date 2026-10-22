@@ -4,27 +4,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useConnector } from '@/data/core';
 import { useWapuuScore } from '@/data/queries/use-wapuu-score';
 import { WapuuScore } from './wapuu-score';
-import type { ButtonHTMLAttributes, ReactNode } from 'react';
-
-vi.mock( '@wordpress/ui', () => ( {
-	Button: ( {
-		children,
-		tone,
-		variant,
-		size,
-		...props
-	}: ButtonHTMLAttributes< HTMLButtonElement > & {
-		children?: ReactNode;
-		tone?: string;
-		variant?: string;
-		size?: string;
-	} ) => {
-		void tone;
-		void variant;
-		void size;
-		return <button { ...props }>{ children }</button>;
-	},
-} ) );
 
 vi.mock( '@/data/core', () => ( {
 	useConnector: vi.fn(),

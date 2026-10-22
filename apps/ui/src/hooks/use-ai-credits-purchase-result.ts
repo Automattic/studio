@@ -4,7 +4,6 @@ import {
 	formatAiCreditsAddedTitle,
 } from '@studio/common/lib/studio-assistant-quota';
 import { useQueryClient } from '@tanstack/react-query';
-import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { useCallback, useEffect, useRef } from 'react';
 import {
@@ -16,6 +15,7 @@ import { useConnector } from '@/data/core';
 import { ASSISTANT_QUOTA_QUERY_KEY } from '@/data/queries/use-assistant-quota';
 import { useAuthUser } from '@/data/queries/use-auth-user';
 import { useUserLocale } from '@/data/queries/use-user-locale';
+import { useOpenSettings } from '@/hooks/use-open-settings';
 import type { StudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 
 // One id for every outcome, so a repeated deeplink replaces the toast in place
@@ -35,7 +35,7 @@ const PURCHASE_TOAST_ID = 'ai-credits-purchased';
 export function useAiCreditsPurchaseResult(): void {
 	const connector = useConnector();
 	const queryClient = useQueryClient();
-	const navigate = useNavigate();
+	const openSettings = useOpenSettings();
 	const locale = useUserLocale();
 	const { data: authUser } = useAuthUser();
 	const userId = authUser?.id;
@@ -66,7 +66,7 @@ export function useAiCreditsPurchaseResult(): void {
 					id: PURCHASE_TOAST_ID,
 					action: {
 						label: __( 'View usage' ),
-						onClick: () => void navigate( { to: '/settings', search: { tab: 'usage' } } ),
+						onClick: () => openSettings( 'usage' ),
 					},
 				} );
 				return;
@@ -75,7 +75,7 @@ export function useAiCreditsPurchaseResult(): void {
 			clearAiCreditsCheckoutPending();
 			runningRef.current = false;
 		}
-	}, [ locale, navigate, queryClient, userId ] );
+	}, [ locale, openSettings, queryClient, userId ] );
 
 	useEffect(
 		() => connector.onAiCreditsPurchased( () => void confirmPurchase() ),

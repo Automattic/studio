@@ -20,12 +20,13 @@ async function readInputPayload( path: string ): Promise< StudioAiSessionInputPa
 	if ( ! parsed || typeof parsed.prompt !== 'string' || ! parsed.prompt.trim() ) {
 		throw new Error( __( 'Invalid AI session input payload.' ) );
 	}
+	const images = validateStudioChatImages( parsed.images );
 	return {
 		prompt: parsed.prompt,
 		displayMessage: parsed.displayMessage,
-		images: validateStudioChatImages( parsed.images ),
+		images,
 		files: validateStudioChatFiles( parsed.files ),
-		visualAnnotations: validateStudioVisualAnnotations( parsed.visualAnnotations ),
+		visualAnnotations: validateStudioVisualAnnotations( parsed.visualAnnotations, images ),
 	};
 }
 

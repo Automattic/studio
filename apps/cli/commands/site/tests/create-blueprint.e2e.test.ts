@@ -39,10 +39,6 @@ function writeBlueprint( env: CliEnv, blueprint: Record< string, unknown > ): st
 
 /**
  * Creates a site from the given Blueprint file without starting the server.
- * `--runtime sandbox` (bundled Playground/WASM) keeps this hermetic: native PHP
- * would download its ~25 MB binary into the config dir on first run. Blueprint
- * coverage under the native runtime is a follow-up (needs CI to provision that
- * binary).
  */
 function createFromBlueprint( env: CliEnv, name: string, slug: string, blueprintPath: string ) {
 	return runCli(
@@ -55,8 +51,6 @@ function createFromBlueprint( env: CliEnv, name: string, slug: string, blueprint
 			path.join( env.sitesDir, slug ),
 			'--wp',
 			'latest',
-			'--runtime',
-			'sandbox',
 			'--blueprint',
 			blueprintPath,
 			'--no-start',
@@ -65,6 +59,20 @@ function createFromBlueprint( env: CliEnv, name: string, slug: string, blueprint
 		],
 		env
 	);
+}
+
+/**
+ * Runs `studio wp <args>` against the site and returns the last non-empty
+ * line of stdout (PHP notices can precede the value).
+ */
+async function wpLastLine( env: CliEnv, sitePath: string, ...args: string[] ) {
+	const result = await runCli( [ 'wp', ...args, '--path', sitePath ], env );
+	expect( result.code, result.stderr ).toBe( 0 );
+	return result.stdout
+		.split( '\n' )
+		.map( ( line ) => line.trim() )
+		.filter( Boolean )
+		.at( -1 );
 }
 
 describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: studio site create --blueprint', () => {
@@ -149,6 +157,74 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: studio site create --bl
 	);
 
 	it(
+		'creates a site from a Blueprint that installs and activates a theme',
+		{ tags: [ 'e2e' ], timeout: 120_000 },
+		async () => {
+			env = setupCliEnv();
+			const sitePath = path.join( env.sitesDir, 'bp-activate-theme' );
+			const blueprintPath = writeBlueprint( env, {
+				steps: [
+					{
+						step: 'installTheme',
+						themeData: { resource: 'wordpress.org/themes', slug: 'twentytwentyone' },
+					},
+					{ step: 'activateTheme', themeFolderName: 'twentytwentyone' },
+				],
+			} );
+
+			const result = await createFromBlueprint(
+				env,
+				'Blueprint Theme Activate',
+				'bp-activate-theme',
+				blueprintPath
+			);
+
+			expect( result.code, result.stderr ).toBe( 0 );
+			expect( await wpLastLine( env, sitePath, 'option', 'get', 'stylesheet' ) ).toBe(
+				'twentytwentyone'
+			);
+		}
+	);
+
+	it(
+		'creates a site from a Blueprint that installs and activates a plugin',
+		{ tags: [ 'e2e' ], timeout: 120_000 },
+		async () => {
+			env = setupCliEnv();
+			const sitePath = path.join( env.sitesDir, 'bp-activate-plugin' );
+			const blueprintPath = writeBlueprint( env, {
+				steps: [
+					{
+						step: 'installPlugin',
+						pluginData: { resource: 'wordpress.org/plugins', slug: 'hello-dolly' },
+					},
+					{ step: 'activatePlugin', pluginPath: 'hello-dolly/hello.php' },
+				],
+			} );
+
+			const result = await createFromBlueprint(
+				env,
+				'Blueprint Plugin Activate',
+				'bp-activate-plugin',
+				blueprintPath
+			);
+
+			expect( result.code, result.stderr ).toBe( 0 );
+			expect(
+				await wpLastLine(
+					env,
+					sitePath,
+					'plugin',
+					'list',
+					'--status=active',
+					'--field=name',
+					'--name=hello-dolly'
+				)
+			).toBe( 'hello-dolly' );
+		}
+	);
+
+	it(
 		'creates a site from a Blueprint that runs PHP code',
 		{ tags: [ 'e2e' ], timeout: 120_000 },
 		async () => {
@@ -188,11 +264,14 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: studio site create --bl
 			const sitePath = path.join( env.sitesDir, 'bp-wp-cli' );
 			// `wp eval` writes a marker into wp-content: asserting it on disk proves the
 			// wp-cli step actually ran (a skipped/no-op step would still exit 0).
+			// WP_CONTENT_DIR resolves to the real site folder on every platform.
+			// Phar::running() shows which wp-cli.phar ran: the runner's own download only
+			// works through its shebang, so it passes on macOS/Linux but not on Windows.
 			const blueprintPath = writeBlueprint( env, {
 				steps: [
 					{
 						step: 'wp-cli',
-						command: `wp eval "file_put_contents( '/wordpress/wp-content/blueprint-wpcli-marker.txt', 'ok' );"`,
+						command: `wp eval "file_put_contents( WP_CONTENT_DIR . '/blueprint-wpcli-marker.txt', Phar::running( false ) );"`,
 					},
 				],
 			} );
@@ -206,9 +285,11 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: studio site create --bl
 
 			expect( result.code, result.stderr ).toBe( 0 );
 			expect( readCliConfig( env ).sites ).toHaveLength( 1 );
-			expect(
-				fs.existsSync( path.join( sitePath, 'wp-content', 'blueprint-wpcli-marker.txt' ) )
-			).toBe( true );
+			const markerPath = path.join( sitePath, 'wp-content', 'blueprint-wpcli-marker.txt' );
+			expect( fs.existsSync( markerPath ) ).toBe( true );
+			expect( fs.readFileSync( markerPath, 'utf8' ).replace( /\\/g, '/' ) ).toContain(
+				'wp-files/wp-cli/wp-cli.phar'
+			);
 		}
 	);
 } );

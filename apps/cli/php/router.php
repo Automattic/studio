@@ -18,7 +18,7 @@ if ( $studio_auto_prepend && is_file( $studio_auto_prepend ) ) {
 }
 
 $root = realpath( $_SERVER['DOCUMENT_ROOT'] ?? '' ) ?: getcwd();
-$path = urldecode( parse_url( $_SERVER['REQUEST_URI'], PHP_URL_PATH ) );
+$path = rawurldecode( parse_url( $_SERVER['REQUEST_URI'], PHP_URL_PATH ) );
 $file = $root . $path;
 
 // phpMyAdmin ships outside the site root, so map the public URL prefix to the
@@ -104,6 +104,16 @@ if (
 	}
 	header( 'Content-Length: ' . filesize( $target ) );
 	readfile( $target );
+	return true;
+}
+
+// Like WordPress's Apache and nginx setups, keep dotfiles (except .well-known)
+// and the SQLite database directory private: the built-in server ignores
+// .htaccess. Checking the requested path also covers symlinked plugin and
+// theme directories, and case-insensitive filesystems.
+$private_path = strtolower( preg_replace( '#[/\\\\]+#', '/', $path ) );
+if ( preg_match( '#/\.(?!well-known(/|$))|^/wp-content/database(/|$)#', $private_path ) ) {
+	http_response_code( 404 );
 	return true;
 }
 

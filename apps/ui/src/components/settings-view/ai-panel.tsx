@@ -1,42 +1,34 @@
-import { FormToggle, TextControl } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
-import { error as errorIcon } from '@wordpress/icons';
-import { Icon } from '@wordpress/ui';
-import { clsx } from 'clsx';
 import { useState } from 'react';
-import { useConnector } from '@/data/core';
+import { Input } from '@/components/ui/input';
 import { useAiSettings, useSaveAnthropicApiKey } from '@/data/queries/use-ai-settings';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
-import { StudioCodePanel } from './studio-code-panel';
+import { SettingsGroup, SettingsRow, SettingsToggle } from './rows';
 import styles from './style.module.css';
 import { useDebouncedSave } from './use-debounced-save';
 
 function AgenticFeaturesSection() {
 	const { data: preferences, isLoading } = useUserPreferences();
 	const savePreferences = useSaveUserPreferences();
-	const enabled = preferences?.agenticFeaturesEnabled ?? true;
 
 	return (
-		<section className={ styles.preferenceSectionGroup }>
-			<section className={ styles.preferenceRow }>
-				<div className={ styles.preferenceText }>
-					<h2>{ __( 'Studio Code' ) }</h2>
-					<p>
-						{ __(
-							'Chat with an agent that builds and edits your sites. Turning this off hides chat — your existing conversations are kept.'
-						) }
-					</p>
-				</div>
-				<div className={ clsx( styles.preferenceControl, styles.toggleControl ) }>
-					<FormToggle
-						checked={ enabled }
-						disabled={ isLoading }
-						aria-label={ __( 'Studio Code' ) }
-						onChange={ () => savePreferences.mutate( { agenticFeaturesEnabled: ! enabled } ) }
-					/>
-				</div>
-			</section>
-		</section>
+		<SettingsGroup>
+			<SettingsRow
+				title={ __( 'Studio Code' ) }
+				description={ __(
+					'Chat with an agent that builds and edits your sites. Turning this off hides chat — your existing conversations are kept.'
+				) }
+			>
+				<SettingsToggle
+					label={ __( 'Studio Code' ) }
+					checked={ preferences?.agenticFeaturesEnabled ?? true }
+					disabled={ isLoading }
+					onChange={ ( agenticFeaturesEnabled ) =>
+						savePreferences.mutate( { agenticFeaturesEnabled } )
+					}
+				/>
+			</SettingsRow>
+		</SettingsGroup>
 	);
 }
 
@@ -55,51 +47,35 @@ function AnthropicApiKeySection() {
 	}
 
 	return (
-		<section className={ styles.preferenceSectionGroup }>
-			<section className={ clsx( styles.preferenceRow, styles.apiKeyRow ) }>
-				<div className={ styles.preferenceText }>
-					<h2>{ __( 'Use your Anthropic API key' ) }</h2>
-					<p>
-						{ __(
-							'Use your own API key, which bills against your Anthropic account, then select your preferred provider for each conversation from the models menu.'
-						) }
-					</p>
-				</div>
-				<div className={ clsx( styles.apiKeyControls, error && styles.apiKeyControlsError ) }>
-					<TextControl
-						__nextHasNoMarginBottom
-						__next40pxDefaultSize
-						type="password"
-						label={ __( 'Anthropic API key' ) }
-						hideLabelFromVision
-						placeholder={ settings.anthropicApiKeyPreview ?? __( 'Paste your API key: sk-…' ) }
-						value={ draft ?? '' }
-						onChange={ setDraft }
-					/>
-				</div>
-			</section>
-			{ error && (
-				<p role="alert" className="components-validated-control__indicator is-invalid">
-					<Icon
-						className="components-validated-control__indicator-icon"
-						icon={ errorIcon }
-						size={ 16 }
-						fill="currentColor"
-					/>
-					{ error.message }
-				</p>
-			) }
-		</section>
+		<SettingsGroup>
+			<SettingsRow
+				title={ __( 'Use your Anthropic API key' ) }
+				description={ __(
+					'Use your own API key, which bills against your Anthropic account, then select your preferred provider for each conversation from the models menu.'
+				) }
+				error={ error?.message }
+				stacked
+			>
+				<Input
+					className={ styles.apiKeyInput }
+					type="password"
+					autoComplete="off"
+					aria-label={ __( 'Anthropic API key' ) }
+					aria-invalid={ error ? true : undefined }
+					placeholder={ settings.anthropicApiKeyPreview ?? __( 'Paste your API key: sk-…' ) }
+					value={ draft ?? '' }
+					onChange={ ( event ) => setDraft( event.target.value ) }
+				/>
+			</SettingsRow>
+		</SettingsGroup>
 	);
 }
 
 export function AiPanel() {
-	const connector = useConnector();
 	return (
 		<div className={ styles.preferencesPanel }>
 			<AgenticFeaturesSection />
-			{ connector.capabilities.aiSettings && <AnthropicApiKeySection /> }
-			{ connector.capabilities.agentInstructions && <StudioCodePanel /> }
+			<AnthropicApiKeySection />
 		</div>
 	);
 }

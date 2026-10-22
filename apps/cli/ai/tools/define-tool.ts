@@ -5,7 +5,7 @@ import type { StudioToolProgressUpdate } from '@studio/common/ai/tool-progress';
 
 /**
  * Tool authors throw on failure; pi's loop catches and produces a tool-result
- * with `isError: true`. `rawHandler` is exposed so `mcp-server.ts` can
+ * with `isError: true`. `rawHandler` is exposed so `runtimes/mcp` can
  * dispatch external calls without pi's `{content, details}` wrapping.
  */
 
@@ -25,6 +25,9 @@ export type ToolContent = ToolTextContent | ToolImageContent;
 export interface ToolResult {
 	content: ToolContent[];
 	studioArtifacts?: StudioChatArtifactWidgetDraft[];
+	// Data for the host's MCP App, kept out of the model's context. Not
+	// `structuredContent`: Claude Code gives that to the model instead of `content`.
+	_meta?: Record< string, unknown >;
 	// Work the tool leaves running after it returns, settling with an optional
 	// report for the agent. A runtime that cannot wait for it later awaits it
 	// before answering.
@@ -47,15 +50,49 @@ export type ToolHandler< TProps extends TProperties > = (
 	context: ToolContext
 ) => Promise< ToolResult >;
 
-// One-line snippet for the prompt's tool list and short usage guidelines,
-// the way pi's own tools declare them: the system prompt is assembled from
-// the registered tools, so a tool is documented where it is defined.
+// One-line snippet for the prompt's tool list, the way pi's own tools declare
+// it: the system prompt is assembled from the registered tools, so a tool is
+// documented where it is defined.
 export interface ToolPromptOptions {
 	promptSnippet?: string;
-	promptGuidelines?: string[];
 }
 
+// What a call can change, for hosts that ask the user before running a tool
+// (MCP tool annotations). Hosts run read-only tools, and those that neither
+// destroy data nor reach beyond this machine, without asking. Every tool
+// declares all three, as OpenAI's plugin review requires.
+export interface ToolAnnotations {
+	readOnlyHint: boolean;
+	destructiveHint: boolean;
+	openWorldHint: boolean;
+}
+
+export const READ_ONLY: ToolAnnotations = {
+	readOnlyHint: true,
+	destructiveHint: false,
+	openWorldHint: false,
+};
+// Reads only, including from WordPress.com.
+export const REMOTE_READ: ToolAnnotations = { ...READ_ONLY, openWorldHint: true };
+// Changes only this machine, without deleting or overwriting the user's work.
+export const LOCAL_CHANGE: ToolAnnotations = {
+	readOnlyHint: false,
+	destructiveHint: false,
+	openWorldHint: false,
+};
+// Changes something beyond this machine, without deleting or overwriting the user's work.
+export const REMOTE_CHANGE: ToolAnnotations = { ...LOCAL_CHANGE, openWorldHint: true };
+// Can delete or overwrite the user's work on this machine.
+export const LOCAL_OVERWRITE: ToolAnnotations = { ...LOCAL_CHANGE, destructiveHint: true };
+// Can delete or overwrite the user's work, on this machine or beyond it.
+export const REMOTE_OVERWRITE: ToolAnnotations = {
+	readOnlyHint: false,
+	destructiveHint: true,
+	openWorldHint: true,
+};
+
 export interface ToolOptions extends ToolPromptOptions {
+	annotations: ToolAnnotations;
 	// The tool renders the site, so it runs only once the pending work of
 	// earlier tools, such as images still being generated, has settled.
 	settlesPendingWork?: boolean;
@@ -88,8 +125,8 @@ export interface AnyStudioAgentTool {
 	prepareArguments?: ( args: unknown ) => unknown;
 	executionMode?: unknown;
 	promptSnippet?: string;
-	promptGuidelines?: string[];
 	settlesPendingWork?: boolean;
+	annotations: ToolAnnotations;
 }
 
 export function defineTool< TProps extends TProperties >(
@@ -97,7 +134,7 @@ export function defineTool< TProps extends TProperties >(
 	description: string,
 	properties: TProps,
 	handler: ToolHandler< TProps >,
-	options: ToolOptions = {}
+	options: ToolOptions
 ): StudioAgentTool< TProps > {
 	const parameters = Type.Object( properties );
 
@@ -107,8 +144,8 @@ export function defineTool< TProps extends TProperties >(
 		parameters,
 		label: name,
 		...( options.promptSnippet ? { promptSnippet: options.promptSnippet } : {} ),
-		...( options.promptGuidelines ? { promptGuidelines: options.promptGuidelines } : {} ),
 		...( options.settlesPendingWork ? { settlesPendingWork: true } : {} ),
+		annotations: options.annotations,
 		rawHandler: ( args, context ) => handler( args, context ?? NOOP_TOOL_CONTEXT ),
 		execute: async ( _toolCallId, params, _signal, onUpdate ) => {
 			const context: ToolContext = {

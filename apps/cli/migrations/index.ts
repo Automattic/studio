@@ -7,6 +7,7 @@ import { migrateConnectedSitesToShared } from './05-migrate-connected-sites-to-s
 import { installBundledDefaultPhp } from './06-install-bundled-default-php';
 import { cleanupOrphanedConnectedSites } from './07-cleanup-orphaned-connected-sites';
 import { moveAiSettingsToShared } from './08-move-ai-settings-to-shared';
+import { removeSiteRuntime } from './09-remove-site-runtime';
 import type { Migration } from '@studio/common/lib/migration';
 
 export const migrations: Migration[] = [
@@ -18,5 +19,6 @@ export const migrations: Migration[] = [
 	installBundledDefaultPhp,
 	cleanupOrphanedConnectedSites,
 	moveAiSettingsToShared,
+	removeSiteRuntime,
 	moveAiSessionsToStudioDir,
 ];

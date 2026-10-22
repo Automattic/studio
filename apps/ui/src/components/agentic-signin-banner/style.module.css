@@ -3,12 +3,12 @@
 	flex-wrap: wrap;
 	align-items: center;
 	justify-content: space-between;
-	gap: var(--wpds-dimension-padding-lg);
-	margin-bottom: calc(var(--wpds-dimension-padding-xl) * 1.25);
-	padding: var(--wpds-dimension-padding-lg) var(--wpds-dimension-padding-xl);
-	border: 1px solid var(--wpds-color-stroke-surface-neutral);
-	border-radius: var(--wpds-border-radius-lg);
-	background: var(--wpds-color-background-surface-neutral-weak);
+	gap: 16px;
+	margin-bottom: calc(20px * 1.25);
+	padding: 16px 20px;
+	border: 1px solid var(--border);
+	border-radius: 16px;
+	background: var(--muted);
 }
 
 .text {
@@ -17,22 +17,22 @@
 }
 
 .heading {
-	margin: 0 0 var(--wpds-dimension-padding-sm);
-	font-size: var(--wpds-typography-font-size-md);
-	line-height: var(--wpds-typography-line-height-md);
-	font-weight: var(--wpds-typography-font-weight-emphasis);
-	color: var(--wpds-color-foreground-content-neutral);
+	margin: 0 0 8px;
+	font-size: var(--text-xs);
+	line-height: 24px;
+	font-weight: var(--font-weight-semibold);
+	color: var(--foreground);
 }
 
 .benefits {
 	margin: 0;
-	padding-inline-start: var(--wpds-dimension-padding-lg);
+	padding-inline-start: 16px;
 	display: flex;
 	flex-direction: column;
-	gap: var(--wpds-dimension-padding-xs);
-	font-size: var(--wpds-typography-font-size-sm);
-	line-height: var(--wpds-typography-line-height-sm);
-	color: var(--wpds-color-foreground-content-neutral-weak);
+	gap: 4px;
+	font-size: var(--text-xxs);
+	line-height: 20px;
+	color: var(--muted-foreground);
 }
 
 .actions {
@@ -53,21 +53,21 @@
 	display: flex;
 	width: min(100%, 532px);
 	box-sizing: border-box;
-	padding: var(--wpds-dimension-padding-xl) var(--wpds-dimension-padding-lg);
+	padding: 20px 16px;
 	flex-direction: column;
 	align-items: center;
-	gap: var(--wpds-dimension-gap-md);
+	gap: 12px;
 	text-align: center;
 }
 
 .promptHeading {
-	margin: 0 0 var(--wpds-dimension-padding-sm);
-	color: var(--wpds-color-foreground-content-neutral);
-	font-size: var(--wpds-typography-font-size-xl);
+	margin: 0 0 8px;
+	color: var(--foreground);
+	font-size: 20px;
 	/* Display size: the xl line-height token is body-ish and reads loose once
 	   this wraps to two lines. */
 	line-height: 1.15;
-	font-weight: var(--wpds-typography-font-weight-emphasis);
+	font-weight: var(--font-weight-semibold);
 	text-wrap: balance;
 }
 
@@ -78,10 +78,10 @@
 	width: 100%;
 	grid-template-columns: auto minmax(0, 1fr) auto;
 	align-items: center;
-	column-gap: var(--wpds-dimension-gap-xs);
+	column-gap: 4px;
 	/* A touch more than .copy's gap: the labels have no cap height above them
 	   to speak of, so an equal gap reads tighter on top. */
-	row-gap: var(--wpds-dimension-gap-lg);
+	row-gap: 16px;
 }
 
 .carousel > .stage {
@@ -97,18 +97,18 @@
 	min-width: 0;
 	aspect-ratio: 460 / 345;
 	overflow: hidden;
-	border-radius: var(--wpds-border-radius-xl);
-	background: var(--wpds-color-background-surface-neutral-weak);
+	border-radius: 20px;
+	background: var(--muted);
 	/* A hairline ring plus a light lift; dark mode keeps only the ring, since
 	   a shadow has nothing to fall on there. */
 	box-shadow:
-		0 0 0 1px var(--wpds-color-stroke-surface-neutral-weak),
+		0 0 0 1px var(--border),
 		0 1px 2px rgba(0, 0, 0, 0.04),
 		0 6px 16px rgba(0, 0, 0, 0.06);
 }
 
 :global([data-color-scheme='dark']) .stage {
-	box-shadow: 0 0 0 1px var(--wpds-color-stroke-surface-neutral);
+	box-shadow: 0 0 0 1px var(--border);
 }
 
 .scenes {
@@ -125,12 +125,12 @@
 	padding: 0;
 	border: 0;
 	background: none;
-	cursor: var(--wpds-cursor-control, pointer);
+	cursor: pointer;
 	appearance: none;
 }
 
 .stageToggle:focus-visible {
-	outline: 2px solid var(--wpds-color-stroke-interactive-brand);
+	outline: 2px solid var(--accent);
 	outline-offset: -2px;
 }
 
@@ -152,8 +152,8 @@
 	height: 72px;
 	place-items: center;
 	border-radius: 50%;
-	background: color-mix(in srgb, var(--wpds-color-foreground-content-neutral) 70%, transparent);
-	color: var(--wpds-color-background-surface-neutral-strong);
+	background: color-mix(in srgb, var(--foreground) 70%, transparent);
+	color: var(--chrome);
 	transform: translate(-50%, -50%);
 	pointer-events: none;
 }
@@ -179,14 +179,14 @@
 	bottom: 0;
 	left: 0;
 	z-index: 2;
-	height: calc(var(--wpds-border-radius-xl) + var(--scrubber-height) / 2 + 10px);
-	padding: 0 calc(var(--wpds-border-radius-xl) - var(--scrubber-height) / 2)
-		calc(var(--wpds-border-radius-xl) - var(--scrubber-height) / 2);
+	height: calc(20px + var(--scrubber-height) / 2 + 10px);
+	padding: 0 calc(20px - var(--scrubber-height) / 2)
+		calc(20px - var(--scrubber-height) / 2);
 	box-sizing: border-box;
 	display: flex;
 	align-items: flex-end;
 	opacity: 0;
-	cursor: var(--wpds-cursor-control, pointer);
+	cursor: pointer;
 	transition: opacity 160ms ease;
 	touch-action: none;
 }
@@ -201,14 +201,14 @@
 	height: var(--scrubber-height);
 	overflow: hidden;
 	border-radius: 999px;
-	background: color-mix(in srgb, var(--wpds-color-foreground-content-neutral) 18%, transparent);
+	background: color-mix(in srgb, var(--foreground) 18%, transparent);
 }
 
 .scrubberFill {
 	width: calc(var(--progress, 0) * 100%);
 	height: 100%;
 	border-radius: 999px;
-	background: var(--wpds-color-foreground-interactive-brand);
+	background: var(--accent-text);
 }
 
 .stageScaler {
@@ -290,59 +290,54 @@
 
 .pager {
 	display: flex;
-	gap: var(--wpds-dimension-gap-lg);
+	gap: 16px;
 }
 
-/* The global `button:focus:not(:focus-visible)` rule paints buttons with
-   --wp-ui-button-background-color, so these define it. */
 .pagerLabel {
-	--wp-ui-button-background-color: transparent;
-	--wp-ui-button-border-color: transparent;
 	padding: 2px 0;
 	border: 0;
-	background: var(--wp-ui-button-background-color);
-	color: var(--wpds-color-foreground-content-neutral-weak);
+	background: transparent;
+	color: var(--muted-foreground);
 	font: inherit;
-	font-size: var(--wpds-typography-font-size-xs);
-	line-height: var(--wpds-typography-line-height-xs);
-	font-weight: var(--wpds-typography-font-weight-emphasis);
-	cursor: var(--wpds-cursor-control, pointer);
+	font-size: 11px;
+	line-height: 16px;
+	font-weight: var(--font-weight-semibold);
+	cursor: pointer;
 	transition: color 150ms ease;
 }
 
 .pagerLabel:hover {
-	color: var(--wpds-color-foreground-content-neutral);
+	color: var(--foreground);
 }
 
 .pagerLabelActive,
 .pagerLabelActive:hover {
-	color: var(--wpds-color-foreground-interactive-brand);
+	color: var(--accent-text);
 }
 
 .pagerLabel:focus-visible {
-	outline: 2px solid var(--wpds-color-stroke-interactive-brand);
+	outline: 2px solid var(--accent);
 	outline-offset: 2px;
-	border-radius: var(--wpds-border-radius-xs);
+	border-radius: 6px;
 }
 
 .description {
 	max-width: min(380px, 100%);
 	margin: 0;
-	color: var(--wpds-color-foreground-content-neutral-weak);
-	font-size: var(--wpds-typography-font-size-sm);
-	line-height: var(--wpds-typography-line-height-sm);
+	color: var(--muted-foreground);
+	font-size: var(--text-xxs);
+	line-height: 20px;
 	text-wrap: pretty;
 }
 
 .loginButton {
-	margin-top: var(--wpds-dimension-padding-sm);
-	padding-inline: var(--wpds-dimension-padding-lg);
+	margin-top: 8px;
+	padding-inline: 16px;
 }
 
-.overviewButton {
-	margin-top: var(--wpds-dimension-padding-sm);
-	color: var(--wpds-color-foreground-content-neutral-weak);
-	font-weight: var(--wpds-typography-font-weight-default);
+.turnOffButton {
+	margin-top: 8px;
+	font-weight: var(--font-weight-normal);
 }
 
 /* Narrow panels: the side padding drops and the arrows move out into the
@@ -350,7 +345,7 @@
    nearly the full width without anything sitting on top of it. */
 @container signin-prompt (max-width: 480px) {
 	.copy {
-		padding-inline: var(--wpds-dimension-padding-md);
+		padding-inline: 12px;
 	}
 
 	.carousel {
@@ -370,7 +365,7 @@
 
 	.arrow {
 		position: absolute;
-		top: calc(50% - var(--wpds-dimension-gap-sm) - 14px);
+		top: calc(50% - 8px - 14px);
 		z-index: 3;
 	}
 

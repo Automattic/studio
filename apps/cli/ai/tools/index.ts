@@ -1,7 +1,6 @@
 import { emitChatArtifactWidgets } from 'cli/ai/chat-artifacts';
 import { createPreviewTool } from './create-preview';
 import { createSiteTool } from './create-site';
-import { dataLiberationTool } from './data-liberation';
 import { deletePreviewTool } from './delete-preview';
 import { deleteSiteTool } from './delete-site';
 import { exportSiteTool } from './export-site';
@@ -18,17 +17,15 @@ import { createPickDesignTool, pickDesignTool } from './pick-design';
 import { pullSiteTool } from './pull-site';
 import { pushSiteTool } from './push-site';
 import { auditSeoTool } from './rank-me-up';
-import { refreshBrowserTool } from './refresh-browser';
 import { scaffoldThemeTool } from './scaffold-theme';
 import { getSiteInfoTool } from './site-info';
 import { startSiteTool } from './start-site';
 import { stopSiteTool } from './stop-site';
-import { studioPresentTool } from './studio-present';
 import { createTakeScreenshotTool, takeScreenshotTool } from './take-screenshot';
 import { updatePreviewTool } from './update-preview';
 import { validateBlocksTool } from './validate-blocks';
-import { waitForAnnotationsTool } from './wait-for-annotations';
 import { runWpCliTool } from './wp-cli';
+import { wpcomRequestTool } from './wpcom-request';
 import type { AnyStudioAgentTool, StudioToolResultDetails } from './define-tool';
 import type { DesignTracksContext } from 'cli/ai/design-tracks';
 
@@ -46,7 +43,6 @@ export const studioToolDefinitions: AnyStudioAgentTool[] = [
 	updatePreviewTool,
 	deletePreviewTool,
 	runWpCliTool,
-	refreshBrowserTool,
 	scaffoldThemeTool,
 	pickDesignTool,
 	validateBlocksTool,
@@ -54,16 +50,15 @@ export const studioToolDefinitions: AnyStudioAgentTool[] = [
 	inspectDesignTool,
 	generateImagesTool,
 	installTaxonomyScriptsTool,
-	dataLiberationTool,
 	auditPerformanceTool,
 	auditSeoTool,
 	listConnectedRemoteSitesTool,
+	wpcomRequestTool,
 	pushSiteTool,
 	pullSiteTool,
 	importSiteTool,
 	exportSiteTool,
 	openAnnotationBrowserTool,
-	waitForAnnotationsTool,
 ];
 
 export interface CreateStudioToolsOptions {
@@ -81,29 +76,25 @@ export interface CreateStudioToolsOptions {
 	canAskUser?: boolean;
 	// The chat session the design tools record Tracks events for; absent for the MCP server.
 	tracks?: DesignTracksContext;
+	// How a local image is linked in the agent's reply so the host shows it to the user.
+	// Set by hosts without Studio's chat UI, which shows images as chat artifacts instead.
+	imageLink?: ( file: string ) => string;
 }
 
 export function resolveStudioToolDefinitions(
 	options: CreateStudioToolsOptions = {}
 ): AnyStudioAgentTool[] {
-	const definitions =
-		options.emitChatArtifacts === true
-			? [ ...studioToolDefinitions, studioPresentTool ]
-			: studioToolDefinitions;
-
-	return definitions.flatMap( ( candidate ) => {
-		// refresh_browser only makes sense when a Studio UI with a preview pane
-		// is attached to consume the preview.reload event; emitChatArtifacts is
-		// the existing "UI attached" signal (process.send available).
-		if ( candidate.name === refreshBrowserTool.name && options.emitChatArtifacts !== true ) {
-			return [];
-		}
+	return studioToolDefinitions.flatMap( ( candidate ) => {
 		if ( candidate.name === generateImagesTool.name && ! options.imageGeneration ) {
 			return [];
 		}
 		let tool = candidate;
-		if ( candidate.name === takeScreenshotTool.name && options.visionEnabled === false ) {
-			tool = createTakeScreenshotTool( { visionEnabled: false } );
+		if ( candidate.name === takeScreenshotTool.name ) {
+			tool = createTakeScreenshotTool( {
+				visionEnabled: options.visionEnabled !== false,
+				imageLink: options.imageLink,
+				userSeesCapture: options.emitChatArtifacts === true || Boolean( options.imageLink ),
+			} );
 		}
 		if ( candidate.name === inspectDesignTool.name && options.visionEnabled === false ) {
 			tool = createInspectDesignTool( { visionEnabled: false } );

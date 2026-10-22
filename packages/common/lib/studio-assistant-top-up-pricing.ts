@@ -8,6 +8,7 @@ export const STUDIO_ASSISTANT_TOP_UP_PRICING_URL =
 // the store decides how a price reads in the account's currency (symbol,
 // separators, whether the minor units appear at all), and reconstructing that
 // ourselves gets it wrong for every currency that isn't two-decimal dollars.
+// It formats for the `_locale` we request, so always pass the UI locale.
 //
 // The response also carries `currency`, a `step` for free-entry amounts, and
 // `amount_minor` per option. Nothing renders them, and zod drops what it
@@ -45,16 +46,23 @@ export function parseStudioAssistantTopUpPricing(
 	return result.success ? result.data : null;
 }
 
+function getStudioAssistantTopUpPricingUrl( locale?: string ): string {
+	return locale
+		? `${ STUDIO_ASSISTANT_TOP_UP_PRICING_URL }?_locale=${ encodeURIComponent( locale ) }`
+		: STUDIO_ASSISTANT_TOP_UP_PRICING_URL;
+}
+
 /**
- * Fetch the top-up options priced for the account's currency. Resolves `null`
- * on any failure (network, auth, unexpected shape) so callers can fall back to
- * the single fixed top-up link.
+ * Fetch the top-up options priced for the account's currency, with `display`
+ * formatted for `locale`. Resolves `null` on any failure (network, auth,
+ * unexpected shape) so callers can fall back to the single fixed top-up link.
  */
 export async function fetchStudioAssistantTopUpPricing(
-	accessToken: string
+	accessToken: string,
+	locale?: string
 ): Promise< StudioAssistantTopUpPricing | null > {
 	try {
-		const response = await fetch( STUDIO_ASSISTANT_TOP_UP_PRICING_URL, {
+		const response = await fetch( getStudioAssistantTopUpPricingUrl( locale ), {
 			headers: { Authorization: `Bearer ${ accessToken }` },
 		} );
 		if ( ! response.ok ) {

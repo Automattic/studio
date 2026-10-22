@@ -6,7 +6,7 @@ import { useAppGlobals } from '@/data/queries/use-app-globals';
 // classic renderer reads and writes, so dismissing in one UI settles both.
 const LAST_SEEN_VERSION_QUERY_KEY = [ 'whats-new-last-seen-version' ] as const;
 
-// Browser targets (`studio ui`, hosted) have no app version to record, so they
+// The browser target (`studio ui`) has no app version to record, so they
 // record a fixed stand-in. Known trade-off: because a later release stores the
 // same value, a browser only ever sees the announcements once. Fixing that needs
 // a marker that tracks the content rather than the app version, which would also

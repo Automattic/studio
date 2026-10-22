@@ -8,8 +8,9 @@ import { MakerZIP } from '@electron-forge/maker-zip';
 import { AutoUnpackNativesPlugin } from '@electron-forge/plugin-auto-unpack-natives';
 import { exec as pkgExec } from '@yao-pkg/pkg';
 import { globSync } from 'glob';
+import { PROTOCOL_PREFIX } from '../../packages/common/constants';
 import { RecommendedPHPVersion } from '../../packages/common/types/php-versions';
-import { windowsSign } from './windowsSign';
+import { squirrelWindowsSign, windowsSign } from './windowsSign';
 import type { ForgeConfig } from '@electron-forge/shared-types';
 
 const repoRoot = path.resolve( __dirname, '../..' );
@@ -18,6 +19,8 @@ const bundledPhpBinaryRoot = path.join( __dirname, 'php-bin' );
 const config: ForgeConfig = {
 	packagerConfig: {
 		asar: true,
+		// macOS only lets an app handle URL schemes its Info.plist declares.
+		protocols: [ { name: 'Studio', schemes: [ PROTOCOL_PREFIX ] } ],
 		extendInfo: {
 			MDItemKeywords: 'WordPress, WordPress Studio, WP, local WordPress development',
 		},
@@ -61,17 +64,17 @@ const config: ForgeConfig = {
 			// Config files
 			/^\/tsconfig\./,
 			/^\/vitest\./,
-			/^\/postcss\./,
-			/^\/tailwind\./,
 			/^\/forge\./,
 			/^\/electron\./,
-			/^\/index\.html$/,
 			/^\/.*\.md$/,
 			/^\/.*\.txt$/,
 			/^\/.*\.log$/,
+			// Source maps are uploaded to Sentry at build time and not needed at runtime.
+			/\.map$/,
 			// Resources copied separately via extraResource
 			/^\/assets/,
 			/^\/bin/,
+			/^\/php-bin/,
 		],
 	},
 	rebuildConfig: {},
@@ -124,7 +127,7 @@ const config: ForgeConfig = {
 
 				// Sign via the custom Azure Trusted Signing hook (signtool, SHA256-only).
 				// Undefined when SIGN_WINDOWS_BUILD isn't set (e.g. package-only jobs), leaving the build unsigned.
-				...( windowsSign ? { windowsSign } : {} ),
+				...( squirrelWindowsSign ? { windowsSign: squirrelWindowsSign } : {} ),
 			},
 			[ 'win32' ]
 		),
@@ -243,38 +246,6 @@ const config: ForgeConfig = {
 							if ( fs.statSync( dirToRemove ).isDirectory() ) {
 								fs.rmSync( dirToRemove, { recursive: true, force: true } );
 								console.log( `Removed koffi/build/koffi/${ platformArchDir }` );
-							}
-						}
-					}
-				}
-			}
-
-			// Clean up fs-ext-extra-prebuilt binaries (file format:
-			// fs-ext-{platform}-{arch}-{runtime}-{version}.node). The root postinstall
-			// already filtered by platform; this strips the unused arch for the target build.
-			const fsExtBinDir = path.join( cliNodeModules, 'fs-ext-extra-prebuilt', 'binaries' );
-			const fsExtPrefix = `fs-ext-${ platform }-${ arch }-`;
-			if ( fs.existsSync( fsExtBinDir ) ) {
-				const fsExtFiles = fs.readdirSync( fsExtBinDir );
-				if ( ! fsExtFiles.some( ( f ) => f.startsWith( fsExtPrefix ) ) ) {
-					console.warn(
-						`Skipping fs-ext cleanup: no file starting with ${ fsExtPrefix } in ${ fsExtBinDir }`
-					);
-				} else {
-					for ( const file of fsExtFiles ) {
-						if ( ! file.startsWith( fsExtPrefix ) ) {
-							// Tolerate transient failures (Windows AV locks, permissions) — this
-							// cleanup is a size optimization; aborting packaging over a stuck file
-							// would be worse than shipping a few hundred extra KB. Mirrors the
-							// behavior of scripts/remove-fs-ext-other-platform-binaries.mjs.
-							try {
-								fs.unlinkSync( path.join( fsExtBinDir, file ) );
-								console.log( `Removed fs-ext-extra-prebuilt/binaries/${ file }` );
-							} catch ( e ) {
-								const message = e instanceof Error ? e.message : String( e );
-								console.warn(
-									`Could not remove fs-ext-extra-prebuilt/binaries/${ file }: ${ message }`
-								);
 							}
 						}
 					}

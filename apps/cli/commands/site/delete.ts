@@ -177,12 +177,6 @@ function outcomeForSite(
 	return outcome;
 }
 
-function emitMachineOutput( result: DeleteCommandResult, logger: Logger< LoggerAction > ): void {
-	const json = JSON.stringify( result );
-	console.log( json );
-	logger.reportKeyValuePair( 'deleteResult', json );
-}
-
 function firstFailureError( sites: DeleteSiteOutcome[] ): LoggerError {
 	const failed = sites.find( ( site ) => site.status === 'failed' );
 	return new LoggerError( failed?.error ?? __( 'Failed to delete site' ) );
@@ -190,10 +184,10 @@ function firstFailureError( sites: DeleteSiteOutcome[] ): LoggerError {
 
 function finishWithFailures(
 	result: DeleteCommandResult,
-	options: { format: 'text' | 'json'; throwOnFailure: boolean; logger: Logger< LoggerAction > }
+	options: { format: 'text' | 'json'; throwOnFailure: boolean }
 ): DeleteCommandResult {
 	if ( options.format === 'json' ) {
-		emitMachineOutput( result, options.logger );
+		console.log( JSON.stringify( result ) );
 	}
 
 	if ( options.throwOnFailure ) {
@@ -281,7 +275,7 @@ export async function runDeleteCommand(
 		};
 
 		logger.reportError( firstFailureError( result.sites ), false );
-		return finishWithFailures( result, { format, throwOnFailure, logger } );
+		return finishWithFailures( result, { format, throwOnFailure } );
 	}
 
 	logger.reportSuccess(
@@ -296,7 +290,7 @@ export async function runDeleteCommand(
 		};
 
 		if ( format === 'json' ) {
-			emitMachineOutput( result, logger );
+			console.log( JSON.stringify( result ) );
 		} else {
 			for ( const outcome of result.sites ) {
 				const fileSummary =
@@ -367,11 +361,11 @@ export async function runDeleteCommand(
 	};
 
 	if ( outcomes.some( ( outcome ) => outcome.status === 'failed' ) ) {
-		return finishWithFailures( result, { format, throwOnFailure, logger } );
+		return finishWithFailures( result, { format, throwOnFailure } );
 	}
 
 	if ( format === 'json' ) {
-		emitMachineOutput( result, logger );
+		console.log( JSON.stringify( result ) );
 	} else if ( resolved.length > 1 ) {
 		const deletedCount = outcomes.filter( ( outcome ) => outcome.status === 'deleted' ).length;
 		logger.reportSuccess(

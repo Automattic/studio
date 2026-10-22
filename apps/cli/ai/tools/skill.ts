@@ -1,9 +1,17 @@
 import { Type } from 'typebox';
 import { renderDesignCatalogIndex } from 'cli/ai/design-catalog';
 import { findSkill, loadSkills } from 'cli/ai/skills';
-import { defineTool } from './define-tool';
+import { defineTool, READ_ONLY } from './define-tool';
 import type { AgentTool } from '@earendil-works/pi-agent-core';
 import type { TSchema } from 'typebox';
+
+export function renderSkill( name: string ): string {
+	const skill = findSkill( name );
+	if ( ! skill ) {
+		throw new Error( `Unknown skill: ${ name }` );
+	}
+	return renderDesignCatalogIndex( skill.body );
+}
 
 // Returns `null` when no skills are discovered so the caller skips
 // registering the tool entirely.
@@ -20,14 +28,9 @@ export function createSkillTool(): AgentTool< TSchema > | null {
 		{
 			name: Type.Enum( names, { description: 'The name of the skill to load.' } ),
 		},
-		async ( args ) => {
-			const skill = findSkill( args.name );
-			if ( ! skill ) {
-				throw new Error( `Unknown skill: ${ args.name }` );
-			}
-			return {
-				content: [ { type: 'text' as const, text: renderDesignCatalogIndex( skill.body ) } ],
-			};
-		}
+		async ( args ) => ( {
+			content: [ { type: 'text' as const, text: renderSkill( args.name ) } ],
+		} ),
+		{ annotations: READ_ONLY }
 	);
 }

@@ -3,13 +3,18 @@ import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { useQueryClient } from '@tanstack/react-query';
 import { createRootRouteWithContext, Outlet, useNavigate, useParams } from '@tanstack/react-router';
 import { useEffect, useRef } from 'react';
+import { AddSiteDialog } from '@/components/add-site-dialog';
+import { isSettingsSection, SettingsDialog } from '@/components/settings-dialog';
 import { WapuuWorldMount } from '@/components/wapuu-world';
 import { useConnector } from '@/data/core';
 import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
 import { SITES_QUERY_KEY } from '@/data/queries/use-sites';
 import { useAiCreditsPurchaseResult } from '@/hooks/use-ai-credits-purchase-result';
 import { useAppMenuNavigation } from '@/hooks/use-app-menu-navigation';
+import { isAddSiteSection } from '@/hooks/use-open-add-site';
+import type { SettingsSectionId } from '@/components/settings-dialog';
 import type { AiSessionSummary, Connector, SiteDetails } from '@/data/core';
+import type { AddSiteSection } from '@/hooks/use-open-add-site';
 import type { QueryClient } from '@tanstack/react-query';
 
 export interface RouterContext {
@@ -85,7 +90,22 @@ export function DeletedSiteRedirect() {
 	return null;
 }
 
+interface RootSearch {
+	settings?: SettingsSectionId;
+	settingsSite?: string;
+	settingsFocus?: string;
+	addSite?: AddSiteSection;
+	pin?: true;
+}
+
 export const rootRoute = createRootRouteWithContext< RouterContext >()( {
+	validateSearch: ( search: Record< string, unknown > ): RootSearch => ( {
+		...( isSettingsSection( search.settings ) ? { settings: search.settings } : {} ),
+		...( typeof search.settingsSite === 'string' ? { settingsSite: search.settingsSite } : {} ),
+		...( typeof search.settingsFocus === 'string' ? { settingsFocus: search.settingsFocus } : {} ),
+		...( isAddSiteSection( search.addSite ) ? { addSite: search.addSite } : {} ),
+		...( search.pin === true || search.pin === 'true' ? { pin: true } : {} ),
+	} ),
 	component: () => (
 		<>
 			<AppMenuNavigation />
@@ -93,6 +113,8 @@ export const rootRoute = createRootRouteWithContext< RouterContext >()( {
 			<DeletedSiteRedirect />
 			<WapuuWorldMount />
 			<Outlet />
+			<SettingsDialog />
+			<AddSiteDialog />
 		</>
 	),
 } );

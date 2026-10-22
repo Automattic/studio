@@ -31,6 +31,7 @@ import {
 	type NormalizedToolResult,
 } from '@studio/common/ai/tools';
 import { formatUsageCapNotice } from '@studio/common/lib/studio-assistant-quota';
+import { useReducedMotion } from '@wordpress/compose';
 import { __, isRTL, sprintf } from '@wordpress/i18n';
 import {
 	blockDefault,
@@ -49,6 +50,7 @@ import {
 	download,
 	file,
 	globe,
+	Icon,
 	image,
 	info,
 	link,
@@ -58,7 +60,6 @@ import {
 	offline,
 	page,
 	pencil,
-	pending,
 	people,
 	plugins,
 	plusCircle,
@@ -75,7 +76,6 @@ import {
 	update,
 	upload,
 } from '@wordpress/icons';
-import { Button, Dialog, Icon, IconButton } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import {
 	useEffect,
@@ -89,13 +89,15 @@ import {
 import { AiAccessRequiredNotice, AiBlockedNotice } from '@/components/ai-access-required-notice';
 import { CopyButton } from '@/components/copy-button';
 import { Markdown } from '@/components/markdown';
-import { useConnector, type LoadedAiSession } from '@/data/core';
+import { Button, IconButton } from '@/components/ui/button';
+import { Dialog, DialogClose, DialogContent, DialogDismissButton } from '@/components/ui/dialog';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
 import { useLocalMediaDataUrl } from '@/data/queries/use-local-media';
 import { MESSAGE_TEXT_ATTRIBUTE, QUOTABLE_TEXT_ATTRIBUTE } from '@/hooks/use-text-context-menu';
 import { refreshIcon } from '@/lib/icons';
 import { ThinkingIndicator } from '../thinking-indicator';
 import styles from './style.module.css';
+import type { LoadedAiSession } from '@/data/core';
 import type { SessionEntry } from '@earendil-works/pi-coding-agent';
 import type { StudioVisualAnnotationSummary } from '@studio/common/ai/visual-annotations';
 
@@ -116,6 +118,7 @@ type RenderItem =
 			annotation?: StudioVisualAnnotationSummary;
 	  }
 	| { kind: 'assistant-text'; key: string; text: string; messageText: string; copyText?: string }
+	| { kind: 'thinking'; key: string; text: string }
 	| {
 			kind: 'tool-use';
 			key: string;
@@ -139,6 +142,8 @@ type RenderItem =
 interface PiAssistantContentBlock {
 	type: 'text' | 'toolCall' | 'thinking';
 	text?: string;
+	/** Reasoning text. A separate field from `text`, which stays empty here. */
+	thinking?: string;
 	id?: string;
 	name?: string;
 	arguments?: Record< string, unknown >;
@@ -157,35 +162,13 @@ interface PiToolResultLike {
 	isError?: boolean;
 }
 
-const HIDDEN_TOOL_ROWS = new Set( [
-	'studio_present',
-	'AskUserQuestion',
-	'present_design_options',
-] );
+const HIDDEN_TOOL_ROWS = new Set( [ 'AskUserQuestion', 'present_design_options' ] );
 const QUESTION_COLLAPSE_DELAY_MS = 650;
 const QUESTION_SCROLL_TOP_MARGIN_PX = 12;
 // Only a pre-layout fallback. The scroller spans the full column with the
 // composer floating over it, so the space to actually keep clear is the
 // scroller's reserved bottom padding, which tracks the live composer height.
 const QUESTION_SCROLL_BOTTOM_CLEARANCE_PX = 96;
-
-function usePrefersReducedMotion(): boolean {
-	const [ prefersReducedMotion, setPrefersReducedMotion ] = useState( false );
-
-	useEffect( () => {
-		if ( typeof window.matchMedia !== 'function' ) {
-			return;
-		}
-		const mediaQuery = window.matchMedia( '(prefers-reduced-motion: reduce)' );
-		const updatePreference = () => setPrefersReducedMotion( mediaQuery.matches );
-
-		updatePreference();
-		mediaQuery.addEventListener( 'change', updatePreference );
-		return () => mediaQuery.removeEventListener( 'change', updatePreference );
-	}, [] );
-
-	return prefersReducedMotion;
-}
 
 function resolveBatchedAnswerForQuestion(
 	entries: SessionEntry[],
@@ -236,10 +219,7 @@ function resolveBatchedAnswerForQuestion(
 	return answers[ batchPosition ];
 }
 
-export function entriesToRenderItems(
-	entries: SessionEntry[],
-	options: { canReadLocalMedia?: boolean } = {}
-): RenderItem[] {
+export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 	// First pass: collect tool_call_id → tool_result pairings so each
 	// `toolCall` row can render its output inline.
 	const resultsByToolCallId = new Map< string, NormalizedToolResult >();
@@ -267,11 +247,20 @@ export function entriesToRenderItems(
 			const data = ( entry as StudioCustomEntry< 'studio.user_prompt' > ).data;
 			if ( ! data || data.source !== 'prompt' ) continue;
 			if ( data.visualAnnotations?.length ) {
+				// Each note shows its own images; the first bubble takes the rest.
+				const noteImageIds = new Set(
+					data.visualAnnotations.flatMap( ( annotation ) => annotation.imageIds ?? [] )
+				);
 				data.visualAnnotations.forEach( ( annotation, annotationIndex ) => {
 					items.push( {
 						kind: 'user-text',
 						key: `${ entryIndex }:annotation:${ annotationIndex }`,
 						text: annotation.comment,
+						attachments: data.attachments?.filter( ( attachment ) =>
+							attachment.kind === 'image' && noteImageIds.has( attachment.id )
+								? annotation.imageIds?.includes( attachment.id )
+								: annotationIndex === 0
+						),
 						annotation,
 					} );
 				} );
@@ -314,6 +303,15 @@ export function entriesToRenderItems(
 							text,
 							messageText: fullMessageText,
 							copyText: block === lastTextBlock ? fullMessageText : undefined,
+						} );
+					}
+				} else if ( block.type === 'thinking' && typeof block.thinking === 'string' ) {
+					const thinking = block.thinking.trim();
+					if ( thinking ) {
+						items.push( {
+							kind: 'thinking',
+							key: `${ entryIndex }:${ blockIndex }:thinking`,
+							text: thinking,
 						} );
 					}
 				} else if (
@@ -374,13 +372,7 @@ export function entriesToRenderItems(
 			if ( ! isStudioChatArtifactData( data ) ) {
 				continue;
 			}
-			const widgets = data.widgets.filter(
-				( widget ) =>
-					isRenderableMediaWidget( widget ) &&
-					// Without local media access (browser builds), only widgets
-					// with a renderable remote URL are worth showing.
-					( options.canReadLocalMedia !== false || Boolean( getSafeMediaUrl( widget ) ) )
-			);
+			const widgets = data.widgets.filter( isRenderableMediaWidget );
 			if ( widgets.length > 0 ) {
 				items.push( {
 					kind: 'chat-artifact',
@@ -443,12 +435,11 @@ function UserTurn( {
 } ) {
 	return (
 		<div className={ styles.userTurn } { ...{ [ MESSAGE_TEXT_ATTRIBUTE ]: text } }>
-			<div className={ styles.userText }>{ text }</div>
-			{ annotation ? (
+			{ text ? <div className={ styles.userText }>{ text }</div> : null }
+			{ annotation?.elementLabel || annotation?.tag ? (
 				<div className={ styles.annotationAttachment }>
 					<span className={ styles.annotationElementTag }>
-						{ annotation.elementLabel ??
-							( annotation.tag ? `<${ annotation.tag }>` : __( 'Element' ) ) }
+						{ annotation.elementLabel ?? `<${ annotation.tag }>` }
 					</span>
 					{ annotation.nearbyText ? (
 						<span className={ styles.annotationElementText }>{ annotation.nearbyText }</span>
@@ -482,6 +473,18 @@ function UserTurn( {
 				</ul>
 			) : null }
 		</div>
+	);
+}
+
+// Collapsed by default: reasoning is usually longer than the answer, and
+// scrolling past it to reach the reply is worse than one click to open it.
+// `<details>` carries the disclosure semantics and keyboard handling itself.
+function ThinkingRow( { text }: { text: string } ) {
+	return (
+		<details className={ styles.thinkingBlock }>
+			<summary className={ styles.thinkingSummary }>{ __( 'Thought process' ) }</summary>
+			<div className={ styles.thinkingBody }>{ text }</div>
+		</details>
 	);
 }
 
@@ -526,7 +529,9 @@ function AssistantText( {
 			} }
 			onClick={ copyText ? handleClick : undefined }
 		>
-			<Markdown>{ text }</Markdown>
+			<div className={ styles.assistantBubble }>
+				<Markdown>{ text }</Markdown>
+			</div>
 			{ copyText ? (
 				<div className={ styles.messageActions }>
 					<div className={ styles.messageActionsClip }>
@@ -605,7 +610,6 @@ function getClassicToolDisplay(
 		case 'take_screenshot':
 		case 'inspect_design':
 		case 'open_annotation_browser':
-		case 'wait_for_annotations':
 			display.detail = '';
 			break;
 	}
@@ -684,8 +688,6 @@ function getToolIcon( name: string, input: Record< string, unknown > | undefined
 		}
 		case 'open_annotation_browser':
 			return pencil;
-		case 'wait_for_annotations':
-			return pending;
 		case 'take_screenshot':
 			return capturePhoto;
 		case 'inspect_design':
@@ -861,8 +863,7 @@ function ChatArtifact( { widgets }: { widgets: StudioChatArtifactWidgetDraft[] }
 }
 
 function MediaArtifactImage( { widget }: { widget: StudioChatArtifactWidgetDraft } ) {
-	const connector = useConnector();
-	const localPath = connector.capabilities.readLocalMedia ? getLocalMediaPath( widget ) : null;
+	const localPath = getLocalMediaPath( widget );
 	const safeUrl = getSafeMediaUrl( widget );
 	const localFileQuery = useLocalMediaDataUrl( localPath );
 
@@ -1025,11 +1026,8 @@ function AgentQuestion( {
 								</button>
 								{ option.image ? (
 									<IconButton
-										type="button"
 										className={ styles.questionOptionZoom }
-										variant="minimal"
-										tone="neutral"
-										size="small"
+										size="icon-2xs"
 										icon={ search }
 										label={ sprintf(
 											// translators: %s: name of a design option.
@@ -1084,7 +1082,7 @@ function AgentQuestion( {
 			{ multiSelect && isInteractive ? (
 				<div>
 					<Button
-						size="compact"
+						variant="outline"
 						disabled={ pickedLabels.length === 0 }
 						onClick={ () => onAnswer( pickedLabels.join( ', ' ) ) }
 					>
@@ -1097,11 +1095,9 @@ function AgentQuestion( {
 }
 
 function QuestionOptionImage( { path }: { path: string | undefined } ) {
-	const connector = useConnector();
-	const localPath = path && connector.capabilities.readLocalMedia ? path : null;
-	const localFileQuery = useLocalMediaDataUrl( localPath );
+	const localFileQuery = useLocalMediaDataUrl( path ?? null );
 
-	if ( ! localPath || localFileQuery.isError ) {
+	if ( ! path || localFileQuery.isError ) {
 		return (
 			<span className={ styles.questionOptionImageUnavailable } aria-hidden="true">
 				{ path ? __( 'Preview unavailable' ) : null }
@@ -1125,11 +1121,8 @@ function QuestionOptionViewer( {
 	onIndexChange: ( index: number | null ) => void;
 	onChoose?: ( label: string ) => void;
 } ) {
-	const connector = useConnector();
 	const option = index === null ? undefined : options[ index ];
-	const localFileQuery = useLocalMediaDataUrl(
-		option?.image && connector.capabilities.readLocalMedia ? option.image : null
-	);
+	const localFileQuery = useLocalMediaDataUrl( option?.image ?? null );
 	const step = ( delta: number ) =>
 		index !== null && onIndexChange( ( index + delta + options.length ) % options.length );
 	const [ previousIcon, nextIcon ] = isRTL()
@@ -1137,11 +1130,11 @@ function QuestionOptionViewer( {
 		: [ chevronLeft, chevronRight ];
 
 	return (
-		<Dialog.Root
+		<Dialog
 			open={ option !== undefined }
 			onOpenChange={ ( open ) => ! open && onIndexChange( null ) }
 		>
-			<Dialog.Popup
+			<DialogContent
 				className={ styles.questionOptionZoomPopup }
 				aria-label={ option?.label }
 				onKeyDown={ ( event ) => {
@@ -1158,21 +1151,20 @@ function QuestionOptionViewer( {
 						alt={ option?.label }
 					/>
 				) : null }
-				<Dialog.CloseIcon className={ styles.questionOptionZoomClose } />
+				<DialogClose
+					className={ styles.questionOptionZoomClose }
+					render={ <DialogDismissButton variant="ghost" size="icon-2xs" /> }
+				/>
 				<IconButton
 					className={ clsx( styles.questionOptionZoomStep, styles.questionOptionZoomPrevious ) }
-					variant="minimal"
-					tone="neutral"
-					size="small"
+					size="icon-2xs"
 					icon={ previousIcon }
 					label={ __( 'Previous option' ) }
 					onClick={ () => step( -1 ) }
 				/>
 				<IconButton
 					className={ clsx( styles.questionOptionZoomStep, styles.questionOptionZoomNext ) }
-					variant="minimal"
-					tone="neutral"
-					size="small"
+					size="icon-2xs"
 					icon={ nextIcon }
 					label={ __( 'Next option' ) }
 					onClick={ () => step( 1 ) }
@@ -1180,7 +1172,8 @@ function QuestionOptionViewer( {
 				{ option && onChoose ? (
 					<Button
 						className={ styles.questionOptionZoomChoose }
-						size="compact"
+						variant="accent"
+						size="header"
 						onClick={ () => {
 							onIndexChange( null );
 							onChoose( option.label );
@@ -1189,13 +1182,13 @@ function QuestionOptionViewer( {
 						{ __( 'Choose' ) }
 					</Button>
 				) : null }
-			</Dialog.Popup>
-		</Dialog.Root>
+			</DialogContent>
+		</Dialog>
 	);
 }
 
 function QuestionOptionCheckIcon() {
-	return <Icon icon={ check } size={ 14 } style={ { fill: 'currentColor' } } aria-hidden="true" />;
+	return <Icon icon={ check } size={ 14 } aria-hidden="true" />;
 }
 
 function getQuestionPickedLabel(
@@ -1371,7 +1364,7 @@ function AgentQuestionBatch( {
 } ) {
 	const [ expandedIndex, setExpandedIndex ] = useState< number | null >( null );
 	const [ settlingIndex, setSettlingIndex ] = useState< number | null >( null );
-	const prefersReducedMotion = usePrefersReducedMotion();
+	const prefersReducedMotion = useReducedMotion();
 	const activeQuestionRef = useRef< HTMLDivElement | null >( null );
 	const shouldFocusActiveQuestionRef = useRef( false );
 	const total = questions.length;
@@ -1566,11 +1559,7 @@ export function Conversation( {
 	onChooseFreeForm: ( question: string ) => void;
 } ) {
 	const entries = data.entries;
-	const canReadLocalMedia = useConnector().capabilities.readLocalMedia;
-	const items = useMemo(
-		() => entriesToRenderItems( entries, { canReadLocalMedia } ),
-		[ entries, canReadLocalMedia ]
-	);
+	const items = useMemo( () => entriesToRenderItems( entries ), [ entries ] );
 	const activeStep = useMemo( () => getActiveStep( entries ), [ entries ] );
 
 	// One selected message at a time, so picking a new one closes the last.
@@ -1623,6 +1612,8 @@ export function Conversation( {
 								}
 							/>
 						);
+					case 'thinking':
+						return <ThinkingRow key={ item.key } text={ item.text } />;
 					case 'tool-use':
 						return (
 							<ToolUseRow

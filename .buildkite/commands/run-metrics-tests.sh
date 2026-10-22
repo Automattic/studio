@@ -27,7 +27,7 @@ if [ "${BUILDKITE_PULL_REQUEST}" != "false" ]; then
   npm -w compare-perf run post-to-github -- $GITHUB_TOKEN $REPO_PATH $BUILDKITE_PULL_REQUEST trunk $BUILDKITE_COMMIT
 elif [ "${BUILDKITE_BRANCH}" == "trunk" ]; then
   # Trunk push context - compare against baseline
-  BASELINE_COMMIT="58c52bfee7e585614ced202f43f217a01f94f029"
+  BASELINE_COMMIT="db8e2085541eb0e2f4430304238f6342a20afe71"
 
   echo "--- :chart_with_upwards_trend: Running performance comparison against baseline"
   npm -w compare-perf run compare -- perf $BUILDKITE_COMMIT $BASELINE_COMMIT --tests-branch $BUILDKITE_COMMIT --rounds 3

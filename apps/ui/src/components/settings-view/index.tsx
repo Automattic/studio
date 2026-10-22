@@ -1,29 +1,25 @@
+import { getLocalizedLink, REPORT_ISSUE_URL } from '@studio/common/lib/docs-links';
 import { supportedLocaleNames } from '@studio/common/lib/locale';
 import { SUPPORTED_EDITORS, supportedEditorConfig } from '@studio/common/lib/user-settings/editor';
 import { SUPPORTED_TERMINALS, terminalConfig } from '@studio/common/lib/user-settings/terminal';
-import { CheckboxControl } from '@wordpress/components';
 import { __, sprintf } from '@wordpress/i18n';
-import { close } from '@wordpress/icons';
-import { Button, IconButton, SelectControl } from '@wordpress/ui';
-import { clsx } from 'clsx';
 import { useCallback, useEffect, useState } from 'react';
-import * as Tabs from '@/components/tabs';
+import { Button } from '@/components/ui/button';
 import { useConnector } from '@/data/core';
 import { persister } from '@/data/core/query-client';
+import {
+	useAgentInstructionsEnabled,
+	useSetAgentInstructionsEnabled,
+} from '@/data/queries/use-agent-instructions';
 import { useInstalledApps } from '@/data/queries/use-installed-apps';
+import { useUserLocale } from '@/data/queries/use-user-locale';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
-import { useSettingsClose } from '@/hooks/use-settings-close';
-import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
-import { useWindowControlsOverlay } from '@/hooks/use-window-controls-overlay';
 import { AccountSection } from './account-section';
-import { AiPanel } from './ai-panel';
-import { KeyboardPanel } from './keyboard-panel';
-import { McpPanel } from './mcp-panel';
+import { InstructionsEditor } from './instructions-editor';
 import { UNSET, toPreferencesFormData, toPreferencesPatch } from './preferences';
-import { SkillsPanel } from './skills-panel';
+import { SettingsGroup, SettingsRow, SettingsSelect, SettingsToggle } from './rows';
 import { StudioCliSection } from './studio-cli-section';
 import styles from './style.module.css';
-import { UsagePanel } from './usage-panel';
 import { WapuuScore } from './wapuu-score';
 import type { PreferencesFormData } from './preferences';
 import type {
@@ -34,17 +30,6 @@ import type {
 	SupportedLocale,
 	SupportedTerminal,
 } from '@/data/core';
-import type { ReactNode } from 'react';
-
-const SETTINGS_TABS = [ 'preferences', 'ai', 'usage', 'keyboard', 'skills', 'mcp' ] as const;
-
-type TabId = ( typeof SETTINGS_TABS )[ number ];
-
-export function isSettingsTab( value: string ): value is TabId {
-	return SETTINGS_TABS.some( ( tab ) => tab === value );
-}
-
-export type SettingsTabId = TabId;
 
 // No "unset" option: the main process resolves a fallback for never-chosen
 // editor/terminal prefs (matching the legacy UI), so an explicit clear can't
@@ -73,10 +58,6 @@ const COLOR_SCHEME_ELEMENTS: { value: ColorScheme; label: string }[] = [
 	{ value: 'dark', label: __( 'Dark' ) },
 ];
 
-function isColorScheme( value: unknown ): value is ColorScheme {
-	return value === 'system' || value === 'light' || value === 'dark';
-}
-
 const QUIT_SITES_BEHAVIOR_ELEMENTS: {
 	value: QuitSitesBehavior | typeof UNSET;
 	label: string;
@@ -91,159 +72,26 @@ const LOCALE_ELEMENTS: { value: SupportedLocale; label: string }[] = Object.entr
 	supportedLocaleNames
 ).map( ( [ value, label ] ) => ( { value: value as SupportedLocale, label } ) );
 
-function SettingsHeader() {
-	// Settings renders fullscreen, so only the macOS traffic lights need
-	// clearing: at the header's start edge in LTR, at its end edge (next to
-	// the close button) in RTL.
-	const trafficLightSpace = useTrafficLightSpace();
-	// Windows/Linux put the native window controls in the header's end corner,
-	// so the close button swaps to the start — the same move the classic UI
-	// makes in its fullscreen modal. Mutually exclusive with the traffic
-	// lights, which only ever appear on macOS.
-	const closeAtStart = useWindowControlsOverlay() !== null;
-	const onClose = useSettingsClose();
-	const closeButton = onClose ? (
-		<IconButton
-			className={ styles.headerClose }
-			variant="minimal"
-			tone="neutral"
-			size="default"
-			icon={ close }
-			label={ __( 'Close settings' ) }
-			onClick={ onClose }
-		/>
-	) : null;
+function DefaultSiteDirectoryRow( { value, onSelect }: { value: string; onSelect?: () => void } ) {
+	const title = __( 'Default directory' );
+	const description = __( 'The folder where Studio creates new sites.' );
+	// Without a native folder picker (the browser), the path is shown, not edited.
+	if ( ! onSelect ) {
+		return (
+			<SettingsRow title={ title } description={ description } stacked>
+				<span className={ styles.pathPickerValue }>{ value }</span>
+			</SettingsRow>
+		);
+	}
 	return (
-		<div className={ styles.header }>
-			{ trafficLightSpace.start ? (
-				<div className={ styles.headerStart }>
-					<span className={ styles.toggleSpacer } aria-hidden="true" />
-				</div>
-			) : closeAtStart && closeButton ? (
-				<div className={ clsx( styles.headerStart, styles.headerStartClose ) }>{ closeButton }</div>
-			) : null }
-			<div className={ styles.headerTabs }>
-				<Tabs.List className={ styles.headerTabList }>
-					<Tabs.Tab tabId="preferences">{ __( 'Settings' ) }</Tabs.Tab>
-					<Tabs.Tab tabId="ai">{ __( 'AI' ) }</Tabs.Tab>
-					<Tabs.Tab tabId="usage">{ __( 'Usage' ) }</Tabs.Tab>
-					<Tabs.Tab tabId="keyboard">{ __( 'Keyboard' ) }</Tabs.Tab>
-					<Tabs.Tab tabId="skills">{ __( 'Skills' ) }</Tabs.Tab>
-					<Tabs.Tab tabId="mcp">{ __( 'MCP' ) }</Tabs.Tab>
-				</Tabs.List>
-			</div>
-			{ closeButton && ! closeAtStart ? (
-				<div className={ styles.headerEnd }>
-					{ closeButton }
-					{ trafficLightSpace.end ? (
-						<span className={ styles.toggleSpacer } aria-hidden="true" />
-					) : null }
-				</div>
-			) : null }
-		</div>
-	);
-}
-
-function PreferenceRow( {
-	title,
-	description,
-	children,
-}: {
-	title: string;
-	description?: ReactNode;
-	children: ReactNode;
-} ) {
-	return (
-		<section className={ styles.preferenceRow }>
-			<div className={ styles.preferenceText }>
-				<h2>{ title }</h2>
-				{ description ? <p>{ description }</p> : null }
-			</div>
-			<div className={ styles.preferenceControl }>{ children }</div>
-		</section>
-	);
-}
-
-function AppearancePicker( {
-	value,
-	onChange,
-}: {
-	value: ColorScheme;
-	onChange: ( value: ColorScheme ) => void;
-} ) {
-	const activeIndex = Math.max(
-		0,
-		COLOR_SCHEME_ELEMENTS.findIndex( ( option ) => option.value === value )
-	);
-
-	return (
-		<PreferenceRow title={ __( 'Appearance' ) }>
-			<div
-				className={ styles.appearancePicker }
-				role="group"
-				aria-label={ __( 'Appearance' ) }
-				data-active-index={ activeIndex }
-			>
-				{ COLOR_SCHEME_ELEMENTS.map( ( option ) => (
-					<button
-						key={ option.value }
-						type="button"
-						className={ clsx(
-							styles.appearanceButton,
-							option.value === value && styles.appearanceButtonActive
-						) }
-						aria-pressed={ option.value === value }
-						onClick={ () => onChange( option.value ) }
-					>
-						{ option.label }
-					</button>
-				) ) }
-			</div>
-		</PreferenceRow>
-	);
-}
-
-function PreferenceSelect< TValue extends string >( {
-	label,
-	value,
-	options,
-	onChange,
-	className,
-}: {
-	label: string;
-	value: TValue;
-	options: Array< { value: TValue; label: string } >;
-	onChange: ( value: TValue ) => void;
-	className?: string;
-} ) {
-	const selectedItem = options.find( ( option ) => option.value === value );
-
-	return (
-		<SelectControl
-			hideLabelFromVision
-			className={ clsx( styles.selectControl, className ) }
-			items={ options }
-			label={ label }
-			value={ selectedItem ?? null }
-			onValueChange={ ( item ) => {
-				if ( item?.value !== undefined && item.value !== null ) {
-					onChange( item.value as TValue );
-				}
-			} }
-		/>
-	);
-}
-
-function DefaultSiteDirectoryField( { value, onSelect }: { value: string; onSelect: () => void } ) {
-	return (
-		<PreferenceRow title={ __( 'Default site directory' ) }>
+		<SettingsRow title={ title } description={ description } stacked>
 			<button
 				type="button"
 				className={ styles.pathPickerButton }
 				aria-label={
 					value
-						? sprintf( __( 'Default site directory: %s. Choose a different folder.' ), value )
-						: __( 'Choose a default site directory' )
+						? sprintf( __( 'Default directory: %s. Choose a different folder.' ), value )
+						: __( 'Choose a default directory' )
 				}
 				onClick={ onSelect }
 			>
@@ -251,31 +99,7 @@ function DefaultSiteDirectoryField( { value, onSelect }: { value: string; onSele
 					{ value || __( 'Choose a folder…' ) }
 				</span>
 			</button>
-		</PreferenceRow>
-	);
-}
-
-function StudioExperienceSection() {
-	const connector = useConnector();
-	if ( ! connector.capabilities.switchToClassicUi ) {
-		return null;
-	}
-	return (
-		<section className={ styles.preferenceSectionGroup }>
-			<PreferenceRow
-				title={ __( 'Studio experience' ) }
-				description={ __( 'You are using the new Studio experience.' ) }
-			>
-				<Button
-					type="button"
-					variant="outline"
-					tone="neutral"
-					onClick={ () => void connector.disableAgenticUi() }
-				>
-					{ __( 'Switch to classic' ) }
-				</Button>
-			</PreferenceRow>
-		</section>
+		</SettingsRow>
 	);
 }
 
@@ -283,95 +107,121 @@ function PreferencesPanel( {
 	data,
 	installedApps,
 	saveError,
-	onColorSchemeChange,
 	onDefaultSiteDirectorySelect,
 	onChange,
 }: {
 	data: PreferencesFormData;
 	installedApps: InstalledApps | undefined;
 	saveError: boolean;
-	onColorSchemeChange: ( value: ColorScheme ) => void;
-	onDefaultSiteDirectorySelect: () => void;
+	onDefaultSiteDirectorySelect?: () => void;
 	onChange: ( update: Partial< PreferencesFormData > ) => void;
 } ) {
+	const connector = useConnector();
+	const locale = useUserLocale();
 	return (
 		<div className={ styles.preferencesPanel }>
-			<section className={ styles.preferenceSectionGroup }>
-				<h2 className={ styles.preferenceSectionHeading }>{ __( 'General' ) }</h2>
-				{ saveError ? (
-					<div className={ styles.errorMessage }>
-						{ __( 'An error occurred while saving settings. Please try again.' ) }
-					</div>
-				) : null }
-				<AppearancePicker value={ data.colorScheme } onChange={ onColorSchemeChange } />
-				<PreferenceRow title={ __( 'Language' ) }>
-					<PreferenceSelect
+			<AccountSection />
+			{ saveError ? (
+				<div className={ styles.errorMessage }>
+					{ __( 'An error occurred while saving settings. Please try again.' ) }
+				</div>
+			) : null }
+			<SettingsGroup>
+				<SettingsRow
+					title={ __( 'Language' ) }
+					description={ __( 'Default language for Studio.' ) }
+				>
+					<SettingsSelect
 						label={ __( 'Language' ) }
 						value={ data.locale }
 						options={ LOCALE_ELEMENTS }
 						onChange={ ( locale ) => onChange( { locale } ) }
 					/>
-				</PreferenceRow>
-				<PreferenceRow title={ __( 'Preferred editor' ) }>
-					<PreferenceSelect< SupportedEditor | typeof UNSET >
-						label={ __( 'Preferred editor' ) }
+				</SettingsRow>
+				<SettingsRow
+					title={ __( 'Code editor' ) }
+					description={ __( 'The default code editor for your sites.' ) }
+				>
+					<SettingsSelect< SupportedEditor | typeof UNSET >
+						label={ __( 'Code editor' ) }
 						value={ data.editor }
 						options={ editorElements( installedApps ) }
 						onChange={ ( editor ) => onChange( { editor } ) }
 					/>
-				</PreferenceRow>
-				<PreferenceRow title={ __( 'Preferred terminal' ) }>
-					<PreferenceSelect< SupportedTerminal | typeof UNSET >
-						label={ __( 'Preferred terminal' ) }
+				</SettingsRow>
+				<SettingsRow
+					title={ __( 'Terminal' ) }
+					description={ __( 'The default terminal for your sites.' ) }
+				>
+					<SettingsSelect< SupportedTerminal | typeof UNSET >
+						label={ __( 'Terminal' ) }
 						value={ data.terminal }
 						options={ terminalElements( installedApps ) }
 						onChange={ ( terminal ) => onChange( { terminal } ) }
 					/>
-				</PreferenceRow>
-				<DefaultSiteDirectoryField
+				</SettingsRow>
+				<DefaultSiteDirectoryRow
 					value={ data.defaultSiteDirectory }
 					onSelect={ onDefaultSiteDirectorySelect }
 				/>
-				<PreferenceRow title={ __( 'When quitting with running sites' ) }>
-					<PreferenceSelect< QuitSitesBehavior | typeof UNSET >
-						label={ __( 'When quitting with running sites' ) }
-						className={ styles.selectControlWide }
+				<SettingsRow
+					title={ __( 'Improve Studio for everyone' ) }
+					description={ __( 'Share anonymous usage statistics to improve Studio.' ) }
+				>
+					<SettingsToggle
+						label={ __( 'Improve Studio for everyone' ) }
+						checked={ data.analyticsEnabled }
+						onChange={ ( analyticsEnabled ) => onChange( { analyticsEnabled } ) }
+					/>
+				</SettingsRow>
+			</SettingsGroup>
+			<SettingsGroup title={ __( 'Interface' ) }>
+				<SettingsRow
+					title={ __( 'When Studio quits' ) }
+					description={ __( 'Choose what happens to running sites when you quit Studio.' ) }
+				>
+					<SettingsSelect< QuitSitesBehavior | typeof UNSET >
+						label={ __( 'When Studio quits' ) }
 						value={ data.quitSitesBehavior }
 						options={ QUIT_SITES_BEHAVIOR_ELEMENTS }
 						onChange={ ( quitSitesBehavior ) => onChange( { quitSitesBehavior } ) }
 					/>
-				</PreferenceRow>
-				<PreferenceRow
-					title={ __( 'Usage statistics' ) }
-					description={ __( 'Help improve Studio by sharing anonymous usage statistics' ) }
-				>
-					<CheckboxControl
-						__nextHasNoMarginBottom
-						label=""
-						aria-label={ __( 'Usage statistics' ) }
-						checked={ data.analyticsEnabled }
-						onChange={ ( analyticsEnabled ) => onChange( { analyticsEnabled } ) }
-					/>
-				</PreferenceRow>
-			</section>
-			<AccountSection />
-			<WapuuScore />
+				</SettingsRow>
+			</SettingsGroup>
 			<StudioCliSection />
-			<StudioExperienceSection />
+			<WapuuScore />
+			<SettingsGroup title={ __( 'Help' ) }>
+				<SettingsRow
+					title={ __( 'Documentation' ) }
+					description={ __( 'Guides for building and managing sites with Studio.' ) }
+				>
+					<Button
+						variant="outline"
+						onClick={ () =>
+							void connector.openExternalUrl( getLocalizedLink( locale, 'docsStudio' ) )
+						}
+					>
+						{ __( 'Open docs' ) }
+					</Button>
+				</SettingsRow>
+				<SettingsRow
+					title={ __( 'Report an issue' ) }
+					description={ __( 'Report a bug or request a feature.' ) }
+				>
+					<Button
+						variant="outline"
+						onClick={ () => void connector.openExternalUrl( REPORT_ISSUE_URL ) }
+					>
+						{ __( 'Report' ) }
+					</Button>
+				</SettingsRow>
+			</SettingsGroup>
 		</div>
 	);
 }
 
-export function SettingsView( {
-	activeTab,
-	onTabChange,
-}: {
-	activeTab: TabId;
-	onTabChange: ( tab: TabId ) => void;
-} ) {
-	const connector = useConnector();
-	const { data: saved, isLoading } = useUserPreferences();
-	const { data: installedApps } = useInstalledApps();
+function usePreferencesForm() {
+	const { data: saved, isError: loadFailed } = useUserPreferences();
 	const savePreferences = useSaveUserPreferences();
 
 	const [ data, setData ] = useState< PreferencesFormData | null >( null );
@@ -413,74 +263,118 @@ export function SettingsView( {
 						window.setTimeout( () => window.location.reload(), 250 );
 					}
 				},
+				onError: () => {
+					if ( saved ) {
+						setData( toPreferencesFormData( saved ) );
+					}
+				},
 			} );
 		},
-		[ savePreferences ]
+		[ saved, savePreferences ]
 	);
 
-	const handleColorSchemeChange = useCallback(
-		( colorScheme: ColorScheme ) => {
-			if ( ! isColorScheme( colorScheme ) ) {
-				return;
-			}
-			handleChange( { colorScheme } );
-		},
-		[ handleChange ]
-	);
+	return { data, handleChange, saveError: savePreferences.isError, loadFailed };
+}
 
-	if ( isLoading || ! data || ! saved ) {
-		return <div className={ styles.state }>{ __( 'Loading…' ) }</div>;
+function PreferencesState( { loadFailed }: { loadFailed: boolean } ) {
+	return (
+		<div className={ styles.state }>
+			{ loadFailed
+				? __( "Couldn't load your settings. Close Settings and reopen it to try again." )
+				: __( 'Loading…' ) }
+		</div>
+	);
+}
+
+export function GeneralSettings() {
+	const connector = useConnector();
+	const { data: installedApps } = useInstalledApps();
+	const { data, handleChange, saveError, loadFailed } = usePreferencesForm();
+	if ( ! data ) {
+		return <PreferencesState loadFailed={ loadFailed } />;
 	}
-
-	const handleSelectDefaultDirectory = async () => {
+	const selectDefaultDirectory = async () => {
 		const directory = await connector.selectDefaultSiteDirectory( data.defaultSiteDirectory );
 		if ( directory ) {
 			handleChange( { defaultSiteDirectory: directory } );
 		}
 	};
-
 	return (
-		<div className={ styles.root }>
-			<Tabs.Root
-				selectedTabId={ activeTab }
-				onSelect={ ( tabId ) => {
-					if ( tabId && isSettingsTab( tabId ) ) {
-						onTabChange( tabId );
-					}
-				} }
-			>
-				<SettingsHeader />
+		<PreferencesPanel
+			data={ data }
+			installedApps={ installedApps }
+			saveError={ saveError }
+			onDefaultSiteDirectorySelect={
+				connector.capabilities.nativeFolderPicker ? () => void selectDefaultDirectory() : undefined
+			}
+			onChange={ handleChange }
+		/>
+	);
+}
 
-				<div className={ styles.scroll }>
-					<div className={ styles.contentBlock }>
-						<Tabs.Panel tabId="preferences">
-							<PreferencesPanel
-								data={ data }
-								installedApps={ installedApps }
-								saveError={ savePreferences.isError }
-								onColorSchemeChange={ handleColorSchemeChange }
-								onDefaultSiteDirectorySelect={ () => void handleSelectDefaultDirectory() }
-								onChange={ handleChange }
-							/>
-						</Tabs.Panel>
-						<Tabs.Panel tabId="ai">
-							<AiPanel />
-						</Tabs.Panel>
-						<Tabs.Panel tabId="usage">
-							<UsagePanel />
-						</Tabs.Panel>
-						<Tabs.Panel tabId="keyboard">
-							<KeyboardPanel />
-						</Tabs.Panel>
-						<Tabs.Panel tabId="skills">
-							<SkillsPanel />
-						</Tabs.Panel>
-						<Tabs.Panel tabId="mcp">
-							<McpPanel />
-						</Tabs.Panel>
-					</div>
-				</div>
-			</Tabs.Root>
+export function AppearanceSettings() {
+	const { data, handleChange, loadFailed } = usePreferencesForm();
+	if ( ! data ) {
+		return <PreferencesState loadFailed={ loadFailed } />;
+	}
+	return (
+		<SettingsGroup>
+			<SettingsRow title={ __( 'Theme' ) } description={ __( 'Choose light, dark, or system.' ) }>
+				<SettingsSelect
+					label={ __( 'Theme' ) }
+					value={ data.colorScheme }
+					options={ COLOR_SCHEME_ELEMENTS }
+					onChange={ ( colorScheme ) => handleChange( { colorScheme } ) }
+				/>
+			</SettingsRow>
+		</SettingsGroup>
+	);
+}
+
+export function InstructionsSettings( { onManageSite }: { onManageSite?: () => void } ) {
+	const { data: enabled } = useAgentInstructionsEnabled();
+	const setEnabled = useSetAgentInstructionsEnabled();
+	return (
+		<div className={ styles.preferencesPanel }>
+			<SettingsGroup>
+				<SettingsRow
+					title={ __( 'Agent instructions' ) }
+					description={
+						<>
+							{ __(
+								'Set coding standards, preferred tools, and response style for new chats across all sites.'
+							) }
+							{ onManageSite ? (
+								<Button
+									className={ styles.manageLink }
+									variant="inline-link"
+									size="inline"
+									onClick={ onManageSite }
+								>
+									{ __( 'Manage instructions for this site' ) }
+								</Button>
+							) : null }
+						</>
+					}
+				>
+					<SettingsToggle
+						label={ __( 'Agent instructions' ) }
+						checked={ enabled ?? true }
+						disabled={ enabled === undefined }
+						onChange={ ( value ) => setEnabled.mutate( value ) }
+					/>
+				</SettingsRow>
+			</SettingsGroup>
+			<SettingsGroup title={ __( 'Custom instructions' ) }>
+				<InstructionsEditor />
+			</SettingsGroup>
 		</div>
 	);
 }
+
+export { AiPanel } from './ai-panel';
+export { KeyboardPanel } from './keyboard-panel';
+export { McpPanel } from './mcp-panel';
+export { SharingPanel } from './sharing-panel';
+export { SkillsPanel } from './skills-panel';
+export { UsagePanel } from './usage-panel';

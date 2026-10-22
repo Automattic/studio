@@ -1,11 +1,6 @@
 // Defined in electron.vite.config.ts
 declare const COMMIT_HASH: string | undefined;
 
-interface ShowNotificationOptions extends Electron.NotificationConstructorOptions {
-	showIcon: boolean;
-}
-
-type SiteRuntime = 'playground' | 'native-php';
 type SiteFileAccess = 'site-directory' | 'all-files';
 // Mirrors WpEnvironmentType in @studio/common/lib/wp-environment-type. Declared
 // inline because this file is a global declaration file — adding an import
@@ -34,21 +29,6 @@ interface StoppedSiteDetails {
 	adminEmail?: string;
 	tlsKey?: string;
 	tlsCert?: string;
-	themeDetails?: {
-		name: string;
-		path: string;
-		slug: string;
-		isBlockTheme: boolean;
-		supportsWidgets: boolean;
-		supportsMenus: boolean;
-	};
-	// Absolute filesystem path of the configured WordPress Site Icon.
-	// `null` means we've checked and the site has no icon configured;
-	// `undefined` means we've never fetched.
-	siteIconPath?: string | null;
-	// Data URL produced from `siteIconPath` for the renderer to display.
-	// Computed at the IPC boundary in `getSiteDetails`, never persisted.
-	siteIcon?: string | null;
 	isAddingSite?: boolean;
 	autoStart?: boolean;
 	latestCliPid?: number;
@@ -59,7 +39,6 @@ interface StoppedSiteDetails {
 	environmentType?: WpEnvironmentType;
 	sortOrder?: number;
 	landingPage?: string;
-	runtime?: SiteRuntime;
 	fileAccess?: SiteFileAccess;
 	operation?: SiteOperation;
 }
@@ -110,33 +89,16 @@ type IpcApi = {
 	// function is exception and need to be defined here manually. See
 	// https://www.electronjs.org/docs/latest/breaking-changes#planned-breaking-api-changes-320
 	getPathForFile: ( file: File ) => string;
-	// The renderer's own zoom factor, read synchronously from `webFrame` — also preload-only.
-	getAppZoomFactor: () => number;
 };
 
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type -- no flags in flight; see `src/lib/feature-flags.ts`
-interface FeatureFlags {}
-
-interface BetaFeatures {
-	enableAgenticUi: boolean;
-}
-
-interface AppGlobals extends FeatureFlags {
+interface AppGlobals {
 	platform: NodeJS.Platform;
 	appName: string;
 	appVersion: string;
-	arm64Translation: boolean;
 	isWindowsStore: boolean;
 }
 
 // Our IPC objects will be attached to the `window` global
 interface Window {
 	ipcApi: IpcApi;
-	appGlobals: AppGlobals;
-}
-
-// Network
-interface WpcomNetworkError extends Error {
-	code: string;
-	status: number;
 }

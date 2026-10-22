@@ -1,19 +1,16 @@
-import { mkdir, mkdtemp, rm, writeFile } from 'fs/promises';
+import { mkdtemp, rm, writeFile } from 'fs/promises';
 import os from 'os';
 import path from 'path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-	createWpcomRequestTool,
-	WPCOM_REQUEST_BODY_FILES_RELATIVE_DIR,
-} from 'cli/ai/tools/wpcom-request';
+import { wpcomRequestTool } from 'cli/ai/tools/wpcom-request';
 
 const mocks = vi.hoisted( () => ( {
 	req: {
-		get: vi.fn(),
 		post: vi.fn(),
-		put: vi.fn(),
-		del: vi.fn(),
+		get: vi.fn(),
 	},
+	readAuthToken: vi.fn(),
+	payloadsDir: '',
 } ) );
 
 vi.mock( '@studio/common/lib/wpcom-factory', () => ( {
@@ -24,26 +21,32 @@ vi.mock( '@studio/common/lib/wpcom-xhr-request-factory', () => ( {
 	default: vi.fn(),
 } ) );
 
-describe( 'wpcom_request', () => {
-	let rootDir: string;
+vi.mock( '@studio/common/lib/shared-config', () => ( {
+	readAuthToken: mocks.readAuthToken,
+} ) );
 
+vi.mock( '@studio/common/lib/well-known-paths', () => ( {
+	getAiPayloadsPath: () => mocks.payloadsDir,
+} ) );
+
+describe( 'wpcom_request', () => {
 	beforeEach( async () => {
 		vi.resetAllMocks();
-		rootDir = await mkdtemp( path.join( os.tmpdir(), 'studio-wpcom-request-' ) );
-		await mkdir( path.join( rootDir, WPCOM_REQUEST_BODY_FILES_RELATIVE_DIR ), {
-			recursive: true,
-		} );
+		mocks.payloadsDir = await mkdtemp( path.join( os.tmpdir(), 'studio-wpcom-request-' ) );
 		mocks.req.post.mockResolvedValue( { ok: true } );
+		mocks.readAuthToken.mockResolvedValue( { accessToken: 'token' } );
 	} );
 
 	afterEach( async () => {
-		await rm( rootDir, { recursive: true, force: true } );
+		await rm( mocks.payloadsDir, { recursive: true, force: true } );
 	} );
 
-	it( 'uses staged files for string fields and full JSON request bodies', async () => {
-		const contentPath = `${ WPCOM_REQUEST_BODY_FILES_RELATIVE_DIR }/home.html`;
-		await writeFile( path.join( rootDir, contentPath ), '<!-- wp:paragraph --><p>Hello</p>' );
-		const bodyPath = `${ WPCOM_REQUEST_BODY_FILES_RELATIVE_DIR }/global-styles.json`;
+	it( 'uses staged files, by relative or absolute path, for string fields and full JSON request bodies', async () => {
+		await writeFile(
+			path.join( mocks.payloadsDir, 'home.html' ),
+			'<!-- wp:paragraph --><p>Hello</p>'
+		);
+		const bodyPath = path.join( mocks.payloadsDir, 'global-styles.json' );
 		const globalStylesBody = {
 			styles: {
 				color: {
@@ -51,14 +54,14 @@ describe( 'wpcom_request', () => {
 				},
 			},
 		};
-		await writeFile( path.join( rootDir, bodyPath ), JSON.stringify( globalStylesBody ) );
+		await writeFile( bodyPath, JSON.stringify( globalStylesBody ) );
 
-		const tool = createWpcomRequestTool( 'token', 123, { bodyFilesRoot: rootDir } );
-		const result = await tool.rawHandler( {
+		const result = await wpcomRequestTool.rawHandler( {
+			siteId: 123,
 			method: 'POST',
 			path: '/pages/4',
 			body: { status: 'publish' },
-			bodyFiles: { content: contentPath },
+			bodyFiles: { content: 'home.html' },
 		} );
 
 		expect( mocks.req.post ).toHaveBeenCalledWith(
@@ -72,7 +75,8 @@ describe( 'wpcom_request', () => {
 		expect( result.content[ 0 ] ).toEqual( { type: 'text', text: '{"ok":true}' } );
 
 		mocks.req.post.mockClear();
-		await tool.rawHandler( {
+		await wpcomRequestTool.rawHandler( {
+			siteId: 123,
 			method: 'POST',
 			path: '/global-styles/7',
 			bodyFile: bodyPath,
@@ -83,5 +87,38 @@ describe( 'wpcom_request', () => {
 			{ apiNamespace: 'wp/v2' },
 			globalStylesBody
 		);
+	} );
+
+	it( "keeps the site plan's active features and drops the catalogue of other plans' features", async () => {
+		mocks.req.get.mockResolvedValue( {
+			ID: 123,
+			plan: {
+				product_slug: 'free_plan',
+				product_name_short: 'Free',
+				is_free: true,
+				features: {
+					active: [ 'free-blog', 'stats-basic' ],
+					available: { 'custom-design': [ 'value_bundle', 'business-bundle' ] },
+				},
+			},
+		} );
+
+		const result = await wpcomRequestTool.rawHandler( {
+			siteId: 123,
+			method: 'GET',
+			path: '/',
+			apiNamespace: '',
+		} );
+
+		const site = JSON.parse( ( result.content[ 0 ] as { text: string } ).text );
+		expect( site.plan.features ).toEqual( { active: [ 'free-blog', 'stats-basic' ] } );
+		expect( site.plan.product_slug ).toBe( 'free_plan' );
+	} );
+
+	it( 'needs a stored WordPress.com login', async () => {
+		mocks.readAuthToken.mockResolvedValue( undefined );
+		await expect(
+			wpcomRequestTool.rawHandler( { siteId: 456, method: 'GET', path: '/posts' } )
+		).rejects.toThrow( 'Not logged in to WordPress.com' );
 	} );
 } );

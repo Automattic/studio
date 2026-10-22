@@ -1,22 +1,11 @@
-import { execFile } from 'node:child_process';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { domainToASCII } from 'node:url';
-import { promisify } from 'node:util';
-import { CERT_UNTRUSTED_ROOT, SERVER_AUTH_OID } from '@studio/common/constants';
-import {
-	buildLinuxTrustInstallCommand,
-	importCAIntoUserNssDbsLinux,
-	isCAImportedInUserNssDbsLinux,
-	isCATrustedOnLinux,
-} from '@studio/common/lib/linux-trust-store';
+import { ROOT_CA_CERT_PATH as CA_CERT_PATH, trustRootCA } from '@studio/common/lib/root-ca-trust';
 import { getCertificatesPath } from '@studio/common/lib/well-known-paths';
-import sudo from '@vscode/sudo-prompt';
 import { __ } from '@wordpress/i18n';
 import forge from 'node-forge';
-
-const execFilePromise = promisify( execFile );
 
 /**
  * Generate name constraints in conformance with
@@ -75,7 +64,6 @@ const CA_NAME = 'WordPress Studio CA';
 const CA_CERT_VALIDITY_DAYS = 3650; // 10 years
 const SITE_CERT_VALIDITY_DAYS = 825; // a little over 2 years
 const CERT_DIRECTORY = getCertificatesPath();
-const CA_CERT_PATH = path.join( CERT_DIRECTORY, 'studio-ca.crt' );
 const CA_KEY_PATH = path.join( CERT_DIRECTORY, 'studio-ca.key' );
 
 /**
@@ -153,110 +141,6 @@ export async function ensureRootCA(): Promise< { cert: string; key: string } > {
 	await trustRootCA();
 
 	return { cert: certPem, key: keyPem };
-}
-
-/**
- * Checks if the root CA certificate is already trusted by the system
- * @returns A promise that resolves to true if the certificate is trusted, false otherwise
- */
-export async function isRootCATrusted(): Promise< boolean > {
-	if ( ! fs.existsSync( CA_CERT_PATH ) ) {
-		return false;
-	}
-
-	if ( process.platform === 'win32' ) {
-		try {
-			const { stdout } = await execFilePromise( 'certutil', [ '-verify', CA_CERT_PATH ] );
-
-			const isTrusted = ! stdout.includes( CERT_UNTRUSTED_ROOT );
-			const hasServerAuthPolicy = stdout.includes( SERVER_AUTH_OID );
-
-			return isTrusted && hasServerAuthPolicy;
-		} catch ( error ) {
-			return false;
-		}
-	} else if ( process.platform === 'darwin' ) {
-		try {
-			await execFilePromise( 'security', [ 'verify-cert', '-c', CA_CERT_PATH, '-p', 'ssl', '-l' ] );
-
-			return true;
-		} catch ( error ) {
-			return false;
-		}
-	} else if ( process.platform === 'linux' ) {
-		// The CA is fully trusted on Linux only when it lives in both the system
-		// bundle (covers curl/openssl/Node) AND every NSS DB candidate (covers
-		// Chromium-family browsers, including Snap-Chromium's sandboxed DB).
-		return (
-			( await isCATrustedOnLinux( CA_CERT_PATH ) ) && ( await isCAImportedInUserNssDbsLinux() )
-		);
-	}
-
-	return false;
-}
-
-/**
- * Trust the root CA certificate in the system trust store
- * @throws { Error } If the certificate trust operation fails
- */
-export async function trustRootCA(): Promise< void > {
-	try {
-		// If certificate is already trusted, no need to re-trust it
-		if ( await isRootCATrusted() ) {
-			console.log( 'Root CA is already trusted in the system store' );
-			return;
-		}
-
-		const platform = process.platform;
-		if ( platform === 'win32' ) {
-			// Windows - Use certutil
-			await new Promise< void >( ( resolve, reject ) => {
-				sudo.exec(
-					`certutil -addstore -f "ROOT" "${ CA_CERT_PATH }"`,
-					{ name: 'WordPress Studio' },
-					( error ) => {
-						if ( error ) {
-							console.error( 'Error adding certificate to system trust store:', error );
-							reject( error );
-						} else {
-							console.log( 'Root CA trusted in Windows certificate store' );
-							resolve();
-						}
-					}
-				);
-			} );
-		} else if ( platform === 'linux' ) {
-			// Skip the sudo install when the system bundle is already trusted —
-			// otherwise we'd reprompt for the polkit password just to re-sync NSS
-			// (the common case when a Chromium-family browser is installed after
-			// the initial trust flow).
-			if ( ! ( await isCATrustedOnLinux( CA_CERT_PATH ) ) ) {
-				await new Promise< void >( ( resolve, reject ) => {
-					sudo.exec(
-						buildLinuxTrustInstallCommand( CA_CERT_PATH ),
-						{ name: 'WordPress Studio' },
-						( error ) => {
-							if ( error ) {
-								console.error( 'Error adding certificate to system trust store:', error );
-								reject( error );
-							} else {
-								console.log( 'Root CA trusted in Linux system trust store' );
-								resolve();
-							}
-						}
-					);
-				} );
-			}
-			// Always run NSS imports — they're idempotent (-D before -A) and don't
-			// need sudo, so re-running covers the install-browser-after-trust case.
-			await importCAIntoUserNssDbsLinux( CA_CERT_PATH );
-		} else {
-			console.error( 'Unsupported platform for automatic certificate trust:', platform );
-		}
-	} catch ( error ) {
-		console.error( 'Failed to trust root CA:', error );
-		throw error;
-	}
 }
 
 /**

@@ -10,6 +10,9 @@ const mocks = vi.hoisted( () => ( {
 	createAgentSession: vi.fn(),
 	createdSessions: [] as FakeSession[],
 	nextEvents: null as AgentSessionEvent[] | null,
+	continueEvents: [] as AgentSessionEvent[][],
+	customMessages: [] as Array< { message: unknown; options: unknown } >,
+	onCustomMessage: null as ( () => void ) | null,
 	studioRoot: '/tmp/studio-ai-pi-runtime',
 	configRoot: '/tmp/studio-ai-pi-runtime-config',
 } ) );
@@ -22,6 +25,8 @@ vi.mock( '@studio/common/ai/models', async ( importOriginal ) => {
 		...actual,
 		getAiModelFamily: ( id: string ) =>
 			actual.isAiModelId( id ) ? actual.getAiModelFamily( id ) : 'studio',
+		getAiModel: ( id: string ) =>
+			actual.isAiModelId( id ) ? actual.getAiModel( id ) : { id, label: id, family: 'studio' },
 	};
 } );
 
@@ -162,6 +167,14 @@ class FakeSession {
 		}
 	}
 
+	async sendCustomMessage( message: unknown, options: unknown ): Promise< void > {
+		mocks.customMessages.push( { message, options } );
+		mocks.onCustomMessage?.();
+		for ( const event of mocks.continueEvents.shift() ?? [] ) {
+			this.listener?.( event );
+		}
+	}
+
 	async abort(): Promise< void > {
 		this.aborted = true;
 	}
@@ -219,6 +232,9 @@ describe( 'pi runtime', () => {
 	beforeEach( () => {
 		mocks.createdSessions.length = 0;
 		mocks.nextEvents = null;
+		mocks.continueEvents = [];
+		mocks.customMessages = [];
+		mocks.onCustomMessage = null;
 		mocks.createAgentSession.mockReset();
 		mocks.createAgentSession.mockImplementation( async ( options: CreateAgentSessionOptions ) => {
 			const session = new FakeSession( options );
@@ -262,7 +278,7 @@ describe( 'pi runtime', () => {
 		expect( final.type ).toBe( 'agent_end' );
 	} );
 
-	it( 'routes the capability tiers to the wpcom Chat Completions path', async () => {
+	it( 'routes the fast tier to the wpcom Chat Completions path', async () => {
 		await runRuntime( {
 			prompt: 'hello',
 			env: {
@@ -272,12 +288,12 @@ describe( 'pi runtime', () => {
 					'X-WPCOM-Session-ID': 'session-2',
 				} ),
 			},
-			model: 'balanced',
+			model: 'fast',
 			session: newSession(),
 		} );
 
 		const options = mocks.createdSessions[ 0 ].options;
-		expect( options.model?.id ).toBe( 'balanced' );
+		expect( options.model?.id ).toBe( 'fast' );
 		expect( options.model?.provider ).toBe( 'studio-wpcom' );
 		expect( options.model?.api ).toBe( 'openai-completions' );
 		const modelRegistry = new ModelRegistry( options.modelRuntime! );
@@ -311,14 +327,14 @@ describe( 'pi runtime', () => {
 		} );
 	} );
 
-	// `strong` resolves to a reasoning model that rejects the Chat Completions
+	// `balanced` resolves to a reasoning model that rejects the Chat Completions
 	// dialect's tools-plus-reasoning combination, so it rides the Responses
 	// path — the plain OpenAI dialect, with no compat overrides.
-	it( 'routes the strong tier to the wpcom Responses path', async () => {
+	it( 'routes the balanced tier to the wpcom Responses path', async () => {
 		await runRuntime( {
 			prompt: 'hello',
 			env: WPCOM_ENV,
-			model: 'strong',
+			model: 'balanced',
 			session: newSession(),
 		} );
 
@@ -327,6 +343,67 @@ describe( 'pi runtime', () => {
 		expect( model.provider ).toBe( 'studio-wpcom' );
 		expect( model.compat ).toBeUndefined();
 	} );
+
+	it.each( [
+		[ 'balanced', 'https://proxy.example.com/v1/responses', 'balanced-2' ],
+		[ 'strong', 'https://proxy.example.com/v1/messages', 'strong-2' ],
+	] as const )(
+		'sends the %s tier to the proxy under its API model name',
+		async ( model, expectedUrl, expectedModel ) => {
+			await runRuntime( { prompt: 'hello', env: WPCOM_ENV, model, session: newSession() } );
+			const options = mocks.createdSessions[ 0 ].options;
+			const fetchSpy = vi
+				.spyOn( globalThis, 'fetch' )
+				.mockResolvedValue( new Response( '{}', { status: 400 } ) );
+
+			let request: Parameters< typeof fetch > | undefined;
+			try {
+				await options
+					.modelRuntime!.streamSimple(
+						options.model!,
+						{ messages: [ { role: 'user', content: 'hi', timestamp: 0 } ] },
+						{ maxRetries: 0 }
+					)
+					.result();
+				request = fetchSpy.mock.calls[ 0 ];
+			} finally {
+				fetchSpy.mockRestore();
+			}
+
+			const [ url, init ] = request!;
+			expect( String( url ) ).toBe( expectedUrl );
+			expect( JSON.parse( String( init?.body ) ).model ).toBe( expectedModel );
+			expect( new Headers( init?.headers ).get( 'authorization' ) ).toBe( 'Bearer wpcom-token' );
+			expect( options.model!.id ).toBe( model );
+		}
+	);
+
+	it.each( [ 'fast', 'balanced', 'strong' ] as const )(
+		'surfaces the proxy cost cap on the %s tier as a usage-cap error',
+		async ( model ) => {
+			await runRuntime( { prompt: 'hello', env: WPCOM_ENV, model, session: newSession() } );
+			const options = mocks.createdSessions[ 0 ].options;
+			const body = JSON.stringify( {
+				error: { code: 'cost_cap_exceeded', message: 'Monthly cost cap exceeded.' },
+			} );
+			const fetchSpy = vi
+				.spyOn( globalThis, 'fetch' )
+				.mockImplementation( async () => new Response( body, { status: 429 } ) );
+
+			try {
+				const result = await options
+					.modelRuntime!.streamSimple(
+						options.model!,
+						{ messages: [ { role: 'user', content: 'hi', timestamp: 0 } ] },
+						{ maxRetries: 0 }
+					)
+					.result();
+				expect( result.errorMessage ).toMatch( /^Monthly usage limit reached: / );
+			} finally {
+				fetchSpy.mockRestore();
+			}
+		}
+	);
 
 	it( 'advertises image input per model rather than per family', async () => {
 		await runRuntime( {
@@ -431,15 +508,6 @@ describe( 'pi runtime', () => {
 			env: WPCOM_ENV,
 			model: 'balanced',
 			session: newSession(),
-			activeSite: {
-				name: 'Remote',
-				path: '',
-				running: false,
-				remote: true,
-				url: 'https://example.wordpress.com',
-				wpcomSiteId: 123,
-			},
-			wpcomAccessToken: 'wpcom-token',
 		} );
 
 		const wpcomRequest = getCreatedTool( 'wpcom_request' );
@@ -468,6 +536,93 @@ describe( 'pi runtime', () => {
 				baseDelayMs: 2000,
 			}
 		);
+	} );
+
+	describe( 'a reply with neither text nor a tool call', () => {
+		const emptyReply = () => assistantMessage( [ { type: 'thinking', thinking: 'reasoning…' } ] );
+		const runEndingWith = ( message: MessageEndEvent ): AgentSessionEvent[] => [
+			message,
+			{ type: 'agent_end', willRetry: false, messages: [ message.message ] },
+		];
+		const agentEnds = ( events: AgentSessionEvent[] ) =>
+			events.filter(
+				( event ): event is Extract< AgentSessionEvent, { type: 'agent_end' } > =>
+					event.type === 'agent_end'
+			);
+		const runFast = () =>
+			runRuntime( { prompt: 'build it', env: WPCOM_ENV, model: 'fast', session: newSession() } );
+
+		it( 'continues the turn with a message the user does not see', async () => {
+			mocks.nextEvents = runEndingWith( emptyReply() );
+			mocks.continueEvents = [
+				runEndingWith( assistantMessage( [ { type: 'text', text: 'Done.' } ] ) ),
+			];
+
+			const events = await runFast();
+
+			expect( mocks.customMessages ).toEqual( [
+				{
+					message: {
+						customType: 'studio.empty_stop_continue',
+						content:
+							'Your reasoning was cut off before you replied. Continue from where it stopped:\n\nreasoning…',
+						display: false,
+					},
+					options: { triggerTurn: true },
+				},
+			] );
+			expect( agentEnds( events ).map( ( event ) => event.willRetry ) ).toEqual( [ true, false ] );
+			expect( findAssistantText( events ) ).toBe( 'Done.' );
+		} );
+
+		it( 'ends the turn after two continues', async () => {
+			mocks.nextEvents = runEndingWith( emptyReply() );
+			mocks.continueEvents = [ runEndingWith( emptyReply() ), runEndingWith( emptyReply() ) ];
+
+			const events = await runFast();
+
+			expect( mocks.customMessages ).toHaveLength( 2 );
+			expect( agentEnds( events ).map( ( event ) => event.willRetry ) ).toEqual( [
+				true,
+				true,
+				false,
+			] );
+		} );
+
+		it( 'leaves a reply with text or a tool call alone', async () => {
+			for ( const content of [
+				[ { type: 'text', text: 'Which colours do you like?' } ],
+				[ { type: 'toolCall', id: 'call-1', name: 'site_info', arguments: {} } ],
+			] ) {
+				mocks.nextEvents = runEndingWith( assistantMessage( content ) );
+				const events = await runFast();
+				expect( agentEnds( events ).map( ( event ) => event.willRetry ) ).toEqual( [ false ] );
+			}
+			expect( mocks.customMessages ).toHaveLength( 0 );
+		} );
+
+		it( 'ends the turn as interrupted when the user stops it first', async () => {
+			mocks.nextEvents = runEndingWith( emptyReply() );
+			const events: AgentSessionEvent[] = [];
+			const handle = runStudioAgentTurn( {
+				prompt: 'build it',
+				env: WPCOM_ENV,
+				model: 'fast',
+				session: newSession(),
+				onEvent: ( event ) => {
+					events.push( event );
+					if ( event.type === 'agent_end' && event.willRetry ) {
+						void handle.interrupt();
+					}
+				},
+			} );
+			await handle.result;
+
+			expect( mocks.customMessages ).toHaveLength( 0 );
+			const ends = agentEnds( events );
+			expect( ends.map( ( event ) => event.willRetry ) ).toEqual( [ true, false ] );
+			expect( ends[ 1 ].messages[ 0 ] ).toMatchObject( { stopReason: 'aborted' } );
+		} );
 	} );
 
 	it( 'creates each AgentSession with the requested model', async () => {

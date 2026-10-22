@@ -1,16 +1,12 @@
 import { getDomainNameValidationError } from '@studio/common/lib/domains';
-import { arePathsEqual } from '@studio/common/lib/fs-utils';
+import { arePathsEqual, pathExists, recursiveCopyDirectory } from '@studio/common/lib/fs-utils';
 import { encodePassword } from '@studio/common/lib/passwords';
-import {
-	SITE_MODE_NATIVE,
-	SITE_MODE_SANDBOX,
-	SITE_RUNTIME_NATIVE_PHP,
-	SITE_RUNTIME_PLAYGROUND,
-} from '@studio/common/lib/site-runtime';
 import { vi } from 'vitest';
 import { readCliConfig, saveCliConfig, unlockCliConfig, SiteData } from 'cli/lib/cli-config/core';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
+import { getWordPressVersionPath } from 'cli/lib/dependency-management/paths';
+import { downloadWordPress } from 'cli/lib/dependency-management/wordpress';
 import { updateDomainInHosts } from 'cli/lib/hosts-file';
 import { runWpCliCommand, WpCliResponse } from 'cli/lib/run-wp-cli-command';
 import { setupCustomDomain } from 'cli/lib/site-utils';
@@ -28,6 +24,8 @@ vi.mock( '@studio/common/lib/fs-utils', async () => {
 	return {
 		...actual,
 		arePathsEqual: vi.fn(),
+		pathExists: vi.fn(),
+		recursiveCopyDirectory: vi.fn(),
 	};
 } );
 vi.mock( 'cli/lib/cli-config/core', async () => {
@@ -49,6 +47,8 @@ vi.mock( 'cli/lib/cli-config/sites', async () => {
 	};
 } );
 vi.mock( 'cli/lib/certificate-manager' );
+vi.mock( 'cli/lib/dependency-management/paths' );
+vi.mock( 'cli/lib/dependency-management/wordpress' );
 vi.mock( 'cli/lib/hosts-file' );
 vi.mock( 'cli/lib/daemon-client' );
 // Run the command body directly: this suite covers the command, not the
@@ -86,11 +86,21 @@ describe( 'CLI: studio config set', () => {
 		pmId: 0,
 		status: 'online',
 		pid: 12345,
-		runtime: SITE_RUNTIME_PLAYGROUND,
+	};
+
+	// Defaults to a site that has been started: WordPress is installed, so both exist.
+	const mockSiteFiles = ( { wpConfig = true, database = true } = {} ) => {
+		vi.mocked( pathExists ).mockImplementation( async ( filePath: string ) =>
+			filePath.endsWith( 'wp-config.php' ) ? wpConfig : database
+		);
 	};
 
 	beforeEach( () => {
 		vi.clearAllMocks();
+		mockSiteFiles();
+		vi.mocked( getWordPressVersionPath ).mockImplementation(
+			( version ) => `/wp-versions/${ version }`
+		);
 
 		const testSite = getTestSite();
 		const testCliConfig = { version: 1 as const, sites: [ testSite ], snapshots: [] };
@@ -116,27 +126,7 @@ describe( 'CLI: studio config set', () => {
 	describe( 'Validation', () => {
 		it( 'should throw when no options provided', async () => {
 			await expect( runCommand( testSitePath, {} ) ).rejects.toThrow(
-				'At least one option (--name, --domain, --https, --php, --wp, --runtime, --file-access, --xdebug, --admin-username, --admin-password, --admin-email, --debug-log, --debug-display, --script-debug, --environment-type) is required.'
-			);
-		} );
-
-		it( 'should throw when "all-files" file access is combined with the sandbox runtime', async () => {
-			await expect(
-				runCommand( testSitePath, { runtime: SITE_MODE_SANDBOX, fileAccess: 'all-files' } )
-			).rejects.toThrow( 'File access "all-files" requires the native PHP runtime.' );
-
-			expect( saveCliConfig ).not.toHaveBeenCalled();
-		} );
-
-		it( 'should throw when switching an "all-files" site to the sandbox runtime without resetting file access', async () => {
-			vi.mocked( getSiteByFolder ).mockResolvedValue( {
-				...getTestSite(),
-				runtime: 'native-php',
-				fileAccess: 'all-files',
-			} );
-
-			await expect( runCommand( testSitePath, { runtime: SITE_MODE_SANDBOX } ) ).rejects.toThrow(
-				'File access "all-files" requires the native PHP runtime.'
+				'At least one option (--name, --domain, --https, --php, --wp, --file-access, --xdebug, --admin-username, --admin-password, --admin-email, --debug-log, --debug-display, --script-debug, --environment-type) is required.'
 			);
 		} );
 
@@ -333,18 +323,86 @@ describe( 'CLI: studio config set', () => {
 			expect( startWordPressServer ).toHaveBeenCalled();
 		} );
 
-		it( 'should throw when WP-CLI fails', async () => {
+		const mockWpCliFailure = ( { stdout = '', stderr = '' } = {} ) => {
 			const mockResponse: Partial< WpCliResponse > = {
 				exitCode: Promise.resolve( 1 ),
+				stdoutText: Promise.resolve( stdout ),
+				stderrText: Promise.resolve( stderr ),
 			};
 			vi.mocked( runWpCliCommand ).mockResolvedValue( {
 				response: mockResponse as WpCliResponse,
 				[ Symbol.dispose ]: vi.fn().mockResolvedValue( undefined ),
 			} );
+		};
+
+		it( 'should throw when WP-CLI fails', async () => {
+			mockWpCliFailure();
 
 			await expect( runCommand( testSitePath, { wp: '6.7' } ) ).rejects.toThrow(
-				'Failed to update WordPress version to 6.7'
+				/^Failed to update WordPress version to 6\.7$/
 			);
+		} );
+
+		it( 'should include the WP-CLI error when it fails', async () => {
+			vi.spyOn( console, 'error' ).mockImplementation( () => {} );
+			mockWpCliFailure( {
+				stderr: 'Deprecated: noise\nError: Download failed.\n',
+			} );
+
+			await expect( runCommand( testSitePath, { wp: '6.7' } ) ).rejects.toThrow(
+				'Failed to update WordPress version to 6.7: Error: Download failed.'
+			);
+		} );
+
+		it( 'should fall back to stdout when WP-CLI prints nothing to stderr', async () => {
+			vi.spyOn( console, 'error' ).mockImplementation( () => {} );
+			mockWpCliFailure( { stdout: 'Error establishing a database connection' } );
+
+			await expect( runCommand( testSitePath, { wp: '6.7' } ) ).rejects.toThrow(
+				'Failed to update WordPress version to 6.7: Error establishing a database connection'
+			);
+		} );
+
+		it( 'should copy the WordPress files instead of running WP-CLI on a never-started site', async () => {
+			mockSiteFiles( { wpConfig: false, database: false } );
+
+			await runCommand( testSitePath, { wp: '6.7' } );
+
+			expect( runWpCliCommand ).not.toHaveBeenCalled();
+			expect( downloadWordPress ).toHaveBeenCalledWith( '6.7' );
+			expect( recursiveCopyDirectory ).toHaveBeenCalledWith( '/wp-versions/6.7', testSitePath );
+			expect( saveCliConfig ).toHaveBeenCalledWith(
+				expect.objectContaining( {
+					sites: expect.arrayContaining( [
+						expect.objectContaining( { isWpAutoUpdating: false } ),
+					] ),
+				} )
+			);
+		} );
+
+		it( 'should still run WP-CLI when wp-config.php is missing but a database exists', async () => {
+			mockSiteFiles( { wpConfig: false, database: true } );
+
+			await runCommand( testSitePath, { wp: '6.7' } );
+
+			expect( runWpCliCommand ).toHaveBeenCalled();
+			expect( recursiveCopyDirectory ).not.toHaveBeenCalled();
+		} );
+
+		it( 'should still run WP-CLI for a pulled site with no wp-config.php in its directory', async () => {
+			const pulledSite = { ...getTestSite(), runtimeBlueprintPath: '/pulls/site-1/blueprint.json' };
+			vi.mocked( getSiteByFolder ).mockResolvedValue( pulledSite );
+			vi.mocked( readCliConfig ).mockResolvedValue( {
+				version: 1,
+				sites: [ pulledSite ],
+				snapshots: [],
+			} );
+			mockSiteFiles( { wpConfig: false, database: false } );
+
+			await runCommand( testSitePath, { wp: '6.7' } );
+
+			expect( runWpCliCommand ).toHaveBeenCalled();
+			expect( recursiveCopyDirectory ).not.toHaveBeenCalled();
 		} );
 
 		it( 'should update isWpAutoUpdating to false when using specific version', async () => {
@@ -360,34 +418,8 @@ describe( 'CLI: studio config set', () => {
 		} );
 	} );
 
-	describe( 'Runtime and file access changes', () => {
-		it( 'should update the stored runtime when it changes', async () => {
-			await runCommand( testSitePath, { runtime: SITE_MODE_SANDBOX } );
-
-			expect( saveCliConfig ).toHaveBeenCalledWith(
-				expect.objectContaining( {
-					sites: expect.arrayContaining( [
-						expect.objectContaining( { runtime: SITE_RUNTIME_PLAYGROUND } ),
-					] ),
-				} )
-			);
-		} );
-
-		it( 'should restart a running site when the runtime changes', async () => {
-			vi.mocked( isServerRunning ).mockResolvedValue( testProcessDescription );
-
-			await runCommand( testSitePath, { runtime: SITE_MODE_SANDBOX } );
-
-			expect( stopWordPressServer ).toHaveBeenCalledWith( 'site-1' );
-			expect( startWordPressServer ).toHaveBeenCalled();
-		} );
-
-		it( 'should update file access for a native PHP site', async () => {
-			vi.mocked( getSiteByFolder ).mockResolvedValue( {
-				...getTestSite(),
-				runtime: SITE_RUNTIME_NATIVE_PHP,
-			} );
-
+	describe( 'File access changes', () => {
+		it( 'should update file access', async () => {
 			await runCommand( testSitePath, { fileAccess: 'all-files' } );
 
 			expect( saveCliConfig ).toHaveBeenCalledWith(
@@ -399,10 +431,13 @@ describe( 'CLI: studio config set', () => {
 			);
 		} );
 
-		it( 'should report no changes when the runtime matches the current one', async () => {
-			await expect( runCommand( testSitePath, { runtime: SITE_MODE_NATIVE } ) ).rejects.toThrow(
-				'No changes to apply. The site already has the specified settings.'
-			);
+		it( 'should restart a running site when the file access changes', async () => {
+			vi.mocked( isServerRunning ).mockResolvedValue( testProcessDescription );
+
+			await runCommand( testSitePath, { fileAccess: 'all-files' } );
+
+			expect( stopWordPressServer ).toHaveBeenCalledWith( 'site-1' );
+			expect( startWordPressServer ).toHaveBeenCalled();
 		} );
 
 		it( 'should report no changes when the file access matches the default', async () => {
@@ -598,6 +633,37 @@ describe( 'CLI: studio config set', () => {
 			await expect( runCommand( testSitePath, { adminUsername: 'admin' } ) ).rejects.toThrow(
 				'No changes to apply.'
 			);
+		} );
+
+		it( 'should restore the previous credentials and restart when applying them fails', async () => {
+			vi.mocked( isServerRunning ).mockResolvedValue( testProcessDescription );
+			vi.mocked( startWordPressServer )
+				.mockRejectedValueOnce( new Error( 'Sorry, that email address is already used!' ) )
+				.mockResolvedValueOnce( testProcessDescription );
+
+			await expect( runCommand( testSitePath, { adminUsername: 'newadmin' } ) ).rejects.toThrow(
+				'Failed to update the admin credentials. The previous credentials were restored.'
+			);
+
+			const restoredCliConfig = vi.mocked( saveCliConfig ).mock.calls[ 1 ][ 0 ];
+			expect( restoredCliConfig.sites[ 0 ].adminUsername ).toBe( 'admin' );
+			expect( restoredCliConfig.sites[ 0 ].adminPassword ).toBe( 'password123' );
+			expect( startWordPressServer ).toHaveBeenCalledTimes( 2 );
+			expect( vi.mocked( startWordPressServer ).mock.calls[ 1 ][ 0 ].adminUsername ).toBe(
+				'admin'
+			);
+		} );
+
+		it( 'should not touch credentials when a restart without credential changes fails', async () => {
+			vi.mocked( isServerRunning ).mockResolvedValue( testProcessDescription );
+			vi.mocked( startWordPressServer ).mockRejectedValueOnce( new Error( 'Port unavailable' ) );
+
+			await expect( runCommand( testSitePath, { php: '8.2' } ) ).rejects.toThrow(
+				'Port unavailable'
+			);
+
+			expect( saveCliConfig ).toHaveBeenCalledTimes( 1 );
+			expect( startWordPressServer ).toHaveBeenCalledTimes( 1 );
 		} );
 
 		it( 'should update both credentials at once', async () => {

@@ -138,6 +138,16 @@ describe( 'spawnPhpProcess environment', () => {
 		vi.unstubAllEnvs();
 	} );
 
+	// WP-CLI refuses to run as root (Docker, Linux CI) unless told otherwise.
+	it( 'lets WP-CLI run as root', async () => {
+		const { spawnPhpProcess } = await import( 'cli/lib/native-php/php-process' );
+		spawnMock.mockReturnValue( createFakeChild() );
+
+		spawnPhpProcess( [ 'wp-cli.phar', 'option', 'get', 'home' ], { phpVersion: '8.4' } );
+
+		expect( spawnMock.mock.calls[ 0 ][ 2 ].env.WP_CLI_ALLOW_ROOT ).toBe( '1' );
+	} );
+
 	// The Blueprint runner injects a PATH so blueprints.phar can shell out to the bundled PHP.
 	it( 'keeps an explicit env override from the caller', async () => {
 		const { spawnPhpProcess } = await import( 'cli/lib/native-php/php-process' );

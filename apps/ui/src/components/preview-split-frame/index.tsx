@@ -1,14 +1,29 @@
-import { __ } from '@wordpress/i18n';
+import { __, isRTL } from '@wordpress/i18n';
 import { clsx } from 'clsx';
-import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
+import {
+	createContext,
+	useContext,
+	useEffect,
+	useState,
+	type CSSProperties,
+	type ReactNode,
+} from 'react';
 import { ResizeHandle, ResizeOverlay } from '@/components/resize-handle';
 import { usePreviewSplit } from '@/hooks/use-preview-split';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
-import { useWindowControlsOverlay } from '@/hooks/use-window-controls-overlay';
+import { WindowControlsCornerContext } from '@/hooks/use-window-controls-inset';
 import styles from './style.module.css';
 
 // Keep in sync with the content-column transition duration in style.module.css.
-const PREVIEW_TOGGLE_DURATION = 150;
+export const PREVIEW_TOGGLE_DURATION = 240;
+
+// Whether the preview shows beside the content, for controls in the content
+// column that only make sense next to it.
+const PreviewBesideContext = createContext( false );
+
+export function usePreviewBeside(): boolean {
+	return useContext( PreviewBesideContext );
+}
 
 export interface PreviewSplitFramePreviewProps {
 	collapsed: boolean;
@@ -20,9 +35,9 @@ interface PreviewSplitFrameProps {
 	// handles the open/close slide animation.
 	preview?: ( props: PreviewSplitFramePreviewProps ) => ReactNode;
 	previewOpen?: boolean;
-	// Full preview: the preview takes the whole frame and the content column
-	// collapses to zero width (kept mounted so chat state survives).
-	previewFullscreen?: boolean;
+	// The chat is hidden: the content column collapses the same way, while the
+	// sidebar stays.
+	chatHidden?: boolean;
 	onContainerWidthChange?: ( containerWidth: number | null ) => void;
 	children?: ReactNode;
 }
@@ -30,25 +45,22 @@ interface PreviewSplitFrameProps {
 export function PreviewSplitFrame( {
 	preview,
 	previewOpen = false,
-	previewFullscreen = false,
+	chatHidden = false,
 	onContainerWidthChange,
 	children,
 }: PreviewSplitFrameProps ) {
 	const showPreview = previewOpen && preview != null;
-	const showFullscreen = showPreview && previewFullscreen;
+	const contentCollapsed = showPreview && chatHidden;
 	const { rootRef, containerWidth, contentWidthVar, isResizing, handleProps } = usePreviewSplit( {
 		showPreview,
 	} );
 	const isSidebarCollapsed = useSidebarCollapsed();
-	// The chrome gap above the frame is where the native window controls land on
-	// Windows/Linux, so it has to be at least as tall as they are.
-	const windowControls = useWindowControlsOverlay();
 
 	useEffect( () => {
-		onContainerWidthChange?.( showPreview && ! showFullscreen ? containerWidth : null );
-	}, [ containerWidth, onContainerWidthChange, showFullscreen, showPreview ] );
+		onContainerWidthChange?.( showPreview && ! contentCollapsed ? containerWidth : null );
+	}, [ containerWidth, contentCollapsed, onContainerWidthChange, showPreview ] );
 
-	// Animate only open/close/fullscreen toggles of an already-mounted preview —
+	// Animate only open/close/hide-chat toggles of an already-mounted preview —
 	// never the initial layout, so a route loading with the preview visible
 	// doesn't replay the slide-in. The render-phase update lands the transition
 	// class in the same commit as the width change; an effect-based update would
@@ -57,17 +69,17 @@ export function PreviewSplitFrame( {
 	const [ previousPreview, setPreviousPreview ] = useState( {
 		mounted: preview != null,
 		open: showPreview,
-		fullscreen: showFullscreen,
+		collapsed: contentCollapsed,
 	} );
 	if (
 		previousPreview.mounted !== ( preview != null ) ||
 		previousPreview.open !== showPreview ||
-		previousPreview.fullscreen !== showFullscreen
+		previousPreview.collapsed !== contentCollapsed
 	) {
 		setPreviousPreview( {
 			mounted: preview != null,
 			open: showPreview,
-			fullscreen: showFullscreen,
+			collapsed: contentCollapsed,
 		} );
 		if ( previousPreview.mounted && preview != null ) {
 			setAnimatingPreviewToggle( true );
@@ -83,58 +95,75 @@ export function PreviewSplitFrame( {
 			PREVIEW_TOGGLE_DURATION
 		);
 		return () => window.clearTimeout( timeoutId );
-	}, [ animatingPreviewToggle, showPreview, showFullscreen ] );
+	}, [ animatingPreviewToggle, showPreview, contentCollapsed ] );
 
 	const previewVisible = showPreview || animatingPreviewToggle;
 	const renderedPreview = preview?.( { collapsed: ! previewVisible } );
 	const rootStyle = {
-		// Fullscreen collapses the content column; the split geometry keeps its
-		// last width so leaving fullscreen restores the previous split.
-		'--preview-frame-content-width': showFullscreen ? '0px' : contentWidthVar,
-		...( windowControls && { '--panel-frame-gap-top': `${ windowControls.height }px` } ),
+		// The collapsed content column keeps the split's last width in the
+		// geometry, so showing it again restores the previous split.
+		'--preview-frame-content-width': contentCollapsed ? '0px' : contentWidthVar,
 	} as CSSProperties;
 	// Keep the zero-width column visible while it animates shut, then hide it
 	// so the (still mounted) chat can't be reached by focus or a screen reader.
-	const contentHidden = showFullscreen && ! animatingPreviewToggle;
+	const contentHidden = contentCollapsed && ! animatingPreviewToggle;
+	// Which pane reaches the window's top-right corner. The preview sits at the
+	// inline end, so in RTL it only gets there when it fills the frame, and the
+	// content only when the sidebar isn't there.
+	const contentInCorner =
+		! contentCollapsed && ( ! showPreview || ( isRTL() && isSidebarCollapsed ) );
+	const previewInCorner = showPreview && ( contentCollapsed || ! isRTL() );
 
 	return (
-		<div
-			ref={ rootRef }
-			className={ clsx(
-				styles.root,
-				isSidebarCollapsed && styles.rootFrameless,
-				showPreview && styles.rootPreviewOpen,
-				isResizing && styles.rootPreviewResizing,
-				animatingPreviewToggle && styles.rootPreviewAnimating
-			) }
-			style={ rootStyle }
-		>
+		<>
 			<div
-				className={ clsx( styles.contentColumn, contentHidden && styles.contentColumnHidden ) }
-				aria-hidden={ contentHidden || undefined }
+				ref={ rootRef }
+				className={ clsx(
+					styles.root,
+					showPreview && styles.rootPreviewOpen,
+					isResizing && styles.rootPreviewResizing,
+					animatingPreviewToggle && styles.rootPreviewAnimating,
+					showPreview && ! contentCollapsed && ! animatingPreviewToggle && 'studio-column-edge'
+				) }
+				style={ rootStyle }
 			>
-				{ children }
-			</div>
-			{ preview ? (
 				<div
 					className={ clsx(
-						styles.previewSlot,
-						previewVisible && styles.previewSlotVisible,
-						showPreview && styles.previewSlotInteractive
+						styles.contentColumn,
+						contentCollapsed && styles.contentColumnCollapsed,
+						contentHidden && styles.contentColumnHidden
 					) }
-					aria-hidden={ ! showPreview }
+					aria-hidden={ contentHidden || undefined }
 				>
-					{ renderedPreview }
+					<WindowControlsCornerContext.Provider value={ contentInCorner }>
+						<PreviewBesideContext.Provider value={ showPreview && ! contentCollapsed }>
+							{ children }
+						</PreviewBesideContext.Provider>
+					</WindowControlsCornerContext.Provider>
 				</div>
-			) : null }
-			{ showPreview && ! showFullscreen && ! animatingPreviewToggle ? (
-				<ResizeHandle
-					className={ styles.previewResizeHandle }
-					label={ __( 'Resize site preview' ) }
-					{ ...handleProps }
-				/>
-			) : null }
-			{ isResizing ? <ResizeOverlay /> : null }
-		</div>
+				{ preview ? (
+					<div
+						className={ clsx(
+							styles.previewSlot,
+							previewVisible && styles.previewSlotVisible,
+							showPreview && styles.previewSlotInteractive
+						) }
+						aria-hidden={ ! showPreview }
+					>
+						<WindowControlsCornerContext.Provider value={ previewInCorner }>
+							{ renderedPreview }
+						</WindowControlsCornerContext.Provider>
+					</div>
+				) : null }
+				{ showPreview && ! contentCollapsed && ! animatingPreviewToggle ? (
+					<ResizeHandle
+						className={ styles.previewResizeHandle }
+						label={ __( 'Resize site preview' ) }
+						{ ...handleProps }
+					/>
+				) : null }
+				{ isResizing ? <ResizeOverlay /> : null }
+			</div>
+		</>
 	);
 }

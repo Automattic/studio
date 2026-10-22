@@ -1,7 +1,6 @@
-/* Overlays the empty-state canvas like suggested-prompts: the copy sits just
-   below the W's center so it only overlaps the logo's lower legs, and a
-   progressive frost blurs the dots more the farther down they go. The layer
-   itself never takes pointer events; only the content does. */
+/* Overlays the empty chat's dot field: the copy sits just below the center,
+   and a progressive frost blurs the dots more the farther down they go. The
+   layer itself never takes pointer events; only the content does. */
 .root {
 	position: absolute;
 	inset: 0;
@@ -71,48 +70,48 @@
 	align-items: center;
 	box-sizing: border-box;
 	width: min(100%, 52ch);
-	padding: var(--wpds-dimension-padding-lg) var(--wpds-dimension-padding-2xl);
+	padding: 16px 24px;
 	transform: translateX(-50%);
 	text-align: center;
 	pointer-events: auto;
 }
 
 .title {
-	margin: 0 0 var(--wpds-dimension-padding-sm);
-	font-size: var(--wpds-typography-font-size-md);
-	font-weight: 600;
-	line-height: var(--wpds-typography-line-height-md);
-	color: var(--wpds-color-foreground-content-neutral);
+	margin: 0 0 8px;
+	font-size: var(--text-xs);
+	font-weight: var(--font-weight-semibold);
+	line-height: 24px;
+	color: var(--foreground);
 }
 
 .description {
 	margin: 0;
-	font-size: var(--wpds-typography-font-size-sm);
-	line-height: var(--wpds-typography-line-height-sm);
-	color: var(--wpds-color-foreground-content-neutral-weak);
+	font-size: var(--text-xxs);
+	line-height: 20px;
+	color: var(--muted-foreground);
 	text-wrap: balance;
 }
 
 .description + .description {
-	margin-top: var(--wpds-dimension-padding-xs);
+	margin-top: 4px;
 }
 
 .waitingIndicator {
-	margin: var(--wpds-dimension-padding-lg) 0 0;
-	font-size: var(--wpds-typography-font-size-sm);
-	line-height: var(--wpds-typography-line-height-sm);
-	color: var(--wpds-color-foreground-content-neutral-weak);
+	margin: 16px 0 0;
+	font-size: var(--text-xxs);
+	line-height: 20px;
+	color: var(--muted-foreground);
 }
 
 .actions {
 	display: flex;
 	align-items: center;
-	gap: var(--wpds-dimension-padding-sm);
-	margin-top: var(--wpds-dimension-padding-lg);
+	gap: 8px;
+	margin-top: 16px;
 }
 
 .cta {
-	padding-inline: var(--wpds-dimension-padding-lg);
+	padding-inline: 16px;
 }
 
 @media (prefers-reduced-transparency: reduce) {

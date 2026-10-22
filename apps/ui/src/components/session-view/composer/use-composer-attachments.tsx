@@ -9,7 +9,8 @@ import {
 	type ComposerSendAttachments,
 } from '@studio/common/ai/composer-attachments';
 import { __, sprintf } from '@wordpress/i18n';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 
 export { toComposerSendAttachments };
@@ -24,8 +25,6 @@ export function useComposerAttachments(
 	const connector = useConnector();
 	const [ attachments, setAttachments ] = useState< ComposerAttachment[] >( initialAttachments );
 	const attachmentsRef = useRef< ComposerAttachment[] >( initialAttachments );
-	const [ error, setError ] = useState< string | null >( null );
-	const [ isDraggingOver, setIsDraggingOver ] = useState( false );
 
 	const setTrackedAttachments = useCallback( ( next: ComposerAttachment[] ) => {
 		attachmentsRef.current = next;
@@ -40,12 +39,14 @@ export function useComposerAttachments(
 		} );
 	}, [] );
 
-	const clear = useCallback( () => {
-		setTrackedAttachments( [] );
-		setError( null );
-	}, [ setTrackedAttachments ] );
+	const removeAttachments = useCallback( ( ids: ReadonlySet< string > ) => {
+		setAttachments( ( current ) => {
+			const next = current.filter( ( item ) => ! ids.has( item.id ) );
+			attachmentsRef.current = next;
+			return next;
+		} );
+	}, [] );
 
-	// Put a batch back after a failed send so the user doesn't lose them.
 	const restore = useCallback(
 		( items: ComposerAttachment[] ) => {
 			setTrackedAttachments( items );
@@ -59,7 +60,6 @@ export function useComposerAttachments(
 			if ( disabled || list.length === 0 ) {
 				return;
 			}
-			setError( null );
 			const messages = {
 				imageTooLarge: __( 'Images must be 5 MB or smaller.' ),
 				imageReadFailed: __( 'Failed to read the attached image.' ),
@@ -83,49 +83,23 @@ export function useComposerAttachments(
 				existingAttachments: attachmentsRef.current,
 			} );
 			if ( prepared.error ) {
-				setError( prepared.error );
+				toast.error( prepared.error );
 			}
 			if ( prepared.attachments.length === 0 ) {
 				return;
 			}
 
-			setAttachments( ( current ) => {
-				const merged = mergeComposerAttachments( current, prepared.attachments, messages );
-				if ( merged.error ) {
-					setError( merged.error );
-				}
-				attachmentsRef.current = merged.attachments;
-				return merged.attachments;
-			} );
-		},
-		[ connector, disabled ]
-	);
-
-	const onDragOver = useCallback( ( event: React.DragEvent ) => {
-		if ( ! Array.from( event.dataTransfer.types ).includes( 'Files' ) ) {
-			return;
-		}
-		event.preventDefault();
-		setIsDraggingOver( true );
-	}, [] );
-
-	const onDragLeave = useCallback( ( event: React.DragEvent ) => {
-		event.preventDefault();
-		setIsDraggingOver( false );
-	}, [] );
-
-	const onDrop = useCallback(
-		( event: React.DragEvent ) => {
-			if ( ! Array.from( event.dataTransfer.types ).includes( 'Files' ) ) {
-				return;
+			const merged = mergeComposerAttachments(
+				attachmentsRef.current,
+				prepared.attachments,
+				messages
+			);
+			if ( merged.error ) {
+				toast.error( merged.error );
 			}
-			event.preventDefault();
-			setIsDraggingOver( false );
-			if ( event.dataTransfer.files.length > 0 ) {
-				void addFiles( event.dataTransfer.files );
-			}
+			setTrackedAttachments( merged.attachments );
 		},
-		[ addFiles ]
+		[ connector, disabled, setTrackedAttachments ]
 	);
 
 	const onPaste = useCallback(
@@ -142,13 +116,69 @@ export function useComposerAttachments(
 
 	return {
 		attachments,
-		error,
-		isDraggingOver,
 		addFiles,
 		removeAttachment,
-		clear,
+		removeAttachments,
 		restore,
-		dragHandlers: { onDragOver, onDragLeave, onDrop },
 		pasteHandlers: { onPaste },
 	};
+}
+
+// Files dragged anywhere over `target`. The depth count keeps the state steady
+// while the pointer crosses child elements.
+export function useFileDrop( target: HTMLElement | null, onFiles: ( files: FileList ) => void ) {
+	const [ isDragging, setIsDragging ] = useState( false );
+
+	useEffect( () => {
+		if ( ! target ) {
+			return;
+		}
+		let depth = 0;
+		const hasFiles = ( event: DragEvent ) =>
+			Array.from( event.dataTransfer?.types ?? [] ).includes( 'Files' );
+		const onDragEnter = ( event: DragEvent ) => {
+			if ( hasFiles( event ) ) {
+				depth += 1;
+				setIsDragging( true );
+			}
+		};
+		const onDragOver = ( event: DragEvent ) => {
+			if ( hasFiles( event ) ) {
+				event.preventDefault();
+			}
+		};
+		const onDragLeave = ( event: DragEvent ) => {
+			if ( hasFiles( event ) ) {
+				depth = Math.max( 0, depth - 1 );
+				setIsDragging( depth > 0 );
+			}
+		};
+		const onDrop = ( event: DragEvent ) => {
+			if ( ! hasFiles( event ) ) {
+				return;
+			}
+			event.preventDefault();
+			depth = 0;
+			setIsDragging( false );
+			if ( event.dataTransfer?.files.length ) {
+				onFiles( event.dataTransfer.files );
+			}
+		};
+		const listeners = {
+			dragenter: onDragEnter,
+			dragover: onDragOver,
+			dragleave: onDragLeave,
+			drop: onDrop,
+		};
+		for ( const [ type, listener ] of Object.entries( listeners ) ) {
+			target.addEventListener( type, listener as EventListener );
+		}
+		return () => {
+			for ( const [ type, listener ] of Object.entries( listeners ) ) {
+				target.removeEventListener( type, listener as EventListener );
+			}
+		};
+	}, [ target, onFiles ] );
+
+	return isDragging;
 }

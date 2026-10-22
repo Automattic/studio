@@ -1,6 +1,5 @@
 import { __ } from '@wordpress/i18n';
 import { chevronLeft, chevronRight } from '@wordpress/icons';
-import { Button, Dialog, IconButton, VisuallyHidden } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import {
 	useEffect,
@@ -17,6 +16,17 @@ import {
 import { SigninAnnotateIllustration } from '@/components/onboarding-guide/illustrations/signin-annotate';
 import { SigninChatIllustration } from '@/components/onboarding-guide/illustrations/signin-chat';
 import { SigninSyncIllustration } from '@/components/onboarding-guide/illustrations/signin-sync';
+import { Button, IconButton } from '@/components/ui/button';
+import {
+	Dialog,
+	DialogClose,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from '@/components/ui/dialog';
+import { VisuallyHidden } from '@/components/ui/visually-hidden';
 import { useLogin } from '@/data/queries/use-auth-user';
 import { useSaveUserPreferences } from '@/data/queries/use-user-preferences';
 import { useConfirmOnEnter } from '@/hooks/use-confirm-on-enter';
@@ -44,8 +54,7 @@ export function SigninNotice( { source }: { source: TracksAuthSource } ) {
 			<div className={ styles.actions }>
 				<Button
 					type="button"
-					variant="solid"
-					tone="brand"
+					variant="accent"
 					loading={ login.isPending }
 					onClick={ () => login.mutate() }
 				>
@@ -206,10 +215,9 @@ const slides: {
 	},
 ];
 
-// "Switch to Overview" is really "turn Studio Code off": with agentic
-// features off, Overview becomes every site's home. Say so, and say how to
-// get chat back, before flipping the switch.
-function SwitchToOverviewDialog( {
+// Continuing without Studio Code turns agentic features off for every site.
+// Say so, and say how to get chat back, before flipping the switch.
+function TurnOffStudioCodeDialog( {
 	open,
 	onOpenChange,
 	onSwitched,
@@ -233,7 +241,7 @@ function SwitchToOverviewDialog( {
 		);
 
 	return (
-		<Dialog.Root
+		<Dialog
 			open={ open }
 			onOpenChange={ ( next ) => {
 				if ( ! savePreferences.isPending ) {
@@ -241,41 +249,41 @@ function SwitchToOverviewDialog( {
 				}
 			} }
 		>
-			<Dialog.Popup size="small" onKeyDown={ handleKeyDown }>
-				<Dialog.Header>
-					<Dialog.Title>{ __( 'Turn off Studio Code?' ) }</Dialog.Title>
-				</Dialog.Header>
-				<Dialog.Content>
-					<Dialog.Description>
+			<DialogContent showCloseButton={ false } onKeyDown={ handleKeyDown }>
+				<DialogHeader>
+					<DialogTitle>{ __( 'Turn off Studio Code?' ) }</DialogTitle>
+					<DialogDescription>
 						{ __(
-							'Switching to Overview turns off Studio Code, so Overview becomes the home for all of your sites. You can turn it back on any time in settings.'
+							'This turns off Studio Code, so your sites open to their preview instead of a chat. You can turn it back on any time in settings.'
 						) }
-					</Dialog.Description>
-				</Dialog.Content>
-				<Dialog.Footer>
-					<Dialog.Action variant="minimal" tone="neutral" disabled={ savePreferences.isPending }>
+					</DialogDescription>
+				</DialogHeader>
+				<DialogFooter>
+					<DialogClose
+						disabled={ savePreferences.isPending }
+						render={ <Button variant="outline" /> }
+					>
 						{ __( 'Cancel' ) }
-					</Dialog.Action>
+					</DialogClose>
 					<Button
-						variant="solid"
-						tone="brand"
+						variant="accent"
 						loading={ savePreferences.isPending }
 						loadingAnnouncement={ __( 'Turning off Studio Code' ) }
 						onClick={ handleConfirm }
 					>
 						{ confirmLabel }
 					</Button>
-				</Dialog.Footer>
-			</Dialog.Popup>
-		</Dialog.Root>
+				</DialogFooter>
+			</DialogContent>
+		</Dialog>
 	);
 }
 
 export function AgenticSigninPrompt( {
-	onOpenOverview,
+	onTurnedOff,
 }: {
-	/** Where "Switch to Overview" goes: the site's overview view. */
-	onOpenOverview?: () => void;
+	/** Where to go once Studio Code is turned off. */
+	onTurnedOff?: () => void;
 } ) {
 	const login = useLogin( { source: 'assistant_tab' } );
 	// `leaving` keeps the previous slide mounted while it slides out; `direction`
@@ -289,7 +297,7 @@ export function AgenticSigninPrompt( {
 		run: 0,
 	} );
 	const [ paused, setPaused ] = useState( carouselMemory.paused );
-	const [ overviewDialogOpen, setOverviewDialogOpen ] = useState( false );
+	const [ turnOffDialogOpen, setTurnOffDialogOpen ] = useState( false );
 	useEffect( () => {
 		carouselMemory.index = deck.index;
 		carouselMemory.paused = paused;
@@ -372,9 +380,7 @@ export function AgenticSigninPrompt( {
 						className={ clsx( styles.arrow, styles.arrowPrev ) }
 						icon={ chevronLeft }
 						label={ __( 'Previous feature' ) }
-						size="small"
-						variant="minimal"
-						tone="neutral"
+						size="icon-xs"
 						onClick={ () => step( -1 ) }
 					/>
 					<Stage
@@ -409,9 +415,7 @@ export function AgenticSigninPrompt( {
 						className={ clsx( styles.arrow, styles.arrowNext ) }
 						icon={ chevronRight }
 						label={ __( 'Next feature' ) }
-						size="small"
-						variant="minimal"
-						tone="neutral"
+						size="icon-xs"
 						onClick={ () => step( 1 ) }
 					/>
 					<div className={ styles.transport }>
@@ -438,30 +442,28 @@ export function AgenticSigninPrompt( {
 				<Button
 					className={ styles.loginButton }
 					type="button"
-					variant="solid"
-					tone="brand"
+					variant="accent"
 					loading={ login.isPending }
 					onClick={ () => login.mutate() }
 				>
 					{ __( 'Log in with WordPress.com' ) }
 				</Button>
-				{ onOpenOverview ? (
+				{ onTurnedOff ? (
 					<Button
-						className={ styles.overviewButton }
+						className={ styles.turnOffButton }
 						type="button"
-						variant="minimal"
-						tone="neutral"
-						size="small"
-						onClick={ () => setOverviewDialogOpen( true ) }
+						variant="muted-ghost"
+						size="2xs"
+						onClick={ () => setTurnOffDialogOpen( true ) }
 					>
-						{ __( 'Switch to Overview' ) }
+						{ __( 'Continue without Studio Code' ) }
 					</Button>
 				) : null }
-				{ onOpenOverview ? (
-					<SwitchToOverviewDialog
-						open={ overviewDialogOpen }
-						onOpenChange={ setOverviewDialogOpen }
-						onSwitched={ onOpenOverview }
+				{ onTurnedOff ? (
+					<TurnOffStudioCodeDialog
+						open={ turnOffDialogOpen }
+						onOpenChange={ setTurnOffDialogOpen }
+						onSwitched={ onTurnedOff }
 					/>
 				) : null }
 			</div>

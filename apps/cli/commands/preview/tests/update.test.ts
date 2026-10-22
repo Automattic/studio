@@ -8,6 +8,7 @@ import { vi } from 'vitest';
 import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
 import { archiveSiteContent, cleanup } from 'cli/lib/archive';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
+import { withSiteOperation } from 'cli/lib/site-operations';
 import { updateSnapshotInConfig, getSnapshotsFromConfig } from 'cli/lib/snapshots';
 import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { LoggerError } from 'cli/logger';
@@ -29,6 +30,9 @@ vi.mock( 'cli/lib/cli-config/sites', async () => {
 vi.mock( 'cli/lib/archive' );
 vi.mock( 'cli/lib/api' );
 vi.mock( 'cli/lib/snapshots' );
+vi.mock( 'cli/lib/validation', () => ( {
+	validateSiteSize: vi.fn(),
+} ) );
 vi.mock( 'cli/lib/tracks', async ( importActual ) => {
 	const actual = await importActual< typeof import('cli/lib/tracks') >();
 	return { ...actual, recordTracksEvent: vi.fn() };
@@ -41,6 +45,10 @@ vi.mock( 'cli/logger', () => ( {
 		reportError = mockReportError;
 	},
 	LoggerError: class LoggerError extends Error {},
+} ) );
+
+vi.mock( 'cli/lib/site-operations', () => ( {
+	withSiteOperation: vi.fn( ( _folder: string, _kind: string, fn: () => unknown ) => fn() ),
 } ) );
 
 describe( 'Preview Update Command', () => {
@@ -109,6 +117,11 @@ describe( 'Preview Update Command', () => {
 		expect( mockReportStart.mock.calls[ 0 ] ).toEqual( [ 'validate', 'Validating…' ] );
 
 		expect( archiveSiteContent ).toHaveBeenCalledWith( mockFolder, mockArchivePath );
+		expect( withSiteOperation ).toHaveBeenCalledWith(
+			mockFolder,
+			'export',
+			expect.any( Function )
+		);
 		expect( mockReportStart.mock.calls[ 1 ] ).toEqual( [ 'archive', 'Creating archive…' ] );
 		expect( mockReportSuccess.mock.calls[ 0 ] ).toEqual( [ 'Archive created' ] );
 

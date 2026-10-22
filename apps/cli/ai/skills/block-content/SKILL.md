@@ -1,12 +1,16 @@
 ---
 name: block-content
-description: Write editable WordPress block markup for local Studio sites, including core/html limits, block-theme layout rules, full-width sections, validation, and skeleton-first page/CSS recipes.
-user-invokable: true
+description: Write editable WordPress block markup and theme files for local Studio sites, including where theme changes go (block themes only, child themes), core/html limits, block-theme layout rules, full-width sections, validation, and skeleton-first page/CSS recipes.
 ---
 
 # Block Content
 
-Use this skill before writing or editing page content, post content, templates, template parts, patterns, or any other WordPress block markup.
+Use this skill before writing or editing page content, post content, templates, template parts, patterns, or any other WordPress block markup, and before changing an existing theme's files.
+
+## Theme Files
+
+- Build new themes as block themes. Work on an existing classic theme in its own terms rather than converting it, and build a new classic theme only when the user explicitly asks — first say once that Studio's design flow and block tools are built for block themes.
+- Do NOT edit the files of installed third-party themes (default themes like twentytwentyfive, marketplace/community themes such as Ollie, anything installed via `wp theme install` or already present on the site) — a theme update silently wipes such edits. Default to a child theme: call `scaffold_theme` with `parentTheme` set to the installed theme's slug, then make every customization (style.css, theme.json, templates, parts, patterns) in the child theme. Themes Studio Code created — their style.css Description says "scaffolded by Studio Code" — are safe to edit directly. If the user explicitly asks you to edit an installed theme's files directly, comply, but first warn once that a theme update will overwrite the changes.
 
 ## Core Policy
 
@@ -161,7 +165,7 @@ wp_cli post create --post_content=""
 wp_cli eval '$content = file_get_contents(ABSPATH . "tmp/page-<slug>.html"); wp_update_post(["ID" => <id>, "post_content" => $content]); echo "ok";'
 ```
 
-Do not use `--post_content-file=<host path>`. `wp_cli` runs inside the PHP-WASM filesystem; the host site directory is mounted at `/wordpress/`, so `ABSPATH === "/wordpress/"`. Host paths are not readable there and can silently update the post to empty content.
+Do not use `--post_content-file=<path>`: it is not a WP-CLI option, so WP-CLI never reads the file and the post content is not updated.
 
 ## Validation
 

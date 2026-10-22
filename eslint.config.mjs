@@ -9,6 +9,14 @@ import globals from 'globals';
 import tsEslint from 'typescript-eslint';
 import pluginStudio from 'eslint-plugin-studio';
 
+const WP_UI_PACKAGES = {
+	group: [ 'components', 'dataviews', 'theme', 'ui' ].flatMap( ( name ) => [
+		`@wordpress/${ name }`,
+		`@wordpress/${ name }/*`,
+	] ),
+	message: 'Use the primitives in @/components/ui and the tokens in src/theme.',
+};
+
 export default defineConfig(
 	globalIgnores( [
 		'**/node_modules/',
@@ -40,9 +48,8 @@ export default defineConfig(
 			parserOptions: {
 				projectService: {
 					allowDefaultProject: [
-						'apps/studio/forge.config.ts',
-						'apps/studio/windowsSign.ts',
-						'apps/studio/tailwind.config.js',
+						'apps/mcp-ui/vite.config.ts',
+						'plugins/wp-studio/scripts/*.mjs',
 						'apps/ui/vite.config.ts',
 						'apps/ui/vitest.setup.ts',
 						'eslint.config.mjs',
@@ -63,6 +70,7 @@ export default defineConfig(
 						path.join( import.meta.dirname, 'tsconfig.json' ),
 						path.join( import.meta.dirname, 'apps/cli/tsconfig.json' ),
 						path.join( import.meta.dirname, 'apps/studio/tsconfig.json' ),
+						path.join( import.meta.dirname, 'apps/mcp-ui/tsconfig.json' ),
 						path.join( import.meta.dirname, 'apps/ui/tsconfig.json' ),
 						path.join( import.meta.dirname, 'packages/common/tsconfig.json' ),
 						path.join( import.meta.dirname, 'packages/design-md/tsconfig.json' ),
@@ -115,7 +123,6 @@ export default defineConfig(
 			],
 			'react-hooks/set-state-in-effect': 'off',
 			'studio/no-module-level-translations': 'error',
-			'studio/no-redundant-cx': 'error',
 			'studio/require-lock-before-save': [
 				'error',
 				{
@@ -188,11 +195,36 @@ export default defineConfig(
 	{
 		// Module-level translations can't go stale in these apps: the CLI is a
 		// one-shot process that loads the locale before importing modules, and the
-		// agentic UI reloads the window on language change. The rule only matters
-		// for the legacy renderer, which swaps locale data live without a reload.
+		// UI reloads the window on language change. The rule matters for the
+		// Desktop main process, which swaps locale data live without a restart.
 		files: [ 'apps/cli/**', 'apps/ui/**' ],
 		rules: {
 			'studio/no-module-level-translations': 'off',
+		},
+	},
+	{
+		// The agentic UI owns its design system: theme tokens in `src/theme/` and
+		// primitives in `src/components/ui/`, which stay independent of app code.
+		files: [ 'apps/ui/src/**' ],
+		rules: {
+			'no-restricted-imports': [ 'error', { patterns: [ WP_UI_PACKAGES ] } ],
+		},
+	},
+	{
+		files: [ 'apps/ui/src/components/ui/**' ],
+		rules: {
+			'no-restricted-imports': [
+				'error',
+				{
+					patterns: [
+						WP_UI_PACKAGES,
+						{
+							group: [ '@/data/*', '@/hooks/*', '@/router/*', '@tanstack/*' ],
+							message: 'Primitives stay independent of app code.',
+						},
+					],
+				},
+			],
 		},
 	},
 	{

@@ -5,7 +5,7 @@ import { Type } from 'typebox';
 import { validateHtmlBlockPolicy } from 'cli/ai/block-content-policy';
 import { validateBlocks, type ValidationReportBase } from 'cli/ai/block-validator';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
-import { defineTool } from './define-tool';
+import { defineTool, LOCAL_CHANGE } from './define-tool';
 import { resolveSite, textResult } from './utils';
 
 function formatPreview( content: string ): string {
@@ -41,7 +41,7 @@ function formatMarkdownFence( language: string, content: string ): string {
 
 export const validateBlocksTool = defineTool(
 	'validate_blocks',
-	"Validates WordPress block content in two stages and returns a combined report. First runs a static core/html block policy check; if it finds invalid core/html blocks, it returns only those (rewrite them as editable core or plugin blocks and call again) without touching the editor. Once the policy check passes, it validates the content in the site's real block editor: with filePath it applies safe live-editor serialization fixes directly to the file and returns a CSS-review diff; with inline content it returns the exact fixed block content plus the diff. The site must be running.",
+	"Validates WordPress block content in two stages and returns a combined report. First runs a static core/html block policy check; if it finds invalid core/html blocks, it returns only those (rewrite them as editable core or plugin blocks and call again) without touching the editor. Once the policy check passes, it validates the content in the site's real block editor: with filePath it applies safe live-editor serialization fixes directly to the file and returns a CSS-review diff; with inline content it returns the exact fixed block content plus the diff. The site must be running, with the theme and the plugins the content uses already active: the editor only recognizes the active theme and registered plugin blocks. Validate block content before it reaches the site: before `wp post create/update`, and before `wp_cli eval` that imports a scratch file such as `<site>/tmp/page-<slug>.html`. Theme `templates/*.html` and `parts/*.html` files are live the moment they are written, so validate each one with `filePath` right after writing or editing it. If an auto-fix was applied, the file already holds the fixed content; do not replace markup or re-validate unless you change the markup, and use the diff only to update CSS selectors for class/nesting changes. For inline content, use the returned fixed content exactly.",
 	{
 		nameOrPath: Type.String( {
 			description: 'The site name or file system path — the site must be running',
@@ -189,6 +189,7 @@ export const validateBlocksTool = defineTool(
 		}
 	},
 	{
+		annotations: LOCAL_CHANGE,
 		promptSnippet:
 			"Validate block content in two stages and return a combined report. First a static core/html policy check; if it finds invalid core/html blocks it returns only those (rewrite them as editable core or plugin blocks and call again) and skips the editor. Once it passes, validates in the running site's real block editor: with filePath, applies safe editor fixes directly to the file and returns a CSS-review diff; with inline content, returns exact fixed block content plus the diff. Requires a site name or path. Call after every file write/edit that contains block content.",
 	}

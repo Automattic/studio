@@ -1,5 +1,4 @@
 import { AggregateInterval } from '@studio/common/lib/bump-stat';
-import { waitFor } from '@testing-library/react';
 import { vi } from 'vitest';
 import { EMPTY_USER_DATA } from 'src/storage/storage-types';
 import { loadUserData, lockAppdata, saveUserData, unlockAppdata } from 'src/storage/user-data';
@@ -78,7 +77,7 @@ describe( 'bumpStat', () => {
 
 		bumpStat( StatsGroup.STUDIO_APP_LAUNCH, StatsMetric.SUCCESS );
 
-		await waitFor( () => expect( mockRequest.isDone() ).toBe( true ) );
+		await vi.waitFor( () => expect( mockRequest.isDone() ).toBe( true ) );
 	} );
 
 	test( "don't record stat in e2e tests", () => {
@@ -108,7 +107,7 @@ describe( 'bumpStat', () => {
 		bumpStat( StatsGroup.STUDIO_APP_LAUNCH, StatsMetric.SUCCESS, true );
 
 		expect( logger ).not.toHaveBeenCalled();
-		await waitFor( () => expect( mockRequest.isDone() ).toBe( true ) );
+		await vi.waitFor( () => expect( mockRequest.isDone() ).toBe( true ) );
 	} );
 
 	test( 'should not bump stat when group exceeds 27 characters', () => {
@@ -146,7 +145,7 @@ describe( 'bumpAggregatedUniqueStat', () => {
 
 		await bumpAggregatedUniqueStat( StatsGroup.STUDIO_APP_LAUNCH, StatsMetric.SUCCESS, 'weekly' );
 
-		await waitFor( () => expect( mockRequest.isDone() ).toBe( true ) );
+		await vi.waitFor( () => expect( mockRequest.isDone() ).toBe( true ) );
 	} );
 
 	test( "don't bump forever stat when it has already been recorded", async () => {
@@ -183,7 +182,7 @@ describe( 'bumpAggregatedUniqueStat', () => {
 				aggregateBy
 			);
 
-			await waitFor( () => expect( mockRequest.isDone() ).toBe( true ) );
+			await vi.waitFor( () => expect( mockRequest.isDone() ).toBe( true ) );
 
 			expect( saveUserData ).toHaveBeenCalled();
 			const savedData = vi.mocked( saveUserData ).mock.calls[ 0 ][ 0 ];

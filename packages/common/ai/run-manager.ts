@@ -11,6 +11,7 @@ import {
 } from '@studio/common/ai/sessions/placement';
 import { isDevRun } from '@studio/common/lib/dev-run';
 import { captureException } from '@studio/common/lib/error-reporting';
+import { updateSharedSession } from '@studio/common/lib/shared-config';
 import type { ActiveAgentRun, AgentRunEvent } from '@studio/common/ai/agent-events';
 import type { StudioChatFileAttachment } from '@studio/common/ai/chat-files';
 import type { StudioAiSessionInputPayload, StudioChatImage } from '@studio/common/ai/chat-images';
@@ -36,6 +37,7 @@ interface AgentRun {
 	interruptAttempts: number;
 	eventQueue: Promise< void >;
 	startedAt: number;
+	pendingQuestions: NonNullable< ActiveAgentRun[ 'pendingQuestions' ] >;
 }
 
 // Everything a run produces for the UI. The host maps each kind to its transport
@@ -51,8 +53,6 @@ export interface AgentRunManagerConfig {
 	// Node binary to fork with. Defaults to `process.execPath`. The desktop
 	// overrides this with its bundled Node (its own `execPath` is Electron).
 	nodeBinary?: string;
-	// Extra Node flags for the child; the agent runs Playground, so JSPI is on.
-	execArgv?: string[];
 	// Where run output goes. The host adapts this to its transport.
 	emit: ( output: RunManagerOutput ) => void;
 	// Telemetry surface, so desktop and `studio ui` stats stay distinct.
@@ -98,13 +98,7 @@ function writeInputPayloadFile( payload: StudioAiSessionInputPayload ): {
 }
 
 export function createAgentRunManager( config: AgentRunManagerConfig ): AgentRunManager {
-	const {
-		cliBinary,
-		nodeBinary,
-		execArgv = [ '--experimental-wasm-jspi' ],
-		surface,
-		getTracksOrigin,
-	} = config;
+	const { cliBinary, nodeBinary, surface, getTracksOrigin } = config;
 
 	// Two subprocesses resuming the same session id would race on the JSONL
 	// recorder, so we reject the second one here.
@@ -146,6 +140,9 @@ export function createAgentRunManager( config: AgentRunManagerConfig ): AgentRun
 				timestamp: nowIso(),
 				message: error instanceof Error ? error.message : 'Failed to update session placement',
 			} );
+		}
+		if ( event.type === 'question.asked' ) {
+			run.pendingQuestions.push( ...event.questions );
 		}
 		sendEvent( run, event );
 	}
@@ -202,7 +199,8 @@ export function createAgentRunManager( config: AgentRunManagerConfig ): AgentRun
 				? [ 'ignore', 'inherit', 'inherit', 'ipc' ]
 				: [ 'ignore', 'ignore', 'ignore', 'ipc' ],
 			execPath: nodeBinary,
-			execArgv,
+			// Don't inherit the host's own Node/V8 flags.
+			execArgv: [],
 			env: {
 				...process.env,
 				...( getTracksOrigin ? { STUDIO_TRACKS_ORIGIN: getTracksOrigin() } : {} ),
@@ -217,6 +215,7 @@ export function createAgentRunManager( config: AgentRunManagerConfig ): AgentRun
 			interruptAttempts: 0,
 			eventQueue: Promise.resolve(),
 			startedAt,
+			pendingQuestions: [],
 		};
 
 		runsBySessionId.set( sessionId, run );
@@ -251,7 +250,12 @@ export function createAgentRunManager( config: AgentRunManagerConfig ): AgentRun
 				} );
 			}
 
-			void run.eventQueue.finally( () => {
+			void run.eventQueue.finally( async () => {
+				// Opening the chat in any Studio app clears it. Written before
+				// `run.exited` so the refetch that event triggers sees it.
+				if ( ! run.interrupted ) {
+					await updateSharedSession( run.sessionId, { unread: true } ).catch( captureException );
+				}
 				if ( run.interrupted ) {
 					sendEvent( run, { type: 'run.interrupted', timestamp: nowIso() } );
 				}
@@ -284,6 +288,7 @@ export function createAgentRunManager( config: AgentRunManagerConfig ): AgentRun
 			sessionId: run.sessionId,
 			startedAt: run.startedAt,
 			phase: run.interrupted ? 'interrupting' : 'running',
+			pendingQuestions: run.pendingQuestions,
 		} ) );
 	}
 
@@ -330,6 +335,7 @@ export function createAgentRunManager( config: AgentRunManagerConfig ): AgentRun
 			return;
 		}
 		run.child.send( { type: 'answer', answers } );
+		run.pendingQuestions = [];
 	}
 
 	return { startAgentRun, listActiveAgentRuns, interruptAgentRun, answerAgentRun };

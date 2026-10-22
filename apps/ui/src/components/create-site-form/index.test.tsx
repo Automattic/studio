@@ -1,6 +1,7 @@
 import { DEFAULT_WORDPRESS_VERSION } from '@studio/common/constants';
 import { RecommendedPHPVersion } from '@studio/common/types/php-versions';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useConnector } from '@/data/core';
 import { usePathValidator } from '@/data/queries/use-create-site-helpers';
@@ -17,7 +18,9 @@ vi.mock( '@/data/core', async ( importOriginal ) => {
 
 vi.mock( '@/components/learn-more', () => ( {
 	LearnHowLink: () => null,
-	LearnMoreLink: () => null,
+	LearnMoreLink: ( { docsLinksKey }: { docsLinksKey: string } ) => (
+		<span data-testid={ `learn-more-${ docsLinksKey }` } />
+	),
 } ) );
 
 vi.mock( '@/data/queries/use-create-site-helpers', () => ( {
@@ -26,6 +29,11 @@ vi.mock( '@/data/queries/use-create-site-helpers', () => ( {
 
 vi.mock( '@/data/queries/use-sites', () => ( {
 	useSites: vi.fn(),
+} ) );
+
+vi.mock( '@/data/queries/use-certificate-trust', () => ( {
+	useCertificateTrust: () => ( { data: true } ),
+	useTrustCertificate: () => ( { mutate: vi.fn(), isPending: false } ),
 } ) );
 
 vi.mock( '@/data/queries/use-wordpress-versions', () => ( {
@@ -87,6 +95,11 @@ function openAdvancedSettings() {
 	fireEvent.click( screen.getByRole( 'button', { name: /Advanced settings/ } ) );
 }
 
+async function chooseOption( select: string, option: string | RegExp ) {
+	await userEvent.click( screen.getByRole( 'combobox', { name: select } ) );
+	await userEvent.click( await screen.findByRole( 'option', { name: option } ) );
+}
+
 describe( 'CreateSiteForm', () => {
 	beforeAll( () => {
 		Object.defineProperty( window, 'matchMedia', {
@@ -109,13 +122,8 @@ describe( 'CreateSiteForm', () => {
 		useConnectorMock.mockReturnValue( {
 			capabilities: {
 				nativeFolderPicker: false,
-				openInOS: false,
 				annotatePreview: false,
-				readLocalMedia: false,
-				agentInstructions: false,
-				aiSettings: false,
 				studioLogs: false,
-				switchToClassicUi: false,
 			},
 		} );
 		useSitesMock.mockReturnValue( { data: [] } );
@@ -150,7 +158,7 @@ describe( 'CreateSiteForm', () => {
 
 		expect( screen.getByLabelText( /Site name/ ) ).toHaveValue( 'My manual name' );
 		expect( screen.getByLabelText( 'WordPress version' ) ).toHaveValue( '6.8' );
-		expect( screen.getByLabelText( 'PHP version' ) ).toHaveValue( '8.3' );
+		expect( screen.getByRole( 'combobox', { name: 'PHP version' } ) ).toHaveTextContent( '8.3' );
 		expect( screen.getByLabelText( /Admin username/ ) ).toHaveValue( 'blueprint-admin' );
 	} );
 
@@ -170,21 +178,13 @@ describe( 'CreateSiteForm', () => {
 
 		rerenderWith( { name: 'Suggested site' } );
 		expect( screen.queryByText( '1 error found' ) ).not.toBeInTheDocument();
-		expect( screen.getByTestId( 'create-site-submit' ) ).toHaveAttribute(
-			'aria-disabled',
-			'false'
-		);
+		expect( screen.getByTestId( 'create-site-submit' ) ).toBeEnabled();
 
 		await act( async () => {
 			pending.resolve( { path: '/sites/suggested', isEmpty: true, isWordPress: false } );
 			await pending.promise;
 		} );
-		await waitFor( () =>
-			expect( screen.getByTestId( 'create-site-submit' ) ).toHaveAttribute(
-				'aria-disabled',
-				'false'
-			)
-		);
+		await waitFor( () => expect( screen.getByTestId( 'create-site-submit' ) ).toBeEnabled() );
 	} );
 
 	it( 'replaces previous suggestions and restores defaults without overwriting edits', async () => {
@@ -216,12 +216,14 @@ describe( 'CreateSiteForm', () => {
 		await waitFor( () =>
 			expect( screen.getByLabelText( 'Local path' ) ).toHaveValue( '/sites/Second Blueprint' )
 		);
-		expect( screen.getByLabelText( 'PHP version' ) ).toHaveValue( RecommendedPHPVersion );
+		expect( screen.getByRole( 'combobox', { name: 'PHP version' } ) ).toHaveTextContent(
+			RecommendedPHPVersion
+		);
 		expect( screen.getByLabelText( 'WordPress version' ) ).toHaveValue( DEFAULT_WORDPRESS_VERSION );
 		expect( screen.getByLabelText( /Admin username/ ) ).toHaveValue( 'manual-admin' );
 		expect( screen.getByLabelText( /Admin password/ ) ).toHaveValue( defaultPassword );
 		expect( screen.getByLabelText( /Admin email/ ) ).toHaveValue( 'second@example.com' );
-		expect( screen.getByRole( 'checkbox', { name: 'Use custom domain' } ) ).not.toBeChecked();
+		expect( screen.getByRole( 'switch', { name: 'Use custom domain' } ) ).not.toBeChecked();
 		expect( screen.queryByLabelText( 'Domain name' ) ).not.toBeInTheDocument();
 
 		rerenderWith( { name: 'Suggested site' } );
@@ -270,10 +272,7 @@ describe( 'CreateSiteForm', () => {
 		renderForm( { name: 'First' } );
 		await waitFor( () => expect( generateProposedPath ).toHaveBeenCalledWith( 'First' ) );
 		fireEvent.change( screen.getByLabelText( /Site name/ ), { target: { value: 'Second' } } );
-		expect( screen.getByTestId( 'create-site-submit' ) ).toHaveAttribute(
-			'aria-disabled',
-			'false'
-		);
+		expect( screen.getByTestId( 'create-site-submit' ) ).toBeEnabled();
 		await waitFor( () => expect( generateProposedPath ).toHaveBeenCalledWith( 'Second' ) );
 
 		await act( async () => {
@@ -337,10 +336,7 @@ describe( 'CreateSiteForm', () => {
 		fireEvent.change( screen.getByLabelText( /Site name/ ), {
 			target: { value: 'My site' },
 		} );
-		expect( screen.getByTestId( 'create-site-submit' ) ).toHaveAttribute(
-			'aria-disabled',
-			'false'
-		);
+		expect( screen.getByTestId( 'create-site-submit' ) ).toBeEnabled();
 
 		fireEvent.click( screen.getByTestId( 'create-site-submit' ) );
 		expect( onSubmit ).not.toHaveBeenCalled();
@@ -379,14 +375,29 @@ describe( 'CreateSiteForm', () => {
 		} );
 		expect( screen.getByLabelText( 'Local path' ) ).toHaveValue( '/sites/manual' );
 
-		await waitFor( () =>
-			expect( screen.getByTestId( 'create-site-submit' ) ).toHaveAttribute(
-				'aria-disabled',
-				'false'
-			)
-		);
+		await waitFor( () => expect( screen.getByTestId( 'create-site-submit' ) ).toBeEnabled() );
 		fireEvent.click( screen.getByTestId( 'create-site-submit' ) );
 		expect( onSubmit ).toHaveBeenCalledWith( expect.objectContaining( { path: '/sites/manual' } ) );
+	} );
+
+	it( 'offers file access choices without a PHP runtime choice', async () => {
+		const onSubmit = vi.fn();
+		renderForm( { name: 'Runtime' }, onSubmit );
+		openAdvancedSettings();
+		expect( screen.queryByRole( 'combobox', { name: /runtime/i } ) ).not.toBeInTheDocument();
+		expect( screen.getByRole( 'combobox', { name: 'File access' } ) ).toHaveTextContent(
+			'Site directory'
+		);
+		await chooseOption( 'File access', /^All files/ );
+
+		await waitFor( () =>
+			expect( screen.getByLabelText( 'Local path' ) ).toHaveValue( '/sites/Runtime' )
+		);
+		fireEvent.click( screen.getByTestId( 'create-site-submit' ) );
+		expect( onSubmit ).toHaveBeenCalledWith(
+			expect.objectContaining( { fileAccess: 'all-files' } )
+		);
+		expect( onSubmit.mock.calls[ 0 ][ 0 ] ).not.toHaveProperty( 'runtime' );
 	} );
 
 	it( 'surfaces path validation and generation errors without leaving the form pending', async () => {
@@ -402,7 +413,7 @@ describe( 'CreateSiteForm', () => {
 		const { unmount } = renderForm( { name: 'Taken' } );
 		openAdvancedSettings();
 		expect( await screen.findByText( 'That path is already in use.' ) ).toBeInTheDocument();
-		expect( screen.getByTestId( 'create-site-submit' ) ).toHaveAttribute( 'aria-disabled', 'true' );
+		expect( screen.getByTestId( 'create-site-submit' ) ).toBeDisabled();
 		unmount();
 
 		usePathValidatorMock.mockReturnValue( {
@@ -416,20 +427,15 @@ describe( 'CreateSiteForm', () => {
 		expect(
 			await screen.findByText( 'Unable to suggest a folder for this site name.' )
 		).toBeInTheDocument();
-		expect( screen.getByTestId( 'create-site-submit' ) ).toHaveAttribute( 'aria-disabled', 'true' );
+		expect( screen.getByTestId( 'create-site-submit' ) ).toBeDisabled();
 	} );
 
 	it( 'marks a focused folder picker invalid as soon as selection validation fails', async () => {
 		useConnectorMock.mockReturnValue( {
 			capabilities: {
 				nativeFolderPicker: true,
-				openInOS: false,
 				annotatePreview: false,
-				readLocalMedia: false,
-				agentInstructions: false,
-				aiSettings: false,
 				studioLogs: false,
-				switchToClassicUi: false,
 			},
 		} );
 		usePathValidatorMock.mockReturnValue( {
@@ -447,10 +453,14 @@ describe( 'CreateSiteForm', () => {
 		pathTrigger.focus();
 		fireEvent.click( pathTrigger );
 
-		const error = await screen.findByText( 'That path is already in use.' );
-		expect( error ).toHaveClass( 'components-validated-control__indicator', 'is-invalid' );
+		expect( await screen.findByRole( 'alert' ) ).toHaveTextContent(
+			'That path is already in use.'
+		);
 		expect( pathTrigger ).toHaveFocus();
-		expect( pathTrigger ).toHaveAttribute( 'aria-invalid', 'true' );
+		expect( screen.getByLabelText( 'Local path' ) ).toBeInvalid();
+		expect( screen.getByLabelText( 'Local path' ) ).toHaveAccessibleDescription(
+			'That path is already in use.'
+		);
 	} );
 
 	it( 'falls back to the default WordPress version when a suggestion is unsupported', async () => {
@@ -465,85 +475,83 @@ describe( 'CreateSiteForm', () => {
 
 		// Auto-update is the default, so no version is pinned.
 		await waitFor( () =>
-			expect( screen.getByRole( 'radio', { name: 'Automatic updates' } ) ).toBeChecked()
-		);
-	} );
-
-	// The site does not exist yet, so the description names the version it will
-	// be created with rather than claiming one is already in use.
-	it( 'names the version a new site will be created with', () => {
-		useWordPressVersionsMock.mockReturnValue( {
-			data: [
-				{ label: '6.8', value: 'latest', isBeta: false, isDevelopment: false },
-				{ label: '6.8', value: '6.8', isBeta: false, isDevelopment: false },
-			],
-		} );
-		renderForm( { name: 'New site' } );
-		openAdvancedSettings();
-
-		expect(
-			screen.getByRole( 'radio', { name: 'Automatic updates' } )
-		).toHaveAccessibleDescription(
-			'WordPress installs updates on its own schedule. Will install version 6.8.'
-		);
-	} );
-
-	// The version describes what the option would do, so it holds while the
-	// other mode is selected rather than blanking out.
-	it( 'keeps naming the version after switching to a pinned version', async () => {
-		useWordPressVersionsMock.mockReturnValue( {
-			data: [
-				{ label: '6.8', value: 'latest', isBeta: false, isDevelopment: false },
-				{ label: '6.8', value: '6.8', isBeta: false, isDevelopment: false },
-			],
-		} );
-		renderForm( { name: 'New site' } );
-		openAdvancedSettings();
-
-		fireEvent.click( screen.getByRole( 'radio', { name: 'Select a version' } ) );
-
-		await waitFor( () =>
-			expect(
-				screen.getByRole( 'radio', { name: 'Automatic updates' } )
-			).toHaveAccessibleDescription(
-				'WordPress installs updates on its own schedule. Will install version 6.8.'
+			expect( screen.getByRole( 'combobox', { name: 'WordPress version' } ) ).toHaveTextContent(
+				'Auto-update (6.8)'
 			)
 		);
 	} );
 
-	it( 'uses a stable select control for long WordPress version lists', () => {
+	it.each( [ '6.5', '6.5.5' ] )(
+		"pins a suggested %s to its branch's newest release",
+		async ( wpVersion ) => {
+			useWordPressVersionsMock.mockReturnValue( {
+				data: [
+					{ label: '6.8', value: 'latest', isBeta: false, isDevelopment: false },
+					{ label: '6.8.1', value: '6.8.1', isBeta: false, isDevelopment: false },
+					{ label: '6.5.13', value: '6.5.13', isBeta: false, isDevelopment: false },
+				],
+			} );
+			renderForm( { name: 'Old Blueprint', wpVersion } );
+			openAdvancedSettings();
+
+			await waitFor( () =>
+				expect( screen.getByRole( 'combobox', { name: 'WordPress version' } ) ).toHaveTextContent(
+					'6.5.13'
+				)
+			);
+		}
+	);
+
+	it( "says when a suggested WordPress version can't be installed", async () => {
 		useWordPressVersionsMock.mockReturnValue( {
 			data: [
-				{ label: 'latest', value: 'latest', isBeta: false, isDevelopment: false },
-				...Array.from( { length: 12 }, ( _, index ) => ( {
-					label: `6.${ index }`,
-					value: `6.${ index }`,
-					isBeta: false,
-					isDevelopment: false,
-				} ) ),
+				{ label: '6.8', value: 'latest', isBeta: false, isDevelopment: false },
+				{ label: '6.8.1', value: '6.8.1', isBeta: false, isDevelopment: false },
 			],
 		} );
-		renderForm( { name: 'Versioned site' } );
+		renderForm( { name: 'Old Blueprint', wpVersion: '5.9' } );
 		openAdvancedSettings();
-		expect( screen.getByLabelText( 'Version' ).tagName ).toBe( 'SELECT' );
+
+		expect(
+			await screen.findByText(
+				"This Blueprint asks for WordPress 5.9, which Studio can't install."
+			)
+		).toBeVisible();
+		expect( screen.getByRole( 'combobox', { name: 'WordPress version' } ) ).toHaveTextContent(
+			'Auto-update (6.8)'
+		);
 	} );
 
-	it( 'pins to the newest stable release when automatic updates are turned off', () => {
+	// The site does not exist yet, so the description names the version it will
+	// be created with rather than claiming one is already in use; it describes
+	// the option, so it holds while a pinned version is selected.
+	it( 'names the version a new site will be created with', async () => {
 		useWordPressVersionsMock.mockReturnValue( {
 			data: [
 				{ label: '6.9', value: 'latest', isBeta: false, isDevelopment: false },
 				{ label: '7.0-beta1', value: '7.0-beta1', isBeta: true, isDevelopment: false },
 				{ label: '6.9', value: '6.9', isBeta: false, isDevelopment: false },
-				{ label: '6.8', value: '6.8', isBeta: false, isDevelopment: false },
 			],
 		} );
-		renderForm( { name: 'Pinned site' } );
+		const onSubmit = vi.fn();
+		renderForm( { name: 'New site' }, onSubmit );
 		openAdvancedSettings();
-		fireEvent.click( screen.getByRole( 'radio', { name: 'Select a version' } ) );
 
-		// The list is newest-first, so the first stable entry is the newest one —
-		// a prerelease would be a surprising default for a new site.
-		expect( screen.getByLabelText( 'Version' ) ).toHaveValue( '6.9' );
+		await chooseOption( 'WordPress version', '7.0-beta1' );
+		await userEvent.click( screen.getByRole( 'combobox', { name: 'WordPress version' } ) );
+		expect(
+			await screen.findByRole( 'option', { name: /Auto-update \(6\.9\)/ } )
+		).toHaveTextContent(
+			'WordPress installs updates on its own schedule. Will install version 6.9.'
+		);
+		expect( screen.getByRole( 'group', { name: 'Beta & Nightly' } ) ).toBeInTheDocument();
+		await userEvent.keyboard( '{Escape}' );
+
+		await waitFor( () => expect( screen.getByTestId( 'create-site-submit' ) ).toBeEnabled() );
+		fireEvent.click( screen.getByTestId( 'create-site-submit' ) );
+		expect( onSubmit ).toHaveBeenCalledWith(
+			expect.objectContaining( { wpVersion: '7.0-beta1' } )
+		);
 	} );
 
 	it( 'locks the WordPress version to a disabled "latest" select while offline', async () => {
@@ -551,10 +559,9 @@ describe( 'CreateSiteForm', () => {
 		renderForm( { name: 'Offline site', wpVersion: '6.7' } );
 		openAdvancedSettings();
 
-		const select = screen.getByLabelText( 'WordPress version' );
-		expect( select.tagName ).toBe( 'SELECT' );
+		const select = screen.getByRole( 'combobox', { name: 'WordPress version' } );
 		expect( select ).toBeDisabled();
-		await waitFor( () => expect( select ).toHaveValue( DEFAULT_WORDPRESS_VERSION ) );
+		await waitFor( () => expect( select ).toHaveTextContent( 'Auto-update' ) );
 
 		const trigger = select.closest( 'div[style*="pointer-events"]' )?.parentElement as HTMLElement;
 		fireEvent.mouseEnter( trigger );
@@ -569,15 +576,32 @@ describe( 'CreateSiteForm', () => {
 		).toBeVisible();
 	} );
 
+	it( 'requires a site name once it has been edited', () => {
+		renderForm( { name: 'Named site' } );
+		expect( screen.queryByText( 'Site name is required.' ) ).not.toBeInTheDocument();
+
+		fireEvent.change( screen.getByLabelText( /Site name/ ), { target: { value: ' ' } } );
+		expect( screen.getByLabelText( /Site name/ ) ).toHaveAccessibleDescription(
+			'Site name is required.'
+		);
+		expect( screen.getByTestId( 'create-site-submit' ) ).toBeDisabled();
+	} );
+
+	it( 'counts errors in the collapsed advanced settings', async () => {
+		renderForm( { name: 'Site', adminEmail: 'not-an-email' } );
+
+		expect( screen.getByText( '1 error found' ) ).toBeInTheDocument();
+		expect( screen.getByTestId( 'create-site-submit' ) ).toBeDisabled();
+		openAdvancedSettings();
+		expect( screen.getByLabelText( /Admin email/ ) ).toHaveAccessibleDescription(
+			'Please enter a valid email address.'
+		);
+	} );
+
 	it( 'supports an external submission gate', async () => {
 		renderForm( { name: 'Blocked site' }, vi.fn(), true );
 
-		await waitFor( () =>
-			expect( screen.getByTestId( 'create-site-submit' ) ).toHaveAttribute(
-				'aria-disabled',
-				'true'
-			)
-		);
+		await waitFor( () => expect( screen.getByTestId( 'create-site-submit' ) ).toBeDisabled() );
 	} );
 
 	it( 'shows an actionable submission error with optional technical details', () => {

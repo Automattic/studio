@@ -1,9 +1,9 @@
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { readUserPreferences } from '@studio/common/lib/user-settings/user-preferences';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { startLocalServer, type LocalServer } from '../index';
-import { readUserPreferences } from '../user-preferences';
 import type { InstalledApps } from '@studio/common/lib/user-settings/installed-apps';
 
 // Driven over HTTP: the request validation and the `null`-clears-a-preference
@@ -168,5 +168,32 @@ describe( 'POST /api/sites/sort-order', () => {
 
 	it( 'rejects a malformed payload', async () => {
 		await expect( postSortOrder( { updates: 'nope' } ) ).resolves.toMatchObject( { status: 400 } );
+	} );
+} );
+
+describe( '/api/onboarding-hints', () => {
+	it( 'merges a patch into the progress the desktop stored', async () => {
+		writeAppConfig( { onboardingHints: { tourCompletedVersion: 1, migratedFromClassic: true } } );
+
+		const response = await fetch( `${ server.url }/api/onboarding-hints`, {
+			method: 'PATCH',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify( { tourCompletedVersion: 2 } ),
+		} );
+
+		expect( response.status ).toBe( 204 );
+		const hints = await ( await fetch( `${ server.url }/api/onboarding-hints` ) ).json();
+		expect( hints ).toEqual( { tourCompletedVersion: 2, migratedFromClassic: true } );
+	} );
+} );
+
+describe( 'GET /api/site-defaults/path', () => {
+	it( "proposes new sites under the desktop's default site directory", async () => {
+		const siteDirectory = path.join( configDir, 'Sites' );
+		writeAppConfig( { defaultSiteDirectory: siteDirectory } );
+
+		const response = await fetch( `${ server.url }/api/site-defaults/path?name=My%20Site` );
+
+		expect( ( await response.json() ).path ).toBe( path.join( siteDirectory, 'my-site' ) );
 	} );
 } );

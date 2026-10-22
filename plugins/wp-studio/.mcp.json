@@ -1,0 +1,21 @@
+{
+  "mcpServers": {
+    "wordpress-studio": {
+      "command": "./scripts/launch-mcp",
+      "cwd": ".",
+      "env_vars": [
+        "HOME",
+        "PATH",
+        "SHELL",
+        "STUDIO_CLI_BIN",
+        "STUDIO_NODE",
+        "CODEX_MCP_NODE_PATH"
+      ],
+      "startup_timeout_sec": 600,
+      "tool_timeout_sec": 3600,
+      "env": {
+        "STUDIO_PLUGIN_ID": "wp-studio@studio"
+      }
+    }
+  }
+}

@@ -36,7 +36,7 @@
 }
 
 .rootWithImage {
-	background: var(--wpds-color-background-surface-neutral, transparent);
+	background: var(--chat);
 	border: 0;
 	box-shadow: none;
 }

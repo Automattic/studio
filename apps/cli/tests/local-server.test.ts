@@ -14,24 +14,21 @@ import type { LocalServer } from '../../local/src/index';
 const mocks = vi.hoisted( () => ( {
 	execute: vi.fn(),
 	killAll: vi.fn(),
-	measureSiteStorage: vi.fn(),
 	readSitePath: vi.fn(),
 	readAiSettings: vi.fn(),
 	saveAnthropicApiKey: vi.fn(),
 	setAiProvider: vi.fn(),
 } ) );
 
-vi.mock( '@studio/common/lib/cli-process', () => ( {
-	killChild: vi.fn(),
+vi.mock( '@studio/common/lib/cli-process', async ( importOriginal ) => ( {
+	...( await importOriginal< typeof import('@studio/common/lib/cli-process') >() ),
+	killChild: vi.fn( ( child: { kill: () => void } ) => child.kill() ),
 	createCliRunner: vi.fn( () => ( {
 		executeCliCommand: mocks.execute,
 		killAll: mocks.killAll,
 	} ) ),
 } ) );
 vi.mock( '@studio/common/sites/list', () => ( { listSites: vi.fn() } ) );
-vi.mock( '@studio/common/sites/storage-usage', () => ( {
-	measureSiteStorage: mocks.measureSiteStorage,
-} ) );
 vi.mock( '@studio/common/sites/site-path', () => ( { readSitePath: mocks.readSitePath } ) );
 vi.mock( '@studio/common/ai/settings-store', async ( importOriginal ) => ( {
 	...( await importOriginal< typeof import('@studio/common/ai/settings-store') >() ),
@@ -48,11 +45,7 @@ vi.mock( '@studio/common/ai/run-manager', () => ( {
 	} ) ),
 } ) );
 vi.mock( '@studio/common/sites/snapshots', () => ( {
-	createSnapshotManager: vi.fn( () => ( {
-		createSnapshot: vi.fn(),
-		updateSnapshot: vi.fn(),
-		deleteSnapshot: vi.fn(),
-	} ) ),
+	publishPreviewSite: vi.fn(),
 	fetchSnapshots: vi.fn( async () => [] ),
 } ) );
 
@@ -80,14 +73,6 @@ describe( 'local web server Connect contracts', () => {
 		mocks.readSitePath.mockImplementation( async ( siteId: string ) =>
 			siteId === 'local-a' ? '/sites/local-a' : null
 		);
-		mocks.measureSiteStorage.mockResolvedValue( {
-			total: 800,
-			uploads: 400,
-			plugins: 200,
-			themes: 100,
-			database: 50,
-			other: 50,
-		} );
 		mocks.execute.mockImplementation( () => {
 			const emitter = new EventEmitter();
 			queueMicrotask( () => emitter.emit( 'success' ) );
@@ -115,36 +100,6 @@ describe( 'local web server Connect contracts', () => {
 			port: 0,
 			host: '127.0.0.1',
 		} );
-	} );
-
-	it( 'reports a local site storage breakdown', async () => {
-		const response = await fetch(
-			`${ server.url.replace( 'localhost', '127.0.0.1' ) }/api/sites/local-a/storage`
-		);
-
-		expect( response.status ).toBe( 200 );
-		await expect( response.json() ).resolves.toEqual( {
-			total: 800,
-			uploads: 400,
-			plugins: 200,
-			themes: 100,
-			database: 50,
-			other: 50,
-		} );
-		expect( mocks.measureSiteStorage ).toHaveBeenCalledWith( '/sites/local-a', {
-			signal: expect.any( AbortSignal ),
-		} );
-		// The UI asks for this on every site switch, so it must not cost a CLI fork.
-		expect( listSites ).not.toHaveBeenCalled();
-	} );
-
-	it( '404s a storage request for a site that is not in the config', async () => {
-		const response = await fetch(
-			`${ server.url.replace( 'localhost', '127.0.0.1' ) }/api/sites/missing/storage`
-		);
-
-		expect( response.status ).toBe( 404 );
-		expect( mocks.measureSiteStorage ).not.toHaveBeenCalled();
 	} );
 
 	afterEach( async () => {
@@ -345,17 +300,27 @@ describe( 'local web server Connect contracts', () => {
 	it( 'creates the Connect shell with --no-start', async () => {
 		const siteId = '00000000-0000-4000-8000-000000000001';
 		const randomUuid = vi.spyOn( crypto, 'randomUUID' ).mockReturnValue( siteId as never );
-		vi.mocked( listSites ).mockResolvedValueOnce( [
-			{
-				id: siteId,
-				name: 'Remote site',
-				path: '/sites/remote-site',
-				port: 8882,
-				url: 'http://localhost:8882',
-				phpVersion: '8.4',
-				running: false,
-			},
-		] );
+		mocks.execute.mockImplementationOnce( () => {
+			const emitter = new EventEmitter();
+			queueMicrotask( () => {
+				emitter.emit( 'data', {
+					data: {
+						action: 'result',
+						value: {
+							id: siteId,
+							name: 'Remote site',
+							path: '/sites/remote-site',
+							port: 8882,
+							url: 'http://localhost:8882',
+							phpVersion: '8.4',
+							running: false,
+						},
+					},
+				} );
+				emitter.emit( 'success' );
+			} );
+			return [ emitter, {} ];
+		} );
 
 		try {
 			const response = await fetch(
@@ -372,44 +337,34 @@ describe( 'local web server Connect contracts', () => {
 			);
 
 			expect( response.status ).toBe( 200 );
-			expect( mocks.execute.mock.calls[ 0 ][ 0 ] ).toContain( '--no-start' );
+			expect( mocks.execute.mock.calls.some( ( [ args ] ) => args.includes( '--no-start' ) ) ).toBe(
+				true
+			);
 		} finally {
 			randomUuid.mockRestore();
 		}
 	} );
 
-	it( 'streams CLI pull progress over the local event channel', async () => {
-		mocks.execute.mockImplementationOnce( () => {
-			const emitter = new EventEmitter();
-			queueMicrotask( () => {
-				emitter.emit( 'data', {
-					data: {
-						status: 'inprogress',
-						message: 'Creating remote backup… (18%)',
-					},
-				} );
-				emitter.emit( 'success' );
-			} );
-			return [ emitter, {} ];
-		} );
+	it( 'streams the sync activity the CLI publishes', async () => {
+		const eventsCall = mocks.execute.mock.calls.findIndex(
+			( [ args ] ) => args[ 0 ] === '_events'
+		);
+		const [ cliEvents ] = mocks.execute.mock.results[ eventsCall ].value;
 		const baseUrl = server.url.replace( 'localhost', '127.0.0.1' );
 		const eventsResponse = await fetch( `${ baseUrl }/api/events` );
 		const reader = eventsResponse.body!.getReader();
 		await reader.read();
 
-		const response = await fetch( `${ baseUrl }/api/sites/local-a/pull`, {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify( { remoteSiteId: 42 } ),
+		const event = { siteId: 'local-a', activity: { kind: 'pending', direction: 'pull' } };
+		cliEvents.emit( 'data', {
+			data: { action: 'keyValuePair', key: 'sync-event', value: JSON.stringify( event ) },
 		} );
 		const eventChunk = new TextDecoder().decode( ( await reader.read() ).value );
 		await reader.cancel();
 
-		expect( response.status ).toBe( 200 );
-		await expect( response.json() ).resolves.toEqual( { cancelled: false } );
-		expect( eventChunk ).toContain( '"channel":"sync-pull"' );
-		expect( eventChunk ).toContain( '"siteId":"local-a"' );
-		expect( eventChunk ).toContain( 'Creating remote backup… (18%)' );
+		expect( eventChunk ).toContain(
+			JSON.stringify( { channel: 'sync-activity', payload: event } )
+		);
 	} );
 
 	// A user cancel is reported as an outcome, not a 500 — the browser connector
@@ -425,7 +380,9 @@ describe( 'local web server Connect contracts', () => {
 		mocks.execute.mockImplementationOnce( () => {
 			const emitter = new EventEmitter();
 			queueMicrotask( pullStarted );
-			return [ emitter, { kill: () => undefined } ];
+			// Exits when asked to stop, as a pull still safe to cancel does.
+			const kill = () => emitter.emit( 'failure', { error: new Error( 'exited' ) } );
+			return [ emitter, { kill } ];
 		} );
 		const baseUrl = server.url.replace( 'localhost', '127.0.0.1' );
 

@@ -1,7 +1,8 @@
+import { DESIGN_SYSTEM_PREVIEW_PATH } from '@studio/common/ai/chat-artifacts';
 import { act, renderHook } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { useConnector } from '@/data/core';
-import { SessionUIProvider, useSessionPreviewUI } from './use-session-ui';
+import { SessionUIProvider, useSessionPreviewUI, useSessionUIDispatch } from './use-session-ui';
 import type { Connector } from '@/data/core';
 import type { ReactNode } from 'react';
 
@@ -57,5 +58,38 @@ describe( 'useSessionPreviewUI site switching', () => {
 
 		act( () => result.current.setSite( 'site-a' ) );
 		expect( result.current.path ).toBe( '/contact' );
+	} );
+} );
+
+describe( 'useSessionPreviewUI agent reloads', () => {
+	function renderPreview() {
+		return renderHook(
+			() => ( { preview: useSessionPreviewUI(), dispatch: useSessionUIDispatch() } ),
+			{ wrapper }
+		);
+	}
+
+	it( 'reloads the current page in place, without opening a closed panel', () => {
+		const { result } = renderPreview();
+		act( () => result.current.preview.setSite( 'site-a' ) );
+		act( () => result.current.preview.updatePath( DESIGN_SYSTEM_PREVIEW_PATH ) );
+		act( () => result.current.preview.setOpen( false ) );
+		const before = result.current.preview.reloadNonce;
+
+		act( () => result.current.dispatch( { type: 'preview/reload' } ) );
+		expect( result.current.preview.reloadNonce ).toBe( before + 1 );
+		expect( result.current.preview.path ).toBe( DESIGN_SYSTEM_PREVIEW_PATH );
+		expect( result.current.preview.open ).toBe( false );
+	} );
+
+	it( 'leaves wp-admin alone', () => {
+		const { result } = renderPreview();
+		act( () => result.current.preview.setSite( 'site-a' ) );
+		const before = result.current.preview.reloadNonce;
+		for ( const path of [ '/wp-admin', '/wp-admin/post.php?post=1&action=edit' ] ) {
+			act( () => result.current.preview.updatePath( path ) );
+			act( () => result.current.dispatch( { type: 'preview/reload' } ) );
+		}
+		expect( result.current.preview.reloadNonce ).toBe( before );
 	} );
 } );

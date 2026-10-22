@@ -1,10 +1,9 @@
 /* Cells own their spacing (no gap); the container's negative margin cancels
-   the first cell's share. Mirrors the toast stack (see
-   app-toasts/style.module.css). */
+   the first cell's share. */
 .stack {
 	display: flex;
 	flex-direction: column;
-	margin-top: calc(-1 * var(--wpds-dimension-gap-sm));
+	margin-top: calc(-1 * 8px);
 }
 
 /* Collapsible row, same treatment as the toasts: @starting-style animates
@@ -13,7 +12,7 @@
 .cell {
 	display: grid;
 	grid-template-rows: 1fr;
-	margin-top: var(--wpds-dimension-gap-sm);
+	margin-top: 8px;
 	transition:
 		grid-template-rows 180ms ease,
 		margin-top 180ms ease;
@@ -34,14 +33,45 @@
 	overflow-clip-margin: 12px;
 }
 
-/* Layered on top of the toasts' `notice` class (applied together in the
-   component); a touch more block padding since cards carry a title +
-   description + action. */
 .card {
-	padding-block: var(--wpds-dimension-padding-sm);
-	/* Same entrance the ephemeral toasts use (toast-enter in app-toasts) so
-	   cards and toasts read as one system. */
+	width: 100%;
+	box-sizing: border-box;
+	text-wrap: pretty;
+	font-variant-numeric: tabular-nums;
+	box-shadow:
+		0 1px 2px 0 rgba(0, 0, 0, 0.06), 0 3px 6px 0 rgba(0, 0, 0, 0.05), 0 6px 8px 0 rgba(0, 0, 0, 0.03);
+	padding-block: 8px;
+	padding-inline: 8px;
+	border-radius: 6px;
 	animation: card-enter 160ms ease-out;
+}
+
+.title {
+	align-self: center;
+	font-size: var(--text-xs);
+	font-weight: var(--font-weight-semibold);
+	line-height: 16px;
+}
+
+.close {
+	margin-block: -2px;
+}
+
+.description {
+	grid-column: 1 / -1;
+	display: -webkit-box;
+	-webkit-box-orient: vertical;
+	-webkit-line-clamp: 3;
+	overflow: hidden;
+	color: inherit;
+	font-size: 11px;
+	line-height: 16px;
+}
+
+/* Translucent, so it reads on any notice intent's background. */
+.action {
+	--button-background: var(--border);
+	--button-hover-background: color-mix(in srgb, var(--foreground) 16%, transparent);
 }
 
 @keyframes card-enter {
@@ -73,6 +103,6 @@
 	width: 6px;
 	height: 6px;
 	border-radius: 50%;
-	background-color: var(--wpds-color-foreground-interactive-brand);
+	background-color: var(--accent-text);
 	pointer-events: none;
 }

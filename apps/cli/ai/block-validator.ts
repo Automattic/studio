@@ -72,6 +72,18 @@ export async function validateBlocks(
 				};
 			}
 
+			// Block validation logs console-style messages: a format string whose
+			// %s / %o / %d placeholders take the arguments that follow it.
+			function formatIssue( args: any[] ): string {
+				const show = ( value: any ) =>
+					typeof value === 'object' ? JSON.stringify( value ) : String( value );
+				const rest = args.slice( 1 );
+				const text = String( args[ 0 ] ?? '' ).replace( /%[sodif]/g, ( placeholder ) =>
+					rest.length ? show( rest.shift() ) : placeholder
+				);
+				return [ text, ...rest.map( show ) ].join( ' ' ).slice( 0, 600 );
+			}
+
 			function extractIssues( validationIssues: any[] ): string[] {
 				const issues: string[] = [];
 				for ( const issue of validationIssues ) {
@@ -80,15 +92,7 @@ export async function validateBlocks(
 						// Skip the verbose "Block validation failed for `name`" summary —
 						// the per-attribute messages that follow are more useful.
 						if ( ! msg.startsWith( 'Block validation failed' ) ) {
-							issues.push(
-								issue.args
-									.map( ( a: any ) =>
-										typeof a === 'object'
-											? JSON.stringify( a ).slice( 0, 200 )
-											: String( a ).slice( 0, 500 )
-									)
-									.join( ' ' )
-							);
+							issues.push( formatIssue( issue.args ) );
 						}
 					}
 				}

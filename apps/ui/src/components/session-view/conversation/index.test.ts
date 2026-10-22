@@ -10,7 +10,13 @@ import type { StudioChatArtifactWidgetDraft } from '@studio/common/ai/chat-artif
 const connectorMocks = vi.hoisted( () => ( {
 	readLocalMediaFile: vi.fn(),
 	copyText: vi.fn( () => Promise.resolve() ),
-	capabilities: { readLocalMedia: true },
+} ) );
+
+const reducedMotion = vi.hoisted( () => ( { value: false } ) );
+
+vi.mock( '@wordpress/compose', async ( importOriginal ) => ( {
+	...( await importOriginal< typeof import('@wordpress/compose') >() ),
+	useReducedMotion: () => reducedMotion.value,
 } ) );
 
 vi.mock( '@/components/markdown', () => ( {
@@ -21,17 +27,6 @@ vi.mock( '@/data/core', () => ( {
 	useConnector: () => connectorMocks,
 } ) );
 
-vi.mock( '@wordpress/ui', () => ( {
-	Button: ( props: Record< string, unknown > ) => createElement( 'button', props ),
-	Icon: () => null,
-	Tooltip: {
-		Root: ( { children }: { children?: unknown } ) => children,
-		Trigger: ( { render: trigger }: { render?: unknown } ) => trigger,
-		Popup: () => null,
-		Positioner: () => null,
-	},
-} ) );
-
 vi.mock( '../thinking-indicator', () => ( {
 	ThinkingIndicator: () => null,
 } ) );
@@ -39,7 +34,6 @@ vi.mock( '../thinking-indicator', () => ( {
 beforeEach( () => {
 	connectorMocks.readLocalMediaFile.mockReset();
 	connectorMocks.copyText.mockReset();
-	connectorMocks.capabilities.readLocalMedia = true;
 } );
 
 describe( 'Assistant message copy button', () => {
@@ -276,6 +270,40 @@ describe( 'Conversation chat artifacts', () => {
 		expect( await screen.findByRole( 'status' ) ).toHaveTextContent( 'Image unavailable' );
 	} );
 
+	it( 'shows each annotation with its own images, and the rest on the first bubble', () => {
+		const image = ( id: string ) => ( {
+			kind: 'image' as const,
+			id,
+			name: `${ id }.png`,
+			mimeType: 'image/png' as const,
+			size: 1,
+		} );
+		const entry = {
+			type: 'custom',
+			id: 'annotated-prompt',
+			parentId: null,
+			timestamp: '2026-06-05T12:00:02.000Z',
+			customType: 'studio.user_prompt',
+			data: {
+				text: 'Also check spacing',
+				source: 'prompt',
+				attachments: [ image( 'own' ), image( 'note' ), { kind: 'file', name: 'brief.md' } ],
+				visualAnnotations: [
+					{ comment: 'Also check spacing', imageIds: [ 'own' ] },
+					{ comment: 'Use this photo', tag: 'img', imageIds: [ 'note' ] },
+				],
+			},
+		} as unknown as SessionEntry;
+
+		expect(
+			entriesToRenderItems( [ entry ] ).map( ( item ) =>
+				item.kind === 'user-text'
+					? item.attachments?.map( ( attachment ) => attachment.name )
+					: null
+			)
+		).toEqual( [ [ 'own.png', 'brief.md' ], [ 'note.png' ] ] );
+	} );
+
 	it( 'skips malformed chat artifact entries without crashing', () => {
 		const malformed = [
 			{ version: 1, id: 'artifact-1' }, // missing widgets
@@ -294,25 +322,6 @@ describe( 'Conversation chat artifacts', () => {
 
 			expect( entriesToRenderItems( [ entry ] ) ).toEqual( [] );
 		}
-	} );
-
-	it( 'drops local-only media widgets when the connector cannot read local files', () => {
-		const localOnly = chatArtifactEntry( [ localScreenshotWidget() ] );
-		const remote = chatArtifactEntry( [
-			{
-				type: 'media',
-				widgetProps: {
-					url: 'https://example.com/capture.jpg',
-					mediaKind: 'image',
-					alt: 'Remote capture',
-					mediaId: null,
-				},
-			},
-		] );
-
-		expect( entriesToRenderItems( [ localOnly ], { canReadLocalMedia: false } ) ).toEqual( [] );
-		expect( entriesToRenderItems( [ remote ], { canReadLocalMedia: false } ) ).toHaveLength( 1 );
-		expect( entriesToRenderItems( [ localOnly ], { canReadLocalMedia: true } ) ).toHaveLength( 1 );
 	} );
 } );
 
@@ -567,7 +576,7 @@ describe( 'Conversation Ask User questions', () => {
 
 	it( 'skips delayed choreography and smooth scrolling for reduced motion', async () => {
 		vi.useFakeTimers();
-		const restoreMatchMedia = mockPrefersReducedMotion( true );
+		reducedMotion.value = true;
 		const scrollBy = vi.fn();
 		const originalScrollBy = window.scrollBy;
 		const originalGetBoundingClientRect = HTMLElement.prototype.getBoundingClientRect;
@@ -608,7 +617,7 @@ describe( 'Conversation Ask User questions', () => {
 		} finally {
 			window.scrollBy = originalScrollBy;
 			HTMLElement.prototype.getBoundingClientRect = originalGetBoundingClientRect;
-			restoreMatchMedia();
+			reducedMotion.value = false;
 			vi.useRealTimers();
 		}
 	} );
@@ -838,6 +847,34 @@ describe( 'Conversation turn-closed markers', () => {
 	} );
 } );
 
+describe( 'Conversation reasoning', () => {
+	it( 'renders a thinking block as its own row', () => {
+		const items = entriesToRenderItems( [
+			assistantThinkingEntry( 'Weighing the options', 'Done' ),
+		] );
+		expect( items.map( ( item ) => item.kind ) ).toEqual( [ 'thinking', 'assistant-text' ] );
+		expect( items[ 0 ] ).toMatchObject( { kind: 'thinking', text: 'Weighing the options' } );
+	} );
+
+	it( 'drops an empty thinking block', () => {
+		// Some endpoints emit an empty reasoning block; an empty disclosure
+		// row is just noise.
+		const items = entriesToRenderItems( [ assistantThinkingEntry( '   ', 'Done' ) ] );
+		expect( items.map( ( item ) => item.kind ) ).toEqual( [ 'assistant-text' ] );
+	} );
+
+	it( 'keeps the reasoning collapsed until asked for', () => {
+		renderConversation(
+			loadedSession( [ assistantThinkingEntry( 'Weighing the options', 'Done' ) ] )
+		);
+		const summary = screen.getByText( 'Thought process' );
+		expect( summary.closest( 'details' ) ).not.toHaveAttribute( 'open' );
+		fireEvent.click( summary );
+		expect( summary.closest( 'details' ) ).toHaveAttribute( 'open' );
+		expect( screen.getByText( 'Weighing the options' ) ).toBeInTheDocument();
+	} );
+} );
+
 describe( 'getQuestionScrollDelta', () => {
 	// The scroller spans the full column, so its bottom sits *under* the
 	// floating composer. `reservedBottomSpace` is the scroller padding holding
@@ -1014,6 +1051,23 @@ function loadedSession( entries: SessionEntry[] ): LoadedAiSession {
 	};
 }
 
+function assistantThinkingEntry( thinking: string, text?: string ): SessionEntry {
+	return {
+		type: 'message',
+		id: `assistant-thinking-${ thinking.length }`,
+		parentId: null,
+		timestamp: '2026-06-05T12:00:00.000Z',
+		message: {
+			role: 'assistant',
+			content: [
+				// Reasoning arrives in `thinking`, never in `text`.
+				{ type: 'thinking', thinking },
+				...( text ? [ { type: 'text', text } ] : [] ),
+			],
+		},
+	} as unknown as SessionEntry;
+}
+
 function assistantToolCallEntry(
 	name: string,
 	args: Record< string, unknown > = {}
@@ -1100,30 +1154,4 @@ function askUserAnswerEntry( id: string, text: string ): SessionEntry {
 			source: 'ask_user',
 		},
 	} as SessionEntry;
-}
-
-function mockPrefersReducedMotion( matches: boolean ) {
-	const originalMatchMedia = window.matchMedia;
-	const mutableWindow = window as unknown as { matchMedia?: typeof window.matchMedia };
-	mutableWindow.matchMedia = vi.fn(
-		( query: string ) =>
-			( {
-				matches: query === '(prefers-reduced-motion: reduce)' ? matches : false,
-				media: query,
-				onchange: null,
-				addEventListener: vi.fn(),
-				removeEventListener: vi.fn(),
-				addListener: vi.fn(),
-				removeListener: vi.fn(),
-				dispatchEvent: vi.fn(),
-			} ) as unknown as MediaQueryList
-	);
-
-	return () => {
-		if ( originalMatchMedia ) {
-			mutableWindow.matchMedia = originalMatchMedia;
-			return;
-		}
-		delete mutableWindow.matchMedia;
-	};
 }

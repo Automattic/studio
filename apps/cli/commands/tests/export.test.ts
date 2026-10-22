@@ -6,6 +6,7 @@ import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { ImportExportEventEmitter } from 'cli/lib/import-export/events';
 import { getExporter } from 'cli/lib/import-export/export/export-manager';
+import { withSiteOperation } from 'cli/lib/site-operations';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { Logger, LoggerError } from 'cli/logger';
@@ -36,6 +37,10 @@ vi.mock( 'cli/lib/tracks', async ( importActual ) => {
 	const actual = await importActual< typeof import('cli/lib/tracks') >();
 	return { ...actual, recordTracksEvent: vi.fn() };
 } );
+
+vi.mock( 'cli/lib/site-operations', () => ( {
+	withSiteOperation: vi.fn( ( _folder: string, _kind: string, fn: () => unknown ) => fn() ),
+} ) );
 
 describe( 'CLI: studio export', () => {
 	const testSitePath = '/test/site';
@@ -101,6 +106,11 @@ describe( 'CLI: studio export', () => {
 			splitDatabaseDumpByTable: false,
 			ignoreFilter: undefined,
 		} );
+		expect( withSiteOperation ).toHaveBeenCalledWith(
+			testSitePath,
+			'export',
+			expect.any( Function )
+		);
 		expect( disconnectFromDaemon ).toHaveBeenCalled();
 	} );
 

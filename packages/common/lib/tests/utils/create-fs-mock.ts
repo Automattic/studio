@@ -2,17 +2,20 @@
 
 import { fs as memfsFs } from 'memfs';
 
+// Explicit so the inferred return type doesn't reference Vitest's internal `Procedure` type.
+type UntypedFn = ( ...args: any[] ) => unknown;
+
 type NormalizePath = ( p: string | Uint8Array | URL ) => string;
 
 const identity: NormalizePath = ( p ) => ( typeof p === 'string' ? p : String( p ) );
 
 export function createFsMock( normalizePath: NormalizePath = identity ) {
-	const createReadStream = vi.fn();
-	const createWriteStream = vi.fn();
+	const createReadStream = vi.fn< UntypedFn >();
+	const createWriteStream = vi.fn< UntypedFn >();
 
 	const existsSync = vi.fn( ( path: string ) => memfsFs.existsSync( normalizePath( path ) ) );
 
-	const mkdirSync = vi.fn();
+	const mkdirSync = vi.fn< UntypedFn >();
 
 	const readFileSync = vi.fn(
 		( path: string, options?: Parameters< typeof memfsFs.readFileSync >[ 1 ] ) =>
@@ -26,21 +29,21 @@ export function createFsMock( normalizePath: NormalizePath = identity ) {
 
 	const statSync = vi.fn( ( path: string ) => memfsFs.statSync( path ) );
 
-	const unlinkSync = vi.fn();
+	const unlinkSync = vi.fn< UntypedFn >();
 
 	const watch = vi.fn( ( ...args: Parameters< typeof memfsFs.watch > ) =>
 		memfsFs.watch( ...args )
 	);
 
-	const writeFileSync = vi.fn();
+	const writeFileSync = vi.fn< UntypedFn >();
 
 	const promises = {
-		cp: vi.fn(),
+		cp: vi.fn< UntypedFn >(),
 		copyFile: vi.fn( async ( src: string, dest: string ) =>
 			memfsFs.promises.copyFile( src, dest )
 		),
-		mkdir: vi.fn(),
-		mkdtemp: vi.fn(),
+		mkdir: vi.fn< UntypedFn >(),
+		mkdtemp: vi.fn< UntypedFn >(),
 		readdir: vi.fn( ( ...args: Parameters< typeof memfsFs.promises.readdir > ) =>
 			memfsFs.promises.readdir( ...args )
 		),
@@ -57,11 +60,11 @@ export function createFsMock( normalizePath: NormalizePath = identity ) {
 		rename: vi.fn( async ( oldPath: string, newPath: string ) =>
 			memfsFs.promises.rename( oldPath, newPath )
 		),
-		rm: vi.fn(),
+		rm: vi.fn< UntypedFn >(),
 		stat: vi.fn( ( path: string ) => memfsFs.promises.stat( path ) ),
-		symlink: vi.fn(),
-		unlink: vi.fn(),
-		writeFile: vi.fn(),
+		symlink: vi.fn< UntypedFn >(),
+		unlink: vi.fn< UntypedFn >(),
+		writeFile: vi.fn< UntypedFn >(),
 	};
 
 	return {
@@ -70,13 +73,13 @@ export function createFsMock( normalizePath: NormalizePath = identity ) {
 		existsSync,
 		mkdirSync,
 		promises,
-		readFile: vi.fn(),
+		readFile: vi.fn< UntypedFn >(),
 		readdirSync,
 		readFileSync,
 		statSync,
 		unlinkSync,
 		watch,
-		writeFile: vi.fn(),
+		writeFile: vi.fn< UntypedFn >(),
 		writeFileSync,
 	};
 }

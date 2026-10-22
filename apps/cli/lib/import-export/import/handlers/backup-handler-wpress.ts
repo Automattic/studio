@@ -19,8 +19,9 @@ import { BackupHandler } from './backup-handler-factory';
  *    The header is a fixed size of 4377 bytes.
  * 2. Data Blocks: The actual content of the files, stored in 512-byte blocks. Each file's data is stored
  *    sequentially, following its corresponding header.
- * 3. End of File Marker: A special marker indicating the end of the archive. This is represented by a
- *    block of 4377 bytes filled with zeroes.
+ * 3. End of File Marker: A special marker indicating the end of the archive. Older archives use a
+ *    block of 4377 bytes filled with zeroes. Newer ones (v2) also store the archive size in the size
+ *    field and its CRC32 in the last 8 bytes, leaving the name empty.
  *
  * The .wpress format ensures that all necessary components of a WordPress site are included in the backup,
  * making it easy to restore the site to its original state. The format is designed to be efficient and
@@ -29,6 +30,10 @@ import { BackupHandler } from './backup-handler-factory';
 
 const HEADER_SIZE = 4377;
 const HEADER_CHUNK_EOF = Buffer.alloc( HEADER_SIZE );
+const NAME_END = 255;
+const SIZE_END = 269;
+const MTIME_END = 281;
+const PREFIX_END = 4369;
 const CHUNK_SIZE_TO_READ = 1024;
 
 interface Header {
@@ -48,7 +53,26 @@ interface Header {
  */
 function readFromBuffer( buffer: Buffer, start: number, end: number ): string {
 	const _buffer = buffer.subarray( start, end );
-	return _buffer.subarray( 0, _buffer.indexOf( 0x00 ) ).toString();
+	const terminator = _buffer.indexOf( 0x00 );
+	return _buffer.subarray( 0, terminator === -1 ? undefined : terminator ).toString();
+}
+
+function isZeroFilled( buffer: Buffer ): boolean {
+	return buffer.every( ( byte ) => byte === 0 );
+}
+
+/**
+ * Detects the v2 EOF marker written by All-in-One WP Migration 7.x: an empty
+ * name, the archive size in the size field and the archive CRC32 as 8 hex
+ * characters at the end. Without this check it reads as an entry with an
+ * empty name whose content lies past the end of the file.
+ */
+function isV2EofBlock( headerChunk: Buffer ): boolean {
+	return (
+		isZeroFilled( headerChunk.subarray( 0, NAME_END ) ) &&
+		isZeroFilled( headerChunk.subarray( SIZE_END, PREFIX_END ) ) &&
+		/^[0-9a-f]{8}$/i.test( headerChunk.subarray( PREFIX_END, HEADER_SIZE ).toString( 'latin1' ) )
+	);
 }
 
 /**
@@ -73,7 +97,7 @@ async function readHeader(
 
 	// A clean end of file without the EOF marker, or with only part of it, is
 	// treated like the marker itself: every entry before it is complete.
-	if ( bytesRead === 0 || headerChunk.subarray( 0, bytesRead ).every( ( byte ) => byte === 0 ) ) {
+	if ( bytesRead === 0 || isZeroFilled( headerChunk.subarray( 0, bytesRead ) ) ) {
 		return null;
 	}
 
@@ -85,14 +109,14 @@ async function readHeader(
 		);
 	}
 
-	if ( Buffer.compare( headerChunk, HEADER_CHUNK_EOF ) === 0 ) {
+	if ( Buffer.compare( headerChunk, HEADER_CHUNK_EOF ) === 0 || isV2EofBlock( headerChunk ) ) {
 		return null;
 	}
 
-	const name = readFromBuffer( headerChunk, 0, 255 );
-	const size = parseInt( readFromBuffer( headerChunk, 255, 269 ), 10 );
-	const mTime = readFromBuffer( headerChunk, 269, 281 );
-	const prefix = readFromBuffer( headerChunk, 281, HEADER_SIZE );
+	const name = readFromBuffer( headerChunk, 0, NAME_END );
+	const size = parseInt( readFromBuffer( headerChunk, NAME_END, SIZE_END ), 10 );
+	const mTime = readFromBuffer( headerChunk, SIZE_END, MTIME_END );
+	const prefix = readFromBuffer( headerChunk, MTIME_END, PREFIX_END );
 
 	if ( ! Number.isSafeInteger( size ) || size < 0 ) {
 		throw new LoggerError(

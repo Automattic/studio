@@ -1,11 +1,6 @@
-import {
-	createExportErrorPayload,
-	ExportEvents,
-	exportIpcEventSchema,
-} from '@studio/common/lib/import-export-events';
-import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
+import { ExportEvents, exportIpcEventSchema } from '@studio/common/lib/import-export-events';
+import { TypedEventEmitter } from '@studio/common/lib/typed-event-emitter';
 import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
-import { TypedEventEmitter } from 'src/modules/cli/lib/typed-event-emitter';
 
 type ExportCliLifecycleEventMap = {
 	completed: void;
@@ -16,7 +11,6 @@ type ExportCliLifecycleEventEmitter = TypedEventEmitter< ExportCliLifecycleEvent
 export function executeExportCliCommand(
 	siteId: string,
 	args: string[],
-	parentWindow: Electron.BrowserWindow | null,
 	options: {
 		abortSignal?: AbortSignal;
 	} = {}
@@ -42,15 +36,6 @@ export function executeExportCliCommand(
 		didEmitFinalLifecycleEvent = true;
 		abortSignal?.removeEventListener( 'abort', abortExportProcess );
 
-		if ( structuredExportError === undefined ) {
-			sendIpcEventToRendererWithWindow(
-				parentWindow,
-				'on-export',
-				[ ExportEvents.EXPORT_ERROR, createExportErrorPayload( error ) ],
-				siteId
-			);
-		}
-
 		lifecycleEventEmitter.emit( 'failed', {
 			error,
 			displayError: structuredExportError ?? error,
@@ -69,8 +54,6 @@ export function executeExportCliCommand(
 		const parsed = exportIpcEventSchema.safeParse( data );
 
 		if ( parsed.success ) {
-			sendIpcEventToRendererWithWindow( parentWindow, 'on-export', parsed.data.event, siteId );
-
 			if ( parsed.data.event[ 0 ] === ExportEvents.EXPORT_ERROR ) {
 				structuredExportError = parsed.data.event[ 1 ];
 			}

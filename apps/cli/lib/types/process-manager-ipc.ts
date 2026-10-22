@@ -1,4 +1,3 @@
-import { SITE_RUNTIME_PLAYGROUND, siteRuntimeSchema } from '@studio/common/lib/site-runtime';
 import { z } from 'zod';
 import {
 	childMessageFromProcessManagerSchema,
@@ -9,7 +8,6 @@ import {
 const processDescriptionSchemaBase = z.object( {
 	name: z.string(),
 	pmId: z.number(),
-	runtime: siteRuntimeSchema.default( SITE_RUNTIME_PLAYGROUND ),
 } );
 const processDescriptionSchemaRunning = processDescriptionSchemaBase.extend( {
 	status: z.literal( 'online' ),
@@ -35,7 +33,9 @@ const daemonRequestStartProcessSchema = z.object( {
 	scriptPath: z.string(),
 	env: z.record( z.string(), z.union( [ z.string(), z.undefined() ] ) ).optional(),
 	args: z.array( z.string() ).optional(),
-	runtime: siteRuntimeSchema.optional(),
+	// Ignored by this daemon. Daemons from Studio versions that still ran Playground sites count a
+	// site started without it as a Playground site, so they keep running across upgrades.
+	runtime: z.literal( 'native-php' ).optional(),
 } );
 
 const daemonRequestStopProcessSchema = z.object( {

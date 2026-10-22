@@ -6,6 +6,7 @@ import { vi } from 'vitest';
 import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
 import { archiveSiteContent, cleanup } from 'cli/lib/archive';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
+import { withSiteOperation } from 'cli/lib/site-operations';
 import { saveSnapshotToConfig } from 'cli/lib/snapshots';
 import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { LoggerError } from 'cli/logger';
@@ -17,7 +18,6 @@ const mockReportSuccess = vi.fn();
 const mockReportError = vi.fn();
 const mockReportProgress = vi.fn();
 const mockReportWarning = vi.fn();
-const mockReportKeyValuePair = vi.fn();
 
 vi.mock( '@studio/common/lib/get-wordpress-version' );
 vi.mock( import( '@studio/common/lib/shared-config' ), async ( importOriginal ) => ( {
@@ -53,11 +53,15 @@ vi.mock( 'cli/logger', () => ( {
 		reportError = mockReportError;
 		reportProgress = mockReportProgress;
 		reportWarning = mockReportWarning;
-		reportKeyValuePair = mockReportKeyValuePair;
+		reportResult = vi.fn();
 		spinner = {};
 		currentAction = null;
 	},
 	LoggerError: class LoggerError extends Error {},
+} ) );
+
+vi.mock( 'cli/lib/site-operations', () => ( {
+	withSiteOperation: vi.fn( ( _folder: string, _kind: string, fn: () => unknown ) => fn() ),
 } ) );
 
 describe( 'Preview Create Command', () => {
@@ -127,6 +131,11 @@ describe( 'Preview Create Command', () => {
 		expect( mockReportStart.mock.calls[ 0 ] ).toEqual( [ 'validate', 'Validating…' ] );
 
 		expect( archiveSiteContent ).toHaveBeenCalledWith( mockFolder, mockArchivePath );
+		expect( withSiteOperation ).toHaveBeenCalledWith(
+			mockFolder,
+			'export',
+			expect.any( Function )
+		);
 		expect( mockReportStart.mock.calls[ 1 ] ).toEqual( [ 'archive', 'Creating archive…' ] );
 		expect( mockReportSuccess.mock.calls[ 0 ] ).toEqual( [ 'Archive created' ] );
 

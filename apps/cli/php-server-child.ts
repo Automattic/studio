@@ -4,8 +4,6 @@
  * Runs a WordPress site as a fixed pool of `php -S … router.php` workers with a
  * Node.js HTTP proxy in front that load-balances requests across them: a cheap
  * stand-in for fpm-style process concurrency, not a real FastCGI process manager.
- *
- * Shares the IPC contract with the Playground-based `wordpress-server-child.ts`.
  */
 
 import fs from 'node:fs';
@@ -13,19 +11,20 @@ import http from 'node:http';
 import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
-import { writeStudioMuPluginsForNativePhpRuntime } from '@studio/common/lib/mu-plugins';
-import { resolveNativePhpVersion } from '@studio/common/lib/php-binary-metadata';
+import { writeStudioMuPlugins } from '@studio/common/lib/mu-plugins';
+import { resolveSupportedPhpVersion } from '@studio/common/lib/php-binary-metadata';
 import {
 	getSiteFileAccess,
 	SITE_FILE_ACCESS_SITE_DIRECTORY,
 } from '@studio/common/lib/site-file-access';
+import { getMuPluginsPath } from '@studio/common/lib/well-known-paths';
 import { z } from 'zod';
 import {
 	managerMessageSchema,
 	ChildMessageRaw,
 	ServerConfig,
 } from 'cli/lib/types/wordpress-server-ipc';
-import { requestSetAdminCredentials, toUrlSearchParams } from './lib/admin-credentials';
+import { requestSetAdminCredentials } from './lib/admin-credentials';
 import { getPhpMyAdminPath } from './lib/dependency-management/paths';
 import { runBlueprint } from './lib/native-php/blueprints';
 import { containsPath, dropCoveredPaths } from './lib/native-php/open-basedir';
@@ -148,18 +147,11 @@ function errorToConsole( ...args: Parameters< typeof console.error > ) {
 	console.error( `[PHP Server]`, ...args );
 }
 
-function shouldUsePrimaryWorker( req: http.IncomingMessage ): boolean {
-	const method = req.method?.toUpperCase() ?? 'GET';
-	if ( ! [ 'GET', 'HEAD', 'OPTIONS' ].includes( method ) ) {
-		return true;
-	}
-
-	const requestUrl = req.url ?? '/';
-	if ( requestUrl.startsWith( '/phpmyadmin' ) ) {
-		return true;
-	}
-
-	return false;
+// phpMyAdmin pins to worker 0 because its file-based session store belongs to a
+// single worker. WordPress keeps its state in the database, so every other
+// request, POSTs included, balances across the pool.
+export function shouldUsePrimaryWorker( req: http.IncomingMessage ): boolean {
+	return ( req.url ?? '/' ).startsWith( '/phpmyadmin' );
 }
 
 function pickPhpWorker( req: http.IncomingMessage ): { index: number; port: number } {
@@ -214,32 +206,13 @@ async function waitForServerReady( url: string, signal?: AbortSignal ): Promise<
 
 async function setAdminCredentials( config: ServerConfig, signal: AbortSignal ): Promise< void > {
 	try {
-		await requestSetAdminCredentials( config, async ( request ) => {
-			const response = await fetch( `http://localhost:${ config.port }${ request.url }`, {
-				method: request.method,
-				body: toUrlSearchParams( request.body ),
-				signal,
-			} );
-			if ( ! response.ok ) {
-				throw new Error( await getAdminCredentialsErrorMessage( response ) );
-			}
-		} );
+		await requestSetAdminCredentials( config, signal );
 	} catch ( error ) {
 		throw new Error(
 			`Failed to set admin credentials: ${
 				error instanceof Error ? error.message : String( error )
 			}`
 		);
-	}
-}
-
-async function getAdminCredentialsErrorMessage( response: Response ): Promise< string > {
-	const text = await response.text();
-	try {
-		const result = JSON.parse( text ) as { error?: string };
-		return result.error ?? text;
-	} catch {
-		return text || response.statusText;
 	}
 }
 
@@ -486,7 +459,7 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 		return;
 	}
 
-	const phpVersion = resolveNativePhpVersion( config.phpVersion ?? '' );
+	const phpVersion = resolveSupportedPhpVersion( config.phpVersion ?? '' );
 	startupAbortController = new AbortController();
 	const stopSignal = AbortSignal.any( [ signal, startupAbortController.signal ] );
 
@@ -506,10 +479,7 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 			stopSignal.throwIfAborted();
 		}
 
-		const muPluginsPath = await writeStudioMuPluginsForNativePhpRuntime(
-			config.sitePath,
-			config.isWpAutoUpdating
-		);
+		await writeStudioMuPlugins( config.sitePath, config.isWpAutoUpdating );
 		stopSignal.throwIfAborted();
 
 		if ( ! isImportedSite ) {
@@ -536,7 +506,10 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 			staticOpenBasedirAllowlist.add( getPhpMyAdminPath() );
 			staticOpenBasedirAllowlist.add( getNativePhpMyAdminWpEnvPath( config ) );
 			staticOpenBasedirAllowlist.add( getPhpMyAdminSessionPath( config ) );
-			staticOpenBasedirAllowlist.add( muPluginsPath );
+			// The whole root, not this start's hashed folder: a WP-CLI run from another
+			// Studio version or with other settings can repoint the loader while the
+			// server runs.
+			staticOpenBasedirAllowlist.add( getMuPluginsPath() );
 			staticOpenBasedirAllowlist.add( os.tmpdir() );
 			if ( config.autoPrependFile ) {
 				staticOpenBasedirAllowlist.add( path.dirname( config.autoPrependFile ) );
@@ -585,7 +558,7 @@ async function doStartServer(
 	config: ServerConfig,
 	stopSignal?: AbortSignal
 ): Promise< ChildProcess > {
-	const phpVersion = resolveNativePhpVersion( config.phpVersion ?? '' );
+	const phpVersion = resolveSupportedPhpVersion( config.phpVersion ?? '' );
 	const spawnedChildren: ChildProcess[] = [];
 	let proxyServer: http.Server | null = null;
 	// Recorded before spawning so a later rescan can diff against what the workers
@@ -628,6 +601,7 @@ async function doStartServer(
 				disallowRiskyFunctions: isFileAccessRestricted( config ),
 				enableXdebug: config.enableXdebug,
 				autoPrependFile,
+				workerIndex: index,
 			} );
 			spawnedChildren.push( serverChild );
 
@@ -796,17 +770,14 @@ async function ipcMessageHandler( packet: unknown ) {
 				break;
 			case 'run-blueprint': {
 				const blueprintConfig = validMessage.data.config;
-				const blueprintPhpVersion = resolveNativePhpVersion( blueprintConfig.phpVersion ?? '' );
+				const blueprintPhpVersion = resolveSupportedPhpVersion( blueprintConfig.phpVersion ?? '' );
 				await ensureWpConfig(
 					blueprintConfig.sitePath,
 					blueprintPhpVersion,
 					abortController.signal,
 					blueprintConfig
 				);
-				await writeStudioMuPluginsForNativePhpRuntime(
-					blueprintConfig.sitePath,
-					blueprintConfig.isWpAutoUpdating
-				);
+				await writeStudioMuPlugins( blueprintConfig.sitePath, blueprintConfig.isWpAutoUpdating );
 				await installWordPress(
 					blueprintConfig,
 					blueprintPhpVersion,
@@ -829,10 +800,6 @@ async function ipcMessageHandler( packet: unknown ) {
 				result = await next;
 				break;
 			}
-			case 'wp-cli-command':
-				throw new Error(
-					`Message "${ validMessage.topic }" is not supported by the native PHP runtime`
-				);
 			default:
 				throw new Error( `Unknown message.` );
 		}

@@ -1,36 +1,28 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { __ } from '@wordpress/i18n';
-import { toast } from '@/data/app-messages';
+import { useMutation } from '@tanstack/react-query';
 import { useConnector } from '@/data/core';
-import { SNAPSHOTS_QUERY_KEY } from '@/data/queries/use-snapshots';
-import { reportSyncError, reportSyncPending, reportSyncSuccess } from '@/data/sync-activity';
+import { useSettleFromMutation } from '@/data/queries/use-sync-site';
+import { applySyncActivity } from '@/data/sync-activity';
 
 type PublishPreviewVariables = {
 	siteId: string;
 	existingHostname?: string;
+	name?: string;
 };
 
-// Creates or refreshes the WordPress.com-hosted preview snapshot for a
-// local site. Reports lifecycle into the shared sync-activity store so the
-// site-dropdown indicator can render the pending / success / error states.
 export function usePublishPreviewSite() {
 	const connector = useConnector();
-	const queryClient = useQueryClient();
+	const settleFromMutation = useSettleFromMutation();
 	return useMutation( {
-		mutationFn: ( { siteId, existingHostname }: PublishPreviewVariables ) =>
-			connector.publishPreviewSite( siteId, existingHostname ),
-		onMutate: ( { siteId } ) => {
-			reportSyncPending( siteId, 'preview' );
+		mutationFn: ( { siteId, existingHostname, name }: PublishPreviewVariables ) =>
+			connector.publishPreviewSite( siteId, existingHostname, name ),
+		onMutate: ( { siteId, existingHostname } ) => {
+			applySyncActivity( siteId, {
+				kind: 'pending',
+				direction: 'preview',
+				hostname: existingHostname,
+			} );
 		},
-		onSuccess: ( _result, { siteId } ) => {
-			reportSyncSuccess( siteId, 'preview' );
-			void queryClient.invalidateQueries( { queryKey: SNAPSHOTS_QUERY_KEY } );
-			toast.success( __( 'Preview site published' ) );
-		},
-		onError: ( error, { siteId } ) => {
-			const message = error instanceof Error ? error.message : String( error );
-			reportSyncError( siteId, 'preview', message );
-			toast.error( __( 'Failed to publish preview site' ) );
-		},
+		onSuccess: ( _result, { siteId } ) => settleFromMutation( siteId, 'preview' ),
+		onError: ( error, { siteId } ) => settleFromMutation( siteId, 'preview', error ),
 	} );
 }

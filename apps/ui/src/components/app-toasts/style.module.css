@@ -1,18 +1,21 @@
-.stack {
+/* Toasts: a neutral card stacked at the window's bottom right, below
+   dialogs (700) and above the app chrome. */
+.viewport {
+	position: fixed;
+	inset-block-end: 12px;
+	inset-inline-end: 12px;
+	z-index: 600;
 	display: flex;
 	flex-direction: column;
-	margin-top: calc(-1 * var(--wpds-dimension-gap-sm));
-}
-
-.shelfHug .stack {
-	width: fit-content;
-	max-width: 100%;
+	width: min(320px, calc(100vw - 24px));
+	pointer-events: none;
+	-webkit-app-region: no-drag;
 }
 
 .cell {
 	display: grid;
 	grid-template-rows: 1fr;
-	margin-top: var(--wpds-dimension-gap-sm);
+	margin-top: 8px;
 	transition:
 		grid-template-rows 180ms ease,
 		margin-top 180ms ease;
@@ -30,153 +33,144 @@
 	margin-top: 0;
 }
 
-/* Notice's `container-type: inline-size` zeroes intrinsic width, breaking
-   fit-content sizing. Reset it — the container query it powers doesn't
-   apply at toast widths. */
-.shelfHug .notice {
-	width: fit-content;
-	max-width: 100%;
-	container-type: normal;
-}
-
 .toast {
 	min-height: 0;
+	/* Clipped so the row can collapse it, with room inside the clip for the
+	   card's ring, shadow and close button. The padding, not
+	   overflow-clip-margin, makes that room: Safari ignores the latter. */
+	margin: -12px;
+	padding: 12px;
 	overflow: clip;
-	overflow-clip-margin: 12px;
+	pointer-events: none;
 	animation: toast-enter 160ms ease-out;
 	transition: opacity 160ms ease, transform 160ms ease;
+}
+
+.card {
+	position: relative;
+	pointer-events: auto;
+	padding: 16px;
+	border-radius: 12px;
+	background-color: var(--chrome);
+	color: var(--foreground);
+	box-shadow:
+		0 0 0 1px var(--border),
+		0 1px 3px 0 rgb(0 0 0 / 10%),
+		0 1px 2px -1px rgb(0 0 0 / 10%);
+	font-size: var(--text-sm);
+	line-height: 20px;
+	/* Toasts rewrite themselves in place — import progress ticks through a
+	   percentage — and this font's digits are not equal width, so a counter
+	   would shift the text by a few pixels on nearly every update. */
+	font-variant-numeric: tabular-nums;
 }
 
 .cell[data-leaving] .toast {
 	opacity: 0;
 	transform: translateY(4px);
+}
+
+.cell[data-leaving] .card {
 	pointer-events: none;
 }
 
-.notice {
-	width: 100%;
-	box-sizing: border-box;
+.row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.status {
+	display: flex;
+	flex: none;
+	align-items: center;
+	justify-content: center;
+	width: 14px;
+	height: 14px;
+	border-radius: 50%;
+	color: var(--chrome);
+}
+
+.status svg {
+	width: 10px;
+	height: 10px;
+}
+
+.status[data-intent='success'] {
+	background-color: var(--success);
+}
+
+.status[data-intent='error'] {
+	background-color: var(--destructive);
+}
+
+.status[data-intent='info'] {
+	color: var(--muted-foreground);
+}
+
+.status[data-intent='info'] svg {
+	width: 18px;
+	height: 18px;
+	fill: currentColor;
+}
+
+.title {
+	flex: 1;
+	min-width: 0;
+	margin: 0;
+	font-weight: var(--font-weight-medium);
 	text-wrap: pretty;
-	/* Toasts rewrite themselves in place — import progress ticks through a
-	   percentage — and this font's digits are not equal width, so a counter
-	   would shift the text by a few pixels on nearly every update. */
-	font-variant-numeric: tabular-nums;
-	box-shadow:
-		0 1px 2px 0 rgba(0, 0, 0, 0.06), 0 3px 6px 0 rgba(0, 0, 0, 0.05), 0 6px 8px 0 rgba(0, 0, 0, 0.03);
-	padding-block: 6px;
-	padding-inline: var(--wpds-dimension-padding-sm);
-	border-radius: 6px;
-}
-
-/* Default appearance: one quiet neutral card whatever the intent, with a
-   hairline ring in place of Notice's tinted border. `appearance="intent"`
-   skips this and keeps Notice's own tinted surface, border, and text. */
-.neutral {
-	--wp-ui-notice-background-color: var(--wpds-color-background-surface-neutral-strong);
-	--wp-ui-notice-border-color: transparent;
-	--wp-ui-notice-text-color: var(--wpds-color-foreground-content-neutral);
-	box-shadow:
-		0 0 0 1px color-mix(in srgb, var(--wpds-color-foreground-content-neutral) 14%, transparent),
-		0 1px 2px 0 rgba(0, 0, 0, 0.06), 0 3px 6px 0 rgba(0, 0, 0, 0.05), 0 6px 8px 0 rgba(0, 0, 0, 0.03);
-}
-
-.neutral [class*='__description'] {
-	color: var(--wpds-color-foreground-content-neutral-weak);
-}
-
-.notice [class*='heading'] {
-	line-height: 16px;
 }
 
 /* Error text can run to paragraphs; the toast shows the first few lines and
    the notifications panel (notice-history) keeps the full message. */
-.notice [class*='__description'] {
-	font-size: var(--wpds-typography-font-size-xs);
-	line-height: 16px;
+.description {
 	display: -webkit-box;
+	margin: 2px 0 0;
+	padding-inline-start: 22px;
+	overflow: hidden;
+	color: var(--muted-foreground);
+	font-size: var(--text-xxs);
+	line-height: 18px;
 	-webkit-box-orient: vertical;
 	-webkit-line-clamp: 3;
-	overflow: hidden;
 }
 
-/* Button's solid-variant sets these properties on the element itself, so
-   parent-level overrides don't win — must be set here directly. */
-.actionButton {
-	--wp-ui-button-background-color: color-mix(
-		in srgb,
-		var(--wpds-color-foreground-content-neutral) 10%,
-		transparent
-	);
-	--wp-ui-button-background-color-active: color-mix(
-		in srgb,
-		var(--wpds-color-foreground-content-neutral) 16%,
-		transparent
-	);
-	--wp-ui-button-foreground-color: var(--wpds-color-foreground-content-neutral);
-	--wp-ui-button-foreground-color-active: var(--wpds-color-foreground-content-neutral);
-	--wp-ui-button-border-color: transparent;
-	--wp-ui-button-border-color-active: transparent;
+.details {
+	display: flex;
+	gap: 6px;
+	margin-top: 8px;
+	padding-inline-start: 22px;
 }
 
-/* Row one is as tall as the close button; center the icon and the title on
-   it so a one-line toast doesn't ride high. */
-.notice > svg {
-	align-self: center;
+.close {
+	--button-background: var(--chrome);
+
+	position: absolute;
+	inset-block-start: -6px;
+	inset-inline-start: -6px;
+	opacity: 0;
+	transition: opacity 120ms ease;
 }
 
-.notice [class*='__title'] {
-	align-self: center;
-}
-
-.notice [class*='__actions'] {
-	gap: var(--wpds-dimension-gap-sm);
+.card:hover .close,
+.card:focus-within .close {
+	opacity: 1;
 }
 
 .queuePeek {
 	height: 8px;
 	margin-top: 3px;
 	margin-inline: 8px;
-	background-color: var(--wpds-color-background-surface-neutral-strong);
+	background-color: var(--chrome);
 	border-radius: 0 0 6px 6px;
-	box-shadow: 0 0 0 1px color-mix(in srgb, var(--wpds-color-foreground-content-neutral) 14%, transparent);
+	box-shadow: 0 0 0 1px var(--border);
 	opacity: 0.8;
 }
 
 .queuePeekDeeper {
 	margin-inline: 16px;
 	opacity: 0.5;
-}
-
-/* With `appearance="intent"` the peek strips borrow the queued toast's tint,
-   so a pending error is visible before it surfaces. */
-.queuePeek[data-intent='info'] {
-	background-color: var(--wpds-color-background-surface-info-weak);
-	box-shadow: 0 0 0 1px var(--wpds-color-stroke-surface-info);
-}
-
-.queuePeek[data-intent='success'] {
-	background-color: var(--wpds-color-background-surface-success-weak);
-	box-shadow: 0 0 0 1px var(--wpds-color-stroke-surface-success);
-}
-
-.queuePeek[data-intent='error'] {
-	background-color: var(--wpds-color-background-surface-error-weak);
-	box-shadow: 0 0 0 1px var(--wpds-color-stroke-surface-error);
-}
-
-/* The hugging shelf's toasts vary in width, so the peeks take a fixed one
-   and the toast above gets a floor so they never poke out. */
-.shelfHug .queuePeek {
-	width: 144px;
-	margin-inline: 0;
-}
-
-.shelfHug .queuePeekDeeper {
-	width: 128px;
-}
-
-.shelfHug .notice {
-	min-width: 160px;
 }
 
 @keyframes toast-enter {
@@ -193,7 +187,8 @@
 
 @media (prefers-reduced-motion: reduce) {
 	.toast,
-	.cell {
+	.cell,
+	.close {
 		animation: none;
 		transition: none;
 	}

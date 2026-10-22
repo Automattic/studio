@@ -3,7 +3,11 @@ import crypto from 'crypto';
 import { EventEmitter } from 'events';
 import fs from 'fs';
 import path from 'path';
-import { LOCKFILE_STALE_TIME, LOCKFILE_WAIT_TIME } from '@studio/common/constants';
+import {
+	LOCKFILE_STALE_TIME,
+	LOCKFILE_WAIT_TIME,
+	PROXY_PROCESS_NAME,
+} from '@studio/common/constants';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { lockFileAsync, unlockFileAsync } from '@studio/common/lib/lockfile';
 import { z } from 'zod';
@@ -11,6 +15,7 @@ import {
 	PROCESS_MANAGER_EVENTS_SOCKET_PATH,
 	PROCESS_MANAGER_CONTROL_SOCKET_PATH,
 	PROCESS_MANAGER_HOME,
+	WINDOWS_PIPE_PREFIX,
 } from 'cli/lib/paths';
 import { SocketStreamClient, SocketMessageDecoder, SocketRequestClient } from 'cli/lib/socket';
 import {
@@ -26,15 +31,64 @@ import {
 	childMessageFromProcessManagerSchema,
 } from 'cli/lib/types/wordpress-server-ipc';
 import type { SocketEvent } from '@studio/common/lib/cli-events';
-import type { SiteRuntime } from '@studio/common/lib/site-runtime';
 
-const PROXY_PROCESS_NAME = 'studio-proxy';
 const CONNECTION_TIMEOUT_MS = 10_000;
 const PROCESS_MANAGER_LOCKFILE_PATH = path.join( PROCESS_MANAGER_HOME, 'pm-connection.lock' );
-export const SITE_EVENTS_SOCKET_PATH =
-	process.platform === 'win32'
-		? '\\\\.\\pipe\\studio-events.sock'
-		: path.join( PROCESS_MANAGER_HOME, 'events.sock' );
+const EVENTS_SOCKET_DIR = process.platform === 'win32' ? '\\\\.\\pipe\\' : PROCESS_MANAGER_HOME;
+const EVENTS_SOCKET_PREFIX = process.platform === 'win32' ? WINDOWS_PIPE_PREFIX : '';
+
+function eventsSocketPath( name: string ): string {
+	return path.join( EVENTS_SOCKET_DIR, `${ EVENTS_SOCKET_PREFIX }${ name }.sock` );
+}
+
+// One events socket per kind of Studio app, each owned by that app's `_events`. The
+// desktop keeps the original path, which older desktop builds also listen on.
+export const EVENTS_SOCKET_PATHS = {
+	desktop: eventsSocketPath( 'events' ),
+	ui: eventsSocketPath( 'events-ui' ),
+} as const;
+
+// `studio mcp` runs once per agent session, so each process gets its own events
+// socket, named after the pid of the `_events` command that owns it.
+const MCP_EVENTS_SOCKET = new RegExp( `^${ EVENTS_SOCKET_PREFIX }events-mcp-(\\d+)\\.sock$` );
+
+export function mcpEventsSocketPath( pid = process.pid ): string {
+	return eventsSocketPath( `events-mcp-${ pid }` );
+}
+
+function isProcessAlive( pid: number ): boolean {
+	try {
+		process.kill( pid, 0 );
+		return true;
+	} catch {
+		return false;
+	}
+}
+
+// Also removes the sockets dead processes left behind; named pipes go away with their process.
+function liveMcpEventsSocketPaths(): string[] {
+	let entries: string[];
+	try {
+		entries = fs.readdirSync( EVENTS_SOCKET_DIR );
+	} catch {
+		return [];
+	}
+	return entries.flatMap( ( entry ) => {
+		const pid = Number( MCP_EVENTS_SOCKET.exec( entry )?.[ 1 ] );
+		if ( ! pid ) {
+			return [];
+		}
+		if ( isProcessAlive( pid ) ) {
+			return [ mcpEventsSocketPath( pid ) ];
+		}
+		if ( process.platform !== 'win32' ) {
+			fs.rmSync( mcpEventsSocketPath( pid ), { force: true } );
+		}
+		return [];
+	} );
+}
+
+export type EventsListener = keyof typeof EVENTS_SOCKET_PATHS | 'mcp';
 
 function ensureProcessManagerHome() {
 	if ( ! fs.existsSync( PROCESS_MANAGER_HOME ) ) {
@@ -310,7 +364,6 @@ const daemonStartProcessSuccessResponseSchema = z.object( {
 type StartProcessOptions = {
 	env?: NodeJS.ProcessEnv;
 	args?: string[];
-	runtime?: SiteRuntime;
 };
 
 export async function startProcess(
@@ -324,7 +377,8 @@ export async function startProcess(
 		scriptPath,
 		env: options.env ?? process.env,
 		args: options.args ?? [],
-		runtime: options.runtime,
+		// For daemons left running from older Studio versions; see the request schema.
+		runtime: 'native-php',
 	} );
 	return daemonStartProcessSuccessResponseSchema.parse( response ).process;
 }
@@ -343,15 +397,20 @@ export async function stopProcess( processName: string ): Promise< void > {
 	} );
 }
 
-const eventsSocketClient = new SocketRequestClient( SITE_EVENTS_SOCKET_PATH );
+const eventsSocketClients = Object.values( EVENTS_SOCKET_PATHS ).map(
+	( socketPath ) => new SocketRequestClient( socketPath )
+);
 
 /**
- * Emit a CLI event via the events socket, for the `_events` command server to receive.
+ * Emit a CLI event to every Studio app's `_events` command. Apps that aren't running are skipped.
  */
 export async function emitCliEvent( payload: SocketEvent ): Promise< void > {
-	try {
-		await eventsSocketClient.send( payload );
-	} catch {
-		// Do nothing
-	}
+	const mcpClients = liveMcpEventsSocketPaths().map(
+		( socketPath ) => new SocketRequestClient( socketPath )
+	);
+	await Promise.all(
+		[ ...eventsSocketClients, ...mcpClients ].map( ( client ) =>
+			client.send( payload ).catch( () => undefined )
+		)
+	);
 }

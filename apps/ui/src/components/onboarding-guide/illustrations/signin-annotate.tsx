@@ -1,7 +1,5 @@
 import { __ } from '@wordpress/i18n';
-import { pencil } from '@wordpress/icons';
-import { ThemeProvider } from '@wordpress/theme';
-import { Icon } from '@wordpress/ui';
+import { Icon, pencil } from '@wordpress/icons';
 import { clsx } from 'clsx';
 import { AgentWorkingIndicator } from '@/components/agent-working-indicator';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -73,7 +71,8 @@ function frameNote( target: Target, zoom: number ): { x: number; y: number } {
 // chat, then pull back to the chat pane while the agent works through the
 // notes and the preview updates beside it. One-shot with Replay.
 export function SigninAnnotateIllustration( { playback }: { playback?: Playback } ) {
-	const pageBg = useColorScheme() === 'dark' ? BLOG_PAGE_BG_ON_DARK : BLOG_PAGE_BG_ON_LIGHT;
+	const colorScheme = useColorScheme();
+	const pageBg = colorScheme === 'dark' ? BLOG_PAGE_BG_ON_DARK : BLOG_PAGE_BG_ON_LIGHT;
 	const targets: Target[] = [
 		{
 			tag: 'h1',
@@ -303,120 +302,114 @@ export function SigninAnnotateIllustration( { playback }: { playback?: Playback 
 					</div>
 				</div>
 
-				<ThemeProvider color={ { background: pageBg } }>
-					<div
-						className={ styles.annoPreview }
-						style={ { '--anno-page-bg': pageBg } as CSSProperties }
+				<div
+					className={ styles.annoPreview }
+					data-color-scheme={ colorScheme === 'dark' ? 'light' : 'dark' }
+					style={ { '--anno-page-bg': pageBg } as CSSProperties }
+				>
+					<span className={ clsx( styles.annoPencil, picking && styles.annoPencilActive ) }>
+						<Icon icon={ pencil } size={ 16 } />
+						{ __( 'Annotate' ) }
+					</span>
+
+					<BlogPage
+						headingProgress={ headingP }
+						ctaAccent={ ctaP > 0.5 }
+						excerptProgress={ excerptP }
 					>
-						<span className={ clsx( styles.annoPencil, picking && styles.annoPencilActive ) }>
-							<Icon icon={ pencil } size={ 16 } />
-							{ __( 'Annotate' ) }
-						</span>
-
-						<BlogPage
-							headingProgress={ headingP }
-							ctaAccent={ ctaP > 0.5 }
-							excerptProgress={ excerptP }
-						>
-							{ hoverIndex >= 0 ? (
+						{ hoverIndex >= 0 ? (
+							<span
+								className={ styles.annoHighlight }
+								style={ {
+									left: targets[ hoverIndex ].box.x - 2,
+									top: targets[ hoverIndex ].box.y - 2,
+									width: targets[ hoverIndex ].box.w + 4,
+									height: targets[ hoverIndex ].box.h + 4,
+								} }
+							/>
+						) : null }
+						{ notes.map( ( note, index ) => {
+							if ( ! at( t, note.clickAt ) ) {
+								return null;
+							}
+							const p = span( t, note.clickAt, note.clickAt + 220, easings.easeOut );
+							const box = targets[ index ].box;
+							return (
 								<span
-									className={ styles.annoHighlight }
+									key={ targets[ index ].tag }
+									className={ styles.annoMarker }
 									style={ {
-										left: targets[ hoverIndex ].box.x - 2,
-										top: targets[ hoverIndex ].box.y - 2,
-										width: targets[ hoverIndex ].box.w + 4,
-										height: targets[ hoverIndex ].box.h + 4,
-									} }
-								/>
-							) : null }
-							{ notes.map( ( note, index ) => {
-								if ( ! at( t, note.clickAt ) ) {
-									return null;
-								}
-								const p = span( t, note.clickAt, note.clickAt + 220, easings.easeOut );
-								const box = targets[ index ].box;
-								return (
-									<span
-										key={ targets[ index ].tag }
-										className={ styles.annoMarker }
-										style={ {
-											left: box.x + box.w * 0.55,
-											top: box.y + box.h / 2,
-											opacity: p * markersOp,
-											transform: `translate(-50%, -50%) scale(${ 0.6 + 0.4 * p })`,
-										} }
-									>
-										{ index + 1 }
-									</span>
-								);
-							} ) }
-
-							{ openIndex >= 0 ? (
-								<div
-									className={ styles.annoPopup }
-									style={ {
-										left: targets[ openIndex ].popup.x,
-										top: targets[ openIndex ].popup.y,
-										opacity: span(
-											t,
-											notes[ openIndex ].clickAt,
-											notes[ openIndex ].clickAt + 200
-										),
+										left: box.x + box.w * 0.55,
+										top: box.y + box.h / 2,
+										opacity: p * markersOp,
+										transform: `translate(-50%, -50%) scale(${ 0.6 + 0.4 * p })`,
 									} }
 								>
-									<span className={ styles.annoPopupTarget }>
-										{ targets[ openIndex ].tag } — { targets[ openIndex ].text }
-									</span>
-									<span className={ styles.annoPopupTextarea }>
-										{ at( t, notes[ openIndex ].typeStart ) ? (
-											<StreamingText
-												text={ targets[ openIndex ].comment }
-												count={ Math.floor(
-													span(
-														t,
-														notes[ openIndex ].typeStart,
-														notes[ openIndex ].typeEnd,
-														easings.linear
-													) * targets[ openIndex ].comment.length
-												) }
-												caretClassName={ styles.annoPopupCaret }
-											/>
-										) : (
-											<span className={ styles.annoPopupPlaceholder }>
-												{ __( 'What should change about this element?' ) }
-											</span>
+									{ index + 1 }
+								</span>
+							);
+						} ) }
+
+						{ openIndex >= 0 ? (
+							<div
+								className={ styles.annoPopup }
+								style={ {
+									left: targets[ openIndex ].popup.x,
+									top: targets[ openIndex ].popup.y,
+									opacity: span( t, notes[ openIndex ].clickAt, notes[ openIndex ].clickAt + 200 ),
+								} }
+							>
+								<span className={ styles.annoPopupTarget }>
+									{ targets[ openIndex ].tag } — { targets[ openIndex ].text }
+								</span>
+								<span className={ styles.annoPopupTextarea }>
+									{ at( t, notes[ openIndex ].typeStart ) ? (
+										<StreamingText
+											text={ targets[ openIndex ].comment }
+											count={ Math.floor(
+												span(
+													t,
+													notes[ openIndex ].typeStart,
+													notes[ openIndex ].typeEnd,
+													easings.linear
+												) * targets[ openIndex ].comment.length
+											) }
+											caretClassName={ styles.annoPopupCaret }
+										/>
+									) : (
+										<span className={ styles.annoPopupPlaceholder }>
+											{ __( 'What should change about this element?' ) }
+										</span>
+									) }
+								</span>
+								<span className={ styles.annoPopupActions }>
+									<span className={ styles.annoPopupCancel }>{ __( 'Cancel' ) }</span>
+									<span
+										className={ clsx(
+											styles.annoPopupSave,
+											! at( t, notes[ openIndex ].typeStart + 200 ) && styles.annoPopupSaveDisabled,
+											openIndex < notes.length - 1 &&
+												at( t, notes[ openIndex ].closeAt ) &&
+												styles.annoPopupPressed
 										) }
+									>
+										{ __( 'Save' ) }
 									</span>
-									<span className={ styles.annoPopupActions }>
-										<span className={ styles.annoPopupCancel }>{ __( 'Cancel' ) }</span>
-										<span
-											className={ clsx(
-												styles.annoPopupSave,
-												! at( t, notes[ openIndex ].typeStart + 200 ) &&
-													styles.annoPopupSaveDisabled,
-												openIndex < notes.length - 1 &&
-													at( t, notes[ openIndex ].closeAt ) &&
-													styles.annoPopupPressed
-											) }
-										>
-											{ __( 'Save' ) }
-										</span>
-										<span
-											className={ clsx(
-												styles.annoPopupSubmit,
-												openIndex === notes.length - 1 &&
-													at( t, notes[ openIndex ].closeAt ) &&
-													styles.annoPopupPressed
-											) }
-										>
-											{ __( 'Send to chat' ) }
-										</span>
+									<span
+										className={ clsx(
+											styles.annoPopupSubmit,
+											openIndex === notes.length - 1 &&
+												at( t, notes[ openIndex ].closeAt ) &&
+												styles.annoPopupPressed
+										) }
+									>
+										{ __( 'Send to chat' ) }
 									</span>
-								</div>
-							) : null }
-						</BlogPage>
-					</div>
-				</ThemeProvider>
+								</span>
+							</div>
+						) : null }
+					</BlogPage>
+				</div>
 
 				<Cursor
 					className={ styles.sceneCursor }

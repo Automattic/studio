@@ -3,6 +3,7 @@ import { StrictMode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
 import { useSession } from '@/data/queries/use-sessions';
+import { WindowControlsCornerContext } from '@/hooks/use-window-controls-inset';
 import { pendingPromptSlot } from '@/lib/pending-prompt';
 import { isScrolledAwayFromLatest, SessionView } from './index';
 import type { LoadedAiSession } from '@/data/core';
@@ -10,7 +11,9 @@ import type { LoadedAiSession } from '@/data/core';
 const { navigateMock, agentRunState, sitesState } = vi.hoisted( () => ( {
 	navigateMock: vi.fn(),
 	agentRunState: { hasActiveRun: false, sendMessage: vi.fn( async () => undefined ) },
-	sitesState: { data: [] as Array< { id: string; path: string; name: string } > },
+	sitesState: {
+		data: [] as Array< { id: string; path: string; name: string; running?: boolean } >,
+	},
 } ) );
 
 vi.mock( '@tanstack/react-router', () => ( {
@@ -22,20 +25,44 @@ vi.mock( '@/data/queries/use-sessions', () => ( {
 	useSessionEffectiveEnvironment: () => 'local',
 	useSessions: () => ( { data: [] } ),
 	useCreateSession: () => ( { mutateAsync: vi.fn(), isPending: false } ),
+	useSetSessionEnvironment: () => ( { mutate: vi.fn() } ),
+} ) );
+
+vi.mock( '@/data/queries/use-connected-wpcom-sites', async ( importOriginal ) => ( {
+	...( await importOriginal< object >() ),
+	useConnectedWpcomSites: () => ( { data: [] } ),
+} ) );
+
+const siteMocks = vi.hoisted( () => ( {
+	startSite: vi.fn(),
+	preferences: { autoStartSiteOnChat: false },
 } ) );
 
 vi.mock( '@/data/queries/use-sites', () => ( {
 	useSites: () => sitesState,
+	useIsSiteStarting: () => false,
+	useIsSiteStopping: () => false,
+	useStartSite: () => ( { mutate: siteMocks.startSite } ),
 } ) );
 
-vi.mock( '@/components/open-in-menu', () => ( {
-	OpenInMenu: ( { site }: { site: { name: string } } ) => (
-		<div data-testid="open-in-menu">{ site.name }</div>
-	),
+vi.mock( '@/data/queries/use-user-preferences', () => ( {
+	useUserPreferences: () => ( { data: siteMocks.preferences } ),
 } ) );
 
-vi.mock( '@/components/site-dropdown', () => ( {
-	SiteDropdown: ( { site }: { site: { name: string } } ) => <div>{ site.name }</div>,
+vi.mock( '@/components/site-actions-menu', () => ( {
+	SiteActionsMenu: ( { site }: { site: { name: string } } ) => <div>{ site.name }</div>,
+} ) );
+
+vi.mock( '@/components/share-dialog', () => ( {
+	ShareButton: () => null,
+} ) );
+
+vi.mock( '@/components/site-lifecycle-button', () => ( {
+	SiteLifecycleButton: () => <button type="button">Start</button>,
+} ) );
+
+vi.mock( '@/components/stopped-site-preview', () => ( {
+	StoppedSitePreview: () => <div data-testid="stopped-site-preview" />,
 } ) );
 
 vi.mock( '@/components/preview-toggle-button', () => ( {
@@ -53,7 +80,6 @@ vi.mock( '@/data/core', async ( importOriginal ) => ( {
 	...( await importOriginal< object >() ),
 	useConnector: () => ( {
 		openExternalUrl: vi.fn(),
-		capabilities: { aiSettings: false },
 		getAiSettings: vi.fn(),
 	} ),
 } ) );
@@ -64,7 +90,6 @@ vi.mock( '@/data/queries/use-agent-run', () => ( {
 		hasActiveRun: agentRunState.hasActiveRun,
 		isInterrupting: false,
 		startedAt: undefined,
-		error: null,
 		pendingQuestions: [],
 		pendingAnswers: [],
 		queuedPrompts: [],
@@ -79,7 +104,7 @@ vi.mock( '@/hooks/use-session-commands', () => ( { useSessionCommands: vi.fn() }
 
 vi.mock( '@/hooks/use-session-ui', () => ( {
 	SessionUIProvider: ( { children }: { children: React.ReactNode } ) => children,
-	useSessionPreviewAnnotations: vi.fn(),
+	useOptionalSessionPreviewUI: () => null,
 	useSessionPreviewUI: () => ( {
 		pathsBySiteId: { 'site-1': '/wp-admin/' },
 	} ),
@@ -87,12 +112,23 @@ vi.mock( '@/hooks/use-session-ui', () => ( {
 		pathsBySiteId[ siteId ] ?? '/',
 } ) );
 
+vi.mock( '@/hooks/use-window-controls-overlay', () => ( {
+	useWindowControlsOverlay: () => ( { height: 32, controlsWidth: 138 } ),
+} ) );
+
 vi.mock( '@/hooks/use-traffic-light-space', () => ( {
 	useTrafficLightSpace: () => ( { start: false, end: false } ),
 } ) );
 
+const composerProps = vi.hoisted( () => ( {
+	current: undefined as undefined | { onSend: ( prompt: string ) => Promise< void > },
+} ) );
+
 vi.mock( './composer', () => ( {
-	Composer: () => <div data-testid="composer" />,
+	Composer: ( props: { onSend: ( prompt: string ) => Promise< void > } ) => {
+		composerProps.current = props;
+		return <div data-testid="composer" />;
+	},
 	ComposerSkeleton: () => <div data-testid="composer-skeleton" />,
 } ) );
 
@@ -100,21 +136,11 @@ vi.mock( './conversation', () => ( {
 	Conversation: () => <div />,
 } ) );
 
+vi.mock( '@/components/chat-actions', () => ( { OpenChatShortcuts: () => null } ) );
+vi.mock( '@/hooks/use-mark-chat-read', () => ( { useMarkChatRead: vi.fn() } ) );
+
 vi.mock( './session-chat-actions', () => ( {
-	getSiteSessionHistory: () => [],
-	SessionChatActions: ( { showNewChat = true }: { showNewChat?: boolean } ) => (
-		<div data-testid="chat-actions" data-show-new-chat={ String( showNewChat ) } />
-	),
-} ) );
-
-vi.mock( './suggested-prompts', () => ( {
-	SuggestedPrompts: () => <div data-testid="suggested-prompts" />,
-} ) );
-
-// The real notice reaches TanStack Query, which this suite has no provider for.
-vi.mock( '@/components/ai-access-required-notice', async ( importOriginal ) => ( {
-	...( await importOriginal< object >() ),
-	OutOfCreditsNotice: () => <div data-testid="out-of-credits" />,
+	useNewChatShortcut: () => undefined,
 } ) );
 
 const useSessionMock = vi.mocked( useSession, { partial: true } );
@@ -161,10 +187,6 @@ function makeOwnedSession(): LoadedAiSession {
 	} as unknown as LoadedAiSession;
 }
 
-function makeSpentQuota() {
-	return makeQuota( { allowanceRemaining: 0, purchasedRemaining: 0 } );
-}
-
 function setScrollMetrics(
 	node: HTMLElement,
 	metrics: { scrollTop: number; scrollHeight: number; clientHeight: number }
@@ -185,6 +207,7 @@ describe( 'SessionView', () => {
 		vi.clearAllMocks();
 		agentRunState.hasActiveRun = false;
 		sitesState.data = [];
+		siteMocks.preferences = { autoStartSiteOnChat: false };
 		const pending = pendingPromptSlot.getSnapshot();
 		if ( pending ) pendingPromptSlot.clear( pending );
 		// Entitled account by default; individual tests override.
@@ -196,26 +219,33 @@ describe( 'SessionView', () => {
 		} );
 	} );
 
-	it( 'shows the Open in control at the top-right of the chat header', () => {
+	it( 'moves the chat header clear of the Windows/Linux window controls', () => {
 		sitesState.data = [
 			{ id: 'site-1', name: 'Example Site', path: '/Users/example/Studio/example-site' },
 		];
 		useSessionMock.mockReturnValue( {
 			data: {
-				summary: {
-					id: 'session-1',
-					ownerSiteId: 'site-1',
-					ownerSiteName: 'Example Site',
-				},
+				summary: { id: 'session-1', ownerSiteId: 'site-1', ownerSiteName: 'Example Site' },
 				entries: [],
 			} as unknown as LoadedAiSession,
 			isLoading: false,
 			error: null,
 		} );
 
-		render( <SessionView sessionId="session-1" /> );
+		const { rerender } = render(
+			<WindowControlsCornerContext.Provider value>
+				<SessionView sessionId="session-1" />
+			</WindowControlsCornerContext.Provider>
+		);
+		const header = screen.getByText( 'Example Site' ).parentElement;
+		expect( header?.style.paddingRight ).toBe( '146px' );
 
-		expect( screen.getByTestId( 'open-in-menu' ) ).toHaveTextContent( 'Example Site' );
+		rerender(
+			<WindowControlsCornerContext.Provider value={ false }>
+				<SessionView sessionId="session-1" />
+			</WindowControlsCornerContext.Provider>
+		);
+		expect( header?.style.paddingRight ).toBe( '' );
 	} );
 
 	it( 'redirects to the root instead of flashing the error when the session is gone', async () => {
@@ -431,7 +461,7 @@ describe( 'SessionView', () => {
 
 		const { container } = render( <SessionView sessionId="session-1" /> );
 
-		expect( container.querySelectorAll( '[class*="fadeToSurface"]' ) ).toHaveLength( 2 );
+		expect( container.querySelectorAll( '[class*="fadeToSurface"]' ) ).toHaveLength( 1 );
 	} );
 
 	it( 'ignores an unverified email when a payment method exists', () => {
@@ -468,121 +498,32 @@ describe( 'SessionView', () => {
 		expect( screen.queryByText( 'Studio Code Beta' ) ).not.toBeInTheDocument();
 	} );
 
-	it( 'replaces the composer with the purchase offer when the credits are spent', () => {
-		useSessionMock.mockReturnValue( {
-			data: makeLoadedSession(),
-			isLoading: false,
-			error: null,
-		} );
-		useStudioAssistantQuotaMock.mockReturnValue( {
-			data: makeSpentQuota(),
-			isLoading: false,
-			isFetching: false,
-			refetch: vi.fn(),
-		} );
+	it( 'starts a stopped site on send only when auto-start is on', async () => {
+		sitesState.data = [ { ...OWNER_SITE, running: false } ];
+		useSessionMock.mockReturnValue( { data: makeOwnedSession(), isLoading: false, error: null } );
 
-		render( <SessionView sessionId="session-1" /> );
+		const { rerender } = render( <SessionView sessionId="session-1" /> );
+		await composerProps.current?.onSend( 'Hi' );
+		expect( siteMocks.startSite ).not.toHaveBeenCalled();
 
-		expect( screen.getByTestId( 'out-of-credits' ) ).toBeInTheDocument();
-		expect( screen.queryByTestId( 'composer' ) ).not.toBeInTheDocument();
+		siteMocks.preferences = { autoStartSiteOnChat: true };
+		rerender( <SessionView sessionId="session-1" /> );
+		await composerProps.current?.onSend( 'Hi' );
+		expect( siteMocks.startSite ).toHaveBeenCalledWith( OWNER_SITE.id );
 	} );
 
-	it( 'keeps the composer while a run is still in flight', () => {
-		agentRunState.hasActiveRun = true;
-		useSessionMock.mockReturnValue( {
-			data: makeLoadedSession(),
-			isLoading: false,
-			error: null,
-		} );
-		useStudioAssistantQuotaMock.mockReturnValue( {
-			data: makeSpentQuota(),
-			isLoading: false,
-			isFetching: false,
-			refetch: vi.fn(),
-		} );
-
-		render( <SessionView sessionId="session-1" /> );
-
-		// The composer carries the Stop button, so it has to outlive the balance.
-		expect( screen.getByTestId( 'composer' ) ).toBeInTheDocument();
-		expect( screen.queryByTestId( 'out-of-credits' ) ).not.toBeInTheDocument();
-	} );
-
-	it( 'hides the new chat action while the credits are spent', () => {
+	it( 'offers a stopped site its last screenshot and a Start button', () => {
 		sitesState.data = [ OWNER_SITE ];
-		useSessionMock.mockReturnValue( {
-			data: makeOwnedSession(),
-			isLoading: false,
-			error: null,
-		} );
-		useStudioAssistantQuotaMock.mockReturnValue( {
-			data: makeSpentQuota(),
-			isLoading: false,
-			isFetching: false,
-			refetch: vi.fn(),
-		} );
+		useSessionMock.mockReturnValue( { data: makeOwnedSession(), isLoading: false, error: null } );
 
-		render( <SessionView sessionId="session-1" /> );
+		const { rerender } = render( <SessionView sessionId="session-1" /> );
+		expect( screen.getByTestId( 'stopped-site-preview' ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'Start' } ) ).toBeInTheDocument();
 
-		expect( screen.getByTestId( 'chat-actions' ) ).toHaveAttribute( 'data-show-new-chat', 'false' );
-	} );
-
-	it( 'hides the suggested prompts while the credits are spent', () => {
-		sitesState.data = [ OWNER_SITE ];
-		useSessionMock.mockReturnValue( {
-			data: makeOwnedSession(),
-			isLoading: false,
-			error: null,
-		} );
-		useStudioAssistantQuotaMock.mockReturnValue( {
-			data: makeSpentQuota(),
-			isLoading: false,
-			isFetching: false,
-			refetch: vi.fn(),
-		} );
-
-		render( <SessionView sessionId="session-1" /> );
-
-		expect( screen.queryByTestId( 'suggested-prompts' ) ).not.toBeInTheDocument();
-	} );
-
-	it( 'keeps the new chat action and suggested prompts while credits remain', () => {
-		sitesState.data = [ OWNER_SITE ];
-		useSessionMock.mockReturnValue( {
-			data: makeOwnedSession(),
-			isLoading: false,
-			error: null,
-		} );
-
-		render( <SessionView sessionId="session-1" /> );
-
-		expect( screen.getByTestId( 'chat-actions' ) ).toHaveAttribute( 'data-show-new-chat', 'true' );
-		expect( screen.getByTestId( 'suggested-prompts' ) ).toBeInTheDocument();
-	} );
-
-	it( 'publishes the composer height for the collapsed-sidebar toast shelf', () => {
-		useSessionMock.mockReturnValue( {
-			data: makeLoadedSession(),
-			isLoading: false,
-			error: null,
-		} );
-
-		const { container, unmount } = render( <SessionView sessionId="session-1" /> );
-
-		const composer = container.querySelector( '[class*="composerOuter"]' ) as HTMLDivElement;
-		expect( composer ).not.toBeNull();
-		Object.defineProperty( composer, 'offsetHeight', { value: 120, configurable: true } );
-		fireEvent( window, new Event( 'resize' ) );
-
-		expect( document.documentElement.style.getPropertyValue( '--app-main-composer-height' ) ).toBe(
-			'120px'
-		);
-
-		unmount();
-
-		expect( document.documentElement.style.getPropertyValue( '--app-main-composer-height' ) ).toBe(
-			''
-		);
+		sitesState.data = [ { ...OWNER_SITE, running: true } ];
+		rerender( <SessionView sessionId="session-1" /> );
+		expect( screen.queryByTestId( 'stopped-site-preview' ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'button', { name: 'Start' } ) ).not.toBeInTheDocument();
 	} );
 } );
 

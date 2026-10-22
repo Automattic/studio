@@ -27,6 +27,7 @@ export async function runCommand( host: string, options: SetCommandOptions ): Pr
 	await setSnapshotInConfig( host, { name } );
 	await emitCliEvent( { event: SNAPSHOT_EVENTS.UPDATED, data: { snapshotUrl: host } } );
 	logger.reportSuccess( __( 'Preview site updated' ) );
+	logger.reportResult( { name, url: host } );
 }
 
 export const registerCommand = ( yargs: StudioArgv ) => {

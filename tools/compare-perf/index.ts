@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-/* eslint-disable no-console */
 
 import { Command } from 'commander';
 import { runPerformanceTests } from './performance';

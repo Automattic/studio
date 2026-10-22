@@ -91,7 +91,6 @@ vi.mock( '@/data/queries/use-agentic-features', () => ( {
 	useAgenticFeatures: vi.fn( () => ( {
 		enabled: true,
 		chatEnabled: true,
-		chatPromptsSignIn: false,
 		reason: null,
 		isReady: true,
 	} ) ),
@@ -154,7 +153,6 @@ describe( 'SiteList', () => {
 		vi.mocked( useAgenticFeatures ).mockReturnValue( {
 			enabled: true,
 			chatEnabled: true,
-			chatPromptsSignIn: false,
 			reason: null,
 			isReady: true,
 		} );
@@ -313,11 +311,10 @@ describe( 'SiteList', () => {
 		} );
 	} );
 
-	it( 'opens the Studio Code sign-in screen when clicking a site while signed out', () => {
+	it( 'opens a chat when clicking a site while signed out', () => {
 		vi.mocked( useAgenticFeatures ).mockReturnValue( {
 			enabled: false,
-			chatEnabled: false,
-			chatPromptsSignIn: true,
+			chatEnabled: true,
 			reason: 'signed-out',
 			isReady: true,
 		} );
@@ -346,33 +343,10 @@ describe( 'SiteList', () => {
 		} );
 	} );
 
-	it( 'shows the selected chat when signed out', () => {
-		vi.mocked( useAgenticFeatures ).mockReturnValue( {
-			enabled: false,
-			chatEnabled: false,
-			chatPromptsSignIn: true,
-			reason: 'signed-out',
-			isReady: true,
-		} );
-		paramsMock = { siteId: 'stopped-site' };
-		pathnameMock = '/sites/stopped-site/new';
-
-		render( <SiteList /> );
-
-		const stoppedRow = screen.getByText( 'Stopped Site' ).closest( 'section' )!;
-		const className = stoppedRow.getAttribute( 'class' ) ?? '';
-		const siteButton = within( stoppedRow ).getByRole( 'button', { name: 'Stopped Site' } );
-
-		expect( className ).toContain( 'siteActive' );
-		expect( className ).not.toContain( 'siteContextActive' );
-		expect( siteButton ).toHaveAttribute( 'aria-current', 'page' );
-	} );
-
 	it( "opens the site's page when Studio Code is switched off", () => {
 		vi.mocked( useAgenticFeatures ).mockReturnValue( {
 			enabled: true,
 			chatEnabled: false,
-			chatPromptsSignIn: false,
 			reason: null,
 			isReady: true,
 		} );

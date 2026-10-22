@@ -96,6 +96,7 @@ import { useLocalMediaDataUrl } from '@/data/queries/use-local-media';
 import { MESSAGE_TEXT_ATTRIBUTE, QUOTABLE_TEXT_ATTRIBUTE } from '@/hooks/use-text-context-menu';
 import { refreshIcon } from '@/lib/icons';
 import { ThinkingIndicator } from '../thinking-indicator';
+import { SCROLL_ANCHOR_ATTRIBUTE } from '../use-anchored-scroll';
 import styles from './style.module.css';
 import type { LoadedAiSession } from '@/data/core';
 import type { SessionEntry } from '@earendil-works/pi-coding-agent';
@@ -495,7 +496,10 @@ function UserTurn( {
 	annotation?: StudioVisualAnnotationSummary;
 } ) {
 	return (
-		<div className={ styles.userTurn } { ...{ [ MESSAGE_TEXT_ATTRIBUTE ]: text } }>
+		<div
+			className={ styles.userTurn }
+			{ ...{ [ MESSAGE_TEXT_ATTRIBUTE ]: text, [ SCROLL_ANCHOR_ATTRIBUTE ]: '' } }
+		>
 			{ text ? (
 				<div className={ styles.userTextRow }>
 					<CopyButton className={ styles.userCopy } text={ text } label={ __( 'Copy message' ) } />

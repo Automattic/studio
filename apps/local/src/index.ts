@@ -1551,7 +1551,18 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		'/quota',
 		asyncHandler( async ( _req: Request, res: Response ) => {
 			const token = await readAuthToken();
-			res.json( token?.accessToken ? await fetchStudioAssistantQuota( token.accessToken ) : null );
+			if ( ! token?.accessToken ) {
+				res.json( null );
+				return;
+			}
+			// A failed lookup is an error, as in the Desktop app, so the chat can
+			// offer a retry rather than read it as signed out.
+			const quota = await fetchStudioAssistantQuota( token.accessToken );
+			if ( ! quota ) {
+				res.status( 502 ).json( { error: 'Failed to fetch Studio assistant quota' } );
+				return;
+			}
+			res.json( quota );
 		} )
 	);
 

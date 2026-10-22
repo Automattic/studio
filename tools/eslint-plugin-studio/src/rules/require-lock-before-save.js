@@ -26,10 +26,7 @@ export default {
 							type: 'object',
 							properties: {
 								save: {
-									oneOf: [
-										{ type: 'string' },
-										{ type: 'array', items: { type: 'string' } },
-									],
+									oneOf: [ { type: 'string' }, { type: 'array', items: { type: 'string' } } ],
 								},
 								lock: { type: 'string' },
 								unlock: { type: 'string' },
@@ -44,8 +41,7 @@ export default {
 		messages: {
 			missingLock:
 				'Function that calls {{ saveFn }}() must be wrapped with {{ lockFn }}() and {{ unlockFn }}().',
-			missingUnlock:
-				'{{ lockFn }}() must be followed by {{ unlockFn }}() in a try/finally block.',
+			missingUnlock: '{{ lockFn }}() must be followed by {{ unlockFn }}() in a try/finally block.',
 		},
 	},
 	create( context ) {

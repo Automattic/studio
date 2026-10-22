@@ -360,6 +360,30 @@ describe( 'Composer menu', () => {
 		expect( screen.getByRole( 'combobox' ) ).toHaveValue( 'One more' );
 	} );
 
+	it( 'shakes the notice it is given instead of sending', async () => {
+		const onConnect = vi.fn();
+		const onSend = vi.fn< ( prompt: string ) => Promise< void > >();
+		renderComposer( {
+			onSend,
+			notice: {
+				message: 'Connect a provider to build and edit your site.',
+				action: { label: 'Connect', onClick: onConnect },
+			},
+		} );
+
+		const notice = screen.getByRole( 'alert' );
+		fireEvent.click( within( notice ).getByRole( 'button', { name: 'Connect' } ) );
+		expect( onConnect ).toHaveBeenCalled();
+
+		fireEvent.change( screen.getByRole( 'combobox' ), { target: { value: 'Build a bakery' } } );
+		fireEvent.keyDown( screen.getByRole( 'combobox' ), { key: 'Enter' } );
+		expect( onSend ).not.toHaveBeenCalled();
+		expect( within( notice ).getByText( /Connect a provider/ ).parentElement ).toHaveAttribute(
+			'data-submit-feedback',
+			'shake'
+		);
+	} );
+
 	it( 'does not hold an Anthropic chat behind WordPress.com credits', async () => {
 		connectorMocks.getAiSettings.mockResolvedValue( {
 			provider: 'wpcom',

@@ -344,6 +344,13 @@ interface ComposerProps {
 	// The site whose preview annotations go out with the next message.
 	annotationSiteId?: string;
 	onModelChange?: ( model: AiModelId ) => void;
+	// Why the chat can't send right now; a send attempt shakes it.
+	notice?: ComposerNotice;
+}
+
+export interface ComposerNotice {
+	message: string;
+	action?: { label: string; onClick: () => void };
 }
 
 /**
@@ -407,6 +414,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		dropTarget,
 		annotationSiteId,
 		onModelChange,
+		notice: blockingNotice,
 	},
 	ref
 ) {
@@ -466,6 +474,14 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		}
 		void connector.openExternalUrl( addAiCreditsUrl );
 	};
+	const notice =
+		blockingNotice ??
+		( isOutOfCredits
+			? {
+					message: __( 'Add AI credits to send another message.' ),
+					action: { label: __( 'Add credits' ), onClick: openAddCredits },
+			  }
+			: undefined );
 
 	const { data: preferences } = useUserPreferences();
 	const savePreferences = useSaveUserPreferences();
@@ -612,7 +628,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		if ( sending || ( ! trimmed && attachments.length === 0 && sentNotes.length === 0 ) ) {
 			return;
 		}
-		if ( isOutOfCredits ) {
+		if ( blockingNotice || isOutOfCredits ) {
 			setSubmitFeedback( 'shake' );
 			return;
 		}
@@ -665,6 +681,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		sending,
 		attachments,
 		busy,
+		blockingNotice,
 		isOutOfCredits,
 		answerQuestion,
 		onSend,
@@ -923,7 +940,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 	return (
 		<>
 			<div className={ styles.root }>
-				{ isOutOfCredits ? (
+				{ notice ? (
 					<div
 						className={ styles.notice }
 						role="alert"
@@ -933,17 +950,17 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 							className={ styles.noticeContent }
 							data-submit-feedback={ submitFeedback ?? undefined }
 						>
-							<span className={ styles.noticeMessage }>
-								{ __( 'Add AI credits to send another message.' ) }
-							</span>
-							<Button
-								size="composer-notice"
-								shape="round"
-								variant={ submitFeedback ? 'destructive' : 'default' }
-								onClick={ openAddCredits }
-							>
-								{ __( 'Add credits' ) }
-							</Button>
+							<span className={ styles.noticeMessage }>{ notice.message }</span>
+							{ notice.action ? (
+								<Button
+									size="composer-notice"
+									shape="round"
+									variant={ submitFeedback ? 'destructive' : 'default' }
+									onClick={ notice.action.onClick }
+								>
+									{ notice.action.label }
+								</Button>
+							) : null }
 						</div>
 					</div>
 				) : null }

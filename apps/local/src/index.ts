@@ -1060,9 +1060,13 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			}
 			const folder = { path: folderPath, name: path.basename( folderPath ) };
 			// Only folders under the home or site directory are read; others are left to `site create`.
-			const confined = [ os.homedir(), await readDefaultSiteDirectory( sitesRoot ) ]
-				.map( ( root ) => confineToRoot( root, folderPath ) )
-				.find( Boolean );
+			let confined: string | undefined;
+			for ( const root of [ os.homedir(), await readDefaultSiteDirectory( sitesRoot ) ] ) {
+				const candidate = path.resolve( folderPath );
+				if ( candidate.startsWith( path.resolve( root ) + path.sep ) ) {
+					confined = candidate;
+				}
+			}
 			try {
 				res.json( {
 					...folder,

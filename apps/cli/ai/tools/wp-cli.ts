@@ -141,7 +141,10 @@ export const runWpCliTool = defineTool(
 				if ( unsupportedOptionMessage ) {
 					throw new Error( unsupportedOptionMessage );
 				}
-				const unsupportedPostContentMessage = getUnsupportedWpCliPostContentMessage( wpCliArgs );
+				const unsupportedPostContentMessage = getUnsupportedWpCliPostContentMessage(
+					wpCliArgs,
+					site.path
+				);
 				if ( unsupportedPostContentMessage ) {
 					throw new Error( unsupportedPostContentMessage );
 				}

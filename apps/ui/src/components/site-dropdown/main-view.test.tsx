@@ -1,15 +1,13 @@
-import { useIsMutating } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import * as Menu from '@/components/menu';
 import { MainView } from './main-view';
-import type { SiteDetails, Snapshot, SyncSite } from '@/data/core';
+import type { SiteDetails, Snapshot } from '@/data/core';
 import type { SyncActivity } from '@/data/sync-activity';
 
 const {
 	connector,
 	snapshots,
-	connectedSites,
 	publishPreviewMutate,
 	deleteSnapshotMutate,
 	renameSnapshotMutate,
@@ -22,7 +20,6 @@ const {
 		openExternalUrl: vi.fn(),
 	},
 	snapshots: [] as Snapshot[],
-	connectedSites: [] as SyncSite[],
 	publishPreviewMutate: vi.fn(),
 	deleteSnapshotMutate: vi.fn(),
 	renameSnapshotMutate: vi.fn(),
@@ -37,14 +34,6 @@ let snapshotUsage: {
 	siteCreationBlocked: boolean;
 } | null = null;
 
-vi.mock( '@tanstack/react-query', async ( importOriginal ) => {
-	const actual = await importOriginal< typeof import('@tanstack/react-query') >();
-	return {
-		...actual,
-		useIsMutating: vi.fn( () => 0 ),
-	};
-} );
-
 vi.mock( '@/components/open-in-menu/use-open-in-destinations', () => ( {
 	useOpenInDestinations: () => [],
 } ) );
@@ -53,16 +42,8 @@ vi.mock( '@/data/core', () => ( {
 	useConnector: () => connector,
 } ) );
 
-vi.mock( '@/data/queries/use-wpcom-sites', () => ( {
-	useLiveWpcomSites: () => connectedSites,
-} ) );
-
 vi.mock( '@/data/queries/use-agentic-features', () => ( {
 	useAgenticFeatures: vi.fn( () => ( { enabled: true, reason: null, isReady: true } ) ),
-} ) );
-
-vi.mock( '@/data/queries/use-auth-user', () => ( {
-	useLogin: () => ( { mutate: vi.fn(), isPending: false } ),
 } ) );
 
 vi.mock( '@/data/queries/use-preview-site', () => ( {
@@ -89,28 +70,6 @@ vi.mock( '@/data/queries/use-user-locale', () => ( {
 	useUserLocale: () => undefined,
 } ) );
 
-const cancelSyncMutate = vi.fn();
-
-vi.mock( '@/data/queries/use-sync-site', () => ( {
-	PULL_FROM_LIVE_MUTATION_KEY: [ 'pull-site-from-live' ],
-	PUSH_TO_LIVE_MUTATION_KEY: [ 'push-site-to-live' ],
-	usePullSiteFromLive: () => ( { mutate: vi.fn() } ),
-	usePushSiteToLive: () => ( { mutate: vi.fn() } ),
-	useCancelSync: () => ( { mutate: cancelSyncMutate } ),
-} ) );
-
-const liveSite: SyncSite = {
-	id: 123,
-	localSiteId: 'site-1',
-	name: 'Live Site',
-	url: 'example.com',
-	isStaging: false,
-	isPressable: false,
-	syncSupport: 'already-connected',
-	lastPullTimestamp: null,
-	lastPushTimestamp: null,
-};
-
 const site: SiteDetails = {
 	id: 'site-1',
 	name: 'Demo Site',
@@ -127,19 +86,12 @@ function mainViewTree( {
 	siteOverrides?: Partial< SiteDetails >;
 	activity?: SyncActivity | null;
 } = {} ) {
-	// The live row's "more" submenu needs the Menu.Root + Popup contexts the
+	// The preview rows' "more" submenu needs the Menu.Root + Popup contexts the
 	// dropdown provides around MainView in the real app.
 	return (
 		<Menu.Root open>
 			<Menu.Popup>
-				<MainView
-					site={ { ...site, ...siteOverrides } }
-					activity={ activity }
-					onSetupClick={ vi.fn() }
-					onDisconnectClick={ vi.fn() }
-					onPullClick={ vi.fn() }
-					onPushClick={ vi.fn() }
-				/>
+				<MainView site={ { ...site, ...siteOverrides } } activity={ activity } />
 			</Menu.Popup>
 		</Menu.Root>
 	);
@@ -157,10 +109,8 @@ function openPreviewMenu() {
 
 describe( 'MainView', () => {
 	beforeEach( () => {
-		vi.mocked( useIsMutating ).mockImplementation( () => 0 );
 		connector.copyText.mockReset();
 		connector.openExternalUrl.mockReset();
-		cancelSyncMutate.mockReset();
 		publishPreviewMutate.mockReset();
 		deleteSnapshotMutate.mockReset();
 		renameSnapshotMutate.mockReset();
@@ -176,7 +126,6 @@ describe( 'MainView', () => {
 			name: 'Demo Site Preview 1',
 		} );
 		snapshotUsage = null;
-		connectedSites.splice( 0, connectedSites.length );
 	} );
 
 	it( 'shows an Xdebug badge on the Studio row only when Xdebug is enabled', () => {
@@ -246,15 +195,12 @@ describe( 'MainView', () => {
 		consoleError.mockRestore();
 	} );
 
-	it.each( [
-		[ 'pull', 'Pulling from live…' ],
-		[ 'import', 'Importing backup…' ],
-	] as const )( 'shows detailed %s progress in the open site status', ( direction, title ) => {
+	it( 'shows detailed import progress in the open site status', () => {
 		renderMainView( {
-			activity: { kind: 'pending', direction, message: '24% · Media uploads…' },
+			activity: { kind: 'pending', direction: 'import', message: '24% · Media uploads…' },
 		} );
 
-		expect( screen.getByRole( 'status' ) ).toHaveTextContent( title );
+		expect( screen.getByRole( 'status' ) ).toHaveTextContent( 'Importing backup…' );
 		expect( screen.getByRole( 'status' ) ).toHaveTextContent( '24% · Media uploads…' );
 	} );
 
@@ -391,75 +337,6 @@ describe( 'MainView', () => {
 		expect( deleteSnapshotMutate ).toHaveBeenCalledWith( { hostname: 'preview.example.com' } );
 	} );
 
-	it( 'lists every connected site and syncs the one picked', () => {
-		const staging = { ...liveSite, id: 456, name: 'Staging Site', isStaging: true };
-		connectedSites.splice( 0, connectedSites.length, liveSite, staging );
-		const onPullClick = vi.fn();
-
-		render(
-			<Menu.Root open>
-				<Menu.Popup>
-					<MainView
-						site={ site }
-						activity={ null }
-						onSetupClick={ vi.fn() }
-						onDisconnectClick={ vi.fn() }
-						onPullClick={ onPullClick }
-						onPushClick={ vi.fn() }
-					/>
-				</Menu.Popup>
-			</Menu.Root>
-		);
-
-		expect( screen.getByText( 'Staging' ) ).toBeInTheDocument();
-		fireEvent.click( screen.getAllByRole( 'button', { name: 'Pull from live' } )[ 1 ] );
-		expect( onPullClick ).toHaveBeenCalledWith( staging );
-	} );
-
-	it( 'labels the live sync controls with plain actions while idle', () => {
-		connectedSites.splice( 0, connectedSites.length, liveSite );
-
-		renderMainView();
-
-		const pullButton = screen.getByRole( 'button', { name: 'Pull from live' } );
-		expect( pullButton.getAttribute( 'aria-disabled' ) ).not.toBe( 'true' );
-		expect( screen.getByRole( 'button', { name: 'Push to live' } ) ).toBeInTheDocument();
-	} );
-
-	it( 'tells when the live site was last pulled and pushed', () => {
-		connectedSites.splice( 0, connectedSites.length, {
-			...liveSite,
-			lastPullTimestamp: new Date( Date.now() - 2 * 60 * 60 * 1000 ).toISOString(),
-			lastPushTimestamp: new Date().toISOString(),
-		} );
-
-		renderMainView();
-
-		expect( screen.getByText( 'Pulled 2h ago · Pushed just now' ) ).toBeInTheDocument();
-	} );
-
-	it( 'offers to stop an in-flight push and reports the site being stopped', () => {
-		vi.mocked( useIsMutating ).mockReturnValue( 1 );
-		connectedSites.splice( 0, connectedSites.length, liveSite );
-
-		renderMainView( {
-			activity: {
-				kind: 'pending',
-				direction: 'push',
-				phase: 'uploading',
-				remoteSiteId: liveSite.id,
-			},
-		} );
-
-		fireEvent.click( screen.getByRole( 'button', { name: 'Cancel push' } ) );
-
-		expect( cancelSyncMutate ).toHaveBeenCalledWith( {
-			siteId: site.id,
-			remoteSiteId: liveSite.id,
-		} );
-		expect( screen.getByRole( 'status' ) ).not.toHaveTextContent( 'can not be cancelled' );
-	} );
-
 	it( 'disables New preview when the preview site limit is reached', () => {
 		snapshots.splice( 0, snapshots.length );
 		snapshotUsage = { siteCount: 10, siteLimit: 10, siteCreationBlocked: false };
@@ -488,50 +365,5 @@ describe( 'MainView', () => {
 			'aria-disabled',
 			'true'
 		);
-	} );
-
-	// The reason doubles as the accessible name and is stated in the panel: a
-	// tooltip on a disabled control is a dead end.
-	it.each( [
-		[
-			{ kind: 'pending', direction: 'push', phase: 'applyingChanges' },
-			'Push can not be cancelled while applying changes to the remote site',
-		],
-		[
-			{ kind: 'pending', direction: 'pull', action: 'import' },
-			'Pull can not be cancelled while importing changes to your local site',
-		],
-	] as const )( 'stops offering to cancel past the point of no return', ( activity, reason ) => {
-		vi.mocked( useIsMutating ).mockReturnValue( 1 );
-		connectedSites.splice( 0, connectedSites.length, liveSite );
-
-		renderMainView( { activity } );
-
-		fireEvent.click( screen.getByRole( 'button', { name: reason } ) );
-		expect( screen.getByRole( 'button', { name: reason } ) ).toHaveAttribute(
-			'aria-disabled',
-			'true'
-		);
-		expect( screen.getByRole( 'status' ) ).toHaveTextContent( reason );
-		expect( cancelSyncMutate ).not.toHaveBeenCalled();
-	} );
-
-	// Whoever started the sync — this window, the agent or a terminal — the live
-	// sync controls are busy; only a sync this window started offers a cancel.
-	it.each( [
-		[ 'push', 'Pushing to live…' ],
-		[ 'pull', 'Pulling from live…' ],
-		[ 'preview', 'Push to live (sync in progress)' ],
-		[ 'import', 'Push to live (sync in progress)' ],
-	] as const )( 'keeps the live sync controls busy during a %s', ( direction, busyLabel ) => {
-		connectedSites.splice( 0, connectedSites.length, liveSite );
-
-		renderMainView( { activity: { kind: 'pending', direction, remoteSiteId: liveSite.id } } );
-
-		expect( screen.getByRole( 'button', { name: busyLabel } ) ).toHaveAttribute(
-			'aria-disabled',
-			'true'
-		);
-		expect( screen.queryByRole( 'button', { name: /^Cancel / } ) ).not.toBeInTheDocument();
 	} );
 } );

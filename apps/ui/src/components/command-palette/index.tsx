@@ -3,11 +3,12 @@ import { Dialog } from '@base-ui/react/dialog';
 import { findAiSessionOwnerSite } from '@studio/common/ai/sessions/owner-site';
 import { useNavigate } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
-import { copy, Icon, search } from '@wordpress/icons';
+import { cloudUpload, copy, Icon, search } from '@wordpress/icons';
 import { isKeyboardEvent } from '@wordpress/keycodes';
 import { useEffect, useState } from 'react';
 import { useChatActions } from '@/components/chat-actions';
 import { useOpenInDestinations } from '@/components/open-in-menu/use-open-in-destinations';
+import { useOpenPublish } from '@/components/publish-panel/request';
 import { getSessionTitle } from '@/components/session-view/session-chat-actions';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
@@ -284,6 +285,7 @@ function SiteCommands( {
 	const manage = useSiteManagementActions( site, { onDelete: () => {} } );
 	const preview = useSessionPreviewUI();
 	const dispatch = useSessionUIDispatch();
+	const openPublish = useOpenPublish();
 	const description = site.name;
 
 	const siteCommands: PaletteCommand[] = [
@@ -360,6 +362,15 @@ function SiteCommands( {
 						run: () => preview.setChatHidden( ! chatHidden ),
 					},
 			  ] ),
+		{
+			id: 'publish',
+			group: 'site',
+			label: __( 'Publish & Sync…' ),
+			icon: cloudUpload,
+			description,
+			keywords: [ __( 'publish site sync push pull upload download' ) ],
+			run: () => openPublish( { siteId: site.id, view: 'publish' } ),
+		},
 		{
 			id: 'copy-url',
 			group: 'site',

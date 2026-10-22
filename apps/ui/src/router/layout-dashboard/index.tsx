@@ -68,10 +68,9 @@ function DashboardLayoutContent() {
 			sessionId: getRouteSessionId( state.location.pathname ),
 			homeSiteId: getRouteHomeSiteId( state.location.pathname ),
 			newSessionSiteId: getNewSessionSiteId( state.location.pathname ),
-			openSiteDropdown: state.location.search.sync === 'pull',
 		} ),
 	} );
-	const { sessionId, homeSiteId, newSessionSiteId, openSiteDropdown } = routePreviewContext;
+	const { sessionId, homeSiteId, newSessionSiteId } = routePreviewContext;
 	const { isReady: agenticFeaturesReady, chatEnabled } = useAgenticFeatures();
 	const { data: sites } = useSites();
 	const { data: sessionData } = useSession( sessionId );
@@ -179,10 +178,7 @@ function DashboardLayoutContent() {
 						chatHidden ? (
 							<>
 								<HeaderSidebarToggle />
-								<SiteDropdown
-									site={ previewSite }
-									defaultOpen={ !! homeSite && openSiteDropdown }
-								/>
+								<SiteDropdown site={ previewSite } />
 								{ homeSite ? null : (
 									<IconButton
 										variant="minimal"
@@ -203,7 +199,6 @@ function DashboardLayoutContent() {
 			chatHidden,
 			homeSite,
 			onAnnotationsDone,
-			openSiteDropdown,
 			previewPath,
 			preview.reloadNonce,
 			preview.updatePath,

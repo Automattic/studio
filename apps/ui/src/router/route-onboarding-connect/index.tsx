@@ -10,6 +10,7 @@ import { clsx } from 'clsx';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AuthActions } from '@/components/auth-actions';
 import { OnboardingFooter } from '@/components/onboarding-footer';
+import { requestPublish } from '@/components/publish-panel/request';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { useAuthUser } from '@/data/queries/use-auth-user';
@@ -288,12 +289,10 @@ export function OnboardingConnectPage() {
 				startLocalSite: async ( localSiteId ) => {
 					await startSite.mutateAsync( localSiteId );
 				},
-				openLocalSite: ( localSiteId ) =>
-					navigate( {
-						to: '/sites/$siteId',
-						params: { siteId: localSiteId },
-						search: { sync: 'pull' },
-					} ),
+				openLocalSite: ( localSiteId ) => {
+					requestPublish( { siteId: localSiteId, view: 'pull' } );
+					return navigate( { to: '/sites/$siteId', params: { siteId: localSiteId } } );
+				},
 				deleteLocalSite: ( localSiteId ) =>
 					deleteSite.mutateAsync( { id: localSiteId, deleteFiles: true } ),
 				onStage: ( stage ) => {

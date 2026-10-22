@@ -5,11 +5,6 @@ import { dashboardLayoutRoute } from '../layout-dashboard';
 import type { RouterContext } from '../layout-root';
 import type { SiteDetails } from '@/data/core';
 
-interface SiteHomeSearch {
-	// Opens the site menu on arrival, e.g. to pull a just-connected site.
-	sync?: 'pull';
-}
-
 // Leaves a site page whose site went away.
 export function useLeaveDeletedSite( siteId: string ) {
 	const navigate = useNavigate();
@@ -45,8 +40,6 @@ function SiteHome() {
 export const siteHomeRoute = createRoute( {
 	getParentRoute: () => dashboardLayoutRoute,
 	path: '/sites/$siteId',
-	validateSearch: ( search: Record< string, unknown > ): SiteHomeSearch =>
-		search.sync === 'pull' ? { sync: 'pull' } : {},
 	beforeLoad: ( { params, context } ) => assertSiteExists( params.siteId, context ),
 	component: SiteHome,
 } );

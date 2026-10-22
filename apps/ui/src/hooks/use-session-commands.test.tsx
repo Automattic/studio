@@ -26,7 +26,7 @@ function Harness( { sessionId }: { sessionId: string } ) {
 	);
 }
 
-describe( 'useSessionCommands run end', () => {
+describe( 'useSessionCommands preview reloads', () => {
 	let agentListener: ( event: AgentRunEvent ) => void;
 
 	beforeEach( () => {
@@ -56,44 +56,30 @@ describe( 'useSessionCommands run end', () => {
 	}
 	const nonce = () => Number( screen.getByTestId( 'nonce' ).textContent );
 
-	it( 'reloads the preview when a run exits or is interrupted, and not when it starts', async () => {
+	it( 'reloads the preview only when the agent asks for it, not when a run ends', async () => {
 		renderHarness();
 		await waitFor( () => expect( agentListener ).toBeDefined() );
 		const before = nonce();
 
 		send( 'session-1', { type: 'run.started', timestamp: '2026-07-01T00:00:00.000Z' } );
-		expect( nonce() ).toBe( before );
+		send( 'session-1', { type: 'preview.reload', timestamp: '2026-07-01T00:00:00.000Z' } );
+		expect( nonce() ).toBe( before + 1 );
 		send( 'session-1', {
 			type: 'run.exited',
 			timestamp: '2026-07-01T00:00:00.000Z',
 			status: 'success',
 			code: 0,
 		} );
-		expect( nonce() ).toBe( before + 1 );
 		send( 'session-1', { type: 'run.interrupted', timestamp: '2026-07-01T00:00:00.000Z' } );
-		expect( nonce() ).toBe( before + 2 );
-	} );
-
-	it( 'reloads the preview mid-run when the agent asks for it', async () => {
-		renderHarness();
-		await waitFor( () => expect( agentListener ).toBeDefined() );
-		const before = nonce();
-
-		send( 'session-1', { type: 'preview.reload', timestamp: '2026-07-01T00:00:00.000Z' } );
 		expect( nonce() ).toBe( before + 1 );
 	} );
 
-	it( 'ignores runs of other sessions', async () => {
+	it( 'ignores other sessions', async () => {
 		renderHarness( 'session-1' );
 		await waitFor( () => expect( agentListener ).toBeDefined() );
 		const before = nonce();
 
-		send( 'session-2', {
-			type: 'run.exited',
-			timestamp: '2026-07-01T00:00:00.000Z',
-			status: 'success',
-			code: 0,
-		} );
+		send( 'session-2', { type: 'preview.reload', timestamp: '2026-07-01T00:00:00.000Z' } );
 		expect( nonce() ).toBe( before );
 	} );
 } );

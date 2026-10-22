@@ -4,7 +4,7 @@ import { textResult } from './utils';
 
 export const refreshBrowserTool = defineTool(
 	'refresh_browser',
-	'Reloads the site preview in the Studio app so the user sees your latest changes while you keep working. Call it after a change that alters what the site renders (content, settings, theme, plugins). The preview also reloads when your turn ends, so skip it right before you finish. It reloads in place: never stop and start the site to refresh the preview.',
+	'Reloads the site preview in the Studio app so the user sees your latest changes; it never reloads on its own. Call it after a change that alters what the site renders (content, settings, theme, plugins). It reloads in place: never stop and start the site to refresh the preview.',
 	{},
 	async () => {
 		emitEvent( { type: 'preview.reload', timestamp: new Date().toISOString() } );

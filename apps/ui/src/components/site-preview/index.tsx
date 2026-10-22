@@ -1585,7 +1585,7 @@ function WebviewSurface( {
 		pendingLoadRef.current = true;
 		// A nonce bump that asks for the same url is a refresh, not a
 		// navigation, so it goes through the same cache-dropping path as the
-		// toolbar's ⟳ — otherwise the reload after an agent run uses a warm
+		// toolbar's ⟳ — otherwise the reload the agent asks for uses a warm
 		// cache and serves the CSS/JS the agent just edited back stale.
 		if ( reloadRequested && ! requestedUrlChanged ) {
 			void reloadPreview( webview, url, previousUrl );

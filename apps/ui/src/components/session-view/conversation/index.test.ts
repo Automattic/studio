@@ -27,10 +27,6 @@ vi.mock( '@/data/core', () => ( {
 	useConnector: () => connectorMocks,
 } ) );
 
-vi.mock( '../thinking-indicator', () => ( {
-	ThinkingIndicator: () => null,
-} ) );
-
 beforeEach( () => {
 	connectorMocks.readLocalMediaFile.mockReset();
 	connectorMocks.copyText.mockReset();

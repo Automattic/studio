@@ -1,7 +1,4 @@
-import { randomThinkingMessage } from '@studio/common/ai/thinking-messages';
-import { clsx } from 'clsx';
 import { useEffect, useState } from 'react';
-import { AgentWorkingIndicator } from '@/components/agent-working-indicator';
 import { VisuallyHidden } from '@/components/ui/visually-hidden';
 import styles from './style.module.css';
 
@@ -78,41 +75,5 @@ export function AnimatedElapsedTime( { elapsedSeconds }: { elapsedSeconds: numbe
 				} ) }
 			</span>
 		</span>
-	);
-}
-
-export function ThinkingIndicator( {
-	active,
-	stepKey,
-	progressMessage,
-}: {
-	active: boolean;
-	stepKey: string | null;
-	progressMessage: string | null;
-} ) {
-	const [ message, setMessage ] = useState( () => randomThinkingMessage() );
-
-	useEffect( () => {
-		if ( ! active ) {
-			return;
-		}
-		setMessage( randomThinkingMessage() );
-	}, [ active, stepKey ] );
-
-	return (
-		<div
-			className={ clsx( styles.root, active && styles.rootVisible ) }
-			role="status"
-			aria-live="polite"
-			aria-hidden={ active ? undefined : 'true' }
-		>
-			<div className={ styles.content }>
-				<div className={ styles.head }>
-					<AgentWorkingIndicator className={ styles.indicator } label={ null } ambient />
-					<span className={ styles.label }>{ message }</span>
-				</div>
-				{ progressMessage ? <span className={ styles.progress }>{ progressMessage }</span> : null }
-			</div>
-		</div>
 	);
 }

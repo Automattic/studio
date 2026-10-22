@@ -86,6 +86,7 @@ import {
 	type ReactNode,
 	MouseEvent as ReactMouseEvent,
 } from 'react';
+import { AgentWorkingIndicator } from '@/components/agent-working-indicator';
 import { AiAccessRequiredNotice, AiBlockedNotice } from '@/components/ai-access-required-notice';
 import { CopyButton } from '@/components/copy-button';
 import { Markdown } from '@/components/markdown';
@@ -95,7 +96,6 @@ import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
 import { useLocalMediaDataUrl } from '@/data/queries/use-local-media';
 import { MESSAGE_TEXT_ATTRIBUTE, QUOTABLE_TEXT_ATTRIBUTE } from '@/hooks/use-text-context-menu';
 import { refreshIcon } from '@/lib/icons';
-import { ThinkingIndicator } from '../thinking-indicator';
 import styles from './style.module.css';
 import type { LoadedAiSession } from '@/data/core';
 import type { SessionEntry } from '@earendil-works/pi-coding-agent';
@@ -465,24 +465,12 @@ export function entriesToRenderItems(
 	return items;
 }
 
-interface ActiveStep {
-	key: string | null;
-	progressMessage: string | null;
-}
-
-function getActiveStep( entries: SessionEntry[] ): ActiveStep {
-	let progressMessage: string | null = null;
-	for ( let i = entries.length - 1; i >= 0; i -= 1 ) {
-		const entry = entries[ i ];
-		if ( ! isStudioCustomEntryOfType( entry, 'studio.tool_progress' ) ) {
-			return { key: entry.id, progressMessage };
-		}
-		const data = ( entry as StudioCustomEntry< 'studio.tool_progress' > ).data;
-		if ( progressMessage === null && data ) {
-			progressMessage = data.message;
-		}
-	}
-	return { key: null, progressMessage };
+// The running tool's latest progress, while it is the last thing in the transcript.
+function getProgressMessage( entries: SessionEntry[] ): string | null {
+	const last = entries[ entries.length - 1 ];
+	return last && isStudioCustomEntryOfType( last, 'studio.tool_progress' )
+		? ( last as StudioCustomEntry< 'studio.tool_progress' > ).data?.message ?? null
+		: null;
 }
 
 function UserTurn( {
@@ -1560,10 +1548,14 @@ function TurnTiming( {
 	startedAt,
 	endedAt,
 	status,
+	waitingOnUser,
+	progressMessage,
 }: {
 	startedAt: number;
 	endedAt: number | null;
 	status: TurnStatus;
+	waitingOnUser: boolean;
+	progressMessage: string | null;
 } ) {
 	const running = status === 'running';
 	const [ now, setNow ] = useState( Date.now );
@@ -1588,7 +1580,15 @@ function TurnTiming( {
 	}[ status ];
 	return (
 		<div className={ styles.turnTiming } data-status={ status }>
-			{ sprintf( label, seconds ) }
+			<span className={ styles.turnTimingHead }>
+				{ running && ! waitingOnUser ? (
+					<AgentWorkingIndicator className={ styles.turnTimingIndicator } label={ null } ambient />
+				) : null }
+				{ sprintf( label, seconds ) }
+			</span>
+			{ running && progressMessage ? (
+				<span className={ styles.turnTimingProgress }>{ progressMessage }</span>
+			) : null }
 		</div>
 	);
 }
@@ -1651,7 +1651,7 @@ export function Conversation( {
 		() => entriesToRenderItems( entries, { running: isRunning, startedAt } ),
 		[ entries, isRunning, startedAt ]
 	);
-	const activeStep = useMemo( () => getActiveStep( entries ), [ entries ] );
+	const progressMessage = useMemo( () => getProgressMessage( entries ), [ entries ] );
 
 	// One selected message at a time, so picking a new one closes the last.
 	const [ selectedKey, setSelectedKey ] = useState< string | null >( null );
@@ -1733,6 +1733,8 @@ export function Conversation( {
 								startedAt={ item.startedAt }
 								endedAt={ item.endedAt }
 								status={ item.status }
+								waitingOnUser={ pendingQuestions.size > 0 }
+								progressMessage={ progressMessage }
 							/>
 						);
 					case 'interrupted-marker':
@@ -1747,11 +1749,6 @@ export function Conversation( {
 						return null;
 				}
 			} ) }
-			<ThinkingIndicator
-				active={ isRunning && pendingQuestions.size === 0 }
-				stepKey={ activeStep.key }
-				progressMessage={ isRunning ? activeStep.progressMessage : null }
-			/>
 		</div>
 	);
 }

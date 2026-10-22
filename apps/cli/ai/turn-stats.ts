@@ -5,6 +5,8 @@ import {
 	isUsageCapError,
 } from '@studio/common/ai/json-events';
 import { addAssistantMessageUsage, createTokenUsage } from 'cli/ai/token-usage';
+import { inspectDesignTool } from 'cli/ai/tools/inspect-design';
+import { takeScreenshotTool } from 'cli/ai/tools/take-screenshot';
 import type { AgentSessionEvent } from '@earendil-works/pi-coding-agent';
 import type { TurnStatus } from '@studio/common/ai/sessions/types';
 
@@ -12,60 +14,14 @@ import type { TurnStatus } from '@studio/common/ai/sessions/types';
 // boolean or a value from a fixed list, so no text from the user, the model, a
 // tool or an error can reach Tracks.
 
-/**
- * Tool names Studio Code registers itself: the Studio tools
- * (`studioToolDefinitions` in `cli/ai/tools`), the tools the pi runtime adds
- * conditionally, and the pi built-ins renamed to Studio's names. A failing tool
- * outside this list (e.g. from a user's MCP server) is reported as `other`.
- * `turn-stats.test.ts` checks that every registered Studio tool is listed.
- */
-export const STUDIO_CODE_TOOL_NAMES: ReadonlySet< string > = new Set( [
-	'site_create',
-	'site_list',
-	'site_info',
-	'site_start',
-	'site_stop',
-	'site_delete',
-	'preview_create',
-	'preview_list',
-	'preview_update',
-	'preview_delete',
-	'wp_cli',
-	'scaffold_theme',
-	'pick_design',
-	'validate_blocks',
-	'take_screenshot',
-	'inspect_design',
-	'generate_images',
-	'install_taxonomy_scripts',
-	'need_for_speed',
-	'rank_me_up',
-	'site_connected_remote_sites',
-	'wpcom_request',
-	'site_push',
-	'site_pull',
-	'site_import',
-	'site_export',
-	'open_annotation_browser',
-	'AskUserQuestion',
-	'present_design_options',
-	'Skill',
-	'Read',
-	'Write',
-	'Edit',
-	'Bash',
-	'Grep',
-	'Glob',
-	'Ls',
-] );
-
-export const OTHER_TOOL_NAME = 'other';
-
 const FILE_CHANGE_TOOL_NAMES: ReadonlySet< string > = new Set( [ 'Write', 'Edit' ] );
 
 // Tools that look at the rendered site, so running one after an edit means
 // the agent checked its change.
-const CHECK_TOOL_NAMES: ReadonlySet< string > = new Set( [ 'take_screenshot', 'inspect_design' ] );
+const CHECK_TOOL_NAMES: ReadonlySet< string > = new Set( [
+	takeScreenshotTool.name,
+	inspectDesignTool.name,
+] );
 
 export type TurnErrorKind =
 	| 'out_of_credits'
@@ -97,10 +53,6 @@ export interface TurnStatsTracker {
 		failure?: unknown;
 		site?: { remote?: boolean } | null;
 	} ): TurnStatsProps;
-}
-
-export function toCatalogToolName( name: string ): string {
-	return STUDIO_CODE_TOOL_NAMES.has( name ) ? name : OTHER_TOOL_NAME;
 }
 
 export function getTurnSiteKind( site: { remote?: boolean } | null | undefined ): TurnSiteKind {
@@ -214,7 +166,7 @@ export function createTurnStatsTracker(): TurnStatsTracker {
 			toolCalls += 1;
 			if ( event.isError ) {
 				toolErrors += 1;
-				failedTools.add( toCatalogToolName( event.toolName ) );
+				failedTools.add( event.toolName );
 				return;
 			}
 			if ( FILE_CHANGE_TOOL_NAMES.has( event.toolName ) ) {

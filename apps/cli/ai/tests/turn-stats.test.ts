@@ -1,11 +1,4 @@
-import { studioToolDefinitions } from 'cli/ai/tools';
-import {
-	classifyTurnError,
-	createTurnStatsTracker,
-	getTurnSiteKind,
-	STUDIO_CODE_TOOL_NAMES,
-	toCatalogToolName,
-} from 'cli/ai/turn-stats';
+import { classifyTurnError, createTurnStatsTracker, getTurnSiteKind } from 'cli/ai/turn-stats';
 import type { AgentSessionEvent } from '@earendil-works/pi-coding-agent';
 
 function toolEnd( toolName: string, isError = false ): AgentSessionEvent {
@@ -92,13 +85,13 @@ describe( 'createTurnStatsTracker', () => {
 		expect( props.tool_calls ).toBe( 0 );
 	} );
 
-	it( 'reports failing tools outside the Studio catalog as `other`', () => {
+	it( 'lists each failing tool once, sorted', () => {
 		const props = propsFor( [
-			toolEnd( 'mcp__my-server__leak_customer_name', true ),
+			toolEnd( 'wp_cli', true ),
 			toolEnd( 'Edit', true ),
-			toolEnd( 'some user tool', true ),
+			toolEnd( 'wp_cli', true ),
 		] );
-		expect( props.failed_tools ).toBe( 'Edit,other' );
+		expect( props.failed_tools ).toBe( 'Edit,wp_cli' );
 		expect( props.tool_errors ).toBe( 3 );
 	} );
 
@@ -195,7 +188,7 @@ describe( 'createTurnStatsTracker', () => {
 	it( 'never carries free text into a prop', () => {
 		const tracker = createTurnStatsTracker();
 		tracker.handleEvent( assistantEnd( 1, 1 ) );
-		tracker.handleEvent( toolEnd( 'mcp__acme__/Users/me/secret-site', true ) );
+		tracker.handleEvent( toolEnd( 'wp_cli', true ) );
 		const props = tracker.getProps( {
 			outcome: 'error',
 			failure: new Error( 'Could not write /Users/me/Studio/acme-shop/wp-config.php' ),
@@ -205,21 +198,6 @@ describe( 'createTurnStatsTracker', () => {
 		expect( serialized ).not.toMatch( /Users|acme|secret|wp-config|Done|output/ );
 		for ( const value of Object.values( props ) ) {
 			expect( [ 'number', 'boolean', 'string' ] ).toContain( typeof value );
-		}
-	} );
-} );
-
-describe( 'toCatalogToolName', () => {
-	it( 'keeps catalog names and maps everything else to `other`', () => {
-		expect( toCatalogToolName( 'take_screenshot' ) ).toBe( 'take_screenshot' );
-		expect( toCatalogToolName( 'Skill' ) ).toBe( 'Skill' );
-		expect( toCatalogToolName( 'mcp__github__create_issue' ) ).toBe( 'other' );
-		expect( toCatalogToolName( '' ) ).toBe( 'other' );
-	} );
-
-	it( 'lists every registered Studio tool', () => {
-		for ( const tool of studioToolDefinitions ) {
-			expect( STUDIO_CODE_TOOL_NAMES.has( tool.name ) ).toBe( true );
 		}
 	} );
 } );

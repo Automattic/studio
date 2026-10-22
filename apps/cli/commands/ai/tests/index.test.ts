@@ -413,7 +413,7 @@ describe( 'AI runCommand — Tracks events', () => {
 				onEvent( {
 					type: 'tool_execution_end',
 					toolCallId: '2',
-					toolName: 'mcp__custom__tool',
+					toolName: 'wp_cli',
 					result: {},
 					isError: true,
 				} );
@@ -439,7 +439,7 @@ describe( 'AI runCommand — Tracks events', () => {
 			outcome: 'error',
 			tool_calls: 2,
 			tool_errors: 1,
-			failed_tools: 'other',
+			failed_tools: 'wp_cli',
 			edits: 1,
 			checked_after_change: false,
 			model_requests: 2,

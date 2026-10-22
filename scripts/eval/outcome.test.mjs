@@ -466,3 +466,27 @@ describe( 'site checks', () => {
 		).toBe( false );
 	} );
 } );
+
+describe( 'routing checks', () => {
+	const skill = ( name ) => ( { name: 'Skill', input: { name } } );
+	const vars = { skills: [ 'block-content', 'imagery' ] };
+
+	test( 'skillsLoadedFirst', () => {
+		const calls = [ skill( 'block-content' ), { name: 'Write', input: {} }, skill( 'imagery' ) ];
+		expect(
+			run(
+				checks.skillsLoadedFirst,
+				{ toolCalls: calls, stoppedAt: { toolName: 'Write', index: 1 } },
+				vars
+			).pass
+		).toBe( false );
+		expect(
+			run(
+				checks.skillsLoadedFirst,
+				{ toolCalls: [ skill( 'imagery' ), ...calls ], stoppedAt: { toolName: 'Write', index: 2 } },
+				vars
+			).pass
+		).toBe( true );
+		expect( run( checks.skillsLoadedFirst, { toolCalls: calls }, vars ).pass ).toBe( true );
+	} );
+} );

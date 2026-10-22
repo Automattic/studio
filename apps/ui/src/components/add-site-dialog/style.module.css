@@ -155,6 +155,9 @@
 .header button {
 	--wp-ui-button-font-size: 13px;
 	--wp-ui-button-font-weight: 450;
+}
+
+.header button:not([class*='__icon-button']) {
 	--wp-ui-button-padding-inline: 10px;
 }
 

@@ -11,6 +11,7 @@ import {
 import { watchComposerFilePaste } from '@studio/common/ai/composer-attachments';
 import {
 	aiModelRequiresPaidCredits,
+	aiModelSupportsImages,
 	getAiModelFamily,
 	getAiModelLabel,
 } from '@studio/common/ai/models';
@@ -26,7 +27,14 @@ import {
 import { isStudioCustomEntryOfType } from '@studio/common/ai/sessions/entry-types';
 import { getAiSkillCommands, resolveSkillFromPrompt } from '@studio/common/ai/slash-commands';
 import { isAutomatticianEmail } from '@studio/common/lib/automattician';
-import { hasPaidAiCredits } from '@studio/common/lib/studio-assistant-quota';
+import {
+	clampQuotaFraction,
+	formatQuotaPercentage,
+	getStudioCodeAiAccessState,
+	getTotalRemainingAiCredits,
+	hasPaidAiCredits,
+	type StudioAssistantQuota,
+} from '@studio/common/lib/studio-assistant-quota';
 import { useQueryClient } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
 import {
@@ -84,7 +92,6 @@ import {
 import { useStudioAssistantTopUpPricing } from '@/data/queries/use-top-up-pricing';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useAddAiCreditsUrl } from '@/hooks/use-add-ai-credits-url';
-import { useAiCreditsMeter } from '@/hooks/use-ai-credits-meter';
 import { useIsOutOfAiCredits } from '@/hooks/use-is-out-of-ai-credits';
 import { useOpenSettings } from '@/hooks/use-open-settings';
 import { annotationIcon } from '@/lib/icons';
@@ -157,6 +164,38 @@ function getModelDescription( id: AiModelId ): string {
 	}
 }
 
+// Accounts on the older monthly cap have no credit counts, only usage against the cap.
+function getCreditsLabel( quota: StudioAssistantQuota | null | undefined, locale?: string ) {
+	const remaining = quota ? getTotalRemainingAiCredits( quota ) : undefined;
+	if ( remaining !== undefined ) {
+		return {
+			hasCredits: true,
+			label:
+				remaining <= 0
+					? __( 'No AI credits remaining' )
+					: sprintf(
+							/* translators: %s: compact number of AI credits remaining (e.g. 200K or 1.5M). */
+							__( 'AI credits: %s remaining' ),
+							new Intl.NumberFormat( locale, {
+								notation: 'compact',
+								maximumFractionDigits: 1,
+							} ).format( remaining )
+					  ),
+		};
+	}
+	if ( ! quota || quota.costCap <= 0 ) {
+		return { hasCredits: false, label: __( 'AI usage unavailable' ) };
+	}
+	return {
+		hasCredits: false,
+		label: sprintf(
+			/* translators: %s: percentage of the AI allowance left. */
+			__( 'AI allowance: %s remaining' ),
+			formatQuotaPercentage( 1 - clampQuotaFraction( quota.costUsage, quota.costCap ), locale )
+		),
+	};
+}
+
 function toComposerDraftAttachments( {
 	images = [],
 	files = [],
@@ -216,10 +255,12 @@ function ModeChip( {
 	icon,
 	label,
 	onRemove,
+	disabled,
 }: {
 	icon: ReactElement< SVGProps< SVGSVGElement > >;
 	label: string;
 	onRemove: () => void;
+	disabled?: boolean;
 } ) {
 	const removeLabel = sprintf(
 		/* translators: %s: name of a composer mode, e.g. "Auto-start". */
@@ -234,6 +275,7 @@ function ModeChip( {
 						type="button"
 						className={ styles.modeChip }
 						aria-label={ removeLabel }
+						disabled={ disabled }
 						onClick={ onRemove }
 					/>
 				}
@@ -266,9 +308,6 @@ export function ComposerSkeleton() {
 
 interface ComposerProps {
 	busy: boolean;
-	// The agent is blocked on `ask_user`. Sending answers the question it is
-	// waiting on, so this is a send, not a queue.
-	awaitingAnswer?: boolean;
 	isInterrupting?: boolean;
 	model: AiModelId;
 	onSend: (
@@ -349,7 +388,6 @@ function shouldShellFocusTextarea( target: EventTarget ) {
 const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function ComposerContent(
 	{
 		busy,
-		awaitingAnswer = false,
 		isInterrupting = false,
 		model,
 		onSend,
@@ -377,6 +415,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 	const [ initialDraft ] = useState( () => getComposerDraft( sessionId ) );
 	const [ value, setValue ] = useState( initialDraft.text );
 	const [ sending, setSending ] = useState( false );
+	const [ modelMenuOpen, setModelMenuOpen ] = useState( false );
 	const [ submitFeedback, setSubmitFeedback ] = useState< 'shake' | 'error' | null >( null );
 	const [ hoverPreview, setHoverPreview ] = useState< ComposerAttachmentHoverPreviewState | null >(
 		null
@@ -384,6 +423,8 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 	const [ shellNode, setShellNode ] = useState< HTMLDivElement | null >( null );
 	const textareaRef = useRef< HTMLTextAreaElement | null >( null );
 	const fileInputRef = useRef< HTMLInputElement | null >( null );
+	const insertedCursorRef = useRef< number | null >( null );
+	const skillInsertedRef = useRef( false );
 	const draftEffectInitializedRef = useRef( false );
 	const connector = useConnector();
 	const queryClient = useQueryClient();
@@ -400,15 +441,19 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 	// are listed but disabled for accounts without purchased credits;
 	// Automatticians are exempt.
 	const offeredModels = getAiProviderModels( sessionProvider );
-	const { data: quota } = useStudioAssistantQuota();
+	const {
+		data: quota,
+		isError: isQuotaError,
+		refetch: refetchQuota,
+	} = useStudioAssistantQuota( { refetchOnWindowFocus: 'always' } );
 	const { data: authUser } = useAuthUser();
 	const canUsePaidTiers = hasPaidAiCredits( quota ) || isAutomatticianEmail( authUser?.email );
 	const isModelLocked = useCallback(
 		( id: AiModelId ) => aiModelRequiresPaidCredits( id ) && ! canUsePaidTiers,
 		[ canUsePaidTiers ]
 	);
-	const creditsMeter = useAiCreditsMeter();
-	const isOutOfCredits = useIsOutOfAiCredits() && ! isField;
+	const isWpcom = sessionProvider === 'wpcom';
+	const isOutOfCredits = useIsOutOfAiCredits() && ! isField && isWpcom;
 
 	// The chooser when priced options exist, else straight to checkout for the
 	// single fixed top-up.
@@ -429,11 +474,63 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 	const setAutoStart = ( autoStartSiteOnChat: boolean ) =>
 		savePreferences.mutate( { autoStartSiteOnChat } );
 
+	const canSwitchEnvironment = !! onEnvironmentChange && ! busy;
+	const composerCommands = useMemo(
+		() => [
+			...( busy ? [] : [ { name: 'model', description: __( 'Select a model for this chat.' ) } ] ),
+			...( canSwitchEnvironment && environment === 'local' && liveUrl
+				? [ { name: 'live', description: liveUrl } ]
+				: [] ),
+			...( canSwitchEnvironment && environment === 'live'
+				? [ { name: 'local', description: __( 'Work on the local site on your computer.' ) } ]
+				: [] ),
+			...( canAutoStart && ! autoStartOn
+				? [
+						{
+							name: 'auto-start',
+							description: __( 'Start stopped sites when you send a chat message.' ),
+						},
+				  ]
+				: [] ),
+		],
+		[ autoStartOn, busy, canAutoStart, canSwitchEnvironment, environment, liveUrl ]
+	);
 	const slash = useSlashCommands( {
 		value,
 		setValue,
 		textareaRef,
+		commands: composerCommands,
+		onCommand: ( name ) => {
+			if ( name === 'model' ) {
+				setModelMenuOpen( true );
+			} else if ( name === 'live' || name === 'local' ) {
+				onEnvironmentChange?.( name );
+			} else if ( name === 'auto-start' ) {
+				setAutoStart( true );
+			}
+		},
 	} );
+
+	useLayoutEffect( () => {
+		const cursor = insertedCursorRef.current;
+		if ( cursor !== null ) {
+			textareaRef.current?.setSelectionRange( cursor, cursor );
+			insertedCursorRef.current = null;
+		}
+	}, [ value ] );
+
+	const insertSkill = ( name: string ) => {
+		const start = textareaRef.current?.selectionStart ?? value.length;
+		const end = textareaRef.current?.selectionEnd ?? start;
+		const before = value.slice( 0, start );
+		const after = value.slice( end );
+		const command = `${ before && ! /\s$/.test( before ) ? ' ' : '' }/${ name }${
+			/^\s/.test( after ) ? '' : ' '
+		}`;
+		insertedCursorRef.current = before.length + command.length + ( /^\s/.test( after ) ? 1 : 0 );
+		skillInsertedRef.current = true;
+		setValue( before + command + after );
+	};
 
 	// File/image attachments (attach button, drop and paste). Images ride as
 	// base64 content blocks; other files are referenced by disk path.
@@ -444,7 +541,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		removeAttachments,
 		restore: restoreAttachments,
 		pasteHandlers,
-	} = useComposerAttachments( initialDraft.attachments, awaitingAnswer );
+	} = useComposerAttachments( initialDraft.attachments );
 	const hasAttachments = attachments.length > 0;
 	const { notes } = useSiteAnnotations( annotationSiteId );
 	const stagedNotes = useMemo( () => notes.filter( isStagedAnnotation ), [ notes ] );
@@ -537,6 +634,10 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 			toast.error( ( error as Error ).message );
 			return;
 		}
+		if ( submission.options.images?.length && ! aiModelSupportsImages( model ) ) {
+			toast.error( __( 'Choose a model that supports images before sending these attachments.' ) );
+			return;
+		}
 		// The draft stays editable until the send is accepted; only then is what
 		// was sent removed, keeping anything typed or attached in the meantime.
 		const sentIds = new Set( attachments.map( ( item ) => item.id ) );
@@ -571,6 +672,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		sessionId,
 		removeAttachments,
 		annotationSiteId,
+		model,
 	] );
 
 	useImperativeHandle(
@@ -757,12 +859,21 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 					)
 					.catch( () => undefined );
 			}
+			saveComposerDraft( newSession.id, { text: value, attachments } );
 			setPendingFamilyChange( null );
 			onSwitchSession( newSession.id );
 		} finally {
 			setFamilySwitchInFlight( false );
 		}
-	}, [ connector, onSwitchSession, ownerSiteId, pendingFamilyChange, queryClient ] );
+	}, [
+		attachments,
+		connector,
+		onSwitchSession,
+		ownerSiteId,
+		pendingFamilyChange,
+		queryClient,
+		value,
+	] );
 
 	const showStop = ! isField && busy && ( sending || ! hasContent );
 	const canSend = hasContent && ! sending;
@@ -779,15 +890,17 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 	const stopLabel = isInterrupting ? __( 'Force stop' ) : __( 'Stop response' );
 	const addLabel = isField ? __( 'Upload attachment' ) : __( 'Add' );
 	const modelLabel = getAiModelLabel( model );
+	const credits = getCreditsLabel( isQuotaError ? null : quota, preferences?.locale );
+	const canPurchaseCredits =
+		isWpcom &&
+		!! quota &&
+		credits.hasCredits &&
+		! isQuotaError &&
+		getStudioCodeAiAccessState( quota ) === 'available' &&
+		quota.hasPaymentMethod;
 	const modelDetails = [ modelLabel, AI_PROVIDER_LABELS[ sessionProvider ] ];
-	if ( creditsMeter && creditsMeter.totalCredits > 0 ) {
-		modelDetails.push(
-			sprintf(
-				/* translators: %d: percentage of AI credits left. */
-				__( 'AI credits: %d%% remaining' ),
-				Math.round( ( creditsMeter.remainingCredits / creditsMeter.totalCredits ) * 100 )
-			)
-		);
+	if ( isWpcom ) {
+		modelDetails.push( credits.label );
 	}
 	const hoveredAttachment = hoverPreview
 		? shownAttachments.find( ( attachment ) => attachment.id === hoverPreview.id )
@@ -993,10 +1106,17 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 									{ isField ? addButton : <Menu.Trigger render={ addButton } /> }
 									<TooltipContent>{ addLabel }</TooltipContent>
 								</Tooltip>
-								<Menu.Popup side="top" align="start" className={ styles.commandsMenuPopup }>
-									<Menu.Item disabled={ awaitingAnswer } onClick={ openFilePicker }>
-										{ __( 'Add files' ) }
-									</Menu.Item>
+								<Menu.Popup
+									side="top"
+									align="start"
+									className={ styles.commandsMenuPopup }
+									finalFocus={ () => {
+										const focusDraft = skillInsertedRef.current;
+										skillInsertedRef.current = false;
+										return focusDraft ? textareaRef.current : true;
+									} }
+								>
+									<Menu.Item onClick={ openFilePicker }>{ __( 'Add files' ) }</Menu.Item>
 									{ canAutoStart && ! autoStartOn ? (
 										<Menu.Item
 											className={ styles.describedItem }
@@ -1049,9 +1169,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 												<Menu.Item
 													key={ command.name }
 													className={ styles.describedItem }
-													onClick={ () => {
-														void onSend( `/${ command.name }` );
-													} }
+													onClick={ () => insertSkill( command.name ) }
 												>
 													<span className={ styles.describedItemBody }>
 														<span className={ styles.describedItemLabel }>
@@ -1078,6 +1196,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 								<ModeChip
 									icon={ globe }
 									label={ __( 'Live' ) }
+									disabled={ busy }
 									onRemove={ () => onEnvironmentChange?.( 'local' ) }
 								/>
 							) : null }
@@ -1091,9 +1210,19 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 							/>
 						</div>
 						<div className={ styles.rightActions }>
-							<Menu.Root modal={ false }>
+							<Menu.Root
+								modal={ false }
+								open={ modelMenuOpen }
+								onOpenChange={ ( open ) => {
+									setModelMenuOpen( open );
+									if ( open && isWpcom ) {
+										void refetchQuota();
+									}
+								} }
+							>
 								<Tooltip>
 									<Menu.Trigger
+										disabled={ busy }
 										render={
 											<TooltipTrigger
 												render={
@@ -1159,8 +1288,15 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 										) ) }
 									</Menu.RadioGroup>
 									<Menu.Separator />
-									{ sessionProvider === 'wpcom' && quota ? (
-										<Menu.Item onClick={ openAddCredits }>{ __( 'Get more credits' ) }</Menu.Item>
+									{ canPurchaseCredits ? (
+										<Menu.Item className={ styles.describedItem } onClick={ openAddCredits }>
+											<span className={ styles.describedItemBody }>
+												<span className={ styles.describedItemLabel }>
+													{ __( 'Get more credits' ) }
+												</span>
+												<span className={ styles.describedItemDescription }>{ credits.label }</span>
+											</span>
+										</Menu.Item>
 									) : null }
 									<Menu.Item
 										className={ styles.describedItem }

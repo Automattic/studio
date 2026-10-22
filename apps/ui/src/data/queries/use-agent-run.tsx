@@ -1,5 +1,6 @@
 import { buildChatAttachmentSummaries } from '@studio/common/ai/chat-attachments';
 import { getAgentEndFailure } from '@studio/common/ai/json-events';
+import { getEffectiveSessionProvider } from '@studio/common/ai/providers';
 import { getStudioToolProgress } from '@studio/common/ai/tool-progress';
 import { STOPPED_WITHOUT_ANSWER } from '@studio/common/ai/tools';
 import { useQueryClient } from '@tanstack/react-query';
@@ -16,8 +17,9 @@ import {
 } from 'react';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
+import { useAiSettings } from '@/data/queries/use-ai-settings';
 import { ASSISTANT_QUOTA_QUERY_KEY } from '@/data/queries/use-assistant-quota';
-import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
+import { SESSIONS_QUERY_KEY, useSession } from '@/data/queries/use-sessions';
 import { useIsOutOfAiCredits } from '@/hooks/use-is-out-of-ai-credits';
 import type {
 	AgentEvent,
@@ -73,8 +75,8 @@ interface LiveAgentEvents {
 	// `run.exited`/`run.interrupted`, which can lag `turn.completed` by
 	// the persist-queue drain time.
 	hasActiveRun: boolean;
-	// User has clicked Stop and we're waiting for the child to wind down.
-	// Gives the Stop button immediate "Stopping..." feedback.
+	// User has clicked Stop and we're waiting for the child to wind down. A
+	// second Stop force-kills it; new messages queue until it exits.
 	isInterrupting: boolean;
 	startedAt: number | null;
 	pendingQuestions: PendingQuestion[];
@@ -153,7 +155,10 @@ function reducer( state: State, action: Action ): State {
 		case 'hydrate_active_run':
 			return {
 				...state,
-				phase: 'running',
+				phase:
+					action.interrupting || ( state.runId === action.runId && state.phase === 'winding_down' )
+						? 'winding_down'
+						: 'running',
 				runId: action.runId,
 				startedAt: resolveRunStartedAt( state, action.runId, action.startedAt ),
 				isInterrupting: action.interrupting,
@@ -194,10 +199,8 @@ function reducer( state: State, action: Action ): State {
 		case 'interrupt_requested':
 			return {
 				...state,
-				phase: 'idle',
-				runId: null,
-				startedAt: null,
-				isInterrupting: false,
+				phase: 'winding_down',
+				isInterrupting: true,
 				pendingQuestions: [],
 				pendingAnswers: {},
 			};
@@ -304,7 +307,6 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 	const [ stateStore ] = useState( createSessionStateStore );
 	const subscribedRunIdsBySessionRef = useRef< Map< string, string > >( new Map() );
 	const ignoredRunIdsRef = useRef< Set< string > >( new Set() );
-	const interruptRequestsBySessionRef = useRef< Map< string, Promise< void > > >( new Map() );
 	const interruptPendingStartSessionIdsRef = useRef< Set< string > >( new Set() );
 
 	const dispatchSession = useCallback(
@@ -335,7 +337,9 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 		let cancelled = false;
 
 		const syncActiveRuns = async () => {
-			const runIdsBefore = [ ...subscribedRunIdsBySessionRef.current ];
+			const runIdsBefore = Object.entries( stateStore.getState() ).flatMap(
+				( [ sessionId, state ] ) => ( state.runId ? [ [ sessionId, state.runId ] as const ] : [] )
+			);
 			let runs: ActiveAgentRun[];
 			try {
 				runs = await connector.getActiveAgentRuns();
@@ -350,11 +354,9 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 			let endedRuns = false;
 			// A run known before the request but missing from the snapshot ended while events were lost.
 			for ( const [ sessionId, runId ] of runIdsBefore ) {
-				if (
-					! activeRunIds.has( runId ) &&
-					subscribedRunIdsBySessionRef.current.get( sessionId ) === runId
-				) {
+				if ( ! activeRunIds.has( runId ) && stateStore.getState()[ sessionId ]?.runId === runId ) {
 					subscribedRunIdsBySessionRef.current.delete( sessionId );
+					ignoredRunIdsRef.current.delete( runId );
 					dispatchSession( sessionId, { type: 'run_ended' } );
 					endedRuns = true;
 				}
@@ -380,13 +382,38 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 			cancelled = true;
 			unsubscribe?.();
 		};
-	}, [ connector, dispatchSession, queryClient ] );
+	}, [ connector, dispatchSession, queryClient, stateStore ] );
 
 	useEffect( () => {
+		const endRun = ( sessionId: string ) => {
+			const hasQueuedFollowUp =
+				( stateStore.getState()[ sessionId ] ?? initialState ).queuedPrompts.length > 0;
+			dispatchSession( sessionId, { type: 'run_ended' } );
+			subscribedRunIdsBySessionRef.current.delete( sessionId );
+			// The finished run consumed AI credits; refresh the balance shown
+			// in the composer and in Settings → Usage.
+			void queryClient.invalidateQueries( { queryKey: ASSISTANT_QUOTA_QUERY_KEY } );
+			if ( ! hasQueuedFollowUp ) {
+				// Refetch to replace optimistic entries with disk-backed ones.
+				// `cancelRefetch: false` so a run ending as its site is deleted
+				// can't cancel the redirect route's in-flight fetch (which would
+				// throw a CancelledError into the router's error boundary).
+				void queryClient.invalidateQueries(
+					{ queryKey: SESSIONS_QUERY_KEY },
+					{ cancelRefetch: false }
+				);
+			}
+		};
+
 		return connector.onAgentEvent( ( payload: AgentRunEvent ) => {
+			const exited =
+				payload.event.type === 'run.exited' || payload.event.type === 'run.interrupted';
 			if ( ignoredRunIdsRef.current.has( payload.runId ) ) {
-				if ( payload.event.type === 'run.exited' || payload.event.type === 'run.interrupted' ) {
+				if ( exited ) {
 					ignoredRunIdsRef.current.delete( payload.runId );
+					if ( stateStore.getState()[ payload.sessionId ]?.runId === payload.runId ) {
+						endRun( payload.sessionId );
+					}
 				}
 				return;
 			}
@@ -419,8 +446,6 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 					return;
 				case 'run.exited':
 				case 'run.interrupted': {
-					const hasQueuedFollowUp =
-						( stateStore.getState()[ payload.sessionId ] ?? initialState ).queuedPrompts.length > 0;
 					if ( event.type === 'run.interrupted' ) {
 						// Synthetic studio.turn_closed for immediate "Interrupted
 						// by you" rendering; the CLI also writes a real one.
@@ -436,21 +461,7 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 							} as SessionEntry,
 						] );
 					}
-					dispatchSession( payload.sessionId, { type: 'run_ended' } );
-					subscribedRunIdsBySessionRef.current.delete( payload.sessionId );
-					// The finished run consumed AI credits; refresh the balance shown
-					// in the composer and in Settings → Usage.
-					void queryClient.invalidateQueries( { queryKey: ASSISTANT_QUOTA_QUERY_KEY } );
-					if ( ! hasQueuedFollowUp ) {
-						// Refetch to replace optimistic entries with disk-backed ones.
-						// `cancelRefetch: false` so a run ending as its site is deleted
-						// can't cancel the redirect route's in-flight fetch (which would
-						// throw a CancelledError into the router's error boundary).
-						void queryClient.invalidateQueries(
-							{ queryKey: SESSIONS_QUERY_KEY },
-							{ cancelRefetch: false }
-						);
-					}
+					endRun( payload.sessionId );
 					return;
 				}
 				case 'message': {
@@ -570,6 +581,8 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 			const images = options.images ?? [];
 			const files = options.files ?? [];
 			const visualAnnotations = options.visualAnnotations;
+			// Synchronous, so a second send in the same tick queues behind this one.
+			dispatchSession( sessionId, { type: 'send_pending', startedAt: Date.now() } );
 			await queryClient.cancelQueries( { queryKey: [ ...SESSIONS_QUERY_KEY, sessionId ] } );
 
 			const optimisticEntry: SessionEntry = {
@@ -586,10 +599,8 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 				},
 			} as SessionEntry;
 			updateCache( sessionId, ( entries ) => [ ...entries, optimisticEntry ] );
-			dispatchSession( sessionId, { type: 'send_pending', startedAt: Date.now() } );
 
 			try {
-				await interruptRequestsBySessionRef.current.get( sessionId );
 				const { runId: newRunId } = await connector.continueSession( sessionId, prompt, {
 					displayMessage,
 					images,
@@ -599,12 +610,15 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 				if ( interruptPendingStartSessionIdsRef.current.has( sessionId ) ) {
 					interruptPendingStartSessionIdsRef.current.delete( sessionId );
 					ignoredRunIdsRef.current.add( newRunId );
-					const interruptRequest = connector.interruptAgentRun( newRunId ).finally( () => {
-						if ( interruptRequestsBySessionRef.current.get( sessionId ) === interruptRequest ) {
-							interruptRequestsBySessionRef.current.delete( sessionId );
-						}
+					dispatchSession( sessionId, {
+						type: 'hydrate_active_run',
+						runId: newRunId,
+						startedAt: Date.now(),
+						interrupting: true,
 					} );
-					interruptRequestsBySessionRef.current.set( sessionId, interruptRequest );
+					void connector
+						.interruptAgentRun( newRunId )
+						.catch( ( error ) => toast.error( String( error ) ) );
 					return;
 				}
 				dispatchSession( sessionId, {
@@ -619,6 +633,8 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 					if ( idx === -1 ) return entries;
 					return [ ...entries.slice( 0, idx ), ...entries.slice( idx + 1 ) ];
 				} );
+				interruptPendingStartSessionIdsRef.current.delete( sessionId );
+				dispatchSession( sessionId, { type: 'run_ended' } );
 				toast.error( err instanceof Error ? err.message : String( err ) );
 				throw err;
 			}
@@ -630,6 +646,12 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 		async ( sessionId: string ) => {
 			const state = stateStore.getState()[ sessionId ] ?? initialState;
 			if ( state.phase === 'idle' ) {
+				return;
+			}
+			if ( state.isInterrupting ) {
+				if ( state.runId ) {
+					await connector.interruptAgentRun( state.runId );
+				}
 				return;
 			}
 			// A run blocked on `ask_user` is killed mid-call, so settle the call
@@ -662,20 +684,10 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 					data: { status: 'interrupted' },
 				} as SessionEntry,
 			] );
-			// Optimistic feedback: the main-process `run.interrupting` event will
-			// also set this, but flipping state on the click keeps the button
-			// from lingering in its active style while the IPC is in flight.
 			dispatchSession( sessionId, { type: 'interrupt_requested' } );
-			if ( ! interruptedRunId ) {
-				return;
+			if ( interruptedRunId ) {
+				await connector.interruptAgentRun( interruptedRunId );
 			}
-			const interruptRequest = connector.interruptAgentRun( interruptedRunId ).finally( () => {
-				if ( interruptRequestsBySessionRef.current.get( sessionId ) === interruptRequest ) {
-					interruptRequestsBySessionRef.current.delete( sessionId );
-				}
-			} );
-			interruptRequestsBySessionRef.current.set( sessionId, interruptRequest );
-			await interruptRequest;
 		},
 		[ connector, dispatchSession, stateStore, updateCache ]
 	);
@@ -748,7 +760,17 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 			);
 			if ( complete ) {
 				dispatchSession( sessionId, { type: 'batch_dispatched' } );
-				void connector.answerAgentQuestion( state.runId, nextAnswers );
+				const runId = state.runId;
+				void connector.answerAgentQuestion( runId, nextAnswers ).catch( ( error ) => {
+					if ( stateStore.getState()[ sessionId ]?.runId !== runId ) {
+						return;
+					}
+					dispatchSession( sessionId, {
+						type: 'questions_added',
+						questions: state.pendingQuestions,
+					} );
+					toast.error( error instanceof Error ? error.message : String( error ) );
+				} );
 			} else {
 				dispatchSession( sessionId, { type: 'question_answered', question, answer } );
 			}
@@ -768,15 +790,74 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 		[ answerQuestion, clearQuestionAnswer, dispatchSession, interrupt, startRun, stateStore ]
 	);
 
-	return <AgentRunContext.Provider value={ value }>{ children }</AgentRunContext.Provider>;
+	return (
+		<AgentRunContext.Provider value={ value }>
+			<QueueDispatchers />
+			{ children }
+		</AgentRunContext.Provider>
+	);
+}
+
+// One dispatcher per session with queued prompts, so a queue keeps draining
+// after its chat is closed.
+function QueueDispatchers() {
+	const store = useAgentRunStore();
+	const ids = useSyncExternalStore( store.stateStore.subscribe, () =>
+		Object.entries( store.stateStore.getState() )
+			.filter( ( [ , state ] ) => state.queuedPrompts.length > 0 )
+			.map( ( [ sessionId ] ) => sessionId )
+			.join( ' ' )
+	);
+	return ids
+		? ids
+				.split( ' ' )
+				.map( ( sessionId ) => <QueueDispatcher key={ sessionId } sessionId={ sessionId } /> )
+		: null;
+}
+
+function QueueDispatcher( { sessionId }: { sessionId: string } ) {
+	const { stateStore, dispatchSession, startRun } = useAgentRunStore();
+	const state = useSyncExternalStore(
+		stateStore.subscribe,
+		() => stateStore.getState()[ sessionId ] ?? initialState
+	);
+	const { data: session } = useSession( sessionId );
+	const { data: aiSettings, isPending: isAiSettingsPending } = useAiSettings();
+	const isOutOfCredits = useIsOutOfAiCredits();
+	// Holding rather than clearing: a balance spent mid-run leaves the queued
+	// prompt visible and it dispatches on its own once a top-up refreshes the
+	// quota, instead of being silently dropped or sent to a certain rejection.
+	const held =
+		! session ||
+		isAiSettingsPending ||
+		( isOutOfCredits && getEffectiveSessionProvider( session.entries, aiSettings ) === 'wpcom' );
+	const next = state.phase === 'idle' && ! held ? state.queuedPrompts[ 0 ] : undefined;
+
+	useEffect( () => {
+		const live = stateStore.getState()[ sessionId ];
+		if ( ! next || live?.phase !== 'idle' || live.queuedPrompts[ 0 ] !== next ) {
+			return;
+		}
+		dispatchSession( sessionId, { type: 'queue_shift' } );
+		const { id: _id, prompt, ...options } = next;
+		// On failure, drop the whole queue so a broken backend doesn't cascade errors.
+		startRun( sessionId, prompt, options ).catch( () =>
+			dispatchSession( sessionId, { type: 'queue_clear' } )
+		);
+	}, [ dispatchSession, next, sessionId, startRun, stateStore ] );
+
+	return null;
+}
+
+function useAgentRunStore(): AgentRunStore {
+	const store = useContext( AgentRunContext );
+	if ( ! store ) {
+		throw new Error( 'Agent run hooks must be used within AgentRunProvider' );
+	}
+	return store;
 }
 
 export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
-	const store = useContext( AgentRunContext );
-	if ( ! store ) {
-		throw new Error( 'useAgentRun must be used within AgentRunProvider' );
-	}
-
 	const {
 		stateStore,
 		dispatchSession,
@@ -784,7 +865,7 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 		interrupt: interruptRun,
 		answerQuestion: answerRunQuestion,
 		clearQuestionAnswer: clearRunQuestionAnswer,
-	} = store;
+	} = useAgentRunStore();
 	// Per-session slices keep their identity while other sessions update, so
 	// this only re-renders when this session's state actually changes.
 	const state = useSyncExternalStore( stateStore.subscribe, () =>
@@ -792,46 +873,6 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 	);
 	const { phase, startedAt, isInterrupting, pendingQuestions, pendingAnswers, queuedPrompts } =
 		state;
-
-	const isOutOfCredits = useIsOutOfAiCredits();
-
-	// Re-entry guard for the queue auto-dispatch effect. The effect's deps
-	// re-fire on every queue/phase change; without this guard a second render
-	// between the async start-call and `send_start` could kick off a duplicate
-	// run for the same queued prompt.
-	const dispatchingQueuedRef = useRef( false );
-
-	// Auto-dispatch the head of the queue once the previous run ends. On
-	// success, shift; on failure, drop the whole queue so a broken backend
-	// doesn't cascade errors.
-	useEffect( () => {
-		// Holding rather than clearing: a balance spent mid-run leaves the queued
-		// prompt visible and it dispatches on its own once a top-up refreshes the
-		// quota, instead of being silently dropped or sent to a certain rejection.
-		if ( ! sessionId || phase !== 'idle' || queuedPrompts.length === 0 || isOutOfCredits ) {
-			return;
-		}
-		if ( dispatchingQueuedRef.current ) {
-			return;
-		}
-		const next = queuedPrompts[ 0 ];
-		dispatchingQueuedRef.current = true;
-		dispatchSession( sessionId, { type: 'queue_shift' } );
-		void ( async () => {
-			try {
-				await startRun( sessionId, next.prompt, {
-					displayMessage: next.displayMessage,
-					images: next.images,
-					files: next.files,
-					visualAnnotations: next.visualAnnotations,
-				} );
-			} catch {
-				dispatchSession( sessionId, { type: 'queue_clear' } );
-			} finally {
-				dispatchingQueuedRef.current = false;
-			}
-		} )();
-	}, [ dispatchSession, isOutOfCredits, phase, queuedPrompts, sessionId, startRun ] );
 
 	const sendMessage = useCallback(
 		async ( prompt: string, options: SendMessageOptions = {} ) => {
@@ -921,10 +962,7 @@ function hasUnansweredQuestion( state: State ): boolean {
 
 /** Sessions waiting on the user's answer to a question. */
 export function useSessionsNeedingInput(): string[] {
-	const store = useContext( AgentRunContext );
-	if ( ! store ) {
-		throw new Error( 'useSessionsNeedingInput must be used within AgentRunProvider' );
-	}
+	const store = useAgentRunStore();
 	// Joined so the snapshot compares by value; a fresh array would re-render forever.
 	const ids = useSyncExternalStore( store.stateStore.subscribe, () =>
 		Object.entries( store.stateStore.getState() )
@@ -941,10 +979,7 @@ export function useSessionsNeedingInput(): string[] {
  * starting/running session makes the site read as working.
  */
 export function useSiteAgentActivity( sessionIds: string[] ): SiteAgentActivity {
-	const store = useContext( AgentRunContext );
-	if ( ! store ) {
-		throw new Error( 'useSiteAgentActivity must be used within AgentRunProvider' );
-	}
+	const store = useAgentRunStore();
 	return useSyncExternalStore( store.stateStore.subscribe, () => {
 		let hasWorkingSession = false;
 		for ( const sessionId of sessionIds ) {

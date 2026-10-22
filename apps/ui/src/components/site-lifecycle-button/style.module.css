@@ -1,7 +1,7 @@
 .iconOnly {
 	--wp-ui-button-padding-inline: 0;
 
-	width: var(--studio-control-size);
+	width: var(--control-size);
 }
 
 .visuallyHidden {

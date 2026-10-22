@@ -50,14 +50,14 @@
 	position: relative;
 	pointer-events: auto;
 	padding: 16px;
-	border-radius: var(--wpds-border-radius-md);
-	background-color: var(--wpds-color-background-surface-neutral-strong);
-	color: var(--wpds-color-foreground-content-neutral);
+	border-radius: 12px;
+	background-color: var(--chrome);
+	color: var(--foreground);
 	box-shadow:
-		0 0 0 1px color-mix(in srgb, var(--wpds-color-foreground-content-neutral) 10%, transparent),
+		0 0 0 1px var(--border),
 		0 1px 3px 0 rgb(0 0 0 / 10%),
 		0 1px 2px -1px rgb(0 0 0 / 10%);
-	font-size: 14px;
+	font-size: var(--text-sm);
 	line-height: 20px;
 	/* Toasts rewrite themselves in place — import progress ticks through a
 	   percentage — and this font's digits are not equal width, so a counter
@@ -88,7 +88,7 @@
 	width: 14px;
 	height: 14px;
 	border-radius: 50%;
-	color: var(--wpds-color-background-surface-neutral-strong);
+	color: var(--chrome);
 }
 
 .status svg {
@@ -97,15 +97,15 @@
 }
 
 .status[data-intent='success'] {
-	background-color: var(--wpds-color-stroke-surface-success-strong);
+	background-color: var(--success);
 }
 
 .status[data-intent='error'] {
-	background-color: var(--wpds-color-stroke-surface-error-strong);
+	background-color: var(--destructive);
 }
 
 .status[data-intent='info'] {
-	color: var(--wpds-color-foreground-content-neutral-weak);
+	color: var(--muted-foreground);
 }
 
 .status[data-intent='info'] svg {
@@ -118,7 +118,7 @@
 	flex: 1;
 	min-width: 0;
 	margin: 0;
-	font-weight: 450;
+	font-weight: var(--font-weight-medium);
 	text-wrap: pretty;
 }
 
@@ -134,8 +134,8 @@
 	margin: 2px 0 0;
 	padding-inline-start: 22px;
 	overflow: hidden;
-	color: var(--wpds-color-foreground-content-neutral-weak);
-	font-size: 12px;
+	color: var(--muted-foreground);
+	font-size: var(--text-xxs);
 	line-height: 18px;
 	-webkit-box-orient: vertical;
 	-webkit-line-clamp: 3;
@@ -150,12 +150,12 @@
 
 .action,
 .details button {
-	--wp-ui-button-font-weight: 450;
+	--wp-ui-button-font-weight: var(--font-weight-medium);
 }
 
 .close {
 	--wp-ui-button-height: 20px;
-	--wp-ui-button-background-color: var(--wpds-color-background-surface-neutral-strong);
+	--wp-ui-button-background-color: var(--chrome);
 	position: absolute;
 	inset-block-start: -6px;
 	inset-inline-start: -6px;
@@ -173,9 +173,9 @@
 	height: 8px;
 	margin-top: 3px;
 	margin-inline: 8px;
-	background-color: var(--wpds-color-background-surface-neutral-strong);
+	background-color: var(--chrome);
 	border-radius: 0 0 6px 6px;
-	box-shadow: 0 0 0 1px color-mix(in srgb, var(--wpds-color-foreground-content-neutral) 10%, transparent);
+	box-shadow: 0 0 0 1px var(--border);
 	opacity: 0.8;
 }
 

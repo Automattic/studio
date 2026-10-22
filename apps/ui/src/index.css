@@ -1,4 +1,5 @@
 @import '@fontsource-variable/inter';
+@import './theme/tokens.css';
 
 /* Vazirmatn (SIL OFL, see ./fonts/OFL.txt) — the macOS system font lacks
    Central Kurdish glyphs (e.g. ێ ۆ ڵ). Applied to the ckb locale below. */
@@ -11,9 +12,8 @@
 }
 
 :root {
-	--wpds-typography-font-family-body: 'Inter Variable', -apple-system, system-ui, 'Segoe UI',
-		'Roboto', 'Oxygen-Sans', 'Ubuntu', 'Cantarell', 'Helvetica Neue', sans-serif;
-	--wpds-typography-font-family-heading: var( --wpds-typography-font-family-body );
+	--wpds-typography-font-family-body: var( --font-sans );
+	--wpds-typography-font-family-heading: var( --font-sans );
 
 	/* Overlay stacking — portals mount into `document.body` and must beat
 	   app-chrome stacking contexts (sidebar header z-index: 1, floating
@@ -21,45 +21,13 @@
 	   above dialogs so help text on controls inside a modal still surfaces
 	   above the containing overlay. Every layer needs a value: @wordpress/ui
 	   falls back to `initial` (auto), which loses to any positioned chrome. */
-	--wp-ui-popover-z-index: 700;
-	--wp-ui-autocomplete-z-index: 700;
-
-	/* Annotate's own color: the mode's toolbar, its controls, and the pins
-	   the inspector draws on the page all share it, so the feature reads as
-	   one thing rather than borrowing the brand blue. The inspector's
-	   injected stylesheet repeats the violet literally — it can't see these. */
-	/* The workspace's top band, its controls, and the short column separators
-	   drawn inside it. */
-	--studio-band-height: 54px;
-	--studio-control-size: 36px;
-	--studio-band-separator-height: 16px;
-	/* Hover and selection on the shell's rows and toggles: a faint wash of the
-	   text color, so it reads the same over light and dark surfaces. */
-	--studio-hover-background: color-mix( in srgb, var( --wpds-color-foreground-content-neutral ) 5%, transparent );
-	/* Where the band's first control starts on macOS, past the traffic lights. */
-	--studio-traffic-light-space: 80px;
-
-	/* Shell motion: layout moves (the sidebar, the chat/preview split, header
-	   contents making room) and a quicker ease-out for controls appearing.
-	   The reduced-motion clamp below covers both. */
-	--studio-motion-layout-duration: 240ms;
-	--studio-motion-layout-easing: cubic-bezier(0.645, 0.045, 0.355, 1);
-	--studio-motion-feedback-duration: 120ms;
-	--studio-motion-enter-easing: cubic-bezier(0.165, 0.84, 0.44, 1);
-
-	--wp-ui-combobox-z-index: 700;
-	--wp-ui-dialog-z-index: 700;
-	--wp-ui-drawer-z-index: 700;
-	--wp-ui-select-z-index: 750;
-	--wp-ui-tooltip-z-index: 800;
-
-	/* Vivid status colors the wpds palette lacks: --wpds-color-foreground-content-success
-	   resolves to #002900 (reads black at dot size) and there are no
-	   caution/accent equivalents. */
-	--studio-color-status-running: #16a34a;
-	--studio-color-status-transitioning: #a16207;
-	--studio-color-status-attention: #facc15;
-	--studio-color-status-sync: #a855f7;
+	--wp-ui-popover-z-index: var( --z-popover );
+	--wp-ui-autocomplete-z-index: var( --z-popover );
+	--wp-ui-combobox-z-index: var( --z-popover );
+	--wp-ui-dialog-z-index: var( --z-popover );
+	--wp-ui-drawer-z-index: var( --z-popover );
+	--wp-ui-select-z-index: var( --z-select );
+	--wp-ui-tooltip-z-index: var( --z-tooltip );
 }
 
 /* Tokens stay light until ThemeProvider sets `data-color-scheme`: until then,
@@ -72,11 +40,11 @@
 body {
 	margin: 0;
 	padding: 0;
-	font-family: var( --wpds-typography-font-family-body );
-	font-size: var( --wpds-typography-font-size-md );
-	line-height: var( --wpds-typography-line-height-md );
-	background-color: var( --wpds-color-background-surface-neutral );
-	color: var( --wpds-color-foreground-content-neutral );
+	font-family: var(--font-sans);
+	font-size: var(--text-xs);
+	line-height: 24px;
+	background-color: var(--chat);
+	color: var(--foreground);
 	color-scheme: light dark;
 	scrollbar-color: gray transparent;
 }
@@ -88,25 +56,25 @@ body {
 	content: '';
 	position: absolute;
 	inset-inline-start: var( --studio-column-edge, 0 );
-	width: var( --wpds-border-width-xs );
-	background-color: var( --wpds-color-stroke-surface-neutral );
+	width: 1px;
+	background-color: var(--border);
 	pointer-events: none;
 }
 
 .studio-column-edge::before {
-	top: calc( ( var( --studio-band-height ) - var( --studio-band-separator-height ) ) / 2 );
-	height: var( --studio-band-separator-height );
+	top: calc( ( var( --band-height ) - var( --band-separator-height ) ) / 2 );
+	height: var( --band-separator-height );
 }
 
 .studio-column-edge::after {
-	top: var( --studio-band-height );
+	top: var( --band-height );
 	bottom: 0;
 }
 
 /* A 36px square control for the top band and the sidebar footer. The
    attribute selector outranks @wordpress/ui's size classes. */
 .studio-control[class] {
-	--wp-ui-button-height: var( --studio-control-size );
+	--wp-ui-button-height: var( --control-size );
 }
 
 /* Unlike `scrollbar-color`, `scrollbar-width` isn't inherited, so inner scroll
@@ -115,13 +83,10 @@ body {
 	scrollbar-width: thin;
 }
 
-/* Overriding the font-family tokens covers everything themed by the design
-   system; `lang` is set on bootstrap in lib/apply-locale.ts. */
+/* `lang` is set on bootstrap in lib/apply-locale.ts. */
 :root:lang( ckb ) {
-	--wpds-typography-font-family-body: 'Vazirmatn', -apple-system, system-ui, 'Segoe UI', 'Roboto',
-		'Oxygen-Sans', 'Ubuntu', 'Cantarell', 'Helvetica Neue', sans-serif;
-	--wpds-typography-font-family-heading: 'Vazirmatn', -apple-system, system-ui, 'Segoe UI', 'Roboto',
-		'Oxygen-Sans', 'Ubuntu', 'Cantarell', 'Helvetica Neue', sans-serif;
+	--font-sans: 'Vazirmatn', -apple-system, system-ui, 'Segoe UI', 'Roboto', 'Oxygen-Sans', 'Ubuntu',
+		'Cantarell', 'Helvetica Neue', sans-serif;
 }
 
 /* @wordpress/components controls hardcode their own font-family at class
@@ -131,7 +96,7 @@ body textarea,
 body select,
 body button,
 body [class*='components-'] {
-	font-family: var( --wpds-typography-font-family-body );
+	font-family: var(--font-sans);
 }
 
 /* Keyed on the scheme app-providers.tsx resolves from the saved Appearance
@@ -140,7 +105,6 @@ body [class*='components-'] {
 html[data-color-scheme='dark'] {
 	--wp-ui-tooltip-background-color: #fff;
 	--wp-ui-tooltip-color: #000;
-	--studio-dialog-backdrop: color-mix( in srgb, var( --wpds-color-background-surface-neutral ) 80%, transparent );
 }
 
 /* @wordpress/components and @wordpress/dataviews render help text and field
@@ -149,11 +113,11 @@ html[data-color-scheme='dark'] {
    foreground so they match the surrounding UI in both schemes. */
 .components-base-control__help,
 [class*='dataforms-layouts'] [class*='description'] {
-	color: var( --wpds-color-foreground-content-neutral-weak ) !important;
+	color: var(--muted-foreground) !important;
 }
 
 [data-wpds-root-provider] .components-base-control__help {
-	margin-top: var( --wpds-dimension-gap-xs );
+	margin-top: 4px;
 }
 
 /* Section grouping for the site forms. The `card` layout gives the sections
@@ -170,13 +134,13 @@ form .dataforms-layouts-card__field {
 }
 
 form .dataforms-layouts-card__field-header-content {
-	margin-block-end: var( --wpds-dimension-gap-md );
+	margin-block-end: 12px;
 }
 
 form .dataforms-layouts-card__field + .dataforms-layouts-card__field {
-	border-top: 1px solid var( --wpds-color-stroke-surface-neutral );
-	margin-block-start: var( --wpds-dimension-padding-lg );
-	padding-block-start: var( --wpds-dimension-padding-lg );
+	border-top: 1px solid var(--border);
+	margin-block-start: 16px;
+	padding-block-start: 16px;
 }
 
 /* Universal heading styles derived from the design system's font-size /
@@ -191,40 +155,40 @@ h3,
 h4,
 h5,
 h6 {
-	font-family: var( --wpds-typography-font-family-heading );
-	font-weight: var( --wpds-typography-font-weight-default );
-	color: var( --wpds-color-foreground-content-neutral );
+	font-family: var(--font-sans);
+	font-weight: var(--font-weight-normal);
+	color: var(--foreground);
 	margin: 0;
 }
 
 h1 {
-	font-size: var( --wpds-typography-font-size-2xl );
-	line-height: var( --wpds-typography-line-height-2xl );
+	font-size: 32px;
+	line-height: 40px;
 }
 
 h2 {
-	font-size: var( --wpds-typography-font-size-xl );
-	line-height: var( --wpds-typography-line-height-xl );
+	font-size: 20px;
+	line-height: 32px;
 }
 
 h3 {
-	font-size: var( --wpds-typography-font-size-lg );
-	line-height: var( --wpds-typography-line-height-lg );
+	font-size: 15px;
+	line-height: 28px;
 }
 
 h4 {
-	font-size: var( --wpds-typography-font-size-md );
-	line-height: var( --wpds-typography-line-height-md );
+	font-size: var(--text-xs);
+	line-height: 24px;
 }
 
 h5 {
-	font-size: var( --wpds-typography-font-size-sm );
-	line-height: var( --wpds-typography-line-height-sm );
+	font-size: var(--text-xxs);
+	line-height: 20px;
 }
 
 h6 {
-	font-size: var( --wpds-typography-font-size-xs );
-	line-height: var( --wpds-typography-line-height-xs );
+	font-size: 11px;
+	line-height: 16px;
 }
 
 /* Interactive elements inside drag-region ancestors (title bars, section
@@ -286,20 +250,17 @@ input[type='checkbox']:focus:not( :focus-visible ) {
 /* Dialog backdrop: a blurred wash, darker in dark mode. Not the input
    controls' own `components-input-control__backdrop` border. */
 [class*='__backdrop']:not( [class*='components-'] ) {
-	background-color: var(
-		--studio-dialog-backdrop,
-		color-mix( in srgb, var( --wpds-color-foreground-content-neutral ) 30%, transparent )
-	);
+	background-color: var( --backdrop );
 	backdrop-filter: blur( 4px );
-	transition-duration: var( --studio-motion-layout-duration );
-	transition-timing-function: var( --studio-motion-enter-easing );
+	transition-duration: var( --motion-duration-layout );
+	transition-timing-function: var( --motion-ease-enter );
 }
 
 /* Dialogs fade in from 97% on the shell's layout timing, a calmer grow than
    @wordpress/ui's 90%. */
 [data-wp-ui-overlay-modal] {
-	transition-duration: var( --studio-motion-layout-duration );
-	transition-timing-function: var( --studio-motion-enter-easing );
+	transition-duration: var( --motion-duration-layout );
+	transition-timing-function: var( --motion-ease-enter );
 }
 
 [data-wp-ui-overlay-modal]:is( [data-starting-style], [data-ending-style] ) {
@@ -313,8 +274,8 @@ input[type='checkbox']:focus:not( :focus-visible ) {
 [data-wp-ui-overlay-modal] {
 	--studio-dialog-inset: 16px;
 	--studio-dialog-description-gap: 30px;
-	border-radius: var( --wpds-border-radius-md );
-	font-size: 14px;
+	border-radius: 12px;
+	font-size: var(--text-sm);
 	line-height: 20px;
 }
 
@@ -335,13 +296,13 @@ input[type='checkbox']:focus:not( :focus-visible ) {
 }
 
 [data-wp-ui-overlay-modal] [class*='__header']:not( [data-wp-ui-overlay-scroll-container] * ) [class*='__title'] {
-	font-size: 14px;
-	font-weight: 450;
+	font-size: var(--text-sm);
+	font-weight: var(--font-weight-medium);
 	line-height: 20px;
 }
 
 [data-wp-ui-dialog-close-icon] {
-	--wp-ui-button-border-color: var( --wpds-color-stroke-surface-neutral );
+	--wp-ui-button-border-color: var(--border);
 }
 
 /* 30px under the header, counting its 1px scroll separator; a leading
@@ -352,7 +313,7 @@ input[type='checkbox']:focus:not( :focus-visible ) {
 
 [data-wp-ui-overlay-scroll-container] > p:first-child {
 	margin-block: -22px var( --studio-dialog-description-gap );
-	font-size: 14px;
+	font-size: var(--text-sm);
 	line-height: 20px;
 }
 
@@ -361,12 +322,12 @@ input[type='checkbox']:focus:not( :focus-visible ) {
 }
 
 [role='dialog'] [data-wp-ui-overlay-scroll-container] > p:first-child {
-	color: var( --wpds-color-foreground-content-neutral-weak );
+	color: var(--muted-foreground);
 }
 
 [data-wp-ui-overlay-modal] [class*='__input-layout']:not( [class*='__is-size-'] ) {
-	height: var( --studio-control-size );
-	font-size: 14px;
+	height: var( --control-size );
+	font-size: var(--text-sm);
 }
 
 [data-wp-ui-overlay-modal] [class*='__footer']:not( [data-wp-ui-overlay-scroll-container] * ) {
@@ -379,9 +340,9 @@ input[type='checkbox']:focus:not( :focus-visible ) {
 }
 
 [data-wp-ui-overlay-modal] [class*='__footer']:not( [data-wp-ui-overlay-scroll-container] * ) button {
-	--wp-ui-button-height: var( --studio-control-size );
-	--wp-ui-button-font-size: 14px;
-	--wp-ui-button-font-weight: 450;
+	--wp-ui-button-height: var( --control-size );
+	--wp-ui-button-font-size: var(--text-sm);
+	--wp-ui-button-font-weight: var(--font-weight-medium);
 	--wp-ui-button-padding-inline: 10px;
 }
 
@@ -394,14 +355,14 @@ input[type='checkbox']:focus:not( :focus-visible ) {
    AlertDialog Cancel buttons — matching values already used by
    `tone="neutral"` `variant="minimal"` elsewhere, plus an outline. */
 [role='alertdialog'] button:first-child {
-	--wp-ui-button-border-color: var( --wpds-color-stroke-interactive-neutral );
-	--wp-ui-button-border-color-active: var( --wpds-color-stroke-interactive-neutral-active );
-	--wp-ui-button-background-color: var( --wpds-color-background-interactive-neutral-weak );
-	--wp-ui-button-background-color-active: var( --wpds-color-background-interactive-neutral-weak-active );
-	--wp-ui-button-background-color-disabled: var( --wpds-color-background-interactive-neutral-weak-disabled );
-	--wp-ui-button-foreground-color: var( --wpds-color-foreground-interactive-neutral );
-	--wp-ui-button-foreground-color-active: var( --wpds-color-foreground-interactive-neutral-active );
-	--wp-ui-button-foreground-color-disabled: var( --wpds-color-foreground-interactive-neutral-disabled );
+	--wp-ui-button-border-color: var(--input);
+	--wp-ui-button-border-color-active: var(--muted-foreground);
+	--wp-ui-button-background-color: transparent;
+	--wp-ui-button-background-color-active: var(--hover);
+	--wp-ui-button-background-color-disabled: transparent;
+	--wp-ui-button-foreground-color: var(--foreground);
+	--wp-ui-button-foreground-color-active: var(--foreground);
+	--wp-ui-button-foreground-color-disabled: var(--muted-foreground);
 }
 
 /* @wordpress/ui's Button loading spinner centers itself with
@@ -454,8 +415,8 @@ input[type='checkbox']:focus:not( :focus-visible ) {
 [data-wpds-theme-provider-id] [role='listbox'] [role='option'][data-highlighted]:not(
 		[aria-disabled='true']
 	) {
-	background-color: var( --wpds-color-background-interactive-neutral-weak-active );
-	color: var( --wpds-color-foreground-interactive-neutral );
+	background-color: var(--hover);
+	color: var(--foreground);
 }
 
 /* @wordpress/components' ComboboxControl (used by DataForm's adaptive
@@ -470,23 +431,23 @@ input[type='checkbox']:focus:not( :focus-visible ) {
 
 .components-input-control__prefix svg,
 .components-input-control__suffix svg {
-	color: var( --wpds-color-foreground-content-neutral-weak );
-	fill: var( --wpds-color-foreground-content-neutral-weak );
+	color: var(--muted-foreground);
+	fill: var(--muted-foreground);
 }
 
 select optgroup,
 select option {
-	background-color: var( --wpds-color-background-surface-neutral );
-	color: var( --wpds-color-foreground-content-neutral );
+	background-color: var(--chat);
+	color: var(--foreground);
 }
 
 [data-wpds-root-provider] .components-radio-control__input[type='radio']:not(:checked) {
-	border-color: var( --wpds-color-stroke-interactive-neutral );
+	border-color: var(--input);
 	background: transparent;
 }
 
 [data-wpds-root-provider] .components-radio-control__option-description {
-	color: var( --wpds-color-foreground-content-neutral-weak );
+	color: var(--muted-foreground);
 	unicode-bidi: plaintext;
 	margin-block-end: 0;
 }

@@ -27,13 +27,13 @@
 	gap: 8px;
 	width: 100%;
 	height: 40px;
-	padding: 0 4px 0 var( --wpds-dimension-padding-md );
-	border: var( --wpds-border-width-xs ) solid var( --wpds-color-stroke-interactive-neutral );
+	padding: 0 4px 0 12px;
+	border: 1px solid var(--input);
 	border-radius: 2px;
-	background-color: var( --wpds-color-background-interactive-neutral-weak );
-	color: var( --wpds-color-foreground-interactive-neutral );
-	font-family: var( --wpds-typography-font-family-body );
-	font-size: var( --wpds-typography-font-size-md );
+	background-color: transparent;
+	color: var(--foreground);
+	font-family: var(--font-sans);
+	font-size: var(--text-xs);
 	line-height: 1;
 	text-align: left;
 	cursor: pointer;
@@ -43,19 +43,19 @@
 }
 
 .pathTrigger:hover {
-	border-color: var( --wpds-color-stroke-interactive-neutral-active );
+	border-color: var(--muted-foreground);
 }
 
 .pathTrigger:focus-visible {
-	border-color: var( --wpds-color-stroke-interactive-neutral-active );
-	box-shadow: 0 0 0 0.5px var( --wpds-color-stroke-interactive-neutral-active );
+	border-color: var(--muted-foreground);
+	box-shadow: 0 0 0 0.5px var(--muted-foreground);
 	outline: none;
 }
 
 .pathTrigger.pathTriggerError,
 .pathTrigger.pathTriggerError:focus {
-	border-color: var( --wpds-color-stroke-surface-error-strong );
-	box-shadow: 0 0 0 0.5px var( --wpds-color-stroke-surface-error-strong );
+	border-color: var(--destructive);
+	box-shadow: 0 0 0 0.5px var(--destructive);
 }
 
 .pathValue {
@@ -67,24 +67,24 @@
 }
 
 .pathValuePlaceholder {
-	color: var( --wpds-color-foreground-content-neutral-weak );
+	color: var(--muted-foreground);
 }
 
 .pathTriggerAction {
 	flex: 0 0 auto;
 	padding: 6px 12px;
-	font-size: var( --wpds-typography-font-size-sm );
+	font-size: var(--text-xxs);
 	font-weight: 500;
-	color: var( --wpds-color-foreground-interactive-neutral );
+	color: var(--foreground);
 }
 
 .pathControlError :global( .components-input-control__backdrop ) {
-	border-color: var( --wpds-color-stroke-surface-error-strong );
-	box-shadow: 0 0 0 0.5px var( --wpds-color-stroke-surface-error-strong );
+	border-color: var(--destructive);
+	box-shadow: 0 0 0 0.5px var(--destructive);
 }
 
 .form :global( .components-validated-control__indicator.is-invalid ) {
-	color: var( --wpds-color-foreground-content-error-weak );
+	color: var(--destructive);
 }
 
 .form
@@ -92,17 +92,17 @@
 		.components-validated-control:has( :is( input, select ):invalid[data-validity-visible] )
 			.components-input-control__backdrop
 	) {
-	--wp-components-color-accent: var( --wpds-color-stroke-surface-error-strong );
-	border-color: var( --wpds-color-stroke-surface-error-strong );
+	--wp-components-color-accent: var(--destructive);
+	border-color: var(--destructive);
 }
 
 .form
 	:global(
 		.components-validated-control :is( textarea, input[type='text'] ):invalid[data-validity-visible]
 	) {
-	--wp-admin-theme-color: var( --wpds-color-stroke-surface-error-strong );
-	--wp-components-color-accent: var( --wpds-color-stroke-surface-error-strong );
-	border-color: var( --wpds-color-stroke-surface-error-strong );
+	--wp-admin-theme-color: var(--destructive);
+	--wp-components-color-accent: var(--destructive);
+	border-color: var(--destructive);
 }
 
 .advancedToggle {
@@ -110,7 +110,7 @@
 	align-items: center;
 	gap: 4px;
 	align-self: flex-start;
-	color: var( --wpds-color-foreground-content-neutral );
+	color: var(--foreground);
 }
 
 .advancedCollapse {
@@ -145,9 +145,9 @@
 
 .advancedErrorCount {
 	margin-left: 8px;
-	font-size: 12px;
+	font-size: var(--text-xxs);
 	font-weight: 500;
-	color: var( --wpds-color-foreground-content-error );
+	color: var(--destructive);
 }
 
 .submitError {
@@ -156,14 +156,14 @@
 	gap: 6px;
 	padding: 10px 12px;
 	border-radius: 4px;
-	background: var( --wpds-color-background-surface-error-weak );
-	color: var( --wpds-color-foreground-content-error );
-	font-size: 13px;
+	background: var(--destructive-surface);
+	color: var(--destructive);
+	font-size: var(--text-xs);
 	line-height: 1.5;
 }
 
 .submitErrorTitle {
-	font-weight: 600;
+	font-weight: var(--font-weight-semibold);
 }
 
 .submitErrorMessage {
@@ -181,19 +181,13 @@
 	padding-top: 6px;
 	margin: 0;
 	overflow: auto;
-	font-family: var(
-		--wpds-typography-font-family-mono,
-		ui-monospace,
-		SFMono-Regular,
-		Menlo,
-		monospace
-	);
-	font-size: var( --wpds-typography-font-size-xs );
+	font-family: var(--font-mono);
+	font-size: 11px;
 	white-space: pre-wrap;
 	overflow-wrap: anywhere;
 }
 
 .panelFooter {
 	padding-top: 24px;
-	border-top: var( --wpds-border-width-xs ) solid var( --wpds-color-stroke-surface-neutral );
+	border-top: 1px solid var(--border);
 }

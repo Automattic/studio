@@ -1,13 +1,13 @@
 .trigger {
-	--wp-ui-button-padding-inline: var(--wpds-dimension-padding-sm);
+	--wp-ui-button-padding-inline: 8px;
 
 	gap: 2px;
-	color: var(--wpds-color-foreground-content-neutral);
+	color: var(--foreground);
 	-webkit-app-region: no-drag;
 }
 
 .chevron {
-	color: var(--wpds-color-foreground-content-neutral-weak);
+	color: var(--muted-foreground);
 	fill: currentColor;
 }
 

@@ -543,7 +543,7 @@ describe( 'SitePreview', () => {
 
 		const header = screen.getByRole( 'button', { name: 'Reload preview' } ).parentElement
 			?.parentElement?.parentElement;
-		expect( header?.style.paddingRight ).toBe( 'calc(138px + var(--wpds-dimension-padding-sm))' );
+		expect( header?.style.paddingRight ).toBe( '146px' );
 		expect( setWindowControlsSurface ).toHaveBeenLastCalledWith( 'toolbar' );
 
 		rerender( preview( false ) );

@@ -57,8 +57,7 @@ function statusDot( t: number ): { opacity: number; color: string } {
 		const phase = ( ( t - 5170 ) / 900 ) % 1;
 		opacity *= 0.4 + 0.6 * Math.abs( 1 - 2 * phase );
 	}
-	const color =
-		t < 7040 ? 'var(--studio-color-status-transitioning)' : 'var(--studio-color-status-running)';
+	const color = t < 7040 ? 'var(--status-transitioning)' : 'var(--status-running)';
 	return { opacity, color };
 }
 

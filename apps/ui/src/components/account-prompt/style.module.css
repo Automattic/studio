@@ -30,12 +30,12 @@
 	position: absolute;
 	top: 50%;
 	aspect-ratio: 4 / 3;
-	border-radius: var(--wpds-border-radius-sm);
-	background-color: var(--wpds-color-background-surface-neutral);
+	border-radius: 8px;
+	background-color: var(--chat);
 	background-position: center;
 	background-size: cover;
 	box-shadow:
-		inset 0 0 0 1px color-mix(in srgb, var(--wpds-color-foreground-content-neutral) 10%, transparent),
+		inset 0 0 0 1px var(--border),
 		0 1px 3px rgb(0 0 0 / 10%);
 }
 
@@ -80,7 +80,7 @@
 
 .title {
 	margin: 0;
-	font-size: 18px;
+	font-size: var(--text-xl);
 	font-weight: 550;
 	line-height: 1.4;
 	letter-spacing: -0.02em;
@@ -89,31 +89,31 @@
 .description {
 	max-width: 320px;
 	margin: 6px 0 0;
-	color: var(--wpds-color-foreground-content-neutral-weak);
-	font-size: 14px;
+	color: var(--muted-foreground);
+	font-size: var(--text-sm);
 	line-height: 1.625;
 }
 
 .error {
 	margin: 12px 0 0;
-	color: var(--wpds-color-foreground-content-error);
-	font-size: 13px;
+	color: var(--destructive);
+	font-size: var(--text-xs);
 }
 
 .createAccount {
 	--wp-ui-button-height: 44px;
-	--wp-ui-button-font-size: 14px;
+	--wp-ui-button-font-size: var(--text-sm);
 	min-width: 208px;
 	margin-top: 28px;
 }
 
 .logIn {
 	margin-top: 16px;
-	color: var(--wpds-color-foreground-content-neutral-weak);
-	font-size: 13px;
+	color: var(--muted-foreground);
+	font-size: var(--text-xs);
 	line-height: 20px;
 }
 
 .logIn:hover:not(:disabled) {
-	color: var(--wpds-color-foreground-content-neutral);
+	color: var(--foreground);
 }

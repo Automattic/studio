@@ -3,18 +3,18 @@
    trailing edge on the row's `lg` column (see user-menu's
    `--user-menu-trailing-offset`). */
 .bell {
-	color: var(--wpds-color-foreground-content-neutral);
+	color: var(--foreground);
 }
 
 /* A quiet footnote under the list rather than a subtitle above it: it
    explains the log's lifetime, which the reader only wants once. */
 .outro {
-	margin-block-start: var(--wpds-dimension-gap-lg);
-	font-size: var(--wpds-typography-font-size-xs);
+	margin-block-start: 16px;
+	font-size: 11px;
 	/* A step below the notice body text, which is already `-weak`. */
 	color: color-mix(
 		in srgb,
-		var(--wpds-color-foreground-content-neutral-weak) 75%,
+		var(--muted-foreground) 75%,
 		transparent
 	);
 }
@@ -25,7 +25,7 @@
 	padding: 0;
 	display: flex;
 	flex-direction: column;
-	gap: var(--wpds-dimension-gap-sm);
+	gap: 8px;
 }
 
 .notice {
@@ -58,10 +58,10 @@
 	grid-column: 3;
 	grid-row: 1;
 	padding-block: var(--text-vertical-padding);
-	margin-inline-start: var(--wpds-dimension-gap-sm);
-	font-size: var(--wpds-typography-font-size-xs);
-	line-height: var(--wpds-typography-line-height-xs);
-	color: var(--wpds-color-foreground-content-neutral-weak);
+	margin-inline-start: 8px;
+	font-size: 11px;
+	line-height: 16px;
+	color: var(--muted-foreground);
 	white-space: nowrap;
 	font-variant-numeric: tabular-nums;
 }
@@ -73,7 +73,7 @@
 	margin-inline: auto;
 	justify-content: center;
 	min-height: 200px;
-	padding-block: var(--wpds-dimension-padding-2xl);
+	padding-block: 24px;
 }
 
 /* Footer actions sit at the end; push the destructive-ish one to the start. */

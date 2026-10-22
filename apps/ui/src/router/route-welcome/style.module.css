@@ -12,7 +12,7 @@
 	height: 100vh;
 	padding: 40px 50px 20px;
 	overflow: hidden;
-	background: var(--wpds-color-background-surface-neutral);
+	background: var(--chat);
 	/* New stacking context so the dot grid's negative z-index stays behind
 	   this page's content without escaping below ancestors. */
 	isolation: isolate;
@@ -150,7 +150,7 @@
 	background: linear-gradient(
 		to bottom,
 		transparent,
-		color-mix(in srgb, var(--wpds-color-background-surface-neutral) var(--surface-alpha, 55%), transparent)
+		color-mix(in srgb, var(--chat) var(--surface-alpha, 55%), transparent)
 			96px
 	);
 	-webkit-mask-image: linear-gradient(to bottom, transparent, black 96px);
@@ -163,7 +163,7 @@
 }
 
 .subtitle {
-	color: var(--wpds-color-foreground-content-neutral-weak);
+	color: var(--muted-foreground);
 	max-width: 440px;
 	margin: 0;
 }
@@ -172,8 +172,8 @@
 .legal {
 	max-width: 340px;
 	margin: 0;
-	color: var(--wpds-color-foreground-content-neutral-weak);
-	font-size: 12px;
+	color: var(--muted-foreground);
+	font-size: var(--text-xxs);
 	line-height: 20px;
 	text-wrap: pretty;
 }
@@ -185,7 +185,7 @@
 	border: none;
 	padding: 0;
 	font: inherit;
-	color: var(--wpds-color-foreground-interactive-brand);
+	color: var(--accent-text);
 	text-decoration: underline;
 	cursor: pointer;
 	white-space: nowrap;
@@ -197,7 +197,7 @@
 }
 
 .linkButton:disabled {
-	color: var(--wpds-color-foreground-interactive-neutral-disabled);
+	color: var(--muted-foreground);
 	cursor: default;
 }
 
@@ -220,8 +220,8 @@
 	z-index: 1;
 	flex: 0 0 auto;
 	margin-top: 20px;
-	color: var(--wpds-color-foreground-content-neutral-weak);
-	font-size: var(--wpds-typography-font-size-sm);
+	color: var(--muted-foreground);
+	font-size: var(--text-xxs);
 }
 
 /* Signed-in identity shown in place of the auth buttons. */
@@ -229,8 +229,8 @@
 	display: inline-flex;
 	align-items: center;
 	gap: 8px;
-	font-size: 13px;
-	font-weight: var(--wpds-typography-font-weight-emphasis);
+	font-size: var(--text-xs);
+	font-weight: var(--font-weight-semibold);
 }
 
 .identityAvatar {

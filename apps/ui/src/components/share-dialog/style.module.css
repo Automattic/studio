@@ -10,13 +10,12 @@
 	width: 7px;
 	height: 7px;
 	border-radius: 50%;
-	background: var(--wpds-color-background-interactive-brand-strong);
-	box-shadow: 0 0 0 2px var(--wpds-color-background-surface-neutral);
+	background: var(--accent);
+	box-shadow: 0 0 0 2px var(--chat);
 	pointer-events: none;
 }
 
 .dialog {
-	--studio-share-muted: color-mix(in srgb, var(--wpds-color-foreground-content-neutral) 10%, transparent);
 }
 
 /* Outranks the shared dialog rule, which leaves room for a footer this dialog doesn't have. */
@@ -32,8 +31,8 @@
 
 .description {
 	margin: 0;
-	color: var(--wpds-color-foreground-content-neutral-weak);
-	font-size: 14px;
+	color: var(--muted-foreground);
+	font-size: var(--text-sm);
 	line-height: 20px;
 }
 
@@ -41,7 +40,7 @@
 	padding: 0;
 	border: 0;
 	background: none;
-	color: var(--wpds-color-foreground-interactive-brand);
+	color: var(--accent-text);
 	font: inherit;
 	cursor: pointer;
 }
@@ -61,7 +60,7 @@
 	flex-direction: column;
 	align-items: flex-start;
 	gap: 8px;
-	color: var(--wpds-color-foreground-content-error);
+	color: var(--destructive);
 }
 
 .error p {
@@ -73,19 +72,19 @@
 	min-width: 0;
 	flex-direction: column;
 	gap: 8px;
-	font-size: 14px;
+	font-size: var(--text-sm);
 	line-height: 20px;
 }
 
 .panel button {
-	--wp-ui-button-font-weight: 450;
+	--wp-ui-button-font-weight: var(--font-weight-medium);
 }
 
 .previewSelect {
 	align-self: flex-start;
 	max-width: 100%;
 	padding-inline: 10px 8px;
-	border-color: var(--studio-share-muted);
+	border-color: var(--border);
 }
 
 .frame {
@@ -96,8 +95,8 @@
 	aspect-ratio: 16 / 10;
 	margin: 0;
 	overflow: hidden;
-	border-radius: var(--wpds-border-radius-sm);
-	background: color-mix(in srgb, var(--wpds-color-foreground-content-neutral) 6%, var(--wpds-color-background-surface-neutral-strong));
+	border-radius: 8px;
+	background: var(--muted);
 }
 
 .frame::after {
@@ -105,7 +104,7 @@
 	position: absolute;
 	inset: 0;
 	border-radius: inherit;
-	box-shadow: inset 0 0 0 1px var(--studio-share-muted);
+	box-shadow: inset 0 0 0 1px var(--border);
 	pointer-events: none;
 }
 
@@ -118,7 +117,7 @@
 
 .frame p {
 	margin: 0;
-	color: var(--wpds-color-foreground-content-neutral-weak);
+	color: var(--muted-foreground);
 }
 
 .update {
@@ -129,20 +128,20 @@
 	align-items: center;
 	justify-content: center;
 	gap: 6px;
-	height: var(--studio-control-size);
+	height: var(--control-size);
 	border: 0;
-	border-block-start: 1px solid var(--studio-share-muted);
-	background: color-mix(in srgb, var(--wpds-color-background-surface-neutral-strong) 75%, transparent);
-	color: var(--wpds-color-foreground-content-neutral);
+	border-block-start: 1px solid var(--border);
+	background: color-mix(in srgb, var(--chrome) 75%, transparent);
+	color: var(--foreground);
 	font: inherit;
-	font-size: 13px;
-	font-weight: 450;
+	font-size: var(--text-xs);
+	font-weight: var(--font-weight-medium);
 	cursor: pointer;
 	backdrop-filter: blur(4px);
 }
 
 .update:hover:not(:disabled) {
-	background: color-mix(in srgb, var(--wpds-color-background-surface-neutral-strong) 92%, transparent);
+	background: color-mix(in srgb, var(--chrome) 92%, transparent);
 }
 
 .update:disabled {
@@ -159,13 +158,13 @@
 
 .large {
 	--wp-ui-button-height: 44px;
-	--wp-ui-button-font-size: 14px;
+	--wp-ui-button-font-size: var(--text-sm);
 }
 
 .busy {
-	--wp-ui-button-background-color-disabled: var(--wpds-color-background-interactive-neutral-strong);
-	--wp-ui-button-foreground-color-disabled: var(--wpds-color-foreground-interactive-neutral-strong);
-	--wp-ui-button-border-color-disabled: var(--wpds-color-background-interactive-neutral-strong);
+	--wp-ui-button-background-color-disabled: var(--primary);
+	--wp-ui-button-foreground-color-disabled: var(--primary-foreground);
+	--wp-ui-button-border-color-disabled: var(--primary);
 }
 
 .expiry {
@@ -177,8 +176,8 @@
 
 .expiry p {
 	margin: 0;
-	color: var(--wpds-color-foreground-content-neutral-weak);
-	font-size: 13px;
+	color: var(--muted-foreground);
+	font-size: var(--text-xs);
 }
 
 .confirm {
@@ -198,10 +197,10 @@
 }
 
 .destructive {
-	--wp-ui-button-background-color: var(--wpds-color-background-interactive-error-strong);
-	--wp-ui-button-background-color-active: var(--wpds-color-background-interactive-error-active);
-	--wp-ui-button-foreground-color: var(--wpds-color-foreground-interactive-error-strong);
-	--wp-ui-button-foreground-color-active: var(--wpds-color-foreground-interactive-error-strong);
+	--wp-ui-button-background-color: var(--destructive);
+	--wp-ui-button-background-color-active: var(--destructive-hover);
+	--wp-ui-button-foreground-color: var(--destructive-foreground);
+	--wp-ui-button-foreground-color-active: var(--destructive-foreground);
 }
 
 .inlineForm,
@@ -214,26 +213,26 @@
 .label,
 .upgradeTitle {
 	margin: 0;
-	font-size: 13px;
-	font-weight: 450;
+	font-size: var(--text-xs);
+	font-weight: var(--font-weight-medium);
 	line-height: 1.375;
 }
 
 .input {
 	box-sizing: border-box;
 	width: 100%;
-	height: var(--studio-control-size);
+	height: var(--control-size);
 	padding: 4px 10px;
-	border: 1px solid var(--studio-share-muted);
-	border-radius: var(--wpds-border-radius-md);
+	border: 1px solid var(--border);
+	border-radius: 12px;
 	background: transparent;
 	color: inherit;
 	font: inherit;
-	font-size: 14px;
+	font-size: var(--text-sm);
 }
 
 .input:focus-visible {
-	outline: var(--wpds-border-width-focus) solid var(--wpds-color-stroke-focus);
+	outline: var(--focus-width) solid var(--ring);
 	outline-offset: -1px;
 }
 
@@ -251,14 +250,14 @@
 
 .upgradeText {
 	margin: 0;
-	color: var(--wpds-color-foreground-content-neutral-weak);
-	font-size: 12px;
+	color: var(--muted-foreground);
+	font-size: var(--text-xxs);
 	line-height: 1.47;
 }
 
 .outline {
-	--wp-ui-button-border-color: var(--studio-share-muted);
-	--wp-ui-button-font-weight: 450;
+	--wp-ui-button-border-color: var(--border);
+	--wp-ui-button-font-weight: var(--font-weight-medium);
 }
 
 .visuallyHidden {
@@ -272,6 +271,6 @@
 
 .notice {
 	margin: 0;
-	color: var(--wpds-color-foreground-content-neutral-weak);
-	font-size: 13px;
+	color: var(--muted-foreground);
+	font-size: var(--text-xs);
 }

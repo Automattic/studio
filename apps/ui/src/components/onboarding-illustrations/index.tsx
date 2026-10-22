@@ -1,6 +1,6 @@
 import styles from './style.module.css';
 
-const STROKE = 'var(--wpds-color-foreground-content-neutral)';
+const STROKE = 'var(--foreground)';
 
 export function SiteListIllustration() {
 	return (

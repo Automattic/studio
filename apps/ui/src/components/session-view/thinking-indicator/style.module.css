@@ -1,6 +1,6 @@
 .root {
 	max-block-size: 0;
-	color: var(--wpds-color-foreground-content-neutral-weak);
+	color: var(--muted-foreground);
 	opacity: 0;
 	transform: translateY(-4px);
 	transition: max-block-size 240ms cubic-bezier(0.2, 0, 0, 1), opacity 160ms ease-out,
@@ -23,10 +23,10 @@
 .head {
 	display: flex;
 	align-items: center;
-	gap: calc(var(--wpds-dimension-padding-xs) - 2px);
+	gap: calc(4px - 2px);
 	min-width: 0;
 	padding: 2px 0;
-	font-size: var(--wpds-typography-font-size-md);
+	font-size: var(--text-xs);
 	line-height: 1.55;
 	white-space: nowrap;
 }
@@ -48,7 +48,7 @@
 }
 
 .elapsed {
-	color: var(--wpds-color-foreground-content-neutral-weak);
+	color: var(--muted-foreground);
 	opacity: 0.7;
 	font-variant-numeric: tabular-nums;
 }
@@ -102,9 +102,9 @@
 }
 
 .progress {
-	padding-left: calc(16px + var(--wpds-dimension-padding-xs));
+	padding-left: calc(16px + 4px);
 	margin-block-start: -3px;
-	color: var(--wpds-color-foreground-content-neutral-weak);
+	color: var(--muted-foreground);
 	opacity: 0.8;
 	overflow: hidden;
 	text-overflow: ellipsis;

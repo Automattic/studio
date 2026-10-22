@@ -1,7 +1,7 @@
 .fileName {
-	margin: var(--wpds-dimension-padding-sm) 0 0;
-	font-size: var(--wpds-typography-font-size-sm);
-	line-height: var(--wpds-typography-line-height-sm);
-	color: var(--wpds-color-foreground-content-neutral);
+	margin: 8px 0 0;
+	font-size: var(--text-xxs);
+	line-height: 20px;
+	color: var(--foreground);
 	overflow-wrap: anywhere;
 }

@@ -3,6 +3,6 @@
    room for that bleed it reports itself as scrollable and grows a separator
    above the footer. */
 .dialogCheckbox {
-	margin-top: var( --wpds-dimension-gap-lg );
-	padding-bottom: var( --wpds-dimension-gap-xs );
+	margin-top: 16px;
+	padding-bottom: 4px;
 }

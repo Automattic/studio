@@ -3,7 +3,7 @@
 .stack {
 	display: flex;
 	flex-direction: column;
-	margin-top: calc(-1 * var(--wpds-dimension-gap-sm));
+	margin-top: calc(-1 * 8px);
 }
 
 /* Collapsible row, same treatment as the toasts: @starting-style animates
@@ -12,7 +12,7 @@
 .cell {
 	display: grid;
 	grid-template-rows: 1fr;
-	margin-top: var(--wpds-dimension-gap-sm);
+	margin-top: 8px;
 	transition:
 		grid-template-rows 180ms ease,
 		margin-top 180ms ease;
@@ -40,8 +40,8 @@
 	font-variant-numeric: tabular-nums;
 	box-shadow:
 		0 1px 2px 0 rgba(0, 0, 0, 0.06), 0 3px 6px 0 rgba(0, 0, 0, 0.05), 0 6px 8px 0 rgba(0, 0, 0, 0.03);
-	padding-block: var(--wpds-dimension-padding-sm);
-	padding-inline: var(--wpds-dimension-padding-sm);
+	padding-block: 8px;
+	padding-inline: 8px;
 	border-radius: 6px;
 	animation: card-enter 160ms ease-out;
 }
@@ -51,7 +51,7 @@
 }
 
 .card [class*='__description'] {
-	font-size: var(--wpds-typography-font-size-xs);
+	font-size: 11px;
 	line-height: 16px;
 	display: -webkit-box;
 	-webkit-box-orient: vertical;
@@ -65,24 +65,20 @@
 }
 
 .card [class*='__actions'] {
-	gap: var(--wpds-dimension-gap-sm);
+	gap: 8px;
 }
 
 /* Button's solid-variant sets these properties on the element itself, so
    parent-level overrides don't win — must be set here directly. */
 .action {
-	--wp-ui-button-background-color: color-mix(
-		in srgb,
-		var(--wpds-color-foreground-content-neutral) 10%,
-		transparent
-	);
+	--wp-ui-button-background-color: var(--border);
 	--wp-ui-button-background-color-active: color-mix(
 		in srgb,
-		var(--wpds-color-foreground-content-neutral) 16%,
+		var(--foreground) 16%,
 		transparent
 	);
-	--wp-ui-button-foreground-color: var(--wpds-color-foreground-content-neutral);
-	--wp-ui-button-foreground-color-active: var(--wpds-color-foreground-content-neutral);
+	--wp-ui-button-foreground-color: var(--foreground);
+	--wp-ui-button-foreground-color-active: var(--foreground);
 	--wp-ui-button-border-color: transparent;
 	--wp-ui-button-border-color-active: transparent;
 }
@@ -116,6 +112,6 @@
 	width: 6px;
 	height: 6px;
 	border-radius: 50%;
-	background-color: var(--wpds-color-foreground-interactive-brand);
+	background-color: var(--accent-text);
 	pointer-events: none;
 }

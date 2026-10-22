@@ -1,5 +1,4 @@
 .popup[data-wp-ui-overlay-modal] {
-	--settings-divider: color-mix(in srgb, var(--wpds-color-foreground-content-neutral) 10%, transparent);
 
 	flex-direction: row;
 	width: min(752px, calc(100vw - 48px));
@@ -7,7 +6,7 @@
 	min-width: 0;
 	padding: 0;
 	border-radius: 16px;
-	font-size: 14px;
+	font-size: var(--text-sm);
 	line-height: 20px;
 }
 
@@ -30,7 +29,7 @@
 	flex: none;
 	flex-direction: column;
 	width: 216px;
-	border-inline-end: var(--wpds-border-width-xs) solid var(--settings-divider);
+	border-inline-end: 1px solid var(--border);
 }
 
 .scopes {
@@ -39,7 +38,7 @@
 	margin: 12px 12px 0;
 	padding: 3px;
 	border-radius: 9px;
-	background: var(--studio-hover-background);
+	background: var(--hover);
 }
 
 .scope {
@@ -48,16 +47,16 @@
 	border: 0;
 	border-radius: 7px;
 	background: none;
-	color: var(--wpds-color-foreground-content-neutral-weak);
+	color: var(--muted-foreground);
 	font: inherit;
-	font-weight: 450;
-	cursor: var(--wpds-cursor-control);
+	font-weight: var(--font-weight-medium);
+	cursor: pointer;
 }
 
 .scope[aria-pressed='true'] {
-	background: var(--wpds-color-background-surface-neutral-strong);
+	background: var(--chrome);
 	box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
-	color: var(--wpds-color-foreground-content-neutral);
+	color: var(--foreground);
 }
 
 .scope:disabled {
@@ -67,7 +66,7 @@
 
 .scope:focus-visible,
 .navItem:focus-visible {
-	outline: var(--wpds-border-width-focus) solid var(--wpds-color-stroke-focus);
+	outline: var(--focus-width) solid var(--ring);
 	outline-offset: -2px;
 }
 
@@ -77,19 +76,19 @@
 	height: 36px;
 	margin: 12px 12px 0;
 	box-sizing: border-box;
-	border: var(--wpds-border-width-xs) solid var(--settings-divider);
+	border: 1px solid var(--border);
 	border-radius: 9px;
 }
 
 .search:focus-within {
-	border-color: var(--wpds-color-stroke-focus);
-	box-shadow: inset 0 0 0 1px var(--wpds-color-stroke-focus);
+	border-color: var(--ring);
+	box-shadow: inset 0 0 0 1px var(--ring);
 }
 
 .searchIcon {
 	flex: none;
 	margin-inline-start: 8px;
-	fill: var(--wpds-color-foreground-content-neutral-weak);
+	fill: var(--muted-foreground);
 }
 
 .searchInput {
@@ -106,7 +105,7 @@
 }
 
 .searchInput::placeholder {
-	color: var(--wpds-color-foreground-content-neutral-weak);
+	color: var(--muted-foreground);
 }
 
 .searchInput::-webkit-search-cancel-button {
@@ -134,15 +133,15 @@
 	border: 0;
 	border-radius: 7px;
 	background: none;
-	color: var(--wpds-color-foreground-content-neutral);
+	color: var(--foreground);
 	font: inherit;
 	text-align: start;
-	cursor: var(--wpds-cursor-control);
+	cursor: pointer;
 }
 
 .navItem:hover,
 .navItem[aria-current='page'] {
-	background: var(--studio-hover-background);
+	background: var(--hover);
 }
 
 .navIcon {
@@ -164,8 +163,8 @@
 
 .navScope,
 .empty {
-	color: var(--wpds-color-foreground-content-neutral-weak);
-	font-size: 13px;
+	color: var(--muted-foreground);
+	font-size: var(--text-xs);
 }
 
 .empty {
@@ -194,7 +193,7 @@
 	flex: 1;
 	min-width: 0;
 	margin: 0;
-	font-size: 14px;
+	font-size: var(--text-sm);
 	font-weight: 500;
 	line-height: 20px;
 }
@@ -220,8 +219,8 @@
 	margin-inline: -12px;
 	padding-inline: 12px;
 	border-radius: 8px;
-	background: color-mix(in srgb, var(--wpds-color-foreground-interactive-brand) 12%, transparent);
-	transition: background-color var(--studio-motion-layout-duration);
+	background: color-mix(in srgb, var(--accent-text) 12%, transparent);
+	transition: background-color var(--motion-duration-layout);
 }
 
 /* DataForm's fields render as rows in the settings cards: no gaps, a
@@ -233,7 +232,7 @@
 
 .content :global(.dataforms-layouts-regular__field + .dataforms-layouts-regular__field) {
 	border-top: 1px solid
-		color-mix(in srgb, var(--wpds-color-foreground-content-neutral) 8%, transparent);
+		var(--border);
 }
 
 /* Text fields keep one width, as in the rebuild. */
@@ -245,18 +244,18 @@
    controls' own styles, which triple their class. */
 .popup[data-wp-ui-overlay-modal] .content :global(.components-input-control__container) {
 	border-radius: 9px;
-	background: color-mix(in srgb, var(--wpds-color-background-surface-neutral-strong) 60%, transparent);
+	background: color-mix(in srgb, var(--chrome) 60%, transparent);
 }
 
 .popup[data-wp-ui-overlay-modal] .content :global(.components-input-control__backdrop) {
-	border-color: color-mix(in srgb, var(--wpds-color-foreground-content-neutral) 10%, transparent);
+	border-color: var(--border);
 	border-radius: 9px;
 }
 
 .popup[data-wp-ui-overlay-modal] .content :global(.components-input-control__input) {
 	height: 34px;
 	min-height: 34px;
-	font-size: 13px;
+	font-size: var(--text-xs);
 }
 
 /* Field labels in sentence case. Above the controls' own label styles, which
@@ -264,8 +263,8 @@
 .popup[data-wp-ui-overlay-modal]
 	.content
 	:global(:is(.components-base-control__label, .components-input-control__label)) {
-	font-size: 13px;
-	font-weight: 450;
+	font-size: var(--text-xs);
+	font-weight: var(--font-weight-medium);
 	text-transform: none;
 }
 
@@ -277,14 +276,14 @@
 
 .error {
 	margin: 0;
-	color: var(--wpds-color-foreground-content-error);
-	font-size: 13px;
+	color: var(--destructive);
+	font-size: var(--text-xs);
 }
 
 .content .manageAll {
 	display: flex;
 	margin-block-start: 4px;
 	padding-inline: 0;
-	font-size: 12px;
-	font-weight: 400;
+	font-size: var(--text-xxs);
+	font-weight: var(--font-weight-normal);
 }

@@ -1,8 +1,8 @@
 /* The chat column. The site preview panel lives in the dashboard layout's
    PreviewSplitFrame, which hosts this view in its content column. */
 .root {
-	--column-inline-gutter: calc(var(--wpds-dimension-padding-2xl) + 8px);
-	--composer-shell-inline-padding: var(--wpds-dimension-padding-lg);
+	--column-inline-gutter: calc(24px + 8px);
+	--composer-shell-inline-padding: 16px;
 	--composer-column-max-width: calc(
 		760px + (var(--composer-shell-inline-padding) * 2)
 	);
@@ -10,10 +10,10 @@
 		0px,
 		calc(var(--column-inline-gutter) - var(--composer-shell-inline-padding))
 	);
-	--header-height: var(--studio-band-height);
+	--header-height: var(--band-height);
 	--composer-height: 0px;
 	/* The composer sits this far above the panel's bottom edge. */
-	--composer-bottom-gap: var(--wpds-dimension-padding-md);
+	--composer-bottom-gap: 12px;
 	--composer-blur-overhang: 40px;
 	--scrollbar-blur-safe-area: 14px;
 
@@ -28,44 +28,44 @@
 	box-sizing: border-box;
 	display: flex;
 	align-items: center;
-	gap: var(--wpds-dimension-gap-xs);
-	padding-inline: var(--wpds-dimension-padding-md);
-	height: var(--studio-band-height);
-	transition: padding var(--studio-motion-layout-duration) var(--studio-motion-layout-easing);
-	background-color: var(--wpds-color-background-surface-neutral-strong);
-	box-shadow: inset 0 calc(-1 * var(--wpds-border-width-xs)) 0
-		var(--wpds-color-stroke-surface-neutral);
-	font-size: var(--wpds-typography-font-size-sm);
-	color: var(--wpds-color-foreground-content-neutral);
+	gap: 4px;
+	padding-inline: 12px;
+	height: var(--band-height);
+	transition: padding var(--motion-duration-layout) var(--motion-ease-layout);
+	background-color: var(--chrome);
+	box-shadow: inset 0 calc(-1 * 1px) 0
+		var(--border);
+	font-size: var(--text-xxs);
+	color: var(--foreground);
 	-webkit-app-region: drag;
 }
 
 .headerSidebarCollapsed {
-	padding-inline-start: var(--studio-traffic-light-space);
+	padding-inline-start: var(--traffic-light-space);
 }
 
 .headerSite {
-	font-weight: 600;
+	font-weight: var(--font-weight-semibold);
 }
 
 .headerSiteIcon {
-	margin-inline-end: calc(-1 * var(--wpds-dimension-padding-xs));
+	margin-inline-end: calc(-1 * 4px);
 }
 
 .headerDot {
 	width: 6px;
 	height: 6px;
 	border-radius: 50%;
-	background-color: var(--studio-color-status-running);
+	background-color: var(--status-running);
 	flex-shrink: 0;
 	/* Extra horizontal margin around the dot only — keeps the toggle-to-title
 	   gap at the header's base 8px while giving the site/dot/local grouping
 	   more breathing room. */
-	margin: 0 var(--wpds-dimension-padding-xs);
+	margin: 0 4px;
 }
 
 .headerEnv {
-	color: var(--wpds-color-foreground-content-neutral-weak);
+	color: var(--muted-foreground);
 }
 
 .headerSpacer {
@@ -75,7 +75,7 @@
 .headerActions {
 	display: flex;
 	align-items: center;
-	gap: var(--wpds-dimension-gap-xs);
+	gap: 4px;
 	-webkit-app-region: no-drag;
 }
 
@@ -141,8 +141,8 @@
 }
 
 .conversationSpacing {
-	padding-top: var(--wpds-dimension-padding-xl);
-	padding-bottom: var(--wpds-dimension-padding-2xl);
+	padding-top: 20px;
+	padding-bottom: 24px;
 }
 
 
@@ -150,12 +150,12 @@
    above the composer without contributing to the measured composer height. */
 .scrollToLatestWrap {
 	position: absolute;
-	bottom: calc(100% + var(--wpds-dimension-padding-md));
+	bottom: calc(100% + 12px);
 	inset-inline-start: 0;
 	/* Match the send button's inset: the composer toolbar's inline padding is
 	   the shell inline padding minus padding-xs (see composer .toolbar). */
 	inset-inline-end: calc(
-		var(--composer-shell-inline-padding) - var(--wpds-dimension-padding-xs)
+		var(--composer-shell-inline-padding) - 4px
 	);
 	display: flex;
 	justify-content: flex-end;
@@ -169,8 +169,8 @@
 	--wp-ui-button-aspect-ratio: 1;
 	--wp-ui-button-min-width: unset;
 	--wp-ui-button-padding-inline: 0;
-	--wp-ui-button-background-color: var(--wpds-color-background-surface-neutral-strong);
-	--wp-ui-button-border-color: var(--wpds-color-stroke-surface-neutral-weak);
+	--wp-ui-button-background-color: var(--chrome);
+	--wp-ui-button-border-color: var(--border);
 
 	pointer-events: auto;
 	border-radius: 50%;
@@ -219,5 +219,5 @@
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	padding: var(--wpds-dimension-padding-2xl);
+	padding: 24px;
 }

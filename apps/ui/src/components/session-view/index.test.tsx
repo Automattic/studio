@@ -238,7 +238,7 @@ describe( 'SessionView', () => {
 			</WindowControlsCornerContext.Provider>
 		);
 		const header = screen.getByText( 'Example Site' ).parentElement;
-		expect( header?.style.paddingRight ).toBe( 'calc(138px + var(--wpds-dimension-padding-sm))' );
+		expect( header?.style.paddingRight ).toBe( '146px' );
 
 		rerender(
 			<WindowControlsCornerContext.Provider value={ false }>

@@ -4,7 +4,7 @@
 
 .intro {
 	margin: 0 0 24px;
-	color: var(--wpds-color-foreground-content-neutral-weak);
+	color: var(--muted-foreground);
 }
 
 .signedOut {
@@ -21,7 +21,7 @@
 	gap: 12px;
 	margin: 0;
 	padding: 0;
-	color: var(--wpds-color-foreground-content-neutral-weak);
+	color: var(--muted-foreground);
 	list-style: none;
 }
 
@@ -34,17 +34,17 @@
 .benefits svg {
 	flex: 0 0 auto;
 	fill: currentColor;
-	color: var(--wpds-color-foreground-interactive-brand);
+	color: var(--accent-text);
 }
 
 .authActions {
 	padding-top: 16px;
-	border-top: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral);
+	border-top: 1px solid var(--border);
 }
 
 .state p {
 	margin: 0;
-	color: var(--wpds-color-foreground-content-neutral-weak);
+	color: var(--muted-foreground);
 }
 
 .state {
@@ -59,7 +59,7 @@
 
 .state h2 {
 	margin: 0;
-	font-size: var(--wpds-typography-font-size-lg);
+	font-size: 15px;
 	font-weight: 500;
 }
 
@@ -77,15 +77,15 @@
 	gap: 8px;
 	width: min(100%, 520px);
 	padding: 0 12px;
-	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral);
+	border: 1px solid var(--border);
 	border-radius: 6px;
-	background: var(--wpds-color-background-surface-neutral);
-	color: var(--wpds-color-foreground-content-neutral-weak);
+	background: var(--chat);
+	color: var(--muted-foreground);
 }
 
 .search:focus-within {
-	border-color: var(--wpds-color-stroke-focus);
-	box-shadow: 0 0 0 1px var(--wpds-color-stroke-focus);
+	border-color: var(--ring);
+	box-shadow: 0 0 0 1px var(--ring);
 }
 
 .search input {
@@ -95,12 +95,12 @@
 	border: 0;
 	outline: 0;
 	background: transparent;
-	color: var(--wpds-color-foreground-content-neutral);
+	color: var(--foreground);
 	font: inherit;
 }
 
 .search input::placeholder {
-	color: var(--wpds-color-foreground-content-neutral-weak);
+	color: var(--muted-foreground);
 }
 
 .helperLinks {
@@ -108,7 +108,7 @@
 	align-items: center;
 	gap: 2px;
 	margin: 0;
-	color: var(--wpds-color-foreground-content-neutral-weak);
+	color: var(--muted-foreground);
 }
 
 .helperLinks button {
@@ -134,14 +134,14 @@
 
 .sectionHeader h2 {
 	margin: 0 0 4px;
-	font-size: var(--wpds-typography-font-size-lg);
+	font-size: 15px;
 	font-weight: 500;
 }
 
 .sectionHeader p {
 	margin: 0;
-	color: var(--wpds-color-foreground-content-neutral-weak);
-	font-size: var(--wpds-typography-font-size-sm);
+	color: var(--muted-foreground);
+	font-size: var(--text-xxs);
 }
 
 .siteGrid {
@@ -174,18 +174,18 @@
 	border: 0;
 	border-radius: 12px;
 	background: transparent;
-	color: var(--wpds-color-foreground-content-neutral);
+	color: var(--foreground);
 	cursor: pointer;
 	text-align: start;
 }
 
 .siteCard:not(:disabled):hover .siteThumb,
 .siteCardSelected .siteThumb {
-	box-shadow: 0 0 0 1px var(--wpds-color-stroke-interactive-brand);
+	box-shadow: 0 0 0 1px var(--accent);
 }
 
 .siteCard:focus-visible {
-	outline: 2px solid var(--wpds-color-stroke-focus);
+	outline: 2px solid var(--ring);
 	outline-offset: 2px;
 }
 
@@ -201,8 +201,8 @@
 	aspect-ratio: 3 / 2;
 	overflow: hidden;
 	border-radius: 8px;
-	background: var(--wpds-color-background-surface-neutral-strong);
-	box-shadow: 0 0 0 var(--wpds-border-width-xs) var(--wpds-color-stroke-surface-neutral);
+	background: var(--chrome);
+	box-shadow: 0 0 0 1px var(--border);
 	transition: box-shadow 0.15s ease;
 }
 
@@ -233,16 +233,16 @@
 
 .siteUrl {
 	overflow: hidden;
-	color: var(--wpds-color-foreground-content-neutral-weak);
-	font-size: var(--wpds-typography-font-size-sm);
+	color: var(--muted-foreground);
+	font-size: var(--text-xxs);
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
 
 .siteStatus {
 	margin-top: 4px;
-	color: var(--wpds-color-foreground-content-neutral-weak);
-	font-size: var(--wpds-typography-font-size-sm);
+	color: var(--muted-foreground);
+	font-size: var(--text-xxs);
 	line-height: 1.4;
 }
 
@@ -264,9 +264,9 @@
 	margin: 0 0 24px;
 	padding: 8px 12px;
 	border-radius: 9px;
-	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-error);
-	background: var(--wpds-color-background-surface-error-weak);
-	color: var(--wpds-color-foreground-content-error);
+	border: 1px solid color-mix(in oklab, var(--destructive) 35%, transparent);
+	background: var(--destructive-surface);
+	color: var(--destructive);
 }
 
 @media (max-width: 600px) {

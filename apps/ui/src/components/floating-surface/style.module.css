@@ -7,12 +7,12 @@
 	--studio-floating-surface-easing: cubic-bezier(0.2, 0.8, 0.2, 1);
 
 	box-sizing: border-box;
-	background: var(--wpds-color-background-surface-neutral-strong);
-	border: var(--wpds-border-width-xs) solid
-		color-mix(in srgb, var(--wpds-color-foreground-content-neutral) 10%, transparent);
-	border-radius: var(--wpds-border-radius-md);
+	background: var(--chrome);
+	border: 1px solid
+		var(--border);
+	border-radius: 12px;
 	box-shadow: 0 2px 3px 0 rgba(0, 0, 0, 0.05), 0 4px 5px 0 rgba(0, 0, 0, 0.04), 0 12px 12px 0 rgba(0, 0, 0, 0.03), 0 16px 16px 0 rgba(0, 0, 0, 0.02);
-	color: var(--wpds-color-foreground-content-neutral);
+	color: var(--foreground);
 	transform-origin: top left;
 }
 

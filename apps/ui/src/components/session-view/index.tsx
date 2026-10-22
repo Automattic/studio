@@ -121,7 +121,7 @@ function SessionHeader( {
 			style={
 				windowControlsInset > 0
 					? {
-							paddingRight: `calc(${ windowControlsInset }px + var(--wpds-dimension-padding-sm))`,
+							paddingRight: windowControlsInset + 8,
 					  }
 					: undefined
 			}

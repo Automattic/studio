@@ -1,22 +1,22 @@
 .form {
 	display: flex;
 	flex-direction: column;
-	gap: var(--wpds-dimension-padding-xl);
+	gap: 20px;
 }
 
 .submitError {
 	padding: 10px 12px;
 	border-radius: 4px;
-	border: 1px solid var(--wpds-color-stroke-surface-error);
-	background: var(--wpds-color-background-surface-error-weak);
-	color: var(--wpds-color-foreground-content-error);
-	font-size: 13px;
+	border: 1px solid color-mix(in oklab, var(--destructive) 35%, transparent);
+	background: var(--destructive-surface);
+	color: var(--destructive);
+	font-size: var(--text-xs);
 }
 
 .credentialActions {
 	display: flex;
 	align-items: center;
-	gap: var(--wpds-dimension-gap-xs);
+	gap: 4px;
 }
 
 .emailControl:dir(rtl) :global(.components-input-control__input) {
@@ -31,5 +31,5 @@
 
 .debugLogAction {
 	display: flex;
-	margin-block-start: var(--wpds-dimension-gap-xs);
+	margin-block-start: 4px;
 }

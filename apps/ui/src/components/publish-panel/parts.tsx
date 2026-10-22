@@ -187,7 +187,7 @@ export function TransferProgress( {
 					aria-label={ pushing ? __( 'Publishing progress' ) : __( 'Pull progress' ) }
 				>
 					<Progress.Track className={ styles.progressTrack }>
-						<Progress.Indicator color="var(--wpds-color-foreground-content-neutral)" />
+						<Progress.Indicator color="var(--foreground)" />
 					</Progress.Track>
 				</Progress.Root>
 			) : null }

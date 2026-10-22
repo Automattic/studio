@@ -881,7 +881,7 @@ export function SitePreview( {
 					// lights — pad past them.
 					...( trafficLightSpace.end && { paddingInlineEnd: 96 } ),
 					...( windowControlsInset > 0 && {
-						paddingRight: `calc(${ windowControlsInset }px + var(--wpds-dimension-padding-sm))`,
+						paddingRight: windowControlsInset + 8,
 					} ),
 				} }
 			>
@@ -1492,8 +1492,8 @@ function WebviewSurface( {
 				point,
 			} ) ),
 			annotationLabel: __( 'Annotation' ),
-			accent: theme.getPropertyValue( '--wpds-color-background-interactive-brand-strong' ).trim(),
-			onAccent: theme.getPropertyValue( '--wpds-color-foreground-interactive-brand-strong' ).trim(),
+			accent: theme.getPropertyValue( '--accent' ).trim(),
+			onAccent: theme.getPropertyValue( '--accent-foreground' ).trim(),
 		};
 		webview
 			.executeJavaScript(

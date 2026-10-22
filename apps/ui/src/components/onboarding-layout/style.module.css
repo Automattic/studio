@@ -9,7 +9,7 @@
 	max-width: 640px;
 	width: 100%;
 	margin-block: auto;
-	padding: var(--wpds-dimension-padding-3xl);
+	padding: 32px;
 }
 
 .contentWide {
@@ -17,5 +17,5 @@
 }
 
 .contentWithClose {
-	padding-block-start: calc(var(--wpds-dimension-padding-3xl) + 32px);
+	padding-block-start: calc(32px + 32px);
 }

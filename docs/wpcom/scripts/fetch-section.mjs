@@ -106,6 +106,7 @@ async function main() {
     for (const e of errors) {
       console.log(`  - ${e.url}: ${e.reason}`);
     }
+    process.exitCode = 1;
   }
 }
 

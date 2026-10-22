@@ -181,7 +181,7 @@ When your tunnel is active, make sure to note the tunnel URL and update it in yo
     `https://6xb2-12-13-14-15.ngrok-free.app`
 2.  **Update your WordPress configuration** (`wp-config.php`) by adding:  
     `define( 'WP_SITEURL', 'https://6xb2-12-13-14-15.ngrok-free.app' );`  
-    `define( 'WP_HOME', 'https://6xb2-12-13-14-15.ngrok-free.app’ );`
+    `define( 'WP_HOME', 'https://6xb2-12-13-14-15.ngrok-free.app' );`
 3.  **Refresh your site** in the browser.
 
 Your local Studio site should now be accessible through the tunnel URL. If it doesn’t redirect automatically, clearing your browser cache may help. You can also access the site directly by using the generated tunnel URL. 

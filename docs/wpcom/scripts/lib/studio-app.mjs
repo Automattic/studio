@@ -20,6 +20,9 @@ const ORIENTATION_GUIDE_VERSION = 2;
 function buildAppData({ firstRun, appData }) {
   return {
     version: 1,
+    // The screenshot steps match English accessible names; without a saved
+    // locale Studio falls back to the OS language.
+    locale: 'en',
     sites: [],
     snapshots: [],
     ...(firstRun
@@ -40,6 +43,10 @@ function buildAppData({ firstRun, appData }) {
  * `--user-data-dir` gives Electron its own single-instance lock so this runs
  * alongside a Studio the user already has open. Nothing in the user's real
  * profile is read or written.
+ *
+ * The CLI daemon and its events socket get their own directory too, so the
+ * user's running Studio keeps its connection. Windows daemons use fixed,
+ * system-wide pipe names that cannot be isolated this way.
  */
 export async function launchStudio({
   executablePath = process.env.STUDIO_APP || DEFAULT_STUDIO_APP,
@@ -64,6 +71,9 @@ export async function launchStudio({
     sharedConfig: path.join(root, 'sharedConfig'),
     userData: path.join(root, 'userData'),
   };
+  // Kept short and directly under tmpdir: the daemon's sockets are Unix domain
+  // sockets, limited to ~104 characters on macOS.
+  dirs.daemon = await mkdtemp(path.join(tmpdir(), 'sdd-'));
   for (const dir of Object.values(dirs)) {
     await mkdir(dir, { recursive: true });
   }
@@ -83,6 +93,9 @@ export async function launchStudio({
       E2E_HOME_PATH: dirs.home,
       E2E_CLI_CONFIG_PATH: dirs.cliConfig,
       E2E_SHARED_CONFIG_PATH: dirs.sharedConfig,
+      // Takes precedence over E2E_SHARED_CONFIG_PATH when inherited.
+      DEV_CONFIG_DIR: dirs.sharedConfig,
+      STUDIO_PROCESS_MANAGER_HOME: dirs.daemon,
     },
     timeout: 60_000,
   });
@@ -103,7 +116,9 @@ export async function launchStudio({
     window,
     dirs,
     async close({ keepProfile = false } = {}) {
+      // Quitting Studio stops its daemon when no sites are running.
       await app.close().catch(() => {});
+      await rm(dirs.daemon, { recursive: true, force: true, maxRetries: 3 }).catch(() => {});
       if (!keepProfile && !profileDir) {
         await rm(root, { recursive: true, force: true, maxRetries: 3 }).catch(() => {});
       }

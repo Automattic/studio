@@ -128,6 +128,9 @@ async function main() {
       console.log(`  - ${m.url}`);
     }
   }
+  if (verified !== results.length) {
+    process.exitCode = 1;
+  }
 }
 
 main().catch((err) => {

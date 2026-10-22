@@ -133,11 +133,11 @@ export const turnsAreResponsive = check( ( d, vars ) => {
 		  );
 } );
 
-// The turn reached its outcome within the case's budget: at most
-// vars.maxToolCalls tool calls and vars.maxTokens tokens. A run that gets the
+// The case reached its outcome within its budget: at most vars.maxToolCalls
+// tool calls and vars.maxTokens tokens, summed over all its turns. A run that gets the
 // right result by looping through dozens of calls costs the user credits, so a
 // pass that blows the budget counts as a regression.
-export const turnWithinBudget = check( ( d, vars ) => {
+export const withinBudget = check( ( d, vars ) => {
 	if ( vars.maxToolCalls === undefined && vars.maxTokens === undefined )
 		throw new Error( 'the case sets neither maxToolCalls nor maxTokens' );
 	const calls = ( d.toolCalls || [] ).length;

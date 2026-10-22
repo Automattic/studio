@@ -2,16 +2,18 @@ import { __ } from '@wordpress/i18n';
 import { closeSmall, Icon, info } from '@wordpress/icons';
 import { clsx } from 'clsx';
 import { useEffect } from 'react';
-import { CopyNoticeButton, openNoticeHistory } from '@/components/notice-history';
+import {
+	CopyNoticeButton,
+	NoticeActionButton,
+	openNoticeHistory,
+} from '@/components/notice-history';
 import { Button, IconButton } from '@/components/ui/button';
-import { Spinner } from '@/components/ui/spinner';
 import {
 	dismissToast,
 	notifyRendererMounted,
 	notifyRendererUnmounted,
 	pauseToastExpiry,
 	resumeToastExpiry,
-	runToastAction,
 	useQueuedToasts,
 	useVisibleToasts,
 	type ToastIntent,
@@ -66,21 +68,19 @@ export function AppToasts() {
 						className={ styles.toast }
 						onMouseEnter={ () => pauseToastExpiry( item.id ) }
 						onMouseLeave={ () => resumeToastExpiry( item.id ) }
+						onFocus={ () => pauseToastExpiry( item.id ) }
+						onBlur={ ( event ) => {
+							if ( ! event.currentTarget.contains( event.relatedTarget ) ) {
+								resumeToastExpiry( item.id );
+							}
+						} }
 					>
 						<div className={ styles.card }>
 							<div className={ styles.row }>
 								<StatusIcon intent={ item.intent } />
 								<p className={ styles.title }>{ item.title }</p>
 								{ item.action ? (
-									<Button
-										size="sm"
-										disabled={ item.actionPending }
-										aria-busy={ item.actionPending || undefined }
-										onClick={ () => void runToastAction( item.id ) }
-									>
-										{ item.actionPending ? <Spinner aria-hidden="true" /> : null }
-										{ item.action.label }
-									</Button>
+									<NoticeActionButton action={ item.action } pending={ item.actionPending } />
 								) : null }
 							</div>
 							{ item.description ? (

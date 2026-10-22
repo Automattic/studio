@@ -64,3 +64,41 @@
 .clearAll {
 	margin-inline-end: auto;
 }
+
+.bell {
+	position: relative;
+}
+
+.dot {
+	position: absolute;
+	inset-block-start: 6px;
+	inset-inline-end: 6px;
+	width: 7px;
+	height: 7px;
+	border-radius: 50%;
+	background-color: var(--accent);
+	box-shadow: 0 0 0 2px var(--chrome);
+	pointer-events: none;
+}
+
+/* Room for the dismiss badges, which sit over each entry's corner. */
+.scrollArea {
+	margin: -6px;
+	padding: 6px;
+}
+
+/* Same corner badge as a toast's close button. */
+.dismiss {
+	--button-background: var(--popover);
+
+	position: absolute;
+	inset-block-start: -6px;
+	inset-inline-start: -6px;
+	opacity: 0;
+	transition: opacity 120ms ease;
+}
+
+li:hover .dismiss,
+li:focus-within .dismiss {
+	opacity: 1;
+}

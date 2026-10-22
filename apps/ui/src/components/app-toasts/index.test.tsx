@@ -111,6 +111,31 @@ describe( 'AppToasts', () => {
 		expect( getVisibleToasts()[ 0 ] ).toMatchObject( { title: 'Chat archived', leaving: true } );
 	} );
 
+	it( 'holds a toast open while it has keyboard focus', () => {
+		vi.useFakeTimers();
+		try {
+			render( <AppToasts /> );
+			act( () => {
+				showToast( { title: 'Chat archived', action: { label: 'Undo', onClick: vi.fn() } } );
+			} );
+			const undo = screen.getByRole( 'button', { name: 'Undo' } );
+
+			act( () => undo.focus() );
+			act( () => {
+				vi.advanceTimersByTime( 10_000 );
+			} );
+			expect( getVisibleToasts()[ 0 ].leaving ).toBeFalsy();
+
+			act( () => undo.blur() );
+			act( () => {
+				vi.advanceTimersByTime( 4_500 );
+			} );
+			expect( getVisibleToasts()[ 0 ].leaving ).toBe( true );
+		} finally {
+			vi.useRealTimers();
+		}
+	} );
+
 	it( 'says when a toast’s action fails, and lets it be tried again', async () => {
 		const undo = vi.fn().mockRejectedValueOnce( new Error( 'Disk full' ) );
 		render( <AppToasts /> );

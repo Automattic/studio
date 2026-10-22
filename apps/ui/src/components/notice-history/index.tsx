@@ -1,6 +1,6 @@
-import { __ } from '@wordpress/i18n';
-import { caution, error, Icon, info, published } from '@wordpress/icons';
-import { useSyncExternalStore } from 'react';
+import { __, sprintf } from '@wordpress/i18n';
+import { caution, closeSmall, error, Icon, info, published } from '@wordpress/icons';
+import { useEffect, useState, useSyncExternalStore, type ComponentProps } from 'react';
 import {
 	Alert,
 	AlertActions,
@@ -20,11 +20,15 @@ import {
 	DialogTitle,
 } from '@/components/ui/dialog';
 import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
+import { Spinner } from '@/components/ui/spinner';
 import {
 	clearNoticeHistory,
+	dismissNotice,
 	noticeToText,
+	runNoticeAction,
 	useNoticeHistory,
 	type NoticeRecord,
+	type ToastAction,
 } from '@/data/app-messages';
 import { useCopyText } from '@/hooks/use-copy-text';
 import { bellIcon } from '@/lib/icons';
@@ -71,12 +75,49 @@ function useNoticeHistoryOpen(): boolean {
 }
 
 export function NoticeHistoryButton() {
+	const hasNotifications = useNoticeHistory().length > 0;
 	return (
 		<IconButton
 			icon={ bellIcon }
 			label={ __( 'Notification history' ) }
+			aria-label={
+				hasNotifications
+					? __( 'Notification history, notifications available' )
+					: __( 'Notification history' )
+			}
+			className={ styles.bell }
 			onClick={ openNoticeHistory }
-		/>
+		>
+			{ hasNotifications ? <span className={ styles.dot } aria-hidden="true" /> : null }
+		</IconButton>
+	);
+}
+
+export function NoticeActionButton( {
+	action,
+	pending,
+	onDone,
+	...props
+}: {
+	action: ToastAction;
+	pending?: boolean;
+	onDone?: () => void;
+} & Omit< ComponentProps< typeof Button >, 'onClick' > ) {
+	return (
+		<Button
+			size="sm"
+			{ ...props }
+			disabled={ pending }
+			aria-busy={ pending || undefined }
+			onClick={ async () => {
+				if ( await runNoticeAction( action ) ) {
+					onDone?.();
+				}
+			} }
+		>
+			{ pending ? <Spinner aria-hidden="true" /> : null }
+			{ action.label }
+		</Button>
 	);
 }
 
@@ -96,15 +137,37 @@ export function CopyNoticeButton( {
 	);
 }
 
-function formatTime( timestamp: number ) {
-	return new Intl.DateTimeFormat( undefined, { hour: 'numeric', minute: '2-digit' } ).format(
-		timestamp
-	);
+function relativeTime( timestamp: number, now: number ) {
+	const minutes = Math.max( 0, Math.floor( ( now - timestamp ) / 60_000 ) );
+	if ( minutes === 0 ) {
+		return __( 'Just now' );
+	}
+	const format = new Intl.RelativeTimeFormat( undefined, { numeric: 'auto', style: 'short' } );
+	if ( minutes < 60 ) {
+		return format.format( -minutes, 'minute' );
+	}
+	return minutes < 1440
+		? format.format( -Math.floor( minutes / 60 ), 'hour' )
+		: format.format( -Math.floor( minutes / 1440 ), 'day' );
+}
+
+function useNow( active: boolean ) {
+	const [ now, setNow ] = useState( Date.now );
+	useEffect( () => {
+		if ( ! active ) {
+			return;
+		}
+		setNow( Date.now() );
+		const timer = setInterval( () => setNow( Date.now() ), 60_000 );
+		return () => clearInterval( timer );
+	}, [ active ] );
+	return now;
 }
 
 export function NoticeHistoryDialog() {
 	const open = useNoticeHistoryOpen();
 	const notices = useNoticeHistory();
+	const now = useNow( open );
 
 	return (
 		<Dialog open={ open } onOpenChange={ setOpen }>
@@ -112,7 +175,7 @@ export function NoticeHistoryDialog() {
 				<DialogHeader>
 					<DialogTitle>{ __( 'Notification history' ) }</DialogTitle>
 				</DialogHeader>
-				<DialogScrollArea>
+				<DialogScrollArea className={ styles.scrollArea }>
 					{ notices.length === 0 ? (
 						<Empty className={ styles.empty }>
 							<EmptyMedia>{ bellIcon }</EmptyMedia>
@@ -137,14 +200,38 @@ export function NoticeHistoryDialog() {
 											<time
 												className={ styles.time }
 												dateTime={ new Date( notice.shownAt ).toISOString() }
+												title={ new Date( notice.shownAt ).toLocaleString() }
 											>
-												{ formatTime( notice.shownAt ) }
+												{ relativeTime( notice.shownAt, now ) }
 											</time>
-											{ notice.description ? (
+											{ notice.action || notice.description ? (
 												<AlertActions>
-													<CopyNoticeButton notice={ notice } />
+													{ notice.action ? (
+														<NoticeActionButton
+															action={ notice.action }
+															pending={ notice.actionPending }
+															variant="outline"
+															size="2xs"
+															onDone={ closeNoticeHistory }
+														/>
+													) : null }
+													{ notice.description ? <CopyNoticeButton notice={ notice } /> : null }
 												</AlertActions>
 											) : null }
+											<IconButton
+												className={ styles.dismiss }
+												icon={ closeSmall }
+												label={ __( 'Dismiss' ) }
+												aria-label={ sprintf(
+													/* translators: %s: notification title. */
+													__( 'Dismiss %s' ),
+													notice.title
+												) }
+												variant="outline"
+												size="icon-2xs"
+												shape="round"
+												onClick={ () => dismissNotice( notice ) }
+											/>
 										</Alert>
 									</li>
 								) ) }

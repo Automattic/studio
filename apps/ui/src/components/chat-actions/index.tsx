@@ -58,6 +58,7 @@ export function useChatActions( session: AiSessionSummary, active: boolean ) {
 		toast.success( __( 'Chat archived' ), {
 			action: {
 				label: __( 'Undo' ),
+				once: true,
 				onClick: () => mutateAsync( { sessionId: session.id, patch: { archived: false } } ),
 			},
 		} );

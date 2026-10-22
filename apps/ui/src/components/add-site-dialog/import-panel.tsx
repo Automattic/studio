@@ -6,7 +6,6 @@ import {
 import { getErrorMessage } from '@studio/common/lib/error-formatting';
 import { useNavigate } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
-import { upload } from '@wordpress/icons';
 import { Button, Icon } from '@wordpress/ui';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { CreateSiteForm } from '@/components/create-site-form';
@@ -14,6 +13,7 @@ import { useConnector } from '@/data/core';
 import { useExistingCustomDomains } from '@/data/queries/use-create-site-helpers';
 import { useImportSite } from '@/data/queries/use-import-site';
 import { useCreateSite, useDeleteSite } from '@/data/queries/use-sites';
+import { uploadIcon } from '@/lib/icons';
 import { useAddSite } from './context';
 import styles from './import-panel.module.css';
 import type { CreateSiteFormError, CreateSiteFormValues } from '@/components/create-site-form';
@@ -77,49 +77,56 @@ export function BackupDropZone( { onFile }: { onFile: ( file: File ) => void } )
 	};
 
 	return (
-		<div
-			className={ styles.dropZone }
-			data-dragging={ isDragging || undefined }
-			onDragOver={ ( event ) => {
-				event.preventDefault();
-				setIsDragging( true );
-			} }
-			onDragLeave={ ( event ) => {
-				if ( event.currentTarget.contains( event.relatedTarget as Node | null ) ) return;
-				setIsDragging( false );
-			} }
-			onDrop={ ( event ) => {
-				event.preventDefault();
-				setIsDragging( false );
-				handleFile( event.dataTransfer.files[ 0 ] );
-			} }
-		>
-			<Icon icon={ upload } size={ 24 } className={ styles.dropIcon } />
-			<p className={ styles.dropLabel }>{ __( 'Drop a WordPress backup here.' ) }</p>
-			<input
-				ref={ inputRef }
-				type="file"
-				accept={ ACCEPTED_ADD_SITE_FILE_TYPES.join( ',' ) }
-				hidden
-				onChange={ ( event ) => {
-					handleFile( event.target.files?.[ 0 ] );
-					event.target.value = '';
+		<>
+			<div
+				className={ styles.dropZone }
+				data-dragging={ isDragging || undefined }
+				onDragOver={ ( event ) => {
+					event.preventDefault();
+					setIsDragging( true );
 				} }
-			/>
-			<Button
-				type="button"
-				variant="outline"
-				tone="neutral"
-				onClick={ () => inputRef.current?.click() }
+				onDragLeave={ ( event ) => {
+					if ( event.currentTarget.contains( event.relatedTarget as Node | null ) ) return;
+					setIsDragging( false );
+				} }
+				onDrop={ ( event ) => {
+					event.preventDefault();
+					setIsDragging( false );
+					handleFile( event.dataTransfer.files[ 0 ] );
+				} }
 			>
-				{ __( 'Choose file' ) }
-			</Button>
-			{ error ? (
-				<p role="alert" className={ styles.dropError }>
-					{ error }
-				</p>
-			) : null }
-		</div>
+				<Icon icon={ uploadIcon } size={ 24 } className={ styles.dropIcon } data-keep-size />
+				<p className={ styles.dropLabel }>{ __( 'Drop a WordPress backup here.' ) }</p>
+				<input
+					ref={ inputRef }
+					type="file"
+					accept={ ACCEPTED_ADD_SITE_FILE_TYPES.join( ',' ) }
+					hidden
+					onChange={ ( event ) => {
+						handleFile( event.target.files?.[ 0 ] );
+						event.target.value = '';
+					} }
+				/>
+				<Button
+					type="button"
+					variant="outline"
+					tone="neutral"
+					onClick={ () => inputRef.current?.click() }
+				>
+					{ __( 'Choose file' ) }
+				</Button>
+				{ error ? (
+					<p role="alert" className={ styles.dropError }>
+						{ error }
+					</p>
+				) : null }
+			</div>
+			<p className={ styles.dropHelp }>
+				{ __(
+					'Supports backups from WordPress.com, Jetpack, Local, Playground and All-in-One WP Migration, and WordPress export files (.xml).'
+				) }
+			</p>
+		</>
 	);
 }
 

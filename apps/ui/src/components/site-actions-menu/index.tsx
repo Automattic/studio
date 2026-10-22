@@ -56,11 +56,12 @@ export function useSiteActions( site: SiteDetails, { onOpen }: { onOpen?: () => 
 	const importInputRef = useRef< HTMLInputElement >( null );
 	const backupImport = useSiteBackupImport( site );
 
-	const openSiteSettings = () => {
+	const openSiteSettings = ( focus?: string ) => {
 		onOpen?.();
 		void connector.trackEvent( TRACKS_EVENTS.PANEL_OPENED, { panel: 'settings' } );
-		openSettings( 'site', site.id );
+		openSettings( 'site', site.id, focus );
 	};
+	const rename = () => openSiteSettings( __( 'Site name' ) );
 
 	// ⌥⌘P pins and ⌥⌘R renames (Ctrl+Alt elsewhere).
 	const handleShortcut = ( event: KeyboardEvent ) => {
@@ -69,14 +70,15 @@ export function useSiteActions( site: SiteDetails, { onOpen }: { onOpen?: () => 
 			togglePin( sitePinKey( site.id ) );
 		} else if ( isKeyboardEvent.primaryAlt( event, 'r' ) ) {
 			event.preventDefault();
-			openSiteSettings();
+			rename();
 		}
 	};
 
 	return {
 		site,
 		handleShortcut,
-		openSiteSettings,
+		openSiteSettings: () => openSiteSettings(),
+		rename,
 		pinned: isPinned( sitePinKey( site.id ) ),
 		togglePin: () => togglePin( sitePinKey( site.id ) ),
 		openImport: () => importInputRef.current?.click(),
@@ -250,7 +252,7 @@ export function SiteActionsMenuItems( { actions }: { actions: SiteActions } ) {
 				{ actions.pinned ? __( 'Unpin' ) : __( 'Pin' ) }
 				<Menu.Shortcut>{ displayShortcut.primaryAlt( 'p' ) }</Menu.Shortcut>
 			</Menu.Item>
-			<Menu.Item onClick={ actions.openSiteSettings }>
+			<Menu.Item onClick={ actions.rename }>
 				<Icon icon={ renameIcon } />
 				{ __( 'Rename' ) }
 				<Menu.Shortcut>{ displayShortcut.primaryAlt( 'r' ) }</Menu.Shortcut>

@@ -3,8 +3,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { SiteActionsMenu } from './index';
 import type { SiteDetails } from '@/data/core';
 
-const { navigate, preview, startSite, stopSite, sites } = vi.hoisted( () => ( {
+const { navigate, openSettings, preview, startSite, stopSite, sites } = vi.hoisted( () => ( {
 	navigate: vi.fn(),
+	openSettings: vi.fn(),
 	preview: { siteId: 'other', setSite: vi.fn(), updatePath: vi.fn(), setOpen: vi.fn() },
 	startSite: { mutate: vi.fn(), mutateAsync: vi.fn() },
 	stopSite: { mutate: vi.fn(), mutateAsync: vi.fn() },
@@ -14,7 +15,7 @@ const { navigate, preview, startSite, stopSite, sites } = vi.hoisted( () => ( {
 vi.mock( '@tanstack/react-router', () => ( { useNavigate: () => navigate } ) );
 vi.mock( '@/data/core', () => ( { useConnector: () => ( { trackEvent: vi.fn() } ) } ) );
 vi.mock( '@/hooks/use-session-ui', () => ( { useSessionPreviewUI: () => preview } ) );
-vi.mock( '@/hooks/use-open-settings', () => ( { useOpenSettings: () => vi.fn() } ) );
+vi.mock( '@/hooks/use-open-settings', () => ( { useOpenSettings: () => openSettings } ) );
 vi.mock( '@/hooks/use-site-management-actions', () => ( {
 	useSiteManagementActions: () =>
 		[ 'duplicate', 'import', 'export', 'export-db', 'delete' ].map( ( id ) => ( {
@@ -83,5 +84,13 @@ describe( 'SiteActionsMenu', () => {
 		await choose( blog, 'Stop', 'Stop other sites' );
 
 		expect( stopSite.mutate.mock.calls ).toEqual( [ [ 'shop' ] ] );
+	} );
+
+	it( 'renames from the site settings, with the name field focused', async () => {
+		render( <SiteActionsMenu site={ createSite( 'blog', true ) } /> );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Site actions for blog' } ) );
+		fireEvent.click( await screen.findByText( 'Rename' ) );
+
+		expect( openSettings ).toHaveBeenCalledWith( 'site', 'blog', 'Site name' );
 	} );
 } );

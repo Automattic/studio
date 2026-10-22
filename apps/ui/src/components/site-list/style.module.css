@@ -409,17 +409,28 @@
 }
 
 /* Show more and Retry loading chats. */
-.mutedRow {
+.chats .mutedRow {
 	color: var(--muted-foreground);
 }
 
-.mutedRow:hover {
+.chats .mutedRow:hover {
 	background-color: var(--sidebar-row-background);
 	color: var(--foreground);
 }
 
 .site .mutedRow {
 	padding-inline-start: var(--site-list-text-inset);
+}
+
+/* Its ellipsis sits under the site's globe, so it reads as a control for the
+   list rather than one more chat. */
+.showMore {
+	position: relative;
+}
+
+.site .showMore .rowIcon {
+	position: absolute;
+	inset-inline-start: var(--site-list-row-padding);
 }
 
 .chatRow {

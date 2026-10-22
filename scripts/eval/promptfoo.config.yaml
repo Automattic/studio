@@ -651,7 +651,7 @@ tests:
   # costs only the turns up to that point, and `skillsLoadedFirst` checks the
   # skills named in `skills` were loaded before it. The new-site cases also stop
   # at the site's creation. The outcome cases above judge the work itself.
-  - description: a request to make a site loads build-site before creating it
+  - description: "routing: a request to make a site loads build-site before creating it"
     vars:
       caseId: routing-new-site-make
       timeoutMs: 300000
@@ -669,7 +669,7 @@ tests:
     assert:
       - type: javascript
         value: file://outcome.mjs:skillsLoadedFirst
-  - description: a new site with a form loads build-site and plugin-recommendations before the work
+  - description: "routing: a new site with a form loads build-site and plugin-recommendations before the work"
     vars:
       caseId: routing-new-site-contact-form
       timeoutMs: 300000
@@ -685,7 +685,7 @@ tests:
     assert:
       - type: javascript
         value: file://outcome.mjs:skillsLoadedFirst
-  - description: a new site with a slideshow loads build-site and plugin-recommendations before the work
+  - description: "routing: a new site with a slideshow loads build-site and plugin-recommendations before the work"
     vars:
       caseId: routing-new-site-slideshow
       timeoutMs: 300000
@@ -695,7 +695,7 @@ tests:
     assert:
       - type: javascript
         value: file://outcome.mjs:skillsLoadedFirst
-  - description: a contact form loads plugin-recommendations before the work
+  - description: "routing: a contact form loads plugin-recommendations before the work"
     vars:
       caseId: routing-form
       timeoutMs: 300000
@@ -708,7 +708,7 @@ tests:
     assert:
       - type: javascript
         value: file://outcome.mjs:skillsLoadedFirst
-  - description: a carousel loads plugin-recommendations before the work
+  - description: "routing: a carousel loads plugin-recommendations before the work"
     vars:
       caseId: routing-carousel
       timeoutMs: 300000
@@ -721,7 +721,7 @@ tests:
     assert:
       - type: javascript
         value: file://outcome.mjs:skillsLoadedFirst
-  - description: a newsletter signup loads plugin-recommendations before the work
+  - description: "routing: a newsletter signup loads plugin-recommendations before the work"
     vars:
       caseId: routing-newsletter
       timeoutMs: 300000
@@ -734,7 +734,7 @@ tests:
     assert:
       - type: javascript
         value: file://outcome.mjs:skillsLoadedFirst
-  - description: a poll loads plugin-recommendations before the work
+  - description: "routing: a poll loads plugin-recommendations before the work"
     vars:
       caseId: routing-poll
       timeoutMs: 300000
@@ -747,7 +747,7 @@ tests:
     assert:
       - type: javascript
         value: file://outcome.mjs:skillsLoadedFirst
-  - description: an events page loads plugin-recommendations before the work
+  - description: "routing: an events page loads plugin-recommendations before the work"
     vars:
       caseId: routing-events
       timeoutMs: 300000
@@ -760,7 +760,7 @@ tests:
     assert:
       - type: javascript
         value: file://outcome.mjs:skillsLoadedFirst
-  - description: a typography change loads visual-design before the work
+  - description: "routing: a typography change loads visual-design before the work"
     vars:
       caseId: routing-typography
       timeoutMs: 300000
@@ -773,7 +773,7 @@ tests:
     assert:
       - type: javascript
         value: file://outcome.mjs:skillsLoadedFirst
-  - description: a redesign loads visual-design before the work
+  - description: "routing: a redesign loads visual-design before the work"
     vars:
       caseId: routing-redesign
       timeoutMs: 300000
@@ -786,7 +786,7 @@ tests:
     assert:
       - type: javascript
         value: file://outcome.mjs:skillsLoadedFirst
-  - description: a new section loads block-content before the work
+  - description: "routing: a new section loads block-content before the work"
     vars:
       caseId: routing-section
       timeoutMs: 300000
@@ -799,7 +799,7 @@ tests:
     assert:
       - type: javascript
         value: file://outcome.mjs:skillsLoadedFirst
-  - description: a template part edit loads block-content before the work
+  - description: "routing: a template part edit loads block-content before the work"
     vars:
       caseId: routing-template-part
       timeoutMs: 300000
@@ -812,7 +812,7 @@ tests:
     assert:
       - type: javascript
         value: file://outcome.mjs:skillsLoadedFirst
-  - description: a section with a photo loads block-content and imagery before the work
+  - description: "routing: a section with a photo loads block-content and imagery before the work"
     vars:
       caseId: routing-hero-image
       timeoutMs: 300000
@@ -825,7 +825,7 @@ tests:
     assert:
       - type: javascript
         value: file://outcome.mjs:skillsLoadedFirst
-  - description: a layout complaint loads visual-polish before the work
+  - description: "routing: a layout complaint loads visual-polish before the work"
     vars:
       caseId: routing-polish
       timeoutMs: 300000
@@ -846,7 +846,7 @@ tests:
     assert:
       - type: javascript
         value: file://outcome.mjs:skillsLoadedFirst
-  - description: a plan question loads hosting-plans-helper
+  - description: "routing: a plan question loads hosting-plans-helper"
     vars:
       caseId: routing-plan-question
       timeoutMs: 300000

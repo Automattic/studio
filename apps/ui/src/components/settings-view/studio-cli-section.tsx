@@ -1,9 +1,9 @@
 import { FormToggle } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
-import { Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useState } from 'react';
 import { LearnMoreLink } from '@/components/learn-more';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useAppGlobals } from '@/data/queries/use-app-globals';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
 import styles from './style.module.css';
@@ -55,21 +55,18 @@ export function StudioCliSection() {
 				{ externallyManaged ? (
 					// The default open delay reads as unresponsive on a disabled
 					// control, so this tooltip gets its own faster provider.
-					<Tooltip.Provider delay={ 200 }>
-						<Tooltip.Root>
-							<Tooltip.Trigger
+					<TooltipProvider delay={ 200 }>
+						<Tooltip>
+							<TooltipTrigger
 								render={ <span className={ styles.cliToggleTrigger }>{ toggle }</span> }
 							/>
-							<Tooltip.Popup
-								className={ styles.cliTooltip }
-								positioner={ <Tooltip.Positioner side="top" /> }
-							>
+							<TooltipContent className={ styles.cliTooltip }>
 								{ __(
 									'This studio command was installed with the standalone CLI installer, so Studio can’t manage it. Run studio uninstall in a terminal to remove it.'
 								) }
-							</Tooltip.Popup>
-						</Tooltip.Root>
-					</Tooltip.Provider>
+							</TooltipContent>
+						</Tooltip>
+					</TooltipProvider>
 				) : (
 					toggle
 				) }

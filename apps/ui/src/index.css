@@ -1,3 +1,7 @@
+/* Primitives (`components/ui`) sit in the `ui` layer, so feature styles, which
+   are unlayered, always override them. */
+@layer wp-ui, base, ui;
+
 @import '@fontsource-variable/inter';
 @import './theme/tokens.css';
 
@@ -69,12 +73,6 @@ body {
 .studio-column-edge::after {
 	top: var( --band-height );
 	bottom: 0;
-}
-
-/* A 36px square control for the top band and the sidebar footer. The
-   attribute selector outranks @wordpress/ui's size classes. */
-.studio-control[class] {
-	--wp-ui-button-height: var( --control-size );
 }
 
 /* Unlike `scrollbar-color`, `scrollbar-width` isn't inherited, so inner scroll
@@ -217,9 +215,9 @@ textarea,
    again. Hover, press, and an open menu are user intent, so they keep the
    active look: a button that regains focus after its menu closes would
    otherwise ignore the pointer until it blurs. */
-button:focus:not( :focus-visible ):not( :hover, :active, [data-popup-open] ),
-a:focus:not( :focus-visible ):not( :hover, :active, [data-popup-open] ),
-[role='button']:focus:not( :focus-visible ):not( :hover, :active, [data-popup-open] ) {
+button:not( [data-slot='button'] ):focus:not( :focus-visible ):not( :hover, :active, [data-popup-open] ),
+a:not( [data-slot='button'] ):focus:not( :focus-visible ):not( :hover, :active, [data-popup-open] ),
+[role='button']:not( [data-slot='button'] ):focus:not( :focus-visible ):not( :hover, :active, [data-popup-open] ) {
 	outline: none;
 	background-color: var( --wp-ui-button-background-color );
 	border-color: var( --wp-ui-button-border-color );
@@ -365,47 +363,18 @@ input[type='checkbox']:focus:not( :focus-visible ) {
 	--wp-ui-button-foreground-color-disabled: var(--muted-foreground);
 }
 
-/* @wordpress/ui's Button loading spinner centers itself with
-   `inset-inline-start: 50%` (direction-aware) plus a `transform:
-   translate(-50%, -50%)` baked into its spin keyframes — the translate half
-   is a physical shift, not a direction-aware one. In LTR the two agree; in
-   RTL they fight, landing the spinner a full diameter left of center.
-   Recenter the horizontal axis with `margin-inline-start` instead, which
-   does flip with direction, and point the animation at our own keyframes
-   that only rotate and recenter the (direction-safe) vertical axis. */
-[class*='__button']::before {
-	margin-inline-start: calc( var( --wp-ui-button-font-size ) * -0.5 );
-	transform: translateY( -50% );
-}
-
-@media not ( prefers-reduced-motion ) {
-	[class*='__is-loading']::before {
-		animation-name: studio-button-spin;
-	}
-}
-
-@keyframes studio-button-spin {
-	from {
-		transform: translateY( -50% ) rotate( 0deg );
+/* @wordpress/icons draws SVGs at 24x24; the app's icons are 16px unless a
+   component sizes them. */
+@layer base {
+	:root svg {
+		width: 16px;
+		height: 16px;
 	}
 
-	to {
-		transform: translateY( -50% ) rotate( 360deg );
+	:root svg[data-keep-size] {
+		width: auto;
+		height: auto;
 	}
-}
-
-/* Shrink icons to match the tighter spacing tokens. @wordpress/icons draws
-   SVGs at 24x24 by default, and nothing scales them down for us. Override the
-   svg width/height attributes with CSS until the design system exposes an
-   icon size token. */
-:root svg {
-	width: 16px;
-	height: 16px;
-}
-
-:root svg[data-keep-size] {
-	width: auto;
-	height: auto;
 }
 
 /* @wordpress/ui SelectControl and Autocomplete popup items use the brand

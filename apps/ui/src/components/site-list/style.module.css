@@ -122,25 +122,10 @@
 	align-items: center;
 }
 
-.siteToggle,
-.chat {
-	--wp-ui-button-font-size: var(--text-sm);
-	--wp-ui-button-font-weight: var(--font-weight-normal);
-}
-
 .siteToggle {
 	flex: 1 1 auto;
 	min-width: 0;
-	max-width: 100%;
-	height: auto;
-	gap: 0;
-	padding: 0;
 	font: inherit;
-}
-
-.siteToggle:focus-visible {
-	outline: 2px solid var(--accent);
-	outline-offset: -2px;
 }
 
 .siteAgentActivitySlot {
@@ -271,13 +256,6 @@
 	gap: 2px;
 }
 
-.rowAction[class] {
-	--wp-ui-button-height: var(--site-list-action-size);
-
-	flex-shrink: 0;
-	color: var(--muted-foreground);
-}
-
 .siteActions .rowAction {
 	opacity: 0;
 }
@@ -293,32 +271,6 @@
 .siteHeader:has(:focus-visible),
 .siteHeader[data-popup-open] {
 	padding-inline-end: calc(2 * var(--site-list-action-size) + var(--site-list-row-padding));
-}
-
-.siteStatus {
-	display: inline-grid;
-	place-items: center;
-	inline-size: var(--site-list-action-size);
-	block-size: var(--site-list-action-size);
-	padding: 0;
-	border: 0;
-	border-radius: 8px;
-	background: transparent;
-	cursor: pointer;
-}
-
-.siteStatus:not([aria-disabled='true']):is(:hover, :focus-visible) {
-	background-color: var(--hover);
-	color: var(--foreground);
-}
-
-.siteStatus:focus-visible {
-	outline: 2px solid var(--accent);
-	outline-offset: -2px;
-}
-
-.siteStatus[aria-disabled='true'] {
-	cursor: default;
 }
 
 @keyframes siteNameStartingPulse {
@@ -466,11 +418,9 @@
 }
 
 .chat {
-	--wp-ui-button-height: var(--site-list-row-height);
-
 	flex: 1 1 auto;
-	justify-content: flex-start;
 	gap: var(--site-list-icon-gap);
+	height: var(--site-list-row-height);
 	min-width: 0;
 	padding-inline: var(--site-list-row-padding);
 	border-radius: 8px;

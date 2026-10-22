@@ -29,7 +29,7 @@
 	display: flex;
 	align-items: center;
 	gap: 4px;
-	padding-inline: 12px;
+	padding-inline: 12px 8px;
 	height: var(--band-height);
 	transition: padding var(--motion-duration-layout) var(--motion-ease-layout);
 	background-color: var(--chrome);
@@ -164,16 +164,9 @@
 }
 
 .scrollToLatestButton {
-	/* Match the 28px composer send button. */
-	--wp-ui-button-height: 28px;
-	--wp-ui-button-aspect-ratio: 1;
-	--wp-ui-button-min-width: unset;
-	--wp-ui-button-padding-inline: 0;
-	--wp-ui-button-background-color: var(--chrome);
-	--wp-ui-button-border-color: var(--border);
+	--button-background: var(--background);
 
 	pointer-events: auto;
-	border-radius: 50%;
 	box-shadow: 0 2px 3px 0 rgba(0, 0, 0, 0.05), 0 4px 5px 0 rgba(0, 0, 0, 0.04), 0 12px 12px 0 rgba(0, 0, 0, 0.03), 0 16px 16px 0 rgba(0, 0, 0, 0.02);
 	animation: scroll-to-latest-appear 120ms ease-out;
 }

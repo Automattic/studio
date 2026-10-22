@@ -2,10 +2,11 @@ import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { Icon } from '@wordpress/icons';
 import { displayShortcut, isKeyboardEvent } from '@wordpress/keycodes';
-import { Button, Dialog, InputControl } from '@wordpress/ui';
+import { Dialog, InputControl } from '@wordpress/ui';
 import { useEffect, useEffectEvent, useState } from 'react';
 import * as Menu from '@/components/menu';
 import { getSessionTitle } from '@/components/session-view/session-chat-actions';
+import { Button } from '@/components/ui/button';
 import { toast } from '@/data/app-messages';
 import { useSiteAgentActivity } from '@/data/queries/use-agent-run';
 import { useUpdateSessionMetadata } from '@/data/queries/use-sessions';
@@ -178,9 +179,7 @@ function RenameChatForm( {
 				<Dialog.Action variant="outline" tone="neutral">
 					{ __( 'Cancel' ) }
 				</Dialog.Action>
-				<Button type="submit" variant="solid" tone="neutral">
-					{ __( 'Save' ) }
-				</Button>
+				<Button type="submit">{ __( 'Save' ) }</Button>
 			</Dialog.Footer>
 		</form>
 	);

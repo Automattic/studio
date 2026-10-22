@@ -52,8 +52,7 @@
 	background: var(--hover);
 }
 
-.navItem:focus-visible,
-.crumb:focus-visible {
+.navItem:focus-visible {
 	outline: var(--focus-width) solid var(--ring);
 	outline-offset: -2px;
 }
@@ -115,22 +114,6 @@
 	white-space: nowrap;
 }
 
-.crumb {
-	flex: none;
-	padding: 0;
-	border: 0;
-	border-radius: 4px;
-	background: none;
-	color: var(--muted-foreground);
-	font: inherit;
-	cursor: pointer;
-}
-
-.crumb:hover:not(:disabled) {
-	text-decoration: underline;
-	text-underline-offset: 2px;
-}
-
 .crumbSeparator {
 	color: var(--muted-foreground);
 }
@@ -149,19 +132,6 @@
 .actions {
 	display: flex;
 	gap: 8px;
-}
-
-.header button {
-	--wp-ui-button-font-size: var(--text-xs);
-	--wp-ui-button-font-weight: var(--font-weight-medium);
-}
-
-.header button:not([class*='__icon-button']) {
-	--wp-ui-button-padding-inline: 10px;
-}
-
-.header button[class*='__is-outline'] {
-	--wp-ui-button-border-color: var(--border);
 }
 
 .actions:empty {

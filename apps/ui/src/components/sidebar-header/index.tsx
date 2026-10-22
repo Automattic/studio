@@ -1,8 +1,8 @@
 import { __ } from '@wordpress/i18n';
 import { menu } from '@wordpress/icons';
-import { IconButton } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { SidebarToggle } from '@/components/sidebar-toggle';
+import { IconButton } from '@/components/ui/button';
 import { useConnector } from '@/data/core';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import styles from './style.module.css';
@@ -18,15 +18,7 @@ export function SidebarHeader() {
 	return (
 		<div className={ clsx( styles.root, ! reserveTrafficLightSpace && styles.flush ) }>
 			{ connector.showsAppMenuButton && (
-				<IconButton
-					variant="minimal"
-					tone="neutral"
-					size="small"
-					className="studio-control"
-					icon={ menu }
-					label={ __( 'Menu' ) }
-					onClick={ handleOpenAppMenu }
-				/>
+				<IconButton icon={ menu } label={ __( 'Menu' ) } onClick={ handleOpenAppMenu } />
 			) }
 			<SidebarToggle />
 		</div>

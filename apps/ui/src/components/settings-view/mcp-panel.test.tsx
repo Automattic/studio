@@ -1,7 +1,7 @@
 import '@testing-library/jest-dom/vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { Tooltip } from '@wordpress/ui';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { useConnector } from '@/data/core';
 import { McpPanel } from './mcp-panel';
 import type { ReactNode } from 'react';
@@ -17,7 +17,7 @@ vi.mock( '@/data/core', () => ( {
 const useConnectorMock = vi.mocked( useConnector );
 
 function Providers( { children }: { children: ReactNode } ) {
-	return <Tooltip.Provider>{ children }</Tooltip.Provider>;
+	return <TooltipProvider>{ children }</TooltipProvider>;
 }
 
 describe( 'McpPanel', () => {

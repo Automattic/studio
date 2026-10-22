@@ -6,8 +6,8 @@ import {
 import { BaseControl, SelectControl } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
 import { Icon } from '@wordpress/icons';
-import { Tooltip } from '@wordpress/ui';
 import { useId, useState } from 'react';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import styles from './style.module.css';
 import type { DataFormControlProps, Option } from '@wordpress/dataviews';
 
@@ -190,14 +190,9 @@ export function WpVersionControl< Item >( {
 		);
 
 	if ( disabled && field.description ) {
-		// wpds narrows Tooltip.Root's props to hover-only usage; the runtime
-		// forwards everything to Base UI, which supports controlled `open`.
-		const controlledOpen = { open: showTooltip } as unknown as Parameters<
-			typeof Tooltip.Root
-		>[ 0 ];
 		return (
-			<Tooltip.Root { ...controlledOpen }>
-				<Tooltip.Trigger
+			<Tooltip open={ showTooltip }>
+				<TooltipTrigger
 					render={
 						// Disabled form controls swallow pointer events, so exclude
 						// the select from hit-testing to guarantee the wrapper
@@ -210,14 +205,11 @@ export function WpVersionControl< Item >( {
 						</div>
 					}
 				/>
-				<Tooltip.Popup
-					className={ styles.offlineTooltip }
-					positioner={ <Tooltip.Positioner side="top" align="start" /> }
-				>
+				<TooltipContent className={ styles.offlineTooltip } align="start">
 					<Icon icon={ offlineIcon } size={ 16 } />
 					{ field.description }
-				</Tooltip.Popup>
-			</Tooltip.Root>
+				</TooltipContent>
+			</Tooltip>
 		);
 	}
 	return control;

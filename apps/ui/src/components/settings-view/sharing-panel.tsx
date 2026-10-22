@@ -1,10 +1,11 @@
 import { isSnapshotExpired } from '@studio/common/lib/snapshots';
 import { __, sprintf } from '@wordpress/i18n';
 import { check, copy, pencil, trash } from '@wordpress/icons';
-import { AlertDialog, IconButton } from '@wordpress/ui';
+import { AlertDialog } from '@wordpress/ui';
 import { useState } from 'react';
 import { AccountPrompt, previewSiteImage } from '@/components/account-prompt';
 import { previewExpiry, RenamePreview } from '@/components/share-dialog/preview-share-panel';
+import { IconButton } from '@/components/ui/button';
 import { useConnector } from '@/data/core';
 import { useAuthUser } from '@/data/queries/use-auth-user';
 import { useDeleteSnapshot, useSnapshotUsage, useSnapshots } from '@/data/queries/use-snapshots';
@@ -59,9 +60,8 @@ function PreviewRow( {
 		>
 			<div className={ styles.previewActions }>
 				<IconButton
-					variant="minimal"
-					tone="neutral"
-					size="compact"
+					variant="muted-ghost"
+					size="icon-sm"
 					icon={ copied ? check : copy }
 					label={ copied ? __( 'Copied' ) : __( 'Copy link' ) }
 					disabled={ expired }
@@ -74,18 +74,16 @@ function PreviewRow( {
 				/>
 				{ expired ? null : (
 					<IconButton
-						variant="minimal"
-						tone="neutral"
-						size="compact"
+						variant="muted-ghost"
+						size="icon-sm"
 						icon={ pencil }
 						label={ __( 'Rename preview' ) }
 						onClick={ () => setRenaming( true ) }
 					/>
 				) }
 				<IconButton
-					variant="minimal"
-					tone="neutral"
-					size="compact"
+					variant="muted-ghost"
+					size="icon-sm"
 					icon={ trash }
 					label={ expired ? __( 'Remove expired preview' ) : __( 'Delete preview' ) }
 					onClick={ () => onDelete( snapshot ) }

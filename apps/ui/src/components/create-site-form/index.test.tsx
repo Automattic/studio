@@ -172,21 +172,13 @@ describe( 'CreateSiteForm', () => {
 
 		rerenderWith( { name: 'Suggested site' } );
 		expect( screen.queryByText( '1 error found' ) ).not.toBeInTheDocument();
-		expect( screen.getByTestId( 'create-site-submit' ) ).toHaveAttribute(
-			'aria-disabled',
-			'false'
-		);
+		expect( screen.getByTestId( 'create-site-submit' ) ).toBeEnabled();
 
 		await act( async () => {
 			pending.resolve( { path: '/sites/suggested', isEmpty: true, isWordPress: false } );
 			await pending.promise;
 		} );
-		await waitFor( () =>
-			expect( screen.getByTestId( 'create-site-submit' ) ).toHaveAttribute(
-				'aria-disabled',
-				'false'
-			)
-		);
+		await waitFor( () => expect( screen.getByTestId( 'create-site-submit' ) ).toBeEnabled() );
 	} );
 
 	it( 'replaces previous suggestions and restores defaults without overwriting edits', async () => {
@@ -272,10 +264,7 @@ describe( 'CreateSiteForm', () => {
 		renderForm( { name: 'First' } );
 		await waitFor( () => expect( generateProposedPath ).toHaveBeenCalledWith( 'First' ) );
 		fireEvent.change( screen.getByLabelText( /Site name/ ), { target: { value: 'Second' } } );
-		expect( screen.getByTestId( 'create-site-submit' ) ).toHaveAttribute(
-			'aria-disabled',
-			'false'
-		);
+		expect( screen.getByTestId( 'create-site-submit' ) ).toBeEnabled();
 		await waitFor( () => expect( generateProposedPath ).toHaveBeenCalledWith( 'Second' ) );
 
 		await act( async () => {
@@ -339,10 +328,7 @@ describe( 'CreateSiteForm', () => {
 		fireEvent.change( screen.getByLabelText( /Site name/ ), {
 			target: { value: 'My site' },
 		} );
-		expect( screen.getByTestId( 'create-site-submit' ) ).toHaveAttribute(
-			'aria-disabled',
-			'false'
-		);
+		expect( screen.getByTestId( 'create-site-submit' ) ).toBeEnabled();
 
 		fireEvent.click( screen.getByTestId( 'create-site-submit' ) );
 		expect( onSubmit ).not.toHaveBeenCalled();
@@ -381,12 +367,7 @@ describe( 'CreateSiteForm', () => {
 		} );
 		expect( screen.getByLabelText( 'Local path' ) ).toHaveValue( '/sites/manual' );
 
-		await waitFor( () =>
-			expect( screen.getByTestId( 'create-site-submit' ) ).toHaveAttribute(
-				'aria-disabled',
-				'false'
-			)
-		);
+		await waitFor( () => expect( screen.getByTestId( 'create-site-submit' ) ).toBeEnabled() );
 		fireEvent.click( screen.getByTestId( 'create-site-submit' ) );
 		expect( onSubmit ).toHaveBeenCalledWith( expect.objectContaining( { path: '/sites/manual' } ) );
 	} );
@@ -423,7 +404,7 @@ describe( 'CreateSiteForm', () => {
 		const { unmount } = renderForm( { name: 'Taken' } );
 		openAdvancedSettings();
 		expect( await screen.findByText( 'That path is already in use.' ) ).toBeInTheDocument();
-		expect( screen.getByTestId( 'create-site-submit' ) ).toHaveAttribute( 'aria-disabled', 'true' );
+		expect( screen.getByTestId( 'create-site-submit' ) ).toBeDisabled();
 		unmount();
 
 		usePathValidatorMock.mockReturnValue( {
@@ -437,7 +418,7 @@ describe( 'CreateSiteForm', () => {
 		expect(
 			await screen.findByText( 'Unable to suggest a folder for this site name.' )
 		).toBeInTheDocument();
-		expect( screen.getByTestId( 'create-site-submit' ) ).toHaveAttribute( 'aria-disabled', 'true' );
+		expect( screen.getByTestId( 'create-site-submit' ) ).toBeDisabled();
 	} );
 
 	it( 'marks a focused folder picker invalid as soon as selection validation fails', async () => {
@@ -624,12 +605,7 @@ describe( 'CreateSiteForm', () => {
 	it( 'supports an external submission gate', async () => {
 		renderForm( { name: 'Blocked site' }, vi.fn(), true );
 
-		await waitFor( () =>
-			expect( screen.getByTestId( 'create-site-submit' ) ).toHaveAttribute(
-				'aria-disabled',
-				'true'
-			)
-		);
+		await waitFor( () => expect( screen.getByTestId( 'create-site-submit' ) ).toBeDisabled() );
 	} );
 
 	it( 'shows an actionable submission error with optional technical details', () => {

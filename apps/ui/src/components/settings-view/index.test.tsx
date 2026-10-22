@@ -6,30 +6,8 @@ import { persister } from '@/data/core/query-client';
 import { useInstalledApps } from '@/data/queries/use-installed-apps';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
 import { AppearanceSettings, GeneralSettings } from './index';
-import type { ButtonHTMLAttributes, ReactNode } from 'react';
 
 vi.mock( '@wordpress/ui', () => ( {
-	Button: ( {
-		children,
-		loading,
-		loadingAnnouncement,
-		tone,
-		variant,
-		size,
-		...props
-	}: ButtonHTMLAttributes< HTMLButtonElement > & {
-		children?: ReactNode;
-		loading?: boolean;
-		loadingAnnouncement?: string;
-		tone?: string;
-		variant?: string;
-		size?: string;
-	} ) => {
-		void tone;
-		void variant;
-		void size;
-		return <button { ...props }>{ loading ? loadingAnnouncement : children }</button>;
-	},
 	SelectControl: ( {
 		items = [],
 		label,
@@ -57,12 +35,6 @@ vi.mock( '@wordpress/ui', () => ( {
 			</select>
 		</label>
 	),
-	Tooltip: {
-		Root: ( { children }: { children?: ReactNode } ) => <>{ children }</>,
-		Trigger: ( { render }: { render?: ReactNode } ) => <>{ render }</>,
-		Popup: () => null,
-		Positioner: () => null,
-	},
 } ) );
 
 vi.mock( '@/components/gravatar', () => ( {

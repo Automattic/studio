@@ -1,8 +1,11 @@
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
-import { chevronLeft, close as closeIcon, cloudDownload, Icon } from '@wordpress/icons';
-import { Dialog, IconButton, Spinner } from '@wordpress/ui';
+import { chevronLeft, cloudDownload, Icon } from '@wordpress/icons';
+import { Dialog } from '@wordpress/ui';
 import { useCallback, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { Button, IconButton } from '@/components/ui/button';
+import { DialogDismissButton } from '@/components/ui/dialog';
+import { Spinner } from '@/components/ui/spinner';
 import { sitePinKey, useSidebarPins } from '@/data/queries/use-sidebar-pins';
 import { useSiteSyncActivity } from '@/data/sync-activity';
 import { archiveIcon, plusIcon } from '@/lib/icons';
@@ -173,9 +176,8 @@ export function AddSiteDialog() {
 					<div className={ styles.header }>
 						{ back ? (
 							<IconButton
-								variant="outline"
-								tone="neutral"
-								size="compact"
+								variant="segmented"
+								size="icon-sm"
 								icon={ chevronLeft }
 								label={
 									view.name === 'details' || view.name === 'gallery'
@@ -188,14 +190,14 @@ export function AddSiteDialog() {
 						) : null }
 						{ view.name === 'details' ? (
 							<>
-								<button
-									type="button"
-									className={ styles.crumb }
+								<Button
+									variant="inline-text"
+									size="inline"
 									disabled={ !! progress }
 									onClick={ back }
 								>
 									{ __( 'Blueprints' ) }
-								</button>
+								</Button>
 								<span aria-hidden="true" className={ styles.crumbSeparator }>
 									/
 								</span>
@@ -206,11 +208,7 @@ export function AddSiteDialog() {
 						</h2>
 						{ progress ? <Progress siteId={ followedSite } fallback={ progress } /> : null }
 						<div ref={ setActions } className={ styles.actions } />
-						<IconButton
-							variant="outline"
-							tone="neutral"
-							size="compact"
-							icon={ closeIcon }
+						<DialogDismissButton
 							label={ __( 'Close Add site' ) }
 							disabled={ !! progress }
 							onClick={ close }
@@ -260,7 +258,7 @@ function Progress( { siteId, fallback }: { siteId?: string; fallback: string } )
 	const activity = useSiteSyncActivity( siteId );
 	return (
 		<p className={ styles.progress } role="status" aria-live="polite">
-			<Spinner />
+			<Spinner aria-hidden="true" />
 			{ ( activity?.kind === 'pending' && activity.message ) || fallback }
 		</p>
 	);

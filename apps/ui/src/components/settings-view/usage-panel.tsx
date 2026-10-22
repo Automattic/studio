@@ -11,7 +11,6 @@ import {
 } from '@studio/common/lib/studio-assistant-quota';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { help, moreHorizontal } from '@wordpress/icons';
-import { IconButton } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useState } from 'react';
 import { AddAiCreditsButton } from '@/components/add-ai-credits-button';
@@ -20,6 +19,7 @@ import { AiAccessRequiredNotice, AiBlockedNotice } from '@/components/ai-access-
 import { AiCreditsDetailsDialog } from '@/components/ai-credits-details-dialog';
 import * as Menu from '@/components/menu';
 import { OfflineNotice } from '@/components/offline-banner';
+import { IconButton } from '@/components/ui/button';
 import { useConnector } from '@/data/core';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
@@ -164,10 +164,7 @@ function AiCreditsSummary() {
 					</div>
 				) }
 				<div className={ styles.creditCallout }>
-					<AddAiCreditsButton
-						variant={ intent === 'exhausted' ? 'solid' : 'outline' }
-						tone={ intent === 'exhausted' ? 'brand' : 'neutral' }
-					/>
+					<AddAiCreditsButton variant={ intent === 'exhausted' ? 'accent' : 'outline' } />
 					{ meter ? (
 						<span className={ styles.creditCalloutText }>
 							{ formatAiCreditsCallout( quota, meter, locale ) }
@@ -219,12 +216,9 @@ function AiCreditsSummary() {
 					<h2>{ __( 'AI credits' ) }</h2>
 					{ showsCreditBalances ? (
 						<IconButton
-							className={ styles.aiCreditsDetailsButton }
+							size="icon-2xs"
 							icon={ help }
 							label={ __( 'How AI credits work' ) }
-							size="small"
-							variant="minimal"
-							tone="neutral"
 							onClick={ () => setDetailsOpen( true ) }
 						/>
 					) : null }
@@ -274,12 +268,9 @@ function PreviewSitesSummary( { userId }: { userId: number } ) {
 						<Menu.Trigger
 							render={
 								<IconButton
-									variant="minimal"
-									tone="neutral"
-									size="small"
+									size="icon-2xs"
 									icon={ moreHorizontal }
 									label={ __( 'Preview site actions' ) }
-									className={ styles.previewActionsButton }
 									disabled={ isDisabled }
 								/>
 							}

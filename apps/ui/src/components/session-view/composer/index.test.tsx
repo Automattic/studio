@@ -2,7 +2,6 @@ import { DEFAULT_MODEL } from '@studio/common/ai/models';
 import { getAiSkillCommands } from '@studio/common/ai/slash-commands';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { Tooltip } from '@wordpress/ui';
 import { createRef, type ComponentProps } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
@@ -11,6 +10,7 @@ import {
 	pickAnnotation,
 	stageAnnotations,
 } from '@/components/annotations/store';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
 import { clearComposerDrafts } from './draft-store';
 import { Composer, type ComposerHandle } from '.';
@@ -53,9 +53,9 @@ function renderComposer(
 	const composerRef = createRef< ComposerHandle >();
 	const renderTree = ( nextProps: Partial< ComponentProps< typeof Composer > > = {} ) => (
 		<QueryClientProvider client={ queryClient }>
-			<Tooltip.Provider delay={ 0 }>
+			<TooltipProvider delay={ 0 }>
 				<Composer ref={ composerRef } { ...defaultProps } sessionId="session-1" { ...nextProps } />
-			</Tooltip.Provider>
+			</TooltipProvider>
 		</QueryClientProvider>
 	);
 	const rendered = render( renderTree( props ) );

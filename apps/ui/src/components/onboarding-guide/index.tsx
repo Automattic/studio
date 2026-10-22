@@ -1,8 +1,9 @@
 import { __ } from '@wordpress/i18n';
-import { Button, Dialog, Text, VisuallyHidden } from '@wordpress/ui';
+import { Dialog, Text, VisuallyHidden } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useRef, useState } from 'react';
 import { LearnMoreLink } from '@/components/learn-more';
+import { Button } from '@/components/ui/button';
 import { GuideIllustration, isDarkGuideIllustration, needsCloseScrim } from './illustrations';
 import styles from './style.module.css';
 import type { GuideDefinition } from '@/data/onboarding/guide';
@@ -107,8 +108,7 @@ export function OnboardingGuide( { guide, onComplete, onDismiss }: OnboardingGui
 						     so it eases in alongside the pager rather than appearing from
 						     nothing. `visibility` keeps it out of the tab order while hidden. */ }
 						<Button
-							variant="minimal"
-							tone="neutral"
+							variant="ghost"
 							onClick={ goBack }
 							className={ clsx( styles.back, isFirst && styles.backHidden ) }
 						>
@@ -124,7 +124,7 @@ export function OnboardingGuide( { guide, onComplete, onDismiss }: OnboardingGui
 						) ) }
 					</div>
 					<div className={ styles.footerEnd }>
-						<Button ref={ advanceRef } variant="solid" tone="brand" onClick={ goNext }>
+						<Button ref={ advanceRef } variant="accent" onClick={ goNext }>
 							{ page.action() }
 						</Button>
 					</div>

@@ -14,43 +14,7 @@ import { useStudioAssistantTopUpPricing } from '@/data/queries/use-top-up-pricin
 import { useUserLocale } from '@/data/queries/use-user-locale';
 import { useOffline } from '@/hooks/use-offline';
 import { UsagePanel } from './usage-panel';
-import type { ButtonHTMLAttributes, ReactNode } from 'react';
-
-vi.mock( '@wordpress/ui', () => ( {
-	Button: Object.assign(
-		( {
-			children,
-			loading,
-			loadingAnnouncement,
-			tone,
-			variant,
-			size,
-			...props
-		}: ButtonHTMLAttributes< HTMLButtonElement > & {
-			children?: ReactNode;
-			loading?: boolean;
-			loadingAnnouncement?: string;
-			tone?: string;
-			variant?: string;
-			size?: string;
-		} ) => {
-			void tone;
-			void variant;
-			void size;
-			return <button { ...props }>{ loading ? loadingAnnouncement : children }</button>;
-		},
-		{ Icon: () => null }
-	),
-	IconButton: ( {
-		label,
-		disabled,
-		onClick,
-	}: {
-		label: string;
-		disabled?: boolean;
-		onClick?: () => void;
-	} ) => <button type="button" aria-label={ label } disabled={ disabled } onClick={ onClick } />,
-} ) );
+import type { ReactNode } from 'react';
 
 vi.mock( '@/components/ai-credits-details-dialog', () => ( {
 	AiCreditsDetailsDialog: ( { open }: { open: boolean } ) =>

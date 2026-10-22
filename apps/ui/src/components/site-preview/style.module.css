@@ -100,21 +100,16 @@
 }
 
 .annotateButton {
-	--wp-ui-button-font-size: var(--text-xs);
-	--wp-ui-button-font-weight: var(--font-weight-medium);
-
 	gap: 4px;
 }
 
 .annotateButtonActive {
-	--wp-ui-button-background-color: color-mix(
-		in srgb,
-		var(--accent) 15%,
-		transparent
-	);
-	--wp-ui-button-background-color-active: var(--wp-ui-button-background-color);
-	--wp-ui-button-foreground-color: var(--accent-text);
-	--wp-ui-button-foreground-color-active: var(--accent-text);
+	--button-hover-background: color-mix(in srgb, var(--accent) 15%, transparent);
+	--button-hover-color: var(--accent-text);
+}
+
+.annotateButtonActive:not(:disabled) {
+	opacity: 1;
 }
 
 /* Preserve the URL field before toolbar actions begin colliding. The controls

@@ -1,7 +1,10 @@
 import { __, sprintf } from '@wordpress/i18n';
-import { chevronDown, chevronRight, link } from '@wordpress/icons';
-import { Checkbox, Icon, Spinner, Tooltip } from '@wordpress/ui';
+import { chevronDown, chevronRight, Icon, link } from '@wordpress/icons';
+import { Checkbox } from '@wordpress/ui';
 import { useId, useState, type ReactNode } from 'react';
+import { Button } from '@/components/ui/button';
+import { Spinner } from '@/components/ui/spinner';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import styles from './style.module.css';
 import type { SyncNode } from './selection';
 import type { TransferSelection } from './use-transfer-selection';
@@ -39,14 +42,14 @@ function SelectionRow( {
 				{ label }
 			</label>
 			{ symlink ? (
-				<Tooltip.Root>
-					<Tooltip.Trigger render={ <span className={ styles.symlink } /> }>
+				<Tooltip>
+					<TooltipTrigger render={ <span className={ styles.symlink } /> }>
 						<Icon icon={ link } size={ 16 } />
-					</Tooltip.Trigger>
-					<Tooltip.Popup>
+					</TooltipTrigger>
+					<TooltipContent>
 						{ __( 'Symbolic link. Studio pushes the files it points to.' ) }
-					</Tooltip.Popup>
-				</Tooltip.Root>
+					</TooltipContent>
+				</Tooltip>
 			) : null }
 		</div>
 	);
@@ -81,9 +84,9 @@ function FileNode( { node, selection }: { node: SyncNode; selection: TransferSel
 				onChange={ ( checked ) => selection.change( node.id, checked ) }
 				disclosure={
 					node.expandable ? (
-						<button
-							type="button"
-							className={ styles.disclosureButton }
+						<Button
+							variant="ghost"
+							size="icon-xs"
 							aria-label={ sprintf(
 								/* translators: %s: folder name */
 								expanded ? __( 'Collapse %s' ) : __( 'Expand %s' ),
@@ -93,12 +96,8 @@ function FileNode( { node, selection }: { node: SyncNode; selection: TransferSel
 							disabled={ loading }
 							onClick={ toggle }
 						>
-							{ loading ? (
-								<Spinner />
-							) : (
-								<Icon icon={ expanded ? chevronDown : chevronRight } size={ 16 } />
-							) }
-						</button>
+							{ loading ? <Spinner /> : <Icon icon={ expanded ? chevronDown : chevronRight } /> }
+						</Button>
 					) : null
 				}
 			/>

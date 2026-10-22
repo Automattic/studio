@@ -1,22 +1,17 @@
 import { isStudioChatImageMimeType } from '@studio/common/ai/chat-images';
 import { getComposerAttachmentImageSrc } from '@studio/common/ai/composer-attachment-preview';
 import { __, _n, sprintf } from '@wordpress/i18n';
-import { arrowUp, closeSmall } from '@wordpress/icons';
+import { arrowUp, closeSmall, Icon } from '@wordpress/icons';
 import { isAppleOS } from '@wordpress/keycodes';
-import { AlertDialog, Button, Checkbox, Icon, Tooltip } from '@wordpress/ui';
+import { AlertDialog, Checkbox } from '@wordpress/ui';
 import { clsx } from 'clsx';
-import {
-	useEffect,
-	useLayoutEffect,
-	useRef,
-	useState,
-	type ReactElement,
-	type SVGProps,
-} from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
 	useComposerAttachments,
 	useFileDrop,
 } from '@/components/session-view/composer/use-composer-attachments';
+import { Button, IconButton } from '@/components/ui/button';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { toast } from '@/data/app-messages';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
 import { paperclipIcon, trashIcon } from '@/lib/icons';
@@ -109,13 +104,11 @@ export function AnnotationOverlay( { siteId, anchor, onSend }: AnnotationOverlay
 				data-open={ active }
 				className={ styles.bar }
 			>
-				<Button variant="minimal" tone="neutral" className={ styles.barButton } onClick={ cancel }>
+				<Button variant="ghost" onClick={ cancel }>
 					{ __( 'Cancel' ) }
 				</Button>
 				<Button
-					variant="solid"
-					tone="brand"
-					className={ styles.barButton }
+					variant="accent"
 					aria-label={ sprintf(
 						/* translators: %d: number of annotations. */
 						_n( 'Send %d annotation', 'Send %d annotations', count ),
@@ -287,18 +280,20 @@ function NoteEditor( {
 				} }
 			/>
 			<div className={ styles.toolbar }>
-				<EditorButton
+				<IconButton
+					size="icon-sm"
+					shape="round"
+					icon={ paperclipIcon }
 					label={ __( 'Attach image' ) }
 					onClick={ () => fileInputRef.current?.click() }
-				>
-					{ paperclipIcon }
-				</EditorButton>
-				<EditorButton
+				/>
+				<IconButton
+					size="icon-sm"
+					shape="round"
+					icon={ trashIcon }
 					label={ __( 'Delete annotation' ) }
 					onClick={ () => removeAnnotations( siteId, [ note.id ] ) }
-				>
-					{ trashIcon }
-				</EditorButton>
+				/>
 				<input
 					ref={ fileInputRef }
 					type="file"
@@ -310,11 +305,13 @@ function NoteEditor( {
 						event.target.value = '';
 					} }
 				/>
-				<Tooltip.Root>
-					<Tooltip.Trigger
+				<Tooltip>
+					<TooltipTrigger
 						render={
-							<button
-								type="button"
+							<Button
+								variant={ hasContent ? 'accent' : 'default' }
+								size="icon"
+								shape="round"
 								className={ styles.save }
 								aria-label={ __( 'Save annotation' ) }
 								disabled={ ! hasContent }
@@ -322,41 +319,11 @@ function NoteEditor( {
 							/>
 						}
 					>
-						<Icon icon={ arrowUp } size={ 20 } />
-					</Tooltip.Trigger>
-					<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
-						{ submitLabel }
-					</Tooltip.Popup>
-				</Tooltip.Root>
+						<Icon icon={ arrowUp } />
+					</TooltipTrigger>
+					<TooltipContent>{ submitLabel }</TooltipContent>
+				</Tooltip>
 			</div>
 		</div>
-	);
-}
-
-function EditorButton( {
-	label,
-	onClick,
-	children,
-}: {
-	label: string;
-	onClick: () => void;
-	children: ReactElement< SVGProps< SVGSVGElement > >;
-} ) {
-	return (
-		<Tooltip.Root>
-			<Tooltip.Trigger
-				render={
-					<button
-						type="button"
-						className={ styles.toolButton }
-						aria-label={ label }
-						onClick={ onClick }
-					/>
-				}
-			>
-				<Icon icon={ children } size={ 16 } />
-			</Tooltip.Trigger>
-			<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>{ label }</Tooltip.Popup>
-		</Tooltip.Root>
 	);
 }

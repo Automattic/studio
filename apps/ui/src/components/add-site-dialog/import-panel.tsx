@@ -6,9 +6,10 @@ import {
 import { getErrorMessage } from '@studio/common/lib/error-formatting';
 import { useNavigate } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
-import { Button, Icon } from '@wordpress/ui';
+import { Icon } from '@wordpress/icons';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { CreateSiteForm } from '@/components/create-site-form';
+import { Button } from '@/components/ui/button';
 import { useConnector } from '@/data/core';
 import { useExistingCustomDomains } from '@/data/queries/use-create-site-helpers';
 import { useImportSite } from '@/data/queries/use-import-site';
@@ -107,12 +108,7 @@ export function BackupDropZone( { onFile }: { onFile: ( file: File ) => void } )
 						event.target.value = '';
 					} }
 				/>
-				<Button
-					type="button"
-					variant="outline"
-					tone="neutral"
-					onClick={ () => inputRef.current?.click() }
-				>
+				<Button type="button" variant="outline" onClick={ () => inputRef.current?.click() }>
 					{ __( 'Choose file' ) }
 				</Button>
 				{ error ? (

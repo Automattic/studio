@@ -68,19 +68,10 @@
 	gap: 8px;
 }
 
-/* Button's solid-variant sets these properties on the element itself, so
-   parent-level overrides don't win — must be set here directly. */
+/* Translucent, so it reads on any notice intent's background. */
 .action {
-	--wp-ui-button-background-color: var(--border);
-	--wp-ui-button-background-color-active: color-mix(
-		in srgb,
-		var(--foreground) 16%,
-		transparent
-	);
-	--wp-ui-button-foreground-color: var(--foreground);
-	--wp-ui-button-foreground-color-active: var(--foreground);
-	--wp-ui-button-border-color: transparent;
-	--wp-ui-button-border-color-active: transparent;
+	--button-background: var(--border);
+	--button-hover-background: color-mix(in srgb, var(--foreground) 16%, transparent);
 }
 
 @keyframes card-enter {

@@ -28,8 +28,6 @@ vi.mock( '@/data/core', () => ( {
 } ) );
 
 vi.mock( '@wordpress/ui', () => ( {
-	Button: ( props: Record< string, unknown > ) => createElement( 'button', props ),
-	Icon: () => null,
 	Tooltip: {
 		Root: ( { children }: { children?: unknown } ) => children,
 		Trigger: ( { render: trigger }: { render?: unknown } ) => trigger,

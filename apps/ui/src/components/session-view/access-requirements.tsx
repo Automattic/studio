@@ -10,9 +10,9 @@ import {
 } from '@studio/common/lib/studio-assistant-quota';
 import { createInterpolateElement } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
-import { Button } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useState } from 'react';
+import { Button } from '@/components/ui/button';
 import { useConnector } from '@/data/core';
 import styles from './access-requirements.module.css';
 
@@ -97,7 +97,7 @@ export function AccessRequirements( {
 					<div className={ styles.actions }>
 						<Button
 							type="button"
-							variant="solid"
+							variant="accent"
 							className={ styles.cta }
 							onClick={ () => void connector.openExternalUrl( WPCOM_SUPPORT_CONTACT_URL ) }
 						>
@@ -105,8 +105,7 @@ export function AccessRequirements( {
 						</Button>
 						<Button
 							type="button"
-							variant="minimal"
-							tone="neutral"
+							variant="ghost"
 							aria-disabled={ isRechecking }
 							onClick={ onRecheck }
 						>
@@ -131,19 +130,14 @@ export function AccessRequirements( {
 					<div className={ styles.actions }>
 						<Button
 							type="button"
-							variant="solid"
+							variant="accent"
 							className={ styles.cta }
 							aria-disabled={ isRechecking }
 							onClick={ onRecheck }
 						>
 							{ isRechecking ? __( 'Checking…' ) : __( 'Check again' ) }
 						</Button>
-						<Button
-							type="button"
-							variant="minimal"
-							tone="neutral"
-							onClick={ () => setIsWaitingForBrowser( false ) }
-						>
+						<Button type="button" variant="ghost" onClick={ () => setIsWaitingForBrowser( false ) }>
 							{ __( 'Back' ) }
 						</Button>
 					</div>
@@ -162,7 +156,7 @@ export function AccessRequirements( {
 				<div className={ styles.actions }>
 					<Button
 						type="button"
-						variant="solid"
+						variant="accent"
 						className={ styles.cta }
 						onClick={ () => {
 							void connector.openExternalUrl( copy.url );

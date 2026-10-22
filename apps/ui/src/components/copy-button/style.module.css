@@ -1,43 +1,19 @@
-.copyButton {
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	width: 1.75rem;
-	height: 1.75rem;
-	margin: 0;
-	padding: 0;
-	border: 0;
-	border-radius: 8px;
-	background-color: var(--chat);
-	background-color: color-mix(
+.filled {
+	--button-background: color-mix(
 		in srgb,
 		var(--chat) var(--surface-alpha, 82%),
 		transparent
 	);
 	backdrop-filter: blur(4px);
-	color: var(--muted-foreground);
-	line-height: 1;
-	cursor: pointer;
-	transition: color 0.12s ease, background-color 0.12s ease;
 }
 
-.copyButton:hover,
-.copyButton:focus-visible {
-	color: var(--foreground);
-	background-color: var(--muted);
-}
-
-.copyButton[data-copied='true'] {
+.copied {
 	color: var(--success);
-	background-color: color-mix(in oklab, var(--success) 10%, var(--muted));
 }
 
-.copyButton[data-variant='plain'],
-.copyButton[data-variant='plain']:hover,
-.copyButton[data-variant='plain']:focus-visible,
-.copyButton[data-variant='plain'][data-copied='true'] {
-	background-color: transparent;
-	backdrop-filter: none;
+.filled.copied {
+	--button-background: color-mix(in oklab, var(--success) 10%, var(--muted));
+	--button-hover-background: var(--button-background);
 }
 
 .visuallyHidden {

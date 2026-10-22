@@ -4,12 +4,13 @@ import { classifySyncFailure } from '@studio/common/lib/sync/classify-sync-failu
 import { useNavigate } from '@tanstack/react-router';
 import { Spinner, VisuallyHidden } from '@wordpress/components';
 import { __, _x, sprintf } from '@wordpress/i18n';
-import { check, external, search } from '@wordpress/icons';
-import { Badge, Button, Icon } from '@wordpress/ui';
+import { check, external, Icon, search } from '@wordpress/icons';
+import { Badge } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AuthActions } from '@/components/auth-actions';
+import { Button } from '@/components/ui/button';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { useAuthUser } from '@/data/queries/use-auth-user';
@@ -118,29 +119,29 @@ function RemoteSiteCard( {
 			{ group === 'needs-transfer' && (
 				<Button
 					type="button"
-					variant="minimal"
-					tone="brand"
+					variant="inline-accent"
+					size="sm"
 					className={ styles.siteAction }
 					onClick={ () =>
 						void connector.openExternalUrl( `https://wordpress.com/hosting-features/${ site.id }` )
 					}
 				>
-					<span>{ __( 'Enable hosting features' ) }</span>
-					<Icon icon={ external } size={ 14 } />
+					{ __( 'Enable hosting features' ) }
+					<Icon icon={ external } data-icon="inline-end" />
 				</Button>
 			) }
 			{ group === 'needs-upgrade' && (
 				<Button
 					type="button"
-					variant="minimal"
-					tone="brand"
+					variant="inline-accent"
+					size="sm"
 					className={ styles.siteAction }
 					onClick={ () =>
 						void connector.openExternalUrl( `https://wordpress.com/plans/${ site.id }` )
 					}
 				>
-					<span>{ __( 'View plans' ) }</span>
-					<Icon icon={ external } size={ 14 } />
+					{ __( 'View plans' ) }
+					<Icon icon={ external } data-icon="inline-end" />
 				</Button>
 			) }
 		</li>
@@ -381,7 +382,6 @@ export function ConnectPanel() {
 					<Button
 						type="button"
 						variant="outline"
-						tone="neutral"
 						loading={ remoteSites.isFetching }
 						onClick={ retry }
 					>
@@ -396,16 +396,16 @@ export function ConnectPanel() {
 					<p>{ __( 'This account has no WordPress.com or Pressable sites to show.' ) }</p>
 					<Button
 						type="button"
-						variant="minimal"
-						tone="brand"
+						variant="inline-accent"
+						size="sm"
 						onClick={ () => {
 							// `section=studio-sync`, no `autoOpenPush` — a create, not a publish.
 							void connector.trackEvent( TRACKS_EVENTS.SYNC_CREATE_SITE );
 							void connector.openExternalUrl( createWpcomSiteUrl.toString() );
 						} }
 					>
-						<span>{ __( 'Create a WordPress.com site' ) }</span>
-						<Icon icon={ external } size={ 14 } />
+						{ __( 'Create a WordPress.com site' ) }
+						<Icon icon={ external } data-icon="inline-end" />
 					</Button>
 				</div>
 			) }
@@ -428,9 +428,8 @@ export function ConnectPanel() {
 						<p className={ styles.helperLinks }>
 							<Button
 								type="button"
-								variant="minimal"
-								tone="neutral"
-								size="small"
+								variant="ghost"
+								size="2xs"
 								disabled={ remoteSites.isFetching }
 								onClick={ retry }
 							>
@@ -439,17 +438,16 @@ export function ConnectPanel() {
 							<span aria-hidden="true">·</span>
 							<Button
 								type="button"
-								variant="minimal"
-								tone="neutral"
-								size="small"
+								variant="ghost"
+								size="2xs"
 								onClick={ () =>
 									void connector.openExternalUrl(
 										getLocalizedLink( locale, 'docsSyncSupportedSites' )
 									)
 								}
 							>
-								<span>{ __( 'Supported sites' ) }</span>
-								<Icon icon={ external } size={ 14 } />
+								{ __( 'Supported sites' ) }
+								<Icon icon={ external } data-icon="inline-end" />
 							</Button>
 						</p>
 					</div>
@@ -504,9 +502,8 @@ export function ConnectPanel() {
 				? createPortal(
 						<Button
 							type="button"
-							variant="solid"
-							tone="brand"
-							size="compact"
+							variant="accent"
+							size="header"
 							disabled={ ! selectedSite || isOffline || isConnecting }
 							loading={ isConnecting }
 							onClick={ () => void handleConnect() }

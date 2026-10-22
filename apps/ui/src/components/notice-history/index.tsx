@@ -1,8 +1,8 @@
 import { __ } from '@wordpress/i18n';
-import { Button, Dialog, EmptyState, IconButton, Notice } from '@wordpress/ui';
-import { clsx } from 'clsx';
+import { Dialog, EmptyState, Notice } from '@wordpress/ui';
 import { useSyncExternalStore } from 'react';
 import { AppThemeScope } from '@/components/app-theme-scope';
+import { Button, IconButton } from '@/components/ui/button';
 import {
 	clearNoticeHistory,
 	noticeToText,
@@ -51,13 +51,9 @@ function useNoticeHistoryOpen(): boolean {
 	);
 }
 
-export function NoticeHistoryButton( { className }: { className?: string } ) {
+export function NoticeHistoryButton() {
 	return (
 		<IconButton
-			variant="minimal"
-			tone="neutral"
-			size="small"
-			className={ clsx( styles.bell, 'studio-control', className ) }
 			icon={ bellIcon }
 			label={ __( 'Notification history' ) }
 			onClick={ openNoticeHistory }
@@ -69,23 +65,13 @@ export function NoticeHistoryButton( { className }: { className?: string } ) {
 // toast about copying a notice would itself land in the list.
 export function CopyNoticeButton( {
 	notice,
-	className,
-	variant = 'solid',
 }: {
 	notice: Pick< NoticeRecord, 'title' | 'description' >;
-	className?: string;
-	variant?: 'solid' | 'outline';
 } ) {
 	const { copied, copy } = useCopyText( noticeToText( notice ) );
 
 	return (
-		<Button
-			size="small"
-			variant={ variant }
-			tone="neutral"
-			className={ className }
-			onClick={ copy }
-		>
+		<Button variant="outline" size="2xs" onClick={ copy }>
 			{ copied ? __( 'Copied' ) : __( 'Copy' ) }
 		</Button>
 	);
@@ -139,7 +125,7 @@ export function NoticeHistoryDialog() {
 												</time>
 												{ notice.description ? (
 													<Notice.Actions>
-														<CopyNoticeButton notice={ notice } variant="outline" />
+														<CopyNoticeButton notice={ notice } />
 													</Notice.Actions>
 												) : null }
 											</Notice.Root>
@@ -158,12 +144,7 @@ export function NoticeHistoryDialog() {
 					</Dialog.Content>
 					<Dialog.Footer>
 						{ notices.length > 0 ? (
-							<Button
-								variant="minimal"
-								tone="neutral"
-								className={ styles.clearAll }
-								onClick={ clearNoticeHistory }
-							>
+							<Button variant="ghost" className={ styles.clearAll } onClick={ clearNoticeHistory }>
 								{ __( 'Clear all' ) }
 							</Button>
 						) : null }

@@ -2,12 +2,11 @@ import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { withWpcomDetails } from '@studio/common/lib/sync/transform-sites';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { __ } from '@wordpress/i18n';
-import { arrowUpRight, check } from '@wordpress/icons';
-import { Button, Icon } from '@wordpress/ui';
-import { clsx } from 'clsx';
+import { arrowUpRight, check, Icon } from '@wordpress/icons';
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { AccountPromptDialog } from '@/components/account-prompt';
 import * as Popover from '@/components/popover';
+import { Button } from '@/components/ui/button';
 import { useConnector } from '@/data/core';
 import { useAuthUser } from '@/data/queries/use-auth-user';
 import {
@@ -231,8 +230,9 @@ export function PublishButton( {
 						{ pickable.data?.length ? (
 							pickable.data.map( ( remote ) => (
 								<div key={ remote.id } className={ styles.choice }>
-									<button
-										type="button"
+									<Button
+										variant="outline"
+										layout="row"
 										className={ styles.choiceButton }
 										disabled={ offline || busy || Boolean( websiteIssue( remote ) ) }
 										onClick={ () => connect.mutate( remote ) }
@@ -246,7 +246,7 @@ export function PublishButton( {
 										>
 											{ websiteAddress( remote ) } · { websiteLabel( remote ) }
 										</span>
-									</button>
+									</Button>
 									{ websiteIssue( remote ) ? (
 										<p className={ styles.text }>{ websiteIssue( remote ) }</p>
 									) : null }
@@ -283,10 +283,8 @@ export function PublishButton( {
 									<p className={ styles.text }>{ websiteLabel( remote ) }</p>
 								</div>
 								<Button
-									variant="minimal"
-									tone="neutral"
-									size="compact"
-									className={ styles.disconnect }
+									variant="ghost"
+									size="xs"
 									disabled={ busy || offline }
 									onClick={ () => {
 										void connector.trackEvent( TRACKS_EVENTS.SYNC_DISCONNECT );
@@ -302,16 +300,14 @@ export function PublishButton( {
 						) ) }
 						<Button
 							variant="outline"
-							tone="neutral"
-							className={ clsx( 'studio-control', styles.outline ) }
 							disabled={ busy || offline }
 							onClick={ () => setView( 'pick' ) }
 						>
 							{ __( 'Use another website…' ) }
 						</Button>
-						<button
-							type="button"
-							className={ styles.linkButton }
+						<Button
+							variant="inline-text"
+							size="inline"
 							disabled={ busy || offline || settingUp }
 							aria-live="polite"
 							onClick={ startSetup }
@@ -321,10 +317,10 @@ export function PublishButton( {
 							) : (
 								<>
 									{ __( 'Create a new WordPress.com site' ) }
-									<Icon icon={ arrowUpRight } size={ 16 } />
+									<Icon icon={ arrowUpRight } data-icon="inline-end" />
 								</>
 							) }
-						</button>
+						</Button>
 					</PanelBody>
 				</>
 			);
@@ -361,18 +357,15 @@ export function PublishButton( {
 				) : null }
 				<div className={ styles.introActions }>
 					<Button
-						variant={ settingUp ? 'outline' : 'solid' }
-						tone={ settingUp ? 'neutral' : 'brand' }
-						className={ clsx( 'studio-control', settingUp && styles.outline ) }
+						variant={ settingUp ? 'outline' : 'accent' }
 						disabled={ offline || busy || settingUp }
 						aria-live="polite"
 						onClick={ startSetup }
 					>
 						{ settingUp ? __( 'Waiting for WordPress.com…' ) : __( 'Publish on WordPress.com' ) }
 					</Button>
-					<button
-						type="button"
-						className={ styles.linkButton }
+					<Button
+						variant="inline-text"
 						disabled={ offline || busy }
 						onClick={ () => {
 							selectWebsite( selectedId );
@@ -380,7 +373,7 @@ export function PublishButton( {
 						} }
 					>
 						{ __( 'Use an existing website…' ) }
-					</button>
+					</Button>
 				</div>
 			</PanelBody>
 		);
@@ -393,10 +386,6 @@ export function PublishButton( {
 					render={
 						<Button
 							ref={ trigger }
-							variant="solid"
-							tone="neutral"
-							size="small"
-							className="studio-control"
 							aria-label={ __( 'Publish…' ) }
 							aria-description={ error ?? status }
 						/>

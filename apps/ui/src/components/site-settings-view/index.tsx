@@ -11,7 +11,6 @@ import { getWpEnvironmentType } from '@studio/common/lib/wp-environment-type';
 import { RecommendedPHPVersion } from '@studio/common/types/php-versions';
 import { DataForm, useFormValidity } from '@wordpress/dataviews';
 import { __ } from '@wordpress/i18n';
-import { Button } from '@wordpress/ui';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useSettingsDialog } from '@/components/settings-dialog/context';
@@ -33,6 +32,7 @@ import {
 	wpVersionField,
 } from '@/components/site-fields';
 import { CertificateTrustNotice } from '@/components/site-fields/enable-https-control';
+import { Button } from '@/components/ui/button';
 import { useConnector } from '@/data/core';
 import { useExistingCustomDomains } from '@/data/queries/use-create-site-helpers';
 import { useDebugLogExists } from '@/data/queries/use-debug-log';
@@ -324,7 +324,7 @@ export function SiteSettingsForm( {
 						{ __( 'Write PHP errors to wp-content/debug.log.' ) }
 						{ logExists ? (
 							<span className={ styles.debugLogAction }>
-								<Button variant="outline" tone="neutral" size="compact" onClick={ handleOpenLog }>
+								<Button variant="outline" size="header" onClick={ handleOpenLog }>
 									{ __( 'Open log file' ) }
 								</Button>
 							</span>
@@ -473,8 +473,7 @@ export function SiteSettingsForm( {
 						<>
 							<Button
 								variant="outline"
-								tone="neutral"
-								size="compact"
+								size="header"
 								disabled={ updateSite.isPending }
 								onClick={ () => setData( initial ) }
 							>
@@ -483,9 +482,8 @@ export function SiteSettingsForm( {
 							<Button
 								type="submit"
 								form={ FORM_ID }
-								variant="solid"
-								tone="neutral"
-								size="compact"
+								variant={ canSubmit ? 'default' : 'outline' }
+								size="header"
 								disabled={ ! canSubmit }
 								loading={ updateSite.isPending }
 								loadingAnnouncement={ __( 'Saving settings' ) }

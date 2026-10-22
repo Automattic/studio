@@ -1,7 +1,8 @@
 import { getAiModelLabel } from '@studio/common/ai/models';
 import { createInterpolateElement } from '@wordpress/element';
 import { __, sprintf } from '@wordpress/i18n';
-import { Button, Dialog } from '@wordpress/ui';
+import { Dialog } from '@wordpress/ui';
+import { Button } from '@/components/ui/button';
 import { useConfirmOnEnter } from '@/hooks/use-confirm-on-enter';
 import styles from './style.module.css';
 import type { AiModelId } from '@/data/core';
@@ -67,8 +68,6 @@ export function FamilySwitchConfirmDialog( {
 						{ __( 'Cancel' ) }
 					</Dialog.Action>
 					<Button
-						variant="solid"
-						tone="brand"
 						loading={ inFlight }
 						loadingAnnouncement={ __( 'Starting new chat' ) }
 						onClick={ onConfirm }

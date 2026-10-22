@@ -341,7 +341,6 @@
 
 .turnOffButton {
 	margin-top: 8px;
-	color: var(--muted-foreground);
 	font-weight: var(--font-weight-normal);
 }
 

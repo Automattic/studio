@@ -26,14 +26,6 @@
 	}
 }
 
-.panel button {
-	--wp-ui-button-font-weight: var(--font-weight-medium);
-}
-
-.outline {
-	--wp-ui-button-border-color: var(--border);
-}
-
 .triggerLabel {
 	position: relative;
 }
@@ -54,43 +46,6 @@
 	align-items: center;
 	gap: 12px;
 	padding: 14px 14px 14px 16px;
-}
-
-.back,
-.disclosureButton {
-	display: inline-flex;
-	flex: none;
-	align-items: center;
-	justify-content: center;
-	padding: 0;
-	border: 0;
-	border-radius: 8px;
-	background: transparent;
-	color: inherit;
-	cursor: pointer;
-}
-
-.back {
-	width: 32px;
-	height: 32px;
-	border: 1px solid var(--border);
-	border-radius: 12px;
-}
-
-.disclosureButton {
-	width: 28px;
-	height: 28px;
-}
-
-.back:hover,
-.disclosureButton:hover:not(:disabled) {
-	background: var(--muted);
-}
-
-.back:focus-visible,
-.disclosureButton:focus-visible {
-	outline: var(--focus-width) solid var(--ring);
-	outline-offset: 1px;
 }
 
 .body {
@@ -160,10 +115,6 @@
 	min-width: 0;
 }
 
-.openWebsite {
-	--wp-ui-button-foreground-color: var(--muted-foreground);
-}
-
 .include {
 	display: flex;
 	align-items: center;
@@ -226,32 +177,7 @@
 }
 
 .primary {
-	--wp-ui-button-height: var(--control-size);
 	flex: 1;
-}
-
-.linkButton {
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	gap: 2px;
-	padding: 0;
-	border: 0;
-	background: none;
-	color: var(--muted-foreground);
-	font: inherit;
-	font-size: var(--text-sm);
-	line-height: 20px;
-	cursor: pointer;
-}
-
-.linkButton:hover:not(:disabled) {
-	color: var(--foreground);
-}
-
-.linkButton:disabled {
-	opacity: 0.5;
-	cursor: default;
 }
 
 .intro {
@@ -265,12 +191,6 @@
 	flex-direction: column;
 }
 
-.introActions .linkButton {
-	height: var(--control-size);
-	font-size: var(--text-xs);
-	font-weight: var(--font-weight-medium);
-}
-
 .choice {
 	display: flex;
 	flex-direction: column;
@@ -278,31 +198,9 @@
 }
 
 .choiceButton {
-	display: flex;
 	flex-direction: column;
 	align-items: flex-start;
 	gap: 4px;
-	padding: 8px 10px;
-	border: 1px solid var(--border);
-	border-radius: 12px;
-	background: transparent;
-	color: inherit;
-	font: inherit;
-	font-size: var(--text-xs);
-	font-weight: var(--font-weight-medium);
-	line-height: 20px;
-	text-align: start;
-	cursor: pointer;
-}
-
-.choiceButton:hover:not(:disabled) {
-	background: var(--muted);
-}
-
-.choiceButton:disabled {
-	color: var(--muted-foreground);
-	opacity: 0.6;
-	cursor: default;
 }
 
 .choiceName,
@@ -338,11 +236,6 @@
 	letter-spacing: -0.02em;
 	text-overflow: ellipsis;
 	white-space: nowrap;
-}
-
-.disconnect {
-	--wp-ui-button-padding-inline: 8px;
-	flex: none;
 }
 
 .progress,

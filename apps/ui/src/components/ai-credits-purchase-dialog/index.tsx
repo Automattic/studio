@@ -4,8 +4,9 @@ import {
 } from '@studio/common/lib/studio-assistant-top-up-pricing';
 import { createInterpolateElement } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
-import { Button, Dialog } from '@wordpress/ui';
+import { Dialog } from '@wordpress/ui';
 import { useRef, useState, type KeyboardEvent } from 'react';
+import { Button } from '@/components/ui/button';
 import { useStudioAssistantTopUpPricing } from '@/data/queries/use-top-up-pricing';
 import { useUserLocale } from '@/data/queries/use-user-locale';
 import { useOpenAiCreditsCheckout } from '@/hooks/use-open-ai-credits-checkout';
@@ -116,8 +117,6 @@ export function AiCreditsPurchaseDialog( {
 						{ __( 'Cancel' ) }
 					</Dialog.Action>
 					<Button
-						variant="solid"
-						tone="brand"
 						disabled={ ! selected }
 						onClick={ () => {
 							if ( ! selected ) {

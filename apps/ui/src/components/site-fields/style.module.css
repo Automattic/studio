@@ -1,8 +1,5 @@
 .offlineTooltip {
-	display: flex;
-	align-items: center;
 	gap: 8px;
-	max-width: 320px;
 }
 
 .offlineTooltip svg {

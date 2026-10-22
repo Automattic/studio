@@ -5,7 +5,6 @@ import {
 	bug,
 	chartBar,
 	chevronLeft,
-	close as closeIcon,
 	code,
 	brush,
 	closeSmall,
@@ -17,7 +16,7 @@ import {
 	settings as slidersIcon,
 	tool,
 } from '@wordpress/icons';
-import { Dialog, IconButton } from '@wordpress/ui';
+import { Dialog } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -32,6 +31,8 @@ import {
 	UsagePanel,
 } from '@/components/settings-view';
 import { SiteSettingsForm } from '@/components/site-settings-view';
+import { IconButton } from '@/components/ui/button';
+import { DialogDismissButton } from '@/components/ui/dialog';
 import { useSessions } from '@/data/queries/use-sessions';
 import { useSites } from '@/data/queries/use-sites';
 import { chatIcon, settingsIcon, shareIcon } from '@/lib/icons';
@@ -377,9 +378,7 @@ export function SettingsDialog() {
 						{ query ? (
 							<IconButton
 								className={ styles.searchClear }
-								variant="minimal"
-								tone="neutral"
-								size="small"
+								size="icon-2xs"
 								icon={ closeSmall }
 								label={ __( 'Clear search' ) }
 								onClick={ () => setQuery( '' ) }
@@ -426,9 +425,8 @@ export function SettingsDialog() {
 				<div className={ styles.main }>
 					<div className={ styles.header }>
 						<IconButton
-							variant="outline"
-							tone="neutral"
-							size="compact"
+							variant="segmented"
+							size="icon-sm"
 							icon={ chevronLeft }
 							label={ __( 'Back' ) }
 							disabled={ ! history.length }
@@ -439,14 +437,7 @@ export function SettingsDialog() {
 						/>
 						<h2 className={ styles.title }>{ current.label }</h2>
 						<div ref={ setActions } className={ styles.actions } />
-						<IconButton
-							variant="outline"
-							tone="neutral"
-							size="compact"
-							icon={ closeIcon }
-							label={ __( 'Close settings' ) }
-							onClick={ close }
-						/>
+						<DialogDismissButton label={ __( 'Close settings' ) } onClick={ close } />
 					</div>
 					<div ref={ content } className={ styles.content }>
 						<SettingsDialogContext.Provider value={ { actions, setDirty } }>

@@ -1,9 +1,3 @@
-.iconOnly {
-	--wp-ui-button-padding-inline: 0;
-
-	width: var(--control-size);
-}
-
 .visuallyHidden {
 	position: absolute;
 	width: 1px;

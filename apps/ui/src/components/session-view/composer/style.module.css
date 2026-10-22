@@ -39,14 +39,6 @@
 	min-width: 0;
 }
 
-.noticeAction {
-	--wp-ui-button-font-size: var(--text-xs);
-	--wp-ui-button-font-weight: var(--font-weight-medium);
-
-	flex: none;
-	border-radius: 999px;
-}
-
 @keyframes submitShake {
 	25% {
 		transform: translateX(-6px);

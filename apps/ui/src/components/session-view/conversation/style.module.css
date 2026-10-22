@@ -448,9 +448,6 @@
 }
 
 .questionSummary {
-	--wp-ui-button-background-color: transparent;
-	--wp-ui-button-border-color: transparent;
-
 	display: flex;
 	flex-direction: column;
 	align-items: stretch;
@@ -564,8 +561,6 @@
 }
 
 .questionOptionZoom {
-	--wp-ui-button-background-color: var(--chat);
-
 	position: absolute;
 	top: 8px;
 	inset-inline-end: 8px;
@@ -586,13 +581,18 @@
 
 .questionOptionZoomClose,
 .questionOptionZoomStep {
-	--wp-ui-button-background-color: var(--chat);
-
 	position: absolute;
 	box-shadow: 0 1px 3px rgb(0 0 0 / 20%);
 }
 
+.questionOptionZoom,
+.questionOptionZoomStep {
+	--button-background: var(--chat);
+}
+
 .questionOptionZoomClose {
+	--wp-ui-button-background-color: var(--chat);
+
 	top: 8px;
 	inset-inline-end: 8px;
 }
@@ -708,9 +708,6 @@
 }
 
 .questionOption {
-	--wp-ui-button-background-color: transparent;
-	--wp-ui-button-border-color: transparent;
-
 	display: flex;
 	align-items: flex-start;
 	gap: 12px;

@@ -59,33 +59,7 @@
 	}
 }
 
-.action {
-	display: inline-flex;
-	width: 28px;
-	height: 28px;
-	align-items: center;
-	justify-content: center;
-	padding: 0;
-	border: 0;
-	border-radius: 999px;
-	background: transparent;
-	color: var(--muted-foreground);
-	cursor: pointer;
-}
-
-.action svg {
-	fill: currentColor;
-}
-
-.action:hover,
-.action:focus-visible {
-	background: var(--hover);
-	color: var(--foreground);
-	outline: none;
-}
-
-.siteIcon:focus-visible,
-.action:focus-visible {
+.siteIcon:focus-visible {
 	outline: var(--focus-width) solid var(--ring);
 	outline-offset: 2px;
 	border-radius: 6px;

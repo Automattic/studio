@@ -3,7 +3,6 @@ import { sortSites } from '@studio/common/lib/sort-sites';
 import { useNavigate, useParams, useRouterState } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
 import { Icon } from '@wordpress/icons';
-import { IconButton, Spinner, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import {
 	Fragment,
@@ -23,6 +22,9 @@ import { ReorderableList } from '@/components/reorderable-list';
 import { getSessionTitle } from '@/components/session-view/session-chat-actions';
 import { SidebarButton } from '@/components/sidebar-button';
 import { SiteActionsMenuItems, useSiteActions } from '@/components/site-actions-menu';
+import { Button, IconButton } from '@/components/ui/button';
+import { Spinner } from '@/components/ui/spinner';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { XdebugIcon } from '@/components/xdebug-icon';
 import {
 	useSessionsNeedingInput,
@@ -92,8 +94,8 @@ function SiteAgentActivityTooltip( {
 	children?: ReactNode;
 } ) {
 	return (
-		<Tooltip.Root>
-			<Tooltip.Trigger
+		<Tooltip>
+			<TooltipTrigger
 				render={
 					<span
 						className={ clsx(
@@ -107,9 +109,9 @@ function SiteAgentActivityTooltip( {
 				}
 			>
 				{ children }
-			</Tooltip.Trigger>
-			<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>{ label }</Tooltip.Popup>
-		</Tooltip.Root>
+			</TooltipTrigger>
+			<TooltipContent>{ label }</TooltipContent>
+		</Tooltip>
 	);
 }
 
@@ -293,21 +295,17 @@ function ChatRow( {
 							</SidebarButton>
 							<span className={ styles.chatActions }>
 								<IconButton
-									variant="minimal"
-									tone="neutral"
-									size="small"
+									variant="muted-ghost"
+									size="icon-sm"
 									icon={ actions.pinned ? unpinIcon : pinIcon }
 									label={ actions.pinned ? __( 'Unpin chat' ) : __( 'Pin chat' ) }
-									className={ styles.rowAction }
 									onClick={ actions.togglePin }
 								/>
 								<IconButton
-									variant="minimal"
-									tone="neutral"
-									size="small"
+									variant="muted-ghost"
+									size="icon-sm"
 									icon={ archiveIcon }
 									label={ __( 'Archive chat' ) }
-									className={ styles.rowAction }
 									disabled={ actions.working }
 									onClick={ () => void actions.archive() }
 								/>
@@ -378,9 +376,6 @@ function SiteStatusButton( {
 	const label = sprintf( site.running ? __( 'Stop %s' ) : __( 'Start %s' ), site.name );
 	const handleClick = ( event: MouseEvent< HTMLButtonElement > ) => {
 		event.stopPropagation();
-		if ( busy ) {
-			return;
-		}
 		if ( site.running ) {
 			stopSite.mutate( site.id );
 		} else {
@@ -389,26 +384,32 @@ function SiteStatusButton( {
 	};
 
 	return (
-		<Tooltip.Root>
-			<Tooltip.Trigger
+		<Tooltip>
+			<TooltipTrigger
 				render={
-					<button
-						type="button"
+					<Button
+						variant="muted-ghost"
+						size="icon-sm"
 						className={ clsx( styles.rowAction, styles.siteStatus ) }
 						aria-label={ busy ? statusName : label }
 						aria-busy={ busy || undefined }
-						aria-disabled={ busy || undefined }
+						disabled={ busy }
+						focusableWhenDisabled
 						data-state={ status }
 						onClick={ handleClick }
 					>
-						{ busy ? <Spinner /> : <Icon icon={ site.running ? stopSiteIcon : startSiteIcon } /> }
-					</button>
+						{ busy ? (
+							<Spinner aria-hidden="true" />
+						) : (
+							<Icon icon={ site.running ? stopSiteIcon : startSiteIcon } />
+						) }
+					</Button>
 				}
 			/>
-			<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
+			<TooltipContent>
 				{ busy ? statusName : site.running ? __( 'Stop' ) : __( 'Start' ) }
-			</Tooltip.Popup>
-		</Tooltip.Root>
+			</TooltipContent>
+		</Tooltip>
 	);
 }
 
@@ -562,9 +563,8 @@ function SiteSection( {
 						<div className={ styles.siteActions } data-reorder-exclude>
 							{ chatEnabled ? (
 								<IconButton
-									variant="minimal"
-									tone="neutral"
-									size="small"
+									variant="muted-ghost"
+									size="icon-sm"
 									icon={ newChatIcon }
 									label={ sprintf( __( 'New chat for %s' ), site.name ) }
 									className={ styles.rowAction }
@@ -764,12 +764,10 @@ export function SiteList( {
 						title={ __( 'Pinned' ) }
 						action={
 							<IconButton
-								variant="minimal"
-								tone="neutral"
-								size="small"
+								variant="muted-ghost"
+								size="icon-sm"
 								icon={ plusIcon }
 								label={ __( 'Add pinned site' ) }
-								className={ styles.rowAction }
 								onClick={ () => openAddSite( 'create', { pin: true } ) }
 							/>
 						}
@@ -801,12 +799,10 @@ export function SiteList( {
 					title={ __( 'Sites' ) }
 					action={
 						<IconButton
-							variant="minimal"
-							tone="neutral"
-							size="small"
+							variant="muted-ghost"
+							size="icon-sm"
 							icon={ plusIcon }
 							label={ __( 'Add site' ) }
-							className={ styles.rowAction }
 							onClick={ () => openAddSite() }
 						/>
 					}

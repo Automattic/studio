@@ -29,8 +29,16 @@ import { isAutomatticianEmail } from '@studio/common/lib/automattician';
 import { hasPaidAiCredits } from '@studio/common/lib/studio-assistant-quota';
 import { useQueryClient } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
-import { arrowUp, chevronDownSmall, closeSmall, globe, page, play, plus } from '@wordpress/icons';
-import { Button, Icon, Tooltip } from '@wordpress/ui';
+import {
+	arrowUp,
+	chevronDownSmall,
+	closeSmall,
+	globe,
+	Icon,
+	page,
+	play,
+	plus,
+} from '@wordpress/icons';
 import { clsx } from 'clsx';
 import {
 	forwardRef,
@@ -59,6 +67,8 @@ import {
 	getAnnotationsAttachment,
 } from '@/components/annotations/submission';
 import * as Menu from '@/components/menu';
+import { Button } from '@/components/ui/button';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { useAiSettings } from '@/data/queries/use-ai-settings';
@@ -216,8 +226,8 @@ function ModeChip( {
 		label
 	);
 	return (
-		<Tooltip.Root>
-			<Tooltip.Trigger
+		<Tooltip>
+			<TooltipTrigger
 				render={
 					<button
 						type="button"
@@ -230,11 +240,9 @@ function ModeChip( {
 				<Icon icon={ icon } size={ 16 } className={ styles.modeChipIcon } />
 				<Icon icon={ closeSmall } size={ 16 } className={ styles.modeChipRemove } />
 				<span>{ label }</span>
-			</Tooltip.Trigger>
-			<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
-				{ removeLabel }
-			</Tooltip.Popup>
-		</Tooltip.Root>
+			</TooltipTrigger>
+			<TooltipContent>{ removeLabel }</TooltipContent>
+		</Tooltip>
 	);
 }
 
@@ -785,7 +793,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		: undefined;
 
 	const addButton = (
-		<Tooltip.Trigger
+		<TooltipTrigger
 			render={
 				<button
 					type="button"
@@ -796,7 +804,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 			}
 		>
 			<Icon icon={ plus } size={ 16 } />
-		</Tooltip.Trigger>
+		</TooltipTrigger>
 	);
 
 	return (
@@ -816,10 +824,9 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 								{ __( 'Add AI credits to send another message.' ) }
 							</span>
 							<Button
-								size="compact"
-								variant="solid"
-								tone="neutral"
-								className={ styles.noticeAction }
+								size="composer-notice"
+								shape="round"
+								variant={ submitFeedback ? 'destructive' : 'default' }
 								onClick={ openAddCredits }
 							>
 								{ __( 'Add credits' ) }
@@ -980,12 +987,10 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 					<div className={ styles.toolbar }>
 						<div className={ styles.leftActions }>
 							<Menu.Root modal={ false }>
-								<Tooltip.Root>
+								<Tooltip>
 									{ isField ? addButton : <Menu.Trigger render={ addButton } /> }
-									<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
-										{ addLabel }
-									</Tooltip.Popup>
-								</Tooltip.Root>
+									<TooltipContent>{ addLabel }</TooltipContent>
+								</Tooltip>
 								<Menu.Popup side="top" align="start" className={ styles.commandsMenuPopup }>
 									<Menu.Item disabled={ awaitingAnswer } onClick={ openFilePicker }>
 										{ __( 'Add files' ) }
@@ -1085,10 +1090,10 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 						</div>
 						<div className={ styles.rightActions }>
 							<Menu.Root modal={ false }>
-								<Tooltip.Root>
+								<Tooltip>
 									<Menu.Trigger
 										render={
-											<Tooltip.Trigger
+											<TooltipTrigger
 												render={
 													<button
 														type="button"
@@ -1100,13 +1105,11 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 											>
 												<span>{ modelLabel }</span>
 												<Icon icon={ chevronDownSmall } size={ 16 } />
-											</Tooltip.Trigger>
+											</TooltipTrigger>
 										}
 									/>
-									<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
-										{ modelDetails.join( ' · ' ) }
-									</Tooltip.Popup>
-								</Tooltip.Root>
+									<TooltipContent>{ modelDetails.join( ' · ' ) }</TooltipContent>
+								</Tooltip>
 								<Menu.Popup side="top" align="end" className={ styles.modelMenuPopup }>
 									{ canPickProvider ? (
 										<>
@@ -1173,8 +1176,8 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 								</Menu.Popup>
 							</Menu.Root>
 							{ isField ? null : (
-								<Tooltip.Root>
-									<Tooltip.Trigger
+								<Tooltip>
+									<TooltipTrigger
 										render={
 											showStop ? (
 												<button
@@ -1201,11 +1204,9 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 										) : (
 											<Icon icon={ arrowUp } size={ 18 } />
 										) }
-									</Tooltip.Trigger>
-									<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
-										{ showStop ? stopLabel : sendLabel }
-									</Tooltip.Popup>
-								</Tooltip.Root>
+									</TooltipTrigger>
+									<TooltipContent>{ showStop ? stopLabel : sendLabel }</TooltipContent>
+								</Tooltip>
 							) }
 						</div>
 					</div>

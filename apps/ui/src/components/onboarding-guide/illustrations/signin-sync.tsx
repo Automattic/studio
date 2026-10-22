@@ -1,7 +1,6 @@
 import { __ } from '@wordpress/i18n';
-import { brush, check, chevronDown, close, file, plugins } from '@wordpress/icons';
+import { brush, check, chevronDown, close, file, Icon, plugins } from '@wordpress/icons';
 import { ThemeProvider } from '@wordpress/theme';
-import { Icon } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import {

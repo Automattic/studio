@@ -112,46 +112,8 @@
 	padding: 0 4px 4px;
 }
 
-.toolButton,
 .save {
-	display: inline-flex;
-	flex: none;
-	align-items: center;
-	justify-content: center;
-	padding: 0;
-	border: 0;
-	border-radius: 999px;
-	background-color: transparent;
-	color: var(--foreground);
-	cursor: pointer;
-}
-
-.toolButton {
-	width: 32px;
-	height: 32px;
-}
-
-.toolButton:hover {
-	background-color: var(--hover);
-}
-
-.save {
-	width: 36px;
-	height: 36px;
 	margin-inline-start: auto;
-	background-color: var(--accent);
-	color: var(--accent-foreground);
-}
-
-.save:hover:not(:disabled) {
-	background-color: var(--accent-hover);
-}
-
-.save:disabled {
-	background-color: var(--primary);
-	color: var(--primary-foreground);
-	cursor: default;
-	opacity: 0.5;
 }
 
 .bar {
@@ -193,16 +155,6 @@
 			transform: translate(-50%, calc(100% + 16px));
 		}
 	}
-}
-
-.barButton {
-	--wp-ui-button-font-size: var(--text-xs);
-	--wp-ui-button-font-weight: var(--font-weight-medium);
-	--wp-ui-button-height: 36px;
-	--wp-ui-button-padding-inline: 10px;
-
-	gap: 6px;
-	border-radius: 9px;
 }
 
 .count {

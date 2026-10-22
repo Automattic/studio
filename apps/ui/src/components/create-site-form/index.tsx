@@ -11,8 +11,7 @@ import { RecommendedPHPVersion } from '@studio/common/types/php-versions';
 import { BaseControl, TextControl } from '@wordpress/components';
 import { DataForm, useFormValidity } from '@wordpress/dataviews';
 import { __, _n, sprintf } from '@wordpress/i18n';
-import { chevronDown, chevronRight, error as errorIcon } from '@wordpress/icons';
-import { Button, Icon } from '@wordpress/ui';
+import { chevronDown, chevronRight, error as errorIcon, Icon } from '@wordpress/icons';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { LearnMoreLink } from '@/components/learn-more';
 import {
@@ -27,6 +26,7 @@ import {
 	wpVersionField,
 } from '@/components/site-fields';
 import { EnableHttpsControl } from '@/components/site-fields/enable-https-control';
+import { Button } from '@/components/ui/button';
 import { useConnector } from '@/data/core';
 import { usePathValidator } from '@/data/queries/use-create-site-helpers';
 import { useSites } from '@/data/queries/use-sites';
@@ -669,19 +669,11 @@ export function CreateSiteForm( {
 	const advancedErrorCount = countAdvancedErrors( validity, advancedForm );
 	const actions = (
 		<>
-			<Button
-				type="button"
-				variant="outline"
-				tone="neutral"
-				onClick={ onCancel }
-				disabled={ isSubmitting }
-			>
+			<Button variant="outline" onClick={ onCancel } disabled={ isSubmitting }>
 				{ cancelLabel ?? __( 'Cancel' ) }
 			</Button>
 			<Button
 				type="submit"
-				variant="solid"
-				tone="brand"
 				disabled={ ! canSubmit }
 				loading={ isSubmitting }
 				loadingAnnouncement={ loadingAnnouncement ?? __( 'Creating site' ) }
@@ -706,9 +698,8 @@ export function CreateSiteForm( {
 				{ children }
 
 				<Button
-					type="button"
-					variant="unstyled"
-					tone="neutral"
+					variant="muted-ghost"
+					size="inline"
 					className={ styles.advancedToggle }
 					onClick={ () => setIsAdvancedOpen( ( value ) => ! value ) }
 					aria-expanded={ isAdvancedOpen }

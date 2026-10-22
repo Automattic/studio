@@ -1,7 +1,6 @@
 import { FormToggle, TextControl } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
-import { error as errorIcon } from '@wordpress/icons';
-import { Icon } from '@wordpress/ui';
+import { error as errorIcon, Icon } from '@wordpress/icons';
 import { clsx } from 'clsx';
 import { useState } from 'react';
 import { useAiSettings, useSaveAnthropicApiKey } from '@/data/queries/use-ai-settings';

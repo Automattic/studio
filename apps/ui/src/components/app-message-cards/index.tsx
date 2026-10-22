@@ -1,7 +1,8 @@
 import { __ } from '@wordpress/i18n';
-import { Button, Notice } from '@wordpress/ui';
+import { Notice } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { AddAiCreditsButton } from '@/components/add-ai-credits-button';
+import { Button } from '@/components/ui/button';
 import {
 	useActivePersistentMessages,
 	useRecordPersistentMessages,
@@ -26,14 +27,13 @@ export function AppMessageCards( { className }: { className?: string } ) {
 						) : null }
 						{ message.purchaseCta ? (
 							<Notice.Actions>
-								<AddAiCreditsButton variant="solid" tone="neutral" className={ styles.action } />
+								<AddAiCreditsButton variant="muted" size="2xs" className={ styles.action } />
 							</Notice.Actions>
 						) : message.cta ? (
 							<Notice.Actions>
 								<Button
-									size="small"
-									variant="solid"
-									tone="neutral"
+									variant="muted"
+									size="2xs"
 									className={ styles.action }
 									onClick={ message.cta.onClick }
 								>

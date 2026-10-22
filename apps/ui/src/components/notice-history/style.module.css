@@ -1,11 +1,3 @@
-/* Trailing control of the sidebar footer row: the button paints its own
-   foreground, so the color has to land on it, and the pull-back lands its
-   trailing edge on the row's `lg` column (see user-menu's
-   `--user-menu-trailing-offset`). */
-.bell {
-	color: var(--foreground);
-}
-
 /* A quiet footnote under the list rather than a subtitle above it: it
    explains the log's lifetime, which the reader only wants once. */
 .outro {

@@ -1,7 +1,7 @@
 import { __ } from '@wordpress/i18n';
 import { Icon } from '@wordpress/icons';
-import { Button, Spinner, Tooltip } from '@wordpress/ui';
-import { clsx } from 'clsx';
+import { Button } from '@/components/ui/button';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import {
 	useIsSiteBusy,
 	useIsSiteStarting,
@@ -28,31 +28,28 @@ export function SiteLifecycleButton( { site }: { site: SiteDetails } ) {
 		: running
 		? __( 'Stop' )
 		: __( 'Start' );
+	const pending = isStarting || isStopping;
 	return (
-		<Tooltip.Root>
-			<Tooltip.Trigger
+		<Tooltip>
+			<TooltipTrigger
 				render={
 					<Button
-						variant={ running ? 'outline' : 'solid' }
-						tone="neutral"
-						size="small"
-						className={ clsx( 'studio-control', running && styles.iconOnly ) }
+						variant={ running ? 'outline' : 'default' }
+						size={ running ? 'icon' : 'default' }
 						disabled={ isBusy }
-						aria-busy={ isStarting || isStopping }
+						loading={ pending }
 						onClick={ () => ( running ? stopSite : startSite ).mutate( site.id ) }
 					>
-						{ isStarting || isStopping ? (
-							<Spinner />
-						) : (
-							<Icon icon={ running ? stopSiteIcon : startSiteIcon } size={ 16 } />
+						{ ! pending && (
+							<Icon icon={ running ? stopSiteIcon : startSiteIcon } data-icon="inline-start" />
 						) }
 						<span className={ running ? styles.visuallyHidden : styles.label }>{ label }</span>
 					</Button>
 				}
 			/>
-			<Tooltip.Popup positioner={ <Tooltip.Positioner side="bottom" /> }>
+			<TooltipContent side="bottom">
 				{ running ? __( 'Stop site' ) : __( 'Start site' ) }
-			</Tooltip.Popup>
-		</Tooltip.Root>
+			</TooltipContent>
+		</Tooltip>
 	);
 }

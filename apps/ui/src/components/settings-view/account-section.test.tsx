@@ -4,37 +4,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useAuthUser, useLogin, useLogout } from '@/data/queries/use-auth-user';
 import { useOffline } from '@/hooks/use-offline';
 import { AccountSection } from './account-section';
-import type { ButtonHTMLAttributes, ReactNode } from 'react';
-
-vi.mock( '@wordpress/ui', () => ( {
-	Button: ( {
-		children,
-		loading,
-		loadingAnnouncement,
-		tone,
-		variant,
-		size,
-		...props
-	}: ButtonHTMLAttributes< HTMLButtonElement > & {
-		children?: ReactNode;
-		loading?: boolean;
-		loadingAnnouncement?: string;
-		tone?: string;
-		variant?: string;
-		size?: string;
-	} ) => {
-		void tone;
-		void variant;
-		void size;
-		return <button { ...props }>{ loading ? loadingAnnouncement : children }</button>;
-	},
-	Tooltip: {
-		Root: ( { children }: { children?: ReactNode } ) => <>{ children }</>,
-		Trigger: ( { render }: { render?: ReactNode } ) => <>{ render }</>,
-		Popup: () => null,
-		Positioner: () => null,
-	},
-} ) );
 
 vi.mock( '@/data/queries/use-auth-user', () => ( {
 	useAuthUser: vi.fn(),

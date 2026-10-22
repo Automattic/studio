@@ -1,6 +1,7 @@
 import { __ } from '@wordpress/i18n';
-import { Button, Dialog, VisuallyHidden } from '@wordpress/ui';
+import { Dialog, VisuallyHidden } from '@wordpress/ui';
 import { useId, type RefObject } from 'react';
+import { Button } from '@/components/ui/button';
 import { useLogin } from '@/data/queries/use-auth-user';
 import { useOffline } from '@/hooks/use-offline';
 import site1 from './assets/site-1.png';
@@ -52,8 +53,7 @@ export function AccountPrompt( {
 				</p>
 			) : null }
 			<Button
-				variant="solid"
-				tone="neutral"
+				size="lg"
 				className={ styles.createAccount }
 				disabled={ offline || pending }
 				loading={ signup.isPending }
@@ -65,7 +65,8 @@ export function AccountPrompt( {
 				{ __( 'Create account' ) }
 			</Button>
 			<Button
-				variant="unstyled"
+				variant="inline-text"
+				size="inline"
 				className={ styles.logIn }
 				disabled={ offline || pending }
 				loading={ login.isPending }

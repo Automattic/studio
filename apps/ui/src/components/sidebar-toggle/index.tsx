@@ -1,8 +1,10 @@
 import { __ } from '@wordpress/i18n';
-import { Button, Icon, Tooltip } from '@wordpress/ui';
+import { Icon } from '@wordpress/icons';
 import { clsx } from 'clsx';
 import { AppMessageCardsDot } from '@/components/app-message-cards';
 import { CollapsedSiteSwitcher } from '@/components/collapsed-site-switcher';
+import { Button } from '@/components/ui/button';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import {
 	useSidebarCollapsed,
 	useSidebarOpen,
@@ -18,11 +20,8 @@ export function SidebarToggle() {
 	// IconButton's unconditional tooltip would fight the hover-opened popover.
 	const control = (
 		<Button
-			type="button"
-			variant="minimal"
-			tone="neutral"
-			size="small"
-			className={ clsx( styles.control, 'studio-control' ) }
+			variant="ghost"
+			size="icon"
 			aria-label={ collapsed ? __( 'Show sidebar' ) : __( 'Hide sidebar' ) }
 			onClick={ toggleSidebar }
 		>
@@ -35,12 +34,10 @@ export function SidebarToggle() {
 			{ collapsed ? (
 				<CollapsedSiteSwitcher onToggleSidebar={ toggleSidebar } trigger={ control } />
 			) : (
-				<Tooltip.Root>
-					<Tooltip.Trigger render={ control } />
-					<Tooltip.Popup positioner={ <Tooltip.Positioner side="bottom" /> }>
-						{ __( 'Hide sidebar' ) }
-					</Tooltip.Popup>
-				</Tooltip.Root>
+				<Tooltip>
+					<TooltipTrigger render={ control } />
+					<TooltipContent side="bottom">{ __( 'Hide sidebar' ) }</TooltipContent>
+				</Tooltip>
 			) }
 			{ collapsed ? <AppMessageCardsDot /> : null }
 		</span>

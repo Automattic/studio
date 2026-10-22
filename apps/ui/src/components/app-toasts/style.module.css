@@ -122,11 +122,6 @@
 	text-wrap: pretty;
 }
 
-.action {
-	--wp-ui-button-padding-inline: 10px;
-	flex: none;
-}
-
 /* Error text can run to paragraphs; the toast shows the first few lines and
    the notifications panel (notice-history) keeps the full message. */
 .description {
@@ -148,18 +143,12 @@
 	padding-inline-start: 22px;
 }
 
-.action,
-.details button {
-	--wp-ui-button-font-weight: var(--font-weight-medium);
-}
-
 .close {
-	--wp-ui-button-height: 20px;
-	--wp-ui-button-background-color: var(--chrome);
+	--button-background: var(--chrome);
+
 	position: absolute;
 	inset-block-start: -6px;
 	inset-inline-start: -6px;
-	border-radius: 50%;
 	opacity: 0;
 	transition: opacity 120ms ease;
 }

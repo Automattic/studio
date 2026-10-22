@@ -280,10 +280,7 @@
 	font-size: var(--text-xs);
 }
 
-.content .manageAll {
+.manageAll {
 	display: flex;
 	margin-block-start: 4px;
-	padding-inline: 0;
-	font-size: var(--text-xxs);
-	font-weight: var(--font-weight-normal);
 }

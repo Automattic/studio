@@ -1,7 +1,7 @@
 import { CheckboxControl } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
-import { Button } from '@wordpress/ui';
 import { LearnHowLink } from '@/components/learn-more';
+import { Button } from '@/components/ui/button';
 import { useCertificateTrust, useTrustCertificate } from '@/data/queries/use-certificate-trust';
 import styles from './style.module.css';
 import type { DataFormControlProps } from '@wordpress/dataviews';
@@ -31,8 +31,6 @@ export function CertificateTrustNotice() {
 				<Button
 					type="button"
 					variant="outline"
-					tone="neutral"
-					size="compact"
 					disabled={ trustCertificate.isPending }
 					onClick={ () => trustCertificate.mutate() }
 				>

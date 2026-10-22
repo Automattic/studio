@@ -101,19 +101,10 @@
 }
 
 .createAccount {
-	--wp-ui-button-height: 44px;
-	--wp-ui-button-font-size: var(--text-sm);
-	min-width: 208px;
 	margin-top: 28px;
 }
 
 .logIn {
 	margin-top: 16px;
-	color: var(--muted-foreground);
 	font-size: var(--text-xs);
-	line-height: 20px;
-}
-
-.logIn:hover:not(:disabled) {
-	color: var(--foreground);
 }

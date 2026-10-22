@@ -1,7 +1,6 @@
 import { __ } from '@wordpress/i18n';
-import { pencil } from '@wordpress/icons';
+import { Icon, pencil } from '@wordpress/icons';
 import { ThemeProvider } from '@wordpress/theme';
-import { Icon } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { AgentWorkingIndicator } from '@/components/agent-working-indicator';
 import { useColorScheme } from '@/hooks/use-color-scheme';

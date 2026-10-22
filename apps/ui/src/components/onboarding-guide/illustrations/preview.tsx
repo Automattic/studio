@@ -1,6 +1,5 @@
 import { __ } from '@wordpress/i18n';
-import { wordpress, globe, pencil } from '@wordpress/icons';
-import { Icon } from '@wordpress/ui';
+import { Icon, wordpress, globe, pencil } from '@wordpress/icons';
 import { clsx } from 'clsx';
 import { databaseIcon } from '@/lib/icons';
 import { easings, sample, span, useTimeline, type Keyframe } from './choreography';

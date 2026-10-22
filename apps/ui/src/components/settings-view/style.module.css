@@ -18,12 +18,9 @@
 	gap: 12px;
 }
 
-.preferenceText .manageLink {
+.manageLink {
 	display: flex;
 	margin-block-start: 4px;
-	padding-inline: 0;
-	font-size: var(--text-xxs);
-	font-weight: var(--font-weight-normal);
 }
 
 .instructionsEditor {
@@ -697,23 +694,10 @@
 	line-height: 20px;
 }
 
-.previewActionsButton {
-	flex-shrink: 0;
-}
-
 .aiCreditsHeading {
 	display: flex;
 	align-items: center;
 	gap: 4px;
-}
-
-.aiCreditsDetailsButton {
-	flex: none;
-}
-
-.aiCreditsDetailsButton svg {
-	inline-size: 16px;
-	block-size: 16px;
 }
 
 .creditBalances {
@@ -799,10 +783,6 @@
 .previewActions {
 	display: flex;
 	gap: 4px;
-}
-
-.previewActions button {
-	--wp-ui-button-foreground-color: var(--muted-foreground);
 }
 
 .previewRename {

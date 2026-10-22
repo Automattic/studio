@@ -36,19 +36,6 @@
 	line-height: 20px;
 }
 
-.learnMore {
-	padding: 0;
-	border: 0;
-	background: none;
-	color: var(--accent-text);
-	font: inherit;
-	cursor: pointer;
-}
-
-.learnMore:hover {
-	text-decoration: underline;
-}
-
 .loading {
 	display: flex;
 	align-items: center;
@@ -74,10 +61,6 @@
 	gap: 8px;
 	font-size: var(--text-sm);
 	line-height: 20px;
-}
-
-.panel button {
-	--wp-ui-button-font-weight: var(--font-weight-medium);
 }
 
 .previewSelect {
@@ -124,47 +107,6 @@
 	position: absolute;
 	inset-inline: 0;
 	inset-block-end: 0;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	gap: 6px;
-	height: var(--control-size);
-	border: 0;
-	border-block-start: 1px solid var(--border);
-	background: color-mix(in srgb, var(--chrome) 75%, transparent);
-	color: var(--foreground);
-	font: inherit;
-	font-size: var(--text-xs);
-	font-weight: var(--font-weight-medium);
-	cursor: pointer;
-	backdrop-filter: blur(4px);
-}
-
-.update:hover:not(:disabled) {
-	background: color-mix(in srgb, var(--chrome) 92%, transparent);
-}
-
-.update:disabled {
-	cursor: default;
-}
-
-.update:disabled > * {
-	opacity: 0.6;
-}
-
-.update svg {
-	fill: currentColor;
-}
-
-.large {
-	--wp-ui-button-height: 44px;
-	--wp-ui-button-font-size: var(--text-sm);
-}
-
-.busy {
-	--wp-ui-button-background-color-disabled: var(--primary);
-	--wp-ui-button-foreground-color-disabled: var(--primary-foreground);
-	--wp-ui-button-border-color-disabled: var(--primary);
 }
 
 .expiry {
@@ -194,13 +136,6 @@
 	display: flex;
 	justify-content: flex-end;
 	gap: 8px;
-}
-
-.destructive {
-	--wp-ui-button-background-color: var(--destructive);
-	--wp-ui-button-background-color-active: var(--destructive-hover);
-	--wp-ui-button-foreground-color: var(--destructive-foreground);
-	--wp-ui-button-foreground-color-active: var(--destructive-foreground);
 }
 
 .inlineForm,
@@ -253,11 +188,6 @@
 	color: var(--muted-foreground);
 	font-size: var(--text-xxs);
 	line-height: 1.47;
-}
-
-.outline {
-	--wp-ui-button-border-color: var(--border);
-	--wp-ui-button-font-weight: var(--font-weight-medium);
 }
 
 .visuallyHidden {

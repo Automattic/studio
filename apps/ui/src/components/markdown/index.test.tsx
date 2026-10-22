@@ -1,5 +1,4 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { Tooltip } from '@wordpress/ui';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CODE_TEXT_ATTRIBUTE } from '@/hooks/use-text-context-menu';
 import { Markdown } from '.';
@@ -16,11 +15,7 @@ vi.mock( '@/data/core', () => ( {
 } ) );
 
 function renderMarkdown( children: string ) {
-	return render(
-		<Tooltip.Provider>
-			<Markdown>{ children }</Markdown>
-		</Tooltip.Provider>
-	);
+	return render( <Markdown>{ children }</Markdown> );
 }
 
 describe( 'Markdown', () => {

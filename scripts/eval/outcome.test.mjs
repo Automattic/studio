@@ -114,6 +114,21 @@ describe( 'shared checks', () => {
 		);
 		expect( run( checks.turnsAreResponsive, { turnDurationsMs: [] } ).pass ).toBe( false );
 	} );
+
+	test( 'turnWithinBudget', () => {
+		const turn = ( calls, totalTokens ) => ( {
+			toolCalls: Array.from( { length: calls }, () => ( { name: 'Bash' } ) ),
+			usage: { totalTokens },
+		} );
+		const vars = { maxToolCalls: 20, maxTokens: 500000 };
+		expect( run( checks.turnWithinBudget, turn( 20, 500000 ), vars ).pass ).toBe( true );
+		expect( run( checks.turnWithinBudget, turn( 78, 400000 ), vars ).reason ).toBe(
+			'over budget: 78 tool calls (limit 20)'
+		);
+		expect( run( checks.turnWithinBudget, turn( 10, 900000 ), vars ).pass ).toBe( false );
+		expect( run( checks.turnWithinBudget, turn( 78, 0 ), { maxTokens: 1000 } ).pass ).toBe( true );
+		expect( run( checks.turnWithinBudget, turn( 1, 0 ) ).pass ).toBe( false );
+	} );
 } );
 
 describe( 'reply checks', () => {

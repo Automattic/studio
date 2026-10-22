@@ -30,8 +30,8 @@ import { isAutomatticianEmail } from '@studio/common/lib/automattician';
 import {
 	clampQuotaFraction,
 	formatQuotaPercentage,
-	getAiCreditsMeter,
 	getStudioCodeAiAccessState,
+	getTotalRemainingAiCredits,
 	hasPaidAiCredits,
 	type StudioAssistantQuota,
 } from '@studio/common/lib/studio-assistant-quota';
@@ -164,34 +164,35 @@ function getModelDescription( id: AiModelId ): string {
 	}
 }
 
-// Accounts on the older monthly cap report usage against it instead of credit pools.
+// Accounts on the older monthly cap have no credit counts, only usage against the cap.
 function getCreditsLabel( quota: StudioAssistantQuota | null | undefined, locale?: string ) {
-	const hasCredits =
-		!! quota &&
-		( quota.allowanceRemaining !== undefined ||
-			quota.purchasedRemaining !== undefined ||
-			( quota.purchasedAtTopUp ?? 0 ) > 0 );
-	const fraction = ! quota
-		? null
-		: hasCredits
-		? getAiCreditsMeter( quota )?.fraction ?? null
-		: quota.costCap > 0
-		? clampQuotaFraction( quota.costUsage, quota.costCap )
-		: null;
-	if ( fraction === null ) {
-		return { label: __( 'AI usage unavailable' ), hasCredits };
+	const remaining = quota ? getTotalRemainingAiCredits( quota ) : undefined;
+	if ( remaining !== undefined ) {
+		return {
+			hasCredits: true,
+			label:
+				remaining <= 0
+					? __( 'No AI credits remaining' )
+					: sprintf(
+							/* translators: %s: compact number of AI credits remaining (e.g. 200K or 1.5M). */
+							__( 'AI credits: %s remaining' ),
+							new Intl.NumberFormat( locale, {
+								notation: 'compact',
+								maximumFractionDigits: 1,
+							} ).format( remaining )
+					  ),
+		};
 	}
-	const remaining = formatQuotaPercentage( 1 - fraction, locale );
+	if ( ! quota || quota.costCap <= 0 ) {
+		return { hasCredits: false, label: __( 'AI usage unavailable' ) };
+	}
 	return {
+		hasCredits: false,
 		label: sprintf(
-			hasCredits
-				? /* translators: %s: percentage of AI credits left. */ __( 'AI credits: %s remaining' )
-				: /* translators: %s: percentage of the AI allowance left. */ __(
-						'AI allowance: %s remaining'
-				  ),
-			remaining
+			/* translators: %s: percentage of the AI allowance left. */
+			__( 'AI allowance: %s remaining' ),
+			formatQuotaPercentage( 1 - clampQuotaFraction( quota.costUsage, quota.costCap ), locale )
 		),
-		hasCredits,
 	};
 }
 

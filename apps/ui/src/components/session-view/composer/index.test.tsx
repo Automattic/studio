@@ -125,6 +125,26 @@ describe( 'Composer menu', () => {
 		);
 	} );
 
+	it( 'shows the AI credits left as a count, not a share of past top-ups', async () => {
+		connectorMocks.getAuthUser.mockResolvedValue( { id: 1, email: 'user@example.com' } );
+		connectorMocks.getStudioAssistantQuota.mockResolvedValue( {
+			costCap: 1_000_000,
+			costUsage: 0,
+			studioCodeAiHasAccess: true,
+			hasPaymentMethod: true,
+			allowanceRemaining: 200_000,
+			purchasedRemaining: 1_000_000,
+			purchasedAtTopUp: 5_000_000,
+		} );
+		renderComposer();
+
+		await waitFor( () =>
+			expect( screen.getByRole( 'button', { name: 'Model' } ) ).toHaveAccessibleDescription(
+				'Fast · WordPress.com · AI credits: 1.2M remaining'
+			)
+		);
+	} );
+
 	it( 'omits the provider section until an Anthropic API key is saved', async () => {
 		connectorMocks.getAiSettings.mockResolvedValue( {
 			provider: 'wpcom',

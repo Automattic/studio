@@ -1,10 +1,8 @@
 import { findAiSessionOwnerSite } from '@studio/common/ai/sessions/owner-site';
-import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { sortSites } from '@studio/common/lib/sort-sites';
 import { useNavigate, useParams, useRouterState } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
 import { Icon } from '@wordpress/icons';
-import { displayShortcut, isKeyboardEvent } from '@wordpress/keycodes';
 import { IconButton, Spinner, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import {
@@ -20,22 +18,12 @@ import {
 } from 'react';
 import { AgentWorkingIndicator } from '@/components/agent-working-indicator';
 import { ChatActionsMenuItems, useChatActions } from '@/components/chat-actions';
-import { DeleteSiteDialog } from '@/components/delete-site-dialog';
-import {
-	ImportSiteDialog,
-	IMPORT_FILE_ACCEPT,
-	useSiteBackupImport,
-} from '@/components/import-site-dialog';
 import * as Menu from '@/components/menu';
-import { useOpenInDestinations } from '@/components/open-in-menu/use-open-in-destinations';
-import { SitePublishMenu } from '@/components/publish-panel/publish-menu';
 import { ReorderableList } from '@/components/reorderable-list';
 import { getSessionTitle } from '@/components/session-view/session-chat-actions';
-import { SiteShareMenuItem } from '@/components/share-dialog/share-menu-item';
 import { SidebarButton } from '@/components/sidebar-button';
-import { deriveSiteStatus, getSiteStatusName } from '@/components/site-dropdown/utils';
+import { SiteActionsMenuItems, useSiteActions } from '@/components/site-actions-menu';
 import { XdebugIcon } from '@/components/xdebug-icon';
-import { useConnector } from '@/data/core';
 import {
 	useSessionsNeedingInput,
 	useSiteAgentActivity,
@@ -55,13 +43,7 @@ import {
 	useUpdateSitesSortOrder,
 } from '@/data/queries/use-sites';
 import { useSiteSyncActivity } from '@/data/sync-activity';
-import { useOpenSettings } from '@/hooks/use-open-settings';
 import { useOpenSite } from '@/hooks/use-open-site';
-import {
-	useSiteManagementActions,
-	type SiteManagementAction,
-	type SiteManagementActionId,
-} from '@/hooks/use-site-management-actions';
 import {
 	archiveIcon,
 	chatIcon,
@@ -75,6 +57,7 @@ import {
 	unpinIcon,
 } from '@/lib/icons';
 import { BulkMenuItems, SidebarSelection, useIsBulkTarget, useSelectableRow } from './selection';
+import { getSiteStatus, getSiteStatusName } from './site-status';
 import styles from './style.module.css';
 import type { AiSessionSummary, SiteDetails } from '@/data/core';
 
@@ -382,7 +365,7 @@ function SiteStatusButton( {
 	const stopSite = useStopSite();
 	const busy = useIsSiteBusy( site );
 	const operation = useSiteOperation( site );
-	const { status } = deriveSiteStatus( site, isStarting, isStopping, operation );
+	const status = getSiteStatus( site, isStarting, isStopping, operation );
 	// The recorded operation wins: it names work this window didn't start (an
 	// agent restart, another Studio window) that local start/stop state can't see.
 	const statusName = getSiteStatusName( {
@@ -432,56 +415,22 @@ function SiteStatusButton( {
 // passed as `trigger` and rendered via the context-menu trigger's render prop,
 // so no wrapper DOM is added around it (the sidebar's drag-reorder CSS and
 // animation code rely on the row's DOM position).
-function SiteActionsMenu( {
+function SiteRowMenu( {
 	site,
-	sessionIds,
-	isStarting,
 	trigger,
 	onSiteOpen,
 }: {
 	site: SiteDetails;
-	sessionIds: string[];
-	isStarting: boolean;
 	trigger: ReactElement;
 	onSiteOpen?: () => void;
 } ) {
-	const navigate = useNavigate();
-	const openSettings = useOpenSettings();
-	const params = useParams( { strict: false } ) as { sessionId?: string; siteId?: string };
-	const connector = useConnector();
-	const startSite = useStartSite();
-	const stopSite = useStopSite();
-	const busy = useIsSiteBusy( site );
-	const [ deleteOpen, setDeleteOpen ] = useState( false );
-	const { isPinned, togglePin } = useSidebarPins();
-	const pinned = isPinned( sitePinKey( site.id ) );
+	const actions = useSiteActions( site, { onOpen: onSiteOpen } );
 	const bulk = useIsBulkTarget( sitePinKey( site.id ) );
-	const importInputRef = useRef< HTMLInputElement >( null );
-	const backupImport = useSiteBackupImport( site );
-	const manage = useSiteManagementActions( site, {
-		onDelete: () => setDeleteOpen( true ),
-		onImport: () => importInputRef.current?.click(),
-	} );
-	const manageById = Object.fromEntries(
-		manage.map( ( action ) => [ action.id, action ] )
-	) as Record< SiteManagementActionId, SiteManagementAction >;
 
 	const stopMenuEventPropagation = (
 		event: MouseEvent< HTMLElement > | ReactPointerEvent< HTMLElement >
 	) => {
 		event.stopPropagation();
-	};
-
-	// Same entries as the session header's "Open in…" menu.
-	const destinations = useOpenInDestinations( site );
-
-	const handleDeleted = () => {
-		const viewingDeletedSite =
-			params.siteId === site.id ||
-			( params.sessionId ? sessionIds.includes( params.sessionId ) : false );
-		if ( viewingDeletedSite ) {
-			void navigate( { to: '/' } );
-		}
 	};
 
 	return (
@@ -491,113 +440,12 @@ function SiteActionsMenu( {
 				<Menu.ContextPopup
 					onClick={ stopMenuEventPropagation }
 					onPointerDown={ stopMenuEventPropagation }
-					onKeyDown={ ( event ) => {
-						if ( isKeyboardEvent.primaryAlt( event.nativeEvent, 'p' ) ) {
-							event.preventDefault();
-							togglePin( sitePinKey( site.id ) );
-						}
-					} }
+					onKeyDown={ ( event ) => bulk || actions.handleShortcut( event.nativeEvent ) }
 				>
-					{ bulk ? (
-						<BulkMenuItems />
-					) : (
-						<>
-							{ site.running ? (
-								<Menu.Item disabled={ busy } onClick={ () => stopSite.mutate( site.id ) }>
-									{ __( 'Stop site' ) }
-								</Menu.Item>
-							) : (
-								<Menu.Item disabled={ busy } onClick={ () => startSite.mutate( site.id ) }>
-									{ isStarting ? __( 'Starting…' ) : __( 'Start site' ) }
-								</Menu.Item>
-							) }
-							<Menu.Separator />
-							<Menu.Item onClick={ () => togglePin( sitePinKey( site.id ) ) }>
-								{ pinned ? __( 'Unpin' ) : __( 'Pin' ) }
-								<Menu.Shortcut>{ displayShortcut.primaryAlt( 'p' ) }</Menu.Shortcut>
-							</Menu.Item>
-							<Menu.Item
-								onClick={ () => {
-									onSiteOpen?.();
-									void connector.trackEvent( TRACKS_EVENTS.PANEL_OPENED, { panel: 'settings' } );
-									openSettings( 'site', site.id );
-								} }
-							>
-								{ __( 'Site settings' ) }
-							</Menu.Item>
-							<Menu.Item
-								disabled={ manageById.duplicate.disabled }
-								onClick={ manageById.duplicate.run }
-							>
-								{ manageById.duplicate.loading ? __( 'Duplicating…' ) : __( 'Duplicate site' ) }
-							</Menu.Item>
-							<Menu.Separator />
-							{ destinations.map( ( destination ) => (
-								<Menu.Item
-									key={ destination.id }
-									disabled={ destination.disabled }
-									onClick={ destination.open }
-								>
-									{ sprintf(
-										/* translators: %s is the name of the app. E.g. "Open in Cursor" */
-										__( 'Open in %s' ),
-										destination.label
-									) }
-								</Menu.Item>
-							) ) }
-							<Menu.Separator />
-							<Menu.Item disabled={ manageById.import.disabled } onClick={ manageById.import.run }>
-								{ manageById.import.loading ? __( 'Importing…' ) : __( 'Import backup' ) }
-							</Menu.Item>
-							<Menu.Item disabled={ manageById.export.disabled } onClick={ manageById.export.run }>
-								{ manageById.export.loading ? __( 'Exporting…' ) : __( 'Export entire site' ) }
-							</Menu.Item>
-							<Menu.Item
-								disabled={ manageById[ 'export-db' ].disabled }
-								onClick={ manageById[ 'export-db' ].run }
-							>
-								{ manageById[ 'export-db' ].loading ? __( 'Exporting…' ) : __( 'Export database' ) }
-							</Menu.Item>
-							<Menu.Separator />
-							<SiteShareMenuItem site={ site } disabled={ busy } />
-							<SitePublishMenu site={ site } disabled={ busy } />
-							<Menu.Separator />
-							<Menu.Item
-								destructive={ manageById.delete.destructive }
-								onClick={ manageById.delete.run }
-								disabled={ manageById.delete.disabled }
-							>
-								{ __( 'Delete site' ) }
-							</Menu.Item>
-						</>
-					) }
+					{ bulk ? <BulkMenuItems /> : <SiteActionsMenuItems actions={ actions } /> }
 				</Menu.ContextPopup>
 			</Menu.ContextMenuRoot>
-			<input
-				ref={ importInputRef }
-				type="file"
-				hidden
-				accept={ IMPORT_FILE_ACCEPT }
-				data-testid="import-backup-file"
-				onChange={ ( event ) => {
-					backupImport.selectFile( event.target.files?.[ 0 ] );
-					// Lets the same file be picked again after a cancel or a failure.
-					event.target.value = '';
-				} }
-			/>
-			<ImportSiteDialog
-				site={ site }
-				file={ backupImport.file }
-				open={ backupImport.isConfirming }
-				onCancel={ backupImport.cancel }
-				onConfirm={ () => void backupImport.confirm() }
-			/>
-			<DeleteSiteDialog
-				sites={ [ site ] }
-				open={ deleteOpen }
-				onOpenChange={ setDeleteOpen }
-				onDeleted={ handleDeleted }
-			/>
+			{ actions.dialogs }
 		</>
 	);
 }
@@ -643,7 +491,7 @@ function SiteSection( {
 	}, [ isActive ] );
 	const isStarting = useIsSiteStarting( site.id );
 	const isStopping = useIsSiteStopping( site.id );
-	const { status } = deriveSiteStatus( site, isStarting, isStopping, useSiteOperation( site ) );
+	const status = getSiteStatus( site, isStarting, isStopping, useSiteOperation( site ) );
 	const agentActivity = useSiteAgentActivity( row.sessionIds );
 	const syncActivity = useSiteSyncActivity( site.id );
 	// Import gets a row indicator of its own alongside push/pull: it is the only
@@ -673,10 +521,8 @@ function SiteSection( {
 				chats.length > 0 && styles.siteWithChats
 			) }
 		>
-			<SiteActionsMenu
+			<SiteRowMenu
 				site={ site }
-				sessionIds={ row.sessionIds }
-				isStarting={ isStarting }
 				onSiteOpen={ onSiteOpen }
 				trigger={
 					<header { ...selectable } className={ styles.siteHeader } onClick={ handleOpenSite }>

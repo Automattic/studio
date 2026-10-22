@@ -90,12 +90,14 @@ export function DeletedSiteRedirect() {
 interface SettingsSearch {
 	settings?: SettingsSectionId;
 	settingsSite?: string;
+	settingsFocus?: string;
 }
 
 export const rootRoute = createRootRouteWithContext< RouterContext >()( {
 	validateSearch: ( search: Record< string, unknown > ): SettingsSearch => ( {
 		...( isSettingsSection( search.settings ) ? { settings: search.settings } : {} ),
 		...( typeof search.settingsSite === 'string' ? { settingsSite: search.settingsSite } : {} ),
+		...( typeof search.settingsFocus === 'string' ? { settingsFocus: search.settingsFocus } : {} ),
 	} ),
 	component: () => (
 		<>

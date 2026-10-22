@@ -10,7 +10,7 @@ import {
 } from '@/components/preview-split-frame';
 import { SidebarLayout } from '@/components/sidebar-layout';
 import { HeaderSidebarToggle } from '@/components/sidebar-toggle';
-import { SiteDropdown } from '@/components/site-dropdown';
+import { SiteActionsMenu } from '@/components/site-actions-menu';
 import { SitePreview } from '@/components/site-preview';
 import { SiteWorkspace } from '@/components/site-workspace';
 import { useOrientationAutostart } from '@/data/onboarding/use-orientation-autostart';
@@ -178,7 +178,7 @@ function DashboardLayoutContent() {
 						chatHidden ? (
 							<>
 								<HeaderSidebarToggle />
-								<SiteDropdown site={ previewSite } />
+								<SiteActionsMenu site={ previewSite } />
 								{ homeSite ? null : (
 									<IconButton
 										variant="minimal"

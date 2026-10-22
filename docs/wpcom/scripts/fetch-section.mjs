@@ -102,6 +102,7 @@ async function main() {
   console.log(`\n${ok}/${results.length} downloaded, ${errors.length} error(s).`);
   console.log(`Report: ${path.relative(ROOT, reportPath)}`);
   if (errors.length) {
+    process.exitCode = 1;
     console.log('\nErrors:');
     for (const e of errors) {
       console.log(`  - ${e.url}: ${e.reason}`);

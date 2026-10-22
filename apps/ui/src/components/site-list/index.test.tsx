@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { getVisibleToasts, resetAppMessagesForTests } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { useSiteAgentActivity } from '@/data/queries/use-agent-run';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
@@ -19,6 +20,7 @@ import {
 } from '@/data/queries/use-sites';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useSiteSyncActivity } from '@/data/sync-activity';
+import { rememberVisit } from '@/lib/last-visited';
 import { SiteList } from './index';
 import type { AiSessionSummary, SiteDetails } from '@/data/core';
 
@@ -50,22 +52,31 @@ vi.mock( '@/data/queries/use-sessions', () => ( {
 } ) );
 
 let needingInputMock: string[] = [];
+let busySessionsMock: string[] = [];
 let pinsMock: string[] = [];
+let sidebarPreferencesMock: {
+	chatOrder: Record< string, string[] >;
+	showRecentChats: boolean;
+	autoCollapseSites: boolean;
+};
 const togglePin = vi.hoisted( () => vi.fn() );
+const saveSidebar = vi.hoisted( () => vi.fn() );
 
 vi.mock( '@/data/queries/use-sidebar-pins', async ( importOriginal ) => ( {
 	...( await importOriginal< object >() ),
 	useSidebarPins: () => ( {
 		pins: pinsMock,
-		setPins: vi.fn(),
+		setPins: ( sidebarPins: string[] ) => saveSidebar( { sidebarPins } ),
 		isPinned: ( key: string ) => pinsMock.includes( key ),
 		togglePin,
 	} ),
+	useSidebarPreferences: () => ( { pins: pinsMock, ...sidebarPreferencesMock, save: saveSidebar } ),
 } ) );
 
 vi.mock( '@/data/queries/use-agent-run', () => ( {
 	useSiteAgentActivity: vi.fn(),
 	useSessionsNeedingInput: () => needingInputMock,
+	useSessionsBusy: ( ids: string[] ) => ids.some( ( id ) => busySessionsMock.includes( id ) ),
 } ) );
 
 vi.mock( '@/data/queries/use-sites', () => ( {
@@ -139,6 +150,10 @@ const useUpdateSitesSortOrderMock = vi.mocked( useUpdateSitesSortOrder, { partia
 const useSiteSyncActivityMock = vi.mocked( useSiteSyncActivity );
 const useUserPreferencesMock = vi.mocked( useUserPreferences, { partial: true } );
 describe( 'SiteList', () => {
+	afterEach( () => {
+		resetAppMessagesForTests();
+	} );
+
 	const startSite = vi.fn();
 	const stopSite = vi.fn();
 	const updateSitesSortOrder = vi.fn();
@@ -146,7 +161,10 @@ describe( 'SiteList', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
 		needingInputMock = [];
+		busySessionsMock = [];
 		pinsMock = [];
+		sidebarPreferencesMock = { chatOrder: {}, showRecentChats: true, autoCollapseSites: true };
+		window.localStorage.clear();
 		paramsMock = {};
 		pathnameMock = '/';
 
@@ -162,6 +180,7 @@ describe( 'SiteList', () => {
 		useSiteAgentActivityMock.mockReturnValue( 'idle' );
 		useSiteSyncActivityMock.mockReturnValue( null );
 		useSessionsMock.mockReturnValue( { data: [], isLoading: false } );
+		archiveSession.mockResolvedValue( undefined );
 		useConnectorMock.mockReturnValue( {
 			openExternalUrl: vi.fn().mockResolvedValue( undefined ),
 			openSiteUrl: vi.fn().mockResolvedValue( undefined ),
@@ -222,7 +241,12 @@ describe( 'SiteList', () => {
 
 		expect( startSite ).toHaveBeenCalledWith( 'stopped-site' );
 		expect( stopSite ).toHaveBeenCalledWith( 'running-site' );
-		expect( navigateMock ).not.toHaveBeenCalled();
+		// Starting a site also opens it; stopping one leaves the user where they are.
+		expect( navigateMock ).toHaveBeenCalledTimes( 1 );
+		expect( navigateMock ).toHaveBeenCalledWith( {
+			to: '/sites/$siteId/new',
+			params: { siteId: 'stopped-site' },
+		} );
 	} );
 
 	it( 'opens a new chat for a site from its row', () => {
@@ -441,7 +465,12 @@ describe( 'SiteList', () => {
 		expect( screen.queryByText( 'Old idea' ) ).not.toBeInTheDocument();
 
 		fireEvent.click( within( openSite ).getByRole( 'button', { name: 'Archive chat' } ) );
-		await waitFor( () => expect( navigateMock ).toHaveBeenLastCalledWith( { to: '/' } ) );
+		await waitFor( () =>
+			expect( navigateMock ).toHaveBeenLastCalledWith( {
+				to: '/sites/$siteId/new',
+				params: { siteId: 'stopped-site' },
+			} )
+		);
 		expect( archiveSession ).toHaveBeenCalledWith( {
 			sessionId: 'site-chat',
 			patch: { archived: true },
@@ -482,7 +511,7 @@ describe( 'SiteList', () => {
 		const recent = screen.getByRole( 'group', { name: 'Recent' } );
 		fireEvent.click( within( recent ).getByText( 'Make it blue' ), { metaKey: true } );
 		fireEvent.click( within( recent ).getByText( 'Add a menu' ), { metaKey: true } );
-		expect( screen.getByRole( 'status', { name: '' } ) ).toHaveTextContent( '2 items selected' );
+		expect( screen.getByText( '2 chats selected' ) ).toHaveAttribute( 'role', 'status' );
 		expect( navigateMock ).not.toHaveBeenCalled();
 
 		fireEvent.contextMenu( within( recent ).getByText( 'Add a menu' ) );
@@ -899,6 +928,375 @@ describe( 'SiteList', () => {
 		expect( screen.queryByRole( 'img', { name: 'Unread' } ) ).not.toBeInTheDocument();
 	} );
 
+	it( 'reaches every chat under a site with Show more, ten at a time', () => {
+		paramsMock = { siteId: 'stopped-site' };
+		pathnameMock = '/sites/stopped-site/new';
+		sidebarPreferencesMock.showRecentChats = false;
+		useSessionsMock.mockReturnValue( {
+			data: createChats( '/Users/example/Studio/stopped-site', 17 ),
+			isLoading: false,
+		} );
+
+		render( <SiteList sections /> );
+
+		const chats = screen.getByRole( 'group', { name: 'Stopped Site chats' } );
+		const listed = () => within( chats ).getAllByRole( 'button', { name: /^Chat \d+$/ } );
+		expect( listed() ).toHaveLength( 5 );
+		fireEvent.click( within( chats ).getByRole( 'button', { name: 'Show more' } ) );
+		expect( listed() ).toHaveLength( 15 );
+		fireEvent.click( within( chats ).getByRole( 'button', { name: 'Show more' } ) );
+		expect( listed() ).toHaveLength( 17 );
+		expect(
+			within( chats ).queryByRole( 'button', { name: 'Show more' } )
+		).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'group', { name: 'Recent' } ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'lists the latest ten chats in Recent', () => {
+		useSessionsMock.mockReturnValue( {
+			data: createChats( '/Users/example/Studio/running-site', 17 ),
+			isLoading: false,
+		} );
+
+		render( <SiteList sections /> );
+
+		const recent = screen.getByRole( 'group', { name: 'Recent' } );
+		expect(
+			within( recent )
+				.getAllByRole( 'button', { name: /^Chat \d+$/ } )
+				.map( ( button ) => button.textContent )
+		).toEqual( Array.from( { length: 10 }, ( _, index ) => `Chat ${ index + 1 }` ) );
+	} );
+
+	it( 'archives every selected chat with ⇧⌘A in a bulk menu, not just the one clicked', async () => {
+		useSessionsMock.mockReturnValue( {
+			data: [
+				createSession( {
+					id: 'chat-a',
+					firstPrompt: 'Make it blue',
+					ownerSitePath: '/Users/example/Studio/running-site',
+				} ),
+				createSession( {
+					id: 'chat-b',
+					firstPrompt: 'Add a menu',
+					ownerSitePath: '/Users/example/Studio/stopped-site',
+				} ),
+			],
+			isLoading: false,
+		} );
+
+		render( <SiteList sections /> );
+
+		const recent = screen.getByRole( 'group', { name: 'Recent' } );
+		fireEvent.click( within( recent ).getByText( 'Make it blue' ), { metaKey: true } );
+		fireEvent.click( within( recent ).getByText( 'Add a menu' ), { metaKey: true } );
+		fireEvent.contextMenu( within( recent ).getByText( 'Add a menu' ) );
+		fireEvent.keyDown( await screen.findByRole( 'menu' ), {
+			key: 'A',
+			ctrlKey: true,
+			shiftKey: true,
+		} );
+
+		await waitFor( () => expect( archiveSession ).toHaveBeenCalledTimes( 2 ) );
+		expect( archiveSession ).toHaveBeenCalledWith( {
+			sessionId: 'chat-a',
+			patch: { archived: true },
+		} );
+		expect( archiveSession ).toHaveBeenCalledWith( {
+			sessionId: 'chat-b',
+			patch: { archived: true },
+		} );
+		await waitFor( () => expect( getVisibleToasts()[ 0 ]?.title ).toBe( '2 chats archived' ) );
+	} );
+
+	it( 'pins every selected row with ⌥⌘P, and asks before deleting the selected sites with ⌘⌫', async () => {
+		render( <SiteList sections /> );
+
+		const selectBothSites = async () => {
+			const sites = screen.getByRole( 'group', { name: 'Sites' } );
+			fireEvent.click( within( sites ).getByText( 'Stopped Site' ), { metaKey: true } );
+			fireEvent.click( within( sites ).getByText( 'Running Site' ), { metaKey: true } );
+			fireEvent.contextMenu( within( sites ).getByText( 'Running Site' ) );
+			// A closed menu stays mounted for its exit transition.
+			return waitFor( () => {
+				const menu = document.querySelector( '[role="menu"]:not([data-closed])' );
+				expect( menu ).toBeInTheDocument();
+				return menu!;
+			} );
+		};
+
+		fireEvent.keyDown( await selectBothSites(), {
+			key: 'p',
+			keyCode: 80,
+			ctrlKey: true,
+			altKey: true,
+		} );
+		expect( saveSidebar ).toHaveBeenCalledWith( {
+			sidebarPins: [ 'site:stopped-site', 'site:running-site' ],
+		} );
+		expect( togglePin ).not.toHaveBeenCalled();
+		expect( screen.getByRole( 'menu' ) ).toHaveAttribute( 'data-closed' );
+
+		fireEvent.keyDown( await selectBothSites(), { key: 'Backspace', ctrlKey: true } );
+		expect( await screen.findByRole( 'alertdialog' ) ).toHaveTextContent( 'Delete 2 sites' );
+	} );
+
+	it( 'holds off archiving and deleting while a chat is running or has prompts queued', async () => {
+		busySessionsMock = [ 'chat-b' ];
+		paramsMock = { siteId: 'stopped-site' };
+		pathnameMock = '/sites/stopped-site';
+		useSessionsMock.mockReturnValue( {
+			data: [
+				createSession( {
+					id: 'chat-a',
+					firstPrompt: 'Make it blue',
+					ownerSitePath: '/Users/example/Studio/running-site',
+				} ),
+				createSession( {
+					id: 'chat-b',
+					firstPrompt: 'Add a menu',
+					ownerSitePath: '/Users/example/Studio/stopped-site',
+				} ),
+			],
+			isLoading: false,
+		} );
+
+		render( <SiteList sections /> );
+
+		const siteChats = screen.getByRole( 'group', { name: 'Stopped Site chats' } );
+		expect( within( siteChats ).getByRole( 'button', { name: 'Archive chat' } ) ).toHaveAttribute(
+			'aria-disabled',
+			'true'
+		);
+
+		const recent = screen.getByRole( 'group', { name: 'Recent' } );
+		fireEvent.click( within( recent ).getByText( 'Make it blue' ), { metaKey: true } );
+		fireEvent.click( within( recent ).getByText( 'Add a menu' ), { metaKey: true } );
+		fireEvent.contextMenu( within( recent ).getByText( 'Add a menu' ) );
+		const menu = await screen.findByRole( 'menu' );
+		expect( within( menu ).getByRole( 'menuitem', { name: /Archive 2 chats/ } ) ).toHaveAttribute(
+			'aria-disabled',
+			'true'
+		);
+		expect( menu ).toHaveTextContent( 'Wait for active chats and queued prompts to finish.' );
+		fireEvent.keyDown( menu, { key: 'A', ctrlKey: true, shiftKey: true } );
+		expect( archiveSession ).not.toHaveBeenCalled();
+	} );
+
+	it( 'leaves an archived open chat for the site’s top chat still listed, in sidebar order', async () => {
+		paramsMock = { sessionId: 'chat-1' };
+		pathnameMock = '/sessions/chat-1';
+		pinsMock = [ 'chat:chat-4' ];
+		sidebarPreferencesMock.chatOrder = {
+			'stopped-site': [ 'chat-1', 'chat-4', 'chat-3', 'chat-2' ],
+		};
+		useSessionsMock.mockReturnValue( {
+			data: createChats( '/Users/example/Studio/stopped-site', 4 ),
+			isLoading: false,
+		} );
+
+		render( <SiteList sections /> );
+
+		const chats = screen.getByRole( 'group', { name: 'Stopped Site chats' } );
+		fireEvent.click( within( chats ).getAllByRole( 'button', { name: 'Archive chat' } )[ 0 ] );
+
+		await waitFor( () =>
+			expect( navigateMock ).toHaveBeenLastCalledWith( {
+				to: '/sessions/$sessionId',
+				params: { sessionId: 'chat-3' },
+			} )
+		);
+	} );
+
+	it( 'says when archiving a chat fails, and stays on it', async () => {
+		paramsMock = { sessionId: 'site-chat' };
+		pathnameMock = '/sessions/site-chat';
+		archiveSession.mockRejectedValue( new Error( 'Disk full' ) );
+		useSessionsMock.mockReturnValue( {
+			data: [
+				createSession( {
+					id: 'site-chat',
+					firstPrompt: 'Add a menu',
+					ownerSitePath: '/Users/example/Studio/stopped-site',
+				} ),
+			],
+			isLoading: false,
+		} );
+
+		render( <SiteList sections /> );
+
+		fireEvent.click( screen.getAllByRole( 'button', { name: 'Archive chat' } )[ 0 ] );
+		await waitFor( () =>
+			expect( getVisibleToasts()[ 0 ] ).toMatchObject( {
+				title: 'Couldn’t archive the chat',
+				description: 'Disk full',
+			} )
+		);
+		expect( navigateMock ).not.toHaveBeenCalled();
+	} );
+
+	it( 'folds and unfolds sites from their row, keeping several open when asked to', () => {
+		sidebarPreferencesMock = { chatOrder: {}, showRecentChats: false, autoCollapseSites: false };
+		paramsMock = { sessionId: 'stopped-chat' };
+		pathnameMock = '/sessions/stopped-chat';
+		useSessionsMock.mockReturnValue( {
+			data: [
+				createSession( {
+					id: 'stopped-chat',
+					firstPrompt: 'Add a menu',
+					ownerSitePath: '/Users/example/Studio/stopped-site',
+				} ),
+				createSession( {
+					id: 'running-chat',
+					firstPrompt: 'Make it blue',
+					ownerSitePath: '/Users/example/Studio/running-site',
+				} ),
+			],
+			isLoading: false,
+		} );
+
+		render( <SiteList sections /> );
+
+		expect( screen.getByText( 'Add a menu' ) ).toBeInTheDocument();
+		expect( screen.queryByText( 'Make it blue' ) ).not.toBeInTheDocument();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Running Site' } ) );
+		expect( screen.getByText( 'Add a menu' ) ).toBeInTheDocument();
+		expect( screen.getByText( 'Make it blue' ) ).toBeInTheDocument();
+
+		// The open site's row folds its chats.
+		fireEvent.click( screen.getByRole( 'button', { name: 'Stopped Site' } ) );
+		expect( screen.queryByText( 'Add a menu' ) ).not.toBeInTheDocument();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Stopped Site' } ) );
+		expect( screen.getByText( 'Add a menu' ) ).toBeInTheDocument();
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Collapse all' } ) );
+		expect( screen.queryByText( 'Add a menu' ) ).not.toBeInTheDocument();
+		expect( screen.queryByText( 'Make it blue' ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'remembers collapsed groups, and opens one when something is added to it', () => {
+		const { unmount } = render( <SiteList sections /> );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Sites' } ) );
+		expect( screen.queryByText( 'Stopped Site' ) ).not.toBeInTheDocument();
+		unmount();
+
+		const { rerender } = render( <SiteList sections /> );
+		expect( screen.queryByText( 'Stopped Site' ) ).not.toBeInTheDocument();
+
+		useSitesMock.mockReturnValue( {
+			data: [
+				...( useSitesMock().data ?? [] ),
+				createSite( { id: 'new-site', name: 'New Site', path: '/Users/example/Studio/new-site' } ),
+			],
+			isLoading: false,
+		} );
+		rerender( <SiteList sections /> );
+		expect( screen.getByText( 'New Site' ) ).toBeInTheDocument();
+	} );
+
+	it( 'drags chats into a new order within their site, announcing where one lands', () => {
+		paramsMock = { siteId: 'stopped-site' };
+		pathnameMock = '/sites/stopped-site/new';
+		useSessionsMock.mockReturnValue( {
+			data: createChats( '/Users/example/Studio/stopped-site', 2 ),
+			isLoading: false,
+		} );
+
+		render( <SiteList sections /> );
+
+		const first = document.querySelector( '[data-reorder-id="chat-1"]' )!;
+		const second = document.querySelector( '[data-reorder-id="chat-2"]' )!;
+		vi.spyOn( first, 'getBoundingClientRect' ).mockReturnValue(
+			createRect( { top: 0, left: 0, width: 200, height: 36 } )
+		);
+		vi.spyOn( second, 'getBoundingClientRect' ).mockReturnValue(
+			createRect( { top: 37, left: 0, width: 200, height: 36 } )
+		);
+
+		// A modifier key means the row is being selected, not dragged.
+		fireEvent(
+			first,
+			createPointerEvent( 'pointerdown', { clientX: 10, clientY: 10, metaKey: true } )
+		);
+		fireEvent( window, createPointerEvent( 'pointermove', { clientX: 10, clientY: 80 } ) );
+		expect( screen.queryByTestId( 'drop-placeholder' ) ).not.toBeInTheDocument();
+		fireEvent( window, createPointerEvent( 'pointerup', { clientX: 10, clientY: 80 } ) );
+
+		fireEvent( first, createPointerEvent( 'pointerdown', { clientX: 10, clientY: 10 } ) );
+		fireEvent( window, createPointerEvent( 'pointermove', { clientX: 10, clientY: 80 } ) );
+		expect( screen.getAllByTestId( 'drop-placeholder' ) ).toHaveLength( 1 );
+		fireEvent( window, createPointerEvent( 'pointerup', { clientX: 10, clientY: 80 } ) );
+
+		expect( saveSidebar ).toHaveBeenCalledWith(
+			{ sidebarChatOrder: { 'stopped-site': [ 'chat-2', 'chat-1' ] } },
+			'Couldn’t save the chat order'
+		);
+		expect( screen.getByText( 'Chat 1 moved to position 2 of 2' ) ).toBeInTheDocument();
+		expect( updateSitesSortOrder ).not.toHaveBeenCalled();
+	} );
+
+	it( 'keeps chats in the order they were dragged into, newer ones on top', () => {
+		paramsMock = { siteId: 'stopped-site' };
+		pathnameMock = '/sites/stopped-site/new';
+		sidebarPreferencesMock.showRecentChats = false;
+		sidebarPreferencesMock.chatOrder = { 'stopped-site': [ 'chat-3', 'chat-2' ] };
+		useSessionsMock.mockReturnValue( {
+			data: createChats( '/Users/example/Studio/stopped-site', 3 ),
+			isLoading: false,
+		} );
+
+		render( <SiteList sections /> );
+
+		const chats = screen.getByRole( 'group', { name: 'Stopped Site chats' } );
+		expect(
+			within( chats )
+				.getAllByRole( 'button', { name: /^Chat \d+$/ } )
+				.map( ( button ) => button.textContent )
+		).toEqual( [ 'Chat 1', 'Chat 3', 'Chat 2' ] );
+	} );
+
+	it( 'returns to the chat last open in a site', () => {
+		rememberVisit( 'stopped-site', 'older-chat' );
+		useSessionsMock.mockReturnValue( {
+			data: [
+				createSession( {
+					id: 'older-chat',
+					ownerSitePath: '/Users/example/Studio/stopped-site',
+					updatedAt: '2026-06-01T12:00:00.000Z',
+				} ),
+				createSession( {
+					id: 'latest-chat',
+					ownerSitePath: '/Users/example/Studio/stopped-site',
+					updatedAt: '2026-06-20T12:00:00.000Z',
+				} ),
+			],
+			isLoading: false,
+		} );
+
+		render( <SiteList /> );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Stopped Site' } ) );
+
+		expect( navigateMock ).toHaveBeenCalledWith( {
+			to: '/sessions/$sessionId',
+			params: { sessionId: 'older-chat' },
+		} );
+	} );
+
+	it( 'offers to retry when chats fail to load', () => {
+		const refetch = vi.fn();
+		useSessionsMock.mockReturnValue( {
+			data: undefined,
+			isLoading: false,
+			isError: true,
+			refetch,
+		} );
+
+		render( <SiteList sections /> );
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Retry loading chats' } ) );
+		expect( refetch ).toHaveBeenCalled();
+	} );
+
 	it( 'names the configured editor and terminal in the site actions', async () => {
 		useUserPreferencesMock.mockReturnValue( {
 			data: {
@@ -933,7 +1331,7 @@ async function openIn( siteName: string ) {
 
 function createPointerEvent(
 	type: 'pointerdown' | 'pointermove' | 'pointerup',
-	options: { button?: number; clientX: number; clientY: number }
+	options: { button?: number; clientX: number; clientY: number; metaKey?: boolean }
 ) {
 	const event = new MouseEvent( type, {
 		bubbles: true,
@@ -941,6 +1339,7 @@ function createPointerEvent(
 		button: options.button ?? 0,
 		clientX: options.clientX,
 		clientY: options.clientY,
+		metaKey: options.metaKey,
 	} );
 	Object.defineProperty( event, 'pointerId', { value: 1 } );
 	return event;
@@ -980,6 +1379,18 @@ function createSite( overrides: Partial< SiteDetails > = {} ): SiteDetails {
 		phpVersion: '8.4',
 		...overrides,
 	};
+}
+
+// Chat 1 is the most recent.
+function createChats( ownerSitePath: string, count: number ): AiSessionSummary[] {
+	return Array.from( { length: count }, ( _, index ) =>
+		createSession( {
+			id: `chat-${ index + 1 }`,
+			firstPrompt: `Chat ${ index + 1 }`,
+			ownerSitePath,
+			updatedAt: new Date( Date.UTC( 2026, 5, 20 ) - index * 60_000 ).toISOString(),
+		} )
+	);
 }
 
 function createSession( overrides: Partial< AiSessionSummary > = {} ): AiSessionSummary {

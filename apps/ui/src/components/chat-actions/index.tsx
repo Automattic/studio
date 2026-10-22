@@ -1,3 +1,7 @@
+import {
+	aiSessionBelongsToSite,
+	findAiSessionOwnerSite,
+} from '@studio/common/ai/sessions/owner-site';
 import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { Icon } from '@wordpress/icons';
@@ -16,32 +20,93 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import * as Menu from '@/components/ui/menu';
-import { toast } from '@/data/app-messages';
-import { useSiteAgentActivity } from '@/data/queries/use-agent-run';
-import { useUpdateSessionMetadata } from '@/data/queries/use-sessions';
-import { chatPinKey, useSidebarPins } from '@/data/queries/use-sidebar-pins';
+import { Spinner } from '@/components/ui/spinner';
+import { errorMessage, toast } from '@/data/app-messages';
+import { useSessionsBusy, useSiteAgentActivity } from '@/data/queries/use-agent-run';
+import { useSessions, useUpdateSessionMetadata } from '@/data/queries/use-sessions';
+import {
+	chatPinKey,
+	orderChats,
+	useSidebarPins,
+	useSidebarPreferences,
+} from '@/data/queries/use-sidebar-pins';
+import { useSites } from '@/data/queries/use-sites';
 import { archiveIcon, pinIcon, readStatusIcon, renameIcon, unpinIcon } from '@/lib/icons';
 import styles from './style.module.css';
 import type { AiSessionSummary } from '@/data/core';
 
-export function useChatActions( session: AiSessionSummary, active: boolean ) {
+export const getArchiveBlockedReason = () =>
+	__( 'Wait for active chats and queued prompts to finish.' );
+
+/**
+ * Leaves an open chat that was just archived for the top chat still listed
+ * under its site, then one of the site's pinned chats, or a new chat when none
+ * is left.
+ */
+export function useLeaveArchivedChat() {
 	const navigate = useNavigate();
+	const { data: sites } = useSites();
+	const { data: sessions } = useSessions();
+	const { pins, chatOrder } = useSidebarPreferences();
+	return ( viewing: AiSessionSummary, archivedIds: string[] ) => {
+		const site = findAiSessionOwnerSite( sites, viewing );
+		if ( ! site ) {
+			void navigate( { to: '/' } );
+			return;
+		}
+		const [ next ] = orderChats(
+			( sessions ?? [] ).filter(
+				( session ) =>
+					! session.archived &&
+					! archivedIds.includes( session.id ) &&
+					aiSessionBelongsToSite( session, site )
+			),
+			chatOrder[ site.id ]
+		).sort(
+			( a, b ) =>
+				Number( pins.includes( chatPinKey( a.id ) ) ) -
+				Number( pins.includes( chatPinKey( b.id ) ) )
+		);
+		void navigate(
+			next
+				? { to: '/sessions/$sessionId', params: { sessionId: next.id } }
+				: { to: '/sites/$siteId/new', params: { siteId: site.id } }
+		);
+	};
+}
+
+export function useChatActions( session: AiSessionSummary, active: boolean ) {
 	const working = useSiteAgentActivity( [ session.id ] ) === 'working';
-	const { mutate, mutateAsync } = useUpdateSessionMetadata();
+	const archiveBlocked = useSessionsBusy( [ session.id ] );
+	const { mutateAsync } = useUpdateSessionMetadata();
+	const leaveArchivedChat = useLeaveArchivedChat();
 	const [ renaming, setRenaming ] = useState( false );
 	const { isPinned, togglePin } = useSidebarPins();
 
+	const update = ( patch: { archived?: boolean; unread?: boolean }, failure: string ) =>
+		mutateAsync( { sessionId: session.id, patch } ).then(
+			() => true,
+			( error ) => {
+				toast.error( failure, { description: errorMessage( error ) } );
+				return false;
+			}
+		);
+
 	const archive = async () => {
-		await mutateAsync( { sessionId: session.id, patch: { archived: true } } );
+		if (
+			archiveBlocked ||
+			! ( await update( { archived: true }, __( 'Couldn’t archive the chat' ) ) )
+		) {
+			return;
+		}
 		toast.success( __( 'Chat archived' ), {
 			action: {
 				label: __( 'Undo' ),
-				onClick: () => mutate( { sessionId: session.id, patch: { archived: false } } ),
+				onClick: () => mutateAsync( { sessionId: session.id, patch: { archived: false } } ),
 			},
 		} );
-		// Leaving the archived chat lands on the site's next chat, or a new one.
 		if ( active ) {
-			void navigate( { to: '/' } );
+			leaveArchivedChat( session, [ session.id ] );
 		}
 	};
 
@@ -56,7 +121,7 @@ export function useChatActions( session: AiSessionSummary, active: boolean ) {
 		} else if ( isKeyboardEvent.primaryAlt( event, 'p' ) ) {
 			event.preventDefault();
 			togglePin( chatPinKey( session.id ) );
-		} else if ( isKeyboardEvent.primaryShift( event, 'a' ) && ! working ) {
+		} else if ( isKeyboardEvent.primaryShift( event, 'a' ) && ! archiveBlocked ) {
 			event.preventDefault();
 			void archive();
 		}
@@ -65,12 +130,13 @@ export function useChatActions( session: AiSessionSummary, active: boolean ) {
 	return {
 		session,
 		working,
+		archiveBlocked,
 		archive,
 		handleShortcut,
 		pinned: isPinned( chatPinKey( session.id ) ),
 		togglePin: () => togglePin( chatPinKey( session.id ) ),
 		rename: () => setRenaming( true ),
-		toggleRead: () => mutate( { sessionId: session.id, patch: { unread: ! session.unread } } ),
+		toggleRead: () => void update( { unread: ! session.unread }, __( 'Couldn’t update the chat' ) ),
 		renameDialog: (
 			<RenameChatDialog
 				session={ session }
@@ -101,11 +167,16 @@ export function ChatActionsMenuItems( { actions }: { actions: ChatActions } ) {
 				{ actions.session.unread ? __( 'Mark as read' ) : __( 'Mark as unread' ) }
 			</Menu.Item>
 			<Menu.Separator />
-			<Menu.Item disabled={ actions.working } onClick={ () => void actions.archive() }>
-				<Icon icon={ archiveIcon } />
-				{ __( 'Archive' ) }
-				<Menu.Shortcut>{ displayShortcut.primaryShift( 'a' ) }</Menu.Shortcut>
-			</Menu.Item>
+			<Menu.Group>
+				{ actions.archiveBlocked ? (
+					<Menu.GroupLabel>{ getArchiveBlockedReason() }</Menu.GroupLabel>
+				) : null }
+				<Menu.Item disabled={ actions.archiveBlocked } onClick={ () => void actions.archive() }>
+					<Icon icon={ archiveIcon } />
+					{ __( 'Archive' ) }
+					<Menu.Shortcut>{ displayShortcut.primaryShift( 'a' ) }</Menu.Shortcut>
+				</Menu.Item>
+			</Menu.Group>
 		</>
 	);
 }
@@ -127,7 +198,8 @@ export function OpenChatShortcuts( { session }: { session: AiSessionSummary } ) 
 }
 
 // Stays mounted so it animates open and closed like the other dialogs; the
-// form remounts on each open, starting from the current title.
+// form remounts on each open, starting from the current title. It stays open
+// while the new name saves, and on a failure.
 function RenameChatDialog( {
 	session,
 	open,
@@ -137,10 +209,22 @@ function RenameChatDialog( {
 	open: boolean;
 	onClose: () => void;
 } ) {
+	const updateSessionMetadata = useUpdateSessionMetadata();
+	const saving = updateSessionMetadata.isPending;
+	const save = ( title: string ) =>
+		// An empty name falls back to the chat's first prompt.
+		updateSessionMetadata.mutate(
+			{ sessionId: session.id, patch: { title: title.trim() } },
+			{
+				onSuccess: onClose,
+				onError: ( error ) =>
+					toast.error( __( 'Couldn’t rename the chat' ), { description: errorMessage( error ) } ),
+			}
+		);
 	return (
-		<Dialog open={ open } onOpenChange={ ( next ) => ! next && onClose() }>
+		<Dialog open={ open } onOpenChange={ ( next ) => ! next && ! saving && onClose() }>
 			<DialogContent>
-				<RenameChatForm session={ session } onClose={ onClose } />
+				<RenameChatForm session={ session } saving={ saving } onSave={ save } />
 			</DialogContent>
 		</Dialog>
 	);
@@ -148,12 +232,13 @@ function RenameChatDialog( {
 
 function RenameChatForm( {
 	session,
-	onClose,
+	saving,
+	onSave,
 }: {
 	session: AiSessionSummary;
-	onClose: () => void;
+	saving: boolean;
+	onSave: ( title: string ) => void;
 } ) {
-	const updateSessionMetadata = useUpdateSessionMetadata();
 	const [ title, setTitle ] = useState( () => getSessionTitle( session ) );
 
 	return (
@@ -161,12 +246,7 @@ function RenameChatForm( {
 			className={ styles.form }
 			onSubmit={ ( event ) => {
 				event.preventDefault();
-				// An empty name falls back to the chat's first prompt.
-				updateSessionMetadata.mutate( {
-					sessionId: session.id,
-					patch: { title: title.trim() },
-				} );
-				onClose();
+				onSave( title );
 			} }
 		>
 			<DialogHeader>
@@ -176,13 +256,19 @@ function RenameChatForm( {
 			<Input
 				aria-label={ __( 'Chat title' ) }
 				value={ title }
+				disabled={ saving }
 				onChange={ ( event ) => setTitle( event.target.value ) }
 				onFocus={ ( event ) => event.target.select() }
 				autoFocus
 			/>
 			<DialogFooter>
-				<DialogClose render={ <Button variant="outline" /> }>{ __( 'Cancel' ) }</DialogClose>
-				<Button type="submit">{ __( 'Save' ) }</Button>
+				<DialogClose render={ <Button variant="outline" /> } disabled={ saving }>
+					{ __( 'Cancel' ) }
+				</DialogClose>
+				<Button type="submit" disabled={ saving }>
+					{ saving ? <Spinner aria-hidden="true" /> : null }
+					{ __( 'Save' ) }
+				</Button>
 			</DialogFooter>
 		</form>
 	);

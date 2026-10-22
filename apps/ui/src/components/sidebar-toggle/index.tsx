@@ -23,6 +23,7 @@ export function SidebarToggle() {
 			variant="ghost"
 			size="icon"
 			aria-label={ collapsed ? __( 'Show sidebar' ) : __( 'Hide sidebar' ) }
+			data-sidebar-toggle
 			onClick={ toggleSidebar }
 		>
 			<Icon icon={ collapsed ? sidebarCollapsedIcon : sidebarExpandedIcon } />

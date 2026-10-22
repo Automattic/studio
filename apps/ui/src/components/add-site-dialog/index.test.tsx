@@ -125,7 +125,7 @@ describe( 'AddSiteDialog', () => {
 		mocks.search = { addSite: 'connect', pin: true };
 		const { unmount } = render( <AddSiteDialog /> );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Finish' } ) );
-		expect( mocks.setPins ).toHaveBeenCalledWith( [ 'site:new', 'site:old' ] );
+		expect( mocks.setPins ).toHaveBeenCalledWith( [ 'site:old', 'site:new' ] );
 		unmount();
 
 		mocks.setPins.mockClear();

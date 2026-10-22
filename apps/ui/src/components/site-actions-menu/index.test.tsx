@@ -3,14 +3,17 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { SiteActionsMenu } from './index';
 import type { SiteDetails } from '@/data/core';
 
-const { navigate, openSettings, preview, startSite, stopSite, sites } = vi.hoisted( () => ( {
-	navigate: vi.fn(),
-	openSettings: vi.fn(),
-	preview: { siteId: 'other', setSite: vi.fn(), updatePath: vi.fn(), setOpen: vi.fn() },
-	startSite: { mutate: vi.fn(), mutateAsync: vi.fn() },
-	stopSite: { mutate: vi.fn(), mutateAsync: vi.fn() },
-	sites: [] as SiteDetails[],
-} ) );
+const { navigate, openSettings, preview, startSite, stopSite, sites, agents } = vi.hoisted(
+	() => ( {
+		navigate: vi.fn(),
+		openSettings: vi.fn(),
+		preview: { siteId: 'other', setSite: vi.fn(), updatePath: vi.fn(), setOpen: vi.fn() },
+		startSite: { mutate: vi.fn(), mutateAsync: vi.fn() },
+		stopSite: { mutate: vi.fn(), mutateAsync: vi.fn() },
+		sites: [] as SiteDetails[],
+		agents: { busy: [] as string[] },
+	} )
+);
 
 vi.mock( '@tanstack/react-router', () => ( { useNavigate: () => navigate } ) );
 vi.mock( '@/data/core', () => ( { useConnector: () => ( { trackEvent: vi.fn() } ) } ) );
@@ -40,6 +43,14 @@ vi.mock( '@/data/queries/use-sidebar-pins', () => ( {
 	sitePinKey: ( id: string ) => `site:${ id }`,
 	useSidebarPins: () => ( { isPinned: () => false, togglePin: vi.fn() } ),
 } ) );
+vi.mock( '@/data/queries/use-sessions', () => ( {
+	useSessions: () => ( {
+		data: [ { id: 'blog-chat', ownerSiteId: 'blog', ownerSitePath: '/sites/blog' } ],
+	} ),
+} ) );
+vi.mock( '@/data/queries/use-agent-run', () => ( {
+	useSessionsBusy: ( ids: string[] ) => ids.some( ( id ) => agents.busy.includes( id ) ),
+} ) );
 vi.mock( '@/data/queries/use-sites', () => ( {
 	useIsSiteBusy: () => false,
 	useSites: () => ( { data: sites } ),
@@ -61,6 +72,18 @@ async function choose( site: SiteDetails, submenu: string, item: string ) {
 describe( 'SiteActionsMenu', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
+		agents.busy = [];
+	} );
+
+	it( 'holds off Delete, saying why, while one of the site’s chats is running', async () => {
+		agents.busy = [ 'blog-chat' ];
+		render( <SiteActionsMenu site={ createSite( 'blog', false ) } /> );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Site actions for blog' } ) );
+
+		expect( await screen.findByText( 'Delete site' ) ).toHaveAttribute( 'aria-disabled', 'true' );
+		expect(
+			screen.getByText( 'Wait for active chats and queued prompts to finish.' )
+		).toBeInTheDocument();
 	} );
 
 	it( 'starts a stopped site before showing WP Admin in its preview', async () => {

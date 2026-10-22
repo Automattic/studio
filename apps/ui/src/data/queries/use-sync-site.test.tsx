@@ -203,7 +203,7 @@ describe( 'usePullSiteFromLive', () => {
 					: undefined,
 			} );
 			expect( console.error ).toHaveBeenCalledWith( 'Sync activity failed:', direction, rawError );
-			vi.mocked( toast.error ).mock.calls[ 0 ][ 1 ]?.action?.onClick();
+			void vi.mocked( toast.error ).mock.calls[ 0 ][ 1 ]?.action?.onClick();
 			expect( openStudioLogs ).toHaveBeenCalledTimes( studioLogs ? 1 : 0 );
 		}
 	);

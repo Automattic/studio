@@ -20,4 +20,6 @@ export const INTERFACE_PREFERENCE_DEFAULTS = {
 	quitSitesBehavior: null,
 	autoStartSiteOnChat: false,
 	confirmDeleteAnnotations: true,
+	showRecentChats: true,
+	autoCollapseSites: true,
 } as const;

@@ -6,6 +6,7 @@ import { SUPPORTED_TERMINALS, terminalConfig } from '@studio/common/lib/user-set
 import { __, sprintf } from '@wordpress/i18n';
 import { useCallback, useEffect, useState } from 'react';
 import { LearnMoreLink } from '@/components/learn-more';
+import { SidebarSettings } from '@/components/site-list/sidebar-settings';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useConnector } from '@/data/core';
@@ -250,6 +251,7 @@ function PreferencesPanel( {
 						onChange={ ( autoStartSiteOnChat ) => onChange( { autoStartSiteOnChat } ) }
 					/>
 				</SettingsRow>
+				<SidebarSettings />
 				<SettingsRow
 					title={ __( 'Confirm before deleting annotations' ) }
 					description={ __( 'Ask before deleting pending notes and attached images.' ) }

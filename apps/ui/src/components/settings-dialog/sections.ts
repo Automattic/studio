@@ -96,6 +96,16 @@ function getStudioSections( signedIn: boolean ): Section[] {
 					'auto-start-site'
 				),
 				setting(
+					__( 'Show recent chats' ),
+					__( 'Show recent chats in the sidebar.' ),
+					'show-recent-chats'
+				),
+				setting(
+					__( 'Collapse sidebar groups' ),
+					__( 'Opening each site closes all others.' ),
+					'collapse-sidebar-groups'
+				),
+				setting(
 					__( 'Confirm before deleting annotations' ),
 					__( 'Ask before deleting pending notes and attached images.' ),
 					'confirm-delete-annotations'

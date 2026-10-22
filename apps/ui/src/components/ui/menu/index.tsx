@@ -31,6 +31,7 @@ type PopupProps = {
 	sideOffset?: number;
 	alignOffset?: number;
 	className?: string;
+	finalFocus?: ComponentPropsWithoutRef< typeof BaseMenu.Popup >[ 'finalFocus' ];
 	onClick?: MouseEventHandler< HTMLElement >;
 	onKeyDown?: KeyboardEventHandler< HTMLElement >;
 	onPointerDown?: PointerEventHandler< HTMLElement >;
@@ -46,6 +47,7 @@ export function Popup( {
 	sideOffset = 4,
 	alignOffset,
 	className,
+	finalFocus,
 	onClick,
 	onKeyDown,
 	onPointerDown,
@@ -63,6 +65,7 @@ export function Popup( {
 					render={
 						<FloatingSurface className={ clsx( surface.padded, styles.popup, className ) } />
 					}
+					finalFocus={ finalFocus }
 					onClick={ onClick }
 					onKeyDown={ onKeyDown }
 					onPointerDown={ onPointerDown }

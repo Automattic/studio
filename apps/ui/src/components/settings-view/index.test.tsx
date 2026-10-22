@@ -10,6 +10,8 @@ import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-u
 import { SIDEBAR_PANEL_STORAGE_KEY } from '@/lib/resizable-panels';
 import { AppearanceSettings, GeneralSettings } from './index';
 
+vi.mock( '@/components/site-list/sidebar-settings', () => ( { SidebarSettings: () => null } ) );
+
 vi.mock( '@/components/gravatar', () => ( {
 	Gravatar: () => <span data-testid="gravatar" />,
 } ) );
@@ -173,6 +175,8 @@ describe( 'Studio settings', () => {
 				quitSitesBehavior: null,
 				autoStartSiteOnChat: false,
 				confirmDeleteAnnotations: true,
+				showRecentChats: true,
+				autoCollapseSites: true,
 			},
 			expect.any( Object )
 		);

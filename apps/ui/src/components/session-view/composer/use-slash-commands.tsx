@@ -1,4 +1,4 @@
-import { getSlashCommandMatches } from '@studio/common/ai/slash-commands';
+import { getSlashCommandMatches, type SkillSlashCommand } from '@studio/common/ai/slash-commands';
 import { __ } from '@wordpress/i18n';
 import { useCallback, useEffect, useId, useMemo, useState } from 'react';
 import menuStyles from '@/components/ui/menu/style.module.css';
@@ -54,6 +54,9 @@ interface UseSlashCommandsParams {
 	value: string;
 	setValue: Dispatch< SetStateAction< string > >;
 	textareaRef: RefObject< HTMLTextAreaElement | null >;
+	/** Composer actions offered before the skills; picking one runs `onCommand`. */
+	commands: SkillSlashCommand[];
+	onCommand: ( name: string ) => void;
 }
 
 interface SlashCommands {
@@ -81,10 +84,12 @@ export function useSlashCommands( {
 	value,
 	setValue,
 	textareaRef,
+	commands,
+	onCommand,
 }: UseSlashCommandsParams ): SlashCommands {
 	const { open: slashOpen, matches: slashMatches } = useMemo(
-		() => getSlashCommandMatches( value, null ),
-		[ value ]
+		() => getSlashCommandMatches( value, null, commands ),
+		[ value, commands ]
 	);
 	const [ highlightedIndex, setHighlightedIndex ] = useState( 0 );
 
@@ -113,10 +118,15 @@ export function useSlashCommands( {
 
 	const insertSlashCommand = useCallback(
 		( name: string ) => {
+			if ( commands.some( ( command ) => command.name === name ) ) {
+				setValue( ( prev ) => prev.replace( TRAILING_SLASH_TOKEN, '$1' ) );
+				onCommand( name );
+				return;
+			}
 			setValue( ( prev ) => prev.replace( TRAILING_SLASH_TOKEN, `$1/${ name } ` ) );
 			textareaRef.current?.focus();
 		},
-		[ setValue, textareaRef ]
+		[ commands, onCommand, setValue, textareaRef ]
 	);
 
 	const handleKeyDown = useCallback(

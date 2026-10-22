@@ -106,10 +106,9 @@ const MODEL_UNAVAILABLE_PATTERN =
 const AUTH_PATTERN =
 	/\b(?:401|403)\b|unauthori[sz]ed|forbidden|authentication|invalid[ _-](?:x-)?api[ _-]key|api[ _-]key|credentials?\b|not logged in|logged out/i;
 const RATE_LIMIT_PATTERN = /\b429\b|rate[ _-]?limit|too many requests/i;
+const NETWORK_CODES = [ ...NETWORK_ERROR_CODES ].join( '|' );
 const NETWORK_PATTERN = new RegExp(
-	`\\b(?:${ [ ...NETWORK_ERROR_CODES ].join(
-		'|'
-	) })\\b|fetch failed|network|socket hang up|timed? ?out|connection (?:error|refused|reset|closed)`,
+	`\\b(?:${ NETWORK_CODES })\\b|fetch failed|network|socket hang up|timed? ?out|connection (?:error|refused|reset|closed)`,
 	'i'
 );
 

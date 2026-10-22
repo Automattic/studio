@@ -1,4 +1,9 @@
 import {
+	deriveEffectiveEnvironment,
+	pickLiveSite,
+} from '@studio/common/ai/sessions/effective-site';
+import { findAiSessionOwnerSite } from '@studio/common/ai/sessions/owner-site';
+import {
 	deleteAiSessionPlacement,
 	hydrateAiSessionSummaryWithPlacement,
 	readAiSessionPlacement,
@@ -7,23 +12,31 @@ import {
 	type AiSessionSitePlacement,
 } from '@studio/common/ai/sessions/placement';
 import {
+	appendStudioEntry,
 	createAiSession,
 	deleteAiSession,
 	listAiSessions,
 	loadAiSession,
 } from '@studio/common/ai/sessions/store';
+import { getConnectedWpcomSitesForLocalSite } from '@studio/common/lib/connected-sites';
 import { arePathsEqual } from '@studio/common/lib/fs-utils';
 import {
 	deleteSharedSession,
 	readSharedSession,
 	readSharedSessions,
+	updateSharedSession,
 } from '@studio/common/lib/shared-config';
-import type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessions/types';
+import { readSites } from '@studio/common/sites/site-path';
+import type {
+	AiSessionMetadata,
+	AiSessionSummary,
+	LoadedAiSession,
+} from '@studio/common/ai/sessions/types';
 
 /**
  * Session listing + creation, hydrated with the metadata that lives outside the
- * session JSONL: the archived flag (shared config) and site placement
- * (app.json).
+ * session JSONL: the archived, title and unread fields (shared config) and site
+ * placement (app.json).
  */
 
 // A local site a session can be bound to.
@@ -35,13 +48,36 @@ export interface SessionSite {
 
 export function hydrateAiSessionSummary(
 	summary: AiSessionSummary,
-	metadata?: Pick< AiSessionSummary, 'archived' >,
+	metadata?: AiSessionMetadata,
 	placement?: AiSessionSitePlacement
 ): AiSessionSummary {
 	return hydrateAiSessionSummaryWithPlacement(
-		{ ...summary, archived: metadata?.archived },
+		{
+			...summary,
+			archived: metadata?.archived,
+			title: metadata?.title,
+			unread: metadata?.unread,
+		},
 		placement
 	);
+}
+
+// Archives, renames, or marks a session read/unread, keeping only the known
+// fields so a host can pass a request body straight through.
+export async function updateHydratedAiSessionMetadata(
+	rootDirectory: string,
+	sessionIdOrPrefix: string,
+	{ archived, title, unread }: AiSessionMetadata
+): Promise< AiSessionSummary > {
+	const { summary } = await loadAiSession( rootDirectory, sessionIdOrPrefix );
+	const patch = Object.fromEntries(
+		Object.entries( { archived, title, unread } ).filter( ( [ , value ] ) => value !== undefined )
+	);
+	const [ metadata, placement ] = await Promise.all( [
+		updateSharedSession( summary.id, patch ),
+		readAiSessionPlacement( summary.id ),
+	] );
+	return hydrateAiSessionSummary( summary, metadata, placement );
 }
 
 export async function listHydratedAiSessions(
@@ -127,4 +163,73 @@ export async function createHydratedAiSession(
 		sitePath: site.path,
 	} );
 	return hydrateAiSessionSummary( created, undefined, placement );
+}
+
+/**
+ * A session left on 'live' after its remote site was disconnected falls back to
+ * its local owner site. The UI already derives that at render time; this records
+ * it in the session so the CLI's next turn (prompt and tools) agrees.
+ */
+export async function reconcileSessionEnvironment(
+	root: string,
+	sessionId: string
+): Promise< void > {
+	const { summary } = await loadHydratedAiSession( root, sessionId );
+	if ( summary.activeEnvironment !== 'live' ) {
+		return;
+	}
+	const ownerSite = findAiSessionOwnerSite( await readSites(), summary );
+	if ( ! ownerSite ) {
+		return;
+	}
+	const connectedIds = new Set(
+		( await getConnectedWpcomSitesForLocalSite( ownerSite.id ) ).map( ( site ) => site.id )
+	);
+	if (
+		deriveEffectiveEnvironment( summary, ( blogId ) => connectedIds.has( blogId ) ) === 'live'
+	) {
+		return;
+	}
+	await appendStudioEntry( root, sessionId, 'studio.site_selected', {
+		siteName: ownerSite.name,
+		sitePath: ownerSite.path,
+		siteId: ownerSite.id,
+	} );
+}
+
+/**
+ * Points the chat's next turn at its owner site, locally or on its connected
+ * WordPress.com site. Recorded as the same `studio.site_selected` entry the
+ * agent writes, so the CLI resumes on it.
+ */
+export async function setSessionEnvironment(
+	root: string,
+	sessionId: string,
+	environment: 'local' | 'live'
+): Promise< void > {
+	const { summary } = await loadHydratedAiSession( root, sessionId );
+	const ownerSite = findAiSessionOwnerSite( await readSites(), summary );
+	if ( ! ownerSite ) {
+		throw new Error( 'This chat is not attached to a site.' );
+	}
+	if ( environment === 'local' ) {
+		await appendStudioEntry( root, sessionId, 'studio.site_selected', {
+			siteName: ownerSite.name,
+			sitePath: ownerSite.path,
+			siteId: ownerSite.id,
+		} );
+		return;
+	}
+	const liveSite = pickLiveSite( await getConnectedWpcomSitesForLocalSite( ownerSite.id ) );
+	if ( ! liveSite ) {
+		throw new Error( 'This site is not connected to a WordPress.com site.' );
+	}
+	await appendStudioEntry( root, sessionId, 'studio.site_selected', {
+		siteName: ownerSite.name,
+		sitePath: ownerSite.path,
+		siteId: ownerSite.id,
+		remote: true,
+		url: liveSite.url,
+		wpcomSiteId: liveSite.id,
+	} );
 }

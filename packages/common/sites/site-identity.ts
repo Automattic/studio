@@ -29,7 +29,14 @@ function runStudioWpCommand(
 		const [ emitter ] = execute( [ 'wp', '--path', sitePath, 'studio', command ], {
 			output: 'capture',
 		} );
-		emitter.on( 'success', ( { result } ) => resolve( parseJsonFromPhpOutput( result.stdout ) ) );
+		// A throw in this listener would escape the promise and crash the host process.
+		emitter.on( 'success', ( { result } ) => {
+			try {
+				resolve( parseJsonFromPhpOutput( result.stdout ) );
+			} catch ( error ) {
+				reject( error );
+			}
+		} );
 		emitter.on( 'failure', ( { error } ) => reject( error ) );
 		emitter.on( 'error', ( { error } ) => reject( error ) );
 	} );

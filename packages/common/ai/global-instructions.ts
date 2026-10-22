@@ -1,20 +1,29 @@
 import fs from 'fs';
 import path from 'path';
 import { isErrnoException } from '../lib/is-errno-exception';
+import { readSharedConfig, updateSharedConfig } from '../lib/shared-config';
 import { getGlobalInstructionsPath } from '../lib/well-known-paths';
 
-// Keep the always-injected instructions small enough that they can't crowd out
-// the rest of the system prompt. The prompt builder truncates anything longer;
-// the settings UIs cap their textareas at the same length.
-export const GLOBAL_INSTRUCTIONS_MAX_LENGTH = 16_000;
+export { GLOBAL_INSTRUCTIONS_MAX_LENGTH } from './global-instructions-length';
+
+export async function getGlobalInstructionsEnabled(): Promise< boolean > {
+	return ( await readSharedConfig() ).globalInstructionsEnabled !== false;
+}
+
+export async function setGlobalInstructionsEnabled( enabled: boolean ): Promise< void > {
+	await updateSharedConfig( { globalInstructionsEnabled: enabled } );
+}
 
 /**
  * Read the user's global agent instructions (`~/.studio/knowledge/instructions.md`)
- * for injection into the system prompt. Returns `undefined` when the file is
- * missing, empty, or unreadable — the agent must keep working without
- * instructions.
+ * for injection into the system prompt. Returns `undefined` when they're
+ * switched off, or the file is missing, empty, or unreadable — the agent must
+ * keep working without instructions.
  */
 export async function readGlobalInstructions(): Promise< string | undefined > {
+	if ( ! ( await getGlobalInstructionsEnabled() ) ) {
+		return undefined;
+	}
 	let content: string;
 	try {
 		content = await fs.promises.readFile( getGlobalInstructionsPath(), 'utf8' );

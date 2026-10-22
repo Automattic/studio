@@ -34,11 +34,11 @@ describe( 'portFinder STUDIO_BASE_PORT', () => {
 	} );
 } );
 
-function listenOnLocalhost( port: number ): Promise< net.Server > {
+function listen( port: number, host: string ): Promise< net.Server > {
 	return new Promise( ( resolve, reject ) => {
 		const server = net.createServer();
 		server.once( 'error', reject );
-		server.listen( port, 'localhost', () => resolve( server ) );
+		server.listen( port, host, () => resolve( server ) );
 	} );
 }
 
@@ -55,20 +55,23 @@ describe( 'portFinder availability detection', () => {
 		vi.resetModules();
 	} );
 
-	it( 'skips an occupied port and returns one that is actually bindable', async () => {
-		// Occupy an OS-assigned free port so the test never collides with a port
-		// already in use on the machine.
-		const occupiedServer = await listenOnLocalhost( 0 );
-		openServers.push( occupiedServer );
-		const occupied = ( occupiedServer.address() as net.AddressInfo ).port;
+	it.each( [ 'localhost', '127.0.0.1', '0.0.0.0', '::' ] )(
+		'skips a port another app holds on %s and returns one that is actually bindable',
+		async ( host ) => {
+			// Occupy an OS-assigned free port so the test never collides with a port
+			// already in use on the machine.
+			const occupiedServer = await listen( 0, host );
+			openServers.push( occupiedServer );
+			const occupied = ( occupiedServer.address() as net.AddressInfo ).port;
 
-		process.env.STUDIO_BASE_PORT = String( occupied );
-		vi.resetModules();
-		const { portFinder } = await import( '../port-finder' );
+			process.env.STUDIO_BASE_PORT = String( occupied );
+			vi.resetModules();
+			const { portFinder } = await import( '../port-finder' );
 
-		const port = await portFinder.getOpenPort();
-		expect( port ).toBeGreaterThan( occupied );
-		// Binding throws if getOpenPort handed back an occupied port.
-		openServers.push( await listenOnLocalhost( port ) );
-	} );
+			const port = await portFinder.getOpenPort();
+			expect( port ).toBeGreaterThan( occupied );
+			// Binding throws if getOpenPort handed back an occupied port.
+			openServers.push( await listen( port, 'localhost' ) );
+		}
+	);
 } );

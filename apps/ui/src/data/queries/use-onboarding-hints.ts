@@ -3,9 +3,9 @@ import { useConnector } from '@/data/core';
 import type { OnboardingHintsState } from '@/data/core';
 
 // Persisted first-run onboarding state (orientation tour + getting-started
-// checklist). Backed by the connector: desktop → app.json, hosted/web →
-// localStorage. Read once and kept forever — writes are rare and go through the
-// optimistic mutation below.
+// checklist), kept in app.json by both the desktop and `studio ui`. Read once
+// and kept forever — writes are rare and go through the optimistic mutation
+// below.
 
 const ONBOARDING_HINTS_QUERY_KEY = [ 'onboarding-hints' ] as const;
 

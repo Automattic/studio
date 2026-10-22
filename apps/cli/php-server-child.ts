@@ -17,6 +17,7 @@ import {
 	getSiteFileAccess,
 	SITE_FILE_ACCESS_SITE_DIRECTORY,
 } from '@studio/common/lib/site-file-access';
+import { getMuPluginsPath } from '@studio/common/lib/well-known-paths';
 import { z } from 'zod';
 import {
 	managerMessageSchema,
@@ -146,18 +147,11 @@ function errorToConsole( ...args: Parameters< typeof console.error > ) {
 	console.error( `[PHP Server]`, ...args );
 }
 
-function shouldUsePrimaryWorker( req: http.IncomingMessage ): boolean {
-	const method = req.method?.toUpperCase() ?? 'GET';
-	if ( ! [ 'GET', 'HEAD', 'OPTIONS' ].includes( method ) ) {
-		return true;
-	}
-
-	const requestUrl = req.url ?? '/';
-	if ( requestUrl.startsWith( '/phpmyadmin' ) ) {
-		return true;
-	}
-
-	return false;
+// phpMyAdmin pins to worker 0 because its file-based session store belongs to a
+// single worker. WordPress keeps its state in the database, so every other
+// request, POSTs included, balances across the pool.
+export function shouldUsePrimaryWorker( req: http.IncomingMessage ): boolean {
+	return ( req.url ?? '/' ).startsWith( '/phpmyadmin' );
 }
 
 function pickPhpWorker( req: http.IncomingMessage ): { index: number; port: number } {
@@ -485,7 +479,7 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 			stopSignal.throwIfAborted();
 		}
 
-		const muPluginsPath = await writeStudioMuPlugins( config.sitePath, config.isWpAutoUpdating );
+		await writeStudioMuPlugins( config.sitePath, config.isWpAutoUpdating );
 		stopSignal.throwIfAborted();
 
 		if ( ! isImportedSite ) {
@@ -512,7 +506,10 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 			staticOpenBasedirAllowlist.add( getPhpMyAdminPath() );
 			staticOpenBasedirAllowlist.add( getNativePhpMyAdminWpEnvPath( config ) );
 			staticOpenBasedirAllowlist.add( getPhpMyAdminSessionPath( config ) );
-			staticOpenBasedirAllowlist.add( muPluginsPath );
+			// The whole root, not this start's hashed folder: a WP-CLI run from another
+			// Studio version or with other settings can repoint the loader while the
+			// server runs.
+			staticOpenBasedirAllowlist.add( getMuPluginsPath() );
 			staticOpenBasedirAllowlist.add( os.tmpdir() );
 			if ( config.autoPrependFile ) {
 				staticOpenBasedirAllowlist.add( path.dirname( config.autoPrependFile ) );

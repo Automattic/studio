@@ -9,7 +9,9 @@ import {
 	validateStudioChatImages,
 } from '@studio/common/ai/chat-images';
 import {
+	getGlobalInstructionsEnabled,
 	readGlobalInstructionsFile,
+	setGlobalInstructionsEnabled,
 	writeGlobalInstructions,
 } from '@studio/common/ai/global-instructions';
 import { isAiModelId } from '@studio/common/ai/models';
@@ -17,19 +19,17 @@ import { isAiProviderId, providerServesModel } from '@studio/common/ai/providers
 import { createAgentRunManager } from '@studio/common/ai/run-manager';
 import {
 	createHydratedAiSession,
-	hydrateAiSessionSummary,
 	listHydratedAiSessions,
 	loadHydratedAiSession,
+	reconcileSessionEnvironment,
+	setSessionEnvironment,
+	updateHydratedAiSessionMetadata,
 } from '@studio/common/ai/sessions/manage';
-import {
-	deleteAiSessionPlacement,
-	readAiSessionPlacement,
-} from '@studio/common/ai/sessions/placement';
+import { deleteAiSessionPlacement } from '@studio/common/ai/sessions/placement';
 import {
 	appendModelChangeEntry,
 	appendStudioEntry,
 	deleteAiSession,
-	loadAiSession,
 } from '@studio/common/ai/sessions/store';
 import {
 	InvalidAnthropicApiKeyError,
@@ -41,6 +41,15 @@ import { expandSkillCommandPrompt } from '@studio/common/ai/slash-commands';
 import { getAiTracksIdentity } from '@studio/common/ai/tracks-identity';
 import { validateStudioVisualAnnotations } from '@studio/common/ai/visual-annotations';
 import { DEBUG_LOG_RELATIVE_PATH, DEFAULT_TOKEN_LIFETIME_MS } from '@studio/common/constants';
+import {
+	getSiteAgentFiles,
+	getSkillsStatusForAllSites,
+	installSkillToAllSites,
+	removeSiteAgentFile,
+	removeSkillFromAllSites,
+	setSiteAgentFileEnabled,
+	type SiteAgentFileKind,
+} from '@studio/common/lib/agent-skills';
 import { downloadAndExtractBlueprintBundle } from '@studio/common/lib/blueprint-bundle';
 import {
 	cliAuthEventSchema,
@@ -87,8 +96,12 @@ import {
 	deleteSharedSession,
 	readAuthToken,
 	updateSharedConfig,
-	updateSharedSession,
 } from '@studio/common/lib/shared-config';
+import {
+	isSitePreviewPath,
+	readSitePreview,
+	writeSitePreview,
+} from '@studio/common/lib/site-preview-cache';
 import { fetchSnapshotUsage } from '@studio/common/lib/snapshots';
 import { fetchStudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 import { fetchStudioAssistantTopUpPricing } from '@studio/common/lib/studio-assistant-top-up-pricing';
@@ -119,7 +132,7 @@ import { deleteSite, startSite, stopSite } from '@studio/common/sites/lifecycle'
 import { listSites } from '@studio/common/sites/list';
 import { listSitesWithMetadata, updateSiteMetadata } from '@studio/common/sites/metadata';
 import { designFixesSchema, fixSiteDesign, readSiteDesign } from '@studio/common/sites/site-design';
-import { readSiteIcon, readThemeDetails } from '@studio/common/sites/site-identity';
+import { readSiteIcon } from '@studio/common/sites/site-identity';
 import { readSitePath, readSitePaths } from '@studio/common/sites/site-path';
 import {
 	deleteAllPreviewSites,
@@ -128,7 +141,6 @@ import {
 	publishPreviewSite,
 	renamePreviewSite,
 } from '@studio/common/sites/snapshots';
-import { measureSiteStorage } from '@studio/common/sites/storage-usage';
 import { createSyncRunner } from '@studio/common/sites/sync';
 import express from 'express';
 import { rateLimit } from 'express-rate-limit';
@@ -137,6 +149,7 @@ import { isEditor, isTerminal, openInEditor, openInTerminal, openPath } from './
 import type { StudioChatFileAttachment } from '@studio/common/ai/chat-files';
 import type { StudioChatImage } from '@studio/common/ai/chat-images';
 import type { AiSettings } from '@studio/common/ai/providers';
+import type { AiSessionMetadata } from '@studio/common/ai/sessions/types';
 import type { StudioVisualAnnotationSummary } from '@studio/common/ai/visual-annotations';
 import type { SiteListItem } from '@studio/common/lib/cli-events';
 import type {
@@ -184,6 +197,8 @@ export interface LocalServerOptions {
 	// Injected by `studio ui` rather than imported, so this package doesn't depend
 	// on the CLI.
 	recordTracksEvent?: ( event: TracksEventName, props?: TracksProps ) => Promise< void >;
+	// Screenshots a page of a running site; absent when no browser is available.
+	capturePreview?: ( url: string, size: { width: number; height: number } ) => Promise< Buffer >;
 }
 
 export interface LocalServer {
@@ -616,6 +631,25 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} )
 	);
 
+	api.get(
+		'/agent-instructions/enabled',
+		asyncHandler( async ( _req: Request, res: Response ) => {
+			res.json( { enabled: await getGlobalInstructionsEnabled() } );
+		} )
+	);
+
+	api.put(
+		'/agent-instructions/enabled',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			if ( typeof req.body?.enabled !== 'boolean' ) {
+				res.status( 400 ).json( { error: 'enabled required' } );
+				return;
+			}
+			await setGlobalInstructionsEnabled( req.body.enabled );
+			res.sendStatus( 204 );
+		} )
+	);
+
 	api.post(
 		'/agent-instructions',
 		asyncHandler( async ( req: Request, res: Response ) => {
@@ -729,6 +763,54 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} )
 	);
 
+	api.get(
+		'/sites/:id/thumbnail',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			res.json( { thumbnail: await readSitePreview( req.params.id ) } );
+		} )
+	);
+
+	api.post(
+		'/sites/:id/capture-preview',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const parsed = z
+				.object( {
+					path: z.string(),
+					width: z.number().int().min( 1 ).max( 2400 ),
+					height: z.number().int().min( 1 ).max( 2400 ),
+				} )
+				.safeParse( req.body );
+			if ( ! parsed.success ) {
+				res.status( 400 ).json( { error: 'path, width and height required' } );
+				return;
+			}
+			const { path: pagePath, width, height } = parsed.data;
+			if ( ! options.capturePreview || ! isSitePreviewPath( pagePath ) ) {
+				res.json( { thumbnail: null } );
+				return;
+			}
+			const site = ( await listSites( execute ) ).find( ( item ) => item.id === req.params.id );
+			if ( ! site?.running ) {
+				res.json( { thumbnail: null } );
+				return;
+			}
+			const url = new URL( pagePath, site.url );
+			if ( url.origin !== new URL( site.url ).origin ) {
+				res.status( 400 ).json( { error: 'The page must be on the site.' } );
+				return;
+			}
+			const png = await options
+				.capturePreview( url.toString(), { width, height } )
+				.catch( () => null );
+			if ( ! png ) {
+				res.json( { thumbnail: null } );
+				return;
+			}
+			await writeSitePreview( site.id, png );
+			res.json( { thumbnail: `data:image/png;base64,${ png.toString( 'base64' ) }` } );
+		} )
+	);
+
 	api.post(
 		'/sites/:id/start',
 		asyncHandler( async ( req: Request, res: Response ) => {
@@ -757,21 +839,9 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} )
 	);
 
-	// Both of these read straight from cli.json via `readSitePath` rather than
-	// forking the CLI for a site list: the UI asks for them on every site
-	// switch, and a fork costs about a second of CPU each time.
-	api.get(
-		'/sites/:id/theme-details',
-		asyncHandler( async ( req: Request, res: Response ) => {
-			const sitePath = await readSitePath( req.params.id );
-			if ( ! sitePath ) {
-				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
-				return;
-			}
-			res.json( await readThemeDetails( execute, sitePath ) );
-		} )
-	);
-
+	// Reads straight from cli.json via `readSitePath` rather than forking the
+	// CLI for a site list: the UI asks for it on every site switch, and a fork
+	// costs about a second of CPU each time.
 	api.get(
 		'/sites/:id/site-icon',
 		asyncHandler( async ( req: Request, res: Response ) => {
@@ -793,30 +863,6 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				return;
 			}
 			res.json( { wpVersion: getWordPressVersion( sitePath ) } );
-		} )
-	);
-
-	api.get(
-		'/sites/:id/storage',
-		asyncHandler( async ( req: Request, res: Response ) => {
-			const sitePath = await readSitePath( req.params.id );
-			if ( ! sitePath ) {
-				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
-				return;
-			}
-			// Walking a site takes long enough that the client often navigates
-			// away first. Tie the walk to the request so an abandoned one stops
-			// instead of running to completion for nobody.
-			const controller = new AbortController();
-			req.on( 'close', () => controller.abort() );
-			try {
-				res.json( await measureSiteStorage( sitePath, { signal: controller.signal } ) );
-			} catch ( error ) {
-				if ( controller.signal.aborted ) {
-					return;
-				}
-				throw error;
-			}
 		} )
 	);
 
@@ -1827,13 +1873,13 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	api.patch(
 		'/sessions/:id',
 		asyncHandler( async ( req: Request, res: Response ) => {
-			const { summary } = await loadAiSession( sessionsRoot, req.params.id );
-			const patch = req.body as { archived?: boolean };
-			const [ metadata, placement ] = await Promise.all( [
-				updateSharedSession( summary.id, patch ),
-				readAiSessionPlacement( summary.id ),
-			] );
-			res.json( hydrateAiSessionSummary( summary, metadata, placement ) );
+			res.json(
+				await updateHydratedAiSessionMetadata(
+					sessionsRoot,
+					req.params.id,
+					req.body as AiSessionMetadata
+				)
+			);
 		} )
 	);
 
@@ -1870,37 +1916,135 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} )
 	);
 
-	api.post( '/sessions/:id/messages', ( req: Request, res: Response ) => {
-		const { prompt, displayMessage, visualAnnotations } = req.body as {
-			prompt?: string;
-			displayMessage?: string;
-			visualAnnotations?: unknown;
-		};
-		if ( ! prompt ) {
-			res.status( 400 ).json( { error: 'prompt is required' } );
-			return;
+	api.post(
+		'/sessions/:id/environment',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const { environment } = req.body as { environment?: string };
+			if ( environment !== 'local' && environment !== 'live' ) {
+				res.status( 400 ).json( { error: `Unknown environment: ${ environment }` } );
+				return;
+			}
+			await setSessionEnvironment( sessionsRoot, req.params.id, environment );
+			res.sendStatus( 204 );
+		} )
+	);
+
+	api.post(
+		'/sessions/:id/messages',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const { prompt, displayMessage, visualAnnotations } = req.body as {
+				prompt?: string;
+				displayMessage?: string;
+				visualAnnotations?: unknown;
+			};
+			if ( ! prompt ) {
+				res.status( 400 ).json( { error: 'prompt is required' } );
+				return;
+			}
+			let images: StudioChatImage[];
+			let files: StudioChatFileAttachment[];
+			let validatedVisualAnnotations: StudioVisualAnnotationSummary[] | undefined;
+			try {
+				images = validateStudioChatImages( req.body.images );
+				files = validateStudioChatFiles( req.body.files );
+				validatedVisualAnnotations = validateStudioVisualAnnotations( visualAnnotations );
+			} catch ( error ) {
+				res.status( 400 ).json( { error: ( error as Error ).message } );
+				return;
+			}
+			await reconcileSessionEnvironment( sessionsRoot, req.params.id );
+			const { runId } = runManager.startAgentRun( {
+				sessionId: req.params.id,
+				prompt: expandSkillCommandPrompt( prompt ),
+				displayMessage,
+				images,
+				files,
+				visualAnnotations: validatedVisualAnnotations,
+			} );
+			res.json( { runId } );
+		} )
+	);
+
+	// --- Skills ---------------------------------------------------------------
+	api.get(
+		'/skills',
+		asyncHandler( async ( _req: Request, res: Response ) => {
+			res.json( await getSkillsStatusForAllSites() );
+		} )
+	);
+
+	// Bundled next to the CLI entry, as the desktop app finds them.
+	const bundledSkillsPath = path.join( path.dirname( cliBinary ), 'wp-files', 'skills' );
+
+	api.post(
+		'/skills/:id',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			await installSkillToAllSites( bundledSkillsPath, req.params.id );
+			res.sendStatus( 204 );
+		} )
+	);
+
+	// --- A site's skills and instruction files ---------------------------------
+	const readAgentFileRequest = async ( req: Request, res: Response ) => {
+		const kind = req.params.kind;
+		const sitePath = await readSitePath( req.params.id );
+		if ( ( kind !== 'skills' && kind !== 'instructions' ) || ! sitePath ) {
+			res.status( 404 ).json( { error: 'Not found' } );
+			return null;
 		}
-		let images: StudioChatImage[];
-		let files: StudioChatFileAttachment[];
-		let validatedVisualAnnotations: StudioVisualAnnotationSummary[] | undefined;
-		try {
-			images = validateStudioChatImages( req.body.images );
-			files = validateStudioChatFiles( req.body.files );
-			validatedVisualAnnotations = validateStudioVisualAnnotations( visualAnnotations );
-		} catch ( error ) {
-			res.status( 400 ).json( { error: ( error as Error ).message } );
-			return;
-		}
-		const { runId } = runManager.startAgentRun( {
-			sessionId: req.params.id,
-			prompt: expandSkillCommandPrompt( prompt ),
-			displayMessage,
-			images,
-			files,
-			visualAnnotations: validatedVisualAnnotations,
-		} );
-		res.json( { runId } );
-	} );
+		return { sitePath, kind: kind as SiteAgentFileKind };
+	};
+
+	api.get(
+		'/sites/:id/agent-files/:kind',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const target = await readAgentFileRequest( req, res );
+			if ( target ) {
+				res.json( await getSiteAgentFiles( target.sitePath, target.kind ) );
+			}
+		} )
+	);
+
+	api.put(
+		'/sites/:id/agent-files/:kind/:fileId',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const target = await readAgentFileRequest( req, res );
+			if ( ! target ) {
+				return;
+			}
+			if ( typeof req.body?.enabled !== 'boolean' ) {
+				res.status( 400 ).json( { error: 'enabled required' } );
+				return;
+			}
+			await setSiteAgentFileEnabled(
+				target.sitePath,
+				bundledSkillsPath,
+				target.kind,
+				req.params.fileId,
+				req.body.enabled
+			);
+			res.sendStatus( 204 );
+		} )
+	);
+
+	api.delete(
+		'/sites/:id/agent-files/:kind/:fileId',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const target = await readAgentFileRequest( req, res );
+			if ( target ) {
+				await removeSiteAgentFile( target.sitePath, target.kind, req.params.fileId );
+				res.sendStatus( 204 );
+			}
+		} )
+	);
+
+	api.delete(
+		'/skills/:id',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			await removeSkillFromAllSites( req.params.id );
+			res.sendStatus( 204 );
+		} )
+	);
 
 	// --- Runs -----------------------------------------------------------------
 	api.get( '/runs/active', ( _req: Request, res: Response ) => {

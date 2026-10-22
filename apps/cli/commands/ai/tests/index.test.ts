@@ -213,8 +213,11 @@ describe( 'AI runCommand — resume by id restores session model', () => {
 describe( 'AI runCommand — active site banner running state', () => {
 	let stdoutSpy: ReturnType< typeof vi.spyOn >;
 
-	const dispatchedPrompt = () =>
-		( ( runStudioAgentTurn as Mock ).mock.calls[ 0 ][ 0 ] as { prompt: string } ).prompt;
+	const dispatched = () =>
+		( runStudioAgentTurn as Mock ).mock.calls[ 0 ][ 0 ] as {
+			prompt: string;
+			activeSite?: { running: boolean };
+		};
 
 	beforeEach( () => {
 		vi.clearAllMocks();
@@ -247,9 +250,14 @@ describe( 'AI runCommand — active site banner running state', () => {
 			activeSite: { name: 'My Site', path: '/sites/my-site' },
 		} );
 
-		expect( dispatchedPrompt() ).toContain(
-			'[Active site: "My Site" at /sites/my-site (running)]'
-		);
+		// The site rides to the runtime, which states it in the system prompt;
+		// the user message stays exactly what the user typed.
+		expect( dispatched().prompt ).toBe( 'hello' );
+		expect( dispatched().activeSite ).toMatchObject( {
+			name: 'My Site',
+			path: '/sites/my-site',
+			running: true,
+		} );
 	} );
 
 	// STU-2040 regression guard: the per-turn isSiteRunning check opens a
@@ -289,7 +297,7 @@ describe( 'AI runCommand — active site banner running state', () => {
 			activeSite: { name: 'My Site', path: '/sites/my-site' },
 		} );
 
-		expect( dispatchedPrompt() ).toContain( '(stopped)' );
+		expect( dispatched().activeSite?.running ).toBe( false );
 	} );
 
 	it( 'treats a site missing from the CLI config as stopped', async () => {
@@ -302,7 +310,7 @@ describe( 'AI runCommand — active site banner running state', () => {
 		} );
 
 		expect( isSiteRunning ).not.toHaveBeenCalled();
-		expect( dispatchedPrompt() ).toContain( '(stopped)' );
+		expect( dispatched().activeSite?.running ).toBe( false );
 	} );
 
 	it( 'skips the daemon check for remote sites', async () => {
@@ -320,9 +328,8 @@ describe( 'AI runCommand — active site banner running state', () => {
 
 		expect( findSiteByFolder ).not.toHaveBeenCalled();
 		expect( isSiteRunning ).not.toHaveBeenCalled();
-		expect( dispatchedPrompt() ).toContain(
-			'[Active site: "Live" (ID: 123) at https://example.wordpress.com (WordPress.com)]'
-		);
+		expect( dispatched().prompt ).toBe( 'hello' );
+		expect( dispatched().activeSite ).toMatchObject( { remote: true, wpcomSiteId: 123 } );
 	} );
 } );
 

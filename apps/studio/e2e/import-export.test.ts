@@ -4,7 +4,6 @@ import fs from 'fs-extra';
 import { E2ESession, launchWithSite } from './e2e-helpers';
 import AddSite from './page-objects/add-site';
 import Sidebar from './page-objects/sidebar';
-import SiteOverview from './page-objects/site-overview';
 import { getUrlWithAutoLogin } from './utils';
 
 test.describe( 'Import / Export', () => {
@@ -24,9 +23,8 @@ test.describe( 'Import / Export', () => {
 	} );
 
 	test( 'reports a failed import of an invalid SQL file', async () => {
-		const overview = new SiteOverview( session.mainWindow );
-		await overview.open( siteName );
-		await overview.importBackup(
+		await new Sidebar( session.mainWindow ).importBackup(
+			siteName,
 			path.join( __dirname, 'fixtures', 'sql', 'invalid-database.sql' )
 		);
 
@@ -79,9 +77,7 @@ test.describe( 'Export / Import round trip', () => {
 			{ exportPath }
 		);
 
-		const overview = new SiteOverview( session.mainWindow );
-		await overview.open( siteName );
-		await overview.manageButton( 'Export entire site' ).click();
+		await new Sidebar( session.mainWindow ).openContextMenuItem( siteName, 'Export entire site' );
 		await expect
 			.poll(
 				() =>

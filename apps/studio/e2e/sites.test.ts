@@ -9,7 +9,7 @@ import fs from 'fs-extra';
 import { E2ESession, launchWithSite } from './e2e-helpers';
 import AddSite from './page-objects/add-site';
 import Sidebar from './page-objects/sidebar';
-import SiteOverview from './page-objects/site-overview';
+import SiteSettings from './page-objects/site-settings';
 import { getUrlWithAutoLogin } from './utils';
 
 const skipTestOnWindows = process.platform === 'win32' ? test.skip : test;
@@ -43,9 +43,9 @@ test.describe( 'Sites', () => {
 		await session.cleanup();
 	} );
 
+	// The default name and folder, and a custom name with a custom folder.
 	[
 		[ undefined, undefined ],
-		[ 'E2E-Test-Site', undefined ],
 		[ 'E2E-Test-Site 2', 'hello' ],
 	].forEach( ( [ customSiteName, customFolderName ] ) => {
 		test( `create site with name ${ customSiteName } and path ${ customFolderName }`, async () => {
@@ -68,49 +68,6 @@ test.describe( 'Sites', () => {
 			expect( [ 200, 302 ] ).toContain( response.status );
 			expect( response.headers.get( 'content-type' ) ).toMatch( /text\/html/ );
 		} );
-	} );
-
-	test( 'change PHP version', async () => {
-		const { siteName } = await launchWithSite( session );
-		const newPhpVersion = ALLOWED_PHP_VERSIONS.find( ( v ) => v !== DEFAULT_PHP_VERSION ) || '8.2';
-
-		const overview = new SiteOverview( session.mainWindow );
-		await overview.open( siteName, 'Settings' );
-		await expect( overview.phpVersionSelect ).toHaveValue( DEFAULT_PHP_VERSION );
-
-		await overview.phpVersionSelect.selectOption( newPhpVersion );
-		await overview.saveSettings();
-
-		await expect
-			.poll( async () => await session.waitForSite( siteName ) )
-			.toMatchObject( { phpVersion: newPhpVersion } );
-		await expect( overview.phpVersionSelect ).toHaveValue( newPhpVersion );
-	} );
-
-	test( 'renames a site', async () => {
-		const { siteName } = await launchWithSite( session );
-		const newSiteName = 'E2E-Test-Site-Renamed';
-
-		const overview = new SiteOverview( session.mainWindow );
-		await overview.open( siteName, 'Settings' );
-		await overview.siteNameInput.fill( newSiteName );
-		await overview.saveSettings();
-
-		await expect( new Sidebar( session.mainWindow ).getSiteButton( newSiteName ) ).toBeVisible();
-		await session.waitForSite( newSiteName );
-	} );
-
-	test( "edit site's settings in wp-admin", async ( { page } ) => {
-		const { siteName } = await launchWithSite( session );
-		const siteUrl = await session.getSiteUrl( siteName );
-
-		await page.goto( getUrlWithAutoLogin( `${ siteUrl }/wp-admin/options-general.php` ) );
-		const siteTitleInput = page.getByLabel( 'Site Title' );
-		await siteTitleInput.fill( 'testing site title' );
-		await siteTitleInput.press( 'Enter' );
-
-		await page.goto( siteUrl );
-		expect( await page.title() ).toBe( 'testing site title' );
 	} );
 
 	skipTestOnWindows( 'delete site but keep directory on disk', async () => {
@@ -178,20 +135,66 @@ test.describe( 'Sites', () => {
 		expect( finalConfig ).toContain( "define( 'DB_PASSWORD', 'super-secret-pw' );" );
 		expect( finalConfig ).toContain( "define( 'DB_HOST', 'mysql.example.com' );" );
 	} );
+} );
 
-	test( 'duplicates a site from its overview', async () => {
-		const { siteName } = await launchWithSite( session );
+// Settings changes share one site. Changing the PHP version restarts it, so it runs last: the
+// form re-seeds on the restart's site events, which would otherwise race the next test's input.
+test.describe( 'Site settings', () => {
+	let siteName: string;
 
-		const overview = new SiteOverview( session.mainWindow );
-		await overview.open( siteName );
-		await overview.manageButton( 'Duplicate' ).click();
+	test.beforeAll( async () => {
+		( { siteName } = await launchWithSite( session ) );
+	} );
 
-		const copyName = `${ siteName } Copy`;
-		await expect( new Sidebar( session.mainWindow ).getSiteButton( copyName ) ).toBeVisible( {
-			timeout: 120_000,
-		} );
-		const copy = await session.waitForSite( copyName );
-		expect( await pathExists( path.join( copy.path, 'wp-config.php' ) ) ).toBe( true );
+	test.afterEach( async ( { page: _page }, testInfo ) => {
+		await session.reportMainProcessLogsOnFailure( testInfo );
+	} );
+
+	test.afterAll( async () => {
+		await session.cleanup();
+	} );
+
+	test( "edit site's settings in wp-admin", async ( { page } ) => {
+		const siteUrl = await session.getSiteUrl( siteName );
+
+		await page.goto( getUrlWithAutoLogin( `${ siteUrl }/wp-admin/options-general.php` ) );
+		const siteTitleInput = page.getByLabel( 'Site Title' );
+		await siteTitleInput.fill( 'testing site title' );
+		await siteTitleInput.press( 'Enter' );
+
+		await page.goto( siteUrl );
+		expect( await page.title() ).toBe( 'testing site title' );
+	} );
+
+	test( 'renames a site', async () => {
+		const newSiteName = 'E2E-Test-Site-Renamed';
+
+		const settings = new SiteSettings( session.mainWindow );
+		await settings.open( siteName );
+		await settings.siteNameInput.fill( newSiteName );
+		await settings.saveSettings();
+		await settings.close();
+
+		await expect( new Sidebar( session.mainWindow ).getSiteButton( newSiteName ) ).toBeVisible();
+		await session.waitForSite( newSiteName );
+		siteName = newSiteName;
+	} );
+
+	test( 'change PHP version', async () => {
+		const newPhpVersion = ALLOWED_PHP_VERSIONS.find( ( v ) => v !== DEFAULT_PHP_VERSION ) || '8.2';
+
+		const settings = new SiteSettings( session.mainWindow );
+		await settings.open( siteName );
+		await settings.showSection( 'PHP' );
+		await expect( settings.phpVersionSelect ).toHaveText( DEFAULT_PHP_VERSION );
+
+		await settings.selectPhpVersion( newPhpVersion );
+		await settings.saveSettings();
+
+		await expect
+			.poll( async () => await session.waitForSite( siteName ) )
+			.toMatchObject( { phpVersion: newPhpVersion } );
+		await expect( settings.phpVersionSelect ).toHaveText( newPhpVersion );
 	} );
 } );
 

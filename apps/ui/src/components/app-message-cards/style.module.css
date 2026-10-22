@@ -1,6 +1,5 @@
 /* Cells own their spacing (no gap); the container's negative margin cancels
-   the first cell's share. Mirrors the toast stack (see
-   app-toasts/style.module.css). */
+   the first cell's share. */
 .stack {
 	display: flex;
 	flex-direction: column;
@@ -34,14 +33,58 @@
 	overflow-clip-margin: 12px;
 }
 
-/* Layered on top of the toasts' `notice` class (applied together in the
-   component); a touch more block padding since cards carry a title +
-   description + action. */
 .card {
+	width: 100%;
+	box-sizing: border-box;
+	text-wrap: pretty;
+	font-variant-numeric: tabular-nums;
+	box-shadow:
+		0 1px 2px 0 rgba(0, 0, 0, 0.06), 0 3px 6px 0 rgba(0, 0, 0, 0.05), 0 6px 8px 0 rgba(0, 0, 0, 0.03);
 	padding-block: var(--wpds-dimension-padding-sm);
-	/* Same entrance the ephemeral toasts use (toast-enter in app-toasts) so
-	   cards and toasts read as one system. */
+	padding-inline: var(--wpds-dimension-padding-sm);
+	border-radius: 6px;
 	animation: card-enter 160ms ease-out;
+}
+
+.card [class*='heading'] {
+	line-height: 16px;
+}
+
+.card [class*='__description'] {
+	font-size: var(--wpds-typography-font-size-xs);
+	line-height: 16px;
+	display: -webkit-box;
+	-webkit-box-orient: vertical;
+	-webkit-line-clamp: 3;
+	overflow: hidden;
+}
+
+/* Center the title on the close button's row. */
+.card [class*='__title'] {
+	align-self: center;
+}
+
+.card [class*='__actions'] {
+	gap: var(--wpds-dimension-gap-sm);
+}
+
+/* Button's solid-variant sets these properties on the element itself, so
+   parent-level overrides don't win — must be set here directly. */
+.action {
+	--wp-ui-button-background-color: color-mix(
+		in srgb,
+		var(--wpds-color-foreground-content-neutral) 10%,
+		transparent
+	);
+	--wp-ui-button-background-color-active: color-mix(
+		in srgb,
+		var(--wpds-color-foreground-content-neutral) 16%,
+		transparent
+	);
+	--wp-ui-button-foreground-color: var(--wpds-color-foreground-content-neutral);
+	--wp-ui-button-foreground-color-active: var(--wpds-color-foreground-content-neutral);
+	--wp-ui-button-border-color: transparent;
+	--wp-ui-button-border-color-active: transparent;
 }
 
 @keyframes card-enter {

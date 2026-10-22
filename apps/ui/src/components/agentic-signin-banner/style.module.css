@@ -339,7 +339,7 @@
 	padding-inline: var(--wpds-dimension-padding-lg);
 }
 
-.overviewButton {
+.turnOffButton {
 	margin-top: var(--wpds-dimension-padding-sm);
 	color: var(--wpds-color-foreground-content-neutral-weak);
 	font-weight: var(--wpds-typography-font-weight-default);

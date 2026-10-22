@@ -1,4 +1,3 @@
-import { DESIGN_SYSTEM_PREVIEW_PATH } from '@studio/common/ai/chat-artifacts';
 import {
 	createContext,
 	useCallback,
@@ -28,14 +27,18 @@ import type { Annotation } from '@/components/site-preview/types';
 
 interface PreviewUIState {
 	open: boolean;
-	// Full preview: the preview fills the window (sidebar and chat hidden).
+	// The chat pane is hidden and the preview takes its place; the sidebar stays.
 	// Only meaningful while `open`; closing the panel always clears it.
-	fullscreen: boolean;
+	chatHidden: boolean;
 	reloadNonce: number;
 	// Currently previewed site.
 	siteId: string | null;
 	// Last visited path per site, so switching back restores it. In-memory only.
 	pathsBySiteId: Record< string, string >;
+}
+
+function isWpAdminPath( path: string ): boolean {
+	return path === '/wp-admin' || path.startsWith( '/wp-admin/' ) || path.startsWith( '/wp-admin?' );
 }
 
 // The path a site's preview shows: its last visited path, or home.
@@ -53,14 +56,20 @@ interface SessionUIState {
 type SessionUIAction =
 	| { type: 'preview/set-open'; value: boolean }
 	| { type: 'preview/toggle' }
-	| { type: 'preview/set-fullscreen'; value: boolean }
+	| { type: 'preview/set-chat-hidden'; value: boolean }
 	| { type: 'preview/navigate'; path: string }
 	| { type: 'preview/reload' }
 	| { type: 'preview/update-path'; path: string }
 	| { type: 'preview/set-site'; siteId: string };
 
 const INITIAL_STATE: SessionUIState = {
-	preview: { open: true, fullscreen: false, reloadNonce: 0, siteId: null, pathsBySiteId: {} },
+	preview: {
+		open: true,
+		chatHidden: false,
+		reloadNonce: 0,
+		siteId: null,
+		pathsBySiteId: {},
+	},
 };
 
 function reducer( state: SessionUIState, action: SessionUIAction ): SessionUIState {
@@ -70,30 +79,25 @@ function reducer( state: SessionUIState, action: SessionUIAction ): SessionUISta
 				? state
 				: {
 						...state,
-						// Closing the panel leaves full preview; reopening starts split.
 						preview: {
 							...state.preview,
 							open: action.value,
-							fullscreen: action.value && state.preview.fullscreen,
+							chatHidden: action.value && state.preview.chatHidden,
 						},
 				  };
 		case 'preview/toggle':
 			return {
 				...state,
-				preview: { ...state.preview, open: ! state.preview.open, fullscreen: false },
+				preview: {
+					...state.preview,
+					open: ! state.preview.open,
+					chatHidden: false,
+				},
 			};
-		case 'preview/set-fullscreen':
-			return state.preview.fullscreen === action.value
+		case 'preview/set-chat-hidden':
+			return state.preview.chatHidden === action.value
 				? state
-				: {
-						...state,
-						preview: {
-							...state.preview,
-							fullscreen: action.value,
-							// Entering full preview reveals the panel it expands.
-							open: action.value || state.preview.open,
-						},
-				  };
+				: { ...state, preview: { ...state.preview, chatHidden: action.value } };
 		case 'preview/navigate':
 			return {
 				...state,
@@ -105,21 +109,12 @@ function reducer( state: SessionUIState, action: SessionUIAction ): SessionUISta
 				},
 			};
 		case 'preview/reload':
-			// Reveal the panel so the refresh is visible. The agent reloads to
-			// show the site it changed, so the design system gives way to it.
-			return {
-				...state,
-				preview: {
-					...state.preview,
-					pathsBySiteId:
-						pathForSite( state.preview.pathsBySiteId, state.preview.siteId ) ===
-						DESIGN_SYSTEM_PREVIEW_PATH
-							? rememberPath( state.preview, '/' )
-							: state.preview.pathsBySiteId,
-					reloadNonce: state.preview.reloadNonce + 1,
-					open: true,
-				},
-			};
+			// Reload in place, without opening a closed panel. wp-admin is left
+			// alone: the person may be working there, with unsaved edits in the
+			// editor, and a reload would interrupt them.
+			return isWpAdminPath( pathForSite( state.preview.pathsBySiteId, state.preview.siteId ) )
+				? state
+				: { ...state, preview: { ...state.preview, reloadNonce: state.preview.reloadNonce + 1 } };
 		case 'preview/update-path': {
 			const pathsBySiteId = rememberPath( state.preview, action.path );
 			return pathsBySiteId === state.preview.pathsBySiteId
@@ -194,14 +189,14 @@ export function useSessionUIDispatch(): Dispatch< SessionUIAction > {
 
 interface SessionPreviewUI {
 	readonly open: boolean;
-	readonly fullscreen: boolean;
+	readonly chatHidden: boolean;
 	readonly path: string;
 	readonly reloadNonce: number;
 	readonly siteId: string | null;
 	readonly pathsBySiteId: Record< string, string >;
 	setOpen: ( value: boolean ) => void;
 	toggle: () => void;
-	setFullscreen: ( value: boolean ) => void;
+	setChatHidden: ( value: boolean ) => void;
 	updatePath: ( path: string ) => void;
 	setSite: ( siteId: string ) => void;
 }
@@ -217,8 +212,8 @@ export function useOptionalSessionPreviewUI(): SessionPreviewUI | null {
 		[ dispatch ]
 	);
 	const toggle = useCallback( () => dispatch?.( { type: 'preview/toggle' } ), [ dispatch ] );
-	const setFullscreen = useCallback(
-		( value: boolean ) => dispatch?.( { type: 'preview/set-fullscreen', value } ),
+	const setChatHidden = useCallback(
+		( value: boolean ) => dispatch?.( { type: 'preview/set-chat-hidden', value } ),
 		[ dispatch ]
 	);
 	const updatePath = useCallback(
@@ -235,18 +230,18 @@ export function useOptionalSessionPreviewUI(): SessionPreviewUI | null {
 		}
 		return {
 			open: state.preview.open,
-			fullscreen: state.preview.fullscreen,
+			chatHidden: state.preview.chatHidden,
 			path: pathForSite( state.preview.pathsBySiteId, state.preview.siteId ),
 			reloadNonce: state.preview.reloadNonce,
 			siteId: state.preview.siteId,
 			pathsBySiteId: state.preview.pathsBySiteId,
 			setOpen,
 			toggle,
-			setFullscreen,
+			setChatHidden,
 			updatePath,
 			setSite,
 		};
-	}, [ state, dispatch, setOpen, toggle, setFullscreen, updatePath, setSite ] );
+	}, [ state, dispatch, setOpen, toggle, setChatHidden, updatePath, setSite ] );
 }
 
 export function useSessionPreviewUI(): SessionPreviewUI {
@@ -283,10 +278,18 @@ export function useSessionPreviewAnnotations(
 
 export function useSessionPreviewAnnotationsHandler(): ( annotations: Annotation[] ) => void {
 	const ref = useContext( SessionUIPreviewAnnotationsContext );
+	const dispatch = useContext( SessionUIDispatchContext );
 	if ( ! ref ) {
 		throw new Error(
 			'useSessionPreviewAnnotationsHandler must be used within a SessionUIProvider'
 		);
 	}
-	return useCallback( ( annotations: Annotation[] ) => ref.current?.( annotations ), [ ref ] );
+	// The notes land in the chat, so it has to be visible.
+	return useCallback(
+		( annotations: Annotation[] ) => {
+			dispatch?.( { type: 'preview/set-chat-hidden', value: false } );
+			ref.current?.( annotations );
+		},
+		[ dispatch, ref ]
+	);
 }

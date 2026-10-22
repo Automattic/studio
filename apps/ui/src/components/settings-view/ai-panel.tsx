@@ -4,10 +4,8 @@ import { error as errorIcon } from '@wordpress/icons';
 import { Icon } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useState } from 'react';
-import { useConnector } from '@/data/core';
 import { useAiSettings, useSaveAnthropicApiKey } from '@/data/queries/use-ai-settings';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
-import { StudioCodePanel } from './studio-code-panel';
 import styles from './style.module.css';
 import { useDebouncedSave } from './use-debounced-save';
 
@@ -94,12 +92,10 @@ function AnthropicApiKeySection() {
 }
 
 export function AiPanel() {
-	const connector = useConnector();
 	return (
 		<div className={ styles.preferencesPanel }>
 			<AgenticFeaturesSection />
-			{ connector.capabilities.aiSettings && <AnthropicApiKeySection /> }
-			{ connector.capabilities.agentInstructions && <StudioCodePanel /> }
+			<AnthropicApiKeySection />
 		</div>
 	);
 }

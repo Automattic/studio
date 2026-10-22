@@ -48,6 +48,9 @@ function renderWithAgentRun( queryClient: QueryClient ) {
 			<>
 				<span data-testid="phase">{ run.hasActiveRun ? 'active' : 'idle' }</span>
 				<span data-testid="started-at">{ run.startedAt ?? 'none' }</span>
+				<span data-testid="questions">
+					{ run.pendingQuestions.map( ( q ) => q.question ).join( ',' ) }
+				</span>
 				<button onClick={ () => void run.sendMessage( 'Queued follow-up' ) }>Queue</button>
 				<button onClick={ () => run.answerQuestion( 'Q1', 'A1' ) }>Answer Q1</button>
 				<button onClick={ () => void run.interrupt() }>Stop</button>
@@ -68,11 +71,13 @@ function renderWithAgentRun( queryClient: QueryClient ) {
 
 describe( 'useAgentRun queued handoff', () => {
 	let agentListener: ( event: AgentRunEvent ) => void;
+	let restoreConnection: () => void;
 	let connector: Pick<
 		Connector,
 		| 'continueSession'
 		| 'getActiveAgentRuns'
 		| 'onAgentEvent'
+		| 'onConnectionRestored'
 		| 'interruptAgentRun'
 		| 'answerAgentQuestion'
 	>;
@@ -85,6 +90,10 @@ describe( 'useAgentRun queued handoff', () => {
 			getActiveAgentRuns: vi.fn().mockResolvedValue( [] ),
 			onAgentEvent: vi.fn( ( listener ) => {
 				agentListener = listener;
+				return vi.fn();
+			} ),
+			onConnectionRestored: vi.fn( ( listener ) => {
+				restoreConnection = listener;
 				return vi.fn();
 			} ),
 		};
@@ -158,6 +167,36 @@ describe( 'useAgentRun queued handoff', () => {
 					return data.text === 'Queued follow-up';
 				} )
 		).toBe( true );
+	} );
+
+	it( 'restores a question the agent is waiting on from the active run snapshot', async () => {
+		vi.mocked( connector.getActiveAgentRuns ).mockResolvedValue( [
+			{
+				runId: 'run-1',
+				sessionId: 'session-1',
+				startedAt: 1,
+				phase: 'running',
+				pendingQuestions: [ { question: 'Q1', options: [] } ],
+			},
+		] );
+
+		renderWithAgentRun( createQueryClient() );
+
+		await waitFor( () => expect( screen.getByTestId( 'questions' ) ).toHaveTextContent( 'Q1' ) );
+		expect( screen.getByTestId( 'phase' ) ).toHaveTextContent( 'active' );
+	} );
+
+	it( 'ends a run that finished while the event stream was disconnected', async () => {
+		vi.mocked( connector.getActiveAgentRuns ).mockResolvedValueOnce( [
+			{ runId: 'run-1', sessionId: 'session-1', startedAt: 1, phase: 'running' },
+		] );
+
+		renderWithAgentRun( createQueryClient() );
+		await waitFor( () => expect( screen.getByTestId( 'phase' ) ).toHaveTextContent( 'active' ) );
+
+		act( () => restoreConnection() );
+
+		await waitFor( () => expect( screen.getByTestId( 'phase' ) ).toHaveTextContent( 'idle' ) );
 	} );
 
 	it( 'holds a queued prompt instead of dispatching it once the credits are spent', async () => {

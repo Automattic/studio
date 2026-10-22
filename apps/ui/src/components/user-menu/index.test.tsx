@@ -5,6 +5,8 @@ import { useAuthUser } from '@/data/queries/use-auth-user';
 import { UserMenu } from './index';
 
 const navigateMock = vi.fn();
+const loginMock = vi.fn();
+const logoutMock = vi.fn();
 
 vi.mock( '@tanstack/react-router', () => ( {
 	useNavigate: () => navigateMock,
@@ -16,6 +18,8 @@ vi.mock( '@/components/gravatar', () => ( {
 
 vi.mock( '@/data/queries/use-auth-user', () => ( {
 	useAuthUser: vi.fn(),
+	useLogin: () => ( { mutate: loginMock } ),
+	useLogout: () => ( { mutate: logoutMock } ),
 } ) );
 
 vi.mock( '@/hooks/use-color-scheme', () => ( {
@@ -33,31 +37,31 @@ describe( 'UserMenu', () => {
 		} as never );
 	} );
 
-	it( 'opens Settings directly and shows the gravatar when signed in', () => {
+	it( 'opens Settings from its button', () => {
 		render( <UserMenu /> );
 
 		expect( screen.getByTestId( 'gravatar' ) ).toBeInTheDocument();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Settings' } ) );
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'App settings' } ) );
-
-		expect( navigateMock ).toHaveBeenCalledWith( { to: '/settings' } );
+		expect( navigateMock.mock.lastCall?.[ 0 ].search( {} ) ).toEqual( { settings: 'general' } );
 	} );
 
-	it( 'opens Settings directly with a placeholder icon when signed out', () => {
+	it( 'offers logging out from the account menu when signed in', async () => {
+		render( <UserMenu /> );
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Account' } ) );
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Log out' } ) );
+
+		expect( logoutMock ).toHaveBeenCalled();
+	} );
+
+	it( 'offers logging in from the account menu when signed out', async () => {
 		useAuthUserMock.mockReturnValue( { data: null } as never );
-
 		render( <UserMenu /> );
 
-		expect( screen.queryByTestId( 'gravatar' ) ).not.toBeInTheDocument();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Account' } ) );
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Log in' } ) );
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'App settings' } ) );
-
-		expect( navigateMock ).toHaveBeenCalledWith( { to: '/settings' } );
-	} );
-
-	it( 'leaves the sidebar toggle to the panel', () => {
-		render( <UserMenu /> );
-
-		expect( screen.queryByRole( 'button', { name: 'Hide sidebar' } ) ).not.toBeInTheDocument();
+		expect( loginMock ).toHaveBeenCalled();
 	} );
 } );

@@ -11,6 +11,7 @@ interface ResizeHandleProps {
 	isResizing: boolean;
 	onResizeStart: MouseEventHandler< HTMLDivElement >;
 	onKeyDown: KeyboardEventHandler< HTMLDivElement >;
+	onReset?: () => void;
 }
 
 export function ResizeHandle( {
@@ -22,6 +23,7 @@ export function ResizeHandle( {
 	isResizing,
 	onResizeStart,
 	onKeyDown,
+	onReset,
 }: ResizeHandleProps ) {
 	return (
 		<div
@@ -35,6 +37,7 @@ export function ResizeHandle( {
 			tabIndex={ 0 }
 			onMouseDown={ onResizeStart }
 			onKeyDown={ onKeyDown }
+			onDoubleClick={ onReset }
 		>
 			<span className={ styles.resizeHandleIndicator } aria-hidden="true" />
 		</div>

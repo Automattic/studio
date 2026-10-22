@@ -4,12 +4,14 @@ import { clsx } from 'clsx';
 import { useEffect } from 'react';
 import { CopyNoticeButton, openNoticeHistory } from '@/components/notice-history';
 import { Button, IconButton } from '@/components/ui/button';
+import { Spinner } from '@/components/ui/spinner';
 import {
 	dismissToast,
 	notifyRendererMounted,
 	notifyRendererUnmounted,
 	pauseToastExpiry,
 	resumeToastExpiry,
+	runToastAction,
 	useQueuedToasts,
 	useVisibleToasts,
 	type ToastIntent,
@@ -70,7 +72,13 @@ export function AppToasts() {
 								<StatusIcon intent={ item.intent } />
 								<p className={ styles.title }>{ item.title }</p>
 								{ item.action ? (
-									<Button size="sm" onClick={ item.action.onClick }>
+									<Button
+										size="sm"
+										disabled={ item.actionPending }
+										aria-busy={ item.actionPending || undefined }
+										onClick={ () => void runToastAction( item.id ) }
+									>
+										{ item.actionPending ? <Spinner aria-hidden="true" /> : null }
 										{ item.action.label }
 									</Button>
 								) : null }

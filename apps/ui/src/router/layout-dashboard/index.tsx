@@ -23,7 +23,7 @@ import { useSession, useSessionEffectiveEnvironment } from '@/data/queries/use-s
 import { useSites } from '@/data/queries/use-sites';
 import { pathForSite, SessionUIProvider, useSessionPreviewUI } from '@/hooks/use-session-ui';
 import { chatIcon } from '@/lib/icons';
-import { writeLastVisited } from '@/lib/last-visited';
+import { rememberVisit } from '@/lib/last-visited';
 import { PREVIEW_SPLIT_MIN_WIDTH } from '@/lib/resizable-panels';
 import { rootRoute } from '../layout-root';
 
@@ -110,15 +110,16 @@ function DashboardLayoutContent() {
 			setLastPreviewSiteId( routeSite.id );
 		}
 	}, [ routeSite ] );
-	// Remember the user's site so the `/` index route can return here
-	// instead of defaulting to the first site.
+	// Remember the user's site and its open chat, so the `/` index route and
+	// the sidebar return here instead of defaulting to the first site.
 	const sessionSiteId = sessionSite?.id;
 	useEffect( () => {
-		const siteId = sessionSiteId ?? newSessionSiteId;
-		if ( siteId ) {
-			writeLastVisited( { siteId } );
+		if ( sessionSiteId ) {
+			rememberVisit( sessionSiteId, sessionId );
+		} else if ( newSessionSiteId ?? homeSiteId ) {
+			rememberVisit( ( newSessionSiteId ?? homeSiteId )! );
 		}
-	}, [ sessionSiteId, newSessionSiteId ] );
+	}, [ sessionSiteId, sessionId, newSessionSiteId, homeSiteId ] );
 	const lastPreviewSite = lastPreviewSiteId
 		? sites?.find( ( site ) => site.id === lastPreviewSiteId )
 		: undefined;

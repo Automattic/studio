@@ -20,7 +20,11 @@ vi.mock( '@/components/collapsed-site-switcher', () => ( {
 } ) );
 
 vi.mock( '@/components/site-list', () => ( {
-	SiteList: () => <div data-testid="site-list" />,
+	SiteList: ( { onSiteOpen }: { onSiteOpen?: () => void } ) => (
+		<button type="button" onClick={ onSiteOpen }>
+			A chat
+		</button>
+	),
 	SeenSessionTimestampsProvider: ( { children }: { children: ReactNode } ) => children,
 } ) );
 
@@ -47,6 +51,7 @@ describe( 'SidebarLayout', () => {
 	let originalInnerWidth: number;
 	beforeEach( () => {
 		vi.clearAllMocks();
+		window.localStorage.clear();
 		originalInnerWidth = window.innerWidth;
 		Object.defineProperty( window, 'innerWidth', { configurable: true, value: 1024 } );
 		toggleSidebarListener = undefined;
@@ -117,5 +122,57 @@ describe( 'SidebarLayout', () => {
 		await act( async () => window.dispatchEvent( new Event( 'resize' ) ) );
 		expect( screen.getByRole( 'button', { name: 'Hide sidebar' } ) ).toBeInTheDocument();
 		expect( screen.queryByRole( 'button', { name: 'Close sidebar' } ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'closes the overlay on a pick, focusing its first item on open and the toggle on close', async () => {
+		Object.defineProperty( window, 'innerWidth', { configurable: true, value: 900 } );
+		render(
+			<SidebarLayout>
+				<SidebarToggle />
+			</SidebarLayout>
+		);
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Show sidebar' } ) );
+		expect( screen.getByRole( 'button', { name: 'A chat' } ) ).toHaveFocus();
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'A chat' } ) );
+		expect( screen.queryByRole( 'button', { name: 'Close sidebar' } ) ).not.toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'Show sidebar' } ) ).toHaveFocus();
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Show sidebar' } ) );
+		fireEvent.keyDown( window, { key: 'Escape' } );
+		expect( screen.getByRole( 'button', { name: 'Show sidebar' } ) ).toHaveFocus();
+	} );
+
+	it( 'keeps the sidebar collapsed across restarts', async () => {
+		const { unmount } = render(
+			<SidebarLayout>
+				<SidebarToggle />
+			</SidebarLayout>
+		);
+		fireEvent.click( screen.getByRole( 'button', { name: 'Hide sidebar' } ) );
+		unmount();
+
+		render(
+			<SidebarLayout>
+				<SidebarToggle />
+			</SidebarLayout>
+		);
+		expect( screen.getByRole( 'button', { name: 'Show sidebar' } ) ).toBeInTheDocument();
+	} );
+
+	it( 'resets the sidebar width when its resize handle is double-clicked', () => {
+		Object.defineProperty( window, 'innerWidth', { configurable: true, value: 1600 } );
+		render(
+			<SidebarLayout>
+				<SidebarToggle />
+			</SidebarLayout>
+		);
+		const handle = screen.getByRole( 'separator', { name: 'Resize sidebar' } );
+
+		fireEvent.keyDown( handle, { key: 'End' } );
+		expect( handle ).toHaveAttribute( 'aria-valuenow', '400' );
+		fireEvent.doubleClick( handle );
+		expect( handle ).toHaveAttribute( 'aria-valuenow', '256' );
 	} );
 } );

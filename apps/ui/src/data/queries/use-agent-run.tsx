@@ -962,3 +962,17 @@ export function useSiteAgentActivity( sessionIds: string[] ): SiteAgentActivity 
 		return hasWorkingSession ? 'working' : 'idle';
 	} );
 }
+
+/** Whether any of the sessions is running or has prompts queued, so it can't be archived yet. */
+export function useSessionsBusy( sessionIds: string[] ): boolean {
+	const store = useContext( AgentRunContext );
+	if ( ! store ) {
+		throw new Error( 'useSessionsBusy must be used within AgentRunProvider' );
+	}
+	return useSyncExternalStore( store.stateStore.subscribe, () =>
+		sessionIds.some( ( sessionId ) => {
+			const state = store.stateStore.getState()[ sessionId ];
+			return !! state && ( state.phase !== 'idle' || state.queuedPrompts.length > 0 );
+		} )
+	);
+}

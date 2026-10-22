@@ -9,6 +9,8 @@ import { useInstalledApps } from '@/data/queries/use-installed-apps';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
 import { AppearanceSettings, GeneralSettings } from './index';
 
+vi.mock( '@/components/site-list/sidebar-settings', () => ( { SidebarSettings: () => null } ) );
+
 vi.mock( '@/components/gravatar', () => ( {
 	Gravatar: () => <span data-testid="gravatar" />,
 } ) );

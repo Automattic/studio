@@ -81,10 +81,11 @@ type SiteRow = {
 	chats: AiSessionSummary[];
 };
 
-// Chats listed at first under a site and in Recent, and how many more each
-// Show more (or scroll to the end of Recent) adds.
+// Chats listed at first under a site, and how many more each Show more adds.
 const CHATS_INITIAL_COUNT = 5;
 const CHATS_PAGE_SIZE = 10;
+// Recent is a shortcut to the latest chats; every chat is also under its site.
+const RECENT_CHATS_LIMIT = 10;
 
 type SiteRowActivity = SiteAgentActivity | 'sync' | 'import';
 
@@ -446,41 +447,6 @@ function SidebarGroup( {
 				{ action }
 			</div>
 			{ expanded ? children : null }
-		</div>
-	);
-}
-
-// Recent lists more chats as it scrolls to its end.
-function RecentChats( {
-	chats,
-	renderChat,
-}: {
-	chats: AiSessionSummary[];
-	renderChat: ( session: AiSessionSummary ) => ReactNode;
-} ) {
-	const [ count, setCount ] = useState( CHATS_INITIAL_COUNT );
-	const end = useRef< HTMLDivElement >( null );
-	const hasMore = chats.length > count;
-	useEffect( () => {
-		if ( ! hasMore || ! end.current || typeof IntersectionObserver === 'undefined' ) {
-			return;
-		}
-		const observer = new IntersectionObserver(
-			( entries ) => {
-				if ( entries.some( ( entry ) => entry.isIntersecting ) ) {
-					observer.disconnect();
-					setCount( ( current ) => current + CHATS_PAGE_SIZE );
-				}
-			},
-			{ rootMargin: '0px 0px 120px 0px' }
-		);
-		observer.observe( end.current );
-		return () => observer.disconnect();
-	}, [ hasMore, count ] );
-	return (
-		<div className={ styles.chats }>
-			{ chats.slice( 0, count ).map( renderChat ) }
-			{ hasMore ? <div ref={ end } aria-hidden="true" /> : null }
 		</div>
 	);
 }
@@ -982,9 +948,9 @@ export function SiteList( {
 		: [];
 	// Chats waiting on an answer move to the top until it's given.
 	const needsInputChats = openChats.filter( ( session ) => needingInput.includes( session.id ) );
-	const recentChats = openChats.filter(
-		( session ) => ! needingInput.includes( session.id ) && ! isChatPinned( session )
-	);
+	const recentChats = openChats
+		.filter( ( session ) => ! needingInput.includes( session.id ) && ! isChatPinned( session ) )
+		.slice( 0, RECENT_CHATS_LIMIT );
 	const canCollapseAll =
 		siteRows.filter( ( row ) => revealed.has( row.site.id ) && siteChats( row ).length > 0 )
 			.length > 1;
@@ -1080,10 +1046,9 @@ export function SiteList( {
 								<RetryLoadingChats />
 							</div>
 						) : (
-							<RecentChats
-								chats={ recentChats }
-								renderChat={ ( session ) => renderChat( session ) }
-							/>
+							<div className={ styles.chats }>
+								{ recentChats.map( ( session ) => renderChat( session ) ) }
+							</div>
 						) }
 					</SidebarGroup>
 				) : null }

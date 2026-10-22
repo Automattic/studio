@@ -21,6 +21,10 @@ function getShortcutKeyAriaLabel( key: string ): string {
 			return __( 'Escape' );
 		case ',':
 			return __( 'Comma' );
+		case '[':
+			return __( 'Left bracket' );
+		case ']':
+			return __( 'Right bracket' );
 		case '←':
 			return __( 'Left arrow' );
 		case '→':
@@ -32,24 +36,40 @@ function getShortcutKeyAriaLabel( key: string ): string {
 
 function getShortcutSections( isApple: boolean ): ShortcutSection[] {
 	const modifierKey = isApple ? '⌘' : 'Ctrl';
+	const altKey = isApple ? '⌥' : 'Alt';
 	const navModifierKey = isApple ? '⌘' : 'Alt';
 	return [
 		{
 			title: __( 'General' ),
-			shortcuts: [ { label: __( 'Open settings' ), keys: [ modifierKey, ',' ] } ],
+			shortcuts: [
+				{ label: __( 'Open command palette' ), keys: [ modifierKey, 'K' ] },
+				{ label: __( 'Open settings' ), keys: [ modifierKey, ',' ] },
+				{ label: __( 'Add site' ), keys: [ modifierKey, 'N' ] },
+				{ label: __( 'Toggle sidebar' ), keys: [ modifierKey, 'B' ] },
+				{ label: __( 'Close dialog or menu' ), keys: [ 'Esc' ] },
+			],
+		},
+		{
+			title: __( 'Sites' ),
+			shortcuts: [
+				{ label: __( 'Start or stop active site' ), keys: [ modifierKey, altKey, 'S' ] },
+				{ label: __( 'Rename site' ), keys: [ modifierKey, altKey, 'R' ] },
+				{ label: __( 'Pin or unpin site' ), keys: [ modifierKey, altKey, 'P' ] },
+			],
 		},
 		{
 			title: __( 'Chats' ),
 			shortcuts: [
-				{ label: __( 'Rename chat' ), keys: [ modifierKey, isApple ? '⌥' : 'Alt', 'R' ] },
-				{ label: __( 'Pin or unpin' ), keys: [ modifierKey, isApple ? '⌥' : 'Alt', 'P' ] },
+				{ label: __( 'Rename chat' ), keys: [ modifierKey, altKey, 'R' ] },
+				{ label: __( 'Pin or unpin chat' ), keys: [ modifierKey, altKey, 'P' ] },
 				{ label: __( 'Archive chat' ), keys: [ modifierKey, 'Shift', 'A' ] },
+				{ label: __( 'Rename the focused site or chat' ), keys: [ 'F2' ] },
+				{ label: __( 'Answer with an option' ), keys: [ '1–9' ] },
 			],
 		},
 		{
 			title: __( 'Composer' ),
 			shortcuts: [
-				{ label: __( 'New chat' ), keys: [ modifierKey, 'N' ] },
 				{ label: __( 'Send message' ), keys: [ '↩' ] },
 				{ label: __( 'Insert newline' ), keys: [ 'Shift', '↩' ] },
 				{ label: __( 'Stop response' ), keys: [ 'Esc' ] },
@@ -60,6 +80,8 @@ function getShortcutSections( isApple: boolean ): ShortcutSection[] {
 			shortcuts: [
 				{ label: __( 'Toggle site preview' ), keys: [ modifierKey, 'Shift', 'B' ] },
 				{ label: __( 'Reload preview' ), keys: [ modifierKey, 'R' ] },
+				{ label: __( 'Go back in preview' ), keys: [ modifierKey, '[' ] },
+				{ label: __( 'Go forward in preview' ), keys: [ modifierKey, ']' ] },
 				{ label: __( 'Go back in preview' ), keys: [ navModifierKey, '←' ] },
 				{ label: __( 'Go forward in preview' ), keys: [ navModifierKey, '→' ] },
 			],
@@ -90,7 +112,7 @@ export function KeyboardPanel() {
 					<h2 className={ styles.preferenceSectionHeading }>{ section.title }</h2>
 					<ul className={ styles.shortcutList }>
 						{ section.shortcuts.map( ( shortcut ) => (
-							<li key={ shortcut.label } className={ styles.shortcutRow }>
+							<li key={ shortcut.keys.join( '+' ) } className={ styles.shortcutRow }>
 								<span className={ styles.shortcutName }>{ shortcut.label }</span>
 								<ShortcutKeys keys={ shortcut.keys } />
 							</li>

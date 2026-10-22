@@ -2,22 +2,27 @@ import { Autocomplete } from '@base-ui/react/autocomplete';
 import { findAiSessionOwnerSite } from '@studio/common/ai/sessions/owner-site';
 import { useNavigate } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
-import { cloudUpload, copy, Icon, search } from '@wordpress/icons';
-import { isKeyboardEvent } from '@wordpress/keycodes';
+import { cloudUpload, copy, Icon, search, seen, unseen, wordpress } from '@wordpress/icons';
 import { useEffect, useState } from 'react';
+import { setAnnotating, useSiteAnnotations } from '@/components/annotations/store';
 import { useChatActions } from '@/components/chat-actions';
+import { openNoticeHistory } from '@/components/notice-history';
 import { useOpenInDestinations } from '@/components/open-in-menu/use-open-in-destinations';
 import { getSessionTitle } from '@/components/session-view/session-chat-actions';
+import { getSections } from '@/components/settings-dialog';
+import { useSiteActions } from '@/components/site-actions-menu';
+import { useCollapseAll } from '@/components/site-list/collapse-all';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useSessions } from '@/data/queries/use-sessions';
-import { sitePinKey, useSidebarPins } from '@/data/queries/use-sidebar-pins';
-import { useIsSiteBusy, useSites, useStartSite, useStopSite } from '@/data/queries/use-sites';
-import { useSaveUserPreferences } from '@/data/queries/use-user-preferences';
+import { useSidebarPreferences } from '@/data/queries/use-sidebar-pins';
+import { useSites } from '@/data/queries/use-sites';
+import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { setCommandPaletteOpen, useCommandPaletteOpen } from '@/hooks/use-command-palette';
 import { useOpenAddSite } from '@/hooks/use-open-add-site';
 import { useOpenHeaderPanel } from '@/hooks/use-open-header-panel';
 import { useOpenSettings } from '@/hooks/use-open-settings';
@@ -27,8 +32,12 @@ import { useSidebarOpen, useToggleSidebar } from '@/hooks/use-sidebar-collapsed'
 import { useSiteManagementActions } from '@/hooks/use-site-management-actions';
 import { getSiteUrl } from '@/lib/get-site-url';
 import {
+	annotateIcon,
 	archiveIcon,
+	bellIcon,
 	chatIcon,
+	collapseAllIcon,
+	databaseIcon,
 	globeIcon,
 	newChatIcon,
 	pinIcon,
@@ -42,11 +51,22 @@ import {
 	stopSiteIcon,
 	unpinIcon,
 } from '@/lib/icons';
+import { isDialogOpen, isShortcut } from '@/lib/shortcuts';
 import styles from './style.module.css';
-import type { AiSessionSummary, SiteDetails } from '@/data/core';
+import type { AiSessionSummary, SiteDetails, UserPreferences } from '@/data/core';
 import type { ReactElement } from 'react';
 
-const GROUPS = [ 'quick', 'recent', 'site', 'chat', 'settings', 'sites', 'chats' ] as const;
+const GROUPS = [
+	'quick',
+	'recent',
+	'site',
+	'chat',
+	'site-settings',
+	'settings',
+	'commands',
+	'sites',
+	'chats',
+] as const;
 type GroupId = ( typeof GROUPS )[ number ];
 
 type PaletteCommand = {
@@ -55,6 +75,8 @@ type PaletteCommand = {
 	label: string;
 	icon: ReactElement;
 	description?: string;
+	// Other names, ranked like the label.
+	aliases?: string[];
 	keywords?: string[];
 	// Orders commands within a group; lower comes first.
 	priority?: number;
@@ -72,7 +94,9 @@ function getGroupLabel( group: GroupId ) {
 		recent: __( 'Recent' ),
 		site: __( 'Site actions' ),
 		chat: __( 'Chat actions' ),
+		'site-settings': __( 'Site settings' ),
 		settings: __( 'Settings' ),
+		commands: __( 'Commands' ),
 		sites: __( 'Sites' ),
 		chats: __( 'Chats' ),
 	}[ group ];
@@ -83,8 +107,8 @@ const byPriority = ( a: PaletteCommand, b: PaletteCommand ) =>
 
 const normalize = ( value: string ) => value.trim().toLocaleLowerCase().replace( /\s+/g, ' ' );
 
-// Commands whose label contains every typed word rank above those matching
-// only through keywords; groups are ordered by their best match.
+// Commands whose label or an alias contains every typed word rank above those
+// matching only through keywords; groups are ordered by their best match.
 export function matchCommands( commands: PaletteCommand[], query: string ) {
 	const words = normalize( query ).split( ' ' ).filter( Boolean );
 	if ( ! words.length ) {
@@ -97,16 +121,15 @@ export function matchCommands( commands: PaletteCommand[], query: string ) {
 	const scored = commands
 		.filter( ( command ) => ! command.browseOnly )
 		.map( ( command ) => {
-			const label = normalize( command.label );
-			const terms = [ label, ...( command.keywords ?? [] ).map( normalize ) ];
-			const score =
-				label === words.join( ' ' )
-					? 3
-					: words.every( ( word ) => label.includes( word ) )
-					? 2
-					: words.every( ( word ) => terms.some( ( term ) => term.includes( word ) ) )
-					? 1
-					: 0;
+			const names = [ command.label, ...( command.aliases ?? [] ) ].map( normalize );
+			const terms = [ ...names, ...( command.keywords ?? [] ).map( normalize ) ];
+			const score = names.includes( words.join( ' ' ) )
+				? 3
+				: names.some( ( name ) => words.every( ( word ) => name.includes( word ) ) )
+				? 2
+				: words.every( ( word ) => terms.some( ( term ) => term.includes( word ) ) )
+				? 1
+				: 0;
 			return { command, score };
 		} )
 		.filter( ( match ) => match.score > 0 );
@@ -139,25 +162,26 @@ export function CommandPalette( {
 	// Set where the chat can be hidden beside the preview.
 	chatHidden?: boolean;
 } ) {
-	const [ open, setOpen ] = useState( false );
+	const open = useCommandPaletteOpen();
 	const commands = useAppCommands();
 
+	// Settings and Add site hand ⌘K over themselves; other dialogs keep it.
 	useEffect( () => {
 		const onKeyDown = ( event: KeyboardEvent ) => {
-			if ( event.defaultPrevented || event.repeat || ! isKeyboardEvent.primary( event, 'k' ) ) {
+			if ( event.defaultPrevented || event.repeat || ! isShortcut( event, 'k' ) ) {
 				return;
 			}
-			if ( ! open && document.querySelector( '[role="dialog"], [role="alertdialog"]' ) ) {
+			if ( ! open && isDialogOpen() ) {
 				return;
 			}
 			event.preventDefault();
-			setOpen( ! open );
+			setCommandPaletteOpen( ! open );
 		};
 		document.addEventListener( 'keydown', onKeyDown );
 		return () => document.removeEventListener( 'keydown', onKeyDown );
 	}, [ open ] );
 
-	const palette = { open, onOpenChange: setOpen, commands };
+	const palette = { open, onOpenChange: setCommandPaletteOpen, commands };
 	return site ? (
 		<SiteCommands
 			key={ site.id }
@@ -189,6 +213,8 @@ function useAppCommands(): PaletteCommand[] {
 	const toggleSidebar = useToggleSidebar();
 	const colorScheme = useColorScheme();
 	const savePreferences = useSaveUserPreferences();
+	const collapseAll = useCollapseAll();
+	const settingCommands = useSettingCommands( 'studio' );
 
 	const chats = chatEnabled
 		? ( sessions ?? [] )
@@ -213,7 +239,7 @@ function useAppCommands(): PaletteCommand[] {
 			group: 'quick',
 			label: __( 'New site' ),
 			icon: plusIcon,
-			keywords: [ __( 'Add site' ), __( 'Create site' ) ],
+			aliases: [ __( 'Add site' ), __( 'Create site' ) ],
 			run: () => openAddSite(),
 		},
 		{
@@ -222,7 +248,7 @@ function useAppCommands(): PaletteCommand[] {
 			label: __( 'Settings' ),
 			icon: settingsIcon,
 			priority: 2,
-			keywords: [ __( 'Preferences' ) ],
+			aliases: [ __( 'Open settings' ), __( 'Preferences' ) ],
 			run: () => openSettings(),
 		},
 		...chats.slice( 0, RECENT_CHATS_LIMIT ).map(
@@ -242,13 +268,35 @@ function useAppCommands(): PaletteCommand[] {
 			run: () =>
 				savePreferences.mutate( { colorScheme: colorScheme === 'dark' ? 'light' : 'dark' } ),
 		},
+		...settingCommands,
 		{
 			id: 'sidebar',
-			group: 'settings',
+			group: 'commands',
 			label: sidebarOpen ? __( 'Hide sidebar' ) : __( 'Show sidebar' ),
 			icon: sidebarExpandedIcon,
+			keywords: [ __( 'Toggle sidebar' ) ],
 			run: toggleSidebar,
 		},
+		{
+			id: 'notifications',
+			group: 'commands',
+			label: __( 'Show notifications' ),
+			icon: bellIcon,
+			aliases: [ __( 'Notifications' ) ],
+			run: openNoticeHistory,
+		},
+		...( collapseAll
+			? [
+					{
+						id: 'collapse-all',
+						group: 'commands' as const,
+						label: __( 'Collapse all' ),
+						icon: collapseAllIcon,
+						aliases: [ __( 'Collapse all sites' ) ],
+						run: collapseAll,
+					},
+			  ]
+			: [] ),
 		...( sites ?? [] ).map(
 			( site ): PaletteCommand => ( {
 				id: `site-${ site.id }`,
@@ -269,6 +317,78 @@ function useAppCommands(): PaletteCommand[] {
 	];
 }
 
+// A boolean preference a setting command turns on or off in place, by the
+// title of its row in Settings.
+function useSettingToggles(): Record< string, { checked: boolean; run: () => void } > {
+	const { data: preferences } = useUserPreferences();
+	const { showRecentChats, autoCollapseSites } = useSidebarPreferences();
+	const save = useSaveUserPreferences();
+	const toggle = ( key: keyof UserPreferences, checked: boolean | undefined ) => ( {
+		checked: !! checked,
+		run: () =>
+			save.mutate( {
+				[ key ]: ! checked,
+				...( key === 'analyticsEnabled' && { source: { surface: 'settings' as const } } ),
+			} ),
+	} );
+	if ( ! preferences ) {
+		return {};
+	}
+	return {
+		[ __( 'Show recent chats' ) ]: toggle( 'showRecentChats', showRecentChats ),
+		[ __( 'Collapse sidebar groups' ) ]: toggle( 'autoCollapseSites', autoCollapseSites ),
+		[ __( 'Improve Studio for everyone' ) ]: toggle(
+			'analyticsEnabled',
+			preferences.analyticsEnabled
+		),
+		[ __( 'Studio Code' ) ]: toggle(
+			'agenticFeaturesEnabled',
+			preferences.agenticFeaturesEnabled ?? true
+		),
+	};
+}
+
+// Every settings section, and every setting in it, shown while searching. A
+// switch is turned on or off in place; any other setting opens with its
+// control focused.
+function useSettingCommands( scope: 'studio' | 'site', site?: SiteDetails ): PaletteCommand[] {
+	const openSettings = useOpenSettings();
+	const toggles = useSettingToggles();
+	const group = scope === 'site' ? 'site-settings' : 'settings';
+	return getSections( scope ).flatMap( ( section ) => [
+		{
+			id: `${ group }-${ section.id }`,
+			group,
+			label: section.label,
+			icon: section.icon,
+			description: site?.name,
+			keywords: [ getGroupLabel( group ) ],
+			searchOnly: true,
+			run: () => openSettings( section.id, site?.id ),
+		},
+		...section.settings.map( ( title ): PaletteCommand => {
+			const toggle = scope === 'studio' ? toggles[ title ] : undefined;
+			return {
+				id: `${ group }-${ section.id }-${ title }`,
+				group,
+				label: toggle
+					? sprintf(
+							/* translators: %s: the name of a setting, e.g. "Show recent chats". */
+							toggle.checked ? __( 'Turn off “%s”' ) : __( 'Turn on “%s”' ),
+							title
+					  )
+					: title,
+				aliases: [ title ],
+				icon: section.icon,
+				description: site?.name ?? section.label,
+				keywords: [ section.label ],
+				searchOnly: true,
+				run: toggle?.run ?? ( () => openSettings( section.id, site?.id, title ) ),
+			};
+		} ),
+	] );
+}
+
 function SiteCommands( {
 	site,
 	session,
@@ -280,17 +400,27 @@ function SiteCommands( {
 	const openSettings = useOpenSettings();
 	const connector = useConnector();
 	const { chatEnabled } = useAgenticFeatures();
-	const startSite = useStartSite();
-	const stopSite = useStopSite();
-	const busy = useIsSiteBusy( site );
-	const { isPinned, togglePin } = useSidebarPins();
-	const pinned = isPinned( sitePinKey( site.id ) );
+	const actions = useSiteActions( site );
+	const { busy, running, othersRunning } = actions;
 	const destinations = useOpenInDestinations( site );
-	const manage = useSiteManagementActions( site, { onDelete: () => {} } );
+	const manage = useSiteManagementActions( site, {
+		onDelete: actions.openDelete,
+		onImport: actions.openImport,
+	} );
 	const preview = useSessionPreviewUI();
 	const dispatch = useSessionUIDispatch();
 	const openHeaderPanel = useOpenHeaderPanel();
+	const annotations = useSiteAnnotations( site.id );
+	const settingCommands = useSettingCommands( 'site', site );
 	const description = site.name;
+	const previewShown = preview.open && preview.siteId === site.id;
+	const keywords: Record< string, string[] > = {
+		files: [ __( 'Folder' ), __( 'Directory' ), __( 'Finder' ) ],
+		editor: [ __( 'Code editor' ), __( 'IDE' ) ],
+		terminal: [ __( 'Shell' ), __( 'Command line' ) ],
+		phpmyadmin: [ __( 'Database' ), 'SQL', 'MySQL' ],
+		'wp-admin': [ __( 'Dashboard' ), 'wp-admin' ],
+	};
 
 	const siteCommands: PaletteCommand[] = [
 		...( chatEnabled
@@ -302,6 +432,7 @@ function SiteCommands( {
 						icon: newChatIcon,
 						priority: 1,
 						description,
+						aliases: [ __( 'Add chat' ), __( 'Create chat' ) ],
 						run: () => void navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } ),
 					},
 			  ]
@@ -315,7 +446,7 @@ function SiteCommands( {
 						label: site.running ? __( 'Stop site' ) : __( 'Start site' ),
 						icon: site.running ? stopSiteIcon : startSiteIcon,
 						description,
-						run: () => ( site.running ? stopSite : startSite ).mutate( site.id ),
+						run: actions.toggleRunning,
 					},
 			  ] ),
 		{
@@ -327,6 +458,70 @@ function SiteCommands( {
 			description,
 			run: () => openSettings( 'site', site.id ),
 		},
+		{
+			id: 'rename-site',
+			group: 'site',
+			label: __( 'Rename site…' ),
+			icon: renameIcon,
+			description,
+			run: actions.rename,
+		},
+		...( busy
+			? []
+			: [
+					{
+						id: 'admin',
+						group: 'site' as const,
+						label: __( 'Open WordPress Admin' ),
+						icon: wordpress,
+						description,
+						keywords: keywords[ 'wp-admin' ],
+						run: actions.openAdmin,
+					},
+					{
+						id: 'database',
+						group: 'site' as const,
+						label: __( 'Open database' ),
+						icon: databaseIcon,
+						description,
+						keywords: keywords.phpmyadmin,
+						run: actions.openDatabase,
+					},
+					...( site.running
+						? [
+								{
+									id: 'restart',
+									group: 'site' as const,
+									label: __( 'Restart site' ),
+									icon: refreshIcon,
+									description,
+									run: () => void actions.restart(),
+								},
+						  ]
+						: [] ),
+					...( site.running && othersRunning.length
+						? [
+								{
+									id: 'stop-others',
+									group: 'site' as const,
+									label: __( 'Stop other sites' ),
+									icon: stopSiteIcon,
+									run: () => actions.stop( othersRunning ),
+								},
+						  ]
+						: [] ),
+			  ] ),
+		...( running.length > 1
+			? [
+					{
+						id: 'stop-all',
+						group: 'site' as const,
+						label: __( 'Stop all sites' ),
+						icon: stopSiteIcon,
+						run: () => actions.stop( running ),
+					},
+			  ]
+			: [] ),
 		...destinations
 			.filter( ( destination ) => ! destination.disabled )
 			.map(
@@ -340,10 +535,11 @@ function SiteCommands( {
 					),
 					icon: destination.logo,
 					description,
+					keywords: keywords[ destination.id ],
 					run: destination.open,
 				} )
 			),
-		...( preview.open && site.running
+		...( previewShown && site.running
 			? [
 					{
 						id: 'reload',
@@ -355,6 +551,32 @@ function SiteCommands( {
 					},
 			  ]
 			: [] ),
+		...( previewShown &&
+		site.running &&
+		chatEnabled &&
+		( connector.capabilities.annotatePreview || annotations.active )
+			? [
+					{
+						id: 'annotate',
+						group: 'site' as const,
+						label: annotations.active ? __( 'Exit annotations' ) : __( 'Annotate' ),
+						icon: annotateIcon,
+						description,
+						run: () => setAnnotating( site.id, ! annotations.active ),
+					},
+			  ]
+			: [] ),
+		{
+			id: 'preview-visibility',
+			group: 'site',
+			label: previewShown ? __( 'Hide preview' ) : __( 'Show preview' ),
+			icon: previewShown ? unseen : seen,
+			description,
+			run: () => {
+				preview.setSite( site.id );
+				preview.setOpen( ! previewShown );
+			},
+		},
 		...( chatHidden === undefined
 			? []
 			: [
@@ -399,10 +621,10 @@ function SiteCommands( {
 		{
 			id: 'pin-site',
 			group: 'site',
-			label: pinned ? __( 'Unpin site' ) : __( 'Pin site' ),
-			icon: pinned ? unpinIcon : pinIcon,
+			label: actions.pinned ? __( 'Unpin site' ) : __( 'Pin site' ),
+			icon: actions.pinned ? unpinIcon : pinIcon,
 			description,
-			run: () => togglePin( sitePinKey( site.id ) ),
+			run: actions.togglePin,
 		},
 		...manage
 			.filter( ( action ) => action.id !== 'delete' && ! action.disabled )
@@ -410,20 +632,31 @@ function SiteCommands( {
 				( action ): PaletteCommand => ( {
 					id: action.id,
 					group: 'site',
-					label: action.id === 'duplicate' ? __( 'Duplicate site' ) : action.label,
+					label:
+						action.id === 'duplicate'
+							? __( 'Duplicate site' )
+							: action.id === 'import'
+							? __( 'Import backup…' )
+							: action.label,
 					icon: action.icon,
 					description,
 					keywords: [ __( 'Backup' ) ],
 					run: action.run,
 				} )
 			),
+		...settingCommands,
 	];
 
 	const props = { ...palette, commands: [ ...commands, ...siteCommands ] };
-	return session && ! session.archived && chatEnabled ? (
-		<ChatCommands key={ session.id } session={ session } { ...props } />
-	) : (
-		<PaletteDialog { ...props } />
+	return (
+		<>
+			{ session && ! session.archived && chatEnabled ? (
+				<ChatCommands key={ session.id } session={ session } { ...props } />
+			) : (
+				<PaletteDialog { ...props } />
+			) }
+			{ actions.dialogs }
+		</>
 	);
 }
 

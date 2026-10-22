@@ -2,7 +2,7 @@ import { aiSessionBelongsToSite } from '@studio/common/ai/sessions/owner-site';
 import { useNavigate, useParams } from '@tanstack/react-router';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { Icon } from '@wordpress/icons';
-import { displayShortcut, isAppleOS, isKeyboardEvent } from '@wordpress/keycodes';
+import { displayShortcut, isAppleOS } from '@wordpress/keycodes';
 import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { getArchiveBlockedReason, useLeaveArchivedChat } from '@/components/chat-actions';
 import { DeleteSiteDialog } from '@/components/delete-site-dialog';
@@ -15,6 +15,7 @@ import { useSessions, useUpdateSessionMetadata } from '@/data/queries/use-sessio
 import { useSidebarPins } from '@/data/queries/use-sidebar-pins';
 import { useSites } from '@/data/queries/use-sites';
 import { archiveIcon, pinIcon, readStatusIcon, unpinIcon } from '@/lib/icons';
+import { isShortcut } from '@/lib/shortcuts';
 import styles from './style.module.css';
 import type {
 	KeyboardEvent,
@@ -340,21 +341,13 @@ export function BulkMenu( {
 			return;
 		}
 		const native = event.nativeEvent;
-		if ( isKeyboardEvent.primaryAlt( native, 'p' ) ) {
+		if ( isShortcut( native, 'p', 'alt' ) ) {
 			event.preventDefault();
 			setPinned( ! allPinned );
-		} else if (
-			isKeyboardEvent.primaryShift( native, 'a' ) &&
-			chatIds.length &&
-			! archiveBlocked
-		) {
+		} else if ( isShortcut( native, 'a', 'shift' ) && chatIds.length && ! archiveBlocked ) {
 			event.preventDefault();
 			void updateChats( { archived: true } );
-		} else if (
-			isKeyboardEvent.primary( native, 'backspace' ) &&
-			siteIds.length &&
-			! deleteBlocked
-		) {
+		} else if ( isShortcut( native, 'Backspace' ) && siteIds.length && ! deleteBlocked ) {
 			event.preventDefault();
 			confirmDelete();
 		}

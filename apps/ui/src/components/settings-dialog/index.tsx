@@ -43,6 +43,7 @@ import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/in
 import { VisuallyHidden } from '@/components/ui/visually-hidden';
 import { useSessions } from '@/data/queries/use-sessions';
 import { useSites } from '@/data/queries/use-sites';
+import { closeOnPaletteShortcut } from '@/hooks/use-command-palette';
 import { chatIcon, settingsIcon, shareIcon } from '@/lib/icons';
 import { readLastVisited } from '@/lib/last-visited';
 import { SettingsDialogContext } from './context';
@@ -93,7 +94,7 @@ type Section = {
 	settings: string[];
 };
 
-function getSections( scope: 'studio' | 'site' ): Section[] {
+export function getSections( scope: 'studio' | 'site' ): Section[] {
 	return scope === 'studio'
 		? [
 				{
@@ -358,7 +359,11 @@ export function SettingsDialog() {
 				open && settingsFocus && findRow( settingsFocus )?.querySelector( 'input' )?.select()
 			}
 		>
-			<DialogContent layout="settings" className={ styles.popup }>
+			<DialogContent
+				layout="settings"
+				className={ styles.popup }
+				onKeyDown={ closeOnPaletteShortcut( close ) }
+			>
 				<DialogTitle render={ <VisuallyHidden /> }>{ __( 'Settings' ) }</DialogTitle>
 				<div className={ styles.sidebar }>
 					<div className={ styles.scopes } role="group" aria-label={ __( 'Settings for' ) }>

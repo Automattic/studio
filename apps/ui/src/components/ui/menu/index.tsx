@@ -6,14 +6,7 @@ import { forwardRef } from 'react';
 import { FloatingSurface } from '@/components/ui/surface';
 import surface from '@/components/ui/surface/style.module.css';
 import styles from './style.module.css';
-import type {
-	ComponentPropsWithoutRef,
-	ElementRef,
-	KeyboardEventHandler,
-	MouseEventHandler,
-	PointerEventHandler,
-	ReactNode,
-} from 'react';
+import type { ComponentPropsWithoutRef, ElementRef, ReactNode } from 'react';
 
 export const Root = BaseMenu.Root;
 export const Trigger = BaseMenu.Trigger;
@@ -23,17 +16,20 @@ export const SubmenuRoot = BaseMenu.SubmenuRoot;
 export const ContextMenuRoot = BaseContextMenu.Root;
 export const ContextMenuTrigger = BaseContextMenu.Trigger;
 
-type PopupProps = {
+type ContextPopupProps = Omit<
+	ComponentPropsWithoutRef< typeof BaseMenu.Popup >,
+	'render' | 'className' | 'children'
+> & {
 	children: ReactNode;
+	className?: string;
+};
+
+type PopupProps = ContextPopupProps & {
 	/** Side relative to the trigger. Defaults to `top` (opens upward). */
 	side?: 'top' | 'right' | 'bottom' | 'left';
 	align?: 'start' | 'center' | 'end';
 	sideOffset?: number;
 	alignOffset?: number;
-	className?: string;
-	onClick?: MouseEventHandler< HTMLElement >;
-	onKeyDown?: KeyboardEventHandler< HTMLElement >;
-	onPointerDown?: PointerEventHandler< HTMLElement >;
 };
 
 /**
@@ -46,9 +42,7 @@ export function Popup( {
 	sideOffset = 4,
 	alignOffset,
 	className,
-	onClick,
-	onKeyDown,
-	onPointerDown,
+	...props
 }: PopupProps ) {
 	return (
 		<BaseMenu.Portal>
@@ -63,9 +57,7 @@ export function Popup( {
 					render={
 						<FloatingSurface className={ clsx( surface.padded, styles.popup, className ) } />
 					}
-					onClick={ onClick }
-					onKeyDown={ onKeyDown }
-					onPointerDown={ onPointerDown }
+					{ ...props }
 				>
 					{ children }
 				</BaseMenu.Popup>
@@ -80,19 +72,7 @@ export function SubmenuPopup( props: Omit< PopupProps, 'side' | 'align' > ) {
 }
 
 /** Popup for context menus: no side/align, so Base UI anchors it at the pointer. */
-export function ContextPopup( {
-	children,
-	className,
-	onClick,
-	onKeyDown,
-	onPointerDown,
-}: {
-	children: ReactNode;
-	className?: string;
-	onClick?: MouseEventHandler< HTMLElement >;
-	onKeyDown?: KeyboardEventHandler< HTMLElement >;
-	onPointerDown?: PointerEventHandler< HTMLElement >;
-} ) {
+export function ContextPopup( { children, className, ...props }: ContextPopupProps ) {
 	return (
 		<BaseMenu.Portal>
 			<BaseMenu.Positioner className={ styles.positioner }>
@@ -100,9 +80,7 @@ export function ContextPopup( {
 					render={
 						<FloatingSurface className={ clsx( surface.padded, styles.popup, className ) } />
 					}
-					onClick={ onClick }
-					onKeyDown={ onKeyDown }
-					onPointerDown={ onPointerDown }
+					{ ...props }
 				>
 					{ children }
 				</BaseMenu.Popup>

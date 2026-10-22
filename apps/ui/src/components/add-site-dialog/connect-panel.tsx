@@ -103,7 +103,6 @@ function RemoteSiteCard( {
 					<img
 						src={ `https://s0.wp.com/mshots/v1/${ encodeURIComponent( site.url ) }?w=600&h=400` }
 						alt=""
-						loading="lazy"
 					/>
 					<span className={ styles.badges }>
 						<Badge intent="draft">{ providerLabel }</Badge>

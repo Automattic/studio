@@ -2047,14 +2047,15 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			if ( ! target ) {
 				return;
 			}
-			const { fileId } = req.params;
-			const files = await getSiteAgentFiles( target.sitePath, target.kind );
-			// Only catalog ids, so the id can't point outside the site.
-			const relative = files.some( ( file ) => file.id === fileId )
-				? getSiteAgentFilePaths( target.kind, fileId ).find( ( candidate ) =>
-						existsSync( path.join( target.sitePath, candidate ) )
-				  )
-				: undefined;
+			// The path uses the catalog's id, never the requested one, so it stays inside the site.
+			const file = ( await getSiteAgentFiles( target.sitePath, target.kind ) ).find(
+				( candidate ) => candidate.id === req.params.fileId
+			);
+			const relative =
+				file &&
+				getSiteAgentFilePaths( target.kind, file.id ).find( ( candidate ) =>
+					existsSync( path.join( target.sitePath, candidate ) )
+				);
 			if ( ! relative ) {
 				res.status( 404 ).json( { error: 'File not found' } );
 				return;

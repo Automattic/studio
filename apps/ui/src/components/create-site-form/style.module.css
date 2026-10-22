@@ -15,94 +15,9 @@
 	margin-top: 28px;
 }
 
-/* The path trigger is a <button>, but we style it to sit within the
-   DataForm grid the same way the text/email inputs do — 40px tall, 1px
-   neutral border, 2px radius, matching the InputBase chrome so the field
-   reads as "one more input" alongside its siblings. The actual value is
-   chosen via the OS folder picker opened by clicking the button. */
-.pathTrigger {
+.pathRow {
 	display: flex;
-	align-items: center;
-	justify-content: space-between;
 	gap: 8px;
-	width: 100%;
-	height: 40px;
-	padding: 0 4px 0 12px;
-	border: 1px solid var(--input);
-	border-radius: 2px;
-	background-color: transparent;
-	color: var(--foreground);
-	font-family: var(--font-sans);
-	font-size: var(--text-xs);
-	line-height: 1;
-	text-align: left;
-	cursor: pointer;
-	transition:
-		border-color 0.15s,
-		box-shadow 0.15s;
-}
-
-.pathTrigger:hover {
-	border-color: var(--muted-foreground);
-}
-
-.pathTrigger:focus-visible {
-	border-color: var(--muted-foreground);
-	box-shadow: 0 0 0 0.5px var(--muted-foreground);
-	outline: none;
-}
-
-.pathTrigger.pathTriggerError,
-.pathTrigger.pathTriggerError:focus {
-	border-color: var(--destructive);
-	box-shadow: 0 0 0 0.5px var(--destructive);
-}
-
-.pathValue {
-	flex: 1 1 auto;
-	min-width: 0;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
-}
-
-.pathValuePlaceholder {
-	color: var(--muted-foreground);
-}
-
-.pathTriggerAction {
-	flex: 0 0 auto;
-	padding: 6px 12px;
-	font-size: var(--text-xxs);
-	font-weight: 500;
-	color: var(--foreground);
-}
-
-.pathControlError :global( .components-input-control__backdrop ) {
-	border-color: var(--destructive);
-	box-shadow: 0 0 0 0.5px var(--destructive);
-}
-
-.form :global( .components-validated-control__indicator.is-invalid ) {
-	color: var(--destructive);
-}
-
-.form
-	:global(
-		.components-validated-control:has( :is( input, select ):invalid[data-validity-visible] )
-			.components-input-control__backdrop
-	) {
-	--wp-components-color-accent: var(--destructive);
-	border-color: var(--destructive);
-}
-
-.form
-	:global(
-		.components-validated-control :is( textarea, input[type='text'] ):invalid[data-validity-visible]
-	) {
-	--wp-admin-theme-color: var(--destructive);
-	--wp-components-color-accent: var(--destructive);
-	border-color: var(--destructive);
 }
 
 .advancedToggle {

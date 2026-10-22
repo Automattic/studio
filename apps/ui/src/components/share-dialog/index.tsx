@@ -13,8 +13,10 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from '@/components/ui/dialog';
+import { Field, FieldContent, FieldDescription, FieldTitle } from '@/components/ui/field';
 import { Spinner } from '@/components/ui/spinner';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { VisuallyHidden } from '@/components/ui/visually-hidden';
 import { useConnector } from '@/data/core';
 import { markPreviewSeen, usePreviewReady } from '@/data/preview-ready';
 import { useAuthUser } from '@/data/queries/use-auth-user';
@@ -114,13 +116,13 @@ export function ShareDialog( {
 	}, [ open, ready, site.id ] );
 
 	const footer = upgrade ? (
-		<div className={ styles.upgrade }>
-			<div>
-				<p className={ styles.upgradeTitle }>{ __( 'Give your site a memorable address' ) }</p>
-				<p className={ styles.upgradeText }>
+		<Field>
+			<FieldContent>
+				<FieldTitle>{ __( 'Give your site a memorable address' ) }</FieldTitle>
+				<FieldDescription>
 					{ __( 'Publish on WordPress.com with a plan to use your own domain.' ) }
-				</p>
-			</div>
+				</FieldDescription>
+			</FieldContent>
 			<Button
 				variant="outline"
 				size="sm"
@@ -131,14 +133,14 @@ export function ShareDialog( {
 			>
 				{ __( 'Choose a plan' ) }
 			</Button>
-		</div>
+		</Field>
 	) : null;
 
 	return (
 		<Dialog open={ open } onOpenChange={ onOpenChange }>
 			<DialogContent aria-describedby={ signedOut ? descriptionId : undefined }>
 				<DialogHeader>
-					<DialogTitle className={ signedOut ? styles.visuallyHidden : undefined }>
+					<DialogTitle render={ signedOut ? <VisuallyHidden /> : undefined }>
 						{ __( 'Share' ) }
 					</DialogTitle>
 					{ signedOut ? null : (

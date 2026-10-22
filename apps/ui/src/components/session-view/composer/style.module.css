@@ -58,28 +58,17 @@
 }
 
 .shell {
-	position: relative;
-	display: flex;
 	flex-direction: column;
-	border: 1px solid var(--border);
-	border-radius: 24px;
-	background-color: var(--composer);
-	color: var(--foreground);
+	align-items: stretch;
+	height: auto;
 }
 
 :global(html[data-color-scheme='dark']) .shell {
 	--muted: var(--surface-4);
 }
 
-.shell:has(.input:focus-visible) {
-	border-color: var(--ring);
-	box-shadow: inset 0 0 0 1px
-		var(--ring);
-}
-
 /* Text-input chrome, like the form inputs beside it, instead of the chat composer. */
 .shellField {
-	border-color: var(--border);
 	border-radius: 9px;
 	background-color: color-mix(
 		in srgb,
@@ -89,7 +78,7 @@
 }
 
 .shellField:has(.input:focus-visible) {
-	border-color: var(--border);
+	border-color: var(--input);
 	box-shadow: none;
 	outline: var(--focus-width) solid var(--ring);
 	outline-offset: var(--focus-width);
@@ -344,25 +333,10 @@
 
 /* Grows with its text up to six lines, then scrolls. */
 .input {
-	display: block;
-	box-sizing: border-box;
-	width: 100%;
+	min-height: 0;
 	max-height: calc(6lh + 28px);
 	padding: 14px;
 	overflow-y: auto;
-	border: 0;
-	outline: none;
-	background: transparent;
-	color: inherit;
-	font-family: inherit;
-	font-size: var(--text-sm);
-	line-height: 20px;
-	resize: none;
-	field-sizing: content;
-}
-
-.input::placeholder {
-	color: var(--muted-foreground);
 }
 
 .inputShimmering::placeholder {

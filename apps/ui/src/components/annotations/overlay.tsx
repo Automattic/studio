@@ -3,14 +3,14 @@ import { getComposerAttachmentImageSrc } from '@studio/common/ai/composer-attach
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { arrowUp, closeSmall, Icon } from '@wordpress/icons';
 import { isAppleOS } from '@wordpress/keycodes';
-import { Checkbox } from '@wordpress/ui';
 import { clsx } from 'clsx';
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import {
 	useComposerAttachments,
 	useFileDrop,
 } from '@/components/session-view/composer/use-composer-attachments';
 import { Button, IconButton } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
 	AlertDialog,
 	DialogContent,
@@ -19,6 +19,8 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from '@/components/ui/dialog';
+import { Field, FieldLabel } from '@/components/ui/field';
+import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { toast } from '@/data/app-messages';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
@@ -64,6 +66,7 @@ export function AnnotationOverlay( { siteId, anchor, onSend }: AnnotationOverlay
 	const stagedCount = notes.filter( isStagedAnnotation ).length;
 	const [ confirming, setConfirming ] = useState( false );
 	const [ dontAsk, setDontAsk ] = useState( false );
+	const checkboxId = useId();
 	const cancelRef = useRef< HTMLButtonElement >( null );
 	const { data: preferences } = useUserPreferences();
 	const savePreferences = useSaveUserPreferences();
@@ -154,10 +157,12 @@ export function AnnotationOverlay( { siteId, anchor, onSend }: AnnotationOverlay
 							) }
 						</DialogDescription>
 					</DialogHeader>
-					<label className={ styles.dialogCheckbox }>
-						<Checkbox checked={ dontAsk } onCheckedChange={ setDontAsk } />
-						{ __( 'Don’t ask again' ) }
-					</label>
+					<Field orientation="horizontal">
+						<Checkbox id={ checkboxId } checked={ dontAsk } onCheckedChange={ setDontAsk } />
+						<FieldLabel htmlFor={ checkboxId } tone="muted">
+							{ __( 'Don’t ask again' ) }
+						</FieldLabel>
+					</Field>
 					<DialogFooter>
 						<Button ref={ cancelRef } variant="outline" onClick={ () => setConfirming( false ) }>
 							{ __( 'Cancel' ) }
@@ -279,11 +284,12 @@ function NoteEditor( {
 					) ) }
 				</ul>
 			) : null }
-			<textarea
+			<Textarea
 				autoFocus
 				rows={ 1 }
 				maxLength={ 10000 }
-				className={ styles.input }
+				variant="group"
+				size="sm"
 				aria-label={ __( 'Leave a note' ) }
 				placeholder={ __( 'Leave a note…' ) }
 				value={ note.comment }

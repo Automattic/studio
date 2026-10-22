@@ -38,6 +38,7 @@ import {
 	DialogTitle,
 	PanelHeader,
 } from '@/components/ui/dialog';
+import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
 import { VisuallyHidden } from '@/components/ui/visually-hidden';
 import { useSessions } from '@/data/queries/use-sessions';
 import { useSites } from '@/data/queries/use-sites';
@@ -308,8 +309,11 @@ export function SettingsDialog() {
 	};
 
 	const findRow = ( title: string ) =>
-		[ ...( content.current?.querySelectorAll( 'h2' ) ?? [] ) ]
-			.find( ( heading ) => heading.textContent?.trim() === title )
+		[
+			...( content.current?.querySelectorAll( '[data-settings-row] [data-slot="field-label"]' ) ??
+				[] ),
+		]
+			.find( ( label ) => label.textContent?.trim() === title )
 			?.closest< HTMLElement >( '[data-settings-row]' );
 
 	// Shows the setting picked from the search results.
@@ -371,26 +375,27 @@ export function SettingsDialog() {
 							</button>
 						) ) }
 					</div>
-					<div className={ styles.search }>
-						<Icon icon={ searchIcon } size={ 16 } className={ styles.searchIcon } />
-						<input
-							className={ styles.searchInput }
-							type="search"
+					<InputGroup className={ styles.search }>
+						<InputGroupInput
 							placeholder={ __( 'Search' ) }
 							aria-label={ __( 'Search settings' ) }
 							value={ query }
 							onChange={ ( event ) => setQuery( event.target.value ) }
 						/>
+						<InputGroupAddon>
+							<Icon icon={ searchIcon } size={ 16 } className={ styles.searchIcon } />
+						</InputGroupAddon>
 						{ query ? (
-							<IconButton
-								className={ styles.searchClear }
-								size="icon-2xs"
-								icon={ closeSmall }
-								label={ __( 'Clear search' ) }
-								onClick={ () => setQuery( '' ) }
-							/>
+							<InputGroupAddon align="inline-end">
+								<IconButton
+									size="icon-xs"
+									icon={ closeSmall }
+									label={ __( 'Clear search' ) }
+									onClick={ () => setQuery( '' ) }
+								/>
+							</InputGroupAddon>
 						) : null }
-					</div>
+					</InputGroup>
 					<nav className={ styles.nav } aria-label={ __( 'Settings sections' ) }>
 						{ words.length && ! results.length ? (
 							<p className={ styles.empty }>{ __( 'No settings found.' ) }</p>

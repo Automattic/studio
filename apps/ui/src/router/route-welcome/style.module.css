@@ -220,8 +220,6 @@
 	z-index: 1;
 	flex: 0 0 auto;
 	margin-top: 20px;
-	color: var(--muted-foreground);
-	font-size: var(--text-xxs);
 }
 
 /* Signed-in identity shown in place of the auth buttons. */

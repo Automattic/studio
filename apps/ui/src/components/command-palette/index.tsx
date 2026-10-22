@@ -9,6 +9,7 @@ import { useChatActions } from '@/components/chat-actions';
 import { useOpenInDestinations } from '@/components/open-in-menu/use-open-in-destinations';
 import { getSessionTitle } from '@/components/session-view/session-chat-actions';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
@@ -508,14 +509,16 @@ function PaletteDialog( { open, onOpenChange, commands }: PaletteProps ) {
 					autoHighlight="always"
 					keepHighlight
 				>
-					<div className={ styles.inputGroup }>
-						<Icon icon={ search } size={ 16 } className={ styles.searchIcon } />
+					<InputGroup className={ styles.inputGroup }>
 						<Autocomplete.Input
-							className={ styles.input }
+							render={ <InputGroupInput /> }
 							placeholder={ __( 'Search commands' ) }
 							aria-label={ __( 'Search commands' ) }
 						/>
-					</div>
+						<InputGroupAddon>
+							<Icon icon={ search } className={ styles.icon } />
+						</InputGroupAddon>
+					</InputGroup>
 					<Autocomplete.Empty className={ styles.empty }>
 						{ __( 'No commands found.' ) }
 					</Autocomplete.Empty>

@@ -1,16 +1,17 @@
 import { getLocalizedLink } from '@studio/common/lib/docs-links';
 import { createRoute, redirect, useNavigate } from '@tanstack/react-router';
-import { CheckboxControl } from '@wordpress/components';
 import { useMediaQuery } from '@wordpress/compose';
 import { createInterpolateElement } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
 import { chevronRight, Icon } from '@wordpress/icons';
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useId, useRef } from 'react';
 import { AuthActions } from '@/components/auth-actions';
 import { DotGrid } from '@/components/dot-grid';
 import { FeatureList } from '@/components/feature-list';
 import { Gravatar } from '@/components/gravatar';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Field, FieldLabel } from '@/components/ui/field';
 import { useConnector } from '@/data/core';
 import { useAuthUser, useLogout } from '@/data/queries/use-auth-user';
 import { SITES_QUERY_KEY } from '@/data/queries/use-sites';
@@ -28,6 +29,7 @@ function WelcomePage() {
 	const locale = useUserLocale();
 	const { data: preferences } = useUserPreferences();
 	const saveUserPreferences = useSaveUserPreferences();
+	const analyticsId = useId();
 	const isDark = useMediaQuery( '(prefers-color-scheme: dark)' );
 
 	// The welcome screen owns the account story: these are the features a
@@ -109,19 +111,21 @@ function WelcomePage() {
 					</div>
 				</div>
 
-				<div className={ styles.analyticsPreference }>
-					<CheckboxControl
-						__nextHasNoMarginBottom
-						label={ __( 'Help improve Studio by sharing anonymous usage statistics' ) }
+				<Field orientation="horizontal" className={ styles.analyticsPreference }>
+					<Checkbox
+						id={ analyticsId }
 						checked={ preferences?.analyticsEnabled ?? true }
-						onChange={ ( analyticsEnabled ) =>
+						onCheckedChange={ ( analyticsEnabled ) =>
 							saveUserPreferences.mutate( {
 								analyticsEnabled,
 								source: { surface: 'onboarding' },
 							} )
 						}
 					/>
-				</div>
+					<FieldLabel htmlFor={ analyticsId } tone="muted">
+						{ __( 'Help improve Studio by sharing anonymous usage statistics' ) }
+					</FieldLabel>
+				</Field>
 			</div>
 
 			<div className={ styles.footer }>

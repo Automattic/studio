@@ -78,9 +78,6 @@ function renderButton( overrides: Partial< Connector > = {} ) {
 	return { connector, site: testSite };
 }
 
-// Base UI's checkbox dispatches a PointerEvent, which jsdom lacks.
-vi.stubGlobal( 'PointerEvent', window.PointerEvent ?? MouseEvent );
-
 describe( 'PublishButton', () => {
 	it( 'publishes the whole site to the connected website', async () => {
 		const { connector, site } = renderButton();

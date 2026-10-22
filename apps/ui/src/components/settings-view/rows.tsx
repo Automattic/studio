@@ -1,10 +1,25 @@
-import { FormToggle } from '@wordpress/components';
-import { SelectControl } from '@wordpress/ui';
 import { clsx } from 'clsx';
+import {
+	Field,
+	FieldContent,
+	FieldDescription,
+	FieldGroup,
+	FieldLegend,
+	FieldSet,
+	FieldTitle,
+} from '@/components/ui/field';
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 import styles from './style.module.css';
 import type { ReactNode } from 'react';
 
-/** A grey card of setting rows, with an optional heading above it. */
+/** A card of setting rows, with an optional heading above it. */
 export function SettingsGroup( {
 	title,
 	description,
@@ -15,15 +30,19 @@ export function SettingsGroup( {
 	children: ReactNode;
 } ) {
 	return (
-		<div className={ styles.settingsGroup }>
+		<FieldSet>
 			{ title ? (
-				<div className={ styles.settingsGroupHeader }>
-					<h3>{ title }</h3>
-					{ description ? <p>{ description }</p> : null }
-				</div>
+				<FieldLegend variant="label" className={ clsx( description && styles.groupLegend ) }>
+					{ title }
+				</FieldLegend>
 			) : null }
-			<div className={ styles.preferenceSectionGroup }>{ children }</div>
-		</div>
+			{ description ? (
+				<FieldDescription width="full" className={ styles.groupDescription }>
+					{ description }
+				</FieldDescription>
+			) : null }
+			<FieldGroup variant="settings">{ children }</FieldGroup>
+		</FieldSet>
 	);
 }
 
@@ -31,26 +50,32 @@ export function SettingsGroup( {
 export function SettingsRow( {
 	title,
 	description,
+	error,
 	stacked = false,
 	children,
 }: {
 	title: string;
 	description?: ReactNode;
+	// Shown in place of the description.
+	error?: string;
 	// Puts the control on its own line, for wide controls.
 	stacked?: boolean;
 	children?: ReactNode;
 } ) {
 	return (
-		<div
-			className={ clsx( styles.preferenceRow, stacked && styles.preferenceRowStacked ) }
+		<Field
+			orientation={ stacked ? 'vertical' : 'horizontal' }
+			className={ styles.settingsRow }
 			data-settings-row
 		>
-			<div className={ styles.preferenceText }>
-				<h2>{ title }</h2>
-				{ description ? <p>{ description }</p> : null }
-			</div>
-			{ children ? <div className={ styles.preferenceControl }>{ children }</div> : null }
-		</div>
+			<FieldContent>
+				<FieldTitle>{ title }</FieldTitle>
+				{ description || error ? (
+					<FieldDescription error={ error }>{ description }</FieldDescription>
+				) : null }
+			</FieldContent>
+			{ children ? <div className={ styles.settingsControl }>{ children }</div> : null }
+		</Field>
 	);
 }
 
@@ -66,14 +91,12 @@ export function SettingsToggle( {
 	onChange: ( checked: boolean ) => void;
 } ) {
 	return (
-		<span className={ styles.toggleControl }>
-			<FormToggle
-				aria-label={ label }
-				checked={ checked }
-				disabled={ disabled }
-				onChange={ ( event ) => onChange( event.target.checked ) }
-			/>
-		</span>
+		<Switch
+			aria-label={ label }
+			checked={ checked }
+			disabled={ disabled }
+			onCheckedChange={ ( next ) => onChange( next ) }
+		/>
 	);
 }
 
@@ -91,18 +114,26 @@ export function SettingsSelect< TValue extends string >( {
 	onChange: ( value: TValue ) => void;
 } ) {
 	return (
-		<SelectControl
-			hideLabelFromVision
-			className={ styles.selectControl }
+		<Select
 			items={ options }
-			label={ label }
+			value={ options.some( ( option ) => option.value === value ) ? value : null }
 			disabled={ disabled }
-			value={ options.find( ( option ) => option.value === value ) ?? null }
-			onValueChange={ ( item ) => {
-				if ( item?.value !== undefined && item.value !== null ) {
-					onChange( item.value as TValue );
+			onValueChange={ ( next ) => {
+				if ( next !== null ) {
+					onChange( next );
 				}
 			} }
-		/>
+		>
+			<SelectTrigger size="sm" aria-label={ label }>
+				<SelectValue />
+			</SelectTrigger>
+			<SelectContent>
+				{ options.map( ( option ) => (
+					<SelectItem key={ option.value } value={ option.value }>
+						{ option.label }
+					</SelectItem>
+				) ) }
+			</SelectContent>
+		</Select>
 	);
 }

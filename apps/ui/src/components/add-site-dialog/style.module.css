@@ -105,17 +105,3 @@
 	padding-top: 4px;
 	container-type: inline-size;
 }
-
-/* Fields as in Settings: a faint border, rounder corners and sentence-case
-   labels. */
-.content [class*='__input-layout'][class*='__layout'] {
-	border-color: var(--border);
-	border-radius: 9px;
-	background-color: color-mix(in srgb, var(--chrome) 60%, transparent);
-}
-
-.content label[class*='__label'] {
-	font-size: var(--text-xs);
-	font-weight: var(--font-weight-medium);
-	text-transform: none;
-}

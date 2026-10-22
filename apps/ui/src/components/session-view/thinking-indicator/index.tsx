@@ -1,8 +1,8 @@
 import { randomThinkingMessage } from '@studio/common/ai/thinking-messages';
-import { VisuallyHidden } from '@wordpress/components';
 import { clsx } from 'clsx';
 import { useEffect, useState } from 'react';
 import { AgentWorkingIndicator } from '@/components/agent-working-indicator';
+import { VisuallyHidden } from '@/components/ui/visually-hidden';
 import styles from './style.module.css';
 
 type ElapsedTimePart = {
@@ -61,9 +61,7 @@ export function AnimatedElapsedTime( { elapsedSeconds }: { elapsedSeconds: numbe
 
 	return (
 		<span className={ styles.elapsed } dir="ltr">
-			<VisuallyHidden as="span" aria-live="off">
-				{ label }
-			</VisuallyHidden>
+			<VisuallyHidden aria-live="off">{ label }</VisuallyHidden>
 			<span className={ styles.elapsedContent } aria-hidden="true">
 				{ parts.map( ( { unit, value } ) => {
 					const digits = String( value ).split( '' );

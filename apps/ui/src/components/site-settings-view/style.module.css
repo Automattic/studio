@@ -1,7 +1,7 @@
 .form {
 	display: flex;
 	flex-direction: column;
-	gap: 20px;
+	gap: 32px;
 }
 
 .submitError {
@@ -13,20 +13,13 @@
 	font-size: var(--text-xs);
 }
 
-.credentialActions {
-	display: flex;
-	align-items: center;
-	gap: 4px;
+.input {
+	inline-size: 224px;
+	max-inline-size: 100%;
 }
 
-.emailControl:dir(rtl) :global(.components-input-control__input) {
+.emailInput:dir(rtl) {
 	text-align: right;
-}
-
-@container overview (max-width: 600px) {
-	.form :global( .dataforms-layouts-row__field ) > div {
-		flex-direction: column !important;
-	}
 }
 
 .debugLogAction {

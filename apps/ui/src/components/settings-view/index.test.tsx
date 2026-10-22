@@ -1,4 +1,6 @@
 import '@testing-library/jest-dom/vitest';
+import { supportedLocaleNames } from '@studio/common/lib/locale';
+import { supportedEditorConfig } from '@studio/common/lib/user-settings/editor';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useConnector } from '@/data/core';
@@ -6,36 +8,6 @@ import { persister } from '@/data/core/query-client';
 import { useInstalledApps } from '@/data/queries/use-installed-apps';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
 import { AppearanceSettings, GeneralSettings } from './index';
-
-vi.mock( '@wordpress/ui', () => ( {
-	SelectControl: ( {
-		items = [],
-		label,
-		value,
-		onValueChange,
-	}: {
-		items?: Array< { label: string; value: string | null } >;
-		label: string;
-		value?: { label: string; value: string | null } | null;
-		onValueChange?: ( item: { label: string; value: string | null } | undefined ) => void;
-	} ) => (
-		<label>
-			<span>{ label }</span>
-			<select
-				value={ value?.value ?? '' }
-				onChange={ ( event ) =>
-					onValueChange?.( items.find( ( item ) => item.value === event.target.value ) )
-				}
-			>
-				{ items.map( ( item ) => (
-					<option key={ item.value ?? 'null' } value={ item.value ?? '' }>
-						{ item.label }
-					</option>
-				) ) }
-			</select>
-		</label>
-	),
-} ) );
 
 vi.mock( '@/components/gravatar', () => ( {
 	Gravatar: () => <span data-testid="gravatar" />,
@@ -98,6 +70,16 @@ const useSaveUserPreferencesMock = vi.mocked( useSaveUserPreferences );
 const useUserPreferencesMock = vi.mocked( useUserPreferences );
 const removeClientMock = vi.mocked( persister.removeClient );
 
+function choose( item: HTMLElement ) {
+	fireEvent.pointerDown( item, { pointerType: 'mouse' } );
+	fireEvent.click( item );
+}
+
+async function pick( name: string, option: string ) {
+	fireEvent.click( screen.getByRole( 'combobox', { name } ) );
+	choose( await screen.findByRole( 'option', { name: option } ) );
+}
+
 describe( 'Studio settings', () => {
 	const mutate = vi.fn();
 	const reload = vi.fn();
@@ -139,25 +121,28 @@ describe( 'Studio settings', () => {
 		} as never );
 	} );
 
-	it( 'saves the theme as soon as one is picked', () => {
+	it( 'saves the theme as soon as one is picked', async () => {
 		render( <AppearanceSettings /> );
 
-		fireEvent.change( screen.getByLabelText( 'Theme' ), { target: { value: 'dark' } } );
+		await pick( 'Theme', 'Dark' );
 
-		expect( mutate ).toHaveBeenCalledWith( { colorScheme: 'dark' }, expect.any( Object ) );
+		await waitFor( () =>
+			expect( mutate ).toHaveBeenCalledWith( { colorScheme: 'dark' }, expect.any( Object ) )
+		);
 	} );
 
-	it( 'saves the editor on change and only offers installed apps', () => {
+	it( 'saves the editor on change and only offers installed apps', async () => {
 		render( <GeneralSettings /> );
 
-		const editorSelect = screen.getByLabelText( 'Code editor' ) as HTMLSelectElement;
-		expect( Array.from( editorSelect.options ).map( ( option ) => option.value ) ).toEqual( [
-			'vscode',
+		fireEvent.click( screen.getByRole( 'combobox', { name: 'Code editor' } ) );
+		const options = await screen.findAllByRole( 'option' );
+		expect( options.map( ( option ) => option.textContent ) ).toEqual( [
+			supportedEditorConfig.vscode.label(),
 		] );
-
-		fireEvent.change( editorSelect, { target: { value: 'vscode' } } );
-
-		expect( mutate ).toHaveBeenCalledWith( { editor: 'vscode' }, expect.any( Object ) );
+		choose( options[ 0 ] );
+		await waitFor( () =>
+			expect( mutate ).toHaveBeenCalledWith( { editor: 'vscode' }, expect.any( Object ) )
+		);
 	} );
 
 	it( 'clears the persisted cache and reloads after a locale change is saved', async () => {
@@ -165,9 +150,11 @@ describe( 'Studio settings', () => {
 
 		render( <GeneralSettings /> );
 
-		fireEvent.change( screen.getByLabelText( 'Language' ), { target: { value: 'es' } } );
+		await pick( 'Language', supportedLocaleNames.es );
 
-		expect( mutate ).toHaveBeenCalledWith( { locale: 'es' }, expect.any( Object ) );
+		await waitFor( () =>
+			expect( mutate ).toHaveBeenCalledWith( { locale: 'es' }, expect.any( Object ) )
+		);
 		await waitFor( () => expect( reload ).toHaveBeenCalled() );
 		expect( removeClientMock ).toHaveBeenCalled();
 	} );

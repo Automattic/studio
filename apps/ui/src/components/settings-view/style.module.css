@@ -23,66 +23,11 @@
 	margin-block-start: 4px;
 }
 
-.instructionsEditor {
-	display: flex;
-	flex-direction: column;
-	padding-block: 16px 20px;
-}
-
 .instructionsHeader {
 	display: flex;
 	align-items: baseline;
 	justify-content: space-between;
 	gap: 8px;
-	color: var(--foreground);
-	font-size: var(--text-xs);
-	font-weight: var(--font-weight-medium);
-	line-height: 18px;
-}
-
-.instructionsDescription {
-	margin: 2px 0 12px;
-	color: var(--muted-foreground);
-	font-size: var(--text-xxs);
-	line-height: 17.6px;
-}
-
-.instructionsTextarea {
-	box-sizing: border-box;
-	inline-size: 100%;
-	min-block-size: 200px;
-	padding: 8px 10px;
-	border: 1px solid
-		var(--border);
-	border-radius: 9px;
-	background: color-mix( in srgb, var(--chrome) 60%, transparent );
-	color: inherit;
-	font: inherit;
-	font-size: var(--text-xs);
-	line-height: 20px;
-	resize: vertical;
-}
-
-.instructionsTextarea::placeholder {
-	color: var(--muted-foreground);
-}
-
-.instructionsTextarea:focus-visible {
-	border-color: var(--ring);
-	outline: none;
-	box-shadow: inset 0 0 0 1px var(--ring);
-}
-
-.instructionsCounter {
-	font-size: var(--text-xs);
-	font-weight: var(--font-weight-normal);
-	color: var(--muted-foreground);
-}
-
-.instructionsError {
-	margin: 0;
-	font-size: var(--text-xxs);
-	color: var(--destructive);
 }
 
 .preferenceSectionGroup {
@@ -103,132 +48,35 @@
 	line-height: 20px;
 }
 
-.preferenceRow {
-	display: grid;
-	grid-template-columns: minmax( 0, 1fr ) max-content;
-	align-items: center;
-	column-gap: 20px;
-	padding-block: 16px;
-	border-bottom: 1px solid
-		var(--border);
+.groupLegend {
+	margin-block-end: 2px;
 }
 
-.preferenceRow:last-child,
-.shortcutRow:last-child {
-	border-bottom: 0;
+.groupDescription {
+	margin-block-end: 8px;
+	padding-inline: 20px;
 }
 
-.preferenceText {
-	display: flex;
-	flex-direction: column;
-	gap: 2px;
-	min-width: 0;
-}
-
-.preferenceText h2 {
-	margin: 0;
-	color: var(--foreground);
-	font-size: var(--text-xs);
-	font-weight: var(--font-weight-medium);
-	line-height: 18px;
-}
-
-.preferenceText p {
-	margin: 0;
-	color: var(--muted-foreground);
-	font-size: var(--text-xxs);
-	line-height: 17.6px;
-}
-
-.preferenceControl {
+.settingsControl {
 	display: flex;
 	align-items: center;
 	gap: 8px;
-	justify-content: flex-end;
-	min-width: 0;
-	inline-size: 100%;
 }
 
-/* Description and toggle share the top line; the key field spans both columns
-   underneath. */
-.apiKeyRow {
-	row-gap: 12px;
+.settingsRow[data-orientation='vertical'] > .settingsControl {
+	flex-direction: column;
+	align-items: stretch;
 }
 
-.apiKeyControls {
-	grid-column: 1 / -1;
+@media ( max-width: 640px ) {
+	.settingsRow[data-orientation='horizontal'] {
+		flex-direction: column;
+		align-items: stretch;
+	}
 }
 
-.apiKeyControls :global( .components-base-control ) {
+.apiKeyInput {
 	max-inline-size: 420px;
-}
-
-/* Match the error message below the field. The accent overrides keep the
-   border and focus ring red while the input is focused. */
-.apiKeyControlsError :global( input.components-text-control__input ) {
-	--wp-admin-theme-color: var(--destructive);
-	--wp-components-color-accent: var(--destructive);
-
-	border-color: var(--destructive);
-}
-
-.selectControl:focus-visible {
-	outline: var(--focus-width) solid var(--ring);
-	outline-offset: 2px;
-}
-
-/* Compact selects that size to their value, as in the settings rows. */
-.selectControl {
-	max-inline-size: 240px;
-}
-
-.selectControl :global( div:has( > [role='combobox'] ) ) {
-	border-color: var(--border);
-	border-radius: 9px;
-	background: color-mix( in srgb, var(--chrome) 60%, transparent );
-}
-
-.selectControl :global( [role='combobox'] ) {
-	padding-inline: 10px 6px;
-	font-size: var(--text-xs);
-	font-weight: var(--font-weight-medium);
-}
-
-.settingsGroup {
-	display: flex;
-	flex-direction: column;
-	gap: 8px;
-}
-
-.settingsGroupHeader {
-	display: flex;
-	flex-direction: column;
-	gap: 2px;
-	padding: 8px 20px 0;
-}
-
-.settingsGroupHeader h3 {
-	margin: 0;
-	color: var(--foreground);
-	font-size: var(--text-sm);
-	font-weight: var(--font-weight-medium);
-	line-height: 20px;
-}
-
-.settingsGroupHeader p {
-	margin: 0;
-	color: var(--muted-foreground);
-	font-size: var(--text-xxs);
-	line-height: 17.6px;
-}
-
-.preferenceRowStacked {
-	grid-template-columns: minmax( 0, 1fr );
-	row-gap: 8px;
-}
-
-.preferenceRowStacked .preferenceControl {
-	justify-content: flex-start;
 }
 
 /* A text field that opens the folder picker. */
@@ -272,64 +120,12 @@
 	color: var(--muted-foreground);
 }
 
-.cliHeader {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	gap: 20px;
-}
-
-.cliHeading {
-	margin-block-end: 0;
-}
-
-.cliHeader :global( .components-form-toggle .components-form-toggle__track ) {
-	background-color: var(--muted);
-	border-color: var(--input);
-}
-
-.cliHeader :global( .components-form-toggle .components-form-toggle__thumb ) {
-	background-color: var(--muted-foreground);
-}
-
-.cliHeader :global( .components-form-toggle.is-checked .components-form-toggle__track ) {
-	background-color: var(--accent);
-	border-color: var(--accent);
-}
-
-.cliHeader :global( .components-form-toggle.is-checked .components-form-toggle__thumb ) {
-	background-color: var(--accent-foreground);
-}
-
-.cliHeader
-	:global(
-		.components-form-toggle .components-form-toggle__input:focus + .components-form-toggle__track
-	) {
-	box-shadow:
-		0 0 0 var(--focus-width) var(--chat),
-		0 0 0 calc( 2 * var(--focus-width) ) var(--ring);
-}
-
 .cliToggleTrigger {
 	display: inline-flex;
 }
 
-/* Disabled form controls swallow hover events, which would keep the wrapper's
-   tooltip from ever opening. */
-.cliToggleTrigger :global( input:disabled ) {
-	pointer-events: none;
-}
-
 .cliTooltip {
 	max-inline-size: 280px;
-	line-height: 20px;
-}
-
-.cliDescription {
-	max-inline-size: 460px;
-	margin: 0;
-	color: var(--muted-foreground);
-	font-size: var(--text-xxs);
 	line-height: 20px;
 }
 
@@ -347,6 +143,10 @@
 	padding-block: 16px;
 	border-bottom: 1px solid
 		var(--border);
+}
+
+.shortcutRow:last-child {
+	border-bottom: 0;
 }
 
 .shortcutName {
@@ -475,44 +275,6 @@
 	z-index: 1;
 }
 
-.toggleControl :global( .components-form-toggle .components-form-toggle__track ) {
-	border-color: transparent;
-	background-color: color-mix( in srgb, var(--foreground) 12%, transparent );
-}
-
-.toggleControl :global( .components-form-toggle .components-form-toggle__thumb ) {
-	border: 0;
-	background-color: var(--accent-foreground);
-	box-shadow: 0 1px 2px rgba( 0, 0, 0, 0.2 );
-}
-
-.toggleControl :global( .components-form-toggle.is-checked .components-form-toggle__track ) {
-	border-color: transparent;
-	background-color: var(--accent);
-}
-
-.toggleControl :global( .components-form-toggle.is-checked .components-form-toggle__thumb ) {
-	background-color: var(--accent-foreground);
-}
-
-.toggleControl
-	:global(
-		.components-form-toggle .components-form-toggle__input:focus + .components-form-toggle__track
-	) {
-	box-shadow:
-		0 0 0 var(--focus-width) var(--chat),
-		0 0 0 calc( 2 * var(--focus-width) ) var(--ring);
-}
-
-@media ( max-width: 640px ) {
-	.preferenceRow {
-		align-items: stretch;
-		grid-template-columns: 1fr;
-		row-gap: 8px;
-	}
-
-}
-
 .wapuuScoreHeading {
 	display: inline-flex;
 	align-items: center;
@@ -631,8 +393,8 @@
 }
 
 /* Escalation colors for the AI credits meter (80% / 90% / exhausted). The
-   filters brighten the wpds caution/warning weak tokens toward the design's
-   yellow and orange — taken as-is from the usage-interfaces exploration. */
+   filters brighten the warning token toward the design's yellow and orange —
+   taken as-is from the usage-interfaces exploration. */
 .progressValueWarning {
 	background: var(--warning);
 	filter: saturate( 2 ) brightness( 1.8 );
@@ -783,12 +545,6 @@
 .previewActions {
 	display: flex;
 	gap: 4px;
-}
-
-.previewRename {
-	padding-block: 16px;
-	border-bottom: 1px solid
-		var(--border);
 }
 
 .previewIllustration {

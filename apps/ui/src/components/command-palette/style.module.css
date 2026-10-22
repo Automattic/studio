@@ -10,40 +10,7 @@
 }
 
 .inputGroup {
-	display: flex;
-	align-items: center;
-	height: 36px;
-	box-sizing: border-box;
-	border: 1px solid
-		var(--border);
 	border-radius: 14px;
-}
-
-.inputGroup:focus-within {
-	border-color: var(--ring);
-	box-shadow: inset 0 0 0 1px var(--ring);
-}
-
-.searchIcon {
-	flex: none;
-	margin-inline-start: 8px;
-	fill: var(--muted-foreground);
-}
-
-.input {
-	flex: 1;
-	min-width: 0;
-	height: 100%;
-	padding: 4px 10px 4px 6px;
-	border: 0;
-	background: none;
-	color: inherit;
-	font: inherit;
-	outline: none;
-}
-
-.input::placeholder {
-	color: var(--muted-foreground);
 }
 
 .list {

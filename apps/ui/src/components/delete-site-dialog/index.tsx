@@ -1,7 +1,7 @@
-import { CheckboxControl } from '@wordpress/components';
 import { __, _n, sprintf } from '@wordpress/i18n';
-import { useRef, useState } from 'react';
+import { useId, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
 	AlertDialog,
 	DialogContent,
@@ -10,6 +10,7 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from '@/components/ui/dialog';
+import { Field, FieldLabel } from '@/components/ui/field';
 import { useDeleteSite } from '@/data/queries/use-sites';
 import { useConfirmOnEnter } from '@/hooks/use-confirm-on-enter';
 import styles from './style.module.css';
@@ -33,6 +34,7 @@ export function DeleteSiteDialog( {
 	const [ pending, setPending ] = useState( false );
 	const [ error, setError ] = useState< string >();
 	const cancelRef = useRef< HTMLButtonElement >( null );
+	const deleteFilesId = useId();
 	const count = sites.length;
 	const confirmLabel = _n( 'Delete site', 'Delete sites', count );
 	const handleKeyDown = useConfirmOnEnter( confirmLabel );
@@ -104,13 +106,17 @@ export function DeleteSiteDialog( {
 							  ) }
 					</DialogDescription>
 				</DialogHeader>
-				<CheckboxControl
-					__nextHasNoMarginBottom
-					label={ __( 'Delete site files from my computer' ) }
-					checked={ deleteFiles }
-					onChange={ setDeleteFiles }
-					disabled={ pending }
-				/>
+				<Field orientation="horizontal">
+					<Checkbox
+						id={ deleteFilesId }
+						checked={ deleteFiles }
+						onCheckedChange={ setDeleteFiles }
+						disabled={ pending }
+					/>
+					<FieldLabel htmlFor={ deleteFilesId } tone="muted">
+						{ __( 'Delete site files from my computer' ) }
+					</FieldLabel>
+				</Field>
 				{ error ? (
 					<p role="alert" className={ styles.error }>
 						{ error }

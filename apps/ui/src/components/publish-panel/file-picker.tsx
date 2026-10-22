@@ -1,8 +1,9 @@
 import { __, sprintf } from '@wordpress/i18n';
 import { chevronDown, chevronRight, Icon, link } from '@wordpress/icons';
-import { Checkbox } from '@wordpress/ui';
 import { useId, useState, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Field, FieldLabel } from '@/components/ui/field';
 import { Spinner } from '@/components/ui/spinner';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import styles from './style.module.css';
@@ -28,19 +29,21 @@ function SelectionRow( {
 	return (
 		<div className={ styles.selectionRow }>
 			<div className={ styles.disclosure }>{ disclosure }</div>
-			<Checkbox
-				id={ id }
-				checked={ checked }
-				indeterminate={ indeterminate }
-				onCheckedChange={ onChange }
-				aria-label={
-					/* translators: %s: file or folder name */
-					symlink ? sprintf( __( '%s (symbolic link)' ), label ) : undefined
-				}
-			/>
-			<label htmlFor={ id } className={ styles.selectionLabel }>
-				{ label }
-			</label>
+			<Field orientation="horizontal">
+				<Checkbox
+					id={ id }
+					checked={ checked }
+					indeterminate={ indeterminate }
+					onCheckedChange={ onChange }
+					aria-label={
+						/* translators: %s: file or folder name */
+						symlink ? sprintf( __( '%s (symbolic link)' ), label ) : undefined
+					}
+				/>
+				<FieldLabel htmlFor={ id } className={ styles.selectionLabel }>
+					{ label }
+				</FieldLabel>
+			</Field>
 			{ symlink ? (
 				<Tooltip>
 					<TooltipTrigger render={ <span className={ styles.symlink } /> }>

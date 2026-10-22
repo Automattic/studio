@@ -117,65 +117,10 @@
 	gap: 8px;
 }
 
-.inlineForm,
-.field {
+.inlineForm {
 	display: flex;
 	flex-direction: column;
 	gap: 8px;
-}
-
-.label,
-.upgradeTitle {
-	margin: 0;
-	font-size: var(--text-xs);
-	font-weight: var(--font-weight-medium);
-	line-height: 1.375;
-}
-
-.input {
-	box-sizing: border-box;
-	width: 100%;
-	height: var(--control-size);
-	padding: 4px 10px;
-	border: 1px solid var(--border);
-	border-radius: 12px;
-	background: transparent;
-	color: inherit;
-	font: inherit;
-	font-size: var(--text-sm);
-}
-
-.input:focus-visible {
-	outline: var(--focus-width) solid var(--ring);
-	outline-offset: -1px;
-}
-
-.upgrade {
-	display: flex;
-	flex-direction: column;
-	gap: 8px;
-}
-
-.upgrade > div {
-	display: flex;
-	flex-direction: column;
-	gap: 2px;
-}
-
-.upgradeText {
-	margin: 0;
-	color: var(--muted-foreground);
-	font-size: var(--text-xxs);
-	line-height: 1.47;
-}
-
-.visuallyHidden {
-	position: absolute;
-	width: 1px;
-	height: 1px;
-	overflow: hidden;
-	clip-path: inset(50%);
-	white-space: nowrap;
 }
 
 .notice {

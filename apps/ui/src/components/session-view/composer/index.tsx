@@ -67,6 +67,7 @@ import {
 	getAnnotationsAttachment,
 } from '@/components/annotations/submission';
 import { Button } from '@/components/ui/button';
+import { InputGroup, InputGroupTextarea } from '@/components/ui/input-group';
 import * as Menu from '@/components/ui/menu';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { toast } from '@/data/app-messages';
@@ -834,8 +835,9 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 						</div>
 					</div>
 				) : null }
-				<div
+				<InputGroup
 					ref={ setShellNode }
+					variant="composer"
 					data-session-composer
 					className={ clsx( styles.shell, isField && styles.shellField ) }
 					onMouseDown={ focusTextareaFromShell }
@@ -952,7 +954,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 								{ placeholder }
 							</span>
 						) : null }
-						<textarea
+						<InputGroupTextarea
 							ref={ textareaRef }
 							className={ clsx( styles.input, placeholderBusy && styles.inputShimmering ) }
 							placeholder={ placeholder }
@@ -1210,7 +1212,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 							) }
 						</div>
 					</div>
-				</div>
+				</InputGroup>
 			</div>
 			<FamilySwitchConfirmDialog
 				currentModel={ model }

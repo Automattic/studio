@@ -9,6 +9,9 @@ vi.mock( '@/data/queries/use-sites', () => ( {
 	useDeleteSite: vi.fn(),
 } ) );
 
+// Base UI's checkbox dispatches a PointerEvent, which jsdom lacks.
+vi.stubGlobal( 'PointerEvent', window.PointerEvent ?? MouseEvent );
+
 const SITE = { id: 'site-1', name: 'My Site' } as SiteDetails;
 const mutateAsync = vi.fn();
 

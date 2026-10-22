@@ -2,13 +2,14 @@ import { canCancelSyncActivity } from '@studio/common/lib/sync/cancel';
 import { useIsMutating } from '@tanstack/react-query';
 import { __ } from '@wordpress/i18n';
 import { chevronDownSmall, chevronLeft, Icon } from '@wordpress/icons';
-import { Progress } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useEffect, useRef, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import * as Menu from '@/components/ui/menu';
 import * as Popover from '@/components/ui/popover';
+import { Progress } from '@/components/ui/progress';
 import { Spinner } from '@/components/ui/spinner';
+import { VisuallyHidden } from '@/components/ui/visually-hidden';
 import {
 	PULL_FROM_LIVE_MUTATION_KEY,
 	PUSH_TO_LIVE_MUTATION_KEY,
@@ -30,7 +31,7 @@ export function PanelHeader( { title, onBack }: { title: string; onBack?: () => 
 		return () => cancelAnimationFrame( frame );
 	}, [ hasBack, title ] );
 	if ( ! onBack ) {
-		return <Popover.Title className={ styles.visuallyHidden }>{ title }</Popover.Title>;
+		return <Popover.Title render={ <VisuallyHidden /> }>{ title }</Popover.Title>;
 	}
 	return (
 		<div className={ styles.panelHeader }>
@@ -177,15 +178,10 @@ export function TransferProgress( {
 				</span>
 			</div>
 			{ activity.progress !== undefined ? (
-				<Progress.Root
+				<Progress
 					value={ activity.progress }
-					className={ styles.progressBar }
 					aria-label={ pushing ? __( 'Publishing progress' ) : __( 'Pull progress' ) }
-				>
-					<Progress.Track className={ styles.progressTrack }>
-						<Progress.Indicator color="var(--foreground)" />
-					</Progress.Track>
-				</Progress.Root>
+				/>
 			) : null }
 			{ cancellable ? (
 				<Button variant="inline-text" size="inline" disabled={ cancelling } onClick={ cancel }>

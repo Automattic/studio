@@ -7,67 +7,14 @@
 	fill: currentColor;
 }
 
-.updateModeControl {
-	display: flex;
-	flex-direction: column;
-	gap: 8px;
-	min-inline-size: 0;
-	margin: 0;
-	/* Matches the radio focus ring's 4px box-shadow, which would otherwise clip. */
-	padding: 0;
-	padding-inline-start: 4px;
-	border: 0;
-}
-
-.updateModeControl :global(.components-radio-control) {
-	display: flex;
-	flex-direction: column;
-	/* See .choiceControl below — same nesting, same missing gap. */
-	gap: 8px;
-}
-
-.updateModeControl :global(.components-radio-control__option-description) {
-	padding-block-start: 4px;
-	line-height: 1.5;
-}
-
-.choiceControl {
-	display: flex;
-	flex-direction: column;
-	gap: 8px;
-	min-inline-size: 0;
-	margin: 0;
-	/* Matches the radio focus ring's 4px box-shadow, which would otherwise clip. */
-	padding: 0;
-	padding-inline-start: 4px;
-	border: 0;
-}
-
-.choiceControl :global(.components-radio-control) {
-	display: flex;
-	flex-direction: column;
-	/* The fieldset's own gap never reaches the options — they are nested one
-	   level down — so without this each option's description runs flush into
-	   the next radio and reads as belonging to it. */
-	gap: 8px;
-}
-
-/* Keeps upstream's 4px, but relaxes the line-height so a wrapped description
-   stays readable. */
-.choiceControl :global(.components-radio-control__option-description) {
-	padding-block-start: 4px;
-	line-height: 1.5;
-}
-
-.pinnedVersionSelect {
-	width: min(180px, 100%);
-}
-
-.compactSelect {
-	width: min(180px, 100%);
-}
-
 .helpAction {
 	display: flex;
 	margin-block-start: 4px;
+}
+
+.textControl {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	min-width: min(224px, 100%);
 }

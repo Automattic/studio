@@ -13,6 +13,7 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from '@/components/ui/dialog';
+import { Field } from '@/components/ui/field';
 import { useConnector } from '@/data/core';
 import { useAuthUser } from '@/data/queries/use-auth-user';
 import { useDeleteSnapshot, useSnapshotUsage, useSnapshots } from '@/data/queries/use-snapshots';
@@ -37,9 +38,9 @@ function PreviewRow( {
 	const url = getSnapshotUrl( snapshot );
 	if ( renaming ) {
 		return (
-			<div className={ styles.previewRename }>
+			<Field>
 				<RenamePreview snapshot={ snapshot } onDone={ () => setRenaming( false ) } />
-			</div>
+			</Field>
 		);
 	}
 	return (

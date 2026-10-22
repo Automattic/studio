@@ -2,7 +2,6 @@ import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { Icon } from '@wordpress/icons';
 import { displayShortcut, isKeyboardEvent } from '@wordpress/keycodes';
-import { InputControl } from '@wordpress/ui';
 import { useEffect, useEffectEvent, useState } from 'react';
 import { getSessionTitle } from '@/components/session-view/session-chat-actions';
 import { Button } from '@/components/ui/button';
@@ -15,6 +14,7 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 import * as Menu from '@/components/ui/menu';
 import { toast } from '@/data/app-messages';
 import { useSiteAgentActivity } from '@/data/queries/use-agent-run';
@@ -173,9 +173,8 @@ function RenameChatForm( {
 				<DialogTitle>{ __( 'Rename chat' ) }</DialogTitle>
 				<DialogDescription>{ __( 'Choose a name that’s easy to find later.' ) }</DialogDescription>
 			</DialogHeader>
-			<InputControl
-				label={ __( 'Chat title' ) }
-				hideLabelFromVision
+			<Input
+				aria-label={ __( 'Chat title' ) }
 				value={ title }
 				onChange={ ( event ) => setTitle( event.target.value ) }
 				onFocus={ ( event ) => event.target.select() }

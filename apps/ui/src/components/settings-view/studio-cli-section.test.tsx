@@ -44,7 +44,7 @@ describe( 'StudioCliSection', () => {
 	it( 'saves as soon as the toggle is flipped', () => {
 		render( <StudioCliSection /> );
 
-		const toggle = screen.getByRole( 'checkbox', { name: 'Studio CLI for terminal' } );
+		const toggle = screen.getByRole( 'switch', { name: 'Studio CLI for terminal' } );
 		expect( toggle ).not.toBeChecked();
 
 		fireEvent.click( toggle );
@@ -58,7 +58,7 @@ describe( 'StudioCliSection', () => {
 
 		render( <StudioCliSection /> );
 
-		const toggle = screen.getByRole( 'checkbox', { name: 'Studio CLI for terminal' } );
+		const toggle = screen.getByRole( 'switch', { name: 'Studio CLI for terminal' } );
 		fireEvent.click( toggle );
 
 		expect( toggle ).not.toBeChecked();
@@ -85,9 +85,9 @@ describe( 'StudioCliSection', () => {
 
 		render( <StudioCliSection /> );
 
-		const toggle = screen.getByRole( 'checkbox', { name: 'Studio CLI for terminal' } );
+		const toggle = screen.getByRole( 'switch', { name: 'Studio CLI for terminal' } );
 		expect( toggle ).toBeChecked();
-		expect( toggle ).toBeDisabled();
+		expect( toggle ).toHaveAttribute( 'aria-disabled', 'true' );
 
 		fireEvent.click( toggle );
 

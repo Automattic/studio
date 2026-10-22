@@ -42,6 +42,8 @@ import { getAiTracksIdentity } from '@studio/common/ai/tracks-identity';
 import { type TSchema } from 'typebox';
 import { withDesignSystemPreview } from 'cli/ai/chat-artifacts';
 import { isImageGenerationAvailable } from 'cli/ai/image-generation';
+import { withSavedOverrideNote } from 'cli/ai/saved-overrides';
+import { readActiveSiteFacts } from 'cli/ai/site-facts';
 import { buildSystemPrompt, type ToolPromptContribution } from 'cli/ai/system-prompt';
 import { resolveStudioToolDefinitions } from 'cli/ai/tools';
 import { createAskUserQuestionTool } from 'cli/ai/tools/ask-user-question';
@@ -319,9 +321,10 @@ async function createStudioAgentSession(
 	const model = buildModel( config.model, family, creds );
 	const chatArtifactsEnabled = typeof process.send === 'function';
 	const visionEnabled = aiModelSupportsImages( config.model );
-	const [ userInstructions, imageGenerationEnabled ] = await Promise.all( [
+	const [ userInstructions, imageGenerationEnabled, activeSiteFacts ] = await Promise.all( [
 		readGlobalInstructions(),
 		isImageGenerationAvailable(),
+		readActiveSiteFacts( config.activeSite ),
 	] );
 
 	const tools = buildAgentTools(
@@ -334,6 +337,7 @@ async function createStudioAgentSession(
 		userInstructions,
 		tools: tools.map( toolPromptContribution ),
 		activeSite: config.activeSite,
+		activeSiteFacts,
 	} );
 
 	const pendingWork = getPendingWork( config.session );
@@ -685,9 +689,22 @@ function buildAgentTools(
 	const designSystemPreview = < TTool extends AgentToolAny >( tool: TTool ) =>
 		chatArtifactsEnabled ? withDesignSystemPreview( tool, STUDIO_SITES_ROOT ) : tool;
 	const piTools: AgentToolAny[] = [
-		renameTool( createReadTool( STUDIO_SITES_ROOT ), 'Read' ),
-		designSystemPreview( renameTool( createWriteTool( STUDIO_SITES_ROOT ), 'Write' ) ),
-		designSystemPreview( renameTool( createEditTool( STUDIO_SITES_ROOT ), 'Edit' ) ),
+		withSavedOverrideNote(
+			renameTool( createReadTool( STUDIO_SITES_ROOT ), 'Read' ),
+			STUDIO_SITES_ROOT
+		),
+		designSystemPreview(
+			withSavedOverrideNote(
+				renameTool( createWriteTool( STUDIO_SITES_ROOT ), 'Write' ),
+				STUDIO_SITES_ROOT
+			)
+		),
+		designSystemPreview(
+			withSavedOverrideNote(
+				renameTool( createEditTool( STUDIO_SITES_ROOT ), 'Edit' ),
+				STUDIO_SITES_ROOT
+			)
+		),
 		renameTool( createBashTool( STUDIO_SITES_ROOT ), 'Bash' ),
 		renameTool( createGrepTool( STUDIO_SITES_ROOT ), 'Grep' ),
 		renameTool( createFindTool( STUDIO_SITES_ROOT ), 'Glob' ),

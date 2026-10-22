@@ -5,9 +5,9 @@ import { textResult } from './utils';
 
 export const openAnnotationBrowserTool = defineTool(
 	'open_annotation_browser',
-	'Opens a headed browser on a site with the Studio annotation inspector. ' +
-		'The user clicks "Annotate", picks an element, types feedback, then clicks "Done". ' +
-		'After calling this tool, call `wait_for_annotations` to block until the user submits.',
+	'Opens a headed browser on a site for the user to annotate. ' +
+		'The user clicks elements, leaves a note on each (text, pasted images), then clicks "Send" in the bar at the bottom. ' +
+		'After calling this tool, call `wait_for_annotations` to block until the user sends.',
 	{
 		url: Type.String( { description: 'The site URL to open (e.g., "http://localhost:8881")' } ),
 	},

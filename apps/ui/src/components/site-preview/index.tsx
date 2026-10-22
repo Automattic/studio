@@ -1,4 +1,11 @@
 import { DESIGN_SYSTEM_PREVIEW_PATH } from '@studio/common/ai/chat-artifacts';
+import {
+	INSPECTOR_COMMAND_EVENT,
+	INSPECTOR_PAGE_SCRIPT,
+	parseInspectorMessage,
+	type BrowserShortcutCommand,
+	type InspectorEvent,
+} from '@studio/common/ai/inspector/page-script';
 import { getSiteOperationLabel } from '@studio/common/lib/site-operation-labels';
 import { useQueryClient } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
@@ -21,7 +28,6 @@ import {
 	pickAnnotation,
 	setAnnotating,
 	useSiteAnnotations,
-	type AnnotationTarget,
 	type SiteAnnotations,
 } from '@/components/annotations/store';
 import { DesignSystemView } from '@/components/design-system-view';
@@ -54,15 +60,9 @@ import {
 	PreviewAddressBar,
 	type PreviewRealm,
 } from './address-bar';
-import {
-	INSPECTOR_COMMAND_EVENT,
-	INSPECTOR_PAGE_SCRIPT,
-	parseInspectorMessage,
-	type BrowserShortcutCommand,
-	type InspectorEvent,
-} from './inspector-script';
 import styles from './style.module.css';
 import type { SiteDetails } from '@/data/core';
+import type { VisualAnnotationTarget } from '@studio/common/ai/visual-annotations';
 
 export { getPathFromPreviewUrl } from './address-bar';
 
@@ -661,7 +661,7 @@ export function SitePreview( {
 		return anchor && box ? { left: anchor.left - box.left, top: anchor.top - box.top } : null;
 	}, [] );
 	const handleAnnotationPick = useCallback(
-		( target: AnnotationTarget, anchor: AnnotationAnchor ) => {
+		( target: VisualAnnotationTarget, anchor: AnnotationAnchor ) => {
 			pickAnnotation( site.id, target );
 			setAnnotationAnchor( toViewportAnchor( anchor ) );
 		},
@@ -1161,7 +1161,7 @@ interface WebviewSurfaceProps {
  * Renders the site preview as an Electron `<webview>` tag.
  *
  * The annotation inspector is injected into the guest page via
- * `executeJavaScript()` after each load (see `inspector-script.ts`).
+ * `executeJavaScript()` after each load (see `@studio/common/ai/inspector/page-script`).
  */
 function WebviewSurface( {
 	url,

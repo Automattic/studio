@@ -5,6 +5,7 @@ import {
 	type ComposerFileAttachment,
 } from '@studio/common/ai/composer-attachments';
 import {
+	formatVisualAnnotationsPrompt,
 	validateStudioVisualAnnotations,
 	type StudioVisualAnnotationSummary,
 } from '@studio/common/ai/visual-annotations';
@@ -27,69 +28,6 @@ function describeElement( note: PreviewAnnotation ): string | undefined {
 	return classes.length ? `${ note.tag }.${ classes.join( '.' ) }` : `<${ note.tag }>`;
 }
 
-function isDesignSystemAnnotation( note: PreviewAnnotation ): boolean {
-	return note.path === 'DESIGN.md';
-}
-
-function formatAnnotationsAsPrompt(
-	notes: PreviewAnnotation[],
-	imageNumbers: ( note: PreviewAnnotation ) => number[]
-): string {
-	const lines: string[] = [
-		`The user submitted ${
-			notes.length === 1 ? '1 visual annotation' : `${ notes.length } visual annotations`
-		} from the site preview.`,
-		'',
-		'Make the requested changes. When there are several annotations, address them in the order they were submitted.',
-		'',
-		'When you reference an annotation for the user, identify the element by what is visible on the page rather than by selector. Use selectors and raw annotation data only for implementation.',
-		'',
-	];
-	if ( notes.some( isDesignSystemAnnotation ) ) {
-		lines.push(
-			"Annotations from the Design system page are about the site's DESIGN.md: make the change there, then update the matching presets in the active theme's theme.json so the site follows it.",
-			''
-		);
-	}
-	lines.push( '## Submitted Annotations', '' );
-
-	notes.forEach( ( note, index ) => {
-		const tag = note.designToken
-			? `design token \`${ note.designToken }\``
-			: note.tag
-			? `<${ note.tag }>`
-			: 'element';
-		const nearbyText = note.nearbyText?.trim()
-			? ` - "${ truncateText( note.nearbyText.trim(), 120 ) }"`
-			: '';
-		const page = isDesignSystemAnnotation( note )
-			? 'Design system (DESIGN.md)'
-			: note.url || note.path || '/';
-		const images = imageNumbers( note );
-		const { images: _images, staged: _staged, number: _number, designKey: _key, ...data } = note;
-
-		lines.push(
-			`### ${ index + 1 }. ${ tag }${ nearbyText }`,
-			`- Page: ${ page }`,
-			`- Comment: ${ note.comment.trim() }`
-		);
-		if ( note.selector ) {
-			lines.push( `- Selector: \`${ note.selector }\`` );
-		}
-		if ( note.viewport ) {
-			lines.push(
-				`- Viewport when annotated: ${ note.viewport.width }×${ note.viewport.height } CSS px`
-			);
-		}
-		if ( images.length ) {
-			lines.push( `- Attached images (in attachment order): ${ images.join( ', ' ) }` );
-		}
-		lines.push( '', '```json', JSON.stringify( data, null, 2 ), '```', '' );
-	} );
-
-	return lines.join( '\n' ).trimEnd();
-}
-
 /**
  * The message for a send that carries annotations: the composer's own text and
  * attachments first, then each note. Every note becomes its own bubble in the
@@ -103,8 +41,6 @@ export function annotationSubmission(
 	const ordinary = toComposerSendAttachments( attachments );
 	const noteImages = toComposerSendAttachments( notes.flatMap( ( note ) => note.images ) ).images;
 	const images = [ ...ordinary.images, ...noteImages ];
-	const imageNumbers = ( note: PreviewAnnotation ) =>
-		note.images.map( ( image ) => images.findIndex( ( item ) => item.id === image.id ) + 1 );
 	const message = text.trim();
 	const visualAnnotations: StudioVisualAnnotationSummary[] = notes.map( ( note ) => ( {
 		comment: note.comment.trim(),
@@ -124,7 +60,13 @@ export function annotationSubmission(
 	validateStudioChatImages( images );
 	validateStudioVisualAnnotations( visualAnnotations, images );
 	return {
-		prompt: [ message, formatAnnotationsAsPrompt( notes, imageNumbers ) ]
+		prompt: [
+			message,
+			formatVisualAnnotationsPrompt(
+				notes.map( ( { staged: _staged, ...note } ) => note ),
+				images
+			),
+		]
 			.filter( Boolean )
 			.join( '\n\n' ),
 		options: {

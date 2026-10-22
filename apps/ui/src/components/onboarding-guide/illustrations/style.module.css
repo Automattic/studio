@@ -1238,7 +1238,7 @@
    The Studio window in miniature — chat pane, then preview pane — laid out
    wider than the stage and framed by a camera transform the scene drives.
    The popup, marker, and highlight copy the inspector's own styles
-   (site-preview/inspector-script). Toolbar button and popup actions have
+   (annotations overlay, @studio/common/ai/inspector). Toolbar button and popup actions have
    explicit widths so the cursor can aim. */
 
 .annoWorld {

@@ -1,29 +1,11 @@
 import { useSyncExternalStore } from 'react';
 import type { ComposerImageAttachment } from '@studio/common/ai/composer-attachments';
+import type {
+	VisualAnnotation,
+	VisualAnnotationTarget,
+} from '@studio/common/ai/visual-annotations';
 
-// What a note points at: an element on a preview page, or a DESIGN.md token on
-// the design system page.
-export interface AnnotationTarget {
-	selector?: string;
-	tag?: string;
-	classes?: string[];
-	nearbyText?: string;
-	url?: string;
-	path?: string;
-	viewport?: { width: number; height: number };
-	documentRect?: { left: number; top: number; width: number; height: number };
-	// Where the click landed inside the element, as fractions of its box.
-	point?: { x: number; y: number };
-	computedStyles?: Record< string, string >;
-	designToken?: string;
-	// Design targets are unique, so picking one again edits its note.
-	designKey?: string;
-}
-
-export interface PreviewAnnotation extends AnnotationTarget {
-	id: string;
-	number: number;
-	comment: string;
+export interface PreviewAnnotation extends VisualAnnotation {
 	images: ComposerImageAttachment[];
 	// Saved to the chat draft, so the composer sends it with the next message.
 	staged?: boolean;
@@ -91,7 +73,7 @@ export function setAnnotating( siteId: string, active: boolean ) {
 	);
 }
 
-export function pickAnnotation( siteId: string, target: AnnotationTarget ) {
+export function pickAnnotation( siteId: string, target: VisualAnnotationTarget ) {
 	const existing = target.designKey
 		? getSiteAnnotations( siteId ).notes.find( ( note ) => note.designKey === target.designKey )
 		: undefined;

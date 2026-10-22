@@ -1,3 +1,4 @@
+import { aiSessionBelongsToSite } from '@studio/common/ai/sessions/owner-site';
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { useNavigate } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
@@ -25,6 +26,8 @@ import { Button } from '@/components/ui/button';
 import * as Menu from '@/components/ui/menu';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useConnector } from '@/data/core';
+import { useSessionsBusy } from '@/data/queries/use-agent-run';
+import { useSessions } from '@/data/queries/use-sessions';
 import { sitePinKey, useSidebarPins } from '@/data/queries/use-sidebar-pins';
 import { useIsSiteBusy, useSites, useStartSite, useStopSite } from '@/data/queries/use-sites';
 import { useOpenSettings } from '@/hooks/use-open-settings';
@@ -47,6 +50,20 @@ import {
 } from '@/lib/icons';
 import styles from './style.module.css';
 import type { SiteDetails } from '@/data/core';
+
+/** Why the sites can't be deleted yet, if they can't: deleting stops their chats and operations. */
+export function useDeleteBlockedReason( sites: SiteDetails[], sitesBusy: boolean ) {
+	const { data: sessions } = useSessions();
+	const chatsBusy = useSessionsBusy(
+		( sessions ?? [] )
+			.filter( ( session ) => sites.some( ( site ) => aiSessionBelongsToSite( session, site ) ) )
+			.map( ( session ) => session.id )
+	);
+	if ( chatsBusy ) {
+		return __( 'Wait for active chats and queued prompts to finish.' );
+	}
+	return sitesBusy ? __( 'Wait for site operations to finish.' ) : undefined;
+}
 
 // State for the menu's dialogs, which outlive the menu that opens them.
 export function useSiteActions( site: SiteDetails, { onOpen }: { onOpen?: () => void } = {} ) {
@@ -128,6 +145,7 @@ export function SiteActionsMenuItems( { actions }: { actions: SiteActions } ) {
 			onImport: actions.openImport,
 		} ).map( ( action ) => [ action.id, action ] )
 	) as Record< SiteManagementActionId, SiteManagementAction >;
+	const deleteBlocked = useDeleteBlockedReason( [ site ], busy );
 	const running = ( sites ?? [] ).filter( ( candidate ) => candidate.running );
 	const othersRunning = running.filter( ( candidate ) => candidate.id !== site.id );
 
@@ -150,9 +168,9 @@ export function SiteActionsMenuItems( { actions }: { actions: SiteActions } ) {
 		}
 	};
 
-	const manageItem = ( action: SiteManagementAction, label = action.label ) => (
+	const manageItem = ( action: SiteManagementAction, label = action.label, blocked = false ) => (
 		<Menu.Item
-			disabled={ action.disabled }
+			disabled={ action.disabled || blocked }
 			destructive={ action.destructive }
 			onClick={ action.run }
 		>
@@ -274,7 +292,10 @@ export function SiteActionsMenuItems( { actions }: { actions: SiteActions } ) {
 			<SiteShareMenuItem site={ site } disabled={ busy } />
 			<SitePublishMenu site={ site } disabled={ busy } />
 			<Menu.Separator />
-			{ manageItem( manage.delete, __( 'Delete site' ) ) }
+			<Menu.Group>
+				{ deleteBlocked ? <Menu.GroupLabel>{ deleteBlocked }</Menu.GroupLabel> : null }
+				{ manageItem( manage.delete, __( 'Delete site' ), !! deleteBlocked ) }
+			</Menu.Group>
 		</div>
 	);
 }

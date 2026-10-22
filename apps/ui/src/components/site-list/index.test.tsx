@@ -1109,6 +1109,28 @@ describe( 'SiteList', () => {
 		expect( archiveSession ).not.toHaveBeenCalled();
 	} );
 
+	it( 'leaves an archived open chat for the site’s top chat still open, in sidebar order', async () => {
+		paramsMock = { sessionId: 'chat-1' };
+		pathnameMock = '/sessions/chat-1';
+		sidebarPreferencesMock.chatOrder = { 'stopped-site': [ 'chat-1', 'chat-3', 'chat-2' ] };
+		useSessionsMock.mockReturnValue( {
+			data: createChats( '/Users/example/Studio/stopped-site', 3 ),
+			isLoading: false,
+		} );
+
+		render( <SiteList sections /> );
+
+		const chats = screen.getByRole( 'group', { name: 'Stopped Site chats' } );
+		fireEvent.click( within( chats ).getAllByRole( 'button', { name: 'Archive chat' } )[ 0 ] );
+
+		await waitFor( () =>
+			expect( navigateMock ).toHaveBeenLastCalledWith( {
+				to: '/sessions/$sessionId',
+				params: { sessionId: 'chat-3' },
+			} )
+		);
+	} );
+
 	it( 'says when archiving a chat fails, and stays on it', async () => {
 		paramsMock = { sessionId: 'site-chat' };
 		pathnameMock = '/sessions/site-chat';

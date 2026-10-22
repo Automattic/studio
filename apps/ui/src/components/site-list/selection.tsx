@@ -1,13 +1,10 @@
-import {
-	aiSessionBelongsToSite,
-	findAiSessionOwnerSite,
-} from '@studio/common/ai/sessions/owner-site';
+import { aiSessionBelongsToSite } from '@studio/common/ai/sessions/owner-site';
 import { useNavigate, useParams } from '@tanstack/react-router';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { Icon } from '@wordpress/icons';
 import { displayShortcut, isAppleOS, isKeyboardEvent } from '@wordpress/keycodes';
 import { createContext, useContext, useEffect, useRef, useState } from 'react';
-import { getArchiveBlockedReason } from '@/components/chat-actions';
+import { getArchiveBlockedReason, useLeaveArchivedChat } from '@/components/chat-actions';
 import { DeleteSiteDialog } from '@/components/delete-site-dialog';
 import { useDeleteBlockedReason } from '@/components/site-actions-menu';
 import * as Menu from '@/components/ui/menu';
@@ -248,12 +245,12 @@ export function BulkMenu( {
 	onPointerDown?: PointerEventHandler< HTMLElement >;
 } ) {
 	const { selection, clear, deleteSites } = useContext( SelectionContext );
-	const navigate = useNavigate();
 	const params = useParams( { strict: false } ) as { sessionId?: string };
 	const { data: sessions } = useSessions();
 	const { data: sites } = useSites();
 	const { pins, setPins } = useSidebarPins();
 	const { mutateAsync } = useUpdateSessionMetadata();
+	const leaveArchivedChat = useLeaveArchivedChat();
 	const keys = selection ?? [];
 	const chatIds = keys
 		.filter( ( key ) => key.startsWith( 'chat:' ) )
@@ -329,10 +326,7 @@ export function BulkMenu( {
 		}
 		const viewing = sessions?.find( ( session ) => session.id === params.sessionId );
 		if ( patch.archived && viewing && updated.includes( viewing.id ) ) {
-			const site = findAiSessionOwnerSite( sites, viewing );
-			void navigate(
-				site ? { to: '/sites/$siteId/new', params: { siteId: site.id } } : { to: '/' }
-			);
+			leaveArchivedChat( viewing, updated );
 		}
 	};
 

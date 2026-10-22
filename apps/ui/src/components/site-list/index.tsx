@@ -34,7 +34,12 @@ import {
 } from '@/data/queries/use-agent-run';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useSessions } from '@/data/queries/use-sessions';
-import { chatPinKey, sitePinKey, useSidebarPreferences } from '@/data/queries/use-sidebar-pins';
+import {
+	chatPinKey,
+	orderChats,
+	sitePinKey,
+	useSidebarPreferences,
+} from '@/data/queries/use-sidebar-pins';
 import {
 	useIsSiteBusy,
 	useIsSiteStarting,
@@ -238,17 +243,6 @@ function sortSitesByManualOrder( sites: SiteDetails[], manualOrder: string[] ): 
 		( a, b ) =>
 			( rank.get( a.id ) ?? Number.MAX_SAFE_INTEGER ) -
 			( rank.get( b.id ) ?? Number.MAX_SAFE_INTEGER )
-	);
-}
-
-// Chats the user dragged keep their place; newer ones go on top.
-function orderChats( chats: AiSessionSummary[], order: string[] | undefined ) {
-	if ( ! order ) {
-		return chats;
-	}
-	const positions = new Map( order.map( ( id, index ) => [ id, index ] ) );
-	return [ ...chats ].sort(
-		( a, b ) => ( positions.get( a.id ) ?? -1 ) - ( positions.get( b.id ) ?? -1 )
 	);
 }
 

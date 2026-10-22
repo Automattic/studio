@@ -1,4 +1,7 @@
-import { findAiSessionOwnerSite } from '@studio/common/ai/sessions/owner-site';
+import {
+	aiSessionBelongsToSite,
+	findAiSessionOwnerSite,
+} from '@studio/common/ai/sessions/owner-site';
 import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { Icon } from '@wordpress/icons';
@@ -20,8 +23,13 @@ import * as Menu from '@/components/ui/menu';
 import { Spinner } from '@/components/ui/spinner';
 import { errorMessage, toast } from '@/data/app-messages';
 import { useSessionsBusy, useSiteAgentActivity } from '@/data/queries/use-agent-run';
-import { useUpdateSessionMetadata } from '@/data/queries/use-sessions';
-import { chatPinKey, useSidebarPins } from '@/data/queries/use-sidebar-pins';
+import { useSessions, useUpdateSessionMetadata } from '@/data/queries/use-sessions';
+import {
+	chatPinKey,
+	orderChats,
+	useSidebarPins,
+	useSidebarPreferences,
+} from '@/data/queries/use-sidebar-pins';
 import { useSites } from '@/data/queries/use-sites';
 import { archiveIcon, pinIcon, readStatusIcon, renameIcon, unpinIcon } from '@/lib/icons';
 import styles from './style.module.css';
@@ -30,12 +38,43 @@ import type { AiSessionSummary } from '@/data/core';
 export const getArchiveBlockedReason = () =>
 	__( 'Wait for active chats and queued prompts to finish.' );
 
-export function useChatActions( session: AiSessionSummary, active: boolean ) {
+/**
+ * Leaves an open chat that was just archived for its site's top chat that is
+ * still open, or a new chat when none is left.
+ */
+export function useLeaveArchivedChat() {
 	const navigate = useNavigate();
+	const { data: sites } = useSites();
+	const { data: sessions } = useSessions();
+	const { chatOrder } = useSidebarPreferences();
+	return ( viewing: AiSessionSummary, archivedIds: string[] ) => {
+		const site = findAiSessionOwnerSite( sites, viewing );
+		if ( ! site ) {
+			void navigate( { to: '/' } );
+			return;
+		}
+		const [ next ] = orderChats(
+			( sessions ?? [] ).filter(
+				( session ) =>
+					! session.archived &&
+					! archivedIds.includes( session.id ) &&
+					aiSessionBelongsToSite( session, site )
+			),
+			chatOrder[ site.id ]
+		);
+		void navigate(
+			next
+				? { to: '/sessions/$sessionId', params: { sessionId: next.id } }
+				: { to: '/sites/$siteId/new', params: { siteId: site.id } }
+		);
+	};
+}
+
+export function useChatActions( session: AiSessionSummary, active: boolean ) {
 	const working = useSiteAgentActivity( [ session.id ] ) === 'working';
 	const archiveBlocked = useSessionsBusy( [ session.id ] );
 	const { mutateAsync } = useUpdateSessionMetadata();
-	const { data: sites } = useSites();
+	const leaveArchivedChat = useLeaveArchivedChat();
 	const [ renaming, setRenaming ] = useState( false );
 	const { isPinned, togglePin } = useSidebarPins();
 
@@ -61,12 +100,8 @@ export function useChatActions( session: AiSessionSummary, active: boolean ) {
 				onClick: () => mutateAsync( { sessionId: session.id, patch: { archived: false } } ),
 			},
 		} );
-		// Leaving the archived chat lands on a new chat for its site.
-		const site = findAiSessionOwnerSite( sites, session );
 		if ( active ) {
-			void navigate(
-				site ? { to: '/sites/$siteId/new', params: { siteId: site.id } } : { to: '/' }
-			);
+			leaveArchivedChat( session, [ session.id ] );
 		}
 	};
 

@@ -318,11 +318,13 @@ describe( 'AI provider settings', () => {
 		provider: 'wpcom',
 		hasAnthropicApiKey: false,
 		anthropicApiKeyPreview: null,
+		openAiCompatibleModel: null,
 	} as const;
 	const anthropicWithKey = {
 		provider: 'anthropic-api-key',
 		hasAnthropicApiKey: true,
 		anthropicApiKeyPreview: keyPreview,
+		openAiCompatibleModel: null,
 	} as const;
 
 	it( 'emits studio_setting_ai_provider_change when a key is added', async () => {
@@ -331,6 +333,7 @@ describe( 'AI provider settings', () => {
 			provider: 'wpcom',
 			hasAnthropicApiKey: true,
 			anthropicApiKeyPreview: keyPreview,
+			openAiCompatibleModel: null,
 		} );
 
 		await saveAnthropicApiKey( event, 'sk-ant-api03-testkey-1234' );
@@ -372,6 +375,7 @@ describe( 'AI provider settings', () => {
 			provider: 'anthropic-api-key',
 			hasAnthropicApiKey: true,
 			anthropicApiKeyPreview: 'sk-ant-api03-tes...9999',
+			openAiCompatibleModel: null,
 		} );
 
 		await saveAnthropicApiKey( event, 'sk-ant-api03-otherkey-9999' );
@@ -397,6 +401,7 @@ describe( 'AI provider settings', () => {
 			provider: 'wpcom',
 			hasAnthropicApiKey: true,
 			anthropicApiKeyPreview: keyPreview,
+			openAiCompatibleModel: null,
 		} );
 		mockSetAiProvider.mockResolvedValue( anthropicWithKey );
 

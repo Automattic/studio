@@ -22,6 +22,12 @@ vi.mock( '@inquirer/prompts', () => ( {
 
 vi.mock( '@studio/common/lib/shared-config', () => ( {
 	readAuthToken: vi.fn(),
+	getActiveOpenAiCompatibleEndpoint: vi.fn().mockResolvedValue( undefined ),
+} ) );
+
+vi.mock( 'cli/lib/cli-config/core', () => ( {
+	readCliConfig: vi.fn().mockResolvedValue( { version: 1, sites: [] } ),
+	updateCliConfigWithPartial: vi.fn(),
 } ) );
 
 vi.mock( '@studio/common/ai/settings-store', () => ( {
@@ -83,7 +89,11 @@ describe( 'AI auth helpers', () => {
 	} );
 
 	it( 'lists available providers', async () => {
-		await expect( getAvailableAiProviders() ).resolves.toEqual( [ 'wpcom', 'anthropic-api-key' ] );
+		await expect( getAvailableAiProviders() ).resolves.toEqual( [
+			'wpcom',
+			'anthropic-api-key',
+			'openai-compatible',
+		] );
 	} );
 
 	it( 'configures the WP.com gateway environment', async () => {

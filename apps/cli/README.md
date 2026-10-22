@@ -86,13 +86,22 @@ studio wp option get home --path ~/Studio/my-site
 
 > 🧪 _Studio Code is currently in early access. Features, capabilities, and usage limits may change as it evolves._
 
-Studio Code is an interactive AI agent specialized in building and optimizing WordPress sites. It integrates seamlessly with your Studio sites and can create themes, install plugins, edit code and content, and run WP-CLI commands autonomously from your terminal. It validates its own work through a built-in feedback loop that takes screenshots and confirms block syntax. You can use frontier models through the WordPress.com provider or bring your own API keys. 
+Studio Code is an interactive AI agent specialized in building and optimizing WordPress sites. It integrates seamlessly with your Studio sites and can create themes, install plugins, edit code and content, and run WP-CLI commands autonomously from your terminal. It validates its own work through a built-in feedback loop that takes screenshots and confirms block syntax. You can use frontier models through the WordPress.com provider, bring your own API keys (Anthropic), or point Studio Code at a local OpenAI-compatible endpoint (such as vLLM, LM Studio, Ollama, or llama.cpp).
 
 ```bash
 studio code
 ```
 
-Delete, lis,t or resume a previous session:
+Inside an active Studio Code session, you can use slash commands to manage providers and models:
+
+- `/provider` — switch between WordPress.com, Anthropic API, and local OpenAI-compatible providers
+- `/openai-config` — configure a local OpenAI-compatible base URL, optional API key, and select a model
+- `/model` — switch between available models (or discovered local endpoint models)
+- `/api-key` — set or update your Anthropic API key
+- `/credits` — check your WordPress.com AI credits balance and purchase top-ups
+- `/clear` — clear the conversation and start a fresh session
+
+Delete, list, or resume a previous session:
 
 ```bash
 studio code sessions delete

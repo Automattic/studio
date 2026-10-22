@@ -482,6 +482,11 @@
 	cursor: pointer;
 }
 
+.pillProviderPrefix {
+	color: var(--color-frame-text);
+	font-weight: 600;
+}
+
 .pill:hover:not(:disabled),
 .pill:focus-visible:not(:disabled) {
 	background-color: var(--color-frame-surface);

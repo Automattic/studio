@@ -13,7 +13,7 @@ import type { Connector, SyncSite } from '@/data/core';
 
 type ConnectSiteEvent = Parameters< Parameters< Connector[ 'onSyncConnectSite' ] >[ 0 ] >[ 0 ];
 
-// Why the website picked at checkout couldn't be connected or published, per
+// Why the website picked at checkout couldn't be connected, per
 // local site, with the event to replay on Try again.
 const setupFailures = new Map< string, { error: string; event: ConnectSiteEvent } >();
 const listeners = new Set< () => void >();

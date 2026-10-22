@@ -62,6 +62,7 @@ vi.mock( '@/components/site-lifecycle-button', () => ( {
 } ) );
 
 vi.mock( '@/components/stopped-site-preview', () => ( {
+	SiteContextMenu: ( { children }: { children: React.ReactNode } ) => children,
 	StoppedSitePreview: () => <div data-testid="stopped-site-preview" />,
 } ) );
 

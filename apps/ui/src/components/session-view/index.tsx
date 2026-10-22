@@ -41,7 +41,7 @@ import { HeaderSidebarToggle } from '@/components/sidebar-toggle';
 import { SiteActionsMenu } from '@/components/site-actions-menu';
 import { SiteIcon } from '@/components/site-icon';
 import { SiteLifecycleButton } from '@/components/site-lifecycle-button';
-import { StoppedSitePreview } from '@/components/stopped-site-preview';
+import { SiteContextMenu, StoppedSitePreview } from '@/components/stopped-site-preview';
 import { IconButton } from '@/components/ui/button';
 import { toast } from '@/data/app-messages';
 import { useAgentRun } from '@/data/queries/use-agent-run';
@@ -702,12 +702,14 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		>
 			<OpenChatShortcuts session={ data.summary } />
 			{ isEmpty && ! pendingPrompt ? (
-				<div className={ styles.emptyState }>
-					<PreviewParticles active={ isSiteStarting } showLogo={ isSiteStarting } />
-					{ ownerSite && ! ownerSite.running && ! isSiteStarting ? (
-						<StoppedSitePreview site={ ownerSite } />
-					) : null }
-				</div>
+				<SiteContextMenu site={ ownerSite } disabled={ ! ownerSite || ownerSite.running }>
+					<div className={ styles.emptyState }>
+						<PreviewParticles active={ isSiteStarting } showLogo={ isSiteStarting } />
+						{ ownerSite && ! ownerSite.running && ! isSiteStarting ? (
+							<StoppedSitePreview site={ ownerSite } />
+						) : null }
+					</div>
+				</SiteContextMenu>
 			) : null }
 			<div className={ clsx( styles.column, styles.conversationSpacing ) }>
 				<Conversation

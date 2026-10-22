@@ -15,6 +15,24 @@ export function SiteContextMenu( {
 	disabled,
 	children,
 }: {
+	site?: SiteDetails;
+	disabled: boolean;
+	children: ReactElement;
+} ) {
+	return site ? (
+		<SiteActionsContextMenu site={ site } disabled={ disabled }>
+			{ children }
+		</SiteActionsContextMenu>
+	) : (
+		children
+	);
+}
+
+function SiteActionsContextMenu( {
+	site,
+	disabled,
+	children,
+}: {
 	site: SiteDetails;
 	disabled: boolean;
 	children: ReactElement;

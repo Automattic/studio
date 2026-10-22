@@ -8,8 +8,11 @@
    `--tint-saturation`), `--contrast` and `--accent-fill` — so a theme change
    is a handful of custom properties, with no palette computed in JS. */
 
+/* Any element carrying `data-color-scheme` re-derives the whole palette, so a
+   scene can render in the other scheme. */
 /* prettier-ignore */
-:root {
+:root,
+[data-color-scheme] {
 	--surface-0: oklch( calc( 1 - var( --tint-intensity, 0 ) * 0.00025 ) calc( var( --tint-intensity, 0 ) * 0.00025 * var( --tint-saturation, 1 ) ) var( --tint-hue, 260 ) );
 	--surface-1: color-mix( in oklab, var( --foreground ) calc( 2% + var( --contrast, 0 ) * 0.04% ), var( --surface-0 ) );
 	--surface-2: color-mix( in oklab, var( --foreground ) calc( 5% + var( --contrast, 0 ) * 0.07% ), var( --surface-0 ) );
@@ -107,7 +110,7 @@
 }
 
 /* prettier-ignore */
-:root[data-color-scheme='dark'] {
+[data-color-scheme='dark'] {
 	--surface-0: oklch( from #141414 calc( l - var( --contrast, 0 ) * 0.0006 ) calc( var( --tint-intensity, 0 ) * 0.00025 * var( --tint-saturation, 1 ) ) var( --tint-hue, 260 ) );
 	--surface-1: color-mix( in oklab, var( --foreground ) calc( 5% + var( --contrast, 0 ) * 0.04% ), var( --surface-0 ) );
 	--surface-2: color-mix( in oklab, var( --foreground ) calc( 12% + var( --contrast, 0 ) * 0.08% ), var( --surface-0 ) );

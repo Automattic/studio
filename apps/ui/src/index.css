@@ -10,27 +10,9 @@
 	font-display: swap;
 }
 
-:root {
-	--wpds-typography-font-family-body: var( --font-sans );
-	--wpds-typography-font-family-heading: var( --font-sans );
-
-	/* Overlay stacking — portals mount into `document.body` and must beat
-	   app-chrome stacking contexts (sidebar header z-index: 1, floating
-	   toggle z-index: 30). Menus stay below modal surfaces; tooltips live
-	   above dialogs so help text on controls inside a modal still surfaces
-	   above the containing overlay. Every layer needs a value: @wordpress/ui
-	   falls back to `initial` (auto), which loses to any positioned chrome. */
-	--wp-ui-popover-z-index: var( --z-popover );
-	--wp-ui-autocomplete-z-index: var( --z-popover );
-	--wp-ui-combobox-z-index: var( --z-popover );
-	--wp-ui-drawer-z-index: var( --z-popover );
-	--wp-ui-select-z-index: var( --z-select );
-	--wp-ui-tooltip-z-index: var( --z-tooltip );
-}
-
-/* Tokens stay light until ThemeProvider sets `data-color-scheme`: until then,
-   show the Desktop window's dark background (the sidebar's colour) instead of
-   a full light page. */
+/* Tokens stay light until app-providers.tsx sets `data-color-scheme`: until
+   then, show the Desktop window's dark background (the sidebar's colour)
+   instead of a full light page. */
 :root:not( [data-color-scheme] ) body {
 	background-color: transparent;
 }
@@ -81,58 +63,14 @@ body {
 		'Cantarell', 'Helvetica Neue', sans-serif;
 }
 
-/* @wordpress/components controls hardcode their own font-family at class
-   specificity, so the token override alone doesn't reach them. */
-body input,
-body textarea,
-body select,
-body button,
-body [class*='components-'] {
-	font-family: var(--font-sans);
-}
-
-/* Keyed on the scheme app-providers.tsx resolves from the saved Appearance
-   preference (falling back to the OS) and stamps on <html>, so these follow
-   the in-app toggle like the rest of the theme. */
-html[data-color-scheme='dark'] {
-	--wp-ui-tooltip-background-color: #fff;
-	--wp-ui-tooltip-color: #000;
-}
-
-/* @wordpress/components and @wordpress/dataviews render help text and field
-   descriptions with hardcoded light-mode colors that don't adapt to the
-   ThemeProvider's dark palette. Force them to the design-system's weak
-   foreground so they match the surrounding UI in both schemes. */
-.components-base-control__help,
-[class*='dataforms-layouts'] [class*='description'] {
-	color: var(--muted-foreground) !important;
-}
-
-[data-wpds-root-provider] .components-base-control__help {
-	margin-top: 4px;
-}
-
-/* Section grouping for the site forms. The `card` layout gives the sections
-   their headings declaratively, but its panel chrome reads as four stacked
-   boxes; flattening it to a hairline rule between sections matches the
-   settings design and keeps one rhythm down the form. */
-form .dataforms-layouts-card__field {
-	--wp-ui-card-padding: 0;
-
-	border: 0;
-	border-radius: 0;
-	background: transparent;
-	box-shadow: none;
-}
-
-form .dataforms-layouts-card__field-header-content {
-	margin-block-end: 12px;
-}
-
-form .dataforms-layouts-card__field + .dataforms-layouts-card__field {
-	border-top: 1px solid var(--border);
-	margin-block-start: 16px;
-	padding-block-start: 16px;
+/* Form controls don't inherit the page font by default. */
+@layer base {
+	button,
+	input,
+	select,
+	textarea {
+		font-family: inherit;
+	}
 }
 
 /* Universal heading styles derived from the design system's font-size /
@@ -200,36 +138,6 @@ textarea,
 	-webkit-app-region: no-drag;
 }
 
-/* Show the focus ring only on keyboard focus, overriding @wordpress/ui's
-   :focus-based outline. Unlayered CSS wins over WP UI's cascade layers.
-   `a` covers Button primitives rendered as links via its `render` prop.
-   Also revert the background/border shift @wordpress/ui's Button applies on
-   `:focus` — when a Dialog auto-focuses a button on open, the "active" look
-   would otherwise show without any user intent. Leave `color` alone:
-   loading buttons rely on `color: transparent` to hide their label while
-   the spinner runs, and overriding that here would make the label visible
-   again. Hover, press, and an open menu are user intent, so they keep the
-   active look: a button that regains focus after its menu closes would
-   otherwise ignore the pointer until it blurs. */
-button:not( [data-slot='button'] ):focus:not( :focus-visible ):not( :hover, :active, [data-popup-open] ),
-a:not( [data-slot='button'] ):focus:not( :focus-visible ):not( :hover, :active, [data-popup-open] ),
-[role='button']:not( [data-slot='button'] ):focus:not( :focus-visible ):not( :hover, :active, [data-popup-open] ) {
-	outline: none;
-	background-color: var( --wp-ui-button-background-color );
-	border-color: var( --wp-ui-button-border-color );
-}
-
-/* Same intent for @wordpress/components' CheckboxControl, which draws its ring
-   with a `:focus` box-shadow: an AlertDialog auto-focuses the first tabbable
-   control on open, so the checkbox would light up before the user touches
-   anything. Its companion transparent outline (a forced-colors affordance) has
-   to go too — Chrome counts it as scrollable overflow, which is enough to make
-   a dialog body scroll and grow a separator. */
-input[type='checkbox']:focus:not( :focus-visible ) {
-	box-shadow: none;
-	outline: none;
-}
-
 /* @wordpress/icons draws SVGs at 24x24; the app's icons are 16px unless a
    component sizes them. */
 @layer base {
@@ -242,50 +150,6 @@ input[type='checkbox']:focus:not( :focus-visible ) {
 		width: auto;
 		height: auto;
 	}
-}
-
-/* @wordpress/ui SelectControl and Autocomplete popup items use the brand
-   weak-active fill for highlighted rows. In Studio's dark chrome that reads
-   too saturated; the selected item is already indicated with a checkmark, so
-   use the neutral interactive highlight instead. */
-[data-wpds-theme-provider-id] [role='listbox'] [role='option'][data-highlighted]:not(
-		[aria-disabled='true']
-	) {
-	background-color: var(--hover);
-	color: var(--foreground);
-}
-
-/* @wordpress/components' ComboboxControl (used by DataForm's adaptive
-   picker once a field has 10+ elements) leaves its wrapper without a
-   background, so the body surface bleeds through around the inner input
-   and suggestion rows. Force both to the same background the input
-   itself uses so the control reads as one solid field. */
-.components-combobox-control__suggestions-container,
-.components-form-token-field__suggestions-list {
-	background-color: var( --wp-components-color-background, #fff );
-}
-
-.components-input-control__prefix svg,
-.components-input-control__suffix svg {
-	color: var(--muted-foreground);
-	fill: var(--muted-foreground);
-}
-
-select optgroup,
-select option {
-	background-color: var(--chat);
-	color: var(--foreground);
-}
-
-[data-wpds-root-provider] .components-radio-control__input[type='radio']:not(:checked) {
-	border-color: var(--input);
-	background: transparent;
-}
-
-[data-wpds-root-provider] .components-radio-control__option-description {
-	color: var(--muted-foreground);
-	unicode-bidi: plaintext;
-	margin-block-end: 0;
 }
 
 /* Honor the user's reduced-motion preference across the entire app. Class-

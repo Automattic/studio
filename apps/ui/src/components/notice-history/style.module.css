@@ -25,17 +25,6 @@
 	gap: 8px;
 }
 
-.notice {
-	width: 100%;
-	box-sizing: border-box;
-}
-
-/* Notice sizes its title row for a 24px icon, but at this density the glyph
-   renders smaller and sits high; center it on the title row instead. */
-.notice > svg {
-	align-self: center;
-}
-
 /* The toast clamps this; here it runs in full, but a stack trace can be
    hundreds of lines, so past ~a dozen the entry scrolls on its own rather
    than pushing every other notice off screen. Error text can be a long,
@@ -49,13 +38,11 @@
 	overflow-wrap: anywhere;
 }
 
-/* Notice lays out as `auto 1fr auto`; the timestamp takes the trailing cell
-   on the title row, aligned to the title's own text padding. */
+/* The timestamp takes the trailing cell on the title row. */
 .time {
 	grid-column: 3;
 	grid-row: 1;
-	padding-block: var(--text-vertical-padding);
-	margin-inline-start: 8px;
+	align-self: center;
 	font-size: 11px;
 	line-height: 16px;
 	color: var(--muted-foreground);

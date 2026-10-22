@@ -1,6 +1,5 @@
 import { __ } from '@wordpress/i18n';
 import { chevronLeft, chevronRight } from '@wordpress/icons';
-import { VisuallyHidden } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import {
 	useEffect,
@@ -27,6 +26,7 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from '@/components/ui/dialog';
+import { VisuallyHidden } from '@/components/ui/visually-hidden';
 import { useLogin } from '@/data/queries/use-auth-user';
 import { useSaveUserPreferences } from '@/data/queries/use-user-preferences';
 import { useConfirmOnEnter } from '@/hooks/use-confirm-on-enter';

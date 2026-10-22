@@ -27,15 +27,6 @@ vi.mock( '@/data/core', () => ( {
 	useConnector: () => connectorMocks,
 } ) );
 
-vi.mock( '@wordpress/ui', () => ( {
-	Tooltip: {
-		Root: ( { children }: { children?: unknown } ) => children,
-		Trigger: ( { render: trigger }: { render?: unknown } ) => trigger,
-		Popup: () => null,
-		Positioner: () => null,
-	},
-} ) );
-
 vi.mock( '../thinking-indicator', () => ( {
 	ThinkingIndicator: () => null,
 } ) );

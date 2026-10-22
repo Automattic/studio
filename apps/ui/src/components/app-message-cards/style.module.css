@@ -46,26 +46,26 @@
 	animation: card-enter 160ms ease-out;
 }
 
-.card [class*='heading'] {
+.title {
+	align-self: center;
+	font-size: var(--text-xs);
+	font-weight: var(--font-weight-semibold);
 	line-height: 16px;
 }
 
-.card [class*='__description'] {
-	font-size: 11px;
-	line-height: 16px;
+.close {
+	margin-block: -2px;
+}
+
+.description {
+	grid-column: 1 / -1;
 	display: -webkit-box;
 	-webkit-box-orient: vertical;
 	-webkit-line-clamp: 3;
 	overflow: hidden;
-}
-
-/* Center the title on the close button's row. */
-.card [class*='__title'] {
-	align-self: center;
-}
-
-.card [class*='__actions'] {
-	gap: 8px;
+	color: inherit;
+	font-size: 11px;
+	line-height: 16px;
 }
 
 /* Translucent, so it reads on any notice intent's background. */

@@ -1,6 +1,5 @@
 import { __ } from '@wordpress/i18n';
 import { brush, check, chevronDown, close, file, Icon, plugins } from '@wordpress/icons';
-import { ThemeProvider } from '@wordpress/theme';
 import { clsx } from 'clsx';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import {
@@ -133,73 +132,72 @@ export function SigninSyncIllustration( { playback }: { playback?: Playback } ) 
 					}) translate(${ -camera.x }px, ${ -camera.y }px)`,
 				} }
 			>
-				<ThemeProvider color={ { background: chromeBg } }>
-					<div
-						className={ styles.syncSidebar }
-						style={
-							{
-								'--sites-chrome-bg': chromeBg,
-								transform: `translateX(${ sidebarSlide }px)`,
-							} as CSSProperties
-						}
-					>
-						<div className={ styles.syncSites }>
-							{ [ 'Photography Portfolio', 'Marketing Site' ].map( ( name ) => (
-								<div key={ name } className={ styles.syncSiteRow }>
-									<span className={ styles.syncActivitySlot } />
-									<span className={ styles.syncSiteName }>{ name }</span>
-								</div>
-							) ) }
-							<div className={ clsx( styles.syncSiteRow, styles.syncSiteRowActive ) }>
-								<span className={ styles.syncActivitySlot }>
-									{ dotsOp > 0 ? (
-										<span className={ styles.syncDots } style={ { opacity: dotsOp } }>
-											<span className={ styles.syncDot } />
-											<span className={ styles.syncDot } />
-											<span className={ styles.syncDot } />
-										</span>
-									) : null }
+				<div
+					className={ styles.syncSidebar }
+					data-color-scheme="dark"
+					style={
+						{
+							'--sites-chrome-bg': chromeBg,
+							transform: `translateX(${ sidebarSlide }px)`,
+						} as CSSProperties
+					}
+				>
+					<div className={ styles.syncSites }>
+						{ [ 'Photography Portfolio', 'Marketing Site' ].map( ( name ) => (
+							<div key={ name } className={ styles.syncSiteRow }>
+								<span className={ styles.syncActivitySlot } />
+								<span className={ styles.syncSiteName }>{ name }</span>
+							</div>
+						) ) }
+						<div className={ clsx( styles.syncSiteRow, styles.syncSiteRowActive ) }>
+							<span className={ styles.syncActivitySlot }>
+								{ dotsOp > 0 ? (
+									<span className={ styles.syncDots } style={ { opacity: dotsOp } }>
+										<span className={ styles.syncDot } />
+										<span className={ styles.syncDot } />
+										<span className={ styles.syncDot } />
+									</span>
+								) : null }
+							</span>
+							<span className={ clsx( styles.syncSiteName, styles.syncSiteNameActive ) }>
+								My WordPress Website
+							</span>
+							<span className={ styles.syncStatusButton }>
+								<span className={ styles.syncStatusGlyph } />
+							</span>
+						</div>
+						{ [ 'Recipe Blog', 'Dev Sandbox' ].map( ( name ) => (
+							<div key={ name } className={ styles.syncSiteRow }>
+								<span className={ styles.syncActivitySlot } />
+								<span className={ styles.syncSiteName }>{ name }</span>
+							</div>
+						) ) }
+					</div>
+					<div className={ styles.syncFooter }>
+						{ toastP > 0 ? (
+							<div
+								className={ styles.syncToast }
+								style={ {
+									opacity: toastP,
+									transform: `translateY(${ ( 1 - toastP ) * 6 }px)`,
+								} }
+							>
+								<span className={ styles.syncToastIcon }>
+									<Icon icon={ check } size={ 16 } />
 								</span>
-								<span className={ clsx( styles.syncSiteName, styles.syncSiteNameActive ) }>
-									My WordPress Website
+								<span className={ styles.syncToastText }>
+									<span className={ styles.syncToastTitle }>{ __( 'Push complete' ) }</span>
+									<span className={ styles.syncToastDescription }>
+										{ __( 'My WordPress Website is live on my-wordpress-website.com.' ) }
+									</span>
 								</span>
-								<span className={ styles.syncStatusButton }>
-									<span className={ styles.syncStatusGlyph } />
+								<span className={ styles.syncToastClose }>
+									<Icon icon={ close } size={ 16 } />
 								</span>
 							</div>
-							{ [ 'Recipe Blog', 'Dev Sandbox' ].map( ( name ) => (
-								<div key={ name } className={ styles.syncSiteRow }>
-									<span className={ styles.syncActivitySlot } />
-									<span className={ styles.syncSiteName }>{ name }</span>
-								</div>
-							) ) }
-						</div>
-						<div className={ styles.syncFooter }>
-							{ toastP > 0 ? (
-								<div
-									className={ styles.syncToast }
-									style={ {
-										opacity: toastP,
-										transform: `translateY(${ ( 1 - toastP ) * 6 }px)`,
-									} }
-								>
-									<span className={ styles.syncToastIcon }>
-										<Icon icon={ check } size={ 16 } />
-									</span>
-									<span className={ styles.syncToastText }>
-										<span className={ styles.syncToastTitle }>{ __( 'Push complete' ) }</span>
-										<span className={ styles.syncToastDescription }>
-											{ __( 'My WordPress Website is live on my-wordpress-website.com.' ) }
-										</span>
-									</span>
-									<span className={ styles.syncToastClose }>
-										<Icon icon={ close } size={ 16 } />
-									</span>
-								</div>
-							) : null }
-						</div>
+						) : null }
 					</div>
-				</ThemeProvider>
+				</div>
 
 				<div className={ styles.syncMain }>
 					{ ! dialogGone ? (

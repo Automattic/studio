@@ -293,14 +293,10 @@
 	gap: 16px;
 }
 
-/* The global `button:focus:not(:focus-visible)` rule paints buttons with
-   --wp-ui-button-background-color, so these define it. */
 .pagerLabel {
-	--wp-ui-button-background-color: transparent;
-	--wp-ui-button-border-color: transparent;
 	padding: 2px 0;
 	border: 0;
-	background: var(--wp-ui-button-background-color);
+	background: transparent;
 	color: var(--muted-foreground);
 	font: inherit;
 	font-size: 11px;

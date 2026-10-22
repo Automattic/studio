@@ -292,9 +292,9 @@ export function setAgenticControlsSurface( surface: WindowControlsSurface ) {
 
 export function getTitleBarOverlayOptions() {
 	const isDark = nativeTheme.shouldUseDarkColors;
-	// The content surface tracks `--wpds-color-background-surface-neutral`; the
-	// toolbars, and the default, `--wpds-color-background-surface-neutral-strong`.
-	const toolbar = isDark ? '#1c1c1c' : '#ffffff';
+	// The renderer's `--chrome` (the toolbars, and the default) and `--chat`
+	// (the content surface) tokens at the default appearance, and `--foreground`.
+	const toolbar = isDark ? '#1b1b1b' : '#ffffff';
 	const surfaceColors = {
 		chrome: toolbar,
 		content: isDark ? '#141414' : '#fafafa',
@@ -302,7 +302,7 @@ export function getTitleBarOverlayOptions() {
 	};
 	return {
 		color: surfaceColors[ agenticControlsSurface ],
-		symbolColor: isDark ? '#e0e0e0' : '#1e1e1e',
+		symbolColor: isDark ? '#cecece' : '#282828',
 		height: AGENTIC_TITLEBAR_HEIGHT,
 	};
 }

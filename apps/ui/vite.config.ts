@@ -2,8 +2,6 @@ import { createRequire } from 'module';
 import { resolve } from 'path';
 import { sentryVitePlugin } from '@sentry/vite-plugin';
 import react from '@vitejs/plugin-react';
-import dsTokenFallbacksPostcss from '@wordpress/theme/postcss-plugins/postcss-ds-token-fallbacks';
-import dsTokenFallbacks from '@wordpress/theme/vite-plugins/vite-ds-token-fallbacks';
 import { defineConfig, type Plugin } from 'vite';
 import { getSentryReleaseInfo } from '../studio/src/lib/sentry-release';
 
@@ -13,10 +11,10 @@ const pkg = createRequire( import.meta.url )( './package.json' ) as {
 };
 
 // Dedupe + pre-bundle every direct dep so packages with module-scoped state
-// (React's hooks dispatcher, @wordpress/private-apis' lock/unlock registry,
-// etc.) can't accidentally resolve to two instances. Workspace packages
-// (`file:`) are skipped because Vite pre-bundling expects a resolvable
-// package entry and our workspace packages ship subpaths only.
+// (React's hooks dispatcher, etc.) can't accidentally resolve to two
+// instances. Workspace packages (`file:`) are skipped because Vite
+// pre-bundling expects a resolvable package entry and our workspace packages
+// ship subpaths only.
 const directDeps = Object.entries( pkg.dependencies ?? {} )
 	.filter( ( [ , version ] ) => ! version.startsWith( 'file:' ) )
 	.map( ( [ name ] ) => name );
@@ -65,7 +63,6 @@ const browserDevEntryPlugin: Plugin = {
 export default defineConfig( {
 	plugins: [
 		react(),
-		dsTokenFallbacks(),
 		...( isBrowser ? [ browserDevEntryPlugin ] : [] ),
 		// Sentry must be the last plugin
 		uploadSourceMaps &&
@@ -76,11 +73,6 @@ export default defineConfig( {
 				release: { name: sentryRelease },
 			} ),
 	],
-	css: {
-		postcss: {
-			plugins: [ dsTokenFallbacksPostcss ],
-		},
-	},
 	resolve: {
 		alias: {
 			'@': resolve( __dirname, 'src' ),

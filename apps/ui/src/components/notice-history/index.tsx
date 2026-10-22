@@ -1,6 +1,13 @@
 import { __ } from '@wordpress/i18n';
-import { EmptyState, Notice } from '@wordpress/ui';
+import { caution, error, Icon, info, published } from '@wordpress/icons';
 import { useSyncExternalStore } from 'react';
+import {
+	Alert,
+	AlertActions,
+	AlertDescription,
+	AlertTitle,
+	INTENT_VARIANTS,
+} from '@/components/ui/alert';
 import { Button, IconButton } from '@/components/ui/button';
 import {
 	Dialog,
@@ -12,6 +19,7 @@ import {
 	DialogScrollArea,
 	DialogTitle,
 } from '@/components/ui/dialog';
+import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
 import {
 	clearNoticeHistory,
 	noticeToText,
@@ -21,6 +29,8 @@ import {
 import { useCopyText } from '@/hooks/use-copy-text';
 import { bellIcon } from '@/lib/icons';
 import styles from './style.module.css';
+
+const INTENT_ICONS = { info, success: published, warning: caution, error };
 
 // The dialog mounts once at the layout level; the bell and a toast's "More"
 // both open it through this, so it works with the sidebar collapsed too.
@@ -104,24 +114,25 @@ export function NoticeHistoryDialog() {
 				</DialogHeader>
 				<DialogScrollArea>
 					{ notices.length === 0 ? (
-						<EmptyState.Root className={ styles.empty }>
-							<EmptyState.Icon icon={ bellIcon } />
-							<EmptyState.Title>{ __( 'No notifications yet' ) }</EmptyState.Title>
-							<EmptyState.Description>
+						<Empty className={ styles.empty }>
+							<EmptyMedia>{ bellIcon }</EmptyMedia>
+							<EmptyTitle>{ __( 'No notifications yet' ) }</EmptyTitle>
+							<EmptyDescription>
 								{ __( 'Notices Studio shows you collect here, until Studio\u00a0restarts.' ) }
-							</EmptyState.Description>
-						</EmptyState.Root>
+							</EmptyDescription>
+						</Empty>
 					) : (
 						<>
 							<ul className={ styles.list }>
 								{ notices.map( ( notice ) => (
 									<li key={ `${ notice.id }:${ notice.shownAt }` }>
-										<Notice.Root intent={ notice.intent } className={ styles.notice }>
-											<Notice.Title>{ notice.title }</Notice.Title>
+										<Alert variant={ INTENT_VARIANTS[ notice.intent ] } role="none">
+											<Icon icon={ INTENT_ICONS[ notice.intent ] } />
+											<AlertTitle>{ notice.title }</AlertTitle>
 											{ notice.description ? (
-												<Notice.Description className={ styles.description }>
+												<AlertDescription className={ styles.description }>
 													{ notice.description }
-												</Notice.Description>
+												</AlertDescription>
 											) : null }
 											<time
 												className={ styles.time }
@@ -130,11 +141,11 @@ export function NoticeHistoryDialog() {
 												{ formatTime( notice.shownAt ) }
 											</time>
 											{ notice.description ? (
-												<Notice.Actions>
+												<AlertActions>
 													<CopyNoticeButton notice={ notice } />
-												</Notice.Actions>
+												</AlertActions>
 											) : null }
-										</Notice.Root>
+										</Alert>
 									</li>
 								) ) }
 							</ul>

@@ -1,5 +1,4 @@
 import { __ } from '@wordpress/i18n';
-import { Text, VisuallyHidden } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useRef, useState } from 'react';
 import { LearnMoreLink } from '@/components/learn-more';
@@ -13,6 +12,7 @@ import {
 	DialogFooter,
 	DialogTitle,
 } from '@/components/ui/dialog';
+import { VisuallyHidden } from '@/components/ui/visually-hidden';
 import { GuideIllustration, isDarkGuideIllustration, needsCloseScrim } from './illustrations';
 import styles from './style.module.css';
 import type { GuideDefinition } from '@/data/onboarding/guide';
@@ -84,8 +84,10 @@ export function OnboardingGuide( { guide, onComplete, onDismiss }: OnboardingGui
 					{ /* The dialog's accessible name and description follow the active page.
 					     The visible copy is rendered separately below so that every page can
 					     share one grid cell. */ }
-					<VisuallyHidden render={ <DialogTitle /> }>{ page.title() }</VisuallyHidden>
-					<VisuallyHidden render={ <DialogDescription /> }>{ page.description() }</VisuallyHidden>
+					<DialogTitle render={ <VisuallyHidden /> }>{ page.title() }</DialogTitle>
+					<DialogDescription render={ <VisuallyHidden /> }>
+						{ page.description() }
+					</DialogDescription>
 					{ /* All pages occupy the same grid cell, so the box is as tall as the
 					     longest one and advancing never resizes the modal. Rendering them
 					     identically — rather than measuring the active page — is what keeps
@@ -95,12 +97,8 @@ export function OnboardingGuide( { guide, onComplete, onDismiss }: OnboardingGui
 							key={ index }
 							className={ clsx( styles.page, index !== pageIndex && styles.pageHidden ) }
 						>
-							<Text variant="heading-xl" className={ styles.title }>
-								{ guidePage.title() }
-							</Text>
-							<Text variant="body-md" className={ styles.description }>
-								{ guidePage.description() }
-							</Text>
+							<div className={ styles.title }>{ guidePage.title() }</div>
+							<div className={ styles.description }>{ guidePage.description() }</div>
 							{ reservesLearnMore ? (
 								<div className={ styles.learnMoreRow }>
 									{ guidePage.learnMore ? (

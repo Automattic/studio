@@ -35,9 +35,17 @@ export function ResizeHandle( {
 			aria-valuemax={ maxWidth }
 			aria-valuenow={ width }
 			tabIndex={ 0 }
-			onMouseDown={ onResizeStart }
+			// A drag covers the handle with ResizeOverlay, so a double-click never
+			// reaches it as `dblclick`: the second press resets instead.
+			onMouseDown={ ( event ) => {
+				if ( onReset && event.detail === 2 ) {
+					event.preventDefault();
+					onReset();
+				} else {
+					onResizeStart( event );
+				}
+			} }
 			onKeyDown={ onKeyDown }
-			onDoubleClick={ onReset }
 		>
 			<span className={ styles.resizeHandleIndicator } aria-hidden="true" />
 		</div>

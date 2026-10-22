@@ -206,7 +206,8 @@ describe( 'POST /api/site-defaults/folder', () => {
 			body: JSON.stringify( { path: folderPath } ),
 		} );
 
-	it( 'says whether a typed folder is empty or holds WordPress', async () => {
+	it( 'says whether a typed folder in the site directory is empty or holds WordPress', async () => {
+		writeAppConfig( { defaultSiteDirectory: configDir } );
 		const wordPress = path.join( configDir, 'existing' );
 		mkdirSync( path.join( wordPress, 'wp-content' ), { recursive: true } );
 		mkdirSync( path.join( wordPress, 'wp-includes' ) );
@@ -223,5 +224,10 @@ describe( 'POST /api/site-defaults/folder', () => {
 			isWordPress: true,
 		} );
 		expect( ( await check( 'relative/site' ) ).status ).toBe( 400 );
+		// Outside the home and site directories, the folder is left to `site create`.
+		expect( await ( await check( path.parse( configDir ).root ) ).json() ).toMatchObject( {
+			isEmpty: true,
+			isWordPress: false,
+		} );
 	} );
 } );

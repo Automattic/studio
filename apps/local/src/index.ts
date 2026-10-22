@@ -1059,11 +1059,15 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				return;
 			}
 			const folder = { path: folderPath, name: path.basename( folderPath ) };
+			// Only folders under the home or site directory are read; others are left to `site create`.
+			const confined = [ os.homedir(), await readDefaultSiteDirectory( sitesRoot ) ]
+				.map( ( root ) => confineToRoot( root, folderPath ) )
+				.find( Boolean );
 			try {
 				res.json( {
 					...folder,
-					isEmpty: await isEmptyDir( folderPath ),
-					isWordPress: isWordPressDirectory( folderPath ),
+					isEmpty: confined ? await isEmptyDir( confined ) : true,
+					isWordPress: confined ? isWordPressDirectory( confined ) : false,
 				} );
 			} catch ( err ) {
 				if ( ! isErrnoException( err ) || err.code !== 'ENOENT' ) throw err;

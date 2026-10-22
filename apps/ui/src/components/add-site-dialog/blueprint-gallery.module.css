@@ -108,8 +108,7 @@
 	display: block;
 }
 
-.card:focus-visible .thumbnail,
-.card:focus-visible .blank {
+.card:focus-visible .thumbnail {
 	outline: 2px solid var(--wpds-color-stroke-focus);
 	outline-offset: 2px;
 }
@@ -130,16 +129,17 @@
 	border: 1px dotted color-mix(in srgb, var(--wpds-color-foreground-content-neutral) 10%, transparent);
 }
 
-.card:hover .blank {
+/* Hover and keyboard focus share one ring. */
+.card:is(:hover, :focus-visible) .blank {
 	background: color-mix(in srgb, var(--wpds-color-background-interactive-brand-strong) 10%, transparent);
 	color: var(--wpds-color-foreground-interactive-brand);
 }
 
-.card:hover .blank::after {
+.card:is(:hover, :focus-visible) .blank::after {
 	border: 2px solid var(--wpds-color-stroke-focus);
 }
 
-.card:hover:has(.blank) {
+.card:is(:hover, :focus-visible):has(.blank) {
 	color: var(--wpds-color-foreground-interactive-brand);
 }
 

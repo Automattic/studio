@@ -48,7 +48,7 @@ export function AddSiteDialog() {
 	const [ lastViewed, setLastViewed ] = useState< string >();
 	const popup = useRef< HTMLDivElement >( null );
 	const getInitialFocus = useCallback(
-		() => popup.current?.querySelector< HTMLElement >( '[data-start-blank], input' ) ?? true,
+		() => popup.current?.querySelector< HTMLElement >( 'input' ) ?? popup.current ?? true,
 		[]
 	);
 	if ( addSite !== openedWith ) {

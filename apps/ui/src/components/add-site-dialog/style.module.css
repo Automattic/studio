@@ -99,9 +99,9 @@
 	flex: none;
 	align-items: center;
 	gap: 12px;
-	min-height: 60px;
+	min-height: 56px;
 	box-sizing: border-box;
-	padding: 14px 14px 14px 16px;
+	padding: 14px 14px 10px 16px;
 }
 
 .title {
@@ -172,7 +172,8 @@
 .content {
 	flex: 1;
 	min-height: 0;
-	padding: 0 16px 16px;
+	/* Room above the first row for a focused card's outline. */
+	padding: 4px 16px 16px;
 	overflow-y: auto;
 	container-type: inline-size;
 }

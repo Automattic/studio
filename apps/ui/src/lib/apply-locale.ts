@@ -30,8 +30,4 @@ export async function applyLocale( connector: Connector ): Promise< void > {
 		// isRTL() reads the direction from the loaded data, so it must run after setLocaleData.
 		document.documentElement.dir = defaultI18n.isRTL() ? 'rtl' : 'ltr';
 	}
-
-	// Chosen once per load: changing the locale reloads the window. Importing
-	// them here also keeps them after the components' CSS modules, as before.
-	await ( defaultI18n.isRTL() ? import( '@/app/styles-rtl' ) : import( '@/app/styles' ) );
 }

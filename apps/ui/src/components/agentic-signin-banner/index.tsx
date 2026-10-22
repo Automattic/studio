@@ -1,6 +1,5 @@
 import { __ } from '@wordpress/i18n';
 import { chevronLeft, chevronRight } from '@wordpress/icons';
-import { Button, Dialog, IconButton, VisuallyHidden } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import {
 	useEffect,
@@ -17,6 +16,17 @@ import {
 import { SigninAnnotateIllustration } from '@/components/onboarding-guide/illustrations/signin-annotate';
 import { SigninChatIllustration } from '@/components/onboarding-guide/illustrations/signin-chat';
 import { SigninSyncIllustration } from '@/components/onboarding-guide/illustrations/signin-sync';
+import { Button, IconButton } from '@/components/ui/button';
+import {
+	Dialog,
+	DialogClose,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from '@/components/ui/dialog';
+import { VisuallyHidden } from '@/components/ui/visually-hidden';
 import { useLogin } from '@/data/queries/use-auth-user';
 import { useSaveUserPreferences } from '@/data/queries/use-user-preferences';
 import { useConfirmOnEnter } from '@/hooks/use-confirm-on-enter';
@@ -44,8 +54,7 @@ export function SigninNotice( { source }: { source: TracksAuthSource } ) {
 			<div className={ styles.actions }>
 				<Button
 					type="button"
-					variant="solid"
-					tone="brand"
+					variant="accent"
 					loading={ login.isPending }
 					onClick={ () => login.mutate() }
 				>
@@ -232,7 +241,7 @@ function TurnOffStudioCodeDialog( {
 		);
 
 	return (
-		<Dialog.Root
+		<Dialog
 			open={ open }
 			onOpenChange={ ( next ) => {
 				if ( ! savePreferences.isPending ) {
@@ -240,33 +249,33 @@ function TurnOffStudioCodeDialog( {
 				}
 			} }
 		>
-			<Dialog.Popup size="small" onKeyDown={ handleKeyDown }>
-				<Dialog.Header>
-					<Dialog.Title>{ __( 'Turn off Studio Code?' ) }</Dialog.Title>
-				</Dialog.Header>
-				<Dialog.Content>
-					<Dialog.Description>
+			<DialogContent showCloseButton={ false } onKeyDown={ handleKeyDown }>
+				<DialogHeader>
+					<DialogTitle>{ __( 'Turn off Studio Code?' ) }</DialogTitle>
+					<DialogDescription>
 						{ __(
 							'This turns off Studio Code, so your sites open to their preview instead of a chat. You can turn it back on any time in settings.'
 						) }
-					</Dialog.Description>
-				</Dialog.Content>
-				<Dialog.Footer>
-					<Dialog.Action variant="minimal" tone="neutral" disabled={ savePreferences.isPending }>
+					</DialogDescription>
+				</DialogHeader>
+				<DialogFooter>
+					<DialogClose
+						disabled={ savePreferences.isPending }
+						render={ <Button variant="outline" /> }
+					>
 						{ __( 'Cancel' ) }
-					</Dialog.Action>
+					</DialogClose>
 					<Button
-						variant="solid"
-						tone="brand"
+						variant="accent"
 						loading={ savePreferences.isPending }
 						loadingAnnouncement={ __( 'Turning off Studio Code' ) }
 						onClick={ handleConfirm }
 					>
 						{ confirmLabel }
 					</Button>
-				</Dialog.Footer>
-			</Dialog.Popup>
-		</Dialog.Root>
+				</DialogFooter>
+			</DialogContent>
+		</Dialog>
 	);
 }
 
@@ -371,9 +380,7 @@ export function AgenticSigninPrompt( {
 						className={ clsx( styles.arrow, styles.arrowPrev ) }
 						icon={ chevronLeft }
 						label={ __( 'Previous feature' ) }
-						size="small"
-						variant="minimal"
-						tone="neutral"
+						size="icon-xs"
 						onClick={ () => step( -1 ) }
 					/>
 					<Stage
@@ -408,9 +415,7 @@ export function AgenticSigninPrompt( {
 						className={ clsx( styles.arrow, styles.arrowNext ) }
 						icon={ chevronRight }
 						label={ __( 'Next feature' ) }
-						size="small"
-						variant="minimal"
-						tone="neutral"
+						size="icon-xs"
 						onClick={ () => step( 1 ) }
 					/>
 					<div className={ styles.transport }>
@@ -437,8 +442,7 @@ export function AgenticSigninPrompt( {
 				<Button
 					className={ styles.loginButton }
 					type="button"
-					variant="solid"
-					tone="brand"
+					variant="accent"
 					loading={ login.isPending }
 					onClick={ () => login.mutate() }
 				>
@@ -448,9 +452,8 @@ export function AgenticSigninPrompt( {
 					<Button
 						className={ styles.turnOffButton }
 						type="button"
-						variant="minimal"
-						tone="neutral"
-						size="small"
+						variant="muted-ghost"
+						size="2xs"
 						onClick={ () => setTurnOffDialogOpen( true ) }
 					>
 						{ __( 'Continue without Studio Code' ) }

@@ -2,7 +2,7 @@
    inset 12px from the sidebar's edges. */
 .root {
 	--site-list-row-height: 36px;
-	--site-list-row-padding: var(--wpds-dimension-padding-sm);
+	--site-list-row-padding: 8px;
 	--site-list-icon-gap: 6px;
 	/* Where a row's text starts, past its padding and icon. */
 	--site-list-text-inset: calc(var(--site-list-row-padding) + 16px + var(--site-list-icon-gap));
@@ -10,19 +10,19 @@
 	--site-list-chat-status-size: 14px;
 	--site-list-chat-status-start-offset: 0px;
 	--site-list-chat-status-gap: var(--site-list-icon-gap);
-	--site-list-pending-indicator-bg: var(--studio-color-status-attention);
-	--site-list-sync-indicator-bg: var(--studio-color-status-sync);
+	--site-list-pending-indicator-bg: var(--status-attention);
+	--site-list-sync-indicator-bg: var(--status-sync);
 	/* Row hover and selection. Declared here so every mount point gets it,
 	   resolved against whatever theme scope wraps the list. */
-	--sidebar-row-background: var(--studio-hover-background);
+	--sidebar-row-background: var(--hover);
 
-	padding: var(--wpds-dimension-padding-md) var(--wpds-dimension-padding-md)
-		var(--wpds-dimension-padding-xl);
+	padding: 12px 12px
+		20px;
 	display: flex;
 	flex-direction: column;
-	gap: var(--wpds-dimension-padding-xs);
-	font-size: 14px;
-	line-height: var(--wpds-typography-line-height-sm);
+	gap: 4px;
+	font-size: var(--text-sm);
+	line-height: 20px;
 	user-select: none;
 	-webkit-app-region: no-drag;
 }
@@ -46,7 +46,7 @@
 	border-radius: 6px;
 	background-color: var(--sidebar-row-background);
 	box-shadow: inset 0 0 0 1px
-		color-mix(in srgb, var(--wpds-color-stroke-interactive-brand) 45%, transparent);
+		color-mix(in srgb, var(--accent) 45%, transparent);
 	transition: background-color 120ms ease, box-shadow 120ms ease;
 }
 
@@ -76,9 +76,9 @@
 	box-sizing: border-box;
 	height: var(--site-list-row-height);
 	padding-inline: var(--site-list-row-padding);
-	border-radius: var(--wpds-border-radius-sm);
-	color: var(--wpds-color-foreground-content-neutral);
-	cursor: var(--wpds-cursor-control);
+	border-radius: 8px;
+	color: var(--foreground);
+	cursor: pointer;
 }
 
 .siteHeader:hover,
@@ -112,7 +112,7 @@
 	width: 7px;
 	height: 7px;
 	border-radius: 50%;
-	background-color: var(--wpds-color-background-interactive-brand-strong);
+	background-color: var(--accent);
 }
 
 .siteText {
@@ -122,25 +122,10 @@
 	align-items: center;
 }
 
-.siteToggle,
-.chat {
-	--wp-ui-button-font-size: 14px;
-	--wp-ui-button-font-weight: var(--wpds-typography-font-weight-default);
-}
-
 .siteToggle {
 	flex: 1 1 auto;
 	min-width: 0;
-	max-width: 100%;
-	height: auto;
-	gap: 0;
-	padding: 0;
 	font: inherit;
-}
-
-.siteToggle:focus-visible {
-	outline: 2px solid var(--wpds-color-stroke-interactive-brand, #3858e9);
-	outline-offset: -2px;
 }
 
 .siteAgentActivitySlot {
@@ -249,7 +234,7 @@
 }
 
 .siteName {
-	color: var(--wpds-color-foreground-content-neutral);
+	color: var(--foreground);
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
@@ -271,13 +256,6 @@
 	gap: 2px;
 }
 
-.rowAction[class] {
-	--wp-ui-button-height: var(--site-list-action-size);
-
-	flex-shrink: 0;
-	color: var(--wpds-color-foreground-content-neutral-weak);
-}
-
 .siteActions .rowAction {
 	opacity: 0;
 }
@@ -295,39 +273,13 @@
 	padding-inline-end: calc(2 * var(--site-list-action-size) + var(--site-list-row-padding));
 }
 
-.siteStatus {
-	display: inline-grid;
-	place-items: center;
-	inline-size: var(--site-list-action-size);
-	block-size: var(--site-list-action-size);
-	padding: 0;
-	border: 0;
-	border-radius: var(--wpds-border-radius-sm);
-	background: transparent;
-	cursor: var(--wpds-cursor-control);
-}
-
-.siteStatus:not([aria-disabled='true']):is(:hover, :focus-visible) {
-	background-color: var(--wpds-color-background-interactive-neutral-weak-active);
-	color: var(--wpds-color-foreground-content-neutral);
-}
-
-.siteStatus:focus-visible {
-	outline: 2px solid var(--wpds-color-stroke-interactive-brand, #3858e9);
-	outline-offset: -2px;
-}
-
-.siteStatus[aria-disabled='true'] {
-	cursor: default;
-}
-
 @keyframes siteNameStartingPulse {
 	0%,
 	100% {
-		color: var(--wpds-color-foreground-content-neutral);
+		color: var(--foreground);
 	}
 	50% {
-		color: var(--wpds-color-foreground-content-neutral-weak);
+		color: var(--muted-foreground);
 	}
 }
 
@@ -376,19 +328,19 @@
 }
 
 .empty {
-	padding: var(--wpds-dimension-padding-xs) var(--site-list-row-padding);
-	color: var(--wpds-color-foreground-content-neutral-weak);
+	padding: 4px var(--site-list-row-padding);
+	color: var(--muted-foreground);
 	margin: 0;
 }
 
 .group {
 	display: flex;
 	flex-direction: column;
-	padding-block-start: var(--wpds-dimension-padding-xs);
+	padding-block-start: 4px;
 }
 
 .group + .group {
-	margin-block-start: var(--wpds-dimension-padding-md);
+	margin-block-start: 12px;
 }
 
 .groupHeader {
@@ -404,33 +356,33 @@
 	display: inline-flex;
 	flex: 1;
 	align-items: center;
-	gap: var(--wpds-dimension-gap-xs);
+	gap: 4px;
 	height: 100%;
 	padding: 0 var(--site-list-row-padding);
 	border: none;
-	border-radius: var(--wpds-border-radius-sm);
+	border-radius: 8px;
 	background: none;
-	color: var(--wpds-color-foreground-content-neutral-weak);
+	color: var(--muted-foreground);
 	font: inherit;
-	font-weight: 450;
-	cursor: var(--wpds-cursor-control);
-	transition: color var(--studio-motion-feedback-duration) ease;
+	font-weight: var(--font-weight-medium);
+	cursor: pointer;
+	transition: color var(--motion-duration-feedback) ease;
 }
 
 .groupToggle:hover {
-	color: var(--wpds-color-foreground-content-neutral);
+	color: var(--foreground);
 }
 
 .groupToggle:focus-visible {
-	outline: 2px solid var(--wpds-color-stroke-focus);
+	outline: 2px solid var(--ring);
 	outline-offset: -2px;
 }
 
 .groupChevron {
 	opacity: 0;
 	transition:
-		rotate var(--studio-motion-feedback-duration) ease,
-		opacity var(--studio-motion-feedback-duration) ease;
+		rotate var(--motion-duration-feedback) ease,
+		opacity var(--motion-duration-feedback) ease;
 }
 
 .groupToggle[aria-expanded='true'] .groupChevron {
@@ -449,14 +401,14 @@
 }
 
 .site .chats {
-	padding-block: 1px var(--wpds-dimension-padding-sm);
+	padding-block: 1px 8px;
 }
 
 .chatRow {
 	position: relative;
 	display: flex;
 	align-items: center;
-	border-radius: var(--wpds-border-radius-sm);
+	border-radius: 8px;
 }
 
 .chatRow:hover,
@@ -466,15 +418,13 @@
 }
 
 .chat {
-	--wp-ui-button-height: var(--site-list-row-height);
-
 	flex: 1 1 auto;
-	justify-content: flex-start;
 	gap: var(--site-list-icon-gap);
+	height: var(--site-list-row-height);
 	min-width: 0;
 	padding-inline: var(--site-list-row-padding);
-	border-radius: var(--wpds-border-radius-sm);
-	color: var(--wpds-color-foreground-content-neutral);
+	border-radius: 8px;
+	color: var(--foreground);
 	font: inherit;
 }
 
@@ -527,7 +477,7 @@
 	width: 7px;
 	height: 7px;
 	border-radius: 50%;
-	background-color: var(--wpds-color-background-interactive-brand-strong);
+	background-color: var(--accent);
 }
 
 .chat:has(.unreadDot) {

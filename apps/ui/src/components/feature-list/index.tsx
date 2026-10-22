@@ -1,5 +1,4 @@
-import { check } from '@wordpress/icons';
-import { Icon } from '@wordpress/ui';
+import { check, Icon } from '@wordpress/icons';
 import { clsx } from 'clsx';
 import styles from './style.module.css';
 

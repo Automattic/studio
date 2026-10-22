@@ -1,3 +1,5 @@
+import '@/theme/tokens.css';
+import '@/index.css';
 import { init as initSentry } from '@sentry/electron/renderer';
 import { captureException } from '@studio/common/lib/error-reporting';
 import { StrictMode } from 'react';

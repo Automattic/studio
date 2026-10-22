@@ -1,7 +1,6 @@
 import { createRoute, useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
-import { chevronLeft } from '@wordpress/icons';
-import { Button, Icon } from '@wordpress/ui';
+import { chevronLeft, Icon } from '@wordpress/icons';
 import { clsx } from 'clsx';
 import { useCallback } from 'react';
 import { AuthActions } from '@/components/auth-actions';
@@ -9,6 +8,7 @@ import { FeatureList } from '@/components/feature-list';
 import { OnboardingFooter } from '@/components/onboarding-footer';
 import { SiteListIllustration } from '@/components/onboarding-illustrations';
 import { AgentPixelField } from '@/components/onboarding-illustrations/agent-pixel-field';
+import { Button } from '@/components/ui/button';
 import { useConnector } from '@/data/core';
 import { useAuthUser } from '@/data/queries/use-auth-user';
 import { onboardingLayoutRoute } from '../layout-onboarding';
@@ -115,21 +115,19 @@ function OnboardingTourPage() {
 			<OnboardingFooter>
 				<Button
 					type="button"
-					variant="minimal"
-					tone="neutral"
+					variant="ghost"
 					onClick={ () =>
 						void navigate(
 							stepIndex === 0 ? { to: '/welcome' } : { to: '/onboarding/tour', search: {} }
 						)
 					}
 				>
-					<Icon icon={ chevronLeft } size={ 16 } />
-					<span>{ __( 'Back' ) }</span>
+					<Icon icon={ chevronLeft } data-icon="inline-start" />
+					{ __( 'Back' ) }
 				</Button>
 				<Button
 					type="button"
-					variant="solid"
-					tone="brand"
+					variant="accent"
 					onClick={ () => {
 						if ( isLastStep ) {
 							void finishTour();

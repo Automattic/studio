@@ -54,7 +54,7 @@ Reading the stack bottom-up:
 
 ## The shared UI layer (`apps/ui`)
 
-`apps/ui` is a single React app (React 19, TanStack Query/Router, `@wordpress/ui` + `@wordpress/dataviews`, themed via `@wordpress/theme`'s `ThemeProvider`). It is rendered by **two** surfaces — desktop and local — without forking.
+`apps/ui` is a single React app (React 19, TanStack Query/Router, its own Base UI primitives and CSS theme tokens). It is rendered by **two** surfaces — desktop and local — without forking.
 
 It reaches its backend exclusively through the **`Connector`** interface (`apps/ui/src/data/core/types.ts`). The UI never imports IPC, `fetch`, or SSE directly; it calls `connector.getSites()`, `connector.createSite()`, `connector.authenticate()`, etc. Each surface provides one implementation:
 

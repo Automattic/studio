@@ -1,5 +1,5 @@
 import { __, sprintf } from '@wordpress/i18n';
-import { Button } from '@wordpress/ui';
+import { Button } from '@/components/ui/button';
 import wapuuIdleUrl from '@/components/wapuu-world/assets/wapuu-player-idle-sprite.png';
 import { MAX_SCORE } from '@/components/wapuu-world/engine/game-loop';
 import { useConnector } from '@/data/core';
@@ -52,9 +52,7 @@ export function WapuuScore() {
 					</div>
 				</div>
 				<Button
-					type="button"
 					variant="outline"
-					tone="neutral"
 					onClick={ () => void connector.openExternalUrl( WAPUU_STUDIO_URL ) }
 				>
 					{ __( 'Visit wapuu.studio' ) }

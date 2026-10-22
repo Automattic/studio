@@ -2,8 +2,16 @@ import { ACCEPTED_IMPORT_FILE_TYPES } from '@studio/common/constants';
 import { isSupportedBackupFilename } from '@studio/common/lib/backup-files';
 import { getErrorMessage } from '@studio/common/lib/error-formatting';
 import { __, sprintf } from '@wordpress/i18n';
-import { AlertDialog } from '@wordpress/ui';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import { Button } from '@/components/ui/button';
+import {
+	AlertDialog,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from '@/components/ui/dialog';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { useImportSite } from '@/data/queries/use-import-site';
@@ -116,31 +124,29 @@ export function ImportSiteDialog( {
 }: ImportSiteDialogProps ) {
 	const confirmLabel = __( 'Import' );
 	const handleKeyDown = useConfirmOnEnter( confirmLabel );
+	const cancelRef = useRef< HTMLButtonElement >( null );
 
 	return (
-		<AlertDialog.Root
-			open={ open }
-			onOpenChange={ ( next ) => {
-				if ( ! next ) {
-					onCancel();
-				}
-			} }
-			// Returns synchronously so the dialog closes and the import runs in the
-			// background — an async handler would hold it open for the whole import.
-			onConfirm={ onConfirm }
-		>
-			{ /* Deliberately not `intent="irreversible"`: the importer moves the site's
-			     existing wp-content and database to the trash, not straight to deletion. */ }
-			<AlertDialog.Popup
-				onKeyDown={ handleKeyDown }
-				title={ sprintf( __( 'Overwrite %s?' ), site.name ) }
-				description={ __(
-					'Importing a backup will replace the existing files and database for your site.'
-				) }
-				confirmButtonText={ confirmLabel }
-			>
+		<AlertDialog open={ open } onOpenChange={ ( next ) => ! next && onCancel() }>
+			<DialogContent initialFocus={ cancelRef } onKeyDown={ handleKeyDown }>
+				<DialogHeader>
+					<DialogTitle>{ sprintf( __( 'Overwrite %s?' ), site.name ) }</DialogTitle>
+					<DialogDescription>
+						{ __(
+							'Importing a backup will replace the existing files and database for your site.'
+						) }
+					</DialogDescription>
+				</DialogHeader>
 				{ file ? <p className={ styles.fileName }>{ file.name }</p> : null }
-			</AlertDialog.Popup>
-		</AlertDialog.Root>
+				<DialogFooter>
+					<Button ref={ cancelRef } variant="outline" onClick={ onCancel }>
+						{ __( 'Cancel' ) }
+					</Button>
+					{ /* Not destructive: the importer moves the site's existing wp-content
+					     and database to the trash rather than deleting them. */ }
+					<Button onClick={ onConfirm }>{ confirmLabel }</Button>
+				</DialogFooter>
+			</DialogContent>
+		</AlertDialog>
 	);
 }

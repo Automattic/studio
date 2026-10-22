@@ -54,7 +54,7 @@ Prefer targeted runs: `npm run eval -- --filter-pattern "<case>"`. The full suit
 
 ## Tech Stack
 
-**Frontend** (`apps/ui`): React 19, TanStack Query + Router, `@wordpress/ui` + `ThemeProvider`, TypeScript, Vite
+**Frontend** (`apps/ui`): React 19, TanStack Query + Router, Base UI with the app's own primitives (`src/components/ui/`) and theme tokens (`src/theme/`), `@wordpress/icons`, TypeScript, Vite
 **Main**: Electron
 **CLI**: native PHP binaries, WP-CLI, @wp-playground/blueprints (Blueprint types and schema validation)
 **Dev**: electron-vite, electron-forge, Vitest, Playwright
@@ -69,8 +69,9 @@ Prefer targeted runs: `npm run eval -- --filter-pattern "<case>"`. The full suit
 ## Conventions
 
 **Files**: React components (PascalCase), utils (camelCase), tests (.test.ts/.tsx)
-**Theming / colors (CSS)**: Always use `--wpds-color-*` variables for color; the `ThemeProvider` wrapping the UI (`apps/ui/src/app/app-providers.tsx`) makes them adapt to the active theme. Non-color `--wpds-*` tokens (`--wpds-dimension-*`, `--wpds-typography-*`, `--wpds-border-width-*`, `--wpds-elevation-*`, `--wpds-cursor-*`) are theme-independent.
+**Theming / colors (CSS)**: Always use the theme tokens in `apps/ui/src/theme/tokens.css` (`--foreground`, `--muted-foreground`, `--border`, `--muted`, `--accent`, …) for color; they follow the color scheme and the Appearance settings. Type, radius, motion and shell metrics have tokens there too (`--text-*`, `--font-weight-*`, `--radius-*`, `--motion-*`, `--control-size`). See the `apps/ui` README.
 
+**UI primitives** (`apps/ui/src/components/ui/`): Button, IconButton, Dialog, Menu, Select, Field, Tooltip… built on Base UI, styled after the rebuild's kit. Feature code uses these rather than Base UI directly wherever a primitive exists; `@wordpress/ui`, `@wordpress/components`, `@wordpress/dataviews` and `@wordpress/theme` are not used (lint-enforced). Primitives sit in the `ui` cascade layer, so a feature's CSS module overrides them without specificity tricks; change a button's resting fill with `--button-background`, not `background-color`. Primitives import nothing from app code (`data/`, `hooks/`, the router; lint-enforced).
 **IPC Handlers** (`apps/studio/src/ipc-handlers.ts`): every export is registered as a handler under its name, as `handlerName(event, ...args)` | Fire-and-forget handlers (called with `ipcRenderer.send`) are listed in `IPC_VOID_HANDLERS` in `apps/studio/src/constants.ts`
 **Storage**: **CRITICAL** - Always use file locking when writing config. Each config file has its own lockfile and helpers: `lockAppdata()` / `unlockAppdata()` for `app.json` (`apps/studio/src/storage/user-data.ts`), `lockCliConfig()` / `unlockCliConfig()` for `cli.json` (`apps/cli/lib/cli-config/core.ts`), and `lockSharedConfig()` / `unlockSharedConfig()` for `shared.json` (`packages/common/lib/shared-config.ts`).
 **i18n**: `@wordpress/i18n` (`__()` function), `packages/common/translations/`, `<I18nProvider>` (renderer), `loadTranslations()` (CLI)
@@ -121,7 +122,7 @@ If you've built a substantial new feature — especially one generated with AI a
 
 ## Common Pitfalls
 
-**CRITICAL - Dark Mode Color Tokens**: Use `--wpds-color-*` tokens for color — the `ThemeProvider` makes them adapt to the active theme. Always test new/changed UI in BOTH color schemes before declaring done — macOS: System Settings → Appearance → Dark.
+**CRITICAL - Dark Mode Color Tokens**: Use the theme's color tokens (`apps/ui/src/theme/tokens.css`), never literal colors — they adapt to the active scheme. Always test new/changed UI in BOTH color schemes before declaring done — macOS: System Settings → Appearance → Dark.
 
 **IMPORTANT - Two Front Ends, One Feature**: `apps/ui` runs in both the Desktop app and the `studio ui` browser app, through two connectors (`apps/ui/src/data/core/connectors/`): `ipc` talks to the Electron main process, `local` talks to the `apps/local` HTTP server. A `Connector` method implemented for only one target fails **silently** in the other — the `local` connector tends to fall back to browser-local defaults, so the browser UI quietly shows stale or empty values. Write the operation once in `@studio/common`, taking the CLI runner and anything else that differs as parameters, and make the main-process IPC handler and the `apps/local` route thin wrappers around it (e.g. `lib/user-settings/user-preferences.ts`, `sites/sync.ts`, `lib/local-media.ts`). Desktop-owned state in `app.json` goes through `@studio/common/lib/app-config.ts` rather than a copy in the browser, with the fallback for an unset value in the shared module. Verify in both: the Desktop app, and `npm run cli:build:ui && node apps/cli/dist/cli/main.mjs ui --no-open`.
 

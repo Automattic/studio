@@ -17,7 +17,6 @@ import {
 	isKeyboardEvent,
 	shortcutAriaLabel,
 } from '@wordpress/keycodes';
-import { Button, IconButton, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { AnnotationOverlay, type AnnotationAnchor } from '@/components/annotations/overlay';
@@ -31,12 +30,14 @@ import {
 	type SiteAnnotations,
 } from '@/components/annotations/store';
 import { DesignSystemView } from '@/components/design-system-view';
-import * as Menu from '@/components/menu';
 import { PreviewParticles } from '@/components/preview-particles';
 import { PublishButton } from '@/components/publish-panel';
 import { ShareButton } from '@/components/share-dialog';
 import { SiteLifecycleButton } from '@/components/site-lifecycle-button';
 import { StoppedSitePreview } from '@/components/stopped-site-preview';
+import { Button, IconButton } from '@/components/ui/button';
+import * as Menu from '@/components/ui/menu';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useConnector } from '@/data/core';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { siteDesignQueryKey, useSiteDesign } from '@/data/queries/use-site-design';
@@ -377,18 +378,12 @@ function AnnotateButton( {
 			className={ styles.disabledControlTooltipTarget }
 			title={ disabled ? disabledReason : undefined }
 		>
-			<Tooltip.Root>
-				<Tooltip.Trigger
+			<Tooltip>
+				<TooltipTrigger
 					render={
 						<Button
-							variant="minimal"
-							tone="neutral"
-							size="small"
-							className={ clsx(
-								'studio-control',
-								styles.annotateButton,
-								active && styles.annotateButtonActive
-							) }
+							variant="ghost"
+							className={ clsx( styles.annotateButton, active && styles.annotateButtonActive ) }
 							aria-label={ __( 'Annotate' ) }
 							aria-pressed={ active }
 							aria-description={
@@ -401,15 +396,15 @@ function AnnotateButton( {
 							disabled={ disabled }
 							onClick={ onClick }
 						>
-							<Icon icon={ annotateIcon } size={ 16 } />
+							<Icon icon={ annotateIcon } size={ 16 } data-icon="inline-start" />
 							<span className={ styles.toolbarLabel }>{ __( 'Annotate' ) }</span>
 						</Button>
 					}
 				/>
-				<Tooltip.Popup positioner={ <Tooltip.Positioner side="bottom" /> }>
+				<TooltipContent side="bottom">
 					{ disabledReason ?? ( active ? __( 'Exit annotation mode' ) : __( 'Annotate' ) ) }
-				</Tooltip.Popup>
-			</Tooltip.Root>
+				</TooltipContent>
+			</Tooltip>
 		</span>
 	);
 }
@@ -458,14 +453,12 @@ function BrowserHistoryButton( {
 	const [ menuOpen, setMenuOpen ] = useState( false );
 	const trigger = (
 		<IconButton
-			variant="minimal"
-			tone="neutral"
-			size="small"
-			className="studio-control"
 			icon={ back ? browserBackIcon : browserForwardIcon }
 			label={ label }
 			shortcut={ shortcut }
+			tooltipSide="bottom"
 			disabled={ disabled }
+			disabledAppearance="icon"
 			onClick={ onStep }
 			onContextMenu={ ( event ) => {
 				event.preventDefault();
@@ -881,7 +874,7 @@ export function SitePreview( {
 					// lights — pad past them.
 					...( trafficLightSpace.end && { paddingInlineEnd: 96 } ),
 					...( windowControlsInset > 0 && {
-						paddingRight: `calc(${ windowControlsInset }px + var(--wpds-dimension-padding-sm))`,
+						paddingRight: windowControlsInset + 8,
 					} ),
 				} }
 			>
@@ -910,13 +903,10 @@ export function SitePreview( {
 								</>
 							) : null }
 							<IconButton
-								variant="minimal"
-								tone="neutral"
-								size="small"
-								className="studio-control"
 								icon={ refreshIcon }
 								label={ __( 'Reload preview' ) }
 								shortcut={ browserShortcuts.reload }
+								tooltipSide="bottom"
 								onClick={ () => sendBrowserCommand( 'reload' ) }
 							/>
 						</div>
@@ -956,11 +946,9 @@ export function SitePreview( {
 							<Menu.Trigger
 								render={
 									<IconButton
-										variant="minimal"
-										tone="neutral"
-										size="small"
-										className={ clsx( 'studio-control', styles.moreActions ) }
+										className={ styles.moreActions }
 										icon={ moreHorizontal }
+										tooltipSide="bottom"
 										label={ __( 'More preview actions' ) }
 									/>
 								}
@@ -1492,8 +1480,8 @@ function WebviewSurface( {
 				point,
 			} ) ),
 			annotationLabel: __( 'Annotation' ),
-			accent: theme.getPropertyValue( '--wpds-color-background-interactive-brand-strong' ).trim(),
-			onAccent: theme.getPropertyValue( '--wpds-color-foreground-interactive-brand-strong' ).trim(),
+			accent: theme.getPropertyValue( '--accent' ).trim(),
+			onAccent: theme.getPropertyValue( '--accent-foreground' ).trim(),
 		};
 		webview
 			.executeJavaScript(

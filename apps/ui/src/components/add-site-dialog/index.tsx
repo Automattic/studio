@@ -1,8 +1,17 @@
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
-import { chevronLeft, close as closeIcon, cloudDownload, Icon } from '@wordpress/icons';
-import { Dialog, IconButton, Spinner } from '@wordpress/ui';
+import { chevronLeft, cloudDownload, Icon } from '@wordpress/icons';
 import { useCallback, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { Button, IconButton } from '@/components/ui/button';
+import {
+	Dialog,
+	DialogContent,
+	DialogPanel,
+	DialogTitle,
+	PanelHeader,
+} from '@/components/ui/dialog';
+import { Spinner } from '@/components/ui/spinner';
+import { VisuallyHidden } from '@/components/ui/visually-hidden';
 import { sitePinKey, useSidebarPins } from '@/data/queries/use-sidebar-pins';
 import { useSiteSyncActivity } from '@/data/sync-activity';
 import { archiveIcon, plusIcon } from '@/lib/icons';
@@ -141,14 +150,14 @@ export function AddSiteDialog() {
 	];
 
 	return (
-		<Dialog.Root open={ !! addSite } onOpenChange={ ( open ) => ! open && close() }>
-			<Dialog.Popup
+		<Dialog open={ !! addSite } onOpenChange={ ( open ) => ! open && close() }>
+			<DialogContent
 				ref={ popup }
-				size="stretch"
+				layout="creation"
 				className={ styles.popup }
 				initialFocus={ getInitialFocus }
 			>
-				<Dialog.Title className={ styles.visuallyHidden }>{ __( 'Add site' ) }</Dialog.Title>
+				<DialogTitle render={ <VisuallyHidden /> }>{ __( 'Add site' ) }</DialogTitle>
 				{ hasSidebar ? (
 					<nav
 						className={ styles.sidebar }
@@ -169,53 +178,59 @@ export function AddSiteDialog() {
 						) ) }
 					</nav>
 				) : null }
-				<div className={ styles.main }>
-					<div className={ styles.header }>
-						{ back ? (
-							<IconButton
-								variant="outline"
-								tone="neutral"
-								size="compact"
-								icon={ chevronLeft }
-								label={
-									view.name === 'details' || view.name === 'gallery'
-										? __( 'Back to Blueprints' )
-										: __( 'Back' )
-								}
-								disabled={ !! progress }
-								onClick={ back }
-							/>
-						) : null }
-						{ view.name === 'details' ? (
-							<>
-								<button
-									type="button"
-									className={ styles.crumb }
-									disabled={ !! progress }
-									onClick={ back }
-								>
-									{ __( 'Blueprints' ) }
-								</button>
-								<span aria-hidden="true" className={ styles.crumbSeparator }>
-									/
+				<DialogPanel
+					header={
+						<PanelHeader
+							leading={
+								back ? (
+									<div className={ styles.leading }>
+										<IconButton
+											variant="segmented"
+											size="icon-sm"
+											icon={ chevronLeft }
+											label={
+												view.name === 'details' || view.name === 'gallery'
+													? __( 'Back to Blueprints' )
+													: __( 'Back' )
+											}
+											disabled={ !! progress }
+											onClick={ back }
+										/>
+										{ view.name === 'details' ? (
+											<>
+												<Button
+													variant="inline-text"
+													size="inline"
+													disabled={ !! progress }
+													onClick={ back }
+												>
+													{ __( 'Blueprints' ) }
+												</Button>
+												<span aria-hidden="true" className={ styles.crumbSeparator }>
+													/
+												</span>
+											</>
+										) : null }
+									</div>
+								) : null
+							}
+							title={
+								<span className={ styles.title } title={ title }>
+									{ title }
 								</span>
-							</>
-						) : null }
-						<h2 className={ styles.title } title={ title }>
-							{ title }
-						</h2>
-						{ progress ? <Progress siteId={ followedSite } fallback={ progress } /> : null }
-						<div ref={ setActions } className={ styles.actions } />
-						<IconButton
-							variant="outline"
-							tone="neutral"
-							size="compact"
-							icon={ closeIcon }
-							label={ __( 'Close Add site' ) }
+							}
+							actions={
+								<>
+									{ progress ? <Progress siteId={ followedSite } fallback={ progress } /> : null }
+									<div ref={ setActions } className={ styles.actions } />
+								</>
+							}
 							disabled={ !! progress }
-							onClick={ close }
+							onClose={ close }
+							closeLabel={ __( 'Close Add site' ) }
 						/>
-					</div>
+					}
+				>
 					<div className={ styles.content } inert={ progress ? true : undefined }>
 						<AddSiteContext.Provider value={ context }>
 							{ view.name === 'gallery' ? (
@@ -249,9 +264,9 @@ export function AddSiteDialog() {
 							) : null }
 						</AddSiteContext.Provider>
 					</div>
-				</div>
-			</Dialog.Popup>
-		</Dialog.Root>
+				</DialogPanel>
+			</DialogContent>
+		</Dialog>
 	);
 }
 
@@ -260,7 +275,7 @@ function Progress( { siteId, fallback }: { siteId?: string; fallback: string } )
 	const activity = useSiteSyncActivity( siteId );
 	return (
 		<p className={ styles.progress } role="status" aria-live="polite">
-			<Spinner />
+			<Spinner aria-hidden="true" />
 			{ ( activity?.kind === 'pending' && activity.message ) || fallback }
 		</p>
 	);

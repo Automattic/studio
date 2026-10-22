@@ -1,6 +1,6 @@
 import { __ } from '@wordpress/i18n';
 import { Icon } from '@wordpress/icons';
-import * as Menu from '@/components/menu';
+import * as Menu from '@/components/ui/menu';
 import { useOpenHeaderPanel } from '@/hooks/use-open-header-panel';
 import { shareIcon } from '@/lib/icons';
 import type { SiteDetails } from '@/data/core';

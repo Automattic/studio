@@ -1,5 +1,4 @@
 import { Autocomplete } from '@base-ui/react/autocomplete';
-import { Dialog } from '@base-ui/react/dialog';
 import { findAiSessionOwnerSite } from '@studio/common/ai/sessions/owner-site';
 import { useNavigate } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
@@ -9,6 +8,8 @@ import { useEffect, useState } from 'react';
 import { useChatActions } from '@/components/chat-actions';
 import { useOpenInDestinations } from '@/components/open-in-menu/use-open-in-destinations';
 import { getSessionTitle } from '@/components/session-view/session-chat-actions';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
@@ -486,67 +487,71 @@ function PaletteDialog( { open, onOpenChange, commands }: PaletteProps ) {
 	}
 
 	return (
-		<Dialog.Root
+		<Dialog
 			open={ open }
 			onOpenChange={ onOpenChange }
 			onOpenChangeComplete={ ( isOpen ) => ! isOpen && setQuery( '' ) }
 		>
-			<Dialog.Portal>
-				<Dialog.Backdrop className={ styles.overlay } />
-				<Dialog.Popup className={ styles.popup } aria-label={ __( 'Command palette' ) }>
-					<Autocomplete.Root
-						open
-						inline
-						mode="none"
-						items={ groups }
-						value={ query }
-						onValueChange={ setQuery }
-						itemToStringValue={ ( command: PaletteCommand ) => command.label }
-						autoHighlight="always"
-						keepHighlight
-					>
-						<div className={ styles.inputGroup }>
-							<Icon icon={ search } size={ 16 } className={ styles.searchIcon } />
-							<Autocomplete.Input
-								className={ styles.input }
-								placeholder={ __( 'Search commands' ) }
-								aria-label={ __( 'Search commands' ) }
-							/>
-						</div>
-						<Autocomplete.Empty className={ styles.empty }>
-							{ __( 'No commands found.' ) }
-						</Autocomplete.Empty>
-						<Autocomplete.List className={ styles.list }>
-							{ ( group: ( typeof groups )[ number ] ) => (
-								<Autocomplete.Group key={ group.value } items={ group.items }>
-									<Autocomplete.GroupLabel className={ styles.groupLabel }>
-										{ group.value }
-									</Autocomplete.GroupLabel>
-									<Autocomplete.Collection>
-										{ ( command: PaletteCommand ) => (
-											<Autocomplete.Item
-												key={ command.id }
-												value={ command }
-												className={ styles.item }
-												onClick={ () => {
-													onOpenChange( false );
-													command.run();
-												} }
-											>
-												<Icon icon={ command.icon } size={ 16 } className={ styles.icon } />
-												<span className={ styles.label }>{ command.label }</span>
-												{ command.description ? (
-													<span className={ styles.description }>{ command.description }</span>
-												) : null }
-											</Autocomplete.Item>
-										) }
-									</Autocomplete.Collection>
-								</Autocomplete.Group>
-							) }
-						</Autocomplete.List>
-					</Autocomplete.Root>
-				</Dialog.Popup>
-			</Dialog.Portal>
-		</Dialog.Root>
+			<DialogContent
+				surface="composer"
+				backdrop="transparent"
+				className={ styles.popup }
+				aria-label={ __( 'Command palette' ) }
+			>
+				<Autocomplete.Root
+					open
+					inline
+					mode="none"
+					items={ groups }
+					value={ query }
+					onValueChange={ setQuery }
+					itemToStringValue={ ( command: PaletteCommand ) => command.label }
+					autoHighlight="always"
+					keepHighlight
+				>
+					<InputGroup className={ styles.inputGroup }>
+						<Autocomplete.Input
+							render={ <InputGroupInput /> }
+							placeholder={ __( 'Search commands' ) }
+							aria-label={ __( 'Search commands' ) }
+						/>
+						<InputGroupAddon>
+							<Icon icon={ search } className={ styles.icon } />
+						</InputGroupAddon>
+					</InputGroup>
+					<Autocomplete.Empty className={ styles.empty }>
+						{ __( 'No commands found.' ) }
+					</Autocomplete.Empty>
+					<Autocomplete.List className={ styles.list }>
+						{ ( group: ( typeof groups )[ number ] ) => (
+							<Autocomplete.Group key={ group.value } items={ group.items }>
+								<Autocomplete.GroupLabel className={ styles.groupLabel }>
+									{ group.value }
+								</Autocomplete.GroupLabel>
+								<Autocomplete.Collection>
+									{ ( command: PaletteCommand ) => (
+										<Autocomplete.Item
+											key={ command.id }
+											value={ command }
+											className={ styles.item }
+											onClick={ () => {
+												onOpenChange( false );
+												command.run();
+											} }
+										>
+											<Icon icon={ command.icon } size={ 16 } className={ styles.icon } />
+											<span className={ styles.label }>{ command.label }</span>
+											{ command.description ? (
+												<span className={ styles.description }>{ command.description }</span>
+											) : null }
+										</Autocomplete.Item>
+									) }
+								</Autocomplete.Collection>
+							</Autocomplete.Group>
+						) }
+					</Autocomplete.List>
+				</Autocomplete.Root>
+			</DialogContent>
+		</Dialog>
 	);
 }

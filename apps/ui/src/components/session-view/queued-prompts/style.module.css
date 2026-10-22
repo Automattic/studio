@@ -1,8 +1,8 @@
 .root {
 	display: flex;
 	flex-direction: column;
-	gap: var(--wpds-dimension-padding-sm);
-	margin-bottom: var(--wpds-dimension-padding-md);
+	gap: 8px;
+	margin-bottom: 12px;
 }
 
 .item {
@@ -10,18 +10,18 @@
 	align-self: flex-end;
 	display: flex;
 	align-items: flex-start;
-	gap: var(--wpds-dimension-padding-sm);
-	padding: var(--wpds-dimension-padding-md) var(--wpds-dimension-padding-lg);
+	gap: 8px;
+	padding: 12px 16px;
 	/* Match the user bubble shape but lighter so staged follow-ups read as
 	   "drafted, not sent". Mirrors `.userText` (right-aligned, bottom-right
 	   tight corner). */
-	background-color: color-mix(in srgb, var(--wpds-color-foreground-interactive-brand, #2563eb) 4%, transparent);
-	border: 1px dashed color-mix(in srgb, var(--wpds-color-foreground-interactive-brand, #2563eb) 30%, transparent);
-	border-radius: 18px 18px var(--wpds-border-radius-md, 8px) 18px;
+	background-color: color-mix(in srgb, var(--accent-text) 4%, transparent);
+	border: 1px dashed color-mix(in srgb, var(--accent-text) 30%, transparent);
+	border-radius: 18px 18px 12px 18px;
 	max-width: 80%;
-	font-size: var(--wpds-typography-font-size-md);
+	font-size: var(--text-xs);
 	line-height: 1.55;
-	color: var(--wpds-color-foreground-content-neutral-weak);
+	color: var(--muted-foreground);
 	cursor: pointer;
 	outline: none;
 	transition:
@@ -34,19 +34,19 @@
 .item:focus-visible {
 	background-color: color-mix(
 		in srgb,
-		var(--wpds-color-foreground-interactive-brand, #2563eb) 7%,
+		var(--accent-text) 7%,
 		transparent
 	);
 	border-color: color-mix(
 		in srgb,
-		var(--wpds-color-foreground-interactive-brand, #2563eb) 42%,
+		var(--accent-text) 42%,
 		transparent
 	);
-	color: var(--wpds-color-foreground-content-neutral);
+	color: var(--foreground);
 }
 
 .item:focus-visible {
-	outline: 2px solid var(--wpds-color-stroke-focus, #2563eb);
+	outline: 2px solid var(--ring);
 	outline-offset: 2px;
 }
 
@@ -67,9 +67,9 @@
 	border-radius: 50%;
 	padding: 0;
 	background: transparent;
-	color: var(--wpds-color-foreground-content-neutral-weak);
+	color: var(--muted-foreground);
 	font: inherit;
-	font-size: 16px;
+	font-size: var(--text-base);
 	line-height: 1;
 	cursor: pointer;
 	opacity: 0.6;
@@ -82,6 +82,6 @@
 
 .remove:hover,
 .remove:focus-visible {
-	background-color: color-mix(in srgb, var(--wpds-color-foreground-interactive-brand, #2563eb) 12%, transparent);
-	color: var(--wpds-color-foreground-content-neutral);
+	background-color: color-mix(in srgb, var(--accent-text) 12%, transparent);
+	color: var(--foreground);
 }

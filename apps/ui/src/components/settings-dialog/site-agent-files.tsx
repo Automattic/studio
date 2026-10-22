@@ -1,8 +1,8 @@
 import { __, sprintf } from '@wordpress/i18n';
 import { moreHorizontal, trash, Icon } from '@wordpress/icons';
-import { Button, IconButton } from '@wordpress/ui';
-import * as Menu from '@/components/menu';
 import { SettingsGroup, SettingsRow, SettingsToggle } from '@/components/settings-view/rows';
+import { Button, IconButton } from '@/components/ui/button';
+import * as Menu from '@/components/ui/menu';
 import { useSiteAgentFiles, useUpdateSiteAgentFiles } from '@/data/queries/use-site-agent-files';
 import styles from './style.module.css';
 import type { SiteAgentFileKind } from '@/data/core';
@@ -42,9 +42,8 @@ export function SiteAgentFiles( {
 								  ) }
 							<Button
 								className={ styles.manageAll }
-								variant="minimal"
-								tone="brand"
-								size="small"
+								variant="inline-link"
+								size="inline"
 								onClick={ onManageAll }
 							>
 								{ skills
@@ -94,9 +93,7 @@ export function SiteAgentFiles( {
 								<Menu.Trigger
 									render={
 										<IconButton
-											variant="minimal"
-											tone="neutral"
-											size="small"
+											size="icon-sm"
 											icon={ moreHorizontal }
 											label={ sprintf(
 												/* translators: %s: a skill or instruction file name. */

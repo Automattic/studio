@@ -1,4 +1,4 @@
-// Recolored via `currentColor` for the wpds theme.
+// Recolored via `currentColor` to follow the theme.
 export function XdebugIcon( { className }: { className?: string } ) {
 	return (
 		<svg className={ className } viewBox="0 0 24 24" aria-hidden="true" focusable="false">

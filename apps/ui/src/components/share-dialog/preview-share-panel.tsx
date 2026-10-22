@@ -1,11 +1,13 @@
 import { DAY_MS, DEMO_SITE_EXPIRATION_DAYS } from '@studio/common/constants';
 import { __, sprintf } from '@wordpress/i18n';
-import { copy, moreHorizontal, rotateRight } from '@wordpress/icons';
-import { Button, Icon, IconButton, Spinner } from '@wordpress/ui';
-import { clsx } from 'clsx';
+import { copy, Icon, moreHorizontal, rotateRight } from '@wordpress/icons';
 import { useId, useState, type ReactNode } from 'react';
-import * as Menu from '@/components/menu';
 import { MenuSelect } from '@/components/publish-panel/parts';
+import { Button, IconButton } from '@/components/ui/button';
+import { Field, FieldLabel } from '@/components/ui/field';
+import { Input } from '@/components/ui/input';
+import * as Menu from '@/components/ui/menu';
+import { Spinner } from '@/components/ui/spinner';
 import { useConnector } from '@/data/core';
 import { markPreviewSeen } from '@/data/preview-ready';
 import { useSiteThumbnail } from '@/data/queries/use-site-thumbnail';
@@ -50,34 +52,27 @@ export function RenamePreview( { snapshot, onDone }: { snapshot: Snapshot; onDon
 				save();
 			} }
 		>
-			<label htmlFor={ id } className={ styles.label }>
-				{ __( 'Preview name' ) }
-			</label>
-			<input
-				id={ id }
-				className={ styles.input }
-				value={ name }
-				autoFocus
-				disabled={ rename.isPending }
-				onChange={ ( event ) => setName( event.target.value ) }
-				onKeyDown={ ( event ) => {
-					if ( event.key === 'Escape' ) {
-						event.stopPropagation();
-						onDone();
-					}
-				} }
-			/>
+			<Field>
+				<FieldLabel htmlFor={ id }>{ __( 'Preview name' ) }</FieldLabel>
+				<Input
+					id={ id }
+					value={ name }
+					autoFocus
+					disabled={ rename.isPending }
+					onChange={ ( event ) => setName( event.target.value ) }
+					onKeyDown={ ( event ) => {
+						if ( event.key === 'Escape' ) {
+							event.stopPropagation();
+							onDone();
+						}
+					} }
+				/>
+			</Field>
 			<div className={ styles.confirmActions }>
-				<Button variant="minimal" tone="neutral" size="compact" onClick={ onDone }>
+				<Button variant="ghost" onClick={ onDone }>
 					{ __( 'Cancel' ) }
 				</Button>
-				<Button
-					type="submit"
-					variant="solid"
-					tone="neutral"
-					size="compact"
-					loading={ rename.isPending }
-				>
+				<Button type="submit" loading={ rename.isPending }>
 					{ __( 'Save' ) }
 				</Button>
 			</div>
@@ -161,13 +156,11 @@ export function PreviewSharePanel( {
 			<div className={ styles.panel }>
 				{ picker }
 				<Button
-					variant="solid"
-					tone="neutral"
-					className={ clsx( styles.large, creating && styles.busy ) }
-					disabled={ locked || ( ! canCreate && ! creating ) }
+					size="lg"
+					disabled={ creating || locked || ! canCreate }
 					onClick={ () => onPublish() }
 				>
-					{ creating ? <Spinner /> : null }
+					{ creating ? <Spinner data-icon="inline-start" aria-hidden="true" /> : null }
 					{ creating
 						? __( 'Publishing preview…' )
 						: failed
@@ -199,15 +192,19 @@ export function PreviewSharePanel( {
 					</p>
 				) }
 				{ editing === 'delete' ? null : (
-					<button
-						type="button"
+					<Button
+						variant="overlay"
 						className={ styles.update }
 						disabled={ locked }
 						onClick={ () => onPublish( getSnapshotHostname( snapshot ) ) }
 					>
-						{ updating ? <Spinner /> : <Icon icon={ rotateRight } size={ 20 } /> }
+						{ updating ? (
+							<Spinner data-icon="inline-start" aria-hidden="true" />
+						) : (
+							<Icon icon={ rotateRight } data-icon="inline-start" />
+						) }
 						{ updating ? __( 'Updating' ) : failed ? __( 'Try again' ) : __( 'Update preview' ) }
-					</button>
+					</Button>
 				) }
 			</figure>
 			{ editing === 'delete' ? (
@@ -215,19 +212,14 @@ export function PreviewSharePanel( {
 					<p>{ __( 'Delete this preview? Its shared link will stop working.' ) }</p>
 					<div className={ styles.confirmActions }>
 						<Button
-							variant="minimal"
-							tone="neutral"
-							size="compact"
+							variant="ghost"
 							disabled={ remove.isPending }
 							onClick={ () => setEditing( null ) }
 						>
 							{ __( 'Cancel' ) }
 						</Button>
 						<Button
-							variant="solid"
-							tone="neutral"
-							size="compact"
-							className={ styles.destructive }
+							variant="destructive"
 							loading={ remove.isPending }
 							onClick={ () =>
 								remove.mutate(
@@ -241,14 +233,8 @@ export function PreviewSharePanel( {
 					</div>
 				</div>
 			) : (
-				<Button
-					variant="solid"
-					tone="neutral"
-					className="studio-control"
-					disabled={ remove.isPending }
-					onClick={ () => void copyLink() }
-				>
-					<Icon icon={ copy } size={ 20 } />
+				<Button disabled={ remove.isPending } onClick={ () => void copyLink() }>
+					<Icon icon={ copy } data-icon="inline-start" />
 					{ copied === url ? __( 'Copied' ) : __( 'Copy link' ) }
 				</Button>
 			) }
@@ -265,9 +251,7 @@ export function PreviewSharePanel( {
 						<Menu.Trigger
 							render={
 								<IconButton
-									variant="minimal"
-									tone="neutral"
-									size="compact"
+									size="icon-sm"
 									icon={ moreHorizontal }
 									label={ __( 'Preview actions' ) }
 									disabled={ locked }
@@ -295,18 +279,15 @@ export function PreviewSharePanel( {
 			) }
 			{ notice ? <p className={ styles.notice }>{ notice }</p> : null }
 			{ footer }
-			<div className={ styles.field }>
-				<label htmlFor={ linkId } className={ styles.label }>
-					{ __( 'Preview link' ) }
-				</label>
-				<input
+			<Field>
+				<FieldLabel htmlFor={ linkId }>{ __( 'Preview link' ) }</FieldLabel>
+				<Input
 					id={ linkId }
-					className={ styles.input }
 					readOnly
 					value={ url }
 					onFocus={ ( event ) => event.currentTarget.select() }
 				/>
-			</div>
+			</Field>
 		</div>
 	);
 }

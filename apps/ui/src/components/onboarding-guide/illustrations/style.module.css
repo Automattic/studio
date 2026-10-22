@@ -14,7 +14,7 @@
 	aspect-ratio: 320 / 150;
 	flex-shrink: 0;
 	overflow: visible;
-	border-bottom: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral-weak);
+	border-bottom: 1px solid var(--border);
 }
 
 /* ---- Preview scene ---- */
@@ -25,7 +25,7 @@
 	display: grid;
 	place-items: center;
 	overflow: hidden;
-	background: var(--wpds-color-background-surface-neutral-weak);
+	background: var(--muted);
 }
 
 .previewSequence {
@@ -52,9 +52,9 @@
 	box-sizing: border-box;
 	height: 32px;
 	padding: 2px;
-	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral);
+	border: 1px solid var(--border);
 	border-radius: 999px;
-	background: var(--wpds-color-background-interactive-neutral-weak);
+	background: transparent;
 }
 
 .previewTabsIndicator {
@@ -63,7 +63,7 @@
 	bottom: 2px;
 	left: 0;
 	border-radius: 999px;
-	background: color-mix(in srgb, var(--wpds-color-foreground-content-neutral) 14%, transparent);
+	background: color-mix(in srgb, var(--foreground) 14%, transparent);
 	transition:
 		width 200ms ease,
 		transform 200ms ease;
@@ -82,9 +82,9 @@
 	padding: 0 9px;
 	overflow: hidden;
 	border-radius: 999px;
-	color: var(--wpds-color-foreground-content-neutral-weak);
-	font-size: var(--wpds-typography-font-size-xs);
-	font-weight: var(--wpds-typography-font-weight-emphasis);
+	color: var(--muted-foreground);
+	font-size: 11px;
+	font-weight: var(--font-weight-semibold);
 	line-height: 16px;
 	white-space: nowrap;
 	transition:
@@ -95,7 +95,7 @@
 
 .previewTabActive {
 	gap: 6px;
-	color: var(--wpds-color-foreground-content-neutral);
+	color: var(--foreground);
 }
 
 .previewTabActive[data-realm='frontend'] {
@@ -166,8 +166,8 @@
 	place-items: center;
 	width: 40px;
 	height: 40px;
-	border-radius: var(--wpds-border-radius-sm);
-	color: var(--wpds-color-foreground-content-neutral);
+	border-radius: 8px;
+	color: var(--foreground);
 	transition:
 		background 160ms ease,
 		color 160ms ease;
@@ -181,8 +181,8 @@
 }
 
 .previewAnnotateButtonActive {
-	background: color-mix(in srgb, var(--wpds-color-foreground-content-neutral) 14%, transparent);
-	color: var(--wpds-color-foreground-content-neutral);
+	background: color-mix(in srgb, var(--foreground) 14%, transparent);
+	color: var(--foreground);
 }
 
 .previewAnnotateTooltip {
@@ -190,11 +190,11 @@
 	bottom: calc(100% + 6px);
 	left: 50%;
 	padding: 7px 12px;
-	border-radius: var(--wpds-border-radius-sm);
-	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral);
-	background: var(--wpds-color-background-surface-neutral-strong);
+	border-radius: 8px;
+	border: 1px solid var(--border);
+	background: var(--chrome);
 	box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05), 0 2px 3px 0 rgba(0, 0, 0, 0.04), 0 6px 6px 0 rgba(0, 0, 0, 0.03), 0 8px 8px 0 rgba(0, 0, 0, 0.02);
-	color: var(--wpds-color-foreground-content-neutral);
+	color: var(--foreground);
 	font-size: 11px;
 	font-weight: 500;
 	line-height: 1;
@@ -210,9 +210,9 @@
 	width: 190px;
 	height: 82px;
 	padding: 14px;
-	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral);
+	border: 1px solid var(--border);
 	border-radius: 5px;
-	background: var(--wpds-color-background-surface-neutral-strong);
+	background: var(--chrome);
 	transform: translateX(-50%);
 }
 
@@ -220,7 +220,7 @@
 .previewSkeletonCopy,
 .previewSkeletonCta {
 	border-radius: 999px;
-	background: color-mix(in srgb, var(--wpds-color-foreground-content-neutral) 18%, transparent);
+	background: color-mix(in srgb, var(--foreground) 18%, transparent);
 }
 
 .previewSkeletonTitle {
@@ -248,8 +248,8 @@
 }
 
 .previewSkeletonCtaPicking {
-	background: color-mix(in srgb, var(--wpds-color-foreground-interactive-brand) 12%, transparent);
-	box-shadow: 0 0 0 2px var(--wpds-color-stroke-focus);
+	background: color-mix(in srgb, var(--accent-text) 12%, transparent);
+	box-shadow: 0 0 0 2px var(--ring);
 }
 
 .previewCommentComposer {
@@ -327,7 +327,7 @@
 	height: 22px;
 	padding: 0 10px;
 	border-radius: 11px;
-	font-weight: 600;
+	font-weight: var(--font-weight-semibold);
 }
 
 .previewCommentCancel {
@@ -410,7 +410,7 @@
 	display: flex;
 	align-items: center;
 	height: 34px;
-	padding: 0 var(--wpds-dimension-padding-sm) 0 var(--wpds-dimension-padding-md);
+	padding: 0 8px 0 12px;
 	border-radius: 6px;
 	opacity: 0.7;
 }
@@ -421,9 +421,9 @@
 
 .rowGhostName {
 	overflow: hidden;
-	font-size: var(--wpds-typography-font-size-md);
+	font-size: var(--text-xs);
 	line-height: 1.2;
-	color: var(--wpds-color-foreground-content-neutral-weak);
+	color: var(--muted-foreground);
 	white-space: nowrap;
 	text-overflow: ellipsis;
 }
@@ -433,21 +433,21 @@
 	box-sizing: border-box;
 	display: flex;
 	align-items: center;
-	gap: var(--wpds-dimension-padding-xs);
+	gap: 4px;
 	width: 100%;
 	height: 34px;
-	padding: 0 var(--wpds-dimension-padding-sm) 0 var(--wpds-dimension-padding-md);
+	padding: 0 8px 0 12px;
 	border-radius: 6px;
-	background: var(--wpds-color-background-interactive-neutral-weak-active);
+	background: var(--hover);
 }
 
 .rowName {
 	flex: 1;
 	min-width: 0;
 	overflow: hidden;
-	font-size: var(--wpds-typography-font-size-md);
+	font-size: var(--text-xs);
 	line-height: 1.2;
-	color: var(--wpds-color-foreground-content-neutral);
+	color: var(--foreground);
 	white-space: nowrap;
 	text-overflow: ellipsis;
 }
@@ -467,7 +467,7 @@
 	width: 24px;
 	height: 24px;
 	border-radius: 4px;
-	color: var(--wpds-color-foreground-content-neutral);
+	color: var(--foreground);
 }
 
 .btnGlyph {
@@ -486,7 +486,7 @@
 .statusPlay {
 	width: 9px;
 	height: 9px;
-	fill: var(--wpds-color-foreground-content-neutral);
+	fill: var(--foreground);
 }
 
 .statusDot {
@@ -506,7 +506,7 @@
 	background: #fff;
 	color: #1e1e1e;
 	font-size: 11px;
-	font-weight: var(--wpds-typography-font-weight-emphasis);
+	font-weight: var(--font-weight-semibold);
 	line-height: 1.4;
 	white-space: nowrap;
 	box-shadow: 0 2px 8px rgb(0 0 0 / 24%);
@@ -530,7 +530,7 @@
 	inset: 0;
 	box-sizing: border-box;
 	overflow: hidden;
-	background: var(--wpds-color-background-surface-neutral-weak);
+	background: var(--muted);
 }
 
 /* Above the resting composer, with room up top so the first bubble clears the
@@ -552,16 +552,16 @@
 	max-width: 82%;
 	padding: 5px 11px;
 	border-radius: 14px 14px 6px 14px;
-	background: color-mix(in srgb, var(--wpds-color-foreground-interactive-brand, #2563eb) 12%, transparent);
-	color: var(--wpds-color-foreground-content-neutral);
-	font-size: var(--wpds-typography-font-size-sm);
+	background: color-mix(in srgb, var(--accent-text) 12%, transparent);
+	color: var(--foreground);
+	font-size: var(--text-xxs);
 	line-height: 1.4;
 	transform-origin: bottom right;
 }
 
 .assistantText {
-	color: var(--wpds-color-foreground-content-neutral);
-	font-size: var(--wpds-typography-font-size-sm);
+	color: var(--foreground);
+	font-size: var(--text-xxs);
 	line-height: 1.45;
 }
 
@@ -572,7 +572,7 @@
 	height: 13px;
 	margin-left: 2px;
 	vertical-align: -2px;
-	background: var(--wpds-color-foreground-content-neutral-weak);
+	background: var(--muted-foreground);
 	animation: chatCaretBlink 1s steps(1) infinite;
 }
 
@@ -581,8 +581,8 @@
 	display: inline-flex;
 	align-items: center;
 	gap: 6px;
-	color: var(--wpds-color-foreground-content-neutral-weak);
-	font-size: var(--wpds-typography-font-size-xs);
+	color: var(--muted-foreground);
+	font-size: 11px;
 }
 
 .toolIcon {
@@ -595,9 +595,9 @@
 .toolShimmer {
 	background: linear-gradient(
 		100deg,
-		var(--wpds-color-foreground-content-neutral-weak) 35%,
-		var(--wpds-color-foreground-content-neutral) 50%,
-		var(--wpds-color-foreground-content-neutral-weak) 65%
+		var(--muted-foreground) 35%,
+		var(--foreground) 50%,
+		var(--muted-foreground) 65%
 	);
 	background-size: 220% 100%;
 	background-clip: text;
@@ -626,15 +626,15 @@
 	padding: 2px 4px;
 	border: 0;
 	background: transparent;
-	color: var(--wpds-color-foreground-content-neutral-weak);
-	font-size: var(--wpds-typography-font-size-xs);
-	font-weight: var(--wpds-typography-font-weight-emphasis);
-	cursor: var(--wpds-cursor-control, pointer);
+	color: var(--muted-foreground);
+	font-size: 11px;
+	font-weight: var(--font-weight-semibold);
+	cursor: pointer;
 	transition: color 120ms ease;
 }
 
 .replayButton:hover {
-	color: var(--wpds-color-foreground-content-neutral);
+	color: var(--foreground);
 }
 
 .composer {
@@ -648,8 +648,8 @@
 	gap: 6px;
 	padding: 8px 10px 7px;
 	border-radius: 8px 8px 20px 8px;
-	background: var(--wpds-color-background-surface-neutral-strong);
-	outline: 1.5px solid var(--wpds-color-foreground-interactive-brand, #2563eb);
+	background: var(--chrome);
+	outline: 1.5px solid var(--accent-text);
 	will-change: transform;
 }
 
@@ -662,8 +662,8 @@
 	position: absolute;
 	inset: 0;
 	text-align: start;
-	color: var(--wpds-color-foreground-content-neutral-weak);
-	font-size: var(--wpds-typography-font-size-sm);
+	color: var(--muted-foreground);
+	font-size: var(--text-xxs);
 	line-height: 17px;
 	white-space: nowrap;
 }
@@ -674,8 +674,8 @@
 	display: inline-flex;
 	align-items: center;
 	overflow: hidden;
-	color: var(--wpds-color-foreground-content-neutral);
-	font-size: var(--wpds-typography-font-size-sm);
+	color: var(--foreground);
+	font-size: var(--text-xxs);
 	line-height: 17px;
 	white-space: nowrap;
 }
@@ -685,7 +685,7 @@
 	width: 1.5px;
 	height: 13px;
 	margin-left: 1px;
-	background: var(--wpds-color-foreground-interactive-brand, #2563eb);
+	background: var(--accent-text);
 	animation: chatCaretBlink 1s steps(1) infinite;
 }
 
@@ -709,8 +709,8 @@
 	width: 22px;
 	height: 22px;
 	border-radius: 999px;
-	background: var(--wpds-color-foreground-content-neutral);
-	color: var(--wpds-color-background-surface-neutral-strong);
+	background: var(--foreground);
+	color: var(--chrome);
 }
 
 .stopGlyph {
@@ -725,7 +725,7 @@
 	place-items: center;
 	width: 18px;
 	height: 18px;
-	color: var(--wpds-color-foreground-content-neutral-weak);
+	color: var(--muted-foreground);
 }
 
 .plusButton svg {
@@ -739,8 +739,8 @@
 	width: 22px;
 	height: 22px;
 	border-radius: 999px;
-	background: color-mix(in srgb, var(--wpds-color-foreground-content-neutral) 14%, transparent);
-	color: var(--wpds-color-foreground-content-neutral-weak);
+	background: color-mix(in srgb, var(--foreground) 14%, transparent);
+	color: var(--muted-foreground);
 	transition: background 150ms ease, color 150ms ease;
 }
 
@@ -750,7 +750,7 @@
 }
 
 .sendButtonActive {
-	background: var(--wpds-color-foreground-interactive-brand, #2563eb);
+	background: var(--accent-text);
 	color: #fff;
 }
 
@@ -776,8 +776,8 @@
 	.toolShimmer {
 		animation: none;
 		background: none;
-		color: var(--wpds-color-foreground-content-neutral-weak);
-		-webkit-text-fill-color: var(--wpds-color-foreground-content-neutral-weak);
+		color: var(--muted-foreground);
+		-webkit-text-fill-color: var(--muted-foreground);
 	}
 }
 
@@ -809,8 +809,8 @@
 	display: flex;
 	align-items: center;
 	gap: 6px;
-	color: var(--wpds-color-foreground-content-neutral-weak);
-	font-size: var(--wpds-typography-font-size-sm);
+	color: var(--muted-foreground);
+	font-size: var(--text-xxs);
 	line-height: 1.4;
 }
 
@@ -887,7 +887,7 @@
 }
 
 .syncSiteRowActive {
-	background: var(--wpds-color-background-interactive-neutral-weak-active);
+	background: var(--hover);
 }
 
 .syncActivitySlot {
@@ -904,19 +904,19 @@
 	min-width: 0;
 	overflow: hidden;
 	padding-inline-start: 4px;
-	color: var(--wpds-color-foreground-content-neutral);
-	font-size: var(--wpds-typography-font-size-md);
+	color: var(--foreground);
+	font-size: var(--text-xs);
 	line-height: 1.2;
 	white-space: nowrap;
 	text-overflow: ellipsis;
 }
 
 .syncSiteRow:not(.syncSiteRowActive) .syncSiteName {
-	color: var(--wpds-color-foreground-content-neutral-weak);
+	color: var(--muted-foreground);
 }
 
 .syncSiteNameActive {
-	font-weight: var(--wpds-typography-font-weight-emphasis);
+	font-weight: var(--font-weight-semibold);
 }
 
 .syncStatusButton {
@@ -932,7 +932,7 @@
 	width: 8px;
 	height: 8px;
 	border-radius: 50%;
-	background: var(--studio-color-status-running, #1f8a4c);
+	background: var(--status-running, #1f8a4c);
 }
 
 /* The site row's syncing mark, copied from site-list: three dots that bounce
@@ -945,7 +945,7 @@
 	gap: 1px;
 	width: 8px;
 	height: 13px;
-	color: var(--studio-color-status-sync, #a855f7);
+	color: var(--status-sync, #a855f7);
 	transform-origin: center;
 	animation: syncHalfTurn 5.2s ease-in-out infinite;
 }
@@ -1010,14 +1010,14 @@
 	gap: 8px;
 	padding: 6px 8px;
 	border-radius: 6px;
-	background: var(--wpds-color-background-surface-neutral-strong);
+	background: var(--chrome);
 	box-shadow:
-		0 0 0 1px color-mix(in srgb, var(--wpds-color-foreground-content-neutral) 14%, transparent),
+		0 0 0 1px color-mix(in srgb, var(--foreground) 14%, transparent),
 		0 2px 3px 0 rgba(0, 0, 0, 0.05),
 		0 4px 5px 0 rgba(0, 0, 0, 0.04),
 		0 12px 12px 0 rgba(0, 0, 0, 0.03);
-	color: var(--wpds-color-foreground-content-neutral);
-	font-size: var(--wpds-typography-font-size-sm);
+	color: var(--foreground);
+	font-size: var(--text-xxs);
 	line-height: 16px;
 	text-align: start;
 }
@@ -1025,7 +1025,7 @@
 .syncToastIcon {
 	display: inline-flex;
 	flex-shrink: 0;
-	color: var(--wpds-color-foreground-content-success, #1f8a4c);
+	color: var(--success);
 }
 
 .syncToastIcon svg,
@@ -1041,26 +1041,26 @@
 }
 
 .syncToastTitle {
-	font-weight: var(--wpds-typography-font-weight-emphasis);
+	font-weight: var(--font-weight-semibold);
 }
 
 .syncToastDescription {
-	color: var(--wpds-color-foreground-content-neutral-weak);
-	font-size: var(--wpds-typography-font-size-xs);
+	color: var(--muted-foreground);
+	font-size: 11px;
 	text-wrap: pretty;
 }
 
 .syncToastClose {
 	display: inline-flex;
 	flex-shrink: 0;
-	color: var(--wpds-color-foreground-content-neutral-weak);
+	color: var(--muted-foreground);
 }
 
 .syncMain {
 	position: absolute;
 	inset: 0 -300px -300px 300px;
 	overflow: hidden;
-	background: var(--wpds-color-background-surface-neutral-weak);
+	background: var(--muted);
 }
 
 /* The push dialog (components/selective-sync/sync-dialog): a WP Modal with a
@@ -1077,10 +1077,10 @@
 	box-sizing: border-box;
 	flex-direction: column;
 	border-radius: 8px;
-	background: var(--wpds-color-background-surface-neutral-strong);
+	background: var(--chrome);
 	box-shadow: 0 10px 40px rgba(0, 0, 0, 0.25);
-	color: var(--wpds-color-foreground-content-neutral);
-	font-size: 13px;
+	color: var(--foreground);
+	font-size: var(--text-xs);
 	text-align: start;
 	transform-origin: center;
 }
@@ -1118,7 +1118,7 @@
 	display: inline-flex;
 	align-items: center;
 	gap: 2px;
-	font-size: 13px;
+	font-size: var(--text-xs);
 }
 
 .pushTree {
@@ -1145,7 +1145,7 @@
 	box-sizing: border-box;
 	flex-direction: column;
 	padding: 8px 0 8px 24px;
-	border: 1px solid var(--wpds-color-stroke-surface-neutral);
+	border: 1px solid var(--border);
 	border-radius: 2px;
 }
 
@@ -1154,7 +1154,7 @@
 }
 
 .pushTreeExpand {
-	color: var(--wpds-color-foreground-content-neutral-weak);
+	color: var(--muted-foreground);
 }
 
 .pushCheckbox {
@@ -1163,9 +1163,9 @@
 	height: 16px;
 	box-sizing: border-box;
 	flex-shrink: 0;
-	border: 1px solid color-mix(in srgb, var(--wpds-color-foreground-content-neutral) 40%, transparent);
+	border: 1px solid color-mix(in srgb, var(--foreground) 40%, transparent);
 	border-radius: 2px;
-	background: var(--wpds-color-background-surface-neutral-strong);
+	background: var(--chrome);
 	transition: background 120ms ease, border-color 120ms ease;
 }
 
@@ -1261,7 +1261,7 @@
 	box-sizing: border-box;
 	flex-direction: column;
 	padding: 40px 14px 12px;
-	border-right: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral-weak);
+	border-right: 1px solid var(--border);
 	text-align: start;
 }
 
@@ -1279,8 +1279,8 @@
 	max-width: 88%;
 	padding: 5px 10px;
 	border-radius: 12px 12px 5px 12px;
-	background: color-mix(in srgb, var(--wpds-color-foreground-interactive-brand, #2563eb) 12%, transparent);
-	color: var(--wpds-color-foreground-content-neutral);
+	background: color-mix(in srgb, var(--accent-text) 12%, transparent);
+	color: var(--foreground);
 	font-size: 11px;
 	line-height: 1.4;
 }
@@ -1295,7 +1295,7 @@
 	display: inline-flex;
 	align-items: center;
 	gap: 5px;
-	color: var(--wpds-color-foreground-content-neutral-weak);
+	color: var(--muted-foreground);
 	font-size: 10px;
 	white-space: nowrap;
 }
@@ -1309,7 +1309,7 @@
 	display: inline-flex;
 	align-items: center;
 	gap: 6px;
-	color: var(--wpds-color-foreground-content-neutral-weak);
+	color: var(--muted-foreground);
 	font-size: 11px;
 }
 
@@ -1320,7 +1320,7 @@
 }
 
 .annoChatReply {
-	color: var(--wpds-color-foreground-content-neutral);
+	color: var(--foreground);
 	font-size: 11px;
 	line-height: 1.45;
 }
@@ -1331,12 +1331,12 @@
 	gap: 6px;
 	padding: 8px 9px 7px;
 	border-radius: 7px 7px 16px 7px;
-	background: var(--wpds-color-background-surface-neutral-strong);
-	outline: 1px solid var(--wpds-color-stroke-surface-neutral);
+	background: var(--chrome);
+	outline: 1px solid var(--border);
 }
 
 .annoChatPlaceholder {
-	color: var(--wpds-color-foreground-content-neutral-weak);
+	color: var(--muted-foreground);
 	font-size: 10px;
 	line-height: 13px;
 	white-space: nowrap;
@@ -1362,7 +1362,7 @@
 	height: 11px;
 	align-items: center;
 	justify-content: center;
-	color: var(--wpds-color-foreground-content-neutral-weak);
+	color: var(--muted-foreground);
 	line-height: 0;
 }
 
@@ -1375,13 +1375,13 @@
 
 .annoChatSend {
 	border-radius: 999px;
-	background: color-mix(in srgb, var(--wpds-color-foreground-content-neutral) 14%, transparent);
+	background: color-mix(in srgb, var(--foreground) 14%, transparent);
 }
 
 .annoChatStop {
 	border-radius: 999px;
-	background: var(--wpds-color-foreground-content-neutral);
-	color: var(--wpds-color-background-surface-neutral-strong);
+	background: var(--foreground);
+	color: var(--chrome);
 }
 
 .annoChatStopGlyph {
@@ -1399,7 +1399,7 @@
 	left: 230px;
 	display: flex;
 	flex-direction: column;
-	background: var(--anno-page-bg, var(--wpds-color-background-surface-neutral-strong));
+	background: var(--anno-page-bg, var(--chrome));
 }
 
 .annoPencil {
@@ -1414,11 +1414,11 @@
 	align-items: center;
 	justify-content: center;
 	gap: 6px;
-	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral);
-	border-radius: var(--wpds-border-radius-md, 8px);
-	background: var(--wpds-color-background-surface-neutral-weak);
-	color: var(--wpds-color-foreground-content-neutral);
-	font-size: var(--wpds-typography-font-size-xs);
+	border: 1px solid var(--border);
+	border-radius: 12px;
+	background: var(--muted);
+	color: var(--foreground);
+	font-size: 11px;
 	font-weight: 500;
 	transition: background 160ms ease;
 }
@@ -1428,14 +1428,14 @@
 }
 
 .annoPencilActive {
-	background: color-mix(in srgb, var(--wpds-color-foreground-content-neutral) 14%, transparent);
+	background: color-mix(in srgb, var(--foreground) 14%, transparent);
 }
 
 .annoPage {
 	position: relative;
 	flex: 1;
 	overflow: hidden;
-	color: var(--wpds-color-foreground-content-neutral);
+	color: var(--foreground);
 	font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
 	text-align: start;
 }
@@ -1445,7 +1445,7 @@
 	top: 16px;
 	left: 24px;
 	font-size: 11px;
-	font-weight: 600;
+	font-weight: var(--font-weight-semibold);
 	letter-spacing: 0.02em;
 }
 
@@ -1462,7 +1462,7 @@
 	top: 96px;
 	left: 24px;
 	width: 300px;
-	color: var(--wpds-color-foreground-content-neutral-weak);
+	color: var(--muted-foreground);
 	font-size: 11px;
 	line-height: 1.5;
 }
@@ -1478,10 +1478,10 @@
 	align-items: center;
 	justify-content: center;
 	border-radius: 999px;
-	background: var(--wpds-color-foreground-content-neutral);
-	color: var(--wpds-color-background-surface-neutral-strong);
+	background: var(--foreground);
+	color: var(--chrome);
 	font-size: 11px;
-	font-weight: 600;
+	font-weight: var(--font-weight-semibold);
 	transition: background 400ms ease, color 400ms ease;
 }
 
@@ -1494,9 +1494,9 @@
 	position: absolute;
 	top: 190px;
 	left: 24px;
-	color: var(--wpds-color-foreground-content-neutral-weak);
+	color: var(--muted-foreground);
 	font-size: 9px;
-	font-weight: 600;
+	font-weight: var(--font-weight-semibold);
 	letter-spacing: 0.1em;
 	text-transform: uppercase;
 }
@@ -1521,7 +1521,7 @@
 .annoPostDate {
 	width: 44px;
 	flex-shrink: 0;
-	color: var(--wpds-color-foreground-content-neutral-weak);
+	color: var(--muted-foreground);
 	font-size: 9px;
 	line-height: 20px;
 }
@@ -1532,14 +1532,14 @@
 }
 
 .annoPostTitle {
-	font-size: 13px;
-	font-weight: 600;
+	font-size: var(--text-xs);
+	font-weight: var(--font-weight-semibold);
 	line-height: 20px;
 }
 
 .annoPostExcerpt {
 	overflow: hidden;
-	color: var(--wpds-color-foreground-content-neutral-weak);
+	color: var(--muted-foreground);
 	font-size: 10px;
 	line-height: 16px;
 }
@@ -1631,7 +1631,7 @@
 	justify-content: flex-end;
 	gap: 4px;
 	font-size: 10px;
-	font-weight: 600;
+	font-weight: var(--font-weight-semibold);
 	line-height: 1;
 }
 

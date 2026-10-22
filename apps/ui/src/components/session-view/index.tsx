@@ -11,7 +11,6 @@ import {
 import { useNavigate } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
 import { arrowDown } from '@wordpress/icons';
-import { IconButton } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import {
 	useCallback,
@@ -43,6 +42,7 @@ import { SiteActionsMenu } from '@/components/site-actions-menu';
 import { SiteIcon } from '@/components/site-icon';
 import { SiteLifecycleButton } from '@/components/site-lifecycle-button';
 import { StoppedSitePreview } from '@/components/stopped-site-preview';
+import { IconButton } from '@/components/ui/button';
 import { toast } from '@/data/app-messages';
 import { useAgentRun } from '@/data/queries/use-agent-run';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
@@ -121,7 +121,7 @@ function SessionHeader( {
 			style={
 				windowControlsInset > 0
 					? {
-							paddingRight: `calc(${ windowControlsInset }px + var(--wpds-dimension-padding-sm))`,
+							paddingRight: windowControlsInset + 8,
 					  }
 					: undefined
 			}
@@ -670,9 +670,8 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 								className={ styles.scrollToLatestButton }
 								icon={ arrowDown }
 								label={ __( 'Scroll to latest message' ) }
-								size="small"
-								variant="minimal"
-								tone="neutral"
+								variant="outline"
+								shape="round"
 								onClick={ scrollToLatest }
 							/>
 						</div>

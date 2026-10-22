@@ -2,7 +2,7 @@
    notification bell at the end, as 36px controls inset 12px. Pinning to the
    sidebar bottom is handled by the layout's `sidebarFooter` wrapper. */
 .root {
-	padding: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-md) 10px;
+	padding: 8px 12px 10px;
 }
 
 .row {
@@ -12,20 +12,11 @@
 
 .offline {
 	display: flex;
-	color: var(--wpds-color-foreground-content-neutral-weak);
+	color: var(--muted-foreground);
 }
 
 .offline svg {
 	fill: currentColor;
-}
-
-.userTrigger {
-	flex: 0 0 auto;
-	justify-content: center;
-	width: var(--studio-control-size);
-	height: var(--studio-control-size);
-	padding: 0;
-	border-radius: var(--wpds-border-radius-sm);
 }
 
 .userTrigger img {
@@ -47,8 +38,8 @@
 	height: 24px;
 	border-radius: 50%;
 	flex-shrink: 0;
-	background-color: var(--wpds-color-background-surface-neutral);
-	color: var(--wpds-color-foreground-content-neutral-weak);
+	background-color: var(--chat);
+	color: var(--muted-foreground);
 }
 
 .popup {
@@ -58,8 +49,8 @@
 .account {
 	display: flex;
 	align-items: center;
-	gap: var(--wpds-dimension-gap-sm);
-	padding: var(--wpds-dimension-padding-sm);
+	gap: 8px;
+	padding: 8px;
 }
 
 .account img {
@@ -72,8 +63,8 @@
 	display: flex;
 	flex-direction: column;
 	min-width: 0;
-	font-size: 14px;
-	line-height: var(--wpds-typography-line-height-sm);
+	font-size: var(--text-sm);
+	line-height: 20px;
 }
 
 .accountName,
@@ -84,7 +75,7 @@
 }
 
 .accountEmail {
-	color: var(--wpds-color-foreground-content-neutral-weak);
+	color: var(--muted-foreground);
 }
 
 .itemLabel {
@@ -92,6 +83,6 @@
 }
 
 .shortcut {
-	color: var(--wpds-color-foreground-content-neutral-weak);
+	color: var(--muted-foreground);
 	font: inherit;
 }

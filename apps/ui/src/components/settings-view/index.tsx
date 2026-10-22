@@ -3,8 +3,8 @@ import { supportedLocaleNames } from '@studio/common/lib/locale';
 import { SUPPORTED_EDITORS, supportedEditorConfig } from '@studio/common/lib/user-settings/editor';
 import { SUPPORTED_TERMINALS, terminalConfig } from '@studio/common/lib/user-settings/terminal';
 import { __, sprintf } from '@wordpress/i18n';
-import { Button } from '@wordpress/ui';
 import { useCallback, useEffect, useState } from 'react';
+import { Button } from '@/components/ui/button';
 import { useConnector } from '@/data/core';
 import { persister } from '@/data/core/query-client';
 import {
@@ -197,8 +197,6 @@ function PreferencesPanel( {
 				>
 					<Button
 						variant="outline"
-						tone="neutral"
-						size="compact"
 						onClick={ () =>
 							void connector.openExternalUrl( getLocalizedLink( locale, 'docsStudio' ) )
 						}
@@ -212,8 +210,6 @@ function PreferencesPanel( {
 				>
 					<Button
 						variant="outline"
-						tone="neutral"
-						size="compact"
 						onClick={ () => void connector.openExternalUrl( REPORT_ISSUE_URL ) }
 					>
 						{ __( 'Report' ) }
@@ -351,9 +347,8 @@ export function InstructionsSettings( { onManageSite }: { onManageSite?: () => v
 							{ onManageSite ? (
 								<Button
 									className={ styles.manageLink }
-									variant="minimal"
-									tone="brand"
-									size="small"
+									variant="inline-link"
+									size="inline"
 									onClick={ onManageSite }
 								>
 									{ __( 'Manage instructions for this site' ) }

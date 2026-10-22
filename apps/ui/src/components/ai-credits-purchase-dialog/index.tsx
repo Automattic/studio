@@ -4,8 +4,17 @@ import {
 } from '@studio/common/lib/studio-assistant-top-up-pricing';
 import { createInterpolateElement } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
-import { Button, Dialog } from '@wordpress/ui';
 import { useRef, useState, type KeyboardEvent } from 'react';
+import { Button } from '@/components/ui/button';
+import {
+	Dialog,
+	DialogClose,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from '@/components/ui/dialog';
 import { useStudioAssistantTopUpPricing } from '@/data/queries/use-top-up-pricing';
 import { useUserLocale } from '@/data/queries/use-user-locale';
 import { useOpenAiCreditsCheckout } from '@/hooks/use-open-ai-credits-checkout';
@@ -68,13 +77,11 @@ export function AiCreditsPurchaseDialog( {
 	};
 
 	return (
-		<Dialog.Root open={ open } onOpenChange={ onOpenChange }>
-			<Dialog.Popup size="small">
-				<Dialog.Header>
-					<Dialog.Title>{ __( 'Add AI credits' ) }</Dialog.Title>
-				</Dialog.Header>
-				<Dialog.Content>
-					<Dialog.Description>
+		<Dialog open={ open } onOpenChange={ onOpenChange }>
+			<DialogContent showCloseButton={ false }>
+				<DialogHeader>
+					<DialogTitle>{ __( 'Add AI credits' ) }</DialogTitle>
+					<DialogDescription>
 						{ createInterpolateElement(
 							/* translators: <strong> and </strong> emphasize that the purchase happens once. */
 							__(
@@ -82,42 +89,38 @@ export function AiCreditsPurchaseDialog( {
 							),
 							{ strong: <strong className={ styles.descriptionEmphasis } /> }
 						) }
-					</Dialog.Description>
-					<div
-						className={ styles.amountCards }
-						role="radiogroup"
-						aria-label={ __( 'AI credit amount' ) }
-					>
-						{ options.map( ( option, index ) => (
-							<button
-								key={ option.credits }
-								ref={ ( element ) => {
-									optionRefs.current[ index ] = element;
-								} }
-								type="button"
-								role="radio"
-								aria-checked={ option.credits === selected?.credits }
-								tabIndex={ option.credits === selected?.credits ? 0 : -1 }
-								className={ styles.amountOption }
-								data-selected={ option.credits === selected?.credits ? '' : undefined }
-								onClick={ () => setSelectedCredits( option.credits ) }
-								onKeyDown={ ( event ) => handleOptionKeyDown( event, index ) }
-							>
-								<span className={ styles.optionPrice }>{ option.display }</span>
-								<span className={ styles.optionCredits }>
-									{ formatTopUpOptionCreditsLabel( option, locale ) }
-								</span>
-							</button>
-						) ) }
-					</div>
-				</Dialog.Content>
-				<Dialog.Footer>
-					<Dialog.Action variant="minimal" tone="neutral">
-						{ __( 'Cancel' ) }
-					</Dialog.Action>
+					</DialogDescription>
+				</DialogHeader>
+				<div
+					className={ styles.amountCards }
+					role="radiogroup"
+					aria-label={ __( 'AI credit amount' ) }
+				>
+					{ options.map( ( option, index ) => (
+						<button
+							key={ option.credits }
+							ref={ ( element ) => {
+								optionRefs.current[ index ] = element;
+							} }
+							type="button"
+							role="radio"
+							aria-checked={ option.credits === selected?.credits }
+							tabIndex={ option.credits === selected?.credits ? 0 : -1 }
+							className={ styles.amountOption }
+							data-selected={ option.credits === selected?.credits ? '' : undefined }
+							onClick={ () => setSelectedCredits( option.credits ) }
+							onKeyDown={ ( event ) => handleOptionKeyDown( event, index ) }
+						>
+							<span className={ styles.optionPrice }>{ option.display }</span>
+							<span className={ styles.optionCredits }>
+								{ formatTopUpOptionCreditsLabel( option, locale ) }
+							</span>
+						</button>
+					) ) }
+				</div>
+				<DialogFooter>
+					<DialogClose render={ <Button variant="outline" /> }>{ __( 'Cancel' ) }</DialogClose>
 					<Button
-						variant="solid"
-						tone="brand"
 						disabled={ ! selected }
 						onClick={ () => {
 							if ( ! selected ) {
@@ -129,8 +132,8 @@ export function AiCreditsPurchaseDialog( {
 					>
 						{ selected ? formatContinueForPriceLabel( selected ) : __( 'Continue' ) }
 					</Button>
-				</Dialog.Footer>
-			</Dialog.Popup>
-		</Dialog.Root>
+				</DialogFooter>
+			</DialogContent>
+		</Dialog>
 	);
 }

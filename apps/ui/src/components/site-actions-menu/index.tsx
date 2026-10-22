@@ -10,7 +10,6 @@ import {
 	wordpress,
 } from '@wordpress/icons';
 import { displayShortcut, isKeyboardEvent } from '@wordpress/keycodes';
-import { Button, Tooltip } from '@wordpress/ui';
 import { useRef, useState } from 'react';
 import { DeleteSiteDialog } from '@/components/delete-site-dialog';
 import {
@@ -18,11 +17,13 @@ import {
 	IMPORT_FILE_ACCEPT,
 	useSiteBackupImport,
 } from '@/components/import-site-dialog';
-import * as Menu from '@/components/menu';
 import { useOpenInDestinations } from '@/components/open-in-menu/use-open-in-destinations';
 import { SitePublishMenu } from '@/components/publish-panel/publish-menu';
 import { SiteShareMenuItem } from '@/components/share-dialog/share-menu-item';
 import { DATABASE_HOME_PATH, getRealmNavigationPath } from '@/components/site-preview/address-bar';
+import { Button } from '@/components/ui/button';
+import * as Menu from '@/components/ui/menu';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useConnector } from '@/data/core';
 import { sitePinKey, useSidebarPins } from '@/data/queries/use-sidebar-pins';
 import { useIsSiteBusy, useSites, useStartSite, useStopSite } from '@/data/queries/use-sites';
@@ -286,28 +287,21 @@ export function SiteActionsMenu( { site }: { site: SiteDetails } ) {
 	return (
 		<>
 			<Menu.Root modal={ false }>
-				<Tooltip.Root>
+				<Tooltip>
 					<Menu.Trigger
 						render={
-							<Tooltip.Trigger
+							<TooltipTrigger
 								render={
-									<Button
-										variant="minimal"
-										tone="neutral"
-										aria-label={ label }
-										className={ `${ styles.trigger } studio-control` }
-									/>
+									<Button variant="ghost" aria-label={ label } className={ styles.trigger } />
 								}
 							/>
 						}
 					>
-						<Icon icon={ globeIcon } />
-						<Icon className={ styles.chevron } icon={ chevronDownSmall } />
+						<Icon icon={ globeIcon } data-icon="inline-start" />
+						<Icon icon={ chevronDownSmall } data-icon="inline-end" data-dropdown-indicator />
 					</Menu.Trigger>
-					<Tooltip.Popup positioner={ <Tooltip.Positioner side="bottom" /> }>
-						{ label }
-					</Tooltip.Popup>
-				</Tooltip.Root>
+					<TooltipContent side="bottom">{ label }</TooltipContent>
+				</Tooltip>
 				<Menu.Popup
 					side="bottom"
 					align="start"

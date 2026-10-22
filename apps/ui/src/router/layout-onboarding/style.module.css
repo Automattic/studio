@@ -16,7 +16,7 @@
 }
 
 .subtitle {
-	color: var(--wpds-color-foreground-content-neutral-weak);
+	color: var(--muted-foreground);
 	margin: 0 0 32px;
 }
 
@@ -37,7 +37,7 @@
 .glassSurface {
 	background: color-mix(
 		in srgb,
-		var(--wpds-color-background-surface-neutral-strong) var(--surface-alpha, 50%),
+		var(--chrome) var(--surface-alpha, 50%),
 		transparent
 	);
 	backdrop-filter: blur(12px);

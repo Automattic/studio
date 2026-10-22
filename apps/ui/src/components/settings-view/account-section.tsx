@@ -1,5 +1,5 @@
 import { __ } from '@wordpress/i18n';
-import { Button } from '@wordpress/ui';
+import { Button } from '@/components/ui/button';
 import { useAuthUser, useLogin, useLogout } from '@/data/queries/use-auth-user';
 import { useOffline } from '@/hooks/use-offline';
 import { SettingsGroup, SettingsRow } from './rows';
@@ -22,9 +22,6 @@ export function AccountSection() {
 			>
 				{ user ? (
 					<Button
-						variant="solid"
-						tone="neutral"
-						size="compact"
 						loading={ logout.isPending }
 						loadingAnnouncement={ __( 'Logging out' ) }
 						onClick={ () => logout.mutate() }
@@ -33,9 +30,6 @@ export function AccountSection() {
 					</Button>
 				) : (
 					<Button
-						variant="solid"
-						tone="neutral"
-						size="compact"
 						disabled={ isLoading || isOffline }
 						loading={ login.isPending }
 						loadingAnnouncement={ __( 'Logging in' ) }

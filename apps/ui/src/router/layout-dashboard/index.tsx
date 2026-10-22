@@ -1,7 +1,6 @@
 import { findAiSessionOwnerSite } from '@studio/common/ai/sessions/owner-site';
 import { createRoute, Outlet, useNavigate, useRouterState } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
-import { IconButton } from '@wordpress/ui';
 import { useCallback, useEffect, useState } from 'react';
 import { requestAnnotationSend } from '@/components/annotations/store';
 import { CommandPalette } from '@/components/command-palette';
@@ -14,6 +13,7 @@ import { HeaderSidebarToggle } from '@/components/sidebar-toggle';
 import { SiteActionsMenu } from '@/components/site-actions-menu';
 import { SitePreview } from '@/components/site-preview';
 import { SiteWorkspace } from '@/components/site-workspace';
+import { IconButton } from '@/components/ui/button';
 import { useOrientationAutostart } from '@/data/onboarding/use-orientation-autostart';
 import { useOrientationReplay } from '@/data/onboarding/use-orientation-replay';
 import { useWhatsNewAutostart } from '@/data/onboarding/use-whats-new-autostart';
@@ -187,10 +187,6 @@ function DashboardLayoutContent() {
 								<SiteActionsMenu site={ previewSite } />
 								{ homeSite ? null : (
 									<IconButton
-										variant="minimal"
-										tone="neutral"
-										size="small"
-										className="studio-control"
 										icon={ chatIcon }
 										label={ __( 'Show chat' ) }
 										onClick={ () => setChatHidden( false ) }

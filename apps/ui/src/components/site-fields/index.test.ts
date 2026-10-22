@@ -1,7 +1,6 @@
 import { DEFAULT_WORDPRESS_VERSION } from '@studio/common/constants';
 import { describe, expect, it } from 'vitest';
-import { wpVersionField } from './index';
-import type { WpVersionOption } from './wp-version-control';
+import { getWpVersionOptions } from './index';
 import type { WordPressVersion } from '@studio/common/lib/wordpress-versions';
 
 const VERSIONS: WordPressVersion[] = [
@@ -11,70 +10,75 @@ const VERSIONS: WordPressVersion[] = [
 	{ label: '6.9', value: '6.9.7', isBeta: false, isDevelopment: false },
 ];
 
-function optionsOf( field: ReturnType< typeof wpVersionField > ): WpVersionOption[] {
-	return ( field.elements ?? [] ) as WpVersionOption[];
+function autoUpdateLabel( options = getWpVersionOptions( VERSIONS ) ) {
+	return options?.[ 0 ].label;
 }
 
-function autoUpdateLabels( field: ReturnType< typeof wpVersionField > ): string[] {
-	return optionsOf( field )
-		.filter( ( option ) => option.group === 'latest' )
-		.map( ( option ) => option.label );
-}
-
-describe( 'wpVersionField', () => {
-	it( 'keeps the seed for a pinned site out of the auto-update group', () => {
-		const field = wpVersionField( DEFAULT_WORDPRESS_VERSION, VERSIONS, { latestValue: '' } );
-
+describe( 'getWpVersionOptions', () => {
+	it( 'keeps the seed for a pinned site renderable but not offered', () => {
 		// The settings form seeds this value when a pinned site's installed
-		// version can't be read. It has to stay selectable and unoffered, and it
-		// must not claim the site auto-updates — the update-mode radios read the
-		// auto-update group to decide what the picker can offer.
-		expect( optionsOf( field ) ).toContainEqual( {
+		// version can't be read.
+		expect( getWpVersionOptions( VERSIONS, { latestValue: '' } ) ).toContainEqual( {
 			value: DEFAULT_WORDPRESS_VERSION,
 			label: 'Unknown version',
-			group: 'stable',
 			hidden: true,
 		} );
 	} );
 
 	it( 'names the installed version in the auto-update option', () => {
-		const field = wpVersionField( DEFAULT_WORDPRESS_VERSION, VERSIONS, {
+		const options = getWpVersionOptions( VERSIONS, {
 			latestValue: '',
+			currentVersion: '6.9.7',
 			autoUpdateVersion: '6.9.7',
 		} );
 
-		expect( autoUpdateLabels( field ) ).toEqual( [ 'Auto-update (6.9.7)' ] );
+		expect( options?.[ 0 ] ).toEqual( {
+			value: '',
+			label: 'Auto-update (6.9.7)',
+			description: 'WordPress installs updates on its own schedule. Currently using version 6.9.7.',
+		} );
 	} );
 
 	it( 'falls back to the bare mode name when the version is unknown', () => {
 		// `latest` is the mode, not a version — "Auto-update (latest)" says nothing.
 		for ( const autoUpdateVersion of [ undefined, '', '-', 'latest' ] ) {
-			const field = wpVersionField( DEFAULT_WORDPRESS_VERSION, VERSIONS, {
-				latestValue: '',
-				autoUpdateVersion,
-			} );
-
-			expect( autoUpdateLabels( field ) ).toEqual( [ 'Auto-update' ] );
+			expect(
+				autoUpdateLabel( getWpVersionOptions( VERSIONS, { latestValue: '', autoUpdateVersion } ) )
+			).toBe( 'Auto-update' );
 		}
 	} );
 
 	it( 'names the version a new site will be created with', () => {
-		const field = wpVersionField( DEFAULT_WORDPRESS_VERSION, VERSIONS, {
-			autoUpdateVersion: '7.1',
-		} );
+		const options = getWpVersionOptions( VERSIONS, { autoUpdateVersion: '7.1' } );
 
-		expect( autoUpdateLabels( field ) ).toEqual( [ 'Auto-update (7.1)' ] );
+		expect( options?.[ 0 ] ).toEqual( {
+			value: DEFAULT_WORDPRESS_VERSION,
+			label: 'Auto-update (7.1)',
+			description: 'WordPress installs updates on its own schedule. Will install version 7.1.',
+		} );
 	} );
 
 	it( 'keeps prerelease and stable versions in separate groups', () => {
-		const field = wpVersionField( DEFAULT_WORDPRESS_VERSION, VERSIONS );
-		const options = optionsOf( field );
+		const options = getWpVersionOptions( VERSIONS ) ?? [];
 
-		expect( options.filter( ( option ) => option.group === 'prerelease' ) ).toEqual( [
-			{ value: '7.2-alpha-63347', label: 'nightly', group: 'prerelease', current: false },
+		expect( options.filter( ( option ) => option.group === 'Beta & Nightly' ) ).toEqual( [
+			{ value: '7.2-alpha-63347', label: 'nightly', group: 'Beta & Nightly' },
 		] );
 		expect(
-			options.filter( ( option ) => option.group === 'stable' ).map( ( o ) => o.value )
+			options.filter( ( option ) => option.group === 'Stable Versions' ).map( ( o ) => o.value )
 		).toEqual( [ '7.1', '6.9.7' ] );
+	} );
+
+	it( 'sorts an installed version missing from the offers into its group', () => {
+		const options = getWpVersionOptions( VERSIONS, { latestValue: '', currentVersion: '7.0.2' } );
+
+		expect(
+			options?.filter( ( option ) => option.group === 'Stable Versions' ).map( ( o ) => o.value )
+		).toEqual( [ '7.1', '7.0.2', '6.9.7' ] );
+	} );
+
+	it( 'offers nothing to the create form without a version list', () => {
+		expect( getWpVersionOptions( undefined ) ).toBeUndefined();
+		expect( getWpVersionOptions( undefined, { offline: true } ) ).toHaveLength( 1 );
 	} );
 } );

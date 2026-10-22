@@ -1,22 +1,27 @@
 import { isStudioChatImageMimeType } from '@studio/common/ai/chat-images';
 import { getComposerAttachmentImageSrc } from '@studio/common/ai/composer-attachment-preview';
 import { __, _n, sprintf } from '@wordpress/i18n';
-import { arrowUp, closeSmall } from '@wordpress/icons';
+import { arrowUp, closeSmall, Icon } from '@wordpress/icons';
 import { isAppleOS } from '@wordpress/keycodes';
-import { AlertDialog, Button, Checkbox, Icon, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
-import {
-	useEffect,
-	useLayoutEffect,
-	useRef,
-	useState,
-	type ReactElement,
-	type SVGProps,
-} from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import {
 	useComposerAttachments,
 	useFileDrop,
 } from '@/components/session-view/composer/use-composer-attachments';
+import { Button, IconButton } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import {
+	AlertDialog,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from '@/components/ui/dialog';
+import { Field, FieldLabel } from '@/components/ui/field';
+import { Textarea } from '@/components/ui/textarea';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { toast } from '@/data/app-messages';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
 import { paperclipIcon, trashIcon } from '@/lib/icons';
@@ -61,6 +66,8 @@ export function AnnotationOverlay( { siteId, anchor, onSend }: AnnotationOverlay
 	const stagedCount = notes.filter( isStagedAnnotation ).length;
 	const [ confirming, setConfirming ] = useState( false );
 	const [ dontAsk, setDontAsk ] = useState( false );
+	const checkboxId = useId();
+	const cancelRef = useRef< HTMLButtonElement >( null );
 	const { data: preferences } = useUserPreferences();
 	const savePreferences = useSaveUserPreferences();
 
@@ -109,13 +116,11 @@ export function AnnotationOverlay( { siteId, anchor, onSend }: AnnotationOverlay
 				data-open={ active }
 				className={ styles.bar }
 			>
-				<Button variant="minimal" tone="neutral" className={ styles.barButton } onClick={ cancel }>
+				<Button variant="ghost" onClick={ cancel }>
 					{ __( 'Cancel' ) }
 				</Button>
 				<Button
-					variant="solid"
-					tone="brand"
-					className={ styles.barButton }
+					variant="accent"
 					aria-label={ sprintf(
 						/* translators: %d: number of annotations. */
 						_n( 'Send %d annotation', 'Send %d annotations', count ),
@@ -132,38 +137,49 @@ export function AnnotationOverlay( { siteId, anchor, onSend }: AnnotationOverlay
 					) : null }
 				</Button>
 			</div>
-			<AlertDialog.Root
-				open={ active && confirming }
-				onOpenChange={ setConfirming }
-				onConfirm={ () => {
-					if ( dontAsk ) savePreferences.mutate( { confirmDeleteAnnotations: false } );
-					clearAnnotations( siteId );
-				} }
-			>
-				<AlertDialog.Popup
-					intent="irreversible"
-					title={
-						count === 1
-							? __( 'Delete annotation?' )
-							: sprintf(
-									/* translators: %d: number of annotations. */
-									__( 'Delete %d annotations?' ),
-									count
-							  )
-					}
-					description={ _n(
-						'This note and its attached images will be deleted.',
-						'These notes and their attached images will be deleted.',
-						count
-					) }
-					confirmButtonText={ __( 'Delete annotations' ) }
-				>
-					<label className={ styles.dialogCheckbox }>
-						<Checkbox checked={ dontAsk } onCheckedChange={ setDontAsk } />
-						{ __( 'Don’t ask again' ) }
-					</label>
-				</AlertDialog.Popup>
-			</AlertDialog.Root>
+			<AlertDialog open={ active && confirming } onOpenChange={ setConfirming }>
+				<DialogContent layout="confirmation" initialFocus={ cancelRef }>
+					<DialogHeader>
+						<DialogTitle>
+							{ count === 1
+								? __( 'Delete annotation?' )
+								: sprintf(
+										/* translators: %d: number of annotations. */
+										__( 'Delete %d annotations?' ),
+										count
+								  ) }
+						</DialogTitle>
+						<DialogDescription tone="default">
+							{ _n(
+								'This note and its attached images will be deleted.',
+								'These notes and their attached images will be deleted.',
+								count
+							) }
+						</DialogDescription>
+					</DialogHeader>
+					<Field orientation="horizontal">
+						<Checkbox id={ checkboxId } checked={ dontAsk } onCheckedChange={ setDontAsk } />
+						<FieldLabel htmlFor={ checkboxId } tone="muted">
+							{ __( 'Don’t ask again' ) }
+						</FieldLabel>
+					</Field>
+					<DialogFooter>
+						<Button ref={ cancelRef } variant="outline" onClick={ () => setConfirming( false ) }>
+							{ __( 'Cancel' ) }
+						</Button>
+						<Button
+							variant="destructive"
+							onClick={ () => {
+								if ( dontAsk ) savePreferences.mutate( { confirmDeleteAnnotations: false } );
+								setConfirming( false );
+								clearAnnotations( siteId );
+							} }
+						>
+							{ __( 'Delete annotations' ) }
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</AlertDialog>
 		</div>
 	);
 }
@@ -268,11 +284,12 @@ function NoteEditor( {
 					) ) }
 				</ul>
 			) : null }
-			<textarea
+			<Textarea
 				autoFocus
 				rows={ 1 }
 				maxLength={ 10000 }
-				className={ styles.input }
+				variant="group"
+				size="sm"
 				aria-label={ __( 'Leave a note' ) }
 				placeholder={ __( 'Leave a note…' ) }
 				value={ note.comment }
@@ -287,18 +304,20 @@ function NoteEditor( {
 				} }
 			/>
 			<div className={ styles.toolbar }>
-				<EditorButton
+				<IconButton
+					size="icon-sm"
+					shape="round"
+					icon={ paperclipIcon }
 					label={ __( 'Attach image' ) }
 					onClick={ () => fileInputRef.current?.click() }
-				>
-					{ paperclipIcon }
-				</EditorButton>
-				<EditorButton
+				/>
+				<IconButton
+					size="icon-sm"
+					shape="round"
+					icon={ trashIcon }
 					label={ __( 'Delete annotation' ) }
 					onClick={ () => removeAnnotations( siteId, [ note.id ] ) }
-				>
-					{ trashIcon }
-				</EditorButton>
+				/>
 				<input
 					ref={ fileInputRef }
 					type="file"
@@ -310,11 +329,13 @@ function NoteEditor( {
 						event.target.value = '';
 					} }
 				/>
-				<Tooltip.Root>
-					<Tooltip.Trigger
+				<Tooltip>
+					<TooltipTrigger
 						render={
-							<button
-								type="button"
+							<Button
+								variant={ hasContent ? 'accent' : 'default' }
+								size="icon"
+								shape="round"
 								className={ styles.save }
 								aria-label={ __( 'Save annotation' ) }
 								disabled={ ! hasContent }
@@ -322,41 +343,11 @@ function NoteEditor( {
 							/>
 						}
 					>
-						<Icon icon={ arrowUp } size={ 20 } />
-					</Tooltip.Trigger>
-					<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
-						{ submitLabel }
-					</Tooltip.Popup>
-				</Tooltip.Root>
+						<Icon icon={ arrowUp } />
+					</TooltipTrigger>
+					<TooltipContent>{ submitLabel }</TooltipContent>
+				</Tooltip>
 			</div>
 		</div>
-	);
-}
-
-function EditorButton( {
-	label,
-	onClick,
-	children,
-}: {
-	label: string;
-	onClick: () => void;
-	children: ReactElement< SVGProps< SVGSVGElement > >;
-} ) {
-	return (
-		<Tooltip.Root>
-			<Tooltip.Trigger
-				render={
-					<button
-						type="button"
-						className={ styles.toolButton }
-						aria-label={ label }
-						onClick={ onClick }
-					/>
-				}
-			>
-				<Icon icon={ children } size={ 16 } />
-			</Tooltip.Trigger>
-			<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>{ label }</Tooltip.Popup>
-		</Tooltip.Root>
 	);
 }

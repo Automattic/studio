@@ -1,11 +1,9 @@
 import { QueryClientProvider } from '@tanstack/react-query';
 import { defaultI18n } from '@wordpress/i18n';
 import { I18nProvider } from '@wordpress/react-i18n';
-import { ThemeProvider } from '@wordpress/theme';
-import { Tooltip } from '@wordpress/ui';
 import { useEffect } from 'react';
-import { appThemeColor } from '@/components/app-theme-scope';
 import { OnboardingGuideProvider } from '@/components/onboarding-guide/use-onboarding-guide';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { ConnectorProvider, queryClient } from '@/data/core';
 import { AgentRunProvider } from '@/data/queries/use-agent-run';
 import { useSyncAppUpdateStatus } from '@/data/queries/use-app-update';
@@ -39,17 +37,14 @@ function SiteEventsBridge() {
 // browser, where there's no Electron `nativeTheme` to mirror it.
 function ThemedApp( { children }: PropsWithChildren ) {
 	const colorScheme = useColorScheme();
-	const themeColor = appThemeColor( colorScheme );
 	useEffect( () => {
 		document.documentElement.style.colorScheme = colorScheme;
 		document.documentElement.dataset.colorScheme = colorScheme;
 	}, [ colorScheme ] );
 	return (
-		<ThemeProvider isRoot color={ themeColor } cornerRadius="moderate">
-			<Tooltip.Provider>
-				<OnboardingGuideProvider>{ children }</OnboardingGuideProvider>
-			</Tooltip.Provider>
-		</ThemeProvider>
+		<TooltipProvider>
+			<OnboardingGuideProvider>{ children }</OnboardingGuideProvider>
+		</TooltipProvider>
 	);
 }
 

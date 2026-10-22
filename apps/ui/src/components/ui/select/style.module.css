@@ -1,0 +1,125 @@
+@layer ui {
+	.trigger {
+		justify-content: space-between;
+		width: fit-content;
+	}
+
+	.trigger[data-full-width] {
+		width: 100%;
+	}
+
+	.trigger:disabled {
+		cursor: not-allowed;
+	}
+
+	.trigger[data-placeholder] {
+		color: var( --muted-foreground );
+	}
+
+	.icon {
+		display: flex;
+	}
+
+	.value {
+		display: flex;
+		flex: 1;
+		gap: 6px;
+		align-items: center;
+		overflow: hidden;
+		text-align: start;
+		text-overflow: ellipsis;
+	}
+
+	.positioner {
+		isolation: isolate;
+		z-index: var( --z-select );
+	}
+
+	.content {
+		position: relative;
+		isolation: isolate;
+		width: max-content;
+		min-width: max( 9rem, var( --anchor-width ) );
+		max-width: var( --available-width );
+		max-height: var( --available-height );
+		overflow-x: hidden;
+		overflow-y: auto;
+	}
+
+	.item {
+		width: 100%;
+		padding-inline-end: 32px;
+	}
+
+	.item[data-described] {
+		align-items: flex-start;
+		padding-block: 8px;
+	}
+
+	.item svg:not( [data-size] ) {
+		width: 16px;
+		height: 16px;
+	}
+
+	.itemBody {
+		display: flex;
+		flex: 1;
+		flex-direction: column;
+		gap: 2px;
+		min-width: 0;
+	}
+
+	.itemText {
+		display: flex;
+		flex: 1;
+		flex-shrink: 0;
+		gap: 8px;
+		white-space: nowrap;
+	}
+
+	.itemDescription {
+		color: var( --muted-foreground );
+		font-size: var( --text-xs );
+		font-weight: var( --font-weight-normal );
+	}
+
+	.indicator {
+		position: absolute;
+		inset-inline-end: 8px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 16px;
+		height: 16px;
+		pointer-events: none;
+	}
+
+	.separator {
+		height: 1px;
+		margin: 4px -4px;
+		background-color: var( --border );
+		pointer-events: none;
+	}
+
+	.arrow {
+		position: sticky;
+		bottom: 0;
+		z-index: 10;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 100%;
+		padding-block: 4px;
+		background-color: var( --popover );
+		cursor: default;
+	}
+
+	.arrowUp {
+		top: 0;
+		bottom: auto;
+	}
+
+	.arrowUp svg {
+		rotate: 180deg;
+	}
+}

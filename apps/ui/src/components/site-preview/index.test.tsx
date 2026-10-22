@@ -1,8 +1,8 @@
 import { INSPECTOR_BRIDGE_PREFIX } from '@studio/common/ai/inspector/page-script';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { Tooltip } from '@wordpress/ui';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { useConnector } from '@/data/core';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { WindowControlsCornerContext } from '@/hooks/use-window-controls-inset';
@@ -66,7 +66,7 @@ function renderPreview( children: ReactNode ) {
 	} );
 	const renderResult = render(
 		<QueryClientProvider client={ queryClient }>
-			<Tooltip.Provider>{ children }</Tooltip.Provider>
+			<TooltipProvider>{ children }</TooltipProvider>
 		</QueryClientProvider>
 	);
 	return { ...renderResult, queryClient };
@@ -294,9 +294,9 @@ describe( 'SitePreview', () => {
 
 		rerender(
 			<QueryClientProvider client={ new QueryClient() }>
-				<Tooltip.Provider>
+				<TooltipProvider>
 					<SitePreview site={ site } path="/wp-admin/" reloadNonce={ 0 } onPathChange={ vi.fn() } />
-				</Tooltip.Provider>
+				</TooltipProvider>
 			</QueryClientProvider>
 		);
 		fireEvent.click( screen.getByRole( 'button', { name: 'Open this page in your browser' } ) );
@@ -385,9 +385,9 @@ describe( 'SitePreview', () => {
 		} );
 		const ui = ( path: string ) => (
 			<QueryClientProvider client={ queryClient }>
-				<Tooltip.Provider>
+				<TooltipProvider>
 					<SitePreview site={ createSite( { running: true } ) } path={ path } reloadNonce={ 0 } />
-				</Tooltip.Provider>
+				</TooltipProvider>
 			</QueryClientProvider>
 		);
 
@@ -531,11 +531,11 @@ describe( 'SitePreview', () => {
 
 		const preview = ( inCorner: boolean ) => (
 			<QueryClientProvider client={ queryClient }>
-				<Tooltip.Provider>
+				<TooltipProvider>
 					<WindowControlsCornerContext.Provider value={ inCorner }>
 						<SitePreview site={ createSite( { running: true } ) } path="/" reloadNonce={ 0 } />
 					</WindowControlsCornerContext.Provider>
-				</Tooltip.Provider>
+				</TooltipProvider>
 			</QueryClientProvider>
 		);
 		const queryClient = new QueryClient();
@@ -543,7 +543,7 @@ describe( 'SitePreview', () => {
 
 		const header = screen.getByRole( 'button', { name: 'Reload preview' } ).parentElement
 			?.parentElement?.parentElement;
-		expect( header?.style.paddingRight ).toBe( 'calc(138px + var(--wpds-dimension-padding-sm))' );
+		expect( header?.style.paddingRight ).toBe( '146px' );
 		expect( setWindowControlsSurface ).toHaveBeenLastCalledWith( 'toolbar' );
 
 		rerender( preview( false ) );
@@ -700,7 +700,7 @@ function renderWebviewPreview( props: Partial< ComponentProps< typeof SitePrevie
 	const update = ( next: Partial< ComponentProps< typeof SitePreview > > ) =>
 		rerender(
 			<QueryClientProvider client={ new QueryClient() }>
-				<Tooltip.Provider>
+				<TooltipProvider>
 					<SitePreview
 						site={ createSite( { running: true } ) }
 						path="/"
@@ -708,7 +708,7 @@ function renderWebviewPreview( props: Partial< ComponentProps< typeof SitePrevie
 						{ ...props }
 						{ ...next }
 					/>
-				</Tooltip.Provider>
+				</TooltipProvider>
 			</QueryClientProvider>
 		);
 	return { webview, clearWebviewCache, update };

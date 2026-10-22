@@ -1,23 +1,5 @@
-.popup[data-wp-ui-overlay-modal] {
-	--add-site-divider: color-mix(in srgb, var(--wpds-color-foreground-content-neutral) 10%, transparent);
-
+.popup {
 	flex-direction: row;
-	width: min(896px, calc(100vw - 32px));
-	height: min(624px, calc(100dvh - 32px));
-	min-width: 0;
-	padding: 0;
-	border-radius: 16px;
-	font-size: 14px;
-	line-height: 20px;
-}
-
-.visuallyHidden {
-	position: absolute;
-	width: 1px;
-	height: 1px;
-	overflow: hidden;
-	clip-path: inset(50%);
-	white-space: nowrap;
 }
 
 .sidebar {
@@ -29,7 +11,7 @@
 	box-sizing: border-box;
 	padding: 12px;
 	overflow-y: auto;
-	border-inline-end: var(--wpds-border-width-xs) solid var(--add-site-divider);
+	border-inline-end: 1px solid var(--border);
 }
 
 .navItem {
@@ -42,20 +24,19 @@
 	border: 0;
 	border-radius: 7px;
 	background: none;
-	color: var(--wpds-color-foreground-content-neutral);
+	color: var(--foreground);
 	font: inherit;
 	text-align: start;
-	cursor: var(--wpds-cursor-control);
+	cursor: pointer;
 }
 
 .navItem:hover,
 .navItem[aria-current='page'] {
-	background: var(--studio-hover-background);
+	background: var(--hover);
 }
 
-.navItem:focus-visible,
-.crumb:focus-visible {
-	outline: var(--wpds-border-width-focus) solid var(--wpds-color-stroke-focus);
+.navItem:focus-visible {
+	outline: var(--focus-width) solid var(--ring);
 	outline-offset: -2px;
 }
 
@@ -81,59 +62,27 @@
 	height: 36px;
 	margin: 16px 0 0;
 	padding: 0 8px;
-	color: var(--wpds-color-foreground-content-neutral-weak);
-	font-size: 14px;
-	font-weight: 450;
+	color: var(--muted-foreground);
+	font-size: var(--text-sm);
+	font-weight: var(--font-weight-medium);
 	line-height: 20px;
 }
 
-.main {
+.leading {
 	display: flex;
-	flex: 1;
-	flex-direction: column;
-	min-width: 0;
-}
-
-.header {
-	display: flex;
-	flex: none;
 	align-items: center;
 	gap: 12px;
-	min-height: 56px;
-	box-sizing: border-box;
-	padding: 14px 14px 10px 16px;
 }
 
 .title {
-	flex: 1;
-	min-width: 0;
-	margin: 0;
+	display: block;
 	overflow: hidden;
-	font-size: 14px;
-	font-weight: 450;
-	line-height: 20px;
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
 
-.crumb {
-	flex: none;
-	padding: 0;
-	border: 0;
-	border-radius: 4px;
-	background: none;
-	color: var(--wpds-color-foreground-content-neutral-weak);
-	font: inherit;
-	cursor: var(--wpds-cursor-control);
-}
-
-.crumb:hover:not(:disabled) {
-	text-decoration: underline;
-	text-underline-offset: 2px;
-}
-
 .crumbSeparator {
-	color: var(--wpds-color-foreground-content-neutral-weak);
+	color: var(--muted-foreground);
 }
 
 .progress {
@@ -142,56 +91,17 @@
 	gap: 8px;
 	margin: 0;
 	overflow: hidden;
-	color: var(--wpds-color-foreground-content-neutral-weak);
-	font-size: 13px;
+	color: var(--muted-foreground);
+	font-size: var(--text-xs);
 	white-space: nowrap;
 }
 
 .actions {
-	display: flex;
-	gap: 8px;
-}
-
-.header button {
-	--wp-ui-button-font-size: 13px;
-	--wp-ui-button-font-weight: 450;
-}
-
-.header button:not([class*='__icon-button']) {
-	--wp-ui-button-padding-inline: 10px;
-}
-
-.header button[class*='__is-outline'] {
-	--wp-ui-button-border-color: var(--add-site-divider);
-}
-
-.actions:empty {
-	display: none;
+	display: contents;
 }
 
 .content {
-	flex: 1;
-	min-height: 0;
 	/* Room above the first row for a focused card's outline. */
-	padding: 4px 16px 16px;
-	overflow-y: auto;
+	padding-top: 4px;
 	container-type: inline-size;
-}
-
-.content button {
-	--wp-ui-button-font-weight: 450;
-}
-
-/* Fields as in Settings: a faint border, rounder corners and sentence-case
-   labels. */
-.content [class*='__input-layout'][class*='__layout'] {
-	border-color: var(--add-site-divider);
-	border-radius: 9px;
-	background-color: color-mix(in srgb, var(--wpds-color-background-surface-neutral-strong) 60%, transparent);
-}
-
-.content label[class*='__label'] {
-	font-size: 13px;
-	font-weight: 450;
-	text-transform: none;
 }

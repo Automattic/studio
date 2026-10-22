@@ -1,19 +1,14 @@
-/* Width only. The wpds dialog popup owns its own positioning
-   (position: fixed + translate centering) and clipping inside
-   @layer wp-ui-components — this module's classes are unlayered and would
-   silently clobber any property repeated here, which is exactly how an
-   earlier `position: relative` dropped the dialog into document flow and
-   broke both its centering and the app layout behind it. Add properties
-   only after checking them against the base popup styles. */
 .popup {
+	gap: 0;
 	width: 380px;
 	max-width: calc(100vw - 32px);
+	padding: 0;
 }
 
 .close {
 	position: absolute;
-	top: var(--wpds-dimension-padding-sm);
-	inset-inline-end: var(--wpds-dimension-padding-sm);
+	top: 8px;
+	inset-inline-end: 8px;
 	z-index: 1;
 }
 
@@ -34,7 +29,7 @@
 /* This artwork stays dark in both themes, so match the dark theme's neutral
    hover fill and keep the icon light in both themes. */
 .closeOnDark {
-	--wp-ui-button-background-color-active: #282828;
+	--button-hover-background: #282828;
 }
 
 .closeOnDark,
@@ -47,11 +42,9 @@
    movable while the tour is open. The popup itself can't be a drag handle —
    it's centered with a CSS transform, and Chromium ignores -webkit-app-region
    under a transformed ancestor — but the backdrop isn't transformed, so make it
-   the drag surface. Scoped to this guide's backdrop (the sibling preceding our
-   popup) so every other dialog keeps its click-outside-to-dismiss. */
-:global(
-	[data-testid='dialog-backdrop']:has(~ [data-orientation-guide], ~ * [data-orientation-guide])
-) {
+   the drag surface. Scoped to this guide's backdrops (the siblings preceding
+   our popup) so every other dialog keeps its click-outside-to-dismiss. */
+:global([role='presentation']:has(~ [data-orientation-guide])) {
 	-webkit-app-region: drag;
 }
 
@@ -60,8 +53,8 @@
 .content {
 	display: grid;
 	box-sizing: border-box;
-	padding: var(--wpds-dimension-padding-xl) var(--wpds-dimension-padding-xl)
-		var(--wpds-dimension-padding-lg);
+	padding: 20px 20px
+		16px;
 	text-align: start;
 }
 
@@ -72,7 +65,7 @@
 .page {
 	display: flex;
 	flex-direction: column;
-	gap: var(--wpds-dimension-gap-sm);
+	gap: 8px;
 }
 
 /* Hidden rather than unmounted: an inactive page still has to take up its space
@@ -84,13 +77,16 @@
 
 .title {
 	margin: 0;
+	font-size: 20px;
+	font-weight: var(--font-weight-semibold);
 	line-height: 1.3;
 	text-wrap: balance;
 }
 
 .description {
 	margin: 0;
-	color: var(--wpds-color-foreground-content-neutral-weak);
+	color: var(--muted-foreground);
+	font-size: var(--text-xs);
 	line-height: 1.5;
 	text-wrap: pretty;
 }
@@ -108,9 +104,9 @@
 	display: grid;
 	grid-template-columns: 1fr auto 1fr;
 	align-items: center;
-	gap: var(--wpds-dimension-gap-md);
-	padding: var(--wpds-dimension-padding-md) var(--wpds-dimension-padding-xl)
-		var(--wpds-dimension-padding-xl);
+	gap: 12px;
+	padding: 12px 20px
+		20px;
 }
 
 .footerStart {
@@ -157,15 +153,15 @@
 	   colour, and both tokens follow the theme. */
 	background: color-mix(
 		in srgb,
-		var(--wpds-color-foreground-content-neutral) 22%,
-		var(--wpds-color-background-surface-neutral)
+		var(--foreground) 22%,
+		var(--chat)
 	);
 	transition: background 200ms ease-in-out, width 200ms ease-in-out;
 }
 
 .dotActive {
 	width: 18px;
-	background: var(--wpds-color-foreground-interactive-brand);
+	background: var(--accent-text);
 }
 
 @media (prefers-reduced-motion: reduce) {

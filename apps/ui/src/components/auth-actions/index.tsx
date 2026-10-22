@@ -1,6 +1,6 @@
 import { __ } from '@wordpress/i18n';
-import { Button } from '@wordpress/ui';
 import { clsx } from 'clsx';
+import { Button } from '@/components/ui/button';
 import { useLogin } from '@/data/queries/use-auth-user';
 import { useOffline } from '@/hooks/use-offline';
 import styles from './style.module.css';
@@ -29,9 +29,7 @@ export function AuthActions( { className, source }: AuthActionsProps ) {
 		<div className={ clsx( styles.root, className ) }>
 			<div className={ styles.actions }>
 				<Button
-					type="button"
-					variant="minimal"
-					tone="neutral"
+					variant="ghost"
 					disabled={ isOffline || login.isPending }
 					title={ isOffline ? offlineMessage : undefined }
 					loading={ signup.isPending }
@@ -41,9 +39,7 @@ export function AuthActions( { className, source }: AuthActionsProps ) {
 					{ arrow }
 				</Button>
 				<Button
-					type="button"
-					variant="solid"
-					tone="brand"
+					variant="accent"
 					disabled={ isOffline || signup.isPending }
 					title={ isOffline ? offlineMessage : undefined }
 					loading={ login.isPending }

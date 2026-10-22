@@ -50,6 +50,7 @@ import {
 	download,
 	file,
 	globe,
+	Icon,
 	image,
 	info,
 	link,
@@ -75,7 +76,6 @@ import {
 	update,
 	upload,
 } from '@wordpress/icons';
-import { Button, Dialog, Icon, IconButton } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import {
 	useEffect,
@@ -89,6 +89,8 @@ import {
 import { AiAccessRequiredNotice, AiBlockedNotice } from '@/components/ai-access-required-notice';
 import { CopyButton } from '@/components/copy-button';
 import { Markdown } from '@/components/markdown';
+import { Button, IconButton } from '@/components/ui/button';
+import { Dialog, DialogClose, DialogContent, DialogDismissButton } from '@/components/ui/dialog';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
 import { useLocalMediaDataUrl } from '@/data/queries/use-local-media';
 import { MESSAGE_TEXT_ATTRIBUTE, QUOTABLE_TEXT_ATTRIBUTE } from '@/hooks/use-text-context-menu';
@@ -1000,11 +1002,8 @@ function AgentQuestion( {
 								</button>
 								{ option.image ? (
 									<IconButton
-										type="button"
 										className={ styles.questionOptionZoom }
-										variant="minimal"
-										tone="neutral"
-										size="small"
+										size="icon-2xs"
 										icon={ search }
 										label={ sprintf(
 											// translators: %s: name of a design option.
@@ -1059,7 +1058,7 @@ function AgentQuestion( {
 			{ multiSelect && isInteractive ? (
 				<div>
 					<Button
-						size="compact"
+						variant="outline"
 						disabled={ pickedLabels.length === 0 }
 						onClick={ () => onAnswer( pickedLabels.join( ', ' ) ) }
 					>
@@ -1107,11 +1106,11 @@ function QuestionOptionViewer( {
 		: [ chevronLeft, chevronRight ];
 
 	return (
-		<Dialog.Root
+		<Dialog
 			open={ option !== undefined }
 			onOpenChange={ ( open ) => ! open && onIndexChange( null ) }
 		>
-			<Dialog.Popup
+			<DialogContent
 				className={ styles.questionOptionZoomPopup }
 				aria-label={ option?.label }
 				onKeyDown={ ( event ) => {
@@ -1128,21 +1127,20 @@ function QuestionOptionViewer( {
 						alt={ option?.label }
 					/>
 				) : null }
-				<Dialog.CloseIconButton className={ styles.questionOptionZoomClose } />
+				<DialogClose
+					className={ styles.questionOptionZoomClose }
+					render={ <DialogDismissButton variant="ghost" size="icon-2xs" /> }
+				/>
 				<IconButton
 					className={ clsx( styles.questionOptionZoomStep, styles.questionOptionZoomPrevious ) }
-					variant="minimal"
-					tone="neutral"
-					size="small"
+					size="icon-2xs"
 					icon={ previousIcon }
 					label={ __( 'Previous option' ) }
 					onClick={ () => step( -1 ) }
 				/>
 				<IconButton
 					className={ clsx( styles.questionOptionZoomStep, styles.questionOptionZoomNext ) }
-					variant="minimal"
-					tone="neutral"
-					size="small"
+					size="icon-2xs"
 					icon={ nextIcon }
 					label={ __( 'Next option' ) }
 					onClick={ () => step( 1 ) }
@@ -1150,7 +1148,8 @@ function QuestionOptionViewer( {
 				{ option && onChoose ? (
 					<Button
 						className={ styles.questionOptionZoomChoose }
-						size="compact"
+						variant="accent"
+						size="header"
 						onClick={ () => {
 							onIndexChange( null );
 							onChoose( option.label );
@@ -1159,8 +1158,8 @@ function QuestionOptionViewer( {
 						{ __( 'Choose' ) }
 					</Button>
 				) : null }
-			</Dialog.Popup>
-		</Dialog.Root>
+			</DialogContent>
+		</Dialog>
 	);
 }
 

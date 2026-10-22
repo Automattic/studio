@@ -6,37 +6,6 @@ import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-u
 import { AiPanel } from './ai-panel';
 import type { AiSettings } from '@studio/common/ai/providers';
 
-vi.mock( '@wordpress/components', () => ( {
-	FormToggle: ( props: {
-		checked: boolean;
-		disabled?: boolean;
-		'aria-label'?: string;
-		onChange: () => void;
-	} ) => (
-		<input
-			type="checkbox"
-			aria-label={ props[ 'aria-label' ] }
-			checked={ props.checked }
-			disabled={ props.disabled }
-			onChange={ props.onChange }
-		/>
-	),
-	TextControl: ( props: {
-		value: string;
-		label?: string;
-		placeholder?: string;
-		onChange: ( value: string ) => void;
-	} ) => (
-		<input
-			type="password"
-			aria-label={ props.label }
-			placeholder={ props.placeholder }
-			value={ props.value }
-			onChange={ ( event ) => props.onChange( event.target.value ) }
-		/>
-	),
-} ) );
-
 vi.mock( '@/data/queries/use-user-preferences', () => ( {
 	useUserPreferences: vi.fn(),
 	useSaveUserPreferences: vi.fn(),
@@ -86,7 +55,7 @@ describe( 'AiPanel', () => {
 	it( 'turns agentic features off', () => {
 		render( <AiPanel /> );
 
-		const toggle = screen.getByRole( 'checkbox', { name: 'Studio Code' } );
+		const toggle = screen.getByRole( 'switch', { name: 'Studio Code' } );
 		expect( toggle ).toBeChecked();
 
 		fireEvent.click( toggle );
@@ -98,7 +67,7 @@ describe( 'AiPanel', () => {
 		mockPreferences( false );
 		render( <AiPanel /> );
 
-		const toggle = screen.getByRole( 'checkbox', { name: 'Studio Code' } );
+		const toggle = screen.getByRole( 'switch', { name: 'Studio Code' } );
 		expect( toggle ).not.toBeChecked();
 
 		fireEvent.click( toggle );
@@ -164,7 +133,7 @@ describe( 'AiPanel', () => {
 
 		expect( screen.getByLabelText( 'Anthropic API key' ) ).toBeInTheDocument();
 		expect(
-			screen.queryByRole( 'checkbox', { name: 'Use your Anthropic API key' } )
+			screen.queryByRole( 'switch', { name: 'Use your Anthropic API key' } )
 		).not.toBeInTheDocument();
 	} );
 
@@ -184,8 +153,9 @@ describe( 'AiPanel', () => {
 		expect(
 			screen.getByText( 'Anthropic rejected this API key. Check the key and try again.' )
 		).toBeInTheDocument();
-		expect(
-			screen.getByLabelText( 'Anthropic API key' ).closest( '[class*="apiKeyControlsError"]' )
-		).not.toBeNull();
+		expect( screen.getByLabelText( 'Anthropic API key' ) ).toHaveAttribute(
+			'aria-invalid',
+			'true'
+		);
 	} );
 } );

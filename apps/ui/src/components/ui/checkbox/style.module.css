@@ -1,0 +1,55 @@
+@layer ui {
+	.checkbox {
+		position: relative;
+		display: flex;
+		flex-shrink: 0;
+		align-items: center;
+		justify-content: center;
+		width: 16px;
+		height: 16px;
+		box-sizing: border-box;
+		margin: 0;
+		padding: 0;
+		border: 1px solid var( --input );
+		border-radius: 4px;
+		background: transparent;
+		color: inherit;
+		cursor: pointer;
+		outline: none;
+	}
+
+	.checkbox::after {
+		position: absolute;
+		inset: -8px -12px;
+		content: '';
+	}
+
+	:root[data-color-scheme='dark'] .checkbox {
+		background-color: color-mix( in oklab, var( --input ) 30%, transparent );
+	}
+
+	.checkbox[data-checked] {
+		border-color: var( --primary );
+		background-color: var( --primary );
+		color: var( --primary-foreground );
+	}
+
+	.checkbox:focus-visible {
+		box-shadow: inset 0 0 0 2px var( --ring );
+	}
+
+	.checkbox[data-disabled] {
+		cursor: not-allowed;
+		opacity: 0.5;
+	}
+
+	.indicator {
+		display: grid;
+		place-content: center;
+	}
+
+	.indicator svg {
+		width: 14px;
+		height: 14px;
+	}
+}

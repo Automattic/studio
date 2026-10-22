@@ -196,10 +196,7 @@ describe( 'ConnectPanel', () => {
 		render( <ConnectPanel /> );
 
 		expect( screen.getByRole( 'status' ) ).toHaveTextContent( "You're offline" );
-		expect( screen.getByRole( 'button', { name: 'Connect site' } ) ).toHaveAttribute(
-			'aria-disabled',
-			'true'
-		);
+		expect( screen.getByRole( 'button', { name: 'Connect site' } ) ).toBeDisabled();
 	} );
 
 	it( 'shows loading and empty account states', () => {
@@ -222,10 +219,7 @@ describe( 'ConnectPanel', () => {
 
 		expect( screen.queryByRole( 'searchbox' ) ).not.toBeInTheDocument();
 		await waitFor( () =>
-			expect( screen.getByRole( 'button', { name: 'Connect site' } ) ).toHaveAttribute(
-				'aria-disabled',
-				'false'
-			)
+			expect( screen.getByRole( 'button', { name: 'Connect site' } ) ).toBeEnabled()
 		);
 	} );
 
@@ -239,10 +233,7 @@ describe( 'ConnectPanel', () => {
 		expect(
 			screen.getByText( 'Upgrade this site to a supported plan before connecting it.' )
 		).toBeVisible();
-		expect( screen.getByRole( 'button', { name: 'Connect site' } ) ).toHaveAttribute(
-			'aria-disabled',
-			'true'
-		);
+		expect( screen.getByRole( 'button', { name: 'Connect site' } ) ).toBeDisabled();
 	} );
 
 	it( 'refreshes the remote site list after an error', () => {
@@ -276,7 +267,7 @@ describe( 'ConnectPanel', () => {
 
 		render( <ConnectPanel /> );
 		const connectButton = screen.getByRole( 'button', { name: 'Connect site' } );
-		await waitFor( () => expect( connectButton ).toHaveAttribute( 'aria-disabled', 'false' ) );
+		await waitFor( () => expect( connectButton ).toBeEnabled() );
 		fireEvent.click( connectButton );
 
 		expect( await screen.findByRole( 'alert' ) ).toHaveTextContent( 'Connection failed' );
@@ -293,7 +284,7 @@ describe( 'ConnectPanel', () => {
 
 		render( <ConnectPanel /> );
 		const connectButton = screen.getByRole( 'button', { name: 'Connect site' } );
-		await waitFor( () => expect( connectButton ).toHaveAttribute( 'aria-disabled', 'false' ) );
+		await waitFor( () => expect( connectButton ).toBeEnabled() );
 		fireEvent.click( connectButton );
 
 		await waitFor( () =>
@@ -319,7 +310,7 @@ describe( 'ConnectPanel', () => {
 
 		render( <ConnectPanel /> );
 		const connectButton = screen.getByRole( 'button', { name: 'Connect site' } );
-		await waitFor( () => expect( connectButton ).toHaveAttribute( 'aria-disabled', 'false' ) );
+		await waitFor( () => expect( connectButton ).toBeEnabled() );
 		fireEvent.click( connectButton );
 
 		await waitFor( () =>
@@ -342,7 +333,7 @@ describe( 'ConnectPanel', () => {
 
 		render( <ConnectPanel /> );
 		const connectButton = screen.getByRole( 'button', { name: 'Connect site' } );
-		await waitFor( () => expect( connectButton ).toHaveAttribute( 'aria-disabled', 'false' ) );
+		await waitFor( () => expect( connectButton ).toBeEnabled() );
 		fireEvent.click( connectButton );
 
 		await waitFor( () =>

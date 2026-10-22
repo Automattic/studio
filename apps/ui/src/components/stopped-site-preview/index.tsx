@@ -1,5 +1,5 @@
 import { __ } from '@wordpress/i18n';
-import { Icon } from '@wordpress/ui';
+import { Icon } from '@wordpress/icons';
 import { useSiteThumbnail } from '@/data/queries/use-site-thumbnail';
 import { useIsSiteBusy, useStartSite } from '@/data/queries/use-sites';
 import { playIcon } from '@/lib/icons';

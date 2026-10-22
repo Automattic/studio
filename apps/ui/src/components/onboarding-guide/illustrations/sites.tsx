@@ -1,5 +1,4 @@
 import { __ } from '@wordpress/i18n';
-import { ThemeProvider } from '@wordpress/theme';
 import { clsx } from 'clsx';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { easings, envelope, sample, useTimeline, type Keyframe } from './choreography';
@@ -8,8 +7,7 @@ import styles from './style.module.css';
 import type { CSSProperties } from 'react';
 
 // The sidebar sits on the dark window chrome in both color schemes, so this
-// scene mirrors the sidebar-layout: a dark chrome background and a nested dark
-// theme scope so the row's wpds tokens resolve against the dark ramp.
+// scene renders in the dark scheme on a dark chrome background.
 const CHROME_BG_LIGHT = '#1e1e1e';
 const CHROME_BG_DARK = '#161616';
 
@@ -57,8 +55,7 @@ function statusDot( t: number ): { opacity: number; color: string } {
 		const phase = ( ( t - 5170 ) / 900 ) % 1;
 		opacity *= 0.4 + 0.6 * Math.abs( 1 - 2 * phase );
 	}
-	const color =
-		t < 7040 ? 'var(--studio-color-status-transitioning)' : 'var(--studio-color-status-running)';
+	const color = t < 7040 ? 'var(--status-transitioning)' : 'var(--status-running)';
 	return { opacity, color };
 }
 
@@ -96,72 +93,71 @@ export function SitesIllustration() {
 	const runningTip = envelope( t, 6820, 330, 8580, 440 );
 
 	return (
-		<ThemeProvider color={ { background: chromeBg } }>
-			<div
-				className={ styles.sitesScene }
-				style={ { '--sites-chrome-bg': chromeBg } as CSSProperties }
-				aria-hidden="true"
-			>
-				<div className={ styles.list }>
-					<div className={ clsx( styles.rowGhost, styles.rowGhostFar ) }>
-						<span className={ styles.rowGhostName }>Photography Portfolio</span>
-					</div>
-					<div className={ styles.rowGhost }>
-						<span className={ styles.rowGhostName }>Marketing Site</span>
-					</div>
-					<div className={ styles.row }>
-						<span className={ styles.rowName }>My WordPress Website</span>
-						<div className={ styles.rowActions }>
-							<div
-								className={ styles.btn }
-								style={ hoverStyle( envelope( t, 770, 440, 2970, 440 ) ) }
-							>
-								<SettingsGlyph />
-								<Tooltip style={ tooltipStyle( settingsTip ) }>{ __( 'Site settings' ) }</Tooltip>
-							</div>
-							<div
-								className={ styles.btn }
-								style={ hoverStyle( envelope( t, 3740, 440, 8580, 440 ) ) }
-							>
-								<svg
-									className={ styles.statusPlay }
-									viewBox="0 0 10 10"
-									aria-hidden="true"
-									style={ { opacity: playOpacity( t ) } }
-								>
-									<path d="M2.5 1 L9 5 L2.5 9 Z" />
-								</svg>
-								<span
-									className={ styles.statusDot }
-									style={ { opacity: dot.opacity, backgroundColor: dot.color } }
-								/>
-								{ /* Three tooltips fade one into the next, reading as one box whose
-								     wording changes as the site starts. */ }
-								<Tooltip style={ tooltipStyle( stoppedTip ) }>
-									{ __( 'Site status: Stopped' ) }
-								</Tooltip>
-								<Tooltip style={ tooltipStyle( startingTip ) }>{ __( 'Starting site…' ) }</Tooltip>
-								<Tooltip style={ tooltipStyle( runningTip ) }>
-									{ __( 'Site status: Running' ) }
-								</Tooltip>
-							</div>
+		<div
+			className={ styles.sitesScene }
+			data-color-scheme="dark"
+			style={ { '--sites-chrome-bg': chromeBg } as CSSProperties }
+			aria-hidden="true"
+		>
+			<div className={ styles.list }>
+				<div className={ clsx( styles.rowGhost, styles.rowGhostFar ) }>
+					<span className={ styles.rowGhostName }>Photography Portfolio</span>
+				</div>
+				<div className={ styles.rowGhost }>
+					<span className={ styles.rowGhostName }>Marketing Site</span>
+				</div>
+				<div className={ styles.row }>
+					<span className={ styles.rowName }>My WordPress Website</span>
+					<div className={ styles.rowActions }>
+						<div
+							className={ styles.btn }
+							style={ hoverStyle( envelope( t, 770, 440, 2970, 440 ) ) }
+						>
+							<SettingsGlyph />
+							<Tooltip style={ tooltipStyle( settingsTip ) }>{ __( 'Site settings' ) }</Tooltip>
 						</div>
-						<Cursor
-							className={ styles.cursor }
-							style={ {
-								transform: `translate(${ cursor.x }px, ${ cursor.y }px) scale(${ cursor.scale })`,
-								opacity: cursor.opacity,
-							} }
-						/>
+						<div
+							className={ styles.btn }
+							style={ hoverStyle( envelope( t, 3740, 440, 8580, 440 ) ) }
+						>
+							<svg
+								className={ styles.statusPlay }
+								viewBox="0 0 10 10"
+								aria-hidden="true"
+								style={ { opacity: playOpacity( t ) } }
+							>
+								<path d="M2.5 1 L9 5 L2.5 9 Z" />
+							</svg>
+							<span
+								className={ styles.statusDot }
+								style={ { opacity: dot.opacity, backgroundColor: dot.color } }
+							/>
+							{ /* Three tooltips fade one into the next, reading as one box whose
+								     wording changes as the site starts. */ }
+							<Tooltip style={ tooltipStyle( stoppedTip ) }>
+								{ __( 'Site status: Stopped' ) }
+							</Tooltip>
+							<Tooltip style={ tooltipStyle( startingTip ) }>{ __( 'Starting site…' ) }</Tooltip>
+							<Tooltip style={ tooltipStyle( runningTip ) }>
+								{ __( 'Site status: Running' ) }
+							</Tooltip>
+						</div>
 					</div>
-					<div className={ styles.rowGhost }>
-						<span className={ styles.rowGhostName }>Recipe Blog</span>
-					</div>
-					<div className={ clsx( styles.rowGhost, styles.rowGhostFar ) }>
-						<span className={ styles.rowGhostName }>Dev Sandbox</span>
-					</div>
+					<Cursor
+						className={ styles.cursor }
+						style={ {
+							transform: `translate(${ cursor.x }px, ${ cursor.y }px) scale(${ cursor.scale })`,
+							opacity: cursor.opacity,
+						} }
+					/>
+				</div>
+				<div className={ styles.rowGhost }>
+					<span className={ styles.rowGhostName }>Recipe Blog</span>
+				</div>
+				<div className={ clsx( styles.rowGhost, styles.rowGhostFar ) }>
+					<span className={ styles.rowGhostName }>Dev Sandbox</span>
 				</div>
 			</div>
-		</ThemeProvider>
+		</div>
 	);
 }

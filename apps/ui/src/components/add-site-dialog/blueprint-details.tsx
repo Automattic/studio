@@ -7,10 +7,10 @@ import { getErrorMessage } from '@studio/common/lib/error-formatting';
 import { useMutation } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
-import { arrowUpRight } from '@wordpress/icons';
-import { Button, Icon } from '@wordpress/ui';
+import { arrowUpRight, Icon } from '@wordpress/icons';
 import { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { Button } from '@/components/ui/button';
 import { useConnector } from '@/data/core';
 import { usePathValidator } from '@/data/queries/use-create-site-helpers';
 import { useCreateSite, useSites } from '@/data/queries/use-sites';
@@ -102,20 +102,18 @@ export function BlueprintDetails( {
 						<>
 							<Button
 								variant="outline"
-								tone="neutral"
-								size="compact"
+								size="header"
 								onClick={ () =>
 									void connector.openExternalUrl( getBlueprintPreviewUrl( blueprint ) )
 								}
 							>
-								<Icon icon={ arrowUpRight } size={ 16 } />
+								<Icon icon={ arrowUpRight } data-icon="inline-start" />
 								{ __( 'Preview in browser' ) }
 							</Button>
 							<Button
 								ref={ createButton }
-								variant="solid"
-								tone="brand"
-								size="compact"
+								variant="accent"
+								size="header"
 								loading={ create.isPending }
 								loadingAnnouncement={ __( 'Creating site' ) }
 								onClick={ () => create.mutate() }

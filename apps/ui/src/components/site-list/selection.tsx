@@ -4,7 +4,7 @@ import { __, _n, sprintf } from '@wordpress/i18n';
 import { Icon } from '@wordpress/icons';
 import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { DeleteSiteDialog } from '@/components/delete-site-dialog';
-import * as Menu from '@/components/menu';
+import * as Menu from '@/components/ui/menu';
 import { toast } from '@/data/app-messages';
 import { useSiteAgentActivity } from '@/data/queries/use-agent-run';
 import { useSessions, useUpdateSessionMetadata } from '@/data/queries/use-sessions';

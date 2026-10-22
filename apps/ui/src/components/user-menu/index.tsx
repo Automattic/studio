@@ -1,11 +1,11 @@
 import { __ } from '@wordpress/i18n';
 import { Icon, offline } from '@wordpress/icons';
-import { displayShortcut } from '@wordpress/keycodes';
-import { IconButton, Tooltip } from '@wordpress/ui';
+import { ariaKeyShortcut, displayShortcut } from '@wordpress/keycodes';
 import { Gravatar } from '@/components/gravatar';
-import * as Menu from '@/components/menu';
 import { NoticeHistoryButton } from '@/components/notice-history';
-import { SidebarButton } from '@/components/sidebar-button';
+import { Button, IconButton } from '@/components/ui/button';
+import * as Menu from '@/components/ui/menu';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useAuthUser, useLogin, useLogout } from '@/data/queries/use-auth-user';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useOffline } from '@/hooks/use-offline';
@@ -28,7 +28,12 @@ export function UserMenu() {
 				<Menu.Root>
 					<Menu.Trigger
 						render={
-							<SidebarButton className={ styles.userTrigger } aria-label={ __( 'Account' ) } />
+							<Button
+								variant="ghost"
+								size="icon"
+								className={ styles.userTrigger }
+								aria-label={ __( 'Account' ) }
+							/>
 						}
 					>
 						{ user ? (
@@ -76,12 +81,12 @@ export function UserMenu() {
 				<span className={ styles.spacer } aria-hidden="true" />
 				{ isOffline && <OfflineIndicator /> }
 				<IconButton
-					variant="minimal"
-					tone="neutral"
-					size="small"
-					className="studio-control"
 					icon={ settingsIcon }
 					label={ __( 'Settings' ) }
+					shortcut={ {
+						displayShortcut: displayShortcut.primary( ',' ),
+						ariaKeyShortcut: ariaKeyShortcut.primary( ',' ),
+					} }
 					onClick={ openSettings }
 				/>
 				<NoticeHistoryButton />
@@ -93,15 +98,15 @@ export function UserMenu() {
 function OfflineIndicator() {
 	const label = __( "You're offline" );
 	return (
-		<Tooltip.Root>
-			<Tooltip.Trigger
+		<Tooltip>
+			<TooltipTrigger
 				render={ <span className={ styles.offline } role="img" aria-label={ label } /> }
 			>
 				<Icon icon={ offline } size={ 20 } />
-			</Tooltip.Trigger>
-			<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
+			</TooltipTrigger>
+			<TooltipContent>
 				{ __( "You're offline. Your local sites still work normally." ) }
-			</Tooltip.Popup>
-		</Tooltip.Root>
+			</TooltipContent>
+		</Tooltip>
 	);
 }

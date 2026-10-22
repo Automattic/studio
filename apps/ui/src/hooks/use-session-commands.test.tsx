@@ -74,6 +74,15 @@ describe( 'useSessionCommands run end', () => {
 		expect( nonce() ).toBe( before + 2 );
 	} );
 
+	it( 'reloads the preview mid-run when the agent asks for it', async () => {
+		renderHarness();
+		await waitFor( () => expect( agentListener ).toBeDefined() );
+		const before = nonce();
+
+		send( 'session-1', { type: 'preview.reload', timestamp: '2026-07-01T00:00:00.000Z' } );
+		expect( nonce() ).toBe( before + 1 );
+	} );
+
 	it( 'ignores runs of other sessions', async () => {
 		renderHarness( 'session-1' );
 		await waitFor( () => expect( agentListener ).toBeDefined() );

@@ -17,6 +17,7 @@ import { createPickDesignTool, pickDesignTool } from './pick-design';
 import { pullSiteTool } from './pull-site';
 import { pushSiteTool } from './push-site';
 import { auditSeoTool } from './rank-me-up';
+import { refreshBrowserTool } from './refresh-browser';
 import { scaffoldThemeTool } from './scaffold-theme';
 import { getSiteInfoTool } from './site-info';
 import { startSiteTool } from './start-site';
@@ -59,6 +60,7 @@ export const studioToolDefinitions: AnyStudioAgentTool[] = [
 	importSiteTool,
 	exportSiteTool,
 	openAnnotationBrowserTool,
+	refreshBrowserTool,
 ];
 
 export interface CreateStudioToolsOptions {
@@ -86,6 +88,10 @@ export function resolveStudioToolDefinitions(
 ): AnyStudioAgentTool[] {
 	return studioToolDefinitions.flatMap( ( candidate ) => {
 		if ( candidate.name === generateImagesTool.name && ! options.imageGeneration ) {
+			return [];
+		}
+		// Only a Studio UI shows the preview it reloads.
+		if ( candidate.name === refreshBrowserTool.name && ! options.emitChatArtifacts ) {
 			return [];
 		}
 		let tool = candidate;

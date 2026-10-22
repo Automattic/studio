@@ -34,10 +34,6 @@ interface PreviewUIState {
 	pathsBySiteId: Record< string, string >;
 }
 
-function isWpAdminPath( path: string ): boolean {
-	return path === '/wp-admin' || path.startsWith( '/wp-admin/' ) || path.startsWith( '/wp-admin?' );
-}
-
 // The path a site's preview shows: its last visited path, or home.
 export function pathForSite(
 	pathsBySiteId: Record< string, string >,
@@ -106,12 +102,11 @@ function reducer( state: SessionUIState, action: SessionUIAction ): SessionUISta
 				},
 			};
 		case 'preview/reload':
-			// Reload in place, without opening a closed panel. wp-admin is left
-			// alone: the person may be working there, with unsaved edits in the
-			// editor, and a reload would interrupt them.
-			return isWpAdminPath( pathForSite( state.preview.pathsBySiteId, state.preview.siteId ) )
-				? state
-				: { ...state, preview: { ...state.preview, reloadNonce: state.preview.reloadNonce + 1 } };
+			// Reload in place, without opening a closed panel.
+			return {
+				...state,
+				preview: { ...state.preview, reloadNonce: state.preview.reloadNonce + 1 },
+			};
 		case 'preview/update-path': {
 			const pathsBySiteId = rememberPath( state.preview, action.path );
 			return pathsBySiteId === state.preview.pathsBySiteId

@@ -79,6 +79,8 @@ export { getPathFromPreviewUrl } from './address-bar';
 
 interface SitePreviewProps {
 	site: SiteDetails;
+	// The connected remote to show instead, for a chat switched to Live.
+	liveUrl?: string;
 	// Path to display within the previewed site, controlled by the parent so
 	// it can be updated by chat artifact events even when the panel was
 	// previously collapsed.
@@ -562,6 +564,7 @@ function areBrowserStatesEqual( a: BrowserNavigationState, b: BrowserNavigationS
 
 export function SitePreview( {
 	site,
+	liveUrl,
 	path,
 	reloadNonce,
 	onSendAnnotations,
@@ -575,12 +578,15 @@ export function SitePreview( {
 	const openSettings = useOpenSettings();
 	const { chatEnabled } = useAgenticFeatures();
 	const operation = useSiteOperation( site );
+	const startPending = useIsSiteStarting( site.id );
+	const stopPending = useIsSiteStopping( site.id );
+	const live = !! liveUrl;
 	// This window's own start or stop lands before the CLI records it.
-	const isStarting = useIsSiteStarting( site.id ) || operation === 'start';
-	const isStopping = useIsSiteStopping( site.id ) || operation === 'stop';
+	const isStarting = ! live && ( startPending || operation === 'start' );
+	const isStopping = ! live && ( stopPending || operation === 'stop' );
 	const otherOperation = isStarting || isStopping ? null : operation;
-	const siteUrl = getSiteUrl( site );
-	const canPreview = site.running;
+	const siteUrl = liveUrl ?? getSiteUrl( site );
+	const canPreview = live || site.running;
 	const canUseWebview = isElectron();
 	const trafficLightSpace = useTrafficLightSpace();
 	const sidebarCollapsed = useSidebarCollapsed();
@@ -621,6 +627,7 @@ export function SitePreview( {
 	const commandIdRef = useRef( 0 );
 	// Studio renders the design system itself, so it needs no page injection.
 	const showAnnotate =
+		! live &&
 		canPreview &&
 		chatEnabled &&
 		( connector.capabilities.annotatePreview || activeSurfaceKey === 'design' );
@@ -736,11 +743,11 @@ export function SitePreview( {
 	const handleSurfaceLoad = useCallback(
 		( key: PreviewSurfaceKey, url: string, guestId?: number ) => {
 			setAwaitingReveal( false );
-			if ( key === 'site' ) {
+			if ( key === 'site' && ! live ) {
 				setLoadedPage( { url, guestId } );
 			}
 		},
-		[]
+		[ live ]
 	);
 	const handleSurfaceBrowserState = useCallback(
 		( key: PreviewSurfaceKey, browser: BrowserNavigationState ) => {
@@ -826,19 +833,24 @@ export function SitePreview( {
 	}, [ activeSurfaceKey, reloadNonce, safePath, site.id ] );
 
 	// A host-driven reload targets what's on screen. Tracked against the last
-	// seen nonce so a switch doesn't replay it on the surface arrived at.
+	// seen nonce so a switch doesn't replay it on the surface arrived at. WP
+	// Admin is left alone: the person may be working there, with unsaved edits
+	// in the editor, and a reload would interrupt them.
 	const lastHostReloadNonceRef = useRef( reloadNonce );
 	useEffect( () => {
 		if ( lastHostReloadNonceRef.current === reloadNonce ) {
 			return;
 		}
 		lastHostReloadNonceRef.current = reloadNonce;
+		if ( activeRealm === 'admin' ) {
+			return;
+		}
 		if ( activeSurfaceKey === 'design' ) {
 			sendSurfaceCommand( 'design', 'reload' );
 		} else {
 			patchSurface( activeSurfaceKey, { reloadNonce } );
 		}
-	}, [ activeSurfaceKey, patchSurface, reloadNonce, sendSurfaceCommand ] );
+	}, [ activeRealm, activeSurfaceKey, patchSurface, reloadNonce, sendSurfaceCommand ] );
 
 	// Where each realm was last seen, so flipping to WP Admin and back returns
 	// to the exact front-end page rather than the site root.
@@ -923,17 +935,18 @@ export function SitePreview( {
 	// Matches the realm on screen (front end / WP Admin / phpMyAdmin) rather
 	// than always the front end. Admin screens go through /studio-auto-login so
 	// they don't land on the login form; the front end opens logged out.
-	const openExternal =
-		activeRealm === 'design'
-			? undefined
-			: () => {
-					void connector.trackEvent( getRealmOpenEvent( activeRealm ), { browser: 'external' } );
-					void connector
-						.openSiteUrl( site.id, safePath, { autoLogin: activeRealm !== 'frontend' } )
-						.catch( ( error ) => {
-							console.error( 'Failed to open site in browser:', error );
-						} );
-			  };
+	const openExternal = live
+		? () => void connector.openExternalUrl( `${ siteUrl }${ safePath }` )
+		: activeRealm === 'design'
+		? undefined
+		: () => {
+				void connector.trackEvent( getRealmOpenEvent( activeRealm ), { browser: 'external' } );
+				void connector
+					.openSiteUrl( site.id, safePath, { autoLogin: activeRealm !== 'frontend' } )
+					.catch( ( error ) => {
+						console.error( 'Failed to open site in browser:', error );
+					} );
+		  };
 	const openSiteSettings = () => openSettings( 'site', site.id );
 
 	return (
@@ -1002,11 +1015,12 @@ export function SitePreview( {
 							siteIcon={ siteIcon }
 							siteUrl={ siteUrl }
 							path={ getSafePath( path ) }
+							remote={ live }
 							onNavigate={ ( nextPath ) => onPathChange?.( nextPath ) }
 							onSwitchRealm={ handleSwitchRealm }
 							hasDesignSystem={ !! siteDesign.data }
 							onOpenExternal={ openExternal }
-							onOpenSettings={ openSiteSettings }
+							onOpenSettings={ live ? undefined : openSiteSettings }
 						/>
 					) : null }
 				</div>
@@ -1022,8 +1036,12 @@ export function SitePreview( {
 						/>
 					) : null }
 					<PublishButton site={ site } anchor={ headerRef } />
-					<SiteLifecycleButton site={ site } />
-					<ShareButton site={ site } className={ styles.shareAction } />
+					{ live ? null : (
+						<>
+							<SiteLifecycleButton site={ site } />
+							<ShareButton site={ site } className={ styles.shareAction } />
+						</>
+					) }
 					<Menu.Root modal={ false }>
 						<Tooltip>
 							<Menu.Trigger
@@ -1046,16 +1064,18 @@ export function SitePreview( {
 							<TooltipContent side="bottom">{ __( 'More preview actions' ) }</TooltipContent>
 						</Tooltip>
 						<Menu.Popup side="bottom" align="end">
-							<Menu.Item
-								aria-description={ shareStatus.label }
-								onClick={ () => requestHeaderPanel( { panel: 'share', siteId: site.id } ) }
-							>
-								<ShareStatusIcon icon={ shareIcon } status={ shareStatus } />
-								{ __( 'Share' ) }
-							</Menu.Item>
+							{ live ? null : (
+								<Menu.Item
+									aria-description={ shareStatus.label }
+									onClick={ () => requestHeaderPanel( { panel: 'share', siteId: site.id } ) }
+								>
+									<ShareStatusIcon icon={ shareIcon } status={ shareStatus } />
+									{ __( 'Share' ) }
+								</Menu.Item>
+							) }
 							{ canPreview ? (
 								<>
-									<Menu.Separator />
+									{ live ? null : <Menu.Separator /> }
 									<Menu.Item
 										disabled={ ! browserState.canGoBack }
 										onClick={ () => sendBrowserCommand( 'back' ) }
@@ -1072,7 +1092,9 @@ export function SitePreview( {
 										{ __( 'Reload preview' ) }
 									</Menu.Item>
 									<Menu.Separator />
-									<Menu.Item onClick={ openSiteSettings }>{ __( 'Site settings' ) }</Menu.Item>
+									{ live ? null : (
+										<Menu.Item onClick={ openSiteSettings }>{ __( 'Site settings' ) }</Menu.Item>
+									) }
 									{ openExternal ? (
 										<Menu.Item onClick={ openExternal }>{ __( 'Open in browser' ) }</Menu.Item>
 									) : null }

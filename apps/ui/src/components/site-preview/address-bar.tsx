@@ -99,6 +99,8 @@ interface PreviewAddressBarProps {
 	siteIcon?: string | null;
 	siteUrl: string;
 	path: string;
+	// A remote site: no local realms, auto-login or recent locations.
+	remote?: boolean;
 	onNavigate: ( path: string ) => void;
 	onSwitchRealm: ( realm: PreviewRealm ) => void;
 	hasDesignSystem?: boolean;
@@ -205,6 +207,7 @@ export function PreviewAddressBar( {
 	siteIcon,
 	siteUrl,
 	path,
+	remote = false,
 	onNavigate,
 	onSwitchRealm,
 	hasDesignSystem = false,
@@ -239,11 +242,15 @@ export function PreviewAddressBar( {
 			return;
 		}
 		const nextPath =
-			intent.type === 'path'
-				? getRealmNavigationPath( intent.path, siteUrl )
-				: `/?s=${ encodeURIComponent( intent.term ) }`;
-		const recentLabel = getDisplayUrl( siteUrl, intent.type === 'path' ? intent.path : nextPath );
-		setRecentLocations( storeRecentLocation( site.id, { path: nextPath, label: recentLabel } ) );
+			intent.type === 'search'
+				? `/?s=${ encodeURIComponent( intent.term ) }`
+				: remote
+				? intent.path
+				: getRealmNavigationPath( intent.path, siteUrl );
+		if ( ! remote ) {
+			const recentLabel = getDisplayUrl( siteUrl, intent.type === 'path' ? intent.path : nextPath );
+			setRecentLocations( storeRecentLocation( site.id, { path: nextPath, label: recentLabel } ) );
+		}
 		setShortcutsOpen( false );
 		onNavigate( nextPath );
 	};
@@ -293,6 +300,7 @@ export function PreviewAddressBar( {
 					className={ styles.siteIcon }
 					data-realm={ activeRealm }
 					aria-label={ __( 'Preview shortcuts' ) }
+					disabled={ remote }
 					onClick={ () => setShortcutsOpen( true ) }
 				>
 					{ renderRealmIcon( activeRealm ) }
@@ -304,7 +312,7 @@ export function PreviewAddressBar( {
 						setValue( event.target.value );
 						setInvalid( false );
 					} }
-					onClick={ () => setShortcutsOpen( true ) }
+					onClick={ () => setShortcutsOpen( ! remote ) }
 					onFocus={ ( event ) => {
 						event.currentTarget.select();
 					} }

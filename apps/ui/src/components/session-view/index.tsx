@@ -52,7 +52,7 @@ import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites
 import {
 	useCreateSession,
 	useSession,
-	useSessionEffectiveEnvironment,
+	useSessionLiveSite,
 	useSetSessionEnvironment,
 } from '@/data/queries/use-sessions';
 import {
@@ -139,9 +139,9 @@ function SessionHeader( {
 				</>
 			) : null }
 			<span className={ styles.headerSpacer } aria-hidden="true" />
-			{ site && effectiveEnvironment === 'local' ? (
+			{ site ? (
 				<div className={ styles.headerActions } data-header-actions>
-					{ site.running ? (
+					{ site.running || effectiveEnvironment === 'live' ? (
 						<PreviewToggleButton canHideChat />
 					) : (
 						<>
@@ -289,7 +289,9 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	const { data: sites } = useSites();
 	const { mutateAsync: createSession, isPending: isCreatingSession } = useCreateSession();
 	const ownerSite = findAiSessionOwnerSite( sites, data?.summary );
-	const effectiveEnvironment = useSessionEffectiveEnvironment( data?.summary, ownerSite?.id );
+	const effectiveEnvironment = useSessionLiveSite( data?.summary, ownerSite?.id )
+		? 'live'
+		: 'local';
 	const {
 		isRunning,
 		hasActiveRun,

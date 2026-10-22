@@ -10,3 +10,7 @@ export const DEFAULT_COLOR_SCHEME: ColorScheme = 'light';
 
 export const QUIT_SITES_BEHAVIORS = [ 'stop', 'stop-and-auto-start', 'leave-running' ] as const;
 export type QuitSitesBehavior = ( typeof QUIT_SITES_BEHAVIORS )[ number ];
+
+// What Add site opens on: the starting points, or straight on a blank site's setup.
+export const NEW_SITE_BEHAVIORS = [ 'choose', 'blank' ] as const;
+export type NewSiteBehavior = ( typeof NEW_SITE_BEHAVIORS )[ number ];

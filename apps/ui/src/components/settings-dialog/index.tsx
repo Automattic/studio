@@ -105,6 +105,7 @@ function getSections( scope: 'studio' | 'site' ): Section[] {
 						__( 'Terminal' ),
 						__( 'Default directory' ),
 						__( 'Improve Studio for everyone' ),
+						__( 'When adding a site' ),
 						__( 'When Studio quits' ),
 						__( 'Documentation' ),
 						__( 'Report an issue' ),

@@ -5,6 +5,7 @@ import { getVisibleToasts, resetAppMessagesForTests } from '@/data/app-messages'
 import { useConnector } from '@/data/core';
 import {
 	useAutoStartSites,
+	useCreateSite,
 	useSites,
 	useStartSite,
 	useStopSite,
@@ -87,6 +88,40 @@ describe( 'useAutoStartSites', () => {
 
 		await waitFor( () => expect( startSite ).toHaveBeenCalledWith( 'stopped-auto-start' ) );
 		expect( getVisibleToasts() ).toHaveLength( 0 );
+	} );
+} );
+
+describe( 'useCreateSite', () => {
+	it( 'announces the created site, and a failure', async () => {
+		resetAppMessagesForTests();
+		const createSiteCall = vi
+			.fn()
+			.mockResolvedValueOnce( createSite( { name: 'Bakery' } ) )
+			.mockRejectedValueOnce( new Error( 'Folder is not empty' ) );
+		useConnectorMock.mockReturnValue( {
+			createSite: createSiteCall,
+			capabilities: {},
+		} as unknown as Connector );
+		const queryClient = new QueryClient( { defaultOptions: { mutations: { retry: false } } } );
+		const { result } = renderHook( () => useCreateSite(), {
+			wrapper: ( { children }: { children: ReactNode } ) => (
+				<QueryClientProvider client={ queryClient }>{ children }</QueryClientProvider>
+			),
+		} );
+
+		await result.current.mutateAsync( { name: 'Bakery', path: '/sites/bakery' } );
+		await expect(
+			result.current.mutateAsync( { name: 'Shop', path: '/sites/shop' } )
+		).rejects.toThrow();
+
+		await waitFor( () =>
+			expect(
+				getVisibleToasts().map( ( { title, description } ) => [ title, description ] )
+			).toEqual( [
+				[ 'Site created: Bakery', undefined ],
+				[ 'Couldn’t create site: Shop', 'Folder is not empty' ],
+			] )
+		);
 	} );
 } );
 

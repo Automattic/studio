@@ -47,7 +47,17 @@ export function useCreateSite() {
 	const queryClient = useQueryClient();
 	return useMutation( {
 		mutationFn: ( params: CreateSiteParams ) => connector.createSite( params ),
-		onSuccess: () => queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } ),
+		onSuccess: ( site ) => {
+			// translators: %s is the site name.
+			toast.success( sprintf( __( 'Site created: %s' ), site.name ) );
+			return queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } );
+		},
+		onError: ( error, { name } ) =>
+			// translators: %s is the site name.
+			toast.error( sprintf( __( 'Couldn’t create site: %s' ), name ), {
+				description: getErrorMessage( error ),
+				action: openStudioLogsAction( connector ),
+			} ),
 	} );
 }
 

@@ -12,6 +12,7 @@ import { SUPPORTED_EDITORS } from '@studio/common/lib/user-settings/editor';
 import { getFirstInstalledEditor } from '@studio/common/lib/user-settings/installed-apps';
 import {
 	DEFAULT_COLOR_SCHEME,
+	NEW_SITE_BEHAVIORS,
 	QUIT_SITES_BEHAVIORS,
 	SUPPORTED_COLOR_SCHEMES,
 } from '@studio/common/lib/user-settings/preferences';
@@ -19,7 +20,11 @@ import { DEFAULT_TERMINAL, SUPPORTED_TERMINALS } from '@studio/common/lib/user-s
 import type { TracksEventName, TracksProps } from '@studio/common/lib/record-tracks-event';
 import type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
 import type { InstalledApps } from '@studio/common/lib/user-settings/installed-apps';
-import type { ColorScheme, QuitSitesBehavior } from '@studio/common/lib/user-settings/preferences';
+import type {
+	ColorScheme,
+	NewSiteBehavior,
+	QuitSitesBehavior,
+} from '@studio/common/lib/user-settings/preferences';
 import type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
 
 /**
@@ -42,6 +47,7 @@ export interface UserPreferences {
 	autoStartSiteOnChat: boolean;
 	// Ask before discarding preview annotations.
 	confirmDeleteAnnotations: boolean;
+	newSiteBehavior: NewSiteBehavior;
 }
 
 // Passed in, so this stays a pure reader over the config files.
@@ -78,6 +84,7 @@ export const userPreferencesPatchSchema = z.object( {
 	sidebarPins: sidebarPinsSchema.nullish(),
 	autoStartSiteOnChat: z.boolean().nullish(),
 	confirmDeleteAnnotations: z.boolean().nullish(),
+	newSiteBehavior: z.enum( NEW_SITE_BEHAVIORS ).nullish(),
 	// Where the change was made (the analytics toggle also appears during onboarding); not stored.
 	surface: z.enum( [ 'onboarding', 'settings' ] ).optional(),
 } );
@@ -95,6 +102,7 @@ const APP_CONFIG_KEYS = [
 	[ 'sidebarPins', 'sidebarPins' ],
 	[ 'autoStartSiteOnChat', 'autoStartSiteOnChat' ],
 	[ 'confirmDeleteAnnotations', 'confirmDeleteAnnotations' ],
+	[ 'newSiteBehavior', 'newSiteBehavior' ],
 ] as const satisfies readonly ( readonly [ keyof UserPreferencesPatch, string ] )[];
 
 function getDefaultSiteDirectory( config: AppConfig, sitesRoot: string ): string {
@@ -126,6 +134,7 @@ export async function readUserPreferences( {
 		sidebarPins: sidebarPinsSchema.catch( [] ).parse( config.sidebarPins ),
 		autoStartSiteOnChat: config.autoStartSiteOnChat === true,
 		confirmDeleteAnnotations: config.confirmDeleteAnnotations !== false,
+		newSiteBehavior: z.enum( NEW_SITE_BEHAVIORS ).catch( 'choose' ).parse( config.newSiteBehavior ),
 	};
 }
 

@@ -9,6 +9,7 @@ const mocks = vi.hoisted( () => ( {
 	navigate: vi.fn(),
 	search: {} as Record< string, unknown >,
 	setPins: vi.fn(),
+	preferences: {} as Record< string, unknown >,
 } ) );
 
 const BLOG = { slug: 'personal-blog-2', title: 'Personal Blog' } as Blueprint;
@@ -21,6 +22,10 @@ vi.mock( '@tanstack/react-router', () => ( {
 vi.mock( '@/data/queries/use-sidebar-pins', () => ( {
 	sitePinKey: ( id: string ) => `site:${ id }`,
 	useSidebarPins: () => ( { pins: [ 'site:old' ], setPins: mocks.setPins } ),
+} ) );
+
+vi.mock( '@/data/queries/use-user-preferences', () => ( {
+	useUserPreferences: () => ( { data: mocks.preferences } ),
 } ) );
 
 vi.mock( './blueprint-gallery', () => ( {
@@ -54,8 +59,21 @@ function Panel( { name }: { name: string } ) {
 vi.mock( './blueprint-details', () => ( {
 	BlueprintDetails: () => <Panel name="Details" />,
 } ) );
-vi.mock( './create-panel', () => ( { CreatePanel: () => <Panel name="Create" /> } ) );
-vi.mock( './connect-panel', () => ( { ConnectPanel: () => <Panel name="Connect" /> } ) );
+vi.mock( './create-panel', () => ( {
+	CreatePanel: ( { remote }: { remote?: { name: string } } ) => (
+		<Panel name={ remote ? `Create ${ remote.name }` : 'Create' } />
+	),
+} ) );
+vi.mock( './connect-panel', () => ( {
+	ConnectPanel: ( { onConnect }: { onConnect: ( site: { name: string } ) => void } ) => (
+		<>
+			<Panel name="Connect" />
+			<button type="button" onClick={ () => onConnect( { name: 'Remote site' } ) }>
+				Remote site card
+			</button>
+		</>
+	),
+} ) );
 vi.mock( './import-panel', () => ( {
 	BackupDropZone: () => <Panel name="Import" />,
 	ImportPanel: () => <Panel name="Import setup" />,
@@ -65,6 +83,7 @@ describe( 'AddSiteDialog', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
 		mocks.search = {};
+		mocks.preferences = {};
 	} );
 
 	it( 'opens on the section in the URL and moves between starting points', () => {
@@ -72,7 +91,7 @@ describe( 'AddSiteDialog', () => {
 		render( <AddSiteDialog /> );
 		expect( screen.getByText( 'Connect panel' ) ).toBeVisible();
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'Create' } ) );
+		fireEvent.click( screen.getByRole( 'tab', { name: 'Create' } ) );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Personal Blog card' } ) );
 
 		expect( screen.getByText( 'Details panel' ) ).toBeVisible();
@@ -81,14 +100,60 @@ describe( 'AddSiteDialog', () => {
 		expect( screen.getByRole( 'button', { name: 'Personal Blog card' } ) ).toBeVisible();
 	} );
 
+	it( 'moves through the side nav with the arrow keys', () => {
+		mocks.search = { addSite: 'connect' };
+		render( <AddSiteDialog /> );
+		const connect = screen.getByRole( 'tab', { name: 'Connect' } );
+		expect( connect ).toHaveAttribute( 'aria-selected', 'true' );
+		connect.focus();
+
+		fireEvent.keyDown( connect, { key: 'ArrowDown' } );
+		expect( screen.getByRole( 'tab', { name: 'Import' } ) ).toHaveFocus();
+		fireEvent.keyDown( document.activeElement!, { key: 'End' } );
+		expect( screen.getByRole( 'tab', { name: 'Blog' } ) ).toHaveFocus();
+		fireEvent.keyDown( document.activeElement!, { key: 'ArrowDown' } );
+		expect( screen.getByRole( 'tab', { name: 'Create' } ) ).toHaveFocus();
+		expect( screen.getByText( 'Connect panel' ) ).toBeVisible();
+	} );
+
+	it( 'opens on a blank site’s setup when the preference says so', () => {
+		mocks.preferences = { newSiteBehavior: 'blank' };
+		mocks.search = { addSite: 'create' };
+		render( <AddSiteDialog /> );
+
+		expect( screen.getByText( 'Create panel' ) ).toBeVisible();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Back' } ) );
+		expect( screen.getByRole( 'button', { name: 'Personal Blog card' } ) ).toBeVisible();
+	} );
+
+	it( 'sets up the remote site picked in Connect before creating anything', () => {
+		mocks.search = { addSite: 'connect' };
+		render( <AddSiteDialog /> );
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Remote site card' } ) );
+		expect( screen.getByText( 'Create Remote site panel' ) ).toBeVisible();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Back' } ) );
+		expect( screen.getByText( 'Connect panel' ) ).toBeVisible();
+	} );
+
+	it( 'waits for Settings to close', () => {
+		mocks.search = { addSite: 'create', settings: 'general' };
+		const { rerender } = render( <AddSiteDialog /> );
+		expect( screen.queryByRole( 'dialog' ) ).not.toBeInTheDocument();
+
+		mocks.search = { addSite: 'create' };
+		rerender( <AddSiteDialog /> );
+		expect( screen.getByRole( 'dialog' ) ).toBeVisible();
+	} );
+
 	it( 'closes by clearing the URL', () => {
-		mocks.search = { addSite: 'connect', pin: true, settings: 'general' };
+		mocks.search = { addSite: 'connect', pin: true, other: 'kept' };
 		render( <AddSiteDialog /> );
 
 		fireEvent.click( screen.getByRole( 'button', { name: 'Close Add site' } ) );
 
 		const { search } = mocks.navigate.mock.calls[ 0 ][ 0 ];
-		expect( search( mocks.search ) ).toEqual( { settings: 'general' } );
+		expect( search( mocks.search ) ).toEqual( { other: 'kept' } );
 	} );
 
 	it( 'stays open while a panel is working', () => {

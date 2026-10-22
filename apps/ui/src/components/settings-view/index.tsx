@@ -16,6 +16,7 @@ import { useUserLocale } from '@/data/queries/use-user-locale';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
 import { AccountSection } from './account-section';
 import { InstructionsEditor } from './instructions-editor';
+import { NewSiteBehaviorRow } from './new-site-behavior-row';
 import { UNSET, toPreferencesFormData, toPreferencesPatch } from './preferences';
 import { SettingsGroup, SettingsRow, SettingsSelect, SettingsToggle } from './rows';
 import { StudioCliSection } from './studio-cli-section';
@@ -176,6 +177,7 @@ function PreferencesPanel( {
 				</SettingsRow>
 			</SettingsGroup>
 			<SettingsGroup title={ __( 'Interface' ) }>
+				<NewSiteBehaviorRow />
 				<SettingsRow
 					title={ __( 'When Studio quits' ) }
 					description={ __( 'Choose what happens to running sites when you quit Studio.' ) }

@@ -42,7 +42,6 @@ import { getAiTracksIdentity } from '@studio/common/ai/tracks-identity';
 import { type TSchema } from 'typebox';
 import { withDesignSystemPreview } from 'cli/ai/chat-artifacts';
 import { isImageGenerationAvailable } from 'cli/ai/image-generation';
-import { withSavedOverrideNote } from 'cli/ai/saved-overrides';
 import { readActiveSiteFacts } from 'cli/ai/site-facts';
 import { buildSystemPrompt, type ToolPromptContribution } from 'cli/ai/system-prompt';
 import { resolveStudioToolDefinitions } from 'cli/ai/tools';
@@ -689,22 +688,9 @@ function buildAgentTools(
 	const designSystemPreview = < TTool extends AgentToolAny >( tool: TTool ) =>
 		chatArtifactsEnabled ? withDesignSystemPreview( tool, STUDIO_SITES_ROOT ) : tool;
 	const piTools: AgentToolAny[] = [
-		withSavedOverrideNote(
-			renameTool( createReadTool( STUDIO_SITES_ROOT ), 'Read' ),
-			STUDIO_SITES_ROOT
-		),
-		designSystemPreview(
-			withSavedOverrideNote(
-				renameTool( createWriteTool( STUDIO_SITES_ROOT ), 'Write' ),
-				STUDIO_SITES_ROOT
-			)
-		),
-		designSystemPreview(
-			withSavedOverrideNote(
-				renameTool( createEditTool( STUDIO_SITES_ROOT ), 'Edit' ),
-				STUDIO_SITES_ROOT
-			)
-		),
+		renameTool( createReadTool( STUDIO_SITES_ROOT ), 'Read' ),
+		designSystemPreview( renameTool( createWriteTool( STUDIO_SITES_ROOT ), 'Write' ) ),
+		designSystemPreview( renameTool( createEditTool( STUDIO_SITES_ROOT ), 'Edit' ) ),
 		renameTool( createBashTool( STUDIO_SITES_ROOT ), 'Bash' ),
 		renameTool( createGrepTool( STUDIO_SITES_ROOT ), 'Grep' ),
 		renameTool( createFindTool( STUDIO_SITES_ROOT ), 'Glob' ),

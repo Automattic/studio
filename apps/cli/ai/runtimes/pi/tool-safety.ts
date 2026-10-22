@@ -106,7 +106,7 @@ export function getPayloadLimitViolation( toolName: string, params: unknown ): s
 
 const CORE_ROOT_FILE = /^(index|xmlrpc|wp-(?!config\b)[a-z-]+)\.php$/;
 
-export function resolveToolPath( filePath: string, cwd: string ): string {
+function resolveToolPath( filePath: string, cwd: string ): string {
 	const withoutAt = filePath.replace( /^@/, '' );
 	const expanded =
 		withoutAt === '~' || withoutAt.startsWith( '~/' )
@@ -116,7 +116,7 @@ export function resolveToolPath( filePath: string, cwd: string ): string {
 }
 
 /** The WordPress install a file is in, if any: the nearest folder with wp-includes/ and wp-content/. */
-export function findWordPressRoot( filePath: string ): string | undefined {
+function findWordPressRoot( filePath: string ): string | undefined {
 	for (
 		let dir = path.dirname( filePath );
 		dir !== path.dirname( dir );

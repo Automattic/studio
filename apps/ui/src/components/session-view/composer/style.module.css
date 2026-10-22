@@ -115,7 +115,7 @@
 }
 
 .shellField .input {
-	min-height: 48px;
+	min-height: calc(3lh + 28px);
 }
 
 .dropOverlay {

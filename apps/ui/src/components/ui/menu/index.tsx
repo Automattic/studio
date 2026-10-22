@@ -3,7 +3,8 @@ import { Menu as BaseMenu } from '@base-ui/react/menu';
 import { chevronRightSmall, Icon } from '@wordpress/icons';
 import { clsx } from 'clsx';
 import { forwardRef } from 'react';
-import { FloatingSurface } from '@/components/floating-surface';
+import { FloatingSurface } from '@/components/ui/surface';
+import surface from '@/components/ui/surface/style.module.css';
 import styles from './style.module.css';
 import type {
 	ComponentPropsWithoutRef,
@@ -59,7 +60,9 @@ export function Popup( {
 				className={ styles.positioner }
 			>
 				<BaseMenu.Popup
-					render={ <FloatingSurface className={ clsx( styles.popup, className ) } /> }
+					render={
+						<FloatingSurface className={ clsx( surface.padded, styles.popup, className ) } />
+					}
 					onClick={ onClick }
 					onKeyDown={ onKeyDown }
 					onPointerDown={ onPointerDown }
@@ -94,7 +97,9 @@ export function ContextPopup( {
 		<BaseMenu.Portal>
 			<BaseMenu.Positioner className={ styles.positioner }>
 				<BaseMenu.Popup
-					render={ <FloatingSurface className={ clsx( styles.popup, className ) } /> }
+					render={
+						<FloatingSurface className={ clsx( surface.padded, styles.popup, className ) } />
+					}
 					onClick={ onClick }
 					onKeyDown={ onKeyDown }
 					onPointerDown={ onPointerDown }
@@ -118,7 +123,7 @@ export const Item = forwardRef< ElementRef< typeof BaseMenu.Item >, ItemProps >(
 	return (
 		<BaseMenu.Item
 			ref={ ref }
-			className={ clsx( styles.item, destructive && styles.itemDestructive, className ) }
+			className={ clsx( surface.item, destructive && styles.destructive, className ) }
 			{ ...props }
 		>
 			{ children }
@@ -133,11 +138,7 @@ export const SubmenuTrigger = forwardRef<
 	SubmenuTriggerProps
 >( function SubmenuTrigger( { className, children, ...props }, ref ) {
 	return (
-		<BaseMenu.SubmenuTrigger
-			ref={ ref }
-			className={ `${ styles.item } ${ className ?? '' }` }
-			{ ...props }
-		>
+		<BaseMenu.SubmenuTrigger ref={ ref } className={ clsx( surface.item, className ) } { ...props }>
 			{ children }
 			<Icon icon={ chevronRightSmall } className={ styles.submenuChevron } />
 		</BaseMenu.SubmenuTrigger>
@@ -151,7 +152,7 @@ export const RadioItem = forwardRef< ElementRef< typeof BaseMenu.RadioItem >, Ra
 		return (
 			<BaseMenu.RadioItem
 				ref={ ref }
-				className={ `${ styles.item } ${ styles.radioItem } ${ className ?? '' }` }
+				className={ clsx( surface.item, styles.radioItem, className ) }
 				{ ...props }
 			>
 				<span className={ styles.indicator } aria-hidden="true">
@@ -186,5 +187,5 @@ export function GroupLabel( { children }: { children: ReactNode } ) {
 }
 
 export function Separator( { className }: { className?: string } ) {
-	return <BaseMenu.Separator className={ `${ styles.separator } ${ className ?? '' }` } />;
+	return <BaseMenu.Separator className={ clsx( surface.separator, className ) } />;
 }

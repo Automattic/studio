@@ -1,8 +1,8 @@
 import { __, sprintf } from '@wordpress/i18n';
 import { moreHorizontal, trash, Icon } from '@wordpress/icons';
-import * as Menu from '@/components/menu';
 import { SettingsGroup, SettingsRow, SettingsToggle } from '@/components/settings-view/rows';
 import { Button, IconButton } from '@/components/ui/button';
+import * as Menu from '@/components/ui/menu';
 import { useSiteAgentFiles, useUpdateSiteAgentFiles } from '@/data/queries/use-site-agent-files';
 import styles from './style.module.css';
 import type { SiteAgentFileKind } from '@/data/core';

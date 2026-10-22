@@ -10,8 +10,8 @@ import {
 	moreHorizontal,
 } from '@wordpress/icons';
 import { useId, useRef, useState } from 'react';
-import * as Menu from '@/components/menu';
 import { Button, IconButton } from '@/components/ui/button';
+import * as Menu from '@/components/ui/menu';
 import { useConnector } from '@/data/core';
 import {
 	useCancelSync,

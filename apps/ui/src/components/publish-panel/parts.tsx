@@ -5,9 +5,9 @@ import { chevronDownSmall, chevronLeft, Icon } from '@wordpress/icons';
 import { Progress } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useEffect, useRef, type ReactNode } from 'react';
-import * as Menu from '@/components/menu';
-import * as Popover from '@/components/popover';
 import { Button } from '@/components/ui/button';
+import * as Menu from '@/components/ui/menu';
+import * as Popover from '@/components/ui/popover';
 import { Spinner } from '@/components/ui/spinner';
 import {
 	PULL_FROM_LIVE_MUTATION_KEY,

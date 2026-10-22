@@ -1,5 +1,5 @@
 import { Popover as BasePopover } from '@base-ui/react/popover';
-import { FloatingSurface } from '@/components/floating-surface';
+import { FloatingSurface } from '@/components/ui/surface';
 import styles from './style.module.css';
 import type { ComponentProps, CSSProperties, ReactNode } from 'react';
 

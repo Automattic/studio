@@ -12,16 +12,15 @@
 }
 
 @media (prefers-reduced-motion: no-preference) {
-	.panel.panel {
-		transition:
-			translate 240ms cubic-bezier(0.645, 0.045, 0.355, 1),
-			opacity 240ms cubic-bezier(0.645, 0.045, 0.355, 1);
+	.panel {
+		transition-property: translate, opacity;
+		transition-duration: var(--motion-duration-layout);
+		transition-timing-function: var(--motion-ease-layout);
 	}
 
-	.panel.panel[data-starting-style],
-	.panel.panel[data-ending-style] {
-		opacity: 0;
-		transform: none;
+	.panel[data-starting-style],
+	.panel[data-ending-style] {
+		scale: 1;
 		translate: calc(100% + 12px) 0;
 	}
 }

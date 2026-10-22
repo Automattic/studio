@@ -5,8 +5,8 @@ import { __ } from '@wordpress/i18n';
 import { arrowUpRight, check, Icon } from '@wordpress/icons';
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { AccountPromptDialog } from '@/components/account-prompt';
-import * as Popover from '@/components/popover';
 import { Button } from '@/components/ui/button';
+import * as Popover from '@/components/ui/popover';
 import { useConnector } from '@/data/core';
 import { useAuthUser } from '@/data/queries/use-auth-user';
 import {

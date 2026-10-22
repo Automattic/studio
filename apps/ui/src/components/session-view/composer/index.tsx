@@ -66,8 +66,8 @@ import {
 	annotationSubmission,
 	getAnnotationsAttachment,
 } from '@/components/annotations/submission';
-import * as Menu from '@/components/menu';
 import { Button } from '@/components/ui/button';
+import * as Menu from '@/components/ui/menu';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';

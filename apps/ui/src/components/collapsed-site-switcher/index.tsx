@@ -2,8 +2,8 @@ import { __ } from '@wordpress/i18n';
 import { isAppleOS } from '@wordpress/keycodes';
 import { VisuallyHidden } from '@wordpress/ui';
 import { useState, type ReactElement } from 'react';
-import * as Popover from '@/components/popover';
 import { SiteList } from '@/components/site-list';
+import * as Popover from '@/components/ui/popover';
 import styles from './style.module.css';
 
 const HOVER_OPEN_DELAY_MS = 180;

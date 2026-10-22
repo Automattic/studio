@@ -12,8 +12,11 @@
 	}
 
 	.popup {
-		padding: 6px;
 		border-radius: calc( var( --radius-md ) + 6px );
+	}
+
+	.padded {
+		padding: 6px;
 	}
 
 	.motion {

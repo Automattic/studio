@@ -21,7 +21,7 @@ vi.mock( '@/components/ai-credits-details-dialog', () => ( {
 		open ? <div role="dialog">How AI credits work</div> : null,
 } ) );
 
-vi.mock( '@/components/menu', () => ( {
+vi.mock( '@/components/ui/menu', () => ( {
 	Root: ( { children }: { children: ReactNode } ) => <div>{ children }</div>,
 	Trigger: ( { render: trigger }: { render: ReactNode } ) => trigger,
 	Popup: ( { children }: { children: ReactNode } ) => <div>{ children }</div>,

@@ -30,13 +30,13 @@ import {
 	type SiteAnnotations,
 } from '@/components/annotations/store';
 import { DesignSystemView } from '@/components/design-system-view';
-import * as Menu from '@/components/menu';
 import { PreviewParticles } from '@/components/preview-particles';
 import { PublishButton } from '@/components/publish-panel';
 import { ShareButton } from '@/components/share-dialog';
 import { SiteLifecycleButton } from '@/components/site-lifecycle-button';
 import { StoppedSitePreview } from '@/components/stopped-site-preview';
 import { Button, IconButton } from '@/components/ui/button';
+import * as Menu from '@/components/ui/menu';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useConnector } from '@/data/core';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';

@@ -316,6 +316,7 @@
    the surface; this only adds the anchor/layout bits the portaled Menu doesn't
    need. Stays a plain element so the textarea keeps focus. */
 .autocompletePopup {
+	transform-origin: bottom left;
 	position: absolute;
 	bottom: calc(100% + 4px);
 	left: 0;

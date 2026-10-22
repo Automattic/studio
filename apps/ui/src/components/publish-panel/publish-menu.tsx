@@ -1,6 +1,6 @@
 import { __ } from '@wordpress/i18n';
 import { cloudUpload, Icon } from '@wordpress/icons';
-import * as Menu from '@/components/menu';
+import * as Menu from '@/components/ui/menu';
 import { useAuthUser } from '@/data/queries/use-auth-user';
 import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
 import { useOpenHeaderPanel } from '@/hooks/use-open-header-panel';

@@ -17,12 +17,12 @@ import {
 } from 'react';
 import { AgentWorkingIndicator } from '@/components/agent-working-indicator';
 import { ChatActionsMenuItems, useChatActions } from '@/components/chat-actions';
-import * as Menu from '@/components/menu';
 import { ReorderableList } from '@/components/reorderable-list';
 import { getSessionTitle } from '@/components/session-view/session-chat-actions';
 import { SidebarButton } from '@/components/sidebar-button';
 import { SiteActionsMenuItems, useSiteActions } from '@/components/site-actions-menu';
 import { Button, IconButton } from '@/components/ui/button';
+import * as Menu from '@/components/ui/menu';
 import { Spinner } from '@/components/ui/spinner';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { XdebugIcon } from '@/components/xdebug-icon';

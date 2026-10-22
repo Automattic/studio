@@ -4,7 +4,6 @@ import { Icon } from '@wordpress/icons';
 import { displayShortcut, isKeyboardEvent } from '@wordpress/keycodes';
 import { InputControl } from '@wordpress/ui';
 import { useEffect, useEffectEvent, useState } from 'react';
-import * as Menu from '@/components/menu';
 import { getSessionTitle } from '@/components/session-view/session-chat-actions';
 import { Button } from '@/components/ui/button';
 import {
@@ -16,6 +15,7 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from '@/components/ui/dialog';
+import * as Menu from '@/components/ui/menu';
 import { toast } from '@/data/app-messages';
 import { useSiteAgentActivity } from '@/data/queries/use-agent-run';
 import { useUpdateSessionMetadata } from '@/data/queries/use-sessions';

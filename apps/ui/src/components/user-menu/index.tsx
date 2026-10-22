@@ -2,10 +2,9 @@ import { __ } from '@wordpress/i18n';
 import { Icon, offline } from '@wordpress/icons';
 import { ariaKeyShortcut, displayShortcut } from '@wordpress/keycodes';
 import { Gravatar } from '@/components/gravatar';
-import * as Menu from '@/components/menu';
 import { NoticeHistoryButton } from '@/components/notice-history';
-import { SidebarButton } from '@/components/sidebar-button';
-import { IconButton } from '@/components/ui/button';
+import { Button, IconButton } from '@/components/ui/button';
+import * as Menu from '@/components/ui/menu';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useAuthUser, useLogin, useLogout } from '@/data/queries/use-auth-user';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -29,7 +28,12 @@ export function UserMenu() {
 				<Menu.Root>
 					<Menu.Trigger
 						render={
-							<SidebarButton className={ styles.userTrigger } aria-label={ __( 'Account' ) } />
+							<Button
+								variant="ghost"
+								size="icon"
+								className={ styles.userTrigger }
+								aria-label={ __( 'Account' ) }
+							/>
 						}
 					>
 						{ user ? (

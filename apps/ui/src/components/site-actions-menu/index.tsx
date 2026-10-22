@@ -17,12 +17,12 @@ import {
 	IMPORT_FILE_ACCEPT,
 	useSiteBackupImport,
 } from '@/components/import-site-dialog';
-import * as Menu from '@/components/menu';
 import { useOpenInDestinations } from '@/components/open-in-menu/use-open-in-destinations';
 import { SitePublishMenu } from '@/components/publish-panel/publish-menu';
 import { SiteShareMenuItem } from '@/components/share-dialog/share-menu-item';
 import { DATABASE_HOME_PATH, getRealmNavigationPath } from '@/components/site-preview/address-bar';
 import { Button } from '@/components/ui/button';
+import * as Menu from '@/components/ui/menu';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useConnector } from '@/data/core';
 import { sitePinKey, useSidebarPins } from '@/data/queries/use-sidebar-pins';

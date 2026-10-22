@@ -24,6 +24,14 @@ import {
 	type Ref,
 } from 'react';
 import { AgenticSigninPrompt } from '@/components/agentic-signin-banner';
+import {
+	getSiteAnnotations,
+	hasAnnotationContent,
+	removeAnnotations,
+	stageAnnotations,
+	subscribeAnnotationSend,
+} from '@/components/annotations/store';
+import { annotationSubmission } from '@/components/annotations/submission';
 import { OpenChatShortcuts } from '@/components/chat-actions';
 import { PreviewParticles } from '@/components/preview-particles';
 import { PreviewToggleButton } from '@/components/preview-toggle-button';
@@ -33,8 +41,8 @@ import { HeaderSidebarToggle } from '@/components/sidebar-toggle';
 import { SiteDropdown } from '@/components/site-dropdown';
 import { SiteIcon } from '@/components/site-icon';
 import { SiteLifecycleButton } from '@/components/site-lifecycle-button';
-import { type Annotation } from '@/components/site-preview/types';
 import { StoppedSitePreview } from '@/components/stopped-site-preview';
+import { toast } from '@/data/app-messages';
 import { useAgentRun } from '@/data/queries/use-agent-run';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useAiSettings } from '@/data/queries/use-ai-settings';
@@ -54,18 +62,13 @@ import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useIsOutOfAiCredits } from '@/hooks/use-is-out-of-ai-credits';
 import { useMarkChatRead } from '@/hooks/use-mark-chat-read';
 import { useSessionCommands } from '@/hooks/use-session-commands';
-import { SessionUIProvider, useSessionPreviewAnnotations } from '@/hooks/use-session-ui';
+import { SessionUIProvider } from '@/hooks/use-session-ui';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import { useWindowControlsInset } from '@/hooks/use-window-controls-inset';
 import { formatComposerTextQuote, watchComposerTextQuote } from '@/lib/composer-text-quote';
 import { pendingPromptSlot } from '@/lib/pending-prompt';
 import { AccessRequirements } from './access-requirements';
-import {
-	formatAnnotationsAsPrompt,
-	formatAnnotationsSubmittedMessage,
-	toVisualAnnotationSummaries,
-} from './annotations';
 import { Composer, ComposerSkeleton, type ComposerHandle } from './composer';
 import { Conversation } from './conversation';
 import { QueuedPrompts } from './queued-prompts';
@@ -424,19 +427,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	}, [ scrollNode ] );
 	useSessionCommands( sessionId );
 	const canTogglePreview = !! ownerSite && effectiveEnvironment === 'local';
-	const handleAnnotationsDone = useCallback(
-		( annotations: Annotation[] ) => {
-			if ( annotations.length === 0 ) return;
-			void sendMessage( formatAnnotationsAsPrompt( annotations ), {
-				displayMessage: formatAnnotationsSubmittedMessage( annotations.length ),
-				visualAnnotations: toVisualAnnotationSummaries( annotations ),
-			} );
-		},
-		[ sendMessage ]
-	);
-	// The preview panel itself is hosted by the dashboard layout; route its
-	// annotation submissions to this session while it is on screen.
-	useSessionPreviewAnnotations( handleAnnotationsDone, canTogglePreview );
+	const annotationSiteId = canTogglePreview ? ownerSite.id : undefined;
 
 	const reopenQueuedPrompt = useCallback(
 		( queuedPrompt: ( typeof queuedPrompts )[ number ] ) => {
@@ -545,6 +536,32 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 			composerRef.current?.replaceDraft( prompt.prompt, prompt.attachments );
 		} );
 	}, [ isChatReady, pendingPrompt, sendMessage, sessionId ] );
+
+	// Notes sent from the preview land in the composer, then go out with its
+	// draft, or alone when they were sent directly. While the agent works they
+	// wait in the composer.
+	useEffect( () => {
+		if ( ! isChatReady || ! annotationSiteId ) return;
+		return subscribeAnnotationSend( annotationSiteId, ( { noteIds } ) => {
+			stageAnnotations( annotationSiteId, noteIds );
+			if ( composerBusy ) return;
+			if ( ! noteIds ) {
+				void composerRef.current?.send();
+				return;
+			}
+			const notes = getSiteAnnotations( annotationSiteId ).notes.filter(
+				( note ) => noteIds.includes( note.id ) && hasAnnotationContent( note )
+			);
+			try {
+				const { prompt, options } = annotationSubmission( '', [], notes );
+				void sendMessage( prompt, options )
+					.then( () => removeAnnotations( annotationSiteId, noteIds ) )
+					.catch( () => undefined );
+			} catch ( error ) {
+				toast.error( ( error as Error ).message );
+			}
+		} );
+	}, [ annotationSiteId, composerBusy, isChatReady, sendMessage ] );
 
 	// Fade the composer and prompts in only right after the entitlement check
 	// resolves; ordinary session loads and switches render instantly. The
@@ -671,6 +688,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 						placeholderBusy={ isSiteStarting || isSiteStopping }
 						canAutoStart={ canAutoStart }
 						dropTarget={ frameNode }
+						annotationSiteId={ annotationSiteId }
 					/>
 				</div>
 			}

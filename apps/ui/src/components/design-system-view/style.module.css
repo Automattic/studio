@@ -482,26 +482,30 @@
 }
 
 .picking [data-annotation-target]:hover {
-	outline: 2px solid #7c3aed;
+	outline: 2px solid var(--wpds-color-background-interactive-brand-strong);
 	outline-offset: 2px;
 }
 
+/* Matches the markers drawn on preview pages: the accent inside a white ring. */
 .annotationMarker {
 	position: absolute;
 	z-index: 1;
-	top: -11px;
-	inset-inline-end: -11px;
+	top: -12px;
+	inset-inline-end: -12px;
 	display: inline-flex;
+	box-sizing: content-box;
 	align-items: center;
 	justify-content: center;
-	width: 22px;
-	height: 22px;
+	width: 20px;
+	height: 20px;
 	border: 2px solid #fff;
 	border-radius: 50%;
-	background: #7c3aed;
-	box-shadow: 0 2px 6px rgb(0 0 0 / 30%);
-	color: #fff;
-	font: 700 11px/1 system-ui, sans-serif;
+	background: var(--wpds-color-background-interactive-brand-strong);
+	box-shadow:
+		0 0 0 1px var(--wpds-color-background-interactive-brand-strong),
+		0 1px 3px rgb(0 0 0 / 10%);
+	color: var(--wpds-color-foreground-interactive-brand-strong);
+	font: 600 12px/1 system-ui, sans-serif;
 	letter-spacing: normal;
 	text-transform: none;
 }
@@ -512,38 +516,3 @@
 	inset-inline-end: 8px;
 }
 
-.notePopup {
-	display: flex;
-	flex-direction: column;
-	gap: 8px;
-	width: min(320px, calc(100vw - 16px));
-	padding: 12px;
-}
-
-.notePopup .noteTarget {
-	display: flex;
-	align-items: baseline;
-	gap: 8px;
-	margin: 0;
-	overflow: hidden;
-	color: var(--wpds-color-foreground-content-neutral-weak);
-	font-size: var(--wpds-typography-font-size-xs);
-	font-weight: 400;
-	white-space: nowrap;
-}
-
-.notePopup .noteTarget code {
-	overflow: hidden;
-	font-family: var(--wpds-typography-font-family-mono);
-	text-overflow: ellipsis;
-}
-
-.noteActions {
-	display: flex;
-	justify-content: flex-end;
-	gap: 4px;
-}
-
-.noteDelete {
-	margin-inline-end: auto;
-}

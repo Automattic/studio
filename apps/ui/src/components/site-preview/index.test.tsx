@@ -429,7 +429,7 @@ describe( 'SitePreview', () => {
 		expect( screen.getByRole( 'button', { name: 'Annotate' } ) ).toBeInTheDocument();
 	} );
 
-	it( 'prioritizes annotation controls while picking', () => {
+	it( 'keeps Publish while annotating and sends a saved note from the Send bar', async () => {
 		const originalUserAgent = navigator.userAgent;
 		Object.defineProperty( navigator, 'userAgent', {
 			configurable: true,
@@ -439,133 +439,55 @@ describe( 'SitePreview', () => {
 			startSite: vi.fn().mockResolvedValue( undefined ),
 			capabilities: { ...CAPABILITIES, annotatePreview: true },
 		} as never );
+		const onSendAnnotations = vi.fn();
+		vi.stubGlobal(
+			'ResizeObserver',
+			class {
+				observe() {}
+				disconnect() {}
+			}
+		);
 
 		const { container } = renderPreview(
-			<SitePreview site={ createSite( { running: true } ) } path="/" reloadNonce={ 0 } />
+			<SitePreview
+				site={ createSite( { id: 'annotated-site', running: true } ) }
+				path="/"
+				reloadNonce={ 0 }
+				onSendAnnotations={ onSendAnnotations }
+			/>
 		);
-		const webview = container.querySelector( 'webview' );
-		expect( webview ).toBeInTheDocument();
+		const webview = container.querySelector( 'webview' ) as HTMLElement;
+		Object.assign( webview, { executeJavaScript: vi.fn().mockResolvedValue( '' ) } );
+		fireEvent( webview, new Event( 'dom-ready' ) );
+		const annotate = screen.getByRole( 'button', { name: 'Annotate' } );
+		await waitFor( () => expect( annotate ).toBeEnabled() );
 
-		const stateEvent = new Event( 'console-message' );
-		Object.defineProperty( stateEvent, 'message', {
+		fireEvent.click( annotate );
+		expect( annotate ).toHaveAttribute( 'aria-pressed', 'true' );
+		expect( screen.getByRole( 'button', { name: 'Reload preview' } ) ).toBeVisible();
+		const pick = new Event( 'console-message' );
+		Object.defineProperty( pick, 'message', {
 			value: `${ INSPECTOR_BRIDGE_PREFIX }${ JSON.stringify( {
-				type: 'state',
-				isPicking: true,
-				annotationCount: 0,
+				type: 'pick',
+				anchor: { left: 10, top: 10 },
+				target: { selector: 'h1', tag: 'h1', url: 'http://localhost:8881/' },
 			} ) }`,
 		} );
-		fireEvent( webview as Element, stateEvent );
+		fireEvent( webview, pick );
+		const note = screen.getByRole( 'textbox', { name: 'Leave a note' } );
+		fireEvent.change( note, { target: { value: 'Make this bigger' } } );
+		fireEvent.keyDown( note, { key: 'Enter' } );
 
-		const cancelButton = screen.getByRole( 'button', { name: 'Cancel annotation' } );
-		expect( cancelButton ).toBeVisible();
-		// Keeps an icon so the control still reads once the label collapses.
-		expect( cancelButton.querySelector( 'svg' ) ).not.toBeNull();
-		expect( cancelButton ).not.toHaveAttribute( 'aria-pressed' );
-		expect( screen.queryByRole( 'button', { name: 'Back' } ) ).not.toBeInTheDocument();
-		expect( screen.queryByRole( 'button', { name: 'Forward' } ) ).not.toBeInTheDocument();
-		expect( screen.queryByRole( 'button', { name: 'Reload preview' } ) ).not.toBeInTheDocument();
-		expect( screen.queryByRole( 'textbox', { name: 'Address' } ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'textbox', { name: 'Leave a note' } ) ).not.toBeInTheDocument();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Send 1 annotation' } ) );
+		expect( onSendAnnotations ).toHaveBeenCalledWith( 'annotated-site', undefined );
+		expect( annotate ).toHaveAttribute( 'aria-pressed', 'false' );
 
+		vi.unstubAllGlobals();
 		Object.defineProperty( navigator, 'userAgent', {
 			configurable: true,
 			value: originalUserAgent,
 		} );
-	} );
-
-	it( 'confirms before discarding an annotation session', async () => {
-		const originalUserAgent = navigator.userAgent;
-		Object.defineProperty( navigator, 'userAgent', {
-			configurable: true,
-			value: `${ originalUserAgent } Electron/40.0.0`,
-		} );
-		useConnectorMock.mockReturnValue( {
-			startSite: vi.fn().mockResolvedValue( undefined ),
-			capabilities: { ...CAPABILITIES, annotatePreview: true },
-		} as never );
-
-		const { container } = renderPreview(
-			<SitePreview site={ createSite( { running: true } ) } path="/" reloadNonce={ 0 } />
-		);
-		const webview = container.querySelector( 'webview' );
-		const stateEvent = new Event( 'console-message' );
-		Object.defineProperty( stateEvent, 'message', {
-			value: `${ INSPECTOR_BRIDGE_PREFIX }${ JSON.stringify( {
-				type: 'state',
-				isPicking: true,
-				annotationCount: 0,
-			} ) }`,
-		} );
-		fireEvent( webview as Element, stateEvent );
-
-		const emptyCancelRequest = new Event( 'console-message' );
-		Object.defineProperty( emptyCancelRequest, 'message', {
-			value: `${ INSPECTOR_BRIDGE_PREFIX }${ JSON.stringify( {
-				type: 'cancel-requested',
-			} ) }`,
-		} );
-		fireEvent( webview as Element, emptyCancelRequest );
-		expect(
-			screen.queryByRole( 'dialog', { name: 'Cancel annotation?' } )
-		).not.toBeInTheDocument();
-
-		const draftStateEvent = new Event( 'console-message' );
-		Object.defineProperty( draftStateEvent, 'message', {
-			value: `${ INSPECTOR_BRIDGE_PREFIX }${ JSON.stringify( {
-				type: 'state',
-				isPicking: true,
-				annotationCount: 0,
-				hasUnsavedDraft: true,
-			} ) }`,
-		} );
-		fireEvent( webview as Element, draftStateEvent );
-
-		const draftCancelRequest = new Event( 'console-message' );
-		Object.defineProperty( draftCancelRequest, 'message', {
-			value: `${ INSPECTOR_BRIDGE_PREFIX }${ JSON.stringify( {
-				type: 'cancel-requested',
-			} ) }`,
-		} );
-		fireEvent( webview as Element, draftCancelRequest );
-		expect( screen.getByRole( 'dialog', { name: 'Cancel annotation?' } ) ).toBeVisible();
-		fireEvent.click( screen.getByRole( 'button', { name: 'Keep annotating' } ) );
-		await waitFor( () =>
-			expect(
-				screen.queryByRole( 'dialog', { name: 'Cancel annotation?' } )
-			).not.toBeInTheDocument()
-		);
-
-		fireEvent.keyDown( document, { key: 'Escape' } );
-		expect( screen.getByRole( 'dialog', { name: 'Cancel annotation?' } ) ).toBeVisible();
-		fireEvent.click( screen.getByRole( 'button', { name: 'Discard annotations' } ) );
-		await waitFor( () =>
-			expect(
-				screen.queryByRole( 'dialog', { name: 'Cancel annotation?' } )
-			).not.toBeInTheDocument()
-		);
-
-		Object.defineProperty( navigator, 'userAgent', {
-			configurable: true,
-			value: originalUserAgent,
-		} );
-	} );
-
-	it( 'shows a single annotate toggle while no notes are pending', () => {
-		useConnectorMock.mockReturnValue( {
-			startSite: vi.fn().mockResolvedValue( undefined ),
-			capabilities: { ...CAPABILITIES, annotatePreview: true },
-		} as never );
-
-		renderPreview(
-			<SitePreview site={ createSite( { running: true } ) } path="/" reloadNonce={ 0 } />
-		);
-
-		// One command means no collapsed variant: a second control would be a
-		// duplicate of this one at every width, and a menu wrapping it would be
-		// a single-item dropdown.
-		expect( screen.getAllByRole( 'button', { name: 'Annotate' } ) ).toHaveLength( 1 );
-		expect(
-			screen.queryByRole( 'button', { name: 'Annotation options' } )
-		).not.toBeInTheDocument();
 	} );
 
 	it( 'hides the Annotate control when agentic features are off', () => {

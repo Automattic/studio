@@ -40,6 +40,8 @@ export interface UserPreferences {
 	sidebarPins: string[];
 	// Start a stopped local site when a chat message is sent to it.
 	autoStartSiteOnChat: boolean;
+	// Ask before discarding preview annotations.
+	confirmDeleteAnnotations: boolean;
 }
 
 // Passed in, so this stays a pure reader over the config files.
@@ -75,6 +77,7 @@ export const userPreferencesPatchSchema = z.object( {
 	agenticFeaturesEnabled: z.boolean().nullish(),
 	sidebarPins: sidebarPinsSchema.nullish(),
 	autoStartSiteOnChat: z.boolean().nullish(),
+	confirmDeleteAnnotations: z.boolean().nullish(),
 	// Where the change was made (the analytics toggle also appears during onboarding); not stored.
 	surface: z.enum( [ 'onboarding', 'settings' ] ).optional(),
 } );
@@ -91,6 +94,7 @@ const APP_CONFIG_KEYS = [
 	[ 'agenticFeaturesEnabled', 'agenticFeaturesEnabled' ],
 	[ 'sidebarPins', 'sidebarPins' ],
 	[ 'autoStartSiteOnChat', 'autoStartSiteOnChat' ],
+	[ 'confirmDeleteAnnotations', 'confirmDeleteAnnotations' ],
 ] as const satisfies readonly ( readonly [ keyof UserPreferencesPatch, string ] )[];
 
 function getDefaultSiteDirectory( config: AppConfig, sitesRoot: string ): string {
@@ -121,6 +125,7 @@ export async function readUserPreferences( {
 		agenticFeaturesEnabled: config.agenticFeaturesEnabled !== false,
 		sidebarPins: sidebarPinsSchema.catch( [] ).parse( config.sidebarPins ),
 		autoStartSiteOnChat: config.autoStartSiteOnChat === true,
+		confirmDeleteAnnotations: config.confirmDeleteAnnotations !== false,
 	};
 }
 

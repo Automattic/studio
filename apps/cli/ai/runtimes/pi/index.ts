@@ -1,4 +1,5 @@
 import fs from 'fs';
+import path from 'path';
 import { type AgentTool } from '@earendil-works/pi-agent-core';
 import {
 	type Credential,
@@ -40,6 +41,7 @@ import {
 import { findLastAssistant, isEmptyStop } from '@studio/common/ai/session-events';
 import { getAiTracksIdentity } from '@studio/common/ai/tracks-identity';
 import { type TSchema } from 'typebox';
+import { createBlockSettingsNotes } from 'cli/ai/block-settings';
 import { withDesignSystemPreview } from 'cli/ai/chat-artifacts';
 import { isImageGenerationAvailable } from 'cli/ai/image-generation';
 import { buildSystemPrompt, type ToolPromptContribution } from 'cli/ai/system-prompt';
@@ -342,8 +344,13 @@ async function createStudioAgentSession(
 	} );
 
 	const pendingWork = getPendingWork( config.session );
+	const site = config.activeSite;
+	const blockSettingsNotes =
+		site && ! site.remote
+			? createBlockSettingsNotes( path.join( site.path, 'wp-includes', 'blocks' ) )
+			: undefined;
 	const toolDefinitions = tools.map( ( tool ) =>
-		toToolDefinition( tool, payloadGuardState, pendingWork )
+		toToolDefinition( tool, payloadGuardState, pendingWork, blockSettingsNotes )
 	);
 	const modelRuntime = await createModelRuntime( model, family, creds );
 	const settingsManager = createSettingsManager( config.env );
@@ -619,7 +626,8 @@ function toolPromptContribution( tool: AgentToolAny ): ToolPromptContribution {
 function toToolDefinition(
 	tool: AgentToolAny,
 	payloadGuardState: StudioToolPayloadGuardState,
-	pendingWork: PendingWork
+	pendingWork: PendingWork,
+	blockSettingsNotes?: ( text: string ) => string
 ): ToolDefinition {
 	return {
 		name: tool.name,
@@ -651,9 +659,14 @@ function toToolDefinition(
 				pendingWork.add( details.pending );
 				delete details.pending;
 			}
-			const reports = pendingWork.takeReports();
-			return reports
-				? { ...result, content: [ ...result.content, { type: 'text', text: reports } ] }
+			const resultText = result.content
+				.map( ( part ) => ( part.type === 'text' ? part.text : '' ) )
+				.join( '\n' );
+			const notes = [ blockSettingsNotes?.( resultText ), pendingWork.takeReports() ]
+				.filter( Boolean )
+				.join( '\n' );
+			return notes
+				? { ...result, content: [ ...result.content, { type: 'text', text: notes } ] }
 				: result;
 		},
 	};

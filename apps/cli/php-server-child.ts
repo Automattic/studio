@@ -96,6 +96,8 @@ let phpWorkerPorts: number[] = [];
 let phpWorkerRequestTracker = new PhpWorkerRequestTracker( 0 );
 let startupAbortController: AbortController | null = null;
 let startingPromise: Promise< void > | null = null;
+// The `start-server` message whose start is running, so its step times reach only that caller.
+let startingMessageId: string | null = null;
 let blueprintQueue: Promise< unknown > = Promise.resolve();
 
 // Symlink-aware open_basedir state. PHP's open_basedir cannot be extended at
@@ -207,7 +209,11 @@ async function waitForServerReady( url: string, signal?: AbortSignal ): Promise<
 
 // Reports how long a completed start step took. A failed start reports only the steps it finished.
 function reportPhase( phase: SiteStartPhase, startedAt: number ): void {
+	if ( ! startingMessageId ) {
+		return;
+	}
 	const message: ChildMessageRaw = {
+		originalMessageId: startingMessageId,
 		topic: 'start-phase',
 		data: { phase, ms: Date.now() - startedAt },
 	};
@@ -498,7 +504,9 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 			stopSignal.throwIfAborted();
 		}
 
-		await writeStudioMuPlugins( config.sitePath, config.isWpAutoUpdating );
+		await timePhase( 'mu_plugins', () =>
+			writeStudioMuPlugins( config.sitePath, config.isWpAutoUpdating )
+		);
 		stopSignal.throwIfAborted();
 
 		if ( ! isImportedSite ) {
@@ -600,6 +608,7 @@ async function doStartServer(
 		`Spawning native PHP worker pool with ${ NATIVE_PHP_WORKER_POOL_SIZE } workers on public port ${ config.port }`
 	);
 
+	const workersStartedAt = Date.now();
 	try {
 		const phpMyAdminWpEnvPath = await writeNativePhpMyAdminWpEnv( config );
 		const siteUrl = config.absoluteUrl || `http://localhost:${ config.port }`;
@@ -612,7 +621,6 @@ async function doStartServer(
 		phpWorkerPorts = workerPorts;
 		phpWorkerRequestTracker = new PhpWorkerRequestTracker( workerPorts.length );
 
-		const workersStartedAt = Date.now();
 		for ( const [ index, workerPort ] of workerPorts.entries() ) {
 			const phpAddress = `127.0.0.1:${ workerPort }`;
 			logToConsole(
@@ -792,9 +800,11 @@ async function ipcMessageHandler( packet: unknown ) {
 			case 'start-server':
 				// Track in-flight startup operations so concurrent messages cannot spawn two PHP servers.
 				if ( ! startingPromise ) {
+					startingMessageId = validMessage.messageId;
 					startingPromise = startServer( validMessage.data.config, abortController.signal ).finally(
 						() => {
 							startingPromise = null;
+							startingMessageId = null;
 						}
 					);
 				}

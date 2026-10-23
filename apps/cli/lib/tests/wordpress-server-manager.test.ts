@@ -330,7 +330,7 @@ describe( 'WordPress Server Manager', () => {
 			);
 		} );
 
-		it( 'records the start steps the child finished before a failed start', async () => {
+		it( 'records the steps this start finished before it failed', async () => {
 			const send = ( raw: object ) =>
 				mockBus.emit( 'process-message', {
 					process: { name: mockProcessDescription.name, pm_id: mockProcessDescription.pmId },
@@ -340,8 +340,21 @@ describe( 'WordPress Server Manager', () => {
 			vi.mocked( daemonClient.sendMessageToProcess ).mockImplementation( ( pmId, message ) => {
 				clearInterval( readyInterval );
 				setImmediate( () => {
-					send( { topic: 'start-phase', data: { phase: 'wp_config', ms: 40 } } );
-					send( { topic: 'start-phase', data: { phase: 'wordpress_install', ms: 9000 } } );
+					send( {
+						topic: 'start-phase',
+						originalMessageId: message.messageId,
+						data: { phase: 'wp_config', ms: 40 },
+					} );
+					send( {
+						topic: 'start-phase',
+						originalMessageId: message.messageId,
+						data: { phase: 'wordpress_install', ms: 9000 },
+					} );
+					send( {
+						topic: 'start-phase',
+						originalMessageId: 'another-callers-start',
+						data: { phase: 'php_workers', ms: 2000 },
+					} );
 					send( {
 						topic: 'error',
 						originalMessageId: message.messageId,

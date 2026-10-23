@@ -39,6 +39,7 @@ import {
 	ServerConfig,
 	ManagerMessagePayload,
 	serverConfigSchema,
+	SiteStartPhase,
 } from 'cli/lib/types/wordpress-server-ipc';
 import { Logger } from 'cli/logger';
 
@@ -241,12 +242,12 @@ export async function startWordPressServer(
 	const phpErrorLogSizeAtStart = await fileSize( phpErrorLogPath );
 
 	const readyOrExit = await subscribeForReadyOrExit( processName );
-	const phases = await collectStartPhases( processName );
+	const phaseTimings: Record< string, number > = {};
 	const startedAt = Date.now();
 	try {
 		const processDesc = await startProcess( processName, WORDPRESS_SERVER_CHILD_PATH );
 		await readyOrExit.waitFor( processDesc.pmId );
-		phases.timings.daemon_ms = Date.now() - startedAt;
+		phaseTimings.daemon_ms = Date.now() - startedAt;
 		await sendMessage(
 			processDesc.pmId,
 			processName,
@@ -254,11 +255,18 @@ export async function startWordPressServer(
 				topic: 'start-server',
 				data: { config: serverConfig },
 			},
-			{ logger }
+			{
+				logger,
+				onStartPhase: ( { phase, ms } ) => {
+					phaseTimings[ `${ phase }_ms` ] = ms;
+				},
+			}
 		);
 
 		if ( mayCreateTablesDuringStart ) {
+			const collationsStartedAt = Date.now();
 			await replaceMysql8OnlyCollations( site.path );
+			phaseTimings.collations_ms = Date.now() - collationsStartedAt;
 		}
 
 		await recordSiteRuntimeUsage( site );
@@ -272,7 +280,7 @@ export async function startWordPressServer(
 				...getTracksOrigin(),
 				success: true,
 				time_ms: Date.now() - startedAt,
-				...phases.timings,
+				...phaseTimings,
 				running_site_count: await getRunningSiteCount(),
 			} );
 		} catch {
@@ -290,7 +298,7 @@ export async function startWordPressServer(
 				success: false,
 				failure_reason: classifyStartFailure( error ),
 				time_ms: Date.now() - startedAt,
-				...phases.timings,
+				...phaseTimings,
 			} );
 		} catch {
 			// Best-effort telemetry — never block or fail a site start.
@@ -298,25 +306,7 @@ export async function startWordPressServer(
 		throw await withCapturedPhpErrors( error, phpErrorLogPath, phpErrorLogSizeAtStart );
 	} finally {
 		readyOrExit.dispose();
-		phases.dispose();
 	}
-}
-
-// Collects the child's `start-phase` timings as `<phase>_ms` Tracks props. A step missing from a
-// failed start is the one that did not finish.
-async function collectStartPhases( processName: string ): Promise< {
-	timings: Record< string, number >;
-	dispose: () => void;
-} > {
-	const bus = await getDaemonBus();
-	const timings: Record< string, number > = {};
-	const handler = ( packet: DaemonBusEventMap[ 'process-message' ] ) => {
-		if ( packet.process.name === processName && packet.raw.topic === 'start-phase' ) {
-			timings[ `${ packet.raw.data.phase }_ms` ] = packet.raw.data.ms;
-		}
-	};
-	bus.on( 'process-message', handler );
-	return { timings, dispose: () => bus.off( 'process-message', handler ) };
 }
 
 // Coarse, low-cardinality classification of a start failure for the `failure_reason` Tracks prop.
@@ -491,6 +481,8 @@ const CHILD_EXIT_ERROR_GRACE_MS = 100;
 export interface SendMessageOptions {
 	maxTotalElapsedTime?: number;
 	logger?: Logger< string >;
+	// Receives the start steps the child finishes for this message.
+	onStartPhase?: ( data: { phase: SiteStartPhase; ms: number } ) => void;
 }
 
 /**
@@ -565,6 +557,11 @@ export async function sendMessage(
 			} else if ( packet.raw.topic === 'console-message' ) {
 				lastActivityTimestamp = Date.now();
 				logger?.reportProgress( packet.raw.message );
+			} else if (
+				packet.raw.topic === 'start-phase' &&
+				packet.raw.originalMessageId === messageId
+			) {
+				options.onStartPhase?.( packet.raw.data );
 			} else if ( packet.raw.topic === 'error' && packet.raw.originalMessageId === messageId ) {
 				if ( exitRejectTimeoutId ) {
 					clearTimeout( exitRejectTimeoutId );

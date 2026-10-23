@@ -23,10 +23,10 @@ export interface SavedCopy {
 	sets?: string[];
 }
 
-// The theme folders WordPress reads a template or part's file from.
-const THEME_FILE_DIRS: Record< 'wp_template' | 'wp_template_part', string[] > = {
-	wp_template: [ 'templates', 'block-templates' ],
-	wp_template_part: [ 'parts', 'block-template-parts' ],
+// The theme folder WordPress reads a template or part's file from.
+const THEME_FILE_DIR: Record< 'wp_template' | 'wp_template_part', string > = {
+	wp_template: 'templates',
+	wp_template_part: 'parts',
 };
 
 function tablePrefix( root: string ): string {
@@ -114,11 +114,8 @@ async function readSavedCopies( root: string ): Promise< SavedCopy[] > {
 					}
 					continue;
 				}
-				const files = themeDirs.flatMap( ( themeDir ) =>
-					THEME_FILE_DIRS[ row.postType as 'wp_template' | 'wp_template_part' ].map(
-						( dir ) => `${ themeDir }/${ dir }/${ row.slug }.html`
-					)
-				);
+				const dir = THEME_FILE_DIR[ row.postType as 'wp_template' | 'wp_template_part' ];
+				const files = themeDirs.map( ( themeDir ) => `${ themeDir }/${ dir }/${ row.slug }.html` );
 				copies.push( { ...row, files } );
 			}
 			return copies;

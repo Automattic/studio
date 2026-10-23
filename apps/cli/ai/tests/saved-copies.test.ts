@@ -57,6 +57,8 @@ it.each( [ 'wp_', 'site2_' ] )(
 		expect( await notes( header ) ).toBe( '' );
 		expect( await notes( 'cat wp-content/themes/bakery-parent/theme.json' ) ).toBe( '' );
 
+		// An older copy of the header, then the latest, which WordPress renders.
+		save( 10, 'wp_template_part', 'header' );
 		save( 14, 'wp_template_part', 'header' );
 		save(
 			15,
@@ -69,7 +71,8 @@ it.each( [ 'wp_', 'site2_' ] )(
 		expect( await notes( header ) ).toBe(
 			'WordPress renders the template part header from its copy saved in the Site Editor (post 14), not from wp-content/themes/bakery/parts/header.html.'
 		);
-		expect( await notes( 'cat wp-content/themes/bakery-parent/theme.json' ) ).toBe(
+		// A Windows path.
+		expect( await notes( 'type wp-content\\themes\\bakery-parent\\theme.json' ) ).toBe(
 			'Global Styles saved in the Site Editor (post 15) set color, and WordPress applies them over wp-content/themes/bakery-parent/theme.json.'
 		);
 		expect( await notes( header ) ).toBe( '' );

@@ -44,7 +44,6 @@ import { type TSchema } from 'typebox';
 import { withDesignSystemPreview } from 'cli/ai/chat-artifacts';
 import { isImageGenerationAvailable } from 'cli/ai/image-generation';
 import { createResultNotes, type NotedCall } from 'cli/ai/result-notes';
-import { readActiveSiteFacts } from 'cli/ai/site-facts';
 import { buildSystemPrompt, type ToolPromptContribution } from 'cli/ai/system-prompt';
 import { resolveStudioToolDefinitions } from 'cli/ai/tools';
 import { createAskUserQuestionTool } from 'cli/ai/tools/ask-user-question';
@@ -327,10 +326,9 @@ async function createStudioAgentSession(
 	const model = buildModel( config.model, family, creds );
 	const chatArtifactsEnabled = typeof process.send === 'function';
 	const visionEnabled = aiModelSupportsImages( config.model );
-	const [ userInstructions, imageGenerationEnabled, activeSiteFacts ] = await Promise.all( [
+	const [ userInstructions, imageGenerationEnabled ] = await Promise.all( [
 		readGlobalInstructions(),
 		isImageGenerationAvailable(),
-		readActiveSiteFacts( config.activeSite ),
 	] );
 
 	const tools = buildAgentTools(
@@ -343,7 +341,6 @@ async function createStudioAgentSession(
 		userInstructions,
 		tools: tools.map( toolPromptContribution ),
 		activeSite: config.activeSite,
-		activeSiteFacts,
 	} );
 
 	const pendingWork = getPendingWork( config.session );

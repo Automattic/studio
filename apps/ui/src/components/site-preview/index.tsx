@@ -9,7 +9,6 @@ import {
 import { getSiteOperationLabel } from '@studio/common/lib/site-operation-labels';
 import { useQueryClient } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
-import { Icon } from '@wordpress/icons';
 import {
 	ariaKeyShortcut,
 	displayShortcut,
@@ -55,13 +54,11 @@ import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import { useWindowControlsInset } from '@/hooks/use-window-controls-inset';
 import { getSiteUrl } from '@/lib/get-site-url';
-import {
-	annotateIcon,
-	browserBackIcon,
-	browserForwardIcon,
-	globeIcon,
-	refreshIcon,
-} from '@/lib/icons';
+import { AnnotateIcon } from '@/lib/icons/annotate-icon';
+import { ArrowLeftIcon } from '@/lib/icons/arrow-left-icon';
+import { ArrowRightIcon } from '@/lib/icons/arrow-right-icon';
+import { GlobeIcon } from '@/lib/icons/globe-icon';
+import { RotateCwIcon } from '@/lib/icons/rotate-cw-icon';
 import { isDialogOpen } from '@/lib/shortcuts';
 import {
 	DATABASE_HOME_PATH,
@@ -422,7 +419,7 @@ function AnnotateButton( {
 							disabled={ disabled }
 							onClick={ onClick }
 						>
-							<Icon icon={ annotateIcon } size={ 16 } data-icon="inline-start" />
+							<AnnotateIcon data-icon="inline-start" />
 							{ iconOnly ? null : <span>{ __( 'Annotate' ) }</span> }
 						</Button>
 					}
@@ -482,7 +479,7 @@ function BrowserHistoryButton( {
 	const [ menuOpen, setMenuOpen ] = useState( false );
 	const trigger = (
 		<IconButton
-			icon={ back ? browserBackIcon : browserForwardIcon }
+			icon={ back ? <ArrowLeftIcon /> : <ArrowRightIcon /> }
 			label={ label }
 			shortcut={ shortcut }
 			tooltipSide="bottom"
@@ -535,7 +532,7 @@ function PreviewLoadFailed( { onRetry }: { onRetry: () => void } ) {
 	return (
 		<Empty className={ styles.loadFailed }>
 			<EmptyMedia>
-				<Icon icon={ globeIcon } />
+				<GlobeIcon />
 			</EmptyMedia>
 			<EmptyTitle>{ __( 'Preview could not load' ) }</EmptyTitle>
 			<EmptyDescription>
@@ -1015,7 +1012,7 @@ export function SitePreview( {
 								</>
 							) : null }
 							<IconButton
-								icon={ refreshIcon }
+								icon={ <RotateCwIcon /> }
 								label={ __( 'Reload preview' ) }
 								shortcut={ browserShortcuts.reload }
 								tooltipSide="bottom"

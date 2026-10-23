@@ -329,15 +329,8 @@
 
 .toolIcon {
 	flex: 0 0 auto;
-	width: 18px;
-	height: 18px;
 	color: var(--tool-icon-color);
-	stroke: var(--tool-icon-color);
-	transform: translateY(3px);
-}
-
-.toolIcon:not([fill='none']) {
-	fill: var(--tool-icon-color);
+	translate: 0 2px;
 }
 
 .mediaArtifactGrid {

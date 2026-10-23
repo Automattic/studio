@@ -33,7 +33,6 @@
 
 .benefits svg {
 	flex: 0 0 auto;
-	fill: currentColor;
 	color: var(--accent-text);
 }
 

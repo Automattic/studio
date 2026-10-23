@@ -1,5 +1,5 @@
 import { isRTL, __ } from '@wordpress/i18n';
-import { cog, external, Icon, moreHorizontal } from '@wordpress/icons';
+import { EllipsisIcon } from 'lucide-react';
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { PublishButton } from '@/components/publish-panel';
 import { ShareButton, ShareStatusIcon, useShareStatus } from '@/components/share-dialog';
@@ -11,7 +11,12 @@ import { useIsSiteStarting, useIsSiteStopping, useSiteOperation } from '@/data/q
 import { requestHeaderPanel } from '@/hooks/use-open-header-panel';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import { useWindowControlsOverlay } from '@/hooks/use-window-controls-overlay';
-import { browserBackIcon, browserForwardIcon, refreshIcon, shareIcon } from '@/lib/icons';
+import { ArrowLeftIcon } from '@/lib/icons/arrow-left-icon';
+import { ArrowRightIcon } from '@/lib/icons/arrow-right-icon';
+import { ExternalLinkIcon } from '@/lib/icons/external-link-icon';
+import { RotateCwIcon } from '@/lib/icons/rotate-cw-icon';
+import { ShareIcon } from '@/lib/icons/share-icon';
+import { SiteSettingsIcon } from '@/lib/icons/site-settings-icon';
 import styles from './style.module.css';
 import { useSiteHeaderLayout, type SiteHeaderLayout } from './use-site-header-layout';
 import type { SiteDetails } from '@/data/core';
@@ -204,7 +209,7 @@ export function SiteHeaderActions( { site, live = false }: { site: SiteDetails; 
 										/>
 									}
 								>
-									<ShareStatusIcon icon={ moreHorizontal } status={ shareStatus } />
+									<ShareStatusIcon icon={ <EllipsisIcon /> } status={ shareStatus } />
 								</Menu.Trigger>
 								<TooltipContent side="bottom">{ __( 'More preview actions' ) }</TooltipContent>
 							</Tooltip>
@@ -214,7 +219,7 @@ export function SiteHeaderActions( { site, live = false }: { site: SiteDetails; 
 										aria-description={ shareStatus.label }
 										onClick={ () => requestHeaderPanel( { panel: 'share', siteId: site.id } ) }
 									>
-										<ShareStatusIcon icon={ shareIcon } status={ shareStatus } />
+										<ShareStatusIcon icon={ <ShareIcon /> } status={ shareStatus } />
 										{ __( 'Share' ) }
 									</Menu.Item>
 								) }
@@ -225,7 +230,7 @@ export function SiteHeaderActions( { site, live = false }: { site: SiteDetails; 
 											disabled={ navigation.disabled || ! navigation.canGoBack }
 											onClick={ navigation.back }
 										>
-											<Icon icon={ browserBackIcon } />
+											<ArrowLeftIcon />
 											{ __( 'Back' ) }
 											<Menu.Shortcut>{ navigation.backShortcut }</Menu.Shortcut>
 										</Menu.Item>
@@ -233,17 +238,17 @@ export function SiteHeaderActions( { site, live = false }: { site: SiteDetails; 
 											disabled={ navigation.disabled || ! navigation.canGoForward }
 											onClick={ navigation.forward }
 										>
-											<Icon icon={ browserForwardIcon } />
+											<ArrowRightIcon />
 											{ __( 'Forward' ) }
 											<Menu.Shortcut>{ navigation.forwardShortcut }</Menu.Shortcut>
 										</Menu.Item>
 										<Menu.Item disabled={ navigation.disabled } onClick={ navigation.reload }>
-											<Icon icon={ refreshIcon } />
+											<RotateCwIcon />
 											{ __( 'Reload preview' ) }
 										</Menu.Item>
 										{ live ? null : (
 											<Menu.Item disabled={ navigation.disabled } onClick={ navigation.settings }>
-												<Icon icon={ cog } />
+												<SiteSettingsIcon />
 												{ __( 'Site settings' ) }
 											</Menu.Item>
 										) }
@@ -252,7 +257,7 @@ export function SiteHeaderActions( { site, live = false }: { site: SiteDetails; 
 												disabled={ navigation.disabled }
 												onClick={ navigation.openExternal }
 											>
-												<Icon icon={ external } />
+												<ExternalLinkIcon />
 												{ __( 'Open in browser' ) }
 											</Menu.Item>
 										) : null }

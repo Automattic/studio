@@ -138,8 +138,7 @@ textarea,
 	-webkit-app-region: no-drag;
 }
 
-/* @wordpress/icons draws SVGs at 24x24; the app's icons are 16px unless a
-   component sizes them. */
+/* Icons draw on a 24px grid and render at 16px unless a component sizes them. */
 @layer base {
 	:root svg {
 		width: 16px;

@@ -1,14 +1,12 @@
 import { __, sprintf } from '@wordpress/i18n';
 import {
-	backup,
-	check,
-	cloudUpload,
-	download,
-	arrowUpRight,
-	globe,
-	Icon,
-	moreHorizontal,
-} from '@wordpress/icons';
+	ArrowUpRightIcon,
+	CheckIcon,
+	DownloadIcon,
+	EllipsisIcon,
+	GlobeIcon,
+	HistoryIcon,
+} from 'lucide-react';
 import { useId, useRef, useState } from 'react';
 import { Button, IconButton } from '@/components/ui/button';
 import * as Menu from '@/components/ui/menu';
@@ -20,6 +18,7 @@ import {
 	usePushSiteToLive,
 } from '@/data/queries/use-sync-site';
 import { useUserLocale } from '@/data/queries/use-user-locale';
+import { SyncIcon } from '@/lib/icons/sync-icon';
 import { FilePicker } from './file-picker';
 import {
 	backupsUrl,
@@ -70,24 +69,24 @@ export function WebsiteMenuItems( {
 		<>
 			{ includePublish ? (
 				<Menu.Item disabled={ disabled } onClick={ () => onOpen( 'publish' ) }>
-					<Icon icon={ cloudUpload } size={ 20 } />
+					<SyncIcon />
 					{ __( 'Publish changes…' ) }
 				</Menu.Item>
 			) : null }
 			<Menu.Item disabled={ disabled } onClick={ () => onOpen( 'pull' ) }>
-				<Icon icon={ download } size={ 20 } />
+				<DownloadIcon />
 				{ __( 'Pull changes…' ) }
 			</Menu.Item>
 			{ backups ? (
 				<Menu.Item onClick={ () => void connector.openExternalUrl( backups ) }>
-					<Icon icon={ backup } size={ 20 } />
+					<HistoryIcon />
 					{ __( 'View backups' ) }
-					<Icon icon={ arrowUpRight } size={ 16 } />
+					<ArrowUpRightIcon />
 				</Menu.Item>
 			) : null }
 			<Menu.Separator />
 			<Menu.Item disabled={ disabled } onClick={ () => onOpen( 'websites' ) }>
-				<Icon icon={ globe } size={ 20 } />
+				<GlobeIcon />
 				{ __( 'Manage websites…' ) }
 			</Menu.Item>
 		</>
@@ -229,7 +228,7 @@ export function ConnectedView( {
 								<IconButton
 									variant="muted-ghost"
 									size="icon-2xs"
-									icon={ arrowUpRight }
+									icon={ <ArrowUpRightIcon /> }
 									label={ __( 'Open website' ) }
 									onClick={ () => void connector.openExternalUrl( remote.url ) }
 								/>
@@ -272,7 +271,7 @@ export function ConnectedView( {
 					<>
 						<div className={ styles.success } role="status">
 							<span className={ styles.progressTitle }>
-								<Icon icon={ check } size={ 16 } />
+								<CheckIcon />
 								<span className={ styles.heading }>{ __( 'Changes pulled into Studio' ) }</span>
 							</span>
 							<p className={ styles.text }>{ __( 'Your website wasn’t changed.' ) }</p>
@@ -371,7 +370,7 @@ export function ConnectedView( {
 												<IconButton
 													ref={ actions }
 													variant="outline"
-													icon={ moreHorizontal }
+													icon={ <EllipsisIcon /> }
 													label={ __( 'Website actions' ) }
 												/>
 											}

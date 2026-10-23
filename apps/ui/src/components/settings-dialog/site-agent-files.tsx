@@ -1,5 +1,5 @@
 import { __, sprintf } from '@wordpress/i18n';
-import { moreHorizontal, trash, Icon } from '@wordpress/icons';
+import { EllipsisIcon } from 'lucide-react';
 import { useOpenInDestinations } from '@/components/open-in-menu/use-open-in-destinations';
 import {
 	SettingsGroup,
@@ -12,6 +12,7 @@ import * as Menu from '@/components/ui/menu';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { useSiteAgentFiles, useUpdateSiteAgentFiles } from '@/data/queries/use-site-agent-files';
+import { TrashIcon } from '@/lib/icons/trash-icon';
 import styles from './style.module.css';
 import type { SiteAgentFileKind, SiteDetails } from '@/data/core';
 import type { SiteAgentFileOpenTarget } from '@studio/common/lib/site-agent-file-paths';
@@ -113,7 +114,7 @@ export function SiteAgentFiles( {
 									render={
 										<IconButton
 											size="icon-sm"
-											icon={ moreHorizontal }
+											icon={ <EllipsisIcon /> }
 											label={ sprintf(
 												/* translators: %s: a skill or instruction file name. */
 												__( 'Actions for %s' ),
@@ -131,7 +132,7 @@ export function SiteAgentFiles( {
 												void open( file.id, destination.id as SiteAgentFileOpenTarget )
 											}
 										>
-											<Icon icon={ destination.logo } />
+											{ destination.logo }
 											{ sprintf(
 												/* translators: %s: an app, like Finder or VS Code. */
 												__( 'Open in %s' ),
@@ -141,7 +142,7 @@ export function SiteAgentFiles( {
 									) ) }
 									<Menu.Separator />
 									<Menu.Item destructive onClick={ () => update.mutate( { remove: file.id } ) }>
-										<Icon icon={ trash } />
+										<TrashIcon />
 										{ __( 'Uninstall' ) }
 									</Menu.Item>
 								</Menu.Popup>

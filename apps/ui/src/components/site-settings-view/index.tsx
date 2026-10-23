@@ -18,7 +18,7 @@ import {
 	RecommendedPHPVersion,
 } from '@studio/common/types/php-versions';
 import { __, sprintf } from '@wordpress/i18n';
-import { seen, unseen } from '@wordpress/icons';
+import { EyeIcon, EyeOffIcon } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { CopyButton } from '@/components/copy-button';
@@ -430,7 +430,7 @@ export function SiteSettingsForm( {
 								<IconButton
 									variant="muted-ghost"
 									size="icon-xs"
-									icon={ isPasswordVisible ? unseen : seen }
+									icon={ isPasswordVisible ? <EyeOffIcon /> : <EyeIcon /> }
 									label={ isPasswordVisible ? __( 'Hide password' ) : __( 'Show password' ) }
 									aria-pressed={ isPasswordVisible }
 									onClick={ () => setIsPasswordVisible( ( visible ) => ! visible ) }

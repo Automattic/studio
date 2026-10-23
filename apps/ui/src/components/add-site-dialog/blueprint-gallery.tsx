@@ -1,11 +1,11 @@
 import { getBlueprintUseCases } from '@studio/common/lib/blueprint-catalog';
 import { __, sprintf } from '@wordpress/i18n';
+import { PlusIcon } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Empty, EmptyDescription } from '@/components/ui/empty';
 import { useBlueprints } from '@/data/queries/use-blueprints';
 import { useOffline } from '@/hooks/use-offline';
-import { plusIcon } from '@/lib/icons';
 import styles from './blueprint-gallery.module.css';
 import type { BlueprintUseCase } from '@studio/common/lib/blueprint-catalog';
 import type { Blueprint } from '@studio/common/lib/studio-blueprints-api';
@@ -96,7 +96,9 @@ export function BlueprintGallery( {
 						aria-label={ __( 'Start with Blank site' ) }
 						onClick={ onBlank }
 					>
-						<span className={ `${ styles.frame } ${ styles.blank }` }>{ plusIcon }</span>
+						<span className={ `${ styles.frame } ${ styles.blank }` }>
+							<PlusIcon />
+						</span>
 						<span className={ styles.cardTitle }>{ __( 'Blank site' ) }</span>
 					</button>
 				) : null }

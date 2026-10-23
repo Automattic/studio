@@ -509,14 +509,6 @@
 	opacity: 0;
 }
 
-.chatQuestion {
-	flex-shrink: 0;
-	width: 8px;
-	height: 8px;
-	border-radius: 50%;
-	background-color: var(--site-list-pending-indicator-bg);
-}
-
 /* Wraps the sidebar's groups without adding a box of its own. */
 .selection {
 	display: contents;

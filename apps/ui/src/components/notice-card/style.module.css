@@ -57,9 +57,8 @@
 }
 
 .status:is([data-intent='info'], [data-intent='warning']) svg {
-	width: 18px;
-	height: 18px;
-	fill: currentColor;
+	width: 14px;
+	height: 14px;
 }
 
 .title {
@@ -150,7 +149,8 @@
 }
 
 .chevron svg {
-	fill: currentColor;
+	width: 16px;
+	height: 16px;
 	transition: rotate var(--motion-duration-layout) var(--motion-ease-layout);
 }
 

@@ -55,10 +55,6 @@
 	margin: 12px 12px 0;
 }
 
-.searchIcon {
-	fill: currentColor;
-}
-
 .nav {
 	display: flex;
 	flex-direction: column;
@@ -89,11 +85,6 @@
 
 .navIcon {
 	flex: none;
-}
-
-/* WordPress icons; ours bring their own fills. */
-.navIcon:not([fill]) {
-	fill: currentColor;
 }
 
 .navLabel {

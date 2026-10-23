@@ -1,8 +1,8 @@
 import { __ } from '@wordpress/i18n';
+import { PanelRightIcon, XIcon } from 'lucide-react';
 import { usePreviewBeside } from '@/components/preview-split-frame';
 import { IconButton } from '@/components/ui/button';
 import { useOptionalSessionPreviewUI } from '@/hooks/use-session-ui';
-import { closeIcon, drawerIcon } from '@/lib/icons';
 import styles from './style.module.css';
 
 /**
@@ -20,7 +20,7 @@ export function PreviewToggleButton( { canHideChat = false }: { canHideChat?: bo
 	if ( previewBeside ) {
 		return canHideChat ? (
 			<IconButton
-				icon={ closeIcon }
+				icon={ <XIcon /> }
 				label={ __( 'Hide chat' ) }
 				onClick={ () => preview.setChatHidden( true ) }
 			/>
@@ -29,7 +29,7 @@ export function PreviewToggleButton( { canHideChat = false }: { canHideChat?: bo
 	return preview.open ? null : (
 		<IconButton
 			className={ styles.showPreview }
-			icon={ drawerIcon }
+			icon={ <PanelRightIcon /> }
 			label={ __( 'Show preview' ) }
 			onClick={ () => preview.setOpen( true ) }
 		/>

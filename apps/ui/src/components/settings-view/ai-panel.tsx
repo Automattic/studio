@@ -1,6 +1,6 @@
 import { AI_PROVIDER_LABELS } from '@studio/common/ai/providers';
 import { __ } from '@wordpress/i18n';
-import { check, Icon } from '@wordpress/icons';
+import { CheckIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { LearnMoreLink } from '@/components/learn-more';
 import { Badge } from '@/components/ui/badge';
@@ -45,7 +45,7 @@ function AgenticFeaturesSection() {
 
 const connectedBadge = () => (
 	<Badge size="xs" variant="accent">
-		<Icon icon={ check } size={ 12 } fill="currentColor" aria-hidden="true" />
+		<CheckIcon aria-hidden="true" />
 		{ __( 'Connected' ) }
 	</Badge>
 );

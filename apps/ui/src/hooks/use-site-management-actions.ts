@@ -1,5 +1,4 @@
 import { __ } from '@wordpress/i18n';
-import { copy, download, grid, trash, upload } from '@wordpress/icons';
 import {
 	COPY_SITE_MUTATION_KEY,
 	EXPORT_DATABASE_MUTATION_KEY,
@@ -11,17 +10,19 @@ import {
 	useIsSiteMutating,
 } from '@/data/queries/use-sites';
 import { useSiteSyncActivity } from '@/data/sync-activity';
+import { DatabaseIcon } from '@/lib/icons/database-icon';
+import { DuplicateIcon } from '@/lib/icons/duplicate-icon';
+import { ExportSiteIcon } from '@/lib/icons/export-site-icon';
+import { ImportIcon } from '@/lib/icons/import-icon';
+import { TrashIcon } from '@/lib/icons/trash-icon';
 import type { SiteDetails } from '@/data/core';
-import type { ReactElement, SVGProps } from 'react';
+import type { ComponentType } from 'react';
 
 export type SiteManagementActionId = 'duplicate' | 'import' | 'export' | 'export-db' | 'delete';
 
 export interface SiteManagementAction {
 	id: SiteManagementActionId;
-	// Matches the element type `Icon` accepts, so callers render via
-	// `<Icon icon={ action.icon } />` without widening casts. Surfaces that
-	// show plain-text rows can ignore it.
-	icon: ReactElement< SVGProps< SVGSVGElement > >;
+	icon: ComponentType;
 	label: string;
 	// True while this action's own work is in flight (drives spinners on
 	// surfaces that show them).
@@ -77,7 +78,7 @@ export function useSiteManagementActions(
 	return [
 		{
 			id: 'duplicate',
-			icon: copy,
+			icon: DuplicateIcon,
 			label: __( 'Duplicate' ),
 			loading: isDuplicating,
 			loadingAnnouncement: __( 'Duplicating site' ),
@@ -89,7 +90,7 @@ export function useSiteManagementActions(
 			? [
 					{
 						id: 'import' as const,
-						icon: upload,
+						icon: ImportIcon,
 						label: __( 'Import' ),
 						loading: isImporting,
 						loadingAnnouncement: __( 'Importing site' ),
@@ -101,7 +102,7 @@ export function useSiteManagementActions(
 			: [] ),
 		{
 			id: 'export',
-			icon: download,
+			icon: ExportSiteIcon,
 			label: __( 'Export entire site' ),
 			loading: isExportingFullSite,
 			loadingAnnouncement: __( 'Exporting site' ),
@@ -111,7 +112,7 @@ export function useSiteManagementActions(
 		},
 		{
 			id: 'export-db',
-			icon: grid,
+			icon: DatabaseIcon,
 			label: __( 'Export database' ),
 			loading: isExportingDatabase,
 			loadingAnnouncement: __( 'Exporting database' ),
@@ -121,7 +122,7 @@ export function useSiteManagementActions(
 		},
 		{
 			id: 'delete',
-			icon: trash,
+			icon: TrashIcon,
 			label: __( 'Delete' ),
 			loading: false,
 			loadingAnnouncement: '',

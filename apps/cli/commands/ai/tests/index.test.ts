@@ -466,6 +466,41 @@ describe( 'AI runCommand — Tracks events', () => {
 		).resolves.toBeUndefined();
 		expect( runStudioAgentTurn ).toHaveBeenCalledTimes( 1 );
 	} );
+
+	it( 'completes the turn even when gathering the turn stats fails', async () => {
+		( runStudioAgentTurn as Mock ).mockImplementationOnce(
+			( { onEvent }: { onEvent: ( event: unknown ) => void } ) => {
+				// The failed tool makes the stats look up its name, which throws.
+				onEvent( {
+					type: 'tool_execution_end',
+					toolCallId: '1',
+					toolName: 'wp_cli',
+					result: {},
+					isError: true,
+				} );
+				return {
+					result: Promise.resolve(),
+					interrupt: vi.fn(),
+					hasTool: () => {
+						throw new Error( 'session disposed' );
+					},
+				};
+			}
+		);
+
+		const adapter = new JsonAdapter();
+		const endAgentTurn = vi.spyOn( adapter, 'endAgentTurn' );
+		const showError = vi.spyOn( adapter, 'showError' );
+
+		await expect( runCommand( { adapter, initialMessage: 'hello' } ) ).resolves.toBeUndefined();
+		expect( endAgentTurn ).toHaveBeenCalledTimes( 1 );
+		expect( showError ).not.toHaveBeenCalled();
+		expect(
+			( recordTracksEvent as Mock ).mock.calls.some(
+				( [ name ] ) => name === TRACKS_EVENTS.CODE_TURN_COMPLETED
+			)
+		).toBe( false );
+	} );
 } );
 
 describe( 'AI runCommand — pinned provider falls back when unusable', () => {

@@ -93,15 +93,16 @@ function appendStudioEntry< T extends StudioCustomEntryType >(
 }
 
 // Awaited rather than fire-and-forget so JSON mode, which exits right after a turn, doesn't drop the
-// event — the wrapper does async work before the request is even issued. Errors are swallowed: one
+// event — the wrapper does async work before the request is even issued. Building the props and
+// sending them both sit inside the `try`, and errors are swallowed: one
 // call sits on the turn's critical path and the other in a `finally`, where a rejection would mask
 // the turn's own error.
 async function recordChatTracksEvent(
 	event: TracksEventName,
-	props: TracksProps
+	getProps: () => TracksProps
 ): Promise< void > {
 	try {
-		await recordTracksEvent( event, props );
+		await recordTracksEvent( event, getProps() );
 	} catch {
 		// A lost analytics event must never break the chat.
 	}
@@ -637,13 +638,13 @@ export async function runCommand( options: {
 			model_family: getAiModelFamily( currentModel ),
 		};
 		const turnStartedAt = Date.now();
-		await recordChatTracksEvent( TRACKS_EVENTS.CODE_MESSAGE_SENT, {
+		await recordChatTracksEvent( TRACKS_EVENTS.CODE_MESSAGE_SENT, () => ( {
 			...tracksProps,
 			// Raw prompt, before site context is prepended. Only ever a catalog name.
 			ability_name: resolveSkillFromPrompt( prompt ),
 			has_images: images.length > 0,
 			has_files: files.length > 0,
-		} );
+		} ) );
 
 		// Studio marker for the typed prompt; pi appends the real UserMessage.
 		await append( ( s ) =>
@@ -671,7 +672,11 @@ export async function runCommand( options: {
 			onAskUser: ( questions ) => askUserAndPersistAnswers( questions ),
 			onEvent: ( event ) => {
 				ui.handleEvent( event );
-				turnStats.handleEvent( event );
+				try {
+					turnStats.handleEvent( event );
+				} catch {
+					// Stats only feed analytics, which must never break the chat.
+				}
 				// An `agent_end` with `willRetry` is not final — the session
 				// restarts the turn after a backoff.
 				if ( event.type !== 'agent_end' || event.willRetry ) {
@@ -720,7 +725,7 @@ export async function runCommand( options: {
 				} )
 			);
 			// No `errorMessage`: raw error text can embed paths and site names.
-			await recordChatTracksEvent( TRACKS_EVENTS.CODE_TURN_COMPLETED, {
+			await recordChatTracksEvent( TRACKS_EVENTS.CODE_TURN_COMPLETED, () => ( {
 				...tracksProps,
 				outcome: turnState.status,
 				duration_ms: Date.now() - turnStartedAt,
@@ -730,7 +735,7 @@ export async function runCommand( options: {
 					site,
 					hasTool: ( name ) => agentQuery.hasTool( name ),
 				} ),
-			} );
+			} ) );
 			ui.endAgentTurn();
 		}
 

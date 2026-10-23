@@ -11,9 +11,13 @@ import type { AssistantMessage, AssistantMessageEventStream } from '@earendil-wo
 const LEAKED_TOOL_CALL = /<\/?[｜|]DSML[｜|](?:[\s\S]*<\/?[｜|]DSML[｜|])?[^>]*>/;
 
 // Without a tool call left, the text that carried the leaked one goes too: the
-// reply is then an empty stop, which the runtime continues.
+// reply is then an empty stop, which the runtime continues. The upstream may
+// still report the reply as a tool call.
 function removeLeakedToolCall( message: AssistantMessage ): void {
 	const hasToolCall = message.content.some( ( block ) => block.type === 'toolCall' );
+	if ( ! hasToolCall && message.stopReason === 'toolUse' ) {
+		message.stopReason = 'stop';
+	}
 	message.content = message.content.flatMap( ( block ) => {
 		if ( block.type !== 'text' || ! LEAKED_TOOL_CALL.test( block.text ) ) {
 			return [ block ];

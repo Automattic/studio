@@ -7,10 +7,13 @@ import type { AssistantMessage } from '@earendil-works/pi-ai';
 const LEAKED_CALL =
 	'<｜DSML｜tool_calls>\n<｜DSML｜invoke name="read">\n<｜DSML｜parameter name="path" string="true">style.css</｜DSML｜parameter>\n</｜DSML｜invoke>\n</｜DSML｜tool_calls>';
 
-async function finish( content: AssistantMessage[ 'content' ] ): Promise< AssistantMessage > {
+async function finish(
+	content: AssistantMessage[ 'content' ],
+	stopReason: AssistantMessage[ 'stopReason' ] = 'stop'
+): Promise< AssistantMessage > {
 	const source = createAssistantMessageEventStream();
 	const cleaned = withLeakedToolCallMarkupRemoved( source );
-	const message = { role: 'assistant', content, stopReason: 'stop' } as AssistantMessage;
+	const message = { role: 'assistant', content, stopReason } as AssistantMessage;
 	source.push( { type: 'done', reason: 'stop', message } );
 	source.end();
 	return cleaned.result();
@@ -18,10 +21,13 @@ async function finish( content: AssistantMessage[ 'content' ] ): Promise< Assist
 
 describe( 'withLeakedToolCallMarkupRemoved', () => {
 	it( 'turns a reply whose only tool call leaked into an empty stop', async () => {
-		const result = await finish( [
-			{ type: 'thinking', thinking: 'Read the stylesheet.' },
-			{ type: 'text', text: `Let me check the file.\n\n${ LEAKED_CALL }` },
-		] );
+		const result = await finish(
+			[
+				{ type: 'thinking', thinking: 'Read the stylesheet.' },
+				{ type: 'text', text: `Let me check the file.\n\n${ LEAKED_CALL }` },
+			],
+			'toolUse'
+		);
 
 		expect( result.content ).toEqual( [ { type: 'thinking', thinking: 'Read the stylesheet.' } ] );
 		expect( isEmptyStop( result ) ).toBe( true );

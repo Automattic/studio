@@ -260,6 +260,21 @@ async function renderHome( url: string ) {
 	try {
 		const response = await fetch( url, { redirect: 'follow' } );
 		const html = await response.text();
+		// Each image's address, and the status the site answers it with (null
+		// for images from another origin, which are not requested).
+		const images = await Promise.all(
+			[ ...html.matchAll( /<img\b[^>]*\bsrc="([^"]+)"/g ) ].map( async ( m ) => {
+				const src = new URL( m[ 1 ].replace( /&amp;/g, '&' ), url );
+				const sameOrigin = src.origin === new URL( url ).origin;
+				const status = sameOrigin
+					? await fetch( src, { method: 'HEAD' } ).then(
+							( r ) => r.status,
+							() => 0
+					  )
+					: null;
+				return { src: src.href, status };
+			} )
+		);
 		const nav = [ ...html.matchAll( /<nav\b[\s\S]*?<\/nav>/g ) ]
 			.map( ( m ) => m[ 0 ] )
 			.join( '\n' );
@@ -269,6 +284,7 @@ async function renderHome( url: string ) {
 			phpErrors: [
 				...html.matchAll( /<b>(Fatal error|Parse error|Warning|Notice|Deprecated)<\/b>:[^<]*/g ),
 			].map( ( m ) => m[ 0 ].replace( /<\/?b>/g, '' ) ),
+			images,
 			navHrefs: [ ...nav.matchAll( /<a\b[^>]*\bhref="([^"]*)"/g ) ].map( ( m ) => m[ 1 ] ),
 			ids: [ ...html.matchAll( /\bid="([^"]+)"/g ) ].map( ( m ) => m[ 1 ] ),
 		};

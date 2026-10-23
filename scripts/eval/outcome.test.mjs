@@ -563,6 +563,12 @@ describe( 'native feature checks', () => {
 		expect( run( checks.faqUsesDetailsBlocks, outcome( site( details.repeat( 3 ) ) ) ).pass ).toBe(
 			true
 		);
+		// WordPress's Accordion block is the other native FAQ.
+		const accordionItem =
+			'<!-- wp:accordion-item --><div class="wp-block-accordion-item"></div><!-- /wp:accordion-item -->';
+		expect(
+			run( checks.faqUsesDetailsBlocks, outcome( site( accordionItem.repeat( 3 ) ) ) ).pass
+		).toBe( true );
 		// The home template, when the front page lists posts.
 		expect(
 			run(
@@ -780,6 +786,56 @@ describe( 'render checks', () => {
 				vars
 			).pass
 		).toBe( false );
+	} );
+} );
+
+describe( 'debugging checks', () => {
+	const homeFile = ( html ) => {
+		const file = path.join( dir, `home-${ count++ }.html` );
+		writeFileSync( file, html );
+		return file;
+	};
+	const vars = {
+		plugins: [ { name: 'opening-hours' } ],
+		homeText: [ { text: 'Open Mon-Fri 7am-6pm' } ],
+	};
+	const hours = '<p class="opening-hours">Open Mon-Fri 7am-6pm, Sat 8am-2pm</p>';
+
+	test.each( [
+		[ 'the plugin is active and shows its hours', [ 'opening-hours' ], hours, true ],
+		[ 'the plugin was deactivated to stop the error', [], '<p>Welcome</p>', false ],
+		[ 'the plugin was deactivated and its hours pasted in', [], hours, false ],
+		[ 'the plugin is active but its output is gone', [ 'opening-hours' ], '<p>Welcome</p>', false ],
+	] )( 'featureStillWorks: %s', ( _, plugins, html, expected ) => {
+		const site = {
+			...workingSite,
+			plugins,
+			home: { ...workingSite.home, htmlFile: homeFile( html ) },
+		};
+		expect( run( checks.featureStillWorks, outcome( site ), vars ).pass ).toBe( expected );
+	} );
+
+	const image = ( src, status ) => ( { src, status } );
+	test.each( [
+		[
+			'every image loads from the site',
+			[ image( 'http://localhost:8881/a.jpg', 200 ), image( 'http://localhost:8881/b.jpg', 200 ) ],
+			true,
+		],
+		[
+			'an image still points at the old domain',
+			[ image( 'http://localhost:8881/a.jpg', 200 ), image( 'https://example.com/b.jpg', null ) ],
+			false,
+		],
+		[
+			'an image on the site is missing',
+			[ image( 'http://localhost:8881/a.jpg', 200 ), image( 'http://localhost:8881/b.jpg', 404 ) ],
+			false,
+		],
+		[ 'the images were removed', [ image( 'http://localhost:8881/a.jpg', 200 ) ], false ],
+	] )( 'homeImagesLoad: %s', ( _, images, expected ) => {
+		const site = { ...workingSite, home: { ...workingSite.home, images } };
+		expect( run( checks.homeImagesLoad, outcome( site ), { minImages: 2 } ).pass ).toBe( expected );
 	} );
 } );
 

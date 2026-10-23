@@ -231,6 +231,41 @@ export const siteWorks = check( ( d, vars ) => {
 	return pass( `"${ s.name }" renders at ${ s.url } with valid blocks` );
 } );
 
+const homeHtml = ( s ) => ( s.home?.htmlFile ? readFileSync( s.home.htmlFile, 'utf8' ) : '' );
+
+// The rendered home page shows each `vars.homeText`, and each plugin in
+// `vars.plugins` is still active: the feature works, not just the site.
+// (Both are lists of objects, like `followUps`, so promptfoo keeps them in one test.)
+export const featureStillWorks = check( ( d, vars ) => {
+	const s = site( d, vars );
+	const plugins = ( vars.plugins || [] ).map( ( p ) => p.name );
+	const texts = ( vars.homeText || [] ).map( ( t ) => t.text );
+	const inactive = plugins.filter( ( plugin ) => ! ( s.plugins || [] ).includes( plugin ) );
+	if ( inactive.length )
+		return fail( `not active: ${ inactive.join( ', ' ) }; active: ${ s.plugins }` );
+	const html = homeHtml( s );
+	const missing = texts.filter( ( text ) => ! html.includes( text ) );
+	if ( missing.length ) return fail( `home page does not show: ${ missing.join( ', ' ) }` );
+	return pass( `active: ${ plugins.join( ', ' ) }; home page shows ${ texts.join( ', ' ) }` );
+} );
+
+// Every image on the rendered home page loads from the site itself, and
+// there are at least `vars.minImages` of them.
+export const homeImagesLoad = check( ( d, vars ) => {
+	const s = site( d, vars );
+	const images = s.home?.images || [];
+	const broken = images.filter( ( image ) => image.status !== 200 );
+	if ( images.length < ( vars.minImages ?? 1 ) )
+		return fail( `home page shows ${ images.length } images, expected ${ vars.minImages ?? 1 }` );
+	if ( broken.length )
+		return fail(
+			`images that do not load from the site: ${ broken
+				.map( ( image ) => `${ image.src } (${ image.status ?? 'another site' })` )
+				.join( ', ' ) }`
+		);
+	return pass( `all ${ images.length } home page images load from the site` );
+} );
+
 // No other site the user has was changed or removed.
 export const otherSitesUntouched = check( ( d ) => {
 	const o = d.outcome;

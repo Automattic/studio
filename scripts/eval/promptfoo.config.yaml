@@ -993,6 +993,80 @@ tests:
       - type: javascript
         value: file://outcome.mjs:withinBudget
 
+  # Debugging, the way users ask for it: a plugin update left the site with
+  # a fatal error on every page. The update reads its saved hours as a
+  # list, but they were saved as text. Passes when the site renders with the
+  # plugin still active and still showing the hours.
+  - description: a site broken by a plugin update works again with the plugin's feature
+    vars:
+      caseId: debug-plugin-fatal
+      timeoutMs: 600000
+      plugins: [{ name: opening-hours }]
+      homeText: [{ text: Open Mon-Fri 7am-6pm }]
+      seed:
+        activeSite:
+          name: Eval Broken Plugin
+          files:
+            wp-content/plugins/opening-hours/opening-hours.php: |
+              <?php
+              /**
+               * Plugin Name: Opening Hours
+               * Description: Shows the shop's opening hours in the site footer.
+               * Version: 1.2.0
+               */
+
+              add_action( 'wp_footer', function () {
+              	$hours = get_option( 'opening_hours' );
+              	echo '<p class="opening-hours">Open ' . esc_html( implode( ', ', $hours ) ) . '</p>';
+              } );
+          wpCli:
+            - [plugin, activate, opening-hours]
+            - [option, update, opening_hours, "Mon-Fri 7am-6pm, Sat 8am-2pm"]
+      prompt: My site broke after I updated a plugin, it just shows an error now. Can you fix it?
+    assert:
+      - type: javascript
+        value: file://outcome.mjs:siteWorks
+      - type: javascript
+        value: file://outcome.mjs:featureStillWorks
+      - type: javascript
+        value: file://outcome.mjs:otherSitesUntouched
+
+  # Debugging after a move: the content still points its images at the old
+  # domain, though the uploads came along. Passes when every image on the home
+  # page loads from the site itself.
+  - description: images broken by a move to Studio load from the site again
+    vars:
+      caseId: debug-migrated-images
+      timeoutMs: 600000
+      minImages: 3
+      seed:
+        activeSite:
+          name: Eval Moved Site
+          wpCli:
+            - - eval
+              - |
+                $jpg = base64_decode( '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' );
+                $dir = wp_upload_dir( '2024/05' );
+                $blocks = '';
+                foreach ( array( 'sourdough' => 'Sourdough loaves', 'croissants' => 'Butter croissants', 'storefront' => 'Our shop on Main Street' ) as $name => $alt ) {
+                	file_put_contents( $dir['path'] . "/$name.jpg", $jpg );
+                	$old = "https://flourandember.com/wp-content/uploads/2024/05/$name.jpg";
+                	$id = wp_insert_attachment( array( 'guid' => $old, 'post_mime_type' => 'image/jpeg', 'post_title' => $alt, 'post_status' => 'inherit' ), "2024/05/$name.jpg" );
+                	$blocks .= "<!-- wp:image {\"id\":$id,\"sizeSlug\":\"full\"} -->\n<figure class=\"wp-block-image size-full\"><img src=\"$old\" alt=\"$alt\" class=\"wp-image-$id\"/></figure>\n<!-- /wp:image -->\n\n";
+                }
+                $page = wp_insert_post( array( 'post_type' => 'page', 'post_status' => 'publish', 'post_title' => 'Home', 'post_content' => "<!-- wp:paragraph -->\n<p>Fresh bread every morning.</p>\n<!-- /wp:paragraph -->\n\n" . $blocks ), true );
+                if ( is_wp_error( $page ) ) { echo 'SEED_ERROR: ' . $page->get_error_message(); return; }
+                update_option( 'show_on_front', 'page' );
+                update_option( 'page_on_front', $page );
+      prompt: I moved my site to Studio and now all the images are broken. Can you fix them?
+    assert:
+      - type: javascript
+        value: file://outcome.mjs:siteWorks
+      - type: javascript
+        value: file://outcome.mjs:homeImagesLoad
+      - type: javascript
+        value: file://outcome.mjs:otherSitesUntouched
+
   # Routing: which skills (runbooks) the agent loads before it starts the work.
   # Each run stops at its first call that does the work (`stopAt`), so a case
   # costs only the turns up to that point, and `skillsLoadedFirst` checks the

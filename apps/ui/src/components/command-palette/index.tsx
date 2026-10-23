@@ -69,6 +69,7 @@ import { StopSiteIcon } from '@/lib/icons/stop-site-icon';
 import { UnpinIcon } from '@/lib/icons/unpin-icon';
 import { WordPressIcon } from '@/lib/icons/wordpress-icon';
 import { isDialogOpen, isShortcut } from '@/lib/shortcuts';
+import { DEFAULT_COLOR_TINT } from '@/lib/theme';
 import styles from './style.module.css';
 import type { OpenInDestination } from '@/components/open-in-menu/use-open-in-destinations';
 import type { AiSessionSummary, SiteDetails, UserPreferences } from '@/data/core';
@@ -294,6 +295,14 @@ function useAppCommands(): PaletteCommand[] {
 			keywords: [ __( 'Appearance' ), __( 'Theme' ), __( 'Dark mode' ), __( 'Light mode' ) ],
 			run: () =>
 				savePreferences.mutate( { colorScheme: colorScheme === 'dark' ? 'light' : 'dark' } ),
+		},
+		{
+			id: 'reset-appearance-tint',
+			group: 'settings',
+			label: __( 'Reset appearance tint' ),
+			icon: RefreshCwIcon,
+			keywords: [ __( 'Appearance' ), __( 'Color' ), __( 'Intensity' ), __( 'Contrast' ) ],
+			run: () => savePreferences.mutate( DEFAULT_COLOR_TINT ),
 		},
 		...settingCommands,
 		{

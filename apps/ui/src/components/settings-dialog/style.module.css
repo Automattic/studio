@@ -1,11 +1,13 @@
 .popup {
 	flex-direction: row;
+	gap: 0;
 }
 
 .sidebar {
 	display: flex;
 	flex: none;
 	flex-direction: column;
+	box-sizing: border-box;
 	width: 216px;
 	border-inline-end: 1px solid var(--border);
 }

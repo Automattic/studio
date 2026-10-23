@@ -140,6 +140,59 @@ describe( 'Studio settings', () => {
 		);
 	} );
 
+	it( 'tints the app with a color preset and saves it', () => {
+		render( <AppearanceSettings /> );
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Green' } ) );
+
+		expect( mutate ).toHaveBeenCalledWith( {
+			accentColor: '#069e08',
+			tintIntensity: 20,
+			contrast: 0,
+		} );
+		const root = document.documentElement.style;
+		expect( Number( root.getPropertyValue( '--tint-hue' ) ) ).toBeCloseTo( 142.6, 1 );
+		expect( root.getPropertyValue( '--tint-intensity' ) ).toBe( '20' );
+		expect( screen.getByRole( 'button', { name: 'Green' } ) ).toHaveAttribute(
+			'aria-pressed',
+			'true'
+		);
+	} );
+
+	it( 'saves a typed hex color once it is complete', () => {
+		render( <AppearanceSettings /> );
+		const input = screen.getByRole( 'textbox', { name: 'Hex color' } );
+
+		fireEvent.change( input, { target: { value: 'FF99' } } );
+		expect( mutate ).not.toHaveBeenCalled();
+		fireEvent.change( input, { target: { value: 'FF9900' } } );
+
+		expect( mutate ).toHaveBeenCalledWith( {
+			accentColor: '#ff9900',
+			tintIntensity: 0,
+			contrast: 0,
+		} );
+	} );
+
+	it( 'restores the default color, intensity, and contrast, and only when one changed', () => {
+		const { unmount } = render( <AppearanceSettings /> );
+		expect( screen.getByRole( 'button', { name: 'Reset' } ) ).toBeDisabled();
+		unmount();
+
+		mockPreferences( { accentColor: '#8c52d9', tintIntensity: 40, contrast: 30 } );
+		render( <AppearanceSettings /> );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Reset' } ) );
+
+		expect( mutate ).toHaveBeenCalledWith( {
+			accentColor: '#3858e9',
+			tintIntensity: 0,
+			contrast: 0,
+		} );
+		const root = document.documentElement.style;
+		expect( root.getPropertyValue( '--tint-hue' ) ).toBe( '260' );
+		expect( root.getPropertyValue( '--contrast' ) ).toBe( '0' );
+	} );
+
 	it( 'offers Default, the installed editors, and a saved one that is gone', async () => {
 		mockPreferences( { editor: 'cursor' } );
 		render( <GeneralSettings /> );
@@ -178,6 +231,9 @@ describe( 'Studio settings', () => {
 				showRecentChats: true,
 				autoCollapseSites: true,
 				newSiteBehavior: 'choose',
+				accentColor: '#3858e9',
+				tintIntensity: 0,
+				contrast: 0,
 			},
 			expect.any( Object )
 		);

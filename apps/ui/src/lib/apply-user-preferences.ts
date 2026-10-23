@@ -1,19 +1,31 @@
 import { getLocaleData, isSupportedLocale } from '@studio/common/lib/locale';
 import { _x, defaultI18n } from '@wordpress/i18n';
+import { queryClient } from '@/data/core';
+import { USER_PREFERENCES_QUERY_KEY } from '@/data/queries/use-user-preferences';
+import { applyTheme, resolveColorScheme } from '@/lib/theme';
 import type { Connector } from '@/data/core';
 
 /**
- * Loads the user's locale translations, reflects `lang`/`dir` on the
- * document element (locale-scoped CSS keys off `lang`; the index.html files
- * ship with `lang="en"`) and loads the stylesheets for that direction.
+ * Applies the saved theme and language before the first render, and seeds the
+ * preferences query with them so the first render paints the same theme.
  */
-export async function applyLocale( connector: Connector ): Promise< void > {
+export async function applyUserPreferences( connector: Connector ): Promise< void > {
 	// Browser connectors fetch preferences over the network, so a hiccup here
 	// must not keep the app from rendering — it just stays in English.
-	const locale = await connector
-		.getUserPreferences()
-		.then( ( preferences ) => preferences.locale )
-		.catch( () => undefined );
+	const preferences = await connector.getUserPreferences().catch( () => undefined );
+	if ( preferences ) {
+		queryClient.setQueryData( USER_PREFERENCES_QUERY_KEY, preferences );
+	}
+	applyTheme( resolveColorScheme( preferences?.colorScheme ), preferences ?? {} );
+	applyLocale( preferences?.locale );
+}
+
+/**
+ * Loads the locale's translations, reflects `lang`/`dir` on the document
+ * element (locale-scoped CSS keys off `lang`; the index.html files ship with
+ * `lang="en"`) and loads the stylesheets for that direction.
+ */
+function applyLocale( locale: string | undefined ) {
 	if ( locale && isSupportedLocale( locale ) ) {
 		const translations = getLocaleData( locale )?.messages;
 		if ( translations ) {

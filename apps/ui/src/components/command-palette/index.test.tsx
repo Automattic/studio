@@ -118,6 +118,19 @@ describe( 'CommandPalette', () => {
 		} );
 	} );
 
+	it( 'resets the appearance tint', async () => {
+		render( <CommandPalette /> );
+		pressK();
+		search( 'reset appearance' );
+		fireEvent.click( await screen.findByText( 'Reset appearance tint' ) );
+
+		expect( savePreferences ).toHaveBeenCalledWith( {
+			accentColor: '#3858e9',
+			tintIntensity: 0,
+			contrast: 0,
+		} );
+	} );
+
 	it( 'offers Collapse all while the sidebar has more than one site unfolded', async () => {
 		const { rerender } = render(
 			<>

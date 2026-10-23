@@ -248,6 +248,7 @@ export async function startWordPressServer(
 		const processDesc = await startProcess( processName, WORDPRESS_SERVER_CHILD_PATH );
 		await readyOrExit.waitFor( processDesc.pmId );
 		phaseTimings.daemon_ms = Date.now() - startedAt;
+		const startMessageSentAt = Date.now();
 		await sendMessage(
 			processDesc.pmId,
 			processName,
@@ -262,6 +263,9 @@ export async function startWordPressServer(
 				},
 			}
 		);
+
+		// Spans the child's steps, so the rest of it is IPC and untimed child work.
+		phaseTimings.start_message_ms = Date.now() - startMessageSentAt;
 
 		if ( mayCreateTablesDuringStart ) {
 			const collationsStartedAt = Date.now();

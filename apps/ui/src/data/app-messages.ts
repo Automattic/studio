@@ -11,6 +11,9 @@ export type ToastIntent = 'success' | 'info' | 'error';
 export type ToastAction = {
 	label: string;
 	onClick: () => void | Promise< unknown >;
+	// Leaves the history once it has run, for actions like Undo that make no
+	// sense twice.
+	once?: boolean;
 };
 
 type ToastInput = {
@@ -47,6 +50,8 @@ export type NoticeRecord = {
 	intent: NoticeIntent;
 	title: string;
 	description?: string;
+	action?: ToastAction;
+	actionPending?: boolean;
 	// Epoch ms of the first showing; an in-place replacement keeps it.
 	shownAt: number;
 };
@@ -110,7 +115,7 @@ function scheduleExpiry( toast: ToastMessage ) {
 }
 
 function recordNotice(
-	toastMessage: Pick< NoticeRecord, 'id' | 'intent' | 'title' | 'description' >,
+	toastMessage: Pick< NoticeRecord, 'id' | 'intent' | 'title' | 'description' | 'action' >,
 	isReplacement: boolean
 ) {
 	const record: NoticeRecord = {
@@ -118,6 +123,7 @@ function recordNotice(
 		intent: toastMessage.intent,
 		title: toastMessage.title,
 		description: toastMessage.description,
+		action: toastMessage.action,
 		shownAt: Date.now(),
 	};
 	if ( isReplacement ) {
@@ -211,27 +217,42 @@ export function errorMessage( error: unknown ): string {
 	return error instanceof Error ? error.message : String( error );
 }
 
-function setActionPending( id: string, actionPending: boolean ) {
-	visible = visible.map( ( item ) => ( item.id === id ? { ...item, actionPending } : item ) );
+function setActionPending( action: ToastAction, actionPending: boolean ) {
+	const update = < T extends { action?: ToastAction } >( item: T ): T =>
+		item.action === action ? { ...item, actionPending } : item;
+	visible = visible.map( update );
+	noticeHistory = noticeHistory.map( update );
 	emit();
 }
 
-// Runs a toast's action once and closes the toast; a failure says so and
-// leaves the action there to try again.
-export async function runToastAction( id: string ): Promise< void > {
-	const target = visible.find( ( item ) => item.id === id );
-	if ( ! target?.action || target.actionPending || target.leaving ) {
-		return;
+// Runs an action from its toast or the history, one run at a time. Success
+// closes the toast; a failure says so and leaves the action there to try again.
+export async function runNoticeAction( action: ToastAction ): Promise< boolean > {
+	if (
+		[ ...visible, ...noticeHistory ].some(
+			( item ) => item.action === action && item.actionPending
+		)
+	) {
+		return false;
 	}
-	clearExpiryTimer( id );
-	setActionPending( id, true );
+	const toastIds = visible.filter( ( item ) => item.action === action ).map( ( item ) => item.id );
+	toastIds.forEach( clearExpiryTimer );
+	setActionPending( action, true );
 	try {
-		await target.action.onClick();
-		beginToastExit( id );
+		await action.onClick();
+		if ( action.once ) {
+			noticeHistory = noticeHistory.map( ( item ) =>
+				item.action === action ? { ...item, action: undefined, actionPending: undefined } : item
+			);
+		}
+		toastIds.forEach( beginToastExit );
+		return true;
 	} catch ( error ) {
-		setActionPending( id, false );
-		resumeToastExpiry( id );
 		toast.error( __( 'Action failed' ), { description: errorMessage( error ) } );
+		return false;
+	} finally {
+		setActionPending( action, false );
+		toastIds.forEach( resumeToastExpiry );
 	}
 }
 
@@ -259,10 +280,11 @@ export function openStudioLogsAction( connector: Connector ): ToastAction | unde
 	};
 }
 
-// Hover pause — <AppToasts /> calls these on mouse enter/leave. Resuming
-// restarts the full duration; no remaining-time bookkeeping. A toast that is
-// already exiting can't be paused or resumed: pausing would cancel its
-// removal timer (stranding it), resuming would resurrect it.
+// Hover and focus pause — <AppToasts /> calls these as the pointer or focus
+// enters and leaves a toast. Resuming restarts the full duration; no
+// remaining-time bookkeeping. A toast that is already exiting can't be paused
+// or resumed: pausing would cancel its removal timer (stranding it), resuming
+// would resurrect it.
 export function pauseToastExpiry( id: string ): void {
 	const toastMessage = visible.find( ( item ) => item.id === id );
 	if ( toastMessage && ! toastMessage.leaving ) {
@@ -352,6 +374,13 @@ export function clearNoticeHistory(): void {
 		beginToastExit( toastMessage.id );
 	}
 	noticeHistory = [];
+	emit();
+}
+
+// Removes one entry, and its toast if that is still showing.
+export function dismissNotice( notice: NoticeRecord ): void {
+	noticeHistory = noticeHistory.filter( ( item ) => item !== notice );
+	beginToastExit( notice.id );
 	emit();
 }
 

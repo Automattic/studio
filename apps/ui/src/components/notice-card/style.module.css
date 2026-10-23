@@ -1,0 +1,150 @@
+/* A toast, and an entry in the notification history. */
+.card {
+	position: relative;
+	pointer-events: auto;
+	padding: 16px;
+	border-radius: var(--radius-xl);
+	background-color: var(--secondary);
+	color: var(--secondary-foreground);
+	box-shadow:
+		0 0 0 1px var(--border),
+		0 1px 3px 0 rgb(0 0 0 / 10%),
+		0 1px 2px -1px rgb(0 0 0 / 10%);
+	font-size: var(--text-sm);
+	line-height: 20px;
+	/* Toasts rewrite themselves in place — import progress ticks through a
+	   percentage — and this font's digits are not equal width, so a counter
+	   would shift the text by a few pixels on nearly every update. */
+	font-variant-numeric: tabular-nums;
+}
+
+.row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.status {
+	display: flex;
+	flex: none;
+	align-items: center;
+	justify-content: center;
+	width: 14px;
+	height: 14px;
+	border-radius: 50%;
+	color: var(--secondary);
+}
+
+.status svg {
+	width: 10px;
+	height: 10px;
+}
+
+.status[data-intent='success'] {
+	background-color: var(--success);
+}
+
+.status[data-intent='error'] {
+	background-color: var(--destructive);
+}
+
+.status:is([data-intent='info'], [data-intent='warning']) {
+	color: var(--muted-foreground);
+}
+
+.status[data-intent='warning'] {
+	color: var(--warning);
+}
+
+.status:is([data-intent='info'], [data-intent='warning']) svg {
+	width: 18px;
+	height: 18px;
+	fill: currentColor;
+}
+
+.title {
+	flex: 1;
+	min-width: 0;
+	margin: 0;
+	font-weight: var(--font-weight-medium);
+	text-wrap: pretty;
+}
+
+.details {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 8px;
+	margin-top: 2px;
+	padding-inline-start: 22px;
+}
+
+.summary {
+	position: relative;
+	max-width: 100%;
+}
+
+/* Laid over the text rather than wrapping it, so the measured node stays
+   mounted. Expanded, it covers the first line only and leaves the rest to
+   scroll and select. */
+.toggle {
+	position: absolute;
+	inset: 0;
+	padding: 0;
+	border: 0;
+	border-radius: var(--radius-sm);
+	background: none;
+	font: inherit;
+	cursor: pointer;
+}
+
+.toggle:focus-visible {
+	outline: 2px solid var(--ring);
+	outline-offset: 2px;
+}
+
+.toggle[aria-expanded='true'] {
+	inset-block-end: auto;
+	height: 1lh;
+}
+
+.description {
+	display: -webkit-box;
+	max-width: 100%;
+	margin: 0;
+	overflow: hidden;
+	color: var(--muted-foreground);
+	font-size: var(--text-xs);
+	line-height: 1.625;
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+	-webkit-box-orient: vertical;
+	-webkit-line-clamp: 1;
+}
+
+.description[data-expanded] {
+	display: block;
+	max-height: 192px;
+	overflow-y: auto;
+}
+
+.close {
+	--button-background: var(--chrome);
+
+	position: absolute;
+	inset-block-start: -6px;
+	inset-inline-start: -6px;
+	opacity: 0;
+	transition: opacity 120ms ease;
+}
+
+.card:hover .close,
+.card:focus-within .close {
+	opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.close {
+		transition: none;
+	}
+}

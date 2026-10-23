@@ -46,123 +46,20 @@
 	transition: opacity 160ms ease, transform 160ms ease;
 }
 
-.card {
-	position: relative;
-	pointer-events: auto;
-	padding: 16px;
-	border-radius: 12px;
-	background-color: var(--chrome);
-	color: var(--foreground);
-	box-shadow:
-		0 0 0 1px var(--border),
-		0 1px 3px 0 rgb(0 0 0 / 10%),
-		0 1px 2px -1px rgb(0 0 0 / 10%);
-	font-size: var(--text-sm);
-	line-height: 20px;
-	/* Toasts rewrite themselves in place — import progress ticks through a
-	   percentage — and this font's digits are not equal width, so a counter
-	   would shift the text by a few pixels on nearly every update. */
-	font-variant-numeric: tabular-nums;
-}
-
 .cell[data-leaving] .toast {
 	opacity: 0;
 	transform: translateY(4px);
 }
 
-.cell[data-leaving] .card {
+.cell[data-leaving] .toast > * {
 	pointer-events: none;
-}
-
-.row {
-	display: flex;
-	align-items: center;
-	gap: 8px;
-}
-
-.status {
-	display: flex;
-	flex: none;
-	align-items: center;
-	justify-content: center;
-	width: 14px;
-	height: 14px;
-	border-radius: 50%;
-	color: var(--chrome);
-}
-
-.status svg {
-	width: 10px;
-	height: 10px;
-}
-
-.status[data-intent='success'] {
-	background-color: var(--success);
-}
-
-.status[data-intent='error'] {
-	background-color: var(--destructive);
-}
-
-.status[data-intent='info'] {
-	color: var(--muted-foreground);
-}
-
-.status[data-intent='info'] svg {
-	width: 18px;
-	height: 18px;
-	fill: currentColor;
-}
-
-.title {
-	flex: 1;
-	min-width: 0;
-	margin: 0;
-	font-weight: var(--font-weight-medium);
-	text-wrap: pretty;
-}
-
-/* Error text can run to paragraphs; the toast shows the first few lines and
-   the notifications panel (notice-history) keeps the full message. */
-.description {
-	display: -webkit-box;
-	margin: 2px 0 0;
-	padding-inline-start: 22px;
-	overflow: hidden;
-	color: var(--muted-foreground);
-	font-size: var(--text-xxs);
-	line-height: 18px;
-	-webkit-box-orient: vertical;
-	-webkit-line-clamp: 3;
-}
-
-.details {
-	display: flex;
-	gap: 6px;
-	margin-top: 8px;
-	padding-inline-start: 22px;
-}
-
-.close {
-	--button-background: var(--chrome);
-
-	position: absolute;
-	inset-block-start: -6px;
-	inset-inline-start: -6px;
-	opacity: 0;
-	transition: opacity 120ms ease;
-}
-
-.card:hover .close,
-.card:focus-within .close {
-	opacity: 1;
 }
 
 .queuePeek {
 	height: 8px;
 	margin-top: 3px;
 	margin-inline: 8px;
-	background-color: var(--chrome);
+	background-color: var(--secondary);
 	border-radius: 0 0 6px 6px;
 	box-shadow: 0 0 0 1px var(--border);
 	opacity: 0.8;
@@ -187,8 +84,7 @@
 
 @media (prefers-reduced-motion: reduce) {
 	.toast,
-	.cell,
-	.close {
+	.cell {
 		animation: none;
 		transition: none;
 	}

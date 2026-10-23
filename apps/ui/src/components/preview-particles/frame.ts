@@ -8,6 +8,24 @@ export interface PreviewDot {
 	edge: number;
 }
 
+export const SELECTION_WAVE_DURATION = 700;
+
+// How brightly a dot catches the wave that sweeps down the field after its
+// site is picked, `elapsed` ms in: 0 outside it, up to 1 at its crest.
+export function getSelectionWave(
+	dot: PreviewDot,
+	{ elapsed, height, centerX }: { elapsed: number; height: number; centerX: number }
+) {
+	if ( elapsed < 0 || elapsed >= SELECTION_WAVE_DURATION ) {
+		return 0;
+	}
+	const arrival =
+		( dot.y / Math.max( 1, height ) ) * 0.64 +
+		( 1 - Math.min( 1, Math.abs( dot.x - centerX ) / Math.max( 1, centerX ) ) ** 2 ) * 0.12;
+	const phase = ( elapsed / SELECTION_WAVE_DURATION - arrival ) / 0.24;
+	return phase > 0 && phase < 1 ? Math.sin( phase * Math.PI ) ** 2 : 0;
+}
+
 export function createPreviewDots( width: number, height: number ): PreviewDot[] {
 	const centerX = width / 2;
 	const centerY = height / 2;

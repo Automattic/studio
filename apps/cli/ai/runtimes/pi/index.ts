@@ -52,6 +52,7 @@ import { createPresentDesignOptionsTool } from 'cli/ai/tools/present-design-opti
 import { createSkillTool } from 'cli/ai/tools/skill';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import { getFileToolPrompt } from './file-tool-prompts';
+import { withLeakedToolCallMarkupRemoved } from './leaked-tool-call-markup';
 import { getPendingWork, type PendingWork } from './pending-work';
 import { stripStaleImagesFromContext } from './strip-stale-images';
 import {
@@ -551,9 +552,9 @@ function escapePiConfigValue( value: string ): string {
 }
 
 // The wpcom lane only needs pi's stock streaming for each tier's API; the
-// custom provider exists to wrap the stream with the usage-cap 429 rewrite
-// and to strip stale screenshots, which would otherwise bloat requests past
-// the proxy's body limit.
+// custom provider exists to wrap the stream with the usage-cap 429 rewrite and
+// the leaked tool-call cleanup, and to strip stale screenshots, which would
+// otherwise bloat requests past the proxy's body limit.
 function createWpcomProviderConfig(
 	model: StudioWpcomModel,
 	creds: ResolvedCredentials
@@ -577,17 +578,19 @@ function createWpcomProviderConfig(
 		headers: creds.extraHeaders,
 		streamSimple: ( m, ctx, options?: SimpleStreamOptions ) =>
 			withUsageCapErrorRewrite(
-				stream( m, stripStaleImagesFromContext( ctx ), {
-					...options,
-					...( apiModelId
-						? {
-								onPayload: async ( params: unknown, payloadModel ) => {
-									const next = ( await options?.onPayload?.( params, payloadModel ) ) ?? params;
-									return { ...( next as Record< string, unknown > ), model: apiModelId };
-								},
-						  }
-						: {} ),
-				} )
+				withLeakedToolCallMarkupRemoved(
+					stream( m, stripStaleImagesFromContext( ctx ), {
+						...options,
+						...( apiModelId
+							? {
+									onPayload: async ( params: unknown, payloadModel ) => {
+										const next = ( await options?.onPayload?.( params, payloadModel ) ) ?? params;
+										return { ...( next as Record< string, unknown > ), model: apiModelId };
+									},
+							  }
+							: {} ),
+					} )
+				)
 			),
 		models: [
 			{

@@ -79,10 +79,6 @@ vi.mock( '@/components/stopped-site-preview', () => ( {
 	StoppedSitePreview: () => <div data-testid="stopped-site-preview" />,
 } ) );
 
-vi.mock( '@/components/preview-toggle-button', () => ( {
-	PreviewToggleButton: () => null,
-} ) );
-
 vi.mock( '@/data/queries/use-assistant-quota', () => ( {
 	useStudioAssistantQuota: vi.fn(),
 } ) );
@@ -183,7 +179,9 @@ vi.mock( './conversation', () => ( {
 	),
 } ) );
 
-vi.mock( '@/components/chat-actions', () => ( { OpenChatShortcuts: () => null } ) );
+vi.mock( '@/components/chat-actions', () => ( {
+	ChatContextMenu: ( { children }: { children: React.ReactNode } ) => children,
+} ) );
 vi.mock( '@/hooks/use-mark-chat-read', () => ( { useMarkChatRead: vi.fn() } ) );
 
 const useSessionMock = vi.mocked( useSession, { partial: true } );
@@ -212,7 +210,7 @@ function makeQuota(
 	};
 }
 
-const SCROLL_TO_LATEST_LABEL = 'Jump to latest';
+const jumpButton = () => screen.getByRole( 'button', { name: 'Jump to latest' } );
 
 function makeLoadedSession(): LoadedAiSession {
 	return {
@@ -379,26 +377,23 @@ describe( 'SessionView', () => {
 
 		const scroller = container.querySelector( '[class*="_scroll_"]' ) as HTMLDivElement;
 		expect( scroller ).not.toBeNull();
-		expect(
-			screen.queryByRole( 'button', { name: SCROLL_TO_LATEST_LABEL } )
-		).not.toBeInTheDocument();
+		expect( jumpButton() ).not.toHaveAttribute( 'data-visible' );
 
 		setScrollMetrics( scroller, { scrollTop: 100, scrollHeight: 1000, clientHeight: 400 } );
 		fireEvent.scroll( scroller );
 
-		const button = await screen.findByRole( 'button', { name: SCROLL_TO_LATEST_LABEL } );
+		await waitFor( () => expect( jumpButton() ).toHaveAttribute( 'data-visible' ) );
+		const button = jumpButton();
 
 		scroller.scrollTo = vi.fn();
 		fireEvent.click( button );
 		expect( scroller.scrollTo ).toHaveBeenCalledWith( { top: 1000, behavior: 'smooth' } );
+		expect( jumpButton() ).not.toHaveAttribute( 'data-visible' );
 
-		setScrollMetrics( scroller, { scrollTop: 600, scrollHeight: 1000, clientHeight: 400 } );
+		// The smooth scroll on its way down keeps the button hidden.
+		setScrollMetrics( scroller, { scrollTop: 300, scrollHeight: 1000, clientHeight: 400 } );
 		fireEvent.scroll( scroller );
-		await waitFor( () =>
-			expect(
-				screen.queryByRole( 'button', { name: SCROLL_TO_LATEST_LABEL } )
-			).not.toBeInTheDocument()
-		);
+		expect( jumpButton() ).not.toHaveAttribute( 'data-visible' );
 	} );
 
 	it( 'wires the scroller when the session loads before the quota check resolves', async () => {
@@ -434,9 +429,7 @@ describe( 'SessionView', () => {
 
 		setScrollMetrics( scroller, { scrollTop: 100, scrollHeight: 1000, clientHeight: 400 } );
 		fireEvent.scroll( scroller );
-		expect(
-			await screen.findByRole( 'button', { name: SCROLL_TO_LATEST_LABEL } )
-		).toBeInTheDocument();
+		await waitFor( () => expect( jumpButton() ).toHaveAttribute( 'data-visible' ) );
 	} );
 
 	it( 'keeps the composer hidden while the entitlement check is loading', () => {
@@ -695,10 +688,8 @@ describe( 'SessionView', () => {
 			const scroller = container.querySelector( '[class*="_scroll_"]' ) as HTMLDivElement;
 
 			// The last prompt sits at the top, with a peek of the turn before it.
-			expect( scroller.scrollTop ).toBe( 1476 );
-			expect(
-				await screen.findByRole( 'button', { name: SCROLL_TO_LATEST_LABEL } )
-			).toBeInTheDocument();
+			expect( scroller.scrollTop ).toBe( 1436 );
+			await waitFor( () => expect( jumpButton() ).toHaveAttribute( 'data-visible' ) );
 		} );
 
 		it( 'pins a new prompt near the top while its reply streams below', () => {
@@ -708,18 +699,16 @@ describe( 'SessionView', () => {
 			const spacer = scroller.lastElementChild as HTMLDivElement;
 
 			// The reply so far ends 100px below the new prompt.
-			layoutAt( scroller, { scrollHeight: 1276 } );
+			layoutAt( scroller, { scrollHeight: 1236 } );
 			spacer.dataset.top = '800';
 			useSessionMock.mockReturnValue( withPromptsAt( 0, 700 ) );
 			rerender( <SessionView sessionId="session-1" /> );
 
 			// The spacer fills the view below the reply, so scrolling to the end
-			// leaves the prompt 24px from the top.
-			expect( spacer ).toHaveStyle( { height: '476px' } );
-			expect( scroller.scrollTop ).toBe( 1276 );
-			expect(
-				screen.queryByRole( 'button', { name: SCROLL_TO_LATEST_LABEL } )
-			).not.toBeInTheDocument();
+			// leaves the prompt 64px from the top.
+			expect( spacer ).toHaveStyle( { height: '436px' } );
+			expect( scroller.scrollTop ).toBe( 1236 );
+			expect( jumpButton() ).not.toHaveAttribute( 'data-visible' );
 
 			// Once the reply outgrows the view, the spacer is gone and the view
 			// follows the reply.
@@ -769,7 +758,7 @@ describe( 'isScrolledAwayFromLatest', () => {
 
 	it( 'is false within the near-bottom threshold', () => {
 		expect(
-			isScrolledAwayFromLatest( { scrollTop: 560, scrollHeight: 1000, clientHeight: 400 } )
+			isScrolledAwayFromLatest( { scrollTop: 595, scrollHeight: 1000, clientHeight: 400 } )
 		).toBe( false );
 	} );
 

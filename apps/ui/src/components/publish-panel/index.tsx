@@ -404,6 +404,7 @@ export function PublishButton( {
 					render={
 						<Button
 							ref={ trigger }
+							className={ styles.trigger }
 							aria-label={ __( 'Publish…' ) }
 							aria-description={ error ?? status }
 						/>

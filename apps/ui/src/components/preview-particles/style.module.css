@@ -21,7 +21,7 @@
 	opacity: 0;
 	pointer-events: none;
 	transform: translate(-50%, -50%);
-	transition: opacity 600ms ease;
+	transition: opacity var(--motion-duration-reveal) ease;
 }
 
 .logo svg {
@@ -31,4 +31,9 @@
 
 .logo[data-active] {
 	opacity: 0.4;
+}
+
+.logo svg {
+	width: 48px;
+	height: 48px;
 }

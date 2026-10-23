@@ -108,8 +108,9 @@
 }
 
 .description {
-	display: -webkit-box;
 	max-width: 100%;
+	height: 1lh;
+	max-height: 192px;
 	margin: 0;
 	overflow: hidden;
 	color: var(--muted-foreground);
@@ -117,14 +118,49 @@
 	line-height: 1.625;
 	white-space: pre-wrap;
 	overflow-wrap: anywhere;
+	interpolate-size: allow-keywords;
+	transition: height var(--motion-duration-layout) var(--motion-ease-layout);
+}
+
+.description[data-clamped] {
+	display: -webkit-box;
 	-webkit-box-orient: vertical;
 	-webkit-line-clamp: 1;
 }
 
 .description[data-expanded] {
-	display: block;
-	max-height: 192px;
+	height: auto;
 	overflow-y: auto;
+}
+
+/* Fades in over the line's end on hover, and turns as the text opens. */
+.chevron {
+	position: absolute;
+	inset-block: 0;
+	inset-inline-end: 0;
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	width: 40px;
+	background: linear-gradient(to right, transparent, var(--secondary) 50%);
+	color: var(--muted-foreground);
+	opacity: 0;
+	transition: opacity var(--motion-duration-feedback);
+}
+
+.chevron svg {
+	width: 16px;
+	height: 16px;
+	transition: rotate var(--motion-duration-layout) var(--motion-ease-layout);
+}
+
+.card:hover .chevron,
+.toggle:focus-visible .chevron {
+	opacity: 1;
+}
+
+.toggle[aria-expanded='true'] .chevron svg {
+	rotate: 90deg;
 }
 
 .close {

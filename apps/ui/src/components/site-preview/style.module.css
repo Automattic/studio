@@ -175,10 +175,19 @@
 .realmLayer {
 	position: absolute;
 	inset: 0;
+	z-index: 1;
 	display: flex;
 	min-width: 0;
 	min-height: 0;
 	overflow: hidden;
+	transition: opacity var(--motion-duration-surface) var(--motion-ease-enter);
+}
+
+/* A loading page hides at once, showing the loading stage behind it, and
+   fades in when it's ready. */
+.realmLayer[data-loading] {
+	opacity: 0;
+	transition-duration: 0s;
 }
 
 /* Kept mounted and laid out — so the guest holds its size and scroll
@@ -253,16 +262,6 @@
 	font-size: var(--text-xxs);
 	text-align: center;
 	overflow: hidden;
-}
-
-/* Fades off the first page of a site that was just started. */
-.empty[data-revealed] {
-	opacity: 0;
-	visibility: hidden;
-	pointer-events: none;
-	transition:
-		opacity var(--motion-duration-reveal) var(--motion-ease-enter),
-		visibility 0s linear var(--motion-duration-reveal);
 }
 
 .loadFailed {

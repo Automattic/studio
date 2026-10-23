@@ -1,91 +1,122 @@
-/* Toasts: a neutral card stacked at the window's bottom right, below
-   dialogs (700) and above the app chrome. */
+/* Toasts: a deck at the window's bottom right, below dialogs (700) and above
+   the app chrome. Collapsed, the toasts behind the front one shrink and peek
+   out above it; hovering or focusing the deck spreads it into a list. */
 .viewport {
 	position: fixed;
 	inset-block-end: 12px;
 	inset-inline-end: 12px;
 	z-index: 600;
-	display: flex;
-	flex-direction: column;
 	width: min(320px, calc(100vw - 24px));
 	pointer-events: none;
 	-webkit-app-region: no-drag;
 }
 
-.cell {
-	display: grid;
-	grid-template-rows: 1fr;
-	margin-top: 8px;
+.toast {
+	--gap: 8px;
+	--peek: 12px;
+	--height: var(--toast-frontmost-height, var(--toast-height));
+	--scale: max(0, 1 - var(--toast-index) * 0.1);
+	--shrink: calc(1 - var(--scale));
+	--offset-y: calc(
+		var(--toast-offset-y) * -1 - var(--toast-index) * var(--gap) + var(--toast-swipe-movement-y)
+	);
+
+	position: absolute;
+	inset-block-end: 0;
+	inset-inline-end: 0;
+	z-index: calc(1000 - var(--toast-index));
+	width: 100%;
+	height: var(--height);
+	border-radius: var(--radius-xl);
+	background-color: var(--secondary);
+	box-shadow:
+		0 0 0 1px var(--border),
+		0 1px 3px 0 rgb(0 0 0 / 10%),
+		0 1px 2px -1px rgb(0 0 0 / 10%);
+	pointer-events: auto;
+	transform-origin: bottom;
+	transform: translateX(var(--toast-swipe-movement-x))
+		translateY(
+			calc(
+				var(--toast-swipe-movement-y) - var(--toast-index) * var(--peek) - var(--shrink) *
+					var(--height)
+			)
+		)
+		scale(var(--scale));
 	transition:
-		grid-template-rows 180ms ease,
-		margin-top 180ms ease;
+		transform var(--motion-duration-layout) var(--motion-ease-enter),
+		opacity var(--motion-duration-layout) var(--motion-ease-enter);
 }
 
-@starting-style {
-	.cell {
-		grid-template-rows: 0fr;
-		margin-top: 0;
+/* Bridges the gap so the pointer can travel between spread toasts. */
+.toast::after {
+	position: absolute;
+	inset-block-start: 100%;
+	inset-inline-start: 0;
+	width: 100%;
+	height: calc(var(--gap) + 1px);
+	content: '';
+}
+
+.toast[data-swiping] {
+	transition: none;
+}
+
+.toast[data-expanded] {
+	height: var(--toast-height);
+	transform: translateX(var(--toast-swipe-movement-x)) translateY(var(--offset-y));
+}
+
+@media (prefers-reduced-motion: no-preference) {
+	.toast[data-starting-style],
+	.toast[data-ending-style]:not([data-swipe-direction]) {
+		transform: translateY(150%);
+	}
+
+	.toast[data-ending-style][data-swipe-direction='down'] {
+		transform: translateY(calc(var(--toast-swipe-movement-y) + 150%));
+	}
+
+	.toast[data-ending-style][data-swipe-direction='right'] {
+		transform: translateX(calc(var(--toast-swipe-movement-x) + 150%)) translateY(var(--offset-y));
 	}
 }
 
-.cell[data-leaving] {
-	grid-template-rows: 0fr;
-	margin-top: 0;
-}
-
-.toast {
-	min-height: 0;
-	/* Clipped so the row can collapse it, with room inside the clip for the
-	   card's ring, shadow and close button. The padding, not
-	   overflow-clip-margin, makes that room: Safari ignores the latter. */
+/* Clipped to the front toast's height while behind it, with room inside the
+   clip for the dismiss button that overhangs the corner. */
+.content {
+	height: calc(100% + 24px);
 	margin: -12px;
 	padding: 12px;
 	overflow: clip;
-	pointer-events: none;
-	animation: toast-enter 160ms ease-out;
-	transition: opacity 160ms ease, transform 160ms ease;
+	transition: opacity var(--motion-duration-feedback) var(--motion-ease-enter);
 }
 
-.cell[data-leaving] .toast {
+.content[data-behind] {
 	opacity: 0;
-	transform: translateY(4px);
 }
 
-.cell[data-leaving] .toast > * {
-	pointer-events: none;
+.content[data-expanded] {
+	opacity: 1;
 }
 
-.queuePeek {
-	height: 8px;
-	margin-top: 3px;
-	margin-inline: 8px;
-	background-color: var(--secondary);
-	border-radius: 0 0 6px 6px;
-	box-shadow: 0 0 0 1px var(--border);
-	opacity: 0.8;
-}
-
-.queuePeekDeeper {
-	margin-inline: 16px;
-	opacity: 0.5;
-}
-
-@keyframes toast-enter {
-	from {
-		opacity: 0;
-		transform: translateY(6px);
-	}
-
-	to {
-		opacity: 1;
-		transform: translateY(0);
-	}
+.toast .card {
+	background: none;
+	box-shadow: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
+	.toast {
+		transition-property: opacity;
+	}
+
+	.toast[data-starting-style],
+	.toast[data-ending-style] {
+		opacity: 0;
+	}
+
 	.toast,
-	.cell {
-		animation: none;
-		transition: none;
+	.content {
+		transition-duration: var(--motion-duration-feedback) !important;
 	}
 }

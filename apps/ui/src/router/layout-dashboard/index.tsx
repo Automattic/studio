@@ -1,6 +1,11 @@
 import { findAiSessionOwnerSite } from '@studio/common/ai/sessions/owner-site';
-import { createRoute, Outlet, useNavigate, useRouterState } from '@tanstack/react-router';
-import { __ } from '@wordpress/i18n';
+import {
+	createRoute,
+	Outlet,
+	useNavigate,
+	useRouter,
+	useRouterState,
+} from '@tanstack/react-router';
 import { useCallback, useEffect, useState } from 'react';
 import { requestAnnotationSend } from '@/components/annotations/store';
 import { CommandPalette } from '@/components/command-palette';
@@ -14,16 +19,14 @@ import { SiteActionsMenu } from '@/components/site-actions-menu';
 import { SiteHeaderActions, SiteHeaderActionsProvider } from '@/components/site-header-actions';
 import { SitePreview } from '@/components/site-preview';
 import { SiteWorkspace } from '@/components/site-workspace';
-import { IconButton } from '@/components/ui/button';
 import { useOrientationAutostart } from '@/data/onboarding/use-orientation-autostart';
 import { useOrientationReplay } from '@/data/onboarding/use-orientation-replay';
 import { useWhatsNewAutostart } from '@/data/onboarding/use-whats-new-autostart';
 import { useWhatsNewReplay } from '@/data/onboarding/use-whats-new-replay';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useSession, useSessionLiveSite } from '@/data/queries/use-sessions';
-import { useSites } from '@/data/queries/use-sites';
+import { useIsSiteStopping, useSiteOperation, useSites } from '@/data/queries/use-sites';
 import { pathForSite, SessionUIProvider, useSessionPreviewUI } from '@/hooks/use-session-ui';
-import { ChatIcon } from '@/lib/icons/chat-icon';
 import { rememberVisit } from '@/lib/last-visited';
 import { rootRoute } from '../layout-root';
 
@@ -141,19 +144,27 @@ function DashboardLayoutContent() {
 		[ liveUrl ]
 	);
 	// A site's own page is its preview, so it shows whether or not the panel is
-	// open. Beside a chat, a stopped site has nothing to preview: the chat takes
-	// the room and shows the site's last screenshot instead.
+	// open. Beside a chat, a stopping or stopped site has nothing to preview, and
+	// a starting one shows nothing until its first page loads: the chat takes the
+	// room and shows its loading stage or the site's last screenshot instead.
+	const stopPending = useIsSiteStopping( previewSite?.id );
+	const previewOperation = useSiteOperation( previewSite );
+	const previewStopping = stopPending || previewOperation === 'stop';
 	const showPreview =
 		( preview.open || !! homeSiteId ) &&
 		supportsPreview &&
 		!! previewSite &&
-		( previewSite.running || !! homeSiteId || !! liveUrl );
+		( !! homeSiteId ||
+			!! liveUrl ||
+			( previewSite.running && ! previewStopping && preview.revealingSiteId !== previewSite.id ) );
 	const chatHidden = ( preview.chatHidden || !! homeSiteId ) && showPreview;
-	// Opening a chat shows it.
+	// Opening a chat shows it, the open one included.
+	const router = useRouter();
 	const { setChatHidden } = preview;
-	useEffect( () => {
-		setChatHidden( false );
-	}, [ sessionId, setChatHidden ] );
+	useEffect(
+		() => router.subscribe( 'onBeforeNavigate', () => setChatHidden( false ) ),
+		[ router, setChatHidden ]
+	);
 	// The notes go to the chat beside the preview, or to a new one for the site.
 	const sendAnnotations = useCallback(
 		( siteId: string, noteIds?: string[] ) => {
@@ -183,13 +194,6 @@ function DashboardLayoutContent() {
 							<>
 								<HeaderSidebarToggle />
 								<SiteActionsMenu site={ previewSite } />
-								{ homeSite ? null : (
-									<IconButton
-										icon={ <ChatIcon /> }
-										label={ __( 'Show chat' ) }
-										onClick={ () => setChatHidden( false ) }
-									/>
-								) }
 							</>
 						) : undefined
 					}
@@ -197,7 +201,6 @@ function DashboardLayoutContent() {
 			) : null,
 		[
 			chatHidden,
-			homeSite,
 			liveUrl,
 			livePath,
 			sendAnnotations,
@@ -205,7 +208,6 @@ function DashboardLayoutContent() {
 			preview.reloadNonce,
 			preview.updatePath,
 			previewSite,
-			setChatHidden,
 			updateLivePath,
 		]
 	);
@@ -223,6 +225,7 @@ function DashboardLayoutContent() {
 				<PreviewSplitFrame
 					previewOpen={ showPreview }
 					chatHidden={ chatHidden }
+					instant={ previewStopping }
 					preview={ renderPreview }
 					actions={
 						routeSite ? <SiteHeaderActions site={ routeSite } live={ !! liveUrl } /> : null

@@ -269,7 +269,9 @@ export async function startWordPressServer(
 			phaseTimings.collations_ms = Date.now() - collationsStartedAt;
 		}
 
+		const runtimeStatsStartedAt = Date.now();
 		await recordSiteRuntimeUsage( site );
+		phaseTimings.runtime_stats_ms = Date.now() - runtimeStatsStartedAt;
 
 		// Tracks: the CLI is the sole emitter of site-start, whether started standalone or by the
 		// desktop app (which passes its origin via STUDIO_TRACKS_ORIGIN). Awaited (not fire-and-forget)

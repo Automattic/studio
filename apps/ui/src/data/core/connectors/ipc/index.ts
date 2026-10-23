@@ -645,11 +645,6 @@ export function createIpcConnector(): Connector {
 				writes.push( studioCliInstalled ? ipcApi.installStudioCli() : ipcApi.uninstallStudioCli() );
 			}
 			await Promise.all( writes );
-			if ( typeof partial.agenticFeaturesEnabled === 'boolean' ) {
-				// Cmd/Ctrl+N belongs to "New chat" only while chat is on, so the
-				// menu has to be rebuilt for the accelerator to change hands.
-				await ipcApi.setupAppMenu();
-			}
 		},
 
 		async isCertificateTrusted(): Promise< boolean > {

@@ -15,6 +15,7 @@ import { VisuallyHidden } from '@/components/ui/visually-hidden';
 import { sitePinKey, useSidebarPins } from '@/data/queries/use-sidebar-pins';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useSiteSyncActivity } from '@/data/sync-activity';
+import { closeOnPaletteShortcut } from '@/hooks/use-command-palette';
 import { archiveIcon, plusIcon } from '@/lib/icons';
 import { pendingBlueprintSlot } from '@/lib/pending-blueprint';
 import { BlueprintDetails } from './blueprint-details';
@@ -184,6 +185,7 @@ export function AddSiteDialog() {
 				className={ styles.popup }
 				initialFocus={ getInitialFocus }
 				finalFocus={ getFinalFocus }
+				onKeyDown={ closeOnPaletteShortcut( close ) }
 			>
 				<DialogTitle render={ <VisuallyHidden /> }>{ __( 'Add site' ) }</DialogTitle>
 				{ hasSidebar ? (

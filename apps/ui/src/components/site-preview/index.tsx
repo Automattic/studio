@@ -52,6 +52,7 @@ import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import { useWindowControlsInset } from '@/hooks/use-window-controls-inset';
 import { getSiteUrl } from '@/lib/get-site-url';
 import { annotateIcon, browserBackIcon, browserForwardIcon, refreshIcon } from '@/lib/icons';
+import { isDialogOpen } from '@/lib/shortcuts';
 import {
 	DATABASE_HOME_PATH,
 	getPathFromPreviewUrl,
@@ -559,7 +560,6 @@ export function SitePreview( {
 	const browserState = activeSurface?.browser ?? EMPTY_BROWSER_STATE;
 	const annotations = useSiteAnnotations( site.id );
 	const [ annotationAnchor, setAnnotationAnchor ] = useState< AnnotationAnchor | null >( null );
-	const rootRef = useRef< HTMLElement | null >( null );
 	const headerRef = useRef< HTMLDivElement | null >( null );
 	const commandIdRef = useRef( 0 );
 	// Studio renders the design system itself, so it needs no page injection.
@@ -814,8 +814,8 @@ export function SitePreview( {
 		[]
 	);
 
-	// Browser shortcuts (⌘R / ⌘[ / ⌘] / ⌘←/⌘→)
-	// pressed while focus is in the host document. Shortcuts pressed inside the
+	// Browser shortcuts (⌘R / ⌘[ / ⌘] / ⌘←/⌘→) pressed anywhere in the host
+	// document but a dialog, the composer included. Shortcuts pressed inside the
 	// guest page are forwarded by the inspector script through the console
 	// bridge instead.
 	useEffect( () => {
@@ -824,15 +824,7 @@ export function SitePreview( {
 		}
 		const handleKeyDown = ( event: globalThis.KeyboardEvent ) => {
 			const command = getBrowserShortcutCommand( event );
-			if ( ! command ) {
-				return;
-			}
-			const activeElement = document.activeElement;
-			if (
-				activeElement &&
-				activeElement !== document.body &&
-				! rootRef.current?.contains( activeElement )
-			) {
+			if ( ! command || isDialogOpen() ) {
 				return;
 			}
 			event.preventDefault();
@@ -861,7 +853,7 @@ export function SitePreview( {
 	const openSiteSettings = () => openSettings( 'site', site.id );
 
 	return (
-		<aside ref={ rootRef } className={ styles.root } aria-label={ __( 'Site preview' ) }>
+		<aside className={ styles.root } aria-label={ __( 'Site preview' ) }>
 			<div
 				ref={ headerRef }
 				className={ clsx(

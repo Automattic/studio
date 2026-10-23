@@ -2,6 +2,7 @@ import { getAuthenticationUrl, getSignUpUrl } from '@studio/common/lib/oauth';
 import { SyncCancelledError } from '@studio/common/lib/sync/cancel';
 import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
 import { __ } from '@wordpress/i18n';
+import { isShortcut } from '@/lib/shortcuts';
 import { readLastSeenVersion, writeLastSeenVersion } from '../browser-whats-new';
 import { buildPublishCheckoutUrl } from '../publish-checkout-url';
 import { UnsupportedError } from '../unsupported-error';
@@ -73,6 +74,18 @@ type ServerEvent =
  * machine (the real site list, start/stop, the agent) are implemented for real;
  * the rest grow in later increments (site create/export land in Phase 2).
  */
+// A browser tab has no application menu, so the page binds its accelerators.
+function onMenuShortcut( listener: () => void, key: string, modifier?: 'shift' ) {
+	const onKeyDown = ( event: KeyboardEvent ) => {
+		if ( ! event.defaultPrevented && ! event.repeat && isShortcut( event, key, modifier ) ) {
+			event.preventDefault();
+			listener();
+		}
+	};
+	document.addEventListener( 'keydown', onKeyDown );
+	return () => document.removeEventListener( 'keydown', onKeyDown );
+}
+
 export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): Connector {
 	// The server namespaces its API under /api so the SPA's real-path routes
 	// (also /sessions/:id, /sites/:id) can share the same origin.
@@ -934,9 +947,8 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			snapshotEventListeners.add( listener );
 			return () => snapshotEventListeners.delete( listener );
 		},
-		onToggleSitePreview() {
-			// No application menu in a browser tab.
-			return () => {};
+		onToggleSitePreview( listener ) {
+			return onMenuShortcut( listener, 'b', 'shift' );
 		},
 		async copyText( text ) {
 			await navigator.clipboard.writeText( text );
@@ -948,20 +960,17 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				)
 			);
 		},
-		onToggleSidebar() {
-			// No application menu in a browser tab.
-			return () => {};
+		onToggleSidebar( listener ) {
+			return onMenuShortcut( listener, 'b' );
 		},
-		onAddSite() {
-			// No application menu in a browser tab.
-			return () => {};
+		onAddSite( listener ) {
+			return onMenuShortcut( listener, 'n' );
 		},
 		onAddSiteWithBlueprint() {
 			return () => {};
 		},
-		onOpenSettings() {
-			// No application menu in a browser tab.
-			return () => {};
+		onOpenSettings( listener ) {
+			return onMenuShortcut( () => listener( {} ), ',' );
 		},
 		onAiCreditsPurchased() {
 			// A browser tab can't receive the wp-studio:// checkout return link.

@@ -29,6 +29,10 @@ function setOpen( next: boolean ) {
 	}
 }
 
+export function openNoticeHistory(): void {
+	setOpen( true );
+}
+
 export function closeNoticeHistory(): void {
 	setOpen( false );
 }

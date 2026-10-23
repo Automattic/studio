@@ -545,6 +545,17 @@
 	align-items: flex-start;
 }
 
+.menuIcon {
+	flex: none;
+	width: 14px;
+	height: 14px;
+	color: var(--muted-foreground);
+}
+
+.describedItem > .menuIcon {
+	margin-block-start: 3px;
+}
+
 .describedItemBody {
 	display: flex;
 	min-width: 0;

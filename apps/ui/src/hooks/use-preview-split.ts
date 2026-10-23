@@ -20,7 +20,6 @@ interface PreviewSplitHandleProps {
 	minWidth: number;
 	maxWidth: number;
 	width: number;
-	isResizing: boolean;
 	onResizeStart: MouseEventHandler< HTMLElement >;
 	onKeyDown: ( event: KeyboardEvent< HTMLElement > ) => void;
 }
@@ -216,7 +215,6 @@ export function usePreviewSplit( { showPreview }: UsePreviewSplitOptions ): UseP
 			minWidth: layout?.previewMinWidth ?? PREVIEW_PANEL_MIN_WIDTH,
 			maxWidth: layout?.previewMaxWidth ?? PREVIEW_PANEL_MIN_WIDTH,
 			width: layout?.previewWidth ?? PREVIEW_PANEL_MIN_WIDTH,
-			isResizing: isDragging,
 			onResizeStart: onMouseDown,
 			onKeyDown: handleKeyDown,
 		},

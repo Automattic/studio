@@ -54,7 +54,9 @@ export function Popup( {
 	return (
 		<BasePopover.Portal>
 			{ backdrop ? <BasePopover.Backdrop className={ styles.backdrop } /> : null }
+			{ /* Fixed, so a popup sliding in from off-screen can't scroll the page sideways. */ }
 			<BasePopover.Positioner
+				positionMethod="fixed"
 				side={ side }
 				align={ align }
 				sideOffset={ sideOffset }
@@ -65,6 +67,7 @@ export function Popup( {
 				className={ clsx( styles.positioner, commands && styles.commandsPositioner ) }
 			>
 				<BasePopover.Popup
+					data-slot="popover-content"
 					initialFocus={ initialFocus }
 					finalFocus={ finalFocus }
 					aria-label={ ariaLabel }

@@ -43,7 +43,7 @@ import { getAiTracksIdentity } from '@studio/common/ai/tracks-identity';
 import { type TSchema } from 'typebox';
 import { withDesignSystemPreview } from 'cli/ai/chat-artifacts';
 import { isImageGenerationAvailable } from 'cli/ai/image-generation';
-import { createResultNotes } from 'cli/ai/result-notes';
+import { createResultNotes, type NotedCall } from 'cli/ai/result-notes';
 import { readActiveSiteFacts } from 'cli/ai/site-facts';
 import { buildSystemPrompt, type ToolPromptContribution } from 'cli/ai/system-prompt';
 import { resolveStudioToolDefinitions } from 'cli/ai/tools';
@@ -350,7 +350,7 @@ async function createStudioAgentSession(
 	const site = config.activeSite;
 	const notes = createResultNotes();
 	const resultNotes =
-		site && ! site.remote ? ( text: string ) => notes( site.path, text ) : undefined;
+		site && ! site.remote ? ( call: NotedCall ) => notes( site.path, call ) : undefined;
 	const toolDefinitions = tools.map( ( tool ) =>
 		toToolDefinition( tool, payloadGuardState, pendingWork, resultNotes )
 	);
@@ -629,7 +629,7 @@ function toToolDefinition(
 	tool: AgentToolAny,
 	payloadGuardState: StudioToolPayloadGuardState,
 	pendingWork: PendingWork,
-	resultNotes?: ( text: string ) => Promise< string >
+	resultNotes?: ( call: NotedCall ) => Promise< string >
 ): ToolDefinition {
 	return {
 		name: tool.name,
@@ -664,7 +664,10 @@ function toToolDefinition(
 			const resultText = result.content
 				.map( ( part ) => ( part.type === 'text' ? part.text : '' ) )
 				.join( '\n' );
-			const notes = [ await resultNotes?.( resultText ), pendingWork.takeReports() ]
+			const notes = [
+				await resultNotes?.( { args: params, result: resultText } ),
+				pendingWork.takeReports(),
+			]
 				.filter( Boolean )
 				.join( '\n' );
 			return notes

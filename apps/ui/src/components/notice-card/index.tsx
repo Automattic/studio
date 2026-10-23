@@ -1,5 +1,6 @@
 import { __, sprintf } from '@wordpress/i18n';
-import { CheckIcon, InfoIcon, TriangleAlertIcon, XIcon } from 'lucide-react';
+import { clsx } from 'clsx';
+import { CheckIcon, ChevronRightIcon, InfoIcon, TriangleAlertIcon, XIcon } from 'lucide-react';
 import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { Button, IconButton } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
@@ -67,14 +68,16 @@ function CopyNoticeButton( { notice }: { notice: Notice } ) {
 	);
 }
 
-// One line until clicked; error text can run to a stack trace.
+// One line until clicked; error text can run to a stack trace. Closing
+// animates the height back to one line before the ellipsis returns.
 function NoticeDescription( { notice }: { notice: Notice } ) {
 	const ref = useRef< HTMLParagraphElement >( null );
 	const [ expanded, setExpanded ] = useState( false );
+	const [ clamped, setClamped ] = useState( true );
 	const [ expandable, setExpandable ] = useState( false );
 	useLayoutEffect( () => {
 		const description = ref.current;
-		if ( ! description || expanded ) {
+		if ( ! description || ! clamped ) {
 			return;
 		}
 		const update = () => setExpandable( description.scrollHeight > description.clientHeight + 1 );
@@ -85,15 +88,32 @@ function NoticeDescription( { notice }: { notice: Notice } ) {
 		const observer = new ResizeObserver( update );
 		observer.observe( description );
 		return () => observer.disconnect();
-	}, [ notice.description, expanded ] );
+	}, [ notice.description, clamped ] );
+	const toggle = () => {
+		setExpanded( ! expanded );
+		// Without size interpolation the height snaps and no transition ends.
+		if ( ! expanded || ! globalThis.CSS?.supports( 'interpolate-size', 'allow-keywords' ) ) {
+			setClamped( expanded );
+		}
+	};
 
 	return (
 		<div className={ styles.details }>
 			<div className={ styles.summary }>
-				<p ref={ ref } className={ styles.description } data-expanded={ expanded || undefined }>
+				<p
+					ref={ ref }
+					className={ styles.description }
+					data-expanded={ expanded || undefined }
+					data-clamped={ clamped || undefined }
+					onTransitionEnd={ ( event ) => {
+						if ( event.propertyName === 'height' && ! expanded ) {
+							setClamped( true );
+						}
+					} }
+				>
 					{ notice.description }
 				</p>
-				{ expandable || expanded ? (
+				{ expandable || ! clamped ? (
 					<button
 						type="button"
 						className={ styles.toggle }
@@ -103,8 +123,12 @@ function NoticeDescription( { notice }: { notice: Notice } ) {
 							__( 'View notification: %s' ),
 							notice.title
 						) }
-						onClick={ () => setExpanded( ! expanded ) }
-					/>
+						onClick={ toggle }
+					>
+						<span className={ styles.chevron } aria-hidden="true">
+							<ChevronRightIcon />
+						</span>
+					</button>
 				) : null }
 			</div>
 			{ expanded && notice.intent === 'error' ? <CopyNoticeButton notice={ notice } /> : null }
@@ -113,18 +137,20 @@ function NoticeDescription( { notice }: { notice: Notice } ) {
 }
 
 export function NoticeCard( {
+	className,
 	notice,
 	time,
 	onDismiss,
 	onActionDone,
 }: {
+	className?: string;
 	notice: Notice;
 	time?: ReactNode;
 	onDismiss: () => void;
 	onActionDone?: () => void;
 } ) {
 	return (
-		<div className={ styles.card }>
+		<div className={ clsx( styles.card, className ) }>
 			<div className={ styles.row }>
 				<StatusIcon intent={ notice.intent } />
 				<p className={ styles.title }>{ notice.title }</p>

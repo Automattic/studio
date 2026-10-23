@@ -1,6 +1,8 @@
 /* The sidebar's part of the workspace's top band: the app menu (Windows and
    Linux) and the sidebar toggle at its start, past the macOS traffic lights. */
 .root {
+	--toggle-start: var(--traffic-light-space);
+
 	box-sizing: border-box;
 	display: flex;
 	align-items: center;
@@ -22,7 +24,30 @@
 /* No traffic lights to clear: non-macOS, the browser (`studio ui`), or macOS
    fullscreen (which hides them). */
 .flush {
+	--toggle-start: 12px;
+
 	padding-inline-start: 12px;
+}
+
+/* The toggle stays in the window's corner while the sidebar slides out, and
+   hands over to the header's toggle, which lands on the same spot, once the
+   slide ends. */
+.toggleSlot {
+	display: flex;
+	width: var(--control-size);
+	height: var(--control-size);
+	flex-shrink: 0;
+}
+
+.toggleSlot:first-child > * {
+	position: fixed;
+	top: calc((var(--band-height) - var(--control-size)) / 2);
+	inset-inline-start: var(--toggle-start);
+}
+
+.toggleSlot[data-sidebar-open='false'] > * {
+	visibility: hidden;
+	transition: visibility 0s var(--motion-duration-layout);
 }
 
 .root > * {

@@ -27,7 +27,7 @@
 }
 
 .noticeContent[data-submit-feedback='shake'] {
-	animation: submitShake 240ms ease-in-out;
+	animation: submitShake var(--motion-duration-layout) var(--motion-ease-layout);
 }
 
 .noticeMessage {
@@ -39,19 +39,19 @@
 }
 
 @keyframes submitShake {
-	25% {
+	20% {
 		transform: translateX(-6px);
 	}
 
-	50% {
+	40% {
 		transform: translateX(5px);
 	}
 
-	75% {
+	60% {
 		transform: translateX(-3px);
 	}
 
-	100% {
+	80% {
 		transform: translateX(1px);
 	}
 }
@@ -308,37 +308,18 @@
 	color: transparent;
 }
 
-.placeholderShimmer {
+.placeholder {
 	position: absolute;
 	top: 14px;
 	right: 14px;
 	left: 14px;
 	overflow: hidden;
-	background: linear-gradient(
-			90deg,
-			var(--muted-foreground) 40%,
-			var(--foreground) 50%,
-			var(--muted-foreground) 60%
-		)
-		0 0 / 300% 100%;
-	background-clip: text;
-	color: transparent;
+	color: var(--muted-foreground);
 	font-size: var(--text-sm);
 	line-height: 20px;
 	text-overflow: ellipsis;
 	white-space: nowrap;
 	pointer-events: none;
-	animation: placeholderShimmer 2s linear infinite;
-}
-
-@keyframes placeholderShimmer {
-	from {
-		background-position: 100% 0;
-	}
-
-	to {
-		background-position: 0 0;
-	}
 }
 
 .toolbar {
@@ -410,7 +391,6 @@
 
 @media (prefers-reduced-motion: reduce) {
 	.noticeContent[data-submit-feedback='shake'],
-	.placeholderShimmer,
 	.stopButton[aria-busy='true'] {
 		animation: none;
 	}

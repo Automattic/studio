@@ -24,7 +24,6 @@ function SidebarHarness() {
 			minWidth={ resize.minWidth }
 			maxWidth={ resize.maxWidth }
 			width={ resize.width }
-			isResizing={ resize.isResizing }
 			onResizeStart={ resize.handleResizeStart }
 			onKeyDown={ resize.handleKeyDown }
 		/>

@@ -21,7 +21,7 @@ import { useWhatsNewAutostart } from '@/data/onboarding/use-whats-new-autostart'
 import { useWhatsNewReplay } from '@/data/onboarding/use-whats-new-replay';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useSession, useSessionLiveSite } from '@/data/queries/use-sessions';
-import { useSites } from '@/data/queries/use-sites';
+import { useIsSiteStopping, useSiteOperation, useSites } from '@/data/queries/use-sites';
 import { pathForSite, SessionUIProvider, useSessionPreviewUI } from '@/hooks/use-session-ui';
 import { ChatIcon } from '@/lib/icons/chat-icon';
 import { rememberVisit } from '@/lib/last-visited';
@@ -141,13 +141,19 @@ function DashboardLayoutContent() {
 		[ liveUrl ]
 	);
 	// A site's own page is its preview, so it shows whether or not the panel is
-	// open. Beside a chat, a stopped site has nothing to preview: the chat takes
-	// the room and shows the site's last screenshot instead.
+	// open. Beside a chat, a stopping or stopped site has nothing to preview, and
+	// a starting one shows nothing until its first page loads: the chat takes the
+	// room and shows its loading stage or the site's last screenshot instead.
+	const stopPending = useIsSiteStopping( previewSite?.id );
+	const previewOperation = useSiteOperation( previewSite );
+	const previewStopping = stopPending || previewOperation === 'stop';
 	const showPreview =
 		( preview.open || !! homeSiteId ) &&
 		supportsPreview &&
 		!! previewSite &&
-		( previewSite.running || !! homeSiteId || !! liveUrl );
+		( !! homeSiteId ||
+			!! liveUrl ||
+			( previewSite.running && ! previewStopping && preview.revealingSiteId !== previewSite.id ) );
 	const chatHidden = ( preview.chatHidden || !! homeSiteId ) && showPreview;
 	// Opening a chat shows it.
 	const { setChatHidden } = preview;
@@ -223,6 +229,7 @@ function DashboardLayoutContent() {
 				<PreviewSplitFrame
 					previewOpen={ showPreview }
 					chatHidden={ chatHidden }
+					instant={ previewStopping }
 					preview={ renderPreview }
 					actions={
 						routeSite ? <SiteHeaderActions site={ routeSite } live={ !! liveUrl } /> : null

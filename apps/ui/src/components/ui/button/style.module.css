@@ -28,7 +28,11 @@
 		user-select: none;
 		transition-property: opacity;
 		transition-duration: var( --button-active-duration, var( --motion-duration-surface ) );
-		transition-timing-function: var( --motion-ease-enter );
+		transition-timing-function: var( --button-active-easing, var( --motion-ease-enter ) );
+	}
+
+	.button[aria-pressed] {
+		--button-active-duration: var( --motion-duration-layout );
 	}
 
 	@media ( prefers-reduced-motion: no-preference ) {
@@ -37,13 +41,12 @@
 			transition-duration: var( --motion-duration-feedback ), var( --motion-duration-feedback ),
 				var( --motion-duration-feedback ), var( --motion-duration-feedback ),
 				var( --button-active-duration, var( --motion-duration-surface ) );
-			transition-timing-function: ease, ease, ease, ease, var( --motion-ease-enter );
+			transition-timing-function: ease, ease, ease, ease,
+				var( --button-active-easing, var( --motion-ease-enter ) );
 		}
 	}
 
 	.button:is( [aria-expanded='true'], [aria-pressed='true'] ) {
-		--button-active-duration: var( --motion-duration-layout );
-
 		opacity: 0.7;
 	}
 

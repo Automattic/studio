@@ -32,6 +32,9 @@ interface PreviewUIState {
 	siteId: string | null;
 	// Last visited path per site, so switching back restores it. In-memory only.
 	pathsBySiteId: Record< string, string >;
+	// A just-started site whose first page is still loading: the chat keeps its
+	// loading stage and the preview stays shut until the page arrives.
+	revealingSiteId: string | null;
 }
 
 // The path a site's preview shows: its last visited path, or home.
@@ -53,7 +56,8 @@ type SessionUIAction =
 	| { type: 'preview/navigate'; path: string }
 	| { type: 'preview/reload' }
 	| { type: 'preview/update-path'; path: string }
-	| { type: 'preview/set-site'; siteId: string };
+	| { type: 'preview/set-site'; siteId: string }
+	| { type: 'preview/set-revealing'; siteId: string; value: boolean };
 
 const INITIAL_STATE: SessionUIState = {
 	preview: {
@@ -62,6 +66,7 @@ const INITIAL_STATE: SessionUIState = {
 		reloadNonce: 0,
 		siteId: null,
 		pathsBySiteId: {},
+		revealingSiteId: null,
 	},
 };
 
@@ -117,6 +122,16 @@ function reducer( state: SessionUIState, action: SessionUIAction ): SessionUISta
 			return state.preview.siteId === action.siteId
 				? state
 				: { ...state, preview: { ...state.preview, siteId: action.siteId } };
+		case 'preview/set-revealing': {
+			const revealingSiteId = action.value
+				? action.siteId
+				: state.preview.revealingSiteId === action.siteId
+				? null
+				: state.preview.revealingSiteId;
+			return revealingSiteId === state.preview.revealingSiteId
+				? state
+				: { ...state, preview: { ...state.preview, revealingSiteId } };
+		}
 	}
 }
 
@@ -174,11 +189,13 @@ interface SessionPreviewUI {
 	readonly reloadNonce: number;
 	readonly siteId: string | null;
 	readonly pathsBySiteId: Record< string, string >;
+	readonly revealingSiteId: string | null;
 	setOpen: ( value: boolean ) => void;
 	toggle: () => void;
 	setChatHidden: ( value: boolean ) => void;
 	updatePath: ( path: string ) => void;
 	setSite: ( siteId: string ) => void;
+	setRevealing: ( siteId: string, value: boolean ) => void;
 }
 
 // Like `useSessionPreviewUI`, but usable outside the dashboard layout —
@@ -204,6 +221,11 @@ export function useOptionalSessionPreviewUI(): SessionPreviewUI | null {
 		( siteId: string ) => dispatch?.( { type: 'preview/set-site', siteId } ),
 		[ dispatch ]
 	);
+	const setRevealing = useCallback(
+		( siteId: string, value: boolean ) =>
+			dispatch?.( { type: 'preview/set-revealing', siteId, value } ),
+		[ dispatch ]
+	);
 	return useMemo( () => {
 		if ( ! state || ! dispatch ) {
 			return null;
@@ -215,13 +237,15 @@ export function useOptionalSessionPreviewUI(): SessionPreviewUI | null {
 			reloadNonce: state.preview.reloadNonce,
 			siteId: state.preview.siteId,
 			pathsBySiteId: state.preview.pathsBySiteId,
+			revealingSiteId: state.preview.revealingSiteId,
 			setOpen,
 			toggle,
 			setChatHidden,
 			updatePath,
 			setSite,
+			setRevealing,
 		};
-	}, [ state, dispatch, setOpen, toggle, setChatHidden, updatePath, setSite ] );
+	}, [ state, dispatch, setOpen, toggle, setChatHidden, updatePath, setSite, setRevealing ] );
 }
 
 export function useSessionPreviewUI(): SessionPreviewUI {

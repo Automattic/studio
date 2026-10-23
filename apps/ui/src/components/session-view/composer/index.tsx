@@ -1259,8 +1259,8 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 					) : null }
 					<div className={ styles.inputArea }>
 						{ placeholderBusy && value.length === 0 ? (
-							<span className={ styles.placeholderShimmer } aria-hidden="true">
-								{ placeholder }
+							<span className={ styles.placeholder } aria-hidden="true">
+								<span className="studio-shimmer">{ placeholder }</span>
 							</span>
 						) : null }
 						<InputGroupTextarea

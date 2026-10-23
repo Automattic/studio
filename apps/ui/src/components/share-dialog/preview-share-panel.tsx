@@ -148,7 +148,7 @@ export function PreviewSharePanel( {
 		await connector.copyText( url );
 		markPreviewSeen( site.id );
 		setCopied( url );
-		setTimeout( () => setCopied( null ), 1500 );
+		setTimeout( () => setCopied( null ), 2000 );
 	};
 
 	if ( ! snapshot ) {

@@ -7,8 +7,8 @@
 	background-color: var(--chat);
 }
 
-/* Opaque and above the preview slot so it fully covers the (still mounted)
-   preview while the panel is toggled off. Scrolls itself so routes taller
+/* Opaque and above the preview slot so it covers the (still mounted)
+   preview as the panel toggles. Scrolls itself so routes taller
    than the viewport (e.g. settings) keep working under the fixed-height
    frame. */
 .contentColumn {
@@ -37,7 +37,7 @@
 	z-index: 2;
 }
 
-.rootPreviewAnimating .contentColumn {
+.rootPreviewAnimating :is(.contentColumn, .previewSlot) {
 	transition: width var(--motion-duration-layout) var(--motion-ease-layout);
 }
 
@@ -69,7 +69,7 @@
 	inset-block: 0;
 	inset-inline-end: 0;
 	z-index: 0;
-	width: calc(100% - var(--preview-frame-content-width));
+	width: 0;
 	min-width: 0;
 	pointer-events: none;
 	visibility: hidden;
@@ -77,6 +77,12 @@
 
 .previewSlotVisible {
 	visibility: visible;
+}
+
+/* The preview grows into the room the content column gives up, so its page
+   reflows as the split opens and closes. */
+.rootPreviewOpen .previewSlot {
+	width: calc(100% - var(--preview-frame-content-width));
 }
 
 .previewSlotInteractive {

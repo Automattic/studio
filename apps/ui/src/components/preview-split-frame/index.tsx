@@ -41,6 +41,8 @@ interface PreviewSplitFrameProps {
 	chatHidden?: boolean;
 	// Drawn over the top inline-end corner, above whichever pane is there.
 	actions?: ReactNode;
+	// Open or close without the slide, as when a stopping site drops its preview.
+	instant?: boolean;
 	children?: ReactNode;
 }
 
@@ -49,6 +51,7 @@ export function PreviewSplitFrame( {
 	previewOpen = false,
 	chatHidden = false,
 	actions,
+	instant = false,
 	children,
 }: PreviewSplitFrameProps ) {
 	const showPreview = previewOpen && preview != null;
@@ -80,7 +83,7 @@ export function PreviewSplitFrame( {
 			open: showPreview,
 			collapsed: contentCollapsed,
 		} );
-		if ( previousPreview.mounted && preview != null ) {
+		if ( previousPreview.mounted && preview != null && ! instant ) {
 			setAnimatingPreviewToggle( true );
 		}
 	}

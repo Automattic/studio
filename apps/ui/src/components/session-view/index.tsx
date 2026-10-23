@@ -58,8 +58,9 @@ import {
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useIsOutOfAiCredits } from '@/hooks/use-is-out-of-ai-credits';
 import { useMarkChatRead } from '@/hooks/use-mark-chat-read';
+import { useSiteSelectionTime } from '@/hooks/use-open-site';
 import { useSessionCommands } from '@/hooks/use-session-commands';
-import { SessionUIProvider } from '@/hooks/use-session-ui';
+import { SessionUIProvider, useOptionalSessionPreviewUI } from '@/hooks/use-session-ui';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import { useWindowControlsInset } from '@/hooks/use-window-controls-inset';
@@ -358,6 +359,10 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	const { mutate: startSite } = useStartSite();
 	const isSiteStarting = useIsSiteStarting( ownerSite?.id );
 	const isSiteStopping = useIsSiteStopping( ownerSite?.id );
+	const revealingSiteId = useOptionalSessionPreviewUI()?.revealingSiteId;
+	const siteLoading =
+		isSiteStarting || isSiteStopping || ( !! ownerSite && revealingSiteId === ownerSite.id );
+	const selectionTime = useSiteSelectionTime( ownerSite?.id );
 	const isSiteBusy = useIsSiteBusy( ownerSite );
 	const canAutoStart = !! ownerSite && effectiveEnvironment === 'local';
 	const { data: connectedSites } = useConnectedWpcomSites( ownerSite?.id );
@@ -576,7 +581,11 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 							}
 						} }
 					>
-						<PreviewParticles active={ isSiteStarting } showLogo={ isSiteStarting } />
+						<PreviewParticles
+							active={ siteLoading }
+							showLogo={ siteLoading }
+							selectionTime={ ownerSite?.running ? undefined : selectionTime }
+						/>
 						{ ownerSite && ! ownerSite.running && ! isSiteStarting ? (
 							<StoppedSitePreview site={ ownerSite } />
 						) : null }

@@ -13,6 +13,7 @@ import { useId, useRef, useState } from 'react';
 import { Button, IconButton } from '@/components/ui/button';
 import * as Menu from '@/components/ui/menu';
 import { useConnector } from '@/data/core';
+import { useStartSite } from '@/data/queries/use-sites';
 import {
 	useCancelSync,
 	usePullSiteFromLive,
@@ -104,6 +105,7 @@ export function ConnectedView( {
 	open,
 	disabled,
 	offline,
+	accessIssue,
 }: {
 	site: SiteDetails;
 	remote: SyncSite;
@@ -115,6 +117,7 @@ export function ConnectedView( {
 	open: boolean;
 	disabled: boolean;
 	offline: boolean;
+	accessIssue?: string;
 } ) {
 	const id = useId();
 	const connector = useConnector();
@@ -124,6 +127,7 @@ export function ConnectedView( {
 	const pushSite = usePushSiteToLive();
 	const pullSite = usePullSiteFromLive();
 	const cancel = useCancelSync();
+	const startSite = useStartSite();
 	const pending = activity?.kind === 'pending';
 	const direction =
 		view === 'pull' || ( view === 'files' && filesDirection === 'pull' ) ? 'pull' : 'push';
@@ -140,10 +144,14 @@ export function ConnectedView( {
 		open && direction === 'pull' && ! pending && ! offline
 	);
 	const selection = direction === 'push' ? push : pull;
-	const issue = websiteIssue( remote );
+	const issue = accessIssue ?? websiteIssue( remote );
 	const finished =
 		activity?.kind !== 'pending' && activity?.direction === direction ? activity : null;
-	const completePull = view === 'pull' && finished?.kind === 'success';
+	const pulledLocally =
+		activity?.kind === 'error' && activity.direction === 'pull' && activity.localChangesApplied;
+	const restartFailed = pulledLocally && ! site.running && view !== 'files';
+	const completePull =
+		view === 'pull' && ( finished?.kind === 'success' || ( pulledLocally && site.running ) );
 	const lastTimestamp = direction === 'push' ? remote.lastPushTimestamp : remote.lastPullTimestamp;
 	const multiple = websites.length > 1 && direction === 'push';
 
@@ -186,6 +194,7 @@ export function ConnectedView( {
 				loading={
 					! pending &&
 					! completePull &&
+					! restartFailed &&
 					( selection.loadingFiles || ( view !== 'files' && selection.loadingDetails ) )
 				}
 			>
@@ -249,6 +258,16 @@ export function ConnectedView( {
 						}
 						cancelling={ cancel.isPending }
 					/>
+				) : restartFailed ? (
+					<>
+						<span className={ styles.heading } role="status">
+							{ __( 'Changes pulled into Studio' ) }
+						</span>
+						<ErrorMessage error={ activity.message } />
+						<Button disabled={ startSite.isPending } onClick={ () => startSite.mutate( site.id ) }>
+							{ startSite.isPending ? __( 'Starting site…' ) : __( 'Start site' ) }
+						</Button>
+					</>
 				) : completePull ? (
 					<>
 						<div className={ styles.success } role="status">
@@ -309,6 +328,11 @@ export function ConnectedView( {
 						{ selection.warning ? <p className={ styles.text }>{ selection.warning }</p> : null }
 						<ErrorMessage error={ selection.error } retry={ selection.retry } />
 						{ finished?.kind === 'error' ? <ErrorMessage error={ finished.message } /> : null }
+						{ finished?.kind === 'error' && direction === 'pull' && ! remote.lastPullTimestamp ? (
+							<p className={ styles.text }>
+								{ __( 'Your local site is saved. Retry to finish bringing in its content.' ) }
+							</p>
+						) : null }
 						{ finished?.kind === 'cancelled' ? (
 							<p className={ styles.text } role="status">
 								{ __( 'Transfer cancelled. You can try again.' ) }

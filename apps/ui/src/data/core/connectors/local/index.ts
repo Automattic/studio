@@ -403,10 +403,13 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				`/site-defaults/path?name=${ encodeURIComponent( siteName ) }`
 			);
 		},
-		async selectSiteFolder(): Promise< SelectedSiteFolder | null > {
-			// No native folder picker in a browser; the create form falls back to
-			// an editable path field (see capabilities.nativeFolderPicker).
-			return null;
+		// No native folder picker in a browser: the create form has the path typed
+		// (see capabilities.nativeFolderPicker), and this checks what it holds.
+		async selectSiteFolder( folderPath ): Promise< SelectedSiteFolder | null > {
+			return api< SelectedSiteFolder >( '/site-defaults/folder', {
+				method: 'POST',
+				body: JSON.stringify( { path: folderPath } ),
+			} );
 		},
 		async selectDefaultSiteDirectory(): Promise< string | null > {
 			// No native folder picker in a browser.

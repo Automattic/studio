@@ -31,7 +31,7 @@ function createSession( overrides: Partial< AiSessionSummary > = {} ): AiSession
 }
 
 async function runBeforeLoad(
-	sites: SiteDetails[],
+	sites: SiteDetails[] | Error,
 	sessions: AiSessionSummary[],
 	agenticFeaturesEnabled = true
 ) {
@@ -40,7 +40,10 @@ async function runBeforeLoad(
 			fetchQuery: ( { queryFn }: { queryFn: () => unknown } ) => queryFn(),
 		},
 		connector: {
-			getSites: async () => sites,
+			getSites: async () => {
+				if ( sites instanceof Error ) throw sites;
+				return sites;
+			},
 			getSessions: async () => sessions,
 			getOnboardingCompleted: async () => true,
 			getUserPreferences: async () => ( { agenticFeaturesEnabled } ),
@@ -76,6 +79,12 @@ describe( 'indexRoute.beforeLoad', () => {
 
 		await runBeforeLoad( [ createSite() ], [] );
 		expect( ( await runBeforeLoad( [], [] ) ).search ).toEqual( { addSite: 'create' } );
+	} );
+
+	it( 'lands on the empty workspace, without Add site, when the sites fail to load', async () => {
+		const redirect = await runBeforeLoad( new Error( 'CLI failed' ), [] );
+		expect( redirect ).toMatchObject( { to: '/sites' } );
+		expect( redirect.search ).toBeUndefined();
 	} );
 
 	it( "redirects to the last visited site's newest active session", async () => {

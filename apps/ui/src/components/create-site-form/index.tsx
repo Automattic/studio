@@ -3,6 +3,7 @@ import {
 	generateCustomDomainFromSiteName,
 	getDomainNameValidationError,
 } from '@studio/common/lib/domains';
+import { getErrorMessage } from '@studio/common/lib/error-formatting';
 import {
 	DEFAULT_ADMIN_EMAIL,
 	DEFAULT_ADMIN_USERNAME,
@@ -30,7 +31,7 @@ import {
 	validateSiteName,
 } from '@/components/site-fields';
 import { Button } from '@/components/ui/button';
-import { Field, FieldDescription, FieldGroup, FieldLabel } from '@/components/ui/field';
+import { Field, FieldDescription, FieldGroup, FieldLabel, FieldTitle } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { useConnector } from '@/data/core';
 import { usePathValidator } from '@/data/queries/use-create-site-helpers';
@@ -76,6 +77,10 @@ interface CreateSiteFormProps {
 	loadingAnnouncement?: string;
 	children?: ReactNode;
 	panelFooter?: ReactNode;
+	// What the site starts from, shown in place of `panelFooter`.
+	source?: string;
+	// Whether the folder already holds a WordPress site, which Studio adds as it is.
+	onExistingChange?: ( existing: boolean ) => void;
 }
 
 interface FormData {
@@ -111,6 +116,7 @@ const SIMPLE_FIELDS = [
 	'adminEmail',
 ] as const satisfies readonly ( keyof CreateSiteFormValues )[];
 const INITIAL_VALUE_FIELDS = [ ...SIMPLE_FIELDS, 'path', 'customDomain' ] as const;
+const TYPED_PATH_CHECK_DELAY_MS = 300;
 
 function createDefaultFormData(): FormData {
 	return {
@@ -211,8 +217,9 @@ function usePathAutoGenerate(
 	onChange: ( update: Partial< FormData > ) => void,
 	isSubmitting: boolean
 ) {
+	const connector = useConnector();
 	const { data: sites } = useSites();
-	const { generateProposedPath } = usePathValidator( sites );
+	const { generateProposedPath, selectPath } = usePathValidator( sites );
 
 	const onChangeRef = useRef( onChange );
 	useEffect( () => {
@@ -259,12 +266,38 @@ function usePathAutoGenerate(
 			cancelled = true;
 		};
 	}, [ data.name, data.hasCustomPath, generateProposedPath, isSubmitting ] );
+
+	// Without a native picker the folder is typed, so it's checked as it's typed.
+	const typedPath =
+		data.hasCustomPath && ! connector.capabilities.nativeFolderPicker ? data.path.trim() : '';
+	useEffect( () => {
+		if ( isSubmitting || ! typedPath ) return;
+		onChangeRef.current( { isPathPending: true } );
+		let cancelled = false;
+		const timer = setTimeout( async () => {
+			try {
+				const result = await selectPath( typedPath );
+				if ( cancelled ) return;
+				onChangeRef.current( {
+					pathError: result?.error ?? '',
+					isWordPress: !! result?.isWordPress,
+					isPathPending: false,
+				} );
+			} catch ( error ) {
+				if ( cancelled ) return;
+				onChangeRef.current( { pathError: getErrorMessage( error ), isPathPending: false } );
+			}
+		}, TYPED_PATH_CHECK_DELAY_MS );
+		return () => {
+			cancelled = true;
+			clearTimeout( timer );
+		};
+	}, [ typedPath, selectPath, isSubmitting ] );
 }
 
 // On the desktop the path comes from the name→path auto-gen or the native
 // folder dialog, never typed. In the browser (`studio ui`) there's no native
-// picker, so it is edited as text: still prefilled from the site name, and the
-// server validates the final path on create.
+// picker, so it is edited as text, still prefilled from the site name.
 function PathField( {
 	data: item,
 	error,
@@ -361,6 +394,8 @@ export function CreateSiteForm( {
 	loadingAnnouncement,
 	children,
 	panelFooter,
+	source,
+	onExistingChange,
 }: CreateSiteFormProps ) {
 	const [ defaults ] = useState( createDefaultFormData );
 	const suggestedFieldsRef = useRef( getSuggestedFields( initialValues ?? {} ) );
@@ -469,6 +504,12 @@ export function CreateSiteForm( {
 	};
 	const nameError = validateSiteName( data.name );
 	const advancedErrorCount = Object.values( advancedErrors ).filter( Boolean ).length;
+	const showAdvanced =
+		isAdvancedOpen ||
+		( ! data.isPathPending && !! advancedErrors.path ) ||
+		!! advancedErrors.customDomain;
+	const existing = data.isWordPress && !! data.path && ! data.isPathPending;
+	useEffect( () => onExistingChange?.( existing ), [ existing, onExistingChange ] );
 
 	// `isPathPending` is deliberately absent from `canSubmit`: it toggles on
 	// every keystroke of the name field while the path auto-gen resolves, and
@@ -527,6 +568,7 @@ export function CreateSiteForm( {
 					onChange={ ( event ) => handleChange( { name: event.target.value } ) }
 					error={ isNameEdited ? nameError : undefined }
 					required
+					autoFocus
 				/>
 
 				{ children }
@@ -535,12 +577,12 @@ export function CreateSiteForm( {
 					variant="muted-ghost"
 					size="inline"
 					className={ styles.advancedToggle }
-					onClick={ () => setIsAdvancedOpen( ( value ) => ! value ) }
-					aria-expanded={ isAdvancedOpen }
+					onClick={ () => setIsAdvancedOpen( ! showAdvanced ) }
+					aria-expanded={ showAdvanced }
 				>
-					<Icon icon={ isAdvancedOpen ? chevronDown : chevronRight } />
+					<Icon icon={ showAdvanced ? chevronDown : chevronRight } />
 					<span>{ __( 'Advanced settings' ) }</span>
-					{ ! isAdvancedOpen && advancedErrorCount > 0 && (
+					{ ! showAdvanced && advancedErrorCount > 0 && (
 						<span className={ styles.advancedErrorCount }>
 							{ sprintf(
 								/* translators: %d: number of validation errors. */
@@ -553,16 +595,16 @@ export function CreateSiteForm( {
 
 				<div
 					className={
-						isAdvancedOpen
+						showAdvanced
 							? `${ styles.advancedCollapse } ${ styles.advancedCollapseOpen }`
 							: styles.advancedCollapse
 					}
-					inert={ ! isAdvancedOpen || undefined }
+					inert={ ! showAdvanced || undefined }
 				>
 					<div className={ styles.advancedCollapseInner }>
 						<FieldGroup>
 							<PathField data={ data } error={ advancedErrors.path } onChange={ handleChange } />
-							{ wpVersionOptions ? (
+							{ existing ? null : wpVersionOptions ? (
 								<SelectField
 									label={ __( 'WordPress version' ) }
 									description={ wpVersionDescription }
@@ -598,58 +640,64 @@ export function CreateSiteForm( {
 									handleChange( { fileAccess: fileAccess as SiteFileAccess } )
 								}
 							/>
-							<ToggleField
-								label={ __( 'Use custom domain' ) }
-								description={
-									requiresCustomDomain
-										? __( 'This Blueprint requires a custom domain.' )
-										: __( 'Your system password will be required to set up the domain.' )
-								}
-								checked={ data.useCustomDomain }
-								disabled={ requiresCustomDomain }
-								onChange={ ( useCustomDomain ) => handleChange( { useCustomDomain } ) }
-							/>
-							{ data.useCustomDomain && (
+							{ ! existing && (
 								<>
-									<TextField
-										label={ __( 'Domain name' ) }
-										value={ data.customDomain }
-										error={ advancedErrors.customDomain }
-										onChange={ ( event ) => handleChange( { customDomain: event.target.value } ) }
-									/>
 									<ToggleField
-										label={ __( 'Enable HTTPS' ) }
-										description={ <CertificateTrustNotice /> }
-										checked={ data.enableHttps }
-										onChange={ ( enableHttps ) => handleChange( { enableHttps } ) }
+										label={ __( 'Use custom domain' ) }
+										description={
+											requiresCustomDomain
+												? __( 'This Blueprint requires a custom domain.' )
+												: __( 'Your system password will be required to set up the domain.' )
+										}
+										checked={ data.useCustomDomain }
+										disabled={ requiresCustomDomain }
+										onChange={ ( useCustomDomain ) => handleChange( { useCustomDomain } ) }
+									/>
+									{ data.useCustomDomain && (
+										<>
+											<TextField
+												label={ __( 'Domain name' ) }
+												value={ data.customDomain }
+												error={ advancedErrors.customDomain }
+												onChange={ ( event ) =>
+													handleChange( { customDomain: event.target.value } )
+												}
+											/>
+											<ToggleField
+												label={ __( 'Enable HTTPS' ) }
+												description={ <CertificateTrustNotice /> }
+												checked={ data.enableHttps }
+												onChange={ ( enableHttps ) => handleChange( { enableHttps } ) }
+											/>
+										</>
+									) }
+									<TextField
+										label={ __( 'Admin username' ) }
+										value={ data.adminUsername }
+										error={ advancedErrors.adminUsername }
+										autoComplete="off"
+										required
+										onChange={ ( event ) => handleChange( { adminUsername: event.target.value } ) }
+									/>
+									<TextField
+										label={ __( 'Admin password' ) }
+										type="password"
+										value={ data.adminPassword }
+										error={ advancedErrors.adminPassword }
+										autoComplete="new-password"
+										required
+										onChange={ ( event ) => handleChange( { adminPassword: event.target.value } ) }
+									/>
+									<TextField
+										label={ __( 'Admin email' ) }
+										type="email"
+										value={ data.adminEmail }
+										error={ advancedErrors.adminEmail }
+										required
+										onChange={ ( event ) => handleChange( { adminEmail: event.target.value } ) }
 									/>
 								</>
 							) }
-							<TextField
-								label={ __( 'Admin username' ) }
-								value={ data.adminUsername }
-								error={ advancedErrors.adminUsername }
-								autoComplete="off"
-								required
-								onChange={ ( event ) => handleChange( { adminUsername: event.target.value } ) }
-							/>
-							<TextField
-								label={ __( 'Admin password' ) }
-								type="password"
-								value={ data.adminPassword }
-								error={ advancedErrors.adminPassword }
-								autoComplete="new-password"
-								required
-								onChange={ ( event ) => handleChange( { adminPassword: event.target.value } ) }
-							/>
-							<TextField
-								label={ __( 'Admin email' ) }
-								type="email"
-								value={ data.adminEmail }
-								error={ advancedErrors.adminEmail }
-								required
-								onChange={ ( event ) => handleChange( { adminEmail: event.target.value } ) }
-							/>
 						</FieldGroup>
 					</div>
 				</div>
@@ -673,7 +721,16 @@ export function CreateSiteForm( {
 					</div>
 				) }
 
-				{ panelFooter && <div className={ styles.panelFooter }>{ panelFooter }</div> }
+				{ existing || source ? (
+					<Field className={ styles.panelFooter }>
+						<FieldTitle>{ __( 'Start with' ) }</FieldTitle>
+						<p className={ styles.source }>
+							{ existing ? __( 'Existing local WordPress site' ) : source }
+						</p>
+					</Field>
+				) : (
+					panelFooter && <div className={ styles.panelFooter }>{ panelFooter }</div>
+				) }
 			</div>
 
 			<div className={ styles.actions }>

@@ -26,7 +26,11 @@ import type { StudioAssistantQuota } from '@studio/common/lib/studio-assistant-q
 import type { StudioAssistantTopUpPricing } from '@studio/common/lib/studio-assistant-top-up-pricing';
 import type { SyncEvent } from '@studio/common/lib/sync/activity';
 import type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
-import type { ColorScheme, QuitSitesBehavior } from '@studio/common/lib/user-settings/preferences';
+import type {
+	ColorScheme,
+	NewSiteBehavior,
+	QuitSitesBehavior,
+} from '@studio/common/lib/user-settings/preferences';
 import type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
 import type { WordPressVersion } from '@studio/common/lib/wordpress-versions';
 import type { WpEnvironmentType } from '@studio/common/lib/wp-environment-type';
@@ -686,6 +690,7 @@ export interface UserPreferences {
 	autoStartSiteOnChat?: boolean;
 	// Ask before discarding preview annotations.
 	confirmDeleteAnnotations?: boolean;
+	newSiteBehavior?: NewSiteBehavior;
 }
 
 export interface AppGlobals {

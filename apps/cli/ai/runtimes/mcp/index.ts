@@ -38,6 +38,9 @@ interface ClientSupport {
 	// Makes images with a tool of its own, on the user's plan, which the
 	// runbooks use when generate_images is left out.
 	ownImageTool: boolean;
+	// Gets wpcom_request, which reaches any WordPress.com endpoint. OpenAI's plugin
+	// review asks for a tool per operation instead, so Codex goes without it for now.
+	wpcomRequest: boolean;
 }
 
 function describeClient( server: Server ): ClientSupport {
@@ -50,6 +53,7 @@ function describeClient( server: Server ): ClientSupport {
 		apps: codex || Boolean( capabilities?.extensions?.[ 'io.modelcontextprotocol/ui' ] ),
 		fileImageLinks: codex,
 		ownImageTool: codex,
+		wpcomRequest: ! codex,
 	};
 }
 
@@ -71,6 +75,7 @@ function createTools(
 		canAskUser: true,
 		imageLink,
 		tracks,
+		wpcomRequest: client.wpcomRequest,
 	} );
 	const designOptions = createPresentDesignOptionsTool( {
 		imageLink,

@@ -31,7 +31,7 @@ export function validateProposedSitePath(
 	if ( result.isNameTooLong ) {
 		return {
 			...base,
-			error: __( 'The site name is too long. Please choose a shorter site name.' ),
+			error: __( 'Use a shorter site name.' ),
 		};
 	}
 	if ( pathExists ) {
@@ -45,9 +45,7 @@ export function validateProposedSitePath(
 	if ( ! result.isEmpty && ! result.isWordPress ) {
 		return {
 			...base,
-			error: __(
-				'This directory is not empty. Please select an empty directory or an existing WordPress folder.'
-			),
+			error: __( 'Choose an empty folder or an existing WordPress site.' ),
 		};
 	}
 	return base;
@@ -74,9 +72,7 @@ export function validateSelectedSitePath(
 	if ( ! result.isEmpty && ! result.isWordPress ) {
 		return {
 			...base,
-			error: __(
-				'This directory is not empty. Please select an empty directory or an existing WordPress folder.'
-			),
+			error: __( 'Choose an empty folder or an existing WordPress site.' ),
 		};
 	}
 	return base;

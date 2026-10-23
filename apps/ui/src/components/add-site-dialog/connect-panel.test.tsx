@@ -1,11 +1,10 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ConnectPanel } from './connect-panel';
-import type { SiteDetails, SyncSite } from '@/data/core';
+import type { SyncSite } from '@/data/core';
 
 const mocks = vi.hoisted( () => ( {
-	navigate: vi.fn(),
-	setProgress: vi.fn(),
+	onConnect: vi.fn(),
 	login: vi.fn(),
 	signup: vi.fn(),
 	remoteRefetch: vi.fn(),
@@ -14,40 +13,12 @@ const mocks = vi.hoisted( () => ( {
 	authLoading: false,
 	isOffline: false,
 	remoteSites: [] as SyncSite[],
-	localSites: [] as SiteDetails[],
 	remoteLoading: false,
 	remoteError: null as Error | null,
-	generateNumberedSiteName: vi.fn(),
-	generateProposedSitePath: vi.fn(),
-	connectWpcomSite: vi.fn(),
-	trackEvent: vi.fn(),
-	createSite: vi.fn(),
-	deleteSite: vi.fn(),
-	pullSite: vi.fn(),
-	startSite: vi.fn(),
-	toastError: vi.fn(),
-} ) );
-
-vi.mock( '@tanstack/react-router', () => ( {
-	useNavigate: () => mocks.navigate,
-} ) );
-
-vi.mock( './context', () => ( {
-	useAddSite: () => ( {
-		setProgress: mocks.setProgress,
-		pinNewSite: () => {},
-		actions: document.body,
-	} ),
 } ) );
 
 vi.mock( '@/data/core', () => ( {
-	useConnector: () => ( {
-		generateNumberedSiteName: mocks.generateNumberedSiteName,
-		generateProposedSitePath: mocks.generateProposedSitePath,
-		connectWpcomSite: mocks.connectWpcomSite,
-		openExternalUrl: mocks.openExternalUrl,
-		trackEvent: mocks.trackEvent,
-	} ),
+	useConnector: () => ( { openExternalUrl: mocks.openExternalUrl } ),
 } ) );
 
 vi.mock( '@/data/queries/use-auth-user', () => ( {
@@ -57,17 +28,6 @@ vi.mock( '@/data/queries/use-auth-user', () => ( {
 		isPending: false,
 		error: null,
 	} ),
-} ) );
-
-vi.mock( '@/data/queries/use-sites', () => ( {
-	useSites: () => ( { data: mocks.localSites } ),
-	useCreateSite: () => ( { mutateAsync: mocks.createSite } ),
-	useDeleteSite: () => ( { mutateAsync: mocks.deleteSite } ),
-	useStartSite: () => ( { mutateAsync: mocks.startSite } ),
-} ) );
-
-vi.mock( '@/data/queries/use-sync-site', () => ( {
-	usePullSiteFromLive: () => ( { mutateAsync: mocks.pullSite } ),
 } ) );
 
 vi.mock( '@/data/queries/use-user-locale', () => ( {
@@ -86,10 +46,6 @@ vi.mock( '@/data/queries/use-wpcom-sites', () => ( {
 
 vi.mock( '@/hooks/use-offline', () => ( {
 	useOffline: () => mocks.isOffline,
-} ) );
-
-vi.mock( '@/data/app-messages', () => ( {
-	toast: { error: mocks.toastError },
 } ) );
 
 function site( id: number, overrides: Partial< SyncSite > = {} ): SyncSite {
@@ -114,27 +70,12 @@ describe( 'ConnectPanel', () => {
 		mocks.authLoading = false;
 		mocks.isOffline = false;
 		mocks.remoteSites = [];
-		mocks.localSites = [];
 		mocks.remoteLoading = false;
 		mocks.remoteError = null;
-		mocks.generateNumberedSiteName.mockResolvedValue( 'Remote site' );
-		mocks.generateProposedSitePath.mockResolvedValue( {
-			path: '/sites/remote-site',
-			isEmpty: true,
-		} );
-		mocks.connectWpcomSite.mockResolvedValue( undefined );
-		mocks.createSite.mockResolvedValue( {
-			id: 'local-1',
-			name: 'Remote site',
-			path: '/sites/remote-site',
-		} );
-		mocks.deleteSite.mockResolvedValue( undefined );
-		mocks.pullSite.mockResolvedValue( undefined );
-		mocks.startSite.mockResolvedValue( undefined );
 	} );
 
 	it( 'offers login and signup without leaving the Connect flow', () => {
-		render( <ConnectPanel /> );
+		render( <ConnectPanel onConnect={ mocks.onConnect } /> );
 
 		expect(
 			screen.getByText( 'Log in with your WordPress.com account to see your sites.' )
@@ -148,10 +89,10 @@ describe( 'ConnectPanel', () => {
 
 		expect( mocks.login ).toHaveBeenCalledOnce();
 		expect( mocks.signup ).toHaveBeenCalledOnce();
-		expect( mocks.navigate ).not.toHaveBeenCalled();
+		expect( mocks.onConnect ).not.toHaveBeenCalled();
 	} );
 
-	it( 'separates unavailable sites and keeps previously connected sites selectable', () => {
+	it( 'leaves out connected sites and separates unavailable ones', () => {
 		mocks.user = { id: 1, email: 'user@example.com', displayName: 'User' };
 		mocks.remoteSites = [
 			site( 1, { name: 'Pressable store', isPressable: true, environmentType: 'staging' } ),
@@ -159,19 +100,16 @@ describe( 'ConnectPanel', () => {
 			site( 3, { name: 'Free site', syncSupport: 'needs-upgrade', planName: 'Free' } ),
 		];
 
-		render( <ConnectPanel /> );
+		render( <ConnectPanel onConnect={ mocks.onConnect } /> );
 
 		expect( screen.getByText( 'Pressable' ) ).toBeInTheDocument();
 		expect( screen.getByText( 'Staging' ) ).toBeInTheDocument();
-		const availableSection = screen
-			.getByRole( 'heading', { name: 'Available to connect' } )
-			.closest( 'section' )!;
 		const unavailableSection = screen
 			.getByRole( 'heading', { name: 'Unavailable' } )
 			.closest( 'section' )!;
-		expect(
-			within( availableSection ).getByText( 'Already local' ).closest( 'button' )
-		).toBeEnabled();
+		expect( screen.queryByText( 'Already local' ) ).not.toBeInTheDocument();
+		fireEvent.click( screen.getByText( 'Pressable store' ) );
+		expect( mocks.onConnect ).toHaveBeenCalledWith( mocks.remoteSites[ 0 ] );
 		expect(
 			within( unavailableSection ).getByText( 'Free site' ).closest( 'button' )
 		).toBeDisabled();
@@ -186,61 +124,59 @@ describe( 'ConnectPanel', () => {
 			target: { value: 'Pressable' },
 		} );
 		expect( screen.getByText( 'Pressable store' ) ).toBeInTheDocument();
-		expect( screen.queryByText( 'Already local' ) ).not.toBeInTheDocument();
+		expect( screen.queryByText( 'Free site' ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'shows an offline state instead of fetching remote sites', () => {
 		mocks.user = { id: 1, email: 'user@example.com', displayName: 'User' };
 		mocks.isOffline = true;
 
-		render( <ConnectPanel /> );
+		render( <ConnectPanel onConnect={ mocks.onConnect } /> );
 
 		expect( screen.getByRole( 'status' ) ).toHaveTextContent( "You're offline" );
-		expect( screen.getByRole( 'button', { name: 'Connect site' } ) ).toBeDisabled();
 	} );
 
 	it( 'shows loading and empty account states', () => {
 		mocks.user = { id: 1, email: 'user@example.com', displayName: 'User' };
 		mocks.remoteLoading = true;
-		const { rerender } = render( <ConnectPanel /> );
+		const { rerender } = render( <ConnectPanel onConnect={ mocks.onConnect } /> );
 
 		expect( screen.getByRole( 'status' ) ).toHaveTextContent( 'Loading your sites…' );
 
 		mocks.remoteLoading = false;
-		rerender( <ConnectPanel /> );
+		rerender( <ConnectPanel onConnect={ mocks.onConnect } /> );
 		expect( screen.getByRole( 'heading', { name: 'No sites found' } ) ).toBeInTheDocument();
 	} );
 
-	it( 'adapts a single available site into a preselected account view', async () => {
+	it( 'shows a single available site without search', () => {
 		mocks.user = { id: 1, email: 'user@example.com', displayName: 'User' };
 		mocks.remoteSites = [ site( 1, { name: 'Only site' } ) ];
 
-		render( <ConnectPanel /> );
+		render( <ConnectPanel onConnect={ mocks.onConnect } /> );
 
 		expect( screen.queryByRole( 'searchbox' ) ).not.toBeInTheDocument();
-		await waitFor( () =>
-			expect( screen.getByRole( 'button', { name: 'Connect site' } ) ).toBeEnabled()
-		);
+		fireEvent.click( screen.getByText( 'Only site' ) );
+		expect( mocks.onConnect ).toHaveBeenCalledWith( mocks.remoteSites[ 0 ] );
 	} );
 
 	it( 'labels a single unavailable site and explains why it cannot connect', () => {
 		mocks.user = { id: 1, email: 'user@example.com', displayName: 'User' };
 		mocks.remoteSites = [ site( 1, { syncSupport: 'needs-upgrade' } ) ];
 
-		render( <ConnectPanel /> );
+		render( <ConnectPanel onConnect={ mocks.onConnect } /> );
 
 		expect( screen.getByRole( 'heading', { name: 'Unavailable' } ) ).toBeInTheDocument();
 		expect(
 			screen.getByText( 'Upgrade this site to a supported plan before connecting it.' )
 		).toBeVisible();
-		expect( screen.getByRole( 'button', { name: 'Connect site' } ) ).toBeDisabled();
+		expect( screen.getByText( 'Site 1' ).closest( 'button' ) ).toBeDisabled();
 	} );
 
 	it( 'refreshes the remote site list after an error', () => {
 		mocks.user = { id: 1, email: 'user@example.com', displayName: 'User' };
 		mocks.remoteError = new Error( 'network failed' );
 
-		render( <ConnectPanel /> );
+		render( <ConnectPanel onConnect={ mocks.onConnect } /> );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Retry' } ) );
 
 		expect( mocks.remoteRefetch ).toHaveBeenCalledOnce();
@@ -250,7 +186,7 @@ describe( 'ConnectPanel', () => {
 		mocks.user = { id: 1, email: 'user@example.com', displayName: 'User' };
 		mocks.remoteSites = [ site( 1 ), site( 2 ) ];
 
-		render( <ConnectPanel /> );
+		render( <ConnectPanel onConnect={ mocks.onConnect } /> );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Refresh list' } ) );
 		fireEvent.click( screen.getByRole( 'button', { name: /Supported sites/ } ) );
 
@@ -258,91 +194,5 @@ describe( 'ConnectPanel', () => {
 		expect( mocks.openExternalUrl ).toHaveBeenCalledWith(
 			'https://developer.wordpress.com/docs/developer-tools/studio/sync/#supported-sites'
 		);
-	} );
-
-	it( 'shows a pre-persistence failure in a floating alert', async () => {
-		mocks.user = { id: 1, email: 'user@example.com', displayName: 'User' };
-		mocks.remoteSites = [ site( 1 ) ];
-		mocks.connectWpcomSite.mockRejectedValue( new Error( 'Connection failed' ) );
-
-		render( <ConnectPanel /> );
-		const connectButton = screen.getByRole( 'button', { name: 'Connect site' } );
-		await waitFor( () => expect( connectButton ).toBeEnabled() );
-		fireEvent.click( connectButton );
-
-		expect( await screen.findByRole( 'alert' ) ).toHaveTextContent( 'Connection failed' );
-		expect( mocks.deleteSite ).toHaveBeenCalledWith( { id: 'local-1', deleteFiles: true } );
-		expect( mocks.toastError ).not.toHaveBeenCalled();
-	} );
-
-	// The local site is created by this flow, so the connected-sites cache the pull
-	// hook reads is empty for it. Without the site passed through, every
-	// onboarding pull reported `sync_type: unknown`.
-	it( 'passes the remote site to the pull so its sync type is known', async () => {
-		mocks.user = { id: 1, email: 'user@example.com', displayName: 'User' };
-		mocks.remoteSites = [ site( 1, { isPressable: true } ) ];
-
-		render( <ConnectPanel /> );
-		const connectButton = screen.getByRole( 'button', { name: 'Connect site' } );
-		await waitFor( () => expect( connectButton ).toBeEnabled() );
-		fireEvent.click( connectButton );
-
-		await waitFor( () =>
-			expect( mocks.pullSite ).toHaveBeenCalledWith(
-				expect.objectContaining( {
-					siteId: 'local-1',
-					remoteSiteId: 1,
-					syncSite: expect.objectContaining( { isPressable: true } ),
-				} )
-			)
-		);
-	} );
-
-	it( 'opens the local site while pull and start continue in the background', async () => {
-		mocks.user = { id: 1, email: 'user@example.com', displayName: 'User' };
-		mocks.remoteSites = [ site( 1, { name: 'Remote site' } ) ];
-		let finishPull: () => void = () => {};
-		mocks.pullSite.mockImplementation( () => {
-			return new Promise< void >( ( resolve ) => {
-				finishPull = resolve;
-			} );
-		} );
-
-		render( <ConnectPanel /> );
-		const connectButton = screen.getByRole( 'button', { name: 'Connect site' } );
-		await waitFor( () => expect( connectButton ).toBeEnabled() );
-		fireEvent.click( connectButton );
-
-		await waitFor( () =>
-			expect( mocks.navigate ).toHaveBeenCalledWith( {
-				to: '/sites/$siteId',
-				params: { siteId: 'local-1' },
-			} )
-		);
-		expect( mocks.generateNumberedSiteName ).toHaveBeenCalledOnce();
-		expect( mocks.startSite ).not.toHaveBeenCalled();
-
-		finishPull();
-		await waitFor( () => expect( mocks.startSite ).toHaveBeenCalledWith( 'local-1' ) );
-	} );
-
-	it( 'opens the retained local site after a post-persistence failure', async () => {
-		mocks.user = { id: 1, email: 'user@example.com', displayName: 'User' };
-		mocks.remoteSites = [ site( 1, { name: 'Remote site' } ) ];
-		mocks.pullSite.mockRejectedValue( new Error( 'Remote backup failed' ) );
-
-		render( <ConnectPanel /> );
-		const connectButton = screen.getByRole( 'button', { name: 'Connect site' } );
-		await waitFor( () => expect( connectButton ).toBeEnabled() );
-		fireEvent.click( connectButton );
-
-		await waitFor( () =>
-			expect( mocks.navigate ).toHaveBeenCalledWith( {
-				to: '/sites/$siteId',
-				params: { siteId: 'local-1' },
-			} )
-		);
-		expect( mocks.deleteSite ).not.toHaveBeenCalled();
-		expect( mocks.startSite ).not.toHaveBeenCalled();
 	} );
 } );

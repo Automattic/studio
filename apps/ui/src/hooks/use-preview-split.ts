@@ -80,17 +80,12 @@ export function usePreviewSplit( { showPreview }: UsePreviewSplitOptions ): UseP
 		[ setPreferred ]
 	);
 
-	const ensurePreferred = useCallback(
-		( container: number ) => {
-			if ( preferredRef.current !== null ) {
-				return preferredRef.current;
-			}
-			const next = getPreviewSplitLayout( container, PREVIEW_CONTENT_DEFAULT_WIDTH ).contentWidth;
-			setPreferred( next );
-			return next;
-		},
-		[ setPreferred ]
-	);
+	const ensurePreferred = useCallback( () => {
+		if ( preferredRef.current === null ) {
+			setPreferred( PREVIEW_CONTENT_DEFAULT_WIDTH );
+		}
+		return preferredRef.current ?? PREVIEW_CONTENT_DEFAULT_WIDTH;
+	}, [ setPreferred ] );
 
 	// Measure synchronously on open so the clamped px var is present before
 	// paint (no flash of the calc() fallback).
@@ -98,9 +93,8 @@ export function usePreviewSplit( { showPreview }: UsePreviewSplitOptions ): UseP
 		if ( ! showPreview ) {
 			return;
 		}
-		const width = measureRootWidth();
-		if ( width !== null ) {
-			ensurePreferred( width );
+		if ( measureRootWidth() !== null ) {
+			ensurePreferred();
 		}
 	}, [ ensurePreferred, measureRootWidth, showPreview ] );
 
@@ -108,9 +102,8 @@ export function usePreviewSplit( { showPreview }: UsePreviewSplitOptions ): UseP
 		const reset = () => {
 			preferredRef.current = null;
 			setPreferredContentWidth( null );
-			const width = measureRootWidth();
-			if ( width !== null ) {
-				ensurePreferred( width );
+			if ( measureRootWidth() !== null ) {
+				ensurePreferred();
 			}
 		};
 		window.addEventListener( PANEL_WIDTHS_RESET_EVENT, reset );
@@ -144,7 +137,7 @@ export function usePreviewSplit( { showPreview }: UsePreviewSplitOptions ): UseP
 			if ( container === null ) {
 				return null;
 			}
-			return getPreviewSplitLayout( container, ensurePreferred( container ) ).contentWidth;
+			return getPreviewSplitLayout( container, ensurePreferred() ).contentWidth;
 		},
 		onMove: ( start, deltaX ) => {
 			const container = Math.round(
@@ -182,7 +175,7 @@ export function usePreviewSplit( { showPreview }: UsePreviewSplitOptions ): UseP
 			}
 			event.preventDefault();
 			const step = event.shiftKey ? 40 : 16;
-			const current = getPreviewSplitLayout( container, ensurePreferred( container ) );
+			const current = getPreviewSplitLayout( container, ensurePreferred() );
 			let nextContentWidth = current.contentWidth;
 			if ( event.key === 'Home' ) {
 				nextContentWidth = container - current.previewMinWidth;

@@ -11,6 +11,7 @@ import {
 import { SidebarLayout } from '@/components/sidebar-layout';
 import { HeaderSidebarToggle } from '@/components/sidebar-toggle';
 import { SiteActionsMenu } from '@/components/site-actions-menu';
+import { SiteHeaderActions, SiteHeaderActionsProvider } from '@/components/site-header-actions';
 import { SitePreview } from '@/components/site-preview';
 import { SiteWorkspace } from '@/components/site-workspace';
 import { IconButton } from '@/components/ui/button';
@@ -24,7 +25,6 @@ import { useSites } from '@/data/queries/use-sites';
 import { pathForSite, SessionUIProvider, useSessionPreviewUI } from '@/hooks/use-session-ui';
 import { chatIcon } from '@/lib/icons';
 import { rememberVisit } from '@/lib/last-visited';
-import { PREVIEW_SPLIT_MIN_WIDTH } from '@/lib/resizable-panels';
 import { rootRoute } from '../layout-root';
 
 // Session detail routes and a site's own page host the preview;
@@ -148,17 +148,6 @@ function DashboardLayoutContent() {
 	useEffect( () => {
 		setChatHidden( false );
 	}, [ sessionId, setChatHidden ] );
-	const { setOpen: setPreviewOpen } = preview;
-	// The window never grows to fit; a workspace too narrow for the split
-	// (a narrow browser tab) gives up the preview.
-	const onPreviewContainerWidthChange = useCallback(
-		( width: number | null ) => {
-			if ( width !== null && width < PREVIEW_SPLIT_MIN_WIDTH ) {
-				setPreviewOpen( false );
-			}
-		},
-		[ setPreviewOpen ]
-	);
 	// The notes go to the chat beside the preview, or to a new one for the site.
 	const sendAnnotations = useCallback(
 		( siteId: string, noteIds?: string[] ) => {
@@ -219,14 +208,16 @@ function DashboardLayoutContent() {
 
 	return (
 		<SidebarLayout>
-			<PreviewSplitFrame
-				previewOpen={ showPreview }
-				chatHidden={ chatHidden }
-				preview={ renderPreview }
-				onContainerWidthChange={ onPreviewContainerWidthChange }
-			>
-				{ workspace }
-			</PreviewSplitFrame>
+			<SiteHeaderActionsProvider host={ showPreview ? 'preview' : 'chat' }>
+				<PreviewSplitFrame
+					previewOpen={ showPreview }
+					chatHidden={ chatHidden }
+					preview={ renderPreview }
+					actions={ routeSite ? <SiteHeaderActions site={ routeSite } /> : null }
+				>
+					{ workspace }
+				</PreviewSplitFrame>
+			</SiteHeaderActionsProvider>
 			<CommandPalette
 				site={ homeSite ?? newSessionSite ?? sessionSite }
 				session={ sessionData?.summary }

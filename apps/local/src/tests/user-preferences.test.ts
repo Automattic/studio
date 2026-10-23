@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -183,5 +183,39 @@ describe( 'GET /api/site-defaults/path', () => {
 		const response = await fetch( `${ server.url }/api/site-defaults/path?name=My%20Site` );
 
 		expect( ( await response.json() ).path ).toBe( path.join( siteDirectory, 'my-site' ) );
+	} );
+} );
+
+describe( 'POST /api/site-defaults/folder', () => {
+	const check = async ( folderPath: string ) =>
+		fetch( `${ server.url }/api/site-defaults/folder`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify( { path: folderPath } ),
+		} );
+
+	it( 'says whether a typed folder in the site directory is empty or holds WordPress', async () => {
+		writeAppConfig( { defaultSiteDirectory: configDir } );
+		const wordPress = path.join( configDir, 'existing' );
+		mkdirSync( path.join( wordPress, 'wp-content' ), { recursive: true } );
+		mkdirSync( path.join( wordPress, 'wp-includes' ) );
+		writeFileSync( path.join( wordPress, 'wp-load.php' ), '' );
+
+		expect( await ( await check( path.join( configDir, 'new-site' ) ) ).json() ).toEqual( {
+			path: path.join( configDir, 'new-site' ),
+			name: 'new-site',
+			isEmpty: true,
+			isWordPress: false,
+		} );
+		expect( await ( await check( wordPress ) ).json() ).toMatchObject( {
+			isEmpty: false,
+			isWordPress: true,
+		} );
+		expect( ( await check( 'relative/site' ) ).status ).toBe( 400 );
+		// Outside the home and site directories, the folder is left to `site create`.
+		expect( await ( await check( path.parse( configDir ).root ) ).json() ).toMatchObject( {
+			isEmpty: true,
+			isWordPress: false,
+		} );
 	} );
 } );

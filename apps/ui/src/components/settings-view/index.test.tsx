@@ -162,7 +162,7 @@ describe( 'Studio settings', () => {
 		expect( screen.getByRole( 'button', { name: 'Reset' } ) ).toBeDisabled();
 		unmount();
 
-		mockPreferences( { autoStartSiteOnChat: true } );
+		mockPreferences( { newSiteBehavior: 'blank' } );
 		window.localStorage.setItem( SIDEBAR_PANEL_STORAGE_KEY, '320' );
 		mutate.mockImplementation( ( _patch, options ) => options?.onSuccess?.() );
 		render( <GeneralSettings /> );
@@ -177,6 +177,7 @@ describe( 'Studio settings', () => {
 				confirmDeleteAnnotations: true,
 				showRecentChats: true,
 				autoCollapseSites: true,
+				newSiteBehavior: 'choose',
 			},
 			expect.any( Object )
 		);

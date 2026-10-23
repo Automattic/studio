@@ -275,10 +275,24 @@ describe( 'Studio AI MCP tools', () => {
 		expect( annotations.site_list ).toEqual( REMOTE_READ );
 		expect( annotations.site_info ).toEqual( READ_ONLY );
 		expect( annotations.scaffold_theme ).toEqual( LOCAL_CHANGE );
-		for ( const name of [ 'site_delete', 'site_push', 'site_pull', 'wp_cli', 'wpcom_request' ] ) {
+		for ( const name of [
+			'site_delete',
+			'site_push',
+			'site_pull',
+			'wp_cli',
+			'wpcom_request',
+			'validate_blocks',
+		] ) {
 			const { readOnlyHint, destructiveHint, openWorldHint } = annotations[ name ];
 			expect( readOnlyHint || ( ! destructiveHint && ! openWorldHint ) ).toBe( false );
 		}
+	} );
+
+	it( 'leaves out wpcom_request only for hosts that turn it off', () => {
+		const names = ( options: Parameters< typeof resolveStudioToolDefinitions >[ 0 ] ) =>
+			resolveStudioToolDefinitions( options ).map( ( tool ) => tool.name );
+		expect( names( {} ) ).toContain( 'wpcom_request' );
+		expect( names( { wpcomRequest: false } ) ).not.toContain( 'wpcom_request' );
 	} );
 
 	it( 'reports invalid core/html blocks and skips editor validation', async () => {

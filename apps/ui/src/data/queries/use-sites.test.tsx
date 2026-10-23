@@ -5,12 +5,12 @@ import { getVisibleToasts, resetAppMessagesForTests } from '@/data/app-messages'
 import { useConnector } from '@/data/core';
 import {
 	useAutoStartSites,
+	useCreateSite,
 	useSites,
 	useStartSite,
 	useStopSite,
 	useSyncSitesWithEvents,
 } from './use-sites';
-import type { StartSiteOptions } from './use-sites';
 import type { Connector, SiteDetails } from '@/data/core';
 import type { ReactNode } from 'react';
 
@@ -90,6 +90,40 @@ describe( 'useAutoStartSites', () => {
 	} );
 } );
 
+describe( 'useCreateSite', () => {
+	it( 'announces the created site, and a failure', async () => {
+		resetAppMessagesForTests();
+		const createSiteCall = vi
+			.fn()
+			.mockResolvedValueOnce( createSite( { name: 'Bakery' } ) )
+			.mockRejectedValueOnce( new Error( 'Folder is not empty' ) );
+		useConnectorMock.mockReturnValue( {
+			createSite: createSiteCall,
+			capabilities: {},
+		} as unknown as Connector );
+		const queryClient = new QueryClient( { defaultOptions: { mutations: { retry: false } } } );
+		const { result } = renderHook( () => useCreateSite(), {
+			wrapper: ( { children }: { children: ReactNode } ) => (
+				<QueryClientProvider client={ queryClient }>{ children }</QueryClientProvider>
+			),
+		} );
+
+		await result.current.mutateAsync( { name: 'Bakery', path: '/sites/bakery' } );
+		await expect(
+			result.current.mutateAsync( { name: 'Shop', path: '/sites/shop' } )
+		).rejects.toThrow();
+
+		await waitFor( () =>
+			expect(
+				getVisibleToasts().map( ( { title, description } ) => [ title, description ] )
+			).toEqual( [
+				[ 'Site created: Bakery', undefined ],
+				[ 'Couldn’t create site: Shop', 'Folder is not empty' ],
+			] )
+		);
+	} );
+} );
+
 describe( 'useStartSite', () => {
 	const startSite = vi.fn( () => Promise.resolve() );
 	let stopSite: ReturnType< typeof vi.fn >;
@@ -111,29 +145,25 @@ describe( 'useStartSite', () => {
 		} as unknown as Connector );
 	} );
 
-	function renderMutations( options: StartSiteOptions = {} ) {
+	function renderMutations() {
 		const queryClient = new QueryClient( {
 			defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
 		} );
-		return renderHook( () => ( { start: useStartSite( options ), stop: useStopSite() } ), {
+		return renderHook( () => ( { start: useStartSite(), stop: useStopSite() } ), {
 			wrapper: ( { children }: { children: ReactNode } ) => (
 				<QueryClientProvider client={ queryClient }>{ children }</QueryClientProvider>
 			),
 		} ).result;
 	}
 
-	it( 'announces an explicit start', async () => {
+	it( 'starts and stops without a success toast', async () => {
 		const result = renderMutations();
 
 		await result.current.start.mutateAsync( 'site-1' );
-
-		expect( getVisibleToasts().map( ( item ) => item.title ) ).toEqual( [ 'Site started' ] );
-	} );
-
-	it( 'stays quiet for a silent start', async () => {
-		const result = renderMutations( { silent: true } );
-
-		await result.current.start.mutateAsync( 'site-1' );
+		const stopping = result.current.stop.mutateAsync( 'site-1' );
+		await waitFor( () => expect( stopSite ).toHaveBeenCalledWith( 'site-1' ) );
+		releaseStop();
+		await stopping;
 
 		expect( startSite ).toHaveBeenCalledWith( 'site-1' );
 		expect( getVisibleToasts() ).toHaveLength( 0 );

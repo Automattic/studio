@@ -6,6 +6,7 @@ import { Icon } from '@wordpress/icons';
 import { clsx } from 'clsx';
 import {
 	Fragment,
+	useCallback,
 	useEffect,
 	useEffectEvent,
 	useMemo,
@@ -68,6 +69,7 @@ import {
 	unpinIcon,
 } from '@/lib/icons';
 import { resumeChat } from '@/lib/last-visited';
+import { useProvideCollapseAll } from './collapse-all';
 import {
 	BulkMenu,
 	SidebarSelection,
@@ -355,6 +357,7 @@ function ChatRow( {
 					render={
 						<div
 							{ ...selectable }
+							{ ...actions.shortcuts }
 							className={ clsx(
 								styles.chatRow,
 								nested && styles.chatNested,
@@ -401,7 +404,7 @@ function ChatRow( {
 				{ bulk ? (
 					<BulkMenu onClose={ () => setMenuOpen( false ) } />
 				) : (
-					<Menu.ContextPopup onKeyDown={ ( event ) => actions.handleShortcut( event.nativeEvent ) }>
+					<Menu.ContextPopup { ...actions.shortcuts }>
 						<ChatActionsMenuItems actions={ actions } />
 					</Menu.ContextPopup>
 				) }
@@ -536,7 +539,7 @@ function SiteRowMenu( {
 	return (
 		<>
 			<Menu.ContextMenuRoot open={ menuOpen } onOpenChange={ setMenuOpen }>
-				<Menu.ContextMenuTrigger render={ trigger } />
+				<Menu.ContextMenuTrigger render={ trigger } { ...actions.shortcuts } />
 				{ bulk ? (
 					<BulkMenu
 						onClose={ () => setMenuOpen( false ) }
@@ -547,7 +550,7 @@ function SiteRowMenu( {
 					<Menu.ContextPopup
 						onClick={ stopMenuEventPropagation }
 						onPointerDown={ stopMenuEventPropagation }
-						onKeyDown={ ( event ) => actions.handleShortcut( event.nativeEvent ) }
+						{ ...actions.shortcuts }
 					>
 						<SiteActionsMenuItems actions={ actions } />
 					</Menu.ContextPopup>
@@ -848,6 +851,7 @@ export function SiteList( {
 			revealActive( activeSiteKey );
 		}
 	}, [ activeSiteKey ] );
+	const collapseAll = useCallback( () => setRevealed( new Set() ), [] );
 	const toggleSiteChats = ( siteId: string ) =>
 		setRevealed( ( current ) =>
 			siteId === activeSiteKey && current.has( siteId )
@@ -932,6 +936,12 @@ export function SiteList( {
 		);
 	}
 
+	const canCollapseAll =
+		!! sections &&
+		siteRows.filter( ( row ) => revealed.has( row.site.id ) && siteChats( row ).length > 0 )
+			.length > 1;
+	useProvideCollapseAll( canCollapseAll ? collapseAll : undefined );
+
 	if ( ! sections ) {
 		return <div className={ clsx( styles.root, className ) }>{ listContent }</div>;
 	}
@@ -945,9 +955,6 @@ export function SiteList( {
 	const recentChats = openChats
 		.filter( ( session ) => ! needingInput.includes( session.id ) && ! isChatPinned( session ) )
 		.slice( 0, RECENT_CHATS_LIMIT );
-	const canCollapseAll =
-		siteRows.filter( ( row ) => revealed.has( row.site.id ) && siteChats( row ).length > 0 )
-			.length > 1;
 	const renderChat = ( session: AiSessionSummary, siteName?: string ) => (
 		<ChatRow
 			key={ session.id }
@@ -1014,7 +1021,7 @@ export function SiteList( {
 									size="icon-sm"
 									icon={ collapseAllIcon }
 									label={ __( 'Collapse all' ) }
-									onClick={ () => setRevealed( new Set() ) }
+									onClick={ collapseAll }
 								/>
 							) : null }
 							<IconButton

@@ -244,6 +244,34 @@ describe( 'SitePreview', () => {
 		expect( container.querySelector( 'iframe' ) ).toBe( aliasReloadedIframe );
 	} );
 
+	it( 'reloads the preview from the composer, but not from a dialog', () => {
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
+			capabilities: CAPABILITIES,
+		} as never );
+		const { container } = renderPreview(
+			<>
+				<textarea aria-label="Composer" />
+				<SitePreview site={ createSite( { running: true } ) } path="/" reloadNonce={ 0 } />
+			</>
+		);
+
+		const initialIframe = container.querySelector( 'iframe' );
+		const composer = screen.getByRole( 'textbox', { name: 'Composer' } );
+		composer.focus();
+		fireEvent.keyDown( composer, { key: 'r', ctrlKey: true } );
+		const reloadedIframe = container.querySelector( 'iframe' );
+		expect( reloadedIframe ).not.toBe( initialIframe );
+
+		const dialog = document.createElement( 'div' );
+		dialog.dataset.slot = 'dialog-content';
+		document.body.append( dialog );
+		fireEvent.keyDown( dialog, { key: 'r', ctrlKey: true } );
+		dialog.remove();
+		expect( container.querySelector( 'iframe' ) ).toBe( reloadedIframe );
+	} );
+
 	it( 'switches realms from the address menu', async () => {
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn().mockResolvedValue( undefined ),

@@ -14,6 +14,7 @@ import { Spinner } from '@/components/ui/spinner';
 import { VisuallyHidden } from '@/components/ui/visually-hidden';
 import { sitePinKey, useSidebarPins } from '@/data/queries/use-sidebar-pins';
 import { useSiteSyncActivity } from '@/data/sync-activity';
+import { closeOnPaletteShortcut } from '@/hooks/use-command-palette';
 import { archiveIcon, plusIcon } from '@/lib/icons';
 import { pendingBlueprintSlot } from '@/lib/pending-blueprint';
 import { BlueprintDetails } from './blueprint-details';
@@ -156,6 +157,7 @@ export function AddSiteDialog() {
 				layout="creation"
 				className={ styles.popup }
 				initialFocus={ getInitialFocus }
+				onKeyDown={ closeOnPaletteShortcut( close ) }
 			>
 				<DialogTitle render={ <VisuallyHidden /> }>{ __( 'Add site' ) }</DialogTitle>
 				{ hasSidebar ? (

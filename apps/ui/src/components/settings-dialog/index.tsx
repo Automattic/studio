@@ -1,23 +1,10 @@
 import { findAiSessionOwnerSite } from '@studio/common/ai/sessions/owner-site';
 import { useNavigate, useParams, useRouter, useSearch } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
-import {
-	bug,
-	chartBar,
-	chevronLeft,
-	code,
-	brush,
-	closeSmall,
-	Icon,
-	keyboard,
-	page,
-	plugins,
-	search as searchIcon,
-	settings as slidersIcon,
-	tool,
-} from '@wordpress/icons';
+import { chevronLeft, closeSmall, Icon, search as searchIcon } from '@wordpress/icons';
+import { ariaKeyShortcut, displayShortcut, isKeyboardEvent } from '@wordpress/keycodes';
 import { clsx } from 'clsx';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
 	AiPanel,
 	AppearanceSettings,
@@ -29,7 +16,6 @@ import {
 	SkillsPanel,
 	UsagePanel,
 } from '@/components/settings-view';
-import { getSidebarSettingTitles } from '@/components/site-list/sidebar-settings';
 import { SiteSettingsForm } from '@/components/site-settings-view';
 import { IconButton } from '@/components/ui/button';
 import {
@@ -41,160 +27,32 @@ import {
 } from '@/components/ui/dialog';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
 import { VisuallyHidden } from '@/components/ui/visually-hidden';
+import { toast } from '@/data/app-messages';
+import { useAuthUser } from '@/data/queries/use-auth-user';
 import { useSessions } from '@/data/queries/use-sessions';
 import { useSites } from '@/data/queries/use-sites';
-import { chatIcon, settingsIcon, shareIcon } from '@/lib/icons';
+import { closeOnPaletteShortcut } from '@/hooks/use-command-palette';
 import { readLastVisited } from '@/lib/last-visited';
-import { SettingsDialogContext } from './context';
+import { SettingsDialogContext, SettingsLinkContext } from './context';
+import { getSections, isSiteSection, searchSettings } from './sections';
 import { SiteAgentFiles } from './site-agent-files';
 import styles from './style.module.css';
 import type { SiteSettingsSectionId } from './context';
-import type { ReactElement } from 'react';
+import type { SearchResult, SettingsScope, SettingsSectionId } from './sections';
 
-const STUDIO_SECTIONS = [
-	'general',
-	'appearance',
-	'sharing',
-	'ai',
-	'mcp',
-	'usage',
-	'skills',
-	'instructions',
-	'keyboard',
-];
-const SITE_SECTIONS = [ 'site', 'debugging', 'php', 'site-skills', 'site-instructions' ];
-const SITE_FORM_SECTIONS = [ 'site', 'debugging', 'php' ];
+export { isSettingsSection, resolveSettingsLink } from './sections';
+export type { SettingsSectionId } from './sections';
 
-export type SettingsSectionId =
-	| 'general'
-	| 'appearance'
-	| 'sharing'
-	| 'ai'
-	| 'mcp'
-	| 'usage'
-	| 'skills'
-	| 'keyboard'
-	| 'site'
-	| 'php'
-	| 'debugging'
-	| 'instructions'
-	| 'site-skills'
-	| 'site-instructions';
-
-export function isSettingsSection( value: unknown ): value is SettingsSectionId {
-	return typeof value === 'string' && [ ...STUDIO_SECTIONS, ...SITE_SECTIONS ].includes( value );
-}
-
-type Section = {
-	id: SettingsSectionId;
-	label: string;
-	icon: ReactElement;
-	// Row titles inside the section, so search can find a single setting.
-	settings: string[];
-};
-
-function getSections( scope: 'studio' | 'site' ): Section[] {
-	return scope === 'studio'
-		? [
-				{
-					id: 'general',
-					label: __( 'General' ),
-					icon: settingsIcon,
-					settings: [
-						__( 'Language' ),
-						__( 'Code editor' ),
-						__( 'Terminal' ),
-						__( 'Default directory' ),
-						__( 'Improve Studio for everyone' ),
-						__( 'When Studio quits' ),
-						...getSidebarSettingTitles(),
-						__( 'Documentation' ),
-						__( 'Report an issue' ),
-					],
-				},
-				{
-					id: 'appearance',
-					label: __( 'Appearance' ),
-					icon: brush,
-					settings: [ __( 'Theme' ) ],
-				},
-				{
-					id: 'sharing',
-					label: __( 'Sharing' ),
-					icon: shareIcon,
-					settings: [ __( 'Sharing previews on WordPress.com' ), __( 'Live previews' ) ],
-				},
-				{
-					id: 'ai',
-					label: __( 'AI' ),
-					icon: chatIcon,
-					settings: [ __( 'Studio Code' ), __( 'Anthropic API key' ) ],
-				},
-				{ id: 'mcp', label: __( 'MCP' ), icon: plugins, settings: [] },
-				{ id: 'usage', label: __( 'Usage' ), icon: chartBar, settings: [ __( 'AI credits' ) ] },
-				{ id: 'skills', label: __( 'Skills' ), icon: tool, settings: [ __( 'WordPress skills' ) ] },
-				{
-					id: 'instructions',
-					label: __( 'Instructions' ),
-					icon: page,
-					settings: [ __( 'Agent instructions' ) ],
-				},
-				{ id: 'keyboard', label: __( 'Keyboard' ), icon: keyboard, settings: [] },
-		  ]
-		: [
-				{
-					id: 'site',
-					label: __( 'Settings' ),
-					icon: slidersIcon,
-					settings: [
-						__( 'Site name' ),
-						__( 'WordPress version' ),
-						__( 'Automatic updates' ),
-						__( 'Use custom domain' ),
-						__( 'Username' ),
-						__( 'Password' ),
-						__( 'Email' ),
-					],
-				},
-				{
-					id: 'debugging',
-					label: __( 'Debug' ),
-					icon: bug,
-					settings: [
-						__( 'Environment' ),
-						__( 'Xdebug' ),
-						__( 'Debug log' ),
-						__( 'Script debugging' ),
-						__( 'Show errors in browser' ),
-					],
-				},
-				{
-					id: 'php',
-					label: __( 'PHP' ),
-					icon: code,
-					settings: [ __( 'PHP version' ), __( 'File access' ) ],
-				},
-				{
-					id: 'site-skills',
-					label: __( 'Skills' ),
-					icon: tool,
-					settings: [ __( 'Skills on this site' ) ],
-				},
-				{
-					id: 'site-instructions',
-					label: __( 'Instructions' ),
-					icon: page,
-					settings: [ __( 'Instructions on this site' ) ],
-				},
-		  ];
-}
+const SITE_FORM_SECTIONS: SettingsSectionId[] = [ 'site', 'debugging', 'php' ];
 
 function StudioSection( {
 	id,
-	onManageSite,
+	onNavigate,
+	hasSite,
 }: {
 	id: SettingsSectionId;
-	onManageSite?: () => void;
+	onNavigate: ( section: SettingsSectionId ) => void;
+	hasSite: boolean;
 } ) {
 	switch ( id ) {
 		case 'appearance':
@@ -202,15 +60,21 @@ function StudioSection( {
 		case 'sharing':
 			return <SharingPanel />;
 		case 'ai':
-			return <AiPanel />;
+			return <AiPanel onManageCredits={ () => onNavigate( 'usage' ) } />;
 		case 'mcp':
 			return <McpPanel />;
 		case 'usage':
 			return <UsagePanel />;
 		case 'skills':
-			return <SkillsPanel />;
+			return (
+				<SkillsPanel onManageSite={ hasSite ? () => onNavigate( 'site-skills' ) : undefined } />
+			);
 		case 'instructions':
-			return <InstructionsSettings onManageSite={ onManageSite } />;
+			return (
+				<InstructionsSettings
+					onManageSite={ hasSite ? () => onNavigate( 'site-instructions' ) : undefined }
+				/>
+			);
 		case 'keyboard':
 			return <KeyboardPanel />;
 		default:
@@ -232,10 +96,33 @@ function useCurrentSiteId( requested?: string ) {
 	return sites?.find( ( site ) => site.id === siteId ) ?? sites?.[ 0 ];
 }
 
+// A setting's row, by its link id or its title.
+function findRow( root: HTMLElement, target: string ) {
+	return [ ...root.querySelectorAll< HTMLElement >( '[data-settings-row]' ) ].find(
+		( row ) =>
+			row.dataset.settingId === target ||
+			row.querySelector( '[data-slot="field-label"]' )?.textContent?.trim() === target
+	);
+}
+
+function focusControl( row: HTMLElement ) {
+	const control =
+		row.querySelector< HTMLElement >(
+			'input:not(:disabled):not([type="hidden"]):not([aria-hidden="true"]), textarea:not(:disabled), [role="switch"]:not([data-disabled]), [role="combobox"]:not(:disabled)'
+		) ??
+		row.querySelector< HTMLElement >(
+			':scope > [data-slot="field-content"] ~ * button:not(:disabled)'
+		);
+	control?.focus( { preventScroll: true } );
+	if ( control instanceof HTMLInputElement ) {
+		control.select();
+	}
+}
+
 /**
  * Studio and site settings in one dialog, opened over the current screen by the
  * `settings` search param (`?settings=php`). `settingsSite` picks a site other
- * than the current one.
+ * than the current one, and `settingsFocus` a setting, by link id or title.
  */
 export function SettingsDialog() {
 	const router = useRouter();
@@ -245,14 +132,17 @@ export function SettingsDialog() {
 		settingsSite?: string;
 		settingsFocus?: string;
 	};
+	const user = useAuthUser();
+	const signedIn = ! user.isSuccess || !! user.data;
 	// Kept while the dialog animates closed.
 	const [ shown, setShown ] = useState< SettingsSectionId >( settings ?? 'general' );
 	if ( settings && settings !== shown ) {
 		setShown( settings );
 	}
 	const site = useCurrentSiteId( settingsSite );
-	const scope = SITE_SECTIONS.includes( shown ) && site ? 'site' : 'studio';
-	const section = scope === 'site' || ! SITE_SECTIONS.includes( shown ) ? shown : 'general';
+	const requested = shown === 'usage' && ! signedIn ? 'ai' : shown;
+	const scope: SettingsScope = isSiteSection( requested ) && site ? 'site' : 'studio';
+	const section = scope === 'site' || ! isSiteSection( requested ) ? requested : 'general';
 	const [ siteSection, setSiteSection ] = useState< SettingsSectionId >( 'site' );
 	if ( scope === 'site' && section !== siteSection ) {
 		setSiteSection( section );
@@ -262,38 +152,66 @@ export function SettingsDialog() {
 	if ( SITE_FORM_SECTIONS.includes( siteSection ) && siteSection !== formSection ) {
 		setFormSection( siteSection as SiteSettingsSectionId );
 	}
-	const [ history, setHistory ] = useState< SettingsSectionId[] >( [] );
+	const [ history, setHistory ] = useState( { entries: [] as SettingsSectionId[], index: -1 } );
 	const [ query, setQuery ] = useState( '' );
-	const [ highlight, setHighlight ] = useState< string | null >( null );
+	// The setting to reveal, by link id or title.
+	const [ target, setTarget ] = useState< string | null >( null );
+	const [ requestedFocus, setRequestedFocus ] = useState< string >();
+	if ( settingsFocus !== requestedFocus ) {
+		setRequestedFocus( settingsFocus );
+		setTarget( settingsFocus ?? null );
+	}
 	const [ dirty, setDirty ] = useState( false );
 	const [ actions, setActions ] = useState< HTMLElement | null >( null );
-	const content = useRef< HTMLDivElement >( null );
+	const [ content, setContent ] = useState< HTMLDivElement | null >( null );
+	const pendingExit = useRef< ( () => void ) | null >( null );
 
 	// Each opening starts fresh.
 	useEffect( () => {
 		if ( ! settings ) {
-			setHistory( [] );
+			setHistory( { entries: [], index: -1 } );
 			setQuery( '' );
-			setHighlight( null );
+			setTarget( null );
+			pendingExit.current = null;
 		}
 	}, [ settings ] );
 
-	const go = ( next: SettingsSectionId, { back = false } = {} ) => {
-		if ( next !== section && ! back ) {
-			setHistory( ( previous ) => [ ...previous, section ] );
+	// Every section shown joins the history, unless Back or Forward led there.
+	useEffect( () => {
+		if ( settings ) {
+			setHistory( ( current ) =>
+				current.entries[ current.index ] === section
+					? current
+					: {
+							entries: [ ...current.entries.slice( 0, current.index + 1 ), section ],
+							index: current.index + 1,
+					  }
+			);
 		}
+	}, [ settings, section ] );
+
+	const go = ( next: SettingsSectionId ) => {
+		setTarget( null );
 		void navigate( {
 			to: '.',
-			search: ( previous: Record< string, unknown > ) => ( { ...previous, settings: next } ),
+			search: ( { settingsFocus: _focus, ...previous }: Record< string, unknown > ) => ( {
+				...previous,
+				settings: next,
+			} ),
 			replace: true,
 		} );
 	};
 
-	const close = () => {
-		if ( dirty ) {
-			actions?.querySelector< HTMLElement >( 'button' )?.focus();
-			return;
+	const traverse = ( step: -1 | 1 ) => {
+		const index = history.index + step;
+		const next = history.entries[ index ];
+		if ( next ) {
+			setHistory( { ...history, index } );
+			go( next );
 		}
+	};
+
+	const closeNow = () => {
 		if ( router.history.canGoBack() ) {
 			router.history.back();
 			return;
@@ -310,55 +228,89 @@ export function SettingsDialog() {
 		} );
 	};
 
-	const findRow = ( title: string ) =>
-		[
-			...( content.current?.querySelectorAll( '[data-settings-row] [data-slot="field-label"]' ) ??
-				[] ),
-		]
-			.find( ( label ) => label.textContent?.trim() === title )
-			?.closest< HTMLElement >( '[data-settings-row]' );
-
-	// Shows the setting picked from the search results.
-	useEffect( () => {
-		if ( ! highlight ) {
+	// With unsaved site changes, closing waits for Discard or Save.
+	const close = () => {
+		if ( dirty ) {
+			pendingExit.current = closeNow;
+			actions?.querySelector< HTMLElement >( 'button' )?.focus();
 			return;
 		}
-		const row = findRow( highlight );
-		row?.scrollIntoView( { block: 'center' } );
-		row?.setAttribute( 'data-settings-match', '' );
-		const timeout = setTimeout( () => row?.removeAttribute( 'data-settings-match' ), 2000 );
+		closeNow();
+	};
+
+	const settle = useCallback( () => {
+		const exit = pendingExit.current;
+		pendingExit.current = null;
+		exit?.();
+	}, [] );
+
+	// Reveals and focuses the setting a link or search result points at.
+	useEffect( () => {
+		const root = content;
+		if ( ! target || ! root ) {
+			return;
+		}
+		let row: HTMLElement | undefined;
+		let frame = 0;
+		const reveal = () => {
+			row = findRow( root, target );
+			if ( ! row ) {
+				return;
+			}
+			observer.disconnect();
+			row.scrollIntoView?.( { block: 'center' } );
+			row.setAttribute( 'data-settings-match', '' );
+			frame = requestAnimationFrame( () => row && focusControl( row ) );
+		};
+		const observer = new MutationObserver( reveal );
+		observer.observe( root, { childList: true, subtree: true } );
+		reveal();
+		const timeout = setTimeout( () => {
+			observer.disconnect();
+			if ( ! row ) {
+				toast.info( __( 'This setting is not available on this device.' ) );
+			}
+			setTarget( null );
+		}, 3000 );
 		return () => {
 			clearTimeout( timeout );
+			cancelAnimationFrame( frame );
+			observer.disconnect();
 			row?.removeAttribute( 'data-settings-match' );
 		};
-	}, [ highlight, section ] );
+	}, [ target, section, content ] );
 
-	const words = query.trim().toLocaleLowerCase().split( /\s+/ ).filter( Boolean );
-	const matches = ( text: string ) =>
-		words.every( ( word ) => text.toLocaleLowerCase().includes( word ) );
-	const results = words.length
-		? ( [ 'studio', 'site' ] as const )
-				.filter( ( candidate ) => candidate === 'studio' || site )
-				.flatMap( ( candidate ) =>
-					getSections( candidate ).flatMap( ( entry ) =>
-						[ entry.label, ...entry.settings ]
-							.filter( matches )
-							.map( ( label ) => ( { scope: candidate, section: entry, label } ) )
-					)
-				)
-		: [];
-	const current = getSections( scope ).find( ( entry ) => entry.id === section )!;
+	const results = searchSettings( query, scope, { hasSite: !! site, signedIn } );
+	const searching = !! query.trim();
+	const open = ( result: SearchResult ) => {
+		go( result.section.id );
+		if ( result.setting ) {
+			setTarget( result.setting.id ?? result.setting.title );
+		}
+	};
+	const current = getSections( scope, { signedIn } ).find( ( entry ) => entry.id === section )!;
 
 	return (
-		<Dialog
-			open={ !! settings }
-			onOpenChange={ ( open ) => ! open && close() }
-			// Focuses the setting the dialog was opened for.
-			onOpenChangeComplete={ ( open ) =>
-				open && settingsFocus && findRow( settingsFocus )?.querySelector( 'input' )?.select()
-			}
-		>
-			<DialogContent layout="settings" className={ styles.popup }>
+		<Dialog open={ !! settings } onOpenChange={ ( isOpen ) => ! isOpen && close() }>
+			<DialogContent
+				layout="settings"
+				className={ styles.popup }
+				onInputCapture={ () => {
+					pendingExit.current = null;
+				} }
+				onKeyDown={ ( event ) => {
+					closeOnPaletteShortcut( close )( event );
+					const step = isKeyboardEvent.primary( event.nativeEvent, '[' )
+						? -1
+						: isKeyboardEvent.primary( event.nativeEvent, ']' )
+						? 1
+						: 0;
+					if ( step ) {
+						event.preventDefault();
+						traverse( step );
+					}
+				} }
+			>
 				<DialogTitle render={ <VisuallyHidden /> }>{ __( 'Settings' ) }</DialogTitle>
 				<div className={ styles.sidebar }>
 					<div className={ styles.scopes } role="group" aria-label={ __( 'Settings for' ) }>
@@ -383,6 +335,15 @@ export function SettingsDialog() {
 							aria-label={ __( 'Search settings' ) }
 							value={ query }
 							onChange={ ( event ) => setQuery( event.target.value ) }
+							onKeyDown={ ( event ) => {
+								if ( event.key === 'Escape' && query ) {
+									event.stopPropagation();
+									setQuery( '' );
+								} else if ( event.key === 'Enter' && results[ 0 ] ) {
+									event.preventDefault();
+									open( results[ 0 ] );
+								}
+							} }
 						/>
 						<InputGroupAddon>
 							<Icon icon={ searchIcon } size={ 16 } className={ styles.searchIcon } />
@@ -399,34 +360,29 @@ export function SettingsDialog() {
 						) : null }
 					</InputGroup>
 					<nav className={ styles.nav } aria-label={ __( 'Settings sections' ) }>
-						{ words.length && ! results.length ? (
+						{ searching && ! results.length ? (
 							<p className={ styles.empty }>{ __( 'No settings found.' ) }</p>
 						) : null }
-						{ ( words.length
+						{ ( searching
 							? results
-							: getSections( scope ).map( ( entry ) => ( {
+							: getSections( scope, { signedIn } ).map( ( entry ) => ( {
 									scope,
 									section: entry,
-									label: entry.label,
+									setting: undefined,
 							  } ) )
 						).map( ( item ) => (
 							<button
-								key={ `${ item.scope }-${ item.section.id }-${ item.label }` }
+								key={ `${ item.scope }-${ item.section.id }-${ item.setting?.title ?? '' }` }
 								type="button"
 								className={ styles.navItem }
-								aria-current={
-									item.section.id === section && item.label === item.section.label
-										? 'page'
-										: undefined
-								}
-								onClick={ () => {
-									go( item.section.id );
-									setHighlight( item.label === item.section.label ? null : item.label );
-								} }
+								aria-current={ ! searching && item.section.id === section ? 'page' : undefined }
+								onClick={ () => open( item ) }
 							>
 								<Icon icon={ item.section.icon } size={ 16 } className={ styles.navIcon } />
-								<span className={ styles.navLabel }>{ item.label }</span>
-								{ words.length ? (
+								<span className={ styles.navLabel }>
+									{ item.setting?.title ?? item.section.label }
+								</span>
+								{ searching ? (
 									<span className={ styles.navScope }>
 										{ item.scope === 'site' ? __( 'Site' ) : __( 'Studio' ) }
 									</span>
@@ -437,7 +393,7 @@ export function SettingsDialog() {
 				</div>
 				<DialogPanel
 					className={ styles.content }
-					scrollRef={ content }
+					scrollRef={ setContent }
 					header={
 						<PanelHeader
 							leading={
@@ -445,12 +401,13 @@ export function SettingsDialog() {
 									variant="segmented"
 									size="icon-sm"
 									icon={ chevronLeft }
-									label={ __( 'Back' ) }
-									disabled={ ! history.length }
-									onClick={ () => {
-										go( history.at( -1 )!, { back: true } );
-										setHistory( ( previous ) => previous.slice( 0, -1 ) );
+									label={ __( 'Back in settings' ) }
+									shortcut={ {
+										displayShortcut: displayShortcut.primary( '[' ),
+										ariaKeyShortcut: ariaKeyShortcut.primary( '[' ),
 									} }
+									disabled={ history.index < 1 }
+									onClick={ () => traverse( -1 ) }
 								/>
 							}
 							title={ current.label }
@@ -460,12 +417,11 @@ export function SettingsDialog() {
 						/>
 					}
 				>
-					<SettingsDialogContext.Provider value={ { actions, setDirty } }>
+					<SettingsDialogContext.Provider value={ { actions, setDirty, settle } }>
 						{ scope === 'studio' ? (
-							<StudioSection
-								id={ section }
-								onManageSite={ site ? () => go( 'site-instructions' ) : undefined }
-							/>
+							<SettingsLinkContext.Provider value>
+								<StudioSection id={ section } onNavigate={ go } hasSite={ !! site } />
+							</SettingsLinkContext.Provider>
 						) : null }
 						{ site ? (
 							<>
@@ -473,7 +429,7 @@ export function SettingsDialog() {
 								( section === 'site-skills' || section === 'site-instructions' ) ? (
 									<SiteAgentFiles
 										key={ `${ site.id }-${ section }` }
-										siteId={ site.id }
+										site={ site }
 										kind={ section === 'site-skills' ? 'skills' : 'instructions' }
 										onManageAll={ () =>
 											go( section === 'site-skills' ? 'skills' : 'instructions' )
@@ -486,12 +442,7 @@ export function SettingsDialog() {
 											styles.hidden
 									) }
 								>
-									<SiteSettingsForm
-										key={ site.id }
-										site={ site }
-										section={ formSection }
-										active={ scope === 'site' && SITE_FORM_SECTIONS.includes( section ) }
-									/>
+									<SiteSettingsForm key={ site.id } site={ site } section={ formSection } />
 								</div>
 							</>
 						) : null }

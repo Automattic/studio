@@ -1,4 +1,7 @@
+import { MAX_VISUAL_ANNOTATIONS } from '@studio/common/ai/visual-annotations';
+import { __ } from '@wordpress/i18n';
 import { useSyncExternalStore } from 'react';
+import { toast } from '@/data/app-messages';
 import type { ComposerImageAttachment } from '@studio/common/ai/composer-attachments';
 import type {
 	VisualAnnotation,
@@ -15,9 +18,17 @@ export interface SiteAnnotations {
 	active: boolean;
 	notes: PreviewAnnotation[];
 	editingId: string | null;
+	// A send is on its way to the chat.
+	sending?: boolean;
+	// Images dropped or pasted into a note are still being read.
+	preparing?: boolean;
 }
 
 const EMPTY: SiteAnnotations = { active: false, notes: [], editingId: null };
+
+export function isAnnotationsBusy( { sending, preparing }: SiteAnnotations ) {
+	return Boolean( sending || preparing );
+}
 const sites = new Map< string, SiteAnnotations >();
 const listeners = new Set< () => void >();
 
@@ -73,13 +84,27 @@ export function setAnnotating( siteId: string, active: boolean ) {
 	);
 }
 
+export function setAnnotationsPreparing( siteId: string, preparing: boolean ) {
+	update( siteId, ( current ) =>
+		Boolean( current.preparing ) === preparing ? current : { ...current, preparing }
+	);
+}
+
 export function pickAnnotation( siteId: string, target: VisualAnnotationTarget ) {
+	const current = getSiteAnnotations( siteId );
+	if ( isAnnotationsBusy( current ) ) {
+		return null;
+	}
 	const existing = target.designKey
-		? getSiteAnnotations( siteId ).notes.find( ( note ) => note.designKey === target.designKey )
+		? current.notes.find( ( note ) => note.designKey === target.designKey )
 		: undefined;
 	if ( existing ) {
 		editAnnotation( siteId, existing.id );
 		return existing.id;
+	}
+	if ( current.notes.filter( hasAnnotationContent ).length >= MAX_VISUAL_ANNOTATIONS ) {
+		toast.error( __( 'Send or delete some annotations before adding more.' ) );
+		return null;
 	}
 	const id = crypto.randomUUID();
 	update( siteId, ( current ) => {
@@ -124,7 +149,11 @@ export function closeAnnotationEditor( siteId: string ) {
 // With a note open, Escape closes it; otherwise it leaves annotation mode and
 // keeps the notes.
 export function escapeAnnotations( siteId: string ) {
-	if ( getSiteAnnotations( siteId ).editingId ) {
+	const current = getSiteAnnotations( siteId );
+	if ( isAnnotationsBusy( current ) ) {
+		return;
+	}
+	if ( current.editingId ) {
 		closeAnnotationEditor( siteId );
 	} else {
 		setAnnotating( siteId, false );
@@ -164,20 +193,27 @@ export type AnnotationSendRequest = { siteId: string; noteIds?: string[] };
 let pendingSend: AnnotationSendRequest | null = null;
 const sendListeners = new Set< () => void >();
 
+const setSending = ( siteId: string, sending: boolean ) =>
+	update( siteId, ( current ) => ( { ...current, sending } ) );
+
 export function requestAnnotationSend( request: AnnotationSendRequest ) {
 	pendingSend = request;
+	setSending( request.siteId, true );
 	sendListeners.forEach( ( listener ) => listener() );
 }
 
+// `onRequest` returns the send, if it starts one, so the preview can show it in flight.
 export function subscribeAnnotationSend(
 	siteId: string,
-	onRequest: ( request: AnnotationSendRequest ) => void
+	onRequest: ( request: AnnotationSendRequest ) => Promise< unknown > | void
 ) {
 	const listener = () => {
 		if ( pendingSend?.siteId === siteId ) {
 			const request = pendingSend;
 			pendingSend = null;
-			onRequest( request );
+			void Promise.resolve( onRequest( request ) )
+				.catch( () => undefined )
+				.finally( () => setSending( siteId, false ) );
 		}
 	};
 	sendListeners.add( listener );

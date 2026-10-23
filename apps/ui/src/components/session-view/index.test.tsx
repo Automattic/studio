@@ -1,4 +1,5 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { StrictMode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
@@ -55,15 +56,13 @@ vi.mock( '@/components/site-actions-menu', () => ( {
 	SiteActionsMenu: ( { site }: { site: { name: string } } ) => <div>{ site.name }</div>,
 } ) );
 
-vi.mock( '@/components/share-dialog', () => ( {
-	ShareButton: () => null,
-} ) );
-
-vi.mock( '@/components/site-lifecycle-button', () => ( {
-	SiteLifecycleButton: () => <button type="button">Start</button>,
+vi.mock( '@/components/site-header-actions', () => ( {
+	SiteHeaderSpace: () => <div data-testid="site-header-space" />,
+	useSiteHeader: () => ( { host: 'chat' } ),
 } ) );
 
 vi.mock( '@/components/stopped-site-preview', () => ( {
+	SiteContextMenu: ( { children }: { children: React.ReactNode } ) => children,
 	StoppedSitePreview: () => <div data-testid="stopped-site-preview" />,
 } ) );
 
@@ -78,12 +77,16 @@ vi.mock( '@/data/queries/use-ai-settings', () => ( {
 	useAiSettings: () => aiSettingsState,
 } ) );
 
+const connectorMock = vi.hoisted( () => ( {
+	openExternalUrl: vi.fn(),
+	getAiSettings: vi.fn(),
+	getAuthUser: vi.fn(),
+	getStudioAssistantQuota: vi.fn(),
+} ) );
+
 vi.mock( '@/data/core', async ( importOriginal ) => ( {
 	...( await importOriginal< object >() ),
-	useConnector: () => ( {
-		openExternalUrl: vi.fn(),
-		getAiSettings: vi.fn(),
-	} ),
+	useConnector: () => connectorMock,
 } ) );
 
 vi.mock( '@/data/queries/use-agent-run', () => ( {
@@ -129,6 +132,7 @@ const composerProps = vi.hoisted( () => ( {
 vi.mock( './composer', () => ( {
 	Composer: ( props: { onSend: ( prompt: string ) => Promise< void > } ) => {
 		composerProps.current = props;
+		useStudioAssistantQuota();
 		return <div data-testid="composer" />;
 	},
 	ComposerSkeleton: () => <div data-testid="composer-skeleton" />,
@@ -140,10 +144,6 @@ vi.mock( './conversation', () => ( {
 
 vi.mock( '@/components/chat-actions', () => ( { OpenChatShortcuts: () => null } ) );
 vi.mock( '@/hooks/use-mark-chat-read', () => ( { useMarkChatRead: vi.fn() } ) );
-
-vi.mock( './session-chat-actions', () => ( {
-	useNewChatShortcut: () => undefined,
-} ) );
 
 const useSessionMock = vi.mocked( useSession, { partial: true } );
 const useStudioAssistantQuotaMock = vi.mocked( useStudioAssistantQuota, { partial: true } );
@@ -240,7 +240,9 @@ describe( 'SessionView', () => {
 				<SessionView sessionId="session-1" />
 			</WindowControlsCornerContext.Provider>
 		);
-		const header = screen.getByText( 'Example Site' ).parentElement;
+		const header = screen
+			.getByText( 'Example Site' )
+			.closest< HTMLElement >( '[data-site-header]' );
 		expect( header?.style.paddingRight ).toBe( '146px' );
 
 		rerender(
@@ -506,6 +508,28 @@ describe( 'SessionView', () => {
 		expect( screen.queryByText( 'Studio Code Beta' ) ).not.toBeInTheDocument();
 	} );
 
+	it( 'settles on the composer when the quota request fails', async () => {
+		const actual = await vi.importActual< typeof import('@/data/queries/use-assistant-quota') >(
+			'@/data/queries/use-assistant-quota'
+		);
+		useStudioAssistantQuotaMock.mockImplementation( actual.useStudioAssistantQuota );
+		connectorMock.getAuthUser.mockResolvedValue( { id: 1 } );
+		connectorMock.getStudioAssistantQuota.mockRejectedValue( new Error( 'offline' ) );
+		useSessionMock.mockReturnValue( { data: makeLoadedSession(), isLoading: false, error: null } );
+		const queryClient = new QueryClient( { defaultOptions: { queries: { retry: false } } } );
+
+		render(
+			<QueryClientProvider client={ queryClient }>
+				<SessionView sessionId="session-1" />
+			</QueryClientProvider>
+		);
+
+		await screen.findByTestId( 'composer' );
+		await act( () => new Promise( ( resolve ) => setTimeout( resolve, 50 ) ) );
+		expect( screen.getByTestId( 'composer' ) ).toBeInTheDocument();
+		expect( connectorMock.getStudioAssistantQuota ).toHaveBeenCalledTimes( 1 );
+	} );
+
 	it( 'fails open when the quota is unavailable', () => {
 		useSessionMock.mockReturnValue( {
 			data: makeLoadedSession(),
@@ -537,18 +561,17 @@ describe( 'SessionView', () => {
 		expect( siteMocks.startSite ).toHaveBeenCalledWith( OWNER_SITE.id );
 	} );
 
-	it( 'offers a stopped site its last screenshot and a Start button', () => {
+	it( 'offers a stopped site its last screenshot, under the site actions', () => {
 		sitesState.data = [ OWNER_SITE ];
 		useSessionMock.mockReturnValue( { data: makeOwnedSession(), isLoading: false, error: null } );
 
 		const { rerender } = render( <SessionView sessionId="session-1" /> );
 		expect( screen.getByTestId( 'stopped-site-preview' ) ).toBeInTheDocument();
-		expect( screen.getByRole( 'button', { name: 'Start' } ) ).toBeInTheDocument();
+		expect( screen.getByTestId( 'site-header-space' ) ).toBeInTheDocument();
 
 		sitesState.data = [ { ...OWNER_SITE, running: true } ];
 		rerender( <SessionView sessionId="session-1" /> );
 		expect( screen.queryByTestId( 'stopped-site-preview' ) ).not.toBeInTheDocument();
-		expect( screen.queryByRole( 'button', { name: 'Start' } ) ).not.toBeInTheDocument();
 	} );
 } );
 

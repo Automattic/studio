@@ -36,12 +36,11 @@ import { OpenChatShortcuts } from '@/components/chat-actions';
 import { PreviewParticles } from '@/components/preview-particles';
 import { PreviewToggleButton } from '@/components/preview-toggle-button';
 import { ProgressiveBlur } from '@/components/progressive-blur';
-import { ShareButton } from '@/components/share-dialog';
 import { HeaderSidebarToggle } from '@/components/sidebar-toggle';
 import { SiteActionsMenu } from '@/components/site-actions-menu';
+import { SiteHeaderSpace, useSiteHeader } from '@/components/site-header-actions';
 import { SiteIcon } from '@/components/site-icon';
-import { SiteLifecycleButton } from '@/components/site-lifecycle-button';
-import { StoppedSitePreview } from '@/components/stopped-site-preview';
+import { SiteContextMenu, StoppedSitePreview } from '@/components/stopped-site-preview';
 import { Button, IconButton } from '@/components/ui/button';
 import { toast } from '@/data/app-messages';
 import { useAgentRun } from '@/data/queries/use-agent-run';
@@ -50,7 +49,6 @@ import { useAiSettings } from '@/data/queries/use-ai-settings';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
 import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
 import {
-	useCreateSession,
 	useSession,
 	useSessionEffectiveEnvironment,
 	useSetSessionEnvironment,
@@ -76,7 +74,6 @@ import { AccessRequirements } from './access-requirements';
 import { Composer, ComposerSkeleton, type ComposerHandle } from './composer';
 import { Conversation } from './conversation';
 import { QueuedPrompts } from './queued-prompts';
-import { useNewChatShortcut } from './session-chat-actions';
 import styles from './style.module.css';
 import type { SiteDetails } from '@/data/core';
 
@@ -112,9 +109,12 @@ function SessionHeader( {
 	const sidebarCollapsed = useSidebarCollapsed();
 	const reserveTrafficLightSpace = useTrafficLightSpace().start;
 	const windowControlsInset = useWindowControlsInset( 'toolbar' );
+	const { host } = useSiteHeader();
+	const local = site && effectiveEnvironment === 'local';
 
 	return (
 		<div
+			data-site-header
 			className={ clsx(
 				styles.header,
 				sidebarCollapsed && reserveTrafficLightSpace && styles.headerSidebarCollapsed
@@ -127,31 +127,27 @@ function SessionHeader( {
 					: undefined
 			}
 		>
-			<HeaderSidebarToggle />
-			{ site ? <SiteActionsMenu site={ site } /> : null }
-			{ ! site && siteName ? (
-				<>
-					<SiteIcon className={ styles.headerSiteIcon } seed={ siteName } />
-					<span className={ styles.headerSite }>{ siteName }</span>
-					<span className={ styles.headerDot } aria-hidden="true" />
-					<span className={ styles.headerEnv }>
-						{ effectiveEnvironment === 'live' ? __( 'Live' ) : __( 'Local' ) }
-					</span>
-				</>
-			) : null }
+			<div data-site-header-reserved className={ styles.headerLead }>
+				<HeaderSidebarToggle />
+				{ site ? <SiteActionsMenu site={ site } /> : null }
+				{ ! site && siteName ? (
+					<>
+						<SiteIcon className={ styles.headerSiteIcon } seed={ siteName } />
+						<span className={ styles.headerSite }>{ siteName }</span>
+						<span className={ styles.headerDot } aria-hidden="true" />
+						<span className={ styles.headerEnv }>
+							{ effectiveEnvironment === 'live' ? __( 'Live' ) : __( 'Local' ) }
+						</span>
+					</>
+				) : null }
+			</div>
 			<span className={ styles.headerSpacer } aria-hidden="true" />
-			{ site && effectiveEnvironment === 'local' ? (
-				<div className={ styles.headerActions } data-header-actions>
-					{ site.running ? (
-						<PreviewToggleButton canHideChat />
-					) : (
-						<>
-							<SiteLifecycleButton site={ site } />
-							<ShareButton site={ site } />
-						</>
-					) }
+			{ local && site.running ? (
+				<div data-site-header-reserved className={ styles.headerActions } data-header-actions>
+					<PreviewToggleButton canHideChat />
 				</div>
 			) : null }
+			{ local && host === 'chat' ? <SiteHeaderSpace /> : null }
 		</div>
 	);
 }
@@ -288,7 +284,6 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	const navigate = useNavigate();
 	const { data, isLoading, error, refetch } = useSession( sessionId );
 	const { data: sites } = useSites();
-	const { mutateAsync: createSession, isPending: isCreatingSession } = useCreateSession();
 	const ownerSite = findAiSessionOwnerSite( sites, data?.summary );
 	const effectiveEnvironment = useSessionEffectiveEnvironment( data?.summary, ownerSite?.id );
 	const {
@@ -452,20 +447,6 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 			} ),
 		[ navigate ]
 	);
-	const startNewChat = useCallback( async () => {
-		// Already on a chat with no prompts yet — creating another empty
-		// session would just flash the view for an identical result.
-		if ( ! ownerSite || isEmpty ) {
-			return;
-		}
-		try {
-			const summary = await createSession( { siteId: ownerSite.id } );
-			switchSession( summary.id );
-		} catch {
-			// The mutation owns the error state; avoid an unhandled rejection
-			// from this command button if session creation fails.
-		}
-	}, [ createSession, isEmpty, ownerSite, switchSession ] );
 
 	useLayoutEffect( () => {
 		if ( ! scrollNode || isScrolledAway || pendingQuestions.length > 0 ) {
@@ -486,7 +467,6 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 
 	const isOutOfCredits = useIsOutOfAiCredits() && isWpcom;
 	useMarkChatRead( sessionId, data?.summary.unread );
-	useNewChatShortcut( startNewChat, !! ownerSite && ! isOutOfCredits && ! isCreatingSession );
 	// Fail open when the quota is unavailable (offline, error, older server) —
 	// the WordPress.com proxy enforces the same gate server-side.
 	const isAccessBlocked =
@@ -496,7 +476,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 
 	const [ frameNode, setFrameNode ] = useState< HTMLDivElement | null >( null );
 	const { data: preferences } = useUserPreferences();
-	const { mutate: startSite } = useStartSite( { silent: true } );
+	const { mutate: startSite } = useStartSite();
 	const isSiteStarting = useIsSiteStarting( ownerSite?.id );
 	const isSiteStopping = useIsSiteStopping( ownerSite?.id );
 	const isSiteBusy = useIsSiteBusy( ownerSite );
@@ -557,15 +537,14 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 			stageAnnotations( annotationSiteId, noteIds );
 			if ( composerBusy ) return;
 			if ( ! noteIds ) {
-				void composerRef.current?.send();
-				return;
+				return composerRef.current?.send();
 			}
 			const notes = getSiteAnnotations( annotationSiteId ).notes.filter(
 				( note ) => noteIds.includes( note.id ) && hasAnnotationContent( note )
 			);
 			try {
 				const { prompt, options } = annotationSubmission( '', [], notes );
-				void sendMessage( prompt, options )
+				return sendMessage( prompt, options )
 					.then( () => removeAnnotations( annotationSiteId, noteIds ) )
 					.catch( () => undefined );
 			} catch ( error ) {
@@ -724,12 +703,14 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		>
 			<OpenChatShortcuts session={ data.summary } />
 			{ isEmpty && ! pendingPrompt ? (
-				<div className={ styles.emptyState }>
-					<PreviewParticles active={ isSiteStarting } showLogo={ isSiteStarting } />
-					{ ownerSite && ! ownerSite.running && ! isSiteStarting ? (
-						<StoppedSitePreview site={ ownerSite } />
-					) : null }
-				</div>
+				<SiteContextMenu site={ ownerSite } disabled={ ! ownerSite || ownerSite.running }>
+					<div className={ styles.emptyState }>
+						<PreviewParticles active={ isSiteStarting } showLogo={ isSiteStarting } />
+						{ ownerSite && ! ownerSite.running && ! isSiteStarting ? (
+							<StoppedSitePreview site={ ownerSite } />
+						) : null }
+					</div>
+				</SiteContextMenu>
 			) : null }
 			<div className={ clsx( styles.column, styles.conversationSpacing ) }>
 				<Conversation

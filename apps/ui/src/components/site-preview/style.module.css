@@ -72,6 +72,26 @@
 	min-width: 0;
 }
 
+/* Holds the address field's place while the site starts or stops. */
+.addressStatus {
+	display: flex;
+	box-sizing: border-box;
+	flex: 1 1 auto;
+	min-width: 80px;
+	height: var(--control-size);
+	align-items: center;
+	justify-content: center;
+	padding-inline: 12px;
+	border: 1px solid var(--border);
+	border-radius: 999px;
+	color: var(--muted-foreground);
+	font-size: var(--text-xxs);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	user-select: none;
+}
+
 .historyEntry {
 	display: flex;
 	width: min(320px, calc(100vw - 64px));
@@ -110,15 +130,6 @@
 
 .annotateButtonActive:not(:disabled) {
 	opacity: 1;
-}
-
-/* Preserve the URL field before toolbar actions begin colliding. The controls
-   keep their accessible names and tooltips; only the redundant visible labels
-   collapse, leaving the same icons and dropdown indicator. */
-@container studio-preview-toolbar (max-width: 640px) {
-	.toolbarLabel {
-		display: none;
-	}
 }
 
 /* 2px bar overlapping the header's bottom border, like a browser's page-load
@@ -241,8 +252,8 @@
 }
 
 .empty {
-	position: relative;
-	flex: 1;
+	position: absolute;
+	inset: 0;
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -252,6 +263,22 @@
 	font-size: var(--text-xxs);
 	text-align: center;
 	overflow: hidden;
+}
+
+/* Fades off the first page of a site that was just started. */
+.empty[data-revealed] {
+	opacity: 0;
+	visibility: hidden;
+	pointer-events: none;
+	transition:
+		opacity var(--motion-duration-reveal) var(--motion-ease-enter),
+		visibility 0s linear var(--motion-duration-reveal);
+}
+
+.loadFailed {
+	position: absolute;
+	inset: 0;
+	background-color: var(--chat);
 }
 
 .emptyContent {
@@ -274,19 +301,19 @@
 	gap: 4px;
 }
 
-.moreActions {
-	display: none;
+/* Out of room: the navigation moves into the More menu, but keeps its size
+   so the header can tell when it fits again. */
+.navigationHidden {
+	position: absolute;
+	visibility: hidden;
+	pointer-events: none;
 }
 
-/* Too narrow for the navigation buttons: they move into the More menu. */
-@container studio-preview-toolbar (max-width: 520px) {
-	.navigation,
-	.shareAction {
-		display: none;
-	}
-
-	.moreActions {
-		display: inline-flex;
-	}
+.toolbarStart,
+.headerItem {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	flex-shrink: 0;
 }
 

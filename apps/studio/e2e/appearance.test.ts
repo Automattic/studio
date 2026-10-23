@@ -24,7 +24,7 @@ test.describe( 'Appearance', () => {
 		const settings = new AppSettings( session.mainWindow );
 		await settings.open();
 		await settings.showSection( 'Appearance' );
-		await expect( settings.themeSelect ).toHaveText( 'Light' );
+		await expect( settings.themeSelect ).toHaveText( 'System' );
 
 		await settings.selectColorScheme( 'Dark' );
 		await expect.poll( isDark ).toBe( true );

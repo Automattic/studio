@@ -14,10 +14,16 @@ export const indexRoute = createRoute( {
 	getParentRoute: () => rootRoute,
 	path: '/',
 	beforeLoad: async ( { context } ) => {
-		const sites = await context.queryClient.fetchQuery( {
-			queryKey: SITES_QUERY_KEY,
-			queryFn: () => context.connector.getSites(),
-		} );
+		const sites = await context.queryClient
+			.fetchQuery( {
+				queryKey: SITES_QUERY_KEY,
+				queryFn: () => context.connector.getSites(),
+			} )
+			.catch( () => null );
+		// The empty workspace offers to load them again.
+		if ( ! sites ) {
+			throw redirect( { to: '/sites' } );
+		}
 		const firstSite = sites[ 0 ];
 		if ( ! firstSite ) {
 			if ( ! ( await context.connector.getOnboardingCompleted() ) ) {

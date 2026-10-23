@@ -79,6 +79,7 @@ import {
 import { clsx } from 'clsx';
 import {
 	useEffect,
+	useEffectEvent,
 	useId,
 	useMemo,
 	useRef,
@@ -96,6 +97,7 @@ import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
 import { useLocalMediaDataUrl } from '@/data/queries/use-local-media';
 import { MESSAGE_TEXT_ATTRIBUTE, QUOTABLE_TEXT_ATTRIBUTE } from '@/hooks/use-text-context-menu';
 import { refreshIcon } from '@/lib/icons';
+import { isTextEntry } from '@/lib/shortcuts';
 import styles from './style.module.css';
 import type { LoadedAiSession } from '@/data/core';
 import type { SessionEntry } from '@earendil-works/pi-coding-agent';
@@ -1006,6 +1008,48 @@ function AgentQuestion( {
 				.map( ( option ) => option.label )
 				.filter( ( other ) => ( other === label ) !== pickedLabels.includes( other ) ),
 		} );
+	const choose = ( label: string ) => {
+		if ( label === ownFreeFormLabel ) {
+			onChooseFreeForm();
+		} else if ( multiSelect ) {
+			toggle( label );
+		} else {
+			onAnswer( label );
+		}
+	};
+	// The number keys pick the options they're numbered with.
+	const onKeyDown = useEffectEvent( ( event: KeyboardEvent ) => {
+		if (
+			! /^[1-9]$/.test( event.key ) ||
+			event.defaultPrevented ||
+			event.repeat ||
+			event.metaKey ||
+			event.ctrlKey ||
+			event.altKey ||
+			isTextEntry( event.target ) ||
+			( event.target instanceof Element &&
+				event.target.closest( '[role="dialog"], [role="menu"]' ) )
+		) {
+			return;
+		}
+		const index = Number( event.key ) - 1;
+		if ( options[ index ] ) {
+			choose( options[ index ].label );
+		} else if ( showFreeForm && index === options.length ) {
+			onChooseFreeForm();
+		} else {
+			return;
+		}
+		event.preventDefault();
+	} );
+	const answering = isInteractive && ! isFolding;
+	useEffect( () => {
+		if ( ! answering ) {
+			return;
+		}
+		document.addEventListener( 'keydown', onKeyDown );
+		return () => document.removeEventListener( 'keydown', onKeyDown );
+	}, [ answering ] );
 
 	return (
 		<div className={ styles.question } data-state={ isFolding ? 'folding' : undefined }>
@@ -1040,11 +1084,7 @@ function AgentQuestion( {
 										picked && styles.questionOptionPicked
 									) }
 									disabled={ ! isInteractive }
-									onClick={
-										isOwnFreeForm
-											? onChooseFreeForm
-											: () => ( multiSelect ? toggle( option.label ) : onAnswer( option.label ) )
-									}
+									onClick={ () => choose( option.label ) }
 									aria-label={ option.label }
 									aria-describedby={ descriptionId }
 									aria-pressed={ picked }

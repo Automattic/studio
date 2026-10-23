@@ -9,6 +9,7 @@ import { openStudioLogsAction, toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
 import { WP_VERSION_QUERY_KEY } from '@/data/queries/use-wordpress-versions';
+import { useOpenSite } from '@/hooks/use-open-site';
 import type { Connector, CreateSiteParams, SiteDetails } from '@/data/core';
 import type { SiteOperationKind } from '@studio/common/lib/site-operation';
 import type { QueryClient } from '@tanstack/react-query';
@@ -47,7 +48,17 @@ export function useCreateSite() {
 	const queryClient = useQueryClient();
 	return useMutation( {
 		mutationFn: ( params: CreateSiteParams ) => connector.createSite( params ),
-		onSuccess: () => queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } ),
+		onSuccess: ( site ) => {
+			// translators: %s is the site name.
+			toast.success( sprintf( __( 'Site created: %s' ), site.name ) );
+			return queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } );
+		},
+		onError: ( error, { name } ) =>
+			// translators: %s is the site name.
+			toast.error( sprintf( __( 'Couldn’t create site: %s' ), name ), {
+				description: getErrorMessage( error ),
+				action: openStudioLogsAction( connector ),
+			} ),
 	} );
 }
 
@@ -82,6 +93,7 @@ export function useDeleteSite() {
 export function useCopySite() {
 	const connector = useConnector();
 	const queryClient = useQueryClient();
+	const openSite = useOpenSite();
 	return useMutation( {
 		// Keyed so `useSiteOperation` can spot an in-flight copy. Duplication is
 		// the one kind no CLI command records — see `SITE_OPERATIONS`.
@@ -89,7 +101,9 @@ export function useCopySite() {
 		mutationFn: ( sourceSiteId: string ) => connector.copySite( sourceSiteId ),
 		onSuccess: ( site ) => {
 			/* translators: %s: name of the new copy of a site */
-			toast.success( sprintf( __( '%s created' ), site.name ) );
+			toast.success( sprintf( __( 'Site duplicated: %s' ), site.name ), {
+				action: { label: __( 'Open site' ), onClick: () => openSite( site ) },
+			} );
 			return queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } );
 		},
 		onError: ( error ) =>
@@ -119,24 +133,16 @@ function toastExportFailure( connector: Connector, title: string ) {
 	toast.error( title, { action: openStudioLogsAction( connector ) } );
 }
 
-export interface StartSiteOptions {
-	// Set by callers whose start is a side effect of something else — boot
-	// auto-start, the connect-site lifecycle, opening a link on a stopped site.
-	// The site's own status already reports the start, and a batch of them
-	// would otherwise fill the shelf with notifications nobody asked for.
-	// Failures still surface: a site that never came up is worth a toast.
-	silent?: boolean;
-}
-
 // Invalidation is awaited inside `mutationFn` (not `onSettled`) so
-// `isPending` stays true until `site.running` reflects the new state.
-export function useStartSite( { silent = false }: StartSiteOptions = {} ) {
+// `isPending` stays true until `site.running` reflects the new state. The
+// site's own status reports a start or stop, so only failures toast.
+export function useStartSite() {
 	const connector = useConnector();
 	const queryClient = useQueryClient();
 	return useMutation( {
 		mutationKey: START_SITE_MUTATION_KEY,
-		// Returns false when the start was skipped, so the caller's toast (and
-		// anything else keyed off success) doesn't claim a site came up.
+		// Returns false when the start was skipped, so nothing keyed off success
+		// claims a site came up.
 		mutationFn: async ( id: string ): Promise< boolean > => {
 			// A stop this window fired moments ago hasn't been recorded by the CLI
 			// yet, and racing it used to loop forever. Deliberately the only
@@ -148,11 +154,6 @@ export function useStartSite( { silent = false }: StartSiteOptions = {} ) {
 			await connector.startSite( id );
 			await queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } );
 			return true;
-		},
-		onSuccess: ( started ) => {
-			if ( started && ! silent ) {
-				toast.success( __( 'Site started' ) );
-			}
 		},
 		onError: ( error, id ) =>
 			toast.error( getBusyMessage( queryClient, id, __( 'Failed to start site' ) ), {
@@ -171,7 +172,6 @@ export function useStopSite() {
 			await connector.stopSite( id );
 			await queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } );
 		},
-		onSuccess: () => toast.success( __( 'Site stopped' ) ),
 		onError: ( _error, id ) =>
 			toast.error( getBusyMessage( queryClient, id, __( 'Failed to stop site' ) ) ),
 	} );
@@ -375,7 +375,7 @@ export function useSyncSitesWithEvents(): void {
 // with stale flags can't trigger starts.
 export function useAutoStartSites(): void {
 	const { data: sites, isFetchedAfterMount } = useSites();
-	const { mutate: startSite } = useStartSite( { silent: true } );
+	const { mutate: startSite } = useStartSite();
 	const startedRef = useRef( false );
 	useEffect( () => {
 		if ( ! isFetchedAfterMount || ! sites || startedRef.current ) {

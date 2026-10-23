@@ -103,3 +103,8 @@
 	padding-top: 24px;
 	border-top: 1px solid var(--border);
 }
+
+.source {
+	margin: 0;
+	font-size: var(--text-xs);
+}

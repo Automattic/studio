@@ -18,10 +18,10 @@ async function deleteSite( siteName: string, { keepFiles }: { keepFiles: boolean
 	await new Sidebar( session.mainWindow ).openContextMenuItem( siteName, 'Delete site' );
 	const dialog = session.mainWindow.getByRole( 'alertdialog' );
 	const deleteFiles = dialog.getByRole( 'checkbox', {
-		name: 'Delete site files from my computer',
+		name: 'Also move files and database to Trash',
 	} );
 	await deleteFiles.setChecked( ! keepFiles );
-	await dialog.getByRole( 'button', { name: 'Delete site' } ).click();
+	await dialog.getByRole( 'button', { name: 'Remove site' } ).click();
 	await expect( new Sidebar( session.mainWindow ).getSiteButton( siteName ) ).not.toBeAttached( {
 		timeout: 30_000,
 	} );

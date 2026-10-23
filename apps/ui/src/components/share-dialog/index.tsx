@@ -2,8 +2,7 @@ import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { isSnapshotExpired } from '@studio/common/lib/snapshots';
 import { __, sprintf } from '@wordpress/i18n';
 import { Icon } from '@wordpress/icons';
-import { clsx } from 'clsx';
-import { useEffect, useId, useState } from 'react';
+import { useEffect, useId, useState, type ComponentProps } from 'react';
 import { AccountPrompt } from '@/components/account-prompt';
 import { Button } from '@/components/ui/button';
 import {
@@ -201,24 +200,46 @@ export function ShareDialog( {
 	);
 }
 
+export function useShareStatus( siteId: string ) {
+	const activity = useSiteSyncActivity( siteId );
+	const ready = usePreviewReady( siteId );
+	const publishing = activity?.kind === 'pending' && activity.direction === 'preview';
+	let label: string | undefined;
+	if ( publishing ) {
+		label = __( 'Publishing preview…' );
+	} else if ( ready ) {
+		label = __( 'Preview ready' );
+	}
+	return { publishing, ready, label };
+}
+
+export function ShareStatusIcon( {
+	icon,
+	status,
+}: {
+	icon: ComponentProps< typeof Icon >[ 'icon' ];
+	status: ReturnType< typeof useShareStatus >;
+} ) {
+	return (
+		<span className={ styles.statusIcon }>
+			{ status.publishing ? <Spinner /> : <Icon icon={ icon } /> }
+			{ status.ready && ! status.publishing ? (
+				<span className={ styles.readyDot } aria-hidden="true" />
+			) : null }
+		</span>
+	);
+}
+
 // The preview header's Share button and its dialog.
 export function ShareButton( { site, className }: { site: SiteDetails; className?: string } ) {
 	const [ open, setOpen ] = useState( false );
-	const activity = useSiteSyncActivity( site.id );
-	const ready = usePreviewReady( site.id );
-	const publishing = activity?.kind === 'pending' && activity.direction === 'preview';
+	const status = useShareStatus( site.id );
 	useEffect(
 		() => subscribeHeaderPanelRequest( site.id, 'share', () => setOpen( true ) ),
 		[ site.id ]
 	);
-	let status: string | undefined;
-	if ( publishing ) {
-		status = __( 'Publishing preview…' );
-	} else if ( ready ) {
-		status = __( 'Preview ready' );
-	}
 	return (
-		<span className={ clsx( styles.triggerWrap, className ) }>
+		<span className={ className }>
 			<Tooltip>
 				<TooltipTrigger
 					render={
@@ -226,17 +247,16 @@ export function ShareButton( { site, className }: { site: SiteDetails; className
 							variant="ghost"
 							size="icon"
 							aria-label={ __( 'Share' ) }
-							aria-description={ status }
+							aria-description={ status.label }
 							aria-haspopup="dialog"
 							onClick={ () => setOpen( true ) }
 						>
-							{ publishing ? <Spinner /> : <Icon icon={ shareIcon } /> }
+							<ShareStatusIcon icon={ shareIcon } status={ status } />
 						</Button>
 					}
 				/>
 				<TooltipContent side="bottom">{ __( 'Share' ) }</TooltipContent>
 			</Tooltip>
-			{ ready && ! publishing ? <span className={ styles.readyDot } aria-hidden="true" /> : null }
 			<ShareDialog site={ site } open={ open } onOpenChange={ setOpen } />
 		</span>
 	);

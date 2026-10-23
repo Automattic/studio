@@ -104,6 +104,8 @@ interface PreviewAddressBarProps {
 	hasDesignSystem?: boolean;
 	onOpenExternal?: () => void;
 	onOpenSettings?: () => void;
+	// The header is short on room: the field keeps only the address.
+	hideActions?: boolean;
 }
 
 interface RecentPreviewLocation {
@@ -210,23 +212,33 @@ export function PreviewAddressBar( {
 	hasDesignSystem = false,
 	onOpenExternal,
 	onOpenSettings,
+	hideActions = false,
 }: PreviewAddressBarProps ) {
 	const displayUrl = getDisplayUrl( siteUrl, path );
 	const activeRealm = getPreviewRealm( path );
 	const [ value, setValue ] = useState( displayUrl );
+	const [ invalid, setInvalid ] = useState( false );
 	const [ shortcutsOpen, setShortcutsOpen ] = useState( false );
 	const [ recentLocations, setRecentLocations ] = useState< RecentPreviewLocation[] >( () =>
 		loadRecentLocations( site.id )
 	);
 	const addressBarRef = useRef< HTMLFormElement | null >( null );
 
-	useEffect( () => setValue( displayUrl ), [ displayUrl ] );
+	const restore = () => {
+		setValue( displayUrl );
+		setInvalid( false );
+	};
+	useEffect( () => {
+		setValue( displayUrl );
+		setInvalid( false );
+	}, [ displayUrl ] );
 	useEffect( () => setRecentLocations( loadRecentLocations( site.id ) ), [ site.id ] );
 
 	const handleSubmit = ( event: FormEvent< HTMLFormElement > ) => {
 		event.preventDefault();
 		const intent = parseOmniboxInput( value, siteUrl );
 		if ( ! intent ) {
+			setInvalid( value.trim() !== '' );
 			return;
 		}
 		const nextPath =
@@ -274,7 +286,7 @@ export function PreviewAddressBar( {
 			onOpenChange={ ( open ) => {
 				setShortcutsOpen( open );
 				if ( ! open ) {
-					setValue( displayUrl );
+					restore();
 				}
 			} }
 		>
@@ -291,31 +303,45 @@ export function PreviewAddressBar( {
 				<input
 					className={ styles.input }
 					value={ value }
-					onChange={ ( event ) => setValue( event.target.value ) }
+					onChange={ ( event ) => {
+						setValue( event.target.value );
+						setInvalid( false );
+					} }
 					onClick={ () => setShortcutsOpen( true ) }
 					onFocus={ ( event ) => {
 						event.currentTarget.select();
 					} }
+					onKeyDown={ ( event ) => {
+						if ( event.key === 'Escape' ) {
+							restore();
+							setShortcutsOpen( false );
+							event.currentTarget.blur();
+						}
+					} }
 					aria-label={ __( 'Address' ) }
+					aria-invalid={ invalid || undefined }
+					title={ invalid ? __( 'Enter a path or an address on this site.' ) : undefined }
 					spellCheck={ false }
 				/>
-				<span className={ styles.actions }>
-					{ onOpenSettings ? (
-						<AddressAction
-							icon={ cog }
-							label={ __( 'Site settings' ) }
-							onClick={ onOpenSettings }
-						/>
-					) : null }
-					{ onOpenExternal ? (
-						<AddressAction
-							icon={ external }
-							label={ __( 'Open this page in your browser' ) }
-							tooltip={ __( 'Open in browser' ) }
-							onClick={ onOpenExternal }
-						/>
-					) : null }
-				</span>
+				{ hideActions ? null : (
+					<span className={ styles.actions }>
+						{ onOpenSettings ? (
+							<AddressAction
+								icon={ cog }
+								label={ __( 'Site settings' ) }
+								onClick={ onOpenSettings }
+							/>
+						) : null }
+						{ onOpenExternal ? (
+							<AddressAction
+								icon={ external }
+								label={ __( 'Open this page in your browser' ) }
+								tooltip={ __( 'Open in browser' ) }
+								onClick={ onOpenExternal }
+							/>
+						) : null }
+					</span>
+				) }
 			</form>
 			<Popover.Popup
 				anchor={ addressBarRef }

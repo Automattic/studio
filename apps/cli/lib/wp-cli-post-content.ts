@@ -30,7 +30,23 @@ export function getUnsupportedWpCliPostContentMessage( args: string[] ): string 
 		/^[`'"]?\$\(\s*cat\b[\s\S]*$/.test( trimmedContent ) ||
 		/^[`'"]?`cat\b[\s\S]*$/.test( trimmedContent );
 
-	return hasCatCommandSubstitution ? UNSUPPORTED_WP_CLI_POST_CONTENT_MESSAGE : null;
+	if ( hasCatCommandSubstitution ) {
+		return UNSUPPORTED_WP_CLI_POST_CONTENT_MESSAGE;
+	}
+
+	// Block markup and HTML never start with `{`, so content that does is JSON,
+	// such as a Global Styles post. WordPress ignores JSON post content that
+	// does not parse, while WP-CLI still saves it and reports success.
+	if ( trimmedContent.startsWith( '{' ) ) {
+		try {
+			JSON.parse( trimmedContent );
+		} catch ( error ) {
+			const reason = error instanceof Error ? error.message : String( error );
+			return `Nothing was saved: \`--post_content\` starts with \`{\` but is not valid JSON (${ reason }). WordPress ignores JSON post content that does not parse.`;
+		}
+	}
+
+	return null;
 }
 
 /**

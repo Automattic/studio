@@ -1,11 +1,11 @@
 import { buildSettingsLink } from '@studio/common/lib/settings-link';
 import { __, sprintf } from '@wordpress/i18n';
 import { clsx } from 'clsx';
-import { CheckIcon } from 'lucide-react';
+import { CheckIcon, ChevronRightIcon } from 'lucide-react';
 import { useContext } from 'react';
 import { SettingsLinkContext } from '@/components/settings-dialog/context';
 import { findSettingId } from '@/components/settings-dialog/sections';
-import { Button } from '@/components/ui/button';
+import { Button, type ButtonProps } from '@/components/ui/button';
 import {
 	Field,
 	FieldContent,
@@ -78,7 +78,7 @@ export function SettingsRow( {
 	const id = useContext( SettingsLinkContext ) ? findSettingId( title ) : undefined;
 	return (
 		<Field
-			orientation={ stacked ? 'vertical' : 'horizontal' }
+			orientation={ stacked || ! children ? 'vertical' : 'horizontal' }
 			className={ styles.settingsRow }
 			data-settings-row
 			data-setting-id={ id }
@@ -94,7 +94,9 @@ export function SettingsRow( {
 					<FieldTitle>{ title }</FieldTitle>
 				) }
 				{ description || error ? (
-					<FieldDescription error={ error }>{ description }</FieldDescription>
+					<FieldDescription width={ children ? 'default' : 'full' } error={ error }>
+						{ description }
+					</FieldDescription>
 				) : null }
 			</FieldContent>
 			{ children ? <div className={ styles.settingsControl }>{ children }</div> : null }
@@ -122,6 +124,18 @@ function SettingLinkButton( { id, title }: { id: string; title: string } ) {
 			{ copied ? <CheckIcon /> : <LinkIcon /> }
 			<VisuallyHidden aria-live="polite">{ copied ? __( 'Copied' ) : '' }</VisuallyHidden>
 		</Button>
+	);
+}
+
+/** A link under a setting's description, to a related section. */
+export function SettingsSectionLink( { children, ...props }: ButtonProps ) {
+	return (
+		<span className={ styles.sectionLink }>
+			<Button variant="inline-link" size="inline" { ...props }>
+				{ children }
+				<ChevronRightIcon data-icon="inline-end" aria-hidden="true" />
+			</Button>
+		</span>
 	);
 }
 

@@ -13,6 +13,7 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from '@/components/ui/dialog';
+import { Empty } from '@/components/ui/empty';
 import { Field } from '@/components/ui/field';
 import { useConnector } from '@/data/core';
 import { useAuthUser } from '@/data/queries/use-auth-user';
@@ -138,13 +139,15 @@ export function SharingPanel() {
 	}
 	if ( ! user.data ) {
 		return (
-			<AccountPrompt
-				title={ __( 'Share your WordPress' ) }
-				description={ __(
-					'Create an account or log in to share previews and keep your sites in sync.'
-				) }
-				source="previews_tab"
-			/>
+			<Empty>
+				<AccountPrompt
+					title={ __( 'Share your WordPress' ) }
+					description={ __(
+						'Create an account or log in to share previews and keep your sites in sync.'
+					) }
+					source="previews_tab"
+				/>
+			</Empty>
 		);
 	}
 
@@ -161,9 +164,9 @@ export function SharingPanel() {
 							{ __(
 								'Share a temporary copy of your local site with anyone. Preview sites expire seven days after their last update.'
 							) }{ ' ' }
-							<button
-								type="button"
-								className={ styles.inlineLink }
+							<Button
+								variant="inline-link"
+								size="inline"
 								onClick={ () =>
 									void connector.openExternalUrl(
 										'https://developer.wordpress.com/docs/developer-tools/studio/preview-sites/'
@@ -171,7 +174,7 @@ export function SharingPanel() {
 								}
 							>
 								{ __( 'Learn more…' ) }
-							</button>
+							</Button>
 							{ live.length ? (
 								<span className={ styles.previewUsage }>
 									{ sprintf(
@@ -205,10 +208,11 @@ export function SharingPanel() {
 				<PreviewsEmptyState />
 			) }
 			{ expired.length ? (
-				<div className={ styles.previewExpired }>
-					<button
-						type="button"
-						className={ styles.inlineLink }
+				<div>
+					<Button
+						variant="inline-link"
+						size="inline"
+						className={ styles.expiredToggle }
 						aria-expanded={ showExpired }
 						onClick={ () => setShowExpired( ! showExpired ) }
 					>
@@ -217,7 +221,7 @@ export function SharingPanel() {
 							showExpired ? __( 'Hide expired previews (%d)' ) : __( 'Show expired previews (%d)' ),
 							expired.length
 						) }
-					</button>
+					</Button>
 					{ showExpired ? (
 						<SettingsGroup title={ __( 'Expired previews' ) }>
 							{ expired.map( ( snapshot ) => (
@@ -243,14 +247,19 @@ export function SharingPanel() {
 				>
 					<DialogHeader>
 						<DialogTitle>{ __( 'Delete preview' ) }</DialogTitle>
-						<DialogDescription tone="default">
-							{ sprintf(
-								/* translators: %s: preview name */
-								__(
-									'Anyone you’ve shared “%s” with will no longer be able to view it. Your site will not be deleted.'
-								),
-								deleting?.name || __( 'Preview site' )
-							) }
+						<DialogDescription tone="default" render={ <div /> }>
+							<p className={ styles.dialogText }>
+								{ sprintf(
+									/* translators: %s: preview name */
+									__( 'Are you sure you want to remove the preview for “%s” from Studio?' ),
+									deleting?.name || __( 'Preview site' )
+								) }
+							</p>
+							<p className={ styles.dialogText }>
+								{ __(
+									'Anyone you’ve shared this preview with will no longer be able to view it. Your site will not be deleted.'
+								) }
+							</p>
 						</DialogDescription>
 					</DialogHeader>
 					{ remove.error ? <p className={ styles.dialogError }>{ remove.error.message }</p> : null }

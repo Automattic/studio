@@ -370,12 +370,13 @@ export function SettingsDialog() {
 									section: entry,
 									setting: undefined,
 							  } ) )
-						).map( ( item ) => (
+						).map( ( item, index ) => (
 							<button
 								key={ `${ item.scope }-${ item.section.id }-${ item.setting?.title ?? '' }` }
 								type="button"
 								className={ styles.navItem }
 								aria-current={ ! searching && item.section.id === section ? 'page' : undefined }
+								data-highlighted={ searching && index === 0 ? '' : undefined }
 								onClick={ () => open( item ) }
 							>
 								<item.section.icon className={ styles.navIcon } />

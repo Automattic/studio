@@ -18,8 +18,8 @@
 	gap: 12px;
 }
 
-.manageLink {
-	display: flex;
+.sectionLink {
+	display: block;
 	margin-block-start: 4px;
 }
 
@@ -151,59 +151,6 @@
 	line-height: 20px;
 }
 
-.shortcutList {
-	list-style: none;
-	margin: 0;
-	padding: 0;
-}
-
-.shortcutRow {
-	display: grid;
-	grid-template-columns: minmax( 0, 1fr ) auto;
-	align-items: center;
-	column-gap: 20px;
-	padding-block: 16px;
-	border-bottom: 1px solid
-		var(--border);
-}
-
-.shortcutRow:last-child {
-	border-bottom: 0;
-}
-
-.shortcutName {
-	color: var(--foreground);
-	font-size: var(--text-xs);
-	font-weight: var(--font-weight-normal);
-	line-height: 20px;
-}
-
-.shortcutKeys {
-	display: flex;
-	align-items: center;
-	justify-content: flex-end;
-	gap: 4px;
-	flex-wrap: wrap;
-}
-
-.shortcutKey {
-	box-sizing: border-box;
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	min-inline-size: 26px;
-	min-block-size: 26px;
-	padding: 0 4px;
-	border: 1px solid var(--border);
-	border-radius: 8px;
-	background: var(--chat);
-	color: var(--foreground);
-	font-family: var(--font-sans);
-	font-size: 11px;
-	font-weight: 500;
-	line-height: 1;
-}
-
 .errorMessage {
 	margin-block-end: 12px;
 	padding: 8px 12px;
@@ -219,58 +166,6 @@
 	line-height: 20px;
 }
 
-.usagePanel {
-	display: flex;
-	flex-direction: column;
-	gap: 32px;
-}
-
-.settingsPanelSection {
-	box-sizing: border-box;
-	display: flex;
-	flex-direction: column;
-	align-items: stretch;
-	gap: 16px;
-	padding: 20px;
-	border-radius: 12px;
-	background: var(--muted);
-}
-
-.settingsPanelHeader {
-	display: flex;
-	flex-direction: column;
-	gap: 4px;
-}
-
-.settingsPanelHeader h2 {
-	margin: 0;
-	color: var(--foreground);
-	font-size: 15px;
-	font-weight: var(--font-weight-semibold);
-	line-height: 24px;
-}
-
-.settingsPanelHeader p {
-	margin: 0;
-	color: var(--muted-foreground);
-	font-size: var(--text-xxs);
-	line-height: 24px;
-}
-
-
-
-
-
-
-
-
-.sectionIntro {
-	margin: 0 0 16px;
-	color: var(--muted-foreground);
-	font-size: var(--text-xxs);
-	line-height: 24px;
-}
-
 .codeBlockWrap {
 	position: relative;
 }
@@ -278,22 +173,21 @@
 .codeBlock {
 	margin: 0;
 	padding: 12px;
-	padding-inline-end: calc( 20px + 32px );
-	border: 1px solid var(--border);
-	border-radius: 6px;
-	background: var(--chat);
+	padding-inline-end: 44px;
+	border-radius: var(--radius-md);
+	background: var(--background);
 	color: var(--foreground);
 	font-family: var(--font-mono);
-	font-size: var(--text-xxs);
-	line-height: 24px;
+	font-size: var(--text-xs);
+	line-height: 20px;
 	overflow-x: auto;
 	white-space: pre;
 }
 
 .codeBlockCopyButton {
 	position: absolute;
-	inset-block-start: 8px;
-	inset-inline-end: 8px;
+	inset-block-start: 6px;
+	inset-inline-end: 6px;
 	z-index: 1;
 }
 
@@ -326,28 +220,16 @@
 	font-size: var(--text-xxs);
 }
 
-/* Signed out or offline: grey the whole card, since none of it is live. */
-.usageDisabled .settingsPanelHeader h2,
-.usageDisabled .settingsPanelHeader p,
-.usageDisabled .usageSectionHeader h2,
-.usageDisabled .previewUsageText,
-.usageDisabled .usageSection p {
+/* Signed out or offline: grey the figures, since none of them is live. */
+.usageDisabled :is( [data-slot='field-label'], [data-slot='field-legend'] ) {
 	color: var(--muted-foreground);
-}
-
-.usageDisabled .progressTrack {
-	background: transparent;
-}
-
-.usageDisabled .progressValue {
-	background: var(--muted-foreground);
 }
 
 /* Hatched stand-in for a meter with no figure behind it — same 135deg stripe
    idiom as the AI credits placeholder, in neutral disabled colors. */
 .unavailableBar {
 	inline-size: 100%;
-	block-size: 6px;
+	block-size: 4px;
 	border-radius: 999px;
 	background: repeating-linear-gradient(
 			135deg,
@@ -358,60 +240,37 @@
 		transparent;
 }
 
-.usageSection {
-	display: flex;
-	flex-direction: column;
-	align-items: stretch;
-	gap: 12px;
-	padding-block: 16px;
-	border-top: 1px solid var(--border);
+.meterRow {
+	gap: 8px;
 }
 
-.usageSection:last-child {
-	padding-block-end: 0;
-}
-
-.usageSectionHeader {
+.meterSummary {
 	display: flex;
+	flex-wrap: wrap;
 	align-items: center;
 	justify-content: space-between;
-	gap: 12px;
-	min-width: 0;
+	gap: 4px 16px;
 }
 
-.usageSectionHeader h2 {
-	margin: 0;
-	color: var(--foreground);
-	font-size: var(--text-xs);
-	font-weight: var(--font-weight-semibold);
-	line-height: 20px;
+.meterSummary > [data-slot='field-label'] {
+	gap: 4px;
 }
 
-.usageSection p {
-	margin: 0;
-	color: var(--muted-foreground);
-	font-size: var(--text-xxs);
-	line-height: 20px;
-}
-
-.previewUsageText {
-	color: var(--muted-foreground);
-	font-size: var(--text-xxs);
-	line-height: 20px;
+.meterSummary > [data-slot='field-label'] > button {
+	margin-block: -4px;
 }
 
 .progressTrack {
 	overflow: hidden;
 	inline-size: 100%;
-	block-size: 6px;
+	block-size: 4px;
 	border-radius: 999px;
 	background: var(--border);
 }
 
 .progressValue {
 	block-size: 100%;
-	border-radius: inherit;
-	background: var(--foreground);
+	background: var(--primary);
 }
 
 /* Escalation colors for the AI credits meter (80% / 90% / exhausted). The
@@ -429,66 +288,6 @@
 
 .progressValueExhausted {
 	background: var(--destructive);
-}
-
-.creditMeter {
-	display: flex;
-	flex-direction: column;
-	gap: 4px;
-}
-
-.creditMeterSummary {
-	display: flex;
-	align-items: baseline;
-	justify-content: space-between;
-	gap: 12px;
-}
-
-.creditMeterCredits {
-	color: var(--muted-foreground);
-	font-size: var(--text-xxs);
-	font-variant-numeric: tabular-nums;
-	line-height: 20px;
-}
-
-.creditMeterAvailable {
-	flex: none;
-	color: var(--foreground);
-	font-size: var(--text-xxs);
-	font-weight: var(--font-weight-semibold);
-	font-variant-numeric: tabular-nums;
-	line-height: 20px;
-}
-
-.creditCallout {
-	display: flex;
-	align-items: center;
-	flex-wrap: wrap;
-	gap: 12px;
-}
-
-.creditCallout > :first-child {
-	flex: none;
-}
-
-.creditCalloutText {
-	min-width: 0;
-	color: var(--muted-foreground);
-	font-size: var(--text-xxs);
-	line-height: 20px;
-}
-
-.aiCreditsHeading {
-	display: flex;
-	align-items: center;
-	gap: 4px;
-}
-
-.creditBalances {
-	display: flex;
-	flex-direction: column;
-	gap: 4px;
-	font-variant-numeric: tabular-nums;
 }
 
 .aiCreditsTrack {
@@ -516,24 +315,12 @@
 		);
 }
 
-.inlineLink {
-	padding: 0;
-	border: 0;
-	background: none;
-	color: var(--accent-text);
-	font: inherit;
-	cursor: pointer;
-}
 
-.previewExpired > .inlineLink {
+.expiredToggle {
 	margin-inline: 16px;
 	margin-block-end: 16px;
-	color: var(--muted-foreground);
 }
 
-.inlineLink:hover {
-	text-decoration: underline;
-}
 
 .previewUsage,
 .previewUrl,
@@ -542,8 +329,16 @@
 	display: block;
 }
 
-.previewUsage {
+.dialogText {
+	margin: 0;
+}
+
+.dialogText + .dialogText {
 	margin-block-start: 8px;
+}
+
+.previewUsage {
+	margin-block-start: 4px;
 }
 
 .previewLink {
@@ -566,7 +361,6 @@
 
 .previewActions {
 	display: flex;
-	gap: 4px;
 }
 
 .previewIllustration {

@@ -13,9 +13,23 @@
 	font-size: var(--text-xs);
 }
 
+.field {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+}
+
 .input {
 	inline-size: 224px;
 	max-inline-size: 100%;
+}
+
+.field:has( > :nth-child( 2 ) ) .input {
+	inline-size: 188px;
+}
+
+.field:has( > :nth-child( 2 ) ) .passwordInput {
+	inline-size: 214px;
 }
 
 .emailInput:dir(rtl) {

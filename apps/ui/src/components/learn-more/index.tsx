@@ -1,5 +1,7 @@
 import { getLocalizedLink } from '@studio/common/lib/docs-links';
 import { __ } from '@wordpress/i18n';
+import { clsx } from 'clsx';
+import { Button } from '@/components/ui/button';
 import { useConnector } from '@/data/core';
 import { useUserLocale } from '@/data/queries/use-user-locale';
 import styles from './style.module.css';
@@ -22,20 +24,21 @@ function MoreLink( { docsLinksKey, className, label }: Props & { label: string }
 	};
 
 	return (
-		<button
-			type="button"
-			className={ className ? `${ styles.link } ${ className }` : styles.link }
+		<Button
+			variant="inline-link"
+			size="inline"
+			className={ clsx( styles.link, className ) }
 			onClick={ handleClick }
 		>
 			{ label }
-		</button>
+		</Button>
 	);
 }
 
 export function LearnMoreLink( props: Props ) {
-	return <MoreLink { ...props } label={ __( 'Learn more' ) } />;
+	return <MoreLink { ...props } label={ __( 'Learn more…' ) } />;
 }
 
 export function LearnHowLink( props: Props ) {
-	return <MoreLink { ...props } label={ __( 'Learn how' ) } />;
+	return <MoreLink { ...props } label={ __( 'Learn how…' ) } />;
 }

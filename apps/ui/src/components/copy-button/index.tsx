@@ -12,11 +12,13 @@ export function CopyButton( {
 	label,
 	className,
 	variant = 'filled',
+	size = 'icon-xs',
 }: {
 	text: string;
 	label: string;
 	className?: string;
 	variant?: 'filled' | 'plain';
+	size?: 'icon-xs' | 'icon-sm';
 } ) {
 	const { copied, copy: handleCopy } = useCopyText( text );
 
@@ -30,7 +32,7 @@ export function CopyButton( {
 					render={
 						<Button
 							variant="muted-ghost"
-							size="icon-xs"
+							size={ size }
 							className={ clsx( variant === 'filled' && styles.filled, copied && styles.copied ) }
 							onClick={ handleCopy }
 							aria-label={ label }

@@ -1,8 +1,6 @@
 import {
 	clampQuotaFraction,
-	formatAiCreditsAvailableLabel,
 	formatAiCreditsCallout,
-	formatAiCreditsUsedLabel,
 	formatQuotaPercentage,
 	formatQuotaResetDate,
 	getAiCreditsMeter,
@@ -13,12 +11,13 @@ import { __, _n, sprintf } from '@wordpress/i18n';
 import { clsx } from 'clsx';
 import { CircleHelpIcon, EllipsisIcon } from 'lucide-react';
 import { useState } from 'react';
-import { AddAiCreditsButton } from '@/components/add-ai-credits-button';
 import { SigninNotice } from '@/components/agentic-signin-banner';
 import { AiAccessRequiredNotice, AiBlockedNotice } from '@/components/ai-access-required-notice';
 import { AiCreditsDetailsDialog } from '@/components/ai-credits-details-dialog';
+import { LearnMoreLink } from '@/components/learn-more';
 import { OfflineNotice } from '@/components/offline-banner';
 import { Button, IconButton } from '@/components/ui/button';
+import { Field, FieldDescription, FieldTitle } from '@/components/ui/field';
 import * as Menu from '@/components/ui/menu';
 import { useConnector } from '@/data/core';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
@@ -29,22 +28,19 @@ import {
 	useSnapshotUsage,
 	useSnapshots,
 } from '@/data/queries/use-snapshots';
+import { useStudioAssistantTopUpPricing } from '@/data/queries/use-top-up-pricing';
 import { useUserLocale } from '@/data/queries/use-user-locale';
+import { useOpenAiCreditsCheckout } from '@/hooks/use-open-ai-credits-checkout';
+import { SettingsGroup, SettingsRow, SettingsSelect } from './rows';
 import styles from './style.module.css';
+import type { ReactNode } from 'react';
 
 const DEFAULT_PREVIEW_SITE_LIMIT = 10;
 
 // Stands in for a figure we can't read: a hatched bar fills the row the real
 // meter would occupy, so the section reads as disabled, not empty.
-function UnavailableSection( { title }: { title: string } ) {
-	return (
-		<section className={ styles.usageSection }>
-			<div className={ styles.usageSectionHeader }>
-				<h2>{ title }</h2>
-			</div>
-			<div className={ styles.unavailableBar } role="img" aria-label={ __( 'Unavailable' ) } />
-		</section>
-	);
+function UnavailableMeter() {
+	return <div className={ styles.unavailableBar } role="img" aria-label={ __( 'Unavailable' ) } />;
 }
 
 function UsageProgressBar( {
@@ -64,6 +60,34 @@ function UsageProgressBar( {
 	);
 }
 
+// A meter row: its figure on the left, a secondary figure on the right, the bar below.
+function MeterRow( {
+	label,
+	detail,
+	settingId,
+	children,
+}: {
+	label: ReactNode;
+	detail?: ReactNode;
+	// Lets search and settings links reveal the row.
+	settingId?: string;
+	children?: ReactNode;
+} ) {
+	return (
+		<Field
+			className={ styles.meterRow }
+			data-settings-row={ settingId ? '' : undefined }
+			data-setting-id={ settingId }
+		>
+			<div className={ styles.meterSummary }>
+				<FieldTitle>{ label }</FieldTitle>
+				{ detail ? <FieldDescription width="full">{ detail }</FieldDescription> : null }
+			</div>
+			{ children }
+		</Field>
+	);
+}
+
 // The meter's fill color escalates with the fraction spent, matching the
 // callout copy's thresholds.
 const METER_INTENT_CLASS_NAMES: Record< string, string | undefined > = {
@@ -73,9 +97,57 @@ const METER_INTENT_CLASS_NAMES: Record< string, string | undefined > = {
 	exhausted: styles.progressValueExhausted,
 };
 
-function AiCreditsSummary() {
+function CreditPurchaseRow() {
 	const locale = useUserLocale();
-	const [ detailsOpen, setDetailsOpen ] = useState( false );
+	const openCheckout = useOpenAiCreditsCheckout();
+	const { data: pricing, isLoading } = useStudioAssistantTopUpPricing();
+	const options = pricing?.options ?? [];
+	const [ credits, setCredits ] = useState< string | null >( null );
+	const selected =
+		options.find( ( option ) => String( option.credits ) === credits ) ?? options[ 0 ];
+	return (
+		<SettingsRow
+			title={ __( 'Add credits' ) }
+			description={ __( 'Get more WordPress.com AI credits to keep building.' ) }
+		>
+			{ options.length ? (
+				<SettingsSelect
+					label={ __( 'AI credits' ) }
+					value={ String( selected.credits ) }
+					options={ options.map( ( option ) => ( {
+						value: String( option.credits ),
+						label: `${ new Intl.NumberFormat( locale ).format( option.credits ) } — ${
+							option.display
+						}`,
+					} ) ) }
+					onChange={ setCredits }
+				/>
+			) : null }
+			<Button disabled={ isLoading } onClick={ () => openCheckout( selected?.credits ) }>
+				{ __( 'Buy credits' ) }
+			</Button>
+		</SettingsRow>
+	);
+}
+
+function AiCreditsHelp() {
+	const [ open, setOpen ] = useState( false );
+	return (
+		<>
+			<IconButton
+				size="icon-2xs"
+				variant="muted-ghost"
+				icon={ <CircleHelpIcon /> }
+				label={ __( 'How AI credits work' ) }
+				onClick={ () => setOpen( true ) }
+			/>
+			<AiCreditsDetailsDialog open={ open } onOpenChange={ setOpen } />
+		</>
+	);
+}
+
+function AiCreditsRows() {
+	const locale = useUserLocale();
 	// The balance may have changed outside the app (e.g. a credits purchase on
 	// WordPress.com), so opening the panel always fetches a fresh figure.
 	const {
@@ -95,96 +167,107 @@ function AiCreditsSummary() {
 		!! quota &&
 		( quota.allowanceRemaining !== undefined || quota.purchasedRemaining !== undefined );
 
-	let content;
 	if ( isLoading ) {
-		content = (
-			<>
-				<div className={ styles.previewUsageText }>{ __( 'Loading…' ) }</div>
+		return (
+			<MeterRow label={ __( 'Loading…' ) }>
 				<UsageProgressBar fraction={ 0 } />
-			</>
+			</MeterRow>
 		);
-	} else if ( isError ) {
-		content = (
-			<div className={ styles.previewUsageText }>
-				{ __( 'AI usage is currently unavailable.' ) }{ ' ' }
-				<Button variant="inline-link" size="inline" onClick={ () => void refetch() }>
-					{ __( 'Try again' ) }
-				</Button>
-			</div>
+	}
+	if ( isError ) {
+		return (
+			<MeterRow label={ __( 'AI usage is currently unavailable.' ) }>
+				<div>
+					<Button variant="ghost" onClick={ () => void refetch() }>
+						{ __( 'Try again' ) }
+					</Button>
+				</div>
+			</MeterRow>
 		);
-	} else if ( accessState !== 'available' ) {
-		content = (
-			<div className={ styles.previewUsageText }>
-				{ accessState === 'blocked' ? (
-					<AiBlockedNotice />
-				) : (
-					<AiAccessRequiredNotice quota={ quota } />
-				) }
-			</div>
+	}
+	if ( accessState !== 'available' ) {
+		return (
+			<Field>
+				<FieldDescription width="full">
+					{ accessState === 'blocked' ? (
+						<AiBlockedNotice />
+					) : (
+						<AiAccessRequiredNotice quota={ quota } />
+					) }
+				</FieldDescription>
+			</Field>
 		);
-	} else if ( quota && showsCreditBalances ) {
+	}
+	if ( quota && showsCreditBalances ) {
 		const meter = getAiCreditsMeter( quota );
 		const intent = meter ? getAiCreditsMeterIntent( meter.fraction ) : 'ok';
 		const credits = new Intl.NumberFormat( locale );
-		content = (
+		return (
 			<>
 				{ meter ? (
-					<div className={ styles.creditMeter }>
-						<div className={ styles.creditMeterSummary }>
-							<span className={ styles.creditMeterCredits }>
-								{ formatAiCreditsUsedLabel( meter, locale ) }
-							</span>
-							<strong className={ styles.creditMeterAvailable }>
-								{ formatAiCreditsAvailableLabel( meter, locale ) }
-							</strong>
-						</div>
+					<MeterRow
+						label={
+							<>
+								{ sprintf(
+									/* translators: %s: number of AI credits still available (e.g. 300,000). */
+									__( '%s credits remaining' ),
+									credits.format( meter.remainingCredits )
+								) }
+								<AiCreditsHelp />
+							</>
+						}
+						detail={ sprintf(
+							/* translators: %s: share of the AI credits used, as a percentage (e.g. 61.14%). */
+							__( '%s used' ),
+							formatQuotaPercentage( meter.fraction, locale )
+						) }
+					>
 						<UsageProgressBar
 							fraction={ meter.fraction }
 							valueClassName={ METER_INTENT_CLASS_NAMES[ intent ] }
 						/>
-					</div>
+						<FieldDescription width="full">
+							{ formatAiCreditsCallout( quota, meter, locale ) }
+						</FieldDescription>
+					</MeterRow>
 				) : (
 					// No usable denominator (e.g. billing unreachable): plain
 					// figures instead of a bar, and only the known ones.
-					<div className={ styles.creditBalances }>
+					<Field className={ styles.meterRow }>
+						<FieldTitle>
+							{ __( 'AI credits' ) }
+							<AiCreditsHelp />
+						</FieldTitle>
 						{ quota.allowanceRemaining !== undefined ? (
-							<div className={ styles.previewUsageText }>
+							<FieldDescription width="full">
 								{ sprintf(
 									/* translators: %s: number of free AI credits remaining (e.g. 960,000). */
 									__( 'Free credits remaining: %s' ),
 									credits.format( quota.allowanceRemaining )
 								) }
-							</div>
+							</FieldDescription>
 						) : null }
 						{ quota.purchasedRemaining !== undefined ? (
-							<div className={ styles.previewUsageText }>
+							<FieldDescription width="full">
 								{ sprintf(
 									/* translators: %s: number of purchased AI credits remaining (e.g. 150,000). */
 									__( 'Purchased credits remaining: %s' ),
 									credits.format( quota.purchasedRemaining )
 								) }
-							</div>
+							</FieldDescription>
 						) : null }
-					</div>
+					</Field>
 				) }
-				<div className={ styles.creditCallout }>
-					{ quota.hasPaymentMethod ? (
-						<AddAiCreditsButton variant={ intent === 'exhausted' ? 'accent' : 'outline' } />
-					) : null }
-					{ meter ? (
-						<span className={ styles.creditCalloutText }>
-							{ formatAiCreditsCallout( quota, meter, locale ) }
-						</span>
-					) : null }
-				</div>
+				{ quota.hasPaymentMethod ? <CreditPurchaseRow /> : null }
 			</>
 		);
-	} else if ( quota && quota.costCap > 0 ) {
+	}
+	if ( quota && quota.costCap > 0 ) {
 		const fraction = clampQuotaFraction( quota.costUsage, quota.costCap );
-		content = (
-			<>
-				<div className={ styles.previewUsageText }>
-					{ quota.costResetDate
+		return (
+			<MeterRow
+				label={
+					quota.costResetDate
 						? sprintf(
 								/* translators: %1$s: percentage of monthly limit used (e.g. 7.5%). %2$s: date the limit resets (e.g. July 1, 2026). */
 								__( '%1$s of monthly limit used (resets on %2$s)' ),
@@ -195,50 +278,27 @@ function AiCreditsSummary() {
 								/* translators: %s: percentage of monthly limit used (e.g. 7.5%). */
 								__( '%s of monthly limit used' ),
 								formatQuotaPercentage( fraction, locale )
-						  ) }
-				</div>
+						  )
+				}
+			>
 				<UsageProgressBar fraction={ fraction } />
-			</>
-		);
-	} else {
-		content = (
-			<>
-				<p>
-					{ __(
-						'AI credits are currently free while Studio Code is in Alpha. Build, iterate, and experiment, but know that credits will eventually have a cost.'
-					) }
-				</p>
-				<div className={ clsx( styles.progressTrack, styles.aiCreditsTrack ) } aria-hidden="true">
-					<div className={ styles.aiCreditsMeterValue } />
-				</div>
-			</>
+			</MeterRow>
 		);
 	}
-
 	return (
-		<section className={ styles.usageSection }>
-			<div className={ styles.usageSectionHeader }>
-				<div className={ styles.aiCreditsHeading }>
-					<h2>{ __( 'AI credits' ) }</h2>
-					{ showsCreditBalances ? (
-						<IconButton
-							size="icon-2xs"
-							icon={ <CircleHelpIcon /> }
-							label={ __( 'How AI credits work' ) }
-							onClick={ () => setDetailsOpen( true ) }
-						/>
-					) : null }
-				</div>
+		<MeterRow
+			label={ __(
+				'AI credits are currently free while Studio Code is in Alpha. Build, iterate, and experiment, but know that credits will eventually have a cost.'
+			) }
+		>
+			<div className={ clsx( styles.progressTrack, styles.aiCreditsTrack ) } aria-hidden="true">
+				<div className={ styles.aiCreditsMeterValue } />
 			</div>
-			{ content }
-			{ showsCreditBalances ? (
-				<AiCreditsDetailsDialog open={ detailsOpen } onOpenChange={ setDetailsOpen } />
-			) : null }
-		</section>
+		</MeterRow>
 	);
 }
 
-function PreviewSitesSummary( { userId }: { userId: number } ) {
+function PreviewSitesRow( { userId }: { userId: number } ) {
 	const connector = useConnector();
 	const { data: snapshots, isLoading } = useSnapshots( userId );
 	const { data: snapshotUsage, isLoading: isLoadingSnapshotUsage } = useSnapshotUsage( userId );
@@ -265,97 +325,103 @@ function PreviewSitesSummary( { userId }: { userId: number } ) {
 		}
 	};
 
+	if ( snapshotCreationBlocked ) {
+		return (
+			<MeterRow
+				settingId="preview-site-usage"
+				label={ __( 'Preview sites are not available for your account.' ) }
+			/>
+		);
+	}
 	return (
-		<section className={ styles.usageSection }>
-			<div className={ styles.usageSectionHeader }>
-				<h2>{ __( 'Preview sites' ) }</h2>
-				{ ! snapshotCreationBlocked ? (
-					<Menu.Root modal={ false }>
-						<Menu.Trigger
-							render={
-								<IconButton
-									size="icon-2xs"
-									icon={ <EllipsisIcon /> }
-									label={ __( 'Preview site actions' ) }
-									disabled={ isDisabled }
-								/>
-							}
-						/>
-						<Menu.Popup side="bottom" align="end">
-							<Menu.Item destructive disabled={ isDisabled } onClick={ () => void handleDelete() }>
-								{ deletePreviewSitesLabel }
-							</Menu.Item>
-						</Menu.Popup>
-					</Menu.Root>
-				) : null }
-			</div>
-			{ snapshotCreationBlocked ? (
-				<div className={ styles.previewUsageText }>
-					{ __( 'Preview sites are not available for your account.' ) }
-				</div>
-			) : (
-				<>
-					<div className={ styles.previewUsageText }>
-						{ isLoadingPreviewUsage
-							? __( 'Loading…' )
-							: sprintf(
-									/* translators: 1: number of active preview sites, 2: maximum allowed */
-									_n(
-										'%1$d of %2$d active preview site',
-										'%1$d of %2$d active preview sites',
-										siteCount
-									),
-									siteCount,
-									siteLimit
-							  ) }
-					</div>
-					<UsageProgressBar fraction={ fraction } />
-				</>
-			) }
+		<MeterRow
+			settingId="preview-site-usage"
+			label={
+				isLoadingPreviewUsage
+					? __( 'Loading…' )
+					: sprintf(
+							/* translators: 1: number of active preview sites, 2: maximum allowed */
+							_n(
+								'%1$d of %2$d active preview site',
+								'%1$d of %2$d active preview sites',
+								siteCount
+							),
+							siteCount,
+							siteLimit
+					  )
+			}
+			detail={
+				<Menu.Root modal={ false }>
+					<Menu.Trigger
+						render={
+							<IconButton
+								size="icon-sm"
+								icon={ <EllipsisIcon /> }
+								label={ __( 'Preview site actions' ) }
+								disabled={ isDisabled }
+							/>
+						}
+					/>
+					<Menu.Popup side="bottom" align="end">
+						<Menu.Item destructive disabled={ isDisabled } onClick={ () => void handleDelete() }>
+							{ deletePreviewSitesLabel }
+						</Menu.Item>
+					</Menu.Popup>
+				</Menu.Root>
+			}
+		>
+			<UsageProgressBar fraction={ fraction } />
 			{ deleteAllSnapshots.error ? (
-				<div className={ styles.errorMessage }>
-					{ __( 'An error occurred while deleting all preview sites. Please try again.' ) }
-				</div>
+				<FieldDescription
+					width="full"
+					error={ __( 'An error occurred while deleting all preview sites. Please try again.' ) }
+				/>
 			) : null }
-		</section>
+		</MeterRow>
 	);
 }
 
 export function UsagePanel() {
 	const { data: user } = useAuthUser();
 	// Same signed-out/offline split the rest of the app banners use. Either way
-	// the figures can't be read or refreshed, so the card goes disabled rather
+	// the figures can't be read or refreshed, so the meters go disabled rather
 	// than presenting a stale number as current.
 	const { reason } = useAgenticFeatures();
 	const unavailable = reason !== null;
 
 	return (
-		<div className={ styles.usagePanel }>
+		<div className={ clsx( styles.preferencesPanel, unavailable && styles.usageDisabled ) }>
 			{ reason === 'offline' ? <OfflineNotice /> : null }
 			{ reason === 'signed-out' ? <SigninNotice source="settings" /> : null }
-			<section
-				className={ clsx( styles.settingsPanelSection, unavailable && styles.usageDisabled ) }
-			>
-				<div className={ styles.settingsPanelHeader }>
-					<h2>{ __( 'Usage' ) }</h2>
-					<p>{ __( 'Track your preview site usage and Studio Code AI credits.' ) }</p>
-				</div>
+			<SettingsGroup>
+				<SettingsRow
+					title={ __( 'WordPress.com AI' ) }
+					description={
+						<>
+							{ __(
+								'Bring your WordPress ideas to life through conversation. Use AI credits to build sites, shape content, and refine your design. A one-time free allowance helps you get started.'
+							) }{ ' ' }
+							<LearnMoreLink docsLinksKey="docsAiCredits" />
+						</>
+					}
+				/>
 				{ unavailable ? (
-					<>
-						<UnavailableSection title={ __( 'AI credits' ) } />
-						<UnavailableSection title={ __( 'Preview sites' ) } />
-					</>
+					<Field>
+						<UnavailableMeter />
+					</Field>
 				) : (
-					<>
-						<AiCreditsSummary />
-						{ user ? (
-							<PreviewSitesSummary userId={ user.id } />
-						) : (
-							<UnavailableSection title={ __( 'Preview sites' ) } />
-						) }
-					</>
+					<AiCreditsRows />
 				) }
-			</section>
+			</SettingsGroup>
+			<SettingsGroup title={ __( 'Preview sites' ) }>
+				{ unavailable || ! user ? (
+					<Field>
+						<UnavailableMeter />
+					</Field>
+				) : (
+					<PreviewSitesRow userId={ user.id } />
+				) }
+			</SettingsGroup>
 		</div>
 	);
 }

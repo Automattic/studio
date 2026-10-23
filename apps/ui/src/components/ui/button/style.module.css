@@ -267,6 +267,11 @@
 		height: 14px;
 	}
 
+	.button :is( svg[data-dropdown-indicator], [data-dropdown-indicator] svg ):not( [data-size] ) {
+		width: 16px;
+		height: 16px;
+	}
+
 	.button[data-size='sm']:has( > [data-icon='inline-start'] ) {
 		padding-inline-start: 6px;
 	}
@@ -289,6 +294,7 @@
 		padding: 0;
 		font-size: inherit;
 		font-weight: var( --font-weight-normal );
+		line-height: inherit;
 		vertical-align: baseline;
 	}
 

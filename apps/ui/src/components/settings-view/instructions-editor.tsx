@@ -1,6 +1,7 @@
 import { GLOBAL_INSTRUCTIONS_MAX_LENGTH } from '@studio/common/ai/global-instructions-length';
 import { __ } from '@wordpress/i18n';
 import { useEffect, useId, useRef, useState } from 'react';
+import { LearnMoreLink } from '@/components/learn-more';
 import {
 	Field,
 	FieldContent,
@@ -90,7 +91,8 @@ export function InstructionsEditor() {
 					</FieldDescription>
 				</div>
 				<FieldDescription width="full">
-					{ __( 'Add your own guidance for Studio Code.' ) }
+					{ __( 'Add your own guidance for Studio.' ) }{ ' ' }
+					<LearnMoreLink docsLinksKey="docsStudioCode" />
 				</FieldDescription>
 			</FieldContent>
 			<Textarea
@@ -98,7 +100,6 @@ export function InstructionsEditor() {
 				sizing="fixed"
 				rows={ 10 }
 				maxLength={ GLOBAL_INSTRUCTIONS_MAX_LENGTH }
-				placeholder={ __( 'e.g. Always answer in French. My sites are for restaurants.' ) }
 				value={ content }
 				onChange={ ( event ) => setEdits( event.target.value ) }
 			/>

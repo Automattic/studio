@@ -220,8 +220,17 @@ function getStudioSections( signedIn: boolean ): Section[] {
 			label: __( 'Usage' ),
 			icon: ChartNoAxesColumnIncreasingIcon,
 			settings: [
-				setting( __( 'AI credits' ), __( 'Studio Code AI credits.' ), 'ai-credits' ),
-				setting( __( 'Preview sites' ), __( 'Track your preview site usage.' ) ),
+				setting(
+					__( 'WordPress.com AI' ),
+					__( 'Use AI credits to build sites, shape content, and refine your design.' ),
+					'ai-credits'
+				),
+				setting( __( 'Add credits' ), __( 'Get more WordPress.com AI credits to keep building.' ) ),
+				setting(
+					__( 'Preview sites' ),
+					__( 'Track your preview site usage.' ),
+					'preview-site-usage'
+				),
 			],
 		},
 		{

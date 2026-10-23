@@ -67,14 +67,12 @@ vi.mock( '@/data/queries/use-top-up-pricing', () => ( {
 	useStudioAssistantTopUpPricing: vi.fn(),
 } ) );
 
-// Owns the purchase dialog; its own tests cover the choosing. Here the panel
-// only has to put the offer on screen and hand off the click.
-vi.mock( '@/components/add-ai-credits-button', () => ( {
-	AddAiCreditsButton: ( { className }: { className?: string } ) => (
-		<button type="button" className={ className }>
-			Add AI credits
-		</button>
-	),
+vi.mock( '@/hooks/use-open-ai-credits-checkout', () => ( {
+	useOpenAiCreditsCheckout: () => vi.fn(),
+} ) );
+
+vi.mock( '@/components/learn-more', () => ( {
+	LearnMoreLink: () => <button type="button">Learn more…</button>,
 } ) );
 
 vi.mock( '@/data/queries/use-user-locale', () => ( {
@@ -153,7 +151,6 @@ describe( 'UsagePanel', () => {
 	it( 'renders AI credits and preview site usage for the signed-in user', () => {
 		render( <UsagePanel /> );
 
-		expect( screen.getByRole( 'heading', { name: 'Usage' } ) ).toBeInTheDocument();
 		expect(
 			screen.getByText(
 				'AI credits are currently free while Studio Code is in Alpha. Build, iterate, and experiment, but know that credits will eventually have a cost.'
@@ -252,9 +249,9 @@ describe( 'UsagePanel', () => {
 
 		render( <UsagePanel /> );
 
-		expect( screen.getByText( '890,000 of 2,000,000 AI credits used' ) ).toBeInTheDocument();
-		expect( screen.getByText( '1,110,000 available' ) ).toBeInTheDocument();
-		expect( screen.getByRole( 'button', { name: 'Add AI credits' } ) ).toBeInTheDocument();
+		expect( screen.getByText( '1,110,000 credits remaining' ) ).toBeInTheDocument();
+		expect( screen.getByText( '44.5% used' ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'Buy credits' } ) ).toBeInTheDocument();
 		// The meter replaces the monthly-limit and Alpha designs.
 		expect( screen.queryByText( /of monthly limit used/ ) ).not.toBeInTheDocument();
 		expect(
@@ -277,7 +274,7 @@ describe( 'UsagePanel', () => {
 
 		render( <UsagePanel /> );
 
-		expect( screen.getByText( '100,000 of 1,500,000 AI credits used' ) ).toBeInTheDocument();
+		expect( screen.getByText( '1,400,000 credits remaining' ) ).toBeInTheDocument();
 		expect( screen.getByText( 'Your first 1,500,000 AI credits are on us.' ) ).toBeInTheDocument();
 	} );
 
@@ -297,8 +294,8 @@ describe( 'UsagePanel', () => {
 		render( <UsagePanel /> );
 
 		// The spent allowance drops out of the total: the purchased pool is the bar.
-		expect( screen.getByText( '500,000 of 500,000 AI credits used' ) ).toBeInTheDocument();
-		expect( screen.getByText( '0 available' ) ).toBeInTheDocument();
+		expect( screen.getByText( '0 credits remaining' ) ).toBeInTheDocument();
+		expect( screen.getByText( '100% used' ) ).toBeInTheDocument();
 		expect(
 			screen.getByText( 'Your next idea is ready when you are. Top up to bring it to life.' )
 		).toBeInTheDocument();
@@ -323,7 +320,7 @@ describe( 'UsagePanel', () => {
 
 		expect( screen.getByText( 'Free credits remaining: 960,000' ) ).toBeInTheDocument();
 		expect( screen.queryByText( /Purchased credits remaining/ ) ).not.toBeInTheDocument();
-		expect( screen.getByRole( 'button', { name: 'Add AI credits' } ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'Buy credits' } ) ).toBeInTheDocument();
 	} );
 
 	it( 'keeps the old design when the quota has no per-pool balance fields', () => {
@@ -335,7 +332,7 @@ describe( 'UsagePanel', () => {
 		render( <UsagePanel /> );
 
 		expect( screen.queryByText( /credits remaining/ ) ).not.toBeInTheDocument();
-		expect( screen.queryByRole( 'button', { name: 'Add AI credits' } ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'button', { name: 'Buy credits' } ) ).not.toBeInTheDocument();
 		expect(
 			screen.queryByRole( 'button', { name: 'How AI credits work' } )
 		).not.toBeInTheDocument();
@@ -358,7 +355,7 @@ describe( 'UsagePanel', () => {
 
 		render( <UsagePanel /> );
 
-		expect( screen.getByRole( 'button', { name: 'Add AI credits' } ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'Buy credits' } ) ).toBeInTheDocument();
 	} );
 
 	it( 'hides the purchase control from an account without a payment method', () => {
@@ -375,7 +372,7 @@ describe( 'UsagePanel', () => {
 
 		render( <UsagePanel /> );
 
-		expect( screen.queryByRole( 'button', { name: 'Add AI credits' } ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'button', { name: 'Buy credits' } ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'opens the credits explainer dialog from the help icon', () => {
@@ -420,7 +417,7 @@ describe( 'UsagePanel', () => {
 			screen.getByText( /Studio Code AI is blocked for this WordPress.com account/ )
 		).toBeInTheDocument();
 		expect( screen.queryByText( /Free credits remaining/ ) ).not.toBeInTheDocument();
-		expect( screen.queryByRole( 'button', { name: 'Add AI credits' } ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'button', { name: 'Buy credits' } ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'shows the suspension copy for an explicitly blocked account', () => {

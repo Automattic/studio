@@ -31,6 +31,7 @@ import { toast } from '@/data/app-messages';
 import { useAuthUser } from '@/data/queries/use-auth-user';
 import { useSessions } from '@/data/queries/use-sessions';
 import { useSites } from '@/data/queries/use-sites';
+import { closeOnPaletteShortcut } from '@/hooks/use-command-palette';
 import { readLastVisited } from '@/lib/last-visited';
 import { SettingsDialogContext, SettingsLinkContext } from './context';
 import { getSections, isSiteSection, searchSettings } from './sections';
@@ -298,6 +299,7 @@ export function SettingsDialog() {
 					pendingExit.current = null;
 				} }
 				onKeyDown={ ( event ) => {
+					closeOnPaletteShortcut( close )( event );
 					const step = isKeyboardEvent.primary( event.nativeEvent, '[' )
 						? -1
 						: isKeyboardEvent.primary( event.nativeEvent, ']' )

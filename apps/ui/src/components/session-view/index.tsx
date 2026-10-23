@@ -49,7 +49,6 @@ import { useAiSettings } from '@/data/queries/use-ai-settings';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
 import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
 import {
-	useCreateSession,
 	useSession,
 	useSessionEffectiveEnvironment,
 	useSetSessionEnvironment,
@@ -75,7 +74,6 @@ import { AccessRequirements } from './access-requirements';
 import { Composer, ComposerSkeleton, type ComposerHandle } from './composer';
 import { Conversation } from './conversation';
 import { QueuedPrompts } from './queued-prompts';
-import { useNewChatShortcut } from './session-chat-actions';
 import styles from './style.module.css';
 import type { SiteDetails } from '@/data/core';
 
@@ -286,7 +284,6 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	const navigate = useNavigate();
 	const { data, isLoading, error, refetch } = useSession( sessionId );
 	const { data: sites } = useSites();
-	const { mutateAsync: createSession, isPending: isCreatingSession } = useCreateSession();
 	const ownerSite = findAiSessionOwnerSite( sites, data?.summary );
 	const effectiveEnvironment = useSessionEffectiveEnvironment( data?.summary, ownerSite?.id );
 	const {
@@ -450,20 +447,6 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 			} ),
 		[ navigate ]
 	);
-	const startNewChat = useCallback( async () => {
-		// Already on a chat with no prompts yet — creating another empty
-		// session would just flash the view for an identical result.
-		if ( ! ownerSite || isEmpty ) {
-			return;
-		}
-		try {
-			const summary = await createSession( { siteId: ownerSite.id } );
-			switchSession( summary.id );
-		} catch {
-			// The mutation owns the error state; avoid an unhandled rejection
-			// from this command button if session creation fails.
-		}
-	}, [ createSession, isEmpty, ownerSite, switchSession ] );
 
 	useLayoutEffect( () => {
 		if ( ! scrollNode || isScrolledAway || pendingQuestions.length > 0 ) {
@@ -484,7 +467,6 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 
 	const isOutOfCredits = useIsOutOfAiCredits() && isWpcom;
 	useMarkChatRead( sessionId, data?.summary.unread );
-	useNewChatShortcut( startNewChat, !! ownerSite && ! isOutOfCredits && ! isCreatingSession );
 	// Fail open when the quota is unavailable (offline, error, older server) —
 	// the WordPress.com proxy enforces the same gate server-side.
 	const isAccessBlocked =

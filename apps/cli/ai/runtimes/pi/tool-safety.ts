@@ -1,4 +1,4 @@
-import { existsSync } from 'fs';
+import { existsSync, readFileSync } from 'fs';
 import os from 'os';
 import path from 'path';
 import { findSiteByFolder } from 'cli/lib/cli-config/sites';
@@ -136,10 +136,39 @@ async function isStudioSiteFolder( folder: string ): Promise< boolean > {
 	return Boolean( await findSiteByFolder( folder ) );
 }
 
+// Themes Studio Code scaffolds say so in their style.css header (scaffold_theme).
+const STUDIO_THEME_MARKER = 'scaffolded by Studio Code';
+
 /**
- * A Studio site's WordPress core is replaced when Studio updates WordPress, so
- * a change there is lost. Refuses Write and Edit on it and names where the
- * change belongs. WordPress trees that Studio doesn't manage stay writable.
+ * Why a write to this file of a WordPress install would be lost: WordPress
+ * core is replaced when WordPress updates, and an installed theme's files when
+ * the theme updates. Undefined when the write stays.
+ */
+function getLostWriteReason( root: string, relativePath: string ): string | undefined {
+	if (
+		relativePath.startsWith( 'wp-includes/' ) ||
+		relativePath.startsWith( 'wp-admin/' ) ||
+		CORE_ROOT_FILE.test( relativePath )
+	) {
+		return `${ relativePath } is this Studio site's copy of WordPress core, which a WordPress update replaces. Read it as reference. Make the change in wp-content/ (a theme, child theme, or plugin).`;
+	}
+	const theme = relativePath.match( /^wp-content\/themes\/([^/]+)\// )?.[ 1 ];
+	const styleCss = theme && path.join( root, 'wp-content', 'themes', theme, 'style.css' );
+	// No style.css yet means the theme is being created, not an installed one.
+	if (
+		styleCss &&
+		existsSync( styleCss ) &&
+		! readFileSync( styleCss, 'utf8' ).includes( STUDIO_THEME_MARKER )
+	) {
+		return `${ theme } is an installed theme, and a theme update overwrites changes to its files. Create a child theme with scaffold_theme (parentTheme: "${ theme }") and make the change there.`;
+	}
+	return undefined;
+}
+
+/**
+ * Refuses Write and Edit on a Studio site's files that an update replaces,
+ * and names where the change belongs. WordPress trees that Studio doesn't
+ * manage stay writable.
  */
 export async function getFileWriteRefusal(
 	toolName: string,
@@ -157,14 +186,11 @@ export async function getFileWriteRefusal(
 		return undefined;
 	}
 	const relativePath = path.relative( root, absolutePath ).split( path.sep ).join( '/' );
-	const isCore =
-		relativePath.startsWith( 'wp-includes/' ) ||
-		relativePath.startsWith( 'wp-admin/' ) ||
-		CORE_ROOT_FILE.test( relativePath );
-	if ( ! isCore || ! ( await isStudioSite( root ) ) ) {
+	const reason = getLostWriteReason( root, relativePath );
+	if ( ! reason || ! ( await isStudioSite( root ) ) ) {
 		return undefined;
 	}
-	return `Not run: ${ relativePath } is this Studio site's copy of WordPress core, which a WordPress update replaces. Read it as reference. Make the change in wp-content/ (a theme, child theme, or plugin).`;
+	return `Not run: ${ reason }`;
 }
 
 // Only the last content block can be mid-generation when the model hits the

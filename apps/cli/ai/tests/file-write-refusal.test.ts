@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync } from 'fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'fs';
 import os from 'os';
 import path from 'path';
 import { arePathsEqual } from '@studio/common/lib/fs-utils';
@@ -22,6 +22,14 @@ beforeEach( () => {
 	root = mkdtempSync( path.join( os.tmpdir(), 'studio-core-guard-' ) );
 	makeWordPressTree( studioSite() );
 	makeWordPressTree( unmanaged() );
+	for ( const [ theme, header ] of [
+		[ 'twentytwentyfive', 'Theme Name: Twenty Twenty-Five' ],
+		[ 'mine', 'Theme Name: Mine\nDescription: A custom block theme scaffolded by Studio Code.' ],
+	] ) {
+		const dir = path.join( studioSite(), 'wp-content', 'themes', theme );
+		mkdirSync( dir, { recursive: true } );
+		writeFileSync( path.join( dir, 'style.css' ), `/*\n${ header }\n*/` );
+	}
 } );
 
 afterEach( () => {
@@ -43,6 +51,17 @@ describe( 'getFileWriteRefusal', () => {
 		}
 	} );
 
+	it( "refuses an installed theme's files, naming a child theme", async () => {
+		expect(
+			await getFileWriteRefusal(
+				'Edit',
+				{ path: 'my-site/wp-content/themes/twentytwentyfive/parts/header.html' },
+				root,
+				isStudioSite
+			)
+		).toContain( 'scaffold_theme (parentTheme: "twentytwentyfive")' );
+	} );
+
 	it( 'resolves absolute paths too', async () => {
 		const file = path.join( studioSite(), 'wp-includes', 'version.php' );
 		expect( await getFileWriteRefusal( 'Edit', { path: file }, '/', isStudioSite ) ).toContain(
@@ -52,7 +71,10 @@ describe( 'getFileWriteRefusal', () => {
 
 	it.each( [
 		'my-site/wp-config.php',
+		// A theme without style.css is being created.
 		'my-site/wp-content/themes/acme/functions.php',
+		// Themes Studio Code scaffolded.
+		'my-site/wp-content/themes/mine/parts/header.html',
 		'my-site/wp-content/plugins/wp-includes/x.php',
 		'my-site/DESIGN.md',
 		'elsewhere/wp-includes/functions.php',

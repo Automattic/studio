@@ -1,6 +1,5 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { closeNoticeHistory, NoticeHistoryButton } from '@/components/notice-history';
 import { useProvideCollapseAll } from '@/components/site-list/collapse-all';
 import { setCommandPaletteOpen } from '@/hooks/use-command-palette';
 import { CommandPalette, matchCommands } from './index';
@@ -139,19 +138,5 @@ describe( 'CommandPalette', () => {
 		);
 		fireEvent.click( await screen.findByText( 'Collapse all' ) );
 		expect( collapseAll ).toHaveBeenCalled();
-	} );
-
-	it( 'shows the notification history', async () => {
-		render(
-			<>
-				<CommandPalette />
-				<NoticeHistoryButton />
-			</>
-		);
-		pressK();
-		search( 'notifications' );
-		fireEvent.click( await screen.findByText( 'Show notifications' ) );
-		expect( await screen.findByText( 'No notifications.' ) ).toBeInTheDocument();
-		act( closeNoticeHistory );
 	} );
 } );

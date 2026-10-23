@@ -1,7 +1,10 @@
 import { getLocalizedLink, REPORT_ISSUE_URL } from '@studio/common/lib/docs-links';
 import { supportedLocaleNames } from '@studio/common/lib/locale';
 import { SUPPORTED_EDITORS, supportedEditorConfig } from '@studio/common/lib/user-settings/editor';
-import { INTERFACE_PREFERENCE_DEFAULTS } from '@studio/common/lib/user-settings/preferences';
+import {
+	getColorTint,
+	INTERFACE_PREFERENCE_DEFAULTS,
+} from '@studio/common/lib/user-settings/preferences';
 import { SUPPORTED_TERMINALS, terminalConfig } from '@studio/common/lib/user-settings/terminal';
 import { __, sprintf } from '@wordpress/i18n';
 import { useCallback, useEffect, useState } from 'react';
@@ -19,7 +22,9 @@ import { useInstalledApps } from '@/data/queries/use-installed-apps';
 import { useUserLocale } from '@/data/queries/use-user-locale';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
 import { hasCustomPanelWidths, resetPanelWidths } from '@/lib/resizable-panels';
+import { applyColorTint, DEFAULT_COLOR_TINT, isDefaultColorTint } from '@/lib/theme';
 import { AccountSection } from './account-section';
+import { ColorTintSettings } from './color-tint-settings';
 import { InstructionsEditor } from './instructions-editor';
 import { NewSiteBehaviorRow } from './new-site-behavior-row';
 import { UNSET, toPreferencesFormData, toPreferencesPatch } from './preferences';
@@ -266,7 +271,9 @@ function PreferencesPanel( {
 				</SettingsRow>
 				<SettingsRow
 					title={ __( 'Reset interface' ) }
-					description={ __( 'Restore default panel widths, theme, and interface settings.' ) }
+					description={ __(
+						'Restore default panel widths, theme, colors, and interface settings.'
+					) }
 				>
 					<Button variant="outline" disabled={ interfaceIsDefault } onClick={ onResetInterface }>
 						{ __( 'Reset' ) }
@@ -402,21 +409,45 @@ export function GeneralSettings() {
 }
 
 export function AppearanceSettings() {
-	const { data, handleChange, loadFailed, retry } = usePreferencesForm();
-	if ( ! data ) {
+	const { saved, data, handleChange, saveError, loadFailed, retry } = usePreferencesForm();
+	const savePreferences = useSaveUserPreferences();
+	if ( ! data || ! saved ) {
 		return <SettingsLoadState loadFailed={ loadFailed } onRetry={ retry } />;
 	}
+	const tint = getColorTint( saved );
+	const resetTint = () => {
+		applyColorTint( DEFAULT_COLOR_TINT );
+		savePreferences.mutate( DEFAULT_COLOR_TINT );
+	};
 	return (
-		<SettingsGroup>
-			<SettingsRow title={ __( 'Theme' ) } description={ __( 'Choose light, dark, or system.' ) }>
-				<SettingsSelect
-					label={ __( 'Theme' ) }
-					value={ data.colorScheme }
-					options={ COLOR_SCHEME_ELEMENTS }
-					onChange={ ( colorScheme ) => handleChange( { colorScheme } ) }
-				/>
-			</SettingsRow>
-		</SettingsGroup>
+		<div className={ styles.preferencesPanel }>
+			{ saveError || savePreferences.isError ? (
+				<div className={ styles.errorMessage }>
+					{ __( 'An error occurred while saving settings. Please try again.' ) }
+				</div>
+			) : null }
+			<SettingsGroup>
+				<SettingsRow title={ __( 'Theme' ) } description={ __( 'Choose light, dark, or system.' ) }>
+					<SettingsSelect
+						label={ __( 'Theme' ) }
+						value={ data.colorScheme }
+						options={ COLOR_SCHEME_ELEMENTS }
+						onChange={ ( colorScheme ) => handleChange( { colorScheme } ) }
+					/>
+				</SettingsRow>
+				<ColorTintSettings tint={ tint } onCommit={ ( next ) => savePreferences.mutate( next ) } />
+			</SettingsGroup>
+			<SettingsGroup title={ __( 'Reset' ) }>
+				<SettingsRow
+					title={ __( 'Reset appearance' ) }
+					description={ __( 'Restore the default color, intensity, and contrast.' ) }
+				>
+					<Button variant="outline" disabled={ isDefaultColorTint( tint ) } onClick={ resetTint }>
+						{ __( 'Reset' ) }
+					</Button>
+				</SettingsRow>
+			</SettingsGroup>
+		</div>
 	);
 }
 

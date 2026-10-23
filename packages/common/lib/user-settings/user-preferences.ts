@@ -11,6 +11,7 @@ import {
 import { SUPPORTED_EDITORS } from '@studio/common/lib/user-settings/editor';
 import {
 	DEFAULT_COLOR_SCHEME,
+	getColorTint,
 	INTERFACE_PREFERENCE_DEFAULTS,
 	NEW_SITE_BEHAVIORS,
 	QUIT_SITES_BEHAVIORS,
@@ -21,6 +22,7 @@ import type { TracksEventName, TracksProps } from '@studio/common/lib/record-tra
 import type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
 import type {
 	ColorScheme,
+	ColorTint,
 	NewSiteBehavior,
 	QuitSitesBehavior,
 } from '@studio/common/lib/user-settings/preferences';
@@ -31,7 +33,7 @@ import type { SupportedTerminal } from '@studio/common/lib/user-settings/termina
  * the UI preferences, `shared.json` for locale and the analytics opt-out.
  */
 
-export interface UserPreferences {
+export interface UserPreferences extends ColorTint {
 	// `null` is the default: the first installed editor, the system terminal.
 	editor: SupportedEditor | null;
 	terminal: SupportedTerminal | null;
@@ -95,6 +97,13 @@ export const userPreferencesPatchSchema = z.object( {
 	autoStartSiteOnChat: z.boolean().nullish(),
 	confirmDeleteAnnotations: z.boolean().nullish(),
 	newSiteBehavior: z.enum( NEW_SITE_BEHAVIORS ).nullish(),
+	accentColor: z
+		.string()
+		.regex( /^#[0-9a-f]{6}$/i )
+		.transform( ( color ) => color.toLowerCase() )
+		.nullish(),
+	tintIntensity: z.number().min( 0 ).max( 100 ).nullish(),
+	contrast: z.number().min( 0 ).max( 100 ).nullish(),
 	// Where the change was made (the analytics toggle also appears during onboarding); not stored.
 	surface: z.enum( [ 'onboarding', 'settings' ] ).optional(),
 } );
@@ -116,6 +125,9 @@ const APP_CONFIG_KEYS = [
 	[ 'autoStartSiteOnChat', 'autoStartSiteOnChat' ],
 	[ 'confirmDeleteAnnotations', 'confirmDeleteAnnotations' ],
 	[ 'newSiteBehavior', 'newSiteBehavior' ],
+	[ 'accentColor', 'accentColor' ],
+	[ 'tintIntensity', 'tintIntensity' ],
+	[ 'contrast', 'contrast' ],
 ] as const satisfies readonly ( readonly [ keyof UserPreferencesPatch, string ] )[];
 
 function getDefaultSiteDirectory( config: AppConfig, sitesRoot: string ): string {
@@ -164,6 +176,7 @@ export async function readUserPreferences( {
 			.enum( NEW_SITE_BEHAVIORS )
 			.catch( newSiteBehavior )
 			.parse( config.newSiteBehavior ),
+		...getColorTint( config ),
 	};
 }
 

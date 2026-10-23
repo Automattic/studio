@@ -347,7 +347,7 @@
 .toolIcon {
 	flex: 0 0 auto;
 	color: var(--tool-icon-color);
-	transform: translateY(2px);
+	translate: 0 2px;
 }
 
 .mediaArtifactGrid {

@@ -11,7 +11,6 @@ import {
 	useStopSite,
 	useSyncSitesWithEvents,
 } from './use-sites';
-import type { StartSiteOptions } from './use-sites';
 import type { Connector, SiteDetails } from '@/data/core';
 import type { ReactNode } from 'react';
 
@@ -146,29 +145,25 @@ describe( 'useStartSite', () => {
 		} as unknown as Connector );
 	} );
 
-	function renderMutations( options: StartSiteOptions = {} ) {
+	function renderMutations() {
 		const queryClient = new QueryClient( {
 			defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
 		} );
-		return renderHook( () => ( { start: useStartSite( options ), stop: useStopSite() } ), {
+		return renderHook( () => ( { start: useStartSite(), stop: useStopSite() } ), {
 			wrapper: ( { children }: { children: ReactNode } ) => (
 				<QueryClientProvider client={ queryClient }>{ children }</QueryClientProvider>
 			),
 		} ).result;
 	}
 
-	it( 'announces an explicit start', async () => {
+	it( 'starts and stops without a success toast', async () => {
 		const result = renderMutations();
 
 		await result.current.start.mutateAsync( 'site-1' );
-
-		expect( getVisibleToasts().map( ( item ) => item.title ) ).toEqual( [ 'Site started' ] );
-	} );
-
-	it( 'stays quiet for a silent start', async () => {
-		const result = renderMutations( { silent: true } );
-
-		await result.current.start.mutateAsync( 'site-1' );
+		const stopping = result.current.stop.mutateAsync( 'site-1' );
+		await waitFor( () => expect( stopSite ).toHaveBeenCalledWith( 'site-1' ) );
+		releaseStop();
+		await stopping;
 
 		expect( startSite ).toHaveBeenCalledWith( 'site-1' );
 		expect( getVisibleToasts() ).toHaveLength( 0 );

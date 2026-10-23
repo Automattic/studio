@@ -318,7 +318,7 @@ describe( 'SiteList', () => {
 		await openIn( 'Stopped Site' );
 
 		expect( await screen.findByText( 'Browser' ) ).toHaveAttribute( 'aria-disabled', 'true' );
-		expect( screen.getByText( 'phpMyAdmin' ) ).toHaveAttribute( 'aria-disabled', 'true' );
+		expect( screen.getByText( 'phpMyAdmin' ) ).not.toHaveAttribute( 'aria-disabled' );
 		expect( screen.getByText( 'Browser (WP Admin)' ) ).toHaveAttribute( 'aria-disabled', 'true' );
 		expect( screen.getByText( FILE_MANAGER ) ).not.toHaveAttribute( 'aria-disabled' );
 	} );
@@ -1078,7 +1078,9 @@ describe( 'SiteList', () => {
 		expect( screen.getByRole( 'menu' ) ).toHaveAttribute( 'data-closed' );
 
 		fireEvent.keyDown( await selectBothSites(), { key: 'Backspace', ctrlKey: true } );
-		expect( await screen.findByRole( 'alertdialog' ) ).toHaveTextContent( 'Delete 2 sites' );
+		expect( await screen.findByRole( 'alertdialog' ) ).toHaveTextContent(
+			'Remove 2 sites from Studio?'
+		);
 	} );
 
 	it( 'holds off archiving and deleting while a chat is running or has prompts queued', async () => {

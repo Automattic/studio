@@ -85,7 +85,7 @@ export function useConnectSite() {
 	const createSite = useCreateSite();
 	const deleteSite = useDeleteSite();
 	const pullSite = usePullSiteFromLive();
-	const startSite = useStartSite( { silent: true } );
+	const startSite = useStartSite();
 	const { setProgress, pinNewSite } = useAddSite();
 
 	return async ( remote: SyncSite, params: CreateSiteParams ) => {

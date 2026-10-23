@@ -6,10 +6,3 @@
 	clip-path: inset(50%);
 	white-space: nowrap;
 }
-
-/* A narrow preview header keeps only the icon. */
-@container studio-preview-toolbar (max-width: 640px) {
-	.label {
-		display: none;
-	}
-}

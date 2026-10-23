@@ -216,6 +216,7 @@ export {
 	saveGlobalAgentInstructions,
 	saveOnboardingHints,
 	saveWapuuScore,
+	setAiProvider,
 	setUserPreferences,
 } from 'src/modules/user-settings/lib/ipc-handlers';
 

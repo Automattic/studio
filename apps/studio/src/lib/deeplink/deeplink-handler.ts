@@ -1,6 +1,7 @@
 import { handleAddSiteWithBlueprint } from 'src/lib/deeplink/handlers/add-site-with-blueprint';
 import { handleAuthDeeplink } from 'src/lib/deeplink/handlers/auth';
 import { handleCheckoutReturnDeeplink } from 'src/lib/deeplink/handlers/checkout-return';
+import { handleSettingsDeeplink } from 'src/lib/deeplink/handlers/settings';
 import { handleSyncConnectSiteDeeplink } from 'src/lib/deeplink/handlers/sync-connect-site';
 
 /**
@@ -10,6 +11,7 @@ import { handleSyncConnectSiteDeeplink } from 'src/lib/deeplink/handlers/sync-co
  * - wp-studio://sync-connect-site - Sync site connection from WordPress.com
  * - wp-studio://add-site?blueprint_url=<encoded-url> - Add site with blueprint from URL
  * - wp-studio://checkout-return?studioReturnTo=<flow> - Return from a WordPress.com checkout
+ * - wp-studio://app/v1/settings?id=<setting> - Open Settings on one setting
  */
 export async function handleDeeplink( url: string ): Promise< void > {
 	const urlObject = new URL( url );
@@ -27,6 +29,9 @@ export async function handleDeeplink( url: string ): Promise< void > {
 			break;
 		case 'checkout-return':
 			await handleCheckoutReturnDeeplink( urlObject );
+			break;
+		case 'app':
+			await handleSettingsDeeplink( urlObject );
 			break;
 		default:
 			console.warn( `Unknown deeplink host: ${ host }` );

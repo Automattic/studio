@@ -39,7 +39,19 @@ describe( 'McpPanel', () => {
 
 		await waitFor( () => expect( copyText ).toHaveBeenCalledTimes( 1 ) );
 		expect( copyText.mock.calls[ 0 ][ 0 ] ).toContain( 'wordpress-studio' );
-		await waitFor( () => expect( screen.getByRole( 'status' ) ).toHaveTextContent( 'Copied' ) );
+		// The second copy button, after the install command's.
+		await waitFor( () =>
+			expect( screen.getAllByRole( 'status' )[ 1 ] ).toHaveTextContent( 'Copied' )
+		);
+	} );
+
+	it( 'shows the install command before the configuration', () => {
+		render( <McpPanel />, { wrapper: Providers } );
+
+		expect( screen.getByText( 'npm install -g wp-studio' ) ).toBeInTheDocument();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Copy install command' } ) );
+
+		expect( copyText ).toHaveBeenCalledWith( 'npm install -g wp-studio' );
 	} );
 
 	it( 'does not show copied feedback when the copy fails', async () => {
@@ -56,7 +68,6 @@ describe( 'McpPanel', () => {
 				expect( consoleError ).toHaveBeenCalledWith( 'Failed to copy text:', error )
 			);
 			expect( screen.queryByText( 'Copied' ) ).not.toBeInTheDocument();
-			expect( screen.getByRole( 'status' ) ).toHaveTextContent( '' );
 		} finally {
 			consoleError.mockRestore();
 		}

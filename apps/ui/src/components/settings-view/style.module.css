@@ -57,6 +57,28 @@
 	padding-inline: 20px;
 }
 
+.rowTitle {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+}
+
+.linkButton {
+	opacity: 0;
+}
+
+.rowTitle:hover .linkButton,
+.linkButton:focus-visible,
+.linkButton[data-copied] {
+	opacity: 1;
+}
+
+@media ( hover: none ) {
+	.linkButton {
+		opacity: 1;
+	}
+}
+
 .settingsControl {
 	display: flex;
 	align-items: center;
@@ -585,4 +607,15 @@
 .dialogError {
 	margin: 0;
 	color: var(--destructive);
+}
+
+.pathForm {
+	display: flex;
+	gap: 8px;
+}
+
+.keyForm {
+	display: flex;
+	align-items: center;
+	gap: 8px;
 }

@@ -12,6 +12,9 @@ const navigateMock = vi.fn();
 vi.mock( '@tanstack/react-router', () => ( { useNavigate: () => navigateMock } ) );
 vi.mock( '@/data/core', () => ( { useConnector: vi.fn() } ) );
 vi.mock( '@/data/queries/use-user-preferences', () => ( { useUserPreferences: vi.fn() } ) );
+vi.mock( '@/data/queries/use-installed-apps', () => ( {
+	useInstalledApps: () => ( { data: { zed: false } } ),
+} ) );
 vi.mock( '@studio/common/lib/error-reporting', () => ( { captureException: vi.fn() } ) );
 vi.mock( '@/data/app-messages', () => ( { toast: { error: vi.fn() } } ) );
 

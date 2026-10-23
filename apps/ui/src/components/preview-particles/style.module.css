@@ -24,11 +24,11 @@
 	transition: opacity var(--motion-duration-reveal) ease;
 }
 
-.logo[data-active] {
-	opacity: 0.4;
-}
-
 .logo svg {
 	width: 48px;
 	height: 48px;
+}
+
+.logo[data-active] {
+	opacity: 0.4;
 }

@@ -2,11 +2,17 @@ import { DAY_MS, DEMO_SITE_EXPIRATION_DAYS } from '@studio/common/constants';
 import { __, sprintf } from '@wordpress/i18n';
 import { CopyIcon, EllipsisIcon, RefreshCwIcon } from 'lucide-react';
 import { useId, useState, type ReactNode } from 'react';
-import { MenuSelect } from '@/components/publish-panel/parts';
 import { Button, IconButton } from '@/components/ui/button';
 import { Field, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import * as Menu from '@/components/ui/menu';
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from '@/components/ui/select';
 import { Spinner } from '@/components/ui/spinner';
 import { useConnector } from '@/data/core';
 import { markPreviewSeen } from '@/data/preview-ready';
@@ -121,25 +127,31 @@ export function PreviewSharePanel( {
 		: previews.find( ( item ) => item.atomicSiteId === selectedId ) ?? previews[ 0 ];
 	const picker =
 		previews.length > 1 || creating ? (
-			<MenuSelect
+			<Select
 				value={ snapshot?.atomicSiteId ?? NEW_PREVIEW }
-				label={ __( 'Select preview' ) }
 				disabled={ busy && ! creating }
-				className={ styles.previewSelect }
-				items={ [
-					...( creating
-						? [ { value: NEW_PREVIEW, label: __( 'New preview · Publishing…' ) } ]
-						: [] ),
-					...previews.map( ( item ) => ( {
-						value: item.atomicSiteId,
-						label: item.name || __( 'Preview site' ),
-					} ) ),
-				] }
-				onChange={ ( value ) => {
+				onValueChange={ ( value ) => {
+					if ( value === null ) return;
 					setSelectedId( value );
 					setEditing( null );
 				} }
-			/>
+			>
+				<SelectTrigger aria-label={ __( 'Select preview' ) } className={ styles.previewSelect }>
+					<SelectValue>
+						{ snapshot ? snapshot.name || __( 'Preview site' ) : __( 'New preview · Publishing…' ) }
+					</SelectValue>
+				</SelectTrigger>
+				<SelectContent>
+					{ creating ? (
+						<SelectItem value={ NEW_PREVIEW }>{ __( 'New preview · Publishing…' ) }</SelectItem>
+					) : null }
+					{ previews.map( ( item ) => (
+						<SelectItem key={ item.atomicSiteId } value={ item.atomicSiteId }>
+							{ item.name || __( 'Preview site' ) }
+						</SelectItem>
+					) ) }
+				</SelectContent>
+			</Select>
 		) : null;
 	const url = snapshot ? getSnapshotUrl( snapshot ) : '';
 	const updating = !! snapshot && updatingHostname === getSnapshotHostname( snapshot );

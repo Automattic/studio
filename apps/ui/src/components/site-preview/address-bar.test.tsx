@@ -232,17 +232,37 @@ describe( 'PreviewAddressBar', () => {
 		const input = screen.getByRole( 'textbox', { name: 'Address' } );
 		fireEvent.click( input );
 
-		expect( await screen.findByRole( 'button', { name: /Front end/ } ) ).toBeVisible();
-		expect( screen.getByRole( 'button', { name: /WP Admin/ } ) ).toBeVisible();
+		expect( await screen.findByRole( 'option', { name: /Front end/ } ) ).toBeVisible();
+		expect( screen.getByRole( 'option', { name: /WP Admin/ } ) ).toBeVisible();
 		expect( document.querySelectorAll( `img[src="${ siteIcon }"]` ) ).toHaveLength( 2 );
-		fireEvent.click( screen.getByRole( 'button', { name: /Database/ } ) );
+		fireEvent.click( screen.getByRole( 'option', { name: /Database/ } ) );
 
 		expect( onSwitchRealm ).toHaveBeenCalledWith( 'database' );
 		await waitFor( () =>
-			expect( screen.queryByRole( 'button', { name: /Database/ } ) ).not.toBeInTheDocument()
+			expect( screen.queryByRole( 'option', { name: /Database/ } ) ).not.toBeInTheDocument()
 		);
 		fireEvent.focus( input );
-		expect( screen.queryByRole( 'button', { name: /Database/ } ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'option', { name: /Database/ } ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'picks a shortcut with the arrow keys, and Enter otherwise goes to the address', async () => {
+		const { onSwitchRealm, onNavigate } = renderAddressBar();
+		const input = screen.getByRole( 'textbox', { name: 'Address' } );
+		fireEvent.click( input );
+		await screen.findByRole( 'option', { name: 'WP Admin' } );
+
+		fireEvent.change( input, { target: { value: '/about/' } } );
+		fireEvent.submit( input.closest( 'form' )! );
+		expect( onNavigate ).toHaveBeenCalledWith( '/about/' );
+
+		fireEvent.click( input );
+		fireEvent.keyDown( input, { key: 'ArrowDown' } );
+		expect( await screen.findByRole( 'option', { name: 'WP Admin' } ) ).toHaveAttribute(
+			'aria-selected',
+			'true'
+		);
+		fireEvent.keyDown( input, { key: 'Enter' } );
+		expect( onSwitchRealm ).toHaveBeenCalledWith( 'admin' );
 	} );
 
 	it( 'remembers submitted addresses per site and lists them as recent destinations', async () => {
@@ -257,6 +277,6 @@ describe( 'PreviewAddressBar', () => {
 		const popup = await screen.findByRole( 'dialog', { name: 'Preview shortcuts' } );
 
 		expect( within( popup ).getByText( 'Recent' ) ).toBeVisible();
-		expect( within( popup ).getByRole( 'button', { name: `${ SITE_URL }/about/` } ) ).toBeVisible();
+		expect( within( popup ).getByRole( 'option', { name: `${ SITE_URL }/about/` } ) ).toBeVisible();
 	} );
 } );

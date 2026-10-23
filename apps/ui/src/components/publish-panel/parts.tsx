@@ -1,12 +1,15 @@
 import { canCancelSyncActivity } from '@studio/common/lib/sync/cancel';
 import { useIsMutating } from '@tanstack/react-query';
 import { __ } from '@wordpress/i18n';
-import { chevronDownSmall, chevronLeft } from '@wordpress/icons';
-import { Button, Icon, Progress, Spinner } from '@wordpress/ui';
+import { chevronDownSmall, chevronLeft, Icon } from '@wordpress/icons';
 import { clsx } from 'clsx';
 import { useEffect, useRef, type ReactNode } from 'react';
-import * as Menu from '@/components/menu';
-import * as Popover from '@/components/popover';
+import { Button } from '@/components/ui/button';
+import * as Menu from '@/components/ui/menu';
+import * as Popover from '@/components/ui/popover';
+import { Progress } from '@/components/ui/progress';
+import { Spinner } from '@/components/ui/spinner';
+import { VisuallyHidden } from '@/components/ui/visually-hidden';
 import {
 	PULL_FROM_LIVE_MUTATION_KEY,
 	PUSH_TO_LIVE_MUTATION_KEY,
@@ -28,19 +31,19 @@ export function PanelHeader( { title, onBack }: { title: string; onBack?: () => 
 		return () => cancelAnimationFrame( frame );
 	}, [ hasBack, title ] );
 	if ( ! onBack ) {
-		return <Popover.Title className={ styles.visuallyHidden }>{ title }</Popover.Title>;
+		return <Popover.Title render={ <VisuallyHidden /> }>{ title }</Popover.Title>;
 	}
 	return (
 		<div className={ styles.panelHeader }>
-			<button
+			<Button
 				ref={ back }
-				type="button"
-				className={ styles.back }
+				variant="segmented"
+				size="icon-sm"
 				aria-label={ __( 'Back to Publish' ) }
 				onClick={ onBack }
 			>
-				<Icon icon={ chevronLeft } size={ 20 } />
-			</button>
+				<Icon icon={ chevronLeft } />
+			</Button>
 			<Popover.Title className={ styles.heading }>{ title }</Popover.Title>
 		</div>
 	);
@@ -76,13 +79,7 @@ export function ErrorMessage( { error, retry }: { error: unknown; retry?: () => 
 		<div className={ styles.errorMessage } role="alert">
 			<p className={ styles.error }>{ error instanceof Error ? error.message : String( error ) }</p>
 			{ retry ? (
-				<Button
-					variant="outline"
-					tone="neutral"
-					size="small"
-					className={ styles.outline }
-					onClick={ retry }
-				>
+				<Button variant="outline" size="2xs" onClick={ retry }>
 					{ __( 'Try again' ) }
 				</Button>
 			) : null }
@@ -181,29 +178,19 @@ export function TransferProgress( {
 				</span>
 			</div>
 			{ activity.progress !== undefined ? (
-				<Progress.Root
+				<Progress
 					value={ activity.progress }
-					className={ styles.progressBar }
 					aria-label={ pushing ? __( 'Publishing progress' ) : __( 'Pull progress' ) }
-				>
-					<Progress.Track className={ styles.progressTrack }>
-						<Progress.Indicator color="var(--wpds-color-foreground-content-neutral)" />
-					</Progress.Track>
-				</Progress.Root>
+				/>
 			) : null }
 			{ cancellable ? (
-				<button
-					type="button"
-					className={ styles.linkButton }
-					disabled={ cancelling }
-					onClick={ cancel }
-				>
+				<Button variant="inline-text" size="inline" disabled={ cancelling } onClick={ cancel }>
 					{ cancelling
 						? __( 'Cancelling…' )
 						: pushing
 						? __( 'Cancel publishing' )
 						: __( 'Cancel pull' ) }
-				</button>
+				</Button>
 			) : null }
 		</div>
 	);

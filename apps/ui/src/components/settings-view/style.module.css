@@ -1,8 +1,8 @@
 .state {
-	padding: var( --wpds-dimension-padding-xl );
-	color: var( --wpds-color-foreground-content-neutral-weak );
-	font-size: var( --wpds-typography-font-size-sm );
-	line-height: var( --wpds-typography-line-height-md );
+	padding: 20px;
+	color: var(--muted-foreground);
+	font-size: var(--text-xxs);
+	line-height: 24px;
 }
 
 .preferencesPanel {
@@ -15,21 +15,12 @@
 	display: flex;
 	align-items: center;
 	justify-content: flex-end;
-	gap: var( --wpds-dimension-padding-md );
+	gap: 12px;
 }
 
-.preferenceText .manageLink {
+.manageLink {
 	display: flex;
 	margin-block-start: 4px;
-	padding-inline: 0;
-	font-size: 12px;
-	font-weight: 400;
-}
-
-.instructionsEditor {
-	display: flex;
-	flex-direction: column;
-	padding-block: 16px 20px;
 }
 
 .instructionsHeader {
@@ -37,55 +28,6 @@
 	align-items: baseline;
 	justify-content: space-between;
 	gap: 8px;
-	color: var( --wpds-color-foreground-content-neutral );
-	font-size: 13px;
-	font-weight: 450;
-	line-height: 18px;
-}
-
-.instructionsDescription {
-	margin: 2px 0 12px;
-	color: var( --wpds-color-foreground-content-neutral-weak );
-	font-size: 12px;
-	line-height: 17.6px;
-}
-
-.instructionsTextarea {
-	box-sizing: border-box;
-	inline-size: 100%;
-	min-block-size: 200px;
-	padding: 8px 10px;
-	border: var( --wpds-border-width-xs ) solid
-		color-mix( in srgb, var( --wpds-color-foreground-content-neutral ) 10%, transparent );
-	border-radius: 9px;
-	background: color-mix( in srgb, var( --wpds-color-background-surface-neutral-strong ) 60%, transparent );
-	color: inherit;
-	font: inherit;
-	font-size: 13px;
-	line-height: 20px;
-	resize: vertical;
-}
-
-.instructionsTextarea::placeholder {
-	color: var( --wpds-color-foreground-content-neutral-weak );
-}
-
-.instructionsTextarea:focus-visible {
-	border-color: var( --wpds-color-stroke-focus );
-	outline: none;
-	box-shadow: inset 0 0 0 1px var( --wpds-color-stroke-focus );
-}
-
-.instructionsCounter {
-	font-size: 13px;
-	font-weight: 400;
-	color: var( --wpds-color-foreground-content-neutral-weak );
-}
-
-.instructionsError {
-	margin: 0;
-	font-size: var( --wpds-typography-font-size-sm );
-	color: var( --wpds-color-foreground-content-error );
 }
 
 .preferenceSectionGroup {
@@ -95,143 +37,68 @@
 	gap: 0;
 	padding: 4px 20px;
 	border-radius: 12px;
-	background: color-mix( in srgb, var( --wpds-color-foreground-content-neutral ) 5%, transparent );
+	background: var(--muted);
 }
 
 .preferenceSectionHeading {
 	margin: 16px 0 0;
-	color: var( --wpds-color-foreground-content-neutral );
-	font-size: 14px;
+	color: var(--foreground);
+	font-size: var(--text-sm);
 	font-weight: 500;
 	line-height: 20px;
 }
 
-.preferenceRow {
-	display: grid;
-	grid-template-columns: minmax( 0, 1fr ) max-content;
-	align-items: center;
-	column-gap: var( --wpds-dimension-padding-xl );
-	padding-block: 16px;
-	border-bottom: 1px solid
-		color-mix( in srgb, var( --wpds-color-foreground-content-neutral ) 8%, transparent );
+.groupLegend {
+	margin-block-end: 2px;
 }
 
-.preferenceRow:last-child,
-.shortcutRow:last-child {
-	border-bottom: 0;
+.groupDescription {
+	margin-block-end: 8px;
+	padding-inline: 20px;
 }
 
-.preferenceText {
+.rowTitle {
 	display: flex;
-	flex-direction: column;
-	gap: 2px;
-	min-width: 0;
+	align-items: center;
+	gap: 4px;
 }
 
-.preferenceText h2 {
-	margin: 0;
-	color: var( --wpds-color-foreground-content-neutral );
-	font-size: 13px;
-	font-weight: 450;
-	line-height: 18px;
+.linkButton {
+	opacity: 0;
 }
 
-.preferenceText p {
-	margin: 0;
-	color: var( --wpds-color-foreground-content-neutral-weak );
-	font-size: 12px;
-	line-height: 17.6px;
+.rowTitle:hover .linkButton,
+.linkButton:focus-visible,
+.linkButton[data-copied] {
+	opacity: 1;
 }
 
-.preferenceControl {
+@media ( hover: none ) {
+	.linkButton {
+		opacity: 1;
+	}
+}
+
+.settingsControl {
 	display: flex;
 	align-items: center;
 	gap: 8px;
-	justify-content: flex-end;
-	min-width: 0;
-	inline-size: 100%;
 }
 
-/* Description and toggle share the top line; the key field spans both columns
-   underneath. */
-.apiKeyRow {
-	row-gap: var( --wpds-dimension-padding-md );
+.settingsRow[data-orientation='vertical'] > .settingsControl {
+	flex-direction: column;
+	align-items: stretch;
 }
 
-.apiKeyControls {
-	grid-column: 1 / -1;
+@media ( max-width: 640px ) {
+	.settingsRow[data-orientation='horizontal'] {
+		flex-direction: column;
+		align-items: stretch;
+	}
 }
 
-.apiKeyControls :global( .components-base-control ) {
+.apiKeyInput {
 	max-inline-size: 420px;
-}
-
-/* Match the error message below the field. The accent overrides keep the
-   border and focus ring red while the input is focused. */
-.apiKeyControlsError :global( input.components-text-control__input ) {
-	--wp-admin-theme-color: var( --wpds-color-stroke-surface-error-strong );
-	--wp-components-color-accent: var( --wpds-color-stroke-surface-error-strong );
-
-	border-color: var( --wpds-color-stroke-surface-error-strong );
-}
-
-.selectControl:focus-visible {
-	outline: var( --wpds-border-width-focus ) solid var( --wpds-color-stroke-focus );
-	outline-offset: 2px;
-}
-
-/* Compact selects that size to their value, as in the settings rows. */
-.selectControl {
-	max-inline-size: 240px;
-}
-
-.selectControl :global( div:has( > [role='combobox'] ) ) {
-	border-color: color-mix( in srgb, var( --wpds-color-foreground-content-neutral ) 10%, transparent );
-	border-radius: 9px;
-	background: color-mix( in srgb, var( --wpds-color-background-surface-neutral-strong ) 60%, transparent );
-}
-
-.selectControl :global( [role='combobox'] ) {
-	padding-inline: 10px 6px;
-	font-size: 13px;
-	font-weight: 450;
-}
-
-.settingsGroup {
-	display: flex;
-	flex-direction: column;
-	gap: 8px;
-}
-
-.settingsGroupHeader {
-	display: flex;
-	flex-direction: column;
-	gap: 2px;
-	padding: 8px 20px 0;
-}
-
-.settingsGroupHeader h3 {
-	margin: 0;
-	color: var( --wpds-color-foreground-content-neutral );
-	font-size: 14px;
-	font-weight: 450;
-	line-height: 20px;
-}
-
-.settingsGroupHeader p {
-	margin: 0;
-	color: var( --wpds-color-foreground-content-neutral-weak );
-	font-size: 12px;
-	line-height: 17.6px;
-}
-
-.preferenceRowStacked {
-	grid-template-columns: minmax( 0, 1fr );
-	row-gap: 8px;
-}
-
-.preferenceRowStacked .preferenceControl {
-	justify-content: flex-start;
 }
 
 /* A text field that opens the folder picker. */
@@ -242,24 +109,24 @@
 	inline-size: 100%;
 	block-size: 36px;
 	padding: 0 10px;
-	border: var( --wpds-border-width-xs ) solid
-		color-mix( in srgb, var( --wpds-color-foreground-content-neutral ) 10%, transparent );
+	border: 1px solid
+		var(--border);
 	border-radius: 9px;
-	background: var( --wpds-color-background-interactive-neutral-weak );
-	color: var( --wpds-color-foreground-interactive-neutral );
-	font-family: var( --wpds-typography-font-family-body );
-	font-size: var( --wpds-typography-font-size-md );
-	line-height: var( --wpds-typography-line-height-sm );
+	background: transparent;
+	color: var(--foreground);
+	font-family: var(--font-sans);
+	font-size: var(--text-xs);
+	line-height: 20px;
 	text-align: start;
 	cursor: pointer;
 }
 
 .pathPickerButton:hover {
-	border-color: var( --wpds-color-stroke-interactive-neutral-active );
+	border-color: var(--muted-foreground);
 }
 
 .pathPickerButton:focus-visible {
-	outline: var( --wpds-border-width-focus ) solid var( --wpds-color-stroke-focus );
+	outline: var(--focus-width) solid var(--ring);
 	outline-offset: 2px;
 }
 
@@ -272,68 +139,16 @@
 }
 
 .pathPickerPlaceholder {
-	color: var( --wpds-color-foreground-interactive-neutral-disabled );
-}
-
-.cliHeader {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	gap: var( --wpds-dimension-padding-xl );
-}
-
-.cliHeading {
-	margin-block-end: 0;
-}
-
-.cliHeader :global( .components-form-toggle .components-form-toggle__track ) {
-	background-color: var( --wpds-color-background-track-neutral-weak );
-	border-color: var( --wpds-color-stroke-interactive-neutral );
-}
-
-.cliHeader :global( .components-form-toggle .components-form-toggle__thumb ) {
-	background-color: var( --wpds-color-background-thumb-neutral-weak );
-}
-
-.cliHeader :global( .components-form-toggle.is-checked .components-form-toggle__track ) {
-	background-color: var( --wpds-color-background-interactive-brand-strong );
-	border-color: var( --wpds-color-stroke-interactive-brand );
-}
-
-.cliHeader :global( .components-form-toggle.is-checked .components-form-toggle__thumb ) {
-	background-color: var( --wpds-color-foreground-interactive-brand-strong );
-}
-
-.cliHeader
-	:global(
-		.components-form-toggle .components-form-toggle__input:focus + .components-form-toggle__track
-	) {
-	box-shadow:
-		0 0 0 var( --wpds-border-width-focus ) var( --wpds-color-background-surface-neutral ),
-		0 0 0 calc( 2 * var( --wpds-border-width-focus ) ) var( --wpds-color-stroke-focus );
+	color: var(--muted-foreground);
 }
 
 .cliToggleTrigger {
 	display: inline-flex;
 }
 
-/* Disabled form controls swallow hover events, which would keep the wrapper's
-   tooltip from ever opening. */
-.cliToggleTrigger :global( input:disabled ) {
-	pointer-events: none;
-}
-
 .cliTooltip {
 	max-inline-size: 280px;
-	line-height: var( --wpds-typography-line-height-sm );
-}
-
-.cliDescription {
-	max-inline-size: 460px;
-	margin: 0;
-	color: var( --wpds-color-foreground-content-neutral-weak );
-	font-size: var( --wpds-typography-font-size-sm );
-	line-height: var( --wpds-typography-line-height-sm );
+	line-height: 20px;
 }
 
 .shortcutList {
@@ -346,24 +161,28 @@
 	display: grid;
 	grid-template-columns: minmax( 0, 1fr ) auto;
 	align-items: center;
-	column-gap: var( --wpds-dimension-padding-xl );
+	column-gap: 20px;
 	padding-block: 16px;
 	border-bottom: 1px solid
-		color-mix( in srgb, var( --wpds-color-foreground-content-neutral ) 8%, transparent );
+		var(--border);
+}
+
+.shortcutRow:last-child {
+	border-bottom: 0;
 }
 
 .shortcutName {
-	color: var( --wpds-color-foreground-content-neutral );
-	font-size: var( --wpds-typography-font-size-md );
-	font-weight: 400;
-	line-height: var( --wpds-typography-line-height-sm );
+	color: var(--foreground);
+	font-size: var(--text-xs);
+	font-weight: var(--font-weight-normal);
+	line-height: 20px;
 }
 
 .shortcutKeys {
 	display: flex;
 	align-items: center;
 	justify-content: flex-end;
-	gap: var( --wpds-dimension-padding-xs );
+	gap: 4px;
 	flex-wrap: wrap;
 }
 
@@ -374,30 +193,30 @@
 	justify-content: center;
 	min-inline-size: 26px;
 	min-block-size: 26px;
-	padding: 0 var( --wpds-dimension-padding-xs );
-	border: 1px solid var( --wpds-color-stroke-surface-neutral );
-	border-radius: var( --wpds-border-radius-sm );
-	background: var( --wpds-color-background-surface-neutral );
-	color: var( --wpds-color-foreground-content-neutral );
-	font-family: var( --wpds-typography-font-family-body );
-	font-size: var( --wpds-typography-font-size-xs );
+	padding: 0 4px;
+	border: 1px solid var(--border);
+	border-radius: 8px;
+	background: var(--chat);
+	color: var(--foreground);
+	font-family: var(--font-sans);
+	font-size: 11px;
 	font-weight: 500;
 	line-height: 1;
 }
 
 .errorMessage {
-	margin-block-end: var( --wpds-dimension-padding-md );
-	padding: var( --wpds-dimension-padding-sm ) var( --wpds-dimension-padding-md );
-	border: 1px solid color-mix( in srgb, var( --wpds-color-foreground-content-error ) 35%, transparent );
+	margin-block-end: 12px;
+	padding: 8px 12px;
+	border: 1px solid color-mix( in srgb, var(--destructive) 35%, transparent );
 	border-radius: 6px;
 	background: color-mix(
 		in srgb,
-		var( --wpds-color-foreground-content-error ) 8%,
-		var( --wpds-color-background-surface-neutral-strong )
+		var(--destructive) 8%,
+		var(--chrome)
 	);
-	color: var( --wpds-color-foreground-content-error );
-	font-size: var( --wpds-typography-font-size-sm );
-	line-height: var( --wpds-typography-line-height-sm );
+	color: var(--destructive);
+	font-size: var(--text-xxs);
+	line-height: 20px;
 }
 
 .usagePanel {
@@ -411,31 +230,31 @@
 	display: flex;
 	flex-direction: column;
 	align-items: stretch;
-	gap: var( --wpds-dimension-padding-lg );
+	gap: 16px;
 	padding: 20px;
 	border-radius: 12px;
-	background: color-mix( in srgb, var( --wpds-color-foreground-content-neutral ) 5%, transparent );
+	background: var(--muted);
 }
 
 .settingsPanelHeader {
 	display: flex;
 	flex-direction: column;
-	gap: var( --wpds-dimension-padding-xs );
+	gap: 4px;
 }
 
 .settingsPanelHeader h2 {
 	margin: 0;
-	color: var( --wpds-color-foreground-content-neutral );
-	font-size: var( --wpds-typography-font-size-lg );
-	font-weight: 600;
-	line-height: var( --wpds-typography-line-height-md );
+	color: var(--foreground);
+	font-size: 15px;
+	font-weight: var(--font-weight-semibold);
+	line-height: 24px;
 }
 
 .settingsPanelHeader p {
 	margin: 0;
-	color: var( --wpds-color-foreground-content-neutral-weak );
-	font-size: var( --wpds-typography-font-size-sm );
-	line-height: var( --wpds-typography-line-height-md );
+	color: var(--muted-foreground);
+	font-size: var(--text-xxs);
+	line-height: 24px;
 }
 
 
@@ -446,10 +265,10 @@
 
 
 .sectionIntro {
-	margin: 0 0 var( --wpds-dimension-padding-lg );
-	color: var( --wpds-color-foreground-content-neutral-weak );
-	font-size: var( --wpds-typography-font-size-sm );
-	line-height: var( --wpds-typography-line-height-md );
+	margin: 0 0 16px;
+	color: var(--muted-foreground);
+	font-size: var(--text-xxs);
+	line-height: 24px;
 }
 
 .codeBlockWrap {
@@ -458,74 +277,30 @@
 
 .codeBlock {
 	margin: 0;
-	padding: var( --wpds-dimension-padding-md );
-	padding-inline-end: calc( var( --wpds-dimension-padding-xl ) + 32px );
-	border: 1px solid var( --wpds-color-stroke-surface-neutral );
+	padding: 12px;
+	padding-inline-end: calc( 20px + 32px );
+	border: 1px solid var(--border);
 	border-radius: 6px;
-	background: var( --wpds-color-background-surface-neutral );
-	color: var( --wpds-color-foreground-content-neutral );
-	font-family: var(
-		--wpds-typography-font-family-mono,
-		ui-monospace,
-		SFMono-Regular,
-		Menlo,
-		monospace
-	);
-	font-size: var( --wpds-typography-font-size-sm );
-	line-height: var( --wpds-typography-line-height-md );
+	background: var(--chat);
+	color: var(--foreground);
+	font-family: var(--font-mono);
+	font-size: var(--text-xxs);
+	line-height: 24px;
 	overflow-x: auto;
 	white-space: pre;
 }
 
 .codeBlockCopyButton {
 	position: absolute;
-	inset-block-start: var( --wpds-dimension-padding-sm );
-	inset-inline-end: var( --wpds-dimension-padding-sm );
+	inset-block-start: 8px;
+	inset-inline-end: 8px;
 	z-index: 1;
-}
-
-.toggleControl :global( .components-form-toggle .components-form-toggle__track ) {
-	border-color: transparent;
-	background-color: color-mix( in srgb, var( --wpds-color-foreground-content-neutral ) 12%, transparent );
-}
-
-.toggleControl :global( .components-form-toggle .components-form-toggle__thumb ) {
-	border: 0;
-	background-color: var( --wpds-color-foreground-interactive-brand-strong );
-	box-shadow: 0 1px 2px rgba( 0, 0, 0, 0.2 );
-}
-
-.toggleControl :global( .components-form-toggle.is-checked .components-form-toggle__track ) {
-	border-color: transparent;
-	background-color: var( --wpds-color-background-interactive-brand-strong );
-}
-
-.toggleControl :global( .components-form-toggle.is-checked .components-form-toggle__thumb ) {
-	background-color: var( --wpds-color-foreground-interactive-brand-strong );
-}
-
-.toggleControl
-	:global(
-		.components-form-toggle .components-form-toggle__input:focus + .components-form-toggle__track
-	) {
-	box-shadow:
-		0 0 0 var( --wpds-border-width-focus ) var( --wpds-color-background-surface-neutral ),
-		0 0 0 calc( 2 * var( --wpds-border-width-focus ) ) var( --wpds-color-stroke-focus );
-}
-
-@media ( max-width: 640px ) {
-	.preferenceRow {
-		align-items: stretch;
-		grid-template-columns: 1fr;
-		row-gap: var( --wpds-dimension-padding-sm );
-	}
-
 }
 
 .wapuuScoreHeading {
 	display: inline-flex;
 	align-items: center;
-	gap: var( --wpds-dimension-padding-xs );
+	gap: 4px;
 }
 
 .wapuuScoreIcon {
@@ -535,7 +310,7 @@
 .wapuuScoreBody {
 	display: flex;
 	align-items: center;
-	gap: var( --wpds-dimension-padding-xl );
+	gap: 20px;
 }
 
 .wapuuScoreMeter {
@@ -543,12 +318,12 @@
 	flex: 1;
 	min-width: 0;
 	flex-direction: column;
-	gap: var( --wpds-dimension-padding-sm );
+	gap: 8px;
 }
 
 .wapuuScoreValue {
-	color: var( --wpds-color-foreground-content-neutral-weak );
-	font-size: var( --wpds-typography-font-size-sm );
+	color: var(--muted-foreground);
+	font-size: var(--text-xxs);
 }
 
 /* Signed out or offline: grey the whole card, since none of it is live. */
@@ -557,15 +332,15 @@
 .usageDisabled .usageSectionHeader h2,
 .usageDisabled .previewUsageText,
 .usageDisabled .usageSection p {
-	color: var( --wpds-color-foreground-interactive-neutral-disabled );
+	color: var(--muted-foreground);
 }
 
 .usageDisabled .progressTrack {
-	background: var( --wpds-color-background-interactive-neutral-weak-disabled );
+	background: transparent;
 }
 
 .usageDisabled .progressValue {
-	background: var( --wpds-color-foreground-interactive-neutral-disabled );
+	background: var(--muted-foreground);
 }
 
 /* Hatched stand-in for a meter with no figure behind it — same 135deg stripe
@@ -576,20 +351,20 @@
 	border-radius: 999px;
 	background: repeating-linear-gradient(
 			135deg,
-			color-mix( in srgb, var( --wpds-color-foreground-interactive-neutral-disabled ) 22%, transparent ) 0
+			color-mix( in srgb, var(--muted-foreground) 22%, transparent ) 0
 				3px,
 			transparent 3px 8px
 		),
-		var( --wpds-color-background-interactive-neutral-weak-disabled );
+		transparent;
 }
 
 .usageSection {
 	display: flex;
 	flex-direction: column;
 	align-items: stretch;
-	gap: var( --wpds-dimension-padding-md );
-	padding-block: var( --wpds-dimension-padding-lg );
-	border-top: 1px solid var( --wpds-color-stroke-surface-neutral );
+	gap: 12px;
+	padding-block: 16px;
+	border-top: 1px solid var(--border);
 }
 
 .usageSection:last-child {
@@ -600,29 +375,29 @@
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	gap: var( --wpds-dimension-padding-md );
+	gap: 12px;
 	min-width: 0;
 }
 
 .usageSectionHeader h2 {
 	margin: 0;
-	color: var( --wpds-color-foreground-content-neutral );
-	font-size: var( --wpds-typography-font-size-md );
-	font-weight: 600;
-	line-height: var( --wpds-typography-line-height-sm );
+	color: var(--foreground);
+	font-size: var(--text-xs);
+	font-weight: var(--font-weight-semibold);
+	line-height: 20px;
 }
 
 .usageSection p {
 	margin: 0;
-	color: var( --wpds-color-foreground-content-neutral-weak );
-	font-size: var( --wpds-typography-font-size-sm );
-	line-height: var( --wpds-typography-line-height-sm );
+	color: var(--muted-foreground);
+	font-size: var(--text-xxs);
+	line-height: 20px;
 }
 
 .previewUsageText {
-	color: var( --wpds-color-foreground-content-neutral-weak );
-	font-size: var( --wpds-typography-font-size-sm );
-	line-height: var( --wpds-typography-line-height-sm );
+	color: var(--muted-foreground);
+	font-size: var(--text-xxs);
+	line-height: 20px;
 }
 
 .progressTrack {
@@ -630,66 +405,66 @@
 	inline-size: 100%;
 	block-size: 6px;
 	border-radius: 999px;
-	background: var( --wpds-color-stroke-surface-neutral );
+	background: var(--border);
 }
 
 .progressValue {
 	block-size: 100%;
 	border-radius: inherit;
-	background: var( --wpds-color-foreground-content-neutral );
+	background: var(--foreground);
 }
 
 /* Escalation colors for the AI credits meter (80% / 90% / exhausted). The
-   filters brighten the wpds caution/warning weak tokens toward the design's
-   yellow and orange — taken as-is from the usage-interfaces exploration. */
+   filters brighten the warning token toward the design's yellow and orange —
+   taken as-is from the usage-interfaces exploration. */
 .progressValueWarning {
-	background: var( --wpds-color-foreground-content-caution-weak );
+	background: var(--warning);
 	filter: saturate( 2 ) brightness( 1.8 );
 }
 
 .progressValueCritical {
-	background: var( --wpds-color-foreground-content-warning-weak );
+	background: var(--warning);
 	filter: saturate( 1.6 ) brightness( 1.35 );
 }
 
 .progressValueExhausted {
-	background: var( --wpds-color-background-interactive-error-strong );
+	background: var(--destructive);
 }
 
 .creditMeter {
 	display: flex;
 	flex-direction: column;
-	gap: var( --wpds-dimension-padding-xs );
+	gap: 4px;
 }
 
 .creditMeterSummary {
 	display: flex;
 	align-items: baseline;
 	justify-content: space-between;
-	gap: var( --wpds-dimension-padding-md );
+	gap: 12px;
 }
 
 .creditMeterCredits {
-	color: var( --wpds-color-foreground-content-neutral-weak );
-	font-size: var( --wpds-typography-font-size-sm );
+	color: var(--muted-foreground);
+	font-size: var(--text-xxs);
 	font-variant-numeric: tabular-nums;
-	line-height: var( --wpds-typography-line-height-sm );
+	line-height: 20px;
 }
 
 .creditMeterAvailable {
 	flex: none;
-	color: var( --wpds-color-foreground-content-neutral );
-	font-size: var( --wpds-typography-font-size-sm );
-	font-weight: 600;
+	color: var(--foreground);
+	font-size: var(--text-xxs);
+	font-weight: var(--font-weight-semibold);
 	font-variant-numeric: tabular-nums;
-	line-height: var( --wpds-typography-line-height-sm );
+	line-height: 20px;
 }
 
 .creditCallout {
 	display: flex;
 	align-items: center;
 	flex-wrap: wrap;
-	gap: var( --wpds-dimension-padding-md );
+	gap: 12px;
 }
 
 .creditCallout > :first-child {
@@ -698,34 +473,21 @@
 
 .creditCalloutText {
 	min-width: 0;
-	color: var( --wpds-color-foreground-content-neutral-weak );
-	font-size: var( --wpds-typography-font-size-sm );
-	line-height: var( --wpds-typography-line-height-sm );
-}
-
-.previewActionsButton {
-	flex-shrink: 0;
+	color: var(--muted-foreground);
+	font-size: var(--text-xxs);
+	line-height: 20px;
 }
 
 .aiCreditsHeading {
 	display: flex;
 	align-items: center;
-	gap: var( --wpds-dimension-padding-xs );
-}
-
-.aiCreditsDetailsButton {
-	flex: none;
-}
-
-.aiCreditsDetailsButton svg {
-	inline-size: 16px;
-	block-size: 16px;
+	gap: 4px;
 }
 
 .creditBalances {
 	display: flex;
 	flex-direction: column;
-	gap: var( --wpds-dimension-padding-xs );
+	gap: 4px;
 	font-variant-numeric: tabular-nums;
 }
 
@@ -733,8 +495,8 @@
 	position: relative;
 	background: color-mix(
 		in srgb,
-		var( --wpds-color-foreground-interactive-brand ) 14%,
-		var( --wpds-color-stroke-surface-neutral )
+		var(--accent-text) 14%,
+		var(--border)
 	);
 }
 
@@ -744,12 +506,12 @@
 	border-radius: inherit;
 	background: linear-gradient(
 			90deg,
-			color-mix( in srgb, var( --wpds-color-foreground-interactive-brand ) 32%, transparent ),
-			color-mix( in srgb, var( --wpds-color-foreground-interactive-brand ) 14%, transparent )
+			color-mix( in srgb, var(--accent-text) 32%, transparent ),
+			color-mix( in srgb, var(--accent-text) 14%, transparent )
 		),
 		repeating-linear-gradient(
 			135deg,
-			color-mix( in srgb, var( --wpds-color-foreground-interactive-brand ) 18%, transparent ) 0 8px,
+			color-mix( in srgb, var(--accent-text) 18%, transparent ) 0 8px,
 			transparent 8px 16px
 		);
 }
@@ -758,7 +520,7 @@
 	padding: 0;
 	border: 0;
 	background: none;
-	color: var( --wpds-color-foreground-interactive-brand );
+	color: var(--accent-text);
 	font: inherit;
 	cursor: pointer;
 }
@@ -766,7 +528,7 @@
 .previewExpired > .inlineLink {
 	margin-inline: 16px;
 	margin-block-end: 16px;
-	color: var( --wpds-color-foreground-content-neutral-weak );
+	color: var(--muted-foreground);
 }
 
 .inlineLink:hover {
@@ -790,7 +552,7 @@
 	padding: 0;
 	border: 0;
 	background: none;
-	color: var( --wpds-color-foreground-interactive-brand );
+	color: var(--accent-text);
 	font: inherit;
 	text-align: start;
 	text-overflow: ellipsis;
@@ -807,22 +569,12 @@
 	gap: 4px;
 }
 
-.previewActions button {
-	--wp-ui-button-foreground-color: var( --wpds-color-foreground-content-neutral-weak );
-}
-
-.previewRename {
-	padding-block: 16px;
-	border-bottom: 1px solid
-		color-mix( in srgb, var( --wpds-color-foreground-content-neutral ) 8%, transparent );
-}
-
 .previewIllustration {
 	width: 176px;
 	overflow: hidden;
-	border: 1px solid color-mix( in srgb, var( --wpds-color-foreground-content-neutral ) 10%, transparent );
+	border: 1px solid var(--border);
 	border-radius: 12px;
-	background: var( --wpds-color-background-surface-neutral-strong );
+	background: var(--chrome);
 	box-shadow: 0 1px 2px rgb( 0 0 0 / 5% );
 }
 
@@ -831,17 +583,17 @@
 	justify-content: flex-end;
 	padding: 8px 12px;
 	border-bottom: 1px solid
-		color-mix( in srgb, var( --wpds-color-foreground-content-neutral ) 10%, transparent );
+		var(--border);
 }
 
 .previewIllustrationButton {
 	padding: 2px 8px;
-	border: 1px solid color-mix( in srgb, var( --wpds-color-foreground-content-neutral ) 10%, transparent );
+	border: 1px solid var(--border);
 	border-radius: 6px;
 	box-shadow: 0 0 0 3px
-		color-mix( in srgb, var( --wpds-color-background-interactive-brand-strong ) 25%, transparent );
-	font-size: 12px;
-	font-weight: 450;
+		color-mix( in srgb, var(--accent) 25%, transparent );
+	font-size: var(--text-xxs);
+	font-weight: var(--font-weight-medium);
 }
 
 .previewIllustration img {
@@ -850,4 +602,20 @@
 	aspect-ratio: 2 / 1;
 	object-fit: cover;
 	object-position: top;
+}
+
+.dialogError {
+	margin: 0;
+	color: var(--destructive);
+}
+
+.pathForm {
+	display: flex;
+	gap: 8px;
+}
+
+.keyForm {
+	display: flex;
+	align-items: center;
+	gap: 8px;
 }

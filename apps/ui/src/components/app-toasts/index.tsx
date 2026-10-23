@@ -1,15 +1,17 @@
 import { __ } from '@wordpress/i18n';
 import { closeSmall, Icon, info } from '@wordpress/icons';
-import { Button, IconButton } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useEffect } from 'react';
 import { CopyNoticeButton, openNoticeHistory } from '@/components/notice-history';
+import { Button, IconButton } from '@/components/ui/button';
+import { Spinner } from '@/components/ui/spinner';
 import {
 	dismissToast,
 	notifyRendererMounted,
 	notifyRendererUnmounted,
 	pauseToastExpiry,
 	resumeToastExpiry,
+	runToastAction,
 	useQueuedToasts,
 	useVisibleToasts,
 	type ToastIntent,
@@ -71,11 +73,12 @@ export function AppToasts() {
 								<p className={ styles.title }>{ item.title }</p>
 								{ item.action ? (
 									<Button
-										variant="solid"
-										tone="neutral"
-										className={ clsx( styles.action, 'studio-control' ) }
-										onClick={ item.action.onClick }
+										size="sm"
+										disabled={ item.actionPending }
+										aria-busy={ item.actionPending || undefined }
+										onClick={ () => void runToastAction( item.id ) }
 									>
+										{ item.actionPending ? <Spinner aria-hidden="true" /> : null }
 										{ item.action.label }
 									</Button>
 								) : null }
@@ -85,13 +88,8 @@ export function AppToasts() {
 							) : null }
 							{ hasErrorDetails( item ) ? (
 								<div className={ styles.details }>
-									<CopyNoticeButton notice={ item } variant="outline" />
-									<Button
-										size="small"
-										variant="outline"
-										tone="neutral"
-										onClick={ openNoticeHistory }
-									>
+									<CopyNoticeButton notice={ item } />
+									<Button variant="outline" size="2xs" onClick={ openNoticeHistory }>
 										{ __( 'More' ) }
 									</Button>
 								</div>
@@ -100,9 +98,9 @@ export function AppToasts() {
 								className={ styles.close }
 								icon={ closeSmall }
 								label={ __( 'Dismiss' ) }
-								size="small"
 								variant="outline"
-								tone="neutral"
+								size="icon-2xs"
+								shape="round"
 								onClick={ () => dismissToast( item.id ) }
 							/>
 						</div>

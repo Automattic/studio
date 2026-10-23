@@ -2,10 +2,12 @@ import { DESIGN_SYSTEM_PREVIEW_PATH } from '@studio/common/ai/chat-artifacts';
 import { TRACKS_EVENTS, type TracksEventName } from '@studio/common/lib/record-tracks-event';
 import { __ } from '@wordpress/i18n';
 import { cog, external, Icon, styles as stylesIcon, wordpress } from '@wordpress/icons';
-import { Tooltip, VisuallyHidden } from '@wordpress/ui';
 import { useEffect, useRef, useState } from 'react';
-import * as Popover from '@/components/popover';
 import { SiteIcon } from '@/components/site-icon';
+import { Button } from '@/components/ui/button';
+import * as Popover from '@/components/ui/popover';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { VisuallyHidden } from '@/components/ui/visually-hidden';
 import { databaseIcon } from '@/lib/icons';
 import styles from './address-bar.module.css';
 import type { SiteDetails } from '@/data/core';
@@ -179,21 +181,22 @@ function AddressAction( {
 	onClick: () => void;
 } ) {
 	return (
-		<Tooltip.Root>
-			<Tooltip.Trigger
+		<Tooltip>
+			<TooltipTrigger
 				render={
-					<button
-						type="button"
-						className={ styles.action }
+					<Button
+						variant="muted-ghost"
+						size="icon-xs"
+						shape="round"
 						aria-label={ label }
 						onClick={ onClick }
 					/>
 				}
 			>
-				<Icon icon={ icon } size={ 18 } />
-			</Tooltip.Trigger>
-			<Tooltip.Popup positioner={ <Tooltip.Positioner side="bottom" /> }>{ tooltip }</Tooltip.Popup>
-		</Tooltip.Root>
+				<Icon icon={ icon } />
+			</TooltipTrigger>
+			<TooltipContent side="bottom">{ tooltip }</TooltipContent>
+		</Tooltip>
 	);
 }
 
@@ -323,7 +326,7 @@ export function PreviewAddressBar( {
 				finalFocus={ false }
 				className={ styles.shortcutsPopup }
 			>
-				<VisuallyHidden render={ <Popover.Title /> }>{ __( 'Preview shortcuts' ) }</VisuallyHidden>
+				<Popover.Title render={ <VisuallyHidden /> }>{ __( 'Preview shortcuts' ) }</Popover.Title>
 				<div className={ styles.shortcutsList }>
 					<Popover.Close className={ styles.shortcut } onClick={ () => chooseRealm( 'frontend' ) }>
 						{ renderRealmIcon( 'frontend', styles.shortcutSiteIcon ) }

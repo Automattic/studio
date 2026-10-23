@@ -20,9 +20,8 @@ const SELF_HANDLING_KEY = [
  * Makes Return activate a dialog's confirm button from anywhere inside it,
  * the way a default button behaves on macOS.
  *
- * The button is found by its label because the wpds `AlertDialog` renders its
- * own footer — we hand it `confirmButtonText` but never see the element. A
- * missed match therefore does nothing rather than firing the wrong action.
+ * The button is found by its label, so a missed match does nothing rather
+ * than firing the wrong action.
  *
  * Returns a `keydown` handler for the dialog's `Popup`.
  */

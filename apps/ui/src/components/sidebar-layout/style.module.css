@@ -1,12 +1,12 @@
 .root {
 	/* The sidebar and its sticky header/footer share one surface. */
-	--studio-sidebar-bg: var(--wpds-color-background-surface-neutral-strong);
+	--studio-sidebar-bg: var(--chrome);
 
 	position: relative;
 	display: flex;
 	height: 100vh;
 	overflow: hidden;
-	background-color: var(--wpds-color-background-surface-neutral);
+	background-color: var(--chat);
 }
 
 .sidebar {
@@ -37,7 +37,7 @@
 	flex-shrink: 0;
 	width: var(--sidebar-width, 320px);
 	overflow: hidden;
-	transition: width var(--studio-motion-layout-duration) var(--studio-motion-layout-easing);
+	transition: width var(--motion-duration-layout) var(--motion-ease-layout);
 }
 
 /* While dragging the handle the width updates every frame; the collapse
@@ -68,20 +68,20 @@
    that keeps its toggle, instead of taking the content's width. */
 .sidebarOverlay {
 	position: absolute;
-	top: var(--studio-band-height);
+	top: var(--band-height);
 	bottom: 0;
 	inset-inline-start: 0;
 	z-index: 40;
 }
 
 .sidebarOverlay .sidebar {
-	border-inline-end: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral);
+	border-inline-end: 1px solid var(--border);
 }
 
 /* Clicking anywhere else closes the overlay. */
 .overlayBackdrop {
 	position: absolute;
-	inset: var(--studio-band-height) 0 0;
+	inset: var(--band-height) 0 0;
 	z-index: 39;
 	padding: 0;
 	border: 0;
@@ -118,10 +118,10 @@
 
 .resizeHandle span {
 	margin-inline-start: -2px;
-	background-color: var(--wpds-color-foreground-interactive-brand);
+	background-color: var(--accent-text);
 }
 
 .sidebarCards {
-	padding: var(--wpds-dimension-padding-sm) calc(var(--wpds-dimension-padding-lg) - var(--wpds-dimension-padding-sm)) 0;
+	padding: 8px calc(16px - 8px) 0;
 }
 

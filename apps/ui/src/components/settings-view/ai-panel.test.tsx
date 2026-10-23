@@ -1,41 +1,15 @@
 import '@testing-library/jest-dom/vitest';
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { useAiSettings, useSaveAnthropicApiKey } from '@/data/queries/use-ai-settings';
+import {
+	useAiSettings,
+	useSaveAnthropicApiKey,
+	useSetAiProvider,
+} from '@/data/queries/use-ai-settings';
+import { useAuthUser, useLogin } from '@/data/queries/use-auth-user';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
 import { AiPanel } from './ai-panel';
 import type { AiSettings } from '@studio/common/ai/providers';
-
-vi.mock( '@wordpress/components', () => ( {
-	FormToggle: ( props: {
-		checked: boolean;
-		disabled?: boolean;
-		'aria-label'?: string;
-		onChange: () => void;
-	} ) => (
-		<input
-			type="checkbox"
-			aria-label={ props[ 'aria-label' ] }
-			checked={ props.checked }
-			disabled={ props.disabled }
-			onChange={ props.onChange }
-		/>
-	),
-	TextControl: ( props: {
-		value: string;
-		label?: string;
-		placeholder?: string;
-		onChange: ( value: string ) => void;
-	} ) => (
-		<input
-			type="password"
-			aria-label={ props.label }
-			placeholder={ props.placeholder }
-			value={ props.value }
-			onChange={ ( event ) => props.onChange( event.target.value ) }
-		/>
-	),
-} ) );
 
 vi.mock( '@/data/queries/use-user-preferences', () => ( {
 	useUserPreferences: vi.fn(),
@@ -45,147 +19,126 @@ vi.mock( '@/data/queries/use-user-preferences', () => ( {
 vi.mock( '@/data/queries/use-ai-settings', () => ( {
 	useAiSettings: vi.fn(),
 	useSaveAnthropicApiKey: vi.fn(),
+	useSetAiProvider: vi.fn(),
 } ) );
 
-vi.mock( './studio-code-panel', () => ( {
-	StudioCodePanel: () => <div data-testid="studio-code-panel" />,
+vi.mock( '@/data/queries/use-auth-user', () => ( {
+	useAuthUser: vi.fn(),
+	useLogin: vi.fn(),
 } ) );
 
-const useUserPreferencesMock = vi.mocked( useUserPreferences );
-const useSaveUserPreferencesMock = vi.mocked( useSaveUserPreferences );
-const useAiSettingsMock = vi.mocked( useAiSettings );
-const useSaveAnthropicApiKeyMock = vi.mocked( useSaveAnthropicApiKey );
+vi.mock( '@/components/learn-more', () => ( { LearnMoreLink: () => null } ) );
+vi.mock( '@/hooks/use-offline', () => ( { useOffline: () => false } ) );
+
+const SIGNED_OUT = { provider: 'wpcom', hasAnthropicApiKey: false, anthropicApiKeyPreview: null };
 
 describe( 'AiPanel', () => {
-	const mutate = vi.fn();
+	const savePreferences = vi.fn();
 	const saveKey = vi.fn();
+	const setProvider = vi.fn();
+	const signup = vi.fn();
+	const onManageCredits = vi.fn();
 
-	function mockPreferences( agenticFeaturesEnabled: boolean, isLoading = false ) {
-		useUserPreferencesMock.mockReturnValue( {
-			data: { agenticFeaturesEnabled },
-			isLoading,
-		} as never );
-	}
-
-	function mockAiSettings( settings: AiSettings | undefined ) {
-		useAiSettingsMock.mockReturnValue( { data: settings } as never );
+	function mockAiSettings( settings: AiSettings ) {
+		vi.mocked( useAiSettings ).mockReturnValue( { data: settings } as never );
 	}
 
 	beforeEach( () => {
 		vi.clearAllMocks();
-		useSaveUserPreferencesMock.mockReturnValue( { mutate } as never );
-		useSaveAnthropicApiKeyMock.mockReturnValue( {
+		vi.mocked( useUserPreferences ).mockReturnValue( {
+			data: { agenticFeaturesEnabled: true },
+			isLoading: false,
+		} as never );
+		vi.mocked( useSaveUserPreferences ).mockReturnValue( { mutate: savePreferences } as never );
+		vi.mocked( useSaveAnthropicApiKey ).mockReturnValue( {
 			mutate: saveKey,
+			mutateAsync: saveKey,
 			isPending: false,
 			error: null,
 		} as never );
-		mockAiSettings( undefined );
-		mockPreferences( true );
+		vi.mocked( useSetAiProvider ).mockReturnValue( {
+			mutate: setProvider,
+			mutateAsync: setProvider,
+			isPending: false,
+			error: null,
+		} as never );
+		vi.mocked( useAuthUser ).mockReturnValue( { data: null } as never );
+		vi.mocked( useLogin ).mockReturnValue( { mutate: signup, isPending: false } as never );
+		mockAiSettings( SIGNED_OUT as AiSettings );
 	} );
 
-	it( 'turns agentic features off', () => {
-		render( <AiPanel /> );
+	it( 'turns Studio Code off', () => {
+		render( <AiPanel onManageCredits={ onManageCredits } /> );
 
-		const toggle = screen.getByRole( 'checkbox', { name: 'Studio Code' } );
-		expect( toggle ).toBeChecked();
+		fireEvent.click( screen.getByRole( 'switch', { name: 'Studio Code' } ) );
 
-		fireEvent.click( toggle );
-
-		expect( mutate ).toHaveBeenCalledWith( { agenticFeaturesEnabled: false } );
+		expect( savePreferences ).toHaveBeenCalledWith( { agenticFeaturesEnabled: false } );
 	} );
 
-	it( 'turns agentic features back on', () => {
-		mockPreferences( false );
-		render( <AiPanel /> );
+	it( 'connects an Anthropic key without a WordPress.com account and makes it the provider', async () => {
+		render( <AiPanel onManageCredits={ onManageCredits } /> );
 
-		const toggle = screen.getByRole( 'checkbox', { name: 'Studio Code' } );
-		expect( toggle ).not.toBeChecked();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Connect', expanded: false } ) );
+		fireEvent.change( screen.getByLabelText( 'Anthropic API key' ), {
+			target: { value: '  sk-ant-test-1234  ' },
+		} );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Save' } ) );
 
-		fireEvent.click( toggle );
-
-		expect( mutate ).toHaveBeenCalledWith( { agenticFeaturesEnabled: true } );
+		await waitFor( () => expect( setProvider ).toHaveBeenCalledWith( 'anthropic-api-key' ) );
+		expect( saveKey ).toHaveBeenCalledWith( 'sk-ant-test-1234' );
+		expect( screen.queryByLabelText( 'Anthropic API key' ) ).not.toBeInTheDocument();
 	} );
 
-	it( 'saves the trimmed key after the user stops typing', async () => {
-		vi.useFakeTimers();
-		try {
-			mockAiSettings( {
-				provider: 'wpcom',
-				hasAnthropicApiKey: false,
-				anthropicApiKeyPreview: null,
-			} );
-			render( <AiPanel /> );
-
-			fireEvent.change( screen.getByLabelText( 'Anthropic API key' ), {
-				target: { value: '  sk-ant-test-1234  ' },
-			} );
-			expect( saveKey ).not.toHaveBeenCalled();
-
-			act( () => {
-				vi.advanceTimersByTime( 800 );
-			} );
-
-			expect( saveKey ).toHaveBeenCalledWith( 'sk-ant-test-1234' );
-		} finally {
-			vi.useRealTimers();
-		}
-	} );
-
-	it( 'clears the saved key when the field is emptied', async () => {
-		vi.useFakeTimers();
-		try {
-			mockAiSettings( {
-				provider: 'anthropic-api-key',
-				hasAnthropicApiKey: true,
-				anthropicApiKeyPreview: 'sk-ant-api03-tes...1234',
-			} );
-			render( <AiPanel /> );
-
-			const input = screen.getByLabelText( 'Anthropic API key' );
-			fireEvent.change( input, { target: { value: 'sk-ant-test-1234' } } );
-			fireEvent.change( input, { target: { value: '' } } );
-			act( () => {
-				vi.advanceTimersByTime( 800 );
-			} );
-
-			expect( saveKey ).toHaveBeenCalledWith( null );
-		} finally {
-			vi.useRealTimers();
-		}
-	} );
-
-	it( 'leaves the provider choice to the conversation, not a toggle', () => {
+	it( 'removes a saved key', () => {
 		mockAiSettings( {
 			provider: 'anthropic-api-key',
 			hasAnthropicApiKey: true,
 			anthropicApiKeyPreview: 'sk-ant-api03-tes...1234',
 		} );
-		render( <AiPanel /> );
+		render( <AiPanel onManageCredits={ onManageCredits } /> );
 
-		expect( screen.getByLabelText( 'Anthropic API key' ) ).toBeInTheDocument();
-		expect(
-			screen.queryByRole( 'checkbox', { name: 'Use your Anthropic API key' } )
-		).not.toBeInTheDocument();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Manage' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Remove key' } ) );
+
+		expect( saveKey ).toHaveBeenCalledWith( null, expect.anything() );
 	} );
 
 	it( 'shows why saving the key failed', () => {
-		mockAiSettings( {
-			provider: 'wpcom',
-			hasAnthropicApiKey: false,
-			anthropicApiKeyPreview: null,
-		} );
-		useSaveAnthropicApiKeyMock.mockReturnValue( {
+		vi.mocked( useSaveAnthropicApiKey ).mockReturnValue( {
 			mutate: saveKey,
 			isPending: false,
 			error: new Error( 'Anthropic rejected this API key. Check the key and try again.' ),
 		} as never );
-		render( <AiPanel /> );
+		render( <AiPanel onManageCredits={ onManageCredits } /> );
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Connect', expanded: false } ) );
 
 		expect(
 			screen.getByText( 'Anthropic rejected this API key. Check the key and try again.' )
 		).toBeInTheDocument();
-		expect(
-			screen.getByLabelText( 'Anthropic API key' ).closest( '[class*="apiKeyControlsError"]' )
-		).not.toBeNull();
+	} );
+
+	it( 'connects WordPress.com through sign-up, then makes it the provider', () => {
+		const { rerender } = render( <AiPanel onManageCredits={ onManageCredits } /> );
+
+		fireEvent.click( screen.getAllByRole( 'button', { name: 'Connect' } )[ 0 ] );
+		expect( vi.mocked( useLogin ) ).toHaveBeenCalledWith( { signup: true, source: 'settings' } );
+		expect( signup ).toHaveBeenCalled();
+		expect( setProvider ).not.toHaveBeenCalled();
+
+		vi.mocked( useAuthUser ).mockReturnValue( { data: { id: 1 } } as never );
+		rerender( <AiPanel onManageCredits={ onManageCredits } /> );
+
+		expect( setProvider ).toHaveBeenCalledWith( 'wpcom' );
+	} );
+
+	it( 'manages WordPress.com credits once connected', () => {
+		vi.mocked( useAuthUser ).mockReturnValue( { data: { id: 1 } } as never );
+		render( <AiPanel onManageCredits={ onManageCredits } /> );
+
+		expect( screen.getByText( 'Connected' ) ).toBeInTheDocument();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Manage' } ) );
+
+		expect( onManageCredits ).toHaveBeenCalled();
 	} );
 } );

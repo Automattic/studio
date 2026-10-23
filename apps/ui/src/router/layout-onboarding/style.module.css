@@ -4,11 +4,6 @@
 	padding-bottom: 72px;
 }
 
-.page form {
-	max-width: 480px;
-	margin-inline: auto;
-	text-align: left;
-}
 
 /* Typography comes from the universal `h1` rule in index.css — this class
    only layers on the layout spacing above the subtitle. */
@@ -21,22 +16,8 @@
 }
 
 .subtitle {
-	color: var(--wpds-color-foreground-content-neutral-weak);
+	color: var(--muted-foreground);
 	margin: 0 0 32px;
-}
-
-.progress {
-	position: fixed;
-	top: 24px;
-	left: 50%;
-	z-index: 10;
-	margin: 0;
-	padding: 8px 12px;
-	transform: translateX(-50%);
-	border-radius: 4px;
-	background: var(--wpds-color-background-surface-neutral-strong);
-	color: var(--wpds-color-foreground-content-neutral);
-	box-shadow: 0 2px 3px 0 rgba(0, 0, 0, 0.05), 0 4px 5px 0 rgba(0, 0, 0, 0.04), 0 12px 12px 0 rgba(0, 0, 0, 0.03), 0 16px 16px 0 rgba(0, 0, 0, 0.02);
 }
 
 .outlet h1:focus:not(:focus-visible) {
@@ -56,7 +37,7 @@
 .glassSurface {
 	background: color-mix(
 		in srgb,
-		var(--wpds-color-background-surface-neutral-strong) var(--surface-alpha, 50%),
+		var(--chrome) var(--surface-alpha, 50%),
 		transparent
 	);
 	backdrop-filter: blur(12px);

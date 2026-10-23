@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { writeLastVisited } from '@/lib/last-visited';
+import { rememberVisit } from '@/lib/last-visited';
 import { indexRoute } from './index';
 import type { AiSessionSummary, SiteDetails } from '@/data/core';
 
@@ -52,7 +52,15 @@ async function runBeforeLoad(
 	try {
 		await indexRoute.options.beforeLoad?.( { context } as never );
 	} catch ( thrown ) {
-		return ( thrown as { options: { to: string; params?: Record< string, string > } } ).options;
+		return (
+			thrown as {
+				options: {
+					to: string;
+					params?: Record< string, string >;
+					search?: Record< string, string >;
+				};
+			}
+		 ).options;
 	}
 	throw new Error( 'Expected beforeLoad to throw a redirect' );
 }
@@ -62,13 +70,19 @@ describe( 'indexRoute.beforeLoad', () => {
 		window.localStorage.clear();
 	} );
 
-	it( 'redirects to onboarding when there are no sites', async () => {
-		const redirect = await runBeforeLoad( [], [] );
-		expect( redirect.to ).toBe( '/onboarding' );
+	it( 'offers Add site once over the empty workspace until a site exists', async () => {
+		expect( await runBeforeLoad( [], [] ) ).toMatchObject( {
+			to: '/sites',
+			search: { addSite: 'create' },
+		} );
+		expect( ( await runBeforeLoad( [], [] ) ).search ).toEqual( {} );
+
+		await runBeforeLoad( [ createSite() ], [] );
+		expect( ( await runBeforeLoad( [], [] ) ).search ).toEqual( { addSite: 'create' } );
 	} );
 
 	it( "redirects to the last visited site's newest active session", async () => {
-		writeLastVisited( { siteId: 'site-2' } );
+		rememberVisit( 'site-2' );
 		const redirect = await runBeforeLoad(
 			[ createSite(), createSite( { id: 'site-2', path: '/Users/example/Studio/site-two' } ) ],
 			[
@@ -81,8 +95,28 @@ describe( 'indexRoute.beforeLoad', () => {
 		expect( redirect.params ).toEqual( { sessionId: 'session-3' } );
 	} );
 
+	it( 'reopens the chat last open in the site, unless it was archived since', async () => {
+		const sites = [
+			createSite(),
+			createSite( { id: 'site-2', path: '/Users/example/Studio/site-two' } ),
+		];
+		rememberVisit( 'site-2', 'session-2' );
+		const sessions = [
+			createSession( { id: 'session-3', ownerSiteId: 'site-2' } ),
+			createSession( { id: 'session-2', ownerSiteId: 'site-2' } ),
+		];
+		expect( ( await runBeforeLoad( sites, sessions ) ).params ).toEqual( {
+			sessionId: 'session-2',
+		} );
+
+		sessions[ 1 ].archived = true;
+		expect( ( await runBeforeLoad( sites, sessions ) ).params ).toEqual( {
+			sessionId: 'session-3',
+		} );
+	} );
+
 	it( 'falls back to the top site in sidebar order when the last visited site was deleted', async () => {
-		writeLastVisited( { siteId: 'deleted-site' } );
+		rememberVisit( 'deleted-site' );
 		const redirect = await runBeforeLoad(
 			[
 				createSite(),
@@ -107,7 +141,7 @@ describe( 'indexRoute.beforeLoad', () => {
 	} );
 
 	it( "opens the target site's overview when agentic features are switched off", async () => {
-		writeLastVisited( { siteId: 'site-2' } );
+		rememberVisit( 'site-2' );
 		const redirect = await runBeforeLoad(
 			[ createSite(), createSite( { id: 'site-2', path: '/Users/example/Studio/site-two' } ) ],
 			[ createSession(), createSession( { id: 'session-2', ownerSiteId: 'site-2' } ) ],
@@ -118,7 +152,7 @@ describe( 'indexRoute.beforeLoad', () => {
 	} );
 
 	it( 'opens the overview when signed out with Studio Code switched off', async () => {
-		writeLastVisited( { siteId: 'site-2' } );
+		rememberVisit( 'site-2' );
 		const redirect = await runBeforeLoad(
 			[ createSite(), createSite( { id: 'site-2', path: '/Users/example/Studio/site-two' } ) ],
 			[],
@@ -130,7 +164,7 @@ describe( 'indexRoute.beforeLoad', () => {
 	} );
 
 	it( "opens the target site's Studio Code sign-in screen when signed out", async () => {
-		writeLastVisited( { siteId: 'site-2' } );
+		rememberVisit( 'site-2' );
 		const redirect = await runBeforeLoad(
 			[ createSite(), createSite( { id: 'site-2', path: '/Users/example/Studio/site-two' } ) ],
 			[],
@@ -142,7 +176,7 @@ describe( 'indexRoute.beforeLoad', () => {
 	} );
 
 	it( 'redirects to a new session when the target site has no active sessions', async () => {
-		writeLastVisited( { siteId: 'site-2' } );
+		rememberVisit( 'site-2' );
 		const redirect = await runBeforeLoad(
 			[ createSite(), createSite( { id: 'site-2', path: '/Users/example/Studio/site-two' } ) ],
 			[

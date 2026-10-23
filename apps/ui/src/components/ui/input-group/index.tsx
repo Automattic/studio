@@ -1,0 +1,86 @@
+import { clsx } from 'clsx';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import styles from './style.module.css';
+import type { ComponentProps, MouseEvent } from 'react';
+
+/** A bordered row that holds an input with leading or trailing addons. */
+export function InputGroup( {
+	className,
+	variant = 'default',
+	...props
+}: ComponentProps< 'div' > & { variant?: 'default' | 'composer' } ) {
+	return (
+		<div
+			role="group"
+			data-slot="input-group"
+			data-variant={ variant }
+			className={ clsx( styles.group, className ) }
+			{ ...props }
+		/>
+	);
+}
+
+function focusControl( event: MouseEvent< HTMLDivElement > ) {
+	const target = event.target as HTMLElement;
+	if ( ! event.currentTarget.contains( target ) || target.closest( 'button' ) ) {
+		return;
+	}
+	event.currentTarget.parentElement
+		?.querySelector< HTMLInputElement | HTMLTextAreaElement >( 'input, textarea' )
+		?.focus();
+}
+
+export function InputGroupAddon( {
+	className,
+	align = 'inline-start',
+	onClick,
+	...props
+}: ComponentProps< 'div' > & {
+	align?: 'inline-start' | 'inline-end' | 'block-start' | 'block-end';
+} ) {
+	return (
+		<div
+			role="group"
+			data-slot="input-group-addon"
+			data-align={ align }
+			className={ clsx( styles.addon, className ) }
+			onClick={ ( event ) => {
+				focusControl( event );
+				onClick?.( event );
+			} }
+			{ ...props }
+		/>
+	);
+}
+
+export function InputGroupButton( {
+	variant = 'ghost',
+	size = '2xs',
+	...props
+}: ComponentProps< typeof Button > ) {
+	return <Button variant={ variant } size={ size } { ...props } />;
+}
+
+export function InputGroupInput( { className, ...props }: ComponentProps< typeof Input > ) {
+	return (
+		<Input
+			variant="group"
+			data-slot="input-group-control"
+			className={ clsx( styles.control, className ) }
+			{ ...props }
+		/>
+	);
+}
+
+export function InputGroupTextarea( { className, ...props }: ComponentProps< typeof Textarea > ) {
+	return (
+		<Textarea
+			variant="group"
+			data-slot="input-group-control"
+			className={ clsx( styles.control, className ) }
+			{ ...props }
+		/>
+	);
+}

@@ -1,11 +1,19 @@
 import { __ } from '@wordpress/i18n';
-import { Button, Notice } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { AddAiCreditsButton } from '@/components/add-ai-credits-button';
+import {
+	Alert,
+	AlertActions,
+	AlertDescription,
+	AlertTitle,
+	INTENT_VARIANTS,
+} from '@/components/ui/alert';
+import { Button, IconButton } from '@/components/ui/button';
 import {
 	useActivePersistentMessages,
 	useRecordPersistentMessages,
 } from '@/data/queries/use-app-messages';
+import { closeIcon } from '@/lib/icons';
 import styles from './style.module.css';
 
 export function AppMessageCards( { className }: { className?: string } ) {
@@ -19,33 +27,39 @@ export function AppMessageCards( { className }: { className?: string } ) {
 		<div className={ clsx( styles.stack, className ) }>
 			{ messages.map( ( message ) => (
 				<div key={ message.id } className={ styles.cell }>
-					<Notice.Root intent={ message.intent } icon={ null } className={ styles.card }>
-						<Notice.Title>{ message.title }</Notice.Title>
+					<Alert variant={ INTENT_VARIANTS[ message.intent ] } className={ styles.card }>
+						<AlertTitle className={ styles.title }>{ message.title }</AlertTitle>
+						<IconButton
+							variant="ghost"
+							size="icon-2xs"
+							icon={ closeIcon }
+							label={ __( 'Dismiss' ) }
+							tooltip={ false }
+							className={ styles.close }
+							onClick={ () => dismiss( message ) }
+						/>
 						{ message.description ? (
-							<Notice.Description>{ message.description }</Notice.Description>
+							<AlertDescription className={ styles.description }>
+								{ message.description }
+							</AlertDescription>
 						) : null }
 						{ message.purchaseCta ? (
-							<Notice.Actions>
-								<AddAiCreditsButton variant="solid" tone="neutral" className={ styles.action } />
-							</Notice.Actions>
+							<AlertActions>
+								<AddAiCreditsButton variant="muted" size="2xs" className={ styles.action } />
+							</AlertActions>
 						) : message.cta ? (
-							<Notice.Actions>
+							<AlertActions>
 								<Button
-									size="small"
-									variant="solid"
-									tone="neutral"
+									variant="muted"
+									size="2xs"
 									className={ styles.action }
 									onClick={ message.cta.onClick }
 								>
 									{ message.cta.label }
 								</Button>
-							</Notice.Actions>
+							</AlertActions>
 						) : null }
-						<Notice.CloseIconButton
-							label={ __( 'Dismiss' ) }
-							onClick={ () => dismiss( message ) }
-						/>
-					</Notice.Root>
+					</Alert>
 				</div>
 			) ) }
 		</div>

@@ -1,10 +1,22 @@
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { isSnapshotExpired } from '@studio/common/lib/snapshots';
 import { __, sprintf } from '@wordpress/i18n';
-import { Button, Dialog, Icon, Spinner, Tooltip } from '@wordpress/ui';
+import { Icon } from '@wordpress/icons';
 import { clsx } from 'clsx';
 import { useEffect, useId, useState } from 'react';
 import { AccountPrompt } from '@/components/account-prompt';
+import { Button } from '@/components/ui/button';
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogHeader,
+	DialogTitle,
+} from '@/components/ui/dialog';
+import { Field, FieldContent, FieldDescription, FieldTitle } from '@/components/ui/field';
+import { Spinner } from '@/components/ui/spinner';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { VisuallyHidden } from '@/components/ui/visually-hidden';
 import { useConnector } from '@/data/core';
 import { markPreviewSeen, usePreviewReady } from '@/data/preview-ready';
 import { useAuthUser } from '@/data/queries/use-auth-user';
@@ -104,17 +116,16 @@ export function ShareDialog( {
 	}, [ open, ready, site.id ] );
 
 	const footer = upgrade ? (
-		<div className={ styles.upgrade }>
-			<div>
-				<p className={ styles.upgradeTitle }>{ __( 'Give your site a memorable address' ) }</p>
-				<p className={ styles.upgradeText }>
+		<Field>
+			<FieldContent>
+				<FieldTitle>{ __( 'Give your site a memorable address' ) }</FieldTitle>
+				<FieldDescription>
 					{ __( 'Publish on WordPress.com with a plan to use your own domain.' ) }
-				</p>
-			</div>
+				</FieldDescription>
+			</FieldContent>
 			<Button
 				variant="outline"
-				tone="neutral"
-				className={ clsx( 'studio-control', styles.outline ) }
+				size="sm"
 				onClick={ () => {
 					upgrade.choosePlan();
 					onOpenChange( false );
@@ -122,22 +133,33 @@ export function ShareDialog( {
 			>
 				{ __( 'Choose a plan' ) }
 			</Button>
-		</div>
+		</Field>
 	) : null;
 
 	return (
-		<Dialog.Root open={ open } onOpenChange={ onOpenChange }>
-			<Dialog.Popup
-				size="small"
-				className={ styles.dialog }
-				aria-describedby={ signedOut ? descriptionId : undefined }
-			>
-				<Dialog.Header className={ signedOut ? styles.headerBare : undefined }>
-					<Dialog.Title className={ signedOut ? styles.visuallyHidden : undefined }>
+		<Dialog open={ open } onOpenChange={ onOpenChange }>
+			<DialogContent aria-describedby={ signedOut ? descriptionId : undefined }>
+				<DialogHeader>
+					<DialogTitle render={ signedOut ? <VisuallyHidden /> : undefined }>
 						{ __( 'Share' ) }
-					</Dialog.Title>
-					<Dialog.CloseIconButton />
-				</Dialog.Header>
+					</DialogTitle>
+					{ signedOut ? null : (
+						<DialogDescription>
+							{ __( 'Share a live preview to show your progress and get feedback.' ) }{ ' ' }
+							<Button
+								variant="inline-accent"
+								size="inline"
+								onClick={ () =>
+									void connector.openExternalUrl(
+										'https://developer.wordpress.com/docs/developer-tools/studio/preview-sites/'
+									)
+								}
+							>
+								{ __( 'Learn more' ) }
+							</Button>
+						</DialogDescription>
+					) }
+				</DialogHeader>
 				{ signedOut ? (
 					<AccountPrompt
 						title={ __( 'Share your WordPress' ) }
@@ -147,53 +169,35 @@ export function ShareDialog( {
 						descriptionId={ descriptionId }
 						source="previews_tab"
 					/>
+				) : snapshots.error ? (
+					<div className={ styles.error } role="alert">
+						<p>{ snapshots.error.message }</p>
+						<Button variant="outline" onClick={ () => snapshots.refetch() }>
+							{ __( 'Try again' ) }
+						</Button>
+					</div>
+				) : user.isPending || snapshots.isPending ? (
+					<div className={ styles.loading } role="status">
+						<Spinner />
+						{ __( 'Loading…' ) }
+					</div>
 				) : (
-					<Dialog.Content className={ styles.content }>
-						<Dialog.Description className={ styles.description }>
-							{ __( 'Share a live preview to show your progress and get feedback.' ) }{ ' ' }
-							<button
-								type="button"
-								className={ styles.learnMore }
-								onClick={ () =>
-									void connector.openExternalUrl(
-										'https://developer.wordpress.com/docs/developer-tools/studio/preview-sites/'
-									)
-								}
-							>
-								{ __( 'Learn more' ) }
-							</button>
-						</Dialog.Description>
-						{ snapshots.error ? (
-							<div className={ styles.error } role="alert">
-								<p>{ snapshots.error.message }</p>
-								<Button variant="outline" tone="neutral" onClick={ () => snapshots.refetch() }>
-									{ __( 'Try again' ) }
-								</Button>
-							</div>
-						) : user.isPending || snapshots.isPending ? (
-							<div className={ styles.loading } role="status">
-								<Spinner />
-								{ __( 'Loading…' ) }
-							</div>
-						) : (
-							<PreviewSharePanel
-								key={ site.id }
-								site={ site }
-								previews={ previews }
-								busy={ busy }
-								creating={ publishing && ! updatingHostname }
-								updatingHostname={ updatingHostname }
-								failed={ failed }
-								canCreate={ canCreate }
-								notice={ limitNotice }
-								footer={ footer }
-								onPublish={ publishPreview }
-							/>
-						) }
-					</Dialog.Content>
+					<PreviewSharePanel
+						key={ site.id }
+						site={ site }
+						previews={ previews }
+						busy={ busy }
+						creating={ publishing && ! updatingHostname }
+						updatingHostname={ updatingHostname }
+						failed={ failed }
+						canCreate={ canCreate }
+						notice={ limitNotice }
+						footer={ footer }
+						onPublish={ publishPreview }
+					/>
 				) }
-			</Dialog.Popup>
-		</Dialog.Root>
+			</DialogContent>
+		</Dialog>
 	);
 }
 
@@ -215,27 +219,23 @@ export function ShareButton( { site, className }: { site: SiteDetails; className
 	}
 	return (
 		<span className={ clsx( styles.triggerWrap, className ) }>
-			<Tooltip.Root>
-				<Tooltip.Trigger
+			<Tooltip>
+				<TooltipTrigger
 					render={
 						<Button
-							variant="minimal"
-							tone="neutral"
-							size="small"
-							className="studio-control"
+							variant="ghost"
+							size="icon"
 							aria-label={ __( 'Share' ) }
 							aria-description={ status }
 							aria-haspopup="dialog"
 							onClick={ () => setOpen( true ) }
 						>
-							{ publishing ? <Spinner /> : <Icon icon={ shareIcon } size={ 20 } /> }
+							{ publishing ? <Spinner /> : <Icon icon={ shareIcon } /> }
 						</Button>
 					}
 				/>
-				<Tooltip.Popup positioner={ <Tooltip.Positioner side="bottom" /> }>
-					{ __( 'Share' ) }
-				</Tooltip.Popup>
-			</Tooltip.Root>
+				<TooltipContent side="bottom">{ __( 'Share' ) }</TooltipContent>
+			</Tooltip>
 			{ ready && ! publishing ? <span className={ styles.readyDot } aria-hidden="true" /> : null }
 			<ShareDialog site={ site } open={ open } onOpenChange={ setOpen } />
 		</span>

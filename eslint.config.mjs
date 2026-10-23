@@ -9,6 +9,14 @@ import globals from 'globals';
 import tsEslint from 'typescript-eslint';
 import pluginStudio from 'eslint-plugin-studio';
 
+const WP_UI_PACKAGES = {
+	group: [ 'components', 'dataviews', 'theme', 'ui' ].flatMap( ( name ) => [
+		`@wordpress/${ name }`,
+		`@wordpress/${ name }/*`,
+	] ),
+	message: 'Use the primitives in @/components/ui and the tokens in src/theme.',
+};
+
 export default defineConfig(
 	globalIgnores( [
 		'**/node_modules/',
@@ -192,6 +200,31 @@ export default defineConfig(
 		files: [ 'apps/cli/**', 'apps/ui/**' ],
 		rules: {
 			'studio/no-module-level-translations': 'off',
+		},
+	},
+	{
+		// The agentic UI owns its design system: theme tokens in `src/theme/` and
+		// primitives in `src/components/ui/`, which stay independent of app code.
+		files: [ 'apps/ui/src/**' ],
+		rules: {
+			'no-restricted-imports': [ 'error', { patterns: [ WP_UI_PACKAGES ] } ],
+		},
+	},
+	{
+		files: [ 'apps/ui/src/components/ui/**' ],
+		rules: {
+			'no-restricted-imports': [
+				'error',
+				{
+					patterns: [
+						WP_UI_PACKAGES,
+						{
+							group: [ '@/data/*', '@/hooks/*', '@/router/*', '@tanstack/*' ],
+							message: 'Primitives stay independent of app code.',
+						},
+					],
+				},
+			],
 		},
 	},
 	{

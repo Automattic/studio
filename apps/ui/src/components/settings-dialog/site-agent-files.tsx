@@ -1,28 +1,47 @@
 import { __, sprintf } from '@wordpress/i18n';
 import { moreHorizontal, trash, Icon } from '@wordpress/icons';
-import { Button, IconButton } from '@wordpress/ui';
-import * as Menu from '@/components/menu';
-import { SettingsGroup, SettingsRow, SettingsToggle } from '@/components/settings-view/rows';
+import { useOpenInDestinations } from '@/components/open-in-menu/use-open-in-destinations';
+import {
+	SettingsGroup,
+	SettingsLoadState,
+	SettingsRow,
+	SettingsToggle,
+} from '@/components/settings-view/rows';
+import { Button, IconButton } from '@/components/ui/button';
+import * as Menu from '@/components/ui/menu';
+import { toast } from '@/data/app-messages';
+import { useConnector } from '@/data/core';
 import { useSiteAgentFiles, useUpdateSiteAgentFiles } from '@/data/queries/use-site-agent-files';
 import styles from './style.module.css';
-import type { SiteAgentFileKind } from '@/data/core';
+import type { SiteAgentFileKind, SiteDetails } from '@/data/core';
+import type { SiteAgentFileOpenTarget } from '@studio/common/lib/site-agent-file-paths';
+
+const OPEN_TARGETS: string[] = [ 'editor', 'files', 'terminal' ];
 
 /** A site's skills or instruction files, each switched on or off for this site only. */
 export function SiteAgentFiles( {
-	siteId,
+	site,
 	kind,
 	onManageAll,
 }: {
-	siteId: string;
+	site: SiteDetails;
 	kind: SiteAgentFileKind;
 	onManageAll: () => void;
 } ) {
-	const { data: files, error } = useSiteAgentFiles( siteId, kind );
-	const update = useUpdateSiteAgentFiles( siteId, kind );
+	const connector = useConnector();
+	const { data: files, isError, refetch } = useSiteAgentFiles( site.id, kind );
+	const update = useUpdateSiteAgentFiles( site.id, kind );
+	const destinations = useOpenInDestinations( site ).filter( ( destination ) =>
+		OPEN_TARGETS.includes( destination.id )
+	);
 	const skills = kind === 'skills';
 	if ( ! files ) {
-		return error ? <p className={ styles.empty }>{ error.message }</p> : null;
+		return <SettingsLoadState loadFailed={ isError } onRetry={ () => void refetch() } />;
 	}
+	const open = ( id: string, target: SiteAgentFileOpenTarget ) =>
+		connector.openSiteAgentFile( site.id, kind, id, target ).catch( ( error: Error ) => {
+			toast.error( error.message );
+		} );
 	const title = skills ? __( 'WordPress skills' ) : __( 'Agent instructions' );
 
 	return (
@@ -42,9 +61,8 @@ export function SiteAgentFiles( {
 								  ) }
 							<Button
 								className={ styles.manageAll }
-								variant="minimal"
-								tone="brand"
-								size="small"
+								variant="inline-link"
+								size="inline"
 								onClick={ onManageAll }
 							>
 								{ skills
@@ -94,9 +112,7 @@ export function SiteAgentFiles( {
 								<Menu.Trigger
 									render={
 										<IconButton
-											variant="minimal"
-											tone="neutral"
-											size="small"
+											size="icon-sm"
 											icon={ moreHorizontal }
 											label={ sprintf(
 												/* translators: %s: a skill or instruction file name. */
@@ -108,6 +124,22 @@ export function SiteAgentFiles( {
 									}
 								/>
 								<Menu.Popup side="bottom" align="end">
+									{ destinations.map( ( destination ) => (
+										<Menu.Item
+											key={ destination.id }
+											onClick={ () =>
+												void open( file.id, destination.id as SiteAgentFileOpenTarget )
+											}
+										>
+											<Icon icon={ destination.logo } />
+											{ sprintf(
+												/* translators: %s: an app, like Finder or VS Code. */
+												__( 'Open in %s' ),
+												destination.label
+											) }
+										</Menu.Item>
+									) ) }
+									<Menu.Separator />
 									<Menu.Item destructive onClick={ () => update.mutate( { remove: file.id } ) }>
 										<Icon icon={ trash } />
 										{ __( 'Uninstall' ) }

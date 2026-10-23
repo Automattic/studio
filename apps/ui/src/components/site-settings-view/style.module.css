@@ -1,35 +1,34 @@
 .form {
 	display: flex;
 	flex-direction: column;
-	gap: var(--wpds-dimension-padding-xl);
+	gap: 32px;
 }
 
 .submitError {
 	padding: 10px 12px;
 	border-radius: 4px;
-	border: 1px solid var(--wpds-color-stroke-surface-error);
-	background: var(--wpds-color-background-surface-error-weak);
-	color: var(--wpds-color-foreground-content-error);
-	font-size: 13px;
+	border: 1px solid color-mix(in oklab, var(--destructive) 35%, transparent);
+	background: var(--destructive-surface);
+	color: var(--destructive);
+	font-size: var(--text-xs);
 }
 
-.credentialActions {
-	display: flex;
-	align-items: center;
-	gap: var(--wpds-dimension-gap-xs);
+.input {
+	inline-size: 224px;
+	max-inline-size: 100%;
 }
 
-.emailControl:dir(rtl) :global(.components-input-control__input) {
+.emailInput:dir(rtl) {
 	text-align: right;
-}
-
-@container overview (max-width: 600px) {
-	.form :global( .dataforms-layouts-row__field ) > div {
-		flex-direction: column !important;
-	}
 }
 
 .debugLogAction {
 	display: flex;
-	margin-block-start: var(--wpds-dimension-gap-xs);
+	margin-block-start: 4px;
+}
+
+.busy {
+	margin: 0;
+	color: var(--muted-foreground);
+	font-size: var(--text-xs);
 }

@@ -4,7 +4,7 @@
 	min-height: 0;
 	position: relative;
 	overflow: hidden;
-	background-color: var(--wpds-color-background-surface-neutral);
+	background-color: var(--chat);
 }
 
 /* Opaque and above the preview slot so it fully covers the (still mounted)
@@ -22,7 +22,7 @@
 	min-height: 0;
 	z-index: 1;
 	overflow: auto;
-	background-color: var(--wpds-color-background-surface-neutral);
+	background-color: var(--chat);
 }
 
 .rootPreviewOpen .contentColumn {
@@ -38,14 +38,14 @@
 }
 
 .rootPreviewAnimating .contentColumn {
-	transition: width var(--studio-motion-layout-duration) var(--studio-motion-layout-easing);
+	transition: width var(--motion-duration-layout) var(--motion-ease-layout);
 }
 
 /* The chat header's actions fade back in once the column is halfway open,
    and leave at once when it closes. */
 .contentColumn [data-header-actions] {
-	transition: opacity var(--studio-motion-feedback-duration) var(--studio-motion-enter-easing)
-		calc(var(--studio-motion-layout-duration) / 2);
+	transition: opacity var(--motion-duration-feedback) var(--motion-ease-enter)
+		calc(var(--motion-duration-layout) / 2);
 }
 
 .contentColumnCollapsed [data-header-actions] {

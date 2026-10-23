@@ -8,48 +8,6 @@ import {
 	useWordPressSkills,
 } from '@/data/queries/use-wordpress-skills';
 import { SkillsPanel } from './skills-panel';
-import type { ButtonHTMLAttributes, ReactNode } from 'react';
-
-vi.mock( '@wordpress/components', () => ( {
-	FormToggle: ( props: {
-		checked: boolean;
-		disabled?: boolean;
-		'aria-label'?: string;
-		onChange: () => void;
-	} ) => (
-		<input
-			type="checkbox"
-			aria-label={ props[ 'aria-label' ] }
-			checked={ props.checked }
-			disabled={ props.disabled }
-			onChange={ props.onChange }
-		/>
-	),
-} ) );
-
-vi.mock( '@wordpress/ui', () => ( {
-	Button: ( {
-		children,
-		loading,
-		loadingAnnouncement,
-		tone,
-		variant,
-		size,
-		...props
-	}: ButtonHTMLAttributes< HTMLButtonElement > & {
-		children?: ReactNode;
-		loading?: boolean;
-		loadingAnnouncement?: string;
-		tone?: string;
-		variant?: string;
-		size?: string;
-	} ) => {
-		void tone;
-		void variant;
-		void size;
-		return <button { ...props }>{ loading ? loadingAnnouncement : children }</button>;
-	},
-} ) );
 
 vi.mock( '@/components/learn-more', () => ( {
 	LearnMoreLink: () => <button type="button">Learn more</button>,
@@ -113,15 +71,15 @@ describe( 'SkillsPanel', () => {
 	it( 'shows a toggle per skill reflecting its installed state', () => {
 		render( <SkillsPanel /> );
 
-		expect( screen.getByRole( 'checkbox', { name: 'Studio CLI' } ) ).toBeChecked();
-		expect( screen.getByRole( 'checkbox', { name: 'WP REST API' } ) ).not.toBeChecked();
+		expect( screen.getByRole( 'switch', { name: 'Studio CLI' } ) ).toBeChecked();
+		expect( screen.getByRole( 'switch', { name: 'WP REST API' } ) ).not.toBeChecked();
 	} );
 
 	it( 'installs on toggling an uninstalled skill and removes on toggling an installed one', () => {
 		render( <SkillsPanel /> );
 
-		fireEvent.click( screen.getByRole( 'checkbox', { name: 'WP REST API' } ) );
-		fireEvent.click( screen.getByRole( 'checkbox', { name: 'Studio CLI' } ) );
+		fireEvent.click( screen.getByRole( 'switch', { name: 'WP REST API' } ) );
+		fireEvent.click( screen.getByRole( 'switch', { name: 'Studio CLI' } ) );
 
 		expect( installSkillMutate ).toHaveBeenCalledWith( 'wp-rest-api' );
 		expect( removeSkillMutate ).toHaveBeenCalledWith( 'studio-cli' );
@@ -130,7 +88,7 @@ describe( 'SkillsPanel', () => {
 	it( 'turns every installed skill off from the WordPress skills switch', () => {
 		render( <SkillsPanel /> );
 
-		fireEvent.click( screen.getByRole( 'checkbox', { name: 'WordPress skills' } ) );
+		fireEvent.click( screen.getByRole( 'switch', { name: 'WordPress skills' } ) );
 
 		expect( setAllSkillsMutate ).toHaveBeenCalledWith( {
 			skillIds: [ 'studio-cli' ],
@@ -138,15 +96,56 @@ describe( 'SkillsPanel', () => {
 		} );
 	} );
 
-	it( 'surfaces query errors inline', () => {
+	it( 'offers Retry when the skills fail to load', () => {
+		const refetch = vi.fn();
 		useWordPressSkillsMock.mockReturnValue( {
-			data: [],
+			data: undefined,
 			isLoading: false,
-			error: new Error( 'Failed to load skills' ),
+			isError: true,
+			refetch,
+		} as never );
+
+		render( <SkillsPanel /> );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Retry' } ) );
+
+		expect( refetch ).toHaveBeenCalled();
+	} );
+
+	it( 'says when no skills are available', () => {
+		useWordPressSkillsMock.mockReturnValue( { data: [], isLoading: false } as never );
+
+		render( <SkillsPanel /> );
+
+		expect( screen.getByText( 'No skills are available.' ) ).toBeInTheDocument();
+	} );
+
+	it( 'hides the skill list while skills are off', () => {
+		useWordPressSkillsMock.mockReturnValue( {
+			data: [ { id: 'studio-cli', displayName: 'Studio CLI', description: '', installed: false } ],
+			isLoading: false,
 		} as never );
 
 		render( <SkillsPanel /> );
 
-		expect( screen.getByText( 'Failed to load skills' ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'switch', { name: 'WordPress skills' } ) ).not.toBeChecked();
+		expect( screen.queryByRole( 'switch', { name: 'Studio CLI' } ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'disables every toggle while a change saves', () => {
+		useInstallWordPressSkillMock.mockReturnValue( {
+			mutate: installSkillMutate,
+			isPending: true,
+			error: null,
+		} as never );
+
+		render( <SkillsPanel onManageSite={ vi.fn() } /> );
+
+		expect( screen.getByRole( 'switch', { name: 'WordPress skills' } ) ).toHaveAttribute(
+			'data-disabled'
+		);
+		expect( screen.getByRole( 'switch', { name: 'Studio CLI' } ) ).toHaveAttribute(
+			'data-disabled'
+		);
+		expect( screen.getByRole( 'button', { name: 'Manage skills for this site' } ) ).toBeDisabled();
 	} );
 } );

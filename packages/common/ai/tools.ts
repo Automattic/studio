@@ -318,7 +318,6 @@ export function getToolDisplayName( name: string, input?: Record< string, unknow
 		take_screenshot: __( 'Take screenshot' ),
 		generate_images: __( 'Generate images' ),
 		open_annotation_browser: __( 'Open annotation browser' ),
-		wait_for_annotations: __( 'Wait for annotations' ),
 		need_for_speed: __( 'Audit performance' ),
 		rank_me_up: __( 'Audit SEO' ),
 		install_taxonomy_scripts: __( 'Install taxonomy scripts' ),

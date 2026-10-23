@@ -1,10 +1,14 @@
 import { getLocalizedLink, REPORT_ISSUE_URL } from '@studio/common/lib/docs-links';
 import { supportedLocaleNames } from '@studio/common/lib/locale';
 import { SUPPORTED_EDITORS, supportedEditorConfig } from '@studio/common/lib/user-settings/editor';
+import { INTERFACE_PREFERENCE_DEFAULTS } from '@studio/common/lib/user-settings/preferences';
 import { SUPPORTED_TERMINALS, terminalConfig } from '@studio/common/lib/user-settings/terminal';
 import { __, sprintf } from '@wordpress/i18n';
-import { Button } from '@wordpress/ui';
 import { useCallback, useEffect, useState } from 'react';
+import { LearnMoreLink } from '@/components/learn-more';
+import { SidebarSettings } from '@/components/site-list/sidebar-settings';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { useConnector } from '@/data/core';
 import { persister } from '@/data/core/query-client';
 import {
@@ -14,10 +18,17 @@ import {
 import { useInstalledApps } from '@/data/queries/use-installed-apps';
 import { useUserLocale } from '@/data/queries/use-user-locale';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
+import { hasCustomPanelWidths, resetPanelWidths } from '@/lib/resizable-panels';
 import { AccountSection } from './account-section';
 import { InstructionsEditor } from './instructions-editor';
 import { UNSET, toPreferencesFormData, toPreferencesPatch } from './preferences';
-import { SettingsGroup, SettingsRow, SettingsSelect, SettingsToggle } from './rows';
+import {
+	SettingsGroup,
+	SettingsLoadState,
+	SettingsRow,
+	SettingsSelect,
+	SettingsToggle,
+} from './rows';
 import { StudioCliSection } from './studio-cli-section';
 import styles from './style.module.css';
 import { WapuuScore } from './wapuu-score';
@@ -26,30 +37,23 @@ import type {
 	ColorScheme,
 	InstalledApps,
 	QuitSitesBehavior,
-	SupportedEditor,
 	SupportedLocale,
-	SupportedTerminal,
+	UserPreferences,
 } from '@/data/core';
 
-// No "unset" option: the main process resolves a fallback for never-chosen
-// editor/terminal prefs (matching the legacy UI), so an explicit clear can't
-// round-trip. The select shows its placeholder when nothing is installed.
-function editorElements( installedApps: InstalledApps | undefined ) {
-	return SUPPORTED_EDITORS.filter( ( editor ) => ! installedApps || installedApps[ editor ] ).map(
-		( editor ) => ( {
-			value: editor,
-			label: supportedEditorConfig[ editor ].label(),
-		} )
-	);
-}
-
-function terminalElements( installedApps: InstalledApps | undefined ) {
-	return SUPPORTED_TERMINALS.filter(
-		( terminal ) => ! installedApps || installedApps[ terminal ]
-	).map( ( terminal ) => ( {
-		value: terminal,
-		label: terminalConfig[ terminal ].name(),
-	} ) );
+// "Default" first, then the installed apps and the saved one, even if it's gone.
+function appElements< TApp extends keyof InstalledApps >(
+	apps: readonly TApp[],
+	installedApps: InstalledApps | undefined,
+	saved: TApp | typeof UNSET,
+	label: ( app: TApp ) => string
+) {
+	return [
+		{ value: UNSET, label: __( 'Default' ) },
+		...apps
+			.filter( ( app ) => ! installedApps || installedApps[ app ] || app === saved )
+			.map( ( app ) => ( { value: app, label: label( app ) } ) ),
+	];
 }
 
 const COLOR_SCHEME_ELEMENTS: { value: ColorScheme; label: string }[] = [
@@ -72,14 +76,42 @@ const LOCALE_ELEMENTS: { value: SupportedLocale; label: string }[] = Object.entr
 	supportedLocaleNames
 ).map( ( [ value, label ] ) => ( { value: value as SupportedLocale, label } ) );
 
-function DefaultSiteDirectoryRow( { value, onSelect }: { value: string; onSelect?: () => void } ) {
+function DefaultSiteDirectoryRow( {
+	value,
+	onSelect,
+	onSave,
+}: {
+	value: string;
+	onSelect?: () => void;
+	onSave: ( directory: string ) => void;
+} ) {
 	const title = __( 'Default directory' );
 	const description = __( 'The folder where Studio creates new sites.' );
-	// Without a native folder picker (the browser), the path is shown, not edited.
+	const [ draft, setDraft ] = useState< string | null >( null );
+	// Without a native folder picker (the browser), the path is typed in.
 	if ( ! onSelect ) {
+		const directory = draft?.trim();
 		return (
 			<SettingsRow title={ title } description={ description } stacked>
-				<span className={ styles.pathPickerValue }>{ value }</span>
+				<form
+					className={ styles.pathForm }
+					onSubmit={ ( event ) => {
+						event.preventDefault();
+						if ( directory && directory !== value ) {
+							onSave( directory );
+							setDraft( null );
+						}
+					} }
+				>
+					<Input
+						aria-label={ title }
+						value={ draft ?? value }
+						onChange={ ( event ) => setDraft( event.target.value ) }
+					/>
+					<Button type="submit" variant="outline" disabled={ ! directory || directory === value }>
+						{ __( 'Save' ) }
+					</Button>
+				</form>
 			</SettingsRow>
 		);
 	}
@@ -103,18 +135,32 @@ function DefaultSiteDirectoryRow( { value, onSelect }: { value: string; onSelect
 	);
 }
 
+// True when every interface preference and panel width is at its default.
+function isDefaultInterface( saved: UserPreferences ) {
+	return (
+		! hasCustomPanelWidths() &&
+		Object.entries( INTERFACE_PREFERENCE_DEFAULTS ).every(
+			( [ key, value ] ) => ( saved[ key as keyof UserPreferences ] ?? value ) === value
+		)
+	);
+}
+
 function PreferencesPanel( {
 	data,
 	installedApps,
 	saveError,
+	interfaceIsDefault,
 	onDefaultSiteDirectorySelect,
 	onChange,
+	onResetInterface,
 }: {
 	data: PreferencesFormData;
 	installedApps: InstalledApps | undefined;
 	saveError: boolean;
+	interfaceIsDefault: boolean;
 	onDefaultSiteDirectorySelect?: () => void;
 	onChange: ( update: Partial< PreferencesFormData > ) => void;
+	onResetInterface: () => void;
 } ) {
 	const connector = useConnector();
 	const locale = useUserLocale();
@@ -142,10 +188,12 @@ function PreferencesPanel( {
 					title={ __( 'Code editor' ) }
 					description={ __( 'The default code editor for your sites.' ) }
 				>
-					<SettingsSelect< SupportedEditor | typeof UNSET >
+					<SettingsSelect
 						label={ __( 'Code editor' ) }
 						value={ data.editor }
-						options={ editorElements( installedApps ) }
+						options={ appElements( SUPPORTED_EDITORS, installedApps, data.editor, ( editor ) =>
+							supportedEditorConfig[ editor ].label()
+						) }
 						onChange={ ( editor ) => onChange( { editor } ) }
 					/>
 				</SettingsRow>
@@ -153,16 +201,22 @@ function PreferencesPanel( {
 					title={ __( 'Terminal' ) }
 					description={ __( 'The default terminal for your sites.' ) }
 				>
-					<SettingsSelect< SupportedTerminal | typeof UNSET >
+					<SettingsSelect
 						label={ __( 'Terminal' ) }
 						value={ data.terminal }
-						options={ terminalElements( installedApps ) }
+						options={ appElements(
+							SUPPORTED_TERMINALS,
+							installedApps,
+							data.terminal,
+							( terminal ) => terminalConfig[ terminal ].name()
+						) }
 						onChange={ ( terminal ) => onChange( { terminal } ) }
 					/>
 				</SettingsRow>
 				<DefaultSiteDirectoryRow
 					value={ data.defaultSiteDirectory }
 					onSelect={ onDefaultSiteDirectorySelect }
+					onSave={ ( defaultSiteDirectory ) => onChange( { defaultSiteDirectory } ) }
 				/>
 				<SettingsRow
 					title={ __( 'Improve Studio for everyone' ) }
@@ -187,6 +241,35 @@ function PreferencesPanel( {
 						onChange={ ( quitSitesBehavior ) => onChange( { quitSitesBehavior } ) }
 					/>
 				</SettingsRow>
+				<SettingsRow
+					title={ __( 'Start site when sending a prompt' ) }
+					description={ __( 'Automatically start stopped sites when you send a chat message.' ) }
+				>
+					<SettingsToggle
+						label={ __( 'Start site when sending a prompt' ) }
+						checked={ data.autoStartSiteOnChat }
+						onChange={ ( autoStartSiteOnChat ) => onChange( { autoStartSiteOnChat } ) }
+					/>
+				</SettingsRow>
+				<SidebarSettings />
+				<SettingsRow
+					title={ __( 'Confirm before deleting annotations' ) }
+					description={ __( 'Ask before deleting pending notes and attached images.' ) }
+				>
+					<SettingsToggle
+						label={ __( 'Confirm before deleting annotations' ) }
+						checked={ data.confirmDeleteAnnotations }
+						onChange={ ( confirmDeleteAnnotations ) => onChange( { confirmDeleteAnnotations } ) }
+					/>
+				</SettingsRow>
+				<SettingsRow
+					title={ __( 'Reset interface' ) }
+					description={ __( 'Restore default panel widths, theme, and interface settings.' ) }
+				>
+					<Button variant="outline" disabled={ interfaceIsDefault } onClick={ onResetInterface }>
+						{ __( 'Reset' ) }
+					</Button>
+				</SettingsRow>
 			</SettingsGroup>
 			<StudioCliSection />
 			<WapuuScore />
@@ -197,8 +280,6 @@ function PreferencesPanel( {
 				>
 					<Button
 						variant="outline"
-						tone="neutral"
-						size="compact"
 						onClick={ () =>
 							void connector.openExternalUrl( getLocalizedLink( locale, 'docsStudio' ) )
 						}
@@ -212,8 +293,6 @@ function PreferencesPanel( {
 				>
 					<Button
 						variant="outline"
-						tone="neutral"
-						size="compact"
 						onClick={ () => void connector.openExternalUrl( REPORT_ISSUE_URL ) }
 					>
 						{ __( 'Report' ) }
@@ -225,7 +304,7 @@ function PreferencesPanel( {
 }
 
 function usePreferencesForm() {
-	const { data: saved, isError: loadFailed } = useUserPreferences();
+	const { data: saved, isError: loadFailed, refetch } = useUserPreferences();
 	const savePreferences = useSaveUserPreferences();
 
 	const [ data, setData ] = useState< PreferencesFormData | null >( null );
@@ -277,25 +356,27 @@ function usePreferencesForm() {
 		[ saved, savePreferences ]
 	);
 
-	return { data, handleChange, saveError: savePreferences.isError, loadFailed };
-}
+	const resetInterface = () =>
+		savePreferences.mutate( { ...INTERFACE_PREFERENCE_DEFAULTS }, { onSuccess: resetPanelWidths } );
 
-function PreferencesState( { loadFailed }: { loadFailed: boolean } ) {
-	return (
-		<div className={ styles.state }>
-			{ loadFailed
-				? __( "Couldn't load your settings. Close Settings and reopen it to try again." )
-				: __( 'Loading…' ) }
-		</div>
-	);
+	return {
+		saved,
+		data,
+		handleChange,
+		resetInterface,
+		saveError: savePreferences.isError,
+		loadFailed,
+		retry: () => void refetch(),
+	};
 }
 
 export function GeneralSettings() {
 	const connector = useConnector();
 	const { data: installedApps } = useInstalledApps();
-	const { data, handleChange, saveError, loadFailed } = usePreferencesForm();
-	if ( ! data ) {
-		return <PreferencesState loadFailed={ loadFailed } />;
+	const { saved, data, handleChange, resetInterface, saveError, loadFailed, retry } =
+		usePreferencesForm();
+	if ( ! data || ! saved ) {
+		return <SettingsLoadState loadFailed={ loadFailed } onRetry={ retry } />;
 	}
 	const selectDefaultDirectory = async () => {
 		const directory = await connector.selectDefaultSiteDirectory( data.defaultSiteDirectory );
@@ -308,6 +389,8 @@ export function GeneralSettings() {
 			data={ data }
 			installedApps={ installedApps }
 			saveError={ saveError }
+			interfaceIsDefault={ isDefaultInterface( saved ) }
+			onResetInterface={ resetInterface }
 			onDefaultSiteDirectorySelect={
 				connector.capabilities.nativeFolderPicker ? () => void selectDefaultDirectory() : undefined
 			}
@@ -317,9 +400,9 @@ export function GeneralSettings() {
 }
 
 export function AppearanceSettings() {
-	const { data, handleChange, loadFailed } = usePreferencesForm();
+	const { data, handleChange, loadFailed, retry } = usePreferencesForm();
 	if ( ! data ) {
-		return <PreferencesState loadFailed={ loadFailed } />;
+		return <SettingsLoadState loadFailed={ loadFailed } onRetry={ retry } />;
 	}
 	return (
 		<SettingsGroup>
@@ -351,9 +434,8 @@ export function InstructionsSettings( { onManageSite }: { onManageSite?: () => v
 							{ onManageSite ? (
 								<Button
 									className={ styles.manageLink }
-									variant="minimal"
-									tone="brand"
-									size="small"
+									variant="inline-link"
+									size="inline"
 									onClick={ onManageSite }
 								>
 									{ __( 'Manage instructions for this site' ) }
@@ -370,7 +452,15 @@ export function InstructionsSettings( { onManageSite }: { onManageSite?: () => v
 					/>
 				</SettingsRow>
 			</SettingsGroup>
-			<SettingsGroup title={ __( 'Custom instructions' ) }>
+			<SettingsGroup
+				title={ __( 'Custom instructions' ) }
+				description={
+					<>
+						{ __( 'Add your own guidance for Studio Code.' ) }{ ' ' }
+						<LearnMoreLink docsLinksKey="docsStudioCode" />
+					</>
+				}
+			>
 				<InstructionsEditor />
 			</SettingsGroup>
 		</div>

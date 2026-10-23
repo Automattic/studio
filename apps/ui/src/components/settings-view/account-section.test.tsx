@@ -4,37 +4,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useAuthUser, useLogin, useLogout } from '@/data/queries/use-auth-user';
 import { useOffline } from '@/hooks/use-offline';
 import { AccountSection } from './account-section';
-import type { ButtonHTMLAttributes, ReactNode } from 'react';
-
-vi.mock( '@wordpress/ui', () => ( {
-	Button: ( {
-		children,
-		loading,
-		loadingAnnouncement,
-		tone,
-		variant,
-		size,
-		...props
-	}: ButtonHTMLAttributes< HTMLButtonElement > & {
-		children?: ReactNode;
-		loading?: boolean;
-		loadingAnnouncement?: string;
-		tone?: string;
-		variant?: string;
-		size?: string;
-	} ) => {
-		void tone;
-		void variant;
-		void size;
-		return <button { ...props }>{ loading ? loadingAnnouncement : children }</button>;
-	},
-	Tooltip: {
-		Root: ( { children }: { children?: ReactNode } ) => <>{ children }</>,
-		Trigger: ( { render }: { render?: ReactNode } ) => <>{ render }</>,
-		Popup: () => null,
-		Positioner: () => null,
-	},
-} ) );
 
 vi.mock( '@/data/queries/use-auth-user', () => ( {
 	useAuthUser: vi.fn(),
@@ -79,28 +48,26 @@ describe( 'AccountSection', () => {
 		expect( logoutMutate ).toHaveBeenCalledTimes( 1 );
 	} );
 
-	it( 'prompts signed-out users to log in', () => {
-		useAuthUserMock.mockReturnValue( { data: null, isLoading: false } as never );
+	it( 'offers signed-out users to connect through WordPress.com sign-up', () => {
+		useAuthUserMock.mockReturnValue( { data: null, isSuccess: true } as never );
 
 		render( <AccountSection /> );
 
-		expect( screen.getByText( 'WordPress.com account' ) ).toBeInTheDocument();
-		expect(
-			screen.getByText( 'Log in to use AI features and synchronize with live and preview sites.' )
-		).toBeInTheDocument();
+		expect( screen.getByText( 'Do more with WordPress.com' ) ).toBeInTheDocument();
 		expect( screen.queryByRole( 'button', { name: 'Log out' } ) ).not.toBeInTheDocument();
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'Log in' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Connect' } ) );
 
+		expect( useLoginMock ).toHaveBeenCalledWith( { signup: true, source: 'settings' } );
 		expect( loginMutate ).toHaveBeenCalledTimes( 1 );
 	} );
 
-	it( 'disables the login button when offline', () => {
-		useAuthUserMock.mockReturnValue( { data: null, isLoading: false } as never );
+	it( 'disables Connect when offline', () => {
+		useAuthUserMock.mockReturnValue( { data: null, isSuccess: true } as never );
 		useOfflineMock.mockReturnValue( true );
 
 		render( <AccountSection /> );
 
-		expect( screen.getByRole( 'button', { name: 'Log in' } ) ).toBeDisabled();
+		expect( screen.getByRole( 'button', { name: 'Connect' } ) ).toBeDisabled();
 	} );
 } );

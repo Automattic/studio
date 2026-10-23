@@ -1,8 +1,15 @@
 import { DESIGN_SYSTEM_PREVIEW_PATH } from '@studio/common/ai/chat-artifacts';
+import {
+	INSPECTOR_COMMAND_EVENT,
+	INSPECTOR_PAGE_SCRIPT,
+	parseInspectorMessage,
+	type BrowserShortcutCommand,
+	type InspectorEvent,
+} from '@studio/common/ai/inspector/page-script';
 import { getSiteOperationLabel } from '@studio/common/lib/site-operation-labels';
 import { useQueryClient } from '@tanstack/react-query';
-import { __, _n, sprintf } from '@wordpress/i18n';
-import { chevronDown, closeSmall, Icon, moreHorizontal, pencil } from '@wordpress/icons';
+import { __, sprintf } from '@wordpress/i18n';
+import { Icon, moreHorizontal } from '@wordpress/icons';
 import {
 	ariaKeyShortcut,
 	displayShortcut,
@@ -10,29 +17,41 @@ import {
 	isKeyboardEvent,
 	shortcutAriaLabel,
 } from '@wordpress/keycodes';
-import { Button, Dialog, IconButton, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { AnnotationOverlay, type AnnotationAnchor } from '@/components/annotations/overlay';
+import {
+	editAnnotation,
+	escapeAnnotations,
+	getSiteAnnotations,
+	pickAnnotation,
+	setAnnotating,
+	useSiteAnnotations,
+	type SiteAnnotations,
+} from '@/components/annotations/store';
 import { DesignSystemView } from '@/components/design-system-view';
-import * as Menu from '@/components/menu';
 import { PreviewParticles } from '@/components/preview-particles';
 import { PublishButton } from '@/components/publish-panel';
 import { ShareButton } from '@/components/share-dialog';
 import { SiteLifecycleButton } from '@/components/site-lifecycle-button';
 import { StoppedSitePreview } from '@/components/stopped-site-preview';
+import { Button, IconButton } from '@/components/ui/button';
+import * as Menu from '@/components/ui/menu';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useConnector } from '@/data/core';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { siteDesignQueryKey, useSiteDesign } from '@/data/queries/use-site-design';
 import { useSiteIcon } from '@/data/queries/use-site-icon';
 import { siteThumbnailQueryKey, useSiteThumbnail } from '@/data/queries/use-site-thumbnail';
 import { useIsSiteStarting, useSiteOperation } from '@/data/queries/use-sites';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { requestHeaderPanel } from '@/hooks/use-open-header-panel';
 import { useOpenSettings } from '@/hooks/use-open-settings';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import { useWindowControlsInset } from '@/hooks/use-window-controls-inset';
 import { getSiteUrl } from '@/lib/get-site-url';
-import { browserBackIcon, browserForwardIcon, refreshIcon } from '@/lib/icons';
+import { annotateIcon, browserBackIcon, browserForwardIcon, refreshIcon } from '@/lib/icons';
 import {
 	DATABASE_HOME_PATH,
 	getPathFromPreviewUrl,
@@ -42,14 +61,9 @@ import {
 	PreviewAddressBar,
 	type PreviewRealm,
 } from './address-bar';
-import {
-	INSPECTOR_BRIDGE_PREFIX,
-	INSPECTOR_COMMAND_EVENT,
-	INSPECTOR_PAGE_SCRIPT,
-} from './inspector-script';
 import styles from './style.module.css';
-import type { Annotation, InspectorCommand, InspectorState } from './types';
 import type { SiteDetails } from '@/data/core';
+import type { VisualAnnotationTarget } from '@studio/common/ai/visual-annotations';
 
 export { getPathFromPreviewUrl } from './address-bar';
 
@@ -61,9 +75,9 @@ interface SitePreviewProps {
 	path: string;
 	// Bumped by the parent to force a webview reload.
 	reloadNonce: number;
-	// Called when the user clicks "Submit" in the annotation controls. Receives
-	// the full annotation payload assembled inside the webview's guest page.
-	onAnnotationsDone?: ( annotations: Annotation[] ) => void;
+	// Sends the site's annotations to its chat: every note with the chat draft,
+	// or only `noteIds`, straight away.
+	onSendAnnotations?: ( siteId: string, noteIds?: string[] ) => void;
 	// Called when the user navigates within the preview (link clicks,
 	// back/forward) so the parent can keep its `path` in sync without
 	// forcing a reload.
@@ -76,15 +90,6 @@ interface SitePreviewProps {
 	// The preview is the leftmost pane, so with the sidebar out of the way its
 	// toolbar reaches the window's start edge, where the macOS traffic lights sit.
 	atWindowStart?: boolean;
-}
-
-interface InspectorEvent {
-	type: 'annotations-updated' | 'browser-command' | 'cancel-requested' | 'done' | 'state';
-	annotations?: Annotation[];
-	isPicking?: boolean;
-	annotationCount?: number;
-	hasUnsavedDraft?: boolean;
-	command?: BrowserShortcutCommandType;
 }
 
 interface BrowserHistoryEntry {
@@ -103,11 +108,9 @@ interface BrowserNavigationState {
 	activeHistoryIndex: number;
 }
 
-type BrowserShortcutCommandType = 'back' | 'forward' | 'reload';
-
 interface BrowserCommand {
 	id: number;
-	type: BrowserShortcutCommandType | 'go-to-history';
+	type: BrowserShortcutCommand | 'go-to-history';
 	historyIndex?: number;
 }
 
@@ -201,13 +204,6 @@ const EMPTY_BROWSER_STATE: BrowserNavigationState = {
 	activeHistoryIndex: -1,
 };
 
-const EMPTY_INSPECTOR_STATE: InspectorState = {
-	ready: false,
-	isPicking: false,
-	annotationCount: 0,
-	hasUnsavedDraft: false,
-};
-
 // Where each realm segment lands before its per-realm memory has anything better.
 const DEFAULT_REALM_PATHS: Record< PreviewRealm, string > = {
 	frontend: '/',
@@ -237,9 +233,9 @@ function getSurfaceKey( realm: PreviewRealm ): PreviewSurfaceKey {
 interface PreviewSurfaceState {
 	path: string;
 	browser: BrowserNavigationState;
-	inspector: InspectorState;
+	// The annotation inspector is running in the page.
+	inspectorReady: boolean;
 	browserCommand: BrowserCommand | null;
-	inspectorCommand: InspectorCommand | null;
 	reloadNonce: number;
 }
 
@@ -257,20 +253,10 @@ function createPreviewSurface( path: string, reloadNonce: number ): PreviewSurfa
 	return {
 		path,
 		browser: EMPTY_BROWSER_STATE,
-		inspector: EMPTY_INSPECTOR_STATE,
+		inspectorReady: false,
 		browserCommand: null,
-		inspectorCommand: null,
 		reloadNonce,
 	};
-}
-
-function areInspectorStatesEqual( a: InspectorState, b: InspectorState ) {
-	return (
-		a.ready === b.ready &&
-		a.isPicking === b.isPicking &&
-		a.annotationCount === b.annotationCount &&
-		a.hasUnsavedDraft === b.hasUnsavedDraft
-	);
 }
 
 function arePreviewSurfacesEqual( a: PreviewSurfaceState, b: PreviewSurfaceState ) {
@@ -278,9 +264,8 @@ function arePreviewSurfacesEqual( a: PreviewSurfaceState, b: PreviewSurfaceState
 		a.path === b.path &&
 		a.reloadNonce === b.reloadNonce &&
 		a.browserCommand === b.browserCommand &&
-		a.inspectorCommand === b.inspectorCommand &&
-		areBrowserStatesEqual( a.browser, b.browser ) &&
-		areInspectorStatesEqual( a.inspector, b.inspector )
+		a.inspectorReady === b.inspectorReady &&
+		areBrowserStatesEqual( a.browser, b.browser )
 	);
 }
 
@@ -347,7 +332,7 @@ function isTextEntryTarget( target: EventTarget | null ) {
 
 export function getBrowserShortcutCommand(
 	event: globalThis.KeyboardEvent
-): BrowserShortcutCommandType | null {
+): BrowserShortcutCommand | null {
 	if ( event.defaultPrevented || event.repeat ) {
 		return null;
 	}
@@ -377,180 +362,50 @@ export function getBrowserShortcutCommand(
 	return null;
 }
 
-function isPreviewShortcutCommand( command: unknown ): command is BrowserShortcutCommandType {
-	return command === 'back' || command === 'forward' || command === 'reload';
-}
-
-// Annotation commands. With nothing pending there's only one command, so the
-// toolbar shows a bare toggle at every width. Once notes are waiting there are
-// two, and a narrow toolbar can't fit them inline — `style.module.css` swaps
-// the inline pair for a split button, so only one layout is ever in the a11y
-// tree.
-function PreviewAnnotationControls( {
-	isPicking,
-	annotationCount,
-	hasUnsavedDraft,
-	cancelRequestId,
+function AnnotateButton( {
+	active,
 	disabled,
 	disabledReason,
-	onCommand,
+	onClick,
 }: {
-	isPicking: boolean;
-	annotationCount: number;
-	hasUnsavedDraft: boolean;
-	cancelRequestId: number;
+	active: boolean;
 	disabled: boolean;
 	disabledReason?: string;
-	onCommand: ( type: InspectorCommand[ 'type' ] ) => void;
+	onClick: () => void;
 } ) {
-	const [ cancelDialogOpen, setCancelDialogOpen ] = useState( false );
-	const toggleLabel = isPicking ? __( 'Cancel annotation' ) : __( 'Annotate' );
-	const submitLabel = __( 'Send notes to chat' );
-	const submitDescription = sprintf(
-		/* translators: %d is the number of annotation notes waiting to be sent. */
-		_n(
-			'%d note waiting. Sending finishes annotating.',
-			'%d notes waiting. Sending finishes annotating.',
-			annotationCount
-		),
-		annotationCount
-	);
-	const hasPending = annotationCount > 0;
-	const handledCancelRequestId = useRef( cancelRequestId );
-	const requestCancel = useCallback( () => {
-		if ( hasPending || hasUnsavedDraft ) {
-			setCancelDialogOpen( true );
-		} else {
-			onCommand( 'cancel' );
-		}
-	}, [ hasPending, hasUnsavedDraft, onCommand ] );
-	useEffect( () => {
-		if ( handledCancelRequestId.current === cancelRequestId ) return;
-		handledCancelRequestId.current = cancelRequestId;
-		if ( isPicking ) requestCancel();
-	}, [ cancelRequestId, isPicking, requestCancel ] );
-	const handleToggle = () => ( isPicking ? requestCancel() : onCommand( 'toggle-picking' ) );
-	const handleCancel = () => {
-		setCancelDialogOpen( false );
-		onCommand( 'cancel' );
-	};
 	return (
-		<>
-			<div
-				className={ clsx( styles.annotationControls, hasPending && styles.annotationControlsWide ) }
-			>
-				<span
-					className={ styles.disabledControlTooltipTarget }
-					title={ disabled ? disabledReason : undefined }
-				>
-					<Tooltip.Root>
-						<Tooltip.Trigger
-							render={
-								<Button
-									variant="outline"
-									tone="neutral"
-									size="small"
-									className={ clsx(
-										'studio-control',
-										styles.annotationToggle,
-										isPicking && styles.annotationToggleActive
-									) }
-									aria-label={ toggleLabel }
-									aria-description={ disabled ? disabledReason : undefined }
-									disabled={ disabled }
-									onClick={ handleToggle }
-								>
-									<Icon icon={ isPicking ? closeSmall : pencil } size={ 18 } />
-									<span className={ styles.toolbarLabel }>
-										{ isPicking ? __( 'Cancel' ) : __( 'Annotate' ) }
-									</span>
-								</Button>
+		<span
+			className={ styles.disabledControlTooltipTarget }
+			title={ disabled ? disabledReason : undefined }
+		>
+			<Tooltip>
+				<TooltipTrigger
+					render={
+						<Button
+							variant="ghost"
+							className={ clsx( styles.annotateButton, active && styles.annotateButtonActive ) }
+							aria-label={ __( 'Annotate' ) }
+							aria-pressed={ active }
+							aria-description={
+								disabled
+									? disabledReason
+									: active
+									? __( 'Exit annotation mode. Your notes will be kept.' )
+									: undefined
 							}
-						/>
-						<Tooltip.Popup positioner={ <Tooltip.Positioner side="bottom" /> }>
-							{ disabledReason ?? ( isPicking ? __( 'Cancel annotation' ) : __( 'Add notes' ) ) }
-						</Tooltip.Popup>
-					</Tooltip.Root>
-				</span>
-				{ hasPending ? (
-					<Button
-						variant="solid"
-						tone="brand"
-						size="small"
-						className={ styles.annotationSubmit }
-						disabled={ disabled }
-						aria-label={ submitLabel }
-						aria-description={ submitDescription }
-						onClick={ () => onCommand( 'submit' ) }
-					>
-						{ submitLabel }
-					</Button>
-				) : null }
-			</div>
-			{ hasPending ? (
-				<div className={ styles.annotationMenu }>
-					{ /* Two commands to offer, so the narrow layout folds them into one
-						menu, like the "Open in…" control beside it. Modal for the same
-						reason as the overflow menu — the webview swallows outside clicks,
-						so the backdrop is what dismisses it. */ }
-					<Menu.Root>
-						<Tooltip.Root>
-							<Menu.Trigger
-								render={
-									<Tooltip.Trigger
-										render={
-											<Button
-												variant="minimal"
-												tone="neutral"
-												size="small"
-												className={ styles.annotationMenuTrigger }
-												aria-label={ __( 'Annotation options' ) }
-												disabled={ disabled }
-											/>
-										}
-									>
-										<Icon icon={ isPicking ? closeSmall : pencil } size={ 18 } />
-										<Icon
-											icon={ chevronDown }
-											size={ 12 }
-											className={ styles.responsiveModeChevron }
-											data-keep-size
-										/>
-									</Tooltip.Trigger>
-								}
-							/>
-							<Tooltip.Popup positioner={ <Tooltip.Positioner side="bottom" /> }>
-								{ __( 'Annotation options' ) }
-							</Tooltip.Popup>
-						</Tooltip.Root>
-						<Menu.Popup side="bottom" align="end">
-							<Menu.Item onClick={ handleToggle }>{ toggleLabel }</Menu.Item>
-							<Menu.Item onClick={ () => onCommand( 'submit' ) }>{ submitLabel }</Menu.Item>
-						</Menu.Popup>
-					</Menu.Root>
-				</div>
-			) : null }
-			<Dialog.Root open={ cancelDialogOpen } onOpenChange={ setCancelDialogOpen }>
-				<Dialog.Popup size="small">
-					<Dialog.Header>
-						<Dialog.Title>{ __( 'Cancel annotation?' ) }</Dialog.Title>
-					</Dialog.Header>
-					<Dialog.Content>
-						<Dialog.Description>
-							{ __( 'Your annotations and any unfinished note will be discarded.' ) }
-						</Dialog.Description>
-					</Dialog.Content>
-					<Dialog.Footer>
-						<Dialog.Action variant="minimal" tone="neutral">
-							{ __( 'Keep annotating' ) }
-						</Dialog.Action>
-						<Button variant="solid" tone="brand" onClick={ handleCancel }>
-							{ __( 'Discard annotations' ) }
+							disabled={ disabled }
+							onClick={ onClick }
+						>
+							<Icon icon={ annotateIcon } size={ 16 } data-icon="inline-start" />
+							<span className={ styles.toolbarLabel }>{ __( 'Annotate' ) }</span>
 						</Button>
-					</Dialog.Footer>
-				</Dialog.Popup>
-			</Dialog.Root>
-		</>
+					}
+				/>
+				<TooltipContent side="bottom">
+					{ disabledReason ?? ( active ? __( 'Exit annotation mode' ) : __( 'Annotate' ) ) }
+				</TooltipContent>
+			</Tooltip>
+		</span>
 	);
 }
 
@@ -598,14 +453,12 @@ function BrowserHistoryButton( {
 	const [ menuOpen, setMenuOpen ] = useState( false );
 	const trigger = (
 		<IconButton
-			variant="minimal"
-			tone="neutral"
-			size="small"
-			className="studio-control"
 			icon={ back ? browserBackIcon : browserForwardIcon }
 			label={ label }
 			shortcut={ shortcut }
+			tooltipSide="bottom"
 			disabled={ disabled }
+			disabledAppearance="icon"
 			onClick={ onStep }
 			onContextMenu={ ( event ) => {
 				event.preventDefault();
@@ -669,7 +522,7 @@ export function SitePreview( {
 	site,
 	path,
 	reloadNonce,
-	onAnnotationsDone,
+	onSendAnnotations,
 	onPathChange,
 	collapsed = false,
 	toolbarStart,
@@ -704,12 +557,20 @@ export function SitePreview( {
 	} ) );
 	const activeSurface = surfaces.byKey[ activeSurfaceKey ];
 	const browserState = activeSurface?.browser ?? EMPTY_BROWSER_STATE;
-	const inspectorState = activeSurface?.inspector ?? EMPTY_INSPECTOR_STATE;
-	const [ annotationCancelRequestId, setAnnotationCancelRequestId ] = useState( 0 );
+	const annotations = useSiteAnnotations( site.id );
+	const [ annotationAnchor, setAnnotationAnchor ] = useState< AnnotationAnchor | null >( null );
 	const rootRef = useRef< HTMLElement | null >( null );
 	const headerRef = useRef< HTMLDivElement | null >( null );
 	const commandIdRef = useRef( 0 );
-	const canAnnotate = canPreview && inspectorState.ready;
+	// Studio renders the design system itself, so it needs no page injection.
+	const showAnnotate =
+		canPreview &&
+		chatEnabled &&
+		( connector.capabilities.annotatePreview || activeSurfaceKey === 'design' );
+	const canAnnotateSurface = showAnnotate && activeSurfaceKey !== 'database';
+	const canAnnotate =
+		canAnnotateSurface &&
+		( activeSurfaceKey === 'design' ? !! siteDesign.data : !! activeSurface?.inspectorReady );
 	const progress = browserState.loading
 		? Math.max( browserState.progress, 0.12 )
 		: browserState.progress;
@@ -779,12 +640,34 @@ export function SitePreview( {
 		},
 		[ activeSurfaceKey, patchSurface ]
 	);
-	const sendInspectorCommand = useCallback(
-		( type: InspectorCommand[ 'type' ] ) => {
-			commandIdRef.current += 1;
-			patchSurface( activeSurfaceKey, { inspectorCommand: { id: commandIdRef.current, type } } );
+	useEffect( () => {
+		if ( ! canAnnotateSurface ) {
+			setAnnotating( site.id, false );
+		}
+	}, [ canAnnotateSurface, site.id ] );
+	useEffect( () => {
+		setAnnotationAnchor( null );
+	}, [ activeSurfaceKey, site.id ] );
+	// Anchors arrive in client coordinates; the overlay sits on the viewport.
+	const toViewportAnchor = useCallback( ( anchor: AnnotationAnchor | null ) => {
+		const box = viewportRef.current?.getBoundingClientRect();
+		return anchor && box ? { left: anchor.left - box.left, top: anchor.top - box.top } : null;
+	}, [] );
+	const handleAnnotationPick = useCallback(
+		( target: VisualAnnotationTarget, anchor: AnnotationAnchor ) => {
+			pickAnnotation( site.id, target );
+			setAnnotationAnchor( toViewportAnchor( anchor ) );
 		},
-		[ activeSurfaceKey, patchSurface ]
+		[ site.id, toViewportAnchor ]
+	);
+	const sendAnnotations = useCallback(
+		( noteIds?: string[] ) => {
+			onSendAnnotations?.( site.id, noteIds );
+			if ( ! noteIds ) {
+				setAnnotating( site.id, false );
+			}
+		},
+		[ onSendAnnotations, site.id ]
 	);
 	// Keeps the page that just loaded as the site's picture for while it's
 	// stopped, once the page has had a moment to settle.
@@ -821,14 +704,26 @@ export function SitePreview( {
 
 	// Shortcuts the guest page swallowed and forwarded back over the console
 	// bridge, for the webview.
-	const handleForwardedShortcut = useCallback(
-		( command: BrowserShortcutCommandType ) => {
-			if ( inspectorState.isPicking ) {
-				return;
+	const handleInspectorEvent = useCallback(
+		( event: InspectorEvent ) => {
+			const editingId = getSiteAnnotations( site.id ).editingId;
+			if ( event.type === 'browser-command' ) {
+				sendBrowserCommand( event.command );
+			} else if ( event.type === 'escape' ) {
+				escapeAnnotations( site.id );
+			} else if ( event.type === 'pick' ) {
+				handleAnnotationPick( event.target, event.anchor );
+			} else if ( event.type === 'edit' ) {
+				editAnnotation( site.id, event.id );
+				setAnnotationAnchor( toViewportAnchor( event.anchor ) );
+			} else if ( event.id === editingId ) {
+				const next = toViewportAnchor( event.anchor );
+				setAnnotationAnchor( ( current ) =>
+					current?.left === next?.left && current?.top === next?.top ? current : next
+				);
 			}
-			sendBrowserCommand( command );
 		},
-		[ inspectorState.isPicking, sendBrowserCommand ]
+		[ handleAnnotationPick, sendBrowserCommand, site.id, toViewportAnchor ]
 	);
 
 	// Point the active surface at whatever path the host is asking for, creating
@@ -868,11 +763,6 @@ export function SitePreview( {
 			patchSurface( activeSurfaceKey, { reloadNonce } );
 		}
 	}, [ activeSurfaceKey, patchSurface, reloadNonce, sendSurfaceCommand ] );
-
-	const onDesignInspectorState = useCallback(
-		( state: InspectorState ) => patchSurface( 'design', { inspector: state } ),
-		[ patchSurface ]
-	);
 
 	// Where each realm was last seen, so flipping to WP Admin and back returns
 	// to the exact front-end page rather than the site root.
@@ -933,12 +823,8 @@ export function SitePreview( {
 			return;
 		}
 		const handleKeyDown = ( event: globalThis.KeyboardEvent ) => {
-			const cancelAnnotation =
-				inspectorState.isPicking &&
-				event.key === 'Escape' &&
-				! ( event.target instanceof Element && event.target.closest( '[role="dialog"]' ) );
-			const command = inspectorState.isPicking ? null : getBrowserShortcutCommand( event );
-			if ( ! cancelAnnotation && ! command ) {
+			const command = getBrowserShortcutCommand( event );
+			if ( ! command ) {
 				return;
 			}
 			const activeElement = document.activeElement;
@@ -951,16 +837,12 @@ export function SitePreview( {
 			}
 			event.preventDefault();
 			event.stopPropagation();
-			if ( cancelAnnotation ) {
-				setAnnotationCancelRequestId( ( current ) => current + 1 );
-			} else if ( command ) {
-				sendBrowserCommand( command );
-			}
+			sendBrowserCommand( command );
 		};
 
 		document.addEventListener( 'keydown', handleKeyDown, { capture: true } );
 		return () => document.removeEventListener( 'keydown', handleKeyDown, { capture: true } );
-	}, [ canPreview, collapsed, inspectorState.isPicking, sendBrowserCommand ] );
+	}, [ canPreview, collapsed, sendBrowserCommand ] );
 
 	// Matches the realm on screen (front end / WP Admin / phpMyAdmin) rather
 	// than always the front end. Admin screens go through /studio-auto-login so
@@ -984,7 +866,6 @@ export function SitePreview( {
 				ref={ headerRef }
 				className={ clsx(
 					styles.header,
-					inspectorState.isPicking && styles.headerAnnotating,
 					atWindowStart && sidebarCollapsed && trafficLightSpace.start && styles.headerTrafficLights
 				) }
 				style={ {
@@ -993,7 +874,7 @@ export function SitePreview( {
 					// lights — pad past them.
 					...( trafficLightSpace.end && { paddingInlineEnd: 96 } ),
 					...( windowControlsInset > 0 && {
-						paddingRight: `calc(${ windowControlsInset }px + var(--wpds-dimension-padding-sm))`,
+						paddingRight: windowControlsInset + 8,
 					} ),
 				} }
 			>
@@ -1001,7 +882,7 @@ export function SitePreview( {
 					available middle track, and preview actions stay at the end. */ }
 				<div className={ styles.headerSide }>
 					{ toolbarStart }
-					{ canPreview && ! inspectorState.isPicking ? (
+					{ canPreview ? (
 						<div className={ styles.navigation }>
 							{ browserState.canGoBack || browserState.canGoForward ? (
 								<>
@@ -1022,25 +903,17 @@ export function SitePreview( {
 								</>
 							) : null }
 							<IconButton
-								variant="minimal"
-								tone="neutral"
-								size="small"
-								className="studio-control"
 								icon={ refreshIcon }
 								label={ __( 'Reload preview' ) }
 								shortcut={ browserShortcuts.reload }
+								tooltipSide="bottom"
 								onClick={ () => sendBrowserCommand( 'reload' ) }
 							/>
 						</div>
 					) : null }
 				</div>
 				<div className={ styles.browserLocation }>
-					{ canPreview && inspectorState.isPicking ? (
-						<p className={ styles.annotatingMessage } role="status">
-							{ __( 'Click anything on the page to add a note' ) }
-						</p>
-					) : null }
-					{ canPreview && ! inspectorState.isPicking ? (
+					{ canPreview ? (
 						<PreviewAddressBar
 							site={ site }
 							siteIcon={ siteIcon }
@@ -1055,39 +928,27 @@ export function SitePreview( {
 					) : null }
 				</div>
 				<div className={ clsx( styles.headerSide, styles.headerSideEnd ) }>
-					{ canPreview &&
-					chatEnabled &&
-					// Studio renders the design system itself, so it needs no page injection.
-					( connector.capabilities.annotatePreview || activeSurfaceKey === 'design' ) ? (
-						<PreviewAnnotationControls
-							isPicking={ inspectorState.isPicking }
-							annotationCount={ inspectorState.annotationCount }
-							hasUnsavedDraft={ inspectorState.hasUnsavedDraft }
-							cancelRequestId={ annotationCancelRequestId }
+					{ showAnnotate ? (
+						<AnnotateButton
+							active={ annotations.active }
 							disabled={ ! canAnnotate }
 							disabledReason={
 								activeSurfaceKey === 'database' ? __( 'Not available for Database' ) : undefined
 							}
-							onCommand={ sendInspectorCommand }
+							onClick={ () => setAnnotating( site.id, ! annotations.active ) }
 						/>
 					) : null }
-					{ inspectorState.isPicking ? null : (
-						<>
-							<PublishButton site={ site } anchor={ headerRef } />
-							<SiteLifecycleButton site={ site } />
-							<ShareButton site={ site } className={ styles.shareAction } />
-						</>
-					) }
-					{ canPreview && ! inspectorState.isPicking ? (
+					<PublishButton site={ site } anchor={ headerRef } />
+					<SiteLifecycleButton site={ site } />
+					<ShareButton site={ site } className={ styles.shareAction } />
+					{ canPreview ? (
 						<Menu.Root modal={ false }>
 							<Menu.Trigger
 								render={
 									<IconButton
-										variant="minimal"
-										tone="neutral"
-										size="small"
-										className={ clsx( 'studio-control', styles.moreActions ) }
+										className={ styles.moreActions }
 										icon={ moreHorizontal }
+										tooltipSide="bottom"
 										label={ __( 'More preview actions' ) }
 									/>
 								}
@@ -1157,11 +1018,10 @@ export function SitePreview( {
 													<DesignSystemView
 														siteId={ site.id }
 														siteDesign={ siteDesign.data ?? null }
-														annotations={ {
-															command: surface.inspectorCommand,
-															onState: onDesignInspectorState,
-															onDone: onAnnotationsDone,
-														} }
+														onAnnotationPick={ handleAnnotationPick }
+														onAnnotationAnchor={ ( anchor: AnnotationAnchor ) =>
+															setAnnotationAnchor( toViewportAnchor( anchor ) )
+														}
 													/>
 												) }
 											</Suspense>
@@ -1184,17 +1044,16 @@ export function SitePreview( {
 												// phpMyAdmin isn't an annotation target, so the
 												// inspector never goes near it.
 												inspector={ key === 'site' }
-												onAnnotationsDone={ onAnnotationsDone }
-												onInspectorState={ ( state ) => patchSurface( key, { inspector: state } ) }
-												onInspectorCancelRequest={ () =>
-													setAnnotationCancelRequestId( ( current ) => current + 1 )
-												}
-												inspectorCommand={ surface.inspectorCommand }
+												annotations={ key === 'site' ? annotations : undefined }
+												onInspectorReady={ ( inspectorReady ) => {
+													patchSurface( key, { inspectorReady } );
+													if ( ! inspectorReady ) setAnnotationAnchor( null );
+												} }
+												onInspectorEvent={ handleInspectorEvent }
 												browserCommand={ surface.browserCommand }
 												onBrowserStateChange={ ( state ) => {
 													patchSurface( key, { browser: state } );
 												} }
-												onBrowserCommand={ handleForwardedShortcut }
 												onNavigate={ ( url ) => handleSurfaceNavigation( key, url ) }
 												onLoad={
 													key === 'site'
@@ -1252,6 +1111,13 @@ export function SitePreview( {
 							</div>
 						</div>
 					) }
+					{ canAnnotateSurface ? (
+						<AnnotationOverlay
+							siteId={ site.id }
+							anchor={ annotationAnchor }
+							onSend={ sendAnnotations }
+						/>
+					) : null }
 				</div>
 			</div>
 		</aside>
@@ -1265,13 +1131,12 @@ function getSafePath( path: unknown ) {
 interface WebviewSurfaceProps {
 	url: string;
 	reloadNonce: number;
-	onAnnotationsDone?: ( annotations: Annotation[] ) => void;
-	onInspectorState?: ( state: InspectorState ) => void;
-	onInspectorCancelRequest?: () => void;
-	inspectorCommand?: InspectorCommand | null;
+	// The site's annotations, mirrored into the page as markers.
+	annotations?: SiteAnnotations;
+	onInspectorReady?: ( ready: boolean ) => void;
+	onInspectorEvent?: ( event: InspectorEvent ) => void;
 	browserCommand?: BrowserCommand | null;
 	onBrowserStateChange?: ( state: BrowserNavigationState ) => void;
-	onBrowserCommand?: ( type: BrowserShortcutCommandType ) => void;
 	onNavigate?: ( url: string ) => void;
 	// A page finished loading, with the webview's guest id for capturing it.
 	onLoad?: ( url: string, guestId: number ) => void;
@@ -1284,56 +1149,44 @@ interface WebviewSurfaceProps {
  * Renders the site preview as an Electron `<webview>` tag.
  *
  * The annotation inspector is injected into the guest page via
- * `executeJavaScript()` after each load. It reports completed annotation
- * batches by calling `console.log(BRIDGE_PREFIX + JSON.stringify(...))`,
- * which we receive through the webview's `console-message` event.
+ * `executeJavaScript()` after each load (see `@studio/common/ai/inspector/page-script`).
  */
 function WebviewSurface( {
 	url,
 	reloadNonce,
-	onAnnotationsDone,
-	onInspectorState,
-	onInspectorCancelRequest,
-	inspectorCommand,
+	annotations,
+	onInspectorReady,
+	onInspectorEvent,
 	browserCommand,
 	onBrowserStateChange,
-	onBrowserCommand,
 	onNavigate,
 	onLoad,
 	inspector = true,
 }: WebviewSurfaceProps ) {
 	const ref = useRef< HTMLElement | null >( null );
 	const [ ready, setReady ] = useState( false );
-	const onAnnotationsDoneRef = useRef( onAnnotationsDone );
-	const onInspectorStateRef = useRef( onInspectorState );
-	const onInspectorCancelRequestRef = useRef( onInspectorCancelRequest );
+	const [ inspectorReady, setInspectorReady ] = useState( false );
+	const onInspectorReadyRef = useRef( onInspectorReady );
+	const onInspectorEventRef = useRef( onInspectorEvent );
 	const onBrowserStateChangeRef = useRef( onBrowserStateChange );
-	const onBrowserCommandRef = useRef( onBrowserCommand );
 	const onNavigateRef = useRef( onNavigate );
 	const onLoadRef = useRef( onLoad );
 	const browserStateRef = useRef< BrowserNavigationState >( EMPTY_BROWSER_STATE );
 	const domReadyRef = useRef( false );
 	const inspectorEnabledRef = useRef( inspector );
 	const currentUrlRef = useRef( url );
-	const storedAnnotationsRef = useRef< Annotation[] >( [] );
 	const lastReloadNonceRef = useRef( reloadNonce );
 	const progressTimerRef = useRef< ReturnType< typeof setInterval > | null >( null );
 	const progressResetTimerRef = useRef< ReturnType< typeof setTimeout > | null >( null );
 	useEffect( () => {
-		onAnnotationsDoneRef.current = onAnnotationsDone;
-	}, [ onAnnotationsDone ] );
+		onInspectorReadyRef.current = onInspectorReady;
+	}, [ onInspectorReady ] );
 	useEffect( () => {
-		onInspectorStateRef.current = onInspectorState;
-	}, [ onInspectorState ] );
-	useEffect( () => {
-		onInspectorCancelRequestRef.current = onInspectorCancelRequest;
-	}, [ onInspectorCancelRequest ] );
+		onInspectorEventRef.current = onInspectorEvent;
+	}, [ onInspectorEvent ] );
 	useEffect( () => {
 		onBrowserStateChangeRef.current = onBrowserStateChange;
 	}, [ onBrowserStateChange ] );
-	useEffect( () => {
-		onBrowserCommandRef.current = onBrowserCommand;
-	}, [ onBrowserCommand ] );
 	useEffect( () => {
 		onNavigateRef.current = onNavigate;
 	}, [ onNavigate ] );
@@ -1470,21 +1323,11 @@ function WebviewSurface( {
 			if ( ! inspectorEnabledRef.current ) {
 				return;
 			}
-			// If annotations were collected on a previous page, seed
-			// window.__studioInspectorState before the IIFE runs so the
-			// freshly-injected inspector picks them up on init.
-			const stored = storedAnnotationsRef.current;
-			const preload =
-				stored.length > 0 ? `window.__studioInspectorState=${ JSON.stringify( stored ) };` : '';
 			webview
-				.executeJavaScript( preload + INSPECTOR_PAGE_SCRIPT, false )
+				.executeJavaScript( INSPECTOR_PAGE_SCRIPT, false )
 				.then( () => {
-					onInspectorStateRef.current?.( {
-						ready: true,
-						isPicking: false,
-						annotationCount: stored.length,
-						hasUnsavedDraft: false,
-					} );
+					setInspectorReady( true );
+					onInspectorReadyRef.current?.( true );
 				} )
 				.catch( () => {
 					// Transient injection failures (e.g. frame swapped mid-eval)
@@ -1493,43 +1336,11 @@ function WebviewSurface( {
 		};
 
 		const handleConsoleMessage = ( event: Event ) => {
-			const consoleEvent = event as WebviewConsoleEvent;
-			if ( typeof consoleEvent.message !== 'string' ) return;
-			if ( ! consoleEvent.message.startsWith( INSPECTOR_BRIDGE_PREFIX ) ) return;
-			let parsed: InspectorEvent | null = null;
-			try {
-				parsed = JSON.parse( consoleEvent.message.slice( INSPECTOR_BRIDGE_PREFIX.length ) );
-			} catch {
-				return;
-			}
-			if ( ! parsed ) return;
-			if ( parsed.type === 'browser-command' ) {
-				if ( isPreviewShortcutCommand( parsed.command ) ) {
-					onBrowserCommandRef.current?.( parsed.command );
-				}
-				return;
-			}
-			if ( parsed.type === 'cancel-requested' ) {
-				onInspectorCancelRequestRef.current?.();
-				return;
-			}
-			if ( parsed.type === 'state' ) {
-				onInspectorStateRef.current?.( {
-					ready: true,
-					isPicking: Boolean( parsed.isPicking ),
-					annotationCount: typeof parsed.annotationCount === 'number' ? parsed.annotationCount : 0,
-					hasUnsavedDraft: Boolean( parsed.hasUnsavedDraft ),
-				} );
-				return;
-			}
-			if ( parsed.type === 'annotations-updated' ) {
-				if ( Array.isArray( parsed.annotations ) ) {
-					storedAnnotationsRef.current = parsed.annotations;
-				}
-				return;
-			}
-			if ( parsed.type !== 'done' || ! parsed.annotations ) return;
-			onAnnotationsDoneRef.current?.( parsed.annotations );
+			const parsed = parseInspectorMessage(
+				( event as WebviewConsoleEvent ).message,
+				webview.getBoundingClientRect()
+			);
+			if ( parsed ) onInspectorEventRef.current?.( parsed );
 		};
 		const handlePageTitleUpdated = ( event: Event ) => {
 			publishDocumentTitle( ( event as WebviewPageTitleUpdatedEvent ).title );
@@ -1558,10 +1369,8 @@ function WebviewSurface( {
 		const handleStartLoading = () => {
 			didReadTitleAfterLoad = false;
 			if ( inspectorEnabledRef.current ) {
-				onInspectorStateRef.current?.( {
-					...EMPTY_INSPECTOR_STATE,
-					annotationCount: storedAnnotationsRef.current.length,
-				} );
+				setInspectorReady( false );
+				onInspectorReadyRef.current?.( false );
 			}
 			publishBrowserState( { title: null } );
 			startProgress();
@@ -1653,20 +1462,36 @@ function WebviewSurface( {
 		} );
 	}, [ url, reloadNonce, ready ] );
 
+	// Mirrors the notes into the page, in the theme's accent.
+	const colorScheme = useColorScheme();
 	useEffect( () => {
-		if ( ! ready || ! inspectorCommand ) return;
 		const webview = ref.current as WebviewTag | null;
-		if ( ! webview ) return;
-		const detail = JSON.stringify( { type: inspectorCommand.type } );
+		if ( ! inspectorReady || ! webview || ! annotations ) return;
+		const theme = getComputedStyle( webview );
+		const detail = {
+			active: annotations.active,
+			editingId: annotations.editingId,
+			notes: annotations.notes.map( ( { id, number, selector, url, documentRect, point } ) => ( {
+				id,
+				number,
+				selector,
+				url,
+				documentRect,
+				point,
+			} ) ),
+			annotationLabel: __( 'Annotation' ),
+			accent: theme.getPropertyValue( '--accent' ).trim(),
+			onAccent: theme.getPropertyValue( '--accent-foreground' ).trim(),
+		};
 		webview
 			.executeJavaScript(
 				`window.dispatchEvent(new CustomEvent(${ JSON.stringify(
 					INSPECTOR_COMMAND_EVENT
-				) }, { detail: ${ detail } }));`,
+				) }, { detail: ${ JSON.stringify( detail ) } }));`,
 				false
 			)
 			.catch( () => undefined );
-	}, [ inspectorCommand, ready ] );
+	}, [ annotations, colorScheme, inspectorReady ] );
 
 	useEffect( () => {
 		if ( ! ready || ! browserCommand ) return;

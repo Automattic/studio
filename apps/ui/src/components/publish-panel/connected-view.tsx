@@ -6,12 +6,12 @@ import {
 	download,
 	arrowUpRight,
 	globe,
+	Icon,
 	moreHorizontal,
 } from '@wordpress/icons';
-import { Button, Icon, IconButton } from '@wordpress/ui';
-import { clsx } from 'clsx';
 import { useId, useRef, useState } from 'react';
-import * as Menu from '@/components/menu';
+import { Button, IconButton } from '@/components/ui/button';
+import * as Menu from '@/components/ui/menu';
 import { useConnector } from '@/data/core';
 import {
 	useCancelSync,
@@ -218,10 +218,8 @@ export function ConnectedView( {
 									{ websiteAddress( remote ) }
 								</span>
 								<IconButton
-									variant="minimal"
-									tone="neutral"
-									size="small"
-									className={ styles.openWebsite }
+									variant="muted-ghost"
+									size="icon-2xs"
 									icon={ arrowUpRight }
 									label={ __( 'Open website' ) }
 									onClick={ () => void connector.openExternalUrl( remote.url ) }
@@ -260,9 +258,7 @@ export function ConnectedView( {
 							</span>
 							<p className={ styles.text }>{ __( 'Your website wasn’t changed.' ) }</p>
 						</div>
-						<Button variant="solid" tone="neutral" className="studio-control" onClick={ back }>
-							{ __( 'Done' ) }
-						</Button>
+						<Button onClick={ back }>{ __( 'Done' ) }</Button>
 					</>
 				) : (
 					<>
@@ -319,19 +315,13 @@ export function ConnectedView( {
 							</p>
 						) : null }
 						{ view === 'files' ? (
-							<Button
-								variant="outline"
-								tone="neutral"
-								className={ clsx( 'studio-control', styles.outline ) }
-								onClick={ closeFiles }
-							>
+							<Button variant="outline" onClick={ closeFiles }>
 								{ __( 'Done' ) }
 							</Button>
 						) : (
 							<div className={ styles.footer }>
 								<Button
-									variant="solid"
-									tone={ direction === 'push' ? 'brand' : 'neutral' }
+									variant={ direction === 'push' ? 'accent' : 'default' }
 									className={ styles.primary }
 									disabled={
 										disabled ||
@@ -357,8 +347,6 @@ export function ConnectedView( {
 												<IconButton
 													ref={ actions }
 													variant="outline"
-													tone="neutral"
-													className={ clsx( 'studio-control', styles.outline ) }
 													icon={ moreHorizontal }
 													label={ __( 'Website actions' ) }
 												/>

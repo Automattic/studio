@@ -11,7 +11,6 @@ import {
 import { useNavigate } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
 import { arrowDown } from '@wordpress/icons';
-import { IconButton } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import {
 	useCallback,
@@ -25,17 +24,26 @@ import {
 	type Ref,
 } from 'react';
 import { AgenticSigninPrompt } from '@/components/agentic-signin-banner';
+import {
+	getSiteAnnotations,
+	hasAnnotationContent,
+	removeAnnotations,
+	stageAnnotations,
+	subscribeAnnotationSend,
+} from '@/components/annotations/store';
+import { annotationSubmission } from '@/components/annotations/submission';
 import { OpenChatShortcuts } from '@/components/chat-actions';
 import { PreviewParticles } from '@/components/preview-particles';
 import { PreviewToggleButton } from '@/components/preview-toggle-button';
 import { ProgressiveBlur } from '@/components/progressive-blur';
 import { ShareButton } from '@/components/share-dialog';
 import { HeaderSidebarToggle } from '@/components/sidebar-toggle';
-import { SiteDropdown } from '@/components/site-dropdown';
+import { SiteActionsMenu } from '@/components/site-actions-menu';
 import { SiteIcon } from '@/components/site-icon';
 import { SiteLifecycleButton } from '@/components/site-lifecycle-button';
-import { type Annotation } from '@/components/site-preview/types';
 import { StoppedSitePreview } from '@/components/stopped-site-preview';
+import { Button, IconButton } from '@/components/ui/button';
+import { toast } from '@/data/app-messages';
 import { useAgentRun } from '@/data/queries/use-agent-run';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useAiSettings } from '@/data/queries/use-ai-settings';
@@ -48,6 +56,7 @@ import {
 	useSetSessionEnvironment,
 } from '@/data/queries/use-sessions';
 import {
+	useIsSiteBusy,
 	useIsSiteStarting,
 	useIsSiteStopping,
 	useSites,
@@ -57,18 +66,13 @@ import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useIsOutOfAiCredits } from '@/hooks/use-is-out-of-ai-credits';
 import { useMarkChatRead } from '@/hooks/use-mark-chat-read';
 import { useSessionCommands } from '@/hooks/use-session-commands';
-import { SessionUIProvider, useSessionPreviewAnnotations } from '@/hooks/use-session-ui';
+import { SessionUIProvider } from '@/hooks/use-session-ui';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import { useWindowControlsInset } from '@/hooks/use-window-controls-inset';
 import { formatComposerTextQuote, watchComposerTextQuote } from '@/lib/composer-text-quote';
 import { pendingPromptSlot } from '@/lib/pending-prompt';
 import { AccessRequirements } from './access-requirements';
-import {
-	formatAnnotationsAsPrompt,
-	formatAnnotationsSubmittedMessage,
-	toVisualAnnotationSummaries,
-} from './annotations';
 import { Composer, ComposerSkeleton, type ComposerHandle } from './composer';
 import { Conversation } from './conversation';
 import { QueuedPrompts } from './queued-prompts';
@@ -118,13 +122,13 @@ function SessionHeader( {
 			style={
 				windowControlsInset > 0
 					? {
-							paddingRight: `calc(${ windowControlsInset }px + var(--wpds-dimension-padding-sm))`,
+							paddingRight: windowControlsInset + 8,
 					  }
 					: undefined
 			}
 		>
 			<HeaderSidebarToggle />
-			{ site ? <SiteDropdown site={ site } activeEnvironment={ effectiveEnvironment } /> : null }
+			{ site ? <SiteActionsMenu site={ site } /> : null }
 			{ ! site && siteName ? (
 				<>
 					<SiteIcon className={ styles.headerSiteIcon } seed={ siteName } />
@@ -282,7 +286,7 @@ export function SignedOutSessionView( { siteId }: { siteId: string } ) {
 
 function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	const navigate = useNavigate();
-	const { data, isLoading, error } = useSession( sessionId );
+	const { data, isLoading, error, refetch } = useSession( sessionId );
 	const { data: sites } = useSites();
 	const { mutateAsync: createSession, isPending: isCreatingSession } = useCreateSession();
 	const ownerSite = findAiSessionOwnerSite( sites, data?.summary );
@@ -308,16 +312,17 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		refetch: refetchQuota,
 	} = useStudioAssistantQuota();
 	const { data: aiSettings } = useAiSettings();
+	const sessionProvider = getEffectiveSessionProvider( data?.entries ?? [], aiSettings );
+	const isWpcom = sessionProvider === 'wpcom';
 	// A fresh wpcom session defaults to balanced when purchased credits
 	// remain, fast otherwise.
-	const currentModel = useMemo( () => {
-		const entries = data?.entries ?? [];
-		return resolveSessionModelForProvider(
-			entries,
-			getEffectiveSessionProvider( entries, aiSettings ),
-			{ hasPaidAiCredits: hasPaidAiCredits( quota ) }
-		);
-	}, [ data?.entries, aiSettings, quota ] );
+	const currentModel = useMemo(
+		() =>
+			resolveSessionModelForProvider( data?.entries ?? [], sessionProvider, {
+				hasPaidAiCredits: hasPaidAiCredits( quota ),
+			} ),
+		[ data?.entries, sessionProvider, quota ]
+	);
 	const pendingQuestionTexts = useMemo(
 		() => new Set( pendingQuestions.map( ( q ) => q.question ) ),
 		[ pendingQuestions ]
@@ -427,19 +432,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	}, [ scrollNode ] );
 	useSessionCommands( sessionId );
 	const canTogglePreview = !! ownerSite && effectiveEnvironment === 'local';
-	const handleAnnotationsDone = useCallback(
-		( annotations: Annotation[] ) => {
-			if ( annotations.length === 0 ) return;
-			void sendMessage( formatAnnotationsAsPrompt( annotations ), {
-				displayMessage: formatAnnotationsSubmittedMessage( annotations.length ),
-				visualAnnotations: toVisualAnnotationSummaries( annotations ),
-			} );
-		},
-		[ sendMessage ]
-	);
-	// The preview panel itself is hosted by the dashboard layout; route its
-	// annotation submissions to this session while it is on screen.
-	useSessionPreviewAnnotations( handleAnnotationsDone, canTogglePreview );
+	const annotationSiteId = canTogglePreview ? ownerSite.id : undefined;
 
 	const reopenQueuedPrompt = useCallback(
 		( queuedPrompt: ( typeof queuedPrompts )[ number ] ) => {
@@ -491,19 +484,22 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		queuedPrompts.length,
 	] );
 
-	const isOutOfCredits = useIsOutOfAiCredits();
+	const isOutOfCredits = useIsOutOfAiCredits() && isWpcom;
 	useMarkChatRead( sessionId, data?.summary.unread );
 	useNewChatShortcut( startNewChat, !! ownerSite && ! isOutOfCredits && ! isCreatingSession );
 	// Fail open when the quota is unavailable (offline, error, older server) —
 	// the WordPress.com proxy enforces the same gate server-side.
 	const isAccessBlocked =
-		!! quota && ( getStudioCodeAiAccessState( quota ) !== 'available' || ! quota.hasPaymentMethod );
+		isWpcom &&
+		!! quota &&
+		( getStudioCodeAiAccessState( quota ) !== 'available' || ! quota.hasPaymentMethod );
 
 	const [ frameNode, setFrameNode ] = useState< HTMLDivElement | null >( null );
 	const { data: preferences } = useUserPreferences();
 	const { mutate: startSite } = useStartSite( { silent: true } );
 	const isSiteStarting = useIsSiteStarting( ownerSite?.id );
 	const isSiteStopping = useIsSiteStopping( ownerSite?.id );
+	const isSiteBusy = useIsSiteBusy( ownerSite );
 	const canAutoStart = !! ownerSite && effectiveEnvironment === 'local';
 	const { data: connectedSites } = useConnectedWpcomSites( ownerSite?.id );
 	const liveSite = pickLiveSite( connectedSites ?? [] );
@@ -514,13 +510,13 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 				canAutoStart &&
 				preferences?.autoStartSiteOnChat &&
 				! ownerSite.running &&
-				! isSiteStarting
+				! isSiteBusy
 			) {
 				startSite( ownerSite.id );
 			}
 			return sendMessage( prompt, attachments );
 		},
-		[ canAutoStart, isSiteStarting, ownerSite, preferences, sendMessage, startSite ]
+		[ canAutoStart, isSiteBusy, ownerSite, preferences, sendMessage, startSite ]
 	);
 	const composerPlaceholder = ownerSite
 		? sprintf(
@@ -552,6 +548,32 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		} );
 	}, [ isChatReady, pendingPrompt, sendMessage, sessionId ] );
 
+	// Notes sent from the preview land in the composer, then go out with its
+	// draft, or alone when they were sent directly. While the agent works they
+	// wait in the composer.
+	useEffect( () => {
+		if ( ! isChatReady || ! annotationSiteId ) return;
+		return subscribeAnnotationSend( annotationSiteId, ( { noteIds } ) => {
+			stageAnnotations( annotationSiteId, noteIds );
+			if ( composerBusy ) return;
+			if ( ! noteIds ) {
+				void composerRef.current?.send();
+				return;
+			}
+			const notes = getSiteAnnotations( annotationSiteId ).notes.filter(
+				( note ) => noteIds.includes( note.id ) && hasAnnotationContent( note )
+			);
+			try {
+				const { prompt, options } = annotationSubmission( '', [], notes );
+				void sendMessage( prompt, options )
+					.then( () => removeAnnotations( annotationSiteId, noteIds ) )
+					.catch( () => undefined );
+			} catch ( error ) {
+				toast.error( ( error as Error ).message );
+			}
+		} );
+	}, [ annotationSiteId, composerBusy, isChatReady, sendMessage ] );
+
 	// Fade the composer and prompts in only right after the entitlement check
 	// resolves; ordinary session loads and switches render instantly. The
 	// render-time latch has the class on from the first post-resolve frame;
@@ -572,9 +594,8 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 
 	// The open session can vanish out from under this view — most commonly when
 	// its site is deleted, which removes the transcript from disk. Bounce to the
-	// root (the next available site) rather than flashing the dead-end "Session
-	// not found" screen; the skeleton below covers the brief redirect.
-	const notFound = ! isLoading && ( !! error || ! data );
+	// root (the next available site); the skeleton below covers the redirect.
+	const notFound = !! error && /session not found/i.test( error.message );
 	useEffect( () => {
 		if ( notFound ) {
 			void navigate( { to: '/' } );
@@ -584,6 +605,19 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	// isQuotaLoading holds the composer back until the entitlement check
 	// resolves, so the view settles once — gate or chat — with no composer
 	// flash. Signed-out and failed quota queries report isLoading false.
+	if ( error && ! data && ! notFound ) {
+		return (
+			<SessionFrame header={ <div className={ styles.header } /> }>
+				<div className={ styles.loadError } role="alert">
+					<span>{ __( 'This chat could not load.' ) }</span>
+					<Button variant="outline" onClick={ () => void refetch() }>
+						{ __( 'Try again' ) }
+					</Button>
+				</div>
+			</SessionFrame>
+		);
+	}
+
 	if ( isLoading || notFound || ! data || isQuotaLoading ) {
 		// Use the same SessionFrame with an empty header and a structural
 		// ComposerSkeleton so the scroll area has the exact same dimensions
@@ -647,15 +681,19 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 						fadeAfterQuotaCheck && styles.fadeInQuick
 					) }
 				>
+					<QueuedPrompts
+						prompts={ queuedPrompts }
+						onRemove={ removeQueuedPrompt }
+						onEdit={ reopenQueuedPrompt }
+					/>
 					{ isScrolledAway ? (
 						<div className={ styles.scrollToLatestWrap }>
 							<IconButton
 								className={ styles.scrollToLatestButton }
 								icon={ arrowDown }
-								label={ __( 'Scroll to latest message' ) }
-								size="small"
-								variant="minimal"
-								tone="neutral"
+								label={ __( 'Jump to latest' ) }
+								variant="outline"
+								shape="round"
 								onClick={ scrollToLatest }
 							/>
 						</div>
@@ -663,7 +701,6 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 					<Composer
 						ref={ composerRef }
 						busy={ composerBusy }
-						awaitingAnswer={ pendingQuestions.length > 0 }
 						isInterrupting={ isInterrupting }
 						model={ currentModel }
 						onSend={ sendWithAutoStart }
@@ -680,6 +717,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 						liveUrl={ liveSite?.url }
 						onEnvironmentChange={ ownerSite ? setEnvironment : undefined }
 						dropTarget={ frameNode }
+						annotationSiteId={ annotationSiteId }
 					/>
 				</div>
 			}
@@ -703,11 +741,6 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 					freeFormQuestion={ freeFormQuestion }
 					onAnswerQuestion={ answerQuestionFromOption }
 					onChooseFreeForm={ chooseFreeFormAnswer }
-				/>
-				<QueuedPrompts
-					prompts={ queuedPrompts }
-					onRemove={ removeQueuedPrompt }
-					onEdit={ reopenQueuedPrompt }
 				/>
 			</div>
 		</SessionFrame>

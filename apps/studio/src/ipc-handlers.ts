@@ -216,6 +216,7 @@ export {
 	saveGlobalAgentInstructions,
 	saveOnboardingHints,
 	saveWapuuScore,
+	setAiProvider,
 	setUserPreferences,
 } from 'src/modules/user-settings/lib/ipc-handlers';
 
@@ -301,7 +302,7 @@ export async function continueAiSession(
 	await reconcileSessionEnvironment( getSessionsDirectory(), sessionId );
 	const images = validateStudioChatImages( options.images );
 	const files = validateStudioChatFiles( options.files );
-	const visualAnnotations = validateStudioVisualAnnotations( options.visualAnnotations );
+	const visualAnnotations = validateStudioVisualAnnotations( options.visualAnnotations, images );
 	return startAgentRun( {
 		sessionId,
 		prompt: expandSkillCommandPrompt( prompt ),

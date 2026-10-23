@@ -1,8 +1,8 @@
 import { findAiSessionOwnerSite } from '@studio/common/ai/sessions/owner-site';
 import { createRoute, Outlet, useNavigate, useRouterState } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
-import { IconButton } from '@wordpress/ui';
 import { useCallback, useEffect, useState } from 'react';
+import { requestAnnotationSend } from '@/components/annotations/store';
 import { CommandPalette } from '@/components/command-palette';
 import {
 	PreviewSplitFrame,
@@ -10,9 +10,10 @@ import {
 } from '@/components/preview-split-frame';
 import { SidebarLayout } from '@/components/sidebar-layout';
 import { HeaderSidebarToggle } from '@/components/sidebar-toggle';
-import { SiteDropdown } from '@/components/site-dropdown';
+import { SiteActionsMenu } from '@/components/site-actions-menu';
 import { SitePreview } from '@/components/site-preview';
 import { SiteWorkspace } from '@/components/site-workspace';
+import { IconButton } from '@/components/ui/button';
 import { useOrientationAutostart } from '@/data/onboarding/use-orientation-autostart';
 import { useOrientationReplay } from '@/data/onboarding/use-orientation-replay';
 import { useWhatsNewAutostart } from '@/data/onboarding/use-whats-new-autostart';
@@ -20,14 +21,9 @@ import { useWhatsNewReplay } from '@/data/onboarding/use-whats-new-replay';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useSession, useSessionEffectiveEnvironment } from '@/data/queries/use-sessions';
 import { useSites } from '@/data/queries/use-sites';
-import {
-	pathForSite,
-	SessionUIProvider,
-	useSessionPreviewAnnotationsHandler,
-	useSessionPreviewUI,
-} from '@/hooks/use-session-ui';
+import { pathForSite, SessionUIProvider, useSessionPreviewUI } from '@/hooks/use-session-ui';
 import { chatIcon } from '@/lib/icons';
-import { writeLastVisited } from '@/lib/last-visited';
+import { rememberVisit } from '@/lib/last-visited';
 import { PREVIEW_SPLIT_MIN_WIDTH } from '@/lib/resizable-panels';
 import { rootRoute } from '../layout-root';
 
@@ -87,7 +83,6 @@ function DashboardLayoutContent() {
 		}
 	}, [ agenticFeaturesReady, chatEnabled, navigate, sessionId ] );
 	const preview = useSessionPreviewUI();
-	const onAnnotationsDone = useSessionPreviewAnnotationsHandler();
 	const sessionSite = findAiSessionOwnerSite( sites, sessionData?.summary );
 	const effectiveEnvironment = useSessionEffectiveEnvironment(
 		sessionData?.summary,
@@ -115,15 +110,16 @@ function DashboardLayoutContent() {
 			setLastPreviewSiteId( routeSite.id );
 		}
 	}, [ routeSite ] );
-	// Remember the user's site so the `/` index route can return here
-	// instead of defaulting to the first site.
+	// Remember the user's site and its open chat, so the `/` index route and
+	// the sidebar return here instead of defaulting to the first site.
 	const sessionSiteId = sessionSite?.id;
 	useEffect( () => {
-		const siteId = sessionSiteId ?? newSessionSiteId;
-		if ( siteId ) {
-			writeLastVisited( { siteId } );
+		if ( sessionSiteId ) {
+			rememberVisit( sessionSiteId, sessionId );
+		} else if ( newSessionSiteId ?? homeSiteId ) {
+			rememberVisit( ( newSessionSiteId ?? homeSiteId )! );
 		}
-	}, [ sessionSiteId, newSessionSiteId ] );
+	}, [ sessionSiteId, sessionId, newSessionSiteId, homeSiteId ] );
 	const lastPreviewSite = lastPreviewSiteId
 		? sites?.find( ( site ) => site.id === lastPreviewSiteId )
 		: undefined;
@@ -163,6 +159,17 @@ function DashboardLayoutContent() {
 		},
 		[ setPreviewOpen ]
 	);
+	// The notes go to the chat beside the preview, or to a new one for the site.
+	const sendAnnotations = useCallback(
+		( siteId: string, noteIds?: string[] ) => {
+			requestAnnotationSend( { siteId, noteIds } );
+			setChatHidden( false );
+			if ( ! sessionId || sessionSite?.id !== siteId ) {
+				void navigate( { to: '/sites/$siteId/new', params: { siteId } } );
+			}
+		},
+		[ navigate, sessionId, sessionSite?.id, setChatHidden ]
+	);
 	const renderPreview = useCallback(
 		( { collapsed }: PreviewSplitFramePreviewProps ) =>
 			previewSite ? (
@@ -170,7 +177,7 @@ function DashboardLayoutContent() {
 					site={ previewSite }
 					path={ previewPath }
 					reloadNonce={ preview.reloadNonce }
-					onAnnotationsDone={ onAnnotationsDone }
+					onSendAnnotations={ sendAnnotations }
 					onPathChange={ preview.updatePath }
 					collapsed={ collapsed }
 					atWindowStart={ chatHidden }
@@ -178,13 +185,9 @@ function DashboardLayoutContent() {
 						chatHidden ? (
 							<>
 								<HeaderSidebarToggle />
-								<SiteDropdown site={ previewSite } />
+								<SiteActionsMenu site={ previewSite } />
 								{ homeSite ? null : (
 									<IconButton
-										variant="minimal"
-										tone="neutral"
-										size="small"
-										className="studio-control"
 										icon={ chatIcon }
 										label={ __( 'Show chat' ) }
 										onClick={ () => setChatHidden( false ) }
@@ -198,7 +201,7 @@ function DashboardLayoutContent() {
 		[
 			chatHidden,
 			homeSite,
-			onAnnotationsDone,
+			sendAnnotations,
 			previewPath,
 			preview.reloadNonce,
 			preview.updatePath,

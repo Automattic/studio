@@ -1,9 +1,9 @@
 import { __ } from '@wordpress/i18n';
 import { isAppleOS } from '@wordpress/keycodes';
-import { VisuallyHidden } from '@wordpress/ui';
 import { useState, type ReactElement } from 'react';
-import * as Popover from '@/components/popover';
 import { SiteList } from '@/components/site-list';
+import * as Popover from '@/components/ui/popover';
+import { VisuallyHidden } from '@/components/ui/visually-hidden';
 import styles from './style.module.css';
 
 const HOVER_OPEN_DELAY_MS = 180;
@@ -30,7 +30,7 @@ export function CollapsedSiteSwitcher( {
 				render={ trigger }
 			/>
 			<Popover.Popup side="bottom" align="start" sideOffset={ 8 } className={ styles.popup }>
-				<VisuallyHidden render={ <Popover.Title /> }>{ __( 'Sites' ) }</VisuallyHidden>
+				<Popover.Title render={ <VisuallyHidden /> }>{ __( 'Sites' ) }</Popover.Title>
 				<div className={ styles.surface }>
 					<div className={ styles.scrollArea }>
 						<SiteList

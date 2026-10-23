@@ -9,11 +9,8 @@ vi.mock( '@/data/queries/use-sites', () => ( {
 	useDeleteSite: vi.fn(),
 } ) );
 
-// The dialog's theme scope reads the resolved color scheme, which needs the
-// connector + query providers this test deliberately renders without.
-vi.mock( '@/hooks/use-color-scheme', () => ( {
-	useColorScheme: () => 'light',
-} ) );
+// Base UI's checkbox dispatches a PointerEvent, which jsdom lacks.
+vi.stubGlobal( 'PointerEvent', window.PointerEvent ?? MouseEvent );
 
 const SITE = { id: 'site-1', name: 'My Site' } as SiteDetails;
 const mutateAsync = vi.fn();
@@ -77,7 +74,6 @@ describe( 'DeleteSiteDialog', () => {
 
 		await userEvent.click( screen.getByRole( 'button', { name: 'Delete site' } ) );
 
-		// Scoped to the dialog: the error is also announced in an aria-live region.
 		const dialog = await screen.findByRole( 'alertdialog' );
 		expect( await within( dialog ).findByText( 'Site is running' ) ).toBeVisible();
 		expect( onDeleted ).not.toHaveBeenCalled();

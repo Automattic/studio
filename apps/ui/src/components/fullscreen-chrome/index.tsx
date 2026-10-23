@@ -1,7 +1,7 @@
 import { __ } from '@wordpress/i18n';
 import { close } from '@wordpress/icons';
-import { IconButton } from '@wordpress/ui';
 import { clsx } from 'clsx';
+import { IconButton } from '@/components/ui/button';
 import { useWindowControlsOverlay } from '@/hooks/use-window-controls-overlay';
 import { useWindowControlsSurface } from '@/hooks/use-window-controls-surface';
 import styles from './style.module.css';
@@ -38,9 +38,6 @@ export function FullscreenChrome( { onClose, closeDisabled }: FullscreenChromePr
 			{ onClose && (
 				<IconButton
 					className={ clsx( styles.close, closeAtStart && styles.closeWindowControls ) }
-					variant="minimal"
-					tone="neutral"
-					size="default"
 					icon={ close }
 					label={ __( 'Close' ) }
 					onClick={ onClose }

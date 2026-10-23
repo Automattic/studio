@@ -1,11 +1,10 @@
-import { FormToggle } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
-import { Tooltip } from '@wordpress/ui';
-import { clsx } from 'clsx';
 import { useState } from 'react';
 import { LearnMoreLink } from '@/components/learn-more';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useAppGlobals } from '@/data/queries/use-app-globals';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
+import { SettingsGroup, SettingsRow, SettingsToggle } from './rows';
 import styles from './style.module.css';
 
 export function StudioCliSection() {
@@ -37,52 +36,49 @@ export function StudioCliSection() {
 	};
 
 	const toggle = (
-		<FormToggle
-			id="studio-cli-toggle"
-			aria-label={ __( 'Studio CLI for terminal' ) }
+		<SettingsToggle
+			label={ __( 'Studio CLI for terminal' ) }
 			checked={ checked }
 			disabled={ savePreferences.isPending || externallyManaged }
-			onChange={ ( event ) => handleChange( event.target.checked ) }
+			onChange={ handleChange }
 		/>
 	);
 
 	return (
-		<section className={ styles.preferenceSectionGroup }>
-			<div className={ styles.cliHeader }>
-				<h2 className={ clsx( styles.preferenceSectionHeading, styles.cliHeading ) }>
-					{ __( 'Studio CLI' ) }
-				</h2>
+		<SettingsGroup title={ __( 'Studio CLI' ) }>
+			<SettingsRow
+				title={ __( 'Studio CLI for terminal' ) }
+				description={
+					<>
+						{ __( 'Use the studio command in any terminal to manage sites and run WP-CLI.' ) }{ ' ' }
+						<LearnMoreLink docsLinksKey="docsCli" />
+					</>
+				}
+				error={
+					savePreferences.isError
+						? __( 'An error occurred while updating the Studio CLI. Please try again.' )
+						: undefined
+				}
+			>
 				{ externallyManaged ? (
 					// The default open delay reads as unresponsive on a disabled
 					// control, so this tooltip gets its own faster provider.
-					<Tooltip.Provider delay={ 200 }>
-						<Tooltip.Root>
-							<Tooltip.Trigger
+					<TooltipProvider delay={ 200 }>
+						<Tooltip>
+							<TooltipTrigger
 								render={ <span className={ styles.cliToggleTrigger }>{ toggle }</span> }
 							/>
-							<Tooltip.Popup
-								className={ styles.cliTooltip }
-								positioner={ <Tooltip.Positioner side="top" /> }
-							>
+							<TooltipContent className={ styles.cliTooltip }>
 								{ __(
 									'This studio command was installed with the standalone CLI installer, so Studio can’t manage it. Run studio uninstall in a terminal to remove it.'
 								) }
-							</Tooltip.Popup>
-						</Tooltip.Root>
-					</Tooltip.Provider>
+							</TooltipContent>
+						</Tooltip>
+					</TooltipProvider>
 				) : (
 					toggle
 				) }
-			</div>
-			{ savePreferences.isError ? (
-				<div className={ styles.errorMessage }>
-					{ __( 'An error occurred while updating the Studio CLI. Please try again.' ) }
-				</div>
-			) : null }
-			<p className={ styles.cliDescription }>
-				{ __( 'Use the studio command in any terminal to manage sites and run WP-CLI.' ) }{ ' ' }
-				<LearnMoreLink docsLinksKey="docsCli" />
-			</p>
-		</section>
+			</SettingsRow>
+		</SettingsGroup>
 	);
 }

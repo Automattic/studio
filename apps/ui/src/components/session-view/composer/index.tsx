@@ -11,6 +11,7 @@ import {
 import { watchComposerFilePaste } from '@studio/common/ai/composer-attachments';
 import {
 	aiModelRequiresPaidCredits,
+	aiModelSupportsImages,
 	getAiModelFamily,
 	getAiModelLabel,
 } from '@studio/common/ai/models';
@@ -26,20 +27,26 @@ import {
 import { isStudioCustomEntryOfType } from '@studio/common/ai/sessions/entry-types';
 import { getAiSkillCommands, resolveSkillFromPrompt } from '@studio/common/ai/slash-commands';
 import { isAutomatticianEmail } from '@studio/common/lib/automattician';
-import { hasPaidAiCredits } from '@studio/common/lib/studio-assistant-quota';
+import {
+	clampQuotaFraction,
+	formatQuotaPercentage,
+	getStudioCodeAiAccessState,
+	getTotalRemainingAiCredits,
+	hasPaidAiCredits,
+	type StudioAssistantQuota,
+} from '@studio/common/lib/studio-assistant-quota';
 import { useQueryClient } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
 import {
 	arrowUp,
 	chevronDownSmall,
-	chevronRightSmall,
 	closeSmall,
 	globe,
+	Icon,
 	page,
 	play,
 	plus,
 } from '@wordpress/icons';
-import { Button, Icon, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import {
 	forwardRef,
@@ -57,7 +64,21 @@ import {
 } from 'react';
 import { createPortal } from 'react-dom';
 import { AiCreditsPurchaseDialog } from '@/components/ai-credits-purchase-dialog';
-import * as Menu from '@/components/menu';
+import {
+	getStagedAnnotations,
+	isStagedAnnotation,
+	removeAnnotations,
+	useSiteAnnotations,
+} from '@/components/annotations/store';
+import {
+	annotationSubmission,
+	getAnnotationsAttachment,
+} from '@/components/annotations/submission';
+import { Button } from '@/components/ui/button';
+import { InputGroup, InputGroupTextarea } from '@/components/ui/input-group';
+import * as Menu from '@/components/ui/menu';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { useAiSettings } from '@/data/queries/use-ai-settings';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
@@ -71,9 +92,9 @@ import {
 import { useStudioAssistantTopUpPricing } from '@/data/queries/use-top-up-pricing';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useAddAiCreditsUrl } from '@/hooks/use-add-ai-credits-url';
-import { useAiCreditsMeter } from '@/hooks/use-ai-credits-meter';
 import { useIsOutOfAiCredits } from '@/hooks/use-is-out-of-ai-credits';
 import { useOpenSettings } from '@/hooks/use-open-settings';
+import { annotationIcon } from '@/lib/icons';
 import { isImeComposing } from '@/lib/is-ime-composing';
 import { completeComposerDraftSend, getComposerDraft, saveComposerDraft } from './draft-store';
 import { FamilySwitchConfirmDialog } from './family-switch-confirm-dialog';
@@ -92,6 +113,7 @@ import type {
 	SessionEntry,
 	StudioChatFileAttachment,
 	StudioChatImage,
+	StudioVisualAnnotationSummary,
 } from '@/data/core';
 
 function AttachmentHoverTextPreview( { text }: { text: string } ) {
@@ -140,6 +162,38 @@ function getModelDescription( id: AiModelId ): string {
 		default:
 			return '';
 	}
+}
+
+// Accounts on the older monthly cap have no credit counts, only usage against the cap.
+function getCreditsLabel( quota: StudioAssistantQuota | null | undefined, locale?: string ) {
+	const remaining = quota ? getTotalRemainingAiCredits( quota ) : undefined;
+	if ( remaining !== undefined ) {
+		return {
+			hasCredits: true,
+			label:
+				remaining <= 0
+					? __( 'No AI credits remaining' )
+					: sprintf(
+							/* translators: %s: compact number of AI credits remaining (e.g. 200K or 1.5M). */
+							__( 'AI credits: %s remaining' ),
+							new Intl.NumberFormat( locale, {
+								notation: 'compact',
+								maximumFractionDigits: 1,
+							} ).format( remaining )
+					  ),
+		};
+	}
+	if ( ! quota || quota.costCap <= 0 ) {
+		return { hasCredits: false, label: __( 'AI usage unavailable' ) };
+	}
+	return {
+		hasCredits: false,
+		label: sprintf(
+			/* translators: %s: percentage of the AI allowance left. */
+			__( 'AI allowance: %s remaining' ),
+			formatQuotaPercentage( 1 - clampQuotaFraction( quota.costUsage, quota.costCap ), locale )
+		),
+	};
 }
 
 function toComposerDraftAttachments( {
@@ -201,10 +255,12 @@ function ModeChip( {
 	icon,
 	label,
 	onRemove,
+	disabled,
 }: {
 	icon: ReactElement< SVGProps< SVGSVGElement > >;
 	label: string;
 	onRemove: () => void;
+	disabled?: boolean;
 } ) {
 	const removeLabel = sprintf(
 		/* translators: %s: name of a composer mode, e.g. "Auto-start". */
@@ -212,13 +268,14 @@ function ModeChip( {
 		label
 	);
 	return (
-		<Tooltip.Root>
-			<Tooltip.Trigger
+		<Tooltip>
+			<TooltipTrigger
 				render={
 					<button
 						type="button"
 						className={ styles.modeChip }
 						aria-label={ removeLabel }
+						disabled={ disabled }
 						onClick={ onRemove }
 					/>
 				}
@@ -226,11 +283,9 @@ function ModeChip( {
 				<Icon icon={ icon } size={ 16 } className={ styles.modeChipIcon } />
 				<Icon icon={ closeSmall } size={ 16 } className={ styles.modeChipRemove } />
 				<span>{ label }</span>
-			</Tooltip.Trigger>
-			<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
-				{ removeLabel }
-			</Tooltip.Popup>
-		</Tooltip.Root>
+			</TooltipTrigger>
+			<TooltipContent>{ removeLabel }</TooltipContent>
+		</Tooltip>
 	);
 }
 
@@ -253,12 +308,15 @@ export function ComposerSkeleton() {
 
 interface ComposerProps {
 	busy: boolean;
-	// The agent is blocked on `ask_user`. Sending answers the question it is
-	// waiting on, so this is a send, not a queue.
-	awaitingAnswer?: boolean;
 	isInterrupting?: boolean;
 	model: AiModelId;
-	onSend: ( prompt: string, attachments?: ComposerSendAttachments ) => Promise< void >;
+	onSend: (
+		prompt: string,
+		options?: ComposerSendAttachments & {
+			displayMessage?: string;
+			visualAnnotations?: StudioVisualAnnotationSummary[];
+		}
+	) => Promise< void >;
 	onAnswer?: ( answer: string ) => void;
 	onInterrupt: () => Promise< void >;
 	sessionId?: string;
@@ -284,6 +342,8 @@ interface ComposerProps {
 	onEnvironmentChange?: ( environment: 'local' | 'live' ) => void;
 	// Where files can be dropped; the composer itself when absent.
 	dropTarget?: HTMLElement | null;
+	// The site whose preview annotations go out with the next message.
+	annotationSiteId?: string;
 	onModelChange?: ( model: AiModelId ) => void;
 }
 
@@ -304,6 +364,7 @@ export interface ComposerHandle {
 	): void;
 	getSubmission(): { prompt: string; attachments: ComposerSendAttachments } | null;
 	focus(): void;
+	send(): Promise< void >;
 }
 
 function focusAtEnd( node: HTMLTextAreaElement | null ) {
@@ -327,7 +388,6 @@ function shouldShellFocusTextarea( target: EventTarget ) {
 const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function ComposerContent(
 	{
 		busy,
-		awaitingAnswer = false,
 		isInterrupting = false,
 		model,
 		onSend,
@@ -346,6 +406,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		liveUrl,
 		onEnvironmentChange,
 		dropTarget,
+		annotationSiteId,
 		onModelChange,
 	},
 	ref
@@ -354,6 +415,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 	const [ initialDraft ] = useState( () => getComposerDraft( sessionId ) );
 	const [ value, setValue ] = useState( initialDraft.text );
 	const [ sending, setSending ] = useState( false );
+	const [ modelMenuOpen, setModelMenuOpen ] = useState( false );
 	const [ submitFeedback, setSubmitFeedback ] = useState< 'shake' | 'error' | null >( null );
 	const [ hoverPreview, setHoverPreview ] = useState< ComposerAttachmentHoverPreviewState | null >(
 		null
@@ -361,6 +423,8 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 	const [ shellNode, setShellNode ] = useState< HTMLDivElement | null >( null );
 	const textareaRef = useRef< HTMLTextAreaElement | null >( null );
 	const fileInputRef = useRef< HTMLInputElement | null >( null );
+	const insertedCursorRef = useRef< number | null >( null );
+	const skillInsertedRef = useRef( false );
 	const draftEffectInitializedRef = useRef( false );
 	const connector = useConnector();
 	const queryClient = useQueryClient();
@@ -377,15 +441,19 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 	// are listed but disabled for accounts without purchased credits;
 	// Automatticians are exempt.
 	const offeredModels = getAiProviderModels( sessionProvider );
-	const { data: quota } = useStudioAssistantQuota();
+	const {
+		data: quota,
+		isError: isQuotaError,
+		refetch: refetchQuota,
+	} = useStudioAssistantQuota( { refetchOnWindowFocus: 'always' } );
 	const { data: authUser } = useAuthUser();
 	const canUsePaidTiers = hasPaidAiCredits( quota ) || isAutomatticianEmail( authUser?.email );
 	const isModelLocked = useCallback(
 		( id: AiModelId ) => aiModelRequiresPaidCredits( id ) && ! canUsePaidTiers,
 		[ canUsePaidTiers ]
 	);
-	const creditsMeter = useAiCreditsMeter();
-	const isOutOfCredits = useIsOutOfAiCredits() && ! isField;
+	const isWpcom = sessionProvider === 'wpcom';
+	const isOutOfCredits = useIsOutOfAiCredits() && ! isField && isWpcom;
 
 	// The chooser when priced options exist, else straight to checkout for the
 	// single fixed top-up.
@@ -406,11 +474,63 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 	const setAutoStart = ( autoStartSiteOnChat: boolean ) =>
 		savePreferences.mutate( { autoStartSiteOnChat } );
 
+	const canSwitchEnvironment = !! onEnvironmentChange && ! busy;
+	const composerCommands = useMemo(
+		() => [
+			...( busy ? [] : [ { name: 'model', description: __( 'Select a model for this chat.' ) } ] ),
+			...( canSwitchEnvironment && environment === 'local' && liveUrl
+				? [ { name: 'live', description: liveUrl } ]
+				: [] ),
+			...( canSwitchEnvironment && environment === 'live'
+				? [ { name: 'local', description: __( 'Work on the local site on your computer.' ) } ]
+				: [] ),
+			...( canAutoStart && ! autoStartOn
+				? [
+						{
+							name: 'auto-start',
+							description: __( 'Start stopped sites when you send a chat message.' ),
+						},
+				  ]
+				: [] ),
+		],
+		[ autoStartOn, busy, canAutoStart, canSwitchEnvironment, environment, liveUrl ]
+	);
 	const slash = useSlashCommands( {
 		value,
 		setValue,
 		textareaRef,
+		commands: composerCommands,
+		onCommand: ( name ) => {
+			if ( name === 'model' ) {
+				setModelMenuOpen( true );
+			} else if ( name === 'live' || name === 'local' ) {
+				onEnvironmentChange?.( name );
+			} else if ( name === 'auto-start' ) {
+				setAutoStart( true );
+			}
+		},
 	} );
+
+	useLayoutEffect( () => {
+		const cursor = insertedCursorRef.current;
+		if ( cursor !== null ) {
+			textareaRef.current?.setSelectionRange( cursor, cursor );
+			insertedCursorRef.current = null;
+		}
+	}, [ value ] );
+
+	const insertSkill = ( name: string ) => {
+		const start = textareaRef.current?.selectionStart ?? value.length;
+		const end = textareaRef.current?.selectionEnd ?? start;
+		const before = value.slice( 0, start );
+		const after = value.slice( end );
+		const command = `${ before && ! /\s$/.test( before ) ? ' ' : '' }/${ name }${
+			/^\s/.test( after ) ? '' : ' '
+		}`;
+		insertedCursorRef.current = before.length + command.length + ( /^\s/.test( after ) ? 1 : 0 );
+		skillInsertedRef.current = true;
+		setValue( before + command + after );
+	};
 
 	// File/image attachments (attach button, drop and paste). Images ride as
 	// base64 content blocks; other files are referenced by disk path.
@@ -421,8 +541,14 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		removeAttachments,
 		restore: restoreAttachments,
 		pasteHandlers,
-	} = useComposerAttachments( initialDraft.attachments, awaitingAnswer );
+	} = useComposerAttachments( initialDraft.attachments );
 	const hasAttachments = attachments.length > 0;
+	const { notes } = useSiteAnnotations( annotationSiteId );
+	const stagedNotes = useMemo( () => notes.filter( isStagedAnnotation ), [ notes ] );
+	const annotationsAttachment = stagedNotes.length ? getAnnotationsAttachment( stagedNotes ) : null;
+	const shownAttachments = annotationsAttachment
+		? [ annotationsAttachment, ...attachments ]
+		: attachments;
 	const dropFiles = useCallback(
 		( files: FileList ) => {
 			void addFiles( files );
@@ -474,6 +600,81 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		} );
 	}, [ addFiles ] );
 
+	const answerQuestion =
+		onAnswer && ! hasAttachments && ! resolveSkillFromPrompt( value ) ? onAnswer : undefined;
+	// Notes wait for the agent to finish: they point at the page as it is now.
+	const hasContent =
+		value.trim().length > 0 || hasAttachments || ( ! busy && stagedNotes.length > 0 );
+
+	const send = useCallback( async () => {
+		const trimmed = value.trim();
+		// Read at send time: the preview may have staged notes a moment ago.
+		const sentNotes = busy ? [] : getStagedAnnotations( annotationSiteId );
+		if ( sending || ( ! trimmed && attachments.length === 0 && sentNotes.length === 0 ) ) {
+			return;
+		}
+		if ( isOutOfCredits ) {
+			setSubmitFeedback( 'shake' );
+			return;
+		}
+		if ( answerQuestion && trimmed ) {
+			setValue( '' );
+			answerQuestion( trimmed );
+			return;
+		}
+		let submission;
+		try {
+			submission = sentNotes.length
+				? annotationSubmission( trimmed, attachments, sentNotes )
+				: {
+						prompt: trimmed || __( 'Please review the attached files.' ),
+						options: toComposerSendAttachments( attachments ),
+				  };
+		} catch ( error ) {
+			toast.error( ( error as Error ).message );
+			return;
+		}
+		if ( submission.options.images?.length && ! aiModelSupportsImages( model ) ) {
+			toast.error( __( 'Choose a model that supports images before sending these attachments.' ) );
+			return;
+		}
+		// The draft stays editable until the send is accepted; only then is what
+		// was sent removed, keeping anything typed or attached in the meantime.
+		const sentIds = new Set( attachments.map( ( item ) => item.id ) );
+		setSending( true );
+		try {
+			await onSend( submission.prompt, submission.options );
+		} catch {
+			// The parent reports the failure in a toast; the draft is untouched.
+			return;
+		} finally {
+			setSending( false );
+		}
+		completeComposerDraftSend( sessionId, trimmed, sentIds );
+		if ( ( textareaRef.current?.value ?? '' ).trim() === trimmed ) {
+			setValue( '' );
+		}
+		removeAttachments( sentIds );
+		if ( annotationSiteId && sentNotes.length ) {
+			removeAnnotations(
+				annotationSiteId,
+				sentNotes.map( ( note ) => note.id )
+			);
+		}
+	}, [
+		value,
+		sending,
+		attachments,
+		busy,
+		isOutOfCredits,
+		answerQuestion,
+		onSend,
+		sessionId,
+		removeAttachments,
+		annotationSiteId,
+		model,
+	] );
+
 	useImperativeHandle(
 		ref,
 		() => ( {
@@ -499,58 +700,10 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 			focus() {
 				focusAtEnd( textareaRef.current );
 			},
+			send,
 		} ),
-		[ restoreAttachments, value, attachments ]
+		[ restoreAttachments, value, attachments, send ]
 	);
-
-	const answerQuestion =
-		onAnswer && ! hasAttachments && ! resolveSkillFromPrompt( value ) ? onAnswer : undefined;
-	const hasContent = value.trim().length > 0 || hasAttachments;
-
-	const send = useCallback( async () => {
-		const trimmed = value.trim();
-		if ( sending || ( ! trimmed && attachments.length === 0 ) ) {
-			return;
-		}
-		if ( isOutOfCredits ) {
-			setSubmitFeedback( 'shake' );
-			return;
-		}
-		if ( answerQuestion ) {
-			setValue( '' );
-			answerQuestion( trimmed );
-			return;
-		}
-		// The draft stays editable until the send is accepted; only then is what
-		// was sent removed, keeping anything typed or attached in the meantime.
-		const sentIds = new Set( attachments.map( ( item ) => item.id ) );
-		setSending( true );
-		try {
-			await onSend(
-				trimmed || __( 'Please review the attached files.' ),
-				toComposerSendAttachments( attachments )
-			);
-		} catch {
-			// The parent reports the failure in a toast; the draft is untouched.
-			return;
-		} finally {
-			setSending( false );
-		}
-		completeComposerDraftSend( sessionId, trimmed, sentIds );
-		if ( ( textareaRef.current?.value ?? '' ).trim() === trimmed ) {
-			setValue( '' );
-		}
-		removeAttachments( sentIds );
-	}, [
-		value,
-		sending,
-		attachments,
-		isOutOfCredits,
-		answerQuestion,
-		onSend,
-		sessionId,
-		removeAttachments,
-	] );
 
 	const openFilePicker = useCallback( () => {
 		fileInputRef.current?.click();
@@ -706,12 +859,21 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 					)
 					.catch( () => undefined );
 			}
+			saveComposerDraft( newSession.id, { text: value, attachments } );
 			setPendingFamilyChange( null );
 			onSwitchSession( newSession.id );
 		} finally {
 			setFamilySwitchInFlight( false );
 		}
-	}, [ connector, onSwitchSession, ownerSiteId, pendingFamilyChange, queryClient ] );
+	}, [
+		attachments,
+		connector,
+		onSwitchSession,
+		ownerSiteId,
+		pendingFamilyChange,
+		queryClient,
+		value,
+	] );
 
 	const showStop = ! isField && busy && ( sending || ! hasContent );
 	const canSend = hasContent && ! sending;
@@ -728,22 +890,24 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 	const stopLabel = isInterrupting ? __( 'Force stop' ) : __( 'Stop response' );
 	const addLabel = isField ? __( 'Upload attachment' ) : __( 'Add' );
 	const modelLabel = getAiModelLabel( model );
+	const credits = getCreditsLabel( isQuotaError ? null : quota, preferences?.locale );
+	const canPurchaseCredits =
+		isWpcom &&
+		!! quota &&
+		credits.hasCredits &&
+		! isQuotaError &&
+		getStudioCodeAiAccessState( quota ) === 'available' &&
+		quota.hasPaymentMethod;
 	const modelDetails = [ modelLabel, AI_PROVIDER_LABELS[ sessionProvider ] ];
-	if ( creditsMeter && creditsMeter.totalCredits > 0 ) {
-		modelDetails.push(
-			sprintf(
-				/* translators: %d: percentage of AI credits left. */
-				__( 'AI credits: %d%% remaining' ),
-				Math.round( ( creditsMeter.remainingCredits / creditsMeter.totalCredits ) * 100 )
-			)
-		);
+	if ( isWpcom ) {
+		modelDetails.push( credits.label );
 	}
 	const hoveredAttachment = hoverPreview
-		? attachments.find( ( attachment ) => attachment.id === hoverPreview.id )
+		? shownAttachments.find( ( attachment ) => attachment.id === hoverPreview.id )
 		: undefined;
 
 	const addButton = (
-		<Tooltip.Trigger
+		<TooltipTrigger
 			render={
 				<button
 					type="button"
@@ -754,7 +918,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 			}
 		>
 			<Icon icon={ plus } size={ 16 } />
-		</Tooltip.Trigger>
+		</TooltipTrigger>
 	);
 
 	return (
@@ -774,10 +938,9 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 								{ __( 'Add AI credits to send another message.' ) }
 							</span>
 							<Button
-								size="compact"
-								variant="solid"
-								tone="neutral"
-								className={ styles.noticeAction }
+								size="composer-notice"
+								shape="round"
+								variant={ submitFeedback ? 'destructive' : 'default' }
 								onClick={ openAddCredits }
 							>
 								{ __( 'Add credits' ) }
@@ -785,8 +948,9 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 						</div>
 					</div>
 				) : null }
-				<div
+				<InputGroup
 					ref={ setShellNode }
+					variant="composer"
 					data-session-composer
 					className={ clsx( styles.shell, isField && styles.shellField ) }
 					onMouseDown={ focusTextareaFromShell }
@@ -799,9 +963,9 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 								fileDropTarget
 						  )
 						: null }
-					{ hasAttachments ? (
+					{ shownAttachments.length ? (
 						<ul className={ styles.attachments } aria-label={ __( 'Attachments' ) }>
-							{ attachments.map( ( attachment ) => {
+							{ shownAttachments.map( ( attachment ) => {
 								const imageSrc =
 									attachment.kind === 'image' ? getComposerAttachmentImageSrc( attachment ) : null;
 								const sizeLabel = formatComposerAttachmentSize( attachment.size );
@@ -841,7 +1005,10 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 											<img className={ styles.attachmentThumb } src={ imageSrc } alt="" />
 										) : (
 											<>
-												<Icon icon={ page } size={ 16 } />
+												<Icon
+													icon={ attachment === annotationsAttachment ? annotationIcon : page }
+													size={ 16 }
+												/>
 												<span className={ styles.attachmentName }>{ attachment.name }</span>
 											</>
 										) }
@@ -849,7 +1016,14 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 											type="button"
 											className={ styles.attachmentRemove }
 											aria-label={ __( 'Remove attachment' ) }
-											onClick={ () => removeAttachment( attachment.id ) }
+											onClick={ () =>
+												attachment === annotationsAttachment && annotationSiteId
+													? removeAnnotations(
+															annotationSiteId,
+															stagedNotes.map( ( note ) => note.id )
+													  )
+													: removeAttachment( attachment.id )
+											}
 										>
 											<Icon icon={ closeSmall } size={ 16 } />
 										</button>
@@ -893,7 +1067,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 								{ placeholder }
 							</span>
 						) : null }
-						<textarea
+						<InputGroupTextarea
 							ref={ textareaRef }
 							className={ clsx( styles.input, placeholderBusy && styles.inputShimmering ) }
 							placeholder={ placeholder }
@@ -928,16 +1102,21 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 					<div className={ styles.toolbar }>
 						<div className={ styles.leftActions }>
 							<Menu.Root modal={ false }>
-								<Tooltip.Root>
+								<Tooltip>
 									{ isField ? addButton : <Menu.Trigger render={ addButton } /> }
-									<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
-										{ addLabel }
-									</Tooltip.Popup>
-								</Tooltip.Root>
-								<Menu.Popup side="top" align="start" className={ styles.commandsMenuPopup }>
-									<Menu.Item disabled={ awaitingAnswer } onClick={ openFilePicker }>
-										{ __( 'Add files' ) }
-									</Menu.Item>
+									<TooltipContent>{ addLabel }</TooltipContent>
+								</Tooltip>
+								<Menu.Popup
+									side="top"
+									align="start"
+									className={ styles.commandsMenuPopup }
+									finalFocus={ () => {
+										const focusDraft = skillInsertedRef.current;
+										skillInsertedRef.current = false;
+										return focusDraft ? textareaRef.current : true;
+									} }
+								>
+									<Menu.Item onClick={ openFilePicker }>{ __( 'Add files' ) }</Menu.Item>
 									{ canAutoStart && ! autoStartOn ? (
 										<Menu.Item
 											className={ styles.describedItem }
@@ -984,21 +1163,13 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 									<Menu.SubmenuRoot>
 										<Menu.SubmenuTrigger className={ styles.skillsSubmenuTrigger }>
 											<span>{ __( 'Skills' ) }</span>
-											<Icon
-												icon={ chevronRightSmall }
-												size={ 16 }
-												className={ styles.submenuChevron }
-												aria-hidden="true"
-											/>
 										</Menu.SubmenuTrigger>
-										<Menu.Popup side="right" align="start" className={ styles.skillsMenuPopup }>
+										<Menu.SubmenuPopup className={ styles.skillsMenuPopup }>
 											{ getAiSkillCommands().map( ( command ) => (
 												<Menu.Item
 													key={ command.name }
 													className={ styles.describedItem }
-													onClick={ () => {
-														void onSend( `/${ command.name }` );
-													} }
+													onClick={ () => insertSkill( command.name ) }
 												>
 													<span className={ styles.describedItemBody }>
 														<span className={ styles.describedItemLabel }>
@@ -1010,7 +1181,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 													</span>
 												</Menu.Item>
 											) ) }
-										</Menu.Popup>
+										</Menu.SubmenuPopup>
 									</Menu.SubmenuRoot>
 								</Menu.Popup>
 							</Menu.Root>
@@ -1025,6 +1196,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 								<ModeChip
 									icon={ globe }
 									label={ __( 'Live' ) }
+									disabled={ busy }
 									onRemove={ () => onEnvironmentChange?.( 'local' ) }
 								/>
 							) : null }
@@ -1038,11 +1210,21 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 							/>
 						</div>
 						<div className={ styles.rightActions }>
-							<Menu.Root modal={ false }>
-								<Tooltip.Root>
+							<Menu.Root
+								modal={ false }
+								open={ modelMenuOpen }
+								onOpenChange={ ( open ) => {
+									setModelMenuOpen( open );
+									if ( open && isWpcom ) {
+										void refetchQuota();
+									}
+								} }
+							>
+								<Tooltip>
 									<Menu.Trigger
+										disabled={ busy }
 										render={
-											<Tooltip.Trigger
+											<TooltipTrigger
 												render={
 													<button
 														type="button"
@@ -1054,13 +1236,11 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 											>
 												<span>{ modelLabel }</span>
 												<Icon icon={ chevronDownSmall } size={ 16 } />
-											</Tooltip.Trigger>
+											</TooltipTrigger>
 										}
 									/>
-									<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
-										{ modelDetails.join( ' · ' ) }
-									</Tooltip.Popup>
-								</Tooltip.Root>
+									<TooltipContent>{ modelDetails.join( ' · ' ) }</TooltipContent>
+								</Tooltip>
 								<Menu.Popup side="top" align="end" className={ styles.modelMenuPopup }>
 									{ canPickProvider ? (
 										<>
@@ -1108,8 +1288,15 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 										) ) }
 									</Menu.RadioGroup>
 									<Menu.Separator />
-									{ sessionProvider === 'wpcom' && quota ? (
-										<Menu.Item onClick={ openAddCredits }>{ __( 'Get more credits' ) }</Menu.Item>
+									{ canPurchaseCredits ? (
+										<Menu.Item className={ styles.describedItem } onClick={ openAddCredits }>
+											<span className={ styles.describedItemBody }>
+												<span className={ styles.describedItemLabel }>
+													{ __( 'Get more credits' ) }
+												</span>
+												<span className={ styles.describedItemDescription }>{ credits.label }</span>
+											</span>
+										</Menu.Item>
 									) : null }
 									<Menu.Item
 										className={ styles.describedItem }
@@ -1127,8 +1314,8 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 								</Menu.Popup>
 							</Menu.Root>
 							{ isField ? null : (
-								<Tooltip.Root>
-									<Tooltip.Trigger
+								<Tooltip>
+									<TooltipTrigger
 										render={
 											showStop ? (
 												<button
@@ -1155,15 +1342,13 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 										) : (
 											<Icon icon={ arrowUp } size={ 18 } />
 										) }
-									</Tooltip.Trigger>
-									<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
-										{ showStop ? stopLabel : sendLabel }
-									</Tooltip.Popup>
-								</Tooltip.Root>
+									</TooltipTrigger>
+									<TooltipContent>{ showStop ? stopLabel : sendLabel }</TooltipContent>
+								</Tooltip>
 							) }
 						</div>
 					</div>
-				</div>
+				</InputGroup>
 			</div>
 			<FamilySwitchConfirmDialog
 				currentModel={ model }

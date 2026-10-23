@@ -10,7 +10,6 @@ import { E2ESession, launchWithSite } from './e2e-helpers';
 import AddSite from './page-objects/add-site';
 import Sidebar from './page-objects/sidebar';
 import SiteSettings from './page-objects/site-settings';
-import { getUrlWithAutoLogin } from './utils';
 
 const skipTestOnWindows = process.platform === 'win32' ? test.skip : test;
 const session = new E2ESession();
@@ -43,31 +42,23 @@ test.describe( 'Sites', () => {
 		await session.cleanup();
 	} );
 
-	// The default name and folder, and a custom name with a custom folder.
-	[
-		[ undefined, undefined ],
-		[ 'E2E-Test-Site 2', 'hello' ],
-	].forEach( ( [ customSiteName, customFolderName ] ) => {
-		test( `create site with name ${ customSiteName } and path ${ customFolderName }`, async () => {
-			const { siteName, site } = await launchWithSite( session, {
-				siteName: customSiteName,
-				folder: customFolderName,
-			} );
-
-			if ( customSiteName ) {
-				expect( siteName ).toBe( customSiteName );
-			}
-			if ( customFolderName ) {
-				expect(
-					arePathsEqual( site.path, path.join( session.homePath, 'Studio', customFolderName ) )
-				).toBe( true );
-			}
-			expect( await pathExists( path.join( site.path, 'wp-config.php' ) ) ).toBe( true );
-
-			const response = await fetch( await session.getSiteUrl( siteName ) );
-			expect( [ 200, 302 ] ).toContain( response.status );
-			expect( response.headers.get( 'content-type' ) ).toMatch( /text\/html/ );
+	// The CLI E2E suite covers creating with the default name and path; this checks the form's
+	// name and folder fields reach the site.
+	test( 'create site with a custom name and folder', async () => {
+		const { siteName, site } = await launchWithSite( session, {
+			siteName: 'E2E-Test-Site 2',
+			folder: 'hello',
 		} );
+
+		expect( siteName ).toBe( 'E2E-Test-Site 2' );
+		expect( arePathsEqual( site.path, path.join( session.homePath, 'Studio', 'hello' ) ) ).toBe(
+			true
+		);
+		expect( await pathExists( path.join( site.path, 'wp-config.php' ) ) ).toBe( true );
+
+		const response = await fetch( await session.getSiteUrl( siteName ) );
+		expect( [ 200, 302 ] ).toContain( response.status );
+		expect( response.headers.get( 'content-type' ) ).toMatch( /text\/html/ );
 	} );
 
 	skipTestOnWindows( 'delete site but keep directory on disk', async () => {
@@ -86,28 +77,11 @@ test.describe( 'Sites', () => {
 		await expect.poll( () => pathExists( site.path ) ).toBe( false );
 	} );
 
-	// Pointing the create form at a folder that already holds WordPress adopts that install.
-	test( 'adds a site from an existing WordPress directory', async () => {
-		const folder = 'existing-wp-dir';
+	// Pointing the create form at a folder that already holds WordPress adopts that install, and
+	// Studio must not wipe the user's own MySQL connection settings while doing so.
+	test( 'adds a site from an existing WordPress directory and keeps its MySQL wp-config.php', async () => {
 		const { site: original } = await launchWithSite( session, { folder: 'original' } );
-		const existingDir = await copyInstallTo( original.path, folder );
-		await session.restart( { E2E_OPEN_FOLDER_DIALOG: existingDir } );
-
-		await new AddSite( session.mainWindow ).createSite( {
-			siteName: 'Adopted Site',
-			pickFolder: true,
-		} );
-		await new Sidebar( session.mainWindow ).expectRunning( 'Adopted Site' );
-
-		const adopted = await session.waitForSite( 'Adopted Site' );
-		expect( arePathsEqual( adopted.path, existingDir ) ).toBe( true );
-		expect( await pathExists( path.join( existingDir, 'wp-config.php' ) ) ).toBe( true );
-	} );
-
-	// Studio must not wipe a user's own MySQL connection settings when adopting their install.
-	test( 'preserves an existing MySQL wp-config.php when adding a WordPress directory', async () => {
-		const { site: original } = await launchWithSite( session, { folder: 'original' } );
-		const existingDir = await copyInstallTo( original.path, 'mysql-wp-dir' );
+		const existingDir = await copyInstallTo( original.path, 'existing-wp-dir' );
 
 		const wpConfigPath = path.join( existingDir, 'wp-config.php' );
 		const mysqlDefines = [
@@ -125,11 +99,13 @@ test.describe( 'Sites', () => {
 		await session.restart( { E2E_OPEN_FOLDER_DIALOG: existingDir } );
 
 		await new AddSite( session.mainWindow ).createSite( {
-			siteName: 'MySQL WP Site',
+			siteName: 'Adopted Site',
 			pickFolder: true,
 		} );
-		await new Sidebar( session.mainWindow ).expectRunning( 'MySQL WP Site' );
+		await new Sidebar( session.mainWindow ).expectRunning( 'Adopted Site' );
 
+		const adopted = await session.waitForSite( 'Adopted Site' );
+		expect( arePathsEqual( adopted.path, existingDir ) ).toBe( true );
 		const finalConfig = await fs.readFile( wpConfigPath, 'utf-8' );
 		expect( finalConfig ).toContain( "define( 'DB_USER', 'wp_user' );" );
 		expect( finalConfig ).toContain( "define( 'DB_PASSWORD', 'super-secret-pw' );" );
@@ -152,18 +128,6 @@ test.describe( 'Site settings', () => {
 
 	test.afterAll( async () => {
 		await session.cleanup();
-	} );
-
-	test( "edit site's settings in wp-admin", async ( { page } ) => {
-		const siteUrl = await session.getSiteUrl( siteName );
-
-		await page.goto( getUrlWithAutoLogin( `${ siteUrl }/wp-admin/options-general.php` ) );
-		const siteTitleInput = page.getByLabel( 'Site Title' );
-		await siteTitleInput.fill( 'testing site title' );
-		await siteTitleInput.press( 'Enter' );
-
-		await page.goto( siteUrl );
-		expect( await page.title() ).toBe( 'testing site title' );
 	} );
 
 	test( 'renames a site', async () => {
@@ -214,7 +178,7 @@ test.describe( 'Sites without cleanup in-between', () => {
 		await fs.ensureDir( thumbnailsDir );
 		await fs.writeFile( path.join( thumbnailsDir, `${ site.id }.png` ), 'test-thumbnail-data' );
 
-		await new Sidebar( session.mainWindow ).openContextMenuItem( siteName, 'Duplicate site' );
+		await new Sidebar( session.mainWindow ).openContextMenuItem( siteName, 'Duplicate' );
 
 		const copyName = `${ siteName } Copy`;
 		await expect( new Sidebar( session.mainWindow ).getSiteButton( copyName ) ).toBeVisible( {

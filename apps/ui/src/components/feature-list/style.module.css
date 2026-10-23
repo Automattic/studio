@@ -5,7 +5,7 @@
 	list-style: none;
 	margin: 16px 0 0;
 	padding: 16px 20px 20px;
-	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral);
+	border: 1px solid var(--border);
 	border-radius: 8px;
 	display: flex;
 	gap: 24px;
@@ -24,25 +24,25 @@
 	   first line rather than centred against the whole block. */
 	align-items: flex-start;
 	gap: 6px;
-	font-size: 13px;
+	font-size: var(--text-xs);
 	/* Must be set: the global `h3` rule's line-height is sized for `lg` text
 	   and leaves a huge gap between wrapped lines at 13px. */
 	line-height: 1.4;
-	font-weight: var(--wpds-typography-font-weight-emphasis);
+	font-weight: var(--font-weight-semibold);
 	margin: 0 0 2px;
 	text-wrap: balance;
 }
 
 .featureTitle svg {
-	color: var(--wpds-color-foreground-interactive-brand);
+	color: var(--accent-text);
 	flex-shrink: 0;
 	/* Optically centre the 16px glyph on the first line of text. */
 	margin-top: calc((1.4em - 16px) / 2);
 }
 
 .featureBody {
-	color: var(--wpds-color-foreground-content-neutral-weak);
-	font-size: 12px;
+	color: var(--muted-foreground);
+	font-size: var(--text-xxs);
 	line-height: 1.4;
 	margin: 0;
 	/* Align with the title text, past the checkmark. */

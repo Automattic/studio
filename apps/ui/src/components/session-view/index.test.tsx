@@ -9,8 +9,9 @@ import { pendingPromptSlot } from '@/lib/pending-prompt';
 import { isScrolledAwayFromLatest, SessionView } from './index';
 import type { LoadedAiSession } from '@/data/core';
 
-const { navigateMock, agentRunState, sitesState } = vi.hoisted( () => ( {
+const { navigateMock, agentRunState, sitesState, aiSettingsState } = vi.hoisted( () => ( {
 	navigateMock: vi.fn(),
+	aiSettingsState: { data: undefined as undefined | Record< string, unknown > },
 	agentRunState: { hasActiveRun: false, sendMessage: vi.fn( async () => undefined ) },
 	sitesState: {
 		data: [] as Array< { id: string; path: string; name: string; running?: boolean } >,
@@ -41,6 +42,7 @@ const siteMocks = vi.hoisted( () => ( {
 
 vi.mock( '@/data/queries/use-sites', () => ( {
 	useSites: () => sitesState,
+	useIsSiteBusy: () => false,
 	useIsSiteStarting: () => false,
 	useIsSiteStopping: () => false,
 	useStartSite: () => ( { mutate: siteMocks.startSite } ),
@@ -50,8 +52,8 @@ vi.mock( '@/data/queries/use-user-preferences', () => ( {
 	useUserPreferences: () => ( { data: siteMocks.preferences } ),
 } ) );
 
-vi.mock( '@/components/site-dropdown', () => ( {
-	SiteDropdown: ( { site }: { site: { name: string } } ) => <div>{ site.name }</div>,
+vi.mock( '@/components/site-actions-menu', () => ( {
+	SiteActionsMenu: ( { site }: { site: { name: string } } ) => <div>{ site.name }</div>,
 } ) );
 
 vi.mock( '@/components/share-dialog', () => ( {
@@ -74,7 +76,7 @@ vi.mock( '@/data/queries/use-assistant-quota', () => ( {
 	useStudioAssistantQuota: vi.fn(),
 } ) );
 vi.mock( '@/data/queries/use-ai-settings', () => ( {
-	useAiSettings: () => ( { data: undefined } ),
+	useAiSettings: () => aiSettingsState,
 } ) );
 
 const connectorMock = vi.hoisted( () => ( {
@@ -109,7 +111,6 @@ vi.mock( '@/hooks/use-session-commands', () => ( { useSessionCommands: vi.fn() }
 
 vi.mock( '@/hooks/use-session-ui', () => ( {
 	SessionUIProvider: ( { children }: { children: React.ReactNode } ) => children,
-	useSessionPreviewAnnotations: vi.fn(),
 	useOptionalSessionPreviewUI: () => null,
 	useSessionPreviewUI: () => ( {
 		pathsBySiteId: { 'site-1': '/wp-admin/' },
@@ -176,7 +177,7 @@ function makeQuota(
 	};
 }
 
-const SCROLL_TO_LATEST_LABEL = 'Scroll to latest message';
+const SCROLL_TO_LATEST_LABEL = 'Jump to latest';
 
 function makeLoadedSession(): LoadedAiSession {
 	return {
@@ -214,6 +215,7 @@ describe( 'SessionView', () => {
 		vi.clearAllMocks();
 		agentRunState.hasActiveRun = false;
 		sitesState.data = [];
+		aiSettingsState.data = undefined;
 		siteMocks.preferences = { autoStartSiteOnChat: false };
 		const pending = pendingPromptSlot.getSnapshot();
 		if ( pending ) pendingPromptSlot.clear( pending );
@@ -245,7 +247,7 @@ describe( 'SessionView', () => {
 			</WindowControlsCornerContext.Provider>
 		);
 		const header = screen.getByText( 'Example Site' ).parentElement;
-		expect( header?.style.paddingRight ).toBe( 'calc(138px + var(--wpds-dimension-padding-sm))' );
+		expect( header?.style.paddingRight ).toBe( '146px' );
 
 		rerender(
 			<WindowControlsCornerContext.Provider value={ false }>
@@ -259,13 +261,29 @@ describe( 'SessionView', () => {
 		useSessionMock.mockReturnValue( {
 			data: undefined,
 			isLoading: false,
-			error: new Error( 'not found' ),
+			error: new Error( 'Code session not found: deleted-session' ),
 		} );
 
 		render( <SessionView sessionId="deleted-session" /> );
 
 		await waitFor( () => expect( navigateMock ).toHaveBeenCalledWith( { to: '/' } ) );
-		expect( screen.queryByText( 'Session not found' ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'offers a retry instead of leaving when the chat fails to load', () => {
+		const refetch = vi.fn();
+		useSessionMock.mockReturnValue( {
+			data: undefined,
+			isLoading: false,
+			error: new Error( 'EACCES' ),
+			refetch,
+		} );
+
+		render( <SessionView sessionId="session-1" /> );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Try again' } ) );
+
+		expect( screen.getByText( 'This chat could not load.' ) ).toBeInTheDocument();
+		expect( refetch ).toHaveBeenCalled();
+		expect( navigateMock ).not.toHaveBeenCalled();
 	} );
 
 	it( 'does not redirect while the session is still loading', () => {
@@ -393,10 +411,16 @@ describe( 'SessionView', () => {
 			refetch: vi.fn(),
 		} );
 
-		render( <SessionView sessionId="session-1" /> );
+		const { rerender } = render( <SessionView sessionId="session-1" /> );
 
 		expect( screen.getByText( 'Studio Code Beta' ) ).toBeInTheDocument();
 		expect( screen.getByRole( 'button', { name: 'Add payment method' } ) ).toBeInTheDocument();
+
+		aiSettingsState.data = { provider: 'anthropic-api-key', hasAnthropicApiKey: true };
+		rerender( <SessionView sessionId="session-1" /> );
+
+		expect( screen.queryByText( 'Studio Code Beta' ) ).not.toBeInTheDocument();
+		expect( screen.getByTestId( 'composer' ) ).toBeInTheDocument();
 	} );
 
 	it( 'keeps the composer hidden while the entitlement check is loading', () => {

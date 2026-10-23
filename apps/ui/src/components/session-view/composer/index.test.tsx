@@ -2,9 +2,15 @@ import { DEFAULT_MODEL } from '@studio/common/ai/models';
 import { getAiSkillCommands } from '@studio/common/ai/slash-commands';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { Tooltip } from '@wordpress/ui';
 import { createRef, type ComponentProps } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+	changeAnnotation,
+	getSiteAnnotations,
+	pickAnnotation,
+	stageAnnotations,
+} from '@/components/annotations/store';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
 import { clearComposerDrafts } from './draft-store';
 import { Composer, type ComposerHandle } from '.';
@@ -47,9 +53,9 @@ function renderComposer(
 	const composerRef = createRef< ComposerHandle >();
 	const renderTree = ( nextProps: Partial< ComponentProps< typeof Composer > > = {} ) => (
 		<QueryClientProvider client={ queryClient }>
-			<Tooltip.Provider delay={ 0 }>
+			<TooltipProvider delay={ 0 }>
 				<Composer ref={ composerRef } { ...defaultProps } sessionId="session-1" { ...nextProps } />
-			</Tooltip.Provider>
+			</TooltipProvider>
 		</QueryClientProvider>
 	);
 	const rendered = render( renderTree( props ) );
@@ -109,11 +115,33 @@ describe( 'Composer menu', () => {
 		renderComposer( { entries: [ createSessionContextEntry( 'anthropic-api-key' ) ] } );
 
 		const trigger = screen.getByRole( 'button', { name: 'Model' } );
-		await waitFor( () => expect( trigger ).toHaveAccessibleDescription( 'Fast · WordPress.com' ) );
+		await waitFor( () =>
+			expect( trigger ).toHaveAccessibleDescription( 'Fast · WordPress.com · AI usage unavailable' )
+		);
 
 		fireEvent.click( trigger );
 		await waitFor( () =>
 			expect( getMenuLabels() ).toEqual( startingWith( [ 'Fast', 'Balanced', 'Strong' ] ) )
+		);
+	} );
+
+	it( 'shows the AI credits left as a count, not a share of past top-ups', async () => {
+		connectorMocks.getAuthUser.mockResolvedValue( { id: 1, email: 'user@example.com' } );
+		connectorMocks.getStudioAssistantQuota.mockResolvedValue( {
+			costCap: 1_000_000,
+			costUsage: 0,
+			studioCodeAiHasAccess: true,
+			hasPaymentMethod: true,
+			allowanceRemaining: 200_000,
+			purchasedRemaining: 1_000_000,
+			purchasedAtTopUp: 5_000_000,
+		} );
+		renderComposer();
+
+		await waitFor( () =>
+			expect( screen.getByRole( 'button', { name: 'Model' } ) ).toHaveAccessibleDescription(
+				'Fast · WordPress.com · AI credits: 1.2M remaining'
+			)
 		);
 	} );
 
@@ -285,6 +313,38 @@ describe( 'Composer menu', () => {
 		expect( textarea ).toHaveValue( 'Second message, edited meanwhile' );
 	} );
 
+	it( 'sends staged annotations with the message once the agent is idle', async () => {
+		const onSend = vi.fn().mockResolvedValue( undefined );
+		const id = pickAnnotation( 'composer-site', { tag: 'h1', selector: 'h1', path: '/' } );
+		changeAnnotation( 'composer-site', id, { comment: 'Make this bigger' } );
+		stageAnnotations( 'composer-site' );
+		const { rerenderComposer } = renderComposer( {
+			busy: true,
+			onSend,
+			annotationSiteId: 'composer-site',
+		} );
+
+		expect( screen.getByRole( 'listitem', { name: /^1 annotation/ } ) ).toBeVisible();
+		expect( screen.getByRole( 'button', { name: 'Stop response' } ) ).toBeVisible();
+
+		rerenderComposer( { onSend, annotationSiteId: 'composer-site' } );
+		fireEvent.change( screen.getByRole( 'combobox' ), { target: { value: 'Also tighten it' } } );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Send message' } ) );
+
+		await waitFor( () => expect( getSiteAnnotations( 'composer-site' ).notes ).toEqual( [] ) );
+		expect( onSend ).toHaveBeenCalledWith(
+			expect.stringMatching( /^Also tighten it\n\nThe user submitted 1 visual annotation/ ),
+			expect.objectContaining( {
+				displayMessage: 'Also tighten it',
+				visualAnnotations: [
+					{ comment: 'Also tighten it' },
+					expect.objectContaining( { comment: 'Make this bigger', tag: 'h1' } ),
+				],
+			} )
+		);
+		expect( screen.queryByRole( 'listitem', { name: /annotation/ } ) ).not.toBeInTheDocument();
+	} );
+
 	it( 'keeps the draft when the send is rejected', async () => {
 		const onSend = vi.fn().mockRejectedValue( new Error( 'network error' ) );
 		const firstRender = renderComposer( { onSend } );
@@ -318,6 +378,54 @@ describe( 'Composer menu', () => {
 		expect( onSend ).not.toHaveBeenCalled();
 		expect( notice ).toHaveAttribute( 'data-feedback' );
 		expect( screen.getByRole( 'combobox' ) ).toHaveValue( 'One more' );
+	} );
+
+	it( 'does not hold an Anthropic chat behind WordPress.com credits', async () => {
+		connectorMocks.getAiSettings.mockResolvedValue( {
+			provider: 'wpcom',
+			hasAnthropicApiKey: true,
+			anthropicApiKeyPreview: null,
+		} );
+		connectorMocks.getStudioAssistantQuota.mockResolvedValue( {
+			costCap: 100,
+			studioCodeAiHasAccess: true,
+			hasPaymentMethod: true,
+			allowanceRemaining: 0,
+			purchasedRemaining: 0,
+		} );
+		const onSend = vi.fn< ( prompt: string ) => Promise< void > >();
+		renderComposer( {
+			onSend,
+			model: 'claude-sonnet-5',
+			entries: [ createSessionContextEntry( 'anthropic-api-key' ) ],
+		} );
+		await waitFor( () =>
+			expect( screen.getByRole( 'button', { name: 'Model' } ) ).toHaveAccessibleDescription(
+				'Sonnet 5 · Anthropic API'
+			)
+		);
+
+		fireEvent.change( screen.getByRole( 'combobox' ), { target: { value: 'One more' } } );
+		fireEvent.keyDown( screen.getByRole( 'combobox' ), { key: 'Enter' } );
+
+		await waitFor( () => expect( onSend ).toHaveBeenCalled() );
+		expect( screen.queryByRole( 'alert' ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'inserts a skill from the add menu at the cursor instead of sending it', async () => {
+		const onSend = vi.fn< ( prompt: string ) => Promise< void > >();
+		renderComposer( { onSend } );
+		const textarea = screen.getByRole< HTMLTextAreaElement >( 'combobox' );
+		fireEvent.change( textarea, { target: { value: 'Please audit' } } );
+		textarea.setSelectionRange( 6, 6 );
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Add' } ) );
+		const skills = await screen.findByRole( 'menuitem', { name: /Skills/ } );
+		fireEvent.keyDown( skills, { key: 'ArrowRight' } );
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: /^Rank Me Up/ } ) );
+
+		expect( textarea ).toHaveValue( 'Please /rank-me-up audit' );
+		expect( onSend ).not.toHaveBeenCalled();
 	} );
 
 	it( 'turns auto-start on from the add menu and off from its chip', async () => {

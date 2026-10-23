@@ -4,38 +4,25 @@
 	flex-direction: column;
 	width: 320px;
 	max-width: calc(100vw - 24px);
-	max-height: calc(100dvh - var(--studio-control-size) - 42px);
+	max-height: calc(100dvh - var(--control-size) - 42px);
 	overflow-x: hidden;
 	overflow-y: auto;
-	font-size: 14px;
+	font-size: var(--text-sm);
 	line-height: 20px;
 }
 
 @media (prefers-reduced-motion: no-preference) {
-	.panel.panel {
-		transition:
-			translate 240ms cubic-bezier(0.645, 0.045, 0.355, 1),
-			opacity 240ms cubic-bezier(0.645, 0.045, 0.355, 1);
+	.panel {
+		transition-property: translate, opacity;
+		transition-duration: var(--motion-duration-layout);
+		transition-timing-function: var(--motion-ease-layout);
 	}
 
-	.panel.panel[data-starting-style],
-	.panel.panel[data-ending-style] {
-		opacity: 0;
-		transform: none;
+	.panel[data-starting-style],
+	.panel[data-ending-style] {
+		scale: 1;
 		translate: calc(100% + 12px) 0;
 	}
-}
-
-.panel button {
-	--wp-ui-button-font-weight: 450;
-}
-
-.outline {
-	--wp-ui-button-border-color: color-mix(
-		in srgb,
-		var(--wpds-color-foreground-content-neutral) 10%,
-		transparent
-	);
 }
 
 .triggerLabel {
@@ -49,7 +36,7 @@
 	width: 6px;
 	height: 6px;
 	border-radius: 50%;
-	background: var(--wpds-color-stroke-surface-error-strong);
+	background: var(--destructive);
 }
 
 .panelHeader {
@@ -58,43 +45,6 @@
 	align-items: center;
 	gap: 12px;
 	padding: 14px 14px 14px 16px;
-}
-
-.back,
-.disclosureButton {
-	display: inline-flex;
-	flex: none;
-	align-items: center;
-	justify-content: center;
-	padding: 0;
-	border: 0;
-	border-radius: var(--wpds-border-radius-sm);
-	background: transparent;
-	color: inherit;
-	cursor: pointer;
-}
-
-.back {
-	width: 32px;
-	height: 32px;
-	border: 1px solid color-mix(in srgb, var(--wpds-color-foreground-content-neutral) 10%, transparent);
-	border-radius: var(--wpds-border-radius-md);
-}
-
-.disclosureButton {
-	width: 28px;
-	height: 28px;
-}
-
-.back:hover,
-.disclosureButton:hover:not(:disabled) {
-	background: color-mix(in srgb, var(--wpds-color-foreground-content-neutral) 6%, transparent);
-}
-
-.back:focus-visible,
-.disclosureButton:focus-visible {
-	outline: var(--wpds-border-width-focus) solid var(--wpds-color-stroke-focus);
-	outline-offset: 1px;
 }
 
 .body {
@@ -119,8 +69,8 @@
 	margin: 0;
 	min-width: 0;
 	overflow-wrap: anywhere;
-	font-size: 14px;
-	font-weight: 450;
+	font-size: var(--text-sm);
+	font-weight: var(--font-weight-medium);
 	line-height: 20px;
 	letter-spacing: -0.02em;
 }
@@ -128,20 +78,20 @@
 .text,
 .description {
 	margin: 0;
-	color: var(--wpds-color-foreground-content-neutral-weak);
-	font-size: 14px;
+	color: var(--muted-foreground);
+	font-size: var(--text-sm);
 	line-height: 1.625;
 }
 
 .description {
-	font-size: 13px;
+	font-size: var(--text-xs);
 	line-height: 20px;
 }
 
 .error {
 	margin: 0;
-	color: var(--wpds-color-foreground-content-error);
-	font-size: 14px;
+	color: var(--destructive);
+	font-size: var(--text-sm);
 	line-height: 1.625;
 }
 
@@ -164,10 +114,6 @@
 	min-width: 0;
 }
 
-.openWebsite {
-	--wp-ui-button-foreground-color: var(--wpds-color-foreground-content-neutral-weak);
-}
-
 .include {
 	display: flex;
 	align-items: center;
@@ -183,21 +129,21 @@
 	align-items: center;
 	gap: 6px;
 	min-width: 0;
-	height: var(--studio-control-size);
+	height: var(--control-size);
 	padding: 0 8px;
 	border: 1px solid transparent;
-	border-radius: var(--wpds-border-radius-md);
+	border-radius: 12px;
 	background: transparent;
 	color: inherit;
 	font: inherit;
-	font-size: 13px;
-	font-weight: 450;
+	font-size: var(--text-xs);
+	font-weight: var(--font-weight-medium);
 	cursor: pointer;
 }
 
 .select:hover:not(:disabled, [data-disabled]),
 .select[data-popup-open] {
-	background: color-mix(in srgb, var(--wpds-color-foreground-content-neutral) 6%, transparent);
+	background: var(--muted);
 }
 
 .select:is(:disabled, [data-disabled]) {
@@ -209,9 +155,9 @@
 	justify-content: space-between;
 	width: 100%;
 	padding: 0 10px;
-	border-color: color-mix(in srgb, var(--wpds-color-foreground-content-neutral) 10%, transparent);
-	font-size: 14px;
-	font-weight: 400;
+	border-color: var(--border);
+	font-size: var(--text-sm);
+	font-weight: var(--font-weight-normal);
 }
 
 .selectValue {
@@ -230,32 +176,7 @@
 }
 
 .primary {
-	--wp-ui-button-height: var(--studio-control-size);
 	flex: 1;
-}
-
-.linkButton {
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	gap: 2px;
-	padding: 0;
-	border: 0;
-	background: none;
-	color: var(--wpds-color-foreground-content-neutral-weak);
-	font: inherit;
-	font-size: 14px;
-	line-height: 20px;
-	cursor: pointer;
-}
-
-.linkButton:hover:not(:disabled) {
-	color: var(--wpds-color-foreground-content-neutral);
-}
-
-.linkButton:disabled {
-	opacity: 0.5;
-	cursor: default;
 }
 
 .intro {
@@ -269,12 +190,6 @@
 	flex-direction: column;
 }
 
-.introActions .linkButton {
-	height: var(--studio-control-size);
-	font-size: 13px;
-	font-weight: 450;
-}
-
 .choice {
 	display: flex;
 	flex-direction: column;
@@ -282,31 +197,9 @@
 }
 
 .choiceButton {
-	display: flex;
 	flex-direction: column;
 	align-items: flex-start;
 	gap: 4px;
-	padding: 8px 10px;
-	border: 1px solid color-mix(in srgb, var(--wpds-color-foreground-content-neutral) 10%, transparent);
-	border-radius: var(--wpds-border-radius-md);
-	background: transparent;
-	color: inherit;
-	font: inherit;
-	font-size: 13px;
-	font-weight: 450;
-	line-height: 20px;
-	text-align: start;
-	cursor: pointer;
-}
-
-.choiceButton:hover:not(:disabled) {
-	background: color-mix(in srgb, var(--wpds-color-foreground-content-neutral) 6%, transparent);
-}
-
-.choiceButton:disabled {
-	color: var(--wpds-color-foreground-content-neutral-weak);
-	opacity: 0.6;
-	cursor: default;
 }
 
 .choiceName,
@@ -318,7 +211,7 @@
 }
 
 .choiceLabel {
-	color: var(--wpds-color-foreground-content-neutral-weak);
+	color: var(--muted-foreground);
 }
 
 .websiteRow {
@@ -336,17 +229,12 @@
 	display: block;
 	min-width: 0;
 	overflow: hidden;
-	font-size: 14px;
-	font-weight: 450;
+	font-size: var(--text-sm);
+	font-weight: var(--font-weight-medium);
 	line-height: 20px;
 	letter-spacing: -0.02em;
 	text-overflow: ellipsis;
 	white-space: nowrap;
-}
-
-.disconnect {
-	--wp-ui-button-padding-inline: 8px;
-	flex: none;
 }
 
 .progress,
@@ -354,15 +242,6 @@
 	display: flex;
 	flex-direction: column;
 	gap: 10px;
-}
-
-.progressBar {
-	width: 100%;
-}
-
-.progressTrack {
-	height: 4px;
-	border-radius: 999px;
 }
 
 .progressTitle {
@@ -401,25 +280,13 @@
 .selectionLabel {
 	min-width: 0;
 	overflow-wrap: anywhere;
-	font-size: 13px;
-	font-weight: 450;
-	line-height: 1.375;
 }
 
 .symlink {
 	display: inline-flex;
 	flex: none;
-	color: var(--wpds-color-foreground-content-neutral-weak);
+	color: var(--muted-foreground);
 	fill: currentColor;
-}
-
-.visuallyHidden {
-	position: absolute;
-	width: 1px;
-	height: 1px;
-	overflow: hidden;
-	clip-path: inset(50%);
-	white-space: nowrap;
 }
 
 @keyframes transfer-dot {

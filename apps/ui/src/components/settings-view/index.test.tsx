@@ -1,69 +1,16 @@
 import '@testing-library/jest-dom/vitest';
+import { supportedLocaleNames } from '@studio/common/lib/locale';
+import { supportedEditorConfig } from '@studio/common/lib/user-settings/editor';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useConnector } from '@/data/core';
 import { persister } from '@/data/core/query-client';
 import { useInstalledApps } from '@/data/queries/use-installed-apps';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
+import { SIDEBAR_PANEL_STORAGE_KEY } from '@/lib/resizable-panels';
 import { AppearanceSettings, GeneralSettings } from './index';
-import type { ButtonHTMLAttributes, ReactNode } from 'react';
 
-vi.mock( '@wordpress/ui', () => ( {
-	Button: ( {
-		children,
-		loading,
-		loadingAnnouncement,
-		tone,
-		variant,
-		size,
-		...props
-	}: ButtonHTMLAttributes< HTMLButtonElement > & {
-		children?: ReactNode;
-		loading?: boolean;
-		loadingAnnouncement?: string;
-		tone?: string;
-		variant?: string;
-		size?: string;
-	} ) => {
-		void tone;
-		void variant;
-		void size;
-		return <button { ...props }>{ loading ? loadingAnnouncement : children }</button>;
-	},
-	SelectControl: ( {
-		items = [],
-		label,
-		value,
-		onValueChange,
-	}: {
-		items?: Array< { label: string; value: string | null } >;
-		label: string;
-		value?: { label: string; value: string | null } | null;
-		onValueChange?: ( item: { label: string; value: string | null } | undefined ) => void;
-	} ) => (
-		<label>
-			<span>{ label }</span>
-			<select
-				value={ value?.value ?? '' }
-				onChange={ ( event ) =>
-					onValueChange?.( items.find( ( item ) => item.value === event.target.value ) )
-				}
-			>
-				{ items.map( ( item ) => (
-					<option key={ item.value ?? 'null' } value={ item.value ?? '' }>
-						{ item.label }
-					</option>
-				) ) }
-			</select>
-		</label>
-	),
-	Tooltip: {
-		Root: ( { children }: { children?: ReactNode } ) => <>{ children }</>,
-		Trigger: ( { render }: { render?: ReactNode } ) => <>{ render }</>,
-		Popup: () => null,
-		Positioner: () => null,
-	},
-} ) );
+vi.mock( '@/components/site-list/sidebar-settings', () => ( { SidebarSettings: () => null } ) );
 
 vi.mock( '@/components/gravatar', () => ( {
 	Gravatar: () => <span data-testid="gravatar" />,
@@ -126,6 +73,34 @@ const useSaveUserPreferencesMock = vi.mocked( useSaveUserPreferences );
 const useUserPreferencesMock = vi.mocked( useUserPreferences );
 const removeClientMock = vi.mocked( persister.removeClient );
 
+function choose( item: HTMLElement ) {
+	fireEvent.pointerDown( item, { pointerType: 'mouse' } );
+	fireEvent.click( item );
+}
+
+async function pick( name: string, option: string ) {
+	fireEvent.click( screen.getByRole( 'combobox', { name } ) );
+	choose( await screen.findByRole( 'option', { name: option } ) );
+}
+
+const SAVED = {
+	editor: null,
+	terminal: 'terminal',
+	colorScheme: 'system',
+	quitSitesBehavior: undefined,
+	locale: 'en',
+	defaultSiteDirectory: '/Users/example/Studio',
+	studioCliInstalled: false,
+	studioCliExternallyManaged: false,
+};
+
+function mockPreferences( preferences: object ) {
+	useUserPreferencesMock.mockReturnValue( {
+		data: { ...SAVED, ...preferences },
+		isLoading: false,
+	} as never );
+}
+
 describe( 'Studio settings', () => {
 	const mutate = vi.fn();
 	const reload = vi.fn();
@@ -152,40 +127,89 @@ describe( 'Studio settings', () => {
 			isPending: false,
 			isError: false,
 		} as never );
-		useUserPreferencesMock.mockReturnValue( {
-			data: {
-				editor: null,
-				terminal: 'terminal',
-				colorScheme: 'system',
-				quitSitesBehavior: undefined,
-				locale: 'en',
-				defaultSiteDirectory: '/Users/example/Studio',
-				studioCliInstalled: false,
-				studioCliExternallyManaged: false,
-			},
-			isLoading: false,
-		} as never );
+		mockPreferences( {} );
 	} );
 
-	it( 'saves the theme as soon as one is picked', () => {
+	it( 'saves the theme as soon as one is picked', async () => {
 		render( <AppearanceSettings /> );
 
-		fireEvent.change( screen.getByLabelText( 'Theme' ), { target: { value: 'dark' } } );
+		await pick( 'Theme', 'Dark' );
 
-		expect( mutate ).toHaveBeenCalledWith( { colorScheme: 'dark' }, expect.any( Object ) );
+		await waitFor( () =>
+			expect( mutate ).toHaveBeenCalledWith( { colorScheme: 'dark' }, expect.any( Object ) )
+		);
 	} );
 
-	it( 'saves the editor on change and only offers installed apps', () => {
+	it( 'offers Default, the installed editors, and a saved one that is gone', async () => {
+		mockPreferences( { editor: 'cursor' } );
 		render( <GeneralSettings /> );
 
-		const editorSelect = screen.getByLabelText( 'Code editor' ) as HTMLSelectElement;
-		expect( Array.from( editorSelect.options ).map( ( option ) => option.value ) ).toEqual( [
-			'vscode',
+		fireEvent.click( screen.getByRole( 'combobox', { name: 'Code editor' } ) );
+		const options = await screen.findAllByRole( 'option' );
+		expect( options.map( ( option ) => option.textContent ) ).toEqual( [
+			'Default',
+			supportedEditorConfig.cursor.label(),
+			supportedEditorConfig.vscode.label(),
 		] );
+		choose( options[ 0 ] );
+		await waitFor( () =>
+			expect( mutate ).toHaveBeenCalledWith( { editor: null }, expect.any( Object ) )
+		);
+	} );
 
-		fireEvent.change( editorSelect, { target: { value: 'vscode' } } );
+	it( 'resets the interface preferences and panel widths, and only when something changed', () => {
+		const { unmount } = render( <GeneralSettings /> );
+		expect( screen.getByRole( 'button', { name: 'Reset' } ) ).toBeDisabled();
+		unmount();
 
-		expect( mutate ).toHaveBeenCalledWith( { editor: 'vscode' }, expect.any( Object ) );
+		mockPreferences( { autoStartSiteOnChat: true } );
+		window.localStorage.setItem( SIDEBAR_PANEL_STORAGE_KEY, '320' );
+		mutate.mockImplementation( ( _patch, options ) => options?.onSuccess?.() );
+		render( <GeneralSettings /> );
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Reset' } ) );
+
+		expect( mutate ).toHaveBeenCalledWith(
+			{
+				colorScheme: 'system',
+				quitSitesBehavior: null,
+				autoStartSiteOnChat: false,
+				confirmDeleteAnnotations: true,
+				showRecentChats: true,
+				autoCollapseSites: true,
+			},
+			expect.any( Object )
+		);
+		expect( window.localStorage.getItem( SIDEBAR_PANEL_STORAGE_KEY ) ).toBeNull();
+	} );
+
+	it( 'turns the annotation delete confirmation back on', () => {
+		mockPreferences( { confirmDeleteAnnotations: false } );
+		render( <GeneralSettings /> );
+
+		fireEvent.click(
+			screen.getByRole( 'switch', { name: 'Confirm before deleting annotations' } )
+		);
+
+		expect( mutate ).toHaveBeenCalledWith(
+			{ confirmDeleteAnnotations: true },
+			expect.any( Object )
+		);
+	} );
+
+	it( 'saves a typed default directory where there is no folder picker', () => {
+		useConnectorMock.mockReturnValue( { capabilities: { nativeFolderPicker: false } } as never );
+		render( <GeneralSettings /> );
+
+		fireEvent.change( screen.getByRole( 'textbox', { name: 'Default directory' } ), {
+			target: { value: ' /Users/example/Sites ' },
+		} );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Save' } ) );
+
+		expect( mutate ).toHaveBeenCalledWith(
+			{ defaultSiteDirectory: '/Users/example/Sites' },
+			expect.any( Object )
+		);
 	} );
 
 	it( 'clears the persisted cache and reloads after a locale change is saved', async () => {
@@ -193,9 +217,11 @@ describe( 'Studio settings', () => {
 
 		render( <GeneralSettings /> );
 
-		fireEvent.change( screen.getByLabelText( 'Language' ), { target: { value: 'es' } } );
+		await pick( 'Language', supportedLocaleNames.es );
 
-		expect( mutate ).toHaveBeenCalledWith( { locale: 'es' }, expect.any( Object ) );
+		await waitFor( () =>
+			expect( mutate ).toHaveBeenCalledWith( { locale: 'es' }, expect.any( Object ) )
+		);
 		await waitFor( () => expect( reload ).toHaveBeenCalled() );
 		expect( removeClientMock ).toHaveBeenCalled();
 	} );

@@ -1,20 +1,18 @@
-import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { useEffect } from 'react';
+import { resolveSettingsLink } from '@/components/settings-dialog/sections';
 import { useConnector } from '@/data/core';
+import { useOpenAddSite } from '@/hooks/use-open-add-site';
 import { useOpenSettings } from '@/hooks/use-open-settings';
 import { createSelectedBlueprint } from '@/lib/blueprint-selection';
 import { pendingBlueprintSlot } from '@/lib/pending-blueprint';
 
 export function useAppMenuNavigation() {
 	const connector = useConnector();
-	const navigate = useNavigate();
 	const openSettings = useOpenSettings();
+	const openAddSite = useOpenAddSite();
 
-	useEffect(
-		() => connector.onAddSite( () => void navigate( { to: '/onboarding' } ) ),
-		[ connector, navigate ]
-	);
+	useEffect( () => connector.onAddSite( () => openAddSite() ), [ connector, openAddSite ] );
 	useEffect(
 		() =>
 			connector.onAddSiteWithBlueprint( ( { blueprintPath } ) => {
@@ -26,7 +24,7 @@ export function useAppMenuNavigation() {
 							size: 0,
 						} );
 						pendingBlueprintSlot.set( blueprint );
-						await navigate( { to: '/onboarding/create' } );
+						openAddSite();
 					} catch ( error ) {
 						console.error( 'Failed to open Blueprint deep link:', error );
 						const ipcApi = (
@@ -52,7 +50,15 @@ export function useAppMenuNavigation() {
 					}
 				} )();
 			} ),
-		[ connector, navigate ]
+		[ connector, openAddSite ]
 	);
-	useEffect( () => connector.onOpenSettings( () => openSettings() ), [ connector, openSettings ] );
+	useEffect(
+		() =>
+			connector.onOpenSettings( ( { settingId } ) =>
+				settingId
+					? openSettings( resolveSettingsLink( settingId ), undefined, settingId )
+					: openSettings()
+			),
+		[ connector, openSettings ]
+	);
 }

@@ -2,11 +2,22 @@ import { GLOBAL_INSTRUCTIONS_MAX_LENGTH } from '@studio/common/ai/global-instruc
 import { __ } from '@wordpress/i18n';
 import { useEffect, useId, useRef, useState } from 'react';
 import {
+	Field,
+	FieldContent,
+	FieldDescription,
+	FieldError,
+	FieldLabel,
+} from '@/components/ui/field';
+import { Textarea } from '@/components/ui/textarea';
+import {
 	useAgentInstructions,
 	useSaveAgentInstructions,
 } from '@/data/queries/use-agent-instructions';
 import styles from './style.module.css';
-import { SAVE_DEBOUNCE_MS } from './use-debounced-save';
+
+// Long enough that a typing burst lands as one write, short enough that the
+// save still feels immediate when the user pauses.
+const SAVE_DEBOUNCE_MS = 800;
 
 export function InstructionsEditor() {
 	const { data: saved } = useAgentInstructions();
@@ -70,30 +81,30 @@ export function InstructionsEditor() {
 	}
 
 	return (
-		<div className={ styles.instructionsEditor }>
-			<div className={ styles.instructionsHeader }>
-				<label htmlFor={ id }>{ __( 'Studio instructions' ) }</label>
-				<span className={ styles.instructionsCounter }>
-					{ `${ content.length.toLocaleString() } / ${ GLOBAL_INSTRUCTIONS_MAX_LENGTH.toLocaleString() }` }
-				</span>
-			</div>
-			<p className={ styles.instructionsDescription }>
-				{ __( 'Add your own guidance for Studio Code.' ) }
-			</p>
-			<textarea
+		<Field>
+			<FieldContent>
+				<div className={ styles.instructionsHeader }>
+					<FieldLabel htmlFor={ id }>{ __( 'Studio instructions' ) }</FieldLabel>
+					<FieldDescription>
+						{ `${ content.length.toLocaleString() } / ${ GLOBAL_INSTRUCTIONS_MAX_LENGTH.toLocaleString() }` }
+					</FieldDescription>
+				</div>
+				<FieldDescription width="full">
+					{ __( 'Add your own guidance for Studio Code.' ) }
+				</FieldDescription>
+			</FieldContent>
+			<Textarea
 				id={ id }
-				className={ styles.instructionsTextarea }
+				sizing="fixed"
 				rows={ 10 }
 				maxLength={ GLOBAL_INSTRUCTIONS_MAX_LENGTH }
 				placeholder={ __( 'e.g. Always answer in French. My sites are for restaurants.' ) }
 				value={ content }
 				onChange={ ( event ) => setEdits( event.target.value ) }
 			/>
-			{ isError && (
-				<p className={ styles.instructionsError }>
-					{ __( 'Saving the instructions failed. Please try again.' ) }
-				</p>
-			) }
-		</div>
+			<FieldError>
+				{ isError ? __( 'Saving the instructions failed. Please try again.' ) : null }
+			</FieldError>
+		</Field>
 	);
 }

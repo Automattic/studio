@@ -1,5 +1,6 @@
 import { __ } from '@wordpress/i18n';
-import * as Menu from '@/components/menu';
+import { cloudUpload, Icon } from '@wordpress/icons';
+import * as Menu from '@/components/ui/menu';
 import { useAuthUser } from '@/data/queries/use-auth-user';
 import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
 import { useOpenHeaderPanel } from '@/hooks/use-open-header-panel';
@@ -19,14 +20,18 @@ export function SitePublishMenu( { site, disabled }: { site: SiteDetails; disabl
 	if ( ! websites.length ) {
 		return (
 			<Menu.Item disabled={ disabled } onClick={ () => open( 'publish' ) }>
+				<Icon icon={ cloudUpload } />
 				{ __( 'Publish' ) }
 			</Menu.Item>
 		);
 	}
 	return (
 		<Menu.SubmenuRoot>
-			<Menu.SubmenuTrigger disabled={ disabled }>{ __( 'Publish' ) }</Menu.SubmenuTrigger>
-			<Menu.Popup side="right" align="start">
+			<Menu.SubmenuTrigger disabled={ disabled }>
+				<Icon icon={ cloudUpload } />
+				{ __( 'Publish' ) }
+			</Menu.SubmenuTrigger>
+			<Menu.SubmenuPopup>
 				{ websites.length === 1 ? (
 					<WebsiteMenuItems
 						remote={ websites[ 0 ] }
@@ -38,18 +43,18 @@ export function SitePublishMenu( { site, disabled }: { site: SiteDetails; disabl
 					websites.map( ( remote ) => (
 						<Menu.SubmenuRoot key={ remote.id }>
 							<Menu.SubmenuTrigger>{ websiteAddress( remote ) }</Menu.SubmenuTrigger>
-							<Menu.Popup side="right" align="start">
+							<Menu.SubmenuPopup>
 								<WebsiteMenuItems
 									remote={ remote }
 									disabled={ disabled }
 									includePublish
 									onOpen={ ( view ) => open( view, remote.id ) }
 								/>
-							</Menu.Popup>
+							</Menu.SubmenuPopup>
 						</Menu.SubmenuRoot>
 					) )
 				) }
-			</Menu.Popup>
+			</Menu.SubmenuPopup>
 		</Menu.SubmenuRoot>
 	);
 }

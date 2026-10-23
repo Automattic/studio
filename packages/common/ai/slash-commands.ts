@@ -29,7 +29,8 @@ export interface SlashCommandMatches {
  */
 export function getSlashCommandMatches(
 	value: string,
-	previewPrompt: string | null | undefined
+	previewPrompt: string | null | undefined,
+	composerCommands: SkillSlashCommand[] = []
 ): SlashCommandMatches {
 	if ( previewPrompt ) {
 		return { open: false, matches: [] };
@@ -39,7 +40,7 @@ export function getSlashCommandMatches(
 		return { open: false, matches: [] };
 	}
 	const query = match[ 1 ].toLowerCase();
-	const matches = getAiSkillCommands().filter(
+	const matches = [ ...composerCommands, ...getAiSkillCommands() ].filter(
 		( command ) =>
 			command.name.toLowerCase().includes( query ) ||
 			command.description.toLowerCase().includes( query )

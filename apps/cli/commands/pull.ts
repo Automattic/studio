@@ -1,7 +1,6 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { confirm } from '@inquirer/prompts';
 import {
 	addConnectedWpcomSite,
 	markConnectedWpcomSiteSynced,
@@ -20,6 +19,7 @@ import { __, sprintf } from '@wordpress/i18n';
 import { clearSiteLatestCliPid, getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { DEFAULT_IMPORTER_OPTIONS, getImporter } from 'cli/lib/import-export/import/import-manager';
+import { confirm } from 'cli/lib/prompts';
 import { withSiteOperation } from 'cli/lib/site-operations';
 import { exitOnCancel, reportSyncActivity } from 'cli/lib/sync-activity';
 import {

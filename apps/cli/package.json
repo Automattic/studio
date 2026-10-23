@@ -25,7 +25,7 @@
 		"@anthropic-ai/sdk": "^0.91.1",
 		"@earendil-works/pi-agent-core": "0.84.2",
 		"@earendil-works/pi-ai": "0.84.2",
-		"@earendil-works/pi-coding-agent": "0.84.2",
+		"@earendil-works/pi-coding-agent": "1.4.0",
 		"@earendil-works/pi-tui": "0.84.2",
 		"@formatjs/intl-localematcher": "^0.5.4",
 		"@inquirer/ansi": "^1.0.2",

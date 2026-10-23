@@ -41,7 +41,9 @@ export function Popup( {
 	return (
 		<BasePopover.Portal>
 			{ backdrop ? <BasePopover.Backdrop className={ styles.backdrop } /> : null }
+			{ /* Fixed, so a popup sliding in from off-screen can't scroll the page sideways. */ }
 			<BasePopover.Positioner
+				positionMethod="fixed"
 				side={ side }
 				align={ align }
 				sideOffset={ sideOffset }

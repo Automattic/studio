@@ -24,6 +24,11 @@
 	transition: opacity 600ms ease;
 }
 
+.logo svg {
+	width: 48px;
+	height: 48px;
+}
+
 .logo[data-active] {
 	opacity: 0.4;
 }

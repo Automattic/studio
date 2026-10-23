@@ -153,7 +153,7 @@ describe( 'SitePreview', () => {
 		expect( screen.queryByRole( 'button', { name: 'Open in…' } ) ).not.toBeInTheDocument();
 	} );
 
-	it( 'shows a refresh button, and no history arrows before there is history', () => {
+	it( 'shows a refresh button, and disabled history arrows before there is history', () => {
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn().mockResolvedValue( undefined ),
 			trackEvent: vi.fn().mockResolvedValue( undefined ),
@@ -167,8 +167,14 @@ describe( 'SitePreview', () => {
 		const refreshButton = screen.getByRole( 'button', { name: 'Reload preview' } );
 		expect( refreshButton ).toBeEnabled();
 		expect( refreshButton ).toHaveAttribute( 'aria-keyshortcuts', expect.stringMatching( /\+R$/ ) );
-		// No history yet, so no back or forward.
-		expect( screen.queryByRole( 'button', { name: 'Back' } ) ).not.toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'Back' } ) ).toHaveAttribute(
+			'aria-disabled',
+			'true'
+		);
+		expect( screen.getByRole( 'button', { name: 'Forward' } ) ).toHaveAttribute(
+			'aria-disabled',
+			'true'
+		);
 
 		const initialIframe = container.querySelector( 'iframe' );
 		expect( initialIframe ).toBeInTheDocument();

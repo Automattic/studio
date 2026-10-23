@@ -991,26 +991,22 @@ export function SitePreview( {
 							aria-hidden={ headerLayout === 'navigation-overflow' || undefined }
 							inert={ headerLayout === 'navigation-overflow' }
 						>
-							{ browserState.canGoBack || browserState.canGoForward ? (
-								<>
-									<BrowserHistoryButton
-										direction="back"
-										browserState={ browserState }
-										shortcut={ browserShortcuts.back }
-										disabled={ isStopping }
-										onStep={ () => sendBrowserCommand( 'back' ) }
-										onJump={ goToHistoryIndex }
-									/>
-									<BrowserHistoryButton
-										direction="forward"
-										browserState={ browserState }
-										shortcut={ browserShortcuts.forward }
-										disabled={ isStopping }
-										onStep={ () => sendBrowserCommand( 'forward' ) }
-										onJump={ goToHistoryIndex }
-									/>
-								</>
-							) : null }
+							<BrowserHistoryButton
+								direction="back"
+								browserState={ browserState }
+								shortcut={ browserShortcuts.back }
+								disabled={ isStopping }
+								onStep={ () => sendBrowserCommand( 'back' ) }
+								onJump={ goToHistoryIndex }
+							/>
+							<BrowserHistoryButton
+								direction="forward"
+								browserState={ browserState }
+								shortcut={ browserShortcuts.forward }
+								disabled={ isStopping }
+								onStep={ () => sendBrowserCommand( 'forward' ) }
+								onJump={ goToHistoryIndex }
+							/>
 							<IconButton
 								icon={ <RotateCwIcon /> }
 								label={ __( 'Reload preview' ) }
@@ -1046,7 +1042,7 @@ export function SitePreview( {
 						/>
 					) : null }
 				</div>
-				<div className={ clsx( styles.headerSide, styles.headerSideEnd ) }>
+				<div className={ styles.headerSide }>
 					{ showAnnotate ? (
 						<span data-site-header-annotate className={ styles.headerItem }>
 							<AnnotateButton

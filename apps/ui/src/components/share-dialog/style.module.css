@@ -45,8 +45,6 @@
 .previewSelect {
 	align-self: flex-start;
 	max-width: 100%;
-	padding-inline: 10px 8px;
-	border-color: var(--border);
 }
 
 .frame {

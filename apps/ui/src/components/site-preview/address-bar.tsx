@@ -169,7 +169,7 @@ function getDisplayUrl( siteUrl: string, path: string ): string {
 		return __( 'Design system' );
 	}
 	try {
-		return new URL( path, siteUrl ).toString();
+		return new URL( path, siteUrl ).toString().replace( /^(https?:\/\/[^/?#]+)\/$/i, '$1' );
 	} catch {
 		return `${ siteUrl }${ path }`;
 	}
@@ -192,8 +192,8 @@ function AddressAction( {
 			<TooltipTrigger
 				render={
 					<Button
-						variant="muted-ghost"
-						size="icon-xs"
+						variant="ghost"
+						size="icon-sm"
 						shape="round"
 						aria-label={ label }
 						onClick={ onClick }

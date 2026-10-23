@@ -1,12 +1,14 @@
 .addressBar {
+	position: relative;
 	display: flex;
 	box-sizing: border-box;
 	width: 100%;
+	max-width: 416px;
 	flex: 1 1 auto;
-	min-width: 80px;
+	min-width: 0;
 	height: var(--control-size);
 	margin: 0;
-	padding-inline: 12px 4px;
+	padding-inline: 12px;
 	align-items: center;
 	border: 1px solid var(--border);
 	border-radius: 999px;
@@ -15,13 +17,13 @@
 }
 
 .addressBar:focus-within {
-	outline: var(--focus-width) solid var(--ring);
-	outline-offset: 1px;
+	border-color: var(--ring);
+	box-shadow: inset 0 0 0 1px var(--ring);
 }
 
 .addressBar:has(.input[aria-invalid='true']) {
 	border-color: var(--destructive);
-	outline-color: var(--destructive);
+	--ring: var(--destructive);
 }
 
 .siteIcon {
@@ -39,9 +41,11 @@
 }
 
 .actions {
+	position: absolute;
+	inset-block: 0;
+	inset-inline-end: 2px;
 	display: flex;
-	flex: none;
-	gap: 2px;
+	align-items: center;
 	opacity: 0;
 	pointer-events: none;
 	transition: opacity var(--motion-duration-feedback) ease;
@@ -73,7 +77,8 @@
 	box-sizing: border-box;
 	width: 100%;
 	min-width: 0;
-	padding: 0 8px 0 4px;
+	/* Balances the realm icon, so the address centres on the whole field. */
+	padding-inline: 4px 20px;
 	border: 0;
 	background: transparent;
 	color: var(--foreground);
@@ -82,6 +87,10 @@
 	line-height: 20px;
 	text-align: center;
 	outline: 0;
+}
+
+.input:focus {
+	text-align: start;
 }
 
 .shortcutsPopup {

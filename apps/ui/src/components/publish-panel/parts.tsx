@@ -5,7 +5,6 @@ import { clsx } from 'clsx';
 import { ChevronLeftIcon } from 'lucide-react';
 import { useEffect, useRef, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
-import * as Menu from '@/components/ui/menu';
 import * as Popover from '@/components/ui/popover';
 import { Progress } from '@/components/ui/progress';
 import { Spinner } from '@/components/ui/spinner';
@@ -14,7 +13,6 @@ import {
 	PULL_FROM_LIVE_MUTATION_KEY,
 	PUSH_TO_LIVE_MUTATION_KEY,
 } from '@/data/queries/use-sync-site';
-import { ChevronDownIcon } from '@/lib/icons/chevron-down-icon';
 import { PublishTransferIcon } from '@/lib/icons/publish-transfer-icon';
 import styles from './style.module.css';
 import type { SyncActivity } from '@/data/sync-activity';
@@ -85,58 +83,6 @@ export function ErrorMessage( { error, retry }: { error: unknown; retry?: () => 
 				</Button>
 			) : null }
 		</div>
-	);
-}
-
-// A select whose options are a menu, so it reads like the composer's pickers.
-export function MenuSelect< Value extends string | number >( {
-	id,
-	value,
-	items,
-	label,
-	display,
-	disabled,
-	wide = false,
-	className,
-	onChange,
-}: {
-	id?: string;
-	value: Value;
-	items: { value: Value; label: string }[];
-	label: string;
-	display?: ReactNode;
-	disabled?: boolean;
-	wide?: boolean;
-	className?: string;
-	onChange: ( value: Value ) => void;
-} ) {
-	return (
-		<Menu.Root modal={ false }>
-			<Menu.Trigger
-				id={ id }
-				disabled={ disabled }
-				aria-label={ label }
-				className={ clsx( styles.select, wide && styles.selectWide, className ) }
-			>
-				<span className={ styles.selectValue }>
-					{ display ?? items.find( ( item ) => item.value === value )?.label }
-				</span>
-				<ChevronDownIcon />
-			</Menu.Trigger>
-			<Menu.Popup
-				side="bottom"
-				align="start"
-				className={ wide ? styles.selectPopupWide : undefined }
-			>
-				<Menu.RadioGroup value={ value } onValueChange={ ( next ) => onChange( next as Value ) }>
-					{ items.map( ( item ) => (
-						<Menu.RadioItem key={ item.value } value={ item.value }>
-							{ item.label }
-						</Menu.RadioItem>
-					) ) }
-				</Menu.RadioGroup>
-			</Menu.Popup>
-		</Menu.Root>
 	);
 }
 

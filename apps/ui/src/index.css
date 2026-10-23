@@ -57,7 +57,7 @@ body {
 	scrollbar-width: thin;
 }
 
-/* `lang` is set on bootstrap in lib/apply-locale.ts. */
+/* `lang` is set on bootstrap in lib/apply-user-preferences.ts. */
 :root:lang( ckb ) {
 	--font-sans: 'Vazirmatn', -apple-system, system-ui, 'Segoe UI', 'Roboto', 'Oxygen-Sans', 'Ubuntu',
 		'Cantarell', 'Helvetica Neue', sans-serif;

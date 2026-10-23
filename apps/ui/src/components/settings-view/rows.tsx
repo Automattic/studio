@@ -106,8 +106,8 @@ function SettingLinkButton( { id, title }: { id: string; title: string } ) {
 	const { copied, copy } = useCopyText( buildSettingsLink( id ) );
 	return (
 		<Button
-			variant="muted-ghost"
-			size="icon-xs"
+			variant="inline-text"
+			size="icon-inline"
 			className={ styles.linkButton }
 			data-settings-link
 			data-copied={ copied || undefined }

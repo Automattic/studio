@@ -1,5 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useCallback, useEffect } from 'react';
+import { __ } from '@wordpress/i18n';
+import { useCallback, useEffect, useRef } from 'react';
+import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { connectedWpcomSitesQueryKey } from '@/data/queries/use-connected-wpcom-sites';
 import { SNAPSHOTS_QUERY_KEY, SNAPSHOT_USAGE_QUERY_KEY } from '@/data/queries/use-snapshots';
@@ -41,6 +43,24 @@ export function useAuthUser() {
 		queryKey: AUTH_USER_QUERY_KEY,
 		queryFn: () => connector.getAuthUser(),
 	} );
+}
+
+// However the account changed: a login here, a logout in the CLI, an expired token.
+export function useAuthChangeToasts() {
+	const { data, isSuccess } = useAuthUser();
+	const userId = data?.id ?? null;
+	const previousUserId = useRef< number | null >( undefined );
+	useEffect( () => {
+		if ( ! isSuccess ) {
+			return;
+		}
+		if ( previousUserId.current !== undefined && previousUserId.current !== userId ) {
+			toast.success(
+				userId === null ? __( 'Logged out of WordPress.com' ) : __( 'Logged in to WordPress.com' )
+			);
+		}
+		previousUserId.current = userId;
+	}, [ isSuccess, userId ] );
 }
 
 function useRemoveUserScopedQueries() {

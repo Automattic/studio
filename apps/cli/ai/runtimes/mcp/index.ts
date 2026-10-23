@@ -14,12 +14,14 @@ import { Type, type TSchema } from 'typebox';
 import { Value } from 'typebox/value';
 import { type DesignTracksContext } from 'cli/ai/design-tracks';
 import { isImageGenerationAvailable } from 'cli/ai/image-generation';
+import { createResultNotes } from 'cli/ai/result-notes';
 import {
 	DESIGN_PICKER_HTML,
 	DESIGN_PICKER_URI,
 	MCP_APP_MIME_TYPE,
 } from 'cli/ai/runtimes/mcp/design-picker';
 import { type AppPage, createLibraryTools, libraryPage } from 'cli/ai/runtimes/mcp/library';
+import { runServedTool } from 'cli/ai/runtimes/mcp/served-tool';
 import { loadSkills } from 'cli/ai/skills';
 import { buildSystemPrompt } from 'cli/ai/system-prompt';
 import { resolveStudioToolDefinitions } from 'cli/ai/tools';
@@ -134,6 +136,7 @@ export async function startMcpStdioServer(): Promise< void > {
 	// from terminal use. The plugin's MCP config sets STUDIO_PLUGIN_ID.
 	process.env.STUDIO_TRACKS_ORIGIN = 'studio-mcp';
 	const sessionId = randomUUID();
+	const resultNotes = createResultNotes();
 	const imageGeneration = await isImageGenerationAvailable();
 	const server = new Server(
 		{ name: 'studio', version: '1.0.0' },
@@ -191,24 +194,7 @@ export async function startMcpStdioServer(): Promise< void > {
 				isError: true,
 			};
 		}
-		// MCP wants `{content, isError}`; pi-native handlers throw — translate.
-		try {
-			const result = await tool.rawHandler( args as never );
-			const report = await result.pending;
-			return {
-				content: report
-					? [ ...result.content, { type: 'text' as const, text: report } ]
-					: result.content,
-				_meta: result._meta,
-				isError: false,
-			};
-		} catch ( error ) {
-			const message = error instanceof Error ? error.message : String( error );
-			return {
-				content: [ { type: 'text' as const, text: message } ],
-				isError: true,
-			};
-		}
+		return runServedTool( tool, args, resultNotes );
 	} );
 
 	// Only clients that render MCP Apps get the pages listed.

@@ -107,7 +107,7 @@ import {
 	writeSitePreview,
 } from '@studio/common/lib/site-preview-cache';
 import { fetchSnapshotUsage } from '@studio/common/lib/snapshots';
-import { fetchStudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
+import { requestStudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 import { fetchStudioAssistantTopUpPricing } from '@studio/common/lib/studio-assistant-top-up-pricing';
 import { getLocalFileSize, listLocalFileTree } from '@studio/common/lib/sync/local-file-tree';
 import {
@@ -1595,7 +1595,15 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		'/quota',
 		asyncHandler( async ( _req: Request, res: Response ) => {
 			const token = await readAuthToken();
-			res.json( token?.accessToken ? await fetchStudioAssistantQuota( token.accessToken ) : null );
+			if ( ! token?.accessToken ) {
+				res.json( null );
+				return;
+			}
+			try {
+				res.json( await requestStudioAssistantQuota( token.accessToken ) );
+			} catch ( error ) {
+				res.status( 502 ).json( { error: ( error as Error ).message } );
+			}
 		} )
 	);
 

@@ -38,7 +38,7 @@ async function copyInstallTo( sourcePath: string, folder: string ) {
 
 test.describe( 'Sites', () => {
 	test.afterEach( async ( { page: _page }, testInfo ) => {
-		await session.reportMainProcessLogsOnFailure( testInfo );
+		await session.reportFailure( testInfo );
 		await session.cleanup();
 	} );
 
@@ -123,7 +123,7 @@ test.describe( 'Site settings', () => {
 	} );
 
 	test.afterEach( async ( { page: _page }, testInfo ) => {
-		await session.reportMainProcessLogsOnFailure( testInfo );
+		await session.reportFailure( testInfo );
 	} );
 
 	test.afterAll( async () => {
@@ -164,7 +164,7 @@ test.describe( 'Site settings', () => {
 
 test.describe( 'Sites without cleanup in-between', () => {
 	test.afterEach( async ( { page: _page }, testInfo ) => {
-		await session.reportMainProcessLogsOnFailure( testInfo );
+		await session.reportFailure( testInfo );
 	} );
 
 	test.afterAll( async () => {

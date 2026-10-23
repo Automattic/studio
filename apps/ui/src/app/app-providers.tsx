@@ -7,6 +7,7 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import { ConnectorProvider, queryClient } from '@/data/core';
 import { AgentRunProvider } from '@/data/queries/use-agent-run';
 import { useSyncAppUpdateStatus } from '@/data/queries/use-app-update';
+import { useAuthChangeToasts } from '@/data/queries/use-auth-user';
 import { useSyncSessionsWithEvents } from '@/data/queries/use-sessions';
 import { useAutoStartSites, useSyncSitesWithEvents } from '@/data/queries/use-sites';
 import { useSyncSnapshotsWithEvents } from '@/data/queries/use-snapshots';
@@ -28,6 +29,7 @@ function SiteEventsBridge() {
 	useSyncConnectSiteListener();
 	useAutoStartSites();
 	useSyncAppUpdateStatus();
+	useAuthChangeToasts();
 	return null;
 }
 

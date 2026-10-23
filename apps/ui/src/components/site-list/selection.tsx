@@ -294,6 +294,7 @@ export function BulkMenu( {
 			patch.archived && updated.length
 				? {
 						label: __( 'Undo' ),
+						once: true,
 						onClick: () =>
 							Promise.all(
 								updated.map( ( sessionId ) =>

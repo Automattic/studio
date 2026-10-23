@@ -33,21 +33,18 @@ function createSession( overrides: Partial< AiSessionSummary > = {} ): AiSession
 async function runBeforeLoad(
 	sites: SiteDetails[] | Error,
 	sessions: AiSessionSummary[],
-	agenticFeaturesEnabled = true,
-	agenticRequiresAuth = false
+	agenticFeaturesEnabled = true
 ) {
 	const context = {
 		queryClient: {
 			fetchQuery: ( { queryFn }: { queryFn: () => unknown } ) => queryFn(),
 		},
 		connector: {
-			agenticRequiresAuth,
 			getSites: async () => {
 				if ( sites instanceof Error ) throw sites;
 				return sites;
 			},
 			getSessions: async () => sessions,
-			getAuthUser: async () => null,
 			getOnboardingCompleted: async () => true,
 			getUserPreferences: async () => ( { agenticFeaturesEnabled } ),
 		},
@@ -157,30 +154,6 @@ describe( 'indexRoute.beforeLoad', () => {
 			false
 		);
 		expect( redirect.to ).toBe( '/sites/$siteId' );
-		expect( redirect.params ).toEqual( { siteId: 'site-2' } );
-	} );
-
-	it( 'opens the overview when signed out with Studio Code switched off', async () => {
-		rememberVisit( 'site-2' );
-		const redirect = await runBeforeLoad(
-			[ createSite(), createSite( { id: 'site-2', path: '/Users/example/Studio/site-two' } ) ],
-			[],
-			false,
-			true
-		);
-		expect( redirect.to ).toBe( '/sites/$siteId' );
-		expect( redirect.params ).toEqual( { siteId: 'site-2' } );
-	} );
-
-	it( "opens the target site's Studio Code sign-in screen when signed out", async () => {
-		rememberVisit( 'site-2' );
-		const redirect = await runBeforeLoad(
-			[ createSite(), createSite( { id: 'site-2', path: '/Users/example/Studio/site-two' } ) ],
-			[],
-			true,
-			true
-		);
-		expect( redirect.to ).toBe( '/sites/$siteId/new' );
 		expect( redirect.params ).toEqual( { siteId: 'site-2' } );
 	} );
 

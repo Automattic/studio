@@ -20,6 +20,7 @@ import {
 	MCP_APP_MIME_TYPE,
 } from 'cli/ai/runtimes/mcp/design-picker';
 import { type AppPage, createLibraryTools, libraryPage } from 'cli/ai/runtimes/mcp/library';
+import { runServedTool } from 'cli/ai/runtimes/mcp/served-tool';
 import { loadSkills } from 'cli/ai/skills';
 import { buildSystemPrompt } from 'cli/ai/system-prompt';
 import { resolveStudioToolDefinitions } from 'cli/ai/tools';
@@ -191,24 +192,7 @@ export async function startMcpStdioServer(): Promise< void > {
 				isError: true,
 			};
 		}
-		// MCP wants `{content, isError}`; pi-native handlers throw — translate.
-		try {
-			const result = await tool.rawHandler( args as never );
-			const report = await result.pending;
-			return {
-				content: report
-					? [ ...result.content, { type: 'text' as const, text: report } ]
-					: result.content,
-				_meta: result._meta,
-				isError: false,
-			};
-		} catch ( error ) {
-			const message = error instanceof Error ? error.message : String( error );
-			return {
-				content: [ { type: 'text' as const, text: message } ],
-				isError: true,
-			};
-		}
+		return runServedTool( tool, args );
 	} );
 
 	// Only clients that render MCP Apps get the pages listed.

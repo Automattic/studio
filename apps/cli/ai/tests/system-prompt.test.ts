@@ -136,12 +136,10 @@ describe( 'buildSystemPrompt', () => {
 	it( "lists the active site's facts under it, one per line", () => {
 		const prompt = buildSystemPrompt( {
 			activeSite: { name: 'My Site', path: '/sites/my-site', running: true },
-			activeSiteFacts: [ 'Saved in the Site Editor: template part `header` (post 5).' ],
+			activeSiteFacts: [ 'WordPress 7.1.3.' ],
 		} );
 
-		expect( prompt ).toContain(
-			'"My Site" at /sites/my-site (running)\nSaved in the Site Editor: template part `header` (post 5).'
-		);
+		expect( prompt ).toContain( '"My Site" at /sites/my-site (running)\nWordPress 7.1.3.' );
 	} );
 
 	it( 'states a WordPress.com active site with its ID and URL', () => {

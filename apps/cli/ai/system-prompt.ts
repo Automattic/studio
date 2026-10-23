@@ -25,7 +25,7 @@ export interface BuildSystemPromptOptions {
 	// always reflects the current site, also after compaction.
 	activeSite?: SiteInfo | null;
 	// Facts about the active site read from its own data, one line each (for
-	// example the copies saved in the Site Editor).
+	// example the WordPress version it runs).
 	activeSiteFacts?: string[];
 }
 

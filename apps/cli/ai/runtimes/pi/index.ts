@@ -44,6 +44,7 @@ import { type TSchema } from 'typebox';
 import { createBlockSettingsNotes } from 'cli/ai/block-settings';
 import { withDesignSystemPreview } from 'cli/ai/chat-artifacts';
 import { isImageGenerationAvailable } from 'cli/ai/image-generation';
+import { createSavedCopyNotes } from 'cli/ai/saved-copies';
 import { readActiveSiteFacts } from 'cli/ai/site-facts';
 import { buildSystemPrompt, type ToolPromptContribution } from 'cli/ai/system-prompt';
 import { resolveStudioToolDefinitions } from 'cli/ai/tools';
@@ -348,12 +349,9 @@ async function createStudioAgentSession(
 
 	const pendingWork = getPendingWork( config.session );
 	const site = config.activeSite;
-	const blockSettingsNotes =
-		site && ! site.remote
-			? createBlockSettingsNotes( path.join( site.path, 'wp-includes', 'blocks' ) )
-			: undefined;
+	const resultNotes = site && ! site.remote ? createResultNotes( site.path ) : undefined;
 	const toolDefinitions = tools.map( ( tool ) =>
-		toToolDefinition( tool, payloadGuardState, pendingWork, blockSettingsNotes )
+		toToolDefinition( tool, payloadGuardState, pendingWork, resultNotes )
 	);
 	const modelRuntime = await createModelRuntime( model, family, creds );
 	const settingsManager = createSettingsManager( config.env );
@@ -626,11 +624,30 @@ function toolPromptContribution( tool: AgentToolAny ): ToolPromptContribution {
 	return { name: tool.name, promptSnippet: ( tool as ToolPromptFields ).promptSnippet };
 }
 
+// What the active local site's own files say about a tool call: the declared
+// settings of the core blocks its result shows, and the Site Editor copies
+// that replace the theme files it names.
+function createResultNotes(
+	sitePath: string
+): ( params: unknown, resultText: string ) => Promise< string > {
+	const blockSettingsNotes = createBlockSettingsNotes(
+		path.join( sitePath, 'wp-includes', 'blocks' )
+	);
+	const savedCopyNotes = createSavedCopyNotes( sitePath );
+	return async ( params, resultText ) =>
+		[
+			blockSettingsNotes( resultText ),
+			await savedCopyNotes( `${ JSON.stringify( params ) }\n${ resultText }` ),
+		]
+			.filter( Boolean )
+			.join( '\n' );
+}
+
 function toToolDefinition(
 	tool: AgentToolAny,
 	payloadGuardState: StudioToolPayloadGuardState,
 	pendingWork: PendingWork,
-	blockSettingsNotes?: ( text: string ) => string
+	resultNotes?: ( params: unknown, resultText: string ) => Promise< string >
 ): ToolDefinition {
 	return {
 		name: tool.name,
@@ -665,7 +682,7 @@ function toToolDefinition(
 			const resultText = result.content
 				.map( ( part ) => ( part.type === 'text' ? part.text : '' ) )
 				.join( '\n' );
-			const notes = [ blockSettingsNotes?.( resultText ), pendingWork.takeReports() ]
+			const notes = [ await resultNotes?.( params, resultText ), pendingWork.takeReports() ]
 				.filter( Boolean )
 				.join( '\n' );
 			return notes

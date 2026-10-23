@@ -34,6 +34,7 @@ import {
 	stopPhpChild,
 	waitForChildSpawn,
 } from './lib/native-php/php-process';
+import { getNativePhpWorkerPoolSize } from './lib/native-php/php-server-child-worker-pool';
 import {
 	getNativePhpMyAdminWpEnvPath,
 	getPhpMyAdminSessionPath,
@@ -115,7 +116,6 @@ let runningConfig: ServerConfig | null = null;
 
 const SYMLINK_RESTART_DEBOUNCE_MS = 750;
 const STOP_SERVER_TIMEOUT = 5000;
-const NATIVE_PHP_WORKER_POOL_SIZE = 4;
 
 // "Site directory" file access applies the open_basedir jail and
 // disable_functions list; "all files" runs PHP unrestricted.
@@ -565,9 +565,10 @@ async function doStartServer(
 	// were actually given, including on the failure paths that tear the pool down.
 	const openBasedirAllowlist = getEffectiveOpenBasedirAllowlist();
 	appliedOpenBasedirAllowlist = openBasedirAllowlist;
+	const workerPoolSize = getNativePhpWorkerPoolSize();
 
 	logToConsole(
-		`Spawning native PHP worker pool with ${ NATIVE_PHP_WORKER_POOL_SIZE } workers on public port ${ config.port }`
+		`Spawning native PHP worker pool with ${ workerPoolSize } workers on public port ${ config.port }`
 	);
 
 	try {
@@ -575,7 +576,7 @@ async function doStartServer(
 		const siteUrl = config.absoluteUrl || `http://localhost:${ config.port }`;
 		const autoPrependFile = writeSiteUrlPrependFile( siteUrl, config.autoPrependFile );
 		const workerPorts: number[] = [];
-		for ( let index = 0; index < NATIVE_PHP_WORKER_POOL_SIZE; index++ ) {
+		for ( let index = 0; index < workerPoolSize; index++ ) {
 			workerPorts.push( await getAvailablePort() );
 		}
 
@@ -584,9 +585,7 @@ async function doStartServer(
 
 		for ( const [ index, workerPort ] of workerPorts.entries() ) {
 			const phpAddress = `127.0.0.1:${ workerPort }`;
-			logToConsole(
-				`Spawning PHP worker ${ index + 1 }/${ NATIVE_PHP_WORKER_POOL_SIZE } on ${ phpAddress }`
-			);
+			logToConsole( `Spawning PHP worker ${ index + 1 }/${ workerPoolSize } on ${ phpAddress }` );
 			// Workers are spawned without `detached`, so they share this wrapper's process
 			// group. That lets the daemon's group-kill reach every worker in one signal.
 			const serverChild = spawnPhpProcess( [ '-S', phpAddress, ROUTER_PATH ], {
@@ -621,7 +620,7 @@ async function doStartServer(
 				errorToConsole(
 					`PHP worker ${
 						index + 1
-					}/${ NATIVE_PHP_WORKER_POOL_SIZE } exited unexpectedly (code: ${ code }, signal: ${ signalName })`
+					}/${ workerPoolSize } exited unexpectedly (code: ${ code }, signal: ${ signalName })`
 				);
 				killAllLivePhpProcesses();
 				process.exit( code ?? 1 );

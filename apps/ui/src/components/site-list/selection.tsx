@@ -1,8 +1,7 @@
 import { aiSessionBelongsToSite } from '@studio/common/ai/sessions/owner-site';
 import { useNavigate, useParams } from '@tanstack/react-router';
 import { __, _n, sprintf } from '@wordpress/i18n';
-import { Icon } from '@wordpress/icons';
-import { displayShortcut, isAppleOS, isKeyboardEvent } from '@wordpress/keycodes';
+import { displayShortcut, isAppleOS } from '@wordpress/keycodes';
 import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { getArchiveBlockedReason, useLeaveArchivedChat } from '@/components/chat-actions';
 import { DeleteSiteDialog } from '@/components/delete-site-dialog';
@@ -14,7 +13,11 @@ import { useSessionsBusy } from '@/data/queries/use-agent-run';
 import { useSessions, useUpdateSessionMetadata } from '@/data/queries/use-sessions';
 import { useSidebarPins } from '@/data/queries/use-sidebar-pins';
 import { useSites } from '@/data/queries/use-sites';
-import { archiveIcon, pinIcon, readStatusIcon, unpinIcon } from '@/lib/icons';
+import { ArchiveIcon } from '@/lib/icons/archive-icon';
+import { PinIcon } from '@/lib/icons/pin-icon';
+import { ReadStatusIcon } from '@/lib/icons/read-status-icon';
+import { UnpinIcon } from '@/lib/icons/unpin-icon';
+import { isShortcut } from '@/lib/shortcuts';
 import styles from './style.module.css';
 import type {
 	KeyboardEvent,
@@ -293,6 +296,7 @@ export function BulkMenu( {
 			patch.archived && updated.length
 				? {
 						label: __( 'Undo' ),
+						once: true,
 						onClick: () =>
 							Promise.all(
 								updated.map( ( sessionId ) =>
@@ -340,21 +344,13 @@ export function BulkMenu( {
 			return;
 		}
 		const native = event.nativeEvent;
-		if ( isKeyboardEvent.primaryAlt( native, 'p' ) ) {
+		if ( isShortcut( native, 'p', 'alt' ) ) {
 			event.preventDefault();
 			setPinned( ! allPinned );
-		} else if (
-			isKeyboardEvent.primaryShift( native, 'a' ) &&
-			chatIds.length &&
-			! archiveBlocked
-		) {
+		} else if ( isShortcut( native, 'a', 'shift' ) && chatIds.length && ! archiveBlocked ) {
 			event.preventDefault();
 			void updateChats( { archived: true } );
-		} else if (
-			isKeyboardEvent.primary( native, 'backspace' ) &&
-			siteIds.length &&
-			! deleteBlocked
-		) {
+		} else if ( isShortcut( native, 'Backspace' ) && siteIds.length && ! deleteBlocked ) {
 			event.preventDefault();
 			confirmDelete();
 		}
@@ -372,25 +368,25 @@ export function BulkMenu( {
 						disabled={ chats.every( ( chat ) => ! chat.unread ) }
 						onClick={ () => void updateChats( { unread: false } ) }
 					>
-						<Icon icon={ readStatusIcon } />
+						<ReadStatusIcon />
 						{ __( 'Mark as read' ) }
 					</Menu.Item>
 					<Menu.Item
 						disabled={ chats.every( ( chat ) => chat.unread ) }
 						onClick={ () => void updateChats( { unread: true } ) }
 					>
-						<Icon icon={ readStatusIcon } />
+						<ReadStatusIcon />
 						{ __( 'Mark as unread' ) }
 					</Menu.Item>
 				</>
 			) : null }
 			<Menu.Item disabled={ allPinned } onClick={ () => setPinned( true ) }>
-				<Icon icon={ pinIcon } />
+				<PinIcon />
 				{ __( 'Pin' ) }
 				{ allPinned ? null : <Menu.Shortcut>{ displayShortcut.primaryAlt( 'p' ) }</Menu.Shortcut> }
 			</Menu.Item>
 			<Menu.Item disabled={ nonePinned } onClick={ () => setPinned( false ) }>
-				<Icon icon={ unpinIcon } />
+				<UnpinIcon />
 				{ __( 'Unpin' ) }
 				{ allPinned ? <Menu.Shortcut>{ displayShortcut.primaryAlt( 'p' ) }</Menu.Shortcut> : null }
 			</Menu.Item>
@@ -404,7 +400,7 @@ export function BulkMenu( {
 						disabled={ archiveBlocked }
 						onClick={ () => void updateChats( { archived: true } ) }
 					>
-						<Icon icon={ archiveIcon } />
+						<ArchiveIcon />
 						{ sprintf(
 							/* translators: %d: number of selected chats. */
 							_n( 'Archive %d chat', 'Archive %d chats', chatIds.length ),

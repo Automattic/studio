@@ -23,6 +23,23 @@ describe( 'Markdown', () => {
 		copyText.mockClear();
 	} );
 
+	it( 'highlights code in known languages with theme colors', async () => {
+		const { container } = renderMarkdown( '```php\n<?php echo "Hi";\n```' );
+
+		await waitFor( () =>
+			expect( container.querySelector( 'pre span[style*="--shiki-token-string"]' ) ).not.toBeNull()
+		);
+		expect( container.querySelector( 'pre' ) ).toHaveTextContent( '<?php echo "Hi";' );
+	} );
+
+	it( 'leaves code in unknown languages plain', async () => {
+		const { container } = renderMarkdown( '```brainfuck\n+++\n```' );
+
+		await new Promise( ( resolve ) => setTimeout( resolve, 50 ) );
+		expect( container.querySelector( 'pre span' ) ).toBeNull();
+		expect( container.querySelector( 'pre' ) ).toHaveTextContent( '+++' );
+	} );
+
 	it( 'labels fenced code blocks with their language and copies the code', async () => {
 		renderMarkdown( '```js\nconst a = 1;\n```' );
 

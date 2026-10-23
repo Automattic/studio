@@ -2,6 +2,7 @@ import { AlertDialog as BaseAlertDialog } from '@base-ui/react/alert-dialog';
 import { Dialog as BaseDialog } from '@base-ui/react/dialog';
 import { __ } from '@wordpress/i18n';
 import { clsx } from 'clsx';
+import { XIcon } from 'lucide-react';
 import {
 	createContext,
 	useCallback,
@@ -13,7 +14,6 @@ import {
 } from 'react';
 import { IconButton } from '@/components/ui/button';
 import surfaceStyles from '@/components/ui/surface/style.module.css';
-import { closeIcon } from '@/lib/icons';
 import styles from './style.module.css';
 import type { ComponentProps, ReactNode, Ref } from 'react';
 
@@ -38,7 +38,7 @@ export function DialogDismissButton( {
 		<IconButton
 			variant="outline"
 			size="icon-sm"
-			icon={ closeIcon }
+			icon={ <XIcon /> }
 			label={ label }
 			tooltip={ false }
 			{ ...props }

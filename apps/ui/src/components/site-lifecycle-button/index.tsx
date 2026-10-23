@@ -1,5 +1,4 @@
 import { __ } from '@wordpress/i18n';
-import { Icon } from '@wordpress/icons';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import {
@@ -9,12 +8,22 @@ import {
 	useStartSite,
 	useStopSite,
 } from '@/data/queries/use-sites';
-import { startSiteIcon, stopSiteIcon } from '@/lib/icons';
+import { StartSiteIcon } from '@/lib/icons/start-site-icon';
+import { StopSiteIcon } from '@/lib/icons/stop-site-icon';
 import styles from './style.module.css';
 import type { SiteDetails } from '@/data/core';
 
-/** Starts or stops the site from a header: labeled while stopped, an icon once running. */
-export function SiteLifecycleButton( { site }: { site: SiteDetails } ) {
+/**
+ * Starts or stops the site from a header: labeled while stopped, an icon once
+ * running, or whenever the header is `compact`.
+ */
+export function SiteLifecycleButton( {
+	site,
+	compact = false,
+}: {
+	site: SiteDetails;
+	compact?: boolean;
+} ) {
 	const startSite = useStartSite();
 	const stopSite = useStopSite();
 	const isStarting = useIsSiteStarting( site.id );
@@ -29,21 +38,24 @@ export function SiteLifecycleButton( { site }: { site: SiteDetails } ) {
 		? __( 'Stop' )
 		: __( 'Start' );
 	const pending = isStarting || isStopping;
+	const iconOnly = running || compact;
 	return (
 		<Tooltip>
 			<TooltipTrigger
 				render={
 					<Button
 						variant={ running ? 'outline' : 'default' }
-						size={ running ? 'icon' : 'default' }
+						size={ iconOnly ? 'icon' : 'default' }
 						disabled={ isBusy }
 						loading={ pending }
 						onClick={ () => ( running ? stopSite : startSite ).mutate( site.id ) }
 					>
-						{ ! pending && (
-							<Icon icon={ running ? stopSiteIcon : startSiteIcon } data-icon="inline-start" />
+						{ pending ? null : running ? (
+							<StopSiteIcon data-icon="inline-start" />
+						) : (
+							<StartSiteIcon data-icon="inline-start" />
 						) }
-						<span className={ running ? styles.visuallyHidden : styles.label }>{ label }</span>
+						<span className={ iconOnly ? styles.visuallyHidden : undefined }>{ label }</span>
 					</Button>
 				}
 			/>

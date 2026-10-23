@@ -7,13 +7,13 @@ import { getErrorMessage } from '@studio/common/lib/error-formatting';
 import { useMutation } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
-import { arrowUpRight, Icon } from '@wordpress/icons';
 import { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Button } from '@/components/ui/button';
 import { useConnector } from '@/data/core';
 import { usePathValidator } from '@/data/queries/use-create-site-helpers';
 import { useCreateSite, useSites } from '@/data/queries/use-sites';
+import { ExternalLinkIcon } from '@/lib/icons/external-link-icon';
 import { pendingBlueprintSlot } from '@/lib/pending-blueprint';
 import { BlueprintScreenshot } from './blueprint-gallery';
 import styles from './blueprint-gallery.module.css';
@@ -107,7 +107,7 @@ export function BlueprintDetails( {
 									void connector.openExternalUrl( getBlueprintPreviewUrl( blueprint ) )
 								}
 							>
-								<Icon icon={ arrowUpRight } data-icon="inline-start" />
+								<ExternalLinkIcon data-icon="inline-start" />
 								{ __( 'Preview in browser' ) }
 							</Button>
 							<Button

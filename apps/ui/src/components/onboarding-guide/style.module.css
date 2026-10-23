@@ -35,7 +35,6 @@
 .closeOnDark,
 .closeOnDark svg {
 	color: #fff;
-	fill: currentColor;
 }
 
 /* The modal backdrop covers the window's usual drag region, so nothing is

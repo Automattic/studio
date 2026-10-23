@@ -1,4 +1,5 @@
 import { isSupportedLocale } from '@studio/common/lib/locale';
+import { INTERFACE_PREFERENCE_DEFAULTS } from '@studio/common/lib/user-settings/preferences';
 import type {
 	ColorScheme,
 	QuitSitesBehavior,
@@ -22,6 +23,8 @@ export interface PreferencesFormData {
 	locale: SupportedLocale;
 	analyticsEnabled: boolean;
 	defaultSiteDirectory: string;
+	autoStartSiteOnChat: boolean;
+	confirmDeleteAnnotations: boolean;
 }
 
 // The saved locale can be any string the main process resolved (including ones
@@ -42,34 +45,22 @@ export function toPreferencesFormData( prefs: UserPreferences ): PreferencesForm
 		// before this field existed) so the toggle never renders a false negative.
 		analyticsEnabled: prefs.analyticsEnabled ?? true,
 		defaultSiteDirectory: prefs.defaultSiteDirectory,
+		autoStartSiteOnChat:
+			prefs.autoStartSiteOnChat ?? INTERFACE_PREFERENCE_DEFAULTS.autoStartSiteOnChat,
+		confirmDeleteAnnotations:
+			prefs.confirmDeleteAnnotations ?? INTERFACE_PREFERENCE_DEFAULTS.confirmDeleteAnnotations,
 	};
 }
 
 // Maps a form-level change to the writable preferences shape (settings save
-// on change, so each control's update becomes its own save patch). The only
-// translation needed is the UNSET sentinel: editor/terminal persist it as
-// null, quit-sites as undefined ("ask every time").
+// on change, so each control's update becomes its own save patch). The UNSET
+// sentinel persists as null, which clears the preference back to its default.
 export function toPreferencesPatch(
 	update: Partial< PreferencesFormData >
 ): Partial< WritableUserPreferences > {
-	const patch: Partial< WritableUserPreferences > = {};
-
-	if ( update.editor !== undefined ) {
-		patch.editor = update.editor === UNSET ? null : update.editor;
-	}
-	if ( update.terminal !== undefined ) {
-		patch.terminal = update.terminal === UNSET ? null : update.terminal;
-	}
-	if ( update.colorScheme !== undefined ) patch.colorScheme = update.colorScheme;
-	if ( update.quitSitesBehavior !== undefined ) {
-		patch.quitSitesBehavior =
-			update.quitSitesBehavior === UNSET ? undefined : update.quitSitesBehavior;
-	}
-	if ( update.locale !== undefined ) patch.locale = update.locale;
-	if ( update.analyticsEnabled !== undefined ) patch.analyticsEnabled = update.analyticsEnabled;
-	if ( update.defaultSiteDirectory !== undefined ) {
-		patch.defaultSiteDirectory = update.defaultSiteDirectory;
-	}
-
-	return patch;
+	return Object.fromEntries(
+		Object.entries( update )
+			.filter( ( [ , value ] ) => value !== undefined )
+			.map( ( [ key, value ] ) => [ key, value === UNSET ? null : value ] )
+	);
 }

@@ -122,6 +122,25 @@ describe( 'PreviewAddressBar', () => {
 		expect( input ).toHaveValue( `${ SITE_URL }/contact/` );
 	} );
 
+	it( 'flags an address off the site, and Escape restores the URL', () => {
+		const { onNavigate } = renderAddressBar( { path: '/about/' } );
+		const input = screen.getByRole( 'textbox', { name: 'Address' } );
+		input.focus();
+
+		fireEvent.change( input, { target: { value: 'https://example.com/' } } );
+		fireEvent.submit( input.closest( 'form' )! );
+
+		expect( onNavigate ).not.toHaveBeenCalled();
+		expect( input ).toHaveAttribute( 'aria-invalid', 'true' );
+		expect( input ).toHaveAttribute( 'title', 'Enter a path or an address on this site.' );
+
+		fireEvent.keyDown( input, { key: 'Escape' } );
+
+		expect( input ).toHaveValue( `${ SITE_URL }/about/` );
+		expect( input ).not.toHaveAttribute( 'aria-invalid' );
+		expect( input ).not.toHaveFocus();
+	} );
+
 	it( 'selects the URL on focus', () => {
 		renderAddressBar();
 		const input = screen.getByRole( 'textbox', { name: 'Address' } ) as HTMLInputElement;

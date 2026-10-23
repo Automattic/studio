@@ -3,7 +3,7 @@ import { createRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useMediaQuery } from '@wordpress/compose';
 import { createInterpolateElement } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
-import { chevronRight, Icon } from '@wordpress/icons';
+import { ChevronRightIcon } from 'lucide-react';
 import { useCallback, useEffect, useId, useRef } from 'react';
 import { AuthActions } from '@/components/auth-actions';
 import { DotGrid } from '@/components/dot-grid';
@@ -90,7 +90,7 @@ function WelcomePage() {
 				onClick={ continueToTour }
 			>
 				{ authUser ? __( 'Continue' ) : __( 'Skip' ) }
-				<Icon icon={ chevronRight } data-icon="inline-end" />
+				<ChevronRightIcon data-icon="inline-end" />
 			</Button>
 
 			<div className={ styles.contentArea }>

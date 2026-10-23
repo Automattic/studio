@@ -39,9 +39,7 @@ export function useSettleSync() {
 			// Only point at the logs where the user can actually open them.
 			const canOpenLogs = connector.capabilities.studioLogs;
 			const plainMessage =
-				activity.kind === 'error'
-					? getPlainErrorMessage( activity.direction, canOpenLogs )
-					: undefined;
+				activity.kind === 'error' ? getPlainErrorMessage( activity, canOpenLogs ) : undefined;
 			const settled =
 				activity.kind === 'error' && plainMessage
 					? { ...activity, message: plainMessage }
@@ -131,7 +129,13 @@ export function useSettleSync() {
 					}
 				);
 			} else if ( settled.kind === 'error' ) {
-				toast.error( isPush ? __( 'Publishing didn’t finish' ) : __( 'Pulling didn’t finish' ), {
+				const title = isPush
+					? __( 'Publishing didn’t finish' )
+					: settled.localChangesApplied
+					? /* translators: %s: site name */
+					  sprintf( __( 'Changes pulled into %s' ), siteName() )
+					: __( 'Pulling didn’t finish' );
+				toast.error( title, {
 					description: settled.message,
 					action: openStudioLogsAction( connector ),
 				} );
@@ -144,7 +148,13 @@ export function useSettleSync() {
 // Pull and import failures carry the CLI's raw error. The UI shows plain
 // language instead, and the raw error goes to the logs. Push keeps the CLI's
 // message: it already names the cause (size limit, live import failure, timeout).
-function getPlainErrorMessage( direction: SyncDirection, canOpenLogs: boolean ) {
+function getPlainErrorMessage(
+	{ direction, localChangesApplied }: Extract< SyncActivity, { kind: 'error' } >,
+	canOpenLogs: boolean
+) {
+	if ( localChangesApplied ) {
+		return __( 'Studio couldn’t restart the site. Your changes have already been pulled.' );
+	}
 	if ( direction === 'pull' ) {
 		return canOpenLogs
 			? __(

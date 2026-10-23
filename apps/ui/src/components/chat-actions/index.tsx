@@ -4,9 +4,10 @@ import {
 } from '@studio/common/ai/sessions/owner-site';
 import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
-import { Icon } from '@wordpress/icons';
-import { displayShortcut, isKeyboardEvent } from '@wordpress/keycodes';
-import { useEffect, useEffectEvent, useState } from 'react';
+import { displayShortcut } from '@wordpress/keycodes';
+import { MaximizeIcon } from 'lucide-react';
+import { useState, type ReactNode } from 'react';
+import { usePreviewBeside } from '@/components/preview-split-frame';
 import { getSessionTitle } from '@/components/session-view/session-chat-actions';
 import { Button } from '@/components/ui/button';
 import {
@@ -31,7 +32,14 @@ import {
 	useSidebarPreferences,
 } from '@/data/queries/use-sidebar-pins';
 import { useSites } from '@/data/queries/use-sites';
-import { archiveIcon, pinIcon, readStatusIcon, renameIcon, unpinIcon } from '@/lib/icons';
+import { useItemShortcuts } from '@/hooks/use-item-shortcuts';
+import { useOptionalSessionPreviewUI } from '@/hooks/use-session-ui';
+import { ArchiveIcon } from '@/lib/icons/archive-icon';
+import { ExitFullScreenIcon } from '@/lib/icons/exit-full-screen-icon';
+import { PinIcon } from '@/lib/icons/pin-icon';
+import { ReadStatusIcon } from '@/lib/icons/read-status-icon';
+import { RenameIcon } from '@/lib/icons/rename-icon';
+import { UnpinIcon } from '@/lib/icons/unpin-icon';
 import styles from './style.module.css';
 import type { AiSessionSummary } from '@/data/core';
 
@@ -102,6 +110,7 @@ export function useChatActions( session: AiSessionSummary, active: boolean ) {
 		toast.success( __( 'Chat archived' ), {
 			action: {
 				label: __( 'Undo' ),
+				once: true,
 				onClick: () => mutateAsync( { sessionId: session.id, patch: { archived: false } } ),
 			},
 		} );
@@ -110,32 +119,23 @@ export function useChatActions( session: AiSessionSummary, active: boolean ) {
 		}
 	};
 
-	// ⌥⌘R renames, ⌥⌘P pins, ⇧⌘A archives (Ctrl+Alt+R, Ctrl+Alt+P and Ctrl+Shift+A elsewhere).
-	const handleShortcut = ( event: KeyboardEvent ) => {
-		if ( event.defaultPrevented || event.repeat ) {
-			return;
-		}
-		if ( isKeyboardEvent.primaryAlt( event, 'r' ) ) {
-			event.preventDefault();
-			setRenaming( true );
-		} else if ( isKeyboardEvent.primaryAlt( event, 'p' ) ) {
-			event.preventDefault();
-			togglePin( chatPinKey( session.id ) );
-		} else if ( isKeyboardEvent.primaryShift( event, 'a' ) && ! archiveBlocked ) {
-			event.preventDefault();
-			void archive();
-		}
-	};
+	const togglePinned = () => togglePin( chatPinKey( session.id ) );
+	const rename = () => setRenaming( true );
+	const shortcuts = useItemShortcuts( {
+		rename,
+		pin: togglePinned,
+		archive: archiveBlocked ? undefined : () => void archive(),
+	} );
 
 	return {
 		session,
 		working,
 		archiveBlocked,
 		archive,
-		handleShortcut,
+		shortcuts,
 		pinned: isPinned( chatPinKey( session.id ) ),
-		togglePin: () => togglePin( chatPinKey( session.id ) ),
-		rename: () => setRenaming( true ),
+		togglePin: togglePinned,
+		rename,
 		toggleRead: () => void update( { unread: ! session.unread }, __( 'Couldn’t update the chat' ) ),
 		renameDialog: (
 			<RenameChatDialog
@@ -149,30 +149,42 @@ export function useChatActions( session: AiSessionSummary, active: boolean ) {
 
 type ChatActions = ReturnType< typeof useChatActions >;
 
-export function ChatActionsMenuItems( { actions }: { actions: ChatActions } ) {
+export function ChatActionsMenuItems( {
+	actions,
+	children,
+}: {
+	actions: ChatActions;
+	children?: ReactNode;
+} ) {
 	return (
 		<>
 			<Menu.Item onClick={ actions.togglePin }>
-				<Icon icon={ actions.pinned ? unpinIcon : pinIcon } />
+				{ actions.pinned ? <UnpinIcon /> : <PinIcon /> }
 				{ actions.pinned ? __( 'Unpin' ) : __( 'Pin' ) }
 				<Menu.Shortcut>{ displayShortcut.primaryAlt( 'p' ) }</Menu.Shortcut>
 			</Menu.Item>
 			<Menu.Item onClick={ actions.rename }>
-				<Icon icon={ renameIcon } />
+				<RenameIcon />
 				{ __( 'Rename' ) }
 				<Menu.Shortcut>{ displayShortcut.primaryAlt( 'r' ) }</Menu.Shortcut>
 			</Menu.Item>
 			<Menu.Item onClick={ actions.toggleRead }>
-				<Icon icon={ readStatusIcon } />
+				<ReadStatusIcon />
 				{ actions.session.unread ? __( 'Mark as read' ) : __( 'Mark as unread' ) }
 			</Menu.Item>
+			{ children ? (
+				<>
+					<Menu.Separator />
+					{ children }
+				</>
+			) : null }
 			<Menu.Separator />
 			<Menu.Group>
 				{ actions.archiveBlocked ? (
 					<Menu.GroupLabel>{ getArchiveBlockedReason() }</Menu.GroupLabel>
 				) : null }
 				<Menu.Item disabled={ actions.archiveBlocked } onClick={ () => void actions.archive() }>
-					<Icon icon={ archiveIcon } />
+					<ArchiveIcon />
 					{ __( 'Archive' ) }
 					<Menu.Shortcut>{ displayShortcut.primaryShift( 'a' ) }</Menu.Shortcut>
 				</Menu.Item>
@@ -181,20 +193,67 @@ export function ChatActionsMenuItems( { actions }: { actions: ChatActions } ) {
 	);
 }
 
-// The shortcuts act on the open chat unless a dialog has focus.
-export function OpenChatShortcuts( { session }: { session: AiSessionSummary } ) {
+// The open chat's pane: right-clicking it opens the chat's actions, except over
+// text fields and the transcript, which keep the browser's menu. It wraps the
+// pane the same way while the chat loads, so the pane doesn't remount.
+export function ChatContextMenu( {
+	session,
+	canExpand = false,
+	children,
+}: {
+	session?: AiSessionSummary;
+	// The site has a preview, which the chat can take the place of.
+	canExpand?: boolean;
+	children: ReactNode;
+} ) {
+	return (
+		<Menu.ContextMenuRoot disabled={ ! session }>
+			<Menu.ContextMenuTrigger
+				className={ styles.pane }
+				onContextMenuCapture={ ( event ) => {
+					if (
+						( event.target as Element ).closest(
+							'input, textarea, [contenteditable="true"], [data-chat-transcript]'
+						)
+					) {
+						event.stopPropagation();
+					}
+				} }
+			>
+				{ children }
+			</Menu.ContextMenuTrigger>
+			{ session ? <OpenChatActions session={ session } canExpand={ canExpand } /> : null }
+		</Menu.ContextMenuRoot>
+	);
+}
+
+// The chat shortcuts act on the open chat.
+function OpenChatActions( {
+	session,
+	canExpand,
+}: {
+	session: AiSessionSummary;
+	canExpand: boolean;
+} ) {
 	const actions = useChatActions( session, true );
-	const onKeyDown = useEffectEvent( ( event: KeyboardEvent ) => {
-		if ( event.target instanceof Element && event.target.closest( '[role="dialog"]' ) ) {
-			return;
-		}
-		actions.handleShortcut( event );
-	} );
-	useEffect( () => {
-		document.addEventListener( 'keydown', onKeyDown );
-		return () => document.removeEventListener( 'keydown', onKeyDown );
-	}, [] );
-	return actions.renameDialog;
+	const preview = useOptionalSessionPreviewUI();
+	const expanded = ! usePreviewBeside();
+	return (
+		<>
+			<span hidden { ...actions.shortcuts } data-item-shortcuts-active="chat" />
+			<Menu.ContextPopup { ...actions.shortcuts }>
+				<ChatActionsMenuItems actions={ actions }>
+					{ preview && canExpand ? (
+						<Menu.Item onClick={ () => preview.setOpen( expanded ) }>
+							{ expanded ? <ExitFullScreenIcon /> : <MaximizeIcon /> }
+							{ expanded ? __( 'Exit full screen' ) : __( 'Full screen' ) }
+						</Menu.Item>
+					) : null }
+				</ChatActionsMenuItems>
+			</Menu.ContextPopup>
+			{ actions.renameDialog }
+		</>
+	);
 }
 
 // Stays mounted so it animates open and closed like the other dialogs; the

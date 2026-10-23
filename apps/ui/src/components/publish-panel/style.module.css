@@ -25,6 +25,11 @@
 	}
 }
 
+.trigger {
+	--button-active-duration: var(--motion-duration-layout);
+	--button-active-easing: var(--motion-ease-layout);
+}
+
 .triggerLabel {
 	position: relative;
 }
@@ -286,7 +291,6 @@
 	display: inline-flex;
 	flex: none;
 	color: var(--muted-foreground);
-	fill: currentColor;
 }
 
 @keyframes transfer-dot {
@@ -325,7 +329,7 @@
 		animation-delay: -240ms;
 	}
 
-	.transferIconPull circle {
+	.transferIcon[data-publish-transfer='pull'] circle {
 		animation-direction: reverse;
 	}
 }

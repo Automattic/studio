@@ -1,12 +1,10 @@
 import {
 	formatComposerAttachmentSize,
-	getComposerAttachmentHoverPreviewPosition,
 	getComposerAttachmentImageSrc,
 	getComposerAttachmentTextPreview,
 	getComposerAttachmentTypeDescription,
 	hasComposerAttachmentVisualPreview,
 	watchComposerAttachmentTextScroll,
-	type ComposerAttachmentHoverPreviewState,
 } from '@studio/common/ai/composer-attachment-preview';
 import { watchComposerFilePaste } from '@studio/common/ai/composer-attachments';
 import {
@@ -18,14 +16,17 @@ import {
 import {
 	AI_PROVIDER_IDS,
 	AI_PROVIDER_LABELS,
-	getAiProviderDefaultModel,
 	getAiProviderModels,
 	getEffectiveSessionProvider,
-	providerServesModel,
 	type AiProviderId,
 } from '@studio/common/ai/providers';
 import { isStudioCustomEntryOfType } from '@studio/common/ai/sessions/entry-types';
-import { getAiSkillCommands, resolveSkillFromPrompt } from '@studio/common/ai/slash-commands';
+import {
+	getAiSkillCommands,
+	getSlashCommandMatches,
+	resolveSkillFromPrompt,
+	type SkillSlashCommand,
+} from '@studio/common/ai/slash-commands';
 import { isAutomatticianEmail } from '@studio/common/lib/automattician';
 import {
 	clampQuotaFraction,
@@ -37,21 +38,30 @@ import {
 } from '@studio/common/lib/studio-assistant-quota';
 import { useQueryClient } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
-import {
-	arrowUp,
-	chevronDownSmall,
-	closeSmall,
-	globe,
-	Icon,
-	page,
-	play,
-	plus,
-} from '@wordpress/icons';
 import { clsx } from 'clsx';
 import {
+	ArrowUpIcon,
+	ChartNoAxesCombinedIcon,
+	FileTextIcon,
+	GaugeIcon,
+	GlobeIcon,
+	PaperclipIcon,
+	PencilRulerIcon,
+	PlayIcon,
+	PlugIcon,
+	PlusIcon,
+	SlidersHorizontalIcon,
+	SparklesIcon,
+	TagsIcon,
+	UnlockIcon,
+	XIcon,
+} from 'lucide-react';
+import {
+	cloneElement,
 	forwardRef,
 	useCallback,
 	useEffect,
+	useId,
 	useImperativeHandle,
 	useLayoutEffect,
 	useMemo,
@@ -59,8 +69,7 @@ import {
 	useState,
 	type ChangeEvent,
 	type MouseEvent,
-	type ReactElement,
-	type SVGProps,
+	type ComponentType,
 } from 'react';
 import { createPortal } from 'react-dom';
 import { AiCreditsPurchaseDialog } from '@/components/ai-credits-purchase-dialog';
@@ -75,8 +84,16 @@ import {
 	getAnnotationsAttachment,
 } from '@/components/annotations/submission';
 import { Button } from '@/components/ui/button';
+import {
+	CommandSheet,
+	getActiveCommand,
+	handleCommandKey,
+	type Command,
+	type CommandGroup,
+} from '@/components/ui/command';
+import * as HoverCard from '@/components/ui/hover-card';
 import { InputGroup, InputGroupTextarea } from '@/components/ui/input-group';
-import * as Menu from '@/components/ui/menu';
+import * as Popover from '@/components/ui/popover';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
@@ -94,7 +111,13 @@ import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-u
 import { useAddAiCreditsUrl } from '@/hooks/use-add-ai-credits-url';
 import { useIsOutOfAiCredits } from '@/hooks/use-is-out-of-ai-credits';
 import { useOpenSettings } from '@/hooks/use-open-settings';
-import { annotationIcon } from '@/lib/icons';
+import { AnnotationIcon } from '@/lib/icons/annotation-icon';
+import { ChevronDownIcon } from '@/lib/icons/chevron-down-icon';
+import { ClaudeIcon } from '@/lib/icons/claude-icon';
+import { McpIcon } from '@/lib/icons/mcp-icon';
+import { StartSiteIcon } from '@/lib/icons/start-site-icon';
+import { StopSiteIcon } from '@/lib/icons/stop-site-icon';
+import { WordPressIcon } from '@/lib/icons/wordpress-icon';
 import { isImeComposing } from '@/lib/is-ime-composing';
 import { completeComposerDraftSend, getComposerDraft, saveComposerDraft } from './draft-store';
 import { FamilySwitchConfirmDialog } from './family-switch-confirm-dialog';
@@ -106,7 +129,6 @@ import {
 	type ComposerAttachment,
 	type ComposerSendAttachments,
 } from './use-composer-attachments';
-import { useSlashCommands } from './use-slash-commands';
 import type {
 	AiModelId,
 	LoadedAiSession,
@@ -142,11 +164,83 @@ function renderAttachmentHoverVisual( attachment: ComposerAttachment ) {
 	return textPreview ? <AttachmentHoverTextPreview text={ textPreview } /> : null;
 }
 
-function formatSkillLabel( name: string ): string {
-	return name
-		.split( '-' )
-		.map( ( word ) => word.charAt( 0 ).toUpperCase() + word.slice( 1 ) )
-		.join( ' ' );
+function AttachmentChip( {
+	attachment,
+	isAnnotations,
+	onRemove,
+}: {
+	attachment: ComposerAttachment;
+	isAnnotations: boolean;
+	onRemove: () => void;
+} ) {
+	const imageSrc = attachment.kind === 'image' ? getComposerAttachmentImageSrc( attachment ) : null;
+	const sizeLabel = formatComposerAttachmentSize( attachment.size );
+	const chip = (
+		<li
+			className={ clsx(
+				styles.attachment,
+				imageSrc ? styles.attachmentImage : styles.attachmentFile
+			) }
+			aria-label={
+				sizeLabel
+					? sprintf(
+							/* translators: 1: attachment file name, 2: attachment size. */
+							__( '%1$s, %2$s' ),
+							attachment.name,
+							sizeLabel
+					  )
+					: attachment.name
+			}
+		/>
+	);
+	const content = (
+		<>
+			{ imageSrc ? (
+				<img className={ styles.attachmentThumb } src={ imageSrc } alt="" />
+			) : (
+				<>
+					{ isAnnotations ? <AnnotationIcon /> : <FileTextIcon /> }
+					<span className={ styles.attachmentName }>{ attachment.name }</span>
+				</>
+			) }
+			<Button
+				variant="outline"
+				size="icon-2xs"
+				shape="round"
+				className={ styles.attachmentRemove }
+				aria-label={ __( 'Remove attachment' ) }
+				onClick={ onRemove }
+			>
+				<XIcon />
+			</Button>
+		</>
+	);
+	if ( ! hasComposerAttachmentVisualPreview( attachment ) ) {
+		return cloneElement( chip, {}, content );
+	}
+	return (
+		<HoverCard.Root>
+			<HoverCard.Trigger render={ chip }>{ content }</HoverCard.Trigger>
+			<HoverCard.Popup
+				side="top"
+				align="start"
+				sideOffset={ 8 }
+				className={ styles.attachmentHoverPreview }
+			>
+				<div className={ styles.attachmentHoverArtwork }>
+					{ renderAttachmentHoverVisual( attachment ) }
+				</div>
+				<div className={ styles.attachmentHoverDetails }>
+					<span className={ styles.attachmentHoverName }>{ attachment.name }</span>
+					<span className={ styles.attachmentHoverMeta }>
+						{ [ getComposerAttachmentTypeDescription( attachment, __( 'File' ) ), sizeLabel ]
+							.filter( Boolean )
+							.join( ' · ' ) }
+					</span>
+				</div>
+			</HoverCard.Popup>
+		</HoverCard.Root>
+	);
 }
 
 function getModelDescription( id: AiModelId ): string {
@@ -240,11 +334,18 @@ function createSessionContextEntry( provider: AiProviderId, model: AiModelId ): 
 	} as unknown as SessionEntry;
 }
 
-// Brand names, so no translation and no per-render rebuild.
-const AI_PROVIDER_OPTIONS = AI_PROVIDER_IDS.map( ( id ) => ( {
-	id,
-	label: AI_PROVIDER_LABELS[ id ],
-} ) );
+const COMMAND_ICONS: Partial< Record< string, ComponentType< { className?: string } > > > = {
+	annotate: PencilRulerIcon,
+	taxonomist: TagsIcon,
+	'need-for-speed': GaugeIcon,
+	'rank-me-up': ChartNoAxesCombinedIcon,
+	liberate: UnlockIcon,
+	'auto-start': StartSiteIcon,
+	'connect-provider': McpIcon,
+	model: SlidersHorizontalIcon,
+	live: GlobeIcon,
+	local: PlayIcon,
+};
 
 // A blocked send shakes the notice, then holds it in the error color briefly.
 const SUBMIT_SHAKE_MS = 240;
@@ -252,12 +353,12 @@ const SUBMIT_FEEDBACK_MS = 900;
 
 // A mode the composer is in; hovering offers to remove it.
 function ModeChip( {
-	icon,
+	icon: ModeIcon,
 	label,
 	onRemove,
 	disabled,
 }: {
-	icon: ReactElement< SVGProps< SVGSVGElement > >;
+	icon: ComponentType< { className?: string } >;
 	label: string;
 	onRemove: () => void;
 	disabled?: boolean;
@@ -271,8 +372,10 @@ function ModeChip( {
 		<Tooltip>
 			<TooltipTrigger
 				render={
-					<button
-						type="button"
+					<Button
+						variant="ghost"
+						size="sm"
+						shape="round"
 						className={ styles.modeChip }
 						aria-label={ removeLabel }
 						disabled={ disabled }
@@ -280,9 +383,11 @@ function ModeChip( {
 					/>
 				}
 			>
-				<Icon icon={ icon } size={ 16 } className={ styles.modeChipIcon } />
-				<Icon icon={ closeSmall } size={ 16 } className={ styles.modeChipRemove } />
-				<span>{ label }</span>
+				<span className={ styles.modeChipIcon }>
+					<ModeIcon />
+					<XIcon />
+				</span>
+				{ label }
 			</TooltipTrigger>
 			<TooltipContent>{ removeLabel }</TooltipContent>
 		</Tooltip>
@@ -299,7 +404,7 @@ export function ComposerSkeleton() {
 			<div className={ styles.shell }>
 				<textarea className={ styles.input } rows={ 1 } disabled tabIndex={ -1 } />
 				<div className={ styles.toolbar }>
-					<span className={ styles.controlButton } />
+					<Button size="icon" />
 				</div>
 			</div>
 		</div>
@@ -345,6 +450,13 @@ interface ComposerProps {
 	// The site whose preview annotations go out with the next message.
 	annotationSiteId?: string;
 	onModelChange?: ( model: AiModelId ) => void;
+	// Why the chat can't send right now; a send attempt shakes it.
+	notice?: ComposerNotice;
+}
+
+export interface ComposerNotice {
+	message: string;
+	action?: { label: string; onClick: () => void };
 }
 
 /**
@@ -408,6 +520,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		dropTarget,
 		annotationSiteId,
 		onModelChange,
+		notice: blockingNotice,
 	},
 	ref
 ) {
@@ -415,16 +528,22 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 	const [ initialDraft ] = useState( () => getComposerDraft( sessionId ) );
 	const [ value, setValue ] = useState( initialDraft.text );
 	const [ sending, setSending ] = useState( false );
-	const [ modelMenuOpen, setModelMenuOpen ] = useState( false );
+	const [ addOpen, setAddOpen ] = useState( false );
+	const [ dismissedText, setDismissedText ] = useState< string | null >( null );
+	const [ highlight, setHighlight ] = useState< string >();
+	const [ modelOpen, setModelOpen ] = useState( false );
+	const [ modelHighlight, setModelHighlight ] = useState< string >();
 	const [ submitFeedback, setSubmitFeedback ] = useState< 'shake' | 'error' | null >( null );
-	const [ hoverPreview, setHoverPreview ] = useState< ComposerAttachmentHoverPreviewState | null >(
-		null
-	);
 	const [ shellNode, setShellNode ] = useState< HTMLDivElement | null >( null );
+	const [ rootNode, setRootNode ] = useState< HTMLDivElement | null >( null );
 	const textareaRef = useRef< HTMLTextAreaElement | null >( null );
 	const fileInputRef = useRef< HTMLInputElement | null >( null );
 	const insertedCursorRef = useRef< number | null >( null );
-	const skillInsertedRef = useRef( false );
+	const commandListRef = useRef< HTMLDivElement | null >( null );
+	const modelListRef = useRef< HTMLDivElement | null >( null );
+	const modelTriggerRef = useRef< HTMLButtonElement | null >( null );
+	const pendingCommandRef = useRef< ( () => void ) | undefined >( undefined );
+	const slashListId = useId();
 	const draftEffectInitializedRef = useRef( false );
 	const connector = useConnector();
 	const queryClient = useQueryClient();
@@ -435,18 +554,22 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		() => getEffectiveSessionProvider( entries ?? [], aiSettings ),
 		[ entries, aiSettings ]
 	);
-	const canPickProvider = Boolean( aiSettings?.hasAnthropicApiKey && sessionId );
 
-	// Only offer models the conversation's provider can serve. The paid tiers
-	// are listed but disabled for accounts without purchased credits;
-	// Automatticians are exempt.
-	const offeredModels = getAiProviderModels( sessionProvider );
+	// The paid tiers are listed but disabled for accounts without purchased
+	// credits; Automatticians are exempt.
 	const {
 		data: quota,
 		isError: isQuotaError,
 		refetch: refetchQuota,
 	} = useStudioAssistantQuota( { refetchOnWindowFocus: 'always' } );
 	const { data: authUser } = useAuthUser();
+	// The providers this chat can use; another provider's model starts a new
+	// chat, which needs a session to come from.
+	const providers = AI_PROVIDER_IDS.filter(
+		( id ) =>
+			( id === 'wpcom' ? !! authUser : aiSettings?.hasAnthropicApiKey ) &&
+			( !! sessionId || id === sessionProvider )
+	);
 	const canUsePaidTiers = hasPaidAiCredits( quota ) || isAutomatticianEmail( authUser?.email );
 	const isModelLocked = useCallback(
 		( id: AiModelId ) => aiModelRequiresPaidCredits( id ) && ! canUsePaidTiers,
@@ -467,6 +590,14 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		}
 		void connector.openExternalUrl( addAiCreditsUrl );
 	};
+	const notice =
+		blockingNotice ??
+		( isOutOfCredits
+			? {
+					message: __( 'Add AI credits to send another message.' ),
+					action: { label: __( 'Add credits' ), onClick: openAddCredits },
+			  }
+			: undefined );
 
 	const { data: preferences } = useUserPreferences();
 	const savePreferences = useSaveUserPreferences();
@@ -474,42 +605,126 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 	const setAutoStart = ( autoStartSiteOnChat: boolean ) =>
 		savePreferences.mutate( { autoStartSiteOnChat } );
 
-	const canSwitchEnvironment = !! onEnvironmentChange && ! busy;
-	const composerCommands = useMemo(
-		() => [
-			...( busy ? [] : [ { name: 'model', description: __( 'Select a model for this chat.' ) } ] ),
-			...( canSwitchEnvironment && environment === 'local' && liveUrl
-				? [ { name: 'live', description: liveUrl } ]
-				: [] ),
-			...( canSwitchEnvironment && environment === 'live'
-				? [ { name: 'local', description: __( 'Work on the local site on your computer.' ) } ]
-				: [] ),
-			...( canAutoStart && ! autoStartOn
-				? [
-						{
-							name: 'auto-start',
-							description: __( 'Start stopped sites when you send a chat message.' ),
-						},
-				  ]
-				: [] ),
-		],
-		[ autoStartOn, busy, canAutoStart, canSwitchEnvironment, environment, liveUrl ]
-	);
-	const slash = useSlashCommands( {
-		value,
-		setValue,
-		textareaRef,
-		commands: composerCommands,
-		onCommand: ( name ) => {
-			if ( name === 'model' ) {
-				setModelMenuOpen( true );
-			} else if ( name === 'live' || name === 'local' ) {
-				onEnvironmentChange?.( name );
-			} else if ( name === 'auto-start' ) {
-				setAutoStart( true );
-			}
+	const composerCommands: SkillSlashCommand[] = [
+		...( canAutoStart && ! autoStartOn
+			? [
+					{
+						name: 'auto-start',
+						displayName: __( 'Auto-start' ),
+						description: __( 'Start stopped sites when you send a chat message.' ),
+					},
+			  ]
+			: [] ),
+		...( busy || ! providers.length
+			? []
+			: [
+					{
+						name: 'model',
+						displayName: __( 'Choose model' ),
+						description: __( 'Select a model for this chat.' ),
+					},
+			  ] ),
+		{
+			name: 'connect-provider',
+			displayName: __( 'Connect AI providers' ),
+			description: __( 'Use WordPress.com AI credits or your own API key.' ),
 		},
+		...( onEnvironmentChange && environment === 'local' && liveUrl
+			? [ { name: 'live', displayName: __( 'Work on live site' ), description: liveUrl } ]
+			: [] ),
+		...( onEnvironmentChange && environment === 'live'
+			? [
+					{
+						name: 'local',
+						displayName: __( 'Work on local site' ),
+						description: __( 'Work on the local site on your computer.' ),
+					},
+			  ]
+			: [] ),
+	];
+	const skills = getAiSkillCommands();
+	const isSkill = ( command: SkillSlashCommand ) =>
+		skills.some( ( skill ) => skill.name === command.name );
+	const slash = getSlashCommandMatches( value, null, composerCommands );
+	const sheetOpen = addOpen || ( slash.open && dismissedText !== value );
+
+	const closeSheet = () => {
+		setAddOpen( false );
+		setDismissedText( value );
+	};
+
+	// Replaces the `/fragment` before the cursor: a skill lands as `/name`, an
+	// action runs and leaves the draft without its fragment.
+	const runCommand = ( name: string ) => {
+		closeSheet();
+		if ( name === 'add-files' ) {
+			fileInputRef.current?.click();
+			return;
+		}
+		const start = textareaRef.current?.selectionStart ?? value.length;
+		const end = textareaRef.current?.selectionEnd ?? start;
+		const before = value.slice( 0, start );
+		const after = value.slice( end );
+		const fragment = /(?:^|\s)(\/[\w-]*)$/.exec( before );
+		const prefix = fragment ? before.slice( 0, -fragment[ 1 ].length ) : before;
+		const setDraft = ( text: string, cursor: number ) => {
+			insertedCursorRef.current = cursor;
+			setValue( text );
+			textareaRef.current?.focus();
+		};
+		if ( skills.some( ( skill ) => skill.name === name ) ) {
+			const command = `${ prefix && ! /\s$/.test( prefix ) ? ' ' : '' }/${ name }${
+				/^\s/.test( after ) ? '' : ' '
+			}`;
+			setDraft(
+				prefix + command + after,
+				prefix.length + command.length + ( /^\s/.test( after ) ? 1 : 0 )
+			);
+			return;
+		}
+		if ( name === 'model' ) {
+			pendingCommandRef.current = () => setModelOpen( true );
+		} else if ( name === 'connect-provider' ) {
+			openSettings( 'ai' );
+		} else if ( name === 'live' || name === 'local' ) {
+			onEnvironmentChange?.( name );
+		} else if ( name === 'auto-start' ) {
+			setAutoStart( true );
+		}
+		if ( fragment ) {
+			setDraft( prefix + after, prefix.length );
+		}
+	};
+
+	const toCommand = ( command: SkillSlashCommand ): Command => ( {
+		value: command.name,
+		label: command.displayName ?? command.name,
+		description: command.description,
+		icon: COMMAND_ICONS[ command.name ] ?? SparklesIcon,
+		disabled:
+			( command.name === 'auto-start' && ( ! preferences || savePreferences.isPending ) ) ||
+			( ( command.name === 'live' || command.name === 'local' ) && busy ),
 	} );
+	const commandGroups: CommandGroup[] = [
+		{
+			label: __( 'Commands' ),
+			items: [
+				...( addOpen
+					? [ { value: 'add-files', label: __( 'Add files' ), icon: PaperclipIcon } ]
+					: [] ),
+				...( addOpen
+					? composerCommands
+					: slash.matches.filter( ( command ) => ! isSkill( command ) )
+				).map( toCommand ),
+			],
+		},
+		{
+			label: __( 'Skills' ),
+			heading: __( 'Skills' ),
+			items: ( addOpen ? skills : slash.matches.filter( isSkill ) ).map( toCommand ),
+		},
+	];
+	const activeCommand = sheetOpen ? getActiveCommand( commandGroups, highlight ) : undefined;
 
 	useLayoutEffect( () => {
 		const cursor = insertedCursorRef.current;
@@ -518,19 +733,6 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 			insertedCursorRef.current = null;
 		}
 	}, [ value ] );
-
-	const insertSkill = ( name: string ) => {
-		const start = textareaRef.current?.selectionStart ?? value.length;
-		const end = textareaRef.current?.selectionEnd ?? start;
-		const before = value.slice( 0, start );
-		const after = value.slice( end );
-		const command = `${ before && ! /\s$/.test( before ) ? ' ' : '' }/${ name }${
-			/^\s/.test( after ) ? '' : ' '
-		}`;
-		insertedCursorRef.current = before.length + command.length + ( /^\s/.test( after ) ? 1 : 0 );
-		skillInsertedRef.current = true;
-		setValue( before + command + after );
-	};
 
 	// File/image attachments (attach button, drop and paste). Images ride as
 	// base64 content blocks; other files are referenced by disk path.
@@ -613,7 +815,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		if ( sending || ( ! trimmed && attachments.length === 0 && sentNotes.length === 0 ) ) {
 			return;
 		}
-		if ( isOutOfCredits ) {
+		if ( blockingNotice || isOutOfCredits ) {
 			setSubmitFeedback( 'shake' );
 			return;
 		}
@@ -666,6 +868,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		sending,
 		attachments,
 		busy,
+		blockingNotice,
 		isOutOfCredits,
 		answerQuestion,
 		onSend,
@@ -764,18 +967,11 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		[ entries ]
 	);
 
-	// Pin this conversation to a provider, carrying a model it serves in the
-	// same entry. Providers don't share a model family, so the switch goes
-	// through the same fresh-session confirmation as a cross-family model
-	// switch.
+	// Pin this conversation to a provider and one of its models in the same
+	// entry. Providers don't share a model family, so the switch goes through
+	// the same fresh-session confirmation as a cross-family model switch.
 	const handleProviderChange = useCallback(
-		( picked: AiProviderId ) => {
-			if ( picked === sessionProvider ) {
-				return;
-			}
-			const nextModel = providerServesModel( picked, model )
-				? model
-				: getAiProviderDefaultModel( picked, { hasPaidAiCredits: hasPaidAiCredits( quota ) } );
+		( picked: AiProviderId, nextModel: AiModelId ) => {
 			if (
 				getAiModelFamily( model ) !== getAiModelFamily( nextModel ) &&
 				onSwitchSession &&
@@ -788,20 +984,16 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 				connector.setSessionProvider( id, picked, nextModel )
 			);
 		},
-		[
-			appendEntryOptimistically,
-			connector,
-			model,
-			onSwitchSession,
-			quota,
-			sessionHasTurns,
-			sessionProvider,
-		]
+		[ appendEntryOptimistically, connector, model, onSwitchSession, sessionHasTurns ]
 	);
 
 	const handleModelChange = useCallback(
-		( picked: AiModelId ) => {
+		( provider: AiProviderId, picked: AiModelId ) => {
 			if ( picked === model || isModelLocked( picked ) ) {
+				return;
+			}
+			if ( provider !== sessionProvider ) {
+				handleProviderChange( provider, picked );
 				return;
 			}
 			if ( onModelChange ) {
@@ -824,7 +1016,16 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 			}
 			applySameFamilyModel( picked );
 		},
-		[ applySameFamilyModel, isModelLocked, model, onModelChange, onSwitchSession, sessionHasTurns ]
+		[
+			applySameFamilyModel,
+			handleProviderChange,
+			isModelLocked,
+			model,
+			onModelChange,
+			onSwitchSession,
+			sessionHasTurns,
+			sessionProvider,
+		]
 	);
 
 	const cancelFamilyChange = useCallback( () => {
@@ -902,29 +1103,103 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 	if ( isWpcom ) {
 		modelDetails.push( credits.label );
 	}
-	const hoveredAttachment = hoverPreview
-		? shownAttachments.find( ( attachment ) => attachment.id === hoverPreview.id )
-		: undefined;
+	const pickModelCommand = ( value: string ) => {
+		setModelOpen( false );
+		if ( value === 'get-credits' ) {
+			openAddCredits();
+		} else if ( value === 'connect-provider' ) {
+			openSettings( 'ai' );
+		} else {
+			const provider = providers.find( ( id ) =>
+				getAiProviderModels( id ).some( ( item ) => item.id === value )
+			);
+			if ( provider ) {
+				handleModelChange( provider, value as AiModelId );
+			}
+		}
+	};
+	const modelGroups: CommandGroup[] = [
+		{
+			label: __( 'Models' ),
+			items: providers.flatMap( ( provider ) =>
+				getAiProviderModels( provider ).map( ( { id } ): Command => {
+					const description = sprintf(
+						/* translators: 1: the model's provider, 2: what the model is good at. */
+						__( '%1$s · %2$s' ),
+						provider === 'wpcom' ? 'WordPress' : 'Claude',
+						getModelDescription( id )
+					);
+					return {
+						value: id,
+						label: getAiModelLabel( id ),
+						description: isModelLocked( id )
+							? `${ description } · ${ __( 'Purchased credits required' ) }`
+							: description,
+						icon: provider === 'wpcom' ? WordPressIcon : ClaudeIcon,
+						disabled: isModelLocked( id ),
+					};
+				} )
+			),
+		},
+		{
+			label: __( 'Actions' ),
+			heading: __( 'Actions' ),
+			items: [
+				...( canPurchaseCredits
+					? [
+							{
+								value: 'get-credits',
+								label: __( 'Get more credits' ),
+								description: credits.label,
+								icon: PlusIcon,
+							},
+					  ]
+					: [] ),
+				{
+					value: 'connect-provider',
+					label: __( 'Connect provider…' ),
+					description: __( 'Add or manage your AI providers' ),
+					icon: PlugIcon,
+				},
+			],
+		},
+	];
 
 	const addButton = (
-		<TooltipTrigger
-			render={
-				<button
-					type="button"
-					className={ styles.controlButton }
-					aria-label={ addLabel }
-					onClick={ isField ? openFilePicker : undefined }
-				/>
-			}
+		<Button
+			variant="ghost"
+			size="icon"
+			shape="round"
+			aria-label={ addLabel }
+			onClick={ isField ? openFilePicker : undefined }
 		>
-			<Icon icon={ plus } size={ 16 } />
-		</TooltipTrigger>
+			<PlusIcon />
+		</Button>
 	);
 
 	return (
-		<>
-			<div className={ styles.root }>
-				{ isOutOfCredits ? (
+		<Popover.Root
+			open={ sheetOpen }
+			onOpenChange={ ( open, details ) => {
+				if ( details.reason === 'trigger-press' && ! addOpen ) {
+					setAddOpen( true );
+					return;
+				}
+				setAddOpen( open );
+				if ( ! open ) {
+					setDismissedText( value );
+				}
+			} }
+			onOpenChangeComplete={ ( open ) => {
+				const pending = pendingCommandRef.current;
+				pendingCommandRef.current = undefined;
+				if ( ! open ) {
+					pending?.();
+				}
+			} }
+		>
+			<div className={ styles.root } ref={ setRootNode }>
+				{ notice ? (
 					<div
 						className={ styles.notice }
 						role="alert"
@@ -934,17 +1209,17 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 							className={ styles.noticeContent }
 							data-submit-feedback={ submitFeedback ?? undefined }
 						>
-							<span className={ styles.noticeMessage }>
-								{ __( 'Add AI credits to send another message.' ) }
-							</span>
-							<Button
-								size="composer-notice"
-								shape="round"
-								variant={ submitFeedback ? 'destructive' : 'default' }
-								onClick={ openAddCredits }
-							>
-								{ __( 'Add credits' ) }
-							</Button>
+							<span className={ styles.noticeMessage }>{ notice.message }</span>
+							{ notice.action ? (
+								<Button
+									size="composer-notice"
+									shape="round"
+									variant={ submitFeedback ? 'destructive' : 'default' }
+									onClick={ notice.action.onClick }
+								>
+									{ notice.action.label }
+								</Button>
+							) : null }
 						</div>
 					</div>
 				) : null }
@@ -965,106 +1240,27 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 						: null }
 					{ shownAttachments.length ? (
 						<ul className={ styles.attachments } aria-label={ __( 'Attachments' ) }>
-							{ shownAttachments.map( ( attachment ) => {
-								const imageSrc =
-									attachment.kind === 'image' ? getComposerAttachmentImageSrc( attachment ) : null;
-								const sizeLabel = formatComposerAttachmentSize( attachment.size );
-								const showPreview = ( element: HTMLElement ) => {
-									if ( hasComposerAttachmentVisualPreview( attachment ) ) {
-										setHoverPreview( {
-											id: attachment.id,
-											...getComposerAttachmentHoverPreviewPosition( element, attachment ),
-										} );
+							{ shownAttachments.map( ( attachment ) => (
+								<AttachmentChip
+									key={ attachment.id }
+									attachment={ attachment }
+									isAnnotations={ attachment === annotationsAttachment }
+									onRemove={ () =>
+										attachment === annotationsAttachment && annotationSiteId
+											? removeAnnotations(
+													annotationSiteId,
+													stagedNotes.map( ( note ) => note.id )
+											  )
+											: removeAttachment( attachment.id )
 									}
-								};
-								const hidePreview = () =>
-									setHoverPreview( ( current ) =>
-										current?.id === attachment.id ? null : current
-									);
-								return (
-									<li
-										key={ attachment.id }
-										className={ clsx(
-											styles.attachment,
-											imageSrc ? styles.attachmentImage : styles.attachmentFile
-										) }
-										aria-label={
-											sizeLabel
-												? sprintf(
-														/* translators: 1: attachment file name, 2: attachment size. */
-														__( '%1$s, %2$s' ),
-														attachment.name,
-														sizeLabel
-												  )
-												: attachment.name
-										}
-										onPointerEnter={ ( event ) => showPreview( event.currentTarget ) }
-										onPointerLeave={ hidePreview }
-									>
-										{ imageSrc ? (
-											<img className={ styles.attachmentThumb } src={ imageSrc } alt="" />
-										) : (
-											<>
-												<Icon
-													icon={ attachment === annotationsAttachment ? annotationIcon : page }
-													size={ 16 }
-												/>
-												<span className={ styles.attachmentName }>{ attachment.name }</span>
-											</>
-										) }
-										<button
-											type="button"
-											className={ styles.attachmentRemove }
-											aria-label={ __( 'Remove attachment' ) }
-											onClick={ () =>
-												attachment === annotationsAttachment && annotationSiteId
-													? removeAnnotations(
-															annotationSiteId,
-															stagedNotes.map( ( note ) => note.id )
-													  )
-													: removeAttachment( attachment.id )
-											}
-										>
-											<Icon icon={ closeSmall } size={ 16 } />
-										</button>
-									</li>
-								);
-							} ) }
+								/>
+							) ) }
 						</ul>
 					) : null }
-					{ hoveredAttachment && hoverPreview
-						? createPortal(
-								<div
-									className={ styles.attachmentHoverPreview }
-									role="tooltip"
-									style={ {
-										left: hoverPreview.left,
-										bottom: hoverPreview.bottom,
-										width: hoverPreview.width,
-									} }
-								>
-									<div className={ styles.attachmentHoverArtwork }>
-										{ renderAttachmentHoverVisual( hoveredAttachment ) }
-									</div>
-									<div className={ styles.attachmentHoverDetails }>
-										<span className={ styles.attachmentHoverName }>{ hoveredAttachment.name }</span>
-										<span className={ styles.attachmentHoverMeta }>
-											{ [
-												getComposerAttachmentTypeDescription( hoveredAttachment, __( 'File' ) ),
-												formatComposerAttachmentSize( hoveredAttachment.size ),
-											]
-												.filter( Boolean )
-												.join( ' · ' ) }
-										</span>
-									</div>
-								</div>,
-								document.body
-						  )
-						: null }
 					<div className={ styles.inputArea }>
 						{ placeholderBusy && value.length === 0 ? (
-							<span className={ styles.placeholderShimmer } aria-hidden="true">
-								{ placeholder }
+							<span className={ styles.placeholder } aria-hidden="true">
+								<span className="studio-shimmer">{ placeholder }</span>
 							</span>
 						) : null }
 						<InputGroupTextarea
@@ -1075,14 +1271,32 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 								answerQuestion ? __( 'Answer WordPress Studio' ) : __( 'Message WordPress Studio' )
 							}
 							value={ value }
-							{ ...slash.comboboxProps }
-							onChange={ ( event ) => setValue( event.target.value ) }
+							role="combobox"
+							aria-autocomplete="list"
+							aria-haspopup="listbox"
+							aria-expanded={ sheetOpen && ! addOpen }
+							aria-controls={ sheetOpen && ! addOpen ? slashListId : undefined }
+							aria-activedescendant={
+								! addOpen && activeCommand ? `${ slashListId }-${ activeCommand.value }` : undefined
+							}
+							onChange={ ( event ) => {
+								setValue( event.target.value );
+								setDismissedText( null );
+								setHighlight( undefined );
+							} }
 							onPaste={ pasteHandlers.onPaste }
 							onKeyDown={ ( event ) => {
 								if ( isImeComposing( event ) ) {
 									return;
 								}
-								if ( slash.handleKeyDown( event ) ) {
+								if (
+									sheetOpen &&
+									! addOpen &&
+									handleCommandKey( event, commandGroups, highlight, setHighlight, runCommand )
+								) {
+									return;
+								}
+								if ( event.key === 'Escape' && sheetOpen ) {
 									return;
 								}
 								if ( event.key === 'Escape' && busy ) {
@@ -1097,104 +1311,20 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 							} }
 							rows={ 1 }
 						/>
-						{ slash.popup }
 					</div>
 					<div className={ styles.toolbar }>
 						<div className={ styles.leftActions }>
-							<Menu.Root modal={ false }>
-								<Tooltip>
-									{ isField ? addButton : <Menu.Trigger render={ addButton } /> }
-									<TooltipContent>{ addLabel }</TooltipContent>
-								</Tooltip>
-								<Menu.Popup
-									side="top"
-									align="start"
-									className={ styles.commandsMenuPopup }
-									finalFocus={ () => {
-										const focusDraft = skillInsertedRef.current;
-										skillInsertedRef.current = false;
-										return focusDraft ? textareaRef.current : true;
-									} }
-								>
-									<Menu.Item onClick={ openFilePicker }>{ __( 'Add files' ) }</Menu.Item>
-									{ canAutoStart && ! autoStartOn ? (
-										<Menu.Item
-											className={ styles.describedItem }
-											onClick={ () => setAutoStart( true ) }
-										>
-											<span className={ styles.describedItemBody }>
-												<span className={ styles.describedItemLabel }>{ __( 'Auto-start' ) }</span>
-												<span className={ styles.describedItemDescription }>
-													{ __( 'Start stopped sites when you send a chat message.' ) }
-												</span>
-											</span>
-										</Menu.Item>
-									) : null }
-									{ onEnvironmentChange && environment === 'local' && liveUrl ? (
-										<Menu.Item
-											className={ styles.describedItem }
-											disabled={ busy }
-											onClick={ () => onEnvironmentChange( 'live' ) }
-										>
-											<span className={ styles.describedItemBody }>
-												<span className={ styles.describedItemLabel }>
-													{ __( 'Work on live site' ) }
-												</span>
-												<span className={ styles.describedItemDescription }>{ liveUrl }</span>
-											</span>
-										</Menu.Item>
-									) : null }
-									{ onEnvironmentChange && environment === 'live' ? (
-										<Menu.Item
-											className={ styles.describedItem }
-											disabled={ busy }
-											onClick={ () => onEnvironmentChange( 'local' ) }
-										>
-											<span className={ styles.describedItemBody }>
-												<span className={ styles.describedItemLabel }>
-													{ __( 'Work on local site' ) }
-												</span>
-												<span className={ styles.describedItemDescription }>
-													{ __( 'Work on the local site on your computer.' ) }
-												</span>
-											</span>
-										</Menu.Item>
-									) : null }
-									<Menu.SubmenuRoot>
-										<Menu.SubmenuTrigger className={ styles.skillsSubmenuTrigger }>
-											<span>{ __( 'Skills' ) }</span>
-										</Menu.SubmenuTrigger>
-										<Menu.SubmenuPopup className={ styles.skillsMenuPopup }>
-											{ getAiSkillCommands().map( ( command ) => (
-												<Menu.Item
-													key={ command.name }
-													className={ styles.describedItem }
-													onClick={ () => insertSkill( command.name ) }
-												>
-													<span className={ styles.describedItemBody }>
-														<span className={ styles.describedItemLabel }>
-															{ formatSkillLabel( command.name ) }
-														</span>
-														<span className={ styles.describedItemDescription }>
-															{ command.description }
-														</span>
-													</span>
-												</Menu.Item>
-											) ) }
-										</Menu.SubmenuPopup>
-									</Menu.SubmenuRoot>
-								</Menu.Popup>
-							</Menu.Root>
+							{ isField ? addButton : <Popover.Trigger render={ addButton } /> }
 							{ autoStartOn ? (
 								<ModeChip
-									icon={ play }
+									icon={ StartSiteIcon }
 									label={ __( 'Auto-start' ) }
 									onRemove={ () => setAutoStart( false ) }
 								/>
 							) : null }
 							{ environment === 'live' ? (
 								<ModeChip
-									icon={ globe }
+									icon={ GlobeIcon }
 									label={ __( 'Live' ) }
 									disabled={ busy }
 									onRemove={ () => onEnvironmentChange?.( 'local' ) }
@@ -1210,146 +1340,87 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 							/>
 						</div>
 						<div className={ styles.rightActions }>
-							<Menu.Root
-								modal={ false }
-								open={ modelMenuOpen }
-								onOpenChange={ ( open ) => {
-									setModelMenuOpen( open );
-									if ( open && isWpcom ) {
-										void refetchQuota();
-									}
-								} }
-							>
-								<Tooltip>
-									<Menu.Trigger
-										disabled={ busy }
-										render={
-											<TooltipTrigger
-												render={
-													<button
-														type="button"
-														className={ styles.modelButton }
-														aria-label={ __( 'Model' ) }
-														aria-description={ modelDetails.join( ' · ' ) }
-													/>
-												}
-											>
-												<span>{ modelLabel }</span>
-												<Icon icon={ chevronDownSmall } size={ 16 } />
-											</TooltipTrigger>
+							{ providers.length ? (
+								<Popover.Root
+									open={ modelOpen }
+									onOpenChange={ ( open ) => {
+										setModelOpen( open );
+										if ( open ) {
+											setModelHighlight( model );
+											if ( isWpcom ) {
+												void refetchQuota();
+											}
 										}
+									} }
+								>
+									<Popover.Trigger
+										render={
+											<Button
+												ref={ modelTriggerRef }
+												variant="ghost"
+												shape="round"
+												aria-label={ __( 'Model' ) }
+												aria-description={ modelDetails.join( ' · ' ) }
+												title={ modelDetails.join( ' · ' ) }
+												disabled={ busy }
+											/>
+										}
+									>
+										<span>{ modelLabel }</span>
+										<ChevronDownIcon data-icon="inline-end" data-dropdown-indicator />
+									</Popover.Trigger>
+									<CommandSheet
+										label={ __( 'Choose a model' ) }
+										groups={ modelGroups }
+										highlighted={ modelHighlight }
+										onHighlight={ setModelHighlight }
+										onSelect={ pickModelCommand }
+										listRef={ modelListRef }
+										anchor={ rootNode }
+										initialFocus={ modelListRef }
+										finalFocus={ modelTriggerRef }
 									/>
-									<TooltipContent>{ modelDetails.join( ' · ' ) }</TooltipContent>
-								</Tooltip>
-								<Menu.Popup side="top" align="end" className={ styles.modelMenuPopup }>
-									{ canPickProvider ? (
-										<>
-											<Menu.RadioGroup
-												value={ sessionProvider }
-												onValueChange={ ( picked ) =>
-													handleProviderChange( picked as AiProviderId )
-												}
-											>
-												{ AI_PROVIDER_OPTIONS.map( ( { id, label } ) => (
-													<Menu.RadioItem key={ id } value={ id }>
-														{ label }
-													</Menu.RadioItem>
-												) ) }
-											</Menu.RadioGroup>
-											<Menu.Separator />
-										</>
-									) : null }
-									<Menu.RadioGroup
-										value={ model }
-										onValueChange={ ( picked ) => handleModelChange( picked as AiModelId ) }
-									>
-										{ offeredModels.map( ( { id } ) => (
-											<Menu.RadioItem
-												key={ id }
-												value={ id }
-												disabled={ isModelLocked( id ) }
-												className={ styles.describedItem }
-											>
-												<span className={ styles.describedItemBody }>
-													<span className={ styles.describedItemLabel }>
-														{ getAiModelLabel( id ) }
-													</span>
-													<span className={ styles.describedItemDescription }>
-														{ isModelLocked( id )
-															? sprintf(
-																	/* translators: %s: what the model is good at. */
-																	__( '%s · Purchased credits required' ),
-																	getModelDescription( id )
-															  )
-															: getModelDescription( id ) }
-													</span>
-												</span>
-											</Menu.RadioItem>
-										) ) }
-									</Menu.RadioGroup>
-									<Menu.Separator />
-									{ canPurchaseCredits ? (
-										<Menu.Item className={ styles.describedItem } onClick={ openAddCredits }>
-											<span className={ styles.describedItemBody }>
-												<span className={ styles.describedItemLabel }>
-													{ __( 'Get more credits' ) }
-												</span>
-												<span className={ styles.describedItemDescription }>{ credits.label }</span>
-											</span>
-										</Menu.Item>
-									) : null }
-									<Menu.Item
-										className={ styles.describedItem }
-										onClick={ () => openSettings( 'ai' ) }
-									>
-										<span className={ styles.describedItemBody }>
-											<span className={ styles.describedItemLabel }>
-												{ __( 'Connect provider…' ) }
-											</span>
-											<span className={ styles.describedItemDescription }>
-												{ __( 'Add or manage your AI providers' ) }
-											</span>
-										</span>
-									</Menu.Item>
-								</Menu.Popup>
-							</Menu.Root>
-							{ isField ? null : (
-								<Tooltip>
-									<TooltipTrigger
-										render={
-											showStop ? (
-												<button
-													type="button"
-													className={ styles.stopButton }
-													onClick={ () => void onInterrupt() }
-													aria-label={ stopLabel }
-													aria-busy={ isInterrupting }
-												/>
-											) : (
-												<button
-													type="button"
-													className={ styles.sendButton }
-													data-feedback={ submitFeedback ? 'error' : undefined }
-													onClick={ () => void send() }
-													disabled={ ! canSend }
-													aria-label={ sendLabel }
-												/>
-											)
-										}
-									>
-										{ showStop ? (
-											<span className={ styles.stopGlyph } aria-hidden="true" />
-										) : (
-											<Icon icon={ arrowUp } size={ 18 } />
-										) }
-									</TooltipTrigger>
-									<TooltipContent>{ showStop ? stopLabel : sendLabel }</TooltipContent>
-								</Tooltip>
+								</Popover.Root>
+							) : null }
+							{ isField ? null : showStop ? (
+								<Button
+									size="icon"
+									shape="round"
+									className={ styles.stopButton }
+									onClick={ () => void onInterrupt() }
+									aria-label={ stopLabel }
+									aria-busy={ isInterrupting }
+								>
+									<StopSiteIcon fill="currentColor" />
+								</Button>
+							) : (
+								<Button
+									variant={ submitFeedback ? 'destructive' : canSend ? 'accent' : 'default' }
+									size="icon"
+									shape="round"
+									onClick={ () => void send() }
+									disabled={ ! canSend }
+									aria-label={ sendLabel }
+								>
+									<ArrowUpIcon />
+								</Button>
 							) }
 						</div>
 					</div>
 				</InputGroup>
 			</div>
+			<CommandSheet
+				label={ __( 'Commands' ) }
+				groups={ commandGroups }
+				highlighted={ highlight }
+				onHighlight={ setHighlight }
+				onSelect={ runCommand }
+				listRef={ commandListRef }
+				id={ slashListId }
+				anchor={ rootNode }
+				initialFocus={ () => ( addOpen ? commandListRef.current : false ) }
+				finalFocus={ () => ( pendingCommandRef.current ? false : textareaRef.current ) }
+			/>
 			<FamilySwitchConfirmDialog
 				currentModel={ model }
 				pendingModel={ pendingFamilyChange?.model ?? null }
@@ -1360,7 +1431,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 			{ creditsPurchaseOpen ? (
 				<AiCreditsPurchaseDialog open onOpenChange={ setCreditsPurchaseOpen } />
 			) : null }
-		</>
+		</Popover.Root>
 	);
 } );
 

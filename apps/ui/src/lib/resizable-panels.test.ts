@@ -50,11 +50,11 @@ describe( 'getPreviewSplitLayout', () => {
 		expect( getPreviewSplitLayout( 1000, 100 ).previewWidth ).toBe( 680 );
 	} );
 
-	it( 'keeps the preview at its minimum when the frame is narrower than both floors', () => {
-		const layout = getPreviewSplitLayout( 400, 300 );
-		expect( layout.contentWidth ).toBe( 40 );
-		expect( layout.previewWidth ).toBe( 360 );
-		expect( layout.previewMinWidth ).toBe( 360 );
-		expect( layout.previewMaxWidth ).toBe( 360 );
+	it( 'splits a frame too narrow for both floors in their proportion, and fixes it', () => {
+		const layout = getPreviewSplitLayout( 544, 600 );
+		expect( layout.contentWidth ).toBe( 256 );
+		expect( layout.previewWidth ).toBe( 288 );
+		expect( layout.previewMinWidth ).toBe( 288 );
+		expect( layout.previewMaxWidth ).toBe( 288 );
 	} );
 } );

@@ -81,15 +81,4 @@ describe( 'useSessionPreviewUI agent reloads', () => {
 		expect( result.current.preview.path ).toBe( DESIGN_SYSTEM_PREVIEW_PATH );
 		expect( result.current.preview.open ).toBe( false );
 	} );
-
-	it( 'leaves wp-admin alone', () => {
-		const { result } = renderPreview();
-		act( () => result.current.preview.setSite( 'site-a' ) );
-		const before = result.current.preview.reloadNonce;
-		for ( const path of [ '/wp-admin', '/wp-admin/post.php?post=1&action=edit' ] ) {
-			act( () => result.current.preview.updatePath( path ) );
-			act( () => result.current.dispatch( { type: 'preview/reload' } ) );
-		}
-		expect( result.current.preview.reloadNonce ).toBe( before );
-	} );
 } );

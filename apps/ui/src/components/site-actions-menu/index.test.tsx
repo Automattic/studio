@@ -24,7 +24,7 @@ vi.mock( '@/hooks/use-site-management-actions', () => ( {
 		[ 'duplicate', 'import', 'export', 'export-db', 'delete' ].map( ( id ) => ( {
 			id,
 			label: id,
-			icon: <svg />,
+			icon: () => <svg />,
 			run: vi.fn(),
 		} ) ),
 } ) );
@@ -73,6 +73,18 @@ describe( 'SiteActionsMenu', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
 		agents.busy = [];
+	} );
+
+	it( 'starts or stops the current site with ⌥⌘S, shown in its menu', async () => {
+		render( <SiteActionsMenu site={ createSite( 'blog', false ) } /> );
+		console.log( 'DBG', document.body.innerHTML.slice( 0, 600 ) );
+		fireEvent.keyDown( document.body, { key: 'ß', code: 'KeyS', ctrlKey: true, altKey: true } );
+		expect( startSite.mutate ).toHaveBeenCalledWith( 'blog' );
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Site actions for blog' } ) );
+		expect( await screen.findByRole( 'menuitem', { name: /Start site/ } ) ).toHaveTextContent(
+			'Ctrl+Alt+S'
+		);
 	} );
 
 	it( 'holds off Delete, saying why, while one of the site’s chats is running', async () => {

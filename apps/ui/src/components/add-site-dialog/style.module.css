@@ -31,7 +31,7 @@
 }
 
 .navItem:hover,
-.navItem[aria-current='page'] {
+.navItem[aria-selected='true'] {
 	background: var(--hover);
 }
 
@@ -40,12 +40,8 @@
 	outline-offset: -2px;
 }
 
-.navIcon {
+.navItem > svg {
 	flex: none;
-}
-
-.navIcon:not([fill]) {
-	fill: currentColor;
 }
 
 .navLabel {

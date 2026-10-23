@@ -899,7 +899,10 @@ export const skillsLoadedFirst = check( ( d, vars ) => {
 		? ( d.toolCalls || [] ).slice( 0, d.stoppedAt.index )
 		: d.toolCalls || [];
 	const loaded = calls.filter( ( c ) => c.name === 'Skill' ).map( ( c ) => c.input?.name );
-	const missing = ( vars.skills || [] ).filter( ( name ) => ! loaded.includes( name ) );
+	// Objects, not strings: promptfoo would expand an array of strings into one test per element.
+	const missing = ( vars.skills || [] )
+		.map( ( skill ) => skill.name )
+		.filter( ( name ) => ! loaded.includes( name ) );
 	const before = d.stoppedAt ? `before ${ d.stoppedAt.toolName }` : 'in the whole run';
 	return missing.length
 		? fail(

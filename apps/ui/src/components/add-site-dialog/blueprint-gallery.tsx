@@ -1,9 +1,11 @@
 import { getBlueprintUseCases } from '@studio/common/lib/blueprint-catalog';
 import { __, sprintf } from '@wordpress/i18n';
+import { PlusIcon } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Empty, EmptyDescription } from '@/components/ui/empty';
 import { useBlueprints } from '@/data/queries/use-blueprints';
 import { useOffline } from '@/hooks/use-offline';
-import { plusIcon } from '@/lib/icons';
 import styles from './blueprint-gallery.module.css';
 import type { BlueprintUseCase } from '@studio/common/lib/blueprint-catalog';
 import type { Blueprint } from '@studio/common/lib/studio-blueprints-api';
@@ -47,24 +49,30 @@ export function BlueprintScreenshot( { url, alt }: { url?: string; alt: string }
 export function BlueprintGallery( {
 	useCase,
 	focusSlug,
+	onClearFilters,
 	onBlank,
 	onView,
 }: {
 	useCase?: BlueprintUseCase;
 	// The Blueprint to focus, when coming back from its details.
 	focusSlug?: string;
+	onClearFilters: () => void;
 	onBlank: () => void;
 	onView: ( blueprint: Blueprint ) => void;
 } ) {
 	const isOffline = useOffline();
 	const root = useRef< HTMLDivElement >( null );
-	const { data: blueprints, isLoading, isError } = useBlueprints();
+	const { data: blueprints, isLoading, isError, isSuccess } = useBlueprints();
 	const items = ( blueprints ?? [] ).filter(
 		( blueprint ) => ! useCase || getBlueprintUseCases( blueprint ).includes( useCase )
 	);
 
 	useEffect( () => {
-		root.current?.querySelector< HTMLElement >( `[data-blueprint-slug="${ focusSlug }"]` )?.focus();
+		root.current
+			?.querySelector< HTMLElement >(
+				focusSlug ? `[data-blueprint-slug="${ focusSlug }"]` : '[data-start-blank]'
+			)
+			?.focus( { preventScroll: ! focusSlug } );
 	}, [ focusSlug ] );
 
 	return (
@@ -88,7 +96,9 @@ export function BlueprintGallery( {
 						aria-label={ __( 'Start with Blank site' ) }
 						onClick={ onBlank }
 					>
-						<span className={ `${ styles.frame } ${ styles.blank }` }>{ plusIcon }</span>
+						<span className={ `${ styles.frame } ${ styles.blank }` }>
+							<PlusIcon />
+						</span>
 						<span className={ styles.cardTitle }>{ __( 'Blank site' ) }</span>
 					</button>
 				) : null }
@@ -122,6 +132,14 @@ export function BlueprintGallery( {
 					</button>
 				) ) }
 			</div>
+			{ isSuccess && useCase && ! items.length ? (
+				<Empty>
+					<EmptyDescription>{ __( 'No matching Blueprints.' ) }</EmptyDescription>
+					<Button variant="outline" onClick={ onClearFilters }>
+						{ __( 'Clear filters' ) }
+					</Button>
+				</Empty>
+			) : null }
 		</div>
 	);
 }

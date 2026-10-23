@@ -12,10 +12,11 @@ import { ResizeHandle, ResizeOverlay } from '@/components/resize-handle';
 import { usePreviewSplit } from '@/hooks/use-preview-split';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import { WindowControlsCornerContext } from '@/hooks/use-window-controls-inset';
+import { getMotionDuration } from '@/lib/motion';
+import { PREVIEW_SPLIT_MIN_WIDTH } from '@/lib/resizable-panels';
 import styles from './style.module.css';
 
 // Keep in sync with the content-column transition duration in style.module.css.
-export const PREVIEW_TOGGLE_DURATION = 240;
 
 // Whether the preview shows beside the content, for controls in the content
 // column that only make sense next to it.
@@ -38,7 +39,10 @@ interface PreviewSplitFrameProps {
 	// The chat is hidden: the content column collapses the same way, while the
 	// sidebar stays.
 	chatHidden?: boolean;
-	onContainerWidthChange?: ( containerWidth: number | null ) => void;
+	// Drawn over the top inline-end corner, above whichever pane is there.
+	actions?: ReactNode;
+	// Open or close without the slide, as when a stopping site drops its preview.
+	instant?: boolean;
 	children?: ReactNode;
 }
 
@@ -46,7 +50,8 @@ export function PreviewSplitFrame( {
 	preview,
 	previewOpen = false,
 	chatHidden = false,
-	onContainerWidthChange,
+	actions,
+	instant = false,
 	children,
 }: PreviewSplitFrameProps ) {
 	const showPreview = previewOpen && preview != null;
@@ -55,10 +60,7 @@ export function PreviewSplitFrame( {
 		showPreview,
 	} );
 	const isSidebarCollapsed = useSidebarCollapsed();
-
-	useEffect( () => {
-		onContainerWidthChange?.( showPreview && ! contentCollapsed ? containerWidth : null );
-	}, [ containerWidth, contentCollapsed, onContainerWidthChange, showPreview ] );
+	const resizable = ( containerWidth ?? Infinity ) >= PREVIEW_SPLIT_MIN_WIDTH;
 
 	// Animate only open/close/hide-chat toggles of an already-mounted preview —
 	// never the initial layout, so a route loading with the preview visible
@@ -81,7 +83,7 @@ export function PreviewSplitFrame( {
 			open: showPreview,
 			collapsed: contentCollapsed,
 		} );
-		if ( previousPreview.mounted && preview != null ) {
+		if ( previousPreview.mounted && preview != null && ! instant ) {
 			setAnimatingPreviewToggle( true );
 		}
 	}
@@ -92,7 +94,7 @@ export function PreviewSplitFrame( {
 		}
 		const timeoutId = window.setTimeout(
 			() => setAnimatingPreviewToggle( false ),
-			PREVIEW_TOGGLE_DURATION
+			getMotionDuration( 'layout' )
 		);
 		return () => window.clearTimeout( timeoutId );
 	}, [ animatingPreviewToggle, showPreview, contentCollapsed ] );
@@ -123,7 +125,9 @@ export function PreviewSplitFrame( {
 					showPreview && styles.rootPreviewOpen,
 					isResizing && styles.rootPreviewResizing,
 					animatingPreviewToggle && styles.rootPreviewAnimating,
-					showPreview && ! contentCollapsed && ! animatingPreviewToggle && 'studio-column-edge'
+					showPreview &&
+						! contentCollapsed &&
+						! animatingPreviewToggle && [ styles.rootEdge, 'studio-column-edge' ]
 				) }
 				style={ rootStyle }
 			>
@@ -155,7 +159,7 @@ export function PreviewSplitFrame( {
 						</WindowControlsCornerContext.Provider>
 					</div>
 				) : null }
-				{ showPreview && ! contentCollapsed && ! animatingPreviewToggle ? (
+				{ showPreview && ! contentCollapsed && ! animatingPreviewToggle && resizable ? (
 					<ResizeHandle
 						className={ styles.previewResizeHandle }
 						label={ __( 'Resize site preview' ) }
@@ -163,6 +167,7 @@ export function PreviewSplitFrame( {
 					/>
 				) : null }
 				{ isResizing ? <ResizeOverlay /> : null }
+				{ actions }
 			</div>
 		</>
 	);

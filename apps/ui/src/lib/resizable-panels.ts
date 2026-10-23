@@ -73,6 +73,27 @@ export function storeResizablePanelWidth( storageKey: string, width: number ): v
 	}
 }
 
+const PANEL_WIDTH_STORAGE_KEYS = [ SIDEBAR_PANEL_STORAGE_KEY, PREVIEW_CONTENT_WIDTH_STORAGE_KEY ];
+export const PANEL_WIDTHS_RESET_EVENT = 'studio-panel-widths-reset';
+
+export function hasCustomPanelWidths(): boolean {
+	try {
+		return PANEL_WIDTH_STORAGE_KEYS.some( ( key ) => window.localStorage.getItem( key ) !== null );
+	} catch {
+		return false;
+	}
+}
+
+// Forgets every resized panel width; mounted panels listen for the event.
+export function resetPanelWidths(): void {
+	try {
+		PANEL_WIDTH_STORAGE_KEYS.forEach( ( key ) => window.localStorage.removeItem( key ) );
+	} catch {
+		// Nothing stored to forget.
+	}
+	window.dispatchEvent( new Event( PANEL_WIDTHS_RESET_EVENT ) );
+}
+
 interface PreviewSplitLayout {
 	contentWidth: number;
 	previewWidth: number;
@@ -84,13 +105,26 @@ interface PreviewSplitLayout {
 // frame width and the user's preferred content width, returns the content
 // width clamped so the content column keeps PREVIEW_PANEL_MIN_CONTENT_WIDTH and
 // the preview keeps PREVIEW_PANEL_MIN_WIDTH, plus the derived preview track and
-// the bounds the resize handle reports. CSS just consumes the content width;
-// it does not re-clamp.
+// the bounds the resize handle reports. A frame too narrow for both floors is
+// split in their proportion, and can't be resized. CSS just consumes the
+// content width; it does not re-clamp.
 export function getPreviewSplitLayout(
 	containerWidth: number,
 	preferredContentWidth: number
 ): PreviewSplitLayout {
 	const width = Math.max( 0, Math.round( containerWidth ) );
+	if ( width < PREVIEW_SPLIT_MIN_WIDTH ) {
+		const contentWidth = Math.round(
+			( width * PREVIEW_PANEL_MIN_CONTENT_WIDTH ) / PREVIEW_SPLIT_MIN_WIDTH
+		);
+		const previewWidth = width - contentWidth;
+		return {
+			contentWidth,
+			previewWidth,
+			previewMinWidth: previewWidth,
+			previewMaxWidth: previewWidth,
+		};
+	}
 	const previewMinWidth = Math.min( PREVIEW_PANEL_MIN_WIDTH, width );
 	const previewMaxWidth = Math.max( previewMinWidth, width - PREVIEW_PANEL_MIN_CONTENT_WIDTH );
 	const contentWidth = Math.min(

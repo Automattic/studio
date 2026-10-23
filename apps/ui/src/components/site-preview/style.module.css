@@ -46,13 +46,6 @@
 	-webkit-app-region: no-drag;
 }
 
-/* @wordpress/icons SVGs omit a root fill and otherwise fall back to black.
-   Map them to each control's theme-aware foreground; stroke-based custom
-   browser icons declare fill="none" and remain unchanged. */
-.header svg:not([fill]) {
-	fill: currentColor;
-}
-
 /* The outer tracks size to their controls so the middle selector can use all
    remaining width instead of being squeezed by artificial equal halves. */
 .headerSide {
@@ -70,6 +63,26 @@
 	align-items: center;
 	justify-content: center;
 	min-width: 0;
+}
+
+/* Holds the address field's place while the site starts or stops. */
+.addressStatus {
+	display: flex;
+	box-sizing: border-box;
+	flex: 1 1 auto;
+	min-width: 80px;
+	height: var(--control-size);
+	align-items: center;
+	justify-content: center;
+	padding-inline: 12px;
+	border: 1px solid var(--border);
+	border-radius: 999px;
+	color: var(--muted-foreground);
+	font-size: var(--text-xxs);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	user-select: none;
 }
 
 .historyEntry {
@@ -110,15 +123,6 @@
 
 .annotateButtonActive:not(:disabled) {
 	opacity: 1;
-}
-
-/* Preserve the URL field before toolbar actions begin colliding. The controls
-   keep their accessible names and tooltips; only the redundant visible labels
-   collapse, leaving the same icons and dropdown indicator. */
-@container studio-preview-toolbar (max-width: 640px) {
-	.toolbarLabel {
-		display: none;
-	}
 }
 
 /* 2px bar overlapping the header's bottom border, like a browser's page-load
@@ -174,10 +178,19 @@
 .realmLayer {
 	position: absolute;
 	inset: 0;
+	z-index: 1;
 	display: flex;
 	min-width: 0;
 	min-height: 0;
 	overflow: hidden;
+	transition: opacity var(--motion-duration-surface) var(--motion-ease-enter);
+}
+
+/* A loading page hides at once, showing the loading stage behind it, and
+   fades in when it's ready. */
+.realmLayer[data-loading] {
+	opacity: 0;
+	transition-duration: 0s;
 }
 
 /* Kept mounted and laid out — so the guest holds its size and scroll
@@ -241,8 +254,8 @@
 }
 
 .empty {
-	position: relative;
-	flex: 1;
+	position: absolute;
+	inset: 0;
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -252,6 +265,12 @@
 	font-size: var(--text-xxs);
 	text-align: center;
 	overflow: hidden;
+}
+
+.loadFailed {
+	position: absolute;
+	inset: 0;
+	background-color: var(--chat);
 }
 
 .emptyContent {
@@ -274,19 +293,19 @@
 	gap: 4px;
 }
 
-.moreActions {
-	display: none;
+/* Out of room: the navigation moves into the More menu, but keeps its size
+   so the header can tell when it fits again. */
+.navigationHidden {
+	position: absolute;
+	visibility: hidden;
+	pointer-events: none;
 }
 
-/* Too narrow for the navigation buttons: they move into the More menu. */
-@container studio-preview-toolbar (max-width: 520px) {
-	.navigation,
-	.shareAction {
-		display: none;
-	}
-
-	.moreActions {
-		display: inline-flex;
-	}
+.toolbarStart,
+.headerItem {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	flex-shrink: 0;
 }
 

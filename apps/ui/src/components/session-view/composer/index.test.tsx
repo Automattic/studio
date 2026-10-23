@@ -77,11 +77,12 @@ describe( 'Composer menu', () => {
 			hasAnthropicApiKey: false,
 			anthropicApiKeyPreview: null,
 		} );
+		connectorMocks.getAuthUser.mockResolvedValue( { id: 1, email: 'user@example.com' } );
 		connectorMocks.getUserPreferences.mockResolvedValue( { autoStartSiteOnChat: false } );
 		connectorMocks.setUserPreferences.mockResolvedValue( undefined );
 	} );
 
-	it( 'offers the providers above the models the conversation’s provider serves', async () => {
+	it( 'lists the models of every connected provider, highlighting the current one', async () => {
 		connectorMocks.getAiSettings.mockResolvedValue( {
 			provider: 'wpcom',
 			hasAnthropicApiKey: true,
@@ -92,7 +93,7 @@ describe( 'Composer menu', () => {
 			model: 'claude-sonnet-5',
 		} );
 
-		const trigger = screen.getByRole( 'button', { name: 'Model' } );
+		const trigger = await screen.findByRole( 'button', { name: 'Model' } );
 		await waitFor( () =>
 			expect( trigger ).toHaveAccessibleDescription( 'Sonnet 5 · Anthropic API' )
 		);
@@ -100,10 +101,13 @@ describe( 'Composer menu', () => {
 		fireEvent.click( trigger );
 		await waitFor( () =>
 			expect( getMenuLabels() ).toEqual(
-				startingWith( [ 'WordPress.com', 'Anthropic API', 'Sonnet 5', 'Opus 5' ] )
+				startingWith( [ 'Fast', 'Balanced', 'Strong', 'Sonnet 5', 'Opus 5', 'Connect provider' ] )
 			)
 		);
-		expect( screen.getByRole( 'menuitemradio', { name: 'Anthropic API' } ) ).toBeChecked();
+		expect( screen.getByRole( 'option', { name: /^Sonnet 5/ } ) ).toHaveAttribute(
+			'aria-selected',
+			'true'
+		);
 	} );
 
 	it( 'falls back to WordPress.com when a pinned conversation has no key', async () => {
@@ -114,14 +118,16 @@ describe( 'Composer menu', () => {
 		} );
 		renderComposer( { entries: [ createSessionContextEntry( 'anthropic-api-key' ) ] } );
 
-		const trigger = screen.getByRole( 'button', { name: 'Model' } );
+		const trigger = await screen.findByRole( 'button', { name: 'Model' } );
 		await waitFor( () =>
 			expect( trigger ).toHaveAccessibleDescription( 'Fast · WordPress.com · AI usage unavailable' )
 		);
 
 		fireEvent.click( trigger );
 		await waitFor( () =>
-			expect( getMenuLabels() ).toEqual( startingWith( [ 'Fast', 'Balanced', 'Strong' ] ) )
+			expect( getMenuLabels() ).toEqual(
+				startingWith( [ 'Fast', 'Balanced', 'Strong', 'Connect provider' ] )
+			)
 		);
 	} );
 
@@ -138,14 +144,14 @@ describe( 'Composer menu', () => {
 		} );
 		renderComposer();
 
-		await waitFor( () =>
-			expect( screen.getByRole( 'button', { name: 'Model' } ) ).toHaveAccessibleDescription(
+		await waitFor( async () =>
+			expect( await screen.findByRole( 'button', { name: 'Model' } ) ).toHaveAccessibleDescription(
 				'Fast · WordPress.com · AI credits: 1.2M remaining'
 			)
 		);
 	} );
 
-	it( 'omits the provider section until an Anthropic API key is saved', async () => {
+	it( 'lists only WordPress.com models until an Anthropic API key is saved', async () => {
 		connectorMocks.getAiSettings.mockResolvedValue( {
 			provider: 'wpcom',
 			hasAnthropicApiKey: false,
@@ -153,13 +159,20 @@ describe( 'Composer menu', () => {
 		} );
 		renderComposer();
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'Model' } ) );
-		await waitFor( () =>
-			expect( getMenuLabels() ).toEqual( startingWith( [ 'Fast', 'Balanced', 'Strong' ] ) )
-		);
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Model' } ) );
+		await screen.findByRole( 'option', { name: /^Fast/ } );
+		expect( screen.queryByRole( 'option', { name: /^Sonnet 5/ } ) ).not.toBeInTheDocument();
 	} );
 
-	it( 'pins the conversation to the picked provider, carrying a model it serves', async () => {
+	it( 'hides the model picker without a provider to use', async () => {
+		connectorMocks.getAuthUser.mockResolvedValue( null );
+		renderComposer();
+
+		await waitFor( () => expect( connectorMocks.getAuthUser ).toHaveBeenCalled() );
+		expect( screen.queryByRole( 'button', { name: 'Model' } ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'pins the conversation to the provider of the picked model', async () => {
 		const queryClient = new QueryClient();
 		connectorMocks.getAiSettings.mockResolvedValue( {
 			provider: 'wpcom',
@@ -173,8 +186,8 @@ describe( 'Composer menu', () => {
 		} );
 		renderComposer( { model: 'balanced' }, queryClient );
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'Model' } ) );
-		fireEvent.click( await screen.findByRole( 'menuitemradio', { name: 'Anthropic API' } ) );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Model' } ) );
+		fireEvent.click( await screen.findByRole( 'option', { name: /^Sonnet 5/ } ) );
 
 		await waitFor( () =>
 			expect( connectorMocks.setSessionProvider ).toHaveBeenCalledWith(
@@ -223,8 +236,8 @@ describe( 'Composer menu', () => {
 			attachments: { images: [ expect.objectContaining( { name: 'moodboard.png' } ) ], files: [] },
 		} );
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'Model' } ) );
-		fireEvent.click( await screen.findByRole( 'menuitemradio', { name: /^Fast/ } ) );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Model' } ) );
+		fireEvent.click( await screen.findByRole( 'option', { name: /^Fast/ } ) );
 		expect( onModelChange ).toHaveBeenCalledWith( 'fast' );
 		expect( connectorMocks.setSessionModel ).not.toHaveBeenCalled();
 	} );
@@ -234,18 +247,18 @@ describe( 'Composer menu', () => {
 		connectorMocks.getStudioAssistantQuota.mockResolvedValue( { purchasedRemaining: 0 } );
 		const { unmount } = renderComposer();
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'Model' } ) );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Model' } ) );
 		await waitFor( () => {
-			expect( screen.getByRole( 'menuitemradio', { name: /^Balanced/ } ) ).toHaveAttribute(
+			expect( screen.getByRole( 'option', { name: /^Balanced/ } ) ).toHaveAttribute(
 				'aria-disabled',
 				'true'
 			);
 		} );
-		expect( screen.getByRole( 'menuitemradio', { name: /^Strong/ } ) ).toHaveAttribute(
+		expect( screen.getByRole( 'option', { name: /^Strong/ } ) ).toHaveAttribute(
 			'aria-disabled',
 			'true'
 		);
-		expect( screen.getByRole( 'menuitemradio', { name: /^Fast/ } ) ).not.toHaveAttribute(
+		expect( screen.getByRole( 'option', { name: /^Fast/ } ) ).not.toHaveAttribute(
 			'aria-disabled'
 		);
 		unmount();
@@ -253,9 +266,9 @@ describe( 'Composer menu', () => {
 		connectorMocks.getStudioAssistantQuota.mockResolvedValue( { purchasedRemaining: 50_000 } );
 		renderComposer();
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'Model' } ) );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Model' } ) );
 		await waitFor( () => {
-			expect( screen.getByRole( 'menuitemradio', { name: /^Balanced/ } ) ).not.toHaveAttribute(
+			expect( screen.getByRole( 'option', { name: /^Balanced/ } ) ).not.toHaveAttribute(
 				'aria-disabled'
 			);
 		} );
@@ -266,13 +279,13 @@ describe( 'Composer menu', () => {
 		connectorMocks.getStudioAssistantQuota.mockResolvedValue( { purchasedRemaining: 0 } );
 		renderComposer();
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'Model' } ) );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Model' } ) );
 		await waitFor( () => {
-			expect( screen.getByRole( 'menuitemradio', { name: /^Balanced/ } ) ).not.toHaveAttribute(
+			expect( screen.getByRole( 'option', { name: /^Balanced/ } ) ).not.toHaveAttribute(
 				'aria-disabled'
 			);
 		} );
-		expect( screen.getByRole( 'menuitemradio', { name: /^Strong/ } ) ).not.toHaveAttribute(
+		expect( screen.getByRole( 'option', { name: /^Strong/ } ) ).not.toHaveAttribute(
 			'aria-disabled'
 		);
 	} );
@@ -315,7 +328,7 @@ describe( 'Composer menu', () => {
 
 	it( 'sends staged annotations with the message once the agent is idle', async () => {
 		const onSend = vi.fn().mockResolvedValue( undefined );
-		const id = pickAnnotation( 'composer-site', { tag: 'h1', selector: 'h1', path: '/' } );
+		const id = pickAnnotation( 'composer-site', { tag: 'h1', selector: 'h1', path: '/' } )!;
 		changeAnnotation( 'composer-site', id, { comment: 'Make this bigger' } );
 		stageAnnotations( 'composer-site' );
 		const { rerenderComposer } = renderComposer( {
@@ -380,6 +393,30 @@ describe( 'Composer menu', () => {
 		expect( screen.getByRole( 'combobox' ) ).toHaveValue( 'One more' );
 	} );
 
+	it( 'shakes the notice it is given instead of sending', async () => {
+		const onConnect = vi.fn();
+		const onSend = vi.fn< ( prompt: string ) => Promise< void > >();
+		renderComposer( {
+			onSend,
+			notice: {
+				message: 'Connect a provider to build and edit your site.',
+				action: { label: 'Connect', onClick: onConnect },
+			},
+		} );
+
+		const notice = screen.getByRole( 'alert' );
+		fireEvent.click( within( notice ).getByRole( 'button', { name: 'Connect' } ) );
+		expect( onConnect ).toHaveBeenCalled();
+
+		fireEvent.change( screen.getByRole( 'combobox' ), { target: { value: 'Build a bakery' } } );
+		fireEvent.keyDown( screen.getByRole( 'combobox' ), { key: 'Enter' } );
+		expect( onSend ).not.toHaveBeenCalled();
+		expect( within( notice ).getByText( /Connect a provider/ ).parentElement ).toHaveAttribute(
+			'data-submit-feedback',
+			'shake'
+		);
+	} );
+
 	it( 'does not hold an Anthropic chat behind WordPress.com credits', async () => {
 		connectorMocks.getAiSettings.mockResolvedValue( {
 			provider: 'wpcom',
@@ -399,8 +436,8 @@ describe( 'Composer menu', () => {
 			model: 'claude-sonnet-5',
 			entries: [ createSessionContextEntry( 'anthropic-api-key' ) ],
 		} );
-		await waitFor( () =>
-			expect( screen.getByRole( 'button', { name: 'Model' } ) ).toHaveAccessibleDescription(
+		await waitFor( async () =>
+			expect( await screen.findByRole( 'button', { name: 'Model' } ) ).toHaveAccessibleDescription(
 				'Sonnet 5 · Anthropic API'
 			)
 		);
@@ -420,9 +457,7 @@ describe( 'Composer menu', () => {
 		textarea.setSelectionRange( 6, 6 );
 
 		fireEvent.click( screen.getByRole( 'button', { name: 'Add' } ) );
-		const skills = await screen.findByRole( 'menuitem', { name: /Skills/ } );
-		fireEvent.keyDown( skills, { key: 'ArrowRight' } );
-		fireEvent.click( await screen.findByRole( 'menuitem', { name: /^Rank Me Up/ } ) );
+		fireEvent.click( await screen.findByRole( 'option', { name: /^SEO Audit/ } ) );
 
 		expect( textarea ).toHaveValue( 'Please /rank-me-up audit' );
 		expect( onSend ).not.toHaveBeenCalled();
@@ -432,7 +467,9 @@ describe( 'Composer menu', () => {
 		renderComposer( { canAutoStart: true } );
 
 		fireEvent.click( screen.getByRole( 'button', { name: 'Add' } ) );
-		fireEvent.click( await screen.findByRole( 'menuitem', { name: /^Auto-start/ } ) );
+		const autoStart = await screen.findByRole( 'option', { name: /^Auto-start/ } );
+		await waitFor( () => expect( autoStart ).not.toHaveAttribute( 'aria-disabled' ) );
+		fireEvent.click( autoStart );
 		await waitFor( () =>
 			expect( connectorMocks.setUserPreferences.mock.calls[ 0 ][ 0 ] ).toEqual( {
 				autoStartSiteOnChat: true,
@@ -455,7 +492,7 @@ describe( 'Composer menu', () => {
 		} );
 
 		fireEvent.click( screen.getByRole( 'button', { name: 'Add' } ) );
-		fireEvent.click( await screen.findByRole( 'menuitem', { name: /^Work on live site/ } ) );
+		fireEvent.click( await screen.findByRole( 'option', { name: /^Work on live site/ } ) );
 		expect( onEnvironmentChange ).toHaveBeenCalledWith( 'live' );
 
 		rerenderComposer( {
@@ -487,53 +524,53 @@ describe( 'Composer menu', () => {
 		expect( onAnswer ).toHaveBeenCalledTimes( 1 );
 	} );
 
-	it( 'shows a flyout affordance and skill descriptions', async () => {
+	it( 'lists the skills under their own heading, with descriptions', async () => {
 		renderComposer();
 
 		fireEvent.click( screen.getByRole( 'button', { name: 'Add' } ) );
 
-		const skillsItem = await screen.findByRole( 'menuitem', { name: /Skills/ } );
-		expect( within( skillsItem ).getByText( 'Skills' ) ).toBeInTheDocument();
-		expect( skillsItem.querySelector( 'svg' ) ).toBeInTheDocument();
-
-		fireEvent.pointerMove( skillsItem );
-		fireEvent.mouseEnter( skillsItem );
-		fireEvent.keyDown( skillsItem, { key: 'ArrowRight' } );
-
-		await waitFor( () => {
-			expect( screen.getByText( getAiSkillCommands()[ 0 ].description ) ).toBeInTheDocument();
-		} );
+		const skills = await screen.findByRole( 'group', { name: 'Skills' } );
+		const [ first ] = getAiSkillCommands();
+		expect(
+			within( skills ).getByRole( 'option', { name: /^Visual Annotations/ } )
+		).toHaveTextContent( first.description );
 	} );
 
-	it( 'portals attachment hover previews to the document body', async () => {
+	it( 'completes a slash command from the keyboard and keeps the text on Escape', async () => {
+		renderComposer();
+		const textarea = screen.getByRole( 'combobox' );
+
+		fireEvent.change( textarea, { target: { value: 'Please /rank' } } );
+		expect( await screen.findByRole( 'option', { name: /^SEO Audit/ } ) ).toHaveAttribute(
+			'aria-selected',
+			'true'
+		);
+		fireEvent.keyDown( textarea, { key: 'Enter' } );
+		expect( textarea ).toHaveValue( 'Please /rank-me-up ' );
+
+		fireEvent.change( textarea, { target: { value: '/' } } );
+		await screen.findByRole( 'listbox', { name: 'Commands' } );
+		fireEvent.keyDown( textarea, { key: 'Escape' } );
+		await waitFor( () =>
+			expect( screen.queryByRole( 'listbox', { name: 'Commands' } ) ).not.toBeInTheDocument()
+		);
+		expect( textarea ).toHaveValue( '/' );
+	} );
+
+	it( 'previews an attachment while its chip is hovered', async () => {
 		const { container } = renderComposer();
 		const textFile = new File( [ 'Attachment preview text' ], 'notes.txt', {
 			type: 'text/plain',
 		} );
-		const input = container.querySelector( 'input[type="file"]' ) as HTMLInputElement;
-
-		fireEvent.change( input, {
+		fireEvent.change( container.querySelector( 'input[type="file"]' ) as HTMLInputElement, {
 			target: { files: [ textFile ] },
 		} );
 
-		const attachmentItem = await screen.findByRole( 'listitem', { name: /^notes\.txt/ } );
-		vi.spyOn( attachmentItem!, 'getBoundingClientRect' ).mockReturnValue( {
-			x: 180,
-			y: 420,
-			top: 420,
-			right: 236,
-			bottom: 476,
-			left: 180,
-			width: 56,
-			height: 56,
-			toJSON: () => ( {} ),
-		} );
+		fireEvent.mouseEnter( await screen.findByRole( 'listitem', { name: /^notes\.txt/ } ) );
 
-		fireEvent.pointerEnter( attachmentItem! );
-
-		const preview = await screen.findByRole( 'tooltip' );
-		expect( preview ).toHaveTextContent( 'notes.txt' );
-		expect( preview.parentElement ).toBe( document.body );
+		expect(
+			await screen.findByText( 'Attachment preview text', {}, { timeout: 2000 } )
+		).toBeInTheDocument();
 	} );
 
 	it( 'restores text and attachments independently for each session', async () => {
@@ -639,8 +676,8 @@ describe( 'Composer menu', () => {
 			queryClient
 		);
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'Model' } ) );
-		fireEvent.click( await screen.findByRole( 'menuitemradio', { name: 'Anthropic API' } ) );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Model' } ) );
+		fireEvent.click( await screen.findByRole( 'option', { name: /^Sonnet 5/ } ) );
 		const dialog = await screen.findByRole( 'dialog' );
 		expect( dialog ).toHaveTextContent( 'Start a new chat?' );
 		expect( dialog ).toHaveTextContent(
@@ -673,9 +710,9 @@ describe( 'Composer menu', () => {
 	} );
 } );
 
-// Model items carry a description after the name.
+// Items carry a description after the name.
 function getMenuLabels() {
-	return screen.getAllByRole( 'menuitemradio' ).map( ( item ) => item.textContent );
+	return screen.getAllByRole( 'option' ).map( ( item ) => item.textContent );
 }
 
 const startingWith = ( labels: string[] ) =>

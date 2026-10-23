@@ -1,5 +1,6 @@
 import { __ } from '@wordpress/i18n';
 import { useEffect } from 'react';
+import { resolveSettingsLink } from '@/components/settings-dialog/sections';
 import { useConnector } from '@/data/core';
 import { useOpenAddSite } from '@/hooks/use-open-add-site';
 import { useOpenSettings } from '@/hooks/use-open-settings';
@@ -51,5 +52,13 @@ export function useAppMenuNavigation() {
 			} ),
 		[ connector, openAddSite ]
 	);
-	useEffect( () => connector.onOpenSettings( () => openSettings() ), [ connector, openSettings ] );
+	useEffect(
+		() =>
+			connector.onOpenSettings( ( { settingId } ) =>
+				settingId
+					? openSettings( resolveSettingsLink( settingId ), undefined, settingId )
+					: openSettings()
+			),
+		[ connector, openSettings ]
+	);
 }

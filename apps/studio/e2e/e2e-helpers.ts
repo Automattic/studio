@@ -264,14 +264,34 @@ export class E2ESession {
 		} );
 
 		this.startCapturingMainProcessLogs();
+		// Playwright's `trace` option only records browsers it launches itself, so the app's window
+		// is recorded here. `reportFailure` keeps the recording of each failed test.
+		await this.electronApp.context().tracing.start( { snapshots: true } );
 
 		this.mainWindow = await this.electronApp.firstWindow( { timeout: 60_000 } );
 	}
 
-	async reportMainProcessLogsOnFailure( testInfo: TestInfo ) {
+	// Attaches the app window's trace and the main process logs to a failed test. Every test starts
+	// a new trace chunk, so a failure's trace covers that test (or, for the first test, the launch
+	// before it too).
+	async reportFailure( testInfo: TestInfo ) {
+		const tracing = this.electronApp.context().tracing;
 		if ( testInfo.status === testInfo.expectedStatus ) {
+			await tracing.stopChunk().catch( () => {} );
+			await tracing.startChunk().catch( () => {} );
 			return;
 		}
+
+		const tracePath = testInfo.outputPath( 'app-trace.zip' );
+		await tracing
+			.stopChunk( { path: tracePath } )
+			.then( () =>
+				testInfo.attach( 'app-trace', { path: tracePath, contentType: 'application/zip' } )
+			)
+			.catch( () => {
+				// Best effort: missing diagnostics must not fail the test.
+			} );
+		await tracing.startChunk().catch( () => {} );
 
 		const logs =
 			this.getMainProcessLogs() || 'No main process logs were captured before the failure.';

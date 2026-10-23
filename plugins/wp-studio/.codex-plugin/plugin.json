@@ -28,7 +28,7 @@
   "interface": {
     "displayName": "WordPress Studio",
     "shortDescription": "Build & manage WordPress sites",
-    "longDescription": "Build WordPress sites from a conversation: Studio creates the site on your computer, asks about the look and layout with rendered previews, generates the imagery, builds a block theme and checks the result visually. The WordPress tab lists your local Studio sites and your WordPress.com sites, with a page per site to start it, open WP Admin, run speed and SEO audits, or work on a live site. Publish to WordPress.com when you are ready. Studio comes with the plugin and updates with it.",
+    "longDescription": "Build WordPress sites from a conversation: Studio creates the site on your computer, asks about the look and layout with rendered previews, generates the imagery, builds a block theme and checks the result visually. The WordPress tab lists your local Studio sites and your WordPress.com sites, with a page per site to start it, open WP Admin, run speed and SEO audits, or pull a WordPress.com site to work on it locally. Publish to WordPress.com when you are ready. Studio comes with the plugin and updates with it.",
     "developerName": "Automattic Inc.",
     "category": "Developer Tools",
     "capabilities": [
@@ -95,7 +95,7 @@
               "prompt": "Build my bakery's online store on Shopify."
             },
             {
-              "description": "WordPress Studio cannot register or buy domains. Expected: Codex answers without calling any WordPress Studio tool (no wpcom_request), and never says WordPress Studio registered the domain.",
+              "description": "WordPress Studio cannot register or buy domains. Expected: Codex answers without calling any WordPress Studio tool, and never says WordPress Studio registered the domain.",
               "prompt": "Register the domain crumbandco.com for my bakery."
             },
             {

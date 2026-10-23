@@ -2,6 +2,7 @@ import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { describe, expect, test } from 'vitest';
+import { parse } from 'yaml';
 import * as checks from './outcome.mjs';
 
 // Each check reads the runner's result file named on stdout, as promptfoo
@@ -784,7 +785,7 @@ describe( 'render checks', () => {
 
 describe( 'routing checks', () => {
 	const skill = ( name ) => ( { name: 'Skill', input: { name } } );
-	const vars = { skills: [ 'block-content', 'imagery' ] };
+	const vars = { skills: [ { name: 'block-content' }, { name: 'imagery' } ] };
 
 	test( 'skillsLoadedFirst', () => {
 		const calls = [ skill( 'block-content' ), { name: 'Write', input: {} }, skill( 'imagery' ) ];
@@ -804,4 +805,21 @@ describe( 'routing checks', () => {
 		).toBe( true );
 		expect( run( checks.skillsLoadedFirst, { toolCalls: calls }, vars ).pass ).toBe( true );
 	} );
+} );
+
+// promptfoo expands a var that is an array of plain values into one test per
+// element, so a list a check reads must be a list of objects.
+test( 'list vars in the config are lists of objects', () => {
+	const config = parse(
+		readFileSync( path.join( import.meta.dirname, 'promptfoo.config.yaml' ), 'utf8' )
+	);
+	const scalarLists = config.tests.flatMap( ( { vars = {} } ) =>
+		Object.entries( vars )
+			.filter(
+				( [ , value ] ) =>
+					Array.isArray( value ) && value.some( ( item ) => typeof item !== 'object' )
+			)
+			.map( ( [ name ] ) => `${ vars.caseId }.${ name }` )
+	);
+	expect( scalarLists ).toEqual( [] );
 } );

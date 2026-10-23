@@ -268,6 +268,18 @@ describe( 'Studio AI MCP tools', () => {
 		);
 	} );
 
+	it( 'offers refresh_browser only when a Studio UI shows the preview', async () => {
+		const names = ( options?: Parameters< typeof resolveStudioToolDefinitions >[ 0 ] ) =>
+			resolveStudioToolDefinitions( options ).map( ( tool ) => tool.name );
+		expect( names() ).not.toContain( 'refresh_browser' );
+		expect( names( { emitChatArtifacts: true } ) ).toContain( 'refresh_browser' );
+
+		await getTool( 'refresh_browser' ).rawHandler( {} as never );
+		expect( emitEvent ).toHaveBeenCalledWith(
+			expect.objectContaining( { type: 'preview.reload' } )
+		);
+	} );
+
 	it( 'marks only reads and non-destructive local changes as safe to run without asking', () => {
 		const annotations = Object.fromEntries(
 			studioToolDefinitions.map( ( tool ) => [ tool.name, tool.annotations ] )
@@ -275,10 +287,24 @@ describe( 'Studio AI MCP tools', () => {
 		expect( annotations.site_list ).toEqual( REMOTE_READ );
 		expect( annotations.site_info ).toEqual( READ_ONLY );
 		expect( annotations.scaffold_theme ).toEqual( LOCAL_CHANGE );
-		for ( const name of [ 'site_delete', 'site_push', 'site_pull', 'wp_cli', 'wpcom_request' ] ) {
+		for ( const name of [
+			'site_delete',
+			'site_push',
+			'site_pull',
+			'wp_cli',
+			'wpcom_request',
+			'validate_blocks',
+		] ) {
 			const { readOnlyHint, destructiveHint, openWorldHint } = annotations[ name ];
 			expect( readOnlyHint || ( ! destructiveHint && ! openWorldHint ) ).toBe( false );
 		}
+	} );
+
+	it( 'leaves out wpcom_request only for hosts that turn it off', () => {
+		const names = ( options: Parameters< typeof resolveStudioToolDefinitions >[ 0 ] ) =>
+			resolveStudioToolDefinitions( options ).map( ( tool ) => tool.name );
+		expect( names( {} ) ).toContain( 'wpcom_request' );
+		expect( names( { wpcomRequest: false } ) ).not.toContain( 'wpcom_request' );
 	} );
 
 	it( 'reports invalid core/html blocks and skips editor validation', async () => {
@@ -1031,6 +1057,35 @@ describe( 'Studio AI MCP tools', () => {
 			'--post_type=page',
 			'--post_title=About',
 			'--post_content=Hello world',
+			'--porcelain',
+		] );
+	} );
+
+	it.each( [
+		[
+			'reads backslash-escaped quotes inside double-quoted post_content',
+			String.raw`post update 5 --post_content="{\"styles\":{\"color\":{\"background\":\"#1e2a44\"}}}" --porcelain`,
+		],
+		[
+			'reads post_content when quotes wrap the whole argument',
+			`post update 5 '--post_content={"styles":{"color":{"background":"#1e2a44"}}}' --porcelain`,
+		],
+	] )( '%s', async ( _name, command ) => {
+		vi.mocked( isServerRunning ).mockResolvedValue( {
+			name: 'site-123',
+			pmId: 1,
+			status: 'online',
+			pid: 1234,
+		} );
+		vi.mocked( runWpCliCommand ).mockResolvedValue( mockWpCliResponse( { stdout: '5' } ) as never );
+
+		await getTool( 'wp_cli' ).rawHandler( { nameOrPath: 'My Site', command } as never );
+
+		expect( runWpCliCommand ).toHaveBeenCalledWith( mockSite, [
+			'post',
+			'update',
+			'5',
+			'--post_content={"styles":{"color":{"background":"#1e2a44"}}}',
 			'--porcelain',
 		] );
 	} );

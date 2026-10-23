@@ -1,6 +1,6 @@
 import { __ } from '@wordpress/i18n';
-import { closeSmall, pencil } from '@wordpress/icons';
-import { IconButton } from '@/components/ui/button';
+import { PencilIcon, XIcon } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import styles from './style.module.css';
 import type { QueuedPrompt } from '@/data/queries/use-agent-run';
 
@@ -22,24 +22,28 @@ export function QueuedPrompts( { prompts, onRemove, onEdit }: QueuedPromptsProps
 					.join( ', ' );
 				return (
 					<li key={ item.id } className={ styles.item }>
-						<span className={ styles.body }>
+						<div className={ styles.row }>
 							<span className={ styles.text }>{ item.displayMessage ?? item.prompt }</span>
-							{ attachmentNames ? (
-								<span className={ styles.attachments }>{ attachmentNames }</span>
-							) : null }
-						</span>
-						<IconButton
-							icon={ pencil }
-							label={ __( 'Edit queued message' ) }
-							size="icon-sm"
-							onClick={ () => onEdit( item ) }
-						/>
-						<IconButton
-							icon={ closeSmall }
-							label={ __( 'Remove queued message' ) }
-							size="icon-sm"
-							onClick={ () => onRemove( item.id ) }
-						/>
+							<span className={ styles.actions }>
+								<Button
+									variant="muted-ghost"
+									size="icon-2xs"
+									aria-label={ __( 'Edit queued message' ) }
+									onClick={ () => onEdit( item ) }
+								>
+									<PencilIcon />
+								</Button>
+								<Button
+									variant="muted-ghost"
+									size="icon-2xs"
+									aria-label={ __( 'Remove queued message' ) }
+									onClick={ () => onRemove( item.id ) }
+								>
+									<XIcon />
+								</Button>
+							</span>
+						</div>
+						{ attachmentNames ? <span>{ attachmentNames }</span> : null }
 					</li>
 				);
 			} ) }

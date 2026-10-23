@@ -1,19 +1,13 @@
 import { ContextMenu as BaseContextMenu } from '@base-ui/react/context-menu';
 import { Menu as BaseMenu } from '@base-ui/react/menu';
-import { chevronRightSmall, Icon } from '@wordpress/icons';
 import { clsx } from 'clsx';
+import { CheckIcon } from 'lucide-react';
 import { forwardRef } from 'react';
 import { FloatingSurface } from '@/components/ui/surface';
 import surface from '@/components/ui/surface/style.module.css';
+import { ChevronDownIcon } from '@/lib/icons/chevron-down-icon';
 import styles from './style.module.css';
-import type {
-	ComponentPropsWithoutRef,
-	ElementRef,
-	KeyboardEventHandler,
-	MouseEventHandler,
-	PointerEventHandler,
-	ReactNode,
-} from 'react';
+import type { ComponentPropsWithoutRef, ElementRef, ReactNode } from 'react';
 
 export const Root = BaseMenu.Root;
 export const Trigger = BaseMenu.Trigger;
@@ -23,18 +17,20 @@ export const SubmenuRoot = BaseMenu.SubmenuRoot;
 export const ContextMenuRoot = BaseContextMenu.Root;
 export const ContextMenuTrigger = BaseContextMenu.Trigger;
 
-type PopupProps = {
+type ContextPopupProps = Omit<
+	ComponentPropsWithoutRef< typeof BaseMenu.Popup >,
+	'render' | 'className' | 'children'
+> & {
 	children: ReactNode;
+	className?: string;
+};
+
+type PopupProps = ContextPopupProps & {
 	/** Side relative to the trigger. Defaults to `top` (opens upward). */
 	side?: 'top' | 'right' | 'bottom' | 'left';
 	align?: 'start' | 'center' | 'end';
 	sideOffset?: number;
 	alignOffset?: number;
-	className?: string;
-	finalFocus?: ComponentPropsWithoutRef< typeof BaseMenu.Popup >[ 'finalFocus' ];
-	onClick?: MouseEventHandler< HTMLElement >;
-	onKeyDown?: KeyboardEventHandler< HTMLElement >;
-	onPointerDown?: PointerEventHandler< HTMLElement >;
 };
 
 /**
@@ -47,10 +43,7 @@ export function Popup( {
 	sideOffset = 4,
 	alignOffset,
 	className,
-	finalFocus,
-	onClick,
-	onKeyDown,
-	onPointerDown,
+	...props
 }: PopupProps ) {
 	return (
 		<BaseMenu.Portal>
@@ -65,10 +58,7 @@ export function Popup( {
 					render={
 						<FloatingSurface className={ clsx( surface.padded, styles.popup, className ) } />
 					}
-					finalFocus={ finalFocus }
-					onClick={ onClick }
-					onKeyDown={ onKeyDown }
-					onPointerDown={ onPointerDown }
+					{ ...props }
 				>
 					{ children }
 				</BaseMenu.Popup>
@@ -82,30 +72,21 @@ export function SubmenuPopup( props: Omit< PopupProps, 'side' | 'align' > ) {
 	return <Popup side="right" align="start" sideOffset={ 10 } alignOffset={ -6 } { ...props } />;
 }
 
-/** Popup for context menus: no side/align, so Base UI anchors it at the pointer. */
-export function ContextPopup( {
-	children,
-	className,
-	onClick,
-	onKeyDown,
-	onPointerDown,
-}: {
-	children: ReactNode;
-	className?: string;
-	onClick?: MouseEventHandler< HTMLElement >;
-	onKeyDown?: KeyboardEventHandler< HTMLElement >;
-	onPointerDown?: PointerEventHandler< HTMLElement >;
-} ) {
+/** Popup for context menus, anchored at the pointer and opening to its right. */
+export function ContextPopup( { children, className, ...props }: ContextPopupProps ) {
 	return (
 		<BaseMenu.Portal>
-			<BaseMenu.Positioner className={ styles.positioner }>
+			<BaseMenu.Positioner
+				side="right"
+				align="start"
+				alignOffset={ 4 }
+				className={ styles.positioner }
+			>
 				<BaseMenu.Popup
 					render={
 						<FloatingSurface className={ clsx( surface.padded, styles.popup, className ) } />
 					}
-					onClick={ onClick }
-					onKeyDown={ onKeyDown }
-					onPointerDown={ onPointerDown }
+					{ ...props }
 				>
 					{ children }
 				</BaseMenu.Popup>
@@ -143,15 +124,15 @@ export const SubmenuTrigger = forwardRef<
 	return (
 		<BaseMenu.SubmenuTrigger ref={ ref } className={ clsx( surface.item, className ) } { ...props }>
 			{ children }
-			<Icon icon={ chevronRightSmall } className={ styles.submenuChevron } />
+			<ChevronDownIcon className={ styles.submenuChevron } />
 		</BaseMenu.SubmenuTrigger>
 	);
 } );
 
-type RadioItemProps = ComponentPropsWithoutRef< typeof BaseMenu.RadioItem >;
+type RadioItemProps = ComponentPropsWithoutRef< typeof BaseMenu.RadioItem > & { icon?: ReactNode };
 
 export const RadioItem = forwardRef< ElementRef< typeof BaseMenu.RadioItem >, RadioItemProps >(
-	function RadioItem( { className, children, ...props }, ref ) {
+	function RadioItem( { className, icon, children, ...props }, ref ) {
 		return (
 			<BaseMenu.RadioItem
 				ref={ ref }
@@ -160,17 +141,10 @@ export const RadioItem = forwardRef< ElementRef< typeof BaseMenu.RadioItem >, Ra
 			>
 				<span className={ styles.indicator } aria-hidden="true">
 					<BaseMenu.RadioItemIndicator className={ styles.indicatorMark } keepMounted>
-						<svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-							<path
-								d="M5 12l5 5L20 7"
-								stroke="currentColor"
-								strokeWidth="2"
-								strokeLinecap="round"
-								strokeLinejoin="round"
-							/>
-						</svg>
+						<CheckIcon />
 					</BaseMenu.RadioItemIndicator>
 				</span>
+				{ icon }
 				<span className={ styles.itemLabel }>{ children }</span>
 			</BaseMenu.RadioItem>
 		);

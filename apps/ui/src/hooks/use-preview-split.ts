@@ -4,6 +4,7 @@ import { usePointerDrag } from '@/hooks/use-pointer-drag';
 import {
 	getInitialPreviewContentWidth,
 	getPreviewSplitLayout,
+	PANEL_WIDTHS_RESET_EVENT,
 	PREVIEW_CONTENT_WIDTH_STORAGE_KEY,
 	PREVIEW_CONTENT_DEFAULT_WIDTH,
 	PREVIEW_PANEL_MIN_WIDTH,
@@ -19,7 +20,6 @@ interface PreviewSplitHandleProps {
 	minWidth: number;
 	maxWidth: number;
 	width: number;
-	isResizing: boolean;
 	onResizeStart: MouseEventHandler< HTMLElement >;
 	onKeyDown: ( event: KeyboardEvent< HTMLElement > ) => void;
 }
@@ -79,17 +79,12 @@ export function usePreviewSplit( { showPreview }: UsePreviewSplitOptions ): UseP
 		[ setPreferred ]
 	);
 
-	const ensurePreferred = useCallback(
-		( container: number ) => {
-			if ( preferredRef.current !== null ) {
-				return preferredRef.current;
-			}
-			const next = getPreviewSplitLayout( container, PREVIEW_CONTENT_DEFAULT_WIDTH ).contentWidth;
-			setPreferred( next );
-			return next;
-		},
-		[ setPreferred ]
-	);
+	const ensurePreferred = useCallback( () => {
+		if ( preferredRef.current === null ) {
+			setPreferred( PREVIEW_CONTENT_DEFAULT_WIDTH );
+		}
+		return preferredRef.current ?? PREVIEW_CONTENT_DEFAULT_WIDTH;
+	}, [ setPreferred ] );
 
 	// Measure synchronously on open so the clamped px var is present before
 	// paint (no flash of the calc() fallback).
@@ -97,11 +92,22 @@ export function usePreviewSplit( { showPreview }: UsePreviewSplitOptions ): UseP
 		if ( ! showPreview ) {
 			return;
 		}
-		const width = measureRootWidth();
-		if ( width !== null ) {
-			ensurePreferred( width );
+		if ( measureRootWidth() !== null ) {
+			ensurePreferred();
 		}
 	}, [ ensurePreferred, measureRootWidth, showPreview ] );
+
+	useEffect( () => {
+		const reset = () => {
+			preferredRef.current = null;
+			setPreferredContentWidth( null );
+			if ( measureRootWidth() !== null ) {
+				ensurePreferred();
+			}
+		};
+		window.addEventListener( PANEL_WIDTHS_RESET_EVENT, reset );
+		return () => window.removeEventListener( PANEL_WIDTHS_RESET_EVENT, reset );
+	}, [ ensurePreferred, measureRootWidth ] );
 
 	// Keep the measured container fresh so the displayed width and the handle's
 	// aria values track window/sidebar resizes. CSS no longer absorbs resizes,
@@ -130,7 +136,7 @@ export function usePreviewSplit( { showPreview }: UsePreviewSplitOptions ): UseP
 			if ( container === null ) {
 				return null;
 			}
-			return getPreviewSplitLayout( container, ensurePreferred( container ) ).contentWidth;
+			return getPreviewSplitLayout( container, ensurePreferred() ).contentWidth;
 		},
 		onMove: ( start, deltaX ) => {
 			const container = Math.round(
@@ -168,7 +174,7 @@ export function usePreviewSplit( { showPreview }: UsePreviewSplitOptions ): UseP
 			}
 			event.preventDefault();
 			const step = event.shiftKey ? 40 : 16;
-			const current = getPreviewSplitLayout( container, ensurePreferred( container ) );
+			const current = getPreviewSplitLayout( container, ensurePreferred() );
 			let nextContentWidth = current.contentWidth;
 			if ( event.key === 'Home' ) {
 				nextContentWidth = container - current.previewMinWidth;
@@ -209,7 +215,6 @@ export function usePreviewSplit( { showPreview }: UsePreviewSplitOptions ): UseP
 			minWidth: layout?.previewMinWidth ?? PREVIEW_PANEL_MIN_WIDTH,
 			maxWidth: layout?.previewMaxWidth ?? PREVIEW_PANEL_MIN_WIDTH,
 			width: layout?.previewWidth ?? PREVIEW_PANEL_MIN_WIDTH,
-			isResizing: isDragging,
 			onResizeStart: onMouseDown,
 			onKeyDown: handleKeyDown,
 		},

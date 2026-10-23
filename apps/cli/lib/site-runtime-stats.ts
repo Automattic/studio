@@ -3,7 +3,7 @@ import {
 	SITE_FILE_ACCESS_ALL_FILES,
 	type SiteFileAccess,
 } from '@studio/common/lib/site-file-access';
-import { isSameDay } from 'date-fns';
+import { isSameDay } from 'date-fns/isSameDay';
 import { bumpStat } from 'cli/lib/bump-stat';
 import {
 	lockCliConfig,

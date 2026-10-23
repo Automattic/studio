@@ -1,4 +1,6 @@
-import { isSameDay, isSameMonth, isSameWeek } from 'date-fns';
+import { isSameDay } from 'date-fns/isSameDay';
+import { isSameMonth } from 'date-fns/isSameMonth';
+import { isSameWeek } from 'date-fns/isSameWeek';
 
 // Database columns are varchar(32). Group limit is 27 to account for the '-a11n' suffix
 // added by the backend for Automattic requests (27 + 5 = 32).

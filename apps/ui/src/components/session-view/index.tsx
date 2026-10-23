@@ -8,7 +8,7 @@ import { hasPaidAiCredits } from '@studio/common/lib/studio-assistant-quota';
 import { useNavigate } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
 import { clsx } from 'clsx';
-import { ArrowDownIcon } from 'lucide-react';
+import { ArrowDownIcon, XIcon } from 'lucide-react';
 import {
 	useCallback,
 	useEffect,
@@ -30,7 +30,7 @@ import {
 import { annotationSubmission } from '@/components/annotations/submission';
 import { ChatContextMenu } from '@/components/chat-actions';
 import { PreviewParticles } from '@/components/preview-particles';
-import { PreviewToggleButton } from '@/components/preview-toggle-button';
+import { usePreviewBeside } from '@/components/preview-split-frame';
 import { ProgressiveBlur } from '@/components/progressive-blur';
 import { HeaderSidebarToggle } from '@/components/sidebar-toggle';
 import { SiteActionsMenu } from '@/components/site-actions-menu';
@@ -87,6 +87,8 @@ function SessionHeader( {
 	const reserveTrafficLightSpace = useTrafficLightSpace().start;
 	const windowControlsInset = useWindowControlsInset( 'toolbar' );
 	const { host } = useSiteHeader();
+	const preview = useOptionalSessionPreviewUI();
+	const previewBeside = usePreviewBeside();
 	const local = site && effectiveEnvironment === 'local';
 
 	return (
@@ -122,7 +124,13 @@ function SessionHeader( {
 			<span className={ styles.headerSpacer } aria-hidden="true" />
 			{ site && ( site.running || ! local ) ? (
 				<div data-site-header-reserved className={ styles.headerActions } data-header-actions>
-					<PreviewToggleButton canHideChat />
+					{ preview && previewBeside ? (
+						<IconButton
+							icon={ <XIcon /> }
+							label={ __( 'Hide chat' ) }
+							onClick={ () => preview.setChatHidden( true ) }
+						/>
+					) : null }
 				</div>
 			) : null }
 			{ local && host === 'chat' ? <SiteHeaderSpace /> : null }
@@ -132,6 +140,7 @@ function SessionHeader( {
 
 interface SessionFrameProps {
 	session?: AiSessionSummary;
+	canExpand?: boolean;
 	header?: ReactNode;
 	composer?: ReactNode;
 	scrollRef?: Ref< HTMLDivElement >;
@@ -144,6 +153,7 @@ interface SessionFrameProps {
 // PreviewSplitFrame, which keeps it mounted across routes.
 function SessionFrame( {
 	session,
+	canExpand,
 	header,
 	composer,
 	scrollRef,
@@ -187,7 +197,7 @@ function SessionFrame( {
 	}, [] );
 
 	return (
-		<ChatContextMenu session={ session }>
+		<ChatContextMenu session={ session } canExpand={ canExpand }>
 			<div
 				ref={ ( node ) => {
 					rootRef.current = node;
@@ -516,6 +526,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	return (
 		<SessionFrame
 			session={ data.summary }
+			canExpand={ !! ownerSite?.running || effectiveEnvironment === 'live' }
 			scrollRef={ setScrollNode }
 			rootRef={ setFrameNode }
 			header={

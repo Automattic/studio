@@ -20,11 +20,16 @@ vi.mock( '@/data/queries/use-sidebar-pins', () => ( {
 	useSidebarPreferences: () => ( { pins: [], chatOrder: {} } ),
 } ) );
 
+const setOpen = vi.hoisted( () => vi.fn() );
+vi.mock( '@/hooks/use-session-ui', () => ( {
+	useOptionalSessionPreviewUI: () => ( { setOpen } ),
+} ) );
+
 const session = { id: 'chat-1', title: 'Make it blue' } as AiSessionSummary;
 
-function renderPane( chat?: AiSessionSummary ) {
+function renderPane( chat?: AiSessionSummary, canExpand = false ) {
 	render(
-		<ChatContextMenu session={ chat }>
+		<ChatContextMenu session={ chat } canExpand={ canExpand }>
 			<div>
 				<header>Header</header>
 				<div data-chat-transcript>Transcript</div>
@@ -40,6 +45,14 @@ describe( 'ChatContextMenu', () => {
 		expect( await screen.findByRole( 'menuitem', { name: /Pin/ } ) ).toBeVisible();
 		expect( screen.getByRole( 'menuitem', { name: /Rename/ } ) ).toBeVisible();
 		expect( screen.getByRole( 'menuitem', { name: /Archive/ } ) ).toBeVisible();
+		expect( screen.queryByRole( 'menuitem', { name: /full screen/ } ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'brings the preview back from a full-screen chat', async () => {
+		renderPane( session, true );
+		fireEvent.contextMenu( screen.getByText( 'Header' ) );
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Exit full screen' } ) );
+		expect( setOpen ).toHaveBeenCalledWith( true );
 	} );
 
 	it( 'leaves the transcript and a loading chat to the browser menu', () => {

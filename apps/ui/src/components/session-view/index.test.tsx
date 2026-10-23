@@ -79,10 +79,6 @@ vi.mock( '@/components/stopped-site-preview', () => ( {
 	StoppedSitePreview: () => <div data-testid="stopped-site-preview" />,
 } ) );
 
-vi.mock( '@/components/preview-toggle-button', () => ( {
-	PreviewToggleButton: () => null,
-} ) );
-
 vi.mock( '@/data/queries/use-assistant-quota', () => ( {
 	useStudioAssistantQuota: vi.fn(),
 } ) );

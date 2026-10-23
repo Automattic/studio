@@ -5,7 +5,9 @@ import {
 import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { displayShortcut } from '@wordpress/keycodes';
+import { MaximizeIcon } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
+import { usePreviewBeside } from '@/components/preview-split-frame';
 import { getSessionTitle } from '@/components/session-view/session-chat-actions';
 import { Button } from '@/components/ui/button';
 import {
@@ -31,7 +33,9 @@ import {
 } from '@/data/queries/use-sidebar-pins';
 import { useSites } from '@/data/queries/use-sites';
 import { useItemShortcuts } from '@/hooks/use-item-shortcuts';
+import { useOptionalSessionPreviewUI } from '@/hooks/use-session-ui';
 import { ArchiveIcon } from '@/lib/icons/archive-icon';
+import { ExitFullScreenIcon } from '@/lib/icons/exit-full-screen-icon';
 import { PinIcon } from '@/lib/icons/pin-icon';
 import { ReadStatusIcon } from '@/lib/icons/read-status-icon';
 import { RenameIcon } from '@/lib/icons/rename-icon';
@@ -145,7 +149,13 @@ export function useChatActions( session: AiSessionSummary, active: boolean ) {
 
 type ChatActions = ReturnType< typeof useChatActions >;
 
-export function ChatActionsMenuItems( { actions }: { actions: ChatActions } ) {
+export function ChatActionsMenuItems( {
+	actions,
+	children,
+}: {
+	actions: ChatActions;
+	children?: ReactNode;
+} ) {
 	return (
 		<>
 			<Menu.Item onClick={ actions.togglePin }>
@@ -162,6 +172,12 @@ export function ChatActionsMenuItems( { actions }: { actions: ChatActions } ) {
 				<ReadStatusIcon />
 				{ actions.session.unread ? __( 'Mark as read' ) : __( 'Mark as unread' ) }
 			</Menu.Item>
+			{ children ? (
+				<>
+					<Menu.Separator />
+					{ children }
+				</>
+			) : null }
 			<Menu.Separator />
 			<Menu.Group>
 				{ actions.archiveBlocked ? (
@@ -182,9 +198,12 @@ export function ChatActionsMenuItems( { actions }: { actions: ChatActions } ) {
 // pane the same way while the chat loads, so the pane doesn't remount.
 export function ChatContextMenu( {
 	session,
+	canExpand = false,
 	children,
 }: {
 	session?: AiSessionSummary;
+	// The site has a preview, which the chat can take the place of.
+	canExpand?: boolean;
 	children: ReactNode;
 } ) {
 	return (
@@ -203,19 +222,34 @@ export function ChatContextMenu( {
 			>
 				{ children }
 			</Menu.ContextMenuTrigger>
-			{ session ? <OpenChatActions session={ session } /> : null }
+			{ session ? <OpenChatActions session={ session } canExpand={ canExpand } /> : null }
 		</Menu.ContextMenuRoot>
 	);
 }
 
 // The chat shortcuts act on the open chat.
-function OpenChatActions( { session }: { session: AiSessionSummary } ) {
+function OpenChatActions( {
+	session,
+	canExpand,
+}: {
+	session: AiSessionSummary;
+	canExpand: boolean;
+} ) {
 	const actions = useChatActions( session, true );
+	const preview = useOptionalSessionPreviewUI();
+	const expanded = ! usePreviewBeside();
 	return (
 		<>
 			<span hidden { ...actions.shortcuts } data-item-shortcuts-active="chat" />
 			<Menu.ContextPopup { ...actions.shortcuts }>
-				<ChatActionsMenuItems actions={ actions } />
+				<ChatActionsMenuItems actions={ actions }>
+					{ preview && canExpand ? (
+						<Menu.Item onClick={ () => preview.setOpen( expanded ) }>
+							{ expanded ? <ExitFullScreenIcon /> : <MaximizeIcon /> }
+							{ expanded ? __( 'Exit full screen' ) : __( 'Full screen' ) }
+						</Menu.Item>
+					) : null }
+				</ChatActionsMenuItems>
 			</Menu.ContextPopup>
 			{ actions.renameDialog }
 		</>

@@ -116,12 +116,12 @@ describe( 'readActiveSiteFacts', () => {
 		mkdirSync( path.join( sitePath, 'wp-includes' ) );
 		writeFileSync(
 			path.join( sitePath, 'wp-includes', 'version.php' ),
-			"<?php\n$wp_version = '6.9.1';\n"
+			"<?php\n$wp_version = '7.1.3';\n"
 		);
 
 		const facts = await readActiveSiteFacts( { name: 'Site', path: sitePath, running: true } );
 
-		expect( facts ).toEqual( [ 'WordPress 6.9.1.' ] );
+		expect( facts ).toEqual( [ 'WordPress 7.1.3.' ] );
 	} );
 
 	it( 'has no facts for a WordPress.com site or no site', async () => {

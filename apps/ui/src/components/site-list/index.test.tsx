@@ -1068,7 +1068,9 @@ describe( 'SiteList', () => {
 		expect( screen.getByRole( 'menu' ) ).toHaveAttribute( 'data-closed' );
 
 		fireEvent.keyDown( await selectBothSites(), { key: 'Backspace', ctrlKey: true } );
-		expect( await screen.findByRole( 'alertdialog' ) ).toHaveTextContent( 'Remove 2 sites from Studio?' );
+		expect( await screen.findByRole( 'alertdialog' ) ).toHaveTextContent(
+			'Remove 2 sites from Studio?'
+		);
 	} );
 
 	it( 'holds off archiving and deleting while a chat is running or has prompts queued', async () => {

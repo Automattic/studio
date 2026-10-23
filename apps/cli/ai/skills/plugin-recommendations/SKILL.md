@@ -26,7 +26,7 @@ After installing, read the blocks from the plugin itself: `wp_cli eval 'foreach 
 
 ## What the source will not tell you
 
-- **Selling means WooCommerce with real products**, whatever the size or framing of the request. Install it and create 4–8 products that fit the shop, in categories, before design work. `wc` commands need `--user=admin`. Give products images by attachment ID (`--images='[{"id":N}]'`) from `generate_images` or `media import`; remote image URLs are rejected. After activation, delete `_transient__wc_activation_redirect`, set `woocommerce_coming_soon` to `no`, add a `woocommerce/mini-cart` and a Shop link to the header, and keep WooCommerce's default templates unless the design needs a different structure.
+- **Selling means WooCommerce with real products**, whatever the size or framing of the request. Install it and create 4–8 products that fit the shop, in categories, before design work. `wc` commands need `--user=admin`. Give products images by attachment ID (`--images='[{"id":N}]'`) from `generate_images` or `media import`; remote image URLs are rejected. After activation, delete `_transient__wc_activation_redirect`, add a `woocommerce/mini-cart` and a Shop link to the header, and keep WooCommerce's default templates unless the design needs a different structure.
 - **Jetpack Newsletter** cannot be activated on a local site (it needs WordPress.com): install Jetpack and recommend it, without building a substitute form.
 - **Crowdsignal** blocks need a Crowdsignal.com connection to record responses; mention it when the user expects live results.
 - **Sensei LMS** creates its pages on activation; paid courses also need WooCommerce.

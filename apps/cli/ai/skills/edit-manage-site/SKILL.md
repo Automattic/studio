@@ -14,7 +14,7 @@ Start the site with site_start if it is not running. When the Active site sectio
 
 ## 2. Make the change
 
-Load the other skills the change calls for. Follow the site's existing look — its DESIGN.md and active theme — rather than redesigning it, and update DESIGN.md when the look changes. Before changing the theme, check what the site renders from: its files and anything saved in the Site Editor. Make the change where WordPress reads it, keep the user's other edits, and say what you found.
+Load the other skills the change calls for. Follow the site's existing look — its DESIGN.md and active theme — rather than redesigning it, and update DESIGN.md when the look changes.
 
 ## 3. Check and report
 

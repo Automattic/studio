@@ -44,7 +44,7 @@ import { getBlockValidationGate, type BlockValidationGate } from 'cli/ai/block-v
 import { withDesignSystemPreview } from 'cli/ai/chat-artifacts';
 import { isImageGenerationAvailable } from 'cli/ai/image-generation';
 import { emitEvent } from 'cli/ai/json-events';
-import { createResultNotes, type NotedCall } from 'cli/ai/result-notes';
+import { createResultNotes } from 'cli/ai/result-notes';
 import { readActiveSiteFacts } from 'cli/ai/site-facts';
 import { withSiteFileGuards } from 'cli/ai/site-file-guards';
 import { buildSystemPrompt } from 'cli/ai/system-prompt';
@@ -372,9 +372,12 @@ async function createStudioAgentSession(
 	const confirm = createConfirmer( config.onConfirm ?? config.onAskUser );
 	const sitePin = new SitePin( config.activeSite );
 	const site = config.activeSite;
-	const notes = createResultNotes();
+	// The Active site section already states this turn's facts.
+	const notes = createResultNotes(
+		new Map( site && ! site.remote ? [ [ site.path, activeSiteFacts ] ] : [] )
+	);
 	const resultNotes =
-		site && ! site.remote ? ( call: NotedCall ) => notes( site.path, call ) : undefined;
+		site && ! site.remote ? ( result: string ) => notes( site.path, result ) : undefined;
 	const toolDefinitions = tools.map( ( tool ) =>
 		toToolDefinition( tool, payloadGuardState, pendingWork, blockValidationGate, {
 			confirm,
@@ -665,7 +668,7 @@ function toToolDefinition(
 	}: {
 		confirm: Confirmer;
 		sitePin: SitePin;
-		resultNotes?: ( call: NotedCall ) => Promise< string >;
+		resultNotes?: ( result: string ) => Promise< string >;
 	}
 ): ToolDefinition {
 	return {
@@ -758,11 +761,7 @@ function toToolDefinition(
 				.map( ( part ) => ( part.type === 'text' ? part.text : '' ) )
 				.join( '\n' );
 			const reports =
-				[
-					validationReport,
-					await resultNotes?.( { args: params, result: resultText } ),
-					pendingWork.takeReports(),
-				]
+				[ validationReport, await resultNotes?.( resultText ), pendingWork.takeReports() ]
 					.filter( Boolean )
 					.join( '\n' ) || undefined;
 			return reports

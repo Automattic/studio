@@ -1,3 +1,6 @@
+import fs from 'fs';
+import os from 'os';
+import path from 'path';
 import { describe, expect, it } from 'vitest';
 import { getSkillScopedToolNames, loadSkills } from '../skills';
 import { buildSystemPrompt, PROXY_IDENTITY } from '../system-prompt';
@@ -38,6 +41,87 @@ describe( 'buildSystemPrompt', () => {
 			expect( prompt ).toContain( 'https://wordpress.com/domains' );
 		}
 		expect( buildSystemPrompt( { external: true } ) ).not.toContain( 'You are' );
+	} );
+
+	it( 'carries the remote-site runbook only when a WordPress.com site is active', () => {
+		const remote = buildSystemPrompt( {
+			activeSite: {
+				name: 'Live',
+				path: '',
+				running: false,
+				remote: true,
+				url: 'https://example.wordpress.com',
+				wpcomSiteId: 123,
+			},
+		} );
+		const local = buildSystemPrompt( {
+			activeSite: { name: 'My Site', path: '/sites/my-site', running: true },
+		} );
+		const runbook = loadSkills().find( ( skill ) => skill.name === 'edit-manage-remote-site' );
+
+		expect( remote ).toContain( runbook?.body );
+		expect( remote.indexOf( '## Active site' ) ).toBeLessThan(
+			remote.indexOf( '## Common wp/v2 Endpoints' )
+		);
+		expect( local ).not.toContain( '## Common wp/v2 Endpoints' );
+		expect( buildSystemPrompt( {} ) ).not.toContain( '## Common wp/v2 Endpoints' );
+	} );
+
+	it( 'states the active site in its own section, above the user instructions', () => {
+		const prompt = buildSystemPrompt( {
+			userInstructions: 'Always answer in French.',
+			activeSite: { name: 'My Site', path: '/sites/my-site', running: true },
+		} );
+
+		expect( prompt ).toContain( '## Active site\n\n"My Site" at /sites/my-site (running)' );
+		expect( prompt.indexOf( '## Active site' ) ).toBeLessThan(
+			prompt.indexOf( "## The user's standing instructions" )
+		);
+		expect( buildSystemPrompt( {} ) ).not.toContain( '## Active site' );
+	} );
+
+	it( "lists the active site's facts under it, one per line", () => {
+		const prompt = buildSystemPrompt( {
+			activeSite: { name: 'My Site', path: '/sites/my-site', running: true },
+			activeSiteFacts: [ 'WordPress 7.1.3.' ],
+		} );
+
+		expect( prompt ).toContain( '"My Site" at /sites/my-site (running)\nWordPress 7.1.3.' );
+	} );
+
+	it( 'states a WordPress.com active site with its ID and URL', () => {
+		const prompt = buildSystemPrompt( {
+			activeSite: {
+				name: 'Live',
+				path: '',
+				running: false,
+				remote: true,
+				url: 'https://example.wordpress.com',
+				wpcomSiteId: 123,
+			},
+		} );
+
+		expect( prompt ).toContain(
+			'## Active site\n\n"Live" (ID: 123) at https://example.wordpress.com (WordPress.com)'
+		);
+	} );
+
+	it( "names the active site's design system when it has a DESIGN.md", () => {
+		const sitePath = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-active-site-' ) );
+		try {
+			fs.writeFileSync( path.join( sitePath, 'DESIGN.md' ), '# Design' );
+			const prompt = buildSystemPrompt( {
+				activeSite: { name: 'Designed', path: sitePath, running: false },
+			} );
+			expect( prompt ).toContain(
+				`"Designed" at ${ sitePath } (stopped), design system: ${ path.join(
+					sitePath,
+					'DESIGN.md'
+				) }`
+			);
+		} finally {
+			fs.rmSync( sitePath, { recursive: true, force: true } );
+		}
 	} );
 
 	it( 'appends the user standing instructions when set', () => {

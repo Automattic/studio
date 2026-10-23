@@ -10,7 +10,7 @@ Use this skill for work on an existing local Studio site. A new site, a redesign
 
 ## 1. Settle the site
 
-Start the site with site_start if it is not running. When the active-site line names a design system (DESIGN.md), read it before any design or content work — pages, posts, patterns, images, or copy — and follow it. A change to the look updates DESIGN.md in the same turn.
+Start the site with site_start if it is not running. When the Active site section names a design system (DESIGN.md), read it before any design or content work — pages, posts, patterns, images, or copy — and follow it. A change to the look updates DESIGN.md in the same turn.
 
 ## 2. Make the change
 

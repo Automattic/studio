@@ -1,9 +1,11 @@
+import '@/theme/tokens.css';
+import '@/index.css';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from '@/app';
 import { persistPromise } from '@/data/core';
 import { createLocalConnector } from '@/data/core/connectors/local';
-import { applyLocale } from '@/lib/apply-locale';
+import { applyUserPreferences } from '@/lib/apply-user-preferences';
 
 // Local entry point. Identical to `main.tsx` except it wires the HTTP/SSE local
 // connector instead of the Electron IPC connector, so the same React app runs
@@ -22,7 +24,7 @@ async function bootstrap() {
 		apiBaseUrl: import.meta.env.VITE_STUDIO_API_URL ?? getDefaultApiBaseUrl(),
 	} );
 
-	await Promise.all( [ connector.init?.(), applyLocale( connector ), persistPromise ] );
+	await Promise.all( [ connector.init?.(), applyUserPreferences( connector ), persistPromise ] );
 
 	createRoot( document.getElementById( 'root' )! ).render(
 		<StrictMode>

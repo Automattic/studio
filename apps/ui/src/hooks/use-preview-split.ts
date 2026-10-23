@@ -4,8 +4,9 @@ import { usePointerDrag } from '@/hooks/use-pointer-drag';
 import {
 	getInitialPreviewContentWidth,
 	getPreviewSplitLayout,
+	PANEL_WIDTHS_RESET_EVENT,
 	PREVIEW_CONTENT_WIDTH_STORAGE_KEY,
-	PREVIEW_PANEL_DEFAULT_WIDTH,
+	PREVIEW_CONTENT_DEFAULT_WIDTH,
 	PREVIEW_PANEL_MIN_WIDTH,
 	storeResizablePanelWidth,
 } from '@/lib/resizable-panels';
@@ -19,7 +20,6 @@ interface PreviewSplitHandleProps {
 	minWidth: number;
 	maxWidth: number;
 	width: number;
-	isResizing: boolean;
 	onResizeStart: MouseEventHandler< HTMLElement >;
 	onKeyDown: ( event: KeyboardEvent< HTMLElement > ) => void;
 }
@@ -27,9 +27,8 @@ interface PreviewSplitHandleProps {
 interface UsePreviewSplitResult {
 	rootRef: RefObject< HTMLDivElement | null >;
 	containerWidth: number | null;
-	// The value for the --preview-frame-content-width CSS var: a px width once
-	// measured, or a `calc(100% - <default>px)` fallback that reserves preview
-	// space before the first measurement.
+	// The value for the --preview-frame-content-width CSS var: the clamped px
+	// width once measured, or the default content width before that.
 	contentWidthVar: string;
 	isResizing: boolean;
 	handleProps: PreviewSplitHandleProps;
@@ -80,20 +79,12 @@ export function usePreviewSplit( { showPreview }: UsePreviewSplitOptions ): UseP
 		[ setPreferred ]
 	);
 
-	const ensurePreferred = useCallback(
-		( container: number ) => {
-			if ( preferredRef.current !== null ) {
-				return preferredRef.current;
-			}
-			const next = getPreviewSplitLayout(
-				container,
-				container - PREVIEW_PANEL_DEFAULT_WIDTH
-			).contentWidth;
-			setPreferred( next );
-			return next;
-		},
-		[ setPreferred ]
-	);
+	const ensurePreferred = useCallback( () => {
+		if ( preferredRef.current === null ) {
+			setPreferred( PREVIEW_CONTENT_DEFAULT_WIDTH );
+		}
+		return preferredRef.current ?? PREVIEW_CONTENT_DEFAULT_WIDTH;
+	}, [ setPreferred ] );
 
 	// Measure synchronously on open so the clamped px var is present before
 	// paint (no flash of the calc() fallback).
@@ -101,11 +92,22 @@ export function usePreviewSplit( { showPreview }: UsePreviewSplitOptions ): UseP
 		if ( ! showPreview ) {
 			return;
 		}
-		const width = measureRootWidth();
-		if ( width !== null ) {
-			ensurePreferred( width );
+		if ( measureRootWidth() !== null ) {
+			ensurePreferred();
 		}
 	}, [ ensurePreferred, measureRootWidth, showPreview ] );
+
+	useEffect( () => {
+		const reset = () => {
+			preferredRef.current = null;
+			setPreferredContentWidth( null );
+			if ( measureRootWidth() !== null ) {
+				ensurePreferred();
+			}
+		};
+		window.addEventListener( PANEL_WIDTHS_RESET_EVENT, reset );
+		return () => window.removeEventListener( PANEL_WIDTHS_RESET_EVENT, reset );
+	}, [ ensurePreferred, measureRootWidth ] );
 
 	// Keep the measured container fresh so the displayed width and the handle's
 	// aria values track window/sidebar resizes. CSS no longer absorbs resizes,
@@ -134,7 +136,7 @@ export function usePreviewSplit( { showPreview }: UsePreviewSplitOptions ): UseP
 			if ( container === null ) {
 				return null;
 			}
-			return getPreviewSplitLayout( container, ensurePreferred( container ) ).contentWidth;
+			return getPreviewSplitLayout( container, ensurePreferred() ).contentWidth;
 		},
 		onMove: ( start, deltaX ) => {
 			const container = Math.round(
@@ -172,7 +174,7 @@ export function usePreviewSplit( { showPreview }: UsePreviewSplitOptions ): UseP
 			}
 			event.preventDefault();
 			const step = event.shiftKey ? 40 : 16;
-			const current = getPreviewSplitLayout( container, ensurePreferred( container ) );
+			const current = getPreviewSplitLayout( container, ensurePreferred() );
 			let nextContentWidth = current.contentWidth;
 			if ( event.key === 'Home' ) {
 				nextContentWidth = container - current.previewMinWidth;
@@ -194,14 +196,14 @@ export function usePreviewSplit( { showPreview }: UsePreviewSplitOptions ): UseP
 				? null
 				: getPreviewSplitLayout(
 						containerWidth,
-						preferredContentWidth ?? containerWidth - PREVIEW_PANEL_DEFAULT_WIDTH
+						preferredContentWidth ?? PREVIEW_CONTENT_DEFAULT_WIDTH
 				  ),
 		[ containerWidth, preferredContentWidth ]
 	);
 
 	const contentWidthVar =
 		layout === null || preferredContentWidth === null
-			? `calc(100% - ${ PREVIEW_PANEL_DEFAULT_WIDTH }px)`
+			? `${ PREVIEW_CONTENT_DEFAULT_WIDTH }px`
 			: `${ layout.contentWidth }px`;
 
 	return {
@@ -211,9 +213,8 @@ export function usePreviewSplit( { showPreview }: UsePreviewSplitOptions ): UseP
 		isResizing: isDragging,
 		handleProps: {
 			minWidth: layout?.previewMinWidth ?? PREVIEW_PANEL_MIN_WIDTH,
-			maxWidth: layout?.previewMaxWidth ?? PREVIEW_PANEL_DEFAULT_WIDTH,
-			width: layout?.previewWidth ?? PREVIEW_PANEL_DEFAULT_WIDTH,
-			isResizing: isDragging,
+			maxWidth: layout?.previewMaxWidth ?? PREVIEW_PANEL_MIN_WIDTH,
+			width: layout?.previewWidth ?? PREVIEW_PANEL_MIN_WIDTH,
 			onResizeStart: onMouseDown,
 			onKeyDown: handleKeyDown,
 		},

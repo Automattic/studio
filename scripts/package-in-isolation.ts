@@ -68,8 +68,8 @@ function ensureBuildToolchain( stagingRoot: string ) {
 	}
 
 	// `--ignore-scripts` skips the root postinstall, which would re-download bundled server files
-	// the staging copy already has. The postinstall steps that are still required (patches, fs-ext
-	// binary filtering) run explicitly below.
+	// the staging copy already has. The postinstall step that is still required (patches) runs
+	// explicitly below.
 	console.log( 'Installing workspace dependencies in packaging directory ...' );
 	runOrFail(
 		'npm',
@@ -77,7 +77,6 @@ function ensureBuildToolchain( stagingRoot: string ) {
 		stagingRoot
 	);
 	runOrFail( 'npx', [ 'patch-package', '--patch-dir', 'apps/studio/patches' ], stagingRoot );
-	runOrFail( 'node', [ './scripts/remove-fs-ext-other-platform-binaries.mjs' ], stagingRoot );
 }
 
 function hasBundledServerFiles( repoRoot: string ): boolean {

@@ -1,70 +1,41 @@
 .root {
-	color: var(--wpds-color-foreground-content-neutral);
-	font-size: var(--wpds-typography-font-size-md);
-	line-height: 1.65;
-	/* Subtle opentype improvements — lining numerals in tables, contextual
-	   alternates in prose. Falls back silently on fonts that don't support them. */
-	font-feature-settings: "ss01", "cv11";
+	--markdown-gap: 12px;
+
+	min-width: 0;
+	color: var(--foreground);
+	font-size: var(--text-sm);
+	line-height: 1.625;
+	overflow-wrap: break-word;
 }
 
-.root > *:first-child {
-	margin-top: 0;
+.root > *,
+.blockquote > * {
+	margin-block: 0;
 }
 
-.root > *:last-child {
-	margin-bottom: 0;
+.root > * + *,
+.blockquote > * + * {
+	margin-block-start: var(--markdown-gap);
 }
-
-/* All spacing is em-based so blocks scale in proportion to the content size. */
 
 .p {
-	margin: 0 0 1em;
+	margin: 0;
 }
 
 .h1,
 .h2,
 .h3,
 .h4 {
-	/* Headings introduce new sections: generous space above, tight space below
-	   so the heading feels coupled to the content it titles. */
-	margin: 1.8em 0 0.5em;
-	font-weight: 500;
-	line-height: 1.25;
-	letter-spacing: -0.01em;
-	color: var(--wpds-color-foreground-content-neutral);
-}
-
-.h1 {
-	font-size: 1.5em;
-}
-
-.h2 {
-	font-size: 1.25em;
-}
-
-.h3 {
-	font-size: 1.1em;
-}
-
-.h4 {
-	font-size: 0.85em;
-	font-weight: 500;
-	letter-spacing: 0.06em;
-	text-transform: uppercase;
-	color: var(--wpds-color-foreground-content-neutral-weak);
-}
-
-/* Tighten coupling when a heading immediately follows another heading. */
-.h1 + .h2,
-.h2 + .h3,
-.h3 + .h4 {
-	margin-top: 0.6em;
+	font-size: inherit;
+	font-weight: var(--font-weight-semibold);
+	line-height: inherit;
+	color: var(--foreground);
 }
 
 .ul,
 .ol {
-	margin: 0 0 1em;
-	padding-left: 1.5em;
+	padding-inline-start: 20px;
+	list-style-position: outside;
 }
 
 .ul {
@@ -76,40 +47,23 @@
 }
 
 .li {
-	margin: 0.25em 0;
-}
-
-.li::marker {
-	color: var(--wpds-color-foreground-content-neutral-weak);
+	padding-block: 2px;
 }
 
 .li > .p {
 	margin: 0;
 }
 
-.li > .p + .p {
-	margin-top: 0.5em;
-}
-
 .li > .ul,
 .li > .ol {
-	margin: 0.25em 0 0;
+	margin-block-start: 4px;
 }
 
 .a {
-	color: var(--wpds-color-foreground-interactive-brand, #2563eb);
-	font-weight: 500;
+	color: inherit;
 	text-decoration: underline;
-	text-decoration-thickness: 1px;
-	text-decoration-color: color-mix(in srgb, currentColor 35%, transparent);
-	text-underline-offset: 3px;
-}
-
-/* Unify all "bolded" emphasis at 500 for a lighter, more refined feel than
-   the browser default of 700. */
-.root strong,
-.root b {
-	font-weight: 500;
+	text-decoration-color: color-mix(in srgb, currentColor 30%, transparent);
+	text-underline-offset: 2px;
 }
 
 .a:hover,
@@ -117,96 +71,100 @@
 	text-decoration-color: currentColor;
 }
 
-.blockquote {
-	margin: 0 0 1em;
-	padding: 0.25em 0 0.25em 1em;
-	border-left: 2px solid var(--wpds-color-stroke-surface-neutral);
-	color: var(--wpds-color-foreground-content-neutral-weak);
+.root strong,
+.root b {
+	font-weight: var(--font-weight-semibold);
 }
 
-.blockquote > *:last-child {
-	margin-bottom: 0;
+.blockquote {
+	padding-inline-start: 12px;
+	border-inline-start: 2px solid var(--border);
 }
 
 .hr {
-	margin: 2em 0;
 	border: 0;
-	border-top: 1px solid var(--wpds-color-stroke-surface-neutral);
+	border-top: 1px solid var(--border);
 }
 
 .codeInline {
-	padding: 0.1em 0.35em;
-	border-radius: 4px;
-	background-color: var(--wpds-color-background-surface-neutral-weak);
-	font-family: var(--wpds-typography-font-family-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
-	font-size: 0.875em;
-	color: var(--wpds-color-foreground-content-neutral);
-	/* Discourage code from breaking awkwardly across lines. */
-	white-space: nowrap;
-	/* Code is meant to be copied — keep it selectable. */
+	padding: 2px 4px;
+	border-radius: 5px;
+	background-color: var(--muted);
+	font-family: var(--font-mono);
+	font-size: var(--text-xs);
 	-webkit-user-select: text;
 	user-select: text;
 }
 
-/* Wrapper anchors the overlaid copy button and carries the block spacing that
-   used to live on the <pre>. */
 .codeBlock {
-	position: relative;
-	margin: 0.75em 0 1.25em;
+	/* Syntax colors for highlighted code, from the theme's tokens. */
+	--shiki-foreground: var(--foreground);
+	--shiki-background: transparent;
+	--shiki-token-comment: var(--muted-foreground);
+	--shiki-token-punctuation: var(--muted-foreground);
+	--shiki-token-keyword: var(--accent-text);
+	--shiki-token-link: var(--accent-text);
+	--shiki-token-function: oklch(from var(--accent-text) l c calc(h - 70));
+	--shiki-token-string: var(--success);
+	--shiki-token-string-expression: var(--success);
+	--shiki-token-constant: var(--warning);
+	--shiki-token-parameter: var(--foreground);
+
+	overflow: hidden;
+	border-radius: 7px;
+	background-color: var(--chrome);
+}
+
+.codeHeader {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+	padding: 8px 12px;
+	border-bottom: 1px solid var(--border);
+	background-color: var(--muted);
+	color: var(--muted-foreground);
+	font-size: var(--text-xs);
+	line-height: 20px;
+}
+
+/* The copy button's 28px box would stretch the 20px header line. */
+.codeCopy {
+	margin-block: -4px;
+	margin-inline-end: -4px;
 }
 
 .pre {
 	margin: 0;
-	padding: 0.875em 1em;
-	border-radius: var(--wpds-border-radius-md, 8px);
-	background-color: var(--wpds-color-background-surface-neutral-weak);
-	font-family: var(--wpds-typography-font-family-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
-	font-size: 0.85em;
-	line-height: 1.55;
+	padding: 12px;
+	font-family: var(--font-mono);
+	font-size: var(--text-xs);
+	line-height: 20px;
 	overflow-x: auto;
-	/* Ensure code stays selectable even when an ancestor surface (e.g. the
-	   desks canvas) opts out of text selection. */
 	-webkit-user-select: text;
 	user-select: text;
 }
 
 .pre > code {
-	background: none;
-	padding: 0;
-	border-radius: 0;
-	font-size: inherit;
-	color: inherit;
 	white-space: pre;
 }
 
-.copyButtonContainer {
-	position: absolute;
-	top: 0.5em;
-	inset-inline-end: 0.5em;
-	z-index: 1;
-}
-
-
-
-
 .tableWrap {
-	margin: 0 0 1em;
 	overflow-x: auto;
-	border: 1px solid var(--wpds-color-stroke-surface-neutral);
-	border-radius: var(--wpds-border-radius-md, 8px);
+	border: 1px solid var(--border);
+	border-radius: 7px;
 }
 
 .table {
 	width: 100%;
 	border-collapse: collapse;
-	font-size: 0.9em;
 }
 
 .th,
 .td {
-	padding: 0.5em 0.75em;
-	border-bottom: 1px solid var(--wpds-color-stroke-surface-neutral);
-	text-align: left;
+	padding: 6px 10px;
+	border-bottom: 1px solid var(--border);
+	text-align: start;
 	vertical-align: top;
 }
 
@@ -216,7 +174,7 @@
 }
 
 .th {
-	font-weight: 500;
-	color: var(--wpds-color-foreground-content-neutral);
-	background-color: var(--wpds-color-background-surface-neutral-weak);
+	font-weight: var(--font-weight-semibold);
+	background-color: var(--muted);
 }
+

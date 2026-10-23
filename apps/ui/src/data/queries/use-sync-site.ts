@@ -2,18 +2,25 @@ import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { buildSyncEventProps } from '@studio/common/lib/sync/build-sync-event-props';
 import { isSyncCancelledError } from '@studio/common/lib/sync/cancel';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { __ } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
 import { useCallback, useEffect } from 'react';
 import { openStudioLogsAction, toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
+import { markPreviewReady, markPreviewSeen } from '@/data/preview-ready';
 import { connectedWpcomSitesQueryKey } from '@/data/queries/use-connected-wpcom-sites';
-import { siteStorageUsageQueryKey } from '@/data/queries/use-site-storage-usage';
 import { siteThumbnailQueryKey } from '@/data/queries/use-site-thumbnail';
 import { SITES_QUERY_KEY } from '@/data/queries/use-sites';
 import { SNAPSHOTS_QUERY_KEY } from '@/data/queries/use-snapshots';
 import { WP_VERSION_QUERY_KEY } from '@/data/queries/use-wordpress-versions';
-import { applySyncActivity } from '@/data/sync-activity';
-import type { Connector, PullSyncOptions, PushSyncOptions } from '@/data/core';
+import { applySyncActivity, getSyncActivity } from '@/data/sync-activity';
+import { getSnapshotUrl } from '@/lib/snapshot-url';
+import type {
+	Connector,
+	PullSyncOptions,
+	PushSyncOptions,
+	SiteDetails,
+	Snapshot,
+} from '@/data/core';
 import type { SyncActivity, SyncDirection } from '@studio/common/lib/sync/activity';
 import type { SyncSite } from '@studio/common/types/sync';
 
@@ -32,13 +39,12 @@ export function useSettleSync() {
 			// Only point at the logs where the user can actually open them.
 			const canOpenLogs = connector.capabilities.studioLogs;
 			const plainMessage =
-				activity.kind === 'error'
-					? getPlainErrorMessage( activity.direction, canOpenLogs )
-					: undefined;
+				activity.kind === 'error' ? getPlainErrorMessage( activity, canOpenLogs ) : undefined;
 			const settled =
 				activity.kind === 'error' && plainMessage
 					? { ...activity, message: plainMessage }
 					: activity;
+			const previous = getSyncActivity( siteId );
 			if ( ! applySyncActivity( siteId, settled ) ) {
 				return;
 			}
@@ -46,23 +52,45 @@ export function useSettleSync() {
 				console.error( 'Sync activity failed:', activity.direction, activity.message );
 			}
 
+			const siteName = () =>
+				queryClient
+					.getQueryData< SiteDetails[] >( SITES_QUERY_KEY )
+					?.find( ( { id } ) => id === siteId )?.name ?? '';
 			if ( settled.direction === 'preview' ) {
 				void queryClient.invalidateQueries( { queryKey: SNAPSHOTS_QUERY_KEY } );
 				if ( settled.kind === 'success' ) {
-					toast.success( __( 'Preview site published' ) );
+					markPreviewReady( siteId );
+					/* translators: %s: site name */
+					toast.success( sprintf( __( '%s preview ready' ), siteName() ), {
+						action: {
+							label: __( 'Copy link' ),
+							onClick: () => {
+								const latest = queryClient
+									.getQueryData< Snapshot[] >( SNAPSHOTS_QUERY_KEY )
+									?.filter( ( snapshot ) => snapshot.localSiteId === siteId )
+									.sort( ( a, b ) => b.date - a.date )[ 0 ];
+								if ( latest ) {
+									void connector
+										.copyText( getSnapshotUrl( latest ) )
+										.then( () => markPreviewSeen( siteId ) );
+								}
+							},
+						},
+					} );
 				} else if ( settled.kind === 'error' ) {
-					toast.error( __( 'Failed to publish preview site' ), { description: settled.message } );
+					/* translators: %s: site name */
+					toast.error( sprintf( __( 'Couldn’t publish preview: %s' ), siteName() ), {
+						description: settled.message,
+					} );
 				}
 				return;
 			}
 			if ( settled.direction === 'import' ) {
 				// The importer replaces the site's files and database and restarts the
-				// server, so everything read off that site is stale — disk usage in
-				// particular caches for minutes and nothing else would refetch it.
+				// server, so everything read off that site is stale.
 				for ( const queryKey of [
 					SITES_QUERY_KEY,
 					[ ...WP_VERSION_QUERY_KEY, siteId ],
-					siteStorageUsageQueryKey( siteId ),
 					siteThumbnailQueryKey( siteId ),
 				] ) {
 					void queryClient.invalidateQueries( { queryKey } );
@@ -84,11 +112,30 @@ export function useSettleSync() {
 			}
 			const isPush = settled.direction === 'push';
 			if ( settled.kind === 'success' ) {
-				toast.success( isPush ? __( 'Push complete' ) : __( 'Pull complete' ) );
-			} else if ( settled.kind === 'cancelled' ) {
-				toast.success( isPush ? __( 'Push cancelled' ) : __( 'Pull cancelled' ) );
-			} else {
-				toast.error( isPush ? __( "Push didn't complete" ) : __( "Pull didn't complete" ), {
+				const remote = queryClient
+					.getQueryData< SyncSite[] >( connectedWpcomSitesQueryKey( siteId ) )
+					?.find( ( { id } ) => previous?.kind === 'pending' && id === previous.remoteSiteId );
+				const viewSite = isPush
+					? remote && ( () => connector.openExternalUrl( remote.url ) )
+					: () => connector.openSiteUrl( siteId, '', { autoLogin: false } );
+				toast.success(
+					sprintf(
+						/* translators: %s: site name */
+						isPush ? __( 'Published %s' ) : __( 'Changes pulled into %s' ),
+						siteName()
+					),
+					{
+						action: viewSite && { label: __( 'View site' ), onClick: () => void viewSite() },
+					}
+				);
+			} else if ( settled.kind === 'error' ) {
+				const title = isPush
+					? __( 'Publishing didn’t finish' )
+					: settled.localChangesApplied
+					? /* translators: %s: site name */
+					  sprintf( __( 'Changes pulled into %s' ), siteName() )
+					: __( 'Pulling didn’t finish' );
+				toast.error( title, {
 					description: settled.message,
 					action: openStudioLogsAction( connector ),
 				} );
@@ -101,7 +148,13 @@ export function useSettleSync() {
 // Pull and import failures carry the CLI's raw error. The UI shows plain
 // language instead, and the raw error goes to the logs. Push keeps the CLI's
 // message: it already names the cause (size limit, live import failure, timeout).
-function getPlainErrorMessage( direction: SyncDirection, canOpenLogs: boolean ) {
+function getPlainErrorMessage(
+	{ direction, localChangesApplied }: Extract< SyncActivity, { kind: 'error' } >,
+	canOpenLogs: boolean
+) {
+	if ( localChangesApplied ) {
+		return __( 'Studio couldn’t restart the site. Your changes have already been pulled.' );
+	}
 	if ( direction === 'pull' ) {
 		return canOpenLogs
 			? __(

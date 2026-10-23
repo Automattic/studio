@@ -43,12 +43,18 @@ import {
 } from 'src/lib/locale-node';
 import { setSentryWpcomUserIdMain } from 'src/lib/main-sentry-utils';
 import { maybePromptNightlySwitch, startNightlyPromptPoller } from 'src/lib/nightly-prompt';
+import { forwardPreviewCommandPalette } from 'src/lib/preview-shortcuts';
 import { getSentryReleaseInfo } from 'src/lib/sentry-release';
 import { parseWebUrl } from 'src/lib/shell-open-external-wrapper';
 import { getSites, stopAllServers } from 'src/lib/sites';
 import { recordTracksEvent, TRACKS_EVENTS } from 'src/lib/tracks';
 import { setupLogging } from 'src/logging';
-import { createMainWindow, getCurrentRendererUrl, getMainWindow } from 'src/main-window';
+import {
+	createMainWindow,
+	getCurrentRendererUrl,
+	getExistingMainWindow,
+	getMainWindow,
+} from 'src/main-window';
 import { migrations } from 'src/migrations';
 import {
 	startCliEventsSubscriber,
@@ -250,6 +256,10 @@ async function appBoot() {
 		const isSitePreviewWebview = contents.getType() === 'webview';
 		if ( isSitePreviewWebview ) {
 			contents.on( 'before-input-event', ( event, input ) => {
+				if ( forwardPreviewCommandPalette( contents, input ) ) {
+					event.preventDefault();
+					return;
+				}
 				const zoomCommand = getAppZoomCommand( input );
 				if ( ! zoomCommand ) {
 					return;
@@ -401,8 +411,12 @@ async function appBoot() {
 			setMacAppLanguage( savedLocale );
 		}
 		if ( process.env.NODE_ENV === 'development' ) {
-			await installExtension( REACT_DEVELOPER_TOOLS );
-			await launchExtensionBackgroundWorkers();
+			try {
+				await installExtension( REACT_DEVELOPER_TOOLS );
+				await launchExtensionBackgroundWorkers();
+			} catch ( error ) {
+				console.warn( 'Failed to set up React Developer Tools', error );
+			}
 		}
 
 		console.log( `App version: ${ app.getVersion() }` );
@@ -642,13 +656,22 @@ async function appBoot() {
 		} )();
 	} );
 
+	let isQuitCleanupRunning = false;
 	app.on( 'will-quit', ( event ) => {
+		event.preventDefault();
+		// `will-quit` fires again if anything calls `app.quit()` while the cleanup runs, for example
+		// `window-all-closed` on Windows and Linux. Cleanup ends in `app.exit()`, so a repeat only
+		// waits: running it again would kill the `site stop --all` this one started.
+		if ( isQuitCleanupRunning ) {
+			return;
+		}
+		isQuitCleanupRunning = true;
+
 		markAppQuitting();
 		globalShortcut.unregisterAll();
 		stopCliEventsSubscriber();
 		stopCliCommands();
 
-		event.preventDefault();
 		void ( async () => {
 			try {
 				// The sites running now start again on the next launch, unless the user chose to stop them.
@@ -675,7 +698,7 @@ async function appBoot() {
 			return;
 		}
 
-		if ( BrowserWindow.getAllWindows().length === 0 ) {
+		if ( ! getExistingMainWindow() ) {
 			// On OS X it's common to re-create a window in the app when the
 			// dock icon is clicked and there are no other windows open.
 			void createMainWindow();

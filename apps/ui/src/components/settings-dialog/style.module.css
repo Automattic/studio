@@ -1,0 +1,141 @@
+.popup {
+	flex-direction: row;
+	gap: 0;
+}
+
+.sidebar {
+	display: flex;
+	flex: none;
+	flex-direction: column;
+	box-sizing: border-box;
+	width: 216px;
+	border-inline-end: 1px solid var(--border);
+}
+
+.scopes {
+	display: flex;
+	align-self: flex-start;
+	margin: 12px 12px 0;
+	padding: 3px;
+	border-radius: 9px;
+	background: var(--hover);
+}
+
+.scope {
+	height: 30px;
+	padding: 2px 10px;
+	border: 0;
+	border-radius: 7px;
+	background: none;
+	color: var(--muted-foreground);
+	font: inherit;
+	font-weight: var(--font-weight-medium);
+	cursor: pointer;
+}
+
+.scope[aria-pressed='true'] {
+	background: var(--chrome);
+	box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+	color: var(--foreground);
+}
+
+.scope:disabled {
+	cursor: not-allowed;
+	opacity: 0.5;
+}
+
+.scope:focus-visible,
+.navItem:focus-visible {
+	outline: var(--focus-width) solid var(--ring);
+	outline-offset: -2px;
+}
+
+.search {
+	width: auto;
+	margin: 12px 12px 0;
+}
+
+.nav {
+	display: flex;
+	flex-direction: column;
+	gap: 1px;
+	padding: 12px;
+	overflow-y: auto;
+}
+
+.navItem {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	height: 36px;
+	padding: 2px 8px;
+	border: 0;
+	border-radius: 7px;
+	background: none;
+	color: var(--foreground);
+	font: inherit;
+	text-align: start;
+	cursor: pointer;
+}
+
+.navItem:hover,
+.navItem[aria-current='page'] {
+	background: var(--hover);
+}
+
+.navIcon {
+	flex: none;
+}
+
+.navLabel {
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.navScope,
+.empty {
+	color: var(--muted-foreground);
+	font-size: var(--text-xs);
+}
+
+.empty {
+	margin: 0;
+	padding: 8px;
+}
+
+.actions {
+	display: contents;
+}
+
+.hidden {
+	display: none;
+}
+
+/* The setting picked from the search results. */
+.content :global([data-settings-match]) {
+	margin-inline: -12px;
+	padding-inline: 12px;
+	border-radius: 8px;
+	background: color-mix(in srgb, var(--accent-text) 12%, transparent);
+	transition: background-color var(--motion-duration-layout);
+}
+
+.sections {
+	display: flex;
+	flex-direction: column;
+	gap: 32px;
+}
+
+.error {
+	margin: 0;
+	color: var(--destructive);
+	font-size: var(--text-xs);
+}
+
+.manageAll {
+	display: flex;
+	margin-block-start: 4px;
+}

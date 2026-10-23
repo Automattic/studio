@@ -1,0 +1,42 @@
+@layer ui {
+	.root {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 12px;
+	}
+
+	.track {
+		position: relative;
+		display: flex;
+		align-items: center;
+		width: 100%;
+		height: 4px;
+		overflow-x: hidden;
+		border-radius: 9999px;
+		background-color: var( --muted );
+	}
+
+	.indicator {
+		height: 100%;
+		background-color: var( --primary );
+		transition: width var( --motion-duration-feedback ) linear;
+	}
+
+	@media ( prefers-reduced-motion: reduce ) {
+		.indicator {
+			transition: none;
+		}
+	}
+
+	.label {
+		font-size: var( --text-sm );
+		font-weight: var( --font-weight-medium );
+	}
+
+	.value {
+		margin-inline-start: auto;
+		color: var( --muted-foreground );
+		font-size: var( --text-sm );
+		font-variant-numeric: tabular-nums;
+	}
+}

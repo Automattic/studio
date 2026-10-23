@@ -2,7 +2,7 @@ import EventEmitter from 'node:events';
 import { describe, expect, it, vi } from 'vitest';
 import { killChild } from '@studio/common/lib/cli-process';
 import { canCancelPull, canCancelPush, isSyncCancelledError } from '@studio/common/lib/sync/cancel';
-import { pullSite, pushSite } from './sync';
+import { createSyncRunner, pullSite, pushSite } from './sync';
 import type { ExecuteCliCommand } from '@studio/common/lib/cli-process';
 
 // How the child is killed is platform-specific and covered by
@@ -20,15 +20,16 @@ function fakeCli() {
 }
 
 describe( 'pullSite', () => {
-	it( 'kills the CLI and rejects as cancelled when the signal aborts', async () => {
-		const { child, execute } = fakeCli();
+	it( 'asks the CLI to stop and rejects as cancelled once it exits', async () => {
+		const { emitter, child, execute } = fakeCli();
 		const controller = new AbortController();
 		const pulling = pullSite( execute, '/sites/local', 42, undefined, controller.signal );
 
 		controller.abort();
+		emitter.emit( 'failure', { error: new Error( 'exited' ) } );
 
 		await expect( pulling ).rejects.toSatisfy( isSyncCancelledError );
-		expect( killChild ).toHaveBeenCalledWith( child );
+		expect( killChild ).toHaveBeenCalledWith( child, { force: false } );
 	} );
 
 	it( 'rejects immediately when the signal is already aborted', async () => {
@@ -135,5 +136,23 @@ describe( 'cancellable phases', () => {
 			)
 		).toBe( true );
 		expect( isSyncCancelledError( new Error( 'Remote backup failed' ) ) ).toBe( false );
+	} );
+} );
+
+describe( 'createSyncRunner', () => {
+	it( 'cancels only the sync running for that site and remote site', async () => {
+		const first = fakeCli();
+		const pushing = createSyncRunner( first.execute ).push( 'site-1', '/sites/local', 42 );
+		const second = fakeCli();
+		const runner = createSyncRunner( second.execute );
+		const pulling = runner.pull( 'site-1', '/sites/local', 42 );
+
+		runner.cancel( 'site-1', 7 );
+		first.emitter.emit( 'success' );
+		runner.cancel( 'site-1', 42 );
+		second.emitter.emit( 'failure', { error: new Error( 'exited' ) } );
+
+		await expect( pushing ).resolves.toEqual( { cancelled: false } );
+		await expect( pulling ).resolves.toEqual( { cancelled: true } );
 	} );
 } );

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
 	formatAiAccessRequiredNotice,
 	formatAiCreditsAddedTitle,
@@ -11,7 +11,9 @@ import {
 	getAiCreditsMeterIntent,
 	formatUsageCapNotice,
 	getStudioCodeAiAccessState,
+	requestStudioAssistantQuota,
 	resolveAiCreditsThresholdNotice,
+	STUDIO_ASSISTANT_QUOTA_OFFLINE,
 	studioAssistantQuotaSchema,
 } from '@studio/common/lib/studio-assistant-quota';
 
@@ -400,5 +402,23 @@ describe( 'formatAiCreditsAddedTitle', () => {
 	it( 'formats the added credits for the locale', () => {
 		expect( formatAiCreditsAddedTitle( 500000, 'en' ) ).toBe( '500,000 AI credits added' );
 		expect( formatAiCreditsAddedTitle( 500000, 'de' ) ).toBe( '500.000 AI credits added' );
+	} );
+} );
+
+describe( 'requestStudioAssistantQuota', () => {
+	afterEach( () => {
+		vi.unstubAllGlobals();
+	} );
+
+	it( 'tells a lost connection apart from a failed lookup', async () => {
+		vi.stubGlobal( 'fetch', vi.fn().mockRejectedValue( new TypeError( 'fetch failed' ) ) );
+		await expect( requestStudioAssistantQuota( 'token' ) ).rejects.toThrow(
+			STUDIO_ASSISTANT_QUOTA_OFFLINE
+		);
+
+		vi.stubGlobal( 'fetch', vi.fn().mockResolvedValue( new Response( '', { status: 500 } ) ) );
+		await expect( requestStudioAssistantQuota( 'token' ) ).rejects.not.toThrow(
+			STUDIO_ASSISTANT_QUOTA_OFFLINE
+		);
 	} );
 } );

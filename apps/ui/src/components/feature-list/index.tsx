@@ -1,6 +1,5 @@
-import { check } from '@wordpress/icons';
-import { Icon } from '@wordpress/ui';
 import { clsx } from 'clsx';
+import { CheckIcon } from 'lucide-react';
 import styles from './style.module.css';
 
 interface FeatureListProps {
@@ -16,7 +15,7 @@ export function FeatureList( { features, className }: FeatureListProps ) {
 			{ features.map( ( { title, body } ) => (
 				<li key={ title }>
 					<h3 className={ styles.featureTitle }>
-						<Icon icon={ check } size={ 16 } />
+						<CheckIcon />
 						{ title }
 					</h3>
 					<p className={ styles.featureBody }>{ body }</p>

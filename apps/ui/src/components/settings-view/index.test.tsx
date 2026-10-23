@@ -1,80 +1,16 @@
 import '@testing-library/jest-dom/vitest';
+import { supportedLocaleNames } from '@studio/common/lib/locale';
+import { supportedEditorConfig } from '@studio/common/lib/user-settings/editor';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useConnector } from '@/data/core';
 import { persister } from '@/data/core/query-client';
 import { useInstalledApps } from '@/data/queries/use-installed-apps';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
-import { SettingsCloseContext } from '@/hooks/use-settings-close';
-import { SettingsView, isSettingsTab } from './index';
-import type { ButtonHTMLAttributes, ReactNode } from 'react';
+import { SIDEBAR_PANEL_STORAGE_KEY } from '@/lib/resizable-panels';
+import { AppearanceSettings, GeneralSettings } from './index';
 
-vi.mock( '@wordpress/ui', () => ( {
-	Button: ( {
-		children,
-		loading,
-		loadingAnnouncement,
-		tone,
-		variant,
-		size,
-		...props
-	}: ButtonHTMLAttributes< HTMLButtonElement > & {
-		children?: ReactNode;
-		loading?: boolean;
-		loadingAnnouncement?: string;
-		tone?: string;
-		variant?: string;
-		size?: string;
-	} ) => {
-		void tone;
-		void variant;
-		void size;
-		return <button { ...props }>{ loading ? loadingAnnouncement : children }</button>;
-	},
-	IconButton: ( { label, onClick }: { label: string; onClick?: () => void } ) => (
-		<button type="button" aria-label={ label } onClick={ onClick } />
-	),
-	SelectControl: ( {
-		items = [],
-		label,
-		value,
-		onValueChange,
-	}: {
-		items?: Array< { label: string; value: string | null } >;
-		label: string;
-		value?: { label: string; value: string | null } | null;
-		onValueChange?: ( item: { label: string; value: string | null } | undefined ) => void;
-	} ) => (
-		<label>
-			<span>{ label }</span>
-			<select
-				value={ value?.value ?? '' }
-				onChange={ ( event ) =>
-					onValueChange?.( items.find( ( item ) => item.value === event.target.value ) )
-				}
-			>
-				{ items.map( ( item ) => (
-					<option key={ item.value ?? 'null' } value={ item.value ?? '' }>
-						{ item.label }
-					</option>
-				) ) }
-			</select>
-		</label>
-	),
-	Tooltip: {
-		Root: ( { children }: { children?: ReactNode } ) => <>{ children }</>,
-		Trigger: ( { render }: { render?: ReactNode } ) => <>{ render }</>,
-		Popup: () => null,
-		Positioner: () => null,
-	},
-} ) );
-
-vi.mock( '@/components/tabs', () => ( {
-	Root: ( { children }: { children: ReactNode } ) => <div>{ children }</div>,
-	List: ( { children }: { children: ReactNode } ) => <div>{ children }</div>,
-	Tab: ( { children }: { children: ReactNode } ) => <button type="button">{ children }</button>,
-	Panel: ( { children }: { children: ReactNode } ) => <div>{ children }</div>,
-} ) );
+vi.mock( '@/components/site-list/sidebar-settings', () => ( { SidebarSettings: () => null } ) );
 
 vi.mock( '@/components/gravatar', () => ( {
 	Gravatar: () => <span data-testid="gravatar" />,
@@ -127,14 +63,8 @@ vi.mock( '@/data/queries/use-wapuu-score', () => ( {
 	useWapuuScore: () => ( { data: null } ),
 } ) );
 
-// The mocked Tabs render every panel unconditionally; the usage panel has its
-// own test file.
 vi.mock( './usage-panel', () => ( {
 	UsagePanel: () => null,
-} ) );
-
-vi.mock( '@/hooks/use-traffic-light-space', () => ( {
-	useTrafficLightSpace: () => ( { start: false, end: false } ),
 } ) );
 
 const useConnectorMock = vi.mocked( useConnector );
@@ -143,7 +73,35 @@ const useSaveUserPreferencesMock = vi.mocked( useSaveUserPreferences );
 const useUserPreferencesMock = vi.mocked( useUserPreferences );
 const removeClientMock = vi.mocked( persister.removeClient );
 
-describe( 'SettingsView', () => {
+function choose( item: HTMLElement ) {
+	fireEvent.pointerDown( item, { pointerType: 'mouse' } );
+	fireEvent.click( item );
+}
+
+async function pick( name: string, option: string ) {
+	fireEvent.click( screen.getByRole( 'combobox', { name } ) );
+	choose( await screen.findByRole( 'option', { name: option } ) );
+}
+
+const SAVED = {
+	editor: null,
+	terminal: 'terminal',
+	colorScheme: 'system',
+	quitSitesBehavior: undefined,
+	locale: 'en',
+	defaultSiteDirectory: '/Users/example/Studio',
+	studioCliInstalled: false,
+	studioCliExternallyManaged: false,
+};
+
+function mockPreferences( preferences: object ) {
+	useUserPreferencesMock.mockReturnValue( {
+		data: { ...SAVED, ...preferences },
+		isLoading: false,
+	} as never );
+}
+
+describe( 'Studio settings', () => {
 	const mutate = vi.fn();
 	const reload = vi.fn();
 	const selectDefaultSiteDirectory = vi.fn( () => Promise.resolve< string | null >( null ) );
@@ -159,7 +117,7 @@ describe( 'SettingsView', () => {
 
 		useConnectorMock.mockReturnValue( {
 			selectDefaultSiteDirectory,
-			capabilities: { agentInstructions: false, nativeFolderPicker: true },
+			capabilities: { nativeFolderPicker: true },
 		} as never );
 		useInstalledAppsMock.mockReturnValue( {
 			data: { vscode: true, terminal: true, iterm: true },
@@ -169,111 +127,168 @@ describe( 'SettingsView', () => {
 			isPending: false,
 			isError: false,
 		} as never );
-		useUserPreferencesMock.mockReturnValue( {
-			data: {
-				editor: null,
-				terminal: 'terminal',
-				colorScheme: 'system',
-				quitSitesBehavior: undefined,
-				locale: 'en',
-				defaultSiteDirectory: '/Users/example/Studio',
-				studioCliInstalled: false,
-				studioCliExternallyManaged: false,
-			},
-			isLoading: false,
-		} as never );
+		mockPreferences( {} );
 	} );
 
-	it( 'saves the color scheme as soon as an appearance option is picked', () => {
-		render( <SettingsView activeTab="preferences" onTabChange={ vi.fn() } /> );
+	it( 'saves the theme as soon as one is picked', async () => {
+		render( <AppearanceSettings /> );
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'Dark' } ) );
+		await pick( 'Theme', 'Dark' );
 
-		expect( mutate ).toHaveBeenCalledWith( { colorScheme: 'dark' }, expect.any( Object ) );
-		expect( screen.queryByRole( 'button', { name: /save/i } ) ).not.toBeInTheDocument();
+		await waitFor( () =>
+			expect( mutate ).toHaveBeenCalledWith( { colorScheme: 'dark' }, expect.any( Object ) )
+		);
 	} );
 
-	it( 'saves the editor on change and only offers installed apps', () => {
-		render( <SettingsView activeTab="preferences" onTabChange={ vi.fn() } /> );
+	it( 'tints the app with a color preset and saves it', () => {
+		render( <AppearanceSettings /> );
 
-		const editorSelect = screen.getByLabelText( 'Preferred editor' ) as HTMLSelectElement;
-		expect( Array.from( editorSelect.options ).map( ( option ) => option.value ) ).toEqual( [
-			'vscode',
+		fireEvent.click( screen.getByRole( 'button', { name: 'Green' } ) );
+
+		expect( mutate ).toHaveBeenCalledWith( {
+			accentColor: '#069e08',
+			tintIntensity: 20,
+			contrast: 0,
+		} );
+		const root = document.documentElement.style;
+		expect( Number( root.getPropertyValue( '--tint-hue' ) ) ).toBeCloseTo( 142.6, 1 );
+		expect( root.getPropertyValue( '--tint-intensity' ) ).toBe( '20' );
+		expect( screen.getByRole( 'button', { name: 'Green' } ) ).toHaveAttribute(
+			'aria-pressed',
+			'true'
+		);
+	} );
+
+	it( 'saves a typed hex color once it is complete', () => {
+		render( <AppearanceSettings /> );
+		const input = screen.getByRole( 'textbox', { name: 'Hex color' } );
+
+		fireEvent.change( input, { target: { value: 'FF99' } } );
+		expect( mutate ).not.toHaveBeenCalled();
+		fireEvent.change( input, { target: { value: 'FF9900' } } );
+
+		expect( mutate ).toHaveBeenCalledWith( {
+			accentColor: '#ff9900',
+			tintIntensity: 0,
+			contrast: 0,
+		} );
+	} );
+
+	it( 'restores the default color, intensity, and contrast, and only when one changed', () => {
+		const { unmount } = render( <AppearanceSettings /> );
+		expect( screen.getByRole( 'button', { name: 'Reset' } ) ).toBeDisabled();
+		unmount();
+
+		mockPreferences( { accentColor: '#8c52d9', tintIntensity: 40, contrast: 30 } );
+		render( <AppearanceSettings /> );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Reset' } ) );
+
+		expect( mutate ).toHaveBeenCalledWith( {
+			accentColor: '#3858e9',
+			tintIntensity: 0,
+			contrast: 0,
+		} );
+		const root = document.documentElement.style;
+		expect( root.getPropertyValue( '--tint-hue' ) ).toBe( '260' );
+		expect( root.getPropertyValue( '--contrast' ) ).toBe( '0' );
+	} );
+
+	it( 'offers Default, the installed editors, and a saved one that is gone', async () => {
+		mockPreferences( { editor: 'cursor' } );
+		render( <GeneralSettings /> );
+
+		fireEvent.click( screen.getByRole( 'combobox', { name: 'Code editor' } ) );
+		const options = await screen.findAllByRole( 'option' );
+		expect( options.map( ( option ) => option.textContent ) ).toEqual( [
+			'Default',
+			supportedEditorConfig.cursor.label(),
+			supportedEditorConfig.vscode.label(),
 		] );
+		choose( options[ 0 ] );
+		await waitFor( () =>
+			expect( mutate ).toHaveBeenCalledWith( { editor: null }, expect.any( Object ) )
+		);
+	} );
 
-		fireEvent.change( editorSelect, { target: { value: 'vscode' } } );
+	it( 'resets the interface preferences and panel widths, and only when something changed', () => {
+		const { unmount } = render( <GeneralSettings /> );
+		expect( screen.getByRole( 'button', { name: 'Reset' } ) ).toBeDisabled();
+		unmount();
 
-		expect( mutate ).toHaveBeenCalledWith( { editor: 'vscode' }, expect.any( Object ) );
+		mockPreferences( { newSiteBehavior: 'blank' } );
+		window.localStorage.setItem( SIDEBAR_PANEL_STORAGE_KEY, '320' );
+		mutate.mockImplementation( ( _patch, options ) => options?.onSuccess?.() );
+		render( <GeneralSettings /> );
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Reset' } ) );
+
+		expect( mutate ).toHaveBeenCalledWith(
+			{
+				colorScheme: 'system',
+				quitSitesBehavior: null,
+				autoStartSiteOnChat: false,
+				confirmDeleteAnnotations: true,
+				showRecentChats: true,
+				autoCollapseSites: true,
+				newSiteBehavior: 'choose',
+				accentColor: '#3858e9',
+				tintIntensity: 0,
+				contrast: 0,
+			},
+			expect.any( Object )
+		);
+		expect( window.localStorage.getItem( SIDEBAR_PANEL_STORAGE_KEY ) ).toBeNull();
+	} );
+
+	it( 'turns the annotation delete confirmation back on', () => {
+		mockPreferences( { confirmDeleteAnnotations: false } );
+		render( <GeneralSettings /> );
+
+		fireEvent.click(
+			screen.getByRole( 'switch', { name: 'Confirm before deleting annotations' } )
+		);
+
+		expect( mutate ).toHaveBeenCalledWith(
+			{ confirmDeleteAnnotations: true },
+			expect.any( Object )
+		);
+	} );
+
+	it( 'saves a typed default directory where there is no folder picker', () => {
+		useConnectorMock.mockReturnValue( { capabilities: { nativeFolderPicker: false } } as never );
+		render( <GeneralSettings /> );
+
+		fireEvent.change( screen.getByRole( 'textbox', { name: 'Default directory' } ), {
+			target: { value: ' /Users/example/Sites ' },
+		} );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Save' } ) );
+
+		expect( mutate ).toHaveBeenCalledWith(
+			{ defaultSiteDirectory: '/Users/example/Sites' },
+			expect.any( Object )
+		);
 	} );
 
 	it( 'clears the persisted cache and reloads after a locale change is saved', async () => {
 		mutate.mockImplementation( ( patch, options ) => options?.onSuccess?.() );
 
-		render( <SettingsView activeTab="preferences" onTabChange={ vi.fn() } /> );
+		render( <GeneralSettings /> );
 
-		fireEvent.change( screen.getByLabelText( 'Language' ), { target: { value: 'es' } } );
+		await pick( 'Language', supportedLocaleNames.es );
 
-		expect( mutate ).toHaveBeenCalledWith( { locale: 'es' }, expect.any( Object ) );
+		await waitFor( () =>
+			expect( mutate ).toHaveBeenCalledWith( { locale: 'es' }, expect.any( Object ) )
+		);
 		await waitFor( () => expect( reload ).toHaveBeenCalled() );
 		expect( removeClientMock ).toHaveBeenCalled();
-	} );
-
-	it( 'saves the quit-sites behavior on change', () => {
-		render( <SettingsView activeTab="preferences" onTabChange={ vi.fn() } /> );
-
-		fireEvent.change( screen.getByLabelText( 'When quitting with running sites' ), {
-			target: { value: 'stop' },
-		} );
-
-		expect( mutate ).toHaveBeenCalledWith( { quitSitesBehavior: 'stop' }, expect.any( Object ) );
-	} );
-
-	it( 'renders the AI tab with its panel', () => {
-		render( <SettingsView activeTab="ai" onTabChange={ vi.fn() } /> );
-
-		expect( screen.getByRole( 'button', { name: 'AI' } ) ).toBeInTheDocument();
-		expect( screen.getByTestId( 'ai-panel' ) ).toBeInTheDocument();
-	} );
-
-	it( 'offers the AI tab on every host, since chat can be toggled anywhere', () => {
-		useConnectorMock.mockReturnValue( {
-			selectDefaultSiteDirectory,
-			capabilities: { agentInstructions: false },
-		} as never );
-
-		render( <SettingsView activeTab="ai" onTabChange={ vi.fn() } /> );
-
-		expect( screen.getByRole( 'button', { name: 'AI' } ) ).toBeInTheDocument();
-		expect( screen.getByTestId( 'ai-panel' ) ).toBeInTheDocument();
-	} );
-
-	it( 'recognizes the keyboard tab id', () => {
-		expect( isSettingsTab( 'keyboard' ) ).toBe( true );
-		expect( isSettingsTab( 'unknown' ) ).toBe( false );
-	} );
-
-	it( 'renders keyboard shortcut sections', () => {
-		render( <SettingsView activeTab="keyboard" onTabChange={ vi.fn() } /> );
-
-		expect( screen.getByRole( 'button', { name: 'Keyboard' } ) ).toBeInTheDocument();
-		expect( screen.getByRole( 'heading', { name: 'Composer' } ) ).toBeInTheDocument();
-		expect( screen.getByRole( 'heading', { name: 'Site preview' } ) ).toBeInTheDocument();
-		expect( screen.getByText( 'New chat' ) ).toBeInTheDocument();
-		expect( screen.getByText( 'Send message' ) ).toBeInTheDocument();
-		expect( screen.getByLabelText( 'Control + Comma' ) ).toBeInTheDocument();
-		expect( screen.getByLabelText( 'Alt + Left arrow' ) ).toBeInTheDocument();
-		// Keep the listed full-preview chord in step with the one SitePreview
-		// actually handles (Ctrl+Shift+F off Apple platforms).
-		expect( screen.getByText( 'Toggle full preview' ) ).toBeInTheDocument();
-		expect( screen.getByLabelText( 'Control + Shift + F' ) ).toBeInTheDocument();
 	} );
 
 	it( 'saves the default site directory as soon as one is picked', async () => {
 		selectDefaultSiteDirectory.mockResolvedValue( '/Users/example/Sites' );
 
-		render( <SettingsView activeTab="preferences" onTabChange={ vi.fn() } /> );
+		render( <GeneralSettings /> );
 
-		fireEvent.click( screen.getByRole( 'button', { name: /Default site directory/ } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: /Default directory/ } ) );
 
 		await waitFor( () =>
 			expect( mutate ).toHaveBeenCalledWith(
@@ -282,47 +297,5 @@ describe( 'SettingsView', () => {
 			)
 		);
 		expect( selectDefaultSiteDirectory ).toHaveBeenCalledWith( '/Users/example/Studio' );
-	} );
-
-	it( 'does not save when the directory picker is cancelled', async () => {
-		selectDefaultSiteDirectory.mockResolvedValue( null );
-
-		render( <SettingsView activeTab="preferences" onTabChange={ vi.fn() } /> );
-
-		fireEvent.click( screen.getByRole( 'button', { name: /Default site directory/ } ) );
-
-		await waitFor( () => expect( selectDefaultSiteDirectory ).toHaveBeenCalled() );
-		expect( mutate ).not.toHaveBeenCalled();
-	} );
-
-	it( 'surfaces a save error inline in the section', () => {
-		useSaveUserPreferencesMock.mockReturnValue( {
-			mutate,
-			isPending: false,
-			isError: true,
-			error: new Error( 'save failed' ),
-		} as never );
-
-		render( <SettingsView activeTab="preferences" onTabChange={ vi.fn() } /> );
-
-		expect(
-			screen.getByText( 'An error occurred while saving settings. Please try again.' )
-		).toBeInTheDocument();
-	} );
-
-	it( 'shows a close button only inside the settings overlay', () => {
-		const onClose = vi.fn();
-		const { rerender } = render( <SettingsView activeTab="preferences" onTabChange={ vi.fn() } /> );
-
-		expect( screen.queryByRole( 'button', { name: 'Close settings' } ) ).not.toBeInTheDocument();
-
-		rerender(
-			<SettingsCloseContext.Provider value={ onClose }>
-				<SettingsView activeTab="preferences" onTabChange={ vi.fn() } />
-			</SettingsCloseContext.Provider>
-		);
-		fireEvent.click( screen.getByRole( 'button', { name: 'Close settings' } ) );
-
-		expect( onClose ).toHaveBeenCalled();
 	} );
 } );

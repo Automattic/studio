@@ -1,6 +1,10 @@
 Unreleased
 ==========
 
+2.0.4
+=====
+* Native PHP: Update the bundled PHP binaries to 8.2.35, 8.3.36, 8.4.27 and 8.5.12 #5266 #5269 #5268 #5267
+
 2.0.0
 =====
 <!-- Release notes generated using configuration in .github/release.yml at HEAD -->
@@ -59,6 +63,7 @@ Unreleased
 * build(deps): bump actions/upload-artifact from 7.0.1 to 7.0.2 #5117
 * Start the WordPress Studio plugin for Codex on Windows #5129
 * Translate the macOS-provided menu items into Studio's language #5131
+* Agentic UI: add copy buttons for the site URL and local path #5021
 **Full Changelog**: https://github.com/Automattic/studio/compare/v1.24.0...v2.0.0
 
 1.24.0

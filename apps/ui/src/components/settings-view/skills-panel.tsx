@@ -1,121 +1,110 @@
-import { FormToggle } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
-import { Button } from '@wordpress/ui';
-import { useMemo } from 'react';
 import { LearnMoreLink } from '@/components/learn-more';
+import { Button } from '@/components/ui/button';
 import {
-	useInstallAllWordPressSkills,
 	useInstallWordPressSkill,
 	useRemoveWordPressSkill,
+	useSetAllWordPressSkills,
 	useWordPressSkills,
 } from '@/data/queries/use-wordpress-skills';
+import { SettingsGroup, SettingsLoadState, SettingsRow, SettingsToggle } from './rows';
 import styles from './style.module.css';
-import type { SkillStatus } from '@/data/core';
 
 function getErrorMessage( error: unknown ): string | null {
 	return error instanceof Error ? error.message : error ? String( error ) : null;
 }
 
-function SkillRow( {
-	skill,
-	checked,
-	disabled,
-	onToggle,
-}: {
-	skill: SkillStatus;
-	checked: boolean;
-	disabled: boolean;
-	onToggle: () => void;
-} ) {
-	return (
-		<li className={ styles.skillRow }>
-			<div className={ styles.skillDetails }>
-				<span className={ styles.skillName }>{ skill.displayName }</span>
-				<span className={ styles.skillDescription }>{ skill.description }</span>
-			</div>
-			<FormToggle
-				checked={ checked }
-				disabled={ disabled }
-				aria-label={ skill.displayName }
-				onChange={ onToggle }
-			/>
-		</li>
-	);
-}
-
-export function SkillsPanel() {
-	const { data: skills, isLoading, error } = useWordPressSkills();
+export function SkillsPanel( { onManageSite }: { onManageSite?: () => void } ) {
+	const { data: skills, isLoading, isError, refetch } = useWordPressSkills();
 	const installSkill = useInstallWordPressSkill();
-	const installAllSkills = useInstallAllWordPressSkills();
+	const setAllSkills = useSetAllWordPressSkills();
 	const removeSkill = useRemoveWordPressSkill();
-	const skillList = skills ?? [];
-	const availableSkills = useMemo(
-		() => ( skills ?? [] ).filter( ( skill ) => ! skill.installed ),
-		[ skills ]
-	);
+	const saving = installSkill.isPending || setAllSkills.isPending || removeSkill.isPending;
 	const visibleError =
-		getErrorMessage( error ) ??
 		getErrorMessage( installSkill.error ) ??
-		getErrorMessage( installAllSkills.error ) ??
+		getErrorMessage( setAllSkills.error ) ??
 		getErrorMessage( removeSkill.error );
 
-	const handleToggle = ( skill: SkillStatus ) => {
-		if ( skill.installed ) {
-			removeSkill.mutate( skill.id );
-		} else {
-			installSkill.mutate( skill.id );
-		}
-	};
+	if ( ! skills ) {
+		return (
+			<SettingsLoadState loadFailed={ ! isLoading && isError } onRetry={ () => void refetch() } />
+		);
+	}
+	if ( ! skills.length ) {
+		return <div className={ styles.state }>{ __( 'No skills are available.' ) }</div>;
+	}
+	const enabled = skills.some( ( skill ) => skill.installed );
 
 	return (
-		<div className={ styles.skillsPanel }>
-			<section className={ styles.settingsPanelSection }>
-				<div className={ styles.settingsPanelHeader }>
-					<div className={ styles.skillsHeaderRow }>
-						<h2>{ __( 'Skills' ) }</h2>
-						{ availableSkills.length > 0 ? (
-							<Button
-								type="button"
-								variant="outline"
-								tone="neutral"
-								size="compact"
-								disabled={ installAllSkills.isPending }
-								loading={ installAllSkills.isPending }
-								loadingAnnouncement={ __( 'Installing all skills' ) }
-								onClick={ () =>
-									installAllSkills.mutate( availableSkills.map( ( skill ) => skill.id ) )
-								}
-							>
-								{ __( 'Install all' ) }
-							</Button>
-						) : null }
-					</div>
-					<p>
-						{ __(
-							'Skills are reusable instructions that teach agents how to complete specialized WordPress tasks. Enable the ones you want Studio to add to sites so agents have the right context before they start working.'
-						) }{ ' ' }
-						<LearnMoreLink docsLinksKey="docsSkills" />
-					</p>
-				</div>
-				{ visibleError ? <div className={ styles.errorMessage }>{ visibleError }</div> : null }
-				{ isLoading ? <div className={ styles.state }>{ __( 'Loading skills…' ) }</div> : null }
-				{ ! isLoading && skillList.length === 0 ? (
-					<div className={ styles.state }>{ __( 'No skills are available.' ) }</div>
-				) : null }
-				{ skillList.length > 0 ? (
-					<ul className={ styles.skillList }>
-						{ skillList.map( ( skill ) => (
-							<SkillRow
-								key={ skill.id }
-								skill={ skill }
+		<div className={ styles.preferencesPanel }>
+			{ visibleError ? <div className={ styles.errorMessage }>{ visibleError }</div> : null }
+			<SettingsGroup>
+				<SettingsRow
+					title={ __( 'WordPress skills' ) }
+					description={
+						<>
+							{ __(
+								'Turn on WordPress skills for existing and new sites. Manage individual skills below.'
+							) }
+							{ onManageSite ? (
+								<Button
+									className={ styles.manageLink }
+									variant="inline-link"
+									size="inline"
+									disabled={ saving }
+									onClick={ onManageSite }
+								>
+									{ __( 'Manage skills for this site' ) }
+								</Button>
+							) : null }
+						</>
+					}
+				>
+					<SettingsToggle
+						label={ __( 'WordPress skills' ) }
+						checked={ enabled }
+						disabled={ saving }
+						onChange={ ( installed ) =>
+							setAllSkills.mutate( {
+								skillIds: skills
+									.filter( ( skill ) => skill.installed !== installed )
+									.map( ( skill ) => skill.id ),
+								installed,
+							} )
+						}
+					/>
+				</SettingsRow>
+			</SettingsGroup>
+			{ enabled ? (
+				<SettingsGroup
+					title={ __( 'Skills' ) }
+					description={
+						<>
+							{ __(
+								'Reusable instructions that teach agents specialized WordPress tasks. Studio adds the ones you turn on to every site.'
+							) }{ ' ' }
+							<LearnMoreLink docsLinksKey="docsSkills" />
+						</>
+					}
+				>
+					{ skills.map( ( skill ) => (
+						<SettingsRow
+							key={ skill.id }
+							title={ skill.displayName }
+							description={ skill.description }
+						>
+							<SettingsToggle
+								label={ skill.displayName }
 								checked={ skill.installed }
-								disabled={ installAllSkills.isPending }
-								onToggle={ () => handleToggle( skill ) }
+								disabled={ saving }
+								onChange={ ( installed ) =>
+									( installed ? installSkill : removeSkill ).mutate( skill.id )
+								}
 							/>
-						) ) }
-					</ul>
-				) : null }
-			</section>
+						</SettingsRow>
+					) ) }
+				</SettingsGroup>
+			) : null }
 		</div>
 	);
 }

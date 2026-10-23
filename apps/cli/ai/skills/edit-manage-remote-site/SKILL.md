@@ -7,7 +7,7 @@ tools: wpcom_request
 
 # Edit and Manage a Remote Site
 
-Use this skill for any work on one of the user's WordPress.com sites. These sites are live: change them only with `wpcom_request`, never with WP-CLI, Bash, or local site files. Work on a local copy only when the user asks for one (create a local site with `site_create`, then `site_pull` the WordPress.com site into it).
+Use this skill for any work on one of the user's WordPress.com sites. These sites are live: change them only with `wpcom_request`, never with WP-CLI, Bash, or local site files. Work on a local copy only when the user asks for one (create a local site with `site_create`, then `site_pull` the WordPress.com site into it). Without `wpcom_request`, tell the user you can't change the live site from here, and offer a local copy that `site_push` can publish back.
 
 ## Block Content
 
@@ -20,7 +20,7 @@ Use this skill for any work on one of the user's WordPress.com sites. These site
 
 `wpcom_request` supports both the WordPress REST API and WordPress.com REST API endpoints:
 
-- `siteId`: the site's WordPress.com ID (the active-site line gives it; `site_connected_remote_sites` or `GET !/me/sites` with `apiNamespace: ""` find others)
+- `siteId`: the site's WordPress.com ID (the Active site section gives it; `site_list` lists the others)
 - `method`: `GET`, `POST`, `PUT`, or `DELETE`
 - `path`: relative to `/sites/{siteId}/`, such as `/posts`, `/posts/123`, or `/templates`
 - `query`: optional query parameters object

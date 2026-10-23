@@ -62,7 +62,20 @@ components/
     style.module.css
 ```
 
-UI is built with `@wordpress/ui` and `@wordpress/theme` from the WordPress Design System, plus `@wordpress/icons` for iconography.
+UI is built on Base UI with its own primitives and theme. Icons come from `lucide-react`, plus custom icons in `src/lib/icons/`, one file each, drawn the same way (24px grid, stroke 2).
+
+## Design system
+
+`src/theme/tokens.css` defines every token the UI uses:
+
+- **Surfaces**, from lightest to darkest in light mode: `--surface-0`…`--surface-4`, named by role as `--background`, `--chrome` (sidebar, header band), `--chat`, `--composer`, `--popover`, `--content` and `--muted` (cards, code, chips). `--hover` is the hover fill of the surface it sits on.
+- **Text and lines**: `--foreground`, `--muted-foreground`, `--border`, `--input`, `--ring`.
+- **Actions and status**: `--primary`, `--secondary`, `--accent` (and `--accent-text`, `--accent-foreground`), `--destructive`, `--success`, `--warning`, plus `--status-*` for the vivid status dots.
+- **Type, shape and motion**: `--font-sans`, `--font-mono`, `--text-xxs`…`--text-xl`, `--font-weight-*`, `--radius-*`, `--focus-width`, `--band-height`, `--control-size`, `--motion-duration-*` and `--motion-ease-*`.
+
+Primitives live in `src/components/ui/` (Button, IconButton, Dialog, Menu, Popover, Select, Field, Input, InputGroup, Textarea, Switch, Checkbox, Tooltip, Alert, Badge, Progress, Empty, Kbd, VisuallyHidden). They follow the rebuild's kit, sit in the `ui` cascade layer so feature CSS overrides them without specificity tricks, and import nothing from app code.
+
+Colors derive in CSS from a few inputs on the root element (`--tint-hue`, `--tint-intensity`, `--tint-saturation`, `--contrast`, `--accent-fill`), so light, dark and the Appearance settings change them without any palette code. Dark values apply under `[data-color-scheme='dark']`, on the root or on any element that should render in the other scheme.
 
 ## Development
 

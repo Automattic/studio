@@ -1,7 +1,12 @@
 import '@testing-library/jest-dom/vitest';
 
-// jsdom doesn't implement matchMedia, which some @wordpress/components controls
-// (e.g. CheckboxControl) call on render. Provide a no-op stub globally.
+// Base UI's switches and checkboxes dispatch PointerEvents, which jsdom lacks.
+if ( typeof window !== 'undefined' && ! window.PointerEvent ) {
+	window.PointerEvent = MouseEvent as typeof PointerEvent;
+}
+
+// jsdom doesn't implement matchMedia, which components call for the color
+// scheme and reduced motion. Provide a no-op stub globally.
 if ( typeof window !== 'undefined' && ! window.matchMedia ) {
 	const noop = () => {};
 	Object.defineProperty( window, 'matchMedia', {

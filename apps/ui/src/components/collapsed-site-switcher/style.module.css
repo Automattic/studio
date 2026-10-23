@@ -1,7 +1,7 @@
 .popup {
 	box-sizing: border-box;
 	width: 272px;
-	max-width: calc(100vw - 2 * var(--wpds-dimension-padding-xl));
+	max-width: calc(100vw - 2 * 20px);
 }
 
 .surface {
@@ -9,19 +9,19 @@
 	flex-direction: column;
 	overflow: hidden;
 	border-radius: inherit;
-	color: var(--wpds-color-foreground-content-neutral);
+	color: var(--foreground);
 }
 
 .scrollArea {
 	box-sizing: border-box;
 	max-height: min(236px, calc(100vh - 80px));
 	overflow-y: auto;
-	padding-block: var(--wpds-dimension-padding-md);
+	padding-block: 12px;
 }
 
 /* Outranks site-list's own `.root` padding shorthand. */
 .scrollArea .siteList {
-	padding-block-end: var(--wpds-dimension-padding-sm);
+	padding-block-end: 8px;
 }
 
 .surface svg {
@@ -33,30 +33,30 @@
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	gap: var(--wpds-dimension-padding-sm);
+	gap: 8px;
 	flex-shrink: 0;
 	box-sizing: border-box;
 	width: 100%;
-	padding-block: var(--wpds-dimension-padding-md);
-	padding-inline-start: var(--wpds-dimension-padding-xl);
-	padding-inline-end: var(--wpds-dimension-padding-md);
+	padding-block: 12px;
+	padding-inline-start: 20px;
+	padding-inline-end: 12px;
 	border: none;
-	border-block-start: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral-weak);
+	border-block-start: 1px solid var(--border);
 	background: none;
 	color: inherit;
 	font: inherit;
-	font-size: var(--wpds-typography-font-size-sm);
+	font-size: var(--text-xxs);
 	cursor: pointer;
 }
 
 .openSidebarCta:hover {
-	background-color: var(--wpds-color-background-interactive-neutral-weak-active);
+	background-color: var(--hover);
 }
 
 .shortcutKeys {
 	display: flex;
 	align-items: center;
-	gap: var(--wpds-dimension-padding-xs);
+	gap: 4px;
 }
 
 .shortcutKey {
@@ -66,13 +66,13 @@
 	justify-content: center;
 	min-inline-size: 22px;
 	min-block-size: 22px;
-	padding: 0 var(--wpds-dimension-padding-xs);
-	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral);
-	border-radius: var(--wpds-border-radius-sm);
-	background: var(--wpds-color-background-surface-neutral);
-	color: var(--wpds-color-foreground-content-neutral);
-	font-family: var(--wpds-typography-font-family-body);
-	font-size: var(--wpds-typography-font-size-xs);
+	padding: 0 4px;
+	border: 1px solid var(--border);
+	border-radius: 8px;
+	background: var(--chat);
+	color: var(--foreground);
+	font-family: var(--font-sans);
+	font-size: 11px;
 	font-weight: 500;
 	line-height: 1;
 }

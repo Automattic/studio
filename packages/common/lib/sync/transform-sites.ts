@@ -1,5 +1,5 @@
 import { sitesEndpointSiteSchema } from '@studio/common/types/sync';
-import { getSyncSupport, isPressableSite } from './sync-support';
+import { getSyncSupport, hasStudioPublishingPlan, isPressableSite } from './sync-support';
 import type { SitesEndpointSite, SyncSite, SyncSupport } from '@studio/common/types/sync';
 
 export function transformSingleSiteResponse(
@@ -20,6 +20,7 @@ export function transformSingleSiteResponse(
 		lastPushTimestamp: null,
 		wpVersion: site.options?.software_version,
 		planName: site.plan?.product_name_short,
+		hasStudioPublishingPlan: hasStudioPublishingPlan( site ),
 		createdAt: site.options?.created_at,
 	};
 }

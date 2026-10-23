@@ -8,17 +8,9 @@ export function getSiteUrl( site: SiteDetails ): string {
 		const protocol = site.enableHttps ? 'https' : 'http';
 		return `${ protocol }://${ site.customDomain }`;
 	}
-	// Hosted sites (e.g. Studio Web) carry an absolute remote URL and no local
-	// port. Prefer it; on desktop running sites this is the same localhost URL
-	// the fallback would build, so behavior there is unchanged.
+	// On running sites this is the same localhost URL the fallback would build.
 	if ( site.url ) {
 		return site.url;
 	}
 	return `http://localhost:${ site.port }`;
-}
-
-export function getSiteDisplayUrl( site: SiteDetails ): string {
-	return getSiteUrl( site )
-		.replace( /^https?:\/\//, '' )
-		.replace( /\/$/, '' );
 }

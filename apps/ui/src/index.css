@@ -1,3 +1,5 @@
+@import '@fontsource-variable/inter';
+
 /* Vazirmatn (SIL OFL, see ./fonts/OFL.txt) — the macOS system font lacks
    Central Kurdish glyphs (e.g. ێ ۆ ڵ). Applied to the ckb locale below. */
 @font-face {
@@ -8,50 +10,9 @@
 	font-display: swap;
 }
 
-:root {
-	/* Default is 2px; 4px reads a bit softer. */
-	--wpds-border-radius-sm: 4px;
-
-	/* Overlay stacking — portals mount into `document.body` and must beat
-	   app-chrome stacking contexts (sidebar header z-index: 1, floating
-	   toggle z-index: 30). Menus stay below modal surfaces; tooltips live
-	   above dialogs so help text on controls inside a modal still surfaces
-	   above the containing overlay. Every layer needs a value: @wordpress/ui
-	   falls back to `initial` (auto), which loses to any positioned chrome. */
-	--wp-ui-popover-z-index: 700;
-	--wp-ui-autocomplete-z-index: 700;
-
-	/* Annotate's own color: the mode's toolbar, its controls, and the pins
-	   the inspector draws on the page all share it, so the feature reads as
-	   one thing rather than borrowing the brand blue. The inspector's
-	   injected stylesheet repeats the violet literally — it can't see these. */
-	--studio-annotate-color: #7c3aed;
-	--studio-annotate-color-active: #6d28d9;
-	--studio-annotate-on-color: #fff;
-	--studio-annotate-surface: #f3ecff;
-	/* The annotate-mode toolbar is solid violet in both schemes; only the
-	   depth shifts so it doesn't glare on a dark canvas. */
-	--studio-annotate-bar: #7c3aed;
-	--studio-annotate-bar-active: #6d28d9;
-	--studio-annotate-on-bar: #fff;
-	--wp-ui-combobox-z-index: 700;
-	--wp-ui-dialog-z-index: 700;
-	--wp-ui-drawer-z-index: 700;
-	--wp-ui-select-z-index: 750;
-	--wp-ui-tooltip-z-index: 800;
-
-	/* Vivid status colors the wpds palette lacks: --wpds-color-foreground-content-success
-	   resolves to #002900 (reads black at dot size) and there are no
-	   caution/accent equivalents. */
-	--studio-color-status-running: #16a34a;
-	--studio-color-status-transitioning: #a16207;
-	--studio-color-status-attention: #facc15;
-	--studio-color-status-sync: #a855f7;
-}
-
-/* Tokens stay light until ThemeProvider sets `data-color-scheme`: until then,
-   show the Desktop window's dark background (the sidebar's colour) instead of
-   a full light page. */
+/* Tokens stay light until app-providers.tsx sets `data-color-scheme`: until
+   then, show the Desktop window's dark background (the sidebar's colour)
+   instead of a full light page. */
 :root:not( [data-color-scheme] ) body {
 	background-color: transparent;
 }
@@ -59,88 +20,56 @@
 body {
 	margin: 0;
 	padding: 0;
-	font-family: var( --wpds-typography-font-family-body );
-	font-size: var( --wpds-typography-font-size-md );
-	line-height: var( --wpds-typography-line-height-md );
-	background-color: var( --wpds-color-background-surface-neutral );
-	color: var( --wpds-color-foreground-content-neutral );
+	font-family: var(--font-sans);
+	font-size: var(--text-xs);
+	line-height: 24px;
+	background-color: var(--chat);
+	color: var(--foreground);
 	color-scheme: light dark;
 	scrollbar-color: gray transparent;
 }
 
+/* A column edge's short separator inside the top band. Set
+   `--studio-column-edge` to its inline offset. */
+.studio-column-edge::before {
+	content: '';
+	position: absolute;
+	inset-inline-start: var( --studio-column-edge, 0 );
+	top: calc( ( var( --band-height ) - var( --band-separator-height ) ) / 2 );
+	width: 1px;
+	height: var( --band-separator-height );
+	background-color: var(--border);
+	pointer-events: none;
+}
+
+@media ( max-width: 639px ) {
+	.studio-column-edge::before {
+		content: none;
+	}
+}
+
 /* Unlike `scrollbar-color`, `scrollbar-width` isn't inherited, so inner scroll
-   containers need it set directly. */
-* {
-	scrollbar-width: thin;
+   containers need it set directly. In the base layer, so components can hide it. */
+@layer base {
+	* {
+		scrollbar-width: thin;
+	}
 }
 
-/* Overriding the font-family tokens covers everything themed by the design
-   system; `lang` is set on bootstrap in lib/apply-locale.ts. */
+/* `lang` is set on bootstrap in lib/apply-user-preferences.ts. */
 :root:lang( ckb ) {
-	--wpds-typography-font-family-body: 'Vazirmatn', -apple-system, system-ui, 'Segoe UI', 'Roboto',
-		'Oxygen-Sans', 'Ubuntu', 'Cantarell', 'Helvetica Neue', sans-serif;
-	--wpds-typography-font-family-heading: 'Vazirmatn', -apple-system, system-ui, 'Segoe UI', 'Roboto',
-		'Oxygen-Sans', 'Ubuntu', 'Cantarell', 'Helvetica Neue', sans-serif;
+	--font-sans: 'Vazirmatn', -apple-system, system-ui, 'Segoe UI', 'Roboto', 'Oxygen-Sans', 'Ubuntu',
+		'Cantarell', 'Helvetica Neue', sans-serif;
 }
 
-/* @wordpress/components controls hardcode their own font-family at class
-   specificity, so the token override alone doesn't reach them. */
-body:lang( ckb ) input,
-body:lang( ckb ) textarea,
-body:lang( ckb ) select,
-body:lang( ckb ) button,
-body:lang( ckb ) [class*='components-'] {
-	font-family: var( --wpds-typography-font-family-body );
-}
-
-/* Keyed on the scheme app-providers.tsx resolves from the saved Appearance
-   preference (falling back to the OS) and stamps on <html>, so these follow
-   the in-app toggle like the rest of the theme. */
-html[data-color-scheme='dark'] {
-	--wp-ui-tooltip-background-color: #fff;
-	--wp-ui-tooltip-color: #000;
-	--studio-annotate-color: #b69cff;
-	--studio-annotate-color-active: #c9b6ff;
-	--studio-annotate-on-color: #1b1230;
-	--studio-annotate-surface: #251b3a;
-	--studio-annotate-bar: #6d28d9;
-	--studio-annotate-bar-active: #5b21b6;
-}
-
-/* @wordpress/components and @wordpress/dataviews render help text and field
-   descriptions with hardcoded light-mode colors that don't adapt to the
-   ThemeProvider's dark palette. Force them to the design-system's weak
-   foreground so they match the surrounding UI in both schemes. */
-.components-base-control__help,
-[class*='dataforms-layouts'] [class*='description'] {
-	color: var( --wpds-color-foreground-content-neutral-weak ) !important;
-}
-
-[data-wpds-root-provider] .components-base-control__help {
-	margin-top: var( --wpds-dimension-gap-xs );
-}
-
-/* Section grouping for the site forms. The `card` layout gives the sections
-   their headings declaratively, but its panel chrome reads as four stacked
-   boxes; flattening it to a hairline rule between sections matches the
-   settings design and keeps one rhythm down the form. */
-form .dataforms-layouts-card__field {
-	--wp-ui-card-padding: 0;
-
-	border: 0;
-	border-radius: 0;
-	background: transparent;
-	box-shadow: none;
-}
-
-form .dataforms-layouts-card__field-header-content {
-	margin-block-end: var( --wpds-dimension-gap-md );
-}
-
-form .dataforms-layouts-card__field + .dataforms-layouts-card__field {
-	border-top: 1px solid var( --wpds-color-stroke-surface-neutral );
-	margin-block-start: var( --wpds-dimension-padding-lg );
-	padding-block-start: var( --wpds-dimension-padding-lg );
+/* Form controls don't inherit the page font by default. */
+@layer base {
+	button,
+	input,
+	select,
+	textarea {
+		font-family: inherit;
+	}
 }
 
 /* Universal heading styles derived from the design system's font-size /
@@ -149,46 +78,48 @@ form .dataforms-layouts-card__field + .dataforms-layouts-card__field {
    margin — identical. Components can still override via their own class
    where a specific context demands it, but bare `<h1>`…`<h6>` elements
    pick up a consistent look for free. */
-h1,
-h2,
-h3,
-h4,
-h5,
-h6 {
-	font-family: var( --wpds-typography-font-family-heading );
-	font-weight: var( --wpds-typography-font-weight-default );
-	color: var( --wpds-color-foreground-content-neutral );
-	margin: 0;
-}
+@layer base {
+	h1,
+	h2,
+	h3,
+	h4,
+	h5,
+	h6 {
+		font-family: var(--font-sans);
+		font-weight: var(--font-weight-normal);
+		color: var(--foreground);
+		margin: 0;
+	}
 
-h1 {
-	font-size: var( --wpds-typography-font-size-2xl );
-	line-height: var( --wpds-typography-line-height-2xl );
-}
+	h1 {
+		font-size: 32px;
+		line-height: 40px;
+	}
 
-h2 {
-	font-size: var( --wpds-typography-font-size-xl );
-	line-height: var( --wpds-typography-line-height-xl );
-}
+	h2 {
+		font-size: 20px;
+		line-height: 32px;
+	}
 
-h3 {
-	font-size: var( --wpds-typography-font-size-lg );
-	line-height: var( --wpds-typography-line-height-lg );
-}
+	h3 {
+		font-size: 15px;
+		line-height: 28px;
+	}
 
-h4 {
-	font-size: var( --wpds-typography-font-size-md );
-	line-height: var( --wpds-typography-line-height-md );
-}
+	h4 {
+		font-size: var(--text-xs);
+		line-height: 24px;
+	}
 
-h5 {
-	font-size: var( --wpds-typography-font-size-sm );
-	line-height: var( --wpds-typography-line-height-sm );
-}
+	h5 {
+		font-size: var(--text-xxs);
+		line-height: 20px;
+	}
 
-h6 {
-	font-size: var( --wpds-typography-font-size-xs );
-	line-height: var( --wpds-typography-line-height-xs );
+	h6 {
+		font-size: 11px;
+		line-height: 16px;
+	}
 }
 
 /* Interactive elements inside drag-region ancestors (title bars, section
@@ -202,152 +133,73 @@ input,
 textarea,
 [role='button'],
 [data-base-ui-portal],
-[data-base-ui-portal] * {
+[data-base-ui-portal] *,
+/* With a menu or popover open, a click on a drag region closes it instead of
+   moving the window. */
+body:has([data-base-ui-portal] :is([role='menu'], [role='dialog'])[data-open]) * {
 	-webkit-app-region: no-drag;
 }
 
-/* Show the focus ring only on keyboard focus, overriding @wordpress/ui's
-   :focus-based outline. Unlayered CSS wins over WP UI's cascade layers.
-   `a` covers Button primitives rendered as links via its `render` prop.
-   Also revert the background/border shift @wordpress/ui's Button applies on
-   `:focus` — when a Dialog auto-focuses a button on open, the "active" look
-   would otherwise show without any user intent. Leave `color` alone:
-   loading buttons rely on `color: transparent` to hide their label while
-   the spinner runs, and overriding that here would make the label visible
-   again. Hover, press, and an open menu are user intent, so they keep the
-   active look: a button that regains focus after its menu closes would
-   otherwise ignore the pointer until it blurs. */
-button:focus:not( :focus-visible ):not( :hover, :active, [data-popup-open] ),
-a:focus:not( :focus-visible ):not( :hover, :active, [data-popup-open] ),
-[role='button']:focus:not( :focus-visible ):not( :hover, :active, [data-popup-open] ) {
-	outline: none;
-	background-color: var( --wp-ui-button-background-color );
-	border-color: var( --wp-ui-button-border-color );
-}
+/* Icons draw on a 24px grid and render at 16px unless a component sizes them. */
+@layer base {
+	:root svg {
+		width: 16px;
+		height: 16px;
+	}
 
-/* Same intent for @wordpress/components' CheckboxControl, which draws its ring
-   with a `:focus` box-shadow: an AlertDialog auto-focuses the first tabbable
-   control on open, so the checkbox would light up before the user touches
-   anything. Its companion transparent outline (a forced-colors affordance) has
-   to go too — Chrome counts it as scrollable overflow, which is enough to make
-   a dialog body scroll and grow a separator. */
-input[type='checkbox']:focus:not( :focus-visible ) {
-	box-shadow: none;
-	outline: none;
-}
-
-/* @wordpress/ui's AlertDialog footer stacks an actions row and an optional
-   error message in a column, and relies on its own `align-items: stretch`
-   beating the shared overlay `.footer` row rule — same specificity, same
-   cascade layer, so whichever stylesheet lands last wins. Vite's dev server
-   injects them in the opposite order to the production bundle, leaving the
-   action buttons shrink-wrapped and centered instead of pinned to the inline
-   end. Restore the intended layout regardless of injection order. */
-[data-wp-ui-overlay-modal] [class*='__footer-column'] {
-	align-items: stretch;
-}
-
-/* @wordpress/ui's `AlertDialog.Popup` hardcodes its Cancel button as
-   `variant="minimal"` with no way to pass `tone`, so it defaults to brand —
-   a blue-tinted "secondary" button style the app doesn't use anywhere else:
-   every other Cancel/Back/Close in the app explicitly passes
-   `tone="neutral"`. `role="alertdialog"` is set by Base UI itself (vs.
-   `role="dialog"` for the plain `Dialog`), so this only reaches the two
-   AlertDialog Cancel buttons — matching values already used by
-   `tone="neutral"` `variant="minimal"` elsewhere. */
-[role='alertdialog'] button:first-child {
-	--wp-ui-button-background-color: var( --wpds-color-background-interactive-neutral-weak );
-	--wp-ui-button-background-color-active: var( --wpds-color-background-interactive-neutral-weak-active );
-	--wp-ui-button-background-color-disabled: var( --wpds-color-background-interactive-neutral-weak-disabled );
-	--wp-ui-button-foreground-color: var( --wpds-color-foreground-interactive-neutral );
-	--wp-ui-button-foreground-color-active: var( --wpds-color-foreground-interactive-neutral-active );
-	--wp-ui-button-foreground-color-disabled: var( --wpds-color-foreground-interactive-neutral-disabled );
-}
-
-/* @wordpress/ui's Button loading spinner centers itself with
-   `inset-inline-start: 50%` (direction-aware) plus a `transform:
-   translate(-50%, -50%)` baked into its spin keyframes — the translate half
-   is a physical shift, not a direction-aware one. In LTR the two agree; in
-   RTL they fight, landing the spinner a full diameter left of center.
-   Recenter the horizontal axis with `margin-inline-start` instead, which
-   does flip with direction, and point the animation at our own keyframes
-   that only rotate and recenter the (direction-safe) vertical axis. */
-[class*='__button']::before {
-	margin-inline-start: calc( var( --wp-ui-button-font-size ) * -0.5 );
-	transform: translateY( -50% );
-}
-
-@media not ( prefers-reduced-motion ) {
-	[class*='__is-loading']::before {
-		animation-name: studio-button-spin;
+	:root svg[data-keep-size] {
+		width: auto;
+		height: auto;
 	}
 }
 
-@keyframes studio-button-spin {
+/* Text that is working: a highlight band sweeps across it, dimming it in light
+   mode and lifting it in dark mode. `--shimmer-highlight` sets the band's color. */
+.studio-shimmer {
+	--shimmer-spread: calc( 3ch + 40px );
+	--shimmer-band: var( --shimmer-highlight, oklch( from currentColor l c h / calc( alpha * 0.2 ) ) );
+	--shimmer-edge: color-mix( in oklch, var( --shimmer-band ), currentColor 50% );
+
+	background: linear-gradient(
+			110deg,
+			currentColor calc( 50% - var( --shimmer-spread ) ),
+			var( --shimmer-edge ) calc( 50% - var( --shimmer-spread ) * 0.5 ),
+			var( --shimmer-band ) 50%,
+			var( --shimmer-edge ) calc( 50% + var( --shimmer-spread ) * 0.5 ),
+			currentColor calc( 50% + var( --shimmer-spread ) )
+		)
+		0 0 / calc( 200% + var( --shimmer-spread ) * 2 ) 100% no-repeat;
+	background-clip: text;
+	-webkit-text-fill-color: transparent;
+	animation: studio-shimmer 2s linear infinite;
+}
+
+[data-color-scheme='dark'] .studio-shimmer {
+	--shimmer-band: var(
+		--shimmer-highlight,
+		oklch( from currentColor max( 0.8, calc( l + 0.4 ) ) c h / calc( alpha + 0.4 ) )
+	);
+}
+
+.studio-shimmer:dir( rtl ) {
+	animation-direction: reverse;
+}
+
+@keyframes studio-shimmer {
 	from {
-		transform: translateY( -50% ) rotate( 0deg );
+		background-position: 100% 0;
 	}
 
 	to {
-		transform: translateY( -50% ) rotate( 360deg );
+		background-position: 0 0;
 	}
 }
 
-/* Shrink icons to match the tighter spacing tokens. @wordpress/icons draws
-   SVGs at 24x24 by default, and nothing scales them down for us. Override the
-   svg width/height attributes with CSS until the design system exposes an
-   icon size token. */
-:root svg {
-	width: 16px;
-	height: 16px;
-}
-
-:root svg[data-keep-size] {
-	width: auto;
-	height: auto;
-}
-
-/* @wordpress/ui SelectControl and Autocomplete popup items use the brand
-   weak-active fill for highlighted rows. In Studio's dark chrome that reads
-   too saturated; the selected item is already indicated with a checkmark, so
-   use the neutral interactive highlight instead. */
-[data-wpds-theme-provider-id] [role='listbox'] [role='option'][data-highlighted]:not(
-		[aria-disabled='true']
-	) {
-	background-color: var( --wpds-color-background-interactive-neutral-weak-active );
-	color: var( --wpds-color-foreground-interactive-neutral );
-}
-
-/* @wordpress/components' ComboboxControl (used by DataForm's adaptive
-   picker once a field has 10+ elements) leaves its wrapper without a
-   background, so the body surface bleeds through around the inner input
-   and suggestion rows. Force both to the same background the input
-   itself uses so the control reads as one solid field. */
-.components-combobox-control__suggestions-container,
-.components-form-token-field__suggestions-list {
-	background-color: var( --wp-components-color-background, #fff );
-}
-
-.components-input-control__prefix svg,
-.components-input-control__suffix svg {
-	fill: var( --wpds-color-foreground-content-neutral-weak );
-}
-
-select optgroup,
-select option {
-	background-color: var( --wpds-color-background-surface-neutral );
-	color: var( --wpds-color-foreground-content-neutral );
-}
-
-[data-wpds-root-provider] .components-radio-control__input[type='radio']:not(:checked) {
-	border-color: var( --wpds-color-stroke-interactive-neutral );
-	background: transparent;
-}
-
-[data-wpds-root-provider] .components-radio-control__option-description {
-	color: var( --wpds-color-foreground-content-neutral-weak );
-	unicode-bidi: plaintext;
-	margin-block-end: 0;
+@media ( prefers-reduced-motion: reduce ) {
+	.studio-shimmer {
+		background: none;
+		-webkit-text-fill-color: currentColor;
+	}
 }
 
 /* Honor the user's reduced-motion preference across the entire app. Class-
@@ -396,41 +248,5 @@ select option {
 @supports not ( backdrop-filter: blur( 1px ) ) {
 	:root {
 		--surface-alpha: 100%;
-	}
-}
-
-html:active-view-transition-type(theme-details)::view-transition-old(root),
-html:active-view-transition-type(theme-details)::view-transition-new(root) {
-	animation: none;
-	mix-blend-mode: normal;
-}
-
-html:active-view-transition-type(theme-details)::view-transition-group(studio-theme-shortcuts),
-html:active-view-transition-type(theme-details)::view-transition-group(studio-theme-open-in),
-html:active-view-transition-type(theme-details)::view-transition-group(studio-theme-manage),
-html:active-view-transition-type(theme-details)::view-transition-group(.studio-theme-shortcut) {
-	animation-duration: 220ms;
-	animation-timing-function: cubic-bezier( 0.2, 0, 0, 1 );
-}
-
-html:active-view-transition-type(theme-details)::view-transition-old(.studio-theme-shortcut) {
-	animation: studio-theme-shortcut-out 140ms ease-in both;
-}
-
-html:active-view-transition-type(theme-details)::view-transition-new(.studio-theme-shortcut) {
-	animation: studio-theme-shortcut-in 180ms 40ms ease-out both;
-}
-
-@keyframes studio-theme-shortcut-out {
-	to {
-		opacity: 0;
-		transform: scale( 0.96 );
-	}
-}
-
-@keyframes studio-theme-shortcut-in {
-	from {
-		opacity: 0;
-		transform: scale( 0.96 );
 	}
 }

@@ -1,16 +1,20 @@
 import { STOPPED_WITHOUT_ANSWER } from '@studio/common/ai/tools';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { createElement, useState } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { Conversation, entriesToRenderItems, getQuestionScrollDelta } from './index';
+import {
+	Conversation,
+	entriesToRenderItems,
+	entriesToTranscriptItems,
+	getQuestionScrollDelta,
+} from './index';
 import type { LoadedAiSession, SessionEntry } from '@/data/core';
 import type { StudioChatArtifactWidgetDraft } from '@studio/common/ai/chat-artifacts';
 
 const connectorMocks = vi.hoisted( () => ( {
 	readLocalMediaFile: vi.fn(),
 	copyText: vi.fn( () => Promise.resolve() ),
-	capabilities: { readLocalMedia: true },
 } ) );
 
 const reducedMotion = vi.hoisted( () => ( { value: false } ) );
@@ -28,83 +32,41 @@ vi.mock( '@/data/core', () => ( {
 	useConnector: () => connectorMocks,
 } ) );
 
-vi.mock( '@wordpress/ui', () => ( {
-	Button: ( props: Record< string, unknown > ) => createElement( 'button', props ),
-	Icon: () => null,
-	Tooltip: {
-		Root: ( { children }: { children?: unknown } ) => children,
-		Trigger: ( { render: trigger }: { render?: unknown } ) => trigger,
-		Popup: () => null,
-		Positioner: () => null,
-	},
-} ) );
-
-vi.mock( '../thinking-indicator', () => ( {
-	ThinkingIndicator: () => null,
-} ) );
-
 beforeEach( () => {
 	connectorMocks.readLocalMediaFile.mockReset();
 	connectorMocks.copyText.mockReset();
-	connectorMocks.capabilities.readLocalMedia = true;
 } );
 
 describe( 'Assistant message copy button', () => {
-	it( 'copies the full message when text blocks are split by tool calls', () => {
-		const data = loadedSession( [
-			{
-				type: 'message',
-				id: 'assistant-multi-block',
-				parentId: null,
-				timestamp: '2026-06-05T12:00:00.000Z',
-				message: {
-					role: 'assistant',
-					content: [
-						{ type: 'text', text: 'First part.' },
-						{ type: 'toolCall', id: 'tool-call-1', name: 'Bash', arguments: {} },
-						{ type: 'text', text: 'Second part.' },
-					],
-				},
-			} as unknown as SessionEntry,
-		] );
-		renderConversation( data );
+	it( 'copies a whole reply from every reply, not just the newest', () => {
+		renderConversation(
+			loadedSession( [
+				assistantTextEntry( 'Earlier reply.' ),
+				assistantTextEntry( 'First part.', 'Second part.' ),
+			] )
+		);
 
 		const buttons = screen.getAllByRole( 'button', { name: 'Copy message' } );
-		expect( buttons ).toHaveLength( 1 );
+		expect( buttons ).toHaveLength( 2 );
 		expect( screen.getByText( 'First part.' ).closest( '[data-message-text]' ) ).toHaveAttribute(
 			'data-message-text',
 			'First part.\n\nSecond part.'
 		);
-		expect( screen.getByText( 'Second part.' ).closest( '[data-message-text]' ) ).toHaveAttribute(
-			'data-message-text',
-			'First part.\n\nSecond part.'
-		);
 
-		fireEvent.click( buttons[ 0 ] );
+		fireEvent.click( buttons[ 1 ] );
 		expect( connectorMocks.copyText ).toHaveBeenCalledWith( 'First part.\n\nSecond part.' );
 	} );
 
-	it( 'does not add a copy button to user messages', () => {
-		const data = loadedSession( [
-			{
-				type: 'message',
-				id: 'user-1',
-				parentId: null,
-				timestamp: '2026-06-05T12:00:00.000Z',
-				message: {
-					role: 'user',
-					content: [ { type: 'text', text: 'Hello there' } ],
-				},
-			} as unknown as SessionEntry,
-		] );
-		renderConversation( data );
+	it( 'copies a prompt the user sent', () => {
+		renderConversation( loadedSession( [ promptEntry( 'Hello there' ) ] ) );
 
-		expect( screen.queryByRole( 'button', { name: 'Copy message' } ) ).not.toBeInTheDocument();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Copy message' } ) );
+		expect( connectorMocks.copyText ).toHaveBeenCalledWith( 'Hello there' );
 	} );
 } );
 
 describe( 'Conversation tool rows', () => {
-	it( 'keeps tool inputs and results hidden until the label row is clicked', () => {
+	it( 'keeps tool inputs and results hidden until the label row is clicked', async () => {
 		const data = loadedSession( [
 			assistantToolCallEntry( 'Bash', { command: 'npm test' } ),
 			toolResultEntry( 'first output line\nsecond output line' ),
@@ -115,25 +77,39 @@ describe( 'Conversation tool rows', () => {
 		expect( screen.queryByText( 'npm test' ) ).not.toBeInTheDocument();
 		expect( screen.queryByText( /first output line/ ) ).not.toBeInTheDocument();
 
+		openActivity();
 		const toolRow = screen.getByRole( 'button', { name: 'Run terminal command' } );
 		expect( toolRow ).toHaveAttribute( 'aria-expanded', 'false' );
-		expect( toolRow ).toHaveAttribute( 'data-expanded', 'false' );
 
 		fireEvent.click( toolRow );
 
 		expect( toolRow ).toHaveAttribute( 'aria-expanded', 'true' );
-		expect( toolRow ).toHaveAttribute( 'data-expanded', 'true' );
 		expect( screen.getByText( 'npm test' ) ).toBeInTheDocument();
 		expect( screen.getByText( /first output line/ ) ).toBeInTheDocument();
 
 		fireEvent.click( toolRow );
 
 		expect( toolRow ).toHaveAttribute( 'aria-expanded', 'false' );
-		expect( toolRow ).toHaveAttribute( 'data-expanded', 'false' );
-		const hiddenDetails = screen.getByText( /first output line/ ).closest( '[aria-hidden="true"]' );
-		expect( hiddenDetails ).toBeInTheDocument();
-		fireEvent.transitionEnd( hiddenDetails! );
-		expect( screen.queryByText( /first output line/ ) ).not.toBeInTheDocument();
+		await waitFor( () =>
+			expect( screen.queryByText( /first output line/ ) ).not.toBeInTheDocument()
+		);
+	} );
+
+	it( 'opens a failed tool row with its error, without terminal color codes', () => {
+		const escape = String.fromCharCode( 27 );
+		renderConversation(
+			loadedSession( [
+				assistantToolCallEntry( 'Bash', { command: 'npm test' } ),
+				toolResultEntry( `${ escape }[31mcommand failed${ escape }[0m`, true ),
+			] )
+		);
+		openActivity();
+
+		expect( screen.getByRole( 'button', { name: 'Run terminal command' } ) ).toHaveAttribute(
+			'aria-expanded',
+			'true'
+		);
+		expect( screen.getByText( 'command failed' ) ).toBeInTheDocument();
 	} );
 
 	it( 'shows long tool results in the opened details without an extra toggle', () => {
@@ -148,8 +124,7 @@ describe( 'Conversation tool rows', () => {
 
 		renderConversation( data );
 
-		expect( screen.queryByRole( 'button', { name: 'Show more' } ) ).not.toBeInTheDocument();
-
+		openActivity();
 		fireEvent.click( screen.getByRole( 'button', { name: 'Run terminal command' } ) );
 
 		expect( screen.getByText( /output line 13/ ) ).toBeInTheDocument();
@@ -166,6 +141,7 @@ describe( 'Conversation tool rows', () => {
 		] );
 
 		renderConversation( data );
+		openActivity();
 
 		const toolRow = screen.getByRole( 'button', { name: 'List published posts' } );
 		expect( toolRow ).toBeInTheDocument();
@@ -184,11 +160,9 @@ describe( 'Conversation tool rows', () => {
 		] );
 
 		renderConversation( data );
+		openActivity();
 
-		expect( screen.getByRole( 'button', { name: 'Read studio/app.tsx' } ) ).toHaveAttribute(
-			'aria-label',
-			'Read studio/app.tsx'
-		);
+		expect( screen.getByRole( 'button', { name: 'Read studio/app.tsx' } ) ).toBeInTheDocument();
 	} );
 
 	it( 'hides the raw Ask User tool row while showing the question UI', () => {
@@ -229,6 +203,7 @@ describe( 'Conversation tool rows', () => {
 		] );
 
 		renderConversation( data );
+		openActivity();
 		fireEvent.click( screen.getByRole( 'button', { name: 'Take screenshot' } ) );
 
 		expect( screen.getByText( /Screenshot captured/ ) ).toBeInTheDocument();
@@ -283,6 +258,40 @@ describe( 'Conversation chat artifacts', () => {
 		expect( await screen.findByRole( 'status' ) ).toHaveTextContent( 'Image unavailable' );
 	} );
 
+	it( 'shows each annotation with its own images, and the rest on the first bubble', () => {
+		const image = ( id: string ) => ( {
+			kind: 'image' as const,
+			id,
+			name: `${ id }.png`,
+			mimeType: 'image/png' as const,
+			size: 1,
+		} );
+		const entry = {
+			type: 'custom',
+			id: 'annotated-prompt',
+			parentId: null,
+			timestamp: '2026-06-05T12:00:02.000Z',
+			customType: 'studio.user_prompt',
+			data: {
+				text: 'Also check spacing',
+				source: 'prompt',
+				attachments: [ image( 'own' ), image( 'note' ), { kind: 'file', name: 'brief.md' } ],
+				visualAnnotations: [
+					{ comment: 'Also check spacing', imageIds: [ 'own' ] },
+					{ comment: 'Use this photo', tag: 'img', imageIds: [ 'note' ] },
+				],
+			},
+		} as unknown as SessionEntry;
+
+		expect(
+			entriesToRenderItems( [ entry ] ).map( ( item ) =>
+				item.kind === 'user-text'
+					? item.attachments?.map( ( attachment ) => attachment.name )
+					: null
+			)
+		).toEqual( [ [ 'own.png', 'brief.md' ], [ 'note.png' ] ] );
+	} );
+
 	it( 'skips malformed chat artifact entries without crashing', () => {
 		const malformed = [
 			{ version: 1, id: 'artifact-1' }, // missing widgets
@@ -301,25 +310,6 @@ describe( 'Conversation chat artifacts', () => {
 
 			expect( entriesToRenderItems( [ entry ] ) ).toEqual( [] );
 		}
-	} );
-
-	it( 'drops local-only media widgets when the connector cannot read local files', () => {
-		const localOnly = chatArtifactEntry( [ localScreenshotWidget() ] );
-		const remote = chatArtifactEntry( [
-			{
-				type: 'media',
-				widgetProps: {
-					url: 'https://example.com/capture.jpg',
-					mediaKind: 'image',
-					alt: 'Remote capture',
-					mediaId: null,
-				},
-			},
-		] );
-
-		expect( entriesToRenderItems( [ localOnly ], { canReadLocalMedia: false } ) ).toEqual( [] );
-		expect( entriesToRenderItems( [ remote ], { canReadLocalMedia: false } ) ).toHaveLength( 1 );
-		expect( entriesToRenderItems( [ localOnly ], { canReadLocalMedia: true } ) ).toHaveLength( 1 );
 	} );
 } );
 
@@ -843,6 +833,80 @@ describe( 'Conversation turn-closed markers', () => {
 	it( 'renders no marker for successful turns', () => {
 		expect( entriesToRenderItems( [ turnClosedEntry( 'success' ) ] ) ).toEqual( [] );
 	} );
+
+	it( 'strips terminal color codes from error markers', () => {
+		const escape = String.fromCharCode( 27 );
+		const items = entriesToRenderItems( [
+			turnClosedEntry( 'error', `${ escape }[31mBuild failed${ escape }[0m` ),
+		] );
+
+		expect( items ).toMatchObject( [ { kind: 'error-marker', message: 'Build failed' } ] );
+	} );
+} );
+
+describe( 'Conversation turn activity', () => {
+	it( 'folds the tool calls and the text between them into one line before the reply', () => {
+		const items = entriesToTranscriptItems( [
+			promptEntry( 'Go' ),
+			assistantToolCallEntry( 'Read', { file_path: '/tmp/a.txt' }, 'Let me look.' ),
+			toolResultEntry( 'contents' ),
+			agentQuestionEntry( 'Which one?', [ 'A', 'B' ] ),
+			assistantTextEntry( 'Done.' ),
+			turnClosedEntry( 'success' ),
+		] );
+
+		expect( items ).toMatchObject( [
+			{ kind: 'user-text', text: 'Go' },
+			{
+				kind: 'activity',
+				status: 'success',
+				startedAt: Date.parse( '2026-06-05T12:00:00.000Z' ),
+				endedAt: Date.parse( '2026-06-05T12:00:03.000Z' ),
+				items: [ { kind: 'assistant-text', text: 'Let me look.' }, { kind: 'tool-use' } ],
+			},
+			{ kind: 'agent-question-batch' },
+			{ kind: 'assistant-text', text: 'Done.' },
+		] );
+	} );
+
+	it( 'marks a stopped turn before its marker', () => {
+		expect(
+			entriesToTranscriptItems( [ promptEntry( 'Go' ), turnClosedEntry( 'interrupted' ) ] )
+		).toMatchObject( [
+			{ kind: 'user-text' },
+			{ kind: 'activity', status: 'interrupted', items: [] },
+			{ kind: 'interrupted-marker' },
+		] );
+	} );
+
+	it( 'counts the open turn from the live run while the agent works', () => {
+		const items = entriesToTranscriptItems( [ promptEntry( 'Go' ) ], {
+			running: true,
+			startedAt: 42,
+		} );
+
+		expect( items[ 1 ] ).toMatchObject( {
+			kind: 'activity',
+			status: 'running',
+			startedAt: 42,
+			endedAt: null,
+		} );
+	} );
+
+	it( 'shimmers the working line and the running tool until they finish', () => {
+		renderConversation(
+			loadedSession( [ promptEntry( 'Go' ), assistantToolCallEntry( 'Bash', { command: 'ls' } ) ] ),
+			{ isRunning: true, startedAt: Date.now() }
+		);
+
+		const line = screen.getByRole( 'button', { name: 'Working for 0s' } );
+		expect( screen.getByText( 'Working for 0s' ) ).toHaveClass( 'studio-shimmer' );
+		expect( line ).toHaveAttribute( 'aria-expanded', 'false' );
+
+		fireEvent.click( line );
+		expect( line ).toHaveAttribute( 'aria-expanded', 'true' );
+		expect( screen.getByText( 'Run terminal command' ) ).toHaveClass( 'studio-shimmer' );
+	} );
 } );
 
 describe( 'getQuestionScrollDelta', () => {
@@ -921,6 +985,17 @@ function visualAnnotationsEntry(
 			source: 'prompt',
 			visualAnnotations,
 		},
+	} as SessionEntry;
+}
+
+function promptEntry( text: string ): SessionEntry {
+	return {
+		type: 'custom',
+		id: `prompt-${ text }`,
+		parentId: null,
+		timestamp: '2026-06-05T12:00:00.000Z',
+		customType: 'studio.user_prompt',
+		data: { text, source: 'prompt' },
 	} as SessionEntry;
 }
 
@@ -1007,6 +1082,10 @@ function InteractiveConversation( {
 	} );
 }
 
+function openActivity() {
+	fireEvent.click( screen.getByRole( 'button', { name: /^Worked/ } ) );
+}
+
 function loadedSession( entries: SessionEntry[] ): LoadedAiSession {
 	return {
 		summary: {
@@ -1021,9 +1100,20 @@ function loadedSession( entries: SessionEntry[] ): LoadedAiSession {
 	};
 }
 
+function assistantTextEntry( ...texts: string[] ): SessionEntry {
+	return {
+		type: 'message',
+		id: `assistant-${ texts[ 0 ] }`,
+		parentId: null,
+		timestamp: '2026-06-05T12:00:02.000Z',
+		message: { role: 'assistant', content: texts.map( ( text ) => ( { type: 'text', text } ) ) },
+	} as unknown as SessionEntry;
+}
+
 function assistantToolCallEntry(
 	name: string,
-	args: Record< string, unknown > = {}
+	args: Record< string, unknown > = {},
+	text?: string
 ): SessionEntry {
 	return {
 		type: 'message',
@@ -1033,6 +1123,7 @@ function assistantToolCallEntry(
 		message: {
 			role: 'assistant',
 			content: [
+				...( text ? [ { type: 'text', text } ] : [] ),
 				{
 					type: 'toolCall',
 					id: 'tool-call-1',
@@ -1044,7 +1135,7 @@ function assistantToolCallEntry(
 	} as unknown as SessionEntry;
 }
 
-function toolResultEntry( text: string ): SessionEntry {
+function toolResultEntry( text: string, isError = false ): SessionEntry {
 	return {
 		type: 'message',
 		id: 'tool-result',
@@ -1054,6 +1145,7 @@ function toolResultEntry( text: string ): SessionEntry {
 			role: 'toolResult',
 			toolCallId: 'tool-call-1',
 			content: [ { type: 'text', text } ],
+			isError,
 		},
 	} as unknown as SessionEntry;
 }

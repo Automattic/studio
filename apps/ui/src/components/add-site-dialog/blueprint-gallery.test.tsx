@@ -1,0 +1,92 @@
+import { fireEvent, render, screen } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { BlueprintGallery } from './blueprint-gallery';
+import type { Blueprint } from '@studio/common/lib/studio-blueprints-api';
+
+const mocks = vi.hoisted( () => ( {
+	isOffline: false,
+	blueprints: {} as Record< string, unknown >,
+} ) );
+
+vi.mock( '@/data/queries/use-blueprints', () => ( {
+	useBlueprints: () => mocks.blueprints,
+} ) );
+
+vi.mock( '@/hooks/use-offline', () => ( {
+	useOffline: () => mocks.isOffline,
+} ) );
+
+function apiBlueprint( slug: string, title: string ): Blueprint {
+	return { slug, title, excerpt: '', image: '', playground_url: '', blueprint: {} };
+}
+
+const BLOG = apiBlueprint( 'personal-blog-2', 'Personal Blog' );
+const STORE = apiBlueprint( 'woo-shop', 'Commerce' );
+
+describe( 'BlueprintGallery', () => {
+	beforeEach( () => {
+		mocks.isOffline = false;
+		mocks.blueprints = { data: [ BLOG, STORE ], isLoading: false, isError: false, isSuccess: true };
+	} );
+
+	it( 'starts with Blank site, then views a Blueprint', () => {
+		const onBlank = vi.fn();
+		const onView = vi.fn();
+		render( <BlueprintGallery onClearFilters={ vi.fn() } onBlank={ onBlank } onView={ onView } /> );
+
+		expect( screen.getByRole( 'button', { name: 'Start with Blank site' } ) ).toHaveFocus();
+		const cards = screen.getAllByRole( 'button' );
+		expect( cards.map( ( card ) => card.getAttribute( 'aria-label' ) ) ).toEqual( [
+			'Start with Blank site',
+			'View Personal Blog',
+			'View Commerce',
+		] );
+		fireEvent.click( cards[ 0 ] );
+		fireEvent.click( cards[ 2 ] );
+
+		expect( onBlank ).toHaveBeenCalled();
+		expect( onView ).toHaveBeenCalledWith( STORE );
+	} );
+
+	it( 'shows only the Blueprints for a use case', () => {
+		render(
+			<BlueprintGallery
+				useCase="store"
+				onClearFilters={ vi.fn() }
+				onBlank={ vi.fn() }
+				onView={ vi.fn() }
+			/>
+		);
+
+		expect( screen.getAllByRole( 'button' ).map( ( card ) => card.textContent ) ).toEqual( [
+			'View blueprintCommerce',
+		] );
+	} );
+
+	it( 'offers to clear a use case without matching Blueprints', () => {
+		const onClearFilters = vi.fn();
+		render(
+			<BlueprintGallery
+				useCase="events"
+				onClearFilters={ onClearFilters }
+				onBlank={ vi.fn() }
+				onView={ vi.fn() }
+			/>
+		);
+
+		expect( screen.getByText( 'No matching Blueprints.' ) ).toBeVisible();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Clear filters' } ) );
+		expect( onClearFilters ).toHaveBeenCalled();
+	} );
+
+	it( 'keeps Blank site when the Blueprints cannot load', () => {
+		mocks.isOffline = true;
+		mocks.blueprints = { data: undefined, isLoading: false, isError: true };
+		render(
+			<BlueprintGallery onClearFilters={ vi.fn() } onBlank={ vi.fn() } onView={ vi.fn() } />
+		);
+
+		expect( screen.getByText( /Blueprints could not be loaded/ ) ).toBeVisible();
+		expect( screen.getByRole( 'button', { name: 'Start with Blank site' } ) ).toBeVisible();
+	} );
+} );

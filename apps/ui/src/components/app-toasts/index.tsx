@@ -1,129 +1,101 @@
+import { Toast } from '@base-ui/react/toast';
 import { __ } from '@wordpress/i18n';
-import { Button, Notice } from '@wordpress/ui';
-import { clsx } from 'clsx';
-import { useEffect } from 'react';
-import { CopyNoticeButton, openNoticeHistory } from '@/components/notice-history';
+import { useEffect, useRef, useState, type FocusEvent } from 'react';
+import { NoticeCard } from '@/components/notice-card';
+import { useNoticeHistoryOpen } from '@/components/notice-history';
 import {
 	dismissToast,
+	getVisibleToasts,
 	notifyRendererMounted,
 	notifyRendererUnmounted,
 	pauseToastExpiry,
 	resumeToastExpiry,
-	useQueuedToasts,
 	useVisibleToasts,
 	type ToastMessage,
 } from '@/data/app-messages';
 import styles from './style.module.css';
 
-export type NoticeAppearance = 'neutral' | 'intent';
+const pauseAll = () => getVisibleToasts().forEach( ( item ) => pauseToastExpiry( item.id ) );
+const resumeAll = () => getVisibleToasts().forEach( ( item ) => resumeToastExpiry( item.id ) );
 
-// Error text is clamped in the toast; these get Copy (the full text) and More
-// (the recent-notifications dialog, where it runs in full).
-function hasErrorDetails( item: ToastMessage ) {
-	return item.intent === 'error' && Boolean( item.description );
+function ToastDeck() {
+	const { toasts } = Toast.useToastManager();
+	return (
+		<Toast.Viewport
+			className={ styles.viewport }
+			aria-label={ __( 'Notifications' ) }
+			onMouseEnter={ pauseAll }
+			onMouseLeave={ resumeAll }
+			onFocus={ pauseAll }
+			onBlur={ ( event: FocusEvent< HTMLDivElement > ) => {
+				if ( ! event.currentTarget.contains( event.relatedTarget ) ) {
+					resumeAll();
+				}
+			} }
+		>
+			{ toasts.map( ( item ) => {
+				const notice = item.data as ToastMessage;
+				return (
+					<Toast.Root
+						key={ item.id }
+						toast={ item }
+						className={ styles.toast }
+						aria-label={ notice.title }
+					>
+						<Toast.Content className={ styles.content }>
+							<NoticeCard
+								className={ styles.card }
+								notice={ notice }
+								onDismiss={ () => dismissToast( notice.id ) }
+							/>
+						</Toast.Content>
+					</Toast.Root>
+				);
+			} ) }
+		</Toast.Viewport>
+	);
 }
 
-export function AppToasts( {
-	className,
-	fit = 'row',
-	appearance = 'neutral',
-}: {
-	className?: string;
-	// 'row' stretches toasts to the shelf width (sidebar footer, matching the
-	// site rows); 'content' lets each toast hug its text up to the shelf's
-	// max-width (the floating collapsed shelf).
-	fit?: 'row' | 'content';
-	// 'neutral' flattens every toast to one quiet card; 'intent' keeps
-	// Notice's tinted surface so an error reads red at a glance.
-	appearance?: NoticeAppearance;
-} ) {
+export function AppToasts() {
 	const toasts = useVisibleToasts();
-	const queued = useQueuedToasts();
+	const historyOpen = useNoticeHistoryOpen();
+	const [ manager ] = useState( Toast.createToastManager );
+	const synced = useRef< readonly ToastMessage[] >( [] );
 
 	useEffect( () => {
 		notifyRendererMounted();
 		return () => notifyRendererUnmounted();
 	}, [] );
 
+	useEffect( () => {
+		for ( const item of toasts ) {
+			if ( synced.current.includes( item ) ) {
+				continue;
+			}
+			if ( item.leaving ) {
+				manager.close( item.id );
+			} else {
+				manager.add( {
+					id: item.id,
+					data: item,
+					timeout: 0,
+					onClose: () => dismissToast( item.id ),
+				} );
+			}
+		}
+		synced.current = toasts;
+	}, [ toasts, manager ] );
+
+	// The history lists them, so they hide and run out their time meanwhile.
+	useEffect( () => {
+		if ( historyOpen ) {
+			resumeAll();
+		}
+	}, [ historyOpen ] );
+
 	return (
-		<div
-			className={ clsx( fit === 'content' && styles.shelfHug, className ) }
-			aria-live="polite"
-			aria-relevant="additions"
-		>
-			{ toasts.length > 0 ? (
-				<div className={ styles.stack }>
-					{ toasts.map( ( item ) => (
-						<div
-							key={ item.id }
-							className={ styles.cell }
-							data-leaving={ item.leaving ? '' : undefined }
-						>
-							<div
-								className={ styles.toast }
-								onMouseEnter={ () => pauseToastExpiry( item.id ) }
-								onMouseLeave={ () => resumeToastExpiry( item.id ) }
-							>
-								{ /* Keyed on the notice's shape, not just its id: a toast that is
-							     replaced in place — a running sync becoming its result —
-							     can gain or lose a description, and reusing the same Notice
-							     across that change misaligns its internal hooks. */ }
-								<Notice.Root
-									key={ `${ item.intent }:${ !! item.description }:${ !! item.action }` }
-									intent={ item.intent }
-									className={ clsx( styles.notice, appearance === 'neutral' && styles.neutral ) }
-								>
-									<Notice.Title>{ item.title }</Notice.Title>
-									{ item.description ? (
-										<Notice.Description>{ item.description }</Notice.Description>
-									) : null }
-									{ item.action || hasErrorDetails( item ) ? (
-										<Notice.Actions>
-											{ item.action ? (
-												<Button
-													size="small"
-													variant="solid"
-													tone="neutral"
-													className={ styles.actionButton }
-													onClick={ item.action.onClick }
-												>
-													{ item.action.label }
-												</Button>
-											) : null }
-											{ hasErrorDetails( item ) ? (
-												<>
-													<CopyNoticeButton notice={ item } className={ styles.actionButton } />
-													<Button
-														size="small"
-														variant="solid"
-														tone="neutral"
-														className={ styles.actionButton }
-														onClick={ openNoticeHistory }
-													>
-														{ __( 'More' ) }
-													</Button>
-												</>
-											) : null }
-										</Notice.Actions>
-									) : null }
-									<Notice.CloseIcon
-										label={ __( 'Dismiss' ) }
-										onClick={ () => dismissToast( item.id ) }
-									/>
-								</Notice.Root>
-							</div>
-						</div>
-					) ) }
-					{ queued.slice( 0, 2 ).map( ( item, index ) => (
-						<div
-							key={ item.id }
-							className={ clsx( styles.queuePeek, index === 1 && styles.queuePeekDeeper ) }
-							data-intent={ appearance === 'intent' ? item.intent : undefined }
-							aria-hidden="true"
-						/>
-					) ) }
-				</div>
-			) : null }
-		</div>
+		<Toast.Provider toastManager={ manager } timeout={ 0 } limit={ 3 }>
+			{ historyOpen ? null : <ToastDeck /> }
+		</Toast.Provider>
 	);
 }

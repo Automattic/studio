@@ -10,11 +10,6 @@
 	gap: 16px;
 }
 
-.actions > * {
-	flex-shrink: 0;
-	white-space: nowrap;
-}
-
 .arrow {
 	margin-inline-start: 4px;
 	display: inline-block;
@@ -27,10 +22,10 @@
 .error {
 	margin: 0;
 	padding: 10px 12px;
-	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-error);
+	border: 1px solid color-mix(in oklab, var(--destructive) 35%, transparent);
 	border-radius: 6px;
-	background: var(--wpds-color-background-surface-error-weak);
-	color: var(--wpds-color-foreground-content-error);
+	background: var(--destructive-surface);
+	color: var(--destructive);
 }
 
 @media (max-width: 600px) {

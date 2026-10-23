@@ -1,43 +1,19 @@
-.copyButton {
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	width: 1.75rem;
-	height: 1.75rem;
-	margin: 0;
-	padding: 0;
-	border: 0;
-	border-radius: var(--wpds-border-radius-sm, 4px);
-	background-color: var(--wpds-color-background-surface-neutral);
-	background-color: color-mix(
+.filled {
+	--button-background: color-mix(
 		in srgb,
-		var(--wpds-color-background-surface-neutral) var(--surface-alpha, 82%),
+		var(--chat) var(--surface-alpha, 82%),
 		transparent
 	);
 	backdrop-filter: blur(4px);
-	color: var(--wpds-color-foreground-content-neutral-weak);
-	line-height: 1;
-	cursor: pointer;
-	transition: color 0.12s ease, background-color 0.12s ease;
 }
 
-.copyButton:hover,
-.copyButton:focus-visible {
-	color: var(--wpds-color-foreground-content-neutral);
-	background-color: var(--wpds-color-background-surface-neutral-weak);
+.copied {
+	color: var(--success);
 }
 
-.copyButton[data-copied='true'] {
-	color: var(--wpds-color-foreground-content-success);
-	background-color: var(--wpds-color-background-surface-success-weak);
-}
-
-.copyButton[data-variant='plain'],
-.copyButton[data-variant='plain']:hover,
-.copyButton[data-variant='plain']:focus-visible,
-.copyButton[data-variant='plain'][data-copied='true'] {
-	background-color: transparent;
-	backdrop-filter: none;
+.filled.copied {
+	--button-background: color-mix(in oklab, var(--success) 10%, var(--muted));
+	--button-hover-background: var(--button-background);
 }
 
 .visuallyHidden {

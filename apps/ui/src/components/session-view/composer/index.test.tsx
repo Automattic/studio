@@ -1,36 +1,34 @@
 import { DEFAULT_MODEL } from '@studio/common/ai/models';
 import { getAiSkillCommands } from '@studio/common/ai/slash-commands';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import {
-	act,
-	createEvent,
-	fireEvent,
-	render,
-	screen,
-	waitFor,
-	within,
-} from '@testing-library/react';
-import { Tooltip } from '@wordpress/ui';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { createRef, type ComponentProps } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+	changeAnnotation,
+	getSiteAnnotations,
+	pickAnnotation,
+	stageAnnotations,
+} from '@/components/annotations/store';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
 import { clearComposerDrafts } from './draft-store';
 import { Composer, type ComposerHandle } from '.';
 import type { ComposerSendAttachments } from './use-composer-attachments';
 import type { AiSessionSummary, LoadedAiSession, SessionEntry } from '@/data/core';
 
-// The AI credits control inside the composer reads the router; the quota it
-// also needs stays undefined here, so the control itself renders nothing.
+// "Connect provider…" opens the settings dialog through the router.
 vi.mock( '@tanstack/react-router', () => ( {
 	useNavigate: () => vi.fn(),
 } ) );
 
 const connectorMocks = vi.hoisted( () => ( {
-	capabilities: { aiSettings: false },
 	createSession: vi.fn(),
 	getAiSettings: vi.fn(),
 	getAuthUser: vi.fn(),
 	getStudioAssistantQuota: vi.fn(),
+	getUserPreferences: vi.fn(),
+	setUserPreferences: vi.fn(),
 	getFilePath: vi.fn( ( file: File ) => `/tmp/studio-attachments/${ file.name }` ),
 	setSessionModel: vi.fn(),
 	setSessionProvider: vi.fn(),
@@ -55,9 +53,9 @@ function renderComposer(
 	const composerRef = createRef< ComposerHandle >();
 	const renderTree = ( nextProps: Partial< ComponentProps< typeof Composer > > = {} ) => (
 		<QueryClientProvider client={ queryClient }>
-			<Tooltip.Provider delay={ 0 }>
+			<TooltipProvider delay={ 0 }>
 				<Composer ref={ composerRef } { ...defaultProps } sessionId="session-1" { ...nextProps } />
-			</Tooltip.Provider>
+			</TooltipProvider>
 		</QueryClientProvider>
 	);
 	const rendered = render( renderTree( props ) );
@@ -70,26 +68,21 @@ function renderComposer(
 	};
 }
 
-function firePointerEventWithClientY( element: Element, type: string, clientY: number ) {
-	const event = createEvent( type, element, { bubbles: true } );
-	Object.defineProperties( event, {
-		button: { value: 0 },
-		clientY: { value: clientY },
-		pointerId: { value: 1 },
-		pointerType: { value: 'mouse' },
-	} );
-	fireEvent( element, event );
-}
-
 describe( 'Composer menu', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
 		clearComposerDrafts();
-		connectorMocks.capabilities.aiSettings = false;
+		connectorMocks.getAiSettings.mockResolvedValue( {
+			provider: 'wpcom',
+			hasAnthropicApiKey: false,
+			anthropicApiKeyPreview: null,
+		} );
+		connectorMocks.getAuthUser.mockResolvedValue( { id: 1, email: 'user@example.com' } );
+		connectorMocks.getUserPreferences.mockResolvedValue( { autoStartSiteOnChat: false } );
+		connectorMocks.setUserPreferences.mockResolvedValue( undefined );
 	} );
 
-	it( 'offers the providers above the models the conversation’s provider serves', async () => {
-		connectorMocks.capabilities.aiSettings = true;
+	it( 'lists the models of every connected provider, highlighting the current one', async () => {
 		connectorMocks.getAiSettings.mockResolvedValue( {
 			provider: 'wpcom',
 			hasAnthropicApiKey: true,
@@ -100,20 +93,24 @@ describe( 'Composer menu', () => {
 			model: 'claude-sonnet-5',
 		} );
 
-		const trigger = screen.getByRole( 'button', { name: 'Select model' } );
-		await waitFor( () => expect( trigger ).toHaveTextContent( 'API · Sonnet 5' ) );
+		const trigger = await screen.findByRole( 'button', { name: 'Model' } );
+		await waitFor( () =>
+			expect( trigger ).toHaveAccessibleDescription( 'Sonnet 5 · Anthropic API' )
+		);
 
 		fireEvent.click( trigger );
 		await waitFor( () =>
-			expect( screen.getAllByRole( 'menuitemradio' ).map( ( item ) => item.textContent ) ).toEqual(
-				[ 'WordPress.com', 'Anthropic API', 'Sonnet 5', 'Opus 5' ]
+			expect( getMenuLabels() ).toEqual(
+				startingWith( [ 'Fast', 'Balanced', 'Strong', 'Sonnet 5', 'Opus 5', 'Connect provider' ] )
 			)
 		);
-		expect( screen.getByRole( 'menuitemradio', { name: 'Anthropic API' } ) ).toBeChecked();
+		expect( screen.getByRole( 'option', { name: /^Sonnet 5/ } ) ).toHaveAttribute(
+			'aria-selected',
+			'true'
+		);
 	} );
 
 	it( 'falls back to WordPress.com when a pinned conversation has no key', async () => {
-		connectorMocks.capabilities.aiSettings = true;
 		connectorMocks.getAiSettings.mockResolvedValue( {
 			provider: 'wpcom',
 			hasAnthropicApiKey: false,
@@ -121,19 +118,40 @@ describe( 'Composer menu', () => {
 		} );
 		renderComposer( { entries: [ createSessionContextEntry( 'anthropic-api-key' ) ] } );
 
-		const trigger = screen.getByRole( 'button', { name: 'Select model' } );
-		await waitFor( () => expect( trigger ).not.toHaveTextContent( 'API ·' ) );
+		const trigger = await screen.findByRole( 'button', { name: 'Model' } );
+		await waitFor( () =>
+			expect( trigger ).toHaveAccessibleDescription( 'Fast · WordPress.com · AI usage unavailable' )
+		);
 
 		fireEvent.click( trigger );
 		await waitFor( () =>
-			expect( screen.getAllByRole( 'menuitemradio' ).map( ( item ) => item.textContent ) ).toEqual(
-				[ 'Fast', 'Balanced', 'Strong' ]
+			expect( getMenuLabels() ).toEqual(
+				startingWith( [ 'Fast', 'Balanced', 'Strong', 'Connect provider' ] )
 			)
 		);
 	} );
 
-	it( 'omits the provider section until an Anthropic API key is saved', async () => {
-		connectorMocks.capabilities.aiSettings = true;
+	it( 'shows the AI credits left as a count, not a share of past top-ups', async () => {
+		connectorMocks.getAuthUser.mockResolvedValue( { id: 1, email: 'user@example.com' } );
+		connectorMocks.getStudioAssistantQuota.mockResolvedValue( {
+			costCap: 1_000_000,
+			costUsage: 0,
+			studioCodeAiHasAccess: true,
+			hasPaymentMethod: true,
+			allowanceRemaining: 200_000,
+			purchasedRemaining: 1_000_000,
+			purchasedAtTopUp: 5_000_000,
+		} );
+		renderComposer();
+
+		await waitFor( async () =>
+			expect( await screen.findByRole( 'button', { name: 'Model' } ) ).toHaveAccessibleDescription(
+				'Fast · WordPress.com · AI credits: 1.2M remaining'
+			)
+		);
+	} );
+
+	it( 'lists only WordPress.com models until an Anthropic API key is saved', async () => {
 		connectorMocks.getAiSettings.mockResolvedValue( {
 			provider: 'wpcom',
 			hasAnthropicApiKey: false,
@@ -141,17 +159,21 @@ describe( 'Composer menu', () => {
 		} );
 		renderComposer();
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'Select model' } ) );
-		await waitFor( () =>
-			expect( screen.getAllByRole( 'menuitemradio' ).map( ( item ) => item.textContent ) ).toEqual(
-				[ 'Fast', 'Balanced', 'Strong' ]
-			)
-		);
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Model' } ) );
+		await screen.findByRole( 'option', { name: /^Fast/ } );
+		expect( screen.queryByRole( 'option', { name: /^Sonnet 5/ } ) ).not.toBeInTheDocument();
 	} );
 
-	it( 'pins the conversation to the picked provider, carrying a model it serves', async () => {
+	it( 'hides the model picker without a provider to use', async () => {
+		connectorMocks.getAuthUser.mockResolvedValue( null );
+		renderComposer();
+
+		await waitFor( () => expect( connectorMocks.getAuthUser ).toHaveBeenCalled() );
+		expect( screen.queryByRole( 'button', { name: 'Model' } ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'pins the conversation to the provider of the picked model', async () => {
 		const queryClient = new QueryClient();
-		connectorMocks.capabilities.aiSettings = true;
 		connectorMocks.getAiSettings.mockResolvedValue( {
 			provider: 'wpcom',
 			hasAnthropicApiKey: true,
@@ -164,8 +186,8 @@ describe( 'Composer menu', () => {
 		} );
 		renderComposer( { model: 'balanced' }, queryClient );
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'Select model' } ) );
-		fireEvent.click( await screen.findByRole( 'menuitemradio', { name: 'Anthropic API' } ) );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Model' } ) );
+		fireEvent.click( await screen.findByRole( 'option', { name: /^Sonnet 5/ } ) );
 
 		await waitFor( () =>
 			expect( connectorMocks.setSessionProvider ).toHaveBeenCalledWith(
@@ -194,10 +216,8 @@ describe( 'Composer menu', () => {
 			onModelChange,
 		} );
 
-		expect( screen.queryByRole( 'button', { name: 'Send' } ) ).not.toBeInTheDocument();
-		expect(
-			screen.queryByRole( 'button', { name: 'Add skill or attachment' } )
-		).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'button', { name: 'Send message' } ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'button', { name: 'Add' } ) ).not.toBeInTheDocument();
 		expect( screen.getByRole( 'button', { name: 'Upload attachment' } ) ).toBeInTheDocument();
 		expect( composerRef.current?.getSubmission() ).toBeNull();
 
@@ -210,14 +230,14 @@ describe( 'Composer menu', () => {
 		fireEvent.change( container.querySelector( 'input[type="file"]' ) as HTMLInputElement, {
 			target: { files: [ image ] },
 		} );
-		await screen.findByRole( 'button', { name: 'Remove attachment: moodboard.png' } );
+		await screen.findByRole( 'listitem', { name: /^moodboard\.png/ } );
 		expect( composerRef.current?.getSubmission() ).toMatchObject( {
 			prompt: 'A bright ceramics portfolio',
 			attachments: { images: [ expect.objectContaining( { name: 'moodboard.png' } ) ], files: [] },
 		} );
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'Select model' } ) );
-		fireEvent.click( await screen.findByRole( 'menuitemradio', { name: 'Fast' } ) );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Model' } ) );
+		fireEvent.click( await screen.findByRole( 'option', { name: /^Fast/ } ) );
 		expect( onModelChange ).toHaveBeenCalledWith( 'fast' );
 		expect( connectorMocks.setSessionModel ).not.toHaveBeenCalled();
 	} );
@@ -227,18 +247,18 @@ describe( 'Composer menu', () => {
 		connectorMocks.getStudioAssistantQuota.mockResolvedValue( { purchasedRemaining: 0 } );
 		const { unmount } = renderComposer();
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'Select model' } ) );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Model' } ) );
 		await waitFor( () => {
-			expect( screen.getByRole( 'menuitemradio', { name: 'Balanced' } ) ).toHaveAttribute(
+			expect( screen.getByRole( 'option', { name: /^Balanced/ } ) ).toHaveAttribute(
 				'aria-disabled',
 				'true'
 			);
 		} );
-		expect( screen.getByRole( 'menuitemradio', { name: 'Strong' } ) ).toHaveAttribute(
+		expect( screen.getByRole( 'option', { name: /^Strong/ } ) ).toHaveAttribute(
 			'aria-disabled',
 			'true'
 		);
-		expect( screen.getByRole( 'menuitemradio', { name: 'Fast' } ) ).not.toHaveAttribute(
+		expect( screen.getByRole( 'option', { name: /^Fast/ } ) ).not.toHaveAttribute(
 			'aria-disabled'
 		);
 		unmount();
@@ -246,9 +266,9 @@ describe( 'Composer menu', () => {
 		connectorMocks.getStudioAssistantQuota.mockResolvedValue( { purchasedRemaining: 50_000 } );
 		renderComposer();
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'Select model' } ) );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Model' } ) );
 		await waitFor( () => {
-			expect( screen.getByRole( 'menuitemradio', { name: 'Balanced' } ) ).not.toHaveAttribute(
+			expect( screen.getByRole( 'option', { name: /^Balanced/ } ) ).not.toHaveAttribute(
 				'aria-disabled'
 			);
 		} );
@@ -259,152 +279,229 @@ describe( 'Composer menu', () => {
 		connectorMocks.getStudioAssistantQuota.mockResolvedValue( { purchasedRemaining: 0 } );
 		renderComposer();
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'Select model' } ) );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Model' } ) );
 		await waitFor( () => {
-			expect( screen.getByRole( 'menuitemradio', { name: 'Balanced' } ) ).not.toHaveAttribute(
+			expect( screen.getByRole( 'option', { name: /^Balanced/ } ) ).not.toHaveAttribute(
 				'aria-disabled'
 			);
 		} );
-		expect( screen.getByRole( 'menuitemradio', { name: 'Strong' } ) ).not.toHaveAttribute(
+		expect( screen.getByRole( 'option', { name: /^Strong/ } ) ).not.toHaveAttribute(
 			'aria-disabled'
 		);
-		expect(
-			screen.queryByText( 'Add AI credits to unlock stronger models.' )
-		).not.toBeInTheDocument();
 	} );
 
-	it( 'nudges free-allowance accounts toward paid tiers, dismissibly', async () => {
-		localStorage.removeItem( 'studio_code_paid_tiers_nudge_dismissed' );
-		connectorMocks.getAuthUser.mockResolvedValue( { id: 1, email: 'user@example.com' } );
-		connectorMocks.getStudioAssistantQuota.mockResolvedValue( { purchasedRemaining: 0 } );
-		const { unmount } = renderComposer();
+	it( 'shows Stop while a run is busy and the draft is empty, and queues otherwise', () => {
+		const onInterrupt = vi.fn< () => Promise< void > >();
+		renderComposer( { busy: true, onInterrupt } );
 
-		// Banner above the prompt, with the shared nudge copy.
-		expect(
-			await screen.findByText( 'Add AI credits to unlock stronger models.' )
-		).toBeInTheDocument();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Stop response' } ) );
+		expect( onInterrupt ).toHaveBeenCalledTimes( 1 );
 
-		// The model picker carries the same nudge as a footer item.
-		fireEvent.click( screen.getByRole( 'button', { name: 'Select model' } ) );
-		expect(
-			await screen.findByRole( 'menuitem', { name: 'Add AI credits to unlock stronger models.' } )
-		).toBeInTheDocument();
-		fireEvent.keyDown( document.activeElement ?? document.body, { key: 'Escape' } );
+		fireEvent.change( screen.getByRole( 'combobox' ), { target: { value: 'And then this' } } );
+		expect( screen.getByRole( 'button', { name: 'Queue message' } ) ).toBeEnabled();
+	} );
 
-		// Dismissing hides the banner and persists.
-		fireEvent.click( screen.getByRole( 'button', { name: 'Dismiss' } ) );
-		await waitFor( () => {
-			expect(
-				screen.queryByText( 'Add AI credits to unlock stronger models.' )
-			).not.toBeInTheDocument();
+	it( 'keeps the draft until the send is accepted, clearing only what was sent', async () => {
+		let acceptSend: () => void = () => {};
+		const onSend = vi.fn(
+			() =>
+				new Promise< void >( ( resolve ) => {
+					acceptSend = resolve;
+				} )
+		);
+		renderComposer( { onSend } );
+		const textarea = screen.getByRole( 'combobox' );
+
+		fireEvent.change( textarea, { target: { value: 'First message' } } );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Send message' } ) );
+		expect( textarea ).toHaveValue( 'First message' );
+
+		await act( async () => acceptSend() );
+		expect( textarea ).toHaveValue( '' );
+
+		fireEvent.change( textarea, { target: { value: 'Second message' } } );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Send message' } ) );
+		fireEvent.change( textarea, { target: { value: 'Second message, edited meanwhile' } } );
+		await act( async () => acceptSend() );
+		expect( textarea ).toHaveValue( 'Second message, edited meanwhile' );
+	} );
+
+	it( 'sends staged annotations with the message once the agent is idle', async () => {
+		const onSend = vi.fn().mockResolvedValue( undefined );
+		const id = pickAnnotation( 'composer-site', { tag: 'h1', selector: 'h1', path: '/' } )!;
+		changeAnnotation( 'composer-site', id, { comment: 'Make this bigger' } );
+		stageAnnotations( 'composer-site' );
+		const { rerenderComposer } = renderComposer( {
+			busy: true,
+			onSend,
+			annotationSiteId: 'composer-site',
 		} );
-		expect( localStorage.getItem( 'studio_code_paid_tiers_nudge_dismissed' ) ).toBe( '1' );
-		unmount();
 
-		// Paid accounts never see it.
-		localStorage.removeItem( 'studio_code_paid_tiers_nudge_dismissed' );
-		connectorMocks.getStudioAssistantQuota.mockResolvedValue( { purchasedRemaining: 50_000 } );
+		expect( screen.getByRole( 'listitem', { name: /^1 annotation/ } ) ).toBeVisible();
+		expect( screen.getByRole( 'button', { name: 'Stop response' } ) ).toBeVisible();
+
+		rerenderComposer( { onSend, annotationSiteId: 'composer-site' } );
+		fireEvent.change( screen.getByRole( 'combobox' ), { target: { value: 'Also tighten it' } } );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Send message' } ) );
+
+		await waitFor( () => expect( getSiteAnnotations( 'composer-site' ).notes ).toEqual( [] ) );
+		expect( onSend ).toHaveBeenCalledWith(
+			expect.stringMatching( /^Also tighten it\n\nThe user submitted 1 visual annotation/ ),
+			expect.objectContaining( {
+				displayMessage: 'Also tighten it',
+				visualAnnotations: [
+					{ comment: 'Also tighten it' },
+					expect.objectContaining( { comment: 'Make this bigger', tag: 'h1' } ),
+				],
+			} )
+		);
+		expect( screen.queryByRole( 'listitem', { name: /annotation/ } ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'keeps the draft when the send is rejected', async () => {
+		const onSend = vi.fn().mockRejectedValue( new Error( 'network error' ) );
+		const firstRender = renderComposer( { onSend } );
+		fireEvent.change( screen.getByRole( 'combobox' ), { target: { value: 'Retry this draft' } } );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Send message' } ) );
+		await waitFor( () => expect( onSend ).toHaveBeenCalled() );
+		firstRender.unmount();
+
 		renderComposer();
-		fireEvent.click( screen.getByRole( 'button', { name: 'Select model' } ) );
-		await waitFor( () => {
-			expect( screen.getByRole( 'menuitemradio', { name: 'Balanced' } ) ).not.toHaveAttribute(
-				'aria-disabled'
-			);
-		} );
-		expect(
-			screen.queryByText( 'Add AI credits to unlock stronger models.' )
-		).not.toBeInTheDocument();
+		expect( screen.getByRole( 'combobox' ) ).toHaveValue( 'Retry this draft' );
 	} );
 
-	it( 'yields the nudge to the usage warning from 80% spend', async () => {
-		localStorage.removeItem( 'studio_code_paid_tiers_nudge_dismissed' );
-		connectorMocks.getAuthUser.mockResolvedValue( { id: 1, email: 'user@example.com' } );
+	it( 'holds sends behind the out-of-credits notice and flags a blocked send', async () => {
 		connectorMocks.getStudioAssistantQuota.mockResolvedValue( {
 			costCap: 100,
-			allowanceRemaining: 15,
+			studioCodeAiHasAccess: true,
+			studioCodeAiAccess: 'granted',
+			hasPaymentMethod: true,
+			allowanceRemaining: 0,
 			purchasedRemaining: 0,
-			purchasedAtTopUp: 0,
 		} );
-		renderComposer();
-
-		// The tiers stay locked and the picker keeps its contextual footer,
-		// but the banner stays out of the warning's way.
-		fireEvent.click( screen.getByRole( 'button', { name: 'Select model' } ) );
-		await waitFor( () => {
-			expect( screen.getByRole( 'menuitemradio', { name: 'Balanced' } ) ).toHaveAttribute(
-				'aria-disabled',
-				'true'
-			);
-		} );
-		expect(
-			screen.getByRole( 'menuitem', { name: 'Add AI credits to unlock stronger models.' } )
-		).toBeInTheDocument();
-		fireEvent.keyDown( document.activeElement ?? document.body, { key: 'Escape' } );
-		await waitFor( () => {
-			expect(
-				screen.queryByText( 'Add AI credits to unlock stronger models.' )
-			).not.toBeInTheDocument();
-		} );
-	} );
-
-	it( 'shows tooltips for the plus button and model picker', async () => {
-		renderComposer();
-
-		fireEvent.pointerEnter( screen.getByRole( 'button', { name: 'Add skill or attachment' } ) );
-		fireEvent.mouseEnter( screen.getByRole( 'button', { name: 'Add skill or attachment' } ) );
-		expect( await screen.findByText( 'Add skill or attachment' ) ).toBeInTheDocument();
-
-		fireEvent.pointerLeave( screen.getByRole( 'button', { name: 'Add skill or attachment' } ) );
-		fireEvent.mouseLeave( screen.getByRole( 'button', { name: 'Add skill or attachment' } ) );
-		await waitFor( () => {
-			expect( screen.queryByText( 'Add skill or attachment' ) ).not.toBeInTheDocument();
-		} );
-
-		fireEvent.pointerEnter( screen.getByRole( 'button', { name: 'Select model' } ) );
-		fireEvent.mouseEnter( screen.getByRole( 'button', { name: 'Select model' } ) );
-		expect( await screen.findByText( 'Select model' ) ).toBeInTheDocument();
-	} );
-
-	it( 'shows a tooltip for the stop button while busy', async () => {
-		renderComposer( { busy: true } );
-
-		fireEvent.pointerEnter( screen.getByRole( 'button', { name: 'Stop' } ) );
-		fireEvent.mouseEnter( screen.getByRole( 'button', { name: 'Stop' } ) );
-
-		expect( await screen.findByText( 'Stop' ) ).toBeInTheDocument();
-	} );
-
-	it( 'blocks sending and queueing while submission is unavailable', async () => {
 		const onSend = vi.fn< ( prompt: string ) => Promise< void > >();
-		renderComposer( { busy: true, canSubmit: false, onSend } );
+		renderComposer( { onSend } );
 
-		const textarea = screen.getByRole( 'combobox' );
-		fireEvent.change( textarea, { target: { value: 'sneak one past the lockout' } } );
+		const notice = await screen.findByRole( 'alert' );
+		expect( notice ).toHaveTextContent( 'Add AI credits to send another message.' );
+		expect( within( notice ).getByRole( 'button', { name: 'Add credits' } ) ).toBeInTheDocument();
 
-		// The Enter path reaches send() directly, bypassing the button's state.
-		fireEvent.keyDown( textarea, { key: 'Enter' } );
-		fireEvent.click( screen.getByRole( 'button', { name: 'Queue' } ) );
+		fireEvent.change( screen.getByRole( 'combobox' ), { target: { value: 'One more' } } );
+		fireEvent.keyDown( screen.getByRole( 'combobox' ), { key: 'Enter' } );
+		expect( onSend ).not.toHaveBeenCalled();
+		expect( notice ).toHaveAttribute( 'data-feedback' );
+		expect( screen.getByRole( 'combobox' ) ).toHaveValue( 'One more' );
+	} );
 
-		await waitFor( () => expect( screen.getByRole( 'button', { name: 'Queue' } ) ).toBeDisabled() );
+	it( 'shakes the notice it is given instead of sending', async () => {
+		const onConnect = vi.fn();
+		const onSend = vi.fn< ( prompt: string ) => Promise< void > >();
+		renderComposer( {
+			onSend,
+			notice: {
+				message: 'Connect a provider to build and edit your site.',
+				action: { label: 'Connect', onClick: onConnect },
+			},
+		} );
+
+		const notice = screen.getByRole( 'alert' );
+		fireEvent.click( within( notice ).getByRole( 'button', { name: 'Connect' } ) );
+		expect( onConnect ).toHaveBeenCalled();
+
+		fireEvent.change( screen.getByRole( 'combobox' ), { target: { value: 'Build a bakery' } } );
+		fireEvent.keyDown( screen.getByRole( 'combobox' ), { key: 'Enter' } );
+		expect( onSend ).not.toHaveBeenCalled();
+		expect( within( notice ).getByText( /Connect a provider/ ).parentElement ).toHaveAttribute(
+			'data-submit-feedback',
+			'shake'
+		);
+	} );
+
+	it( 'does not hold an Anthropic chat behind WordPress.com credits', async () => {
+		connectorMocks.getAiSettings.mockResolvedValue( {
+			provider: 'wpcom',
+			hasAnthropicApiKey: true,
+			anthropicApiKeyPreview: null,
+		} );
+		connectorMocks.getStudioAssistantQuota.mockResolvedValue( {
+			costCap: 100,
+			studioCodeAiHasAccess: true,
+			hasPaymentMethod: true,
+			allowanceRemaining: 0,
+			purchasedRemaining: 0,
+		} );
+		const onSend = vi.fn< ( prompt: string ) => Promise< void > >();
+		renderComposer( {
+			onSend,
+			model: 'claude-sonnet-5',
+			entries: [ createSessionContextEntry( 'anthropic-api-key' ) ],
+		} );
+		await waitFor( async () =>
+			expect( await screen.findByRole( 'button', { name: 'Model' } ) ).toHaveAccessibleDescription(
+				'Sonnet 5 · Anthropic API'
+			)
+		);
+
+		fireEvent.change( screen.getByRole( 'combobox' ), { target: { value: 'One more' } } );
+		fireEvent.keyDown( screen.getByRole( 'combobox' ), { key: 'Enter' } );
+
+		await waitFor( () => expect( onSend ).toHaveBeenCalled() );
+		expect( screen.queryByRole( 'alert' ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'inserts a skill from the add menu at the cursor instead of sending it', async () => {
+		const onSend = vi.fn< ( prompt: string ) => Promise< void > >();
+		renderComposer( { onSend } );
+		const textarea = screen.getByRole< HTMLTextAreaElement >( 'combobox' );
+		fireEvent.change( textarea, { target: { value: 'Please audit' } } );
+		textarea.setSelectionRange( 6, 6 );
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Add' } ) );
+		fireEvent.click( await screen.findByRole( 'option', { name: /^SEO Audit/ } ) );
+
+		expect( textarea ).toHaveValue( 'Please /rank-me-up audit' );
 		expect( onSend ).not.toHaveBeenCalled();
 	} );
 
-	it( 'keeps Stop working while submission is unavailable', () => {
-		const onInterrupt = vi.fn< () => Promise< void > >();
-		renderComposer( { busy: true, canSubmit: false, onInterrupt } );
+	it( 'turns auto-start on from the add menu and off from its chip', async () => {
+		renderComposer( { canAutoStart: true } );
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'Stop' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Add' } ) );
+		const autoStart = await screen.findByRole( 'option', { name: /^Auto-start/ } );
+		await waitFor( () => expect( autoStart ).not.toHaveAttribute( 'aria-disabled' ) );
+		fireEvent.click( autoStart );
+		await waitFor( () =>
+			expect( connectorMocks.setUserPreferences.mock.calls[ 0 ][ 0 ] ).toEqual( {
+				autoStartSiteOnChat: true,
+			} )
+		);
 
-		expect( onInterrupt ).toHaveBeenCalledTimes( 1 );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Remove Auto-start' } ) );
+		await waitFor( () =>
+			expect( connectorMocks.setUserPreferences.mock.calls[ 1 ][ 0 ] ).toEqual( {
+				autoStartSiteOnChat: false,
+			} )
+		);
 	} );
 
-	it( 'uses a queue-focused placeholder while busy', () => {
-		renderComposer( { busy: true } );
+	it( 'switches to the live site from the add menu and back from its chip', async () => {
+		const onEnvironmentChange = vi.fn();
+		const { rerenderComposer } = renderComposer( {
+			liveUrl: 'https://example.com',
+			onEnvironmentChange,
+		} );
 
-		expect( screen.getByText( 'Queue the next message while I work…' ) ).toBeInTheDocument();
-		expect(
-			screen.getByPlaceholderText( 'Queue the next message while I work…' )
-		).toBeInTheDocument();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Add' } ) );
+		fireEvent.click( await screen.findByRole( 'option', { name: /^Work on live site/ } ) );
+		expect( onEnvironmentChange ).toHaveBeenCalledWith( 'live' );
+
+		rerenderComposer( {
+			environment: 'live',
+			liveUrl: 'https://example.com',
+			onEnvironmentChange,
+		} );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Remove Live' } ) );
+		expect( onEnvironmentChange ).toHaveBeenLastCalledWith( 'local' );
 	} );
 
 	it( 'answers a pending question with typed text, but still queues skill commands', async () => {
@@ -412,98 +509,68 @@ describe( 'Composer menu', () => {
 		const onAnswer = vi.fn();
 		renderComposer( { busy: true, onSend, onAnswer } );
 
-		const textarea = screen.getByPlaceholderText( 'Or type your own answer…' );
+		const textarea = screen.getByPlaceholderText( 'Your answer' );
 		fireEvent.change( textarea, { target: { value: 'Something warmer' } } );
-		fireEvent.click( screen.getByRole( 'button', { name: 'Answer' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Send answer' } ) );
 
 		expect( onAnswer ).toHaveBeenCalledWith( 'Something warmer' );
 		expect( textarea ).toHaveValue( '' );
 
 		fireEvent.change( textarea, { target: { value: '/annotate' } } );
-		fireEvent.click( screen.getByRole( 'button', { name: 'Queue' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Queue message' } ) );
 
 		await waitFor( () => expect( onSend ).toHaveBeenCalledTimes( 1 ) );
 		expect( onSend.mock.calls[ 0 ][ 0 ] ).toBe( '/annotate' );
 		expect( onAnswer ).toHaveBeenCalledTimes( 1 );
 	} );
 
-	it( 'keeps the placeholder suggestion steady while the composer sits idle', () => {
-		vi.useFakeTimers();
-		try {
-			renderComposer();
-
-			act( () => {
-				vi.advanceTimersByTime( 30000 );
-			} );
-
-			expect( screen.getByText( 'What should we make better?' ) ).toBeInTheDocument();
-		} finally {
-			vi.useRealTimers();
-		}
-	} );
-
-	it( 'advances the placeholder suggestion after each send', async () => {
+	it( 'lists the skills under their own heading, with descriptions', async () => {
 		renderComposer();
 
-		fireEvent.change( screen.getByPlaceholderText( 'What should we make better?' ), {
-			target: { value: 'ship it' },
-		} );
-		fireEvent.click( screen.getByRole( 'button', { name: 'Send' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Add' } ) );
 
-		expect( await screen.findByText( 'What’s the next move?' ) ).toBeInTheDocument();
+		const skills = await screen.findByRole( 'group', { name: 'Skills' } );
+		const [ first ] = getAiSkillCommands();
+		expect(
+			within( skills ).getByRole( 'option', { name: /^Visual Annotations/ } )
+		).toHaveTextContent( first.description );
 	} );
 
-	it( 'shows a flyout affordance and skill descriptions', async () => {
+	it( 'completes a slash command from the keyboard and keeps the text on Escape', async () => {
 		renderComposer();
+		const textarea = screen.getByRole( 'combobox' );
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'Add skill or attachment' } ) );
+		fireEvent.change( textarea, { target: { value: 'Please /rank' } } );
+		expect( await screen.findByRole( 'option', { name: /^SEO Audit/ } ) ).toHaveAttribute(
+			'aria-selected',
+			'true'
+		);
+		fireEvent.keyDown( textarea, { key: 'Enter' } );
+		expect( textarea ).toHaveValue( 'Please /rank-me-up ' );
 
-		const skillsItem = await screen.findByRole( 'menuitem', { name: /Skills/ } );
-		expect( within( skillsItem ).getByText( 'Skills' ) ).toBeInTheDocument();
-		expect( skillsItem.querySelector( 'svg' ) ).toBeInTheDocument();
-
-		fireEvent.pointerMove( skillsItem );
-		fireEvent.mouseEnter( skillsItem );
-		fireEvent.keyDown( skillsItem, { key: 'ArrowRight' } );
-
-		await waitFor( () => {
-			expect( screen.getByText( getAiSkillCommands()[ 0 ].description ) ).toBeInTheDocument();
-		} );
+		fireEvent.change( textarea, { target: { value: '/' } } );
+		await screen.findByRole( 'listbox', { name: 'Commands' } );
+		fireEvent.keyDown( textarea, { key: 'Escape' } );
+		await waitFor( () =>
+			expect( screen.queryByRole( 'listbox', { name: 'Commands' } ) ).not.toBeInTheDocument()
+		);
+		expect( textarea ).toHaveValue( '/' );
 	} );
 
-	it( 'portals attachment hover previews to the document body', async () => {
+	it( 'previews an attachment while its chip is hovered', async () => {
 		const { container } = renderComposer();
 		const textFile = new File( [ 'Attachment preview text' ], 'notes.txt', {
 			type: 'text/plain',
 		} );
-		const input = container.querySelector( 'input[type="file"]' ) as HTMLInputElement;
-
-		fireEvent.change( input, {
+		fireEvent.change( container.querySelector( 'input[type="file"]' ) as HTMLInputElement, {
 			target: { files: [ textFile ] },
 		} );
 
-		const removeButton = await screen.findByRole( 'button', {
-			name: 'Remove attachment: notes.txt',
-		} );
-		const attachmentItem = removeButton.closest( 'li' );
-		expect( attachmentItem ).toBeInTheDocument();
-		vi.spyOn( attachmentItem!, 'getBoundingClientRect' ).mockReturnValue( {
-			x: 180,
-			y: 420,
-			top: 420,
-			right: 236,
-			bottom: 476,
-			left: 180,
-			width: 56,
-			height: 56,
-			toJSON: () => ( {} ),
-		} );
+		fireEvent.mouseEnter( await screen.findByRole( 'listitem', { name: /^notes\.txt/ } ) );
 
-		fireEvent.pointerEnter( attachmentItem! );
-
-		const preview = await screen.findByRole( 'tooltip' );
-		expect( preview ).toHaveTextContent( 'notes.txt' );
-		expect( preview.parentElement ).toBe( document.body );
+		expect(
+			await screen.findByText( 'Attachment preview text', {}, { timeout: 2000 } )
+		).toBeInTheDocument();
 	} );
 
 	it( 'restores text and attachments independently for each session', async () => {
@@ -518,46 +585,17 @@ describe( 'Composer menu', () => {
 			firstSession.container.querySelector( 'input[type="file"]' ) as HTMLInputElement,
 			{ target: { files: [ textFile ] } }
 		);
-		await screen.findByRole( 'button', { name: 'Remove attachment: notes.txt' } );
+		await screen.findByRole( 'listitem', { name: /^notes\.txt/ } );
 		firstSession.rerenderComposer( { sessionId: 'session-2' } );
 		expect( screen.getByRole( 'combobox' ) ).toHaveValue( '' );
-		expect(
-			screen.queryByRole( 'button', { name: 'Remove attachment: notes.txt' } )
-		).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'listitem' ) ).not.toBeInTheDocument();
 		fireEvent.change( screen.getByRole( 'combobox' ), {
 			target: { value: 'A different draft for session two' },
 		} );
 
 		firstSession.rerenderComposer();
 		expect( screen.getByRole( 'combobox' ) ).toHaveValue( 'Keep this draft for session one' );
-		expect(
-			screen.getByRole( 'button', { name: 'Remove attachment: notes.txt' } )
-		).toBeInTheDocument();
-	} );
-
-	it( 'restores the suggestion baseline with its session draft', async () => {
-		const firstSession = renderComposer();
-		act( () => {
-			firstSession.composerRef.current?.replaceDraft( 'A suggested prompt', {
-				suggestionBaseline: 'A suggested prompt',
-			} );
-		} );
-		await waitFor( () =>
-			expect( firstSession.composerRef.current?.getDraft() ).toEqual( {
-				text: 'A suggested prompt',
-				hasAttachments: false,
-				suggestionBaseline: 'A suggested prompt',
-			} )
-		);
-
-		firstSession.rerenderComposer( { sessionId: 'session-2' } );
-		firstSession.rerenderComposer();
-
-		expect( firstSession.composerRef.current?.getDraft() ).toEqual( {
-			text: 'A suggested prompt',
-			hasAttachments: false,
-			suggestionBaseline: 'A suggested prompt',
-		} );
+		expect( screen.getByRole( 'listitem', { name: /^notes\.txt/ } ) ).toBeInTheDocument();
 	} );
 
 	it( 'clears the cached draft after sending', async () => {
@@ -566,7 +604,7 @@ describe( 'Composer menu', () => {
 		fireEvent.change( screen.getByRole( 'combobox' ), {
 			target: { value: 'Send and clear this draft' },
 		} );
-		fireEvent.click( screen.getByRole( 'button', { name: 'Send' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Send message' } ) );
 		await waitFor( () =>
 			expect( onSend ).toHaveBeenCalledWith( 'Send and clear this draft', {
 				files: [],
@@ -577,166 +615,6 @@ describe( 'Composer menu', () => {
 
 		renderComposer();
 		expect( screen.getByRole( 'combobox' ) ).toHaveValue( '' );
-	} );
-
-	it( 'restores the cached draft after a failed send', async () => {
-		const onSend = vi.fn().mockRejectedValue( new Error( 'network error' ) );
-		const firstRender = renderComposer( { onSend } );
-		fireEvent.change( screen.getByRole( 'combobox' ), {
-			target: { value: 'Retry this draft' },
-		} );
-		fireEvent.click( screen.getByRole( 'button', { name: 'Send' } ) );
-		await waitFor( () =>
-			expect( screen.getByRole( 'combobox' ) ).toHaveValue( 'Retry this draft' )
-		);
-		firstRender.unmount();
-
-		renderComposer();
-		expect( screen.getByRole( 'combobox' ) ).toHaveValue( 'Retry this draft' );
-	} );
-
-	it( 'caches a failed send for retry even if the session was switched away first', async () => {
-		let rejectSend: ( error: Error ) => void = () => {};
-		const onSend = vi.fn(
-			() =>
-				new Promise< void >( ( _resolve, reject ) => {
-					rejectSend = reject;
-				} )
-		);
-		const firstRender = renderComposer( { onSend } );
-		fireEvent.change( screen.getByRole( 'combobox' ), {
-			target: { value: 'Retry after switching away' },
-		} );
-		fireEvent.click( screen.getByRole( 'button', { name: 'Send' } ) );
-		await waitFor( () => expect( onSend ).toHaveBeenCalled() );
-
-		firstRender.unmount();
-		await act( async () => {
-			rejectSend( new Error( 'network error' ) );
-			await Promise.resolve();
-		} );
-
-		renderComposer();
-		expect( screen.getByRole( 'combobox' ) ).toHaveValue( 'Retry after switching away' );
-	} );
-
-	it( 'grows, clamps, and shrinks the textarea with draft content', async () => {
-		Object.defineProperty( window, 'innerHeight', {
-			configurable: true,
-			value: 1000,
-		} );
-		renderComposer();
-		const textarea = screen.getByRole( 'combobox' ) as HTMLTextAreaElement;
-		let scrollHeight = 72;
-		Object.defineProperty( textarea, 'scrollHeight', {
-			configurable: true,
-			get: () => scrollHeight,
-		} );
-
-		fireEvent.change( textarea, {
-			target: { value: 'Line one\nLine two\nLine three' },
-		} );
-
-		await waitFor( () => {
-			expect( textarea ).toHaveStyle( { height: '72px' } );
-			expect( textarea ).toHaveStyle( { overflowY: 'hidden' } );
-		} );
-
-		scrollHeight = 420;
-		fireEvent.change( textarea, {
-			target: {
-				value: Array.from( { length: 20 }, ( _, index ) => `Line ${ index + 1 }` ).join( '\n' ),
-			},
-		} );
-
-		await waitFor( () => {
-			expect( textarea ).toHaveStyle( { height: '320px' } );
-			expect( textarea ).toHaveStyle( { overflowY: 'auto' } );
-		} );
-
-		scrollHeight = 36;
-		fireEvent.change( textarea, {
-			target: { value: 'Short again' },
-		} );
-
-		await waitFor( () => {
-			expect( textarea ).toHaveStyle( { height: '48px' } );
-			expect( textarea ).toHaveStyle( { overflowY: 'hidden' } );
-		} );
-	} );
-
-	it( 'resizes the textarea when attachments change its padding', async () => {
-		const { container } = renderComposer();
-		const textarea = screen.getByRole( 'combobox' ) as HTMLTextAreaElement;
-		const textFile = new File( [ 'Attachment preview text' ], 'notes.txt', {
-			type: 'text/plain',
-		} );
-		const input = container.querySelector( 'input[type="file"]' ) as HTMLInputElement;
-		let scrollHeight = 92;
-		Object.defineProperty( textarea, 'scrollHeight', {
-			configurable: true,
-			get: () => scrollHeight,
-		} );
-
-		fireEvent.change( input, {
-			target: { files: [ textFile ] },
-		} );
-
-		const removeButton = await screen.findByRole( 'button', {
-			name: 'Remove attachment: notes.txt',
-		} );
-		await waitFor( () => {
-			expect( textarea ).toHaveStyle( { height: '92px' } );
-		} );
-
-		scrollHeight = 36;
-		fireEvent.click( removeButton );
-
-		await waitFor( () => {
-			expect( textarea ).toHaveStyle( { height: '48px' } );
-		} );
-	} );
-
-	it( 'resizes the textarea by dragging the composer top edge', async () => {
-		Object.defineProperty( window, 'innerHeight', {
-			configurable: true,
-			value: 1000,
-		} );
-		renderComposer();
-		const textarea = screen.getByRole( 'combobox' ) as HTMLTextAreaElement;
-		const resizeHandle = screen.getByRole( 'separator', { name: 'Resize composer' } );
-		Object.defineProperty( textarea, 'scrollHeight', {
-			configurable: true,
-			get: () => 240,
-		} );
-		vi.spyOn( textarea, 'getBoundingClientRect' ).mockReturnValue( {
-			x: 0,
-			y: 0,
-			top: 0,
-			right: 760,
-			bottom: 120,
-			left: 0,
-			width: 760,
-			height: 120,
-			toJSON: () => ( {} ),
-		} );
-
-		firePointerEventWithClientY( resizeHandle, 'pointerdown', 500 );
-		firePointerEventWithClientY( resizeHandle, 'pointermove', 420 );
-
-		await waitFor( () => {
-			expect( textarea ).toHaveStyle( { height: '200px' } );
-			expect( resizeHandle ).toHaveAttribute( 'aria-valuenow', '200' );
-		} );
-
-		firePointerEventWithClientY( resizeHandle, 'pointermove', 620 );
-
-		await waitFor( () => {
-			expect( textarea ).toHaveStyle( { height: '48px' } );
-			expect( resizeHandle ).toHaveAttribute( 'aria-valuenow', '48' );
-		} );
-
-		firePointerEventWithClientY( resizeHandle, 'pointerup', 620 );
 	} );
 
 	it( 'attaches images pasted outside the textarea and focuses the composer', async () => {
@@ -751,7 +629,7 @@ describe( 'Composer menu', () => {
 
 		expect( pasteEvent.defaultPrevented ).toBe( true );
 		expect(
-			await screen.findByRole( 'button', { name: 'Remove attachment: pasted-image.png' } )
+			await screen.findByRole( 'listitem', { name: /^pasted-image\.png/ } )
 		).toBeInTheDocument();
 		expect( screen.getByRole( 'combobox' ) ).toHaveFocus();
 	} );
@@ -771,7 +649,7 @@ describe( 'Composer menu', () => {
 		fireEvent( dialog, pasteEvent );
 
 		expect( pasteEvent.defaultPrevented ).toBe( false );
-		expect( screen.queryByRole( 'button', { name: /Remove attachment/ } ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'listitem' ) ).not.toBeInTheDocument();
 
 		dialog.remove();
 	} );
@@ -780,7 +658,6 @@ describe( 'Composer menu', () => {
 		const queryClient = new QueryClient();
 		const onSwitchSession = vi.fn();
 		const freshSummary = createSummary( { id: 'fresh-session' } );
-		connectorMocks.capabilities.aiSettings = true;
 		connectorMocks.getAiSettings.mockResolvedValue( {
 			provider: 'wpcom',
 			hasAnthropicApiKey: true,
@@ -799,8 +676,8 @@ describe( 'Composer menu', () => {
 			queryClient
 		);
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'Select model' } ) );
-		fireEvent.click( await screen.findByRole( 'menuitemradio', { name: 'Anthropic API' } ) );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Model' } ) );
+		fireEvent.click( await screen.findByRole( 'option', { name: /^Sonnet 5/ } ) );
 		const dialog = await screen.findByRole( 'dialog' );
 		expect( dialog ).toHaveTextContent( 'Start a new chat?' );
 		expect( dialog ).toHaveTextContent(
@@ -832,6 +709,14 @@ describe( 'Composer menu', () => {
 		] );
 	} );
 } );
+
+// Items carry a description after the name.
+function getMenuLabels() {
+	return screen.getAllByRole( 'option' ).map( ( item ) => item.textContent );
+}
+
+const startingWith = ( labels: string[] ) =>
+	labels.map( ( label ) => expect.stringMatching( new RegExp( `^${ label }` ) ) );
 
 function createSummary( overrides: Partial< AiSessionSummary > = {} ): AiSessionSummary {
 	return {

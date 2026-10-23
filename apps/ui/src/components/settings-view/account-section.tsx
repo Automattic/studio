@@ -1,125 +1,56 @@
-import { getLocalizedLink, REPORT_ISSUE_URL } from '@studio/common/lib/docs-links';
 import { __ } from '@wordpress/i18n';
-import { Button, Tooltip } from '@wordpress/ui';
-import { clsx } from 'clsx';
-import { Gravatar } from '@/components/gravatar';
-import { useConnector } from '@/data/core';
+import { Button } from '@/components/ui/button';
 import { useAuthUser, useLogin, useLogout } from '@/data/queries/use-auth-user';
-import { useUserLocale } from '@/data/queries/use-user-locale';
-import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useOffline } from '@/hooks/use-offline';
-import styles from './style.module.css';
+import { SettingsGroup, SettingsRow } from './rows';
 
-function AccountHelpActions() {
-	const connector = useConnector();
-	const locale = useUserLocale();
-
-	const openLink = ( url: string ) => {
-		void connector.openExternalUrl( url );
-	};
-
+// Shown while signed out: connecting goes through WordPress.com sign-up.
+export function ConnectionCard() {
+	const { data: user, isSuccess } = useAuthUser();
+	const signup = useLogin( { signup: true, source: 'settings' } );
+	const isOffline = useOffline();
+	if ( ! isSuccess || user ) {
+		return null;
+	}
 	return (
-		<div className={ styles.accountActions }>
-			<Tooltip.Root>
-				<Tooltip.Trigger
-					render={
-						<Button
-							type="button"
-							variant="minimal"
-							tone="neutral"
-							size="small"
-							onClick={ () => openLink( getLocalizedLink( locale, 'docsStudio' ) ) }
-						>
-							{ __( 'Docs' ) }
-						</Button>
-					}
-				/>
-				<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
-					{ __( 'Documentation' ) }
-				</Tooltip.Popup>
-			</Tooltip.Root>
-			<Tooltip.Root>
-				<Tooltip.Trigger
-					render={
-						<Button
-							type="button"
-							variant="minimal"
-							tone="neutral"
-							size="small"
-							onClick={ () => openLink( REPORT_ISSUE_URL ) }
-						>
-							{ __( 'Report an issue' ) }
-						</Button>
-					}
-				/>
-				<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
-					{ __( 'Report an issue or request a feature' ) }
-				</Tooltip.Popup>
-			</Tooltip.Root>
-		</div>
+		<SettingsGroup>
+			<SettingsRow
+				title={ __( 'Do more with WordPress.com' ) }
+				description={ __(
+					'Build with Studio, share local previews publicly, launch on WordPress.com, and keep sites in sync.'
+				) }
+				error={ signup.error?.message }
+			>
+				<Button
+					disabled={ isOffline }
+					loading={ signup.isPending }
+					loadingAnnouncement={ __( 'Connecting' ) }
+					onClick={ () => signup.mutate() }
+				>
+					{ __( 'Connect' ) }
+				</Button>
+			</SettingsRow>
+		</SettingsGroup>
 	);
 }
 
 export function AccountSection() {
-	const { data: user, isLoading } = useAuthUser();
-	const login = useLogin( { source: 'settings' } );
+	const { data: user } = useAuthUser();
 	const logout = useLogout();
-	const themeIsDark = useColorScheme() === 'dark';
-	const isOffline = useOffline();
-
+	if ( ! user ) {
+		return <ConnectionCard />;
+	}
 	return (
-		<section className={ styles.preferenceSectionGroup }>
-			<div className={ styles.accountSectionHeader }>
-				<h2 className={ clsx( styles.preferenceSectionHeading, styles.accountHeading ) }>
-					{ __( 'Account' ) }
-				</h2>
-				<AccountHelpActions />
-			</div>
-			<div className={ styles.accountSummary }>
-				<div className={ styles.accountIdentity }>
-					{ user ? (
-						<Gravatar
-							email={ user.email }
-							isDark={ themeIsDark }
-							className={ styles.accountAvatar }
-						/>
-					) : null }
-					<div className={ styles.accountDetails }>
-						<h2>{ user ? user.displayName : __( 'WordPress.com account' ) }</h2>
-						<p>
-							{ user
-								? user.email
-								: __( 'Log in to use AI features and synchronize with live and preview sites.' ) }
-						</p>
-					</div>
-				</div>
-				{ user ? (
-					<div className={ styles.accountButtons }>
-						<Button
-							type="button"
-							variant="outline"
-							tone="neutral"
-							loading={ logout.isPending }
-							loadingAnnouncement={ __( 'Logging out' ) }
-							onClick={ () => logout.mutate() }
-						>
-							{ __( 'Log out' ) }
-						</Button>
-					</div>
-				) : (
-					<Button
-						type="button"
-						variant="outline"
-						tone="neutral"
-						disabled={ isLoading || isOffline }
-						loading={ login.isPending }
-						loadingAnnouncement={ __( 'Logging in' ) }
-						onClick={ () => login.mutate() }
-					>
-						{ __( 'Log in' ) }
-					</Button>
-				) }
-			</div>
-		</section>
+		<SettingsGroup>
+			<SettingsRow title={ user.displayName } description={ user.email }>
+				<Button
+					loading={ logout.isPending }
+					loadingAnnouncement={ __( 'Logging out' ) }
+					onClick={ () => logout.mutate() }
+				>
+					{ __( 'Log out' ) }
+				</Button>
+			</SettingsRow>
+		</SettingsGroup>
 	);
 }

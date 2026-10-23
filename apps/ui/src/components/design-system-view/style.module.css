@@ -28,7 +28,7 @@
 
 .eyebrow {
 	margin: 0;
-	font-size: 12px;
+	font-size: var(--text-xxs);
 	opacity: 0.65;
 	text-transform: uppercase;
 	letter-spacing: 0.12em;
@@ -44,7 +44,7 @@
 .description {
 	margin: 0;
 	max-width: 60ch;
-	font-size: 18px;
+	font-size: var(--text-xl);
 	opacity: 0.8;
 }
 
@@ -54,7 +54,7 @@
 	align-items: baseline;
 	gap: 4px 16px;
 	margin: 8px 0 0;
-	font-size: 13px;
+	font-size: var(--text-xs);
 	opacity: 0.75;
 }
 
@@ -82,7 +82,7 @@
 }
 
 .driftList dt {
-	font-weight: 600;
+	font-weight: var(--font-weight-semibold);
 }
 
 .driftList dd {
@@ -137,8 +137,8 @@
 	padding-top: 8px;
 	border-top: 1px solid var(--ds-hairline);
 	font-family: inherit;
-	font-size: 12px;
-	font-weight: 600;
+	font-size: var(--text-xxs);
+	font-weight: var(--font-weight-semibold);
 	letter-spacing: 0.12em;
 	text-transform: uppercase;
 	opacity: 0.55;
@@ -167,7 +167,7 @@
 
 .specimen figcaption {
 	margin-top: 12px;
-	font-size: 13px;
+	font-size: var(--text-xs);
 	opacity: 0.65;
 }
 
@@ -215,7 +215,7 @@
 	justify-content: flex-end;
 	min-width: 0;
 	padding: 12px 14px;
-	font-size: 13px;
+	font-size: var(--text-xs);
 	line-height: 1.35;
 }
 
@@ -268,11 +268,11 @@
 	display: flex;
 	flex-direction: column;
 	gap: 2px;
-	font-size: 13px;
+	font-size: var(--text-xs);
 }
 
 .scaleName {
-	font-weight: 600;
+	font-weight: var(--font-weight-semibold);
 }
 
 .scaleSpecs {
@@ -335,7 +335,7 @@
 	padding: 6px 12px;
 	border-radius: var(--ds-tag-radius);
 	background-color: color-mix(in srgb, var(--ds-primary) 16%, var(--ds-background));
-	font-size: 12px;
+	font-size: var(--text-xxs);
 }
 
 .tagAccent {
@@ -378,11 +378,11 @@
 	grid-template-columns: 48px 1fr 64px;
 	gap: 12px;
 	align-items: center;
-	font-size: 13px;
+	font-size: var(--text-xs);
 }
 
 .spacingName {
-	font-weight: 600;
+	font-weight: var(--font-weight-semibold);
 }
 
 .spacingBar {
@@ -405,7 +405,7 @@
 
 .corner {
 	margin: 0;
-	font-size: 13px;
+	font-size: var(--text-xs);
 }
 
 .corner div {
@@ -459,7 +459,7 @@
 	gap: 8px;
 	height: 100%;
 	padding: 32px;
-	color: var(--wpds-color-foreground-content-neutral);
+	color: var(--foreground);
 	text-align: center;
 }
 
@@ -469,8 +469,8 @@
 }
 
 .messageDetail {
-	color: var(--wpds-color-foreground-content-neutral-weak);
-	font-size: var(--wpds-typography-font-size-sm);
+	color: var(--muted-foreground);
+	font-size: var(--text-xxs);
 }
 
 .root [data-annotation-target] {
@@ -482,26 +482,30 @@
 }
 
 .picking [data-annotation-target]:hover {
-	outline: 2px solid #7c3aed;
+	outline: 2px solid var(--accent);
 	outline-offset: 2px;
 }
 
+/* Matches the markers drawn on preview pages: the accent inside a white ring. */
 .annotationMarker {
 	position: absolute;
 	z-index: 1;
-	top: -11px;
-	inset-inline-end: -11px;
+	top: -12px;
+	inset-inline-end: -12px;
 	display: inline-flex;
+	box-sizing: content-box;
 	align-items: center;
 	justify-content: center;
-	width: 22px;
-	height: 22px;
+	width: 20px;
+	height: 20px;
 	border: 2px solid #fff;
 	border-radius: 50%;
-	background: #7c3aed;
-	box-shadow: 0 2px 6px rgb(0 0 0 / 30%);
-	color: #fff;
-	font: 700 11px/1 system-ui, sans-serif;
+	background: var(--accent);
+	box-shadow:
+		0 0 0 1px var(--accent),
+		0 1px 3px rgb(0 0 0 / 10%);
+	color: var(--accent-foreground);
+	font: 600 12px/1 system-ui, sans-serif;
 	letter-spacing: normal;
 	text-transform: none;
 }
@@ -512,38 +516,3 @@
 	inset-inline-end: 8px;
 }
 
-.notePopup {
-	display: flex;
-	flex-direction: column;
-	gap: 8px;
-	width: min(320px, calc(100vw - 16px));
-	padding: 12px;
-}
-
-.notePopup .noteTarget {
-	display: flex;
-	align-items: baseline;
-	gap: 8px;
-	margin: 0;
-	overflow: hidden;
-	color: var(--wpds-color-foreground-content-neutral-weak);
-	font-size: var(--wpds-typography-font-size-xs);
-	font-weight: 400;
-	white-space: nowrap;
-}
-
-.notePopup .noteTarget code {
-	overflow: hidden;
-	font-family: var(--wpds-typography-font-family-mono);
-	text-overflow: ellipsis;
-}
-
-.noteActions {
-	display: flex;
-	justify-content: flex-end;
-	gap: 4px;
-}
-
-.noteDelete {
-	margin-inline-end: auto;
-}

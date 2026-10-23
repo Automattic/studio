@@ -69,12 +69,9 @@ where the sender actually runs — see Testing below for what fires in which bui
   `shared.json`. Because `shared.json` is read by both the desktop app and the CLI, both attribute
   events to the same install. No PII is attached; identity is always `_ut=anon`.
 - **Opt-out.** `analyticsOptOut` in `shared.json` (absent/false = opted **in**; analytics default ON).
-  Enforced in both wrappers before any send. The user controls it from several places, all writing the
-  same shared flag through the `getAnalyticsEnabled` / `saveAnalyticsEnabled` IPC handlers →
-  `updateSharedConfig`:
-  - Agentic renderer (`apps/ui`) Settings → Preferences — folded into `UserPreferences`
-    (`analyticsEnabled`) so it rides the existing preferences query/mutation through the connector,
-    which calls the same IPC handlers.
+  Enforced in both wrappers before any send. The user controls it from Settings → Preferences and the
+  onboarding screen, in both the desktop app and `studio ui`: it is the `analyticsEnabled` preference,
+  written by `writeUserPreferences` (`packages/common/lib/user-settings/user-preferences.ts`).
 - **What opt-out does *not* affect.** MC Stats (aggregate headcount, not behavioral) and Sentry (crash
   reports, not analytics) keep sending. Only Tracks stops.
 - **`--avoid-telemetry`.** This existing CLI flag is unrelated to the Tracks opt-out. It prevents the
@@ -216,8 +213,7 @@ where the sender actually runs — see Testing below for what fires in which bui
   event-specific props. The agentic `apps/ui` renderer routes through its `Connector.trackEvent`: the IPC connector
   reaches Main directly, while the `local` connector posts to `POST /api/analytics/event`, the
   browser's equivalent choke point. That route drops unknown event names and strips client-supplied
-  `channel`/`ui_version`, so the server stays the only thing that labels an event's origin. The
-  `hosted` connector still no-ops — a multi-user deployment needs an identity and consent model first.
+  `channel`/`ui_version`, so the server stays the only thing that labels an event's origin.
 
 ## Property vocabulary
 
@@ -300,7 +296,7 @@ start / creation is counted once whether it originated in a UI or the standalone
 |---|---|---|
 | `studio_app_launch` | Desktop Main (`appBoot`); `studio ui` server start | `is_first_launch` (desktop only) |
 | `studio_mcp_session_start` | CLI MCP server, once an agent app connects | `mcp_apps` (boolean — whether the app renders MCP Apps, such as the design picker and the WordPress tab), plus the `studio-mcp` origin props `mcp_client`, `plugin`, `plugin_version`. One per connection: distinct install IDs on it, split by `plugin`, count the people using Studio from agent apps. |
-| `studio_site_start` | CLI site-start funnel | `success` (boolean), `time_ms` (start duration). On success also `running_site_count` (running Studio sites after this one comes up). On failure instead `failure_reason` (coarse, low-cardinality: `timeout`/`port_unavailable`/`php_error`/`process_exited`/`unknown` — the raw error is never sent). |
+| `studio_site_start` | CLI site-start funnel | `success` (boolean), `time_ms` (start duration). On success also `running_site_count` (running Studio sites after this one comes up). On failure instead `failure_reason` (coarse, low-cardinality: `timeout`/`port_unavailable`/`php_error`/`process_exited`/`unknown` — the raw error is never sent). Both also carry the milliseconds of each step that finished: `daemon_ms`, `wp_config_ms`, `wordpress_install_ms`, `blueprint_ms`, `symlink_scan_ms`, `php_workers_ms`, `proxy_ready_ms`, `admin_credentials_ms`; on a failure, the first missing step is the one that did not finish. |
 | `studio_site_created` | CLI site-create funnel | `flow_type` (`new`/`blueprint`/`import`/`sync`/`duplicate`/`ai`), `php_version`, `wp_version` (resolved from disk; `-` if unknown), `custom_domain` (boolean — the domain string is **never** sent), `ssl_enabled` (boolean), `time_ms` (creation duration). Emitted once per **successful** creation. |
 
 #### Site operation events
@@ -433,24 +429,27 @@ rather than inheriting the caller's fallback.
 
 #### Settings-change events
 
-All fire from Desktop Main **only on a real change** (the handler compares against the persisted value
-first), and all carry a `surface` prop identifying where the change was made — `settings` unless noted.
+All fire **only on a real change** (the writer compares against the persisted value first), and all carry
+a `surface` prop identifying where the change was made — `settings` unless noted. The user preferences
+(telemetry through agentic features below) are written by `writeUserPreferences`
+(`packages/common/lib/user-settings/user-preferences.ts`), which records them from Desktop Main and from
+`studio ui` alike; the other events below still fire from Desktop Main only.
 Sensitive values are never sent as strings (see `is_default` and the directory note below).
 
 | Event | Emitted from | Event-specific props |
 |---|---|---|
-| `studio_setting_telemetry_change` | `saveAnalyticsEnabled` | `status` (`on`/`off`), `surface` (`onboarding`/`settings`) — recorded while analytics is still ON (before the write when turning off, after it when turning on) so the opt-out gate never self-suppresses it. |
-| `studio_setting_appearance_change` | `saveColorScheme` | `mode` (`light`/`dark`/`system`), `surface` (`settings`) |
-| `studio_setting_language_change` | `saveUserLocale` | `locale`, `surface` (`settings`) |
-| `studio_setting_code_editor_change` | `saveUserEditor` | `editor`, `surface` (`settings`) |
-| `studio_setting_terminal_change` | `saveUserTerminal` | `terminal`, `surface` (`settings`) |
-| `studio_setting_default_directory_change` | `saveDefaultSiteDirectory` | `is_default` (boolean), `surface` (`settings`) — the directory path is **never** sent (it contains the user's home path). |
-| `studio_setting_quit_action_change` | `saveQuitSitesBehavior` | `behavior` (`stop`/`stop-and-auto-start`/`leave-running`), `surface` (`settings`) |
+| `studio_setting_telemetry_change` | `writeUserPreferences` | `status` (`on`/`off`), `surface` (`onboarding`/`settings`) — recorded while analytics is still ON (before the write when turning off, after it when turning on) so the opt-out gate never self-suppresses it. |
+| `studio_setting_appearance_change` | `writeUserPreferences` | `mode` (`light`/`dark`/`system`), `surface` (`settings`) |
+| `studio_setting_language_change` | `writeUserPreferences` | `locale`, `surface` (`settings`) |
+| `studio_setting_code_editor_change` | `writeUserPreferences` | `editor`, `surface` (`settings`) |
+| `studio_setting_terminal_change` | `writeUserPreferences` | `terminal`, `surface` (`settings`) |
+| `studio_setting_default_directory_change` | `writeUserPreferences` | `is_default` (boolean), `surface` (`settings`) — the directory path is **never** sent (it contains the user's home path). |
+| `studio_setting_quit_action_change` | `writeUserPreferences` | `behavior` (`stop`/`stop-and-auto-start`/`leave-running`), `surface` (`settings`) |
 | `studio_setting_cli_change` | `installStudioCli`/`uninstallStudioCli` | `installed` (boolean), `surface` (`settings`) |
-| `studio_setting_agentic_features_change` | `saveAgenticFeaturesEnabled` | `enabled` (boolean), `surface` (`settings`) |
+| `studio_setting_agentic_features_change` | `writeUserPreferences` | `enabled` (boolean), `surface` (`settings`) |
 | `studio_setting_ui_change` | No longer emitted: was the Classic ↔ agentic UI switch, removed with Classic in October 2026 | `type` (`classic`/`agentic`), `surface` (`settings`/`banner`/`menu`) |
 | `studio_setting_instructions_change` | `saveGlobalAgentInstructions` | `has_content` (boolean), `length_bucket` (`empty`/`short` ≤200/`medium` ≤1000/`long`), `surface` (`settings`) — the instructions text is **never** sent. See the edit-session note below. |
-| `studio_setting_ai_provider_change` | `saveAnthropicApiKey`/`setAiProvider` | `provider` (`wpcom`/`anthropic-api-key`), `has_anthropic_api_key` (boolean), `surface` (`settings`) — the API key is **never** sent. One event covers both handlers, since clearing the key also falls the provider back to WordPress.com. `studio ui` emits the same event from its own `/ai-settings` routes. |
+| `studio_setting_ai_provider_change` | `saveAnthropicApiKey` | `provider` (`wpcom`/`anthropic-api-key`), `has_anthropic_api_key` (boolean), `surface` (`settings`) — the API key is **never** sent. One event covers both handlers, since clearing the key also falls the provider back to WordPress.com. `studio ui` emits the same event from its own `/ai-settings` routes. |
 
 `studio_setting_instructions_change` is the one settings event Main cannot detect on its own. Classic
 saves on an explicit button press, but the agentic UI autosaves on an 800 ms debounce, so by the time
@@ -471,7 +470,7 @@ AI identity props described under "Property vocabulary" above. Filter by `channe
 | Event | Emitted from | Event-specific props |
 |---|---|---|
 | `studio_code_message_sent` | CLI `runAgentTurn` | `provider` (`wpcom`/`anthropic-api-key` — the gateway serving the request, not the model vendor), `model` (e.g. `claude-sonnet-5`), `model_family` (`anthropic`/`openai`), `ability_name` (predefined skill, absent for an ordinary message), `has_images`, `has_files` (booleans). One per user turn dispatched. |
-| `studio_code_turn_completed` | CLI `runAgentTurn` | `outcome` (`success`/`error`/`interrupted`/`max_turns`), `duration_ms`, plus the same `provider`/`model`/`model_family`. One per turn finishing. Partially overlaps the MC Stats `recordAgentRun` bump (`packages/common/ai/agent-stats.ts`), which is a bare counter with no model or duration breakdown. |
+| `studio_code_turn_completed` | CLI `runAgentTurn` | `outcome` (`success`/`error`/`interrupted`/`max_turns`), `duration_ms`, plus the same `provider`/`model`/`model_family`. What happened inside the turn, accumulated from the agent events by `apps/cli/ai/turn-stats.ts` (attempts that pi retries count toward the same turn): `tool_calls` (tool executions that finished), `tool_errors` (of those, how many errored), `failed_tools` (sorted, de-duplicated, comma-separated names of the tools that errored, empty when none; a call to a tool the session doesn't register, which keeps whatever name the model wrote, is reported as `unknown`, so these are only Studio's own tool names or `unknown`), `edits` (successful `Write`/`Edit` calls), `model_requests` (assistant model responses), `input_tokens`/`output_tokens`/`cache_read_tokens`/`cache_write_tokens` (their summed usage, by kind; a long session's tokens are mostly cache reads, so add all four for its size), `error_kind` (only when `outcome=error`: `out_of_credits` — the 402 `studio_out_of_credits` or the monthly cost cap —, `auth`, `model_unavailable`, `rate_limited`, `network`, `other`; classified from the failure, the raw text is never sent), `site_kind` (`local`/`wpcom`/`none`). These props must be registered in the Tracks Registration tool. One per turn finishing. Partially overlaps the MC Stats `recordAgentRun` bump (`packages/common/ai/agent-stats.ts`), which is a bare counter with no model or duration breakdown. |
 | `studio_code_session_created` | Desktop Main (`createAiSession`) | `has_site` (boolean — whether the session is bound to a site; the site name and path are **never** sent). Emitted only when a session is actually created, not when an empty draft is reused. |
 | `studio_code_design_option_proposed` | CLI `pick_design` | `catalog`, `option` (the catalog entry name), `position` (1-based display order), `is_chosen` (boolean — the model picked it itself rather than it being drawn at random; always true for directions), `options_count` (1 when the model settles the entry without asking, up to 4 when the user will pick), `is_redraw` (boolean — a further draw in the same turn after the user asked for other options), `draw_id`. One row **per entry shown**, so a four-option draw is four rows sharing a `draw_id`. |
 | `studio_code_design_option_picked` | CLI `present_design_options` | `catalog` (passed by the model, the same value it gave `pick_design`), `options_count`, `answer_type`, `picked` (the entry name, only when `answer_type=picked`), `pick_index` (1-based position, only when picked). One per question shown. |

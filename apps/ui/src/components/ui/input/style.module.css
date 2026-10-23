@@ -1,0 +1,62 @@
+@layer ui {
+	.input {
+		width: 100%;
+		min-width: 0;
+		height: var( --control-size );
+		box-sizing: border-box;
+		margin: 0;
+		padding: 4px 10px;
+		border: 1px solid var( --input );
+		border-radius: var( --radius-lg );
+		background: transparent;
+		color: inherit;
+		font: inherit;
+		font-size: var( --text-sm );
+		line-height: 20px;
+		outline: none;
+	}
+
+	.input::placeholder {
+		color: var( --muted-foreground );
+	}
+
+	.input:disabled {
+		cursor: not-allowed;
+		opacity: 0.5;
+		pointer-events: none;
+	}
+
+	.input[data-variant='default']:focus-visible {
+		border-color: var( --ring );
+		box-shadow: inset 0 0 0 1px var( --ring );
+	}
+
+	.input[aria-invalid='true'] {
+		border-color: var( --destructive );
+	}
+
+	.input[data-adorned] {
+		padding-inline-end: 36px;
+	}
+
+	.input[data-variant='group'] {
+		flex: 1;
+		border: 0;
+		border-radius: 0;
+		box-shadow: none;
+	}
+
+	.adorned {
+		position: relative;
+		display: block;
+		width: 100%;
+		min-width: 0;
+	}
+
+	.adornment {
+		position: absolute;
+		top: 50%;
+		inset-inline-end: 4px;
+		transform: translateY( -50% );
+	}
+}

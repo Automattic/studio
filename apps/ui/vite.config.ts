@@ -2,8 +2,6 @@ import { createRequire } from 'module';
 import { resolve } from 'path';
 import { sentryVitePlugin } from '@sentry/vite-plugin';
 import react from '@vitejs/plugin-react';
-import dsTokenFallbacksPostcss from '@wordpress/theme/postcss-plugins/postcss-ds-token-fallbacks';
-import dsTokenFallbacks from '@wordpress/theme/vite-plugins/vite-ds-token-fallbacks';
 import { defineConfig, type Plugin } from 'vite';
 import { getSentryReleaseInfo } from '../studio/src/lib/sentry-release';
 
@@ -13,28 +11,22 @@ const pkg = createRequire( import.meta.url )( './package.json' ) as {
 };
 
 // Dedupe + pre-bundle every direct dep so packages with module-scoped state
-// (React's hooks dispatcher, @wordpress/private-apis' lock/unlock registry,
-// etc.) can't accidentally resolve to two instances. Workspace packages
-// (`file:`) are skipped because Vite pre-bundling expects a resolvable
-// package entry and our workspace packages ship subpaths only.
+// (React's hooks dispatcher, etc.) can't accidentally resolve to two
+// instances. Workspace packages (`file:`) are skipped because Vite
+// pre-bundling expects a resolvable package entry and our workspace packages
+// ship subpaths only.
 const directDeps = Object.entries( pkg.dependencies ?? {} )
 	.filter( ( [ , version ] ) => ! version.startsWith( 'file:' ) )
 	.map( ( [ name ] ) => name );
 
-// Browser targets build a standalone browser app wired to an HTTP/SSE connector
-// instead of the Electron IPC bridge. Each uses a separate entry/output/port so
-// the default Electron-renderer build (`dist/`, port 5200) stays byte-for-byte
-// unchanged:
-//   STUDIO_TARGET=hosted → index.hosted.html → dist-hosted, port 5300 (cloud)
-//   STUDIO_TARGET=local  → index.local.html  → dist-local,  port 5400 (`studio ui`)
-type BrowserTarget = 'hosted' | 'local';
-const target = process.env.STUDIO_TARGET as BrowserTarget | undefined;
-const isBrowser = target === 'hosted' || target === 'local';
-const browserConfig: Record< BrowserTarget, { entry: string; outDir: string; port: number } > = {
-	hosted: { entry: 'index.hosted.html', outDir: 'dist-hosted', port: 5300 },
-	local: { entry: 'index.local.html', outDir: 'dist-local', port: 5400 },
-};
-const active = isBrowser ? browserConfig[ target as BrowserTarget ] : undefined;
+// The browser target (`STUDIO_TARGET=local`, served by `studio ui`) builds a
+// standalone browser app wired to the HTTP/SSE `local` connector instead of the
+// Electron IPC bridge. It uses its own entry/output/port so the default
+// Electron-renderer build (`dist/`, port 5200) stays byte-for-byte unchanged.
+const isBrowser = process.env.STUDIO_TARGET === 'local';
+const active = isBrowser
+	? { entry: 'index.local.html', outDir: 'dist-local', port: 5400 }
+	: undefined;
 
 // The Electron renderer reports errors through the desktop app's Sentry
 // client, so release builds upload its source maps under the app's release.
@@ -71,7 +63,6 @@ const browserDevEntryPlugin: Plugin = {
 export default defineConfig( {
 	plugins: [
 		react(),
-		dsTokenFallbacks(),
 		...( isBrowser ? [ browserDevEntryPlugin ] : [] ),
 		// Sentry must be the last plugin
 		uploadSourceMaps &&
@@ -82,11 +73,6 @@ export default defineConfig( {
 				release: { name: sentryRelease },
 			} ),
 	],
-	css: {
-		postcss: {
-			plugins: [ dsTokenFallbacksPostcss ],
-		},
-	},
 	resolve: {
 		alias: {
 			'@': resolve( __dirname, 'src' ),

@@ -1,5 +1,5 @@
 {
-	"$schema": "https://unpkg.com/knip@5/schema.json",
+	"$schema": "https://unpkg.com/knip@6/schema.json",
 	"workspaces": {
 		".": {
 			"entry": ["scripts/**/*.{ts,mjs,cjs}"],
@@ -11,7 +11,6 @@
 				"src/preload.ts",
 				"src/migrations/index.ts",
 				"forge.config.ts",
-				"electron.vite.config.ts",
 				"e2e/global-setup.ts",
 				"e2e/**/*.test.ts"
 			],
@@ -31,11 +30,7 @@
 			"project": "**/*.ts"
 		},
 		"apps/ui": {
-			"entry": ["src/main.hosted.tsx", "src/main.local.tsx"],
-			"project": "src/**/*.{ts,tsx}"
-		},
-		"apps/hosted": {
-			"entry": ["src/index.ts"],
+			"entry": ["src/main.local.tsx"],
 			"project": "src/**/*.{ts,tsx}"
 		},
 		"apps/local": {
@@ -43,7 +38,7 @@
 			"project": "src/**/*.{ts,tsx}"
 		},
 		"packages/common": {
-			"entry": ["translations/index.ts", "globals.ts"],
+			"entry": ["globals.ts"],
 			"project": "**/*.ts"
 		},
 		"tools/eslint-plugin-studio": {
@@ -53,5 +48,5 @@
 	"ignoreDependencies": [
 		"@automattic/wp-babel-makepot"
 	],
-	"ignoreBinaries": ["scripts/eval/promptfoo.config.yaml"]
+	"ignoreBinaries": ["mdfind", "attrib"]
 }

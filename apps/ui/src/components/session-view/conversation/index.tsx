@@ -27,76 +27,47 @@ import {
 	getToolResultDiff,
 	findOwnFreeFormOptionLabel,
 	STOPPED_WITHOUT_ANSWER,
-	splitCommandArgs,
 	type NormalizedToolResult,
 } from '@studio/common/ai/tools';
 import { formatUsageCapNotice } from '@studio/common/lib/studio-assistant-quota';
 import { useReducedMotion } from '@wordpress/compose';
 import { __, isRTL, sprintf } from '@wordpress/i18n';
-import {
-	blockDefault,
-	brush,
-	capturePhoto,
-	category,
-	chartBar,
-	check,
-	chevronLeft,
-	chevronRight,
-	cloud,
-	cloudDownload,
-	cloudUpload,
-	code,
-	create,
-	download,
-	file,
-	globe,
-	image,
-	info,
-	link,
-	list,
-	media,
-	navigation,
-	offline,
-	page,
-	pencil,
-	pending,
-	people,
-	plugins,
-	plusCircle,
-	post,
-	search,
-	seen,
-	settings,
-	shuffle,
-	styles as stylesIcon,
-	tag,
-	tool,
-	trash,
-	trendingUp,
-	update,
-	upload,
-} from '@wordpress/icons';
-import { Button, Dialog, Icon, IconButton } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import {
+	CheckIcon,
+	ChevronLeftIcon,
+	ChevronRightIcon,
+	CircleAlertIcon,
+	CircleCheckIcon,
+	CircleStopIcon,
+	FileTextIcon,
+	ImageIcon,
+	SearchIcon,
+} from 'lucide-react';
+import {
 	useEffect,
+	useEffectEvent,
 	useId,
 	useMemo,
 	useRef,
 	useState,
+	type ComponentProps,
 	type ReactNode,
-	MouseEvent as ReactMouseEvent,
 } from 'react';
 import { AiAccessRequiredNotice, AiBlockedNotice } from '@/components/ai-access-required-notice';
 import { CopyButton } from '@/components/copy-button';
 import { Markdown } from '@/components/markdown';
-import { useConnector, type LoadedAiSession } from '@/data/core';
+import { Button, IconButton } from '@/components/ui/button';
+import { CollapsiblePanel } from '@/components/ui/collapsible';
+import { Dialog, DialogClose, DialogContent, DialogDismissButton } from '@/components/ui/dialog';
+import { Spinner } from '@/components/ui/spinner';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
 import { useLocalMediaDataUrl } from '@/data/queries/use-local-media';
 import { MESSAGE_TEXT_ATTRIBUTE, QUOTABLE_TEXT_ATTRIBUTE } from '@/hooks/use-text-context-menu';
-import { refreshIcon } from '@/lib/icons';
-import { ThinkingIndicator } from '../thinking-indicator';
+import { isTextEntry } from '@/lib/shortcuts';
+import { SCROLL_ANCHOR_ATTRIBUTE } from '../use-anchored-scroll';
 import styles from './style.module.css';
+import type { LoadedAiSession } from '@/data/core';
 import type { SessionEntry } from '@earendil-works/pi-coding-agent';
 import type { StudioVisualAnnotationSummary } from '@studio/common/ai/visual-annotations';
 
@@ -134,8 +105,23 @@ type RenderItem =
 			key: string;
 			widgets: StudioChatArtifactWidgetDraft[];
 	  }
+	| { kind: 'progress'; key: string; text: string }
 	| { kind: 'interrupted-marker'; key: string }
 	| { kind: 'error-marker'; key: string; message: string };
+
+type ActivityDetail = Extract< RenderItem, { kind: 'tool-use' | 'assistant-text' | 'progress' } >;
+
+// One turn's work, folded into a single line that opens onto its tool calls.
+interface TurnActivity {
+	kind: 'activity';
+	key: string;
+	items: ActivityDetail[];
+	startedAt: number | null;
+	endedAt: number | null;
+	status: 'running' | 'success' | 'interrupted' | 'error';
+}
+
+type TranscriptItem = Exclude< RenderItem, { kind: 'tool-use' | 'progress' } > | TurnActivity;
 
 interface PiAssistantContentBlock {
 	type: 'text' | 'toolCall' | 'thinking';
@@ -159,6 +145,7 @@ interface PiToolResultLike {
 }
 
 const HIDDEN_TOOL_ROWS = new Set( [ 'AskUserQuestion', 'present_design_options' ] );
+const ANSI_STYLE_SEQUENCE = new RegExp( `${ String.fromCharCode( 27 ) }\\[[\\d;]*m`, 'g' );
 const QUESTION_COLLAPSE_DELAY_MS = 650;
 const QUESTION_SCROLL_TOP_MARGIN_PX = 12;
 // Only a pre-layout fallback. The scroller spans the full column with the
@@ -215,10 +202,14 @@ function resolveBatchedAnswerForQuestion(
 	return answers[ batchPosition ];
 }
 
-export function entriesToRenderItems(
-	entries: SessionEntry[],
-	options: { canReadLocalMedia?: boolean } = {}
-): RenderItem[] {
+function isPromptEntry( entry: SessionEntry ): boolean {
+	return (
+		isStudioCustomEntryOfType( entry, 'studio.user_prompt' ) &&
+		( entry as StudioCustomEntry< 'studio.user_prompt' > ).data?.source === 'prompt'
+	);
+}
+
+export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 	// First pass: collect tool_call_id → tool_result pairings so each
 	// `toolCall` row can render its output inline.
 	const resultsByToolCallId = new Map< string, NormalizedToolResult >();
@@ -233,7 +224,7 @@ export function entriesToRenderItems(
 		resultsByToolCallId.set( message.toolCallId, {
 			// Old transcripts embed media widget payload markers in screenshot
 			// results; strip them from every tool's display text.
-			text: stripMediaWidgetPayloadLines( text ),
+			text: stripMediaWidgetPayloadLines( text ).replace( ANSI_STYLE_SEQUENCE, '' ),
 			isError: message.isError === true,
 			diff: message.isError === true ? undefined : getToolResultDiff( message.details ),
 		} );
@@ -246,11 +237,20 @@ export function entriesToRenderItems(
 			const data = ( entry as StudioCustomEntry< 'studio.user_prompt' > ).data;
 			if ( ! data || data.source !== 'prompt' ) continue;
 			if ( data.visualAnnotations?.length ) {
+				// Each note shows its own images; the first bubble takes the rest.
+				const noteImageIds = new Set(
+					data.visualAnnotations.flatMap( ( annotation ) => annotation.imageIds ?? [] )
+				);
 				data.visualAnnotations.forEach( ( annotation, annotationIndex ) => {
 					items.push( {
 						kind: 'user-text',
 						key: `${ entryIndex }:annotation:${ annotationIndex }`,
 						text: annotation.comment,
+						attachments: data.attachments?.filter( ( attachment ) =>
+							attachment.kind === 'image' && noteImageIds.has( attachment.id )
+								? annotation.imageIds?.includes( attachment.id )
+								: annotationIndex === 0
+						),
 						annotation,
 					} );
 				} );
@@ -353,19 +353,21 @@ export function entriesToRenderItems(
 			if ( ! isStudioChatArtifactData( data ) ) {
 				continue;
 			}
-			const widgets = data.widgets.filter(
-				( widget ) =>
-					isRenderableMediaWidget( widget ) &&
-					// Without local media access (browser builds), only widgets
-					// with a renderable remote URL are worth showing.
-					( options.canReadLocalMedia !== false || Boolean( getSafeMediaUrl( widget ) ) )
-			);
+			const widgets = data.widgets.filter( isRenderableMediaWidget );
 			if ( widgets.length > 0 ) {
 				items.push( {
 					kind: 'chat-artifact',
 					key: `${ entryIndex }:chat-artifact`,
 					widgets,
 				} );
+			}
+			continue;
+		}
+
+		if ( isStudioCustomEntryOfType( entry, 'studio.tool_progress' ) ) {
+			const text = ( entry as StudioCustomEntry< 'studio.tool_progress' > ).data?.message?.trim();
+			if ( text ) {
+				items.push( { kind: 'progress', key: `${ entryIndex }:progress`, text } );
 			}
 			continue;
 		}
@@ -381,7 +383,7 @@ export function entriesToRenderItems(
 				items.push( {
 					kind: 'error-marker',
 					key: `${ entryIndex }:error`,
-					message: data.errorMessage ?? '',
+					message: ( data.errorMessage ?? '' ).replace( ANSI_STYLE_SEQUENCE, '' ),
 				} );
 			}
 			continue;
@@ -391,24 +393,101 @@ export function entriesToRenderItems(
 	return items;
 }
 
-interface ActiveStep {
-	key: string | null;
-	progressMessage: string | null;
+function getTimestamp( entry: SessionEntry | undefined ): number | null {
+	const timestamp = entry ? Date.parse( entry.timestamp ) : NaN;
+	return Number.isFinite( timestamp ) ? timestamp : null;
 }
 
-function getActiveStep( entries: SessionEntry[] ): ActiveStep {
-	let progressMessage: string | null = null;
-	for ( let i = entries.length - 1; i >= 0; i -= 1 ) {
-		const entry = entries[ i ];
-		if ( ! isStudioCustomEntryOfType( entry, 'studio.tool_progress' ) ) {
-			return { key: entry.id, progressMessage };
+function hasToolCall( entry: SessionEntry ): boolean {
+	const message = ( entry as { message?: unknown } ).message as PiAssistantMessageLike | undefined;
+	return (
+		entry.type === 'message' &&
+		message?.role === 'assistant' &&
+		Array.isArray( message.content ) &&
+		message.content.some( ( block ) => block.type === 'toolCall' )
+	);
+}
+
+/**
+ * Folds each turn's tool calls, the progress they report and the text the
+ * agent writes between them into one activity line, placed before the turn's
+ * reply. The reply, questions, images and markers stay in the transcript.
+ */
+export function entriesToTranscriptItems(
+	entries: SessionEntry[],
+	run: { running: boolean; startedAt: number | null } = { running: false, startedAt: null }
+): TranscriptItem[] {
+	const items = entriesToRenderItems( entries );
+	const entryIndexOf = ( item: RenderItem ) => Number.parseInt( item.key, 10 );
+	const turns: Array< [ number, number ] > = [];
+	let turnStart = 0;
+	entries.forEach( ( entry, index ) => {
+		if ( isPromptEntry( entry ) && index > turnStart ) {
+			turns.push( [ turnStart, index ] );
+			turnStart = index;
 		}
-		const data = ( entry as StudioCustomEntry< 'studio.tool_progress' > ).data;
-		if ( progressMessage === null && data ) {
-			progressMessage = data.message;
+		if ( isStudioCustomEntryOfType( entry, 'studio.turn_closed' ) ) {
+			turns.push( [ turnStart, index + 1 ] );
+			turnStart = index + 1;
 		}
+	} );
+	if ( turnStart < entries.length ) {
+		turns.push( [ turnStart, entries.length ] );
 	}
-	return { key: null, progressMessage };
+
+	return turns.flatMap( ( [ start, end ], turnIndex ) => {
+		const turnEntries = entries.slice( start, end );
+		const turnItems = items.filter(
+			( item ) => entryIndexOf( item ) >= start && entryIndexOf( item ) < end
+		);
+		const prompt = turnEntries.find( isPromptEntry );
+		const closed = turnEntries.find( ( entry ) =>
+			isStudioCustomEntryOfType( entry, 'studio.turn_closed' )
+		) as StudioCustomEntry< 'studio.turn_closed' > | undefined;
+		const running = run.running && turnIndex === turns.length - 1 && ! closed;
+		const lastToolIndex = turnItems.map( ( item ) => item.kind ).lastIndexOf( 'tool-use' );
+		const isDetail = ( item: RenderItem, index: number ) =>
+			item.kind === 'tool-use' ||
+			item.kind === 'progress' ||
+			( item.kind === 'assistant-text' &&
+				( index < lastToolIndex || hasToolCall( entries[ entryIndexOf( item ) ] ) ) );
+		const details = turnItems.filter( isDetail ) as ActivityDetail[];
+		const visible = turnItems.filter(
+			( item, index ) => ! isDetail( item, index )
+		) as TranscriptItem[];
+		if (
+			! details.length &&
+			! running &&
+			( ! prompt || ( ! closed && ! visible.some( ( item ) => item.kind === 'assistant-text' ) ) )
+		) {
+			return visible;
+		}
+		const status = closed?.data?.status;
+		const firstResponse = visible.findIndex( ( item ) => item.kind !== 'user-text' );
+		visible.splice( firstResponse < 0 ? visible.length : firstResponse, 0, {
+			kind: 'activity',
+			key: `${ start }:activity`,
+			items: details,
+			startedAt: ( running ? run.startedAt : null ) ?? getTimestamp( prompt ),
+			endedAt: running ? null : getTimestamp( closed ?? turnEntries[ turnEntries.length - 1 ] ),
+			status: running
+				? 'running'
+				: status === 'interrupted'
+				? 'interrupted'
+				: status === 'error' || status === 'max_turns'
+				? 'error'
+				: 'success',
+		} );
+		return visible;
+	} );
+}
+
+// The running tool's latest progress, while it is the last thing in the transcript.
+function getProgressMessage( entries: SessionEntry[] ): string | null {
+	const last = entries[ entries.length - 1 ];
+	return last && isStudioCustomEntryOfType( last, 'studio.tool_progress' )
+		? ( last as StudioCustomEntry< 'studio.tool_progress' > ).data?.message ?? null
+		: null;
 }
 
 function UserTurn( {
@@ -421,13 +500,24 @@ function UserTurn( {
 	annotation?: StudioVisualAnnotationSummary;
 } ) {
 	return (
-		<div className={ styles.userTurn } { ...{ [ MESSAGE_TEXT_ATTRIBUTE ]: text } }>
-			<div className={ styles.userText }>{ text }</div>
-			{ annotation ? (
+		<div
+			className={ styles.userTurn }
+			{ ...{ [ MESSAGE_TEXT_ATTRIBUTE ]: text, [ SCROLL_ANCHOR_ATTRIBUTE ]: '' } }
+		>
+			{ text ? (
+				<div className={ styles.userTextRow }>
+					<CopyButton
+						className={ styles.messageActions }
+						text={ text }
+						label={ __( 'Copy message' ) }
+					/>
+					<div className={ styles.userText }>{ text }</div>
+				</div>
+			) : null }
+			{ annotation?.elementLabel || annotation?.tag ? (
 				<div className={ styles.annotationAttachment }>
 					<span className={ styles.annotationElementTag }>
-						{ annotation.elementLabel ??
-							( annotation.tag ? `<${ annotation.tag }>` : __( 'Element' ) ) }
+						{ annotation.elementLabel ?? `<${ annotation.tag }>` }
 					</span>
 					{ annotation.nearbyText ? (
 						<span className={ styles.annotationElementText }>{ annotation.nearbyText }</span>
@@ -451,7 +541,7 @@ function UserTurn( {
 							</li>
 						) : (
 							<li key={ `${ attachment.name }:${ index }` } className={ styles.userAttachmentChip }>
-								<Icon icon={ attachment.kind === 'image' ? image : page } size={ 16 } />
+								{ attachment.kind === 'image' ? <ImageIcon /> : <FileTextIcon /> }
 								<span className={ styles.userAttachmentName } title={ attachment.name }>
 									{ attachment.name }
 								</span>
@@ -468,54 +558,39 @@ function AssistantText( {
 	text,
 	messageText,
 	copyText,
-	showActions,
-	onToggleSelect,
 }: {
 	text: string;
 	messageText: string;
 	copyText?: string;
-	showActions: boolean;
-	onToggleSelect: () => void;
 } ) {
-	const handleClick = ( event: ReactMouseEvent< HTMLDivElement > ) => {
-		// Links and the buttons inside code blocks or the action row own their
-		// clicks; only bare message content toggles the actions.
-		if ( ( event.target as HTMLElement | null )?.closest( 'a, button' ) ) {
-			return;
-		}
-		// A click that ends a text drag is a selection, not a tap.
-		const selection = window.getSelection();
-		if ( selection && ! selection.isCollapsed && selection.toString().trim() ) {
-			return;
-		}
-		onToggleSelect();
-	};
-
 	return (
-		// Clicking the message is a mouse convenience for revealing its actions;
-		// keyboard users reach the same buttons by tabbing to them, which opens
-		// the row via :focus-within. Deliberately no button role — the message
-		// holds links, and nesting them inside a control would be invalid.
 		<div
 			className={ styles.assistantTurn }
-			data-actions-open={ showActions ? 'true' : undefined }
 			{ ...{
 				[ MESSAGE_TEXT_ATTRIBUTE ]: messageText,
 				[ QUOTABLE_TEXT_ATTRIBUTE ]: true,
 			} }
-			onClick={ copyText ? handleClick : undefined }
 		>
-			<Markdown>{ text }</Markdown>
+			<div className={ styles.assistantBubble }>
+				<Markdown>{ text }</Markdown>
+			</div>
 			{ copyText ? (
-				<div className={ styles.messageActions }>
-					<div className={ styles.messageActionsClip }>
-						<div className={ styles.messageActionsRow }>
-							<CopyButton text={ copyText } label={ __( 'Copy message' ) } />
-						</div>
-					</div>
-				</div>
+				<CopyButton
+					className={ styles.messageActions }
+					text={ copyText }
+					label={ __( 'Copy message' ) }
+				/>
 			) : null }
 		</div>
+	);
+}
+
+function TraceTrigger( { children, ...props }: ComponentProps< 'button' > ) {
+	return (
+		<button type="button" className={ styles.traceTrigger } { ...props }>
+			{ children }
+			<ChevronRightIcon className={ styles.traceChevron } />
+		</button>
 	);
 }
 
@@ -584,129 +659,12 @@ function getClassicToolDisplay(
 		case 'take_screenshot':
 		case 'inspect_design':
 		case 'open_annotation_browser':
-		case 'wait_for_annotations':
 			display.detail = '';
 			break;
 	}
 
 	display.detail = truncateToolDetail( display.detail );
 	return display;
-}
-
-function getWpCliToolIcon( command: string ) {
-	const [ entity ] = splitCommandArgs( command );
-
-	switch ( entity ) {
-		case 'theme':
-			return stylesIcon;
-		case 'plugin':
-			return plugins;
-		case 'post':
-			return post;
-		case 'option':
-			return settings;
-		case 'user':
-			return people;
-		case 'media':
-			return media;
-		case 'menu':
-			return navigation;
-		case 'term':
-			return tag;
-		case 'cache':
-			return update;
-		case 'rewrite':
-			return link;
-		case 'eval':
-		case 'eval-file':
-			return code;
-		default:
-			return code;
-	}
-}
-
-function getToolIcon( name: string, input: Record< string, unknown > | undefined ) {
-	switch ( name ) {
-		case 'site_create':
-			return plusCircle;
-		case 'site_list':
-			return list;
-		case 'site_info':
-			return info;
-		case 'site_start':
-			return globe;
-		case 'site_stop':
-			return offline;
-		case 'site_delete':
-			return trash;
-		case 'site_push':
-			return cloudUpload;
-		case 'site_pull':
-			return cloudDownload;
-		case 'site_import':
-			return upload;
-		case 'site_export':
-			return download;
-		case 'site_connected_remote_sites':
-			return link;
-		case 'preview_create':
-			return seen;
-		case 'preview_list':
-			return list;
-		case 'preview_update':
-			return update;
-		case 'preview_delete':
-			return trash;
-		case 'wp_cli': {
-			const command = getInputString( input, 'command' );
-			return command ? getWpCliToolIcon( command ) : code;
-		}
-		case 'open_annotation_browser':
-			return pencil;
-		case 'wait_for_annotations':
-			return pending;
-		case 'take_screenshot':
-			return capturePhoto;
-		case 'inspect_design':
-			return search;
-		case 'refresh_browser':
-			return refreshIcon;
-		case 'validate_blocks':
-			return check;
-		case 'scaffold_theme':
-			return brush;
-		case 'pick_design':
-			return shuffle;
-		case 'install_taxonomy_scripts':
-			return category;
-		case 'need_for_speed':
-			return chartBar;
-		case 'rank_me_up':
-			return trendingUp;
-		case 'wpcom_request':
-			return cloud;
-		case 'Read':
-			return file;
-		case 'Write':
-			return create;
-		case 'Edit':
-			return pencil;
-		case 'Bash':
-			return code;
-		case 'Grep':
-		case 'Glob':
-			return search;
-		case 'Ls':
-			return list;
-		case 'Skill':
-			return blockDefault;
-		case 'Task':
-			return tool;
-		case 'TodoWrite':
-			return check;
-		default:
-			return tool;
-	}
 }
 
 function DiffBlock( { diff }: { diff: string } ) {
@@ -729,25 +687,16 @@ function DiffBlock( { diff }: { diff: string } ) {
 	);
 }
 
-function ToolIcon( { name, input }: { name: string; input?: Record< string, unknown > } ) {
-	return (
-		<Icon
-			icon={ getToolIcon( name, input ) }
-			size={ 18 }
-			className={ styles.toolIcon }
-			aria-hidden="true"
-		/>
-	);
-}
-
 function ToolUseRow( {
 	name,
 	input,
 	result,
+	isRunning,
 }: {
 	name: string;
 	input?: Record< string, unknown >;
 	result?: NormalizedToolResult;
+	isRunning: boolean;
 } ) {
 	const display = getClassicToolDisplay( name, input );
 	const detailsId = useId();
@@ -756,75 +705,50 @@ function ToolUseRow( {
 	const hasInput = display.inputText.length > 0;
 	const hasDiff = Boolean( result?.diff );
 	const hasExpandableDetails = hasInput || hasOutput || hasDiff;
-	const [ expanded, setExpanded ] = useState( false );
-	const [ detailsMounted, setDetailsMounted ] = useState( false );
-	useEffect( () => {
-		if ( expanded || ! detailsMounted ) {
-			return;
-		}
-		const timeoutId = window.setTimeout( () => setDetailsMounted( false ), 220 );
-		return () => window.clearTimeout( timeoutId );
-	}, [ detailsMounted, expanded ] );
-	const rowContent = (
-		<>
-			<ToolIcon name={ name } input={ input } />
-			<span className={ styles.toolLabel }>{ display.label }</span>
-			{ display.detail ? <span className={ styles.toolDetail }>{ display.detail }</span> : null }
-		</>
+	const [ toggledOpen, setToggledOpen ] = useState< boolean | null >( null );
+	const expanded = toggledOpen ?? result?.isError === true;
+	const running = isRunning && ! result;
+	const line = (
+		<span className={ styles.traceLine } data-status={ result?.isError ? 'error' : undefined }>
+			{ result?.isError ? (
+				<CircleAlertIcon />
+			) : result ? (
+				<CircleCheckIcon />
+			) : running ? (
+				<Spinner aria-hidden="true" />
+			) : (
+				<CircleStopIcon />
+			) }
+			<span className={ clsx( styles.traceTitle, running && 'studio-shimmer' ) }>
+				{ display.detail ? `${ display.label } ${ display.detail }` : display.label }
+			</span>
+		</span>
 	);
 
 	return (
-		<div className={ styles.toolBlock }>
+		<div>
 			{ hasExpandableDetails ? (
-				<button
-					type="button"
-					className={ clsx( styles.toolRow, styles.toolRowButton ) }
-					aria-label={ display.detail ? `${ display.label } ${ display.detail }` : display.label }
+				<TraceTrigger
 					aria-expanded={ expanded }
 					aria-controls={ detailsId }
-					data-expanded={ expanded }
-					onClick={ () => {
-						if ( expanded ) {
-							setExpanded( false );
-							return;
-						}
-						setDetailsMounted( true );
-						setExpanded( true );
-					} }
-					title={ expanded ? __( 'Hide tool details' ) : __( 'Show tool details' ) }
+					onClick={ () => setToggledOpen( ! expanded ) }
 				>
-					{ rowContent }
-				</button>
+					{ line }
+				</TraceTrigger>
 			) : (
-				<div className={ styles.toolRow }>{ rowContent }</div>
+				line
 			) }
-			{ hasExpandableDetails && detailsMounted ? (
-				<div
-					id={ detailsId }
-					className={ styles.toolDetailsShell }
-					data-expanded={ expanded }
-					aria-hidden={ ! expanded }
-					onTransitionEnd={ ( event ) => {
-						if ( event.currentTarget === event.target && ! expanded ) {
-							setDetailsMounted( false );
-						}
-					} }
-				>
-					<div className={ styles.toolDetailsClip }>
-						<div className={ styles.toolOutputWrap }>
-							{ hasInput ? <pre className={ styles.toolInput }>{ display.inputText }</pre> : null }
-							{ hasOutput ? (
-								<pre
-									className={ clsx( styles.toolOutput, result?.isError && styles.toolOutputError ) }
-								>
-									{ resultText }
-								</pre>
-							) : null }
-							{ hasDiff ? <DiffBlock diff={ result!.diff! } /> : null }
-						</div>
-					</div>
+			<CollapsiblePanel open={ hasExpandableDetails && expanded } id={ detailsId }>
+				<div className={ styles.toolOutputWrap }>
+					{ hasInput ? <pre className={ styles.toolInput }>{ display.inputText }</pre> : null }
+					{ hasOutput ? (
+						<pre className={ clsx( styles.toolOutput, result?.isError && styles.toolOutputError ) }>
+							{ resultText }
+						</pre>
+					) : null }
+					{ hasDiff ? <DiffBlock diff={ result!.diff! } /> : null }
 				</div>
-			) : null }
+			</CollapsiblePanel>
 		</div>
 	);
 }
@@ -840,8 +764,7 @@ function ChatArtifact( { widgets }: { widgets: StudioChatArtifactWidgetDraft[] }
 }
 
 function MediaArtifactImage( { widget }: { widget: StudioChatArtifactWidgetDraft } ) {
-	const connector = useConnector();
-	const localPath = connector.capabilities.readLocalMedia ? getLocalMediaPath( widget ) : null;
+	const localPath = getLocalMediaPath( widget );
 	const safeUrl = getSafeMediaUrl( widget );
 	const localFileQuery = useLocalMediaDataUrl( localPath );
 
@@ -945,6 +868,48 @@ function AgentQuestion( {
 				.map( ( option ) => option.label )
 				.filter( ( other ) => ( other === label ) !== pickedLabels.includes( other ) ),
 		} );
+	const choose = ( label: string ) => {
+		if ( label === ownFreeFormLabel ) {
+			onChooseFreeForm();
+		} else if ( multiSelect ) {
+			toggle( label );
+		} else {
+			onAnswer( label );
+		}
+	};
+	// The number keys pick the options they're numbered with.
+	const onKeyDown = useEffectEvent( ( event: KeyboardEvent ) => {
+		if (
+			! /^[1-9]$/.test( event.key ) ||
+			event.defaultPrevented ||
+			event.repeat ||
+			event.metaKey ||
+			event.ctrlKey ||
+			event.altKey ||
+			isTextEntry( event.target ) ||
+			( event.target instanceof Element &&
+				event.target.closest( '[role="dialog"], [role="menu"]' ) )
+		) {
+			return;
+		}
+		const index = Number( event.key ) - 1;
+		if ( options[ index ] ) {
+			choose( options[ index ].label );
+		} else if ( showFreeForm && index === options.length ) {
+			onChooseFreeForm();
+		} else {
+			return;
+		}
+		event.preventDefault();
+	} );
+	const answering = isInteractive && ! isFolding;
+	useEffect( () => {
+		if ( ! answering ) {
+			return;
+		}
+		document.addEventListener( 'keydown', onKeyDown );
+		return () => document.removeEventListener( 'keydown', onKeyDown );
+	}, [ answering ] );
 
 	return (
 		<div className={ styles.question } data-state={ isFolding ? 'folding' : undefined }>
@@ -979,11 +944,7 @@ function AgentQuestion( {
 										picked && styles.questionOptionPicked
 									) }
 									disabled={ ! isInteractive }
-									onClick={
-										isOwnFreeForm
-											? onChooseFreeForm
-											: () => ( multiSelect ? toggle( option.label ) : onAnswer( option.label ) )
-									}
+									onClick={ () => choose( option.label ) }
 									aria-label={ option.label }
 									aria-describedby={ descriptionId }
 									aria-pressed={ picked }
@@ -1004,12 +965,9 @@ function AgentQuestion( {
 								</button>
 								{ option.image ? (
 									<IconButton
-										type="button"
 										className={ styles.questionOptionZoom }
-										variant="minimal"
-										tone="neutral"
-										size="small"
-										icon={ search }
+										size="icon-2xs"
+										icon={ <SearchIcon /> }
 										label={ sprintf(
 											// translators: %s: name of a design option.
 											__( 'View %s larger' ),
@@ -1063,7 +1021,7 @@ function AgentQuestion( {
 			{ multiSelect && isInteractive ? (
 				<div>
 					<Button
-						size="compact"
+						variant="outline"
 						disabled={ pickedLabels.length === 0 }
 						onClick={ () => onAnswer( pickedLabels.join( ', ' ) ) }
 					>
@@ -1076,11 +1034,9 @@ function AgentQuestion( {
 }
 
 function QuestionOptionImage( { path }: { path: string | undefined } ) {
-	const connector = useConnector();
-	const localPath = path && connector.capabilities.readLocalMedia ? path : null;
-	const localFileQuery = useLocalMediaDataUrl( localPath );
+	const localFileQuery = useLocalMediaDataUrl( path ?? null );
 
-	if ( ! localPath || localFileQuery.isError ) {
+	if ( ! path || localFileQuery.isError ) {
 		return (
 			<span className={ styles.questionOptionImageUnavailable } aria-hidden="true">
 				{ path ? __( 'Preview unavailable' ) : null }
@@ -1104,23 +1060,19 @@ function QuestionOptionViewer( {
 	onIndexChange: ( index: number | null ) => void;
 	onChoose?: ( label: string ) => void;
 } ) {
-	const connector = useConnector();
 	const option = index === null ? undefined : options[ index ];
-	const localFileQuery = useLocalMediaDataUrl(
-		option?.image && connector.capabilities.readLocalMedia ? option.image : null
-	);
+	const localFileQuery = useLocalMediaDataUrl( option?.image ?? null );
 	const step = ( delta: number ) =>
 		index !== null && onIndexChange( ( index + delta + options.length ) % options.length );
-	const [ previousIcon, nextIcon ] = isRTL()
-		? [ chevronRight, chevronLeft ]
-		: [ chevronLeft, chevronRight ];
+	const previousIcon = isRTL() ? <ChevronRightIcon /> : <ChevronLeftIcon />;
+	const nextIcon = isRTL() ? <ChevronLeftIcon /> : <ChevronRightIcon />;
 
 	return (
-		<Dialog.Root
+		<Dialog
 			open={ option !== undefined }
 			onOpenChange={ ( open ) => ! open && onIndexChange( null ) }
 		>
-			<Dialog.Popup
+			<DialogContent
 				className={ styles.questionOptionZoomPopup }
 				aria-label={ option?.label }
 				onKeyDown={ ( event ) => {
@@ -1137,21 +1089,20 @@ function QuestionOptionViewer( {
 						alt={ option?.label }
 					/>
 				) : null }
-				<Dialog.CloseIcon className={ styles.questionOptionZoomClose } />
+				<DialogClose
+					className={ styles.questionOptionZoomClose }
+					render={ <DialogDismissButton variant="ghost" size="icon-2xs" /> }
+				/>
 				<IconButton
 					className={ clsx( styles.questionOptionZoomStep, styles.questionOptionZoomPrevious ) }
-					variant="minimal"
-					tone="neutral"
-					size="small"
+					size="icon-2xs"
 					icon={ previousIcon }
 					label={ __( 'Previous option' ) }
 					onClick={ () => step( -1 ) }
 				/>
 				<IconButton
 					className={ clsx( styles.questionOptionZoomStep, styles.questionOptionZoomNext ) }
-					variant="minimal"
-					tone="neutral"
-					size="small"
+					size="icon-2xs"
 					icon={ nextIcon }
 					label={ __( 'Next option' ) }
 					onClick={ () => step( 1 ) }
@@ -1159,7 +1110,8 @@ function QuestionOptionViewer( {
 				{ option && onChoose ? (
 					<Button
 						className={ styles.questionOptionZoomChoose }
-						size="compact"
+						variant="accent"
+						size="header"
 						onClick={ () => {
 							onIndexChange( null );
 							onChoose( option.label );
@@ -1168,13 +1120,13 @@ function QuestionOptionViewer( {
 						{ __( 'Choose' ) }
 					</Button>
 				) : null }
-			</Dialog.Popup>
-		</Dialog.Root>
+			</DialogContent>
+		</Dialog>
 	);
 }
 
 function QuestionOptionCheckIcon() {
-	return <Icon icon={ check } size={ 14 } style={ { fill: 'currentColor' } } aria-hidden="true" />;
+	return <CheckIcon />;
 }
 
 function getQuestionPickedLabel(
@@ -1491,6 +1443,112 @@ function AgentQuestionBatch( {
 	);
 }
 
+function TurnActivityLine( {
+	activity: { items, startedAt, endedAt, status },
+	waitingOnUser,
+	progressMessage,
+}: {
+	activity: TurnActivity;
+	waitingOnUser: boolean;
+	progressMessage: string | null;
+} ) {
+	const running = status === 'running';
+	const detailsId = useId();
+	const [ open, setOpen ] = useState( false );
+	const [ hasOpened, setHasOpened ] = useState( false );
+	const [ now, setNow ] = useState( Date.now );
+	useEffect( () => {
+		if ( ! running ) {
+			return;
+		}
+		setNow( Date.now() );
+		const timer = window.setInterval( () => setNow( Date.now() ), 1000 );
+		return () => window.clearInterval( timer );
+	}, [ running ] );
+	const end = running ? now : endedAt;
+	const seconds =
+		startedAt === null || end === null
+			? null
+			: Math.max( 0, Math.floor( ( end - startedAt ) / 1000 ) );
+	const label =
+		seconds === null && status !== 'running'
+			? { success: __( 'Worked' ), interrupted: __( 'Stopped' ), error: __( 'Failed' ) }[ status ]
+			: sprintf(
+					{
+						/* translators: %d: number of seconds. */
+						running: __( 'Working for %ds' ),
+						/* translators: %d: number of seconds. */
+						success: __( 'Worked for %ds' ),
+						/* translators: %d: number of seconds. */
+						interrupted: __( 'Stopped after %ds' ),
+						/* translators: %d: number of seconds. */
+						error: __( 'Failed after %ds' ),
+					}[ status ],
+					seconds ?? 0
+			  );
+	const line = (
+		<span className={ styles.traceLine } data-status={ status === 'error' ? 'error' : undefined }>
+			<span className={ clsx( styles.traceTitle, running && ! waitingOnUser && 'studio-shimmer' ) }>
+				{ label }
+			</span>
+		</span>
+	);
+
+	return (
+		<div className={ styles.activity }>
+			{ items.length ? (
+				<>
+					<TraceTrigger
+						aria-expanded={ open }
+						aria-controls={ detailsId }
+						onClick={ () => {
+							setOpen( ! open );
+							setHasOpened( true );
+						} }
+					>
+						{ line }
+					</TraceTrigger>
+					<CollapsiblePanel open={ open } keepMounted id={ detailsId }>
+						<div className={ styles.activityItems }>
+							{ hasOpened
+								? items.map( ( item ) =>
+										item.kind === 'tool-use' ? (
+											<ToolUseRow
+												key={ item.key }
+												name={ item.name }
+												input={ item.input }
+												result={ item.result }
+												isRunning={ running }
+											/>
+										) : (
+											<div
+												key={ item.key }
+												className={ styles.activityText }
+												{ ...( item.kind === 'assistant-text'
+													? {
+															[ MESSAGE_TEXT_ATTRIBUTE ]: item.messageText,
+															[ QUOTABLE_TEXT_ATTRIBUTE ]: true,
+													  }
+													: {} ) }
+											>
+												<Markdown>{ item.text }</Markdown>
+											</div>
+										)
+								  )
+								: null }
+						</div>
+					</CollapsiblePanel>
+				</>
+			) : (
+				line
+			) }
+			{ running && progressMessage ? (
+				<span className={ styles.activityProgress }>{ progressMessage }</span>
+			) : null }
+		</div>
+	);
+}
+
 // In-flow marker for a turn that ended in an error. The proxy's quota
 // refusals get dedicated copy instead of the raw provider message: the
 // monthly usage cap shows the reset date once the quota query resolves, and
@@ -1545,36 +1603,11 @@ export function Conversation( {
 	onChooseFreeForm: ( question: string ) => void;
 } ) {
 	const entries = data.entries;
-	const canReadLocalMedia = useConnector().capabilities.readLocalMedia;
 	const items = useMemo(
-		() => entriesToRenderItems( entries, { canReadLocalMedia } ),
-		[ entries, canReadLocalMedia ]
+		() => entriesToTranscriptItems( entries, { running: isRunning, startedAt } ),
+		[ entries, isRunning, startedAt ]
 	);
-	const activeStep = useMemo( () => getActiveStep( entries ), [ entries ] );
-
-	// One selected message at a time, so picking a new one closes the last.
-	const [ selectedKey, setSelectedKey ] = useState< string | null >( null );
-	const sessionId = data.summary.id;
-	useEffect( () => {
-		setSelectedKey( null );
-	}, [ sessionId ] );
-
-	// The newest reply keeps its actions open, so copying the answer you just
-	// got never depends on discovering that messages can be clicked. Held back
-	// until the turn settles — mid-run the last text block keeps moving as new
-	// blocks stream in, and the row would hop down the transcript with it.
-	const latestActionableKey = useMemo( () => {
-		if ( isRunning ) {
-			return null;
-		}
-		for ( let index = items.length - 1; index >= 0; index -= 1 ) {
-			const item = items[ index ];
-			if ( item.kind === 'assistant-text' && item.copyText ) {
-				return item.key;
-			}
-		}
-		return null;
-	}, [ isRunning, items ] );
+	const progressMessage = useMemo( () => getProgressMessage( entries ), [ entries ] );
 
 	return (
 		<div className={ styles.root }>
@@ -1596,19 +1629,6 @@ export function Conversation( {
 								text={ item.text }
 								messageText={ item.messageText }
 								copyText={ item.copyText }
-								showActions={ selectedKey === item.key || item.key === latestActionableKey }
-								onToggleSelect={ () =>
-									setSelectedKey( ( current ) => ( current === item.key ? null : item.key ) )
-								}
-							/>
-						);
-					case 'tool-use':
-						return (
-							<ToolUseRow
-								key={ item.key }
-								name={ item.name }
-								input={ item.input }
-								result={ item.result }
 							/>
 						);
 					case 'agent-question-batch':
@@ -1625,6 +1645,15 @@ export function Conversation( {
 						);
 					case 'chat-artifact':
 						return <ChatArtifact key={ item.key } widgets={ item.widgets } />;
+					case 'activity':
+						return (
+							<TurnActivityLine
+								key={ item.key }
+								activity={ item }
+								waitingOnUser={ pendingQuestions.size > 0 }
+								progressMessage={ progressMessage }
+							/>
+						);
 					case 'interrupted-marker':
 						return (
 							<div key={ item.key } className={ styles.interruptedMarker } role="status">
@@ -1637,12 +1666,6 @@ export function Conversation( {
 						return null;
 				}
 			} ) }
-			<ThinkingIndicator
-				active={ isRunning && pendingQuestions.size === 0 }
-				startedAt={ startedAt }
-				stepKey={ activeStep.key }
-				progressMessage={ isRunning ? activeStep.progressMessage : null }
-			/>
 		</div>
 	);
 }

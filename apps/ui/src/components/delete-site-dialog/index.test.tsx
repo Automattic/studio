@@ -9,11 +9,8 @@ vi.mock( '@/data/queries/use-sites', () => ( {
 	useDeleteSite: vi.fn(),
 } ) );
 
-// The dialog's theme scope reads the resolved color scheme, which needs the
-// connector + query providers this test deliberately renders without.
-vi.mock( '@/hooks/use-color-scheme', () => ( {
-	useColorScheme: () => 'light',
-} ) );
+// Base UI's checkbox dispatches a PointerEvent, which jsdom lacks.
+vi.stubGlobal( 'PointerEvent', window.PointerEvent ?? MouseEvent );
 
 const SITE = { id: 'site-1', name: 'My Site' } as SiteDetails;
 const mutateAsync = vi.fn();
@@ -27,46 +24,43 @@ beforeEach( () => {
 
 function renderDialog( onDeleted?: () => void ) {
 	return render(
-		<DeleteSiteDialog site={ SITE } open onOpenChange={ vi.fn() } onDeleted={ onDeleted } />
+		<DeleteSiteDialog sites={ [ SITE ] } open onOpenChange={ vi.fn() } onDeleted={ onDeleted } />
 	);
 }
 
 describe( 'DeleteSiteDialog', () => {
-	it( 'deletes the site and its files on confirm', async () => {
+	it( 'keeps the files unless asked, and focuses Cancel so Return does not remove', async () => {
 		mutateAsync.mockResolvedValue( undefined );
 		const onDeleted = vi.fn();
 		renderDialog( onDeleted );
 
-		await userEvent.click( screen.getByRole( 'button', { name: 'Delete site' } ) );
+		expect(
+			screen.getByRole( 'alertdialog', { name: 'Remove “My Site” from Studio?' } )
+		).toBeInTheDocument();
+		expect(
+			screen.getByRole( 'checkbox', { name: 'Also move files and database to Trash' } )
+		).not.toBeChecked();
+		await waitFor( () => expect( screen.getByRole( 'button', { name: 'Cancel' } ) ).toHaveFocus() );
+		fireEvent.keyDown( screen.getByRole( 'checkbox' ), { key: 'Enter' } );
+		expect( mutateAsync ).not.toHaveBeenCalled();
+
+		await userEvent.click( screen.getByRole( 'button', { name: 'Remove site' } ) );
 
 		await waitFor( () =>
-			expect( mutateAsync ).toHaveBeenCalledWith( { id: 'site-1', deleteFiles: true } )
+			expect( mutateAsync ).toHaveBeenCalledWith( { id: 'site-1', deleteFiles: false } )
 		);
 		expect( onDeleted ).toHaveBeenCalled();
 	} );
 
-	// Guards the wiring rather than the behavior: the hook finds the confirm
-	// button by label, so this fails if the two ever drift apart.
-	it( 'confirms when Return is pressed inside the dialog', async () => {
-		mutateAsync.mockResolvedValue( undefined );
-		renderDialog();
-
-		fireEvent.keyDown( screen.getByRole( 'checkbox' ), { key: 'Enter' } );
-
-		await waitFor( () =>
-			expect( mutateAsync ).toHaveBeenCalledWith( { id: 'site-1', deleteFiles: true } )
-		);
-	} );
-
-	it( 'keeps the files when the checkbox is unchecked', async () => {
+	it( 'moves the files to Trash when the checkbox is ticked', async () => {
 		mutateAsync.mockResolvedValue( undefined );
 		renderDialog();
 
 		await userEvent.click( screen.getByRole( 'checkbox' ) );
-		await userEvent.click( screen.getByRole( 'button', { name: 'Delete site' } ) );
+		await userEvent.click( screen.getByRole( 'button', { name: 'Remove site' } ) );
 
 		await waitFor( () =>
-			expect( mutateAsync ).toHaveBeenCalledWith( { id: 'site-1', deleteFiles: false } )
+			expect( mutateAsync ).toHaveBeenCalledWith( { id: 'site-1', deleteFiles: true } )
 		);
 	} );
 
@@ -75,9 +69,8 @@ describe( 'DeleteSiteDialog', () => {
 		const onDeleted = vi.fn();
 		renderDialog( onDeleted );
 
-		await userEvent.click( screen.getByRole( 'button', { name: 'Delete site' } ) );
+		await userEvent.click( screen.getByRole( 'button', { name: 'Remove site' } ) );
 
-		// Scoped to the dialog: the error is also announced in an aria-live region.
 		const dialog = await screen.findByRole( 'alertdialog' );
 		expect( await within( dialog ).findByText( 'Site is running' ) ).toBeVisible();
 		expect( onDeleted ).not.toHaveBeenCalled();

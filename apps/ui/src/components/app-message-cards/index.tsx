@@ -1,22 +1,22 @@
 import { __ } from '@wordpress/i18n';
-import { Button, Notice } from '@wordpress/ui';
 import { clsx } from 'clsx';
+import { XIcon } from 'lucide-react';
 import { AddAiCreditsButton } from '@/components/add-ai-credits-button';
-import toastStyles from '@/components/app-toasts/style.module.css';
+import {
+	Alert,
+	AlertActions,
+	AlertDescription,
+	AlertTitle,
+	INTENT_VARIANTS,
+} from '@/components/ui/alert';
+import { Button, IconButton } from '@/components/ui/button';
 import {
 	useActivePersistentMessages,
 	useRecordPersistentMessages,
 } from '@/data/queries/use-app-messages';
 import styles from './style.module.css';
-import type { NoticeAppearance } from '@/components/app-toasts';
 
-export function AppMessageCards( {
-	className,
-	appearance = 'neutral',
-}: {
-	className?: string;
-	appearance?: NoticeAppearance;
-} ) {
+export function AppMessageCards( { className }: { className?: string } ) {
 	const { messages, dismiss } = useActivePersistentMessages();
 
 	if ( ! messages.length ) {
@@ -27,42 +27,39 @@ export function AppMessageCards( {
 		<div className={ clsx( styles.stack, className ) }>
 			{ messages.map( ( message ) => (
 				<div key={ message.id } className={ styles.cell }>
-					<Notice.Root
-						intent={ message.intent }
-						icon={ null }
-						className={ clsx(
-							toastStyles.notice,
-							appearance === 'neutral' && toastStyles.neutral,
-							styles.card
-						) }
-					>
-						<Notice.Title>{ message.title }</Notice.Title>
+					<Alert variant={ INTENT_VARIANTS[ message.intent ] } className={ styles.card }>
+						<AlertTitle className={ styles.title }>{ message.title }</AlertTitle>
+						<IconButton
+							variant="ghost"
+							size="icon-2xs"
+							icon={ <XIcon /> }
+							label={ __( 'Dismiss' ) }
+							tooltip={ false }
+							className={ styles.close }
+							onClick={ () => dismiss( message ) }
+						/>
 						{ message.description ? (
-							<Notice.Description>{ message.description }</Notice.Description>
+							<AlertDescription className={ styles.description }>
+								{ message.description }
+							</AlertDescription>
 						) : null }
 						{ message.purchaseCta ? (
-							<Notice.Actions>
-								<AddAiCreditsButton
-									variant="solid"
-									tone="neutral"
-									className={ toastStyles.actionButton }
-								/>
-							</Notice.Actions>
+							<AlertActions>
+								<AddAiCreditsButton variant="muted" size="2xs" className={ styles.action } />
+							</AlertActions>
 						) : message.cta ? (
-							<Notice.Actions>
+							<AlertActions>
 								<Button
-									size="small"
-									variant="solid"
-									tone="neutral"
-									className={ toastStyles.actionButton }
+									variant="muted"
+									size="2xs"
+									className={ styles.action }
 									onClick={ message.cta.onClick }
 								>
 									{ message.cta.label }
 								</Button>
-							</Notice.Actions>
+							</AlertActions>
 						) : null }
-						<Notice.CloseIcon label={ __( 'Dismiss' ) } onClick={ () => dismiss( message ) } />
-					</Notice.Root>
+					</Alert>
 				</div>
 			) ) }
 		</div>

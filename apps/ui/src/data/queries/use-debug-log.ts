@@ -15,7 +15,6 @@ export function useDebugLogExists( siteId: string ) {
 	return useQuery( {
 		queryKey: debugLogExistsQueryKey( siteId ),
 		queryFn: () => connector.siteDebugLogExists( siteId ),
-		enabled: connector.capabilities.openInOS,
 		// An unresolvable site means "no log", not a transient failure.
 		retry: false,
 		meta: { persist: false },

@@ -1,15 +1,30 @@
 import { __, isRTL } from '@wordpress/i18n';
 import { clsx } from 'clsx';
-import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
+import {
+	createContext,
+	useContext,
+	useEffect,
+	useState,
+	type CSSProperties,
+	type ReactNode,
+} from 'react';
 import { ResizeHandle, ResizeOverlay } from '@/components/resize-handle';
 import { usePreviewSplit } from '@/hooks/use-preview-split';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import { WindowControlsCornerContext } from '@/hooks/use-window-controls-inset';
-import { useWindowControlsOverlay } from '@/hooks/use-window-controls-overlay';
+import { getMotionDuration } from '@/lib/motion';
+import { PREVIEW_SPLIT_MIN_WIDTH } from '@/lib/resizable-panels';
 import styles from './style.module.css';
 
 // Keep in sync with the content-column transition duration in style.module.css.
-export const PREVIEW_TOGGLE_DURATION = 150;
+
+// Whether the preview shows beside the content, for controls in the content
+// column that only make sense next to it.
+const PreviewBesideContext = createContext( false );
+
+export function usePreviewBeside(): boolean {
+	return useContext( PreviewBesideContext );
+}
 
 export interface PreviewSplitFramePreviewProps {
 	collapsed: boolean;
@@ -21,39 +36,33 @@ interface PreviewSplitFrameProps {
 	// handles the open/close slide animation.
 	preview?: ( props: PreviewSplitFramePreviewProps ) => ReactNode;
 	previewOpen?: boolean;
-	// Full preview: the preview takes the whole frame and the content column
-	// collapses to zero width (kept mounted so chat state survives).
-	previewFullscreen?: boolean;
-	// Whether the preview shows a live site. Its webview reaches the frame's
-	// edges (scrollbar included), so a flush frame keeps drag handles off it.
-	previewLive?: boolean;
-	onContainerWidthChange?: ( containerWidth: number | null ) => void;
+	// The chat is hidden: the content column collapses the same way, while the
+	// sidebar stays.
+	chatHidden?: boolean;
+	// Drawn over the top inline-end corner, above whichever pane is there.
+	actions?: ReactNode;
+	// Open or close without the slide, as when a stopping site drops its preview.
+	instant?: boolean;
 	children?: ReactNode;
 }
 
 export function PreviewSplitFrame( {
 	preview,
 	previewOpen = false,
-	previewFullscreen = false,
-	previewLive = false,
-	onContainerWidthChange,
+	chatHidden = false,
+	actions,
+	instant = false,
 	children,
 }: PreviewSplitFrameProps ) {
 	const showPreview = previewOpen && preview != null;
-	const showFullscreen = showPreview && previewFullscreen;
+	const contentCollapsed = showPreview && chatHidden;
 	const { rootRef, containerWidth, contentWidthVar, isResizing, handleProps } = usePreviewSplit( {
 		showPreview,
 	} );
 	const isSidebarCollapsed = useSidebarCollapsed();
-	// The chrome gap above the frame is where the native window controls land on
-	// Windows/Linux, so it has to be at least as tall as they are.
-	const windowControls = useWindowControlsOverlay();
+	const resizable = ( containerWidth ?? Infinity ) >= PREVIEW_SPLIT_MIN_WIDTH;
 
-	useEffect( () => {
-		onContainerWidthChange?.( showPreview && ! showFullscreen ? containerWidth : null );
-	}, [ containerWidth, onContainerWidthChange, showFullscreen, showPreview ] );
-
-	// Animate only open/close/fullscreen toggles of an already-mounted preview —
+	// Animate only open/close/hide-chat toggles of an already-mounted preview —
 	// never the initial layout, so a route loading with the preview visible
 	// doesn't replay the slide-in. The render-phase update lands the transition
 	// class in the same commit as the width change; an effect-based update would
@@ -62,19 +71,19 @@ export function PreviewSplitFrame( {
 	const [ previousPreview, setPreviousPreview ] = useState( {
 		mounted: preview != null,
 		open: showPreview,
-		fullscreen: showFullscreen,
+		collapsed: contentCollapsed,
 	} );
 	if (
 		previousPreview.mounted !== ( preview != null ) ||
 		previousPreview.open !== showPreview ||
-		previousPreview.fullscreen !== showFullscreen
+		previousPreview.collapsed !== contentCollapsed
 	) {
 		setPreviousPreview( {
 			mounted: preview != null,
 			open: showPreview,
-			fullscreen: showFullscreen,
+			collapsed: contentCollapsed,
 		} );
-		if ( previousPreview.mounted && preview != null ) {
+		if ( previousPreview.mounted && preview != null && ! instant ) {
 			setAnimatingPreviewToggle( true );
 		}
 	}
@@ -85,26 +94,27 @@ export function PreviewSplitFrame( {
 		}
 		const timeoutId = window.setTimeout(
 			() => setAnimatingPreviewToggle( false ),
-			PREVIEW_TOGGLE_DURATION
+			getMotionDuration( 'layout' )
 		);
 		return () => window.clearTimeout( timeoutId );
-	}, [ animatingPreviewToggle, showPreview, showFullscreen ] );
+	}, [ animatingPreviewToggle, showPreview, contentCollapsed ] );
 
 	const previewVisible = showPreview || animatingPreviewToggle;
 	const renderedPreview = preview?.( { collapsed: ! previewVisible } );
 	const rootStyle = {
-		// Fullscreen collapses the content column; the split geometry keeps its
-		// last width so leaving fullscreen restores the previous split.
-		'--preview-frame-content-width': showFullscreen ? '0px' : contentWidthVar,
-		...( windowControls && { '--panel-frame-gap-top': `${ windowControls.height }px` } ),
+		// The collapsed content column keeps the split's last width in the
+		// geometry, so showing it again restores the previous split.
+		'--preview-frame-content-width': contentCollapsed ? '0px' : contentWidthVar,
 	} as CSSProperties;
 	// Keep the zero-width column visible while it animates shut, then hide it
 	// so the (still mounted) chat can't be reached by focus or a screen reader.
-	const contentHidden = showFullscreen && ! animatingPreviewToggle;
-	// Only a flush frame reaches the window's top-right corner. The preview sits
-	// at the inline end, so in RTL it only gets there when it fills the frame.
-	const contentInCorner = isSidebarCollapsed && ! showFullscreen && ( ! showPreview || isRTL() );
-	const previewInCorner = isSidebarCollapsed && showPreview && ( showFullscreen || ! isRTL() );
+	const contentHidden = contentCollapsed && ! animatingPreviewToggle;
+	// Which pane reaches the window's top-right corner. The preview sits at the
+	// inline end, so in RTL it only gets there when it fills the frame, and the
+	// content only when the sidebar isn't there.
+	const contentInCorner =
+		! contentCollapsed && ( ! showPreview || ( isRTL() && isSidebarCollapsed ) );
+	const previewInCorner = showPreview && ( contentCollapsed || ! isRTL() );
 
 	return (
 		<>
@@ -112,19 +122,27 @@ export function PreviewSplitFrame( {
 				ref={ rootRef }
 				className={ clsx(
 					styles.root,
-					isSidebarCollapsed && styles.rootFrameless,
 					showPreview && styles.rootPreviewOpen,
 					isResizing && styles.rootPreviewResizing,
-					animatingPreviewToggle && styles.rootPreviewAnimating
+					animatingPreviewToggle && styles.rootPreviewAnimating,
+					showPreview &&
+						! contentCollapsed &&
+						! animatingPreviewToggle && [ styles.rootEdge, 'studio-column-edge' ]
 				) }
 				style={ rootStyle }
 			>
 				<div
-					className={ clsx( styles.contentColumn, contentHidden && styles.contentColumnHidden ) }
+					className={ clsx(
+						styles.contentColumn,
+						contentCollapsed && styles.contentColumnCollapsed,
+						contentHidden && styles.contentColumnHidden
+					) }
 					aria-hidden={ contentHidden || undefined }
 				>
 					<WindowControlsCornerContext.Provider value={ contentInCorner }>
-						{ children }
+						<PreviewBesideContext.Provider value={ showPreview && ! contentCollapsed }>
+							{ children }
+						</PreviewBesideContext.Provider>
 					</WindowControlsCornerContext.Provider>
 				</div>
 				{ preview ? (
@@ -141,7 +159,7 @@ export function PreviewSplitFrame( {
 						</WindowControlsCornerContext.Provider>
 					</div>
 				) : null }
-				{ showPreview && ! showFullscreen && ! animatingPreviewToggle ? (
+				{ showPreview && ! contentCollapsed && ! animatingPreviewToggle && resizable ? (
 					<ResizeHandle
 						className={ styles.previewResizeHandle }
 						label={ __( 'Resize site preview' ) }
@@ -149,49 +167,8 @@ export function PreviewSplitFrame( {
 					/>
 				) : null }
 				{ isResizing ? <ResizeOverlay /> : null }
+				{ actions }
 			</div>
-			{ isSidebarCollapsed ? (
-				<>
-					<div
-						className={ clsx( styles.dragStrip, styles.dragStripTop, styles.dragStripEdge ) }
-						aria-hidden="true"
-					/>
-					{ ! showFullscreen ? (
-						<div
-							className={ clsx( styles.dragStrip, styles.dragStripStart, styles.dragStripEdge ) }
-							aria-hidden="true"
-						/>
-					) : null }
-					{ ! showFullscreen || ! previewLive ? (
-						<div
-							className={ clsx(
-								styles.dragStrip,
-								styles.dragStripBottom,
-								styles.dragStripEdge,
-								showPreview && previewLive && styles.dragStripContentOnly
-							) }
-							style={ rootStyle }
-							aria-hidden="true"
-						/>
-					) : null }
-					{ showPreview && ! previewLive ? (
-						<div
-							className={ clsx( styles.dragStrip, styles.dragStripEnd, styles.dragStripEdge ) }
-							aria-hidden="true"
-						/>
-					) : null }
-				</>
-			) : (
-				<>
-					<div
-						className={ clsx( styles.dragStrip, styles.dragStripTop ) }
-						style={ windowControls ? { height: windowControls.height } : undefined }
-						aria-hidden="true"
-					/>
-					<div className={ clsx( styles.dragStrip, styles.dragStripBottom ) } aria-hidden="true" />
-					<div className={ clsx( styles.dragStrip, styles.dragStripEnd ) } aria-hidden="true" />
-				</>
-			) }
 		</>
 	);
 }

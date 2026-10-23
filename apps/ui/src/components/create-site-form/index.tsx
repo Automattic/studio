@@ -1,33 +1,38 @@
 import { DEFAULT_WORDPRESS_VERSION } from '@studio/common/constants';
-import { generateCustomDomainFromSiteName } from '@studio/common/lib/domains';
+import {
+	generateCustomDomainFromSiteName,
+	getDomainNameValidationError,
+} from '@studio/common/lib/domains';
+import { getErrorMessage } from '@studio/common/lib/error-formatting';
 import {
 	DEFAULT_ADMIN_EMAIL,
 	DEFAULT_ADMIN_USERNAME,
 	generatePassword,
+	validateAdminEmail,
+	validateAdminUsername,
 } from '@studio/common/lib/passwords';
 import { SITE_FILE_ACCESS_SITE_DIRECTORY } from '@studio/common/lib/site-file-access';
+import { getFileAccessDescription } from '@studio/common/lib/site-file-access-labels';
 import { getLatestVersionLabel } from '@studio/common/lib/wordpress-versions';
 import { RecommendedPHPVersion } from '@studio/common/types/php-versions';
-import { BaseControl, TextControl } from '@wordpress/components';
-import { DataForm, useFormValidity } from '@wordpress/dataviews';
 import { __, _n, sprintf } from '@wordpress/i18n';
-import { chevronDown, chevronLeft, chevronRight, error as errorIcon } from '@wordpress/icons';
-import { Button, Icon } from '@wordpress/ui';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ChevronDownIcon, ChevronRightIcon } from 'lucide-react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { LearnMoreLink } from '@/components/learn-more';
-import { OnboardingFooter } from '@/components/onboarding-footer';
 import {
-	adminEmailField,
-	adminPasswordField,
-	adminUsernameField,
-	customDomainField,
-	fileAccessField,
-	phpVersionField,
-	siteNameField,
-	customDomainToggleField,
-	wpVersionField,
+	CertificateTrustNotice,
+	getFileAccessOptions,
+	getPhpVersionOptions,
+	getWpVersionOptions,
+	SelectField,
+	TextField,
+	ToggleField,
+	validateAdminPassword,
+	validateSiteName,
 } from '@/components/site-fields';
-import { EnableHttpsControl } from '@/components/site-fields/enable-https-control';
+import { Button } from '@/components/ui/button';
+import { Field, FieldDescription, FieldGroup, FieldLabel, FieldTitle } from '@/components/ui/field';
+import { Input } from '@/components/ui/input';
 import { useConnector } from '@/data/core';
 import { usePathValidator } from '@/data/queries/use-create-site-helpers';
 import { useSites } from '@/data/queries/use-sites';
@@ -37,14 +42,6 @@ import styles from './style.module.css';
 import type { SiteFileAccess } from '@studio/common/lib/site-file-access';
 import type { WordPressVersion } from '@studio/common/lib/wordpress-versions';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
-import type {
-	DataFormControlProps,
-	Field,
-	FieldValidity,
-	Form,
-	FormField,
-	FormValidity,
-} from '@wordpress/dataviews';
 import type { FormEvent, ReactNode } from 'react';
 
 export interface CreateSiteFormValues {
@@ -80,6 +77,10 @@ interface CreateSiteFormProps {
 	loadingAnnouncement?: string;
 	children?: ReactNode;
 	panelFooter?: ReactNode;
+	// What the site starts from, shown in place of `panelFooter`.
+	source?: string;
+	// Whether the folder already holds a WordPress site, which Studio adds as it is.
+	onExistingChange?: ( existing: boolean ) => void;
 }
 
 interface FormData {
@@ -115,6 +116,7 @@ const SIMPLE_FIELDS = [
 	'adminEmail',
 ] as const satisfies readonly ( keyof CreateSiteFormValues )[];
 const INITIAL_VALUE_FIELDS = [ ...SIMPLE_FIELDS, 'path', 'customDomain' ] as const;
+const TYPED_PATH_CHECK_DELAY_MS = 300;
 
 function createDefaultFormData(): FormData {
 	return {
@@ -215,8 +217,9 @@ function usePathAutoGenerate(
 	onChange: ( update: Partial< FormData > ) => void,
 	isSubmitting: boolean
 ) {
+	const connector = useConnector();
 	const { data: sites } = useSites();
-	const { generateProposedPath } = usePathValidator( sites );
+	const { generateProposedPath, selectPath } = usePathValidator( sites );
 
 	const onChangeRef = useRef( onChange );
 	useEffect( () => {
@@ -263,25 +266,52 @@ function usePathAutoGenerate(
 			cancelled = true;
 		};
 	}, [ data.name, data.hasCustomPath, generateProposedPath, isSubmitting ] );
+
+	// Without a native picker the folder is typed, so it's checked as it's typed.
+	const typedPath =
+		data.hasCustomPath && ! connector.capabilities.nativeFolderPicker ? data.path.trim() : '';
+	useEffect( () => {
+		if ( isSubmitting || ! typedPath ) return;
+		onChangeRef.current( { isPathPending: true } );
+		let cancelled = false;
+		const timer = setTimeout( async () => {
+			try {
+				const result = await selectPath( typedPath );
+				if ( cancelled ) return;
+				onChangeRef.current( {
+					pathError: result?.error ?? '',
+					isWordPress: !! result?.isWordPress,
+					isPathPending: false,
+				} );
+			} catch ( error ) {
+				if ( cancelled ) return;
+				onChangeRef.current( { pathError: getErrorMessage( error ), isPathPending: false } );
+			}
+		}, TYPED_PATH_CHECK_DELAY_MS );
+		return () => {
+			cancelled = true;
+			clearTimeout( timer );
+		};
+	}, [ typedPath, selectPath, isSubmitting ] );
 }
 
-// On the desktop this is a button that opens the native folder dialog (the
-// value is set by the name→path auto-gen or the dialog, never typed) — which
-// also sidesteps the browser's refusal to expose `validationMessage` on
-// readonly inputs. In the browser (`studio ui` / hosted) there's no native
-// picker, so it falls back to an editable text field: the path is still
-// prefilled from the site name, and the server validates the final path on
-// create.
+// On the desktop the path comes from the name→path auto-gen or the native
+// folder dialog, never typed. In the browser (`studio ui`) there's no native
+// picker, so it is edited as text, still prefilled from the site name.
 function PathField( {
 	data: item,
-	field,
-	hideLabelFromVision,
+	error,
 	onChange,
-	validity,
-}: DataFormControlProps< FormData > ) {
+}: {
+	data: FormData;
+	error: string;
+	onChange: ( update: Partial< FormData > ) => void;
+} ) {
+	const id = useId();
 	const connector = useConnector();
 	const { data: sites } = useSites();
 	const { selectPath } = usePathValidator( sites );
+	const isNative = connector.capabilities.nativeFolderPicker;
 
 	const handleSelect = useCallback( async () => {
 		const result = await selectPath( item.hasCustomPath ? item.path : '' );
@@ -295,7 +325,6 @@ function PathField( {
 		} );
 	}, [ item.hasCustomPath, item.name, item.path, onChange, selectPath ] );
 
-	const errorMessage = item.pathError || validity?.custom?.message;
 	const help =
 		item.path && item.isWordPress ? (
 			__( 'The existing WordPress site at this path will be added.' )
@@ -305,100 +334,50 @@ function PathField( {
 				<LearnMoreLink docsLinksKey="docsSites" />
 			</>
 		);
-	const error = errorMessage ? (
-		<p role="alert" className="components-validated-control__indicator is-invalid">
-			<Icon
-				className="components-validated-control__indicator-icon"
-				icon={ errorIcon }
-				size={ 16 }
-				fill="currentColor"
-			/>
-			{ errorMessage }
-		</p>
-	) : null;
-
-	// No native folder picker in the browser — edit the path as text. It's
-	// prefilled from the site name; the server validates it on create.
-	if ( ! connector.capabilities.nativeFolderPicker ) {
-		return (
-			<div className={ errorMessage ? styles.pathControlError : undefined }>
-				<TextControl
-					__nextHasNoMarginBottom
-					__next40pxDefaultSize
-					label={ field.label }
-					hideLabelFromVision={ hideLabelFromVision }
-					value={ item.path }
-					onChange={ ( value ) =>
-						onChange( { path: value, hasCustomPath: true, pathError: '', isWordPress: false } )
-					}
-					help={ errorMessage ? undefined : help }
-				/>
-				{ error }
-			</div>
-		);
-	}
-
-	const triggerLabel = item.path
-		? sprintf(
-				// translators: %s is the currently selected folder path.
-				__( '%s, select a different folder' ),
-				item.path
-		  )
-		: __( 'Select a folder' );
 
 	return (
-		<div>
-			<BaseControl
-				__nextHasNoMarginBottom
-				label={ field.label }
-				hideLabelFromVision={ hideLabelFromVision }
-				help={ errorMessage ? undefined : help }
-			>
-				<button
-					type="button"
-					onClick={ handleSelect }
-					aria-label={ triggerLabel }
-					aria-invalid={ !! errorMessage || undefined }
-					className={ `${ styles.pathTrigger } ${ errorMessage ? styles.pathTriggerError : '' }` }
-				>
-					<span
-						className={ `${ styles.pathValue } ${ item.path ? '' : styles.pathValuePlaceholder }` }
-						aria-hidden="true"
+		<Field>
+			<FieldLabel htmlFor={ id }>{ __( 'Local path' ) }</FieldLabel>
+			<div className={ styles.pathRow }>
+				<Input
+					id={ id }
+					value={ item.path }
+					readOnly={ isNative }
+					placeholder={ isNative ? __( 'Choose a folder…' ) : undefined }
+					aria-invalid={ error ? true : undefined }
+					aria-describedby={ `${ id }-description` }
+					onChange={ ( event ) =>
+						onChange( {
+							path: event.target.value,
+							hasCustomPath: true,
+							pathError: '',
+							isWordPress: false,
+						} )
+					}
+				/>
+				{ isNative && (
+					<Button
+						variant="outline"
+						onClick={ handleSelect }
+						aria-label={
+							item.path
+								? sprintf(
+										// translators: %s is the currently selected folder path.
+										__( '%s, select a different folder' ),
+										item.path
+								  )
+								: __( 'Select a folder' )
+						}
 					>
-						{ item.path || __( 'Choose a folder…' ) }
-					</span>
-					<span className={ styles.pathTriggerAction } aria-hidden="true">
-						{ __( 'Choose\u2026' ) }
-					</span>
-				</button>
-			</BaseControl>
-			{ error }
-		</div>
+						{ __( 'Choose…' ) }
+					</Button>
+				) }
+			</div>
+			<FieldDescription id={ `${ id }-description` } error={ error }>
+				{ help }
+			</FieldDescription>
+		</Field>
 	);
-}
-
-function countAdvancedErrors( validity: FormValidity, form: Form ): number {
-	const fieldIds: string[] = [];
-	const collect = ( field: FormField | string ) => {
-		if ( typeof field === 'string' ) {
-			fieldIds.push( field );
-			return;
-		}
-		if ( field.children ) {
-			field.children.forEach( collect );
-		} else {
-			fieldIds.push( field.id );
-		}
-	};
-	form.fields?.forEach( collect );
-	return fieldIds.reduce( ( total, id ) => {
-		const fieldValidity: FieldValidity | undefined = validity?.[ id ];
-		if ( ! fieldValidity ) return total;
-		const hasInvalid = Object.values( fieldValidity ).some(
-			( rule ) => rule && typeof rule === 'object' && 'type' in rule && rule.type === 'invalid'
-		);
-		return hasInvalid ? total + 1 : total;
-	}, 0 );
 }
 
 export function CreateSiteForm( {
@@ -415,17 +394,17 @@ export function CreateSiteForm( {
 	loadingAnnouncement,
 	children,
 	panelFooter,
+	source,
+	onExistingChange,
 }: CreateSiteFormProps ) {
-	const formRef = useRef< HTMLFormElement >( null );
-	const initialSuggestedFields = getSuggestedFields( initialValues ?? {} );
-	const shouldReportSuggestedErrorsRef = useRef( initialSuggestedFields.size > 0 );
 	const [ defaults ] = useState( createDefaultFormData );
-	const suggestedFieldsRef = useRef( initialSuggestedFields );
+	const suggestedFieldsRef = useRef( getSuggestedFields( initialValues ?? {} ) );
 	const [ data, setData ] = useState< FormData >( () => {
 		if ( ! initialValues ) return defaults;
 		return applyInitialValues( defaults, initialValues, defaults );
 	} );
 	const dirtyFieldsRef = useRef( new Set< keyof CreateSiteFormValues >() );
+	const [ isNameEdited, setIsNameEdited ] = useState( false );
 	const isSubmitQueuedRef = useRef( false );
 
 	useEffect( () => {
@@ -433,7 +412,6 @@ export function CreateSiteForm( {
 		const suggestedFields = getSuggestedFields( values );
 		const previousSuggestedFields = suggestedFieldsRef.current;
 		if ( suggestedFields.size || previousSuggestedFields.size ) {
-			if ( suggestedFields.size ) shouldReportSuggestedErrorsRef.current = true;
 			setData( ( prev ) =>
 				applyInitialValues(
 					prev,
@@ -470,140 +448,18 @@ export function CreateSiteForm( {
 		! findOfferedWpVersion( blueprintWpVersion, wpVersions )
 			? blueprintWpVersion
 			: undefined;
-
-	const fields = useMemo< Field< FormData >[] >(
-		() => [
-			siteNameField< FormData >(),
-			{
-				id: 'path',
-				label: __( 'Local path' ),
-				Edit: PathField,
-				// Required check lives inside `custom` so it can opt out while
-				// `isPathPending` is true — see the `FormData` comment above.
-				isValid: {
-					custom: ( item: FormData ) => {
-						if ( item.pathError ) return item.pathError;
-						if ( item.isPathPending || ! item.name.trim() ) return null;
-						if ( ! item.path ) return __( 'Local path is required.' );
-						return null;
-					},
-				},
-			},
-			phpVersionField< FormData >(),
-			fileAccessField< FormData >(),
-			{
-				...wpVersionField< FormData >( DEFAULT_WORDPRESS_VERSION, wpVersions, {
-					autoUpdateVersion: getLatestVersionLabel( wpVersions ),
-					offline: isOffline,
-				} ),
-				...( unavailableWpVersion && {
-					description: sprintf(
-						/* translators: %s: WordPress version, e.g. 5.9 */
-						__( "This Blueprint asks for WordPress %s, which Studio can't install." ),
-						unavailableWpVersion
-					),
-				} ),
-			},
-			adminUsernameField< FormData >(),
-			adminPasswordField< FormData >(),
-			adminEmailField< FormData >(),
-			{
-				...customDomainToggleField< FormData >(),
-				...( requiresCustomDomain && {
-					isDisabled: true,
-					description: __( 'This Blueprint requires a custom domain.' ),
-				} ),
-			},
-			customDomainField< FormData >( existingDomainNames ),
-			{
-				id: 'enableHttps',
-				type: 'boolean',
-				label: __( 'Enable HTTPS' ),
-				isVisible: ( item: FormData ) => item.useCustomDomain,
-				Edit: EnableHttpsControl< FormData >,
-			},
-		],
-		[ existingDomainNames, isOffline, requiresCustomDomain, unavailableWpVersion, wpVersions ]
-	);
-
-	const basicForm = useMemo< Form >(
-		() => ( {
-			layout: { type: 'regular', labelPosition: 'top' },
-			fields: [ 'name' ],
-		} ),
-		[]
-	);
-	const advancedForm = useMemo< Form >(
-		() => ( {
-			layout: { type: 'regular', labelPosition: 'top' },
-			fields: [
-				{
-					id: 'siteDetails',
-					label: __( 'Site details' ),
-					layout: { type: 'card', withHeader: true, isCollapsible: false },
-					children: [
-						{ id: 'path', layout: { type: 'regular', labelPosition: 'top' } },
-						'wpVersion',
-					],
-				},
-				{
-					id: 'phpEnvironment',
-					label: __( 'PHP environment' ),
-					layout: { type: 'card', withHeader: true, isCollapsible: false },
-					children: [ 'phpVersion', 'fileAccess' ],
-				},
-				{
-					id: 'wordpressAdmin',
-					label: __( 'WordPress admin' ),
-					layout: { type: 'card', withHeader: true, isCollapsible: false },
-					children: [ 'adminUsername', 'adminPassword', 'adminEmail' ],
-				},
-				{
-					id: 'domain',
-					label: __( 'Domain' ),
-					layout: { type: 'card', withHeader: true, isCollapsible: false },
-					children: [ 'useCustomDomain', 'customDomain', 'enableHttps' ],
-				},
-			],
-		} ),
-		[]
-	);
-	// Covers both sections so the collapsed Advanced toggle still picks up
-	// errors from fields that aren't currently mounted.
-	const fullForm = useMemo< Form >(
-		() => ( {
-			layout: { type: 'regular', labelPosition: 'top' },
-			fields: [ ...basicForm.fields!, ...advancedForm.fields! ],
-		} ),
-		[ basicForm, advancedForm ]
-	);
-
-	const { validity, isValid } = useFormValidity( data, fields, fullForm );
+	const wpVersionOptions = getWpVersionOptions( wpVersions, {
+		autoUpdateVersion: getLatestVersionLabel( wpVersions ),
+		offline: isOffline,
+	} );
 	const [ isAdvancedOpen, setIsAdvancedOpen ] = useState( false );
-
-	// Validated controls hide programmatic errors until they receive an invalid event.
-	// Wait for DataForm to apply custom validity, then reveal errors from suggested values.
-	useEffect( () => {
-		if ( ! shouldReportSuggestedErrorsRef.current ) return;
-		const timeout = window.setTimeout( () => {
-			shouldReportSuggestedErrorsRef.current = false;
-			formRef.current
-				?.querySelectorAll< HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement >(
-					'input, select, textarea'
-				)
-				.forEach( ( control ) => {
-					if ( ! control.validity.valid ) control.reportValidity();
-				} );
-		}, 0 );
-		return () => window.clearTimeout( timeout );
-	}, [ data, initialValues, validity ] );
 
 	const handleChangePartial = useCallback( ( update: Partial< FormData > ) => {
 		setData( ( prev ) => ( { ...prev, ...update } ) );
 	}, [] );
 	usePathAutoGenerate( data, handleChangePartial, !! isSubmitting );
 
-	const handleChange = useCallback( ( update: Record< string, unknown > ) => {
+	const handleChange = useCallback( ( update: Partial< FormData > ) => {
 		isSubmitQueuedRef.current = false;
 		for ( const key of Object.keys( update ) ) {
 			if ( key === 'useCustomDomain' ) {
@@ -612,8 +468,9 @@ export function CreateSiteForm( {
 				dirtyFieldsRef.current.add( key as keyof CreateSiteFormValues );
 			}
 		}
+		if ( update.name !== undefined ) setIsNameEdited( true );
 		setData( ( prev ) => {
-			const next: FormData = { ...prev, ...( update as Partial< FormData > ) };
+			const next: FormData = { ...prev, ...update };
 			if ( update.name !== undefined && ! prev.hasCustomPath && next.name !== prev.name ) {
 				next.isPathPending = !! next.name.trim();
 				next.pathError = '';
@@ -628,11 +485,37 @@ export function CreateSiteForm( {
 		} );
 	}, [] );
 
+	// The path's required check opts out while `isPathPending` — see the
+	// `FormData` comment above.
+	const advancedErrors = {
+		path:
+			data.pathError ||
+			( ! data.isPathPending && data.name.trim() && ! data.path
+				? __( 'Local path is required.' )
+				: '' ),
+		adminUsername: validateAdminUsername( data.adminUsername ),
+		adminPassword: validateAdminPassword( data.adminPassword ),
+		adminEmail: validateAdminEmail( data.adminEmail ),
+		customDomain: getDomainNameValidationError(
+			data.useCustomDomain,
+			data.customDomain || generateCustomDomainFromSiteName( data.name ),
+			existingDomainNames
+		),
+	};
+	const nameError = validateSiteName( data.name );
+	const advancedErrorCount = Object.values( advancedErrors ).filter( Boolean ).length;
+	const showAdvanced =
+		isAdvancedOpen ||
+		( ! data.isPathPending && !! advancedErrors.path ) ||
+		!! advancedErrors.customDomain;
+	const existing = data.isWordPress && !! data.path && ! data.isPathPending;
+	useEffect( () => onExistingChange?.( existing ), [ existing, onExistingChange ] );
+
 	// `isPathPending` is deliberately absent from `canSubmit`: it toggles on
 	// every keystroke of the name field while the path auto-gen resolves, and
 	// disabling the submit button on it makes the button blink. Submits that
 	// land inside that window are queued and fired once the path resolves.
-	const canSubmit = isValid && ! isSubmitting && ! isSubmitDisabled && ! data.pathError;
+	const canSubmit = ! nameError && ! advancedErrorCount && ! isSubmitting && ! isSubmitDisabled;
 
 	const submitForm = () => {
 		onSubmit( {
@@ -667,57 +550,39 @@ export function CreateSiteForm( {
 		if ( canSubmit ) submitForm();
 	} );
 
-	const advancedErrorCount = countAdvancedErrors( validity, advancedForm );
-	const actions = (
-		<>
-			<Button
-				type="button"
-				variant="minimal"
-				tone="neutral"
-				onClick={ onCancel }
-				disabled={ isSubmitting }
-			>
-				<Icon icon={ chevronLeft } size={ 16 } />
-				<span>{ cancelLabel ?? __( 'Back' ) }</span>
-			</Button>
-			<Button
-				type="submit"
-				variant="solid"
-				tone="brand"
-				disabled={ ! canSubmit }
-				loading={ isSubmitting }
-				loadingAnnouncement={ loadingAnnouncement ?? __( 'Creating site' ) }
-				data-testid="create-site-submit"
-			>
-				{ submitLabel ?? __( 'Create site' ) }
-			</Button>
-		</>
-	);
+	const wpVersionDescription =
+		unavailableWpVersion &&
+		sprintf(
+			/* translators: %s: WordPress version, e.g. 5.9 */
+			__( "This Blueprint asks for WordPress %s, which Studio can't install." ),
+			unavailableWpVersion
+		);
+	const offlineMessage = __( 'Changing WordPress version requires an internet connection.' );
 
 	return (
-		<form ref={ formRef } className={ styles.form } onSubmit={ handleSubmit }>
+		<form className={ styles.form } onSubmit={ handleSubmit }>
 			<div className={ styles.panel }>
-				<DataForm< FormData >
-					data={ data }
-					fields={ fields }
-					form={ basicForm }
-					onChange={ handleChange }
-					validity={ validity }
+				<TextField
+					label={ __( 'Site name' ) }
+					value={ data.name }
+					onChange={ ( event ) => handleChange( { name: event.target.value } ) }
+					error={ isNameEdited ? nameError : undefined }
+					required
+					autoFocus
 				/>
 
 				{ children }
 
 				<Button
-					type="button"
-					variant="unstyled"
-					tone="neutral"
+					variant="muted-ghost"
+					size="inline"
 					className={ styles.advancedToggle }
-					onClick={ () => setIsAdvancedOpen( ( value ) => ! value ) }
-					aria-expanded={ isAdvancedOpen }
+					onClick={ () => setIsAdvancedOpen( ! showAdvanced ) }
+					aria-expanded={ showAdvanced }
 				>
-					<Icon icon={ isAdvancedOpen ? chevronDown : chevronRight } />
+					{ showAdvanced ? <ChevronDownIcon /> : <ChevronRightIcon /> }
 					<span>{ __( 'Advanced settings' ) }</span>
-					{ ! isAdvancedOpen && advancedErrorCount > 0 && (
+					{ ! showAdvanced && advancedErrorCount > 0 && (
 						<span className={ styles.advancedErrorCount }>
 							{ sprintf(
 								/* translators: %d: number of validation errors. */
@@ -730,20 +595,110 @@ export function CreateSiteForm( {
 
 				<div
 					className={
-						isAdvancedOpen
+						showAdvanced
 							? `${ styles.advancedCollapse } ${ styles.advancedCollapseOpen }`
 							: styles.advancedCollapse
 					}
-					inert={ ! isAdvancedOpen || undefined }
+					inert={ ! showAdvanced || undefined }
 				>
 					<div className={ styles.advancedCollapseInner }>
-						<DataForm< FormData >
-							data={ data }
-							fields={ fields }
-							form={ advancedForm }
-							onChange={ handleChange }
-							validity={ validity }
-						/>
+						<FieldGroup>
+							<PathField data={ data } error={ advancedErrors.path } onChange={ handleChange } />
+							{ existing ? null : wpVersionOptions ? (
+								<SelectField
+									label={ __( 'WordPress version' ) }
+									description={ wpVersionDescription }
+									value={ data.wpVersion }
+									options={ wpVersionOptions }
+									disabled={ isOffline }
+									disabledReason={ offlineMessage }
+									onChange={ ( wpVersion ) => handleChange( { wpVersion } ) }
+								/>
+							) : (
+								<TextField
+									label={ __( 'WordPress version' ) }
+									orientation="horizontal"
+									placeholder={ DEFAULT_WORDPRESS_VERSION }
+									value={ data.wpVersion }
+									onChange={ ( event ) => handleChange( { wpVersion: event.target.value } ) }
+								/>
+							) }
+							<SelectField
+								label={ __( 'PHP version' ) }
+								value={ data.phpVersion }
+								options={ getPhpVersionOptions() }
+								onChange={ ( phpVersion ) =>
+									handleChange( { phpVersion: phpVersion as SupportedPHPVersion } )
+								}
+							/>
+							<SelectField
+								label={ __( 'File access' ) }
+								description={ getFileAccessDescription( data.fileAccess ) }
+								value={ data.fileAccess }
+								options={ getFileAccessOptions() }
+								onChange={ ( fileAccess ) =>
+									handleChange( { fileAccess: fileAccess as SiteFileAccess } )
+								}
+							/>
+							{ ! existing && (
+								<>
+									<ToggleField
+										label={ __( 'Use custom domain' ) }
+										description={
+											requiresCustomDomain
+												? __( 'This Blueprint requires a custom domain.' )
+												: __( 'Your system password will be required to set up the domain.' )
+										}
+										checked={ data.useCustomDomain }
+										disabled={ requiresCustomDomain }
+										onChange={ ( useCustomDomain ) => handleChange( { useCustomDomain } ) }
+									/>
+									{ data.useCustomDomain && (
+										<>
+											<TextField
+												label={ __( 'Domain name' ) }
+												value={ data.customDomain }
+												error={ advancedErrors.customDomain }
+												onChange={ ( event ) =>
+													handleChange( { customDomain: event.target.value } )
+												}
+											/>
+											<ToggleField
+												label={ __( 'Enable HTTPS' ) }
+												description={ <CertificateTrustNotice /> }
+												checked={ data.enableHttps }
+												onChange={ ( enableHttps ) => handleChange( { enableHttps } ) }
+											/>
+										</>
+									) }
+									<TextField
+										label={ __( 'Admin username' ) }
+										value={ data.adminUsername }
+										error={ advancedErrors.adminUsername }
+										autoComplete="off"
+										required
+										onChange={ ( event ) => handleChange( { adminUsername: event.target.value } ) }
+									/>
+									<TextField
+										label={ __( 'Admin password' ) }
+										type="password"
+										value={ data.adminPassword }
+										error={ advancedErrors.adminPassword }
+										autoComplete="new-password"
+										required
+										onChange={ ( event ) => handleChange( { adminPassword: event.target.value } ) }
+									/>
+									<TextField
+										label={ __( 'Admin email' ) }
+										type="email"
+										value={ data.adminEmail }
+										error={ advancedErrors.adminEmail }
+										required
+										onChange={ ( event ) => handleChange( { adminEmail: event.target.value } ) }
+									/>
+								</>
+							) }
+						</FieldGroup>
 					</div>
 				</div>
 
@@ -766,10 +721,32 @@ export function CreateSiteForm( {
 					</div>
 				) }
 
-				{ panelFooter && <div className={ styles.panelFooter }>{ panelFooter }</div> }
+				{ existing || source ? (
+					<Field className={ styles.panelFooter }>
+						<FieldTitle>{ __( 'Start with' ) }</FieldTitle>
+						<p className={ styles.source }>
+							{ existing ? __( 'Existing local WordPress site' ) : source }
+						</p>
+					</Field>
+				) : (
+					panelFooter && <div className={ styles.panelFooter }>{ panelFooter }</div>
+				) }
 			</div>
 
-			<OnboardingFooter>{ actions }</OnboardingFooter>
+			<div className={ styles.actions }>
+				<Button variant="outline" onClick={ onCancel } disabled={ isSubmitting }>
+					{ cancelLabel ?? __( 'Cancel' ) }
+				</Button>
+				<Button
+					type="submit"
+					disabled={ ! canSubmit }
+					loading={ isSubmitting }
+					loadingAnnouncement={ loadingAnnouncement ?? __( 'Creating site' ) }
+					data-testid="create-site-submit"
+				>
+					{ submitLabel ?? __( 'Create site' ) }
+				</Button>
+			</div>
 		</form>
 	);
 }

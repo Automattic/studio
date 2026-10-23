@@ -79,7 +79,11 @@ vi.mock( '@studio/common/lib/well-known-paths', async ( importOriginal ) => ( {
 } ) );
 vi.mock( 'cli/ai/runtimes/pi', () => ( {
 	// A completed turn so the JSON single-turn path returns instead of looping.
-	runStudioAgentTurn: vi.fn( () => ( { result: Promise.resolve(), interrupt: vi.fn() } ) ),
+	runStudioAgentTurn: vi.fn( () => ( {
+		result: Promise.resolve(),
+		interrupt: vi.fn(),
+		hasTool: () => true,
+	} ) ),
 } ) );
 vi.mock( 'cli/ai/slash-commands', () => ( { getActiveSlashCommands: vi.fn( () => [] ) } ) );
 vi.mock( 'cli/ai/browser-utils', () => ( { closeSharedBrowser: vi.fn() } ) );
@@ -213,8 +217,11 @@ describe( 'AI runCommand — resume by id restores session model', () => {
 describe( 'AI runCommand — active site banner running state', () => {
 	let stdoutSpy: ReturnType< typeof vi.spyOn >;
 
-	const dispatchedPrompt = () =>
-		( ( runStudioAgentTurn as Mock ).mock.calls[ 0 ][ 0 ] as { prompt: string } ).prompt;
+	const dispatched = () =>
+		( runStudioAgentTurn as Mock ).mock.calls[ 0 ][ 0 ] as {
+			prompt: string;
+			activeSite?: { running: boolean };
+		};
 
 	beforeEach( () => {
 		vi.clearAllMocks();
@@ -247,9 +254,14 @@ describe( 'AI runCommand — active site banner running state', () => {
 			activeSite: { name: 'My Site', path: '/sites/my-site' },
 		} );
 
-		expect( dispatchedPrompt() ).toContain(
-			'[Active site: "My Site" at /sites/my-site (running)]'
-		);
+		// The site rides to the runtime, which states it in the system prompt;
+		// the user message stays exactly what the user typed.
+		expect( dispatched().prompt ).toBe( 'hello' );
+		expect( dispatched().activeSite ).toMatchObject( {
+			name: 'My Site',
+			path: '/sites/my-site',
+			running: true,
+		} );
 	} );
 
 	// STU-2040 regression guard: the per-turn isSiteRunning check opens a
@@ -289,7 +301,7 @@ describe( 'AI runCommand — active site banner running state', () => {
 			activeSite: { name: 'My Site', path: '/sites/my-site' },
 		} );
 
-		expect( dispatchedPrompt() ).toContain( '(stopped)' );
+		expect( dispatched().activeSite?.running ).toBe( false );
 	} );
 
 	it( 'treats a site missing from the CLI config as stopped', async () => {
@@ -302,7 +314,7 @@ describe( 'AI runCommand — active site banner running state', () => {
 		} );
 
 		expect( isSiteRunning ).not.toHaveBeenCalled();
-		expect( dispatchedPrompt() ).toContain( '(stopped)' );
+		expect( dispatched().activeSite?.running ).toBe( false );
 	} );
 
 	it( 'skips the daemon check for remote sites', async () => {
@@ -320,9 +332,8 @@ describe( 'AI runCommand — active site banner running state', () => {
 
 		expect( findSiteByFolder ).not.toHaveBeenCalled();
 		expect( isSiteRunning ).not.toHaveBeenCalled();
-		expect( dispatchedPrompt() ).toContain(
-			'[Active site: "Live" (ID: 123) at https://example.wordpress.com (WordPress.com)]'
-		);
+		expect( dispatched().prompt ).toBe( 'hello' );
+		expect( dispatched().activeSite ).toMatchObject( { remote: true, wpcomSiteId: 123 } );
 	} );
 } );
 
@@ -384,6 +395,66 @@ describe( 'AI runCommand — Tracks events', () => {
 		expect( props.duration_ms ).toBeTypeOf( 'number' );
 	} );
 
+	it( 'adds the turn stats gathered from the agent events', async () => {
+		( runStudioAgentTurn as Mock ).mockImplementationOnce(
+			( { onEvent }: { onEvent: ( event: unknown ) => void } ) => {
+				onEvent( {
+					type: 'message_end',
+					message: {
+						role: 'assistant',
+						content: [],
+						stopReason: 'toolUse',
+						usage: { input: 120, output: 30, cacheRead: 0, cacheWrite: 0, totalTokens: 150 },
+					},
+				} );
+				onEvent( {
+					type: 'tool_execution_end',
+					toolCallId: '1',
+					toolName: 'Edit',
+					result: {},
+					isError: false,
+				} );
+				onEvent( {
+					type: 'tool_execution_end',
+					toolCallId: '2',
+					toolName: 'wp_cli',
+					result: {},
+					isError: true,
+				} );
+				const failed = {
+					role: 'assistant',
+					content: [],
+					stopReason: 'error',
+					errorMessage: '402 studio_out_of_credits',
+					usage: { input: 10, output: 0, cacheRead: 0, cacheWrite: 0, totalTokens: 10 },
+				};
+				onEvent( { type: 'message_end', message: failed } );
+				onEvent( { type: 'agent_end', messages: [ failed ] } );
+				return { result: Promise.resolve(), interrupt: vi.fn(), hasTool: () => true };
+			}
+		);
+
+		await runCommand( { adapter: new JsonAdapter(), initialMessage: 'hello' } );
+
+		const [ , props ] = ( recordTracksEvent as Mock ).mock.calls.find(
+			( [ name ] ) => name === TRACKS_EVENTS.CODE_TURN_COMPLETED
+		) as [ string, Record< string, unknown > ];
+		expect( props ).toMatchObject( {
+			outcome: 'error',
+			tool_calls: 2,
+			tool_errors: 1,
+			failed_tools: 'wp_cli',
+			edits: 1,
+			model_requests: 2,
+			input_tokens: 130,
+			output_tokens: 30,
+			cache_read_tokens: 0,
+			cache_write_tokens: 0,
+			error_kind: 'out_of_credits',
+			site_kind: 'none',
+		} );
+	} );
+
 	// One call sits on the turn's critical path, the other in a `finally` where a rejection would
 	// mask the turn's own error. Analytics must never break the chat.
 	it( 'completes the turn even when recording fails', async () => {
@@ -393,6 +464,41 @@ describe( 'AI runCommand — Tracks events', () => {
 			runCommand( { adapter: new JsonAdapter(), initialMessage: 'hello' } )
 		).resolves.toBeUndefined();
 		expect( runStudioAgentTurn ).toHaveBeenCalledTimes( 1 );
+	} );
+
+	it( 'completes the turn even when gathering the turn stats fails', async () => {
+		( runStudioAgentTurn as Mock ).mockImplementationOnce(
+			( { onEvent }: { onEvent: ( event: unknown ) => void } ) => {
+				// The failed tool makes the stats look up its name, which throws.
+				onEvent( {
+					type: 'tool_execution_end',
+					toolCallId: '1',
+					toolName: 'wp_cli',
+					result: {},
+					isError: true,
+				} );
+				return {
+					result: Promise.resolve(),
+					interrupt: vi.fn(),
+					hasTool: () => {
+						throw new Error( 'session disposed' );
+					},
+				};
+			}
+		);
+
+		const adapter = new JsonAdapter();
+		const endAgentTurn = vi.spyOn( adapter, 'endAgentTurn' );
+		const showError = vi.spyOn( adapter, 'showError' );
+
+		await expect( runCommand( { adapter, initialMessage: 'hello' } ) ).resolves.toBeUndefined();
+		expect( endAgentTurn ).toHaveBeenCalledTimes( 1 );
+		expect( showError ).not.toHaveBeenCalled();
+		expect(
+			( recordTracksEvent as Mock ).mock.calls.some(
+				( [ name ] ) => name === TRACKS_EVENTS.CODE_TURN_COMPLETED
+			)
+		).toBe( false );
 	} );
 } );
 

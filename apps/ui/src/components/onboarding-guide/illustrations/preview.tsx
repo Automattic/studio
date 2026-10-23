@@ -1,12 +1,13 @@
 import { __ } from '@wordpress/i18n';
-import { wordpress, globe, pencil } from '@wordpress/icons';
-import { Icon } from '@wordpress/ui';
 import { clsx } from 'clsx';
-import { databaseIcon } from '@/lib/icons';
+import { PencilIcon } from 'lucide-react';
+import { DatabaseIcon } from '@/lib/icons/database-icon';
+import { GlobeIcon } from '@/lib/icons/globe-icon';
+import { WordPressIcon } from '@/lib/icons/wordpress-icon';
 import { easings, sample, span, useTimeline, type Keyframe } from './choreography';
 import { Cursor } from './primitives';
 import styles from './style.module.css';
-import type { ReactElement, SVGProps } from 'react';
+import type { ReactNode } from 'react';
 
 const LOOP = 14500;
 const COMMENT = 'Make this button blue';
@@ -46,8 +47,6 @@ const INDICATOR: Record< Realm, { x: number; width: number } > = {
 	database: { x: 74, width: 104 },
 };
 
-type RealmIcon = ReactElement< SVGProps< SVGSVGElement > >;
-
 function RealmTab( {
 	realm,
 	activeRealm,
@@ -56,7 +55,7 @@ function RealmTab( {
 }: {
 	realm: Realm;
 	activeRealm: Realm;
-	icon: RealmIcon;
+	icon: ReactNode;
 	title: string;
 } ) {
 	const active = realm === activeRealm;
@@ -65,9 +64,7 @@ function RealmTab( {
 			className={ clsx( styles.previewTab, active && styles.previewTabActive ) }
 			data-realm={ realm }
 		>
-			<span className={ styles.previewTabIcon }>
-				<Icon icon={ icon } size={ 16 } />
-			</span>
+			<span className={ styles.previewTabIcon }>{ icon }</span>
 			<span className={ styles.previewTabTitle }>{ title }</span>
 		</div>
 	);
@@ -124,19 +121,19 @@ export function PreviewIllustration() {
 						<RealmTab
 							realm="frontend"
 							activeRealm={ activeRealm }
-							icon={ globe }
+							icon={ <GlobeIcon /> }
 							title="My Happy Website"
 						/>
 						<RealmTab
 							realm="admin"
 							activeRealm={ activeRealm }
-							icon={ wordpress }
+							icon={ <WordPressIcon /> }
 							title="WordPress"
 						/>
 						<RealmTab
 							realm="database"
 							activeRealm={ activeRealm }
-							icon={ databaseIcon }
+							icon={ <DatabaseIcon /> }
 							title="Database"
 						/>
 					</div>
@@ -151,7 +148,7 @@ export function PreviewIllustration() {
 							picking && styles.previewAnnotateButtonActive
 						) }
 					>
-						<Icon icon={ pencil } size={ 16 } />
+						<PencilIcon />
 					</div>
 				</div>
 

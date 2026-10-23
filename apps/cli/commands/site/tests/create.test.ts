@@ -43,16 +43,12 @@ import {
 	isSqliteIntegrationAvailable,
 	keepSqliteIntegrationUpdated,
 } from 'cli/lib/sqlite-integration';
+import { buildCreateFromSourceBlueprint } from 'cli/lib/static-site-import/source';
 import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { ProcessDescription } from 'cli/lib/types/process-manager-ipc';
 import { runBlueprint, startWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { Logger } from 'cli/logger';
-import {
-	buildCreateFromSourceBlueprint,
-	prepareSourceImport,
-	registerCommand,
-	runCommand,
-} from '../create';
+import { registerCommand, runCommand } from '../create';
 
 vi.mock( '@inquirer/prompts' );
 vi.mock( '@studio/common/lib/fs-utils' );
@@ -131,6 +127,17 @@ describe( 'CLI: studio create', () => {
 	const mockPort = 8881;
 	const completedSsiReceipt =
 		'{"schema":"static-site-importer/import-cli-receipt/v1","status":"completed","steps":1,"response":{"success":true}}';
+	const qualityFailedReceipt = JSON.stringify( {
+		schema: 'static-site-importer/import-cli-receipt/v1',
+		status: 'failed',
+		response: {
+			success: false,
+			error: {
+				code: 'static_site_importer_quality_failed',
+				message: 'SSI reported 10 core_html_block failures.',
+			},
+		},
+	} );
 	const mockWpCli = ( {
 		exitCode = 0,
 		stdout = completedSsiReceipt,
@@ -460,12 +467,10 @@ describe( 'CLI: studio create', () => {
 			const sitePath = path.join( siteRoot, 'site' );
 			const capturePath = `${ sitePath }-source`;
 			const liberate = vi.fn().mockImplementation( async ( _url, outputDir ) => {
-				await fs.promises.mkdir( outputDir, { recursive: true } );
-				await fs.promises.writeFile(
-					path.join( outputDir, 'index.html' ),
-					'<main>Liberated</main>'
-				);
-				return { websiteDir: outputDir, compareCommand: () => '' };
+				const website = path.join( outputDir, 'example.com', 'website' );
+				await fs.promises.mkdir( website, { recursive: true } );
+				await fs.promises.writeFile( path.join( website, 'index.html' ), '<main>Liberated</main>' );
+				return { websiteDir: website, compareCommand: () => '' };
 			} );
 			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
 			const copySpy = vi.spyOn( fs.promises, 'cp' ).mockResolvedValue( undefined );
@@ -491,117 +496,13 @@ describe( 'CLI: studio create', () => {
 					expect.objectContaining( { onProgress: expect.any( Function ) } )
 				);
 				expect( copySpy ).toHaveBeenCalledWith(
-					capturePath,
+					path.join( capturePath, 'example.com' ),
 					path.join( sitePath, '.studio-import', 'source' ),
 					{ recursive: true, errorOnExist: true, force: false }
 				);
 				expect( fs.existsSync( capturePath ) ).toBe( false );
 			} finally {
 				await fs.promises.rm( siteRoot, { recursive: true, force: true } );
-			}
-		} );
-
-		it( 'resumes a staged URL import without capturing the source again', async () => {
-			const siteRoot = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-url-resume-' ) );
-			const sitePath = path.join( siteRoot, 'site' );
-			const staged = path.join( sitePath, '.studio-import' );
-			const request = `${ JSON.stringify( {
-				site_title: 'Liberated Site',
-				source_metadata: { source: 'studio-create-from', source_path: 'https://example.com' },
-			} ) }\n`;
-			await fs.promises.mkdir( path.join( staged, 'source' ), { recursive: true } );
-			await fs.promises.writeFile( path.join( staged, 'source', 'index.html' ), '<main>Hi</main>' );
-			// A staged URL capture carries its receipt next to the page files.
-			await fs.promises.writeFile(
-				path.join( staged, 'source', 'capture-receipt.json' ),
-				JSON.stringify( {
-					schema: 'blocks-engine-capture/capture-receipt/v1',
-					websiteRoot: 'website',
-				} )
-			);
-			await fs.promises.writeFile( path.join( staged, 'request.json' ), request );
-			const liberate = vi.fn();
-
-			try {
-				const resumed = await prepareSourceImport(
-					'https://example.com',
-					sitePath,
-					'Liberated Site',
-					new Logger(),
-					{ staticSiteImporter: 'https://example.com/ssi.zip', liberate }
-				);
-				expect( liberate ).not.toHaveBeenCalled();
-				expect( resumed.blueprint.staticSiteImport.request ).toBe( request );
-				const inferred = await prepareSourceImport(
-					'https://example.com',
-					sitePath,
-					undefined,
-					new Logger(),
-					{ staticSiteImporter: 'https://example.com/ssi.zip', liberate }
-				);
-				expect( inferred.siteName ).toBe( 'Liberated Site' );
-
-				// A different source at the same path is a new import, not a resume.
-				await expect(
-					prepareSourceImport( 'https://other.example', sitePath, 'Other', new Logger(), {
-						staticSiteImporter: 'https://example.com/ssi.zip',
-						liberate: liberate.mockRejectedValue( new Error( 'captured' ) ),
-					} )
-				).rejects.toThrow( 'captured' );
-			} finally {
-				await fs.promises.rm( siteRoot, { recursive: true, force: true } );
-			}
-		} );
-
-		it( 'uses a captured document title for site identity unless --name overrides it', async () => {
-			const root = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-captured-title-' ) );
-			const website = path.join( root, 'website' );
-			await fs.promises.mkdir( website );
-			await fs.promises.writeFile(
-				path.join( website, 'index.html' ),
-				'<title>Example Brand</title><main>Hello</main>'
-			);
-			await fs.promises.writeFile(
-				path.join( root, 'capture-receipt.json' ),
-				JSON.stringify( {
-					schema: 'blocks-engine-capture/capture-receipt/v1',
-					title: '  Example Brand  ',
-				} )
-			);
-			const plugin = 'https://example.com/ssi.zip';
-			try {
-				const inferred = await prepareSourceImport(
-					website,
-					path.join( root, 'site' ),
-					undefined,
-					new Logger(),
-					{ staticSiteImporter: plugin }
-				);
-				const request = JSON.parse( inferred.blueprint.staticSiteImport.request );
-				expect( inferred.siteName ).toBe( 'Example Brand' );
-				expect( request ).toMatchObject( { name: 'Example Brand', site_title: 'Example Brand' } );
-				const explicit = await prepareSourceImport(
-					website,
-					path.join( root, 'site' ),
-					'Custom Name',
-					new Logger(),
-					{ staticSiteImporter: plugin }
-				);
-				expect( explicit.siteName ).toBe( 'Custom Name' );
-				expect( JSON.parse( explicit.blueprint.staticSiteImport.request ).site_title ).toBe(
-					'Custom Name'
-				);
-				await fs.promises.writeFile( path.join( root, 'capture-receipt.json' ), '{malformed' );
-				const fallback = await prepareSourceImport(
-					website,
-					path.join( root, 'site' ),
-					undefined,
-					new Logger(),
-					{ staticSiteImporter: plugin }
-				);
-				expect( fallback.siteName ).toBe( 'Imported Site' );
-			} finally {
-				await fs.promises.rm( root, { recursive: true, force: true } );
 			}
 		} );
 
@@ -663,22 +564,20 @@ describe( 'CLI: studio create', () => {
 
 		it.each( [
 			[ 'prompts for the name of a plain local directory', false, 'Typed Name' ],
-			[
-				'names a captured website directory from its receipt without prompting',
-				true,
-				'Example Brand',
-			],
+			[ 'names a capture directory from its receipt without prompting', true, 'Example Brand' ],
 		] )( '%s in an interactive terminal', async ( _label, captured, expectedName ) => {
 			const root = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-dir-tty-' ) );
-			const website = path.join( root, 'website' );
+			const capture = path.join( root, 'capture' );
+			const website = path.join( capture, 'website' );
 			const sitePath = path.join( root, 'site' );
-			await fs.promises.mkdir( website );
+			await fs.promises.mkdir( website, { recursive: true } );
 			await fs.promises.writeFile( path.join( website, 'index.html' ), '<main>Hello</main>' );
 			if ( captured ) {
 				await fs.promises.writeFile(
-					path.join( root, 'capture-receipt.json' ),
+					path.join( capture, 'capture-receipt.json' ),
 					JSON.stringify( {
 						schema: 'blocks-engine-capture/capture-receipt/v1',
+						websiteRoot: 'website',
 						title: 'Example Brand',
 					} )
 				);
@@ -699,7 +598,7 @@ describe( 'CLI: studio create', () => {
 				await parser.parseAsync( [
 					'create',
 					'--from',
-					website,
+					captured ? capture : website,
 					'--wp',
 					'latest',
 					'--php',
@@ -730,12 +629,10 @@ describe( 'CLI: studio create', () => {
 			const sitePath = path.join( siteRoot, 'site' );
 			const capturePath = `${ sitePath }-source`;
 			const liberate = vi.fn().mockImplementation( async ( _url, outputDir ) => {
-				await fs.promises.mkdir( outputDir, { recursive: true } );
-				await fs.promises.writeFile(
-					path.join( outputDir, 'index.html' ),
-					'<main>Liberated</main>'
-				);
-				return { websiteDir: outputDir, compareCommand: () => '' };
+				const website = path.join( outputDir, 'example.com', 'website' );
+				await fs.promises.mkdir( website, { recursive: true } );
+				await fs.promises.writeFile( path.join( website, 'index.html' ), '<main>Liberated</main>' );
+				return { websiteDir: website, compareCommand: () => '' };
 			} );
 			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
 			vi.spyOn( fs.promises, 'cp' ).mockResolvedValue( undefined );
@@ -756,9 +653,12 @@ describe( 'CLI: studio create', () => {
 					'--skip-browser',
 				] );
 
-				expect( fs.readFileSync( path.join( capturePath, 'index.html' ), 'utf8' ) ).toBe(
-					'<main>Liberated</main>'
-				);
+				expect(
+					fs.readFileSync(
+						path.join( capturePath, 'example.com', 'website', 'index.html' ),
+						'utf8'
+					)
+				).toBe( '<main>Liberated</main>' );
 			} finally {
 				await fs.promises.rm( siteRoot, { recursive: true, force: true } );
 			}
@@ -975,7 +875,6 @@ describe( 'CLI: studio create', () => {
 			);
 			const reportWarning = vi.spyOn( Logger.prototype, 'reportWarning' );
 			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
-			vi.spyOn( fs.promises, 'copyFile' ).mockResolvedValue( undefined );
 			vi.spyOn( fs.promises, 'cp' ).mockResolvedValue( undefined );
 			const parser = registerCommand(
 				yargs( [] ).option( 'path', { type: 'string', default: sitePath } ),
@@ -1026,260 +925,6 @@ describe( 'CLI: studio create', () => {
 			}
 		} );
 
-		it( 'stages the canonical Static Site Importer request', () => {
-			const blueprint = buildCapturedSiteBlueprint();
-			const request = JSON.parse( blueprint.staticSiteImport.request );
-
-			expect( request ).toMatchObject( {
-				operation: 'apply',
-				name: 'Captured Site',
-				site_title: 'Captured Site',
-				activate: true,
-				overwrite: true,
-				fail_on_quality: true,
-				write_theme_report_artifacts: true,
-				require_proven_dynamic_client_assets: true,
-				seed_entities: true,
-				materialize_dependencies: true,
-				client_script_policy: 'isolated_preview',
-				source_metadata: {
-					source: 'studio-create-from',
-					source_path: 'https://example.com/',
-				},
-				source: {
-					type: 'files',
-					entrypoint: 'website/index.html',
-					files: [ { path: 'website/index.html', content: '<main>Captured</main>' } ],
-				},
-			} );
-			expect( blueprint.staticSiteImport ).not.toHaveProperty( 'code' );
-			expect( blueprint.staticSiteImport ).not.toHaveProperty( 'source' );
-			expect(
-				JSON.parse(
-					buildCreateFromSourceBlueprint(
-						createCapturedSiteArtifact(),
-						'Captured Site',
-						'https://example.com/static-site-importer.zip',
-						'https://example.com/'
-					).staticSiteImport.request
-				)
-			).toMatchObject( { operation: 'apply', fail_on_quality: true } );
-		} );
-
-		it( 'forwards artifact-declared classic materialization on the request', () => {
-			const artifactDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-classic-artifact-' ) );
-			const artifactPath = path.join( artifactDir, 'artifact.json' );
-			fs.writeFileSync(
-				artifactPath,
-				JSON.stringify( {
-					schema: 'blocks-engine/php-transformer/site-artifact/v1',
-					entrypoint: 'website/index.html',
-					theme_materialization: 'classic',
-					files: [ { path: 'website/index.html', content: '<main>Home</main>' } ],
-				} )
-			);
-
-			expect(
-				JSON.parse(
-					buildCreateFromSourceBlueprint(
-						artifactPath,
-						'Classic Site',
-						'https://example.com/static-site-importer.zip'
-					).staticSiteImport.request
-				).theme_materialization
-			).toBe( 'classic' );
-		} );
-
-		it( 'stages only the website root from a Data Liberation capture directory', () => {
-			const captureDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-capture-test-' ) );
-			const websiteDir = fs.mkdtempSync( path.join( captureDir, 'website-' ) );
-			fs.writeFileSync( path.join( websiteDir, 'index.html' ), '<main>Captured site</main>' );
-			fs.writeFileSync( path.join( captureDir, 'diagnostics.json' ), '{"failures":[]}' );
-			fs.writeFileSync( path.join( captureDir, 'scroll-states.json' ), '{"pages":[]}' );
-			fs.writeFileSync(
-				path.join( captureDir, 'capture-receipt.json' ),
-				JSON.stringify( {
-					schema: 'blocks-engine-capture/capture-receipt/v1',
-					websiteRoot: path.basename( websiteDir ),
-				} )
-			);
-
-			const blueprint = buildCreateFromSourceBlueprint(
-				captureDir,
-				'Liberated Site',
-				'https://example.com/static-site-importer.zip'
-			);
-			const request = JSON.parse( blueprint.staticSiteImport.request );
-
-			expect( request.source ).toEqual( {
-				type: 'files',
-				ref: 'request-bundle:source',
-				metadata: {
-					reports: [ 'capture-receipt.json', 'diagnostics.json', 'scroll-states.json' ],
-				},
-			} );
-			expect( blueprint.staticSiteImport.sourcePath ).toBe( websiteDir );
-			expect( blueprint.staticSiteImport.reportFiles ).toEqual( [
-				{
-					name: 'capture-receipt.json',
-					from: path.join( captureDir, 'capture-receipt.json' ),
-				},
-				{
-					name: 'diagnostics.json',
-					from: path.join( captureDir, 'diagnostics.json' ),
-				},
-				{
-					name: 'scroll-states.json',
-					from: path.join( captureDir, 'scroll-states.json' ),
-				},
-			] );
-			expect( blueprint.staticSiteImport.request.length ).toBeLessThan( 4096 );
-		} );
-
-		it( 'forwards capture-root sidecars when the importer source is the website directory', () => {
-			const captureDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-website-source-' ) );
-			const websiteDir = fs.mkdtempSync( path.join( captureDir, 'website-' ) );
-			fs.writeFileSync( path.join( websiteDir, 'index.html' ), '<main>Home</main>' );
-			fs.writeFileSync( path.join( websiteDir, 'contact.html' ), '<main>Contact</main>' );
-			fs.writeFileSync( path.join( captureDir, 'interaction-states.json' ), '{"pages":[]}' );
-			fs.writeFileSync( path.join( captureDir, 'typography.json' ), '{"fonts":[]}' );
-			fs.writeFileSync( path.join( captureDir, 'computed-styles.json' ), '{"pages":[]}' );
-			for ( const excluded of [ 'screenshots', 'media', 'resources', 'layout-geometry' ] ) {
-				const excludedDir = fs.mkdtempSync( path.join( captureDir, `${ excluded }-` ) );
-				fs.writeFileSync( path.join( excludedDir, 'blob.bin' ), 'large' );
-			}
-			fs.writeFileSync(
-				path.join( captureDir, 'capture-receipt.json' ),
-				JSON.stringify( {
-					schema: 'blocks-engine-capture/capture-receipt/v1',
-					websiteRoot: path.basename( websiteDir ),
-					entrypoint: `${ path.basename( websiteDir ) }/index.html`,
-				} )
-			);
-
-			const blueprint = buildCreateFromSourceBlueprint(
-				websiteDir,
-				'Liberated Site',
-				'https://example.com/static-site-importer.zip'
-			);
-			const request = JSON.parse( blueprint.staticSiteImport.request );
-			const reportNames = ( blueprint.staticSiteImport.reportFiles ?? [] ).map(
-				( file ) => file.name
-			);
-
-			expect( blueprint.staticSiteImport.sourcePath ).toBe( websiteDir );
-			expect( request.source ).toEqual( {
-				type: 'files',
-				ref: 'request-bundle:source',
-				metadata: {
-					reports: [
-						'capture-receipt.json',
-						'computed-styles.json',
-						'interaction-states.json',
-						'typography.json',
-					],
-				},
-			} );
-			expect( blueprint.staticSiteImport.reportFiles ).toEqual( [
-				{
-					name: 'capture-receipt.json',
-					from: path.join( captureDir, 'capture-receipt.json' ),
-				},
-				{
-					name: 'computed-styles.json',
-					from: path.join( captureDir, 'computed-styles.json' ),
-				},
-				{
-					name: 'interaction-states.json',
-					from: path.join( captureDir, 'interaction-states.json' ),
-				},
-				{
-					name: 'typography.json',
-					from: path.join( captureDir, 'typography.json' ),
-				},
-			] );
-			for ( const excluded of [ 'screenshots', 'media', 'resources', 'layout-geometry' ] ) {
-				expect( reportNames ).not.toContain( excluded );
-			}
-			expect( request.source ).not.toHaveProperty( 'files' );
-			expect( request.source ).not.toHaveProperty( 'entrypoint' );
-		} );
-
-		it( 'resolves the Data Liberation capture directory from a website/ import source', () => {
-			const captureDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-capture-source-' ) );
-			const websiteDir = path.join( captureDir, 'website' );
-			fsMkdirSyncSpy.mockRestore();
-			fs.mkdirSync( websiteDir );
-			fsMkdirSyncSpy = vi.spyOn( fs, 'mkdirSync' ).mockReturnValue( undefined );
-			fs.writeFileSync( path.join( websiteDir, 'index.html' ), '<main>Home</main>' );
-			fs.writeFileSync(
-				path.join( captureDir, 'capture-receipt.json' ),
-				JSON.stringify( {
-					schema: 'blocks-engine-capture/capture-receipt/v1',
-					websiteRoot: 'website',
-				} )
-			);
-
-			const blueprint = buildCreateFromSourceBlueprint(
-				websiteDir,
-				'Liberated Site',
-				'https://example.com/static-site-importer.zip'
-			);
-
-			expect( JSON.parse( blueprint.staticSiteImport.request ).write_theme_report_artifacts ).toBe(
-				true
-			);
-		} );
-
-		it( 'imports a capture that has no sidecars', () => {
-			const captureDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-no-sidecars-' ) );
-			const websiteDir = fs.mkdtempSync( path.join( captureDir, 'website-' ) );
-			fs.writeFileSync( path.join( websiteDir, 'index.html' ), '<main>Home</main>' );
-			fs.writeFileSync(
-				path.join( captureDir, 'capture-receipt.json' ),
-				JSON.stringify( {
-					schema: 'blocks-engine-capture/capture-receipt/v1',
-					websiteRoot: path.basename( websiteDir ),
-				} )
-			);
-
-			const blueprint = buildCreateFromSourceBlueprint(
-				websiteDir,
-				'Liberated Site',
-				'https://example.com/static-site-importer.zip'
-			);
-			const request = JSON.parse( blueprint.staticSiteImport.request );
-
-			expect( blueprint.staticSiteImport.sourcePath ).toBe( websiteDir );
-			expect( request.source ).toEqual( {
-				type: 'files',
-				ref: 'request-bundle:source',
-				metadata: {
-					reports: [ 'capture-receipt.json' ],
-				},
-			} );
-		} );
-
-		it( 'imports a plain HTML directory that has no capture sidecars', () => {
-			const sourceDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-plain-html-' ) );
-			fs.writeFileSync( path.join( sourceDir, 'index.html' ), '<main>Plain</main>' );
-
-			const blueprint = buildCreateFromSourceBlueprint(
-				sourceDir,
-				'Plain Site',
-				'https://example.com/static-site-importer.zip'
-			);
-			const request = JSON.parse( blueprint.staticSiteImport.request );
-
-			expect( blueprint.staticSiteImport.sourcePath ).toBe( sourceDir );
-			expect( blueprint.staticSiteImport.reportFiles ).toEqual( [] );
-			expect( request.source ).toEqual( {
-				type: 'files',
-				ref: 'request-bundle:source',
-			} );
-			expect( request.source ).not.toHaveProperty( 'metadata' );
-		} );
-
 		it( 'copies a request-bundled directory into the site before import', async () => {
 			const sourceDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-source-bundle-' ) );
 			fs.writeFileSync( path.join( sourceDir, 'index.html' ), '<main>Source bundle</main>' );
@@ -1301,44 +946,79 @@ describe( 'CLI: studio create', () => {
 			);
 		} );
 
-		it( 'copies capture-root sidecars into the staged importer source', async () => {
-			const captureDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-sidecar-copy-' ) );
-			const websiteDir = fs.mkdtempSync( path.join( captureDir, 'website-' ) );
-			fs.writeFileSync( path.join( websiteDir, 'index.html' ), '<main>Home</main>' );
-			fs.writeFileSync( path.join( captureDir, 'interaction-states.json' ), '{"pages":[]}' );
+		it( 'stages only the receipt, website root and declared reports of a capture', async () => {
+			const captureDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-capture-copy-' ) );
+			const stagedDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-capture-staged-' ) );
+			for ( const [ file, content ] of [
+				[ 'website/index.html', '<main>Home</main>' ],
+				[ 'website/about/index.html', '<main>About</main>' ],
+				[ 'reports/typography.json', '{"fonts":[]}' ],
+				[ 'interaction-states.json', '{"pages":[]}' ],
+				[ 'undeclared.json', '{}' ],
+				[ 'resources/blob.bin', 'large' ],
+				[ 'screenshots/home.png', 'large' ],
+			] ) {
+				await fs.promises.mkdir( path.dirname( path.join( captureDir, file ) ), {
+					recursive: true,
+				} );
+				await fs.promises.writeFile( path.join( captureDir, file ), content );
+			}
 			fs.writeFileSync(
 				path.join( captureDir, 'capture-receipt.json' ),
 				JSON.stringify( {
 					schema: 'blocks-engine-capture/capture-receipt/v1',
-					websiteRoot: path.basename( websiteDir ),
+					websiteRoot: 'website',
+					reports: [ 'interaction-states.json', 'reports/typography.json', '../outside.json' ],
 				} )
 			);
 			const blueprint = buildCreateFromSourceBlueprint(
-				websiteDir,
+				captureDir,
 				'Liberated Site',
 				'https://example.com/static-site-importer.zip'
 			);
 			const copySpy = vi.spyOn( fs.promises, 'cp' ).mockResolvedValue( undefined );
-			const copyFileSpy = vi.spyOn( fs.promises, 'copyFile' ).mockResolvedValue( undefined );
 			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
 			vi.spyOn( fs, 'rmSync' ).mockImplementation( () => {} );
 
-			await runCommand( mockSitePath, { ...defaultTestOptions, blueprint, noStart: true } );
+			try {
+				await runCommand( mockSitePath, { ...defaultTestOptions, blueprint, noStart: true } );
 
-			const stagedSource = path.join( mockSitePath, '.studio-import', 'source' );
-			expect( copySpy ).toHaveBeenCalledWith( websiteDir, stagedSource, {
-				recursive: true,
-				errorOnExist: true,
-				force: false,
-			} );
-			expect( copyFileSpy ).toHaveBeenCalledWith(
-				path.join( captureDir, 'capture-receipt.json' ),
-				path.join( stagedSource, 'capture-receipt.json' )
-			);
-			expect( copyFileSpy ).toHaveBeenCalledWith(
-				path.join( captureDir, 'interaction-states.json' ),
-				path.join( stagedSource, 'interaction-states.json' )
-			);
+				expect( JSON.parse( blueprint.staticSiteImport.request ).source ).toEqual( {
+					type: 'files',
+					ref: 'request-bundle:source',
+				} );
+				expect( copySpy ).toHaveBeenCalledWith(
+					captureDir,
+					path.join( mockSitePath, '.studio-import', 'source' ),
+					expect.objectContaining( { recursive: true, filter: expect.any( Function ) } )
+				);
+				const [ , , options ] = copySpy.mock.calls[ 0 ];
+				copySpy.mockRestore();
+				const staged = path.join( stagedDir, 'source' );
+				await fs.promises.cp( captureDir, staged, options );
+
+				const stagedFiles = (
+					await fs.promises.readdir( staged, { recursive: true, withFileTypes: true } )
+				)
+					.filter( ( entry ) => entry.isFile() )
+					.map( ( entry ) =>
+						path
+							.relative( staged, path.join( entry.parentPath, entry.name ) )
+							.split( path.sep )
+							.join( '/' )
+					)
+					.sort();
+				expect( stagedFiles ).toEqual( [
+					'capture-receipt.json',
+					'interaction-states.json',
+					'reports/typography.json',
+					'website/about/index.html',
+					'website/index.html',
+				] );
+			} finally {
+				await fs.promises.rm( captureDir, { recursive: true, force: true } );
+				await fs.promises.rm( stagedDir, { recursive: true, force: true } );
+			}
 		} );
 
 		it( 'checks bundled SQLite before capturing a URL source', async () => {
@@ -1362,21 +1042,6 @@ describe( 'CLI: studio create', () => {
 			expect( liberate ).not.toHaveBeenCalled();
 			expect( fsMkdirSyncSpy ).not.toHaveBeenCalledWith( mockSitePath, { recursive: true } );
 			expect( process.exitCode ).toBe( 1 );
-		} );
-
-		it( 'rejects sources outside the canonical importer contract', () => {
-			expect( () =>
-				buildCreateFromSourceBlueprint( 'https://example.com/', 'Remote Site', {
-					path: '/unused.zip',
-				} )
-			).toThrow( 'must be rendered by Data Liberation' );
-
-			const sourceDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-figma-source-' ) );
-			const figmaPath = path.join( sourceDir, 'design.fig' );
-			fs.writeFileSync( figmaPath, 'figma' );
-			expect( () =>
-				buildCreateFromSourceBlueprint( figmaPath, 'Figma Site', { path: '/unused.zip' } )
-			).toThrow( 'Figma files are not supported by the canonical Static Site Importer command.' );
 		} );
 
 		it( 'invokes the SSI host command once and consumes its terminal receipt', async () => {
@@ -2067,87 +1732,6 @@ describe( 'CLI: studio create', () => {
 			} );
 		} );
 
-		it( 'rejects a completed SSI receipt with failed nested quality validation', async () => {
-			const blueprint = buildCapturedSiteBlueprint();
-			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
-			vi.spyOn( fs, 'rmSync' ).mockImplementation( () => {} );
-			vi.mocked( runWpCliCommand ).mockResolvedValue(
-				mockWpCli( {
-					stdout: JSON.stringify( {
-						schema: 'static-site-importer/import-cli-receipt/v1',
-						status: 'completed',
-						response: {
-							success: true,
-							result: {
-								import_validation_result: {
-									status: 'failed',
-									quality_pass: false,
-									fail_import: true,
-									counts: {
-										fallback_blocks: 4,
-										unsupported_fallbacks: 4,
-									},
-								},
-							},
-						},
-					} ),
-				} )
-			);
-
-			await expect(
-				runCommand( mockSitePath, { ...defaultTestOptions, blueprint, noStart: true } )
-			).rejects.toThrow(
-				'Failed to import static site: Static site import failed quality validation: SSI reported 4 fallback blocks. Review the importer diagnostics and retry.'
-			);
-			expect( Logger.prototype.reportSuccess ).not.toHaveBeenCalledWith(
-				'Static site imported successfully'
-			);
-			expectRetainedImportedSiteReported();
-		} );
-
-		it( 'rejects a completed SSI receipt when its report summary fails quality', async () => {
-			const blueprint = buildCapturedSiteBlueprint();
-			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
-			vi.spyOn( fs, 'rmSync' ).mockImplementation( () => {} );
-			const fsRmSpy = vi.spyOn( fs.promises, 'rm' ).mockResolvedValue( undefined );
-			vi.mocked( runWpCliCommand ).mockResolvedValue(
-				mockWpCli( {
-					stdout: JSON.stringify( {
-						schema: 'static-site-importer/import-cli-receipt/v1',
-						status: 'completed',
-						response: {
-							success: true,
-							result: {
-								import_validation_result: null,
-								import_report_summary: {
-									status: 'failed',
-									quality_pass: false,
-									fail_import: true,
-									fallback_count: 362,
-									unsupported_fallback_count: 362,
-								},
-							},
-						},
-					} ),
-				} )
-			);
-
-			await expect(
-				runCommand( mockSitePath, { ...defaultTestOptions, blueprint, noStart: true } )
-			).rejects.toThrow(
-				'Failed to import static site: Static site import failed quality validation: SSI reported 362 fallback blocks. Review the importer diagnostics and retry.'
-			);
-			expect( Logger.prototype.reportSuccess ).not.toHaveBeenCalledWith(
-				'Static site imported successfully'
-			);
-			expectRetainedImportedSiteReported();
-			expect( removeSiteFromConfig ).not.toHaveBeenCalled();
-			expect( fsRmSpy ).not.toHaveBeenCalledWith( mockSitePath, {
-				recursive: true,
-				force: true,
-			} );
-		} );
-
 		it( 'accepts a completed SSI receipt with zero fallback blocks', async () => {
 			const blueprint = buildCapturedSiteBlueprint();
 			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
@@ -2180,67 +1764,19 @@ describe( 'CLI: studio create', () => {
 			);
 		} );
 
-		it( 'reports the structured raw HTML quality failure instead of fallback blocks', async () => {
-			const blueprint = buildCapturedSiteBlueprint();
-			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
-			vi.spyOn( fs, 'rmSync' ).mockImplementation( () => {} );
-			vi.mocked( runWpCliCommand ).mockResolvedValue(
-				mockWpCli( {
-					stdout: JSON.stringify( {
-						schema: 'static-site-importer/import-cli-receipt/v1',
-						status: 'completed',
-						response: {
-							success: true,
-							result: {
-								import_report_summary: {
-									fail_import: true,
-									failure_reasons: [ 'core_html_block' ],
-									fallback_count: 0,
-									core_html_block_count: 1,
-								},
-							},
-						},
-					} ),
-				} )
-			);
-
-			await expect(
-				runCommand( mockSitePath, { ...defaultTestOptions, blueprint, noStart: true } )
-			).rejects.toThrow(
-				'Failed to import static site: Static site import failed quality validation: SSI reported 1 core_html_block failure. Review the importer diagnostics and retry.'
-			);
-			expectRetainedImportedSiteReported();
-			expect( process.exitCode ).toBeUndefined();
-		} );
-
 		it( 'reports a surviving started site when quality validation fails', async () => {
 			const blueprint = buildCapturedSiteBlueprint();
 			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
 			vi.spyOn( fs, 'rmSync' ).mockImplementation( () => {} );
 			const fsRmSpy = vi.spyOn( fs.promises, 'rm' ).mockResolvedValue( undefined );
 			vi.mocked( runWpCliCommand ).mockResolvedValue(
-				mockWpCli( {
-					stdout: JSON.stringify( {
-						schema: 'static-site-importer/import-cli-receipt/v1',
-						status: 'completed',
-						response: {
-							success: true,
-							result: {
-								import_report_summary: {
-									fail_import: true,
-									failure_reasons: [ 'core_html_block' ],
-									core_html_block_count: 10,
-								},
-							},
-						},
-					} ),
-				} )
+				mockWpCli( { exitCode: 1, stdout: qualityFailedReceipt } )
 			);
 
 			await expect(
 				runCommand( mockSitePath, { ...defaultTestOptions, blueprint } )
 			).rejects.toThrow(
-				'Failed to import static site: Static site import failed quality validation: SSI reported 10 core_html_block failures. Review the importer diagnostics and retry.'
+				/preview but did not accept it.*site and staged request were preserved.*core_html_block/
 			);
 
 			expectRetainedImportedSiteReported( { running: true } );
@@ -2259,22 +1795,7 @@ describe( 'CLI: studio create', () => {
 			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
 			vi.spyOn( fs, 'rmSync' ).mockImplementation( () => {} );
 			vi.mocked( runWpCliCommand ).mockResolvedValue(
-				mockWpCli( {
-					stdout: JSON.stringify( {
-						schema: 'static-site-importer/import-cli-receipt/v1',
-						status: 'completed',
-						response: {
-							success: true,
-							result: {
-								import_report_summary: {
-									fail_import: true,
-									failure_reasons: [ 'core_html_block' ],
-									core_html_block_count: 10,
-								},
-							},
-						},
-					} ),
-				} )
+				mockWpCli( { exitCode: 1, stdout: qualityFailedReceipt } )
 			);
 			const parser = registerCommand(
 				yargs( [] ).option( 'path', { type: 'string', default: mockSitePath } )

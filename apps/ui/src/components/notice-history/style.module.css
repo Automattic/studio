@@ -1,83 +1,74 @@
-/* Trailing control of the sidebar footer row: the button paints its own
-   foreground, so the color has to land on it, and the pull-back lands its
-   trailing edge on the row's `lg` column (see user-menu's
-   `--user-menu-trailing-offset`). */
 .bell {
-	color: var(--wpds-color-foreground-content-neutral-weak);
-	margin-inline-end: calc(-1 * var(--wpds-dimension-padding-sm));
+	position: relative;
 }
 
-/* A quiet footnote under the list rather than a subtitle above it: it
-   explains the log's lifetime, which the reader only wants once. */
-.outro {
-	margin-block-start: var(--wpds-dimension-gap-lg);
-	font-size: var(--wpds-typography-font-size-xs);
-	/* A step below the notice body text, which is already `-weak`. */
-	color: color-mix(
-		in srgb,
-		var(--wpds-color-foreground-content-neutral-weak) 75%,
-		transparent
-	);
+.dot {
+	position: absolute;
+	inset-block-start: 6px;
+	inset-inline-end: 6px;
+	width: 7px;
+	height: 7px;
+	border-radius: 50%;
+	background-color: var(--accent);
+	box-shadow: 0 0 0 2px var(--chrome);
+	pointer-events: none;
 }
 
-.list {
-	list-style: none;
+.empty {
+	width: min(320px, calc(100vw - 24px));
+	padding: 16px;
+}
+
+.emptyTitle {
 	margin: 0;
-	padding: 0;
+	font-size: var(--text-sm);
+	font-weight: var(--font-weight-medium);
+	line-height: 20px;
+}
+
+.emptyText {
+	margin: 4px 0 0;
+	color: var(--muted-foreground);
+	font-size: var(--text-sm);
+	line-height: 20px;
+}
+
+/* The entries float on their own, like the toasts they were. */
+.history {
 	display: flex;
 	flex-direction: column;
-	gap: var(--wpds-dimension-gap-sm);
+	gap: 8px;
+	width: min(320px, calc(100vw - 24px));
+	background: none;
+	box-shadow: none;
+	overflow: visible;
 }
 
-.notice {
-	width: 100%;
-	box-sizing: border-box;
+.clearAll {
+	--button-background: var(--chrome);
+
+	align-self: flex-end;
+	box-shadow: 0 1px 2px 0 rgb(0 0 0 / 5%);
 }
 
-/* Notice sizes its title row for a 24px icon, but at this density the glyph
-   renders smaller and sits high; center it on the title row instead. */
-.notice > svg {
-	align-self: center;
+/* The padding is room for each entry's ring, shadow and dismiss badge. */
+.list {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	max-height: min(440px, calc(100svh - 160px));
+	margin: -8px;
+	padding: 8px;
+	overflow-y: auto;
+	overscroll-behavior: contain;
+	list-style: none;
 }
 
-/* The toast clamps this; here it runs in full, but a stack trace can be
-   hundreds of lines, so past ~a dozen the entry scrolls on its own rather
-   than pushing every other notice off screen. Error text can be a long,
-   unbroken path or JSON, so let it wrap anywhere. */
-.description {
-	/* Run under the timestamp's column too; it only occupies the title row. */
-	grid-column: 2 / -1;
-	max-height: 240px;
-	overflow: auto;
-	white-space: pre-wrap;
-	overflow-wrap: anywhere;
-}
-
-/* Notice lays out as `auto 1fr auto`; the timestamp takes the trailing cell
-   on the title row, aligned to the title's own text padding. */
 .time {
-	grid-column: 3;
-	grid-row: 1;
-	padding-block: var(--text-vertical-padding);
-	margin-inline-start: var(--wpds-dimension-gap-sm);
-	font-size: var(--wpds-typography-font-size-xs);
-	line-height: var(--wpds-typography-line-height-xs);
-	color: var(--wpds-color-foreground-content-neutral-weak);
+	flex: none;
+	color: var(--muted-foreground);
+	font-size: var(--text-xxs);
+	line-height: 1.25;
 	white-space: nowrap;
 	font-variant-numeric: tabular-nums;
-}
-
-/* EmptyState.Root is a max-width block, so it sits at the content box's
-   start until it is centered. The min-height gives it enough room to read as
-   a state rather than a stub, with the stack centered in it. */
-.empty {
-	margin-inline: auto;
-	justify-content: center;
-	min-height: 200px;
-	padding-block: var(--wpds-dimension-padding-2xl);
-}
-
-/* Footer actions sit at the end; push the destructive-ish one to the start. */
-.clearAll {
-	margin-inline-end: auto;
 }

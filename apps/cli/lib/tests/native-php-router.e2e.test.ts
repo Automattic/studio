@@ -74,6 +74,22 @@ describe( 'native PHP router', { tags: [ 'e2e' ] }, () => {
 		fs.writeFileSync( path.join( root, 'index.php' ), '<?php http_response_code( 404 );' );
 		fs.writeFileSync( path.join( fixtureDirectory, 'secret.txt' ), 'must not be served' );
 
+		for ( const file of [
+			'wp-content/database/.ht.sqlite',
+			'wp-content/database/backup.sqlite',
+			'.well-known/security.txt',
+			'../plugin/.git/config',
+		] ) {
+			fs.mkdirSync( path.dirname( path.join( root, file ) ), { recursive: true } );
+			fs.writeFileSync( path.join( root, file ), file );
+		}
+		fs.mkdirSync( path.join( root, 'wp-content/plugins' ) );
+		fs.symlinkSync(
+			path.join( fixtureDirectory, 'plugin' ),
+			path.join( root, 'wp-content/plugins/linked' ),
+			'junction'
+		);
+
 		const port = await getAvailablePort();
 		baseUrl = `http://127.0.0.1:${ port }`;
 		server = spawn( phpBinaryPath, [ '-S', `127.0.0.1:${ port }`, routerPath ], {
@@ -109,5 +125,21 @@ describe( 'native PHP router', { tags: [ 'e2e' ] }, () => {
 
 		expect( response.body ).not.toBe( 'must not be served' );
 		expect( response.status ).not.toBe( 200 );
+	} );
+
+	it.each( [
+		'/wp-content/database/.ht.sqlite',
+		'/wp-content/database/backup.sqlite',
+		'/WP-CONTENT/DATABASE/backup.sqlite',
+		'/wp-content/plugins/linked/.git/config',
+	] )( 'does not serve dotfiles or the database directory: %s', async ( requestPath ) => {
+		expect( ( await request( requestPath ) ).status ).toBe( 404 );
+	} );
+
+	it( 'serves .well-known files', async () => {
+		expect( await request( '/.well-known/security.txt' ) ).toEqual( {
+			status: 200,
+			body: '.well-known/security.txt',
+		} );
 	} );
 } );

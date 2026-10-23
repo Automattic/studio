@@ -47,8 +47,14 @@ function renderWithAgentRun( queryClient: QueryClient ) {
 		return (
 			<>
 				<span data-testid="phase">{ run.hasActiveRun ? 'active' : 'idle' }</span>
+				<span data-testid="interrupting">{ String( run.isInterrupting ) }</span>
 				<span data-testid="started-at">{ run.startedAt ?? 'none' }</span>
-				<button onClick={ () => void run.sendMessage( 'Queued follow-up' ) }>Queue</button>
+				<span data-testid="questions">
+					{ run.pendingQuestions.map( ( q ) => q.question ).join( ',' ) }
+				</span>
+				<button onClick={ () => void run.sendMessage( 'Queued follow-up' ).catch( () => {} ) }>
+					Queue
+				</button>
 				<button onClick={ () => run.answerQuestion( 'Q1', 'A1' ) }>Answer Q1</button>
 				<button onClick={ () => void run.interrupt() }>Stop</button>
 			</>
@@ -68,13 +74,16 @@ function renderWithAgentRun( queryClient: QueryClient ) {
 
 describe( 'useAgentRun queued handoff', () => {
 	let agentListener: ( event: AgentRunEvent ) => void;
+	let restoreConnection: () => void;
 	let connector: Pick<
 		Connector,
 		| 'continueSession'
 		| 'getActiveAgentRuns'
 		| 'onAgentEvent'
+		| 'onConnectionRestored'
 		| 'interruptAgentRun'
 		| 'answerAgentQuestion'
+		| 'getAiSettings'
 	>;
 
 	beforeEach( () => {
@@ -82,9 +91,18 @@ describe( 'useAgentRun queued handoff', () => {
 			continueSession: vi.fn().mockResolvedValue( { runId: 'run-next' } ),
 			interruptAgentRun: vi.fn().mockResolvedValue( undefined ),
 			answerAgentQuestion: vi.fn().mockResolvedValue( undefined ),
+			getAiSettings: vi.fn().mockResolvedValue( {
+				provider: 'wpcom',
+				hasAnthropicApiKey: false,
+				anthropicApiKeyPreview: null,
+			} ),
 			getActiveAgentRuns: vi.fn().mockResolvedValue( [] ),
 			onAgentEvent: vi.fn( ( listener ) => {
 				agentListener = listener;
+				return vi.fn();
+			} ),
+			onConnectionRestored: vi.fn( ( listener ) => {
+				restoreConnection = listener;
 				return vi.fn();
 			} ),
 		};
@@ -158,6 +176,36 @@ describe( 'useAgentRun queued handoff', () => {
 					return data.text === 'Queued follow-up';
 				} )
 		).toBe( true );
+	} );
+
+	it( 'restores a question the agent is waiting on from the active run snapshot', async () => {
+		vi.mocked( connector.getActiveAgentRuns ).mockResolvedValue( [
+			{
+				runId: 'run-1',
+				sessionId: 'session-1',
+				startedAt: 1,
+				phase: 'running',
+				pendingQuestions: [ { question: 'Q1', options: [] } ],
+			},
+		] );
+
+		renderWithAgentRun( createQueryClient() );
+
+		await waitFor( () => expect( screen.getByTestId( 'questions' ) ).toHaveTextContent( 'Q1' ) );
+		expect( screen.getByTestId( 'phase' ) ).toHaveTextContent( 'active' );
+	} );
+
+	it( 'ends a run that finished while the event stream was disconnected', async () => {
+		vi.mocked( connector.getActiveAgentRuns ).mockResolvedValueOnce( [
+			{ runId: 'run-1', sessionId: 'session-1', startedAt: 1, phase: 'running' },
+		] );
+
+		renderWithAgentRun( createQueryClient() );
+		await waitFor( () => expect( screen.getByTestId( 'phase' ) ).toHaveTextContent( 'active' ) );
+
+		act( () => restoreConnection() );
+
+		await waitFor( () => expect( screen.getByTestId( 'phase' ) ).toHaveTextContent( 'idle' ) );
 	} );
 
 	it( 'holds a queued prompt instead of dispatching it once the credits are spent', async () => {
@@ -360,5 +408,134 @@ describe( 'useAgentRun queued handoff', () => {
 		} );
 		expect( screen.getByTestId( 'started-at' ) ).toHaveTextContent( '1000' );
 		nowSpy.mockRestore();
+	} );
+	function startOldRun() {
+		act( () => {
+			agentListener( {
+				sessionId: 'session-1',
+				runId: 'run-old',
+				event: { type: 'run.started', timestamp: '2026-06-24T12:00:00.000Z' },
+			} );
+		} );
+	}
+
+	function exitOldRun( type: 'run.exited' | 'run.interrupted' = 'run.exited' ) {
+		act( () => {
+			agentListener( {
+				sessionId: 'session-1',
+				runId: 'run-old',
+				event: {
+					type,
+					timestamp: '2026-06-24T12:00:01.000Z',
+					status: 'success',
+					code: 0,
+				} as AgentRunEvent[ 'event' ],
+			} );
+		} );
+	}
+
+	it( 'returns to idle when a run fails to start', async () => {
+		connector.continueSession = vi.fn().mockRejectedValue( new Error( 'offline' ) );
+		renderWithAgentRun( createQueryClient() );
+		await waitFor( () => expect( connector.onAgentEvent ).toHaveBeenCalled() );
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Queue' } ) );
+
+		await waitFor( () => expect( connector.continueSession ).toHaveBeenCalled() );
+		await waitFor( () => expect( screen.getByTestId( 'phase' ) ).toHaveTextContent( 'idle' ) );
+	} );
+
+	it( 'sends a queued prompt after its chat is closed', async () => {
+		const queryClient = createQueryClient();
+		queryClient.setQueryData< LoadedAiSession >(
+			[ ...SESSIONS_QUERY_KEY, 'session-1' ],
+			createLoadedSession()
+		);
+		const { rerender } = renderWithAgentRun( queryClient );
+		await waitFor( () => expect( connector.onAgentEvent ).toHaveBeenCalled() );
+		startOldRun();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Queue' } ) );
+
+		rerender( <></> );
+		exitOldRun();
+
+		await waitFor( () =>
+			expect( connector.continueSession ).toHaveBeenCalledWith(
+				'session-1',
+				'Queued follow-up',
+				expect.anything()
+			)
+		);
+	} );
+
+	it( 'does not hold the queue of an Anthropic chat on WordPress.com credits', async () => {
+		vi.mocked( connector.getAiSettings ).mockResolvedValue( {
+			provider: 'anthropic-api-key',
+			hasAnthropicApiKey: true,
+			anthropicApiKeyPreview: null,
+		} );
+		outOfCreditsState.value = true;
+		const queryClient = createQueryClient();
+		queryClient.setQueryData< LoadedAiSession >(
+			[ ...SESSIONS_QUERY_KEY, 'session-1' ],
+			createLoadedSession()
+		);
+		renderWithAgentRun( queryClient );
+		await waitFor( () => expect( connector.onAgentEvent ).toHaveBeenCalled() );
+		startOldRun();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Queue' } ) );
+
+		exitOldRun();
+
+		await waitFor( () => expect( connector.continueSession ).toHaveBeenCalled() );
+	} );
+
+	it( 'winds down on Stop, force-stops on a second Stop, and queues until the run exits', async () => {
+		const queryClient = createQueryClient();
+		queryClient.setQueryData< LoadedAiSession >(
+			[ ...SESSIONS_QUERY_KEY, 'session-1' ],
+			createLoadedSession()
+		);
+		renderWithAgentRun( queryClient );
+		await waitFor( () => expect( connector.onAgentEvent ).toHaveBeenCalled() );
+		startOldRun();
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Stop' } ) );
+		await waitFor( () =>
+			expect( screen.getByTestId( 'interrupting' ) ).toHaveTextContent( 'true' )
+		);
+		expect( screen.getByTestId( 'phase' ) ).toHaveTextContent( 'active' );
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Queue' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Stop' } ) );
+		await waitFor( () => expect( connector.interruptAgentRun ).toHaveBeenCalledTimes( 2 ) );
+		expect( connector.continueSession ).not.toHaveBeenCalled();
+
+		exitOldRun( 'run.interrupted' );
+
+		await waitFor( () => expect( connector.continueSession ).toHaveBeenCalled() );
+	} );
+
+	it( 'puts the questions back when an answer fails to send', async () => {
+		connector.answerAgentQuestion = vi.fn().mockRejectedValue( new Error( 'lost' ) );
+		renderWithAgentRun( createQueryClient() );
+		await waitFor( () => expect( connector.onAgentEvent ).toHaveBeenCalled() );
+		startOldRun();
+		act( () => {
+			agentListener( {
+				sessionId: 'session-1',
+				runId: 'run-old',
+				event: {
+					type: 'question.asked',
+					timestamp: '2026-06-24T12:00:01.000Z',
+					questions: [ { question: 'Q1', options: [ { label: 'A1', description: '' } ] } ],
+				},
+			} );
+		} );
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Answer Q1' } ) );
+
+		await waitFor( () => expect( connector.answerAgentQuestion ).toHaveBeenCalled() );
+		await waitFor( () => expect( screen.getByTestId( 'questions' ) ).toHaveTextContent( 'Q1' ) );
 	} );
 } );

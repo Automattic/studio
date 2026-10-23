@@ -62,19 +62,23 @@ describe( 'useSessionPreviewUI site switching', () => {
 } );
 
 describe( 'useSessionPreviewUI agent reloads', () => {
-	it( 'leaves the design system page for the front end', () => {
-		const { result } = renderHook(
+	function renderPreview() {
+		return renderHook(
 			() => ( { preview: useSessionPreviewUI(), dispatch: useSessionUIDispatch() } ),
 			{ wrapper }
 		);
+	}
 
+	it( 'reloads the current page in place, without opening a closed panel', () => {
+		const { result } = renderPreview();
 		act( () => result.current.preview.setSite( 'site-a' ) );
-		act( () => result.current.preview.updatePath( '/about' ) );
-		act( () => result.current.dispatch( { type: 'preview/reload' } ) );
-		expect( result.current.preview.path ).toBe( '/about' );
-
 		act( () => result.current.preview.updatePath( DESIGN_SYSTEM_PREVIEW_PATH ) );
+		act( () => result.current.preview.setOpen( false ) );
+		const before = result.current.preview.reloadNonce;
+
 		act( () => result.current.dispatch( { type: 'preview/reload' } ) );
-		expect( result.current.preview.path ).toBe( '/' );
+		expect( result.current.preview.reloadNonce ).toBe( before + 1 );
+		expect( result.current.preview.path ).toBe( DESIGN_SYSTEM_PREVIEW_PATH );
+		expect( result.current.preview.open ).toBe( false );
 	} );
 } );

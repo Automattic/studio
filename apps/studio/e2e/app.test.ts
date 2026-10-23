@@ -9,7 +9,7 @@ test.describe( 'Electron app', () => {
 	} );
 
 	test.afterEach( async ( { page: _page }, testInfo ) => {
-		await session.reportMainProcessLogsOnFailure( testInfo );
+		await session.reportFailure( testInfo );
 	} );
 
 	test.afterAll( async () => {
@@ -20,15 +20,13 @@ test.describe( 'Electron app', () => {
 		expect( await session.mainWindow.title() ).toBe( 'WordPress Studio' );
 	} );
 
-	test( 'first screen displayed is onboarding', async () => {
+	test( 'first screens are onboarding, then Add site', async () => {
 		await expect(
 			session.mainWindow.getByRole( 'heading', { name: 'WordPress Studio', level: 1 } )
 		).toBeVisible();
 		await session.mainWindow.getByRole( 'button', { name: 'Skip' } ).click();
 		await session.mainWindow.getByRole( 'button', { name: 'Continue' } ).click();
 		await session.mainWindow.getByRole( 'button', { name: 'Skip log in' } ).click();
-		await expect(
-			session.mainWindow.getByRole( 'heading', { name: 'Add a site', level: 1 } )
-		).toBeVisible();
+		await expect( session.mainWindow.getByRole( 'dialog', { name: 'Add site' } ) ).toBeVisible();
 	} );
 } );

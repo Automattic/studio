@@ -24,7 +24,6 @@ function SidebarHarness() {
 			minWidth={ resize.minWidth }
 			maxWidth={ resize.maxWidth }
 			width={ resize.width }
-			isResizing={ resize.isResizing }
 			onResizeStart={ resize.handleResizeStart }
 			onKeyDown={ resize.handleKeyDown }
 		/>
@@ -37,7 +36,7 @@ describe( 'useResizablePanel (sidebar wiring)', () => {
 	beforeEach( () => {
 		originalInnerWidth = window.innerWidth;
 		// Wide enough for a useful range: max = floor(1600 * 0.25) = 400, min 240,
-		// default 320.
+		// default 256.
 		Object.defineProperty( window, 'innerWidth', { value: 1600, configurable: true } );
 	} );
 
@@ -57,8 +56,8 @@ describe( 'useResizablePanel (sidebar wiring)', () => {
 
 	it( 'starts at the default width within the configured bounds', () => {
 		const handle = renderHarness();
-		expect( handle ).toHaveAttribute( 'aria-valuenow', '320' );
-		expect( handle ).toHaveAttribute( 'aria-valuemin', '240' );
+		expect( handle ).toHaveAttribute( 'aria-valuenow', '256' );
+		expect( handle ).toHaveAttribute( 'aria-valuemin', '256' );
 		expect( handle ).toHaveAttribute( 'aria-valuemax', '400' );
 	} );
 
@@ -66,8 +65,8 @@ describe( 'useResizablePanel (sidebar wiring)', () => {
 		const handle = renderHarness();
 		fireEvent.mouseDown( handle, { button: 0, clientX: 500 } );
 		fireEvent.mouseUp( document, { clientX: 560 } );
-		expect( handle ).toHaveAttribute( 'aria-valuenow', '380' );
-		expect( window.localStorage.getItem( SIDEBAR_PANEL_STORAGE_KEY ) ).toBe( '380' );
+		expect( handle ).toHaveAttribute( 'aria-valuenow', '316' );
+		expect( window.localStorage.getItem( SIDEBAR_PANEL_STORAGE_KEY ) ).toBe( '316' );
 	} );
 
 	it( 'clamps a drag to the configured maximum', () => {
@@ -81,13 +80,13 @@ describe( 'useResizablePanel (sidebar wiring)', () => {
 	it( 'steps with arrow keys and jumps to the bounds with Home/End', () => {
 		const handle = renderHarness();
 		fireEvent.keyDown( handle, { key: 'ArrowRight' } );
-		expect( handle ).toHaveAttribute( 'aria-valuenow', '336' );
-		fireEvent.keyDown( handle, { key: 'ArrowLeft', shiftKey: true } );
-		expect( handle ).toHaveAttribute( 'aria-valuenow', '296' );
+		expect( handle ).toHaveAttribute( 'aria-valuenow', '272' );
+		fireEvent.keyDown( handle, { key: 'ArrowRight', shiftKey: true } );
+		expect( handle ).toHaveAttribute( 'aria-valuenow', '312' );
 		fireEvent.keyDown( handle, { key: 'End' } );
 		expect( handle ).toHaveAttribute( 'aria-valuenow', '400' );
 		fireEvent.keyDown( handle, { key: 'Home' } );
-		expect( handle ).toHaveAttribute( 'aria-valuenow', '240' );
+		expect( handle ).toHaveAttribute( 'aria-valuenow', '256' );
 	} );
 
 	it( 'mirrors the drag and arrow-key direction in RTL', () => {
@@ -97,16 +96,16 @@ describe( 'useResizablePanel (sidebar wiring)', () => {
 		// grows it.
 		fireEvent.mouseDown( handle, { button: 0, clientX: 500 } );
 		fireEvent.mouseUp( document, { clientX: 440 } );
-		expect( handle ).toHaveAttribute( 'aria-valuenow', '380' );
+		expect( handle ).toHaveAttribute( 'aria-valuenow', '316' );
 		fireEvent.keyDown( handle, { key: 'ArrowLeft' } );
-		expect( handle ).toHaveAttribute( 'aria-valuenow', '396' );
+		expect( handle ).toHaveAttribute( 'aria-valuenow', '332' );
 	} );
 
 	it( 'ignores non-primary mouse buttons', () => {
 		const handle = renderHarness();
 		fireEvent.mouseDown( handle, { button: 2, clientX: 500 } );
 		fireEvent.mouseUp( document, { clientX: 900 } );
-		expect( handle ).toHaveAttribute( 'aria-valuenow', '320' );
+		expect( handle ).toHaveAttribute( 'aria-valuenow', '256' );
 		expect( window.localStorage.getItem( SIDEBAR_PANEL_STORAGE_KEY ) ).toBeNull();
 	} );
 } );

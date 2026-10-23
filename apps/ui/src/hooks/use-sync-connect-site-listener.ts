@@ -1,91 +1,142 @@
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { classifySyncFailure } from '@studio/common/lib/sync/classify-sync-failure';
+import { SYNC_PUSH_SIZE_LIMIT_BYTES } from '@studio/common/lib/sync/constants';
 import { useQueryClient } from '@tanstack/react-query';
-import { __, sprintf } from '@wordpress/i18n';
-import { useEffect } from 'react';
-import { stripProtocol } from '@/components/site-dropdown/utils';
-import { toast } from '@/data/app-messages';
+import { __ } from '@wordpress/i18n';
+import { useEffect, useEffectEvent, useSyncExternalStore } from 'react';
+import { websiteIssue } from '@/components/publish-panel/options';
 import { useConnector } from '@/data/core';
 import { connectedWpcomSitesQueryKey } from '@/data/queries/use-connected-wpcom-sites';
+import { usePushSiteToLive } from '@/data/queries/use-sync-site';
 import { SYNCABLE_WPCOM_SITES_QUERY_KEY } from '@/data/queries/use-wpcom-sites';
-import type { SyncSite } from '@/data/core';
+import type { Connector, SyncSite } from '@/data/core';
+
+type ConnectSiteEvent = Parameters< Parameters< Connector[ 'onSyncConnectSite' ] >[ 0 ] >[ 0 ];
+
+// Why the website picked at checkout couldn't be connected, per
+// local site, with the event to replay on Try again.
+const setupFailures = new Map< string, { error: string; event: ConnectSiteEvent } >();
+const listeners = new Set< () => void >();
+let receive: ( ( event: ConnectSiteEvent ) => void ) | null = null;
+
+function setSetupFailure( siteId: string, failure?: { error: string; event: ConnectSiteEvent } ) {
+	if ( failure ) {
+		setupFailures.set( siteId, failure );
+	} else if ( ! setupFailures.delete( siteId ) ) {
+		return;
+	}
+	listeners.forEach( ( listener ) => listener() );
+}
+
+export function usePublishSetupError( siteId: string ): string | undefined {
+	return useSyncExternalStore(
+		( listener ) => {
+			listeners.add( listener );
+			return () => listeners.delete( listener );
+		},
+		() => setupFailures.get( siteId )?.error
+	);
+}
+
+export function retryPublishSetup( siteId: string ) {
+	const failure = setupFailures.get( siteId );
+	setSetupFailure( siteId );
+	if ( failure ) {
+		receive?.( failure.event );
+	}
+}
+
+export const clearPublishSetupError = ( siteId: string ) => setSetupFailure( siteId );
 
 // Bridges the `wp-studio://sync-connect-site` deep link into apps/ui. The
 // main-process routes the URL through `handleSyncConnectSiteDeeplink`, which
 // fires a `sync-connect-site` IPC event carrying the freshly picked remote
 // site id and the local Studio site id the connection belongs to. This hook
-// persists the connection and refreshes the cache so the dropdown updates
+// persists the connection and refreshes the cache so the Publish panel updates
 // without requiring a full app reload.
 export function useSyncConnectSiteListener(): void {
 	const connector = useConnector();
 	const queryClient = useQueryClient();
+	const { mutate: pushSite } = usePushSiteToLive();
 
-	useEffect( () => {
-		return connector.onSyncConnectSite( async ( { remoteSiteId, studioSiteId, autoOpenPush } ) => {
-			try {
-				// Fetch the full site record first so we persist the real
-				// display name / URL in one write. `connectWpcomSites` skips
-				// duplicate (id, localSiteId) tuples, so a second call
-				// wouldn't overwrite a placeholder saved beforehand.
-				const syncable = await queryClient.fetchQuery( {
-					queryKey: SYNCABLE_WPCOM_SITES_QUERY_KEY,
-					queryFn: () => connector.fetchSyncableWpcomSites(),
-				} );
-				const fullSite = syncable.find( ( site ) => site.id === remoteSiteId );
-				const siteToSave: SyncSite = fullSite
-					? {
-							...fullSite,
-							localSiteId: studioSiteId,
-							syncSupport: 'already-connected',
-					  }
-					: {
-							id: remoteSiteId,
-							localSiteId: studioSiteId,
-							name: '',
-							url: '',
-							isStaging: false,
-							isPressable: false,
-							environmentType: null,
-							syncSupport: 'already-connected',
-							lastPullTimestamp: null,
-							lastPushTimestamp: null,
-					  };
-				await connector.connectWpcomSite( studioSiteId, siteToSave );
-				// A site created by the Publish flow starts empty: say what's left to do.
-				if ( autoOpenPush ) {
-					toast.success(
-						siteToSave.url
-							? sprintf(
-									/* translators: %s: address of the newly connected WordPress.com site */
-									__( '%s is connected' ),
-									stripProtocol( siteToSave.url )
-							  )
-							: __( 'Your new WordPress.com site is connected' ),
-						{ description: __( 'Push your site to publish it.' ) }
-					);
-				}
-				const connected =
-					queryClient.getQueryData< SyncSite[] >( connectedWpcomSitesQueryKey( studioSiteId ) ) ??
-					[];
-				void connector.trackEvent( TRACKS_EVENTS.SYNC_CONNECT, {
-					success: true,
-					num_of_sites: connected.filter( ( { id } ) => id !== remoteSiteId ).length + 1,
-				} );
-			} catch ( error ) {
+	const handleConnect = useEffectEvent( async ( event: ConnectSiteEvent ) => {
+		const { remoteSiteId, studioSiteId, autoOpenPush } = event;
+		const connectedSites = () =>
+			queryClient.getQueryData< SyncSite[] >( connectedWpcomSitesQueryKey( studioSiteId ) ) ?? [];
+		let connected = false;
+		try {
+			const syncable = await queryClient.fetchQuery( {
+				queryKey: SYNCABLE_WPCOM_SITES_QUERY_KEY,
+				queryFn: () => connector.fetchSyncableWpcomSites(),
+				staleTime: 0,
+			} );
+			const remote = syncable.find( ( site ) => site.id === remoteSiteId );
+			if ( ! remote ) {
+				throw new Error(
+					__( 'Your new website isn’t available yet. Refresh the website list to try again.' )
+				);
+			}
+			const issue = websiteIssue( remote );
+			if ( issue ) {
+				throw new Error( issue );
+			}
+			const siteToSave: SyncSite = {
+				...remote,
+				localSiteId: studioSiteId,
+				syncSupport: 'already-connected',
+			};
+			await connector.connectWpcomSite( studioSiteId, siteToSave );
+			connected = true;
+			void connector.trackEvent( TRACKS_EVENTS.SYNC_CONNECT, {
+				success: true,
+				num_of_sites: connectedSites().filter( ( { id } ) => id !== remoteSiteId ).length + 1,
+			} );
+			// A site created by the Publish flow starts empty, so publish all of it,
+			// unless the Publish panel has to warn about it first.
+			if ( ! autoOpenPush ) {
+				return;
+			}
+			const [ size, multisite ] = await Promise.all( [
+				connector.getDirectorySize( studioSiteId, [ 'wp-content' ] ),
+				connector.getIsMultisite( studioSiteId ),
+			] );
+			if ( ( multisite && ! remote.isPressable ) || size > SYNC_PUSH_SIZE_LIMIT_BYTES ) {
+				return;
+			}
+			pushSite( {
+				siteId: studioSiteId,
+				remoteSiteId,
+				options: { optionsToSync: [ 'all' ] },
+				syncSite: remote,
+			} );
+		} catch ( error ) {
+			setSetupFailure( studioSiteId, {
+				error: error instanceof Error ? error.message : String( error ),
+				event,
+			} );
+			if ( ! connected ) {
 				void connector.trackEvent( TRACKS_EVENTS.SYNC_CONNECT, {
 					success: false,
-					// The site lookup and the storage write are both in this try.
 					failure_reason: classifySyncFailure( error, { phase: 'site_fetch' } ),
-					num_of_sites:
-						queryClient.getQueryData< SyncSite[] >( connectedWpcomSitesQueryKey( studioSiteId ) )
-							?.length ?? 0,
-				} );
-				console.error( 'Failed to persist deep-link connection:', error );
-			} finally {
-				void queryClient.invalidateQueries( {
-					queryKey: connectedWpcomSitesQueryKey( studioSiteId ),
+					num_of_sites: connectedSites().length,
 				} );
 			}
+		} finally {
+			void queryClient.invalidateQueries( {
+				queryKey: connectedWpcomSitesQueryKey( studioSiteId ),
+			} );
+		}
+	} );
+
+	useEffect( () => {
+		receive = ( event ) => void handleConnect( event );
+		const unsubscribe = connector.onSyncConnectSite( ( event ) => {
+			setSetupFailure( event.studioSiteId );
+			receive?.( event );
 		} );
-	}, [ connector, queryClient ] );
+		return () => {
+			receive = null;
+			unsubscribe();
+		};
+	}, [ connector ] );
 }

@@ -1,5 +1,5 @@
 import { killChild } from '@studio/common/lib/cli-process';
-import { SyncCancelledError } from '@studio/common/lib/sync/cancel';
+import { isSyncCancelledError, SyncCancelledError } from '@studio/common/lib/sync/cancel';
 import type { ExecuteCliCommand } from '@studio/common/lib/cli-process';
 import type { PullSyncOptions, PushSyncOptions } from '@studio/common/types/sync';
 
@@ -18,15 +18,17 @@ function runSyncCommand(
 
 		const [ emitter, child ] = executeCliCommand( args, { output: 'capture' } );
 
+		// Only asks: the CLI stops if the sync is still safe to stop (`exitOnCancel`), and
+		// otherwise finishes, so the outcome is whatever the command does next.
+		let cancelRequested = false;
 		const cancel = () => {
-			// Reject even if the kill fails — otherwise a cancel would hang the
-			// caller forever instead of stopping.
+			cancelRequested = true;
 			try {
-				killChild( child );
+				killChild( child, { force: false } );
 			} catch ( error ) {
 				console.error( 'Failed to stop the CLI process for', args[ 0 ], error );
+				reject( new SyncCancelledError() );
 			}
-			reject( new SyncCancelledError() );
 		};
 		signal?.addEventListener( 'abort', cancel, { once: true } );
 		const settle = ( run: () => void ) => {
@@ -35,7 +37,9 @@ function runSyncCommand(
 		};
 
 		emitter.on( 'success', () => settle( resolve ) );
-		emitter.on( 'failure', ( { error } ) => settle( () => reject( error ) ) );
+		emitter.on( 'failure', ( { error } ) =>
+			settle( () => reject( cancelRequested ? new SyncCancelledError() : error ) )
+		);
 		emitter.on( 'error', ( { error } ) => settle( () => reject( error ) ) );
 	} );
 }
@@ -94,4 +98,62 @@ export function pullSite(
 		],
 		signal
 	);
+}
+
+export type SyncResult = { cancelled: boolean };
+
+/**
+ * Runs pushes and pulls so the host can cancel one by site and remote site. A cancel resolves
+ * `{ cancelled: true }` rather than rejecting, since it's an intentional stop and not a failure.
+ */
+export function createSyncRunner( execute: ExecuteCliCommand ) {
+	const controllers = new Map< string, AbortController >();
+	const key = ( siteId: string, remoteSiteId: number ) => `${ siteId }-${ remoteSiteId }`;
+
+	async function run(
+		siteId: string,
+		remoteSiteId: number,
+		sync: ( signal: AbortSignal ) => Promise< void >
+	): Promise< SyncResult > {
+		const id = key( siteId, remoteSiteId );
+		const controller = new AbortController();
+		controllers.set( id, controller );
+		try {
+			await sync( controller.signal );
+			return { cancelled: false };
+		} catch ( error ) {
+			if ( isSyncCancelledError( error ) ) {
+				return { cancelled: true };
+			}
+			throw error;
+		} finally {
+			if ( controllers.get( id ) === controller ) {
+				controllers.delete( id );
+			}
+		}
+	}
+
+	return {
+		push: (
+			siteId: string,
+			sitePath: string,
+			remoteSiteId: number,
+			options?: PushSyncOptions
+		): Promise< SyncResult > =>
+			run( siteId, remoteSiteId, ( signal ) =>
+				pushSite( execute, sitePath, remoteSiteId, options, signal )
+			),
+		pull: (
+			siteId: string,
+			sitePath: string,
+			remoteSiteId: number,
+			options?: PullSyncOptions
+		): Promise< SyncResult > =>
+			run( siteId, remoteSiteId, ( signal ) =>
+				pullSite( execute, sitePath, remoteSiteId, options, signal )
+			),
+		cancel: ( siteId: string, remoteSiteId: number ): void => {
+			controllers.get( key( siteId, remoteSiteId ) )?.abort();
+		},
+	};
 }

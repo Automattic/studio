@@ -1,4 +1,3 @@
-import { Stack } from '@wordpress/ui';
 import { FullscreenChrome } from '@/components/fullscreen-chrome';
 import styles from './style.module.css';
 import type { ReactNode, Ref } from 'react';
@@ -26,7 +25,7 @@ export function OnboardingLayout( {
 	background,
 }: OnboardingLayoutProps ) {
 	return (
-		<Stack align="flex-start" justify="center" className={ styles.root }>
+		<div className={ styles.root }>
 			{ background }
 			<FullscreenChrome onClose={ onClose } closeDisabled={ closeDisabled } />
 			<div
@@ -37,6 +36,6 @@ export function OnboardingLayout( {
 			>
 				{ children }
 			</div>
-		</Stack>
+		</div>
 	);
 }

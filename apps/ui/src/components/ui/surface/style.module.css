@@ -1,0 +1,95 @@
+@layer ui {
+	/* Menus, popovers, selects and dialogs float on this surface. */
+	.floating {
+		box-sizing: border-box;
+		background-color: var( --popover );
+		box-shadow:
+			0 0 0 1px var( --border ),
+			0 1px 3px 0 rgb( 0 0 0 / 10% ),
+			0 1px 2px -1px rgb( 0 0 0 / 10% );
+		color: var( --popover-foreground );
+		outline: none;
+	}
+
+	.popup {
+		border-radius: calc( var( --radius-md ) + 6px );
+	}
+
+	.padded {
+		padding: 6px;
+	}
+
+	.motion {
+		transform-origin: var( --transform-origin );
+		transition-property: opacity, scale, filter;
+		transition-duration: var( --motion-duration-surface );
+		transition-timing-function: var( --motion-ease-enter );
+	}
+
+	.motion:is( [data-starting-style], [data-ending-style] ) {
+		opacity: 0;
+		scale: 0.97;
+	}
+
+	.motion[data-instant]:not( [data-slot='popover-content'][data-instant='dismiss'] ) {
+		transition: none;
+	}
+
+	@media ( prefers-reduced-motion: reduce ) {
+		.motion {
+			transition-property: opacity;
+			transition-duration: var( --motion-duration-feedback );
+		}
+
+		.motion:is( [data-starting-style], [data-ending-style] ) {
+			scale: 1;
+		}
+	}
+
+	/* A menu or select row: 32px, 13px/450 text and a 16px icon. */
+	.item {
+		position: relative;
+		display: flex;
+		gap: 6px;
+		align-items: center;
+		min-height: 32px;
+		box-sizing: border-box;
+		padding: 6px 8px;
+		border-radius: var( --radius-md );
+		font-size: var( --text-xs );
+		font-weight: var( --font-weight-medium );
+		line-height: 20px;
+		cursor: default;
+		outline: none;
+		user-select: none;
+	}
+
+	.item svg {
+		flex-shrink: 0;
+		pointer-events: none;
+	}
+
+	.item:is( [data-highlighted], [data-popup-open] ) {
+		background-color: var( --hover );
+		color: var( --foreground );
+	}
+
+	.item[data-disabled] {
+		opacity: 0.5;
+		pointer-events: none;
+	}
+
+	.separator {
+		height: 1px;
+		margin: 6px 8px;
+		border: 0;
+		background-color: var( --border );
+	}
+
+	.groupLabel {
+		padding: 4px 6px;
+		color: var( --muted-foreground );
+		font-size: var( --text-xs );
+		font-weight: var( --font-weight-medium );
+	}
+}

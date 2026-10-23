@@ -1,5 +1,14 @@
 import { __ } from '@wordpress/i18n';
-import { Dialog } from '@wordpress/ui';
+import { Button } from '@/components/ui/button';
+import {
+	Dialog,
+	DialogClose,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from '@/components/ui/dialog';
 import styles from './style.module.css';
 
 interface BlueprintErrorDialogProps {
@@ -9,7 +18,7 @@ interface BlueprintErrorDialogProps {
 
 export function BlueprintErrorDialog( { error, onDismiss }: BlueprintErrorDialogProps ) {
 	return (
-		<Dialog.Root
+		<Dialog
 			open={ Boolean( error ) }
 			onOpenChange={ ( next ) => {
 				if ( ! next ) {
@@ -17,19 +26,17 @@ export function BlueprintErrorDialog( { error, onDismiss }: BlueprintErrorDialog
 				}
 			} }
 		>
-			<Dialog.Popup size="small">
-				<Dialog.Header>
-					<Dialog.Title>{ __( 'Blueprint error' ) }</Dialog.Title>
-				</Dialog.Header>
-				<Dialog.Content>
-					<Dialog.Description className={ styles.message }>{ error }</Dialog.Description>
-				</Dialog.Content>
-				<Dialog.Footer>
-					<Dialog.Action variant="minimal" tone="neutral">
-						{ __( 'Close' ) }
-					</Dialog.Action>
-				</Dialog.Footer>
-			</Dialog.Popup>
-		</Dialog.Root>
+			<DialogContent showCloseButton={ false }>
+				<DialogHeader>
+					<DialogTitle>{ __( 'Blueprint error' ) }</DialogTitle>
+					<DialogDescription tone="default" className={ styles.message }>
+						{ error }
+					</DialogDescription>
+				</DialogHeader>
+				<DialogFooter>
+					<DialogClose render={ <Button variant="outline" /> }>{ __( 'Close' ) }</DialogClose>
+				</DialogFooter>
+			</DialogContent>
+		</Dialog>
 	);
 }

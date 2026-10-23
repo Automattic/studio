@@ -1,5 +1,5 @@
 import { existsSync, mkdirSync, writeFileSync } from 'fs';
-import { mkdtemp, readdir, readFile } from 'fs/promises';
+import { mkdtemp, readdir, readFile, rm } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import {
@@ -8,6 +8,23 @@ import {
 	STUDIO_LOADER_MU_PLUGIN_FILENAME,
 	writeStudioMuPlugins,
 } from '@studio/common/lib/mu-plugins';
+
+let configDir: string;
+const originalConfigDir = process.env.DEV_CONFIG_DIR;
+
+beforeAll( async () => {
+	configDir = await mkdtemp( join( tmpdir(), 'studio-test-config-' ) );
+	process.env.DEV_CONFIG_DIR = configDir;
+} );
+
+afterAll( async () => {
+	if ( originalConfigDir === undefined ) {
+		delete process.env.DEV_CONFIG_DIR;
+	} else {
+		process.env.DEV_CONFIG_DIR = originalConfigDir;
+	}
+	await rm( configDir, { recursive: true, force: true } );
+} );
 
 describe( 'cleanupLegacyMuPlugins', () => {
 	let sitePath: string;
@@ -97,6 +114,10 @@ describe( 'writeStudioMuPlugins', () => {
 		sitePath = await mkdtemp( join( tmpdir(), 'studio-test-site-' ) );
 	} );
 
+	afterEach( async () => {
+		await rm( sitePath, { recursive: true, force: true } );
+	} );
+
 	it( 'should preserve the auto-update setting for native PHP mu-plugins', async () => {
 		await writeStudioMuPlugins( sitePath, true );
 
@@ -141,7 +162,7 @@ describe( 'writeStudioMuPlugins', () => {
 		expect( secondDir ).toBe( firstDir );
 	} );
 
-	it( 'should regenerate mu-plugins when an existing file has stale content', async () => {
+	it( 'should restore a mu-plugin file with stale content', async () => {
 		const firstDir = await writeStudioMuPlugins( sitePath, false );
 
 		const pluginFilename = '0-deactivate-jetpack-modules.php';
@@ -149,10 +170,69 @@ describe( 'writeStudioMuPlugins', () => {
 		writeFileSync( join( firstDir, pluginFilename ), '<?php // stale content from older Studio' );
 
 		const secondDir = await writeStudioMuPlugins( sitePath, false );
-		const regeneratedContent = await readFile( join( secondDir, pluginFilename ), 'utf8' );
+		const restoredContent = await readFile( join( secondDir, pluginFilename ), 'utf8' );
 
-		expect( secondDir ).not.toBe( firstDir );
-		expect( regeneratedContent ).toBe( expectedContent );
+		expect( secondDir ).toBe( firstDir );
+		expect( restoredContent ).toBe( expectedContent );
+	} );
+
+	it( 'should use a different directory when the mu-plugins differ', async () => {
+		const enabledDir = await writeStudioMuPlugins( sitePath, true );
+		const disabledDir = await writeStudioMuPlugins( sitePath, false );
+
+		expect( disabledDir ).not.toBe( enabledDir );
+	} );
+
+	it( 'should keep the loader on the same directory when another TMPDIR writes it (STU-2532)', async () => {
+		const loaderPath = join(
+			sitePath,
+			'wp-content',
+			'mu-plugins',
+			STUDIO_LOADER_MU_PLUGIN_FILENAME
+		);
+		const serverTmpdir = await mkdtemp( join( tmpdir(), 'studio-test-server-tmp-' ) );
+		const cliTmpdir = await mkdtemp( join( tmpdir(), 'studio-test-cli-tmp-' ) );
+		try {
+			vi.stubEnv( 'TMPDIR', serverTmpdir );
+			const serverDir = await writeStudioMuPlugins( sitePath, false );
+			const loaderContent = await readFile( loaderPath, 'utf8' );
+
+			// A cleared /tmp, or an agent sandbox with its own /tmp, hides the first
+			// process's temp files from the next one.
+			await rm( serverTmpdir, { recursive: true, force: true } );
+			vi.stubEnv( 'TMPDIR', cliTmpdir );
+			const cliDir = await writeStudioMuPlugins( sitePath, false );
+
+			expect( cliDir ).toBe( serverDir );
+			expect( await readFile( loaderPath, 'utf8' ) ).toBe( loaderContent );
+			expect( await readdir( cliTmpdir ) ).toEqual( [] );
+		} finally {
+			vi.unstubAllEnvs();
+			await rm( serverTmpdir, { recursive: true, force: true } );
+			await rm( cliTmpdir, { recursive: true, force: true } );
+		}
+	} );
+
+	it( 'should repoint a loader that points to another directory (STU-2532)', async () => {
+		const loaderPath = join(
+			sitePath,
+			'wp-content',
+			'mu-plugins',
+			STUDIO_LOADER_MU_PLUGIN_FILENAME
+		);
+		const muPluginsDir = await writeStudioMuPlugins( sitePath, false );
+		const loaderContent = await readFile( loaderPath, 'utf8' );
+		writeFileSync(
+			loaderPath,
+			loaderContent.replace( muPluginsDir, '/home/user/.hermes/cache/scratch/studio-mu-plugins-x' )
+		);
+
+		await writeStudioMuPlugins( sitePath, false );
+
+		expect( await readFile( loaderPath, 'utf8' ) ).toBe( loaderContent );
+		expect( await readdir( join( sitePath, 'wp-content', 'mu-plugins' ) ) ).toEqual( [
+			STUDIO_LOADER_MU_PLUGIN_FILENAME,
+		] );
 	} );
 
 	it( 'should disable Jetpack modules that affect local development', async () => {
@@ -182,7 +262,7 @@ describe( 'writeStudioMuPlugins', () => {
 
 describe( 'getMuPlugins error capture', () => {
 	it( 'should write the error-capture mu-plugin only when errorLogPath is set', async () => {
-		const [ withCapture ] = await getMuPlugins( {
+		const withCapture = await getMuPlugins( {
 			errorLogPath: "/wordpress/wp-content/it's-a-log.log",
 		} );
 		const capturePath = join( withCapture, '0-error-capture.php' );
@@ -193,19 +273,19 @@ describe( 'getMuPlugins error capture', () => {
 		// Defers to logging the user already configured.
 		expect( content ).toContain( "if ( ! ini_get( 'log_errors' ) || ! ini_get( 'error_log' ) )" );
 
-		const [ withoutCapture ] = await getMuPlugins();
+		const withoutCapture = await getMuPlugins();
 		expect( existsSync( join( withoutCapture, '0-error-capture.php' ) ) ).toBe( false );
 	} );
 
 	it( 'should stop capturing after boot only when errorLogStopAfterBoot is set', async () => {
-		const [ bootOnly ] = await getMuPlugins( {
+		const bootOnly = await getMuPlugins( {
 			errorLogPath: '/wordpress/wp-content/studio-error.log',
 			errorLogStopAfterBoot: true,
 		} );
 		const bootOnlyContent = await readFile( join( bootOnly, '0-error-capture.php' ), 'utf8' );
 		expect( bootOnlyContent ).toContain( "add_action( 'wp_loaded'" );
 
-		const [ session ] = await getMuPlugins( {
+		const session = await getMuPlugins( {
 			errorLogPath: '/wordpress/wp-content/debug.log',
 		} );
 		const sessionContent = await readFile( join( session, '0-error-capture.php' ), 'utf8' );
@@ -215,7 +295,7 @@ describe( 'getMuPlugins error capture', () => {
 
 describe( 'getMuPlugins localhost framing', () => {
 	it( 'should replace core frame options with a localhost-only frame-ancestors policy', async () => {
-		const [ muPluginsDir ] = await getMuPlugins();
+		const muPluginsDir = await getMuPlugins();
 		const content = await readFile( join( muPluginsDir, '0-allow-localhost-framing.php' ), 'utf8' );
 
 		expect( content ).toContain(
@@ -233,7 +313,7 @@ describe( 'getMuPlugins localhost framing', () => {
 
 describe( 'getMuPlugins admin API', () => {
 	it( 'should set the admin password only when it differs from the stored one', async () => {
-		const [ muPluginsDir ] = await getMuPlugins();
+		const muPluginsDir = await getMuPlugins();
 		const content = await readFile( join( muPluginsDir, '0-studio-admin-api.php' ), 'utf8' );
 
 		// Rewriting an unchanged password produces a new hash, which invalidates
@@ -242,7 +322,7 @@ describe( 'getMuPlugins admin API', () => {
 	} );
 
 	it( 'should rename the Studio-managed admin instead of inserting a second one', async () => {
-		const [ muPluginsDir ] = await getMuPlugins();
+		const muPluginsDir = await getMuPlugins();
 		const content = await readFile( join( muPluginsDir, '0-studio-admin-api.php' ), 'utf8' );
 
 		// A second administrator can't reuse the existing admin's email, which

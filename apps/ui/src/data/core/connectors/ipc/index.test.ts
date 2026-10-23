@@ -3,27 +3,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createIpcConnector } from './index';
 import type { SiteDetails } from '@/data/core';
 
-describe( 'createIpcConnector window sizing', () => {
-	const ensureMinWindowWidth = vi.fn().mockResolvedValue( 640 );
-
-	beforeEach( () => {
-		vi.clearAllMocks();
-		vi.stubGlobal( 'ipcApi', { ensureMinWindowWidth } );
-		vi.stubGlobal( 'ipcListener', { subscribe: vi.fn() } );
-	} );
-
-	afterEach( () => {
-		vi.unstubAllGlobals();
-	} );
-
-	it( 'asks the main process to grow the desktop window', async () => {
-		const result = await createIpcConnector().ensureWindowWidth( 640 );
-
-		expect( ensureMinWindowWidth ).toHaveBeenCalledWith( 640 );
-		expect( result ).toBe( 640 );
-	} );
-} );
-
 // Guards the renderer ↔ main IPC call shape: `exportSite` must be invoked as
 // ( siteId, destinationPath, options ) to match the main-process handler in
 // apps/studio/src/modules/import-export/lib/ipc-handlers.ts.
@@ -86,7 +65,7 @@ describe( 'createIpcConnector openSiteInEditor', () => {
 	const getSiteDetails = vi
 		.fn()
 		.mockResolvedValue( [ { id: 'site-1', name: 'Demo', path: '/Users/x/Studio/demo' } ] );
-	const getUserEditor = vi.fn().mockResolvedValue( 'vscode' );
+	const getUserPreferences = vi.fn().mockResolvedValue( { editor: 'vscode' } );
 	const openAppAtPath = vi.fn();
 	const recordAnalyticsEvent = vi.fn().mockResolvedValue( undefined );
 
@@ -94,7 +73,7 @@ describe( 'createIpcConnector openSiteInEditor', () => {
 		vi.clearAllMocks();
 		vi.stubGlobal( 'ipcApi', {
 			getSiteDetails,
-			getUserEditor,
+			getUserPreferences,
 			openAppAtPath,
 			recordAnalyticsEvent,
 		} );
@@ -115,7 +94,7 @@ describe( 'createIpcConnector openSiteInEditor', () => {
 	} );
 
 	it( 'does not record or launch when no editor is configured', async () => {
-		getUserEditor.mockResolvedValueOnce( null );
+		getUserPreferences.mockResolvedValueOnce( { editor: null } );
 
 		await expect( createIpcConnector().openSiteInEditor( 'site-1' ) ).rejects.toThrow();
 

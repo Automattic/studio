@@ -1,10 +1,8 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { startLocalServer, type LocalServer } from '../index';
-import { readUserPreferences } from '../user-preferences';
-import type { InstalledApps } from '@studio/common/lib/user-settings/installed-apps';
 
 // Driven over HTTP: the request validation and the `null`-clears-a-preference
 // wire contract are what the browser UI actually depends on.
@@ -75,23 +73,13 @@ describe( 'GET/PATCH /api/user-preferences', () => {
 
 	it( 'falls back to the desktop defaults when nothing is stored', async () => {
 		await expect( getPreferences() ).resolves.toMatchObject( {
-			terminal: 'terminal',
-			colorScheme: 'light',
+			editor: null,
+			terminal: null,
+			colorScheme: 'system',
 			analyticsEnabled: true,
 			agenticFeaturesEnabled: true,
 			defaultSiteDirectory: path.join( os.tmpdir(), 'studio-test-sites' ),
 		} );
-	} );
-
-	// The picker would read as empty next to a desktop that shows a choice.
-	// Called directly so the assertion doesn't depend on this machine's apps.
-	it( 'falls back to the first installed editor when none is stored', async () => {
-		const preferences = await readUserPreferences( {
-			sitesRoot: '/Users/test/Studio',
-			installedApps: { zed: true, vscode: true } as unknown as InstalledApps,
-		} );
-
-		expect( preferences.editor ).toBe( 'vscode' );
 	} );
 
 	it( 'persists a patch under the field names the desktop reads', async () => {
@@ -195,5 +183,39 @@ describe( 'GET /api/site-defaults/path', () => {
 		const response = await fetch( `${ server.url }/api/site-defaults/path?name=My%20Site` );
 
 		expect( ( await response.json() ).path ).toBe( path.join( siteDirectory, 'my-site' ) );
+	} );
+} );
+
+describe( 'POST /api/site-defaults/folder', () => {
+	const check = async ( folderPath: string ) =>
+		fetch( `${ server.url }/api/site-defaults/folder`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify( { path: folderPath } ),
+		} );
+
+	it( 'says whether a typed folder in the site directory is empty or holds WordPress', async () => {
+		writeAppConfig( { defaultSiteDirectory: configDir } );
+		const wordPress = path.join( configDir, 'existing' );
+		mkdirSync( path.join( wordPress, 'wp-content' ), { recursive: true } );
+		mkdirSync( path.join( wordPress, 'wp-includes' ) );
+		writeFileSync( path.join( wordPress, 'wp-load.php' ), '' );
+
+		expect( await ( await check( path.join( configDir, 'new-site' ) ) ).json() ).toEqual( {
+			path: path.join( configDir, 'new-site' ),
+			name: 'new-site',
+			isEmpty: true,
+			isWordPress: false,
+		} );
+		expect( await ( await check( wordPress ) ).json() ).toMatchObject( {
+			isEmpty: false,
+			isWordPress: true,
+		} );
+		expect( ( await check( 'relative/site' ) ).status ).toBe( 400 );
+		// Outside the home and site directories, the folder is left to `site create`.
+		expect( await ( await check( path.parse( configDir ).root ) ).json() ).toMatchObject( {
+			isEmpty: true,
+			isWordPress: false,
+		} );
 	} );
 } );

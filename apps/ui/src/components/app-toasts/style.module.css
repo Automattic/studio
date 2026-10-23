@@ -1,200 +1,122 @@
-.stack {
-	display: flex;
-	flex-direction: column;
-	margin-top: calc(-1 * var(--wpds-dimension-gap-sm));
-}
-
-.shelfHug .stack {
-	width: fit-content;
-	max-width: 100%;
-}
-
-.cell {
-	display: grid;
-	grid-template-rows: 1fr;
-	margin-top: var(--wpds-dimension-gap-sm);
-	transition:
-		grid-template-rows 180ms ease,
-		margin-top 180ms ease;
-}
-
-@starting-style {
-	.cell {
-		grid-template-rows: 0fr;
-		margin-top: 0;
-	}
-}
-
-.cell[data-leaving] {
-	grid-template-rows: 0fr;
-	margin-top: 0;
-}
-
-/* Notice's `container-type: inline-size` zeroes intrinsic width, breaking
-   fit-content sizing. Reset it — the container query it powers doesn't
-   apply at toast widths. */
-.shelfHug .notice {
-	width: fit-content;
-	max-width: 100%;
-	container-type: normal;
+/* Toasts: a deck at the window's bottom right, below dialogs (700) and above
+   the app chrome. Collapsed, the toasts behind the front one shrink and peek
+   out above it; hovering or focusing the deck spreads it into a list. */
+.viewport {
+	position: fixed;
+	inset-block-end: 12px;
+	inset-inline-end: 12px;
+	z-index: 600;
+	width: min(320px, calc(100vw - 24px));
+	pointer-events: none;
+	-webkit-app-region: no-drag;
 }
 
 .toast {
-	min-height: 0;
-	overflow: clip;
-	overflow-clip-margin: 12px;
-	animation: toast-enter 160ms ease-out;
-	transition: opacity 160ms ease, transform 160ms ease;
-}
+	--gap: 8px;
+	--peek: 12px;
+	--height: var(--toast-frontmost-height, var(--toast-height));
+	--scale: max(0, 1 - var(--toast-index) * 0.1);
+	--shrink: calc(1 - var(--scale));
+	--offset-y: calc(
+		var(--toast-offset-y) * -1 - var(--toast-index) * var(--gap) + var(--toast-swipe-movement-y)
+	);
 
-.cell[data-leaving] .toast {
-	opacity: 0;
-	transform: translateY(4px);
-	pointer-events: none;
-}
-
-.notice {
+	position: absolute;
+	inset-block-end: 0;
+	inset-inline-end: 0;
+	z-index: calc(1000 - var(--toast-index));
 	width: 100%;
-	box-sizing: border-box;
-	text-wrap: pretty;
-	/* Toasts rewrite themselves in place — import progress ticks through a
-	   percentage — and this font's digits are not equal width, so a counter
-	   would shift the text by a few pixels on nearly every update. */
-	font-variant-numeric: tabular-nums;
+	height: var(--height);
+	border-radius: var(--radius-xl);
+	background-color: var(--secondary);
 	box-shadow:
-		0 1px 2px 0 rgba(0, 0, 0, 0.06), 0 3px 6px 0 rgba(0, 0, 0, 0.05), 0 6px 8px 0 rgba(0, 0, 0, 0.03);
-	padding-block: 6px;
-	padding-inline: var(--wpds-dimension-padding-sm);
-	border-radius: 6px;
+		0 0 0 1px var(--border),
+		0 1px 3px 0 rgb(0 0 0 / 10%),
+		0 1px 2px -1px rgb(0 0 0 / 10%);
+	pointer-events: auto;
+	transform-origin: bottom;
+	transform: translateX(var(--toast-swipe-movement-x))
+		translateY(
+			calc(
+				var(--toast-swipe-movement-y) - var(--toast-index) * var(--peek) - var(--shrink) *
+					var(--height)
+			)
+		)
+		scale(var(--scale));
+	transition:
+		transform var(--motion-duration-layout) var(--motion-ease-enter),
+		opacity var(--motion-duration-layout) var(--motion-ease-enter);
 }
 
-/* Default appearance: one quiet neutral card whatever the intent, with a
-   hairline ring in place of Notice's tinted border. `appearance="intent"`
-   skips this and keeps Notice's own tinted surface, border, and text. */
-.neutral {
-	--wp-ui-notice-background-color: var(--wpds-color-background-surface-neutral-strong);
-	--wp-ui-notice-border-color: transparent;
-	--wp-ui-notice-text-color: var(--wpds-color-foreground-content-neutral);
-	box-shadow:
-		0 0 0 1px color-mix(in srgb, var(--wpds-color-foreground-content-neutral) 14%, transparent),
-		0 1px 2px 0 rgba(0, 0, 0, 0.06), 0 3px 6px 0 rgba(0, 0, 0, 0.05), 0 6px 8px 0 rgba(0, 0, 0, 0.03);
+/* Bridges the gap so the pointer can travel between spread toasts. */
+.toast::after {
+	position: absolute;
+	inset-block-start: 100%;
+	inset-inline-start: 0;
+	width: 100%;
+	height: calc(var(--gap) + 1px);
+	content: '';
 }
 
-.neutral [class*='__description'] {
-	color: var(--wpds-color-foreground-content-neutral-weak);
+.toast[data-swiping] {
+	transition: none;
 }
 
-.notice [class*='heading'] {
-	line-height: 16px;
+.toast[data-expanded] {
+	height: var(--toast-height);
+	transform: translateX(var(--toast-swipe-movement-x)) translateY(var(--offset-y));
 }
 
-/* Error text can run to paragraphs; the toast shows the first few lines and
-   the notifications panel (notice-history) keeps the full message. */
-.notice [class*='__description'] {
-	font-size: var(--wpds-typography-font-size-xs);
-	line-height: 16px;
-	display: -webkit-box;
-	-webkit-box-orient: vertical;
-	-webkit-line-clamp: 3;
-	overflow: hidden;
-}
-
-/* Button's solid-variant sets these properties on the element itself, so
-   parent-level overrides don't win — must be set here directly. */
-.actionButton {
-	--wp-ui-button-background-color: color-mix(
-		in srgb,
-		var(--wpds-color-foreground-content-neutral) 10%,
-		transparent
-	);
-	--wp-ui-button-background-color-active: color-mix(
-		in srgb,
-		var(--wpds-color-foreground-content-neutral) 16%,
-		transparent
-	);
-	--wp-ui-button-foreground-color: var(--wpds-color-foreground-content-neutral);
-	--wp-ui-button-foreground-color-active: var(--wpds-color-foreground-content-neutral);
-	--wp-ui-button-border-color: transparent;
-	--wp-ui-button-border-color-active: transparent;
-}
-
-/* Row one is as tall as the close button; center the icon and the title on
-   it so a one-line toast doesn't ride high. */
-.notice > svg {
-	align-self: center;
-}
-
-.notice [class*='__title'] {
-	align-self: center;
-}
-
-.notice [class*='__actions'] {
-	gap: var(--wpds-dimension-gap-sm);
-}
-
-.queuePeek {
-	height: 8px;
-	margin-top: 3px;
-	margin-inline: 8px;
-	background-color: var(--wpds-color-background-surface-neutral-strong);
-	border-radius: 0 0 6px 6px;
-	box-shadow: 0 0 0 1px color-mix(in srgb, var(--wpds-color-foreground-content-neutral) 14%, transparent);
-	opacity: 0.8;
-}
-
-.queuePeekDeeper {
-	margin-inline: 16px;
-	opacity: 0.5;
-}
-
-/* With `appearance="intent"` the peek strips borrow the queued toast's tint,
-   so a pending error is visible before it surfaces. */
-.queuePeek[data-intent='info'] {
-	background-color: var(--wpds-color-background-surface-info-weak);
-	box-shadow: 0 0 0 1px var(--wpds-color-stroke-surface-info);
-}
-
-.queuePeek[data-intent='success'] {
-	background-color: var(--wpds-color-background-surface-success-weak);
-	box-shadow: 0 0 0 1px var(--wpds-color-stroke-surface-success);
-}
-
-.queuePeek[data-intent='error'] {
-	background-color: var(--wpds-color-background-surface-error-weak);
-	box-shadow: 0 0 0 1px var(--wpds-color-stroke-surface-error);
-}
-
-/* The hugging shelf's toasts vary in width, so the peeks take a fixed one
-   and the toast above gets a floor so they never poke out. */
-.shelfHug .queuePeek {
-	width: 144px;
-	margin-inline: 0;
-}
-
-.shelfHug .queuePeekDeeper {
-	width: 128px;
-}
-
-.shelfHug .notice {
-	min-width: 160px;
-}
-
-@keyframes toast-enter {
-	from {
-		opacity: 0;
-		transform: translateY(6px);
+@media (prefers-reduced-motion: no-preference) {
+	.toast[data-starting-style],
+	.toast[data-ending-style]:not([data-swipe-direction]) {
+		transform: translateY(150%);
 	}
 
-	to {
-		opacity: 1;
-		transform: translateY(0);
+	.toast[data-ending-style][data-swipe-direction='down'] {
+		transform: translateY(calc(var(--toast-swipe-movement-y) + 150%));
 	}
+
+	.toast[data-ending-style][data-swipe-direction='right'] {
+		transform: translateX(calc(var(--toast-swipe-movement-x) + 150%)) translateY(var(--offset-y));
+	}
+}
+
+/* Clipped to the front toast's height while behind it, with room inside the
+   clip for the dismiss button that overhangs the corner. */
+.content {
+	height: calc(100% + 24px);
+	margin: -12px;
+	padding: 12px;
+	overflow: clip;
+	transition: opacity var(--motion-duration-feedback) var(--motion-ease-enter);
+}
+
+.content[data-behind] {
+	opacity: 0;
+}
+
+.content[data-expanded] {
+	opacity: 1;
+}
+
+.toast .card {
+	background: none;
+	box-shadow: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
+	.toast {
+		transition-property: opacity;
+	}
+
+	.toast[data-starting-style],
+	.toast[data-ending-style] {
+		opacity: 0;
+	}
+
 	.toast,
-	.cell {
-		animation: none;
-		transition: none;
+	.content {
+		transition-duration: var(--motion-duration-feedback) !important;
 	}
 }

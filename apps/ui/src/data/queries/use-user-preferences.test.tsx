@@ -67,6 +67,43 @@ describe( 'useSaveUserPreferences', () => {
 		expect( getUserPreferences ).toHaveBeenCalledTimes( 1 );
 	} );
 
+	it( 'keeps a save when a fetch that started before it resolves afterwards', async () => {
+		const { result } = renderPreferenceHooks();
+		await waitFor( () => expect( result.current.preferences.data ).toBeDefined() );
+
+		// A refetch (e.g. the settings screen mounting) reads the preferences
+		// before the save lands, and only resolves once the save has finished.
+		let resolveStaleFetch: ( preferences: UserPreferences ) => void = () => undefined;
+		getUserPreferences.mockImplementationOnce(
+			() => new Promise( ( resolve ) => ( resolveStaleFetch = resolve ) )
+		);
+		void result.current.preferences.refetch();
+		await waitFor( () => expect( getUserPreferences ).toHaveBeenCalledTimes( 2 ) );
+
+		await result.current.save.mutateAsync( { colorScheme: 'dark' } );
+		resolveStaleFetch( PREFERENCES );
+
+		await waitFor( () => expect( result.current.preferences.isFetching ).toBe( false ) );
+		expect( result.current.preferences.data?.colorScheme ).toBe( 'dark' );
+	} );
+
+	it( 'keeps a save made before the preferences first loaded', async () => {
+		let resolveFirstFetch: ( preferences: UserPreferences ) => void = () => undefined;
+		getUserPreferences.mockImplementationOnce(
+			() => new Promise( ( resolve ) => ( resolveFirstFetch = resolve ) )
+		);
+		// Once saved, the main process returns the saved value.
+		getUserPreferences.mockImplementation( () =>
+			Promise.resolve( { ...PREFERENCES, colorScheme: 'dark' } )
+		);
+		const { result } = renderPreferenceHooks();
+
+		await result.current.save.mutateAsync( { colorScheme: 'dark' } );
+		resolveFirstFetch( PREFERENCES );
+
+		await waitFor( () => expect( result.current.preferences.data?.colorScheme ).toBe( 'dark' ) );
+	} );
+
 	it( 're-fetches the CLI installed state instead of trusting the patch', async () => {
 		// An uninstall declined behind the main process's native dialog still
 		// resolves the IPC call; the refetch must restore the real state.

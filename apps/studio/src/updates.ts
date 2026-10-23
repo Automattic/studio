@@ -81,7 +81,13 @@ export function setupUpdates() {
 		return;
 	}
 
-	autoUpdater.setFeedURL( { url: buildUpdateFeedUrl() } );
+	try {
+		autoUpdater.setFeedURL( { url: buildUpdateFeedUrl() } );
+	} catch ( error ) {
+		// macOS rejects the feed when the running app has no code signature, as with the
+		// unsigned x64 Electron binary in development on Intel Macs.
+		console.warn( 'Failed to set the update feed URL', error );
+	}
 
 	autoUpdater.on( 'checking-for-update', () => {
 		updaterState = 'checking-for-update';
@@ -279,9 +285,11 @@ function setupLinuxUpdates() {
 
 async function pollLinuxUpdates( { channel }: { channel?: 'nightly' } = {} ) {
 	updaterState = 'checking-for-update';
+	// Later polls stay on the channel the user switched to.
+	activeChannel = channel ?? activeChannel;
 
 	try {
-		const response = await fetch( buildUpdateFeedUrl( { channel } ) );
+		const response = await fetch( buildUpdateFeedUrl( { channel: activeChannel } ) );
 
 		if ( response.status === 204 ) {
 			if ( showManualCheckDialogs ) {

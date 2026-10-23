@@ -4,7 +4,7 @@
   "requires_local_executor": true,
   "description": "Build, design, and manage WordPress sites with WordPress Studio: create local sites with Studio's design workflow, open your Studio and WordPress.com sites from the WordPress tab, preview them, and publish to WordPress.com.",
   "author": {
-    "name": "Automattic",
+    "name": "Automattic Inc.",
     "url": "https://automattic.com"
   },
   "homepage": "https://developer.wordpress.com/studio/",
@@ -24,12 +24,12 @@
     "block-theme"
   ],
   "skills": "./skills/",
-  "mcpServers": "./.mcp.codex.json",
+  "mcpServers": "./.mcp.json",
   "interface": {
     "displayName": "WordPress Studio",
     "shortDescription": "Build & manage WordPress sites",
-    "longDescription": "Build WordPress sites from a conversation: Studio creates the site on your computer, asks about the look and layout with rendered previews, generates the imagery, builds a block theme and checks the result visually. The WordPress tab lists your local Studio sites and your WordPress.com sites, with a page per site to start it, open WP Admin, run speed and SEO audits, or work on a live site. Publish to WordPress.com when you are ready. Studio comes with the plugin and updates with it.",
-    "developerName": "Automattic",
+    "longDescription": "Build WordPress sites from a conversation: Studio creates the site on your computer, asks about the look and layout with rendered previews, generates the imagery, builds a block theme and checks the result visually. The WordPress tab lists your local Studio sites and your WordPress.com sites, with a page per site to start it, open WP Admin, run speed and SEO audits, or pull a WordPress.com site to work on it locally. Publish to WordPress.com when you are ready. Studio comes with the plugin and updates with it.",
+    "developerName": "Automattic Inc.",
     "category": "Developer Tools",
     "capabilities": [
       "Interactive",
@@ -52,5 +52,65 @@
       "./assets/screenshot-look.png",
       "./assets/screenshot-layout.png"
     ]
+  },
+  "extensions": {
+    "com.openai": {
+      "review": {
+        "test_cases": {
+          "positive": [
+            {
+              "description": "Core workflow: build a new local WordPress site from a request. Setup: none; the plugin comes with the WordPress Studio CLI. When Codex shows look and layout options, pick any. Passes when the site runs and shows a bakery home page in the chosen style.",
+              "prompt": "Build a one-page WordPress site for Crumb & Co, a neighborhood bakery.",
+              "tools_triggered": "studio_instructions, site_create, pick_design, present_design_options, scaffold_theme, wp_cli, validate_blocks, take_screenshot, inspect_design",
+              "expected_behavior": "Creates a local site named \"Crumb & Co\" with site_create, asks the user to choose a look and a layout with present_design_options, builds a block theme with scaffold_theme and a home page about the bakery, checks it with take_screenshot, and replies with the site URL (http://localhost:<port>) and its WP Admin link. Opening the URL shows the bakery home page in the chosen style."
+            },
+            {
+              "description": "Setup: run the cases in order in one Codex workspace; the first builds the Crumb & Co site the others use. Edit an existing local site: add a page with given content. Passes when the new page is published and shows the hours.",
+              "prompt": "Add a Contact page to my Crumb & Co site with our hours: Tuesday to Sunday, 7am to 3pm.",
+              "tools_triggered": "studio_instructions, site_list, site_info, wp_cli, validate_blocks, take_screenshot",
+              "expected_behavior": "Creates and publishes a Contact page on the existing Crumb & Co site (not a new site), with the hours Tuesday to Sunday, 7am to 3pm, and replies with the page URL. Opening it shows the page with those hours."
+            },
+            {
+              "description": "Setup: run the cases in order in one Codex workspace; the first builds the Crumb & Co site the others use. Read the user's local sites without changing them. Passes when the answer matches the site_list result.",
+              "prompt": "Which WordPress sites do I have on this computer, and are they running?",
+              "tools_triggered": "studio_instructions, site_list",
+              "expected_behavior": "Lists every local Studio site returned by site_list with its name and whether it is running (Crumb & Co appears), without creating, starting, or stopping any site."
+            },
+            {
+              "description": "Setup: run the cases in order in one Codex workspace; the first builds the Crumb & Co site the others use. Performance audit of a local site page. Passes when the reported figures come from the need_for_speed result.",
+              "prompt": "How fast is the home page of my Crumb & Co site?",
+              "tools_triggered": "studio_instructions, site_list, need_for_speed",
+              "expected_behavior": "Runs need_for_speed on the Crumb & Co site for the path \"/\" and reports its Core Web Vitals and performance figures as returned by the tool, with concrete suggestions to improve them."
+            },
+            {
+              "description": "Setup: run the cases in order in one Codex workspace; the first builds the Crumb & Co site the others use. SEO audit of a local site page. Passes when the findings come from the rank_me_up result and the site is left unchanged.",
+              "prompt": "Check the SEO of my Crumb & Co home page and tell me what to fix.",
+              "tools_triggered": "studio_instructions, site_list, rank_me_up, wp_cli (read-only queries)",
+              "expected_behavior": "Runs rank_me_up on the Crumb & Co site for the path \"/\" and reports the page title, meta description, and the issues the audit returned, with fixes. It does not change the site unless the user asks."
+            }
+          ],
+          "negative": [
+            {
+              "description": "A store on another platform is outside WordPress Studio, which builds WordPress sites. Expected: Codex handles the request without WordPress Studio: it calls no WordPress Studio tool (no site_create) unless the user then asks for a WordPress site, and it never says Studio built the store.",
+              "prompt": "Build my bakery's online store on Shopify."
+            },
+            {
+              "description": "WordPress Studio cannot register or buy domains. Expected: Codex answers without calling any WordPress Studio tool, and never says WordPress Studio registered the domain.",
+              "prompt": "Register the domain crumbandco.com for my bakery."
+            },
+            {
+              "description": "WordPress Studio publishes only to WordPress.com, not to other hosts over FTP. Expected: Codex does not run site_push, site_export, wp_cli, or any other WordPress Studio tool unless the user asks for Studio, and never says Studio uploaded the site.",
+              "prompt": "Upload my Crumb & Co site to my GoDaddy hosting over FTP."
+            }
+          ]
+        },
+        "demo_recording_url": "https://developer.wordpress.com/wp-content/uploads/2026/10/wordpress-studio-demo.mp4",
+        "commerce": false
+      },
+      "publication": {
+        "countries": [],
+        "release_notes": "First release of WordPress Studio for ChatGPT. Build WordPress sites on your computer from a conversation: Studio asks about the look and the layout, builds a block theme, and checks the result. A WordPress tab lists your local and WordPress.com sites. Edit sites, run speed and SEO audits, and publish to WordPress.com. Studio comes inside the plugin."
+      }
+    }
   }
 }

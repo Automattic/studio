@@ -15,6 +15,8 @@ export function useSessionCommands( sessionId: string ): void {
 		return connector.onAgentEvent( ( payload ) => {
 			if ( payload.sessionId !== sessionId ) return;
 			const event = payload.event;
+			// The preview is a browser: it shows a page as it loaded, so it shows
+			// the agent's changes once the agent asks for a reload.
 			if ( event.type === 'preview.reload' ) {
 				dispatch( { type: 'preview/reload' } );
 				return;

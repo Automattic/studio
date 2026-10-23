@@ -1,38 +1,49 @@
 import { findAiSessionOwnerSite } from '@studio/common/ai/sessions/owner-site';
-import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { sortSites } from '@studio/common/lib/sort-sites';
 import { useNavigate, useParams, useRouterState } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
-import { settings } from '@wordpress/icons';
-import { IconButton, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
+import { ChevronRightIcon } from 'lucide-react';
 import {
-	createContext,
 	Fragment,
-	useContext,
+	useCallback,
 	useEffect,
+	useEffectEvent,
 	useMemo,
 	useRef,
 	useState,
-	type Dispatch,
 	type MouseEvent,
 	type PointerEvent as ReactPointerEvent,
 	type ReactElement,
 	type ReactNode,
-	type SetStateAction,
 } from 'react';
 import { AgentWorkingIndicator } from '@/components/agent-working-indicator';
-import { DeleteSiteDialog } from '@/components/delete-site-dialog';
-import * as Menu from '@/components/menu';
-import { useOpenInDestinations } from '@/components/open-in-menu/use-open-in-destinations';
-import { ReorderableList } from '@/components/reorderable-list';
+import { ChatActionsMenuItems, useChatActions } from '@/components/chat-actions';
+import { ReorderableList, type ReorderableListProps } from '@/components/reorderable-list';
+import { getSessionTitle } from '@/components/session-view/session-chat-actions';
 import { SidebarButton } from '@/components/sidebar-button';
-import { deriveSiteStatus, getSiteStatusName } from '@/components/site-dropdown/utils';
+import { SiteActionsMenuItems, useSiteActions } from '@/components/site-actions-menu';
+import { Badge } from '@/components/ui/badge';
+import { Button, IconButton } from '@/components/ui/button';
+import { CollapsiblePanel } from '@/components/ui/collapsible';
+import * as Menu from '@/components/ui/menu';
+import { Spinner } from '@/components/ui/spinner';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { VisuallyHidden } from '@/components/ui/visually-hidden';
 import { XdebugIcon } from '@/components/xdebug-icon';
-import { useConnector } from '@/data/core';
-import { useSiteAgentActivity, type SiteAgentActivity } from '@/data/queries/use-agent-run';
+import {
+	useSessionsNeedingInput,
+	useSiteAgentActivity,
+	type SiteAgentActivity,
+} from '@/data/queries/use-agent-run';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useSessions } from '@/data/queries/use-sessions';
+import {
+	chatPinKey,
+	orderChats,
+	sitePinKey,
+	useSidebarPreferences,
+} from '@/data/queries/use-sidebar-pins';
 import {
 	useIsSiteBusy,
 	useIsSiteStarting,
@@ -44,55 +55,49 @@ import {
 	useUpdateSitesSortOrder,
 } from '@/data/queries/use-sites';
 import { useSiteSyncActivity } from '@/data/sync-activity';
+import { useOpenAddSite } from '@/hooks/use-open-add-site';
+import { useOpenSite } from '@/hooks/use-open-site';
+import { useStoredFlag } from '@/hooks/use-stored-flag';
+import { ArchiveIcon } from '@/lib/icons/archive-icon';
+import { ChatIcon } from '@/lib/icons/chat-icon';
+import { CollapseAllIcon } from '@/lib/icons/collapse-all-icon';
+import { GlobeIcon } from '@/lib/icons/globe-icon';
+import { NeedsInputIcon } from '@/lib/icons/needs-input-icon';
+import { NewChatIcon } from '@/lib/icons/new-chat-icon';
+import { PinIcon } from '@/lib/icons/pin-icon';
+import { PlusIcon } from '@/lib/icons/plus-icon';
+import { StartSiteIcon } from '@/lib/icons/start-site-icon';
+import { StopSiteIcon } from '@/lib/icons/stop-site-icon';
+import { UnpinIcon } from '@/lib/icons/unpin-icon';
+import { resumeChat } from '@/lib/last-visited';
+import { useProvideCollapseAll } from './collapse-all';
 import {
-	useSiteManagementActions,
-	type SiteManagementAction,
-	type SiteManagementActionId,
-} from '@/hooks/use-site-management-actions';
+	BulkMenu,
+	SidebarSelection,
+	useIsBulkTarget,
+	useIsSelecting,
+	useSelectableRow,
+} from './selection';
+import { getSiteStatus, getSiteStatusName } from './site-status';
 import styles from './style.module.css';
 import type { AiSessionSummary, SiteDetails } from '@/data/core';
 
 type SiteRow = {
 	site: SiteDetails;
-	latestSession?: AiSessionSummary;
 	sessionIds: string[];
+	// Non-archived, most recent first.
+	chats: AiSessionSummary[];
 };
 
-type SiteRowActivity = SiteAgentActivity | 'new-message' | 'sync' | 'import';
+// Chats listed at first under a site, and how many more each Show more adds.
+const CHATS_INITIAL_COUNT = 5;
+const CHATS_PAGE_SIZE = 10;
+// Recent is a shortcut to the latest chats; every chat is also under its site.
+const RECENT_CHATS_LIMIT = 10;
+
+type SiteRowActivity = SiteAgentActivity | 'sync' | 'import';
 
 const ACTIVITY_EXIT_DURATION_MS = 180;
-
-type SeenSessionTimestamps = {
-	initialized: boolean;
-	timestamps: Record< string, number >;
-};
-
-type SeenSessionTimestampsState = [
-	SeenSessionTimestamps,
-	Dispatch< SetStateAction< SeenSessionTimestamps > >,
-];
-
-const EMPTY_SEEN_SESSION_TIMESTAMPS: SeenSessionTimestamps = {
-	initialized: false,
-	timestamps: {},
-};
-
-const SeenSessionTimestampsContext = createContext< SeenSessionTimestampsState | null >( null );
-
-/**
- * Shares the "which session updates has the user already seen" bookkeeping
- * between SiteList instances — the expanded sidebar and the collapsed-sidebar
- * switcher popover. Without it, each instance seeds its own state on mount,
- * marking every site as seen and hiding the other's unread indicators.
- */
-export function SeenSessionTimestampsProvider( { children }: { children: ReactNode } ) {
-	const state = useState< SeenSessionTimestamps >( EMPTY_SEEN_SESSION_TIMESTAMPS );
-	return (
-		<SeenSessionTimestampsContext.Provider value={ state }>
-			{ children }
-		</SeenSessionTimestampsContext.Provider>
-	);
-}
 
 function SiteAgentActivityTooltip( {
 	label,
@@ -108,8 +113,8 @@ function SiteAgentActivityTooltip( {
 	children?: ReactNode;
 } ) {
 	return (
-		<Tooltip.Root>
-			<Tooltip.Trigger
+		<Tooltip>
+			<TooltipTrigger
 				render={
 					<span
 						className={ clsx(
@@ -123,9 +128,9 @@ function SiteAgentActivityTooltip( {
 				}
 			>
 				{ children }
-			</Tooltip.Trigger>
-			<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>{ label }</Tooltip.Popup>
-		</Tooltip.Root>
+			</TooltipTrigger>
+			<TooltipContent>{ label }</TooltipContent>
+		</Tooltip>
 	);
 }
 
@@ -150,7 +155,6 @@ function SiteAgentActivityIndicator( { activity }: { activity: SiteRowActivity }
 	const workingLabel = __( 'Working…' );
 	const pendingQuestionLabel = __( 'Needs an answer' );
 	const pendingQuestionAriaLabel = __( 'Studio needs an answer.' );
-	const newMessageLabel = __( 'New message' );
 	const syncLabel = __( 'Syncing live site' );
 	const importLabel = __( 'Importing backup' );
 
@@ -177,12 +181,6 @@ function SiteAgentActivityIndicator( { activity }: { activity: SiteRowActivity }
 					className={ styles.siteAgentActivityQuestion }
 				/>
 			) : null }
-			{ renderedActivity === 'new-message' ? (
-				<SiteAgentActivityTooltip
-					label={ newMessageLabel }
-					className={ styles.siteAgentActivityMessage }
-				/>
-			) : null }
 			{ renderedActivity === 'sync' || renderedActivity === 'import' ? (
 				<SiteAgentActivityTooltip
 					label={ renderedActivity === 'import' ? importLabel : syncLabel }
@@ -203,6 +201,10 @@ function getTimestamp( session: AiSessionSummary | undefined ): number {
 	return session ? Date.parse( session.updatedAt ) || 0 : 0;
 }
 
+function byMostRecent( a: AiSessionSummary, b: AiSessionSummary ): number {
+	return getTimestamp( b ) - getTimestamp( a );
+}
+
 function createSiteRows(
 	sites: SiteDetails[] | undefined,
 	sessions: AiSessionSummary[] | undefined
@@ -210,7 +212,7 @@ function createSiteRows(
 	const rows: SiteRow[] = ( sites ?? [] ).map( ( site ) => ( {
 		site,
 		sessionIds: [],
-		latestSession: undefined,
+		chats: [],
 	} ) );
 	const rowsBySiteId = new Map( rows.map( ( row ) => [ row.site.id, row ] ) );
 
@@ -221,12 +223,13 @@ function createSiteRows(
 			continue;
 		}
 		row.sessionIds.push( session.id );
-		if (
-			! session.archived &&
-			( ! row.latestSession || getTimestamp( session ) > getTimestamp( row.latestSession ) )
-		) {
-			row.latestSession = session;
+		if ( ! session.archived ) {
+			row.chats.push( session );
 		}
+	}
+
+	for ( const row of rows ) {
+		row.chats.sort( byMostRecent );
 	}
 
 	return rows;
@@ -246,46 +249,205 @@ function sortSitesByManualOrder( sites: SiteDetails[], manualOrder: string[] ): 
 	);
 }
 
-function SiteOverviewButton( {
-	site,
-	isOverviewActive,
-	onBackToChat,
-	onSiteOpen,
+// Opens a collapsed group when something is added to it, e.g. a new site.
+// `keys` is undefined until the group's items have loaded.
+function useOpenOnAddedItems( keys: string[] | undefined, open: boolean, onOpen: () => void ) {
+	const previous = useRef< Set< string > | null >( null );
+	useEffect( () => {
+		if ( ! keys ) {
+			return;
+		}
+		const known = previous.current;
+		previous.current = new Set( keys );
+		if ( known && ! open && keys.some( ( key ) => ! known.has( key ) ) ) {
+			onOpen();
+		}
+	}, [ keys, open, onOpen ] );
+}
+
+// Rows hold still while several are selected, so a drag can't scatter them.
+function SidebarReorderableList< T >(
+	props: Pick<
+		ReorderableListProps< T >,
+		'items' | 'getItemId' | 'getItemLabel' | 'renderItem' | 'onReorder'
+	>
+) {
+	return (
+		<ReorderableList
+			{ ...props }
+			className={ styles.sites }
+			itemClassName={ styles.siteDragWrapper }
+			previewClassName={ styles.siteDragPreview }
+			excludeSelector="[data-reorder-exclude]"
+			disabled={ useIsSelecting() }
+		/>
+	);
+}
+
+function RetryLoadingChats() {
+	const { refetch } = useSessions();
+	return (
+		<SidebarButton
+			className={ clsx( styles.chat, styles.mutedRow ) }
+			onClick={ () => void refetch() }
+		>
+			<span className={ styles.chatTitle }>{ __( 'Retry loading chats' ) }</span>
+		</SidebarButton>
+	);
+}
+
+function ChatRow( {
+	session,
+	active,
+	nested = false,
+	siteName,
+	onOpen,
 }: {
-	site: SiteDetails;
-	isOverviewActive: boolean;
-	onBackToChat: () => void;
-	onSiteOpen?: () => void;
+	session: AiSessionSummary;
+	active: boolean;
+	// Under its site the row indents to the site's name and drops its icon.
+	nested?: boolean;
+	// Away from its site, the row names it in a tooltip.
+	siteName?: string;
+	onOpen?: () => void;
 } ) {
 	const navigate = useNavigate();
-	const connector = useConnector();
+	const activity = useSiteAgentActivity( [ session.id ] );
+	const actions = useChatActions( session, active );
+	const selectable = useSelectableRow( chatPinKey( session.id ) );
+	const bulk = useIsBulkTarget( chatPinKey( session.id ) );
+	const [ menuOpen, setMenuOpen ] = useState( false );
+	const title = getSessionTitle( session );
+	const needsInput = activity === 'pending-question';
 
-	return (
-		<IconButton
-			variant="minimal"
-			tone="neutral"
-			size="small"
-			icon={ settings }
-			label={ __( 'Site overview' ) }
-			aria-pressed={ isOverviewActive }
-			className={ styles.siteAction }
-			onClick={ ( event ) => {
-				event.stopPropagation();
-				// Going back to chat runs handleOpenSite, which already
-				// notifies onSiteOpen; only the overview navigation needs
-				// the explicit call.
-				if ( isOverviewActive ) {
-					onBackToChat();
-					return;
-				}
-				onSiteOpen?.();
-				void connector.trackEvent( TRACKS_EVENTS.PANEL_OPENED, { panel: 'overview' } );
+	const button = (
+		<SidebarButton
+			className={ styles.chat }
+			aria-current={ active ? 'page' : undefined }
+			onClick={ () => {
+				onOpen?.();
 				void navigate( {
-					to: '/sites/$siteId/overview',
-					params: { siteId: site.id },
+					to: '/sessions/$sessionId',
+					params: { sessionId: session.id },
 				} );
 			} }
-		/>
+		>
+			{ nested ? null : <ChatIcon className={ styles.rowIcon } /> }
+			{ actions.working ? <VisuallyHidden>{ __( 'Working…' ) }</VisuallyHidden> : null }
+			<span className={ clsx( styles.chatTitle, actions.working && 'studio-shimmer' ) }>
+				{ title }
+			</span>
+			{ needsInput ? (
+				<Badge
+					variant="accent"
+					size="icon"
+					role="status"
+					aria-label={ __( 'Studio needs an answer.' ) }
+				>
+					<NeedsInputIcon />
+				</Badge>
+			) : null }
+			{ session.unread && ! active ? (
+				<span className={ styles.unreadDot } role="img" aria-label={ __( 'Unread' ) } />
+			) : null }
+		</SidebarButton>
+	);
+
+	return (
+		<>
+			<Menu.ContextMenuRoot open={ menuOpen } onOpenChange={ setMenuOpen }>
+				<Menu.ContextMenuTrigger
+					render={
+						<div
+							{ ...selectable }
+							{ ...actions.shortcuts }
+							className={ clsx(
+								styles.chatRow,
+								nested && styles.chatNested,
+								active && styles.chatActive
+							) }
+						>
+							{ siteName ? (
+								<Tooltip>
+									<TooltipTrigger render={ button } />
+									<TooltipContent side="right">
+										{ sprintf(
+											/* translators: 1: chat title, 2: the chat's site. */
+											__( '%1$s — %2$s' ),
+											title,
+											siteName
+										) }
+									</TooltipContent>
+								</Tooltip>
+							) : (
+								button
+							) }
+							{ needsInput ? null : (
+								<span className={ styles.chatActions } data-reorder-exclude>
+									<IconButton
+										variant="muted-ghost"
+										size="icon-sm"
+										icon={ actions.pinned ? <UnpinIcon /> : <PinIcon /> }
+										label={ actions.pinned ? __( 'Unpin chat' ) : __( 'Pin chat' ) }
+										onClick={ actions.togglePin }
+									/>
+									<IconButton
+										variant="muted-ghost"
+										size="icon-sm"
+										icon={ <ArchiveIcon /> }
+										label={ __( 'Archive chat' ) }
+										disabled={ actions.archiveBlocked }
+										onClick={ () => void actions.archive() }
+									/>
+								</span>
+							) }
+						</div>
+					}
+				/>
+				{ bulk ? (
+					<BulkMenu onClose={ () => setMenuOpen( false ) } />
+				) : (
+					<Menu.ContextPopup { ...actions.shortcuts }>
+						<ChatActionsMenuItems actions={ actions } />
+					</Menu.ContextPopup>
+				) }
+			</Menu.ContextMenuRoot>
+			{ actions.renameDialog }
+		</>
+	);
+}
+
+function SidebarGroup( {
+	id,
+	title,
+	action,
+	itemKeys,
+	children,
+}: {
+	id: string;
+	title: string;
+	action?: ReactNode;
+	itemKeys?: string[];
+	children: ReactNode;
+} ) {
+	const [ expanded, setExpanded ] = useStoredFlag( `studio-ui-sidebar-group-${ id }`, true );
+	useOpenOnAddedItems( itemKeys, expanded, () => setExpanded( true ) );
+	return (
+		<div role="group" className={ styles.group } aria-label={ title }>
+			<div className={ styles.groupHeader }>
+				<button
+					type="button"
+					className={ styles.groupToggle }
+					aria-expanded={ expanded }
+					onClick={ () => setExpanded( ! expanded ) }
+				>
+					{ title }
+					<ChevronRightIcon className={ styles.groupChevron } />
+				</button>
+				{ action }
+			</div>
+			<CollapsiblePanel open={ expanded }>{ children }</CollapsiblePanel>
+		</div>
 	);
 }
 
@@ -293,16 +455,18 @@ function SiteStatusButton( {
 	site,
 	isStarting,
 	isStopping,
+	onStart,
 }: {
 	site: SiteDetails;
 	isStarting: boolean;
 	isStopping: boolean;
+	onStart?: () => void;
 } ) {
 	const startSite = useStartSite();
 	const stopSite = useStopSite();
 	const busy = useIsSiteBusy( site );
 	const operation = useSiteOperation( site );
-	const { status } = deriveSiteStatus( site, isStarting, isStopping, operation );
+	const status = getSiteStatus( site, isStarting, isStopping, operation );
 	// The recorded operation wins: it names work this window didn't start (an
 	// agent restart, another Studio window) that local start/stop state can't see.
 	const statusName = getSiteStatusName( {
@@ -311,79 +475,46 @@ function SiteStatusButton( {
 		stopping: isStopping,
 		operation,
 	} );
-	const xdebug = Boolean( site.enableXdebug );
-	const tooltipLabel = xdebug
-		? sprintf( __( 'Site status: %s. Xdebug enabled' ), statusName )
-		: sprintf( __( 'Site status: %s' ), statusName );
-	const actionLabel = site.running ? __( 'Stop site' ) : __( 'Start site' );
-	const label = busy ? tooltipLabel : sprintf( __( '%1$s. %2$s' ), tooltipLabel, actionLabel );
+	const label = sprintf( site.running ? __( 'Stop %s' ) : __( 'Start %s' ), site.name );
 	const handleClick = ( event: MouseEvent< HTMLButtonElement > ) => {
 		event.stopPropagation();
-		if ( busy ) {
-			return;
-		}
 		if ( site.running ) {
 			stopSite.mutate( site.id );
 		} else {
 			startSite.mutate( site.id );
+			onStart?.();
 		}
 	};
 
 	return (
-		<Tooltip.Root>
-			<Tooltip.Trigger
+		<Tooltip>
+			<TooltipTrigger
 				render={
-					<button
-						type="button"
-						className={ styles.siteStatus }
-						aria-label={ label }
+					<Button
+						variant="muted-ghost"
+						size="icon-sm"
+						className={ clsx( styles.rowAction, styles.siteStatus ) }
+						aria-label={ busy ? statusName : label }
 						aria-busy={ busy || undefined }
-						aria-disabled={ busy || undefined }
+						disabled={ busy }
+						focusableWhenDisabled
 						data-state={ status }
-						data-xdebug={ xdebug || undefined }
 						onClick={ handleClick }
 					>
-						{ xdebug ? (
-							<XdebugIcon
-								className={ clsx( styles.siteStatusGlyph, styles.siteStatusXdebugGlyph ) }
-							/>
+						{ busy ? (
+							<Spinner aria-hidden="true" />
+						) : site.running ? (
+							<StopSiteIcon />
 						) : (
-							<svg
-								className={ styles.siteStatusGlyph }
-								viewBox={ status === 'stopped' ? '0 0 10 10' : '0 0 8 8' }
-								aria-hidden="true"
-								focusable="false"
-							>
-								{ status === 'stopped' ? (
-									<path className={ styles.siteStatusPlayShape } d="M2.5 1 L9 5 L2.5 9 Z" />
-								) : (
-									<rect className={ styles.siteStatusShape } x="0" y="0" width="8" height="8" />
-								) }
-							</svg>
+							<StartSiteIcon />
 						) }
-						{ ! busy ? (
-							site.running ? (
-								<span className={ styles.siteStatusActionGlyph } aria-hidden="true">
-									<span className={ styles.siteStatusPauseMark } />
-								</span>
-							) : (
-								<svg
-									className={ styles.siteStatusActionGlyph }
-									viewBox="0 0 10 10"
-									aria-hidden="true"
-									focusable="false"
-								>
-									<path d="M2.5 1 L9 5 L2.5 9 Z" fill="currentColor" />
-								</svg>
-							)
-						) : null }
-					</button>
+					</Button>
 				}
 			/>
-			<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
-				{ tooltipLabel }
-			</Tooltip.Popup>
-		</Tooltip.Root>
+			<TooltipContent>
+				{ busy ? statusName : site.running ? __( 'Stop' ) : __( 'Start' ) }
+			</TooltipContent>
+		</Tooltip>
 	);
 }
 
@@ -391,32 +522,18 @@ function SiteStatusButton( {
 // passed as `trigger` and rendered via the context-menu trigger's render prop,
 // so no wrapper DOM is added around it (the sidebar's drag-reorder CSS and
 // animation code rely on the row's DOM position).
-function SiteActionsMenu( {
+function SiteRowMenu( {
 	site,
-	sessionIds,
-	isStarting,
 	trigger,
 	onSiteOpen,
 }: {
 	site: SiteDetails;
-	sessionIds: string[];
-	isStarting: boolean;
 	trigger: ReactElement;
 	onSiteOpen?: () => void;
 } ) {
-	const navigate = useNavigate();
-	const params = useParams( { strict: false } ) as { sessionId?: string; siteId?: string };
-	const connector = useConnector();
-	const startSite = useStartSite();
-	const stopSite = useStopSite();
-	const busy = useIsSiteBusy( site );
-	const [ deleteOpen, setDeleteOpen ] = useState( false );
-	// Same source as the overview screen's Manage section, so the two can't drift
-	// on what's blocked or what's in flight. Only the labels differ here.
-	const manage = useSiteManagementActions( site, { onDelete: () => setDeleteOpen( true ) } );
-	const manageById = Object.fromEntries(
-		manage.map( ( action ) => [ action.id, action ] )
-	) as Record< SiteManagementActionId, SiteManagementAction >;
+	const actions = useSiteActions( site, { onOpen: onSiteOpen } );
+	const bulk = useIsBulkTarget( sitePinKey( site.id ) );
+	const [ menuOpen, setMenuOpen ] = useState( false );
 
 	const stopMenuEventPropagation = (
 		event: MouseEvent< HTMLElement > | ReactPointerEvent< HTMLElement >
@@ -424,128 +541,72 @@ function SiteActionsMenu( {
 		event.stopPropagation();
 	};
 
-	// Same entries as the session header's "Open in…" menu and the Overview's
-	// shortcuts, so labels, gating and Tracks events can't drift between them.
-	const destinations = useOpenInDestinations( site );
-
-	const handleDeleted = () => {
-		const viewingDeletedSite =
-			params.siteId === site.id ||
-			( params.sessionId ? sessionIds.includes( params.sessionId ) : false );
-		if ( viewingDeletedSite ) {
-			void navigate( { to: '/' } );
-		}
-	};
-
 	return (
 		<>
-			<Menu.ContextMenuRoot>
-				<Menu.ContextMenuTrigger render={ trigger } />
-				<Menu.ContextPopup
-					onClick={ stopMenuEventPropagation }
-					onPointerDown={ stopMenuEventPropagation }
-				>
-					{ site.running ? (
-						<Menu.Item disabled={ busy } onClick={ () => stopSite.mutate( site.id ) }>
-							{ __( 'Stop site' ) }
-						</Menu.Item>
-					) : (
-						<Menu.Item disabled={ busy } onClick={ () => startSite.mutate( site.id ) }>
-							{ isStarting ? __( 'Starting…' ) : __( 'Start site' ) }
-						</Menu.Item>
-					) }
-					<Menu.Separator />
-					<Menu.Item
-						onClick={ () => {
-							onSiteOpen?.();
-							void connector.trackEvent( TRACKS_EVENTS.PANEL_OPENED, { panel: 'settings' } );
-							void navigate( {
-								to: '/sites/$siteId/overview',
-								params: { siteId: site.id },
-								search: { tab: 'general' },
-							} );
-						} }
+			<Menu.ContextMenuRoot open={ menuOpen } onOpenChange={ setMenuOpen }>
+				<Menu.ContextMenuTrigger render={ trigger } { ...actions.shortcuts } />
+				{ bulk ? (
+					<BulkMenu
+						onClose={ () => setMenuOpen( false ) }
+						onClick={ stopMenuEventPropagation }
+						onPointerDown={ stopMenuEventPropagation }
+					/>
+				) : (
+					<Menu.ContextPopup
+						onClick={ stopMenuEventPropagation }
+						onPointerDown={ stopMenuEventPropagation }
+						{ ...actions.shortcuts }
 					>
-						{ __( 'Site settings' ) }
-					</Menu.Item>
-					<Menu.Item
-						disabled={ manageById.duplicate.disabled }
-						onClick={ manageById.duplicate.run }
-					>
-						{ manageById.duplicate.loading ? __( 'Duplicating…' ) : __( 'Duplicate site' ) }
-					</Menu.Item>
-					<Menu.Separator />
-					{ destinations.map( ( destination ) => (
-						<Menu.Item
-							key={ destination.id }
-							disabled={ destination.disabled }
-							onClick={ destination.open }
-						>
-							{ sprintf(
-								/* translators: %s is the name of the app. E.g. "Open in Cursor" */
-								__( 'Open in %s' ),
-								destination.label
-							) }
-						</Menu.Item>
-					) ) }
-					<Menu.Separator />
-					<Menu.Item disabled={ manageById.export.disabled } onClick={ manageById.export.run }>
-						{ manageById.export.loading ? __( 'Exporting…' ) : __( 'Export entire site' ) }
-					</Menu.Item>
-					<Menu.Item
-						disabled={ manageById[ 'export-db' ].disabled }
-						onClick={ manageById[ 'export-db' ].run }
-					>
-						{ manageById[ 'export-db' ].loading ? __( 'Exporting…' ) : __( 'Export database' ) }
-					</Menu.Item>
-					<Menu.Separator />
-					<Menu.Item
-						destructive={ manageById.delete.destructive }
-						onClick={ manageById.delete.run }
-						disabled={ manageById.delete.disabled }
-					>
-						{ __( 'Delete site' ) }
-					</Menu.Item>
-				</Menu.ContextPopup>
+						<SiteActionsMenuItems actions={ actions } />
+					</Menu.ContextPopup>
+				) }
 			</Menu.ContextMenuRoot>
-			<DeleteSiteDialog
-				site={ site }
-				open={ deleteOpen }
-				onOpenChange={ setDeleteOpen }
-				onDeleted={ handleDeleted }
-			/>
+			{ actions.dialogs }
 		</>
 	);
 }
 
 function SiteSection( {
 	row,
+	chats,
 	isChatActive,
 	isContextActive,
-	hasUnreadUpdate,
 	chatEnabled,
-	chatPromptsSignIn,
+	activeSessionId,
+	expanded,
+	loadError,
+	reorderable,
+	onOpen,
+	onReorderChats,
 	onSiteOpen,
 }: {
 	row: SiteRow;
+	// The site's chats listed under its row, in order.
+	chats: AiSessionSummary[];
 	isChatActive: boolean;
 	isContextActive: boolean;
-	hasUnreadUpdate: boolean;
 	chatEnabled: boolean;
-	chatPromptsSignIn: boolean;
+	activeSessionId?: string;
+	// Lists the site's chats under its row.
+	expanded: boolean;
+	loadError: boolean;
+	reorderable: boolean;
+	// Clicking the row, before it opens the site; folds or unfolds its chats.
+	onOpen?: () => void;
+	onReorderChats: ( ids: string[] ) => void;
 	onSiteOpen?: () => void;
 } ) {
-	const { site, latestSession } = row;
+	const { site } = row;
+	const selectable = useSelectableRow( sitePinKey( site.id ) );
 	const navigate = useNavigate();
-	const connector = useConnector();
 	const sectionRef = useRef< HTMLElement >( null );
+	const [ chatCount, setChatCount ] = useState( CHATS_INITIAL_COUNT );
 	const isActive = isChatActive || isContextActive;
-	const canOpenChatSurface = chatEnabled || chatPromptsSignIn;
-	// Offline users and users who switched Studio Code off use Overview as the
-	// site's home. Signed-out users still get the chat surface, where the value
-	// of logging in can be explained in context.
-	const isSelected = isChatActive || ( isContextActive && ! canOpenChatSurface );
-	const showContextOutline = isContextActive && canOpenChatSurface;
+	// Users who switched Studio Code off use the site's own page as its home.
+	const isSelected = isChatActive || ( isContextActive && ! chatEnabled );
+	const showContextOutline = isContextActive && chatEnabled;
+	const showChats = expanded && chatEnabled && ( chats.length > 0 || loadError );
+	const visibleChats = chats.slice( 0, chatCount );
 	// Keep the active site visible — e.g. when launch restores a site that
 	// sits below the sidebar's fold. `nearest` no-ops when already visible.
 	useEffect( () => {
@@ -553,9 +614,14 @@ function SiteSection( {
 			sectionRef.current?.scrollIntoView?.( { block: 'nearest' } );
 		}
 	}, [ isActive ] );
+	useEffect( () => {
+		if ( ! expanded ) {
+			setChatCount( CHATS_INITIAL_COUNT );
+		}
+	}, [ expanded ] );
 	const isStarting = useIsSiteStarting( site.id );
 	const isStopping = useIsSiteStopping( site.id );
-	const { status } = deriveSiteStatus( site, isStarting, isStopping, useSiteOperation( site ) );
+	const status = getSiteStatus( site, isStarting, isStopping, useSiteOperation( site ) );
 	const agentActivity = useSiteAgentActivity( row.sessionIds );
 	const syncActivity = useSiteSyncActivity( site.id );
 	// Import gets a row indicator of its own alongside push/pull: it is the only
@@ -568,43 +634,22 @@ function SiteSection( {
 			: pendingDirection === 'push' || pendingDirection === 'pull'
 			? 'sync'
 			: undefined;
-	const displayActivity = siteActivity
-		? siteActivity
-		: agentActivity !== 'idle'
-		? agentActivity
-		: hasUnreadUpdate
-		? 'new-message'
-		: 'idle';
+	const displayActivity = siteActivity ? siteActivity : agentActivity;
+	const openSite = useOpenSite();
 	const handleOpenSite = () => {
+		onOpen?.();
 		onSiteOpen?.();
-		if ( ! canOpenChatSurface ) {
-			void connector.trackEvent( TRACKS_EVENTS.PANEL_OPENED, { panel: 'overview' } );
-			void navigate( {
-				to: '/sites/$siteId/overview',
-				params: { siteId: site.id },
-			} );
-			return;
-		}
-		void connector.trackEvent( TRACKS_EVENTS.PANEL_OPENED, { panel: 'assistant' } );
-		if ( chatPromptsSignIn ) {
-			void navigate( {
-				to: '/sites/$siteId/new',
-				params: { siteId: site.id },
-			} );
-			return;
-		}
-		if ( latestSession ) {
-			void navigate( {
-				to: '/sessions/$sessionId',
-				params: { sessionId: latestSession.id },
-			} );
-			return;
-		}
-		void navigate( {
-			to: '/sites/$siteId/new',
-			params: { siteId: site.id },
-		} );
+		openSite( site, resumeChat( site.id, row.chats ) );
 	};
+	const renderChat = ( session: AiSessionSummary ) => (
+		<ChatRow
+			key={ session.id }
+			session={ session }
+			active={ session.id === activeSessionId }
+			nested
+			onOpen={ onSiteOpen }
+		/>
+	);
 
 	return (
 		<section
@@ -612,16 +657,23 @@ function SiteSection( {
 			className={ clsx(
 				styles.site,
 				isSelected && styles.siteActive,
-				showContextOutline && styles.siteContextActive
+				showContextOutline && styles.siteContextActive,
+				showChats && styles.siteWithChats
 			) }
 		>
-			<SiteActionsMenu
+			<SiteRowMenu
 				site={ site }
-				sessionIds={ row.sessionIds }
-				isStarting={ isStarting }
 				onSiteOpen={ onSiteOpen }
 				trigger={
-					<header className={ styles.siteHeader } onClick={ handleOpenSite }>
+					<header { ...selectable } className={ styles.siteHeader } onClick={ handleOpenSite }>
+						<span
+							className={ styles.siteIcon }
+							role={ site.enableXdebug ? 'img' : undefined }
+							aria-label={ site.enableXdebug ? __( 'Xdebug enabled' ) : undefined }
+						>
+							{ site.enableXdebug ? <XdebugIcon className={ styles.siteXdebug } /> : <GlobeIcon /> }
+							{ status === 'running' ? <span className={ styles.runningDot } /> : null }
+						</span>
 						<div className={ styles.siteText }>
 							<SiteAgentActivityIndicator activity={ displayActivity } />
 							<SidebarButton
@@ -631,12 +683,12 @@ function SiteSection( {
 									handleOpenSite();
 								} }
 								aria-current={ isSelected ? 'page' : undefined }
+								aria-expanded={ onOpen && chats.length > 0 ? showChats : undefined }
 							>
 								<span
 									className={ clsx(
 										styles.siteName,
-										status === 'stopped' && styles.siteNameStopped,
-										isStarting && styles.siteNameStarting
+										status === 'transitioning' && 'studio-shimmer'
 									) }
 								>
 									{ site.name }
@@ -644,22 +696,77 @@ function SiteSection( {
 							</SidebarButton>
 						</div>
 						<div className={ styles.siteActions } data-reorder-exclude>
-							{ canOpenChatSurface ? (
-								<SiteOverviewButton
-									site={ site }
-									isOverviewActive={ isContextActive }
-									onBackToChat={ handleOpenSite }
-									onSiteOpen={ onSiteOpen }
+							{ chatEnabled ? (
+								<IconButton
+									variant="muted-ghost"
+									size="icon-sm"
+									icon={ <NewChatIcon /> }
+									label={ sprintf( __( 'New chat for %s' ), site.name ) }
+									className={ styles.rowAction }
+									onClick={ ( event ) => {
+										event.stopPropagation();
+										onSiteOpen?.();
+										void navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );
+									} }
 								/>
 							) : null }
-							<SiteStatusButton site={ site } isStarting={ isStarting } isStopping={ isStopping } />
+							<SiteStatusButton
+								site={ site }
+								isStarting={ isStarting }
+								isStopping={ isStopping }
+								onStart={ isActive ? undefined : handleOpenSite }
+							/>
 						</div>
 					</header>
 				}
 			/>
+			<CollapsiblePanel open={ showChats }>
+				<div
+					role="group"
+					aria-label={ sprintf(
+						/* translators: %s: site name. */
+						__( '%s chats' ),
+						site.name
+					) }
+					className={ styles.chats }
+				>
+					{ loadError ? <RetryLoadingChats /> : null }
+					{ reorderable ? (
+						<SidebarReorderableList
+							items={ visibleChats }
+							getItemId={ ( session ) => session.id }
+							getItemLabel={ getSessionTitle }
+							renderItem={ renderChat }
+							onReorder={ ( ids ) => {
+								const moved = [ ...ids ];
+								const visible = new Set( ids );
+								onReorderChats(
+									chats.map( ( session ) =>
+										visible.has( session.id ) ? moved.shift()! : session.id
+									)
+								);
+							} }
+						/>
+					) : (
+						visibleChats.map( renderChat )
+					) }
+					{ chats.length > chatCount ? (
+						<SidebarButton
+							className={ clsx( styles.chat, styles.mutedRow ) }
+							onClick={ () => setChatCount( ( count ) => count + CHATS_PAGE_SIZE ) }
+						>
+							<span className={ styles.chatTitle }>{ __( 'Show more' ) }</span>
+						</SidebarButton>
+					) : null }
+				</div>
+			</CollapsiblePanel>
 		</section>
 	);
 }
+
+type PinnedItem =
+	| { key: string; row: SiteRow; session?: undefined }
+	| { key: string; row?: undefined; session: AiSessionSummary };
 
 function findSessionSiteKey(
 	rows: SiteRow[],
@@ -675,24 +782,27 @@ export function SiteList( {
 	className,
 	onSiteOpen,
 	reorderable = true,
+	sections = false,
 }: {
 	className?: string;
 	onSiteOpen?: () => void;
 	/** The collapsed-sidebar switcher renders a read-only order. */
 	reorderable?: boolean;
+	/** The sidebar groups sites, with their chats, and recent chats. */
+	sections?: boolean;
 } ) {
+	const openAddSite = useOpenAddSite();
 	const { data: sites, isLoading: sitesLoading } = useSites();
-	const { data: sessions, isLoading: sessionsLoading } = useSessions();
-	const { chatEnabled, chatPromptsSignIn } = useAgenticFeatures();
+	const { data: sessions, isLoading: sessionsLoading, isError: sessionsError } = useSessions();
+	const needingInput = useSessionsNeedingInput();
+	const { chatEnabled } = useAgenticFeatures();
 	const params = useParams( { strict: false } ) as { sessionId?: string; siteId?: string };
 	const pathname = useRouterState( { select: ( state ) => state.location.pathname } );
 	const activeSessionId = params.sessionId;
 	const activeSiteId = params.siteId;
 	const [ manualSiteOrder, setManualSiteOrder ] = useState< string[] >( [] );
 	const updateSitesSortOrder = useUpdateSitesSortOrder();
-	const sharedSeenState = useContext( SeenSessionTimestampsContext );
-	const localSeenState = useState< SeenSessionTimestamps >( EMPTY_SEEN_SESSION_TIMESTAMPS );
-	const [ seenSessionTimestamps, setSeenSessionTimestamps ] = sharedSeenState ?? localSeenState;
+	const { pins, chatOrder, showRecentChats, autoCollapseSites, save } = useSidebarPreferences();
 
 	const orderedSites = useMemo(
 		() => sortSitesByManualOrder( sortSites( [ ...( sites ?? [] ) ] ), manualSiteOrder ),
@@ -710,74 +820,88 @@ export function SiteList( {
 		return activeSiteId && pathname === `/sites/${ activeSiteId }/new` ? activeSiteId : undefined;
 	}, [ activeSessionId, activeSiteId, pathname, rows ] );
 	// Site ids are UUIDs, so no URL decoding is needed to compare the path.
+	const activeSettingsSiteKey =
+		activeSiteId && pathname === `/sites/${ activeSiteId }/settings` ? activeSiteId : undefined;
 	const activeContextSiteKey =
-		activeSiteId && pathname === `/sites/${ activeSiteId }/overview` ? activeSiteId : undefined;
-	useEffect( () => {
-		if ( sitesLoading || sessionsLoading || rows.length === 0 ) {
-			return;
-		}
-		setSeenSessionTimestamps( ( current ) => {
-			const shouldSeedSeenTimestamps = ! current.initialized;
-			let timestamps = current.timestamps;
-			let changed = false;
-
-			const updateSeenTimestamp = ( siteId: string, timestamp: number ) => {
-				if ( timestamp <= ( timestamps[ siteId ] ?? 0 ) ) {
-					return;
-				}
-				if ( timestamps === current.timestamps ) {
-					timestamps = { ...current.timestamps };
-				}
-				timestamps[ siteId ] = timestamp;
-				changed = true;
-			};
-
-			for ( const row of rows ) {
-				const latestTimestamp = getTimestamp( row.latestSession );
-				if ( ! latestTimestamp ) {
-					continue;
-				}
-				if ( shouldSeedSeenTimestamps || row.site.id === activeChatSiteKey ) {
-					updateSeenTimestamp( row.site.id, latestTimestamp );
-				}
-			}
-
-			if ( ! changed && current.initialized ) {
-				return current;
-			}
-			return { initialized: true, timestamps };
-		} );
-	}, [ activeChatSiteKey, rows, sessionsLoading, setSeenSessionTimestamps, sitesLoading ] );
-	const unreadSiteIds = useMemo( () => {
-		if ( ! seenSessionTimestamps.initialized ) {
-			return new Set< string >();
-		}
-		const unread = new Set< string >();
-		for ( const row of rows ) {
-			if ( row.site.id === activeChatSiteKey ) {
-				continue;
-			}
-			const latestTimestamp = getTimestamp( row.latestSession );
-			if ( latestTimestamp > ( seenSessionTimestamps.timestamps[ row.site.id ] ?? 0 ) ) {
-				unread.add( row.site.id );
-			}
-		}
-		return unread;
-	}, [ activeChatSiteKey, rows, seenSessionTimestamps ] );
-
+		activeSettingsSiteKey ??
+		( activeSiteId && pathname === `/sites/${ activeSiteId }` ? activeSiteId : undefined );
+	const activeSiteKey = activeChatSiteKey ?? activeContextSiteKey;
 	const persistOrder = ( nextSiteIds: string[] ) => {
 		setManualSiteOrder( nextSiteIds );
 		updateSitesSortOrder.mutate( nextSiteIds );
 	};
 
+	// Sites whose chats show under their row. Opening a site unfolds it (and,
+	// unless the user turned it off, folds the others); clicking the open site
+	// again folds it.
+	const [ revealed, setRevealed ] = useState< ReadonlySet< string > >(
+		() => new Set( activeSiteKey ? [ activeSiteKey ] : [] )
+	);
+	const reveal = ( current: ReadonlySet< string >, siteId: string ) =>
+		new Set( autoCollapseSites ? [ siteId ] : [ ...current, siteId ] );
+	const revealActive = useEffectEvent( ( siteId: string ) =>
+		setRevealed( ( current ) => ( current.has( siteId ) ? current : reveal( current, siteId ) ) )
+	);
+	useEffect( () => {
+		if ( activeSiteKey ) {
+			revealActive( activeSiteKey );
+		}
+	}, [ activeSiteKey ] );
+	const collapseAll = useCallback( () => setRevealed( new Set() ), [] );
+	const toggleSiteChats = ( siteId: string ) =>
+		setRevealed( ( current ) =>
+			siteId === activeSiteKey && current.has( siteId )
+				? new Set( [ ...current ].filter( ( id ) => id !== siteId ) )
+				: reveal( current, siteId )
+		);
+
+	// The sidebar moves pinned sites and chats out of their usual place into the Pinned group.
+	const pinned = new Set( sections ? pins : [] );
+	const isChatPinned = ( session: AiSessionSummary ) => pinned.has( chatPinKey( session.id ) );
+	const rowsById = new Map( rows.map( ( row ) => [ row.site.id, row ] ) );
+	const sessionsById = new Map( ( sessions ?? [] ).map( ( session ) => [ session.id, session ] ) );
+	const pinnedItems = [ ...pinned ].flatMap< PinnedItem >( ( key ) => {
+		const id = key.slice( key.indexOf( ':' ) + 1 );
+		const row = key === sitePinKey( id ) ? rowsById.get( id ) : undefined;
+		const session = key === chatPinKey( id ) ? sessionsById.get( id ) : undefined;
+		if ( row ) {
+			return [ { key, row } ];
+		}
+		// A pinned chat waiting on an answer shows under Needs input instead.
+		return session && chatEnabled && ! session.archived && ! needingInput.includes( session.id )
+			? [ { key, session } ]
+			: [];
+	} );
+	const siteRows = rows.filter( ( row ) => ! pinned.has( sitePinKey( row.site.id ) ) );
+	// A chat waiting on an answer shows once, under Needs input.
+	const siteChats = ( row: SiteRow ) =>
+		orderChats(
+			row.chats.filter(
+				( session ) => ! isChatPinned( session ) && ! needingInput.includes( session.id )
+			),
+			chatOrder[ row.site.id ]
+		);
+	const siteNameOf = ( session: AiSessionSummary ) =>
+		rows.find( ( row ) => row.sessionIds.includes( session.id ) )?.site.name;
+
 	const renderSiteRow = ( row: SiteRow ) => (
 		<SiteSection
 			row={ row }
+			chats={ siteChats( row ) }
 			isChatActive={ row.site.id === activeChatSiteKey }
 			isContextActive={ row.site.id === activeContextSiteKey }
-			hasUnreadUpdate={ unreadSiteIds.has( row.site.id ) }
 			chatEnabled={ chatEnabled }
-			chatPromptsSignIn={ chatPromptsSignIn }
+			activeSessionId={ activeSessionId }
+			expanded={ sections && revealed.has( row.site.id ) }
+			loadError={ sessionsError }
+			reorderable={ reorderable }
+			onOpen={ sections ? () => toggleSiteChats( row.site.id ) : undefined }
+			onReorderChats={ ( ids ) =>
+				save(
+					{ sidebarChatOrder: { ...chatOrder, [ row.site.id ]: ids } },
+					__( 'Couldn’t save the chat order' )
+				)
+			}
 			onSiteOpen={ onSiteOpen }
 		/>
 	);
@@ -790,26 +914,141 @@ export function SiteList( {
 	} else if ( ! reorderable ) {
 		listContent = (
 			<div className={ styles.sites }>
-				{ rows.map( ( row ) => (
+				{ siteRows.map( ( row ) => (
 					<Fragment key={ row.site.id }>{ renderSiteRow( row ) }</Fragment>
 				) ) }
 			</div>
 		);
 	} else {
 		listContent = (
-			<ReorderableList
-				items={ rows }
+			<SidebarReorderableList
+				items={ siteRows }
 				getItemId={ ( row ) => row.site.id }
+				getItemLabel={ ( row ) => row.site.name }
 				renderItem={ renderSiteRow }
 				onReorder={ persistOrder }
-				className={ styles.sites }
-				itemClassName={ styles.siteDragWrapper }
-				placeholderClassName={ styles.siteDropPlaceholder }
-				previewClassName={ styles.siteDragPreview }
-				excludeSelector="[data-reorder-exclude]"
 			/>
 		);
 	}
 
-	return <div className={ clsx( styles.root, className ) }>{ listContent }</div>;
+	const canCollapseAll =
+		!! sections &&
+		siteRows.filter( ( row ) => revealed.has( row.site.id ) && siteChats( row ).length > 0 )
+			.length > 1;
+	useProvideCollapseAll( canCollapseAll ? collapseAll : undefined );
+
+	if ( ! sections ) {
+		return <div className={ clsx( styles.root, className ) }>{ listContent }</div>;
+	}
+
+	const loaded = ! sitesLoading && ! sessionsLoading;
+	const openChats = chatEnabled
+		? ( sessions ?? [] ).filter( ( session ) => ! session.archived ).sort( byMostRecent )
+		: [];
+	// Chats waiting on an answer move to the top until it's given.
+	const needsInputChats = openChats.filter( ( session ) => needingInput.includes( session.id ) );
+	const recentChats = openChats
+		.filter( ( session ) => ! needingInput.includes( session.id ) && ! isChatPinned( session ) )
+		.slice( 0, RECENT_CHATS_LIMIT );
+	const renderChat = ( session: AiSessionSummary, siteName?: string ) => (
+		<ChatRow
+			key={ session.id }
+			session={ session }
+			active={ session.id === activeSessionId }
+			siteName={ siteName }
+			onOpen={ onSiteOpen }
+		/>
+	);
+
+	return (
+		<div className={ clsx( styles.root, className ) }>
+			<SidebarSelection>
+				{ needsInputChats.length > 0 ? (
+					<SidebarGroup
+						id="needs-input"
+						title={ __( 'Needs input' ) }
+						itemKeys={ needsInputChats.map( ( session ) => session.id ) }
+					>
+						<div className={ styles.chats }>
+							{ needsInputChats.map( ( session ) => renderChat( session ) ) }
+						</div>
+					</SidebarGroup>
+				) : null }
+				{ pinnedItems.length > 0 ? (
+					<SidebarGroup
+						id="pinned"
+						title={ __( 'Pinned' ) }
+						itemKeys={ loaded ? pinnedItems.map( ( item ) => item.key ) : undefined }
+						action={
+							<IconButton
+								variant="muted-ghost"
+								size="icon-sm"
+								icon={ <PlusIcon /> }
+								label={ __( 'Add pinned site' ) }
+								onClick={ () => openAddSite( 'create', { pin: true } ) }
+							/>
+						}
+					>
+						<SidebarReorderableList
+							items={ pinnedItems }
+							getItemId={ ( item ) => item.key }
+							getItemLabel={ ( item ) =>
+								item.row ? item.row.site.name : getSessionTitle( item.session )
+							}
+							renderItem={ ( item ) =>
+								item.row
+									? renderSiteRow( item.row )
+									: renderChat( item.session, siteNameOf( item.session ) )
+							}
+							onReorder={ ( sidebarPins ) => save( { sidebarPins } ) }
+						/>
+					</SidebarGroup>
+				) : null }
+				<SidebarGroup
+					id="sites"
+					title={ __( 'Sites' ) }
+					itemKeys={ loaded ? siteRows.map( ( row ) => row.site.id ) : undefined }
+					action={
+						<span className={ styles.groupActions }>
+							{ canCollapseAll ? (
+								<IconButton
+									variant="muted-ghost"
+									size="icon-sm"
+									icon={ <CollapseAllIcon /> }
+									label={ __( 'Collapse all' ) }
+									onClick={ collapseAll }
+								/>
+							) : null }
+							<IconButton
+								variant="muted-ghost"
+								size="icon-sm"
+								icon={ <PlusIcon /> }
+								label={ __( 'Add site' ) }
+								onClick={ () => openAddSite() }
+							/>
+						</span>
+					}
+				>
+					{ listContent }
+				</SidebarGroup>
+				{ showRecentChats && ( recentChats.length > 0 || sessionsError ) ? (
+					<SidebarGroup
+						id="recent"
+						title={ __( 'Recent' ) }
+						itemKeys={ loaded ? recentChats.map( ( session ) => session.id ) : undefined }
+					>
+						{ sessionsError ? (
+							<div className={ styles.chats }>
+								<RetryLoadingChats />
+							</div>
+						) : (
+							<div className={ styles.chats }>
+								{ recentChats.map( ( session ) => renderChat( session ) ) }
+							</div>
+						) }
+					</SidebarGroup>
+				) : null }
+			</SidebarSelection>
+		</div>
+	);
 }

@@ -5,11 +5,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { connectedWpcomSitesQueryKey } from '@/data/queries/use-connected-wpcom-sites';
-import { siteStorageUsageQueryKey } from '@/data/queries/use-site-storage-usage';
 import { siteThumbnailQueryKey } from '@/data/queries/use-site-thumbnail';
 import { SITES_QUERY_KEY } from '@/data/queries/use-sites';
 import { WP_VERSION_QUERY_KEY } from '@/data/queries/use-wordpress-versions';
-import { useSiteSyncActivity } from '@/data/sync-activity';
+import { getSyncActivity, useSiteSyncActivity } from '@/data/sync-activity';
 import { usePullSiteFromLive, usePushSiteToLive, useSyncActivityEvents } from './use-sync-site';
 import type { Connector } from '@/data/core';
 import type { SyncEvent } from '@studio/common/lib/sync/activity';
@@ -78,8 +77,10 @@ describe( 'usePullSiteFromLive', () => {
 	// The agent, a terminal or another window can start the sync: the UI only
 	// ever sees the activity the CLI publishes.
 	it( 'shows and announces a sync this UI did not start', async () => {
+		const queryClient = new QueryClient();
+		queryClient.setQueryData( SITES_QUERY_KEY, [ { id: 'site-1', name: 'Demo Site' } ] );
 		render(
-			<QueryClientProvider client={ new QueryClient() }>
+			<QueryClientProvider client={ queryClient }>
 				<SyncActivityEvents />
 				<Harness />
 			</QueryClientProvider>
@@ -95,17 +96,17 @@ describe( 'usePullSiteFromLive', () => {
 
 		act( () => publish( { siteId: 'site-1', activity: { kind: 'success', direction: 'pull' } } ) );
 		expect( screen.getByText( 'success' ) ).toBeVisible();
-		expect( toast.success ).toHaveBeenCalledWith( 'Pull complete' );
+		expect( toast.success ).toHaveBeenCalledWith( 'Changes pulled into Demo Site', {
+			action: { label: 'View site', onClick: expect.any( Function ) },
+		} );
 	} );
 
-	// An import replaces the site wholesale, so everything read off it is stale —
-	// disk usage caches for minutes and the overview never unmounts.
+	// An import replaces the site wholesale, so everything read off it is stale.
 	it( 'refreshes what an import changed once it settles', () => {
 		const queryClient = new QueryClient();
 		const staleKeys = [
 			SITES_QUERY_KEY,
 			[ ...WP_VERSION_QUERY_KEY, 'site-2' ],
-			siteStorageUsageQueryKey( 'site-2' ),
 			siteThumbnailQueryKey( 'site-2' ),
 		];
 		staleKeys.forEach( ( key ) => queryClient.setQueryData( key, 'before-import' ) );
@@ -162,7 +163,7 @@ describe( 'usePullSiteFromLive', () => {
 	} );
 
 	it.each( [
-		[ 'pull', true, "Pull didn't complete", "Studio couldn't copy the live site." ],
+		[ 'pull', true, 'Pulling didn’t finish', "Studio couldn't copy the live site." ],
 		[ 'import', false, "Import didn't complete", "Studio couldn't import this backup." ],
 	] as const )(
 		'shows plain language for a failed %s (logs available: %s)',
@@ -202,7 +203,7 @@ describe( 'usePullSiteFromLive', () => {
 					: undefined,
 			} );
 			expect( console.error ).toHaveBeenCalledWith( 'Sync activity failed:', direction, rawError );
-			vi.mocked( toast.error ).mock.calls[ 0 ][ 1 ]?.action?.onClick();
+			void vi.mocked( toast.error ).mock.calls[ 0 ][ 1 ]?.action?.onClick();
 			expect( openStudioLogs ).toHaveBeenCalledTimes( studioLogs ? 1 : 0 );
 		}
 	);
@@ -306,7 +307,8 @@ describe( 'sync Tracks events', () => {
 		fireEvent.click( screen.getByRole( 'button', { name: button } ) );
 		await passReportGrace();
 
-		await waitFor( () => expect( toast.success ).toHaveBeenCalledWith( `${ button } cancelled` ) );
+		await waitFor( () => expect( getSyncActivity( 'site-1' )?.kind ).toBe( 'cancelled' ) );
+		expect( toast.success ).not.toHaveBeenCalled();
 		expect( trackEvent ).not.toHaveBeenCalled();
 	} );
 

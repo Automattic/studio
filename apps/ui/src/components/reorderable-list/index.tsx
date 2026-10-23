@@ -1,6 +1,6 @@
+import { __, sprintf } from '@wordpress/i18n';
 import { clsx } from 'clsx';
 import {
-	Fragment,
 	useEffect,
 	useLayoutEffect,
 	useMemo,
@@ -11,6 +11,8 @@ import {
 	type PointerEvent as ReactPointerEvent,
 	type ReactNode,
 } from 'react';
+import { VisuallyHidden } from '@/components/ui/visually-hidden';
+import { getMotionDuration } from '@/lib/motion';
 import styles from './style.module.css';
 
 type ActiveDrag = {
@@ -20,6 +22,9 @@ type ActiveDrag = {
 	pointerOffsetY: number;
 	previewLeft: number;
 	previewWidth: number;
+	// Dropped: the preview flies into the row's new slot, which stays hidden
+	// until it lands.
+	landing?: boolean;
 };
 
 type DragCandidate = {
@@ -33,9 +38,6 @@ type DragCandidate = {
 };
 
 const DRAG_START_THRESHOLD = 4;
-const DRAG_REORDER_DURATION_MS = 160;
-const DRAG_REORDER_EASING = 'cubic-bezier(0.2, 0, 0, 1)';
-const DRAG_REORDER_DISTANCE_EPSILON = 0.5;
 const AUTO_SCROLL_EDGE_PX = 40;
 const AUTO_SCROLL_MAX_STEP_PX = 12;
 
@@ -53,13 +55,13 @@ function insertIdAtIndex( ids: string[], movedId: string, targetIndex: number ) 
 
 // Row geometry in the scroll parent's content coordinates (viewport top +
 // scrollTop), so captured rects stay valid while auto-scroll moves the list.
-type RowRect = { top: number; left: number; width: number; height: number };
+type RowRect = { top: number; height: number };
 
 function measureRowRects( rowElements: Map< string, HTMLDivElement >, scrollOffset: number ) {
 	const rects = new Map< string, RowRect >();
 	for ( const [ id, element ] of rowElements ) {
-		const { top, left, width, height } = element.getBoundingClientRect();
-		rects.set( id, { top: top + scrollOffset, left, width, height } );
+		const { top, height } = element.getBoundingClientRect();
+		rects.set( id, { top: top + scrollOffset, height } );
 	}
 	return rects;
 }
@@ -76,16 +78,11 @@ function findScrollParent( element: HTMLElement | null ): HTMLElement | null {
 	return null;
 }
 
-function getRowAnimationTarget( rowElement: HTMLDivElement ) {
-	const target = rowElement.firstElementChild;
-	return target instanceof HTMLElement ? target : rowElement;
-}
-
 function prefersReducedMotion() {
 	return window.matchMedia?.( '(prefers-reduced-motion: reduce)' ).matches ?? false;
 }
 
-type ReorderableListProps< T > = {
+export type ReorderableListProps< T > = {
 	/** Full ordered list, dragged item included. */
 	items: T[];
 	getItemId: ( item: T ) => string;
@@ -94,10 +91,13 @@ type ReorderableListProps< T > = {
 	onReorder: ( nextIds: string[] ) => void;
 	className?: string;
 	itemClassName?: string;
-	placeholderClassName?: string;
 	previewClassName?: string;
 	/** Pointer-downs inside a match of this selector never start a drag. */
 	excludeSelector?: string;
+	/** No drag starts, e.g. while rows are being multi-selected. */
+	disabled?: boolean;
+	/** Names a dropped row when its new position is announced. */
+	getItemLabel?: ( item: T ) => string;
 };
 
 export function ReorderableList< T >( {
@@ -107,132 +107,74 @@ export function ReorderableList< T >( {
 	onReorder,
 	className,
 	itemClassName,
-	placeholderClassName,
 	previewClassName,
 	excludeSelector,
+	disabled = false,
+	getItemLabel,
 }: ReorderableListProps< T > ) {
 	const [ activeDrag, setActiveDrag ] = useState< ActiveDrag | null >( null );
+	const [ announcement, setAnnouncement ] = useState( '' );
 	const activeDragRef = useRef< ActiveDrag | null >( null );
 	const dragCandidateRef = useRef< DragCandidate | null >( null );
 	const dragStartOrderRef = useRef< string[] >( [] );
 	const rowElementsRef = useRef< Map< string, HTMLDivElement > >( new Map() );
-	const previousRowRectsRef = useRef< Map< string, RowRect > >( new Map() );
 	const dragStartRowRectsRef = useRef< Map< string, RowRect > >( new Map() );
-	const rowMoveAnimationsRef = useRef< Map< string, Animation > >( new Map() );
 	const suppressNextClickRef = useRef( false );
 	const removeDragListenersRef = useRef< ( () => void ) | null >( null );
 	const containerRef = useRef< HTMLDivElement | null >( null );
 	const scrollParentRef = useRef< HTMLElement | null >( null );
-	const placeholderElementRef = useRef< HTMLDivElement | null >( null );
-	const wasDraggingRef = useRef( false );
+	const previewRef = useRef< HTMLDivElement | null >( null );
 	const autoScrollRef = useRef< { step: number; rafId: number } | null >( null );
-	const lastDroppedIdRef = useRef< string | null >( null );
 
-	// The drop relies on the parent applying the new order synchronously in
-	// its own state (same React commit as the drag teardown) — deriving the
-	// order from an async source instead would flash the pre-drag order for
-	// a tick after the drop.
+	// The landing relies on the parent applying the new order synchronously in
+	// its own state (same React commit as the drop) — deriving the order from
+	// an async source instead would fly the row to its old slot.
 	const itemIds = useMemo( () => items.map( getItemId ), [ items, getItemId ] );
-	const activeDragId = activeDrag?.id;
-	const activeDropIndex = activeDrag?.dropIndex;
-	const isDragging = activeDrag !== null;
-	const displayItems = useMemo(
-		() => items.filter( ( item ) => getItemId( item ) !== activeDragId ),
-		[ items, getItemId, activeDragId ]
-	);
-	const draggedItem = activeDragId
-		? items.find( ( item ) => getItemId( item ) === activeDragId )
+	const sourceIndex = activeDrag ? itemIds.indexOf( activeDrag.id ) : -1;
+	const draggedItem = activeDrag
+		? items.find( ( item ) => getItemId( item ) === activeDrag.id )
 		: undefined;
+	const landingId = activeDrag?.landing ? activeDrag.id : undefined;
 
 	useLayoutEffect( () => {
-		const scrollOffset = scrollParentRef.current?.scrollTop ?? 0;
-		const nextRowRects = measureRowRects( rowElementsRef.current, scrollOffset );
-		const previousRowRects = previousRowRectsRef.current;
-
-		const dragJustStarted = isDragging && ! wasDraggingRef.current;
-		const dragJustEnded = ! isDragging && wasDraggingRef.current;
-		wasDraggingRef.current = isDragging;
-
-		// Move focus to the dropped row (unless it is already inside it) so
-		// keyboard interaction continues from the item the user just moved.
-		if ( dragJustEnded && lastDroppedIdRef.current ) {
-			const rowElement = rowElementsRef.current.get( lastDroppedIdRef.current );
-			lastDroppedIdRef.current = null;
-			if ( rowElement && ! rowElement.contains( document.activeElement ) ) {
-				rowElement
-					.querySelector< HTMLElement >( 'button, a[href], [tabindex]' )
-					?.focus( { preventScroll: true } );
-			}
+		if ( ! landingId ) {
+			return;
 		}
-
-		// Activating the drag can restyle rows (consumers may collapse them via
-		// [data-dragging]), so the rects captured on pointerdown no longer match
-		// the layout. Recapture them, minus the placeholder's offset on the rows
-		// sitting below it.
-		if ( dragJustStarted ) {
-			const placeholderRect = placeholderElementRef.current?.getBoundingClientRect();
-			const placeholderTop = placeholderRect ? placeholderRect.top + scrollOffset : Infinity;
-			const settledRects = new Map< string, RowRect >();
-			for ( const [ id, rect ] of nextRowRects ) {
-				settledRects.set(
-					id,
-					rect.top > placeholderTop
-						? { ...rect, top: rect.top - ( placeholderRect?.height ?? 0 ) }
-						: rect
-				);
-			}
-			dragStartRowRectsRef.current = settledRects;
+		// Keyboard interaction continues from the item the user just moved.
+		const row = rowElementsRef.current.get( landingId );
+		if ( row && ! row.contains( document.activeElement ) ) {
+			row
+				.querySelector< HTMLElement >( 'button, a[href], [tabindex]' )
+				?.focus( { preventScroll: true } );
 		}
-
-		const shouldAnimateRows = isDragging && ! prefersReducedMotion();
-
-		if ( shouldAnimateRows ) {
-			for ( const [ id, nextRect ] of nextRowRects ) {
-				const previousRect = previousRowRects.get( id );
-				const rowElement = rowElementsRef.current.get( id );
-				if ( ! previousRect || ! rowElement ) {
-					continue;
-				}
-
-				const deltaX = previousRect.left - nextRect.left;
-				const deltaY = previousRect.top - nextRect.top;
-				if (
-					Math.abs( deltaX ) < DRAG_REORDER_DISTANCE_EPSILON &&
-					Math.abs( deltaY ) < DRAG_REORDER_DISTANCE_EPSILON
-				) {
-					continue;
-				}
-
-				const animationTarget = getRowAnimationTarget( rowElement );
-				if ( typeof animationTarget.animate !== 'function' ) {
-					continue;
-				}
-
-				rowMoveAnimationsRef.current.get( id )?.cancel();
-				const animation = animationTarget.animate(
-					[
-						{ transform: `translate(${ deltaX }px, ${ deltaY }px)` },
-						{ transform: 'translate(0, 0)' },
-					],
-					{
-						duration: DRAG_REORDER_DURATION_MS,
-						easing: DRAG_REORDER_EASING,
-					}
-				);
-
-				rowMoveAnimationsRef.current.set( id, animation );
-				const clearAnimation = () => {
-					if ( rowMoveAnimationsRef.current.get( id ) === animation ) {
-						rowMoveAnimationsRef.current.delete( id );
-					}
-				};
-				animation.onfinish = clearAnimation;
-				animation.oncancel = clearAnimation;
-			}
+		const land = () => {
+			activeDragRef.current = null;
+			setActiveDrag( null );
+		};
+		const preview = previewRef.current;
+		const duration = prefersReducedMotion() ? 0 : getMotionDuration( 'surface' );
+		if ( ! row || ! preview || ! duration || typeof preview.animate !== 'function' ) {
+			land();
+			return;
 		}
-
-		previousRowRectsRef.current = nextRowRects;
-	}, [ activeDragId, activeDropIndex, displayItems, isDragging ] );
+		const from = preview.getBoundingClientRect();
+		const to = row.getBoundingClientRect();
+		const animation = preview.animate(
+			[
+				{ transform: 'none' },
+				{ transform: `translate(${ to.left - from.left }px, ${ to.top - from.top }px)` },
+			],
+			{
+				duration,
+				easing: getComputedStyle( document.documentElement )
+					.getPropertyValue( '--motion-ease-enter' )
+					.trim(),
+				fill: 'forwards',
+			}
+		);
+		animation.onfinish = land;
+		return () => animation.cancel();
+	}, [ landingId ] );
 
 	// Tear down the window drag listeners and auto-scroll if the list unmounts
 	// mid-drag.
@@ -251,16 +193,17 @@ export function ReorderableList< T >( {
 		setActiveDrag( nextDrag );
 	};
 
-	const resetDragState = () => {
+	const endDrag = ( landing: ActiveDrag | null ) => {
+		stopAutoScroll();
 		dragCandidateRef.current = null;
 		dragStartOrderRef.current = [];
-		updateActiveDrag( null );
+		updateActiveDrag( landing && { ...landing, landing: true } );
+		removeDragListenersRef.current?.();
 	};
 
-	// Hit-test against the rows' settled positions captured at drag start, not
-	// their live rects. The placeholder shifting rows around mid-drag would make
-	// live measurement circular, and reading `getBoundingClientRect` per row on
-	// every pointermove forces a layout reflow each frame.
+	// Hit-test against the rows' positions captured at drag start: reading
+	// `getBoundingClientRect` per row on every pointermove forces a layout
+	// reflow each frame.
 	const getDropIndex = ( clientY: number, draggedId: string ) => {
 		const sourceOrder = dragStartOrderRef.current.length > 0 ? dragStartOrderRef.current : itemIds;
 		const rowRects = dragStartRowRectsRef.current;
@@ -384,8 +327,19 @@ export function ReorderableList< T >( {
 			const sourceOrder =
 				dragStartOrderRef.current.length > 0 ? dragStartOrderRef.current : itemIds;
 			const nextIds = insertIdAtIndex( sourceOrder, active.id, active.dropIndex );
-			lastDroppedIdRef.current = active.id;
 			onReorder( nextIds );
+			const dropped = items.find( ( item ) => getItemId( item ) === active.id );
+			if ( dropped !== undefined && getItemLabel ) {
+				setAnnouncement(
+					sprintf(
+						/* translators: 1: name of the moved item, 2: its new position, 3: number of items. */
+						__( '%1$s moved to position %2$d of %3$d' ),
+						getItemLabel( dropped ),
+						nextIds.indexOf( active.id ) + 1,
+						nextIds.length
+					)
+				);
+			}
 			suppressNextClickRef.current = true;
 			// The rows' click-capture consumes the flag, but a drop outside any
 			// row never reaches it — clear on the next click wherever it lands
@@ -398,38 +352,39 @@ export function ReorderableList< T >( {
 				{ once: true }
 			);
 		}
-		stopAutoScroll();
-		resetDragState();
-		removeDragListenersRef.current?.();
+		endDrag( active );
 	};
 
 	// An interrupted pointer (touch cancel, system gesture) never delivers
 	// pointerup — abort the drag without reordering.
 	const handleWindowPointerCancel = ( event: PointerEvent ) => {
-		if ( ! getDragCandidate( event ) ) {
-			return;
+		if ( getDragCandidate( event ) ) {
+			endDrag( activeDragRef.current );
 		}
-		stopAutoScroll();
-		resetDragState();
-		removeDragListenersRef.current?.();
 	};
 
 	const handlePointerDown = ( event: ReactPointerEvent< HTMLElement >, id: string ) => {
 		if (
+			disabled ||
+			activeDragRef.current ||
 			event.button !== 0 ||
+			event.metaKey ||
+			event.ctrlKey ||
+			event.shiftKey ||
+			event.altKey ||
 			( excludeSelector && ( event.target as HTMLElement ).closest( excludeSelector ) )
 		) {
 			return;
 		}
+		// A list nested in a row drags its own rows, not the row around it.
+		event.stopPropagation();
 		const rowRect = event.currentTarget.getBoundingClientRect();
 		scrollParentRef.current = findScrollParent( containerRef.current );
 		dragStartOrderRef.current = itemIds;
-		const dragStartRowRects = measureRowRects(
+		dragStartRowRectsRef.current = measureRowRects(
 			rowElementsRef.current,
 			scrollParentRef.current?.scrollTop ?? 0
 		);
-		previousRowRectsRef.current = dragStartRowRects;
-		dragStartRowRectsRef.current = dragStartRowRects;
 		dragCandidateRef.current = {
 			id,
 			pointerId: event.pointerId,
@@ -459,47 +414,47 @@ export function ReorderableList< T >( {
 		suppressNextClickRef.current = false;
 	};
 
-	const dropPlaceholder = (
-		<div
-			ref={ placeholderElementRef }
-			className={ clsx( styles.placeholder, placeholderClassName ) }
-			data-testid="drop-placeholder"
-			aria-hidden="true"
-		/>
-	);
+	const getDropPosition = ( index: number ) => {
+		if (
+			! activeDrag ||
+			activeDrag.landing ||
+			activeDrag.dropIndex !== index ||
+			index === sourceIndex
+		) {
+			return undefined;
+		}
+		return index < sourceIndex ? 'before' : 'after';
+	};
 
 	return (
-		<div
-			ref={ containerRef }
-			className={ clsx( className, isDragging && styles.dragging ) }
-			data-dragging={ isDragging || undefined }
-		>
-			{ displayItems.map( ( item, index ) => {
+		<div ref={ containerRef } className={ className }>
+			{ items.map( ( item, index ) => {
 				const id = getItemId( item );
 				return (
-					<Fragment key={ id }>
-						{ activeDrag && activeDrag.dropIndex === index ? dropPlaceholder : null }
-						<div
-							ref={ ( node ) => {
-								if ( node ) {
-									rowElementsRef.current.set( id, node );
-								} else {
-									rowElementsRef.current.delete( id );
-								}
-							} }
-							className={ clsx( styles.itemWrapper, itemClassName ) }
-							data-reorder-id={ id }
-							onPointerDown={ ( event ) => handlePointerDown( event, id ) }
-							onClickCapture={ handleClickCapture }
-						>
-							{ renderItem( item ) }
-						</div>
-					</Fragment>
+					<div
+						key={ id }
+						ref={ ( node ) => {
+							if ( node ) {
+								rowElementsRef.current.set( id, node );
+							} else {
+								rowElementsRef.current.delete( id );
+							}
+						} }
+						className={ clsx( styles.itemWrapper, itemClassName ) }
+						data-reorder-id={ id }
+						data-drag-source={ ( activeDrag?.id === id && ! landingId ) || undefined }
+						data-dropping={ landingId === id || undefined }
+						data-drop-position={ getDropPosition( index ) }
+						onPointerDown={ ( event ) => handlePointerDown( event, id ) }
+						onClickCapture={ handleClickCapture }
+					>
+						{ renderItem( item ) }
+					</div>
 				);
 			} ) }
-			{ activeDrag && activeDrag.dropIndex === displayItems.length ? dropPlaceholder : null }
 			{ activeDrag && draggedItem !== undefined ? (
 				<div
+					ref={ previewRef }
 					className={ clsx( styles.dragPreview, previewClassName ) }
 					style={
 						{
@@ -513,6 +468,7 @@ export function ReorderableList< T >( {
 					{ renderItem( draggedItem ) }
 				</div>
 			) : null }
+			{ getItemLabel ? <VisuallyHidden role="status">{ announcement }</VisuallyHidden> : null }
 		</div>
 	);
 }

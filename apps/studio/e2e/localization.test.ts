@@ -14,7 +14,7 @@ test.describe( 'Localization', () => {
 		await settings.openFromAppMenu( session.electronApp );
 		await settings.selectLanguage( current, nativeName, lang );
 		current = nativeName;
-		await session.mainWindow.keyboard.press( 'Escape' );
+		await settings.closeWithEscape();
 	};
 
 	test.beforeAll( async () => {
@@ -22,7 +22,7 @@ test.describe( 'Localization', () => {
 	} );
 
 	test.afterEach( async ( { page: _page }, testInfo ) => {
-		await session.reportMainProcessLogsOnFailure( testInfo );
+		await session.reportFailure( testInfo );
 		if ( current !== 'English' ) {
 			await changeLanguage( 'English', 'en' );
 		}
@@ -62,10 +62,11 @@ test.describe( 'Localization', () => {
 		const siteName = 'Localized-Site-Test';
 		await changeLanguage( '日本語', 'ja' );
 
-		await session.mainWindow.getByRole( 'button', { name: 'サイトを追加' } ).click();
-		await session.mainWindow.locator( 'a[href$="onboarding/create"]' ).click();
-		await session.mainWindow.getByRole( 'textbox' ).first().fill( siteName );
-		await session.mainWindow.getByTestId( 'create-site-submit' ).click();
+		await session.mainWindow.getByRole( 'button', { name: 'サイトを追加', exact: true } ).click();
+		const dialog = session.mainWindow.getByRole( 'dialog' );
+		await dialog.locator( '[data-start-blank]' ).click();
+		await dialog.getByRole( 'textbox' ).first().fill( siteName );
+		await dialog.getByTestId( 'create-site-submit' ).click();
 		await new Sidebar( session.mainWindow ).expectRunning( siteName );
 
 		const siteUrl = await session.getSiteUrl( siteName );

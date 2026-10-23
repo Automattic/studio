@@ -80,6 +80,17 @@ describe( 'transformSitesResponse', () => {
 		expect( result.find( ( s ) => s.id === 3 )?.wpVersion ).toBe( '6.5' );
 		expect( result.find( ( s ) => s.id === 1 )?.wpVersion ).toBeUndefined();
 	} );
+
+	it( 'flags sites on a paid plan that includes publishing from Studio', () => {
+		const expired = { ...atomicSite(), ID: 4, plan: { ...atomicSite().plan, expired: true } };
+		const result = transformSitesResponse( [ atomicSite(), freeSite(), expired ] );
+
+		expect( result.map( ( site ) => site.hasStudioPublishingPlan ) ).toEqual( [
+			true,
+			false,
+			false,
+		] );
+	} );
 } );
 
 describe( 'withWpcomDetails', () => {

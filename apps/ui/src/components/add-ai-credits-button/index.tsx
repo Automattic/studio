@@ -1,10 +1,9 @@
 import { __ } from '@wordpress/i18n';
-import { Button } from '@wordpress/ui';
 import { useState } from 'react';
 import { AiCreditsPurchaseDialog } from '@/components/ai-credits-purchase-dialog';
+import { Button, type ButtonProps } from '@/components/ui/button';
 import { useStudioAssistantTopUpPricing } from '@/data/queries/use-top-up-pricing';
 import { useOpenAiCreditsCheckout } from '@/hooks/use-open-ai-credits-checkout';
-import type { ComponentProps } from 'react';
 
 /**
  * The one way to buy AI credits, wherever the offer appears. With priced
@@ -15,12 +14,8 @@ import type { ComponentProps } from 'react';
 export function AddAiCreditsButton( {
 	className,
 	variant = 'outline',
-	tone = 'neutral',
-}: {
-	className?: string;
-	variant?: ComponentProps< typeof Button >[ 'variant' ];
-	tone?: ComponentProps< typeof Button >[ 'tone' ];
-} ) {
+	size,
+}: Pick< ButtonProps, 'className' | 'variant' | 'size' > ) {
 	const openCheckout = useOpenAiCreditsCheckout();
 	const { data: pricing } = useStudioAssistantTopUpPricing();
 	const [ dialogOpen, setDialogOpen ] = useState( false );
@@ -30,9 +25,8 @@ export function AddAiCreditsButton( {
 		<>
 			<Button
 				className={ className }
-				size="small"
 				variant={ variant }
-				tone={ tone }
+				size={ size }
 				onClick={ () => {
 					if ( hasOptions ) {
 						setDialogOpen( true );

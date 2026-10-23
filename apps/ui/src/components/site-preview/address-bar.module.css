@@ -1,22 +1,29 @@
 .addressBar {
+	position: relative;
 	display: flex;
 	box-sizing: border-box;
 	width: 100%;
+	max-width: 416px;
 	flex: 1 1 auto;
-	min-width: 80px;
-	height: 32px;
+	min-width: 0;
+	height: var(--control-size);
 	margin: 0;
-	padding-inline: var(--wpds-dimension-padding-sm);
+	padding-inline: 12px;
 	align-items: center;
-	border: 0;
-	border-radius: var(--wpds-border-radius-lg);
-	background: var(--wpds-color-background-surface-neutral-weak);
+	border: 1px solid var(--border);
+	border-radius: 999px;
+	background: transparent;
 	overflow: hidden;
 }
 
 .addressBar:focus-within {
-	outline: var(--wpds-border-width-focus) solid var(--wpds-color-stroke-focus);
-	outline-offset: 1px;
+	border-color: var(--ring);
+	box-shadow: inset 0 0 0 1px var(--ring);
+}
+
+.addressBar:has(.input[aria-invalid='true']) {
+	border-color: var(--destructive);
+	--ring: var(--destructive);
 }
 
 .siteIcon {
@@ -33,117 +40,62 @@
 	cursor: default;
 }
 
-.openExternal {
-	display: inline-flex;
-	width: 24px;
-	height: 24px;
-	flex: 0 0 24px;
+.actions {
+	position: absolute;
+	inset-block: 0;
+	inset-inline-end: 2px;
+	display: flex;
 	align-items: center;
-	justify-content: center;
-	padding: 0;
-	border: 0;
-	border-radius: var(--wpds-border-radius-sm);
-	background: transparent;
-	color: var(--wpds-color-foreground-content-neutral-weak);
-	cursor: var(--wpds-cursor-control);
+	opacity: 0;
+	pointer-events: none;
+	transition: opacity var(--motion-duration-feedback) ease;
 }
 
-.openExternal svg {
-	fill: currentColor;
+.addressBar:is(:hover, :focus-within) .actions {
+	opacity: 1;
+	pointer-events: auto;
 }
 
-.openExternal:hover,
-.openExternal:focus-visible {
-	background: var(--wpds-color-background-interactive-neutral-weak-active);
-	color: var(--wpds-color-foreground-content-neutral);
-	outline: none;
+/* Out of the way while typing an address. */
+.addressBar:has(.input:focus) .actions {
+	opacity: 0;
+	pointer-events: none;
 }
 
-.siteIcon:focus-visible,
-.openExternal:focus-visible {
-	outline: var(--wpds-border-width-focus) solid var(--wpds-color-stroke-focus);
+
+.siteIcon:focus-visible {
+	outline: var(--focus-width) solid var(--ring);
 	outline-offset: 2px;
-	border-radius: var(--wpds-border-radius-xs);
-}
-
-.wordpressIcon {
-	color: var(--wpds-color-foreground-content-neutral);
-	fill: currentColor;
+	border-radius: 6px;
 }
 
 .input {
 	box-sizing: border-box;
 	width: 100%;
 	min-width: 0;
-	padding: 0 var(--wpds-dimension-padding-sm) 0 var(--wpds-dimension-padding-xs);
+	/* Balances the realm icon, so the address centres on the whole field. */
+	padding-inline: 4px 20px;
 	border: 0;
 	background: transparent;
-	color: var(--wpds-color-foreground-content-neutral);
+	color: var(--foreground);
 	font: inherit;
-	font-size: var(--wpds-typography-font-size-xs);
-	line-height: var(--wpds-typography-line-height-xs);
+	font-size: var(--text-xs);
+	line-height: 20px;
+	text-align: center;
 	outline: 0;
+}
+
+.input:focus {
+	text-align: start;
 }
 
 .shortcutsPopup {
 	width: var(--anchor-width);
 	max-width: calc(100vw - 16px);
-	padding: var(--wpds-dimension-padding-xs);
+	padding: 6px;
 }
 
-.shortcutsList {
-	display: flex;
-	flex-direction: column;
-	gap: var(--wpds-dimension-padding-xs);
-}
-
-.shortcutsSection {
-	display: flex;
-	flex-direction: column;
-	margin-block-start: var(--wpds-dimension-padding-xs);
-	padding-block-start: var(--wpds-dimension-padding-xs);
-	border-block-start: var(--wpds-border-width-xs) solid
-		var(--wpds-color-stroke-surface-neutral-weak);
-}
-
-.shortcutsLabel {
-	padding: var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-sm);
-	color: var(--wpds-color-foreground-content-neutral-weak);
-	font-size: var(--wpds-typography-font-size-xs);
-	line-height: var(--wpds-typography-line-height-xs);
-}
-
-.shortcut {
-	display: grid;
-	grid-template-columns: 18px minmax(0, 1fr) auto;
-	gap: var(--wpds-dimension-gap-sm);
-	width: 100%;
-	padding: var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-sm);
-	align-items: center;
-	border: 0;
-	border-radius: var(--wpds-border-radius-sm);
-	background: transparent;
-	color: var(--wpds-color-foreground-content-neutral);
-	font: inherit;
-	font-size: var(--wpds-typography-font-size-sm);
-	line-height: var(--wpds-typography-line-height-sm);
-	text-align: start;
-	cursor: var(--wpds-cursor-control);
-}
-
-.shortcut:hover,
-.shortcut:focus-visible {
-	background: var(--wpds-color-background-surface-neutral);
-	outline: none;
-}
-
-.shortcutSiteIcon {
-	width: 18px;
-	height: 18px;
-}
-
-.shortcutUrl {
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
+/* Rows rounded for the menu surface rather than the composer's. */
+.shortcuts {
+	--command-radius: var(--radius-md);
 }

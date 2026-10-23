@@ -6,6 +6,7 @@ import {
 	getResizablePanelMaxWidth,
 	getStoredResizablePanelWidth,
 	getViewportWidth,
+	PANEL_WIDTHS_RESET_EVENT,
 	storeResizablePanelWidth,
 	type ResizablePanelConfig,
 } from '@/lib/resizable-panels';
@@ -89,16 +90,24 @@ export function useResizablePanel( { config, edge, storageKey }: UseResizablePan
 				clampResizablePanelWidth( currentWidth, config, nextViewportWidth )
 			);
 		};
+		const handleReset = () =>
+			setWidth( clampResizablePanelWidth( config.defaultWidth, config, getViewportWidth() ) );
 		window.addEventListener( 'resize', handleResize );
-		return () => window.removeEventListener( 'resize', handleResize );
+		window.addEventListener( PANEL_WIDTHS_RESET_EVENT, handleReset );
+		return () => {
+			window.removeEventListener( 'resize', handleResize );
+			window.removeEventListener( PANEL_WIDTHS_RESET_EVENT, handleReset );
+		};
 	}, [ config ] );
 
 	return {
 		width,
+		viewportWidth,
 		minWidth: config.minWidth,
 		maxWidth,
 		isResizing: isDragging,
 		handleResizeStart: onMouseDown,
 		handleKeyDown,
+		resetWidth: () => saveWidth( config.defaultWidth ),
 	};
 }

@@ -52,14 +52,10 @@ import {
 	openStudioSession,
 } from 'cli/ai/sessions/pi-session';
 import { replaySessionHistory } from 'cli/ai/sessions/replay';
-import {
-	formatActiveSitePrefix,
-	NO_ACTIVE_SITE_PREFIX,
-	setLocalSiteSelectedCallback,
-} from 'cli/ai/site-selection';
+import { setLocalSiteSelectedCallback } from 'cli/ai/site-selection';
 import { getActiveSlashCommands, type SlashCommandContext } from 'cli/ai/slash-commands';
+import { createTurnStatsTracker } from 'cli/ai/turn-stats';
 import { AiChatUI } from 'cli/ai/ui';
-import { describeWpcomSiteCapabilities, getWpcomSiteCapabilities } from 'cli/ai/wpcom-capabilities';
 import { runCommand as runLoginCommand } from 'cli/commands/auth/login';
 import { findSiteByFolder, findSiteById } from 'cli/lib/cli-config/sites';
 import { disconnectFromDaemon } from 'cli/lib/daemon-client';
@@ -97,15 +93,16 @@ function appendStudioEntry< T extends StudioCustomEntryType >(
 }
 
 // Awaited rather than fire-and-forget so JSON mode, which exits right after a turn, doesn't drop the
-// event — the wrapper does async work before the request is even issued. Errors are swallowed: one
+// event — the wrapper does async work before the request is even issued. Building the props and
+// sending them both sit inside the `try`, and errors are swallowed: one
 // call sits on the turn's critical path and the other in a `finally`, where a rejection would mask
 // the turn's own error.
 async function recordChatTracksEvent(
 	event: TracksEventName,
-	props: TracksProps
+	getProps: () => TracksProps
 ): Promise< void > {
 	try {
-		await recordTracksEvent( event, props );
+		await recordTracksEvent( event, getProps() );
 	} catch {
 		// A lost analytics event must never break the chat.
 	}
@@ -594,8 +591,9 @@ export async function runCommand( options: {
 
 		ui.beginAgentTurn( sessionId );
 
-		// Prepend active site context to the prompt.
-		// Remote (WordPress.com) sites only have a URL and site ID; local sites have a filesystem path and running state.
+		// The active site rides to the runtime, which states it in the system
+		// prompt. Remote (WordPress.com) sites only have a URL and site ID; local
+		// sites have a filesystem path and running state.
 		let enrichedPrompt = prompt;
 		const site = ui.activeSite;
 		// The stored running flag can be absent or stale — the session event log
@@ -621,18 +619,6 @@ export async function runCommand( options: {
 			// can exit naturally.
 			await disconnectFromDaemon();
 		}
-		if ( site ) {
-			const capabilities =
-				site.remote && site.wpcomSiteId
-					? await getWpcomSiteCapabilities( site.wpcomSiteId )
-					: undefined;
-			enrichedPrompt = `${ formatActiveSitePrefix(
-				site,
-				capabilities && describeWpcomSiteCapabilities( capabilities )
-			) }\n\n${ prompt }`;
-		} else {
-			enrichedPrompt = `${ NO_ACTIVE_SITE_PREFIX }\n\n${ prompt }`;
-		}
 
 		// Non-image files ride as absolute-path references the agent reads with
 		// its file tools (images travel separately as multimodal content blocks).
@@ -652,13 +638,13 @@ export async function runCommand( options: {
 			model_family: getAiModelFamily( currentModel ),
 		};
 		const turnStartedAt = Date.now();
-		await recordChatTracksEvent( TRACKS_EVENTS.CODE_MESSAGE_SENT, {
+		await recordChatTracksEvent( TRACKS_EVENTS.CODE_MESSAGE_SENT, () => ( {
 			...tracksProps,
 			// Raw prompt, before site context is prepended. Only ever a catalog name.
 			ability_name: resolveSkillFromPrompt( prompt ),
 			has_images: images.length > 0,
 			has_files: files.length > 0,
-		} );
+		} ) );
 
 		// Studio marker for the typed prompt; pi appends the real UserMessage.
 		await append( ( s ) =>
@@ -671,7 +657,10 @@ export async function runCommand( options: {
 			} )
 		);
 
-		const turnState: { status: TurnStatus; errorMessage?: string } = { status: 'interrupted' };
+		const turnState: { status: TurnStatus; errorMessage?: string; failure?: unknown } = {
+			status: 'interrupted',
+		};
+		const turnStats = createTurnStatsTracker();
 
 		const agentQuery = runStudioAgentTurn( {
 			prompt: enrichedPrompt,
@@ -683,6 +672,11 @@ export async function runCommand( options: {
 			onAskUser: ( questions ) => askUserAndPersistAnswers( questions ),
 			onEvent: ( event ) => {
 				ui.handleEvent( event );
+				try {
+					turnStats.handleEvent( event );
+				} catch {
+					// Stats only feed analytics, which must never break the chat.
+				}
 				// An `agent_end` with `willRetry` is not final — the session
 				// restarts the turn after a backoff.
 				if ( event.type !== 'agent_end' || event.willRetry ) {
@@ -695,6 +689,7 @@ export async function runCommand( options: {
 					turnState.status = result.success ? 'success' : 'error';
 				}
 				turnState.errorMessage = getAgentEndFailure( event )?.message || undefined;
+				turnState.failure = turnState.errorMessage;
 			},
 		} );
 
@@ -704,6 +699,7 @@ export async function runCommand( options: {
 
 		const consumeAgentTurnResult = agentQuery.result.catch( ( error ) => {
 			turnState.status = 'error';
+			turnState.failure = error;
 			// If the UI already surfaced a descriptive terminal error (e.g.
 			// the AI usage cap was reached), suppress the generic SDK exit
 			// error (e.g. "Claude Code process exited with code 1").
@@ -729,11 +725,17 @@ export async function runCommand( options: {
 				} )
 			);
 			// No `errorMessage`: raw error text can embed paths and site names.
-			await recordChatTracksEvent( TRACKS_EVENTS.CODE_TURN_COMPLETED, {
+			await recordChatTracksEvent( TRACKS_EVENTS.CODE_TURN_COMPLETED, () => ( {
 				...tracksProps,
 				outcome: turnState.status,
 				duration_ms: Date.now() - turnStartedAt,
-			} );
+				...turnStats.getProps( {
+					outcome: turnState.status,
+					failure: turnState.failure,
+					site,
+					hasTool: ( name ) => agentQuery.hasTool( name ),
+				} ),
+			} ) );
 			ui.endAgentTurn();
 		}
 

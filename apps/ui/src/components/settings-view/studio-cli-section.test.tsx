@@ -1,6 +1,5 @@
 import '@testing-library/jest-dom/vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
-import { Tooltip } from '@wordpress/ui';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useAppGlobals } from '@/data/queries/use-app-globals';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
@@ -45,7 +44,7 @@ describe( 'StudioCliSection', () => {
 	it( 'saves as soon as the toggle is flipped', () => {
 		render( <StudioCliSection /> );
 
-		const toggle = screen.getByRole( 'checkbox', { name: 'Studio CLI for terminal' } );
+		const toggle = screen.getByRole( 'switch', { name: 'Studio CLI for terminal' } );
 		expect( toggle ).not.toBeChecked();
 
 		fireEvent.click( toggle );
@@ -59,7 +58,7 @@ describe( 'StudioCliSection', () => {
 
 		render( <StudioCliSection /> );
 
-		const toggle = screen.getByRole( 'checkbox', { name: 'Studio CLI for terminal' } );
+		const toggle = screen.getByRole( 'switch', { name: 'Studio CLI for terminal' } );
 		fireEvent.click( toggle );
 
 		expect( toggle ).not.toBeChecked();
@@ -84,15 +83,11 @@ describe( 'StudioCliSection', () => {
 			data: { studioCliInstalled: true, studioCliExternallyManaged: true },
 		} as never );
 
-		render(
-			<Tooltip.Provider>
-				<StudioCliSection />
-			</Tooltip.Provider>
-		);
+		render( <StudioCliSection /> );
 
-		const toggle = screen.getByRole( 'checkbox', { name: 'Studio CLI for terminal' } );
+		const toggle = screen.getByRole( 'switch', { name: 'Studio CLI for terminal' } );
 		expect( toggle ).toBeChecked();
-		expect( toggle ).toBeDisabled();
+		expect( toggle ).toHaveAttribute( 'aria-disabled', 'true' );
 
 		fireEvent.click( toggle );
 

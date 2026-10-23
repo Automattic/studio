@@ -10,6 +10,7 @@ const navigate = vi.fn( async () => undefined );
 const showErrorMessageBox = vi.fn();
 let addSiteListener: () => void = () => undefined;
 let blueprintListener: ( payload: { blueprintPath: string } ) => void = () => undefined;
+let settingsListener: ( target: { settingId?: string } ) => void = () => undefined;
 
 let queryClient: QueryClient;
 
@@ -52,20 +53,55 @@ describe( 'useAppMenuNavigation', () => {
 				blueprintListener = listener;
 				return () => undefined;
 			} ),
-			onOpenSettings: vi.fn( () => () => undefined ),
+			onOpenSettings: vi.fn( ( listener ) => {
+				settingsListener = listener;
+				return () => undefined;
+			} ),
 			readBlueprintFile,
 		} );
 	} );
 
-	it( 'routes Add Site commands to onboarding', () => {
+	const addSiteOpened = () =>
+		expect( navigate ).toHaveBeenCalledWith( expect.objectContaining( { to: '.' } ) );
+
+	const openedSettings = () => {
+		const [ [ { search } ] ] = navigate.mock.calls as unknown as [
+			[ { search: ( previous: object ) => object } ],
+		];
+		return search( {} );
+	};
+
+	it( 'opens a linked setting on its section and focuses it', () => {
+		renderAppMenuNavigation();
+
+		act( () => settingsListener( { settingId: 'theme' } ) );
+
+		expect( openedSettings() ).toMatchObject( {
+			settings: 'appearance',
+			settingsFocus: 'theme',
+		} );
+	} );
+
+	it( 'opens General for a linked setting this version does not have', () => {
+		renderAppMenuNavigation();
+
+		act( () => settingsListener( { settingId: 'future-setting' } ) );
+
+		expect( openedSettings() ).toMatchObject( {
+			settings: 'general',
+			settingsFocus: 'future-setting',
+		} );
+	} );
+
+	it( 'opens Add site from the app menu', () => {
 		renderAppMenuNavigation();
 
 		act( () => addSiteListener() );
 
-		expect( navigate ).toHaveBeenCalledWith( { to: '/onboarding' } );
+		addSiteOpened();
 	} );
 
-	it( 'hands a Blueprint deep link to the unified Create route', async () => {
+	it( 'opens Add site with a deep-linked Blueprint', async () => {
 		readBlueprintFile.mockResolvedValue( {
 			meta: { title: 'Deep-linked Blueprint', author: 'Studio' },
 		} );
@@ -73,7 +109,7 @@ describe( 'useAppMenuNavigation', () => {
 
 		act( () => blueprintListener( { blueprintPath: '/tmp/deep-link.json' } ) );
 
-		await waitFor( () => expect( navigate ).toHaveBeenCalledWith( { to: '/onboarding/create' } ) );
+		await waitFor( addSiteOpened );
 		expect( readBlueprintFile ).toHaveBeenCalledWith( '/tmp/deep-link.json' );
 		expect( pendingBlueprintSlot.getSnapshot() ).toMatchObject( {
 			title: 'Deep-linked Blueprint',

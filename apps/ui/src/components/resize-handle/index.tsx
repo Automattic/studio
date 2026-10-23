@@ -8,9 +8,9 @@ interface ResizeHandleProps {
 	minWidth: number;
 	maxWidth: number;
 	width: number;
-	isResizing: boolean;
 	onResizeStart: MouseEventHandler< HTMLDivElement >;
 	onKeyDown: KeyboardEventHandler< HTMLDivElement >;
+	onReset?: () => void;
 }
 
 export function ResizeHandle( {
@@ -19,13 +19,13 @@ export function ResizeHandle( {
 	minWidth,
 	maxWidth,
 	width,
-	isResizing,
 	onResizeStart,
 	onKeyDown,
+	onReset,
 }: ResizeHandleProps ) {
 	return (
 		<div
-			className={ clsx( styles.resizeHandle, className, isResizing && styles.resizing ) }
+			className={ clsx( styles.resizeHandle, className ) }
 			role="separator"
 			aria-label={ label }
 			aria-orientation="vertical"
@@ -33,7 +33,16 @@ export function ResizeHandle( {
 			aria-valuemax={ maxWidth }
 			aria-valuenow={ width }
 			tabIndex={ 0 }
-			onMouseDown={ onResizeStart }
+			// A drag covers the handle with ResizeOverlay, so a double-click never
+			// reaches it as `dblclick`: the second press resets instead.
+			onMouseDown={ ( event ) => {
+				if ( onReset && event.detail === 2 ) {
+					event.preventDefault();
+					onReset();
+				} else {
+					onResizeStart( event );
+				}
+			} }
 			onKeyDown={ onKeyDown }
 		>
 			<span className={ styles.resizeHandleIndicator } aria-hidden="true" />

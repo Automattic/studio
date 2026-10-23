@@ -6,32 +6,26 @@ import {
 	removeConnectedWpcomSite,
 } from '@studio/common/lib/connected-sites';
 import { getCurrentUserId } from '@studio/common/lib/shared-config';
-import { isSyncCancelledError } from '@studio/common/lib/sync/cancel';
-import { fetchLatestRewindId, fetchSyncableSites } from '@studio/common/lib/sync/sync-api';
-import wpcomFactory from '@studio/common/lib/wpcom-factory';
-import wpcomXhrRequest from '@studio/common/lib/wpcom-xhr-request-factory';
+import {
+	fetchHostingPhpVersion,
+	fetchLatestRewindId,
+	fetchRemoteFileTreeContents,
+	fetchSyncableSites,
+} from '@studio/common/lib/sync/sync-api';
 import { readSitePath } from '@studio/common/sites/site-path';
-import { pullSite, pushSite } from '@studio/common/sites/sync';
+import { createSyncRunner, type SyncResult } from '@studio/common/sites/sync';
 import { PullSyncOptions, PushSyncOptions, SyncSite } from '@studio/common/types/sync';
-import { __ } from '@wordpress/i18n';
-import { z } from 'zod';
 import { getAuthenticationToken } from 'src/lib/oauth';
 import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
 
-/**
- * Registry to store AbortControllers for ongoing sync operations (push/pull).
- * Key format: `${selectedSiteId}-${remoteSiteId}`
- */
-const SYNC_ABORT_CONTROLLERS = new Map< string, AbortController >();
+const syncRunner = createSyncRunner( executeCliCommand );
 
-type SyncOperationResult = { cancelled: boolean };
-
-export function cancelSyncOperation( event: IpcMainInvokeEvent, id: string ) {
-	const abortController = SYNC_ABORT_CONTROLLERS.get( id );
-	if ( abortController ) {
-		abortController.abort();
-		SYNC_ABORT_CONTROLLERS.delete( id );
-	}
+export function cancelSyncOperation(
+	_event: IpcMainInvokeEvent,
+	siteId: string,
+	remoteSiteId: number
+) {
+	syncRunner.cancel( siteId, remoteSiteId );
 }
 
 type WpcomSitesToConnect = { sites: SyncSite[]; localSiteId: string }[];
@@ -67,48 +61,23 @@ export async function disconnectWpcomSites(
 	}
 }
 
-// Registered under the legacy renderer's key, so `cancelSyncOperation` stops these too.
-async function runCancellableSync(
-	siteId: string,
-	remoteSiteId: number,
-	sync: ( sitePath: string, signal: AbortSignal ) => Promise< void >
-): Promise< SyncOperationResult > {
+async function requireSitePath( siteId: string ): Promise< string > {
 	const sitePath = await readSitePath( siteId );
 	if ( ! sitePath ) {
 		throw new Error( 'Site not found.' );
 	}
-	const operationId = `${ siteId }-${ remoteSiteId }`;
-	const abortController = new AbortController();
-	SYNC_ABORT_CONTROLLERS.set( operationId, abortController );
-	try {
-		await sync( sitePath, abortController.signal );
-		return { cancelled: false };
-	} catch ( error ) {
-		// A user cancel is an intentional stop, not a failure. Rejecting here would
-		// make Electron log it as a handler error in the very log we point users at
-		// when a sync fails, so report it as a result instead — the renderer turns it
-		// back into a cancelled operation. Same reasoning as `downloadSyncBackup`.
-		if ( isSyncCancelledError( error ) ) {
-			console.log( `[Sync] Cancelled by user for operation: ${ operationId }` );
-			return { cancelled: true };
-		}
-		throw error;
-	} finally {
-		if ( SYNC_ABORT_CONTROLLERS.get( operationId ) === abortController ) {
-			SYNC_ABORT_CONTROLLERS.delete( operationId );
-		}
-	}
+	return sitePath;
 }
 
+// A cancel resolves rather than rejects, so it isn't logged as a handler error in
+// the very log we point users at when a sync fails.
 export async function pullSiteFromLive(
 	_event: IpcMainInvokeEvent,
 	siteId: string,
 	remoteSiteId: number,
 	options?: PullSyncOptions
-): Promise< SyncOperationResult > {
-	return runCancellableSync( siteId, remoteSiteId, ( sitePath, signal ) =>
-		pullSite( executeCliCommand, sitePath, remoteSiteId, options, signal )
-	);
+): Promise< SyncResult > {
+	return syncRunner.pull( siteId, await requireSitePath( siteId ), remoteSiteId, options );
 }
 
 export async function pushSiteToLive(
@@ -116,10 +85,8 @@ export async function pushSiteToLive(
 	siteId: string,
 	remoteSiteId: number,
 	options?: PushSyncOptions
-): Promise< SyncOperationResult > {
-	return runCancellableSync( siteId, remoteSiteId, ( sitePath, signal ) =>
-		pushSite( executeCliCommand, sitePath, remoteSiteId, options, signal )
-	);
+): Promise< SyncResult > {
+	return syncRunner.push( siteId, await requireSitePath( siteId ), remoteSiteId, options );
 }
 
 // Fetches every WordPress.com site the authenticated user can sync to.
@@ -176,28 +143,12 @@ export async function listRemoteFileTree(
 	if ( ! token?.accessToken ) {
 		throw new Error( 'No token found' );
 	}
-	const wpcom = wpcomFactory( token.accessToken, wpcomXhrRequest );
-	const rawResponse = await wpcom.req.post( {
-		path: `/sites/${ remoteSiteId }/rewind/backup/ls`,
-		apiNamespace: 'wpcom/v2',
-		body: { backup_id: rewindId, path: treePath },
-	} );
-	const parsed = z
-		.object( {
-			ok: z.boolean(),
-			error: z.string().optional(),
-			contents: z.record( z.string(), z.unknown() ).optional(),
-		} )
-		.parse( rawResponse );
-	if ( ! parsed.ok ) {
-		throw new Error( parsed.error || 'Failed to fetch remote file tree' );
-	}
-	return parsed.contents ?? {};
+	return fetchRemoteFileTreeContents( token.accessToken, remoteSiteId, rewindId, treePath );
 }
 
 /**
- * PHP version of the remote site's hosting environment — used by the agentic
- * UI's sync dialog to warn about version mismatches before pushing.
+ * PHP version of the remote site's hosting environment — used by the sync
+ * dialog to warn about version mismatches before pushing.
  */
 export async function getHostingPhpVersion(
 	_event: IpcMainInvokeEvent,
@@ -207,14 +158,5 @@ export async function getHostingPhpVersion(
 	if ( ! token?.accessToken ) {
 		throw new Error( 'No token found' );
 	}
-	try {
-		const wpcom = wpcomFactory( token.accessToken, wpcomXhrRequest );
-		const response = await wpcom.req.get( {
-			apiNamespace: 'wpcom/v2',
-			path: `/sites/${ remoteSiteId }/hosting/php-version`,
-		} );
-		return z.string().parse( response );
-	} catch {
-		return undefined;
-	}
+	return fetchHostingPhpVersion( token.accessToken, remoteSiteId );
 }

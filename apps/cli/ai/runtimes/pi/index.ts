@@ -106,6 +106,8 @@ interface ResolvedStudioAgentTurnConfig extends StudioAgentTurnConfig {
 export interface StudioAgentTurnHandle {
 	result: Promise< void >;
 	interrupt(): Promise< void >;
+	/** Whether `name` is one of the turn's registered tools, not a name the model made up. */
+	hasTool( name: string ): boolean;
 }
 
 export function runStudioAgentTurn( config: StudioAgentTurnConfig ): StudioAgentTurnHandle {
@@ -130,6 +132,9 @@ export function runStudioAgentTurn( config: StudioAgentTurnConfig ): StudioAgent
 		async interrupt() {
 			controller.abort();
 			await activeSession?.abort();
+		},
+		hasTool( name ) {
+			return activeSession?.getAllTools().some( ( tool ) => tool.name === name ) ?? false;
 		},
 	};
 }

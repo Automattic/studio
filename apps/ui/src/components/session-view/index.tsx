@@ -4,10 +4,7 @@ import {
 } from '@studio/common/ai/providers';
 import { pickLiveSite } from '@studio/common/ai/sessions/effective-site';
 import { findAiSessionOwnerSite } from '@studio/common/ai/sessions/owner-site';
-import {
-	getStudioCodeAiAccessState,
-	hasPaidAiCredits,
-} from '@studio/common/lib/studio-assistant-quota';
+import { hasPaidAiCredits } from '@studio/common/lib/studio-assistant-quota';
 import { useNavigate } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
 import { arrowDown } from '@wordpress/icons';
@@ -23,7 +20,6 @@ import {
 	type ReactNode,
 	type Ref,
 } from 'react';
-import { AgenticSigninPrompt } from '@/components/agentic-signin-banner';
 import {
 	getSiteAnnotations,
 	hasAnnotationContent,
@@ -44,7 +40,6 @@ import { SiteContextMenu, StoppedSitePreview } from '@/components/stopped-site-p
 import { Button, IconButton } from '@/components/ui/button';
 import { toast } from '@/data/app-messages';
 import { useAgentRun } from '@/data/queries/use-agent-run';
-import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useAiSettings } from '@/data/queries/use-ai-settings';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
 import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
@@ -70,32 +65,13 @@ import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import { useWindowControlsInset } from '@/hooks/use-window-controls-inset';
 import { formatComposerTextQuote, watchComposerTextQuote } from '@/lib/composer-text-quote';
 import { pendingPromptSlot } from '@/lib/pending-prompt';
-import { AccessRequirements } from './access-requirements';
 import { Composer, ComposerSkeleton, type ComposerHandle } from './composer';
 import { Conversation } from './conversation';
 import { QueuedPrompts } from './queued-prompts';
 import styles from './style.module.css';
+import { useAnchoredScroll } from './use-anchored-scroll';
+import { useComposerNotice } from './use-composer-notice';
 import type { SiteDetails } from '@/data/core';
-
-// Slack below the bottom edge that still counts as "at the latest message",
-// so sub-pixel rounding or a barely-started scroll doesn't flash the button.
-const SCROLL_AWAY_FROM_LATEST_THRESHOLD_PX = 48;
-
-export function isScrolledAwayFromLatest( node: {
-	scrollTop: number;
-	scrollHeight: number;
-	clientHeight: number;
-} ): boolean {
-	return (
-		node.scrollHeight - node.scrollTop - node.clientHeight > SCROLL_AWAY_FROM_LATEST_THRESHOLD_PX
-	);
-}
-
-// Kept outside the component: the React Compiler lint reads a direct
-// `scrollTop` store on a state-held node as a state mutation.
-function scrollToEnd( node: HTMLElement ) {
-	node.scrollTop = node.scrollHeight;
-}
 
 function SessionHeader( {
 	siteName,
@@ -240,46 +216,6 @@ export function SessionView( { sessionId }: { sessionId: string } ) {
 	);
 }
 
-export function SignedOutSessionView( { siteId }: { siteId: string } ) {
-	const navigate = useNavigate();
-	const { data: sites } = useSites();
-	const site = sites?.find( ( candidate ) => candidate.id === siteId );
-	const { enabled, isReady, reason, chatPromptsSignIn } = useAgenticFeatures();
-	// `reason` dips through null while auth reloads, so the signed-out state has
-	// to be latched — the preceding value is never 'signed-out' when it matters.
-	const wasSignedOutRef = useRef( false );
-
-	useEffect( () => {
-		if ( reason === 'signed-out' ) {
-			wasSignedOutRef.current = true;
-		}
-		if ( enabled && wasSignedOutRef.current ) {
-			wasSignedOutRef.current = false;
-			void navigate( { to: '/', replace: true } );
-			return;
-		}
-		if ( isReady && ! enabled && ! chatPromptsSignIn ) {
-			void navigate( {
-				to: '/sites/$siteId',
-				params: { siteId },
-				replace: true,
-			} );
-		}
-	}, [ chatPromptsSignIn, enabled, isReady, navigate, reason, siteId ] );
-
-	return (
-		<SessionFrame
-			header={
-				<SessionHeader siteName={ site?.name } site={ site } effectiveEnvironment="local" />
-			}
-		>
-			<AgenticSigninPrompt
-				onTurnedOff={ () => void navigate( { to: '/sites/$siteId', params: { siteId } } ) }
-			/>
-		</SessionFrame>
-	);
-}
-
 function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	const navigate = useNavigate();
 	const { data, isLoading, error, refetch } = useSession( sessionId );
@@ -300,15 +236,11 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		clearQuestionAnswer,
 		removeQueuedPrompt,
 	} = useAgentRun( sessionId );
-	const {
-		data: quota,
-		isLoading: isQuotaLoading,
-		isFetching: isQuotaFetching,
-		refetch: refetchQuota,
-	} = useStudioAssistantQuota();
+	const { data: quota, isLoading: isQuotaLoading } = useStudioAssistantQuota();
 	const { data: aiSettings } = useAiSettings();
 	const sessionProvider = getEffectiveSessionProvider( data?.entries ?? [], aiSettings );
 	const isWpcom = sessionProvider === 'wpcom';
+	const notice = useComposerNotice( sessionProvider );
 	// A fresh wpcom session defaults to balanced when purchased credits
 	// remain, fast otherwise.
 	const currentModel = useMemo(
@@ -387,44 +319,12 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		},
 		[ answerQuestion, targetQuestion ]
 	);
-	const [ isScrolledAway, setIsScrolledAway ] = useState( false );
-
-	const updateIsScrolledAway = useCallback( () => {
-		if ( scrollNode ) {
-			setIsScrolledAway( isScrolledAwayFromLatest( scrollNode ) );
-		}
-	}, [ scrollNode ] );
-
-	useEffect( () => {
-		if ( ! scrollNode ) {
-			return;
-		}
-		updateIsScrolledAway();
-		scrollNode.addEventListener( 'scroll', updateIsScrolledAway, { passive: true } );
-		return () => scrollNode.removeEventListener( 'scroll', updateIsScrolledAway );
-	}, [ scrollNode, updateIsScrolledAway ] );
-
-	// Content can grow without emitting scroll events (e.g. while the
-	// auto-scroll below is suspended by pending questions), so re-check
-	// whenever the transcript changes.
-	useEffect( () => {
-		updateIsScrolledAway();
-	}, [ data, pendingQuestions.length, queuedPrompts.length, updateIsScrolledAway ] );
-
-	useLayoutEffect( () => {
-		setIsScrolledAway( false );
-	}, [ sessionId ] );
-
-	const scrollToLatest = useCallback( () => {
-		if ( ! scrollNode ) {
-			return;
-		}
-		const prefersReducedMotion = window.matchMedia?.( '(prefers-reduced-motion: reduce)' ).matches;
-		scrollNode.scrollTo( {
-			top: scrollNode.scrollHeight,
-			behavior: prefersReducedMotion ? 'auto' : 'smooth',
-		} );
-	}, [ scrollNode ] );
+	const { spacerRef, isScrolledAway, scrollToLatest } = useAnchoredScroll( {
+		scrollNode,
+		sessionId,
+		content: data,
+		paused: pendingQuestions.length > 0,
+	} );
 	useSessionCommands( sessionId );
 	const canTogglePreview = !! ownerSite && effectiveEnvironment === 'local';
 	const annotationSiteId = canTogglePreview ? ownerSite.id : undefined;
@@ -448,31 +348,8 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		[ navigate ]
 	);
 
-	useLayoutEffect( () => {
-		if ( ! scrollNode || isScrolledAway || pendingQuestions.length > 0 ) {
-			return;
-		}
-		scrollToEnd( scrollNode );
-		const id = requestAnimationFrame( () => scrollToEnd( scrollNode ) );
-		return () => cancelAnimationFrame( id );
-	}, [
-		scrollNode,
-		sessionId,
-		data,
-		isRunning,
-		isScrolledAway,
-		pendingQuestions.length,
-		queuedPrompts.length,
-	] );
-
 	const isOutOfCredits = useIsOutOfAiCredits() && isWpcom;
 	useMarkChatRead( sessionId, data?.summary.unread );
-	// Fail open when the quota is unavailable (offline, error, older server) —
-	// the WordPress.com proxy enforces the same gate server-side.
-	const isAccessBlocked =
-		isWpcom &&
-		!! quota &&
-		( getStudioCodeAiAccessState( quota ) !== 'available' || ! quota.hasPaymentMethod );
 
 	const [ frameNode, setFrameNode ] = useState< HTMLDivElement | null >( null );
 	const { data: preferences } = useUserPreferences();
@@ -516,7 +393,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		pendingPromptSlot.getSnapshot
 	);
 	const pendingPrompt = handedOver?.sessionId === sessionId ? handedOver : null;
-	const isChatReady = !! data && ! isQuotaLoading && ! isAccessBlocked && ! isOutOfCredits;
+	const isChatReady = !! data && ! isQuotaLoading && ! notice && ! isOutOfCredits;
 	useEffect( () => {
 		// Read the slot live rather than the rendered value: StrictMode runs the
 		// effect twice for one render, and the second pass must find it empty.
@@ -618,29 +495,6 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		);
 	}
 
-	if ( quota && isAccessBlocked ) {
-		return (
-			<SessionFrame
-				header={
-					<SessionHeader
-						siteName={ data.summary.ownerSiteName }
-						site={ ownerSite }
-						effectiveEnvironment={ effectiveEnvironment }
-					/>
-				}
-			>
-				<div className={ styles.emptyState }>
-					<PreviewParticles />
-				</div>
-				<AccessRequirements
-					quota={ quota }
-					isRechecking={ isQuotaFetching }
-					onRecheck={ () => void refetchQuota() }
-				/>
-			</SessionFrame>
-		);
-	}
-
 	return (
 		<SessionFrame
 			scrollRef={ setScrollNode }
@@ -697,6 +551,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 						onEnvironmentChange={ ownerSite ? setEnvironment : undefined }
 						dropTarget={ frameNode }
 						annotationSiteId={ annotationSiteId }
+						notice={ notice }
 					/>
 				</div>
 			}
@@ -724,6 +579,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 					onChooseFreeForm={ chooseFreeFormAnswer }
 				/>
 			</div>
+			<div ref={ spacerRef } aria-hidden="true" />
 		</SessionFrame>
 	);
 }

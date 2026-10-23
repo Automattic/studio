@@ -7,7 +7,7 @@ import {
 	getSiteAgentFilePaths,
 } from '@studio/common/lib/site-agent-file-paths';
 import { fetchSnapshotUsage } from '@studio/common/lib/snapshots';
-import { fetchStudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
+import { requestStudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 import { fetchStudioAssistantTopUpPricing } from '@studio/common/lib/studio-assistant-top-up-pricing';
 import { SyncCancelledError } from '@studio/common/lib/sync/cancel';
 import { getFirstInstalledEditor } from '@studio/common/lib/user-settings/editor';
@@ -410,7 +410,7 @@ export function createIpcConnector(): Connector {
 
 		async getStudioAssistantQuota(): Promise< StudioAssistantQuota | null > {
 			const token = ( await ipcApi.getAuthenticationToken() ) as StoredAuthToken | null;
-			return token ? fetchStudioAssistantQuota( token.accessToken ) : null;
+			return token ? requestStudioAssistantQuota( token.accessToken ) : null;
 		},
 
 		async getStudioAssistantTopUpPricing(

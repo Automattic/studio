@@ -201,7 +201,7 @@ function DashboardLayoutContent() {
 	const workspaceSiteId = newSessionSiteId ?? sessionSite?.id;
 	const workspace =
 		( sessionId || newSessionSiteId ) && workspaceSiteId ? (
-			<SiteWorkspace key={ workspaceSiteId } siteId={ workspaceSiteId } sessionId={ sessionId } />
+			<SiteWorkspace key={ workspaceSiteId } sessionId={ sessionId } />
 		) : (
 			<Outlet />
 		);

@@ -567,7 +567,6 @@ function SiteSection( {
 	isChatActive,
 	isContextActive,
 	chatEnabled,
-	chatPromptsSignIn,
 	activeSessionId,
 	expanded,
 	loadError,
@@ -582,7 +581,6 @@ function SiteSection( {
 	isChatActive: boolean;
 	isContextActive: boolean;
 	chatEnabled: boolean;
-	chatPromptsSignIn: boolean;
 	activeSessionId?: string;
 	// Lists the site's chats under its row.
 	expanded: boolean;
@@ -599,12 +597,9 @@ function SiteSection( {
 	const sectionRef = useRef< HTMLElement >( null );
 	const [ chatCount, setChatCount ] = useState( CHATS_INITIAL_COUNT );
 	const isActive = isChatActive || isContextActive;
-	const canOpenChatSurface = chatEnabled || chatPromptsSignIn;
-	// Offline users and users who switched Studio Code off use the site's own
-	// page as its home. Signed-out users still get the chat surface, where the value
-	// of logging in can be explained in context.
-	const isSelected = isChatActive || ( isContextActive && ! canOpenChatSurface );
-	const showContextOutline = isContextActive && canOpenChatSurface;
+	// Users who switched Studio Code off use the site's own page as its home.
+	const isSelected = isChatActive || ( isContextActive && ! chatEnabled );
+	const showContextOutline = isContextActive && chatEnabled;
 	const showChats = expanded && chatEnabled && ( chats.length > 0 || loadError );
 	const visibleChats = chats.slice( 0, chatCount );
 	// Keep the active site visible — e.g. when launch restores a site that
@@ -799,7 +794,7 @@ export function SiteList( {
 	const { data: sites, isLoading: sitesLoading } = useSites();
 	const { data: sessions, isLoading: sessionsLoading, isError: sessionsError } = useSessions();
 	const needingInput = useSessionsNeedingInput();
-	const { chatEnabled, chatPromptsSignIn } = useAgenticFeatures();
+	const { chatEnabled } = useAgenticFeatures();
 	const params = useParams( { strict: false } ) as { sessionId?: string; siteId?: string };
 	const pathname = useRouterState( { select: ( state ) => state.location.pathname } );
 	const activeSessionId = params.sessionId;
@@ -895,7 +890,6 @@ export function SiteList( {
 			isChatActive={ row.site.id === activeChatSiteKey }
 			isContextActive={ row.site.id === activeContextSiteKey }
 			chatEnabled={ chatEnabled }
-			chatPromptsSignIn={ chatPromptsSignIn }
 			activeSessionId={ activeSessionId }
 			expanded={ sections && revealed.has( row.site.id ) }
 			loadError={ sessionsError }

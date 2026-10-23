@@ -26,8 +26,7 @@
 	opacity: 0;
 	transition:
 		width var(--motion-duration-layout) var(--motion-ease-layout),
-		margin var(--motion-duration-layout) var(--motion-ease-layout),
-		opacity var(--motion-duration-feedback) var(--motion-ease-enter);
+		margin var(--motion-duration-layout) var(--motion-ease-layout);
 }
 
 .headerSlotVisible {
@@ -35,5 +34,8 @@
 	margin-inline-end: 0;
 	overflow: visible;
 	opacity: 1;
-	transition-delay: 0s, 0s, calc(var(--motion-duration-layout) / 2);
+	transition:
+		width var(--motion-duration-layout) var(--motion-ease-layout),
+		margin var(--motion-duration-layout) var(--motion-ease-layout),
+		opacity 0s var(--motion-duration-layout);
 }

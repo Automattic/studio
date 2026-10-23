@@ -51,14 +51,14 @@ import {
 	useMemo,
 	useRef,
 	useState,
+	type ComponentProps,
 	type ReactNode,
-	MouseEvent as ReactMouseEvent,
 } from 'react';
-import { AgentWorkingIndicator } from '@/components/agent-working-indicator';
 import { AiAccessRequiredNotice, AiBlockedNotice } from '@/components/ai-access-required-notice';
 import { CopyButton } from '@/components/copy-button';
 import { Markdown } from '@/components/markdown';
 import { Button, IconButton } from '@/components/ui/button';
+import { CollapsiblePanel } from '@/components/ui/collapsible';
 import { Dialog, DialogClose, DialogContent, DialogDismissButton } from '@/components/ui/dialog';
 import { Spinner } from '@/components/ui/spinner';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
@@ -105,17 +105,23 @@ type RenderItem =
 			key: string;
 			widgets: StudioChatArtifactWidgetDraft[];
 	  }
-	| {
-			kind: 'turn-timing';
-			key: string;
-			startedAt: number;
-			endedAt: number | null;
-			status: TurnStatus;
-	  }
+	| { kind: 'progress'; key: string; text: string }
 	| { kind: 'interrupted-marker'; key: string }
 	| { kind: 'error-marker'; key: string; message: string };
 
-type TurnStatus = 'running' | 'success' | 'interrupted' | 'error';
+type ActivityDetail = Extract< RenderItem, { kind: 'tool-use' | 'assistant-text' | 'progress' } >;
+
+// One turn's work, folded into a single line that opens onto its tool calls.
+interface TurnActivity {
+	kind: 'activity';
+	key: string;
+	items: ActivityDetail[];
+	startedAt: number | null;
+	endedAt: number | null;
+	status: 'running' | 'success' | 'interrupted' | 'error';
+}
+
+type TranscriptItem = Exclude< RenderItem, { kind: 'tool-use' | 'progress' } > | TurnActivity;
 
 interface PiAssistantContentBlock {
 	type: 'text' | 'toolCall' | 'thinking';
@@ -203,55 +209,7 @@ function isPromptEntry( entry: SessionEntry ): boolean {
 	);
 }
 
-// A turn runs from its prompt to its `studio.turn_closed`; a turn the agent is
-// still on counts from the live run's start.
-function getTurnTiming(
-	entries: SessionEntry[],
-	promptIndex: number,
-	run: { running: boolean; startedAt: number | null }
-): Omit< Extract< RenderItem, { kind: 'turn-timing' } >, 'kind' | 'key' > | null {
-	let lastIndex = promptIndex;
-	let closed: StudioCustomEntry< 'studio.turn_closed' > | undefined;
-	for ( let index = promptIndex + 1; index < entries.length; index += 1 ) {
-		const entry = entries[ index ];
-		if ( isPromptEntry( entry ) ) {
-			break;
-		}
-		lastIndex = index;
-		if ( isStudioCustomEntryOfType( entry, 'studio.turn_closed' ) ) {
-			closed = entry as StudioCustomEntry< 'studio.turn_closed' >;
-			break;
-		}
-	}
-	const promptedAt = Date.parse( entries[ promptIndex ].timestamp );
-	if ( ! closed && run.running && lastIndex === entries.length - 1 ) {
-		return { startedAt: run.startedAt ?? promptedAt, endedAt: null, status: 'running' };
-	}
-	const endedAt = Date.parse( ( closed ?? entries[ lastIndex ] ).timestamp );
-	if (
-		lastIndex === promptIndex ||
-		! Number.isFinite( promptedAt ) ||
-		! Number.isFinite( endedAt )
-	) {
-		return null;
-	}
-	const status = closed?.data?.status;
-	return {
-		startedAt: promptedAt,
-		endedAt,
-		status:
-			status === 'interrupted'
-				? 'interrupted'
-				: status === 'error' || status === 'max_turns'
-				? 'error'
-				: 'success',
-	};
-}
-
-export function entriesToRenderItems(
-	entries: SessionEntry[],
-	run: { running: boolean; startedAt: number | null } = { running: false, startedAt: null }
-): RenderItem[] {
+export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 	// First pass: collect tool_call_id → tool_result pairings so each
 	// `toolCall` row can render its output inline.
 	const resultsByToolCallId = new Map< string, NormalizedToolResult >();
@@ -273,18 +231,11 @@ export function entriesToRenderItems(
 	}
 
 	const items: RenderItem[] = [];
-	// Each turn's timing closes the turn, after everything it produced.
-	let turnTiming: RenderItem[] = [];
 	for ( let entryIndex = 0; entryIndex < entries.length; entryIndex += 1 ) {
 		const entry = entries[ entryIndex ];
 		if ( isStudioCustomEntryOfType( entry, 'studio.user_prompt' ) ) {
 			const data = ( entry as StudioCustomEntry< 'studio.user_prompt' > ).data;
 			if ( ! data || data.source !== 'prompt' ) continue;
-			items.push( ...turnTiming );
-			const timing = getTurnTiming( entries, entryIndex, run );
-			turnTiming = timing
-				? [ { kind: 'turn-timing', key: `${ entryIndex }:timing`, ...timing } ]
-				: [];
 			if ( data.visualAnnotations?.length ) {
 				// Each note shows its own images; the first bubble takes the rest.
 				const noteImageIds = new Set(
@@ -413,6 +364,14 @@ export function entriesToRenderItems(
 			continue;
 		}
 
+		if ( isStudioCustomEntryOfType( entry, 'studio.tool_progress' ) ) {
+			const text = ( entry as StudioCustomEntry< 'studio.tool_progress' > ).data?.message?.trim();
+			if ( text ) {
+				items.push( { kind: 'progress', key: `${ entryIndex }:progress`, text } );
+			}
+			continue;
+		}
+
 		if ( isStudioCustomEntryOfType( entry, 'studio.turn_closed' ) ) {
 			const data = ( entry as StudioCustomEntry< 'studio.turn_closed' > ).data;
 			if ( data?.status === 'interrupted' ) {
@@ -430,9 +389,97 @@ export function entriesToRenderItems(
 			continue;
 		}
 	}
-	items.push( ...turnTiming );
 
 	return items;
+}
+
+function getTimestamp( entry: SessionEntry | undefined ): number | null {
+	const timestamp = entry ? Date.parse( entry.timestamp ) : NaN;
+	return Number.isFinite( timestamp ) ? timestamp : null;
+}
+
+function hasToolCall( entry: SessionEntry ): boolean {
+	const message = ( entry as { message?: unknown } ).message as PiAssistantMessageLike | undefined;
+	return (
+		entry.type === 'message' &&
+		message?.role === 'assistant' &&
+		Array.isArray( message.content ) &&
+		message.content.some( ( block ) => block.type === 'toolCall' )
+	);
+}
+
+/**
+ * Folds each turn's tool calls, the progress they report and the text the
+ * agent writes between them into one activity line, placed before the turn's
+ * reply. The reply, questions, images and markers stay in the transcript.
+ */
+export function entriesToTranscriptItems(
+	entries: SessionEntry[],
+	run: { running: boolean; startedAt: number | null } = { running: false, startedAt: null }
+): TranscriptItem[] {
+	const items = entriesToRenderItems( entries );
+	const entryIndexOf = ( item: RenderItem ) => Number.parseInt( item.key, 10 );
+	const turns: Array< [ number, number ] > = [];
+	let turnStart = 0;
+	entries.forEach( ( entry, index ) => {
+		if ( isPromptEntry( entry ) && index > turnStart ) {
+			turns.push( [ turnStart, index ] );
+			turnStart = index;
+		}
+		if ( isStudioCustomEntryOfType( entry, 'studio.turn_closed' ) ) {
+			turns.push( [ turnStart, index + 1 ] );
+			turnStart = index + 1;
+		}
+	} );
+	if ( turnStart < entries.length ) {
+		turns.push( [ turnStart, entries.length ] );
+	}
+
+	return turns.flatMap( ( [ start, end ], turnIndex ) => {
+		const turnEntries = entries.slice( start, end );
+		const turnItems = items.filter(
+			( item ) => entryIndexOf( item ) >= start && entryIndexOf( item ) < end
+		);
+		const prompt = turnEntries.find( isPromptEntry );
+		const closed = turnEntries.find( ( entry ) =>
+			isStudioCustomEntryOfType( entry, 'studio.turn_closed' )
+		) as StudioCustomEntry< 'studio.turn_closed' > | undefined;
+		const running = run.running && turnIndex === turns.length - 1 && ! closed;
+		const lastToolIndex = turnItems.map( ( item ) => item.kind ).lastIndexOf( 'tool-use' );
+		const isDetail = ( item: RenderItem, index: number ) =>
+			item.kind === 'tool-use' ||
+			item.kind === 'progress' ||
+			( item.kind === 'assistant-text' &&
+				( index < lastToolIndex || hasToolCall( entries[ entryIndexOf( item ) ] ) ) );
+		const details = turnItems.filter( isDetail ) as ActivityDetail[];
+		const visible = turnItems.filter(
+			( item, index ) => ! isDetail( item, index )
+		) as TranscriptItem[];
+		if (
+			! details.length &&
+			! running &&
+			( ! prompt || ( ! closed && ! visible.some( ( item ) => item.kind === 'assistant-text' ) ) )
+		) {
+			return visible;
+		}
+		const status = closed?.data?.status;
+		const firstResponse = visible.findIndex( ( item ) => item.kind !== 'user-text' );
+		visible.splice( firstResponse < 0 ? visible.length : firstResponse, 0, {
+			kind: 'activity',
+			key: `${ start }:activity`,
+			items: details,
+			startedAt: ( running ? run.startedAt : null ) ?? getTimestamp( prompt ),
+			endedAt: running ? null : getTimestamp( closed ?? turnEntries[ turnEntries.length - 1 ] ),
+			status: running
+				? 'running'
+				: status === 'interrupted'
+				? 'interrupted'
+				: status === 'error' || status === 'max_turns'
+				? 'error'
+				: 'success',
+		} );
+		return visible;
+	} );
 }
 
 // The running tool's latest progress, while it is the last thing in the transcript.
@@ -459,7 +506,11 @@ function UserTurn( {
 		>
 			{ text ? (
 				<div className={ styles.userTextRow }>
-					<CopyButton className={ styles.userCopy } text={ text } label={ __( 'Copy message' ) } />
+					<CopyButton
+						className={ styles.messageActions }
+						text={ text }
+						label={ __( 'Copy message' ) }
+					/>
 					<div className={ styles.userText }>{ text }</div>
 				</div>
 			) : null }
@@ -507,56 +558,39 @@ function AssistantText( {
 	text,
 	messageText,
 	copyText,
-	showActions,
-	onToggleSelect,
 }: {
 	text: string;
 	messageText: string;
 	copyText?: string;
-	showActions: boolean;
-	onToggleSelect: () => void;
 } ) {
-	const handleClick = ( event: ReactMouseEvent< HTMLDivElement > ) => {
-		// Links and the buttons inside code blocks or the action row own their
-		// clicks; only bare message content toggles the actions.
-		if ( ( event.target as HTMLElement | null )?.closest( 'a, button' ) ) {
-			return;
-		}
-		// A click that ends a text drag is a selection, not a tap.
-		const selection = window.getSelection();
-		if ( selection && ! selection.isCollapsed && selection.toString().trim() ) {
-			return;
-		}
-		onToggleSelect();
-	};
-
 	return (
-		// Clicking the message is a mouse convenience for revealing its actions;
-		// keyboard users reach the same buttons by tabbing to them, which opens
-		// the row via :focus-within. Deliberately no button role — the message
-		// holds links, and nesting them inside a control would be invalid.
 		<div
 			className={ styles.assistantTurn }
-			data-actions-open={ showActions ? 'true' : undefined }
 			{ ...{
 				[ MESSAGE_TEXT_ATTRIBUTE ]: messageText,
 				[ QUOTABLE_TEXT_ATTRIBUTE ]: true,
 			} }
-			onClick={ copyText ? handleClick : undefined }
 		>
 			<div className={ styles.assistantBubble }>
 				<Markdown>{ text }</Markdown>
 			</div>
 			{ copyText ? (
-				<div className={ styles.messageActions }>
-					<div className={ styles.messageActionsClip }>
-						<div className={ styles.messageActionsRow }>
-							<CopyButton text={ copyText } label={ __( 'Copy message' ) } />
-						</div>
-					</div>
-				</div>
+				<CopyButton
+					className={ styles.messageActions }
+					text={ copyText }
+					label={ __( 'Copy message' ) }
+				/>
 			) : null }
 		</div>
+	);
+}
+
+function TraceTrigger( { children, ...props }: ComponentProps< 'button' > ) {
+	return (
+		<button type="button" className={ styles.traceTrigger } { ...props }>
+			{ children }
+			<ChevronRightIcon className={ styles.traceChevron } />
+		</button>
 	);
 }
 
@@ -657,12 +691,12 @@ function ToolUseRow( {
 	name,
 	input,
 	result,
-	running,
+	isRunning,
 }: {
 	name: string;
 	input?: Record< string, unknown >;
 	result?: NormalizedToolResult;
-	running: boolean;
+	isRunning: boolean;
 } ) {
 	const display = getClassicToolDisplay( name, input );
 	const detailsId = useId();
@@ -673,78 +707,48 @@ function ToolUseRow( {
 	const hasExpandableDetails = hasInput || hasOutput || hasDiff;
 	const [ toggledOpen, setToggledOpen ] = useState< boolean | null >( null );
 	const expanded = toggledOpen ?? result?.isError === true;
-	const [ detailsMounted, setDetailsMounted ] = useState( false );
-	useEffect( () => {
-		if ( expanded || ! detailsMounted ) {
-			return;
-		}
-		const timeoutId = window.setTimeout( () => setDetailsMounted( false ), 220 );
-		return () => window.clearTimeout( timeoutId );
-	}, [ detailsMounted, expanded ] );
-	const rowContent = (
-		<>
+	const running = isRunning && ! result;
+	const line = (
+		<span className={ styles.traceLine } data-status={ result?.isError ? 'error' : undefined }>
 			{ result?.isError ? (
-				<CircleAlertIcon className={ styles.toolIcon } />
+				<CircleAlertIcon />
 			) : result ? (
-				<CircleCheckIcon className={ styles.toolIcon } />
+				<CircleCheckIcon />
 			) : running ? (
-				<Spinner aria-hidden="true" className={ styles.toolIcon } />
+				<Spinner aria-hidden="true" />
 			) : (
-				<CircleStopIcon className={ styles.toolIcon } />
+				<CircleStopIcon />
 			) }
-			<span className={ styles.toolLabel }>{ display.label }</span>
-			{ display.detail ? <span className={ styles.toolDetail }>{ display.detail }</span> : null }
-		</>
+			<span className={ clsx( styles.traceTitle, running && 'studio-shimmer' ) }>
+				{ display.detail ? `${ display.label } ${ display.detail }` : display.label }
+			</span>
+		</span>
 	);
 
 	return (
-		<div className={ styles.toolBlock }>
+		<div>
 			{ hasExpandableDetails ? (
-				<button
-					type="button"
-					className={ clsx( styles.toolRow, styles.toolRowButton ) }
-					aria-label={ display.detail ? `${ display.label } ${ display.detail }` : display.label }
+				<TraceTrigger
 					aria-expanded={ expanded }
 					aria-controls={ detailsId }
-					data-expanded={ expanded }
-					onClick={ () => {
-						setDetailsMounted( true );
-						setToggledOpen( ! expanded );
-					} }
-					title={ expanded ? __( 'Hide tool details' ) : __( 'Show tool details' ) }
+					onClick={ () => setToggledOpen( ! expanded ) }
 				>
-					{ rowContent }
-				</button>
+					{ line }
+				</TraceTrigger>
 			) : (
-				<div className={ styles.toolRow }>{ rowContent }</div>
+				line
 			) }
-			{ hasExpandableDetails && ( expanded || detailsMounted ) ? (
-				<div
-					id={ detailsId }
-					className={ styles.toolDetailsShell }
-					data-expanded={ expanded }
-					aria-hidden={ ! expanded }
-					onTransitionEnd={ ( event ) => {
-						if ( event.currentTarget === event.target && ! expanded ) {
-							setDetailsMounted( false );
-						}
-					} }
-				>
-					<div className={ styles.toolDetailsClip }>
-						<div className={ styles.toolOutputWrap }>
-							{ hasInput ? <pre className={ styles.toolInput }>{ display.inputText }</pre> : null }
-							{ hasOutput ? (
-								<pre
-									className={ clsx( styles.toolOutput, result?.isError && styles.toolOutputError ) }
-								>
-									{ resultText }
-								</pre>
-							) : null }
-							{ hasDiff ? <DiffBlock diff={ result!.diff! } /> : null }
-						</div>
-					</div>
+			<CollapsiblePanel open={ hasExpandableDetails && expanded } id={ detailsId }>
+				<div className={ styles.toolOutputWrap }>
+					{ hasInput ? <pre className={ styles.toolInput }>{ display.inputText }</pre> : null }
+					{ hasOutput ? (
+						<pre className={ clsx( styles.toolOutput, result?.isError && styles.toolOutputError ) }>
+							{ resultText }
+						</pre>
+					) : null }
+					{ hasDiff ? <DiffBlock diff={ result!.diff! } /> : null }
 				</div>
-			) : null }
+			</CollapsiblePanel>
 		</div>
 	);
 }
@@ -1439,20 +1443,19 @@ function AgentQuestionBatch( {
 	);
 }
 
-function TurnTiming( {
-	startedAt,
-	endedAt,
-	status,
+function TurnActivityLine( {
+	activity: { items, startedAt, endedAt, status },
 	waitingOnUser,
 	progressMessage,
 }: {
-	startedAt: number;
-	endedAt: number | null;
-	status: TurnStatus;
+	activity: TurnActivity;
 	waitingOnUser: boolean;
 	progressMessage: string | null;
 } ) {
 	const running = status === 'running';
+	const detailsId = useId();
+	const [ open, setOpen ] = useState( false );
+	const [ hasOpened, setHasOpened ] = useState( false );
 	const [ now, setNow ] = useState( Date.now );
 	useEffect( () => {
 		if ( ! running ) {
@@ -1462,27 +1465,85 @@ function TurnTiming( {
 		const timer = window.setInterval( () => setNow( Date.now() ), 1000 );
 		return () => window.clearInterval( timer );
 	}, [ running ] );
-	const seconds = Math.max( 0, Math.floor( ( ( endedAt ?? now ) - startedAt ) / 1000 ) );
-	const label = {
-		/* translators: %d: number of seconds. */
-		running: __( 'Working for %ds' ),
-		/* translators: %d: number of seconds. */
-		success: __( 'Worked for %ds' ),
-		/* translators: %d: number of seconds. */
-		interrupted: __( 'Stopped after %ds' ),
-		/* translators: %d: number of seconds. */
-		error: __( 'Failed after %ds' ),
-	}[ status ];
-	return (
-		<div className={ styles.turnTiming } data-status={ status }>
-			<span className={ styles.turnTimingHead }>
-				{ running && ! waitingOnUser ? (
-					<AgentWorkingIndicator className={ styles.turnTimingIndicator } label={ null } ambient />
-				) : null }
-				{ sprintf( label, seconds ) }
+	const end = running ? now : endedAt;
+	const seconds =
+		startedAt === null || end === null
+			? null
+			: Math.max( 0, Math.floor( ( end - startedAt ) / 1000 ) );
+	const label =
+		seconds === null && status !== 'running'
+			? { success: __( 'Worked' ), interrupted: __( 'Stopped' ), error: __( 'Failed' ) }[ status ]
+			: sprintf(
+					{
+						/* translators: %d: number of seconds. */
+						running: __( 'Working for %ds' ),
+						/* translators: %d: number of seconds. */
+						success: __( 'Worked for %ds' ),
+						/* translators: %d: number of seconds. */
+						interrupted: __( 'Stopped after %ds' ),
+						/* translators: %d: number of seconds. */
+						error: __( 'Failed after %ds' ),
+					}[ status ],
+					seconds ?? 0
+			  );
+	const line = (
+		<span className={ styles.traceLine } data-status={ status === 'error' ? 'error' : undefined }>
+			<span className={ clsx( styles.traceTitle, running && ! waitingOnUser && 'studio-shimmer' ) }>
+				{ label }
 			</span>
+		</span>
+	);
+
+	return (
+		<div className={ styles.activity }>
+			{ items.length ? (
+				<>
+					<TraceTrigger
+						aria-expanded={ open }
+						aria-controls={ detailsId }
+						onClick={ () => {
+							setOpen( ! open );
+							setHasOpened( true );
+						} }
+					>
+						{ line }
+					</TraceTrigger>
+					<CollapsiblePanel open={ open } keepMounted id={ detailsId }>
+						<div className={ styles.activityItems }>
+							{ hasOpened
+								? items.map( ( item ) =>
+										item.kind === 'tool-use' ? (
+											<ToolUseRow
+												key={ item.key }
+												name={ item.name }
+												input={ item.input }
+												result={ item.result }
+												isRunning={ running }
+											/>
+										) : (
+											<div
+												key={ item.key }
+												className={ styles.activityText }
+												{ ...( item.kind === 'assistant-text'
+													? {
+															[ MESSAGE_TEXT_ATTRIBUTE ]: item.messageText,
+															[ QUOTABLE_TEXT_ATTRIBUTE ]: true,
+													  }
+													: {} ) }
+											>
+												<Markdown>{ item.text }</Markdown>
+											</div>
+										)
+								  )
+								: null }
+						</div>
+					</CollapsiblePanel>
+				</>
+			) : (
+				line
+			) }
 			{ running && progressMessage ? (
-				<span className={ styles.turnTimingProgress }>{ progressMessage }</span>
+				<span className={ styles.activityProgress }>{ progressMessage }</span>
 			) : null }
 		</div>
 	);
@@ -1543,34 +1604,10 @@ export function Conversation( {
 } ) {
 	const entries = data.entries;
 	const items = useMemo(
-		() => entriesToRenderItems( entries, { running: isRunning, startedAt } ),
+		() => entriesToTranscriptItems( entries, { running: isRunning, startedAt } ),
 		[ entries, isRunning, startedAt ]
 	);
 	const progressMessage = useMemo( () => getProgressMessage( entries ), [ entries ] );
-
-	// One selected message at a time, so picking a new one closes the last.
-	const [ selectedKey, setSelectedKey ] = useState< string | null >( null );
-	const sessionId = data.summary.id;
-	useEffect( () => {
-		setSelectedKey( null );
-	}, [ sessionId ] );
-
-	// The newest reply keeps its actions open, so copying the answer you just
-	// got never depends on discovering that messages can be clicked. Held back
-	// until the turn settles — mid-run the last text block keeps moving as new
-	// blocks stream in, and the row would hop down the transcript with it.
-	const latestActionableKey = useMemo( () => {
-		if ( isRunning ) {
-			return null;
-		}
-		for ( let index = items.length - 1; index >= 0; index -= 1 ) {
-			const item = items[ index ];
-			if ( item.kind === 'assistant-text' && item.copyText ) {
-				return item.key;
-			}
-		}
-		return null;
-	}, [ isRunning, items ] );
 
 	return (
 		<div className={ styles.root }>
@@ -1592,20 +1629,6 @@ export function Conversation( {
 								text={ item.text }
 								messageText={ item.messageText }
 								copyText={ item.copyText }
-								showActions={ selectedKey === item.key || item.key === latestActionableKey }
-								onToggleSelect={ () =>
-									setSelectedKey( ( current ) => ( current === item.key ? null : item.key ) )
-								}
-							/>
-						);
-					case 'tool-use':
-						return (
-							<ToolUseRow
-								key={ item.key }
-								name={ item.name }
-								input={ item.input }
-								result={ item.result }
-								running={ isRunning }
 							/>
 						);
 					case 'agent-question-batch':
@@ -1622,13 +1645,11 @@ export function Conversation( {
 						);
 					case 'chat-artifact':
 						return <ChatArtifact key={ item.key } widgets={ item.widgets } />;
-					case 'turn-timing':
+					case 'activity':
 						return (
-							<TurnTiming
+							<TurnActivityLine
 								key={ item.key }
-								startedAt={ item.startedAt }
-								endedAt={ item.endedAt }
-								status={ item.status }
+								activity={ item }
 								waitingOnUser={ pendingQuestions.size > 0 }
 								progressMessage={ progressMessage }
 							/>

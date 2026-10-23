@@ -32,6 +32,7 @@
    own, anchored to the main-side edge, so it slides out rather than squeezing
    its rows. */
 .sidebarFrame {
+	position: relative;
 	display: flex;
 	justify-content: flex-end;
 	flex-shrink: 0;
@@ -40,11 +41,12 @@
 	transition: width var(--motion-duration-layout) var(--motion-ease-layout);
 }
 
-/* While dragging the handle the width updates every frame; the collapse
-   transition above would animate toward each step and lag behind the cursor.
+/* While dragging or arrow-keying the handle the width updates every step; the
+   collapse transition above would animate toward each step and lag behind.
    Drop it for the duration of the drag (mirrors `.rootPreviewResizing` in
    preview-split-frame). */
-.sidebarResizing {
+.sidebarResizing,
+.root:has(> .resizeHandle:focus-visible) .sidebarFrame {
 	transition: none;
 }
 
@@ -64,6 +66,19 @@
 
 .sidebarFooter > * {
 	pointer-events: auto;
+}
+
+/* The sidebar's edge below the band, in its own last column. It slides out
+   with the frame, which clips it once collapsed. */
+.sidebarFrame:not(.sidebarOverlay)::after {
+	content: '';
+	position: absolute;
+	top: var(--band-height);
+	bottom: 0;
+	inset-inline-end: 0;
+	width: 1px;
+	background-color: var(--border);
+	pointer-events: none;
 }
 
 .sidebarCollapsed {
@@ -104,16 +119,20 @@
 	isolation: isolate;
 }
 
-/* Above the panels so the sidebar's edge reads across them. */
-.main::before,
-.main::after {
+/* Above the panels so the band's separator reads across them. */
+.main::before {
 	z-index: 30;
+	transition: opacity var(--motion-duration-layout) var(--motion-ease-layout);
+}
+
+.mainUndocked::before {
+	opacity: 0;
 }
 
 /* The negative margin cancels the handle's width so it adds no space to the
    flex row — the main content butts straight against the sidebar's border and
    the hit area overlays main's sidebar-side edge. position/z-index lift it
-   above main (a later flex sibling) so the indicator sits on the border. */
+   above main (a later flex sibling) so its focus line sits on the border. */
 .resizeHandle {
 	position: relative;
 	z-index: 20;
@@ -123,8 +142,15 @@
 }
 
 .resizeHandle span {
-	margin-inline-start: -2px;
-	background-color: var(--accent-text);
+	margin-block-start: var(--band-height);
+}
+
+/* Hovering or dragging the handle darkens the column edge. */
+.root:has(> .resizeHandle:hover) .sidebarFrame::after,
+.resizeHandle:hover + .main::before,
+.sidebarResizing::after,
+.sidebarResizing ~ .main::before {
+	background-color: color-mix(in oklab, var(--foreground) 15%, transparent);
 }
 
 .sidebarCards {

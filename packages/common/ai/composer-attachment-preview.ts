@@ -1,18 +1,8 @@
 import { toImageDataUrl } from './chat-images';
 import type { ComposerAttachment } from './composer-attachments';
 
-export const COMPOSER_ATTACHMENT_HOVER_PREVIEW_WIDTH = 285;
-export const COMPOSER_ATTACHMENT_HOVER_PREVIEW_COMPACT_WIDTH = 220;
-const COMPOSER_ATTACHMENT_HOVER_PREVIEW_MARGIN = 8;
 const COMPOSER_ATTACHMENT_HOVER_TEXT_SCROLL_SPEED_PX_PER_SECOND = 12;
 const COMPOSER_ATTACHMENT_HOVER_TEXT_SCROLL_HOLD_MS = 700;
-
-export interface ComposerAttachmentHoverPreviewState {
-	id: string;
-	left: number;
-	bottom: number;
-	width: number;
-}
 
 export function formatComposerAttachmentSize( bytes: number ): string {
 	if ( ! bytes ) {
@@ -65,25 +55,6 @@ export function hasComposerAttachmentVisualPreview( attachment: ComposerAttachme
 		return true;
 	}
 	return attachment.preview?.kind === 'image' || attachment.preview?.kind === 'text';
-}
-
-export function getComposerAttachmentHoverPreviewPosition(
-	element: HTMLElement,
-	attachment: ComposerAttachment
-): Omit< ComposerAttachmentHoverPreviewState, 'id' > {
-	const width = hasComposerAttachmentVisualPreview( attachment )
-		? COMPOSER_ATTACHMENT_HOVER_PREVIEW_WIDTH
-		: COMPOSER_ATTACHMENT_HOVER_PREVIEW_COMPACT_WIDTH;
-	const rect = element.getBoundingClientRect();
-	const maxLeft = Math.max(
-		COMPOSER_ATTACHMENT_HOVER_PREVIEW_MARGIN,
-		window.innerWidth - width - COMPOSER_ATTACHMENT_HOVER_PREVIEW_MARGIN
-	);
-	return {
-		left: Math.min( Math.max( rect.left, COMPOSER_ATTACHMENT_HOVER_PREVIEW_MARGIN ), maxLeft ),
-		bottom: window.innerHeight - rect.top + COMPOSER_ATTACHMENT_HOVER_PREVIEW_MARGIN,
-		width,
-	};
 }
 
 export function watchComposerAttachmentTextScroll(

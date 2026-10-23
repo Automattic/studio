@@ -1,46 +1,56 @@
+/* A little wider than the composer below it, as in the chat's 12px inset. */
 .root {
 	display: flex;
 	flex-direction: column;
-	gap: 2px;
-	margin: 0 0 8px;
-	padding: 6px;
-	list-style: none;
 	max-height: 160px;
+	margin: 0 -2px 14px;
+	padding: 8px;
 	overflow-y: auto;
 	border: 1px solid var(--border);
 	border-radius: var(--radius-xl);
 	background-color: var(--background);
+	list-style: none;
 }
 
 .item {
 	display: flex;
-	align-items: center;
+	flex-direction: column;
 	gap: 4px;
-	padding: 2px 2px 2px 8px;
+	min-width: 0;
+	padding: 4px 8px;
 	border-radius: var(--radius-md);
 	font-size: var(--text-sm);
+	line-height: 20px;
 }
 
-.body {
+.row {
 	display: flex;
-	flex: 1;
-	flex-direction: column;
-	min-width: 0;
+	gap: 8px;
+	align-items: center;
 }
 
-.text,
-.attachments {
+.text {
+	flex: 1;
+	min-width: 0;
 	overflow: hidden;
+	color: var(--muted-foreground);
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
 
-.text {
-	color: var(--muted-foreground);
+.actions {
+	display: flex;
+	gap: 4px;
+	opacity: 0;
+	transition: opacity var(--motion-duration-feedback) ease;
 }
 
-.attachments {
-	font-size: var(--text-xs);
-	color: var(--muted-foreground);
-	opacity: 0.8;
+.item:is(:hover, :focus-within) .actions {
+	opacity: 1;
+}
+
+@media (hover: none) {
+	.actions {
+		opacity: 1;
+	}
 }

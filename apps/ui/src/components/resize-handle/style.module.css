@@ -10,19 +10,13 @@
 	-webkit-app-region: no-drag;
 }
 
-/* Thin full-height line that lights up the panel border on hover/drag. */
+/* Paints the column edge when the handle has keyboard focus. */
 .resizeHandleIndicator {
-	width: 2px;
-	align-self: stretch;
-	background-color: var(--accent);
-	opacity: 0;
-	transition: opacity 120ms ease;
+	width: 1px;
 }
 
-.resizeHandle:hover .resizeHandleIndicator,
-.resizeHandle:focus-visible .resizeHandleIndicator,
-.resizing .resizeHandleIndicator {
-	opacity: 1;
+.resizeHandle:focus-visible .resizeHandleIndicator {
+	background-color: var(--ring);
 }
 
 .resizeOverlay {

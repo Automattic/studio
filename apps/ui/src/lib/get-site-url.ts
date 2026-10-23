@@ -14,9 +14,3 @@ export function getSiteUrl( site: SiteDetails ): string {
 	}
 	return `http://localhost:${ site.port }`;
 }
-
-export function getSiteDisplayUrl( site: SiteDetails ): string {
-	return getSiteUrl( site )
-		.replace( /^https?:\/\//, '' )
-		.replace( /\/$/, '' );
-}

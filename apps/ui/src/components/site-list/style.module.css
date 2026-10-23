@@ -41,15 +41,6 @@
 	border-radius: 6px;
 }
 
-.siteDropPlaceholder {
-	block-size: var(--site-list-row-height);
-	border-radius: 6px;
-	background-color: var(--sidebar-row-background);
-	box-shadow: inset 0 0 0 1px
-		color-mix(in srgb, var(--accent) 45%, transparent);
-	transition: background-color 120ms ease, box-shadow 120ms ease;
-}
-
 .siteDragPreview {
 	opacity: 0.95;
 	filter: drop-shadow(0 6px 14px rgb(0 0 0 / 14%));
@@ -242,15 +233,13 @@
 }
 
 .siteName {
+	--shimmer-highlight: var(--muted-foreground);
+
 	color: var(--foreground);
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
 	max-width: 100%;
-}
-
-.siteNameStarting {
-	animation: siteNameStartingPulse 1s ease-in-out infinite;
 }
 
 /* A row's 32px actions, pinned inside its trailing edge. They show on hover,
@@ -285,16 +274,6 @@
 	padding-inline-end: calc(2 * var(--site-list-action-size) + var(--site-list-row-padding));
 }
 
-@keyframes siteNameStartingPulse {
-	0%,
-	100% {
-		color: var(--foreground);
-	}
-	50% {
-		color: var(--muted-foreground);
-	}
-}
-
 @keyframes siteAgentSyncHalfTurn {
 	0%,
 	38% {
@@ -327,7 +306,6 @@
 
 @media (prefers-reduced-motion: reduce) {
 	.siteAgentActivitySlot,
-	.siteNameStarting,
 	.siteAgentActivitySyncDot,
 	.siteAgentActivitySyncDots,
 	.skeleton {
@@ -505,6 +483,7 @@
 	inset-inline-end: 2px;
 	display: flex;
 	opacity: 0;
+	transition: opacity var(--motion-duration-surface) var(--motion-ease-enter);
 }
 
 .chatRow:hover .chatActions,
@@ -522,16 +501,14 @@
 }
 
 .chatTitle {
+	--shimmer-highlight: var(--muted-foreground);
+
 	flex: 1 1 auto;
 	min-width: 0;
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
 	text-align: start;
-}
-
-.chatActivity {
-	flex-shrink: 0;
 }
 
 /* Sits in the archive button's slot, which takes over on hover. */

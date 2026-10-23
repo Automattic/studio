@@ -35,7 +35,7 @@ export function getUnsupportedWpCliPostContentMessage( args: string[] ): string 
 
 /**
  * `post create` / `post update` with `--post_content=<file>`, where the value
- * is the path of a file (absolute or relative to the site): the same command
+ * is the path of a file in the site folder (absolute or relative to it): the same command
  * with the file as the positional argument WP-CLI reads content from, so the
  * post gets the file's content rather than its path. Unquoted content runs to
  * the end of the command, so flags after the path (`--porcelain`) are split
@@ -58,8 +58,18 @@ export function routePostContentFile(
 	if ( ! file || file.includes( '<' ) || flags.some( ( flag ) => ! flag.startsWith( '--' ) ) ) {
 		return undefined;
 	}
-	const filePath = path.resolve( sitePath ?? '', file );
-	if ( ! existsSync( filePath ) || ! statSync( filePath ).isFile() ) {
+	if ( ! sitePath ) {
+		return undefined;
+	}
+	// Only files in the site folder, which WP-CLI reads from inside the site.
+	const filePath = path.resolve( sitePath, file );
+	const relative = path.relative( sitePath, filePath );
+	if (
+		relative.startsWith( '..' ) ||
+		path.isAbsolute( relative ) ||
+		! existsSync( filePath ) ||
+		! statSync( filePath ).isFile()
+	) {
 		return undefined;
 	}
 	return {

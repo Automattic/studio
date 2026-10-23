@@ -85,4 +85,17 @@ describe( 'routePostContentFile', () => {
 			)
 		).toBeUndefined();
 	} );
+
+	it( 'leaves a file outside the site folder alone', () => {
+		const outside = mkdtempSync( path.join( os.tmpdir(), 'post-content-outside-' ) );
+		writeFileSync( path.join( outside, 'notes.html' ), 'x' );
+		for ( const file of [
+			path.join( outside, 'notes.html' ),
+			`../${ path.basename( outside ) }/notes.html`,
+		] ) {
+			expect(
+				routePostContentFile( [ 'post', 'create', `--post_content=${ file }` ], sitePath )
+			).toBeUndefined();
+		}
+	} );
 } );

@@ -69,10 +69,6 @@ environment.
 - To answer "does plan X include feature Y?" or "what do I need for Y?", check the
   per-plan `features` list from Step 1. Each feature has a `title`, a `tooltip` (use
   it to explain), and a `group`. Name the plans whose `features` include it.
-- Answer what the user asked, without recommending a plan, suggesting an upgrade, or
-  bringing up paid plans they didn't ask about. When their site's plan lacks a
-  feature, say so and link to https://wordpress.com/pricing, which lists what each
-  plan includes.
 
 ### Phrasing
 

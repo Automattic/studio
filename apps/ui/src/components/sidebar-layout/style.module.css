@@ -32,6 +32,7 @@
    own, anchored to the main-side edge, so it slides out rather than squeezing
    its rows. */
 .sidebarFrame {
+	position: relative;
 	display: flex;
 	justify-content: flex-end;
 	flex-shrink: 0;
@@ -59,6 +60,19 @@
 	z-index: 1;
 	background-color: var(--studio-sidebar-bg);
 	-webkit-app-region: no-drag;
+}
+
+/* The sidebar's edge below the band, in its own last column. It slides out
+   with the frame, which clips it once collapsed. */
+.sidebarFrame:not(.sidebarOverlay)::after {
+	content: '';
+	position: absolute;
+	top: var(--band-height);
+	bottom: 0;
+	inset-inline-end: 0;
+	width: 1px;
+	background-color: var(--border);
+	pointer-events: none;
 }
 
 .sidebarCollapsed {
@@ -99,23 +113,14 @@
 	isolation: isolate;
 }
 
-/* Above the panels so the sidebar's edge reads across them. */
-.main::before,
-.main::after {
-	z-index: 30;
-}
-
+/* Above the panels so the band's separator reads across them. */
 .main::before {
+	z-index: 30;
 	transition: opacity var(--motion-duration-layout) var(--motion-ease-layout);
 }
 
 .mainUndocked::before {
 	opacity: 0;
-}
-
-.mainUndocked::after {
-	visibility: hidden;
-	transition: visibility 0s var(--motion-duration-layout);
 }
 
 /* The negative margin cancels the handle's width so it adds no space to the
@@ -135,10 +140,10 @@
 }
 
 /* Hovering or dragging the handle darkens the column edge. */
+.root:has(> .resizeHandle:hover) .sidebarFrame::after,
 .resizeHandle:hover + .main::before,
-.resizeHandle:hover + .main::after,
-.sidebarResizing ~ .main::before,
-.sidebarResizing ~ .main::after {
+.sidebarResizing::after,
+.sidebarResizing ~ .main::before {
 	background-color: color-mix(in oklab, var(--foreground) 15%, transparent);
 }
 

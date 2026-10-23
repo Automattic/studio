@@ -79,10 +79,6 @@ vi.mock( '@/components/stopped-site-preview', () => ( {
 	StoppedSitePreview: () => <div data-testid="stopped-site-preview" />,
 } ) );
 
-vi.mock( '@/components/preview-toggle-button', () => ( {
-	PreviewToggleButton: () => null,
-} ) );
-
 vi.mock( '@/data/queries/use-assistant-quota', () => ( {
 	useStudioAssistantQuota: vi.fn(),
 } ) );
@@ -183,7 +179,9 @@ vi.mock( './conversation', () => ( {
 	),
 } ) );
 
-vi.mock( '@/components/chat-actions', () => ( { OpenChatShortcuts: () => null } ) );
+vi.mock( '@/components/chat-actions', () => ( {
+	ChatContextMenu: ( { children }: { children: React.ReactNode } ) => children,
+} ) );
 vi.mock( '@/hooks/use-mark-chat-read', () => ( { useMarkChatRead: vi.fn() } ) );
 
 const useSessionMock = vi.mocked( useSession, { partial: true } );

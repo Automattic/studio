@@ -15,7 +15,7 @@ test.describe( 'Import / Export', () => {
 	} );
 
 	test.afterEach( async ( { page: _page }, testInfo ) => {
-		await session.reportMainProcessLogsOnFailure( testInfo );
+		await session.reportFailure( testInfo );
 	} );
 
 	test.afterAll( async () => {
@@ -44,7 +44,7 @@ test.describe( 'Export / Import round trip', () => {
 	} );
 
 	test.afterEach( async ( { page: _page }, testInfo ) => {
-		await session.reportMainProcessLogsOnFailure( testInfo );
+		await session.reportFailure( testInfo );
 	} );
 
 	test.afterAll( async () => {

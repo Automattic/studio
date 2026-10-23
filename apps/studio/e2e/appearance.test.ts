@@ -13,7 +13,7 @@ test.describe( 'Appearance', () => {
 	} );
 
 	test.afterEach( async ( { page: _page }, testInfo ) => {
-		await session.reportMainProcessLogsOnFailure( testInfo );
+		await session.reportFailure( testInfo );
 	} );
 
 	test.afterAll( async () => {

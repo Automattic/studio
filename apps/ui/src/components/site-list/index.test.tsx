@@ -921,6 +921,24 @@ describe( 'SiteList', () => {
 		).not.toBeInTheDocument();
 	} );
 
+	it( 'shimmers the title of a chat whose agent is working', () => {
+		useSiteAgentActivityMock.mockReturnValue( 'working' );
+		paramsMock = { siteId: 'stopped-site' };
+		pathnameMock = '/sites/stopped-site/new';
+		useSessionsMock.mockReturnValue( {
+			data: createChats( '/Users/example/Studio/stopped-site', 1 ),
+			isLoading: false,
+		} );
+
+		render( <SiteList sections /> );
+
+		const titles = screen.getAllByText( 'Chat 1' );
+		expect( titles[ 0 ] ).toHaveClass( 'studio-shimmer' );
+		expect( screen.getAllByRole( 'button', { name: 'Working… Chat 1' } ) ).toHaveLength(
+			titles.length
+		);
+	} );
+
 	it( 'marks an unread chat until it is open', () => {
 		useSessionsMock.mockReturnValue( {
 			data: [

@@ -234,15 +234,13 @@
 }
 
 .siteName {
+	--shimmer-highlight: var(--muted-foreground);
+
 	color: var(--foreground);
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
 	max-width: 100%;
-}
-
-.siteNameStarting {
-	animation: siteNameStartingPulse 1s ease-in-out infinite;
 }
 
 /* A row's 32px actions, pinned inside its trailing edge. They show on hover,
@@ -271,16 +269,6 @@
 .siteHeader:has(:focus-visible),
 .siteHeader[data-popup-open] {
 	padding-inline-end: calc(2 * var(--site-list-action-size) + var(--site-list-row-padding));
-}
-
-@keyframes siteNameStartingPulse {
-	0%,
-	100% {
-		color: var(--foreground);
-	}
-	50% {
-		color: var(--muted-foreground);
-	}
 }
 
 @keyframes siteAgentSyncHalfTurn {
@@ -315,7 +303,6 @@
 
 @media (prefers-reduced-motion: reduce) {
 	.siteAgentActivitySlot,
-	.siteNameStarting,
 	.siteAgentActivitySyncDot,
 	.siteAgentActivitySyncDots {
 		animation: none;
@@ -477,16 +464,14 @@
 }
 
 .chatTitle {
+	--shimmer-highlight: var(--muted-foreground);
+
 	flex: 1 1 auto;
 	min-width: 0;
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
 	text-align: start;
-}
-
-.chatActivity {
-	flex-shrink: 0;
 }
 
 /* Sits in the archive button's slot, which takes over on hover. */

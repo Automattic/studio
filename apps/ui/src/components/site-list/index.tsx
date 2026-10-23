@@ -29,6 +29,7 @@ import { CollapsiblePanel } from '@/components/ui/collapsible';
 import * as Menu from '@/components/ui/menu';
 import { Spinner } from '@/components/ui/spinner';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { VisuallyHidden } from '@/components/ui/visually-hidden';
 import { XdebugIcon } from '@/components/xdebug-icon';
 import {
 	useSessionsNeedingInput,
@@ -333,10 +334,10 @@ function ChatRow( {
 			} }
 		>
 			{ nested ? null : <ChatIcon className={ styles.rowIcon } /> }
-			<span className={ styles.chatTitle }>{ title }</span>
-			{ actions.working ? (
-				<AgentWorkingIndicator className={ styles.chatActivity } label={ __( 'Working…' ) } />
-			) : null }
+			{ actions.working ? <VisuallyHidden>{ __( 'Working…' ) }</VisuallyHidden> : null }
+			<span className={ clsx( styles.chatTitle, actions.working && 'studio-shimmer' ) }>
+				{ title }
+			</span>
 			{ needsInput ? (
 				<Badge
 					variant="accent"
@@ -688,7 +689,7 @@ function SiteSection( {
 								<span
 									className={ clsx(
 										styles.siteName,
-										status === 'transitioning' && styles.siteNameStarting
+										status === 'transitioning' && 'studio-shimmer'
 									) }
 								>
 									{ site.name }

@@ -1,44 +1,42 @@
-import { describeSavedCopies, readSavedCopies } from 'cli/ai/saved-copies';
-import { readOptions, readSiteDatabase, type SiteDatabase } from 'cli/ai/site-database';
+import { activePluginsFact, comingSoonFact } from 'cli/ai/plugins';
+import { savedCopiesFact } from 'cli/ai/saved-copies';
+import { readWordPressSite, type WordPressSite } from 'cli/ai/site-database';
+import { activeThemeFact } from 'cli/ai/themes';
 import { describeWpcomSiteCapabilities, getWpcomSiteCapabilities } from 'cli/ai/wpcom-capabilities';
 import { getWordPressVersionFromInstallation } from 'cli/lib/dependency-management/wordpress';
 import type { SiteInfo } from 'cli/ai/types';
 
-// WooCommerce's Coming soon mode, read from the options WooCommerce reads
-// (src/Internal/ComingSoon/ComingSoonHelper.php). Logged-out visitors, and so
-// screenshots and fetches of the site, get the Coming soon page.
-function describeComingSoon( db: SiteDatabase, prefix: string ): string | undefined {
-	const options = readOptions( db, prefix, [
-		'active_plugins',
-		'woocommerce_coming_soon',
-		'woocommerce_store_pages_only',
-	] );
-	if (
-		options.woocommerce_coming_soon !== 'yes' ||
-		! options.active_plugins?.includes( '"woocommerce/woocommerce.php"' )
-	) {
-		return undefined;
-	}
-	const pages = options.woocommerce_store_pages_only === 'yes' ? 'its store pages' : 'the site';
-	return `WooCommerce's Coming soon mode is on (woocommerce_coming_soon): visitors who are not logged in, including screenshots, get a Coming soon page instead of ${ pages }.`;
+// Facts about a local site, read from its own files and database, one line
+// each. They are what the agent would otherwise look up before acting, stated
+// in the Active site section and in tool results (result-notes.ts), the same
+// for Studio Code and MCP agents.
+//
+// A fact is a function of the site, owned by the module that knows that part
+// of WordPress; it returns undefined when it has nothing to state. Add one by
+// adding it here, in the order the facts read.
+export type SiteFact = (
+	site: WordPressSite
+) => string | undefined | Promise< string | undefined >;
+
+async function wordPressVersionFact( site: WordPressSite ): Promise< string | undefined > {
+	const version = await getWordPressVersionFromInstallation( site.root );
+	return version ? `WordPress ${ version }.` : undefined;
 }
 
-/**
- * Facts about the local site at `sitePath`, one line each, read from its own
- * files and database: the WordPress version it runs, the copies saved in the
- * Site Editor that WordPress renders instead of theme files, and whether
- * visitors see a Coming soon page.
- */
-export async function readSiteFacts( sitePath: string ): Promise< string[] > {
-	const [ version, fromDatabase ] = await Promise.all( [
-		getWordPressVersionFromInstallation( sitePath ),
-		readSiteDatabase( sitePath, ( db, prefix ) => [
-			describeSavedCopies( readSavedCopies( db, prefix ) ),
-			describeComingSoon( db, prefix ),
-		] ),
-	] );
-	return [ version && `WordPress ${ version }.`, ...( fromDatabase ?? [] ) ].filter(
-		( fact ): fact is string => Boolean( fact )
+const SITE_FACTS: SiteFact[] = [
+	wordPressVersionFact,
+	activeThemeFact,
+	activePluginsFact,
+	savedCopiesFact,
+	comingSoonFact,
+];
+
+/** The facts about the local site at `sitePath`. */
+export function readSiteFacts( sitePath: string ): Promise< string[] > {
+	return readWordPressSite( sitePath, async ( site ) =>
+		( await Promise.all( SITE_FACTS.map( ( fact ) => fact( site ) ) ) ).filter(
+			( fact ): fact is string => Boolean( fact )
+		)
 	);
 }
 

@@ -13,6 +13,17 @@ function createSite( prefix: string ) {
 	writeFileSync( path.join( root, 'wp-includes/version.php' ), "<?php\n$wp_version = '7.1.3';\n" );
 	writeFileSync( path.join( root, 'wp-config.php' ), `<?php\n$table_prefix = '${ prefix }';\n` );
 	mkdirSync( path.join( root, 'wp-content/database' ), { recursive: true } );
+	for ( const [ theme, header ] of [
+		[ 'bakery', 'Description: A child theme of bakery-parent, scaffolded by Studio Code.' ],
+		[ 'bakery-parent', 'Theme Name: Bakery Parent' ],
+		[ 'twentytwentyfive', 'Theme Name: Twenty Twenty-Five' ],
+	] ) {
+		mkdirSync( path.join( root, 'wp-content/themes', theme ), { recursive: true } );
+		writeFileSync(
+			path.join( root, 'wp-content/themes', theme, 'style.css' ),
+			`/*\n${ header }\n*/`
+		);
+	}
 	const db = new DatabaseSync( path.join( root, 'wp-content/database/.ht.sqlite' ) );
 	db.exec( `
 		CREATE TABLE ${ prefix }posts ( ID INTEGER PRIMARY KEY, post_type TEXT, post_status TEXT, post_name TEXT, post_content TEXT, post_date TEXT );
@@ -20,7 +31,9 @@ function createSite( prefix: string ) {
 		CREATE TABLE ${ prefix }term_taxonomy ( term_taxonomy_id INTEGER PRIMARY KEY, term_id INTEGER, taxonomy TEXT );
 		CREATE TABLE ${ prefix }term_relationships ( object_id INTEGER, term_taxonomy_id INTEGER );
 		CREATE TABLE ${ prefix }options ( option_name TEXT PRIMARY KEY, option_value TEXT );
+		INSERT INTO ${ prefix }options VALUES ( 'active_plugins', 'a:0:{}' );
 		INSERT INTO ${ prefix }options VALUES ( 'stylesheet', 'bakery' ), ( 'template', 'bakery-parent' );
+		INSERT INTO ${ prefix }options VALUES ( '_site_transient_update_themes', 'O:8:"stdClass":3:{s:7:"checked";a:2:{s:13:"bakery-parent";s:3:"1.0";s:16:"twentytwentyfive";s:3:"1.5";}s:8:"response";a:0:{}s:9:"no_update";a:2:{s:13:"bakery-parent";a:2:{s:5:"theme";s:13:"bakery-parent";s:11:"new_version";s:3:"1.0";}s:16:"twentytwentyfive";a:2:{s:5:"theme";s:16:"twentytwentyfive";s:11:"new_version";s:3:"1.5";}}}' );
 		INSERT INTO ${ prefix }terms VALUES ( 1, 'bakery' ), ( 2, 'other-theme' );
 		INSERT INTO ${ prefix }term_taxonomy VALUES ( 1, 1, 'wp_theme' ), ( 2, 2, 'wp_theme' );
 	` );
@@ -50,7 +63,32 @@ function createSite( prefix: string ) {
 	return { root, save, setOptions, facts };
 }
 
-const WOOCOMMERCE_ACTIVE = { active_plugins: 'a:1:{i:0;s:27:"woocommerce/woocommerce.php";}' };
+const WOOCOMMERCE_ACTIVE = {
+	active_plugins: 'a:2:{i:0;s:27:"woocommerce/woocommerce.php";i:1;s:9:"hello.php";}',
+};
+const BASE = [
+	'WordPress 7.1.3.',
+	'Active theme: bakery; a child theme of bakery-parent, which WordPress updates.',
+	'Active plugins: none.',
+];
+const COMING_SOON = ( pages: string ) =>
+	`WooCommerce's Coming soon mode is on (woocommerce_coming_soon): visitors who are not logged in, including screenshots, get a Coming soon page instead of ${ pages }.`;
+
+it( 'states the WordPress version, the active theme and whether WordPress updates it, and the active plugins', async () => {
+	const site = createSite( 'wp_' );
+	expect( await site.facts() ).toEqual( BASE );
+
+	site.setOptions( {
+		...WOOCOMMERCE_ACTIVE,
+		stylesheet: 'twentytwentyfive',
+		template: 'twentytwentyfive',
+	} );
+	expect( await site.facts() ).toEqual( [
+		'WordPress 7.1.3.',
+		'Active theme: twentytwentyfive, which WordPress updates.',
+		'Active plugins: woocommerce/woocommerce.php, hello.php.',
+	] );
+} );
 
 // Imported sites can name their tables with a prefix other than wp_.
 it.each( [ 'wp_', 'site2_' ] )(
@@ -61,7 +99,7 @@ it.each( [ 'wp_', 'site2_' ] )(
 		site.save( 11, 'wp_template_part', 'header', '', 2 );
 		site.save( 12, 'wp_template_part', 'header', '', 1, 'draft' );
 		site.save( 13, 'wp_global_styles', 'wp-global-styles-bakery', '{"version":3,"styles":{}}' );
-		expect( await site.facts() ).toEqual( [ 'WordPress 7.1.3.' ] );
+		expect( await site.facts() ).toEqual( BASE );
 
 		// An older copy of the header, then the latest, which WordPress renders.
 		site.save( 10, 'wp_template_part', 'header' );
@@ -74,7 +112,7 @@ it.each( [ 'wp_', 'site2_' ] )(
 			'{"version":3,"styles":{"color":{},"typography":{},"blocks":{"core/button":{}}},"settings":{"color":{}}}'
 		);
 		expect( await site.facts() ).toEqual( [
-			'WordPress 7.1.3.',
+			...BASE,
 			"Saved in the Site Editor, so WordPress renders them in place of the active theme's files: Global Styles (post 15), setting color, typography, 1 block style, and color settings over theme.json; the template front-page (post 16), instead of templates/front-page.html; the template part header (post 14), instead of parts/header.html.",
 		] );
 	}
@@ -94,14 +132,8 @@ it.each( [
 	async ( _, options, pages ) => {
 		const site = createSite( 'wp_' );
 		site.setOptions( options );
-		expect( await site.facts() ).toEqual( [
-			'WordPress 7.1.3.',
-			...( pages
-				? [
-						`WooCommerce's Coming soon mode is on (woocommerce_coming_soon): visitors who are not logged in, including screenshots, get a Coming soon page instead of ${ pages }.`,
-				  ]
-				: [] ),
-		] );
+		const facts = await site.facts();
+		expect( facts.slice( 3 ) ).toEqual( pages ? [ COMING_SOON( pages ) ] : [] );
 	}
 );
 
@@ -120,13 +152,22 @@ it( 'adds to a tool result the facts the agent does not have yet and the ones no
 
 	// A call activates WooCommerce, which turns on Coming soon mode.
 	site.setOptions( { woocommerce_coming_soon: 'yes', ...WOOCOMMERCE_ACTIVE } );
-	const comingSoon = ( await site.facts() )[ 1 ];
-	expect( await notes( site.root, '' ) ).toBe( comingSoon );
+	expect( await notes( site.root, '' ) ).toBe(
+		[
+			'Active plugins: woocommerce/woocommerce.php, hello.php.',
+			COMING_SOON( 'the site' ),
+			'No longer true: Active plugins: none.',
+		].join( '\n' )
+	);
 	expect( await notes( site.root, '' ) ).toBe( '' );
 
 	site.setOptions( { woocommerce_coming_soon: 'no' } );
-	expect( await notes( site.root, '' ) ).toBe( `No longer true: ${ comingSoon }` );
+	expect( await notes( site.root, '' ) ).toBe( `No longer true: ${ COMING_SOON( 'the site' ) }` );
 
 	// A site the agent has no facts for, as over MCP, gets them with its first result.
-	expect( await createResultNotes()( site.root, '' ) ).toBe( 'WordPress 7.1.3.' );
+	expect( await createResultNotes()( site.root, '' ) ).toBe(
+		[ ...BASE.slice( 0, 2 ), 'Active plugins: woocommerce/woocommerce.php, hello.php.' ].join(
+			'\n'
+		)
+	);
 } );

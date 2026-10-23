@@ -1,4 +1,4 @@
-import { readOptions, type SiteDatabase } from 'cli/ai/site-database';
+import type { WordPressSite } from 'cli/ai/site-database';
 
 // A block theme's templates, template parts, and theme.json are only what
 // WordPress renders until someone saves a copy in the Site Editor: from then
@@ -47,25 +47,25 @@ function styleAreas( content: string ): string[] {
 
 /**
  * The copies saved in the Site Editor for the active theme, read from an open
- * site database. Global Styles that set nothing are left out.
+ * site's database. Global Styles that set nothing are left out.
  */
-export function readSavedCopies( db: SiteDatabase, prefix: string ): SavedCopy[] {
-	const { stylesheet } = readOptions( db, prefix, [ 'stylesheet' ] );
-	if ( ! stylesheet ) return [];
+function readSavedCopies( site: WordPressSite ): SavedCopy[] {
+	const { prefix } = site;
+	const stylesheet = site.option( 'stylesheet' );
+	if ( typeof stylesheet !== 'string' ) return [];
 	// The latest published post per type and slug, for the theme its wp_theme
 	// term names.
-	const rows = db
-		.prepare(
-			`SELECT p.ID AS id, p.post_type AS postType, p.post_name AS slug, p.post_content AS content
+	const rows = site.query< Omit< SavedCopy, 'file' > & { content: string } >(
+		`SELECT p.ID AS id, p.post_type AS postType, p.post_name AS slug, p.post_content AS content
 			FROM ${ prefix }posts p
 			JOIN ${ prefix }term_relationships tr ON tr.object_id = p.ID
 			JOIN ${ prefix }term_taxonomy tt ON tt.term_taxonomy_id = tr.term_taxonomy_id AND tt.taxonomy = 'wp_theme'
 			JOIN ${ prefix }terms t ON t.term_id = tt.term_id
 			WHERE p.post_type IN ( 'wp_template', 'wp_template_part', 'wp_global_styles' )
 				AND p.post_status = 'publish' AND t.name = ?
-			ORDER BY p.post_type, p.post_name, p.post_date DESC, p.ID DESC`
-		)
-		.all( stylesheet ) as unknown as Array< Omit< SavedCopy, 'file' > & { content: string } >;
+			ORDER BY p.post_type, p.post_name, p.post_date DESC, p.ID DESC`,
+		stylesheet
+	);
 	const copies: SavedCopy[] = [];
 	const seen = new Set< string >();
 	for ( const { content, ...row } of rows ) {
@@ -108,8 +108,9 @@ function describeCopy( copy: SavedCopy ): string {
 	return `the ${ KIND[ copy.postType ] } ${ copy.slug } (post ${ copy.id }), instead of ${ file }`;
 }
 
-/** The fact the saved copies make, or undefined when there are none. */
-export function describeSavedCopies( copies: SavedCopy[] ): string | undefined {
+/** Site fact: the copies WordPress renders in place of theme files. */
+export function savedCopiesFact( site: WordPressSite ): string | undefined {
+	const copies = readSavedCopies( site );
 	return copies.length
 		? `Saved in the Site Editor, so WordPress renders them in place of the active theme's files: ${ copies
 				.map( describeCopy )

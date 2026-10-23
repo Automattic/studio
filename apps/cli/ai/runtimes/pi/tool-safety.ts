@@ -1,6 +1,7 @@
-import { existsSync, readFileSync } from 'fs';
+import { existsSync } from 'fs';
 import os from 'os';
 import path from 'path';
+import { isUpdatableTheme } from 'cli/ai/themes';
 import { findSiteByFolder } from 'cli/lib/cli-config/sites';
 import type { AgentSessionEvent } from '@earendil-works/pi-coding-agent';
 
@@ -136,15 +137,15 @@ async function isStudioSiteFolder( folder: string ): Promise< boolean > {
 	return Boolean( await findSiteByFolder( folder ) );
 }
 
-// Themes Studio Code scaffolds say so in their style.css header (scaffold_theme).
-const STUDIO_THEME_MARKER = 'scaffolded by Studio Code';
-
 /**
  * Why a write to this file of a WordPress install would be lost: WordPress
- * core is replaced when WordPress updates, and an installed theme's files when
+ * core is replaced when WordPress updates, and an updatable theme's files when
  * the theme updates. Undefined when the write stays.
  */
-function getLostWriteReason( root: string, relativePath: string ): string | undefined {
+async function getLostWriteReason(
+	root: string,
+	relativePath: string
+): Promise< string | undefined > {
 	if (
 		relativePath.startsWith( 'wp-includes/' ) ||
 		relativePath.startsWith( 'wp-admin/' ) ||
@@ -153,14 +154,8 @@ function getLostWriteReason( root: string, relativePath: string ): string | unde
 		return `${ relativePath } is this Studio site's copy of WordPress core, which a WordPress update replaces. Read it as reference. Make the change in wp-content/ (a theme, child theme, or plugin).`;
 	}
 	const theme = relativePath.match( /^wp-content\/themes\/([^/]+)\// )?.[ 1 ];
-	const styleCss = theme && path.join( root, 'wp-content', 'themes', theme, 'style.css' );
-	// No style.css yet means the theme is being created, not an installed one.
-	if (
-		styleCss &&
-		existsSync( styleCss ) &&
-		! readFileSync( styleCss, 'utf8' ).includes( STUDIO_THEME_MARKER )
-	) {
-		return `${ theme } is an installed theme, and a theme update overwrites changes to its files. Create a child theme with scaffold_theme (parentTheme: "${ theme }") and make the change there.`;
+	if ( theme && ( await isUpdatableTheme( root, theme ) ) ) {
+		return `${ theme } is a theme WordPress updates, and an update overwrites changes to its files. Create a child theme with scaffold_theme (parentTheme: "${ theme }") and make the change there.`;
 	}
 	return undefined;
 }
@@ -186,7 +181,7 @@ export async function getFileWriteRefusal(
 		return undefined;
 	}
 	const relativePath = path.relative( root, absolutePath ).split( path.sep ).join( '/' );
-	const reason = getLostWriteReason( root, relativePath );
+	const reason = await getLostWriteReason( root, relativePath );
 	if ( ! reason || ! ( await isStudioSite( root ) ) ) {
 		return undefined;
 	}

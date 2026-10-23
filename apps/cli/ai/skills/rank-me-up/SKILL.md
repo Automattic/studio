@@ -22,13 +22,7 @@ Run an on-page SEO audit on a WordPress site to surface missing meta tags, broke
 
 The audit only sees rendered HTML — it can't tell *why* a tag is missing. Before recommending an install, find out what's already wired up. Skipping this step leads to dumb suggestions like "install Jetpack" when Jetpack is already active and just needs a module enabled.
 
-**Step 1 — list active plugins:**
-
-```
-wp_cli: plugin list --status=active --field=name
-```
-
-Look for known SEO providers:
+Look for known SEO providers among the site's active plugins (a site fact):
 
 | Slug | Plugin |
 |------|--------|
@@ -39,7 +33,7 @@ Look for known SEO providers:
 | `wp-seopress` | SEOPress |
 | `the-seo-framework` | The SEO Framework |
 
-**Step 2 — if Jetpack is active, list its enabled modules** (Jetpack is modular; SEO features live in the `seo-tools` module and don't run unless that specific module is on):
+**If Jetpack is active, list its enabled modules** (Jetpack is modular; SEO features live in the `seo-tools` module and don't run unless that specific module is on):
 
 ```
 wp_cli: jetpack module list

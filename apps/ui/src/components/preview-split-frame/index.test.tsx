@@ -154,37 +154,20 @@ describe( 'PreviewSplitFrame', () => {
 		expect( screen.getByLabelText( 'Site preview' ) ).toBeVisible();
 	} );
 
-	it( 'reports the measured split width', async () => {
-		frameWidth = 639;
-		const onContainerWidthChange = vi.fn();
+	it( 'keeps the preview open in a narrow frame, split in proportion and not resizable', async () => {
+		frameWidth = 544;
 
 		render(
-			<PreviewSplitFrame
-				previewOpen
-				preview={ () => <aside aria-label="Site preview" /> }
-				onContainerWidthChange={ onContainerWidthChange }
-			>
+			<PreviewSplitFrame previewOpen preview={ () => <aside aria-label="Site preview" /> }>
 				<span data-testid="content">Content</span>
 			</PreviewSplitFrame>
 		);
 
-		await waitFor( () => expect( onContainerWidthChange ).toHaveBeenLastCalledWith( 639 ) );
-	} );
-
-	it( 'reports no split width while the preview is closed', async () => {
-		const onContainerWidthChange = vi.fn();
-		const preview = () => <aside aria-label="Site preview" />;
-		render(
-			<PreviewSplitFrame
-				previewOpen={ false }
-				preview={ preview }
-				onContainerWidthChange={ onContainerWidthChange }
-			>
-				<span data-testid="content">Content</span>
-			</PreviewSplitFrame>
+		await waitFor( () =>
+			expect( getFrameRoot() ).toHaveStyle( '--preview-frame-content-width: 256px' )
 		);
-
-		await waitFor( () => expect( onContainerWidthChange ).toHaveBeenLastCalledWith( null ) );
+		expect( screen.getByLabelText( 'Site preview' ) ).toBeVisible();
+		expect( screen.queryByRole( 'separator' ) ).not.toBeInTheDocument();
 	} );
 
 	describe( 'keyboard and pointer resizing', () => {

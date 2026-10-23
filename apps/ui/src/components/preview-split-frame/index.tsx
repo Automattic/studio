@@ -12,6 +12,7 @@ import { ResizeHandle, ResizeOverlay } from '@/components/resize-handle';
 import { usePreviewSplit } from '@/hooks/use-preview-split';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import { WindowControlsCornerContext } from '@/hooks/use-window-controls-inset';
+import { PREVIEW_SPLIT_MIN_WIDTH } from '@/lib/resizable-panels';
 import styles from './style.module.css';
 
 // Keep in sync with the content-column transition duration in style.module.css.
@@ -38,7 +39,6 @@ interface PreviewSplitFrameProps {
 	// The chat is hidden: the content column collapses the same way, while the
 	// sidebar stays.
 	chatHidden?: boolean;
-	onContainerWidthChange?: ( containerWidth: number | null ) => void;
 	children?: ReactNode;
 }
 
@@ -46,7 +46,6 @@ export function PreviewSplitFrame( {
 	preview,
 	previewOpen = false,
 	chatHidden = false,
-	onContainerWidthChange,
 	children,
 }: PreviewSplitFrameProps ) {
 	const showPreview = previewOpen && preview != null;
@@ -55,10 +54,7 @@ export function PreviewSplitFrame( {
 		showPreview,
 	} );
 	const isSidebarCollapsed = useSidebarCollapsed();
-
-	useEffect( () => {
-		onContainerWidthChange?.( showPreview && ! contentCollapsed ? containerWidth : null );
-	}, [ containerWidth, contentCollapsed, onContainerWidthChange, showPreview ] );
+	const resizable = ( containerWidth ?? Infinity ) >= PREVIEW_SPLIT_MIN_WIDTH;
 
 	// Animate only open/close/hide-chat toggles of an already-mounted preview —
 	// never the initial layout, so a route loading with the preview visible
@@ -155,7 +151,7 @@ export function PreviewSplitFrame( {
 						</WindowControlsCornerContext.Provider>
 					</div>
 				) : null }
-				{ showPreview && ! contentCollapsed && ! animatingPreviewToggle ? (
+				{ showPreview && ! contentCollapsed && ! animatingPreviewToggle && resizable ? (
 					<ResizeHandle
 						className={ styles.previewResizeHandle }
 						label={ __( 'Resize site preview' ) }

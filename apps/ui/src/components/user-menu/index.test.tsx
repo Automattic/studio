@@ -26,7 +26,10 @@ vi.mock( '@/components/account-prompt', () => ( {
 		open ? <div role="dialog" aria-label={ title } /> : null,
 } ) );
 
-vi.mock( '@/data/app-messages', () => ( { toast: { error: vi.fn() } } ) );
+vi.mock( '@/data/app-messages', () => ( {
+	toast: { error: vi.fn() },
+	useNoticeHistory: () => [],
+} ) );
 
 vi.mock( '@/hooks/use-color-scheme', () => ( {
 	useColorScheme: () => 'light',

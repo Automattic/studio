@@ -9,7 +9,7 @@ import {
 import { getSiteOperationLabel } from '@studio/common/lib/site-operation-labels';
 import { useQueryClient } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
-import { Icon, moreHorizontal } from '@wordpress/icons';
+import { Icon } from '@wordpress/icons';
 import {
 	ariaKeyShortcut,
 	displayShortcut,
@@ -32,9 +32,7 @@ import {
 } from '@/components/annotations/store';
 import { DesignSystemView } from '@/components/design-system-view';
 import { PreviewParticles } from '@/components/preview-particles';
-import { PublishButton } from '@/components/publish-panel';
-import { ShareButton, ShareStatusIcon, useShareStatus } from '@/components/share-dialog';
-import { SiteLifecycleButton } from '@/components/site-lifecycle-button';
+import { SiteHeaderActions } from '@/components/site-header-actions';
 import { SiteContextMenu, StoppedSitePreview } from '@/components/stopped-site-preview';
 import { Button, IconButton } from '@/components/ui/button';
 import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
@@ -48,7 +46,6 @@ import { useSiteIcon } from '@/data/queries/use-site-icon';
 import { siteThumbnailQueryKey, useSiteThumbnail } from '@/data/queries/use-site-thumbnail';
 import { useIsSiteStarting, useIsSiteStopping, useSiteOperation } from '@/data/queries/use-sites';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { requestHeaderPanel } from '@/hooks/use-open-header-panel';
 import { useOpenSettings } from '@/hooks/use-open-settings';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
@@ -60,7 +57,6 @@ import {
 	browserForwardIcon,
 	globeIcon,
 	refreshIcon,
-	shareIcon,
 } from '@/lib/icons';
 import {
 	DATABASE_HOME_PATH,
@@ -603,7 +599,6 @@ export function SitePreview( {
 	const activeSurface = surfaces.byKey[ activeSurfaceKey ];
 	const browserState = activeSurface?.browser ?? EMPTY_BROWSER_STATE;
 	const annotations = useSiteAnnotations( site.id );
-	const shareStatus = useShareStatus( site.id );
 	// A site that was just started keeps its loading stage over the preview
 	// until the first page arrives.
 	const [ awaitingReveal, setAwaitingReveal ] = useState( false );
@@ -1021,65 +1016,39 @@ export function SitePreview( {
 							onClick={ () => setAnnotating( site.id, ! annotations.active ) }
 						/>
 					) : null }
-					<PublishButton site={ site } anchor={ headerRef } />
-					<SiteLifecycleButton site={ site } />
-					<ShareButton site={ site } className={ styles.shareAction } />
-					<Menu.Root modal={ false }>
-						<Tooltip>
-							<Menu.Trigger
-								render={
-									<TooltipTrigger
-										render={
-											<Button
-												variant="ghost"
-												size="icon"
-												className={ styles.moreActions }
-												aria-label={ __( 'More preview actions' ) }
-												aria-description={ shareStatus.label }
-											/>
-										}
-									/>
-								}
-							>
-								<ShareStatusIcon icon={ moreHorizontal } status={ shareStatus } />
-							</Menu.Trigger>
-							<TooltipContent side="bottom">{ __( 'More preview actions' ) }</TooltipContent>
-						</Tooltip>
-						<Menu.Popup side="bottom" align="end">
-							<Menu.Item
-								aria-description={ shareStatus.label }
-								onClick={ () => requestHeaderPanel( { panel: 'share', siteId: site.id } ) }
-							>
-								<ShareStatusIcon icon={ shareIcon } status={ shareStatus } />
-								{ __( 'Share' ) }
-							</Menu.Item>
-							{ canPreview ? (
-								<>
-									<Menu.Separator />
-									<Menu.Item
-										disabled={ ! browserState.canGoBack }
-										onClick={ () => sendBrowserCommand( 'back' ) }
-									>
-										{ __( 'Back' ) }
-									</Menu.Item>
-									<Menu.Item
-										disabled={ ! browserState.canGoForward }
-										onClick={ () => sendBrowserCommand( 'forward' ) }
-									>
-										{ __( 'Forward' ) }
-									</Menu.Item>
-									<Menu.Item onClick={ () => sendBrowserCommand( 'reload' ) }>
-										{ __( 'Reload preview' ) }
-									</Menu.Item>
-									<Menu.Separator />
-									<Menu.Item onClick={ openSiteSettings }>{ __( 'Site settings' ) }</Menu.Item>
-									{ openExternal ? (
-										<Menu.Item onClick={ openExternal }>{ __( 'Open in browser' ) }</Menu.Item>
-									) : null }
-								</>
-							) : null }
-						</Menu.Popup>
-					</Menu.Root>
+					{ collapsed ? null : (
+						<SiteHeaderActions
+							site={ site }
+							anchor={ headerRef }
+							menuItems={
+								canPreview ? (
+									<>
+										<Menu.Separator />
+										<Menu.Item
+											disabled={ ! browserState.canGoBack }
+											onClick={ () => sendBrowserCommand( 'back' ) }
+										>
+											{ __( 'Back' ) }
+										</Menu.Item>
+										<Menu.Item
+											disabled={ ! browserState.canGoForward }
+											onClick={ () => sendBrowserCommand( 'forward' ) }
+										>
+											{ __( 'Forward' ) }
+										</Menu.Item>
+										<Menu.Item onClick={ () => sendBrowserCommand( 'reload' ) }>
+											{ __( 'Reload preview' ) }
+										</Menu.Item>
+										<Menu.Separator />
+										<Menu.Item onClick={ openSiteSettings }>{ __( 'Site settings' ) }</Menu.Item>
+										{ openExternal ? (
+											<Menu.Item onClick={ openExternal }>{ __( 'Open in browser' ) }</Menu.Item>
+										) : null }
+									</>
+								) : null
+							}
+						/>
+					) }
 				</div>
 				{ showLoadingProgress ? (
 					<div className={ styles.loadingProgress } aria-hidden="true">

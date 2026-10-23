@@ -55,12 +55,8 @@ vi.mock( '@/components/site-actions-menu', () => ( {
 	SiteActionsMenu: ( { site }: { site: { name: string } } ) => <div>{ site.name }</div>,
 } ) );
 
-vi.mock( '@/components/share-dialog', () => ( {
-	ShareButton: () => null,
-} ) );
-
-vi.mock( '@/components/site-lifecycle-button', () => ( {
-	SiteLifecycleButton: () => <button type="button">Start</button>,
+vi.mock( '@/components/site-header-actions', () => ( {
+	SiteHeaderActions: () => <button type="button">Start</button>,
 } ) );
 
 vi.mock( '@/components/stopped-site-preview', () => ( {

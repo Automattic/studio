@@ -1,0 +1,19 @@
+.publish {
+	display: contents;
+}
+
+.publish[hidden],
+.more {
+	display: none;
+}
+
+/* Each header that hosts these actions is a `studio-site-header` container. */
+@container studio-site-header (max-width: 520px) {
+	.share {
+		display: none;
+	}
+
+	.more {
+		display: inline-flex;
+	}
+}

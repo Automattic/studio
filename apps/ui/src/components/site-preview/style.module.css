@@ -31,7 +31,7 @@
 	-webkit-app-region: drag;
 	/* Sizes the address segments' narrow-width behavior (the title collapse
 	   in location-omnibox.module.css queries this container). */
-	container: studio-preview-toolbar / inline-size;
+	container: studio-preview-toolbar studio-site-header / inline-size;
 }
 
 /* Clears the macOS traffic lights, which always sit at the window's physical
@@ -310,19 +310,10 @@
 	gap: 4px;
 }
 
-.moreActions {
-	display: none;
-}
-
 /* Too narrow for the navigation buttons: they move into the More menu. */
 @container studio-preview-toolbar (max-width: 520px) {
-	.navigation,
-	.shareAction {
+	.navigation {
 		display: none;
-	}
-
-	.moreActions {
-		display: inline-flex;
 	}
 }
 

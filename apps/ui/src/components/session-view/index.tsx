@@ -36,11 +36,10 @@ import { OpenChatShortcuts } from '@/components/chat-actions';
 import { PreviewParticles } from '@/components/preview-particles';
 import { PreviewToggleButton } from '@/components/preview-toggle-button';
 import { ProgressiveBlur } from '@/components/progressive-blur';
-import { ShareButton } from '@/components/share-dialog';
 import { HeaderSidebarToggle } from '@/components/sidebar-toggle';
 import { SiteActionsMenu } from '@/components/site-actions-menu';
+import { SiteHeaderActions } from '@/components/site-header-actions';
 import { SiteIcon } from '@/components/site-icon';
-import { SiteLifecycleButton } from '@/components/site-lifecycle-button';
 import { SiteContextMenu, StoppedSitePreview } from '@/components/stopped-site-preview';
 import { Button, IconButton } from '@/components/ui/button';
 import { toast } from '@/data/app-messages';
@@ -112,9 +111,11 @@ function SessionHeader( {
 	const sidebarCollapsed = useSidebarCollapsed();
 	const reserveTrafficLightSpace = useTrafficLightSpace().start;
 	const windowControlsInset = useWindowControlsInset( 'toolbar' );
+	const headerRef = useRef< HTMLDivElement >( null );
 
 	return (
 		<div
+			ref={ headerRef }
 			className={ clsx(
 				styles.header,
 				sidebarCollapsed && reserveTrafficLightSpace && styles.headerSidebarCollapsed
@@ -145,10 +146,7 @@ function SessionHeader( {
 					{ site.running ? (
 						<PreviewToggleButton canHideChat />
 					) : (
-						<>
-							<SiteLifecycleButton site={ site } />
-							<ShareButton site={ site } />
-						</>
+						<SiteHeaderActions site={ site } anchor={ headerRef } />
 					) }
 				</div>
 			) : null }

@@ -79,7 +79,11 @@ vi.mock( '@studio/common/lib/well-known-paths', async ( importOriginal ) => ( {
 } ) );
 vi.mock( 'cli/ai/runtimes/pi', () => ( {
 	// A completed turn so the JSON single-turn path returns instead of looping.
-	runStudioAgentTurn: vi.fn( () => ( { result: Promise.resolve(), interrupt: vi.fn() } ) ),
+	runStudioAgentTurn: vi.fn( () => ( {
+		result: Promise.resolve(),
+		interrupt: vi.fn(),
+		hasTool: () => true,
+	} ) ),
 } ) );
 vi.mock( 'cli/ai/slash-commands', () => ( { getActiveSlashCommands: vi.fn( () => [] ) } ) );
 vi.mock( 'cli/ai/browser-utils', () => ( { closeSharedBrowser: vi.fn() } ) );
@@ -426,7 +430,7 @@ describe( 'AI runCommand — Tracks events', () => {
 				};
 				onEvent( { type: 'message_end', message: failed } );
 				onEvent( { type: 'agent_end', messages: [ failed ] } );
-				return { result: Promise.resolve(), interrupt: vi.fn() };
+				return { result: Promise.resolve(), interrupt: vi.fn(), hasTool: () => true };
 			}
 		);
 

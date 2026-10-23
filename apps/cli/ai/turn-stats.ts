@@ -23,6 +23,8 @@ const CHECK_TOOL_NAMES: ReadonlySet< string > = new Set( [
 	inspectDesignTool.name,
 ] );
 
+const UNKNOWN_TOOL = 'unknown';
+
 export type TurnErrorKind =
 	| 'out_of_credits'
 	| 'auth'
@@ -54,6 +56,7 @@ export interface TurnStatsTracker {
 		outcome: TurnStatus;
 		failure?: unknown;
 		site?: { remote?: boolean } | null;
+		hasTool: ( name: string ) => boolean;
 	} ): TurnStatsProps;
 }
 
@@ -181,11 +184,16 @@ export function createTurnStatsTracker(): TurnStatsTracker {
 				checkedAfterChange = true;
 			}
 		},
-		getProps( { outcome, failure, site } ) {
+		getProps( { outcome, failure, site, hasTool } ) {
+			// A call to a tool the session doesn't have keeps the name the model
+			// wrote, so it's reported as `unknown` rather than as that text.
+			const failedToolNames = new Set(
+				[ ...failedTools ].map( ( name ) => ( hasTool( name ) ? name : UNKNOWN_TOOL ) )
+			);
 			return {
 				tool_calls: toolCalls,
 				tool_errors: toolErrors,
-				failed_tools: [ ...failedTools ].sort().join( ',' ),
+				failed_tools: [ ...failedToolNames ].sort().join( ',' ),
 				edits,
 				...( edits > 0 ? { checked_after_change: checkedAfterChange } : {} ),
 				model_requests: modelRequests,

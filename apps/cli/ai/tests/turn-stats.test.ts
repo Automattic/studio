@@ -38,10 +38,13 @@ function userEnd(): AgentSessionEvent {
 	} as unknown as AgentSessionEvent;
 }
 
+const STUDIO_TOOLS = new Set( [ 'Bash', 'Edit', 'Read', 'Write', 'wp_cli', 'take_screenshot' ] );
+const hasTool = ( name: string ) => STUDIO_TOOLS.has( name );
+
 function propsFor( events: AgentSessionEvent[], outcome: 'success' | 'error' = 'success' ) {
 	const tracker = createTurnStatsTracker();
 	events.forEach( ( event ) => tracker.handleEvent( event ) );
-	return tracker.getProps( { outcome, site: null } );
+	return tracker.getProps( { outcome, site: null, hasTool } );
 }
 
 describe( 'createTurnStatsTracker', () => {
@@ -71,6 +74,17 @@ describe( 'createTurnStatsTracker', () => {
 		expect( props.tool_calls ).toBe( 5 );
 		expect( props.tool_errors ).toBe( 3 );
 		expect( props.failed_tools ).toBe( 'Bash,wp_cli' );
+	} );
+
+	it( 'reports a tool the model made up as unknown, not by the name it wrote', () => {
+		// pi ends a call to a missing tool with the model's name for it.
+		const props = propsFor( [
+			toolEnd( 'Bsah', true ),
+			toolEnd( 'skill', true ),
+			toolEnd( 'wp_cli', true ),
+		] );
+		expect( props.tool_errors ).toBe( 3 );
+		expect( props.failed_tools ).toBe( 'unknown,wp_cli' );
 	} );
 
 	it( 'ignores tool starts and updates', () => {
@@ -161,7 +175,7 @@ describe( 'createTurnStatsTracker', () => {
 		} as unknown as AgentSessionEvent );
 		tracker.handleEvent( assistantEnd( 50, 10 ) );
 		tracker.handleEvent( toolEnd( 'Read' ) );
-		const props = tracker.getProps( { outcome: 'success', site: null } );
+		const props = tracker.getProps( { outcome: 'success', site: null, hasTool } );
 		expect( props.model_requests ).toBe( 2 );
 		expect( props.input_tokens ).toBe( 150 );
 		expect( props.tool_calls ).toBe( 1 );
@@ -169,34 +183,40 @@ describe( 'createTurnStatsTracker', () => {
 
 	it( 'adds error_kind only when the turn errored', () => {
 		const tracker = createTurnStatsTracker();
-		expect( tracker.getProps( { outcome: 'success', failure: '429' } ) ).not.toHaveProperty(
+		expect(
+			tracker.getProps( { outcome: 'success', failure: '429', hasTool } )
+		).not.toHaveProperty( 'error_kind' );
+		expect( tracker.getProps( { outcome: 'interrupted', hasTool } ) ).not.toHaveProperty(
 			'error_kind'
 		);
-		expect( tracker.getProps( { outcome: 'interrupted' } ) ).not.toHaveProperty( 'error_kind' );
 		expect(
-			tracker.getProps( { outcome: 'error', failure: '429 Too Many Requests' } )
+			tracker.getProps( { outcome: 'error', failure: '429 Too Many Requests', hasTool } )
 		).toMatchObject( { error_kind: 'rate_limited' } );
-		expect( tracker.getProps( { outcome: 'error' } ) ).toMatchObject( { error_kind: 'other' } );
+		expect( tracker.getProps( { outcome: 'error', hasTool } ) ).toMatchObject( {
+			error_kind: 'other',
+		} );
 	} );
 
 	it( 'reports the site kind', () => {
 		const tracker = createTurnStatsTracker();
-		expect( tracker.getProps( { outcome: 'success', site: { remote: false } } ).site_kind ).toBe(
-			'local'
-		);
-		expect( tracker.getProps( { outcome: 'success', site: { remote: true } } ).site_kind ).toBe(
-			'wpcom'
-		);
+		expect(
+			tracker.getProps( { outcome: 'success', site: { remote: false }, hasTool } ).site_kind
+		).toBe( 'local' );
+		expect(
+			tracker.getProps( { outcome: 'success', site: { remote: true }, hasTool } ).site_kind
+		).toBe( 'wpcom' );
 	} );
 
 	it( 'never carries free text into a prop', () => {
 		const tracker = createTurnStatsTracker();
 		tracker.handleEvent( assistantEnd( 1, 1 ) );
 		tracker.handleEvent( toolEnd( 'wp_cli', true ) );
+		tracker.handleEvent( toolEnd( 'read_secret_acme_file', true ) );
 		const props = tracker.getProps( {
 			outcome: 'error',
 			failure: new Error( 'Could not write /Users/me/Studio/acme-shop/wp-config.php' ),
 			site: { remote: false },
+			hasTool,
 		} );
 		const serialized = JSON.stringify( Object.values( props ) );
 		expect( serialized ).not.toMatch( /Users|acme|secret|wp-config|Done|output/ );

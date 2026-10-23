@@ -728,6 +728,7 @@ export async function runCommand( options: {
 					outcome: turnState.status,
 					failure: turnState.failure,
 					site,
+					hasTool: ( name ) => agentQuery.hasTool( name ),
 				} ),
 			} );
 			ui.endAgentTurn();

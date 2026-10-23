@@ -1,4 +1,5 @@
 import { __, sprintf } from '@wordpress/i18n';
+import { clsx } from 'clsx';
 import { CheckIcon, ChevronRightIcon, InfoIcon, TriangleAlertIcon, XIcon } from 'lucide-react';
 import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { Button, IconButton } from '@/components/ui/button';
@@ -136,18 +137,20 @@ function NoticeDescription( { notice }: { notice: Notice } ) {
 }
 
 export function NoticeCard( {
+	className,
 	notice,
 	time,
 	onDismiss,
 	onActionDone,
 }: {
+	className?: string;
 	notice: Notice;
 	time?: ReactNode;
 	onDismiss: () => void;
 	onActionDone?: () => void;
 } ) {
 	return (
-		<div className={ styles.card }>
+		<div className={ clsx( styles.card, className ) }>
 			<div className={ styles.row }>
 				<StatusIcon intent={ notice.intent } />
 				<p className={ styles.title }>{ notice.title }</p>

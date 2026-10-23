@@ -3,7 +3,6 @@ import { clsx } from 'clsx';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { AppMessageCards, AppMessageHistoryRecorder } from '@/components/app-message-cards';
 import { AppToasts } from '@/components/app-toasts';
-import { NoticeHistoryDialog } from '@/components/notice-history';
 import { ResizeHandle, ResizeOverlay } from '@/components/resize-handle';
 import { SidebarHeader } from '@/components/sidebar-header';
 import { SiteList } from '@/components/site-list';
@@ -143,7 +142,6 @@ export function SidebarLayout( { children }: { children: ReactNode } ) {
 						</main>
 						{ sidebarResize.isResizing ? <ResizeOverlay /> : null }
 						<AppToasts />
-						<NoticeHistoryDialog />
 						<AppMessageHistoryRecorder />
 					</div>
 				</SidebarToggleContext.Provider>

@@ -1,43 +1,14 @@
-import { __, sprintf } from '@wordpress/i18n';
-import { caution, closeSmall, error, Icon, info, published } from '@wordpress/icons';
-import { useEffect, useState, useSyncExternalStore, type ComponentProps } from 'react';
-import {
-	Alert,
-	AlertActions,
-	AlertDescription,
-	AlertTitle,
-	INTENT_VARIANTS,
-} from '@/components/ui/alert';
+import { __ } from '@wordpress/i18n';
+import { useEffect, useState, useSyncExternalStore } from 'react';
+import { NoticeCard } from '@/components/notice-card';
 import { Button, IconButton } from '@/components/ui/button';
-import {
-	Dialog,
-	DialogClose,
-	DialogContent,
-	DialogDescription,
-	DialogFooter,
-	DialogHeader,
-	DialogScrollArea,
-	DialogTitle,
-} from '@/components/ui/dialog';
-import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
-import { Spinner } from '@/components/ui/spinner';
-import {
-	clearNoticeHistory,
-	dismissNotice,
-	noticeToText,
-	runNoticeAction,
-	useNoticeHistory,
-	type NoticeRecord,
-	type ToastAction,
-} from '@/data/app-messages';
-import { useCopyText } from '@/hooks/use-copy-text';
+import * as Popover from '@/components/ui/popover';
+import { VisuallyHidden } from '@/components/ui/visually-hidden';
+import { clearNoticeHistory, dismissNotice, useNoticeHistory } from '@/data/app-messages';
 import { bellIcon } from '@/lib/icons';
 import styles from './style.module.css';
 
-const INTENT_ICONS = { info, success: published, warning: caution, error };
-
-// The dialog mounts once at the layout level; the bell and a toast's "More"
-// both open it through this, so it works with the sidebar collapsed too.
+// Shared with the toasts, which hide while the history is open.
 let isOpen = false;
 const listeners = new Set< () => void >();
 
@@ -58,82 +29,15 @@ function setOpen( next: boolean ) {
 	}
 }
 
-export function openNoticeHistory(): void {
-	setOpen( true );
-}
-
 export function closeNoticeHistory(): void {
 	setOpen( false );
 }
 
-function useNoticeHistoryOpen(): boolean {
+export function useNoticeHistoryOpen(): boolean {
 	return useSyncExternalStore(
 		subscribe,
 		() => isOpen,
 		() => false
-	);
-}
-
-export function NoticeHistoryButton() {
-	const hasNotifications = useNoticeHistory().length > 0;
-	return (
-		<IconButton
-			icon={ bellIcon }
-			label={ __( 'Notification history' ) }
-			aria-label={
-				hasNotifications
-					? __( 'Notification history, notifications available' )
-					: __( 'Notification history' )
-			}
-			className={ styles.bell }
-			onClick={ openNoticeHistory }
-		>
-			{ hasNotifications ? <span className={ styles.dot } aria-hidden="true" /> : null }
-		</IconButton>
-	);
-}
-
-export function NoticeActionButton( {
-	action,
-	pending,
-	onDone,
-	...props
-}: {
-	action: ToastAction;
-	pending?: boolean;
-	onDone?: () => void;
-} & Omit< ComponentProps< typeof Button >, 'onClick' > ) {
-	return (
-		<Button
-			size="sm"
-			{ ...props }
-			disabled={ pending }
-			aria-busy={ pending || undefined }
-			onClick={ async () => {
-				if ( await runNoticeAction( action ) ) {
-					onDone?.();
-				}
-			} }
-		>
-			{ pending ? <Spinner aria-hidden="true" /> : null }
-			{ action.label }
-		</Button>
-	);
-}
-
-// Flips to "Copied" briefly; a toast would be the obvious feedback, but a
-// toast about copying a notice would itself land in the list.
-export function CopyNoticeButton( {
-	notice,
-}: {
-	notice: Pick< NoticeRecord, 'title' | 'description' >;
-} ) {
-	const { copied, copy } = useCopyText( noticeToText( notice ) );
-
-	return (
-		<Button variant="outline" size="2xs" onClick={ copy }>
-			{ copied ? __( 'Copied' ) : __( 'Copy' ) }
-		</Button>
 	);
 }
 
@@ -164,39 +68,65 @@ function useNow( active: boolean ) {
 	return now;
 }
 
-export function NoticeHistoryDialog() {
+export function NoticeHistoryButton() {
 	const open = useNoticeHistoryOpen();
 	const notices = useNoticeHistory();
 	const now = useNow( open );
 
 	return (
-		<Dialog open={ open } onOpenChange={ setOpen }>
-			<DialogContent showCloseButton={ false } className={ styles.dialog }>
-				<DialogHeader>
-					<DialogTitle>{ __( 'Notification history' ) }</DialogTitle>
-				</DialogHeader>
-				<DialogScrollArea className={ styles.scrollArea }>
-					{ notices.length === 0 ? (
-						<Empty className={ styles.empty }>
-							<EmptyMedia>{ bellIcon }</EmptyMedia>
-							<EmptyTitle>{ __( 'No notifications yet' ) }</EmptyTitle>
-							<EmptyDescription>
-								{ __( 'Notices Studio shows you collect here, until Studio\u00a0restarts.' ) }
-							</EmptyDescription>
-						</Empty>
-					) : (
-						<>
-							<ul className={ styles.list }>
-								{ notices.map( ( notice ) => (
-									<li key={ `${ notice.id }:${ notice.shownAt }` }>
-										<Alert variant={ INTENT_VARIANTS[ notice.intent ] } role="none">
-											<Icon icon={ INTENT_ICONS[ notice.intent ] } />
-											<AlertTitle>{ notice.title }</AlertTitle>
-											{ notice.description ? (
-												<AlertDescription className={ styles.description }>
-													{ notice.description }
-												</AlertDescription>
-											) : null }
+		<Popover.Root open={ open } onOpenChange={ setOpen }>
+			<Popover.Trigger
+				render={
+					<IconButton
+						icon={ bellIcon }
+						label={ __( 'Notification history' ) }
+						aria-label={
+							notices.length > 0
+								? __( 'Notification history, notifications available' )
+								: __( 'Notification history' )
+						}
+						className={ styles.bell }
+					/>
+				}
+			>
+				{ notices.length > 0 ? <span className={ styles.dot } aria-hidden="true" /> : null }
+			</Popover.Trigger>
+			<Popover.Popup
+				side="top"
+				align="end"
+				sideOffset={ 8 }
+				className={ notices.length > 0 ? styles.history : styles.empty }
+			>
+				<Popover.Title render={ <VisuallyHidden /> }>
+					{ __( 'Notification history' ) }
+				</Popover.Title>
+				{ notices.length === 0 ? (
+					<>
+						<p className={ styles.emptyTitle }>{ __( 'No notifications.' ) }</p>
+						<p className={ styles.emptyText }>
+							{ __(
+								'We’ll send you a notification when there’s something that needs your attention.'
+							) }
+						</p>
+					</>
+				) : (
+					<>
+						<Button
+							variant="outline"
+							className={ styles.clearAll }
+							onClick={ () => {
+								setOpen( false );
+								clearNoticeHistory();
+							} }
+						>
+							{ __( 'Clear all' ) }
+						</Button>
+						<ul className={ styles.list }>
+							{ notices.map( ( notice ) => (
+								<li key={ `${ notice.id }:${ notice.shownAt }` }>
+									<NoticeCard
+										notice={ notice }
+										time={
 											<time
 												className={ styles.time }
 												dateTime={ new Date( notice.shownAt ).toISOString() }
@@ -204,53 +134,21 @@ export function NoticeHistoryDialog() {
 											>
 												{ relativeTime( notice.shownAt, now ) }
 											</time>
-											{ notice.action || notice.description ? (
-												<AlertActions>
-													{ notice.action ? (
-														<NoticeActionButton
-															action={ notice.action }
-															pending={ notice.actionPending }
-															variant="outline"
-															size="2xs"
-															onDone={ closeNoticeHistory }
-														/>
-													) : null }
-													{ notice.description ? <CopyNoticeButton notice={ notice } /> : null }
-												</AlertActions>
-											) : null }
-											<IconButton
-												className={ styles.dismiss }
-												icon={ closeSmall }
-												label={ __( 'Dismiss' ) }
-												aria-label={ sprintf(
-													/* translators: %s: notification title. */
-													__( 'Dismiss %s' ),
-													notice.title
-												) }
-												variant="outline"
-												size="icon-2xs"
-												shape="round"
-												onClick={ () => dismissNotice( notice ) }
-											/>
-										</Alert>
-									</li>
-								) ) }
-							</ul>
-							<DialogDescription className={ styles.outro }>
-								{ __( 'Notifications are cleared automatically when Studio restarts.' ) }
-							</DialogDescription>
-						</>
-					) }
-				</DialogScrollArea>
-				<DialogFooter>
-					{ notices.length > 0 ? (
-						<Button variant="ghost" className={ styles.clearAll } onClick={ clearNoticeHistory }>
-							{ __( 'Clear all' ) }
-						</Button>
-					) : null }
-					<DialogClose render={ <Button variant="outline" /> }>{ __( 'Close' ) }</DialogClose>
-				</DialogFooter>
-			</DialogContent>
-		</Dialog>
+										}
+										onActionDone={ closeNoticeHistory }
+										onDismiss={ () => {
+											if ( notices.length === 1 ) {
+												setOpen( false );
+											}
+											dismissNotice( notice );
+										} }
+									/>
+								</li>
+							) ) }
+						</ul>
+					</>
+				) }
+			</Popover.Popup>
+		</Popover.Root>
 	);
 }

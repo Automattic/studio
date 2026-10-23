@@ -120,6 +120,13 @@ describe( 'buildSystemPrompt', () => {
 		expect( textOnly ).not.toContain( 'Pair with take_screenshot' );
 	} );
 
+	it( 'lists refresh_browser only when a Studio UI is attached', () => {
+		expect( buildSystemPrompt( { tools: toolsFor( { emitChatArtifacts: true } ) } ) ).toContain(
+			'- refresh_browser:'
+		);
+		expect( buildSystemPrompt( { tools: toolsFor( {} ) } ) ).not.toContain( 'refresh_browser' );
+	} );
+
 	it( 'states the active site in its own section, above the user instructions', () => {
 		const prompt = buildSystemPrompt( {
 			userInstructions: 'Always answer in French.',

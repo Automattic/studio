@@ -14,10 +14,12 @@ function renderActions( {
 	running = false,
 	host = 'chat',
 	headerWidth = 1000,
+	live = false,
 }: {
 	running?: boolean;
 	host?: 'chat' | 'preview';
 	headerWidth?: number;
+	live?: boolean;
 } = {} ) {
 	// jsdom lays nothing out: every element measures 40px, the header as asked.
 	vi.spyOn( HTMLElement.prototype, 'getBoundingClientRect' ).mockReturnValue( {
@@ -60,7 +62,7 @@ function renderActions( {
 						<div data-site-header>
 							<SiteHeaderSpace />
 						</div>
-						<SiteHeaderActions site={ site } />
+						<SiteHeaderActions site={ site } live={ live } />
 					</SiteHeaderActionsProvider>
 				</TooltipProvider>
 			</ConnectorProvider>
@@ -118,6 +120,15 @@ describe( 'SiteHeaderActions', () => {
 		expect(
 			screen.queryByRole( 'button', { name: 'More preview actions' } )
 		).not.toBeInTheDocument();
+	} );
+
+	it( 'keeps only Publish over a Live chat’s preview, even with the local site stopped', async () => {
+		renderActions( { host: 'preview', live: true, headerWidth: 60 } );
+
+		expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toBeInTheDocument();
+		expect( screen.queryByRole( 'button', { name: 'Start' } ) ).not.toBeInTheDocument();
+		await userEvent.click( screen.getByRole( 'button', { name: 'More preview actions' } ) );
+		expect( screen.queryByRole( 'menuitem', { name: 'Share' } ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'starts the site', async () => {

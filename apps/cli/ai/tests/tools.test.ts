@@ -268,6 +268,18 @@ describe( 'Studio AI MCP tools', () => {
 		);
 	} );
 
+	it( 'offers refresh_browser only when a Studio UI shows the preview', async () => {
+		const names = ( options?: Parameters< typeof resolveStudioToolDefinitions >[ 0 ] ) =>
+			resolveStudioToolDefinitions( options ).map( ( tool ) => tool.name );
+		expect( names() ).not.toContain( 'refresh_browser' );
+		expect( names( { emitChatArtifacts: true } ) ).toContain( 'refresh_browser' );
+
+		await getTool( 'refresh_browser' ).rawHandler( {} as never );
+		expect( emitEvent ).toHaveBeenCalledWith(
+			expect.objectContaining( { type: 'preview.reload' } )
+		);
+	} );
+
 	it( 'marks only reads and non-destructive local changes as safe to run without asking', () => {
 		const annotations = Object.fromEntries(
 			studioToolDefinitions.map( ( tool ) => [ tool.name, tool.annotations ] )

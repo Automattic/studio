@@ -147,7 +147,8 @@ export function useSiteHeaderNavigation( navigation: SiteHeaderNavigation | null
 	] );
 }
 
-export function SiteHeaderActions( { site }: { site: SiteDetails } ) {
+/** A Live chat previews the remote, so only Publish applies. */
+export function SiteHeaderActions( { site, live = false }: { site: SiteDetails; live?: boolean } ) {
 	const { host, layout, navigation, attachActions } = useSiteHeader();
 	const root = useRef< HTMLDivElement >( null );
 	const shareStatus = useShareStatus( site.id );
@@ -177,16 +178,18 @@ export function SiteHeaderActions( { site }: { site: SiteDetails } ) {
 					for the site menu to open. */ }
 				<span
 					data-site-header-publish
-					hidden={ host !== 'preview' || ! site.running || starting || stopping }
+					hidden={ host !== 'preview' || ( ! live && ( ! site.running || starting || stopping ) ) }
 					className={ styles.publish }
 				>
 					<PublishButton site={ site } anchor={ root } />
 				</span>
-				<span data-site-header-lifecycle className={ styles.item }>
-					<SiteLifecycleButton site={ site } compact={ overflow } />
-				</span>
+				{ live ? null : (
+					<span data-site-header-lifecycle className={ styles.item }>
+						<SiteLifecycleButton site={ site } compact={ overflow } />
+					</span>
+				) }
 				<span data-site-header-trailing className={ styles.item }>
-					<span hidden={ overflow }>
+					<span hidden={ overflow || live }>
 						<ShareButton site={ site } />
 					</span>
 					{ overflow ? (
@@ -211,16 +214,18 @@ export function SiteHeaderActions( { site }: { site: SiteDetails } ) {
 								<TooltipContent side="bottom">{ __( 'More preview actions' ) }</TooltipContent>
 							</Tooltip>
 							<Menu.Popup side="bottom" align="end">
-								<Menu.Item
-									aria-description={ shareStatus.label }
-									onClick={ () => requestHeaderPanel( { panel: 'share', siteId: site.id } ) }
-								>
-									<ShareStatusIcon icon={ <ShareIcon /> } status={ shareStatus } />
-									{ __( 'Share' ) }
-								</Menu.Item>
+								{ live ? null : (
+									<Menu.Item
+										aria-description={ shareStatus.label }
+										onClick={ () => requestHeaderPanel( { panel: 'share', siteId: site.id } ) }
+									>
+										<ShareStatusIcon icon={ <ShareIcon /> } status={ shareStatus } />
+										{ __( 'Share' ) }
+									</Menu.Item>
+								) }
 								{ layout === 'navigation-overflow' && navigation ? (
 									<>
-										<Menu.Separator />
+										{ live ? null : <Menu.Separator /> }
 										<Menu.Item
 											disabled={ navigation.disabled || ! navigation.canGoBack }
 											onClick={ navigation.back }
@@ -241,10 +246,12 @@ export function SiteHeaderActions( { site }: { site: SiteDetails } ) {
 											<RotateCwIcon />
 											{ __( 'Reload preview' ) }
 										</Menu.Item>
-										<Menu.Item disabled={ navigation.disabled } onClick={ navigation.settings }>
-											<SiteSettingsIcon />
-											{ __( 'Site settings' ) }
-										</Menu.Item>
+										{ live ? null : (
+											<Menu.Item disabled={ navigation.disabled } onClick={ navigation.settings }>
+												<SiteSettingsIcon />
+												{ __( 'Site settings' ) }
+											</Menu.Item>
+										) }
 										{ navigation.openExternal ? (
 											<Menu.Item
 												disabled={ navigation.disabled }

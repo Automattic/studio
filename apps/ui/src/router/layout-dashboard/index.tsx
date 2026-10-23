@@ -20,7 +20,7 @@ import { useOrientationReplay } from '@/data/onboarding/use-orientation-replay';
 import { useWhatsNewAutostart } from '@/data/onboarding/use-whats-new-autostart';
 import { useWhatsNewReplay } from '@/data/onboarding/use-whats-new-replay';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
-import { useSession, useSessionEffectiveEnvironment } from '@/data/queries/use-sessions';
+import { useSession, useSessionLiveSite } from '@/data/queries/use-sessions';
 import { useSites } from '@/data/queries/use-sites';
 import { pathForSite, SessionUIProvider, useSessionPreviewUI } from '@/hooks/use-session-ui';
 import { ChatIcon } from '@/lib/icons/chat-icon';
@@ -84,16 +84,16 @@ function DashboardLayoutContent() {
 	}, [ agenticFeaturesReady, chatEnabled, navigate, sessionId ] );
 	const preview = useSessionPreviewUI();
 	const sessionSite = findAiSessionOwnerSite( sites, sessionData?.summary );
-	const effectiveEnvironment = useSessionEffectiveEnvironment(
-		sessionData?.summary,
-		sessionSite?.id
+	// A chat switched to Live previews its remote instead of the local site.
+	const liveUrl = useSessionLiveSite( sessionData?.summary, sessionSite?.id )?.url.replace(
+		/\/+$/,
+		''
 	);
 	const homeSite = homeSiteId ? sites?.find( ( site ) => site.id === homeSiteId ) : undefined;
 	const newSessionSite = newSessionSiteId
 		? sites?.find( ( site ) => site.id === newSessionSiteId )
 		: undefined;
-	const routeSite =
-		homeSite ?? newSessionSite ?? ( effectiveEnvironment === 'local' ? sessionSite : undefined );
+	const routeSite = homeSite ?? newSessionSite ?? sessionSite;
 	// While session or site data is still loading, preview-capable routes stay
 	// preview-capable so navigation doesn't close and reopen the panel around
 	// the fetch.
@@ -134,6 +134,12 @@ function DashboardLayoutContent() {
 	// Look up by the route's site so the path is right even before the
 	// `setPreviewSite` effect lands.
 	const previewPath = pathForSite( preview.pathsBySiteId, previewSiteId );
+	// The remote's own path, so neither preview takes the other's page.
+	const [ livePath, setLivePath ] = useState( { url: liveUrl, path: '/' } );
+	const updateLivePath = useCallback(
+		( path: string ) => setLivePath( { url: liveUrl, path } ),
+		[ liveUrl ]
+	);
 	// A site's own page is its preview, so it shows whether or not the panel is
 	// open. Beside a chat, a stopped site has nothing to preview: the chat takes
 	// the room and shows the site's last screenshot instead.
@@ -141,7 +147,7 @@ function DashboardLayoutContent() {
 		( preview.open || !! homeSiteId ) &&
 		supportsPreview &&
 		!! previewSite &&
-		( previewSite.running || !! homeSiteId );
+		( previewSite.running || !! homeSiteId || !! liveUrl );
 	const chatHidden = ( preview.chatHidden || !! homeSiteId ) && showPreview;
 	// Opening a chat shows it.
 	const { setChatHidden } = preview;
@@ -163,11 +169,13 @@ function DashboardLayoutContent() {
 		( { collapsed }: PreviewSplitFramePreviewProps ) =>
 			previewSite ? (
 				<SitePreview
+					key={ liveUrl ?? 'local' }
 					site={ previewSite }
-					path={ previewPath }
+					liveUrl={ liveUrl }
+					path={ liveUrl ? ( livePath.url === liveUrl ? livePath.path : '/' ) : previewPath }
 					reloadNonce={ preview.reloadNonce }
 					onSendAnnotations={ sendAnnotations }
-					onPathChange={ preview.updatePath }
+					onPathChange={ liveUrl ? updateLivePath : preview.updatePath }
 					collapsed={ collapsed }
 					atWindowStart={ chatHidden }
 					toolbarStart={
@@ -190,12 +198,15 @@ function DashboardLayoutContent() {
 		[
 			chatHidden,
 			homeSite,
+			liveUrl,
+			livePath,
 			sendAnnotations,
 			previewPath,
 			preview.reloadNonce,
 			preview.updatePath,
 			previewSite,
 			setChatHidden,
+			updateLivePath,
 		]
 	);
 	const workspaceSiteId = newSessionSiteId ?? sessionSite?.id;
@@ -213,7 +224,9 @@ function DashboardLayoutContent() {
 					previewOpen={ showPreview }
 					chatHidden={ chatHidden }
 					preview={ renderPreview }
-					actions={ routeSite ? <SiteHeaderActions site={ routeSite } /> : null }
+					actions={
+						routeSite ? <SiteHeaderActions site={ routeSite } live={ !! liveUrl } /> : null
+					}
 				>
 					{ workspace }
 				</PreviewSplitFrame>

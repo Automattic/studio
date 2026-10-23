@@ -45,7 +45,7 @@ import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
 import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
 import {
 	useSession,
-	useSessionEffectiveEnvironment,
+	useSessionLiveSite,
 	useSetSessionEnvironment,
 } from '@/data/queries/use-sessions';
 import {
@@ -118,7 +118,7 @@ function SessionHeader( {
 				) : null }
 			</div>
 			<span className={ styles.headerSpacer } aria-hidden="true" />
-			{ local && site.running ? (
+			{ site && ( site.running || ! local ) ? (
 				<div data-site-header-reserved className={ styles.headerActions } data-header-actions>
 					<PreviewToggleButton canHideChat />
 				</div>
@@ -221,7 +221,9 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	const { data, isLoading, error, refetch } = useSession( sessionId );
 	const { data: sites } = useSites();
 	const ownerSite = findAiSessionOwnerSite( sites, data?.summary );
-	const effectiveEnvironment = useSessionEffectiveEnvironment( data?.summary, ownerSite?.id );
+	const effectiveEnvironment = useSessionLiveSite( data?.summary, ownerSite?.id )
+		? 'live'
+		: 'local';
 	const {
 		isRunning,
 		hasActiveRun,

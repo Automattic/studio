@@ -52,9 +52,11 @@ body {
 }
 
 /* Unlike `scrollbar-color`, `scrollbar-width` isn't inherited, so inner scroll
-   containers need it set directly. */
-* {
-	scrollbar-width: thin;
+   containers need it set directly. In the base layer, so components can hide it. */
+@layer base {
+	* {
+		scrollbar-width: thin;
+	}
 }
 
 /* `lang` is set on bootstrap in lib/apply-user-preferences.ts. */

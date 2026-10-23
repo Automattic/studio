@@ -1,19 +1,12 @@
 /* The chat column. The site preview panel lives in the dashboard layout's
    PreviewSplitFrame, which hosts this view in its content column. */
 .root {
-	--column-inline-gutter: calc(24px + 8px);
-	--composer-shell-inline-padding: 16px;
-	--composer-column-max-width: calc(
-		760px + (var(--composer-shell-inline-padding) * 2)
-	);
-	--composer-outer-inline-padding: max(
-		0px,
-		calc(var(--column-inline-gutter) - var(--composer-shell-inline-padding))
-	);
+	--column-inline-gutter: 14px;
+	--column-max-width: 644px;
 	--header-height: var(--band-height);
 	--composer-height: 0px;
 	/* The composer sits this far above the panel's bottom edge. */
-	--composer-bottom-gap: 12px;
+	--composer-bottom-gap: 14px;
 	--composer-blur-overhang: 40px;
 	--scrollbar-blur-safe-area: 14px;
 
@@ -99,9 +92,9 @@
 	padding-inline: var(--column-inline-gutter);
 	container-type: inline-size;
 	z-index: 0;
-	/* Reserve scrollbar space symmetrically so the centered 760px column
-	   doesn't shift left when the scrollbar appears — keeping it aligned
-	   with the (non-scrolling) composer. */
+	/* Reserve scrollbar space symmetrically so the centered column doesn't
+	   shift left when the scrollbar appears — keeping it aligned with the
+	   (non-scrolling) composer. */
 	scrollbar-gutter: stable both-edges;
 }
 
@@ -132,19 +125,18 @@
 	left: 0;
 	right: 0;
 	bottom: var(--composer-bottom-gap);
-	padding: 0 var(--composer-outer-inline-padding) 0;
+	padding: 0 var(--column-inline-gutter);
 	z-index: 2;
 }
 
-/* Keep the conversation + composer aligned to the 760px reading column. */
+/* The conversation and the composer share one reading column. */
 .column {
-	max-width: 760px;
+	max-width: var(--column-max-width);
 	margin: 0 auto;
 }
 
 .composerColumn {
 	position: relative;
-	max-width: var(--composer-column-max-width);
 }
 
 .conversationSpacing {

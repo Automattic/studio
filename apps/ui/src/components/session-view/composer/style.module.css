@@ -8,11 +8,7 @@
 	margin-bottom: -24px;
 	padding: 6px 10px 30px 16px;
 	border-radius: 24px 24px 0 0;
-	background-color: color-mix(
-		in srgb,
-		var(--foreground) 6%,
-		var(--chat)
-	);
+	background-color: var(--muted);
 	color: var(--muted-foreground);
 	font-size: var(--text-xs);
 	line-height: 20px;
@@ -37,6 +33,9 @@
 .noticeMessage {
 	flex: 1;
 	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 @keyframes submitShake {
@@ -63,8 +62,10 @@
 	height: auto;
 }
 
+/* On the composer's surface the muted fill and hover wash step up a shade. */
 :global(html[data-color-scheme='dark']) .shell {
 	--muted: var(--surface-4);
+	--hover: var(--muted);
 }
 
 /* Text-input chrome, like the form inputs beside it, instead of the chat composer. */
@@ -124,15 +125,13 @@
 	align-items: flex-end;
 	gap: 12px;
 	margin: 0;
-	padding: 14px 14px 0;
+	padding: 14px 14px 6px;
 	list-style: none;
 }
 
 .attachment {
 	position: relative;
-	display: inline-flex;
-	box-sizing: border-box;
-	align-items: center;
+	display: flex;
 	background-color: var(--muted);
 	color: var(--foreground);
 	font-size: var(--text-sm);
@@ -152,15 +151,31 @@
 .attachmentImage {
 	width: 96px;
 	height: 96px;
-	border-radius: 13px;
+	border-radius: var(--radius-xl);
+}
+
+.attachmentFile {
+	max-width: 240px;
+	border-radius: var(--radius-lg);
 }
 
 .attachmentFile {
 	gap: 8px;
-	max-width: 240px;
+	align-items: center;
 	height: 36px;
 	padding: 0 12px;
-	border-radius: 9px;
+	font-size: var(--text-xs);
+	line-height: 20px;
+}
+
+.attachmentFile:hover {
+	background-color: var(--hover);
+}
+
+.attachmentFile svg:not([data-size]) {
+	flex: none;
+	width: 16px;
+	height: 16px;
 }
 
 .attachmentThumb {
@@ -178,23 +193,15 @@
 }
 
 .attachmentRemove {
+	--button-background: var(--chrome);
+
 	position: absolute;
 	top: -8px;
 	right: -8px;
 	z-index: 1;
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	width: 24px;
-	height: 24px;
-	padding: 0;
-	border: 1px solid var(--border);
-	border-radius: 50%;
-	background-color: var(--chrome);
-	box-shadow: 0 1px 2px rgb(0 0 0 / 10%);
-	color: var(--foreground);
-	cursor: pointer;
-	transition: background-color var(--motion-duration-feedback) ease;
+	box-shadow:
+		0 1px 3px 0 rgb(0 0 0 / 10%),
+		0 1px 2px -1px rgb(0 0 0 / 10%);
 }
 
 .attachmentRemove::after {
@@ -203,23 +210,22 @@
 	content: '';
 }
 
-.attachmentRemove:hover {
-	background-color: var(--muted);
+.attachmentRemove svg:not([data-size]) {
+	width: 11px;
+	height: 11px;
 }
 
 .attachmentHoverPreview {
 	--attachment-hover-artwork-height: 198px;
 
-	position: fixed;
-	z-index: 10000;
+	width: 285px;
 	overflow: hidden;
-	border: 1px solid var(--border);
-	border-radius: 9px;
-	background-color: var(--chrome);
-	box-shadow: 0 8px 24px rgb(0 0 0 / 18%);
-	animation: attachmentHoverPreviewIn var(--motion-duration-surface) var(--motion-ease-enter);
-	pointer-events: none;
-	transform-origin: bottom left;
+	border-radius: var(--radius-lg);
+	background-color: var(--popover);
+	box-shadow:
+		0 0 0 1px color-mix(in oklab, var(--foreground) 10%, transparent),
+		0 4px 6px -1px rgb(0 0 0 / 10%),
+		0 2px 4px -2px rgb(0 0 0 / 10%);
 	user-select: none;
 }
 
@@ -285,50 +291,9 @@
 	white-space: nowrap;
 }
 
-@keyframes attachmentHoverPreviewIn {
-	from {
-		opacity: 0;
-		scale: 0.97;
-	}
-}
-
 .inputArea {
 	position: relative;
 	min-width: 0;
-}
-
-/* Inline listbox anchored above the textarea. The Menu `.popup` class provides
-   the surface; this only adds the anchor/layout bits the portaled Menu doesn't
-   need. Stays a plain element so the textarea keeps focus. */
-.autocompletePopup {
-	transform-origin: bottom left;
-	position: absolute;
-	bottom: calc(100% + 4px);
-	left: 0;
-	z-index: 100;
-	max-height: 240px;
-	overflow-y: auto;
-}
-
-.autocompletePopup > * {
-	flex-shrink: 0;
-}
-
-.commandItem {
-	display: flex;
-	flex-direction: column;
-	gap: 2px;
-}
-
-.commandName {
-	font-family: var(--font-mono);
-	font-size: var(--text-xxs);
-	color: var(--foreground);
-}
-
-.commandDescription {
-	font-size: 11px;
-	color: var(--muted-foreground);
 }
 
 /* Grows with its text up to six lines, then scrolls. */
@@ -370,6 +335,9 @@
 .rightActions {
 	display: flex;
 	align-items: center;
+}
+
+.rightActions {
 	gap: 4px;
 }
 
@@ -384,107 +352,27 @@
 	flex: 0 0 auto;
 }
 
-.controlButton,
-.modeChip,
-.modelButton,
-.sendButton,
-.stopButton {
-	display: inline-flex;
-	flex: none;
-	align-items: center;
-	justify-content: center;
-	height: 36px;
-	padding: 0;
-	border: 0;
-	border-radius: 999px;
-	background-color: transparent;
+/* Inside the composer the menu chevrons keep the text color. */
+.shell [data-dropdown-indicator] {
 	color: var(--foreground);
-	cursor: pointer;
-	font: inherit;
 }
 
-.controlButton,
-.sendButton,
-.stopButton {
-	width: 36px;
+.modeChipIcon {
+	position: relative;
+	display: flex;
 }
 
-.modeChip,
-.modelButton {
-	gap: 6px;
-	padding: 0 10px;
-	font-size: var(--text-xs);
-	font-weight: var(--font-weight-medium);
-	white-space: nowrap;
+.modeChipIcon > :last-child {
+	position: absolute;
+	visibility: hidden;
 }
 
-.modelButton {
-	gap: 2px;
-	padding-inline-end: 8px;
+.modeChip:not(:disabled):is(:hover, :focus-visible) .modeChipIcon > :first-child {
+	visibility: hidden;
 }
 
-.controlButton:hover,
-.modeChip:hover,
-.modeChip:focus-visible,
-.modelButton:hover,
-.modelButton[aria-expanded='true'] {
-	background-color: var(--hover);
-}
-
-.modeChipRemove,
-.modeChip:hover .modeChipIcon,
-.modeChip:focus-visible .modeChipIcon {
-	display: none;
-}
-
-.modeChip:hover .modeChipRemove,
-.modeChip:focus-visible .modeChipRemove {
-	display: block;
-}
-
-.modeChip:disabled,
-.modelButton:is(:disabled, [data-disabled]) {
-	background-color: transparent;
-	color: var(--muted-foreground);
-	cursor: default;
-}
-
-.modeChip:disabled .modeChipIcon {
-	display: block;
-}
-
-.modeChip:disabled .modeChipRemove {
-	display: none;
-}
-
-.sendButton {
-	background-color: var(--accent);
-	color: var(--accent-foreground);
-}
-
-.sendButton:hover:not(:disabled) {
-	background-color: var(--accent-hover);
-}
-
-.sendButton:disabled {
-	background-color: var(--primary);
-	color: var(--primary-foreground);
-	cursor: default;
-	opacity: 0.5;
-}
-
-.sendButton[data-feedback] {
-	background-color: var(--destructive);
-	color: var(--destructive-foreground);
-}
-
-.stopButton {
-	background-color: var(--primary);
-	color: var(--primary-foreground);
-}
-
-.stopButton:hover {
-	background-color: var(--primary-hover);
+.modeChip:not(:disabled):is(:hover, :focus-visible) .modeChipIcon > :last-child {
+	visibility: visible;
 }
 
 .stopButton[aria-busy='true'] {
@@ -495,63 +383,6 @@
 	50% {
 		opacity: 0.5;
 	}
-}
-
-.commandsMenuPopup {
-	min-width: 220px;
-}
-
-.modelMenuPopup {
-	min-width: 260px;
-}
-
-.skillsSubmenuTrigger > span {
-	flex: 1;
-	min-width: 0;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
-}
-
-.skillsMenuPopup {
-	min-width: 272px;
-	max-width: min(360px, calc(100vw - 32px));
-}
-
-.describedItem {
-	align-items: flex-start;
-}
-
-.menuIcon {
-	flex: none;
-	width: 14px;
-	height: 14px;
-	color: var(--muted-foreground);
-}
-
-.describedItem > .menuIcon {
-	margin-block-start: 3px;
-}
-
-.describedItemBody {
-	display: flex;
-	min-width: 0;
-	flex-direction: column;
-	gap: 2px;
-}
-
-.describedItemLabel {
-	overflow: hidden;
-	color: var(--foreground);
-	text-overflow: ellipsis;
-	white-space: nowrap;
-}
-
-.describedItemDescription {
-	color: var(--muted-foreground);
-	font-size: var(--text-xxs);
-	line-height: 16px;
-	white-space: normal;
 }
 
 .dialogDescription {

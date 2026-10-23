@@ -1,8 +1,8 @@
-import { input } from '@inquirer/prompts';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { AuthCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __ } from '@wordpress/i18n';
 import { openBrowser } from 'cli/lib/browser';
+import { input } from 'cli/lib/prompts';
 import { getCliAuthenticationUrl, storeAuthToken } from 'cli/lib/wpcom-auth';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';

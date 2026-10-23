@@ -121,41 +121,6 @@ describe( 'createTurnStatsTracker', () => {
 		expect( props.edits ).toBe( 2 );
 	} );
 
-	it( 'omits checked_after_change when nothing was edited', () => {
-		const props = propsFor( [ toolEnd( 'take_screenshot' ) ] );
-		expect( props ).not.toHaveProperty( 'checked_after_change' );
-	} );
-
-	it( 'reports checked_after_change when a check ran after the last edit', () => {
-		expect(
-			propsFor( [ toolEnd( 'Edit' ), toolEnd( 'take_screenshot' ) ] ).checked_after_change
-		).toBe( true );
-		expect(
-			propsFor( [ toolEnd( 'Write' ), toolEnd( 'inspect_design' ) ] ).checked_after_change
-		).toBe( true );
-	} );
-
-	it( 'reports no check when the agent edited again after checking', () => {
-		const props = propsFor( [
-			toolEnd( 'Edit' ),
-			toolEnd( 'take_screenshot' ),
-			toolEnd( 'Edit' ),
-		] );
-		expect( props.checked_after_change ).toBe( false );
-	} );
-
-	it( 'reports no check when the check ran only before the edit, or failed', () => {
-		expect(
-			propsFor( [ toolEnd( 'take_screenshot' ), toolEnd( 'Edit' ) ] ).checked_after_change
-		).toBe( false );
-		expect(
-			propsFor( [ toolEnd( 'Edit' ), toolEnd( 'take_screenshot', true ) ] ).checked_after_change
-		).toBe( false );
-		expect( propsFor( [ toolEnd( 'Edit' ), toolEnd( 'Read' ) ] ).checked_after_change ).toBe(
-			false
-		);
-	} );
-
 	it( 'counts assistant responses and sums their usage', () => {
 		const props = propsFor( [ userEnd(), assistantEnd( 100, 20 ), assistantEnd( 300, 40 ) ] );
 		expect( props.model_requests ).toBe( 2 );

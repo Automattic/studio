@@ -5,8 +5,6 @@ import {
 	isUsageCapError,
 } from '@studio/common/ai/json-events';
 import { addAssistantMessageUsage, createTokenUsage } from 'cli/ai/token-usage';
-import { inspectDesignTool } from 'cli/ai/tools/inspect-design';
-import { takeScreenshotTool } from 'cli/ai/tools/take-screenshot';
 import type { AgentSessionEvent } from '@earendil-works/pi-coding-agent';
 import type { TurnStatus } from '@studio/common/ai/sessions/types';
 
@@ -15,13 +13,6 @@ import type { TurnStatus } from '@studio/common/ai/sessions/types';
 // tool or an error can reach Tracks.
 
 const FILE_CHANGE_TOOL_NAMES: ReadonlySet< string > = new Set( [ 'Write', 'Edit' ] );
-
-// Tools that look at the rendered site, so running one after an edit means
-// the agent checked its change.
-const CHECK_TOOL_NAMES: ReadonlySet< string > = new Set( [
-	takeScreenshotTool.name,
-	inspectDesignTool.name,
-] );
 
 const UNKNOWN_TOOL = 'unknown';
 
@@ -40,7 +31,6 @@ export interface TurnStatsProps {
 	tool_errors: number;
 	failed_tools: string;
 	edits: number;
-	checked_after_change?: boolean;
 	model_requests: number;
 	input_tokens: number;
 	output_tokens: number;
@@ -157,7 +147,6 @@ export function createTurnStatsTracker(): TurnStatsTracker {
 	let toolErrors = 0;
 	const failedTools = new Set< string >();
 	let edits = 0;
-	let checkedAfterChange = false;
 	let modelRequests = 0;
 	const usage = createTokenUsage();
 
@@ -179,9 +168,6 @@ export function createTurnStatsTracker(): TurnStatsTracker {
 			}
 			if ( FILE_CHANGE_TOOL_NAMES.has( event.toolName ) ) {
 				edits += 1;
-				checkedAfterChange = false;
-			} else if ( CHECK_TOOL_NAMES.has( event.toolName ) ) {
-				checkedAfterChange = true;
 			}
 		},
 		getProps( { outcome, failure, site, hasTool } ) {
@@ -195,7 +181,6 @@ export function createTurnStatsTracker(): TurnStatsTracker {
 				tool_errors: toolErrors,
 				failed_tools: [ ...failedToolNames ].sort().join( ',' ),
 				edits,
-				...( edits > 0 ? { checked_after_change: checkedAfterChange } : {} ),
 				model_requests: modelRequests,
 				input_tokens: usage.input,
 				output_tokens: usage.output,

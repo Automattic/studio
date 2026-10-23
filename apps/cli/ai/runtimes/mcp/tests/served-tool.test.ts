@@ -3,10 +3,11 @@ import { tmpdir } from 'os';
 import path from 'path';
 import { Type } from 'typebox';
 import { expect, it, vi } from 'vitest';
+import { createResultNotes } from 'cli/ai/result-notes';
 import { runServedTool } from 'cli/ai/runtimes/mcp/served-tool';
 import { defineTool, READ_ONLY } from 'cli/ai/tools/define-tool';
 
-it( 'adds the declared settings of the core blocks a result shows, from the site the call names', async () => {
+it( 'adds the declared settings of the core blocks a result shows, from the site the call names, once', async () => {
 	const root = mkdtempSync( path.join( tmpdir(), 'served-tool-' ) );
 	const sitePath = path.join( root, 'site' );
 	mkdirSync( path.join( sitePath, 'wp-includes', 'blocks', 'navigation' ), { recursive: true } );
@@ -26,18 +27,20 @@ it( 'adds the declared settings of the core blocks a result shows, from the site
 		async () => ( { content: [ { type: 'text', text: '<!-- wp:navigation /-->' } ] } ),
 		{ annotations: READ_ONLY }
 	);
+	const resultNotes = createResultNotes();
 	const notes = async ( args: Record< string, unknown > ) =>
-		( await runServedTool( tool, args ) ).content
+		( await runServedTool( tool, args, resultNotes ) ).content
 			.slice( 1 )
 			.map( ( part ) => ( part.type === 'text' ? part.text : '' ) );
+	const blockJson = path.join( sitePath, 'wp-includes/blocks/navigation/block.json' );
 
-	expect( await notes( { nameOrPath: 'My Site' } ) ).toEqual( [
-		`core/navigation settings, declared in ${ sitePath
-			.split( path.sep )
-			.join(
-				'/'
-			) }/wp-includes/blocks/navigation/block.json: submenuVisibility ("hover"|"click").`,
-	] );
 	expect( await notes( {} ) ).toEqual( [] );
 	expect( await notes( { nameOrPath: 'Missing Site' } ) ).toEqual( [] );
+	expect( await notes( { nameOrPath: 'My Site' } ) ).toEqual( [
+		`core/navigation settings, declared in ${ blockJson
+			.split( path.sep )
+			.join( '/' ) }: submenuVisibility ("hover"|"click").`,
+	] );
+	// Once per MCP session, as once per Studio Code turn.
+	expect( await notes( { nameOrPath: 'My Site' } ) ).toEqual( [] );
 } );

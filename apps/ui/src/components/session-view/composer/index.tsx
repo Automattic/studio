@@ -84,6 +84,13 @@ import {
 	getAnnotationsAttachment,
 } from '@/components/annotations/submission';
 import { Button } from '@/components/ui/button';
+import {
+	CommandSheet,
+	getActiveCommand,
+	handleCommandKey,
+	type Command,
+	type CommandGroup,
+} from '@/components/ui/command';
 import * as HoverCard from '@/components/ui/hover-card';
 import { InputGroup, InputGroupTextarea } from '@/components/ui/input-group';
 import * as Popover from '@/components/ui/popover';
@@ -112,13 +119,6 @@ import { StartSiteIcon } from '@/lib/icons/start-site-icon';
 import { StopSiteIcon } from '@/lib/icons/stop-site-icon';
 import { WordPressIcon } from '@/lib/icons/wordpress-icon';
 import { isImeComposing } from '@/lib/is-ime-composing';
-import {
-	CommandSheet,
-	getActiveCommand,
-	handleCommandKey,
-	type ComposerCommand,
-	type ComposerCommandGroup,
-} from './command-sheet';
 import { completeComposerDraftSend, getComposerDraft, saveComposerDraft } from './draft-store';
 import { FamilySwitchConfirmDialog } from './family-switch-confirm-dialog';
 import styles from './style.module.css';
@@ -696,7 +696,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		}
 	};
 
-	const toCommand = ( command: SkillSlashCommand ): ComposerCommand => ( {
+	const toCommand = ( command: SkillSlashCommand ): Command => ( {
 		value: command.name,
 		label: command.displayName ?? command.name,
 		description: command.description,
@@ -705,7 +705,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 			( command.name === 'auto-start' && ( ! preferences || savePreferences.isPending ) ) ||
 			( ( command.name === 'live' || command.name === 'local' ) && busy ),
 	} );
-	const commandGroups: ComposerCommandGroup[] = [
+	const commandGroups: CommandGroup[] = [
 		{
 			label: __( 'Commands' ),
 			items: [
@@ -1118,11 +1118,11 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 			}
 		}
 	};
-	const modelGroups: ComposerCommandGroup[] = [
+	const modelGroups: CommandGroup[] = [
 		{
 			label: __( 'Models' ),
 			items: providers.flatMap( ( provider ) =>
-				getAiProviderModels( provider ).map( ( { id } ): ComposerCommand => {
+				getAiProviderModels( provider ).map( ( { id } ): Command => {
 					const description = sprintf(
 						/* translators: 1: the model's provider, 2: what the model is good at. */
 						__( '%1$s · %2$s' ),
@@ -1416,7 +1416,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 				onHighlight={ setHighlight }
 				onSelect={ runCommand }
 				listRef={ commandListRef }
-				listId={ slashListId }
+				id={ slashListId }
 				anchor={ rootNode }
 				initialFocus={ () => ( addOpen ? commandListRef.current : false ) }
 				finalFocus={ () => ( pendingCommandRef.current ? false : textareaRef.current ) }

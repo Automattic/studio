@@ -63,7 +63,7 @@
 }
 
 /* On the composer's surface the muted fill and hover wash step up a shade. */
-:global(html[data-color-scheme='dark']) :is(.shell, .commandSheet) {
+:global(html[data-color-scheme='dark']) .shell {
 	--muted: var(--surface-4);
 	--hover: var(--muted);
 }
@@ -402,81 +402,6 @@
 	50% {
 		opacity: 0.5;
 	}
-}
-
-/* Rounded to sit inside the sheet's 24px corners, 10px in. */
-.commandSheet {
-	--command-radius: 14px;
-
-	padding: 10px;
-}
-
-.commandList {
-	max-height: min(20rem, var(--available-height));
-	overflow-x: hidden;
-	overflow-y: auto;
-	scroll-padding-block: 4px;
-	scrollbar-width: none;
-	outline: none;
-}
-
-.commandHeading {
-	padding: 12px 8px 4px;
-	color: var(--muted-foreground);
-	font-size: var(--text-xs);
-	font-weight: var(--font-weight-medium);
-}
-
-.commandItem {
-	display: flex;
-	gap: 6px;
-	align-items: center;
-	height: 32px;
-	box-sizing: border-box;
-	padding: 6px 8px;
-	border-radius: var(--command-radius);
-	font-size: var(--text-xs);
-	font-weight: var(--font-weight-medium);
-	cursor: default;
-	user-select: none;
-}
-
-.commandItem[data-highlighted] {
-	background-color: var(--hover);
-	color: var(--foreground);
-}
-
-.commandItem[data-disabled] {
-	opacity: 0.5;
-	pointer-events: none;
-}
-
-.commandIcon {
-	flex: none;
-	width: 14px;
-	height: 14px;
-	color: var(--muted-foreground);
-	pointer-events: none;
-}
-
-.commandText {
-	display: flex;
-	flex: 1;
-	gap: 6px;
-	align-items: baseline;
-	min-width: 0;
-}
-
-.commandLabel {
-	flex-shrink: 0;
-}
-
-.commandDescription {
-	overflow: hidden;
-	color: var(--muted-foreground);
-	font-size: var(--text-xxs);
-	text-overflow: ellipsis;
-	white-space: nowrap;
 }
 
 .dialogDescription {

@@ -158,14 +158,9 @@
 .scrollToLatestWrap {
 	position: absolute;
 	bottom: calc(100% + 12px);
-	inset-inline-start: 0;
-	/* Match the send button's inset: the composer toolbar's inline padding is
-	   the shell inline padding minus padding-xs (see composer .toolbar). */
-	inset-inline-end: calc(
-		var(--composer-shell-inline-padding) - 4px
-	);
+	inset-inline: 0;
 	display: flex;
-	justify-content: flex-end;
+	justify-content: center;
 	pointer-events: none;
 	-webkit-app-region: no-drag;
 }

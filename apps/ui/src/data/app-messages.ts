@@ -10,7 +10,7 @@ export type ToastIntent = 'success' | 'info' | 'error';
 
 export type ToastAction = {
 	label: string;
-	onClick: () => void;
+	onClick: () => void | Promise< unknown >;
 };
 
 type ToastInput = {
@@ -36,6 +36,8 @@ export type ToastMessage = {
 	// list (so the renderer can animate it out) and is actually removed —
 	// and the queue promoted — TOAST_EXIT_MS later.
 	leaving?: boolean;
+	// True while the action runs; it can't be clicked again until it fails.
+	actionPending?: boolean;
 };
 
 export type NoticeIntent = ToastIntent | 'warning';
@@ -205,6 +207,34 @@ export function dismissToast( id: string ): void {
 	beginToastExit( id );
 }
 
+export function errorMessage( error: unknown ): string {
+	return error instanceof Error ? error.message : String( error );
+}
+
+function setActionPending( id: string, actionPending: boolean ) {
+	visible = visible.map( ( item ) => ( item.id === id ? { ...item, actionPending } : item ) );
+	emit();
+}
+
+// Runs a toast's action once and closes the toast; a failure says so and
+// leaves the action there to try again.
+export async function runToastAction( id: string ): Promise< void > {
+	const target = visible.find( ( item ) => item.id === id );
+	if ( ! target?.action || target.actionPending || target.leaving ) {
+		return;
+	}
+	clearExpiryTimer( id );
+	setActionPending( id, true );
+	try {
+		await target.action.onClick();
+		beginToastExit( id );
+	} catch ( error ) {
+		setActionPending( id, false );
+		resumeToastExpiry( id );
+		toast.error( __( 'Action failed' ), { description: errorMessage( error ) } );
+	}
+}
+
 export const toast = {
 	success: ( title: string, options: Omit< ToastInput, 'title' | 'intent' > = {} ) =>
 		showToast( { intent: 'success', title, ...options } ),
@@ -242,7 +272,7 @@ export function pauseToastExpiry( id: string ): void {
 
 export function resumeToastExpiry( id: string ): void {
 	const toastMessage = visible.find( ( item ) => item.id === id );
-	if ( toastMessage && ! toastMessage.leaving ) {
+	if ( toastMessage && ! toastMessage.leaving && ! toastMessage.actionPending ) {
 		scheduleExpiry( toastMessage );
 	}
 }

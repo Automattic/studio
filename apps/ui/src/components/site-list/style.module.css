@@ -404,6 +404,24 @@
 	padding-block: 1px 8px;
 }
 
+.groupActions {
+	display: flex;
+}
+
+/* Show more and Retry loading chats. */
+.chats .mutedRow {
+	color: var(--muted-foreground);
+}
+
+.chats .mutedRow:hover {
+	background-color: var(--sidebar-row-background);
+	color: var(--foreground);
+}
+
+.site .mutedRow {
+	padding-inline-start: var(--site-list-text-inset);
+}
+
 .chatRow {
 	position: relative;
 	display: flex;
@@ -511,13 +529,4 @@
 /* While several rows are selected, their hover actions step aside. */
 .selection[data-selecting] :is(.chatActions, .siteActions) {
 	visibility: hidden;
-}
-
-.visuallyHidden {
-	position: absolute;
-	width: 1px;
-	height: 1px;
-	overflow: hidden;
-	clip-path: inset(50%);
-	white-space: nowrap;
 }

@@ -1,7 +1,10 @@
 import { Type } from 'typebox';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
-import { getUnsupportedWpCliPostContentMessage } from 'cli/lib/wp-cli-post-content';
+import {
+	getUnsupportedWpCliPostContentMessage,
+	routePostContentFile,
+} from 'cli/lib/wp-cli-post-content';
 import { defineTool, REMOTE_OVERWRITE } from './define-tool';
 import { resolveSite } from './utils';
 
@@ -136,7 +139,9 @@ export const runWpCliTool = defineTool(
 			try {
 				await connectToDaemon();
 
-				const wpCliArgs = splitCommandArgs( args.command );
+				const splitArgs = splitCommandArgs( args.command );
+				const routed = routePostContentFile( splitArgs, site.path );
+				const wpCliArgs = routed?.args ?? splitArgs;
 				const unsupportedOptionMessage = getUnsupportedWpCliOptionMessage( wpCliArgs );
 				if ( unsupportedOptionMessage ) {
 					throw new Error( unsupportedOptionMessage );
@@ -151,7 +156,9 @@ export const runWpCliTool = defineTool(
 				const stdout = await command.response.stdoutText;
 				const stderr = await command.response.stderrText;
 
-				let output = '';
+				let output = routed
+					? `Read the post content from ${ routed.file }, the file \`--post_content\` named.\n`
+					: '';
 				if ( stdout ) {
 					output += stdout;
 				}

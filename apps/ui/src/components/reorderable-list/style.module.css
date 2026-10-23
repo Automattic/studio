@@ -3,17 +3,52 @@
    props on ReorderableList. */
 
 .itemWrapper {
+	position: relative;
 	touch-action: none;
 }
 
-/* The FLIP animation transforms each wrapper's first child (see
-   getRowAnimationTarget), so that's where the compositor hint goes. */
-.dragging .itemWrapper > :first-child {
-	will-change: transform;
+.itemWrapper[data-drag-source] {
+	opacity: 0.35;
 }
 
-.placeholder {
-	box-sizing: border-box;
+.itemWrapper[data-dropping] {
+	opacity: 0;
+}
+
+/* The drop marker: a line along the target slot's edge, with a dot at its
+   start. */
+.itemWrapper[data-drop-position]::before,
+.itemWrapper[data-drop-position]::after {
+	position: absolute;
+	z-index: 1;
+	background-color: var(--ring);
+	pointer-events: none;
+	content: '';
+}
+
+.itemWrapper[data-drop-position]::before {
+	inset-inline: 0;
+	height: 2px;
+	border-radius: 1px;
+	translate: 0 -50%;
+}
+
+.itemWrapper[data-drop-position]::after {
+	inset-inline-start: 0;
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	translate: -50% -50%;
+}
+
+.itemWrapper[data-drop-position='before']::before,
+.itemWrapper[data-drop-position='before']::after {
+	top: 0;
+}
+
+.itemWrapper[data-drop-position='after']::before,
+.itemWrapper[data-drop-position='after']::after {
+	top: 100%;
 }
 
 .dragPreview {

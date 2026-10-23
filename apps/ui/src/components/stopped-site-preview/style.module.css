@@ -18,7 +18,7 @@
 	overflow: hidden;
 	border-radius: 5px;
 	background: var(--muted);
-	transition: transform 180ms cubic-bezier(0.165, 0.84, 0.44, 1);
+	transition: transform var(--motion-duration-surface) var(--motion-ease-enter);
 }
 
 .frame::after {
@@ -46,7 +46,9 @@
 	justify-content: center;
 	opacity: 0;
 	transform: scale(0.97);
-	transition: opacity 180ms ease, transform 180ms cubic-bezier(0.165, 0.84, 0.44, 1);
+	transition:
+		opacity var(--motion-duration-surface) var(--motion-ease-enter),
+		transform var(--motion-duration-surface) var(--motion-ease-enter);
 	pointer-events: none;
 }
 

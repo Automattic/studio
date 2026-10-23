@@ -42,7 +42,7 @@
 }
 
 /* The chat header's actions fade back in once the column is halfway open,
-   and leave at once when it closes. */
+   and fade out as soon as it closes. */
 .contentColumn [data-header-actions] {
 	transition: opacity var(--motion-duration-feedback) var(--motion-ease-enter)
 		calc(var(--motion-duration-layout) / 2);
@@ -50,7 +50,7 @@
 
 .contentColumnCollapsed [data-header-actions] {
 	opacity: 0;
-	transition: none;
+	transition: opacity var(--motion-duration-feedback) var(--motion-ease-enter);
 }
 
 /* Full preview: the column is width 0 once the slide finishes; visibility

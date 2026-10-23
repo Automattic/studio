@@ -40,11 +40,12 @@
 	transition: width var(--motion-duration-layout) var(--motion-ease-layout);
 }
 
-/* While dragging the handle the width updates every frame; the collapse
-   transition above would animate toward each step and lag behind the cursor.
+/* While dragging or arrow-keying the handle the width updates every step; the
+   collapse transition above would animate toward each step and lag behind.
    Drop it for the duration of the drag (mirrors `.rootPreviewResizing` in
    preview-split-frame). */
-.sidebarResizing {
+.sidebarResizing,
+.root:has(> .resizeHandle:focus-visible) .sidebarFrame {
 	transition: none;
 }
 
@@ -102,6 +103,19 @@
 .main::before,
 .main::after {
 	z-index: 30;
+}
+
+.main::before {
+	transition: opacity var(--motion-duration-layout) var(--motion-ease-layout);
+}
+
+.mainUndocked::before {
+	opacity: 0;
+}
+
+.mainUndocked::after {
+	visibility: hidden;
+	transition: visibility 0s var(--motion-duration-layout);
 }
 
 /* The negative margin cancels the handle's width so it adds no space to the

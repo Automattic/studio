@@ -92,6 +92,7 @@ import { AiAccessRequiredNotice, AiBlockedNotice } from '@/components/ai-access-
 import { CopyButton } from '@/components/copy-button';
 import { Markdown } from '@/components/markdown';
 import { Button, IconButton } from '@/components/ui/button';
+import { CollapsiblePanel } from '@/components/ui/collapsible';
 import { Dialog, DialogClose, DialogContent, DialogDismissButton } from '@/components/ui/dialog';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
 import { useLocalMediaDataUrl } from '@/data/queries/use-local-media';
@@ -829,14 +830,6 @@ function ToolUseRow( {
 	const hasExpandableDetails = hasInput || hasOutput || hasDiff;
 	const [ toggledOpen, setToggledOpen ] = useState< boolean | null >( null );
 	const expanded = toggledOpen ?? result?.isError === true;
-	const [ detailsMounted, setDetailsMounted ] = useState( false );
-	useEffect( () => {
-		if ( expanded || ! detailsMounted ) {
-			return;
-		}
-		const timeoutId = window.setTimeout( () => setDetailsMounted( false ), 220 );
-		return () => window.clearTimeout( timeoutId );
-	}, [ detailsMounted, expanded ] );
 	const rowContent = (
 		<>
 			<ToolIcon name={ name } input={ input } />
@@ -855,10 +848,7 @@ function ToolUseRow( {
 					aria-expanded={ expanded }
 					aria-controls={ detailsId }
 					data-expanded={ expanded }
-					onClick={ () => {
-						setDetailsMounted( true );
-						setToggledOpen( ! expanded );
-					} }
+					onClick={ () => setToggledOpen( ! expanded ) }
 					title={ expanded ? __( 'Hide tool details' ) : __( 'Show tool details' ) }
 				>
 					{ rowContent }
@@ -866,33 +856,25 @@ function ToolUseRow( {
 			) : (
 				<div className={ styles.toolRow }>{ rowContent }</div>
 			) }
-			{ hasExpandableDetails && ( expanded || detailsMounted ) ? (
-				<div
-					id={ detailsId }
-					className={ styles.toolDetailsShell }
-					data-expanded={ expanded }
-					aria-hidden={ ! expanded }
-					onTransitionEnd={ ( event ) => {
-						if ( event.currentTarget === event.target && ! expanded ) {
-							setDetailsMounted( false );
-						}
-					} }
-				>
-					<div className={ styles.toolDetailsClip }>
-						<div className={ styles.toolOutputWrap }>
-							{ hasInput ? <pre className={ styles.toolInput }>{ display.inputText }</pre> : null }
-							{ hasOutput ? (
-								<pre
-									className={ clsx( styles.toolOutput, result?.isError && styles.toolOutputError ) }
-								>
-									{ resultText }
-								</pre>
-							) : null }
-							{ hasDiff ? <DiffBlock diff={ result!.diff! } /> : null }
-						</div>
+			<CollapsiblePanel
+				open={ hasExpandableDetails && expanded }
+				id={ detailsId }
+				className={ styles.toolDetailsShell }
+			>
+				<div className={ styles.toolDetailsClip }>
+					<div className={ styles.toolOutputWrap }>
+						{ hasInput ? <pre className={ styles.toolInput }>{ display.inputText }</pre> : null }
+						{ hasOutput ? (
+							<pre
+								className={ clsx( styles.toolOutput, result?.isError && styles.toolOutputError ) }
+							>
+								{ resultText }
+							</pre>
+						) : null }
+						{ hasDiff ? <DiffBlock diff={ result!.diff! } /> : null }
 					</div>
 				</div>
-			) : null }
+			</CollapsiblePanel>
 		</div>
 	);
 }

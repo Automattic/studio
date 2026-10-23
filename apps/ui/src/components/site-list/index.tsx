@@ -24,6 +24,7 @@ import { getSessionTitle } from '@/components/session-view/session-chat-actions'
 import { SidebarButton } from '@/components/sidebar-button';
 import { SiteActionsMenuItems, useSiteActions } from '@/components/site-actions-menu';
 import { Button, IconButton } from '@/components/ui/button';
+import { CollapsiblePanel } from '@/components/ui/collapsible';
 import * as Menu from '@/components/ui/menu';
 import { Spinner } from '@/components/ui/spinner';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -443,7 +444,7 @@ function SidebarGroup( {
 				</button>
 				{ action }
 			</div>
-			{ expanded ? children : null }
+			<CollapsiblePanel open={ expanded }>{ children }</CollapsiblePanel>
 		</div>
 	);
 }
@@ -719,7 +720,7 @@ function SiteSection( {
 					</header>
 				}
 			/>
-			{ showChats ? (
+			<CollapsiblePanel open={ showChats }>
 				<div
 					role="group"
 					aria-label={ sprintf(
@@ -758,7 +759,7 @@ function SiteSection( {
 						</SidebarButton>
 					) : null }
 				</div>
-			) : null }
+			</CollapsiblePanel>
 		</section>
 	);
 }

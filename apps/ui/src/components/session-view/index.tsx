@@ -393,6 +393,12 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		pendingPromptSlot.getSnapshot
 	);
 	const pendingPrompt = handedOver?.sessionId === sessionId ? handedOver : null;
+	// The empty state fades out under the first prompt, then unmounts.
+	const showEmpty = isEmpty && ! pendingPrompt;
+	const [ emptySessionId, setEmptySessionId ] = useState( showEmpty ? sessionId : null );
+	if ( showEmpty && emptySessionId !== sessionId ) {
+		setEmptySessionId( sessionId );
+	}
 	const isChatReady = !! data && ! isQuotaLoading && ! notice && ! isOutOfCredits;
 	useEffect( () => {
 		// Read the slot live rather than the rendered value: StrictMode runs the
@@ -519,18 +525,18 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 						onRemove={ removeQueuedPrompt }
 						onEdit={ reopenQueuedPrompt }
 					/>
-					{ isScrolledAway ? (
-						<div className={ styles.scrollToLatestWrap }>
-							<IconButton
-								className={ styles.scrollToLatestButton }
-								icon={ arrowDown }
-								label={ __( 'Jump to latest' ) }
-								variant="outline"
-								shape="round"
-								onClick={ scrollToLatest }
-							/>
-						</div>
-					) : null }
+					<div className={ styles.scrollToLatestWrap }>
+						<IconButton
+							className={ styles.scrollToLatestButton }
+							icon={ arrowDown }
+							label={ __( 'Jump to latest' ) }
+							variant="outline"
+							shape="round"
+							data-visible={ isScrolledAway || undefined }
+							inert={ ! isScrolledAway }
+							onClick={ scrollToLatest }
+						/>
+					</div>
 					<Composer
 						ref={ composerRef }
 						busy={ composerBusy }
@@ -557,9 +563,17 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 			}
 		>
 			<OpenChatShortcuts session={ data.summary } />
-			{ isEmpty && ! pendingPrompt ? (
+			{ emptySessionId === sessionId ? (
 				<SiteContextMenu site={ ownerSite } disabled={ ! ownerSite || ownerSite.running }>
-					<div className={ styles.emptyState }>
+					<div
+						className={ styles.emptyState }
+						data-hidden={ ! showEmpty || undefined }
+						onTransitionEnd={ ( event ) => {
+							if ( event.target === event.currentTarget && ! showEmpty ) {
+								setEmptySessionId( null );
+							}
+						} }
+					>
 						<PreviewParticles active={ isSiteStarting } showLogo={ isSiteStarting } />
 						{ ownerSite && ! ownerSite.running && ! isSiteStarting ? (
 							<StoppedSitePreview site={ ownerSite } />

@@ -25,6 +25,11 @@
 	}
 }
 
+.trigger {
+	--button-active-duration: var(--motion-duration-layout);
+	--button-active-easing: var(--motion-ease-layout);
+}
+
 .triggerLabel {
 	position: relative;
 }

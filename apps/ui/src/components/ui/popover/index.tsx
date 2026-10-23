@@ -50,6 +50,7 @@ export function Popup( {
 				className={ styles.positioner }
 			>
 				<BasePopover.Popup
+					data-slot="popover-content"
 					initialFocus={ initialFocus }
 					finalFocus={ finalFocus }
 					render={ <FloatingSurface className={ className } style={ style } /> }

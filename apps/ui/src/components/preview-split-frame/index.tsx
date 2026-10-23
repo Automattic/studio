@@ -12,11 +12,11 @@ import { ResizeHandle, ResizeOverlay } from '@/components/resize-handle';
 import { usePreviewSplit } from '@/hooks/use-preview-split';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import { WindowControlsCornerContext } from '@/hooks/use-window-controls-inset';
+import { getMotionDuration } from '@/lib/motion';
 import { PREVIEW_SPLIT_MIN_WIDTH } from '@/lib/resizable-panels';
 import styles from './style.module.css';
 
 // Keep in sync with the content-column transition duration in style.module.css.
-export const PREVIEW_TOGGLE_DURATION = 240;
 
 // Whether the preview shows beside the content, for controls in the content
 // column that only make sense next to it.
@@ -91,7 +91,7 @@ export function PreviewSplitFrame( {
 		}
 		const timeoutId = window.setTimeout(
 			() => setAnimatingPreviewToggle( false ),
-			PREVIEW_TOGGLE_DURATION
+			getMotionDuration( 'layout' )
 		);
 		return () => window.clearTimeout( timeoutId );
 	}, [ animatingPreviewToggle, showPreview, contentCollapsed ] );

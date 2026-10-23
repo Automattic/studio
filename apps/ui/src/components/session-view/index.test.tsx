@@ -212,7 +212,7 @@ function makeQuota(
 	};
 }
 
-const SCROLL_TO_LATEST_LABEL = 'Jump to latest';
+const jumpButton = () => screen.getByRole( 'button', { name: 'Jump to latest' } );
 
 function makeLoadedSession(): LoadedAiSession {
 	return {
@@ -379,14 +379,13 @@ describe( 'SessionView', () => {
 
 		const scroller = container.querySelector( '[class*="_scroll_"]' ) as HTMLDivElement;
 		expect( scroller ).not.toBeNull();
-		expect(
-			screen.queryByRole( 'button', { name: SCROLL_TO_LATEST_LABEL } )
-		).not.toBeInTheDocument();
+		expect( jumpButton() ).not.toHaveAttribute( 'data-visible' );
 
 		setScrollMetrics( scroller, { scrollTop: 100, scrollHeight: 1000, clientHeight: 400 } );
 		fireEvent.scroll( scroller );
 
-		const button = await screen.findByRole( 'button', { name: SCROLL_TO_LATEST_LABEL } );
+		await waitFor( () => expect( jumpButton() ).toHaveAttribute( 'data-visible' ) );
+		const button = jumpButton();
 
 		scroller.scrollTo = vi.fn();
 		fireEvent.click( button );
@@ -394,11 +393,7 @@ describe( 'SessionView', () => {
 
 		setScrollMetrics( scroller, { scrollTop: 600, scrollHeight: 1000, clientHeight: 400 } );
 		fireEvent.scroll( scroller );
-		await waitFor( () =>
-			expect(
-				screen.queryByRole( 'button', { name: SCROLL_TO_LATEST_LABEL } )
-			).not.toBeInTheDocument()
-		);
+		await waitFor( () => expect( jumpButton() ).not.toHaveAttribute( 'data-visible' ) );
 	} );
 
 	it( 'wires the scroller when the session loads before the quota check resolves', async () => {
@@ -434,9 +429,7 @@ describe( 'SessionView', () => {
 
 		setScrollMetrics( scroller, { scrollTop: 100, scrollHeight: 1000, clientHeight: 400 } );
 		fireEvent.scroll( scroller );
-		expect(
-			await screen.findByRole( 'button', { name: SCROLL_TO_LATEST_LABEL } )
-		).toBeInTheDocument();
+		await waitFor( () => expect( jumpButton() ).toHaveAttribute( 'data-visible' ) );
 	} );
 
 	it( 'keeps the composer hidden while the entitlement check is loading', () => {
@@ -696,9 +689,7 @@ describe( 'SessionView', () => {
 
 			// The last prompt sits at the top, with a peek of the turn before it.
 			expect( scroller.scrollTop ).toBe( 1476 );
-			expect(
-				await screen.findByRole( 'button', { name: SCROLL_TO_LATEST_LABEL } )
-			).toBeInTheDocument();
+			await waitFor( () => expect( jumpButton() ).toHaveAttribute( 'data-visible' ) );
 		} );
 
 		it( 'pins a new prompt near the top while its reply streams below', () => {
@@ -717,9 +708,7 @@ describe( 'SessionView', () => {
 			// leaves the prompt 24px from the top.
 			expect( spacer ).toHaveStyle( { height: '476px' } );
 			expect( scroller.scrollTop ).toBe( 1276 );
-			expect(
-				screen.queryByRole( 'button', { name: SCROLL_TO_LATEST_LABEL } )
-			).not.toBeInTheDocument();
+			expect( jumpButton() ).not.toHaveAttribute( 'data-visible' );
 
 			// Once the reply outgrows the view, the spacer is gone and the view
 			// follows the reply.

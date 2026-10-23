@@ -1,6 +1,6 @@
 import { STOPPED_WITHOUT_ANSWER } from '@studio/common/ai/tools';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { createElement, useState } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Conversation, entriesToRenderItems, getQuestionScrollDelta } from './index';
@@ -76,7 +76,7 @@ describe( 'Assistant message copy button', () => {
 } );
 
 describe( 'Conversation tool rows', () => {
-	it( 'keeps tool inputs and results hidden until the label row is clicked', () => {
+	it( 'keeps tool inputs and results hidden until the label row is clicked', async () => {
 		const data = loadedSession( [
 			assistantToolCallEntry( 'Bash', { command: 'npm test' } ),
 			toolResultEntry( 'first output line\nsecond output line' ),
@@ -102,10 +102,9 @@ describe( 'Conversation tool rows', () => {
 
 		expect( toolRow ).toHaveAttribute( 'aria-expanded', 'false' );
 		expect( toolRow ).toHaveAttribute( 'data-expanded', 'false' );
-		const hiddenDetails = screen.getByText( /first output line/ ).closest( '[aria-hidden="true"]' );
-		expect( hiddenDetails ).toBeInTheDocument();
-		fireEvent.transitionEnd( hiddenDetails! );
-		expect( screen.queryByText( /first output line/ ) ).not.toBeInTheDocument();
+		await waitFor( () =>
+			expect( screen.queryByText( /first output line/ ) ).not.toBeInTheDocument()
+		);
 	} );
 
 	it( 'opens a failed tool row with its error, without terminal color codes', () => {

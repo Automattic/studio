@@ -31,7 +31,7 @@
 }
 
 .noticeContent[data-submit-feedback='shake'] {
-	animation: submitShake 240ms ease-in-out;
+	animation: submitShake var(--motion-duration-layout) var(--motion-ease-layout);
 }
 
 .noticeMessage {
@@ -40,19 +40,19 @@
 }
 
 @keyframes submitShake {
-	25% {
+	20% {
 		transform: translateX(-6px);
 	}
 
-	50% {
+	40% {
 		transform: translateX(5px);
 	}
 
-	75% {
+	60% {
 		transform: translateX(-3px);
 	}
 
-	100% {
+	80% {
 		transform: translateX(1px);
 	}
 }
@@ -194,6 +194,7 @@
 	box-shadow: 0 1px 2px rgb(0 0 0 / 10%);
 	color: var(--foreground);
 	cursor: pointer;
+	transition: background-color var(--motion-duration-feedback) ease;
 }
 
 .attachmentRemove::after {
@@ -216,7 +217,7 @@
 	border-radius: 9px;
 	background-color: var(--chrome);
 	box-shadow: 0 8px 24px rgb(0 0 0 / 18%);
-	animation: attachmentHoverPreviewIn 120ms ease-out;
+	animation: attachmentHoverPreviewIn var(--motion-duration-surface) var(--motion-ease-enter);
 	pointer-events: none;
 	transform-origin: bottom left;
 	user-select: none;
@@ -287,12 +288,7 @@
 @keyframes attachmentHoverPreviewIn {
 	from {
 		opacity: 0;
-		transform: translateY(4px) scale(0.98);
-	}
-
-	to {
-		opacity: 1;
-		transform: translateY(0) scale(1);
+		scale: 0.97;
 	}
 }
 
@@ -347,27 +343,47 @@
 	color: transparent;
 }
 
-.placeholderShimmer {
+.placeholder {
 	position: absolute;
 	top: 14px;
 	right: 14px;
 	left: 14px;
 	overflow: hidden;
-	background: linear-gradient(
-			90deg,
-			var(--muted-foreground) 40%,
-			var(--foreground) 50%,
-			var(--muted-foreground) 60%
-		)
-		0 0 / 300% 100%;
-	background-clip: text;
-	color: transparent;
+	color: var(--muted-foreground);
 	font-size: var(--text-sm);
 	line-height: 20px;
 	text-overflow: ellipsis;
 	white-space: nowrap;
 	pointer-events: none;
+}
+
+/* A highlight band sweeps across the text: it dims the text in light mode and
+   lifts it in dark mode. */
+.placeholderShimmer {
+	--spread: calc(3ch + 40px);
+	--highlight: oklch(from currentColor l c h / calc(alpha * 0.2));
+	--edge: color-mix(in oklch, var(--highlight), currentColor 50%);
+
+	background: linear-gradient(
+			110deg,
+			currentColor calc(50% - var(--spread)),
+			var(--edge) calc(50% - var(--spread) * 0.5),
+			var(--highlight) 50%,
+			var(--edge) calc(50% + var(--spread) * 0.5),
+			currentColor calc(50% + var(--spread))
+		)
+		0 0 / calc(200% + var(--spread) * 2) 100% no-repeat;
+	background-clip: text;
+	-webkit-text-fill-color: transparent;
 	animation: placeholderShimmer 2s linear infinite;
+}
+
+:global(html[data-color-scheme='dark']) .placeholderShimmer {
+	--highlight: oklch(from currentColor max(0.8, calc(l + 0.4)) c h / calc(alpha + 0.4));
+}
+
+.placeholderShimmer:dir(rtl) {
+	animation-direction: reverse;
 }
 
 @keyframes placeholderShimmer {
@@ -579,8 +595,12 @@
 
 @media (prefers-reduced-motion: reduce) {
 	.noticeContent[data-submit-feedback='shake'],
-	.placeholderShimmer,
 	.stopButton[aria-busy='true'] {
 		animation: none;
+	}
+
+	.placeholderShimmer {
+		background: none;
+		-webkit-text-fill-color: currentColor;
 	}
 }

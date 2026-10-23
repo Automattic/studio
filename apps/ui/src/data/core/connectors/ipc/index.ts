@@ -7,10 +7,7 @@ import {
 	getSiteAgentFilePaths,
 } from '@studio/common/lib/site-agent-file-paths';
 import { fetchSnapshotUsage } from '@studio/common/lib/snapshots';
-import {
-	STUDIO_ASSISTANT_QUOTA_URL,
-	studioAssistantQuotaSchema,
-} from '@studio/common/lib/studio-assistant-quota';
+import { fetchStudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 import { fetchStudioAssistantTopUpPricing } from '@studio/common/lib/studio-assistant-top-up-pricing';
 import { SyncCancelledError } from '@studio/common/lib/sync/cancel';
 import { getFirstInstalledEditor } from '@studio/common/lib/user-settings/editor';
@@ -88,22 +85,6 @@ export function createIpcConnector(): Connector {
 		} catch ( error ) {
 			throw new Error( stripIpcErrorPrefix( getErrorMessage( error ) ?? String( error ) ) );
 		}
-	}
-
-	// Fetches an authenticated WordPress.com endpoint with the stored OAuth
-	// token. Resolves `null` when signed out so callers can degrade gracefully.
-	async function fetchWpcomJson( url: string, errorLabel: string ): Promise< unknown > {
-		const token = ( await ipcApi.getAuthenticationToken() ) as StoredAuthToken | null;
-		if ( ! token ) {
-			return null;
-		}
-		const response = await fetch( url, {
-			headers: { Authorization: `Bearer ${ token.accessToken }` },
-		} );
-		if ( ! response.ok ) {
-			throw new Error( `Failed to fetch ${ errorLabel }: ${ response.status }` );
-		}
-		return response.json();
 	}
 
 	// Preview CLI commands are path-based, not id-based. Look up the matching
@@ -428,8 +409,8 @@ export function createIpcConnector(): Connector {
 		},
 
 		async getStudioAssistantQuota(): Promise< StudioAssistantQuota | null > {
-			const data = await fetchWpcomJson( STUDIO_ASSISTANT_QUOTA_URL, 'Studio assistant quota' );
-			return data === null ? null : studioAssistantQuotaSchema.parse( data );
+			const token = ( await ipcApi.getAuthenticationToken() ) as StoredAuthToken | null;
+			return token ? fetchStudioAssistantQuota( token.accessToken ) : null;
 		},
 
 		async getStudioAssistantTopUpPricing(

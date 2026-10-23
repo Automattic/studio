@@ -24,6 +24,10 @@ export function useStudioAssistantQuota( {
 		staleTime: 5 * 60 * 1000,
 		refetchOnMount,
 		refetchOnWindowFocus,
+		// Every chat view gates on this query's loading state while its composer
+		// reads it too: a failed fetch refetched on each new mount would put the
+		// query back to pending and swap the composer out again, forever.
+		retryOnMount: false,
 		meta: { persist: false },
 	} );
 	// The quota belongs to the signed-in WordPress.com account; hide any

@@ -168,8 +168,8 @@ function joinList( items: string[] ): string {
 
 /**
  * Facts about a local site read from its own files and database, one line
- * each, for the Active site section: the WordPress it runs, where that
- * WordPress declares its block types, and the copies saved in the Site Editor.
+ * each, for the Active site section: the WordPress version it runs and the
+ * copies saved in the Site Editor.
  */
 export async function readActiveSiteFacts( site?: SiteInfo | null ): Promise< string[] > {
 	if ( ! site || site.remote ) {
@@ -179,11 +179,8 @@ export async function readActiveSiteFacts( site?: SiteInfo | null ): Promise< st
 		getWordPressVersionFromInstallation( site.path ),
 		readSavedCopies( site.path ),
 	] );
-	const blocks = path.join( site.path, 'wp-includes', 'blocks' ).split( path.sep ).join( '/' );
 	return [
-		version
-			? `WordPress ${ version }. Its core block types, with their attributes and supports, are declared in ${ blocks }/<block>/block.json.`
-			: undefined,
+		version ? `WordPress ${ version }.` : undefined,
 		formatSavedCopies( savedCopies ),
 	].filter( ( fact ): fact is string => Boolean( fact ) );
 }

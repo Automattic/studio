@@ -1,7 +1,21 @@
-import { QueryClient } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { renderHook } from '@testing-library/react';
+import { createElement, type ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import { openNewSession, primeSessionQueryData, SESSIONS_QUERY_KEY } from './use-sessions';
-import type { AiSessionSummary, Connector, LoadedAiSession } from '@/data/core';
+import { useConnector } from '@/data/core';
+import { connectedWpcomSitesQueryKey } from './use-connected-wpcom-sites';
+import {
+	openNewSession,
+	primeSessionQueryData,
+	SESSIONS_QUERY_KEY,
+	useSessionLiveSite,
+} from './use-sessions';
+import type { AiSessionSummary, Connector, LoadedAiSession, SyncSite } from '@/data/core';
+
+vi.mock( '@/data/core', async ( importOriginal ) => ( {
+	...( await importOriginal< typeof import('@/data/core') >() ),
+	useConnector: vi.fn(),
+} ) );
 
 describe( 'primeSessionQueryData', () => {
 	it( 'upserts the summary into the sessions list newest-first', () => {
@@ -89,6 +103,36 @@ describe( 'openNewSession', () => {
 			queryKey: [ ...SESSIONS_QUERY_KEY, 'session-1' ],
 			exact: true,
 		} );
+	} );
+} );
+
+describe( 'useSessionLiveSite', () => {
+	const production = { id: 1, url: 'https://example.wordpress.com' } as SyncSite;
+	const staging = { id: 2, url: 'https://staging.example.wordpress.com' } as SyncSite;
+
+	function getLiveSite( summary: Partial< AiSessionSummary > ) {
+		vi.mocked( useConnector ).mockReturnValue( {} as Connector );
+		const queryClient = new QueryClient();
+		queryClient.setQueryData( connectedWpcomSitesQueryKey( 'site-1' ), [ production, staging ] );
+		return renderHook( () => useSessionLiveSite( createSummary( summary ), 'site-1' ), {
+			wrapper: ( { children }: { children: ReactNode } ) =>
+				createElement( QueryClientProvider, { client: queryClient }, children ),
+		} ).result.current;
+	}
+
+	it( "resolves a Live chat's selected remote", () => {
+		expect( getLiveSite( { activeEnvironment: 'live', lastSelectedWpcomSiteId: 2 } ) ).toBe(
+			staging
+		);
+	} );
+
+	it( 'falls back to Local for a Local chat or a remote no longer connected', () => {
+		expect(
+			getLiveSite( { activeEnvironment: 'local', lastSelectedWpcomSiteId: 1 } )
+		).toBeUndefined();
+		expect(
+			getLiveSite( { activeEnvironment: 'live', lastSelectedWpcomSiteId: 3 } )
+		).toBeUndefined();
 	} );
 } );
 

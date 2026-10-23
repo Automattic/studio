@@ -1,6 +1,6 @@
 import { INSPECTOR_BRIDGE_PREFIX } from '@studio/common/ai/inspector/page-script';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TooltipProvider } from '@/components/ui/tooltip';
@@ -556,6 +556,46 @@ describe( 'SitePreview', () => {
 		expect( probeSite ).toHaveBeenCalledWith( 'http://localhost:8881/', expect.anything() );
 	} );
 
+	it( "previews a Live chat's remote without the local site's controls", async () => {
+		const captureSitePreview = vi.fn();
+		const openExternalUrl = vi.fn().mockResolvedValue( undefined );
+		useConnectorMock.mockReturnValue( {
+			captureSitePreview,
+			openExternalUrl,
+			getSiteThumbnail: vi.fn().mockResolvedValue( null ),
+			capabilities: { ...CAPABILITIES, annotatePreview: true },
+		} as never );
+		const onPathChange = vi.fn();
+		const { container } = renderPreview(
+			<SitePreview
+				site={ createSite() }
+				liveUrl="https://example.wordpress.com"
+				path="/about/"
+				reloadNonce={ 0 }
+				onPathChange={ onPathChange }
+			/>
+		);
+
+		const iframe = container.querySelector( 'iframe' )!;
+		expect( iframe ).toHaveAttribute( 'src', 'https://example.wordpress.com/about/' );
+		fireEvent.load( iframe );
+		const address = screen.getByRole( 'textbox', { name: 'Address' } );
+		expect( address ).toHaveValue( 'https://example.wordpress.com/about/' );
+		for ( const name of [ 'Annotate', 'Site settings' ] ) {
+			expect( screen.queryByRole( 'button', { name } ) ).not.toBeInTheDocument();
+		}
+
+		await userEvent.clear( address );
+		await userEvent.type( address, '/wp-admin/{Enter}' );
+		expect( onPathChange ).toHaveBeenLastCalledWith( '/wp-admin/' );
+
+		await userEvent.click(
+			screen.getByRole( 'button', { name: 'Open this page in your browser' } )
+		);
+		expect( openExternalUrl ).toHaveBeenCalledWith( 'https://example.wordpress.com/about/' );
+		expect( captureSitePreview ).not.toHaveBeenCalled();
+	} );
+
 	it( 'keeps the loading stage over a just-started site until its first page loads', async () => {
 		let finishStart = () => {};
 		useConnectorMock.mockReturnValue( {
@@ -798,6 +838,21 @@ describe( 'SitePreview webview reload', () => {
 		await waitFor( () => expect( webview.reload ).toHaveBeenCalledTimes( 1 ) );
 		expect( clearWebviewCache ).toHaveBeenCalledWith( 7 );
 		expect( webview.loadURL ).not.toHaveBeenCalled();
+	} );
+
+	it( 'leaves WP Admin alone when the host reloads, on a Live remote too', () => {
+		for ( const liveUrl of [ undefined, 'https://example.wordpress.com' ] ) {
+			const { webview, clearWebviewCache, update } = renderWebviewPreview( {
+				liveUrl,
+				path: '/wp-admin/post.php?post=1&action=edit',
+			} );
+
+			update( { reloadNonce: 1 } );
+
+			expect( clearWebviewCache ).not.toHaveBeenCalled();
+			expect( webview.reload ).not.toHaveBeenCalled();
+			cleanup();
+		}
 	} );
 
 	it( 'navigates without dropping the cache when the path changes', async () => {

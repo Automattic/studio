@@ -76,6 +76,15 @@
 		flex-shrink: 0;
 	}
 
+	/* A label on its own, like an address, truncates instead. */
+	.item > .label {
+		flex-shrink: 1;
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
 	.description {
 		overflow: hidden;
 		color: var( --muted-foreground );

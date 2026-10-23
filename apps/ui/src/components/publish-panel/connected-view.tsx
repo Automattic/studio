@@ -10,6 +10,13 @@ import {
 import { useId, useRef, useState } from 'react';
 import { Button, IconButton } from '@/components/ui/button';
 import * as Menu from '@/components/ui/menu';
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from '@/components/ui/select';
 import { useConnector } from '@/data/core';
 import { useStartSite } from '@/data/queries/use-sites';
 import {
@@ -32,7 +39,7 @@ import {
 	type PublishView,
 	type TransferDirection,
 } from './options';
-import { ErrorMessage, MenuSelect, PanelBody, PanelHeader, TransferProgress } from './parts';
+import { ErrorMessage, PanelBody, PanelHeader, TransferProgress } from './parts';
 import styles from './style.module.css';
 import { useTransferSelection } from './use-transfer-selection';
 import type { SiteDetails, SyncSite } from '@/data/core';
@@ -207,19 +214,30 @@ export function ConnectedView( {
 							</p>
 						) : null }
 						{ multiple ? (
-							<MenuSelect
-								id={ `${ id }-website` }
-								wide
+							<Select
 								value={ remote.id }
-								label={ __( 'Website' ) }
-								display={ websiteAddress( remote ) }
-								disabled={ disabled }
+								onValueChange={ ( value ) => value !== null && selectWebsite( value ) }
 								items={ websites.map( ( website ) => ( {
 									value: website.id,
-									label: `${ websiteAddress( website ) } · ${ websiteLabel( website ) }`,
+									label: websiteAddress( website ),
 								} ) ) }
-								onChange={ selectWebsite }
-							/>
+							>
+								<SelectTrigger
+									id={ `${ id }-website` }
+									fullWidth
+									aria-label={ __( 'Website' ) }
+									disabled={ disabled }
+								>
+									<SelectValue />
+								</SelectTrigger>
+								<SelectContent>
+									{ websites.map( ( website ) => (
+										<SelectItem key={ website.id } value={ website.id }>
+											{ websiteAddress( website ) } · { websiteLabel( website ) }
+										</SelectItem>
+									) ) }
+								</SelectContent>
+							</Select>
 						) : (
 							<div className={ styles.website }>
 								<span className={ styles.address } title={ websiteAddress( remote ) }>
@@ -287,18 +305,33 @@ export function ConnectedView( {
 								<p className={ styles.text }>
 									<label htmlFor={ `${ id }-scope` }>{ __( 'Include' ) }</label>
 								</p>
-								<MenuSelect< PublishScope >
-									id={ `${ id }-scope` }
+								<Select
 									value={ selection.scope }
-									label={ direction === 'push' ? __( 'What to publish' ) : __( 'What to pull' ) }
-									display={ scopeLabel( selection.scope ) }
-									disabled={ disabled || selection.loading || selection.fullOnly }
-									items={ ( [ 'all', 'files', 'content', 'custom' ] as const ).map( ( value ) => ( {
-										value,
-										label: value === 'custom' ? __( 'Choose files…' ) : scopeLabel( value ),
-									} ) ) }
-									onChange={ chooseScope }
-								/>
+									onValueChange={ ( value ) => value !== null && chooseScope( value ) }
+								>
+									<SelectTrigger
+										id={ `${ id }-scope` }
+										variant="ghost"
+										size="xs"
+										disabled={ disabled || selection.loading || selection.fullOnly }
+										aria-label={
+											direction === 'push' ? __( 'What to publish' ) : __( 'What to pull' )
+										}
+									>
+										<SelectValue>{ scopeLabel( selection.scope ) }</SelectValue>
+									</SelectTrigger>
+									<SelectContent align="start" alignItemWithTrigger={ false }>
+										{ ( [ 'all', 'files', 'content', 'custom' ] as const ).map( ( value ) => (
+											<SelectItem
+												key={ value }
+												value={ value }
+												onClick={ value === 'custom' ? () => chooseScope( value ) : undefined }
+											>
+												{ value === 'custom' ? __( 'Choose files…' ) : scopeLabel( value ) }
+											</SelectItem>
+										) ) }
+									</SelectContent>
+								</Select>
 							</div>
 						) }
 						{ selection.fullOnly ? (

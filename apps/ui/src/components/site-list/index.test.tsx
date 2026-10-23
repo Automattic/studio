@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getVisibleToasts, resetAppMessagesForTests } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
@@ -752,8 +752,8 @@ describe( 'SiteList', () => {
 		);
 		fireEvent( window, createPointerEvent( 'pointermove', { clientX: 16, clientY: 70 } ) );
 
-		expect( screen.getByTestId( 'drop-placeholder' ) ).toBeInTheDocument();
-		expect( document.querySelector( '[data-reorder-id="stopped-site"]' ) ).not.toBeInTheDocument();
+		expect( stoppedRow ).toHaveAttribute( 'data-drag-source' );
+		expect( runningRow ).toHaveAttribute( 'data-drop-position', 'after' );
 		expect( updateSitesSortOrder ).not.toHaveBeenCalled();
 
 		fireEvent( window, createPointerEvent( 'pointerup', { clientX: 16, clientY: 70 } ) );
@@ -767,73 +767,47 @@ describe( 'SiteList', () => {
 		expect( updateSitesSortOrder ).toHaveBeenCalledWith( [ 'running-site', 'stopped-site' ] );
 	} );
 
-	it( 'animates other sites into the drop placeholder while dragging', () => {
+	it( 'flies a dropped site into its new slot, hidden until it lands', () => {
 		render( <SiteList /> );
 
-		const stoppedRow = document.querySelector( '[data-reorder-id="stopped-site"]' );
-		const runningRow = document.querySelector( '[data-reorder-id="running-site"]' );
-		const originalAnimate = Element.prototype.animate;
-		const animateMock = vi.fn(
-			() =>
-				( {
-					cancel: vi.fn(),
-					oncancel: null,
-					onfinish: null,
-				} ) as unknown as Animation
+		const stoppedRow = document.querySelector( '[data-reorder-id="stopped-site"]' )!;
+		const runningRow = document.querySelector( '[data-reorder-id="running-site"]' )!;
+		let stoppedTop = 0;
+		vi.spyOn( stoppedRow, 'getBoundingClientRect' ).mockImplementation( () =>
+			createRect( { top: stoppedTop, left: 8, width: 272, height: 34 } )
 		);
-
-		expect( stoppedRow ).toBeInTheDocument();
-		expect( runningRow ).toBeInTheDocument();
-
-		let runningTop = 35;
-		vi.spyOn( stoppedRow!, 'getBoundingClientRect' ).mockReturnValue(
-			createRect( {
-				top: 0,
-				left: 8,
-				width: 272,
-				height: 34,
-			} )
+		vi.spyOn( runningRow, 'getBoundingClientRect' ).mockReturnValue(
+			createRect( { top: 35, left: 8, width: 272, height: 34 } )
 		);
-		vi.spyOn( runningRow!, 'getBoundingClientRect' ).mockImplementation( () =>
-			createRect( {
-				top: runningTop,
-				left: 8,
-				width: 272,
-				height: 34,
-			} )
-		);
-
-		Element.prototype.animate = animateMock as unknown as Element[ 'animate' ];
+		const animation = { onfinish: null as null | ( () => void ), cancel: vi.fn() };
+		const animate = vi.fn( () => animation as unknown as Animation );
+		Element.prototype.animate = animate as unknown as Element[ 'animate' ];
+		document.documentElement.style.setProperty( '--motion-duration-surface', '180ms' );
 
 		try {
 			fireEvent(
-				stoppedRow!,
-				createPointerEvent( 'pointerdown', {
-					button: 0,
-					clientX: 16,
-					clientY: 10,
-				} )
+				stoppedRow,
+				createPointerEvent( 'pointerdown', { button: 0, clientX: 16, clientY: 10 } )
+			);
+			fireEvent( window, createPointerEvent( 'pointermove', { clientX: 16, clientY: 70 } ) );
+			stoppedTop = 35;
+			fireEvent( window, createPointerEvent( 'pointerup', { clientX: 16, clientY: 70 } ) );
+
+			expect( animate ).toHaveBeenCalledWith(
+				[ { transform: 'none' }, expect.objectContaining( { transform: expect.any( String ) } ) ],
+				expect.objectContaining( { duration: 180, fill: 'forwards' } )
+			);
+			expect( document.querySelector( '[data-reorder-id="stopped-site"]' ) ).toHaveAttribute(
+				'data-dropping'
 			);
 
-			runningTop = 0;
-			fireEvent( window, createPointerEvent( 'pointermove', { clientX: 16, clientY: 70 } ) );
-
-			expect( animateMock ).toHaveBeenCalledWith(
-				[ { transform: 'translate(0px, 35px)' }, { transform: 'translate(0, 0)' } ],
-				expect.objectContaining( {
-					duration: 160,
-					easing: 'cubic-bezier(0.2, 0, 0, 1)',
-				} )
+			act( () => animation.onfinish?.() );
+			expect( document.querySelector( '[data-reorder-id="stopped-site"]' ) ).not.toHaveAttribute(
+				'data-dropping'
 			);
 		} finally {
-			// End the drag so its window pointer listeners don't leak into
-			// later tests.
-			fireEvent( window, createPointerEvent( 'pointerup', { clientX: 16, clientY: 70 } ) );
-			if ( originalAnimate ) {
-				Element.prototype.animate = originalAnimate;
-			} else {
-				Reflect.deleteProperty( Element.prototype, 'animate' );
-			}
+			document.documentElement.style.removeProperty( '--motion-duration-surface' );
+			Reflect.deleteProperty( Element.prototype, 'animate' );
 		}
 	} );
 
@@ -1253,12 +1227,12 @@ describe( 'SiteList', () => {
 			createPointerEvent( 'pointerdown', { clientX: 10, clientY: 10, metaKey: true } )
 		);
 		fireEvent( window, createPointerEvent( 'pointermove', { clientX: 10, clientY: 80 } ) );
-		expect( screen.queryByTestId( 'drop-placeholder' ) ).not.toBeInTheDocument();
+		expect( second ).not.toHaveAttribute( 'data-drop-position' );
 		fireEvent( window, createPointerEvent( 'pointerup', { clientX: 10, clientY: 80 } ) );
 
 		fireEvent( first, createPointerEvent( 'pointerdown', { clientX: 10, clientY: 10 } ) );
 		fireEvent( window, createPointerEvent( 'pointermove', { clientX: 10, clientY: 80 } ) );
-		expect( screen.getAllByTestId( 'drop-placeholder' ) ).toHaveLength( 1 );
+		expect( second ).toHaveAttribute( 'data-drop-position', 'after' );
 		fireEvent( window, createPointerEvent( 'pointerup', { clientX: 10, clientY: 80 } ) );
 
 		expect( saveSidebar ).toHaveBeenCalledWith(

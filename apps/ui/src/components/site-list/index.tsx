@@ -277,7 +277,6 @@ function SidebarReorderableList< T >(
 			{ ...props }
 			className={ styles.sites }
 			itemClassName={ styles.siteDragWrapper }
-			placeholderClassName={ styles.siteDropPlaceholder }
 			previewClassName={ styles.siteDragPreview }
 			excludeSelector="[data-reorder-exclude]"
 			disabled={ useIsSelecting() }

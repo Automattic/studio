@@ -41,15 +41,6 @@
 	border-radius: 6px;
 }
 
-.siteDropPlaceholder {
-	block-size: var(--site-list-row-height);
-	border-radius: 6px;
-	background-color: var(--sidebar-row-background);
-	box-shadow: inset 0 0 0 1px
-		color-mix(in srgb, var(--accent) 45%, transparent);
-	transition: background-color 120ms ease, box-shadow 120ms ease;
-}
-
 .siteDragPreview {
 	opacity: 0.95;
 	filter: drop-shadow(0 6px 14px rgb(0 0 0 / 14%));

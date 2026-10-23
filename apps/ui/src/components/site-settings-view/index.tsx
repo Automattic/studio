@@ -294,7 +294,6 @@ export function SiteSettingsForm( {
 				<Input
 					aria-label={ title }
 					aria-invalid={ errors[ key ] ? true : undefined }
-					className={ styles.input }
 					value={ data[ key ] }
 					disabled={ disabled }
 					onChange={ ( event ) => handleChange( { [ key ]: event.target.value } ) }
@@ -428,7 +427,6 @@ export function SiteSettingsForm( {
 						__( 'The password used to log in to WordPress Admin.' ),
 						{
 							type: isPasswordVisible ? 'text' : 'password',
-							className: `${ styles.input } ${ styles.passwordInput }`,
 							endAdornment: (
 								<IconButton
 									variant="muted-ghost"
@@ -448,7 +446,7 @@ export function SiteSettingsForm( {
 						__( 'The email address used to log in to WordPress Admin.' ),
 						{
 							type: 'email',
-							className: `${ styles.input } ${ styles.emailInput }`,
+							className: styles.emailInput,
 							action: copyButton( 'adminEmail', __( 'Copy admin email' ) ),
 						}
 					) }

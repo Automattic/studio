@@ -14,6 +14,9 @@ vi.mock( 'cli/lib/cli-config/sites', async () => {
 } );
 vi.mock( 'cli/lib/daemon-client' );
 vi.mock( 'cli/lib/wordpress-server-manager' );
+vi.mock( 'cli/lib/mailpit/paths', () => ( {
+	getMailpitInboxUrl: () => 'http://127.0.0.1:8025',
+} ) );
 vi.mock( '@studio/common/lib/get-wordpress-version' );
 
 describe( 'CLI: studio site status', () => {
@@ -134,6 +137,7 @@ describe( 'CLI: studio site status', () => {
 					{
 						siteUrl: 'http://localhost:8080/',
 						autoLoginUrl: 'http://localhost:8080/studio-auto-login?redirect_to=%2Fwp-admin%2F',
+						emailInboxUrl: 'http://127.0.0.1:8025',
 						sitePath: '/path/to/site',
 						status: '🟢 Online',
 						isOnline: true,

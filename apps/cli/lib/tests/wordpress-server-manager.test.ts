@@ -25,6 +25,7 @@ vi.mock( 'cli/lib/daemon-client' );
 vi.mock( 'cli/lib/dependency-management/php-binary', () => ( {
 	ensurePhpBinaryAvailable: vi.fn().mockResolvedValue( undefined ),
 } ) );
+vi.mock( 'cli/lib/mailpit/server', () => ( { ensureMailpitRunning: vi.fn() } ) );
 vi.mock( 'cli/lib/site-runtime-stats', () => ( {
 	recordSiteRuntimeUsage: vi.fn(),
 } ) );

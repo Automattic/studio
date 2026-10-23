@@ -5,6 +5,7 @@ import path from 'path';
 import { writeFile } from 'atomically';
 import semver from 'semver';
 import { getPhpBinaryPath } from '../dependency-management/paths';
+import { getMailpitSendmailCommand } from '../mailpit/paths';
 import { getFullyResolvedTmpDirPath } from './tmp-dir';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 
@@ -301,6 +302,12 @@ export function getDefaultPhpArgs(
 	// without modifying their wp-config.php.
 	if ( autoPrependFile ) {
 		args.push( '-d', `auto_prepend_file="${ toPhpIniPath( autoPrependFile ) }"` );
+	}
+
+	// Email the site sends lands in Studio's inbox instead of a sendmail no local machine has set up.
+	const sendmailCommand = getMailpitSendmailCommand();
+	if ( sendmailCommand ) {
+		args.push( '-d', `sendmail_path="${ toPhpIniPath( sendmailCommand ) }"` );
 	}
 
 	return args;

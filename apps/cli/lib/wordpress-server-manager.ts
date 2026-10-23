@@ -16,7 +16,7 @@ import { STUDIO_ERROR_LOG_FILENAME } from '@studio/common/lib/mu-plugins';
 import { resolveSupportedPhpVersion } from '@studio/common/lib/php-binary-metadata';
 import { getWpEnvironmentType } from '@studio/common/lib/wp-environment-type';
 import { SiteCommandLoggerAction } from '@studio/common/logger-actions';
-import { __ } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
 import { z } from 'zod';
 import { SiteData } from 'cli/lib/cli-config/core';
 import { updateSiteLatestCliPid } from 'cli/lib/cli-config/sites';
@@ -30,6 +30,7 @@ import {
 	sendMessageToProcess,
 } from 'cli/lib/daemon-client';
 import { ensurePhpBinaryAvailable } from 'cli/lib/dependency-management/php-binary';
+import { ensureMailpitRunning } from 'cli/lib/mailpit/server';
 import { recordSiteRuntimeUsage } from 'cli/lib/site-runtime-stats';
 import { getSiteDatabasePath, replaceMysql8OnlyCollations } from 'cli/lib/sqlite-collations';
 import { resetSqliteJournalModeToRollback } from 'cli/lib/sqlite-journal-mode';
@@ -214,6 +215,18 @@ export async function startWordPressServer(
 	}
 
 	await ensureSitePhpBinaryAvailable( site, logger );
+	// Before the site's PHP starts: it reads where to send email as it starts.
+	try {
+		await ensureMailpitRunning();
+	} catch ( error ) {
+		logger.reportWarning(
+			sprintf(
+				/* translators: %s: why the email inbox could not start */
+				__( 'Email the site sends will not reach the Studio inbox: %s' ),
+				error instanceof Error ? error.message : String( error )
+			)
+		);
+	}
 
 	const startMessage = options?.blueprint
 		? __( 'Starting WordPress server and applying Blueprint…' )

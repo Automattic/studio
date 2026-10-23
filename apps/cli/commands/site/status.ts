@@ -6,6 +6,7 @@ import { __, _n } from '@wordpress/i18n';
 import CliTable3 from 'cli-table3';
 import { getSiteByFolder, getSiteUrl } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
+import { getMailpitInboxUrl } from 'cli/lib/mailpit/paths';
 import { getPrettyPath } from 'cli/lib/utils';
 import { isServerRunning } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
@@ -58,6 +59,13 @@ export async function runCommand( siteFolder: string, format: 'table' | 'json' )
 				key: __( 'Auto-login URL' ),
 				jsonKey: 'autoLoginUrl',
 				value: autoLoginUrl.toString(),
+				type: 'url',
+				hidden: ! isOnline,
+			},
+			{
+				key: __( 'Email inbox' ),
+				jsonKey: 'emailInboxUrl',
+				value: getMailpitInboxUrl(),
 				type: 'url',
 				hidden: ! isOnline,
 			},

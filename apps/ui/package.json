@@ -20,7 +20,7 @@
 		"@tanstack/query-sync-storage-persister": "^5.96.2",
 		"@tanstack/react-query": "^5.75.5",
 		"@tanstack/react-query-persist-client": "^5.96.2",
-		"@tanstack/react-router": "^1.120.14",
+		"@tanstack/react-router": "^1.170.45",
 		"@wordpress/compose": "^8.7.0",
 		"@wordpress/element": "^9.0.0",
 		"@wordpress/i18n": "^6.30.0",

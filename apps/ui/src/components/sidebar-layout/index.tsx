@@ -131,7 +131,6 @@ export function SidebarLayout( { children }: { children: ReactNode } ) {
 								minWidth={ sidebarResize.minWidth }
 								maxWidth={ sidebarResize.maxWidth }
 								width={ sidebarResize.width }
-								isResizing={ sidebarResize.isResizing }
 								onResizeStart={ sidebarResize.handleResizeStart }
 								onKeyDown={ sidebarResize.handleKeyDown }
 								onReset={ sidebarResize.resetWidth }

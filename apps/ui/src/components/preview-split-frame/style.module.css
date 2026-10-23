@@ -89,14 +89,16 @@
 	pointer-events: auto;
 }
 
-/* Centers the 8px hit area on the content/preview boundary. */
+/* Centers the 8px hit area on the content/preview boundary, its focus line on
+   the boundary's edge line. */
 .previewResizeHandle {
 	position: absolute;
 	inset-block: 0;
 	inset-inline-start: var(--preview-frame-content-width);
 	z-index: 3;
+	padding-inline-start: 4px;
 	transform: translateX(-4px);
-	justify-content: center;
+	justify-content: flex-start;
 }
 
 /* In RTL the handle is offset from the right edge, so the centering nudge

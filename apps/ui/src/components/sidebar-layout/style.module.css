@@ -121,7 +121,7 @@
 /* The negative margin cancels the handle's width so it adds no space to the
    flex row — the main content butts straight against the sidebar's border and
    the hit area overlays main's sidebar-side edge. position/z-index lift it
-   above main (a later flex sibling) so the indicator sits on the border. */
+   above main (a later flex sibling) so its focus line sits on the border. */
 .resizeHandle {
 	position: relative;
 	z-index: 20;
@@ -131,8 +131,15 @@
 }
 
 .resizeHandle span {
-	margin-inline-start: -2px;
-	background-color: var(--accent-text);
+	margin-block-start: var(--band-height);
+}
+
+/* Hovering or dragging the handle darkens the column edge. */
+.resizeHandle:hover + .main::before,
+.resizeHandle:hover + .main::after,
+.sidebarResizing ~ .main::before,
+.sidebarResizing ~ .main::after {
+	background-color: color-mix(in oklab, var(--foreground) 15%, transparent);
 }
 
 .sidebarCards {

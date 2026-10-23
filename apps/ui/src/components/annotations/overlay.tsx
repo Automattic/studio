@@ -32,8 +32,10 @@ import {
 	closeAnnotationEditor,
 	escapeAnnotations,
 	hasAnnotationContent,
+	isAnnotationsBusy,
 	isStagedAnnotation,
 	removeAnnotations,
+	setAnnotationsPreparing,
 	stageAnnotations,
 	useSiteAnnotations,
 	type PreviewAnnotation,
@@ -60,7 +62,9 @@ const BAR_CLEARANCE = 72;
 
 /** The note editor and the Cancel / Send bar drawn over an annotated preview. */
 export function AnnotationOverlay( { siteId, anchor, onSend }: AnnotationOverlayProps ) {
-	const { active, notes, editingId } = useSiteAnnotations( siteId );
+	const annotations = useSiteAnnotations( siteId );
+	const { active, notes, editingId, sending } = annotations;
+	const busy = isAnnotationsBusy( annotations );
 	const note = notes.find( ( item ) => item.id === editingId );
 	const count = notes.filter( hasAnnotationContent ).length;
 	const stagedCount = notes.filter( isStagedAnnotation ).length;
@@ -77,7 +81,7 @@ export function AnnotationOverlay( { siteId, anchor, onSend }: AnnotationOverlay
 			if (
 				event.key !== 'Escape' ||
 				event.defaultPrevented ||
-				( event.target instanceof Element && event.target.closest( '[role="alertdialog"]' ) )
+				document.querySelector( '[data-slot="dialog-content"]:not([data-closed])' )
 			) {
 				return;
 			}
@@ -116,7 +120,7 @@ export function AnnotationOverlay( { siteId, anchor, onSend }: AnnotationOverlay
 				data-open={ active }
 				className={ styles.bar }
 			>
-				<Button variant="ghost" onClick={ cancel }>
+				<Button variant="ghost" disabled={ busy } onClick={ cancel }>
 					{ __( 'Cancel' ) }
 				</Button>
 				<Button
@@ -126,7 +130,8 @@ export function AnnotationOverlay( { siteId, anchor, onSend }: AnnotationOverlay
 						_n( 'Send %d annotation', 'Send %d annotations', count ),
 						count
 					) }
-					disabled={ ! count }
+					disabled={ ! count || busy }
+					loading={ sending }
 					onClick={ () => onSend() }
 				>
 					{ __( 'Send' ) }
@@ -208,7 +213,8 @@ function NoteEditor( {
 			toast.error( __( 'Only PNG, JPEG, GIF, and WebP images can be attached.' ) );
 			return;
 		}
-		void addFiles( list );
+		setAnnotationsPreparing( siteId, true );
+		void addFiles( list ).finally( () => setAnnotationsPreparing( siteId, false ) );
 	};
 	const isDragging = useFileDrop( editorNode, addImages );
 

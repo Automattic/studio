@@ -24,7 +24,13 @@ export const syncActivitySchema = z.discriminatedUnion( 'kind', [
 	} ),
 	z.object( { kind: z.literal( 'success' ), direction: syncDirectionSchema } ),
 	z.object( { kind: z.literal( 'cancelled' ), direction: syncDirectionSchema } ),
-	z.object( { kind: z.literal( 'error' ), direction: syncDirectionSchema, message: z.string() } ),
+	z.object( {
+		kind: z.literal( 'error' ),
+		direction: syncDirectionSchema,
+		message: z.string(),
+		// The pull reached the local site, and only restarting the site failed.
+		localChangesApplied: z.boolean().optional(),
+	} ),
 ] );
 
 export type SyncActivity = z.infer< typeof syncActivitySchema >;

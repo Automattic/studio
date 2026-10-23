@@ -19,6 +19,11 @@ import { usePickableWpcomSites, useSyncableWpcomSites } from '@/data/queries/use
 import { useSiteSyncActivity } from '@/data/sync-activity';
 import { useOffline } from '@/hooks/use-offline';
 import { subscribeHeaderPanelRequest } from '@/hooks/use-open-header-panel';
+import {
+	clearPublishSetupError,
+	retryPublishSetup,
+	usePublishSetupError,
+} from '@/hooks/use-sync-connect-site-listener';
 import { ConnectedView } from './connected-view';
 import { websiteAddress, websiteIssue, websiteLabel, type PublishView } from './options';
 import { ErrorMessage, PanelBody, PanelHeader, TransferProgress } from './parts';
@@ -70,7 +75,15 @@ export function PublishButton( {
 	const destination =
 		websites.find( ( website ) => website.id === ( operationId ?? created?.id ?? selectedId ) ) ??
 		websites[ 0 ];
-	const settingUp = waitingFor !== null && ! created && ! pending;
+	const setupError = usePublishSetupError( site.id );
+	const settingUp = waitingFor !== null && ! created && ! pending && ! setupError;
+	const setupErrorMessage = (
+		<ErrorMessage error={ setupError } retry={ () => retryPublishSetup( site.id ) } />
+	);
+	const accessIssue =
+		destination && syncable.data?.every( ( website ) => website.id !== destination.id )
+			? __( 'This website is no longer available to this account. Choose another website.' )
+			: undefined;
 
 	const cancel = useCancelSync();
 	const disconnect = useDisconnectWpcomSite();
@@ -96,6 +109,7 @@ export function PublishButton( {
 		if ( ! checkoutUrl ) {
 			return;
 		}
+		clearPublishSetupError( site.id );
 		setWaitingFor( connections.map( ( website ) => website.id ) );
 		void connector.trackEvent( TRACKS_EVENTS.SYNC_PUBLISH_SITE );
 		void connector.openExternalUrl( checkoutUrl );
@@ -152,7 +166,7 @@ export function PublishButton( {
 			setView( 'publish' );
 		}
 	};
-	const error = transfer?.kind === 'error' ? transfer.message : undefined;
+	const error = ( transfer?.kind === 'error' ? transfer.message : undefined ) ?? setupError;
 	let status: string | undefined;
 	if ( pending ) {
 		status = transfer.direction === 'push' ? __( 'Publishing…' ) : __( 'Pulling…' );
@@ -274,6 +288,7 @@ export function PublishButton( {
 					<PanelHeader title={ __( 'Websites' ) } onBack={ () => setView( 'publish' ) } />
 					<PanelBody>
 						<ErrorMessage error={ disconnect.error } retry={ () => disconnect.reset() } />
+						{ setupErrorMessage }
 						{ websites.map( ( remote ) => (
 							<div key={ remote.id } className={ styles.websiteRow }>
 								<div className={ styles.websiteRowText }>
@@ -339,6 +354,7 @@ export function PublishButton( {
 					open={ open }
 					disabled={ busy || offline }
 					offline={ offline }
+					accessIssue={ accessIssue }
 				/>
 			);
 		}
@@ -355,6 +371,7 @@ export function PublishButton( {
 				{ offline ? (
 					<p className={ styles.text }>{ __( 'Connect to the internet to publish your site.' ) }</p>
 				) : null }
+				{ setupErrorMessage }
 				<div className={ styles.introActions }>
 					<Button
 						variant={ settingUp ? 'outline' : 'accent' }

@@ -616,7 +616,7 @@ export async function startServer( event: IpcMainInvokeEvent, id: string ): Prom
 	// Starting only needs the path, which `cli.json` has; the CLI's full details wait for a failure.
 	const site = await readSite( id );
 	if ( ! site ) {
-		return;
+		throw new Error( `Site not found: ${ id }` );
 	}
 
 	// Release the port held by any active PHP-error recovery before (re)starting the real server,

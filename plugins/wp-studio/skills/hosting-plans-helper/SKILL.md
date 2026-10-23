@@ -1,6 +1,6 @@
 ---
 name: hosting-plans-helper
-description: Answer WordPress.com plan, pricing, upgrade, and feature-tier questions (plan names, what each tier unlocks — plugins, themes, custom code, SSH, hosting — and current prices) from authoritative live data. Load before answering ANY plan, pricing, or feature-gating question; never answer these from memory.
+description: Answer WordPress.com plan, pricing, and feature-tier questions (plan names, what each tier includes — plugins, themes, custom code, SSH, hosting — and current prices) from authoritative live data. Load before answering ANY plan, pricing, or feature-gating question; never answer these from memory.
 ---
 
 1. If you have not called the `studio_instructions` tool in this conversation yet, call it first and follow what it returns for the rest of the session.

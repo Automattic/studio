@@ -1,15 +1,15 @@
 ---
 name: hosting-plans-helper
-description: Answer WordPress.com plan, pricing, upgrade, and feature-tier questions (plan names, what each tier unlocks — plugins, themes, custom code, SSH, hosting — and current prices) from authoritative live data. Load before answering ANY plan, pricing, or feature-gating question; never answer these from memory.
+description: Answer WordPress.com plan, pricing, and feature-tier questions (plan names, what each tier includes — plugins, themes, custom code, SSH, hosting — and current prices) from authoritative live data. Load before answering ANY plan, pricing, or feature-gating question; never answer these from memory.
 user-invokable: true
 ---
 
 # Hosting Plans Helper
 
 Use this skill whenever the user asks about WordPress.com (or Pressable) plans,
-pricing, upgrades, or what a plan tier unlocks — for example "which plan do I need
-for plugins?", "what does Business include?", "how much is Commerce?", "can I use
-custom CSS on Premium?", or "should I upgrade?".
+pricing, or what a plan tier includes — for example "which plan do I need for
+plugins?", "what does Business include?", "how much is Commerce?", or "can I use
+custom CSS on Premium?".
 
 ## Hard rule: never answer from memory
 
@@ -68,10 +68,11 @@ environment.
   no price.
 - To answer "does plan X include feature Y?" or "what do I need for Y?", check the
   per-plan `features` list from Step 1. Each feature has a `title`, a `tooltip` (use
-  it to explain), and a `group`. Recommend the lowest tier whose `features` includes
-  what the user needs.
-- When recommending an upgrade, name the specific tier and the concrete features it
-  unlocks for the user's stated goal.
+  it to explain), and a `group`. Name the plans whose `features` include it.
+- Answer what the user asked, without recommending a plan, suggesting an upgrade, or
+  bringing up paid plans they didn't ask about. When their site's plan lacks a
+  feature, say so and link to https://wordpress.com/pricing, which lists what each
+  plan includes.
 
 ### Phrasing
 

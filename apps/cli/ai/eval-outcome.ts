@@ -107,10 +107,6 @@ $palette = array();
 foreach ( (array) ( $merged['settings']['color']['palette'] ?? array() ) as $entries ) {
 	foreach ( (array) $entries as $entry ) { $palette[] = $entry; }
 }
-$font_families = array();
-foreach ( (array) ( $merged['settings']['typography']['fontFamilies'] ?? array() ) as $entries ) {
-	foreach ( (array) $entries as $entry ) { $font_families[] = array( 'slug' => $entry['slug'] ?? '', 'fontFamily' => $entry['fontFamily'] ?? '' ); }
-}
 $plugins = array();
 foreach ( (array) get_option( 'active_plugins' ) as $plugin ) { $plugins[] = dirname( $plugin ) === '.' ? basename( $plugin, '.php' ) : dirname( $plugin ); }
 echo 'OUTCOME_JSON=' . wp_json_encode( array(
@@ -121,7 +117,6 @@ echo 'OUTCOME_JSON=' . wp_json_encode( array(
 	'products' => post_type_exists( 'product' ) ? (int) wp_count_posts( 'product' )->publish : 0,
 	'blockStyles' => $styles,
 	'palette' => $palette,
-	'fontFamilies' => $font_families,
 	'mergedStyles' => $merged['styles'] ?? array(),
 	'userGlobalStyles' => WP_Theme_JSON_Resolver::get_user_data()->get_raw_data(),
 	'customCss' => wp_get_custom_css(),

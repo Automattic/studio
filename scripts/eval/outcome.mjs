@@ -108,18 +108,6 @@ function stylesheets( s ) {
 	} ) );
 }
 
-// Each rule of a stylesheet, innermost first for rules nested in at-rules:
-// its selectors (whitespace collapsed) and declaration block.
-function cssRules( css ) {
-	return [ ...css.matchAll( /([^{}]+)\{([^{}]*)\}/g ) ].map( ( m ) => ( {
-		selectors: m[ 1 ]
-			.split( ',' )
-			.map( ( sel ) => sel.trim().replace( /\s+/g, ' ' ) )
-			.filter( Boolean ),
-		body: m[ 2 ],
-	} ) );
-}
-
 // The code files the turn added or changed on the active site.
 function codeChanges( s ) {
 	if ( ! Array.isArray( s.codeChanges ) )
@@ -183,33 +171,6 @@ function frontMarkup( s ) {
 
 const countBlocks = ( text, name ) =>
 	( text.match( new RegExp( `<!-- wp:${ name }(?=[\\s/])`, 'g' ) ) || [] ).length;
-
-// A preset reference (`var:preset|<kind>|slug` or `var(--wp--preset--<kind>--slug)`) resolved
-// against the site's presets, or the value as is.
-function resolvePreset( value, kind, presets, field ) {
-	const slug = String( value ?? '' ).match(
-		new RegExp(
-			`^(?:var:preset\\|${ kind }\\|([\\w-]+)|var\\(\\s*--wp--preset--${ kind }--([\\w-]+)\\s*\\))$`
-		)
-	);
-	if ( ! slug ) return value;
-	const found = ( presets || [] ).find( ( p ) => p.slug === ( slug[ 1 ] ?? slug[ 2 ] ) );
-	return found ? found[ field ] : value;
-}
-
-// [r, g, b] of a hex or rgb() color, or null.
-function rgb( color ) {
-	const c = String( color ?? '' )
-		.trim()
-		.toLowerCase();
-	const hex = c.match( /^#([0-9a-f]{3}|[0-9a-f]{6})$/ );
-	if ( hex ) {
-		const h = hex[ 1 ].length === 3 ? [ ...hex[ 1 ] ].map( ( x ) => x + x ).join( '' ) : hex[ 1 ];
-		return [ 0, 2, 4 ].map( ( i ) => parseInt( h.slice( i, i + 2 ), 16 ) );
-	}
-	const fn = c.match( /^rgba?\(\s*(\d+)[\s,]+(\d+)[\s,]+(\d+)/ );
-	return fn ? fn.slice( 1, 4 ).map( Number ) : null;
-}
 
 // --- Shared outcome checks ---------------------------------------------------
 
@@ -844,86 +805,6 @@ export const darkStyleVariation = check( ( d, vars ) => {
 			.map( ( [ f ] ) => f )
 			.join( ', ' ) } changes the colors, no dark-mode CSS`
 	);
-} );
-
-// Headings use Georgia and body text is a dark gray, set in theme.json or
-// saved Global Styles, and no stylesheet has a rule for headings or the body.
-export const typographyInThemeJson = check( ( d, vars ) => {
-	const s = site( d, vars );
-	const elements = s.mergedStyles?.elements || {};
-	const font = ( el ) =>
-		resolvePreset( el?.typography?.fontFamily, 'font-family', s.fontFamilies, 'fontFamily' );
-	const fonts = [ 1, 2, 3, 4, 5, 6 ].map(
-		( n ) => font( elements[ `h${ n }` ] ) ?? font( elements.heading )
-	);
-	const notGeorgia = fonts.filter( ( f ) => ! /georgia/i.test( String( f ?? '' ) ) );
-	if ( notGeorgia.length )
-		return fail( `heading font families in the merged styles: ${ JSON.stringify( fonts ) }` );
-	const text = resolvePreset( s.mergedStyles?.color?.text, 'color', s.palette, 'color' );
-	const channels = rgb( text );
-	const original = vars.originalTextColor && rgb( vars.originalTextColor );
-	const average = channels && channels.reduce( ( a, b ) => a + b, 0 ) / 3;
-	const darkGray =
-		channels &&
-		Math.max( ...channels ) - Math.min( ...channels ) <= 0x20 &&
-		average >= 0x20 &&
-		average <= 0x90 &&
-		! ( original && original.every( ( v, i ) => v === channels[ i ] ) );
-	if ( ! darkGray )
-		return fail( `body text color in the merged styles is ${ text ?? 'unset' }, not a dark gray` );
-	const target =
-		/(?:^|[\s>+~(])(?:h[1-6]|body)(?![\w-])|\.wp-block-(?:heading|post-title)(?![\w-])/;
-	const rules = stylesheets( s ).flatMap( ( { source, css } ) =>
-		cssRules( css )
-			.filter( ( r ) => ! r.selectors[ 0 ]?.startsWith( '@' ) )
-			.flatMap( ( r ) => r.selectors.filter( ( sel ) => target.test( sel ) ) )
-			.map( ( sel ) => `${ sel } (${ source })` )
-	);
-	if ( rules.length )
-		return fail( `CSS rules for headings or the body: ${ rules.slice( 0, 6 ).join( ', ' ) }` );
-	return pass( `headings in ${ fonts[ 0 ] }, body text ${ text }, no heading or body CSS` );
-} );
-
-// --- Visual fixes that reach the render ----------------------------------------
-
-// The seeded gradient (vars.gradient) no longer applies to vars.pseudoSelector:
-// its declaration is gone, or a later rule for the same pseudo-element sets
-// `background` to none/transparent/white or `display`/`content` to none.
-export const pseudoGradientRemoved = check( ( d, vars ) => {
-	const s = site( d, vars );
-	const norm = ( text ) => String( text ).toLowerCase().replace( /\s+/g, '' );
-	const pseudo = ( sel ) =>
-		sel
-			.toLowerCase()
-			.replace( /\s+/g, ' ' )
-			.trim()
-			.replace( /(?<!:):(before|after)$/, '::$1' );
-	const target = pseudo( vars.pseudoSelector );
-	const gradient = norm( vars.gradient );
-	// The pseudo-element itself, alone or under a more specific ancestor.
-	const matches = ( sel ) => {
-		const p = pseudo( sel );
-		return p === target || p.endsWith( ` ${ target }` ) || p.endsWith( `>${ target }` );
-	};
-	const rules = stylesheets( s ).flatMap( ( { source, css } ) =>
-		cssRules( css )
-			.filter( ( r ) => r.selectors.some( matches ) )
-			.map( ( r ) => ( { source, body: norm( r.body ) } ) )
-	);
-	const seeded = rules.findLastIndex( ( r ) => r.body.includes( gradient ) );
-	if ( seeded < 0 ) return pass( `the gradient on ${ vars.pseudoSelector } is gone` );
-	const override = rules
-		.slice( seeded + 1 )
-		.find( ( r ) =>
-			/(?:^|;)(?:background:(?:none|transparent|white|#fff|#ffffff|var\(--wp--preset--color--(?:base|white)\))(?:!important)?(?:;|$)|background-image:none|display:none|content:none)/.test(
-				r.body
-			)
-		);
-	return override
-		? pass( `a later ${ vars.pseudoSelector } rule in ${ override.source } overrides the gradient` )
-		: fail(
-				`the gradient still applies to ${ vars.pseudoSelector } (${ rules[ seeded ].source })`
-		  );
 } );
 
 // Routing: every skill in `vars.skills` was loaded before the run's stop call

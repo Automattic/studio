@@ -111,6 +111,10 @@ vi.mock( '@/data/queries/use-user-preferences', () => ( {
 	useUserPreferences: vi.fn(),
 } ) );
 
+vi.mock( '@/data/queries/use-installed-apps', () => ( {
+	useInstalledApps: () => ( { data: undefined } ),
+} ) );
+
 vi.mock( '@/data/sync-activity', () => ( {
 	useSiteSyncActivity: vi.fn(),
 } ) );
@@ -580,6 +584,16 @@ describe( 'SiteList', () => {
 
 		fireEvent.click( within( pinned ).getByRole( 'button', { name: 'Unpin chat' } ) );
 		expect( togglePin ).toHaveBeenCalledWith( 'chat:other-chat' );
+
+		// A focused row takes the shortcut without opening its menu.
+		fireEvent.keyDown( within( sites ).getByRole( 'button', { name: 'Running Site' } ), {
+			key: 'π',
+			code: 'KeyP',
+			ctrlKey: true,
+			altKey: true,
+		} );
+		expect( togglePin ).toHaveBeenLastCalledWith( 'site:running-site' );
+		togglePin.mockClear();
 
 		fireEvent.contextMenu( within( sites ).getByText( 'Running Site' ) );
 		fireEvent.keyDown( await screen.findByRole( 'menu' ), {

@@ -98,6 +98,10 @@ import {
 	updateSharedConfig,
 } from '@studio/common/lib/shared-config';
 import {
+	getSiteAgentFileFolder,
+	getSiteAgentFilePaths,
+} from '@studio/common/lib/site-agent-file-paths';
+import {
 	isSitePreviewPath,
 	readSitePreview,
 	writeSitePreview,
@@ -112,6 +116,7 @@ import {
 	fetchRemoteFileTreeContents,
 	fetchSyncableSites,
 } from '@studio/common/lib/sync/sync-api';
+import { getFirstInstalledEditor } from '@studio/common/lib/user-settings/editor';
 import { detectInstalledApps } from '@studio/common/lib/user-settings/installed-apps';
 import {
 	onboardingHintsSchema,
@@ -321,7 +326,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	}
 
 	function preferencesContext(): UserPreferencesContext {
-		return { sitesRoot, installedApps: detectInstalledApps() };
+		return { sitesRoot };
 	}
 
 	const cliRunner = createCliRunner( { cliBinary, nodeBinary } );
@@ -1506,11 +1511,19 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} )
 	);
 
+	const readPreferredEditor = async () =>
+		( await readUserPreferences( preferencesContext() ) ).editor ??
+		getFirstInstalledEditor( detectInstalledApps() );
+	// No preference (or an unknown one) falls back to the system terminal.
+	const readPreferredTerminal = async () => {
+		const terminal = ( await readUserPreferences( preferencesContext() ) ).terminal;
+		return terminal && isTerminal( terminal ) ? terminal : 'terminal';
+	};
+
 	api.post(
 		'/sites/:id/open-in-editor',
 		asyncHandler( async ( req: Request, res: Response ) => {
-			const editor =
-				req.body?.editor ?? ( await readUserPreferences( preferencesContext() ) ).editor;
+			const editor = req.body?.editor ?? ( await readPreferredEditor() );
 			if ( typeof editor !== 'string' || ! isEditor( editor ) ) {
 				res.status( 400 ).json( { error: `Unsupported editor: ${ String( editor ) }` } );
 				return;
@@ -1528,11 +1541,11 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	api.post(
 		'/sites/:id/open-in-terminal',
 		asyncHandler( async ( req: Request, res: Response ) => {
-			const requested =
-				req.body?.terminal ?? ( await readUserPreferences( preferencesContext() ) ).terminal;
-			// No preference (or an unknown one) falls back to the system terminal.
+			const requested = req.body?.terminal;
 			const terminal =
-				typeof requested === 'string' && isTerminal( requested ) ? requested : 'terminal';
+				typeof requested === 'string' && isTerminal( requested )
+					? requested
+					: await readPreferredTerminal();
 			const site = ( await listSites( execute ) ).find( ( s ) => s.id === req.params.id );
 			if ( ! site ) {
 				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
@@ -2034,6 +2047,43 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				req.params.fileId,
 				req.body.enabled
 			);
+			res.sendStatus( 204 );
+		} )
+	);
+
+	api.post(
+		'/sites/:id/agent-files/:kind/:fileId/open',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const target = await readAgentFileRequest( req, res );
+			if ( ! target ) {
+				return;
+			}
+			// The path uses the catalog's id, never the requested one, so it stays inside the site.
+			const file = ( await getSiteAgentFiles( target.sitePath, target.kind ) ).find(
+				( candidate ) => candidate.id === req.params.fileId
+			);
+			const relative =
+				file &&
+				getSiteAgentFilePaths( target.kind, file.id ).find( ( candidate ) =>
+					existsSync( path.join( target.sitePath, candidate ) )
+				);
+			if ( ! relative ) {
+				res.status( 404 ).json( { error: 'File not found' } );
+				return;
+			}
+			const folder = path.join( target.sitePath, getSiteAgentFileFolder( target.kind, relative ) );
+			if ( req.body?.target === 'editor' ) {
+				const editor = await readPreferredEditor();
+				if ( ! editor ) {
+					res.status( 400 ).json( { error: 'No preferred editor configured.' } );
+					return;
+				}
+				await openInEditor( editor, path.join( target.sitePath, relative ) );
+			} else if ( req.body?.target === 'terminal' ) {
+				await openInTerminal( await readPreferredTerminal(), folder );
+			} else {
+				await openPath( folder );
+			}
 			res.sendStatus( 204 );
 		} )
 	);

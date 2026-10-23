@@ -2,6 +2,10 @@ import { DEBUG_LOG_RELATIVE_PATH } from '@studio/common/constants';
 import { getErrorMessage, stripIpcErrorPrefix } from '@studio/common/lib/error-formatting';
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
+import {
+	getSiteAgentFileFolder,
+	getSiteAgentFilePaths,
+} from '@studio/common/lib/site-agent-file-paths';
 import { fetchSnapshotUsage } from '@studio/common/lib/snapshots';
 import {
 	STUDIO_ASSISTANT_QUOTA_URL,
@@ -9,6 +13,7 @@ import {
 } from '@studio/common/lib/studio-assistant-quota';
 import { fetchStudioAssistantTopUpPricing } from '@studio/common/lib/studio-assistant-top-up-pricing';
 import { SyncCancelledError } from '@studio/common/lib/sync/cancel';
+import { getFirstInstalledEditor } from '@studio/common/lib/user-settings/editor';
 import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
 import { __ } from '@wordpress/i18n';
 import { buildPublishCheckoutUrl } from '../publish-checkout-url';
@@ -103,6 +108,17 @@ export function createIpcConnector(): Connector {
 
 	// Preview CLI commands are path-based, not id-based. Look up the matching
 	// site once per call so UI code can keep working with the stable site id.
+	async function resolveEditor(): Promise< SupportedEditor > {
+		const { editor } = ( await ipcApi.getUserPreferences() ) as { editor: SupportedEditor | null };
+		const resolved =
+			editor ??
+			getFirstInstalledEditor( ( await ipcApi.getInstalledAppsAndTerminals() ) as InstalledApps );
+		if ( ! resolved ) {
+			throw new Error( 'No preferred editor configured.' );
+		}
+		return resolved;
+	}
+
 	async function resolveSiteFolder( siteId: string ): Promise< string > {
 		const sites = ( await ipcApi.getSiteDetails() ) as SiteDetails[];
 		const site = sites.find( ( candidate ) => candidate.id === siteId );
@@ -629,11 +645,6 @@ export function createIpcConnector(): Connector {
 				writes.push( studioCliInstalled ? ipcApi.installStudioCli() : ipcApi.uninstallStudioCli() );
 			}
 			await Promise.all( writes );
-			if ( typeof partial.agenticFeaturesEnabled === 'boolean' ) {
-				// Cmd/Ctrl+N belongs to "New chat" only while chat is on, so the
-				// menu has to be rebuilt for the accelerator to change hands.
-				await ipcApi.setupAppMenu();
-			}
 		},
 
 		async isCertificateTrusted(): Promise< boolean > {
@@ -673,6 +684,9 @@ export function createIpcConnector(): Connector {
 		async saveAnthropicApiKey( key: string | null ): Promise< AiSettings > {
 			return unwrapIpcError( ipcApi.saveAnthropicApiKey( key ) );
 		},
+		async setAiProvider( provider ): Promise< AiSettings > {
+			return unwrapIpcError( ipcApi.setAiProvider( provider ) );
+		},
 
 		async getInstalledApps(): Promise< InstalledApps > {
 			return ( await ipcApi.getInstalledAppsAndTerminals() ) as InstalledApps;
@@ -693,15 +707,30 @@ export function createIpcConnector(): Connector {
 
 		async openSiteInEditor( siteId ): Promise< void > {
 			const sitePath = await resolveSiteFolder( siteId );
-			const { editor } = ( await ipcApi.getUserPreferences() ) as {
-				editor: SupportedEditor | null;
-			};
-			if ( ! editor ) {
-				throw new Error( 'No preferred editor configured.' );
-			}
+			const editor = await resolveEditor();
 			// Emit here rather than in Main's `openAppAtPath`, which is shared with single-file opens.
 			void ipcApi.recordAnalyticsEvent( TRACKS_EVENTS.SITE_OPEN_IN_EDITOR, { editor } );
 			await ipcApi.openAppAtPath( editor, sitePath );
+		},
+
+		async openSiteAgentFile( siteId, kind, id, target ): Promise< void > {
+			for ( const relative of getSiteAgentFilePaths( kind, id ) ) {
+				const filePath = await ipcApi.getAbsolutePathFromSite( siteId, relative );
+				if ( ! filePath ) {
+					continue;
+				}
+				const folder = await ipcApi.getAbsolutePathFromSite(
+					siteId,
+					getSiteAgentFileFolder( kind, relative )
+				);
+				if ( target === 'editor' ) {
+					return ipcApi.openAppAtPath( await resolveEditor(), filePath );
+				}
+				return target === 'terminal'
+					? ipcApi.openTerminalAtPath( folder )
+					: ipcApi.openLocalPath( folder );
+			}
+			throw new Error( 'File not found.' );
 		},
 
 		async openSiteInTerminal( siteId ): Promise< void > {
@@ -866,7 +895,11 @@ export function createIpcConnector(): Connector {
 		onOpenSettings( listener ) {
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			const ipcListener = ( window as any ).ipcListener;
-			return ipcListener.subscribe( 'user-settings', () => listener() );
+			return ipcListener.subscribe(
+				'user-settings',
+				( _event: unknown, target?: { settingId?: string } ) =>
+					listener( { settingId: target?.settingId } )
+			);
 		},
 
 		onAiCreditsPurchased( listener ) {

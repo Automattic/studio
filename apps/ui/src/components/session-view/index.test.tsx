@@ -182,10 +182,6 @@ vi.mock( './conversation', () => ( {
 vi.mock( '@/components/chat-actions', () => ( { OpenChatShortcuts: () => null } ) );
 vi.mock( '@/hooks/use-mark-chat-read', () => ( { useMarkChatRead: vi.fn() } ) );
 
-vi.mock( './session-chat-actions', () => ( {
-	useNewChatShortcut: () => undefined,
-} ) );
-
 const useSessionMock = vi.mocked( useSession, { partial: true } );
 const useStudioAssistantQuotaMock = vi.mocked( useStudioAssistantQuota, { partial: true } );
 

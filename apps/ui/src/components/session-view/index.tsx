@@ -45,7 +45,6 @@ import { useAiSettings } from '@/data/queries/use-ai-settings';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
 import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
 import {
-	useCreateSession,
 	useSession,
 	useSessionEffectiveEnvironment,
 	useSetSessionEnvironment,
@@ -70,7 +69,6 @@ import { pendingPromptSlot } from '@/lib/pending-prompt';
 import { Composer, ComposerSkeleton, type ComposerHandle } from './composer';
 import { Conversation } from './conversation';
 import { QueuedPrompts } from './queued-prompts';
-import { useNewChatShortcut } from './session-chat-actions';
 import styles from './style.module.css';
 import { useAnchoredScroll } from './use-anchored-scroll';
 import { useComposerNotice } from './use-composer-notice';
@@ -224,7 +222,6 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	const navigate = useNavigate();
 	const { data, isLoading, error, refetch } = useSession( sessionId );
 	const { data: sites } = useSites();
-	const { mutateAsync: createSession, isPending: isCreatingSession } = useCreateSession();
 	const ownerSite = findAiSessionOwnerSite( sites, data?.summary );
 	const effectiveEnvironment = useSessionEffectiveEnvironment( data?.summary, ownerSite?.id );
 	const {
@@ -352,24 +349,9 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 			} ),
 		[ navigate ]
 	);
-	const startNewChat = useCallback( async () => {
-		// Already on a chat with no prompts yet — creating another empty
-		// session would just flash the view for an identical result.
-		if ( ! ownerSite || isEmpty ) {
-			return;
-		}
-		try {
-			const summary = await createSession( { siteId: ownerSite.id } );
-			switchSession( summary.id );
-		} catch {
-			// The mutation owns the error state; avoid an unhandled rejection
-			// from this command button if session creation fails.
-		}
-	}, [ createSession, isEmpty, ownerSite, switchSession ] );
 
 	const isOutOfCredits = useIsOutOfAiCredits() && isWpcom;
 	useMarkChatRead( sessionId, data?.summary.unread );
-	useNewChatShortcut( startNewChat, !! ownerSite && ! isOutOfCredits && ! isCreatingSession );
 
 	const [ frameNode, setFrameNode ] = useState< HTMLDivElement | null >( null );
 	const { data: preferences } = useUserPreferences();

@@ -202,11 +202,19 @@ describe( 'UsagePanel', () => {
 			isError: true,
 		} as never );
 
+		const refetch = vi.fn();
+		useStudioAssistantQuotaMock.mockReturnValue( {
+			data: undefined,
+			isLoading: false,
+			isError: true,
+			refetch,
+		} as never );
+
 		render( <UsagePanel /> );
 
-		expect(
-			screen.getByText( 'Studio Code limits are temporarily unavailable.' )
-		).toBeInTheDocument();
+		expect( screen.getByText( /AI usage is currently unavailable\./ ) ).toBeInTheDocument();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Try again' } ) );
+		expect( refetch ).toHaveBeenCalled();
 		expect(
 			screen.queryByText(
 				'AI credits are currently free while Studio Code is in Alpha. Build, iterate, and experiment, but know that credits will eventually have a cost.'
@@ -234,6 +242,7 @@ describe( 'UsagePanel', () => {
 			data: {
 				costUsage: 25,
 				costCap: 1500000,
+				hasPaymentMethod: true,
 				allowanceRemaining: 960000,
 				purchasedRemaining: 150000,
 				purchasedAtTopUp: 500000,
@@ -258,6 +267,7 @@ describe( 'UsagePanel', () => {
 			data: {
 				costUsage: 0,
 				costCap: 1500000,
+				hasPaymentMethod: true,
 				allowanceRemaining: 1400000,
 				purchasedRemaining: 0,
 				purchasedAtTopUp: 0,
@@ -276,6 +286,7 @@ describe( 'UsagePanel', () => {
 			data: {
 				costUsage: 25,
 				costCap: 1500000,
+				hasPaymentMethod: true,
 				allowanceRemaining: 0,
 				purchasedRemaining: 0,
 				purchasedAtTopUp: 500000,
@@ -300,6 +311,7 @@ describe( 'UsagePanel', () => {
 			data: {
 				costUsage: 0,
 				costCap: 0,
+				hasPaymentMethod: true,
 				allowanceRemaining: 960000,
 				purchasedRemaining: undefined,
 				purchasedAtTopUp: 500000,
@@ -334,7 +346,13 @@ describe( 'UsagePanel', () => {
 
 	it( 'offers a way to buy once the account has credit balances', () => {
 		useStudioAssistantQuotaMock.mockReturnValue( {
-			data: { costUsage: 0, costCap: 0, allowanceRemaining: 960000, purchasedRemaining: 0 },
+			data: {
+				hasPaymentMethod: true,
+				costUsage: 0,
+				costCap: 0,
+				allowanceRemaining: 960000,
+				purchasedRemaining: 0,
+			},
 			isLoading: false,
 		} as never );
 
@@ -343,9 +361,32 @@ describe( 'UsagePanel', () => {
 		expect( screen.getByRole( 'button', { name: 'Add AI credits' } ) ).toBeInTheDocument();
 	} );
 
+	it( 'hides the purchase control from an account without a payment method', () => {
+		useStudioAssistantQuotaMock.mockReturnValue( {
+			data: {
+				hasPaymentMethod: false,
+				costUsage: 0,
+				costCap: 0,
+				allowanceRemaining: 960000,
+				purchasedRemaining: 0,
+			},
+			isLoading: false,
+		} as never );
+
+		render( <UsagePanel /> );
+
+		expect( screen.queryByRole( 'button', { name: 'Add AI credits' } ) ).not.toBeInTheDocument();
+	} );
+
 	it( 'opens the credits explainer dialog from the help icon', () => {
 		useStudioAssistantQuotaMock.mockReturnValue( {
-			data: { costUsage: 0, costCap: 0, allowanceRemaining: 960000, purchasedRemaining: 0 },
+			data: {
+				hasPaymentMethod: true,
+				costUsage: 0,
+				costCap: 0,
+				allowanceRemaining: 960000,
+				purchasedRemaining: 0,
+			},
 			isLoading: false,
 		} as never );
 
@@ -366,6 +407,7 @@ describe( 'UsagePanel', () => {
 				costResetDate: '2026-08-01T12:00:00',
 				studioCodeAiHasAccess: false,
 				studioCodeAiAccess: 'blocked',
+				hasPaymentMethod: true,
 				allowanceRemaining: 960000,
 				purchasedRemaining: 0,
 			},

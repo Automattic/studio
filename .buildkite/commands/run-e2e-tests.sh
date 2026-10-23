@@ -6,7 +6,7 @@ trap 'echo "Termination signal received — failing the job."; exit 1' TERM INT
 PLATFORM=${1:?Expected platform to be provided as first parameter}
 ARCH=${2:?Expected architecture to be provided as second parameter}
 
-if .buildkite/commands/should-skip-job.sh --job-type validation; then
+if .buildkite/commands/should-skip-job.sh --job-type e2e; then
   exit 0
 fi
 

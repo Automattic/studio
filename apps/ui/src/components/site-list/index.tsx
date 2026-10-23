@@ -7,6 +7,7 @@ import { clsx } from 'clsx';
 import {
 	Fragment,
 	useEffect,
+	useEffectEvent,
 	useMemo,
 	useRef,
 	useState,
@@ -17,7 +18,7 @@ import {
 } from 'react';
 import { AgentWorkingIndicator } from '@/components/agent-working-indicator';
 import { ChatActionsMenuItems, useChatActions } from '@/components/chat-actions';
-import { ReorderableList } from '@/components/reorderable-list';
+import { ReorderableList, type ReorderableListProps } from '@/components/reorderable-list';
 import { getSessionTitle } from '@/components/session-view/session-chat-actions';
 import { SidebarButton } from '@/components/sidebar-button';
 import { SiteActionsMenuItems, useSiteActions } from '@/components/site-actions-menu';
@@ -33,7 +34,12 @@ import {
 } from '@/data/queries/use-agent-run';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useSessions } from '@/data/queries/use-sessions';
-import { chatPinKey, sitePinKey, useSidebarPins } from '@/data/queries/use-sidebar-pins';
+import {
+	chatPinKey,
+	orderChats,
+	sitePinKey,
+	useSidebarPreferences,
+} from '@/data/queries/use-sidebar-pins';
 import {
 	useIsSiteBusy,
 	useIsSiteStarting,
@@ -47,10 +53,12 @@ import {
 import { useSiteSyncActivity } from '@/data/sync-activity';
 import { useOpenAddSite } from '@/hooks/use-open-add-site';
 import { useOpenSite } from '@/hooks/use-open-site';
+import { useStoredFlag } from '@/hooks/use-stored-flag';
 import {
 	archiveIcon,
 	chatIcon,
 	chevronRightIcon,
+	collapseAllIcon,
 	globeIcon,
 	newChatIcon,
 	pinIcon,
@@ -59,22 +67,30 @@ import {
 	stopSiteIcon,
 	unpinIcon,
 } from '@/lib/icons';
-import { BulkMenuItems, SidebarSelection, useIsBulkTarget, useSelectableRow } from './selection';
+import { resumeChat } from '@/lib/last-visited';
+import {
+	BulkMenu,
+	SidebarSelection,
+	useIsBulkTarget,
+	useIsSelecting,
+	useSelectableRow,
+} from './selection';
 import { getSiteStatus, getSiteStatusName } from './site-status';
 import styles from './style.module.css';
 import type { AiSessionSummary, SiteDetails } from '@/data/core';
 
 type SiteRow = {
 	site: SiteDetails;
-	latestSession?: AiSessionSummary;
 	sessionIds: string[];
 	// Non-archived, most recent first.
 	chats: AiSessionSummary[];
 };
 
-// Chats listed under the selected site, and in the Recent group.
-const SITE_CHATS_LIMIT = 5;
-const RECENT_CHATS_LIMIT = 8;
+// Chats listed at first under a site, and how many more each Show more adds.
+const CHATS_INITIAL_COUNT = 5;
+const CHATS_PAGE_SIZE = 10;
+// Recent is a shortcut to the latest chats; every chat is also under its site.
+const RECENT_CHATS_LIMIT = 10;
 
 type SiteRowActivity = SiteAgentActivity | 'sync' | 'import';
 
@@ -193,7 +209,6 @@ function createSiteRows(
 	const rows: SiteRow[] = ( sites ?? [] ).map( ( site ) => ( {
 		site,
 		sessionIds: [],
-		latestSession: undefined,
 		chats: [],
 	} ) );
 	const rowsBySiteId = new Map( rows.map( ( row ) => [ row.site.id, row ] ) );
@@ -212,7 +227,6 @@ function createSiteRows(
 
 	for ( const row of rows ) {
 		row.chats.sort( byMostRecent );
-		row.latestSession = row.chats[ 0 ];
 	}
 
 	return rows;
@@ -232,16 +246,67 @@ function sortSitesByManualOrder( sites: SiteDetails[], manualOrder: string[] ): 
 	);
 }
 
+// Opens a collapsed group when something is added to it, e.g. a new site.
+// `keys` is undefined until the group's items have loaded.
+function useOpenOnAddedItems( keys: string[] | undefined, open: boolean, onOpen: () => void ) {
+	const previous = useRef< Set< string > | null >( null );
+	useEffect( () => {
+		if ( ! keys ) {
+			return;
+		}
+		const known = previous.current;
+		previous.current = new Set( keys );
+		if ( known && ! open && keys.some( ( key ) => ! known.has( key ) ) ) {
+			onOpen();
+		}
+	}, [ keys, open, onOpen ] );
+}
+
+// Rows hold still while several are selected, so a drag can't scatter them.
+function SidebarReorderableList< T >(
+	props: Pick<
+		ReorderableListProps< T >,
+		'items' | 'getItemId' | 'getItemLabel' | 'renderItem' | 'onReorder'
+	>
+) {
+	return (
+		<ReorderableList
+			{ ...props }
+			className={ styles.sites }
+			itemClassName={ styles.siteDragWrapper }
+			placeholderClassName={ styles.siteDropPlaceholder }
+			previewClassName={ styles.siteDragPreview }
+			excludeSelector="[data-reorder-exclude]"
+			disabled={ useIsSelecting() }
+		/>
+	);
+}
+
+function RetryLoadingChats() {
+	const { refetch } = useSessions();
+	return (
+		<SidebarButton
+			className={ clsx( styles.chat, styles.mutedRow ) }
+			onClick={ () => void refetch() }
+		>
+			<span className={ styles.chatTitle }>{ __( 'Retry loading chats' ) }</span>
+		</SidebarButton>
+	);
+}
+
 function ChatRow( {
 	session,
 	active,
 	nested = false,
+	siteName,
 	onOpen,
 }: {
 	session: AiSessionSummary;
 	active: boolean;
 	// Under its site the row indents to the site's name and drops its icon.
 	nested?: boolean;
+	// Away from its site, the row names it in a tooltip.
+	siteName?: string;
 	onOpen?: () => void;
 } ) {
 	const navigate = useNavigate();
@@ -249,10 +314,43 @@ function ChatRow( {
 	const actions = useChatActions( session, active );
 	const selectable = useSelectableRow( chatPinKey( session.id ) );
 	const bulk = useIsBulkTarget( chatPinKey( session.id ) );
+	const [ menuOpen, setMenuOpen ] = useState( false );
+	const title = getSessionTitle( session );
+	const needsInput = activity === 'pending-question';
+
+	const button = (
+		<SidebarButton
+			className={ styles.chat }
+			aria-current={ active ? 'page' : undefined }
+			onClick={ () => {
+				onOpen?.();
+				void navigate( {
+					to: '/sessions/$sessionId',
+					params: { sessionId: session.id },
+				} );
+			} }
+		>
+			{ nested ? null : <Icon icon={ chatIcon } className={ styles.rowIcon } /> }
+			<span className={ styles.chatTitle }>{ title }</span>
+			{ actions.working ? (
+				<AgentWorkingIndicator className={ styles.chatActivity } label={ __( 'Working…' ) } />
+			) : null }
+			{ needsInput ? (
+				<span
+					className={ styles.chatQuestion }
+					role="status"
+					aria-label={ __( 'Studio needs an answer.' ) }
+				/>
+			) : null }
+			{ session.unread && ! active ? (
+				<span className={ styles.unreadDot } role="img" aria-label={ __( 'Unread' ) } />
+			) : null }
+		</SidebarButton>
+	);
 
 	return (
 		<>
-			<Menu.ContextMenuRoot>
+			<Menu.ContextMenuRoot open={ menuOpen } onOpenChange={ setMenuOpen }>
 				<Menu.ContextMenuTrigger
 					render={
 						<div
@@ -263,59 +361,50 @@ function ChatRow( {
 								active && styles.chatActive
 							) }
 						>
-							<SidebarButton
-								className={ styles.chat }
-								aria-current={ active ? 'page' : undefined }
-								onClick={ () => {
-									onOpen?.();
-									void navigate( {
-										to: '/sessions/$sessionId',
-										params: { sessionId: session.id },
-									} );
-								} }
-							>
-								{ nested ? null : <Icon icon={ chatIcon } className={ styles.rowIcon } /> }
-								<span className={ styles.chatTitle }>{ getSessionTitle( session ) }</span>
-								{ actions.working ? (
-									<AgentWorkingIndicator
-										className={ styles.chatActivity }
-										label={ __( 'Working…' ) }
+							{ siteName ? (
+								<Tooltip>
+									<TooltipTrigger render={ button } />
+									<TooltipContent side="right">
+										{ sprintf(
+											/* translators: 1: chat title, 2: the chat's site. */
+											__( '%1$s — %2$s' ),
+											title,
+											siteName
+										) }
+									</TooltipContent>
+								</Tooltip>
+							) : (
+								button
+							) }
+							{ needsInput ? null : (
+								<span className={ styles.chatActions } data-reorder-exclude>
+									<IconButton
+										variant="muted-ghost"
+										size="icon-sm"
+										icon={ actions.pinned ? unpinIcon : pinIcon }
+										label={ actions.pinned ? __( 'Unpin chat' ) : __( 'Pin chat' ) }
+										onClick={ actions.togglePin }
 									/>
-								) : null }
-								{ activity === 'pending-question' ? (
-									<span
-										className={ styles.chatQuestion }
-										role="status"
-										aria-label={ __( 'Studio needs an answer.' ) }
+									<IconButton
+										variant="muted-ghost"
+										size="icon-sm"
+										icon={ archiveIcon }
+										label={ __( 'Archive chat' ) }
+										disabled={ actions.archiveBlocked }
+										onClick={ () => void actions.archive() }
 									/>
-								) : null }
-								{ session.unread && ! active ? (
-									<span className={ styles.unreadDot } role="img" aria-label={ __( 'Unread' ) } />
-								) : null }
-							</SidebarButton>
-							<span className={ styles.chatActions }>
-								<IconButton
-									variant="muted-ghost"
-									size="icon-sm"
-									icon={ actions.pinned ? unpinIcon : pinIcon }
-									label={ actions.pinned ? __( 'Unpin chat' ) : __( 'Pin chat' ) }
-									onClick={ actions.togglePin }
-								/>
-								<IconButton
-									variant="muted-ghost"
-									size="icon-sm"
-									icon={ archiveIcon }
-									label={ __( 'Archive chat' ) }
-									disabled={ actions.working }
-									onClick={ () => void actions.archive() }
-								/>
-							</span>
+								</span>
+							) }
 						</div>
 					}
 				/>
-				<Menu.ContextPopup onKeyDown={ ( event ) => actions.handleShortcut( event.nativeEvent ) }>
-					{ bulk ? <BulkMenuItems /> : <ChatActionsMenuItems actions={ actions } /> }
-				</Menu.ContextPopup>
+				{ bulk ? (
+					<BulkMenu onClose={ () => setMenuOpen( false ) } />
+				) : (
+					<Menu.ContextPopup onKeyDown={ ( event ) => actions.handleShortcut( event.nativeEvent ) }>
+						<ChatActionsMenuItems actions={ actions } />
+					</Menu.ContextPopup>
+				) }
 			</Menu.ContextMenuRoot>
 			{ actions.renameDialog }
 		</>
@@ -323,15 +412,20 @@ function ChatRow( {
 }
 
 function SidebarGroup( {
+	id,
 	title,
 	action,
+	itemKeys,
 	children,
 }: {
+	id: string;
 	title: string;
 	action?: ReactNode;
+	itemKeys?: string[];
 	children: ReactNode;
 } ) {
-	const [ expanded, setExpanded ] = useState( true );
+	const [ expanded, setExpanded ] = useStoredFlag( `studio-ui-sidebar-group-${ id }`, true );
+	useOpenOnAddedItems( itemKeys, expanded, () => setExpanded( true ) );
 	return (
 		<div role="group" className={ styles.group } aria-label={ title }>
 			<div className={ styles.groupHeader }>
@@ -355,10 +449,12 @@ function SiteStatusButton( {
 	site,
 	isStarting,
 	isStopping,
+	onStart,
 }: {
 	site: SiteDetails;
 	isStarting: boolean;
 	isStopping: boolean;
+	onStart?: () => void;
 } ) {
 	const startSite = useStartSite();
 	const stopSite = useStopSite();
@@ -380,6 +476,7 @@ function SiteStatusButton( {
 			stopSite.mutate( site.id );
 		} else {
 			startSite.mutate( site.id );
+			onStart?.();
 		}
 	};
 
@@ -428,6 +525,7 @@ function SiteRowMenu( {
 } ) {
 	const actions = useSiteActions( site, { onOpen: onSiteOpen } );
 	const bulk = useIsBulkTarget( sitePinKey( site.id ) );
+	const [ menuOpen, setMenuOpen ] = useState( false );
 
 	const stopMenuEventPropagation = (
 		event: MouseEvent< HTMLElement > | ReactPointerEvent< HTMLElement >
@@ -437,15 +535,23 @@ function SiteRowMenu( {
 
 	return (
 		<>
-			<Menu.ContextMenuRoot>
+			<Menu.ContextMenuRoot open={ menuOpen } onOpenChange={ setMenuOpen }>
 				<Menu.ContextMenuTrigger render={ trigger } />
-				<Menu.ContextPopup
-					onClick={ stopMenuEventPropagation }
-					onPointerDown={ stopMenuEventPropagation }
-					onKeyDown={ ( event ) => bulk || actions.handleShortcut( event.nativeEvent ) }
-				>
-					{ bulk ? <BulkMenuItems /> : <SiteActionsMenuItems actions={ actions } /> }
-				</Menu.ContextPopup>
+				{ bulk ? (
+					<BulkMenu
+						onClose={ () => setMenuOpen( false ) }
+						onClick={ stopMenuEventPropagation }
+						onPointerDown={ stopMenuEventPropagation }
+					/>
+				) : (
+					<Menu.ContextPopup
+						onClick={ stopMenuEventPropagation }
+						onPointerDown={ stopMenuEventPropagation }
+						onKeyDown={ ( event ) => actions.handleShortcut( event.nativeEvent ) }
+					>
+						<SiteActionsMenuItems actions={ actions } />
+					</Menu.ContextPopup>
+				) }
 			</Menu.ContextMenuRoot>
 			{ actions.dialogs }
 		</>
@@ -454,28 +560,41 @@ function SiteRowMenu( {
 
 function SiteSection( {
 	row,
+	chats,
 	isChatActive,
 	isContextActive,
 	chatEnabled,
 	chatPromptsSignIn,
 	activeSessionId,
-	showChats,
+	expanded,
+	loadError,
+	reorderable,
+	onOpen,
+	onReorderChats,
 	onSiteOpen,
 }: {
 	row: SiteRow;
+	// The site's chats listed under its row, in order.
+	chats: AiSessionSummary[];
 	isChatActive: boolean;
 	isContextActive: boolean;
 	chatEnabled: boolean;
 	chatPromptsSignIn: boolean;
 	activeSessionId?: string;
 	// Lists the site's chats under its row.
-	showChats: boolean;
+	expanded: boolean;
+	loadError: boolean;
+	reorderable: boolean;
+	// Clicking the row, before it opens the site; folds or unfolds its chats.
+	onOpen?: () => void;
+	onReorderChats: ( ids: string[] ) => void;
 	onSiteOpen?: () => void;
 } ) {
-	const { site, latestSession } = row;
+	const { site } = row;
 	const selectable = useSelectableRow( sitePinKey( site.id ) );
 	const navigate = useNavigate();
 	const sectionRef = useRef< HTMLElement >( null );
+	const [ chatCount, setChatCount ] = useState( CHATS_INITIAL_COUNT );
 	const isActive = isChatActive || isContextActive;
 	const canOpenChatSurface = chatEnabled || chatPromptsSignIn;
 	// Offline users and users who switched Studio Code off use the site's own
@@ -483,7 +602,8 @@ function SiteSection( {
 	// of logging in can be explained in context.
 	const isSelected = isChatActive || ( isContextActive && ! canOpenChatSurface );
 	const showContextOutline = isContextActive && canOpenChatSurface;
-	const chats = showChats && chatEnabled ? row.chats.slice( 0, SITE_CHATS_LIMIT ) : [];
+	const showChats = expanded && chatEnabled && ( chats.length > 0 || loadError );
+	const visibleChats = chats.slice( 0, chatCount );
 	// Keep the active site visible — e.g. when launch restores a site that
 	// sits below the sidebar's fold. `nearest` no-ops when already visible.
 	useEffect( () => {
@@ -491,6 +611,11 @@ function SiteSection( {
 			sectionRef.current?.scrollIntoView?.( { block: 'nearest' } );
 		}
 	}, [ isActive ] );
+	useEffect( () => {
+		if ( ! expanded ) {
+			setChatCount( CHATS_INITIAL_COUNT );
+		}
+	}, [ expanded ] );
 	const isStarting = useIsSiteStarting( site.id );
 	const isStopping = useIsSiteStopping( site.id );
 	const status = getSiteStatus( site, isStarting, isStopping, useSiteOperation( site ) );
@@ -509,9 +634,19 @@ function SiteSection( {
 	const displayActivity = siteActivity ? siteActivity : agentActivity;
 	const openSite = useOpenSite();
 	const handleOpenSite = () => {
+		onOpen?.();
 		onSiteOpen?.();
-		openSite( site, latestSession );
+		openSite( site, resumeChat( site.id, row.chats ) );
 	};
+	const renderChat = ( session: AiSessionSummary ) => (
+		<ChatRow
+			key={ session.id }
+			session={ session }
+			active={ session.id === activeSessionId }
+			nested
+			onOpen={ onSiteOpen }
+		/>
+	);
 
 	return (
 		<section
@@ -520,7 +655,7 @@ function SiteSection( {
 				styles.site,
 				isSelected && styles.siteActive,
 				showContextOutline && styles.siteContextActive,
-				chats.length > 0 && styles.siteWithChats
+				showChats && styles.siteWithChats
 			) }
 		>
 			<SiteRowMenu
@@ -549,6 +684,7 @@ function SiteSection( {
 									handleOpenSite();
 								} }
 								aria-current={ isSelected ? 'page' : undefined }
+								aria-expanded={ onOpen && chats.length > 0 ? showChats : undefined }
 							>
 								<span
 									className={ clsx(
@@ -575,22 +711,54 @@ function SiteSection( {
 									} }
 								/>
 							) : null }
-							<SiteStatusButton site={ site } isStarting={ isStarting } isStopping={ isStopping } />
+							<SiteStatusButton
+								site={ site }
+								isStarting={ isStarting }
+								isStopping={ isStopping }
+								onStart={ isActive ? undefined : handleOpenSite }
+							/>
 						</div>
 					</header>
 				}
 			/>
-			{ chats.length > 0 ? (
-				<div className={ styles.chats }>
-					{ chats.map( ( session ) => (
-						<ChatRow
-							key={ session.id }
-							session={ session }
-							active={ session.id === activeSessionId }
-							nested
-							onOpen={ onSiteOpen }
+			{ showChats ? (
+				<div
+					role="group"
+					aria-label={ sprintf(
+						/* translators: %s: site name. */
+						__( '%s chats' ),
+						site.name
+					) }
+					className={ styles.chats }
+				>
+					{ loadError ? <RetryLoadingChats /> : null }
+					{ reorderable ? (
+						<SidebarReorderableList
+							items={ visibleChats }
+							getItemId={ ( session ) => session.id }
+							getItemLabel={ getSessionTitle }
+							renderItem={ renderChat }
+							onReorder={ ( ids ) => {
+								const moved = [ ...ids ];
+								const visible = new Set( ids );
+								onReorderChats(
+									chats.map( ( session ) =>
+										visible.has( session.id ) ? moved.shift()! : session.id
+									)
+								);
+							} }
 						/>
-					) ) }
+					) : (
+						visibleChats.map( renderChat )
+					) }
+					{ chats.length > chatCount ? (
+						<SidebarButton
+							className={ clsx( styles.chat, styles.mutedRow ) }
+							onClick={ () => setChatCount( ( count ) => count + CHATS_PAGE_SIZE ) }
+						>
+							<span className={ styles.chatTitle }>{ __( 'Show more' ) }</span>
+						</SidebarButton>
+					) : null }
 				</div>
 			) : null }
 		</section>
@@ -621,12 +789,12 @@ export function SiteList( {
 	onSiteOpen?: () => void;
 	/** The collapsed-sidebar switcher renders a read-only order. */
 	reorderable?: boolean;
-	/** The sidebar groups sites, with the selected site's chats, and recent chats. */
+	/** The sidebar groups sites, with their chats, and recent chats. */
 	sections?: boolean;
 } ) {
 	const openAddSite = useOpenAddSite();
 	const { data: sites, isLoading: sitesLoading } = useSites();
-	const { data: sessions, isLoading: sessionsLoading } = useSessions();
+	const { data: sessions, isLoading: sessionsLoading, isError: sessionsError } = useSessions();
 	const needingInput = useSessionsNeedingInput();
 	const { chatEnabled, chatPromptsSignIn } = useAgenticFeatures();
 	const params = useParams( { strict: false } ) as { sessionId?: string; siteId?: string };
@@ -635,7 +803,7 @@ export function SiteList( {
 	const activeSiteId = params.siteId;
 	const [ manualSiteOrder, setManualSiteOrder ] = useState< string[] >( [] );
 	const updateSitesSortOrder = useUpdateSitesSortOrder();
-	const { pins, setPins } = useSidebarPins();
+	const { pins, chatOrder, showRecentChats, autoCollapseSites, save } = useSidebarPreferences();
 
 	const orderedSites = useMemo(
 		() => sortSitesByManualOrder( sortSites( [ ...( sites ?? [] ) ] ), manualSiteOrder ),
@@ -658,10 +826,34 @@ export function SiteList( {
 	const activeContextSiteKey =
 		activeSettingsSiteKey ??
 		( activeSiteId && pathname === `/sites/${ activeSiteId }` ? activeSiteId : undefined );
+	const activeSiteKey = activeChatSiteKey ?? activeContextSiteKey;
 	const persistOrder = ( nextSiteIds: string[] ) => {
 		setManualSiteOrder( nextSiteIds );
 		updateSitesSortOrder.mutate( nextSiteIds );
 	};
+
+	// Sites whose chats show under their row. Opening a site unfolds it (and,
+	// unless the user turned it off, folds the others); clicking the open site
+	// again folds it.
+	const [ revealed, setRevealed ] = useState< ReadonlySet< string > >(
+		() => new Set( activeSiteKey ? [ activeSiteKey ] : [] )
+	);
+	const reveal = ( current: ReadonlySet< string >, siteId: string ) =>
+		new Set( autoCollapseSites ? [ siteId ] : [ ...current, siteId ] );
+	const revealActive = useEffectEvent( ( siteId: string ) =>
+		setRevealed( ( current ) => ( current.has( siteId ) ? current : reveal( current, siteId ) ) )
+	);
+	useEffect( () => {
+		if ( activeSiteKey ) {
+			revealActive( activeSiteKey );
+		}
+	}, [ activeSiteKey ] );
+	const toggleSiteChats = ( siteId: string ) =>
+		setRevealed( ( current ) =>
+			siteId === activeSiteKey && current.has( siteId )
+				? new Set( [ ...current ].filter( ( id ) => id !== siteId ) )
+				: reveal( current, siteId )
+		);
 
 	// The sidebar moves pinned sites and chats out of their usual place into the Pinned group.
 	const pinned = new Set( sections ? pins : [] );
@@ -681,17 +873,35 @@ export function SiteList( {
 			: [];
 	} );
 	const siteRows = rows.filter( ( row ) => ! pinned.has( sitePinKey( row.site.id ) ) );
+	// A chat waiting on an answer shows once, under Needs input.
+	const siteChats = ( row: SiteRow ) =>
+		orderChats(
+			row.chats.filter(
+				( session ) => ! isChatPinned( session ) && ! needingInput.includes( session.id )
+			),
+			chatOrder[ row.site.id ]
+		);
+	const siteNameOf = ( session: AiSessionSummary ) =>
+		rows.find( ( row ) => row.sessionIds.includes( session.id ) )?.site.name;
 
 	const renderSiteRow = ( row: SiteRow ) => (
 		<SiteSection
-			row={ { ...row, chats: row.chats.filter( ( session ) => ! isChatPinned( session ) ) } }
+			row={ row }
+			chats={ siteChats( row ) }
 			isChatActive={ row.site.id === activeChatSiteKey }
 			isContextActive={ row.site.id === activeContextSiteKey }
 			chatEnabled={ chatEnabled }
 			chatPromptsSignIn={ chatPromptsSignIn }
 			activeSessionId={ activeSessionId }
-			showChats={
-				sections && ( row.site.id === activeChatSiteKey || row.site.id === activeContextSiteKey )
+			expanded={ sections && revealed.has( row.site.id ) }
+			loadError={ sessionsError }
+			reorderable={ reorderable }
+			onOpen={ sections ? () => toggleSiteChats( row.site.id ) : undefined }
+			onReorderChats={ ( ids ) =>
+				save(
+					{ sidebarChatOrder: { ...chatOrder, [ row.site.id ]: ids } },
+					__( 'Couldn’t save the chat order' )
+				)
 			}
 			onSiteOpen={ onSiteOpen }
 		/>
@@ -712,16 +922,12 @@ export function SiteList( {
 		);
 	} else {
 		listContent = (
-			<ReorderableList
+			<SidebarReorderableList
 				items={ siteRows }
 				getItemId={ ( row ) => row.site.id }
+				getItemLabel={ ( row ) => row.site.name }
 				renderItem={ renderSiteRow }
 				onReorder={ persistOrder }
-				className={ styles.sites }
-				itemClassName={ styles.siteDragWrapper }
-				placeholderClassName={ styles.siteDropPlaceholder }
-				previewClassName={ styles.siteDragPreview }
-				excludeSelector="[data-reorder-exclude]"
 			/>
 		);
 	}
@@ -730,6 +936,7 @@ export function SiteList( {
 		return <div className={ clsx( styles.root, className ) }>{ listContent }</div>;
 	}
 
+	const loaded = ! sitesLoading && ! sessionsLoading;
 	const openChats = chatEnabled
 		? ( sessions ?? [] ).filter( ( session ) => ! session.archived ).sort( byMostRecent )
 		: [];
@@ -738,30 +945,38 @@ export function SiteList( {
 	const recentChats = openChats
 		.filter( ( session ) => ! needingInput.includes( session.id ) && ! isChatPinned( session ) )
 		.slice( 0, RECENT_CHATS_LIMIT );
-	const renderChats = ( chats: AiSessionSummary[] ) => (
-		<div className={ styles.chats }>
-			{ chats.map( ( session ) => (
-				<ChatRow
-					key={ session.id }
-					session={ session }
-					active={ session.id === activeSessionId }
-					onOpen={ onSiteOpen }
-				/>
-			) ) }
-		</div>
+	const canCollapseAll =
+		siteRows.filter( ( row ) => revealed.has( row.site.id ) && siteChats( row ).length > 0 )
+			.length > 1;
+	const renderChat = ( session: AiSessionSummary, siteName?: string ) => (
+		<ChatRow
+			key={ session.id }
+			session={ session }
+			active={ session.id === activeSessionId }
+			siteName={ siteName }
+			onOpen={ onSiteOpen }
+		/>
 	);
 
 	return (
 		<div className={ clsx( styles.root, className ) }>
 			<SidebarSelection>
 				{ needsInputChats.length > 0 ? (
-					<SidebarGroup title={ __( 'Needs input' ) }>
-						{ renderChats( needsInputChats ) }
+					<SidebarGroup
+						id="needs-input"
+						title={ __( 'Needs input' ) }
+						itemKeys={ needsInputChats.map( ( session ) => session.id ) }
+					>
+						<div className={ styles.chats }>
+							{ needsInputChats.map( ( session ) => renderChat( session ) ) }
+						</div>
 					</SidebarGroup>
 				) : null }
 				{ pinnedItems.length > 0 ? (
 					<SidebarGroup
+						id="pinned"
 						title={ __( 'Pinned' ) }
+						itemKeys={ loaded ? pinnedItems.map( ( item ) => item.key ) : undefined }
 						action={
 							<IconButton
 								variant="muted-ghost"
@@ -772,45 +987,64 @@ export function SiteList( {
 							/>
 						}
 					>
-						<ReorderableList
+						<SidebarReorderableList
 							items={ pinnedItems }
 							getItemId={ ( item ) => item.key }
-							renderItem={ ( item ) =>
-								item.row ? (
-									renderSiteRow( item.row )
-								) : (
-									<ChatRow
-										session={ item.session }
-										active={ item.session.id === activeSessionId }
-										onOpen={ onSiteOpen }
-									/>
-								)
+							getItemLabel={ ( item ) =>
+								item.row ? item.row.site.name : getSessionTitle( item.session )
 							}
-							onReorder={ setPins }
-							className={ styles.sites }
-							itemClassName={ styles.siteDragWrapper }
-							placeholderClassName={ styles.siteDropPlaceholder }
-							previewClassName={ styles.siteDragPreview }
-							excludeSelector="[data-reorder-exclude]"
+							renderItem={ ( item ) =>
+								item.row
+									? renderSiteRow( item.row )
+									: renderChat( item.session, siteNameOf( item.session ) )
+							}
+							onReorder={ ( sidebarPins ) => save( { sidebarPins } ) }
 						/>
 					</SidebarGroup>
 				) : null }
 				<SidebarGroup
+					id="sites"
 					title={ __( 'Sites' ) }
+					itemKeys={ loaded ? siteRows.map( ( row ) => row.site.id ) : undefined }
 					action={
-						<IconButton
-							variant="muted-ghost"
-							size="icon-sm"
-							icon={ plusIcon }
-							label={ __( 'Add site' ) }
-							onClick={ () => openAddSite() }
-						/>
+						<span className={ styles.groupActions }>
+							{ canCollapseAll ? (
+								<IconButton
+									variant="muted-ghost"
+									size="icon-sm"
+									icon={ collapseAllIcon }
+									label={ __( 'Collapse all' ) }
+									onClick={ () => setRevealed( new Set() ) }
+								/>
+							) : null }
+							<IconButton
+								variant="muted-ghost"
+								size="icon-sm"
+								icon={ plusIcon }
+								label={ __( 'Add site' ) }
+								onClick={ () => openAddSite() }
+							/>
+						</span>
 					}
 				>
 					{ listContent }
 				</SidebarGroup>
-				{ recentChats.length > 0 ? (
-					<SidebarGroup title={ __( 'Recent' ) }>{ renderChats( recentChats ) }</SidebarGroup>
+				{ showRecentChats && ( recentChats.length > 0 || sessionsError ) ? (
+					<SidebarGroup
+						id="recent"
+						title={ __( 'Recent' ) }
+						itemKeys={ loaded ? recentChats.map( ( session ) => session.id ) : undefined }
+					>
+						{ sessionsError ? (
+							<div className={ styles.chats }>
+								<RetryLoadingChats />
+							</div>
+						) : (
+							<div className={ styles.chats }>
+								{ recentChats.map( ( session ) => renderChat( session ) ) }
+							</div>
+						) }
+					</SidebarGroup>
 				) : null }
 			</SidebarSelection>
 		</div>

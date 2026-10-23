@@ -2,17 +2,27 @@ import { aiSessionBelongsToSite } from '@studio/common/ai/sessions/owner-site';
 import { useNavigate, useParams } from '@tanstack/react-router';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { Icon } from '@wordpress/icons';
+import { displayShortcut, isAppleOS, isKeyboardEvent } from '@wordpress/keycodes';
 import { createContext, useContext, useEffect, useRef, useState } from 'react';
+import { getArchiveBlockedReason, useLeaveArchivedChat } from '@/components/chat-actions';
 import { DeleteSiteDialog } from '@/components/delete-site-dialog';
+import { useDeleteBlockedReason } from '@/components/site-actions-menu';
 import * as Menu from '@/components/ui/menu';
-import { toast } from '@/data/app-messages';
-import { useSiteAgentActivity } from '@/data/queries/use-agent-run';
+import { VisuallyHidden } from '@/components/ui/visually-hidden';
+import { errorMessage, toast } from '@/data/app-messages';
+import { useSessionsBusy } from '@/data/queries/use-agent-run';
 import { useSessions, useUpdateSessionMetadata } from '@/data/queries/use-sessions';
 import { useSidebarPins } from '@/data/queries/use-sidebar-pins';
 import { useSites } from '@/data/queries/use-sites';
 import { archiveIcon, pinIcon, readStatusIcon, unpinIcon } from '@/lib/icons';
 import styles from './style.module.css';
-import type { KeyboardEvent, MouseEvent, ReactNode } from 'react';
+import type {
+	KeyboardEvent,
+	MouseEvent,
+	MouseEventHandler,
+	PointerEventHandler,
+	ReactNode,
+} from 'react';
 
 // Rows carry their `site:<id>` / `chat:<id>` key, the same keys as pins.
 const KEY_ATTRIBUTE = 'data-select-key';
@@ -22,6 +32,11 @@ const SelectionContext = createContext< {
 	clear: () => void;
 	deleteSites: ( siteIds: string[] ) => void;
 } >( { selection: null, clear: () => {}, deleteSites: () => {} } );
+
+/** Whether rows are being multi-selected, which holds off dragging them. */
+export function useIsSelecting() {
+	return !! useContext( SelectionContext ).selection;
+}
 
 /** Props for a selectable row: its key, and whether it's part of the selection. */
 export function useSelectableRow( key: string ) {
@@ -50,8 +65,9 @@ function isEditing( target: EventTarget | null ) {
 }
 
 /**
- * ⌘/Ctrl-click adds or removes a row, Shift-click selects a range, ⌘/Ctrl+A
- * selects a group, Shift+↑/↓ extends the selection, and Escape clears it.
+ * ⌘/Ctrl-click adds or removes a row, Shift-click selects a range and
+ * ⌘/Ctrl+Shift-click adds one, ⌘/Ctrl+A selects a group (or a site's chats),
+ * Shift+↑/↓ extends the selection, and Escape clears it.
  */
 export function SidebarSelection( { children }: { children: ReactNode } ) {
 	const [ selection, setSelection ] = useState< string[] | null >( null );
@@ -81,16 +97,16 @@ export function SidebarSelection( { children }: { children: ReactNode } ) {
 		setSelection( null );
 		anchor.current = null;
 	}
-	function select( key: string, range: boolean ) {
+	function select( key: string, range: boolean, add = false ) {
 		const keys = [ ...new Set( rows().map( ( row ) => row.getAttribute( KEY_ATTRIBUTE )! ) ) ];
 		const current = keyOf( root.current?.querySelector( '[aria-current="page"]' ) ?? null );
 		const start = anchor.current ?? current;
 		if ( range ) {
 			const from = start ? keys.indexOf( start ) : -1;
 			const to = keys.indexOf( key );
-			setSelection(
-				from >= 0 ? keys.slice( Math.min( from, to ), Math.max( from, to ) + 1 ) : [ key ]
-			);
+			const span =
+				from >= 0 ? keys.slice( Math.min( from, to ), Math.max( from, to ) + 1 ) : [ key ];
+			setSelection( add ? [ ...new Set( [ ...( selection ?? [] ), ...span ] ) ] : span );
 			anchor.current ??= from >= 0 ? start : key;
 			return;
 		}
@@ -110,7 +126,7 @@ export function SidebarSelection( { children }: { children: ReactNode } ) {
 		if ( event.metaKey || event.ctrlKey || event.shiftKey ) {
 			event.preventDefault();
 			event.stopPropagation();
-			select( key, event.shiftKey );
+			select( key, event.shiftKey, event.metaKey || event.ctrlKey );
 		} else {
 			anchor.current = key;
 			setSelection( null );
@@ -173,15 +189,9 @@ export function SidebarSelection( { children }: { children: ReactNode } ) {
 				} }
 			>
 				{ children }
-				<span className={ styles.visuallyHidden } role="status">
-					{ selection
-						? sprintf(
-								/* translators: %d: number of selected sites and chats. */
-								_n( '%d item selected', '%d items selected', selection.length ),
-								selection.length
-						  )
-						: '' }
-				</span>
+				<VisuallyHidden role="status">
+					{ selection ? describeSelection( selection ) : '' }
+				</VisuallyHidden>
 			</div>
 			<DeleteSiteDialog
 				sites={ deletingSites }
@@ -202,14 +212,45 @@ export function SidebarSelection( { children }: { children: ReactNode } ) {
 	);
 }
 
-/** The right-click menu for a multi-row selection. */
-export function BulkMenuItems() {
+function describeSelection( selection: string[] ) {
+	const count = selection.length;
+	if ( selection.every( ( key ) => key.startsWith( 'chat:' ) ) ) {
+		/* translators: %d: number of selected chats. */
+		return sprintf( _n( '%d chat selected', '%d chats selected', count ), count );
+	}
+	if ( selection.every( ( key ) => key.startsWith( 'site:' ) ) ) {
+		/* translators: %d: number of selected sites. */
+		return sprintf( _n( '%d site selected', '%d sites selected', count ), count );
+	}
+	/* translators: %d: number of selected sites and chats. */
+	return sprintf( _n( '%d item selected', '%d items selected', count ), count );
+}
+
+function itemsUpdated( count: number ) {
+	/* translators: %d: number of sites and chats updated. */
+	return sprintf( _n( '%d item updated', '%d items updated', count ), count );
+}
+
+/**
+ * The right-click menu for a multi-row selection. Its shortcuts act on every
+ * selected row: ⌥⌘P pins or unpins, ⇧⌘A archives, ⌘⌫ deletes the sites.
+ */
+export function BulkMenu( {
+	onClose,
+	onClick,
+	onPointerDown,
+}: {
+	onClose: () => void;
+	onClick?: MouseEventHandler< HTMLElement >;
+	onPointerDown?: PointerEventHandler< HTMLElement >;
+} ) {
 	const { selection, clear, deleteSites } = useContext( SelectionContext );
-	const navigate = useNavigate();
 	const params = useParams( { strict: false } ) as { sessionId?: string };
 	const { data: sessions } = useSessions();
+	const { data: sites } = useSites();
 	const { pins, setPins } = useSidebarPins();
-	const { mutateAsync, mutate } = useUpdateSessionMetadata();
+	const { mutateAsync } = useUpdateSessionMetadata();
+	const leaveArchivedChat = useLeaveArchivedChat();
 	const keys = selection ?? [];
 	const chatIds = keys
 		.filter( ( key ) => key.startsWith( 'chat:' ) )
@@ -218,53 +259,113 @@ export function BulkMenuItems() {
 		.filter( ( key ) => key.startsWith( 'site:' ) )
 		.map( ( key ) => key.slice( 5 ) );
 	const chats = ( sessions ?? [] ).filter( ( session ) => chatIds.includes( session.id ) );
-	const working = useSiteAgentActivity( chatIds ) === 'working';
+	const selectedSites = ( sites ?? [] ).filter( ( site ) => siteIds.includes( site.id ) );
+	const archiveBlocked = useSessionsBusy( chatIds );
+	const deleteBlocked = useDeleteBlockedReason(
+		selectedSites,
+		selectedSites.some( ( site ) => site.operation )
+	);
 	const allPinned = keys.every( ( key ) => pins.includes( key ) );
 	const nonePinned = keys.every( ( key ) => ! pins.includes( key ) );
 
+	const setPinned = ( pinned: boolean ) => {
+		onClose();
+		const changed = keys.filter( ( key ) => pins.includes( key ) !== pinned );
+		setPins(
+			pinned ? [ ...pins, ...changed ] : pins.filter( ( pin ) => ! changed.includes( pin ) )
+		);
+		clear();
+		toast.success( itemsUpdated( changed.length ) );
+	};
+
 	// Each chat is updated on its own, so one failure doesn't stop the rest.
 	const updateChats = async ( patch: { archived?: boolean; unread?: boolean } ) => {
+		onClose();
 		const results = await Promise.allSettled(
 			chatIds.map( ( sessionId ) => mutateAsync( { sessionId, patch } ) )
 		);
-		const failed = results.filter( ( result ) => result.status === 'rejected' );
-		const done = chatIds.length - failed.length;
+		const updated = chatIds.filter( ( _, index ) => results[ index ].status === 'fulfilled' );
+		const errors = results.flatMap( ( result ) =>
+			result.status === 'rejected' ? [ errorMessage( result.reason ) ] : []
+		);
 		clear();
-		if ( failed.length ) {
+		const undo =
+			patch.archived && updated.length
+				? {
+						label: __( 'Undo' ),
+						onClick: () =>
+							Promise.all(
+								updated.map( ( sessionId ) =>
+									mutateAsync( { sessionId, patch: { archived: false } } )
+								)
+							),
+				  }
+				: undefined;
+		if ( errors.length ) {
 			toast.error(
 				sprintf(
 					/* translators: 1: chats updated, 2: chats selected, 3: chats that failed. */
 					__( '%1$d of %2$d items updated. %3$d failed.' ),
-					done,
+					updated.length,
 					chatIds.length,
-					failed.length
-				)
-			);
-		} else if ( patch.archived ) {
-			toast.success(
-				sprintf(
-					/* translators: %d: number of archived chats. */
-					_n( '%d chat archived', '%d chats archived', done ),
-					done
+					errors.length
 				),
-				{
-					action: {
-						label: __( 'Undo' ),
-						onClick: () =>
-							chatIds.forEach( ( sessionId ) =>
-								mutate( { sessionId, patch: { archived: false } } )
-							),
-					},
-				}
+				{ description: [ ...new Set( errors ) ].join( '\n' ), action: undo }
+			);
+		} else {
+			toast.success(
+				patch.archived
+					? sprintf(
+							/* translators: %d: number of archived chats. */
+							_n( '%d chat archived', '%d chats archived', updated.length ),
+							updated.length
+					  )
+					: itemsUpdated( updated.length ),
+				{ action: undo }
 			);
 		}
-		if ( patch.archived && params.sessionId && chatIds.includes( params.sessionId ) ) {
-			void navigate( { to: '/' } );
+		const viewing = sessions?.find( ( session ) => session.id === params.sessionId );
+		if ( patch.archived && viewing && updated.includes( viewing.id ) ) {
+			leaveArchivedChat( viewing, updated );
+		}
+	};
+
+	const confirmDelete = () => {
+		onClose();
+		deleteSites( siteIds );
+	};
+
+	const handleShortcut = ( event: KeyboardEvent ) => {
+		if ( event.repeat ) {
+			return;
+		}
+		const native = event.nativeEvent;
+		if ( isKeyboardEvent.primaryAlt( native, 'p' ) ) {
+			event.preventDefault();
+			setPinned( ! allPinned );
+		} else if (
+			isKeyboardEvent.primaryShift( native, 'a' ) &&
+			chatIds.length &&
+			! archiveBlocked
+		) {
+			event.preventDefault();
+			void updateChats( { archived: true } );
+		} else if (
+			isKeyboardEvent.primary( native, 'backspace' ) &&
+			siteIds.length &&
+			! deleteBlocked
+		) {
+			event.preventDefault();
+			confirmDelete();
 		}
 	};
 
 	return (
-		<>
+		<Menu.ContextPopup
+			onKeyDown={ handleShortcut }
+			onClick={ onClick }
+			onPointerDown={ onPointerDown }
+		>
 			{ chatIds.length > 0 ? (
 				<>
 					<Menu.Item
@@ -283,51 +384,51 @@ export function BulkMenuItems() {
 					</Menu.Item>
 				</>
 			) : null }
-			<Menu.Item
-				disabled={ allPinned }
-				onClick={ () => {
-					setPins( [ ...keys.filter( ( key ) => ! pins.includes( key ) ), ...pins ] );
-					clear();
-				} }
-			>
+			<Menu.Item disabled={ allPinned } onClick={ () => setPinned( true ) }>
 				<Icon icon={ pinIcon } />
 				{ __( 'Pin' ) }
+				{ allPinned ? null : <Menu.Shortcut>{ displayShortcut.primaryAlt( 'p' ) }</Menu.Shortcut> }
 			</Menu.Item>
-			<Menu.Item
-				disabled={ nonePinned }
-				onClick={ () => {
-					setPins( pins.filter( ( pin ) => ! keys.includes( pin ) ) );
-					clear();
-				} }
-			>
+			<Menu.Item disabled={ nonePinned } onClick={ () => setPinned( false ) }>
 				<Icon icon={ unpinIcon } />
 				{ __( 'Unpin' ) }
+				{ allPinned ? <Menu.Shortcut>{ displayShortcut.primaryAlt( 'p' ) }</Menu.Shortcut> : null }
 			</Menu.Item>
 			<Menu.Separator />
 			{ chatIds.length > 0 ? (
-				<>
-					{ working ? (
-						<Menu.GroupLabel>{ __( 'Wait for active chats to finish.' ) }</Menu.GroupLabel>
+				<Menu.Group>
+					{ archiveBlocked ? (
+						<Menu.GroupLabel>{ getArchiveBlockedReason() }</Menu.GroupLabel>
 					) : null }
-					<Menu.Item disabled={ working } onClick={ () => void updateChats( { archived: true } ) }>
+					<Menu.Item
+						disabled={ archiveBlocked }
+						onClick={ () => void updateChats( { archived: true } ) }
+					>
 						<Icon icon={ archiveIcon } />
 						{ sprintf(
 							/* translators: %d: number of selected chats. */
 							_n( 'Archive %d chat', 'Archive %d chats', chatIds.length ),
 							chatIds.length
 						) }
+						<Menu.Shortcut>{ displayShortcut.primaryShift( 'a' ) }</Menu.Shortcut>
 					</Menu.Item>
-				</>
+				</Menu.Group>
 			) : null }
 			{ siteIds.length > 0 ? (
-				<Menu.Item destructive onClick={ () => deleteSites( siteIds ) }>
-					{ sprintf(
-						/* translators: %d: number of selected sites. */
-						_n( 'Delete %d site', 'Delete %d sites', siteIds.length ),
-						siteIds.length
-					) }
-				</Menu.Item>
+				<Menu.Group>
+					{ deleteBlocked ? <Menu.GroupLabel>{ deleteBlocked }</Menu.GroupLabel> : null }
+					<Menu.Item destructive disabled={ !! deleteBlocked } onClick={ confirmDelete }>
+						{ sprintf(
+							/* translators: %d: number of selected sites. */
+							_n( 'Delete %d site', 'Delete %d sites', siteIds.length ),
+							siteIds.length
+						) }
+						<Menu.Shortcut>
+							{ displayShortcut.primary( isAppleOS() ? '⌫' : 'Backspace' ) }
+						</Menu.Shortcut>
+					</Menu.Item>
+				</Menu.Group>
 			) : null }
-		</>
+		</Menu.ContextPopup>
 	);
 }

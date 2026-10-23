@@ -2,7 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { act } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { NoticeHistoryDialog } from '@/components/notice-history';
-import { showToast, resetAppMessagesForTests } from '@/data/app-messages';
+import { getVisibleToasts, showToast, resetAppMessagesForTests } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { AppToasts } from './index';
 
@@ -91,5 +91,37 @@ describe( 'AppToasts', () => {
 		fireEvent.click( screen.getByRole( 'button', { name: 'More' } ) );
 		expect( screen.getByRole( 'dialog' ) ).toBeVisible();
 		expect( screen.getAllByText( 'Stack trace…' ) ).toHaveLength( 2 );
+	} );
+
+	it( 'runs a toast’s action once, pending until it settles, then closes the toast', async () => {
+		let settle = () => {};
+		const undo = vi.fn( () => new Promise< void >( ( resolve ) => ( settle = resolve ) ) );
+		render( <AppToasts /> );
+		act( () => {
+			showToast( { title: 'Chat archived', action: { label: 'Undo', onClick: undo } } );
+		} );
+
+		const button = screen.getByRole( 'button', { name: 'Undo' } );
+		fireEvent.click( button );
+		fireEvent.click( button );
+		expect( undo ).toHaveBeenCalledTimes( 1 );
+		expect( button ).toBeDisabled();
+
+		await act( async () => settle() );
+		expect( getVisibleToasts()[ 0 ] ).toMatchObject( { title: 'Chat archived', leaving: true } );
+	} );
+
+	it( 'says when a toast’s action fails, and lets it be tried again', async () => {
+		const undo = vi.fn().mockRejectedValueOnce( new Error( 'Disk full' ) );
+		render( <AppToasts /> );
+		act( () => {
+			showToast( { title: 'Chat archived', action: { label: 'Undo', onClick: undo } } );
+		} );
+
+		await act( async () => fireEvent.click( screen.getByRole( 'button', { name: 'Undo' } ) ) );
+
+		expect( screen.getByText( 'Action failed' ) ).toBeVisible();
+		expect( screen.getByText( 'Disk full' ) ).toBeVisible();
+		expect( screen.getByRole( 'button', { name: 'Undo' } ) ).toBeEnabled();
 	} );
 } );

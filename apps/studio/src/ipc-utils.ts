@@ -29,7 +29,7 @@ export interface IpcEvents {
 	];
 	'toggle-sidebar': [ void ];
 	'toggle-site-preview': [ void ];
-	'user-settings': [ { tabName?: string } ];
+	'user-settings': [ { tabName?: string; settingId?: string } ];
 	'window-fullscreen-change': [ boolean ];
 	'ai-agent-event': [ AgentRunEvent ];
 	'ai-session-placement-updated': [ AiSessionPlacementUpdatedEvent ];

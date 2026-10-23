@@ -1,6 +1,6 @@
 import { __ } from '@wordpress/i18n';
 import { clsx } from 'clsx';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { AppMessageCards, AppMessageHistoryRecorder } from '@/components/app-message-cards';
 import { AppToasts } from '@/components/app-toasts';
 import { NoticeHistoryDialog } from '@/components/notice-history';
@@ -15,6 +15,7 @@ import {
 	SidebarOpenContext,
 	SidebarToggleContext,
 } from '@/hooks/use-sidebar-collapsed';
+import { useStoredFlag } from '@/hooks/use-stored-flag';
 import {
 	PREVIEW_SPLIT_MIN_WIDTH,
 	SIDEBAR_PANEL_CONFIG,
@@ -30,7 +31,7 @@ export function SidebarLayout( { children }: { children: ReactNode } ) {
 		edge: 'right',
 		storageKey: SIDEBAR_PANEL_STORAGE_KEY,
 	} );
-	const [ collapsed, setCollapsed ] = useState( false );
+	const [ collapsed, setCollapsed ] = useStoredFlag( 'studio-ui-sidebar-collapsed', false );
 	const [ overlayOpen, setOverlayOpen ] = useState( false );
 	// When docking the sidebar would leave the content less than the chat and
 	// preview need, it opens over the content instead, closed by default. The
@@ -47,9 +48,31 @@ export function SidebarLayout( { children }: { children: ReactNode } ) {
 		if ( overlay ) {
 			setOverlayOpen( ( current ) => ! current );
 		} else {
-			setCollapsed( ( current ) => ! current );
+			setCollapsed( ! collapsed );
 		}
-	}, [ overlay ] );
+	}, [ overlay, collapsed, setCollapsed ] );
+	const sidebarRef = useRef< HTMLElement >( null );
+	// The overlay takes focus to its first item, and gives it back to the
+	// sidebar toggle when it closes.
+	useLayoutEffect( () => {
+		const sidebar = sidebarRef.current;
+		if ( overlay && overlayOpen ) {
+			sidebar
+				?.querySelector< HTMLElement >( 'button:not(:disabled)' )
+				?.focus( { preventScroll: true } );
+		} else if ( ! open && sidebar?.contains( document.activeElement ) ) {
+			const focusToggle = () =>
+				[ ...document.querySelectorAll< HTMLElement >( '[data-sidebar-toggle]' ) ]
+					.find( ( toggle ) => ! toggle.closest( '[inert]' ) )
+					?.focus();
+			focusToggle();
+			// A pick also navigates, which can replace the header holding the toggle.
+			const frame = requestAnimationFrame(
+				() => document.activeElement === document.body && focusToggle()
+			);
+			return () => cancelAnimationFrame( frame );
+		}
+	}, [ overlay, overlayOpen, open ] );
 	const sidebarStyle = { '--sidebar-width': `${ sidebarResize.width }px` } as CSSProperties;
 
 	useEffect( () => connector.onToggleSidebar( toggleSidebar ), [ connector, toggleSidebar ] );
@@ -81,9 +104,12 @@ export function SidebarLayout( { children }: { children: ReactNode } ) {
 							style={ sidebarStyle }
 							inert={ ! open }
 						>
-							<aside className={ styles.sidebar }>
+							<aside ref={ sidebarRef } className={ styles.sidebar }>
 								{ overlay ? null : <SidebarHeader /> }
-								<SiteList sections />
+								<SiteList
+									sections
+									onSiteOpen={ overlay ? () => setOverlayOpen( false ) : undefined }
+								/>
 								<div className={ styles.sidebarFooter }>
 									{ open ? <AppMessageCards className={ styles.sidebarCards } /> : null }
 									<UserMenu />
@@ -109,6 +135,7 @@ export function SidebarLayout( { children }: { children: ReactNode } ) {
 								isResizing={ sidebarResize.isResizing }
 								onResizeStart={ sidebarResize.handleResizeStart }
 								onKeyDown={ sidebarResize.handleKeyDown }
+								onReset={ sidebarResize.resetWidth }
 							/>
 						) : null }
 						<main className={ clsx( styles.main, docked && 'studio-column-edge' ) }>

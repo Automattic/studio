@@ -1,4 +1,10 @@
-import { getUnsupportedWpCliPostContentMessage } from 'cli/lib/wp-cli-post-content';
+import { mkdirSync, mkdtempSync, writeFileSync } from 'fs';
+import os from 'os';
+import path from 'path';
+import {
+	getUnsupportedWpCliPostContentMessage,
+	routePostContentFile,
+} from 'cli/lib/wp-cli-post-content';
 
 describe( 'getUnsupportedWpCliPostContentMessage', () => {
 	it( 'ignores commands other than post create and update', () => {
@@ -10,6 +16,31 @@ describe( 'getUnsupportedWpCliPostContentMessage', () => {
 	it( 'accepts literal post content', () => {
 		expect(
 			getUnsupportedWpCliPostContentMessage( [ 'post', 'create', '--post_content=<p>Hello</p>' ] )
+		).toBeNull();
+	} );
+
+	it( 'refuses JSON content that does not parse, with the parse error', () => {
+		// The Global Styles update seen in an eval run, missing its last `}`.
+		const content =
+			'{"version":3,"isGlobalStylesUserThemeJSON":true,"styles":{"color":{"background":"#1e2a44"},"typography":{"lineHeight":"1.7"},"elements":{"link":{"color":{"text":"#8a3b1f"}}}}';
+
+		const message = getUnsupportedWpCliPostContentMessage( [
+			'post',
+			'update',
+			'5',
+			`--post_content=${ content }`,
+		] );
+
+		expect( message ).toMatch(
+			/^Nothing was saved: `--post_content` starts with `\{` but is not valid JSON \(.+\)/
+		);
+		expect(
+			getUnsupportedWpCliPostContentMessage( [
+				'post',
+				'update',
+				'5',
+				`--post_content=${ content }}`,
+			] )
 		).toBeNull();
 	} );
 
@@ -33,5 +64,63 @@ describe( 'getUnsupportedWpCliPostContentMessage', () => {
 				'--post_content=`cat page.html`',
 			] )
 		).toContain( 'does not run in a shell' );
+	} );
+} );
+
+describe( 'routePostContentFile', () => {
+	const sitePath = mkdtempSync( path.join( os.tmpdir(), 'post-content-path-' ) );
+	mkdirSync( path.join( sitePath, 'tmp' ) );
+	writeFileSync( path.join( sitePath, 'tmp', 'header.html' ), '<!-- wp:paragraph -->' );
+
+	it( 'passes an absolute file path as the file WP-CLI reads content from', () => {
+		const file = path.join( sitePath, 'tmp', 'header.html' );
+		expect(
+			routePostContentFile( [ 'post', 'update', '5', `--post_content=${ file }` ], sitePath )
+		).toEqual( { args: [ 'post', 'update', '5', file ], file } );
+	} );
+
+	it( 'keeps the flags around a relative path', () => {
+		expect(
+			routePostContentFile(
+				[ 'post', 'create', '--post_type=page', '--post_content=tmp/header.html --porcelain' ],
+				sitePath
+			)
+		).toEqual( {
+			args: [ 'post', 'create', '--post_type=page', '--porcelain', 'tmp/header.html' ],
+			file: 'tmp/header.html',
+		} );
+	} );
+
+	it( 'leaves content that only looks like a path, and other commands, alone', () => {
+		for ( const content of [
+			'tmp/missing.html',
+			'tmp',
+			'See tmp/header.html',
+			'tmp/header.html and more',
+			'<p>tmp/header.html</p>',
+		] ) {
+			expect(
+				routePostContentFile( [ 'post', 'create', `--post_content=${ content }` ], sitePath )
+			).toBeUndefined();
+		}
+		expect(
+			routePostContentFile(
+				[ 'option', 'update', 'x', '--post_content=tmp/header.html' ],
+				sitePath
+			)
+		).toBeUndefined();
+	} );
+
+	it( 'leaves a file outside the site folder alone', () => {
+		const outside = mkdtempSync( path.join( os.tmpdir(), 'post-content-outside-' ) );
+		writeFileSync( path.join( outside, 'notes.html' ), 'x' );
+		for ( const file of [
+			path.join( outside, 'notes.html' ),
+			`../${ path.basename( outside ) }/notes.html`,
+		] ) {
+			expect(
+				routePostContentFile( [ 'post', 'create', `--post_content=${ file }` ], sitePath )
+			).toBeUndefined();
+		}
 	} );
 } );

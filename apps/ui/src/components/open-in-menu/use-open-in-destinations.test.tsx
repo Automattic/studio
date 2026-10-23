@@ -74,7 +74,7 @@ describe( 'useOpenInDestinations', () => {
 		editor.open();
 
 		expect( editor.label ).toBe( 'Cursor' );
-		expect( openSiteInEditor ).toHaveBeenCalledWith( 'site-1', 'cursor' );
+		expect( openSiteInEditor ).toHaveBeenCalledWith( 'site-1' );
 
 		vi.mocked( useInstalledApps, { partial: true } ).mockReturnValue( { data: {} as never } );
 		expect( destinations().some( ( item ) => item.id === 'editor' ) ).toBe( false );

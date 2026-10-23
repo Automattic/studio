@@ -3,7 +3,7 @@ import { PreviewCommandLoggerAction as LoggerAction } from '@studio/common/logge
 import { Snapshot } from '@studio/common/types/snapshot';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import CliTable3 from 'cli-table3';
-import { format } from 'date-fns';
+import { format } from 'date-fns/format';
 import { readCliConfig } from 'cli/lib/cli-config/core';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import {

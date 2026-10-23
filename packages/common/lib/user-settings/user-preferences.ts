@@ -9,16 +9,15 @@ import {
 	updateSharedConfig,
 } from '@studio/common/lib/shared-config';
 import { SUPPORTED_EDITORS } from '@studio/common/lib/user-settings/editor';
-import { getFirstInstalledEditor } from '@studio/common/lib/user-settings/installed-apps';
 import {
 	DEFAULT_COLOR_SCHEME,
+	INTERFACE_PREFERENCE_DEFAULTS,
 	QUIT_SITES_BEHAVIORS,
 	SUPPORTED_COLOR_SCHEMES,
 } from '@studio/common/lib/user-settings/preferences';
 import { DEFAULT_TERMINAL, SUPPORTED_TERMINALS } from '@studio/common/lib/user-settings/terminal';
 import type { TracksEventName, TracksProps } from '@studio/common/lib/record-tracks-event';
 import type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
-import type { InstalledApps } from '@studio/common/lib/user-settings/installed-apps';
 import type { ColorScheme, QuitSitesBehavior } from '@studio/common/lib/user-settings/preferences';
 import type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
 
@@ -28,6 +27,7 @@ import type { SupportedTerminal } from '@studio/common/lib/user-settings/termina
  */
 
 export interface UserPreferences {
+	// `null` is the default: the first installed editor, the system terminal.
 	editor: SupportedEditor | null;
 	terminal: SupportedTerminal | null;
 	colorScheme: ColorScheme;
@@ -38,6 +38,11 @@ export interface UserPreferences {
 	agenticFeaturesEnabled: boolean;
 	// The sidebar's Pinned group, in order, as `site:<id>` and `chat:<id>` keys.
 	sidebarPins: string[];
+	// Each site's chats in the order the user dragged them into, by site id.
+	sidebarChatOrder: Record< string, string[] >;
+	showRecentChats: boolean;
+	// Opening a site's chats in the sidebar folds the others.
+	autoCollapseSites: boolean;
 	// Start a stopped local site when a chat message is sent to it.
 	autoStartSiteOnChat: boolean;
 	// Ask before discarding preview annotations.
@@ -48,7 +53,6 @@ export interface UserPreferences {
 export interface UserPreferencesContext {
 	// Where new sites go unless the user picked another directory.
 	sitesRoot: string;
-	installedApps: InstalledApps;
 }
 
 export interface UserPreferencesWriteContext {
@@ -58,10 +62,13 @@ export interface UserPreferencesWriteContext {
 
 const editorSchema = z.enum( SUPPORTED_EDITORS );
 const terminalWithDefault = z.enum( SUPPORTED_TERMINALS ).catch( DEFAULT_TERMINAL );
+const optionalEditor = editorSchema.nullable().catch( null );
+const optionalTerminal = z.enum( SUPPORTED_TERMINALS ).nullable().catch( null );
 const colorSchemeWithDefault = z.enum( SUPPORTED_COLOR_SCHEMES ).catch( DEFAULT_COLOR_SCHEME );
 const optionalQuitSitesBehavior = z.enum( QUIT_SITES_BEHAVIORS ).optional().catch( undefined );
 const nonEmptyString = z.string().nonempty();
 const sidebarPinsSchema = z.array( z.string() );
+const sidebarChatOrderSchema = z.record( z.string(), z.array( z.string() ) );
 
 // `null` clears a preference back to its default; JSON drops `undefined` keys,
 // so a clear can't travel as one.
@@ -76,6 +83,9 @@ export const userPreferencesPatchSchema = z.object( {
 	defaultSiteDirectory: z.string().nullish(),
 	agenticFeaturesEnabled: z.boolean().nullish(),
 	sidebarPins: sidebarPinsSchema.nullish(),
+	sidebarChatOrder: sidebarChatOrderSchema.nullish(),
+	showRecentChats: z.boolean().nullish(),
+	autoCollapseSites: z.boolean().nullish(),
 	autoStartSiteOnChat: z.boolean().nullish(),
 	confirmDeleteAnnotations: z.boolean().nullish(),
 	// Where the change was made (the analytics toggle also appears during onboarding); not stored.
@@ -93,6 +103,9 @@ const APP_CONFIG_KEYS = [
 	[ 'defaultSiteDirectory', 'defaultSiteDirectory' ],
 	[ 'agenticFeaturesEnabled', 'agenticFeaturesEnabled' ],
 	[ 'sidebarPins', 'sidebarPins' ],
+	[ 'sidebarChatOrder', 'sidebarChatOrder' ],
+	[ 'showRecentChats', 'showRecentChats' ],
+	[ 'autoCollapseSites', 'autoCollapseSites' ],
 	[ 'autoStartSiteOnChat', 'autoStartSiteOnChat' ],
 	[ 'confirmDeleteAnnotations', 'confirmDeleteAnnotations' ],
 ] as const satisfies readonly ( readonly [ keyof UserPreferencesPatch, string ] )[];
@@ -108,15 +121,14 @@ export async function readDefaultSiteDirectory( sitesRoot: string ): Promise< st
 
 export async function readUserPreferences( {
 	sitesRoot,
-	installedApps,
 }: UserPreferencesContext ): Promise< UserPreferences > {
 	const [ config, shared ] = await Promise.all( [ readAppConfig(), readSharedConfig() ] );
-	const storedEditor = editorSchema.safeParse( config.preferredEditor );
+	const { autoStartSiteOnChat, confirmDeleteAnnotations, showRecentChats, autoCollapseSites } =
+		INTERFACE_PREFERENCE_DEFAULTS;
 
 	return {
-		// Unset falls back to the first installed editor.
-		editor: storedEditor.success ? storedEditor.data : getFirstInstalledEditor( installedApps ),
-		terminal: terminalWithDefault.parse( config.preferredTerminal ),
+		editor: optionalEditor.parse( config.preferredEditor ?? null ),
+		terminal: optionalTerminal.parse( config.preferredTerminal ?? null ),
 		colorScheme: colorSchemeWithDefault.parse( config.colorScheme ),
 		quitSitesBehavior: optionalQuitSitesBehavior.parse( config.quitSitesBehavior ),
 		locale: shared.locale,
@@ -124,8 +136,17 @@ export async function readUserPreferences( {
 		defaultSiteDirectory: getDefaultSiteDirectory( config, sitesRoot ),
 		agenticFeaturesEnabled: config.agenticFeaturesEnabled !== false,
 		sidebarPins: sidebarPinsSchema.catch( [] ).parse( config.sidebarPins ),
-		autoStartSiteOnChat: config.autoStartSiteOnChat === true,
-		confirmDeleteAnnotations: config.confirmDeleteAnnotations !== false,
+		sidebarChatOrder: sidebarChatOrderSchema.catch( {} ).parse( config.sidebarChatOrder ?? {} ),
+		showRecentChats: z.boolean().catch( showRecentChats ).parse( config.showRecentChats ),
+		autoCollapseSites: z.boolean().catch( autoCollapseSites ).parse( config.autoCollapseSites ),
+		autoStartSiteOnChat: z
+			.boolean()
+			.catch( autoStartSiteOnChat )
+			.parse( config.autoStartSiteOnChat ),
+		confirmDeleteAnnotations: z
+			.boolean()
+			.catch( confirmDeleteAnnotations )
+			.parse( config.confirmDeleteAnnotations ),
 	};
 }
 

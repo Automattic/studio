@@ -9,7 +9,6 @@
 .userTurn {
 	display: flex;
 	flex-direction: column;
-	margin-right: calc(-1 * var(--composer-shell-inline-padding));
 	padding: 20px 0;
 }
 

@@ -32,7 +32,11 @@ it( 'adds the declared settings of the core blocks a result shows, from the site
 			.map( ( part ) => ( part.type === 'text' ? part.text : '' ) );
 
 	expect( await notes( { nameOrPath: 'My Site' } ) ).toEqual( [
-		`core/navigation settings, declared in ${ sitePath }/wp-includes/blocks/navigation/block.json: submenuVisibility ("hover"|"click").`,
+		`core/navigation settings, declared in ${ sitePath
+			.split( path.sep )
+			.join(
+				'/'
+			) }/wp-includes/blocks/navigation/block.json: submenuVisibility ("hover"|"click").`,
 	] );
 	expect( await notes( {} ) ).toEqual( [] );
 	expect( await notes( { nameOrPath: 'Missing Site' } ) ).toEqual( [] );

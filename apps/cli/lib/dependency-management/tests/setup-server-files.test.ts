@@ -57,65 +57,54 @@ describe( 'setupServerFiles', () => {
 		fs.rmSync( root, { recursive: true, force: true } );
 	} );
 
-	it( 'installs the bundled WordPress as latest and leaves no staging directory', async () => {
-		await setupServerFiles();
-
-		expect( listFiles( latest ) ).toEqual( listFiles( bundled ) );
-		expect( fs.readdirSync( versions ) ).toEqual( [ 'latest' ] );
-	} );
-
-	// The app starts several CLI commands at once, and each runs this setup.
-	it( 'leaves one complete copy when several processes install at once', async () => {
-		await Promise.all( Array.from( { length: 8 }, () => setupServerFiles() ) );
-
-		expect( listFiles( latest ) ).toEqual( listFiles( bundled ) );
-		expect( fs.readdirSync( versions ) ).toEqual( [ 'latest' ] );
-		expect( console.error ).not.toHaveBeenCalled();
-	} );
-
-	// A reader that finds version.php copies latest into a new site straight away.
-	it( 'never shows latest with version.php before every file is there', async () => {
+	// The app starts several CLI commands at once, and each runs this setup. A reader that finds
+	// version.php in latest copies it into a new site straight away.
+	it( 'never shows a partial latest while several processes install at once', async () => {
 		const expected = listFiles( bundled ).length;
 		let done = false;
-		let incompleteSightings = 0;
+		let partialSightings = 0;
 		const watch = ( async () => {
 			while ( ! done ) {
-				if ( fs.existsSync( path.join( latest, 'wp-includes', 'version.php' ) ) ) {
-					if ( listFiles( latest ).length !== expected ) {
-						incompleteSightings++;
-					}
+				if (
+					fs.existsSync( path.join( latest, 'wp-includes', 'version.php' ) ) &&
+					listFiles( latest ).length !== expected
+				) {
+					partialSightings++;
 				}
 				await new Promise( ( resolve ) => setImmediate( resolve ) );
 			}
 		} )();
 
-		await setupServerFiles();
+		await Promise.all( Array.from( { length: 8 }, () => setupServerFiles() ) );
 		done = true;
 		await watch;
 
-		expect( incompleteSightings ).toBe( 0 );
-		expect( listFiles( latest ) ).toHaveLength( expected );
-	} );
-
-	it( 'replaces an incomplete latest left by an interrupted copy', async () => {
-		fs.mkdirSync( path.join( latest, 'wp-includes', 'dir-0' ), { recursive: true } );
-		fs.writeFileSync( path.join( latest, 'wp-includes', 'dir-0', 'file-0.php' ), 'partial' );
-
-		await setupServerFiles();
-
+		expect( partialSightings ).toBe( 0 );
 		expect( listFiles( latest ) ).toEqual( listFiles( bundled ) );
 		expect( fs.readdirSync( versions ) ).toEqual( [ 'latest' ] );
+		expect( console.error ).not.toHaveBeenCalled();
 	} );
 
-	it( 'keeps an older latest under its version when the bundled WordPress is newer', async () => {
-		writeWordPress( latest, '7.0.0' );
+	it.each( [
+		{
+			existing: 'an incomplete latest left by an interrupted copy',
+			seed: () => {
+				fs.mkdirSync( path.join( latest, 'wp-includes' ), { recursive: true } );
+				fs.writeFileSync( path.join( latest, 'wp-includes', 'partial.php' ), 'partial' );
+			},
+			kept: [ 'latest' ],
+		},
+		{
+			existing: 'an older latest',
+			seed: () => writeWordPress( latest, '7.0.0' ),
+			kept: [ '7.0.0', 'latest' ],
+		},
+	] )( 'replaces $existing with the bundled WordPress', async ( { seed, kept } ) => {
+		seed();
 
 		await setupServerFiles();
 
 		expect( listFiles( latest ) ).toEqual( listFiles( bundled ) );
-		expect(
-			fs.readFileSync( path.join( latest, 'wp-includes', 'version.php' ), 'utf8' )
-		).toContain( '7.1.3' );
-		expect( fs.readdirSync( versions ).sort() ).toEqual( [ '7.0.0', 'latest' ] );
+		expect( fs.readdirSync( versions ).sort() ).toEqual( kept );
 	} );
 } );

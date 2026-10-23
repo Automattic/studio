@@ -2,7 +2,25 @@ import { Autocomplete } from '@base-ui/react/autocomplete';
 import { findAiSessionOwnerSite } from '@studio/common/ai/sessions/owner-site';
 import { useNavigate } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
-import { cloudUpload, copy, Icon, search, seen, unseen, wordpress } from '@wordpress/icons';
+import {
+	ArrowRightLeftIcon,
+	CodeIcon,
+	CopyIcon,
+	DatabaseIcon,
+	DownloadIcon,
+	EyeIcon,
+	EyeOffIcon,
+	FolderIcon,
+	PanelLeftIcon,
+	PencilIcon,
+	PlusIcon,
+	RefreshCwIcon,
+	SearchIcon,
+	SettingsIcon,
+	TerminalIcon,
+	UploadIcon,
+	XIcon,
+} from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { setAnnotating, useSiteAnnotations } from '@/components/annotations/store';
 import { useChatActions } from '@/components/chat-actions';
@@ -32,31 +50,30 @@ import { useSessionUIDispatch, useSessionPreviewUI } from '@/hooks/use-session-u
 import { useSidebarOpen, useToggleSidebar } from '@/hooks/use-sidebar-collapsed';
 import { useSiteManagementActions } from '@/hooks/use-site-management-actions';
 import { getSiteUrl } from '@/lib/get-site-url';
-import {
-	annotateIcon,
-	archiveIcon,
-	bellIcon,
-	chatIcon,
-	collapseAllIcon,
-	databaseIcon,
-	globeIcon,
-	newChatIcon,
-	pinIcon,
-	plusIcon,
-	refreshIcon,
-	renameIcon,
-	settingsIcon,
-	shareIcon,
-	sidebarExpandedIcon,
-	startSiteIcon,
-	stopSiteIcon,
-	unpinIcon,
-} from '@/lib/icons';
+import { AnnotateIcon } from '@/lib/icons/annotate-icon';
+import { AppearanceIcon } from '@/lib/icons/appearance-icon';
+import { ArchiveIcon } from '@/lib/icons/archive-icon';
+import { BellIcon } from '@/lib/icons/bell-icon';
+import { ChatIcon } from '@/lib/icons/chat-icon';
+import { CollapseAllIcon } from '@/lib/icons/collapse-all-icon';
+import { ExternalLinkIcon } from '@/lib/icons/external-link-icon';
+import { GlobeIcon } from '@/lib/icons/globe-icon';
+import { NewChatIcon } from '@/lib/icons/new-chat-icon';
+import { PinIcon } from '@/lib/icons/pin-icon';
+import { RotateCwIcon } from '@/lib/icons/rotate-cw-icon';
+import { ShareIcon } from '@/lib/icons/share-icon';
+import { SiteSettingsIcon } from '@/lib/icons/site-settings-icon';
+import { StartSiteIcon } from '@/lib/icons/start-site-icon';
+import { StopOtherSitesIcon } from '@/lib/icons/stop-other-sites-icon';
+import { StopSiteIcon } from '@/lib/icons/stop-site-icon';
+import { UnpinIcon } from '@/lib/icons/unpin-icon';
+import { WordPressIcon } from '@/lib/icons/wordpress-icon';
 import { isDialogOpen, isShortcut } from '@/lib/shortcuts';
 import { DEFAULT_COLOR_TINT } from '@/lib/theme';
 import styles from './style.module.css';
+import type { OpenInDestination } from '@/components/open-in-menu/use-open-in-destinations';
 import type { AiSessionSummary, SiteDetails, UserPreferences } from '@/data/core';
-import type { ReactElement } from 'react';
+import type { ComponentType } from 'react';
 
 const GROUPS = [
 	'quick',
@@ -71,11 +88,20 @@ const GROUPS = [
 ] as const;
 type GroupId = ( typeof GROUPS )[ number ];
 
+const OPEN_IN_ICONS: Record< OpenInDestination, PaletteCommand[ 'icon' ] > = {
+	browser: ExternalLinkIcon,
+	'wp-admin': WordPressIcon,
+	files: FolderIcon,
+	editor: CodeIcon,
+	terminal: TerminalIcon,
+	phpmyadmin: DatabaseIcon,
+};
+
 type PaletteCommand = {
 	id: string;
 	group: GroupId;
 	label: string;
-	icon: ReactElement;
+	icon: ComponentType< { className?: string } >;
 	description?: string;
 	// Other names, ranked like the label.
 	aliases?: string[];
@@ -230,7 +256,7 @@ function useAppCommands(): PaletteCommand[] {
 		: [];
 	const chatCommand = ( { session, site }: ( typeof chats )[ number ] ) => ( {
 		label: getSessionTitle( session ),
-		icon: chatIcon,
+		icon: ChatIcon,
 		description: site!.name,
 		run: () => void navigate( { to: '/sessions/$sessionId', params: { sessionId: session.id } } ),
 	} );
@@ -240,7 +266,7 @@ function useAppCommands(): PaletteCommand[] {
 			id: 'new-site',
 			group: 'quick',
 			label: __( 'New site' ),
-			icon: plusIcon,
+			icon: PlusIcon,
 			aliases: [ __( 'Add site' ), __( 'Create site' ) ],
 			run: () => openAddSite(),
 		},
@@ -248,7 +274,7 @@ function useAppCommands(): PaletteCommand[] {
 			id: 'settings',
 			group: 'quick',
 			label: __( 'Settings' ),
-			icon: settingsIcon,
+			icon: SettingsIcon,
 			priority: 2,
 			aliases: [ __( 'Open settings' ), __( 'Preferences' ) ],
 			run: () => openSettings(),
@@ -265,7 +291,7 @@ function useAppCommands(): PaletteCommand[] {
 			id: 'color-scheme',
 			group: 'settings',
 			label: colorScheme === 'dark' ? __( 'Use light mode' ) : __( 'Use dark mode' ),
-			icon: settingsIcon,
+			icon: AppearanceIcon,
 			keywords: [ __( 'Appearance' ), __( 'Theme' ), __( 'Dark mode' ), __( 'Light mode' ) ],
 			run: () =>
 				savePreferences.mutate( { colorScheme: colorScheme === 'dark' ? 'light' : 'dark' } ),
@@ -274,7 +300,7 @@ function useAppCommands(): PaletteCommand[] {
 			id: 'reset-appearance-tint',
 			group: 'settings',
 			label: __( 'Reset appearance tint' ),
-			icon: settingsIcon,
+			icon: RefreshCwIcon,
 			keywords: [ __( 'Appearance' ), __( 'Color' ), __( 'Intensity' ), __( 'Contrast' ) ],
 			run: () => savePreferences.mutate( DEFAULT_COLOR_TINT ),
 		},
@@ -283,7 +309,7 @@ function useAppCommands(): PaletteCommand[] {
 			id: 'sidebar',
 			group: 'commands',
 			label: sidebarOpen ? __( 'Hide sidebar' ) : __( 'Show sidebar' ),
-			icon: sidebarExpandedIcon,
+			icon: PanelLeftIcon,
 			keywords: [ __( 'Toggle sidebar' ) ],
 			run: toggleSidebar,
 		},
@@ -291,7 +317,7 @@ function useAppCommands(): PaletteCommand[] {
 			id: 'notifications',
 			group: 'commands',
 			label: __( 'Show notifications' ),
-			icon: bellIcon,
+			icon: BellIcon,
 			aliases: [ __( 'Notifications' ) ],
 			run: openNoticeHistory,
 		},
@@ -301,7 +327,7 @@ function useAppCommands(): PaletteCommand[] {
 						id: 'collapse-all',
 						group: 'commands' as const,
 						label: __( 'Collapse all' ),
-						icon: collapseAllIcon,
+						icon: CollapseAllIcon,
 						aliases: [ __( 'Collapse all sites' ) ],
 						run: collapseAll,
 					},
@@ -312,7 +338,7 @@ function useAppCommands(): PaletteCommand[] {
 				id: `site-${ site.id }`,
 				group: 'sites',
 				label: site.name,
-				icon: globeIcon,
+				icon: GlobeIcon,
 				run: () => openSite( site, chats.find( ( chat ) => chat.site?.id === site.id )?.session ),
 			} )
 		),
@@ -377,7 +403,7 @@ function useSettingCommands( scope: 'studio' | 'site', site?: SiteDetails ): Pal
 			searchOnly: true,
 			run: () => openSettings( section.id, site?.id ),
 		},
-		...section.settings.map( ( { id, title, description } ): PaletteCommand => {
+		...section.settings.map( ( { id, title, description, icon } ): PaletteCommand => {
 			const toggle = scope === 'studio' && id ? toggles[ id ] : undefined;
 			return {
 				id: `${ group }-${ section.id }-${ id ?? title }`,
@@ -390,7 +416,7 @@ function useSettingCommands( scope: 'studio' | 'site', site?: SiteDetails ): Pal
 					  )
 					: title,
 				aliases: [ title ],
-				icon: section.icon,
+				icon: icon ?? section.icon,
 				description: site?.name ?? section.label,
 				keywords: [ section.label, description ],
 				searchOnly: true,
@@ -440,7 +466,7 @@ function SiteCommands( {
 						id: 'new-chat',
 						group: 'quick' as const,
 						label: __( 'New chat' ),
-						icon: newChatIcon,
+						icon: NewChatIcon,
 						priority: 1,
 						description,
 						aliases: [ __( 'Add chat' ), __( 'Create chat' ) ],
@@ -455,7 +481,7 @@ function SiteCommands( {
 						id: 'lifecycle',
 						group: 'quick' as const,
 						label: site.running ? __( 'Stop site' ) : __( 'Start site' ),
-						icon: site.running ? stopSiteIcon : startSiteIcon,
+						icon: site.running ? StopSiteIcon : StartSiteIcon,
 						description,
 						run: actions.toggleRunning,
 					},
@@ -464,7 +490,7 @@ function SiteCommands( {
 			id: 'site-settings',
 			group: 'quick',
 			label: __( 'Site settings' ),
-			icon: settingsIcon,
+			icon: SiteSettingsIcon,
 			priority: 2,
 			description,
 			run: () => openSettings( 'site', site.id ),
@@ -473,7 +499,7 @@ function SiteCommands( {
 			id: 'rename-site',
 			group: 'site',
 			label: __( 'Rename site…' ),
-			icon: renameIcon,
+			icon: PencilIcon,
 			description,
 			run: actions.rename,
 		},
@@ -484,7 +510,7 @@ function SiteCommands( {
 						id: 'admin',
 						group: 'site' as const,
 						label: __( 'Open WordPress Admin' ),
-						icon: wordpress,
+						icon: WordPressIcon,
 						description,
 						keywords: keywords[ 'wp-admin' ],
 						run: actions.openAdmin,
@@ -493,7 +519,7 @@ function SiteCommands( {
 						id: 'database',
 						group: 'site' as const,
 						label: __( 'Open database' ),
-						icon: databaseIcon,
+						icon: DatabaseIcon,
 						description,
 						keywords: keywords.phpmyadmin,
 						run: actions.openDatabase,
@@ -504,7 +530,7 @@ function SiteCommands( {
 									id: 'restart',
 									group: 'site' as const,
 									label: __( 'Restart site' ),
-									icon: refreshIcon,
+									icon: RotateCwIcon,
 									description,
 									run: () => void actions.restart(),
 								},
@@ -516,7 +542,7 @@ function SiteCommands( {
 									id: 'stop-others',
 									group: 'site' as const,
 									label: __( 'Stop other sites' ),
-									icon: stopSiteIcon,
+									icon: StopOtherSitesIcon,
 									run: () => actions.stop( othersRunning ),
 								},
 						  ]
@@ -528,7 +554,7 @@ function SiteCommands( {
 						id: 'stop-all',
 						group: 'site' as const,
 						label: __( 'Stop all sites' ),
-						icon: stopSiteIcon,
+						icon: StopOtherSitesIcon,
 						run: () => actions.stop( running ),
 					},
 			  ]
@@ -544,7 +570,7 @@ function SiteCommands( {
 						__( 'Open in %s' ),
 						destination.label
 					),
-					icon: destination.logo,
+					icon: OPEN_IN_ICONS[ destination.id ],
 					description,
 					keywords: keywords[ destination.id ],
 					run: destination.open,
@@ -556,7 +582,7 @@ function SiteCommands( {
 						id: 'reload',
 						group: 'site' as const,
 						label: __( 'Reload preview' ),
-						icon: refreshIcon,
+						icon: RefreshCwIcon,
 						keywords: [ __( 'Refresh' ) ],
 						run: () => dispatch( { type: 'preview/reload' } ),
 					},
@@ -571,7 +597,7 @@ function SiteCommands( {
 						id: 'annotate',
 						group: 'site' as const,
 						label: annotations.active ? __( 'Exit annotations' ) : __( 'Annotate' ),
-						icon: annotateIcon,
+						icon: annotations.active ? XIcon : AnnotateIcon,
 						description,
 						run: () => setAnnotating( site.id, ! annotations.active ),
 					},
@@ -581,7 +607,7 @@ function SiteCommands( {
 			id: 'preview-visibility',
 			group: 'site',
 			label: previewShown ? __( 'Hide preview' ) : __( 'Show preview' ),
-			icon: previewShown ? unseen : seen,
+			icon: previewShown ? EyeOffIcon : EyeIcon,
 			description,
 			run: () => {
 				preview.setSite( site.id );
@@ -595,7 +621,7 @@ function SiteCommands( {
 						id: 'chat-visibility',
 						group: 'site' as const,
 						label: chatHidden ? __( 'Show chat' ) : __( 'Hide chat' ),
-						icon: chatIcon,
+						icon: ChatIcon,
 						run: () => preview.setChatHidden( ! chatHidden ),
 					},
 			  ] ),
@@ -603,7 +629,7 @@ function SiteCommands( {
 			id: 'share',
 			group: 'site',
 			label: __( 'Share site…' ),
-			icon: shareIcon,
+			icon: ShareIcon,
 			description,
 			keywords: [ __( 'preview link' ) ],
 			run: () => openHeaderPanel( { panel: 'share', siteId: site.id } ),
@@ -612,7 +638,7 @@ function SiteCommands( {
 			id: 'publish',
 			group: 'site',
 			label: __( 'Publish & Sync…' ),
-			icon: cloudUpload,
+			icon: ArrowRightLeftIcon,
 			description,
 			keywords: [ __( 'publish site sync push pull upload download' ) ],
 			run: () => openHeaderPanel( { panel: 'publish', siteId: site.id, view: 'publish' } ),
@@ -621,7 +647,7 @@ function SiteCommands( {
 			id: 'copy-url',
 			group: 'site',
 			label: __( 'Copy site URL' ),
-			icon: copy,
+			icon: CopyIcon,
 			description,
 			keywords: [ __( 'Address' ), __( 'Link' ) ],
 			run: () =>
@@ -633,7 +659,7 @@ function SiteCommands( {
 			id: 'pin-site',
 			group: 'site',
 			label: actions.pinned ? __( 'Unpin site' ) : __( 'Pin site' ),
-			icon: actions.pinned ? unpinIcon : pinIcon,
+			icon: actions.pinned ? UnpinIcon : PinIcon,
 			description,
 			run: actions.togglePin,
 		},
@@ -649,7 +675,13 @@ function SiteCommands( {
 							: action.id === 'import'
 							? __( 'Import backup…' )
 							: action.label,
-					icon: action.icon,
+					icon: {
+						duplicate: CopyIcon,
+						import: UploadIcon,
+						export: DownloadIcon,
+						'export-db': DatabaseIcon,
+						delete: action.icon,
+					}[ action.id ],
 					description,
 					keywords: [ __( 'Backup' ) ],
 					run: action.run,
@@ -683,7 +715,7 @@ function ChatCommands( {
 			id: 'pin-chat',
 			group: 'chat',
 			label: actions.pinned ? __( 'Unpin chat' ) : __( 'Pin chat' ),
-			icon: actions.pinned ? unpinIcon : pinIcon,
+			icon: actions.pinned ? UnpinIcon : PinIcon,
 			description,
 			run: actions.togglePin,
 		},
@@ -691,7 +723,7 @@ function ChatCommands( {
 			id: 'rename-chat',
 			group: 'chat',
 			label: __( 'Rename chat…' ),
-			icon: renameIcon,
+			icon: PencilIcon,
 			description,
 			run: actions.rename,
 		},
@@ -702,7 +734,7 @@ function ChatCommands( {
 						id: 'archive-chat',
 						group: 'chat' as const,
 						label: __( 'Archive chat' ),
-						icon: archiveIcon,
+						icon: ArchiveIcon,
 						description,
 						run: () => void actions.archive(),
 					},
@@ -760,7 +792,7 @@ function PaletteDialog( { open, onOpenChange, commands }: PaletteProps ) {
 							aria-label={ __( 'Search commands' ) }
 						/>
 						<InputGroupAddon>
-							<Icon icon={ search } className={ styles.icon } />
+							<SearchIcon className={ styles.icon } />
 						</InputGroupAddon>
 					</InputGroup>
 					<Autocomplete.Empty className={ styles.empty }>
@@ -783,7 +815,7 @@ function PaletteDialog( { open, onOpenChange, commands }: PaletteProps ) {
 												command.run();
 											} }
 										>
-											<Icon icon={ command.icon } size={ 16 } className={ styles.icon } />
+											<command.icon className={ styles.icon } />
 											<span className={ styles.label }>{ command.label }</span>
 											{ command.description ? (
 												<span className={ styles.description }>{ command.description }</span>

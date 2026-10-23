@@ -1,6 +1,6 @@
 import { __ } from '@wordpress/i18n';
-import { menu } from '@wordpress/icons';
 import { clsx } from 'clsx';
+import { MenuIcon } from 'lucide-react';
 import { SidebarToggle } from '@/components/sidebar-toggle';
 import { IconButton } from '@/components/ui/button';
 import { useConnector } from '@/data/core';
@@ -18,7 +18,7 @@ export function SidebarHeader() {
 	return (
 		<div className={ clsx( styles.root, ! reserveTrafficLightSpace && styles.flush ) }>
 			{ connector.showsAppMenuButton && (
-				<IconButton icon={ menu } label={ __( 'Menu' ) } onClick={ handleOpenAppMenu } />
+				<IconButton icon={ <MenuIcon /> } label={ __( 'Menu' ) } onClick={ handleOpenAppMenu } />
 			) }
 			<SidebarToggle />
 		</div>

@@ -19,10 +19,6 @@
 	color: var(--muted-foreground);
 }
 
-.offline svg {
-	fill: currentColor;
-}
-
 .userTrigger img {
 	width: 24px;
 	height: 24px;

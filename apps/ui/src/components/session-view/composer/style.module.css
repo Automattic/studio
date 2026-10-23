@@ -520,13 +520,6 @@
 	}
 }
 
-.stopGlyph {
-	width: 10px;
-	height: 10px;
-	border-radius: 2px;
-	background-color: currentColor;
-}
-
 .commandsMenuPopup {
 	min-width: 220px;
 }
@@ -550,6 +543,17 @@
 
 .describedItem {
 	align-items: flex-start;
+}
+
+.menuIcon {
+	flex: none;
+	width: 14px;
+	height: 14px;
+	color: var(--muted-foreground);
+}
+
+.describedItem > .menuIcon {
+	margin-block-start: 3px;
 }
 
 .describedItemBody {

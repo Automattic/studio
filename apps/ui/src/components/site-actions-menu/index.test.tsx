@@ -24,7 +24,7 @@ vi.mock( '@/hooks/use-site-management-actions', () => ( {
 		[ 'duplicate', 'import', 'export', 'export-db', 'delete' ].map( ( id ) => ( {
 			id,
 			label: id,
-			icon: <svg />,
+			icon: () => <svg />,
 			run: vi.fn(),
 		} ) ),
 } ) );

@@ -5,7 +5,7 @@ import { Button, IconButton } from '@/components/ui/button';
 import * as Popover from '@/components/ui/popover';
 import { VisuallyHidden } from '@/components/ui/visually-hidden';
 import { clearNoticeHistory, dismissNotice, useNoticeHistory } from '@/data/app-messages';
-import { bellIcon } from '@/lib/icons';
+import { BellIcon } from '@/lib/icons/bell-icon';
 import styles from './style.module.css';
 
 // Shared with the toasts, which hide while the history is open.
@@ -82,7 +82,7 @@ export function NoticeHistoryButton() {
 			<Popover.Trigger
 				render={
 					<IconButton
-						icon={ bellIcon }
+						icon={ <BellIcon /> }
 						label={ __( 'Notification history' ) }
 						aria-label={
 							notices.length > 0

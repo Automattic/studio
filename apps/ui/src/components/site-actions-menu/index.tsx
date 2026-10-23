@@ -2,14 +2,6 @@ import { aiSessionBelongsToSite } from '@studio/common/ai/sessions/owner-site';
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { useNavigate } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
-import {
-	arrowRight,
-	arrowUpRight,
-	chevronDownSmall,
-	Icon,
-	settings,
-	wordpress,
-} from '@wordpress/icons';
 import { displayShortcut } from '@wordpress/keycodes';
 import { useRef, useState } from 'react';
 import { DeleteSiteDialog } from '@/components/delete-site-dialog';
@@ -39,16 +31,21 @@ import {
 	type SiteManagementActionId,
 } from '@/hooks/use-site-management-actions';
 import { getSiteUrl } from '@/lib/get-site-url';
-import {
-	databaseIcon,
-	globeIcon,
-	pinIcon,
-	refreshIcon,
-	renameIcon,
-	startSiteIcon,
-	stopSiteIcon,
-	unpinIcon,
-} from '@/lib/icons';
+import { ArrowRightIcon } from '@/lib/icons/arrow-right-icon';
+import { ChevronDownIcon } from '@/lib/icons/chevron-down-icon';
+import { DatabaseIcon } from '@/lib/icons/database-icon';
+import { ExportIcon } from '@/lib/icons/export-icon';
+import { ExternalLinkIcon } from '@/lib/icons/external-link-icon';
+import { GlobeIcon } from '@/lib/icons/globe-icon';
+import { PinIcon } from '@/lib/icons/pin-icon';
+import { RenameIcon } from '@/lib/icons/rename-icon';
+import { RotateCwIcon } from '@/lib/icons/rotate-cw-icon';
+import { SiteSettingsIcon } from '@/lib/icons/site-settings-icon';
+import { StartSiteIcon } from '@/lib/icons/start-site-icon';
+import { StopOtherSitesIcon } from '@/lib/icons/stop-other-sites-icon';
+import { StopSiteIcon } from '@/lib/icons/stop-site-icon';
+import { UnpinIcon } from '@/lib/icons/unpin-icon';
+import { WordPressIcon } from '@/lib/icons/wordpress-icon';
 import styles from './style.module.css';
 import type { SiteDetails } from '@/data/core';
 
@@ -189,7 +186,7 @@ export function SiteActionsMenuItems( {
 			destructive={ action.destructive }
 			onClick={ action.run }
 		>
-			<Icon icon={ action.icon } />
+			<action.icon />
 			{ label }
 		</Menu.Item>
 	);
@@ -197,13 +194,13 @@ export function SiteActionsMenuItems( {
 	return (
 		<div className={ styles.items }>
 			<Menu.Item onClick={ actions.openSiteSettings }>
-				<Icon icon={ settings } />
+				<SiteSettingsIcon />
 				{ __( 'Settings' ) }
 			</Menu.Item>
 			<Menu.Separator />
 			{ site.running ? null : (
 				<Menu.Item disabled={ busy } onClick={ actions.toggleRunning }>
-					<Icon icon={ startSiteIcon } />
+					<StartSiteIcon />
 					{ __( 'Start site' ) }
 					{ lifecycleShortcut }
 				</Menu.Item>
@@ -211,26 +208,26 @@ export function SiteActionsMenuItems( {
 			{ site.running || running.length > 1 ? (
 				<Menu.SubmenuRoot>
 					<Menu.SubmenuTrigger disabled={ busy }>
-						<Icon icon={ stopSiteIcon } />
+						<StopSiteIcon />
 						{ __( 'Stop' ) }
 					</Menu.SubmenuTrigger>
 					<Menu.SubmenuPopup>
 						{ site.running ? (
 							<Menu.Item onClick={ actions.toggleRunning }>
-								<Icon icon={ stopSiteIcon } />
+								<StopSiteIcon />
 								{ __( 'Stop site' ) }
 								{ lifecycleShortcut }
 							</Menu.Item>
 						) : null }
 						{ site.running && othersRunning.length ? (
 							<Menu.Item onClick={ () => actions.stop( othersRunning ) }>
-								<Icon icon={ stopSiteIcon } />
+								<StopOtherSitesIcon />
 								{ __( 'Stop other sites' ) }
 							</Menu.Item>
 						) : null }
 						{ running.length > 1 ? (
 							<Menu.Item onClick={ () => actions.stop( running ) }>
-								<Icon icon={ stopSiteIcon } />
+								<StopOtherSitesIcon />
 								{ __( 'Stop all sites' ) }
 							</Menu.Item>
 						) : null }
@@ -239,30 +236,30 @@ export function SiteActionsMenuItems( {
 			) : null }
 			{ site.running ? (
 				<Menu.Item disabled={ busy } onClick={ () => void actions.restart() }>
-					<Icon icon={ refreshIcon } />
+					<RotateCwIcon />
 					{ __( 'Restart site' ) }
 				</Menu.Item>
 			) : null }
 			<Menu.Separator />
 			<Menu.SubmenuRoot>
 				<Menu.SubmenuTrigger disabled={ busy }>
-					<Icon icon={ arrowRight } />
+					<ArrowRightIcon />
 					{ __( 'Go to' ) }
 				</Menu.SubmenuTrigger>
 				<Menu.SubmenuPopup>
 					<Menu.Item onClick={ actions.openAdmin }>
-						<Icon icon={ wordpress } />
+						<WordPressIcon />
 						{ __( 'WordPress Admin' ) }
 					</Menu.Item>
 					<Menu.Item onClick={ actions.openDatabase }>
-						<Icon icon={ databaseIcon } />
+						<DatabaseIcon />
 						{ __( 'Database' ) }
 					</Menu.Item>
 				</Menu.SubmenuPopup>
 			</Menu.SubmenuRoot>
 			<Menu.SubmenuRoot>
 				<Menu.SubmenuTrigger>
-					<Icon icon={ arrowUpRight } />
+					<ExternalLinkIcon />
 					{ __( 'Open in' ) }
 				</Menu.SubmenuTrigger>
 				<Menu.SubmenuPopup>
@@ -272,7 +269,7 @@ export function SiteActionsMenuItems( {
 							disabled={ destination.disabled }
 							onClick={ destination.open }
 						>
-							<Icon icon={ destination.logo } />
+							{ destination.logo }
 							{ destination.label }
 						</Menu.Item>
 					) ) }
@@ -280,19 +277,19 @@ export function SiteActionsMenuItems( {
 			</Menu.SubmenuRoot>
 			<Menu.Separator />
 			<Menu.Item onClick={ actions.togglePin }>
-				<Icon icon={ actions.pinned ? unpinIcon : pinIcon } />
+				{ actions.pinned ? <UnpinIcon /> : <PinIcon /> }
 				{ actions.pinned ? __( 'Unpin' ) : __( 'Pin' ) }
 				<Menu.Shortcut>{ displayShortcut.primaryAlt( 'p' ) }</Menu.Shortcut>
 			</Menu.Item>
 			<Menu.Item onClick={ actions.rename }>
-				<Icon icon={ renameIcon } />
+				<RenameIcon />
 				{ __( 'Rename' ) }
 				<Menu.Shortcut>{ displayShortcut.primaryAlt( 'r' ) }</Menu.Shortcut>
 			</Menu.Item>
 			{ manageItem( manage.import ) }
 			<Menu.SubmenuRoot>
 				<Menu.SubmenuTrigger>
-					<Icon icon={ manage.export.icon } />
+					<ExportIcon />
 					{ __( 'Export' ) }
 				</Menu.SubmenuTrigger>
 				<Menu.SubmenuPopup>
@@ -337,8 +334,8 @@ export function SiteActionsMenu( { site }: { site: SiteDetails } ) {
 							/>
 						}
 					>
-						<Icon icon={ globeIcon } data-icon="inline-start" />
-						<Icon icon={ chevronDownSmall } data-icon="inline-end" data-dropdown-indicator />
+						<GlobeIcon data-icon="inline-start" />
+						<ChevronDownIcon data-icon="inline-end" data-dropdown-indicator />
 					</Menu.Trigger>
 					<TooltipContent side="bottom">{ label }</TooltipContent>
 				</Tooltip>

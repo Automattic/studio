@@ -46,13 +46,6 @@
 	-webkit-app-region: no-drag;
 }
 
-/* @wordpress/icons SVGs omit a root fill and otherwise fall back to black.
-   Map them to each control's theme-aware foreground; stroke-based custom
-   browser icons declare fill="none" and remain unchanged. */
-.header svg:not([fill]) {
-	fill: currentColor;
-}
-
 /* The outer tracks size to their controls so the middle selector can use all
    remaining width instead of being squeezed by artificial equal halves. */
 .headerSide {

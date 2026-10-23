@@ -6,7 +6,7 @@ import {
 import { getErrorMessage } from '@studio/common/lib/error-formatting';
 import { useNavigate } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
-import { Icon } from '@wordpress/icons';
+import { UploadIcon } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { CreateSiteForm } from '@/components/create-site-form';
 import { Button } from '@/components/ui/button';
@@ -14,7 +14,6 @@ import { useConnector } from '@/data/core';
 import { useExistingCustomDomains } from '@/data/queries/use-create-site-helpers';
 import { useImportSite } from '@/data/queries/use-import-site';
 import { useCreateSite, useDeleteSite } from '@/data/queries/use-sites';
-import { uploadIcon } from '@/lib/icons';
 import { useAddSite } from './context';
 import styles from './import-panel.module.css';
 import type { CreateSiteFormError, CreateSiteFormValues } from '@/components/create-site-form';
@@ -96,7 +95,7 @@ export function BackupDropZone( { onFile }: { onFile: ( file: File ) => void } )
 					handleFile( event.dataTransfer.files[ 0 ] );
 				} }
 			>
-				<Icon icon={ uploadIcon } size={ 24 } className={ styles.dropIcon } data-keep-size />
+				<UploadIcon className={ styles.dropIcon } data-keep-size />
 				<p className={ styles.dropLabel }>{ __( 'Drop a WordPress backup here.' ) }</p>
 				<input
 					ref={ inputRef }

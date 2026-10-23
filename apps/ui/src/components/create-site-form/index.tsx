@@ -16,7 +16,7 @@ import { getFileAccessDescription } from '@studio/common/lib/site-file-access-la
 import { getLatestVersionLabel } from '@studio/common/lib/wordpress-versions';
 import { RecommendedPHPVersion } from '@studio/common/types/php-versions';
 import { __, _n, sprintf } from '@wordpress/i18n';
-import { chevronDown, chevronRight, Icon } from '@wordpress/icons';
+import { ChevronDownIcon, ChevronRightIcon } from 'lucide-react';
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { LearnMoreLink } from '@/components/learn-more';
 import {
@@ -580,7 +580,7 @@ export function CreateSiteForm( {
 					onClick={ () => setIsAdvancedOpen( ! showAdvanced ) }
 					aria-expanded={ showAdvanced }
 				>
-					<Icon icon={ showAdvanced ? chevronDown : chevronRight } />
+					{ showAdvanced ? <ChevronDownIcon /> : <ChevronRightIcon /> }
 					<span>{ __( 'Advanced settings' ) }</span>
 					{ ! showAdvanced && advancedErrorCount > 0 && (
 						<span className={ styles.advancedErrorCount }>

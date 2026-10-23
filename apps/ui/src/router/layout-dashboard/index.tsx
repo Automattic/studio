@@ -23,7 +23,7 @@ import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useSession, useSessionLiveSite } from '@/data/queries/use-sessions';
 import { useSites } from '@/data/queries/use-sites';
 import { pathForSite, SessionUIProvider, useSessionPreviewUI } from '@/hooks/use-session-ui';
-import { chatIcon } from '@/lib/icons';
+import { ChatIcon } from '@/lib/icons/chat-icon';
 import { rememberVisit } from '@/lib/last-visited';
 import { rootRoute } from '../layout-root';
 
@@ -185,7 +185,7 @@ function DashboardLayoutContent() {
 								<SiteActionsMenu site={ previewSite } />
 								{ homeSite ? null : (
 									<IconButton
-										icon={ chatIcon }
+										icon={ <ChatIcon /> }
 										label={ __( 'Show chat' ) }
 										onClick={ () => setChatHidden( false ) }
 									/>

@@ -1,8 +1,8 @@
 import { getLocalizedLink } from '@studio/common/lib/docs-links';
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { __, _x, sprintf } from '@wordpress/i18n';
-import { check, external, Icon, search } from '@wordpress/icons';
 import { clsx } from 'clsx';
+import { CheckIcon, SearchIcon } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 import { AuthActions } from '@/components/auth-actions';
 import { Badge } from '@/components/ui/badge';
@@ -14,6 +14,7 @@ import { useAuthUser } from '@/data/queries/use-auth-user';
 import { useUserLocale } from '@/data/queries/use-user-locale';
 import { useSyncableWpcomSites } from '@/data/queries/use-wpcom-sites';
 import { useOffline } from '@/hooks/use-offline';
+import { ExternalLinkIcon } from '@/lib/icons/external-link-icon';
 import styles from './connect-panel.module.css';
 import {
 	getRemoteSiteName,
@@ -109,7 +110,7 @@ function RemoteSiteCard( {
 					}
 				>
 					{ __( 'Enable hosting features' ) }
-					<Icon icon={ external } data-icon="inline-end" />
+					<ExternalLinkIcon data-icon="inline-end" />
 				</Button>
 			) }
 			{ group === 'needs-upgrade' && (
@@ -123,7 +124,7 @@ function RemoteSiteCard( {
 					}
 				>
 					{ __( 'View plans' ) }
-					<Icon icon={ external } data-icon="inline-end" />
+					<ExternalLinkIcon data-icon="inline-end" />
 				</Button>
 			) }
 		</li>
@@ -135,15 +136,15 @@ function SignedOutView() {
 		<div className={ styles.signedOut }>
 			<ul className={ styles.benefits }>
 				<li>
-					<Icon icon={ check } size={ 16 } aria-hidden="true" />
+					<CheckIcon aria-hidden="true" />
 					<span>{ __( 'Work on your site locally.' ) }</span>
 				</li>
 				<li>
-					<Icon icon={ check } size={ 16 } aria-hidden="true" />
+					<CheckIcon aria-hidden="true" />
 					<span>{ __( 'Sync content, themes, and plugins.' ) }</span>
 				</li>
 				<li>
-					<Icon icon={ check } size={ 16 } aria-hidden="true" />
+					<CheckIcon aria-hidden="true" />
 					<span>{ __( 'Supports staging and production sites.' ) }</span>
 				</li>
 			</ul>
@@ -253,7 +254,7 @@ export function ConnectPanel( { onConnect }: { onConnect: ( site: SyncSite ) => 
 						} }
 					>
 						{ __( 'Create a WordPress.com site' ) }
-						<Icon icon={ external } data-icon="inline-end" />
+						<ExternalLinkIcon data-icon="inline-end" />
 					</Button>
 				</div>
 			) }
@@ -263,7 +264,7 @@ export function ConnectPanel( { onConnect }: { onConnect: ( site: SyncSite ) => 
 					<div className={ styles.siteControls }>
 						{ ! isSingleSite && (
 							<label className={ styles.search }>
-								<Icon icon={ search } size={ 18 } />
+								<SearchIcon />
 								<VisuallyHidden>{ __( 'Search sites' ) }</VisuallyHidden>
 								<input
 									type="search"
@@ -295,7 +296,7 @@ export function ConnectPanel( { onConnect }: { onConnect: ( site: SyncSite ) => 
 								}
 							>
 								{ __( 'Supported sites' ) }
-								<Icon icon={ external } data-icon="inline-end" />
+								<ExternalLinkIcon data-icon="inline-end" />
 							</Button>
 						</p>
 					</div>

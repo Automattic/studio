@@ -1,9 +1,9 @@
 import { isStudioChatImageMimeType } from '@studio/common/ai/chat-images';
 import { getComposerAttachmentImageSrc } from '@studio/common/ai/composer-attachment-preview';
 import { __, _n, sprintf } from '@wordpress/i18n';
-import { arrowUp, closeSmall, Icon } from '@wordpress/icons';
 import { isAppleOS } from '@wordpress/keycodes';
 import { clsx } from 'clsx';
+import { ArrowUpIcon, PaperclipIcon, Trash2Icon, XIcon } from 'lucide-react';
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import {
 	useComposerAttachments,
@@ -24,7 +24,6 @@ import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { toast } from '@/data/app-messages';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
-import { paperclipIcon, trashIcon } from '@/lib/icons';
 import { isImeComposing } from '@/lib/is-ime-composing';
 import {
 	changeAnnotation,
@@ -284,7 +283,7 @@ function NoteEditor( {
 								aria-label={ __( 'Remove attachment' ) }
 								onClick={ () => removeAttachment( attachment.id ) }
 							>
-								<Icon icon={ closeSmall } size={ 16 } />
+								<XIcon />
 							</button>
 						</li>
 					) ) }
@@ -313,14 +312,14 @@ function NoteEditor( {
 				<IconButton
 					size="icon-sm"
 					shape="round"
-					icon={ paperclipIcon }
+					icon={ <PaperclipIcon /> }
 					label={ __( 'Attach image' ) }
 					onClick={ () => fileInputRef.current?.click() }
 				/>
 				<IconButton
 					size="icon-sm"
 					shape="round"
-					icon={ trashIcon }
+					icon={ <Trash2Icon /> }
 					label={ __( 'Delete annotation' ) }
 					onClick={ () => removeAnnotations( siteId, [ note.id ] ) }
 				/>
@@ -349,7 +348,7 @@ function NoteEditor( {
 							/>
 						}
 					>
-						<Icon icon={ arrowUp } />
+						<ArrowUpIcon />
 					</TooltipTrigger>
 					<TooltipContent>{ submitLabel }</TooltipContent>
 				</Tooltip>

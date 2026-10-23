@@ -2,7 +2,7 @@ import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { withWpcomDetails } from '@studio/common/lib/sync/transform-sites';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { __ } from '@wordpress/i18n';
-import { arrowUpRight, check, Icon } from '@wordpress/icons';
+import { CheckIcon } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { AccountPromptDialog } from '@/components/account-prompt';
 import { Button } from '@/components/ui/button';
@@ -24,11 +24,12 @@ import {
 	retryPublishSetup,
 	usePublishSetupError,
 } from '@/hooks/use-sync-connect-site-listener';
+import { ExternalLinkIcon } from '@/lib/icons/external-link-icon';
+import { PublishTransferIcon } from '@/lib/icons/publish-transfer-icon';
 import { ConnectedView } from './connected-view';
 import { websiteAddress, websiteIssue, websiteLabel, type PublishView } from './options';
 import { ErrorMessage, PanelBody, PanelHeader, TransferProgress } from './parts';
 import styles from './style.module.css';
-import { TransferIcon } from './transfer-icon';
 import type { SiteDetails, SyncSite } from '@/data/core';
 
 export { WebsiteMenuItems } from './connected-view';
@@ -332,7 +333,7 @@ export function PublishButton( {
 							) : (
 								<>
 									{ __( 'Create a new WordPress.com site' ) }
-									<Icon icon={ arrowUpRight } data-icon="inline-end" />
+									<ExternalLinkIcon data-icon="inline-end" />
 								</>
 							) }
 						</Button>
@@ -409,9 +410,12 @@ export function PublishButton( {
 					}
 				>
 					{ pending ? (
-						<TransferIcon direction={ transfer.direction === 'pull' ? 'pull' : 'push' } />
+						<PublishTransferIcon
+							direction={ transfer.direction === 'pull' ? 'pull' : 'push' }
+							className={ styles.transferIcon }
+						/>
 					) : recentSuccess ? (
-						<Icon icon={ check } size={ 16 } />
+						<CheckIcon />
 					) : null }
 					<span className={ styles.triggerLabel }>
 						{ __( 'Publish' ) }

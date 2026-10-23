@@ -1,10 +1,9 @@
 import { __ } from '@wordpress/i18n';
-import { Icon } from '@wordpress/icons';
 import { SiteActionsMenuItems, useSiteActions } from '@/components/site-actions-menu';
 import * as Menu from '@/components/ui/menu';
 import { useSiteThumbnail } from '@/data/queries/use-site-thumbnail';
 import { useIsSiteBusy, useStartSite } from '@/data/queries/use-sites';
-import { playIcon } from '@/lib/icons';
+import { StartSiteIcon } from '@/lib/icons/start-site-icon';
 import styles from './style.module.css';
 import type { SiteDetails } from '@/data/core';
 import type { ReactElement } from 'react';
@@ -72,7 +71,7 @@ export function StoppedSitePreview( { site }: { site: SiteDetails } ) {
 			</span>
 			<span className={ styles.overlay } aria-hidden="true">
 				<span className={ styles.play }>
-					<Icon icon={ playIcon } size={ 32 } />
+					<StartSiteIcon fill="currentColor" />
 				</span>
 			</span>
 		</button>

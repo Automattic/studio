@@ -1,9 +1,9 @@
 import { findAiSessionOwnerSite } from '@studio/common/ai/sessions/owner-site';
 import { useNavigate, useParams, useRouter, useSearch } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
-import { chevronLeft, closeSmall, Icon, search as searchIcon } from '@wordpress/icons';
 import { ariaKeyShortcut, displayShortcut, isKeyboardEvent } from '@wordpress/keycodes';
 import { clsx } from 'clsx';
+import { ChevronLeftIcon, SearchIcon, XIcon } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
 	AiPanel,
@@ -346,13 +346,13 @@ export function SettingsDialog() {
 							} }
 						/>
 						<InputGroupAddon>
-							<Icon icon={ searchIcon } size={ 16 } className={ styles.searchIcon } />
+							<SearchIcon />
 						</InputGroupAddon>
 						{ query ? (
 							<InputGroupAddon align="inline-end">
 								<IconButton
 									size="icon-xs"
-									icon={ closeSmall }
+									icon={ <XIcon /> }
 									label={ __( 'Clear search' ) }
 									onClick={ () => setQuery( '' ) }
 								/>
@@ -378,7 +378,7 @@ export function SettingsDialog() {
 								aria-current={ ! searching && item.section.id === section ? 'page' : undefined }
 								onClick={ () => open( item ) }
 							>
-								<Icon icon={ item.section.icon } size={ 16 } className={ styles.navIcon } />
+								<item.section.icon className={ styles.navIcon } />
 								<span className={ styles.navLabel }>
 									{ item.setting?.title ?? item.section.label }
 								</span>
@@ -400,7 +400,7 @@ export function SettingsDialog() {
 								<IconButton
 									variant="segmented"
 									size="icon-sm"
-									icon={ chevronLeft }
+									icon={ <ChevronLeftIcon /> }
 									label={ __( 'Back in settings' ) }
 									shortcut={ {
 										displayShortcut: displayShortcut.primary( '[' ),

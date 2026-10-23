@@ -1,6 +1,6 @@
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
-import { chevronLeft, cloudDownload, Icon } from '@wordpress/icons';
+import { ArchiveIcon, ChevronLeftIcon, CloudDownloadIcon, PlusIcon } from 'lucide-react';
 import { useCallback, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { Button, IconButton } from '@/components/ui/button';
 import {
@@ -16,7 +16,6 @@ import { sitePinKey, useSidebarPins } from '@/data/queries/use-sidebar-pins';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useSiteSyncActivity } from '@/data/sync-activity';
 import { closeOnPaletteShortcut } from '@/hooks/use-command-palette';
-import { archiveIcon, plusIcon } from '@/lib/icons';
 import { pendingBlueprintSlot } from '@/lib/pending-blueprint';
 import { BlueprintDetails } from './blueprint-details';
 import { BlueprintGallery, getUseCaseLabel, getUseCases } from './blueprint-gallery';
@@ -160,19 +159,19 @@ export function AddSiteDialog() {
 		{
 			value: 'create',
 			label: __( 'Create' ),
-			icon: plusIcon,
+			icon: <PlusIcon />,
 			onSelect: () => setView( { name: 'gallery' } ),
 		},
 		{
 			value: 'connect',
 			label: __( 'Connect' ),
-			icon: cloudDownload,
+			icon: <CloudDownloadIcon />,
 			onSelect: () => setView( { name: 'connect' } ),
 		},
 		{
 			value: 'import',
 			label: __( 'Import' ),
-			icon: archiveIcon,
+			icon: <ArchiveIcon />,
 			onSelect: () => setView( { name: 'import' } ),
 		},
 	];
@@ -220,7 +219,7 @@ export function AddSiteDialog() {
 										<IconButton
 											variant="segmented"
 											size="icon-sm"
-											icon={ chevronLeft }
+											icon={ <ChevronLeftIcon /> }
 											label={
 												view.name === 'details' || view.name === 'gallery'
 													? __( 'Back to Blueprints' )
@@ -341,7 +340,7 @@ function NavItem( {
 			tabIndex={ current ? 0 : -1 }
 			onClick={ onSelect }
 		>
-			{ icon ? <Icon icon={ icon } size={ 16 } className={ styles.navIcon } /> : null }
+			{ icon }
 			<span className={ styles.navLabel }>{ label }</span>
 		</button>
 	);

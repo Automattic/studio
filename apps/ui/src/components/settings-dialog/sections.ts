@@ -1,17 +1,22 @@
 import { __ } from '@wordpress/i18n';
 import {
-	bug,
-	brush,
-	chartBar,
-	code,
-	keyboard,
-	page,
-	plugins,
-	settings as slidersIcon,
-	tool,
-} from '@wordpress/icons';
-import { chatIcon, settingsIcon, shareIcon } from '@/lib/icons';
-import type { ReactElement } from 'react';
+	BugIcon,
+	ChartNoAxesColumnIncreasingIcon,
+	CodeIcon,
+	FileTextIcon,
+	SettingsIcon,
+	TerminalIcon,
+} from 'lucide-react';
+import { AppearanceIcon } from '@/lib/icons/appearance-icon';
+import { IntelligenceIcon } from '@/lib/icons/intelligence-icon';
+import { KeyboardIcon } from '@/lib/icons/keyboard-icon';
+import { LanguageIcon } from '@/lib/icons/language-icon';
+import { McpIcon } from '@/lib/icons/mcp-icon';
+import { PhpIcon } from '@/lib/icons/php-icon';
+import { ShareIcon } from '@/lib/icons/share-icon';
+import { SiteSettingsIcon } from '@/lib/icons/site-settings-icon';
+import { SkillsIcon } from '@/lib/icons/skills-icon';
+import type { ComponentType } from 'react';
 
 const STUDIO_SECTIONS = [
 	'general',
@@ -46,19 +51,22 @@ export function isSiteSection( value: SettingsSectionId ) {
 }
 
 // A setting search can find. `id` is the stable name a settings link uses.
-export type Setting = { id?: string; title: string; description: string };
+export type Setting = { id?: string; title: string; description: string; icon?: SectionIcon };
+
+type SectionIcon = ComponentType< { className?: string } >;
 
 export type Section = {
 	id: SettingsSectionId;
 	label: string;
-	icon: ReactElement;
+	icon: SectionIcon;
 	settings: Setting[];
 };
 
-const setting = ( title: string, description = '', id?: string ): Setting => ( {
+const setting = ( title: string, description = '', id?: string, icon?: SectionIcon ): Setting => ( {
 	id,
 	title,
 	description,
+	icon,
 } );
 
 function getStudioSections( signedIn: boolean ): Section[] {
@@ -66,15 +74,21 @@ function getStudioSections( signedIn: boolean ): Section[] {
 		{
 			id: 'general',
 			label: __( 'General' ),
-			icon: settingsIcon,
+			icon: SettingsIcon,
 			settings: [
-				setting( __( 'Language' ), __( 'Default language for Studio.' ), 'language' ),
+				setting( __( 'Language' ), __( 'Default language for Studio.' ), 'language', LanguageIcon ),
 				setting(
 					__( 'Code editor' ),
 					__( 'The default code editor for your sites.' ),
-					'code-editor'
+					'code-editor',
+					CodeIcon
 				),
-				setting( __( 'Terminal' ), __( 'The default terminal for your sites.' ), 'terminal' ),
+				setting(
+					__( 'Terminal' ),
+					__( 'The default terminal for your sites.' ),
+					'terminal',
+					TerminalIcon
+				),
 				setting(
 					__( 'Default directory' ),
 					__( 'The folder where Studio creates new sites.' ),
@@ -140,7 +154,7 @@ function getStudioSections( signedIn: boolean ): Section[] {
 		{
 			id: 'appearance',
 			label: __( 'Appearance' ),
-			icon: brush,
+			icon: AppearanceIcon,
 			settings: [
 				setting( __( 'Theme' ), __( 'Choose light, dark, or system.' ), 'theme' ),
 				setting( __( 'Color' ), __( 'Choose an accent color.' ), 'color' ),
@@ -156,7 +170,7 @@ function getStudioSections( signedIn: boolean ): Section[] {
 		{
 			id: 'sharing',
 			label: __( 'Sharing' ),
-			icon: shareIcon,
+			icon: ShareIcon,
 			settings: [
 				setting(
 					__( 'Sharing previews on WordPress.com' ),
@@ -169,7 +183,7 @@ function getStudioSections( signedIn: boolean ): Section[] {
 		{
 			id: 'ai',
 			label: __( 'AI Providers' ),
-			icon: chatIcon,
+			icon: IntelligenceIcon,
 			settings: [
 				setting(
 					__( 'Studio Code' ),
@@ -196,7 +210,7 @@ function getStudioSections( signedIn: boolean ): Section[] {
 		{
 			id: 'mcp',
 			label: __( 'MCP' ),
-			icon: plugins,
+			icon: McpIcon,
 			settings: [
 				setting( __( 'MCP server' ), __( 'Connect other AI assistants to Studio.' ), 'mcp-server' ),
 			],
@@ -204,7 +218,7 @@ function getStudioSections( signedIn: boolean ): Section[] {
 		{
 			id: 'usage',
 			label: __( 'Usage' ),
-			icon: chartBar,
+			icon: ChartNoAxesColumnIncreasingIcon,
 			settings: [
 				setting( __( 'AI credits' ), __( 'Studio Code AI credits.' ), 'ai-credits' ),
 				setting( __( 'Preview sites' ), __( 'Track your preview site usage.' ) ),
@@ -213,7 +227,7 @@ function getStudioSections( signedIn: boolean ): Section[] {
 		{
 			id: 'skills',
 			label: __( 'Skills' ),
-			icon: tool,
+			icon: SkillsIcon,
 			settings: [
 				setting(
 					__( 'WordPress skills' ),
@@ -227,7 +241,7 @@ function getStudioSections( signedIn: boolean ): Section[] {
 		{
 			id: 'instructions',
 			label: __( 'Instructions' ),
-			icon: page,
+			icon: FileTextIcon,
 			settings: [
 				setting(
 					__( 'Agent instructions' ),
@@ -238,7 +252,7 @@ function getStudioSections( signedIn: boolean ): Section[] {
 				),
 			],
 		},
-		{ id: 'keyboard', label: __( 'Keyboard' ), icon: keyboard, settings: [] },
+		{ id: 'keyboard', label: __( 'Keyboard' ), icon: KeyboardIcon, settings: [] },
 	];
 	return sections.filter( ( section ) => signedIn || section.id !== 'usage' );
 }
@@ -248,7 +262,7 @@ function getSiteSections(): Section[] {
 		{
 			id: 'site',
 			label: __( 'Settings' ),
-			icon: slidersIcon,
+			icon: SiteSettingsIcon,
 			settings: [
 				setting( __( 'Site name' ), __( 'Name shown in Studio.' ) ),
 				setting( __( 'WordPress version' ), __( 'Choose the WordPress release for this site.' ) ),
@@ -269,7 +283,7 @@ function getSiteSections(): Section[] {
 		{
 			id: 'debugging',
 			label: __( 'Debug' ),
-			icon: bug,
+			icon: BugIcon,
 			settings: [
 				setting(
 					__( 'Environment' ),
@@ -290,7 +304,7 @@ function getSiteSections(): Section[] {
 		{
 			id: 'php',
 			label: __( 'PHP' ),
-			icon: code,
+			icon: PhpIcon,
 			settings: [
 				setting( __( 'PHP version' ), __( 'The PHP version used to run WordPress on this site.' ) ),
 				setting(
@@ -304,13 +318,13 @@ function getSiteSections(): Section[] {
 		{
 			id: 'site-skills',
 			label: __( 'Skills' ),
-			icon: tool,
+			icon: SkillsIcon,
 			settings: [ setting( __( 'Skills on this site' ) ) ],
 		},
 		{
 			id: 'site-instructions',
 			label: __( 'Instructions' ),
-			icon: page,
+			icon: FileTextIcon,
 			settings: [ setting( __( 'Instructions on this site' ) ) ],
 		},
 	];

@@ -218,8 +218,7 @@
 .attachmentHoverPreview {
 	--attachment-hover-artwork-height: 198px;
 
-	position: fixed;
-	z-index: 10000;
+	width: 285px;
 	overflow: hidden;
 	border-radius: var(--radius-lg);
 	background-color: var(--popover);
@@ -227,9 +226,6 @@
 		0 0 0 1px color-mix(in oklab, var(--foreground) 10%, transparent),
 		0 4px 6px -1px rgb(0 0 0 / 10%),
 		0 2px 4px -2px rgb(0 0 0 / 10%);
-	animation: attachmentHoverPreviewIn 120ms ease-out;
-	pointer-events: none;
-	transform-origin: bottom left;
 	user-select: none;
 }
 
@@ -293,18 +289,6 @@
 	line-height: 1.2;
 	text-overflow: ellipsis;
 	white-space: nowrap;
-}
-
-@keyframes attachmentHoverPreviewIn {
-	from {
-		opacity: 0;
-		transform: translateY(4px) scale(0.98);
-	}
-
-	to {
-		opacity: 1;
-		transform: translateY(0) scale(1);
-	}
 }
 
 .inputArea {

@@ -557,35 +557,20 @@ describe( 'Composer menu', () => {
 		expect( textarea ).toHaveValue( '/' );
 	} );
 
-	it( 'portals attachment hover previews to the document body', async () => {
+	it( 'previews an attachment while its chip is hovered', async () => {
 		const { container } = renderComposer();
 		const textFile = new File( [ 'Attachment preview text' ], 'notes.txt', {
 			type: 'text/plain',
 		} );
-		const input = container.querySelector( 'input[type="file"]' ) as HTMLInputElement;
-
-		fireEvent.change( input, {
+		fireEvent.change( container.querySelector( 'input[type="file"]' ) as HTMLInputElement, {
 			target: { files: [ textFile ] },
 		} );
 
-		const attachmentItem = await screen.findByRole( 'listitem', { name: /^notes\.txt/ } );
-		vi.spyOn( attachmentItem!, 'getBoundingClientRect' ).mockReturnValue( {
-			x: 180,
-			y: 420,
-			top: 420,
-			right: 236,
-			bottom: 476,
-			left: 180,
-			width: 56,
-			height: 56,
-			toJSON: () => ( {} ),
-		} );
+		fireEvent.mouseEnter( await screen.findByRole( 'listitem', { name: /^notes\.txt/ } ) );
 
-		fireEvent.pointerEnter( attachmentItem! );
-
-		const preview = await screen.findByRole( 'tooltip' );
-		expect( preview ).toHaveTextContent( 'notes.txt' );
-		expect( preview.parentElement ).toBe( document.body );
+		expect(
+			await screen.findByText( 'Attachment preview text', {}, { timeout: 2000 } )
+		).toBeInTheDocument();
 	} );
 
 	it( 'restores text and attachments independently for each session', async () => {

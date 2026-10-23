@@ -1,12 +1,10 @@
 import {
 	formatComposerAttachmentSize,
-	getComposerAttachmentHoverPreviewPosition,
 	getComposerAttachmentImageSrc,
 	getComposerAttachmentTextPreview,
 	getComposerAttachmentTypeDescription,
 	hasComposerAttachmentVisualPreview,
 	watchComposerAttachmentTextScroll,
-	type ComposerAttachmentHoverPreviewState,
 } from '@studio/common/ai/composer-attachment-preview';
 import { watchComposerFilePaste } from '@studio/common/ai/composer-attachments';
 import {
@@ -59,6 +57,7 @@ import {
 	XIcon,
 } from 'lucide-react';
 import {
+	cloneElement,
 	forwardRef,
 	useCallback,
 	useEffect,
@@ -85,6 +84,7 @@ import {
 	getAnnotationsAttachment,
 } from '@/components/annotations/submission';
 import { Button } from '@/components/ui/button';
+import * as HoverCard from '@/components/ui/hover-card';
 import { InputGroup, InputGroupTextarea } from '@/components/ui/input-group';
 import * as Popover from '@/components/ui/popover';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -162,6 +162,85 @@ function renderAttachmentHoverVisual( attachment: ComposerAttachment ) {
 	}
 	const textPreview = getComposerAttachmentTextPreview( attachment );
 	return textPreview ? <AttachmentHoverTextPreview text={ textPreview } /> : null;
+}
+
+function AttachmentChip( {
+	attachment,
+	isAnnotations,
+	onRemove,
+}: {
+	attachment: ComposerAttachment;
+	isAnnotations: boolean;
+	onRemove: () => void;
+} ) {
+	const imageSrc = attachment.kind === 'image' ? getComposerAttachmentImageSrc( attachment ) : null;
+	const sizeLabel = formatComposerAttachmentSize( attachment.size );
+	const chip = (
+		<li
+			className={ clsx(
+				styles.attachment,
+				imageSrc ? styles.attachmentImage : styles.attachmentFile
+			) }
+			aria-label={
+				sizeLabel
+					? sprintf(
+							/* translators: 1: attachment file name, 2: attachment size. */
+							__( '%1$s, %2$s' ),
+							attachment.name,
+							sizeLabel
+					  )
+					: attachment.name
+			}
+		/>
+	);
+	const content = (
+		<>
+			{ imageSrc ? (
+				<img className={ styles.attachmentThumb } src={ imageSrc } alt="" />
+			) : (
+				<>
+					{ isAnnotations ? <AnnotationIcon /> : <FileTextIcon /> }
+					<span className={ styles.attachmentName }>{ attachment.name }</span>
+				</>
+			) }
+			<Button
+				variant="outline"
+				size="icon-2xs"
+				shape="round"
+				className={ styles.attachmentRemove }
+				aria-label={ __( 'Remove attachment' ) }
+				onClick={ onRemove }
+			>
+				<XIcon />
+			</Button>
+		</>
+	);
+	if ( ! hasComposerAttachmentVisualPreview( attachment ) ) {
+		return cloneElement( chip, {}, content );
+	}
+	return (
+		<HoverCard.Root>
+			<HoverCard.Trigger render={ chip }>{ content }</HoverCard.Trigger>
+			<HoverCard.Popup
+				side="top"
+				align="start"
+				sideOffset={ 8 }
+				className={ styles.attachmentHoverPreview }
+			>
+				<div className={ styles.attachmentHoverArtwork }>
+					{ renderAttachmentHoverVisual( attachment ) }
+				</div>
+				<div className={ styles.attachmentHoverDetails }>
+					<span className={ styles.attachmentHoverName }>{ attachment.name }</span>
+					<span className={ styles.attachmentHoverMeta }>
+						{ [ getComposerAttachmentTypeDescription( attachment, __( 'File' ) ), sizeLabel ]
+							.filter( Boolean )
+							.join( ' · ' ) }
+					</span>
+				</div>
+			</HoverCard.Popup>
+		</HoverCard.Root>
+	);
 }
 
 function getModelDescription( id: AiModelId ): string {
@@ -455,9 +534,6 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 	const [ modelOpen, setModelOpen ] = useState( false );
 	const [ modelHighlight, setModelHighlight ] = useState< string >();
 	const [ submitFeedback, setSubmitFeedback ] = useState< 'shake' | 'error' | null >( null );
-	const [ hoverPreview, setHoverPreview ] = useState< ComposerAttachmentHoverPreviewState | null >(
-		null
-	);
 	const [ shellNode, setShellNode ] = useState< HTMLDivElement | null >( null );
 	const [ rootNode, setRootNode ] = useState< HTMLDivElement | null >( null );
 	const textareaRef = useRef< HTMLTextAreaElement | null >( null );
@@ -1027,9 +1103,6 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 	if ( isWpcom ) {
 		modelDetails.push( credits.label );
 	}
-	const hoveredAttachment = hoverPreview
-		? shownAttachments.find( ( attachment ) => attachment.id === hoverPreview.id )
-		: undefined;
 	const pickModelCommand = ( value: string ) => {
 		setModelOpen( false );
 		if ( value === 'get-credits' ) {
@@ -1167,105 +1240,23 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 						: null }
 					{ shownAttachments.length ? (
 						<ul className={ styles.attachments } aria-label={ __( 'Attachments' ) }>
-							{ shownAttachments.map( ( attachment ) => {
-								const imageSrc =
-									attachment.kind === 'image' ? getComposerAttachmentImageSrc( attachment ) : null;
-								const sizeLabel = formatComposerAttachmentSize( attachment.size );
-								const showPreview = ( element: HTMLElement ) => {
-									if ( hasComposerAttachmentVisualPreview( attachment ) ) {
-										setHoverPreview( {
-											id: attachment.id,
-											...getComposerAttachmentHoverPreviewPosition( element, attachment ),
-										} );
+							{ shownAttachments.map( ( attachment ) => (
+								<AttachmentChip
+									key={ attachment.id }
+									attachment={ attachment }
+									isAnnotations={ attachment === annotationsAttachment }
+									onRemove={ () =>
+										attachment === annotationsAttachment && annotationSiteId
+											? removeAnnotations(
+													annotationSiteId,
+													stagedNotes.map( ( note ) => note.id )
+											  )
+											: removeAttachment( attachment.id )
 									}
-								};
-								const hidePreview = () =>
-									setHoverPreview( ( current ) =>
-										current?.id === attachment.id ? null : current
-									);
-								return (
-									<li
-										key={ attachment.id }
-										className={ clsx(
-											styles.attachment,
-											imageSrc ? styles.attachmentImage : styles.attachmentFile
-										) }
-										aria-label={
-											sizeLabel
-												? sprintf(
-														/* translators: 1: attachment file name, 2: attachment size. */
-														__( '%1$s, %2$s' ),
-														attachment.name,
-														sizeLabel
-												  )
-												: attachment.name
-										}
-										onPointerEnter={ ( event ) => showPreview( event.currentTarget ) }
-										onPointerLeave={ hidePreview }
-									>
-										{ imageSrc ? (
-											<img className={ styles.attachmentThumb } src={ imageSrc } alt="" />
-										) : (
-											<>
-												{ attachment === annotationsAttachment ? (
-													<AnnotationIcon />
-												) : (
-													<FileTextIcon />
-												) }
-												<span className={ styles.attachmentName }>{ attachment.name }</span>
-											</>
-										) }
-										<Button
-											variant="outline"
-											size="icon-2xs"
-											shape="round"
-											className={ styles.attachmentRemove }
-											aria-label={ __( 'Remove attachment' ) }
-											onClick={ () =>
-												attachment === annotationsAttachment && annotationSiteId
-													? removeAnnotations(
-															annotationSiteId,
-															stagedNotes.map( ( note ) => note.id )
-													  )
-													: removeAttachment( attachment.id )
-											}
-										>
-											<XIcon />
-										</Button>
-									</li>
-								);
-							} ) }
+								/>
+							) ) }
 						</ul>
 					) : null }
-					{ hoveredAttachment && hoverPreview
-						? createPortal(
-								<div
-									className={ styles.attachmentHoverPreview }
-									role="tooltip"
-									style={ {
-										left: hoverPreview.left,
-										bottom: hoverPreview.bottom,
-										width: hoverPreview.width,
-									} }
-								>
-									<div className={ styles.attachmentHoverArtwork }>
-										{ renderAttachmentHoverVisual( hoveredAttachment ) }
-									</div>
-									<div className={ styles.attachmentHoverDetails }>
-										<span className={ styles.attachmentHoverName }>{ hoveredAttachment.name }</span>
-										<span className={ styles.attachmentHoverMeta }>
-											{ [
-												getComposerAttachmentTypeDescription( hoveredAttachment, __( 'File' ) ),
-												formatComposerAttachmentSize( hoveredAttachment.size ),
-											]
-												.filter( Boolean )
-												.join( ' · ' ) }
-										</span>
-									</div>
-								</div>,
-								document.body
-						  )
-						: null }
 					<div className={ styles.inputArea }>
 						{ placeholderBusy && value.length === 0 ? (
 							<span className={ styles.placeholderShimmer } aria-hidden="true">

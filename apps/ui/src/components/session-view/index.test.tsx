@@ -1,4 +1,5 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { StrictMode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
@@ -78,12 +79,16 @@ vi.mock( '@/data/queries/use-ai-settings', () => ( {
 	useAiSettings: () => aiSettingsState,
 } ) );
 
+const connectorMock = vi.hoisted( () => ( {
+	openExternalUrl: vi.fn(),
+	getAiSettings: vi.fn(),
+	getAuthUser: vi.fn(),
+	getStudioAssistantQuota: vi.fn(),
+} ) );
+
 vi.mock( '@/data/core', async ( importOriginal ) => ( {
 	...( await importOriginal< object >() ),
-	useConnector: () => ( {
-		openExternalUrl: vi.fn(),
-		getAiSettings: vi.fn(),
-	} ),
+	useConnector: () => connectorMock,
 } ) );
 
 vi.mock( '@/data/queries/use-agent-run', () => ( {
@@ -129,6 +134,7 @@ const composerProps = vi.hoisted( () => ( {
 vi.mock( './composer', () => ( {
 	Composer: ( props: { onSend: ( prompt: string ) => Promise< void > } ) => {
 		composerProps.current = props;
+		useStudioAssistantQuota();
 		return <div data-testid="composer" />;
 	},
 	ComposerSkeleton: () => <div data-testid="composer-skeleton" />,
@@ -500,6 +506,28 @@ describe( 'SessionView', () => {
 		render( <SessionView sessionId="session-1" /> );
 
 		expect( screen.queryByText( 'Studio Code Beta' ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'settles on the composer when the quota request fails', async () => {
+		const actual = await vi.importActual< typeof import('@/data/queries/use-assistant-quota') >(
+			'@/data/queries/use-assistant-quota'
+		);
+		useStudioAssistantQuotaMock.mockImplementation( actual.useStudioAssistantQuota );
+		connectorMock.getAuthUser.mockResolvedValue( { id: 1 } );
+		connectorMock.getStudioAssistantQuota.mockRejectedValue( new Error( 'offline' ) );
+		useSessionMock.mockReturnValue( { data: makeLoadedSession(), isLoading: false, error: null } );
+		const queryClient = new QueryClient( { defaultOptions: { queries: { retry: false } } } );
+
+		render(
+			<QueryClientProvider client={ queryClient }>
+				<SessionView sessionId="session-1" />
+			</QueryClientProvider>
+		);
+
+		await screen.findByTestId( 'composer' );
+		await act( () => new Promise( ( resolve ) => setTimeout( resolve, 50 ) ) );
+		expect( screen.getByTestId( 'composer' ) ).toBeInTheDocument();
+		expect( connectorMock.getStudioAssistantQuota ).toHaveBeenCalledTimes( 1 );
 	} );
 
 	it( 'fails open when the quota is unavailable', () => {

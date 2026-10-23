@@ -1,8 +1,9 @@
 import { Select as BaseSelect } from '@base-ui/react/select';
 import { clsx } from 'clsx';
+import { CheckIcon } from 'lucide-react';
 import buttonStyles from '@/components/ui/button/style.module.css';
 import surface from '@/components/ui/surface/style.module.css';
-import { checkIcon, chevronDownIcon } from '@/lib/icons';
+import { ChevronDownIcon } from '@/lib/icons/chevron-down-icon';
 import styles from './style.module.css';
 import type { ButtonSize, ButtonVariant } from '@/components/ui/button';
 import type { ComponentProps, ReactNode } from 'react';
@@ -43,7 +44,7 @@ export function SelectTrigger( {
 			{ children }
 			{ size !== 'icon-sm' && (
 				<BaseSelect.Icon data-icon="inline-end" data-dropdown-indicator className={ styles.icon }>
-					{ chevronDownIcon }
+					<ChevronDownIcon />
 				</BaseSelect.Icon>
 			) }
 		</BaseSelect.Trigger>
@@ -87,11 +88,11 @@ export function SelectContent( {
 					{ ...props }
 				>
 					<BaseSelect.ScrollUpArrow className={ clsx( styles.arrow, styles.arrowUp ) }>
-						{ chevronDownIcon }
+						<ChevronDownIcon />
 					</BaseSelect.ScrollUpArrow>
 					<BaseSelect.List>{ children }</BaseSelect.List>
 					<BaseSelect.ScrollDownArrow className={ styles.arrow }>
-						{ chevronDownIcon }
+						<ChevronDownIcon />
 					</BaseSelect.ScrollDownArrow>
 				</BaseSelect.Popup>
 			</BaseSelect.Positioner>
@@ -134,7 +135,7 @@ export function SelectItem( {
 				{ description && <span className={ styles.itemDescription }>{ description }</span> }
 			</div>
 			<BaseSelect.ItemIndicator className={ styles.indicator }>
-				{ checkIcon }
+				<CheckIcon />
 			</BaseSelect.ItemIndicator>
 		</BaseSelect.Item>
 	);

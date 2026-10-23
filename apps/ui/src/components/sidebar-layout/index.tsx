@@ -3,7 +3,6 @@ import { clsx } from 'clsx';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { AppMessageCards, AppMessageHistoryRecorder } from '@/components/app-message-cards';
 import { AppToasts } from '@/components/app-toasts';
-import { NoticeHistoryDialog } from '@/components/notice-history';
 import { ResizeHandle, ResizeOverlay } from '@/components/resize-handle';
 import { SidebarHeader } from '@/components/sidebar-header';
 import { SiteList } from '@/components/site-list';
@@ -132,18 +131,22 @@ export function SidebarLayout( { children }: { children: ReactNode } ) {
 								minWidth={ sidebarResize.minWidth }
 								maxWidth={ sidebarResize.maxWidth }
 								width={ sidebarResize.width }
-								isResizing={ sidebarResize.isResizing }
 								onResizeStart={ sidebarResize.handleResizeStart }
 								onKeyDown={ sidebarResize.handleKeyDown }
 								onReset={ sidebarResize.resetWidth }
 							/>
 						) : null }
-						<main className={ clsx( styles.main, docked && 'studio-column-edge' ) }>
+						<main
+							className={ clsx(
+								styles.main,
+								'studio-column-edge',
+								! docked && styles.mainUndocked
+							) }
+						>
 							{ children }
 						</main>
 						{ sidebarResize.isResizing ? <ResizeOverlay /> : null }
 						<AppToasts />
-						<NoticeHistoryDialog />
 						<AppMessageHistoryRecorder />
 					</div>
 				</SidebarToggleContext.Provider>

@@ -2,7 +2,7 @@ import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { withWpcomDetails } from '@studio/common/lib/sync/transform-sites';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { __ } from '@wordpress/i18n';
-import { arrowUpRight, check, Icon } from '@wordpress/icons';
+import { CheckIcon } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { AccountPromptDialog } from '@/components/account-prompt';
 import { Button } from '@/components/ui/button';
@@ -19,11 +19,17 @@ import { usePickableWpcomSites, useSyncableWpcomSites } from '@/data/queries/use
 import { useSiteSyncActivity } from '@/data/sync-activity';
 import { useOffline } from '@/hooks/use-offline';
 import { subscribeHeaderPanelRequest } from '@/hooks/use-open-header-panel';
+import {
+	clearPublishSetupError,
+	retryPublishSetup,
+	usePublishSetupError,
+} from '@/hooks/use-sync-connect-site-listener';
+import { ExternalLinkIcon } from '@/lib/icons/external-link-icon';
+import { PublishTransferIcon } from '@/lib/icons/publish-transfer-icon';
 import { ConnectedView } from './connected-view';
 import { websiteAddress, websiteIssue, websiteLabel, type PublishView } from './options';
 import { ErrorMessage, PanelBody, PanelHeader, TransferProgress } from './parts';
 import styles from './style.module.css';
-import { TransferIcon } from './transfer-icon';
 import type { SiteDetails, SyncSite } from '@/data/core';
 
 export { WebsiteMenuItems } from './connected-view';
@@ -70,7 +76,15 @@ export function PublishButton( {
 	const destination =
 		websites.find( ( website ) => website.id === ( operationId ?? created?.id ?? selectedId ) ) ??
 		websites[ 0 ];
-	const settingUp = waitingFor !== null && ! created && ! pending;
+	const setupError = usePublishSetupError( site.id );
+	const settingUp = waitingFor !== null && ! created && ! pending && ! setupError;
+	const setupErrorMessage = (
+		<ErrorMessage error={ setupError } retry={ () => retryPublishSetup( site.id ) } />
+	);
+	const accessIssue =
+		destination && syncable.data?.every( ( website ) => website.id !== destination.id )
+			? __( 'This website is no longer available to this account. Choose another website.' )
+			: undefined;
 
 	const cancel = useCancelSync();
 	const disconnect = useDisconnectWpcomSite();
@@ -96,6 +110,7 @@ export function PublishButton( {
 		if ( ! checkoutUrl ) {
 			return;
 		}
+		clearPublishSetupError( site.id );
 		setWaitingFor( connections.map( ( website ) => website.id ) );
 		void connector.trackEvent( TRACKS_EVENTS.SYNC_PUBLISH_SITE );
 		void connector.openExternalUrl( checkoutUrl );
@@ -152,7 +167,7 @@ export function PublishButton( {
 			setView( 'publish' );
 		}
 	};
-	const error = transfer?.kind === 'error' ? transfer.message : undefined;
+	const error = ( transfer?.kind === 'error' ? transfer.message : undefined ) ?? setupError;
 	let status: string | undefined;
 	if ( pending ) {
 		status = transfer.direction === 'push' ? __( 'Publishing…' ) : __( 'Pulling…' );
@@ -274,6 +289,7 @@ export function PublishButton( {
 					<PanelHeader title={ __( 'Websites' ) } onBack={ () => setView( 'publish' ) } />
 					<PanelBody>
 						<ErrorMessage error={ disconnect.error } retry={ () => disconnect.reset() } />
+						{ setupErrorMessage }
 						{ websites.map( ( remote ) => (
 							<div key={ remote.id } className={ styles.websiteRow }>
 								<div className={ styles.websiteRowText }>
@@ -317,7 +333,7 @@ export function PublishButton( {
 							) : (
 								<>
 									{ __( 'Create a new WordPress.com site' ) }
-									<Icon icon={ arrowUpRight } data-icon="inline-end" />
+									<ExternalLinkIcon data-icon="inline-end" />
 								</>
 							) }
 						</Button>
@@ -339,6 +355,7 @@ export function PublishButton( {
 					open={ open }
 					disabled={ busy || offline }
 					offline={ offline }
+					accessIssue={ accessIssue }
 				/>
 			);
 		}
@@ -355,6 +372,7 @@ export function PublishButton( {
 				{ offline ? (
 					<p className={ styles.text }>{ __( 'Connect to the internet to publish your site.' ) }</p>
 				) : null }
+				{ setupErrorMessage }
 				<div className={ styles.introActions }>
 					<Button
 						variant={ settingUp ? 'outline' : 'accent' }
@@ -386,15 +404,19 @@ export function PublishButton( {
 					render={
 						<Button
 							ref={ trigger }
+							className={ styles.trigger }
 							aria-label={ __( 'Publish…' ) }
 							aria-description={ error ?? status }
 						/>
 					}
 				>
 					{ pending ? (
-						<TransferIcon direction={ transfer.direction === 'pull' ? 'pull' : 'push' } />
+						<PublishTransferIcon
+							direction={ transfer.direction === 'pull' ? 'pull' : 'push' }
+							className={ styles.transferIcon }
+						/>
 					) : recentSuccess ? (
-						<Icon icon={ check } size={ 16 } />
+						<CheckIcon />
 					) : null }
 					<span className={ styles.triggerLabel }>
 						{ __( 'Publish' ) }

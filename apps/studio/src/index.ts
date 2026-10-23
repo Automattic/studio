@@ -43,6 +43,7 @@ import {
 } from 'src/lib/locale-node';
 import { setSentryWpcomUserIdMain } from 'src/lib/main-sentry-utils';
 import { maybePromptNightlySwitch, startNightlyPromptPoller } from 'src/lib/nightly-prompt';
+import { forwardPreviewCommandPalette } from 'src/lib/preview-shortcuts';
 import { getSentryReleaseInfo } from 'src/lib/sentry-release';
 import { parseWebUrl } from 'src/lib/shell-open-external-wrapper';
 import { getSites, stopAllServers } from 'src/lib/sites';
@@ -255,6 +256,10 @@ async function appBoot() {
 		const isSitePreviewWebview = contents.getType() === 'webview';
 		if ( isSitePreviewWebview ) {
 			contents.on( 'before-input-event', ( event, input ) => {
+				if ( forwardPreviewCommandPalette( contents, input ) ) {
+					event.preventDefault();
+					return;
+				}
 				const zoomCommand = getAppZoomCommand( input );
 				if ( ! zoomCommand ) {
 					return;

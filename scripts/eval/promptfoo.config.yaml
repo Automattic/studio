@@ -655,7 +655,7 @@ tests:
     vars:
       caseId: routing-new-site-make
       timeoutMs: 300000
-      skills: [build-site]
+      skills: [{ name: build-site }]
       stopAt:
         - tool: site_create
         - tool: scaffold_theme
@@ -673,7 +673,7 @@ tests:
     vars:
       caseId: routing-new-site-contact-form
       timeoutMs: 300000
-      skills: [build-site, plugin-recommendations]
+      skills: [{ name: build-site }, { name: plugin-recommendations }]
       stopAt: &stopAtWork
         - tool: Write
         - tool: Edit
@@ -689,7 +689,7 @@ tests:
     vars:
       caseId: routing-new-site-slideshow
       timeoutMs: 300000
-      skills: [build-site, plugin-recommendations]
+      skills: [{ name: build-site }, { name: plugin-recommendations }]
       stopAt: *stopAtWork
       prompt: Create a new site named "Routing Slideshow Site" and add a slideshow of three placeholder images to its homepage.
     assert:
@@ -699,7 +699,7 @@ tests:
     vars:
       caseId: routing-form
       timeoutMs: 300000
-      skills: [plugin-recommendations]
+      skills: [{ name: plugin-recommendations }]
       stopAt: *stopAtWork
       seed:
         activeSite:
@@ -712,7 +712,7 @@ tests:
     vars:
       caseId: routing-carousel
       timeoutMs: 300000
-      skills: [plugin-recommendations]
+      skills: [{ name: plugin-recommendations }]
       stopAt: *stopAtWork
       seed:
         activeSite:
@@ -725,7 +725,7 @@ tests:
     vars:
       caseId: routing-newsletter
       timeoutMs: 300000
-      skills: [plugin-recommendations]
+      skills: [{ name: plugin-recommendations }]
       stopAt: *stopAtWork
       seed:
         activeSite:
@@ -738,7 +738,7 @@ tests:
     vars:
       caseId: routing-poll
       timeoutMs: 300000
-      skills: [plugin-recommendations]
+      skills: [{ name: plugin-recommendations }]
       stopAt: *stopAtWork
       seed:
         activeSite:
@@ -751,7 +751,7 @@ tests:
     vars:
       caseId: routing-events
       timeoutMs: 300000
-      skills: [plugin-recommendations]
+      skills: [{ name: plugin-recommendations }]
       stopAt: *stopAtWork
       seed:
         activeSite:
@@ -764,7 +764,7 @@ tests:
     vars:
       caseId: routing-typography
       timeoutMs: 300000
-      skills: [visual-design]
+      skills: [{ name: visual-design }]
       stopAt: *stopAtWork
       seed:
         activeSite:
@@ -777,7 +777,7 @@ tests:
     vars:
       caseId: routing-redesign
       timeoutMs: 300000
-      skills: [visual-design]
+      skills: [{ name: visual-design }]
       stopAt: *stopAtWork
       seed:
         activeSite:
@@ -790,7 +790,7 @@ tests:
     vars:
       caseId: routing-section
       timeoutMs: 300000
-      skills: [block-content]
+      skills: [{ name: block-content }]
       stopAt: *stopAtWork
       seed:
         activeSite:
@@ -803,7 +803,7 @@ tests:
     vars:
       caseId: routing-template-part
       timeoutMs: 300000
-      skills: [block-content]
+      skills: [{ name: block-content }]
       stopAt: *stopAtWork
       seed:
         activeSite:
@@ -816,7 +816,7 @@ tests:
     vars:
       caseId: routing-hero-image
       timeoutMs: 300000
-      skills: [block-content, imagery]
+      skills: [{ name: block-content }, { name: imagery }]
       stopAt: *stopAtWork
       seed:
         activeSite:
@@ -829,7 +829,7 @@ tests:
     vars:
       caseId: routing-polish
       timeoutMs: 300000
-      skills: [visual-polish]
+      skills: [{ name: visual-polish }]
       stopAt: *stopAtWork
       seed:
         activeSite:
@@ -850,7 +850,7 @@ tests:
     vars:
       caseId: routing-plan-question
       timeoutMs: 300000
-      skills: [hosting-plans-helper]
+      skills: [{ name: hosting-plans-helper }]
       stopAt: *stopAtWork
       prompt: Which WordPress.com plan do I need to install my own plugins?
     assert:

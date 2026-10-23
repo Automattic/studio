@@ -33,6 +33,8 @@ describe( 'settings preference helpers', () => {
 			locale: 'en',
 			analyticsEnabled: true,
 			defaultSiteDirectory: '/Users/example/Studio',
+			autoStartSiteOnChat: false,
+			confirmDeleteAnnotations: true,
 		} );
 	} );
 
@@ -56,9 +58,9 @@ describe( 'settings preference helpers', () => {
 		expect( toPreferencesPatch( { terminal: UNSET } ) ).toEqual( { terminal: null } );
 	} );
 
-	it( 'persists the quit-sites UNSET sentinel as undefined ("ask every time")', () => {
+	it( 'persists the quit-sites UNSET sentinel as null ("ask every time")', () => {
 		expect( toPreferencesPatch( { quitSitesBehavior: UNSET } ) ).toStrictEqual( {
-			quitSitesBehavior: undefined,
+			quitSitesBehavior: null,
 		} );
 	} );
 

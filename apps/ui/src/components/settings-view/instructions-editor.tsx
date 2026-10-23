@@ -14,7 +14,10 @@ import {
 	useSaveAgentInstructions,
 } from '@/data/queries/use-agent-instructions';
 import styles from './style.module.css';
-import { SAVE_DEBOUNCE_MS } from './use-debounced-save';
+
+// Long enough that a typing burst lands as one write, short enough that the
+// save still feels immediate when the user pauses.
+const SAVE_DEBOUNCE_MS = 800;
 
 export function InstructionsEditor() {
 	const { data: saved } = useAgentInstructions();

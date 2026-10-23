@@ -1,30 +1,27 @@
 import { getLocalizedLink } from '@studio/common/lib/docs-links';
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
-import { classifySyncFailure } from '@studio/common/lib/sync/classify-sync-failure';
-import { useNavigate } from '@tanstack/react-router';
 import { __, _x, sprintf } from '@wordpress/i18n';
-import { check, external, Icon, search } from '@wordpress/icons';
 import { clsx } from 'clsx';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { createPortal } from 'react-dom';
+import { CheckIcon, SearchIcon } from 'lucide-react';
+import { useCallback, useMemo, useState } from 'react';
 import { AuthActions } from '@/components/auth-actions';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import { VisuallyHidden } from '@/components/ui/visually-hidden';
-import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { useAuthUser } from '@/data/queries/use-auth-user';
-import { useCreateSite, useDeleteSite, useSites, useStartSite } from '@/data/queries/use-sites';
-import { usePullSiteFromLive } from '@/data/queries/use-sync-site';
 import { useUserLocale } from '@/data/queries/use-user-locale';
 import { useSyncableWpcomSites } from '@/data/queries/use-wpcom-sites';
 import { useOffline } from '@/hooks/use-offline';
-import { requestHeaderPanel } from '@/hooks/use-open-header-panel';
+import { ExternalLinkIcon } from '@/lib/icons/external-link-icon';
 import styles from './connect-panel.module.css';
-import { ConnectSiteLifecycleError, runConnectSiteLifecycle } from './connect-site';
-import { useAddSite } from './context';
-import { presentRemoteSites, searchRemoteSites, type ConnectSiteGroup } from './site-presentation';
+import {
+	getRemoteSiteName,
+	presentRemoteSites,
+	searchRemoteSites,
+	type ConnectSiteGroup,
+} from './site-presentation';
 import type { SyncSite } from '@/data/core';
 
 const createWpcomSiteUrl = new URL( 'https://wordpress.com/setup/new-hosted-site' );
@@ -61,46 +58,30 @@ function getSiteStatus( site: SyncSite, group: ConnectSiteGroup ): string {
 	return __( 'This site does not support pulling into Studio.' );
 }
 
-function getSiteName( site: SyncSite ): string {
-	if ( site.name.trim() ) return site.name.trim();
-	try {
-		return new URL( site.url ).hostname;
-	} catch {
-		return __( 'WordPress site' );
-	}
-}
-
 function RemoteSiteCard( {
 	site,
 	group,
-	isSelected,
 	onSelect,
 }: ReturnType< typeof presentRemoteSites >[ number ] & {
-	isSelected: boolean;
-	onSelect: ( id: number ) => void;
+	onSelect: ( site: SyncSite ) => void;
 } ) {
 	const connector = useConnector();
 	const isAvailable = group === 'available';
-	const siteName = getSiteName( site );
+	const siteName = getRemoteSiteName( site );
 	const providerLabel = site.isPressable
 		? _x( 'Pressable', 'hosting provider name' )
 		: _x( 'WP.com', 'hosting provider name' );
 	const environmentLabel = getEnvironmentLabel( site );
 	const siteStatus = isAvailable ? '' : getSiteStatus( site, group );
-	const className = clsx(
-		styles.siteCard,
-		isSelected && styles.siteCardSelected,
-		! isAvailable && styles.siteCardUnavailable
-	);
+	const className = clsx( styles.siteCard, ! isAvailable && styles.siteCardUnavailable );
 
 	return (
 		<li className={ styles.siteCardWrapper }>
 			<button
 				type="button"
 				className={ className }
-				aria-pressed={ isAvailable ? isSelected : undefined }
 				disabled={ ! isAvailable }
-				onClick={ () => isAvailable && onSelect( site.id ) }
+				onClick={ () => onSelect( site ) }
 			>
 				<span className={ styles.siteThumb }>
 					<img
@@ -129,7 +110,7 @@ function RemoteSiteCard( {
 					}
 				>
 					{ __( 'Enable hosting features' ) }
-					<Icon icon={ external } data-icon="inline-end" />
+					<ExternalLinkIcon data-icon="inline-end" />
 				</Button>
 			) }
 			{ group === 'needs-upgrade' && (
@@ -143,7 +124,7 @@ function RemoteSiteCard( {
 					}
 				>
 					{ __( 'View plans' ) }
-					<Icon icon={ external } data-icon="inline-end" />
+					<ExternalLinkIcon data-icon="inline-end" />
 				</Button>
 			) }
 		</li>
@@ -155,15 +136,15 @@ function SignedOutView() {
 		<div className={ styles.signedOut }>
 			<ul className={ styles.benefits }>
 				<li>
-					<Icon icon={ check } size={ 16 } aria-hidden="true" />
+					<CheckIcon aria-hidden="true" />
 					<span>{ __( 'Work on your site locally.' ) }</span>
 				</li>
 				<li>
-					<Icon icon={ check } size={ 16 } aria-hidden="true" />
+					<CheckIcon aria-hidden="true" />
 					<span>{ __( 'Sync content, themes, and plugins.' ) }</span>
 				</li>
 				<li>
-					<Icon icon={ check } size={ 16 } aria-hidden="true" />
+					<CheckIcon aria-hidden="true" />
 					<span>{ __( 'Supports staging and production sites.' ) }</span>
 				</li>
 			</ul>
@@ -172,25 +153,15 @@ function SignedOutView() {
 	);
 }
 
-export function ConnectPanel() {
+export function ConnectPanel( { onConnect }: { onConnect: ( site: SyncSite ) => void } ) {
 	const connector = useConnector();
-	const navigate = useNavigate();
-	const { actions, setProgress, pinNewSite } = useAddSite();
 	const { data: user, isLoading: isAuthLoading } = useAuthUser();
-	const { data: localSites = [] } = useSites();
 	const locale = useUserLocale();
 	const isOffline = useOffline();
 	const remoteSites = useSyncableWpcomSites( {
 		enabled: !! user && ! isOffline,
 	} );
-	const createSite = useCreateSite();
-	const deleteSite = useDeleteSite();
-	const pullSite = usePullSiteFromLive();
-	const startSite = useStartSite( { silent: true } );
 	const [ searchQuery, setSearchQuery ] = useState( '' );
-	const [ selectedId, setSelectedId ] = useState< number | null >( null );
-	const [ isConnecting, setIsConnecting ] = useState( false );
-	const [ submitError, setSubmitError ] = useState( '' );
 
 	const presentedSites = useMemo(
 		() => presentRemoteSites( remoteSites.data ?? [] ),
@@ -202,9 +173,6 @@ export function ConnectPanel() {
 	);
 	const isSingleSite = presentedSites.length === 1 && searchQuery.trim() === '';
 	const isSingleAvailableSite = isSingleSite && presentedSites[ 0 ].group === 'available';
-	const selectedSite = filteredSites.find(
-		( entry ) => entry.site.id === selectedId && entry.group === 'available'
-	)?.site;
 	const isLoadingSites = remoteSites.isLoading;
 	const loadError = remoteSites.error;
 	const sections = [
@@ -222,125 +190,9 @@ export function ConnectPanel() {
 		},
 	];
 
-	useEffect( () => {
-		if ( isSingleAvailableSite ) {
-			setSelectedId( presentedSites[ 0 ].site.id );
-		}
-	}, [ isSingleAvailableSite, presentedSites ] );
-
-	useEffect( () => () => setProgress( null ), [ setProgress ] );
-
 	const retry = useCallback( () => {
 		void remoteSites.refetch();
 	}, [ remoteSites ] );
-
-	const handleConnect = useCallback( async () => {
-		if ( ! selectedSite || isConnecting || isOffline ) return;
-		setIsConnecting( true );
-		setSubmitError( '' );
-		const localName = getSiteName( selectedSite );
-
-		try {
-			const name = await connector.generateNumberedSiteName( localName, localSites );
-			const { path } = await connector.generateProposedSitePath( name );
-			await runConnectSiteLifecycle( {
-				createLocalSite: async () => {
-					const site = await createSite.mutateAsync( {
-						name,
-						path,
-						skipStart: true,
-						flowType: 'sync',
-					} );
-					pinNewSite( site.id );
-					return site;
-				},
-				persistConnection: async ( localSiteId ) => {
-					try {
-						await connector.connectWpcomSite( localSiteId, {
-							...selectedSite,
-							localSiteId,
-							syncSupport: 'already-connected',
-						} );
-					} catch ( error ) {
-						void connector.trackEvent( TRACKS_EVENTS.SYNC_CONNECT, {
-							success: false,
-							failure_reason: classifySyncFailure( error, { phase: 'storage_write' } ),
-							num_of_sites: 0,
-						} );
-						throw error;
-					}
-					// The local site is created by this same flow, so it always ends up
-					// with exactly this one connection.
-					void connector.trackEvent( TRACKS_EVENTS.SYNC_CONNECT, {
-						success: true,
-						num_of_sites: 1,
-					} );
-				},
-				pullRemoteSite: ( localSiteId ) =>
-					pullSite.mutateAsync( {
-						siteId: localSiteId,
-						remoteSiteId: selectedSite.id,
-						// The local site is created by this flow, so the connected-sites
-						// cache the hook would otherwise read has nothing for it yet.
-						syncSite: selectedSite,
-					} ),
-				startLocalSite: async ( localSiteId ) => {
-					await startSite.mutateAsync( localSiteId );
-				},
-				openLocalSite: ( localSiteId ) => {
-					requestHeaderPanel( { panel: 'publish', siteId: localSiteId, view: 'pull' } );
-					return navigate( { to: '/sites/$siteId', params: { siteId: localSiteId } } );
-				},
-				deleteLocalSite: ( localSiteId ) =>
-					deleteSite.mutateAsync( { id: localSiteId, deleteFiles: true } ),
-				onStage: ( stage ) => {
-					const messages = {
-						create: __( 'Creating the local site…' ),
-						connect: __( 'Saving the WordPress.com connection…' ),
-						pull: __( 'Pulling the live site into Studio…' ),
-						open: __( 'Opening the local site…' ),
-					};
-					setProgress( messages[ stage ] );
-				},
-			} );
-		} catch ( error ) {
-			if (
-				error instanceof ConnectSiteLifecycleError &&
-				error.connectionPersisted &&
-				error.localSiteId
-			) {
-				toast.error(
-					__( 'Setup did not finish. The local site and WordPress.com connection were kept.' )
-				);
-				await navigate( {
-					to: '/sites/$siteId',
-					params: { siteId: error.localSiteId },
-				} );
-			} else {
-				setSubmitError(
-					error instanceof Error
-						? error.message
-						: __( 'Failed to connect the site. Please try again.' )
-				);
-			}
-		} finally {
-			setProgress( null );
-			setIsConnecting( false );
-		}
-	}, [
-		selectedSite,
-		isConnecting,
-		isOffline,
-		connector,
-		localSites,
-		createSite,
-		pinNewSite,
-		pullSite,
-		startSite,
-		navigate,
-		deleteSite,
-		setProgress,
-	] );
 
 	return (
 		<div className={ styles.page }>
@@ -349,11 +201,6 @@ export function ConnectPanel() {
 					? __( 'Select a WordPress.com or Pressable site to bring into your Studio.' )
 					: __( 'Log in with your WordPress.com account to see your sites.' ) }
 			</p>
-			{ submitError && (
-				<p role="alert" className={ styles.connectError }>
-					{ submitError }
-				</p>
-			) }
 
 			{ isAuthLoading && (
 				<div className={ styles.state } role="status">
@@ -407,7 +254,7 @@ export function ConnectPanel() {
 						} }
 					>
 						{ __( 'Create a WordPress.com site' ) }
-						<Icon icon={ external } data-icon="inline-end" />
+						<ExternalLinkIcon data-icon="inline-end" />
 					</Button>
 				</div>
 			) }
@@ -417,7 +264,7 @@ export function ConnectPanel() {
 					<div className={ styles.siteControls }>
 						{ ! isSingleSite && (
 							<label className={ styles.search }>
-								<Icon icon={ search } size={ 18 } />
+								<SearchIcon />
 								<VisuallyHidden>{ __( 'Search sites' ) }</VisuallyHidden>
 								<input
 									type="search"
@@ -449,7 +296,7 @@ export function ConnectPanel() {
 								}
 							>
 								{ __( 'Supported sites' ) }
-								<Icon icon={ external } data-icon="inline-end" />
+								<ExternalLinkIcon data-icon="inline-end" />
 							</Button>
 						</p>
 					</div>
@@ -466,11 +313,7 @@ export function ConnectPanel() {
 						</div>
 					) : isSingleAvailableSite ? (
 						<ul className={ `${ styles.siteGrid } ${ styles.singleSiteGrid }` }>
-							<RemoteSiteCard
-								{ ...filteredSites[ 0 ] }
-								isSelected={ selectedId === filteredSites[ 0 ].site.id }
-								onSelect={ setSelectedId }
-							/>
+							<RemoteSiteCard { ...filteredSites[ 0 ] } onSelect={ onConnect } />
 						</ul>
 					) : (
 						<div className={ styles.sections }>
@@ -487,8 +330,7 @@ export function ConnectPanel() {
 													<RemoteSiteCard
 														key={ entry.site.id }
 														{ ...entry }
-														isSelected={ selectedId === entry.site.id }
-														onSelect={ setSelectedId }
+														onSelect={ onConnect }
 													/>
 												) ) }
 											</ul>
@@ -499,22 +341,6 @@ export function ConnectPanel() {
 					) }
 				</>
 			) }
-
-			{ user && actions
-				? createPortal(
-						<Button
-							type="button"
-							variant="accent"
-							size="header"
-							disabled={ ! selectedSite || isOffline || isConnecting }
-							loading={ isConnecting }
-							onClick={ () => void handleConnect() }
-						>
-							{ __( 'Connect site' ) }
-						</Button>,
-						actions
-				  )
-				: null }
 		</div>
 	);
 }

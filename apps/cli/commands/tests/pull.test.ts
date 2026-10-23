@@ -127,4 +127,24 @@ describe( 'CLI: studio pull', () => {
 		expect( steps.includes( 'import' ) ).toBe( imported );
 		expect( messages.some( ( message ) => message.includes( 'exceeds' ) ) ).toBe( ! confirm );
 	} );
+
+	it.each( [
+		[ 'only restarting the site fails', 'start', true ],
+		[ 'the import fails', 'import', false ],
+	] )(
+		'reports whether the pull reached the site when %s',
+		async ( _case, failingStep, localChangesApplied ) => {
+			const failure = failingStep === 'start' ? vi.mocked( startWordPressServer ) : importBackup;
+			failure.mockRejectedValueOnce( new Error( 'boom' ) );
+
+			await expect(
+				runCommand( site.path, [ 'all' ], String( remoteSite.id ), undefined, undefined, true )
+			).rejects.toThrow();
+
+			expect( vi.mocked( reportSyncActivity ).mock.calls.at( -1 ) ).toEqual( [
+				site.id,
+				expect.objectContaining( { kind: 'error', direction: 'pull', localChangesApplied } ),
+			] );
+		}
+	);
 } );

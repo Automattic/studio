@@ -85,6 +85,27 @@ const childMessageActivity = z.object( {
 	topic: z.literal( 'activity' ),
 } );
 
+// The steps of a site start, timed for the `studio_site_start` Tracks event.
+export const SITE_START_PHASES = [
+	'wp_config',
+	'wordpress_install',
+	'blueprint',
+	'symlink_scan',
+	'php_workers',
+	'proxy_ready',
+	'admin_credentials',
+] as const;
+export type SiteStartPhase = ( typeof SITE_START_PHASES )[ number ];
+
+const childMessageStartPhase = z.object( {
+	originalMessageId: z.string(),
+	topic: z.literal( 'start-phase' ),
+	data: z.object( {
+		phase: z.enum( SITE_START_PHASES ),
+		ms: z.number(),
+	} ),
+} );
+
 const childMessageServerProcessStarted = z.object( {
 	topic: z.literal( 'server-process-started' ),
 	data: z.object( {
@@ -152,6 +173,7 @@ const childMessageSiteStopped = z.object( {
 const childMessageRaw = z.discriminatedUnion( 'topic', [
 	childMessageReady,
 	childMessageActivity,
+	childMessageStartPhase,
 	childMessageServerProcessStarted,
 	childMessageResult,
 	childMessageError,

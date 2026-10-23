@@ -1,10 +1,7 @@
 import { Type } from 'typebox';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
-import {
-	getUnsupportedWpCliPostContentMessage,
-	routePostContentFile,
-} from 'cli/lib/wp-cli-post-content';
+import { getUnsupportedWpCliPostContentMessage } from 'cli/lib/wp-cli-post-content';
 import { defineTool, REMOTE_OVERWRITE } from './define-tool';
 import { resolveSite } from './utils';
 
@@ -61,14 +58,43 @@ function stripMatchingOuterQuotes( value: string ): string {
 	return value;
 }
 
+// The value of a quoted argument starting at `text[ 0 ]`, read as a shell
+// would: single quotes are literal, and inside double quotes a backslash
+// escapes `"`, `\\`, `$` and backticks. `end` is the closing quote's index.
+function readQuoted( text: string ): { value: string; end: number } | null {
+	const quote = text[ 0 ];
+	let value = '';
+	for ( let i = 1; i < text.length; i++ ) {
+		const char = text[ i ];
+		if ( char === quote ) {
+			return { value, end: i };
+		}
+		if ( quote === '"' && char === '\\' && /["\\$`]/.test( text[ i + 1 ] ?? '' ) ) {
+			value += text[ ++i ];
+		} else {
+			value += char;
+		}
+	}
+	return null;
+}
+
 // Quoted post_content needs trailing flags split out (e.g. `--porcelain`
 // after the closing quote); unquoted block markup is treated as a single
-// literal arg through end-of-command.
+// literal arg through end-of-command. A quote can also wrap the whole
+// argument (`'--post_content=...'`).
 function splitPostContentCommandArgs( command: string, postContentIndex: number ): string[] {
 	const postContentMarker = '--post_content=';
-	const prefix = command.slice( 0, postContentIndex ).trim();
-	const postContentTail = command.slice( postContentIndex + postContentMarker.length ).trim();
-	const prefixArgs = splitBasicCommandArgs( prefix );
+	let prefix = command.slice( 0, postContentIndex ).trimEnd();
+	let postContentTail = command.slice( postContentIndex + postContentMarker.length ).trim();
+	const wrappingQuote = prefix.slice( -1 );
+	if (
+		( wrappingQuote === '"' || wrappingQuote === "'" ) &&
+		/(^|\s)$/.test( prefix.slice( 0, -1 ) )
+	) {
+		prefix = prefix.slice( 0, -1 );
+		postContentTail = wrappingQuote + postContentTail;
+	}
+	const prefixArgs = splitBasicCommandArgs( prefix.trim() );
 
 	if ( ! postContentTail ) {
 		return [ ...prefixArgs, postContentMarker ];
@@ -76,13 +102,12 @@ function splitPostContentCommandArgs( command: string, postContentIndex: number 
 
 	const quote = postContentTail[ 0 ];
 	if ( quote === '"' || quote === "'" ) {
-		const closingQuoteIndex = postContentTail.indexOf( quote, 1 );
-		if ( closingQuoteIndex !== -1 ) {
-			const postContent = postContentTail.slice( 1, closingQuoteIndex );
-			const suffix = postContentTail.slice( closingQuoteIndex + 1 ).trim();
+		const quoted = readQuoted( postContentTail );
+		if ( quoted ) {
+			const suffix = postContentTail.slice( quoted.end + 1 ).trim();
 			return [
 				...prefixArgs,
-				`${ postContentMarker }${ postContent }`,
+				`${ postContentMarker }${ quoted.value }`,
 				...splitBasicCommandArgs( suffix ),
 			];
 		}
@@ -139,9 +164,7 @@ export const runWpCliTool = defineTool(
 			try {
 				await connectToDaemon();
 
-				const splitArgs = splitCommandArgs( args.command );
-				const routed = routePostContentFile( splitArgs, site.path );
-				const wpCliArgs = routed?.args ?? splitArgs;
+				const wpCliArgs = splitCommandArgs( args.command );
 				const unsupportedOptionMessage = getUnsupportedWpCliOptionMessage( wpCliArgs );
 				if ( unsupportedOptionMessage ) {
 					throw new Error( unsupportedOptionMessage );
@@ -156,9 +179,7 @@ export const runWpCliTool = defineTool(
 				const stdout = await command.response.stdoutText;
 				const stderr = await command.response.stderrText;
 
-				let output = routed
-					? `Read the post content from ${ routed.file }, the file \`--post_content\` named.\n`
-					: '';
+				let output = '';
 				if ( stdout ) {
 					output += stdout;
 				}

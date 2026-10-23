@@ -9,17 +9,23 @@ import {
 	updateSharedConfig,
 } from '@studio/common/lib/shared-config';
 import { SUPPORTED_EDITORS } from '@studio/common/lib/user-settings/editor';
-import { getFirstInstalledEditor } from '@studio/common/lib/user-settings/installed-apps';
 import {
 	DEFAULT_COLOR_SCHEME,
+	getColorTint,
+	INTERFACE_PREFERENCE_DEFAULTS,
+	NEW_SITE_BEHAVIORS,
 	QUIT_SITES_BEHAVIORS,
 	SUPPORTED_COLOR_SCHEMES,
 } from '@studio/common/lib/user-settings/preferences';
 import { DEFAULT_TERMINAL, SUPPORTED_TERMINALS } from '@studio/common/lib/user-settings/terminal';
 import type { TracksEventName, TracksProps } from '@studio/common/lib/record-tracks-event';
 import type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
-import type { InstalledApps } from '@studio/common/lib/user-settings/installed-apps';
-import type { ColorScheme, QuitSitesBehavior } from '@studio/common/lib/user-settings/preferences';
+import type {
+	ColorScheme,
+	ColorTint,
+	NewSiteBehavior,
+	QuitSitesBehavior,
+} from '@studio/common/lib/user-settings/preferences';
 import type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
 
 /**
@@ -27,7 +33,8 @@ import type { SupportedTerminal } from '@studio/common/lib/user-settings/termina
  * the UI preferences, `shared.json` for locale and the analytics opt-out.
  */
 
-export interface UserPreferences {
+export interface UserPreferences extends ColorTint {
+	// `null` is the default: the first installed editor, the system terminal.
 	editor: SupportedEditor | null;
 	terminal: SupportedTerminal | null;
 	colorScheme: ColorScheme;
@@ -47,13 +54,13 @@ export interface UserPreferences {
 	autoStartSiteOnChat: boolean;
 	// Ask before discarding preview annotations.
 	confirmDeleteAnnotations: boolean;
+	newSiteBehavior: NewSiteBehavior;
 }
 
 // Passed in, so this stays a pure reader over the config files.
 export interface UserPreferencesContext {
 	// Where new sites go unless the user picked another directory.
 	sitesRoot: string;
-	installedApps: InstalledApps;
 }
 
 export interface UserPreferencesWriteContext {
@@ -63,6 +70,8 @@ export interface UserPreferencesWriteContext {
 
 const editorSchema = z.enum( SUPPORTED_EDITORS );
 const terminalWithDefault = z.enum( SUPPORTED_TERMINALS ).catch( DEFAULT_TERMINAL );
+const optionalEditor = editorSchema.nullable().catch( null );
+const optionalTerminal = z.enum( SUPPORTED_TERMINALS ).nullable().catch( null );
 const colorSchemeWithDefault = z.enum( SUPPORTED_COLOR_SCHEMES ).catch( DEFAULT_COLOR_SCHEME );
 const optionalQuitSitesBehavior = z.enum( QUIT_SITES_BEHAVIORS ).optional().catch( undefined );
 const nonEmptyString = z.string().nonempty();
@@ -87,6 +96,14 @@ export const userPreferencesPatchSchema = z.object( {
 	autoCollapseSites: z.boolean().nullish(),
 	autoStartSiteOnChat: z.boolean().nullish(),
 	confirmDeleteAnnotations: z.boolean().nullish(),
+	newSiteBehavior: z.enum( NEW_SITE_BEHAVIORS ).nullish(),
+	accentColor: z
+		.string()
+		.regex( /^#[0-9a-f]{6}$/i )
+		.transform( ( color ) => color.toLowerCase() )
+		.nullish(),
+	tintIntensity: z.number().min( 0 ).max( 100 ).nullish(),
+	contrast: z.number().min( 0 ).max( 100 ).nullish(),
 	// Where the change was made (the analytics toggle also appears during onboarding); not stored.
 	surface: z.enum( [ 'onboarding', 'settings' ] ).optional(),
 } );
@@ -107,6 +124,10 @@ const APP_CONFIG_KEYS = [
 	[ 'autoCollapseSites', 'autoCollapseSites' ],
 	[ 'autoStartSiteOnChat', 'autoStartSiteOnChat' ],
 	[ 'confirmDeleteAnnotations', 'confirmDeleteAnnotations' ],
+	[ 'newSiteBehavior', 'newSiteBehavior' ],
+	[ 'accentColor', 'accentColor' ],
+	[ 'tintIntensity', 'tintIntensity' ],
+	[ 'contrast', 'contrast' ],
 ] as const satisfies readonly ( readonly [ keyof UserPreferencesPatch, string ] )[];
 
 function getDefaultSiteDirectory( config: AppConfig, sitesRoot: string ): string {
@@ -120,15 +141,19 @@ export async function readDefaultSiteDirectory( sitesRoot: string ): Promise< st
 
 export async function readUserPreferences( {
 	sitesRoot,
-	installedApps,
 }: UserPreferencesContext ): Promise< UserPreferences > {
 	const [ config, shared ] = await Promise.all( [ readAppConfig(), readSharedConfig() ] );
-	const storedEditor = editorSchema.safeParse( config.preferredEditor );
+	const {
+		autoStartSiteOnChat,
+		confirmDeleteAnnotations,
+		showRecentChats,
+		autoCollapseSites,
+		newSiteBehavior,
+	} = INTERFACE_PREFERENCE_DEFAULTS;
 
 	return {
-		// Unset falls back to the first installed editor.
-		editor: storedEditor.success ? storedEditor.data : getFirstInstalledEditor( installedApps ),
-		terminal: terminalWithDefault.parse( config.preferredTerminal ),
+		editor: optionalEditor.parse( config.preferredEditor ?? null ),
+		terminal: optionalTerminal.parse( config.preferredTerminal ?? null ),
 		colorScheme: colorSchemeWithDefault.parse( config.colorScheme ),
 		quitSitesBehavior: optionalQuitSitesBehavior.parse( config.quitSitesBehavior ),
 		locale: shared.locale,
@@ -137,10 +162,21 @@ export async function readUserPreferences( {
 		agenticFeaturesEnabled: config.agenticFeaturesEnabled !== false,
 		sidebarPins: sidebarPinsSchema.catch( [] ).parse( config.sidebarPins ),
 		sidebarChatOrder: sidebarChatOrderSchema.catch( {} ).parse( config.sidebarChatOrder ?? {} ),
-		showRecentChats: config.showRecentChats !== false,
-		autoCollapseSites: config.autoCollapseSites !== false,
-		autoStartSiteOnChat: config.autoStartSiteOnChat === true,
-		confirmDeleteAnnotations: config.confirmDeleteAnnotations !== false,
+		showRecentChats: z.boolean().catch( showRecentChats ).parse( config.showRecentChats ),
+		autoCollapseSites: z.boolean().catch( autoCollapseSites ).parse( config.autoCollapseSites ),
+		autoStartSiteOnChat: z
+			.boolean()
+			.catch( autoStartSiteOnChat )
+			.parse( config.autoStartSiteOnChat ),
+		confirmDeleteAnnotations: z
+			.boolean()
+			.catch( confirmDeleteAnnotations )
+			.parse( config.confirmDeleteAnnotations ),
+		newSiteBehavior: z
+			.enum( NEW_SITE_BEHAVIORS )
+			.catch( newSiteBehavior )
+			.parse( config.newSiteBehavior ),
+		...getColorTint( config ),
 	};
 }
 

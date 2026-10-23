@@ -2,10 +2,11 @@ import { findAiSessionOwnerSite } from '@studio/common/ai/sessions/owner-site';
 import { sortSites } from '@studio/common/lib/sort-sites';
 import { useNavigate, useParams, useRouterState } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
-import { Icon } from '@wordpress/icons';
 import { clsx } from 'clsx';
+import { ChevronRightIcon } from 'lucide-react';
 import {
 	Fragment,
+	useCallback,
 	useEffect,
 	useEffectEvent,
 	useMemo,
@@ -22,10 +23,13 @@ import { ReorderableList, type ReorderableListProps } from '@/components/reorder
 import { getSessionTitle } from '@/components/session-view/session-chat-actions';
 import { SidebarButton } from '@/components/sidebar-button';
 import { SiteActionsMenuItems, useSiteActions } from '@/components/site-actions-menu';
+import { Badge } from '@/components/ui/badge';
 import { Button, IconButton } from '@/components/ui/button';
+import { CollapsiblePanel } from '@/components/ui/collapsible';
 import * as Menu from '@/components/ui/menu';
 import { Spinner } from '@/components/ui/spinner';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { VisuallyHidden } from '@/components/ui/visually-hidden';
 import { XdebugIcon } from '@/components/xdebug-icon';
 import {
 	useSessionsNeedingInput,
@@ -54,20 +58,19 @@ import { useSiteSyncActivity } from '@/data/sync-activity';
 import { useOpenAddSite } from '@/hooks/use-open-add-site';
 import { useOpenSite } from '@/hooks/use-open-site';
 import { useStoredFlag } from '@/hooks/use-stored-flag';
-import {
-	archiveIcon,
-	chatIcon,
-	chevronRightIcon,
-	collapseAllIcon,
-	globeIcon,
-	newChatIcon,
-	pinIcon,
-	plusIcon,
-	startSiteIcon,
-	stopSiteIcon,
-	unpinIcon,
-} from '@/lib/icons';
+import { ArchiveIcon } from '@/lib/icons/archive-icon';
+import { ChatIcon } from '@/lib/icons/chat-icon';
+import { CollapseAllIcon } from '@/lib/icons/collapse-all-icon';
+import { GlobeIcon } from '@/lib/icons/globe-icon';
+import { NeedsInputIcon } from '@/lib/icons/needs-input-icon';
+import { NewChatIcon } from '@/lib/icons/new-chat-icon';
+import { PinIcon } from '@/lib/icons/pin-icon';
+import { PlusIcon } from '@/lib/icons/plus-icon';
+import { StartSiteIcon } from '@/lib/icons/start-site-icon';
+import { StopSiteIcon } from '@/lib/icons/stop-site-icon';
+import { UnpinIcon } from '@/lib/icons/unpin-icon';
 import { resumeChat } from '@/lib/last-visited';
+import { useProvideCollapseAll } from './collapse-all';
 import {
 	BulkMenu,
 	SidebarSelection,
@@ -274,7 +277,6 @@ function SidebarReorderableList< T >(
 			{ ...props }
 			className={ styles.sites }
 			itemClassName={ styles.siteDragWrapper }
-			placeholderClassName={ styles.siteDropPlaceholder }
 			previewClassName={ styles.siteDragPreview }
 			excludeSelector="[data-reorder-exclude]"
 			disabled={ useIsSelecting() }
@@ -330,17 +332,20 @@ function ChatRow( {
 				} );
 			} }
 		>
-			{ nested ? null : <Icon icon={ chatIcon } className={ styles.rowIcon } /> }
-			<span className={ styles.chatTitle }>{ title }</span>
-			{ actions.working ? (
-				<AgentWorkingIndicator className={ styles.chatActivity } label={ __( 'Working…' ) } />
-			) : null }
+			{ nested ? null : <ChatIcon className={ styles.rowIcon } /> }
+			{ actions.working ? <VisuallyHidden>{ __( 'Working…' ) }</VisuallyHidden> : null }
+			<span className={ clsx( styles.chatTitle, actions.working && 'studio-shimmer' ) }>
+				{ title }
+			</span>
 			{ needsInput ? (
-				<span
-					className={ styles.chatQuestion }
+				<Badge
+					variant="accent"
+					size="icon"
 					role="status"
 					aria-label={ __( 'Studio needs an answer.' ) }
-				/>
+				>
+					<NeedsInputIcon />
+				</Badge>
 			) : null }
 			{ session.unread && ! active ? (
 				<span className={ styles.unreadDot } role="img" aria-label={ __( 'Unread' ) } />
@@ -355,6 +360,7 @@ function ChatRow( {
 					render={
 						<div
 							{ ...selectable }
+							{ ...actions.shortcuts }
 							className={ clsx(
 								styles.chatRow,
 								nested && styles.chatNested,
@@ -381,14 +387,14 @@ function ChatRow( {
 									<IconButton
 										variant="muted-ghost"
 										size="icon-sm"
-										icon={ actions.pinned ? unpinIcon : pinIcon }
+										icon={ actions.pinned ? <UnpinIcon /> : <PinIcon /> }
 										label={ actions.pinned ? __( 'Unpin chat' ) : __( 'Pin chat' ) }
 										onClick={ actions.togglePin }
 									/>
 									<IconButton
 										variant="muted-ghost"
 										size="icon-sm"
-										icon={ archiveIcon }
+										icon={ <ArchiveIcon /> }
 										label={ __( 'Archive chat' ) }
 										disabled={ actions.archiveBlocked }
 										onClick={ () => void actions.archive() }
@@ -401,7 +407,7 @@ function ChatRow( {
 				{ bulk ? (
 					<BulkMenu onClose={ () => setMenuOpen( false ) } />
 				) : (
-					<Menu.ContextPopup onKeyDown={ ( event ) => actions.handleShortcut( event.nativeEvent ) }>
+					<Menu.ContextPopup { ...actions.shortcuts }>
 						<ChatActionsMenuItems actions={ actions } />
 					</Menu.ContextPopup>
 				) }
@@ -436,11 +442,11 @@ function SidebarGroup( {
 					onClick={ () => setExpanded( ! expanded ) }
 				>
 					{ title }
-					<Icon icon={ chevronRightIcon } className={ styles.groupChevron } />
+					<ChevronRightIcon className={ styles.groupChevron } />
 				</button>
 				{ action }
 			</div>
-			{ expanded ? children : null }
+			<CollapsiblePanel open={ expanded }>{ children }</CollapsiblePanel>
 		</div>
 	);
 }
@@ -497,8 +503,10 @@ function SiteStatusButton( {
 					>
 						{ busy ? (
 							<Spinner aria-hidden="true" />
+						) : site.running ? (
+							<StopSiteIcon />
 						) : (
-							<Icon icon={ site.running ? stopSiteIcon : startSiteIcon } />
+							<StartSiteIcon />
 						) }
 					</Button>
 				}
@@ -536,7 +544,7 @@ function SiteRowMenu( {
 	return (
 		<>
 			<Menu.ContextMenuRoot open={ menuOpen } onOpenChange={ setMenuOpen }>
-				<Menu.ContextMenuTrigger render={ trigger } />
+				<Menu.ContextMenuTrigger render={ trigger } { ...actions.shortcuts } />
 				{ bulk ? (
 					<BulkMenu
 						onClose={ () => setMenuOpen( false ) }
@@ -547,7 +555,7 @@ function SiteRowMenu( {
 					<Menu.ContextPopup
 						onClick={ stopMenuEventPropagation }
 						onPointerDown={ stopMenuEventPropagation }
-						onKeyDown={ ( event ) => actions.handleShortcut( event.nativeEvent ) }
+						{ ...actions.shortcuts }
 					>
 						<SiteActionsMenuItems actions={ actions } />
 					</Menu.ContextPopup>
@@ -564,7 +572,6 @@ function SiteSection( {
 	isChatActive,
 	isContextActive,
 	chatEnabled,
-	chatPromptsSignIn,
 	activeSessionId,
 	expanded,
 	loadError,
@@ -579,7 +586,6 @@ function SiteSection( {
 	isChatActive: boolean;
 	isContextActive: boolean;
 	chatEnabled: boolean;
-	chatPromptsSignIn: boolean;
 	activeSessionId?: string;
 	// Lists the site's chats under its row.
 	expanded: boolean;
@@ -596,12 +602,9 @@ function SiteSection( {
 	const sectionRef = useRef< HTMLElement >( null );
 	const [ chatCount, setChatCount ] = useState( CHATS_INITIAL_COUNT );
 	const isActive = isChatActive || isContextActive;
-	const canOpenChatSurface = chatEnabled || chatPromptsSignIn;
-	// Offline users and users who switched Studio Code off use the site's own
-	// page as its home. Signed-out users still get the chat surface, where the value
-	// of logging in can be explained in context.
-	const isSelected = isChatActive || ( isContextActive && ! canOpenChatSurface );
-	const showContextOutline = isContextActive && canOpenChatSurface;
+	// Users who switched Studio Code off use the site's own page as its home.
+	const isSelected = isChatActive || ( isContextActive && ! chatEnabled );
+	const showContextOutline = isContextActive && chatEnabled;
 	const showChats = expanded && chatEnabled && ( chats.length > 0 || loadError );
 	const visibleChats = chats.slice( 0, chatCount );
 	// Keep the active site visible — e.g. when launch restores a site that
@@ -668,11 +671,7 @@ function SiteSection( {
 							role={ site.enableXdebug ? 'img' : undefined }
 							aria-label={ site.enableXdebug ? __( 'Xdebug enabled' ) : undefined }
 						>
-							{ site.enableXdebug ? (
-								<XdebugIcon className={ styles.siteXdebug } />
-							) : (
-								<Icon icon={ globeIcon } />
-							) }
+							{ site.enableXdebug ? <XdebugIcon className={ styles.siteXdebug } /> : <GlobeIcon /> }
 							{ status === 'running' ? <span className={ styles.runningDot } /> : null }
 						</span>
 						<div className={ styles.siteText }>
@@ -689,7 +688,7 @@ function SiteSection( {
 								<span
 									className={ clsx(
 										styles.siteName,
-										status === 'transitioning' && styles.siteNameStarting
+										status === 'transitioning' && 'studio-shimmer'
 									) }
 								>
 									{ site.name }
@@ -701,7 +700,7 @@ function SiteSection( {
 								<IconButton
 									variant="muted-ghost"
 									size="icon-sm"
-									icon={ newChatIcon }
+									icon={ <NewChatIcon /> }
 									label={ sprintf( __( 'New chat for %s' ), site.name ) }
 									className={ styles.rowAction }
 									onClick={ ( event ) => {
@@ -721,7 +720,7 @@ function SiteSection( {
 					</header>
 				}
 			/>
-			{ showChats ? (
+			<CollapsiblePanel open={ showChats }>
 				<div
 					role="group"
 					aria-label={ sprintf(
@@ -760,7 +759,7 @@ function SiteSection( {
 						</SidebarButton>
 					) : null }
 				</div>
-			) : null }
+			</CollapsiblePanel>
 		</section>
 	);
 }
@@ -796,7 +795,7 @@ export function SiteList( {
 	const { data: sites, isLoading: sitesLoading } = useSites();
 	const { data: sessions, isLoading: sessionsLoading, isError: sessionsError } = useSessions();
 	const needingInput = useSessionsNeedingInput();
-	const { chatEnabled, chatPromptsSignIn } = useAgenticFeatures();
+	const { chatEnabled } = useAgenticFeatures();
 	const params = useParams( { strict: false } ) as { sessionId?: string; siteId?: string };
 	const pathname = useRouterState( { select: ( state ) => state.location.pathname } );
 	const activeSessionId = params.sessionId;
@@ -848,6 +847,7 @@ export function SiteList( {
 			revealActive( activeSiteKey );
 		}
 	}, [ activeSiteKey ] );
+	const collapseAll = useCallback( () => setRevealed( new Set() ), [] );
 	const toggleSiteChats = ( siteId: string ) =>
 		setRevealed( ( current ) =>
 			siteId === activeSiteKey && current.has( siteId )
@@ -891,7 +891,6 @@ export function SiteList( {
 			isChatActive={ row.site.id === activeChatSiteKey }
 			isContextActive={ row.site.id === activeContextSiteKey }
 			chatEnabled={ chatEnabled }
-			chatPromptsSignIn={ chatPromptsSignIn }
 			activeSessionId={ activeSessionId }
 			expanded={ sections && revealed.has( row.site.id ) }
 			loadError={ sessionsError }
@@ -932,6 +931,12 @@ export function SiteList( {
 		);
 	}
 
+	const canCollapseAll =
+		!! sections &&
+		siteRows.filter( ( row ) => revealed.has( row.site.id ) && siteChats( row ).length > 0 )
+			.length > 1;
+	useProvideCollapseAll( canCollapseAll ? collapseAll : undefined );
+
 	if ( ! sections ) {
 		return <div className={ clsx( styles.root, className ) }>{ listContent }</div>;
 	}
@@ -945,9 +950,6 @@ export function SiteList( {
 	const recentChats = openChats
 		.filter( ( session ) => ! needingInput.includes( session.id ) && ! isChatPinned( session ) )
 		.slice( 0, RECENT_CHATS_LIMIT );
-	const canCollapseAll =
-		siteRows.filter( ( row ) => revealed.has( row.site.id ) && siteChats( row ).length > 0 )
-			.length > 1;
 	const renderChat = ( session: AiSessionSummary, siteName?: string ) => (
 		<ChatRow
 			key={ session.id }
@@ -981,7 +983,7 @@ export function SiteList( {
 							<IconButton
 								variant="muted-ghost"
 								size="icon-sm"
-								icon={ plusIcon }
+								icon={ <PlusIcon /> }
 								label={ __( 'Add pinned site' ) }
 								onClick={ () => openAddSite( 'create', { pin: true } ) }
 							/>
@@ -1012,15 +1014,15 @@ export function SiteList( {
 								<IconButton
 									variant="muted-ghost"
 									size="icon-sm"
-									icon={ collapseAllIcon }
+									icon={ <CollapseAllIcon /> }
 									label={ __( 'Collapse all' ) }
-									onClick={ () => setRevealed( new Set() ) }
+									onClick={ collapseAll }
 								/>
 							) : null }
 							<IconButton
 								variant="muted-ghost"
 								size="icon-sm"
-								icon={ plusIcon }
+								icon={ <PlusIcon /> }
 								label={ __( 'Add site' ) }
 								onClick={ () => openAddSite() }
 							/>

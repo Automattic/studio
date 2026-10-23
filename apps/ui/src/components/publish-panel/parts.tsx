@@ -1,8 +1,8 @@
 import { canCancelSyncActivity } from '@studio/common/lib/sync/cancel';
 import { useIsMutating } from '@tanstack/react-query';
 import { __ } from '@wordpress/i18n';
-import { chevronDownSmall, chevronLeft, Icon } from '@wordpress/icons';
 import { clsx } from 'clsx';
+import { ChevronLeftIcon } from 'lucide-react';
 import { useEffect, useRef, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import * as Menu from '@/components/ui/menu';
@@ -14,8 +14,9 @@ import {
 	PULL_FROM_LIVE_MUTATION_KEY,
 	PUSH_TO_LIVE_MUTATION_KEY,
 } from '@/data/queries/use-sync-site';
+import { ChevronDownIcon } from '@/lib/icons/chevron-down-icon';
+import { PublishTransferIcon } from '@/lib/icons/publish-transfer-icon';
 import styles from './style.module.css';
-import { TransferIcon } from './transfer-icon';
 import type { SyncActivity } from '@/data/sync-activity';
 
 export function PanelHeader( { title, onBack }: { title: string; onBack?: () => void } ) {
@@ -42,7 +43,7 @@ export function PanelHeader( { title, onBack }: { title: string; onBack?: () => 
 				aria-label={ __( 'Back to Publish' ) }
 				onClick={ onBack }
 			>
-				<Icon icon={ chevronLeft } />
+				<ChevronLeftIcon />
 			</Button>
 			<Popover.Title className={ styles.heading }>{ title }</Popover.Title>
 		</div>
@@ -120,7 +121,7 @@ export function MenuSelect< Value extends string | number >( {
 				<span className={ styles.selectValue }>
 					{ display ?? items.find( ( item ) => item.value === value )?.label }
 				</span>
-				<Icon icon={ chevronDownSmall } size={ 16 } />
+				<ChevronDownIcon />
 			</Menu.Trigger>
 			<Menu.Popup
 				side="bottom"
@@ -172,7 +173,10 @@ export function TransferProgress( {
 		<div className={ styles.progress } role="status" aria-live="polite">
 			{ scopeLabel && startedHere ? <p className={ styles.text }>{ scopeLabel }</p> : null }
 			<div className={ styles.progressTitle }>
-				<TransferIcon direction={ pushing ? 'push' : 'pull' } />
+				<PublishTransferIcon
+					direction={ pushing ? 'push' : 'pull' }
+					className={ styles.transferIcon }
+				/>
 				<span className={ styles.heading }>
 					{ activity.message || ( pushing ? __( 'Publishing…' ) : __( 'Pulling changes…' ) ) }
 				</span>

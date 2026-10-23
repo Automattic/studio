@@ -138,6 +138,7 @@
 		color: var( --muted-foreground );
 		font-size: var( --text-xxs );
 		font-weight: var( --font-weight-normal );
+		line-height: 1.1rem;
 		text-align: start;
 	}
 

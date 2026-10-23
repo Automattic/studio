@@ -31,7 +31,7 @@
 		scale: 0.97;
 	}
 
-	.motion[data-instant] {
+	.motion[data-instant]:not( [data-slot='popover-content'][data-instant='dismiss'] ) {
 		transition: none;
 	}
 

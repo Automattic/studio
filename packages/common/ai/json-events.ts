@@ -23,6 +23,7 @@ export type JsonEvent =
 				multiSelect?: boolean;
 			} >;
 	  }
+	| { type: 'preview.reload'; timestamp: string }
 	| { type: 'turn.started'; timestamp: string }
 	| {
 			type: 'turn.completed';

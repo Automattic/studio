@@ -28,17 +28,14 @@
 .advancedCollapse {
 	display: grid;
 	grid-template-rows: 0fr;
-	opacity: 0;
 	margin-top: -24px;
 	transition:
-		grid-template-rows 0.25s ease,
-		opacity 0.2s ease,
-		margin-top 0.25s ease;
+		grid-template-rows var(--motion-duration-layout) var(--motion-ease-layout),
+		margin-top var(--motion-duration-layout) var(--motion-ease-layout);
 }
 
 .advancedCollapseOpen {
 	grid-template-rows: 1fr;
-	opacity: 1;
 	margin-top: 0;
 }
 
@@ -102,4 +99,9 @@
 .panelFooter {
 	padding-top: 24px;
 	border-top: 1px solid var(--border);
+}
+
+.source {
+	margin: 0;
+	font-size: var(--text-xs);
 }

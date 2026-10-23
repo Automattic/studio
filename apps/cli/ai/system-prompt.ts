@@ -24,6 +24,9 @@ export interface BuildSystemPromptOptions {
 	// The site this turn works on. The prompt is rebuilt every turn, so this
 	// always reflects the current site, also after compaction.
 	activeSite?: SiteInfo | null;
+	// Facts about the active site read from its own data, one line each (for
+	// example the WordPress version it runs).
+	activeSiteFacts?: string[];
 }
 
 export function buildSystemPrompt( options: BuildSystemPromptOptions = {} ): string {
@@ -44,20 +47,21 @@ ${ options.external ? '' : `${ WORKING_CADENCE }\n\n` }${ renderToolSections(
 		options.tools ?? []
 	) }
 
-${ SKILL_ROUTING }${ buildActiveSiteSection( options.activeSite ) }${ buildUserInstructionsSection(
-		options.userInstructions
-	) }
+${ SKILL_ROUTING }${ buildActiveSiteSection(
+		options.activeSite,
+		options.activeSiteFacts
+	) }${ buildUserInstructionsSection( options.userInstructions ) }
 `;
 }
 
-function buildActiveSiteSection( site?: SiteInfo | null ): string {
+function buildActiveSiteSection( site?: SiteInfo | null, facts: string[] = [] ): string {
 	if ( ! site ) {
 		return '';
 	}
 	// A WordPress.com site is live and changes only through wpcom_request, so
 	// its runbook comes with it rather than waiting for the agent to load it.
 	const runbook = site.remote ? findSkill( 'edit-manage-remote-site' )?.body : undefined;
-	return `\n\n## Active site\n\n${ formatActiveSite( site ) }${
+	return `\n\n## Active site\n\n${ [ formatActiveSite( site ), ...facts ].join( '\n' ) }${
 		runbook ? `\n\n${ runbook }` : ''
 	}`;
 }

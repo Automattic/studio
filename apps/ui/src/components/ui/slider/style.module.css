@@ -1,0 +1,65 @@
+@layer ui {
+	.slider {
+		width: 100%;
+	}
+
+	.control {
+		position: relative;
+		display: flex;
+		width: 100%;
+		align-items: center;
+		touch-action: none;
+		user-select: none;
+	}
+
+	.control[data-disabled] {
+		opacity: 0.5;
+	}
+
+	.track {
+		position: relative;
+		flex-grow: 1;
+		height: 6px;
+		overflow: hidden;
+		border-radius: 9999px;
+		background-color: var( --border );
+	}
+
+	.indicator {
+		height: 100%;
+		background-color: var( --accent-text );
+	}
+
+	.thumb {
+		position: relative;
+		display: block;
+		flex-shrink: 0;
+		box-sizing: border-box;
+		width: 16px;
+		height: 16px;
+		border: 1px solid var( --accent-text );
+		border-radius: 9999px;
+		background-color: var( --accent-text );
+		outline: none;
+		transition: box-shadow var( --motion-duration-feedback );
+	}
+
+	.thumb::after {
+		position: absolute;
+		inset: -8px;
+		content: '';
+	}
+
+	.thumb:hover,
+	.thumb:active {
+		box-shadow: 0 0 0 3px color-mix( in oklab, var( --ring ) 50%, transparent );
+	}
+
+	.thumb:has( :focus-visible ) {
+		box-shadow: 0 0 0 3px var( --ring );
+	}
+
+	.thumb[data-disabled] {
+		pointer-events: none;
+	}
+}

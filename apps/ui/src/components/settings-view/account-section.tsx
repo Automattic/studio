@@ -4,40 +4,52 @@ import { useAuthUser, useLogin, useLogout } from '@/data/queries/use-auth-user';
 import { useOffline } from '@/hooks/use-offline';
 import { SettingsGroup, SettingsRow } from './rows';
 
-export function AccountSection() {
-	const { data: user, isLoading } = useAuthUser();
-	const login = useLogin( { source: 'settings' } );
-	const logout = useLogout();
+// Shown while signed out: connecting goes through WordPress.com sign-up.
+export function ConnectionCard() {
+	const { data: user, isSuccess } = useAuthUser();
+	const signup = useLogin( { signup: true, source: 'settings' } );
 	const isOffline = useOffline();
-
+	if ( ! isSuccess || user ) {
+		return null;
+	}
 	return (
 		<SettingsGroup>
 			<SettingsRow
-				title={ user ? user.displayName : __( 'WordPress.com account' ) }
-				description={
-					user
-						? user.email
-						: __( 'Log in to use AI features and synchronize with live and preview sites.' )
-				}
-			>
-				{ user ? (
-					<Button
-						loading={ logout.isPending }
-						loadingAnnouncement={ __( 'Logging out' ) }
-						onClick={ () => logout.mutate() }
-					>
-						{ __( 'Log out' ) }
-					</Button>
-				) : (
-					<Button
-						disabled={ isLoading || isOffline }
-						loading={ login.isPending }
-						loadingAnnouncement={ __( 'Logging in' ) }
-						onClick={ () => login.mutate() }
-					>
-						{ __( 'Log in' ) }
-					</Button>
+				title={ __( 'Do more with WordPress.com' ) }
+				description={ __(
+					'Build with Studio, share local previews publicly, launch on WordPress.com, and keep sites in sync.'
 				) }
+				error={ signup.error?.message }
+			>
+				<Button
+					disabled={ isOffline }
+					loading={ signup.isPending }
+					loadingAnnouncement={ __( 'Connecting' ) }
+					onClick={ () => signup.mutate() }
+				>
+					{ __( 'Connect' ) }
+				</Button>
+			</SettingsRow>
+		</SettingsGroup>
+	);
+}
+
+export function AccountSection() {
+	const { data: user } = useAuthUser();
+	const logout = useLogout();
+	if ( ! user ) {
+		return <ConnectionCard />;
+	}
+	return (
+		<SettingsGroup>
+			<SettingsRow title={ user.displayName } description={ user.email }>
+				<Button
+					loading={ logout.isPending }
+					loadingAnnouncement={ __( 'Logging out' ) }
+					onClick={ () => logout.mutate() }
+				>
+					{ __( 'Log out' ) }
+				</Button>
 			</SettingsRow>
 		</SettingsGroup>
 	);

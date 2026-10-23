@@ -1,195 +1,122 @@
-/* Toasts: a neutral card stacked at the window's bottom right, below
-   dialogs (700) and above the app chrome. */
+/* Toasts: a deck at the window's bottom right, below dialogs (700) and above
+   the app chrome. Collapsed, the toasts behind the front one shrink and peek
+   out above it; hovering or focusing the deck spreads it into a list. */
 .viewport {
 	position: fixed;
 	inset-block-end: 12px;
 	inset-inline-end: 12px;
 	z-index: 600;
-	display: flex;
-	flex-direction: column;
 	width: min(320px, calc(100vw - 24px));
 	pointer-events: none;
 	-webkit-app-region: no-drag;
 }
 
-.cell {
-	display: grid;
-	grid-template-rows: 1fr;
-	margin-top: 8px;
-	transition:
-		grid-template-rows 180ms ease,
-		margin-top 180ms ease;
-}
-
-@starting-style {
-	.cell {
-		grid-template-rows: 0fr;
-		margin-top: 0;
-	}
-}
-
-.cell[data-leaving] {
-	grid-template-rows: 0fr;
-	margin-top: 0;
-}
-
 .toast {
-	min-height: 0;
-	/* Clipped so the row can collapse it, with room inside the clip for the
-	   card's ring, shadow and close button. The padding, not
-	   overflow-clip-margin, makes that room: Safari ignores the latter. */
-	margin: -12px;
-	padding: 12px;
-	overflow: clip;
-	pointer-events: none;
-	animation: toast-enter 160ms ease-out;
-	transition: opacity 160ms ease, transform 160ms ease;
-}
+	--gap: 8px;
+	--peek: 12px;
+	--height: var(--toast-frontmost-height, var(--toast-height));
+	--scale: max(0, 1 - var(--toast-index) * 0.1);
+	--shrink: calc(1 - var(--scale));
+	--offset-y: calc(
+		var(--toast-offset-y) * -1 - var(--toast-index) * var(--gap) + var(--toast-swipe-movement-y)
+	);
 
-.card {
-	position: relative;
-	pointer-events: auto;
-	padding: 16px;
-	border-radius: 12px;
-	background-color: var(--chrome);
-	color: var(--foreground);
+	position: absolute;
+	inset-block-end: 0;
+	inset-inline-end: 0;
+	z-index: calc(1000 - var(--toast-index));
+	width: 100%;
+	height: var(--height);
+	border-radius: var(--radius-xl);
+	background-color: var(--secondary);
 	box-shadow:
 		0 0 0 1px var(--border),
 		0 1px 3px 0 rgb(0 0 0 / 10%),
 		0 1px 2px -1px rgb(0 0 0 / 10%);
-	font-size: var(--text-sm);
-	line-height: 20px;
-	/* Toasts rewrite themselves in place — import progress ticks through a
-	   percentage — and this font's digits are not equal width, so a counter
-	   would shift the text by a few pixels on nearly every update. */
-	font-variant-numeric: tabular-nums;
+	pointer-events: auto;
+	transform-origin: bottom;
+	transform: translateX(var(--toast-swipe-movement-x))
+		translateY(
+			calc(
+				var(--toast-swipe-movement-y) - var(--toast-index) * var(--peek) - var(--shrink) *
+					var(--height)
+			)
+		)
+		scale(var(--scale));
+	transition:
+		transform var(--motion-duration-layout) var(--motion-ease-enter),
+		opacity var(--motion-duration-layout) var(--motion-ease-enter);
 }
 
-.cell[data-leaving] .toast {
-	opacity: 0;
-	transform: translateY(4px);
-}
-
-.cell[data-leaving] .card {
-	pointer-events: none;
-}
-
-.row {
-	display: flex;
-	align-items: center;
-	gap: 8px;
-}
-
-.status {
-	display: flex;
-	flex: none;
-	align-items: center;
-	justify-content: center;
-	width: 14px;
-	height: 14px;
-	border-radius: 50%;
-	color: var(--chrome);
-}
-
-.status svg {
-	width: 10px;
-	height: 10px;
-}
-
-.status[data-intent='success'] {
-	background-color: var(--success);
-}
-
-.status[data-intent='error'] {
-	background-color: var(--destructive);
-}
-
-.status[data-intent='info'] {
-	color: var(--muted-foreground);
-}
-
-.status[data-intent='info'] svg {
-	width: 18px;
-	height: 18px;
-	fill: currentColor;
-}
-
-.title {
-	flex: 1;
-	min-width: 0;
-	margin: 0;
-	font-weight: var(--font-weight-medium);
-	text-wrap: pretty;
-}
-
-/* Error text can run to paragraphs; the toast shows the first few lines and
-   the notifications panel (notice-history) keeps the full message. */
-.description {
-	display: -webkit-box;
-	margin: 2px 0 0;
-	padding-inline-start: 22px;
-	overflow: hidden;
-	color: var(--muted-foreground);
-	font-size: var(--text-xxs);
-	line-height: 18px;
-	-webkit-box-orient: vertical;
-	-webkit-line-clamp: 3;
-}
-
-.details {
-	display: flex;
-	gap: 6px;
-	margin-top: 8px;
-	padding-inline-start: 22px;
-}
-
-.close {
-	--button-background: var(--chrome);
-
+/* Bridges the gap so the pointer can travel between spread toasts. */
+.toast::after {
 	position: absolute;
-	inset-block-start: -6px;
-	inset-inline-start: -6px;
-	opacity: 0;
-	transition: opacity 120ms ease;
+	inset-block-start: 100%;
+	inset-inline-start: 0;
+	width: 100%;
+	height: calc(var(--gap) + 1px);
+	content: '';
 }
 
-.card:hover .close,
-.card:focus-within .close {
+.toast[data-swiping] {
+	transition: none;
+}
+
+.toast[data-expanded] {
+	height: var(--toast-height);
+	transform: translateX(var(--toast-swipe-movement-x)) translateY(var(--offset-y));
+}
+
+@media (prefers-reduced-motion: no-preference) {
+	.toast[data-starting-style],
+	.toast[data-ending-style]:not([data-swipe-direction]) {
+		transform: translateY(150%);
+	}
+
+	.toast[data-ending-style][data-swipe-direction='down'] {
+		transform: translateY(calc(var(--toast-swipe-movement-y) + 150%));
+	}
+
+	.toast[data-ending-style][data-swipe-direction='right'] {
+		transform: translateX(calc(var(--toast-swipe-movement-x) + 150%)) translateY(var(--offset-y));
+	}
+}
+
+/* Clipped to the front toast's height while behind it, with room inside the
+   clip for the dismiss button that overhangs the corner. */
+.content {
+	height: calc(100% + 24px);
+	margin: -12px;
+	padding: 12px;
+	overflow: clip;
+	transition: opacity var(--motion-duration-feedback) var(--motion-ease-enter);
+}
+
+.content[data-behind] {
+	opacity: 0;
+}
+
+.content[data-expanded] {
 	opacity: 1;
 }
 
-.queuePeek {
-	height: 8px;
-	margin-top: 3px;
-	margin-inline: 8px;
-	background-color: var(--chrome);
-	border-radius: 0 0 6px 6px;
-	box-shadow: 0 0 0 1px var(--border);
-	opacity: 0.8;
-}
-
-.queuePeekDeeper {
-	margin-inline: 16px;
-	opacity: 0.5;
-}
-
-@keyframes toast-enter {
-	from {
-		opacity: 0;
-		transform: translateY(6px);
-	}
-
-	to {
-		opacity: 1;
-		transform: translateY(0);
-	}
+.toast .card {
+	background: none;
+	box-shadow: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
+	.toast {
+		transition-property: opacity;
+	}
+
+	.toast[data-starting-style],
+	.toast[data-ending-style] {
+		opacity: 0;
+	}
+
 	.toast,
-	.cell,
-	.close {
-		animation: none;
-		transition: none;
+	.content {
+		transition-duration: var(--motion-duration-feedback) !important;
 	}
 }

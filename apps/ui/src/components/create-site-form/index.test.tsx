@@ -377,7 +377,85 @@ describe( 'CreateSiteForm', () => {
 
 		await waitFor( () => expect( screen.getByTestId( 'create-site-submit' ) ).toBeEnabled() );
 		fireEvent.click( screen.getByTestId( 'create-site-submit' ) );
-		expect( onSubmit ).toHaveBeenCalledWith( expect.objectContaining( { path: '/sites/manual' } ) );
+		await waitFor( () =>
+			expect( onSubmit ).toHaveBeenCalledWith(
+				expect.objectContaining( { path: '/sites/manual' } )
+			)
+		);
+	} );
+
+	it( 'checks a typed folder, and adds an existing WordPress site as it is', async () => {
+		const selectPath = vi.fn( async ( path: string ) => ( {
+			path,
+			isEmpty: false,
+			isWordPress: path === '/sites/wordpress',
+			error:
+				path === '/sites/wordpress'
+					? undefined
+					: 'Choose an empty folder or an existing WordPress site.',
+		} ) );
+		usePathValidatorMock.mockReturnValue( {
+			generateProposedPath: vi.fn( async () => ( {
+				path: '/sites/typed',
+				isEmpty: true,
+				isWordPress: false,
+			} ) ),
+			selectPath,
+		} );
+		const onExistingChange = vi.fn();
+		render(
+			<CreateSiteForm
+				initialValues={ { name: 'Typed' } }
+				existingDomainNames={ [] }
+				onSubmit={ vi.fn() }
+				onCancel={ vi.fn() }
+				onExistingChange={ onExistingChange }
+			/>
+		);
+		openAdvancedSettings();
+		fireEvent.change( await screen.findByLabelText( 'Local path' ), {
+			target: { value: '/sites/full' },
+		} );
+		await waitFor( () =>
+			expect( screen.getByLabelText( 'Local path' ) ).toHaveAccessibleDescription(
+				'Choose an empty folder or an existing WordPress site.'
+			)
+		);
+		expect( selectPath ).toHaveBeenCalledOnce();
+
+		fireEvent.change( screen.getByLabelText( 'Local path' ), {
+			target: { value: '/sites/wordpress' },
+		} );
+		expect( await screen.findByText( 'Existing local WordPress site' ) ).toBeVisible();
+		expect( screen.queryByLabelText( /Admin username/ ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'switch', { name: 'Use custom domain' } ) ).not.toBeInTheDocument();
+		expect( screen.queryByText( 'WordPress version' ) ).not.toBeInTheDocument();
+
+		expect( onExistingChange ).toHaveBeenLastCalledWith( true );
+	} );
+
+	it( 'opens Advanced settings on its own for a folder it cannot use', async () => {
+		usePathValidatorMock.mockReturnValue( {
+			generateProposedPath: vi.fn( async () => ( {
+				path: '/sites/full',
+				isEmpty: false,
+				isWordPress: false,
+				error: 'Choose an empty folder or an existing WordPress site.',
+			} ) ),
+			selectPath: vi.fn(),
+		} );
+		renderForm( { name: 'Full' } );
+
+		expect( screen.getByRole( 'textbox', { name: /Site name/ } ) ).toHaveFocus();
+		await waitFor( () =>
+			expect( screen.getByRole( 'button', { name: /Advanced settings/ } ) ).toHaveAttribute(
+				'aria-expanded',
+				'true'
+			)
+		);
+		expect( screen.getByLabelText( 'Local path' ) ).toHaveAccessibleDescription(
+			'Choose an empty folder or an existing WordPress site.'
+		);
 	} );
 
 	it( 'offers file access choices without a PHP runtime choice', async () => {

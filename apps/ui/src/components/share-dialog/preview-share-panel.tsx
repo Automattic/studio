@@ -1,6 +1,6 @@
 import { DAY_MS, DEMO_SITE_EXPIRATION_DAYS } from '@studio/common/constants';
 import { __, sprintf } from '@wordpress/i18n';
-import { copy, Icon, moreHorizontal, rotateRight } from '@wordpress/icons';
+import { CopyIcon, EllipsisIcon, RefreshCwIcon } from 'lucide-react';
 import { useId, useState, type ReactNode } from 'react';
 import { MenuSelect } from '@/components/publish-panel/parts';
 import { Button, IconButton } from '@/components/ui/button';
@@ -148,7 +148,7 @@ export function PreviewSharePanel( {
 		await connector.copyText( url );
 		markPreviewSeen( site.id );
 		setCopied( url );
-		setTimeout( () => setCopied( null ), 1500 );
+		setTimeout( () => setCopied( null ), 2000 );
 	};
 
 	if ( ! snapshot ) {
@@ -201,7 +201,7 @@ export function PreviewSharePanel( {
 						{ updating ? (
 							<Spinner data-icon="inline-start" aria-hidden="true" />
 						) : (
-							<Icon icon={ rotateRight } data-icon="inline-start" />
+							<RefreshCwIcon data-icon="inline-start" />
 						) }
 						{ updating ? __( 'Updating' ) : failed ? __( 'Try again' ) : __( 'Update preview' ) }
 					</Button>
@@ -234,7 +234,7 @@ export function PreviewSharePanel( {
 				</div>
 			) : (
 				<Button disabled={ remove.isPending } onClick={ () => void copyLink() }>
-					<Icon icon={ copy } data-icon="inline-start" />
+					<CopyIcon data-icon="inline-start" />
 					{ copied === url ? __( 'Copied' ) : __( 'Copy link' ) }
 				</Button>
 			) }
@@ -252,7 +252,7 @@ export function PreviewSharePanel( {
 							render={
 								<IconButton
 									size="icon-sm"
-									icon={ moreHorizontal }
+									icon={ <EllipsisIcon /> }
 									label={ __( 'Preview actions' ) }
 									disabled={ locked }
 								/>

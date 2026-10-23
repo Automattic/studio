@@ -1,11 +1,13 @@
 .popup {
 	flex-direction: row;
+	gap: 0;
 }
 
 .sidebar {
 	display: flex;
 	flex: none;
 	flex-direction: column;
+	box-sizing: border-box;
 	width: 216px;
 	border-inline-end: 1px solid var(--border);
 }
@@ -53,10 +55,6 @@
 	margin: 12px 12px 0;
 }
 
-.searchIcon {
-	fill: currentColor;
-}
-
 .nav {
 	display: flex;
 	flex-direction: column;
@@ -87,11 +85,6 @@
 
 .navIcon {
 	flex: none;
-}
-
-/* WordPress icons; ours bring their own fills. */
-.navIcon:not([fill]) {
-	fill: currentColor;
 }
 
 .navLabel {

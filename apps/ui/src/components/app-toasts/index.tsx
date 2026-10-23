@@ -1,119 +1,101 @@
+import { Toast } from '@base-ui/react/toast';
 import { __ } from '@wordpress/i18n';
-import { closeSmall, Icon, info } from '@wordpress/icons';
-import { clsx } from 'clsx';
-import { useEffect } from 'react';
-import { CopyNoticeButton, openNoticeHistory } from '@/components/notice-history';
-import { Button, IconButton } from '@/components/ui/button';
-import { Spinner } from '@/components/ui/spinner';
+import { useEffect, useRef, useState, type FocusEvent } from 'react';
+import { NoticeCard } from '@/components/notice-card';
+import { useNoticeHistoryOpen } from '@/components/notice-history';
 import {
 	dismissToast,
+	getVisibleToasts,
 	notifyRendererMounted,
 	notifyRendererUnmounted,
 	pauseToastExpiry,
 	resumeToastExpiry,
-	runToastAction,
-	useQueuedToasts,
 	useVisibleToasts,
-	type ToastIntent,
 	type ToastMessage,
 } from '@/data/app-messages';
 import styles from './style.module.css';
 
-// Error text is clamped in the toast; these get Copy (the full text) and More
-// (the recent-notifications dialog, where it runs in full).
-function hasErrorDetails( item: ToastMessage ) {
-	return item.intent === 'error' && Boolean( item.description );
-}
+const pauseAll = () => getVisibleToasts().forEach( ( item ) => pauseToastExpiry( item.id ) );
+const resumeAll = () => getVisibleToasts().forEach( ( item ) => resumeToastExpiry( item.id ) );
 
-function StatusIcon( { intent }: { intent: ToastIntent } ) {
+function ToastDeck() {
+	const { toasts } = Toast.useToastManager();
 	return (
-		<span className={ styles.status } data-intent={ intent } aria-hidden="true">
-			{ intent === 'info' ? (
-				<Icon icon={ info } size={ 18 } />
-			) : (
-				<svg viewBox="0 0 24 24" fill="none">
-					<path
-						d={ intent === 'success' ? 'M20 6 9 17l-5-5' : 'M18 6 6 18M6 6l12 12' }
-						stroke="currentColor"
-						strokeWidth="3"
-						strokeLinecap="round"
-						strokeLinejoin="round"
-					/>
-				</svg>
-			) }
-		</span>
+		<Toast.Viewport
+			className={ styles.viewport }
+			aria-label={ __( 'Notifications' ) }
+			onMouseEnter={ pauseAll }
+			onMouseLeave={ resumeAll }
+			onFocus={ pauseAll }
+			onBlur={ ( event: FocusEvent< HTMLDivElement > ) => {
+				if ( ! event.currentTarget.contains( event.relatedTarget ) ) {
+					resumeAll();
+				}
+			} }
+		>
+			{ toasts.map( ( item ) => {
+				const notice = item.data as ToastMessage;
+				return (
+					<Toast.Root
+						key={ item.id }
+						toast={ item }
+						className={ styles.toast }
+						aria-label={ notice.title }
+					>
+						<Toast.Content className={ styles.content }>
+							<NoticeCard
+								className={ styles.card }
+								notice={ notice }
+								onDismiss={ () => dismissToast( notice.id ) }
+							/>
+						</Toast.Content>
+					</Toast.Root>
+				);
+			} ) }
+		</Toast.Viewport>
 	);
 }
 
 export function AppToasts() {
 	const toasts = useVisibleToasts();
-	const queued = useQueuedToasts();
+	const historyOpen = useNoticeHistoryOpen();
+	const [ manager ] = useState( Toast.createToastManager );
+	const synced = useRef< readonly ToastMessage[] >( [] );
 
 	useEffect( () => {
 		notifyRendererMounted();
 		return () => notifyRendererUnmounted();
 	}, [] );
 
+	useEffect( () => {
+		for ( const item of toasts ) {
+			if ( synced.current.includes( item ) ) {
+				continue;
+			}
+			if ( item.leaving ) {
+				manager.close( item.id );
+			} else {
+				manager.add( {
+					id: item.id,
+					data: item,
+					timeout: 0,
+					onClose: () => dismissToast( item.id ),
+				} );
+			}
+		}
+		synced.current = toasts;
+	}, [ toasts, manager ] );
+
+	// The history lists them, so they hide and run out their time meanwhile.
+	useEffect( () => {
+		if ( historyOpen ) {
+			resumeAll();
+		}
+	}, [ historyOpen ] );
+
 	return (
-		<div className={ styles.viewport } aria-live="polite" aria-relevant="additions">
-			{ toasts.map( ( item ) => (
-				<div
-					key={ item.id }
-					className={ styles.cell }
-					data-leaving={ item.leaving ? '' : undefined }
-				>
-					<div
-						className={ styles.toast }
-						onMouseEnter={ () => pauseToastExpiry( item.id ) }
-						onMouseLeave={ () => resumeToastExpiry( item.id ) }
-					>
-						<div className={ styles.card }>
-							<div className={ styles.row }>
-								<StatusIcon intent={ item.intent } />
-								<p className={ styles.title }>{ item.title }</p>
-								{ item.action ? (
-									<Button
-										size="sm"
-										disabled={ item.actionPending }
-										aria-busy={ item.actionPending || undefined }
-										onClick={ () => void runToastAction( item.id ) }
-									>
-										{ item.actionPending ? <Spinner aria-hidden="true" /> : null }
-										{ item.action.label }
-									</Button>
-								) : null }
-							</div>
-							{ item.description ? (
-								<p className={ styles.description }>{ item.description }</p>
-							) : null }
-							{ hasErrorDetails( item ) ? (
-								<div className={ styles.details }>
-									<CopyNoticeButton notice={ item } />
-									<Button variant="outline" size="2xs" onClick={ openNoticeHistory }>
-										{ __( 'More' ) }
-									</Button>
-								</div>
-							) : null }
-							<IconButton
-								className={ styles.close }
-								icon={ closeSmall }
-								label={ __( 'Dismiss' ) }
-								variant="outline"
-								size="icon-2xs"
-								shape="round"
-								onClick={ () => dismissToast( item.id ) }
-							/>
-						</div>
-					</div>
-				</div>
-			) ) }
-			{ queued.slice( 0, 2 ).map( ( item, index ) => (
-				<div
-					key={ item.id }
-					className={ clsx( styles.queuePeek, index === 1 && styles.queuePeekDeeper ) }
-					aria-hidden="true"
-				/>
-			) ) }
-		</div>
+		<Toast.Provider toastManager={ manager } timeout={ 0 } limit={ 3 }>
+			{ historyOpen ? null : <ToastDeck /> }
+		</Toast.Provider>
 	);
 }

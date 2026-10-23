@@ -1,28 +1,39 @@
-import { Icon, wordpress } from '@wordpress/icons';
 import { useEffect, useRef } from 'react';
-import { createPreviewDots, getPreviewDotFrame, type PreviewDot } from './frame';
+import { WordPressIcon } from '@/lib/icons/wordpress-icon';
+import {
+	createPreviewDots,
+	getPreviewDotFrame,
+	getSelectionWave,
+	SELECTION_WAVE_DURATION,
+	type PreviewDot,
+} from './frame';
 import styles from './style.module.css';
 
 /**
  * A grid of dots filling its positioned parent. While `active` the field
  * ripples and swirls, easing in and out; with `showLogo` the WordPress logo
- * sits in the middle. Static under reduced motion.
+ * sits in the middle. A `selectionTime` sends a wave down a still field.
+ * Static under reduced motion.
  */
 export function PreviewParticles( {
 	active = false,
 	showLogo = false,
+	selectionTime,
 }: {
 	active?: boolean;
 	showLogo?: boolean;
+	selectionTime?: number;
 } ) {
 	const canvasRef = useRef< HTMLCanvasElement >( null );
 	const activeRef = useRef( active );
+	const selectionTimeRef = useRef( selectionTime );
 	const syncRef = useRef< () => void >( undefined );
 
 	useEffect( () => {
 		activeRef.current = active;
+		selectionTimeRef.current = selectionTime;
 		syncRef.current?.();
-	}, [ active ] );
+	}, [ active, selectionTime ] );
 
 	useEffect( () => {
 		const canvas = canvasRef.current;
@@ -39,6 +50,11 @@ export function PreviewParticles( {
 		let strength = activeRef.current ? 1 : 0;
 		let frame = 0;
 		let lastDraw = 0;
+		const waving = ( time: number ) =>
+			! motion.matches &&
+			! activeRef.current &&
+			selectionTimeRef.current !== undefined &&
+			time - selectionTimeRef.current < SELECTION_WAVE_DURATION;
 
 		const draw = ( time: number ) => {
 			context.clearRect( 0, 0, width, height );
@@ -52,7 +68,14 @@ export function PreviewParticles( {
 					centerY: height / 2,
 					clearCenter: showLogo,
 				} );
-				context.globalAlpha = point.opacity;
+				const highlight = waving( time )
+					? getSelectionWave( dot, {
+							elapsed: time - selectionTimeRef.current!,
+							height,
+							centerX: width / 2,
+					  } )
+					: 0;
+				context.globalAlpha = Math.min( 1, point.opacity * ( 1 + highlight * 3 ) );
 				context.beginPath();
 				context.arc( point.x, point.y, 1, 0, Math.PI * 2 );
 				context.fill();
@@ -66,7 +89,7 @@ export function PreviewParticles( {
 			);
 			draw( now );
 			lastDraw = now;
-			if ( activeRef.current || strength > 0 ) {
+			if ( activeRef.current || strength > 0 || waving( now ) ) {
 				frame = requestAnimationFrame( animate );
 			}
 		};
@@ -78,7 +101,7 @@ export function PreviewParticles( {
 				! document.hidden &&
 				width &&
 				height &&
-				( activeRef.current || strength > 0 )
+				( activeRef.current || strength > 0 || waving( performance.now() ) )
 			) {
 				lastDraw = performance.now();
 				frame = requestAnimationFrame( animate );
@@ -118,7 +141,7 @@ export function PreviewParticles( {
 			<canvas ref={ canvasRef } className={ styles.canvas } aria-hidden="true" />
 			{ showLogo ? (
 				<span className={ styles.logo } data-active={ active || undefined } aria-hidden="true">
-					<Icon icon={ wordpress } size={ 48 } />
+					<WordPressIcon />
 				</span>
 			) : null }
 		</>

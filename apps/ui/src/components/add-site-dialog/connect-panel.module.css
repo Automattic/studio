@@ -33,7 +33,6 @@
 
 .benefits svg {
 	flex: 0 0 auto;
-	fill: currentColor;
 	color: var(--accent-text);
 }
 
@@ -180,10 +179,6 @@
 }
 
 .siteCard:not(:disabled):hover .siteThumb,
-.siteCardSelected .siteThumb {
-	box-shadow: 0 0 0 1px var(--accent);
-}
-
 .siteCard:focus-visible {
 	outline: 2px solid var(--ring);
 	outline-offset: 2px;
@@ -258,15 +253,6 @@
 .siteAction {
 	align-self: center;
 	margin-top: 4px;
-}
-
-.connectError {
-	margin: 0 0 24px;
-	padding: 8px 12px;
-	border-radius: 9px;
-	border: 1px solid color-mix(in oklab, var(--destructive) 35%, transparent);
-	background: var(--destructive-surface);
-	color: var(--destructive);
 }
 
 @media (max-width: 600px) {

@@ -57,6 +57,28 @@
 	padding-inline: 20px;
 }
 
+.rowTitle {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+}
+
+.linkButton {
+	opacity: 0;
+}
+
+.rowTitle:hover .linkButton,
+.linkButton:focus-visible,
+.linkButton[data-copied] {
+	opacity: 1;
+}
+
+@media ( hover: none ) {
+	.linkButton {
+		opacity: 1;
+	}
+}
+
 .settingsControl {
 	display: flex;
 	align-items: center;
@@ -585,4 +607,64 @@
 .dialogError {
 	margin: 0;
 	color: var(--destructive);
+}
+
+.pathForm {
+	display: flex;
+	gap: 8px;
+}
+
+.keyForm {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.settingsControl:has( > .colorControl, > .sliderControl ) {
+	min-width: 192px;
+	max-width: 100%;
+}
+
+.colorControl {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 6px;
+	width: 100%;
+}
+
+.swatch {
+	flex-shrink: 0;
+	width: 24px;
+	height: 24px;
+	padding: 0;
+	border: 0;
+	border-radius: 9999px;
+	cursor: pointer;
+}
+
+.swatch:focus-visible,
+.swatch[aria-pressed='true'] {
+	outline: 2px solid var( --accent );
+	outline-offset: 2px;
+}
+
+.hexInput {
+	flex-shrink: 0;
+	width: 128px;
+}
+
+.hexPreview {
+	flex-shrink: 0;
+	box-sizing: border-box;
+	width: 16px;
+	height: 16px;
+	border: 1px solid var( --border );
+	border-radius: var( --radius-xs );
+}
+
+.sliderControl {
+	display: flex;
+	align-items: center;
+	width: 100%;
 }

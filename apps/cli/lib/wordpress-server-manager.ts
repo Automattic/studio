@@ -248,7 +248,6 @@ export async function startWordPressServer(
 		const processDesc = await startProcess( processName, WORDPRESS_SERVER_CHILD_PATH );
 		await readyOrExit.waitFor( processDesc.pmId );
 		phaseTimings.daemon_ms = Date.now() - startedAt;
-		const startMessageSentAt = Date.now();
 		await sendMessage(
 			processDesc.pmId,
 			processName,
@@ -264,18 +263,11 @@ export async function startWordPressServer(
 			}
 		);
 
-		// Spans the child's steps, so the rest of it is IPC and untimed child work.
-		phaseTimings.start_message_ms = Date.now() - startMessageSentAt;
-
 		if ( mayCreateTablesDuringStart ) {
-			const collationsStartedAt = Date.now();
 			await replaceMysql8OnlyCollations( site.path );
-			phaseTimings.collations_ms = Date.now() - collationsStartedAt;
 		}
 
-		const runtimeStatsStartedAt = Date.now();
 		await recordSiteRuntimeUsage( site );
-		phaseTimings.runtime_stats_ms = Date.now() - runtimeStatsStartedAt;
 
 		// Tracks: the CLI is the sole emitter of site-start, whether started standalone or by the
 		// desktop app (which passes its origin via STUDIO_TRACKS_ORIGIN). Awaited (not fire-and-forget)

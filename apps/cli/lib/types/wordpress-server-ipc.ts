@@ -88,13 +88,11 @@ const childMessageActivity = z.object( {
 // The steps of a site start, timed for the `studio_site_start` Tracks event.
 export const SITE_START_PHASES = [
 	'wp_config',
-	'mu_plugins',
 	'wordpress_install',
 	'blueprint',
 	'symlink_scan',
 	'php_workers',
 	'proxy_ready',
-	'symlink_watcher',
 	'admin_credentials',
 ] as const;
 export type SiteStartPhase = ( typeof SITE_START_PHASES )[ number ];

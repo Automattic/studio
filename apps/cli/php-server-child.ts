@@ -504,9 +504,7 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 			stopSignal.throwIfAborted();
 		}
 
-		await timePhase( 'mu_plugins', () =>
-			writeStudioMuPlugins( config.sitePath, config.isWpAutoUpdating )
-		);
+		await writeStudioMuPlugins( config.sitePath, config.isWpAutoUpdating );
 		stopSignal.throwIfAborted();
 
 		if ( ! isImportedSite ) {
@@ -690,9 +688,7 @@ async function doStartServer(
 		// allowlist when a new symlink target is discovered. With "all files"
 		// access there is no open_basedir to extend, so no watcher is needed.
 		if ( isFileAccessRestricted( config ) ) {
-			const watcherStartedAt = Date.now();
 			startSymlinkWatcher( config.sitePath );
-			reportPhase( 'symlink_watcher', watcherStartedAt );
 		}
 		return spawnedChildren[ 0 ];
 	} catch ( error ) {

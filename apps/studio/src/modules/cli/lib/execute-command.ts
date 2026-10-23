@@ -28,8 +28,20 @@ function getRunner(): CliRunner {
 	return runner;
 }
 
-export const executeCliCommand = ( ( args, options ) =>
-	getRunner().executeCliCommand( args, options ) ) as ExecuteCliCommand;
+const finishedListeners = new Set< ( args: string[] ) => void >();
+
+/** Call `listener` with each command's arguments when the command exits. */
+export function onCliCommandFinished( listener: ( args: string[] ) => void ): void {
+	finishedListeners.add( listener );
+}
+
+export const executeCliCommand = ( ( args, options ) => {
+	const command = getRunner().executeCliCommand( args, options );
+	const notify = () => finishedListeners.forEach( ( listener ) => listener( args ) );
+	command[ 0 ].on( 'success', notify );
+	command[ 0 ].on( 'failure', notify );
+	return command;
+} ) as ExecuteCliCommand;
 
 // Called on quit before the quit flow starts its own commands, which must not be stopped. Only asks,
 // so a sync past the point where stopping is safe finishes (see `exitOnCancel` in the CLI).

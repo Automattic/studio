@@ -1,8 +1,8 @@
 import fs from 'fs';
 import * as Sentry from '@sentry/electron/main';
 import {
-	listSitesWithMetadata,
 	updateSiteMetadata,
+	withSiteMetadata,
 	type SiteMetadata,
 } from '@studio/common/sites/metadata';
 import {
@@ -10,6 +10,7 @@ import {
 	WP_CLI_IMPORT_EXPORT_RESPONSE_TIMEOUT,
 } from 'src/constants';
 import { isInErrorRecovery, stopErrorRecovery } from 'src/lib/php-error-recovery';
+import { siteListCache } from 'src/lib/site-list-cache';
 import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
 import { getSiteThumbnailPath } from 'src/storage/paths';
 import type { SiteListItem } from '@studio/common/lib/cli-events';
@@ -22,7 +23,7 @@ export type Site = SiteListItem & SiteMetadata;
 
 /** The user's sites as the CLI reports them, with Studio's own metadata merged in. */
 export async function getSites(): Promise< Site[] > {
-	const sites = await listSitesWithMetadata( executeCliCommand );
+	const sites = await withSiteMetadata( siteListCache.read() );
 	// A site serving a PHP-error page counts as running even though the CLI reports it stopped.
 	return sites.map( ( site ) =>
 		isInErrorRecovery( site.id )

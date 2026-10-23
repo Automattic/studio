@@ -52,6 +52,7 @@ vi.mock( 'src/modules/cli/lib/execute-command', () => {
 	return {
 		executeCliCommand: vi.fn().mockReturnValue( [ mockEventEmitter, mockChildProcess ] ),
 		getTracksOriginEnv: vi.fn( () => 'studio-ui:v1' ),
+		onCliCommandFinished: vi.fn(),
 		stopCliCommands: vi.fn(),
 	};
 } );

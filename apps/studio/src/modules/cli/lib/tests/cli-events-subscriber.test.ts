@@ -4,18 +4,21 @@ import { vi } from 'vitest';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
 import { captureSiteThumbnail } from 'src/lib/capture-site-thumbnail';
 import { isInErrorRecovery } from 'src/lib/php-error-recovery';
+import { siteListCache } from 'src/lib/site-list-cache';
 import { forgetSite, getSites } from 'src/lib/sites';
 import { startCliEventsSubscriber } from 'src/modules/cli/lib/cli-events-subscriber';
-import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
+import { executeCliCommand, onCliCommandFinished } from 'src/modules/cli/lib/execute-command';
 
 vi.mock( 'src/ipc-utils' );
 vi.mock( 'src/lib/active-sync-operations' );
 vi.mock( 'src/lib/capture-site-thumbnail' );
 vi.mock( 'src/lib/php-error-recovery' );
+vi.mock( 'src/lib/site-list-cache' );
 vi.mock( 'src/lib/sites' );
 vi.mock( 'src/modules/cli/lib/execute-command' );
 
 const cliEvents = new EventEmitter();
+let commandFinished: ( args: string[] ) => void;
 
 function siteDetails( id: string ) {
 	return {
@@ -41,6 +44,7 @@ beforeAll( async () => {
 	} );
 	vi.mocked( getSites ).mockResolvedValue( [ { id: 'site-a', running: true } ] as never );
 	await startCliEventsSubscriber();
+	commandFinished = vi.mocked( onCliCommandFinished ).mock.calls[ 0 ][ 0 ];
 } );
 
 beforeEach( () => {
@@ -49,6 +53,17 @@ beforeEach( () => {
 } );
 
 describe( 'CLI events subscriber', () => {
+	it( 'keeps the site list current from its events once the stream listens', async () => {
+		// First, so that the stream hasn't spoken yet.
+		cliEvents.emit( 'data', { data: { action: 'startDaemon', status: 'inprogress' } } );
+		expect( siteListCache.setLive ).toHaveBeenCalledWith( true );
+
+		await emitSiteEvent( SITE_EVENTS.UPDATED, 'site-a', true );
+		expect( siteListCache.applyEvent ).toHaveBeenCalledWith(
+			expect.objectContaining( { siteId: 'site-a', running: true } )
+		);
+	} );
+
 	it( "captures a site's thumbnail when it starts, starting from the site list", async () => {
 		await emitSiteEvent( SITE_EVENTS.UPDATED, 'site-a', true );
 		expect( sendIpcEventToRenderer ).toHaveBeenCalledWith(
@@ -82,6 +97,15 @@ describe( 'CLI events subscriber', () => {
 			'site-event',
 			expect.objectContaining( { siteId: 'site-b', running: true } )
 		);
+	} );
+
+	it( 'drops the site list after a command that may change sites', () => {
+		commandFinished( [ 'site', 'list', '--format', 'json' ] );
+		commandFinished( [ '_events' ] );
+		expect( siteListCache.drop ).not.toHaveBeenCalled();
+
+		commandFinished( [ 'site', 'start', '--path', '/sites/site-a' ] );
+		expect( siteListCache.drop ).toHaveBeenCalledTimes( 1 );
 	} );
 
 	it( 'forgets a deleted site', async () => {

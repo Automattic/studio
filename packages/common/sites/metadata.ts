@@ -42,10 +42,17 @@ export async function updateSiteMetadata(
 }
 
 /** The CLI's site list, with each site's Studio-owned metadata merged in. */
-export async function listSitesWithMetadata(
+export function listSitesWithMetadata(
 	execute: ExecuteCliCommand
 ): Promise< ( SiteListItem & SiteMetadata )[] > {
-	const [ sites, metadata ] = await Promise.all( [ listSites( execute ), readSiteMetadata() ] );
+	return withSiteMetadata( listSites( execute ) );
+}
+
+/** Merge each site's Studio-owned metadata into a site list. */
+export async function withSiteMetadata(
+	siteList: Promise< SiteListItem[] >
+): Promise< ( SiteListItem & SiteMetadata )[] > {
+	const [ sites, metadata ] = await Promise.all( [ siteList, readSiteMetadata() ] );
 	return sites.map( ( site ) => {
 		const { sortOrder, autoStart } = metadata[ site.id ] ?? {};
 		return { ...site, sortOrder, autoStart };

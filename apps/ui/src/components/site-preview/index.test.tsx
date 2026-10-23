@@ -286,7 +286,7 @@ describe( 'SitePreview', () => {
 		);
 
 		fireEvent.click( screen.getByRole( 'textbox', { name: 'Address' } ) );
-		fireEvent.click( await screen.findByRole( 'button', { name: 'WP Admin' } ) );
+		fireEvent.click( await screen.findByRole( 'option', { name: 'WP Admin' } ) );
 		expect( onPathChange ).toHaveBeenCalledWith(
 			`/studio-auto-login?redirect_to=${ encodeURIComponent( 'http://localhost:8881/wp-admin/' ) }`
 		);
@@ -294,7 +294,7 @@ describe( 'SitePreview', () => {
 		// Re-selecting the already-active realm is a no-op.
 		onPathChange.mockClear();
 		fireEvent.click( screen.getByRole( 'textbox', { name: 'Address' } ) );
-		fireEvent.click( await screen.findByRole( 'button', { name: 'Front end' } ) );
+		fireEvent.click( await screen.findByRole( 'option', { name: 'Front end' } ) );
 		expect( onPathChange ).not.toHaveBeenCalled();
 	} );
 
@@ -345,7 +345,7 @@ describe( 'SitePreview', () => {
 		);
 
 		fireEvent.click( screen.getByRole( 'textbox', { name: 'Address' } ) );
-		fireEvent.click( await screen.findByRole( 'button', { name: 'WP Admin' } ) );
+		fireEvent.click( await screen.findByRole( 'option', { name: 'WP Admin' } ) );
 		expect( trackEvent ).toHaveBeenCalledWith( 'studio_site_open_wp_admin', {
 			browser: 'internal',
 		} );
@@ -370,7 +370,7 @@ describe( 'SitePreview', () => {
 
 		// Already on the admin realm; selecting it again is a no-op.
 		fireEvent.click( screen.getByRole( 'textbox', { name: 'Address' } ) );
-		fireEvent.click( await screen.findByRole( 'button', { name: 'WP Admin' } ) );
+		fireEvent.click( await screen.findByRole( 'option', { name: 'WP Admin' } ) );
 		expect( trackEvent ).not.toHaveBeenCalled();
 	} );
 
@@ -392,7 +392,7 @@ describe( 'SitePreview', () => {
 		);
 
 		fireEvent.click( screen.getByRole( 'textbox', { name: 'Address' } ) );
-		fireEvent.click( await screen.findByRole( 'button', { name: 'Database' } ) );
+		fireEvent.click( await screen.findByRole( 'option', { name: 'Database' } ) );
 		expect( onPathChange ).toHaveBeenCalledWith(
 			'/phpmyadmin/index.php?route=/database/structure&db=wordpress'
 		);

@@ -69,10 +69,6 @@
 	border-radius: 6px;
 }
 
-.wordpressIcon {
-	color: var(--foreground);
-}
-
 .input {
 	box-sizing: border-box;
 	width: 100%;
@@ -99,58 +95,7 @@
 	padding: 6px;
 }
 
-.shortcutsList,
-.shortcutsSection {
-	display: flex;
-	flex-direction: column;
-}
-
-.shortcutsSection {
-	margin-block-start: 6px;
-	padding-block-start: 6px;
-	border-block-start: 1px solid var(--border);
-}
-
-.shortcutsLabel {
-	padding: 4px 6px;
-	color: var(--muted-foreground);
-	font-size: var(--text-xs);
-	font-weight: var(--font-weight-medium);
-}
-
-.shortcut {
-	display: grid;
-	grid-template-columns: 16px minmax(0, 1fr);
-	gap: 6px;
-	width: 100%;
-	min-height: 32px;
-	padding: 6px 8px;
-	align-items: center;
-	border: 0;
-	border-radius: var(--radius-md);
-	background: transparent;
-	color: var(--foreground);
-	font: inherit;
-	font-size: var(--text-xs);
-	font-weight: var(--font-weight-medium);
-	line-height: 20px;
-	text-align: start;
-	cursor: default;
-}
-
-.shortcut:hover,
-.shortcut:focus-visible {
-	background: var(--hover);
-	outline: none;
-}
-
-.shortcutSiteIcon {
-	width: 16px;
-	height: 16px;
-}
-
-.shortcutUrl {
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
+/* Rows rounded for the menu surface rather than the composer's. */
+.shortcuts {
+	--command-radius: var(--radius-md);
 }

@@ -1,12 +1,12 @@
 import { DESIGN_SYSTEM_PREVIEW_PATH } from '@studio/common/ai/chat-artifacts';
 import { TRACKS_EVENTS, type TracksEventName } from '@studio/common/lib/record-tracks-event';
 import { __ } from '@wordpress/i18n';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { SiteIcon } from '@/components/site-icon';
 import { Button } from '@/components/ui/button';
+import { CommandList, handleCommandKey, type CommandGroup } from '@/components/ui/command';
 import * as Popover from '@/components/ui/popover';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { VisuallyHidden } from '@/components/ui/visually-hidden';
 import { AppearanceIcon } from '@/lib/icons/appearance-icon';
 import { DatabaseIcon } from '@/lib/icons/database-icon';
 import { ExternalLinkIcon } from '@/lib/icons/external-link-icon';
@@ -14,7 +14,7 @@ import { SiteSettingsIcon } from '@/lib/icons/site-settings-icon';
 import { WordPressIcon } from '@/lib/icons/wordpress-icon';
 import styles from './address-bar.module.css';
 import type { SiteDetails } from '@/data/core';
-import type { FormEvent, ReactNode } from 'react';
+import type { ComponentType, FormEvent, ReactNode } from 'react';
 
 export function getPathFromPreviewUrl( url: string, baseUrl: string ) {
 	try {
@@ -225,6 +225,8 @@ export function PreviewAddressBar( {
 	const [ value, setValue ] = useState( displayUrl );
 	const [ invalid, setInvalid ] = useState( false );
 	const [ shortcutsOpen, setShortcutsOpen ] = useState( false );
+	const [ highlighted, setHighlighted ] = useState< string >();
+	const shortcutsId = useId();
 	const [ recentLocations, setRecentLocations ] = useState< RecentPreviewLocation[] >( () =>
 		loadRecentLocations( site.id )
 	);
@@ -269,22 +271,65 @@ export function PreviewAddressBar( {
 		setShortcutsOpen( false );
 		onNavigate( recent.path );
 	};
-	const renderRealmIcon = ( realm: PreviewRealm, siteIconClassName?: string ) => {
-		if ( realm === 'frontend' ) {
-			return (
-				<SiteIcon
-					className={ siteIconClassName }
-					seed={ `${ site.id }:${ site.name }:${ site.path }` }
-					imageSrc={ siteIcon }
-				/>
-			);
-		}
-		return {
-			admin: <WordPressIcon className={ styles.wordpressIcon } />,
-			database: <DatabaseIcon />,
-			design: <AppearanceIcon />,
-		}[ realm ];
+	const FrontEndIcon = useMemo(
+		() =>
+			function FrontEndIcon( { className }: { className?: string } ) {
+				return (
+					<SiteIcon
+						className={ className }
+						seed={ `${ site.id }:${ site.name }:${ site.path }` }
+						imageSrc={ siteIcon }
+					/>
+				);
+			},
+		[ site.id, site.name, site.path, siteIcon ]
+	);
+	const realmIcons: Record< PreviewRealm, ComponentType< { className?: string } > > = {
+		frontend: FrontEndIcon,
+		admin: WordPressIcon,
+		database: DatabaseIcon,
+		design: AppearanceIcon,
 	};
+	const realmLabels: Record< PreviewRealm, string > = {
+		frontend: __( 'Front end' ),
+		admin: __( 'WP Admin' ),
+		database: __( 'Database' ),
+		design: __( 'Design system' ),
+	};
+	const realms: PreviewRealm[] = [
+		'frontend',
+		'admin',
+		'database',
+		...( hasDesignSystem ? [ 'design' as const ] : [] ),
+	];
+	const shortcutGroups: CommandGroup[] = [
+		{
+			label: __( 'Preview shortcuts' ),
+			items: realms.map( ( realm ) => ( {
+				value: realm,
+				label: realmLabels[ realm ],
+				icon: realmIcons[ realm ],
+			} ) ),
+		},
+		{
+			label: __( 'Recent' ),
+			heading: __( 'Recent' ),
+			items: recentLocations.map( ( recent ) => ( {
+				value: `recent:${ recent.path }`,
+				label: recent.label,
+				icon: realmIcons[ getPreviewRealm( recent.path ) ],
+			} ) ),
+		},
+	];
+	const chooseShortcut = ( value: string ) => {
+		const recent = recentLocations.find( ( location ) => `recent:${ location.path }` === value );
+		if ( recent ) {
+			chooseRecentLocation( recent );
+		} else {
+			chooseRealm( value as PreviewRealm );
+		}
+	};
+	const ActiveRealmIcon = realmIcons[ activeRealm ];
 
 	return (
 		<Popover.Root
@@ -293,6 +338,7 @@ export function PreviewAddressBar( {
 			modal
 			onOpenChange={ ( open ) => {
 				setShortcutsOpen( open );
+				setHighlighted( undefined );
 				if ( ! open ) {
 					restore();
 				}
@@ -307,7 +353,7 @@ export function PreviewAddressBar( {
 					disabled={ remote }
 					onClick={ () => setShortcutsOpen( true ) }
 				>
-					{ renderRealmIcon( activeRealm ) }
+					<ActiveRealmIcon />
 				</button>
 				<input
 					className={ styles.input }
@@ -320,7 +366,24 @@ export function PreviewAddressBar( {
 					onFocus={ ( event ) => {
 						event.currentTarget.select();
 					} }
+					aria-controls={ shortcutsOpen ? shortcutsId : undefined }
 					onKeyDown={ ( event ) => {
+						// Enter goes to the typed address until a shortcut is highlighted.
+						if (
+							shortcutsOpen &&
+							( event.key === 'ArrowDown' ||
+								event.key === 'ArrowUp' ||
+								( highlighted && event.key === 'Enter' ) )
+						) {
+							handleCommandKey(
+								event,
+								shortcutGroups,
+								highlighted,
+								setHighlighted,
+								chooseShortcut
+							);
+							return;
+						}
 						if ( event.key === 'Escape' ) {
 							restore();
 							setShortcutsOpen( false );
@@ -359,45 +422,18 @@ export function PreviewAddressBar( {
 				sideOffset={ 4 }
 				initialFocus={ false }
 				finalFocus={ false }
+				aria-label={ __( 'Preview shortcuts' ) }
 				className={ styles.shortcutsPopup }
 			>
-				<Popover.Title render={ <VisuallyHidden /> }>{ __( 'Preview shortcuts' ) }</Popover.Title>
-				<div className={ styles.shortcutsList }>
-					<Popover.Close className={ styles.shortcut } onClick={ () => chooseRealm( 'frontend' ) }>
-						{ renderRealmIcon( 'frontend', styles.shortcutSiteIcon ) }
-						<span>{ __( 'Front end' ) }</span>
-					</Popover.Close>
-					<Popover.Close className={ styles.shortcut } onClick={ () => chooseRealm( 'admin' ) }>
-						{ renderRealmIcon( 'admin' ) }
-						<span>{ __( 'WP Admin' ) }</span>
-					</Popover.Close>
-					<Popover.Close className={ styles.shortcut } onClick={ () => chooseRealm( 'database' ) }>
-						{ renderRealmIcon( 'database' ) }
-						<span>{ __( 'Database' ) }</span>
-					</Popover.Close>
-					{ hasDesignSystem ? (
-						<Popover.Close className={ styles.shortcut } onClick={ () => chooseRealm( 'design' ) }>
-							{ renderRealmIcon( 'design' ) }
-							<span>{ __( 'Design system' ) }</span>
-						</Popover.Close>
-					) : null }
-				</div>
-				{ recentLocations.length > 0 ? (
-					<div className={ styles.shortcutsSection }>
-						<div className={ styles.shortcutsLabel }>{ __( 'Recent' ) }</div>
-						{ recentLocations.map( ( recent ) => (
-							<Popover.Close
-								key={ recent.path }
-								className={ styles.shortcut }
-								title={ recent.label }
-								onClick={ () => chooseRecentLocation( recent ) }
-							>
-								{ renderRealmIcon( getPreviewRealm( recent.path ), styles.shortcutSiteIcon ) }
-								<span className={ styles.shortcutUrl }>{ recent.label }</span>
-							</Popover.Close>
-						) ) }
-					</div>
-				) : null }
+				<CommandList
+					id={ shortcutsId }
+					label={ __( 'Preview shortcuts' ) }
+					groups={ shortcutGroups }
+					highlighted={ highlighted }
+					onHighlight={ setHighlighted }
+					onSelect={ chooseShortcut }
+					className={ styles.shortcuts }
+				/>
 			</Popover.Popup>
 		</Popover.Root>
 	);

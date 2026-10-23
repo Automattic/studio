@@ -2,6 +2,7 @@ import {
 	ADD_PAYMENT_METHOD_URL,
 	formatAiAccessRequiredHeadline,
 	getStudioCodeAiAccessState,
+	STUDIO_ASSISTANT_QUOTA_OFFLINE,
 	STUDIO_CODE_AI_BETA_APPLY_URL,
 } from '@studio/common/lib/studio-assistant-quota';
 import { __ } from '@wordpress/i18n';
@@ -28,12 +29,6 @@ export function useComposerNotice( provider: AiProviderId ): ComposerNotice | un
 	const settings = useAiSettings();
 	const quota = useStudioAssistantQuota();
 
-	if ( isOffline ) {
-		return { message: __( 'You are offline. Reconnect to send a message.' ) };
-	}
-	if ( settings.isLoading || ( provider === 'wpcom' && isUserLoading ) ) {
-		return;
-	}
 	const retry = {
 		label: __( 'Try again' ),
 		onClick: () => {
@@ -41,6 +36,15 @@ export function useComposerNotice( provider: AiProviderId ): ComposerNotice | un
 			void quota.refetch();
 		},
 	};
+	if ( isOffline ) {
+		return { message: __( 'You are offline. Reconnect to send a message.' ) };
+	}
+	if ( quota.error?.message === STUDIO_ASSISTANT_QUOTA_OFFLINE ) {
+		return { message: __( 'You are offline. Reconnect to send a message.' ), action: retry };
+	}
+	if ( settings.isLoading || ( provider === 'wpcom' && isUserLoading ) ) {
+		return;
+	}
 	if ( settings.isError ) {
 		return { message: __( 'Couldn’t load your AI provider.' ), action: retry };
 	}

@@ -154,25 +154,36 @@ export function getStudioCodeAiAccessState(
 	return quota.studioCodeAiAccess === 'blocked' ? 'blocked' : 'not-enabled';
 }
 
+// The message of the error `requestStudioAssistantQuota` rejects with when
+// WordPress.com can't be reached, which browsers may not report as offline.
+export const STUDIO_ASSISTANT_QUOTA_OFFLINE = 'offline';
+
 /**
- * Fetch the account's Studio AI quota from WordPress.com. Resolves `null` on
- * any failure (network, auth, unexpected shape) so callers can fall back to
- * static copy.
+ * Fetch the account's Studio AI quota from WordPress.com. Rejects with
+ * `STUDIO_ASSISTANT_QUOTA_OFFLINE` when the request can't be sent at all.
+ */
+export async function requestStudioAssistantQuota(
+	accessToken: string
+): Promise< StudioAssistantQuota > {
+	const response = await fetch( STUDIO_ASSISTANT_QUOTA_URL, {
+		headers: { Authorization: `Bearer ${ accessToken }` },
+	} ).catch( () => {
+		throw new Error( STUDIO_ASSISTANT_QUOTA_OFFLINE );
+	} );
+	if ( ! response.ok ) {
+		throw new Error( `Failed to fetch Studio assistant quota: ${ response.status }` );
+	}
+	return studioAssistantQuotaSchema.parse( await response.json() );
+}
+
+/**
+ * Like `requestStudioAssistantQuota`, but resolves `null` on any failure so
+ * callers can fall back to static copy.
  */
 export async function fetchStudioAssistantQuota(
 	accessToken: string
 ): Promise< StudioAssistantQuota | null > {
-	try {
-		const response = await fetch( STUDIO_ASSISTANT_QUOTA_URL, {
-			headers: { Authorization: `Bearer ${ accessToken }` },
-		} );
-		if ( ! response.ok ) {
-			return null;
-		}
-		return studioAssistantQuotaSchema.parse( await response.json() );
-	} catch {
-		return null;
-	}
+	return requestStudioAssistantQuota( accessToken ).catch( () => null );
 }
 
 export function clampQuotaFraction( value: number, maxValue: number ): number {

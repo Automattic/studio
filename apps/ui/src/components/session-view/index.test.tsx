@@ -587,6 +587,25 @@ describe( 'SessionView', () => {
 			expect( navigateMock ).not.toHaveBeenCalled();
 		} );
 
+		it( 'reads an unreachable WordPress.com as offline, even when the browser reports online', () => {
+			const refetchQuota = vi.fn();
+			useStudioAssistantQuotaMock.mockReturnValue( {
+				data: undefined,
+				isLoading: false,
+				isError: true,
+				error: new Error( 'offline' ),
+				refetch: refetchQuota,
+			} );
+
+			renderLoadedChat();
+			fireEvent.click( screen.getByRole( 'button', { name: 'Try again' } ) );
+
+			expect(
+				screen.getByText( 'You are offline. Reconnect to send a message.' )
+			).toBeInTheDocument();
+			expect( refetchQuota ).toHaveBeenCalled();
+		} );
+
 		it( 'offers a retry when the provider settings or usage fail to load', () => {
 			const refetchQuota = vi.fn();
 			useStudioAssistantQuotaMock.mockReturnValue( {

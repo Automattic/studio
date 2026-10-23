@@ -1,7 +1,7 @@
 import { createRoute, useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
-import { chevronLeft, Icon } from '@wordpress/icons';
 import { clsx } from 'clsx';
+import { ChevronLeftIcon } from 'lucide-react';
 import { useCallback } from 'react';
 import { AuthActions } from '@/components/auth-actions';
 import { FeatureList } from '@/components/feature-list';
@@ -122,7 +122,7 @@ function OnboardingTourPage() {
 						)
 					}
 				>
-					<Icon icon={ chevronLeft } data-icon="inline-start" />
+					<ChevronLeftIcon data-icon="inline-start" />
 					{ __( 'Back' ) }
 				</Button>
 				<Button

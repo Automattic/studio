@@ -27,56 +27,23 @@ import {
 	getToolResultDiff,
 	findOwnFreeFormOptionLabel,
 	STOPPED_WITHOUT_ANSWER,
-	splitCommandArgs,
 	type NormalizedToolResult,
 } from '@studio/common/ai/tools';
 import { formatUsageCapNotice } from '@studio/common/lib/studio-assistant-quota';
 import { useReducedMotion } from '@wordpress/compose';
 import { __, isRTL, sprintf } from '@wordpress/i18n';
-import {
-	blockDefault,
-	brush,
-	capturePhoto,
-	category,
-	chartBar,
-	check,
-	chevronLeft,
-	chevronRight,
-	cloud,
-	cloudDownload,
-	cloudUpload,
-	code,
-	create,
-	download,
-	file,
-	globe,
-	Icon,
-	image,
-	info,
-	link,
-	list,
-	media,
-	navigation,
-	offline,
-	page,
-	pencil,
-	people,
-	plugins,
-	plusCircle,
-	post,
-	search,
-	seen,
-	settings,
-	shuffle,
-	styles as stylesIcon,
-	tag,
-	tool,
-	trash,
-	trendingUp,
-	update,
-	upload,
-} from '@wordpress/icons';
 import { clsx } from 'clsx';
+import {
+	CheckIcon,
+	ChevronLeftIcon,
+	ChevronRightIcon,
+	CircleAlertIcon,
+	CircleCheckIcon,
+	CircleStopIcon,
+	FileTextIcon,
+	ImageIcon,
+	SearchIcon,
+} from 'lucide-react';
 import {
 	useEffect,
 	useEffectEvent,
@@ -94,10 +61,10 @@ import { Markdown } from '@/components/markdown';
 import { Button, IconButton } from '@/components/ui/button';
 import { CollapsiblePanel } from '@/components/ui/collapsible';
 import { Dialog, DialogClose, DialogContent, DialogDismissButton } from '@/components/ui/dialog';
+import { Spinner } from '@/components/ui/spinner';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
 import { useLocalMediaDataUrl } from '@/data/queries/use-local-media';
 import { MESSAGE_TEXT_ATTRIBUTE, QUOTABLE_TEXT_ATTRIBUTE } from '@/hooks/use-text-context-menu';
-import { refreshIcon } from '@/lib/icons';
 import { isTextEntry } from '@/lib/shortcuts';
 import { SCROLL_ANCHOR_ATTRIBUTE } from '../use-anchored-scroll';
 import styles from './style.module.css';
@@ -524,7 +491,7 @@ function UserTurn( {
 							</li>
 						) : (
 							<li key={ `${ attachment.name }:${ index }` } className={ styles.userAttachmentChip }>
-								<Icon icon={ attachment.kind === 'image' ? image : page } size={ 16 } />
+								{ attachment.kind === 'image' ? <ImageIcon /> : <FileTextIcon /> }
 								<span className={ styles.userAttachmentName } title={ attachment.name }>
 									{ attachment.name }
 								</span>
@@ -667,120 +634,6 @@ function getClassicToolDisplay(
 	return display;
 }
 
-function getWpCliToolIcon( command: string ) {
-	const [ entity ] = splitCommandArgs( command );
-
-	switch ( entity ) {
-		case 'theme':
-			return stylesIcon;
-		case 'plugin':
-			return plugins;
-		case 'post':
-			return post;
-		case 'option':
-			return settings;
-		case 'user':
-			return people;
-		case 'media':
-			return media;
-		case 'menu':
-			return navigation;
-		case 'term':
-			return tag;
-		case 'cache':
-			return update;
-		case 'rewrite':
-			return link;
-		case 'eval':
-		case 'eval-file':
-			return code;
-		default:
-			return code;
-	}
-}
-
-function getToolIcon( name: string, input: Record< string, unknown > | undefined ) {
-	switch ( name ) {
-		case 'site_create':
-			return plusCircle;
-		case 'site_list':
-			return list;
-		case 'site_info':
-			return info;
-		case 'site_start':
-			return globe;
-		case 'site_stop':
-			return offline;
-		case 'site_delete':
-			return trash;
-		case 'site_push':
-			return cloudUpload;
-		case 'site_pull':
-			return cloudDownload;
-		case 'site_import':
-			return upload;
-		case 'site_export':
-			return download;
-		case 'site_connected_remote_sites':
-			return link;
-		case 'preview_create':
-			return seen;
-		case 'preview_list':
-			return list;
-		case 'preview_update':
-			return update;
-		case 'preview_delete':
-			return trash;
-		case 'wp_cli': {
-			const command = getInputString( input, 'command' );
-			return command ? getWpCliToolIcon( command ) : code;
-		}
-		case 'open_annotation_browser':
-			return pencil;
-		case 'take_screenshot':
-			return capturePhoto;
-		case 'inspect_design':
-			return search;
-		case 'refresh_browser':
-			return refreshIcon;
-		case 'validate_blocks':
-			return check;
-		case 'scaffold_theme':
-			return brush;
-		case 'pick_design':
-			return shuffle;
-		case 'install_taxonomy_scripts':
-			return category;
-		case 'need_for_speed':
-			return chartBar;
-		case 'rank_me_up':
-			return trendingUp;
-		case 'wpcom_request':
-			return cloud;
-		case 'Read':
-			return file;
-		case 'Write':
-			return create;
-		case 'Edit':
-			return pencil;
-		case 'Bash':
-			return code;
-		case 'Grep':
-		case 'Glob':
-			return search;
-		case 'Ls':
-			return list;
-		case 'Skill':
-			return blockDefault;
-		case 'Task':
-			return tool;
-		case 'TodoWrite':
-			return check;
-		default:
-			return tool;
-	}
-}
-
 function DiffBlock( { diff }: { diff: string } ) {
 	const lines = diff.replace( /\n$/, '' ).split( '\n' );
 	return (
@@ -801,25 +654,16 @@ function DiffBlock( { diff }: { diff: string } ) {
 	);
 }
 
-function ToolIcon( { name, input }: { name: string; input?: Record< string, unknown > } ) {
-	return (
-		<Icon
-			icon={ getToolIcon( name, input ) }
-			size={ 18 }
-			className={ styles.toolIcon }
-			aria-hidden="true"
-		/>
-	);
-}
-
 function ToolUseRow( {
 	name,
 	input,
 	result,
+	running,
 }: {
 	name: string;
 	input?: Record< string, unknown >;
 	result?: NormalizedToolResult;
+	running: boolean;
 } ) {
 	const display = getClassicToolDisplay( name, input );
 	const detailsId = useId();
@@ -832,7 +676,15 @@ function ToolUseRow( {
 	const expanded = toggledOpen ?? result?.isError === true;
 	const rowContent = (
 		<>
-			<ToolIcon name={ name } input={ input } />
+			{ result?.isError ? (
+				<CircleAlertIcon className={ styles.toolIcon } />
+			) : result ? (
+				<CircleCheckIcon className={ styles.toolIcon } />
+			) : running ? (
+				<Spinner aria-hidden="true" className={ styles.toolIcon } />
+			) : (
+				<CircleStopIcon className={ styles.toolIcon } />
+			) }
 			<span className={ styles.toolLabel }>{ display.label }</span>
 			{ display.detail ? <span className={ styles.toolDetail }>{ display.detail }</span> : null }
 		</>
@@ -1093,7 +945,7 @@ function AgentQuestion( {
 									<IconButton
 										className={ styles.questionOptionZoom }
 										size="icon-2xs"
-										icon={ search }
+										icon={ <SearchIcon /> }
 										label={ sprintf(
 											// translators: %s: name of a design option.
 											__( 'View %s larger' ),
@@ -1190,9 +1042,8 @@ function QuestionOptionViewer( {
 	const localFileQuery = useLocalMediaDataUrl( option?.image ?? null );
 	const step = ( delta: number ) =>
 		index !== null && onIndexChange( ( index + delta + options.length ) % options.length );
-	const [ previousIcon, nextIcon ] = isRTL()
-		? [ chevronRight, chevronLeft ]
-		: [ chevronLeft, chevronRight ];
+	const previousIcon = isRTL() ? <ChevronRightIcon /> : <ChevronLeftIcon />;
+	const nextIcon = isRTL() ? <ChevronLeftIcon /> : <ChevronRightIcon />;
 
 	return (
 		<Dialog
@@ -1253,7 +1104,7 @@ function QuestionOptionViewer( {
 }
 
 function QuestionOptionCheckIcon() {
-	return <Icon icon={ check } size={ 14 } aria-hidden="true" />;
+	return <CheckIcon />;
 }
 
 function getQuestionPickedLabel(
@@ -1736,6 +1587,7 @@ export function Conversation( {
 								name={ item.name }
 								input={ item.input }
 								result={ item.result }
+								running={ isRunning }
 							/>
 						);
 					case 'agent-question-batch':

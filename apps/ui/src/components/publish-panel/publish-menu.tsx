@@ -1,9 +1,9 @@
 import { __ } from '@wordpress/i18n';
-import { cloudUpload, Icon } from '@wordpress/icons';
 import * as Menu from '@/components/ui/menu';
 import { useAuthUser } from '@/data/queries/use-auth-user';
 import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
 import { useOpenHeaderPanel } from '@/hooks/use-open-header-panel';
+import { SyncIcon } from '@/lib/icons/sync-icon';
 import { WebsiteMenuItems } from './connected-view';
 import { websiteAddress } from './options';
 import type { SiteDetails } from '@/data/core';
@@ -20,7 +20,7 @@ export function SitePublishMenu( { site, disabled }: { site: SiteDetails; disabl
 	if ( ! websites.length ) {
 		return (
 			<Menu.Item disabled={ disabled } onClick={ () => open( 'publish' ) }>
-				<Icon icon={ cloudUpload } />
+				<SyncIcon />
 				{ __( 'Publish' ) }
 			</Menu.Item>
 		);
@@ -28,7 +28,7 @@ export function SitePublishMenu( { site, disabled }: { site: SiteDetails; disabl
 	return (
 		<Menu.SubmenuRoot>
 			<Menu.SubmenuTrigger disabled={ disabled }>
-				<Icon icon={ cloudUpload } />
+				<SyncIcon />
 				{ __( 'Publish' ) }
 			</Menu.SubmenuTrigger>
 			<Menu.SubmenuPopup>

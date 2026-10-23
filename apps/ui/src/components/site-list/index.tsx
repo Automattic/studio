@@ -2,8 +2,8 @@ import { findAiSessionOwnerSite } from '@studio/common/ai/sessions/owner-site';
 import { sortSites } from '@studio/common/lib/sort-sites';
 import { useNavigate, useParams, useRouterState } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
-import { Icon } from '@wordpress/icons';
 import { clsx } from 'clsx';
+import { ChevronRightIcon } from 'lucide-react';
 import {
 	Fragment,
 	useCallback,
@@ -23,6 +23,7 @@ import { ReorderableList, type ReorderableListProps } from '@/components/reorder
 import { getSessionTitle } from '@/components/session-view/session-chat-actions';
 import { SidebarButton } from '@/components/sidebar-button';
 import { SiteActionsMenuItems, useSiteActions } from '@/components/site-actions-menu';
+import { Badge } from '@/components/ui/badge';
 import { Button, IconButton } from '@/components/ui/button';
 import { CollapsiblePanel } from '@/components/ui/collapsible';
 import * as Menu from '@/components/ui/menu';
@@ -56,19 +57,17 @@ import { useSiteSyncActivity } from '@/data/sync-activity';
 import { useOpenAddSite } from '@/hooks/use-open-add-site';
 import { useOpenSite } from '@/hooks/use-open-site';
 import { useStoredFlag } from '@/hooks/use-stored-flag';
-import {
-	archiveIcon,
-	chatIcon,
-	chevronRightIcon,
-	collapseAllIcon,
-	globeIcon,
-	newChatIcon,
-	pinIcon,
-	plusIcon,
-	startSiteIcon,
-	stopSiteIcon,
-	unpinIcon,
-} from '@/lib/icons';
+import { ArchiveIcon } from '@/lib/icons/archive-icon';
+import { ChatIcon } from '@/lib/icons/chat-icon';
+import { CollapseAllIcon } from '@/lib/icons/collapse-all-icon';
+import { GlobeIcon } from '@/lib/icons/globe-icon';
+import { NeedsInputIcon } from '@/lib/icons/needs-input-icon';
+import { NewChatIcon } from '@/lib/icons/new-chat-icon';
+import { PinIcon } from '@/lib/icons/pin-icon';
+import { PlusIcon } from '@/lib/icons/plus-icon';
+import { StartSiteIcon } from '@/lib/icons/start-site-icon';
+import { StopSiteIcon } from '@/lib/icons/stop-site-icon';
+import { UnpinIcon } from '@/lib/icons/unpin-icon';
 import { resumeChat } from '@/lib/last-visited';
 import { useProvideCollapseAll } from './collapse-all';
 import {
@@ -333,17 +332,20 @@ function ChatRow( {
 				} );
 			} }
 		>
-			{ nested ? null : <Icon icon={ chatIcon } className={ styles.rowIcon } /> }
+			{ nested ? null : <ChatIcon className={ styles.rowIcon } /> }
 			<span className={ styles.chatTitle }>{ title }</span>
 			{ actions.working ? (
 				<AgentWorkingIndicator className={ styles.chatActivity } label={ __( 'Working…' ) } />
 			) : null }
 			{ needsInput ? (
-				<span
-					className={ styles.chatQuestion }
+				<Badge
+					variant="accent"
+					size="icon"
 					role="status"
 					aria-label={ __( 'Studio needs an answer.' ) }
-				/>
+				>
+					<NeedsInputIcon />
+				</Badge>
 			) : null }
 			{ session.unread && ! active ? (
 				<span className={ styles.unreadDot } role="img" aria-label={ __( 'Unread' ) } />
@@ -385,14 +387,14 @@ function ChatRow( {
 									<IconButton
 										variant="muted-ghost"
 										size="icon-sm"
-										icon={ actions.pinned ? unpinIcon : pinIcon }
+										icon={ actions.pinned ? <UnpinIcon /> : <PinIcon /> }
 										label={ actions.pinned ? __( 'Unpin chat' ) : __( 'Pin chat' ) }
 										onClick={ actions.togglePin }
 									/>
 									<IconButton
 										variant="muted-ghost"
 										size="icon-sm"
-										icon={ archiveIcon }
+										icon={ <ArchiveIcon /> }
 										label={ __( 'Archive chat' ) }
 										disabled={ actions.archiveBlocked }
 										onClick={ () => void actions.archive() }
@@ -440,7 +442,7 @@ function SidebarGroup( {
 					onClick={ () => setExpanded( ! expanded ) }
 				>
 					{ title }
-					<Icon icon={ chevronRightIcon } className={ styles.groupChevron } />
+					<ChevronRightIcon className={ styles.groupChevron } />
 				</button>
 				{ action }
 			</div>
@@ -501,8 +503,10 @@ function SiteStatusButton( {
 					>
 						{ busy ? (
 							<Spinner aria-hidden="true" />
+						) : site.running ? (
+							<StopSiteIcon />
 						) : (
-							<Icon icon={ site.running ? stopSiteIcon : startSiteIcon } />
+							<StartSiteIcon />
 						) }
 					</Button>
 				}
@@ -667,11 +671,7 @@ function SiteSection( {
 							role={ site.enableXdebug ? 'img' : undefined }
 							aria-label={ site.enableXdebug ? __( 'Xdebug enabled' ) : undefined }
 						>
-							{ site.enableXdebug ? (
-								<XdebugIcon className={ styles.siteXdebug } />
-							) : (
-								<Icon icon={ globeIcon } />
-							) }
+							{ site.enableXdebug ? <XdebugIcon className={ styles.siteXdebug } /> : <GlobeIcon /> }
 							{ status === 'running' ? <span className={ styles.runningDot } /> : null }
 						</span>
 						<div className={ styles.siteText }>
@@ -700,7 +700,7 @@ function SiteSection( {
 								<IconButton
 									variant="muted-ghost"
 									size="icon-sm"
-									icon={ newChatIcon }
+									icon={ <NewChatIcon /> }
 									label={ sprintf( __( 'New chat for %s' ), site.name ) }
 									className={ styles.rowAction }
 									onClick={ ( event ) => {
@@ -983,7 +983,7 @@ export function SiteList( {
 							<IconButton
 								variant="muted-ghost"
 								size="icon-sm"
-								icon={ plusIcon }
+								icon={ <PlusIcon /> }
 								label={ __( 'Add pinned site' ) }
 								onClick={ () => openAddSite( 'create', { pin: true } ) }
 							/>
@@ -1014,7 +1014,7 @@ export function SiteList( {
 								<IconButton
 									variant="muted-ghost"
 									size="icon-sm"
-									icon={ collapseAllIcon }
+									icon={ <CollapseAllIcon /> }
 									label={ __( 'Collapse all' ) }
 									onClick={ collapseAll }
 								/>
@@ -1022,7 +1022,7 @@ export function SiteList( {
 							<IconButton
 								variant="muted-ghost"
 								size="icon-sm"
-								icon={ plusIcon }
+								icon={ <PlusIcon /> }
 								label={ __( 'Add site' ) }
 								onClick={ () => openAddSite() }
 							/>

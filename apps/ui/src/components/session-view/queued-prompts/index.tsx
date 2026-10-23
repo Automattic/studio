@@ -1,5 +1,5 @@
 import { __ } from '@wordpress/i18n';
-import { closeSmall, pencil } from '@wordpress/icons';
+import { PencilIcon, XIcon } from 'lucide-react';
 import { IconButton } from '@/components/ui/button';
 import styles from './style.module.css';
 import type { QueuedPrompt } from '@/data/queries/use-agent-run';
@@ -29,13 +29,13 @@ export function QueuedPrompts( { prompts, onRemove, onEdit }: QueuedPromptsProps
 							) : null }
 						</span>
 						<IconButton
-							icon={ pencil }
+							icon={ <PencilIcon /> }
 							label={ __( 'Edit queued message' ) }
 							size="icon-sm"
 							onClick={ () => onEdit( item ) }
 						/>
 						<IconButton
-							icon={ closeSmall }
+							icon={ <XIcon /> }
 							label={ __( 'Remove queued message' ) }
 							size="icon-sm"
 							onClick={ () => onRemove( item.id ) }

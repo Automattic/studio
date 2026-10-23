@@ -37,17 +37,23 @@ import {
 } from '@studio/common/lib/studio-assistant-quota';
 import { useQueryClient } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
-import {
-	arrowUp,
-	chevronDownSmall,
-	closeSmall,
-	globe,
-	Icon,
-	page,
-	play,
-	plus,
-} from '@wordpress/icons';
 import { clsx } from 'clsx';
+import {
+	ArrowUpIcon,
+	ChartNoAxesCombinedIcon,
+	FileTextIcon,
+	GaugeIcon,
+	GlobeIcon,
+	PaperclipIcon,
+	PencilRulerIcon,
+	PlayIcon,
+	PlugIcon,
+	PlusIcon,
+	SparklesIcon,
+	TagsIcon,
+	UnlockIcon,
+	XIcon,
+} from 'lucide-react';
 import {
 	forwardRef,
 	useCallback,
@@ -59,8 +65,7 @@ import {
 	useState,
 	type ChangeEvent,
 	type MouseEvent,
-	type ReactElement,
-	type SVGProps,
+	type ComponentType,
 } from 'react';
 import { createPortal } from 'react-dom';
 import { AiCreditsPurchaseDialog } from '@/components/ai-credits-purchase-dialog';
@@ -94,7 +99,12 @@ import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-u
 import { useAddAiCreditsUrl } from '@/hooks/use-add-ai-credits-url';
 import { useIsOutOfAiCredits } from '@/hooks/use-is-out-of-ai-credits';
 import { useOpenSettings } from '@/hooks/use-open-settings';
-import { annotationIcon } from '@/lib/icons';
+import { AnnotationIcon } from '@/lib/icons/annotation-icon';
+import { ChevronDownIcon } from '@/lib/icons/chevron-down-icon';
+import { ClaudeIcon } from '@/lib/icons/claude-icon';
+import { StartSiteIcon } from '@/lib/icons/start-site-icon';
+import { StopSiteIcon } from '@/lib/icons/stop-site-icon';
+import { WordPressIcon } from '@/lib/icons/wordpress-icon';
 import { isImeComposing } from '@/lib/is-ime-composing';
 import { completeComposerDraftSend, getComposerDraft, saveComposerDraft } from './draft-store';
 import { FamilySwitchConfirmDialog } from './family-switch-confirm-dialog';
@@ -247,17 +257,35 @@ const AI_PROVIDER_OPTIONS = AI_PROVIDER_IDS.map( ( id ) => ( {
 } ) );
 
 // A blocked send shakes the notice, then holds it in the error color briefly.
+const SKILL_ICONS: Partial< Record< string, ComponentType< { className?: string } > > > = {
+	annotate: PencilRulerIcon,
+	taxonomist: TagsIcon,
+	'need-for-speed': GaugeIcon,
+	'rank-me-up': ChartNoAxesCombinedIcon,
+	liberate: UnlockIcon,
+};
+
+function SkillIcon( { name }: { name: string } ) {
+	const Icon = SKILL_ICONS[ name ] ?? SparklesIcon;
+	return <Icon className={ styles.menuIcon } />;
+}
+
+function ProviderIcon( { provider }: { provider: AiProviderId } ) {
+	const Icon = provider === 'wpcom' ? WordPressIcon : ClaudeIcon;
+	return <Icon className={ styles.menuIcon } />;
+}
+
 const SUBMIT_SHAKE_MS = 240;
 const SUBMIT_FEEDBACK_MS = 900;
 
 // A mode the composer is in; hovering offers to remove it.
 function ModeChip( {
-	icon,
+	icon: ModeIcon,
 	label,
 	onRemove,
 	disabled,
 }: {
-	icon: ReactElement< SVGProps< SVGSVGElement > >;
+	icon: ComponentType< { className?: string } >;
 	label: string;
 	onRemove: () => void;
 	disabled?: boolean;
@@ -280,8 +308,8 @@ function ModeChip( {
 					/>
 				}
 			>
-				<Icon icon={ icon } size={ 16 } className={ styles.modeChipIcon } />
-				<Icon icon={ closeSmall } size={ 16 } className={ styles.modeChipRemove } />
+				<ModeIcon className={ styles.modeChipIcon } />
+				<XIcon className={ styles.modeChipRemove } />
 				<span>{ label }</span>
 			</TooltipTrigger>
 			<TooltipContent>{ removeLabel }</TooltipContent>
@@ -934,7 +962,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 				/>
 			}
 		>
-			<Icon icon={ plus } size={ 16 } />
+			<PlusIcon />
 		</TooltipTrigger>
 	);
 
@@ -1022,10 +1050,11 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 											<img className={ styles.attachmentThumb } src={ imageSrc } alt="" />
 										) : (
 											<>
-												<Icon
-													icon={ attachment === annotationsAttachment ? annotationIcon : page }
-													size={ 16 }
-												/>
+												{ attachment === annotationsAttachment ? (
+													<AnnotationIcon />
+												) : (
+													<FileTextIcon />
+												) }
 												<span className={ styles.attachmentName }>{ attachment.name }</span>
 											</>
 										) }
@@ -1042,7 +1071,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 													: removeAttachment( attachment.id )
 											}
 										>
-											<Icon icon={ closeSmall } size={ 16 } />
+											<XIcon />
 										</button>
 									</li>
 								);
@@ -1133,12 +1162,16 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 										return focusDraft ? textareaRef.current : true;
 									} }
 								>
-									<Menu.Item onClick={ openFilePicker }>{ __( 'Add files' ) }</Menu.Item>
+									<Menu.Item onClick={ openFilePicker }>
+										<PaperclipIcon className={ styles.menuIcon } />
+										{ __( 'Add files' ) }
+									</Menu.Item>
 									{ canAutoStart && ! autoStartOn ? (
 										<Menu.Item
 											className={ styles.describedItem }
 											onClick={ () => setAutoStart( true ) }
 										>
+											<StartSiteIcon className={ styles.menuIcon } />
 											<span className={ styles.describedItemBody }>
 												<span className={ styles.describedItemLabel }>{ __( 'Auto-start' ) }</span>
 												<span className={ styles.describedItemDescription }>
@@ -1153,6 +1186,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 											disabled={ busy }
 											onClick={ () => onEnvironmentChange( 'live' ) }
 										>
+											<GlobeIcon className={ styles.menuIcon } />
 											<span className={ styles.describedItemBody }>
 												<span className={ styles.describedItemLabel }>
 													{ __( 'Work on live site' ) }
@@ -1167,6 +1201,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 											disabled={ busy }
 											onClick={ () => onEnvironmentChange( 'local' ) }
 										>
+											<PlayIcon className={ styles.menuIcon } />
 											<span className={ styles.describedItemBody }>
 												<span className={ styles.describedItemLabel }>
 													{ __( 'Work on local site' ) }
@@ -1179,6 +1214,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 									) : null }
 									<Menu.SubmenuRoot>
 										<Menu.SubmenuTrigger className={ styles.skillsSubmenuTrigger }>
+											<SparklesIcon className={ styles.menuIcon } />
 											<span>{ __( 'Skills' ) }</span>
 										</Menu.SubmenuTrigger>
 										<Menu.SubmenuPopup className={ styles.skillsMenuPopup }>
@@ -1188,6 +1224,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 													className={ styles.describedItem }
 													onClick={ () => insertSkill( command.name ) }
 												>
+													<SkillIcon name={ command.name } />
 													<span className={ styles.describedItemBody }>
 														<span className={ styles.describedItemLabel }>
 															{ formatSkillLabel( command.name ) }
@@ -1204,14 +1241,14 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 							</Menu.Root>
 							{ autoStartOn ? (
 								<ModeChip
-									icon={ play }
+									icon={ StartSiteIcon }
 									label={ __( 'Auto-start' ) }
 									onRemove={ () => setAutoStart( false ) }
 								/>
 							) : null }
 							{ environment === 'live' ? (
 								<ModeChip
-									icon={ globe }
+									icon={ GlobeIcon }
 									label={ __( 'Live' ) }
 									disabled={ busy }
 									onRemove={ () => onEnvironmentChange?.( 'local' ) }
@@ -1252,7 +1289,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 												}
 											>
 												<span>{ modelLabel }</span>
-												<Icon icon={ chevronDownSmall } size={ 16 } />
+												<ChevronDownIcon />
 											</TooltipTrigger>
 										}
 									/>
@@ -1268,7 +1305,11 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 												}
 											>
 												{ AI_PROVIDER_OPTIONS.map( ( { id, label } ) => (
-													<Menu.RadioItem key={ id } value={ id }>
+													<Menu.RadioItem
+														key={ id }
+														value={ id }
+														icon={ <ProviderIcon provider={ id } /> }
+													>
 														{ label }
 													</Menu.RadioItem>
 												) ) }
@@ -1286,6 +1327,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 												value={ id }
 												disabled={ isModelLocked( id ) }
 												className={ styles.describedItem }
+												icon={ <ProviderIcon provider={ sessionProvider } /> }
 											>
 												<span className={ styles.describedItemBody }>
 													<span className={ styles.describedItemLabel }>
@@ -1307,6 +1349,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 									<Menu.Separator />
 									{ canPurchaseCredits ? (
 										<Menu.Item className={ styles.describedItem } onClick={ openAddCredits }>
+											<PlusIcon className={ styles.menuIcon } />
 											<span className={ styles.describedItemBody }>
 												<span className={ styles.describedItemLabel }>
 													{ __( 'Get more credits' ) }
@@ -1319,6 +1362,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 										className={ styles.describedItem }
 										onClick={ () => openSettings( 'ai' ) }
 									>
+										<PlugIcon className={ styles.menuIcon } />
 										<span className={ styles.describedItemBody }>
 											<span className={ styles.describedItemLabel }>
 												{ __( 'Connect provider…' ) }
@@ -1354,11 +1398,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 											)
 										}
 									>
-										{ showStop ? (
-											<span className={ styles.stopGlyph } aria-hidden="true" />
-										) : (
-											<Icon icon={ arrowUp } size={ 18 } />
-										) }
+										{ showStop ? <StopSiteIcon fill="currentColor" /> : <ArrowUpIcon /> }
 									</TooltipTrigger>
 									<TooltipContent>{ showStop ? stopLabel : sendLabel }</TooltipContent>
 								</Tooltip>

@@ -53,11 +53,6 @@
 	flex: none;
 }
 
-/* WordPress icons; ours and the app logos bring their own fills. */
-.icon:not([fill]) {
-	fill: currentColor;
-}
-
 .label,
 .description {
 	min-width: 0;

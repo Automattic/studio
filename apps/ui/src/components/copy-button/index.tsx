@@ -1,9 +1,10 @@
 import { __ } from '@wordpress/i18n';
-import { check, copy, Icon } from '@wordpress/icons';
 import { clsx } from 'clsx';
+import { CheckIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useCopyText } from '@/hooks/use-copy-text';
+import { DuplicateIcon } from '@/lib/icons/duplicate-icon';
 import styles from './style.module.css';
 
 export function CopyButton( {
@@ -34,7 +35,7 @@ export function CopyButton( {
 							onClick={ handleCopy }
 							aria-label={ label }
 						>
-							<Icon icon={ copied ? check : copy } fill="currentColor" aria-hidden="true" />
+							{ copied ? <CheckIcon /> : <DuplicateIcon /> }
 						</Button>
 					}
 				/>

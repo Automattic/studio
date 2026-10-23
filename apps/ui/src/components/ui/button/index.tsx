@@ -1,5 +1,4 @@
 import { Button as BaseButton } from '@base-ui/react/button';
-import { Icon } from '@wordpress/icons';
 import { clsx } from 'clsx';
 import { Kbd } from '@/components/ui/kbd';
 import { Spinner } from '@/components/ui/spinner';
@@ -94,7 +93,7 @@ export function Button( {
 type Shortcut = { displayShortcut: string; ariaKeyShortcut: string };
 
 export type IconButtonProps = Omit< ButtonProps, 'children' > & {
-	icon: ComponentProps< typeof Icon >[ 'icon' ];
+	icon: ReactNode;
 	/** The accessible name, also shown in the tooltip. */
 	label: string;
 	shortcut?: Shortcut;
@@ -124,7 +123,7 @@ export function IconButton( {
 			focusableWhenDisabled
 			{ ...props }
 		>
-			<Icon icon={ icon } />
+			{ icon }
 			{ children }
 		</Button>
 	);

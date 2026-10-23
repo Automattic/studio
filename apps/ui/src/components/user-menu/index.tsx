@@ -1,6 +1,6 @@
 import { __ } from '@wordpress/i18n';
-import { Icon, offline } from '@wordpress/icons';
 import { ariaKeyShortcut, displayShortcut } from '@wordpress/keycodes';
+import { LogOutIcon, SettingsIcon, WifiOffIcon } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { AccountPromptDialog } from '@/components/account-prompt';
 import { Gravatar } from '@/components/gravatar';
@@ -15,7 +15,6 @@ import { useAuthUser, useLogout } from '@/data/queries/use-auth-user';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useOffline } from '@/hooks/use-offline';
 import { useOpenSettings } from '@/hooks/use-open-settings';
-import { logOutIcon, settingsIcon } from '@/lib/icons';
 import styles from './style.module.css';
 
 const MENU_SECTIONS: string[] = [ 'appearance', 'ai', 'usage' ];
@@ -69,7 +68,7 @@ export function UserMenu() {
 							<Gravatar email={ user.email } isDark={ themeIsDark } />
 						) : (
 							<span className={ styles.settingsAvatar } aria-hidden="true">
-								<Icon icon={ settingsIcon } />
+								<SettingsIcon />
 							</span>
 						) }
 					</Menu.Trigger>
@@ -89,13 +88,13 @@ export function UserMenu() {
 							</>
 						) : null }
 						<Menu.Item onClick={ openSettings }>
-							<Icon icon={ settingsIcon } />
+							<SettingsIcon />
 							<span className={ styles.itemLabel }>{ __( 'Settings' ) }</span>
 							<kbd className={ styles.shortcut }>{ displayShortcut.primary( ',' ) }</kbd>
 						</Menu.Item>
 						{ sections.map( ( section ) => (
 							<Menu.Item key={ section.id } onClick={ () => openSettingsDialog( section.id ) }>
-								<Icon icon={ section.icon } />
+								<section.icon />
 								{ section.label }
 							</Menu.Item>
 						) ) }
@@ -111,12 +110,12 @@ export function UserMenu() {
 									} )
 								}
 							>
-								<Icon icon={ logOutIcon } />
+								<LogOutIcon />
 								{ __( 'Log out' ) }
 							</Menu.Item>
 						) : (
 							<Menu.Item onClick={ () => ( promptRequested.current = true ) }>
-								<Icon icon={ logOutIcon } />
+								<LogOutIcon />
 								{ __( 'Log in' ) }
 							</Menu.Item>
 						) }
@@ -125,7 +124,7 @@ export function UserMenu() {
 				<span className={ styles.spacer } aria-hidden="true" />
 				{ isOffline && <OfflineIndicator /> }
 				<IconButton
-					icon={ settingsIcon }
+					icon={ <SettingsIcon /> }
 					label={ __( 'Settings' ) }
 					shortcut={ {
 						displayShortcut: displayShortcut.primary( ',' ),
@@ -156,7 +155,7 @@ function OfflineIndicator() {
 			<TooltipTrigger
 				render={ <span className={ styles.offline } role="img" aria-label={ label } /> }
 			>
-				<Icon icon={ offline } size={ 20 } />
+				<WifiOffIcon />
 			</TooltipTrigger>
 			<TooltipContent>
 				{ __( "You're offline. Your local sites still work normally." ) }

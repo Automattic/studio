@@ -4,7 +4,6 @@ import {
 } from '@studio/common/ai/sessions/owner-site';
 import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
-import { Icon } from '@wordpress/icons';
 import { displayShortcut } from '@wordpress/keycodes';
 import { useState } from 'react';
 import { getSessionTitle } from '@/components/session-view/session-chat-actions';
@@ -32,7 +31,11 @@ import {
 } from '@/data/queries/use-sidebar-pins';
 import { useSites } from '@/data/queries/use-sites';
 import { useItemShortcuts } from '@/hooks/use-item-shortcuts';
-import { archiveIcon, pinIcon, readStatusIcon, renameIcon, unpinIcon } from '@/lib/icons';
+import { ArchiveIcon } from '@/lib/icons/archive-icon';
+import { PinIcon } from '@/lib/icons/pin-icon';
+import { ReadStatusIcon } from '@/lib/icons/read-status-icon';
+import { RenameIcon } from '@/lib/icons/rename-icon';
+import { UnpinIcon } from '@/lib/icons/unpin-icon';
 import styles from './style.module.css';
 import type { AiSessionSummary } from '@/data/core';
 
@@ -146,17 +149,17 @@ export function ChatActionsMenuItems( { actions }: { actions: ChatActions } ) {
 	return (
 		<>
 			<Menu.Item onClick={ actions.togglePin }>
-				<Icon icon={ actions.pinned ? unpinIcon : pinIcon } />
+				{ actions.pinned ? <UnpinIcon /> : <PinIcon /> }
 				{ actions.pinned ? __( 'Unpin' ) : __( 'Pin' ) }
 				<Menu.Shortcut>{ displayShortcut.primaryAlt( 'p' ) }</Menu.Shortcut>
 			</Menu.Item>
 			<Menu.Item onClick={ actions.rename }>
-				<Icon icon={ renameIcon } />
+				<RenameIcon />
 				{ __( 'Rename' ) }
 				<Menu.Shortcut>{ displayShortcut.primaryAlt( 'r' ) }</Menu.Shortcut>
 			</Menu.Item>
 			<Menu.Item onClick={ actions.toggleRead }>
-				<Icon icon={ readStatusIcon } />
+				<ReadStatusIcon />
 				{ actions.session.unread ? __( 'Mark as read' ) : __( 'Mark as unread' ) }
 			</Menu.Item>
 			<Menu.Separator />
@@ -165,7 +168,7 @@ export function ChatActionsMenuItems( { actions }: { actions: ChatActions } ) {
 					<Menu.GroupLabel>{ getArchiveBlockedReason() }</Menu.GroupLabel>
 				) : null }
 				<Menu.Item disabled={ actions.archiveBlocked } onClick={ () => void actions.archive() }>
-					<Icon icon={ archiveIcon } />
+					<ArchiveIcon />
 					{ __( 'Archive' ) }
 					<Menu.Shortcut>{ displayShortcut.primaryShift( 'a' ) }</Menu.Shortcut>
 				</Menu.Item>

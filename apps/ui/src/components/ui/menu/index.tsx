@@ -72,11 +72,16 @@ export function SubmenuPopup( props: Omit< PopupProps, 'side' | 'align' > ) {
 	return <Popup side="right" align="start" sideOffset={ 10 } alignOffset={ -6 } { ...props } />;
 }
 
-/** Popup for context menus: no side/align, so Base UI anchors it at the pointer. */
+/** Popup for context menus, anchored at the pointer and opening to its right. */
 export function ContextPopup( { children, className, ...props }: ContextPopupProps ) {
 	return (
 		<BaseMenu.Portal>
-			<BaseMenu.Positioner className={ styles.positioner }>
+			<BaseMenu.Positioner
+				side="right"
+				align="start"
+				alignOffset={ 4 }
+				className={ styles.positioner }
+			>
 				<BaseMenu.Popup
 					render={
 						<FloatingSurface className={ clsx( surface.padded, styles.popup, className ) } />

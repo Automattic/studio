@@ -32,6 +32,7 @@
    own, anchored to the main-side edge, so it slides out rather than squeezing
    its rows. */
 .sidebarFrame {
+	position: relative;
 	display: flex;
 	justify-content: flex-end;
 	flex-shrink: 0;
@@ -58,6 +59,18 @@
 	z-index: 1;
 	background-color: var(--studio-sidebar-bg);
 	-webkit-app-region: no-drag;
+}
+
+/* The docked sidebar's edge below the band, in its own last column. */
+.sidebarFrame:not(.sidebarCollapsed, .sidebarOverlay)::after {
+	content: '';
+	position: absolute;
+	top: var(--band-height);
+	bottom: 0;
+	inset-inline-end: 0;
+	width: 1px;
+	background-color: var(--border);
+	pointer-events: none;
 }
 
 .sidebarCollapsed {
@@ -98,9 +111,8 @@
 	isolation: isolate;
 }
 
-/* Above the panels so the sidebar's edge reads across them. */
-.main::before,
-.main::after {
+/* Above the panels so the band's separator reads across them. */
+.main::before {
 	z-index: 30;
 }
 

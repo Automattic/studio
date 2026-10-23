@@ -95,7 +95,7 @@
 	--control-size: 36px;
 	--band-separator-height: 16px;
 	/* Where the band's first control starts on macOS, past the traffic lights. */
-	--traffic-light-space: 80px;
+	--traffic-light-space: 92px;
 
 	--motion-duration-feedback: 120ms;
 	--motion-duration-surface: 180ms;

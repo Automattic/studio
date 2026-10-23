@@ -122,7 +122,9 @@ export function PreviewSplitFrame( {
 					showPreview && styles.rootPreviewOpen,
 					isResizing && styles.rootPreviewResizing,
 					animatingPreviewToggle && styles.rootPreviewAnimating,
-					showPreview && ! contentCollapsed && ! animatingPreviewToggle && 'studio-column-edge'
+					showPreview &&
+						! contentCollapsed &&
+						! animatingPreviewToggle && [ styles.rootEdge, 'studio-column-edge' ]
 				) }
 				style={ rootStyle }
 			>

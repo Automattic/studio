@@ -183,7 +183,9 @@ vi.mock( './conversation', () => ( {
 	),
 } ) );
 
-vi.mock( '@/components/chat-actions', () => ( { OpenChatShortcuts: () => null } ) );
+vi.mock( '@/components/chat-actions', () => ( {
+	ChatContextMenu: ( { children }: { children: React.ReactNode } ) => children,
+} ) );
 vi.mock( '@/hooks/use-mark-chat-read', () => ( { useMarkChatRead: vi.fn() } ) );
 
 const useSessionMock = vi.mocked( useSession, { partial: true } );

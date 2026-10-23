@@ -29,7 +29,7 @@
 	display: flex;
 	align-items: center;
 	gap: 4px;
-	padding-inline: 12px 8px;
+	padding-inline: 12px;
 	height: var(--band-height);
 	transition: padding var(--motion-duration-layout) var(--motion-ease-layout);
 	background-color: var(--chrome);
@@ -45,6 +45,10 @@
 	align-items: center;
 	gap: 4px;
 	min-width: 0;
+}
+
+.headerWithSiteActions {
+	padding-inline-end: 8px;
 }
 
 .headerSidebarCollapsed {

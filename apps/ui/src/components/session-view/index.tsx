@@ -28,7 +28,7 @@ import {
 	subscribeAnnotationSend,
 } from '@/components/annotations/store';
 import { annotationSubmission } from '@/components/annotations/submission';
-import { OpenChatShortcuts } from '@/components/chat-actions';
+import { ChatContextMenu } from '@/components/chat-actions';
 import { PreviewParticles } from '@/components/preview-particles';
 import { PreviewToggleButton } from '@/components/preview-toggle-button';
 import { ProgressiveBlur } from '@/components/progressive-blur';
@@ -71,7 +71,7 @@ import { QueuedPrompts } from './queued-prompts';
 import styles from './style.module.css';
 import { useAnchoredScroll } from './use-anchored-scroll';
 import { useComposerNotice } from './use-composer-notice';
-import type { SiteDetails } from '@/data/core';
+import type { AiSessionSummary, SiteDetails } from '@/data/core';
 
 function SessionHeader( {
 	siteName,
@@ -89,10 +89,11 @@ function SessionHeader( {
 	const local = site && effectiveEnvironment === 'local';
 
 	return (
-		<div
+		<header
 			data-site-header
 			className={ clsx(
 				styles.header,
+				local && host === 'chat' && styles.headerWithSiteActions,
 				sidebarCollapsed && reserveTrafficLightSpace && styles.headerSidebarCollapsed
 			) }
 			style={
@@ -124,11 +125,12 @@ function SessionHeader( {
 				</div>
 			) : null }
 			{ local && host === 'chat' ? <SiteHeaderSpace /> : null }
-		</div>
+		</header>
 	);
 }
 
 interface SessionFrameProps {
+	session?: AiSessionSummary;
 	header?: ReactNode;
 	composer?: ReactNode;
 	scrollRef?: Ref< HTMLDivElement >;
@@ -140,6 +142,7 @@ interface SessionFrameProps {
 // scroller. The site preview panel lives in the dashboard layout's
 // PreviewSplitFrame, which keeps it mounted across routes.
 function SessionFrame( {
+	session,
 	header,
 	composer,
 	scrollRef,
@@ -183,28 +186,30 @@ function SessionFrame( {
 	}, [] );
 
 	return (
-		<div
-			ref={ ( node ) => {
-				rootRef.current = node;
-				onRootNode?.( node );
-			} }
-			className={ styles.root }
-		>
-			<div ref={ headerRef } className={ styles.headerLayer }>
-				{ header }
+		<ChatContextMenu session={ session }>
+			<div
+				ref={ ( node ) => {
+					rootRef.current = node;
+					onRootNode?.( node );
+				} }
+				className={ styles.root }
+			>
+				<div ref={ headerRef } className={ styles.headerLayer }>
+					{ header }
+				</div>
+				<div ref={ scrollRef } className={ styles.scroll }>
+					{ children }
+				</div>
+				{ composer ? (
+					<>
+						<ProgressiveBlur direction="up" className={ styles.composerBlur } fadeToSurface />
+						<div ref={ composerRef } className={ styles.composerOuter }>
+							{ composer }
+						</div>
+					</>
+				) : null }
 			</div>
-			<div ref={ scrollRef } className={ styles.scroll }>
-				{ children }
-			</div>
-			{ composer ? (
-				<>
-					<ProgressiveBlur direction="up" className={ styles.composerBlur } fadeToSurface />
-					<div ref={ composerRef } className={ styles.composerOuter }>
-						{ composer }
-					</div>
-				</>
-			) : null }
-		</div>
+		</ChatContextMenu>
 	);
 }
 
@@ -499,6 +504,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 
 	return (
 		<SessionFrame
+			session={ data.summary }
 			scrollRef={ setScrollNode }
 			rootRef={ setFrameNode }
 			header={
@@ -558,7 +564,6 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 				</div>
 			}
 		>
-			<OpenChatShortcuts session={ data.summary } />
 			{ isEmpty && ! pendingPrompt ? (
 				<SiteContextMenu site={ ownerSite } disabled={ ! ownerSite || ownerSite.running }>
 					<div className={ styles.emptyState }>
@@ -569,7 +574,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 					</div>
 				</SiteContextMenu>
 			) : null }
-			<div className={ clsx( styles.column, styles.conversationSpacing ) }>
+			<div data-chat-transcript className={ clsx( styles.column, styles.conversationSpacing ) }>
 				<Conversation
 					data={ data }
 					isRunning={ isRunning }

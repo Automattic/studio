@@ -5,7 +5,7 @@ import {
 import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { displayShortcut } from '@wordpress/keycodes';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { getSessionTitle } from '@/components/session-view/session-chat-actions';
 import { Button } from '@/components/ui/button';
 import {
@@ -177,12 +177,46 @@ export function ChatActionsMenuItems( { actions }: { actions: ChatActions } ) {
 	);
 }
 
-// Marks the open chat as the one the chat shortcuts act on.
-export function OpenChatShortcuts( { session }: { session: AiSessionSummary } ) {
+// The open chat's pane: right-clicking it opens the chat's actions, except over
+// text fields and the transcript, which keep the browser's menu. It wraps the
+// pane the same way while the chat loads, so the pane doesn't remount.
+export function ChatContextMenu( {
+	session,
+	children,
+}: {
+	session?: AiSessionSummary;
+	children: ReactNode;
+} ) {
+	return (
+		<Menu.ContextMenuRoot disabled={ ! session }>
+			<Menu.ContextMenuTrigger
+				className={ styles.pane }
+				onContextMenuCapture={ ( event ) => {
+					if (
+						( event.target as Element ).closest(
+							'input, textarea, [contenteditable="true"], [data-chat-transcript]'
+						)
+					) {
+						event.stopPropagation();
+					}
+				} }
+			>
+				{ children }
+			</Menu.ContextMenuTrigger>
+			{ session ? <OpenChatActions session={ session } /> : null }
+		</Menu.ContextMenuRoot>
+	);
+}
+
+// The chat shortcuts act on the open chat.
+function OpenChatActions( { session }: { session: AiSessionSummary } ) {
 	const actions = useChatActions( session, true );
 	return (
 		<>
 			<span hidden { ...actions.shortcuts } data-item-shortcuts-active="chat" />
+			<Menu.ContextPopup { ...actions.shortcuts }>
+				<ChatActionsMenuItems actions={ actions } />
+			</Menu.ContextPopup>
 			{ actions.renameDialog }
 		</>
 	);

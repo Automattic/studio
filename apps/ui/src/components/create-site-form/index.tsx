@@ -16,7 +16,7 @@ import { getFileAccessDescription } from '@studio/common/lib/site-file-access-la
 import { getLatestVersionLabel } from '@studio/common/lib/wordpress-versions';
 import { RecommendedPHPVersion } from '@studio/common/types/php-versions';
 import { __, _n, sprintf } from '@wordpress/i18n';
-import { ChevronDownIcon, ChevronRightIcon } from 'lucide-react';
+import { ChevronDownIcon, ChevronRightIcon, FileIcon } from 'lucide-react';
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { LearnMoreLink } from '@/components/learn-more';
 import {
@@ -30,6 +30,7 @@ import {
 	validateAdminPassword,
 	validateSiteName,
 } from '@/components/site-fields';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Field, FieldDescription, FieldGroup, FieldLabel, FieldTitle } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
@@ -42,7 +43,7 @@ import styles from './style.module.css';
 import type { SiteFileAccess } from '@studio/common/lib/site-file-access';
 import type { WordPressVersion } from '@studio/common/lib/wordpress-versions';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
-import type { FormEvent, ReactNode } from 'react';
+import type { FormEvent, ReactElement, ReactNode } from 'react';
 
 export interface CreateSiteFormValues {
 	name: string;
@@ -77,8 +78,9 @@ interface CreateSiteFormProps {
 	loadingAnnouncement?: string;
 	children?: ReactNode;
 	panelFooter?: ReactNode;
-	// What the site starts from, shown in place of `panelFooter`.
+	// What the site starts from, shown under its name.
 	source?: string;
+	sourceIcon?: ReactElement;
 	// Whether the folder already holds a WordPress site, which Studio adds as it is.
 	onExistingChange?: ( existing: boolean ) => void;
 }
@@ -395,6 +397,7 @@ export function CreateSiteForm( {
 	children,
 	panelFooter,
 	source,
+	sourceIcon,
 	onExistingChange,
 }: CreateSiteFormProps ) {
 	const [ defaults ] = useState( createDefaultFormData );
@@ -571,6 +574,16 @@ export function CreateSiteForm( {
 					autoFocus
 				/>
 
+				{ existing || source ? (
+					<Field>
+						<FieldTitle>{ __( 'Start with' ) }</FieldTitle>
+						<p className={ styles.source }>
+							{ existing ? <FileIcon /> : sourceIcon }
+							<span>{ existing ? __( 'Existing local WordPress site' ) : source }</span>
+						</p>
+					</Field>
+				) : null }
+
 				{ children }
 
 				<Button
@@ -703,33 +716,28 @@ export function CreateSiteForm( {
 				</div>
 
 				{ submitError && (
-					<div role="alert" className={ styles.submitError }>
+					<Alert variant="destructive">
 						{ typeof submitError === 'string' ? (
-							submitError
+							<AlertDescription>{ submitError }</AlertDescription>
 						) : (
 							<>
-								<strong className={ styles.submitErrorTitle }>{ submitError.title }</strong>
-								<p className={ styles.submitErrorMessage }>{ submitError.message }</p>
-								{ submitError.details && (
-									<details className={ styles.submitErrorDetails }>
-										<summary>{ __( 'View technical details' ) }</summary>
-										<pre>{ submitError.details }</pre>
-									</details>
-								) }
+								<AlertTitle>{ submitError.title }</AlertTitle>
+								<AlertDescription>
+									{ submitError.message }
+									{ submitError.details && (
+										<details className={ styles.submitErrorDetails }>
+											<summary>{ __( 'View technical details' ) }</summary>
+											<pre>{ submitError.details }</pre>
+										</details>
+									) }
+								</AlertDescription>
 							</>
 						) }
-					</div>
+					</Alert>
 				) }
 
-				{ existing || source ? (
-					<Field className={ styles.panelFooter }>
-						<FieldTitle>{ __( 'Start with' ) }</FieldTitle>
-						<p className={ styles.source }>
-							{ existing ? __( 'Existing local WordPress site' ) : source }
-						</p>
-					</Field>
-				) : (
-					panelFooter && <div className={ styles.panelFooter }>{ panelFooter }</div>
+				{ existing || source || ! panelFooter ? null : (
+					<div className={ styles.panelFooter }>{ panelFooter }</div>
 				) }
 			</div>
 

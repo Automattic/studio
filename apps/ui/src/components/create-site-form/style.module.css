@@ -5,7 +5,7 @@
 .panel {
 	display: flex;
 	flex-direction: column;
-	gap: 16px;
+	gap: 24px;
 }
 
 .actions {
@@ -21,7 +21,6 @@
 }
 
 .advancedToggle {
-	gap: 4px;
 	align-self: flex-start;
 }
 
@@ -62,24 +61,8 @@
 	color: var(--destructive);
 }
 
-.submitError {
-	display: flex;
-	flex-direction: column;
-	gap: 6px;
-	padding: 10px 12px;
-	border-radius: 4px;
-	background: var(--destructive-surface);
-	color: var(--destructive);
-	font-size: var(--text-xs);
-	line-height: 1.5;
-}
-
-.submitErrorTitle {
-	font-weight: var(--font-weight-semibold);
-}
-
-.submitErrorMessage {
-	margin: 0;
+.submitErrorDetails {
+	margin-top: 6px;
 }
 
 .submitErrorDetails summary {
@@ -105,6 +88,24 @@
 }
 
 .source {
+	display: flex;
+	align-items: center;
+	gap: 12px;
 	margin: 0;
-	font-size: var(--text-xs);
+	padding: 12px;
+	border: 1px solid var(--border);
+	border-radius: var(--radius-lg);
+	background: var(--background);
+}
+
+.source svg {
+	flex: none;
+	color: var(--muted-foreground);
+}
+
+.source span {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }

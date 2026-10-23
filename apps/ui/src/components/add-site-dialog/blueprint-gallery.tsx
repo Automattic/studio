@@ -133,7 +133,7 @@ export function BlueprintGallery( {
 				) ) }
 			</div>
 			{ isSuccess && useCase && ! items.length ? (
-				<Empty>
+				<Empty className={ styles.empty }>
 					<EmptyDescription>{ __( 'No matching Blueprints.' ) }</EmptyDescription>
 					<Button variant="outline" onClick={ onClearFilters }>
 						{ __( 'Clear filters' ) }

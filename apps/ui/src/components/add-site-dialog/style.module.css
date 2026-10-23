@@ -10,8 +10,11 @@
 	width: 216px;
 	box-sizing: border-box;
 	padding: 12px;
+	/* The divider sits inside the rail's 216px, as in a sidebar surface. */
+	padding-inline-end: 11px;
 	overflow-y: auto;
 	border-inline-end: 1px solid var(--border);
+	background: var(--chrome);
 }
 
 .navItem {
@@ -22,7 +25,7 @@
 	height: 36px;
 	padding: 2px 8px;
 	border: 0;
-	border-radius: 7px;
+	border-radius: var(--radius-md);
 	background: none;
 	color: var(--foreground);
 	font: inherit;
@@ -36,8 +39,9 @@
 }
 
 .navItem:focus-visible {
-	outline: var(--focus-width) solid var(--ring);
+	outline: 2px solid var(--ring);
 	outline-offset: -2px;
+	background: none;
 }
 
 .navItem > svg {
@@ -98,6 +102,6 @@
 
 .content {
 	/* Room above the first row for a focused card's outline. */
-	padding-top: 4px;
+	padding-top: 3px;
 	container-type: inline-size;
 }

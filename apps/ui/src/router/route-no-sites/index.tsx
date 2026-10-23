@@ -6,6 +6,7 @@ import { useSites } from '@/data/queries/use-sites';
 import { useOpenAddSite } from '@/hooks/use-open-add-site';
 import { PlusIcon } from '@/lib/icons/plus-icon';
 import { dashboardLayoutRoute } from '../layout-dashboard';
+import styles from './style.module.css';
 
 // The workspace before the first site, or when the sites couldn't load.
 function NoSites() {
@@ -22,7 +23,7 @@ function NoSites() {
 		);
 	}
 	return (
-		<Empty>
+		<Empty className={ styles.empty }>
 			<EmptyDescription>{ __( 'Add a local WordPress site to get started.' ) }</EmptyDescription>
 			<Button data-add-first-site onClick={ () => openAddSite() }>
 				<PlusIcon data-icon="inline-start" />

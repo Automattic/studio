@@ -140,7 +140,7 @@ export function AddSiteDialog() {
 	const title =
 		view.name === 'details'
 			? view.blueprint.title
-			: view.name === 'setup'
+			: view.name === 'setup' || ( view.name === 'import' && view.backup )
 			? __( 'Create your site' )
 			: view.name === 'connect'
 			? __( 'Connect a site' )

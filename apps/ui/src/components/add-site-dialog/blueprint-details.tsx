@@ -9,6 +9,7 @@ import { useNavigate } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
 import { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { useConnector } from '@/data/core';
 import { usePathValidator } from '@/data/queries/use-create-site-helpers';
@@ -126,9 +127,11 @@ export function BlueprintDetails( {
 				: null }
 			<div className={ styles.details }>
 				{ create.error ? (
-					<p role="alert" className={ styles.error }>
-						{ getErrorMessage( create.error ) ?? __( 'Studio could not create the site.' ) }
-					</p>
+					<Alert variant="destructive">
+						<AlertDescription>
+							{ getErrorMessage( create.error ) ?? __( 'Studio could not create the site.' ) }
+						</AlertDescription>
+					</Alert>
 				) : null }
 				<BlueprintScreenshot
 					url={ blueprint.image }

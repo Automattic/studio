@@ -7,10 +7,12 @@ import { generateCustomDomainFromSiteName } from '@studio/common/lib/domains';
 import { getErrorMessage } from '@studio/common/lib/error-formatting';
 import { useNavigate } from '@tanstack/react-router';
 import { __, _n, sprintf } from '@wordpress/i18n';
+import { CloudDownloadIcon } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { BlueprintUpload, type SelectedBlueprint } from '@/components/blueprint-upload';
 import { CreateSiteForm } from '@/components/create-site-form';
 import { Composer, type ComposerHandle } from '@/components/session-view/composer';
+import { Field, FieldDescription, FieldTitle } from '@/components/ui/field';
 import { useConnector } from '@/data/core';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import {
@@ -395,6 +397,7 @@ export function CreatePanel( { remote, onCancel }: { remote?: SyncSite; onCancel
 				submitError={ submitError }
 				submitLabel={ selectedBlueprint ? __( 'Create site from Blueprint' ) : undefined }
 				source={ remote?.url.replace( /^https?:\/\//, '' ) }
+				sourceIcon={ <CloudDownloadIcon /> }
 				onExistingChange={ setExisting }
 				panelFooter={
 					selectedBlueprint ? (
@@ -409,8 +412,8 @@ export function CreatePanel( { remote, onCancel }: { remote?: SyncSite; onCancel
 				}
 			>
 				{ showBrief && (
-					<div className={ localStyles.brief }>
-						<span className={ localStyles.briefLabel }>{ __( 'What should we create?' ) }</span>
+					<Field>
+						<FieldTitle>{ __( 'What should we create?' ) }</FieldTitle>
 						<Composer
 							ref={ composerRef }
 							variant="field"
@@ -423,12 +426,12 @@ export function CreatePanel( { remote, onCancel }: { remote?: SyncSite; onCancel
 								'A warm, modern website for my neighborhood bakery. Include a menu and our story…'
 							) }
 						/>
-						<p className={ localStyles.briefHelp }>
+						<FieldDescription>
 							{ __(
 								'Optional. Add the audience, goals, style, or pages, plus reference images or files.'
 							) }
-						</p>
-					</div>
+						</FieldDescription>
+					</Field>
 				) }
 			</CreateSiteForm>
 			{ ! selectedBlueprint && ! remote && ! existing && (

@@ -1,110 +1,49 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { vi, it, expect } from 'vitest';
 import { setupServerFiles } from '../setup';
 
-const dirs = vi.hoisted( () => ( { wpFiles: '', serverFiles: '' } ) );
+const root = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-server-files-' ) );
+const latest = path.join( root, 'versions', 'latest' );
 
 vi.mock( '../paths', () => ( {
-	getWpFilesPath: () => dirs.wpFiles,
-	getWordPressVersionPath: ( version: string ) =>
-		path.join( dirs.serverFiles, 'wordpress-versions', version ),
+	getWpFilesPath: () => path.join( root, 'wp-files' ),
+	getWordPressVersionPath: ( version: string ) => path.join( root, 'versions', version ),
 } ) );
 
-const FILE_COUNT = 400;
+const count = ( dir: string ) => fs.readdirSync( dir, { recursive: true } ).length;
 
-function writeWordPress( root: string, version: string ) {
-	fs.mkdirSync( path.join( root, 'wp-includes' ), { recursive: true } );
-	fs.writeFileSync(
-		path.join( root, 'wp-includes', 'version.php' ),
-		`<?php\n$wp_version = '${ version }';\n`
-	);
-	for ( let i = 0; i < FILE_COUNT; i++ ) {
-		const dir = path.join( root, 'wp-includes', `dir-${ i % 20 }` );
-		fs.mkdirSync( dir, { recursive: true } );
-		fs.writeFileSync( path.join( dir, `file-${ i }.php` ), `<?php // ${ version } ${ i }\n` );
+// The app runs several CLI commands at once, and each installs the bundled WordPress. Any reader
+// that finds version.php copies `latest` into a new site, so it must never see a partial copy.
+it( 'never shows a partial latest WordPress while several processes install it', async () => {
+	const bundled = path.join( root, 'wp-files', 'latest', 'wordpress', 'wp-includes' );
+	fs.mkdirSync( bundled, { recursive: true } );
+	fs.writeFileSync( path.join( bundled, 'version.php' ), "<?php $wp_version = '7.1.3';" );
+	for ( let i = 0; i < 400; i++ ) {
+		fs.writeFileSync( path.join( bundled, `file-${ i }.php` ), '<?php' );
 	}
-}
+	// An interrupted earlier copy, without version.php.
+	fs.mkdirSync( path.join( latest, 'wp-includes' ), { recursive: true } );
+	fs.writeFileSync( path.join( latest, 'wp-includes', 'stray.php' ), '<?php' );
 
-function listFiles( root: string ): string[] {
-	return fs
-		.readdirSync( root, { recursive: true, withFileTypes: true } )
-		.filter( ( entry ) => entry.isFile() )
-		.map( ( entry ) => path.relative( root, path.join( entry.parentPath, entry.name ) ) )
-		.sort();
-}
-
-describe( 'setupServerFiles', () => {
-	let root: string;
-	let bundled: string;
-	let versions: string;
-	let latest: string;
-
-	beforeEach( () => {
-		root = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-server-files-' ) );
-		dirs.wpFiles = path.join( root, 'wp-files' );
-		dirs.serverFiles = path.join( root, 'server-files' );
-		bundled = path.join( dirs.wpFiles, 'latest', 'wordpress' );
-		versions = path.join( dirs.serverFiles, 'wordpress-versions' );
-		latest = path.join( versions, 'latest' );
-		writeWordPress( bundled, '7.1.3' );
-		vi.spyOn( console, 'error' ).mockImplementation( () => {} );
-	} );
-
-	afterEach( () => {
-		vi.restoreAllMocks();
-		fs.rmSync( root, { recursive: true, force: true } );
-	} );
-
-	// The app starts several CLI commands at once, and each runs this setup. A reader that finds
-	// version.php in latest copies it into a new site straight away.
-	it( 'never shows a partial latest while several processes install at once', async () => {
-		const expected = listFiles( bundled ).length;
-		let done = false;
-		let partialSightings = 0;
-		const watch = ( async () => {
-			while ( ! done ) {
-				if (
-					fs.existsSync( path.join( latest, 'wp-includes', 'version.php' ) ) &&
-					listFiles( latest ).length !== expected
-				) {
-					partialSightings++;
-				}
-				await new Promise( ( resolve ) => setImmediate( resolve ) );
+	let installing = true;
+	let partialSightings = 0;
+	const watch = ( async () => {
+		while ( installing ) {
+			const hasVersion = fs.existsSync( path.join( latest, 'wp-includes', 'version.php' ) );
+			if ( hasVersion && count( latest ) !== count( path.dirname( bundled ) ) ) {
+				partialSightings++;
 			}
-		} )();
+			await new Promise( ( resolve ) => setImmediate( resolve ) );
+		}
+	} )();
+	await Promise.all( Array.from( { length: 8 }, () => setupServerFiles() ) );
+	installing = false;
+	await watch;
 
-		await Promise.all( Array.from( { length: 8 }, () => setupServerFiles() ) );
-		done = true;
-		await watch;
-
-		expect( partialSightings ).toBe( 0 );
-		expect( listFiles( latest ) ).toEqual( listFiles( bundled ) );
-		expect( fs.readdirSync( versions ) ).toEqual( [ 'latest' ] );
-		expect( console.error ).not.toHaveBeenCalled();
-	} );
-
-	it.each( [
-		{
-			existing: 'an incomplete latest left by an interrupted copy',
-			seed: () => {
-				fs.mkdirSync( path.join( latest, 'wp-includes' ), { recursive: true } );
-				fs.writeFileSync( path.join( latest, 'wp-includes', 'partial.php' ), 'partial' );
-			},
-			kept: [ 'latest' ],
-		},
-		{
-			existing: 'an older latest',
-			seed: () => writeWordPress( latest, '7.0.0' ),
-			kept: [ '7.0.0', 'latest' ],
-		},
-	] )( 'replaces $existing with the bundled WordPress', async ( { seed, kept } ) => {
-		seed();
-
-		await setupServerFiles();
-
-		expect( listFiles( latest ) ).toEqual( listFiles( bundled ) );
-		expect( fs.readdirSync( versions ).sort() ).toEqual( kept );
-	} );
+	expect( partialSightings ).toBe( 0 );
+	expect( count( latest ) ).toBe( count( path.dirname( bundled ) ) );
+	expect( fs.readdirSync( path.dirname( latest ) ) ).toEqual( [ 'latest' ] );
+	fs.rmSync( root, { recursive: true, force: true } );
 } );

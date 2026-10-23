@@ -1,4 +1,4 @@
-import type { Context, Message } from '@earendil-works/pi-ai';
+import type { Message } from '@earendil-works/pi-ai';
 
 /**
  * Placeholder text inserted where an image block used to live. Kept short so
@@ -41,10 +41,10 @@ function stripImagesFromMessage( message: Message ): Message {
  * `maxBytes`, always keeping the newest. Dropping only the oldest keeps earlier
  * messages identical between requests, so the prompt cache survives.
  */
-export function stripStaleImagesFromContext(
-	ctx: Context,
+export function stripStaleImagesFromContext< T extends { messages: Message[] } >(
+	ctx: T,
 	maxBytes = MAX_IMAGE_HISTORY_BYTES
-): Context {
+): T {
 	let keptBytes = 0;
 	for ( let index = ctx.messages.length - 1; index >= 0; index-- ) {
 		const bytes = imageBytes( ctx.messages[ index ] );

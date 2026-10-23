@@ -346,7 +346,8 @@ describe( 'pi runtime', () => {
 
 	it.each( [
 		[ 'balanced', 'https://proxy.example.com/v1/responses', 'balanced-2' ],
-		[ 'strong', 'https://proxy.example.com/v1/messages', 'strong-2' ],
+		// pi-ai sends Anthropic requests through the SDK's beta Messages endpoint.
+		[ 'strong', 'https://proxy.example.com/v1/messages?beta=true', 'strong-2' ],
 	] as const )(
 		'sends the %s tier to the proxy under its API model name',
 		async ( model, expectedUrl, expectedModel ) => {

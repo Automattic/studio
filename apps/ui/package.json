@@ -35,7 +35,7 @@
 		"remark-gfm": "^4.0.1"
 	},
 	"devDependencies": {
-		"@earendil-works/pi-coding-agent": "0.84.2",
+		"@earendil-works/pi-coding-agent": "0.86.1",
 		"@sentry/electron": "^8.2.0",
 		"@sentry/vite-plugin": "^11.8.0",
 		"@studio/common": "file:../../packages/common",

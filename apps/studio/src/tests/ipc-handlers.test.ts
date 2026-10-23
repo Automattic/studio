@@ -4,7 +4,8 @@
 import { IpcMainInvokeEvent, shell } from 'electron';
 import { existsSync } from 'fs';
 import { normalize } from 'path';
-import { readSitePath } from '@studio/common/sites/site-path';
+import { startSite } from '@studio/common/sites/lifecycle';
+import { readSite, readSitePath } from '@studio/common/sites/site-path';
 import { readFile } from 'atomically';
 import { vol } from 'memfs';
 import { vi } from 'vitest';
@@ -14,7 +15,9 @@ import {
 	isFullscreen,
 	openURL,
 	readBlueprintFile,
+	startServer,
 } from 'src/ipc-handlers';
+import { getSite } from 'src/lib/sites';
 import { getMainWindow } from 'src/main-window';
 import { createSiteViaCli } from 'src/modules/cli/lib/cli-site-creator';
 
@@ -31,6 +34,11 @@ vi.mock( '@sentry/electron/main', () => ( {
 	setTag: vi.fn(),
 } ) );
 vi.mock( 'src/lib/sites' );
+vi.mock( 'src/lib/php-error-recovery' );
+vi.mock( import( '@studio/common/sites/lifecycle' ), async ( importOriginal ) => ( {
+	...( await importOriginal() ),
+	startSite: vi.fn(),
+} ) );
 vi.mock( 'src/modules/cli/lib/cli-site-creator' );
 vi.mock( '@studio/common/sites/site-path' );
 vi.mock( '@studio/common/sites/site-identity' );
@@ -98,6 +106,31 @@ describe( 'createSite', () => {
 				noStart: true,
 			} )
 		);
+	} );
+} );
+
+describe( 'startServer', () => {
+	beforeEach( () => {
+		vi.mocked( readSite ).mockResolvedValue( { id: 'site-id', name: 'Test', path: '/test' } );
+		vi.mocked( getSite ).mockResolvedValue( { ...mockSiteDetails, id: 'site-id' } );
+	} );
+
+	it( 'starts the site from its path without asking the CLI for its details', async () => {
+		vi.mocked( startSite ).mockResolvedValue();
+
+		await startServer( mockIpcMainInvokeEvent, 'site-id' );
+
+		expect( startSite ).toHaveBeenCalledWith( expect.any( Function ), '/test' );
+		expect( getSite ).not.toHaveBeenCalled();
+	} );
+
+	it( "reads the site's details to report a failed start", async () => {
+		vi.mocked( startSite ).mockRejectedValue( new Error( 'Failed to start site' ) );
+
+		await expect( startServer( mockIpcMainInvokeEvent, 'site-id' ) ).rejects.toThrow(
+			'Failed to start site'
+		);
+		expect( getSite ).toHaveBeenCalledWith( 'site-id' );
 	} );
 } );
 

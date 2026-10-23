@@ -613,7 +613,8 @@ export async function updateSite(
 }
 
 export async function startServer( event: IpcMainInvokeEvent, id: string ): Promise< void > {
-	const site = await getSite( id );
+	// Starting only needs the path, which `cli.json` has; the CLI's full details wait for a failure.
+	const site = await readSite( id );
 	if ( ! site ) {
 		return;
 	}
@@ -632,10 +633,12 @@ export async function startServer( event: IpcMainInvokeEvent, id: string ): Prom
 			throw error;
 		}
 
+		const details = await getSite( id ).catch( () => undefined );
+
 		// A fatal error in the user's own PHP (theme/plugin) code stops WordPress from booting.
 		// Rather than failing the start, serve the parsed PHP error on the site's port and watch for
 		// the fix so the site self-recovers. This is user code, not a Studio bug, so skip Sentry.
-		if ( isPhpUserError( error ) ) {
+		if ( details && isPhpUserError( error ) ) {
 			const processManagerLogs = readProcessManagerLogs( id );
 			const logContent = [
 				...( processManagerLogs.stdout ?? [] ),
@@ -644,19 +647,19 @@ export async function startServer( event: IpcMainInvokeEvent, id: string ): Prom
 			const errorMessage = parsePhpError( logContent );
 
 			try {
-				await startErrorRecovery( site, errorMessage, readProcessManagerLogs, start );
-				console.log( `[PHP Recovery - ${ id }] Serving PHP error page on port ${ site.port }` );
-				const url = `http://localhost:${ site.port }`;
+				await startErrorRecovery( details, errorMessage, readProcessManagerLogs, start );
+				console.log( `[PHP Recovery - ${ id }] Serving PHP error page on port ${ details.port }` );
+				const url = `http://localhost:${ details.port }`;
 				void sendIpcEventToRenderer( 'site-event', {
 					event: SITE_EVENTS.UPDATED,
 					siteId: id,
 					site: {
 						id,
-						name: site.name,
-						path: site.path,
-						port: site.port,
+						name: details.name,
+						path: details.path,
+						port: details.port,
 						url,
-						phpVersion: site.phpVersion,
+						phpVersion: details.phpVersion,
 					},
 					running: true,
 				} );
@@ -671,11 +674,11 @@ export async function startServer( event: IpcMainInvokeEvent, id: string ): Prom
 
 		const contexts: Record< string, Record< string, unknown > > = {
 			server: {
-				running: site.running,
-				phpVersion: site.phpVersion,
-				port: site.port,
-				hasCustomDomain: !! site.customDomain,
-				httpsEnabled: !! site.enableHttps,
+				running: details?.running,
+				phpVersion: details?.phpVersion,
+				port: details?.port,
+				hasCustomDomain: !! details?.customDomain,
+				httpsEnabled: !! details?.enableHttps,
 			},
 		};
 

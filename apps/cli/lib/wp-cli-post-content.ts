@@ -1,3 +1,6 @@
+import { existsSync, statSync } from 'fs';
+import path from 'path';
+
 const UNSUPPORTED_WP_CLI_POST_CONTENT_MESSAGE =
 	'Unsupported `--post_content` value: `wp_cli` does not run in a shell. Do not use `$(cat file)` or backticks. Pass the literal post content directly, or write large content to a scratch file inside the site directory and pass its path as a positional argument (`wp post create <file>`).';
 
@@ -27,5 +30,66 @@ export function getUnsupportedWpCliPostContentMessage( args: string[] ): string 
 		/^[`'"]?\$\(\s*cat\b[\s\S]*$/.test( trimmedContent ) ||
 		/^[`'"]?`cat\b[\s\S]*$/.test( trimmedContent );
 
-	return hasCatCommandSubstitution ? UNSUPPORTED_WP_CLI_POST_CONTENT_MESSAGE : null;
+	if ( hasCatCommandSubstitution ) {
+		return UNSUPPORTED_WP_CLI_POST_CONTENT_MESSAGE;
+	}
+
+	// Block markup and HTML never start with `{`, so content that does is JSON,
+	// such as a Global Styles post. WordPress ignores JSON post content that
+	// does not parse, while WP-CLI still saves it and reports success.
+	if ( trimmedContent.startsWith( '{' ) ) {
+		try {
+			JSON.parse( trimmedContent );
+		} catch ( error ) {
+			const reason = error instanceof Error ? error.message : String( error );
+			return `Nothing was saved: \`--post_content\` starts with \`{\` but is not valid JSON (${ reason }). WordPress ignores JSON post content that does not parse.`;
+		}
+	}
+
+	return null;
+}
+
+/**
+ * `post create` / `post update` with `--post_content=<file>`, where the value
+ * is the path of a file in the site folder (absolute or relative to it): the same command
+ * with the file as the positional argument WP-CLI reads content from, so the
+ * post gets the file's content rather than its path. Unquoted content runs to
+ * the end of the command, so flags after the path (`--porcelain`) are split
+ * back out. Undefined for any other command.
+ */
+export function routePostContentFile(
+	args: string[],
+	sitePath?: string
+): { args: string[]; file: string } | undefined {
+	const isPostCommand =
+		args[ 0 ] === 'post' && ( args[ 1 ] === 'create' || args[ 1 ] === 'update' );
+	const contentIndex = args.findIndex( ( arg ) => arg.startsWith( '--post_content=' ) );
+	if ( ! isPostCommand || contentIndex === -1 ) {
+		return undefined;
+	}
+	const [ file, ...flags ] = args[ contentIndex ]
+		.slice( '--post_content='.length )
+		.trim()
+		.split( /\s+/ );
+	if ( ! file || file.includes( '<' ) || flags.some( ( flag ) => ! flag.startsWith( '--' ) ) ) {
+		return undefined;
+	}
+	if ( ! sitePath ) {
+		return undefined;
+	}
+	// Only files in the site folder, which WP-CLI reads from inside the site.
+	const filePath = path.resolve( sitePath, file );
+	const relative = path.relative( sitePath, filePath );
+	if (
+		relative.startsWith( '..' ) ||
+		path.isAbsolute( relative ) ||
+		! existsSync( filePath ) ||
+		! statSync( filePath ).isFile()
+	) {
+		return undefined;
+	}
+	return {
+		args: [ ...args.slice( 0, contentIndex ), ...args.slice( contentIndex + 1 ), ...flags, file ],
+		file,
+	};
 }

@@ -18,6 +18,7 @@ import type {
 	TracksProps,
 	TracksSiteCreateFlowType,
 } from '@studio/common/lib/record-tracks-event';
+import type { SiteAgentFileOpenTarget } from '@studio/common/lib/site-agent-file-paths';
 import type { SiteFileAccess } from '@studio/common/lib/site-file-access';
 import type { SiteOperation } from '@studio/common/lib/site-operation';
 import type { SnapshotUsage } from '@studio/common/lib/snapshots';
@@ -451,6 +452,8 @@ export interface Connector {
 	// also falls back to WordPress.com.
 	getAiSettings(): Promise< AiSettings >;
 	saveAnthropicApiKey( key: string | null ): Promise< AiSettings >;
+	// The provider new conversations use.
+	setAiProvider( provider: AiProviderId ): Promise< AiSettings >;
 
 	// Apps detected on disk (editors + terminals). Options in the preferences
 	// form are filtered against this so users can't pick something that isn't
@@ -512,6 +515,12 @@ export interface Connector {
 		enabled: boolean
 	): Promise< void >;
 	removeSiteAgentFile( siteId: string, kind: SiteAgentFileKind, id: string ): Promise< void >;
+	openSiteAgentFile(
+		siteId: string,
+		kind: SiteAgentFileKind,
+		id: string,
+		target: SiteAgentFileOpenTarget
+	): Promise< void >;
 
 	// Whether the UI should render a button that opens the app menu via
 	// `popupAppMenu`. True only in the Windows/Linux desktop app, which has no
@@ -576,8 +585,8 @@ export interface Connector {
 	onAddSiteWithBlueprint( listener: ( payload: { blueprintPath: string } ) => void ): () => void;
 
 	// Fires when the user activates "Settings…" (or its keyboard shortcut) in
-	// the application menu.
-	onOpenSettings( listener: () => void ): () => void;
+	// the application menu, or opens a link to one setting.
+	onOpenSettings( listener: ( target: { settingId?: string } ) => void ): () => void;
 
 	// Fires when WordPress.com checkout sends the user back after an AI credits
 	// top-up (wp-studio://ai-credits-purchased). Desktop only — a browser tab
@@ -656,7 +665,8 @@ export interface UserPreferences {
 	editor: SupportedEditor | null;
 	terminal: SupportedTerminal | null;
 	colorScheme: ColorScheme;
-	quitSitesBehavior?: QuitSitesBehavior;
+	// `null` clears it back to "ask every time".
+	quitSitesBehavior?: QuitSitesBehavior | null;
 	locale: string | undefined;
 	// Whether the user shares anonymous usage statistics (Tracks). Default true.
 	// See `docs/design-docs/analytics-tracks.md`.

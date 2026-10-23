@@ -21,6 +21,10 @@ function getShortcutKeyAriaLabel( key: string ): string {
 			return __( 'Escape' );
 		case ',':
 			return __( 'Comma' );
+		case '[':
+			return __( 'Left bracket' );
+		case ']':
+			return __( 'Right bracket' );
 		case '←':
 			return __( 'Left arrow' );
 		case '→':
@@ -36,7 +40,24 @@ function getShortcutSections( isApple: boolean ): ShortcutSection[] {
 	return [
 		{
 			title: __( 'General' ),
-			shortcuts: [ { label: __( 'Open settings' ), keys: [ modifierKey, ',' ] } ],
+			shortcuts: [
+				{ label: __( 'Open command palette' ), keys: [ modifierKey, 'K' ] },
+				{ label: __( 'Open settings' ), keys: [ modifierKey, ',' ] },
+				{ label: __( 'Close dialog or menu' ), keys: [ 'Esc' ] },
+				{ label: __( 'Back in settings or preview' ), keys: [ modifierKey, '[' ] },
+				{ label: __( 'Forward in settings or preview' ), keys: [ modifierKey, ']' ] },
+			],
+		},
+		{
+			title: __( 'Sites' ),
+			shortcuts: [
+				{
+					label: __( 'Start or stop active site' ),
+					keys: [ modifierKey, isApple ? '⌥' : 'Alt', 'S' ],
+				},
+				{ label: __( 'Rename site' ), keys: [ modifierKey, isApple ? '⌥' : 'Alt', 'R' ] },
+				{ label: __( 'Pin or unpin site' ), keys: [ modifierKey, isApple ? '⌥' : 'Alt', 'P' ] },
+			],
 		},
 		{
 			title: __( 'Chats' ),

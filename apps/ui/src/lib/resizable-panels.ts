@@ -73,6 +73,27 @@ export function storeResizablePanelWidth( storageKey: string, width: number ): v
 	}
 }
 
+const PANEL_WIDTH_STORAGE_KEYS = [ SIDEBAR_PANEL_STORAGE_KEY, PREVIEW_CONTENT_WIDTH_STORAGE_KEY ];
+export const PANEL_WIDTHS_RESET_EVENT = 'studio-panel-widths-reset';
+
+export function hasCustomPanelWidths(): boolean {
+	try {
+		return PANEL_WIDTH_STORAGE_KEYS.some( ( key ) => window.localStorage.getItem( key ) !== null );
+	} catch {
+		return false;
+	}
+}
+
+// Forgets every resized panel width; mounted panels listen for the event.
+export function resetPanelWidths(): void {
+	try {
+		PANEL_WIDTH_STORAGE_KEYS.forEach( ( key ) => window.localStorage.removeItem( key ) );
+	} catch {
+		// Nothing stored to forget.
+	}
+	window.dispatchEvent( new Event( PANEL_WIDTHS_RESET_EVENT ) );
+}
+
 interface PreviewSplitLayout {
 	contentWidth: number;
 	previewWidth: number;

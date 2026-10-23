@@ -6,6 +6,12 @@ export function Empty( { className, ...props }: ComponentProps< 'div' > ) {
 	return <div data-slot="empty" className={ clsx( styles.empty, className ) } { ...props } />;
 }
 
+export function EmptyHeader( { className, ...props }: ComponentProps< 'div' > ) {
+	return (
+		<div data-slot="empty-header" className={ clsx( styles.header, className ) } { ...props } />
+	);
+}
+
 export function EmptyMedia( { className, ...props }: ComponentProps< 'div' > ) {
 	return <div data-slot="empty-media" className={ clsx( styles.media, className ) } { ...props } />;
 }

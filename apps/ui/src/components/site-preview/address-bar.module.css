@@ -96,58 +96,57 @@
 .shortcutsPopup {
 	width: var(--anchor-width);
 	max-width: calc(100vw - 16px);
-	padding: 4px;
+	padding: 6px;
 }
 
-.shortcutsList {
-	display: flex;
-	flex-direction: column;
-	gap: 4px;
-}
-
+.shortcutsList,
 .shortcutsSection {
 	display: flex;
 	flex-direction: column;
-	margin-block-start: 4px;
-	padding-block-start: 4px;
-	border-block-start: 1px solid
-		var(--border);
+}
+
+.shortcutsSection {
+	margin-block-start: 6px;
+	padding-block-start: 6px;
+	border-block-start: 1px solid var(--border);
 }
 
 .shortcutsLabel {
-	padding: 4px 8px;
+	padding: 4px 6px;
 	color: var(--muted-foreground);
-	font-size: 11px;
-	line-height: 16px;
+	font-size: var(--text-xs);
+	font-weight: var(--font-weight-medium);
 }
 
 .shortcut {
 	display: grid;
-	grid-template-columns: 18px minmax(0, 1fr) auto;
-	gap: 8px;
+	grid-template-columns: 16px minmax(0, 1fr);
+	gap: 6px;
 	width: 100%;
-	padding: 4px 8px;
+	min-height: 32px;
+	padding: 6px 8px;
 	align-items: center;
 	border: 0;
-	border-radius: 8px;
+	border-radius: var(--radius-md);
 	background: transparent;
 	color: var(--foreground);
 	font: inherit;
-	font-size: var(--text-xxs);
+	font-size: var(--text-xs);
+	font-weight: var(--font-weight-medium);
 	line-height: 20px;
 	text-align: start;
-	cursor: pointer;
+	cursor: default;
 }
 
 .shortcut:hover,
 .shortcut:focus-visible {
-	background: var(--chat);
+	background: var(--hover);
 	outline: none;
 }
 
 .shortcutSiteIcon {
-	width: 18px;
-	height: 18px;
+	width: 16px;
+	height: 16px;
 }
 
 .shortcutUrl {

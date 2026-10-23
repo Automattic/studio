@@ -22,8 +22,8 @@
 	position: absolute;
 	top: 50%;
 	aspect-ratio: 4 / 3;
-	border-radius: 8px;
-	background-color: var(--chat);
+	border-radius: var(--radius-md);
+	background-color: var(--muted);
 	background-position: center;
 	background-size: cover;
 	box-shadow:
@@ -80,7 +80,7 @@
 
 .description {
 	max-width: 320px;
-	margin: 6px 0 0;
+	margin: 4px 0 0;
 	color: var(--muted-foreground);
 	font-size: var(--text-sm);
 	line-height: 1.625;

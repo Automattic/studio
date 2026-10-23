@@ -54,7 +54,7 @@ Prefer targeted runs: `npm run eval -- --filter-pattern "<case>"`. The full suit
 
 ## Tech Stack
 
-**Frontend** (`apps/ui`): React 19, TanStack Query + Router, Base UI with the app's own primitives (`src/components/ui/`) and theme tokens (`src/theme/`), `@wordpress/icons`, TypeScript, Vite
+**Frontend** (`apps/ui`): React 19, TanStack Query + Router, Base UI with the app's own primitives (`src/components/ui/`) and theme tokens (`src/theme/`), `lucide-react` plus custom icons in `src/lib/icons/`, TypeScript, Vite
 **Main**: Electron
 **CLI**: native PHP binaries, WP-CLI, @wp-playground/blueprints (Blueprint types and schema validation)
 **Dev**: electron-vite, electron-forge, Vitest, Playwright

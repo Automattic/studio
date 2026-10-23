@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getVisibleToasts, resetAppMessagesForTests } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
@@ -152,7 +152,6 @@ const useSiteSyncActivityMock = vi.mocked( useSiteSyncActivity );
 const useUserPreferencesMock = vi.mocked( useUserPreferences, { partial: true } );
 describe( 'SiteList', () => {
 	afterEach( () => {
-		vi.unstubAllGlobals();
 		resetAppMessagesForTests();
 	} );
 
@@ -979,25 +978,7 @@ describe( 'SiteList', () => {
 		expect( screen.queryByRole( 'group', { name: 'Recent' } ) ).not.toBeInTheDocument();
 	} );
 
-	it( 'pages Recent as it scrolls: five chats, then ten more each time', () => {
-		const observers: IntersectionObserverCallback[] = [];
-		vi.stubGlobal(
-			'IntersectionObserver',
-			class {
-				constructor( callback: IntersectionObserverCallback ) {
-					observers.push( callback );
-				}
-				observe() {}
-				disconnect() {}
-			}
-		);
-		const scrollToEnd = () =>
-			act( () =>
-				observers.at( -1 )!(
-					[ { isIntersecting: true } as IntersectionObserverEntry ],
-					{} as IntersectionObserver
-				)
-			);
+	it( 'lists the latest ten chats in Recent', () => {
 		useSessionsMock.mockReturnValue( {
 			data: createChats( '/Users/example/Studio/running-site', 17 ),
 			isLoading: false,
@@ -1006,12 +987,11 @@ describe( 'SiteList', () => {
 		render( <SiteList sections /> );
 
 		const recent = screen.getByRole( 'group', { name: 'Recent' } );
-		const listed = () => within( recent ).getAllByRole( 'button', { name: /^Chat \d+$/ } );
-		expect( listed() ).toHaveLength( 5 );
-		scrollToEnd();
-		expect( listed() ).toHaveLength( 15 );
-		scrollToEnd();
-		expect( listed() ).toHaveLength( 17 );
+		expect(
+			within( recent )
+				.getAllByRole( 'button', { name: /^Chat \d+$/ } )
+				.map( ( button ) => button.textContent )
+		).toEqual( Array.from( { length: 10 }, ( _, index ) => `Chat ${ index + 1 }` ) );
 	} );
 
 	it( 'archives every selected chat with ⇧⌘A in a bulk menu, not just the one clicked', async () => {
@@ -1127,6 +1107,31 @@ describe( 'SiteList', () => {
 		expect( menu ).toHaveTextContent( 'Wait for active chats and queued prompts to finish.' );
 		fireEvent.keyDown( menu, { key: 'A', ctrlKey: true, shiftKey: true } );
 		expect( archiveSession ).not.toHaveBeenCalled();
+	} );
+
+	it( 'leaves an archived open chat for the site’s top chat still listed, in sidebar order', async () => {
+		paramsMock = { sessionId: 'chat-1' };
+		pathnameMock = '/sessions/chat-1';
+		pinsMock = [ 'chat:chat-4' ];
+		sidebarPreferencesMock.chatOrder = {
+			'stopped-site': [ 'chat-1', 'chat-4', 'chat-3', 'chat-2' ],
+		};
+		useSessionsMock.mockReturnValue( {
+			data: createChats( '/Users/example/Studio/stopped-site', 4 ),
+			isLoading: false,
+		} );
+
+		render( <SiteList sections /> );
+
+		const chats = screen.getByRole( 'group', { name: 'Stopped Site chats' } );
+		fireEvent.click( within( chats ).getAllByRole( 'button', { name: 'Archive chat' } )[ 0 ] );
+
+		await waitFor( () =>
+			expect( navigateMock ).toHaveBeenLastCalledWith( {
+				to: '/sessions/$sessionId',
+				params: { sessionId: 'chat-3' },
+			} )
+		);
 	} );
 
 	it( 'says when archiving a chat fails, and stays on it', async () => {

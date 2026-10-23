@@ -409,11 +409,11 @@
 }
 
 /* Show more and Retry loading chats. */
-.mutedRow {
+.chats .mutedRow {
 	color: var(--muted-foreground);
 }
 
-.mutedRow:hover {
+.chats .mutedRow:hover {
 	background-color: var(--sidebar-row-background);
 	color: var(--foreground);
 }

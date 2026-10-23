@@ -18,6 +18,17 @@ type SidebarPreferences = Partial<
 const NO_PINS: string[] = [];
 const NO_ORDER: Record< string, string[] > = {};
 
+// Chats the user dragged keep their place; newer ones go on top.
+export function orderChats< T extends { id: string } >( chats: T[], order: string[] | undefined ) {
+	if ( ! order ) {
+		return chats;
+	}
+	const positions = new Map( order.map( ( id, index ) => [ id, index ] ) );
+	return [ ...chats ].sort(
+		( a, b ) => ( positions.get( a.id ) ?? -1 ) - ( positions.get( b.id ) ?? -1 )
+	);
+}
+
 export const sitePinKey = ( siteId: string ) => `site:${ siteId }`;
 export const chatPinKey = ( sessionId: string ) => `chat:${ sessionId }`;
 

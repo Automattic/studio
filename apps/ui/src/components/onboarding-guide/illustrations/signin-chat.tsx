@@ -1,8 +1,6 @@
-import { THINKING_MESSAGES } from '@studio/common/ai/thinking-messages';
-import { __ } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
 import { clsx } from 'clsx';
 import { AgentWorkingIndicator } from '@/components/agent-working-indicator';
-import { AnimatedElapsedTime } from '@/components/session-view/thinking-indicator';
 import { at, easings, span, useTimeline, type Playback } from './choreography';
 import {
 	CameraGlyph,
@@ -18,8 +16,6 @@ import type { ComponentType } from 'react';
 const TYPE_START = 1400;
 const TYPE_MS = 42;
 const STREAM_MS = 17;
-// The real indicator rotates its label every 4s.
-const THINKING_LABEL_MS = 4000;
 // The elapsed counter runs in time-lapse: a real contact form takes a minute
 // or two, and the playback only spends ~13s on it.
 const WORKING_TIME_SCALE = 3;
@@ -27,8 +23,8 @@ const WORKING_TIME_SCALE = 3;
 // Signed-out sign-in prompt — a one-shot playback of a Studio Code exchange:
 // type a prompt, send it (the composer slides off-stage and the prompt becomes
 // a user bubble), watch the agent work through a few tool calls (they stay in
-// the transcript, as in the real UI, with the working indicator flowing down
-// beneath them), stream the reply, then offer a Replay control. Everything
+// the transcript, as in the real UI), stream the reply, and close the turn with
+// its timing line, then offer a Replay control. Everything
 // derives from the timeline clock `t`.
 export function SigninChatIllustration( { playback }: { playback?: Playback } ) {
 	const prompt = __( 'Add a contact form to the homepage' );
@@ -75,15 +71,11 @@ export function SigninChatIllustration( { playback }: { playback?: Playback } ) 
 	const composerBlur = sendP * 3;
 	// Bubble: scales/fades up from the composer's spot into place.
 	const bubbleP = span( t, sentAt, sentAt + 720, easings.easeOut );
-	const working = at( t, workingAt ) && ! at( t, workingEnd + 250 );
-	const workingOp =
-		span( t, workingAt, workingAt + 250, easings.easeOut ) -
-		span( t, workingEnd, workingEnd + 250, easings.easeOut );
-	const workingElapsed = Math.max( 0, t - workingAt );
-	const thinkingLabel =
-		THINKING_MESSAGES[
-			Math.floor( workingElapsed / THINKING_LABEL_MS ) % THINKING_MESSAGES.length
-		];
+	const working = ! at( t, streamEnd );
+	const timingOp = span( t, workingAt, workingAt + 250, easings.easeOut );
+	const timingSeconds = Math.floor(
+		( Math.max( 0, Math.min( t, streamEnd ) - workingAt ) * WORKING_TIME_SCALE ) / 1000
+	);
 	const assistantOp = span( t, streamStart, streamStart + 300, easings.easeOut );
 
 	return (
@@ -119,18 +111,22 @@ export function SigninChatIllustration( { playback }: { playback?: Playback } ) 
 						} ) }
 					</div>
 				) : null }
-				{ working ? (
-					<div className={ styles.workingRow } style={ { opacity: workingOp } }>
-						<AgentWorkingIndicator label={ null } ambient />
-						<span>{ thinkingLabel }</span>
-						<AnimatedElapsedTime
-							elapsedSeconds={ Math.floor( ( workingElapsed * WORKING_TIME_SCALE ) / 1000 ) }
-						/>
-					</div>
-				) : null }
 				{ at( t, streamStart ) ? (
 					<div className={ styles.assistantText } style={ { opacity: assistantOp } }>
 						<StreamingText text={ reply } count={ replyLen } />
+					</div>
+				) : null }
+				{ at( t, workingAt ) ? (
+					<div className={ styles.workingRow } style={ { opacity: timingOp } }>
+						{ working ? <AgentWorkingIndicator label={ null } ambient /> : null }
+						<span>
+							{ sprintf(
+								working
+									? /* translators: %d: number of seconds. */ __( 'Working for %ds' )
+									: /* translators: %d: number of seconds. */ __( 'Worked for %ds' ),
+								timingSeconds
+							) }
+						</span>
 					</div>
 				) : null }
 			</div>

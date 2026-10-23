@@ -172,7 +172,10 @@ describe( 'SidebarLayout', () => {
 
 		fireEvent.keyDown( handle, { key: 'End' } );
 		expect( handle ).toHaveAttribute( 'aria-valuenow', '400' );
-		fireEvent.doubleClick( handle );
+		fireEvent.mouseDown( handle, { detail: 1 } );
+		fireEvent.mouseUp( document );
+		fireEvent.mouseDown( handle, { detail: 2 } );
+		fireEvent.mouseUp( document );
 		expect( handle ).toHaveAttribute( 'aria-valuenow', '256' );
 	} );
 } );

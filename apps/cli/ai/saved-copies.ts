@@ -61,7 +61,7 @@ function styleAreas( content: string ): string[] {
  * install at `root`. Global Styles that set nothing are left out. Never
  * throws: a site without a readable database has none.
  */
-export async function readSavedCopies( root: string ): Promise< SavedCopy[] > {
+async function readSavedCopies( root: string ): Promise< SavedCopy[] > {
 	const dbPath = path.join( root, 'wp-content', 'database', '.ht.sqlite' );
 	if ( ! existsSync( dbPath ) ) {
 		return [];

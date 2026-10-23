@@ -117,7 +117,7 @@ function getStudioSections( signedIn: boolean ): Section[] {
 				),
 				setting(
 					__( 'Reset interface' ),
-					__( 'Restore default panel widths, theme, and interface settings.' ),
+					__( 'Restore default panel widths, theme, colors, and interface settings.' ),
 					'reset-interface'
 				),
 				setting(
@@ -141,7 +141,17 @@ function getStudioSections( signedIn: boolean ): Section[] {
 			id: 'appearance',
 			label: __( 'Appearance' ),
 			icon: brush,
-			settings: [ setting( __( 'Theme' ), __( 'Choose light, dark, or system.' ), 'theme' ) ],
+			settings: [
+				setting( __( 'Theme' ), __( 'Choose light, dark, or system.' ), 'theme' ),
+				setting( __( 'Color' ), __( 'Choose an accent color.' ), 'color' ),
+				setting( __( 'Intensity' ), __( 'Adjust the strength of the color tint.' ), 'intensity' ),
+				setting( __( 'Contrast' ), __( 'Increase separation between surfaces.' ), 'contrast' ),
+				setting(
+					__( 'Reset appearance' ),
+					__( 'Restore the default color, intensity, and contrast.' ),
+					'reset-appearance'
+				),
+			],
 		},
 		{
 			id: 'sharing',

@@ -691,6 +691,10 @@ export interface UserPreferences {
 	// Ask before discarding preview annotations.
 	confirmDeleteAnnotations?: boolean;
 	newSiteBehavior?: NewSiteBehavior;
+	// The appearance tint: a `#rrggbb` accent color, and percentages.
+	accentColor?: string;
+	tintIntensity?: number;
+	contrast?: number;
 }
 
 export interface AppGlobals {

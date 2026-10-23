@@ -48,7 +48,7 @@ The checks in `outcome.mjs` read that state. A case names the site it asks for i
 - **design-system-annotation** — `DESIGN.md`'s primary color changed, and the active theme's palette carries the new value.
 - **template-part-db-override** — Regression for STU-2155. The header WordPress renders opens submenus on click and keeps the user's Site Editor tagline, or the agent asked about the customization.
 - **global-styles-db-override** — Regression for STU-2155. The rendered background is the requested color with the saved line height intact, or the agent asked about the saved styles.
-- **routing-\*** — Routing: the skills in `skills` were loaded before the agent started the work. These are the one kind of case judged on the route rather than the outcome, since which runbook the agent read is the thing under test. Each run stops at its first call that does the work (`stopAt`), so it costs only the turns before it. Run just these with `npm run eval -- --filter-pattern "^routing:"`.
+- **routing-\*** — Routing: the skills in `skills` (a list of `{ "name": "…" }` objects, like `followUps`, so promptfoo keeps them in one test) were loaded before the agent started the work. These are the one kind of case judged on the route rather than the outcome, since which runbook the agent read is the thing under test. Each run stops at its first call that does the work (`stopAt`), so it costs only the turns before it. Run just these with `npm run eval -- --filter-pattern "^routing:"`.
 
 ## Running the runner directly
 

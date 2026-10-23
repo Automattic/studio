@@ -58,8 +58,9 @@ import {
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useIsOutOfAiCredits } from '@/hooks/use-is-out-of-ai-credits';
 import { useMarkChatRead } from '@/hooks/use-mark-chat-read';
+import { useSiteSelectionTime } from '@/hooks/use-open-site';
 import { useSessionCommands } from '@/hooks/use-session-commands';
-import { SessionUIProvider } from '@/hooks/use-session-ui';
+import { SessionUIProvider, useOptionalSessionPreviewUI } from '@/hooks/use-session-ui';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import { useWindowControlsInset } from '@/hooks/use-window-controls-inset';
@@ -363,6 +364,10 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	const { mutate: startSite } = useStartSite();
 	const isSiteStarting = useIsSiteStarting( ownerSite?.id );
 	const isSiteStopping = useIsSiteStopping( ownerSite?.id );
+	const revealingSiteId = useOptionalSessionPreviewUI()?.revealingSiteId;
+	const siteLoading =
+		isSiteStarting || isSiteStopping || ( !! ownerSite && revealingSiteId === ownerSite.id );
+	const selectionTime = useSiteSelectionTime( ownerSite?.id );
 	const isSiteBusy = useIsSiteBusy( ownerSite );
 	const canAutoStart = !! ownerSite && effectiveEnvironment === 'local';
 	const { data: connectedSites } = useConnectedWpcomSites( ownerSite?.id );
@@ -400,6 +405,12 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		pendingPromptSlot.getSnapshot
 	);
 	const pendingPrompt = handedOver?.sessionId === sessionId ? handedOver : null;
+	// The empty state fades out under the first prompt, then unmounts.
+	const showEmpty = isEmpty && ! pendingPrompt;
+	const [ emptySessionId, setEmptySessionId ] = useState( showEmpty ? sessionId : null );
+	if ( showEmpty && emptySessionId !== sessionId ) {
+		setEmptySessionId( sessionId );
+	}
 	const isChatReady = !! data && ! isQuotaLoading && ! notice && ! isOutOfCredits;
 	useEffect( () => {
 		// Read the slot live rather than the rendered value: StrictMode runs the
@@ -527,18 +538,18 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 						onRemove={ removeQueuedPrompt }
 						onEdit={ reopenQueuedPrompt }
 					/>
-					{ isScrolledAway ? (
-						<div className={ styles.scrollToLatestWrap }>
-							<IconButton
-								className={ styles.scrollToLatestButton }
-								icon={ <ArrowDownIcon /> }
-								label={ __( 'Jump to latest' ) }
-								variant="outline"
-								shape="round"
-								onClick={ scrollToLatest }
-							/>
-						</div>
-					) : null }
+					<div className={ styles.scrollToLatestWrap }>
+						<IconButton
+							className={ styles.scrollToLatestButton }
+							icon={ <ArrowDownIcon /> }
+							label={ __( 'Jump to latest' ) }
+							variant="outline"
+							shape="round"
+							data-visible={ isScrolledAway || undefined }
+							inert={ ! isScrolledAway }
+							onClick={ scrollToLatest }
+						/>
+					</div>
 					<Composer
 						ref={ composerRef }
 						busy={ composerBusy }
@@ -564,10 +575,22 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 				</div>
 			}
 		>
-			{ isEmpty && ! pendingPrompt ? (
+			{ emptySessionId === sessionId ? (
 				<SiteContextMenu site={ ownerSite } disabled={ ! ownerSite || ownerSite.running }>
-					<div className={ styles.emptyState }>
-						<PreviewParticles active={ isSiteStarting } showLogo={ isSiteStarting } />
+					<div
+						className={ styles.emptyState }
+						data-hidden={ ! showEmpty || undefined }
+						onTransitionEnd={ ( event ) => {
+							if ( event.target === event.currentTarget && ! showEmpty ) {
+								setEmptySessionId( null );
+							}
+						} }
+					>
+						<PreviewParticles
+							active={ siteLoading }
+							showLogo={ siteLoading }
+							selectionTime={ ownerSite?.running ? undefined : selectionTime }
+						/>
 						{ ownerSite && ! ownerSite.running && ! isSiteStarting ? (
 							<StoppedSitePreview site={ ownerSite } />
 						) : null }

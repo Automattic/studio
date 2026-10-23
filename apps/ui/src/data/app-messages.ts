@@ -60,9 +60,8 @@ const DEFAULT_TOAST_TTL_MS = 4_500;
 // Failures linger so a glance away doesn't miss them.
 const ERROR_TOAST_TTL_MS = 10_000;
 const MAX_VISIBLE_TOASTS = 3;
-// Slightly longer than the CSS exit transition (180ms) so the collapse
-// finishes before the node is dropped.
-export const TOAST_EXIT_MS = 200;
+// The length of the deck's exit slide, before the queue is promoted.
+export const TOAST_EXIT_MS = 240;
 
 let visible: ToastMessage[] = [];
 let queued: ToastMessage[] = [];
@@ -81,11 +80,9 @@ const timers = new Map< string, ReturnType< typeof setTimeout > >();
 const listeners = new Set< () => void >();
 
 let snapshot: readonly ToastMessage[] = visible;
-let queuedSnapshot: readonly ToastMessage[] = queued;
 
 function emit() {
 	snapshot = [ ...visible ];
-	queuedSnapshot = [ ...queued ];
 	for ( const listener of listeners ) {
 		listener();
 	}
@@ -338,16 +335,6 @@ export function useVisibleToasts(): readonly ToastMessage[] {
 
 export function getQueuedToastCount(): number {
 	return queued.length;
-}
-
-// The toasts waiting behind the visible ones, in the order they will
-// surface — the stack's peek strips tint themselves to match.
-export function useQueuedToasts(): readonly ToastMessage[] {
-	return useSyncExternalStore(
-		subscribe,
-		() => queuedSnapshot,
-		() => EMPTY_TOASTS
-	);
 }
 
 const EMPTY_TOASTS: readonly ToastMessage[] = [];

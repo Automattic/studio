@@ -8,7 +8,6 @@ interface ResizeHandleProps {
 	minWidth: number;
 	maxWidth: number;
 	width: number;
-	isResizing: boolean;
 	onResizeStart: MouseEventHandler< HTMLDivElement >;
 	onKeyDown: KeyboardEventHandler< HTMLDivElement >;
 	onReset?: () => void;
@@ -20,14 +19,13 @@ export function ResizeHandle( {
 	minWidth,
 	maxWidth,
 	width,
-	isResizing,
 	onResizeStart,
 	onKeyDown,
 	onReset,
 }: ResizeHandleProps ) {
 	return (
 		<div
-			className={ clsx( styles.resizeHandle, className, isResizing && styles.resizing ) }
+			className={ clsx( styles.resizeHandle, className ) }
 			role="separator"
 			aria-label={ label }
 			aria-orientation="vertical"

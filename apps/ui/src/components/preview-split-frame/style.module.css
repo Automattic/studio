@@ -7,8 +7,8 @@
 	background-color: var(--chat);
 }
 
-/* Opaque and above the preview slot so it fully covers the (still mounted)
-   preview while the panel is toggled off. Scrolls itself so routes taller
+/* Opaque and above the preview slot so it covers the (still mounted)
+   preview as the panel toggles. Scrolls itself so routes taller
    than the viewport (e.g. settings) keep working under the fixed-height
    frame. */
 .contentColumn {
@@ -55,12 +55,12 @@
 	width: calc(100% - var(--preview-frame-content-width) - 1px);
 }
 
-.rootPreviewAnimating .contentColumn {
+.rootPreviewAnimating :is(.contentColumn, .previewSlot) {
 	transition: width var(--motion-duration-layout) var(--motion-ease-layout);
 }
 
 /* The chat header's actions fade back in once the column is halfway open,
-   and leave at once when it closes. */
+   and fade out as soon as it closes. */
 .contentColumn [data-header-actions] {
 	transition: opacity var(--motion-duration-feedback) var(--motion-ease-enter)
 		calc(var(--motion-duration-layout) / 2);
@@ -68,7 +68,7 @@
 
 .contentColumnCollapsed [data-header-actions] {
 	opacity: 0;
-	transition: none;
+	transition: opacity var(--motion-duration-feedback) var(--motion-ease-enter);
 }
 
 /* Full preview: the column is width 0 once the slide finishes; visibility
@@ -87,7 +87,7 @@
 	inset-block: 0;
 	inset-inline-end: 0;
 	z-index: 0;
-	width: calc(100% - var(--preview-frame-content-width));
+	width: 0;
 	min-width: 0;
 	pointer-events: none;
 	visibility: hidden;
@@ -97,18 +97,26 @@
 	visibility: visible;
 }
 
+/* The preview grows into the room the content column gives up, so its page
+   reflows as the split opens and closes. */
+.rootPreviewOpen .previewSlot {
+	width: calc(100% - var(--preview-frame-content-width));
+}
+
 .previewSlotInteractive {
 	pointer-events: auto;
 }
 
-/* Centers the 8px hit area on the content/preview boundary. */
+/* Centers the 8px hit area on the content/preview boundary, its focus line on
+   the boundary's edge line. */
 .previewResizeHandle {
 	position: absolute;
 	inset-block: 0;
 	inset-inline-start: var(--preview-frame-content-width);
 	z-index: 3;
+	padding-inline-start: 4px;
 	transform: translateX(-4px);
-	justify-content: center;
+	justify-content: flex-start;
 }
 
 /* In RTL the handle is offset from the right edge, so the centering nudge

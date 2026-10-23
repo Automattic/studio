@@ -41,7 +41,9 @@ export function Popup( {
 	return (
 		<BasePopover.Portal>
 			{ backdrop ? <BasePopover.Backdrop className={ styles.backdrop } /> : null }
+			{ /* Fixed, so a popup sliding in from off-screen can't scroll the page sideways. */ }
 			<BasePopover.Positioner
+				positionMethod="fixed"
 				side={ side }
 				align={ align }
 				sideOffset={ sideOffset }
@@ -50,6 +52,7 @@ export function Popup( {
 				className={ styles.positioner }
 			>
 				<BasePopover.Popup
+					data-slot="popover-content"
 					initialFocus={ initialFocus }
 					finalFocus={ finalFocus }
 					render={ <FloatingSurface className={ className } style={ style } /> }

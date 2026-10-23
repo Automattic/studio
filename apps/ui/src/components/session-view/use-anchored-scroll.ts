@@ -5,10 +5,10 @@ export const SCROLL_ANCHOR_ATTRIBUTE = 'data-scroll-anchor';
 
 // Slack below the bottom edge that still counts as "at the latest message",
 // so sub-pixel rounding or a barely-started scroll doesn't flash the button.
-const SCROLL_AWAY_FROM_LATEST_THRESHOLD_PX = 48;
+const SCROLL_AWAY_FROM_LATEST_THRESHOLD_PX = 8;
 
 // How much of the previous message stays visible above a prompt at the top.
-const ANCHOR_PEEK_PX = 24;
+const ANCHOR_PEEK_PX = 64;
 
 export function isScrolledAwayFromLatest( node: {
 	scrollTop: number;
@@ -53,7 +53,13 @@ export function useAnchoredScroll( {
 } ) {
 	const spacerRef = useRef< HTMLDivElement >( null );
 	const [ isScrolledAway, setIsScrolledAway ] = useState( false );
-	const stateRef = useRef( { sessionId: '', anchors: 0, pinned: false, following: true } );
+	const stateRef = useRef( {
+		sessionId: '',
+		anchors: 0,
+		pinned: false,
+		following: true,
+		jumping: false,
+	} );
 
 	const settle = useCallback( () => {
 		const spacer = spacerRef.current;
@@ -73,7 +79,13 @@ export function useAnchoredScroll( {
 			ANCHOR_PEEK_PX;
 
 		if ( state.sessionId !== sessionId ) {
-			stateRef.current = { sessionId, anchors: count, pinned: false, following: true };
+			stateRef.current = {
+				sessionId,
+				anchors: count,
+				pinned: false,
+				following: true,
+				jumping: false,
+			};
 			spacer.style.height = '0px';
 			scrollTo( scrollNode, last ? anchorOffset() : scrollNode.scrollHeight );
 			const away = isScrolledAwayFromLatest( scrollNode );
@@ -106,12 +118,23 @@ export function useAnchoredScroll( {
 		}
 		const onScroll = () => {
 			const away = isScrolledAwayFromLatest( scrollNode );
-			stateRef.current.following = ! away;
+			const state = stateRef.current;
+			// A jump keeps the button hidden while its smooth scroll is on the way.
+			if ( state.jumping && away ) {
+				return;
+			}
+			state.jumping = false;
+			state.following = ! away;
 			setIsScrolledAway( away );
 		};
-		scrollNode.addEventListener( 'scroll', onScroll, { passive: true } );
+		const listening = new AbortController();
+		const options = { passive: true, signal: listening.signal };
+		scrollNode.addEventListener( 'scroll', onScroll, options );
+		for ( const type of [ 'wheel', 'touchmove', 'keydown' ] ) {
+			scrollNode.addEventListener( type, () => ( stateRef.current.jumping = false ), options );
+		}
 		if ( typeof ResizeObserver === 'undefined' ) {
-			return () => scrollNode.removeEventListener( 'scroll', onScroll );
+			return () => listening.abort();
 		}
 		// Late layout (images, highlighted code) and viewport resizes move the
 		// anchor without a transcript change.
@@ -123,7 +146,7 @@ export function useAnchoredScroll( {
 			}
 		}
 		return () => {
-			scrollNode.removeEventListener( 'scroll', onScroll );
+			listening.abort();
 			observer.disconnect();
 		};
 	}, [ scrollNode, settle ] );
@@ -136,6 +159,9 @@ export function useAnchoredScroll( {
 		if ( ! scrollNode ) {
 			return;
 		}
+		stateRef.current.following = true;
+		stateRef.current.jumping = true;
+		setIsScrolledAway( false );
 		const prefersReducedMotion = window.matchMedia?.( '(prefers-reduced-motion: reduce)' ).matches;
 		scrollNode.scrollTo( {
 			top: scrollNode.scrollHeight,

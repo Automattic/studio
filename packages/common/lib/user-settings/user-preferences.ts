@@ -12,13 +12,18 @@ import { SUPPORTED_EDITORS } from '@studio/common/lib/user-settings/editor';
 import {
 	DEFAULT_COLOR_SCHEME,
 	INTERFACE_PREFERENCE_DEFAULTS,
+	NEW_SITE_BEHAVIORS,
 	QUIT_SITES_BEHAVIORS,
 	SUPPORTED_COLOR_SCHEMES,
 } from '@studio/common/lib/user-settings/preferences';
 import { DEFAULT_TERMINAL, SUPPORTED_TERMINALS } from '@studio/common/lib/user-settings/terminal';
 import type { TracksEventName, TracksProps } from '@studio/common/lib/record-tracks-event';
 import type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
-import type { ColorScheme, QuitSitesBehavior } from '@studio/common/lib/user-settings/preferences';
+import type {
+	ColorScheme,
+	NewSiteBehavior,
+	QuitSitesBehavior,
+} from '@studio/common/lib/user-settings/preferences';
 import type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
 
 /**
@@ -47,6 +52,7 @@ export interface UserPreferences {
 	autoStartSiteOnChat: boolean;
 	// Ask before discarding preview annotations.
 	confirmDeleteAnnotations: boolean;
+	newSiteBehavior: NewSiteBehavior;
 }
 
 // Passed in, so this stays a pure reader over the config files.
@@ -88,6 +94,7 @@ export const userPreferencesPatchSchema = z.object( {
 	autoCollapseSites: z.boolean().nullish(),
 	autoStartSiteOnChat: z.boolean().nullish(),
 	confirmDeleteAnnotations: z.boolean().nullish(),
+	newSiteBehavior: z.enum( NEW_SITE_BEHAVIORS ).nullish(),
 	// Where the change was made (the analytics toggle also appears during onboarding); not stored.
 	surface: z.enum( [ 'onboarding', 'settings' ] ).optional(),
 } );
@@ -108,6 +115,7 @@ const APP_CONFIG_KEYS = [
 	[ 'autoCollapseSites', 'autoCollapseSites' ],
 	[ 'autoStartSiteOnChat', 'autoStartSiteOnChat' ],
 	[ 'confirmDeleteAnnotations', 'confirmDeleteAnnotations' ],
+	[ 'newSiteBehavior', 'newSiteBehavior' ],
 ] as const satisfies readonly ( readonly [ keyof UserPreferencesPatch, string ] )[];
 
 function getDefaultSiteDirectory( config: AppConfig, sitesRoot: string ): string {
@@ -123,8 +131,13 @@ export async function readUserPreferences( {
 	sitesRoot,
 }: UserPreferencesContext ): Promise< UserPreferences > {
 	const [ config, shared ] = await Promise.all( [ readAppConfig(), readSharedConfig() ] );
-	const { autoStartSiteOnChat, confirmDeleteAnnotations, showRecentChats, autoCollapseSites } =
-		INTERFACE_PREFERENCE_DEFAULTS;
+	const {
+		autoStartSiteOnChat,
+		confirmDeleteAnnotations,
+		showRecentChats,
+		autoCollapseSites,
+		newSiteBehavior,
+	} = INTERFACE_PREFERENCE_DEFAULTS;
 
 	return {
 		editor: optionalEditor.parse( config.preferredEditor ?? null ),
@@ -147,6 +160,10 @@ export async function readUserPreferences( {
 			.boolean()
 			.catch( confirmDeleteAnnotations )
 			.parse( config.confirmDeleteAnnotations ),
+		newSiteBehavior: z
+			.enum( NEW_SITE_BEHAVIORS )
+			.catch( newSiteBehavior )
+			.parse( config.newSiteBehavior ),
 	};
 }
 

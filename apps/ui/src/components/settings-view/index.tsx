@@ -21,6 +21,7 @@ import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-u
 import { hasCustomPanelWidths, resetPanelWidths } from '@/lib/resizable-panels';
 import { AccountSection } from './account-section';
 import { InstructionsEditor } from './instructions-editor';
+import { NewSiteBehaviorRow } from './new-site-behavior-row';
 import { UNSET, toPreferencesFormData, toPreferencesPatch } from './preferences';
 import {
 	SettingsGroup,
@@ -230,6 +231,7 @@ function PreferencesPanel( {
 				</SettingsRow>
 			</SettingsGroup>
 			<SettingsGroup title={ __( 'Interface' ) }>
+				<NewSiteBehaviorRow />
 				<SettingsRow
 					title={ __( 'When Studio quits' ) }
 					description={ __( 'Choose what happens to running sites when you quit Studio.' ) }

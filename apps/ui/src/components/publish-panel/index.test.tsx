@@ -1,9 +1,11 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { ConnectorProvider } from '@/data/core';
 import { useSyncActivityEvents } from '@/data/queries/use-sync-site';
+import { applySyncActivity } from '@/data/sync-activity';
+import { requestHeaderPanel } from '@/hooks/use-open-header-panel';
 import { useSyncConnectSiteListener } from '@/hooks/use-sync-connect-site-listener';
 import { PublishButton } from './index';
 import type { Connector, SiteDetails, SyncSite } from '@/data/core';
@@ -75,6 +77,7 @@ function renderButton(
 		getWpVersion: vi.fn().mockResolvedValue( '6.8' ),
 		getHostingPhpVersion: vi.fn().mockResolvedValue( '8.3' ),
 		pushSiteToLive: vi.fn().mockResolvedValue( undefined ),
+		pullSiteFromLive: vi.fn().mockResolvedValue( undefined ),
 		startSite: vi.fn().mockResolvedValue( undefined ),
 		getSites: vi.fn().mockResolvedValue( [] ),
 		onSyncActivity: vi.fn( () => () => {} ),
@@ -129,6 +132,33 @@ describe( 'PublishButton', () => {
 			expect( connector.pushSiteToLive ).toHaveBeenCalledWith( site.id, remote.id, {
 				optionsToSync: [ 'plugins' ],
 				specificSelectionPaths: [ 'plugins/shared' ],
+			} )
+		);
+	} );
+
+	it( 'lets a site connected in Add site retry the first pull that failed', async () => {
+		const { connector, site } = renderButton( {
+			getLatestRewindId: vi.fn().mockResolvedValue( 'rewind-1' ),
+			listRemoteFileTree: vi.fn().mockResolvedValue( [] ),
+		} );
+		act( () => {
+			requestHeaderPanel( { panel: 'publish', siteId: site.id, view: 'pull' } );
+			applySyncActivity( site.id, { kind: 'pending', direction: 'pull', remoteSiteId: remote.id } );
+			applySyncActivity( site.id, { kind: 'error', direction: 'pull', message: 'Backup failed' } );
+		} );
+
+		expect(
+			await screen.findByText(
+				'Your local site is saved. Retry to finish bringing in its content.'
+			)
+		).toBeVisible();
+		const retry = await screen.findByRole( 'button', { name: 'Try pulling again' } );
+		await waitFor( () => expect( retry ).toBeEnabled() );
+		await userEvent.click( retry );
+
+		await waitFor( () =>
+			expect( connector.pullSiteFromLive ).toHaveBeenCalledWith( site.id, remote.id, {
+				optionsToSync: [ 'all' ],
 			} )
 		);
 	} );

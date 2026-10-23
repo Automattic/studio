@@ -86,6 +86,11 @@ function getStudioSections( signedIn: boolean ): Section[] {
 					'usage-statistics'
 				),
 				setting(
+					__( 'When adding a site' ),
+					__( 'Choose what Add site opens on.' ),
+					'new-site-behavior'
+				),
+				setting(
 					__( 'When Studio quits' ),
 					__( 'Choose what happens to running sites when you quit Studio.' ),
 					'quit-behavior'

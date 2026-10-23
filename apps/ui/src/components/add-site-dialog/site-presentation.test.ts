@@ -18,7 +18,7 @@ function remoteSite( id: number, overrides: Partial< SyncSite > = {} ): SyncSite
 }
 
 describe( 'remote site presentation', () => {
-	it( 'keeps previously connected sites available and separates unsupported sites', () => {
+	it( 'leaves out connected sites and separates unsupported sites', () => {
 		const remoteSites = [
 			remoteSite( 1 ),
 			remoteSite( 2, { syncSupport: 'already-connected' } ),
@@ -27,10 +27,9 @@ describe( 'remote site presentation', () => {
 		];
 
 		expect( presentRemoteSites( remoteSites ) ).toMatchObject( [
-			{ group: 'available' },
-			{ group: 'available' },
-			{ group: 'needs-upgrade' },
-			{ group: 'unavailable' },
+			{ site: { id: 1 }, group: 'available' },
+			{ site: { id: 3 }, group: 'needs-upgrade' },
+			{ site: { id: 4 }, group: 'unavailable' },
 		] );
 	} );
 

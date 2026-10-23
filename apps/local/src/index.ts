@@ -1054,6 +1054,37 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} )
 	);
 
+	// What a typed folder holds, the browser's stand-in for the desktop's folder picker.
+	api.post(
+		'/site-defaults/folder',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const folderPath = req.body?.path;
+			if ( typeof folderPath !== 'string' || ! path.isAbsolute( folderPath ) ) {
+				res.status( 400 ).json( { error: 'Enter the folder’s full path.' } );
+				return;
+			}
+			const folder = { path: folderPath, name: path.basename( folderPath ) };
+			// Only folders under the home or site directory are read; others are left to `site create`.
+			let confined: string | undefined;
+			for ( const root of [ os.homedir(), await readDefaultSiteDirectory( sitesRoot ) ] ) {
+				const candidate = path.resolve( folderPath );
+				if ( candidate.startsWith( path.resolve( root ) + path.sep ) ) {
+					confined = candidate;
+				}
+			}
+			try {
+				res.json( {
+					...folder,
+					isEmpty: confined ? await isEmptyDir( confined ) : true,
+					isWordPress: confined ? isWordPressDirectory( confined ) : false,
+				} );
+			} catch ( err ) {
+				if ( ! isErrnoException( err ) || err.code !== 'ENOENT' ) throw err;
+				res.json( { ...folder, isEmpty: true, isWordPress: false } );
+			}
+		} )
+	);
+
 	api.post(
 		'/paths/compare',
 		asyncHandler( async ( req: Request, res: Response ) => {

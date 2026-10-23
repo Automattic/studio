@@ -83,3 +83,14 @@ it( 'keeps the sidebar preferences, which default to recent chats shown and site
 		autoCollapseSites: false,
 	} );
 } );
+
+it( 'keeps what Add site opens on, choosing a starting point until set', async () => {
+	const context = { sitesRoot: configDir, installedApps: {} as never };
+	expect( ( await readUserPreferences( context ) ).newSiteBehavior ).toBe( 'choose' );
+
+	await writeUserPreferences( { newSiteBehavior: 'blank' }, { sitesRoot: configDir } );
+	expect( ( await readUserPreferences( context ) ).newSiteBehavior ).toBe( 'blank' );
+
+	await writeUserPreferences( { newSiteBehavior: null }, { sitesRoot: configDir } );
+	expect( ( await readUserPreferences( context ) ).newSiteBehavior ).toBe( 'choose' );
+} );

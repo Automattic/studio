@@ -1,17 +1,20 @@
 import { DESIGN_SYSTEM_PREVIEW_PATH } from '@studio/common/ai/chat-artifacts';
 import { TRACKS_EVENTS, type TracksEventName } from '@studio/common/lib/record-tracks-event';
 import { __ } from '@wordpress/i18n';
-import { cog, external, Icon, styles as stylesIcon, wordpress } from '@wordpress/icons';
 import { useEffect, useRef, useState } from 'react';
 import { SiteIcon } from '@/components/site-icon';
 import { Button } from '@/components/ui/button';
 import * as Popover from '@/components/ui/popover';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { VisuallyHidden } from '@/components/ui/visually-hidden';
-import { databaseIcon } from '@/lib/icons';
+import { AppearanceIcon } from '@/lib/icons/appearance-icon';
+import { DatabaseIcon } from '@/lib/icons/database-icon';
+import { ExternalLinkIcon } from '@/lib/icons/external-link-icon';
+import { SiteSettingsIcon } from '@/lib/icons/site-settings-icon';
+import { WordPressIcon } from '@/lib/icons/wordpress-icon';
 import styles from './address-bar.module.css';
 import type { SiteDetails } from '@/data/core';
-import type { FormEvent, ReactElement, SVGProps } from 'react';
+import type { FormEvent, ReactNode } from 'react';
 
 export function getPathFromPreviewUrl( url: string, baseUrl: string ) {
 	try {
@@ -99,11 +102,15 @@ interface PreviewAddressBarProps {
 	siteIcon?: string | null;
 	siteUrl: string;
 	path: string;
+	// A remote site: no local realms, auto-login or recent locations.
+	remote?: boolean;
 	onNavigate: ( path: string ) => void;
 	onSwitchRealm: ( realm: PreviewRealm ) => void;
 	hasDesignSystem?: boolean;
 	onOpenExternal?: () => void;
 	onOpenSettings?: () => void;
+	// The header is short on room: the field keeps only the address.
+	hideActions?: boolean;
 }
 
 interface RecentPreviewLocation {
@@ -175,7 +182,7 @@ function AddressAction( {
 	tooltip = label,
 	onClick,
 }: {
-	icon: ReactElement< SVGProps< SVGSVGElement > >;
+	icon: ReactNode;
 	label: string;
 	tooltip?: string;
 	onClick: () => void;
@@ -193,7 +200,7 @@ function AddressAction( {
 					/>
 				}
 			>
-				<Icon icon={ icon } />
+				{ icon }
 			</TooltipTrigger>
 			<TooltipContent side="bottom">{ tooltip }</TooltipContent>
 		</Tooltip>
@@ -205,36 +212,51 @@ export function PreviewAddressBar( {
 	siteIcon,
 	siteUrl,
 	path,
+	remote = false,
 	onNavigate,
 	onSwitchRealm,
 	hasDesignSystem = false,
 	onOpenExternal,
 	onOpenSettings,
+	hideActions = false,
 }: PreviewAddressBarProps ) {
 	const displayUrl = getDisplayUrl( siteUrl, path );
 	const activeRealm = getPreviewRealm( path );
 	const [ value, setValue ] = useState( displayUrl );
+	const [ invalid, setInvalid ] = useState( false );
 	const [ shortcutsOpen, setShortcutsOpen ] = useState( false );
 	const [ recentLocations, setRecentLocations ] = useState< RecentPreviewLocation[] >( () =>
 		loadRecentLocations( site.id )
 	);
 	const addressBarRef = useRef< HTMLFormElement | null >( null );
 
-	useEffect( () => setValue( displayUrl ), [ displayUrl ] );
+	const restore = () => {
+		setValue( displayUrl );
+		setInvalid( false );
+	};
+	useEffect( () => {
+		setValue( displayUrl );
+		setInvalid( false );
+	}, [ displayUrl ] );
 	useEffect( () => setRecentLocations( loadRecentLocations( site.id ) ), [ site.id ] );
 
 	const handleSubmit = ( event: FormEvent< HTMLFormElement > ) => {
 		event.preventDefault();
 		const intent = parseOmniboxInput( value, siteUrl );
 		if ( ! intent ) {
+			setInvalid( value.trim() !== '' );
 			return;
 		}
 		const nextPath =
-			intent.type === 'path'
-				? getRealmNavigationPath( intent.path, siteUrl )
-				: `/?s=${ encodeURIComponent( intent.term ) }`;
-		const recentLabel = getDisplayUrl( siteUrl, intent.type === 'path' ? intent.path : nextPath );
-		setRecentLocations( storeRecentLocation( site.id, { path: nextPath, label: recentLabel } ) );
+			intent.type === 'search'
+				? `/?s=${ encodeURIComponent( intent.term ) }`
+				: remote
+				? intent.path
+				: getRealmNavigationPath( intent.path, siteUrl );
+		if ( ! remote ) {
+			const recentLabel = getDisplayUrl( siteUrl, intent.type === 'path' ? intent.path : nextPath );
+			setRecentLocations( storeRecentLocation( site.id, { path: nextPath, label: recentLabel } ) );
+		}
 		setShortcutsOpen( false );
 		onNavigate( nextPath );
 	};
@@ -257,13 +279,11 @@ export function PreviewAddressBar( {
 				/>
 			);
 		}
-		return (
-			<Icon
-				icon={ { admin: wordpress, database: databaseIcon, design: stylesIcon }[ realm ] }
-				size={ 18 }
-				className={ realm === 'admin' ? styles.wordpressIcon : undefined }
-			/>
-		);
+		return {
+			admin: <WordPressIcon className={ styles.wordpressIcon } />,
+			database: <DatabaseIcon />,
+			design: <AppearanceIcon />,
+		}[ realm ];
 	};
 
 	return (
@@ -274,7 +294,7 @@ export function PreviewAddressBar( {
 			onOpenChange={ ( open ) => {
 				setShortcutsOpen( open );
 				if ( ! open ) {
-					setValue( displayUrl );
+					restore();
 				}
 			} }
 		>
@@ -284,6 +304,7 @@ export function PreviewAddressBar( {
 					className={ styles.siteIcon }
 					data-realm={ activeRealm }
 					aria-label={ __( 'Preview shortcuts' ) }
+					disabled={ remote }
 					onClick={ () => setShortcutsOpen( true ) }
 				>
 					{ renderRealmIcon( activeRealm ) }
@@ -291,31 +312,45 @@ export function PreviewAddressBar( {
 				<input
 					className={ styles.input }
 					value={ value }
-					onChange={ ( event ) => setValue( event.target.value ) }
-					onClick={ () => setShortcutsOpen( true ) }
+					onChange={ ( event ) => {
+						setValue( event.target.value );
+						setInvalid( false );
+					} }
+					onClick={ () => setShortcutsOpen( ! remote ) }
 					onFocus={ ( event ) => {
 						event.currentTarget.select();
 					} }
+					onKeyDown={ ( event ) => {
+						if ( event.key === 'Escape' ) {
+							restore();
+							setShortcutsOpen( false );
+							event.currentTarget.blur();
+						}
+					} }
 					aria-label={ __( 'Address' ) }
+					aria-invalid={ invalid || undefined }
+					title={ invalid ? __( 'Enter a path or an address on this site.' ) : undefined }
 					spellCheck={ false }
 				/>
-				<span className={ styles.actions }>
-					{ onOpenSettings ? (
-						<AddressAction
-							icon={ cog }
-							label={ __( 'Site settings' ) }
-							onClick={ onOpenSettings }
-						/>
-					) : null }
-					{ onOpenExternal ? (
-						<AddressAction
-							icon={ external }
-							label={ __( 'Open this page in your browser' ) }
-							tooltip={ __( 'Open in browser' ) }
-							onClick={ onOpenExternal }
-						/>
-					) : null }
-				</span>
+				{ hideActions ? null : (
+					<span className={ styles.actions }>
+						{ onOpenSettings ? (
+							<AddressAction
+								icon={ <SiteSettingsIcon /> }
+								label={ __( 'Site settings' ) }
+								onClick={ onOpenSettings }
+							/>
+						) : null }
+						{ onOpenExternal ? (
+							<AddressAction
+								icon={ <ExternalLinkIcon /> }
+								label={ __( 'Open this page in your browser' ) }
+								tooltip={ __( 'Open in browser' ) }
+								onClick={ onOpenExternal }
+							/>
+						) : null }
+					</span>
+				) }
 			</form>
 			<Popover.Popup
 				anchor={ addressBarRef }

@@ -1,5 +1,5 @@
 import { createRoute, redirect } from '@tanstack/react-router';
-import { resolveAgenticFeatures } from '@/data/queries/use-agentic-features';
+import { resolveChatEnabled } from '@/data/queries/use-agentic-features';
 import { openNewSession } from '@/data/queries/use-sessions';
 import { dashboardLayoutRoute } from '../layout-dashboard';
 
@@ -12,11 +12,7 @@ export const newSessionRoute = createRoute( {
 	getParentRoute: () => dashboardLayoutRoute,
 	path: '/sites/$siteId/new',
 	beforeLoad: async ( { params, context } ) => {
-		const { chatEnabled, chatPromptsSignIn } = await resolveAgenticFeatures( context );
-		if ( ! chatEnabled ) {
-			if ( chatPromptsSignIn ) {
-				return;
-			}
+		if ( ! ( await resolveChatEnabled( context ) ) ) {
 			throw redirect( {
 				to: '/sites/$siteId',
 				params: { siteId: params.siteId },

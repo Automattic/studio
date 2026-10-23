@@ -315,7 +315,7 @@ describe( 'Composer menu', () => {
 
 	it( 'sends staged annotations with the message once the agent is idle', async () => {
 		const onSend = vi.fn().mockResolvedValue( undefined );
-		const id = pickAnnotation( 'composer-site', { tag: 'h1', selector: 'h1', path: '/' } );
+		const id = pickAnnotation( 'composer-site', { tag: 'h1', selector: 'h1', path: '/' } )!;
 		changeAnnotation( 'composer-site', id, { comment: 'Make this bigger' } );
 		stageAnnotations( 'composer-site' );
 		const { rerenderComposer } = renderComposer( {
@@ -378,6 +378,30 @@ describe( 'Composer menu', () => {
 		expect( onSend ).not.toHaveBeenCalled();
 		expect( notice ).toHaveAttribute( 'data-feedback' );
 		expect( screen.getByRole( 'combobox' ) ).toHaveValue( 'One more' );
+	} );
+
+	it( 'shakes the notice it is given instead of sending', async () => {
+		const onConnect = vi.fn();
+		const onSend = vi.fn< ( prompt: string ) => Promise< void > >();
+		renderComposer( {
+			onSend,
+			notice: {
+				message: 'Connect a provider to build and edit your site.',
+				action: { label: 'Connect', onClick: onConnect },
+			},
+		} );
+
+		const notice = screen.getByRole( 'alert' );
+		fireEvent.click( within( notice ).getByRole( 'button', { name: 'Connect' } ) );
+		expect( onConnect ).toHaveBeenCalled();
+
+		fireEvent.change( screen.getByRole( 'combobox' ), { target: { value: 'Build a bakery' } } );
+		fireEvent.keyDown( screen.getByRole( 'combobox' ), { key: 'Enter' } );
+		expect( onSend ).not.toHaveBeenCalled();
+		expect( within( notice ).getByText( /Connect a provider/ ).parentElement ).toHaveAttribute(
+			'data-submit-feedback',
+			'shake'
+		);
 	} );
 
 	it( 'does not hold an Anthropic chat behind WordPress.com credits', async () => {

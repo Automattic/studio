@@ -2,15 +2,7 @@ import { aiSessionBelongsToSite } from '@studio/common/ai/sessions/owner-site';
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { useNavigate } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
-import {
-	arrowRight,
-	arrowUpRight,
-	chevronDownSmall,
-	Icon,
-	settings,
-	wordpress,
-} from '@wordpress/icons';
-import { displayShortcut, isKeyboardEvent } from '@wordpress/keycodes';
+import { displayShortcut } from '@wordpress/keycodes';
 import { useRef, useState } from 'react';
 import { DeleteSiteDialog } from '@/components/delete-site-dialog';
 import {
@@ -30,6 +22,7 @@ import { useSessionsBusy } from '@/data/queries/use-agent-run';
 import { useSessions } from '@/data/queries/use-sessions';
 import { sitePinKey, useSidebarPins } from '@/data/queries/use-sidebar-pins';
 import { useIsSiteBusy, useSites, useStartSite, useStopSite } from '@/data/queries/use-sites';
+import { useItemShortcuts } from '@/hooks/use-item-shortcuts';
 import { useOpenSettings } from '@/hooks/use-open-settings';
 import { useSessionPreviewUI } from '@/hooks/use-session-ui';
 import {
@@ -38,16 +31,21 @@ import {
 	type SiteManagementActionId,
 } from '@/hooks/use-site-management-actions';
 import { getSiteUrl } from '@/lib/get-site-url';
-import {
-	databaseIcon,
-	globeIcon,
-	pinIcon,
-	refreshIcon,
-	renameIcon,
-	startSiteIcon,
-	stopSiteIcon,
-	unpinIcon,
-} from '@/lib/icons';
+import { ArrowRightIcon } from '@/lib/icons/arrow-right-icon';
+import { ChevronDownIcon } from '@/lib/icons/chevron-down-icon';
+import { DatabaseIcon } from '@/lib/icons/database-icon';
+import { ExportIcon } from '@/lib/icons/export-icon';
+import { ExternalLinkIcon } from '@/lib/icons/external-link-icon';
+import { GlobeIcon } from '@/lib/icons/globe-icon';
+import { PinIcon } from '@/lib/icons/pin-icon';
+import { RenameIcon } from '@/lib/icons/rename-icon';
+import { RotateCwIcon } from '@/lib/icons/rotate-cw-icon';
+import { SiteSettingsIcon } from '@/lib/icons/site-settings-icon';
+import { StartSiteIcon } from '@/lib/icons/start-site-icon';
+import { StopOtherSitesIcon } from '@/lib/icons/stop-other-sites-icon';
+import { StopSiteIcon } from '@/lib/icons/stop-site-icon';
+import { UnpinIcon } from '@/lib/icons/unpin-icon';
+import { WordPressIcon } from '@/lib/icons/wordpress-icon';
 import styles from './style.module.css';
 import type { SiteDetails } from '@/data/core';
 
@@ -65,14 +63,23 @@ export function useDeleteBlockedReason( sites: SiteDetails[], sitesBusy: boolean
 	return sitesBusy ? __( 'Wait for site operations to finish.' ) : undefined;
 }
 
-// State for the menu's dialogs, which outlive the menu that opens them.
+// State for the menu's dialogs, which outlive the menu that opens them, and
+// the actions the menu shares with the command palette.
 export function useSiteActions( site: SiteDetails, { onOpen }: { onOpen?: () => void } = {} ) {
 	const connector = useConnector();
+	const navigate = useNavigate();
 	const openSettings = useOpenSettings();
+	const preview = useSessionPreviewUI();
+	const { data: sites } = useSites();
+	const startSite = useStartSite();
+	const stopSite = useStopSite();
+	const busy = useIsSiteBusy( site );
 	const { isPinned, togglePin } = useSidebarPins();
 	const [ deleteOpen, setDeleteOpen ] = useState( false );
 	const importInputRef = useRef< HTMLInputElement >( null );
 	const backupImport = useSiteBackupImport( site );
+	const running = ( sites ?? [] ).filter( ( candidate ) => candidate.running );
+	const othersRunning = running.filter( ( candidate ) => candidate.id !== site.id );
 
 	const openSiteSettings = ( focus?: string ) => {
 		onOpen?.();
@@ -80,25 +87,47 @@ export function useSiteActions( site: SiteDetails, { onOpen }: { onOpen?: () => 
 		openSettings( 'site', site.id, focus );
 	};
 	const rename = () => openSiteSettings( __( 'Site name' ) );
+	const togglePinned = () => togglePin( sitePinKey( site.id ) );
+	const toggleRunning = () => ( site.running ? stopSite : startSite ).mutate( site.id );
+	const shortcuts = useItemShortcuts( {
+		rename,
+		pin: togglePinned,
+		lifecycle: busy ? undefined : toggleRunning,
+	} );
 
-	// ⌥⌘P pins and ⌥⌘R renames (Ctrl+Alt elsewhere).
-	const handleShortcut = ( event: KeyboardEvent ) => {
-		if ( isKeyboardEvent.primaryAlt( event, 'p' ) ) {
-			event.preventDefault();
-			togglePin( sitePinKey( site.id ) );
-		} else if ( isKeyboardEvent.primaryAlt( event, 'r' ) ) {
-			event.preventDefault();
-			rename();
+	// Shows the page in this site's preview, starting the site first.
+	const goTo = async ( path: string ) => {
+		if ( ! site.running && ! ( await startSite.mutateAsync( site.id ).catch( () => false ) ) ) {
+			return;
+		}
+		preview.setSite( site.id );
+		preview.updatePath( getRealmNavigationPath( path, getSiteUrl( site ) ) );
+		preview.setOpen( true );
+		if ( preview.siteId !== site.id ) {
+			void navigate( { to: '/sites/$siteId', params: { siteId: site.id } } );
 		}
 	};
 
 	return {
 		site,
-		handleShortcut,
+		busy,
+		running,
+		othersRunning,
+		shortcuts,
 		openSiteSettings: () => openSiteSettings(),
 		rename,
 		pinned: isPinned( sitePinKey( site.id ) ),
-		togglePin: () => togglePin( sitePinKey( site.id ) ),
+		togglePin: togglePinned,
+		toggleRunning,
+		stop: ( stopping: SiteDetails[] ) =>
+			stopping.forEach( ( candidate ) => stopSite.mutate( candidate.id ) ),
+		restart: () =>
+			stopSite.mutateAsync( site.id ).then(
+				() => startSite.mutate( site.id ),
+				() => undefined
+			),
+		openAdmin: () => void goTo( '/wp-admin/' ),
+		openDatabase: () => void goTo( DATABASE_HOME_PATH ),
 		openImport: () => importInputRef.current?.click(),
 		openDelete: () => setDeleteOpen( true ),
 		dialogs: (
@@ -130,14 +159,15 @@ export function useSiteActions( site: SiteDetails, { onOpen }: { onOpen?: () => 
 
 type SiteActions = ReturnType< typeof useSiteActions >;
 
-export function SiteActionsMenuItems( { actions }: { actions: SiteActions } ) {
-	const { site } = actions;
-	const navigate = useNavigate();
-	const preview = useSessionPreviewUI();
-	const { data: sites } = useSites();
-	const startSite = useStartSite();
-	const stopSite = useStopSite();
-	const busy = useIsSiteBusy( site );
+export function SiteActionsMenuItems( {
+	actions,
+	current = false,
+}: {
+	actions: SiteActions;
+	// The menu of the current site, which ⌥⌘S starts or stops.
+	current?: boolean;
+} ) {
+	const { site, busy, running, othersRunning } = actions;
 	const destinations = useOpenInDestinations( site );
 	const manage = Object.fromEntries(
 		useSiteManagementActions( site, {
@@ -146,27 +176,9 @@ export function SiteActionsMenuItems( { actions }: { actions: SiteActions } ) {
 		} ).map( ( action ) => [ action.id, action ] )
 	) as Record< SiteManagementActionId, SiteManagementAction >;
 	const deleteBlocked = useDeleteBlockedReason( [ site ], busy );
-	const running = ( sites ?? [] ).filter( ( candidate ) => candidate.running );
-	const othersRunning = running.filter( ( candidate ) => candidate.id !== site.id );
-
-	const restart = () =>
-		stopSite.mutateAsync( site.id ).then(
-			() => startSite.mutate( site.id ),
-			() => undefined
-		);
-
-	// Shows the page in this site's preview, starting the site first.
-	const goTo = async ( path: string ) => {
-		if ( ! site.running && ! ( await startSite.mutateAsync( site.id ).catch( () => false ) ) ) {
-			return;
-		}
-		preview.setSite( site.id );
-		preview.updatePath( getRealmNavigationPath( path, getSiteUrl( site ) ) );
-		preview.setOpen( true );
-		if ( preview.siteId !== site.id ) {
-			void navigate( { to: '/sites/$siteId', params: { siteId: site.id } } );
-		}
-	};
+	const lifecycleShortcut = current ? (
+		<Menu.Shortcut>{ displayShortcut.primaryAlt( 's' ) }</Menu.Shortcut>
+	) : null;
 
 	const manageItem = ( action: SiteManagementAction, label = action.label, blocked = false ) => (
 		<Menu.Item
@@ -174,7 +186,7 @@ export function SiteActionsMenuItems( { actions }: { actions: SiteActions } ) {
 			destructive={ action.destructive }
 			onClick={ action.run }
 		>
-			<Icon icon={ action.icon } />
+			<action.icon />
 			{ label }
 		</Menu.Item>
 	);
@@ -182,42 +194,40 @@ export function SiteActionsMenuItems( { actions }: { actions: SiteActions } ) {
 	return (
 		<div className={ styles.items }>
 			<Menu.Item onClick={ actions.openSiteSettings }>
-				<Icon icon={ settings } />
+				<SiteSettingsIcon />
 				{ __( 'Settings' ) }
 			</Menu.Item>
 			<Menu.Separator />
 			{ site.running ? null : (
-				<Menu.Item disabled={ busy } onClick={ () => startSite.mutate( site.id ) }>
-					<Icon icon={ startSiteIcon } />
+				<Menu.Item disabled={ busy } onClick={ actions.toggleRunning }>
+					<StartSiteIcon />
 					{ __( 'Start site' ) }
+					{ lifecycleShortcut }
 				</Menu.Item>
 			) }
 			{ site.running || running.length > 1 ? (
 				<Menu.SubmenuRoot>
 					<Menu.SubmenuTrigger disabled={ busy }>
-						<Icon icon={ stopSiteIcon } />
+						<StopSiteIcon />
 						{ __( 'Stop' ) }
 					</Menu.SubmenuTrigger>
 					<Menu.SubmenuPopup>
 						{ site.running ? (
-							<Menu.Item onClick={ () => stopSite.mutate( site.id ) }>
-								<Icon icon={ stopSiteIcon } />
+							<Menu.Item onClick={ actions.toggleRunning }>
+								<StopSiteIcon />
 								{ __( 'Stop site' ) }
+								{ lifecycleShortcut }
 							</Menu.Item>
 						) : null }
 						{ site.running && othersRunning.length ? (
-							<Menu.Item
-								onClick={ () => othersRunning.forEach( ( other ) => stopSite.mutate( other.id ) ) }
-							>
-								<Icon icon={ stopSiteIcon } />
+							<Menu.Item onClick={ () => actions.stop( othersRunning ) }>
+								<StopOtherSitesIcon />
 								{ __( 'Stop other sites' ) }
 							</Menu.Item>
 						) : null }
 						{ running.length > 1 ? (
-							<Menu.Item
-								onClick={ () => running.forEach( ( each ) => stopSite.mutate( each.id ) ) }
-							>
-								<Icon icon={ stopSiteIcon } />
+							<Menu.Item onClick={ () => actions.stop( running ) }>
+								<StopOtherSitesIcon />
 								{ __( 'Stop all sites' ) }
 							</Menu.Item>
 						) : null }
@@ -225,31 +235,31 @@ export function SiteActionsMenuItems( { actions }: { actions: SiteActions } ) {
 				</Menu.SubmenuRoot>
 			) : null }
 			{ site.running ? (
-				<Menu.Item disabled={ busy } onClick={ () => void restart() }>
-					<Icon icon={ refreshIcon } />
+				<Menu.Item disabled={ busy } onClick={ () => void actions.restart() }>
+					<RotateCwIcon />
 					{ __( 'Restart site' ) }
 				</Menu.Item>
 			) : null }
 			<Menu.Separator />
 			<Menu.SubmenuRoot>
 				<Menu.SubmenuTrigger disabled={ busy }>
-					<Icon icon={ arrowRight } />
+					<ArrowRightIcon />
 					{ __( 'Go to' ) }
 				</Menu.SubmenuTrigger>
 				<Menu.SubmenuPopup>
-					<Menu.Item onClick={ () => void goTo( '/wp-admin/' ) }>
-						<Icon icon={ wordpress } />
+					<Menu.Item onClick={ actions.openAdmin }>
+						<WordPressIcon />
 						{ __( 'WordPress Admin' ) }
 					</Menu.Item>
-					<Menu.Item onClick={ () => void goTo( DATABASE_HOME_PATH ) }>
-						<Icon icon={ databaseIcon } />
+					<Menu.Item onClick={ actions.openDatabase }>
+						<DatabaseIcon />
 						{ __( 'Database' ) }
 					</Menu.Item>
 				</Menu.SubmenuPopup>
 			</Menu.SubmenuRoot>
 			<Menu.SubmenuRoot>
 				<Menu.SubmenuTrigger>
-					<Icon icon={ arrowUpRight } />
+					<ExternalLinkIcon />
 					{ __( 'Open in' ) }
 				</Menu.SubmenuTrigger>
 				<Menu.SubmenuPopup>
@@ -259,7 +269,7 @@ export function SiteActionsMenuItems( { actions }: { actions: SiteActions } ) {
 							disabled={ destination.disabled }
 							onClick={ destination.open }
 						>
-							<Icon icon={ destination.logo } />
+							{ destination.logo }
 							{ destination.label }
 						</Menu.Item>
 					) ) }
@@ -267,19 +277,19 @@ export function SiteActionsMenuItems( { actions }: { actions: SiteActions } ) {
 			</Menu.SubmenuRoot>
 			<Menu.Separator />
 			<Menu.Item onClick={ actions.togglePin }>
-				<Icon icon={ actions.pinned ? unpinIcon : pinIcon } />
+				{ actions.pinned ? <UnpinIcon /> : <PinIcon /> }
 				{ actions.pinned ? __( 'Unpin' ) : __( 'Pin' ) }
 				<Menu.Shortcut>{ displayShortcut.primaryAlt( 'p' ) }</Menu.Shortcut>
 			</Menu.Item>
 			<Menu.Item onClick={ actions.rename }>
-				<Icon icon={ renameIcon } />
+				<RenameIcon />
 				{ __( 'Rename' ) }
 				<Menu.Shortcut>{ displayShortcut.primaryAlt( 'r' ) }</Menu.Shortcut>
 			</Menu.Item>
 			{ manageItem( manage.import ) }
 			<Menu.SubmenuRoot>
 				<Menu.SubmenuTrigger>
-					<Icon icon={ manage.export.icon } />
+					<ExportIcon />
 					{ __( 'Export' ) }
 				</Menu.SubmenuTrigger>
 				<Menu.SubmenuPopup>
@@ -313,22 +323,24 @@ export function SiteActionsMenu( { site }: { site: SiteDetails } ) {
 						render={
 							<TooltipTrigger
 								render={
-									<Button variant="ghost" aria-label={ label } className={ styles.trigger } />
+									<Button
+										variant="ghost"
+										aria-label={ label }
+										className={ styles.trigger }
+										{ ...actions.shortcuts }
+										data-item-shortcuts-active="site"
+									/>
 								}
 							/>
 						}
 					>
-						<Icon icon={ globeIcon } data-icon="inline-start" />
-						<Icon icon={ chevronDownSmall } data-icon="inline-end" data-dropdown-indicator />
+						<GlobeIcon data-icon="inline-start" />
+						<ChevronDownIcon data-icon="inline-end" data-dropdown-indicator />
 					</Menu.Trigger>
 					<TooltipContent side="bottom">{ label }</TooltipContent>
 				</Tooltip>
-				<Menu.Popup
-					side="bottom"
-					align="start"
-					onKeyDown={ ( event ) => actions.handleShortcut( event.nativeEvent ) }
-				>
-					<SiteActionsMenuItems actions={ actions } />
+				<Menu.Popup side="bottom" align="start" { ...actions.shortcuts }>
+					<SiteActionsMenuItems actions={ actions } current />
 				</Menu.Popup>
 			</Menu.Root>
 			{ actions.dialogs }

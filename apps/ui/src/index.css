@@ -57,7 +57,7 @@ body {
 	scrollbar-width: thin;
 }
 
-/* `lang` is set on bootstrap in lib/apply-locale.ts. */
+/* `lang` is set on bootstrap in lib/apply-user-preferences.ts. */
 :root:lang( ckb ) {
 	--font-sans: 'Vazirmatn', -apple-system, system-ui, 'Segoe UI', 'Roboto', 'Oxygen-Sans', 'Ubuntu',
 		'Cantarell', 'Helvetica Neue', sans-serif;
@@ -138,8 +138,7 @@ textarea,
 	-webkit-app-region: no-drag;
 }
 
-/* @wordpress/icons draws SVGs at 24x24; the app's icons are 16px unless a
-   component sizes them. */
+/* Icons draw on a 24px grid and render at 16px unless a component sizes them. */
 @layer base {
 	:root svg {
 		width: 16px;
@@ -149,6 +148,55 @@ textarea,
 	:root svg[data-keep-size] {
 		width: auto;
 		height: auto;
+	}
+}
+
+/* Text that is working: a highlight band sweeps across it, dimming it in light
+   mode and lifting it in dark mode. `--shimmer-highlight` sets the band's color. */
+.studio-shimmer {
+	--shimmer-spread: calc( 3ch + 40px );
+	--shimmer-band: var( --shimmer-highlight, oklch( from currentColor l c h / calc( alpha * 0.2 ) ) );
+	--shimmer-edge: color-mix( in oklch, var( --shimmer-band ), currentColor 50% );
+
+	background: linear-gradient(
+			110deg,
+			currentColor calc( 50% - var( --shimmer-spread ) ),
+			var( --shimmer-edge ) calc( 50% - var( --shimmer-spread ) * 0.5 ),
+			var( --shimmer-band ) 50%,
+			var( --shimmer-edge ) calc( 50% + var( --shimmer-spread ) * 0.5 ),
+			currentColor calc( 50% + var( --shimmer-spread ) )
+		)
+		0 0 / calc( 200% + var( --shimmer-spread ) * 2 ) 100% no-repeat;
+	background-clip: text;
+	-webkit-text-fill-color: transparent;
+	animation: studio-shimmer 2s linear infinite;
+}
+
+[data-color-scheme='dark'] .studio-shimmer {
+	--shimmer-band: var(
+		--shimmer-highlight,
+		oklch( from currentColor max( 0.8, calc( l + 0.4 ) ) c h / calc( alpha + 0.4 ) )
+	);
+}
+
+.studio-shimmer:dir( rtl ) {
+	animation-direction: reverse;
+}
+
+@keyframes studio-shimmer {
+	from {
+		background-position: 100% 0;
+	}
+
+	to {
+		background-position: 0 0;
+	}
+}
+
+@media ( prefers-reduced-motion: reduce ) {
+	.studio-shimmer {
+		background: none;
+		-webkit-text-fill-color: currentColor;
 	}
 }
 

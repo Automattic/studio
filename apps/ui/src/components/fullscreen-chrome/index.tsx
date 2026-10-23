@@ -1,6 +1,6 @@
 import { __ } from '@wordpress/i18n';
-import { close } from '@wordpress/icons';
 import { clsx } from 'clsx';
+import { XIcon } from 'lucide-react';
 import { IconButton } from '@/components/ui/button';
 import { useWindowControlsOverlay } from '@/hooks/use-window-controls-overlay';
 import { useWindowControlsSurface } from '@/hooks/use-window-controls-surface';
@@ -38,7 +38,7 @@ export function FullscreenChrome( { onClose, closeDisabled }: FullscreenChromePr
 			{ onClose && (
 				<IconButton
 					className={ clsx( styles.close, closeAtStart && styles.closeWindowControls ) }
-					icon={ close }
+					icon={ <XIcon /> }
 					label={ __( 'Close' ) }
 					onClick={ onClose }
 					disabled={ closeDisabled }

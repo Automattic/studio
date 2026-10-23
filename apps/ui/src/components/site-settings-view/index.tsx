@@ -13,13 +13,18 @@ import {
 } from '@studio/common/lib/passwords';
 import { getSiteFileAccess } from '@studio/common/lib/site-file-access';
 import { getWpEnvironmentType } from '@studio/common/lib/wp-environment-type';
-import { RecommendedPHPVersion } from '@studio/common/types/php-versions';
-import { __ } from '@wordpress/i18n';
-import { seen, unseen } from '@wordpress/icons';
+import {
+	getClosestSupportedPhpVersion,
+	RecommendedPHPVersion,
+} from '@studio/common/types/php-versions';
+import { __, sprintf } from '@wordpress/i18n';
+import { EyeIcon, EyeOffIcon } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { CopyButton } from '@/components/copy-button';
+import { LearnMoreLink } from '@/components/learn-more';
 import { useSettingsDialog } from '@/components/settings-dialog/context';
+import { ConnectionCard } from '@/components/settings-view/account-section';
 import { SettingsGroup, SettingsRow, SettingsToggle } from '@/components/settings-view/rows';
 import {
 	CertificateTrustNotice,
@@ -42,6 +47,7 @@ import { useOffline } from '@/hooks/use-offline';
 import styles from './style.module.css';
 import type { SiteSettingsSectionId } from '@/components/settings-dialog/context';
 import type { SiteDetails } from '@/data/core';
+import type { DocsLinkKey } from '@studio/common/lib/docs-links';
 import type { SiteFileAccess } from '@studio/common/lib/site-file-access';
 import type { WpEnvironmentType } from '@studio/common/lib/wp-environment-type';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
@@ -117,11 +123,9 @@ type ToggleKey =
 export function SiteSettingsForm( {
 	site,
 	section,
-	active,
 }: {
 	site: SiteDetails;
 	section: SiteSettingsSectionId;
-	active: boolean;
 } ) {
 	const dialog = useSettingsDialog();
 	const allDomains = useExistingCustomDomains();
@@ -223,12 +227,11 @@ export function SiteSettingsForm( {
 		[ data, initial ]
 	);
 
-	const xdebugBlocked = data.enableXdebug && !! xdebugConflictSiteName && ! site.enableXdebug;
 	// Saving restarts the server to apply a PHP/WordPress/domain change, so the
 	// CLI refuses it while anything else holds the site.
 	const isBusy = useIsSiteBusy( site );
-	const canSubmit =
-		isValid && ! isUnchanged && ! updateSite.isPending && ! xdebugBlocked && ! isBusy;
+	const disabled = isBusy || updateSite.isPending;
+	const canSubmit = isValid && ! isUnchanged && ! disabled;
 
 	const dirty = ! isUnchanged || updateSite.isPending;
 	const { setDirty } = dialog;
@@ -272,6 +275,7 @@ export function SiteSettingsForm( {
 				wpVersion: wpVersionChanged ? wpPinned || DEFAULT_WORDPRESS_VERSION : undefined,
 			},
 			{
+				onSuccess: dialog.settle,
 				onError: ( error ) => {
 					setSubmitError( ( error as Error ).message ?? __( 'Unable to save changes.' ) );
 				},
@@ -291,27 +295,40 @@ export function SiteSettingsForm( {
 				aria-invalid={ errors[ key ] ? true : undefined }
 				className={ styles.input }
 				value={ data[ key ] }
+				disabled={ disabled }
 				onChange={ ( event ) => handleChange( { [ key ]: event.target.value } ) }
 				{ ...props }
 			/>
 			{ action }
 		</SettingsRow>
 	);
-	const toggleRow = ( key: ToggleKey, title: string, description?: ReactNode ) => (
-		<SettingsRow title={ title } description={ description }>
+	const toggleRow = (
+		key: ToggleKey,
+		title: string,
+		description?: ReactNode,
+		{ error, locked = false }: { error?: string; locked?: boolean } = {}
+	) => (
+		<SettingsRow title={ title } description={ description } error={ error }>
 			<SettingsToggle
 				label={ title }
 				checked={ data[ key ] }
+				disabled={ disabled || locked }
 				onChange={ ( checked ) => handleChange( { [ key ]: checked } ) }
 			/>
 		</SettingsRow>
 	);
+	const learnMore = ( docsLinksKey: DocsLinkKey ) => (
+		<>
+			{ ' ' }
+			<LearnMoreLink docsLinksKey={ docsLinksKey } />
+		</>
+	);
 	const selectRow = (
 		key: 'wpVersion' | 'phpVersion' | 'fileAccess' | 'environmentType',
 		title: string,
-		description: string | undefined,
+		description: ReactNode,
 		options: ComponentProps< typeof SiteSelect >[ 'options' ],
-		disabled?: boolean
+		locked = false
 	) => (
 		<SettingsRow title={ title } description={ description }>
 			<SiteSelect
@@ -319,7 +336,7 @@ export function SiteSettingsForm( {
 				aria-label={ title }
 				value={ data[ key ] }
 				options={ options }
-				disabled={ disabled }
+				disabled={ disabled || locked }
 				onChange={ ( value ) => handleChange( { [ key ]: value } ) }
 			/>
 		</SettingsRow>
@@ -328,9 +345,16 @@ export function SiteSettingsForm( {
 		<CopyButton text={ data[ key ] } label={ label } variant="plain" />
 	);
 
+	const resolvedPhpVersion = getClosestSupportedPhpVersion( data.phpVersion ) ?? data.phpVersion;
+	const phpVersionOptions = getPhpVersionOptions();
+	if ( ! phpVersionOptions.some( ( option ) => option.value === data.phpVersion ) ) {
+		phpVersionOptions.unshift( { value: data.phpVersion, label: data.phpVersion } );
+	}
+
 	const sections: Record< SiteSettingsSectionId, ReactNode > = {
 		site: (
 			<>
+				<ConnectionCard />
 				<SettingsGroup>
 					{ textRow( 'name', __( 'Site name' ), __( 'Name shown in Studio.' ) ) }
 					{ selectRow(
@@ -347,7 +371,7 @@ export function SiteSettingsForm( {
 						<SettingsToggle
 							label={ __( 'Automatic updates' ) }
 							checked={ data.wpVersion === '' }
-							disabled={ isOffline }
+							disabled={ disabled || isOffline }
 							onChange={ ( automatic ) =>
 								handleChange( {
 									wpVersion: automatic ? '' : currentWpVersion ?? DEFAULT_WORDPRESS_VERSION,
@@ -360,7 +384,10 @@ export function SiteSettingsForm( {
 					{ toggleRow(
 						'useCustomDomain',
 						__( 'Use custom domain' ),
-						__( 'Use a local address like my-site.local.' )
+						<>
+							{ __( 'Use a local address like my-site.local.' ) }
+							{ learnMore( 'docsCustomDomains' ) }
+						</>
 					) }
 					{ data.useCustomDomain && (
 						<>
@@ -369,8 +396,10 @@ export function SiteSettingsForm( {
 								'enableHttps',
 								__( 'Enable HTTPS' ),
 								<>
-									{ __( 'Use a secure local connection with an SSL certificate.' ) }{ ' ' }
-									<CertificateTrustNotice />
+									{ __(
+										'Test features that require HTTPS and catch issues before your site goes live.'
+									) }
+									{ learnMore( 'docsSslInStudio' ) } <CertificateTrustNotice />
 								</>
 							) }
 						</>
@@ -378,7 +407,12 @@ export function SiteSettingsForm( {
 				</SettingsGroup>
 				<SettingsGroup
 					title={ __( 'WordPress credentials' ) }
-					description={ __( 'Sign-in details for this site and its previews.' ) }
+					description={
+						<>
+							{ __( 'Sign-in details for this site and its previews.' ) }
+							{ learnMore( 'docsSiteSettings' ) }
+						</>
+					}
 				>
 					{ textRow(
 						'adminUsername',
@@ -396,7 +430,7 @@ export function SiteSettingsForm( {
 								<IconButton
 									variant="muted-ghost"
 									size="icon-xs"
-									icon={ isPasswordVisible ? unseen : seen }
+									icon={ isPasswordVisible ? <EyeOffIcon /> : <EyeIcon /> }
 									label={ isPasswordVisible ? __( 'Hide password' ) : __( 'Show password' ) }
 									aria-pressed={ isPasswordVisible }
 									onClick={ () => setIsPasswordVisible( ( visible ) => ! visible ) }
@@ -423,15 +457,24 @@ export function SiteSettingsForm( {
 				{ selectRow(
 					'phpVersion',
 					__( 'PHP version' ),
-					__( 'The PHP version used to run WordPress on this site.' ),
-					getPhpVersionOptions()
+					resolvedPhpVersion === data.phpVersion
+						? __( 'The PHP version used to run WordPress on this site.' )
+						: sprintf(
+								/* translators: %s: the supported PHP version that runs instead, like 8.2. */
+								__( 'Native PHP will use %s' ),
+								resolvedPhpVersion
+						  ),
+					phpVersionOptions
 				) }
 				{ selectRow(
 					'fileAccess',
 					__( 'File access' ),
-					__(
-						'Choose whether this site can access only its own folder or other files on your computer.'
-					),
+					<>
+						{ __(
+							'Choose whether this site can access only its own folder or other files on your computer.'
+						) }
+						{ learnMore( 'docsFileAccess' ) }
+					</>,
 					getFileAccessOptions()
 				) }
 			</SettingsGroup>
@@ -442,9 +485,12 @@ export function SiteSettingsForm( {
 					{ selectRow(
 						'environmentType',
 						__( 'Environment' ),
-						__(
-							'Sets the value returned by wp_get_environment_type(). Plugins and themes use it to vary their behavior between local, staging, and production sites.'
-						),
+						<>
+							{ __(
+								'Sets the value returned by wp_get_environment_type(). Plugins and themes use it to vary their behavior between local, staging, and production sites.'
+							) }
+							{ learnMore( 'docsWpEnvironmentType' ) }
+						</>,
 						getEnvironmentTypeOptions()
 					) }
 				</SettingsGroup>
@@ -452,12 +498,22 @@ export function SiteSettingsForm( {
 					{ toggleRow(
 						'enableXdebug',
 						__( 'Xdebug' ),
-						xdebugConflictSiteName
-							? /* translators: %s: other site's name */
-							  `${ __( 'Xdebug is enabled on another site:' ) } ${ xdebugConflictSiteName }`
-							: __(
-									'Connect a debugger to inspect PHP execution. Only one site can have Xdebug enabled at a time.'
-							  )
+						<>
+							{ __(
+								'Connect a debugger to inspect PHP execution. Only one site can have Xdebug enabled at a time.'
+							) }
+							{ learnMore( 'docsXdebug' ) }
+						</>,
+						xdebugConflictSiteName && ! data.enableXdebug
+							? {
+									error: sprintf(
+										/* translators: %s: the name of the site that has Xdebug enabled. */
+										__( 'Xdebug is enabled on another site: %s' ),
+										xdebugConflictSiteName
+									),
+									locked: true,
+							  }
+							: {}
 					) }
 					{ toggleRow(
 						'enableDebugLog',
@@ -476,12 +532,18 @@ export function SiteSettingsForm( {
 					{ toggleRow(
 						'enableScriptDebug',
 						__( 'Script debugging' ),
-						__( 'Load unminified WordPress JavaScript and CSS for easier debugging.' )
+						<>
+							{ __( 'Load unminified WordPress JavaScript and CSS for easier debugging.' ) }
+							{ learnMore( 'docsScriptDebug' ) }
+						</>
 					) }
 					{ toggleRow(
 						'enableDebugDisplay',
 						__( 'Show errors in browser' ),
-						__( 'Display PHP errors, warnings, and notices.' )
+						<>
+							{ __( 'Display PHP errors, warnings, and notices.' ) }
+							{ learnMore( 'docsDebugDisplay' ) }
+						</>
 					) }
 				</SettingsGroup>
 			</>
@@ -490,16 +552,24 @@ export function SiteSettingsForm( {
 
 	return (
 		<form id={ FORM_ID } onSubmit={ handleSubmit } className={ styles.form }>
+			{ isBusy && ! updateSite.isPending ? (
+				<p role="status" className={ styles.busy }>
+					{ __( 'Wait for the current site operation to finish before changing settings.' ) }
+				</p>
+			) : null }
 			{ sections[ section ] }
 			{ submitError && <div className={ styles.submitError }>{ submitError }</div> }
-			{ active && dirty && dialog.actions
+			{ dirty && dialog.actions
 				? createPortal(
 						<>
 							<Button
 								variant="outline"
 								size="header"
 								disabled={ updateSite.isPending }
-								onClick={ () => setData( initial ) }
+								onClick={ () => {
+									setData( initial );
+									dialog.settle();
+								} }
 							>
 								{ __( 'Discard' ) }
 							</Button>

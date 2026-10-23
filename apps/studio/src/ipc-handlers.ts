@@ -216,6 +216,7 @@ export {
 	saveGlobalAgentInstructions,
 	saveOnboardingHints,
 	saveWapuuScore,
+	setAiProvider,
 	setUserPreferences,
 } from 'src/modules/user-settings/lib/ipc-handlers';
 
@@ -294,10 +295,6 @@ export async function continueAiSession(
 		visualAnnotations?: unknown;
 	} = {}
 ): Promise< { runId: string } > {
-	if ( ! ( await oauthClient.isAuthenticated() ) ) {
-		throw new Error( __( 'WordPress.com login required. Log in to use Studio Code.' ) );
-	}
-
 	await reconcileSessionEnvironment( getSessionsDirectory(), sessionId );
 	const images = validateStudioChatImages( options.images );
 	const files = validateStudioChatFiles( options.files );

@@ -18,10 +18,10 @@ async function deleteSite( siteName: string, { keepFiles }: { keepFiles: boolean
 	await new Sidebar( session.mainWindow ).openContextMenuItem( siteName, 'Delete site' );
 	const dialog = session.mainWindow.getByRole( 'alertdialog' );
 	const deleteFiles = dialog.getByRole( 'checkbox', {
-		name: 'Delete site files from my computer',
+		name: 'Also move files and database to Trash',
 	} );
 	await deleteFiles.setChecked( ! keepFiles );
-	await dialog.getByRole( 'button', { name: 'Delete site' } ).click();
+	await dialog.getByRole( 'button', { name: 'Remove site' } ).click();
 	await expect( new Sidebar( session.mainWindow ).getSiteButton( siteName ) ).not.toBeAttached( {
 		timeout: 30_000,
 	} );
@@ -38,7 +38,7 @@ async function copyInstallTo( sourcePath: string, folder: string ) {
 
 test.describe( 'Sites', () => {
 	test.afterEach( async ( { page: _page }, testInfo ) => {
-		await session.reportMainProcessLogsOnFailure( testInfo );
+		await session.reportFailure( testInfo );
 		await session.cleanup();
 	} );
 
@@ -123,7 +123,7 @@ test.describe( 'Site settings', () => {
 	} );
 
 	test.afterEach( async ( { page: _page }, testInfo ) => {
-		await session.reportMainProcessLogsOnFailure( testInfo );
+		await session.reportFailure( testInfo );
 	} );
 
 	test.afterAll( async () => {
@@ -164,7 +164,7 @@ test.describe( 'Site settings', () => {
 
 test.describe( 'Sites without cleanup in-between', () => {
 	test.afterEach( async ( { page: _page }, testInfo ) => {
-		await session.reportMainProcessLogsOnFailure( testInfo );
+		await session.reportFailure( testInfo );
 	} );
 
 	test.afterAll( async () => {

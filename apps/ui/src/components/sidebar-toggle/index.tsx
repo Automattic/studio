@@ -1,5 +1,4 @@
 import { __ } from '@wordpress/i18n';
-import { Icon } from '@wordpress/icons';
 import { clsx } from 'clsx';
 import { AppMessageCardsDot } from '@/components/app-message-cards';
 import { CollapsedSiteSwitcher } from '@/components/collapsed-site-switcher';
@@ -10,7 +9,7 @@ import {
 	useSidebarOpen,
 	useToggleSidebar,
 } from '@/hooks/use-sidebar-collapsed';
-import { sidebarCollapsedIcon, sidebarExpandedIcon } from '@/lib/icons';
+import { SidebarIcon } from '@/lib/icons/sidebar-icon';
 import styles from './style.module.css';
 
 export function SidebarToggle() {
@@ -26,7 +25,7 @@ export function SidebarToggle() {
 			data-sidebar-toggle
 			onClick={ toggleSidebar }
 		>
-			<Icon icon={ collapsed ? sidebarCollapsedIcon : sidebarExpandedIcon } />
+			<SidebarIcon expanded={ ! collapsed } />
 		</Button>
 	);
 

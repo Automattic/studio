@@ -1,14 +1,21 @@
+import { getErrorMessage } from '@studio/common/lib/error-formatting';
 import { captureException } from '@studio/common/lib/error-reporting';
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
-import { supportedEditorConfig } from '@studio/common/lib/user-settings/editor';
+import {
+	getFirstInstalledEditor,
+	supportedEditorConfig,
+} from '@studio/common/lib/user-settings/editor';
 import { terminalConfig } from '@studio/common/lib/user-settings/terminal';
-import { __ } from '@wordpress/i18n';
-import { code, external, wordpress } from '@wordpress/icons';
+import { __, sprintf } from '@wordpress/i18n';
+import { CodeIcon } from 'lucide-react';
 import { DATABASE_HOME_PATH } from '@/components/site-preview/address-bar';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
+import { useInstalledApps } from '@/data/queries/use-installed-apps';
+import { useStartSite } from '@/data/queries/use-sites';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
-import { useOpenSettings } from '@/hooks/use-open-settings';
+import { ExternalLinkIcon } from '@/lib/icons/external-link-icon';
+import { WordPressIcon } from '@/lib/icons/wordpress-icon';
 import {
 	databaseLogo,
 	editorLogos,
@@ -20,7 +27,13 @@ import {
 import type { SiteDetails } from '@/data/core';
 import type { ReactElement, SVGProps } from 'react';
 
-type OpenInDestination = 'browser' | 'wp-admin' | 'files' | 'editor' | 'terminal' | 'phpmyadmin';
+export type OpenInDestination =
+	| 'browser'
+	| 'wp-admin'
+	| 'files'
+	| 'editor'
+	| 'terminal'
+	| 'phpmyadmin';
 
 interface OpenInDestinationEntry {
 	id: OpenInDestination;
@@ -52,25 +65,23 @@ function getFileManager(): { label: string; logo: ReactElement< SVGProps< SVGSVG
  * address bar owns in-app navigation, including opening its current page
  * externally.
  *
- * `onOpen` fires only when a destination actually opens: picking the editor
- * without a configured preference navigates to settings instead and reports
- * nothing.
- *
- * Browser, WP Admin and phpMyAdmin need a running site; the rest work stopped.
+ * The editor is the preferred one, else the first one installed; with neither
+ * there's no editor entry. Browser and WP Admin need a running site, and
+ * phpMyAdmin starts a stopped one first. A failure to open is reported.
  */
 export function useOpenInDestinations(
 	site: SiteDetails,
 	onOpen?: ( destination: OpenInDestination ) => void
 ): OpenInDestinationEntry[] {
 	const connector = useConnector();
-	const openSettings = useOpenSettings();
 	const { data: userPreferences } = useUserPreferences();
+	const { data: installedApps } = useInstalledApps();
+	const startSite = useStartSite();
 
 	const fileManager = getFileManager();
-	const editorLabel = userPreferences?.editor
-		? supportedEditorConfig[ userPreferences.editor ].label()
-		: __( 'Editor' );
-	const editorLogo = userPreferences?.editor ? editorLogos[ userPreferences.editor ] : undefined;
+	const editor =
+		userPreferences?.editor ?? ( installedApps ? getFirstInstalledEditor( installedApps ) : null );
+	const editorLabel = editor ? supportedEditorConfig[ editor ].label() : '';
 	const terminalLabel = userPreferences?.terminal
 		? terminalConfig[ userPreferences.terminal ].name()
 		: __( 'Terminal' );
@@ -78,91 +89,87 @@ export function useOpenInDestinations(
 		? terminalLogos[ userPreferences.terminal ]
 		: terminalLogo;
 
-	return [
+	const open = ( destination: OpenInDestination, label: string, run: () => Promise< unknown > ) => {
+		onOpen?.( destination );
+		void run().catch( ( error ) => {
+			console.error( `Failed to open the site in ${ destination }:`, error );
+			captureException( error );
+			/* translators: %s: where the site was being opened, e.g. "Terminal" or "phpMyAdmin". */
+			toast.error( sprintf( __( 'Couldn’t open %s' ), label ), {
+				description: getErrorMessage( error ),
+			} );
+		} );
+	};
+
+	const destinations: Array< OpenInDestinationEntry | false > = [
 		{
 			id: 'browser',
 			label: __( 'Browser' ),
 			// Not the globe: the address bar already uses that for the site's
 			// front end, and this one leaves Studio.
-			logo: external,
+			logo: <ExternalLinkIcon />,
 			disabled: ! site.running,
-			open: () => {
-				onOpen?.( 'browser' );
-				void connector.trackEvent( TRACKS_EVENTS.SITE_OPEN_IN_BROWSER, { browser: 'external' } );
-				// The front end opens logged out; only WP Admin signs the user in.
-				void connector.openSiteUrl( site.id, '/', { autoLogin: false } ).catch( ( error ) => {
-					console.error( 'Failed to open site in browser:', error );
-				} );
-			},
+			open: () =>
+				open( 'browser', __( 'Browser' ), () => {
+					void connector.trackEvent( TRACKS_EVENTS.SITE_OPEN_IN_BROWSER, { browser: 'external' } );
+					// The front end opens logged out; only WP Admin signs the user in.
+					return connector.openSiteUrl( site.id, '/', { autoLogin: false } );
+				} ),
 		},
 		{
 			id: 'wp-admin',
 			label: __( 'Browser (WP Admin)' ),
-			logo: wordpress,
+			logo: <WordPressIcon />,
 			disabled: ! site.running,
-			open: () => {
-				onOpen?.( 'wp-admin' );
-				void connector.trackEvent( TRACKS_EVENTS.SITE_OPEN_WP_ADMIN, { browser: 'external' } );
-				void connector.openSiteUrl( site.id, '/wp-admin/' ).catch( ( error ) => {
-					console.error( 'Failed to open WP Admin:', error );
-				} );
-			},
+			open: () =>
+				open( 'wp-admin', __( 'WP Admin' ), () => {
+					void connector.trackEvent( TRACKS_EVENTS.SITE_OPEN_WP_ADMIN, { browser: 'external' } );
+					return connector.openSiteUrl( site.id, '/wp-admin/' );
+				} ),
 		},
 		{
 			id: 'files',
 			label: fileManager.label,
 			logo: fileManager.logo,
 			disabled: false,
-			open: () => {
-				onOpen?.( 'files' );
-				void connector.trackEvent( TRACKS_EVENTS.SITE_OPEN_FOLDER );
-				void connector.openSiteFolder( site.id ).catch( ( error ) => {
-					console.error( 'Failed to open site folder:', error );
-				} );
-			},
+			open: () =>
+				open( 'files', fileManager.label, () => {
+					void connector.trackEvent( TRACKS_EVENTS.SITE_OPEN_FOLDER );
+					return connector.openSiteFolder( site.id );
+				} ),
 		},
-		{
+		!! editor && {
 			id: 'editor',
 			label: editorLabel,
-			logo: editorLogo ?? code,
+			logo: editorLogos[ editor ] ?? <CodeIcon />,
 			disabled: false,
-			open: () => {
-				if ( ! userPreferences?.editor ) {
-					openSettings();
-					return;
-				}
-				onOpen?.( 'editor' );
-				void connector.openSiteInEditor( site.id ).catch( ( error ) => {
-					console.error( 'Failed to open site in editor:', error );
-				} );
-			},
+			open: () => open( 'editor', editorLabel, () => connector.openSiteInEditor( site.id ) ),
 		},
 		{
 			id: 'terminal',
 			label: terminalLabel,
 			logo: configuredTerminalLogo,
 			disabled: false,
-			open: () => {
-				onOpen?.( 'terminal' );
-				void connector.openSiteInTerminal( site.id ).catch( ( error ) => {
-					console.error( 'Failed to open site in terminal:', error );
-					captureException( error );
-					toast.error( __( 'Could not open the terminal.' ) );
-				} );
-			},
+			open: () => open( 'terminal', terminalLabel, () => connector.openSiteInTerminal( site.id ) ),
 		},
 		{
 			id: 'phpmyadmin',
 			label: __( 'phpMyAdmin' ),
 			logo: databaseLogo,
-			disabled: ! site.running,
-			open: () => {
-				onOpen?.( 'phpmyadmin' );
-				void connector.trackEvent( TRACKS_EVENTS.SITE_OPEN_PHPMYADMIN, { browser: 'external' } );
-				void connector.openSiteUrl( site.id, DATABASE_HOME_PATH ).catch( ( error ) => {
-					console.error( 'Failed to open phpMyAdmin:', error );
-				} );
-			},
+			disabled: false,
+			open: () =>
+				open( 'phpmyadmin', __( 'phpMyAdmin' ), async () => {
+					void connector.trackEvent( TRACKS_EVENTS.SITE_OPEN_PHPMYADMIN, { browser: 'external' } );
+					// A failed start reports itself.
+					if (
+						! site.running &&
+						! ( await startSite.mutateAsync( site.id ).catch( () => false ) )
+					) {
+						return;
+					}
+					await connector.openSiteUrl( site.id, DATABASE_HOME_PATH );
+				} ),
 		},
 	];
+	return destinations.filter( ( destination ) => destination !== false );
 }

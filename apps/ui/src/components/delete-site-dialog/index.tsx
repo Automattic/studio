@@ -12,7 +12,6 @@ import {
 } from '@/components/ui/dialog';
 import { Field, FieldLabel } from '@/components/ui/field';
 import { useDeleteSite } from '@/data/queries/use-sites';
-import { useConfirmOnEnter } from '@/hooks/use-confirm-on-enter';
 import styles from './style.module.css';
 import type { SiteDetails } from '@/data/core';
 
@@ -30,14 +29,12 @@ export function DeleteSiteDialog( {
 	onDeleted,
 }: DeleteSiteDialogProps ) {
 	const deleteSite = useDeleteSite();
-	const [ deleteFiles, setDeleteFiles ] = useState( true );
+	const [ deleteFiles, setDeleteFiles ] = useState( false );
 	const [ pending, setPending ] = useState( false );
 	const [ error, setError ] = useState< string >();
 	const cancelRef = useRef< HTMLButtonElement >( null );
 	const deleteFilesId = useId();
 	const count = sites.length;
-	const confirmLabel = _n( 'Delete site', 'Delete sites', count );
-	const handleKeyDown = useConfirmOnEnter( confirmLabel );
 
 	// One at a time, so a failure leaves the rest deleted and is reported.
 	const handleConfirm = async () => {
@@ -80,29 +77,25 @@ export function DeleteSiteDialog( {
 			onOpenChange={ ( next ) => ! pending && onOpenChange( next ) }
 			onOpenChangeComplete={ ( next ) => ! next && setError( undefined ) }
 		>
-			<DialogContent
-				layout="confirmation"
-				showCloseButton={ ! pending }
-				initialFocus={ cancelRef }
-				onKeyDown={ handleKeyDown }
-			>
+			<DialogContent layout="confirmation" showCloseButton={ ! pending } initialFocus={ cancelRef }>
 				<DialogHeader>
 					<DialogTitle>
 						{ count === 1
-							? sprintf( __( 'Delete %s' ), sites[ 0 ].name )
+							? /* translators: %s: site name. */
+							  sprintf( __( 'Remove “%s” from Studio?' ), sites[ 0 ].name )
 							: sprintf(
 									/* translators: %d: number of sites. */
-									_n( 'Delete %d site', 'Delete %d sites', count ),
+									_n( 'Remove %d site from Studio?', 'Remove %d sites from Studio?', count ),
 									count
 							  ) }
 					</DialogTitle>
 					<DialogDescription tone="default">
 						{ count === 1
 							? __(
-									"The site's database will be lost, including all posts, pages, comments, and media."
+									'Are you sure you want to remove this site and delete its chats and any shared preview sites?'
 							  )
 							: __(
-									"These sites' databases will be lost, including all their posts, pages, comments, and media."
+									'Are you sure you want to remove these sites and delete their chats and any shared preview sites?'
 							  ) }
 					</DialogDescription>
 				</DialogHeader>
@@ -114,7 +107,7 @@ export function DeleteSiteDialog( {
 						disabled={ pending }
 					/>
 					<FieldLabel htmlFor={ deleteFilesId } tone="muted">
-						{ __( 'Delete site files from my computer' ) }
+						{ __( 'Also move files and database to Trash' ) }
 					</FieldLabel>
 				</Field>
 				{ error ? (
@@ -132,7 +125,7 @@ export function DeleteSiteDialog( {
 						{ __( 'Cancel' ) }
 					</Button>
 					<Button variant="destructive" loading={ pending } onClick={ () => void handleConfirm() }>
-						{ confirmLabel }
+						{ _n( 'Remove site', 'Remove sites', count ) }
 					</Button>
 				</DialogFooter>
 			</DialogContent>

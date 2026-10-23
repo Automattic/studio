@@ -6,6 +6,7 @@ import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { readSharedConfig } from '@studio/common/lib/shared-config';
 import {
 	readUserPreferences,
+	userPreferencesPatchSchema,
 	writeUserPreferences,
 } from '@studio/common/lib/user-settings/user-preferences';
 
@@ -82,4 +83,49 @@ it( 'keeps the sidebar preferences, which default to recent chats shown and site
 		showRecentChats: false,
 		autoCollapseSites: false,
 	} );
+} );
+
+it( 'keeps what Add site opens on, choosing a starting point until set', async () => {
+	const context = { sitesRoot: configDir, installedApps: {} as never };
+	expect( ( await readUserPreferences( context ) ).newSiteBehavior ).toBe( 'choose' );
+
+	await writeUserPreferences( { newSiteBehavior: 'blank' }, { sitesRoot: configDir } );
+	expect( ( await readUserPreferences( context ) ).newSiteBehavior ).toBe( 'blank' );
+
+	await writeUserPreferences( { newSiteBehavior: null }, { sitesRoot: configDir } );
+	expect( ( await readUserPreferences( context ) ).newSiteBehavior ).toBe( 'choose' );
+} );
+
+it( 'keeps the appearance tint, falling back to the defaults for unset or invalid values', async () => {
+	const context = { sitesRoot: configDir, installedApps: {} as never };
+	expect( await readUserPreferences( context ) ).toMatchObject( {
+		accentColor: '#3858e9',
+		tintIntensity: 0,
+		contrast: 0,
+	} );
+
+	await writeUserPreferences(
+		{ accentColor: '#069E08', tintIntensity: 20, contrast: 45 },
+		{ sitesRoot: configDir }
+	);
+	expect( await readUserPreferences( context ) ).toMatchObject( {
+		accentColor: '#069e08',
+		tintIntensity: 20,
+		contrast: 45,
+	} );
+
+	writeFileSync(
+		path.join( configDir, 'app.json' ),
+		JSON.stringify( { accentColor: 'green', tintIntensity: 140, contrast: -1 } )
+	);
+	expect( await readUserPreferences( context ) ).toMatchObject( {
+		accentColor: '#3858e9',
+		tintIntensity: 0,
+		contrast: 0,
+	} );
+} );
+
+it( 'rejects an accent color that is not a hex color', () => {
+	expect( userPreferencesPatchSchema.safeParse( { accentColor: 'red' } ).success ).toBe( false );
+	expect( userPreferencesPatchSchema.safeParse( { tintIntensity: 101 } ).success ).toBe( false );
 } );

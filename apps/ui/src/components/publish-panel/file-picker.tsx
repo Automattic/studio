@@ -1,11 +1,12 @@
 import { __, sprintf } from '@wordpress/i18n';
-import { chevronDown, chevronRight, Icon, link } from '@wordpress/icons';
+import { ChevronDownIcon, ChevronRightIcon } from 'lucide-react';
 import { useId, useState, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Field, FieldLabel } from '@/components/ui/field';
 import { Spinner } from '@/components/ui/spinner';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { LinkIcon } from '@/lib/icons/link-icon';
 import styles from './style.module.css';
 import type { SyncNode } from './selection';
 import type { TransferSelection } from './use-transfer-selection';
@@ -47,7 +48,7 @@ function SelectionRow( {
 			{ symlink ? (
 				<Tooltip>
 					<TooltipTrigger render={ <span className={ styles.symlink } /> }>
-						<Icon icon={ link } size={ 16 } />
+						<LinkIcon />
 					</TooltipTrigger>
 					<TooltipContent>
 						{ __( 'Symbolic link. Studio pushes the files it points to.' ) }
@@ -99,7 +100,7 @@ function FileNode( { node, selection }: { node: SyncNode; selection: TransferSel
 							disabled={ loading }
 							onClick={ toggle }
 						>
-							{ loading ? <Spinner /> : <Icon icon={ expanded ? chevronDown : chevronRight } /> }
+							{ loading ? <Spinner /> : expanded ? <ChevronDownIcon /> : <ChevronRightIcon /> }
 						</Button>
 					) : null
 				}

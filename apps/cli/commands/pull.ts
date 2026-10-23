@@ -263,6 +263,7 @@ export async function runCommand(
 						kind: 'error',
 						direction: 'pull',
 						message: failure instanceof Error ? failure.message : String( failure ),
+						localChangesApplied: pullCompleted,
 				  }
 				: { kind: pullCompleted ? 'success' : 'cancelled', direction: 'pull' }
 		);

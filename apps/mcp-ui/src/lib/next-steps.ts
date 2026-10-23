@@ -27,11 +27,6 @@ export function nextSteps( entry: SiteEntry ): NextStep[] {
 		) }, site ID ${ site.id })`;
 		return [
 			{
-				title: 'Make a change live',
-				copy: 'Edit its content, design or settings on the live site.',
-				prompt: `I want to change ${ name } live. Ask me what to change first, then make the change on the live site with the WordPress Studio tools, and show me the result.`,
-			},
-			{
 				title: 'Work on it locally',
 				copy: 'Pull it into a new Studio site on this computer.',
 				prompt: `Pull ${ name } into a new local Studio site so I can work on it locally. Confirm with me before overwriting anything.`,
@@ -40,11 +35,6 @@ export function nextSteps( entry: SiteEntry ): NextStep[] {
 				title: 'Review it',
 				copy: 'Desktop and mobile screenshots, and what to improve.',
 				prompt: `Review ${ name }: take screenshots on desktop and mobile and tell me what to improve.`,
-			},
-			{
-				title: 'Plans and upgrades',
-				copy: 'What its plan includes and what an upgrade adds.',
-				prompt: `What does the plan of ${ name } include, and what would an upgrade add?`,
 			},
 		];
 	}

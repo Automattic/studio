@@ -1,5 +1,6 @@
 import { __ } from '@wordpress/i18n';
 import { clsx } from 'clsx';
+import { XIcon } from 'lucide-react';
 import { AddAiCreditsButton } from '@/components/add-ai-credits-button';
 import {
 	Alert,
@@ -13,7 +14,6 @@ import {
 	useActivePersistentMessages,
 	useRecordPersistentMessages,
 } from '@/data/queries/use-app-messages';
-import { closeIcon } from '@/lib/icons';
 import styles from './style.module.css';
 
 export function AppMessageCards( { className }: { className?: string } ) {
@@ -32,7 +32,7 @@ export function AppMessageCards( { className }: { className?: string } ) {
 						<IconButton
 							variant="ghost"
 							size="icon-2xs"
-							icon={ closeIcon }
+							icon={ <XIcon /> }
 							label={ __( 'Dismiss' ) }
 							tooltip={ false }
 							className={ styles.close }

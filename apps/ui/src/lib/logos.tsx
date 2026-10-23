@@ -7,9 +7,7 @@ import type { ReactElement } from 'react';
    dark mode. Third-party path data comes from Simple Icons (CC0) except VS
    Code, which comes from Devicon (MIT) because Simple Icons no longer ships
    it. Finder, Terminal, the generic folder, and the database are drawn
-   in-house in the same stroke style as `./icons`. Each root svg declares its own `fill` so the
-   stroke-drawn marks are not affected by a consumer's fill mapping for
-   @wordpress/icons. */
+   in-house in the same stroke style as `./icons`. */
 
 const vscodeLogo = (
 	<svg xmlns="http://www.w3.org/2000/svg" viewBox="-16 -16 160 160" fill="currentColor">

@@ -22,7 +22,7 @@ test.describe( 'Localization', () => {
 	} );
 
 	test.afterEach( async ( { page: _page }, testInfo ) => {
-		await session.reportMainProcessLogsOnFailure( testInfo );
+		await session.reportFailure( testInfo );
 		if ( current !== 'English' ) {
 			await changeLanguage( 'English', 'en' );
 		}

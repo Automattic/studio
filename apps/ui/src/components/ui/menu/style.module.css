@@ -24,7 +24,7 @@
 		flex-shrink: 0;
 		margin-inline-start: auto;
 		color: var( --muted-foreground );
-		fill: currentColor;
+		rotate: -90deg;
 	}
 
 	.radioItem {

@@ -4,14 +4,11 @@ import {
 } from '@studio/common/ai/providers';
 import { pickLiveSite } from '@studio/common/ai/sessions/effective-site';
 import { findAiSessionOwnerSite } from '@studio/common/ai/sessions/owner-site';
-import {
-	getStudioCodeAiAccessState,
-	hasPaidAiCredits,
-} from '@studio/common/lib/studio-assistant-quota';
+import { hasPaidAiCredits } from '@studio/common/lib/studio-assistant-quota';
 import { useNavigate } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
-import { arrowDown } from '@wordpress/icons';
 import { clsx } from 'clsx';
+import { ArrowDownIcon } from 'lucide-react';
 import {
 	useCallback,
 	useEffect,
@@ -23,7 +20,6 @@ import {
 	type ReactNode,
 	type Ref,
 } from 'react';
-import { AgenticSigninPrompt } from '@/components/agentic-signin-banner';
 import {
 	getSiteAnnotations,
 	hasAnnotationContent,
@@ -36,23 +32,20 @@ import { OpenChatShortcuts } from '@/components/chat-actions';
 import { PreviewParticles } from '@/components/preview-particles';
 import { PreviewToggleButton } from '@/components/preview-toggle-button';
 import { ProgressiveBlur } from '@/components/progressive-blur';
-import { ShareButton } from '@/components/share-dialog';
 import { HeaderSidebarToggle } from '@/components/sidebar-toggle';
 import { SiteActionsMenu } from '@/components/site-actions-menu';
+import { SiteHeaderSpace, useSiteHeader } from '@/components/site-header-actions';
 import { SiteIcon } from '@/components/site-icon';
-import { SiteLifecycleButton } from '@/components/site-lifecycle-button';
-import { StoppedSitePreview } from '@/components/stopped-site-preview';
+import { SiteContextMenu, StoppedSitePreview } from '@/components/stopped-site-preview';
 import { Button, IconButton } from '@/components/ui/button';
 import { toast } from '@/data/app-messages';
 import { useAgentRun } from '@/data/queries/use-agent-run';
-import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useAiSettings } from '@/data/queries/use-ai-settings';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
 import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
 import {
-	useCreateSession,
 	useSession,
-	useSessionEffectiveEnvironment,
+	useSessionLiveSite,
 	useSetSessionEnvironment,
 } from '@/data/queries/use-sessions';
 import {
@@ -65,40 +58,21 @@ import {
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useIsOutOfAiCredits } from '@/hooks/use-is-out-of-ai-credits';
 import { useMarkChatRead } from '@/hooks/use-mark-chat-read';
+import { useSiteSelectionTime } from '@/hooks/use-open-site';
 import { useSessionCommands } from '@/hooks/use-session-commands';
-import { SessionUIProvider } from '@/hooks/use-session-ui';
+import { SessionUIProvider, useOptionalSessionPreviewUI } from '@/hooks/use-session-ui';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import { useWindowControlsInset } from '@/hooks/use-window-controls-inset';
 import { formatComposerTextQuote, watchComposerTextQuote } from '@/lib/composer-text-quote';
 import { pendingPromptSlot } from '@/lib/pending-prompt';
-import { AccessRequirements } from './access-requirements';
 import { Composer, ComposerSkeleton, type ComposerHandle } from './composer';
 import { Conversation } from './conversation';
 import { QueuedPrompts } from './queued-prompts';
-import { useNewChatShortcut } from './session-chat-actions';
 import styles from './style.module.css';
+import { useAnchoredScroll } from './use-anchored-scroll';
+import { useComposerNotice } from './use-composer-notice';
 import type { SiteDetails } from '@/data/core';
-
-// Slack below the bottom edge that still counts as "at the latest message",
-// so sub-pixel rounding or a barely-started scroll doesn't flash the button.
-const SCROLL_AWAY_FROM_LATEST_THRESHOLD_PX = 48;
-
-export function isScrolledAwayFromLatest( node: {
-	scrollTop: number;
-	scrollHeight: number;
-	clientHeight: number;
-} ): boolean {
-	return (
-		node.scrollHeight - node.scrollTop - node.clientHeight > SCROLL_AWAY_FROM_LATEST_THRESHOLD_PX
-	);
-}
-
-// Kept outside the component: the React Compiler lint reads a direct
-// `scrollTop` store on a state-held node as a state mutation.
-function scrollToEnd( node: HTMLElement ) {
-	node.scrollTop = node.scrollHeight;
-}
 
 function SessionHeader( {
 	siteName,
@@ -112,9 +86,12 @@ function SessionHeader( {
 	const sidebarCollapsed = useSidebarCollapsed();
 	const reserveTrafficLightSpace = useTrafficLightSpace().start;
 	const windowControlsInset = useWindowControlsInset( 'toolbar' );
+	const { host } = useSiteHeader();
+	const local = site && effectiveEnvironment === 'local';
 
 	return (
 		<div
+			data-site-header
 			className={ clsx(
 				styles.header,
 				sidebarCollapsed && reserveTrafficLightSpace && styles.headerSidebarCollapsed
@@ -127,31 +104,27 @@ function SessionHeader( {
 					: undefined
 			}
 		>
-			<HeaderSidebarToggle />
-			{ site ? <SiteActionsMenu site={ site } /> : null }
-			{ ! site && siteName ? (
-				<>
-					<SiteIcon className={ styles.headerSiteIcon } seed={ siteName } />
-					<span className={ styles.headerSite }>{ siteName }</span>
-					<span className={ styles.headerDot } aria-hidden="true" />
-					<span className={ styles.headerEnv }>
-						{ effectiveEnvironment === 'live' ? __( 'Live' ) : __( 'Local' ) }
-					</span>
-				</>
-			) : null }
+			<div data-site-header-reserved className={ styles.headerLead }>
+				<HeaderSidebarToggle />
+				{ site ? <SiteActionsMenu site={ site } /> : null }
+				{ ! site && siteName ? (
+					<>
+						<SiteIcon className={ styles.headerSiteIcon } seed={ siteName } />
+						<span className={ styles.headerSite }>{ siteName }</span>
+						<span className={ styles.headerDot } aria-hidden="true" />
+						<span className={ styles.headerEnv }>
+							{ effectiveEnvironment === 'live' ? __( 'Live' ) : __( 'Local' ) }
+						</span>
+					</>
+				) : null }
+			</div>
 			<span className={ styles.headerSpacer } aria-hidden="true" />
-			{ site && effectiveEnvironment === 'local' ? (
-				<div className={ styles.headerActions } data-header-actions>
-					{ site.running ? (
-						<PreviewToggleButton canHideChat />
-					) : (
-						<>
-							<SiteLifecycleButton site={ site } />
-							<ShareButton site={ site } />
-						</>
-					) }
+			{ site && ( site.running || ! local ) ? (
+				<div data-site-header-reserved className={ styles.headerActions } data-header-actions>
+					<PreviewToggleButton canHideChat />
 				</div>
 			) : null }
+			{ local && host === 'chat' ? <SiteHeaderSpace /> : null }
 		</div>
 	);
 }
@@ -244,53 +217,14 @@ export function SessionView( { sessionId }: { sessionId: string } ) {
 	);
 }
 
-export function SignedOutSessionView( { siteId }: { siteId: string } ) {
-	const navigate = useNavigate();
-	const { data: sites } = useSites();
-	const site = sites?.find( ( candidate ) => candidate.id === siteId );
-	const { enabled, isReady, reason, chatPromptsSignIn } = useAgenticFeatures();
-	// `reason` dips through null while auth reloads, so the signed-out state has
-	// to be latched — the preceding value is never 'signed-out' when it matters.
-	const wasSignedOutRef = useRef( false );
-
-	useEffect( () => {
-		if ( reason === 'signed-out' ) {
-			wasSignedOutRef.current = true;
-		}
-		if ( enabled && wasSignedOutRef.current ) {
-			wasSignedOutRef.current = false;
-			void navigate( { to: '/', replace: true } );
-			return;
-		}
-		if ( isReady && ! enabled && ! chatPromptsSignIn ) {
-			void navigate( {
-				to: '/sites/$siteId',
-				params: { siteId },
-				replace: true,
-			} );
-		}
-	}, [ chatPromptsSignIn, enabled, isReady, navigate, reason, siteId ] );
-
-	return (
-		<SessionFrame
-			header={
-				<SessionHeader siteName={ site?.name } site={ site } effectiveEnvironment="local" />
-			}
-		>
-			<AgenticSigninPrompt
-				onTurnedOff={ () => void navigate( { to: '/sites/$siteId', params: { siteId } } ) }
-			/>
-		</SessionFrame>
-	);
-}
-
 function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	const navigate = useNavigate();
 	const { data, isLoading, error, refetch } = useSession( sessionId );
 	const { data: sites } = useSites();
-	const { mutateAsync: createSession, isPending: isCreatingSession } = useCreateSession();
 	const ownerSite = findAiSessionOwnerSite( sites, data?.summary );
-	const effectiveEnvironment = useSessionEffectiveEnvironment( data?.summary, ownerSite?.id );
+	const effectiveEnvironment = useSessionLiveSite( data?.summary, ownerSite?.id )
+		? 'live'
+		: 'local';
 	const {
 		isRunning,
 		hasActiveRun,
@@ -305,15 +239,11 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		clearQuestionAnswer,
 		removeQueuedPrompt,
 	} = useAgentRun( sessionId );
-	const {
-		data: quota,
-		isLoading: isQuotaLoading,
-		isFetching: isQuotaFetching,
-		refetch: refetchQuota,
-	} = useStudioAssistantQuota();
+	const { data: quota, isLoading: isQuotaLoading } = useStudioAssistantQuota();
 	const { data: aiSettings } = useAiSettings();
 	const sessionProvider = getEffectiveSessionProvider( data?.entries ?? [], aiSettings );
 	const isWpcom = sessionProvider === 'wpcom';
+	const notice = useComposerNotice( sessionProvider );
 	// A fresh wpcom session defaults to balanced when purchased credits
 	// remain, fast otherwise.
 	const currentModel = useMemo(
@@ -392,44 +322,12 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		},
 		[ answerQuestion, targetQuestion ]
 	);
-	const [ isScrolledAway, setIsScrolledAway ] = useState( false );
-
-	const updateIsScrolledAway = useCallback( () => {
-		if ( scrollNode ) {
-			setIsScrolledAway( isScrolledAwayFromLatest( scrollNode ) );
-		}
-	}, [ scrollNode ] );
-
-	useEffect( () => {
-		if ( ! scrollNode ) {
-			return;
-		}
-		updateIsScrolledAway();
-		scrollNode.addEventListener( 'scroll', updateIsScrolledAway, { passive: true } );
-		return () => scrollNode.removeEventListener( 'scroll', updateIsScrolledAway );
-	}, [ scrollNode, updateIsScrolledAway ] );
-
-	// Content can grow without emitting scroll events (e.g. while the
-	// auto-scroll below is suspended by pending questions), so re-check
-	// whenever the transcript changes.
-	useEffect( () => {
-		updateIsScrolledAway();
-	}, [ data, pendingQuestions.length, queuedPrompts.length, updateIsScrolledAway ] );
-
-	useLayoutEffect( () => {
-		setIsScrolledAway( false );
-	}, [ sessionId ] );
-
-	const scrollToLatest = useCallback( () => {
-		if ( ! scrollNode ) {
-			return;
-		}
-		const prefersReducedMotion = window.matchMedia?.( '(prefers-reduced-motion: reduce)' ).matches;
-		scrollNode.scrollTo( {
-			top: scrollNode.scrollHeight,
-			behavior: prefersReducedMotion ? 'auto' : 'smooth',
-		} );
-	}, [ scrollNode ] );
+	const { spacerRef, isScrolledAway, scrollToLatest } = useAnchoredScroll( {
+		scrollNode,
+		sessionId,
+		content: data,
+		paused: pendingQuestions.length > 0,
+	} );
 	useSessionCommands( sessionId );
 	const canTogglePreview = !! ownerSite && effectiveEnvironment === 'local';
 	const annotationSiteId = canTogglePreview ? ownerSite.id : undefined;
@@ -452,53 +350,19 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 			} ),
 		[ navigate ]
 	);
-	const startNewChat = useCallback( async () => {
-		// Already on a chat with no prompts yet — creating another empty
-		// session would just flash the view for an identical result.
-		if ( ! ownerSite || isEmpty ) {
-			return;
-		}
-		try {
-			const summary = await createSession( { siteId: ownerSite.id } );
-			switchSession( summary.id );
-		} catch {
-			// The mutation owns the error state; avoid an unhandled rejection
-			// from this command button if session creation fails.
-		}
-	}, [ createSession, isEmpty, ownerSite, switchSession ] );
-
-	useLayoutEffect( () => {
-		if ( ! scrollNode || isScrolledAway || pendingQuestions.length > 0 ) {
-			return;
-		}
-		scrollToEnd( scrollNode );
-		const id = requestAnimationFrame( () => scrollToEnd( scrollNode ) );
-		return () => cancelAnimationFrame( id );
-	}, [
-		scrollNode,
-		sessionId,
-		data,
-		isRunning,
-		isScrolledAway,
-		pendingQuestions.length,
-		queuedPrompts.length,
-	] );
 
 	const isOutOfCredits = useIsOutOfAiCredits() && isWpcom;
 	useMarkChatRead( sessionId, data?.summary.unread );
-	useNewChatShortcut( startNewChat, !! ownerSite && ! isOutOfCredits && ! isCreatingSession );
-	// Fail open when the quota is unavailable (offline, error, older server) —
-	// the WordPress.com proxy enforces the same gate server-side.
-	const isAccessBlocked =
-		isWpcom &&
-		!! quota &&
-		( getStudioCodeAiAccessState( quota ) !== 'available' || ! quota.hasPaymentMethod );
 
 	const [ frameNode, setFrameNode ] = useState< HTMLDivElement | null >( null );
 	const { data: preferences } = useUserPreferences();
-	const { mutate: startSite } = useStartSite( { silent: true } );
+	const { mutate: startSite } = useStartSite();
 	const isSiteStarting = useIsSiteStarting( ownerSite?.id );
 	const isSiteStopping = useIsSiteStopping( ownerSite?.id );
+	const revealingSiteId = useOptionalSessionPreviewUI()?.revealingSiteId;
+	const siteLoading =
+		isSiteStarting || isSiteStopping || ( !! ownerSite && revealingSiteId === ownerSite.id );
+	const selectionTime = useSiteSelectionTime( ownerSite?.id );
 	const isSiteBusy = useIsSiteBusy( ownerSite );
 	const canAutoStart = !! ownerSite && effectiveEnvironment === 'local';
 	const { data: connectedSites } = useConnectedWpcomSites( ownerSite?.id );
@@ -536,7 +400,13 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		pendingPromptSlot.getSnapshot
 	);
 	const pendingPrompt = handedOver?.sessionId === sessionId ? handedOver : null;
-	const isChatReady = !! data && ! isQuotaLoading && ! isAccessBlocked && ! isOutOfCredits;
+	// The empty state fades out under the first prompt, then unmounts.
+	const showEmpty = isEmpty && ! pendingPrompt;
+	const [ emptySessionId, setEmptySessionId ] = useState( showEmpty ? sessionId : null );
+	if ( showEmpty && emptySessionId !== sessionId ) {
+		setEmptySessionId( sessionId );
+	}
+	const isChatReady = !! data && ! isQuotaLoading && ! notice && ! isOutOfCredits;
 	useEffect( () => {
 		// Read the slot live rather than the rendered value: StrictMode runs the
 		// effect twice for one render, and the second pass must find it empty.
@@ -557,15 +427,14 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 			stageAnnotations( annotationSiteId, noteIds );
 			if ( composerBusy ) return;
 			if ( ! noteIds ) {
-				void composerRef.current?.send();
-				return;
+				return composerRef.current?.send();
 			}
 			const notes = getSiteAnnotations( annotationSiteId ).notes.filter(
 				( note ) => noteIds.includes( note.id ) && hasAnnotationContent( note )
 			);
 			try {
 				const { prompt, options } = annotationSubmission( '', [], notes );
-				void sendMessage( prompt, options )
+				return sendMessage( prompt, options )
 					.then( () => removeAnnotations( annotationSiteId, noteIds ) )
 					.catch( () => undefined );
 			} catch ( error ) {
@@ -639,29 +508,6 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		);
 	}
 
-	if ( quota && isAccessBlocked ) {
-		return (
-			<SessionFrame
-				header={
-					<SessionHeader
-						siteName={ data.summary.ownerSiteName }
-						site={ ownerSite }
-						effectiveEnvironment={ effectiveEnvironment }
-					/>
-				}
-			>
-				<div className={ styles.emptyState }>
-					<PreviewParticles />
-				</div>
-				<AccessRequirements
-					quota={ quota }
-					isRechecking={ isQuotaFetching }
-					onRecheck={ () => void refetchQuota() }
-				/>
-			</SessionFrame>
-		);
-	}
-
 	return (
 		<SessionFrame
 			scrollRef={ setScrollNode }
@@ -686,18 +532,18 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 						onRemove={ removeQueuedPrompt }
 						onEdit={ reopenQueuedPrompt }
 					/>
-					{ isScrolledAway ? (
-						<div className={ styles.scrollToLatestWrap }>
-							<IconButton
-								className={ styles.scrollToLatestButton }
-								icon={ arrowDown }
-								label={ __( 'Jump to latest' ) }
-								variant="outline"
-								shape="round"
-								onClick={ scrollToLatest }
-							/>
-						</div>
-					) : null }
+					<div className={ styles.scrollToLatestWrap }>
+						<IconButton
+							className={ styles.scrollToLatestButton }
+							icon={ <ArrowDownIcon /> }
+							label={ __( 'Jump to latest' ) }
+							variant="outline"
+							shape="round"
+							data-visible={ isScrolledAway || undefined }
+							inert={ ! isScrolledAway }
+							onClick={ scrollToLatest }
+						/>
+					</div>
 					<Composer
 						ref={ composerRef }
 						busy={ composerBusy }
@@ -718,18 +564,33 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 						onEnvironmentChange={ ownerSite ? setEnvironment : undefined }
 						dropTarget={ frameNode }
 						annotationSiteId={ annotationSiteId }
+						notice={ notice }
 					/>
 				</div>
 			}
 		>
 			<OpenChatShortcuts session={ data.summary } />
-			{ isEmpty && ! pendingPrompt ? (
-				<div className={ styles.emptyState }>
-					<PreviewParticles active={ isSiteStarting } showLogo={ isSiteStarting } />
-					{ ownerSite && ! ownerSite.running && ! isSiteStarting ? (
-						<StoppedSitePreview site={ ownerSite } />
-					) : null }
-				</div>
+			{ emptySessionId === sessionId ? (
+				<SiteContextMenu site={ ownerSite } disabled={ ! ownerSite || ownerSite.running }>
+					<div
+						className={ styles.emptyState }
+						data-hidden={ ! showEmpty || undefined }
+						onTransitionEnd={ ( event ) => {
+							if ( event.target === event.currentTarget && ! showEmpty ) {
+								setEmptySessionId( null );
+							}
+						} }
+					>
+						<PreviewParticles
+							active={ siteLoading }
+							showLogo={ siteLoading }
+							selectionTime={ ownerSite?.running ? undefined : selectionTime }
+						/>
+						{ ownerSite && ! ownerSite.running && ! isSiteStarting ? (
+							<StoppedSitePreview site={ ownerSite } />
+						) : null }
+					</div>
+				</SiteContextMenu>
 			) : null }
 			<div className={ clsx( styles.column, styles.conversationSpacing ) }>
 				<Conversation
@@ -743,6 +604,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 					onChooseFreeForm={ chooseFreeFormAnswer }
 				/>
 			</div>
+			<div ref={ spacerRef } aria-hidden="true" />
 		</SessionFrame>
 	);
 }

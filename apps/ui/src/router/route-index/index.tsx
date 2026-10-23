@@ -1,7 +1,7 @@
 import { aiSessionBelongsToSite } from '@studio/common/ai/sessions/owner-site';
 import { sortSites } from '@studio/common/lib/sort-sites';
 import { createRoute, redirect } from '@tanstack/react-router';
-import { resolveAgenticFeatures } from '@/data/queries/use-agentic-features';
+import { resolveChatEnabled } from '@/data/queries/use-agentic-features';
 import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
 import { SITES_QUERY_KEY } from '@/data/queries/use-sites';
 import { readLastVisited, resumeChat } from '@/lib/last-visited';
@@ -14,10 +14,16 @@ export const indexRoute = createRoute( {
 	getParentRoute: () => rootRoute,
 	path: '/',
 	beforeLoad: async ( { context } ) => {
-		const sites = await context.queryClient.fetchQuery( {
-			queryKey: SITES_QUERY_KEY,
-			queryFn: () => context.connector.getSites(),
-		} );
+		const sites = await context.queryClient
+			.fetchQuery( {
+				queryKey: SITES_QUERY_KEY,
+				queryFn: () => context.connector.getSites(),
+			} )
+			.catch( () => null );
+		// The empty workspace offers to load them again.
+		if ( ! sites ) {
+			throw redirect( { to: '/sites' } );
+		}
 		const firstSite = sites[ 0 ];
 		if ( ! firstSite ) {
 			if ( ! ( await context.connector.getOnboardingCompleted() ) ) {
@@ -38,10 +44,9 @@ export const indexRoute = createRoute( {
 			( lastVisited.siteId && sites.find( ( site ) => site.id === lastVisited.siteId ) ) ||
 			sortSites( [ ...sites ] )[ 0 ];
 
-		const { chatEnabled, chatPromptsSignIn } = await resolveAgenticFeatures( context );
-		if ( ! chatEnabled ) {
+		if ( ! ( await resolveChatEnabled( context ) ) ) {
 			throw redirect( {
-				to: chatPromptsSignIn ? '/sites/$siteId/new' : '/sites/$siteId',
+				to: '/sites/$siteId',
 				params: { siteId: targetSite.id },
 			} );
 		}

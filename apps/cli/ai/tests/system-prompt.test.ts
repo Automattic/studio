@@ -120,6 +120,13 @@ describe( 'buildSystemPrompt', () => {
 		expect( textOnly ).not.toContain( 'Pair with take_screenshot' );
 	} );
 
+	it( 'lists refresh_browser only when a Studio UI is attached', () => {
+		expect( buildSystemPrompt( { tools: toolsFor( { emitChatArtifacts: true } ) } ) ).toContain(
+			'- refresh_browser:'
+		);
+		expect( buildSystemPrompt( { tools: toolsFor( {} ) } ) ).not.toContain( 'refresh_browser' );
+	} );
+
 	it( 'states the active site in its own section, above the user instructions', () => {
 		const prompt = buildSystemPrompt( {
 			userInstructions: 'Always answer in French.',
@@ -131,6 +138,15 @@ describe( 'buildSystemPrompt', () => {
 			prompt.indexOf( "## User's global instructions" )
 		);
 		expect( buildSystemPrompt( {} ) ).not.toContain( '## Active site' );
+	} );
+
+	it( "lists the active site's facts under it, one per line", () => {
+		const prompt = buildSystemPrompt( {
+			activeSite: { name: 'My Site', path: '/sites/my-site', running: true },
+			activeSiteFacts: [ 'WordPress 7.1.3.' ],
+		} );
+
+		expect( prompt ).toContain( '"My Site" at /sites/my-site (running)\nWordPress 7.1.3.' );
 	} );
 
 	it( 'states a WordPress.com active site with its ID and URL', () => {

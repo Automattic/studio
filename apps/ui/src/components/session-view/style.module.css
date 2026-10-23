@@ -40,6 +40,13 @@
 	-webkit-app-region: drag;
 }
 
+.headerLead {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	min-width: 0;
+}
+
 .headerSidebarCollapsed {
 	padding-inline-start: var(--traffic-light-space);
 }
@@ -151,14 +158,9 @@
 .scrollToLatestWrap {
 	position: absolute;
 	bottom: calc(100% + 12px);
-	inset-inline-start: 0;
-	/* Match the send button's inset: the composer toolbar's inline padding is
-	   the shell inline padding minus padding-xs (see composer .toolbar). */
-	inset-inline-end: calc(
-		var(--composer-shell-inline-padding) - 4px
-	);
+	inset-inline: 0;
 	display: flex;
-	justify-content: flex-end;
+	justify-content: center;
 	pointer-events: none;
 	-webkit-app-region: no-drag;
 }
@@ -166,27 +168,13 @@
 .scrollToLatestButton {
 	--button-background: var(--background);
 
-	pointer-events: auto;
 	box-shadow: 0 2px 3px 0 rgba(0, 0, 0, 0.05), 0 4px 5px 0 rgba(0, 0, 0, 0.04), 0 12px 12px 0 rgba(0, 0, 0, 0.03), 0 16px 16px 0 rgba(0, 0, 0, 0.02);
-	animation: scroll-to-latest-appear 120ms ease-out;
+	opacity: 0;
 }
 
-@keyframes scroll-to-latest-appear {
-	from {
-		opacity: 0;
-		transform: translateY(4px);
-	}
-
-	to {
-		opacity: 1;
-		transform: translateY(0);
-	}
-}
-
-@media (prefers-reduced-motion: reduce) {
-	.scrollToLatestButton {
-		animation: none;
-	}
+.scrollToLatestButton[data-visible] {
+	pointer-events: auto;
+	opacity: 1;
 }
 
 /* Composer fade-in after the entitlement check resolves. No fill mode:
@@ -225,4 +213,10 @@
 	align-items: center;
 	justify-content: center;
 	padding: 24px;
+	transition: opacity var(--motion-duration-layout) var(--motion-ease-layout);
+}
+
+.emptyState[data-hidden] {
+	opacity: 0;
+	pointer-events: none;
 }

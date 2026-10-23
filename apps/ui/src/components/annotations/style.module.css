@@ -122,9 +122,9 @@
 @media (prefers-reduced-motion: no-preference) {
 	.bar {
 		transition:
-			transform 240ms cubic-bezier(0.2, 0.8, 0.2, 1),
-			opacity 240ms cubic-bezier(0.2, 0.8, 0.2, 1),
-			visibility 240ms;
+			transform var(--motion-duration-layout) var(--motion-ease-enter),
+			opacity var(--motion-duration-layout) var(--motion-ease-enter),
+			visibility var(--motion-duration-layout);
 	}
 
 	@starting-style {

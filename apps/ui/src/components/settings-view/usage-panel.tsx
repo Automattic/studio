@@ -10,15 +10,15 @@ import {
 	getStudioCodeAiAccessState,
 } from '@studio/common/lib/studio-assistant-quota';
 import { __, _n, sprintf } from '@wordpress/i18n';
-import { help, moreHorizontal } from '@wordpress/icons';
 import { clsx } from 'clsx';
+import { CircleHelpIcon, EllipsisIcon } from 'lucide-react';
 import { useState } from 'react';
 import { AddAiCreditsButton } from '@/components/add-ai-credits-button';
 import { SigninNotice } from '@/components/agentic-signin-banner';
 import { AiAccessRequiredNotice, AiBlockedNotice } from '@/components/ai-access-required-notice';
 import { AiCreditsDetailsDialog } from '@/components/ai-credits-details-dialog';
 import { OfflineNotice } from '@/components/offline-banner';
-import { IconButton } from '@/components/ui/button';
+import { Button, IconButton } from '@/components/ui/button';
 import * as Menu from '@/components/ui/menu';
 import { useConnector } from '@/data/core';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
@@ -82,6 +82,7 @@ function AiCreditsSummary() {
 		data: quota,
 		isLoading,
 		isError,
+		refetch,
 	} = useStudioAssistantQuota( { refetchOnMount: 'always' } );
 	const accessState = quota ? getStudioCodeAiAccessState( quota ) : 'available';
 	// The server includes the per-pool balances only when AI credits are
@@ -105,7 +106,10 @@ function AiCreditsSummary() {
 	} else if ( isError ) {
 		content = (
 			<div className={ styles.previewUsageText }>
-				{ __( 'Studio Code limits are temporarily unavailable.' ) }
+				{ __( 'AI usage is currently unavailable.' ) }{ ' ' }
+				<Button variant="inline-link" size="inline" onClick={ () => void refetch() }>
+					{ __( 'Try again' ) }
+				</Button>
 			</div>
 		);
 	} else if ( accessState !== 'available' ) {
@@ -164,7 +168,9 @@ function AiCreditsSummary() {
 					</div>
 				) }
 				<div className={ styles.creditCallout }>
-					<AddAiCreditsButton variant={ intent === 'exhausted' ? 'accent' : 'outline' } />
+					{ quota.hasPaymentMethod ? (
+						<AddAiCreditsButton variant={ intent === 'exhausted' ? 'accent' : 'outline' } />
+					) : null }
 					{ meter ? (
 						<span className={ styles.creditCalloutText }>
 							{ formatAiCreditsCallout( quota, meter, locale ) }
@@ -217,7 +223,7 @@ function AiCreditsSummary() {
 					{ showsCreditBalances ? (
 						<IconButton
 							size="icon-2xs"
-							icon={ help }
+							icon={ <CircleHelpIcon /> }
 							label={ __( 'How AI credits work' ) }
 							onClick={ () => setDetailsOpen( true ) }
 						/>
@@ -269,7 +275,7 @@ function PreviewSitesSummary( { userId }: { userId: number } ) {
 							render={
 								<IconButton
 									size="icon-2xs"
-									icon={ moreHorizontal }
+									icon={ <EllipsisIcon /> }
 									label={ __( 'Preview site actions' ) }
 									disabled={ isDisabled }
 								/>

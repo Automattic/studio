@@ -330,6 +330,41 @@ describe( 'WordPress Server Manager', () => {
 			);
 		} );
 
+		it( 'records the start steps the child finished before a failed start', async () => {
+			const send = ( raw: object ) =>
+				mockBus.emit( 'process-message', {
+					process: { name: mockProcessDescription.name, pm_id: mockProcessDescription.pmId },
+					raw,
+				} );
+			const readyInterval = setInterval( () => send( { topic: 'ready' } ), 1 );
+			vi.mocked( daemonClient.sendMessageToProcess ).mockImplementation( ( pmId, message ) => {
+				clearInterval( readyInterval );
+				setImmediate( () => {
+					send( { topic: 'start-phase', data: { phase: 'wp_config', ms: 40 } } );
+					send( { topic: 'start-phase', data: { phase: 'wordpress_install', ms: 9000 } } );
+					send( {
+						topic: 'error',
+						originalMessageId: message.messageId,
+						errorMessage: 'PHP server did not start within 30000ms',
+					} );
+				} );
+				return Promise.resolve();
+			} );
+
+			await expect( startWordPressServer( mockSiteData, mockLogger ) ).rejects.toThrow();
+
+			const [ , props ] = vi.mocked( recordTracksEvent ).mock.calls[ 0 ];
+			expect( props ).toEqual( {
+				channel: 'studio-cli',
+				success: false,
+				failure_reason: 'php_error',
+				time_ms: expect.any( Number ),
+				daemon_ms: expect.any( Number ),
+				wp_config_ms: 40,
+				wordpress_install_ms: 9000,
+			} );
+		} );
+
 		it( 'should handle start process failure', async () => {
 			vi.mocked( daemonClient.startProcess ).mockRejectedValue(
 				new Error( 'Failed to start process' )

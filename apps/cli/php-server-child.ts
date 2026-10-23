@@ -23,6 +23,7 @@ import {
 	managerMessageSchema,
 	ChildMessageRaw,
 	ServerConfig,
+	SiteStartPhase,
 } from 'cli/lib/types/wordpress-server-ipc';
 import { requestSetAdminCredentials } from './lib/admin-credentials';
 import { getPhpMyAdminPath } from './lib/dependency-management/paths';
@@ -202,6 +203,22 @@ async function waitForServerReady( url: string, signal?: AbortSignal ): Promise<
 			await new Promise< void >( ( resolve ) => setTimeout( resolve, pollIntervalMs ) );
 		}
 	}
+}
+
+// Reports how long a completed start step took. A failed start reports only the steps it finished.
+function reportPhase( phase: SiteStartPhase, startedAt: number ): void {
+	const message: ChildMessageRaw = {
+		topic: 'start-phase',
+		data: { phase, ms: Date.now() - startedAt },
+	};
+	process.send?.( message );
+}
+
+async function timePhase< T >( phase: SiteStartPhase, run: () => Promise< T > ): Promise< T > {
+	const startedAt = Date.now();
+	const result = await run();
+	reportPhase( phase, startedAt );
+	return result;
 }
 
 async function setAdminCredentials( config: ServerConfig, signal: AbortSignal ): Promise< void > {
@@ -475,7 +492,9 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 		stopSignal.throwIfAborted();
 
 		if ( ! isImportedSite ) {
-			await ensureWpConfig( config.sitePath, phpVersion, stopSignal, config );
+			await timePhase( 'wp_config', () =>
+				ensureWpConfig( config.sitePath, phpVersion, stopSignal, config )
+			);
 			stopSignal.throwIfAborted();
 		}
 
@@ -483,17 +502,22 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 		stopSignal.throwIfAborted();
 
 		if ( ! isImportedSite ) {
-			await installWordPress(
-				config,
-				phpVersion,
-				stopSignal,
-				SET_DEFAULT_PERMALINKS_PATH,
-				logToConsole
+			await timePhase( 'wordpress_install', () =>
+				installWordPress(
+					config,
+					phpVersion,
+					stopSignal,
+					SET_DEFAULT_PERMALINKS_PATH,
+					logToConsole
+				)
 			);
 			stopSignal.throwIfAborted();
 
-			if ( config.blueprint ) {
-				await runBlueprint( config, config.blueprint, phpVersion, stopSignal );
+			const blueprint = config.blueprint;
+			if ( blueprint ) {
+				await timePhase( 'blueprint', () =>
+					runBlueprint( config, blueprint, phpVersion, stopSignal )
+				);
 				stopSignal.throwIfAborted();
 			}
 		}
@@ -522,10 +546,16 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 			// wp-content is scanned separately: on a Reprint-pulled site it is a symlink
 			// into the pull's raw directory, and a scan of the site alone stops on that
 			// link and never sees the symlinked plugins and themes behind it.
-			symlinkOpenBasedirAllowlist = new Set( [
-				...( await collectSymlinkAllowlistEntries( config.sitePath ) ),
-				...( await collectSymlinkAllowlistEntries( path.join( config.sitePath, 'wp-content' ) ) ),
-			] );
+			symlinkOpenBasedirAllowlist = await timePhase(
+				'symlink_scan',
+				async () =>
+					new Set( [
+						...( await collectSymlinkAllowlistEntries( config.sitePath ) ),
+						...( await collectSymlinkAllowlistEntries(
+							path.join( config.sitePath, 'wp-content' )
+						) ),
+					] )
+			);
 			stopSignal.throwIfAborted();
 		}
 
@@ -533,7 +563,7 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 
 		phpProcess = await doStartServer( config, stopSignal );
 		stopSignal.throwIfAborted();
-		await setAdminCredentials( config, stopSignal );
+		await timePhase( 'admin_credentials', () => setAdminCredentials( config, stopSignal ) );
 		stopSignal.throwIfAborted();
 	} catch ( error ) {
 		killPhpProcess();
@@ -582,6 +612,7 @@ async function doStartServer(
 		phpWorkerPorts = workerPorts;
 		phpWorkerRequestTracker = new PhpWorkerRequestTracker( workerPorts.length );
 
+		const workersStartedAt = Date.now();
 		for ( const [ index, workerPort ] of workerPorts.entries() ) {
 			const phpAddress = `127.0.0.1:${ workerPort }`;
 			logToConsole(
@@ -635,12 +666,16 @@ async function doStartServer(
 			)
 		);
 
+		reportPhase( 'php_workers', workersStartedAt );
+
+		const proxyStartedAt = Date.now();
 		proxyServer = await startPhpProxyServer( config, stopSignal );
 		phpProxyServer = proxyServer;
 		phpWorkerProcesses = spawnedChildren;
 
 		stopSignal?.throwIfAborted();
 		await waitForServerReady( `http://localhost:${ config.port }/`, stopSignal );
+		reportPhase( 'proxy_ready', proxyStartedAt );
 
 		// Watch for symlinks created after startup. open_basedir cannot be extended
 		// at runtime, so the watcher triggers a debounced restart with an updated

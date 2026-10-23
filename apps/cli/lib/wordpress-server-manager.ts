@@ -241,10 +241,12 @@ export async function startWordPressServer(
 	const phpErrorLogSizeAtStart = await fileSize( phpErrorLogPath );
 
 	const readyOrExit = await subscribeForReadyOrExit( processName );
+	const phases = await collectStartPhases( processName );
 	const startedAt = Date.now();
 	try {
 		const processDesc = await startProcess( processName, WORDPRESS_SERVER_CHILD_PATH );
 		await readyOrExit.waitFor( processDesc.pmId );
+		phases.timings.daemon_ms = Date.now() - startedAt;
 		await sendMessage(
 			processDesc.pmId,
 			processName,
@@ -270,6 +272,7 @@ export async function startWordPressServer(
 				...getTracksOrigin(),
 				success: true,
 				time_ms: Date.now() - startedAt,
+				...phases.timings,
 				running_site_count: await getRunningSiteCount(),
 			} );
 		} catch {
@@ -287,6 +290,7 @@ export async function startWordPressServer(
 				success: false,
 				failure_reason: classifyStartFailure( error ),
 				time_ms: Date.now() - startedAt,
+				...phases.timings,
 			} );
 		} catch {
 			// Best-effort telemetry — never block or fail a site start.
@@ -294,7 +298,25 @@ export async function startWordPressServer(
 		throw await withCapturedPhpErrors( error, phpErrorLogPath, phpErrorLogSizeAtStart );
 	} finally {
 		readyOrExit.dispose();
+		phases.dispose();
 	}
+}
+
+// Collects the child's `start-phase` timings as `<phase>_ms` Tracks props. A step missing from a
+// failed start is the one that did not finish.
+async function collectStartPhases( processName: string ): Promise< {
+	timings: Record< string, number >;
+	dispose: () => void;
+} > {
+	const bus = await getDaemonBus();
+	const timings: Record< string, number > = {};
+	const handler = ( packet: DaemonBusEventMap[ 'process-message' ] ) => {
+		if ( packet.process.name === processName && packet.raw.topic === 'start-phase' ) {
+			timings[ `${ packet.raw.data.phase }_ms` ] = packet.raw.data.ms;
+		}
+	};
+	bus.on( 'process-message', handler );
+	return { timings, dispose: () => bus.off( 'process-message', handler ) };
 }
 
 // Coarse, low-cardinality classification of a start failure for the `failure_reason` Tracks prop.

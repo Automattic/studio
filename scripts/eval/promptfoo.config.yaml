@@ -650,6 +650,10 @@ tests:
   # Each case asks for something WordPress already does natively, the way a
   # user would ask, and passes only when the site the turn leaves behind uses
   # that native feature instead of custom code, CSS or raw HTML.
+  # Each also has a tool call and token budget with headroom over five passing
+  # runs, so a run that reaches the right result by looping fails. Mini-Cart's
+  # normal runs took 23-36 tool calls; two that looped for 73-76 calls on a
+  # block hidden by WooCommerce's Coming soon mode go over its budget.
 
   # A cart count is WooCommerce's Mini-Cart block, not hand-written fragments
   # code. Passes when the rendered header (theme part or saved copy) has the
@@ -658,6 +662,8 @@ tests:
     vars:
       caseId: woo-mini-cart
       timeoutMs: 600000
+      maxToolCalls: 40
+      maxTokens: 1200000
       seed:
         activeSite:
           name: Eval Mini Cart
@@ -683,6 +689,8 @@ tests:
         value: file://outcome.mjs:miniCartInHeader
       - type: javascript
         value: file://outcome.mjs:otherSitesUntouched
+      - type: javascript
+        value: file://outcome.mjs:withinBudget
 
   # Questions that open on click are Details blocks (or Accordion), not a
   # Custom HTML block with a script.
@@ -690,6 +698,8 @@ tests:
     vars:
       caseId: faq-details-block
       timeoutMs: 600000
+      maxToolCalls: 30
+      maxTokens: 450000
       seed:
         activeSite:
           name: Eval FAQ
@@ -704,6 +714,8 @@ tests:
         value: file://outcome.mjs:faqUsesDetailsBlocks
       - type: javascript
         value: file://outcome.mjs:otherSitesUntouched
+      - type: javascript
+        value: file://outcome.mjs:withinBudget
 
   # A look the user can switch to in the Site Editor is a theme style
   # variation (styles/*.json), not dark-mode CSS. The seeded theme is the
@@ -712,6 +724,8 @@ tests:
     vars:
       caseId: style-variation-for-dark-look
       timeoutMs: 600000
+      maxToolCalls: 35
+      maxTokens: 550000
       seed:
         activeSite:
           name: Eval Dark Variation
@@ -812,6 +826,8 @@ tests:
         value: file://outcome.mjs:darkStyleVariation
       - type: javascript
         value: file://outcome.mjs:otherSitesUntouched
+      - type: javascript
+        value: file://outcome.mjs:withinBudget
 
   # Site-wide typography and colors belong in theme.json (or saved Global
   # Styles), not in CSS rules for headings and the body. The seeded theme's
@@ -821,6 +837,8 @@ tests:
       caseId: typography-in-theme-json
       originalTextColor: "#111111"
       timeoutMs: 600000
+      maxToolCalls: 15
+      maxTokens: 300000
       seed:
         activeSite:
           name: Eval Typography
@@ -836,6 +854,8 @@ tests:
         value: file://outcome.mjs:typographyInThemeJson
       - type: javascript
         value: file://outcome.mjs:otherSitesUntouched
+      - type: javascript
+        value: file://outcome.mjs:withinBudget
 
   # A single page is built from native blocks, not a Custom HTML block or a
   # hand-written template of raw markup.
@@ -844,6 +864,8 @@ tests:
       caseId: page-in-native-blocks
       pageTitle: about
       timeoutMs: 600000
+      maxToolCalls: 30
+      maxTokens: 450000
       seed:
         activeSite:
           name: Eval About Page
@@ -858,6 +880,8 @@ tests:
         value: file://outcome.mjs:pageInNativeBlocks
       - type: javascript
         value: file://outcome.mjs:otherSitesUntouched
+      - type: javascript
+        value: file://outcome.mjs:withinBudget
 
   # The header's gradient comes from a ::before pseudo-element, which
   # inspecting the header element does not show: a white background on the
@@ -869,6 +893,8 @@ tests:
       pseudoSelector: ".site-header::before"
       gradient: "linear-gradient(135deg, #4c1d95 0%, #a855f7 100%)"
       timeoutMs: 600000
+      maxToolCalls: 20
+      maxTokens: 300000
       seed:
         activeSite:
           name: Eval Header Gradient
@@ -964,6 +990,8 @@ tests:
         value: file://outcome.mjs:pseudoGradientRemoved
       - type: javascript
         value: file://outcome.mjs:otherSitesUntouched
+      - type: javascript
+        value: file://outcome.mjs:withinBudget
 
   # Routing: which skills (runbooks) the agent loads before it starts the work.
   # Each run stops at its first call that does the work (`stopAt`), so a case

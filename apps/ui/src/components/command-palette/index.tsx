@@ -9,7 +9,7 @@ import { useChatActions } from '@/components/chat-actions';
 import { openNoticeHistory } from '@/components/notice-history';
 import { useOpenInDestinations } from '@/components/open-in-menu/use-open-in-destinations';
 import { getSessionTitle } from '@/components/session-view/session-chat-actions';
-import { getSections } from '@/components/settings-dialog';
+import { getSections } from '@/components/settings-dialog/sections';
 import { useSiteActions } from '@/components/site-actions-menu';
 import { useCollapseAll } from '@/components/site-list/collapse-all';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
@@ -17,6 +17,7 @@ import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/in
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
+import { useAuthUser } from '@/data/queries/use-auth-user';
 import { useSessions } from '@/data/queries/use-sessions';
 import { useSidebarPreferences } from '@/data/queries/use-sidebar-pins';
 import { useSites } from '@/data/queries/use-sites';
@@ -317,8 +318,8 @@ function useAppCommands(): PaletteCommand[] {
 	];
 }
 
-// A boolean preference a setting command turns on or off in place, by the
-// title of its row in Settings.
+// The boolean preferences setting commands turn on or off in place, by the id
+// of their row in Settings.
 function useSettingToggles(): Record< string, { checked: boolean; run: () => void } > {
 	const { data: preferences } = useUserPreferences();
 	const { showRecentChats, autoCollapseSites } = useSidebarPreferences();
@@ -335,16 +336,15 @@ function useSettingToggles(): Record< string, { checked: boolean; run: () => voi
 		return {};
 	}
 	return {
-		[ __( 'Show recent chats' ) ]: toggle( 'showRecentChats', showRecentChats ),
-		[ __( 'Collapse sidebar groups' ) ]: toggle( 'autoCollapseSites', autoCollapseSites ),
-		[ __( 'Improve Studio for everyone' ) ]: toggle(
-			'analyticsEnabled',
-			preferences.analyticsEnabled
+		'show-recent-chats': toggle( 'showRecentChats', showRecentChats ),
+		'collapse-sidebar-groups': toggle( 'autoCollapseSites', autoCollapseSites ),
+		'auto-start-site': toggle( 'autoStartSiteOnChat', preferences.autoStartSiteOnChat ),
+		'confirm-delete-annotations': toggle(
+			'confirmDeleteAnnotations',
+			preferences.confirmDeleteAnnotations
 		),
-		[ __( 'Studio Code' ) ]: toggle(
-			'agenticFeaturesEnabled',
-			preferences.agenticFeaturesEnabled ?? true
-		),
+		'usage-statistics': toggle( 'analyticsEnabled', preferences.analyticsEnabled ),
+		'studio-code': toggle( 'agenticFeaturesEnabled', preferences.agenticFeaturesEnabled ?? true ),
 	};
 }
 
@@ -354,8 +354,10 @@ function useSettingToggles(): Record< string, { checked: boolean; run: () => voi
 function useSettingCommands( scope: 'studio' | 'site', site?: SiteDetails ): PaletteCommand[] {
 	const openSettings = useOpenSettings();
 	const toggles = useSettingToggles();
+	const user = useAuthUser();
+	const signedIn = ! user.isSuccess || !! user.data;
 	const group = scope === 'site' ? 'site-settings' : 'settings';
-	return getSections( scope ).flatMap( ( section ) => [
+	return getSections( scope, { signedIn } ).flatMap( ( section ) => [
 		{
 			id: `${ group }-${ section.id }`,
 			group,
@@ -366,10 +368,10 @@ function useSettingCommands( scope: 'studio' | 'site', site?: SiteDetails ): Pal
 			searchOnly: true,
 			run: () => openSettings( section.id, site?.id ),
 		},
-		...section.settings.map( ( title ): PaletteCommand => {
-			const toggle = scope === 'studio' ? toggles[ title ] : undefined;
+		...section.settings.map( ( { id, title, description } ): PaletteCommand => {
+			const toggle = scope === 'studio' && id ? toggles[ id ] : undefined;
 			return {
-				id: `${ group }-${ section.id }-${ title }`,
+				id: `${ group }-${ section.id }-${ id ?? title }`,
 				group,
 				label: toggle
 					? sprintf(
@@ -381,9 +383,9 @@ function useSettingCommands( scope: 'studio' | 'site', site?: SiteDetails ): Pal
 				aliases: [ title ],
 				icon: section.icon,
 				description: site?.name ?? section.label,
-				keywords: [ section.label ],
+				keywords: [ section.label, description ],
 				searchOnly: true,
-				run: toggle?.run ?? ( () => openSettings( section.id, site?.id, title ) ),
+				run: toggle?.run ?? ( () => openSettings( section.id, site?.id, id ?? title ) ),
 			};
 		} ),
 	] );

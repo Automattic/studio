@@ -809,6 +809,12 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				body: JSON.stringify( { anthropicApiKey: key } ),
 			} );
 		},
+		async setAiProvider( provider ): Promise< AiSettings > {
+			return api< AiSettings >( '/ai-settings/provider', {
+				method: 'PUT',
+				body: JSON.stringify( { provider } ),
+			} );
+		},
 
 		// The local server has no REST-proxy route yet; the preview omnibox
 		// only offers search where the webview connector serves it.
@@ -825,6 +831,14 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		// callers route the user to Settings, matching the desktop contract.
 		async openSiteInEditor( siteId ) {
 			await api( `/sites/${ encodeURIComponent( siteId ) }/open-in-editor`, { method: 'POST' } );
+		},
+		async openSiteAgentFile( siteId, kind, id, target ) {
+			await api(
+				`/sites/${ encodeURIComponent( siteId ) }/agent-files/${ kind }/${ encodeURIComponent(
+					id
+				) }/open`,
+				{ method: 'POST', body: JSON.stringify( { target } ) }
+			);
 		},
 		async openSiteInTerminal( siteId ) {
 			await api( `/sites/${ encodeURIComponent( siteId ) }/open-in-terminal`, { method: 'POST' } );
@@ -953,7 +967,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			return () => {};
 		},
 		onOpenSettings( listener ) {
-			return onMenuShortcut( listener, ',' );
+			return onMenuShortcut( () => listener( {} ), ',' );
 		},
 		onAiCreditsPurchased() {
 			// A browser tab can't receive the wp-studio:// checkout return link.

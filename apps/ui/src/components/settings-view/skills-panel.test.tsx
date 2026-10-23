@@ -96,15 +96,56 @@ describe( 'SkillsPanel', () => {
 		} );
 	} );
 
-	it( 'surfaces query errors inline', () => {
+	it( 'offers Retry when the skills fail to load', () => {
+		const refetch = vi.fn();
 		useWordPressSkillsMock.mockReturnValue( {
-			data: [],
+			data: undefined,
 			isLoading: false,
-			error: new Error( 'Failed to load skills' ),
+			isError: true,
+			refetch,
+		} as never );
+
+		render( <SkillsPanel /> );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Retry' } ) );
+
+		expect( refetch ).toHaveBeenCalled();
+	} );
+
+	it( 'says when no skills are available', () => {
+		useWordPressSkillsMock.mockReturnValue( { data: [], isLoading: false } as never );
+
+		render( <SkillsPanel /> );
+
+		expect( screen.getByText( 'No skills are available.' ) ).toBeInTheDocument();
+	} );
+
+	it( 'hides the skill list while skills are off', () => {
+		useWordPressSkillsMock.mockReturnValue( {
+			data: [ { id: 'studio-cli', displayName: 'Studio CLI', description: '', installed: false } ],
+			isLoading: false,
 		} as never );
 
 		render( <SkillsPanel /> );
 
-		expect( screen.getByText( 'Failed to load skills' ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'switch', { name: 'WordPress skills' } ) ).not.toBeChecked();
+		expect( screen.queryByRole( 'switch', { name: 'Studio CLI' } ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'disables every toggle while a change saves', () => {
+		useInstallWordPressSkillMock.mockReturnValue( {
+			mutate: installSkillMutate,
+			isPending: true,
+			error: null,
+		} as never );
+
+		render( <SkillsPanel onManageSite={ vi.fn() } /> );
+
+		expect( screen.getByRole( 'switch', { name: 'WordPress skills' } ) ).toHaveAttribute(
+			'data-disabled'
+		);
+		expect( screen.getByRole( 'switch', { name: 'Studio CLI' } ) ).toHaveAttribute(
+			'data-disabled'
+		);
+		expect( screen.getByRole( 'button', { name: 'Manage skills for this site' } ) ).toBeDisabled();
 	} );
 } );

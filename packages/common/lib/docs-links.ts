@@ -27,6 +27,33 @@ const DOCS_LINKS = {
 	docsStudioCode: {
 		en: 'https://developer.wordpress.com/docs/developer-tools/studio/studio-code/',
 	},
+	docsAiCredits: {
+		en: 'https://developer.wordpress.com/docs/developer-tools/studio/studio-code/ai-credits-guidelines/',
+	},
+	docsAnthropicApiKey: {
+		en: 'https://platform.claude.com/docs/en/get-api-key',
+	},
+	docsCustomDomains: {
+		en: 'https://developer.wordpress.com/docs/developer-tools/studio/sites/#Using-a-custom-domain-and-SSL',
+	},
+	docsSiteSettings: {
+		en: 'https://developer.wordpress.com/docs/developer-tools/studio/sites/#site-settings',
+	},
+	docsFileAccess: {
+		en: 'https://developer.wordpress.com/docs/developer-tools/studio/php-runtimes/#1-file-access',
+	},
+	docsXdebug: {
+		en: 'https://developer.wordpress.com/docs/developer-tools/studio/xdebug/',
+	},
+	docsWpEnvironmentType: {
+		en: 'https://developer.wordpress.org/reference/functions/wp_get_environment_type/',
+	},
+	docsScriptDebug: {
+		en: 'https://developer.wordpress.org/advanced-administration/debug/debug-wordpress/#script_debug',
+	},
+	docsDebugDisplay: {
+		en: 'https://developer.wordpress.org/advanced-administration/debug/debug-wordpress/#wp_debug_display',
+	},
 	docsSyncSupportedSites: {
 		en: 'https://developer.wordpress.com/docs/developer-tools/studio/sync/#supported-sites',
 		es: 'https://developer.wordpress.com/es/docs/herramientas-para-desarrolladores/studio/sync/#sitios-compatibles',

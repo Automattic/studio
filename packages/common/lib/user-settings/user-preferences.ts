@@ -9,16 +9,15 @@ import {
 	updateSharedConfig,
 } from '@studio/common/lib/shared-config';
 import { SUPPORTED_EDITORS } from '@studio/common/lib/user-settings/editor';
-import { getFirstInstalledEditor } from '@studio/common/lib/user-settings/installed-apps';
 import {
 	DEFAULT_COLOR_SCHEME,
+	INTERFACE_PREFERENCE_DEFAULTS,
 	QUIT_SITES_BEHAVIORS,
 	SUPPORTED_COLOR_SCHEMES,
 } from '@studio/common/lib/user-settings/preferences';
 import { DEFAULT_TERMINAL, SUPPORTED_TERMINALS } from '@studio/common/lib/user-settings/terminal';
 import type { TracksEventName, TracksProps } from '@studio/common/lib/record-tracks-event';
 import type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
-import type { InstalledApps } from '@studio/common/lib/user-settings/installed-apps';
 import type { ColorScheme, QuitSitesBehavior } from '@studio/common/lib/user-settings/preferences';
 import type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
 
@@ -28,6 +27,7 @@ import type { SupportedTerminal } from '@studio/common/lib/user-settings/termina
  */
 
 export interface UserPreferences {
+	// `null` is the default: the first installed editor, the system terminal.
 	editor: SupportedEditor | null;
 	terminal: SupportedTerminal | null;
 	colorScheme: ColorScheme;
@@ -53,7 +53,6 @@ export interface UserPreferences {
 export interface UserPreferencesContext {
 	// Where new sites go unless the user picked another directory.
 	sitesRoot: string;
-	installedApps: InstalledApps;
 }
 
 export interface UserPreferencesWriteContext {
@@ -63,6 +62,8 @@ export interface UserPreferencesWriteContext {
 
 const editorSchema = z.enum( SUPPORTED_EDITORS );
 const terminalWithDefault = z.enum( SUPPORTED_TERMINALS ).catch( DEFAULT_TERMINAL );
+const optionalEditor = editorSchema.nullable().catch( null );
+const optionalTerminal = z.enum( SUPPORTED_TERMINALS ).nullable().catch( null );
 const colorSchemeWithDefault = z.enum( SUPPORTED_COLOR_SCHEMES ).catch( DEFAULT_COLOR_SCHEME );
 const optionalQuitSitesBehavior = z.enum( QUIT_SITES_BEHAVIORS ).optional().catch( undefined );
 const nonEmptyString = z.string().nonempty();
@@ -120,15 +121,14 @@ export async function readDefaultSiteDirectory( sitesRoot: string ): Promise< st
 
 export async function readUserPreferences( {
 	sitesRoot,
-	installedApps,
 }: UserPreferencesContext ): Promise< UserPreferences > {
 	const [ config, shared ] = await Promise.all( [ readAppConfig(), readSharedConfig() ] );
-	const storedEditor = editorSchema.safeParse( config.preferredEditor );
+	const { autoStartSiteOnChat, confirmDeleteAnnotations, showRecentChats, autoCollapseSites } =
+		INTERFACE_PREFERENCE_DEFAULTS;
 
 	return {
-		// Unset falls back to the first installed editor.
-		editor: storedEditor.success ? storedEditor.data : getFirstInstalledEditor( installedApps ),
-		terminal: terminalWithDefault.parse( config.preferredTerminal ),
+		editor: optionalEditor.parse( config.preferredEditor ?? null ),
+		terminal: optionalTerminal.parse( config.preferredTerminal ?? null ),
 		colorScheme: colorSchemeWithDefault.parse( config.colorScheme ),
 		quitSitesBehavior: optionalQuitSitesBehavior.parse( config.quitSitesBehavior ),
 		locale: shared.locale,
@@ -137,10 +137,16 @@ export async function readUserPreferences( {
 		agenticFeaturesEnabled: config.agenticFeaturesEnabled !== false,
 		sidebarPins: sidebarPinsSchema.catch( [] ).parse( config.sidebarPins ),
 		sidebarChatOrder: sidebarChatOrderSchema.catch( {} ).parse( config.sidebarChatOrder ?? {} ),
-		showRecentChats: config.showRecentChats !== false,
-		autoCollapseSites: config.autoCollapseSites !== false,
-		autoStartSiteOnChat: config.autoStartSiteOnChat === true,
-		confirmDeleteAnnotations: config.confirmDeleteAnnotations !== false,
+		showRecentChats: z.boolean().catch( showRecentChats ).parse( config.showRecentChats ),
+		autoCollapseSites: z.boolean().catch( autoCollapseSites ).parse( config.autoCollapseSites ),
+		autoStartSiteOnChat: z
+			.boolean()
+			.catch( autoStartSiteOnChat )
+			.parse( config.autoStartSiteOnChat ),
+		confirmDeleteAnnotations: z
+			.boolean()
+			.catch( confirmDeleteAnnotations )
+			.parse( config.confirmDeleteAnnotations ),
 	};
 }
 

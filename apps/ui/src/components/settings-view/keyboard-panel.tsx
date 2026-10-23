@@ -47,6 +47,8 @@ function getShortcutSections( isApple: boolean ): ShortcutSection[] {
 				{ label: __( 'Add site' ), keys: [ modifierKey, 'N' ] },
 				{ label: __( 'Toggle sidebar' ), keys: [ modifierKey, 'B' ] },
 				{ label: __( 'Close dialog or menu' ), keys: [ 'Esc' ] },
+				{ label: __( 'Back in settings or preview' ), keys: [ modifierKey, '[' ] },
+				{ label: __( 'Forward in settings or preview' ), keys: [ modifierKey, ']' ] },
 			],
 		},
 		{
@@ -80,8 +82,6 @@ function getShortcutSections( isApple: boolean ): ShortcutSection[] {
 			shortcuts: [
 				{ label: __( 'Toggle site preview' ), keys: [ modifierKey, 'Shift', 'B' ] },
 				{ label: __( 'Reload preview' ), keys: [ modifierKey, 'R' ] },
-				{ label: __( 'Go back in preview' ), keys: [ modifierKey, '[' ] },
-				{ label: __( 'Go forward in preview' ), keys: [ modifierKey, ']' ] },
 				{ label: __( 'Go back in preview' ), keys: [ navModifierKey, '←' ] },
 				{ label: __( 'Go forward in preview' ), keys: [ navModifierKey, '→' ] },
 			],

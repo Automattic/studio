@@ -9,6 +9,9 @@ const { savePreferences } = vi.hoisted( () => ( { savePreferences: vi.fn() } ) )
 vi.mock( '@tanstack/react-router', () => ( { useNavigate: () => vi.fn() } ) );
 vi.mock( '@/data/queries/use-sites', () => ( { useSites: () => ( { data: [] } ) } ) );
 vi.mock( '@/data/queries/use-sessions', () => ( { useSessions: () => ( { data: [] } ) } ) );
+vi.mock( '@/data/queries/use-auth-user', () => ( {
+	useAuthUser: () => ( { isSuccess: true, data: { id: 1 } } ),
+} ) );
 vi.mock( '@/data/queries/use-agentic-features', () => ( {
 	useAgenticFeatures: () => ( { chatEnabled: true } ),
 } ) );

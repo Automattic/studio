@@ -56,7 +56,8 @@ vi.mock( '@/components/site-actions-menu', () => ( {
 } ) );
 
 vi.mock( '@/components/site-header-actions', () => ( {
-	SiteHeaderActions: () => <button type="button">Start</button>,
+	SiteHeaderSpace: () => <div data-testid="site-header-space" />,
+	useSiteHeader: () => ( { host: 'chat' } ),
 } ) );
 
 vi.mock( '@/components/stopped-site-preview', () => ( {
@@ -237,7 +238,9 @@ describe( 'SessionView', () => {
 				<SessionView sessionId="session-1" />
 			</WindowControlsCornerContext.Provider>
 		);
-		const header = screen.getByText( 'Example Site' ).parentElement;
+		const header = screen
+			.getByText( 'Example Site' )
+			.closest< HTMLElement >( '[data-site-header]' );
 		expect( header?.style.paddingRight ).toBe( '146px' );
 
 		rerender(
@@ -534,18 +537,17 @@ describe( 'SessionView', () => {
 		expect( siteMocks.startSite ).toHaveBeenCalledWith( OWNER_SITE.id );
 	} );
 
-	it( 'offers a stopped site its last screenshot and a Start button', () => {
+	it( 'offers a stopped site its last screenshot, under the site actions', () => {
 		sitesState.data = [ OWNER_SITE ];
 		useSessionMock.mockReturnValue( { data: makeOwnedSession(), isLoading: false, error: null } );
 
 		const { rerender } = render( <SessionView sessionId="session-1" /> );
 		expect( screen.getByTestId( 'stopped-site-preview' ) ).toBeInTheDocument();
-		expect( screen.getByRole( 'button', { name: 'Start' } ) ).toBeInTheDocument();
+		expect( screen.getByTestId( 'site-header-space' ) ).toBeInTheDocument();
 
 		sitesState.data = [ { ...OWNER_SITE, running: true } ];
 		rerender( <SessionView sessionId="session-1" /> );
 		expect( screen.queryByTestId( 'stopped-site-preview' ) ).not.toBeInTheDocument();
-		expect( screen.queryByRole( 'button', { name: 'Start' } ) ).not.toBeInTheDocument();
 	} );
 } );
 

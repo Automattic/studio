@@ -38,7 +38,7 @@ import { PreviewToggleButton } from '@/components/preview-toggle-button';
 import { ProgressiveBlur } from '@/components/progressive-blur';
 import { HeaderSidebarToggle } from '@/components/sidebar-toggle';
 import { SiteActionsMenu } from '@/components/site-actions-menu';
-import { SiteHeaderActions } from '@/components/site-header-actions';
+import { SiteHeaderSpace, useSiteHeader } from '@/components/site-header-actions';
 import { SiteIcon } from '@/components/site-icon';
 import { SiteContextMenu, StoppedSitePreview } from '@/components/stopped-site-preview';
 import { Button, IconButton } from '@/components/ui/button';
@@ -111,11 +111,12 @@ function SessionHeader( {
 	const sidebarCollapsed = useSidebarCollapsed();
 	const reserveTrafficLightSpace = useTrafficLightSpace().start;
 	const windowControlsInset = useWindowControlsInset( 'toolbar' );
-	const headerRef = useRef< HTMLDivElement >( null );
+	const { host } = useSiteHeader();
+	const local = site && effectiveEnvironment === 'local';
 
 	return (
 		<div
-			ref={ headerRef }
+			data-site-header
 			className={ clsx(
 				styles.header,
 				sidebarCollapsed && reserveTrafficLightSpace && styles.headerSidebarCollapsed
@@ -128,28 +129,27 @@ function SessionHeader( {
 					: undefined
 			}
 		>
-			<HeaderSidebarToggle />
-			{ site ? <SiteActionsMenu site={ site } /> : null }
-			{ ! site && siteName ? (
-				<>
-					<SiteIcon className={ styles.headerSiteIcon } seed={ siteName } />
-					<span className={ styles.headerSite }>{ siteName }</span>
-					<span className={ styles.headerDot } aria-hidden="true" />
-					<span className={ styles.headerEnv }>
-						{ effectiveEnvironment === 'live' ? __( 'Live' ) : __( 'Local' ) }
-					</span>
-				</>
-			) : null }
+			<div data-site-header-reserved className={ styles.headerLead }>
+				<HeaderSidebarToggle />
+				{ site ? <SiteActionsMenu site={ site } /> : null }
+				{ ! site && siteName ? (
+					<>
+						<SiteIcon className={ styles.headerSiteIcon } seed={ siteName } />
+						<span className={ styles.headerSite }>{ siteName }</span>
+						<span className={ styles.headerDot } aria-hidden="true" />
+						<span className={ styles.headerEnv }>
+							{ effectiveEnvironment === 'live' ? __( 'Live' ) : __( 'Local' ) }
+						</span>
+					</>
+				) : null }
+			</div>
 			<span className={ styles.headerSpacer } aria-hidden="true" />
-			{ site && effectiveEnvironment === 'local' ? (
-				<div className={ styles.headerActions } data-header-actions>
-					{ site.running ? (
-						<PreviewToggleButton canHideChat />
-					) : (
-						<SiteHeaderActions site={ site } anchor={ headerRef } />
-					) }
+			{ local && site.running ? (
+				<div data-site-header-reserved className={ styles.headerActions } data-header-actions>
+					<PreviewToggleButton canHideChat />
 				</div>
 			) : null }
+			{ local && host === 'chat' ? <SiteHeaderSpace /> : null }
 		</div>
 	);
 }

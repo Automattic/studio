@@ -32,7 +32,11 @@ import {
 } from '@/components/annotations/store';
 import { DesignSystemView } from '@/components/design-system-view';
 import { PreviewParticles } from '@/components/preview-particles';
-import { SiteHeaderActions } from '@/components/site-header-actions';
+import {
+	SiteHeaderSpace,
+	useSiteHeader,
+	useSiteHeaderNavigation,
+} from '@/components/site-header-actions';
 import { SiteContextMenu, StoppedSitePreview } from '@/components/stopped-site-preview';
 import { Button, IconButton } from '@/components/ui/button';
 import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
@@ -383,11 +387,13 @@ function AnnotateButton( {
 	active,
 	disabled,
 	disabledReason,
+	iconOnly,
 	onClick,
 }: {
 	active: boolean;
 	disabled: boolean;
 	disabledReason?: string;
+	iconOnly: boolean;
 	onClick: () => void;
 } ) {
 	return (
@@ -414,7 +420,7 @@ function AnnotateButton( {
 							onClick={ onClick }
 						>
 							<Icon icon={ annotateIcon } size={ 16 } data-icon="inline-start" />
-							<span className={ styles.toolbarLabel }>{ __( 'Annotate' ) }</span>
+							{ iconOnly ? null : <span>{ __( 'Annotate' ) }</span> }
 						</Button>
 					}
 				/>
@@ -930,11 +936,29 @@ export function SitePreview( {
 						} );
 			  };
 	const openSiteSettings = () => openSettings( 'site', site.id );
+	const { host: headerHost, layout: headerLayout } = useSiteHeader();
+	useSiteHeaderNavigation(
+		canPreview && ! collapsed
+			? {
+					canGoBack: browserState.canGoBack,
+					canGoForward: browserState.canGoForward,
+					disabled: isStopping,
+					back: () => sendBrowserCommand( 'back' ),
+					forward: () => sendBrowserCommand( 'forward' ),
+					reload: () => sendBrowserCommand( 'reload' ),
+					settings: openSiteSettings,
+					openExternal,
+					backShortcut: browserShortcuts.back.displayShortcut,
+					forwardShortcut: browserShortcuts.forward.displayShortcut,
+			  }
+			: null
+	);
 
 	return (
 		<aside ref={ rootRef } className={ styles.root } aria-label={ __( 'Site preview' ) }>
 			<div
 				ref={ headerRef }
+				data-site-header
 				className={ clsx(
 					styles.header,
 					atWindowStart && sidebarCollapsed && trafficLightSpace.start && styles.headerTrafficLights
@@ -952,9 +976,21 @@ export function SitePreview( {
 				{ /* Browser navigation stays at the start, the address field fills the
 					available middle track, and preview actions stay at the end. */ }
 				<div className={ styles.headerSide }>
-					{ toolbarStart }
+					{ toolbarStart ? (
+						<div data-site-header-reserved className={ styles.toolbarStart }>
+							{ toolbarStart }
+						</div>
+					) : null }
 					{ canPreview ? (
-						<div className={ styles.navigation }>
+						<div
+							data-site-header-navigation
+							className={ clsx(
+								styles.navigation,
+								headerLayout === 'navigation-overflow' && styles.navigationHidden
+							) }
+							aria-hidden={ headerLayout === 'navigation-overflow' || undefined }
+							inert={ headerLayout === 'navigation-overflow' }
+						>
 							{ browserState.canGoBack || browserState.canGoForward ? (
 								<>
 									<BrowserHistoryButton
@@ -986,7 +1022,10 @@ export function SitePreview( {
 						</div>
 					) : null }
 				</div>
-				<div className={ styles.browserLocation }>
+				<div
+					className={ styles.browserLocation }
+					data-site-header-address={ ( canPreview && ! isStarting && ! isStopping ) || undefined }
+				>
 					{ isStarting || isStopping ? (
 						<span role="status" className={ styles.addressStatus }>
 							{ isStopping ? __( 'Stopping site…' ) : __( 'Starting site…' ) }
@@ -1002,53 +1041,25 @@ export function SitePreview( {
 							hasDesignSystem={ !! siteDesign.data }
 							onOpenExternal={ openExternal }
 							onOpenSettings={ openSiteSettings }
+							hideActions={ headerLayout !== 'inline' }
 						/>
 					) : null }
 				</div>
 				<div className={ clsx( styles.headerSide, styles.headerSideEnd ) }>
 					{ showAnnotate ? (
-						<AnnotateButton
-							active={ annotations.active }
-							disabled={ ! canAnnotate || isAnnotationsBusy( annotations ) }
-							disabledReason={
-								activeSurfaceKey === 'database' ? __( 'Not available for Database' ) : undefined
-							}
-							onClick={ () => setAnnotating( site.id, ! annotations.active ) }
-						/>
+						<span data-site-header-annotate className={ styles.headerItem }>
+							<AnnotateButton
+								active={ annotations.active }
+								disabled={ ! canAnnotate || isAnnotationsBusy( annotations ) }
+								disabledReason={
+									activeSurfaceKey === 'database' ? __( 'Not available for Database' ) : undefined
+								}
+								iconOnly={ headerLayout !== 'inline' }
+								onClick={ () => setAnnotating( site.id, ! annotations.active ) }
+							/>
+						</span>
 					) : null }
-					{ collapsed ? null : (
-						<SiteHeaderActions
-							site={ site }
-							anchor={ headerRef }
-							menuItems={
-								canPreview ? (
-									<>
-										<Menu.Separator />
-										<Menu.Item
-											disabled={ ! browserState.canGoBack }
-											onClick={ () => sendBrowserCommand( 'back' ) }
-										>
-											{ __( 'Back' ) }
-										</Menu.Item>
-										<Menu.Item
-											disabled={ ! browserState.canGoForward }
-											onClick={ () => sendBrowserCommand( 'forward' ) }
-										>
-											{ __( 'Forward' ) }
-										</Menu.Item>
-										<Menu.Item onClick={ () => sendBrowserCommand( 'reload' ) }>
-											{ __( 'Reload preview' ) }
-										</Menu.Item>
-										<Menu.Separator />
-										<Menu.Item onClick={ openSiteSettings }>{ __( 'Site settings' ) }</Menu.Item>
-										{ openExternal ? (
-											<Menu.Item onClick={ openExternal }>{ __( 'Open in browser' ) }</Menu.Item>
-										) : null }
-									</>
-								) : null
-							}
-						/>
-					) }
+					{ headerHost === 'preview' && ! collapsed ? <SiteHeaderSpace /> : null }
 				</div>
 				{ showLoadingProgress ? (
 					<div className={ styles.loadingProgress } aria-hidden="true">

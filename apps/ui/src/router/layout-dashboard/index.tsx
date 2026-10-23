@@ -11,6 +11,7 @@ import {
 import { SidebarLayout } from '@/components/sidebar-layout';
 import { HeaderSidebarToggle } from '@/components/sidebar-toggle';
 import { SiteActionsMenu } from '@/components/site-actions-menu';
+import { SiteHeaderActions, SiteHeaderActionsProvider } from '@/components/site-header-actions';
 import { SitePreview } from '@/components/site-preview';
 import { SiteWorkspace } from '@/components/site-workspace';
 import { IconButton } from '@/components/ui/button';
@@ -207,13 +208,16 @@ function DashboardLayoutContent() {
 
 	return (
 		<SidebarLayout>
-			<PreviewSplitFrame
-				previewOpen={ showPreview }
-				chatHidden={ chatHidden }
-				preview={ renderPreview }
-			>
-				{ workspace }
-			</PreviewSplitFrame>
+			<SiteHeaderActionsProvider host={ showPreview ? 'preview' : 'chat' }>
+				<PreviewSplitFrame
+					previewOpen={ showPreview }
+					chatHidden={ chatHidden }
+					preview={ renderPreview }
+					actions={ routeSite ? <SiteHeaderActions site={ routeSite } /> : null }
+				>
+					{ workspace }
+				</PreviewSplitFrame>
+			</SiteHeaderActionsProvider>
 			<CommandPalette
 				site={ homeSite ?? newSessionSite ?? sessionSite }
 				session={ sessionData?.summary }

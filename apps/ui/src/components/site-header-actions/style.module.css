@@ -1,19 +1,33 @@
+/* Drawn over the header under it, which keeps a matching space free. */
+.root {
+	position: absolute;
+	top: 0;
+	inset-inline-end: 0;
+	z-index: 1;
+	display: flex;
+	align-items: center;
+	height: var(--band-height);
+	-webkit-app-region: no-drag;
+}
+
+.actions {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+}
+
+.item,
 .publish {
-	display: contents;
+	display: flex;
+	flex-shrink: 0;
 }
 
 .publish[hidden],
-.more {
+.item [hidden] {
 	display: none;
 }
 
-/* Each header that hosts these actions is a `studio-site-header` container. */
-@container studio-site-header (max-width: 520px) {
-	.share {
-		display: none;
-	}
-
-	.more {
-		display: inline-flex;
-	}
+.space {
+	flex-shrink: 0;
+	align-self: stretch;
 }

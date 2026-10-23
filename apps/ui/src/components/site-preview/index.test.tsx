@@ -137,30 +137,6 @@ describe( 'SitePreview', () => {
 		expect( screen.getByRole( 'button', { name: 'Start from preview' } ) ).toBeEnabled();
 	} );
 
-	it( 'starts a stopped site and stops a running one from the header', async () => {
-		const startSite = vi.fn().mockResolvedValue( undefined );
-		const stopSite = vi.fn().mockResolvedValue( undefined );
-		useConnectorMock.mockReturnValue( {
-			startSite,
-			stopSite,
-			getSiteThumbnail: vi.fn().mockResolvedValue( null ),
-			capabilities: CAPABILITIES,
-		} as never );
-
-		const { unmount } = renderPreview(
-			<SitePreview site={ createSite() } path="/" reloadNonce={ 0 } />
-		);
-		fireEvent.click( screen.getByRole( 'button', { name: 'Start' } ) );
-		await waitFor( () => expect( startSite ).toHaveBeenCalledWith( 'site-1' ) );
-		unmount();
-
-		renderPreview(
-			<SitePreview site={ createSite( { running: true } ) } path="/" reloadNonce={ 0 } />
-		);
-		fireEvent.click( screen.getByRole( 'button', { name: 'Stop' } ) );
-		await waitFor( () => expect( stopSite ).toHaveBeenCalledWith( 'site-1' ) );
-	} );
-
 	it( 'does not render the chat-level Open in control in the preview toolbar', () => {
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn().mockResolvedValue( undefined ),
@@ -439,7 +415,7 @@ describe( 'SitePreview', () => {
 		expect( screen.getByRole( 'button', { name: 'Annotate' } ) ).toBeInTheDocument();
 	} );
 
-	it( 'keeps Publish while annotating and sends a saved note from the Send bar', async () => {
+	it( 'sends a saved note from the Send bar', async () => {
 		const originalUserAgent = navigator.userAgent;
 		Object.defineProperty( navigator, 'userAgent', {
 			configurable: true,
@@ -550,24 +526,11 @@ describe( 'SitePreview', () => {
 		expect( probeSite ).toHaveBeenCalledWith( 'http://localhost:8881/', expect.anything() );
 	} );
 
-	it( 'keeps Share in the More menu while the site is stopped', async () => {
-		useConnectorMock.mockReturnValue( {
-			getSiteThumbnail: vi.fn().mockResolvedValue( null ),
-			capabilities: CAPABILITIES,
-		} as never );
-		renderPreview( <SitePreview site={ createSite() } path="/" reloadNonce={ 0 } /> );
-
-		await userEvent.click( screen.getByRole( 'button', { name: 'More preview actions' } ) );
-
-		expect( await screen.findByRole( 'menuitem', { name: 'Share' } ) ).toBeInTheDocument();
-		expect( screen.queryByRole( 'menuitem', { name: 'Reload preview' } ) ).not.toBeInTheDocument();
-	} );
-
 	it( 'keeps the loading stage over a just-started site until its first page loads', async () => {
 		let finishStart = () => {};
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn( () => new Promise< void >( ( resolve ) => ( finishStart = resolve ) ) ),
-			getSiteThumbnail: vi.fn().mockResolvedValue( null ),
+			getSiteThumbnail: vi.fn().mockResolvedValue( 'data:image/png;base64,thumbnail' ),
 			trackEvent: vi.fn().mockResolvedValue( undefined ),
 			capabilities: CAPABILITIES,
 		} as never );
@@ -582,7 +545,7 @@ describe( 'SitePreview', () => {
 			</QueryClientProvider>
 		);
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'Start' } ) );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Start from preview' } ) );
 		expect( await screen.findByText( 'Loading site preview' ) ).toBeInTheDocument();
 		rerender( preview( true ) );
 		finishStart();

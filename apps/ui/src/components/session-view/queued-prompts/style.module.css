@@ -21,23 +21,6 @@
 	font-size: var(--text-sm);
 }
 
-.actions {
-	display: flex;
-	gap: 4px;
-	opacity: 0;
-	transition: opacity var(--motion-duration-feedback) ease;
-}
-
-.item:is(:hover, :focus-within) .actions {
-	opacity: 1;
-}
-
-@media (hover: none) {
-	.actions {
-		opacity: 1;
-	}
-}
-
 .body {
 	display: flex;
 	flex: 1;

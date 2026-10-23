@@ -52,6 +52,10 @@ import { createPresentDesignOptionsTool } from 'cli/ai/tools/present-design-opti
 import { createSkillTool } from 'cli/ai/tools/skill';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import { getFileToolPrompt } from './file-tool-prompts';
+import {
+	endedWithLeakedToolCall,
+	withLeakedToolCallMarkupRemoved,
+} from './leaked-tool-call-markup';
 import { getPendingWork, type PendingWork } from './pending-work';
 import { stripStaleImagesFromContext } from './strip-stale-images';
 import {
@@ -78,12 +82,16 @@ type ProviderConfigInput = Parameters< ModelRuntime[ 'registerProvider' ] >[ 1 ]
 const STUDIO_WPCOM_PROVIDER = 'studio-wpcom';
 const STUDIO_AGENT_DIR = STUDIO_SITES_ROOT;
 // A reply with nothing in it ends the turn without the user seeing why (see
-// `isEmptyStop`). Resume it with a message the user doesn't see, up to this
-// many times per turn. pi leaves a reply that has only reasoning out of the
-// next request, so the message carries that reasoning; otherwise the model
-// starts the same reasoning over and runs out again.
+// `isEmptyStop`), and so does one whose tool call leaked into its text (see
+// `endedWithLeakedToolCall`). Resume it with a message the user doesn't see,
+// up to this many times per turn. pi leaves a reply that has only reasoning out
+// of the next request, so the message carries that reasoning; otherwise the
+// model starts the same reasoning over and runs out again.
 const MAX_EMPTY_STOP_CONTINUES = 2;
 const EMPTY_STOP_CONTINUE_TYPE = 'studio.empty_stop_continue';
+const LEAKED_TOOL_CALL_CONTINUE_TYPE = 'studio.leaked_tool_call_continue';
+const LEAKED_TOOL_CALL_CONTINUE_MESSAGE =
+	'Your last tool call was written as text, so it did not run. Make the tool call again.';
 const STUDIO_COMPACTION_SETTINGS = {
 	enabled: true,
 	reserveTokens: 16_384,
@@ -249,8 +257,7 @@ async function runAgentSessionTurn(
 		session = await createStudioAgentSession( config, family, resolved.creds, payloadGuardState );
 		setActiveSession( session );
 		let emptyStopContinues = 0;
-		let continueAfterEmptyStop = false;
-		let cutOffReasoning = '';
+		let pendingContinue: { customType: string; content: string } | null = null;
 		unsubscribe = session.subscribe( ( event ) => {
 			updateStudioToolPayloadGuardState( event, payloadGuardState );
 			if (
@@ -259,13 +266,25 @@ async function runAgentSessionTurn(
 				emptyStopContinues < MAX_EMPTY_STOP_CONTINUES
 			) {
 				const lastAssistant = findLastAssistant( event.messages );
-				if ( isEmptyStop( lastAssistant ) ) {
-					// Not final: consumers wait for the turn's real end.
-					continueAfterEmptyStop = true;
-					cutOffReasoning = ( lastAssistant?.content ?? [] )
+				if ( endedWithLeakedToolCall( lastAssistant ) ) {
+					pendingContinue = {
+						customType: LEAKED_TOOL_CALL_CONTINUE_TYPE,
+						content: LEAKED_TOOL_CALL_CONTINUE_MESSAGE,
+					};
+				} else if ( isEmptyStop( lastAssistant ) ) {
+					const cutOffReasoning = ( lastAssistant?.content ?? [] )
 						.map( ( block ) => ( block.type === 'thinking' ? block.thinking : '' ) )
 						.join( '' )
 						.trim();
+					pendingContinue = {
+						customType: EMPTY_STOP_CONTINUE_TYPE,
+						content: cutOffReasoning
+							? `Your reasoning was cut off before you replied. Continue from where it stopped:\n\n${ cutOffReasoning }`
+							: 'continue',
+					};
+				}
+				if ( pendingContinue ) {
+					// Not final: consumers wait for the turn's real end.
 					config.onEvent( { ...event, willRetry: true } );
 					return;
 				}
@@ -288,23 +307,15 @@ async function runAgentSessionTurn(
 				mimeType: image.mimeType,
 			} ) ),
 		} );
-		while ( continueAfterEmptyStop ) {
-			continueAfterEmptyStop = false;
+		while ( pendingContinue ) {
+			const message: { customType: string; content: string } = pendingContinue;
+			pendingContinue = null;
 			if ( controller.signal.aborted ) {
 				config.onEvent( syntheticErrorAgentEnd( 'aborted', '' ) );
 				break;
 			}
 			emptyStopContinues++;
-			await session.sendCustomMessage(
-				{
-					customType: EMPTY_STOP_CONTINUE_TYPE,
-					content: cutOffReasoning
-						? `Your reasoning was cut off before you replied. Continue from where it stopped:\n\n${ cutOffReasoning }`
-						: 'continue',
-					display: false,
-				},
-				{ triggerTurn: true }
-			);
+			await session.sendCustomMessage( { ...message, display: false }, { triggerTurn: true } );
 		}
 		await getPendingWork( config.session ).settle();
 	} catch ( error ) {
@@ -577,17 +588,19 @@ function createWpcomProviderConfig(
 		headers: creds.extraHeaders,
 		streamSimple: ( m, ctx, options?: SimpleStreamOptions ) =>
 			withUsageCapErrorRewrite(
-				stream( m, stripStaleImagesFromContext( ctx ), {
-					...options,
-					...( apiModelId
-						? {
-								onPayload: async ( params: unknown, payloadModel ) => {
-									const next = ( await options?.onPayload?.( params, payloadModel ) ) ?? params;
-									return { ...( next as Record< string, unknown > ), model: apiModelId };
-								},
-						  }
-						: {} ),
-				} )
+				withLeakedToolCallMarkupRemoved(
+					stream( m, stripStaleImagesFromContext( ctx ), {
+						...options,
+						...( apiModelId
+							? {
+									onPayload: async ( params: unknown, payloadModel ) => {
+										const next = ( await options?.onPayload?.( params, payloadModel ) ) ?? params;
+										return { ...( next as Record< string, unknown > ), model: apiModelId };
+									},
+							  }
+							: {} ),
+					} )
+				)
 			),
 		models: [
 			{

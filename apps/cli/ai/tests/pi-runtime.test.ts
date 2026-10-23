@@ -1,8 +1,11 @@
+import { createAssistantMessageEventStream } from '@earendil-works/pi-ai';
 import { ANTHROPIC_MODELS } from '@earendil-works/pi-ai/providers/anthropic.models';
 import { ModelRegistry, SessionManager } from '@earendil-works/pi-coding-agent';
 import { AI_MODELS } from '@studio/common/ai/models';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { runStudioAgentTurn, type StudioAgentTurnConfig } from 'cli/ai/runtimes/pi';
+import { withLeakedToolCallMarkupRemoved } from 'cli/ai/runtimes/pi/leaked-tool-call-markup';
+import type { AssistantMessage } from '@earendil-works/pi-ai';
 import type { AgentSessionEvent, CreateAgentSessionOptions } from '@earendil-works/pi-coding-agent';
 import type { AiModelId } from '@studio/common/ai/models';
 
@@ -599,6 +602,36 @@ describe( 'pi runtime', () => {
 				expect( agentEnds( events ).map( ( event ) => event.willRetry ) ).toEqual( [ false ] );
 			}
 			expect( mocks.customMessages ).toHaveLength( 0 );
+		} );
+
+		it( 'continues a turn whose tool call leaked into the text, asking for the call again', async () => {
+			const leaked = assistantMessage( [
+				{ type: 'text', text: 'Let me check the file.\n\n</｜DSML｜invoke> </｜DSML｜tool_calls>' },
+			] );
+			const source = createAssistantMessageEventStream();
+			const cleaned = withLeakedToolCallMarkupRemoved( source );
+			source.push( { type: 'done', reason: 'stop', message: leaked.message as AssistantMessage } );
+			source.end();
+			await cleaned.result();
+			mocks.nextEvents = runEndingWith( leaked );
+			mocks.continueEvents = [
+				runEndingWith( assistantMessage( [ { type: 'text', text: 'Done.' } ] ) ),
+			];
+
+			const events = await runFast();
+
+			expect( mocks.customMessages ).toEqual( [
+				{
+					message: {
+						customType: 'studio.leaked_tool_call_continue',
+						content:
+							'Your last tool call was written as text, so it did not run. Make the tool call again.',
+						display: false,
+					},
+					options: { triggerTurn: true },
+				},
+			] );
+			expect( agentEnds( events ).map( ( event ) => event.willRetry ) ).toEqual( [ true, false ] );
 		} );
 
 		it( 'ends the turn as interrupted when the user stops it first', async () => {

@@ -106,6 +106,8 @@ interface PreviewAddressBarProps {
 	hasDesignSystem?: boolean;
 	onOpenExternal?: () => void;
 	onOpenSettings?: () => void;
+	// The header is short on room: the field keeps only the address.
+	hideActions?: boolean;
 }
 
 interface RecentPreviewLocation {
@@ -213,6 +215,7 @@ export function PreviewAddressBar( {
 	hasDesignSystem = false,
 	onOpenExternal,
 	onOpenSettings,
+	hideActions = false,
 }: PreviewAddressBarProps ) {
 	const displayUrl = getDisplayUrl( siteUrl, path );
 	const activeRealm = getPreviewRealm( path );
@@ -328,23 +331,25 @@ export function PreviewAddressBar( {
 					title={ invalid ? __( 'Enter a path or an address on this site.' ) : undefined }
 					spellCheck={ false }
 				/>
-				<span className={ styles.actions }>
-					{ onOpenSettings ? (
-						<AddressAction
-							icon={ cog }
-							label={ __( 'Site settings' ) }
-							onClick={ onOpenSettings }
-						/>
-					) : null }
-					{ onOpenExternal ? (
-						<AddressAction
-							icon={ external }
-							label={ __( 'Open this page in your browser' ) }
-							tooltip={ __( 'Open in browser' ) }
-							onClick={ onOpenExternal }
-						/>
-					) : null }
-				</span>
+				{ hideActions ? null : (
+					<span className={ styles.actions }>
+						{ onOpenSettings ? (
+							<AddressAction
+								icon={ cog }
+								label={ __( 'Site settings' ) }
+								onClick={ onOpenSettings }
+							/>
+						) : null }
+						{ onOpenExternal ? (
+							<AddressAction
+								icon={ external }
+								label={ __( 'Open this page in your browser' ) }
+								tooltip={ __( 'Open in browser' ) }
+								onClick={ onOpenExternal }
+							/>
+						) : null }
+					</span>
+				) }
 			</form>
 			<Popover.Popup
 				anchor={ addressBarRef }

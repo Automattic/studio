@@ -328,6 +328,11 @@ export function ConnectedView( {
 						{ selection.warning ? <p className={ styles.text }>{ selection.warning }</p> : null }
 						<ErrorMessage error={ selection.error } retry={ selection.retry } />
 						{ finished?.kind === 'error' ? <ErrorMessage error={ finished.message } /> : null }
+						{ finished?.kind === 'error' && direction === 'pull' && ! remote.lastPullTimestamp ? (
+							<p className={ styles.text }>
+								{ __( 'Your local site is saved. Retry to finish bringing in its content.' ) }
+							</p>
+						) : null }
 						{ finished?.kind === 'cancelled' ? (
 							<p className={ styles.text } role="status">
 								{ __( 'Transfer cancelled. You can try again.' ) }

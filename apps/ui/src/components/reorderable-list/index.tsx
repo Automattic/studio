@@ -1,3 +1,4 @@
+import { __, sprintf } from '@wordpress/i18n';
 import { clsx } from 'clsx';
 import {
 	Fragment,
@@ -11,6 +12,7 @@ import {
 	type PointerEvent as ReactPointerEvent,
 	type ReactNode,
 } from 'react';
+import { VisuallyHidden } from '@/components/ui/visually-hidden';
 import styles from './style.module.css';
 
 type ActiveDrag = {
@@ -85,7 +87,7 @@ function prefersReducedMotion() {
 	return window.matchMedia?.( '(prefers-reduced-motion: reduce)' ).matches ?? false;
 }
 
-type ReorderableListProps< T > = {
+export type ReorderableListProps< T > = {
 	/** Full ordered list, dragged item included. */
 	items: T[];
 	getItemId: ( item: T ) => string;
@@ -98,6 +100,10 @@ type ReorderableListProps< T > = {
 	previewClassName?: string;
 	/** Pointer-downs inside a match of this selector never start a drag. */
 	excludeSelector?: string;
+	/** No drag starts, e.g. while rows are being multi-selected. */
+	disabled?: boolean;
+	/** Names a dropped row when its new position is announced. */
+	getItemLabel?: ( item: T ) => string;
 };
 
 export function ReorderableList< T >( {
@@ -110,8 +116,11 @@ export function ReorderableList< T >( {
 	placeholderClassName,
 	previewClassName,
 	excludeSelector,
+	disabled = false,
+	getItemLabel,
 }: ReorderableListProps< T > ) {
 	const [ activeDrag, setActiveDrag ] = useState< ActiveDrag | null >( null );
+	const [ announcement, setAnnouncement ] = useState( '' );
 	const activeDragRef = useRef< ActiveDrag | null >( null );
 	const dragCandidateRef = useRef< DragCandidate | null >( null );
 	const dragStartOrderRef = useRef< string[] >( [] );
@@ -386,6 +395,18 @@ export function ReorderableList< T >( {
 			const nextIds = insertIdAtIndex( sourceOrder, active.id, active.dropIndex );
 			lastDroppedIdRef.current = active.id;
 			onReorder( nextIds );
+			const dropped = items.find( ( item ) => getItemId( item ) === active.id );
+			if ( dropped !== undefined && getItemLabel ) {
+				setAnnouncement(
+					sprintf(
+						/* translators: 1: name of the moved item, 2: its new position, 3: number of items. */
+						__( '%1$s moved to position %2$d of %3$d' ),
+						getItemLabel( dropped ),
+						nextIds.indexOf( active.id ) + 1,
+						nextIds.length
+					)
+				);
+			}
 			suppressNextClickRef.current = true;
 			// The rows' click-capture consumes the flag, but a drop outside any
 			// row never reaches it — clear on the next click wherever it lands
@@ -416,11 +437,18 @@ export function ReorderableList< T >( {
 
 	const handlePointerDown = ( event: ReactPointerEvent< HTMLElement >, id: string ) => {
 		if (
+			disabled ||
 			event.button !== 0 ||
+			event.metaKey ||
+			event.ctrlKey ||
+			event.shiftKey ||
+			event.altKey ||
 			( excludeSelector && ( event.target as HTMLElement ).closest( excludeSelector ) )
 		) {
 			return;
 		}
+		// A list nested in a row drags its own rows, not the row around it.
+		event.stopPropagation();
 		const rowRect = event.currentTarget.getBoundingClientRect();
 		scrollParentRef.current = findScrollParent( containerRef.current );
 		dragStartOrderRef.current = itemIds;
@@ -513,6 +541,7 @@ export function ReorderableList< T >( {
 					{ renderItem( draggedItem ) }
 				</div>
 			) : null }
+			{ getItemLabel ? <VisuallyHidden role="status">{ announcement }</VisuallyHidden> : null }
 		</div>
 	);
 }

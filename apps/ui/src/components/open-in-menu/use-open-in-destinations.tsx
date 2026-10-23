@@ -1,7 +1,10 @@
 import { getErrorMessage } from '@studio/common/lib/error-formatting';
 import { captureException } from '@studio/common/lib/error-reporting';
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
-import { SUPPORTED_EDITORS, supportedEditorConfig } from '@studio/common/lib/user-settings/editor';
+import {
+	getFirstInstalledEditor,
+	supportedEditorConfig,
+} from '@studio/common/lib/user-settings/editor';
 import { terminalConfig } from '@studio/common/lib/user-settings/terminal';
 import { __, sprintf } from '@wordpress/i18n';
 import { code, external, wordpress } from '@wordpress/icons';
@@ -69,8 +72,7 @@ export function useOpenInDestinations(
 
 	const fileManager = getFileManager();
 	const editor =
-		userPreferences?.editor ??
-		SUPPORTED_EDITORS.find( ( candidate ) => installedApps?.[ candidate ] );
+		userPreferences?.editor ?? ( installedApps ? getFirstInstalledEditor( installedApps ) : null );
 	const editorLabel = editor ? supportedEditorConfig[ editor ].label() : '';
 	const terminalLabel = userPreferences?.terminal
 		? terminalConfig[ userPreferences.terminal ].name()
@@ -133,8 +135,7 @@ export function useOpenInDestinations(
 			label: editorLabel,
 			logo: editorLogos[ editor ] ?? code,
 			disabled: false,
-			open: () =>
-				open( 'editor', editorLabel, () => connector.openSiteInEditor( site.id, editor ) ),
+			open: () => open( 'editor', editorLabel, () => connector.openSiteInEditor( site.id ) ),
 		},
 		{
 			id: 'terminal',

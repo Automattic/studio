@@ -1,4 +1,11 @@
+import { buildSettingsLink } from '@studio/common/lib/settings-link';
+import { __, sprintf } from '@wordpress/i18n';
+import { check, Icon, link } from '@wordpress/icons';
 import { clsx } from 'clsx';
+import { useContext } from 'react';
+import { SettingsLinkContext } from '@/components/settings-dialog/context';
+import { findSettingId } from '@/components/settings-dialog/sections';
+import { Button } from '@/components/ui/button';
 import {
 	Field,
 	FieldContent,
@@ -16,6 +23,8 @@ import {
 	SelectValue,
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
+import { VisuallyHidden } from '@/components/ui/visually-hidden';
+import { useCopyText } from '@/hooks/use-copy-text';
 import styles from './style.module.css';
 import type { ReactNode } from 'react';
 
@@ -49,12 +58,15 @@ export function SettingsGroup( {
 /** A setting: its name and description on the left, its control on the right. */
 export function SettingsRow( {
 	title,
+	badge,
 	description,
 	error,
 	stacked = false,
 	children,
 }: {
 	title: string;
+	// Shown next to the title, like a "Connected" status.
+	badge?: ReactNode;
 	description?: ReactNode;
 	// Shown in place of the description.
 	error?: string;
@@ -62,20 +74,53 @@ export function SettingsRow( {
 	stacked?: boolean;
 	children?: ReactNode;
 } ) {
+	const id = useContext( SettingsLinkContext ) ? findSettingId( title ) : undefined;
 	return (
 		<Field
 			orientation={ stacked ? 'vertical' : 'horizontal' }
 			className={ styles.settingsRow }
 			data-settings-row
+			data-setting-id={ id }
 		>
 			<FieldContent>
-				<FieldTitle>{ title }</FieldTitle>
+				{ id || badge ? (
+					<div className={ styles.rowTitle }>
+						<FieldTitle>{ title }</FieldTitle>
+						{ badge }
+						{ id ? <SettingLinkButton id={ id } title={ title } /> : null }
+					</div>
+				) : (
+					<FieldTitle>{ title }</FieldTitle>
+				) }
 				{ description || error ? (
 					<FieldDescription error={ error }>{ description }</FieldDescription>
 				) : null }
 			</FieldContent>
 			{ children ? <div className={ styles.settingsControl }>{ children }</div> : null }
 		</Field>
+	);
+}
+
+// Copies a wp-studio:// link that opens Settings on this setting.
+function SettingLinkButton( { id, title }: { id: string; title: string } ) {
+	const { copied, copy } = useCopyText( buildSettingsLink( id ) );
+	return (
+		<Button
+			variant="muted-ghost"
+			size="icon-xs"
+			className={ styles.linkButton }
+			data-settings-link
+			data-copied={ copied || undefined }
+			aria-label={ sprintf(
+				/* translators: %s: a setting's name. */
+				__( 'Copy link to %s' ),
+				title
+			) }
+			onClick={ copy }
+		>
+			<Icon icon={ copied ? check : link } fill="currentColor" aria-hidden="true" />
+			<VisuallyHidden aria-live="polite">{ copied ? __( 'Copied' ) : '' }</VisuallyHidden>
+		</Button>
 	);
 }
 
@@ -135,5 +180,29 @@ export function SettingsSelect< TValue extends string >( {
 				) ) }
 			</SelectContent>
 		</Select>
+	);
+}
+
+// Loading, or a failed load with Retry.
+export function SettingsLoadState( {
+	loadFailed,
+	onRetry,
+}: {
+	loadFailed: boolean;
+	onRetry: () => void;
+} ) {
+	return (
+		<div className={ styles.state }>
+			{ loadFailed ? (
+				<>
+					{ __( "Couldn't load your settings." ) }{ ' ' }
+					<Button variant="outline" onClick={ onRetry }>
+						{ __( 'Retry' ) }
+					</Button>
+				</>
+			) : (
+				__( 'Loading…' )
+			) }
+		</div>
 	);
 }

@@ -18,6 +18,7 @@ import type {
 	TracksProps,
 	TracksSiteCreateFlowType,
 } from '@studio/common/lib/record-tracks-event';
+import type { SiteAgentFileOpenTarget } from '@studio/common/lib/site-agent-file-paths';
 import type { SiteFileAccess } from '@studio/common/lib/site-file-access';
 import type { SiteOperation } from '@studio/common/lib/site-operation';
 import type { SnapshotUsage } from '@studio/common/lib/snapshots';
@@ -25,7 +26,11 @@ import type { StudioAssistantQuota } from '@studio/common/lib/studio-assistant-q
 import type { StudioAssistantTopUpPricing } from '@studio/common/lib/studio-assistant-top-up-pricing';
 import type { SyncEvent } from '@studio/common/lib/sync/activity';
 import type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
-import type { ColorScheme, QuitSitesBehavior } from '@studio/common/lib/user-settings/preferences';
+import type {
+	ColorScheme,
+	NewSiteBehavior,
+	QuitSitesBehavior,
+} from '@studio/common/lib/user-settings/preferences';
 import type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
 import type { WordPressVersion } from '@studio/common/lib/wordpress-versions';
 import type { WpEnvironmentType } from '@studio/common/lib/wp-environment-type';
@@ -447,6 +452,8 @@ export interface Connector {
 	// also falls back to WordPress.com.
 	getAiSettings(): Promise< AiSettings >;
 	saveAnthropicApiKey( key: string | null ): Promise< AiSettings >;
+	// The provider new conversations use.
+	setAiProvider( provider: AiProviderId ): Promise< AiSettings >;
 
 	// Apps detected on disk (editors + terminals). Options in the preferences
 	// form are filtered against this so users can't pick something that isn't
@@ -463,11 +470,11 @@ export interface Connector {
 	// like the preview omnibox search can query site content directly.
 	fetchSiteRest( siteId: string, request: SiteRestRequest ): Promise< SiteRestResponse >;
 
-	// Open the given site's folder in the system file manager, an editor
-	// (`editor`, else the preferred one), or the preferred terminal. Without an
-	// editor or a terminal these reject.
+	// Open the given site's folder in the system file manager, preferred
+	// editor, or preferred terminal. When no editor/terminal preference is
+	// set these reject — callers are expected to route the user to Settings.
 	openSiteFolder( siteId: string ): Promise< void >;
-	openSiteInEditor( siteId: string, editor?: SupportedEditor ): Promise< void >;
+	openSiteInEditor( siteId: string ): Promise< void >;
 	openSiteInTerminal( siteId: string ): Promise< void >;
 
 	// The site's WordPress debug log, resolved host-side from the site id. Its
@@ -508,6 +515,12 @@ export interface Connector {
 		enabled: boolean
 	): Promise< void >;
 	removeSiteAgentFile( siteId: string, kind: SiteAgentFileKind, id: string ): Promise< void >;
+	openSiteAgentFile(
+		siteId: string,
+		kind: SiteAgentFileKind,
+		id: string,
+		target: SiteAgentFileOpenTarget
+	): Promise< void >;
 
 	// Whether the UI should render a button that opens the app menu via
 	// `popupAppMenu`. True only in the Windows/Linux desktop app, which has no
@@ -572,8 +585,8 @@ export interface Connector {
 	onAddSiteWithBlueprint( listener: ( payload: { blueprintPath: string } ) => void ): () => void;
 
 	// Fires when the user activates "Settings…" (or its keyboard shortcut) in
-	// the application menu.
-	onOpenSettings( listener: () => void ): () => void;
+	// the application menu, or opens a link to one setting.
+	onOpenSettings( listener: ( target: { settingId?: string } ) => void ): () => void;
 
 	// Fires when WordPress.com checkout sends the user back after an AI credits
 	// top-up (wp-studio://ai-credits-purchased). Desktop only — a browser tab
@@ -652,7 +665,8 @@ export interface UserPreferences {
 	editor: SupportedEditor | null;
 	terminal: SupportedTerminal | null;
 	colorScheme: ColorScheme;
-	quitSitesBehavior?: QuitSitesBehavior;
+	// `null` clears it back to "ask every time".
+	quitSitesBehavior?: QuitSitesBehavior | null;
 	locale: string | undefined;
 	// Whether the user shares anonymous usage statistics (Tracks). Default true.
 	// See `docs/design-docs/analytics-tracks.md`.
@@ -667,10 +681,16 @@ export interface UserPreferences {
 	agenticFeaturesEnabled: boolean;
 	// The sidebar's Pinned group, in order, as `site:<id>` and `chat:<id>` keys.
 	sidebarPins?: string[];
+	// Each site's chats in the order the user dragged them into, by site id.
+	sidebarChatOrder?: Record< string, string[] >;
+	showRecentChats?: boolean;
+	// Opening a site's chats in the sidebar folds the others.
+	autoCollapseSites?: boolean;
 	// Start a stopped local site when a chat message is sent to it.
 	autoStartSiteOnChat?: boolean;
 	// Ask before discarding preview annotations.
 	confirmDeleteAnnotations?: boolean;
+	newSiteBehavior?: NewSiteBehavior;
 }
 
 export interface AppGlobals {

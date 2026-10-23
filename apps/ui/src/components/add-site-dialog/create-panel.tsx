@@ -22,10 +22,12 @@ import { useCreateSite, useSites } from '@/data/queries/use-sites';
 import { useWordPressOrgPackageName } from '@/data/queries/use-wordpress-org-package-name';
 import { pendingBlueprintSlot } from '@/lib/pending-blueprint';
 import { pendingPromptSlot } from '@/lib/pending-prompt';
+import { useConnectSite } from './connect-site';
 import { useAddSite } from './context';
 import localStyles from './create-panel.module.css';
+import { getRemoteSiteName } from './site-presentation';
 import type { CreateSiteFormError, CreateSiteFormValues } from '@/components/create-site-form';
-import type { AiModelId } from '@/data/core';
+import type { AiModelId, SyncSite } from '@/data/core';
 
 function mapBlueprintSettingsToFormValues(
 	blueprint: SelectedBlueprint
@@ -226,20 +228,29 @@ function SelectedBlueprintSummary( {
 	);
 }
 
-export function CreatePanel( { onCancel }: { onCancel: () => void } ) {
+/**
+ * The setup form for a new site: blank, from a Blueprint, or the local copy of
+ * the `remote` site picked in Connect.
+ */
+export function CreatePanel( { remote, onCancel }: { remote?: SyncSite; onCancel: () => void } ) {
 	const connector = useConnector();
 	const navigate = useNavigate();
 	const { setProgress, pinNewSite } = useAddSite();
 	const { data: sites } = useSites();
 	const existingDomainNames = useExistingCustomDomains();
-	const { data: proposedName } = useProposedSiteName( sites );
+	const { data: proposedName } = useProposedSiteName(
+		sites,
+		remote && getRemoteSiteName( remote )
+	);
 	const createSite = useCreateSite();
+	const connectSite = useConnectSite();
 	const createSession = useCreateSession();
 	const { chatEnabled } = useAgenticFeatures();
 	const composerRef = useRef< ComposerHandle >( null );
 	const [ model, setModel ] = useState< AiModelId >( DEFAULT_MODEL );
 	const [ selectedBlueprint, setSelectedBlueprint ] = useState< SelectedBlueprint | null >( null );
 	const [ isBlueprintValid, setIsBlueprintValid ] = useState( true );
+	const [ existing, setExisting ] = useState( false );
 	const [ submittedInitialValues, setSubmittedInitialValues ] =
 		useState< Partial< CreateSiteFormValues > | null >( null );
 	const selectedBlueprintRef = useRef< SelectedBlueprint | null >( null );
@@ -249,7 +260,7 @@ export function CreatePanel( { onCancel }: { onCancel: () => void } ) {
 		pendingBlueprintSlot.subscribe,
 		pendingBlueprintSlot.getSnapshot
 	);
-	const showBrief = chatEnabled && ! selectedBlueprint;
+	const showBrief = chatEnabled && ! selectedBlueprint && ! remote && ! existing;
 	const requiresCustomDomain = useMemo(
 		() =>
 			!! selectedBlueprint &&
@@ -299,7 +310,7 @@ export function CreatePanel( { onCancel }: { onCancel: () => void } ) {
 	);
 
 	const handleSubmit = async ( values: CreateSiteFormValues ) => {
-		const blueprint = selectedBlueprintRef.current;
+		const blueprint = existing ? null : selectedBlueprintRef.current;
 		const brief = showBrief ? composerRef.current?.getSubmission() : null;
 		setSubmittedInitialValues( initialValues );
 		setSubmitError( '' );
@@ -318,17 +329,18 @@ export function CreatePanel( { onCancel }: { onCancel: () => void } ) {
 						siteName: values.name,
 				  } )
 				: undefined;
-			const site = await createSite.mutateAsync( {
-				name: values.name,
-				path: values.path,
-				phpVersion: values.phpVersion,
-				fileAccess: values.fileAccess,
-				wpVersion: values.wpVersion,
-				customDomain: values.customDomain,
-				enableHttps: values.enableHttps,
+			const params = {
+				...values,
 				adminUsername: values.adminUsername || undefined,
 				adminPassword: values.adminPassword || undefined,
 				adminEmail: values.adminEmail || undefined,
+			};
+			if ( remote ) {
+				await connectSite( remote, params );
+				return;
+			}
+			const site = await createSite.mutateAsync( {
+				...params,
 				...( brief ? { flowType: 'ai' as const } : {} ),
 				...( mergedBlueprint && blueprint
 					? {
@@ -382,6 +394,8 @@ export function CreatePanel( { onCancel }: { onCancel: () => void } ) {
 				requiresCustomDomain={ requiresCustomDomain }
 				submitError={ submitError }
 				submitLabel={ selectedBlueprint ? __( 'Create site from Blueprint' ) : undefined }
+				source={ remote?.url.replace( /^https?:\/\//, '' ) }
+				onExistingChange={ setExisting }
 				panelFooter={
 					selectedBlueprint ? (
 						<SelectedBlueprintSummary
@@ -417,7 +431,7 @@ export function CreatePanel( { onCancel }: { onCancel: () => void } ) {
 					</div>
 				) }
 			</CreateSiteForm>
-			{ ! selectedBlueprint && (
+			{ ! selectedBlueprint && ! remote && ! existing && (
 				<div className={ localStyles.blueprint }>
 					<BlueprintUpload
 						onSelect={ replaceBlueprint }

@@ -16,12 +16,7 @@ import { useConnector } from '@/data/core';
 export { toComposerSendAttachments };
 export type { ComposerAttachment, ComposerSendAttachments };
 
-// `disabled` blocks every entry point at once — button, drag-and-drop and
-// paste all funnel through `addFiles`.
-export function useComposerAttachments(
-	initialAttachments: ComposerAttachment[] = [],
-	disabled = false
-) {
+export function useComposerAttachments( initialAttachments: ComposerAttachment[] = [] ) {
 	const connector = useConnector();
 	const [ attachments, setAttachments ] = useState< ComposerAttachment[] >( initialAttachments );
 	const attachmentsRef = useRef< ComposerAttachment[] >( initialAttachments );
@@ -57,7 +52,7 @@ export function useComposerAttachments(
 	const addFiles = useCallback(
 		async ( incoming: FileList | File[] ) => {
 			const list = Array.from( incoming );
-			if ( disabled || list.length === 0 ) {
+			if ( list.length === 0 ) {
 				return;
 			}
 			const messages = {
@@ -99,7 +94,7 @@ export function useComposerAttachments(
 			}
 			setTrackedAttachments( merged.attachments );
 		},
-		[ connector, disabled, setTrackedAttachments ]
+		[ connector, setTrackedAttachments ]
 	);
 
 	const onPaste = useCallback(
@@ -125,7 +120,7 @@ export function useComposerAttachments(
 }
 
 // Files dragged anywhere over `target`. The depth count keeps the state steady
-// while the pointer crosses child elements.
+// while the pointer crosses child elements; a drop or cancel anywhere resets it.
 export function useFileDrop( target: HTMLElement | null, onFiles: ( files: FileList ) => void ) {
 	const [ isDragging, setIsDragging ] = useState( false );
 
@@ -134,6 +129,15 @@ export function useFileDrop( target: HTMLElement | null, onFiles: ( files: FileL
 			return;
 		}
 		let depth = 0;
+		const reset = () => {
+			depth = 0;
+			setIsDragging( false );
+		};
+		const onWindowKeyDown = ( event: KeyboardEvent ) => {
+			if ( event.key === 'Escape' ) {
+				reset();
+			}
+		};
 		const hasFiles = ( event: DragEvent ) =>
 			Array.from( event.dataTransfer?.types ?? [] ).includes( 'Files' );
 		const onDragEnter = ( event: DragEvent ) => {
@@ -158,8 +162,7 @@ export function useFileDrop( target: HTMLElement | null, onFiles: ( files: FileL
 				return;
 			}
 			event.preventDefault();
-			depth = 0;
-			setIsDragging( false );
+			reset();
 			if ( event.dataTransfer?.files.length ) {
 				onFiles( event.dataTransfer.files );
 			}
@@ -170,12 +173,19 @@ export function useFileDrop( target: HTMLElement | null, onFiles: ( files: FileL
 			dragleave: onDragLeave,
 			drop: onDrop,
 		};
+		const windowListeners = { drop: reset, dragend: reset, blur: reset, keydown: onWindowKeyDown };
 		for ( const [ type, listener ] of Object.entries( listeners ) ) {
 			target.addEventListener( type, listener as EventListener );
+		}
+		for ( const [ type, listener ] of Object.entries( windowListeners ) ) {
+			window.addEventListener( type, listener as EventListener );
 		}
 		return () => {
 			for ( const [ type, listener ] of Object.entries( listeners ) ) {
 				target.removeEventListener( type, listener as EventListener );
+			}
+			for ( const [ type, listener ] of Object.entries( windowListeners ) ) {
+				window.removeEventListener( type, listener as EventListener );
 			}
 		};
 	}, [ target, onFiles ] );

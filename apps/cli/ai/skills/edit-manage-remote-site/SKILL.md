@@ -1,16 +1,16 @@
 ---
 name: edit-manage-remote-site
-description: Edit and manage one of the user's live remote sites (WordPress.com, or Pressable through the WordPress.com endpoints) with wpcom_request — answer questions about it, or change its content, templates, styles, theme, and plugins within what its plan allows. Covers the plan check, API namespaces and endpoints, response-size limits, and visual verification.
+description: Edit and manage one of the user's live remote sites (WordPress.com, or Pressable through the WordPress.com endpoints) — answer questions about it, or change its content, templates, styles, theme, and plugins within what its plan allows. Covers the plan check, API namespaces and endpoints, response-size limits, and visual verification.
 user-invokable: true
 ---
 
 # Edit and Manage a Remote Site
 
-Use this skill for any work on one of the user's WordPress.com sites. These sites are live: change them only with `wpcom_request`, never with WP-CLI, Bash, or local site files. Work on a local copy only when the user asks for one (create a local site with `site_create`, then `site_pull` the WordPress.com site into it).
+Use this skill for any work on one of the user's WordPress.com sites. These sites are live: change them only with `wpcom_request`, never with WP-CLI, Bash, or local site files. Work on a local copy only when the user asks for one (create a local site with `site_create`, then `site_pull` the WordPress.com site into it). Without `wpcom_request`, tell the user you can't change the live site from here, and offer a local copy that `site_push` can publish back.
 
 ## First: Check the Plan
 
-Before any change, call `GET /` with `apiNamespace: ""`. `plan.features.active` lists the features this site's plan includes, such as `global-styles`, `custom-design`, or `install-plugins`. A change that needs a feature the list lacks needs an upgrade: say so, and load the `hosting-plans-helper` skill for which plan adds it. Inline styles and block style attributes are no way around a missing design feature; they produce invalid blocks on WordPress.com.
+Before any change, call `GET /` with `apiNamespace: ""`. `plan.features.active` lists the features this site's plan includes, such as `global-styles`, `custom-design`, or `install-plugins`. A change that needs a feature the list lacks isn't available on this site's plan: say so, and link to https://wordpress.com/pricing, which lists what each plan includes. Inline styles and block style attributes are no way around a missing design feature; they produce invalid blocks on WordPress.com.
 
 ## Block Content
 

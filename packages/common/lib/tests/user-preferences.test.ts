@@ -4,7 +4,10 @@ import path from 'node:path';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { readSharedConfig } from '@studio/common/lib/shared-config';
-import { writeUserPreferences } from '@studio/common/lib/user-settings/user-preferences';
+import {
+	readUserPreferences,
+	writeUserPreferences,
+} from '@studio/common/lib/user-settings/user-preferences';
 
 let configDir: string;
 
@@ -55,4 +58,39 @@ it( 'records the analytics toggle while analytics is on', async () => {
 		surface: 'onboarding',
 	} );
 	expect( optedOutWhenRecorded ).toEqual( [ false, false ] );
+} );
+
+it( 'keeps the sidebar preferences, which default to recent chats shown and sites folding', async () => {
+	const context = { sitesRoot: configDir, installedApps: {} as never };
+	expect( await readUserPreferences( context ) ).toMatchObject( {
+		sidebarChatOrder: {},
+		showRecentChats: true,
+		autoCollapseSites: true,
+	} );
+
+	await writeUserPreferences(
+		{
+			sidebarChatOrder: { 'site-1': [ 'chat-2', 'chat-1' ] },
+			showRecentChats: false,
+			autoCollapseSites: false,
+		},
+		{ sitesRoot: configDir }
+	);
+
+	expect( await readUserPreferences( context ) ).toMatchObject( {
+		sidebarChatOrder: { 'site-1': [ 'chat-2', 'chat-1' ] },
+		showRecentChats: false,
+		autoCollapseSites: false,
+	} );
+} );
+
+it( 'keeps what Add site opens on, choosing a starting point until set', async () => {
+	const context = { sitesRoot: configDir, installedApps: {} as never };
+	expect( ( await readUserPreferences( context ) ).newSiteBehavior ).toBe( 'choose' );
+
+	await writeUserPreferences( { newSiteBehavior: 'blank' }, { sitesRoot: configDir } );
+	expect( ( await readUserPreferences( context ) ).newSiteBehavior ).toBe( 'blank' );
+
+	await writeUserPreferences( { newSiteBehavior: null }, { sitesRoot: configDir } );
+	expect( ( await readUserPreferences( context ) ).newSiteBehavior ).toBe( 'choose' );
 } );

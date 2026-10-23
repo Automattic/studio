@@ -58,11 +58,6 @@
 	pointer-events: none;
 }
 
-@container studio-preview-toolbar (max-width: 640px) {
-	.actions {
-		display: none;
-	}
-}
 
 .siteIcon:focus-visible {
 	outline: var(--focus-width) solid var(--ring);

@@ -42,7 +42,7 @@ function SiteActionsContextMenu( {
 		<>
 			<Menu.ContextMenuRoot disabled={ disabled }>
 				<Menu.ContextMenuTrigger render={ children } />
-				<Menu.ContextPopup onKeyDown={ ( event ) => actions.handleShortcut( event.nativeEvent ) }>
+				<Menu.ContextPopup { ...actions.shortcuts }>
 					<SiteActionsMenuItems actions={ actions } />
 				</Menu.ContextPopup>
 			</Menu.ContextMenuRoot>

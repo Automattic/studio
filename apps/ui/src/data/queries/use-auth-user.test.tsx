@@ -1,8 +1,9 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { getNoticeHistory, resetAppMessagesForTests } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
-import { useAuthUser } from './use-auth-user';
+import { useAuthChangeToasts, useAuthUser } from './use-auth-user';
 import type { AuthUser } from '@/data/core';
 
 const SIGNED_IN_USER: AuthUser = { id: 1, email: 'user@example.com', displayName: 'Example User' };
@@ -20,6 +21,7 @@ function renderAuthUser() {
 
 	function Probe() {
 		const { data } = useAuthUser();
+		useAuthChangeToasts();
 		return <span data-testid="state">{ data ? 'signed-in' : 'signed-out' }</span>;
 	}
 
@@ -33,6 +35,7 @@ function renderAuthUser() {
 describe( 'useAuthUser', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
+		resetAppMessagesForTests();
 	} );
 
 	// The login deeplink can land while the first auth lookup is still running.
@@ -90,5 +93,33 @@ describe( 'useAuthUser', () => {
 		notifyAuthChanged();
 
 		await waitFor( () => expect( screen.getByTestId( 'state' ) ).toHaveTextContent( 'signed-in' ) );
+	} );
+
+	it( 'says when the signed-in user changes, but not on the first lookup', async () => {
+		let user: AuthUser | null = SIGNED_IN_USER;
+		let notifyAuthChanged: () => void = () => {};
+		useConnectorMock.mockReturnValue( {
+			getAuthUser: vi.fn( () => Promise.resolve( user ) ),
+			onAuthStateChanged: ( listener: () => void ) => {
+				notifyAuthChanged = listener;
+				return () => {};
+			},
+		} );
+
+		renderAuthUser();
+		await waitFor( () => expect( screen.getByTestId( 'state' ) ).toHaveTextContent( 'signed-in' ) );
+		expect( getNoticeHistory() ).toHaveLength( 0 );
+
+		user = null;
+		notifyAuthChanged();
+		await waitFor( () =>
+			expect( getNoticeHistory()[ 0 ]?.title ).toBe( 'Logged out of WordPress.com' )
+		);
+
+		user = SIGNED_IN_USER;
+		notifyAuthChanged();
+		await waitFor( () =>
+			expect( getNoticeHistory()[ 0 ]?.title ).toBe( 'Logged in to WordPress.com' )
+		);
 	} );
 } );

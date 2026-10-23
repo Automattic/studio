@@ -9,7 +9,7 @@ import {
 import { getSiteOperationLabel } from '@studio/common/lib/site-operation-labels';
 import { useQueryClient } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
-import { Icon, moreHorizontal } from '@wordpress/icons';
+import { Icon } from '@wordpress/icons';
 import {
 	ariaKeyShortcut,
 	displayShortcut,
@@ -32,9 +32,11 @@ import {
 } from '@/components/annotations/store';
 import { DesignSystemView } from '@/components/design-system-view';
 import { PreviewParticles } from '@/components/preview-particles';
-import { PublishButton } from '@/components/publish-panel';
-import { ShareButton, ShareStatusIcon, useShareStatus } from '@/components/share-dialog';
-import { SiteLifecycleButton } from '@/components/site-lifecycle-button';
+import {
+	SiteHeaderSpace,
+	useSiteHeader,
+	useSiteHeaderNavigation,
+} from '@/components/site-header-actions';
 import { SiteContextMenu, StoppedSitePreview } from '@/components/stopped-site-preview';
 import { Button, IconButton } from '@/components/ui/button';
 import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
@@ -48,7 +50,6 @@ import { useSiteIcon } from '@/data/queries/use-site-icon';
 import { siteThumbnailQueryKey, useSiteThumbnail } from '@/data/queries/use-site-thumbnail';
 import { useIsSiteStarting, useIsSiteStopping, useSiteOperation } from '@/data/queries/use-sites';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { requestHeaderPanel } from '@/hooks/use-open-header-panel';
 import { useOpenSettings } from '@/hooks/use-open-settings';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
@@ -60,8 +61,8 @@ import {
 	browserForwardIcon,
 	globeIcon,
 	refreshIcon,
-	shareIcon,
 } from '@/lib/icons';
+import { isDialogOpen } from '@/lib/shortcuts';
 import {
 	DATABASE_HOME_PATH,
 	getPathFromPreviewUrl,
@@ -389,11 +390,13 @@ function AnnotateButton( {
 	active,
 	disabled,
 	disabledReason,
+	iconOnly,
 	onClick,
 }: {
 	active: boolean;
 	disabled: boolean;
 	disabledReason?: string;
+	iconOnly: boolean;
 	onClick: () => void;
 } ) {
 	return (
@@ -420,7 +423,7 @@ function AnnotateButton( {
 							onClick={ onClick }
 						>
 							<Icon icon={ annotateIcon } size={ 16 } data-icon="inline-start" />
-							<span className={ styles.toolbarLabel }>{ __( 'Annotate' ) }</span>
+							{ iconOnly ? null : <span>{ __( 'Annotate' ) }</span> }
 						</Button>
 					}
 				/>
@@ -609,7 +612,6 @@ export function SitePreview( {
 	const activeSurface = surfaces.byKey[ activeSurfaceKey ];
 	const browserState = activeSurface?.browser ?? EMPTY_BROWSER_STATE;
 	const annotations = useSiteAnnotations( site.id );
-	const shareStatus = useShareStatus( site.id );
 	// A site that was just started keeps its loading stage over the preview
 	// until the first page arrives.
 	const [ awaitingReveal, setAwaitingReveal ] = useState( false );
@@ -622,8 +624,6 @@ export function SitePreview( {
 	}, [ canPreview, isStarting ] );
 	const loadingStage = isStarting || ( awaitingReveal && activeSurfaceKey !== 'design' );
 	const [ annotationAnchor, setAnnotationAnchor ] = useState< AnnotationAnchor | null >( null );
-	const rootRef = useRef< HTMLElement | null >( null );
-	const headerRef = useRef< HTMLDivElement | null >( null );
 	const commandIdRef = useRef( 0 );
 	// Studio renders the design system itself, so it needs no page injection.
 	const showAnnotate =
@@ -902,8 +902,8 @@ export function SitePreview( {
 		[]
 	);
 
-	// Browser shortcuts (⌘R / ⌘[ / ⌘] / ⌘←/⌘→)
-	// pressed while focus is in the host document. Shortcuts pressed inside the
+	// Browser shortcuts (⌘R / ⌘[ / ⌘] / ⌘←/⌘→) pressed anywhere in the host
+	// document but a dialog, the composer included. Shortcuts pressed inside the
 	// guest page are forwarded by the inspector script through the console
 	// bridge instead.
 	useEffect( () => {
@@ -912,15 +912,7 @@ export function SitePreview( {
 		}
 		const handleKeyDown = ( event: globalThis.KeyboardEvent ) => {
 			const command = getBrowserShortcutCommand( event );
-			if ( ! command ) {
-				return;
-			}
-			const activeElement = document.activeElement;
-			if (
-				activeElement &&
-				activeElement !== document.body &&
-				! rootRef.current?.contains( activeElement )
-			) {
+			if ( ! command || isDialogOpen() ) {
 				return;
 			}
 			event.preventDefault();
@@ -948,11 +940,28 @@ export function SitePreview( {
 					} );
 		  };
 	const openSiteSettings = () => openSettings( 'site', site.id );
+	const { host: headerHost, layout: headerLayout } = useSiteHeader();
+	useSiteHeaderNavigation(
+		canPreview && ! collapsed
+			? {
+					canGoBack: browserState.canGoBack,
+					canGoForward: browserState.canGoForward,
+					disabled: isStopping,
+					back: () => sendBrowserCommand( 'back' ),
+					forward: () => sendBrowserCommand( 'forward' ),
+					reload: () => sendBrowserCommand( 'reload' ),
+					settings: openSiteSettings,
+					openExternal,
+					backShortcut: browserShortcuts.back.displayShortcut,
+					forwardShortcut: browserShortcuts.forward.displayShortcut,
+			  }
+			: null
+	);
 
 	return (
-		<aside ref={ rootRef } className={ styles.root } aria-label={ __( 'Site preview' ) }>
+		<aside className={ styles.root } aria-label={ __( 'Site preview' ) }>
 			<div
-				ref={ headerRef }
+				data-site-header
 				className={ clsx(
 					styles.header,
 					atWindowStart && sidebarCollapsed && trafficLightSpace.start && styles.headerTrafficLights
@@ -970,9 +979,21 @@ export function SitePreview( {
 				{ /* Browser navigation stays at the start, the address field fills the
 					available middle track, and preview actions stay at the end. */ }
 				<div className={ styles.headerSide }>
-					{ toolbarStart }
+					{ toolbarStart ? (
+						<div data-site-header-reserved className={ styles.toolbarStart }>
+							{ toolbarStart }
+						</div>
+					) : null }
 					{ canPreview ? (
-						<div className={ styles.navigation }>
+						<div
+							data-site-header-navigation
+							className={ clsx(
+								styles.navigation,
+								headerLayout === 'navigation-overflow' && styles.navigationHidden
+							) }
+							aria-hidden={ headerLayout === 'navigation-overflow' || undefined }
+							inert={ headerLayout === 'navigation-overflow' }
+						>
 							{ browserState.canGoBack || browserState.canGoForward ? (
 								<>
 									<BrowserHistoryButton
@@ -1004,7 +1025,10 @@ export function SitePreview( {
 						</div>
 					) : null }
 				</div>
-				<div className={ styles.browserLocation }>
+				<div
+					className={ styles.browserLocation }
+					data-site-header-address={ ( canPreview && ! isStarting && ! isStopping ) || undefined }
+				>
 					{ isStarting || isStopping ? (
 						<span role="status" className={ styles.addressStatus }>
 							{ isStopping ? __( 'Stopping site…' ) : __( 'Starting site…' ) }
@@ -1021,87 +1045,25 @@ export function SitePreview( {
 							hasDesignSystem={ !! siteDesign.data }
 							onOpenExternal={ openExternal }
 							onOpenSettings={ live ? undefined : openSiteSettings }
+							hideActions={ headerLayout !== 'inline' }
 						/>
 					) : null }
 				</div>
 				<div className={ clsx( styles.headerSide, styles.headerSideEnd ) }>
 					{ showAnnotate ? (
-						<AnnotateButton
-							active={ annotations.active }
-							disabled={ ! canAnnotate || isAnnotationsBusy( annotations ) }
-							disabledReason={
-								activeSurfaceKey === 'database' ? __( 'Not available for Database' ) : undefined
-							}
-							onClick={ () => setAnnotating( site.id, ! annotations.active ) }
-						/>
-					) : null }
-					<PublishButton site={ site } anchor={ headerRef } />
-					{ live ? null : (
-						<>
-							<SiteLifecycleButton site={ site } />
-							<ShareButton site={ site } className={ styles.shareAction } />
-						</>
-					) }
-					<Menu.Root modal={ false }>
-						<Tooltip>
-							<Menu.Trigger
-								render={
-									<TooltipTrigger
-										render={
-											<Button
-												variant="ghost"
-												size="icon"
-												className={ styles.moreActions }
-												aria-label={ __( 'More preview actions' ) }
-												aria-description={ shareStatus.label }
-											/>
-										}
-									/>
+						<span data-site-header-annotate className={ styles.headerItem }>
+							<AnnotateButton
+								active={ annotations.active }
+								disabled={ ! canAnnotate || isAnnotationsBusy( annotations ) }
+								disabledReason={
+									activeSurfaceKey === 'database' ? __( 'Not available for Database' ) : undefined
 								}
-							>
-								<ShareStatusIcon icon={ moreHorizontal } status={ shareStatus } />
-							</Menu.Trigger>
-							<TooltipContent side="bottom">{ __( 'More preview actions' ) }</TooltipContent>
-						</Tooltip>
-						<Menu.Popup side="bottom" align="end">
-							{ live ? null : (
-								<Menu.Item
-									aria-description={ shareStatus.label }
-									onClick={ () => requestHeaderPanel( { panel: 'share', siteId: site.id } ) }
-								>
-									<ShareStatusIcon icon={ shareIcon } status={ shareStatus } />
-									{ __( 'Share' ) }
-								</Menu.Item>
-							) }
-							{ canPreview ? (
-								<>
-									{ live ? null : <Menu.Separator /> }
-									<Menu.Item
-										disabled={ ! browserState.canGoBack }
-										onClick={ () => sendBrowserCommand( 'back' ) }
-									>
-										{ __( 'Back' ) }
-									</Menu.Item>
-									<Menu.Item
-										disabled={ ! browserState.canGoForward }
-										onClick={ () => sendBrowserCommand( 'forward' ) }
-									>
-										{ __( 'Forward' ) }
-									</Menu.Item>
-									<Menu.Item onClick={ () => sendBrowserCommand( 'reload' ) }>
-										{ __( 'Reload preview' ) }
-									</Menu.Item>
-									<Menu.Separator />
-									{ live ? null : (
-										<Menu.Item onClick={ openSiteSettings }>{ __( 'Site settings' ) }</Menu.Item>
-									) }
-									{ openExternal ? (
-										<Menu.Item onClick={ openExternal }>{ __( 'Open in browser' ) }</Menu.Item>
-									) : null }
-								</>
-							) : null }
-						</Menu.Popup>
-					</Menu.Root>
+								iconOnly={ headerLayout !== 'inline' }
+								onClick={ () => setAnnotating( site.id, ! annotations.active ) }
+							/>
+						</span>
+					) : null }
+					{ headerHost === 'preview' && ! collapsed ? <SiteHeaderSpace /> : null }
 				</div>
 				{ showLoadingProgress ? (
 					<div className={ styles.loadingProgress } aria-hidden="true">

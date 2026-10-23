@@ -1,4 +1,4 @@
-import { format } from 'date-fns';
+import { format } from 'date-fns/format';
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
 
 export function generateBackupFilename( name: string ) {

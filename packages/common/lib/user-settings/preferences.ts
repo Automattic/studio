@@ -6,7 +6,25 @@
 export const SUPPORTED_COLOR_SCHEMES = [ 'system', 'light', 'dark' ] as const;
 export type ColorScheme = ( typeof SUPPORTED_COLOR_SCHEMES )[ number ];
 
-export const DEFAULT_COLOR_SCHEME: ColorScheme = 'light';
+export const DEFAULT_COLOR_SCHEME: ColorScheme = 'system';
 
 export const QUIT_SITES_BEHAVIORS = [ 'stop', 'stop-and-auto-start', 'leave-running' ] as const;
 export type QuitSitesBehavior = ( typeof QUIT_SITES_BEHAVIORS )[ number ];
+
+// What Add site opens on: the starting points, or straight on a blank site's setup.
+export const NEW_SITE_BEHAVIORS = [ 'choose', 'blank' ] as const;
+export type NewSiteBehavior = ( typeof NEW_SITE_BEHAVIORS )[ number ];
+
+/**
+ * The interface preferences and their defaults: what Settings ▸ Reset interface
+ * restores. `null` is a preference left unset ("Ask every time" on quit).
+ */
+export const INTERFACE_PREFERENCE_DEFAULTS = {
+	colorScheme: DEFAULT_COLOR_SCHEME,
+	quitSitesBehavior: null,
+	autoStartSiteOnChat: false,
+	confirmDeleteAnnotations: true,
+	showRecentChats: true,
+	autoCollapseSites: true,
+	newSiteBehavior: 'choose',
+} as const;

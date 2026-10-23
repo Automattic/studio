@@ -5,12 +5,19 @@ import { pendingPromptSlot } from '@/lib/pending-prompt';
 import { CreatePanel } from './create-panel';
 import type { SelectedBlueprint } from '@/components/blueprint-upload';
 import type { CreateSiteFormValues } from '@/components/create-site-form';
+import type { SyncSite } from '@/data/core';
 import type { ReactNode } from 'react';
 
 const mocks = vi.hoisted( () => ( {
 	navigate: vi.fn( async () => undefined ),
 	setProgress: vi.fn(),
 	mutateAsync: vi.fn(),
+	connectWpcomSite: vi.fn(),
+	trackEvent: vi.fn(),
+	deleteSite: vi.fn(),
+	pullSite: vi.fn(),
+	startSite: vi.fn(),
+	toastError: vi.fn(),
 	createSession: vi.fn( async () => ( { id: 'session-1' } ) ),
 	pinNewSite: vi.fn(),
 	cleanup: vi.fn( async () => undefined ),
@@ -80,6 +87,8 @@ vi.mock( '@/data/core', async ( importOriginal ) => {
 	const connector = {
 		cleanupBlueprintTempDir: mocks.cleanup,
 		openExternalUrl: mocks.openExternalUrl,
+		connectWpcomSite: mocks.connectWpcomSite,
+		trackEvent: mocks.trackEvent,
 	};
 	return { ...actual, useConnector: () => connector };
 } );
@@ -94,12 +103,24 @@ vi.mock( '@/data/queries/use-sessions', () => ( {
 
 vi.mock( '@/data/queries/use-create-site-helpers', () => ( {
 	useExistingCustomDomains: () => [],
-	useProposedSiteName: () => ( { data: mocks.proposedName } ),
+	useProposedSiteName: ( _sites: unknown, baseName?: string ) => ( {
+		data: baseName ?? mocks.proposedName,
+	} ),
 } ) );
 
 vi.mock( '@/data/queries/use-sites', () => ( {
 	useSites: () => ( { data: [] } ),
 	useCreateSite: () => ( { mutateAsync: mocks.mutateAsync, isPending: false } ),
+	useDeleteSite: () => ( { mutateAsync: mocks.deleteSite } ),
+	useStartSite: () => ( { mutateAsync: mocks.startSite } ),
+} ) );
+
+vi.mock( '@/data/queries/use-sync-site', () => ( {
+	usePullSiteFromLive: () => ( { mutateAsync: mocks.pullSite } ),
+} ) );
+
+vi.mock( '@/data/app-messages', () => ( {
+	toast: { error: mocks.toastError },
 } ) );
 
 vi.mock( '@/data/queries/use-wordpress-org-package-name', () => ( {
@@ -123,6 +144,18 @@ const formValues: CreateSiteFormValues = {
 	adminUsername: 'admin',
 	adminPassword: 'password',
 	adminEmail: 'admin@example.com',
+};
+
+const remote: SyncSite = {
+	id: 7,
+	localSiteId: '',
+	name: 'Remote site',
+	url: 'https://remote.example.com',
+	isStaging: false,
+	isPressable: true,
+	syncSupport: 'syncable',
+	lastPullTimestamp: null,
+	lastPushTimestamp: null,
 };
 
 function blueprint( name: string, tempDir?: string ): SelectedBlueprint {
@@ -150,6 +183,10 @@ describe( 'CreatePanel', () => {
 		mocks.chatEnabled = true;
 		mocks.submission = null;
 		mocks.mutateAsync.mockResolvedValue( { id: 'site-1' } );
+		mocks.connectWpcomSite.mockResolvedValue( undefined );
+		mocks.pullSite.mockResolvedValue( undefined );
+		mocks.startSite.mockResolvedValue( undefined );
+		mocks.deleteSite.mockResolvedValue( undefined );
 		const pending = pendingPromptSlot.getSnapshot();
 		if ( pending ) pendingPromptSlot.clear( pending );
 	} );
@@ -364,5 +401,81 @@ describe( 'CreatePanel', () => {
 
 		unmount();
 		expect( mocks.cleanup ).toHaveBeenCalledWith( '/tmp/selected' );
+	} );
+
+	it( 'adds an existing WordPress folder as it is, without the Blueprint or brief', async () => {
+		mocks.submission = { prompt: 'A bakery site', attachments: { images: [], files: [] } };
+		render( <CreatePanel onCancel={ vi.fn() } /> );
+		selectBlueprint( blueprint( 'Selected' ) );
+		act( () => ( mocks.formProps?.onExistingChange as ( existing: boolean ) => void )( true ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Submit' } ) );
+
+		await waitFor( () => expect( mocks.navigate ).toHaveBeenCalledOnce() );
+		expect( mocks.mutateAsync.mock.calls[ 0 ][ 0 ] ).not.toHaveProperty( 'blueprint' );
+		expect( mocks.mutateAsync.mock.calls[ 0 ][ 0 ] ).not.toHaveProperty( 'flowType' );
+		expect( mocks.createSession ).not.toHaveBeenCalled();
+	} );
+
+	describe( 'set up for a remote site from Connect', () => {
+		it( 'creates the local site from the setup, then opens it while the pull runs', async () => {
+			let finishPull: () => void = () => undefined;
+			mocks.pullSite.mockImplementationOnce(
+				() => new Promise< void >( ( resolve ) => ( finishPull = resolve ) )
+			);
+			render( <CreatePanel remote={ remote } onCancel={ vi.fn() } /> );
+
+			expect( mocks.formProps?.initialValues ).toEqual( { name: 'Remote site' } );
+			expect( mocks.formProps?.source ).toBe( 'remote.example.com' );
+			expect( screen.queryByTestId( 'composer' ) ).not.toBeInTheDocument();
+			expect( screen.queryByTestId( 'blueprint-upload' ) ).not.toBeInTheDocument();
+			expect( mocks.mutateAsync ).not.toHaveBeenCalled();
+
+			fireEvent.click( screen.getByRole( 'button', { name: 'Submit' } ) );
+
+			await waitFor( () =>
+				expect( mocks.navigate ).toHaveBeenCalledWith( {
+					to: '/sites/$siteId',
+					params: { siteId: 'site-1' },
+				} )
+			);
+			expect( mocks.mutateAsync ).toHaveBeenCalledWith(
+				expect.objectContaining( {
+					name: 'My Site',
+					path: '/sites/my-site',
+					phpVersion: '8.3',
+					skipStart: true,
+					flowType: 'sync',
+				} )
+			);
+			expect( mocks.pinNewSite ).toHaveBeenCalledWith( 'site-1' );
+			expect( mocks.connectWpcomSite ).toHaveBeenCalledWith(
+				'site-1',
+				expect.objectContaining( { id: 7, syncSupport: 'already-connected' } )
+			);
+			expect( mocks.pullSite ).toHaveBeenCalledWith( {
+				siteId: 'site-1',
+				remoteSiteId: 7,
+				syncSite: remote,
+			} );
+			expect( mocks.startSite ).not.toHaveBeenCalled();
+
+			finishPull();
+			await waitFor( () => expect( mocks.startSite ).toHaveBeenCalledWith( 'site-1' ) );
+		} );
+
+		it( 'removes the local site and stays on the setup when connecting fails', async () => {
+			mocks.connectWpcomSite.mockRejectedValue( new Error( 'Connection failed' ) );
+			render( <CreatePanel remote={ remote } onCancel={ vi.fn() } /> );
+
+			fireEvent.click( screen.getByRole( 'button', { name: 'Submit' } ) );
+
+			await waitFor( () =>
+				expect( mocks.formProps?.submitError ).toEqual(
+					expect.objectContaining( { details: 'Connection failed' } )
+				)
+			);
+			expect( mocks.deleteSite ).toHaveBeenCalledWith( { id: 'site-1', deleteFiles: true } );
+			expect( mocks.navigate ).not.toHaveBeenCalled();
+		} );
 	} );
 } );

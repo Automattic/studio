@@ -40,6 +40,13 @@
 	-webkit-app-region: drag;
 }
 
+.headerLead {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	min-width: 0;
+}
+
 .headerSidebarCollapsed {
 	padding-inline-start: var(--traffic-light-space);
 }
@@ -206,6 +213,18 @@
 }
 
 /* An empty chat's dot field, with a stopped site's screenshot over it. */
+.loadError {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 12px;
+	height: 100%;
+	padding: 24px;
+	color: var(--muted-foreground);
+	font-size: var(--text-sm);
+}
+
 .emptyState {
 	position: absolute;
 	inset: 0 0 var(--composer-height);

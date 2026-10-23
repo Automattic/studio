@@ -1,4 +1,5 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { StrictMode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
@@ -8,8 +9,9 @@ import { pendingPromptSlot } from '@/lib/pending-prompt';
 import { isScrolledAwayFromLatest, SessionView } from './index';
 import type { LoadedAiSession } from '@/data/core';
 
-const { navigateMock, agentRunState, sitesState } = vi.hoisted( () => ( {
+const { navigateMock, agentRunState, sitesState, aiSettingsState } = vi.hoisted( () => ( {
 	navigateMock: vi.fn(),
+	aiSettingsState: { data: undefined as undefined | Record< string, unknown > },
 	agentRunState: { hasActiveRun: false, sendMessage: vi.fn( async () => undefined ) },
 	sitesState: {
 		data: [] as Array< { id: string; path: string; name: string; running?: boolean } >,
@@ -40,6 +42,7 @@ const siteMocks = vi.hoisted( () => ( {
 
 vi.mock( '@/data/queries/use-sites', () => ( {
 	useSites: () => sitesState,
+	useIsSiteBusy: () => false,
 	useIsSiteStarting: () => false,
 	useIsSiteStopping: () => false,
 	useStartSite: () => ( { mutate: siteMocks.startSite } ),
@@ -53,12 +56,9 @@ vi.mock( '@/components/site-actions-menu', () => ( {
 	SiteActionsMenu: ( { site }: { site: { name: string } } ) => <div>{ site.name }</div>,
 } ) );
 
-vi.mock( '@/components/share-dialog', () => ( {
-	ShareButton: () => null,
-} ) );
-
-vi.mock( '@/components/site-lifecycle-button', () => ( {
-	SiteLifecycleButton: () => <button type="button">Start</button>,
+vi.mock( '@/components/site-header-actions', () => ( {
+	SiteHeaderSpace: () => <div data-testid="site-header-space" />,
+	useSiteHeader: () => ( { host: 'chat' } ),
 } ) );
 
 vi.mock( '@/components/stopped-site-preview', () => ( {
@@ -74,15 +74,19 @@ vi.mock( '@/data/queries/use-assistant-quota', () => ( {
 	useStudioAssistantQuota: vi.fn(),
 } ) );
 vi.mock( '@/data/queries/use-ai-settings', () => ( {
-	useAiSettings: () => ( { data: undefined } ),
+	useAiSettings: () => aiSettingsState,
+} ) );
+
+const connectorMock = vi.hoisted( () => ( {
+	openExternalUrl: vi.fn(),
+	getAiSettings: vi.fn(),
+	getAuthUser: vi.fn(),
+	getStudioAssistantQuota: vi.fn(),
 } ) );
 
 vi.mock( '@/data/core', async ( importOriginal ) => ( {
 	...( await importOriginal< object >() ),
-	useConnector: () => ( {
-		openExternalUrl: vi.fn(),
-		getAiSettings: vi.fn(),
-	} ),
+	useConnector: () => connectorMock,
 } ) );
 
 vi.mock( '@/data/queries/use-agent-run', () => ( {
@@ -128,6 +132,7 @@ const composerProps = vi.hoisted( () => ( {
 vi.mock( './composer', () => ( {
 	Composer: ( props: { onSend: ( prompt: string ) => Promise< void > } ) => {
 		composerProps.current = props;
+		useStudioAssistantQuota();
 		return <div data-testid="composer" />;
 	},
 	ComposerSkeleton: () => <div data-testid="composer-skeleton" />,
@@ -139,10 +144,6 @@ vi.mock( './conversation', () => ( {
 
 vi.mock( '@/components/chat-actions', () => ( { OpenChatShortcuts: () => null } ) );
 vi.mock( '@/hooks/use-mark-chat-read', () => ( { useMarkChatRead: vi.fn() } ) );
-
-vi.mock( './session-chat-actions', () => ( {
-	useNewChatShortcut: () => undefined,
-} ) );
 
 const useSessionMock = vi.mocked( useSession, { partial: true } );
 const useStudioAssistantQuotaMock = vi.mocked( useStudioAssistantQuota, { partial: true } );
@@ -170,7 +171,7 @@ function makeQuota(
 	};
 }
 
-const SCROLL_TO_LATEST_LABEL = 'Scroll to latest message';
+const SCROLL_TO_LATEST_LABEL = 'Jump to latest';
 
 function makeLoadedSession(): LoadedAiSession {
 	return {
@@ -208,6 +209,7 @@ describe( 'SessionView', () => {
 		vi.clearAllMocks();
 		agentRunState.hasActiveRun = false;
 		sitesState.data = [];
+		aiSettingsState.data = undefined;
 		siteMocks.preferences = { autoStartSiteOnChat: false };
 		const pending = pendingPromptSlot.getSnapshot();
 		if ( pending ) pendingPromptSlot.clear( pending );
@@ -238,7 +240,9 @@ describe( 'SessionView', () => {
 				<SessionView sessionId="session-1" />
 			</WindowControlsCornerContext.Provider>
 		);
-		const header = screen.getByText( 'Example Site' ).parentElement;
+		const header = screen
+			.getByText( 'Example Site' )
+			.closest< HTMLElement >( '[data-site-header]' );
 		expect( header?.style.paddingRight ).toBe( '146px' );
 
 		rerender(
@@ -253,13 +257,29 @@ describe( 'SessionView', () => {
 		useSessionMock.mockReturnValue( {
 			data: undefined,
 			isLoading: false,
-			error: new Error( 'not found' ),
+			error: new Error( 'Code session not found: deleted-session' ),
 		} );
 
 		render( <SessionView sessionId="deleted-session" /> );
 
 		await waitFor( () => expect( navigateMock ).toHaveBeenCalledWith( { to: '/' } ) );
-		expect( screen.queryByText( 'Session not found' ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'offers a retry instead of leaving when the chat fails to load', () => {
+		const refetch = vi.fn();
+		useSessionMock.mockReturnValue( {
+			data: undefined,
+			isLoading: false,
+			error: new Error( 'EACCES' ),
+			refetch,
+		} );
+
+		render( <SessionView sessionId="session-1" /> );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Try again' } ) );
+
+		expect( screen.getByText( 'This chat could not load.' ) ).toBeInTheDocument();
+		expect( refetch ).toHaveBeenCalled();
+		expect( navigateMock ).not.toHaveBeenCalled();
 	} );
 
 	it( 'does not redirect while the session is still loading', () => {
@@ -387,10 +407,16 @@ describe( 'SessionView', () => {
 			refetch: vi.fn(),
 		} );
 
-		render( <SessionView sessionId="session-1" /> );
+		const { rerender } = render( <SessionView sessionId="session-1" /> );
 
 		expect( screen.getByText( 'Studio Code Beta' ) ).toBeInTheDocument();
 		expect( screen.getByRole( 'button', { name: 'Add payment method' } ) ).toBeInTheDocument();
+
+		aiSettingsState.data = { provider: 'anthropic-api-key', hasAnthropicApiKey: true };
+		rerender( <SessionView sessionId="session-1" /> );
+
+		expect( screen.queryByText( 'Studio Code Beta' ) ).not.toBeInTheDocument();
+		expect( screen.getByTestId( 'composer' ) ).toBeInTheDocument();
 	} );
 
 	it( 'keeps the composer hidden while the entitlement check is loading', () => {
@@ -482,6 +508,28 @@ describe( 'SessionView', () => {
 		expect( screen.queryByText( 'Studio Code Beta' ) ).not.toBeInTheDocument();
 	} );
 
+	it( 'settles on the composer when the quota request fails', async () => {
+		const actual = await vi.importActual< typeof import('@/data/queries/use-assistant-quota') >(
+			'@/data/queries/use-assistant-quota'
+		);
+		useStudioAssistantQuotaMock.mockImplementation( actual.useStudioAssistantQuota );
+		connectorMock.getAuthUser.mockResolvedValue( { id: 1 } );
+		connectorMock.getStudioAssistantQuota.mockRejectedValue( new Error( 'offline' ) );
+		useSessionMock.mockReturnValue( { data: makeLoadedSession(), isLoading: false, error: null } );
+		const queryClient = new QueryClient( { defaultOptions: { queries: { retry: false } } } );
+
+		render(
+			<QueryClientProvider client={ queryClient }>
+				<SessionView sessionId="session-1" />
+			</QueryClientProvider>
+		);
+
+		await screen.findByTestId( 'composer' );
+		await act( () => new Promise( ( resolve ) => setTimeout( resolve, 50 ) ) );
+		expect( screen.getByTestId( 'composer' ) ).toBeInTheDocument();
+		expect( connectorMock.getStudioAssistantQuota ).toHaveBeenCalledTimes( 1 );
+	} );
+
 	it( 'fails open when the quota is unavailable', () => {
 		useSessionMock.mockReturnValue( {
 			data: makeLoadedSession(),
@@ -513,18 +561,17 @@ describe( 'SessionView', () => {
 		expect( siteMocks.startSite ).toHaveBeenCalledWith( OWNER_SITE.id );
 	} );
 
-	it( 'offers a stopped site its last screenshot and a Start button', () => {
+	it( 'offers a stopped site its last screenshot, under the site actions', () => {
 		sitesState.data = [ OWNER_SITE ];
 		useSessionMock.mockReturnValue( { data: makeOwnedSession(), isLoading: false, error: null } );
 
 		const { rerender } = render( <SessionView sessionId="session-1" /> );
 		expect( screen.getByTestId( 'stopped-site-preview' ) ).toBeInTheDocument();
-		expect( screen.getByRole( 'button', { name: 'Start' } ) ).toBeInTheDocument();
+		expect( screen.getByTestId( 'site-header-space' ) ).toBeInTheDocument();
 
 		sitesState.data = [ { ...OWNER_SITE, running: true } ];
 		rerender( <SessionView sessionId="session-1" /> );
 		expect( screen.queryByTestId( 'stopped-site-preview' ) ).not.toBeInTheDocument();
-		expect( screen.queryByRole( 'button', { name: 'Start' } ) ).not.toBeInTheDocument();
 	} );
 } );
 

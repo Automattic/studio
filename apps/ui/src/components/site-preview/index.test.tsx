@@ -38,6 +38,11 @@ vi.mock( '@/components/share-dialog', async ( importOriginal ) => ( {
 	ShareButton: () => null,
 } ) );
 
+vi.mock( '@/components/stopped-site-preview', async ( importOriginal ) => ( {
+	...( await importOriginal< typeof import('@/components/stopped-site-preview') >() ),
+	SiteContextMenu: ( { children }: { children: ReactNode } ) => children,
+} ) );
+
 vi.mock( '@/components/dot-grid', () => ( {
 	DotGrid: () => <canvas data-testid="dot-grid" />,
 } ) );
@@ -137,30 +142,6 @@ describe( 'SitePreview', () => {
 		expect( screen.getByRole( 'button', { name: 'Start from preview' } ) ).toBeEnabled();
 	} );
 
-	it( 'starts a stopped site and stops a running one from the header', async () => {
-		const startSite = vi.fn().mockResolvedValue( undefined );
-		const stopSite = vi.fn().mockResolvedValue( undefined );
-		useConnectorMock.mockReturnValue( {
-			startSite,
-			stopSite,
-			getSiteThumbnail: vi.fn().mockResolvedValue( null ),
-			capabilities: CAPABILITIES,
-		} as never );
-
-		const { unmount } = renderPreview(
-			<SitePreview site={ createSite() } path="/" reloadNonce={ 0 } />
-		);
-		fireEvent.click( screen.getByRole( 'button', { name: 'Start' } ) );
-		await waitFor( () => expect( startSite ).toHaveBeenCalledWith( 'site-1' ) );
-		unmount();
-
-		renderPreview(
-			<SitePreview site={ createSite( { running: true } ) } path="/" reloadNonce={ 0 } />
-		);
-		fireEvent.click( screen.getByRole( 'button', { name: 'Stop' } ) );
-		await waitFor( () => expect( stopSite ).toHaveBeenCalledWith( 'site-1' ) );
-	} );
-
 	it( 'does not render the chat-level Open in control in the preview toolbar', () => {
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn().mockResolvedValue( undefined ),
@@ -252,6 +233,34 @@ describe( 'SitePreview', () => {
 		const aliasReloadedIframe = container.querySelector( 'iframe' );
 		fireEvent.keyDown( document.body, { key: 'r', ctrlKey: true, altKey: true } );
 		expect( container.querySelector( 'iframe' ) ).toBe( aliasReloadedIframe );
+	} );
+
+	it( 'reloads the preview from the composer, but not from a dialog', () => {
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
+			capabilities: CAPABILITIES,
+		} as never );
+		const { container } = renderPreview(
+			<>
+				<textarea aria-label="Composer" />
+				<SitePreview site={ createSite( { running: true } ) } path="/" reloadNonce={ 0 } />
+			</>
+		);
+
+		const initialIframe = container.querySelector( 'iframe' );
+		const composer = screen.getByRole( 'textbox', { name: 'Composer' } );
+		composer.focus();
+		fireEvent.keyDown( composer, { key: 'r', ctrlKey: true } );
+		const reloadedIframe = container.querySelector( 'iframe' );
+		expect( reloadedIframe ).not.toBe( initialIframe );
+
+		const dialog = document.createElement( 'div' );
+		dialog.dataset.slot = 'dialog-content';
+		document.body.append( dialog );
+		fireEvent.keyDown( dialog, { key: 'r', ctrlKey: true } );
+		dialog.remove();
+		expect( container.querySelector( 'iframe' ) ).toBe( reloadedIframe );
 	} );
 
 	it( 'switches realms from the address menu', async () => {
@@ -439,7 +448,7 @@ describe( 'SitePreview', () => {
 		expect( screen.getByRole( 'button', { name: 'Annotate' } ) ).toBeInTheDocument();
 	} );
 
-	it( 'keeps Publish while annotating and sends a saved note from the Send bar', async () => {
+	it( 'sends a saved note from the Send bar', async () => {
 		const originalUserAgent = navigator.userAgent;
 		Object.defineProperty( navigator, 'userAgent', {
 			configurable: true,
@@ -550,19 +559,6 @@ describe( 'SitePreview', () => {
 		expect( probeSite ).toHaveBeenCalledWith( 'http://localhost:8881/', expect.anything() );
 	} );
 
-	it( 'keeps Share in the More menu while the site is stopped', async () => {
-		useConnectorMock.mockReturnValue( {
-			getSiteThumbnail: vi.fn().mockResolvedValue( null ),
-			capabilities: CAPABILITIES,
-		} as never );
-		renderPreview( <SitePreview site={ createSite() } path="/" reloadNonce={ 0 } /> );
-
-		await userEvent.click( screen.getByRole( 'button', { name: 'More preview actions' } ) );
-
-		expect( await screen.findByRole( 'menuitem', { name: 'Share' } ) ).toBeInTheDocument();
-		expect( screen.queryByRole( 'menuitem', { name: 'Reload preview' } ) ).not.toBeInTheDocument();
-	} );
-
 	it( "previews a Live chat's remote without the local site's controls", async () => {
 		const captureSitePreview = vi.fn();
 		const openExternalUrl = vi.fn().mockResolvedValue( undefined );
@@ -588,7 +584,7 @@ describe( 'SitePreview', () => {
 		fireEvent.load( iframe );
 		const address = screen.getByRole( 'textbox', { name: 'Address' } );
 		expect( address ).toHaveValue( 'https://example.wordpress.com/about/' );
-		for ( const name of [ 'Annotate', 'Start', 'Stop', 'Site settings' ] ) {
+		for ( const name of [ 'Annotate', 'Site settings' ] ) {
 			expect( screen.queryByRole( 'button', { name } ) ).not.toBeInTheDocument();
 		}
 
@@ -596,9 +592,9 @@ describe( 'SitePreview', () => {
 		await userEvent.type( address, '/wp-admin/{Enter}' );
 		expect( onPathChange ).toHaveBeenLastCalledWith( '/wp-admin/' );
 
-		await userEvent.click( screen.getByRole( 'button', { name: 'More preview actions' } ) );
-		expect( screen.queryByRole( 'menuitem', { name: 'Share' } ) ).not.toBeInTheDocument();
-		await userEvent.click( await screen.findByRole( 'menuitem', { name: 'Open in browser' } ) );
+		await userEvent.click(
+			screen.getByRole( 'button', { name: 'Open this page in your browser' } )
+		);
 		expect( openExternalUrl ).toHaveBeenCalledWith( 'https://example.wordpress.com/about/' );
 		expect( captureSitePreview ).not.toHaveBeenCalled();
 	} );
@@ -607,7 +603,7 @@ describe( 'SitePreview', () => {
 		let finishStart = () => {};
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn( () => new Promise< void >( ( resolve ) => ( finishStart = resolve ) ) ),
-			getSiteThumbnail: vi.fn().mockResolvedValue( null ),
+			getSiteThumbnail: vi.fn().mockResolvedValue( 'data:image/png;base64,thumbnail' ),
 			trackEvent: vi.fn().mockResolvedValue( undefined ),
 			capabilities: CAPABILITIES,
 		} as never );
@@ -622,7 +618,7 @@ describe( 'SitePreview', () => {
 			</QueryClientProvider>
 		);
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'Start' } ) );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Start from preview' } ) );
 		expect( await screen.findByText( 'Loading site preview' ) ).toBeInTheDocument();
 		rerender( preview( true ) );
 		finishStart();

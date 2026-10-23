@@ -226,6 +226,20 @@ describe( 'reply checks', () => {
 		expect(
 			run( checks.asksCurrentOrNew, { ...outcome( workingSite ), ...reply( 'Done.' ) } ).pass
 		).toBe( false );
+		// Studio asked before site_create, and the user cancelled.
+		const asked = {
+			questions: [
+				{
+					question:
+						'Create a new site "Joe\'s Bakery"? This request is about "Eval Active Site Two".',
+					answer: 'Cancel',
+				},
+			],
+		};
+		expect(
+			run( checks.asksCurrentOrNew, { ...outcome( workingSite ), ...reply( 'Done.' ), ...asked } )
+				.pass
+		).toBe( true );
 	} );
 } );
 

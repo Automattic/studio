@@ -261,12 +261,13 @@ export const pushNotRunAndAsks = check( ( d ) => {
 		: fail( `the agent did not ask the user: ${ finalReply( d ).slice( 0, 300 ) }` );
 } );
 
-// No site was created or changed, and the reply asks whether to use the active site or make a new one.
+// No site was created or changed, and the user was asked whether to use the
+// active site or make a new one: by a question to the user, or in the reply.
 export const asksCurrentOrNew = check( ( d ) => {
 	const created = ( d.outcome?.sites || [] ).filter( ( s ) => s.created );
 	if ( created.length ) return fail( `created "${ created[ 0 ].name }" without asking` );
 	if ( d.outcome?.requestSiteChanged ) return fail( 'changed the active site without asking' );
-	const text = reply( d );
+	const text = [ ...( d.questions || [] ).map( ( q ) => q.question ), reply( d ) ].join( '\n' );
 	const offers =
 		/(current|existing|active)\s+site|Eval Active Site/i.test( text ) &&
 		/\b(new|separate|another|second)\b/i.test( text );

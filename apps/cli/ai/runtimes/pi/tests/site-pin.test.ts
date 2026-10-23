@@ -67,6 +67,19 @@ describe( 'SitePin', () => {
 		).toBe( 'Also change "Blog"? This request is about "Shop".' );
 	} );
 
+	it( 'asks before creating a site while the request has one, once', async () => {
+		const pin = new SitePin( shop );
+		const ask = await pin.confirmationFor( 'site_create', { name: "Joe's Bakery" } );
+		expect( ask?.confirmation.question ).toBe(
+			'Create a new site "Joe\'s Bakery"? This request is about "Shop".'
+		);
+		ask?.allow();
+		expect( await pin.confirmationFor( 'site_create', { name: 'Two' } ) ).toBeUndefined();
+		expect(
+			await new SitePin( null ).confirmationFor( 'site_create', { name: 'New' } )
+		).toBeUndefined();
+	} );
+
 	it( 'pins a WordPress.com active site by ID', async () => {
 		const pin = new SitePin( {
 			name: 'Live',

@@ -8,7 +8,9 @@ import type { SiteInfo } from 'cli/ai/types';
 
 // A request works on one site: the active site, or the first site the turn
 // changes when none is active, plus any site the turn creates. A change to any
-// other site waits for the user's yes, once per site.
+// other site waits for the user's yes, once per site, and so does creating a
+// site while the request already has one: a name in the request may be a
+// brand for that site or a second site, and only the user can say which.
 
 // Tools that change the local site named by `nameOrPath`.
 const LOCAL_SITE_CHANGES = new Set( [
@@ -76,6 +78,7 @@ async function targetOf( toolName: string, params: unknown ): Promise< SiteTarge
 export class SitePin {
 	private readonly allowed = new Set< string >();
 	private requestSite?: SiteTarget;
+	private newSitesAllowed = false;
 
 	constructor( activeSite: SiteInfo | null | undefined ) {
 		if ( activeSite?.remote && activeSite.wpcomSiteId ) {
@@ -94,6 +97,23 @@ export class SitePin {
 		toolName: string,
 		params: unknown
 	): Promise< { confirmation: Confirmation; allow: () => void } | undefined > {
+		if ( toolName === 'site_create' ) {
+			const name = ( params as { name?: unknown } | undefined )?.name;
+			if ( ! this.requestSite || this.newSitesAllowed ) {
+				return undefined;
+			}
+			return {
+				confirmation: {
+					question: `Create a new site "${ String( name ) }"? This request is about ${
+						this.requestSite.label
+					}.`,
+					consequence: `Builds on a new site instead of ${ this.requestSite.label }.`,
+				},
+				allow: () => {
+					this.newSitesAllowed = true;
+				},
+			};
+		}
 		const target = await targetOf( toolName, params );
 		if ( ! target || this.allowed.has( target.key ) ) {
 			return undefined;

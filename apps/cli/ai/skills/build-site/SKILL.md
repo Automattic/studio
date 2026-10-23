@@ -11,11 +11,7 @@ Follow these steps in order. Run every step even when the prompt already answers
 
 ## 1. Pick or create the site
 
-The build works on exactly one site, settled before anything else: do not plan a design or write files until it is. The active site is the one announced at the top of the user's message.
-
-- **Active site, and the prompt gives no site or business name, or gives the active site's name** (including "redesign" / "update" / "change this site"): Build on the active site. Do not ask whether to create a new one.
-- **Active site, and the prompt gives a site or business name that differs from the active site's name** (e.g. active site "Test" and "build a site for Joe's Bakery" or "a site named Joe's Bakery"): STOP and ask before doing anything else. The name may be the brand for the active site or a request for a second site, and only the user can tell you which. Never resolve this yourself, and never call site_create or start building before the answer. Use AskUserQuestion when available with options like "Use current site" and "Create new site"; otherwise ask in your text output and end your turn.
-- **Explicit "new" / "separate" / "another" site, or no active site**: Call site_create. If the prompt gives no name, ask for one in your text output and wait for the reply.
+Build on the active site. When there is none, or the request names another site, call site_create; Studio asks the user before it creates a site while one is active. If the prompt gives no name, ask for one and wait for the reply.
 
 ## 2. Site Spec
 

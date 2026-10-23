@@ -357,45 +357,6 @@
 	pointer-events: none;
 }
 
-/* A highlight band sweeps across the text: it dims the text in light mode and
-   lifts it in dark mode. */
-.placeholderShimmer {
-	--spread: calc(3ch + 40px);
-	--highlight: oklch(from currentColor l c h / calc(alpha * 0.2));
-	--edge: color-mix(in oklch, var(--highlight), currentColor 50%);
-
-	background: linear-gradient(
-			110deg,
-			currentColor calc(50% - var(--spread)),
-			var(--edge) calc(50% - var(--spread) * 0.5),
-			var(--highlight) 50%,
-			var(--edge) calc(50% + var(--spread) * 0.5),
-			currentColor calc(50% + var(--spread))
-		)
-		0 0 / calc(200% + var(--spread) * 2) 100% no-repeat;
-	background-clip: text;
-	-webkit-text-fill-color: transparent;
-	animation: placeholderShimmer 2s linear infinite;
-}
-
-:global(html[data-color-scheme='dark']) .placeholderShimmer {
-	--highlight: oklch(from currentColor max(0.8, calc(l + 0.4)) c h / calc(alpha + 0.4));
-}
-
-.placeholderShimmer:dir(rtl) {
-	animation-direction: reverse;
-}
-
-@keyframes placeholderShimmer {
-	from {
-		background-position: 100% 0;
-	}
-
-	to {
-		background-position: 0 0;
-	}
-}
-
 .toolbar {
 	display: flex;
 	align-items: center;
@@ -601,10 +562,5 @@
 	.noticeContent[data-submit-feedback='shake'],
 	.stopButton[aria-busy='true'] {
 		animation: none;
-	}
-
-	.placeholderShimmer {
-		background: none;
-		-webkit-text-fill-color: currentColor;
 	}
 }

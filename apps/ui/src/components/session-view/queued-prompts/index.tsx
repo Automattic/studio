@@ -28,18 +28,20 @@ export function QueuedPrompts( { prompts, onRemove, onEdit }: QueuedPromptsProps
 								<span className={ styles.attachments }>{ attachmentNames }</span>
 							) : null }
 						</span>
-						<IconButton
-							icon={ <PencilIcon /> }
-							label={ __( 'Edit queued message' ) }
-							size="icon-sm"
-							onClick={ () => onEdit( item ) }
-						/>
-						<IconButton
-							icon={ <XIcon /> }
-							label={ __( 'Remove queued message' ) }
-							size="icon-sm"
-							onClick={ () => onRemove( item.id ) }
-						/>
+						<span className={ styles.actions }>
+							<IconButton
+								icon={ <PencilIcon /> }
+								label={ __( 'Edit queued message' ) }
+								size="icon-sm"
+								onClick={ () => onEdit( item ) }
+							/>
+							<IconButton
+								icon={ <XIcon /> }
+								label={ __( 'Remove queued message' ) }
+								size="icon-sm"
+								onClick={ () => onRemove( item.id ) }
+							/>
+						</span>
 					</li>
 				);
 			} ) }

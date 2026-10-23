@@ -1,5 +1,5 @@
 import { useEffect, useEffectEvent, useId } from 'react';
-import { isShortcut } from '@/lib/shortcuts';
+import { isShortcut, isTextEntry } from '@/lib/shortcuts';
 
 type Handlers = {
 	rename: () => void;
@@ -14,7 +14,7 @@ type Handlers = {
  * menu open on it, and the elements marked `data-item-shortcuts-active` for the
  * open chat and the current site. A shortcut acts on the focused row or menu,
  * else the open chat, else the current site; F2 only on a focused one, and ⌥⌘S
- * always on the current site.
+ * always on the current site. Keys typed in a text field stay there.
  */
 export function useItemShortcuts( handlers: Handlers ) {
 	const id = useId();
@@ -36,7 +36,7 @@ export function useItemShortcuts( handlers: Handlers ) {
 				: lifecycle
 				? handlers.lifecycle
 				: undefined;
-		if ( ! action || event.defaultPrevented || event.repeat ) {
+		if ( ! action || event.defaultPrevented || event.repeat || isTextEntry( event.target ) ) {
 			return;
 		}
 		const target = event.target instanceof Element ? event.target : null;

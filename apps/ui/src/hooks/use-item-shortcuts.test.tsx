@@ -43,7 +43,7 @@ describe( 'useItemShortcuts', () => {
 
 		fireEvent.keyDown( screen.getByRole( 'button', { name: 'Row' } ), pin );
 		expect( row.pin ).toHaveBeenCalledTimes( 1 );
-		fireEvent.keyDown( screen.getByRole( 'textbox', { name: 'Composer' } ), pin );
+		fireEvent.keyDown( document.body, pin );
 		expect( chat.pin ).toHaveBeenCalledTimes( 1 );
 
 		rerender( <Item name="Current site" active="site" handlers={ site } /> );
@@ -73,8 +73,12 @@ describe( 'useItemShortcuts', () => {
 		expect( chat.lifecycle ).not.toHaveBeenCalled();
 	} );
 
-	it( 'leaves the keys to dialogs', () => {
-		const { chat } = renderItems();
+	it( 'leaves the keys to text fields and dialogs', () => {
+		const { chat, site } = renderItems();
+		const composer = screen.getByRole( 'textbox', { name: 'Composer' } );
+		fireEvent.keyDown( composer, pin );
+		fireEvent.keyDown( composer, { key: 'ß', code: 'KeyS', ctrlKey: true, altKey: true } );
+		expect( site.lifecycle ).not.toHaveBeenCalled();
 		render(
 			<div role="dialog">
 				<input aria-label="Name" />

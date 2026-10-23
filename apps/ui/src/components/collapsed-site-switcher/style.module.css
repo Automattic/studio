@@ -52,27 +52,3 @@
 .openSidebarCta:hover {
 	background-color: var(--hover);
 }
-
-.shortcutKeys {
-	display: flex;
-	align-items: center;
-	gap: 4px;
-}
-
-.shortcutKey {
-	box-sizing: border-box;
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	min-inline-size: 22px;
-	min-block-size: 22px;
-	padding: 0 4px;
-	border: 1px solid var(--border);
-	border-radius: 8px;
-	background: var(--chat);
-	color: var(--foreground);
-	font-family: var(--font-sans);
-	font-size: 11px;
-	font-weight: 500;
-	line-height: 1;
-}

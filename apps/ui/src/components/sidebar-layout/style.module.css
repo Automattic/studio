@@ -50,14 +50,20 @@
 
 /* Stay pinned at the bottom as the sidebar scrolls; `margin-top: auto`
    pushes the footer to the bottom in the flex column when content is
-   shorter than the viewport. */
+   shorter than the viewport. Rows scrolling under it fade out. */
 .sidebarFooter {
 	margin-top: auto;
 	position: sticky;
 	bottom: 0;
 	z-index: 1;
-	background-color: var(--studio-sidebar-bg);
+	padding-top: 24px;
+	background: linear-gradient(to bottom, transparent, var(--studio-sidebar-bg) 32px);
+	pointer-events: none;
 	-webkit-app-region: no-drag;
+}
+
+.sidebarFooter > * {
+	pointer-events: auto;
 }
 
 .sidebarCollapsed {
@@ -122,6 +128,6 @@
 }
 
 .sidebarCards {
-	padding: 8px calc(16px - 8px) 0;
+	padding: 0 8px 8px;
 }
 

@@ -6,4 +6,6 @@
 	flex-shrink: 0;
 	object-fit: cover;
 	background-color: var(--chat);
+	outline: 1px solid var(--border);
+	outline-offset: -1px;
 }

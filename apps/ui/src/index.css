@@ -27,6 +27,8 @@ body {
 	color: var(--foreground);
 	color-scheme: light dark;
 	scrollbar-color: gray transparent;
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
 }
 
 /* A column edge: a short separator inside the top band and a full divider

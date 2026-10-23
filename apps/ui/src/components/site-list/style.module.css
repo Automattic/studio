@@ -83,15 +83,17 @@
 
 .siteHeader:hover,
 .siteHeader:has(:focus-visible),
-.siteActive .siteHeader,
+.siteActive:not(.siteWithChats) .siteHeader,
 .siteContextActive .siteHeader {
 	background-color: var(--sidebar-row-background);
 }
 
-/* The selected site's chats carry the selection, so its own row stays plain
-   unless hovered. */
-.siteWithChats.siteActive .siteHeader:not(:hover, :has(:focus-visible)) {
-	background-color: transparent;
+.siteHeader:has(.siteToggle:focus-visible) {
+	box-shadow: inset 0 0 0 2px var(--ring);
+}
+
+.siteToggle:focus-visible {
+	box-shadow: none;
 }
 
 .siteIcon {
@@ -105,10 +107,14 @@
 	height: 16px;
 }
 
+.siteIcon:has(.runningDot) > svg {
+	mask-image: radial-gradient(circle at calc(100% - 2px) 2px, transparent 5.5px, #000 6px);
+}
+
 .runningDot {
 	position: absolute;
-	top: -2px;
-	right: -2px;
+	top: -1.5px;
+	right: -1.5px;
 	width: 7px;
 	height: 7px;
 	border-radius: 50%;
@@ -126,6 +132,8 @@
 	flex: 1 1 auto;
 	min-width: 0;
 	font: inherit;
+	/* Unfolded is not pressed: keep the name at full strength. */
+	opacity: 1;
 }
 
 .siteAgentActivitySlot {
@@ -263,13 +271,17 @@
 .siteHeader:hover .rowAction,
 .siteHeader:has(:focus-visible) .rowAction,
 .siteHeader[data-popup-open] .rowAction,
+.siteActive:not(.siteWithChats) .rowAction,
+.siteContextActive .rowAction,
 .siteStatus[aria-busy='true'] {
 	opacity: 1;
 }
 
 .siteHeader:hover,
 .siteHeader:has(:focus-visible),
-.siteHeader[data-popup-open] {
+.siteHeader[data-popup-open],
+.siteActive:not(.siteWithChats) .siteHeader,
+.siteContextActive .siteHeader {
 	padding-inline-end: calc(2 * var(--site-list-action-size) + var(--site-list-row-padding));
 }
 
@@ -317,7 +329,8 @@
 	.siteAgentActivitySlot,
 	.siteNameStarting,
 	.siteAgentActivitySyncDot,
-	.siteAgentActivitySyncDots {
+	.siteAgentActivitySyncDots,
+	.skeleton {
 		animation: none;
 		transition: none;
 	}
@@ -339,8 +352,8 @@
 	padding-block-start: 4px;
 }
 
-.group + .group {
-	margin-block-start: 12px;
+.group[data-open] {
+	padding-block-end: 12px;
 }
 
 .groupHeader {
@@ -419,7 +432,40 @@
 }
 
 .site .mutedRow {
+	position: relative;
 	padding-inline-start: var(--site-list-text-inset);
+}
+
+.mutedRow .rowIcon {
+	position: absolute;
+	inset-inline-start: var(--site-list-row-padding);
+}
+
+.skeletonRow {
+	display: flex;
+	align-items: center;
+	gap: var(--site-list-icon-gap);
+	height: var(--site-list-row-height);
+	padding-inline: var(--site-list-row-padding);
+}
+
+.skeleton {
+	flex: 1;
+	height: 16px;
+	border-radius: var(--radius-md);
+	background-color: var(--muted);
+	animation: skeletonPulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.skeleton:first-child {
+	flex: none;
+	width: 16px;
+}
+
+@keyframes skeletonPulse {
+	50% {
+		opacity: 0.5;
+	}
 }
 
 .chatRow {
@@ -464,14 +510,14 @@
 .chatRow:hover .chatActions,
 .chatRow:has(:focus-visible) .chatActions,
 .chatRow[data-popup-open] .chatActions,
-.chatActive .chatActions {
+.chatActive:not(.chatNested) .chatActions {
 	opacity: 1;
 }
 
 .chatRow:hover .chat,
 .chatRow:has(:focus-visible) .chat,
 .chatRow[data-popup-open] .chat,
-.chatActive .chat {
+.chatActive:not(.chatNested) .chat {
 	padding-inline-end: calc(2 * var(--site-list-action-size) + var(--site-list-row-padding));
 }
 

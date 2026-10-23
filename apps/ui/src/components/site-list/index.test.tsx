@@ -389,6 +389,14 @@ describe( 'SiteList', () => {
 		} );
 	} );
 
+	it( 'lists sites while chats are still loading', () => {
+		useSessionsMock.mockReturnValue( { data: undefined, isLoading: true } );
+
+		render( <SiteList sections /> );
+
+		expect( screen.getByText( 'Stopped Site' ) ).toBeInTheDocument();
+	} );
+
 	it( 'shows the Xdebug glyph in place of the site icon', () => {
 		useSitesMock.mockReturnValue( {
 			data: [

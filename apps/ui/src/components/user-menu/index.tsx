@@ -31,7 +31,7 @@ export function UserMenu() {
 		setPromptOpen( false );
 	}
 	const trigger = useRef< HTMLButtonElement >( null );
-	const promptRequested = useRef( false );
+	const [ menuWidth, setMenuWidth ] = useState< number >();
 	const sections = getSections( 'studio', { signedIn: !! user } ).filter( ( section ) =>
 		MENU_SECTIONS.includes( section.id )
 	);
@@ -44,62 +44,56 @@ export function UserMenu() {
 				</Alert>
 			) : null }
 			<div className={ styles.row }>
-				<Menu.Root
-					// The prompt opens once the menu is gone, so the menu's own click can't dismiss it.
-					onOpenChangeComplete={ ( open ) => {
-						if ( ! open && promptRequested.current ) {
-							promptRequested.current = false;
-							setPromptOpen( true );
-						}
-					} }
-				>
-					<Menu.Trigger
-						render={
-							<Button
-								ref={ trigger }
-								variant="ghost"
-								size="icon"
-								className={ styles.userTrigger }
-								aria-label={ __( 'Account' ) }
-							/>
-						}
+				{ user ? (
+					<Menu.Root
+						onOpenChange={ ( open ) => {
+							const sidebar = open && trigger.current?.closest( 'aside' );
+							if ( sidebar ) {
+								setMenuWidth( sidebar.offsetWidth - 28 );
+							}
+						} }
 					>
-						{ user ? (
+						<Menu.Trigger
+							render={
+								<Button
+									ref={ trigger }
+									variant="ghost"
+									size="icon"
+									className={ styles.userTrigger }
+									aria-label={ user.displayName || user.email }
+								/>
+							}
+						>
 							<Gravatar email={ user.email } isDark={ themeIsDark } />
-						) : (
-							<span className={ styles.settingsAvatar } aria-hidden="true">
-								<SettingsIcon />
-							</span>
-						) }
-					</Menu.Trigger>
-					<Menu.Popup side="top" align="start" className={ styles.popup }>
-						{ user ? (
-							<>
-								<div className={ styles.account }>
-									<Gravatar email={ user.email } isDark={ themeIsDark } />
-									<div className={ styles.accountText }>
-										<span className={ styles.accountName }>{ user.displayName || user.email }</span>
-										{ user.displayName ? (
-											<span className={ styles.accountEmail }>{ user.email }</span>
-										) : null }
-									</div>
+						</Menu.Trigger>
+						<Menu.Popup
+							side="top"
+							align="start"
+							className={ styles.popup }
+							style={ { width: menuWidth } }
+						>
+							<div className={ styles.account }>
+								<Gravatar email={ user.email } isDark={ themeIsDark } />
+								<div className={ styles.accountText }>
+									<span className={ styles.accountName }>{ user.displayName || user.email }</span>
+									{ user.displayName ? (
+										<span className={ styles.accountEmail }>{ user.email }</span>
+									) : null }
 								</div>
-								<Menu.Separator />
-							</>
-						) : null }
-						<Menu.Item onClick={ openSettings }>
-							<SettingsIcon />
-							<span className={ styles.itemLabel }>{ __( 'Settings' ) }</span>
-							<kbd className={ styles.shortcut }>{ displayShortcut.primary( ',' ) }</kbd>
-						</Menu.Item>
-						{ sections.map( ( section ) => (
-							<Menu.Item key={ section.id } onClick={ () => openSettingsDialog( section.id ) }>
-								<section.icon />
-								{ section.label }
+							</div>
+							<Menu.Separator />
+							<Menu.Item onClick={ openSettings }>
+								<SettingsIcon />
+								<span className={ styles.itemLabel }>{ __( 'Settings' ) }</span>
+								<kbd className={ styles.shortcut }>{ displayShortcut.primary( ',' ) }</kbd>
 							</Menu.Item>
-						) ) }
-						<Menu.Separator />
-						{ user ? (
+							{ sections.map( ( section ) => (
+								<Menu.Item key={ section.id } onClick={ () => openSettingsDialog( section.id ) }>
+									<section.icon />
+									{ section.label }
+								</Menu.Item>
+							) ) }
+							<Menu.Separator />
 							<Menu.Item
 								onClick={ () =>
 									logout.mutate( undefined, {
@@ -113,14 +107,13 @@ export function UserMenu() {
 								<LogOutIcon />
 								{ __( 'Log out' ) }
 							</Menu.Item>
-						) : (
-							<Menu.Item onClick={ () => ( promptRequested.current = true ) }>
-								<LogOutIcon />
-								{ __( 'Log in' ) }
-							</Menu.Item>
-						) }
-					</Menu.Popup>
-				</Menu.Root>
+						</Menu.Popup>
+					</Menu.Root>
+				) : (
+					<Button ref={ trigger } size="sm" onClick={ () => setPromptOpen( true ) }>
+						{ __( 'Log in' ) }
+					</Button>
+				) }
 				<span className={ styles.spacer } aria-hidden="true" />
 				{ isOffline && <OfflineIndicator /> }
 				<IconButton

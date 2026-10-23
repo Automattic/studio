@@ -2,6 +2,7 @@ import { __ } from '@wordpress/i18n';
 import { isAppleOS } from '@wordpress/keycodes';
 import { useState, type ReactElement } from 'react';
 import { SiteList } from '@/components/site-list';
+import { Kbd, KbdGroup } from '@/components/ui/kbd';
 import * as Popover from '@/components/ui/popover';
 import { VisuallyHidden } from '@/components/ui/visually-hidden';
 import styles from './style.module.css';
@@ -41,14 +42,10 @@ export function CollapsedSiteSwitcher( {
 					</div>
 					<button type="button" className={ styles.openSidebarCta } onClick={ onToggleSidebar }>
 						<span>{ __( 'Open sidebar' ) }</span>
-						<span className={ styles.shortcutKeys } aria-label={ `${ modifierAriaLabel } B` }>
-							<kbd className={ styles.shortcutKey } aria-hidden="true">
-								{ modifierKey }
-							</kbd>
-							<kbd className={ styles.shortcutKey } aria-hidden="true">
-								B
-							</kbd>
-						</span>
+						<KbdGroup aria-label={ `${ modifierAriaLabel } B` }>
+							<Kbd aria-hidden="true">{ modifierKey }</Kbd>
+							<Kbd aria-hidden="true">B</Kbd>
+						</KbdGroup>
 					</button>
 				</div>
 			</Popover.Popup>

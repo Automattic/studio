@@ -3,7 +3,7 @@ import { sortSites } from '@studio/common/lib/sort-sites';
 import { useNavigate, useParams, useRouterState } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
 import { clsx } from 'clsx';
-import { ChevronRightIcon } from 'lucide-react';
+import { ChevronRightIcon, EllipsisIcon } from 'lucide-react';
 import {
 	Fragment,
 	useCallback,
@@ -286,10 +286,7 @@ function SidebarReorderableList< T >(
 function RetryLoadingChats() {
 	const { refetch } = useSessions();
 	return (
-		<SidebarButton
-			className={ clsx( styles.chat, styles.mutedRow ) }
-			onClick={ () => void refetch() }
-		>
+		<SidebarButton className={ styles.chat } onClick={ () => void refetch() }>
 			<span className={ styles.chatTitle }>{ __( 'Retry loading chats' ) }</span>
 		</SidebarButton>
 	);
@@ -421,28 +418,40 @@ function SidebarGroup( {
 	title,
 	action,
 	itemKeys,
+	foldable = true,
 	children,
 }: {
 	id: string;
 	title: string;
 	action?: ReactNode;
 	itemKeys?: string[];
+	foldable?: boolean;
 	children: ReactNode;
 } ) {
-	const [ expanded, setExpanded ] = useStoredFlag( `studio-ui-sidebar-group-${ id }`, true );
+	const [ storedExpanded, setExpanded ] = useStoredFlag( `studio-ui-sidebar-group-${ id }`, true );
+	const expanded = storedExpanded || ! foldable;
 	useOpenOnAddedItems( itemKeys, expanded, () => setExpanded( true ) );
 	return (
-		<div role="group" className={ styles.group } aria-label={ title }>
+		<div
+			role="group"
+			className={ styles.group }
+			aria-label={ title }
+			data-open={ ( foldable && expanded ) || undefined }
+		>
 			<div className={ styles.groupHeader }>
-				<button
-					type="button"
-					className={ styles.groupToggle }
-					aria-expanded={ expanded }
-					onClick={ () => setExpanded( ! expanded ) }
-				>
-					{ title }
-					<ChevronRightIcon className={ styles.groupChevron } />
-				</button>
+				{ foldable ? (
+					<button
+						type="button"
+						className={ styles.groupToggle }
+						aria-expanded={ expanded }
+						onClick={ () => setExpanded( ! expanded ) }
+					>
+						{ title }
+						<ChevronRightIcon className={ styles.groupChevron } />
+					</button>
+				) : (
+					<span className={ styles.groupToggle }>{ title }</span>
+				) }
 				{ action }
 			</div>
 			{ expanded ? children : null }
@@ -754,6 +763,7 @@ function SiteSection( {
 							className={ clsx( styles.chat, styles.mutedRow ) }
 							onClick={ () => setChatCount( ( count ) => count + CHATS_PAGE_SIZE ) }
 						>
+							<EllipsisIcon className={ styles.rowIcon } />
 							<span className={ styles.chatTitle }>{ __( 'Show more' ) }</span>
 						</SidebarButton>
 					) : null }
@@ -906,10 +916,19 @@ export function SiteList( {
 	);
 
 	let listContent: ReactNode;
-	if ( sitesLoading || sessionsLoading ) {
-		listContent = <p className={ styles.empty }>{ __( 'Loading…' ) }</p>;
+	if ( sitesLoading ) {
+		listContent = (
+			<div className={ styles.sites } aria-hidden="true">
+				{ [ '65%', '48%', '72%', '56%' ].map( ( width ) => (
+					<div key={ width } className={ styles.skeletonRow }>
+						<span className={ styles.skeleton } />
+						<span className={ styles.skeleton } style={ { width } } />
+					</div>
+				) ) }
+			</div>
+		);
 	} else if ( rows.length === 0 ) {
-		listContent = <p className={ styles.empty }>{ __( 'No sites yet' ) }</p>;
+		listContent = sections ? null : <p className={ styles.empty }>{ __( 'No sites yet' ) }</p>;
 	} else if ( ! reorderable ) {
 		listContent = (
 			<div className={ styles.sites }>
@@ -963,11 +982,7 @@ export function SiteList( {
 		<div className={ clsx( styles.root, className ) }>
 			<SidebarSelection>
 				{ needsInputChats.length > 0 ? (
-					<SidebarGroup
-						id="needs-input"
-						title={ __( 'Needs input' ) }
-						itemKeys={ needsInputChats.map( ( session ) => session.id ) }
-					>
+					<SidebarGroup id="needs-input" title={ __( 'Needs input' ) } foldable={ false }>
 						<div className={ styles.chats }>
 							{ needsInputChats.map( ( session ) => renderChat( session ) ) }
 						</div>
@@ -1007,6 +1022,7 @@ export function SiteList( {
 					id="sites"
 					title={ __( 'Sites' ) }
 					itemKeys={ loaded ? siteRows.map( ( row ) => row.site.id ) : undefined }
+					foldable={ sitesLoading || siteRows.length > 0 }
 					action={
 						<span className={ styles.groupActions }>
 							{ canCollapseAll ? (

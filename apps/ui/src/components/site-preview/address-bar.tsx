@@ -1,17 +1,20 @@
 import { DESIGN_SYSTEM_PREVIEW_PATH } from '@studio/common/ai/chat-artifacts';
 import { TRACKS_EVENTS, type TracksEventName } from '@studio/common/lib/record-tracks-event';
 import { __ } from '@wordpress/i18n';
-import { cog, external, Icon, styles as stylesIcon, wordpress } from '@wordpress/icons';
 import { useEffect, useRef, useState } from 'react';
 import { SiteIcon } from '@/components/site-icon';
 import { Button } from '@/components/ui/button';
 import * as Popover from '@/components/ui/popover';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { VisuallyHidden } from '@/components/ui/visually-hidden';
-import { databaseIcon } from '@/lib/icons';
+import { AppearanceIcon } from '@/lib/icons/appearance-icon';
+import { DatabaseIcon } from '@/lib/icons/database-icon';
+import { ExternalLinkIcon } from '@/lib/icons/external-link-icon';
+import { SiteSettingsIcon } from '@/lib/icons/site-settings-icon';
+import { WordPressIcon } from '@/lib/icons/wordpress-icon';
 import styles from './address-bar.module.css';
 import type { SiteDetails } from '@/data/core';
-import type { FormEvent, ReactElement, SVGProps } from 'react';
+import type { FormEvent, ReactNode } from 'react';
 
 export function getPathFromPreviewUrl( url: string, baseUrl: string ) {
 	try {
@@ -177,7 +180,7 @@ function AddressAction( {
 	tooltip = label,
 	onClick,
 }: {
-	icon: ReactElement< SVGProps< SVGSVGElement > >;
+	icon: ReactNode;
 	label: string;
 	tooltip?: string;
 	onClick: () => void;
@@ -195,7 +198,7 @@ function AddressAction( {
 					/>
 				}
 			>
-				<Icon icon={ icon } />
+				{ icon }
 			</TooltipTrigger>
 			<TooltipContent side="bottom">{ tooltip }</TooltipContent>
 		</Tooltip>
@@ -269,13 +272,11 @@ export function PreviewAddressBar( {
 				/>
 			);
 		}
-		return (
-			<Icon
-				icon={ { admin: wordpress, database: databaseIcon, design: stylesIcon }[ realm ] }
-				size={ 18 }
-				className={ realm === 'admin' ? styles.wordpressIcon : undefined }
-			/>
-		);
+		return {
+			admin: <WordPressIcon className={ styles.wordpressIcon } />,
+			database: <DatabaseIcon />,
+			design: <AppearanceIcon />,
+		}[ realm ];
 	};
 
 	return (
@@ -327,14 +328,14 @@ export function PreviewAddressBar( {
 					<span className={ styles.actions }>
 						{ onOpenSettings ? (
 							<AddressAction
-								icon={ cog }
+								icon={ <SiteSettingsIcon /> }
 								label={ __( 'Site settings' ) }
 								onClick={ onOpenSettings }
 							/>
 						) : null }
 						{ onOpenExternal ? (
 							<AddressAction
-								icon={ external }
+								icon={ <ExternalLinkIcon /> }
 								label={ __( 'Open this page in your browser' ) }
 								tooltip={ __( 'Open in browser' ) }
 								onClick={ onOpenExternal }

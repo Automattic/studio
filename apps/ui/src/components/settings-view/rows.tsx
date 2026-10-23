@@ -1,7 +1,7 @@
 import { buildSettingsLink } from '@studio/common/lib/settings-link';
 import { __, sprintf } from '@wordpress/i18n';
-import { check, Icon, link } from '@wordpress/icons';
 import { clsx } from 'clsx';
+import { CheckIcon } from 'lucide-react';
 import { useContext } from 'react';
 import { SettingsLinkContext } from '@/components/settings-dialog/context';
 import { findSettingId } from '@/components/settings-dialog/sections';
@@ -25,6 +25,7 @@ import {
 import { Switch } from '@/components/ui/switch';
 import { VisuallyHidden } from '@/components/ui/visually-hidden';
 import { useCopyText } from '@/hooks/use-copy-text';
+import { LinkIcon } from '@/lib/icons/link-icon';
 import styles from './style.module.css';
 import type { ReactNode } from 'react';
 
@@ -118,7 +119,7 @@ function SettingLinkButton( { id, title }: { id: string; title: string } ) {
 			) }
 			onClick={ copy }
 		>
-			<Icon icon={ copied ? check : link } fill="currentColor" aria-hidden="true" />
+			{ copied ? <CheckIcon /> : <LinkIcon /> }
 			<VisuallyHidden aria-live="polite">{ copied ? __( 'Copied' ) : '' }</VisuallyHidden>
 		</Button>
 	);

@@ -28,7 +28,7 @@ vi.mock( '@/hooks/use-open-add-site', () => ( { useOpenAddSite: () => vi.fn() } 
 vi.mock( '@/hooks/use-open-site', () => ( { useOpenSite: () => vi.fn() } ) );
 
 const command = ( id: string, group: string, label: string, extra = {} ) =>
-	( { id, group, label, icon: <svg />, run: () => {}, ...extra } ) as Parameters<
+	( { id, group, label, icon: () => <svg />, run: () => {}, ...extra } ) as Parameters<
 		typeof matchCommands
 	>[ 0 ][ number ];
 

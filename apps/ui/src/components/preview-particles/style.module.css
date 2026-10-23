@@ -27,7 +27,3 @@
 .logo[data-active] {
 	opacity: 0.4;
 }
-
-.logo svg {
-	fill: currentColor;
-}

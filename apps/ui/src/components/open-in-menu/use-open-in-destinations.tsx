@@ -7,13 +7,15 @@ import {
 } from '@studio/common/lib/user-settings/editor';
 import { terminalConfig } from '@studio/common/lib/user-settings/terminal';
 import { __, sprintf } from '@wordpress/i18n';
-import { code, external, wordpress } from '@wordpress/icons';
+import { CodeIcon } from 'lucide-react';
 import { DATABASE_HOME_PATH } from '@/components/site-preview/address-bar';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { useInstalledApps } from '@/data/queries/use-installed-apps';
 import { useStartSite } from '@/data/queries/use-sites';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
+import { ExternalLinkIcon } from '@/lib/icons/external-link-icon';
+import { WordPressIcon } from '@/lib/icons/wordpress-icon';
 import {
 	databaseLogo,
 	editorLogos,
@@ -25,7 +27,13 @@ import {
 import type { SiteDetails } from '@/data/core';
 import type { ReactElement, SVGProps } from 'react';
 
-type OpenInDestination = 'browser' | 'wp-admin' | 'files' | 'editor' | 'terminal' | 'phpmyadmin';
+export type OpenInDestination =
+	| 'browser'
+	| 'wp-admin'
+	| 'files'
+	| 'editor'
+	| 'terminal'
+	| 'phpmyadmin';
 
 interface OpenInDestinationEntry {
 	id: OpenInDestination;
@@ -99,7 +107,7 @@ export function useOpenInDestinations(
 			label: __( 'Browser' ),
 			// Not the globe: the address bar already uses that for the site's
 			// front end, and this one leaves Studio.
-			logo: external,
+			logo: <ExternalLinkIcon />,
 			disabled: ! site.running,
 			open: () =>
 				open( 'browser', __( 'Browser' ), () => {
@@ -111,7 +119,7 @@ export function useOpenInDestinations(
 		{
 			id: 'wp-admin',
 			label: __( 'Browser (WP Admin)' ),
-			logo: wordpress,
+			logo: <WordPressIcon />,
 			disabled: ! site.running,
 			open: () =>
 				open( 'wp-admin', __( 'WP Admin' ), () => {
@@ -133,7 +141,7 @@ export function useOpenInDestinations(
 		!! editor && {
 			id: 'editor',
 			label: editorLabel,
-			logo: editorLogos[ editor ] ?? code,
+			logo: editorLogos[ editor ] ?? <CodeIcon />,
 			disabled: false,
 			open: () => open( 'editor', editorLabel, () => connector.openSiteInEditor( site.id ) ),
 		},

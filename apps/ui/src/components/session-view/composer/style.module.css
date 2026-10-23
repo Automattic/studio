@@ -520,13 +520,6 @@
 	}
 }
 
-.stopGlyph {
-	width: 10px;
-	height: 10px;
-	border-radius: 2px;
-	background-color: currentColor;
-}
-
 .commandsMenuPopup {
 	min-width: 220px;
 }

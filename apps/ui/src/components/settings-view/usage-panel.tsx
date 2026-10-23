@@ -10,8 +10,8 @@ import {
 	getStudioCodeAiAccessState,
 } from '@studio/common/lib/studio-assistant-quota';
 import { __, _n, sprintf } from '@wordpress/i18n';
-import { help, moreHorizontal } from '@wordpress/icons';
 import { clsx } from 'clsx';
+import { CircleHelpIcon, EllipsisIcon } from 'lucide-react';
 import { useState } from 'react';
 import { AddAiCreditsButton } from '@/components/add-ai-credits-button';
 import { SigninNotice } from '@/components/agentic-signin-banner';
@@ -223,7 +223,7 @@ function AiCreditsSummary() {
 					{ showsCreditBalances ? (
 						<IconButton
 							size="icon-2xs"
-							icon={ help }
+							icon={ <CircleHelpIcon /> }
 							label={ __( 'How AI credits work' ) }
 							onClick={ () => setDetailsOpen( true ) }
 						/>
@@ -275,7 +275,7 @@ function PreviewSitesSummary( { userId }: { userId: number } ) {
 							render={
 								<IconButton
 									size="icon-2xs"
-									icon={ moreHorizontal }
+									icon={ <EllipsisIcon /> }
 									label={ __( 'Preview site actions' ) }
 									disabled={ isDisabled }
 								/>

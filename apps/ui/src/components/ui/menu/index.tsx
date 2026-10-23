@@ -1,10 +1,10 @@
 import { ContextMenu as BaseContextMenu } from '@base-ui/react/context-menu';
 import { Menu as BaseMenu } from '@base-ui/react/menu';
-import { chevronRightSmall, Icon } from '@wordpress/icons';
 import { clsx } from 'clsx';
 import { forwardRef } from 'react';
 import { FloatingSurface } from '@/components/ui/surface';
 import surface from '@/components/ui/surface/style.module.css';
+import { ChevronDownIcon } from '@/lib/icons/chevron-down-icon';
 import styles from './style.module.css';
 import type { ComponentPropsWithoutRef, ElementRef, ReactNode } from 'react';
 
@@ -118,7 +118,7 @@ export const SubmenuTrigger = forwardRef<
 	return (
 		<BaseMenu.SubmenuTrigger ref={ ref } className={ clsx( surface.item, className ) } { ...props }>
 			{ children }
-			<Icon icon={ chevronRightSmall } className={ styles.submenuChevron } />
+			<ChevronDownIcon className={ styles.submenuChevron } />
 		</BaseMenu.SubmenuTrigger>
 	);
 } );

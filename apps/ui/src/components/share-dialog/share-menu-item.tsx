@@ -1,8 +1,7 @@
 import { __ } from '@wordpress/i18n';
-import { Icon } from '@wordpress/icons';
 import * as Menu from '@/components/ui/menu';
 import { useOpenHeaderPanel } from '@/hooks/use-open-header-panel';
-import { shareIcon } from '@/lib/icons';
+import { ShareIcon } from '@/lib/icons/share-icon';
 import type { SiteDetails } from '@/data/core';
 
 export function SiteShareMenuItem( { site, disabled }: { site: SiteDetails; disabled: boolean } ) {
@@ -12,7 +11,7 @@ export function SiteShareMenuItem( { site, disabled }: { site: SiteDetails; disa
 			disabled={ disabled }
 			onClick={ () => openHeaderPanel( { panel: 'share', siteId: site.id } ) }
 		>
-			<Icon icon={ shareIcon } />
+			<ShareIcon />
 			{ __( 'Share' ) }
 		</Menu.Item>
 	);

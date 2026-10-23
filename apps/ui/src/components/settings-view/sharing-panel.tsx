@@ -1,6 +1,6 @@
 import { isSnapshotExpired } from '@studio/common/lib/snapshots';
 import { __, sprintf } from '@wordpress/i18n';
-import { check, copy, pencil, trash } from '@wordpress/icons';
+import { CheckIcon, PencilIcon } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { AccountPrompt, previewSiteImage } from '@/components/account-prompt';
 import { previewExpiry, RenamePreview } from '@/components/share-dialog/preview-share-panel';
@@ -18,6 +18,8 @@ import { useConnector } from '@/data/core';
 import { useAuthUser } from '@/data/queries/use-auth-user';
 import { useDeleteSnapshot, useSnapshotUsage, useSnapshots } from '@/data/queries/use-snapshots';
 import { useUserLocale } from '@/data/queries/use-user-locale';
+import { DuplicateIcon } from '@/lib/icons/duplicate-icon';
+import { TrashIcon } from '@/lib/icons/trash-icon';
 import { getSnapshotHostname, getSnapshotUrl } from '@/lib/snapshot-url';
 import { SettingsGroup, SettingsRow } from './rows';
 import styles from './style.module.css';
@@ -70,7 +72,7 @@ function PreviewRow( {
 				<IconButton
 					variant="muted-ghost"
 					size="icon-sm"
-					icon={ copied ? check : copy }
+					icon={ copied ? <CheckIcon /> : <DuplicateIcon /> }
 					label={ copied ? __( 'Copied' ) : __( 'Copy link' ) }
 					disabled={ expired }
 					onClick={ () =>
@@ -84,7 +86,7 @@ function PreviewRow( {
 					<IconButton
 						variant="muted-ghost"
 						size="icon-sm"
-						icon={ pencil }
+						icon={ <PencilIcon /> }
 						label={ __( 'Rename preview' ) }
 						onClick={ () => setRenaming( true ) }
 					/>
@@ -92,7 +94,7 @@ function PreviewRow( {
 				<IconButton
 					variant="muted-ghost"
 					size="icon-sm"
-					icon={ trash }
+					icon={ <TrashIcon /> }
 					label={ expired ? __( 'Remove expired preview' ) : __( 'Delete preview' ) }
 					onClick={ () => onDelete( snapshot ) }
 				/>

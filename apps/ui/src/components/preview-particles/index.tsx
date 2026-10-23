@@ -1,5 +1,5 @@
-import { Icon, wordpress } from '@wordpress/icons';
 import { useEffect, useRef } from 'react';
+import { WordPressIcon } from '@/lib/icons/wordpress-icon';
 import { createPreviewDots, getPreviewDotFrame, type PreviewDot } from './frame';
 import styles from './style.module.css';
 
@@ -118,7 +118,7 @@ export function PreviewParticles( {
 			<canvas ref={ canvasRef } className={ styles.canvas } aria-hidden="true" />
 			{ showLogo ? (
 				<span className={ styles.logo } data-active={ active || undefined } aria-hidden="true">
-					<Icon icon={ wordpress } size={ 48 } />
+					<WordPressIcon />
 				</span>
 			) : null }
 		</>

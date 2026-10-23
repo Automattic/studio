@@ -7,8 +7,8 @@ import { findAiSessionOwnerSite } from '@studio/common/ai/sessions/owner-site';
 import { hasPaidAiCredits } from '@studio/common/lib/studio-assistant-quota';
 import { useNavigate } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
-import { arrowDown } from '@wordpress/icons';
 import { clsx } from 'clsx';
+import { ArrowDownIcon } from 'lucide-react';
 import {
 	useCallback,
 	useEffect,
@@ -523,7 +523,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 						<div className={ styles.scrollToLatestWrap }>
 							<IconButton
 								className={ styles.scrollToLatestButton }
-								icon={ arrowDown }
+								icon={ <ArrowDownIcon /> }
 								label={ __( 'Jump to latest' ) }
 								variant="outline"
 								shape="round"

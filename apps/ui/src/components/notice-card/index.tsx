@@ -1,5 +1,5 @@
 import { __, sprintf } from '@wordpress/i18n';
-import { caution, closeSmall, Icon, info } from '@wordpress/icons';
+import { CheckIcon, InfoIcon, TriangleAlertIcon, XIcon } from 'lucide-react';
 import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { Button, IconButton } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
@@ -18,19 +18,14 @@ type Notice = Pick< NoticeRecord, 'intent' | 'title' | 'description' | 'action' 
 function StatusIcon( { intent }: { intent: NoticeIntent } ) {
 	return (
 		<span className={ styles.status } data-intent={ intent } aria-hidden="true">
-			{ intent === 'info' || intent === 'warning' ? (
-				<Icon icon={ intent === 'info' ? info : caution } size={ 18 } />
-			) : (
-				<svg viewBox="0 0 24 24" fill="none">
-					<path
-						d={ intent === 'success' ? 'M20 6 9 17l-5-5' : 'M18 6 6 18M6 6l12 12' }
-						stroke="currentColor"
-						strokeWidth="3"
-						strokeLinecap="round"
-						strokeLinejoin="round"
-					/>
-				</svg>
-			) }
+			{
+				{
+					info: <InfoIcon />,
+					warning: <TriangleAlertIcon />,
+					success: <CheckIcon strokeWidth={ 3 } />,
+					error: <XIcon strokeWidth={ 3 } />,
+				}[ intent ]
+			}
 		</span>
 	);
 }
@@ -145,7 +140,7 @@ export function NoticeCard( {
 			{ notice.description ? <NoticeDescription notice={ notice } /> : null }
 			<IconButton
 				className={ styles.close }
-				icon={ closeSmall }
+				icon={ <XIcon /> }
 				label={ __( 'Dismiss' ) }
 				aria-label={ sprintf(
 					/* translators: %s: notification title. */

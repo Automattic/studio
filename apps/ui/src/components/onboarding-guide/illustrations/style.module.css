@@ -177,7 +177,6 @@
 	display: block;
 	width: 20px;
 	height: 20px;
-	fill: currentColor;
 }
 
 .previewAnnotateButtonActive {
@@ -471,9 +470,8 @@
 }
 
 .btnGlyph {
-	width: 18px;
-	height: 18px;
-	fill: currentColor;
+	width: 16px;
+	height: 16px;
 }
 
 /* The status glyphs stack in the button's single grid cell so they can

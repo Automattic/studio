@@ -37,17 +37,8 @@ import {
 } from '@studio/common/lib/studio-assistant-quota';
 import { useQueryClient } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
-import {
-	arrowUp,
-	chevronDownSmall,
-	closeSmall,
-	globe,
-	Icon,
-	page,
-	play,
-	plus,
-} from '@wordpress/icons';
 import { clsx } from 'clsx';
+import { ArrowUpIcon, FileTextIcon, GlobeIcon, PlusIcon, XIcon } from 'lucide-react';
 import {
 	forwardRef,
 	useCallback,
@@ -59,8 +50,7 @@ import {
 	useState,
 	type ChangeEvent,
 	type MouseEvent,
-	type ReactElement,
-	type SVGProps,
+	type ComponentType,
 } from 'react';
 import { createPortal } from 'react-dom';
 import { AiCreditsPurchaseDialog } from '@/components/ai-credits-purchase-dialog';
@@ -94,7 +84,10 @@ import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-u
 import { useAddAiCreditsUrl } from '@/hooks/use-add-ai-credits-url';
 import { useIsOutOfAiCredits } from '@/hooks/use-is-out-of-ai-credits';
 import { useOpenSettings } from '@/hooks/use-open-settings';
-import { annotationIcon } from '@/lib/icons';
+import { AnnotationIcon } from '@/lib/icons/annotation-icon';
+import { ChevronDownIcon } from '@/lib/icons/chevron-down-icon';
+import { StartSiteIcon } from '@/lib/icons/start-site-icon';
+import { StopSiteIcon } from '@/lib/icons/stop-site-icon';
 import { isImeComposing } from '@/lib/is-ime-composing';
 import { completeComposerDraftSend, getComposerDraft, saveComposerDraft } from './draft-store';
 import { FamilySwitchConfirmDialog } from './family-switch-confirm-dialog';
@@ -252,12 +245,12 @@ const SUBMIT_FEEDBACK_MS = 900;
 
 // A mode the composer is in; hovering offers to remove it.
 function ModeChip( {
-	icon,
+	icon: ModeIcon,
 	label,
 	onRemove,
 	disabled,
 }: {
-	icon: ReactElement< SVGProps< SVGSVGElement > >;
+	icon: ComponentType< { className?: string } >;
 	label: string;
 	onRemove: () => void;
 	disabled?: boolean;
@@ -280,8 +273,8 @@ function ModeChip( {
 					/>
 				}
 			>
-				<Icon icon={ icon } size={ 16 } className={ styles.modeChipIcon } />
-				<Icon icon={ closeSmall } size={ 16 } className={ styles.modeChipRemove } />
+				<ModeIcon className={ styles.modeChipIcon } />
+				<XIcon className={ styles.modeChipRemove } />
 				<span>{ label }</span>
 			</TooltipTrigger>
 			<TooltipContent>{ removeLabel }</TooltipContent>
@@ -934,7 +927,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 				/>
 			}
 		>
-			<Icon icon={ plus } size={ 16 } />
+			<PlusIcon />
 		</TooltipTrigger>
 	);
 
@@ -1022,10 +1015,11 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 											<img className={ styles.attachmentThumb } src={ imageSrc } alt="" />
 										) : (
 											<>
-												<Icon
-													icon={ attachment === annotationsAttachment ? annotationIcon : page }
-													size={ 16 }
-												/>
+												{ attachment === annotationsAttachment ? (
+													<AnnotationIcon />
+												) : (
+													<FileTextIcon />
+												) }
 												<span className={ styles.attachmentName }>{ attachment.name }</span>
 											</>
 										) }
@@ -1042,7 +1036,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 													: removeAttachment( attachment.id )
 											}
 										>
-											<Icon icon={ closeSmall } size={ 16 } />
+											<XIcon />
 										</button>
 									</li>
 								);
@@ -1204,14 +1198,14 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 							</Menu.Root>
 							{ autoStartOn ? (
 								<ModeChip
-									icon={ play }
+									icon={ StartSiteIcon }
 									label={ __( 'Auto-start' ) }
 									onRemove={ () => setAutoStart( false ) }
 								/>
 							) : null }
 							{ environment === 'live' ? (
 								<ModeChip
-									icon={ globe }
+									icon={ GlobeIcon }
 									label={ __( 'Live' ) }
 									disabled={ busy }
 									onRemove={ () => onEnvironmentChange?.( 'local' ) }
@@ -1252,7 +1246,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 												}
 											>
 												<span>{ modelLabel }</span>
-												<Icon icon={ chevronDownSmall } size={ 16 } />
+												<ChevronDownIcon />
 											</TooltipTrigger>
 										}
 									/>
@@ -1354,11 +1348,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 											)
 										}
 									>
-										{ showStop ? (
-											<span className={ styles.stopGlyph } aria-hidden="true" />
-										) : (
-											<Icon icon={ arrowUp } size={ 18 } />
-										) }
+										{ showStop ? <StopSiteIcon fill="currentColor" /> : <ArrowUpIcon /> }
 									</TooltipTrigger>
 									<TooltipContent>{ showStop ? stopLabel : sendLabel }</TooltipContent>
 								</Tooltip>

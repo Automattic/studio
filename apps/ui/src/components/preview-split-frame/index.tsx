@@ -12,8 +12,8 @@ import { ResizeHandle, ResizeOverlay } from '@/components/resize-handle';
 import { usePreviewSplit } from '@/hooks/use-preview-split';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import { WindowControlsCornerContext } from '@/hooks/use-window-controls-inset';
-import { getMotionDuration } from '@/lib/motion';
 import { PREVIEW_SPLIT_MIN_WIDTH } from '@/lib/resizable-panels';
+import { getMotionDuration } from '@/lib/theme/motion';
 import styles from './style.module.css';
 
 // Keep in sync with the content-column transition duration in style.module.css.

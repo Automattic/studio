@@ -32,7 +32,7 @@ export function resolveColorScheme( saved: ColorScheme = 'system' ): 'light' | '
 	return window.matchMedia?.( '(prefers-color-scheme: dark)' ).matches ? 'dark' : 'light';
 }
 
-/** Sets the appearance inputs the color tokens in `theme/tokens.css` derive from. */
+/** Sets the appearance inputs the color tokens in `tokens.css` derive from. */
 export function applyColorTint(
 	tint: Partial< ColorTint >,
 	root: HTMLElement = document.documentElement

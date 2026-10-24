@@ -1,0 +1,140 @@
+[
+  {
+    "url": "https://developer.wordpress.com/docs/developer-tools/studio/",
+    "filePath": "docs/developer-tools/studio/index.md",
+    "title": "WordPress Studio",
+    "status": "verified"
+  },
+  {
+    "url": "https://developer.wordpress.com/docs/developer-tools/studio/sites/",
+    "filePath": "docs/developer-tools/studio/sites.md",
+    "title": "Studio sites",
+    "status": "verified"
+  },
+  {
+    "url": "https://developer.wordpress.com/docs/developer-tools/studio/cli/",
+    "filePath": "docs/developer-tools/studio/cli.md",
+    "title": "Studio CLI",
+    "status": "verified"
+  },
+  {
+    "url": "https://developer.wordpress.com/docs/developer-tools/studio/studio-code/",
+    "filePath": "docs/developer-tools/studio/studio-code/index.md",
+    "title": "Studio Code",
+    "status": "verified"
+  },
+  {
+    "url": "https://developer.wordpress.com/docs/developer-tools/studio/studio-code/ai-credits-guidelines/",
+    "filePath": "docs/developer-tools/studio/studio-code/ai-credits-guidelines.md",
+    "title": "How AI Credits Work",
+    "status": "verified"
+  },
+  {
+    "url": "https://developer.wordpress.com/docs/developer-tools/studio/studio-code/choosing-an-ai-model-tier-in-studio-code/",
+    "filePath": "docs/developer-tools/studio/studio-code/choosing-an-ai-model-tier-in-studio-code.md",
+    "title": "Choosing an AI model tier in Studio Code",
+    "status": "verified"
+  },
+  {
+    "url": "https://developer.wordpress.com/docs/developer-tools/studio/studio-code/image-generation/",
+    "filePath": "docs/developer-tools/studio/studio-code/image-generation.md",
+    "title": "Image generation",
+    "status": "verified"
+  },
+  {
+    "url": "https://developer.wordpress.com/docs/developer-tools/studio/agent-skills-wordpress-studio/",
+    "filePath": "docs/developer-tools/studio/agent-skills-wordpress-studio.md",
+    "title": "Agent Skills in Studio",
+    "status": "verified"
+  },
+  {
+    "url": "https://developer.wordpress.com/docs/developer-tools/studio/mcp-on-studio/",
+    "filePath": "docs/developer-tools/studio/mcp-on-studio.md",
+    "title": "MCP in Studio",
+    "status": "verified"
+  },
+  {
+    "url": "https://developer.wordpress.com/docs/developer-tools/studio/blueprints/",
+    "filePath": "docs/developer-tools/studio/blueprints/index.md",
+    "title": "Blueprints",
+    "status": "verified"
+  },
+  {
+    "url": "https://developer.wordpress.com/docs/developer-tools/studio/blueprints/open-in-wordpress-studio-button/",
+    "filePath": "docs/developer-tools/studio/blueprints/open-in-wordpress-studio-button.md",
+    "title": "Open in WordPress Studio button",
+    "status": "verified"
+  },
+  {
+    "url": "https://developer.wordpress.com/docs/guides/how-to-create-custom-blueprints/",
+    "filePath": "docs/guides/how-to-create-custom-blueprints.md",
+    "title": "How to create custom Blueprints",
+    "status": "verified"
+  },
+  {
+    "url": "https://developer.wordpress.com/docs/developer-tools/studio/preview-sites/",
+    "filePath": "docs/developer-tools/studio/preview-sites.md",
+    "title": "Preview Sites",
+    "status": "verified"
+  },
+  {
+    "url": "https://developer.wordpress.com/docs/developer-tools/studio/sync/",
+    "filePath": "docs/developer-tools/studio/sync.md",
+    "title": "Studio Sync",
+    "status": "verified"
+  },
+  {
+    "url": "https://developer.wordpress.com/docs/developer-tools/studio/import-export/",
+    "filePath": "docs/developer-tools/studio/import-export.md",
+    "title": "Import & export",
+    "status": "verified"
+  },
+  {
+    "url": "https://developer.wordpress.com/docs/developer-tools/studio/ssl-in-studio/",
+    "filePath": "docs/developer-tools/studio/ssl-in-studio.md",
+    "title": "SSL in Studio",
+    "status": "verified"
+  },
+  {
+    "url": "https://developer.wordpress.com/docs/developer-tools/studio/php-runtimes/",
+    "filePath": "docs/developer-tools/studio/php-runtimes.md",
+    "title": "PHP runtimes",
+    "status": "verified"
+  },
+  {
+    "url": "https://developer.wordpress.com/docs/developer-tools/studio/debugging/",
+    "filePath": "docs/developer-tools/studio/debugging/index.md",
+    "title": "Debugging in Studio",
+    "status": "verified"
+  },
+  {
+    "url": "https://developer.wordpress.com/docs/developer-tools/studio/xdebug/",
+    "filePath": "docs/developer-tools/studio/xdebug.md",
+    "title": "Xdebug in Studio",
+    "status": "verified"
+  },
+  {
+    "url": "https://developer.wordpress.com/docs/developer-tools/studio/frequently-asked-questions/",
+    "filePath": "docs/developer-tools/studio/frequently-asked-questions.md",
+    "title": "Frequently asked questions",
+    "status": "verified"
+  },
+  {
+    "url": "https://developer.wordpress.com/docs/developer-tools/studio/changelog/",
+    "filePath": "docs/developer-tools/studio/changelog.md",
+    "title": "Changelog",
+    "status": "verified"
+  },
+  {
+    "url": "https://developer.wordpress.com/docs/developer-tools/studio/feedback/",
+    "filePath": "docs/developer-tools/studio/feedback/index.md",
+    "title": "Feedback",
+    "status": "verified"
+  },
+  {
+    "url": "https://developer.wordpress.com/docs/developer-tools/studio/feedback/beta-features/",
+    "filePath": "docs/developer-tools/studio/feedback/beta-features.md",
+    "title": "Beta features",
+    "status": "verified"
+  }
+]

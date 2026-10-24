@@ -1,0 +1,178 @@
+[
+  {
+    "section": "wordpress-studio",
+    "sectionLabel": "WordPress Studio",
+    "title": "WordPress Studio",
+    "url": "https://developer.wordpress.com/docs/developer-tools/studio/",
+    "depth": 0,
+    "filePath": "docs/developer-tools/studio/index.md"
+  },
+  {
+    "section": "wordpress-studio",
+    "sectionLabel": "WordPress Studio",
+    "title": "Studio sites",
+    "url": "https://developer.wordpress.com/docs/developer-tools/studio/sites/",
+    "depth": 1,
+    "filePath": "docs/developer-tools/studio/sites.md"
+  },
+  {
+    "section": "wordpress-studio",
+    "sectionLabel": "WordPress Studio",
+    "title": "Studio CLI",
+    "url": "https://developer.wordpress.com/docs/developer-tools/studio/cli/",
+    "depth": 1,
+    "filePath": "docs/developer-tools/studio/cli.md"
+  },
+  {
+    "section": "wordpress-studio",
+    "sectionLabel": "WordPress Studio",
+    "title": "Studio Code",
+    "url": "https://developer.wordpress.com/docs/developer-tools/studio/studio-code/",
+    "depth": 1,
+    "filePath": "docs/developer-tools/studio/studio-code/index.md"
+  },
+  {
+    "section": "wordpress-studio",
+    "sectionLabel": "WordPress Studio",
+    "title": "How AI Credits Work",
+    "url": "https://developer.wordpress.com/docs/developer-tools/studio/studio-code/ai-credits-guidelines/",
+    "depth": 2,
+    "filePath": "docs/developer-tools/studio/studio-code/ai-credits-guidelines.md"
+  },
+  {
+    "section": "wordpress-studio",
+    "sectionLabel": "WordPress Studio",
+    "title": "Choosing an AI model tier in Studio Code",
+    "url": "https://developer.wordpress.com/docs/developer-tools/studio/studio-code/choosing-an-ai-model-tier-in-studio-code/",
+    "depth": 2,
+    "filePath": "docs/developer-tools/studio/studio-code/choosing-an-ai-model-tier-in-studio-code.md"
+  },
+  {
+    "section": "wordpress-studio",
+    "sectionLabel": "WordPress Studio",
+    "title": "Image generation",
+    "url": "https://developer.wordpress.com/docs/developer-tools/studio/studio-code/image-generation/",
+    "depth": 2,
+    "filePath": "docs/developer-tools/studio/studio-code/image-generation.md"
+  },
+  {
+    "section": "wordpress-studio",
+    "sectionLabel": "WordPress Studio",
+    "title": "Agent Skills in Studio",
+    "url": "https://developer.wordpress.com/docs/developer-tools/studio/agent-skills-wordpress-studio/",
+    "depth": 1,
+    "filePath": "docs/developer-tools/studio/agent-skills-wordpress-studio.md"
+  },
+  {
+    "section": "wordpress-studio",
+    "sectionLabel": "WordPress Studio",
+    "title": "MCP in Studio",
+    "url": "https://developer.wordpress.com/docs/developer-tools/studio/mcp-on-studio/",
+    "depth": 1,
+    "filePath": "docs/developer-tools/studio/mcp-on-studio.md"
+  },
+  {
+    "section": "wordpress-studio",
+    "sectionLabel": "WordPress Studio",
+    "title": "Blueprints",
+    "url": "https://developer.wordpress.com/docs/developer-tools/studio/blueprints/",
+    "depth": 1,
+    "filePath": "docs/developer-tools/studio/blueprints/index.md"
+  },
+  {
+    "section": "wordpress-studio",
+    "sectionLabel": "WordPress Studio",
+    "title": "Open in WordPress Studio button",
+    "url": "https://developer.wordpress.com/docs/developer-tools/studio/blueprints/open-in-wordpress-studio-button/",
+    "depth": 2,
+    "filePath": "docs/developer-tools/studio/blueprints/open-in-wordpress-studio-button.md"
+  },
+  {
+    "section": "wordpress-studio",
+    "sectionLabel": "WordPress Studio",
+    "title": "How to create custom Blueprints",
+    "url": "https://developer.wordpress.com/docs/guides/how-to-create-custom-blueprints/",
+    "depth": 2,
+    "filePath": "docs/guides/how-to-create-custom-blueprints.md"
+  },
+  {
+    "section": "wordpress-studio",
+    "sectionLabel": "WordPress Studio",
+    "title": "Preview Sites",
+    "url": "https://developer.wordpress.com/docs/developer-tools/studio/preview-sites/",
+    "depth": 1,
+    "filePath": "docs/developer-tools/studio/preview-sites.md"
+  },
+  {
+    "section": "wordpress-studio",
+    "sectionLabel": "WordPress Studio",
+    "title": "Studio Sync",
+    "url": "https://developer.wordpress.com/docs/developer-tools/studio/sync/",
+    "depth": 1,
+    "filePath": "docs/developer-tools/studio/sync.md"
+  },
+  {
+    "section": "wordpress-studio",
+    "sectionLabel": "WordPress Studio",
+    "title": "Import & export",
+    "url": "https://developer.wordpress.com/docs/developer-tools/studio/import-export/",
+    "depth": 1,
+    "filePath": "docs/developer-tools/studio/import-export.md"
+  },
+  {
+    "section": "wordpress-studio",
+    "sectionLabel": "WordPress Studio",
+    "title": "SSL in Studio",
+    "url": "https://developer.wordpress.com/docs/developer-tools/studio/ssl-in-studio/",
+    "depth": 1,
+    "filePath": "docs/developer-tools/studio/ssl-in-studio.md"
+  },
+  {
+    "section": "wordpress-studio",
+    "sectionLabel": "WordPress Studio",
+    "title": "PHP runtimes",
+    "url": "https://developer.wordpress.com/docs/developer-tools/studio/php-runtimes/",
+    "depth": 1,
+    "filePath": "docs/developer-tools/studio/php-runtimes.md"
+  },
+  {
+    "section": "wordpress-studio",
+    "sectionLabel": "WordPress Studio",
+    "title": "Debugging in Studio",
+    "url": "https://developer.wordpress.com/docs/developer-tools/studio/debugging/",
+    "depth": 1,
+    "filePath": "docs/developer-tools/studio/debugging/index.md"
+  },
+  {
+    "section": "wordpress-studio",
+    "sectionLabel": "WordPress Studio",
+    "title": "Xdebug in Studio",
+    "url": "https://developer.wordpress.com/docs/developer-tools/studio/xdebug/",
+    "depth": 2,
+    "filePath": "docs/developer-tools/studio/xdebug.md"
+  },
+  {
+    "section": "wordpress-studio",
+    "sectionLabel": "WordPress Studio",
+    "title": "Frequently asked questions",
+    "url": "https://developer.wordpress.com/docs/developer-tools/studio/frequently-asked-questions/",
+    "depth": 1,
+    "filePath": "docs/developer-tools/studio/frequently-asked-questions.md"
+  },
+  {
+    "section": "wordpress-studio",
+    "sectionLabel": "WordPress Studio",
+    "title": "Changelog",
+    "url": "https://developer.wordpress.com/docs/developer-tools/studio/changelog/",
+    "depth": 1,
+    "filePath": "docs/developer-tools/studio/changelog.md"
+  },
+  {
+    "section": "wordpress-studio",
+    "sectionLabel": "WordPress Studio",
+    "title": "Feedback",
+    "url": "https://developer.wordpress.com/docs/developer-tools/studio/feedback/",
+    "depth": 1,
+    "filePath": "docs/developer-tools/studio/feedback/index.md"
+  }
+]

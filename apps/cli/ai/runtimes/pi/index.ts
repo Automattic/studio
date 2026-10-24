@@ -48,7 +48,7 @@ import { emitEvent } from 'cli/ai/json-events';
 import { describeOpenProblems, getOpenProblems } from 'cli/ai/open-problems';
 import { SiteChanges } from 'cli/ai/site-changes';
 import { readActiveSiteFacts } from 'cli/ai/site-facts';
-import { createSiteNotes, type SiteNotes } from 'cli/ai/site-notes';
+import { createSiteNotes, writtenFiles, type SiteNotes } from 'cli/ai/site-notes';
 import { studioMessage, validationLines } from 'cli/ai/studio-message';
 import { buildSystemPrompt } from 'cli/ai/system-prompt';
 import { resolveStudioToolDefinitions } from 'cli/ai/tools';
@@ -757,6 +757,9 @@ function toToolDefinition(
 			}
 			crossSite?.allow();
 			const writtenFile = getWrittenFile( tool.name, params, STUDIO_SITES_ROOT );
+			// A shell command can write the request's site files too.
+			const shellWrites =
+				tool.name === 'Bash' ? await writtenFiles( sitePin.localSitePaths() ) : undefined;
 			const fileWriteRefusal = writtenFile && ( await siteNotes.beforeWrite( writtenFile ) );
 			if ( fileWriteRefusal ) {
 				throw new Error( fileWriteRefusal );
@@ -813,6 +816,13 @@ function toToolDefinition(
 				...validationReport,
 				...changed,
 				...( writtenFile ? await siteNotes.afterWrite( writtenFile ) : [] ),
+				...( shellWrites
+					? (
+							await Promise.all(
+								( await shellWrites() ).map( ( file ) => siteNotes.afterWrite( file ) )
+							)
+					  ).flat()
+					: [] ),
 				...( resultSite ? await siteNotes.afterResult( resultSite, resultText ) : [] ),
 				pendingWork.takeReports(),
 			] );

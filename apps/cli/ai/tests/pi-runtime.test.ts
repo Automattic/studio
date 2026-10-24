@@ -83,6 +83,9 @@ vi.mock( 'cli/ai/site-notes', () => ( {
 		afterWrite: async ( file: string ) => [ `wrote ${ file }` ],
 		afterResult: async ( site: string ) => [ `result on ${ site }` ],
 	} ),
+	// A shell command writes one theme file on each site it is given.
+	writtenFiles: async ( sites: string[] ) => async () =>
+		sites.map( ( site ) => `${ site }/wp-content/themes/t/style.css` ),
 } ) );
 
 vi.mock( 'cli/ai/site-changes', () => ( {
@@ -558,6 +561,17 @@ describe( 'pi runtime', () => {
 				await none.execute( 'w', { path: 'a/style.css', content: '', nameOrPath: 'b' } )
 			).content.map( ( part ) => part.text )
 		).toEqual( [ '', `<studio-notes>\nwrote ${ file }\nresult on /sites/b\n</studio-notes>` ] );
+
+		// A shell command's writes to the request's site get the same notes.
+		await run( local );
+		expect(
+			( await getCreatedTool( 'Bash' ).execute( 'b', { command: 'true' } ) ).content.map(
+				( part ) => part.text
+			)
+		).toEqual( [
+			'',
+			'<studio-notes>\nwrote /sites/a/wp-content/themes/t/style.css\nresult on /sites/a\n</studio-notes>',
+		] );
 	} );
 
 	it( 'reports the post content a call changed, from a snapshot taken before it', async () => {

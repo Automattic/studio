@@ -124,6 +124,11 @@ export class SitePin {
 		};
 	}
 
+	// The local sites the request may change, as absolute paths: none until it has one.
+	localSitePaths(): string[] {
+		return [ ...this.allowed ].filter( ( key ) => ! key.startsWith( 'wpcom:' ) );
+	}
+
 	// Sites the turn creates belong to the request.
 	async created( siteName: string ): Promise< void > {
 		try {

@@ -56,6 +56,7 @@ import { createAskUserQuestionTool } from 'cli/ai/tools/ask-user-question';
 import { createPresentDesignOptionsTool } from 'cli/ai/tools/present-design-options';
 import { createSkillTool } from 'cli/ai/tools/skill';
 import { siteOfCall } from 'cli/ai/tools/utils';
+import { readCliConfig } from 'cli/lib/cli-config/core';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import { createConfirmer, describeDestructiveCall, type Confirmer } from './confirmation';
 import { withLeakedToolCallMarkupRemoved } from './leaked-tool-call-markup';
@@ -416,8 +417,15 @@ async function createStudioAgentSession(
 		stated: new Map( localSite ? [ [ localSite, activeSiteFacts ] ] : [] ),
 		gate: blockValidationGate,
 	} );
-	// What a call changed in the content the sites render, reported on its result.
-	const siteChanges = new SiteChanges( undefined, getOpenProblems( config.session ) );
+	// What a call changed on the request's sites, or on every local site until
+	// the request has one, reported on its result.
+	const siteChanges = new SiteChanges( getOpenProblems( config.session ), async () => {
+		const { sites } = await readCliConfig();
+		const pinned = sitePin.localSitePaths();
+		return pinned.length
+			? sites.filter( ( { path: sitePath } ) => pinned.includes( path.resolve( sitePath ) ) )
+			: sites;
+	} );
 	const toolDefinitions = [ ...tools, ...mcpTools ].map( ( tool ) =>
 		toToolDefinition( tool, payloadGuardState, pendingWork, blockValidationGate, {
 			confirm,
@@ -698,6 +706,8 @@ function createSettingsManager( _env: Record< string, string > ): SettingsManage
 
 // A shell command can put content on the site through WP-CLI.
 const BLOCK_VALIDATION_GATED_TOOLS = new Set( [ 'Bash', 'take_screenshot' ] );
+// Tools that change nothing on a site, so there is nothing to check after them.
+const READ_ONLY_TOOLS = new Set( [ 'Read', 'Grep', 'Glob', 'Ls' ] );
 
 function toToolDefinition(
 	tool: AgentToolAny,
@@ -759,14 +769,18 @@ function toToolDefinition(
 			const validationReport = BLOCK_VALIDATION_GATED_TOOLS.has( tool.name )
 				? validationLines( await blockValidationGate.settle() )
 				: [];
-			await siteChanges.snapshot().catch( () => undefined );
+			const checksChanges = ! READ_ONLY_TOOLS.has( tool.name );
+			if ( checksChanges ) {
+				await siteChanges.snapshot().catch( () => undefined );
+			}
 			// A call that fails can still have changed content, as a shell
 			// command does that exits non-zero after saving a page.
-			const changedContent = async () => {
-				return validationLines(
-					await siteChanges.settle().catch( () => ( { summaries: [], problems: [] } ) )
-				);
-			};
+			const changedContent = async () =>
+				checksChanges
+					? validationLines(
+							await siteChanges.settle().catch( () => ( { summaries: [], problems: [] } ) )
+					  )
+					: [];
 			// The validation report was taken from the gate, so it rides on a failure too.
 			const result = await tool
 				.execute( toolCallId, params, signal, onUpdate )

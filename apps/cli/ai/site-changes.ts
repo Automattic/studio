@@ -44,14 +44,15 @@ async function localSites(): Promise< SiteData[] > {
 }
 
 export class SiteChanges {
+	private readonly snapshots = new Map< string, Versions >();
+
 	constructor(
-		private readonly snapshots = new Map< string, Versions >(),
 		private readonly open?: OpenProblems,
 		private readonly sites: () => Promise< SiteData[] > = localSites,
 		private readonly sources: SiteChangeSource[] = SITE_CHANGE_SOURCES
 	) {}
 
-	/** Records every local site as it is now. */
+	/** Records each site it checks as it is now. */
 	async snapshot(): Promise< void > {
 		for ( const site of await this.sites() ) {
 			for ( const source of this.sources ) {

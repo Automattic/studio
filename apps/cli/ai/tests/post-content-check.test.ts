@@ -38,8 +38,7 @@ beforeEach( () => {
 
 afterEach( () => rmSync( fixture.root, { recursive: true, force: true } ) );
 
-const checkPosts = () =>
-	new SiteChanges( new Map(), undefined, async () => [ site ], [ postContentChanges ] );
+const checkPosts = () => new SiteChanges( undefined, async () => [ site ], [ postContentChanges ] );
 
 describe( 'post content changes', () => {
 	it.each( [

@@ -565,19 +565,21 @@ describe( 'pi runtime', () => {
 		await runRuntime( { prompt: 'hello', env: WPCOM_ENV, session: newSession() } );
 		mocks.steps.length = 0;
 		mocks.postChanges = { summaries: [ 'page 9 changed' ], problems: [ 'page 9 problem' ] };
-		const result = await getCreatedTool( 'Read' ).execute( 'r', { path: 'a/style.css' } );
-		expect( mocks.steps ).toEqual( [ 'snapshot', 'Read', 'settle' ] );
+		const result = await getCreatedTool( 'Bash' ).execute( 'b', { command: 'true' } );
+		expect( mocks.steps ).toEqual( [ 'snapshot', 'Bash', 'settle' ] );
 		expect( result.content.map( ( part ) => part.text ) ).toEqual( [
 			'',
 			'<studio-notes>\nBlock validation: page 9 changed\npage 9 problem\n</studio-notes>',
 		] );
 		// A failed call reports what it changed too.
 		mocks.failNext = true;
-		await expect(
-			getCreatedTool( 'Read' ).execute( 'r', { path: 'a/style.css' } )
-		).rejects.toThrow(
+		await expect( getCreatedTool( 'Bash' ).execute( 'b', { command: 'false' } ) ).rejects.toThrow(
 			'exit 1\n<studio-notes>\nBlock validation: page 9 changed\npage 9 problem\n</studio-notes>'
 		);
+		// A tool that only reads changes nothing to check.
+		mocks.steps.length = 0;
+		await getCreatedTool( 'Read' ).execute( 'r', { path: 'a/style.css' } );
+		expect( mocks.steps ).toEqual( [ 'Read' ] );
 		mocks.postChanges = { summaries: [], problems: [] };
 	} );
 

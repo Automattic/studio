@@ -75,6 +75,7 @@ describe( 'SitePin', () => {
 		expect(
 			( await pin.confirmationFor( 'site_import', { nameOrPath: 'Blog' } ) )?.confirmation.question
 		).toBe( 'Also change "Blog"? This request is about "Shop".' );
+		expect( pin.localSitePaths() ).toEqual( [ '/sites/shop', '/sites/new' ] );
 	} );
 
 	it( 'asks before creating a site while the request has one, once', async () => {

@@ -523,28 +523,34 @@ export const designTokenReachedTheme = check( ( d, vars ) => {
 const homeHtml = ( s ) => ( s.home?.htmlFile ? readFileSync( s.home.htmlFile, 'utf8' ) : '' );
 const pathOf = ( url ) => new URL( url ).pathname.replace( /\/?$/, '/' );
 
-// Every published page besides the home page is in the rendered navigation,
-// and its link opens that page.
+// Each page the prompt asks for (`vars.pages`, by `title`) is published, is in
+// the rendered navigation, and its link opens it.
 export const menuReachesPages = check( ( d, vars ) => {
 	const s = site( d, vars );
-	const pages = ( s.content || [] ).filter( ( c ) => c.type === 'page' && ! c.isFront );
-	if ( pages.length < vars.minPages )
+	const published = ( s.content || [] ).filter( ( c ) => c.type === 'page' && ! c.isFront );
+	const titled = ( title ) =>
+		published.find( ( p ) => p.title.trim().toLowerCase() === title.toLowerCase() );
+	const wanted = vars.pages.map( ( p ) => p.title );
+	const absent = wanted.filter( ( title ) => ! titled( title ) );
+	if ( absent.length )
 		return fail(
-			`${ pages.length } published page(s) besides the home page: ${ JSON.stringify(
-				pages.map( ( p ) => p.title )
-			) }`
+			`no published page titled ${ absent
+				.map( ( t ) => `"${ t }"` )
+				.join( ', ' ) }: ${ JSON.stringify( published.map( ( p ) => p.title ) ) }`
 		);
 	const reached = Object.values( s.home?.navTargets || {} )
 		.filter( ( t ) => t.status === 200 )
 		.map( ( t ) => pathOf( t.url ) );
-	const missing = pages.filter( ( p ) => ! reached.includes( pathOf( p.link ) ) );
+	const missing = wanted.filter(
+		( title ) => ! reached.includes( pathOf( titled( title ).link ) )
+	);
 	if ( missing.length )
 		return fail(
 			`the navigation does not open ${ missing
-				.map( ( p ) => `"${ p.title }"` )
+				.map( ( t ) => `"${ t }"` )
 				.join( ', ' ) }; it leads to ${ JSON.stringify( s.home?.navTargets ) }`
 		);
-	return pass( `the navigation opens ${ pages.map( ( p ) => `"${ p.title }"` ).join( ', ' ) }` );
+	return pass( `the navigation opens ${ wanted.map( ( t ) => `"${ t }"` ).join( ', ' ) }` );
 } );
 
 // The home page shows a block that a plugin registers with WordPress, with an

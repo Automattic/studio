@@ -507,11 +507,13 @@ describe( 'new-case checks', () => {
 	} );
 
 	test( 'menuReachesPages', () => {
-		const site = ( navTargets, pages = [ 'about', 'classes' ] ) => ( {
+		const site = ( navTargets, pages = [ 'About', 'Classes', 'Sample Page' ] ) => ( {
 			...workingSite,
 			content: [
 				page( 'Home', 'http://localhost:8881/', { isFront: true } ),
-				...pages.map( ( slug ) => page( slug, `http://localhost:8881/${ slug }/` ) ),
+				...pages.map( ( title ) =>
+					page( title, `http://localhost:8881/${ title.toLowerCase() }/` )
+				),
 			],
 			home: { ...workingSite.home, navTargets },
 		} );
@@ -519,7 +521,7 @@ describe( 'new-case checks', () => {
 			status,
 			url: `http://localhost:8881/${ slug }`,
 		} );
-		const vars = { minPages: 2 };
+		const vars = { pages: [ { title: 'About' }, { title: 'Classes' } ] };
 		const judge = ( s ) => run( checks.menuReachesPages, outcome( s ), vars ).pass;
 		expect(
 			judge( site( { '/about': opens( 'about' ), '?page_id=7': opens( 'classes' ) } ) )
@@ -528,7 +530,7 @@ describe( 'new-case checks', () => {
 		expect(
 			judge( site( { '/about': opens( 'about' ), '/classes': opens( 'classes', 404 ) } ) )
 		).toBe( false );
-		expect( judge( site( { '/about': opens( 'about' ) }, [ 'about' ] ) ) ).toBe( false );
+		expect( judge( site( { '/about': opens( 'about' ) }, [ 'About' ] ) ) ).toBe( false );
 	} );
 
 	test( 'pluginBlockRendered', () => {

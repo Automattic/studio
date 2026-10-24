@@ -657,7 +657,10 @@ tests:
     vars:
       caseId: multi-page-site-menu
       siteName: 'Eval Yoga Studio'
-      minPages: 3
+      pages:
+        - title: Classes
+        - title: About
+        - title: Contact
       timeoutMs: 600000
       prompt: |
         Build a site for a small yoga studio named "Eval Yoga Studio" with

@@ -2,7 +2,7 @@ import { useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
 import { useSessionPreviewUI } from '@/hooks/use-session-ui';
 
-export type HeaderPanelRequest =
+type HeaderPanelRequest =
 	| {
 			panel: 'publish';
 			siteId: string;

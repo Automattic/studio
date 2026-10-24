@@ -51,7 +51,7 @@ import styles from './style.module.css';
 import type { WordPressVersion } from '@studio/common/lib/wordpress-versions';
 import type { ComponentProps, ReactNode } from 'react';
 
-export type SiteOption = {
+type SiteOption = {
 	value: string;
 	label: string;
 	description?: string;

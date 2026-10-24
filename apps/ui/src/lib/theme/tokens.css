@@ -106,9 +106,13 @@
 	--motion-ease-layout: cubic-bezier( 0.645, 0.045, 0.355, 1 );
 	--motion-ease-enter: cubic-bezier( 0.165, 0.84, 0.44, 1 );
 
-	--z-popover: 700;
-	--z-select: 750;
-	--z-tooltip: 800;
+	/* Layers above the content, bottom to top. Toasts stay readable over a dialog;
+	   a drag in progress covers everything. */
+	--z-dialog: 700;
+	--z-toast: 750;
+	--z-popover: 800;
+	--z-tooltip: 850;
+	--z-drag: 900;
 }
 
 /* prettier-ignore */

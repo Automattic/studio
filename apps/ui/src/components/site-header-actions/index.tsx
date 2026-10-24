@@ -21,10 +21,8 @@ import styles from './style.module.css';
 import { useSiteHeaderLayout, type SiteHeaderLayout } from './use-site-header-layout';
 import type { SiteDetails } from '@/data/core';
 
-export type { SiteHeaderLayout } from './use-site-header-layout';
-
 /** The preview's browser controls, for the More menu once they no longer fit. */
-export interface SiteHeaderNavigation {
+interface SiteHeaderNavigation {
 	canGoBack: boolean;
 	canGoForward: boolean;
 	disabled: boolean;

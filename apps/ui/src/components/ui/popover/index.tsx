@@ -6,7 +6,6 @@ import type { ComponentProps, CSSProperties, ReactNode } from 'react';
 
 export const Root = BasePopover.Root;
 export const Trigger = BasePopover.Trigger;
-export const Close = BasePopover.Close;
 export const Title = BasePopover.Title;
 
 type PositionerProps = ComponentProps< typeof BasePopover.Positioner >;
@@ -64,7 +63,7 @@ export function Popup( {
 				anchor={ anchor }
 				collisionAvoidance={ commands ? COMMANDS_COLLISION_AVOIDANCE : undefined }
 				collisionPadding={ commands ? 5 : undefined }
-				className={ clsx( styles.positioner, commands && styles.commandsPositioner ) }
+				className={ styles.positioner }
 			>
 				<BasePopover.Popup
 					data-slot="popover-content"

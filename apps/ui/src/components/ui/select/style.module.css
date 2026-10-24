@@ -32,7 +32,7 @@
 
 	.positioner {
 		isolation: isolate;
-		z-index: var( --z-select );
+		z-index: var( --z-popover );
 	}
 
 	.content {
@@ -91,13 +91,6 @@
 		justify-content: center;
 		width: 16px;
 		height: 16px;
-		pointer-events: none;
-	}
-
-	.separator {
-		height: 1px;
-		margin: 4px -4px;
-		background-color: var( --border );
 		pointer-events: none;
 	}
 

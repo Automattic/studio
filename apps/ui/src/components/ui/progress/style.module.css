@@ -31,16 +31,4 @@
 			transition: none;
 		}
 	}
-
-	.label {
-		font-size: var( --text-sm );
-		font-weight: var( --font-weight-medium );
-	}
-
-	.value {
-		margin-inline-start: auto;
-		color: var( --muted-foreground );
-		font-size: var( --text-sm );
-		font-variant-numeric: tabular-nums;
-	}
 }

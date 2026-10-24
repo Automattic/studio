@@ -32,8 +32,6 @@ import { ErrorMessage, PanelBody, PanelHeader, TransferProgress } from './parts'
 import styles from './style.module.css';
 import type { SiteDetails, SyncSite } from '@/data/core';
 
-export { WebsiteMenuItems } from './connected-view';
-
 // The header's Publish button and its panel: connect the site to a
 // WordPress.com or Pressable website, then publish to it or pull from it.
 export function PublishButton( {

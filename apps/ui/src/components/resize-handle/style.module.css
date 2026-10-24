@@ -22,7 +22,7 @@
 .resizeOverlay {
 	position: fixed;
 	inset: 0;
-	z-index: 1000;
+	z-index: var(--z-drag);
 	cursor: col-resize;
 	user-select: none;
 	-webkit-app-region: no-drag;

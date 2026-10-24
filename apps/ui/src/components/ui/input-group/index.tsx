@@ -1,5 +1,4 @@
 import { clsx } from 'clsx';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import styles from './style.module.css';
@@ -53,14 +52,6 @@ export function InputGroupAddon( {
 			{ ...props }
 		/>
 	);
-}
-
-export function InputGroupButton( {
-	variant = 'ghost',
-	size = '2xs',
-	...props
-}: ComponentProps< typeof Button > ) {
-	return <Button variant={ variant } size={ size } { ...props } />;
 }
 
 export function InputGroupInput( { className, ...props }: ComponentProps< typeof Input > ) {

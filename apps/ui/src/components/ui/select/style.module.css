@@ -94,13 +94,6 @@
 		pointer-events: none;
 	}
 
-	.separator {
-		height: 1px;
-		margin: 4px -4px;
-		background-color: var( --border );
-		pointer-events: none;
-	}
-
 	.arrow {
 		position: sticky;
 		bottom: 0;

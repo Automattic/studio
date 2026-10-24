@@ -1,7 +1,6 @@
 @layer ui {
 	/* Menus, popovers, selects and dialogs float on this surface. */
 	.floating {
-		box-sizing: border-box;
 		background-color: var( --popover );
 		box-shadow:
 			0 0 0 1px var( --border ),
@@ -52,7 +51,6 @@
 		gap: 6px;
 		align-items: center;
 		min-height: 32px;
-		box-sizing: border-box;
 		padding: 6px 8px;
 		border-radius: var( --radius-md );
 		font-size: var( --text-xs );
@@ -81,7 +79,6 @@
 	.separator {
 		height: 1px;
 		margin: 6px 8px;
-		border: 0;
 		background-color: var( --border );
 	}
 

@@ -20,7 +20,6 @@
 .h3,
 .h4 {
 	margin-block: var(--markdown-gap);
-	font-size: inherit;
 	font-weight: var(--font-weight-semibold);
 	line-height: 20px;
 	color: var(--foreground);
@@ -33,7 +32,6 @@
 
 .hr {
 	margin-block: var(--markdown-rule-gap);
-	border: 0;
 	border-top: 1px solid var(--border);
 }
 
@@ -63,10 +61,6 @@
 	padding-block: 2px;
 }
 
-.li > .p {
-	margin: 0;
-}
-
 .li > .ul,
 .li > .ol {
 	margin-block-start: 4px;
@@ -74,7 +68,6 @@
 }
 
 .a {
-	color: inherit;
 	text-decoration: underline;
 	text-decoration-color: color-mix(in oklab, currentColor 30%, transparent);
 	text-underline-offset: 2px;
@@ -91,14 +84,9 @@
 }
 
 .blockquote {
-	margin-inline: 0;
 	padding-inline-start: 12px;
 	border-inline-start: 2px solid color-mix(in oklab, var(--muted-foreground) 30%, transparent);
 	color: var(--muted-foreground);
-}
-
-.blockquote > * {
-	margin-block: 0;
 }
 
 .blockquote > * + * {
@@ -146,7 +134,6 @@
 
 .table {
 	width: 100%;
-	border-collapse: collapse;
 }
 
 .table thead {

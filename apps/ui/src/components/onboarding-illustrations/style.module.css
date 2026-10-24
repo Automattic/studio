@@ -24,7 +24,6 @@
    that scales down responsively on narrow windows. The canvas is interactive
    (pointer scatter, click ripples) but isn't a control. */
 .pixelField {
-	display: block;
 	width: min(880px, calc(100vw - 100px));
 	height: auto;
 	cursor: default;

@@ -7,19 +7,16 @@
 }
 
 .pre {
-	margin: 0;
 	padding: 12px;
 	font-family: var(--font-mono);
 	font-size: var(--text-xs);
 	line-height: 20px;
-	tab-size: 4;
 	overflow-x: auto;
 	-webkit-user-select: text;
 	user-select: text;
 }
 
 .pre > code {
-	font: inherit;
 	white-space: pre;
 }
 

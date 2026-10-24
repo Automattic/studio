@@ -29,7 +29,6 @@
 		z-index: var( --z-dialog );
 		display: grid;
 		gap: 16px;
-		box-sizing: border-box;
 		width: calc( 100% - 2rem );
 		max-width: 384px;
 		max-height: calc( 100dvh - 2rem );
@@ -126,7 +125,6 @@
 		align-items: center;
 		column-gap: 12px;
 		min-height: 60px;
-		box-sizing: border-box;
 		padding: 14px 14px 14px 16px;
 	}
 
@@ -158,10 +156,7 @@
 	}
 
 	.title {
-		margin: 0;
-		font-size: inherit;
 		font-weight: var( --font-weight-medium );
-		line-height: inherit;
 	}
 
 	[data-layout='settings'] .title {
@@ -172,13 +167,8 @@
 	}
 
 	.description {
-		margin: 0;
 		color: var( --muted-foreground );
 		font-size: var( --text-sm );
-	}
-
-	.description p {
-		margin: 0;
 	}
 
 	.description p + p {
@@ -227,7 +217,6 @@
 	}
 
 	.panelTitle h1 {
-		margin: 0;
 		font-size: var( --text-sm );
 		font-weight: var( --font-weight-medium );
 		line-height: 20px;
@@ -259,7 +248,6 @@
 	.panelBody {
 		display: flex;
 		flex-direction: column;
-		box-sizing: border-box;
 		width: 100%;
 		min-height: 100%;
 		padding: 0 16px 16px;

@@ -72,7 +72,6 @@
 
 .userText,
 .assistantBubble {
-	box-sizing: border-box;
 	display: flex;
 	flex-direction: column;
 	gap: 8px;
@@ -120,9 +119,6 @@
 	display: flex;
 	flex-wrap: wrap;
 	gap: 8px;
-	margin: 0;
-	padding: 0;
-	list-style: none;
 }
 
 .userAttachment {
@@ -231,12 +227,8 @@
 	width: fit-content;
 	max-width: 100%;
 	min-width: 0;
-	padding: 0;
-	border: 0;
 	border-radius: var(--radius-md);
-	background: none;
 	color: var(--muted-foreground);
-	font: inherit;
 	text-align: start;
 	cursor: pointer;
 	transition: color var(--motion-duration-feedback) ease;
@@ -282,7 +274,6 @@
 }
 
 .toolOutput {
-	margin: 0;
 	font: inherit;
 	white-space: pre-wrap;
 }
@@ -294,7 +285,6 @@
 }
 
 .mediaArtifactImage {
-	display: block;
 	max-width: 100%;
 	border-radius: var(--radius-lg);
 }
@@ -334,7 +324,6 @@
 }
 
 .questionCard {
-	box-sizing: border-box;
 	display: flex;
 	flex-direction: column;
 	gap: 16px;
@@ -350,7 +339,6 @@
 }
 
 .questionText {
-	margin: 0;
 	color: var(--foreground);
 	font-weight: var(--font-weight-medium);
 	line-height: 1.375;
@@ -369,10 +357,6 @@
 }
 
 .questionSummary {
-	appearance: none;
-	border: 0;
-	color: inherit;
-	font: inherit;
 	text-align: start;
 	cursor: pointer;
 }
@@ -391,7 +375,6 @@
 	align-items: center;
 	gap: 6px;
 	min-height: 36px;
-	box-sizing: border-box;
 	padding: 6px 8px;
 	border-radius: var(--radius-md);
 	color: var(--muted-foreground);
@@ -425,10 +408,7 @@
 
 .questionChoices {
 	display: grid;
-	margin: 0;
 	margin-inline-start: -8px;
-	padding: 0;
-	list-style: none;
 }
 
 .questionChoiceItem {
@@ -440,15 +420,11 @@
 	display: flex;
 	align-items: center;
 	gap: 8px;
-	box-sizing: border-box;
 	width: 100%;
 	min-height: 36px;
 	padding: 8px;
-	border: 0;
 	border-radius: var(--radius-md);
-	background: transparent;
 	color: var(--foreground);
-	font: inherit;
 	text-align: start;
 	cursor: pointer;
 }
@@ -505,7 +481,6 @@
 .questionOptionImageUnavailable {
 	display: block;
 	flex-basis: 100%;
-	box-sizing: border-box;
 	width: 100%;
 	aspect-ratio: 4 / 3;
 	border-radius: var(--radius-lg);
@@ -552,7 +527,6 @@
 }
 
 .questionOptionZoomImage {
-	display: block;
 	max-width: calc(100vw - 2 * 24px);
 	max-height: calc(100dvh - 2 * 24px);
 }
@@ -637,4 +611,13 @@
 	.questionOptionImageLoading {
 		animation: none;
 	}
+}
+
+.marker a {
+	text-decoration: underline;
+	text-underline-offset: 3px;
+}
+
+.marker a:hover {
+	color: var(--foreground);
 }

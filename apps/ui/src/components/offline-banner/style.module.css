@@ -17,7 +17,6 @@
 }
 
 .description {
-	margin: 0;
 	font-size: var(--text-xxs);
 	line-height: 20px;
 	color: var(--muted-foreground);

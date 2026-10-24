@@ -75,7 +75,6 @@ import {
 import {
 	getIncompleteToolCallReason,
 	getWrittenFile,
-	getPayloadLimitViolation,
 	type StudioToolPayloadGuardState,
 	updateStudioToolPayloadGuardState,
 } from './tool-safety';
@@ -741,10 +740,6 @@ function toToolDefinition(
 			const incompleteToolCallReason = getIncompleteToolCallReason( payloadGuardState, toolCallId );
 			if ( incompleteToolCallReason ) {
 				throw new Error( incompleteToolCallReason );
-			}
-			const refusal = getPayloadLimitViolation( tool.name, params );
-			if ( refusal ) {
-				throw new Error( refusal );
 			}
 			// An irreversible call names its site in its own question, so it
 			// needs no second one about which site it changes.

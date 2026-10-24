@@ -607,37 +607,6 @@ describe( 'pi runtime', () => {
 		mocks.postChanges = { summaries: [], problems: [], written: [] };
 	} );
 
-	it( 'rejects oversized direct Write, Edit, and Bash payloads', async () => {
-		await runRuntime( {
-			prompt: 'hello',
-			env: WPCOM_ENV,
-			model: 'balanced',
-			session: newSession(),
-		} );
-
-		const write = getCreatedTool( 'Write' );
-		const edit = getCreatedTool( 'Edit' );
-		const bash = getCreatedTool( 'Bash' );
-
-		await expect(
-			write.execute( 'write-call', {
-				path: '/tmp/studio/site/tmp/large.txt',
-				content: 'x'.repeat( 14 * 1024 + 1 ),
-			} )
-		).rejects.toThrow( /single-call safety limit/ );
-		await expect(
-			edit.execute( 'edit-call', {
-				path: '/tmp/studio/site/tmp/large.txt',
-				edits: [ { oldText: '<!-- anchor -->', newText: 'x'.repeat( 14 * 1024 + 1 ) } ],
-			} )
-		).rejects.toThrow( /single-call safety limit/ );
-		await expect(
-			bash.execute( 'bash-call', {
-				command: 'x'.repeat( 8 * 1024 + 1 ),
-			} )
-		).rejects.toThrow( /single-call safety limit/ );
-	} );
-
 	it( 'rejects tool calls from length-truncated assistant messages', async () => {
 		mocks.nextEvents = [
 			assistantMessage(

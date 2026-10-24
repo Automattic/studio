@@ -53,7 +53,7 @@
 
 .dragPreview {
 	position: fixed;
-	z-index: 1000;
+	z-index: var(--z-drag);
 	pointer-events: none;
 	will-change: inset-block-start;
 }

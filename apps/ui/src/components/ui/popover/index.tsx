@@ -64,7 +64,7 @@ export function Popup( {
 				anchor={ anchor }
 				collisionAvoidance={ commands ? COMMANDS_COLLISION_AVOIDANCE : undefined }
 				collisionPadding={ commands ? 5 : undefined }
-				className={ clsx( styles.positioner, commands && styles.commandsPositioner ) }
+				className={ styles.positioner }
 			>
 				<BasePopover.Popup
 					data-slot="popover-content"

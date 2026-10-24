@@ -1,7 +1,6 @@
 @layer ui {
-	/* With selects: above dialogs, so a menu opened inside one shows, and below tooltips. */
 	.positioner {
-		z-index: var( --z-select );
+		z-index: var( --z-popover );
 		outline: none;
 	}
 

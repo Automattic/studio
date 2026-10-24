@@ -38,7 +38,7 @@ export function InputGroupAddon( {
 	onClick,
 	...props
 }: ComponentProps< 'div' > & {
-	align?: 'inline-start' | 'inline-end' | 'block-start' | 'block-end';
+	align?: 'inline-start' | 'inline-end';
 } ) {
 	return (
 		<div

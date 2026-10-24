@@ -26,7 +26,7 @@
 		opacity: 0.5;
 	}
 
-	.group:has( > [data-align='block-start'], > [data-align='block-end'], > textarea ) {
+	.group:has( > textarea ) {
 		flex-direction: column;
 		height: auto;
 	}
@@ -85,31 +85,6 @@
 
 	.addon[data-align='inline-end']:has( > button ) {
 		margin-inline-end: -0.3rem;
-	}
-
-	.addon:is( [data-align='block-start'], [data-align='block-end'] ) {
-		justify-content: flex-start;
-		width: 100%;
-		box-sizing: border-box;
-		padding-inline: 10px;
-	}
-
-	.addon[data-align='block-start'] {
-		order: -1;
-		padding-block-start: 8px;
-	}
-
-	.addon[data-align='block-end'] {
-		order: 1;
-		padding-block-end: 8px;
-	}
-
-	[data-variant='composer'] > .addon[data-align='block-start'] {
-		padding: 14px 14px 0;
-	}
-
-	[data-variant='composer'] > .addon[data-align='block-end'] {
-		padding: 0 8px 8px;
 	}
 
 	.control {

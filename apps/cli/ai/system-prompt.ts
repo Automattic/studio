@@ -1,6 +1,5 @@
 import { GLOBAL_INSTRUCTIONS_MAX_LENGTH } from '@studio/common/ai/global-instructions';
 import { formatActiveSite } from 'cli/ai/site-selection';
-import { findSkill } from 'cli/ai/skills';
 import type { SiteInfo } from 'cli/ai/types';
 
 // The system prompt states who the agent is and the environment it works in.
@@ -60,12 +59,7 @@ function buildActiveSiteSection( site?: SiteInfo | null, facts: string[] = [] ):
 	if ( ! site ) {
 		return '';
 	}
-	// A WordPress.com site is live and changes only through wpcom_request, so
-	// its runbook comes with it rather than waiting for the agent to load it.
-	const runbook = site.remote ? findSkill( 'edit-manage-remote-site' )?.body : undefined;
-	return `\n\n## Active site\n\n${ [ formatActiveSite( site ), ...facts ].join( '\n' ) }${
-		runbook ? `\n\n${ runbook }` : ''
-	}`;
+	return `\n\n## Active site\n\n${ [ formatActiveSite( site ), ...facts ].join( '\n' ) }`;
 }
 
 function buildUserInstructionsSection( userInstructions?: string ): string {

@@ -75,17 +75,6 @@ export function describeDestructiveCall(
 				question: `Delete the preview site ${ stringArg( params, 'host' ) }?`,
 				consequence: 'Deletes it from WordPress.com.',
 			};
-		case 'wpcom_request':
-			if ( stringArg( params, 'method' ) !== 'DELETE' ) {
-				return undefined;
-			}
-			return {
-				question: `Send DELETE ${ stringArg( params, 'path' ) } to WordPress.com site ${ stringArg(
-					params,
-					'siteId'
-				) }?`,
-				consequence: 'Deletes it on the live site.',
-			};
 		case 'wp_cli': {
 			const command = stringArg( params, 'command' )
 				.trim()

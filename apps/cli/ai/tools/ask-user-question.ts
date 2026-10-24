@@ -5,7 +5,7 @@ import type { AskUserQuestion } from 'cli/ai/types';
 import type { TSchema } from 'typebox';
 
 // Factory because the tool closes over `onAskUser` (the active AiChatUI
-// instance), same pattern as `wpcom-request.ts` closing over token + siteId.
+// instance).
 export function createAskUserQuestionTool(
 	onAskUser: ( questions: AskUserQuestion[] ) => Promise< Record< string, string > >
 ): AgentTool< TSchema > {

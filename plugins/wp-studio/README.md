@@ -45,6 +45,12 @@ update would overwrite, and after an edit they report block validation and what 
 instead of the file, such as a template saved in the Site Editor. Edits outside a WordPress site
 don't start Studio.
 
+## WordPress.com sites
+
+The plugin also lists WordPress.com's own MCP server (`wordpress-com`), so the agent can read and
+change your WordPress.com sites with the same tools and approval WordPress.com gives every MCP
+client. Your client asks you to log in to WordPress.com the first time it connects.
+
 ## The Studio CLI
 
 The plugin carries the Studio CLI of its own version. The copy in Anthropic's directory is too small

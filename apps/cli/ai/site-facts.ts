@@ -2,7 +2,6 @@ import { activePluginsFact, comingSoonFact } from 'cli/ai/plugins';
 import { savedCopiesFact } from 'cli/ai/saved-copies';
 import { readWordPressSite, type WordPressSite } from 'cli/ai/site-database';
 import { activeThemeFact } from 'cli/ai/themes';
-import { describeWpcomSiteCapabilities, getWpcomSiteCapabilities } from 'cli/ai/wpcom-capabilities';
 import { getWordPressVersionFromInstallation } from 'cli/lib/dependency-management/wordpress';
 import type { SiteInfo } from 'cli/ai/types';
 
@@ -41,18 +40,9 @@ export function readSiteFacts( sitePath: string ): Promise< string[] > {
 }
 
 /**
- * Facts about the active site for the Active site section: a local site's
- * own facts, or what a WordPress.com site's plan and the user's role allow.
+ * Facts about the active site for the Active site section. A WordPress.com
+ * site's own server states what its plan and the user's role allow.
  */
 export async function readActiveSiteFacts( site?: SiteInfo | null ): Promise< string[] > {
-	if ( ! site ) {
-		return [];
-	}
-	if ( site.remote ) {
-		const capabilities = site.wpcomSiteId
-			? await getWpcomSiteCapabilities( site.wpcomSiteId )
-			: undefined;
-		return capabilities ? [ `${ describeWpcomSiteCapabilities( capabilities ) }.` ] : [];
-	}
-	return readSiteFacts( site.path );
+	return site && ! site.remote ? readSiteFacts( site.path ) : [];
 }

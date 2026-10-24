@@ -43,30 +43,6 @@ describe( 'buildSystemPrompt', () => {
 		expect( buildSystemPrompt( { external: true } ) ).not.toContain( 'You are' );
 	} );
 
-	it( 'carries the remote-site runbook only when a WordPress.com site is active', () => {
-		const remote = buildSystemPrompt( {
-			activeSite: {
-				name: 'Live',
-				path: '',
-				running: false,
-				remote: true,
-				url: 'https://example.wordpress.com',
-				wpcomSiteId: 123,
-			},
-		} );
-		const local = buildSystemPrompt( {
-			activeSite: { name: 'My Site', path: '/sites/my-site', running: true },
-		} );
-		const runbook = loadSkills().find( ( skill ) => skill.name === 'edit-manage-remote-site' );
-
-		expect( remote ).toContain( runbook?.body );
-		expect( remote.indexOf( '## Active site' ) ).toBeLessThan(
-			remote.indexOf( '## Common wp/v2 Endpoints' )
-		);
-		expect( local ).not.toContain( '## Common wp/v2 Endpoints' );
-		expect( buildSystemPrompt( {} ) ).not.toContain( '## Common wp/v2 Endpoints' );
-	} );
-
 	it( 'states the active site in its own section, above the user instructions', () => {
 		const prompt = buildSystemPrompt( {
 			userInstructions: 'Always answer in French.',

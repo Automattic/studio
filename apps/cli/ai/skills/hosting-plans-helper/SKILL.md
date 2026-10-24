@@ -2,7 +2,6 @@
 name: hosting-plans-helper
 description: Answer WordPress.com plan and feature-tier questions (plan names and what each tier includes — plugins, themes, custom code, SSH, hosting) from authoritative live data. Load before answering ANY plan or feature-gating question; never answer these from memory.
 user-invokable: true
-tools: wpcom_request
 ---
 
 # Hosting Plans Helper
@@ -25,19 +24,11 @@ Fetch `wpcom/v2/plans/features`. It returns, per plan, the current `name` and th
 full list of `features` that tier unlocks — grouped (Essential features,
 Performance boosters, High Availability, Developer tools, Security, etc.).
 
-**Local sites (Bash tool available):**
-
 ```text
 curl -s "https://public-api.wordpress.com/wpcom/v2/plans/features?locale=en"
 ```
 
-**Connected WordPress.com sites (wpcom_request tool available, no Bash):**
-
-```text
-wpcom_request  method=GET  path="!/plans/features"  apiNamespace="wpcom/v2"
-```
-
-The endpoint is public (no authentication) and reachable in either environment.
+The endpoint is public (no authentication).
 
 ## Step 2: Answer from the fetched data only
 

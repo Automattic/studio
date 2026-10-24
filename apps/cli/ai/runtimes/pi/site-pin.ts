@@ -31,11 +31,8 @@ function localTarget( sitePath: string, name: string ): SiteTarget {
 	return { key: path.resolve( sitePath ), label: `"${ name }"` };
 }
 
-function remoteTarget( siteId: number | string, name?: string ): SiteTarget {
-	return {
-		key: `wpcom:${ siteId }`,
-		label: name ? `"${ name }"` : `WordPress.com site ${ siteId }`,
-	};
+function remoteTarget( siteId: number, name: string ): SiteTarget {
+	return { key: `wpcom:${ siteId }`, label: `"${ name }"` };
 }
 
 function isInside( file: string, dir: string ): boolean {
@@ -45,13 +42,6 @@ function isInside( file: string, dir: string ): boolean {
 
 async function targetOf( toolName: string, params: unknown ): Promise< SiteTarget | undefined > {
 	const args = ( params ?? {} ) as Record< string, unknown >;
-	if ( toolName === 'wpcom_request' ) {
-		const isWrite = args.method !== 'GET';
-		const isSitePath = typeof args.path === 'string' && ! args.path.startsWith( '!' );
-		return isWrite && isSitePath && args.siteId !== undefined
-			? remoteTarget( args.siteId as number )
-			: undefined;
-	}
 	if ( FILE_CHANGES.has( toolName ) && typeof args.path === 'string' ) {
 		const file = path.resolve( STUDIO_SITES_ROOT, args.path );
 		const { sites } = await readCliConfig();

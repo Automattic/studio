@@ -80,7 +80,7 @@ describe( 'SitePin', () => {
 		).toBeUndefined();
 	} );
 
-	it( 'pins a WordPress.com active site by ID', async () => {
+	it( 'asks before a local change while a WordPress.com site is active', async () => {
 		const pin = new SitePin( {
 			name: 'Live',
 			path: '',
@@ -88,17 +88,6 @@ describe( 'SitePin', () => {
 			remote: true,
 			wpcomSiteId: 7,
 		} );
-		expect(
-			await pin.confirmationFor( 'wpcom_request', { siteId: 7, method: 'POST', path: '/posts' } )
-		).toBeUndefined();
-		expect(
-			await pin.confirmationFor( 'wpcom_request', { siteId: 8, method: 'GET', path: '/posts' } )
-		).toBeUndefined();
-		expect(
-			(
-				await pin.confirmationFor( 'wpcom_request', { siteId: 8, method: 'POST', path: '/posts' } )
-			)?.confirmation.question
-		).toBe( 'Also change WordPress.com site 8? This request is about "Live".' );
 		expect(
 			await pin.confirmationFor( 'wp_cli', { nameOrPath: 'Shop', command: 'post create x' } )
 		).toBeTruthy();

@@ -7,7 +7,7 @@ const ALL = [
 	'wp_cli',
 	'scaffold_theme',
 	'pick_design',
-	'wpcom_request',
+	'install_taxonomy_scripts',
 	'need_for_speed',
 ];
 
@@ -49,8 +49,8 @@ describe( 'SkillToolScope', () => {
 	} );
 
 	it( 'restores tools from skills loaded earlier in the conversation', () => {
-		const scope = new SkillToolScope( sessionWithSkillCall( 'edit-manage-remote-site' ) );
-		expect( scope.activeToolNames( ALL ) ).toContain( 'wpcom_request' );
+		const scope = new SkillToolScope( sessionWithSkillCall( 'taxonomist' ) );
+		expect( scope.activeToolNames( ALL ) ).toContain( 'install_taxonomy_scripts' );
 		expect( scope.activeToolNames( ALL ) ).not.toContain( 'need_for_speed' );
 	} );
 } );

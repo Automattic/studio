@@ -56,6 +56,7 @@ import { resolveSite } from 'cli/ai/tools/utils';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import { createConfirmer, describeDestructiveCall, type Confirmer } from './confirmation';
 import { withLeakedToolCallMarkupRemoved } from './leaked-tool-call-markup';
+import { createMcpTools, isUserMcpTool, readMcpServers } from './mcp-tools';
 import { getPendingWork, type PendingWork } from './pending-work';
 import { changesPreview } from './preview-reload';
 import { SitePin } from './site-pin';
@@ -149,7 +150,12 @@ export function runStudioAgentTurn( config: StudioAgentTurnConfig ): StudioAgent
 			await activeSession?.abort();
 		},
 		hasTool( name ) {
-			return activeSession?.getAllTools().some( ( tool ) => tool.name === name ) ?? false;
+			// A tool from the user's own MCP server is reported like a made-up one,
+			// so its name stays out of telemetry.
+			return (
+				! isUserMcpTool( name ) &&
+				( activeSession?.getAllTools().some( ( tool ) => tool.name === name ) ?? false )
+			);
 		},
 	};
 }
@@ -343,11 +349,15 @@ async function createStudioAgentSession(
 	const model = buildModel( config.model, family, creds );
 	const chatArtifactsEnabled = typeof process.send === 'function';
 	const visionEnabled = aiModelSupportsImages( config.model );
-	const [ userInstructions, imageGenerationEnabled, activeSiteFacts ] = await Promise.all( [
-		readGlobalInstructions(),
-		isImageGenerationAvailable(),
-		readActiveSiteFacts( config.activeSite ),
-	] );
+	const confirm = createConfirmer( config.onConfirm ?? config.onAskUser );
+	const [ userInstructions, imageGenerationEnabled, activeSiteFacts, mcpTools ] = await Promise.all(
+		[
+			readGlobalInstructions(),
+			isImageGenerationAvailable(),
+			readActiveSiteFacts( config.activeSite ),
+			readMcpServers().then( ( servers ) => createMcpTools( servers, confirm ) ),
+		]
+	);
 
 	const skillScope = new SkillToolScope( config.session );
 	let activateTools: () => void = () => {};
@@ -369,7 +379,6 @@ async function createStudioAgentSession(
 
 	const pendingWork = getPendingWork( config.session );
 	const blockValidationGate = getBlockValidationGate( config.session );
-	const confirm = createConfirmer( config.onConfirm ?? config.onAskUser );
 	const sitePin = new SitePin( config.activeSite );
 	const site = config.activeSite;
 	// The Active site section already states this turn's facts.
@@ -378,7 +387,7 @@ async function createStudioAgentSession(
 	);
 	const resultNotes =
 		site && ! site.remote ? ( result: string ) => notes( site.path, result ) : undefined;
-	const toolDefinitions = tools.map( ( tool ) =>
+	const toolDefinitions = [ ...tools, ...mcpTools ].map( ( tool ) =>
 		toToolDefinition( tool, payloadGuardState, pendingWork, blockValidationGate, {
 			confirm,
 			sitePin,

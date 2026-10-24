@@ -62,7 +62,6 @@ vi.mock( '@studio/common/lib/well-known-paths', async ( importOriginal ) => {
 	return {
 		...actual,
 		getConfigDirectory: () => mocks.configRoot,
-		getAiPayloadsPath: () => `${ mocks.configRoot }/tmp/ai-payloads`,
 	};
 } );
 
@@ -274,9 +273,9 @@ describe( 'pi runtime', () => {
 		await runRuntime( { prompt: 'hello', session: newSession(), env: WPCOM_ENV } );
 		const session = mocks.createdSessions[ 0 ] as unknown as FakeSession;
 		expect( session.activeToolNames ).toContain( 'wp_cli' );
-		expect( session.activeToolNames ).not.toContain( 'wpcom_request' );
-		await getCreatedTool( 'Skill' ).execute( 't', { name: 'edit-manage-remote-site' } );
-		expect( session.activeToolNames ).toContain( 'wpcom_request' );
+		expect( session.activeToolNames ).not.toContain( 'install_taxonomy_scripts' );
+		await getCreatedTool( 'Skill' ).execute( 't', { name: 'taxonomist' } );
+		expect( session.activeToolNames ).toContain( 'install_taxonomy_scripts' );
 	} );
 
 	it( 'emits a full exchange when AgentSession returns output', async () => {
@@ -503,20 +502,17 @@ describe( 'pi runtime', () => {
 		).rejects.toThrow( /single-call safety limit/ );
 	} );
 
-	it( 'rejects remote wpcom_request calls from length-truncated assistant messages', async () => {
+	it( 'rejects tool calls from length-truncated assistant messages', async () => {
 		mocks.nextEvents = [
 			assistantMessage(
 				[
 					{
 						type: 'toolCall',
-						id: 'wpcom-call-1',
-						name: 'wpcom_request',
+						id: 'wp-cli-call-1',
+						name: 'wp_cli',
 						arguments: {
-							method: 'POST',
-							path: '/pages/4',
-							body: {
-								content: '<!-- wp:paragraph --><p>partial',
-							},
+							nameOrPath: 'bakery',
+							command: 'post update 4 --post_content="<!-- wp:paragraph --><p>partial',
 						},
 						index: 0,
 					},
@@ -533,13 +529,10 @@ describe( 'pi runtime', () => {
 			session: newSession(),
 		} );
 
-		const wpcomRequest = getCreatedTool( 'wpcom_request' );
-
 		await expect(
-			wpcomRequest.execute( 'wpcom-call-1', {
-				method: 'POST',
-				path: '/pages/4',
-				body: { content: '<!-- wp:paragraph --><p>partial' },
+			getCreatedTool( 'wp_cli' ).execute( 'wp-cli-call-1', {
+				nameOrPath: 'bakery',
+				command: 'post update 4 --post_content="<!-- wp:paragraph --><p>partial',
 			} )
 		).rejects.toThrow( /hit the model output limit/ );
 	} );

@@ -24,7 +24,6 @@ import { stopSiteTool } from './stop-site';
 import { createTakeScreenshotTool, takeScreenshotTool } from './take-screenshot';
 import { updatePreviewTool } from './update-preview';
 import { runWpCliTool } from './wp-cli';
-import { wpcomRequestTool } from './wpcom-request';
 import type { AnyStudioAgentTool, StudioToolResultDetails } from './define-tool';
 import type { DesignTracksContext } from 'cli/ai/design-tracks';
 
@@ -51,7 +50,6 @@ export const studioToolDefinitions: AnyStudioAgentTool[] = [
 	auditPerformanceTool,
 	auditSeoTool,
 	listConnectedRemoteSitesTool,
-	wpcomRequestTool,
 	pushSiteTool,
 	pullSiteTool,
 	importSiteTool,
@@ -70,9 +68,6 @@ export interface CreateStudioToolsOptions {
 	imageGeneration?: boolean;
 	// False for models that cannot view images. Defaults to true.
 	visionEnabled?: boolean;
-	// False leaves out wpcom_request, for hosts that don't accept a tool reaching any
-	// WordPress.com endpoint. Defaults to true.
-	wpcomRequest?: boolean;
 	// Lets pick_design offer options to pick from. Defaults to false.
 	canAskUser?: boolean;
 	// The chat session the design tools record Tracks events for; absent for the MCP server.
@@ -87,9 +82,6 @@ export function resolveStudioToolDefinitions(
 ): AnyStudioAgentTool[] {
 	return studioToolDefinitions.flatMap( ( candidate ) => {
 		if ( candidate.name === generateImagesTool.name && ! options.imageGeneration ) {
-			return [];
-		}
-		if ( candidate.name === wpcomRequestTool.name && options.wpcomRequest === false ) {
 			return [];
 		}
 		let tool = candidate;

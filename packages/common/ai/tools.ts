@@ -321,7 +321,6 @@ export function getToolDisplayName( name: string, input?: Record< string, unknow
 		need_for_speed: __( 'Audit performance' ),
 		rank_me_up: __( 'Audit SEO' ),
 		install_taxonomy_scripts: __( 'Install taxonomy scripts' ),
-		wpcom_request: __( 'WordPress.com API' ),
 		AskUserQuestion: __( 'Ask user' ),
 		Read: __( 'Read' ),
 		Write: __( 'Write' ),
@@ -418,11 +417,6 @@ export function getToolDetail( name: string, input?: Record< string, unknown > )
 			return typeof input.host === 'string' ? input.host : '';
 		case 'AskUserQuestion':
 			return getAskUserDetail( input );
-		case 'wpcom_request': {
-			const method = typeof input.method === 'string' ? input.method : '';
-			const path = typeof input.path === 'string' ? input.path : '';
-			return [ method, path ].filter( Boolean ).join( ' ' );
-		}
 		case 'wp_cli':
 			return typeof input.command === 'string' ? `wp ${ input.command }` : '';
 		case 'scaffold_theme':

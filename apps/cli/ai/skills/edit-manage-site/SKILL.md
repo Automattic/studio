@@ -6,7 +6,7 @@ user-invokable: true
 
 # Edit and Manage a Site
 
-Use this skill for work on an existing local Studio site. A new site, a redesign, or a rebuild uses the `build-site` skill instead, and the user's WordPress.com sites use the `edit-manage-remote-site` skill.
+Use this skill for work on an existing local Studio site. A new site, a redesign, or a rebuild uses the `build-site` skill instead.
 
 ## 1. Settle the site
 

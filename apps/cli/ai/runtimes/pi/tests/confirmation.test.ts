@@ -28,16 +28,6 @@ describe( 'describeDestructiveCall', () => {
 		).toBeUndefined();
 	} );
 
-	it( 'confirms only DELETE requests to WordPress.com', () => {
-		expect(
-			describeDestructiveCall( 'wpcom_request', { method: 'DELETE', path: '/posts/4', siteId: 9 } )
-				?.question
-		).toBe( 'Send DELETE /posts/4 to WordPress.com site 9?' );
-		expect(
-			describeDestructiveCall( 'wpcom_request', { method: 'POST', path: '/plugins/x', siteId: 9 } )
-		).toBeUndefined();
-	} );
-
 	it.each( [
 		'plugin delete akismet',
 		'theme delete twentytwenty',

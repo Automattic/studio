@@ -983,7 +983,9 @@ describe( 'SiteList', () => {
 		useSessionsMock.mockReturnValue( { data: chats, isLoading: false } );
 		const { rerender } = render( <SiteList sections /> );
 		const recent = () => screen.getByRole( 'group', { name: 'Recent' } );
-		expect( within( recent() ).queryByRole( 'button', { name: 'New chat' } ) ).toBeNull();
+		expect(
+			within( recent() ).queryByRole( 'button', { name: 'New chat' } )
+		).not.toBeInTheDocument();
 
 		paramsMock = { sessionId: 'empty-chat' };
 		rerender( <SiteList sections /> );

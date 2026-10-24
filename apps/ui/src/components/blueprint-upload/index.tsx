@@ -3,7 +3,7 @@ import { __ } from '@wordpress/i18n';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { BlueprintErrorDialog } from '@/components/blueprint-error-dialog';
 import { useConnector } from '@/data/core';
-import { BLUEPRINT_FILE_ACCEPT, loadBlueprintFile } from '@/lib/load-blueprint-file';
+import { BLUEPRINT_FILE_ACCEPT, loadBlueprintFile } from './load-blueprint-file';
 import styles from './style.module.css';
 import type { SelectedBlueprint } from '@/lib/blueprint-selection';
 import type { ChangeEvent } from 'react';

@@ -121,7 +121,7 @@ vi.mock( '@/data/queries/use-agent-run', () => ( {
 	} ),
 } ) );
 
-vi.mock( '@/hooks/use-session-commands', () => ( { useSessionCommands: vi.fn() } ) );
+vi.mock( './use-session-commands', () => ( { useSessionCommands: vi.fn() } ) );
 
 vi.mock( '@/hooks/use-session-ui', () => ( {
 	SessionUIProvider: ( { children }: { children: React.ReactNode } ) => children,
@@ -182,7 +182,7 @@ vi.mock( './conversation', () => ( {
 vi.mock( '@/components/chat-actions', () => ( {
 	ChatContextMenu: ( { children }: { children: React.ReactNode } ) => children,
 } ) );
-vi.mock( '@/hooks/use-mark-chat-read', () => ( { useMarkChatRead: vi.fn() } ) );
+vi.mock( './use-mark-chat-read', () => ( { useMarkChatRead: vi.fn() } ) );
 
 const useSessionMock = vi.mocked( useSession, { partial: true } );
 const useStudioAssistantQuotaMock = vi.mocked( useStudioAssistantQuota, { partial: true } );

@@ -1,6 +1,5 @@
 import { hasUnseenWhatsNew } from '@studio/common/lib/whats-new';
 import { useEffect, useRef } from 'react';
-import { useOnboardingGuide } from '@/components/onboarding-guide/use-onboarding-guide';
 import { useOnboardingHints } from '@/data/queries/use-onboarding-hints';
 import { useSites } from '@/data/queries/use-sites';
 import {
@@ -9,6 +8,7 @@ import {
 	useWhatsNewVersion,
 } from '@/data/queries/use-whats-new-seen';
 import { ORIENTATION_GUIDE_VERSION } from './orientation-guide';
+import { useOnboardingGuide } from './use-onboarding-guide';
 import { getWhatsNewGuide } from './whats-new';
 import type { OnboardingHintsState } from '@/data/core';
 

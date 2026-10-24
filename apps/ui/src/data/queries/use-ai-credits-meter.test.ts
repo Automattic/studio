@@ -1,9 +1,9 @@
 import { renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
 import { useAiCreditsMeter } from './use-ai-credits-meter';
+import { useStudioAssistantQuota } from './use-assistant-quota';
 
-vi.mock( '@/data/queries/use-assistant-quota', () => ( {
+vi.mock( './use-assistant-quota', () => ( {
 	useStudioAssistantQuota: vi.fn(),
 } ) );
 

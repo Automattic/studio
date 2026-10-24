@@ -1,7 +1,7 @@
 import { isStudioChatArtifactData } from '@studio/common/ai/chat-artifacts';
 import { useEffect } from 'react';
 import { useConnector } from '@/data/core';
-import { useSessionUIDispatch } from './use-session-ui';
+import { useSessionUIDispatch } from '../../hooks/use-session-ui';
 
 // Bridge from the chat event stream to SessionUI state. No state of its own —
 // purely the wiring that turns agent events into UI actions. Add a new

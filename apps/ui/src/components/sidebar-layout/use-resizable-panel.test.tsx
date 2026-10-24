@@ -1,8 +1,8 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ResizeHandle } from '@/components/resize-handle';
-import { useResizablePanel } from '@/hooks/use-resizable-panel';
 import { SIDEBAR_PANEL_CONFIG, SIDEBAR_PANEL_STORAGE_KEY } from '@/lib/resizable-panels';
+import { useResizablePanel } from './use-resizable-panel';
 
 const rtlState = vi.hoisted( () => ( { isRTL: false } ) );
 vi.mock( '@wordpress/i18n', async ( importOriginal ) => ( {

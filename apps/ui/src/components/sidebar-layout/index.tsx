@@ -8,7 +8,6 @@ import { SidebarHeader } from '@/components/sidebar-header';
 import { SiteList } from '@/components/site-list';
 import { UserMenu } from '@/components/user-menu';
 import { useConnector } from '@/data/core';
-import { useResizablePanel } from '@/hooks/use-resizable-panel';
 import {
 	SidebarCollapsedContext,
 	SidebarOpenContext,
@@ -21,6 +20,7 @@ import {
 	SIDEBAR_PANEL_STORAGE_KEY,
 } from '@/lib/resizable-panels';
 import styles from './style.module.css';
+import { useResizablePanel } from './use-resizable-panel';
 import type { CSSProperties, ReactNode } from 'react';
 
 export function SidebarLayout( { children }: { children: ReactNode } ) {

@@ -100,6 +100,7 @@ import { useConnector } from '@/data/core';
 import { useAiSettings } from '@/data/queries/use-ai-settings';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
 import { useAuthUser } from '@/data/queries/use-auth-user';
+import { useIsOutOfAiCredits } from '@/data/queries/use-is-out-of-ai-credits';
 import {
 	createModelChangeEntry,
 	openNewSession,
@@ -109,7 +110,6 @@ import {
 import { useStudioAssistantTopUpPricing } from '@/data/queries/use-top-up-pricing';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useAddAiCreditsUrl } from '@/hooks/use-add-ai-credits-url';
-import { useIsOutOfAiCredits } from '@/hooks/use-is-out-of-ai-credits';
 import { useOpenSettings } from '@/hooks/use-open-settings';
 import { AnnotationIcon } from '@/lib/icons/annotation-icon';
 import { ChevronDownIcon } from '@/lib/icons/chevron-down-icon';

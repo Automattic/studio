@@ -2,9 +2,9 @@ import { mkdirSync, rmSync, writeFileSync } from 'fs';
 import path from 'path';
 import { afterEach, beforeEach, expect, it } from 'vitest';
 import { childThemeCopies } from 'cli/ai/child-theme-copies';
-import { OpenProblems } from 'cli/ai/open-problems';
 import { SiteChanges } from 'cli/ai/site-changes';
 import { createSite } from 'cli/ai/tests/fixtures/wordpress-site';
+import type { OpenProblems } from 'cli/ai/open-problems';
 import type { SiteData } from 'cli/lib/cli-config/core';
 
 let fixture: ReturnType< typeof createSite >;
@@ -74,7 +74,7 @@ it.each( [
 		copies: undefined,
 	},
 ] )( 'reports $name', async ( { change, copies } ) => {
-	const check = new SiteChanges( new Map(), undefined, async () => [ site ], [ childThemeCopies ] );
+	const check = new SiteChanges( undefined, async () => [ site ], [ childThemeCopies ] );
 	const problems = await problemsAfter( check, change );
 	expect( problems ).toEqual(
 		copies
@@ -88,9 +88,13 @@ it.each( [
 } );
 
 it( 'reports a copy once, and keeps it open until it is changed or deleted', async () => {
-	const open = new OpenProblems( undefined, [] );
-	const check = new SiteChanges( new Map(), open, async () => [ site ], [ childThemeCopies ] );
-	const isOpen = () => Object.keys( open.toJSON().open ).length > 0;
+	// The problem of each key, as the turn's open problems record it.
+	const recorded = new Map< string, string | undefined >();
+	const open = {
+		record: ( _site: string, key: string, problem?: string ) => recorded.set( key, problem ),
+	} as OpenProblems;
+	const check = new SiteChanges( open, async () => [ site ], [ childThemeCopies ] );
+	const isOpen = () => [ ...recorded.values() ].some( Boolean );
 
 	// A changed file stays the child's own while neither file changes.
 	write( 'kid/parts/header.html', '<!-- wp:site-logo /-->' );

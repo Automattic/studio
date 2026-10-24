@@ -11,6 +11,7 @@ import { childThemeCopies } from 'cli/ai/child-theme-copies';
 import { postContentChanges } from 'cli/ai/post-content-check';
 import { siteFileWrites } from 'cli/ai/site-file-writes';
 import { updatableThemeChanges } from 'cli/ai/theme-file-changes';
+import { themeStylesheet } from 'cli/ai/theme-stylesheet';
 import { readCliConfig, type SiteData } from 'cli/lib/cli-config/core';
 import type { OpenProblems } from 'cli/ai/open-problems';
 
@@ -53,6 +54,8 @@ export const SITE_CHANGE_SOURCES: SiteChangeSource[] = [
 	postContentChanges,
 	updatableThemeChanges,
 	childThemeCopies,
+	// Before siteFileWrites, which reports the functions.php it may add to.
+	themeStylesheet,
 	siteFileWrites,
 ];
 

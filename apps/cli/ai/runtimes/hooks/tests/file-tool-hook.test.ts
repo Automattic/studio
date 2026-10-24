@@ -93,76 +93,85 @@ it( 'adds to a write the block validation and what WordPress renders instead of 
 	expect( await post( '/elsewhere/src/index.ts' ) ).toBeUndefined();
 } );
 
-const DESIGN_MD =
-	'---\ncolors:\n  primary: "#c2552b"\n  background: "#fbf6ee"\ntypography:\n  body:\n    fontFamily: "Inter"\n    fontWeight: 400\n---\n\n# Overview\n';
-
 afterEach( () => vi.unstubAllGlobals() );
 
-// DESIGN.md is the look. Writing a theme.json builds that theme on it, font
-// files included; writing DESIGN.md reaches the active theme once it uses
-// DESIGN.md's names. A theme WordPress updates is left alone.
-const INTER = { slug: 'inter', name: 'Inter', fontFamily: 'Inter, sans-serif' };
-const NOTE = 'colors primary, background; font families inter; fonts of the styles body';
+// A theme.json font family without font files gets them from Google Fonts, in
+// the weights the theme uses. A theme WordPress updates is left alone.
+const FACE = { fontFamily: 'Inter', src: [ 'file:./assets/fonts/inter.woff2' ] };
 it.each( [
-	{ written: 'bakery/theme.json', palette: [ 'ink' ], families: [ INTER ], wrote: NOTE },
-	{ written: 'DESIGN.md', palette: [ 'primary' ], families: [], wrote: NOTE },
-	{ written: 'DESIGN.md', palette: [ 'ink' ], families: [], wrote: undefined },
-	{ written: 'bakery-parent/theme.json', palette: [ 'ink' ], families: [], wrote: undefined },
+	{
+		theme: 'bakery',
+		family: 'Inter',
+		fontFace: undefined,
+		note: 'Studio downloaded the font files of Inter from Google Fonts into wp-content/themes/bakery/assets/fonts and declared them as their fontFace in theme.json.',
+	},
+	{
+		theme: 'bakery',
+		family: 'Nope Sans',
+		fontFace: undefined,
+		note: 'Nope Sans has no font files in wp-content/themes/bakery/theme.json, and Google Fonts did not provide them (https://fonts.googleapis.com/css2?family=Nope+Sans:wght@400;600&display=swap responded with HTTP 400).',
+	},
+	{ theme: 'bakery', family: 'Inter', fontFace: [ FACE ], note: undefined },
+	{ theme: 'bakery-parent', family: 'Inter', fontFace: undefined, note: undefined },
 ] )(
-	'writes DESIGN.md into the theme after a write to $written over $palette',
-	async ( { written, palette, families, wrote } ) => {
-		vi.stubGlobal(
-			'fetch',
-			vi.fn( async ( url: string ) =>
-				url.startsWith( 'https://fonts.googleapis.com/' )
-					? new Response(
-							"/* latin */\n@font-face {\n  font-family: 'Inter';\n  font-style: normal;\n  font-weight: 400;\n  src: url(https://fonts.gstatic.com/inter.woff2) format('woff2');\n}\n"
-					  )
-					: new Response( new Uint8Array( [ 1 ] ) )
-			)
+	'self-hosts $family in $theme after a theme.json write, with font files: $fontFace',
+	async ( { theme, family, fontFace, note } ) => {
+		const fetch = vi.fn( async ( url: string ) =>
+			url.includes( 'Nope' )
+				? new Response( '', { status: 400 } )
+				: url.startsWith( 'https://fonts.googleapis.com/' )
+				? new Response(
+						"/* latin */\n@font-face {\n  font-family: 'Inter';\n  font-style: normal;\n  font-weight: 400;\n  src: url(https://fonts.gstatic.com/inter.woff2) format('woff2');\n}\n"
+				  )
+				: new Response( new Uint8Array( [ 1 ] ) )
 		);
-		writeFileSync( path.join( site.root, 'DESIGN.md' ), DESIGN_MD );
-		const themes = path.join( site.root, 'wp-content/themes' );
+		vi.stubGlobal( 'fetch', fetch );
+		const themeDir = path.join( site.root, 'wp-content/themes', theme );
 		const start = {
 			version: 3,
 			settings: {
-				color: { palette: palette.map( ( slug ) => ( { slug, color: '#111' } ) ) },
-				typography: { fontFamilies: families },
+				typography: {
+					fontFamilies: [
+						{ slug: 'body', name: family, fontFamily: `"${ family }", sans-serif`, fontFace },
+					],
+				},
+			},
+			styles: {
+				typography: { fontFamily: 'var:preset|font-family|body' },
+				elements: { h1: { typography: { fontWeight: '600' } } },
 			},
 		};
-		for ( const slug of [ 'bakery', 'bakery-parent' ] ) {
-			writeFileSync( path.join( themes, slug, 'theme.json' ), JSON.stringify( start ) );
-		}
+		writeFileSync( path.join( themeDir, 'theme.json' ), JSON.stringify( start ) );
 
 		const output = await runFileToolHook( {
 			hook_event_name: 'PostToolUse',
 			tool_name: 'Write',
-			tool_input: {
-				file_path: path.join( written === 'DESIGN.md' ? site.root : themes, written ),
-			},
+			tool_input: { file_path: path.join( themeDir, 'theme.json' ) },
 		} );
 
-		const theme = wrote && ( written === 'DESIGN.md' ? 'bakery' : written.split( '/' )[ 0 ] );
-		for ( const slug of [ 'bakery', 'bakery-parent' ] ) {
-			const themeJson = JSON.parse(
-				readFileSync( path.join( themes, slug, 'theme.json' ), 'utf8' )
+		const themeJson = JSON.parse( readFileSync( path.join( themeDir, 'theme.json' ), 'utf8' ) );
+		const hosted = note?.startsWith( 'Studio downloaded' );
+		expect( themeJson.settings.typography.fontFamilies[ 0 ].fontFace ).toEqual(
+			hosted
+				? [
+						{
+							fontFamily: 'Inter',
+							fontStyle: 'normal',
+							fontWeight: '400',
+							src: [ 'file:./assets/fonts/inter/inter-400-latin.woff2' ],
+						},
+				  ]
+				: fontFace
+		);
+		expect( existsSync( path.join( themeDir, 'assets/fonts/inter' ) ) ).toBe( !! hosted );
+		if ( hosted ) {
+			expect( fetch ).toHaveBeenCalledWith(
+				'https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap',
+				expect.anything()
 			);
-			if ( slug !== theme ) {
-				expect( themeJson ).toEqual( start );
-				continue;
-			}
-			expect(
-				themeJson.settings.color.palette.map( ( color: { slug: string } ) => color.slug )
-			).toEqual( [ ...new Set( [ ...palette, 'primary', 'background' ] ) ] );
-			expect( themeJson.styles.typography.fontFamily ).toBe( 'var:preset|font-family|inter' );
-			expect( themeJson.settings.typography.fontFamilies[ 0 ].fontFace ).toHaveLength( 1 );
-			expect( existsSync( path.join( themes, slug, 'assets/fonts/inter' ) ) ).toBe( true );
 		}
 		expect( output?.hookSpecificOutput ).toEqual(
-			wrote && {
-				hookEventName: 'PostToolUse',
-				additionalContext: `Note: Studio wrote DESIGN.md's tokens into wp-content/themes/${ theme }/theme.json under DESIGN.md's names: ${ wrote }. DESIGN.md holds these values; change the look there.`,
-			}
+			note && { hookEventName: 'PostToolUse', additionalContext: `Note: ${ note }` }
 		);
 	}
 );

@@ -79,7 +79,13 @@ function escapeHtml( text: string ): string {
 // shows, or as one numbered grid image for it to show and ask about.
 async function handOverOptions(
 	question: string,
-	options: { label: string; description: string; image: string; buffer: Buffer }[],
+	options: {
+		label: string;
+		description: string;
+		image: string;
+		buffer: Buffer;
+		themeJson?: string;
+	}[],
 	imageLink: ( file: string ) => string,
 	picker: boolean
 ): Promise< ToolResult > {
@@ -111,7 +117,18 @@ async function handOverOptions(
 		viewportType: 'design-options',
 		format: 'jpeg',
 	} );
-	const nextStep = `Continue with what they pick. If they pick "${ OTHER_OPTIONS }", draw that step again with pick_design; if they describe their own, follow it.`;
+	const looks = options.flatMap( ( option, index ) =>
+		option.themeJson ? [ `${ index + 1 }. ${ option.label }: ${ option.themeJson }` ] : []
+	);
+	const nextStep = [
+		`Continue with what they pick. If they pick "${ OTHER_OPTIONS }", draw that step again with pick_design; if they describe their own, follow it.`,
+		...( looks.length
+			? [
+					"Each look's theme.json, to copy into the theme as its theme.json once picked:",
+					...looks,
+			  ]
+			: [] ),
+	].join( '\n' );
 	const gridImage = {
 		type: 'image' as const,
 		data: grid.buffer.toString( 'base64' ),
@@ -186,7 +203,7 @@ export function createPresentDesignOptionsTool( {
 				: picker
 				? 'shows them to the user under this call as a clickable picker'
 				: 'returns them as one numbered grid image for you to show and ask about, since the user does not see tool results'
-		}. Pass one option per drawn entry (2–4), in the order pick_design returned them, each with a \`preview\`: for a look, the option's DESIGN.md draft, rendered as a design board with its generated \`image\` if it has one; for a layout, a complete standalone HTML sneak peek — inline CSS, no scripts, optionally a Google Fonts link with a fallback stack; images referenced by absolute path under the site are inlined, otherwise use solid color shapes, never web URLs. Each is rendered in a ${
+		}. Pass one option per drawn entry (2–4), in the order pick_design returned them, each with a \`preview\`: for a look, the option's theme.json (see the visual-design skill), rendered as a design board with its generated \`image\` if it has one, and saved as a file for the picked one to become the theme's theme.json; for a layout, a complete standalone HTML sneak peek — inline CSS, no scripts, optionally a Google Fonts link with a fallback stack; images referenced by absolute path under the site are inlined, otherwise use solid color shapes, never web URLs. Each is rendered in a ${
 			PREVIEW_VIEWPORT.width
 		}×${
 			PREVIEW_VIEWPORT.height
@@ -211,7 +228,7 @@ export function createPresentDesignOptionsTool( {
 					} ),
 					preview: Type.String( {
 						description:
-							'A DESIGN.md draft (front matter and Overview) for a look, or a complete HTML sneak peek for a layout.',
+							"The look's theme.json for a look, or a complete HTML sneak peek for a layout.",
 					} ),
 					image: Type.Optional(
 						Type.String( {
@@ -243,7 +260,7 @@ export function createPresentDesignOptionsTool( {
 					const htmlPath = path.join( directory, `preview-${ index + 1 }-${ slug }.html` );
 					let capture;
 					try {
-						const isDesignBoard = option.preview.trimStart().startsWith( '---' );
+						const isDesignBoard = args.catalog === 'directions';
 						const html = isDesignBoard
 							? renderDesignBoard( option.preview, option.image )
 							: option.preview;
@@ -276,11 +293,17 @@ export function createPresentDesignOptionsTool( {
 						viewportType: `preview-${ index + 1 }`,
 						format: previewFormat,
 					} );
+					let themeJson: string | undefined;
+					if ( args.catalog === 'directions' ) {
+						themeJson = path.join( directory, `look-${ index + 1 }-${ slug }.theme.json` );
+						await writeFile( themeJson, option.preview );
+					}
 					return {
 						label: option.label,
 						description: option.description,
 						image: file.path,
 						buffer: capture.buffer,
+						themeJson,
 					};
 				} )
 			);
@@ -313,10 +336,15 @@ export function createPresentDesignOptionsTool( {
 			if ( ! answer ) {
 				return textResult( 'The user did not answer.' );
 			}
+			const themeJson = options[ picked ]?.themeJson;
 			return textResult(
 				picked === -1
 					? `The user answered: ${ answer }`
-					: `The user picked option ${ picked + 1 }: ${ answer }`
+					: `The user picked option ${ picked + 1 }: ${ answer }${
+							themeJson
+								? `. Its theme.json, to copy into the theme as its theme.json: ${ themeJson }`
+								: ''
+					  }`
 			);
 		},
 		{ settlesPendingWork: true, annotations: LOCAL_CHANGE }

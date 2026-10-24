@@ -1,6 +1,3 @@
-import fs from 'fs';
-import os from 'os';
-import path from 'path';
 import { describe, expect, it } from 'vitest';
 import { getSkillScopedToolNames, loadSkills } from '../skills';
 import { buildSystemPrompt, PROXY_IDENTITY } from '../system-prompt';
@@ -80,24 +77,6 @@ describe( 'buildSystemPrompt', () => {
 		expect( prompt ).toContain(
 			'## Active site\n\n"Live" (ID: 123) at https://example.wordpress.com (WordPress.com)'
 		);
-	} );
-
-	it( "names the active site's design system when it has a DESIGN.md", () => {
-		const sitePath = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-active-site-' ) );
-		try {
-			fs.writeFileSync( path.join( sitePath, 'DESIGN.md' ), '# Design' );
-			const prompt = buildSystemPrompt( {
-				activeSite: { name: 'Designed', path: sitePath, running: false },
-			} );
-			expect( prompt ).toContain(
-				`"Designed" at ${ sitePath } (stopped), design system: ${ path.join(
-					sitePath,
-					'DESIGN.md'
-				) }`
-			);
-		} finally {
-			fs.rmSync( sitePath, { recursive: true, force: true } );
-		}
 	} );
 
 	it( 'appends the user standing instructions when set', () => {

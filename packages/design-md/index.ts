@@ -435,21 +435,16 @@ function setIn( tree: Tree | undefined, [ key, ...rest ]: string[], value: unkno
  * or sets to a different value, and every body, heading or button style that uses
  * another font. A theme.json that uses fewer than half of DESIGN.md's palette slugs
  * wasn't generated from it (e.g. the default theme before the design is built), so
- * it has no drift, unless `built` says the theme is built on DESIGN.md; a theme
- * built on it also drifts on each font family that loads no font files.
+ * it has no drift.
  */
-export function designDrift(
-	tokens: DesignTokens,
-	themeJson: ThemeJson,
-	built = false
-): DesignDrift[] {
+export function designDrift( tokens: DesignTokens, themeJson: ThemeJson ): DesignDrift[] {
 	const expected = themeJsonFromDesign( tokens, {} )?.themeJson;
 	const palette = presets( themeJson.settings, 'color', 'palette' );
 	const colors = presets( expected?.settings, 'color', 'palette' );
 	const shared = colors.filter( ( color ) =>
 		palette.some( ( candidate ) => candidate.slug === color.slug )
 	);
-	if ( ! built && shared.length * 2 < colors.length ) {
+	if ( shared.length * 2 < colors.length ) {
 		return [];
 	}
 	const normalize = ( kind: DesignDrift[ 'kind' ], value: unknown ) =>
@@ -469,10 +464,7 @@ export function designDrift(
 						: kind === 'font-family'
 						? fontFamilyName( match[ field ] )
 						: String( match[ field ] );
-				const filesMissing = built && kind === 'font-family' && ! match?.fontFace;
-				return theme !== undefined &&
-					normalize( kind, design ) === normalize( kind, theme ) &&
-					! filesMissing
+				return theme !== undefined && normalize( kind, design ) === normalize( kind, theme )
 					? []
 					: [ { kind, slug: String( preset.slug ), design, theme } ];
 			} );

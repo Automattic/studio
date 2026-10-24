@@ -28,33 +28,32 @@ A new site's spec needs nothing from the site itself: do not search its files or
 
 ### The design
 
-Load the `visual-design` skill first — the catalogs, the DESIGN.md format, and the sneak-peek rules live there — and follow its "Concept and Direction" runbook. The design is settled in two steps, the look and then the layout, each with one `pick_design` call, repeated only when the user asks for other options:
+Load the `visual-design` skill first — the catalogs, the look as theme.json, and the sneak-peek rules live there — and follow its "Concept and Direction" runbook. The design is settled in two steps, the look and then the layout, each with one `pick_design` call, repeated only when the user asks for other options:
 
 - Pass `options: 4` so the user picks, or `options: 1` when there is nothing to pick — the user asked to be surprised or to skip the questions, or the brief names that step's catalog entry. Neither a page count ("one page") nor adjectives ("elegant", "warm") pick an entry: ask, and apply them to the options you choose. For a reference site, look at it once with `take_screenshot` (`display: false`) and choose its closest entries, with `options` set to their number: two when `present_design_options` is available, otherwise one.
 - With one entry, use it without asking. With more, ask once, one option per entry in the order returned, labelled with the entry's name, without describing the options in prose first. A typed answer ("2 but darker") is a preference to apply to the closest option; asking for other options, as a choice or in their own words, means drawing that step again and asking the same way.
 
-1. **The look**: `catalog: "directions"`, asking "Which look should I build?". Skip this step when the Active site section names a design system and the user did not ask for a new look.
-   - If `present_design_options` is available: when you can make images (`generate_images`, or an image tool of your own), load the `imagery` skill and make the look image first. Pass each option's `DESIGN.md` draft (see the `visual-design` skill) as its `preview`, with that image and a one-line description of the feel.
+1. **The look**: `catalog: "directions"`, asking "Which look should I build?". Skip this step when the site keeps its own theme and the user did not ask for a new look.
+   - If `present_design_options` is available: when you can make images (`generate_images`, or an image tool of your own), load the `imagery` skill and make the look image first. Pass each option's theme.json draft (see the `visual-design` skill) as its `preview`, with that image and a one-line description of the feel.
    - Otherwise use `AskUserQuestion`, each option with a one-line description of the look.
-   - Write the picked look to `DESIGN.md` at the site root: the draft's front matter exactly as the user saw it, then every section. Then, when you can make images (`generate_images`, or an image tool of your own), load the `imagery` skill and make the site's image set in that look so the layout previews and the build have it.
+   - Then, when you can make images (`generate_images`, or an image tool of your own), load the `imagery` skill and make the site's image set in that look so the layout previews and the build have it.
 2. **The layout**: `catalog: "layouts"`, asking "Which layout should I build?".
    - If `present_design_options` is available: pass one sneak peek per option, in the picked look and with the site's image set (see the `visual-design` skill), as its `preview`, with a one-line description of the layout.
    - Otherwise use `AskUserQuestion`, each option with a one-line description of how its first screen would look.
-   - Add the picked layout to the Layout section of `DESIGN.md`, then build it.
 
 ### The Site Spec
 
-Before step 3, state the plan in your text output as a short **Site Spec** summary. The summary MUST include a **Concept** line — the signature layout concept settled by `pick_design` or picked by the user, as `Concept: <catalog name> — <one-line adaptation>`, the entry's name verbatim so the user can find it, then the twist — followed by a **Layout map** (as the `visual-design` skill defines it: one line per section of the page saying what the concept does to it), a **Direction** line — the artistic direction behind `DESIGN.md`, as `Direction: <catalog name> — <one-line adaptation>` — and a **Functionality & plugins** line. A side designed from the brief rather than the catalog is stated as `Concept: <the brief's words> — <how it is built>` or `Direction: <the brief's words> — <how it is built>`. For the plugins line: review the requested features, load the `plugin-recommendations` skill, and list the specific plugins the site needs — e.g. WooCommerce for selling products, Jetpack Forms for a contact form, Jetpack Newsletter for email signups, Sensei LMS for courses, Crowdsignal for polls/surveys — or "None — core blocks only" when nothing beyond static content is required. Install the listed plugins in step 4; do not silently hand-build static markup for a feature a plugin should provide.
+Before step 3, state the plan in your text output as a short **Site Spec** summary. The summary MUST include a **Concept** line — the signature layout concept settled by `pick_design` or picked by the user, as `Concept: <catalog name> — <one-line adaptation>`, the entry's name verbatim so the user can find it, then the twist — followed by a **Layout map** (as the `visual-design` skill defines it: one line per section of the page saying what the concept does to it), a **Direction** line — the artistic direction behind the theme.json, as `Direction: <catalog name> — <one-line adaptation>` — and a **Functionality & plugins** line. A side designed from the brief rather than the catalog is stated as `Concept: <the brief's words> — <how it is built>` or `Direction: <the brief's words> — <how it is built>`. For the plugins line: review the requested features, load the `plugin-recommendations` skill, and list the specific plugins the site needs — e.g. WooCommerce for selling products, Jetpack Forms for a contact form, Jetpack Newsletter for email signups, Sensei LMS for courses, Crowdsignal for polls/surveys — or "None — core blocks only" when nothing beyond static content is required. Install the listed plugins in step 4; do not silently hand-build static markup for a feature a plugin should provide.
 
 ### When to Skip the Questions
 
-Skipping means skipping the interactive questions only — each design step then returns a single entry, `DESIGN.md` is still written, and you still produce the Site Spec summary (including the Functionality & plugins line) before building. Do NOT ask questions if:
+Skipping means skipping the interactive questions only — each design step then returns a single entry, and you still produce the Site Spec summary (including the Functionality & plugins line) before building. Do NOT ask questions if:
 - The user says "just build something" or "surprise me". Pick a bold creative direction yourself and proceed.
 - The user explicitly asks to skip the setup or says they don't want questions.
 
 ## 3. Theme files
 
-Write a block theme in `wp-content/themes/`, or a child theme to restyle an installed theme, one file at a time: style.css, theme.json, templates, parts, patterns.
+Write a block theme in `wp-content/themes/`, or a child theme to restyle an installed theme, one file at a time: style.css, theme.json, templates, parts, patterns. Its theme.json is the picked look's: copy the file `present_design_options` named, or write the one settled look.
 
 ## 4. Provision the site
 
@@ -66,4 +65,4 @@ Write each page's content to a scratch file in the site's `tmp/`, then create or
 
 ## 6. Check the result
 
-Take one `take_screenshot` of each page with `viewport: "all"`. List every real defect against DESIGN.md and the layout map, find each cause with inspect_design and the source that produces it, fix them in one batch, and re-check once. When Studio Code wrote the theme, pass its directory as `themeScreenshot` on the home page's last desktop capture.
+Take one `take_screenshot` of each page with `viewport: "all"`. List every real defect against the look and the layout map, find each cause with inspect_design and the source that produces it, fix them in one batch, and re-check once. When Studio Code wrote the theme, pass its directory as `themeScreenshot` on the home page's last desktop capture.

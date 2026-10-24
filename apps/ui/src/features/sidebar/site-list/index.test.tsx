@@ -971,6 +971,25 @@ describe( 'SiteList', () => {
 		).toEqual( Array.from( { length: 10 }, ( _, index ) => `Chat ${ index + 1 }` ) );
 	} );
 
+	it( 'leaves a new chat out of Recent until its first prompt, unless it is open', () => {
+		const chats = [
+			...createChats( '/Users/example/Studio/running-site', 1 ),
+			createSession( {
+				id: 'empty-chat',
+				firstPrompt: undefined,
+				ownerSitePath: '/Users/example/Studio/running-site',
+			} ),
+		];
+		useSessionsMock.mockReturnValue( { data: chats, isLoading: false } );
+		const { rerender } = render( <SiteList sections /> );
+		const recent = () => screen.getByRole( 'group', { name: 'Recent' } );
+		expect( within( recent() ).queryByRole( 'button', { name: 'New chat' } ) ).toBeNull();
+
+		paramsMock = { sessionId: 'empty-chat' };
+		rerender( <SiteList sections /> );
+		expect( within( recent() ).getByRole( 'button', { name: 'New chat' } ) ).toBeVisible();
+	} );
+
 	it( 'archives every selected chat with ⇧⌘A in a bulk menu, not just the one clicked', async () => {
 		useSessionsMock.mockReturnValue( {
 			data: [

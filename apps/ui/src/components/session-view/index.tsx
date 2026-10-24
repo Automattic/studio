@@ -43,6 +43,7 @@ import { useAgentRun } from '@/data/queries/use-agent-run';
 import { useAiSettings } from '@/data/queries/use-ai-settings';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
 import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
+import { useIsOutOfAiCredits } from '@/data/queries/use-is-out-of-ai-credits';
 import {
 	useSession,
 	useSessionLiveSite,
@@ -56,10 +57,7 @@ import {
 	useStartSite,
 } from '@/data/queries/use-sites';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
-import { useIsOutOfAiCredits } from '@/hooks/use-is-out-of-ai-credits';
-import { useMarkChatRead } from '@/hooks/use-mark-chat-read';
 import { useSiteSelectionTime } from '@/hooks/use-open-site';
-import { useSessionCommands } from '@/hooks/use-session-commands';
 import { SessionUIProvider, useOptionalSessionPreviewUI } from '@/hooks/use-session-ui';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
@@ -72,6 +70,8 @@ import { QueuedPrompts } from './queued-prompts';
 import styles from './style.module.css';
 import { useAnchoredScroll } from './use-anchored-scroll';
 import { useComposerNotice } from './use-composer-notice';
+import { useMarkChatRead } from './use-mark-chat-read';
+import { useSessionCommands } from './use-session-commands';
 import type { AiSessionSummary, SiteDetails } from '@/data/core';
 
 function SessionHeader( {

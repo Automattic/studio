@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
-import { useOnboardingGuide } from '@/components/onboarding-guide/use-onboarding-guide';
 import { useConnector } from '@/data/core';
 import { useSaveLastSeenVersion, useWhatsNewVersion } from '@/data/queries/use-whats-new-seen';
+import { useOnboardingGuide } from './use-onboarding-guide';
 import { getWhatsNewGuide } from './whats-new';
 
 /**

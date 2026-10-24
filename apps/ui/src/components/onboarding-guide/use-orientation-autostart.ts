@@ -1,9 +1,9 @@
 import { useEffect, useRef } from 'react';
-import { useOnboardingGuide } from '@/components/onboarding-guide/use-onboarding-guide';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useOnboardingHints, useSetOnboardingHints } from '@/data/queries/use-onboarding-hints';
 import { useSites } from '@/data/queries/use-sites';
 import { getOrientationGuide, ORIENTATION_GUIDE_VERSION } from './orientation-guide';
+import { useOnboardingGuide } from './use-onboarding-guide';
 import type { OrientationVariant } from './orientation-guide';
 import type { OnboardingHintsState } from '@/data/core';
 

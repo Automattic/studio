@@ -62,6 +62,13 @@ components/
     style.module.css
 ```
 
+Code sits at the lowest layer that needs it, and imports only from layers below:
+
+- `lib/`: plain helpers and constants, with no data access.
+- `data/`: the connectors and the TanStack Query hooks built on them. It doesn't import from `hooks/`, `components/` or `router/`, apart from leaf hooks like `useOffline`.
+- `hooks/`: hooks that several features share.
+- `components/` and `router/`: features and routes. A hook, helper or guide used by one feature lives in that feature's folder.
+
 UI is built on Base UI with its own primitives and theme. Icons come from `lucide-react`, plus custom icons in `src/lib/icons/`, one file each, drawn the same way (24px grid, stroke 2).
 
 ## Design system

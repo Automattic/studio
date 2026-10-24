@@ -15,7 +15,7 @@ import {
 import { VisuallyHidden } from '@/components/ui/visually-hidden';
 import { GuideIllustration, isDarkGuideIllustration, needsCloseScrim } from './illustrations';
 import styles from './style.module.css';
-import type { GuideDefinition } from '@/data/onboarding/guide';
+import type { GuideDefinition } from './guide';
 
 interface OnboardingGuideProps {
 	guide: GuideDefinition;

@@ -37,7 +37,7 @@ describe( 'InstructionsEditor', () => {
 	it( 'saves once after the user stops typing, not on every keystroke', () => {
 		render( <InstructionsEditor /> );
 
-		const textarea = screen.getByLabelText( 'Studio instructions' );
+		const textarea = screen.getByLabelText( 'WordPress Studio instructions' );
 		fireEvent.change( textarea, { target: { value: 'Answer in Spanish' } } );
 		fireEvent.change( textarea, { target: { value: 'Answer in Spanish.' } } );
 
@@ -52,7 +52,7 @@ describe( 'InstructionsEditor', () => {
 	it( 'flushes a pending edit when the panel unmounts mid-debounce', () => {
 		const { unmount } = render( <InstructionsEditor /> );
 
-		fireEvent.change( screen.getByLabelText( 'Studio instructions' ), {
+		fireEvent.change( screen.getByLabelText( 'WordPress Studio instructions' ), {
 			target: { value: 'Half-typed thought' },
 		} );
 		unmount();
@@ -66,7 +66,7 @@ describe( 'InstructionsEditor', () => {
 	it( 'does not save while the content still matches what is stored', () => {
 		render( <InstructionsEditor /> );
 
-		fireEvent.change( screen.getByLabelText( 'Studio instructions' ), {
+		fireEvent.change( screen.getByLabelText( 'WordPress Studio instructions' ), {
 			target: { value: 'Answer in French.' },
 		} );
 		act( () => void vi.advanceTimersByTime( 800 ) );
@@ -79,7 +79,7 @@ describe( 'InstructionsEditor', () => {
 	it( 'reports the edit session on unmount after the debounce already saved', () => {
 		const { unmount } = render( <InstructionsEditor /> );
 
-		fireEvent.change( screen.getByLabelText( 'Studio instructions' ), {
+		fireEvent.change( screen.getByLabelText( 'WordPress Studio instructions' ), {
 			target: { value: 'Answer in Spanish.' },
 		} );
 		act( () => void vi.advanceTimersByTime( 800 ) );
@@ -106,7 +106,7 @@ describe( 'InstructionsEditor', () => {
 	it( 'reports the edit session once even if the mutate callback changes identity', () => {
 		const { rerender, unmount } = render( <InstructionsEditor /> );
 
-		fireEvent.change( screen.getByLabelText( 'Studio instructions' ), {
+		fireEvent.change( screen.getByLabelText( 'WordPress Studio instructions' ), {
 			target: { value: 'Answer in Spanish.' },
 		} );
 

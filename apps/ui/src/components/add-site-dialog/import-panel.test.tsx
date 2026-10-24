@@ -137,7 +137,7 @@ describe( 'ImportPanel', () => {
 		await renderConfiguredImport();
 
 		fireEvent.click( screen.getByRole( 'button', { name: 'Import site' } ) );
-		await screen.findByText( 'Studio could not import this backup.' );
+		await screen.findByText( 'WordPress Studio could not import this backup.' );
 
 		// The import starts the site; a running site's WP-CLI lookups would race it.
 		expect( mocks.createSite ).toHaveBeenCalledWith(
@@ -196,7 +196,7 @@ describe( 'ImportPanel', () => {
 		await renderConfiguredImport();
 
 		fireEvent.click( screen.getByRole( 'button', { name: 'Import site' } ) );
-		await screen.findByText( 'Studio could not access this backup.' );
+		await screen.findByText( 'WordPress Studio could not access this backup.' );
 
 		expect( mocks.createSite ).not.toHaveBeenCalled();
 		expect( mocks.deleteSite ).not.toHaveBeenCalled();
@@ -211,7 +211,7 @@ describe( 'ImportPanel', () => {
 		await renderConfiguredImport();
 
 		fireEvent.click( screen.getByRole( 'button', { name: 'Import site' } ) );
-		await screen.findByText( 'Studio could not access this backup.' );
+		await screen.findByText( 'WordPress Studio could not access this backup.' );
 
 		let resolvePath: ( path: string ) => void = () => undefined;
 		mocks.getFilePath.mockImplementationOnce(
@@ -236,7 +236,9 @@ describe( 'ImportPanel', () => {
 
 		fireEvent.click( screen.getByRole( 'button', { name: 'Import site' } ) );
 
-		expect( await screen.findByText( 'Studio could not create the site.' ) ).toBeVisible();
+		expect(
+			await screen.findByText( 'WordPress Studio could not create the site.' )
+		).toBeVisible();
 		expect( screen.getByText( /Review the site name and local folder/ ) ).toBeVisible();
 		expect( screen.getByText( 'EACCES: cannot create directory' ) ).toBeInTheDocument();
 		expect( mocks.deleteSite ).not.toHaveBeenCalled();
@@ -251,7 +253,7 @@ describe( 'ImportPanel', () => {
 		fireEvent.click( screen.getByRole( 'button', { name: 'Import site' } ) );
 
 		expect(
-			await screen.findByText( /contains a file path Studio cannot safely restore/ )
+			await screen.findByText( /contains a file path WordPress Studio cannot safely restore/ )
 		).toBeVisible();
 		expect( screen.getByText( /Export the site again/ ) ).toBeVisible();
 		expect( mocks.deleteSite ).toHaveBeenCalledWith( { id: 'site-1', deleteFiles: true } );
@@ -264,7 +266,9 @@ describe( 'ImportPanel', () => {
 
 		fireEvent.click( screen.getByRole( 'button', { name: 'Import site' } ) );
 
-		expect( await screen.findByText( 'Studio could not finish cleaning up.' ) ).toBeVisible();
+		expect(
+			await screen.findByText( 'WordPress Studio could not finish cleaning up.' )
+		).toBeVisible();
 		expect( screen.getByText( /could not remove “My Store”/ ) ).toBeVisible();
 		expect(
 			screen.getByText( /Import error: Invalid backup.*Cleanup error: Folder is locked/s )

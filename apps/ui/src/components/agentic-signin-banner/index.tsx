@@ -8,9 +8,9 @@ export function SigninNotice( { source }: { source: TracksAuthSource } ) {
 	const login = useLogin( { source } );
 
 	return (
-		<section className={ styles.root } aria-label={ __( 'Sign in to Studio' ) }>
+		<section className={ styles.root } aria-label={ __( 'Sign in to WordPress Studio' ) }>
 			<div className={ styles.text }>
-				<h2 className={ styles.heading }>{ __( 'Sign in to do more with Studio' ) }</h2>
+				<h2 className={ styles.heading }>{ __( 'Sign in to do more with WordPress Studio' ) }</h2>
 				<ul className={ styles.benefits }>
 					<li>
 						{ __(

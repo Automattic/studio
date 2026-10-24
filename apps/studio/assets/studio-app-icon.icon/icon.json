@@ -1,0 +1,71 @@
+{
+	"features": [ "refractivity", "specular-location" ],
+	"fill-specializations": [
+		{
+			"value": "automatic"
+		},
+		{
+			"appearance": "dark",
+			"value": {
+				"linear-gradient": [
+					"display-p3:0.16858,0.16858,0.16858,1.00000",
+					"display-p3:0.05884,0.05884,0.05884,1.00000"
+				]
+			}
+		}
+	],
+	"groups": [
+		{
+			"blur-material": 0.5,
+			"hidden": false,
+			"layers": [
+				{
+					"glass": true,
+					"hidden": false,
+					"image-name-specializations": [
+						{
+							"value": "light.svg"
+						},
+						{
+							"appearance": "dark",
+							"value": "dark.svg"
+						},
+						{
+							"appearance": "tinted",
+							"value": "dark.svg"
+						}
+					],
+					"name": "Logo"
+				}
+			],
+			"lighting": "individual",
+			"name": "Default",
+			"refractivity": {
+				"depth": 0,
+				"enabled": true,
+				"strength": 0.3783203125
+			},
+			"shadow": {
+				"kind": "neutral",
+				"opacity": 0.2
+			},
+			"specular-specializations": [
+				{
+					"value": "inside"
+				},
+				{
+					"appearance": "tinted",
+					"value": "inside"
+				}
+			],
+			"translucency": {
+				"enabled": true,
+				"value": 0.25
+			}
+		}
+	],
+	"supported-platforms": {
+		"circles": [ "watchOS" ],
+		"squares": "shared"
+	}
+}

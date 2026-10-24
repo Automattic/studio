@@ -39,7 +39,7 @@ export function McpPanel() {
 					description={
 						<>
 							{ __(
-								'Connect other AI assistants to Studio to create, configure, and inspect your local WordPress sites.'
+								'Connect other AI assistants to WordPress Studio to create, configure, and inspect your local WordPress sites.'
 							) }{ ' ' }
 							<LearnMoreLink docsLinksKey="docsMcp" />
 						</>

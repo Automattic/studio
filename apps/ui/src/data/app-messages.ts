@@ -268,7 +268,7 @@ export function openStudioLogsAction( connector: Connector ): ToastAction | unde
 		return undefined;
 	}
 	return {
-		label: __( 'Open Studio Logs' ),
+		label: __( 'Open WordPress Studio Logs' ),
 		onClick: () => {
 			void connector.openStudioLogs().catch( ( error ) => {
 				console.error( 'Failed to open Studio logs:', error );

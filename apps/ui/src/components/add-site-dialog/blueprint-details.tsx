@@ -129,7 +129,8 @@ export function BlueprintDetails( {
 				{ create.error ? (
 					<Alert variant="destructive">
 						<AlertDescription>
-							{ getErrorMessage( create.error ) ?? __( 'Studio could not create the site.' ) }
+							{ getErrorMessage( create.error ) ??
+								__( 'WordPress Studio could not create the site.' ) }
 						</AlertDescription>
 					</Alert>
 				) : null }

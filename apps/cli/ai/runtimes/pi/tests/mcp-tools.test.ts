@@ -64,6 +64,15 @@ describe( 'MCP tools', () => {
 		} );
 	} );
 
+	it( "leaves out a tool named like the harness's own or an earlier server's", async () => {
+		const tools = await createMcpTools(
+			[ FIXTURE, { ...FIXTURE, name: 'shop' } ],
+			async () => undefined,
+			[ 'shop_write' ]
+		);
+		expect( tools.map( ( tool ) => tool.name ) ).toEqual( [ 'shop_read' ] );
+	} );
+
 	it( "fails with the server's own error", async () => {
 		const confirm = vi.fn( async () => undefined );
 		const tools = await toolsOf( confirm );

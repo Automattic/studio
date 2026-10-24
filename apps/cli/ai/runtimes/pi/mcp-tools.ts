@@ -88,12 +88,19 @@ export async function readMcpServers(): Promise< McpServerSpec[] > {
 }
 
 const CONNECT_TIMEOUT_MS = 15_000;
+// How long a server that did not answer is left out, so a turn does not wait
+// for its connection timeout again.
+const RETRY_AFTER_MS = 5 * 60_000;
 const clients = new Map< string, Promise< Client > >();
+const failedUntil = new Map< string, number >();
+
+const serverKey = ( server: McpServerSpec ) =>
+	JSON.stringify( [ server.name, server.url, server.headers, server.command ] );
 
 // One connection per server for the life of the process; a failed one is
-// dropped so the next turn connects again.
+// dropped so a later turn connects again.
 function connect( server: McpServerSpec ): Promise< Client > {
-	const key = JSON.stringify( [ server.name, server.url, server.headers, server.command ] );
+	const key = serverKey( server );
 	let client = clients.get( key );
 	if ( ! client ) {
 		client = ( async () => {
@@ -165,35 +172,58 @@ export function isUserMcpTool( name: string ): boolean {
 	return userToolNames.has( name );
 }
 
+type ListedTool = Awaited< ReturnType< Client[ 'listTools' ] > >[ 'tools' ][ number ];
+
+const toolName = ( server: McpServerSpec, tool: ListedTool ) =>
+	`${ server.name }_${ tool.name }`.replace( /[^A-Za-z0-9_-]/g, '_' ).slice( 0, 64 );
+
 /**
  * The tools of every server that answers. A server that doesn't connect is
- * left out of this turn.
+ * left out for a while. A tool whose name is `reserved` (the harness's own
+ * tools) or an earlier server's is left out, so it never takes on the
+ * behavior the harness gives that name.
  */
 export async function createMcpTools(
 	servers: McpServerSpec[],
-	confirm: Confirmer
+	confirm: Confirmer,
+	reserved: Iterable< string > = []
 ): Promise< McpTool[] > {
 	const lists = await Promise.all(
 		servers.map( async ( server ) => {
+			const key = serverKey( server );
+			if ( ( failedUntil.get( key ) ?? 0 ) > Date.now() ) {
+				return [];
+			}
 			try {
 				const client = await connect( server );
 				const { tools } = await client.listTools( undefined, { timeout: CONNECT_TIMEOUT_MS } );
-				return tools.map( ( tool ) => createMcpTool( server, client, tool, confirm ) );
+				failedUntil.delete( key );
+				return tools.map( ( tool ) => ( { server, client, tool } ) );
 			} catch {
+				failedUntil.set( key, Date.now() + RETRY_AFTER_MS );
 				return [];
 			}
 		} )
 	);
-	return lists.flat();
+	const taken = new Set( reserved );
+	return lists
+		.flat()
+		.filter( ( { server, tool } ) => {
+			const name = toolName( server, tool );
+			const free = ! taken.has( name );
+			taken.add( name );
+			return free;
+		} )
+		.map( ( { server, client, tool } ) => createMcpTool( server, client, tool, confirm ) );
 }
 
 function createMcpTool(
 	server: McpServerSpec,
 	client: Client,
-	tool: Awaited< ReturnType< Client[ 'listTools' ] > >[ 'tools' ][ number ],
+	tool: ListedTool,
 	confirm: Confirmer
 ): McpTool {
-	const name = `${ server.name }_${ tool.name }`.replace( /[^A-Za-z0-9_-]/g, '_' ).slice( 0, 64 );
+	const name = toolName( server, tool );
 	const parameters = structuredClone( tool.inputSchema ) as {
 		properties?: Record< string, unknown >;
 		required?: string[];

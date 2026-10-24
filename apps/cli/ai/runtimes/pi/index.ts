@@ -375,14 +375,13 @@ async function createStudioAgentSession(
 	const chatArtifactsEnabled = typeof process.send === 'function';
 	const visionEnabled = aiModelSupportsImages( config.model );
 	const confirm = createConfirmer( config.onConfirm ?? config.onAskUser );
-	const [ userInstructions, imageGenerationEnabled, activeSiteFacts, mcpTools ] = await Promise.all(
-		[
+	const [ userInstructions, imageGenerationEnabled, activeSiteFacts, mcpServers ] =
+		await Promise.all( [
 			readGlobalInstructions(),
 			isImageGenerationAvailable(),
 			readActiveSiteFacts( config.activeSite ),
-			readMcpServers().then( ( servers ) => createMcpTools( servers, confirm ) ),
-		]
-	);
+			readMcpServers(),
+		] );
 
 	const skillScope = new SkillToolScope( config.session );
 	let activateTools: () => void = () => {};
@@ -395,6 +394,11 @@ async function createStudioAgentSession(
 			skillScope.unlock( skillName );
 			activateTools();
 		}
+	);
+	const mcpTools = await createMcpTools(
+		mcpServers,
+		confirm,
+		tools.map( ( tool ) => tool.name )
 	);
 	const systemPrompt = buildSystemPrompt( {
 		userInstructions,

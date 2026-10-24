@@ -63,7 +63,6 @@
 	align-items: center;
 	gap: var(--site-list-icon-gap);
 	min-width: 0;
-	box-sizing: border-box;
 	height: var(--site-list-row-height);
 	padding-inline: var(--site-list-row-padding);
 	border-radius: var(--radius-md);
@@ -132,8 +131,6 @@
 	flex: 0 0 0;
 	inline-size: 0;
 	block-size: var(--site-list-chat-status-size);
-	margin-inline-start: 0;
-	margin-inline-end: 0;
 	opacity: 0;
 	overflow: visible;
 	pointer-events: none;
@@ -158,7 +155,6 @@
 	position: relative;
 	block-size: var(--site-list-chat-status-size);
 	inline-size: var(--site-list-chat-status-size);
-	box-sizing: border-box;
 }
 
 .siteAgentActivityTooltipTrigger {
@@ -292,7 +288,6 @@
 .empty {
 	padding: 4px var(--site-list-row-padding);
 	color: var(--muted-foreground);
-	margin: 0;
 }
 
 .group {
@@ -321,11 +316,8 @@
 	gap: 4px;
 	height: 100%;
 	padding: 0 var(--site-list-row-padding);
-	border: none;
 	border-radius: var(--radius-md);
-	background: none;
 	color: var(--muted-foreground);
-	font: inherit;
 	font-weight: var(--font-weight-medium);
 	cursor: pointer;
 	transition: color var(--motion-duration-feedback) ease;

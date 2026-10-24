@@ -24,7 +24,6 @@
 }
 
 .emptyTitle {
-	margin: 0;
 	font-size: var(--text-sm);
 	font-weight: var(--font-weight-medium);
 	line-height: 20px;
@@ -65,7 +64,6 @@
 	padding: 8px;
 	overflow-y: auto;
 	overscroll-behavior: contain;
-	list-style: none;
 }
 
 .time {

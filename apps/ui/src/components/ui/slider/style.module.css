@@ -34,7 +34,6 @@
 		position: relative;
 		display: block;
 		flex-shrink: 0;
-		box-sizing: border-box;
 		width: 16px;
 		height: 16px;
 		border: 1px solid var( --accent-text );

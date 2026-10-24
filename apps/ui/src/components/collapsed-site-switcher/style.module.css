@@ -1,5 +1,4 @@
 .popup {
-	box-sizing: border-box;
 	width: 272px;
 	max-width: calc(100vw - 2 * 20px);
 }
@@ -13,7 +12,6 @@
 }
 
 .scrollArea {
-	box-sizing: border-box;
 	max-height: min(236px, calc(100vh - 80px));
 	overflow-y: auto;
 	padding-block: 12px;
@@ -35,16 +33,11 @@
 	justify-content: space-between;
 	gap: 8px;
 	flex-shrink: 0;
-	box-sizing: border-box;
 	width: 100%;
 	padding-block: 12px;
 	padding-inline-start: 20px;
 	padding-inline-end: 12px;
-	border: none;
 	border-block-start: 1px solid var(--border);
-	background: none;
-	color: inherit;
-	font: inherit;
 	font-size: var(--text-xxs);
 	cursor: pointer;
 }

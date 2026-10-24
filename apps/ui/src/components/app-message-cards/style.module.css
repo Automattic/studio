@@ -35,7 +35,6 @@
 
 .card {
 	width: 100%;
-	box-sizing: border-box;
 	text-wrap: pretty;
 	font-variant-numeric: tabular-nums;
 	box-shadow:

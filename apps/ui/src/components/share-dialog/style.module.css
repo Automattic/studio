@@ -29,10 +29,6 @@
 	color: var(--destructive);
 }
 
-.error p {
-	margin: 0;
-}
-
 .panel {
 	display: flex;
 	min-width: 0;
@@ -53,7 +49,6 @@
 	align-items: center;
 	justify-content: center;
 	aspect-ratio: 16 / 10;
-	margin: 0;
 	overflow: hidden;
 	border-radius: var(--radius-sm);
 	background: var(--muted);
@@ -76,7 +71,6 @@
 }
 
 .frame p {
-	margin: 0;
 	color: var(--muted-foreground);
 }
 
@@ -94,7 +88,6 @@
 }
 
 .expiry p {
-	margin: 0;
 	color: var(--muted-foreground);
 	font-size: var(--text-xs);
 }
@@ -103,10 +96,6 @@
 	display: flex;
 	flex-direction: column;
 	gap: 12px;
-}
-
-.confirm p {
-	margin: 0;
 }
 
 .confirmActions {
@@ -122,7 +111,6 @@
 }
 
 .notice {
-	margin: 0;
 	color: var(--muted-foreground);
 	font-size: var(--text-xs);
 }

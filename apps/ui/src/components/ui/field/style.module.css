@@ -4,9 +4,6 @@
 		flex-direction: column;
 		gap: 8px;
 		min-width: 0;
-		margin: 0;
-		padding: 0;
-		border: 0;
 	}
 
 	.legend {
@@ -34,7 +31,6 @@
 		flex-direction: column;
 		gap: 24px;
 		width: 100%;
-		box-sizing: border-box;
 	}
 
 	.group[data-variant='sections'] {
@@ -139,7 +135,6 @@
 
 	.description {
 		max-width: 384px;
-		margin: 0;
 		color: var( --muted-foreground );
 		font-size: var( --text-xxs );
 		font-weight: var( --font-weight-normal );

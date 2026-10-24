@@ -9,15 +9,11 @@
 		justify-content: center;
 		max-width: 100%;
 		height: var( --control-size );
-		box-sizing: border-box;
-		margin: 0;
 		padding: 0 var( --button-padding-inline );
 		border: 1px solid transparent;
 		border-radius: var( --radius-lg );
 		background: var( --button-background, transparent );
 		background-clip: padding-box;
-		color: inherit;
-		font: inherit;
 		font-size: var( --text-xs );
 		font-weight: var( --font-weight-medium );
 		line-height: 20px;

@@ -1,0 +1,126 @@
+@import '@fontsource-variable/inter';
+
+/* Vazirmatn (SIL OFL, see ./fonts/OFL.txt) — the macOS system font lacks
+   Central Kurdish glyphs (e.g. ێ ۆ ڵ). Applied to the ckb locale below. */
+@font-face {
+	font-family: 'Vazirmatn';
+	src: url( './fonts/Vazirmatn-Variable.woff2' ) format( 'woff2' );
+	font-weight: 100 900;
+	font-style: normal;
+	font-display: swap;
+}
+
+/* `lang` is set on bootstrap in lib/apply-user-preferences.ts. */
+:root:lang( ckb ) {
+	--font-sans: 'Vazirmatn', -apple-system, system-ui, 'Segoe UI', 'Roboto', 'Oxygen-Sans', 'Ubuntu',
+		'Cantarell', 'Helvetica Neue', sans-serif;
+}
+
+/* Tokens stay light until app-providers.tsx sets `data-color-scheme`: until
+   then, show the Desktop window's dark background (the sidebar's colour)
+   instead of a full light page. */
+:root:not( [data-color-scheme] ) {
+	color-scheme: light dark;
+}
+
+:root:not( [data-color-scheme] ) body {
+	background-color: transparent;
+}
+
+body {
+	margin: 0;
+	padding: 0;
+	font-family: var( --font-sans );
+	font-size: var( --text-sm );
+	line-height: 20px;
+	background-color: var( --chrome );
+	color: var( --foreground );
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+}
+
+@layer base {
+	/* Form controls don't inherit the page font by default. */
+	button,
+	input,
+	select,
+	textarea {
+		font-family: inherit;
+	}
+
+	h1,
+	h2,
+	h3,
+	h4,
+	h5,
+	h6 {
+		margin: 0;
+		font-size: inherit;
+		font-weight: inherit;
+	}
+
+	b,
+	strong {
+		font-weight: var( --font-weight-medium );
+	}
+
+	/* Icons draw on a 24px grid and render at 16px unless a component sizes them. */
+	:root svg {
+		width: 16px;
+		height: 16px;
+	}
+
+	:root svg[data-keep-size] {
+		width: auto;
+		height: auto;
+	}
+}
+
+/* Honor the user's reduced-motion preference across the entire app. Class-
+   scoped transitions out-specify a `*`-targeted rule, so `!important` is
+   needed to clamp them. Components that genuinely need to keep motion can
+   re-enable it with a more specific `!important` rule inside the same
+   media query. */
+@media ( prefers-reduced-motion: reduce ) {
+	*,
+	*::before,
+	*::after {
+		animation-duration: 0.01ms !important;
+		animation-iteration-count: 1 !important;
+		transition-duration: 0.01ms !important;
+		scroll-behavior: auto !important;
+	}
+}
+
+/* Honor the user's reduced-transparency preference (macOS: Accessibility →
+   Display → Reduce transparency), and degrade the same way where
+   `backdrop-filter` isn't supported at all.
+
+   Blur is structural in this app, not decoration: headers, footers, scrims
+   and the composer rely on it to obscure the content scrolling underneath
+   them. Dropping the blur without painting the surface would leave text
+   stacked on text, so both are handled together — `--surface-alpha` is the
+   lever. Translucent surfaces mix their fill with
+   `var( --surface-alpha, <their own resting alpha> )`, so forcing it to 100%
+   here turns every one of them opaque while leaving the resting design
+   untouched everywhere else. */
+@media ( prefers-reduced-transparency: reduce ) {
+	:root {
+		--surface-alpha: 100%;
+	}
+
+	/* Class-scoped rules out-specify a `*`-targeted rule, hence `!important`
+	   — same reasoning as the reduced-motion block above. */
+	*,
+	*::before,
+	*::after {
+		-webkit-backdrop-filter: none !important;
+		backdrop-filter: none !important;
+	}
+}
+
+@supports not ( backdrop-filter: blur( 1px ) ) {
+	:root {
+		--surface-alpha: 100%;
+	}
+}

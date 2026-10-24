@@ -12,7 +12,7 @@ import {
 	type ReactNode,
 } from 'react';
 import { VisuallyHidden } from '@/components/ui/visually-hidden';
-import { getMotionDuration } from '@/lib/motion';
+import { getMotionDuration } from '@/lib/theme/motion';
 import styles from './style.module.css';
 
 type ActiveDrag = {

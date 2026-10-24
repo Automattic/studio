@@ -1,4 +1,5 @@
-import '@/theme/tokens.css';
+import '@/lib/theme/tokens.css';
+import '@/lib/theme/base.css';
 import '@/index.css';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';

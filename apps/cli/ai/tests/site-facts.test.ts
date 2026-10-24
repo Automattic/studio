@@ -1,7 +1,14 @@
-import { expect, it } from 'vitest';
+import { expect, it, vi } from 'vitest';
+import { findSiteByFolder } from 'cli/lib/cli-config/sites';
 import { readActiveSiteFacts } from '../site-facts';
 import { createSiteNotes } from '../site-notes';
 import { createSite as createWordPressSite } from './fixtures/wordpress-site';
+import type { SiteData } from 'cli/lib/cli-config/core';
+
+vi.mock( 'cli/lib/cli-config/sites', async ( importOriginal ) => ( {
+	...( await importOriginal< typeof import('cli/lib/cli-config/sites') >() ),
+	findSiteByFolder: vi.fn(),
+} ) );
 
 function createSite( prefix: string ) {
 	const site = createWordPressSite( prefix );
@@ -117,3 +124,22 @@ it( 'adds to a tool result the facts the agent does not have yet and the ones no
 		said( ...BASE.slice( 0, 2 ), 'Active plugins: woocommerce/woocommerce.php, hello.php.' )
 	);
 } );
+
+// Studio defines the address as WP_HOME, so it is what home_url() returns.
+it.each( [
+	{ studioSite: { port: 9098 }, address: 'http://localhost:9098' },
+	{
+		studioSite: { port: 9098, customDomain: 'bakery.local', enableHttps: true },
+		address: 'https://bakery.local',
+	},
+] )(
+	'states the address Studio serves the site at: $address',
+	async ( { studioSite, address } ) => {
+		const site = createSite( 'wp_' );
+		vi.mocked( findSiteByFolder ).mockImplementation( async ( folder ) =>
+			folder === site.root ? ( studioSite as SiteData ) : undefined
+		);
+		expect( await site.facts() ).toEqual( [ `Address: ${ address } (home_url()).`, ...BASE ] );
+		vi.mocked( findSiteByFolder ).mockReset();
+	}
+);

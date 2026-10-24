@@ -41,7 +41,9 @@ it( 'adds the declared settings of the core blocks a result shows, from the site
 	expect( await notes( { nameOrPath: 'My Site' } ) ).toEqual( [
 		`Note: core/navigation settings, declared in ${ blockJson
 			.split( path.sep )
-			.join( '/' ) }: submenuVisibility ("hover"|"click").`,
+			.join(
+				'/'
+			) }: submenuVisibility ("hover"|"click").\nNote: Address: http://localhost:8881 (home_url()).`,
 	] );
 	// Once per MCP session, as once per Studio Code turn.
 	expect( await notes( { nameOrPath: 'My Site' } ) ).toEqual( [] );

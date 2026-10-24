@@ -2,6 +2,7 @@ import { activePluginsFact, comingSoonFact } from 'cli/ai/plugins';
 import { savedCopiesFact } from 'cli/ai/saved-copies';
 import { readWordPressSite, type WordPressSite } from 'cli/ai/site-database';
 import { activeThemeFact } from 'cli/ai/themes';
+import { findSiteByFolder, getSiteUrl } from 'cli/lib/cli-config/sites';
 import { getWordPressVersionFromInstallation } from 'cli/lib/dependency-management/wordpress';
 import type { SiteInfo } from 'cli/ai/types';
 
@@ -22,7 +23,15 @@ async function wordPressVersionFact( site: WordPressSite ): Promise< string | un
 	return version ? `WordPress ${ version }.` : undefined;
 }
 
+// Studio serves the site at this address and defines it as WP_HOME before
+// WordPress boots (lib/native-php/site-setup.ts), so home_url() returns it.
+async function siteAddressFact( site: WordPressSite ): Promise< string | undefined > {
+	const studioSite = await findSiteByFolder( site.root );
+	return studioSite ? `Address: ${ getSiteUrl( studioSite ) } (home_url()).` : undefined;
+}
+
 const SITE_FACTS: SiteFact[] = [
+	siteAddressFact,
 	wordPressVersionFact,
 	activeThemeFact,
 	activePluginsFact,

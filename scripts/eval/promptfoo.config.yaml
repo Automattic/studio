@@ -651,11 +651,11 @@ tests:
   # costs only the turns up to that point, and `skillsLoadedFirst` checks the
   # skills named in `skills` were loaded before it. The new-site cases also stop
   # at the site's creation. The outcome cases above judge the work itself.
-  - description: 'routing: a request to make a site loads build-site before creating it'
+  - description: 'routing: a request to make a site loads visual-design before creating it'
     vars:
       caseId: routing-new-site-make
       timeoutMs: 300000
-      skills: [{ name: build-site }]
+      skills: [{ name: visual-design }]
       stopAt:
         - tool: site_create
         - tool: Write
@@ -668,11 +668,11 @@ tests:
     assert:
       - type: javascript
         value: file://outcome.mjs:skillsLoadedFirst
-  - description: 'routing: a new site with a form loads build-site and plugin-recommendations before the work'
+  - description: 'routing: a new site with a form loads plugin-recommendations before the work'
     vars:
       caseId: routing-new-site-contact-form
       timeoutMs: 300000
-      skills: [{ name: build-site }, { name: plugin-recommendations }]
+      skills: [{ name: plugin-recommendations }]
       stopAt: &stopAtWork
         - tool: Write
         - tool: Edit
@@ -684,11 +684,11 @@ tests:
     assert:
       - type: javascript
         value: file://outcome.mjs:skillsLoadedFirst
-  - description: 'routing: a new site with a slideshow loads build-site and plugin-recommendations before the work'
+  - description: 'routing: a new site with a slideshow loads plugin-recommendations before the work'
     vars:
       caseId: routing-new-site-slideshow
       timeoutMs: 300000
-      skills: [{ name: build-site }, { name: plugin-recommendations }]
+      skills: [{ name: plugin-recommendations }]
       stopAt: *stopAtWork
       prompt: Create a new site named "Routing Slideshow Site" and add a slideshow of three placeholder images to its homepage.
     assert:
@@ -811,11 +811,11 @@ tests:
     assert:
       - type: javascript
         value: file://outcome.mjs:skillsLoadedFirst
-  - description: 'routing: a section with a photo loads block-content and imagery before the work'
+  - description: 'routing: a section with a photo loads block-content before the work'
     vars:
       caseId: routing-hero-image
       timeoutMs: 300000
-      skills: [{ name: block-content }, { name: imagery }]
+      skills: [{ name: block-content }]
       stopAt: *stopAtWork
       seed:
         activeSite:

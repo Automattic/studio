@@ -18,14 +18,14 @@ import type { AnyStudioAgentTool } from './define-tool';
 function nextStep( catalog: 'directions' | 'layouts', toPick: boolean ): string {
 	const after =
 		catalog === 'directions'
-			? 'make the site\'s image set in that look if you can make images (the imagery skill), then draw the layout with `catalog: "layouts"`'
+			? 'make the site\'s image set in that look if you can make images: 3–4 images in one call, the direction\'s Imagery line as `imageGrade`, the first-screen scene plus distinct supporting subjects, each in the aspect ratio of its likely slot; the sneak peeks and the build use this set first. Then draw the layout with `catalog: "layouts"`'
 			: 'write the theme';
 	if ( ! toPick ) {
 		return `Next: ${ after.replace( 'that look', 'this look' ) }.`;
 	}
 	const preview =
 		catalog === 'directions'
-			? "each option's theme.json as its preview, with the look image if you can make images (the imagery skill)"
+			? "each option's theme.json as its preview, with a look image if you can make images: one landscape image of the site's first-screen scene in wp-content/uploads/, with a neutral grade in `pageContext` and no `imageGrade`, passed as each option's `image`, or none for a direction that rejects photography"
 			: 'a sneak peek of each option in the picked look as its preview';
 	return `Next: ask the user once, one option per entry in this order, labelled with its name, without describing them in prose first: with present_design_options (${ preview }), or else AskUserQuestion with a one-line description each. A typed answer such as "2 but darker" is a preference to apply to the closest option; asking for other options means drawing again. Once picked, ${ after }.`;
 }

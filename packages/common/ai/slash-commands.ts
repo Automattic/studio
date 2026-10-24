@@ -4,6 +4,8 @@ export interface SkillSlashCommand {
 	name: string;
 	displayName?: string;
 	description: string;
+	// What the command asks the agent, when it is not a skill: `/annotate` is a tool.
+	prompt?: string;
 }
 
 export const getAiSkillCommands = (): SkillSlashCommand[] => [
@@ -11,6 +13,8 @@ export const getAiSkillCommands = (): SkillSlashCommand[] => [
 		name: 'annotate',
 		displayName: __( 'Visual Annotations' ),
 		description: __( 'Annotate site elements visually in a browser.' ),
+		prompt:
+			'Open the annotation browser on the active site with open_annotation_browser, then make the changes my annotations ask for.',
 	},
 	{
 		name: 'taxonomist',
@@ -70,7 +74,10 @@ export function getSlashCommandMatches(
 }
 
 export function buildSkillInvocationPrompt( name: string ): string {
-	return `Run the /${ name } skill using the Skill tool.`;
+	return (
+		getAiSkillCommands().find( ( cmd ) => cmd.name === name )?.prompt ??
+		`Run the /${ name } skill using the Skill tool.`
+	);
 }
 
 // Which predefined skill a prompt invokes, or `undefined`. Handles both shapes that reach the agent:

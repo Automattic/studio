@@ -89,7 +89,6 @@ foreach ( $data['failed'] as $id ) {
 export const generateImagesTool = defineTool(
 	'generate_images',
 	"Generate AI images (PNG) from text specs and write them to files inside a site. An image written under the site's wp-content/uploads/ is added to its media library; any other image, such as theme imagery in a theme's assets/images, stays where it is written. " +
-		'The `imagery` skill says which images the design steps need and where they go. ' +
 		'Batch every image a page or site needs into as few calls as possible; each call accepts up to ' +
 		`${ MAX_IMAGES_PER_CALL } images and generates them concurrently. ` +
 		"The call returns at once with each image's path, and for the media library its attachment ID and URL, while the images are generated in the background: the tools that render the site wait for them, and any that failed is reported with a later tool result. " +

@@ -35,9 +35,10 @@ function copyAboutMenuAssets() {
 		path.join( aboutMenuDir, 'about-menu.html' ),
 		path.join( rendererOut, 'about-menu.html' )
 	);
-	for ( const icon of [ 'studio-app-icon.png', 'studio-app-icon-dark.png' ] ) {
-		fs.copyFileSync( path.join( aboutMenuDir, icon ), path.join( rendererOut, icon ) );
-	}
+	fs.copyFileSync(
+		path.join( aboutMenuDir, 'studio-app-icon.png' ),
+		path.join( rendererOut, 'studio-app-icon.png' )
+	);
 }
 
 fs.rmSync( rendererOut, { recursive: true, force: true } );

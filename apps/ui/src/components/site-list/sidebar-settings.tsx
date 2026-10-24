@@ -13,21 +13,21 @@ export function SidebarSettings() {
 	const [ recentTitle, collapseTitle ] = getSidebarSettingTitles();
 	return (
 		<>
-			<SettingsRow title={ recentTitle } description={ __( 'Show recent chats in the sidebar.' ) }>
-				<SettingsToggle
-					label={ recentTitle }
-					checked={ showRecentChats }
-					onChange={ ( next ) => save( { showRecentChats: next } ) }
-				/>
-			</SettingsRow>
 			<SettingsRow
 				title={ collapseTitle }
-				description={ __( 'Opening each site closes all others.' ) }
+				description={ __( 'Opening each site closes all others' ) }
 			>
 				<SettingsToggle
 					label={ collapseTitle }
 					checked={ autoCollapseSites }
 					onChange={ ( next ) => save( { autoCollapseSites: next } ) }
+				/>
+			</SettingsRow>
+			<SettingsRow title={ recentTitle } description={ __( 'Show recent chats in the sidebar.' ) }>
+				<SettingsToggle
+					label={ recentTitle }
+					checked={ showRecentChats }
+					onChange={ ( next ) => save( { showRecentChats: next } ) }
 				/>
 			</SettingsRow>
 		</>

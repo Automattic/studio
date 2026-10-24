@@ -12,13 +12,12 @@
 	overflow: hidden;
 }
 
-/* Navigation at the start, the address centred, actions at the end. The side
-   tracks never shrink below their controls. */
+/* Navigation at the start, the address centred in the room left over, and
+   actions at the end. */
 .header {
 	position: relative;
 	box-sizing: border-box;
-	display: grid;
-	grid-template-columns: minmax(max-content, 1fr) minmax(0, 1.4fr) minmax(max-content, 1fr);
+	display: flex;
 	align-items: center;
 	gap: 12px;
 	padding-inline: 12px 8px;
@@ -29,9 +28,6 @@
 	box-shadow: inset 0 calc(-1 * 1px) 0
 		var(--border);
 	-webkit-app-region: drag;
-	/* Sizes the address segments' narrow-width behavior (the title collapse
-	   in location-omnibox.module.css queries this container). */
-	container: studio-preview-toolbar / inline-size;
 }
 
 /* Clears the macOS traffic lights, which always sit at the window's physical
@@ -46,23 +42,23 @@
 	-webkit-app-region: no-drag;
 }
 
-/* The outer tracks size to their controls so the middle selector can use all
-   remaining width instead of being squeezed by artificial equal halves. */
 .headerSide {
 	display: flex;
+	flex-shrink: 0;
 	align-items: center;
 	gap: 4px;
 }
 
-.headerSideEnd {
-	justify-content: flex-end;
-}
-
 .browserLocation {
 	display: flex;
+	flex: 1;
 	align-items: center;
 	justify-content: center;
 	min-width: 0;
+}
+
+.browserLocation[data-site-header-address] {
+	min-width: 72px;
 }
 
 /* Holds the address field's place while the site starts or stops. */
@@ -70,7 +66,8 @@
 	display: flex;
 	box-sizing: border-box;
 	flex: 1 1 auto;
-	min-width: 80px;
+	min-width: 0;
+	max-width: 416px;
 	height: var(--control-size);
 	align-items: center;
 	justify-content: center;
@@ -178,10 +175,19 @@
 .realmLayer {
 	position: absolute;
 	inset: 0;
+	z-index: 1;
 	display: flex;
 	min-width: 0;
 	min-height: 0;
 	overflow: hidden;
+	transition: opacity var(--motion-duration-surface) var(--motion-ease-enter);
+}
+
+/* A loading page hides at once, showing the loading stage behind it, and
+   fades in when it's ready. */
+.realmLayer[data-loading] {
+	opacity: 0;
+	transition-duration: 0s;
 }
 
 /* Kept mounted and laid out — so the guest holds its size and scroll
@@ -258,19 +264,10 @@
 	overflow: hidden;
 }
 
-/* Fades off the first page of a site that was just started. */
-.empty[data-revealed] {
-	opacity: 0;
-	visibility: hidden;
-	pointer-events: none;
-	transition:
-		opacity var(--motion-duration-reveal) var(--motion-ease-enter),
-		visibility 0s linear var(--motion-duration-reveal);
-}
-
 .loadFailed {
 	position: absolute;
 	inset: 0;
+	gap: 20px;
 	background-color: var(--chat);
 }
 
@@ -291,7 +288,6 @@
 .navigation {
 	display: flex;
 	align-items: center;
-	gap: 4px;
 }
 
 /* Out of room: the navigation moves into the More menu, but keeps its size

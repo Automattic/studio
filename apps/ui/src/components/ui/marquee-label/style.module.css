@@ -1,0 +1,34 @@
+@layer ui {
+	.viewport,
+	.text {
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.viewport {
+		flex: 1;
+		min-width: 0;
+		text-align: start;
+	}
+
+	.text {
+		display: block;
+	}
+
+	.viewport[data-playing] {
+		text-overflow: clip;
+		mask-image: linear-gradient(
+			to right,
+			transparent,
+			black 8px,
+			black calc( 100% - 8px ),
+			transparent
+		);
+	}
+
+	.viewport[data-playing] > .text {
+		width: max-content;
+		overflow: visible;
+	}
+}

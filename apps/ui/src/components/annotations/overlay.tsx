@@ -9,6 +9,7 @@ import {
 	useComposerAttachments,
 	useFileDrop,
 } from '@/components/session-view/composer/use-composer-attachments';
+import { Badge } from '@/components/ui/badge';
 import { Button, IconButton } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -20,6 +21,7 @@ import {
 	DialogTitle,
 } from '@/components/ui/dialog';
 import { Field, FieldLabel } from '@/components/ui/field';
+import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { toast } from '@/data/app-messages';
@@ -130,14 +132,13 @@ export function AnnotationOverlay( { siteId, anchor, onSend }: AnnotationOverlay
 						count
 					) }
 					disabled={ ! count || busy }
-					loading={ sending }
 					onClick={ () => onSend() }
 				>
 					{ __( 'Send' ) }
 					{ stagedCount > 0 ? (
-						<span className={ styles.count } aria-hidden="true">
-							{ stagedCount }
-						</span>
+						<Badge variant="on-accent" size="count" aria-hidden="true">
+							{ sending ? <Spinner /> : stagedCount }
+						</Badge>
 					) : null }
 				</Button>
 			</div>

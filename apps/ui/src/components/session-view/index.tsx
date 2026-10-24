@@ -8,7 +8,7 @@ import { hasPaidAiCredits } from '@studio/common/lib/studio-assistant-quota';
 import { useNavigate } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
 import { clsx } from 'clsx';
-import { ArrowDownIcon } from 'lucide-react';
+import { ArrowDownIcon, XIcon } from 'lucide-react';
 import {
 	useCallback,
 	useEffect,
@@ -28,9 +28,9 @@ import {
 	subscribeAnnotationSend,
 } from '@/components/annotations/store';
 import { annotationSubmission } from '@/components/annotations/submission';
-import { OpenChatShortcuts } from '@/components/chat-actions';
+import { ChatContextMenu } from '@/components/chat-actions';
 import { PreviewParticles } from '@/components/preview-particles';
-import { PreviewToggleButton } from '@/components/preview-toggle-button';
+import { usePreviewBeside } from '@/components/preview-split-frame';
 import { ProgressiveBlur } from '@/components/progressive-blur';
 import { HeaderSidebarToggle } from '@/components/sidebar-toggle';
 import { SiteActionsMenu } from '@/components/site-actions-menu';
@@ -58,8 +58,9 @@ import {
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useIsOutOfAiCredits } from '@/hooks/use-is-out-of-ai-credits';
 import { useMarkChatRead } from '@/hooks/use-mark-chat-read';
+import { useSiteSelectionTime } from '@/hooks/use-open-site';
 import { useSessionCommands } from '@/hooks/use-session-commands';
-import { SessionUIProvider } from '@/hooks/use-session-ui';
+import { SessionUIProvider, useOptionalSessionPreviewUI } from '@/hooks/use-session-ui';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import { useWindowControlsInset } from '@/hooks/use-window-controls-inset';
@@ -71,7 +72,7 @@ import { QueuedPrompts } from './queued-prompts';
 import styles from './style.module.css';
 import { useAnchoredScroll } from './use-anchored-scroll';
 import { useComposerNotice } from './use-composer-notice';
-import type { SiteDetails } from '@/data/core';
+import type { AiSessionSummary, SiteDetails } from '@/data/core';
 
 function SessionHeader( {
 	siteName,
@@ -86,13 +87,16 @@ function SessionHeader( {
 	const reserveTrafficLightSpace = useTrafficLightSpace().start;
 	const windowControlsInset = useWindowControlsInset( 'toolbar' );
 	const { host } = useSiteHeader();
+	const preview = useOptionalSessionPreviewUI();
+	const previewBeside = usePreviewBeside();
 	const local = site && effectiveEnvironment === 'local';
 
 	return (
-		<div
+		<header
 			data-site-header
 			className={ clsx(
 				styles.header,
+				local && host === 'chat' && styles.headerWithSiteActions,
 				sidebarCollapsed && reserveTrafficLightSpace && styles.headerSidebarCollapsed
 			) }
 			style={
@@ -120,15 +124,23 @@ function SessionHeader( {
 			<span className={ styles.headerSpacer } aria-hidden="true" />
 			{ site && ( site.running || ! local ) ? (
 				<div data-site-header-reserved className={ styles.headerActions } data-header-actions>
-					<PreviewToggleButton canHideChat />
+					{ preview && previewBeside ? (
+						<IconButton
+							icon={ <XIcon /> }
+							label={ __( 'Hide chat' ) }
+							onClick={ () => preview.setChatHidden( true ) }
+						/>
+					) : null }
 				</div>
 			) : null }
 			{ local && host === 'chat' ? <SiteHeaderSpace /> : null }
-		</div>
+		</header>
 	);
 }
 
 interface SessionFrameProps {
+	session?: AiSessionSummary;
+	canExpand?: boolean;
 	header?: ReactNode;
 	composer?: ReactNode;
 	scrollRef?: Ref< HTMLDivElement >;
@@ -140,6 +152,8 @@ interface SessionFrameProps {
 // scroller. The site preview panel lives in the dashboard layout's
 // PreviewSplitFrame, which keeps it mounted across routes.
 function SessionFrame( {
+	session,
+	canExpand,
 	header,
 	composer,
 	scrollRef,
@@ -183,28 +197,30 @@ function SessionFrame( {
 	}, [] );
 
 	return (
-		<div
-			ref={ ( node ) => {
-				rootRef.current = node;
-				onRootNode?.( node );
-			} }
-			className={ styles.root }
-		>
-			<div ref={ headerRef } className={ styles.headerLayer }>
-				{ header }
+		<ChatContextMenu session={ session } canExpand={ canExpand }>
+			<div
+				ref={ ( node ) => {
+					rootRef.current = node;
+					onRootNode?.( node );
+				} }
+				className={ styles.root }
+			>
+				<div ref={ headerRef } className={ styles.headerLayer }>
+					{ header }
+				</div>
+				<div ref={ scrollRef } className={ styles.scroll }>
+					{ children }
+				</div>
+				{ composer ? (
+					<>
+						<ProgressiveBlur direction="up" className={ styles.composerBlur } fadeToSurface />
+						<div ref={ composerRef } className={ styles.composerOuter }>
+							{ composer }
+						</div>
+					</>
+				) : null }
 			</div>
-			<div ref={ scrollRef } className={ styles.scroll }>
-				{ children }
-			</div>
-			{ composer ? (
-				<>
-					<ProgressiveBlur direction="up" className={ styles.composerBlur } fadeToSurface />
-					<div ref={ composerRef } className={ styles.composerOuter }>
-						{ composer }
-					</div>
-				</>
-			) : null }
-		</div>
+		</ChatContextMenu>
 	);
 }
 
@@ -358,6 +374,10 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	const { mutate: startSite } = useStartSite();
 	const isSiteStarting = useIsSiteStarting( ownerSite?.id );
 	const isSiteStopping = useIsSiteStopping( ownerSite?.id );
+	const revealingSiteId = useOptionalSessionPreviewUI()?.revealingSiteId;
+	const siteLoading =
+		isSiteStarting || isSiteStopping || ( !! ownerSite && revealingSiteId === ownerSite.id );
+	const selectionTime = useSiteSelectionTime( ownerSite?.id );
 	const isSiteBusy = useIsSiteBusy( ownerSite );
 	const canAutoStart = !! ownerSite && effectiveEnvironment === 'local';
 	const { data: connectedSites } = useConnectedWpcomSites( ownerSite?.id );
@@ -395,6 +415,12 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		pendingPromptSlot.getSnapshot
 	);
 	const pendingPrompt = handedOver?.sessionId === sessionId ? handedOver : null;
+	// The empty state fades out under the first prompt, then unmounts.
+	const showEmpty = isEmpty && ! pendingPrompt;
+	const [ emptySessionId, setEmptySessionId ] = useState( showEmpty ? sessionId : null );
+	if ( showEmpty && emptySessionId !== sessionId ) {
+		setEmptySessionId( sessionId );
+	}
 	const isChatReady = !! data && ! isQuotaLoading && ! notice && ! isOutOfCredits;
 	useEffect( () => {
 		// Read the slot live rather than the rendered value: StrictMode runs the
@@ -499,6 +525,8 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 
 	return (
 		<SessionFrame
+			session={ data.summary }
+			canExpand={ !! ownerSite?.running || effectiveEnvironment === 'live' }
 			scrollRef={ setScrollNode }
 			rootRef={ setFrameNode }
 			header={
@@ -521,18 +549,18 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 						onRemove={ removeQueuedPrompt }
 						onEdit={ reopenQueuedPrompt }
 					/>
-					{ isScrolledAway ? (
-						<div className={ styles.scrollToLatestWrap }>
-							<IconButton
-								className={ styles.scrollToLatestButton }
-								icon={ <ArrowDownIcon /> }
-								label={ __( 'Jump to latest' ) }
-								variant="outline"
-								shape="round"
-								onClick={ scrollToLatest }
-							/>
-						</div>
-					) : null }
+					<div className={ styles.scrollToLatestWrap }>
+						<IconButton
+							className={ styles.scrollToLatestButton }
+							icon={ <ArrowDownIcon /> }
+							label={ __( 'Jump to latest' ) }
+							variant="outline"
+							shape="round"
+							data-visible={ isScrolledAway || undefined }
+							inert={ ! isScrolledAway }
+							onClick={ scrollToLatest }
+						/>
+					</div>
 					<Composer
 						ref={ composerRef }
 						busy={ composerBusy }
@@ -558,18 +586,29 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 				</div>
 			}
 		>
-			<OpenChatShortcuts session={ data.summary } />
-			{ isEmpty && ! pendingPrompt ? (
+			{ emptySessionId === sessionId ? (
 				<SiteContextMenu site={ ownerSite } disabled={ ! ownerSite || ownerSite.running }>
-					<div className={ styles.emptyState }>
-						<PreviewParticles active={ isSiteStarting } showLogo={ isSiteStarting } />
+					<div
+						className={ styles.emptyState }
+						data-hidden={ ! showEmpty || undefined }
+						onTransitionEnd={ ( event ) => {
+							if ( event.target === event.currentTarget && ! showEmpty ) {
+								setEmptySessionId( null );
+							}
+						} }
+					>
+						<PreviewParticles
+							active={ siteLoading }
+							showLogo={ siteLoading }
+							selectionTime={ ownerSite?.running ? undefined : selectionTime }
+						/>
 						{ ownerSite && ! ownerSite.running && ! isSiteStarting ? (
 							<StoppedSitePreview site={ ownerSite } />
 						) : null }
 					</div>
 				</SiteContextMenu>
 			) : null }
-			<div className={ clsx( styles.column, styles.conversationSpacing ) }>
+			<div data-chat-transcript className={ clsx( styles.column, styles.conversationSpacing ) }>
 				<Conversation
 					data={ data }
 					isRunning={ isRunning }

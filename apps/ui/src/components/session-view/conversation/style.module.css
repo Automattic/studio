@@ -9,7 +9,6 @@
 .userTurn {
 	display: flex;
 	flex-direction: column;
-	margin-right: calc(-1 * var(--composer-shell-inline-padding));
 	padding: 20px 0;
 }
 
@@ -87,55 +86,69 @@
 	white-space: nowrap;
 }
 
-.userTextRow {
-	align-self: flex-end;
+.userTextRow,
+.assistantTurn {
 	display: flex;
-	align-items: flex-end;
+	align-items: center;
+	gap: 8px;
+}
+
+.userTextRow {
 	justify-content: flex-end;
-	gap: 4px;
-	max-width: 100%;
 }
 
-.userCopy {
+.messageActions {
+	flex: none;
 	opacity: 0;
-	transition: opacity 120ms ease;
 }
 
-.userTextRow:hover .userCopy,
-.userCopy:focus-within {
+.userTextRow .messageActions {
+	order: -1;
+}
+
+:is(.userTextRow, .assistantTurn):is(:hover, :focus-within) .messageActions {
 	opacity: 1;
 }
 
 @media (hover: none) {
-	.userCopy {
+	.messageActions {
 		opacity: 1;
 	}
 }
 
-.turnTiming {
+.activity {
 	display: flex;
 	flex-direction: column;
-	padding: 4px 0 8px;
-	color: var(--muted-foreground);
-	font-size: var(--text-xs);
-	line-height: 1.55;
 	font-variant-numeric: tabular-nums;
 }
 
-.turnTimingHead {
+.activityItems {
 	display: flex;
-	align-items: center;
-	gap: 2px;
+	flex-direction: column;
+	gap: 8px;
+	min-width: 0;
+	margin-block: 8px 4px;
+	margin-inline-start: 7px;
+	padding-inline: 12px 4px;
+	border-inline-start: 1px solid var(--border);
+	color: var(--muted-foreground);
+	font-size: var(--text-xs);
+	line-height: 20px;
+	overflow-wrap: break-word;
 }
 
-.turnTimingIndicator {
-	inline-size: 18px;
-	flex-shrink: 0;
-	transform: translateX(-1px);
+.activityItems .activityText > * {
+	--markdown-gap: 8px;
+
+	color: inherit;
+	font-size: inherit;
+	line-height: inherit;
 }
 
-.turnTimingProgress {
-	padding-left: 20px;
+.activityProgress {
+	color: var(--muted-foreground);
+	font-size: var(--text-xs);
+	line-height: 20px;
 	opacity: 0.8;
 	overflow: hidden;
 	text-overflow: ellipsis;
@@ -143,7 +156,6 @@
 }
 
 .userText {
-	align-self: flex-end;
 	box-sizing: border-box;
 	max-width: min(85%, 32rem);
 	padding: 12px 16px;
@@ -158,6 +170,7 @@
 
 .assistantBubble {
 	box-sizing: border-box;
+	min-width: 0;
 	width: fit-content;
 	max-width: min(85%, 32rem);
 	padding: 12px 16px;
@@ -165,105 +178,80 @@
 	background-color: var(--muted);
 }
 
-.toolBlock {
+.traceLine {
 	display: flex;
-	flex-direction: column;
-	gap: 4px;
+	align-items: center;
+	gap: 8px;
+	min-width: 0;
+	max-width: 100%;
+	color: var(--muted-foreground);
+	font-size: var(--text-xs);
+	line-height: 20px;
 }
 
-.toolRow {
-	--tool-trigger-color: color-mix(
-		in srgb,
-		var(--muted-foreground) 70%,
-		transparent
-	);
-	--tool-text-color: var(--tool-trigger-color);
-	--tool-icon-color: var(--tool-trigger-color);
+.traceLine svg {
+	flex: none;
+}
 
-	display: flex;
-	align-items: baseline;
-	gap: 4px;
-	box-sizing: border-box;
-	max-width: 100%;
-	font-size: var(--text-xs);
-	line-height: 1.55;
-	color: var(--tool-text-color);
-	padding: 2px 0;
+.traceTitle {
 	min-width: 0;
 	overflow: hidden;
+	text-overflow: ellipsis;
 	white-space: nowrap;
 }
 
-@media (prefers-color-scheme: light) {
-	.toolRow {
-		--tool-text-color: var(--muted-foreground);
-	}
-}
-
-.toolRowButton {
-	--tool-row-active-background: var(--hover);
-
+.traceTrigger {
 	appearance: none;
-	align-self: flex-start;
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	width: fit-content;
 	max-width: 100%;
-	margin: -4px -8px;
-	padding: 4px 8px;
+	min-width: 0;
+	padding: 0;
 	border: 0;
-	border-radius: 8px;
-	background: transparent;
-	font-family: inherit;
-	text-align: left;
+	border-radius: var(--radius-md);
+	background: none;
+	color: var(--muted-foreground);
+	font: inherit;
+	text-align: start;
 	cursor: pointer;
-	transition:
-		background-color 120ms ease,
-		color 120ms ease;
+	transition: color var(--motion-duration-feedback) ease;
 }
 
-.toolRowButton:is(:hover, :focus-visible, [data-expanded='true']) {
-	--tool-text-color: var(--foreground);
-	--tool-icon-color: var(--foreground);
-
-	background-color: var(--tool-row-active-background);
+.traceTrigger:hover {
+	color: var(--foreground);
 }
 
-.toolRowButton:focus:not(:focus-visible):not([data-expanded='true']) {
-	outline: none;
-	background-color: transparent;
+.traceTrigger .traceLine {
+	color: inherit;
 }
 
-.toolRowButton:is(:hover, :focus-visible, [data-expanded='true']) .toolLabel,
-.toolRowButton:is(:hover, :focus-visible, [data-expanded='true']) .toolDetail {
-	color: var(--tool-text-color);
+.traceTrigger:has([data-status='error']),
+.traceLine[data-status='error'] {
+	color: var(--destructive);
 }
 
-.toolRowButton:focus-visible {
+.traceTrigger:focus-visible {
 	outline: 2px solid var(--ring);
 	outline-offset: 2px;
 }
 
-.toolDetailsShell {
-	display: grid;
-	grid-template-rows: 0fr;
-	margin-left: -8px;
-	opacity: 0;
-	overflow: hidden;
-	transform: translateY(-2px);
-	transition:
-		grid-template-rows 180ms cubic-bezier(0.2, 0, 0, 1),
-		opacity 140ms ease,
-		transform 180ms cubic-bezier(0.2, 0, 0, 1);
+.traceChevron {
+	flex: none;
+	transition: rotate var(--motion-duration-feedback) ease;
 }
 
-.toolDetailsShell[data-expanded='true'] {
-	grid-template-rows: 1fr;
-	opacity: 1;
-	transform: translateY(0);
-	animation: toolDetailsExpand 180ms cubic-bezier(0.2, 0, 0, 1);
+.traceTrigger[aria-expanded='true'] .traceChevron {
+	rotate: 90deg;
 }
 
-.toolDetailsClip {
-	min-height: 0;
-	overflow: hidden;
+.traceChevron:dir(rtl) {
+	scale: -1 1;
+}
+
+.traceTrigger[aria-expanded='true'] .traceChevron:dir(rtl) {
+	rotate: -90deg;
 }
 
 .toolOutputWrap {
@@ -325,31 +313,6 @@
 	background-color: var(--destructive-surface);
 }
 
-.toolLabel {
-	color: var(--tool-text-color);
-	font-weight: var(--font-weight-normal);
-	min-width: 0;
-	flex: 0 1 auto;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
-}
-
-.toolDetail {
-	color: var(--tool-text-color);
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
-	min-width: 0;
-	flex: 1 1 auto;
-}
-
-.toolIcon {
-	flex: 0 0 auto;
-	color: var(--tool-icon-color);
-	translate: 0 2px;
-}
-
 .mediaArtifactGrid {
 	display: grid;
 	grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
@@ -401,20 +364,6 @@
 	font-size: var(--text-xxs);
 }
 
-@keyframes toolDetailsExpand {
-	from {
-		grid-template-rows: 0fr;
-		opacity: 0;
-		transform: translateY(-2px);
-	}
-
-	to {
-		grid-template-rows: 1fr;
-		opacity: 1;
-		transform: translateY(0);
-	}
-}
-
 @keyframes mediaArtifactLoading {
 	from {
 		background-position: 200% 0;
@@ -426,13 +375,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-	.toolRowButton,
-	.toolDetailsShell,
-	.toolDetailsShell[data-expanded='true'],
 	.mediaArtifactLoading {
 		animation: none;
-		transform: none;
-		transition: none;
 	}
 }
 
@@ -905,49 +849,4 @@
 	font-size: 11px;
 	text-align: center;
 	overflow-wrap: anywhere;
-}
-
-/* Action footer for an assistant message: open on the newest reply, and on any
-   older one the reader clicks. A closed turn reserves no space for it. */
-.messageActions {
-	display: grid;
-	grid-template-rows: 0fr;
-	/* Optical alignment of the 16px glyph with the text column. It lives out
-	   here rather than on the row so the negative offset doesn't drag the
-	   button past the clip's edge; the row's inline padding cancels the extra
-	   -sm so the net shift is still (16px - button) / 2. */
-	margin-inline-start: calc((16px - 1.75rem) / 2 - 8px);
-	opacity: 0;
-	transition:
-		grid-template-rows 180ms cubic-bezier(0.2, 0, 0, 1),
-		opacity 120ms ease;
-}
-
-/* :focus-within keeps the row reachable by keyboard — tabbing to the copy
-   button opens it without a click. */
-.assistantTurn[data-actions-open='true'] .messageActions,
-.assistantTurn:focus-within .messageActions {
-	grid-template-rows: 1fr;
-	opacity: 1;
-}
-
-.messageActionsClip {
-	min-height: 0;
-	overflow: hidden;
-}
-
-/* The clip cuts on every side, so the row carries enough padding for the
-   buttons' hover backgrounds and focus rings to sit fully inside it. */
-.messageActionsRow {
-	display: flex;
-	align-items: center;
-	gap: 4px;
-	padding: 4px 8px
-		8px;
-}
-
-@media (prefers-reduced-motion: reduce) {
-	.messageActions {
-		transition: none;
-	}
 }

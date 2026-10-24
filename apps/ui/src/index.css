@@ -27,34 +27,35 @@ body {
 	color: var(--foreground);
 	color-scheme: light dark;
 	scrollbar-color: gray transparent;
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
 }
 
-/* A column edge: a short separator inside the top band and a full divider
-   below it. Set `--studio-column-edge` to its inline offset. */
-.studio-column-edge::before,
-.studio-column-edge::after {
+/* A column edge's short separator inside the top band. Set
+   `--studio-column-edge` to its inline offset. */
+.studio-column-edge::before {
 	content: '';
 	position: absolute;
 	inset-inline-start: var( --studio-column-edge, 0 );
+	top: calc( ( var( --band-height ) - var( --band-separator-height ) ) / 2 );
 	width: 1px;
+	height: var( --band-separator-height );
 	background-color: var(--border);
 	pointer-events: none;
 }
 
-.studio-column-edge::before {
-	top: calc( ( var( --band-height ) - var( --band-separator-height ) ) / 2 );
-	height: var( --band-separator-height );
-}
-
-.studio-column-edge::after {
-	top: var( --band-height );
-	bottom: 0;
+@media ( max-width: 639px ) {
+	.studio-column-edge::before {
+		content: none;
+	}
 }
 
 /* Unlike `scrollbar-color`, `scrollbar-width` isn't inherited, so inner scroll
-   containers need it set directly. */
-* {
-	scrollbar-width: thin;
+   containers need it set directly. In the base layer, so components can hide it. */
+@layer base {
+	* {
+		scrollbar-width: thin;
+	}
 }
 
 /* `lang` is set on bootstrap in lib/apply-user-preferences.ts. */
@@ -134,7 +135,10 @@ input,
 textarea,
 [role='button'],
 [data-base-ui-portal],
-[data-base-ui-portal] * {
+[data-base-ui-portal] *,
+/* With a menu or popover open, a click on a drag region closes it instead of
+   moving the window. */
+body:has([data-base-ui-portal] :is([role='menu'], [role='dialog'])[data-open]) * {
 	-webkit-app-region: no-drag;
 }
 
@@ -148,6 +152,55 @@ textarea,
 	:root svg[data-keep-size] {
 		width: auto;
 		height: auto;
+	}
+}
+
+/* Text that is working: a highlight band sweeps across it, dimming it in light
+   mode and lifting it in dark mode. `--shimmer-highlight` sets the band's color. */
+.studio-shimmer {
+	--shimmer-spread: calc( 3ch + 40px );
+	--shimmer-band: var( --shimmer-highlight, oklch( from currentColor l c h / calc( alpha * 0.2 ) ) );
+	--shimmer-edge: color-mix( in oklch, var( --shimmer-band ), currentColor 50% );
+
+	background: linear-gradient(
+			110deg,
+			currentColor calc( 50% - var( --shimmer-spread ) ),
+			var( --shimmer-edge ) calc( 50% - var( --shimmer-spread ) * 0.5 ),
+			var( --shimmer-band ) 50%,
+			var( --shimmer-edge ) calc( 50% + var( --shimmer-spread ) * 0.5 ),
+			currentColor calc( 50% + var( --shimmer-spread ) )
+		)
+		0 0 / calc( 200% + var( --shimmer-spread ) * 2 ) 100% no-repeat;
+	background-clip: text;
+	-webkit-text-fill-color: transparent;
+	animation: studio-shimmer 2s linear infinite;
+}
+
+[data-color-scheme='dark'] .studio-shimmer {
+	--shimmer-band: var(
+		--shimmer-highlight,
+		oklch( from currentColor max( 0.8, calc( l + 0.4 ) ) c h / calc( alpha + 0.4 ) )
+	);
+}
+
+.studio-shimmer:dir( rtl ) {
+	animation-direction: reverse;
+}
+
+@keyframes studio-shimmer {
+	from {
+		background-position: 100% 0;
+	}
+
+	to {
+		background-position: 0 0;
+	}
+}
+
+@media ( prefers-reduced-motion: reduce ) {
+	.studio-shimmer {
+		background: none;
+		-webkit-text-fill-color: currentColor;
 	}
 }
 

@@ -38,7 +38,13 @@ import {
 } from '@/components/site-header-actions';
 import { SiteContextMenu, StoppedSitePreview } from '@/components/stopped-site-preview';
 import { Button, IconButton } from '@/components/ui/button';
-import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
+import {
+	Empty,
+	EmptyDescription,
+	EmptyHeader,
+	EmptyMedia,
+	EmptyTitle,
+} from '@/components/ui/empty';
 import * as Menu from '@/components/ui/menu';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { VisuallyHidden } from '@/components/ui/visually-hidden';
@@ -50,6 +56,7 @@ import { siteThumbnailQueryKey, useSiteThumbnail } from '@/data/queries/use-site
 import { useIsSiteStarting, useIsSiteStopping, useSiteOperation } from '@/data/queries/use-sites';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useOpenSettings } from '@/hooks/use-open-settings';
+import { useOptionalSessionPreviewUI } from '@/hooks/use-session-ui';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import { useWindowControlsInset } from '@/hooks/use-window-controls-inset';
@@ -531,13 +538,15 @@ function BrowserHistoryButton( {
 function PreviewLoadFailed( { onRetry }: { onRetry: () => void } ) {
 	return (
 		<Empty className={ styles.loadFailed }>
-			<EmptyMedia>
-				<GlobeIcon />
-			</EmptyMedia>
-			<EmptyTitle>{ __( 'Preview could not load' ) }</EmptyTitle>
-			<EmptyDescription>
-				{ __( 'Check that your site is running, then try again.' ) }
-			</EmptyDescription>
+			<EmptyHeader>
+				<EmptyMedia>
+					<GlobeIcon />
+				</EmptyMedia>
+				<EmptyTitle>{ __( 'Preview could not load' ) }</EmptyTitle>
+				<EmptyDescription>
+					{ __( 'Check that your site is running, then try again.' ) }
+				</EmptyDescription>
+			</EmptyHeader>
 			<Button variant="outline" onClick={ onRetry }>
 				{ __( 'Try again' ) }
 			</Button>
@@ -620,6 +629,25 @@ export function SitePreview( {
 		}
 	}, [ canPreview, isStarting ] );
 	const loadingStage = isStarting || ( awaitingReveal && activeSurfaceKey !== 'design' );
+	const setRevealing = useOptionalSessionPreviewUI()?.setRevealing;
+	useEffect( () => {
+		if ( live || ! setRevealing ) {
+			return;
+		}
+		setRevealing( site.id, loadingStage );
+		return () => setRevealing( site.id, false );
+	}, [ live, loadingStage, setRevealing, site.id ] );
+	// Every page load hides the page over the loading stage, then fades it in.
+	// Frames report no loading state, so track which load each one finished.
+	const [ loadedFrames, setLoadedFrames ] = useState<
+		Partial< Record< PreviewSurfaceKey, string > >
+	>( {} );
+	const activeFrameLoading =
+		! canUseWebview &&
+		!! activeSurface &&
+		loadedFrames[ activeSurfaceKey ] !== getFrameKey( siteUrl, activeSurface );
+	const navigating =
+		canPreview && activeSurfaceKey !== 'design' && ( browserState.loading || activeFrameLoading );
 	const [ annotationAnchor, setAnnotationAnchor ] = useState< AnnotationAnchor | null >( null );
 	const commandIdRef = useRef( 0 );
 	// Studio renders the design system itself, so it needs no page injection.
@@ -991,26 +1019,22 @@ export function SitePreview( {
 							aria-hidden={ headerLayout === 'navigation-overflow' || undefined }
 							inert={ headerLayout === 'navigation-overflow' }
 						>
-							{ browserState.canGoBack || browserState.canGoForward ? (
-								<>
-									<BrowserHistoryButton
-										direction="back"
-										browserState={ browserState }
-										shortcut={ browserShortcuts.back }
-										disabled={ isStopping }
-										onStep={ () => sendBrowserCommand( 'back' ) }
-										onJump={ goToHistoryIndex }
-									/>
-									<BrowserHistoryButton
-										direction="forward"
-										browserState={ browserState }
-										shortcut={ browserShortcuts.forward }
-										disabled={ isStopping }
-										onStep={ () => sendBrowserCommand( 'forward' ) }
-										onJump={ goToHistoryIndex }
-									/>
-								</>
-							) : null }
+							<BrowserHistoryButton
+								direction="back"
+								browserState={ browserState }
+								shortcut={ browserShortcuts.back }
+								disabled={ isStopping }
+								onStep={ () => sendBrowserCommand( 'back' ) }
+								onJump={ goToHistoryIndex }
+							/>
+							<BrowserHistoryButton
+								direction="forward"
+								browserState={ browserState }
+								shortcut={ browserShortcuts.forward }
+								disabled={ isStopping }
+								onStep={ () => sendBrowserCommand( 'forward' ) }
+								onJump={ goToHistoryIndex }
+							/>
 							<IconButton
 								icon={ <RotateCwIcon /> }
 								label={ __( 'Reload preview' ) }
@@ -1046,7 +1070,7 @@ export function SitePreview( {
 						/>
 					) : null }
 				</div>
-				<div className={ clsx( styles.headerSide, styles.headerSideEnd ) }>
+				<div className={ styles.headerSide }>
 					{ showAnnotate ? (
 						<span data-site-header-annotate className={ styles.headerItem }>
 							<AnnotateButton
@@ -1107,10 +1131,15 @@ export function SitePreview( {
 									</div>
 								);
 							}
+							const frameKey = getFrameKey( siteUrl, surface );
+							const frameLoading = ! canUseWebview && loadedFrames[ key ] !== frameKey;
 							return (
 								<div
 									key={ key }
 									className={ clsx( styles.realmLayer, ! active && styles.realmLayerHidden ) }
+									data-loading={
+										loadingStage || surface.browser.loading || frameLoading || undefined
+									}
 									inert={ active ? undefined : true }
 								>
 									<div className={ styles.surfaceFrame }>
@@ -1139,14 +1168,13 @@ export function SitePreview( {
 											// Non-Electron fallback: plain iframe, no inspector. Reloads
 											// by remounting; back/forward aren't reachable from the host.
 											<iframe
-												key={ `${ surfaceUrl }#${ surface.reloadNonce }#${
-													surface.browserCommand?.type === 'reload' ? surface.browserCommand.id : 0
-												}` }
+												key={ frameKey }
 												className={ styles.iframe }
 												src={ surfaceUrl }
 												title={ site.name }
 												onLoad={ ( event ) => {
 													const { src } = event.currentTarget;
+													setLoadedFrames( ( frames ) => ( { ...frames, [ key ]: frameKey } ) );
 													const title = getIframeTitle( event.currentTarget );
 													handleSurfaceNavigation( key, src );
 													// A frame fires `load` for the browser's own error page too, and
@@ -1181,11 +1209,8 @@ export function SitePreview( {
 							);
 						} ) }
 					<SiteContextMenu site={ site } disabled={ canPreview }>
-						<div
-							className={ styles.empty }
-							data-revealed={ canPreview && ! loadingStage ? true : undefined }
-						>
-							<PreviewParticles active={ loadingStage } showLogo={ loadingStage } />
+						<div className={ styles.empty }>
+							<PreviewParticles active={ loadingStage || navigating } showLogo={ loadingStage } />
 							{ loadingStage ? (
 								<VisuallyHidden role="status">{ __( 'Loading site preview' ) }</VisuallyHidden>
 							) : null }
@@ -1218,6 +1243,12 @@ export function SitePreview( {
 			</div>
 		</aside>
 	);
+}
+
+// A frame remounts, and so reloads, whenever its key changes.
+function getFrameKey( siteUrl: string, surface: PreviewSurfaceState ) {
+	const reloadId = surface.browserCommand?.type === 'reload' ? surface.browserCommand.id : 0;
+	return `${ siteUrl }${ surface.path }#${ surface.reloadNonce }#${ reloadId }`;
 }
 
 function getSafePath( path: unknown ) {

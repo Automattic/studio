@@ -16,6 +16,10 @@
 		background-color: var( --muted );
 	}
 
+	[data-slot='field-group'][data-variant='settings'] .track {
+		background-color: var( --border );
+	}
+
 	.indicator {
 		height: 100%;
 		background-color: var( --primary );

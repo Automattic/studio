@@ -16,6 +16,12 @@
 		opacity: 0;
 	}
 
+	@starting-style {
+		.overlay {
+			opacity: 0;
+		}
+	}
+
 	.content {
 		position: fixed;
 		top: 50%;
@@ -43,6 +49,13 @@
 		scale: 0.97;
 	}
 
+	@starting-style {
+		.content {
+			opacity: 0;
+			scale: 0.97;
+		}
+	}
+
 	@media ( prefers-reduced-motion: reduce ) {
 		.content {
 			transition-property: opacity;
@@ -51,6 +64,12 @@
 
 		.content:is( [data-starting-style], [data-ending-style] ) {
 			scale: 1;
+		}
+
+		@starting-style {
+			.content {
+				scale: 1;
+			}
 		}
 	}
 
@@ -156,6 +175,14 @@
 		margin: 0;
 		color: var( --muted-foreground );
 		font-size: var( --text-sm );
+	}
+
+	.description p {
+		margin: 0;
+	}
+
+	.description p + p {
+		margin-top: 8px;
 	}
 
 	.description[data-tone='default'] {

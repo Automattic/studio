@@ -3,7 +3,7 @@ import { sortSites } from '@studio/common/lib/sort-sites';
 import { useNavigate, useParams, useRouterState } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
 import { clsx } from 'clsx';
-import { ChevronRightIcon } from 'lucide-react';
+import { ChevronRightIcon, EllipsisIcon } from 'lucide-react';
 import {
 	Fragment,
 	useCallback,
@@ -17,7 +17,6 @@ import {
 	type ReactElement,
 	type ReactNode,
 } from 'react';
-import { AgentWorkingIndicator } from '@/components/agent-working-indicator';
 import { ChatActionsMenuItems, useChatActions } from '@/components/chat-actions';
 import { ReorderableList, type ReorderableListProps } from '@/components/reorderable-list';
 import { getSessionTitle } from '@/components/session-view/session-chat-actions';
@@ -25,15 +24,13 @@ import { SidebarButton } from '@/components/sidebar-button';
 import { SiteActionsMenuItems, useSiteActions } from '@/components/site-actions-menu';
 import { Badge } from '@/components/ui/badge';
 import { Button, IconButton } from '@/components/ui/button';
+import { CollapsiblePanel } from '@/components/ui/collapsible';
 import * as Menu from '@/components/ui/menu';
 import { Spinner } from '@/components/ui/spinner';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { VisuallyHidden } from '@/components/ui/visually-hidden';
 import { XdebugIcon } from '@/components/xdebug-icon';
-import {
-	useSessionsNeedingInput,
-	useSiteAgentActivity,
-	type SiteAgentActivity,
-} from '@/data/queries/use-agent-run';
+import { useSessionsNeedingInput, useSiteAgentActivity } from '@/data/queries/use-agent-run';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useSessions } from '@/data/queries/use-sessions';
 import {
@@ -93,21 +90,17 @@ const CHATS_PAGE_SIZE = 10;
 // Recent is a shortcut to the latest chats; every chat is also under its site.
 const RECENT_CHATS_LIMIT = 10;
 
-type SiteRowActivity = SiteAgentActivity | 'sync' | 'import';
+type SiteRowActivity = 'idle' | 'sync' | 'import';
 
 const ACTIVITY_EXIT_DURATION_MS = 180;
 
 function SiteAgentActivityTooltip( {
 	label,
-	ariaLabel = label,
 	className,
-	childProvidesLabel = false,
 	children,
 }: {
 	label: string;
-	ariaLabel?: string;
 	className?: string;
-	childProvidesLabel?: boolean;
 	children?: ReactNode;
 } ) {
 	return (
@@ -120,8 +113,8 @@ function SiteAgentActivityTooltip( {
 							styles.siteAgentActivityTooltipTrigger,
 							className
 						) }
-						role={ childProvidesLabel ? undefined : 'status' }
-						aria-label={ childProvidesLabel ? undefined : ariaLabel }
+						role="status"
+						aria-label={ label }
 					/>
 				}
 			>
@@ -150,9 +143,6 @@ function SiteAgentActivityIndicator( { activity }: { activity: SiteRowActivity }
 
 	const renderedActivity = activity === 'idle' ? exitingActivity : activity;
 	const isVisible = activity !== 'idle';
-	const workingLabel = __( 'Working…' );
-	const pendingQuestionLabel = __( 'Needs an answer' );
-	const pendingQuestionAriaLabel = __( 'Studio needs an answer.' );
 	const syncLabel = __( 'Syncing live site' );
 	const importLabel = __( 'Importing backup' );
 
@@ -164,21 +154,6 @@ function SiteAgentActivityIndicator( { activity }: { activity: SiteRowActivity }
 			) }
 			aria-hidden={ isVisible ? undefined : 'true' }
 		>
-			{ renderedActivity === 'working' ? (
-				<SiteAgentActivityTooltip label={ workingLabel } childProvidesLabel>
-					<AgentWorkingIndicator
-						className={ styles.siteAgentActivityPixels }
-						label={ workingLabel }
-					/>
-				</SiteAgentActivityTooltip>
-			) : null }
-			{ renderedActivity === 'pending-question' ? (
-				<SiteAgentActivityTooltip
-					label={ pendingQuestionLabel }
-					ariaLabel={ pendingQuestionAriaLabel }
-					className={ styles.siteAgentActivityQuestion }
-				/>
-			) : null }
 			{ renderedActivity === 'sync' || renderedActivity === 'import' ? (
 				<SiteAgentActivityTooltip
 					label={ renderedActivity === 'import' ? importLabel : syncLabel }
@@ -275,7 +250,6 @@ function SidebarReorderableList< T >(
 			{ ...props }
 			className={ styles.sites }
 			itemClassName={ styles.siteDragWrapper }
-			placeholderClassName={ styles.siteDropPlaceholder }
 			previewClassName={ styles.siteDragPreview }
 			excludeSelector="[data-reorder-exclude]"
 			disabled={ useIsSelecting() }
@@ -286,10 +260,7 @@ function SidebarReorderableList< T >(
 function RetryLoadingChats() {
 	const { refetch } = useSessions();
 	return (
-		<SidebarButton
-			className={ clsx( styles.chat, styles.mutedRow ) }
-			onClick={ () => void refetch() }
-		>
+		<SidebarButton className={ styles.chat } onClick={ () => void refetch() }>
 			<span className={ styles.chatTitle }>{ __( 'Retry loading chats' ) }</span>
 		</SidebarButton>
 	);
@@ -332,10 +303,10 @@ function ChatRow( {
 			} }
 		>
 			{ nested ? null : <ChatIcon className={ styles.rowIcon } /> }
-			<span className={ styles.chatTitle }>{ title }</span>
-			{ actions.working ? (
-				<AgentWorkingIndicator className={ styles.chatActivity } label={ __( 'Working…' ) } />
-			) : null }
+			{ actions.working ? <VisuallyHidden>{ __( 'Working…' ) }</VisuallyHidden> : null }
+			<span className={ clsx( styles.chatTitle, actions.working && 'studio-shimmer' ) }>
+				{ title }
+			</span>
 			{ needsInput ? (
 				<Badge
 					variant="accent"
@@ -421,31 +392,43 @@ function SidebarGroup( {
 	title,
 	action,
 	itemKeys,
+	foldable = true,
 	children,
 }: {
 	id: string;
 	title: string;
 	action?: ReactNode;
 	itemKeys?: string[];
+	foldable?: boolean;
 	children: ReactNode;
 } ) {
-	const [ expanded, setExpanded ] = useStoredFlag( `studio-ui-sidebar-group-${ id }`, true );
+	const [ storedExpanded, setExpanded ] = useStoredFlag( `studio-ui-sidebar-group-${ id }`, true );
+	const expanded = storedExpanded || ! foldable;
 	useOpenOnAddedItems( itemKeys, expanded, () => setExpanded( true ) );
 	return (
-		<div role="group" className={ styles.group } aria-label={ title }>
+		<div
+			role="group"
+			className={ styles.group }
+			aria-label={ title }
+			data-open={ ( foldable && expanded ) || undefined }
+		>
 			<div className={ styles.groupHeader }>
-				<button
-					type="button"
-					className={ styles.groupToggle }
-					aria-expanded={ expanded }
-					onClick={ () => setExpanded( ! expanded ) }
-				>
-					{ title }
-					<ChevronRightIcon className={ styles.groupChevron } />
-				</button>
+				{ foldable ? (
+					<button
+						type="button"
+						className={ styles.groupToggle }
+						aria-expanded={ expanded }
+						onClick={ () => setExpanded( ! expanded ) }
+					>
+						{ title }
+						<ChevronRightIcon className={ styles.groupChevron } />
+					</button>
+				) : (
+					<span className={ styles.groupToggle }>{ title }</span>
+				) }
 				{ action }
 			</div>
-			{ expanded ? children : null }
+			<CollapsiblePanel open={ expanded }>{ children }</CollapsiblePanel>
 		</div>
 	);
 }
@@ -621,7 +604,6 @@ function SiteSection( {
 	const isStarting = useIsSiteStarting( site.id );
 	const isStopping = useIsSiteStopping( site.id );
 	const status = getSiteStatus( site, isStarting, isStopping, useSiteOperation( site ) );
-	const agentActivity = useSiteAgentActivity( row.sessionIds );
 	const syncActivity = useSiteSyncActivity( site.id );
 	// Import gets a row indicator of its own alongside push/pull: it is the only
 	// way to tell which site a long-running import belongs to when several are in
@@ -633,7 +615,7 @@ function SiteSection( {
 			: pendingDirection === 'push' || pendingDirection === 'pull'
 			? 'sync'
 			: undefined;
-	const displayActivity = siteActivity ? siteActivity : agentActivity;
+	const displayActivity = siteActivity ?? 'idle';
 	const openSite = useOpenSite();
 	const handleOpenSite = () => {
 		onOpen?.();
@@ -687,7 +669,7 @@ function SiteSection( {
 								<span
 									className={ clsx(
 										styles.siteName,
-										status === 'transitioning' && styles.siteNameStarting
+										status === 'transitioning' && 'studio-shimmer'
 									) }
 								>
 									{ site.name }
@@ -719,7 +701,7 @@ function SiteSection( {
 					</header>
 				}
 			/>
-			{ showChats ? (
+			<CollapsiblePanel open={ showChats }>
 				<div
 					role="group"
 					aria-label={ sprintf(
@@ -754,11 +736,12 @@ function SiteSection( {
 							className={ clsx( styles.chat, styles.mutedRow ) }
 							onClick={ () => setChatCount( ( count ) => count + CHATS_PAGE_SIZE ) }
 						>
+							<EllipsisIcon className={ styles.rowIcon } />
 							<span className={ styles.chatTitle }>{ __( 'Show more' ) }</span>
 						</SidebarButton>
 					) : null }
 				</div>
-			) : null }
+			</CollapsiblePanel>
 		</section>
 	);
 }
@@ -906,10 +889,19 @@ export function SiteList( {
 	);
 
 	let listContent: ReactNode;
-	if ( sitesLoading || sessionsLoading ) {
-		listContent = <p className={ styles.empty }>{ __( 'Loading…' ) }</p>;
+	if ( sitesLoading ) {
+		listContent = (
+			<div className={ styles.sites } aria-hidden="true">
+				{ [ '65%', '48%', '72%', '56%' ].map( ( width ) => (
+					<div key={ width } className={ styles.skeletonRow }>
+						<span className={ styles.skeleton } />
+						<span className={ styles.skeleton } style={ { maxWidth: width } } />
+					</div>
+				) ) }
+			</div>
+		);
 	} else if ( rows.length === 0 ) {
-		listContent = <p className={ styles.empty }>{ __( 'No sites yet' ) }</p>;
+		listContent = sections ? null : <p className={ styles.empty }>{ __( 'No sites yet' ) }</p>;
 	} else if ( ! reorderable ) {
 		listContent = (
 			<div className={ styles.sites }>
@@ -940,6 +932,19 @@ export function SiteList( {
 		return <div className={ clsx( styles.root, className ) }>{ listContent }</div>;
 	}
 
+	if ( sitesLoading ) {
+		return (
+			<div className={ clsx( styles.root, className ) }>
+				<div className={ styles.group }>
+					<div className={ styles.groupHeader } aria-hidden="true">
+						<span className={ clsx( styles.skeleton, styles.skeletonLabel ) } />
+					</div>
+					{ listContent }
+				</div>
+			</div>
+		);
+	}
+
 	const loaded = ! sitesLoading && ! sessionsLoading;
 	const openChats = chatEnabled
 		? ( sessions ?? [] ).filter( ( session ) => ! session.archived ).sort( byMostRecent )
@@ -963,11 +968,7 @@ export function SiteList( {
 		<div className={ clsx( styles.root, className ) }>
 			<SidebarSelection>
 				{ needsInputChats.length > 0 ? (
-					<SidebarGroup
-						id="needs-input"
-						title={ __( 'Needs input' ) }
-						itemKeys={ needsInputChats.map( ( session ) => session.id ) }
-					>
+					<SidebarGroup id="needs-input" title={ __( 'Needs input' ) } foldable={ false }>
 						<div className={ styles.chats }>
 							{ needsInputChats.map( ( session ) => renderChat( session ) ) }
 						</div>
@@ -1007,6 +1008,7 @@ export function SiteList( {
 					id="sites"
 					title={ __( 'Sites' ) }
 					itemKeys={ loaded ? siteRows.map( ( row ) => row.site.id ) : undefined }
+					foldable={ sitesLoading || siteRows.length > 0 }
 					action={
 						<span className={ styles.groupActions }>
 							{ canCollapseAll ? (

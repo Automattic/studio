@@ -2,15 +2,22 @@
 	display: flex;
 	flex-direction: column;
 	align-items: center;
+	width: 100%;
 	margin-top: -16px;
 	padding-bottom: 32px;
 	text-align: center;
 	text-wrap: pretty;
 }
 
+:global([data-slot='empty']) > .body {
+	margin-top: 0;
+	padding-bottom: 0;
+}
+
 .illustration {
 	position: relative;
 	width: 100%;
+	max-width: 448px;
 	aspect-ratio: 2.6 / 1;
 	margin-bottom: 20px;
 	pointer-events: none;
@@ -22,8 +29,8 @@
 	position: absolute;
 	top: 50%;
 	aspect-ratio: 4 / 3;
-	border-radius: 8px;
-	background-color: var(--chat);
+	border-radius: var(--radius-md);
+	background-color: var(--muted);
 	background-position: center;
 	background-size: cover;
 	box-shadow:
@@ -56,7 +63,7 @@
 @media (prefers-reduced-motion: no-preference) {
 	.cardStart,
 	.cardEnd {
-		transition: transform 480ms cubic-bezier(0.2, 0.8, 0.2, 1);
+		transition: transform calc(var(--motion-duration-layout) * 2) var(--motion-ease-enter);
 	}
 
 	@starting-style {
@@ -80,7 +87,7 @@
 
 .description {
 	max-width: 320px;
-	margin: 6px 0 0;
+	margin: 4px 0 0;
 	color: var(--muted-foreground);
 	font-size: var(--text-sm);
 	line-height: 1.625;

@@ -45,8 +45,6 @@
 .previewSelect {
 	align-self: flex-start;
 	max-width: 100%;
-	padding-inline: 10px 8px;
-	border-color: var(--border);
 }
 
 .frame {
@@ -57,7 +55,7 @@
 	aspect-ratio: 16 / 10;
 	margin: 0;
 	overflow: hidden;
-	border-radius: 8px;
+	border-radius: var(--radius-sm);
 	background: var(--muted);
 }
 

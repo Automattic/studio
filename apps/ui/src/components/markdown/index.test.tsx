@@ -27,7 +27,7 @@ describe( 'Markdown', () => {
 		const { container } = renderMarkdown( '```php\n<?php echo "Hi";\n```' );
 
 		await waitFor( () =>
-			expect( container.querySelector( 'pre span[style*="--shiki-token-string"]' ) ).not.toBeNull()
+			expect( container.querySelector( 'pre span[style*="--shiki-dark"]' ) ).not.toBeNull()
 		);
 		expect( container.querySelector( 'pre' ) ).toHaveTextContent( '<?php echo "Hi";' );
 	} );

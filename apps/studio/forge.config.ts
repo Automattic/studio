@@ -15,6 +15,9 @@ import type { ForgeConfig } from '@electron-forge/shared-types';
 
 const repoRoot = path.resolve( __dirname, '../..' );
 const bundledPhpBinaryRoot = path.join( __dirname, 'php-bin' );
+// The name users read. productName stays "Studio" because it names the app
+// bundle, executable, DMG and log and data folders that releases rely on.
+const displayName = 'WordPress Studio';
 
 const config: ForgeConfig = {
 	packagerConfig: {
@@ -23,7 +26,26 @@ const config: ForgeConfig = {
 		protocols: [ { name: 'Studio', schemes: [ PROTOCOL_PREFIX ] } ],
 		extendInfo: {
 			MDItemKeywords: 'WordPress, WordPress Studio, WP, local WordPress development',
+			// Finder, the Dock and the menu bar then take the name from the
+			// InfoPlist.strings written below.
+			LSHasLocalizedDisplayName: true,
 		},
+		afterCopyExtraResources: [
+			async ( { buildPath, platform } ) => {
+				if ( platform !== 'darwin' ) {
+					return;
+				}
+				const strings = `CFBundleDisplayName = "${ displayName }";\nCFBundleName = "${ displayName }";\n`;
+				const localizations = globSync( '*.app/Contents/Resources/*.lproj', {
+					cwd: buildPath,
+					absolute: true,
+				} );
+				for ( const localization of localizations ) {
+					fs.writeFileSync( path.join( localization, 'InfoPlist.strings' ), strings );
+				}
+			},
+		],
+		win32metadata: { FileDescription: displayName },
 		// prePackage installs the self-contained production dependency tree.
 		prune: false,
 		extraResource: [
@@ -82,10 +104,8 @@ const config: ForgeConfig = {
 		new MakerZIP( {}, [ 'darwin' ] ),
 		new MakerDeb( {
 			options: {
-				// Display name for app launchers and stores. Overrides
-				// package.json.productName ("Studio") so Linux users see the
-				// fully-qualified "WordPress Studio" in their menus.
-				productName: 'WordPress Studio',
+				// Display name for app launchers and stores.
+				productName: displayName,
 				categories: [ 'Utility' ],
 				name: 'studio',
 				bin: 'studio',
@@ -117,6 +137,8 @@ const config: ForgeConfig = {
 		} ),
 		new MakerSquirrel(
 			{
+				// Names the uninstall entry; shortcuts take the exe's ProductName.
+				title: displayName,
 				loadingGif: path.join( __dirname, 'installers', 'loading.gif' ),
 				setupIcon: path.join( __dirname, 'assets', 'studio-app-icon.ico' ),
 				// This icon is shown in Control Panel -> Programs and Features
@@ -136,6 +158,7 @@ const config: ForgeConfig = {
 			: [
 					new MakerDMG(
 						{
+							title: displayName,
 							icon: path.join( __dirname, 'assets', 'studio-app-icon.icns' ),
 							background: path.join( __dirname, 'assets', 'dmg-background.png' ),
 							contents: [

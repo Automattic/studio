@@ -163,8 +163,8 @@ describe( 'usePullSiteFromLive', () => {
 	} );
 
 	it.each( [
-		[ 'pull', true, 'Pulling didn’t finish', "Studio couldn't copy the live site." ],
-		[ 'import', false, "Import didn't complete", "Studio couldn't import this backup." ],
+		[ 'pull', true, 'Pulling didn’t finish', "WordPress Studio couldn't copy the live site." ],
+		[ 'import', false, "Import didn't complete", "WordPress Studio couldn't import this backup." ],
 	] as const )(
 		'shows plain language for a failed %s (logs available: %s)',
 		( direction, studioLogs, title, copy ) => {
@@ -199,7 +199,7 @@ describe( 'usePullSiteFromLive', () => {
 			expect( toast.error ).toHaveBeenCalledWith( title, {
 				description: expect.stringContaining( copy ),
 				action: studioLogs
-					? { label: 'Open Studio Logs', onClick: expect.any( Function ) }
+					? { label: 'Open WordPress Studio Logs', onClick: expect.any( Function ) }
 					: undefined,
 			} );
 			expect( console.error ).toHaveBeenCalledWith( 'Sync activity failed:', direction, rawError );

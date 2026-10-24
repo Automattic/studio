@@ -17,13 +17,13 @@ export async function warnIfRunningUnderArm64Translation() {
 	const mainWindow = await getMainWindow();
 	const { response, checkboxChecked } = await dialog.showMessageBox( mainWindow, {
 		type: 'warning',
-		message: __( 'This version of Studio is not optimized for your computer' ),
+		message: __( 'This version of WordPress Studio is not optimized for your computer' ),
 		detail:
 			process.platform === 'darwin'
 				? __(
-						'Downloading the Apple Silicon Chip version of Studio will provide better performance.'
+						'Downloading the Apple Silicon Chip version of WordPress Studio will provide better performance.'
 				  )
-				: __( 'Downloading the ARM version of Studio will provide better performance.' ),
+				: __( 'Downloading the ARM version of WordPress Studio will provide better performance.' ),
 		checkboxLabel: __( "Don't show this warning again" ),
 		buttons: [ __( 'Download' ), __( 'Not now' ) ],
 		cancelId: 1,

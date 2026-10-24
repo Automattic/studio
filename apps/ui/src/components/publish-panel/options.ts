@@ -33,18 +33,20 @@ export function overwriteDescription( scope: PublishScope, direction: TransferDi
 	if ( direction === 'pull' ) {
 		switch ( scope ) {
 			case 'files':
-				return __( 'Matching files in Studio will be overwritten. Your website stays unchanged.' );
+				return __(
+					'Matching files in WordPress Studio will be overwritten. Your website stays unchanged.'
+				);
 			case 'content':
 				return __(
-					'All content and settings in Studio will be overwritten. Your website stays unchanged.'
+					'All content and settings in WordPress Studio will be overwritten. Your website stays unchanged.'
 				);
 			case 'custom':
 				return __(
-					'The selected files and content in Studio will be overwritten. Your website stays unchanged.'
+					'The selected files and content in WordPress Studio will be overwritten. Your website stays unchanged.'
 				);
 			default:
 				return __(
-					'Matching files and all content and settings in Studio will be overwritten. Your website stays unchanged.'
+					'Matching files and all content and settings in WordPress Studio will be overwritten. Your website stays unchanged.'
 				);
 		}
 	}
@@ -69,7 +71,9 @@ export function websiteIssue( site: SyncSite ) {
 		case 'missing-permissions':
 			return __( 'You need administrator access to publish or pull changes.' );
 		case 'needs-upgrade':
-			return __( 'This website needs a hosting plan that supports publishing from Studio.' );
+			return __(
+				'This website needs a hosting plan that supports publishing from WordPress Studio.'
+			);
 		case 'needs-transfer':
 			return __( 'Finish activating hosting on WordPress.com before publishing.' );
 		case 'unsupported':

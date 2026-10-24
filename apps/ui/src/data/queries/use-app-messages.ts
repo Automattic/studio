@@ -93,10 +93,10 @@ export function deriveUpdateMessages(
 				title: version
 					? sprintf(
 							/* translators: %s: app version number. */
-							__( 'Studio %s is ready to install' ),
+							__( 'WordPress Studio %s is ready to install' ),
 							version
 					  )
-					: __( 'A Studio update is ready to install' ),
+					: __( 'A WordPress Studio update is ready to install' ),
 				description: describeVersionChange( status.currentVersion, version, {
 					fallback: __( 'Restart to finish updating.' ),
 				} ),
@@ -110,9 +110,10 @@ export function deriveUpdateMessages(
 			{
 				id: 'app-update-error',
 				intent: 'error',
-				title: __( "Couldn't update Studio" ),
+				title: __( "Couldn't update WordPress Studio" ),
 				description:
-					status.detail ?? __( 'Studio will try again the next time it checks for updates.' ),
+					status.detail ??
+					__( 'WordPress Studio will try again the next time it checks for updates.' ),
 			},
 		];
 	}

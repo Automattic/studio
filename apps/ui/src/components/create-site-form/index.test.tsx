@@ -592,7 +592,7 @@ describe( 'CreateSiteForm', () => {
 
 		expect(
 			await screen.findByText(
-				"This Blueprint asks for WordPress 5.9, which Studio can't install."
+				"This Blueprint asks for WordPress 5.9, which WordPress Studio can't install."
 			)
 		).toBeVisible();
 		expect( screen.getByRole( 'combobox', { name: 'WordPress version' } ) ).toHaveTextContent(
@@ -693,7 +693,7 @@ describe( 'CreateSiteForm', () => {
 				submitLabel="Retry import"
 				cancelLabel="Choose another backup"
 				submitError={ {
-					title: 'Studio could not import this backup.',
+					title: 'WordPress Studio could not import this backup.',
 					message: 'The incomplete site was removed.',
 					details: 'CLI command failed',
 				} }
@@ -701,7 +701,7 @@ describe( 'CreateSiteForm', () => {
 		);
 
 		const alert = screen.getByRole( 'alert' );
-		expect( alert ).toHaveTextContent( 'Studio could not import this backup.' );
+		expect( alert ).toHaveTextContent( 'WordPress Studio could not import this backup.' );
 		expect( alert ).toHaveTextContent( 'The incomplete site was removed.' );
 		expect( screen.getByRole( 'button', { name: 'Retry import' } ) ).toBeInTheDocument();
 

@@ -51,7 +51,7 @@ function SelectionRow( {
 						<LinkIcon />
 					</TooltipTrigger>
 					<TooltipContent>
-						{ __( 'Symbolic link. Studio pushes the files it points to.' ) }
+						{ __( 'Symbolic link. WordPress Studio pushes the files it points to.' ) }
 					</TooltipContent>
 				</Tooltip>
 			) : null }

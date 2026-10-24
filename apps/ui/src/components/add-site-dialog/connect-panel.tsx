@@ -56,7 +56,7 @@ function getSiteStatus( site: SyncSite, group: ConnectSiteGroup ): string {
 		return __( "Your account doesn't have permission to manage this site." );
 	}
 	if ( site.syncSupport === 'deleted' ) return __( 'This site has been deleted.' );
-	return __( 'This site does not support pulling into Studio.' );
+	return __( 'This site does not support pulling into WordPress Studio.' );
 }
 
 function RemoteSiteCard( {
@@ -185,7 +185,7 @@ export function ConnectPanel( { onConnect }: { onConnect: ( site: SyncSite ) => 
 		{
 			key: 'unavailable',
 			title: __( 'Unavailable' ),
-			description: __( 'These sites cannot currently be connected to Studio.' ),
+			description: __( 'These sites cannot currently be connected to WordPress Studio.' ),
 			sites: filteredSites.filter( ( entry ) => entry.group !== 'available' ),
 		},
 	];
@@ -198,7 +198,7 @@ export function ConnectPanel( { onConnect }: { onConnect: ( site: SyncSite ) => 
 		<div className={ styles.page }>
 			<p className={ styles.intro }>
 				{ user
-					? __( 'Select a WordPress.com or Pressable site to bring into your Studio.' )
+					? __( 'Select a WordPress.com or Pressable site to bring into your WordPress Studio.' )
 					: __( 'Log in with your WordPress.com account to see your sites.' ) }
 			</p>
 

@@ -3,6 +3,9 @@
 // agent app removes it with this plugin version), or from an installed Studio
 // CLI at least as recent, such as the desktop app's.
 //
+// With `hook`, it runs the plugin's hooks on the agent's own file tools
+// (hooks/hooks.json) with the same Studio CLI: `studio _file-tool-hook`.
+//
 // stdout carries the MCP messages: anything else must go to stderr.
 import { execFile, spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
@@ -307,6 +310,38 @@ async function standIn() {
 	}
 	held.splice( 0 ).forEach( ( line ) => child.stdin.write( line + '\n' ) );
 	return child;
+}
+
+// A hook starts the Studio CLI only for a call that may write a WordPress
+// install's files; the CLI decides. Without a CLI yet, the call goes ahead.
+const MAY_TOUCH_WORDPRESS = /wp-content[\\/]|wp-includes[\\/]|wp-admin[\\/]|\.php\b/;
+async function runHook() {
+	let input = '';
+	for await ( const chunk of process.stdin ) {
+		input += chunk;
+	}
+	const { tool_input: toolInput, cwd } = JSON.parse( input );
+	if ( ! MAY_TOUCH_WORDPRESS.test( JSON.stringify( [ toolInput, cwd ] ) ) ) {
+		return;
+	}
+	const studio =
+		( await findStudio() ) ??
+		( existsSync( BUNDLED_MAIN ) ? [ process.execPath, BUNDLED_MAIN ] : null );
+	if ( ! studio ) {
+		return;
+	}
+	const [ command, ...args ] = studio;
+	const hook = spawn(
+		...commandArgs( command, [ ...args, '_file-tool-hook' ], {
+			stdio: [ 'pipe', 'inherit', 'inherit' ],
+		} )
+	);
+	hook.stdin.end( input );
+	await once( hook, 'exit' );
+}
+if ( process.argv[ 2 ] === 'hook' ) {
+	await runHook();
+	process.exit( 0 );
 }
 
 let child;

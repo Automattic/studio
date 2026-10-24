@@ -37,6 +37,14 @@ In the ChatGPT app, open **WordPress** from the sidebar to see your local Studio
 site has its own page: start or stop it, open WP Admin, run a speed or SEO audit, pull a live site
 into Studio, or log in to WordPress.com.
 
+## Checks on file edits
+
+When the agent edits a Studio site's files with its own file tools, the plugin's hooks run the same
+checks as Studio Code: they refuse edits to WordPress core and to themes WordPress updates, which an
+update would overwrite, and after an edit they report block validation and what WordPress renders
+instead of the file, such as a template saved in the Site Editor. Edits outside a WordPress site
+don't start Studio.
+
 ## The Studio CLI
 
 The plugin carries the Studio CLI of its own version. The copy in Anthropic's directory is too small

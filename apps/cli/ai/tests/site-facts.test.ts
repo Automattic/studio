@@ -1,66 +1,12 @@
-import { mkdirSync, mkdtempSync, writeFileSync } from 'fs';
-import { DatabaseSync } from 'node:sqlite';
-import os from 'os';
-import path from 'path';
 import { expect, it } from 'vitest';
 import { createResultNotes } from '../result-notes';
 import { readActiveSiteFacts } from '../site-facts';
+import { createSite as createWordPressSite } from './fixtures/wordpress-site';
 
-// A WordPress 7.1.3 install with its tables, the child theme bakery active.
 function createSite( prefix: string ) {
-	const root = mkdtempSync( path.join( os.tmpdir(), 'site-facts-' ) );
-	mkdirSync( path.join( root, 'wp-includes' ) );
-	writeFileSync( path.join( root, 'wp-includes/version.php' ), "<?php\n$wp_version = '7.1.3';\n" );
-	writeFileSync( path.join( root, 'wp-config.php' ), `<?php\n$table_prefix = '${ prefix }';\n` );
-	mkdirSync( path.join( root, 'wp-content/database' ), { recursive: true } );
-	for ( const [ theme, header ] of [
-		[ 'bakery', 'Description: A child theme of bakery-parent, scaffolded by Studio Code.' ],
-		[ 'bakery-parent', 'Theme Name: Bakery Parent' ],
-		[ 'twentytwentyfive', 'Theme Name: Twenty Twenty-Five' ],
-	] ) {
-		mkdirSync( path.join( root, 'wp-content/themes', theme ), { recursive: true } );
-		writeFileSync(
-			path.join( root, 'wp-content/themes', theme, 'style.css' ),
-			`/*\n${ header }\n*/`
-		);
-	}
-	const db = new DatabaseSync( path.join( root, 'wp-content/database/.ht.sqlite' ) );
-	db.exec( `
-		CREATE TABLE ${ prefix }posts ( ID INTEGER PRIMARY KEY, post_type TEXT, post_status TEXT, post_name TEXT, post_content TEXT, post_date TEXT );
-		CREATE TABLE ${ prefix }terms ( term_id INTEGER PRIMARY KEY, name TEXT );
-		CREATE TABLE ${ prefix }term_taxonomy ( term_taxonomy_id INTEGER PRIMARY KEY, term_id INTEGER, taxonomy TEXT );
-		CREATE TABLE ${ prefix }term_relationships ( object_id INTEGER, term_taxonomy_id INTEGER );
-		CREATE TABLE ${ prefix }options ( option_name TEXT PRIMARY KEY, option_value TEXT );
-		INSERT INTO ${ prefix }options VALUES ( 'active_plugins', 'a:0:{}' );
-		INSERT INTO ${ prefix }options VALUES ( 'stylesheet', 'bakery' ), ( 'template', 'bakery-parent' );
-		INSERT INTO ${ prefix }options VALUES ( '_site_transient_update_themes', 'O:8:"stdClass":3:{s:7:"checked";a:2:{s:13:"bakery-parent";s:3:"1.0";s:16:"twentytwentyfive";s:3:"1.5";}s:8:"response";a:0:{}s:9:"no_update";a:2:{s:13:"bakery-parent";a:2:{s:5:"theme";s:13:"bakery-parent";s:11:"new_version";s:3:"1.0";}s:16:"twentytwentyfive";a:2:{s:5:"theme";s:16:"twentytwentyfive";s:11:"new_version";s:3:"1.5";}}}' );
-		INSERT INTO ${ prefix }terms VALUES ( 1, 'bakery' ), ( 2, 'other-theme' );
-		INSERT INTO ${ prefix }term_taxonomy VALUES ( 1, 1, 'wp_theme' ), ( 2, 2, 'wp_theme' );
-	` );
-	const save = (
-		id: number,
-		type: string,
-		slug: string,
-		content = '',
-		theme = 1,
-		status = 'publish'
-	) => {
-		db.prepare( `INSERT INTO ${ prefix }posts VALUES ( ?, ?, ?, ?, ?, '2026-10-22' )` ).run(
-			id,
-			type,
-			status,
-			slug,
-			content
-		);
-		db.prepare( `INSERT INTO ${ prefix }term_relationships VALUES ( ?, ? )` ).run( id, theme );
-	};
-	const setOptions = ( options: Record< string, string > ) => {
-		for ( const [ name, value ] of Object.entries( options ) ) {
-			db.prepare( `INSERT OR REPLACE INTO ${ prefix }options VALUES ( ?, ? )` ).run( name, value );
-		}
-	};
-	const facts = () => readActiveSiteFacts( { name: 'Site', path: root, running: true } );
-	return { root, save, setOptions, facts };
+	const site = createWordPressSite( prefix );
+	const facts = () => readActiveSiteFacts( { name: 'Site', path: site.root, running: true } );
+	return { ...site, facts };
 }
 
 const WOOCOMMERCE_ACTIVE = {
@@ -148,57 +94,26 @@ it( 'adds to a tool result the facts the agent does not have yet and the ones no
 	const site = createSite( 'wp_' );
 	const notes = createResultNotes( new Map( [ [ site.root, await site.facts() ] ] ) );
 	// The facts the Active site section stated.
-	expect( await notes( site.root, { result: '' } ) ).toBe( '' );
+	expect( await notes( site.root, '' ) ).toBe( '' );
 
 	// A call activates WooCommerce, which turns on Coming soon mode.
 	site.setOptions( { woocommerce_coming_soon: 'yes', ...WOOCOMMERCE_ACTIVE } );
-	expect( await notes( site.root, { result: '' } ) ).toBe(
+	expect( await notes( site.root, '' ) ).toBe(
 		[
 			'Active plugins: woocommerce/woocommerce.php, hello.php.',
 			COMING_SOON( 'the site' ),
 			'No longer true: Active plugins: none.',
 		].join( '\n' )
 	);
-	expect( await notes( site.root, { result: '' } ) ).toBe( '' );
+	expect( await notes( site.root, '' ) ).toBe( '' );
 
 	site.setOptions( { woocommerce_coming_soon: 'no' } );
-	expect( await notes( site.root, { result: '' } ) ).toBe(
-		`No longer true: ${ COMING_SOON( 'the site' ) }`
-	);
+	expect( await notes( site.root, '' ) ).toBe( `No longer true: ${ COMING_SOON( 'the site' ) }` );
 
 	// A site the agent has no facts for, as over MCP, gets them with its first result.
-	expect( await createResultNotes()( site.root, { result: '' } ) ).toBe(
+	expect( await createResultNotes()( site.root, '' ) ).toBe(
 		[ ...BASE.slice( 0, 2 ), 'Active plugins: woocommerce/woocommerce.php, hello.php.' ].join(
 			'\n'
 		)
 	);
-} );
-
-it( 'adds to every write of a theme file a saved copy replaces that WordPress renders the copy', async () => {
-	const site = createSite( 'wp_' );
-	site.save( 14, 'wp_template_part', 'header' );
-	site.save(
-		15,
-		'wp_global_styles',
-		'wp-global-styles-bakery',
-		'{"version":3,"styles":{"color":{}}}'
-	);
-	const notes = createResultNotes( new Map( [ [ site.root, await site.facts() ] ] ) );
-	const write = ( file: string ) =>
-		notes( site.root, { result: '', writtenFile: path.join( site.root, file ) } );
-	const header =
-		'WordPress renders the template part header from its copy saved in the Site Editor (post 14), not from this file.';
-
-	// In the active theme and its parent, on every write.
-	expect( await write( 'wp-content/themes/bakery/parts/header.html' ) ).toBe( header );
-	expect( await write( 'wp-content/themes/bakery/parts/header.html' ) ).toBe( header );
-	expect( await write( 'wp-content/themes/bakery-parent/parts/header.html' ) ).toBe( header );
-	expect( await write( 'wp-content/themes/bakery-parent/theme.json' ) ).toBe(
-		'Global Styles saved in the Site Editor (post 15) set color, and WordPress applies them over this file.'
-	);
-	// Files nothing replaces, and another theme's.
-	expect( await write( 'wp-content/themes/bakery/parts/footer.html' ) ).toBe( '' );
-	expect( await write( 'wp-content/themes/twentytwentyfive/parts/header.html' ) ).toBe( '' );
-	// A call that writes nothing.
-	expect( await notes( site.root, { result: 'parts/header.html' } ) ).toBe( '' );
 } );

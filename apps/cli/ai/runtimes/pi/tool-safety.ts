@@ -1,8 +1,6 @@
-import { existsSync } from 'fs';
 import os from 'os';
 import path from 'path';
-import { isUpdatableTheme } from 'cli/ai/themes';
-import { findSiteByFolder } from 'cli/lib/cli-config/sites';
+import { getSiteFileWriteRefusal } from 'cli/ai/site-file-guards';
 import type { AgentSessionEvent } from '@earendil-works/pi-coding-agent';
 
 // Keep individual model-generated tool payloads below the range where long
@@ -105,9 +103,7 @@ export function getPayloadLimitViolation( toolName: string, params: unknown ): s
 	return undefined;
 }
 
-const CORE_ROOT_FILE = /^(index|xmlrpc|wp-(?!config\b)[a-z-]+)\.php$/;
-
-export function resolveToolPath( filePath: string, cwd: string ): string {
+function resolveToolPath( filePath: string, cwd: string ): string {
 	const withoutAt = filePath.replace( /^@/, '' );
 	const expanded =
 		withoutAt === '~' || withoutAt.startsWith( '~/' )
@@ -116,76 +112,21 @@ export function resolveToolPath( filePath: string, cwd: string ): string {
 	return path.resolve( cwd, expanded );
 }
 
-/** The WordPress install a file is in, if any: the nearest folder with wp-includes/ and wp-content/. */
-function findWordPressRoot( filePath: string ): string | undefined {
-	for (
-		let dir = path.dirname( filePath );
-		dir !== path.dirname( dir );
-		dir = path.dirname( dir )
-	) {
-		if (
-			existsSync( path.join( dir, 'wp-includes' ) ) &&
-			existsSync( path.join( dir, 'wp-content' ) )
-		) {
-			return dir;
-		}
-	}
-	return undefined;
-}
-
-async function isStudioSiteFolder( folder: string ): Promise< boolean > {
-	return Boolean( await findSiteByFolder( folder ) );
-}
-
-/**
- * Why a write to this file of a WordPress install would be lost: WordPress
- * core is replaced when WordPress updates, and an updatable theme's files when
- * the theme updates. Undefined when the write stays.
- */
-async function getLostWriteReason(
-	root: string,
-	relativePath: string
-): Promise< string | undefined > {
-	if (
-		relativePath.startsWith( 'wp-includes/' ) ||
-		relativePath.startsWith( 'wp-admin/' ) ||
-		CORE_ROOT_FILE.test( relativePath )
-	) {
-		return `${ relativePath } is this Studio site's copy of WordPress core, which a WordPress update replaces. Read it as reference. Make the change in wp-content/ (a theme, child theme, or plugin).`;
-	}
-	const theme = relativePath.match( /^wp-content\/themes\/([^/]+)\// )?.[ 1 ];
-	if ( theme && ( await isUpdatableTheme( root, theme ) ) ) {
-		return `${ theme } is a theme WordPress updates, and an update overwrites changes to its files. Create a child theme with scaffold_theme (parentTheme: "${ theme }") and make the change there.`;
-	}
-	return undefined;
-}
-
 /**
  * Refuses Write and Edit on a Studio site's files that an update replaces,
- * and names where the change belongs. WordPress trees that Studio doesn't
- * manage stay writable.
+ * naming where the change belongs (site-file-guards.ts).
  */
 export async function getFileWriteRefusal(
 	toolName: string,
 	params: unknown,
 	cwd: string,
-	isStudioSite: ( folder: string ) => Promise< boolean > = isStudioSiteFolder
+	isStudioSite?: ( folder: string ) => Promise< boolean >
 ): Promise< string | undefined > {
 	const filePath = getStringParam( params, 'path' );
 	if ( ( toolName !== 'Write' && toolName !== 'Edit' ) || ! filePath ) {
 		return undefined;
 	}
-	const absolutePath = resolveToolPath( filePath, cwd );
-	const root = findWordPressRoot( absolutePath );
-	if ( ! root ) {
-		return undefined;
-	}
-	const relativePath = path.relative( root, absolutePath ).split( path.sep ).join( '/' );
-	const reason = await getLostWriteReason( root, relativePath );
-	if ( ! reason || ! ( await isStudioSite( root ) ) ) {
-		return undefined;
-	}
-	return `Not run: ${ reason }`;
+	return getSiteFileWriteRefusal( resolveToolPath( filePath, cwd ), isStudioSite );
 }
 
 // Only the last content block can be mid-generation when the model hits the

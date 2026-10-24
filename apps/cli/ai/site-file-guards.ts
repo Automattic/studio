@@ -1,19 +1,25 @@
 /**
  * Structural guards for the agent's file tools on a local site.
  *
- * Instead of teaching the model WordPress rules in prose, the Write and Edit
- * tools act on them at the moment of the change: they register a theme's new
- * patterns and report CSS that fights the block layout. Refusals live in
- * tool-safety.ts and saved Site Editor copies in result notes.
+ * Instead of teaching the model WordPress rules in prose, a write to a site's
+ * file is checked at the moment of the change: before it, whether an update
+ * would replace the file; after it, the theme's pattern cache is cleared and
+ * the agent hears what WordPress will render differently from the file. Studio
+ * Code's Write and Edit and the plugin's hooks on other agents' file tools
+ * (runtimes/hooks) run the same checks.
  */
 import { existsSync, readdirSync, readFileSync, statSync } from 'fs';
 import path from 'path';
+import { savedCopyWriteNote } from 'cli/ai/saved-copies';
+import { readWordPressSite } from 'cli/ai/site-database';
+import { isUpdatableTheme } from 'cli/ai/themes';
 import { resolveSite } from 'cli/ai/tools/utils';
+import { findSiteByFolder } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import type { BlockValidationGate } from 'cli/ai/block-validation-gate';
 
-interface SiteFile {
+export interface SiteFile {
 	siteRoot: string;
 	relativePath: string;
 	theme?: { slug: string; dir: string; file: string };
@@ -46,32 +52,6 @@ export function resolveSiteFile( filePath: string ): SiteFile | undefined {
 	return undefined;
 }
 
-type SqliteDatabase = {
-	prepare( sql: string ): { all( ...params: unknown[] ): unknown[] };
-	close(): void;
-};
-
-async function withSiteDatabase< T >(
-	siteRoot: string,
-	query: ( db: SqliteDatabase ) => T
-): Promise< T | undefined > {
-	const dbPath = path.join( siteRoot, 'wp-content', 'database', '.ht.sqlite' );
-	if ( ! existsSync( dbPath ) ) {
-		return undefined;
-	}
-	try {
-		const { DatabaseSync } = await import( 'node:sqlite' );
-		const db = new DatabaseSync( dbPath, { readOnly: true } ) as unknown as SqliteDatabase;
-		try {
-			return query( db );
-		} finally {
-			db.close();
-		}
-	} catch {
-		return undefined;
-	}
-}
-
 const INLINE_DISPLAY = /(^|;|\s)display\s*:\s*inline(-block|-flex|-grid)?\s*(;|$|!)/i;
 const BOX_DECLARATION = /(^|;|\s)(padding[a-z-]*|background[a-z-]*|border[a-z-]*)\s*:/i;
 
@@ -93,14 +73,12 @@ async function getBlockClassNames( siteRoot: string, themeDir: string ): Promise
 		...listFiles( themeDir, [ '.html', '.php' ] ),
 		...listFiles( path.join( siteRoot, 'tmp' ), [ '.html' ], 0 ),
 	].map( ( file ) => readFileSync( file, 'utf8' ) );
-	const saved = await withSiteDatabase( siteRoot, ( db ) =>
-		db
-			.prepare(
-				`SELECT post_content AS content FROM wp_posts WHERE post_content LIKE '%"className":%' AND post_status = 'publish'`
-			)
-			.all()
+	const saved = await readWordPressSite( siteRoot, ( site ) =>
+		site.query< { content: string } >(
+			`SELECT post_content AS content FROM ${ site.prefix }posts WHERE post_content LIKE '%"className":%' AND post_status = 'publish'`
+		)
 	);
-	for ( const row of ( saved ?? [] ) as { content: string }[] ) {
+	for ( const row of saved ) {
 		sources.push( row.content );
 	}
 	const classNames = new Set< string >();
@@ -140,9 +118,46 @@ export function lintThemeCss( css: string, blockClassNames: Set< string > ): str
 	return notes;
 }
 
+const CORE_ROOT_FILE = /^(index|xmlrpc|wp-(?!config\b)[a-z-]+)\.php$/;
+
+async function isStudioSiteFolder( folder: string ): Promise< boolean > {
+	return Boolean( await findSiteByFolder( folder ) );
+}
+
+/**
+ * Why a write to this file of a Studio site would be lost, and where the
+ * change belongs: WordPress core is replaced when WordPress updates, and a
+ * theme's files when WordPress updates the theme. Undefined when the write
+ * stays, and for WordPress trees Studio doesn't manage.
+ */
+export async function getSiteFileWriteRefusal(
+	filePath: string,
+	isStudioSite: ( folder: string ) => Promise< boolean > = isStudioSiteFolder
+): Promise< string | undefined > {
+	const siteFile = resolveSiteFile( filePath );
+	if ( ! siteFile ) {
+		return undefined;
+	}
+	const { siteRoot, relativePath, theme } = siteFile;
+	let reason: string | undefined;
+	if (
+		relativePath.startsWith( 'wp-includes/' ) ||
+		relativePath.startsWith( 'wp-admin/' ) ||
+		CORE_ROOT_FILE.test( relativePath )
+	) {
+		reason = `${ relativePath } is this Studio site's copy of WordPress core, which a WordPress update replaces. Read it as reference. Make the change in wp-content/ (a theme, child theme, or plugin).`;
+	} else if ( theme && ( await isUpdatableTheme( siteRoot, theme.slug ) ) ) {
+		reason = `${ theme.slug } is a theme WordPress updates, and an update overwrites changes to its files. Create a child theme with scaffold_theme (parentTheme: "${ theme.slug }") and make the change there.`;
+	}
+	if ( ! reason || ! ( await isStudioSite( siteRoot ) ) ) {
+		return undefined;
+	}
+	return `Not run: ${ reason }`;
+}
+
 /** What WordPress will render differently from the file just written, if anything. */
-export async function getSiteFileWriteNotes( siteFile: SiteFile ): Promise< string[] > {
-	const { siteRoot, theme } = siteFile;
+async function getSiteFileWriteNotes( siteFile: SiteFile ): Promise< string[] > {
+	const { siteRoot, relativePath, theme } = siteFile;
 	if ( ! theme ) {
 		return [];
 	}
@@ -151,7 +166,22 @@ export async function getSiteFileWriteNotes( siteFile: SiteFile ): Promise< stri
 		const css = readFileSync( path.join( theme.dir, theme.file ), 'utf8' );
 		notes.push( ...lintThemeCss( css, await getBlockClassNames( siteRoot, theme.dir ) ) );
 	}
+	const savedCopy = await readWordPressSite( siteRoot, ( site ) =>
+		savedCopyWriteNote( site, path.join( siteRoot, relativePath ) )
+	);
+	if ( savedCopy ) {
+		notes.push( savedCopy );
+	}
 	return notes;
+}
+
+/**
+ * After a write to a site's file: registers a changed pattern, and returns
+ * what WordPress will render differently from the file.
+ */
+export async function afterSiteFileWrite( siteFile: SiteFile ): Promise< string[] > {
+	await clearThemePatternCache( siteFile ).catch( () => undefined );
+	return getSiteFileWriteNotes( siteFile ).catch( () => [] );
 }
 
 /**
@@ -202,10 +232,7 @@ export function withSiteFileGuards< TTool extends FileWritingTool >(
 			if ( siteFile && gate ) {
 				gate.track( path.join( siteFile.siteRoot, siteFile.relativePath ), siteFile.siteRoot );
 			}
-			if ( siteFile ) {
-				await clearThemePatternCache( siteFile ).catch( () => undefined );
-			}
-			const notes = siteFile ? await getSiteFileWriteNotes( siteFile ).catch( () => [] ) : [];
+			const notes = siteFile ? await afterSiteFileWrite( siteFile ) : [];
 			if ( ! notes.length || ! result || typeof result !== 'object' ) {
 				return result;
 			}

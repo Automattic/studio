@@ -1,0 +1,31 @@
+{
+	"description": "Studio's checks on writes to a WordPress site's files with the agent's own file tools: refuses files a WordPress or theme update replaces, and reports block validation and what WordPress renders differently from the file.",
+	"hooks": {
+		"PreToolUse": [
+			{
+				"matcher": "Write|Edit|MultiEdit|apply_patch",
+				"hooks": [
+					{
+						"type": "command",
+						"command": "\"${CLAUDE_PLUGIN_ROOT}/scripts/launch-mcp\" hook",
+						"commandWindows": "\"${CLAUDE_PLUGIN_ROOT}\\scripts\\launch-mcp.cmd\" hook",
+						"timeout": 60
+					}
+				]
+			}
+		],
+		"PostToolUse": [
+			{
+				"matcher": "Write|Edit|MultiEdit|apply_patch",
+				"hooks": [
+					{
+						"type": "command",
+						"command": "\"${CLAUDE_PLUGIN_ROOT}/scripts/launch-mcp\" hook",
+						"commandWindows": "\"${CLAUDE_PLUGIN_ROOT}\\scripts\\launch-mcp.cmd\" hook",
+						"timeout": 120
+					}
+				]
+			}
+		]
+	}
+}

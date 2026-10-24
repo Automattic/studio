@@ -66,20 +66,21 @@ async function localSites(): Promise< SiteData[] > {
 	return ( await readCliConfig() ).sites;
 }
 
-// A lossless fix is saved next to the site for the agent to apply, since the
-// row belongs to the running site.
+// A lossless fix is saved in the site's tmp/ for the agent to apply, since the
+// row belongs to the running site; named by its absolute path, which holds
+// whatever folder the agent's shell is in.
 async function validatePost( site: SiteData, post: Row ) {
 	const label = `${ site.name } ${ post.type } ${ post.id } "${ post.title }"`;
 	const result = await validateBlockMarkup( post.content, label, getSiteUrl( site ) );
 	if ( result.fixedContent === undefined ) {
 		return result;
 	}
-	const fixFile = path.join( 'tmp', `${ post.type }-${ post.id }.html` );
-	await mkdir( path.join( site.path, 'tmp' ), { recursive: true } );
-	await writeFile( path.join( site.path, fixFile ), result.fixedContent, 'utf8' );
+	const fixFile = path.join( site.path, 'tmp', `${ post.type }-${ post.id }.html` );
+	await mkdir( path.dirname( fixFile ), { recursive: true } );
+	await writeFile( fixFile, result.fixedContent, 'utf8' );
 	return {
 		summary: `${ label }: ${ result.invalidBlocks } invalid block(s)`,
-		problem: `${ label }: ${ result.invalidBlocks } block(s) do not match what the block saves; the block editor's fix loses nothing and is saved in ${ fixFile }. Apply it with \`wp post update ${ post.id } ${ fixFile }\`.`,
+		problem: `${ label }: ${ result.invalidBlocks } block(s) do not match what the block saves; the block editor's fix loses nothing and is saved in ${ fixFile }. Apply it in the site's folder with \`wp post update ${ post.id } ${ fixFile }\`.`,
 	};
 }
 

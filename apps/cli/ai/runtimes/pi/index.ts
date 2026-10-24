@@ -45,6 +45,7 @@ import { getBlockValidationGate, type BlockValidationGate } from 'cli/ai/block-v
 import { withDesignSystemPreview } from 'cli/ai/chat-artifacts';
 import { isImageGenerationAvailable } from 'cli/ai/image-generation';
 import { emitEvent } from 'cli/ai/json-events';
+import { getOpenProblems } from 'cli/ai/open-problems';
 import { PostContentCheck } from 'cli/ai/post-content-check';
 import { readActiveSiteFacts } from 'cli/ai/site-facts';
 import { createSiteNotes, type SiteNotes } from 'cli/ai/site-notes';
@@ -97,6 +98,7 @@ const STUDIO_AGENT_DIR = STUDIO_SITES_ROOT;
 // starts the same reasoning over and runs out again.
 const MAX_EMPTY_STOP_CONTINUES = 2;
 const EMPTY_STOP_CONTINUE_TYPE = 'studio.empty_stop_continue';
+const OPEN_PROBLEMS_TYPE = 'studio.open_problems';
 const STUDIO_COMPACTION_SETTINGS = {
 	enabled: true,
 	reserveTokens: 16_384,
@@ -271,32 +273,22 @@ async function runAgentSessionTurn(
 		session = await createStudioAgentSession( config, family, resolved.creds, payloadGuardState );
 		setActiveSession( session );
 		const previewAttached = typeof process.send === 'function';
-		let emptyStopContinues = 0;
-		let continueAfterEmptyStop = false;
-		let cutOffReasoning = '';
-		unsubscribe = session.subscribe( ( event ) => {
-			updateStudioToolPayloadGuardState( event, payloadGuardState );
-			if (
-				event.type === 'agent_end' &&
-				! event.willRetry &&
-				emptyStopContinues < MAX_EMPTY_STOP_CONTINUES
-			) {
-				const lastAssistant = findLastAssistant( event.messages );
-				if ( isEmptyStop( lastAssistant ) ) {
-					// Not final: consumers wait for the turn's real end.
-					continueAfterEmptyStop = true;
-					cutOffReasoning = ( lastAssistant?.content ?? [] )
-						.map( ( block ) => ( block.type === 'thinking' ? block.thinking : '' ) )
-						.join( '' )
-						.trim();
-					config.onEvent( { ...event, willRetry: true } );
-					return;
-				}
-			}
+		const emit = ( event: AgentSessionEvent ) => {
 			config.onEvent( event );
 			if ( previewAttached && changesPreview( event ) ) {
 				emitEvent( { type: 'preview.reload', timestamp: new Date().toISOString() } );
 			}
+		};
+		// The end of each run is held until it is known whether the turn
+		// continues: consumers wait for the turn's real end.
+		let heldEnd: Extract< AgentSessionEvent, { type: 'agent_end' } > | undefined;
+		unsubscribe = session.subscribe( ( event ) => {
+			updateStudioToolPayloadGuardState( event, payloadGuardState );
+			if ( event.type === 'agent_end' && ! event.willRetry ) {
+				heldEnd = event;
+				return;
+			}
+			emit( event );
 		} );
 
 		if ( controller.signal.aborted ) {
@@ -304,6 +296,37 @@ async function runAgentSessionTurn(
 			config.onEvent( syntheticErrorAgentEnd( 'aborted', '' ) );
 			return;
 		}
+
+		const openProblems = getOpenProblems( config.session );
+		let emptyStopContinues = 0;
+		// What continues the turn after a run ends, if anything: a reply cut off
+		// before it said anything, then the problems still open on the sites.
+		const continuation = async (
+			end: Extract< AgentSessionEvent, { type: 'agent_end' } >
+		): Promise< { customType: string; content: string } | undefined > => {
+			const lastAssistant = findLastAssistant( end.messages );
+			if ( isEmptyStop( lastAssistant ) && emptyStopContinues < MAX_EMPTY_STOP_CONTINUES ) {
+				emptyStopContinues++;
+				const cutOffReasoning = ( lastAssistant?.content ?? [] )
+					.map( ( block ) => ( block.type === 'thinking' ? block.thinking : '' ) )
+					.join( '' )
+					.trim();
+				return {
+					customType: EMPTY_STOP_CONTINUE_TYPE,
+					content: cutOffReasoning
+						? `Your reasoning was cut off before you replied. Continue from where it stopped:\n\n${ cutOffReasoning }`
+						: 'continue',
+				};
+			}
+			if ( lastAssistant?.stopReason !== 'stop' ) {
+				return undefined;
+			}
+			await getPendingWork( config.session ).settle();
+			const problems = await openProblems.raise();
+			return problems.length
+				? { customType: OPEN_PROBLEMS_TYPE, content: problems.join( '\n' ) }
+				: undefined;
+		};
 
 		await session.prompt( config.prompt, {
 			expandPromptTemplates: false,
@@ -314,23 +337,19 @@ async function runAgentSessionTurn(
 				mimeType: image.mimeType,
 			} ) ),
 		} );
-		while ( continueAfterEmptyStop ) {
-			continueAfterEmptyStop = false;
+		for ( let end = heldEnd; end; end = heldEnd ) {
+			heldEnd = undefined;
+			const next = await continuation( end );
+			if ( ! next ) {
+				emit( end );
+				break;
+			}
+			emit( { ...end, willRetry: true } );
 			if ( controller.signal.aborted ) {
 				config.onEvent( syntheticErrorAgentEnd( 'aborted', '' ) );
 				break;
 			}
-			emptyStopContinues++;
-			await session.sendCustomMessage(
-				{
-					customType: EMPTY_STOP_CONTINUE_TYPE,
-					content: cutOffReasoning
-						? `Your reasoning was cut off before you replied. Continue from where it stopped:\n\n${ cutOffReasoning }`
-						: 'continue',
-					display: false,
-				},
-				{ triggerTurn: true }
-			);
+			await session.sendCustomMessage( { ...next, display: false }, { triggerTurn: true } );
 		}
 		await getPendingWork( config.session ).settle();
 	} catch ( error ) {
@@ -392,7 +411,7 @@ async function createStudioAgentSession(
 		gate: blockValidationGate,
 	} );
 	// What a call changed in the content the sites render, reported on its result.
-	const postContent = new PostContentCheck();
+	const postContent = new PostContentCheck( undefined, getOpenProblems( config.session ) );
 	const toolDefinitions = [ ...tools, ...mcpTools ].map( ( tool ) =>
 		toToolDefinition( tool, payloadGuardState, pendingWork, blockValidationGate, {
 			confirm,

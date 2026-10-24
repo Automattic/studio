@@ -83,7 +83,7 @@ it( 'adds to a write the block validation and what WordPress renders instead of 
 	const post = ( file: string ) =>
 		runFileToolHook(
 			{ hook_event_name: 'PostToolUse', tool_name: 'Write', tool_input: { file_path: file } },
-			gate
+			() => gate
 		);
 
 	expect( await post( header ) ).toEqual( {
@@ -293,4 +293,10 @@ it( 'reports the block validation of post content a shell call changed', async (
 			),
 		},
 	} );
+	// Stopping continues the turn with the problem still open, once.
+	expect( await hook( 'Stop' ) ).toEqual( {
+		decision: 'block',
+		reason: expect.stringContaining( '1 core/html block(s) must become editable blocks' ),
+	} );
+	expect( await hook( 'Stop' ) ).toBeUndefined();
 } );

@@ -312,7 +312,7 @@ async function main() {
 			sitesYargs.version( false ).demandCommand( 1, __( 'You must provide a valid command' ) );
 		} )
 		.command( {
-			// The WordPress Studio plugin's hooks on the agent's own file tools.
+			// The WordPress Studio plugin's hooks on the agent's own tools and its stop.
 			command: '_file-tool-hook',
 			describe: false, // Hidden command
 			handler: async () => {

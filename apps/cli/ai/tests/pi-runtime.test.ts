@@ -19,6 +19,12 @@ const mocks = vi.hoisted( () => ( {
 	steps: [] as string[],
 	postChanges: { summaries: [] as string[], problems: [] as string[] },
 	failNext: false,
+	// What each end of a run finds still open on the sites.
+	openProblems: [] as string[][],
+} ) );
+
+vi.mock( 'cli/ai/open-problems', () => ( {
+	getOpenProblems: () => ( { raise: async () => mocks.openProblems.shift() ?? [] } ),
 } ) );
 
 // Model-swap test uses a synthetic id outside `AI_MODELS`; route unknowns to
@@ -272,6 +278,7 @@ describe( 'pi runtime', () => {
 		mocks.continueEvents = [];
 		mocks.customMessages = [];
 		mocks.onCustomMessage = null;
+		mocks.openProblems = [];
 		mocks.createAgentSession.mockReset();
 		mocks.createAgentSession.mockImplementation( async ( options: CreateAgentSessionOptions ) => {
 			const session = new FakeSession( options );
@@ -700,6 +707,30 @@ describe( 'pi runtime', () => {
 				expect( agentEnds( events ).map( ( event ) => event.willRetry ) ).toEqual( [ false ] );
 			}
 			expect( mocks.customMessages ).toHaveLength( 0 );
+		} );
+
+		it( 'continues a finished turn with the problems still open on the sites, until none are', async () => {
+			mocks.nextEvents = runEndingWith( assistantMessage( [ { type: 'text', text: 'Done.' } ] ) );
+			mocks.continueEvents = [
+				runEndingWith( assistantMessage( [ { type: 'text', text: 'Fixed.' } ] ) ),
+			];
+			mocks.openProblems = [ [ 'page 9: 2 invalid blocks', 'front page not shown' ] ];
+
+			const events = await runFast();
+
+			expect( mocks.customMessages ).toEqual( [
+				{
+					message: {
+						customType: 'studio.open_problems',
+						content: 'page 9: 2 invalid blocks\nfront page not shown',
+						display: false,
+					},
+					options: { triggerTurn: true },
+				},
+			] );
+			const ends = agentEnds( events );
+			expect( ends.map( ( event ) => event.willRetry ) ).toEqual( [ true, false ] );
+			expect( ends[ 1 ].messages[ 0 ] ).toMatchObject( { content: [ { text: 'Fixed.' } ] } );
 		} );
 
 		it( 'ends the turn as interrupted when the user stops it first', async () => {

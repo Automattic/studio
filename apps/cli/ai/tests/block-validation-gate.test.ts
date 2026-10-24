@@ -9,6 +9,7 @@ import {
 	validateBlockMarkupFile,
 } from 'cli/ai/block-validation-gate';
 import { validateBlocks, type ValidationReport } from 'cli/ai/block-validator';
+import { OpenProblems } from 'cli/ai/open-problems';
 
 vi.mock( 'cli/ai/block-validator', () => ( { validateBlocks: vi.fn() } ) );
 
@@ -173,6 +174,28 @@ describe( 'the gate', () => {
 		writeFileSync( file, 'v2' );
 		expect( ( await gate.settle() ).summaries ).toEqual( [ 'validated v2' ] );
 		expect( ( await gate.settle() ).summaries ).toEqual( [] );
+	} );
+
+	it( 'keeps a file open while its latest validation has a problem', async () => {
+		const file = write( 'wp-content/themes/t/templates/home.html', 'bad' );
+		const open = new OpenProblems( undefined, [] );
+		const gate = new BlockValidationGate( async ( filePath ) => {
+			const content = readFileSync( filePath, 'utf8' );
+			return {
+				...ok( content, content ),
+				problem: content === 'bad' ? 'home.html is invalid' : undefined,
+			};
+		}, open );
+		gate.track( file, site );
+		await gate.settle();
+		writeFileSync( file, 'good' );
+		gate.track( file, site );
+		await gate.settle();
+		expect( await open.raise() ).toEqual( [] );
+		writeFileSync( file, 'bad' );
+		gate.track( file, site );
+		await gate.settle();
+		expect( await open.raise() ).toEqual( [ 'home.html is invalid' ] );
 	} );
 
 	it( 'reports a file it could not validate', async () => {

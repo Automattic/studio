@@ -14,6 +14,7 @@ import { readFile, writeFile } from 'fs/promises';
 import path from 'path';
 import { validateHtmlBlockPolicy } from 'cli/ai/block-content-policy';
 import { validateBlocks, type ValidationReportBase } from 'cli/ai/block-validator';
+import { getOpenProblems, type OpenProblems } from 'cli/ai/open-problems';
 import { getSiteByFolder, getSiteUrl } from 'cli/lib/cli-config/sites';
 
 const SHARED_THEME_MARKUP =
@@ -243,7 +244,8 @@ export class BlockValidationGate {
 		private readonly validateFile: (
 			filePath: string,
 			siteRoot: string
-		) => Promise< FileValidation > = validateWithSite
+		) => Promise< FileValidation > = validateWithSite,
+		private readonly open?: OpenProblems
 	) {}
 
 	/** Queues a written file and starts validating it in the background. */
@@ -259,6 +261,7 @@ export class BlockValidationGate {
 		const problems: string[] = [];
 		for ( const [ filePath, tracked ] of this.files ) {
 			const result = await this.current( filePath, tracked.siteRoot );
+			this.open?.record( tracked.siteRoot, filePath, result?.problem );
 			if ( ! result ) {
 				this.files.delete( filePath );
 				continue;
@@ -318,7 +321,7 @@ const gates = new WeakMap< object, BlockValidationGate >();
 export function getBlockValidationGate( session: object ): BlockValidationGate {
 	let gate = gates.get( session );
 	if ( ! gate ) {
-		gate = new BlockValidationGate();
+		gate = new BlockValidationGate( validateWithSite, getOpenProblems( session ) );
 		gates.set( session, gate );
 	}
 	return gate;

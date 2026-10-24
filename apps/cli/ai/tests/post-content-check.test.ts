@@ -60,7 +60,7 @@ describe( 'PostContentCheck', () => {
 			reported: [],
 		},
 	] )( 'reports what a call changed: $name', async ( { change, reported } ) => {
-		const check = new PostContentCheck( new Map(), async () => [ site ] );
+		const check = new PostContentCheck( new Map(), undefined, async () => [ site ] );
 		await check.snapshot();
 		change();
 		expect( ( await check.settle() ).summaries ).toEqual( reported );
@@ -69,13 +69,13 @@ describe( 'PostContentCheck', () => {
 	} );
 
 	it( 'reports nothing for a site it has not seen before', async () => {
-		const check = new PostContentCheck( new Map(), async () => [ site ] );
+		const check = new PostContentCheck( new Map(), undefined, async () => [ site ] );
 		fixture.edit( 9, HTML_ONLY );
 		expect( await check.settle() ).toEqual( { summaries: [], problems: [] } );
 	} );
 
 	it( 'asks for editable blocks in place of core/html', async () => {
-		const check = new PostContentCheck( new Map(), async () => [ site ] );
+		const check = new PostContentCheck( new Map(), undefined, async () => [ site ] );
 		await check.snapshot();
 		fixture.edit( 9, HTML_ONLY );
 		const { problems } = await check.settle();
@@ -85,7 +85,7 @@ describe( 'PostContentCheck', () => {
 
 	it( 'saves a lossless editor fix next to the site, with the command that applies it', async () => {
 		vi.mocked( validateBlocks ).mockResolvedValue( losslessFix );
-		const check = new PostContentCheck( new Map(), async () => [ site ] );
+		const check = new PostContentCheck( new Map(), undefined, async () => [ site ] );
 		await check.snapshot();
 		fixture.edit( 9, UNWRAPPED_GROUP );
 		const { summaries, problems } = await check.settle();
@@ -98,7 +98,7 @@ describe( 'PostContentCheck', () => {
 
 	it( 'reports a validation that cannot run', async () => {
 		vi.mocked( validateBlocks ).mockRejectedValue( new Error( 'site is not running' ) );
-		const check = new PostContentCheck( new Map(), async () => [ site ] );
+		const check = new PostContentCheck( new Map(), undefined, async () => [ site ] );
 		await check.snapshot();
 		fixture.edit( 9, UNWRAPPED_GROUP );
 		expect( ( await check.settle() ).summaries ).toEqual( [

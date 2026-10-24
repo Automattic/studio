@@ -10,14 +10,17 @@
  * hookSpecificOutput denies the call or adds context to its result.
  *
  * On a shell call they also report the content the call changed in the sites'
- * databases (post-content-check.ts): each hook is its own process, so the
- * snapshot PreToolUse takes is kept in a file for its PostToolUse.
+ * databases (post-content-check.ts). When the agent stops, the Stop hook
+ * continues its turn with the problems still open (open-problems.ts). Each
+ * hook is its own process, so the session's snapshots and open problems are
+ * kept in a file between hooks.
  */
 import { createHash } from 'crypto';
 import { readFile, writeFile } from 'fs/promises';
 import os from 'os';
 import path from 'path';
 import { BlockValidationGate } from 'cli/ai/block-validation-gate';
+import { OpenProblems, type OpenProblemsState } from 'cli/ai/open-problems';
 import { PostContentCheck, type PostSnapshot } from 'cli/ai/post-content-check';
 import { createSiteNotes } from 'cli/ai/site-notes';
 
@@ -29,15 +32,18 @@ export interface HookInput {
 	session_id?: string;
 }
 
-type HookOutput = {
-	hookSpecificOutput:
+// A tool hook's output, or a Stop hook's decision to continue the turn.
+interface HookOutput {
+	hookSpecificOutput?:
 		| {
 				hookEventName: 'PreToolUse';
 				permissionDecision: 'deny';
 				permissionDecisionReason: string;
 		  }
 		| { hookEventName: 'PostToolUse'; additionalContext: string };
-};
+	decision?: 'block';
+	reason?: string;
+}
 
 const PATCH_FILE = /^\*\*\* (?:Add File|Update File|Move to): (.+)$/gm;
 
@@ -54,37 +60,52 @@ export function getWrittenFiles( { tool_input: toolInput = {}, cwd = '' }: HookI
 	);
 }
 
-function snapshotFile( sessionId: string ): string {
-	const key = createHash( 'sha1' ).update( sessionId ).digest( 'hex' ).slice( 0, 16 );
-	return path.join( os.tmpdir(), `studio-hook-post-content-${ key }.json` );
+interface SessionState {
+	snapshots: Record< string, PostSnapshot >;
+	open?: OpenProblemsState;
 }
 
-// The session's post content check, with the snapshots its last hook kept.
-async function withPostContent< T >(
+function stateFile( sessionId: string ): string {
+	const key = createHash( 'sha1' ).update( sessionId ).digest( 'hex' ).slice( 0, 16 );
+	return path.join( os.tmpdir(), `studio-hook-session-${ key }.json` );
+}
+
+// The session's checks, with the state its last hook kept; without a session,
+// a call's own.
+async function withSession< T >(
 	sessionId: string | undefined,
-	run: ( check: PostContentCheck ) => Promise< T >
-): Promise< T | undefined > {
-	if ( ! sessionId ) {
-		return undefined;
+	run: ( checks: { postContent: PostContentCheck; open: OpenProblems } ) => Promise< T >
+): Promise< T > {
+	const file = sessionId ? stateFile( sessionId ) : undefined;
+	const kept: Partial< SessionState > = file
+		? await readFile( file, 'utf8' )
+				.then( ( text ) => JSON.parse( text ) )
+				.catch( () => ( {} ) )
+		: {};
+	const snapshots = new Map( Object.entries( kept.snapshots ?? {} ) );
+	const open = new OpenProblems( kept.open );
+	const result = await run( { postContent: new PostContentCheck( snapshots, open ), open } );
+	if ( file ) {
+		const state: SessionState = { snapshots: Object.fromEntries( snapshots ), open: open.toJSON() };
+		await writeFile( file, JSON.stringify( state ), 'utf8' );
 	}
-	const file = snapshotFile( sessionId );
-	const kept: Record< string, PostSnapshot > = await readFile( file, 'utf8' )
-		.then( ( text ) => JSON.parse( text ) )
-		.catch( () => ( {} ) );
-	const snapshots = new Map( Object.entries( kept ) );
-	const result = await run( new PostContentCheck( snapshots ) );
-	await writeFile( file, JSON.stringify( Object.fromEntries( snapshots ) ), 'utf8' );
 	return result;
 }
 
 export async function runFileToolHook(
 	input: HookInput,
-	gate = new BlockValidationGate()
+	makeGate = ( open?: OpenProblems ) => new BlockValidationGate( undefined, open )
 ): Promise< HookOutput | undefined > {
+	if ( input.hook_event_name === 'Stop' ) {
+		const problems = await withSession( input.session_id, ( { open } ) => open.raise() ).catch(
+			() => []
+		);
+		return problems.length ? { decision: 'block', reason: problems.join( '\n' ) } : undefined;
+	}
 	const files = getWrittenFiles( input );
-	const siteNotes = createSiteNotes( { gate } );
 	if ( input.hook_event_name === 'PreToolUse' ) {
-		await withPostContent( input.session_id, ( check ) => check.snapshot() ).catch(
+		const siteNotes = createSiteNotes( { gate: makeGate() } );
+		await withSession( input.session_id, ( { postContent } ) => postContent.snapshot() ).catch(
 			() => undefined
 		);
 		for ( const file of files ) {
@@ -104,14 +125,18 @@ export async function runFileToolHook(
 	if ( input.hook_event_name !== 'PostToolUse' ) {
 		return undefined;
 	}
-	const notes: string[] = [];
-	for ( const file of files ) {
-		notes.push( ...( await siteNotes.afterWrite( file ) ) );
-	}
-	const { summaries, problems } = await gate.settle();
-	const changedContent = ( await withPostContent( input.session_id, ( check ) =>
-		check.settle()
-	).catch( () => undefined ) ) ?? { summaries: [], problems: [] };
+	const checked = await withSession( input.session_id, async ( { postContent, open } ) => {
+		const gate = makeGate( open );
+		const siteNotes = createSiteNotes( { gate } );
+		const notes: string[] = [];
+		for ( const file of files ) {
+			notes.push( ...( await siteNotes.afterWrite( file ) ) );
+		}
+		return { notes, files: await gate.settle(), content: await postContent.settle() };
+	} ).catch( () => undefined );
+	const { summaries, problems } = checked?.files ?? { summaries: [], problems: [] };
+	const changedContent = checked?.content ?? { summaries: [], problems: [] };
+	const notes = checked?.notes ?? [];
 	const context = [
 		...[ ...summaries, ...changedContent.summaries ].map(
 			( line ) => `Block validation: ${ line }`

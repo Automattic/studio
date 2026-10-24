@@ -13,6 +13,7 @@ import { validateBlockMarkup } from 'cli/ai/block-validation-gate';
 import { readWordPressSite } from 'cli/ai/site-database';
 import { readCliConfig, type SiteData } from 'cli/lib/cli-config/core';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
+import type { OpenProblems } from 'cli/ai/open-problems';
 
 const RENDERED_TYPES = [
 	'post',
@@ -85,6 +86,7 @@ async function validatePost( site: SiteData, post: Row ) {
 export class PostContentCheck {
 	constructor(
 		private readonly snapshots = new Map< string, PostSnapshot >(),
+		private readonly open?: OpenProblems,
 		private readonly sites: () => Promise< SiteData[] > = localSites,
 		private readonly validate: typeof validatePost = validatePost
 	) {}
@@ -115,6 +117,7 @@ export class PostContentCheck {
 					})`,
 					problem: undefined,
 				} ) );
+				this.open?.record( site.path, `${ site.path }#${ post.id }`, result.problem );
 				summaries.push( result.summary );
 				problems.push( ...( result.problem ? [ result.problem ] : [] ) );
 			}

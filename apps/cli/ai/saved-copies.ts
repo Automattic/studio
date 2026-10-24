@@ -50,7 +50,7 @@ function styleAreas( content: string ): string[] {
  * The copies saved in the Site Editor for the active theme, read from an open
  * site's database. Global Styles that set nothing are left out.
  */
-function readSavedCopies( site: WordPressSite ): SavedCopy[] {
+export function readSavedCopies( site: WordPressSite ): SavedCopy[] {
 	const { prefix } = site;
 	const stylesheet = site.option( 'stylesheet' );
 	if ( typeof stylesheet !== 'string' ) return [];

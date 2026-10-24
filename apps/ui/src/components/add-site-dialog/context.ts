@@ -1,7 +1,7 @@
 import { createContext, useContext } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 
-export interface AddSiteContextValue {
+interface AddSiteContextValue {
 	// Announces long work and locks the dialog until it's cleared.
 	setProgress: Dispatch< SetStateAction< string | null > >;
 	// Shows the progress the CLI publishes for this site in place of the panel's.

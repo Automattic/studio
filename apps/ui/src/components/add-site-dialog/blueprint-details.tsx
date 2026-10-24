@@ -23,7 +23,7 @@ import type { SelectedBlueprint } from '@/lib/blueprint-selection';
 import type { Blueprint } from '@studio/common/lib/studio-blueprints-api';
 import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 
-export function toSelectedBlueprint( blueprint: Blueprint ): SelectedBlueprint {
+function toSelectedBlueprint( blueprint: Blueprint ): SelectedBlueprint {
 	return {
 		slug: blueprint.slug,
 		title: blueprint.title,

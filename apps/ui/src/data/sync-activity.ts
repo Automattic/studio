@@ -3,7 +3,7 @@ import { useSyncExternalStore } from 'react';
 import type { SyncActivity } from '@studio/common/lib/sync/activity';
 import type { PushPhase } from '@studio/common/types/sync';
 
-export type { SyncActivity, SyncDirection } from '@studio/common/lib/sync/activity';
+export type { SyncActivity } from '@studio/common/lib/sync/activity';
 
 // In-flight and recently finished syncs and imports per site, fed by the
 // activity the CLI publishes. Module-level so it survives remounts during

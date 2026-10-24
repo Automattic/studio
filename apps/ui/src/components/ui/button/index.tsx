@@ -92,7 +92,7 @@ export function Button( {
 
 type Shortcut = { displayShortcut: string; ariaKeyShortcut: string };
 
-export type IconButtonProps = Omit< ButtonProps, 'children' > & {
+type IconButtonProps = Omit< ButtonProps, 'children' > & {
 	icon: ReactNode;
 	/** The accessible name, also shown in the tooltip. */
 	label: string;

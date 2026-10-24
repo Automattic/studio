@@ -11,7 +11,7 @@ import {
 } from '@/data/queries/use-wpcom-sites';
 import type { TracksAuthSource } from '@studio/common/lib/record-tracks-event';
 
-export const AUTH_USER_QUERY_KEY = [ 'auth-user' ] as const;
+const AUTH_USER_QUERY_KEY = [ 'auth-user' ] as const;
 
 // Removed (not just invalidated) on auth transitions so a different user
 // never sees stale data from the persisted cache.

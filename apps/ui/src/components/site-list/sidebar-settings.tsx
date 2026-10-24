@@ -2,7 +2,7 @@ import { __ } from '@wordpress/i18n';
 import { SettingsRow, SettingsToggle } from '@/components/settings-view/rows';
 import { useSidebarPreferences } from '@/data/queries/use-sidebar-pins';
 
-export const getSidebarSettingTitles = () => [
+const getSidebarSettingTitles = () => [
 	__( 'Show recent chats' ),
 	__( 'Collapse sidebar groups' ),
 ];

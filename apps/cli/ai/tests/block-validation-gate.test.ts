@@ -8,10 +8,13 @@ import {
 	isBlockMarkupFile,
 	validateBlockMarkupFile,
 } from 'cli/ai/block-validation-gate';
-import { validateBlocks, type ValidationReport } from 'cli/ai/block-validator';
+import { storePaletteColors, validateBlocks, type ValidationReport } from 'cli/ai/block-validator';
 import { OpenProblems } from 'cli/ai/open-problems';
 
-vi.mock( 'cli/ai/block-validator', () => ( { validateBlocks: vi.fn() } ) );
+vi.mock( 'cli/ai/block-validator', () => ( {
+	validateBlocks: vi.fn(),
+	storePaletteColors: vi.fn( async ( content: string ) => ( { content, colors: [] } ) ),
+} ) );
 
 let site: string;
 
@@ -79,10 +82,35 @@ describe( 'validating a file', () => {
 		const result = await validateBlockMarkupFile( file, 'http://localhost:8881' );
 		expect( result.problem ).toBeUndefined();
 		expect( result.summary ).toContain(
-			'1/1 blocks valid; saved through the block editor, fixing 1 block(s)'
+			'1/1 blocks valid; saved through the block editor, which fixes 1 block(s)'
 		);
 		expect( result.fixedContent ).toBe( fixed );
 		expect( readFileSync( file, 'utf8' ) ).toBe( original );
+	} );
+
+	it( "returns the content with the palette's colors stored as presets", async () => {
+		const file = write( 'parts/hero.html', original );
+		vi.mocked( validateBlocks ).mockResolvedValue( {
+			totalBlocks: 1,
+			validBlocks: 1,
+			invalidBlocks: 0,
+			results: [],
+		} );
+		vi.mocked( storePaletteColors ).mockResolvedValueOnce( {
+			content: fixed,
+			colors: [ { color: '#503AA8', slug: 'accent-3' } ],
+		} );
+		const palette: Array< [ string, string ] > = [ [ 'accent-3', '#503AA8' ] ];
+		const result = await validateBlockMarkupFile( file, 'http://localhost:8881', palette );
+		expect( storePaletteColors ).toHaveBeenLastCalledWith(
+			original,
+			'http://localhost:8881',
+			palette
+		);
+		expect( result.summary ).toBe(
+			"parts/hero.html: 1/1 blocks valid; saved through the block editor, which stores #503AA8 as the palette's accent-3, as the editor stores a palette color (encodeColorValueWithPalette in @wordpress/block-editor), so it follows the palette"
+		);
+		expect( result.fixedContent ).toBe( fixed );
 	} );
 
 	it( 'refuses a fix that would drop classes, and says what to change', async () => {

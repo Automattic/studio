@@ -1,13 +1,19 @@
 import { existsSync, readFileSync, rmSync } from 'fs';
 import path from 'path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { validateBlocks, type ValidationReport } from 'cli/ai/block-validator';
+import { storePaletteColors, validateBlocks, type ValidationReport } from 'cli/ai/block-validator';
 import { postContentChanges } from 'cli/ai/post-content-check';
 import { SiteChanges } from 'cli/ai/site-changes';
 import { createSite } from 'cli/ai/tests/fixtures/wordpress-site';
 import type { SiteData } from 'cli/lib/cli-config/core';
 
-vi.mock( 'cli/ai/block-validator', () => ( { validateBlocks: vi.fn() } ) );
+vi.mock( 'cli/ai/block-validator', () => ( {
+	validateBlocks: vi.fn(),
+	storePaletteColors: vi.fn( async ( content: string ) => ( { content, colors: [] } ) ),
+} ) );
+vi.mock( 'cli/ai/theme-presets', () => ( {
+	themePresets: vi.fn( async () => ( { colors: [ [ 'accent-3', '#503AA8' ] ] } ) ),
+} ) );
 
 const PARAGRAPH = '<!-- wp:paragraph -->\n<p>Hello</p>\n<!-- /wp:paragraph -->';
 const UNWRAPPED_GROUP = '<!-- wp:group -->\n<p>Hello</p>\n<!-- /wp:group -->';
@@ -101,6 +107,28 @@ describe( 'post content changes', () => {
 		expect( readFileSync( path.join( fixture.root, 'tmp/page-9.html' ), 'utf8' ) ).toBe(
 			WRAPPED_GROUP
 		);
+	} );
+
+	it( "saves the content with the palette's colors stored as presets, with the command that applies it", async () => {
+		const PRESET = '<!-- wp:group {"backgroundColor":"accent-3"} -->';
+		vi.mocked( storePaletteColors ).mockResolvedValueOnce( {
+			content: PRESET,
+			colors: [ { color: '#503AA8', slug: 'accent-3' } ],
+		} );
+		const check = checkPosts();
+		await check.snapshot();
+		fixture.edit( 9, UNWRAPPED_GROUP );
+		const { summaries, problems } = await check.settle();
+		expect( storePaletteColors ).toHaveBeenLastCalledWith(
+			UNWRAPPED_GROUP,
+			'http://localhost:8881',
+			[ [ 'accent-3', '#503AA8' ] ]
+		);
+		expect( summaries ).toEqual( [ 'Bakery page 9 "": 1/1 blocks valid' ] );
+		expect( problems[ 0 ] ).toContain(
+			`Bakery page 9 "": the block editor's save stores #503AA8 as the palette's accent-3, as the editor stores a palette color (encodeColorValueWithPalette in @wordpress/block-editor), so it follows the palette, losing nothing; it is saved in`
+		);
+		expect( readFileSync( path.join( fixture.root, 'tmp/page-9.html' ), 'utf8' ) ).toBe( PRESET );
 	} );
 
 	it( 'reports a validation that cannot run', async () => {

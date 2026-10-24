@@ -16,8 +16,15 @@ import { readFileSync } from 'fs';
 import { readFile, writeFile } from 'fs/promises';
 import path from 'path';
 import { validateHtmlBlockPolicy } from 'cli/ai/block-content-policy';
-import { validateBlocks, type ValidationReportBase } from 'cli/ai/block-validator';
+import {
+	storePaletteColors,
+	validateBlocks,
+	type PaletteColorsResult,
+	type ValidationReportBase,
+} from 'cli/ai/block-validator';
 import { getOpenProblems, type OpenProblems } from 'cli/ai/open-problems';
+import { readWordPressSite } from 'cli/ai/site-database';
+import { themePresets } from 'cli/ai/theme-presets';
 import { getSiteByFolder, getSiteUrl } from 'cli/lib/cli-config/sites';
 
 const THEME_MARKUP =
@@ -120,25 +127,49 @@ export interface MarkupValidation {
 	/** What the block editor would save instead, when that loses nothing. */
 	fixedContent?: string;
 	invalidBlocks?: number;
+	/** The palette colors the fix stores as presets. */
+	paletteColors?: PaletteColorsResult[ 'colors' ];
+}
+
+/** How the editor stores colors written as palette values, for a note. */
+export function describePaletteColors( colors: PaletteColorsResult[ 'colors' ] ): string {
+	const each = [
+		...new Set( colors.map( ( { color, slug } ) => `${ color } as the palette's ${ slug }` ) ),
+	];
+	return `stores ${ each.join(
+		', '
+	) }, as the editor stores a palette color (encodeColorValueWithPalette in @wordpress/block-editor), so it follows the palette`;
+}
+
+/** The colors of a site's palette, as WordPress resolves them. */
+export async function sitePalette( siteRoot: string ): Promise< Array< [ string, string ] > > {
+	return (
+		( await readWordPressSite( siteRoot, themePresets ).catch( () => undefined ) )?.colors ?? []
+	);
 }
 
 /** Validates one block markup file, with the lossless fix for the caller to save. */
 export async function validateBlockMarkupFile(
 	filePath: string,
-	siteUrl: string
+	siteUrl: string,
+	palette: Array< [ string, string ] > = []
 ): Promise< FileValidation > {
 	const label = filePath.split( path.sep ).slice( -2 ).join( '/' );
 	const content = await readFile( filePath, 'utf8' );
-	const notes: string[] = [];
 
-	const result = await validateBlockMarkup( content, label, siteUrl, notes );
+	const result = await validateBlockMarkup( content, label, siteUrl, palette );
 	if ( result.fixedContent === undefined ) {
 		return { contentHash: hash( content ), summary: result.summary, problem: result.problem };
 	}
-	notes.push( `saved through the block editor, fixing ${ result.invalidBlocks } block(s)` );
+	const notes = [
+		result.invalidBlocks ? `fixes ${ result.invalidBlocks } block(s)` : undefined,
+		result.paletteColors?.length ? describePaletteColors( result.paletteColors ) : undefined,
+	].filter( Boolean );
 	return {
 		contentHash: hash( content ),
-		summary: `${ result.summary }; ${ notes.join( '; ' ) }`,
+		summary: `${ result.summary }; saved through the block editor, which ${ notes.join(
+			' and '
+		) }`,
 		fixedContent: result.fixedContent,
 	};
 }
@@ -152,7 +183,7 @@ export async function validateBlockMarkup(
 	content: string,
 	label: string,
 	siteUrl: string,
-	notes: string[] = []
+	palette: Array< [ string, string ] > = []
 ): Promise< MarkupValidation > {
 	const policy = validateHtmlBlockPolicy( content );
 	if ( policy.invalidHtmlBlocks.length > 0 ) {
@@ -173,12 +204,12 @@ export async function validateBlockMarkup(
 			summary: `${ label }: not validated (${ report.error })`,
 		};
 	}
+	const valid = `${ label }: ${ report.totalBlocks }/${ report.totalBlocks } blocks valid`;
 	if ( report.invalidBlocks === 0 ) {
-		return {
-			summary: `${ label }: ${ report.totalBlocks }/${ report.totalBlocks } blocks valid${
-				notes.length ? `; ${ notes.join( '; ' ) }` : ''
-			}`,
-		};
+		const presets = await storePaletteColors( content, siteUrl, palette );
+		return presets.colors.length
+			? { summary: valid, fixedContent: presets.content, paletteColors: presets.colors }
+			: { summary: valid };
 	}
 
 	const fix = report.proposedFix;
@@ -202,10 +233,12 @@ export async function validateBlockMarkup(
 		( attribute ) => ! fixedAttributes.has( attribute )
 	);
 	if ( ! lostText && droppedClasses.length === 0 && droppedAttributes.length === 0 ) {
+		const presets = await storePaletteColors( fix.fixedContent, siteUrl, palette );
 		return {
-			summary: `${ label }: ${ report.totalBlocks }/${ report.totalBlocks } blocks valid`,
-			fixedContent: fix.fixedContent,
+			summary: valid,
+			fixedContent: presets.content,
 			invalidBlocks: report.invalidBlocks,
+			...( presets.colors.length && { paletteColors: presets.colors } ),
 		};
 	}
 	return {
@@ -333,7 +366,11 @@ export class BlockValidationGate {
 }
 
 async function validateWithSite( filePath: string, siteRoot: string ): Promise< FileValidation > {
-	return validateBlockMarkupFile( filePath, getSiteUrl( await getSiteByFolder( siteRoot ) ) );
+	return validateBlockMarkupFile(
+		filePath,
+		getSiteUrl( await getSiteByFolder( siteRoot ) ),
+		await sitePalette( siteRoot )
+	);
 }
 
 const gates = new WeakMap< object, BlockValidationGate >();

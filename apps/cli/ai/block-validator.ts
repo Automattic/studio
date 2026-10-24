@@ -467,6 +467,111 @@ export async function validateBlocks(
 	}
 }
 
+export interface PaletteColorsResult {
+	content: string;
+	/** Each color written as a value that the palette has, with its preset. */
+	colors: Array< { color: string; slug: string } >;
+}
+
+/**
+ * Stores each color a block's style gives as a palette color's value as that
+ * palette color, as the editor does when one is picked
+ * (encodeColorValueWithPalette in @wordpress/block-editor): the block's color
+ * attribute where its color or border support has one, `var:preset|color|`
+ * elsewhere in its style. The colors stay the same, and follow the palette
+ * when it changes. Content the editor would save otherwise is returned as is.
+ */
+export async function storePaletteColors(
+	content: string,
+	siteUrl: string,
+	palette: Array< [ string, string ] >
+): Promise< PaletteColorsResult > {
+	if ( ! palette.length ) {
+		return { content, colors: [] };
+	}
+	const page = await getEditorPage( siteUrl ).getPage();
+	return page.evaluate(
+		( { html, presets } ) => {
+			/* eslint-disable @typescript-eslint/no-explicit-any */
+			const wpBlocks = ( window as any ).wp.blocks;
+			const colors: Array< { color: string; slug: string } > = [];
+			const slugOf = ( value: unknown ) =>
+				typeof value === 'string'
+					? presets.find(
+							( [ , color ] ) => color.toLowerCase() === value.trim().toLowerCase()
+					  )?.[ 0 ]
+					: undefined;
+			// The style values the color and border supports read a color from.
+			const presetValues = ( value: any ): any => {
+				if ( ! value || typeof value !== 'object' || Array.isArray( value ) ) {
+					return value;
+				}
+				return Object.fromEntries(
+					Object.entries( value ).map( ( [ key, child ] ) => {
+						const slug = [ 'text', 'background', 'color' ].includes( key )
+							? slugOf( child )
+							: undefined;
+						if ( ! slug ) {
+							return [ key, presetValues( child ) ];
+						}
+						colors.push( { color: String( child ), slug } );
+						return [ key, `var:preset|color|${ slug }` ];
+					} )
+				);
+			};
+			const NAMED: Array< [ string, string, string ] > = [
+				[ 'color', 'background', 'backgroundColor' ],
+				[ 'color', 'text', 'textColor' ],
+				[ 'border', 'color', 'borderColor' ],
+			];
+			const visit = ( block: any ): any => {
+				const innerBlocks = ( block.innerBlocks ?? [] ).map( visit );
+				const before = colors.length;
+				const style = presetValues( block.attributes?.style );
+				if ( colors.length === before ) {
+					return { ...block, innerBlocks };
+				}
+				const attributes = { ...block.attributes, style };
+				const types = wpBlocks.getBlockType( block.name )?.attributes ?? {};
+				for ( const [ group, key, name ] of NAMED ) {
+					const value = attributes.style?.[ group ]?.[ key ];
+					if (
+						types[ name ] &&
+						typeof value === 'string' &&
+						value.startsWith( 'var:preset|color|' )
+					) {
+						attributes[ name ] = value.slice( 'var:preset|color|'.length );
+						const { [ key ]: _named, ...rest } = attributes.style[ group ];
+						attributes.style = { ...attributes.style, [ group ]: rest };
+					}
+				}
+				for ( const group of [ 'color', 'border' ] ) {
+					if ( attributes.style?.[ group ] && ! Object.keys( attributes.style[ group ] ).length ) {
+						const { [ group ]: _empty, ...rest } = attributes.style;
+						attributes.style = rest;
+					}
+				}
+				if ( attributes.style && ! Object.keys( attributes.style ).length ) {
+					delete attributes.style;
+				}
+				return { ...block, attributes, innerBlocks };
+			};
+			const blocks = wpBlocks.parse( html ).map( visit );
+			if ( ! colors.length ) {
+				return { content: html, colors };
+			}
+			const fixed = wpBlocks.serialize( blocks );
+			const valid = ( list: any[] ): boolean =>
+				list.every( ( block ) => block.isValid !== false && valid( block.innerBlocks ?? [] ) );
+			return valid( wpBlocks.parse( fixed ) )
+				? { content: fixed, colors }
+				: { content: html, colors: [] };
+			/* eslint-enable @typescript-eslint/no-explicit-any */
+		},
+		{ html: content, presets: palette }
+	);
+}
+
 /** Clean up all cached editor pages. */
 export async function cleanupValidatorPages(): Promise< void > {
 	for ( const ep of editorPages.values() ) {

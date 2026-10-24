@@ -16,7 +16,7 @@ import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import type { WordPressSite } from 'cli/ai/site-database';
 
-interface Presets {
+export interface Presets {
 	colors: Array< [ string, string ] >;
 	fontFamilies: Array< [ string, string ] >;
 	fontSizes: Array< [ string, string ] >;
@@ -54,7 +54,7 @@ echo wp_json_encode( array(
 ) );
 `;
 
-const resolved = new Map< string, { inputs: string; lines: Promise< string[] > } >();
+const resolved = new Map< string, { inputs: string; presets: Promise< Presets > } >();
 
 async function filesVersion( dir: string ): Promise< string > {
 	const entries = await readdir( dir, { recursive: true, withFileTypes: true } ).catch( () => [] );
@@ -130,24 +130,30 @@ function describePresets( presets: Presets ): string[] {
 	].filter( ( line ): line is string => Boolean( line ) );
 }
 
-/** The active theme's presets, as WordPress resolves them, as site facts. */
-export async function themePresetsFact( site: WordPressSite ): Promise< string[] > {
+/**
+ * The site's presets, as WordPress resolves them, or undefined when it has no
+ * active theme or WordPress could not run, in which case they are resolved
+ * again next time.
+ */
+export async function themePresets( site: WordPressSite ): Promise< Presets | undefined > {
 	const themes = [
 		...new Set( [ site.option( 'stylesheet' ), site.option( 'template' ) ] ),
 	].filter( ( theme ): theme is string => typeof theme === 'string' && theme !== '' );
 	if ( ! themes.length ) {
-		return [];
+		return undefined;
 	}
 	const inputs = await inputsOf( site, themes );
 	let entry = resolved.get( site.root );
 	if ( entry?.inputs !== inputs ) {
-		entry = {
-			inputs,
-			lines: resolve( site.root ).then( describePresets ),
-		};
+		entry = { inputs, presets: resolve( site.root ) };
 		resolved.set( site.root, entry );
-		// A site WordPress could not run for states no presets, and is asked again next time.
-		entry.lines.catch( () => resolved.delete( site.root ) );
+		entry.presets.catch( () => resolved.delete( site.root ) );
 	}
-	return entry.lines.catch( () => [] );
+	return entry.presets.catch( () => undefined );
+}
+
+/** The active theme's presets, as WordPress resolves them, as site facts. */
+export async function themePresetsFact( site: WordPressSite ): Promise< string[] > {
+	const presets = await themePresets( site );
+	return presets ? describePresets( presets ) : [];
 }

@@ -1,5 +1,5 @@
 import { afterAll, describe, expect, it } from 'vitest';
-import { cleanupValidatorPages, validateBlocks } from 'cli/ai/block-validator';
+import { cleanupValidatorPages, storePaletteColors, validateBlocks } from 'cli/ai/block-validator';
 
 // Runs the site's own block editor, so it needs a running WordPress site:
 // STUDIO_BLOCK_EDITOR_URL=http://localhost:8881 npx vitest run block-validator
@@ -97,4 +97,58 @@ describe.runIf( siteUrl )( 'validating in the block editor (live)', () => {
 		);
 		expect( report.proposedFix?.sameText ).toBe( true );
 	}, 60_000 );
+} );
+
+describe.runIf( siteUrl )( 'storing palette colors as presets (live)', () => {
+	afterAll( cleanupValidatorPages );
+	const palette: Array< [ string, string ] > = [
+		[ 'base', '#FFFFFF' ],
+		[ 'accent-3', '#503AA8' ],
+	];
+
+	it( 'stores each color a palette color has as that preset, as the editor does', async () => {
+		const markup = group(
+			'{"style":{"color":{"background":"#503aa8","text":"#FFFFFF"},"elements":{"link":{"color":{"text":"#FFFFFF"}}}},"layout":{"type":"constrained"}}',
+			'<div class="wp-block-group has-text-color has-background has-link-color" style="color:#FFFFFF;background-color:#503aa8">' +
+				paragraph(
+					'{"style":{"color":{"background":"#123456"}}}',
+					'<p class="has-background" style="background-color:#123456">Custom stays</p>'
+				) +
+				'</div>'
+		);
+		const result = await storePaletteColors( markup, siteUrl!, palette );
+
+		expect( result.colors ).toEqual( [
+			{ color: '#503aa8', slug: 'accent-3' },
+			{ color: '#FFFFFF', slug: 'base' },
+			{ color: '#FFFFFF', slug: 'base' },
+		] );
+		expect( result.content ).toContain(
+			'<!-- wp:group {"style":{"elements":{"link":{"color":{"text":"var:preset|color|base"}}}},"backgroundColor":"accent-3","textColor":"base","layout":{"type":"constrained"}} -->'
+		);
+		expect( result.content ).toContain( 'has-base-color has-accent-3-background-color' );
+		expect( result.content ).toContain( 'background-color:#123456' );
+		expect( ( await validateBlocks( result.content, siteUrl! ) ).invalidBlocks ).toBe( 0 );
+	} );
+
+	it( 'leaves no empty style behind', async () => {
+		const markup = paragraph(
+			'{"style":{"color":{"text":"#503AA8"}}}',
+			'<p class="has-text-color" style="color:#503AA8">Hi</p>'
+		);
+		expect( ( await storePaletteColors( markup, siteUrl!, palette ) ).content ).toBe(
+			paragraph( '{"textColor":"accent-3"}', '<p class="has-accent-3-color has-text-color">Hi</p>' )
+		);
+	} );
+
+	it( 'returns content without palette values as written', async () => {
+		const markup = paragraph(
+			'{"textColor":"base"}',
+			'<p class="has-base-color has-text-color">Hi</p>'
+		);
+		expect( await storePaletteColors( markup, siteUrl!, palette ) ).toEqual( {
+			content: markup,
+			colors: [],
+		} );
+	} );
 } );

@@ -6,7 +6,11 @@
  */
 import { mkdir, writeFile } from 'fs/promises';
 import path from 'path';
-import { validateBlockMarkup } from 'cli/ai/block-validation-gate';
+import {
+	describePaletteColors,
+	sitePalette,
+	validateBlockMarkup,
+} from 'cli/ai/block-validation-gate';
 import { readWordPressSite } from 'cli/ai/site-database';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import type { ChangeReport, SiteChangeSource, Versions } from 'cli/ai/site-changes';
@@ -61,7 +65,12 @@ async function readPosts( sitePath: string, ids: string[] ): Promise< Row[] > {
 // shell keeps where it reads a Windows backslash as an escape.
 async function validatePost( site: SiteData, post: Row ) {
 	const label = `${ site.name } ${ post.type } ${ post.id } "${ post.title }"`;
-	const result = await validateBlockMarkup( post.content, label, getSiteUrl( site ) );
+	const result = await validateBlockMarkup(
+		post.content,
+		label,
+		getSiteUrl( site ),
+		await sitePalette( site.path )
+	);
 	if ( result.fixedContent === undefined ) {
 		return result;
 	}
@@ -69,9 +78,21 @@ async function validatePost( site: SiteData, post: Row ) {
 	await mkdir( path.dirname( fixFile ), { recursive: true } );
 	await writeFile( fixFile, result.fixedContent, 'utf8' );
 	const shellPath = fixFile.split( path.sep ).join( '/' );
+	const saves = [
+		result.invalidBlocks
+			? `fixes ${ result.invalidBlocks } block(s) that do not match what the block saves`
+			: undefined,
+		result.paletteColors?.length ? describePaletteColors( result.paletteColors ) : undefined,
+	].filter( Boolean );
 	return {
-		summary: `${ label }: ${ result.invalidBlocks } invalid block(s)`,
-		problem: `${ label }: ${ result.invalidBlocks } block(s) do not match what the block saves; the block editor's fix loses nothing and is saved in ${ shellPath }. Apply it in the site's folder with \`wp post update ${ post.id } ${ shellPath }\`.`,
+		summary: result.invalidBlocks
+			? `${ label }: ${ result.invalidBlocks } invalid block(s)`
+			: result.summary,
+		problem: `${ label }: the block editor's save ${ saves.join(
+			' and '
+		) }, losing nothing; it is saved in ${ shellPath }. Apply it in the site's folder with \`wp post update ${
+			post.id
+		} ${ shellPath }\`.`,
 	};
 }
 

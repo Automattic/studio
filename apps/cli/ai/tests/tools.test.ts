@@ -186,9 +186,13 @@ describe( 'Studio AI MCP tools', () => {
 		emulateMedia: vi.fn(),
 		goto: vi.fn(),
 		waitForLoadState: vi.fn().mockResolvedValue( undefined ),
-		evaluate: vi.fn( async ( _script: unknown, args?: { source?: string } ) =>
-			args?.source ? scaledBuffer.toString( 'base64' ) : documentHeight
-		),
+		// The page layout's script takes its region limit and returns lines.
+		evaluate: vi.fn( async ( _script: unknown, args?: number | { source?: string } ) => {
+			if ( typeof args === 'number' ) {
+				return [ 'main: y 0–900 (900px tall), x 0–1040' ];
+			}
+			return args?.source ? scaledBuffer.toString( 'base64' ) : documentHeight;
+		} ),
 		addStyleTag: vi.fn(),
 		screenshot: vi.fn().mockResolvedValue( buffer ),
 		close: vi.fn(),
@@ -374,6 +378,9 @@ describe( 'Studio AI MCP tools', () => {
 			} as never );
 
 			expect( result.content.map( ( block ) => block.type ) ).toEqual( [ 'text' ] );
+			expect( result.content[ 0 ] ).toMatchObject( {
+				text: expect.stringContaining( '\n  main: y 0–900 (900px tall), x 0–1040\n' ),
+			} );
 			expect( result.studioArtifacts ).toBeUndefined();
 		} );
 

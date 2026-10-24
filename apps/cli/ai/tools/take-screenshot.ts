@@ -53,7 +53,8 @@ function getCaptureListLabel(
 	return targets.map( getCaptureLabel ).join( ', ' );
 }
 
-const TEXT_ONLY_NOTE = 'This model cannot view images, so the capture is not shown to you.';
+const TEXT_ONLY_NOTE =
+	'This model cannot view images, so the capture is not shown to you; its layout, as the browser rendered it, is.';
 
 // Text-only models still get the tool, to show the user a page, but no image
 // block, which they would otherwise describe without seeing.
@@ -138,6 +139,7 @@ export function createTakeScreenshotTool( {
 							capturedHeight: capture.capturedHeight,
 							offset: capture.offset,
 							clipped: capture.clipped,
+							layout: capture.layout,
 							mimeType: screenshotFile.mimeType,
 							mediaWidgetPayload: {
 								type: 'media',
@@ -174,8 +176,11 @@ export function createTakeScreenshotTool( {
 					}
 					return `${ label }: captured full page (${ capture.documentHeight }px tall${ shown }).`;
 				};
-				const captureLines = captures.map(
-					( capture ) => `${ describeCapture( capture ) } Saved to ${ capture.path }`
+				const captureLines = captures.map( ( capture ) =>
+					[
+						`${ describeCapture( capture ) } Saved to ${ capture.path }`,
+						...( capture.layout ?? [] ).map( ( line ) => `  ${ line }` ),
+					].join( '\n' )
 				);
 				const textLines =
 					captures.length === 1

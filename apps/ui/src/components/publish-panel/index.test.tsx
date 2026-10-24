@@ -253,8 +253,10 @@ describe( 'PublishButton', () => {
 
 		await userEvent.click( screen.getByRole( 'button', { name: 'Publish…' } ) );
 
-		expect( await screen.findByText( 'Changes pulled into Studio' ) ).toBeInTheDocument();
-		expect( screen.getByRole( 'alert' ) ).toHaveTextContent( 'Studio couldn’t restart the site.' );
+		expect( await screen.findByText( 'Changes pulled into WordPress Studio' ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'alert' ) ).toHaveTextContent(
+			'WordPress Studio couldn’t restart the site.'
+		);
 		await userEvent.click( screen.getByRole( 'button', { name: 'Start site' } ) );
 		expect( connector.startSite ).toHaveBeenCalledWith( site.id );
 	} );

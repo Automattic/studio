@@ -92,7 +92,7 @@ function DefaultSiteDirectoryRow( {
 	onSave: ( directory: string ) => void;
 } ) {
 	const title = __( 'Default directory' );
-	const description = __( 'The folder where Studio creates new sites.' );
+	const description = __( 'The folder where WordPress Studio creates new sites.' );
 	const [ draft, setDraft ] = useState< string | null >( null );
 	// Without a native folder picker (the browser), the path is typed in.
 	if ( ! onSelect ) {
@@ -181,7 +181,7 @@ function PreferencesPanel( {
 			<SettingsGroup>
 				<SettingsRow
 					title={ __( 'Language' ) }
-					description={ __( 'Default language for Studio.' ) }
+					description={ __( 'Default language for WordPress Studio.' ) }
 				>
 					<SettingsSelect
 						label={ __( 'Language' ) }
@@ -225,11 +225,11 @@ function PreferencesPanel( {
 					onSave={ ( defaultSiteDirectory ) => onChange( { defaultSiteDirectory } ) }
 				/>
 				<SettingsRow
-					title={ __( 'Improve Studio for everyone' ) }
-					description={ __( 'Share anonymous usage statistics to improve Studio.' ) }
+					title={ __( 'Improve WordPress Studio for everyone' ) }
+					description={ __( 'Share anonymous usage statistics to improve WordPress Studio.' ) }
 				>
 					<SettingsToggle
-						label={ __( 'Improve Studio for everyone' ) }
+						label={ __( 'Improve WordPress Studio for everyone' ) }
 						checked={ data.analyticsEnabled }
 						onChange={ ( analyticsEnabled ) => onChange( { analyticsEnabled } ) }
 					/>
@@ -238,11 +238,13 @@ function PreferencesPanel( {
 			<SettingsGroup title={ __( 'Interface' ) }>
 				<NewSiteBehaviorRow />
 				<SettingsRow
-					title={ __( 'When Studio quits' ) }
-					description={ __( 'Choose what happens to running sites when you quit Studio.' ) }
+					title={ __( 'When WordPress Studio quits' ) }
+					description={ __(
+						'Choose what happens to running sites when you quit WordPress Studio.'
+					) }
 				>
 					<SettingsSelect< QuitSitesBehavior | typeof UNSET >
-						label={ __( 'When Studio quits' ) }
+						label={ __( 'When WordPress Studio quits' ) }
 						value={ data.quitSitesBehavior }
 						options={ QUIT_SITES_BEHAVIOR_ELEMENTS }
 						onChange={ ( quitSitesBehavior ) => onChange( { quitSitesBehavior } ) }
@@ -285,7 +287,7 @@ function PreferencesPanel( {
 			<SettingsGroup title={ __( 'Help' ) }>
 				<SettingsRow
 					title={ __( 'Documentation' ) }
-					description={ __( 'Guides for building and managing sites with Studio.' ) }
+					description={ __( 'Guides for building and managing sites with WordPress Studio.' ) }
 				>
 					<Button
 						variant="outline"

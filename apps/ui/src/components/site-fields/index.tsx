@@ -207,10 +207,10 @@ export function CertificateTrustNotice() {
 		<>
 			{ isMacOS
 				? __(
-						"Browsers will warn about HTTPS sites until you add Studio's certificate to Keychain Access and trust it."
+						"Browsers will warn about HTTPS sites until you add WordPress Studio's certificate to Keychain Access and trust it."
 				  )
 				: __(
-						"Browsers will warn about HTTPS sites until you trust Studio's certificate."
+						"Browsers will warn about HTTPS sites until you trust WordPress Studio's certificate."
 				  ) }{ ' ' }
 			<LearnHowLink docsLinksKey="docsSslInStudio" />
 			{ /* A span, not a div: it renders inside a paragraph. */ }

@@ -33,7 +33,9 @@ describe( 'McpPanel', () => {
 		render( <McpPanel />, { wrapper: Providers } );
 
 		expect( screen.getByRole( 'heading', { name: 'MCP' } ) ).toBeInTheDocument();
-		expect( screen.getByText( /MCP lets other AI tools talk to Studio/ ) ).toBeInTheDocument();
+		expect(
+			screen.getByText( /MCP lets other AI tools talk to WordPress Studio/ )
+		).toBeInTheDocument();
 
 		fireEvent.click( screen.getByRole( 'button', { name: 'Copy MCP configuration' } ) );
 

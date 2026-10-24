@@ -81,7 +81,7 @@ export function SkillsPanel( { onManageSite }: { onManageSite?: () => void } ) {
 					description={
 						<>
 							{ __(
-								'Reusable instructions that teach agents specialized WordPress tasks. Studio adds the ones you turn on to every site.'
+								'Reusable instructions that teach agents specialized WordPress tasks. WordPress Studio adds the ones you turn on to every site.'
 							) }{ ' ' }
 							<LearnMoreLink docsLinksKey="docsSkills" />
 						</>

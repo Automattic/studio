@@ -843,7 +843,7 @@ describe( 'SiteList', () => {
 
 		const stoppedSiteRow = screen.getByText( 'Stopped Site' ).closest( 'section' )!;
 		const indicator = within( stoppedSiteRow ).getByRole( 'status', {
-			name: 'Studio needs an answer.',
+			name: 'WordPress Studio needs an answer.',
 		} );
 		const siteName = screen.getByText( 'Stopped Site' );
 
@@ -1045,7 +1045,7 @@ describe( 'SiteList', () => {
 
 		fireEvent.keyDown( await selectBothSites(), { key: 'Backspace', ctrlKey: true } );
 		expect( await screen.findByRole( 'alertdialog' ) ).toHaveTextContent(
-			'Remove 2 sites from Studio?'
+			'Remove 2 sites from WordPress Studio?'
 		);
 	} );
 

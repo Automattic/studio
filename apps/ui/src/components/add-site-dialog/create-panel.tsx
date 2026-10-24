@@ -371,7 +371,7 @@ export function CreatePanel( { remote, onCancel }: { remote?: SyncSite; onCancel
 			setSubmittedInitialValues( null );
 			setProgress( null );
 			setSubmitError( {
-				title: __( 'Studio could not create the site.' ),
+				title: __( 'WordPress Studio could not create the site.' ),
 				message: blueprint
 					? __( 'Review the Blueprint, the site name and the local folder, then try again.' )
 					: __( 'Review the site name and local folder, then try again.' ),

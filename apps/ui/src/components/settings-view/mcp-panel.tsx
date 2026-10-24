@@ -15,7 +15,7 @@ export function McpPanel() {
 				<h2 className={ styles.preferenceSectionHeading }>{ __( 'MCP' ) }</h2>
 				<p className={ styles.sectionIntro }>
 					{ __(
-						'MCP lets other AI tools talk to Studio. Use it when you want an assistant outside Studio to create, configure, or inspect your local WordPress sites through the same site controls.'
+						'MCP lets other AI tools talk to WordPress Studio. Use it when you want an assistant outside WordPress Studio to create, configure, or inspect your local WordPress sites through the same site controls.'
 					) }{ ' ' }
 					<LearnMoreLink docsLinksKey="docsMcp" />
 				</p>

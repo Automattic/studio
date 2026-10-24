@@ -90,7 +90,7 @@ function ProvidersSection( { onManageCredits }: { onManageCredits: () => void } 
 			description={
 				<>
 					{ __(
-						'AI providers give Studio access to the models that understand your requests and make changes to your sites.'
+						'AI providers give WordPress Studio access to the models that understand your requests and make changes to your sites.'
 					) }{ ' ' }
 					<LearnMoreLink docsLinksKey="docsStudioCode" />
 				</>

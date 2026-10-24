@@ -34,7 +34,7 @@ export function ChatIllustration() {
 	const showPlaceholder = sent || promptLen === 0;
 	const placeholder = sent
 		? __( 'Queue the next message while I work…' )
-		: __( 'What can Studio build today?' );
+		: __( 'What can WordPress Studio build today?' );
 
 	// Composer: centered → slides down and off-stage on send.
 	const composerY = -54 + span( t, sentAt, sentAt + 800, easings.easeInOut ) * 186;

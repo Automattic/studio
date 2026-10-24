@@ -76,7 +76,12 @@ function getStudioSections( signedIn: boolean ): Section[] {
 			label: __( 'General' ),
 			icon: SettingsIcon,
 			settings: [
-				setting( __( 'Language' ), __( 'Default language for Studio.' ), 'language', LanguageIcon ),
+				setting(
+					__( 'Language' ),
+					__( 'Default language for WordPress Studio.' ),
+					'language',
+					LanguageIcon
+				),
 				setting(
 					__( 'Code editor' ),
 					__( 'The default code editor for your sites.' ),
@@ -91,12 +96,12 @@ function getStudioSections( signedIn: boolean ): Section[] {
 				),
 				setting(
 					__( 'Default directory' ),
-					__( 'The folder where Studio creates new sites.' ),
+					__( 'The folder where WordPress Studio creates new sites.' ),
 					'default-directory'
 				),
 				setting(
-					__( 'Improve Studio for everyone' ),
-					__( 'Share anonymous usage statistics to improve Studio.' ),
+					__( 'Improve WordPress Studio for everyone' ),
+					__( 'Share anonymous usage statistics to improve WordPress Studio.' ),
 					'usage-statistics'
 				),
 				setting(
@@ -105,8 +110,8 @@ function getStudioSections( signedIn: boolean ): Section[] {
 					'new-site-behavior'
 				),
 				setting(
-					__( 'When Studio quits' ),
-					__( 'Choose what happens to running sites when you quit Studio.' ),
+					__( 'When WordPress Studio quits' ),
+					__( 'Choose what happens to running sites when you quit WordPress Studio.' ),
 					'quit-behavior'
 				),
 				setting(
@@ -141,7 +146,7 @@ function getStudioSections( signedIn: boolean ): Section[] {
 				),
 				setting(
 					__( 'Documentation' ),
-					__( 'Guides for building and managing sites with Studio.' ),
+					__( 'Guides for building and managing sites with WordPress Studio.' ),
 					'documentation'
 				),
 				setting(
@@ -212,7 +217,11 @@ function getStudioSections( signedIn: boolean ): Section[] {
 			label: __( 'MCP' ),
 			icon: McpIcon,
 			settings: [
-				setting( __( 'MCP server' ), __( 'Connect other AI assistants to Studio.' ), 'mcp-server' ),
+				setting(
+					__( 'MCP server' ),
+					__( 'Connect other AI assistants to WordPress Studio.' ),
+					'mcp-server'
+				),
 			],
 		},
 		{
@@ -264,7 +273,7 @@ function getSiteSections(): Section[] {
 			label: __( 'Settings' ),
 			icon: SiteSettingsIcon,
 			settings: [
-				setting( __( 'Site name' ), __( 'Name shown in Studio.' ) ),
+				setting( __( 'Site name' ), __( 'Name shown in WordPress Studio.' ) ),
 				setting( __( 'WordPress version' ), __( 'Choose the WordPress release for this site.' ) ),
 				setting(
 					__( 'Automatic updates' ),

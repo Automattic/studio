@@ -84,7 +84,7 @@ export function InstructionsEditor() {
 		<Field>
 			<FieldContent>
 				<div className={ styles.instructionsHeader }>
-					<FieldLabel htmlFor={ id }>{ __( 'Studio instructions' ) }</FieldLabel>
+					<FieldLabel htmlFor={ id }>{ __( 'WordPress Studio instructions' ) }</FieldLabel>
 					<FieldDescription>
 						{ `${ content.length.toLocaleString() } / ${ GLOBAL_INSTRUCTIONS_MAX_LENGTH.toLocaleString() }` }
 					</FieldDescription>

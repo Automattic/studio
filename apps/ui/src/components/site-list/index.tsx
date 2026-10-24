@@ -154,7 +154,7 @@ function SiteAgentActivityIndicator( { activity }: { activity: SiteRowActivity }
 	const isVisible = activity !== 'idle';
 	const workingLabel = __( 'Working…' );
 	const pendingQuestionLabel = __( 'Needs an answer' );
-	const pendingQuestionAriaLabel = __( 'Studio needs an answer.' );
+	const pendingQuestionAriaLabel = __( 'WordPress Studio needs an answer.' );
 	const syncLabel = __( 'Syncing live site' );
 	const importLabel = __( 'Importing backup' );
 
@@ -342,7 +342,7 @@ function ChatRow( {
 					variant="accent"
 					size="icon"
 					role="status"
-					aria-label={ __( 'Studio needs an answer.' ) }
+					aria-label={ __( 'WordPress Studio needs an answer.' ) }
 				>
 					<NeedsInputIcon />
 				</Badge>

@@ -164,7 +164,7 @@ describe( 'SettingsDialog', () => {
 			target: { value: 'anonymous' },
 		} );
 
-		expect( screen.getByText( 'Improve Studio for everyone' ) ).toBeInTheDocument();
+		expect( screen.getByText( 'Improve WordPress Studio for everyone' ) ).toBeInTheDocument();
 	} );
 
 	it( 'clears the search on Escape without closing', () => {

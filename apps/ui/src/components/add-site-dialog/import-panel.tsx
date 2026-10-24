@@ -23,18 +23,18 @@ type ImportPhase = 'preparing' | 'creating' | 'importing';
 function getImportRecoveryMessage( details: string ): string {
 	if ( /absolute path:/i.test( details ) ) {
 		return __(
-			'This backup contains a file path Studio cannot safely restore. Export the site again with a supported backup tool, then choose the new backup.'
+			'This backup contains a file path WordPress Studio cannot safely restore. Export the site again with a supported backup tool, then choose the new backup.'
 		);
 	}
 	return __(
-		'The backup may be damaged or use an unsupported format. Studio removed the incomplete site, so you can retry or choose another backup.'
+		'The backup may be damaged or use an unsupported format. WordPress Studio removed the incomplete site, so you can retry or choose another backup.'
 	);
 }
 
 function createFailure( phase: ImportPhase, details: string ): CreateSiteFormError {
 	if ( phase === 'preparing' ) {
 		return {
-			title: __( 'Studio could not access this backup.' ),
+			title: __( 'WordPress Studio could not access this backup.' ),
 			message: __(
 				'Check that the file is still available and readable, then try again or choose another backup.'
 			),
@@ -43,13 +43,13 @@ function createFailure( phase: ImportPhase, details: string ): CreateSiteFormErr
 	}
 	if ( phase === 'creating' ) {
 		return {
-			title: __( 'Studio could not create the site.' ),
+			title: __( 'WordPress Studio could not create the site.' ),
 			message: __( 'Review the site name and local folder, then try again.' ),
 			details,
 		};
 	}
 	return {
-		title: __( 'Studio could not import this backup.' ),
+		title: __( 'WordPress Studio could not import this backup.' ),
 		message: getImportRecoveryMessage( details ),
 		details,
 	};
@@ -206,10 +206,10 @@ export function ImportPanel( {
 					await deleteSite.mutateAsync( { id: createdSiteId, deleteFiles: true } );
 				} catch ( rollbackError ) {
 					setSubmitError( {
-						title: __( 'Studio could not finish cleaning up.' ),
+						title: __( 'WordPress Studio could not finish cleaning up.' ),
 						message: sprintf(
 							__(
-								'The import failed, and Studio could not remove “%s”. Remove the incomplete site before trying this location again.'
+								'The import failed, and WordPress Studio could not remove “%s”. Remove the incomplete site before trying this location again.'
 							),
 							values.name
 						),

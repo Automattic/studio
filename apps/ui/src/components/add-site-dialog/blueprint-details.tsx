@@ -127,7 +127,8 @@ export function BlueprintDetails( {
 			<div className={ styles.details }>
 				{ create.error ? (
 					<p role="alert" className={ styles.error }>
-						{ getErrorMessage( create.error ) ?? __( 'Studio could not create the site.' ) }
+						{ getErrorMessage( create.error ) ??
+							__( 'WordPress Studio could not create the site.' ) }
 					</p>
 				) : null }
 				<BlueprintScreenshot

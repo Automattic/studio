@@ -267,7 +267,6 @@
 .loadFailed {
 	position: absolute;
 	inset: 0;
-	gap: 20px;
 	background-color: var(--chat);
 }
 

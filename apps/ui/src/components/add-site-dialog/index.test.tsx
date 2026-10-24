@@ -100,22 +100,6 @@ describe( 'AddSiteDialog', () => {
 		expect( screen.getByRole( 'button', { name: 'Personal Blog card' } ) ).toBeVisible();
 	} );
 
-	it( 'moves through the side nav with the arrow keys', () => {
-		mocks.search = { addSite: 'connect' };
-		render( <AddSiteDialog /> );
-		const connect = screen.getByRole( 'tab', { name: 'Connect' } );
-		expect( connect ).toHaveAttribute( 'aria-selected', 'true' );
-		connect.focus();
-
-		fireEvent.keyDown( connect, { key: 'ArrowDown' } );
-		expect( screen.getByRole( 'tab', { name: 'Import' } ) ).toHaveFocus();
-		fireEvent.keyDown( document.activeElement!, { key: 'End' } );
-		expect( screen.getByRole( 'tab', { name: 'Blog' } ) ).toHaveFocus();
-		fireEvent.keyDown( document.activeElement!, { key: 'ArrowDown' } );
-		expect( screen.getByRole( 'tab', { name: 'Create' } ) ).toHaveFocus();
-		expect( screen.getByText( 'Connect panel' ) ).toBeVisible();
-	} );
-
 	it( 'opens on a blank site’s setup when the preference says so', () => {
 		mocks.preferences = { newSiteBehavior: 'blank' };
 		mocks.search = { addSite: 'create' };

@@ -6,9 +6,10 @@ import {
 import { getErrorMessage } from '@studio/common/lib/error-formatting';
 import { useNavigate } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
-import { UploadIcon } from 'lucide-react';
+import { ArchiveIcon, UploadIcon } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { CreateSiteForm } from '@/components/create-site-form';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { useConnector } from '@/data/core';
 import { useExistingCustomDomains } from '@/data/queries/use-create-site-helpers';
@@ -110,12 +111,12 @@ export function BackupDropZone( { onFile }: { onFile: ( file: File ) => void } )
 				<Button type="button" variant="outline" onClick={ () => inputRef.current?.click() }>
 					{ __( 'Choose file' ) }
 				</Button>
-				{ error ? (
-					<p role="alert" className={ styles.dropError }>
-						{ error }
-					</p>
-				) : null }
 			</div>
+			{ error ? (
+				<Alert variant="destructive" className={ styles.dropError }>
+					<AlertDescription>{ error }</AlertDescription>
+				</Alert>
+			) : null }
 			<p className={ styles.dropHelp }>
 				{ __(
 					'Supports backups from WordPress.com, Jetpack, Local, Playground and All-in-One WP Migration, and WordPress export files (.xml).'
@@ -250,6 +251,8 @@ export function ImportPanel( {
 				submitLabel={ hasFailed ? __( 'Retry import' ) : __( 'Import site' ) }
 				cancelLabel={ hasFailed ? __( 'Choose another backup' ) : undefined }
 				loadingAnnouncement={ __( 'Importing site' ) }
+				source={ selectedFile.name }
+				sourceIcon={ <ArchiveIcon /> }
 			/>
 		</div>
 	);

@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { ConnectorProvider } from '@/data/core';
+// eslint-disable-next-line import-x/no-restricted-paths -- asserts on the layout's own class
 import onboardingLayoutStyles from '@/features/onboarding/onboarding-layout/style.module.css';
 import { OnboardingShellView } from './index';
 import type { Connector } from '@/data/core';

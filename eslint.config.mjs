@@ -1,3 +1,4 @@
+import fs from 'node:fs';
 import path from 'node:path';
 import js from '@eslint/js';
 import { defineConfig, globalIgnores } from 'eslint/config';
@@ -14,7 +15,50 @@ const WP_UI_PACKAGES = {
 		`@wordpress/${ name }`,
 		`@wordpress/${ name }/*`,
 	] ),
-	message: 'Use the primitives in @/components/ui and the tokens in src/lib/theme.',
+	message: 'Use the primitives in @/lib/ui and the tokens in @/lib/theme.',
+};
+
+// `apps/ui/src` is layered as internal packages (`lib/*`), product areas (`features/*`),
+// then `data/`, `router/` and `app/`. See apps/ui/README.md.
+const UI_SRC = path.join( import.meta.dirname, 'apps/ui/src' );
+const uiDirs = ( dir ) =>
+	fs
+		.readdirSync( path.join( UI_SRC, dir ), { withFileTypes: true } )
+		.filter( ( entry ) => entry.isDirectory() )
+		.map( ( entry ) => `${ dir }/${ entry.name }` );
+const UI_LIB = uiDirs( 'lib' );
+const UI_FEATURES = uiDirs( 'features' );
+const uiPath = ( p ) => path.join( UI_SRC, p );
+const UI_LAYERS = {
+	zones: [
+		...UI_LIB.map( ( pkg ) => ( {
+			target: [
+				...fs.readdirSync( UI_SRC ).filter( ( name ) => name !== 'lib' ),
+				...UI_LIB.filter( ( other ) => other !== pkg ),
+			].map( uiPath ),
+			from: uiPath( pkg ),
+			except: [ './index.ts', ...( pkg === 'lib/theme' ? [ './tokens.css', './base.css' ] : [] ) ],
+			message: `Import from @/${ pkg }, its public entry.`,
+		} ) ),
+		{
+			target: uiPath( 'lib' ),
+			from: [ 'features', 'data', 'router', 'app' ].map( uiPath ),
+			message: 'lib/ packages stay independent of the app.',
+		},
+		{
+			target: [ 'lib', 'data', 'main.tsx', 'main.local.tsx' ].map( uiPath ),
+			from: uiPath( 'features' ),
+			message: 'Only router/, app/ and other features import features.',
+		},
+		...UI_FEATURES.map( ( feature ) => ( {
+			target: [ 'router', 'app', ...UI_FEATURES.filter( ( other ) => other !== feature ) ].map(
+				uiPath
+			),
+			from: uiPath( feature ),
+			except: [ './index.ts' ],
+			message: `Import from @/${ feature }, its public entry.`,
+		} ) ),
+	],
 };
 
 export default defineConfig(
@@ -204,24 +248,22 @@ export default defineConfig(
 	},
 	{
 		// The agentic UI owns its design system: theme tokens in `src/lib/theme/` and
-		// primitives in `src/components/ui/`, which stay independent of app code.
+		// primitives in `src/lib/ui/`, which stay independent of app code.
 		files: [ 'apps/ui/src/**' ],
 		rules: {
 			'no-restricted-imports': [ 'error', { patterns: [ WP_UI_PACKAGES ] } ],
+			'import-x/no-restricted-paths': [ 'error', UI_LAYERS ],
 		},
 	},
 	{
-		files: [ 'apps/ui/src/components/ui/**' ],
+		files: [ 'apps/ui/src/lib/**' ],
 		rules: {
 			'no-restricted-imports': [
 				'error',
 				{
 					patterns: [
 						WP_UI_PACKAGES,
-						{
-							group: [ '@/data/*', '@/hooks/*', '@/router/*', '@tanstack/*' ],
-							message: 'Primitives stay independent of app code.',
-						},
+						{ group: [ '@tanstack/*' ], message: 'lib/ packages stay independent of app code.' },
 					],
 				},
 			],

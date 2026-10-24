@@ -10,7 +10,7 @@ import AddSite, { type CreateSiteOptions } from './page-objects/add-site';
 import Sidebar from './page-objects/sidebar';
 import type { ChildProcess } from 'node:child_process';
 
-// `ORIENTATION_GUIDE_VERSION` in apps/ui/src/components/onboarding-guide/orientation-guide.ts.
+// `ORIENTATION_GUIDE_VERSION` in apps/ui/src/features/onboarding/onboarding-guide/orientation-guide.ts.
 const ORIENTATION_GUIDE_VERSION = 2;
 
 export type PersistedSite = { id: string; name: string; path: string; port: number };

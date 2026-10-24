@@ -26,6 +26,8 @@
 	   inner wrapper. */
 	overflow-y: auto;
 	-webkit-app-region: drag;
+	/* Eases with the frame when the width resets, so its rows don't snap ahead. */
+	transition: width var(--motion-duration-layout) var(--motion-ease-layout);
 }
 
 /* Collapsing animates this frame's width while the sidebar inside keeps its
@@ -46,7 +48,8 @@
    Drop it for the duration of the drag (mirrors `.rootPreviewResizing` in
    preview-split-frame). */
 .sidebarResizing,
-.root:has(> .resizeHandle:focus-visible) .sidebarFrame {
+.sidebarResizing .sidebar,
+.root:has(> .resizeHandle:focus-visible) :is(.sidebarFrame, .sidebar) {
 	transition: none;
 }
 

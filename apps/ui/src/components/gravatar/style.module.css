@@ -1,11 +1,31 @@
 .root {
-	display: inline-block;
+	position: relative;
+	display: inline-flex;
 	width: 20px;
 	height: 20px;
 	border-radius: 50%;
 	flex-shrink: 0;
-	object-fit: cover;
 	background-color: var(--chat);
-	outline: 1px solid var(--border);
-	outline-offset: -1px;
+}
+
+/* A hairline ring over the image, blended so it darkens light edges and
+   lightens dark ones. */
+.root::after {
+	content: '';
+	position: absolute;
+	inset: 0;
+	border: 1px solid var(--border);
+	border-radius: inherit;
+	mix-blend-mode: darken;
+}
+
+:root[data-color-scheme='dark'] .root::after {
+	mix-blend-mode: lighten;
+}
+
+.image {
+	width: 100%;
+	height: 100%;
+	border-radius: inherit;
+	object-fit: cover;
 }

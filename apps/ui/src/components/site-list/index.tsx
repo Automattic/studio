@@ -932,6 +932,19 @@ export function SiteList( {
 		return <div className={ clsx( styles.root, className ) }>{ listContent }</div>;
 	}
 
+	if ( sitesLoading ) {
+		return (
+			<div className={ clsx( styles.root, className ) }>
+				<div className={ styles.group }>
+					<div className={ styles.groupHeader } aria-hidden="true">
+						<span className={ clsx( styles.skeleton, styles.skeletonLabel ) } />
+					</div>
+					{ listContent }
+				</div>
+			</div>
+		);
+	}
+
 	const loaded = ! sitesLoading && ! sessionsLoading;
 	const openChats = chatEnabled
 		? ( sessions ?? [] ).filter( ( session ) => ! session.archived ).sort( byMostRecent )

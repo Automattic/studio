@@ -411,6 +411,11 @@
 	width: 16px;
 }
 
+.skeletonLabel.skeletonLabel {
+	width: 36px;
+	margin-inline: var(--site-list-row-padding);
+}
+
 @keyframes skeletonPulse {
 	50% {
 		opacity: 0.5;

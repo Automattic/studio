@@ -59,12 +59,11 @@ export function UserMenu() {
 									ref={ trigger }
 									variant="ghost"
 									size="icon"
-									className={ styles.userTrigger }
 									aria-label={ user.displayName || user.email }
 								/>
 							}
 						>
-							<Gravatar email={ user.email } isDark={ themeIsDark } />
+							<Gravatar email={ user.email } isDark={ themeIsDark } className={ styles.avatar } />
 						</Menu.Trigger>
 						<Menu.Popup
 							side="top"

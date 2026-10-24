@@ -19,7 +19,7 @@
 	color: var(--muted-foreground);
 }
 
-.userTrigger img {
+.avatar {
 	width: 24px;
 	height: 24px;
 }
@@ -37,12 +37,6 @@
 	align-items: center;
 	gap: 6px;
 	padding: 8px 6px;
-}
-
-.account img {
-	width: 20px;
-	height: 20px;
-	flex-shrink: 0;
 }
 
 .accountText {

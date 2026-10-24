@@ -53,6 +53,10 @@ const MAILPIT_ASSETS: Record< string, { name: string; sha256: string } > = {
 	},
 };
 
+// A network that hangs rather than failing would otherwise hold up the site start
+// for minutes. The next site start tries again.
+const DOWNLOAD_STALL_TIMEOUT_MS = 30_000;
+
 const HTTP_PORT_START = 8025;
 const SMTP_PORT_START = 1025;
 
@@ -217,7 +221,9 @@ async function ensureMailpitBinary( asset: { name: string; sha256: string } ): P
 		const archivePath = path.join( workDir, asset.name );
 		await downloadFile(
 			`https://github.com/axllent/mailpit/releases/download/${ MAILPIT_VERSION }/${ asset.name }`,
-			archivePath
+			archivePath,
+			undefined,
+			{ stallTimeoutMs: DOWNLOAD_STALL_TIMEOUT_MS }
 		);
 		const actual = crypto
 			.createHash( 'sha256' )

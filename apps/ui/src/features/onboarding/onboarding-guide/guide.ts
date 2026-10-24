@@ -2,7 +2,7 @@ import type { DocsLinkKey } from '@studio/common/lib/docs-links';
 
 // The shape both paged guides share: the first-run orientation tour
 // (orientation-guide.ts) and the per-release announcements (whats-new.ts).
-// Rendered by components/onboarding-guide.
+// Rendered by index.tsx.
 
 export type GuideIllustrationId =
 	// Orientation.

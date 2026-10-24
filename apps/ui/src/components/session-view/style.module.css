@@ -145,8 +145,8 @@
 }
 
 .conversationSpacing {
-	padding-top: 20px;
-	padding-bottom: 24px;
+	padding-top: 16px;
+	padding-bottom: 30px;
 }
 
 
@@ -154,7 +154,7 @@
    above the composer without contributing to the measured composer height. */
 .scrollToLatestWrap {
 	position: absolute;
-	bottom: calc(100% + 12px);
+	bottom: calc(100% + 18px);
 	inset-inline: 0;
 	display: flex;
 	justify-content: center;
@@ -165,7 +165,6 @@
 .scrollToLatestButton {
 	--button-background: var(--background);
 
-	box-shadow: 0 2px 3px 0 rgba(0, 0, 0, 0.05), 0 4px 5px 0 rgba(0, 0, 0, 0.04), 0 12px 12px 0 rgba(0, 0, 0, 0.03), 0 16px 16px 0 rgba(0, 0, 0, 0.02);
 	opacity: 0;
 }
 
@@ -209,7 +208,8 @@
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	padding: 24px;
+	/* Centred between the header and the composer. */
+	padding: calc(var(--header-height) + 24px) 24px calc(24px + 2 * var(--composer-bottom-gap));
 	transition: opacity var(--motion-duration-layout) var(--motion-ease-layout);
 }
 

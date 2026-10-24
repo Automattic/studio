@@ -255,7 +255,7 @@ describe( 'Conversation chat artifacts', () => {
 
 		renderConversation( data );
 
-		expect( await screen.findByRole( 'status' ) ).toHaveTextContent( 'Image unavailable' );
+		expect( await screen.findByText( 'Image could not load' ) ).toHaveAttribute( 'role', 'status' );
 	} );
 
 	it( 'shows each annotation with its own images, and the rest on the first bubble', () => {
@@ -332,7 +332,7 @@ function localScreenshotWidget(): StudioChatArtifactWidgetDraft {
 }
 
 describe( 'Conversation Ask User questions', () => {
-	it( 'shows option descriptions and a selected historical answer', () => {
+	it( 'shows a historical answer as its lettered option', () => {
 		const question = "What kind of vibe do you want for your blog's design?";
 		const data = loadedSession( [
 			agentQuestionEntry(
@@ -354,17 +354,9 @@ describe( 'Conversation Ask User questions', () => {
 
 		renderConversation( data );
 
-		expect( screen.getAllByRole( 'listitem' ) ).toHaveLength( 2 );
-		expect(
-			screen.getByText( 'Quiet typography, generous spacing, and simple structure.' )
-		).toBeInTheDocument();
-		expect(
-			screen.getByText( 'Large headlines, sharp contrast, and magazine-style pacing.' )
-		).toBeInTheDocument();
-
-		const pickedOption = screen.getByRole( 'button', { name: 'Bold & Editorial' } );
-		expect( pickedOption ).toHaveAttribute( 'aria-pressed', 'true' );
-		expect( pickedOption ).toBeDisabled();
+		expect( screen.queryByRole( 'button' ) ).not.toBeInTheDocument();
+		expect( screen.getByText( 'B' ) ).toBeInTheDocument();
+		expect( screen.getByText( 'Bold & Editorial' ) ).toBeInTheDocument();
 	} );
 
 	it( 'submits multi-select picks together on confirm', () => {
@@ -384,7 +376,7 @@ describe( 'Conversation Ask User questions', () => {
 		fireEvent.click( screen.getByRole( 'button', { name: 'Shop' } ) );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Blog' } ) );
 		expect( onAnswerQuestion ).not.toHaveBeenCalled();
-		fireEvent.click( screen.getByRole( 'button', { name: 'Confirm' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Submit choices' } ) );
 		expect( onAnswerQuestion ).toHaveBeenCalledWith( 'Which pages?', 'Blog, Shop' );
 	} );
 
@@ -796,7 +788,7 @@ describe( 'Conversation Ask User questions', () => {
 		] );
 	} );
 
-	it( 'shows the typed part of an answer next to the picked options', () => {
+	it( 'shows an answer typed into the composer as given', () => {
 		const entry = agentQuestionEntry( 'Which pages?', [
 			'Blog',
 			'Contact',
@@ -811,11 +803,7 @@ describe( 'Conversation Ask User questions', () => {
 			] )
 		);
 
-		expect( screen.getByRole( 'button', { name: 'Shop' } ) ).toHaveAttribute(
-			'aria-pressed',
-			'true'
-		);
-		expect( screen.getByText( 'A landing page' ) ).toBeInTheDocument();
+		expect( screen.getByText( 'Contact, Shop, A landing page' ) ).toBeInTheDocument();
 	} );
 } );
 

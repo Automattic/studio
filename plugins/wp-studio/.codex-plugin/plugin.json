@@ -62,8 +62,8 @@
             {
               "description": "Core workflow: build a new local WordPress site from a request. Setup: none; the plugin comes with the WordPress Studio CLI. When Codex shows look and layout options, pick any. Passes when the site runs and shows a bakery home page in the chosen style.",
               "prompt": "Build a one-page WordPress site for Crumb & Co, a neighborhood bakery.",
-              "tools_triggered": "studio_instructions, site_create, pick_design, present_design_options, scaffold_theme, wp_cli, validate_blocks, take_screenshot, inspect_design",
-              "expected_behavior": "Creates a local site named \"Crumb & Co\" with site_create, asks the user to choose a look and a layout with present_design_options, builds a block theme with scaffold_theme and a home page about the bakery, checks it with take_screenshot, and replies with the site URL (http://localhost:<port>) and its WP Admin link. Opening the URL shows the bakery home page in the chosen style."
+              "tools_triggered": "studio_instructions, site_create, pick_design, present_design_options, wp_cli, take_screenshot, inspect_design",
+              "expected_behavior": "Creates a local site named \"Crumb & Co\" with site_create, asks the user to choose a look and a layout with present_design_options, builds a block theme and a home page about the bakery, checks it with take_screenshot, and replies with the site URL (http://localhost:<port>) and its WP Admin link. Opening the URL shows the bakery home page in the chosen style."
             },
             {
               "description": "Setup: run the cases in order in one Codex workspace; the first builds the Crumb & Co site the others use. Edit an existing local site: add a page with given content. Passes when the new page is published and shows the hours.",

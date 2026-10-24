@@ -10,6 +10,7 @@
  */
 import { existsSync, readdirSync, readFileSync, statSync } from 'fs';
 import path from 'path';
+import { settleThemeDesign } from '@studio/common/sites/site-design';
 import { savedCopyWriteNote } from 'cli/ai/saved-copies';
 import { readWordPressSite } from 'cli/ai/site-database';
 import { isUpdatableTheme } from 'cli/ai/themes';
@@ -147,7 +148,7 @@ export async function getSiteFileWriteRefusal(
 	) {
 		reason = `${ relativePath } is this Studio site's copy of WordPress core, which a WordPress update replaces. Read it as reference. Make the change in wp-content/ (a theme, child theme, or plugin).`;
 	} else if ( theme && ( await isUpdatableTheme( siteRoot, theme.slug ) ) ) {
-		reason = `${ theme.slug } is a theme WordPress updates, and an update overwrites changes to its files. Create a child theme with scaffold_theme (parentTheme: "${ theme.slug }") and make the change there.`;
+		reason = `${ theme.slug } is a theme WordPress updates, and an update overwrites changes to its files. Make the change in a child theme of it, whose style.css names \`Template: ${ theme.slug }\`.`;
 	}
 	if ( ! reason || ! ( await isStudioSite( siteRoot ) ) ) {
 		return undefined;
@@ -175,13 +176,70 @@ async function getSiteFileWriteNotes( siteFile: SiteFile ): Promise< string[] > 
 	return notes;
 }
 
+// The theme a write to DESIGN.md or a theme.json leaves out of step with the
+// site's design. Writing a theme.json builds that theme on DESIGN.md; writing
+// DESIGN.md reaches the active theme only once it uses DESIGN.md's names, so a
+// default theme the design was never built into stays as it is. Themes
+// WordPress updates are left as they are.
+async function themeOfDesignWrite(
+	siteFile: SiteFile
+): Promise< { slug: string; built: boolean } | undefined > {
+	const { siteRoot, relativePath, theme } = siteFile;
+	const built = theme?.file === 'theme.json';
+	const slug =
+		relativePath === 'DESIGN.md'
+			? await readWordPressSite( siteRoot, ( site ) => site.option( 'stylesheet' ) )
+			: built
+			? theme.slug
+			: undefined;
+	return typeof slug === 'string' && ! ( await isUpdatableTheme( siteRoot, slug ) )
+		? { slug, built }
+		: undefined;
+}
+
 /**
- * After a write to a site's file: registers a changed pattern, and returns
- * what WordPress will render differently from the file.
+ * Keeps a theme built on the site's DESIGN.md carrying its tokens, after a
+ * write to either, and says what it wrote.
+ */
+async function settleDesign( siteFile: SiteFile ): Promise< string[] > {
+	const target = await themeOfDesignWrite( siteFile );
+	if ( ! target ) {
+		return [];
+	}
+	const { slug, built } = target;
+	const { drift, fontsError } = await settleThemeDesign( siteFile.siteRoot, slug, built );
+	if ( ! drift.length ) {
+		return [];
+	}
+	const kinds: Record< string, string > = {
+		color: 'colors',
+		'font-family': 'font families',
+		'font-size': 'font sizes',
+		spacing: 'spacing steps',
+		'style-font': 'fonts of the styles',
+	};
+	const written = Object.entries( kinds ).flatMap( ( [ kind, label ] ) => {
+		const slugs = drift.filter( ( entry ) => entry.kind === kind ).map( ( entry ) => entry.slug );
+		return slugs.length ? [ `${ label } ${ slugs.join( ', ' ) }` ] : [];
+	} );
+	return [
+		`Studio wrote DESIGN.md's tokens into wp-content/themes/${ slug }/theme.json under DESIGN.md's names: ${ written.join(
+			'; '
+		) }.${
+			fontsError ? ` The font files did not download (${ fontsError }).` : ''
+		} DESIGN.md holds these values; change the look there.`,
+	];
+}
+
+/**
+ * After a write to a site's file: registers a changed pattern, keeps the
+ * theme carrying DESIGN.md's tokens, and returns what WordPress will render
+ * differently from the file.
  */
 export async function afterSiteFileWrite( siteFile: SiteFile ): Promise< string[] > {
 	await clearThemePatternCache( siteFile ).catch( () => undefined );
-	return getSiteFileWriteNotes( siteFile ).catch( () => [] );
+	const design = await settleDesign( siteFile ).catch( () => [] );
+	return [ ...design, ...( await getSiteFileWriteNotes( siteFile ).catch( () => [] ) ) ];
 }
 
 /**

@@ -1,8 +1,8 @@
 ---
 name: build-site
-description: Create, build, design, redesign, or rebuild a whole website as a WordPress site with WordPress Studio, on the user's computer — pick or create the site, settle the design and plugins as a Site Spec, then scaffold the theme, provision the site, publish the content, and polish the result. Load it before picking or creating the site.
+description: Create, build, design, redesign, or rebuild a whole website as a WordPress site with WordPress Studio, on the user's computer — pick or create the site, settle the design and plugins as a Site Spec, then build the theme, provision the site, publish the content, and polish the result. Load it before picking or creating the site.
 user-invokable: true
-tools: scaffold_theme, pick_design, present_design_options, generate_images
+tools: pick_design, present_design_options, generate_images
 ---
 
 # Build a Site
@@ -54,7 +54,7 @@ Skipping means skipping the interactive questions only — each design step then
 
 ## 3. Theme files
 
-Call `scaffold_theme` on its own: without `parentTheme` for a new theme, with it to restyle an installed theme as a child theme. With a DESIGN.md it fills theme.json and self-hosts the fonts. Then fill the scaffold one file at a time — templates, parts, style.css, patterns.
+Write a block theme in `wp-content/themes/`, or a child theme to restyle an installed theme, one file at a time: style.css, theme.json, templates, parts, patterns.
 
 ## 4. Provision the site
 
@@ -66,4 +66,4 @@ Write each page's content to a scratch file in the site's `tmp/`, then create or
 
 ## 6. Check the result
 
-Take one `take_screenshot` of each page with `viewport: "all"`. List every real defect against DESIGN.md and the layout map, find each cause with inspect_design and the source that produces it, fix them in one batch, and re-check once. When the theme was scaffolded by Studio Code, pass its directory as `themeScreenshot` on the home page's last desktop capture.
+Take one `take_screenshot` of each page with `viewport: "all"`. List every real defect against DESIGN.md and the layout map, find each cause with inspect_design and the source that produces it, fix them in one batch, and re-check once. When Studio Code wrote the theme, pass its directory as `themeScreenshot` on the home page's last desktop capture.

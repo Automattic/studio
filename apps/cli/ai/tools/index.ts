@@ -17,7 +17,6 @@ import { createPickDesignTool, pickDesignTool } from './pick-design';
 import { pullSiteTool } from './pull-site';
 import { pushSiteTool } from './push-site';
 import { auditSeoTool } from './rank-me-up';
-import { scaffoldThemeTool } from './scaffold-theme';
 import { getSiteInfoTool } from './site-info';
 import { startSiteTool } from './start-site';
 import { stopSiteTool } from './stop-site';
@@ -41,7 +40,6 @@ export const studioToolDefinitions: AnyStudioAgentTool[] = [
 	updatePreviewTool,
 	deletePreviewTool,
 	runWpCliTool,
-	scaffoldThemeTool,
 	pickDesignTool,
 	takeScreenshotTool,
 	inspectDesignTool,

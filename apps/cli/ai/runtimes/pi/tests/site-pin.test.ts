@@ -22,7 +22,9 @@ const shop = { name: 'Shop', path: '/sites/shop', running: true };
 describe( 'SitePin', () => {
 	it( "changes the request's site without asking", async () => {
 		const pin = new SitePin( shop );
-		expect( await pin.confirmationFor( 'scaffold_theme', { nameOrPath: 'Shop' } ) ).toBeUndefined();
+		expect(
+			await pin.confirmationFor( 'install_taxonomy_scripts', { nameOrPath: 'Shop' } )
+		).toBeUndefined();
 		expect(
 			await pin.confirmationFor( 'Write', { path: '/sites/shop/wp-content/a.css' } )
 		).toBeUndefined();
@@ -35,7 +37,9 @@ describe( 'SitePin', () => {
 			'Also change "Blog"? This request is about "Shop".'
 		);
 		ask?.allow();
-		expect( await pin.confirmationFor( 'scaffold_theme', { nameOrPath: 'Blog' } ) ).toBeUndefined();
+		expect(
+			await pin.confirmationFor( 'install_taxonomy_scripts', { nameOrPath: 'Blog' } )
+		).toBeUndefined();
 	} );
 
 	it( 'reads other sites freely', async () => {
@@ -48,12 +52,11 @@ describe( 'SitePin', () => {
 
 	it( 'pins the first changed site when none is active, and includes sites the turn creates', async () => {
 		const pin = new SitePin( null );
-		expect( await pin.confirmationFor( 'scaffold_theme', { nameOrPath: 'Shop' } ) ).toBeUndefined();
+		expect( await pin.confirmationFor( 'site_import', { nameOrPath: 'Shop' } ) ).toBeUndefined();
 		await pin.created( 'New' );
 		expect( await pin.confirmationFor( 'Write', { path: '/sites/new/x.php' } ) ).toBeUndefined();
 		expect(
-			( await pin.confirmationFor( 'scaffold_theme', { nameOrPath: 'Blog' } ) )?.confirmation
-				.question
+			( await pin.confirmationFor( 'site_import', { nameOrPath: 'Blog' } ) )?.confirmation.question
 		).toBe( 'Also change "Blog"? This request is about "Shop".' );
 	} );
 
@@ -78,6 +81,8 @@ describe( 'SitePin', () => {
 			remote: true,
 			wpcomSiteId: 7,
 		} );
-		expect( await pin.confirmationFor( 'scaffold_theme', { nameOrPath: 'Shop' } ) ).toBeTruthy();
+		expect(
+			await pin.confirmationFor( 'install_taxonomy_scripts', { nameOrPath: 'Shop' } )
+		).toBeTruthy();
 	} );
 } );

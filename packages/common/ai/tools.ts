@@ -310,7 +310,6 @@ export function getToolDisplayName( name: string, input?: Record< string, unknow
 		preview_delete: __( 'Delete preview' ),
 		refresh_browser: __( 'Refresh preview' ),
 		site_connected_remote_sites: __( 'List connected remote sites' ),
-		scaffold_theme: __( 'Scaffold theme' ),
 		pick_design: __( 'Pick design' ),
 		present_design_options: __( 'Present design options' ),
 		inspect_design: __( 'Inspect design' ),
@@ -419,8 +418,6 @@ export function getToolDetail( name: string, input?: Record< string, unknown > )
 			return getAskUserDetail( input );
 		case 'wp_cli':
 			return typeof input.command === 'string' ? `wp ${ input.command }` : '';
-		case 'scaffold_theme':
-			return typeof input.name === 'string' ? input.name : '';
 		case 'present_design_options':
 			return ( Array.isArray( input.options ) ? input.options : [] )
 				.map( ( option ) =>

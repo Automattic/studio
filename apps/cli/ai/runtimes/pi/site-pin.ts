@@ -12,12 +12,7 @@ import type { SiteInfo } from 'cli/ai/types';
 // brand for that site or a second site, and only the user can say which.
 
 // Tools that change the local site named by `nameOrPath`.
-const LOCAL_SITE_CHANGES = new Set( [
-	'scaffold_theme',
-	'site_import',
-	'site_pull',
-	'install_taxonomy_scripts',
-] );
+const LOCAL_SITE_CHANGES = new Set( [ 'site_import', 'site_pull', 'install_taxonomy_scripts' ] );
 const FILE_CHANGES = new Set( [ 'Write', 'Edit' ] );
 
 interface SiteTarget {

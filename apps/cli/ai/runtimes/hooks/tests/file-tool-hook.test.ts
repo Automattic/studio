@@ -1,7 +1,7 @@
-import { mkdirSync, writeFileSync } from 'fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import path from 'path';
 import { arePathsEqual } from '@studio/common/lib/fs-utils';
-import { beforeEach, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { BlockValidationGate } from 'cli/ai/block-validation-gate';
 import { getWrittenFiles, runFileToolHook } from 'cli/ai/runtimes/hooks';
 import { createSite } from 'cli/ai/tests/fixtures/wordpress-site';
@@ -92,3 +92,77 @@ it( 'adds to a write the block validation and what WordPress renders instead of 
 	} );
 	expect( await post( '/elsewhere/src/index.ts' ) ).toBeUndefined();
 } );
+
+const DESIGN_MD =
+	'---\ncolors:\n  primary: "#c2552b"\n  background: "#fbf6ee"\ntypography:\n  body:\n    fontFamily: "Inter"\n    fontWeight: 400\n---\n\n# Overview\n';
+
+afterEach( () => vi.unstubAllGlobals() );
+
+// DESIGN.md is the look. Writing a theme.json builds that theme on it, font
+// files included; writing DESIGN.md reaches the active theme once it uses
+// DESIGN.md's names. A theme WordPress updates is left alone.
+const INTER = { slug: 'inter', name: 'Inter', fontFamily: 'Inter, sans-serif' };
+const NOTE = 'colors primary, background; font families inter; fonts of the styles body';
+it.each( [
+	{ written: 'bakery/theme.json', palette: [ 'ink' ], families: [ INTER ], wrote: NOTE },
+	{ written: 'DESIGN.md', palette: [ 'primary' ], families: [], wrote: NOTE },
+	{ written: 'DESIGN.md', palette: [ 'ink' ], families: [], wrote: undefined },
+	{ written: 'bakery-parent/theme.json', palette: [ 'ink' ], families: [], wrote: undefined },
+] )(
+	'writes DESIGN.md into the theme after a write to $written over $palette',
+	async ( { written, palette, families, wrote } ) => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn( async ( url: string ) =>
+				url.startsWith( 'https://fonts.googleapis.com/' )
+					? new Response(
+							"/* latin */\n@font-face {\n  font-family: 'Inter';\n  font-style: normal;\n  font-weight: 400;\n  src: url(https://fonts.gstatic.com/inter.woff2) format('woff2');\n}\n"
+					  )
+					: new Response( new Uint8Array( [ 1 ] ) )
+			)
+		);
+		writeFileSync( path.join( site.root, 'DESIGN.md' ), DESIGN_MD );
+		const themes = path.join( site.root, 'wp-content/themes' );
+		const start = {
+			version: 3,
+			settings: {
+				color: { palette: palette.map( ( slug ) => ( { slug, color: '#111' } ) ) },
+				typography: { fontFamilies: families },
+			},
+		};
+		for ( const slug of [ 'bakery', 'bakery-parent' ] ) {
+			writeFileSync( path.join( themes, slug, 'theme.json' ), JSON.stringify( start ) );
+		}
+
+		const output = await runFileToolHook( {
+			hook_event_name: 'PostToolUse',
+			tool_name: 'Write',
+			tool_input: {
+				file_path: path.join( written === 'DESIGN.md' ? site.root : themes, written ),
+			},
+		} );
+
+		const theme = wrote && ( written === 'DESIGN.md' ? 'bakery' : written.split( '/' )[ 0 ] );
+		for ( const slug of [ 'bakery', 'bakery-parent' ] ) {
+			const themeJson = JSON.parse(
+				readFileSync( path.join( themes, slug, 'theme.json' ), 'utf8' )
+			);
+			if ( slug !== theme ) {
+				expect( themeJson ).toEqual( start );
+				continue;
+			}
+			expect(
+				themeJson.settings.color.palette.map( ( color: { slug: string } ) => color.slug )
+			).toEqual( [ ...new Set( [ ...palette, 'primary', 'background' ] ) ] );
+			expect( themeJson.styles.typography.fontFamily ).toBe( 'var:preset|font-family|inter' );
+			expect( themeJson.settings.typography.fontFamilies[ 0 ].fontFace ).toHaveLength( 1 );
+			expect( existsSync( path.join( themes, slug, 'assets/fonts/inter' ) ) ).toBe( true );
+		}
+		expect( output?.hookSpecificOutput ).toEqual(
+			wrote && {
+				hookEventName: 'PostToolUse',
+				additionalContext: `Note: Studio wrote DESIGN.md's tokens into wp-content/themes/${ theme }/theme.json under DESIGN.md's names: ${ wrote }. DESIGN.md holds these values; change the look there.`,
+			}
+		);
+	}
+);

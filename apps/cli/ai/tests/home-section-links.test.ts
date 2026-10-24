@@ -15,6 +15,7 @@ afterEach( () => vi.unstubAllGlobals() );
 
 const header =
 	'<header id="top"><a href="#features">Features</a><a href="#contact">Contact</a><a href="#top">Top</a><a href="/about">About</a></header>';
+const rooted = header.replace( /href="#(features|contact)"/g, 'href="/#$1"' );
 const sections = '<section id="features"></section><section id="contact"></section>';
 
 // The pages WordPress renders, by URL, as the site's server would.
@@ -46,9 +47,8 @@ it.each( [
 	},
 	{
 		name: 'links written /#anchor',
-		home:
-			header.replaceAll( 'href="#f', 'href="/#f' ).replaceAll( 'href="#c', 'href="/#c' ) + sections,
-		other: header.replaceAll( 'href="#f', 'href="/#f' ).replaceAll( 'href="#c', 'href="/#c' ),
+		home: rooted + sections,
+		other: rooted,
 		links: undefined,
 	},
 	{

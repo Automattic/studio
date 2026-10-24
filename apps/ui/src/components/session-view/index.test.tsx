@@ -650,6 +650,33 @@ describe( 'SessionView', () => {
 		expect( connectorMock.getStudioAssistantQuota ).toHaveBeenCalledTimes( 1 );
 	} );
 
+	it( 'keeps the composer while a failed quota request is retried', async () => {
+		const actual = await vi.importActual< typeof import('@/data/queries/use-assistant-quota') >(
+			'@/data/queries/use-assistant-quota'
+		);
+		useStudioAssistantQuotaMock.mockImplementation( actual.useStudioAssistantQuota );
+		connectorMock.getAuthUser.mockResolvedValue( { id: 1 } );
+		connectorMock.getStudioAssistantQuota.mockRejectedValue( new Error( 'offline' ) );
+		useSessionMock.mockReturnValue( { data: makeLoadedSession(), isLoading: false, error: null } );
+		const queryClient = new QueryClient( { defaultOptions: { queries: { retry: false } } } );
+
+		render(
+			<QueryClientProvider client={ queryClient }>
+				<SessionView sessionId="session-1" />
+			</QueryClientProvider>
+		);
+		await screen.findByTestId( 'composer' );
+
+		connectorMock.getStudioAssistantQuota.mockReturnValue( new Promise( () => {} ) );
+		await act( async () => {
+			void queryClient.refetchQueries( { queryKey: actual.ASSISTANT_QUOTA_QUERY_KEY } );
+			await new Promise( ( resolve ) => setTimeout( resolve, 50 ) );
+		} );
+
+		expect( screen.getByTestId( 'composer' ) ).toBeInTheDocument();
+		expect( screen.queryByTestId( 'composer-skeleton' ) ).not.toBeInTheDocument();
+	} );
+
 	describe( 'scroll anchoring', () => {
 		function layoutAt( scroller: HTMLElement, metrics: { scrollHeight: number } ) {
 			setScrollMetrics( scroller, { scrollTop: 0, clientHeight: 600, ...metrics } );

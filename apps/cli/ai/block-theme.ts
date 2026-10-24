@@ -39,7 +39,7 @@ async function themeKind( root: string, theme: string ): Promise< string > {
 }
 
 /** WP_DEFAULT_THEME, the theme core falls back to (wp-includes/default-constants.php). */
-export async function defaultTheme( root: string ): Promise< string | undefined > {
+async function defaultTheme( root: string ): Promise< string | undefined > {
 	const php = await readFile(
 		path.join( root, 'wp-includes/default-constants.php' ),
 		'utf8'

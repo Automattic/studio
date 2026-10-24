@@ -8,7 +8,7 @@
 import { Type, type TSchema } from 'typebox';
 import type { AgentTool } from '@earendil-works/pi-agent-core';
 
-export const DEFAULT_TIMEOUT_SECONDS = 120;
+const DEFAULT_TIMEOUT_SECONDS = 120;
 
 export function withDefaultTimeout< S extends TSchema >(
 	tool: AgentTool< S >,

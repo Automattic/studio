@@ -17,7 +17,7 @@ import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import type { WordPressSite } from 'cli/ai/site-database';
 
-export interface Presets {
+interface Presets {
 	colors: Array< [ string, string ] >;
 	fontFamilies: Array< [ string, string ] >;
 	fontSizes: Array< [ string, string ] >;

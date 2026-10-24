@@ -121,7 +121,7 @@ interface FileValidation {
 	fixedContent?: string;
 }
 
-export interface MarkupValidation {
+interface MarkupValidation {
 	summary: string;
 	problem?: string;
 	/** What the block editor would save instead, when that loses nothing. */

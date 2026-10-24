@@ -148,26 +148,57 @@ it( 'adds to a tool result the facts the agent does not have yet and the ones no
 	const site = createSite( 'wp_' );
 	const notes = createResultNotes( new Map( [ [ site.root, await site.facts() ] ] ) );
 	// The facts the Active site section stated.
-	expect( await notes( site.root, '' ) ).toBe( '' );
+	expect( await notes( site.root, { result: '' } ) ).toBe( '' );
 
 	// A call activates WooCommerce, which turns on Coming soon mode.
 	site.setOptions( { woocommerce_coming_soon: 'yes', ...WOOCOMMERCE_ACTIVE } );
-	expect( await notes( site.root, '' ) ).toBe(
+	expect( await notes( site.root, { result: '' } ) ).toBe(
 		[
 			'Active plugins: woocommerce/woocommerce.php, hello.php.',
 			COMING_SOON( 'the site' ),
 			'No longer true: Active plugins: none.',
 		].join( '\n' )
 	);
-	expect( await notes( site.root, '' ) ).toBe( '' );
+	expect( await notes( site.root, { result: '' } ) ).toBe( '' );
 
 	site.setOptions( { woocommerce_coming_soon: 'no' } );
-	expect( await notes( site.root, '' ) ).toBe( `No longer true: ${ COMING_SOON( 'the site' ) }` );
+	expect( await notes( site.root, { result: '' } ) ).toBe(
+		`No longer true: ${ COMING_SOON( 'the site' ) }`
+	);
 
 	// A site the agent has no facts for, as over MCP, gets them with its first result.
-	expect( await createResultNotes()( site.root, '' ) ).toBe(
+	expect( await createResultNotes()( site.root, { result: '' } ) ).toBe(
 		[ ...BASE.slice( 0, 2 ), 'Active plugins: woocommerce/woocommerce.php, hello.php.' ].join(
 			'\n'
 		)
 	);
+} );
+
+it( 'adds to every write of a theme file a saved copy replaces that WordPress renders the copy', async () => {
+	const site = createSite( 'wp_' );
+	site.save( 14, 'wp_template_part', 'header' );
+	site.save(
+		15,
+		'wp_global_styles',
+		'wp-global-styles-bakery',
+		'{"version":3,"styles":{"color":{}}}'
+	);
+	const notes = createResultNotes( new Map( [ [ site.root, await site.facts() ] ] ) );
+	const write = ( file: string ) =>
+		notes( site.root, { result: '', writtenFile: path.join( site.root, file ) } );
+	const header =
+		'WordPress renders the template part header from its copy saved in the Site Editor (post 14), not from this file.';
+
+	// In the active theme and its parent, on every write.
+	expect( await write( 'wp-content/themes/bakery/parts/header.html' ) ).toBe( header );
+	expect( await write( 'wp-content/themes/bakery/parts/header.html' ) ).toBe( header );
+	expect( await write( 'wp-content/themes/bakery-parent/parts/header.html' ) ).toBe( header );
+	expect( await write( 'wp-content/themes/bakery-parent/theme.json' ) ).toBe(
+		'Global Styles saved in the Site Editor (post 15) set color, and WordPress applies them over this file.'
+	);
+	// Files nothing replaces, and another theme's.
+	expect( await write( 'wp-content/themes/bakery/parts/footer.html' ) ).toBe( '' );
+	expect( await write( 'wp-content/themes/twentytwentyfive/parts/header.html' ) ).toBe( '' );
+	// A call that writes nothing.
+	expect( await notes( site.root, { result: 'parts/header.html' } ) ).toBe( '' );
 } );

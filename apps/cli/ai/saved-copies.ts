@@ -1,3 +1,4 @@
+import path from 'path';
 import type { WordPressSite } from 'cli/ai/site-database';
 
 // A block theme's templates, template parts, and theme.json are only what
@@ -106,6 +107,32 @@ function describeCopy( copy: SavedCopy ): string {
 		) } over ${ file }`;
 	}
 	return `the ${ KIND[ copy.postType ] } ${ copy.slug } (post ${ copy.id }), instead of ${ file }`;
+}
+
+/**
+ * Result note for a write to `file` (absolute) that WordPress will not render,
+ * because a copy saved in the Site Editor replaces it. Every such write is
+ * lost, so every one gets the note.
+ */
+export function savedCopyWriteNote( site: WordPressSite, file: string ): string | undefined {
+	const relative = path.relative( site.root, file ).split( path.sep ).join( '/' );
+	const themes = [ site.option( 'stylesheet' ), site.option( 'template' ) ];
+	const copy = readSavedCopies( site ).find( ( candidate ) =>
+		themes.some(
+			( theme ) =>
+				typeof theme === 'string' && relative === `wp-content/themes/${ theme }/${ candidate.file }`
+		)
+	);
+	if ( ! copy ) {
+		return undefined;
+	}
+	return copy.postType === 'wp_global_styles'
+		? `Global Styles saved in the Site Editor (post ${ copy.id }) set ${ joinList(
+				copy.sets ?? []
+		  ) }, and WordPress applies them over this file.`
+		: `WordPress renders the ${ KIND[ copy.postType ] } ${
+				copy.slug
+		  } from its copy saved in the Site Editor (post ${ copy.id }), not from this file.`;
 }
 
 /** Site fact: the copies WordPress renders in place of theme files. */

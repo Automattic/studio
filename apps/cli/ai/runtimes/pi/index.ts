@@ -44,7 +44,7 @@ import { getBlockValidationGate, type BlockValidationGate } from 'cli/ai/block-v
 import { withDesignSystemPreview } from 'cli/ai/chat-artifacts';
 import { isImageGenerationAvailable } from 'cli/ai/image-generation';
 import { emitEvent } from 'cli/ai/json-events';
-import { createResultNotes } from 'cli/ai/result-notes';
+import { createResultNotes, type NotedCall } from 'cli/ai/result-notes';
 import { readActiveSiteFacts } from 'cli/ai/site-facts';
 import { withSiteFileGuards } from 'cli/ai/site-file-guards';
 import { buildSystemPrompt } from 'cli/ai/system-prompt';
@@ -66,6 +66,7 @@ import {
 	getBashCommandRefusal,
 	getFileWriteRefusal,
 	getPayloadLimitViolation,
+	resolveToolPath,
 	type StudioToolPayloadGuardState,
 	updateStudioToolPayloadGuardState,
 } from './tool-safety';
@@ -377,7 +378,7 @@ async function createStudioAgentSession(
 		new Map( site && ! site.remote ? [ [ site.path, activeSiteFacts ] ] : [] )
 	);
 	const resultNotes =
-		site && ! site.remote ? ( result: string ) => notes( site.path, result ) : undefined;
+		site && ! site.remote ? ( call: NotedCall ) => notes( site.path, call ) : undefined;
 	const toolDefinitions = tools.map( ( tool ) =>
 		toToolDefinition( tool, payloadGuardState, pendingWork, blockValidationGate, {
 			confirm,
@@ -668,7 +669,7 @@ function toToolDefinition(
 	}: {
 		confirm: Confirmer;
 		sitePin: SitePin;
-		resultNotes?: ( result: string ) => Promise< string >;
+		resultNotes?: ( call: NotedCall ) => Promise< string >;
 	}
 ): ToolDefinition {
 	return {
@@ -760,8 +761,17 @@ function toToolDefinition(
 			const resultText = result.content
 				.map( ( part ) => ( part.type === 'text' ? part.text : '' ) )
 				.join( '\n' );
+			const filePath = ( params as { path?: unknown } | undefined )?.path;
+			const writtenFile =
+				( tool.name === 'Write' || tool.name === 'Edit' ) && typeof filePath === 'string'
+					? resolveToolPath( filePath, STUDIO_SITES_ROOT )
+					: undefined;
 			const reports =
-				[ validationReport, await resultNotes?.( resultText ), pendingWork.takeReports() ]
+				[
+					validationReport,
+					await resultNotes?.( { result: resultText, writtenFile } ),
+					pendingWork.takeReports(),
+				]
 					.filter( Boolean )
 					.join( '\n' ) || undefined;
 			return reports

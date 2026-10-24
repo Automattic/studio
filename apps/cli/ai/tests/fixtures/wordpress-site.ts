@@ -40,11 +40,12 @@ export function createSite( prefix = 'wp_' ) {
 		slug: string,
 		content = '',
 		theme = 1,
-		status = 'publish'
+		status = 'publish',
+		title = ''
 	) => {
 		db.prepare(
-			`INSERT INTO ${ prefix }posts ( ID, post_type, post_status, post_name, post_content, post_date ) VALUES ( ?, ?, ?, ?, ?, '2026-10-22' )`
-		).run( id, type, status, slug, content );
+			`INSERT INTO ${ prefix }posts ( ID, post_type, post_status, post_name, post_content, post_date, post_title ) VALUES ( ?, ?, ?, ?, ?, '2026-10-22', ? )`
+		).run( id, type, status, slug, content, title );
 		db.prepare( `INSERT INTO ${ prefix }term_relationships VALUES ( ?, ? )` ).run( id, theme );
 	};
 	const setOptions = ( options: Record< string, string > ) => {

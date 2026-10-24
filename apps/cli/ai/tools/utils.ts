@@ -3,6 +3,7 @@ import { readCliConfig, type SiteData } from 'cli/lib/cli-config/core';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import { Logger, type ProgressCallback } from 'cli/logger';
+import type { AnyStudioAgentTool } from './define-tool';
 
 async function findSiteByName( name: string ): Promise< SiteData | undefined > {
 	const config = await readCliConfig();
@@ -33,6 +34,13 @@ export async function resolveSite( nameOrPath: string ): Promise< SiteData > {
 	}
 
 	return getSiteByFolder( nameOrPath );
+}
+
+/** The local site a call names, by the tool's site argument; undefined when it names none. */
+export async function siteOfCall( tool: object, args: unknown ): Promise< SiteData | undefined > {
+	const { siteParam = 'nameOrPath' } = tool as Pick< AnyStudioAgentTool, 'siteParam' >;
+	const named = ( args as Record< string, unknown > | undefined )?.[ siteParam ];
+	return typeof named === 'string' ? resolveSite( named ).catch( () => undefined ) : undefined;
 }
 
 // Callers connect to the daemon first, like runWpCliCommand requires.

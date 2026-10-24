@@ -71,6 +71,11 @@ vi.mock( '@earendil-works/pi-coding-agent', async ( importOriginal ) => {
 } );
 
 // Each trigger answers with what it was fired with.
+vi.mock( 'cli/ai/tools/utils', async ( importOriginal ) => ( {
+	...( await importOriginal< typeof import('cli/ai/tools/utils') >() ),
+	siteOfCall: async ( _tool: unknown, args: { nameOrPath?: string } ) =>
+		args?.nameOrPath ? { path: `/sites/${ args.nameOrPath }` } : undefined,
+} ) );
 vi.mock( 'cli/ai/site-notes', () => ( {
 	createSiteNotes: () => ( {
 		beforeWrite: async ( file: string ) =>
@@ -545,6 +550,14 @@ describe( 'pi runtime', () => {
 				( part ) => part.text
 			)
 		).toEqual( [ '', `<studio-notes>\nwrote ${ file }\n</studio-notes>` ] );
+
+		// A call that names a local site reports on it, as one creating a site does.
+		const none = await run( undefined );
+		expect(
+			(
+				await none.execute( 'w', { path: 'a/style.css', content: '', nameOrPath: 'b' } )
+			).content.map( ( part ) => part.text )
+		).toEqual( [ '', `<studio-notes>\nwrote ${ file }\nresult on /sites/b\n</studio-notes>` ] );
 	} );
 
 	it( 'reports the post content a call changed, from a snapshot taken before it', async () => {

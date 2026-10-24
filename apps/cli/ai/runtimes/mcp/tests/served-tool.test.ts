@@ -47,6 +47,17 @@ it( 'adds the declared settings of the core blocks a result shows, from the site
 	] );
 	// Once per MCP session, as once per Studio Code turn.
 	expect( await notes( { nameOrPath: 'My Site' } ) ).toEqual( [] );
+
+	// A tool that names its site by another argument, such as the site it creates.
+	const create = defineTool(
+		'site_create',
+		'Creates a site.',
+		{ name: Type.String() },
+		async () => ( { content: [ { type: 'text', text: 'Created.' } ] } ),
+		{ annotations: LOCAL_CHANGE, siteParam: 'name' }
+	);
+	const created = await runServedTool( create, { name: 'My Site' }, createSiteNotes() );
+	expect( JSON.stringify( created.content ) ).toContain( 'Address: http://localhost:8881' );
 } );
 
 it( 'reports the block validation of post content the call changed, on any site', async () => {

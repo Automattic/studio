@@ -55,6 +55,7 @@ import { resolveStudioToolDefinitions } from 'cli/ai/tools';
 import { createAskUserQuestionTool } from 'cli/ai/tools/ask-user-question';
 import { createPresentDesignOptionsTool } from 'cli/ai/tools/present-design-options';
 import { createSkillTool } from 'cli/ai/tools/skill';
+import { siteOfCall } from 'cli/ai/tools/utils';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import { createConfirmer, describeDestructiveCall, type Confirmer } from './confirmation';
 import { withLeakedToolCallMarkupRemoved } from './leaked-tool-call-markup';
@@ -710,7 +711,7 @@ function toToolDefinition(
 		sitePin: SitePin;
 		siteNotes: SiteNotes;
 		siteChanges: SiteChanges;
-		// Studio's tools report on the active site when it is a local one.
+		// Studio's tools report on the site a call names, else the active site when it is a local one.
 		localSite?: string;
 	}
 ): ToolDefinition {
@@ -786,6 +787,7 @@ function toToolDefinition(
 				delete details.pending;
 			}
 			const changed = await changedContent();
+			const resultSite = ( await siteOfCall( tool, params ) )?.path ?? localSite;
 			const resultText = result.content
 				.map( ( part ) => ( part.type === 'text' ? part.text : '' ) )
 				.join( '\n' );
@@ -793,7 +795,7 @@ function toToolDefinition(
 				...validationReport,
 				...changed,
 				...( writtenFile ? await siteNotes.afterWrite( writtenFile ) : [] ),
-				...( localSite ? await siteNotes.afterResult( localSite, resultText ) : [] ),
+				...( resultSite ? await siteNotes.afterResult( resultSite, resultText ) : [] ),
 				pendingWork.takeReports(),
 			] );
 			return reports

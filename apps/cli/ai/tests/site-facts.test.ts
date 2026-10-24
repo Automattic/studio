@@ -43,6 +43,39 @@ it( 'states the WordPress version, the active theme and whether WordPress update
 	] );
 } );
 
+it.each( [
+	{ reading: { show_on_front: 'posts' }, fact: 'Homepage: the latest posts (show_on_front).' },
+	{
+		reading: { show_on_front: 'page', page_on_front: '9' },
+		fact: 'Homepage: page 9 "Home" (show_on_front, page_on_front).',
+	},
+	{
+		reading: { show_on_front: 'page', page_on_front: '9', page_for_posts: '10' },
+		fact: 'Homepage: page 9 "Home" (show_on_front, page_on_front); posts page: page 10 "News" (page_for_posts).',
+	},
+	// WordPress queries the page Reading names, whatever became of it.
+	{
+		reading: { show_on_front: 'page', page_on_front: '99' },
+		fact: 'Homepage: page 99, which does not exist (show_on_front, page_on_front).',
+	},
+	{
+		reading: { show_on_front: 'page', page_on_front: '11' },
+		fact: 'Homepage: page 11 "Old home" (trash) (show_on_front, page_on_front).',
+	},
+	{
+		reading: { show_on_front: 'page', page_on_front: '0' },
+		fact: 'Homepage: the latest posts (show_on_front).',
+	},
+] )( 'states what Settings → Reading shows at the homepage: $fact', async ( { reading, fact } ) => {
+	const site = createSite( 'wp_' );
+	site.save( 9, 'page', 'home', '', 1, 'publish', 'Home' );
+	site.save( 10, 'page', 'news', '', 1, 'publish', 'News' );
+	site.save( 11, 'page', 'old-home', '', 1, 'trash', 'Old home' );
+	site.setOptions( reading as Record< string, string > );
+	const titled = ( await site.facts() ).find( ( line ) => line.startsWith( 'Homepage:' ) );
+	expect( titled ).toBe( fact );
+} );
+
 // Imported sites can name their tables with a prefix other than wp_.
 it.each( [ 'wp_', 'site2_' ] )(
 	'states the copies saved in the Site Editor that WordPress renders instead of theme files (%s tables)',

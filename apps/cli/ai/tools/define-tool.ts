@@ -115,6 +115,9 @@ export interface ToolOptions {
 	// The tool renders the site, so it runs only once the pending work of
 	// earlier tools, such as images still being generated, has settled.
 	settlesPendingWork?: boolean;
+	// The argument that names the local site a call is about, when it is not
+	// `nameOrPath`: notes on the result, such as the site's facts, are about it.
+	siteParam?: string;
 }
 
 export type StudioAgentTool< TProps extends TProperties = TProperties > = AgentTool<
@@ -146,6 +149,7 @@ export interface AnyStudioAgentTool {
 	settlesPendingWork?: boolean;
 	annotations: ToolAnnotations;
 	forHost?: ( host: StudioToolHost ) => AnyStudioAgentTool | undefined;
+	siteParam?: string;
 }
 
 export function defineTool< TProps extends TProperties >(
@@ -164,6 +168,7 @@ export function defineTool< TProps extends TProperties >(
 		label: name,
 		...( options.settlesPendingWork ? { settlesPendingWork: true } : {} ),
 		...( options.forHost ? { forHost: options.forHost } : {} ),
+		...( options.siteParam ? { siteParam: options.siteParam } : {} ),
 		annotations: options.annotations,
 		rawHandler: ( args, context ) => handler( args, context ?? NOOP_TOOL_CONTEXT ),
 		execute: async ( _toolCallId, params, _signal, onUpdate ) => {

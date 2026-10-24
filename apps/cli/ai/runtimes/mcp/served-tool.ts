@@ -1,21 +1,10 @@
 import { studioMessage, validationLines } from 'cli/ai/studio-message';
-import { resolveSite } from 'cli/ai/tools/utils';
+import { siteOfCall } from 'cli/ai/tools/utils';
 import type { SiteChanges } from 'cli/ai/site-changes';
 import type { SiteNotes } from 'cli/ai/site-notes';
 import type { AnyStudioAgentTool } from 'cli/ai/tools/define-tool';
 
 // The site an MCP call works on is the one it names.
-async function siteNamed( args: Record< string, unknown > ) {
-	if ( typeof args.nameOrPath !== 'string' ) {
-		return undefined;
-	}
-	try {
-		return await resolveSite( args.nameOrPath );
-	} catch {
-		return undefined;
-	}
-}
-
 // Runs a served tool for an MCP call. MCP wants `{content, isError}`; pi-native
 // handlers throw — translate.
 export async function runServedTool(
@@ -36,7 +25,7 @@ export async function runServedTool(
 		const resultText = result.content
 			.map( ( part ) => ( part.type === 'text' ? part.text : '' ) )
 			.join( '\n' );
-		const site = await siteNamed( args );
+		const site = await siteOfCall( tool, args );
 		const notes = studioMessage( 'notes', [
 			...changed,
 			...( site ? await siteNotes.afterResult( site.path, resultText ) : [] ),

@@ -7,6 +7,7 @@
  */
 import { readdir, readFile } from 'fs/promises';
 import path from 'path';
+import type { WordPressSite } from 'cli/ai/site-database';
 
 const REQUIREMENT = 'https://make.wordpress.org/themes/handbook/review/required/';
 const POST_CONTENT = /<!--\s*wp:post-content\b/;
@@ -68,4 +69,36 @@ export function frontPageTemplateProblem( source: string, frontPage?: string ): 
 		? `so ${ frontPage }, the front page Settings → Reading picks, never shows, and edits to it change nothing on the site`
 		: "so no page set as the homepage (Settings → Reading, or the editor's Set as homepage) can show, and the content lives in the theme instead of a page the site owner edits";
 	return `WordPress renders ${ source } at the front page whatever Settings → Reading picks (wp-includes/template.php, get_front_page_template), and it has no core/post-content block, the only block that renders the page shown (wp-includes/blocks/post-content.php), ${ shows }. The Theme Directory requires a theme to show the content the front page setting picks (${ REQUIREMENT }). Put the content in a page, set it as the homepage (show_on_front=page, page_on_front), and render it with <!-- wp:post-content /--> in the template, or remove the template so page.html renders the page.`;
+}
+
+/**
+ * What Settings → Reading shows at the homepage and the posts page, as a site
+ * fact. WP_Query::parse_query() shows page_on_front whenever show_on_front is
+ * `page` and it names one, so a page that is gone or unpublished is stated
+ * as such.
+ */
+export function homepageFact( site: WordPressSite ): string | undefined {
+	const page = ( option: string ) => {
+		const id = Number( site.option( option ) );
+		if ( ! id ) {
+			return undefined;
+		}
+		const row = site.query< { title: string; status: string } >(
+			`SELECT post_title AS title, post_status AS status FROM ${ site.prefix }posts WHERE ID = ? AND post_type = 'page'`,
+			id
+		)[ 0 ];
+		if ( ! row ) {
+			return `page ${ id }, which does not exist`;
+		}
+		return `page ${ id } "${ row.title }"${ row.status === 'publish' ? '' : ` (${ row.status })` }`;
+	};
+	const showOnFront = site.option( 'show_on_front' );
+	const front = showOnFront === 'page' ? page( 'page_on_front' ) : undefined;
+	if ( ! front ) {
+		return showOnFront === undefined ? undefined : 'Homepage: the latest posts (show_on_front).';
+	}
+	const posts = page( 'page_for_posts' );
+	return `Homepage: ${ front } (show_on_front, page_on_front)${
+		posts ? `; posts page: ${ posts } (page_for_posts)` : ''
+	}.`;
 }

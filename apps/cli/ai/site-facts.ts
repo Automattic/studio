@@ -1,6 +1,8 @@
+import { homepageFact } from 'cli/ai/front-page-template';
 import { activePluginsFact, comingSoonFact } from 'cli/ai/plugins';
 import { savedCopiesFact } from 'cli/ai/saved-copies';
 import { readWordPressSite, type WordPressSite } from 'cli/ai/site-database';
+import { themePresetsFact } from 'cli/ai/theme-presets';
 import { activeThemeFact } from 'cli/ai/themes';
 import { findSiteByFolder, getSiteUrl } from 'cli/lib/cli-config/sites';
 import { getWordPressVersionFromInstallation } from 'cli/lib/dependency-management/wordpress';
@@ -12,11 +14,10 @@ import type { SiteInfo } from 'cli/ai/types';
 // for Studio Code and MCP agents.
 //
 // A fact is a function of the site, owned by the module that knows that part
-// of WordPress; it returns undefined when it has nothing to state. Add one by
-// adding it here, in the order the facts read.
-export type SiteFact = (
-	site: WordPressSite
-) => string | undefined | Promise< string | undefined >;
+// of WordPress; it returns a line, or several, and nothing when it has nothing
+// to state. Add one by adding it here, in the order the facts read.
+type FactLines = string | string[] | undefined;
+export type SiteFact = ( site: WordPressSite ) => FactLines | Promise< FactLines >;
 
 async function wordPressVersionFact( site: WordPressSite ): Promise< string | undefined > {
 	const version = await getWordPressVersionFromInstallation( site.root );
@@ -34,6 +35,8 @@ const SITE_FACTS: SiteFact[] = [
 	siteAddressFact,
 	wordPressVersionFact,
 	activeThemeFact,
+	themePresetsFact,
+	homepageFact,
 	activePluginsFact,
 	savedCopiesFact,
 	comingSoonFact,
@@ -42,9 +45,9 @@ const SITE_FACTS: SiteFact[] = [
 /** The facts about the local site at `sitePath`. */
 export function readSiteFacts( sitePath: string ): Promise< string[] > {
 	return readWordPressSite( sitePath, async ( site ) =>
-		( await Promise.all( SITE_FACTS.map( ( fact ) => fact( site ) ) ) ).filter(
-			( fact ): fact is string => Boolean( fact )
-		)
+		( await Promise.all( SITE_FACTS.map( ( fact ) => fact( site ) ) ) )
+			.flat()
+			.filter( ( fact ): fact is string => Boolean( fact ) )
 	);
 }
 

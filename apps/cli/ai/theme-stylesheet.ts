@@ -14,7 +14,7 @@
 import { readFile, stat, writeFile } from 'fs/promises';
 import path from 'path';
 import { readWordPressSite } from 'cli/ai/site-database';
-import { isUpdatableTheme } from 'cli/ai/themes';
+import { activeThemes, isUpdatableTheme } from 'cli/ai/themes';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import type { SiteChangeSource } from 'cli/ai/site-changes';
@@ -125,26 +125,22 @@ const stampOf = ( file: string ) =>
 		() => '-'
 	);
 
-const themesOf = ( sitePath: string ) =>
-	readWordPressSite( sitePath, ( site ) => ( {
-		stylesheet: String( site.option( 'stylesheet' ) ?? '' ),
-		template: String( site.option( 'template' ) ?? '' ),
-	} ) );
+const themesOf = ( sitePath: string ) => readWordPressSite( sitePath, activeThemes );
 
 export const themeStylesheet: SiteChangeSource = {
 	name: 'theme-stylesheet',
 	async read( sitePath ) {
-		const themes = await themesOf( sitePath );
-		if ( ! themes?.stylesheet ) {
+		const [ stylesheet, template = stylesheet ] = ( await themesOf( sitePath ) ) ?? [];
+		if ( ! stylesheet ) {
 			return {};
 		}
 		const dir = ( theme: string ) => path.join( sitePath, 'wp-content', 'themes', theme );
 		const stamps = await Promise.all( [
-			stampOf( path.join( dir( themes.stylesheet ), 'style.css' ) ),
-			stampOf( path.join( dir( themes.stylesheet ), 'functions.php' ) ),
-			stampOf( path.join( dir( themes.template ), 'functions.php' ) ),
+			stampOf( path.join( dir( stylesheet ), 'style.css' ) ),
+			stampOf( path.join( dir( stylesheet ), 'functions.php' ) ),
+			stampOf( path.join( dir( template ), 'functions.php' ) ),
 		] );
-		return { [ themes.stylesheet ]: `${ themes.template }|${ stamps.join( '|' ) }` };
+		return { [ stylesheet ]: `${ template }|${ stamps.join( '|' ) }` };
 	},
 	async check( site, before, after ) {
 		const [ theme ] = Object.keys( after );

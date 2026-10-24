@@ -19,6 +19,7 @@ import { homeSectionLinks } from 'cli/ai/home-section-links';
 import { readSavedCopies } from 'cli/ai/saved-copies';
 import { readWordPressSite } from 'cli/ai/site-database';
 import { studioMessage } from 'cli/ai/studio-message';
+import { activeThemes } from 'cli/ai/themes';
 
 interface OpenProblemsState {
 	// The sites changed, whose state is checked at the end of the turn.
@@ -137,9 +138,7 @@ export async function unrenderedFrontPage( sitePath: string ): Promise< string |
 		return {
 			frontPage: pageId ? `page ${ pageId } "${ post( pageId )?.title ?? '' }"` : undefined,
 			saved: saved && { id: saved.id, content: post( saved.id )?.content ?? '' },
-			themes: [ ...new Set( [ site.option( 'stylesheet' ), site.option( 'template' ) ] ) ].filter(
-				( theme ): theme is string => typeof theme === 'string' && theme !== ''
-			),
+			themes: activeThemes( site ),
 		};
 	} );
 	if ( ! state ) {

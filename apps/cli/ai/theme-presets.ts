@@ -11,6 +11,7 @@
  */
 import { readdir, stat } from 'fs/promises';
 import path from 'path';
+import { activeThemes } from 'cli/ai/themes';
 import { resolveSite } from 'cli/ai/tools/utils';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
@@ -136,9 +137,7 @@ function describePresets( presets: Presets ): string[] {
  * again next time.
  */
 export async function themePresets( site: WordPressSite ): Promise< Presets | undefined > {
-	const themes = [
-		...new Set( [ site.option( 'stylesheet' ), site.option( 'template' ) ] ),
-	].filter( ( theme ): theme is string => typeof theme === 'string' && theme !== '' );
+	const themes = activeThemes( site );
 	if ( ! themes.length ) {
 		return undefined;
 	}

@@ -68,16 +68,25 @@ export async function isUpdatableTheme( root: string, theme: string ): Promise< 
 	);
 }
 
+/**
+ * The active theme, then its parent when it is a child theme: the stylesheet
+ * and template options WordPress loads the theme by.
+ */
+export function activeThemes( site: WordPressSite ): string[] {
+	return [ ...new Set( [ site.option( 'stylesheet' ), site.option( 'template' ) ] ) ].filter(
+		( theme ): theme is string => typeof theme === 'string' && theme !== ''
+	);
+}
+
 /** Site fact: the active theme, its parent, and which of them WordPress updates. */
 export function activeThemeFact( site: WordPressSite ): string | undefined {
-	const stylesheet = site.option( 'stylesheet' );
-	const template = site.option( 'template' );
-	if ( typeof stylesheet !== 'string' ) {
+	const [ stylesheet, parent ] = activeThemes( site );
+	if ( ! stylesheet ) {
 		return undefined;
 	}
 	const describe = ( theme: string ) =>
 		isUpdated( site, theme ) ? `${ theme }, which WordPress updates` : theme;
-	return typeof template === 'string' && template !== stylesheet
-		? `Active theme: ${ describe( stylesheet ) }; a child theme of ${ describe( template ) }.`
+	return parent
+		? `Active theme: ${ describe( stylesheet ) }; a child theme of ${ describe( parent ) }.`
 		: `Active theme: ${ describe( stylesheet ) }.`;
 }

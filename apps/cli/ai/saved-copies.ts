@@ -1,4 +1,5 @@
 import path from 'path';
+import { activeThemes } from 'cli/ai/themes';
 import type { WordPressSite } from 'cli/ai/site-database';
 
 // A block theme's templates, template parts, and theme.json are only what
@@ -52,8 +53,8 @@ function styleAreas( content: string ): string[] {
  */
 export function readSavedCopies( site: WordPressSite ): SavedCopy[] {
 	const { prefix } = site;
-	const stylesheet = site.option( 'stylesheet' );
-	if ( typeof stylesheet !== 'string' ) return [];
+	const [ stylesheet ] = activeThemes( site );
+	if ( ! stylesheet ) return [];
 	// The latest published post per type and slug, for the theme its wp_theme
 	// term names.
 	const rows = site.query< Omit< SavedCopy, 'file' > & { content: string } >(
@@ -116,11 +117,9 @@ function describeCopy( copy: SavedCopy ): string {
  */
 export function savedCopyWriteNote( site: WordPressSite, file: string ): string | undefined {
 	const relative = path.relative( site.root, file ).split( path.sep ).join( '/' );
-	const themes = [ site.option( 'stylesheet' ), site.option( 'template' ) ];
 	const copy = readSavedCopies( site ).find( ( candidate ) =>
-		themes.some(
-			( theme ) =>
-				typeof theme === 'string' && relative === `wp-content/themes/${ theme }/${ candidate.file }`
+		activeThemes( site ).some(
+			( theme ) => relative === `wp-content/themes/${ theme }/${ candidate.file }`
 		)
 	);
 	if ( ! copy ) {

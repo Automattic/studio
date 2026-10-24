@@ -389,6 +389,14 @@ describe( 'SiteList', () => {
 		} );
 	} );
 
+	it( 'lists sites while chats are still loading', () => {
+		useSessionsMock.mockReturnValue( { data: undefined, isLoading: true } );
+
+		render( <SiteList sections /> );
+
+		expect( screen.getByText( 'Stopped Site' ) ).toBeInTheDocument();
+	} );
+
 	it( 'shows the Xdebug glyph in place of the site icon', () => {
 		useSitesMock.mockReturnValue( {
 			data: [
@@ -836,21 +844,13 @@ describe( 'SiteList', () => {
 		} );
 	} );
 
-	it( 'shows pending chat activity before the site name', () => {
-		useSiteAgentActivityMock.mockReturnValue( 'pending-question' );
+	it( 'leaves chat activity to the chat rows, not the site row', () => {
+		useSiteAgentActivityMock.mockReturnValue( 'working' );
 
 		render( <SiteList /> );
 
 		const stoppedSiteRow = screen.getByText( 'Stopped Site' ).closest( 'section' )!;
-		const indicator = within( stoppedSiteRow ).getByRole( 'status', {
-			name: 'Studio needs an answer.',
-		} );
-		const siteName = screen.getByText( 'Stopped Site' );
-
-		expect( indicator ).toBeInTheDocument();
-		expect( indicator.compareDocumentPosition( siteName ) & Node.DOCUMENT_POSITION_FOLLOWING ).toBe(
-			Node.DOCUMENT_POSITION_FOLLOWING
-		);
+		expect( within( stoppedSiteRow ).queryByRole( 'status' ) ).not.toBeInTheDocument();
 	} );
 
 	// Without a per-row indicator there is nothing to tell two concurrent imports
@@ -890,9 +890,6 @@ describe( 'SiteList', () => {
 		expect( indicator.compareDocumentPosition( siteName ) & Node.DOCUMENT_POSITION_FOLLOWING ).toBe(
 			Node.DOCUMENT_POSITION_FOLLOWING
 		);
-		expect(
-			within( runningSiteRow ).queryByRole( 'status', { name: 'Working…' } )
-		).not.toBeInTheDocument();
 	} );
 
 	it( 'shimmers the title of a chat whose agent is working', () => {

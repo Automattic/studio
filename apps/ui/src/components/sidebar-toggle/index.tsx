@@ -22,6 +22,7 @@ export function SidebarToggle() {
 			variant="ghost"
 			size="icon"
 			aria-label={ collapsed ? __( 'Show sidebar' ) : __( 'Hide sidebar' ) }
+			aria-expanded={ collapsed ? undefined : true }
 			data-sidebar-toggle
 			onClick={ toggleSidebar }
 		>

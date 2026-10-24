@@ -5,6 +5,11 @@
 	-webkit-app-region: no-drag;
 }
 
+/* Open, it reads dimmed rather than pressed. */
+.root [aria-expanded='true']:not(:hover) {
+	background-color: transparent;
+}
+
 /* The drawer icon depicts the sidebar edge; mirror it when the sidebar sits
    on the right. */
 .root:dir(rtl) svg {

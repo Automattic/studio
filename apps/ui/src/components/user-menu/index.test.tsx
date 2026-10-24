@@ -58,29 +58,27 @@ describe( 'UserMenu', () => {
 	it( 'offers logging out from the account menu when signed in', async () => {
 		render( <UserMenu /> );
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'Account' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Ada Lovelace' } ) );
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Log out' } ) );
 
 		expect( logoutMock ).toHaveBeenCalled();
 	} );
 
-	it( 'opens the Create account / Log in prompt from the account menu when signed out', async () => {
+	it( 'opens the Create account / Log in prompt from its button when signed out', async () => {
 		useAuthUserMock.mockReturnValue( { data: null } as never );
 		render( <UserMenu /> );
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'Account' } ) );
-		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Log in' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Log in' } ) );
 
 		expect(
 			await screen.findByRole( 'dialog', { name: 'Do more with WordPress.com' } )
 		).toBeInTheDocument();
-		expect( screen.queryByRole( 'menuitem', { name: 'Usage' } ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'opens AI Providers from the account menu', async () => {
 		render( <UserMenu /> );
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'Account' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Ada Lovelace' } ) );
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'AI Providers' } ) );
 
 		expect( navigateMock.mock.lastCall?.[ 0 ].search( {} ) ).toMatchObject( { settings: 'ai' } );
@@ -92,7 +90,7 @@ describe( 'UserMenu', () => {
 		);
 		render( <UserMenu /> );
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'Account' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Ada Lovelace' } ) );
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Log out' } ) );
 
 		expect( toast.error ).toHaveBeenCalledWith( 'Could not log out.', {

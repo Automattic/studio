@@ -166,13 +166,6 @@
 	place-items: center;
 }
 
-.siteAgentActivityPixels {
-	--agent-indicator-size: var(--site-list-chat-status-size);
-	--thinking-cell-size: 2.1px;
-	--thinking-cell-gap: 1.68px;
-	--thinking-min-opacity: 0.45;
-}
-
 .siteAgentActivitySync {
 	display: inline-grid;
 	place-items: center;

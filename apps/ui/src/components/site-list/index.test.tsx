@@ -844,8 +844,8 @@ describe( 'SiteList', () => {
 		} );
 	} );
 
-	it( 'leaves a pending question to Needs input, not the site row', () => {
-		useSiteAgentActivityMock.mockReturnValue( 'pending-question' );
+	it( 'leaves chat activity to the chat rows, not the site row', () => {
+		useSiteAgentActivityMock.mockReturnValue( 'working' );
 
 		render( <SiteList /> );
 
@@ -890,9 +890,6 @@ describe( 'SiteList', () => {
 		expect( indicator.compareDocumentPosition( siteName ) & Node.DOCUMENT_POSITION_FOLLOWING ).toBe(
 			Node.DOCUMENT_POSITION_FOLLOWING
 		);
-		expect(
-			within( runningSiteRow ).queryByRole( 'status', { name: 'Working…' } )
-		).not.toBeInTheDocument();
 	} );
 
 	it( 'shimmers the title of a chat whose agent is working', () => {

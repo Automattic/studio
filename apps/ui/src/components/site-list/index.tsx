@@ -17,7 +17,6 @@ import {
 	type ReactElement,
 	type ReactNode,
 } from 'react';
-import { AgentWorkingIndicator } from '@/components/agent-working-indicator';
 import { ChatActionsMenuItems, useChatActions } from '@/components/chat-actions';
 import { ReorderableList, type ReorderableListProps } from '@/components/reorderable-list';
 import { getSessionTitle } from '@/components/session-view/session-chat-actions';
@@ -91,19 +90,17 @@ const CHATS_PAGE_SIZE = 10;
 // Recent is a shortcut to the latest chats; every chat is also under its site.
 const RECENT_CHATS_LIMIT = 10;
 
-type SiteRowActivity = 'idle' | 'working' | 'sync' | 'import';
+type SiteRowActivity = 'idle' | 'sync' | 'import';
 
 const ACTIVITY_EXIT_DURATION_MS = 180;
 
 function SiteAgentActivityTooltip( {
 	label,
 	className,
-	childProvidesLabel = false,
 	children,
 }: {
 	label: string;
 	className?: string;
-	childProvidesLabel?: boolean;
 	children?: ReactNode;
 } ) {
 	return (
@@ -116,8 +113,8 @@ function SiteAgentActivityTooltip( {
 							styles.siteAgentActivityTooltipTrigger,
 							className
 						) }
-						role={ childProvidesLabel ? undefined : 'status' }
-						aria-label={ childProvidesLabel ? undefined : label }
+						role="status"
+						aria-label={ label }
 					/>
 				}
 			>
@@ -146,7 +143,6 @@ function SiteAgentActivityIndicator( { activity }: { activity: SiteRowActivity }
 
 	const renderedActivity = activity === 'idle' ? exitingActivity : activity;
 	const isVisible = activity !== 'idle';
-	const workingLabel = __( 'Working…' );
 	const syncLabel = __( 'Syncing live site' );
 	const importLabel = __( 'Importing backup' );
 
@@ -158,14 +154,6 @@ function SiteAgentActivityIndicator( { activity }: { activity: SiteRowActivity }
 			) }
 			aria-hidden={ isVisible ? undefined : 'true' }
 		>
-			{ renderedActivity === 'working' ? (
-				<SiteAgentActivityTooltip label={ workingLabel } childProvidesLabel>
-					<AgentWorkingIndicator
-						className={ styles.siteAgentActivityPixels }
-						label={ workingLabel }
-					/>
-				</SiteAgentActivityTooltip>
-			) : null }
 			{ renderedActivity === 'sync' || renderedActivity === 'import' ? (
 				<SiteAgentActivityTooltip
 					label={ renderedActivity === 'import' ? importLabel : syncLabel }
@@ -616,7 +604,6 @@ function SiteSection( {
 	const isStarting = useIsSiteStarting( site.id );
 	const isStopping = useIsSiteStopping( site.id );
 	const status = getSiteStatus( site, isStarting, isStopping, useSiteOperation( site ) );
-	const agentActivity = useSiteAgentActivity( row.sessionIds );
 	const syncActivity = useSiteSyncActivity( site.id );
 	// Import gets a row indicator of its own alongside push/pull: it is the only
 	// way to tell which site a long-running import belongs to when several are in
@@ -628,8 +615,7 @@ function SiteSection( {
 			: pendingDirection === 'push' || pendingDirection === 'pull'
 			? 'sync'
 			: undefined;
-	// A chat waiting on an answer shows under Needs input instead.
-	const displayActivity = siteActivity ?? ( agentActivity === 'working' ? 'working' : 'idle' );
+	const displayActivity = siteActivity ?? 'idle';
 	const openSite = useOpenSite();
 	const handleOpenSite = () => {
 		onOpen?.();

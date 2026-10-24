@@ -1,3 +1,6 @@
+import { mkdtempSync, writeFileSync } from 'fs';
+import { tmpdir } from 'os';
+import path from 'path';
 import { INSPECTOR_BRIDGE_PREFIX } from '@studio/common/ai/inspector/page-script';
 import { describe, expect, it, vi } from 'vitest';
 import { NOTE_EDITOR_EVENT } from '../inspector/note-editor';
@@ -7,6 +10,7 @@ const page = vi.hoisted( () => ( {
 	handlers: {} as Record< string, ( ( value?: unknown ) => void )[] >,
 	editor: undefined as ( ( action: unknown ) => void ) | undefined,
 	evaluate: vi.fn( async ( ..._args: unknown[] ) => undefined ),
+	goto: vi.fn( async ( _url: string ) => undefined ),
 } ) );
 const close = vi.hoisted( () => vi.fn( async () => undefined ) );
 
@@ -22,7 +26,7 @@ vi.mock( 'cli/ai/browser-utils', () => ( {
 			on: ( event: string, fn: () => void ) => {
 				( page.handlers[ event ] ??= [] ).push( fn );
 			},
-			goto: async () => undefined,
+			goto: page.goto,
 			bringToFront: async () => undefined,
 			isClosed: () => false,
 		} ),
@@ -40,8 +44,19 @@ function editingId(): string {
 }
 
 describe( 'open_annotation_browser', () => {
-	it( 'returns the notes once the user clicks Send', async () => {
-		const result = openAnnotationBrowserTool.rawHandler( { url: 'http://localhost:8881' } );
+	it( 'opens the page of the site it names, and returns the notes once the user clicks Send', async () => {
+		const root = mkdtempSync( path.join( tmpdir(), 'annotate-' ) );
+		const site = { id: '1', name: 'My Site', path: root, port: 8881, phpVersion: '8.3' };
+		writeFileSync(
+			path.join( root, 'cli.json' ),
+			JSON.stringify( { version: 1, sites: [ site ] } )
+		);
+		vi.stubEnv( 'E2E', '1' );
+		vi.stubEnv( 'E2E_CLI_CONFIG_PATH', root );
+		const result = openAnnotationBrowserTool.rawHandler( {
+			nameOrPath: 'My Site',
+			page: '/about',
+		} );
 		await vi.waitFor( () => expect( page.editor ).toBeDefined() );
 
 		page.handlers.console[ 0 ]( {
@@ -69,5 +84,6 @@ describe( 'open_annotation_browser', () => {
 			text: expect.stringContaining( '- Comment: Make it bigger' ),
 		} );
 		expect( close ).toHaveBeenCalled();
+		expect( page.goto.mock.calls[ 0 ][ 0 ] ).toBe( 'http://localhost:8881/about' );
 	} );
 } );

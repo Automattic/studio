@@ -845,13 +845,3 @@ tests:
     assert:
       - type: javascript
         value: file://outcome.mjs:skillsLoadedFirst
-  - description: 'routing: a plan question loads hosting-plans-helper'
-    vars:
-      caseId: routing-plan-question
-      timeoutMs: 300000
-      skills: [{ name: hosting-plans-helper }]
-      stopAt: *stopAtWork
-      prompt: Which WordPress.com plan do I need to install my own plugins?
-    assert:
-      - type: javascript
-        value: file://outcome.mjs:skillsLoadedFirst

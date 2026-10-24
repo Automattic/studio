@@ -131,13 +131,18 @@ export function SidebarLayout( { children }: { children: ReactNode } ) {
 								minWidth={ sidebarResize.minWidth }
 								maxWidth={ sidebarResize.maxWidth }
 								width={ sidebarResize.width }
-								isResizing={ sidebarResize.isResizing }
 								onResizeStart={ sidebarResize.handleResizeStart }
 								onKeyDown={ sidebarResize.handleKeyDown }
 								onReset={ sidebarResize.resetWidth }
 							/>
 						) : null }
-						<main className={ clsx( styles.main, docked && 'studio-column-edge' ) }>
+						<main
+							className={ clsx(
+								styles.main,
+								'studio-column-edge',
+								! docked && styles.mainUndocked
+							) }
+						>
 							{ children }
 						</main>
 						{ sidebarResize.isResizing ? <ResizeOverlay /> : null }

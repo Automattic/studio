@@ -12,11 +12,11 @@ import { ResizeHandle, ResizeOverlay } from '@/components/resize-handle';
 import { usePreviewSplit } from '@/hooks/use-preview-split';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import { WindowControlsCornerContext } from '@/hooks/use-window-controls-inset';
+import { getMotionDuration } from '@/lib/motion';
 import { PREVIEW_SPLIT_MIN_WIDTH } from '@/lib/resizable-panels';
 import styles from './style.module.css';
 
 // Keep in sync with the content-column transition duration in style.module.css.
-export const PREVIEW_TOGGLE_DURATION = 240;
 
 // Whether the preview shows beside the content, for controls in the content
 // column that only make sense next to it.
@@ -41,6 +41,8 @@ interface PreviewSplitFrameProps {
 	chatHidden?: boolean;
 	// Drawn over the top inline-end corner, above whichever pane is there.
 	actions?: ReactNode;
+	// Open or close without the slide, as when a stopping site drops its preview.
+	instant?: boolean;
 	children?: ReactNode;
 }
 
@@ -49,6 +51,7 @@ export function PreviewSplitFrame( {
 	previewOpen = false,
 	chatHidden = false,
 	actions,
+	instant = false,
 	children,
 }: PreviewSplitFrameProps ) {
 	const showPreview = previewOpen && preview != null;
@@ -80,7 +83,7 @@ export function PreviewSplitFrame( {
 			open: showPreview,
 			collapsed: contentCollapsed,
 		} );
-		if ( previousPreview.mounted && preview != null ) {
+		if ( previousPreview.mounted && preview != null && ! instant ) {
 			setAnimatingPreviewToggle( true );
 		}
 	}
@@ -91,7 +94,7 @@ export function PreviewSplitFrame( {
 		}
 		const timeoutId = window.setTimeout(
 			() => setAnimatingPreviewToggle( false ),
-			PREVIEW_TOGGLE_DURATION
+			getMotionDuration( 'layout' )
 		);
 		return () => window.clearTimeout( timeoutId );
 	}, [ animatingPreviewToggle, showPreview, contentCollapsed ] );
@@ -122,7 +125,9 @@ export function PreviewSplitFrame( {
 					showPreview && styles.rootPreviewOpen,
 					isResizing && styles.rootPreviewResizing,
 					animatingPreviewToggle && styles.rootPreviewAnimating,
-					showPreview && ! contentCollapsed && ! animatingPreviewToggle && 'studio-column-edge'
+					showPreview &&
+						! contentCollapsed &&
+						! animatingPreviewToggle && [ styles.rootEdge, 'studio-column-edge' ]
 				) }
 				style={ rootStyle }
 			>

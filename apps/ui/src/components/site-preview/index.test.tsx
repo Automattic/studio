@@ -153,7 +153,7 @@ describe( 'SitePreview', () => {
 		expect( screen.queryByRole( 'button', { name: 'Open in…' } ) ).not.toBeInTheDocument();
 	} );
 
-	it( 'shows a refresh button, and no history arrows before there is history', () => {
+	it( 'shows a refresh button, and disabled history arrows before there is history', () => {
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn().mockResolvedValue( undefined ),
 			trackEvent: vi.fn().mockResolvedValue( undefined ),
@@ -167,8 +167,14 @@ describe( 'SitePreview', () => {
 		const refreshButton = screen.getByRole( 'button', { name: 'Reload preview' } );
 		expect( refreshButton ).toBeEnabled();
 		expect( refreshButton ).toHaveAttribute( 'aria-keyshortcuts', expect.stringMatching( /\+R$/ ) );
-		// No history yet, so no back or forward.
-		expect( screen.queryByRole( 'button', { name: 'Back' } ) ).not.toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'Back' } ) ).toHaveAttribute(
+			'aria-disabled',
+			'true'
+		);
+		expect( screen.getByRole( 'button', { name: 'Forward' } ) ).toHaveAttribute(
+			'aria-disabled',
+			'true'
+		);
 
 		const initialIframe = container.querySelector( 'iframe' );
 		expect( initialIframe ).toBeInTheDocument();
@@ -280,7 +286,7 @@ describe( 'SitePreview', () => {
 		);
 
 		fireEvent.click( screen.getByRole( 'textbox', { name: 'Address' } ) );
-		fireEvent.click( await screen.findByRole( 'button', { name: 'WP Admin' } ) );
+		fireEvent.click( await screen.findByRole( 'option', { name: 'WP Admin' } ) );
 		expect( onPathChange ).toHaveBeenCalledWith(
 			`/studio-auto-login?redirect_to=${ encodeURIComponent( 'http://localhost:8881/wp-admin/' ) }`
 		);
@@ -288,7 +294,7 @@ describe( 'SitePreview', () => {
 		// Re-selecting the already-active realm is a no-op.
 		onPathChange.mockClear();
 		fireEvent.click( screen.getByRole( 'textbox', { name: 'Address' } ) );
-		fireEvent.click( await screen.findByRole( 'button', { name: 'Front end' } ) );
+		fireEvent.click( await screen.findByRole( 'option', { name: 'Front end' } ) );
 		expect( onPathChange ).not.toHaveBeenCalled();
 	} );
 
@@ -339,7 +345,7 @@ describe( 'SitePreview', () => {
 		);
 
 		fireEvent.click( screen.getByRole( 'textbox', { name: 'Address' } ) );
-		fireEvent.click( await screen.findByRole( 'button', { name: 'WP Admin' } ) );
+		fireEvent.click( await screen.findByRole( 'option', { name: 'WP Admin' } ) );
 		expect( trackEvent ).toHaveBeenCalledWith( 'studio_site_open_wp_admin', {
 			browser: 'internal',
 		} );
@@ -364,7 +370,7 @@ describe( 'SitePreview', () => {
 
 		// Already on the admin realm; selecting it again is a no-op.
 		fireEvent.click( screen.getByRole( 'textbox', { name: 'Address' } ) );
-		fireEvent.click( await screen.findByRole( 'button', { name: 'WP Admin' } ) );
+		fireEvent.click( await screen.findByRole( 'option', { name: 'WP Admin' } ) );
 		expect( trackEvent ).not.toHaveBeenCalled();
 	} );
 
@@ -386,7 +392,7 @@ describe( 'SitePreview', () => {
 		);
 
 		fireEvent.click( screen.getByRole( 'textbox', { name: 'Address' } ) );
-		fireEvent.click( await screen.findByRole( 'button', { name: 'Database' } ) );
+		fireEvent.click( await screen.findByRole( 'option', { name: 'Database' } ) );
 		expect( onPathChange ).toHaveBeenCalledWith(
 			'/phpmyadmin/index.php?route=/database/structure&db=wordpress'
 		);

@@ -657,7 +657,6 @@ function getClassicToolDisplay(
 			display.detail = '';
 			break;
 		case 'take_screenshot':
-		case 'inspect_design':
 		case 'open_annotation_browser':
 			display.detail = '';
 			break;

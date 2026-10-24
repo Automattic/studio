@@ -6,7 +6,6 @@ import { deleteSiteTool } from './delete-site';
 import { exportSiteTool } from './export-site';
 import { generateImagesTool } from './generate-images';
 import { importSiteTool } from './import-site';
-import { inspectDesignTool } from './inspect-design';
 import { installTaxonomyScriptsTool } from './install-taxonomy-scripts';
 import { listConnectedRemoteSitesTool } from './list-connected-remote-sites';
 import { listPreviewsTool } from './list-previews';
@@ -41,7 +40,6 @@ export const studioToolDefinitions: AnyStudioAgentTool[] = [
 	runWpCliTool,
 	pickDesignTool,
 	takeScreenshotTool,
-	inspectDesignTool,
 	generateImagesTool,
 	installTaxonomyScriptsTool,
 	auditPerformanceTool,

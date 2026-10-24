@@ -129,6 +129,14 @@ export function renderDesignBoard( themeJson: string, image?: string ): string {
 		throw new Error( `The look's theme.json is not valid JSON: ${ ( error as Error ).message }` );
 	}
 	const tokens = themeJsonTokens( parsed );
+	if (
+		Object.keys( tokens.colors ?? {} ).length < 2 ||
+		! Object.values( tokens.typography ?? {} ).some( ( style ) => style.fontFamily )
+	) {
+		throw new Error(
+			"The look's theme.json needs at least two hex colors in settings.color.palette, and a font family in styles.typography."
+		);
+	}
 	const {
 		palette,
 		background,

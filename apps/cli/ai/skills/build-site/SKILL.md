@@ -1,6 +1,6 @@
 ---
 name: build-site
-description: Create, build, design, redesign, or rebuild a whole website as a WordPress site with WordPress Studio, on the user's computer — pick or create the site, settle the design and plugins as a Site Spec, then build the theme, provision the site, publish the content, and polish the result. Load it before picking or creating the site.
+description: Create, build, design, redesign, or rebuild a whole website as a WordPress site with WordPress Studio, on the user's computer — pick or create the site, settle the design and plugins as a Site Spec, then build the theme, provision the site, and publish the content. Load it before picking or creating the site.
 user-invokable: true
 tools: pick_design, present_design_options, generate_images
 ---
@@ -62,7 +62,3 @@ With `wp`, activate the theme, install and activate the Site Spec's plugins, and
 ## 5. Publish the content
 
 Write each page's content to a scratch file in the site's `tmp/`, then create or update the page from the file.
-
-## 6. Check the result
-
-Take one `take_screenshot` of each page with `viewport: "all"`. List every real defect against the look and the layout map, find each cause with inspect_design and the source that produces it, fix them in one batch, and re-check once. When Studio Code wrote the theme, pass its directory as `themeScreenshot` on the home page's last desktop capture.

@@ -668,7 +668,7 @@ function createSettingsManager( _env: Record< string, string > ): SettingsManage
 }
 
 // A shell command can put content on the site through WP-CLI.
-const BLOCK_VALIDATION_GATED_TOOLS = new Set( [ 'Bash', 'take_screenshot', 'inspect_design' ] );
+const BLOCK_VALIDATION_GATED_TOOLS = new Set( [ 'Bash', 'take_screenshot' ] );
 
 function toToolDefinition(
 	tool: AgentToolAny,

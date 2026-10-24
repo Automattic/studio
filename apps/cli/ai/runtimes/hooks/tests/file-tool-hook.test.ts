@@ -96,7 +96,7 @@ it( 'adds to a write the block validation and what WordPress renders instead of 
 afterEach( () => vi.unstubAllGlobals() );
 
 // A theme.json font family without font files gets them from Google Fonts, in
-// the weights the theme uses. A theme WordPress updates is left alone.
+// the weights the theme uses.
 const FACE = { fontFamily: 'Inter', src: [ 'file:./assets/fonts/inter.woff2' ] };
 it.each( [
 	{
@@ -109,10 +109,9 @@ it.each( [
 		theme: 'bakery',
 		family: 'Nope Sans',
 		fontFace: undefined,
-		note: 'Nope Sans has no font files in wp-content/themes/bakery/theme.json, and Google Fonts did not provide them (https://fonts.googleapis.com/css2?family=Nope+Sans:wght@400;600&display=swap responded with HTTP 400).',
+		note: 'Nope Sans has no font files in wp-content/themes/bakery/theme.json, and Google Fonts did not provide them (https://fonts.googleapis.com/css2?family=Nope+Sans:wght@400;600&display=swap responded with HTTP 400). Put its files in wp-content/themes/bakery/assets/fonts and declare them as its fontFace, or choose a Google Fonts family.',
 	},
 	{ theme: 'bakery', family: 'Inter', fontFace: [ FACE ], note: undefined },
-	{ theme: 'bakery-parent', family: 'Inter', fontFace: undefined, note: undefined },
 ] )(
 	'self-hosts $family in $theme after a theme.json write, with font files: $fontFace',
 	async ( { theme, family, fontFace, note } ) => {
@@ -174,4 +173,54 @@ it.each( [
 			note && { hookEventName: 'PostToolUse', additionalContext: `Note: ${ note }` }
 		);
 	}
+);
+
+// A theme.json that names a palette color after a class WordPress already
+// gives blocks gets a note; a theme without a thumbnail gets its design board.
+it.each( [
+	{ slug: 'text', screenshot: undefined, note: true, thumbnail: true },
+	{ slug: 'ink', screenshot: undefined, note: false, thumbnail: true },
+	{ slug: 'ink', screenshot: 'screenshot.jpg', note: false, thumbnail: false },
+] )(
+	'after a theme.json write with palette $slug and $screenshot, notes the clash: $note, saves a thumbnail: $thumbnail',
+	async ( { slug, screenshot, note, thumbnail } ) => {
+		const themeDir = path.join( site.root, 'wp-content/themes/bakery' );
+		if ( screenshot ) {
+			writeFileSync( path.join( themeDir, screenshot ), '' );
+		}
+		writeFileSync(
+			path.join( themeDir, 'theme.json' ),
+			JSON.stringify( {
+				version: 3,
+				settings: {
+					color: {
+						palette: [
+							{ slug: 'paper', color: '#ffffff' },
+							{ slug, color: '#111111' },
+						],
+					},
+				},
+				styles: { typography: { fontFamily: 'Georgia, serif' } },
+			} )
+		);
+
+		const output = await runFileToolHook( {
+			hook_event_name: 'PostToolUse',
+			tool_name: 'Write',
+			tool_input: { file_path: path.join( themeDir, 'theme.json' ) },
+		} );
+
+		const hook = output?.hookSpecificOutput;
+		const context = hook && 'additionalContext' in hook ? hook.additionalContext : '';
+		expect( context.includes( 'names a palette color `text`' ) ).toBe( note );
+		expect( context.includes( 'screenshot.png' ) ).toBe( thumbnail );
+		const png = path.join( themeDir, 'screenshot.png' );
+		expect( existsSync( png ) ).toBe( thumbnail );
+		if ( thumbnail ) {
+			// The PNG header: width and height are big-endian at bytes 16 and 20.
+			const header = readFileSync( png );
+			expect( [ header.readUInt32BE( 16 ), header.readUInt32BE( 20 ) ] ).toEqual( [ 1200, 900 ] );
+		}
+	},
+	60_000
 );

@@ -1,7 +1,4 @@
-import { copyFile } from 'node:fs/promises';
-import path from 'node:path';
 import { Type } from 'typebox';
-import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import { defineTool, LOCAL_CHANGE } from './define-tool';
 import {
 	captureScreenshotBuffer,
@@ -56,11 +53,10 @@ function getCaptureListLabel(
 	return targets.map( getCaptureLabel ).join( ', ' );
 }
 
-const TEXT_ONLY_NOTE =
-	'This model cannot view images, so the capture is not shown to you: verify the rendered page with inspect_design.';
+const TEXT_ONLY_NOTE = 'This model cannot view images, so the capture is not shown to you.';
 
-// Text-only models still get the tool (it sets the theme screenshot) but no
-// image block, which they would otherwise describe without seeing.
+// Text-only models still get the tool, to show the user a page, but no image
+// block, which they would otherwise describe without seeing.
 export function createTakeScreenshotTool( {
 	visionEnabled,
 	imageLink,
@@ -77,22 +73,20 @@ export function createTakeScreenshotTool( {
 			( visionEnabled
 				? 'Returns the screenshot as an image that you can analyze visually; tall pages are scaled down to 2000 pixels on their longest side, and the saved file keeps full resolution. '
 				: `${ TEXT_ONLY_NOTE } ` ) +
-			'Supports desktop and mobile viewports; pass `viewport: "all"` when you need both for design verification. ' +
-			'Pass `colorScheme: "light"`, `colorScheme: "dark"`, or `colorScheme: "all"` to verify pages that respond to prefers-color-scheme. ' +
+			'Supports desktop and mobile viewports; pass `viewport: "all"` for both. ' +
+			'Pass `colorScheme: "light"`, `colorScheme: "dark"`, or `colorScheme: "all"` for pages that respond to prefers-color-scheme. ' +
 			'Long pages are clipped at 8000 vertical pixels; the response reports the document height and whether more remains, and you can call again with `offset` to fetch the next slice. ' +
-			'Use this to verify the site looks correct after building it. ' +
 			( imageLink
 				? 'Captures meant for the user come back with image lines to put in your reply, which show them; '
 				: 'Captures are shown to the user in the chat by default; ' ) +
-			'pass `display: false` for internal verification captures while iterating so the user only sees deliberate milestones.',
+			'pass `display: false` for a capture only you need.',
 		{
 			url: Type.String( { description: 'The URL to screenshot' } ),
 			viewport: Type.Optional( screenshotViewportSchema ),
 			colorScheme: Type.Optional( screenshotColorSchemeSchema ),
 			display: Type.Optional(
 				Type.Boolean( {
-					description:
-						'Whether to show the capture to the user in the chat. Defaults to true; set false for internal verification captures the user does not need to see.',
+					description: 'Whether to show the capture to the user in the chat. Defaults to true.',
 				} )
 			),
 			offset: Type.Optional(
@@ -102,25 +96,10 @@ export function createTakeScreenshotTool( {
 						'Y-offset in CSS pixels for the capture region. Defaults to 0 (top of page). When a previous call reports the page was clipped, pass `offset` equal to where that capture ended to fetch the next slice.',
 				} )
 			),
-			themeScreenshot: Type.Optional(
-				Type.String( {
-					description:
-						"The absolute path of a theme's directory in a Studio site (`<site path>/wp-content/themes/<slug>`): also saves the desktop capture there as screenshot.jpg, the theme's thumbnail in Appearance → Themes.",
-				} )
-			),
 		},
 		async ( args, context ) => {
 			try {
-				const themeDirectory = args.themeScreenshot && path.resolve( args.themeScreenshot );
-				if ( themeDirectory && ! themeDirectory.startsWith( STUDIO_SITES_ROOT + path.sep ) ) {
-					throw new Error(
-						`themeScreenshot must be the absolute path of a theme directory in a Studio site (${ STUDIO_SITES_ROOT }/<site>/wp-content/themes/<slug>).`
-					);
-				}
 				const viewportTypes = resolveViewportTypes( args.viewport );
-				if ( themeDirectory && ! viewportTypes.includes( 'desktop' ) ) {
-					throw new Error( 'themeScreenshot needs a desktop capture.' );
-				}
 				const colorSchemes = resolveColorSchemes( args.colorScheme );
 				const captureTargets = viewportTypes.flatMap( ( viewportType ) =>
 					colorSchemes.map( ( colorScheme ) => ( { viewportType, colorScheme } ) )
@@ -202,14 +181,6 @@ export function createTakeScreenshotTool( {
 					captures.length === 1
 						? [ `Screenshot captured — ${ captureLines[ 0 ] }` ]
 						: [ 'Screenshots captured:', ...captureLines.map( ( line ) => `- ${ line }` ) ];
-				const desktop = captures.find( ( capture ) => capture.viewportType === 'desktop' );
-				if ( themeDirectory && desktop ) {
-					const themeScreenshot = path.join( themeDirectory, 'screenshot.jpg' );
-					await copyFile( desktop.path, themeScreenshot );
-					textLines.push(
-						`Saved the desktop capture as the theme screenshot: ${ themeScreenshot }`
-					);
-				}
 				if ( ! visionEnabled ) {
 					textLines.push( TEXT_ONLY_NOTE );
 				}

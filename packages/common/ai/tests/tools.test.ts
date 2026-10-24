@@ -98,7 +98,6 @@ describe( 'tool display helpers', () => {
 
 	it( 'adds human names for Studio-specific visual tools', () => {
 		expect( getToolDisplayName( 'take_screenshot' ) ).toBe( 'Take screenshot' );
-		expect( getToolDisplayName( 'inspect_design' ) ).toBe( 'Inspect design' );
 		expect( getToolDisplayName( 'open_annotation_browser' ) ).toBe( 'Open annotation browser' );
 	} );
 

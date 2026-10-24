@@ -55,9 +55,7 @@ export const SCREENSHOT_COLOR_SCHEME_DESCRIPTION =
 	'Color scheme to emulate: "light" or "dark". Defaults to the browser/system preference.';
 
 /**
- * Apply the media emulation shared by every browser-driving tool. Keeping
- * this in one place guarantees `inspect_design` reports styles under the same
- * prefers-color-scheme mode `take_screenshot` renders.
+ * Apply the prefers-color-scheme emulation a capture asks for.
  */
 export async function applyScreenshotMediaEmulation(
 	page: Page,

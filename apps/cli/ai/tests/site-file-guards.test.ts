@@ -59,6 +59,15 @@ describe( 'theme CSS lint', () => {
 		).toEqual( [] );
 	} );
 
+	it.each( [
+		[ '.hero { width: 100vw; margin-left: calc(50% - 50vw) }', 1 ],
+		[ '.hero { width: 100dvw }', 1 ],
+		[ '.hero { max-width: 100vw }', 0 ],
+		[ '.hero { width: 100% }', 0 ],
+	] )( 'flags a viewport-width breakout in %s: %d', ( css, count ) => {
+		expect( lintThemeCss( css, new Set() ) ).toHaveLength( count );
+	} );
+
 	it( 'flags box styles on the button wrapper, not the link', () => {
 		expect( lintThemeCss( '.wp-block-button { padding: 1rem }', new Set() ) ).toHaveLength( 1 );
 		expect(

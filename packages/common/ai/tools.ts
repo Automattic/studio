@@ -312,7 +312,6 @@ export function getToolDisplayName( name: string, input?: Record< string, unknow
 		site_connected_remote_sites: __( 'List connected remote sites' ),
 		pick_design: __( 'Pick design' ),
 		present_design_options: __( 'Present design options' ),
-		inspect_design: __( 'Inspect design' ),
 		validate_blocks: __( 'Validate blocks' ),
 		take_screenshot: __( 'Take screenshot' ),
 		generate_images: __( 'Generate images' ),
@@ -429,8 +428,6 @@ export function getToolDetail( name: string, input?: Record< string, unknown > )
 				)
 				.filter( Boolean )
 				.join( ' · ' );
-		case 'inspect_design':
-			return typeof input.url === 'string' ? input.url : '';
 		case 'validate_blocks':
 			if ( typeof input.filePath === 'string' ) {
 				return input.filePath.split( '/' ).slice( -2 ).join( '/' );

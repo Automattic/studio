@@ -9,11 +9,17 @@
  * (runtimes/hooks) run the same checks.
  */
 import { existsSync, readdirSync, readFileSync, statSync } from 'fs';
+import { unlink, writeFile } from 'fs/promises';
 import path from 'path';
+import { pathToFileURL } from 'url';
 import { selfHostThemeJsonFonts } from '@studio/common/lib/theme-fonts';
+import { trappedFullWidthNotes } from 'cli/ai/block-alignment';
+import { renderDesignBoard } from 'cli/ai/design-board';
 import { savedCopyWriteNote } from 'cli/ai/saved-copies';
+import { resolveScreenshotDirectory } from 'cli/ai/screenshot-storage';
 import { readWordPressSite } from 'cli/ai/site-database';
 import { isUpdatableTheme } from 'cli/ai/themes';
+import { captureScreenshotBuffer } from 'cli/ai/tools/screenshot-helpers';
 import { resolveSite } from 'cli/ai/tools/utils';
 import { findSiteByFolder } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
@@ -55,6 +61,7 @@ export function resolveSiteFile( filePath: string ): SiteFile | undefined {
 
 const INLINE_DISPLAY = /(^|;|\s)display\s*:\s*inline(-block|-flex|-grid)?\s*(;|$|!)/i;
 const BOX_DECLARATION = /(^|;|\s)(padding[a-z-]*|background[a-z-]*|border[a-z-]*)\s*:/i;
+const VIEWPORT_BREAKOUT = /calc\(\s*50%\s*-\s*50d?vw\s*\)|(^|;|\s)width\s*:\s*100d?vw/i;
 
 function listFiles( dir: string, extensions: string[], depth = 3 ): string[] {
 	if ( depth < 0 || ! existsSync( dir ) ) {
@@ -102,6 +109,11 @@ export function lintThemeCss( css: string, blockClassNames: Set< string > ): str
 			if ( single && blockClassNames.has( single[ 1 ] ) && INLINE_DISPLAY.test( declarations ) ) {
 				notes.push(
 					`\`${ selector }\` is a block className and gets an inline-level display. Blocks in a constrained layout are placed with auto inline margins (wp-includes/block-supports/layout.php), which inline-level boxes ignore, so this block leaves the content column. To shrink-wrap it, wrap it in a group with a flex layout and drop the display rule.`
+				);
+			}
+			if ( VIEWPORT_BREAKOUT.test( declarations ) ) {
+				notes.push(
+					`\`${ selector }\` stretches to the viewport width with CSS. WordPress spans a block across the page with align full (wp-includes/block-supports/layout.php): give the block align full instead, and when it still stops short, a block around it is not full width.`
 				);
 			}
 			if (
@@ -156,13 +168,47 @@ export async function getSiteFileWriteRefusal(
 	return `Not run: ${ reason }`;
 }
 
+// Palette slugs whose `.has-<slug>-color` class (class-wp-theme-json.php) is
+// the class the block editor saves on every block with its own text or link
+// color (wp-includes/js/dist/block-editor.js).
+const MARKER_SLUGS = [ 'text', 'link' ];
+
+/** What a theme.json just written makes WordPress render differently from what it says. */
+function themeJsonNotes( themeJson: unknown, themePath: string ): string[] {
+	const palette = ( themeJson as { settings?: { color?: { palette?: { slug?: unknown }[] } } } )
+		?.settings?.color?.palette;
+	return ( Array.isArray( palette ) ? palette : [] )
+		.filter( ( { slug } ) => MARKER_SLUGS.includes( slug as string ) )
+		.map(
+			( { slug } ) =>
+				`${ themePath }/theme.json names a palette color \`${ slug }\`, so WordPress generates \`.has-${ slug }-color\` for it (wp-includes/class-wp-theme-json.php): the class the block editor also saves on every block with its own ${ slug } color, which then loses that color to \`${ slug }\`. Rename the slug.`
+		);
+}
+
+// Block markup files: a theme's templates, parts and patterns, and page
+// content scratch files.
+function isBlockMarkup( { relativePath, theme }: SiteFile ): boolean {
+	return theme
+		? /^(templates|parts|patterns)\/[^/]+\.(html|php)$/.test( theme.file )
+		: /^tmp\/[^/]+\.html$/.test( relativePath );
+}
+
 /** What WordPress will render differently from the file just written, if anything. */
 async function getSiteFileWriteNotes( siteFile: SiteFile ): Promise< string[] > {
 	const { siteRoot, relativePath, theme } = siteFile;
-	if ( ! theme ) {
-		return [];
-	}
 	const notes: string[] = [];
+	if ( isBlockMarkup( siteFile ) ) {
+		notes.push(
+			...trappedFullWidthNotes( readFileSync( path.join( siteRoot, relativePath ), 'utf8' ) )
+		);
+	}
+	if ( ! theme ) {
+		return notes;
+	}
+	if ( theme.file === 'theme.json' ) {
+		const themeJson = JSON.parse( readFileSync( path.join( theme.dir, theme.file ), 'utf8' ) );
+		notes.push( ...themeJsonNotes( themeJson, `wp-content/themes/${ theme.slug }` ) );
+	}
 	if ( theme.file.endsWith( '.css' ) ) {
 		const css = readFileSync( path.join( theme.dir, theme.file ), 'utf8' );
 		notes.push( ...lintThemeCss( css, await getBlockClassNames( siteRoot, theme.dir ) ) );
@@ -178,11 +224,11 @@ async function getSiteFileWriteNotes( siteFile: SiteFile ): Promise< string[] > 
 
 /**
  * Self-hosts the fonts a theme.json just written declares without font files,
- * and says what it downloaded. Themes WordPress updates are left as they are.
+ * and says what it downloaded.
  */
 async function selfHostFonts( siteFile: SiteFile ): Promise< string[] > {
-	const { siteRoot, theme } = siteFile;
-	if ( theme?.file !== 'theme.json' || ( await isUpdatableTheme( siteRoot, theme.slug ) ) ) {
+	const { theme } = siteFile;
+	if ( theme?.file !== 'theme.json' ) {
 		return [];
 	}
 	const { hosted, failed } = await selfHostThemeJsonFonts( theme.dir );
@@ -197,19 +243,56 @@ async function selfHostFonts( siteFile: SiteFile ): Promise< string[] > {
 			: [] ),
 		...failed.map(
 			( { family, error } ) =>
-				`${ family } has no font files in ${ themePath }/theme.json, and Google Fonts did not provide them (${ error }).`
+				`${ family } has no font files in ${ themePath }/theme.json, and Google Fonts did not provide them (${ error }). Put its files in ${ themePath }/assets/fonts and declare them as its fontFace, or choose a Google Fonts family.`
 		),
+	];
+}
+
+const THUMBNAIL = { width: 1200, height: 900 } as const;
+
+/**
+ * Gives a theme without a thumbnail one: its theme.json's design board, the
+ * 1200×900 screenshot.png Appearance → Themes shows.
+ */
+async function writeThemeThumbnail( siteFile: SiteFile ): Promise< string[] > {
+	const { theme } = siteFile;
+	if (
+		theme?.file !== 'theme.json' ||
+		readdirSync( theme.dir ).some( ( file ) => /^screenshot\.(png|jpe?g|gif|webp)$/.test( file ) )
+	) {
+		return [];
+	}
+	const board = renderDesignBoard( readFileSync( path.join( theme.dir, theme.file ), 'utf8' ) );
+	const page = path.join( await resolveScreenshotDirectory(), `thumbnail-${ theme.slug }.html` );
+	await writeFile( page, `\ufeff${ board }` );
+	try {
+		const { buffer } = await captureScreenshotBuffer( pathToFileURL( page ).href, THUMBNAIL, {
+			fullPage: false,
+			format: 'png',
+		} );
+		await writeFile( path.join( theme.dir, 'screenshot.png' ), buffer );
+	} finally {
+		await unlink( page );
+	}
+	return [
+		`Studio saved the theme's design board as wp-content/themes/${ theme.slug }/screenshot.png, its thumbnail in Appearance → Themes.`,
 	];
 }
 
 /**
  * After a write to a site's file: registers a changed pattern, self-hosts the
- * theme's fonts, and returns what WordPress will render differently from the file.
+ * theme's fonts, gives it a thumbnail, and returns what WordPress will render
+ * differently from the file.
  */
 export async function afterSiteFileWrite( siteFile: SiteFile ): Promise< string[] > {
 	await clearThemePatternCache( siteFile ).catch( () => undefined );
 	const fonts = await selfHostFonts( siteFile ).catch( () => [] );
-	return [ ...fonts, ...( await getSiteFileWriteNotes( siteFile ).catch( () => [] ) ) ];
+	const thumbnail = await writeThemeThumbnail( siteFile ).catch( () => [] );
+	return [
+		...fonts,
+		...thumbnail,
+		...( await getSiteFileWriteNotes( siteFile ).catch( () => [] ) ),
+	];
 }
 
 /**

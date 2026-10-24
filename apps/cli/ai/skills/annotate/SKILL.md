@@ -49,13 +49,10 @@ For each annotation:
    - For style changes (colors, sizes, spacing): use Global Styles custom CSS with the selector from the annotation
    - For content changes (text, headings, block structure): edit the template or post content via WP-CLI
    - For block-level changes: identify the WordPress block type from the HTML structure (look for `wp-block-*` classes) and modify accordingly
-3. Take a screenshot to verify the change looks correct
 
-### 5. Verify
+### 5. Report
 
-After all annotations are addressed, take a screenshot and confirm with the user.
-
-The browser closes when the user clicks **Send**. If they want another round, run the skill again from the top — `/annotate` opens a fresh browser.
+After all annotations are addressed, tell the user what changed. The browser closes when the user clicks **Send**. If they want another round, run the skill again from the top — `/annotate` opens a fresh browser.
 
 ## Making changes the WordPress way
 

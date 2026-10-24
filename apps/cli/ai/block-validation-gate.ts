@@ -5,7 +5,7 @@
  * Writing block markup (a theme template or part, or a page scratch file in the
  * site's tmp/) queues that file. Validation starts in the background at once,
  * and what puts content on the site or renders it (a shell command, which
- * runs WP-CLI, take_screenshot, inspect_design) waits for it first. A fix the block editor
+ * runs WP-CLI, or take_screenshot) waits for it first. A fix the block editor
  * can make losslessly is applied to the file silently; the model hears only
  * about what it has to change itself.
  */

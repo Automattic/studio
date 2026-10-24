@@ -139,12 +139,15 @@ function NoticeDescription( { notice }: { notice: Notice } ) {
 export function NoticeCard( {
 	className,
 	notice,
+	action,
 	time,
 	onDismiss,
 	onActionDone,
 }: {
 	className?: string;
 	notice: Notice;
+	// In place of the notice's own action button.
+	action?: ReactNode;
 	time?: ReactNode;
 	onDismiss: () => void;
 	onActionDone?: () => void;
@@ -154,13 +157,14 @@ export function NoticeCard( {
 			<div className={ styles.row }>
 				<StatusIcon intent={ notice.intent } />
 				<p className={ styles.title }>{ notice.title }</p>
-				{ notice.action ? (
-					<NoticeActionButton
-						action={ notice.action }
-						pending={ notice.actionPending }
-						onDone={ onActionDone }
-					/>
-				) : null }
+				{ action ??
+					( notice.action ? (
+						<NoticeActionButton
+							action={ notice.action }
+							pending={ notice.actionPending }
+							onDone={ onActionDone }
+						/>
+					) : null ) }
 				{ time }
 			</div>
 			{ notice.description ? <NoticeDescription notice={ notice } /> : null }

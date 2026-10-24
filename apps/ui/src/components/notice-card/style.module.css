@@ -171,6 +171,32 @@
 	opacity: 1;
 }
 
+/* Too narrow to share the title's line, as in the sidebar, the action goes
+   under the text. */
+@container (width < 300px) {
+	.card {
+		display: grid;
+		grid-template-columns: auto minmax(0, 1fr);
+		align-items: center;
+		column-gap: 8px;
+	}
+
+	.row {
+		display: contents;
+	}
+
+	.details {
+		grid-column: 2;
+		padding-inline-start: 0;
+	}
+
+	.row > button {
+		grid-area: 3 / 2;
+		justify-self: start;
+		margin-top: 12px;
+	}
+}
+
 @media (prefers-reduced-motion: reduce) {
 	.close {
 		transition: none;

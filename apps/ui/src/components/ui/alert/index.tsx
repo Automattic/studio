@@ -4,14 +4,6 @@ import type { ComponentProps } from 'react';
 
 type AlertVariant = 'default' | 'info' | 'success' | 'warning' | 'destructive';
 
-/** The variant for a notice's intent. */
-export const INTENT_VARIANTS = {
-	info: 'info',
-	success: 'success',
-	warning: 'warning',
-	error: 'destructive',
-} as const satisfies Record< string, AlertVariant >;
-
 /** A bordered message block; a leading svg child becomes its icon. */
 export function Alert( {
 	className,

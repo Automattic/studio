@@ -129,52 +129,6 @@
 	flex: none;
 }
 
-.select {
-	display: inline-flex;
-	align-items: center;
-	gap: 6px;
-	min-width: 0;
-	height: var(--control-size);
-	padding: 0 8px;
-	border: 1px solid transparent;
-	border-radius: 12px;
-	background: transparent;
-	color: inherit;
-	font: inherit;
-	font-size: var(--text-xs);
-	font-weight: var(--font-weight-medium);
-	cursor: pointer;
-}
-
-.select:hover:not(:disabled, [data-disabled]),
-.select[data-popup-open] {
-	background: var(--muted);
-}
-
-.select:is(:disabled, [data-disabled]) {
-	opacity: 0.5;
-	cursor: default;
-}
-
-.selectWide {
-	justify-content: space-between;
-	width: 100%;
-	padding: 0 10px;
-	border-color: var(--border);
-	font-size: var(--text-sm);
-	font-weight: var(--font-weight-normal);
-}
-
-.selectValue {
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
-}
-
-.selectPopupWide {
-	width: var(--anchor-width);
-}
-
 .footer {
 	display: flex;
 	gap: 8px;
@@ -187,7 +141,7 @@
 .intro {
 	display: flex;
 	flex-direction: column;
-	gap: 6px;
+	gap: 10px;
 }
 
 .introActions {
@@ -226,7 +180,10 @@
 }
 
 .websiteRowText {
+	display: flex;
 	flex: 1;
+	flex-direction: column;
+	gap: 2px;
 	min-width: 0;
 }
 

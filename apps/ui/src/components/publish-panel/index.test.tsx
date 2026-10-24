@@ -119,10 +119,10 @@ describe( 'PublishButton', () => {
 		const { connector, site } = renderButton();
 
 		await userEvent.click( screen.getByRole( 'button', { name: 'Publish…' } ) );
-		const scope = await screen.findByRole( 'button', { name: 'What to publish' } );
+		const scope = await screen.findByRole( 'combobox', { name: 'What to publish' } );
 		await waitFor( () => expect( scope ).toBeEnabled() );
 		await userEvent.click( scope );
-		await userEvent.click( await screen.findByRole( 'menuitemradio', { name: 'Choose files…' } ) );
+		await userEvent.click( await screen.findByRole( 'option', { name: 'Choose files…' } ) );
 		await userEvent.click( await screen.findByRole( 'button', { name: 'Expand plugins' } ) );
 		await userEvent.click( screen.getByRole( 'checkbox', { name: 'shared (symbolic link)' } ) );
 		await userEvent.click( screen.getByRole( 'button', { name: 'Done' } ) );

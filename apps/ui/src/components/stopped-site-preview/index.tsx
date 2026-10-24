@@ -68,10 +68,10 @@ export function StoppedSitePreview( { site }: { site: SiteDetails } ) {
 		>
 			<span className={ styles.frame }>
 				<img src={ thumbnail } alt={ __( 'Saved site preview' ) } draggable={ false } />
-			</span>
-			<span className={ styles.overlay } aria-hidden="true">
-				<span className={ styles.play }>
-					<StartSiteIcon fill="currentColor" />
+				<span className={ styles.overlay } aria-hidden="true">
+					<span className={ styles.play }>
+						<StartSiteIcon fill="currentColor" />
+					</span>
 				</span>
 			</span>
 		</button>

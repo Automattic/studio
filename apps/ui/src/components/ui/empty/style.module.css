@@ -14,22 +14,31 @@
 		text-wrap: balance;
 	}
 
-	.media {
+	.header {
 		display: flex;
+		flex-direction: column;
+		gap: 8px;
 		align-items: center;
-		justify-content: center;
-		margin-block-end: 4px;
-		color: var( --muted-foreground );
+		max-width: 384px;
 	}
 
-	.media svg {
-		width: 24px;
-		height: 24px;
+	.media {
+		display: flex;
+		width: 32px;
+		height: 32px;
+		flex-shrink: 0;
+		align-items: center;
+		justify-content: center;
+		margin-block-end: 8px;
+		border-radius: var( --radius-lg );
+		background: var( --muted );
+		color: var( --foreground );
 	}
 
 	.title {
 		font-size: var( --text-sm );
 		font-weight: var( --font-weight-medium );
+		line-height: 20px;
 		letter-spacing: -0.02em;
 	}
 

@@ -21,8 +21,20 @@ export function createSite( prefix = 'wp_' ) {
 			`/*\n${ header }\n*/`
 		);
 	}
-	const db = new DatabaseSync( path.join( root, 'wp-content/database/.ht.sqlite' ) );
-	db.exec( `
+	// Each write opens and closes the database, as Windows cannot remove an open file.
+	const write = ( sql: string, ...params: Array< string | number > ) => {
+		const db = new DatabaseSync( path.join( root, 'wp-content/database/.ht.sqlite' ) );
+		try {
+			if ( params.length ) {
+				db.prepare( sql ).run( ...params );
+			} else {
+				db.exec( sql );
+			}
+		} finally {
+			db.close();
+		}
+	};
+	write( `
 		CREATE TABLE ${ prefix }posts ( ID INTEGER PRIMARY KEY, post_type TEXT, post_status TEXT, post_name TEXT, post_content TEXT, post_date TEXT, post_title TEXT DEFAULT '', post_modified_gmt TEXT DEFAULT '2026-10-22 00:00:00' );
 		CREATE TABLE ${ prefix }terms ( term_id INTEGER PRIMARY KEY, name TEXT );
 		CREATE TABLE ${ prefix }term_taxonomy ( term_taxonomy_id INTEGER PRIMARY KEY, term_id INTEGER, taxonomy TEXT );
@@ -43,20 +55,29 @@ export function createSite( prefix = 'wp_' ) {
 		status = 'publish',
 		title = ''
 	) => {
-		db.prepare(
-			`INSERT INTO ${ prefix }posts ( ID, post_type, post_status, post_name, post_content, post_date, post_title ) VALUES ( ?, ?, ?, ?, ?, '2026-10-22', ? )`
-		).run( id, type, status, slug, content, title );
-		db.prepare( `INSERT INTO ${ prefix }term_relationships VALUES ( ?, ? )` ).run( id, theme );
+		write(
+			`INSERT INTO ${ prefix }posts ( ID, post_type, post_status, post_name, post_content, post_date, post_title ) VALUES ( ?, ?, ?, ?, ?, '2026-10-22', ? )`,
+			id,
+			type,
+			status,
+			slug,
+			content,
+			title
+		);
+		write( `INSERT INTO ${ prefix }term_relationships VALUES ( ?, ? )`, id, theme );
 	};
 	const setOptions = ( options: Record< string, string > ) => {
 		for ( const [ name, value ] of Object.entries( options ) ) {
-			db.prepare( `INSERT OR REPLACE INTO ${ prefix }options VALUES ( ?, ? )` ).run( name, value );
+			write( `INSERT OR REPLACE INTO ${ prefix }options VALUES ( ?, ? )`, name, value );
 		}
 	};
 	// An edit as WordPress saves it: new content and a new modified time.
 	const edit = ( id: number, content: string, modified = '2026-10-23 00:00:00' ) =>
-		db
-			.prepare( `UPDATE ${ prefix }posts SET post_content = ?, post_modified_gmt = ? WHERE ID = ?` )
-			.run( content, modified, id );
+		write(
+			`UPDATE ${ prefix }posts SET post_content = ?, post_modified_gmt = ? WHERE ID = ?`,
+			content,
+			modified,
+			id
+		);
 	return { root, save, setOptions, edit };
 }

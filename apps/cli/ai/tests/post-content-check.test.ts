@@ -94,10 +94,9 @@ describe( 'post content changes', () => {
 		const { summaries, problems } = await check.settle();
 		expect( summaries ).toEqual( [ 'Bakery page 9 "": 1 invalid block(s)' ] );
 		expect( problems[ 0 ] ).toContain(
-			`Apply it in the site's folder with \`wp post update 9 ${ path.join(
-				fixture.root,
-				'tmp/page-9.html'
-			) }\``
+			`Apply it in the site's folder with \`wp post update 9 ${ fixture.root
+				.split( path.sep )
+				.join( '/' ) }/tmp/page-9.html\``
 		);
 		expect( readFileSync( path.join( fixture.root, 'tmp/page-9.html' ), 'utf8' ) ).toBe(
 			WRAPPED_GROUP

@@ -1,3 +1,4 @@
+import path from 'path';
 import { ANTHROPIC_MODELS } from '@earendil-works/pi-ai/providers/anthropic.models';
 import { ModelRegistry, SessionManager } from '@earendil-works/pi-coding-agent';
 import { AI_MODELS } from '@studio/common/ai/models';
@@ -533,12 +534,12 @@ describe( 'pi runtime', () => {
 			running: false,
 		} as StudioAgentTurnConfig[ 'activeSite' ];
 		const write = await run( local );
-		const file = `${ mocks.studioRoot }/a/style.css`;
+		const file = path.resolve( mocks.studioRoot, 'a/style.css' );
 		const text = async ( params: Record< string, unknown > ) =>
 			( await write.execute( 'w', params ) ).content.map( ( part ) => part.text );
 
 		await expect( write.execute( 'w', { path: 'a/refused.php', content: '' } ) ).rejects.toThrow(
-			`Not run: ${ mocks.studioRoot }/a/refused.php`
+			`Not run: ${ path.resolve( mocks.studioRoot, 'a/refused.php' ) }`
 		);
 		expect( await text( { path: 'a/style.css', content: '' } ) ).toEqual( [
 			'',

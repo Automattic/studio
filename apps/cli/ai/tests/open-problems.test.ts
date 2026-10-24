@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { describeOpenProblems, OpenProblems } from 'cli/ai/open-problems';
+import { describeOpenProblems, frontPageIsPostsPage, OpenProblems } from 'cli/ai/open-problems';
+import { createSite } from 'cli/ai/tests/fixtures/wordpress-site';
 
 describe( 'OpenProblems', () => {
 	it( 'raises each problem still open once, and the problems of the sites changed', async () => {
@@ -25,6 +26,33 @@ describe( 'OpenProblems', () => {
 	it( "tags the problems as Studio's checks", () => {
 		expect( describeOpenProblems( [ 'a', 'b' ] ) ).toBe(
 			'<studio-checks>\nStudio checked the sites this turn changed:\n- a\n- b\n</studio-checks>'
+		);
+	} );
+} );
+
+describe( 'frontPageIsPostsPage', () => {
+	it.each( [
+		[ 'the same page', { show_on_front: 'page', page_on_front: '7', page_for_posts: '7' }, true ],
+		[
+			'another posts page',
+			{ show_on_front: 'page', page_on_front: '7', page_for_posts: '8' },
+			false,
+		],
+		[
+			'latest posts at the front',
+			{ show_on_front: 'posts', page_on_front: '7', page_for_posts: '7' },
+			false,
+		],
+		[ 'no front page', { show_on_front: 'page', page_on_front: '0', page_for_posts: '0' }, false ],
+	] )( '%s', async ( _name, options, raised ) => {
+		const site = createSite();
+		site.save( 7, 'page', 'home', '', 1, 'publish', 'Home' );
+		site.setOptions( options );
+		const problem = await frontPageIsPostsPage( site.root );
+		expect( problem ).toBe(
+			raised
+				? 'Settings → Reading names page 7 "Home" as both the front page (page_on_front) and the posts page (page_for_posts), which its screen warns against ("these pages should not be the same!", wp-admin/options-reading.php): WordPress then queries the posts index at the front page instead of that page (WP_Query::parse_query in wp-includes/class-wp-query.php). Set page_for_posts to another page, or to 0 for none.'
+				: undefined
 		);
 	} );
 } );

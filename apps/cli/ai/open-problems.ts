@@ -34,6 +34,7 @@ export class OpenProblems {
 	constructor(
 		private readonly siteChecks: Array< ( sitePath: string ) => Promise< string | undefined > > = [
 			unrenderedFrontPage,
+			frontPageIsPostsPage,
 			homeSectionLinks,
 		]
 	) {}
@@ -89,6 +90,31 @@ export function getOpenProblems( session: object ): OpenProblems {
 		bySession.set( session, open );
 	}
 	return open;
+}
+
+/**
+ * Settings → Reading naming one page as both the front page and the posts
+ * page, which its screen warns against (wp-admin/options-reading.php).
+ */
+export async function frontPageIsPostsPage( sitePath: string ): Promise< string | undefined > {
+	const page = await readWordPressSite( sitePath, ( site ) => {
+		const front = site.option( 'page_on_front' );
+		const same =
+			site.option( 'show_on_front' ) === 'page' &&
+			Number( front ) > 0 &&
+			site.option( 'page_for_posts' ) === front;
+		if ( ! same ) {
+			return undefined;
+		}
+		const [ post ] = site.query< { title: string } >(
+			`SELECT post_title AS title FROM ${ site.prefix }posts WHERE ID = ?`,
+			Number( front )
+		);
+		return { id: front, title: post?.title ?? '' };
+	} );
+	return page
+		? `Settings → Reading names page ${ page.id } "${ page.title }" as both the front page (page_on_front) and the posts page (page_for_posts), which its screen warns against ("these pages should not be the same!", wp-admin/options-reading.php): WordPress then queries the posts index at the front page instead of that page (WP_Query::parse_query in wp-includes/class-wp-query.php). Set page_for_posts to another page, or to 0 for none.`
+		: undefined;
 }
 
 /**

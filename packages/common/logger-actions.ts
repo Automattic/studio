@@ -24,6 +24,8 @@ export enum SiteCommandLoggerAction {
 	LOAD_SITES = 'loadSites',
 	START_PROXY = 'startProxy',
 	STOP_PROXY = 'stopProxy',
+	START_EMAIL_INBOX = 'startEmailInbox',
+	STOP_EMAIL_INBOX = 'stopEmailInbox',
 	GENERATE_CERT = 'generateCert',
 	DELETE_CERT = 'deleteCert',
 	ADD_DOMAIN_TO_HOSTS = 'addDomainToHosts',

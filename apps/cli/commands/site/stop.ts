@@ -13,6 +13,7 @@ import {
 	disconnectFromDaemon,
 	killDaemonAndChildren,
 } from 'cli/lib/daemon-client';
+import { stopMailpitIfNoSitesRunning } from 'cli/lib/mailpit/server';
 import { withSiteOperation } from 'cli/lib/site-operations';
 import { stopProxyIfNoSitesNeedIt } from 'cli/lib/site-utils';
 import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
@@ -93,6 +94,7 @@ async function stopSites(
 				await clearSiteLatestCliPid( site.id );
 				logger.reportSuccess( __( 'WordPress server stopped' ) );
 				await stopProxyIfNoSitesNeedIt( site.id, logger );
+				await stopMailpitIfNoSitesRunning( logger );
 				await recordSiteStop( await getRunningSiteCount() );
 			} catch ( error ) {
 				throw new LoggerError( __( 'Failed to stop WordPress server' ), error );

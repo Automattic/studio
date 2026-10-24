@@ -185,6 +185,17 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 	`,
 	} );
 
+	// WordPress sends as wordpress@<site host>, and PHPMailer refuses `wordpress@localhost`
+	// (no dot in the domain), so without this every email a localhost site sends fails.
+	muPlugins.push( {
+		filename: '0-mail-from.php',
+		content: `<?php
+		add_filter( 'wp_mail_from', function ( $from_email ) {
+			return preg_match( '/@[^.@]+$/', $from_email ) ? $from_email . '.localdomain' : $from_email;
+		} );
+		`,
+	} );
+
 	// Trailing slash handling for wp-admin
 	muPlugins.push( {
 		filename: '0-wp-admin-trailing-slash.php',

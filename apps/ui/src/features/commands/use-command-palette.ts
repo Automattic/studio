@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react';
-import { isShortcut } from '@/lib/utils';
+import { isShortcut } from '@/lib/keyboard';
 import type { KeyboardEvent } from 'react';
 
 let paletteOpen = false;

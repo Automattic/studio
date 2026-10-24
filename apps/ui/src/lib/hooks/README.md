@@ -2,7 +2,7 @@
 
 React hooks that any app could use: they read the browser, not Studio.
 
-**Belongs here:** a hook built only on React and web APIs (`useOffline`, `usePointerDrag`, `useStoredFlag`, `useWindowControlsOverlay`, `useConfirmOnEnter`). **Doesn't:** a hook that calls the connector or a query (it goes in `data/`, `data/host/` for host APIs), or one that knows a product concept (it goes in its feature).
+**Belongs here:** a hook built only on React and web APIs (`useOffline`, `usePointerDrag`, `useStoredFlag`, `useWindowControlsOverlay`). Keyboard hooks go in `lib/keyboard`. **Doesn't:** a hook that calls the connector or a query (it goes in `data/`, `data/host/` for host APIs), or one that knows a product concept (it goes in its feature).
 
 ## API
 

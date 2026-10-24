@@ -1,4 +1,4 @@
-import { createPendingSlot } from '@/lib/utils';
+import { createPendingSlot } from '@/lib/pending-slot';
 import type { ComposerSendAttachments } from '@studio/common/ai/composer-attachments';
 
 interface PendingPrompt {

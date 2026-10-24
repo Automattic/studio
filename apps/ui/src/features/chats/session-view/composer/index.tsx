@@ -105,6 +105,7 @@ import {
 	StopSiteIcon,
 	WordPressIcon,
 } from '@/lib/icons';
+import { isImeComposing } from '@/lib/keyboard';
 import {
 	Tooltip,
 	TooltipContent,
@@ -122,7 +123,6 @@ import {
 	type Command,
 	type CommandGroup,
 } from '@/lib/ui';
-import { isImeComposing } from '@/lib/utils';
 import { completeComposerDraftSend, getComposerDraft, saveComposerDraft } from './draft-store';
 import { FamilySwitchConfirmDialog } from './family-switch-confirm-dialog';
 import styles from './style.module.css';

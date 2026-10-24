@@ -49,7 +49,7 @@ The router context carries both the `QueryClient` and `Connector`, enabling rout
 
 ```
 src/
-  lib/        internal packages: ui, theme, icons, hooks, markdown, utils
+  lib/        internal packages: ui, theme, icons, hooks, keyboard, pending-slot
   features/   product areas: chats, sidebar, sites, settings, sync, sharing,
               credits, account, commands, notifications, annotations, onboarding
   data/       connectors, queries, and data/host/ for hooks over host APIs

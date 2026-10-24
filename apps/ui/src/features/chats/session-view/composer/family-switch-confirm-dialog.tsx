@@ -2,7 +2,7 @@ import { getAiModelLabel } from '@studio/common/ai/models';
 import { createInterpolateElement } from '@wordpress/element';
 import { __, sprintf } from '@wordpress/i18n';
 import { useRef } from 'react';
-import { useConfirmOnEnter } from '@/lib/hooks';
+import { useConfirmOnEnter } from '@/lib/keyboard';
 import {
 	Button,
 	Dialog,

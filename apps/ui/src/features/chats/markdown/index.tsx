@@ -5,7 +5,7 @@ import remarkGfm from 'remark-gfm';
 import { useConnector } from '@/data/core';
 import { CopyButton } from '@/features/chats/copy-button';
 import { CODE_TEXT_ATTRIBUTE } from '@/features/chats/use-text-context-menu';
-import { CodeBlock } from '@/lib/markdown';
+import { CodeBlock } from '@/lib/ui';
 import styles from './style.module.css';
 import type { MouseEvent, ReactNode } from 'react';
 import type { Components } from 'react-markdown';

@@ -52,6 +52,7 @@ import {
 } from '@/features/sites/site-header-actions';
 import { SiteContextMenu, StoppedSitePreview } from '@/features/sites/stopped-site-preview';
 import { AnnotateIcon, ArrowLeftIcon, ArrowRightIcon, GlobeIcon, RotateCwIcon } from '@/lib/icons';
+import { isDialogOpen } from '@/lib/keyboard';
 import {
 	Button,
 	IconButton,
@@ -66,7 +67,6 @@ import {
 	TooltipTrigger,
 	VisuallyHidden,
 } from '@/lib/ui';
-import { isDialogOpen } from '@/lib/utils';
 import {
 	DATABASE_HOME_PATH,
 	getPathFromPreviewUrl,

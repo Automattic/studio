@@ -11,8 +11,8 @@ import { useSites } from '@/data/queries/use-sites';
 import { getArchiveBlockedReason, useLeaveArchivedChat } from '@/features/chats';
 import { useDeleteBlockedReason, DeleteSiteDialog } from '@/features/sites';
 import { ArchiveIcon, PinIcon, ReadStatusIcon, TrashIcon, UnpinIcon } from '@/lib/icons';
+import { isShortcut } from '@/lib/keyboard';
 import { VisuallyHidden, Menu } from '@/lib/ui';
-import { isShortcut } from '@/lib/utils';
 import styles from './style.module.css';
 import type {
 	KeyboardEvent,

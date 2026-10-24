@@ -63,8 +63,9 @@ import {
 	QUOTABLE_TEXT_ATTRIBUTE,
 } from '@/features/chats/use-text-context-menu';
 import { AiAccessRequiredNotice, AiBlockedNotice } from '@/features/credits';
-import { CodeBlock } from '@/lib/markdown';
+import { isTextEntry } from '@/lib/keyboard';
 import {
+	CodeBlock,
 	Button,
 	IconButton,
 	CollapsiblePanel,
@@ -74,7 +75,6 @@ import {
 	DialogDismissButton,
 	Spinner,
 } from '@/lib/ui';
-import { isTextEntry } from '@/lib/utils';
 import { SCROLL_ANCHOR_ATTRIBUTE } from '../use-anchored-scroll';
 import styles from './style.module.css';
 import type { LoadedAiSession } from '@/data/core';

@@ -8,7 +8,7 @@ import { useConnector } from '@/data/core';
 import { useImportSite } from '@/data/queries/use-import-site';
 import { useSettleSync } from '@/data/queries/use-sync-site';
 import { applySyncActivity, useSiteSyncActivity } from '@/data/sync-activity';
-import { useConfirmOnEnter } from '@/lib/hooks';
+import { useConfirmOnEnter } from '@/lib/keyboard';
 import {
 	AlertDialog,
 	DialogContent,

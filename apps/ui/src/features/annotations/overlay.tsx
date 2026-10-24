@@ -8,6 +8,7 @@ import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { toast } from '@/data/app-messages';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useComposerAttachments, useFileDrop } from '@/features/chats';
+import { isImeComposing } from '@/lib/keyboard';
 import {
 	Badge,
 	Button,
@@ -27,7 +28,6 @@ import {
 	TooltipContent,
 	TooltipTrigger,
 } from '@/lib/ui';
-import { isImeComposing } from '@/lib/utils';
 import {
 	changeAnnotation,
 	clearAnnotations,

@@ -2,6 +2,7 @@ export * from './alert';
 export * from './badge';
 export * from './button';
 export * from './checkbox';
+export * from './code-block';
 export * from './collapsible';
 export * from './command';
 export * from './dialog';

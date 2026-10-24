@@ -73,10 +73,10 @@ import {
 	UnpinIcon,
 	WordPressIcon,
 } from '@/lib/icons';
+import { isDialogOpen, isShortcut } from '@/lib/keyboard';
 import { DEFAULT_COLOR_TINT } from '@/lib/theme';
 import { InputGroup, InputGroupAddon, InputGroupInput, Dialog, DialogContent } from '@/lib/ui';
 import { CommandList, getActiveCommand, handleCommandKey, type CommandGroup } from '@/lib/ui';
-import { isDialogOpen, isShortcut } from '@/lib/utils';
 import styles from './style.module.css';
 import type { AiSessionSummary, SiteDetails, UserPreferences } from '@/data/core';
 import type { OpenInDestination } from '@/features/sites';

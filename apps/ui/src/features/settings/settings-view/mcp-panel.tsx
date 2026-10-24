@@ -2,8 +2,7 @@ import { getMcpServerConfigJson } from '@studio/common/lib/mcp-config';
 import { __ } from '@wordpress/i18n';
 import { CopyButton } from '@/features/chats';
 import { LearnMoreLink } from '@/features/settings/learn-more';
-import { CodeBlock } from '@/lib/markdown';
-import { Field, FieldDescription } from '@/lib/ui';
+import { CodeBlock, Field, FieldDescription } from '@/lib/ui';
 import { SettingsGroup, SettingsRow } from './rows';
 import styles from './style.module.css';
 

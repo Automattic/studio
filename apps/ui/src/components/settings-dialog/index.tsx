@@ -26,6 +26,7 @@ import {
 	PanelHeader,
 } from '@/components/ui/dialog';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
+import { MarqueeLabel } from '@/components/ui/marquee-label';
 import {
 	Tabs,
 	TabsList,
@@ -379,7 +380,7 @@ export function SettingsDialog() {
 								{ getSections( scope, { signedIn } ).map( ( entry ) => (
 									<TabsTrigger key={ entry.id } value={ entry.id }>
 										<entry.icon />
-										<span className={ styles.navLabel }>{ entry.label }</span>
+										<MarqueeLabel>{ entry.label }</MarqueeLabel>
 									</TabsTrigger>
 								) ) }
 							</TabsList>
@@ -397,9 +398,7 @@ export function SettingsDialog() {
 											highlighted={ index === 0 }
 										>
 											<item.section.icon />
-											<span className={ styles.navLabel }>
-												{ item.setting?.title ?? item.section.label }
-											</span>
+											<MarqueeLabel>{ item.setting?.title ?? item.section.label }</MarqueeLabel>
 											<TabsScopeLabel>
 												{ item.scope === 'site' ? __( 'Site' ) : __( 'Studio' ) }
 											</TabsScopeLabel>

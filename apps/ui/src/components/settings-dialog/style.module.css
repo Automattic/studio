@@ -7,13 +7,6 @@
 	margin: 12px 12px 0;
 }
 
-.navLabel {
-	flex: 1;
-	min-width: 0;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
-}
 
 .empty {
 	margin: 0;

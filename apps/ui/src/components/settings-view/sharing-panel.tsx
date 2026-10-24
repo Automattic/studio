@@ -1,8 +1,9 @@
 import { isSnapshotExpired } from '@studio/common/lib/snapshots';
 import { __, sprintf } from '@wordpress/i18n';
-import { CheckIcon, PencilIcon } from 'lucide-react';
+import { PencilIcon } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { AccountPrompt, previewSiteImage } from '@/components/account-prompt';
+import { CopyButton } from '@/components/copy-button';
 import { previewExpiry, RenamePreview } from '@/components/share-dialog/preview-share-panel';
 import { Button, IconButton } from '@/components/ui/button';
 import {
@@ -19,7 +20,6 @@ import { useConnector } from '@/data/core';
 import { useAuthUser } from '@/data/queries/use-auth-user';
 import { useDeleteSnapshot, useSnapshotUsage, useSnapshots } from '@/data/queries/use-snapshots';
 import { useUserLocale } from '@/data/queries/use-user-locale';
-import { DuplicateIcon } from '@/lib/icons/duplicate-icon';
 import { TrashIcon } from '@/lib/icons/trash-icon';
 import { getSnapshotHostname, getSnapshotUrl } from '@/lib/snapshot-url';
 import { SettingsGroup, SettingsRow } from './rows';
@@ -35,7 +35,6 @@ function PreviewRow( {
 } ) {
 	const connector = useConnector();
 	const locale = useUserLocale();
-	const [ copied, setCopied ] = useState( false );
 	const [ renaming, setRenaming ] = useState( false );
 	const expired = isSnapshotExpired( snapshot );
 	const url = getSnapshotUrl( snapshot );
@@ -64,25 +63,13 @@ function PreviewRow( {
 						</button>
 					) }
 					<span className={ styles.previewExpiry }>
-						{ expired ? __( 'Expired' ) : previewExpiry( snapshot, locale ) }
+						{ expired ? __( 'Expired' ) : previewExpiry( snapshot, locale, {} ) }
 					</span>
 				</>
 			}
 		>
 			<div className={ styles.previewActions }>
-				<IconButton
-					variant="muted-ghost"
-					size="icon-sm"
-					icon={ copied ? <CheckIcon /> : <DuplicateIcon /> }
-					label={ copied ? __( 'Copied' ) : __( 'Copy link' ) }
-					disabled={ expired }
-					onClick={ () =>
-						void connector.copyText( url ).then( () => {
-							setCopied( true );
-							setTimeout( () => setCopied( false ), 1500 );
-						} )
-					}
-				/>
+				<CopyButton text={ url } label={ __( 'Copy link' ) } size="icon-sm" disabled={ expired } />
 				{ expired ? null : (
 					<IconButton
 						variant="muted-ghost"

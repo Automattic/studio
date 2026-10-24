@@ -1,51 +1,54 @@
 import { __ } from '@wordpress/i18n';
-import { clsx } from 'clsx';
-import { CheckIcon } from 'lucide-react';
+import { CheckIcon, CopyIcon } from 'lucide-react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { VisuallyHidden } from '@/components/ui/visually-hidden';
 import { useCopyText } from '@/hooks/use-copy-text';
 import { DuplicateIcon } from '@/lib/icons/duplicate-icon';
-import styles from './style.module.css';
 
+/** An icon button that copies `text`; its tooltip stays open on "Copied" after a copy. */
 export function CopyButton( {
 	text,
 	label,
 	className,
-	variant = 'filled',
 	size = 'icon-xs',
+	icon = 'duplicate',
+	disabled,
 }: {
 	text: string;
 	label: string;
 	className?: string;
-	variant?: 'filled' | 'plain';
 	size?: 'icon-xs' | 'icon-sm';
+	// Credentials show a copy icon; everything else duplicates.
+	icon?: 'duplicate' | 'copy';
+	disabled?: boolean;
 } ) {
-	const { copied, copy: handleCopy } = useCopyText( text );
-
-	const copiedLabel = __( 'Copied' );
-	const tooltipLabel = copied ? copiedLabel : label;
-
+	const { copied, copy } = useCopyText( text );
+	const [ hovered, setHovered ] = useState( false );
+	const Icon = copied ? CheckIcon : icon === 'copy' ? CopyIcon : DuplicateIcon;
 	return (
-		<div className={ className }>
-			<Tooltip>
+		<>
+			<Tooltip open={ copied || hovered } onOpenChange={ setHovered }>
 				<TooltipTrigger
 					render={
 						<Button
 							variant="muted-ghost"
 							size={ size }
-							className={ clsx( variant === 'filled' && styles.filled, copied && styles.copied ) }
-							onClick={ handleCopy }
+							className={ className }
 							aria-label={ label }
-						>
-							{ copied ? <CheckIcon /> : <DuplicateIcon /> }
-						</Button>
+							disabled={ disabled }
+							onClick={ copy }
+						/>
 					}
-				/>
-				<TooltipContent>{ tooltipLabel }</TooltipContent>
+				>
+					<Icon />
+				</TooltipTrigger>
+				<TooltipContent>{ copied ? __( 'Copied' ) : label }</TooltipContent>
 			</Tooltip>
-			<span className={ styles.visuallyHidden } role="status" aria-live="polite" aria-atomic="true">
-				{ copied ? copiedLabel : '' }
-			</span>
-		</div>
+			<VisuallyHidden role="status" aria-live="polite">
+				{ copied ? __( 'Copied' ) : '' }
+			</VisuallyHidden>
+		</>
 	);
 }

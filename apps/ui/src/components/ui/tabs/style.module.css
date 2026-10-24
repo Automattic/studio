@@ -57,6 +57,9 @@
 	.list[data-variant='sidebar'] {
 		flex-direction: column;
 		gap: 1px;
+		box-sizing: border-box;
+		width: 100%;
+		min-width: 0;
 		padding: 12px;
 	}
 

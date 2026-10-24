@@ -44,12 +44,7 @@ function MarkdownCodeBlock( { children }: { children?: ReactNode } ) {
 			<div className={ styles.codeHeader }>
 				<span>{ language ?? 'text' }</span>
 				{ text ? (
-					<CopyButton
-						className={ styles.codeCopy }
-						text={ text }
-						label={ __( 'Copy' ) }
-						variant="plain"
-					/>
+					<CopyButton className={ styles.codeCopy } text={ text } label={ __( 'Copy' ) } />
 				) : null }
 			</div>
 		</CodeBlock>

@@ -343,7 +343,7 @@ export function SiteSettingsForm( {
 		</SettingsRow>
 	);
 	const copyButton = ( key: TextKey, label: string ) => (
-		<CopyButton text={ data[ key ] } label={ label } variant="plain" size="icon-sm" />
+		<CopyButton text={ data[ key ] } label={ label } size="icon-sm" icon="copy" />
 	);
 
 	const resolvedPhpVersion = getClosestSupportedPhpVersion( data.phpVersion ) ?? data.phpVersion;

@@ -23,7 +23,6 @@ function CopyableCode( {
 			<CopyButton
 				text={ code }
 				label={ label }
-				variant="plain"
 				size="icon-sm"
 				className={ styles.codeBlockCopyButton }
 			/>

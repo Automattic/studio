@@ -15,6 +15,9 @@ const mocks = vi.hoisted( () => ( {
 	onCustomMessage: null as ( () => void ) | null,
 	studioRoot: '/tmp/studio-ai-pi-runtime',
 	configRoot: '/tmp/studio-ai-pi-runtime-config',
+	// What ran, in order: tool executions and the post content check.
+	steps: [] as string[],
+	postChanges: { summaries: [] as string[], problems: [] as string[] },
 } ) );
 
 // Model-swap test uses a synthetic id outside `AI_MODELS`; route unknowns to
@@ -37,7 +40,10 @@ vi.mock( '@earendil-works/pi-coding-agent', async ( importOriginal ) => {
 		label: name,
 		description: name,
 		parameters: {},
-		execute: async () => ( { content: [ { type: 'text', text: '' } ], details: undefined } ),
+		execute: async () => {
+			mocks.steps.push( name );
+			return { content: [ { type: 'text', text: '' } ], details: undefined };
+		},
 	} );
 	return {
 		...actual,
@@ -60,6 +66,18 @@ vi.mock( 'cli/ai/site-notes', () => ( {
 		afterWrite: async ( file: string ) => [ `Note: wrote ${ file }` ],
 		afterResult: async ( site: string ) => [ `Note: result on ${ site }` ],
 	} ),
+} ) );
+
+vi.mock( 'cli/ai/post-content-check', () => ( {
+	PostContentCheck: class {
+		async snapshot() {
+			mocks.steps.push( 'snapshot' );
+		}
+		async settle() {
+			mocks.steps.push( 'settle' );
+			return mocks.postChanges;
+		}
+	},
 } ) );
 
 vi.mock( 'cli/lib/site-paths', () => ( {
@@ -514,6 +532,20 @@ describe( 'pi runtime', () => {
 				( part ) => part.text
 			)
 		).toEqual( [ '', `Note: wrote ${ file }` ] );
+	} );
+
+	it( 'reports the post content a call changed, from a snapshot taken before it', async () => {
+		mocks.createdSessions.length = 0;
+		await runRuntime( { prompt: 'hello', env: WPCOM_ENV, session: newSession() } );
+		mocks.steps.length = 0;
+		mocks.postChanges = { summaries: [ 'page 9 changed' ], problems: [ 'page 9 problem' ] };
+		const result = await getCreatedTool( 'Read' ).execute( 'r', { path: 'a/style.css' } );
+		expect( mocks.steps ).toEqual( [ 'snapshot', 'Read', 'settle' ] );
+		expect( result.content.map( ( part ) => part.text ) ).toEqual( [
+			'',
+			'Block validation: page 9 changed\npage 9 problem',
+		] );
+		mocks.postChanges = { summaries: [], problems: [] };
 	} );
 
 	it( 'rejects oversized direct Write, Edit, and Bash payloads', async () => {

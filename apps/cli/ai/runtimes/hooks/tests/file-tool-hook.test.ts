@@ -5,9 +5,11 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { BlockValidationGate } from 'cli/ai/block-validation-gate';
 import { getWrittenFiles, runFileToolHook } from 'cli/ai/runtimes/hooks';
 import { createSite } from 'cli/ai/tests/fixtures/wordpress-site';
+import { readCliConfig } from 'cli/lib/cli-config/core';
 import { findSiteByFolder } from 'cli/lib/cli-config/sites';
 
-vi.mock( 'cli/lib/cli-config/sites', () => ( { findSiteByFolder: vi.fn() } ) );
+vi.mock( 'cli/lib/cli-config/sites', () => ( { findSiteByFolder: vi.fn(), getSiteUrl: vi.fn() } ) );
+vi.mock( 'cli/lib/cli-config/core', () => ( { readCliConfig: vi.fn() } ) );
 
 let site: ReturnType< typeof createSite >;
 beforeEach( () => {
@@ -19,6 +21,9 @@ beforeEach( () => {
 			  > )
 			: undefined
 	);
+	vi.mocked( readCliConfig ).mockResolvedValue( {
+		sites: [ { id: 'site', name: 'Bakery', path: site.root } ],
+	} as Awaited< ReturnType< typeof readCliConfig > > );
 } );
 
 // Claude Code's Write and Edit name the file; Codex's apply_patch carries a patch.
@@ -265,4 +270,27 @@ it.each( [
 	expect(
 		notes.includes( `wp-content/themes/bakery/${ file } shows images from ${ host },` )
 	).toBe( Boolean( host ) );
+} );
+
+// A shell call can save post content by any route; the hook pair reports what
+// it changed, keeping PreToolUse's snapshot for PostToolUse.
+it( 'reports the block validation of post content a shell call changed', async () => {
+	site.save( 9, 'page', 'home', '<!-- wp:paragraph -->\n<p>Hi</p>\n<!-- /wp:paragraph -->' );
+	const hook = ( event: string ) =>
+		runFileToolHook( {
+			hook_event_name: event,
+			tool_name: 'Bash',
+			tool_input: { command: 'wp post update 9 tmp/home.txt' },
+			session_id: `session-${ site.root }`,
+		} );
+	await hook( 'PreToolUse' );
+	site.edit( 9, '<!-- wp:html -->\n<div class="hero"><h1>Hi</h1></div>\n<!-- /wp:html -->' );
+	expect( await hook( 'PostToolUse' ) ).toEqual( {
+		hookSpecificOutput: {
+			hookEventName: 'PostToolUse',
+			additionalContext: expect.stringContaining(
+				'Bakery page 9 "": 1 core/html block(s) must become editable blocks'
+			),
+		},
+	} );
 } );

@@ -118,6 +118,14 @@ interface FileValidation {
 	problem?: string;
 }
 
+export interface MarkupValidation {
+	summary: string;
+	problem?: string;
+	/** What the block editor would save instead, when that loses nothing. */
+	fixedContent?: string;
+	invalidBlocks?: number;
+}
+
 /** Validates one block markup file, fixing it in place when that is lossless. */
 export async function validateBlockMarkupFile(
 	filePath: string,
@@ -136,10 +144,32 @@ export async function validateBlockMarkupFile(
 		}
 	}
 
+	const result = await validateBlockMarkup( content, label, siteUrl, notes );
+	if ( result.fixedContent === undefined ) {
+		return { contentHash: hash( content ), summary: result.summary, problem: result.problem };
+	}
+	await writeFile( filePath, result.fixedContent, 'utf8' );
+	notes.push( `saved through the block editor, fixing ${ result.invalidBlocks } block(s)` );
+	return {
+		contentHash: hash( result.fixedContent ),
+		summary: `${ result.summary }; ${ notes.join( '; ' ) }`,
+	};
+}
+
+/**
+ * Validates block markup against what each block saves on the site, and
+ * against the core/html policy. A lossless editor fix is returned for the
+ * caller to save where the markup lives.
+ */
+export async function validateBlockMarkup(
+	content: string,
+	label: string,
+	siteUrl: string,
+	notes: string[] = []
+): Promise< MarkupValidation > {
 	const policy = validateHtmlBlockPolicy( content );
 	if ( policy.invalidHtmlBlocks.length > 0 ) {
 		return {
-			contentHash: hash( content ),
 			summary: `${ label }: core/html policy failed`,
 			problem: [
 				`${ label }: ${ policy.invalidHtmlBlocks.length } core/html block(s) must become editable blocks:`,
@@ -153,13 +183,11 @@ export async function validateBlockMarkupFile(
 	const report = await validateBlocks( content, siteUrl );
 	if ( report.error ) {
 		return {
-			contentHash: hash( content ),
 			summary: `${ label }: not validated (${ report.error })`,
 		};
 	}
 	if ( report.invalidBlocks === 0 ) {
 		return {
-			contentHash: hash( content ),
 			summary: `${ label }: ${ report.totalBlocks }/${ report.totalBlocks } blocks valid${
 				notes.length ? `; ${ notes.join( '; ' ) }` : ''
 			}`,
@@ -169,7 +197,6 @@ export async function validateBlockMarkupFile(
 	const fix = report.proposedFix;
 	if ( ! fix || fix.report.error || fix.report.invalidBlocks > 0 ) {
 		return {
-			contentHash: hash( content ),
 			summary: `${ label }: ${ report.invalidBlocks } invalid block(s)`,
 			problem: [
 				`${ label }: ${ report.invalidBlocks } block(s) do not match what the block saves, and the editor cannot fix them:`,
@@ -188,17 +215,13 @@ export async function validateBlockMarkupFile(
 		( attribute ) => ! fixedAttributes.has( attribute )
 	);
 	if ( ! lostText && droppedClasses.length === 0 && droppedAttributes.length === 0 ) {
-		await writeFile( filePath, fix.fixedContent, 'utf8' );
-		notes.push( `saved through the block editor, fixing ${ report.invalidBlocks } block(s)` );
 		return {
-			contentHash: hash( fix.fixedContent ),
-			summary: `${ label }: ${ report.totalBlocks }/${
-				report.totalBlocks
-			} blocks valid; ${ notes.join( '; ' ) }`,
+			summary: `${ label }: ${ report.totalBlocks }/${ report.totalBlocks } blocks valid`,
+			fixedContent: fix.fixedContent,
+			invalidBlocks: report.invalidBlocks,
 		};
 	}
 	return {
-		contentHash: hash( content ),
 		summary: `${ label }: ${ report.invalidBlocks } invalid block(s)`,
 		problem: [
 			`${ label }: ${

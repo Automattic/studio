@@ -1,9 +1,9 @@
 {
-	"description": "Studio's checks on writes to a WordPress site's files with the agent's own file tools: refuses files a WordPress or theme update replaces, and reports block validation and what WordPress renders differently from the file.",
+	"description": "Studio's checks on writes to a WordPress site's files with the agent's own file tools: refuses files a WordPress or theme update replaces, and reports block validation and what WordPress renders differently from the file; on a shell call, reports block validation of the post content the call changed.",
 	"hooks": {
 		"PreToolUse": [
 			{
-				"matcher": "Write|Edit|MultiEdit|apply_patch",
+				"matcher": "Write|Edit|MultiEdit|apply_patch|Bash",
 				"hooks": [
 					{
 						"type": "command",
@@ -16,7 +16,7 @@
 		],
 		"PostToolUse": [
 			{
-				"matcher": "Write|Edit|MultiEdit|apply_patch",
+				"matcher": "Write|Edit|MultiEdit|apply_patch|Bash",
 				"hooks": [
 					{
 						"type": "command",

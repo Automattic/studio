@@ -23,7 +23,7 @@ export function createSite( prefix = 'wp_' ) {
 	}
 	const db = new DatabaseSync( path.join( root, 'wp-content/database/.ht.sqlite' ) );
 	db.exec( `
-		CREATE TABLE ${ prefix }posts ( ID INTEGER PRIMARY KEY, post_type TEXT, post_status TEXT, post_name TEXT, post_content TEXT, post_date TEXT );
+		CREATE TABLE ${ prefix }posts ( ID INTEGER PRIMARY KEY, post_type TEXT, post_status TEXT, post_name TEXT, post_content TEXT, post_date TEXT, post_title TEXT DEFAULT '', post_modified_gmt TEXT DEFAULT '2026-10-22 00:00:00' );
 		CREATE TABLE ${ prefix }terms ( term_id INTEGER PRIMARY KEY, name TEXT );
 		CREATE TABLE ${ prefix }term_taxonomy ( term_taxonomy_id INTEGER PRIMARY KEY, term_id INTEGER, taxonomy TEXT );
 		CREATE TABLE ${ prefix }term_relationships ( object_id INTEGER, term_taxonomy_id INTEGER );
@@ -42,13 +42,9 @@ export function createSite( prefix = 'wp_' ) {
 		theme = 1,
 		status = 'publish'
 	) => {
-		db.prepare( `INSERT INTO ${ prefix }posts VALUES ( ?, ?, ?, ?, ?, '2026-10-22' )` ).run(
-			id,
-			type,
-			status,
-			slug,
-			content
-		);
+		db.prepare(
+			`INSERT INTO ${ prefix }posts ( ID, post_type, post_status, post_name, post_content, post_date ) VALUES ( ?, ?, ?, ?, ?, '2026-10-22' )`
+		).run( id, type, status, slug, content );
 		db.prepare( `INSERT INTO ${ prefix }term_relationships VALUES ( ?, ? )` ).run( id, theme );
 	};
 	const setOptions = ( options: Record< string, string > ) => {
@@ -56,5 +52,10 @@ export function createSite( prefix = 'wp_' ) {
 			db.prepare( `INSERT OR REPLACE INTO ${ prefix }options VALUES ( ?, ? )` ).run( name, value );
 		}
 	};
-	return { root, save, setOptions };
+	// An edit as WordPress saves it: new content and a new modified time.
+	const edit = ( id: number, content: string, modified = '2026-10-23 00:00:00' ) =>
+		db
+			.prepare( `UPDATE ${ prefix }posts SET post_content = ?, post_modified_gmt = ? WHERE ID = ?` )
+			.run( content, modified, id );
+	return { root, save, setOptions, edit };
 }

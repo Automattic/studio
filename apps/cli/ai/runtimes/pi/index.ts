@@ -45,6 +45,7 @@ import { getBlockValidationGate, type BlockValidationGate } from 'cli/ai/block-v
 import { withDesignSystemPreview } from 'cli/ai/chat-artifacts';
 import { isImageGenerationAvailable } from 'cli/ai/image-generation';
 import { emitEvent } from 'cli/ai/json-events';
+import { PostContentCheck } from 'cli/ai/post-content-check';
 import { readActiveSiteFacts } from 'cli/ai/site-facts';
 import { createSiteNotes, type SiteNotes } from 'cli/ai/site-notes';
 import { buildSystemPrompt } from 'cli/ai/system-prompt';
@@ -390,12 +391,15 @@ async function createStudioAgentSession(
 		stated: new Map( localSite ? [ [ localSite, activeSiteFacts ] ] : [] ),
 		gate: blockValidationGate,
 	} );
+	// What a call changed in the content the sites render, reported on its result.
+	const postContent = new PostContentCheck();
 	const toolDefinitions = [ ...tools, ...mcpTools ].map( ( tool ) =>
 		toToolDefinition( tool, payloadGuardState, pendingWork, blockValidationGate, {
 			confirm,
 			sitePin,
 			siteNotes,
 			localSite,
+			postContent,
 		} )
 	);
 	const modelRuntime = await createModelRuntime( model, family, creds );
@@ -680,10 +684,12 @@ function toToolDefinition(
 		sitePin,
 		siteNotes,
 		localSite,
+		postContent,
 	}: {
 		confirm: Confirmer;
 		sitePin: SitePin;
 		siteNotes: SiteNotes;
+		postContent: PostContentCheck;
 		// Studio's tools report on the active site when it is a local one.
 		localSite?: string;
 	}
@@ -733,6 +739,7 @@ function toToolDefinition(
 						'\n'
 					) || undefined;
 			}
+			await postContent.snapshot().catch( () => undefined );
 			// The validation report was taken from the gate, so it rides on a failure too.
 			const result = await tool
 				.execute( toolCallId, params, signal, onUpdate )
@@ -752,12 +759,17 @@ function toToolDefinition(
 				pendingWork.add( details.pending );
 				delete details.pending;
 			}
+			const changedContent = await postContent
+				.settle()
+				.catch( () => ( { summaries: [], problems: [] } ) );
 			const resultText = result.content
 				.map( ( part ) => ( part.type === 'text' ? part.text : '' ) )
 				.join( '\n' );
 			const reports =
 				[
 					validationReport,
+					...changedContent.summaries.map( ( line ) => `Block validation: ${ line }` ),
+					...changedContent.problems,
 					...( writtenFile ? await siteNotes.afterWrite( writtenFile ) : [] ),
 					...( localSite ? await siteNotes.afterResult( localSite, resultText ) : [] ),
 					pendingWork.takeReports(),

@@ -14,6 +14,7 @@ import { Type, type TSchema } from 'typebox';
 import { Value } from 'typebox/value';
 import { type DesignTracksContext } from 'cli/ai/design-tracks';
 import { isImageGenerationAvailable } from 'cli/ai/image-generation';
+import { PostContentCheck } from 'cli/ai/post-content-check';
 import {
 	DESIGN_PICKER_HTML,
 	DESIGN_PICKER_URI,
@@ -130,6 +131,7 @@ export async function startMcpStdioServer(): Promise< void > {
 	process.env.STUDIO_TRACKS_ORIGIN = 'studio-mcp';
 	const sessionId = randomUUID();
 	const siteNotes = createSiteNotes();
+	const postContent = new PostContentCheck();
 	const imageGeneration = await isImageGenerationAvailable();
 	const server = new Server(
 		{ name: 'studio', version: '1.0.0' },
@@ -187,7 +189,7 @@ export async function startMcpStdioServer(): Promise< void > {
 				isError: true,
 			};
 		}
-		return runServedTool( tool, args, siteNotes );
+		return runServedTool( tool, args, siteNotes, postContent );
 	} );
 
 	// Only clients that render MCP Apps get the pages listed.

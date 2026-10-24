@@ -4,10 +4,6 @@
 	gap: 24px;
 }
 
-.empty {
-	gap: 20px;
-}
-
 .notice {
 	margin: 0;
 	color: var(--muted-foreground);
@@ -52,64 +48,19 @@
 	white-space: nowrap;
 }
 
-/* The screenshot frame shared with Blueprint details. */
-.frame {
-	position: relative;
-	display: block;
-	width: 100%;
-	aspect-ratio: 16 / 10;
-	overflow: hidden;
-	border-radius: 6px;
-	background: var(--muted);
-}
-
-.frame::after {
-	content: '';
-	position: absolute;
-	inset: 0;
-	z-index: 1;
-	border-radius: inherit;
-	box-shadow: inset 0 0 0 1px
-		var(--border);
-	pointer-events: none;
-}
-
 .image {
-	display: block;
-	width: 100%;
-	height: 100%;
-	object-fit: cover;
-	object-position: top;
-	transition: opacity var(--motion-duration-layout, 150ms);
+	transition: opacity var(--motion-duration-layout);
 }
 
 .skeleton {
 	position: absolute;
 	inset: 0;
-	background: var(--muted);
-	animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-}
-
-@keyframes pulse {
-	50% {
-		opacity: 0.5;
-	}
-}
-
-@media (prefers-reduced-motion: reduce) {
-	.skeleton {
-		animation: none;
-	}
-}
-
-.thumbnail,
-.blank {
-	border-radius: 6px;
 }
 
 .thumbnail {
 	position: relative;
 	display: block;
+	border-radius: var(--radius-sm);
 }
 
 .card:focus-visible :is(.thumbnail, .blank) {
@@ -145,8 +96,8 @@
 	color: var(--accent-text);
 }
 
-.card:hover .thumbnail .frame,
-.card:focus-visible .thumbnail .frame {
+.card:hover .thumbnail [data-slot='preview-frame'],
+.card:focus-visible .thumbnail [data-slot='preview-frame'] {
 	background: var(--accent);
 }
 
@@ -182,7 +133,7 @@
 	height: 32px;
 	box-sizing: border-box;
 	padding: 0 10px;
-	border-radius: 7px;
+	border-radius: var(--radius-md);
 	background: var(--accent);
 	color: var(--accent-foreground);
 	font-size: var(--text-xs);

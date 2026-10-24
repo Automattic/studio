@@ -1,0 +1,20 @@
+@layer ui {
+	.skeleton {
+		display: block;
+		border-radius: var( --radius-md );
+		background-color: var( --muted );
+		animation: pulse 2s cubic-bezier( 0.4, 0, 0.6, 1 ) infinite;
+	}
+
+	@media ( prefers-reduced-motion: reduce ) {
+		.skeleton {
+			animation: none;
+		}
+	}
+
+	@keyframes pulse {
+		50% {
+			opacity: 0.5;
+		}
+	}
+}

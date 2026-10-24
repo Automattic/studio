@@ -22,6 +22,7 @@
 		flex: none;
 		flex-direction: column;
 		width: 216px;
+		background-color: var( --chrome );
 	}
 
 	.sidebar::after {
@@ -113,6 +114,10 @@
 
 	[data-variant='sidebar'] > .trigger:is( :hover, [data-active], [data-highlighted] ) {
 		background-color: var( --hover );
+	}
+
+	[data-variant='sidebar'] > .trigger:focus-visible {
+		background-color: transparent;
 	}
 
 	.indicator {

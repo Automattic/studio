@@ -3,7 +3,9 @@ import { __, sprintf } from '@wordpress/i18n';
 import { PlusIcon } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Empty, EmptyDescription } from '@/components/ui/empty';
+import { Empty, EmptyContent, EmptyDescription, EmptyHeader } from '@/components/ui/empty';
+import { PreviewFrame } from '@/components/ui/preview-frame';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useBlueprints } from '@/data/queries/use-blueprints';
 import { useOffline } from '@/hooks/use-offline';
 import styles from './blueprint-gallery.module.css';
@@ -25,11 +27,11 @@ export function getUseCaseLabel( useCase: BlueprintUseCase ) {
 	return getUseCases().find( ( item ) => item.value === useCase )?.label ?? useCase;
 }
 
-// A 16:10 screenshot with a skeleton while it loads or when it's missing.
+// A screenshot with a skeleton while it loads or when it's missing.
 export function BlueprintScreenshot( { url, alt }: { url?: string; alt: string } ) {
 	const [ state, setState ] = useState< 'loading' | 'ready' | 'error' >( 'loading' );
 	return (
-		<span className={ styles.frame }>
+		<PreviewFrame>
 			{ url && state !== 'error' ? (
 				<img
 					src={ url }
@@ -40,9 +42,9 @@ export function BlueprintScreenshot( { url, alt }: { url?: string; alt: string }
 				/>
 			) : null }
 			{ ! url || state !== 'ready' ? (
-				<span className={ styles.skeleton } aria-hidden="true" />
+				<Skeleton className={ styles.skeleton } aria-hidden="true" />
 			) : null }
-		</span>
+		</PreviewFrame>
 	);
 }
 
@@ -96,9 +98,9 @@ export function BlueprintGallery( {
 						aria-label={ __( 'Start with Blank site' ) }
 						onClick={ onBlank }
 					>
-						<span className={ `${ styles.frame } ${ styles.blank }` }>
+						<PreviewFrame className={ styles.blank }>
 							<PlusIcon />
-						</span>
+						</PreviewFrame>
 						<span className={ styles.cardTitle }>{ __( 'Blank site' ) }</span>
 					</button>
 				) : null }
@@ -133,11 +135,15 @@ export function BlueprintGallery( {
 				) ) }
 			</div>
 			{ isSuccess && useCase && ! items.length ? (
-				<Empty className={ styles.empty }>
-					<EmptyDescription>{ __( 'No matching Blueprints.' ) }</EmptyDescription>
-					<Button variant="outline" onClick={ onClearFilters }>
-						{ __( 'Clear filters' ) }
-					</Button>
+				<Empty>
+					<EmptyHeader>
+						<EmptyDescription>{ __( 'No matching Blueprints.' ) }</EmptyDescription>
+					</EmptyHeader>
+					<EmptyContent>
+						<Button variant="outline" onClick={ onClearFilters }>
+							{ __( 'Clear filters' ) }
+						</Button>
+					</EmptyContent>
 				</Empty>
 			) : null }
 		</div>

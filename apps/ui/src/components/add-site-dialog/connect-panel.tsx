@@ -8,6 +8,7 @@ import { Alert, AlertActions, AlertDescription, AlertTitle } from '@/components/
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
+import { PreviewFrame } from '@/components/ui/preview-frame';
 import { Spinner } from '@/components/ui/spinner';
 import { useConnector } from '@/data/core';
 import { useAuthUser } from '@/data/queries/use-auth-user';
@@ -83,12 +84,12 @@ function RemoteSiteCard( {
 				disabled={ ! isAvailable }
 				onClick={ () => onSelect( site ) }
 			>
-				<span className={ styles.siteThumb }>
+				<PreviewFrame className={ styles.siteThumb }>
 					<img
 						src={ `https://s0.wp.com/mshots/v1/${ encodeURIComponent( site.url ) }?w=600&h=400` }
 						alt=""
 					/>
-				</span>
+				</PreviewFrame>
 				<span className={ styles.siteText }>
 					<span className={ styles.siteName }>{ siteName }</span>
 					<span className={ styles.siteUrl }>{ site.url.replace( /^https?:\/\//, '' ) }</span>

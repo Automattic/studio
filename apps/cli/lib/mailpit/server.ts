@@ -5,15 +5,22 @@ import path from 'path';
 import { downloadFile } from '@studio/common/lib/download-file';
 import { extractZip } from '@studio/common/lib/extract-zip';
 import { portFinder } from '@studio/common/lib/port-finder';
+import { SiteCommandLoggerAction } from '@studio/common/logger-actions';
+import { __, sprintf } from '@wordpress/i18n';
 import { extract as extractTar } from 'tar';
+import { z } from 'zod';
 import { isProcessRunning, startProcess, stopProcess } from 'cli/lib/daemon-client';
 import {
 	getMailpitBinaryPath,
 	getMailpitDir,
+	getMailpitInboxUrl,
 	getPortsPath,
 	MAILPIT_VERSION,
 	readPorts,
 } from 'cli/lib/mailpit/paths';
+// Imported by the site start it serves, so only used once a site is starting.
+import { getRunningSiteCount, subscribeForReadyOrExit } from 'cli/lib/wordpress-server-manager';
+import type { Logger } from 'cli/logger';
 
 export const MAILPIT_PROCESS_NAME = 'studio-mailpit';
 
@@ -48,81 +55,161 @@ const MAILPIT_ASSETS: Record< string, { name: string; sha256: string } > = {
 
 const HTTP_PORT_START = 8025;
 const SMTP_PORT_START = 1025;
-const READY_TIMEOUT_MS = 10_000;
 
-async function answersAsMailpit( httpPort: number ): Promise< boolean > {
-	try {
-		const response = await fetch( `http://127.0.0.1:${ httpPort }/api/v1/info`, {
-			signal: AbortSignal.timeout( 1_000 ),
-		} );
-		return response.ok && 'Version' in ( await response.json() );
-	} catch {
-		return false;
-	}
-}
+/**
+ * How the email inbox fared as a site started: a fixed set, so it can be counted
+ * in Tracks without carrying any error text.
+ */
+export type EmailInboxStatus =
+	| 'running'
+	| 'started'
+	| 'unsupported_platform'
+	| 'download_failed'
+	| 'start_failed';
 
-async function waitUntilAnswering( httpPort: number ): Promise< void > {
-	const deadline = Date.now() + READY_TIMEOUT_MS;
-	while ( ! ( await answersAsMailpit( httpPort ) ) ) {
-		if ( Date.now() > deadline ) {
-			throw new Error( `Mailpit did not start answering on port ${ httpPort }` );
-		}
-		await new Promise( ( resolve ) => setTimeout( resolve, 200 ) );
+class EmailInboxError extends Error {
+	constructor(
+		readonly status: EmailInboxStatus,
+		cause: unknown
+	) {
+		super( cause instanceof Error ? cause.message : String( cause ) );
 	}
 }
 
 /**
- * Starts the shared Mailpit server unless it is already answering on its recorded
- * ports, downloading Mailpit on first use.
+ * Starts the shared Mailpit server unless it is running, downloading Mailpit on
+ * first use. A site starts either way: when the inbox can't start, its email goes
+ * where PHP sends it by default, and a warning says so.
  */
-export async function ensureMailpitRunning(): Promise< void > {
-	const recorded = readPorts();
-	if ( recorded && ( await answersAsMailpit( recorded.httpPort ) ) ) {
-		return;
-	}
-	if ( recorded && ( await isProcessRunning( MAILPIT_PROCESS_NAME ) ) ) {
-		// Still starting, for another site starting at the same time.
-		try {
-			await waitUntilAnswering( recorded.httpPort );
-			return;
-		} catch {
-			await stopProcess( MAILPIT_PROCESS_NAME );
-		}
+export async function startMailpitIfNeeded(
+	logger: Logger< string >
+): Promise< EmailInboxStatus > {
+	if ( readPorts() && ( await isProcessRunning( MAILPIT_PROCESS_NAME ) ) ) {
+		return 'running';
 	}
 
-	await ensureMailpitBinary();
-	const httpPort = await portFinder.getOpenPort( recorded?.httpPort ?? HTTP_PORT_START );
-	const smtpPort = await portFinder.getOpenPort( recorded?.smtpPort ?? SMTP_PORT_START );
-	fs.mkdirSync( getMailpitDir(), { recursive: true } );
-	fs.writeFileSync( getPortsPath(), JSON.stringify( { httpPort, smtpPort } ) );
-	await startProcess(
-		MAILPIT_PROCESS_NAME,
-		path.resolve( import.meta.dirname, 'mailpit-daemon.mjs' ),
-		{
-			args: [
-				getMailpitBinaryPath(),
-				'--listen',
-				`127.0.0.1:${ httpPort }`,
-				'--smtp',
-				`127.0.0.1:${ smtpPort }`,
-				'--database',
-				path.join( getMailpitDir(), 'mailpit.db' ),
-				'--disable-version-check',
-				'--quiet',
-			],
-		}
+	logger.reportStart( SiteCommandLoggerAction.START_EMAIL_INBOX, __( 'Starting email inbox…' ) );
+	try {
+		await startMailpit();
+	} catch ( error ) {
+		const status = error instanceof EmailInboxError ? error.status : 'start_failed';
+		logger.reportWarning(
+			sprintf(
+				/* translators: %s: why the email inbox could not start */
+				__( 'Email the site sends will not reach the Studio inbox: %s' ),
+				error instanceof Error ? error.message : String( error )
+			)
+		);
+		return status;
+	}
+	logger.reportSuccess(
+		sprintf(
+			/* translators: %s: the email inbox URL */
+			__( 'Email inbox started at %s' ),
+			getMailpitInboxUrl() ?? ''
+		)
 	);
-	await waitUntilAnswering( httpPort );
+	return 'started';
 }
 
-async function ensureMailpitBinary(): Promise< void > {
+async function startMailpit(): Promise< void > {
+	const asset = MAILPIT_ASSETS[ `${ process.platform }-${ process.arch }` ];
+	if ( ! asset ) {
+		throw new EmailInboxError(
+			'unsupported_platform',
+			`Mailpit is not available for ${ process.platform }-${ process.arch }`
+		);
+	}
+	try {
+		await ensureMailpitBinary( asset );
+	} catch ( error ) {
+		throw new EmailInboxError( 'download_failed', error );
+	}
+
+	// Left behind if Mailpit was killed outright, and would send email nowhere.
+	if ( ! ( await isProcessRunning( MAILPIT_PROCESS_NAME ) ) ) {
+		fs.rmSync( getPortsPath(), { force: true } );
+	}
+	const httpPort = await portFinder.getOpenPort( HTTP_PORT_START );
+	const smtpPort = await portFinder.getOpenPort( SMTP_PORT_START );
+	fs.mkdirSync( getMailpitDir(), { recursive: true } );
+	const readyOrExit = await subscribeForReadyOrExit( MAILPIT_PROCESS_NAME );
+	try {
+		const { pmId } = await startProcess(
+			MAILPIT_PROCESS_NAME,
+			path.resolve( import.meta.dirname, 'mailpit-daemon.mjs' ),
+			{
+				args: [
+					getPortsPath(),
+					String( httpPort ),
+					String( smtpPort ),
+					getMailpitBinaryPath(),
+					'--listen',
+					`127.0.0.1:${ httpPort }`,
+					'--smtp',
+					`127.0.0.1:${ smtpPort }`,
+					'--database',
+					path.join( getMailpitDir(), 'mailpit.db' ),
+					'--disable-version-check',
+				],
+			}
+		);
+		// Another site starting at the same time may have started it, and seen it
+		// become ready, already.
+		if ( ! readPorts() ) {
+			await readyOrExit.waitFor( pmId );
+		}
+	} catch ( error ) {
+		await stopProcess( MAILPIT_PROCESS_NAME ).catch( () => undefined );
+		throw new EmailInboxError( 'start_failed', error );
+	} finally {
+		readyOrExit.dispose();
+	}
+}
+
+/**
+ * Stops the shared Mailpit server once no site is running. Its inbox stays on
+ * disk for the next time a site starts.
+ */
+export async function stopMailpitIfNoSitesRunning( logger: Logger< string > ): Promise< void > {
+	if (
+		( await getRunningSiteCount() ) !== 0 ||
+		! ( await isProcessRunning( MAILPIT_PROCESS_NAME ) )
+	) {
+		return;
+	}
+	logger.reportStart( SiteCommandLoggerAction.STOP_EMAIL_INBOX, __( 'Stopping email inbox…' ) );
+	await stopProcess( MAILPIT_PROCESS_NAME );
+	logger.reportSuccess( __( 'Email inbox stopped' ) );
+}
+
+/**
+ * How many messages the inbox holds and how many of those have been opened, for
+ * Tracks. `undefined` when the inbox isn't answering.
+ */
+export async function getEmailInboxCounts(): Promise<
+	{ messages: number; read: number } | undefined
+> {
+	const inboxUrl = getMailpitInboxUrl();
+	if ( ! inboxUrl ) {
+		return undefined;
+	}
+	try {
+		const response = await fetch( `${ inboxUrl }/api/v1/info`, {
+			signal: AbortSignal.timeout( 1_000 ),
+		} );
+		const info = z
+			.object( { Messages: z.number(), Unread: z.number() } )
+			.parse( await response.json() );
+		return { messages: info.Messages, read: info.Messages - info.Unread };
+	} catch {
+		return undefined;
+	}
+}
+async function ensureMailpitBinary( asset: { name: string; sha256: string } ): Promise< void > {
 	const binaryPath = getMailpitBinaryPath();
 	if ( fs.existsSync( binaryPath ) ) {
 		return;
-	}
-	const asset = MAILPIT_ASSETS[ `${ process.platform }-${ process.arch }` ];
-	if ( ! asset ) {
-		throw new Error( `Mailpit is not available for ${ process.platform }-${ process.arch }` );
 	}
 
 	const workDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-mailpit-' ) );

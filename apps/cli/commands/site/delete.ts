@@ -20,6 +20,7 @@ import {
 } from 'cli/lib/cli-config/core';
 import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/daemon-client';
 import { removeDomainFromHosts } from 'cli/lib/hosts-file';
+import { stopMailpitIfNoSitesRunning } from 'cli/lib/mailpit/server';
 import { withSiteOperations } from 'cli/lib/site-operations';
 import { stopProxyIfNoSitesNeedIt } from 'cli/lib/site-utils';
 import { getSnapshotsFromConfig, deleteSnapshotFromConfig } from 'cli/lib/snapshots';
@@ -389,6 +390,7 @@ async function deleteSite(
 		await stopWordPressServer( site.id );
 		logger.reportSuccess( __( 'WordPress server stopped' ) );
 		await stopProxyIfNoSitesNeedIt( site.id, logger );
+		await stopMailpitIfNoSitesRunning( logger );
 	}
 
 	if ( site.customDomain ) {

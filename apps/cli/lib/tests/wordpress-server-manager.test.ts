@@ -25,7 +25,10 @@ vi.mock( 'cli/lib/daemon-client' );
 vi.mock( 'cli/lib/dependency-management/php-binary', () => ( {
 	ensurePhpBinaryAvailable: vi.fn().mockResolvedValue( undefined ),
 } ) );
-vi.mock( 'cli/lib/mailpit/server', () => ( { ensureMailpitRunning: vi.fn() } ) );
+vi.mock( 'cli/lib/mailpit/server', () => ( {
+	startMailpitIfNeeded: vi.fn().mockResolvedValue( 'running' ),
+	getEmailInboxCounts: vi.fn(),
+} ) );
 vi.mock( 'cli/lib/site-runtime-stats', () => ( {
 	recordSiteRuntimeUsage: vi.fn(),
 } ) );
@@ -376,6 +379,7 @@ describe( 'WordPress Server Manager', () => {
 				daemon_ms: expect.any( Number ),
 				wp_config_ms: 40,
 				wordpress_install_ms: 9000,
+				email_inbox: 'running',
 			} );
 		} );
 

@@ -16,7 +16,7 @@ import { STUDIO_ERROR_LOG_FILENAME } from '@studio/common/lib/mu-plugins';
 import { resolveSupportedPhpVersion } from '@studio/common/lib/php-binary-metadata';
 import { getWpEnvironmentType } from '@studio/common/lib/wp-environment-type';
 import { SiteCommandLoggerAction } from '@studio/common/logger-actions';
-import { __, sprintf } from '@wordpress/i18n';
+import { __ } from '@wordpress/i18n';
 import { z } from 'zod';
 import { SiteData } from 'cli/lib/cli-config/core';
 import { updateSiteLatestCliPid } from 'cli/lib/cli-config/sites';
@@ -30,7 +30,11 @@ import {
 	sendMessageToProcess,
 } from 'cli/lib/daemon-client';
 import { ensurePhpBinaryAvailable } from 'cli/lib/dependency-management/php-binary';
-import { ensureMailpitRunning } from 'cli/lib/mailpit/server';
+import {
+	getEmailInboxCounts,
+	startMailpitIfNeeded,
+	type EmailInboxStatus,
+} from 'cli/lib/mailpit/server';
 import { recordSiteRuntimeUsage } from 'cli/lib/site-runtime-stats';
 import { getSiteDatabasePath, replaceMysql8OnlyCollations } from 'cli/lib/sqlite-collations';
 import { resetSqliteJournalModeToRollback } from 'cli/lib/sqlite-journal-mode';
@@ -43,6 +47,7 @@ import {
 	SiteStartPhase,
 } from 'cli/lib/types/wordpress-server-ipc';
 import { Logger } from 'cli/logger';
+import type { TracksProps } from '@studio/common/lib/record-tracks-event';
 
 export const SITE_PROCESS_PREFIX = 'studio-site-';
 
@@ -216,17 +221,7 @@ export async function startWordPressServer(
 
 	await ensureSitePhpBinaryAvailable( site, logger );
 	// Before the site's PHP starts: it reads where to send email as it starts.
-	try {
-		await ensureMailpitRunning();
-	} catch ( error ) {
-		logger.reportWarning(
-			sprintf(
-				/* translators: %s: why the email inbox could not start */
-				__( 'Email the site sends will not reach the Studio inbox: %s' ),
-				error instanceof Error ? error.message : String( error )
-			)
-		);
-	}
+	const emailInbox = await startMailpitIfNeeded( logger );
 
 	const startMessage = options?.blueprint
 		? __( 'Starting WordPress server and applying Blueprint…' )
@@ -293,6 +288,7 @@ export async function startWordPressServer(
 				time_ms: Date.now() - startedAt,
 				...phaseTimings,
 				running_site_count: await getRunningSiteCount(),
+				...( await emailInboxProps( emailInbox ) ),
 			} );
 		} catch {
 			// Best-effort telemetry — never block or fail a site start.
@@ -310,6 +306,7 @@ export async function startWordPressServer(
 				failure_reason: classifyStartFailure( error ),
 				time_ms: Date.now() - startedAt,
 				...phaseTimings,
+				email_inbox: emailInbox,
 			} );
 		} catch {
 			// Best-effort telemetry — never block or fail a site start.
@@ -318,6 +315,19 @@ export async function startWordPressServer(
 	} finally {
 		readyOrExit.dispose();
 	}
+}
+
+// How the email inbox fared, and how many messages it holds and how many of those were opened:
+// whether people use it. Counts only, never message content.
+async function emailInboxProps( emailInbox: EmailInboxStatus ): Promise< TracksProps > {
+	const counts = await getEmailInboxCounts();
+	return {
+		email_inbox: emailInbox,
+		...( counts && {
+			email_inbox_messages: counts.messages,
+			email_inbox_read: counts.read,
+		} ),
+	};
 }
 
 // Coarse, low-cardinality classification of a start failure for the `failure_reason` Tracks prop.

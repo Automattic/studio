@@ -55,11 +55,11 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: site email', () => {
 		expect( result.code, result.stderr ).toBe( 0 );
 		const site = readCliConfig( env ).sites.find( ( s ) => s.path === sitePath );
 		siteUrl = `http://localhost:${ String( site?.port ) }`;
-		const ports = JSON.parse(
-			fs.readFileSync( path.join( env.configDir, 'mailpit', 'ports.json' ), 'utf8' )
-		);
+		const ports = JSON.parse( fs.readFileSync( portsPath(), 'utf8' ) );
 		inboxUrl = `http://127.0.0.1:${ String( ports.httpPort ) }`;
 	}, 300_000 );
+
+	const portsPath = () => path.join( env!.configDir, 'mailpit', 'ports.json' );
 
 	afterAll( async () => {
 		if ( ! env ) {
@@ -134,6 +134,31 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: site email', () => {
 				`${ inboxUrl }/api/v1/message/${ order.ID }/part/${ message.Attachments[ 0 ].PartID }`
 			);
 			expect( await attachment.text() ).toBe( 'attached bytes' );
+		}
+	);
+
+	it(
+		'stops the inbox with the last site, keeping its mail',
+		{ tags: [ 'e2e' ], timeout: 120_000 },
+		async () => {
+			if ( ! env ) {
+				throw new Error( 'CLI e2e env was not initialised' );
+			}
+
+			const stopped = await runCli( [ 'site', 'stop', '--path', sitePath ], env );
+			expect( stopped.code, stopped.stderr ).toBe( 0 );
+			// No site sends email to a stopped inbox.
+			expect( fs.existsSync( portsPath() ) ).toBe( false );
+			await expect( fetch( `${ inboxUrl }/api/v1/info` ) ).rejects.toThrow();
+
+			const started = await runCli(
+				[ 'site', 'start', '--path', sitePath, '--skip-browser', '--skip-log-details' ],
+				env
+			);
+			expect( started.code, started.stderr ).toBe( 0 );
+			const ports = JSON.parse( fs.readFileSync( portsPath(), 'utf8' ) );
+			inboxUrl = `http://127.0.0.1:${ String( ports.httpPort ) }`;
+			expect( ( await inbox() ).length ).toBe( 2 );
 		}
 	);
 } );

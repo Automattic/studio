@@ -260,7 +260,14 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		clearQuestionAnswer,
 		removeQueuedPrompt,
 	} = useAgentRun( sessionId );
-	const { data: quota, isLoading: isQuotaLoading } = useStudioAssistantQuota();
+	const {
+		data: quota,
+		isLoading: isQuotaPending,
+		isFetched: isQuotaFetched,
+	} = useStudioAssistantQuota();
+	// Refetching a failed check (opening the model picker does) puts the query
+	// back to pending; only the first check holds the chat back.
+	const isQuotaLoading = isQuotaPending && ! isQuotaFetched;
 	const { data: aiSettings } = useAiSettings();
 	const sessionProvider = getEffectiveSessionProvider( data?.entries ?? [], aiSettings );
 	const isWpcom = sessionProvider === 'wpcom';

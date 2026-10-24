@@ -33,7 +33,8 @@ function createSession( overrides: Partial< AiSessionSummary > = {} ): AiSession
 async function runBeforeLoad(
 	sites: SiteDetails[] | Error,
 	sessions: AiSessionSummary[],
-	agenticFeaturesEnabled = true
+	agenticFeaturesEnabled = true,
+	search: Record< string, string > = {}
 ) {
 	const context = {
 		queryClient: {
@@ -50,7 +51,7 @@ async function runBeforeLoad(
 		},
 	};
 	try {
-		await indexRoute.options.beforeLoad?.( { context } as never );
+		await indexRoute.options.beforeLoad?.( { context, search } as never );
 	} catch ( thrown ) {
 		return (
 			thrown as {
@@ -83,8 +84,17 @@ describe( 'indexRoute.beforeLoad', () => {
 
 	it( 'lands on the empty workspace, without Add site, when the sites fail to load', async () => {
 		const redirect = await runBeforeLoad( new Error( 'CLI failed' ), [] );
-		expect( redirect ).toMatchObject( { to: '/sites' } );
-		expect( redirect.search ).toBeUndefined();
+		expect( redirect ).toMatchObject( { to: '/sites', search: {} } );
+	} );
+
+	it( 'keeps Settings open across the redirect', async () => {
+		const redirect = await runBeforeLoad( [ createSite() ], [ createSession() ], true, {
+			settings: 'general',
+		} );
+		expect( redirect ).toMatchObject( {
+			to: '/sessions/$sessionId',
+			search: { settings: 'general' },
+		} );
 	} );
 
 	it( "redirects to the last visited site's newest active session", async () => {

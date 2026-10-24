@@ -17,7 +17,9 @@ export const indexRoute = createRoute( {
 	pendingComponent: () => <SidebarLayout>{ null }</SidebarLayout>,
 	pendingMs: 0,
 	pendingMinMs: 0,
-	beforeLoad: async ( { context } ) => {
+	// Redirects carry the root search along, so Settings or Add site opened from
+	// the shell isn't closed by them.
+	beforeLoad: async ( { context, search } ) => {
 		const sites = await context.queryClient
 			.fetchQuery( {
 				queryKey: SITES_QUERY_KEY,
@@ -26,16 +28,16 @@ export const indexRoute = createRoute( {
 			.catch( () => null );
 		// The empty workspace offers to load them again.
 		if ( ! sites ) {
-			throw redirect( { to: '/sites' } );
+			throw redirect( { to: '/sites', search } );
 		}
 		const firstSite = sites[ 0 ];
 		if ( ! firstSite ) {
 			if ( ! ( await context.connector.getOnboardingCompleted() ) ) {
-				throw redirect( { to: '/welcome' } );
+				throw redirect( { to: '/welcome', search } );
 			}
 			const offer = ! addSiteOffered;
 			addSiteOffered = true;
-			throw redirect( { to: '/sites', search: offer ? { addSite: 'create' } : {} } );
+			throw redirect( { to: '/sites', search: offer ? { ...search, addSite: 'create' } : search } );
 		}
 		addSiteOffered = false;
 
@@ -52,6 +54,7 @@ export const indexRoute = createRoute( {
 			throw redirect( {
 				to: '/sites/$siteId',
 				params: { siteId: targetSite.id },
+				search,
 			} );
 		}
 
@@ -69,11 +72,15 @@ export const indexRoute = createRoute( {
 			)
 		);
 		if ( topSession ) {
-			throw redirect( { to: '/sessions/$sessionId', params: { sessionId: topSession.id } } );
+			throw redirect( {
+				to: '/sessions/$sessionId',
+				params: { sessionId: topSession.id },
+				search,
+			} );
 		}
 
 		// No sessions yet: the new-session route creates an empty
 		// session for the site and redirects to it.
-		throw redirect( { to: '/sites/$siteId/new', params: { siteId: targetSite.id } } );
+		throw redirect( { to: '/sites/$siteId/new', params: { siteId: targetSite.id }, search } );
 	},
 } );

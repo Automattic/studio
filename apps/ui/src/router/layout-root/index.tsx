@@ -6,6 +6,7 @@ import { useEffect, useRef } from 'react';
 import { useConnector } from '@/data/core';
 import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
 import { SITES_QUERY_KEY } from '@/data/queries/use-sites';
+import { SessionUIProvider } from '@/features/chats';
 import { useAppMenuNavigation } from '@/features/commands';
 import { useAiCreditsPurchaseResult } from '@/features/credits';
 import { WapuuWorldMount, isSettingsSection, SettingsDialog } from '@/features/settings';
@@ -105,7 +106,7 @@ export const rootRoute = createRootRouteWithContext< RouterContext >()( {
 		...( search.pin === true || search.pin === 'true' ? { pin: true } : {} ),
 	} ),
 	component: () => (
-		<>
+		<SessionUIProvider>
 			<AppMenuNavigation />
 			<AiCreditsPurchaseResult />
 			<DeletedSiteRedirect />
@@ -113,6 +114,6 @@ export const rootRoute = createRootRouteWithContext< RouterContext >()( {
 			<Outlet />
 			<SettingsDialog />
 			<AddSiteDialog />
-		</>
+		</SessionUIProvider>
 	),
 } );

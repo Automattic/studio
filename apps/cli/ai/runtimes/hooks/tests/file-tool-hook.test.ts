@@ -41,7 +41,7 @@ it.each( [
 	const cwd = '/site/wp-content/themes/a';
 	expect(
 		getWrittenFiles( { tool_name: toolName, tool_input: toolInput, cwd } ).map( ( file ) =>
-			path.relative( cwd, file )
+			path.relative( cwd, file ).split( path.sep ).join( '/' )
 		)
 	).toEqual( files );
 } );

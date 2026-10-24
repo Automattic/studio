@@ -19,6 +19,8 @@ export interface ValidationReportBase {
 export interface BlockFixProposal {
 	fixedContent: string;
 	report: ValidationReportBase;
+	/** Whether the fix shows the same text, read as the browser reads it. */
+	sameText: boolean;
 }
 
 export interface ValidationReport extends ValidationReportBase {
@@ -231,10 +233,24 @@ export async function validateBlocks(
 				}
 
 				// Text between blocks is a raw entry without a name and a core/freeform
-				// block, which is not checked; pair the rest in order.
-				const rawBlocks = ( typeof rawParse === 'function' ? rawParse( blockHtml ) : [] ).filter(
-					( raw: any ) => raw.blockName
-				);
+				// block; pair the rest in order.
+				const rawEntries = typeof rawParse === 'function' ? rawParse( blockHtml ) : [];
+				const rawBlocks = rawEntries.filter( ( raw: any ) => raw.blockName );
+				// Markup outside any block is a Classic block in the editor, edited
+				// as one blob of HTML.
+				for ( const raw of rawEntries ) {
+					const outside = raw.blockName ? '' : String( raw.innerHTML ?? '' ).trim();
+					if ( /<[a-z]/i.test( outside ) ) {
+						results.push( {
+							blockName: 'core/freeform',
+							isValid: false,
+							issues: [
+								'This HTML is outside any block, so the editor shows it as one Classic block. Write it as blocks: core/group for each section, with core/heading, core/paragraph, core/image and core/buttons inside.',
+							],
+							originalContent: outside,
+						} );
+					}
+				}
 				blocks
 					.filter( ( block: any ) => block.name !== 'core/freeform' )
 					.forEach( ( block: any, i: number ) => validateRecursive( block, rawBlocks[ i ] ) );
@@ -251,7 +267,12 @@ export async function validateBlocks(
 				};
 			}
 
-			function normalizeBlock( block: any ): any {
+			// What the editor saves for a block it cannot parse as written: the
+			// block made again from its attributes, if that block is valid; the
+			// block as written otherwise. `raw` is the block from the default
+			// parser, whose comment attributes the editor drops when it reads
+			// them from markup that is not there, such as a missing wrapper's class.
+			function normalizeBlock( block: any, raw?: any ): any {
 				if ( ! block.name || block.name === 'core/freeform' || block.name === 'core/missing' ) {
 					return block;
 				}
@@ -261,23 +282,42 @@ export async function validateBlocks(
 					return block;
 				}
 
+				const sameBlock = rawName( raw ) === block.name;
 				const fixedInnerBlocks = Array.isArray( block.innerBlocks )
-					? block.innerBlocks.map( normalizeBlock )
+					? block.innerBlocks.map( ( inner: any, i: number ) =>
+							normalizeBlock( inner, sameBlock ? raw.innerBlocks?.[ i ] : undefined )
+					  )
 					: [];
+
+				const attributes = { ...block.attributes };
+				for ( const [ key, value ] of Object.entries( sameBlock ? raw.attrs ?? {} : {} ) ) {
+					if ( attributes[ key ] === undefined && blockType.attributes?.[ key ] ) {
+						attributes[ key ] = value;
+					}
+				}
+				// The block as written, which the serializer keeps for an invalid block.
+				const asWritten = { ...block, attributes, isValid: false };
+				const validOrAsWritten = ( candidate: any ) => {
+					const [ reparsed ] = wpBlocks.parse( wpBlocks.serialize( [ candidate ] ) );
+					return reparsed?.isValid === false ? asWritten : candidate;
+				};
 
 				// Re-creating a block the parser accepted can only lose content —
 				// createBlock() drops the raw inner HTML of core/html, whose save
-				// returns null — so keep it as parsed and only fix its children.
+				// returns null — so keep it as parsed and only fix its children. A
+				// deprecated version the parser migrated can still save invalid
+				// markup, and is then kept as written.
 				if ( block.isValid === true ) {
-					return { ...block, innerBlocks: fixedInnerBlocks };
+					return validOrAsWritten( { ...block, attributes, innerBlocks: fixedInnerBlocks } );
 				}
 
 				try {
-					return wpBlocks.createBlock(
+					const created = wpBlocks.createBlock(
 						block.name,
-						block.attributes,
+						attributes,
 						fixedInnerBlocks.length > 0 ? fixedInnerBlocks : undefined
 					);
+					return validOrAsWritten( created );
 				} catch {
 					return block;
 				}
@@ -289,7 +329,13 @@ export async function validateBlocks(
 				return { report: initial.report };
 			}
 
-			const fixedBlocks = initial.blocks.map( normalizeBlock );
+			const rawTop = ( typeof rawParse === 'function' ? rawParse( html ) : [] ).filter(
+				( raw: any ) => raw.blockName
+			);
+			let named = 0;
+			const fixedBlocks = initial.blocks.map( ( block: any ) =>
+				block.name === 'core/freeform' ? block : normalizeBlock( block, rawTop[ named++ ] )
+			);
 			const fixedContent = wpBlocks.serialize( fixedBlocks );
 
 			if ( fixedContent === html ) {
@@ -297,11 +343,17 @@ export async function validateBlocks(
 			}
 
 			const fixed = validateContent( fixedContent );
+			// Entities and whitespace the serializer rewrites are the same text.
+			const textOf = ( markup: string ) =>
+				( new DOMParser().parseFromString( markup, 'text/html' ).body.textContent ?? '' )
+					.replace( /\s+/g, ' ' )
+					.trim();
 			return {
 				report: initial.report,
 				proposedFix: {
 					fixedContent,
 					report: fixed.report,
+					sameText: textOf( fixedContent ) === textOf( html ),
 				},
 			};
 			/* eslint-enable @typescript-eslint/no-explicit-any */
@@ -313,6 +365,7 @@ export async function validateBlocks(
 			report.proposedFix = {
 				fixedContent: validation.proposedFix.fixedContent,
 				report: validation.proposedFix.report as ValidationReportBase,
+				sameText: validation.proposedFix.sameText,
 			};
 		}
 

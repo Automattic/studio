@@ -21,7 +21,11 @@ function write( relativePath: string, content: string ) {
 	return file;
 }
 
-function invalidWithFix( fixedContent: string, fixValid = true ): ValidationReport {
+function invalidWithFix(
+	fixedContent: string,
+	fixValid = true,
+	sameText = true
+): ValidationReport {
 	return {
 		totalBlocks: 1,
 		validBlocks: 0,
@@ -31,6 +35,7 @@ function invalidWithFix( fixedContent: string, fixValid = true ): ValidationRepo
 		],
 		proposedFix: {
 			fixedContent,
+			sameText,
 			report: {
 				totalBlocks: 1,
 				validBlocks: fixValid ? 1 : 0,
@@ -119,7 +124,7 @@ describe( 'validating a file', () => {
 	it( 'refuses a fix that would change the text', async () => {
 		const file = write( 'tmp/home.html', original );
 		vi.mocked( validateBlocks ).mockResolvedValue(
-			invalidWithFix( '<!-- wp:paragraph -->\n<p></p>\n<!-- /wp:paragraph -->' )
+			invalidWithFix( '<!-- wp:paragraph -->\n<p></p>\n<!-- /wp:paragraph -->', true, false )
 		);
 		const result = await validateBlockMarkupFile( file, 'http://localhost:8881' );
 		expect( result.problem ).toContain( 'change the text' );

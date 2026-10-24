@@ -22,7 +22,7 @@ const losslessFix: ValidationReport = {
 	results: [
 		{ blockName: 'core/group', isValid: false, issues: [ 'mismatch' ], originalContent: '' },
 	],
-	proposedFix: { fixedContent: WRAPPED_GROUP, report: valid },
+	proposedFix: { fixedContent: WRAPPED_GROUP, report: valid, sameText: true },
 };
 
 let fixture: ReturnType< typeof createSite >;

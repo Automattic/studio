@@ -48,14 +48,6 @@ function hash( content: string ): string {
 	return createHash( 'sha1' ).update( content ).digest( 'hex' );
 }
 
-function visibleText( html: string ): string {
-	return html
-		.replace( /<!--[\s\S]*?-->/g, ' ' )
-		.replace( /<[^>]+>/g, ' ' )
-		.replace( /\s+/g, ' ' )
-		.trim();
-}
-
 function classTokens( html: string ): Set< string > {
 	const tokens = new Set< string >();
 	for ( const match of html.matchAll( /\sclass="([^"]*)"/g ) ) {
@@ -199,13 +191,13 @@ export async function validateBlockMarkup(
 		return {
 			summary: `${ label }: ${ report.invalidBlocks } invalid block(s)`,
 			problem: [
-				`${ label }: ${ report.invalidBlocks } block(s) do not match what the block saves, and the editor cannot fix them:`,
+				`${ label }: ${ report.invalidBlocks } invalid block(s), which the block editor cannot fix:`,
 				...describeInvalidBlocks( report ),
 			].join( '\n' ),
 		};
 	}
 
-	const lostText = visibleText( fix.fixedContent ) !== visibleText( content );
+	const lostText = ! fix.sameText;
 	const fixedClasses = classTokens( fix.fixedContent );
 	const droppedClasses = [ ...classTokens( content ) ].filter(
 		( token ) => ! fixedClasses.has( token )

@@ -95,6 +95,7 @@ type RenderItem =
 			name: string;
 			input?: Record< string, unknown >;
 			result?: NormalizedToolResult;
+			running?: boolean;
 	  }
 	| {
 			kind: 'agent-question-batch';
@@ -110,19 +111,16 @@ type RenderItem =
 	| { kind: 'interrupted-marker'; key: string }
 	| { kind: 'error-marker'; key: string; message: string };
 
-type ActivityDetail = Extract< RenderItem, { kind: 'tool-use' | 'assistant-text' | 'progress' } >;
-
-// One turn's work, folded into a single line that opens onto its tool calls.
+// The line that closes a turn with how long it ran.
 interface TurnActivity {
 	kind: 'activity';
 	key: string;
-	items: ActivityDetail[];
 	startedAt: number | null;
 	endedAt: number | null;
 	status: 'running' | 'success' | 'interrupted' | 'error';
 }
 
-type TranscriptItem = Exclude< RenderItem, { kind: 'tool-use' | 'progress' } > | TurnActivity;
+type TranscriptItem = Exclude< RenderItem, { kind: 'progress' } > | TurnActivity;
 
 interface PiAssistantContentBlock {
 	type: 'text' | 'toolCall' | 'thinking';
@@ -399,20 +397,9 @@ function getTimestamp( entry: SessionEntry | undefined ): number | null {
 	return Number.isFinite( timestamp ) ? timestamp : null;
 }
 
-function hasToolCall( entry: SessionEntry ): boolean {
-	const message = ( entry as { message?: unknown } ).message as PiAssistantMessageLike | undefined;
-	return (
-		entry.type === 'message' &&
-		message?.role === 'assistant' &&
-		Array.isArray( message.content ) &&
-		message.content.some( ( block ) => block.type === 'toolCall' )
-	);
-}
-
 /**
- * Folds each turn's tool calls, the progress they report and the text the
- * agent writes between them into one activity line, placed before the turn's
- * reply. The reply, questions, images and markers stay in the transcript.
+ * Keeps each turn's items in the order they ran and closes the turn with a
+ * line for how long it took. Tool progress shows only under a running turn.
  */
 export function entriesToTranscriptItems(
 	entries: SessionEntry[],
@@ -446,29 +433,26 @@ export function entriesToTranscriptItems(
 			isStudioCustomEntryOfType( entry, 'studio.turn_closed' )
 		) as StudioCustomEntry< 'studio.turn_closed' > | undefined;
 		const running = run.running && turnIndex === turns.length - 1 && ! closed;
-		const lastToolIndex = turnItems.map( ( item ) => item.kind ).lastIndexOf( 'tool-use' );
-		const isDetail = ( item: RenderItem, index: number ) =>
-			item.kind === 'tool-use' ||
-			item.kind === 'progress' ||
-			( item.kind === 'assistant-text' &&
-				( index < lastToolIndex || hasToolCall( entries[ entryIndexOf( item ) ] ) ) );
-		const details = turnItems.filter( isDetail ) as ActivityDetail[];
-		const visible = turnItems.filter(
-			( item, index ) => ! isDetail( item, index )
-		) as TranscriptItem[];
+		const worked = turnItems.some(
+			( item ) => item.kind === 'tool-use' || item.kind === 'progress'
+		);
+		const visible = turnItems.flatMap( ( item ): TranscriptItem[] => {
+			if ( item.kind === 'progress' ) {
+				return [];
+			}
+			return [ item.kind === 'tool-use' && running ? { ...item, running } : item ];
+		} );
 		if (
-			! details.length &&
+			! worked &&
 			! running &&
 			( ! prompt || ( ! closed && ! visible.some( ( item ) => item.kind === 'assistant-text' ) ) )
 		) {
 			return visible;
 		}
 		const status = closed?.data?.status;
-		const firstResponse = visible.findIndex( ( item ) => item.kind !== 'user-text' );
-		visible.splice( firstResponse < 0 ? visible.length : firstResponse, 0, {
+		visible.push( {
 			kind: 'activity',
 			key: `${ start }:activity`,
-			items: details,
 			startedAt: ( running ? run.startedAt : null ) ?? getTimestamp( prompt ),
 			endedAt: running ? null : getTimestamp( closed ?? turnEntries[ turnEntries.length - 1 ] ),
 			status: running
@@ -733,7 +717,7 @@ function ToolUseRow( {
 	);
 
 	return (
-		<div>
+		<div className={ styles.toolRow }>
 			{ hasExpandableDetails ? (
 				<TraceTrigger
 					aria-expanded={ expanded }
@@ -1464,7 +1448,7 @@ function AgentQuestionBatch( {
 }
 
 function TurnActivityLine( {
-	activity: { items, startedAt, endedAt, status },
+	activity: { startedAt, endedAt, status },
 	waitingOnUser,
 	progressMessage,
 }: {
@@ -1473,9 +1457,6 @@ function TurnActivityLine( {
 	progressMessage: string | null;
 } ) {
 	const running = status === 'running';
-	const detailsId = useId();
-	const [ open, setOpen ] = useState( false );
-	const [ hasOpened, setHasOpened ] = useState( false );
 	const [ now, setNow ] = useState( Date.now );
 	useEffect( () => {
 		if ( ! running ) {
@@ -1506,62 +1487,15 @@ function TurnActivityLine( {
 					}[ status ],
 					seconds ?? 0
 			  );
-	const line = (
-		<span className={ styles.traceLine } data-status={ status === 'error' ? 'error' : undefined }>
-			<span className={ clsx( styles.traceTitle, running && ! waitingOnUser && 'studio-shimmer' ) }>
-				{ label }
-			</span>
-		</span>
-	);
-
 	return (
 		<div className={ styles.activity }>
-			{ items.length ? (
-				<>
-					<TraceTrigger
-						aria-expanded={ open }
-						aria-controls={ detailsId }
-						onClick={ () => {
-							setOpen( ! open );
-							setHasOpened( true );
-						} }
-					>
-						{ line }
-					</TraceTrigger>
-					<CollapsiblePanel open={ open } keepMounted id={ detailsId }>
-						<div className={ styles.activityItems }>
-							{ hasOpened
-								? items.map( ( item ) =>
-										item.kind === 'tool-use' ? (
-											<ToolUseRow
-												key={ item.key }
-												name={ item.name }
-												input={ item.input }
-												result={ item.result }
-												isRunning={ running }
-											/>
-										) : (
-											<div
-												key={ item.key }
-												className={ styles.activityText }
-												{ ...( item.kind === 'assistant-text'
-													? {
-															[ MESSAGE_TEXT_ATTRIBUTE ]: item.messageText,
-															[ QUOTABLE_TEXT_ATTRIBUTE ]: true,
-													  }
-													: {} ) }
-											>
-												<Markdown>{ item.text }</Markdown>
-											</div>
-										)
-								  )
-								: null }
-						</div>
-					</CollapsiblePanel>
-				</>
-			) : (
-				line
-			) }
+			<span className={ styles.traceLine } data-status={ status === 'error' ? 'error' : undefined }>
+				<span
+					className={ clsx( styles.traceTitle, running && ! waitingOnUser && 'studio-shimmer' ) }
+				>
+					{ label }
+				</span>
+			</span>
 			{ running && progressMessage ? (
 				<span className={ styles.activityProgress }>{ progressMessage }</span>
 			) : null }
@@ -1656,6 +1590,16 @@ export function Conversation( {
 								messageText={ item.messageText }
 								copyText={ item.copyText }
 								{ ...joined }
+							/>
+						);
+					case 'tool-use':
+						return (
+							<ToolUseRow
+								key={ item.key }
+								name={ item.name }
+								input={ item.input }
+								result={ item.result }
+								isRunning={ item.running ?? false }
 							/>
 						);
 					case 'agent-question-batch':

@@ -77,7 +77,6 @@ describe( 'Conversation tool rows', () => {
 		expect( screen.queryByText( 'npm test' ) ).not.toBeInTheDocument();
 		expect( screen.queryByText( /first output line/ ) ).not.toBeInTheDocument();
 
-		openActivity();
 		const toolRow = screen.getByRole( 'button', { name: 'Run terminal command' } );
 		expect( toolRow ).toHaveAttribute( 'aria-expanded', 'false' );
 
@@ -103,7 +102,6 @@ describe( 'Conversation tool rows', () => {
 				toolResultEntry( `${ escape }[31mcommand failed${ escape }[0m`, true ),
 			] )
 		);
-		openActivity();
 
 		expect( screen.getByRole( 'button', { name: 'Run terminal command' } ) ).toHaveAttribute(
 			'aria-expanded',
@@ -124,7 +122,6 @@ describe( 'Conversation tool rows', () => {
 
 		renderConversation( data );
 
-		openActivity();
 		fireEvent.click( screen.getByRole( 'button', { name: 'Run terminal command' } ) );
 
 		expect( screen.getByText( /output line 13/ ) ).toBeInTheDocument();
@@ -141,7 +138,6 @@ describe( 'Conversation tool rows', () => {
 		] );
 
 		renderConversation( data );
-		openActivity();
 
 		const toolRow = screen.getByRole( 'button', { name: 'List published posts' } );
 		expect( toolRow ).toBeInTheDocument();
@@ -160,7 +156,6 @@ describe( 'Conversation tool rows', () => {
 		] );
 
 		renderConversation( data );
-		openActivity();
 
 		expect( screen.getByRole( 'button', { name: 'Read studio/app.tsx' } ) ).toBeInTheDocument();
 	} );
@@ -203,7 +198,6 @@ describe( 'Conversation tool rows', () => {
 		] );
 
 		renderConversation( data );
-		openActivity();
 		fireEvent.click( screen.getByRole( 'button', { name: 'Take screenshot' } ) );
 
 		expect( screen.getByText( /Screenshot captured/ ) ).toBeInTheDocument();
@@ -833,7 +827,7 @@ describe( 'Conversation turn-closed markers', () => {
 } );
 
 describe( 'Conversation turn activity', () => {
-	it( 'folds the tool calls and the text between them into one line before the reply', () => {
+	it( 'keeps tool calls where they ran and closes the turn with its line', () => {
 		const items = entriesToTranscriptItems( [
 			promptEntry( 'Go' ),
 			assistantToolCallEntry( 'Read', { file_path: '/tmp/a.txt' }, 'Let me look.' ),
@@ -845,25 +839,26 @@ describe( 'Conversation turn activity', () => {
 
 		expect( items ).toMatchObject( [
 			{ kind: 'user-text', text: 'Go' },
+			{ kind: 'assistant-text', text: 'Let me look.' },
+			{ kind: 'tool-use' },
+			{ kind: 'agent-question-batch' },
+			{ kind: 'assistant-text', text: 'Done.' },
 			{
 				kind: 'activity',
 				status: 'success',
 				startedAt: Date.parse( '2026-06-05T12:00:00.000Z' ),
 				endedAt: Date.parse( '2026-06-05T12:00:03.000Z' ),
-				items: [ { kind: 'assistant-text', text: 'Let me look.' }, { kind: 'tool-use' } ],
 			},
-			{ kind: 'agent-question-batch' },
-			{ kind: 'assistant-text', text: 'Done.' },
 		] );
 	} );
 
-	it( 'marks a stopped turn before its marker', () => {
+	it( 'closes a stopped turn after its marker', () => {
 		expect(
 			entriesToTranscriptItems( [ promptEntry( 'Go' ), turnClosedEntry( 'interrupted' ) ] )
 		).toMatchObject( [
 			{ kind: 'user-text' },
-			{ kind: 'activity', status: 'interrupted', items: [] },
 			{ kind: 'interrupted-marker' },
+			{ kind: 'activity', status: 'interrupted' },
 		] );
 	} );
 
@@ -887,12 +882,7 @@ describe( 'Conversation turn activity', () => {
 			{ isRunning: true, startedAt: Date.now() }
 		);
 
-		const line = screen.getByRole( 'button', { name: 'Working for 0s' } );
 		expect( screen.getByText( 'Working for 0s' ) ).toHaveClass( 'studio-shimmer' );
-		expect( line ).toHaveAttribute( 'aria-expanded', 'false' );
-
-		fireEvent.click( line );
-		expect( line ).toHaveAttribute( 'aria-expanded', 'true' );
 		expect( screen.getByText( 'Run terminal command' ) ).toHaveClass( 'studio-shimmer' );
 	} );
 } );
@@ -1068,10 +1058,6 @@ function InteractiveConversation( {
 		},
 		onChooseFreeForm: () => {},
 	} );
-}
-
-function openActivity() {
-	fireEvent.click( screen.getByRole( 'button', { name: /^Worked/ } ) );
 }
 
 function loadedSession( entries: SessionEntry[] ): LoadedAiSession {

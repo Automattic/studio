@@ -172,7 +172,10 @@
 	flex-direction: column;
 }
 
-.activityItems,
+.root > .toolRow + .toolRow {
+	margin-top: -16px;
+}
+
 .toolDetails {
 	display: flex;
 	flex-direction: column;
@@ -186,15 +189,6 @@
 	font-size: var(--text-xs);
 	line-height: 20px;
 	overflow-wrap: break-word;
-}
-
-.activityItems .activityText > * {
-	--markdown-gap: 8px;
-	--markdown-rule-gap: 8px;
-
-	color: inherit;
-	font-size: inherit;
-	line-height: inherit;
 }
 
 .activityProgress {

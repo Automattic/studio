@@ -145,21 +145,6 @@ describe( 'validating a file', () => {
 		expect( result.problem ).toContain( 'core/html' );
 		expect( validateBlocks ).not.toHaveBeenCalled();
 	} );
-
-	it( 'notes in-page links in template parts, and leaves them as written', async () => {
-		const markup =
-			'<!-- wp:navigation-link {"label":"Menu","url":"#menu"} /--><a href="#top">Top</a><a href="/about">About</a>';
-		const file = write( 'wp-content/themes/t/parts/footer.html', markup );
-		vi.mocked( validateBlocks ).mockResolvedValue( {
-			totalBlocks: 1,
-			validBlocks: 1,
-			invalidBlocks: 0,
-			results: [],
-		} );
-		const result = await validateBlockMarkupFile( file, 'http://localhost:8881' );
-		expect( result.summary ).toContain( '#menu, #top link(s) to the page they render on' );
-		expect( readFileSync( file, 'utf8' ) ).toBe( markup );
-	} );
 } );
 
 describe( 'the gate', () => {

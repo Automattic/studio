@@ -2,7 +2,6 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'fs';
 import os from 'os';
 import path from 'path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { inPageAnchors } from 'cli/ai/block-validation-gate';
 import {
 	blockMarkupNotes,
 	clearThemePatternCache,
@@ -78,16 +77,6 @@ describe( 'theme CSS lint', () => {
 		expect(
 			lintThemeCss( '.wp-block-button .wp-element-button { padding: 1rem }', new Set() )
 		).toEqual( [] );
-	} );
-} );
-
-describe( 'in-page anchors', () => {
-	it( 'lists the bare in-page links in block markup', () => {
-		expect(
-			inPageAnchors(
-				'<!-- wp:navigation-link {"label":"Menu","url":"#menu"} /--><a href="#visit">Visit</a><a href="#visit">Again</a><a href="/about">About</a>'
-			)
-		).toEqual( [ '#menu', '#visit' ] );
 	} );
 } );
 

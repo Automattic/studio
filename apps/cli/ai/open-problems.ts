@@ -2,7 +2,8 @@
  * What is still wrong on the sites an agent changed, checked when it ends its
  * turn: the block validation problems its calls were told about and has not
  * fixed since, and site state that only shows once every call is done, such as
- * a front page whose content WordPress never renders.
+ * a front page whose content WordPress never renders, or header links to home
+ * page sections that only work on the home page.
  *
  * Each problem is raised once, so the agent decides what to do with it: fix
  * it, or tell the user why it stays.
@@ -14,6 +15,7 @@ import {
 	frontPageTemplateProblem,
 	rendersPageContent,
 } from 'cli/ai/front-page-template';
+import { homeSectionLinks } from 'cli/ai/home-section-links';
 import { readSavedCopies } from 'cli/ai/saved-copies';
 import { readWordPressSite } from 'cli/ai/site-database';
 import { studioMessage } from 'cli/ai/studio-message';
@@ -32,6 +34,7 @@ export class OpenProblems {
 	constructor(
 		private readonly siteChecks: Array< ( sitePath: string ) => Promise< string | undefined > > = [
 			unrenderedFrontPage,
+			homeSectionLinks,
 		]
 	) {}
 

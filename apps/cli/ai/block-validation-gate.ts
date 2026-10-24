@@ -20,8 +20,6 @@ import { validateBlocks, type ValidationReportBase } from 'cli/ai/block-validato
 import { getOpenProblems, type OpenProblems } from 'cli/ai/open-problems';
 import { getSiteByFolder, getSiteUrl } from 'cli/lib/cli-config/sites';
 
-const SHARED_THEME_MARKUP =
-	/[\\/]wp-content[\\/]themes[\\/][^\\/]+[\\/](parts[\\/][^\\/]+|templates[\\/](?!front-page|home)[^\\/]+)\.html$/;
 const THEME_MARKUP =
 	/[\\/]wp-content[\\/]themes[\\/][^\\/]+[\\/](templates|parts)[\\/][^\\/]+\.html$/;
 
@@ -45,21 +43,6 @@ export function isBlockMarkupFile( filePath: string ): boolean {
 	} catch {
 		return false;
 	}
-}
-
-/**
- * The bare `#anchor` links in block markup. In a template part or shared
- * template, which renders on every URL that uses it, such a link points at the
- * page it is on: right for a "Back to top" link, wrong for a home page section.
- */
-export function inPageAnchors( content: string ): string[] {
-	return [
-		...new Set(
-			[ ...content.matchAll( /(?:href="|"url"\s*:\s*")(#[A-Za-z][^"]*)"/g ) ].map(
-				( match ) => match[ 1 ]
-			)
-		),
-	];
 }
 
 function hash( content: string ): string {
@@ -147,15 +130,6 @@ export async function validateBlockMarkupFile(
 	const label = filePath.split( path.sep ).slice( -2 ).join( '/' );
 	const content = await readFile( filePath, 'utf8' );
 	const notes: string[] = [];
-
-	const anchors = SHARED_THEME_MARKUP.test( filePath ) ? inPageAnchors( content ) : [];
-	if ( anchors.length > 0 ) {
-		notes.push(
-			`${ anchors.join(
-				', '
-			) } link(s) to the page they render on, and this file renders on every page that uses it; a link to a home page section is written /#anchor`
-		);
-	}
 
 	const result = await validateBlockMarkup( content, label, siteUrl, notes );
 	if ( result.fixedContent === undefined ) {

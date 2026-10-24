@@ -18,7 +18,7 @@ import { readSavedCopies } from 'cli/ai/saved-copies';
 import { readWordPressSite } from 'cli/ai/site-database';
 import { studioMessage } from 'cli/ai/studio-message';
 
-export interface OpenProblemsState {
+interface OpenProblemsState {
 	// The sites changed, whose state is checked at the end of the turn.
 	sites: string[];
 	// The latest problem of each file or post validated, while it has one.
@@ -27,8 +27,9 @@ export interface OpenProblemsState {
 }
 
 export class OpenProblems {
+	private readonly state: OpenProblemsState = { sites: [], open: {}, raised: [] };
+
 	constructor(
-		private readonly state: OpenProblemsState = { sites: [], open: {}, raised: [] },
 		private readonly siteChecks: Array< ( sitePath: string ) => Promise< string | undefined > > = [
 			unrenderedFrontPage,
 		]
@@ -58,10 +59,6 @@ export class OpenProblems {
 		);
 		this.state.raised.push( ...problems );
 		return problems;
-	}
-
-	toJSON(): OpenProblemsState {
-		return this.state;
 	}
 }
 

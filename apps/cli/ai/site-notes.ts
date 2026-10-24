@@ -12,9 +12,8 @@
  * - `result`: one of Studio's tools returned a result about a site.
  *
  * A new note is one more source in SOURCES, and reaches every surface that
- * fires its trigger: Studio Code fires all three; `studio mcp` fires `result`;
- * the WordPress Studio plugin's hooks on Claude Code's and Codex's own file
- * tools fire `beforeWrite` and `write`.
+ * fires its trigger: Studio Code fires all three; `studio mcp`, which Claude
+ * Code and Codex use, fires `result`.
  */
 import path from 'path';
 import { createBlockSettingsNotes } from 'cli/ai/block-settings';

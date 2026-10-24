@@ -26,7 +26,7 @@ import { useWhatsNewReplay } from '@/data/onboarding/use-whats-new-replay';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useSession, useSessionLiveSite } from '@/data/queries/use-sessions';
 import { useIsSiteStopping, useSiteOperation, useSites } from '@/data/queries/use-sites';
-import { pathForSite, SessionUIProvider, useSessionPreviewUI } from '@/hooks/use-session-ui';
+import { pathForSite, useSessionPreviewUI } from '@/hooks/use-session-ui';
 import { rememberVisit } from '@/lib/last-visited';
 import { rootRoute } from '../layout-root';
 
@@ -48,19 +48,11 @@ function getNewSessionSiteId( pathname: string ): string | undefined {
 	return match ? decodeURIComponent( match[ 1 ] ) : undefined;
 }
 
-function DashboardLayout() {
-	return (
-		<SessionUIProvider>
-			<DashboardLayoutContent />
-		</SessionUIProvider>
-	);
-}
-
 // Hosts the site preview at the dashboard level so the webview stays mounted
 // (and warm) while navigating between sessions, sites, and other routes. The
 // previewed site follows the current session; routes without one keep the
 // last previewed site loaded behind a closed panel.
-function DashboardLayoutContent() {
+function DashboardLayout() {
 	const navigate = useNavigate();
 	const routePreviewContext = useRouterState( {
 		select: ( state ) => ( {

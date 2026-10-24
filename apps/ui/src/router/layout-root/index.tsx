@@ -12,6 +12,7 @@ import { SITES_QUERY_KEY } from '@/data/queries/use-sites';
 import { useAiCreditsPurchaseResult } from '@/hooks/use-ai-credits-purchase-result';
 import { useAppMenuNavigation } from '@/hooks/use-app-menu-navigation';
 import { isAddSiteSection } from '@/hooks/use-open-add-site';
+import { SessionUIProvider } from '@/hooks/use-session-ui';
 import type { SettingsSectionId } from '@/components/settings-dialog';
 import type { AiSessionSummary, Connector, SiteDetails } from '@/data/core';
 import type { AddSiteSection } from '@/hooks/use-open-add-site';
@@ -107,7 +108,7 @@ export const rootRoute = createRootRouteWithContext< RouterContext >()( {
 		...( search.pin === true || search.pin === 'true' ? { pin: true } : {} ),
 	} ),
 	component: () => (
-		<>
+		<SessionUIProvider>
 			<AppMenuNavigation />
 			<AiCreditsPurchaseResult />
 			<DeletedSiteRedirect />
@@ -115,6 +116,6 @@ export const rootRoute = createRootRouteWithContext< RouterContext >()( {
 			<Outlet />
 			<SettingsDialog />
 			<AddSiteDialog />
-		</>
+		</SessionUIProvider>
 	),
 } );

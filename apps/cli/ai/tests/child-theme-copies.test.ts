@@ -91,8 +91,10 @@ it( 'reports a copy once, and keeps it open until it is changed or deleted', asy
 	// The problem of each key, as the turn's open problems record it.
 	const recorded = new Map< string, string | undefined >();
 	const open = {
-		record: ( _site: string, key: string, problem?: string ) => recorded.set( key, problem ),
-	} as OpenProblems;
+		record: ( _site: string, key: string, problem?: string ) => {
+			recorded.set( key, problem );
+		},
+	} as Pick< OpenProblems, 'record' > as OpenProblems;
 	const check = new SiteChanges( open, async () => [ site ], [ childThemeCopies ] );
 	const isOpen = () => [ ...recorded.values() ].some( Boolean );
 

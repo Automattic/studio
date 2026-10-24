@@ -32,7 +32,7 @@
 
 	.positioner {
 		isolation: isolate;
-		z-index: var( --z-select );
+		z-index: var( --z-popover );
 	}
 
 	.content {

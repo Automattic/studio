@@ -31,15 +31,14 @@ describe.runIf( siteUrl )( 'validating in the block editor (live)', () => {
 			fixed: [ '"sizeSlug":"large"', 'size-large' ],
 		},
 		{
-			name: 'a block made again from its attributes only if that is valid',
-			markup: group(
-				'{}',
-				paragraph(
-					'{"className":"muted","fontSize":"small","align":"right"}',
-					'<p class="muted" style="text-align:right;"><a href="#top">Top</a></p>'
-				)
+			name: 'a block an older version accepts is saved as the current version',
+			markup: paragraph(
+				'{"className":"eyebrow","style":{"typography":{"fontWeight":"700"}},"textColor":"red","fontSize":"small"}',
+				'<p class="eyebrow has-red-color has-small-font-size" style="font-weight:700">Eyebrow</p>'
 			),
-			fixed: [ '-->\n<p class="muted" style="text-align:right;"><a href="#top">Top</a></p>\n<!--' ],
+			fixed: [
+				'<p class="eyebrow has-red-color has-text-color has-small-font-size" style="font-weight:700">Eyebrow</p>',
+			],
 		},
 	] )(
 		'$name',
@@ -51,6 +50,31 @@ describe.runIf( siteUrl )( 'validating in the block editor (live)', () => {
 			for ( const text of fixed ) {
 				expect( report.proposedFix?.fixedContent ).toContain( text );
 			}
+		},
+		60_000
+	);
+
+	it.each( [
+		{
+			name: 'a block that renders as written',
+			html: '<div class="wp-block-cover"><span aria-hidden="true" class="wp-block-cover__background has-background-dim"></span><div class="wp-block-cover__inner-container"></div></div>',
+		},
+		{
+			name: 'a block that renders the value too',
+			html: '<div class="wp-block-cover" style="min-height:100dvh"><span aria-hidden="true" class="wp-block-cover__background has-background-dim"></span><div class="wp-block-cover__inner-container"></div></div>',
+		},
+	] )(
+		'reports an attribute of the wrong type, and leaves it out of the fix: $name',
+		async ( { html } ) => {
+			const report = await validateBlocks(
+				`<!-- wp:cover {"minHeight":"100dvh"} -->\n${ html }\n<!-- /wp:cover -->`,
+				siteUrl!
+			);
+			expect( report.results[ 0 ].issues ).toContain(
+				'core/cover\'s "minHeight" is of type number, so WordPress ignores "100dvh".'
+			);
+			expect( report.proposedFix?.report.invalidBlocks ).toBe( 0 );
+			expect( report.proposedFix?.fixedContent ).not.toContain( '100dvh' );
 		},
 		60_000
 	);

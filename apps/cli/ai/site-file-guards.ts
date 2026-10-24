@@ -177,18 +177,23 @@ async function getSiteFileWriteNotes( siteFile: SiteFile ): Promise< string[] > 
 }
 
 // The theme a write to DESIGN.md or a theme.json leaves out of step with the
-// site's design: the active theme for DESIGN.md, the theme a theme.json is in.
-// Themes WordPress updates are left as they are.
-async function themeOfDesignWrite( siteFile: SiteFile ): Promise< string | undefined > {
+// site's design. Writing a theme.json builds that theme on DESIGN.md; writing
+// DESIGN.md reaches the active theme only once it uses DESIGN.md's names, so a
+// default theme the design was never built into stays as it is. Themes
+// WordPress updates are left as they are.
+async function themeOfDesignWrite(
+	siteFile: SiteFile
+): Promise< { slug: string; built: boolean } | undefined > {
 	const { siteRoot, relativePath, theme } = siteFile;
+	const built = theme?.file === 'theme.json';
 	const slug =
 		relativePath === 'DESIGN.md'
 			? await readWordPressSite( siteRoot, ( site ) => site.option( 'stylesheet' ) )
-			: theme?.file === 'theme.json'
+			: built
 			? theme.slug
 			: undefined;
 	return typeof slug === 'string' && ! ( await isUpdatableTheme( siteRoot, slug ) )
-		? slug
+		? { slug, built }
 		: undefined;
 }
 
@@ -197,11 +202,12 @@ async function themeOfDesignWrite( siteFile: SiteFile ): Promise< string | undef
  * write to either, and says what it wrote.
  */
 async function settleDesign( siteFile: SiteFile ): Promise< string[] > {
-	const slug = await themeOfDesignWrite( siteFile );
-	if ( ! slug ) {
+	const target = await themeOfDesignWrite( siteFile );
+	if ( ! target ) {
 		return [];
 	}
-	const { drift, fontsError } = await settleThemeDesign( siteFile.siteRoot, slug );
+	const { slug, built } = target;
+	const { drift, fontsError } = await settleThemeDesign( siteFile.siteRoot, slug, built );
 	if ( ! drift.length ) {
 		return [];
 	}

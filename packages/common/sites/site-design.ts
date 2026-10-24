@@ -167,12 +167,14 @@ export interface SettledThemeDesign {
 /**
  * Makes a theme built on the site's DESIGN.md carry its tokens: every color,
  * font family (with its font files), font size and spacing step under DESIGN.md's
- * name, and its body, heading and button fonts. Resolves the drifts it settled,
- * none when the site has no DESIGN.md or the theme no theme.json.
+ * name, and its body, heading and button fonts. Unless `built`, only a theme that
+ * already uses DESIGN.md's names counts as built on it. Resolves the drifts it
+ * settled, none when the site has no DESIGN.md or the theme no theme.json.
  */
 export async function settleThemeDesign(
 	sitePath: string,
-	themeSlug: string
+	themeSlug: string,
+	built: boolean
 ): Promise< SettledThemeDesign > {
 	const files = await locateSiteDesign( sitePath, async () => themeSlug );
 	const current = files && ( await readSiteDesignFiles( files ) );
@@ -180,7 +182,7 @@ export async function settleThemeDesign(
 		return { drift: [] };
 	}
 	const tokens = parseDesignMd( current.design );
-	const drift = designDrift( tokens, current.themeJson, true );
+	const drift = designDrift( tokens, current.themeJson, built );
 	if ( ! drift.length ) {
 		return { drift };
 	}

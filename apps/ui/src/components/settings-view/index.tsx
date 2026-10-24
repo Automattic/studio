@@ -8,7 +8,6 @@ import {
 import { SUPPORTED_TERMINALS, terminalConfig } from '@studio/common/lib/user-settings/terminal';
 import { __, sprintf } from '@wordpress/i18n';
 import { useCallback, useEffect, useState } from 'react';
-import { LearnMoreLink } from '@/components/learn-more';
 import { SidebarSettings } from '@/components/site-list/sidebar-settings';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -32,6 +31,7 @@ import {
 	SettingsGroup,
 	SettingsLoadState,
 	SettingsRow,
+	SettingsSectionLink,
 	SettingsSelect,
 	SettingsToggle,
 } from './rows';
@@ -276,7 +276,7 @@ function PreferencesPanel( {
 					) }
 				>
 					<Button variant="outline" disabled={ interfaceIsDefault } onClick={ onResetInterface }>
-						{ __( 'Reset' ) }
+						{ __( 'Reset interface' ) }
 					</Button>
 				</SettingsRow>
 			</SettingsGroup>
@@ -459,22 +459,15 @@ export function InstructionsSettings( { onManageSite }: { onManageSite?: () => v
 			<SettingsGroup>
 				<SettingsRow
 					title={ __( 'Agent instructions' ) }
-					description={
-						<>
-							{ __(
-								'Set coding standards, preferred tools, and response style for new chats across all sites.'
-							) }
-							{ onManageSite ? (
-								<Button
-									className={ styles.manageLink }
-									variant="inline-link"
-									size="inline"
-									onClick={ onManageSite }
-								>
-									{ __( 'Manage instructions for this site' ) }
-								</Button>
-							) : null }
-						</>
+					description={ __(
+						'Set coding standards, preferred tools, and response style for new chats across all sites.'
+					) }
+					additionalContent={
+						onManageSite ? (
+							<SettingsSectionLink onClick={ onManageSite }>
+								{ __( 'Manage instructions for this site' ) }
+							</SettingsSectionLink>
+						) : null
 					}
 				>
 					<SettingsToggle
@@ -485,15 +478,7 @@ export function InstructionsSettings( { onManageSite }: { onManageSite?: () => v
 					/>
 				</SettingsRow>
 			</SettingsGroup>
-			<SettingsGroup
-				title={ __( 'Custom instructions' ) }
-				description={
-					<>
-						{ __( 'Add your own guidance for Studio Code.' ) }{ ' ' }
-						<LearnMoreLink docsLinksKey="docsStudioCode" />
-					</>
-				}
-			>
+			<SettingsGroup title={ __( 'Custom instructions' ) }>
 				<InstructionsEditor />
 			</SettingsGroup>
 		</div>

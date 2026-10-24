@@ -13,9 +13,12 @@
 	font-size: var(--text-xs);
 }
 
-.input {
-	inline-size: 224px;
-	max-inline-size: 100%;
+.field {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	min-width: 224px;
+	max-width: 100%;
 }
 
 .emailInput:dir(rtl) {

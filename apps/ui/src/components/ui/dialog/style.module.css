@@ -177,6 +177,14 @@
 		font-size: var( --text-sm );
 	}
 
+	.description p {
+		margin: 0;
+	}
+
+	.description p + p {
+		margin-top: 8px;
+	}
+
 	.description[data-tone='default'] {
 		color: var( --foreground );
 	}

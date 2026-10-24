@@ -1,45 +1,69 @@
 import { getMcpServerConfigJson } from '@studio/common/lib/mcp-config';
 import { __ } from '@wordpress/i18n';
+import { CodeBlock } from '@/components/code-block';
 import { CopyButton } from '@/components/copy-button';
 import { LearnMoreLink } from '@/components/learn-more';
+import { Field, FieldDescription } from '@/components/ui/field';
+import { SettingsGroup, SettingsRow } from './rows';
 import styles from './style.module.css';
 
 const INSTALL_COMMAND = 'npm install -g wp-studio';
 
-export function McpPanel() {
-	const configJson = getMcpServerConfigJson();
+function CopyableCode( {
+	code,
+	language,
+	label,
+}: {
+	code: string;
+	language: string;
+	label: string;
+} ) {
+	return (
+		<CodeBlock code={ code } language={ language }>
+			<CopyButton
+				text={ code }
+				label={ label }
+				size="icon-sm"
+				className={ styles.codeBlockCopyButton }
+			/>
+		</CodeBlock>
+	);
+}
 
+export function McpPanel() {
 	return (
 		<div className={ styles.preferencesPanel }>
-			<section className={ styles.preferenceSectionGroup }>
-				<h2 className={ styles.preferenceSectionHeading }>{ __( 'MCP' ) }</h2>
-				<p className={ styles.sectionIntro }>
-					{ __(
-						'MCP lets other AI tools talk to Studio. Use it when you want an assistant outside Studio to create, configure, or inspect your local WordPress sites through the same site controls.'
-					) }{ ' ' }
-					<LearnMoreLink docsLinksKey="docsMcp" />
-				</p>
-				<p className={ styles.sectionIntro }>{ __( 'Install the Studio CLI:' ) }</p>
-				<div className={ styles.codeBlockWrap }>
-					<pre className={ styles.codeBlock }>{ INSTALL_COMMAND }</pre>
-					<CopyButton
-						text={ INSTALL_COMMAND }
+			<SettingsGroup>
+				<SettingsRow
+					title={ __( 'MCP server' ) }
+					description={
+						<>
+							{ __(
+								'Connect other AI assistants to Studio to create, configure, and inspect your local WordPress sites.'
+							) }{ ' ' }
+							<LearnMoreLink docsLinksKey="docsMcp" />
+						</>
+					}
+				/>
+			</SettingsGroup>
+			<SettingsGroup title={ __( 'Install instructions' ) }>
+				<Field>
+					<FieldDescription width="full">{ __( 'Install the Studio CLI:' ) }</FieldDescription>
+					<CopyableCode
+						code={ INSTALL_COMMAND }
+						language="bash"
 						label={ __( 'Copy install command' ) }
-						className={ styles.codeBlockCopyButton }
 					/>
-				</div>
-				<p className={ styles.sectionIntro }>
-					{ __( 'Then add this configuration to your assistant:' ) }
-				</p>
-				<div className={ styles.codeBlockWrap }>
-					<pre className={ styles.codeBlock }>{ configJson }</pre>
-					<CopyButton
-						text={ configJson }
+					<FieldDescription width="full">
+						{ __( 'Then add this configuration to your assistant:' ) }
+					</FieldDescription>
+					<CopyableCode
+						code={ getMcpServerConfigJson() }
+						language="json"
 						label={ __( 'Copy MCP configuration' ) }
-						className={ styles.codeBlockCopyButton }
 					/>
-				</div>
-			</section>
+				</Field>
+			</SettingsGroup>
 		</div>
 	);
 }

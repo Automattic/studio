@@ -1,8 +1,9 @@
 import { isSnapshotExpired } from '@studio/common/lib/snapshots';
 import { __, sprintf } from '@wordpress/i18n';
-import { CheckIcon, PencilIcon } from 'lucide-react';
+import { PencilIcon } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { AccountPrompt, previewSiteImage } from '@/components/account-prompt';
+import { CopyButton } from '@/components/copy-button';
 import { previewExpiry, RenamePreview } from '@/components/share-dialog/preview-share-panel';
 import { Button, IconButton } from '@/components/ui/button';
 import {
@@ -13,12 +14,12 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from '@/components/ui/dialog';
+import { Empty } from '@/components/ui/empty';
 import { Field } from '@/components/ui/field';
 import { useConnector } from '@/data/core';
 import { useAuthUser } from '@/data/queries/use-auth-user';
 import { useDeleteSnapshot, useSnapshotUsage, useSnapshots } from '@/data/queries/use-snapshots';
 import { useUserLocale } from '@/data/queries/use-user-locale';
-import { DuplicateIcon } from '@/lib/icons/duplicate-icon';
 import { TrashIcon } from '@/lib/icons/trash-icon';
 import { getSnapshotHostname, getSnapshotUrl } from '@/lib/snapshot-url';
 import { SettingsGroup, SettingsRow } from './rows';
@@ -34,7 +35,6 @@ function PreviewRow( {
 } ) {
 	const connector = useConnector();
 	const locale = useUserLocale();
-	const [ copied, setCopied ] = useState( false );
 	const [ renaming, setRenaming ] = useState( false );
 	const expired = isSnapshotExpired( snapshot );
 	const url = getSnapshotUrl( snapshot );
@@ -63,25 +63,13 @@ function PreviewRow( {
 						</button>
 					) }
 					<span className={ styles.previewExpiry }>
-						{ expired ? __( 'Expired' ) : previewExpiry( snapshot, locale ) }
+						{ expired ? __( 'Expired' ) : previewExpiry( snapshot, locale, {} ) }
 					</span>
 				</>
 			}
 		>
 			<div className={ styles.previewActions }>
-				<IconButton
-					variant="muted-ghost"
-					size="icon-sm"
-					icon={ copied ? <CheckIcon /> : <DuplicateIcon /> }
-					label={ copied ? __( 'Copied' ) : __( 'Copy link' ) }
-					disabled={ expired }
-					onClick={ () =>
-						void connector.copyText( url ).then( () => {
-							setCopied( true );
-							setTimeout( () => setCopied( false ), 1500 );
-						} )
-					}
-				/>
+				<CopyButton text={ url } label={ __( 'Copy link' ) } size="icon-sm" disabled={ expired } />
 				{ expired ? null : (
 					<IconButton
 						variant="muted-ghost"
@@ -138,13 +126,15 @@ export function SharingPanel() {
 	}
 	if ( ! user.data ) {
 		return (
-			<AccountPrompt
-				title={ __( 'Share your WordPress' ) }
-				description={ __(
-					'Create an account or log in to share previews and keep your sites in sync.'
-				) }
-				source="previews_tab"
-			/>
+			<Empty>
+				<AccountPrompt
+					title={ __( 'Share your WordPress' ) }
+					description={ __(
+						'Create an account or log in to share previews and keep your sites in sync.'
+					) }
+					source="previews_tab"
+				/>
+			</Empty>
 		);
 	}
 
@@ -161,9 +151,9 @@ export function SharingPanel() {
 							{ __(
 								'Share a temporary copy of your local site with anyone. Preview sites expire seven days after their last update.'
 							) }{ ' ' }
-							<button
-								type="button"
-								className={ styles.inlineLink }
+							<Button
+								variant="inline-link"
+								size="inline"
 								onClick={ () =>
 									void connector.openExternalUrl(
 										'https://developer.wordpress.com/docs/developer-tools/studio/preview-sites/'
@@ -171,18 +161,18 @@ export function SharingPanel() {
 								}
 							>
 								{ __( 'Learn more…' ) }
-							</button>
-							{ live.length ? (
-								<span className={ styles.previewUsage }>
-									{ sprintf(
-										/* translators: 1: number of live previews, 2: the account's limit. */
-										__( '%1$d of %2$d preview sites used' ),
-										live.length,
-										usage.data?.siteLimit ?? 10
-									) }
-								</span>
-							) : null }
+							</Button>
 						</>
+					}
+					additionalContent={
+						live.length
+							? sprintf(
+									/* translators: 1: number of live previews, 2: the account's limit. */
+									__( '%1$d of %2$d preview sites used' ),
+									live.length,
+									usage.data?.siteLimit ?? 10
+							  )
+							: null
 					}
 				/>
 			</SettingsGroup>
@@ -205,10 +195,11 @@ export function SharingPanel() {
 				<PreviewsEmptyState />
 			) }
 			{ expired.length ? (
-				<div className={ styles.previewExpired }>
-					<button
-						type="button"
-						className={ styles.inlineLink }
+				<div>
+					<Button
+						variant="inline-link"
+						size="inline"
+						className={ styles.expiredToggle }
 						aria-expanded={ showExpired }
 						onClick={ () => setShowExpired( ! showExpired ) }
 					>
@@ -217,7 +208,7 @@ export function SharingPanel() {
 							showExpired ? __( 'Hide expired previews (%d)' ) : __( 'Show expired previews (%d)' ),
 							expired.length
 						) }
-					</button>
+					</Button>
 					{ showExpired ? (
 						<SettingsGroup title={ __( 'Expired previews' ) }>
 							{ expired.map( ( snapshot ) => (
@@ -243,14 +234,19 @@ export function SharingPanel() {
 				>
 					<DialogHeader>
 						<DialogTitle>{ __( 'Delete preview' ) }</DialogTitle>
-						<DialogDescription tone="default">
-							{ sprintf(
-								/* translators: %s: preview name */
-								__(
-									'Anyone you’ve shared “%s” with will no longer be able to view it. Your site will not be deleted.'
-								),
-								deleting?.name || __( 'Preview site' )
-							) }
+						<DialogDescription tone="default" render={ <div /> }>
+							<p>
+								{ sprintf(
+									/* translators: %s: preview name */
+									__( 'Are you sure you want to remove the preview for “%s” from Studio?' ),
+									deleting?.name || __( 'Preview site' )
+								) }
+							</p>
+							<p>
+								{ __(
+									'Anyone you’ve shared this preview with will no longer be able to view it. Your site will not be deleted.'
+								) }
+							</p>
 						</DialogDescription>
 					</DialogHeader>
 					{ remove.error ? <p className={ styles.dialogError }>{ remove.error.message }</p> : null }

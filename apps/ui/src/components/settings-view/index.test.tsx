@@ -212,7 +212,7 @@ describe( 'Studio settings', () => {
 
 	it( 'resets the interface preferences and panel widths, and only when something changed', () => {
 		const { unmount } = render( <GeneralSettings /> );
-		expect( screen.getByRole( 'button', { name: 'Reset' } ) ).toBeDisabled();
+		expect( screen.getByRole( 'button', { name: 'Reset interface' } ) ).toBeDisabled();
 		unmount();
 
 		mockPreferences( { newSiteBehavior: 'blank' } );
@@ -220,7 +220,7 @@ describe( 'Studio settings', () => {
 		mutate.mockImplementation( ( _patch, options ) => options?.onSuccess?.() );
 		render( <GeneralSettings /> );
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'Reset' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Reset interface' } ) );
 
 		expect( mutate ).toHaveBeenCalledWith(
 			{

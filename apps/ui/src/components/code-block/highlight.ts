@@ -1,6 +1,6 @@
-import { createCssVariablesTheme, createHighlighterCore } from 'shiki/core';
+import { createHighlighterCore } from 'shiki/core';
 import { createJavaScriptRegexEngine } from 'shiki/engine/javascript';
-import type { HighlighterCore, LanguageRegistration, ThemedToken } from 'shiki/core';
+import type { HighlighterCore, LanguageRegistration, TokensResult } from 'shiki/core';
 
 type Grammar = Promise< { default: LanguageRegistration[] } >;
 
@@ -34,32 +34,25 @@ const ALIASES: Record< string, string > = {
 	md: 'markdown',
 };
 
-// Token colors are CSS variables, set from the app's tokens in the stylesheet,
-// so code follows the light and dark themes without re-highlighting.
-const THEME = createCssVariablesTheme( {
-	name: 'studio',
-	variablePrefix: '--shiki-',
-	fontStyle: false,
-} );
-
 let highlighter: Promise< HighlighterCore > | undefined;
 
-export async function highlight(
-	code: string,
-	language: string
-): Promise< ThemedToken[][] | null > {
+export async function highlight( code: string, language: string ): Promise< TokensResult | null > {
 	const lang = ALIASES[ language ] ?? language;
 	const grammar = LANGUAGES[ lang ];
 	if ( ! grammar ) {
 		return null;
 	}
 	highlighter ??= createHighlighterCore( {
-		themes: [ THEME ],
+		themes: [ import( 'shiki/themes/github-light.mjs' ), import( 'shiki/themes/github-dark.mjs' ) ],
 		engine: createJavaScriptRegexEngine(),
 	} );
 	const instance = await highlighter;
 	if ( ! instance.getLoadedLanguages().includes( lang ) ) {
 		await instance.loadLanguage( grammar() );
 	}
-	return instance.codeToTokensBase( code, { lang, theme: 'studio' } );
+	// Each token carries its dark color as `--shiki-dark`.
+	return instance.codeToTokens( code, {
+		lang,
+		themes: { light: 'github-light', dark: 'github-dark' },
+	} );
 }

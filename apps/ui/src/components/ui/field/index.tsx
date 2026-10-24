@@ -80,13 +80,29 @@ export function FieldTitle( { className, ...props }: ComponentProps< 'div' > ) {
 	return <div data-slot="field-label" className={ clsx( styles.title, className ) } { ...props } />;
 }
 
+/** `additionalContent` sits on its own line under the text, like a link to a related section. */
 export function FieldDescription( {
 	className,
 	width = 'default',
 	error,
+	additionalContent,
 	children,
 	...props
-}: ComponentProps< 'p' > & { width?: 'default' | 'full'; error?: ReactNode } ) {
+}: ComponentProps< 'p' > & {
+	width?: 'default' | 'full';
+	error?: ReactNode;
+	additionalContent?: ReactNode;
+} ) {
+	const content = (
+		<>
+			{ children }
+			{ additionalContent ? (
+				<span data-slot="field-description-additional" className={ styles.additional }>
+					{ additionalContent }
+				</span>
+			) : null }
+		</>
+	);
 	return (
 		<p
 			data-slot="field-description"
@@ -98,14 +114,14 @@ export function FieldDescription( {
 			{ error ? (
 				<>
 					<span aria-hidden="true" className={ styles.reserved }>
-						{ children }
+						{ content }
 					</span>
 					<span role="alert" className={ styles.reserved }>
 						{ error }
 					</span>
 				</>
 			) : (
-				children
+				content
 			) }
 		</p>
 	);

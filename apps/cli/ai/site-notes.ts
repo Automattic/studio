@@ -22,6 +22,7 @@ import { readSiteFacts } from 'cli/ai/site-facts';
 import {
 	blockMarkupNotes,
 	clearThemePatternCache,
+	externalImageNotes,
 	getSiteFileWriteRefusal,
 	resolveSiteFile,
 	savedCopyNotes,
@@ -98,6 +99,7 @@ function sources( { stated = new Map(), gate }: SiteNotesOptions ): Sources {
 			blockMarkupNotes,
 			themeJsonNotes,
 			themeCssNotes,
+			externalImageNotes,
 			savedCopyNotes,
 		],
 		result: [ blockSettingsSource(), siteFactsSource( stated ) ],

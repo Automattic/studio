@@ -203,6 +203,36 @@ export async function themeCssNotes( siteFile: SiteFile ): Promise< string[] > {
 		: [];
 }
 
+const IMAGE_SOURCE =
+	/<img\b[^>]*?\bsrc="(https?:\/\/[^"]+)"|background(?:-image)?\s*:[^;}]*?url\(\s*['"]?(https?:\/\/[^'")\s]+)/gi;
+
+/** Images that block markup or a theme stylesheet just written shows from hosts other than the site. */
+export async function externalImageNotes( siteFile: SiteFile ): Promise< string[] > {
+	if ( ! isBlockMarkup( siteFile ) && ! siteFile.theme?.file.endsWith( '.css' ) ) {
+		return [];
+	}
+	const siteUrl = await readWordPressSite( siteFile.siteRoot, ( site ) =>
+		site.option( 'siteurl' )
+	);
+	if ( typeof siteUrl !== 'string' ) {
+		return [];
+	}
+	const siteHost = new URL( siteUrl ).host;
+	const hosts = new Set(
+		[ ...readSiteFile( siteFile ).matchAll( IMAGE_SOURCE ) ]
+			.map( ( match ) => match[ 1 ] ?? match[ 2 ] )
+			.map( ( url ) => ( URL.canParse( url ) ? new URL( url ).host : undefined ) )
+			.filter( ( host ) => host && host !== siteHost )
+	);
+	return hosts.size
+		? [
+				`${ siteFile.relativePath } shows images from ${ [ ...hosts ].join(
+					', '
+				) }, which this site does not hold: they break when that host moves or blocks them, and WordPress gives responsive sizes only to images in its media library, by their wp-image-<ID> class (wp_filter_content_tags in wp-includes/media.php). Generate them, or import them with \`wp media import\`, and use their URLs and attachment IDs.`,
+		  ]
+		: [];
+}
+
 /** That WordPress renders a saved Site Editor copy instead of the file just written. */
 export async function savedCopyNotes( { siteRoot, relativePath }: SiteFile ): Promise< string[] > {
 	const note = await readWordPressSite( siteRoot, ( site ) =>

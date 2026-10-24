@@ -1,64 +1,14 @@
 ---
 name: build-site
-description: Create, build, design, redesign, or rebuild a whole website as a WordPress site with WordPress Studio, on the user's computer — pick or create the site, settle the design and plugins as a Site Spec, then build the theme, provision the site, and publish the content. Load it before picking or creating the site.
+description: Create, build, design, redesign, or rebuild a whole website as a WordPress site with WordPress Studio, on the user's computer — pick or create the site, settle the look and the layout with the user, then build the theme, provision the site, and publish the content. Load it before picking or creating the site.
 user-invokable: true
 tools: pick_design, present_design_options, generate_images
 ---
 
 # Build a Site
 
-Follow these steps in order. Run every step even when the prompt already answers the discovery questions: skip the questions, but still produce the Site Spec.
-
-## 1. Pick or create the site
-
-Build on the active site. When there is none, or the request names another site, call site_create; Studio asks the user before it creates a site while one is active. If the prompt gives no name, ask for one and wait for the reply.
-
-## 2. Site Spec
-
-Before building, gather the user's basic preferences through a short interactive discovery phase. This produces a **Site Spec** that guides all subsequent design and development decisions.
-
-**AskUserQuestion constraints**: Each call supports 1-4 questions, each with 2-4 options. An "Other" free-form option is automatically provided by the system — do NOT add one yourself. Keep option labels short (1-5 words). Only use AskUserQuestion for questions that have meaningful predefined options. For open-ended questions, just ask in your text output — the user will type their answer in the prompt.
-
-Use AskUserQuestion for:
-- One-page site or multi-page site? (e.g., single scrollable page with sections vs. separate pages for each area)
-
-The business/brand name is the active site's name unless the prompt gives a different one. Do not ask for it. The one exception: when the site name is clearly a placeholder (e.g. "test", "Site 1") and the prompt gives no brand, ask for the brand name in your text output and **stop and wait for the reply** — do NOT call any tools in that turn.
-
-A new site's spec needs nothing from the site itself: do not search its files or list its plugins and themes before the design is settled.
-
-### The design
-
-Load the `visual-design` skill first — the catalogs, the look as theme.json, and the sneak-peek rules live there — and follow its "Concept and Direction" runbook. The design is settled in two steps, the look and then the layout, each with one `pick_design` call, repeated only when the user asks for other options:
-
-- Pass `options: 4` so the user picks, or `options: 1` when there is nothing to pick — the user asked to be surprised or to skip the questions, or the brief names that step's catalog entry. Neither a page count ("one page") nor adjectives ("elegant", "warm") pick an entry: ask, and apply them to the options you choose. For a reference site, look at it once with `take_screenshot` (`display: false`) and choose its closest entries, with `options` set to their number: two when `present_design_options` is available, otherwise one.
-- With one entry, use it without asking. With more, ask once, one option per entry in the order returned, labelled with the entry's name, without describing the options in prose first. A typed answer ("2 but darker") is a preference to apply to the closest option; asking for other options, as a choice or in their own words, means drawing that step again and asking the same way.
-
-1. **The look**: `catalog: "directions"`, asking "Which look should I build?". Skip this step when the site keeps its own theme and the user did not ask for a new look.
-   - If `present_design_options` is available: when you can make images (`generate_images`, or an image tool of your own), load the `imagery` skill and make the look image first. Pass each option's theme.json draft (see the `visual-design` skill) as its `preview`, with that image and a one-line description of the feel.
-   - Otherwise use `AskUserQuestion`, each option with a one-line description of the look.
-   - Then, when you can make images (`generate_images`, or an image tool of your own), load the `imagery` skill and make the site's image set in that look so the layout previews and the build have it.
-2. **The layout**: `catalog: "layouts"`, asking "Which layout should I build?".
-   - If `present_design_options` is available: pass one sneak peek per option, in the picked look and with the site's image set (see the `visual-design` skill), as its `preview`, with a one-line description of the layout.
-   - Otherwise use `AskUserQuestion`, each option with a one-line description of how its first screen would look.
-
-### The Site Spec
-
-Before step 3, state the plan in your text output as a short **Site Spec** summary. The summary MUST include a **Concept** line — the signature layout concept settled by `pick_design` or picked by the user, as `Concept: <catalog name> — <one-line adaptation>`, the entry's name verbatim so the user can find it, then the twist — followed by a **Layout map** (as the `visual-design` skill defines it: one line per section of the page saying what the concept does to it), a **Direction** line — the artistic direction behind the theme.json, as `Direction: <catalog name> — <one-line adaptation>` — and a **Functionality & plugins** line. A side designed from the brief rather than the catalog is stated as `Concept: <the brief's words> — <how it is built>` or `Direction: <the brief's words> — <how it is built>`. For the plugins line: review the requested features, load the `plugin-recommendations` skill, and list the specific plugins the site needs — e.g. WooCommerce for selling products, Jetpack Forms for a contact form, Jetpack Newsletter for email signups, Sensei LMS for courses, Crowdsignal for polls/surveys — or "None — core blocks only" when nothing beyond static content is required. Install the listed plugins in step 4; do not silently hand-build static markup for a feature a plugin should provide.
-
-### When to Skip the Questions
-
-Skipping means skipping the interactive questions only — each design step then returns a single entry, and you still produce the Site Spec summary (including the Functionality & plugins line) before building. Do NOT ask questions if:
-- The user says "just build something" or "surprise me". Pick a bold creative direction yourself and proceed.
-- The user explicitly asks to skip the setup or says they don't want questions.
-
-## 3. Theme files
-
-Write a block theme in `wp-content/themes/`, or a child theme to restyle an installed theme, one file at a time: style.css, theme.json, templates, parts, patterns. Its theme.json is the picked look's: copy the file `present_design_options` named, or write the one settled look.
-
-## 4. Provision the site
-
-With `wp`, activate the theme, install and activate the Site Spec's plugins, and set options, before writing page content.
-
-## 5. Publish the content
-
-Write each page's content to a scratch file in the site's `tmp/`, then create or update the page from the file.
+1. **The site**: the active site, or `site_create` when there is none or the request names another site.
+2. **The design**: load the `visual-design` skill, then settle the look and the layout with `pick_design`; each result says what comes next. A site that keeps its own theme, without a request for a new look, skips the look.
+3. **The theme**: a block theme in `wp-content/themes/`, or a child theme to restyle an installed theme — style.css, the picked look as theme.json, templates, parts, patterns.
+4. **Provisioning**: with `wp`, activate the theme, install and activate the plugins the site's features need (the `plugin-recommendations` skill), and set options.
+5. **The content**: each page's content as a scratch file in the site's `tmp/`, then the page created or updated from it.

@@ -224,3 +224,45 @@ it.each( [
 	},
 	60_000
 );
+
+// An image shown from a host other than the site's, in block markup or theme CSS.
+it.each( [
+	{
+		file: 'templates/index.html',
+		content:
+			'<!-- wp:image --><figure><img src="https://images.example.com/a.jpg" alt=""/></figure>',
+		host: 'images.example.com',
+	},
+	{
+		file: 'templates/index.html',
+		content: '<img src="http://localhost:8881/wp-content/uploads/a.png" alt=""/>',
+		host: undefined,
+	},
+	{
+		file: 'style.css',
+		content:
+			'/*\nTheme Name: Bakery\n*/\n.hero { background: #000 url("https://cdn.example.org/b.jpg"); }',
+		host: 'cdn.example.org',
+	},
+	{
+		file: 'style.css',
+		content:
+			'/*\nTheme Name: Bakery\n*/\n@font-face { src: url(https://fonts.example.com/a.woff2); }',
+		host: undefined,
+	},
+] )( 'notes images in $file from $host', async ( { file, content, host } ) => {
+	site.setOptions( { siteurl: 'http://localhost:8881' } );
+	const written = path.join( site.root, 'wp-content/themes/bakery', file );
+	mkdirSync( path.dirname( written ), { recursive: true } );
+	writeFileSync( written, content );
+	const output = await runFileToolHook( {
+		hook_event_name: 'PostToolUse',
+		tool_name: 'Write',
+		tool_input: { file_path: written },
+	} );
+	const notes = JSON.stringify( output ?? {} );
+	expect( notes.includes( 'which this site does not hold' ) ).toBe( Boolean( host ) );
+	expect(
+		notes.includes( `wp-content/themes/bakery/${ file } shows images from ${ host },` )
+	).toBe( Boolean( host ) );
+} );

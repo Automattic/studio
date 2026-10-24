@@ -345,7 +345,7 @@ tests:
       prompt: |
         Build me a minimal one-page site for a small neighborhood bakery: a
         hero and a short about section. Skip the discovery questions. Before
-        writing any files, state the Site Spec and stop — I will confirm the
+        writing any files, state your plan and stop — I will confirm the
         plan first.
     assert:
       - type: javascript

@@ -1,6 +1,6 @@
 import { act, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { wapuuWorldSlot } from '@/lib/wapuu-world';
+import { wapuuWorldSlot } from '@/features/settings/wapuu-world/slot';
 import { WapuuWorldMount } from './index';
 
 vi.mock( './wapuu-world-game', () => ( {

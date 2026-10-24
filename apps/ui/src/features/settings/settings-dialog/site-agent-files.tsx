@@ -1,21 +1,19 @@
 import { __, sprintf } from '@wordpress/i18n';
 import { EllipsisIcon } from 'lucide-react';
-import { LearnMoreLink } from '@/components/learn-more';
-import { useOpenInDestinations } from '@/components/open-in-menu/use-open-in-destinations';
+import { toast } from '@/data/app-messages';
+import { useConnector } from '@/data/core';
+import { useSiteAgentFiles, useUpdateSiteAgentFiles } from '@/data/queries/use-site-agent-files';
+import { LearnMoreLink } from '@/features/settings/learn-more';
 import {
 	SettingsGroup,
 	SettingsLoadState,
 	SettingsRow,
 	SettingsSectionLink,
 	SettingsToggle,
-} from '@/components/settings-view/rows';
-import { IconButton } from '@/components/ui/button';
-import * as Menu from '@/components/ui/menu';
-import { toast } from '@/data/app-messages';
-import { useConnector } from '@/data/core';
-import { useSiteAgentFiles, useUpdateSiteAgentFiles } from '@/data/queries/use-site-agent-files';
-import { ExternalLinkIcon } from '@/lib/icons/external-link-icon';
-import { TrashIcon } from '@/lib/icons/trash-icon';
+} from '@/features/settings/settings-view/rows';
+import { useOpenInDestinations } from '@/features/sites';
+import { ExternalLinkIcon, TrashIcon } from '@/lib/icons';
+import { Menu, IconButton } from '@/lib/ui';
 import styles from './style.module.css';
 import type { SiteAgentFileKind, SiteDetails } from '@/data/core';
 import type { SiteAgentFileOpenTarget } from '@studio/common/lib/site-agent-file-paths';

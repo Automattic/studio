@@ -1,24 +1,23 @@
 import { __ } from '@wordpress/i18n';
 import { clsx } from 'clsx';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { AppMessageCards, AppMessageHistoryRecorder } from '@/components/app-message-cards';
-import { AppToasts } from '@/components/app-toasts';
-import { ResizeHandle, ResizeOverlay } from '@/components/resize-handle';
-import { SidebarHeader } from '@/components/sidebar-header';
-import { SiteList } from '@/components/site-list';
-import { UserMenu } from '@/components/user-menu';
 import { useConnector } from '@/data/core';
-import {
-	SidebarCollapsedContext,
-	SidebarOpenContext,
-	SidebarToggleContext,
-} from '@/hooks/use-sidebar-collapsed';
-import { useStoredFlag } from '@/hooks/use-stored-flag';
+import { UserMenu } from '@/features/account';
+import { AppMessageCards, AppMessageHistoryRecorder, AppToasts } from '@/features/notifications';
 import {
 	PREVIEW_SPLIT_MIN_WIDTH,
 	SIDEBAR_PANEL_CONFIG,
 	SIDEBAR_PANEL_STORAGE_KEY,
-} from '@/lib/resizable-panels';
+} from '@/features/sidebar/resizable-panels';
+import { SidebarHeader } from '@/features/sidebar/sidebar-header';
+import { SiteList } from '@/features/sidebar/site-list';
+import {
+	SidebarCollapsedContext,
+	SidebarOpenContext,
+	SidebarToggleContext,
+} from '@/features/sidebar/use-sidebar-collapsed';
+import { useStoredFlag } from '@/lib/hooks';
+import { ResizeHandle, ResizeOverlay } from '@/lib/ui';
 import styles from './style.module.css';
 import { useResizablePanel } from './use-resizable-panel';
 import type { CSSProperties, ReactNode } from 'react';

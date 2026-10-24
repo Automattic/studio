@@ -1,11 +1,11 @@
 import { __ } from '@wordpress/i18n';
 import { clsx } from 'clsx';
 import { MenuIcon } from 'lucide-react';
-import { SidebarToggle } from '@/components/sidebar-toggle';
-import { IconButton } from '@/components/ui/button';
 import { useConnector } from '@/data/core';
-import { useSidebarOpen } from '@/hooks/use-sidebar-collapsed';
-import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
+import { useTrafficLightSpace } from '@/data/host/use-traffic-light-space';
+import { SidebarToggle } from '@/features/sidebar/sidebar-toggle';
+import { useSidebarOpen } from '@/features/sidebar/use-sidebar-collapsed';
+import { IconButton } from '@/lib/ui';
 import styles from './style.module.css';
 import type { MouseEvent } from 'react';
 

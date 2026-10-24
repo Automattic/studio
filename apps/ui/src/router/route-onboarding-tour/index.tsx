@@ -3,14 +3,16 @@ import { __ } from '@wordpress/i18n';
 import { clsx } from 'clsx';
 import { ChevronLeftIcon } from 'lucide-react';
 import { useCallback } from 'react';
-import { AuthActions } from '@/components/auth-actions';
-import { FeatureList } from '@/components/feature-list';
-import { OnboardingFooter } from '@/components/onboarding-footer';
-import { SiteListIllustration } from '@/components/onboarding-illustrations';
-import { AgentPixelField } from '@/components/onboarding-illustrations/agent-pixel-field';
-import { Button } from '@/components/ui/button';
 import { useConnector } from '@/data/core';
 import { useAuthUser } from '@/data/queries/use-auth-user';
+import { AuthActions } from '@/features/account';
+import {
+	FeatureList,
+	OnboardingFooter,
+	SiteListIllustration,
+	AgentPixelField,
+} from '@/features/onboarding';
+import { Button } from '@/lib/ui';
 import { onboardingLayoutRoute } from '../layout-onboarding';
 import sharedStyles from '../layout-onboarding/style.module.css';
 import styles from './style.module.css';

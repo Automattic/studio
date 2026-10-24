@@ -5,8 +5,8 @@ import { describe, expect, it, vi } from 'vitest';
 import { ConnectorProvider } from '@/data/core';
 import { useSyncActivityEvents } from '@/data/queries/use-sync-site';
 import { applySyncActivity } from '@/data/sync-activity';
-import { requestHeaderPanel } from '@/hooks/use-open-header-panel';
-import { useSyncConnectSiteListener } from '@/hooks/use-sync-connect-site-listener';
+import { requestHeaderPanel } from '@/features/sites';
+import { useSyncConnectSiteListener } from '@/features/sync/use-sync-connect-site-listener';
 import { PublishButton } from './index';
 import type { Connector, SiteDetails, SyncSite } from '@/data/core';
 

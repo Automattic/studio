@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import { markAiCreditsCheckoutPending } from '@/data/ai-credits-checkout';
 import { useConnector } from '@/data/core';
-import { useAddAiCreditsUrlBuilder } from '@/hooks/use-add-ai-credits-url';
+import { useAddAiCreditsUrlBuilder } from '@/features/credits/use-add-ai-credits-url';
 
 /**
  * Opens WordPress.com checkout for a credits top-up and records that the user

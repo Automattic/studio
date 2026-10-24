@@ -1,8 +1,6 @@
 import { Toast } from '@base-ui/react/toast';
 import { __ } from '@wordpress/i18n';
 import { useEffect, useRef, useState, type FocusEvent } from 'react';
-import { NoticeCard } from '@/components/notice-card';
-import { useNoticeHistoryOpen } from '@/components/notice-history';
 import {
 	dismissToast,
 	getVisibleToasts,
@@ -13,6 +11,8 @@ import {
 	useVisibleToasts,
 	type ToastMessage,
 } from '@/data/app-messages';
+import { NoticeCard } from '@/features/notifications/notice-card';
+import { useNoticeHistoryOpen } from '@/features/notifications/notice-history';
 import styles from './style.module.css';
 
 const pauseAll = () => getVisibleToasts().forEach( ( item ) => pauseToastExpiry( item.id ) );

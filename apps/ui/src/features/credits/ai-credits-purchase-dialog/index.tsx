@@ -5,7 +5,9 @@ import {
 import { createInterpolateElement } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
 import { useRef, useState, type KeyboardEvent } from 'react';
-import { Button } from '@/components/ui/button';
+import { useStudioAssistantTopUpPricing } from '@/data/queries/use-top-up-pricing';
+import { useUserLocale } from '@/data/queries/use-user-locale';
+import { useOpenAiCreditsCheckout } from '@/features/credits/use-open-ai-credits-checkout';
 import {
 	Dialog,
 	DialogClose,
@@ -14,10 +16,8 @@ import {
 	DialogFooter,
 	DialogHeader,
 	DialogTitle,
-} from '@/components/ui/dialog';
-import { useStudioAssistantTopUpPricing } from '@/data/queries/use-top-up-pricing';
-import { useUserLocale } from '@/data/queries/use-user-locale';
-import { useOpenAiCreditsCheckout } from '@/hooks/use-open-ai-credits-checkout';
+	Button,
+} from '@/lib/ui';
 import styles from './style.module.css';
 
 /**

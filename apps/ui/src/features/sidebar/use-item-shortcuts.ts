@@ -1,5 +1,5 @@
 import { useEffect, useEffectEvent, useId } from 'react';
-import { isShortcut, isTextEntry } from '@/lib/shortcuts';
+import { isShortcut, isTextEntry } from '@/lib/utils';
 
 type Handlers = {
 	rename: () => void;

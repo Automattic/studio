@@ -1,6 +1,5 @@
 import { isRTL } from '@wordpress/i18n';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { usePointerDrag } from '@/hooks/use-pointer-drag';
 import {
 	getInitialPreviewContentWidth,
 	getPreviewSplitLayout,
@@ -9,7 +8,8 @@ import {
 	PREVIEW_CONTENT_DEFAULT_WIDTH,
 	PREVIEW_PANEL_MIN_WIDTH,
 	storeResizablePanelWidth,
-} from '@/lib/resizable-panels';
+} from '@/features/sidebar';
+import { usePointerDrag } from '@/lib/hooks';
 import type { KeyboardEvent, MouseEventHandler, RefObject } from 'react';
 
 interface UsePreviewSplitOptions {

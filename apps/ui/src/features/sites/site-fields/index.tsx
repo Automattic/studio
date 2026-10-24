@@ -31,11 +31,15 @@ import { SupportedPHPVersions } from '@studio/common/types/php-versions';
 import { __ } from '@wordpress/i18n';
 import { WifiOffIcon } from 'lucide-react';
 import { useId, useState } from 'react';
-import { LearnHowLink } from '@/components/learn-more';
-import { Button } from '@/components/ui/button';
-import { Field, FieldContent, FieldDescription, FieldLabel } from '@/components/ui/field';
-import { Input } from '@/components/ui/input';
+import { useCertificateTrust, useTrustCertificate } from '@/data/queries/use-certificate-trust';
+import { LearnHowLink } from '@/features/settings';
 import {
+	Button,
+	Field,
+	FieldContent,
+	FieldDescription,
+	FieldLabel,
+	Input,
 	Select,
 	SelectContent,
 	SelectGroup,
@@ -43,10 +47,11 @@ import {
 	SelectLabel,
 	SelectTrigger,
 	SelectValue,
-} from '@/components/ui/select';
-import { Switch } from '@/components/ui/switch';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { useCertificateTrust, useTrustCertificate } from '@/data/queries/use-certificate-trust';
+	Switch,
+	Tooltip,
+	TooltipContent,
+	TooltipTrigger,
+} from '@/lib/ui';
 import styles from './style.module.css';
 import type { WordPressVersion } from '@studio/common/lib/wordpress-versions';
 import type { ComponentProps, ReactNode } from 'react';

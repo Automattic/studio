@@ -1,6 +1,6 @@
 import { __ } from '@wordpress/i18n';
-import { Button } from '@/components/ui/button';
 import {
+	Button,
 	Dialog,
 	DialogClose,
 	DialogContent,
@@ -8,7 +8,7 @@ import {
 	DialogFooter,
 	DialogHeader,
 	DialogTitle,
-} from '@/components/ui/dialog';
+} from '@/lib/ui';
 import styles from './style.module.css';
 
 interface BlueprintErrorDialogProps {

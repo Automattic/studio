@@ -17,9 +17,11 @@ const { navigate, openSettings, preview, startSite, stopSite, sites, agents } = 
 
 vi.mock( '@tanstack/react-router', () => ( { useNavigate: () => navigate } ) );
 vi.mock( '@/data/core', () => ( { useConnector: () => ( { trackEvent: vi.fn() } ) } ) );
-vi.mock( '@/hooks/use-session-ui', () => ( { useSessionPreviewUI: () => preview } ) );
-vi.mock( '@/hooks/use-open-settings', () => ( { useOpenSettings: () => openSettings } ) );
-vi.mock( '@/hooks/use-site-management-actions', () => ( {
+vi.mock( '@/features/chats/use-session-ui', () => ( { useSessionPreviewUI: () => preview } ) );
+vi.mock( '@/features/settings/use-open-settings', () => ( {
+	useOpenSettings: () => openSettings,
+} ) );
+vi.mock( '@/features/sites/use-site-management-actions', () => ( {
 	useSiteManagementActions: () =>
 		[ 'duplicate', 'import', 'export', 'export-db', 'delete' ].map( ( id ) => ( {
 			id,
@@ -28,13 +30,15 @@ vi.mock( '@/hooks/use-site-management-actions', () => ( {
 			run: vi.fn(),
 		} ) ),
 } ) );
-vi.mock( '@/components/open-in-menu/use-open-in-destinations', () => ( {
+vi.mock( '@/features/sites/open-in-menu/use-open-in-destinations', () => ( {
 	useOpenInDestinations: () => [],
 } ) );
-vi.mock( '@/components/publish-panel/publish-menu', () => ( { SitePublishMenu: () => null } ) );
-vi.mock( '@/components/share-dialog/share-menu-item', () => ( { SiteShareMenuItem: () => null } ) );
-vi.mock( '@/components/delete-site-dialog', () => ( { DeleteSiteDialog: () => null } ) );
-vi.mock( '@/components/import-site-dialog', () => ( {
+vi.mock( '@/features/sync/publish-panel/publish-menu', () => ( { SitePublishMenu: () => null } ) );
+vi.mock( '@/features/sharing/share-dialog/share-menu-item', () => ( {
+	SiteShareMenuItem: () => null,
+} ) );
+vi.mock( '@/features/sites/delete-site-dialog', () => ( { DeleteSiteDialog: () => null } ) );
+vi.mock( '@/features/sites/import-site-dialog', () => ( {
 	IMPORT_FILE_ACCEPT: '',
 	ImportSiteDialog: () => null,
 	useSiteBackupImport: () => ( {} ),

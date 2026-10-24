@@ -2,10 +2,10 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { StrictMode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { WindowControlsCornerContext } from '@/data/host/use-window-controls-inset';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
 import { useSession } from '@/data/queries/use-sessions';
-import { WindowControlsCornerContext } from '@/hooks/use-window-controls-inset';
-import { pendingPromptSlot } from '@/lib/pending-prompt';
+import { pendingPromptSlot } from '@/features/chats/pending-prompt';
 import { isScrolledAwayFromLatest } from './use-anchored-scroll';
 import { SessionView } from './index';
 import type { LoadedAiSession } from '@/data/core';
@@ -65,16 +65,16 @@ vi.mock( '@/data/queries/use-user-preferences', () => ( {
 	useUserPreferences: () => ( { data: siteMocks.preferences } ),
 } ) );
 
-vi.mock( '@/components/site-actions-menu', () => ( {
+vi.mock( '@/features/sites/site-actions-menu', () => ( {
 	SiteActionsMenu: ( { site }: { site: { name: string } } ) => <div>{ site.name }</div>,
 } ) );
 
-vi.mock( '@/components/site-header-actions', () => ( {
+vi.mock( '@/features/sites/site-header-actions', () => ( {
 	SiteHeaderSpace: () => <div data-testid="site-header-space" />,
 	useSiteHeader: () => ( { host: 'chat' } ),
 } ) );
 
-vi.mock( '@/components/stopped-site-preview', () => ( {
+vi.mock( '@/features/sites/stopped-site-preview', () => ( {
 	SiteContextMenu: ( { children }: { children: React.ReactNode } ) => children,
 	StoppedSitePreview: () => <div data-testid="stopped-site-preview" />,
 } ) );
@@ -88,8 +88,8 @@ vi.mock( '@/data/queries/use-ai-settings', () => ( {
 vi.mock( '@/data/queries/use-auth-user', () => ( {
 	useAuthUser: () => ( { data: accessState.user, isLoading: false } ),
 } ) );
-vi.mock( '@/hooks/use-offline', () => ( { useOffline: () => accessState.offline } ) );
-vi.mock( '@/hooks/use-open-settings', () => ( {
+vi.mock( '@/lib/hooks/use-offline', () => ( { useOffline: () => accessState.offline } ) );
+vi.mock( '@/features/settings/use-open-settings', () => ( {
 	useOpenSettings: () => accessState.openSettings,
 } ) );
 
@@ -123,7 +123,7 @@ vi.mock( '@/data/queries/use-agent-run', () => ( {
 
 vi.mock( './use-session-commands', () => ( { useSessionCommands: vi.fn() } ) );
 
-vi.mock( '@/hooks/use-session-ui', () => ( {
+vi.mock( '@/features/chats/use-session-ui', () => ( {
 	SessionUIProvider: ( { children }: { children: React.ReactNode } ) => children,
 	useOptionalSessionPreviewUI: () => null,
 	useSessionPreviewUI: () => ( {
@@ -133,11 +133,11 @@ vi.mock( '@/hooks/use-session-ui', () => ( {
 		pathsBySiteId[ siteId ] ?? '/',
 } ) );
 
-vi.mock( '@/hooks/use-window-controls-overlay', () => ( {
+vi.mock( '@/lib/hooks/use-window-controls-overlay', () => ( {
 	useWindowControlsOverlay: () => ( { height: 32, controlsWidth: 138 } ),
 } ) );
 
-vi.mock( '@/hooks/use-traffic-light-space', () => ( {
+vi.mock( '@/data/host/use-traffic-light-space', () => ( {
 	useTrafficLightSpace: () => ( { start: false, end: false } ),
 } ) );
 
@@ -179,7 +179,7 @@ vi.mock( './conversation', () => ( {
 	),
 } ) );
 
-vi.mock( '@/components/chat-actions', () => ( {
+vi.mock( '@/features/chats/chat-actions', () => ( {
 	ChatContextMenu: ( { children }: { children: React.ReactNode } ) => children,
 } ) );
 vi.mock( './use-mark-chat-read', () => ( { useMarkChatRead: vi.fn() } ) );

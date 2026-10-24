@@ -21,63 +21,65 @@ import {
 	XIcon,
 } from 'lucide-react';
 import { useEffect, useId, useState } from 'react';
-import { setAnnotating, useSiteAnnotations } from '@/components/annotations/store';
-import { useChatActions } from '@/components/chat-actions';
-import { openNoticeHistory } from '@/components/notice-history';
-import { useOpenInDestinations } from '@/components/open-in-menu/use-open-in-destinations';
-import { getSessionTitle } from '@/components/session-view/session-chat-actions';
-import { getSections } from '@/components/settings-dialog/sections';
-import { useSiteActions } from '@/components/site-actions-menu';
-import { useCollapseAll } from '@/components/site-list/collapse-all';
-import {
-	CommandList,
-	getActiveCommand,
-	handleCommandKey,
-	type CommandGroup,
-} from '@/components/ui/command';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
-import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
+import { useColorScheme } from '@/data/host/use-color-scheme';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useAuthUser } from '@/data/queries/use-auth-user';
 import { useSessions } from '@/data/queries/use-sessions';
 import { useSidebarPreferences } from '@/data/queries/use-sidebar-pins';
 import { useSites } from '@/data/queries/use-sites';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
-import { useColorScheme } from '@/hooks/use-color-scheme';
-import { setCommandPaletteOpen, useCommandPaletteOpen } from '@/hooks/use-command-palette';
-import { useOpenAddSite } from '@/hooks/use-open-add-site';
-import { useOpenHeaderPanel } from '@/hooks/use-open-header-panel';
-import { useOpenSettings } from '@/hooks/use-open-settings';
-import { useOpenSite } from '@/hooks/use-open-site';
-import { useSessionUIDispatch, useSessionPreviewUI } from '@/hooks/use-session-ui';
-import { useSidebarOpen, useToggleSidebar } from '@/hooks/use-sidebar-collapsed';
-import { useSiteManagementActions } from '@/hooks/use-site-management-actions';
-import { getSiteUrl } from '@/lib/get-site-url';
-import { AnnotateIcon } from '@/lib/icons/annotate-icon';
-import { AppearanceIcon } from '@/lib/icons/appearance-icon';
-import { ArchiveIcon } from '@/lib/icons/archive-icon';
-import { BellIcon } from '@/lib/icons/bell-icon';
-import { ChatIcon } from '@/lib/icons/chat-icon';
-import { CollapseAllIcon } from '@/lib/icons/collapse-all-icon';
-import { ExternalLinkIcon } from '@/lib/icons/external-link-icon';
-import { GlobeIcon } from '@/lib/icons/globe-icon';
-import { NewChatIcon } from '@/lib/icons/new-chat-icon';
-import { PinIcon } from '@/lib/icons/pin-icon';
-import { RotateCwIcon } from '@/lib/icons/rotate-cw-icon';
-import { ShareIcon } from '@/lib/icons/share-icon';
-import { SiteSettingsIcon } from '@/lib/icons/site-settings-icon';
-import { StartSiteIcon } from '@/lib/icons/start-site-icon';
-import { StopOtherSitesIcon } from '@/lib/icons/stop-other-sites-icon';
-import { StopSiteIcon } from '@/lib/icons/stop-site-icon';
-import { UnpinIcon } from '@/lib/icons/unpin-icon';
-import { WordPressIcon } from '@/lib/icons/wordpress-icon';
-import { isDialogOpen, isShortcut } from '@/lib/shortcuts';
+import { useOpenSite } from '@/data/use-open-site';
+import { setAnnotating, useSiteAnnotations } from '@/features/annotations';
+import {
+	getSessionTitle,
+	useChatActions,
+	useSessionUIDispatch,
+	useSessionPreviewUI,
+} from '@/features/chats';
+import {
+	setCommandPaletteOpen,
+	useCommandPaletteOpen,
+} from '@/features/commands/use-command-palette';
+import { openNoticeHistory } from '@/features/notifications';
+import { useOpenSettings, getSections } from '@/features/settings';
+import { useCollapseAll, useSidebarOpen, useToggleSidebar } from '@/features/sidebar';
+import {
+	useOpenHeaderPanel,
+	useOpenAddSite,
+	useSiteActions,
+	useOpenInDestinations,
+	useSiteManagementActions,
+	getSiteUrl,
+} from '@/features/sites';
+import {
+	AnnotateIcon,
+	AppearanceIcon,
+	ArchiveIcon,
+	BellIcon,
+	ChatIcon,
+	CollapseAllIcon,
+	ExternalLinkIcon,
+	GlobeIcon,
+	NewChatIcon,
+	PinIcon,
+	RotateCwIcon,
+	ShareIcon,
+	SiteSettingsIcon,
+	StartSiteIcon,
+	StopOtherSitesIcon,
+	StopSiteIcon,
+	UnpinIcon,
+	WordPressIcon,
+} from '@/lib/icons';
 import { DEFAULT_COLOR_TINT } from '@/lib/theme';
+import { InputGroup, InputGroupAddon, InputGroupInput, Dialog, DialogContent } from '@/lib/ui';
+import { CommandList, getActiveCommand, handleCommandKey, type CommandGroup } from '@/lib/ui';
+import { isDialogOpen, isShortcut } from '@/lib/utils';
 import styles from './style.module.css';
-import type { OpenInDestination } from '@/components/open-in-menu/use-open-in-destinations';
 import type { AiSessionSummary, SiteDetails, UserPreferences } from '@/data/core';
+import type { OpenInDestination } from '@/features/sites';
 import type { ComponentType } from 'react';
 
 const GROUPS = [

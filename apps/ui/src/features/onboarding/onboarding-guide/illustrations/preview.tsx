@@ -1,9 +1,7 @@
 import { __ } from '@wordpress/i18n';
 import { clsx } from 'clsx';
 import { PencilIcon } from 'lucide-react';
-import { DatabaseIcon } from '@/lib/icons/database-icon';
-import { GlobeIcon } from '@/lib/icons/globe-icon';
-import { WordPressIcon } from '@/lib/icons/wordpress-icon';
+import { DatabaseIcon, GlobeIcon, WordPressIcon } from '@/lib/icons';
 import { easings, sample, span, useTimeline, type Keyframe } from './choreography';
 import { Cursor } from './primitives';
 import styles from './style.module.css';

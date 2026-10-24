@@ -1,6 +1,6 @@
 import { Popover as BasePopover } from '@base-ui/react/popover';
 import { clsx } from 'clsx';
-import { FloatingSurface } from '@/components/ui/surface';
+import { FloatingSurface } from '@/lib/ui/surface';
 import styles from './style.module.css';
 import type { ComponentProps, CSSProperties, ReactNode } from 'react';
 

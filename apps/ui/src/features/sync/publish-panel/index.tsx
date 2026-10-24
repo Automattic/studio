@@ -4,9 +4,6 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { __ } from '@wordpress/i18n';
 import { CheckIcon } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
-import { AccountPromptDialog } from '@/components/account-prompt';
-import { Button } from '@/components/ui/button';
-import * as Popover from '@/components/ui/popover';
 import { useConnector } from '@/data/core';
 import { useAuthUser } from '@/data/queries/use-auth-user';
 import {
@@ -17,15 +14,16 @@ import { useIsSiteBusy } from '@/data/queries/use-sites';
 import { useCancelSync, useDisconnectWpcomSite } from '@/data/queries/use-sync-site';
 import { usePickableWpcomSites, useSyncableWpcomSites } from '@/data/queries/use-wpcom-sites';
 import { useSiteSyncActivity } from '@/data/sync-activity';
-import { useOffline } from '@/hooks/use-offline';
-import { subscribeHeaderPanelRequest } from '@/hooks/use-open-header-panel';
+import { AccountPromptDialog } from '@/features/account';
+import { subscribeHeaderPanelRequest } from '@/features/sites';
 import {
 	clearPublishSetupError,
 	retryPublishSetup,
 	usePublishSetupError,
-} from '@/hooks/use-sync-connect-site-listener';
-import { ExternalLinkIcon } from '@/lib/icons/external-link-icon';
-import { PublishTransferIcon } from '@/lib/icons/publish-transfer-icon';
+} from '@/features/sync/use-sync-connect-site-listener';
+import { useOffline } from '@/lib/hooks';
+import { ExternalLinkIcon, PublishTransferIcon } from '@/lib/icons';
+import { Popover, Button } from '@/lib/ui';
 import { ConnectedView } from './connected-view';
 import { websiteAddress, websiteIssue, websiteLabel, type PublishView } from './options';
 import { ErrorMessage, PanelBody, PanelHeader, TransferProgress } from './parts';

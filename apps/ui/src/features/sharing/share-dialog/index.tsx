@@ -2,19 +2,6 @@ import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { isSnapshotExpired } from '@studio/common/lib/snapshots';
 import { __, sprintf } from '@wordpress/i18n';
 import { useEffect, useId, useState, type ReactNode } from 'react';
-import { AccountPrompt } from '@/components/account-prompt';
-import { Button } from '@/components/ui/button';
-import {
-	Dialog,
-	DialogContent,
-	DialogDescription,
-	DialogHeader,
-	DialogTitle,
-} from '@/components/ui/dialog';
-import { Field, FieldContent, FieldDescription, FieldTitle } from '@/components/ui/field';
-import { Spinner } from '@/components/ui/spinner';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { VisuallyHidden } from '@/components/ui/visually-hidden';
 import { useConnector } from '@/data/core';
 import { markPreviewSeen, usePreviewReady } from '@/data/preview-ready';
 import { useAuthUser } from '@/data/queries/use-auth-user';
@@ -24,8 +11,26 @@ import { useIsSiteBusy } from '@/data/queries/use-sites';
 import { useSnapshotUsage, useSnapshots } from '@/data/queries/use-snapshots';
 import { useSyncableWpcomSites } from '@/data/queries/use-wpcom-sites';
 import { useSiteSyncActivity } from '@/data/sync-activity';
-import { subscribeHeaderPanelRequest } from '@/hooks/use-open-header-panel';
-import { ShareIcon } from '@/lib/icons/share-icon';
+import { AccountPrompt } from '@/features/account';
+import { subscribeHeaderPanelRequest } from '@/features/sites';
+import { ShareIcon } from '@/lib/icons';
+import {
+	VisuallyHidden,
+	Tooltip,
+	TooltipContent,
+	TooltipTrigger,
+	Spinner,
+	Field,
+	FieldContent,
+	FieldDescription,
+	FieldTitle,
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogHeader,
+	DialogTitle,
+	Button,
+} from '@/lib/ui';
 import { PreviewSharePanel } from './preview-share-panel';
 import styles from './style.module.css';
 import type { SiteDetails } from '@/data/core';

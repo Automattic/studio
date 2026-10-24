@@ -2,9 +2,9 @@ import { ContextMenu as BaseContextMenu } from '@base-ui/react/context-menu';
 import { Menu as BaseMenu } from '@base-ui/react/menu';
 import { clsx } from 'clsx';
 import { forwardRef } from 'react';
-import { FloatingSurface } from '@/components/ui/surface';
-import surface from '@/components/ui/surface/style.module.css';
-import { ChevronDownIcon } from '@/lib/icons/chevron-down-icon';
+import { ChevronDownIcon } from '@/lib/icons';
+import { FloatingSurface } from '@/lib/ui/surface';
+import surface from '@/lib/ui/surface/style.module.css';
 import styles from './style.module.css';
 import type { ComponentPropsWithoutRef, ElementRef, ReactNode } from 'react';
 

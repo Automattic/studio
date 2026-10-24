@@ -1,6 +1,6 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { CODE_TEXT_ATTRIBUTE } from '@/hooks/use-text-context-menu';
+import { CODE_TEXT_ATTRIBUTE } from '@/features/chats/use-text-context-menu';
 import { Markdown } from '.';
 
 const { copyText } = vi.hoisted( () => ( {

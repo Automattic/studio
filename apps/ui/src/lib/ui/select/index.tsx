@@ -1,11 +1,11 @@
 import { Select as BaseSelect } from '@base-ui/react/select';
 import { clsx } from 'clsx';
 import { CheckIcon } from 'lucide-react';
-import buttonStyles from '@/components/ui/button/style.module.css';
-import surface from '@/components/ui/surface/style.module.css';
-import { ChevronDownIcon } from '@/lib/icons/chevron-down-icon';
+import { ChevronDownIcon } from '@/lib/icons';
+import buttonStyles from '@/lib/ui/button/style.module.css';
+import surface from '@/lib/ui/surface/style.module.css';
 import styles from './style.module.css';
-import type { ButtonSize, ButtonVariant } from '@/components/ui/button';
+import type { ButtonSize, ButtonVariant } from '@/lib/ui/button';
 import type { ComponentProps, ReactNode } from 'react';
 
 export const Select = BaseSelect.Root;

@@ -1,11 +1,9 @@
 import { __ } from '@wordpress/i18n';
 import { useEffect, useState, useSyncExternalStore } from 'react';
-import { NoticeCard } from '@/components/notice-card';
-import { Button, IconButton } from '@/components/ui/button';
-import * as Popover from '@/components/ui/popover';
-import { VisuallyHidden } from '@/components/ui/visually-hidden';
 import { clearNoticeHistory, dismissNotice, useNoticeHistory } from '@/data/app-messages';
-import { BellIcon } from '@/lib/icons/bell-icon';
+import { NoticeCard } from '@/features/notifications/notice-card';
+import { BellIcon } from '@/lib/icons';
+import { Button, IconButton, Popover, VisuallyHidden } from '@/lib/ui';
 import styles from './style.module.css';
 
 // Shared with the toasts, which hide while the history is open.

@@ -17,19 +17,6 @@ import {
 	type ReactElement,
 	type ReactNode,
 } from 'react';
-import { ChatActionsMenuItems, useChatActions } from '@/components/chat-actions';
-import { ReorderableList, type ReorderableListProps } from '@/components/reorderable-list';
-import { getSessionTitle } from '@/components/session-view/session-chat-actions';
-import { SidebarButton } from '@/components/sidebar-button';
-import { SiteActionsMenuItems, useSiteActions } from '@/components/site-actions-menu';
-import { Badge } from '@/components/ui/badge';
-import { Button, IconButton } from '@/components/ui/button';
-import { CollapsiblePanel } from '@/components/ui/collapsible';
-import * as Menu from '@/components/ui/menu';
-import { Spinner } from '@/components/ui/spinner';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { VisuallyHidden } from '@/components/ui/visually-hidden';
-import { XdebugIcon } from '@/components/xdebug-icon';
 import { useSessionsNeedingInput, useSiteAgentActivity } from '@/data/queries/use-agent-run';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useSessions } from '@/data/queries/use-sessions';
@@ -50,21 +37,39 @@ import {
 	useUpdateSitesSortOrder,
 } from '@/data/queries/use-sites';
 import { useSiteSyncActivity } from '@/data/sync-activity';
-import { useOpenAddSite } from '@/hooks/use-open-add-site';
-import { useOpenSite } from '@/hooks/use-open-site';
-import { useStoredFlag } from '@/hooks/use-stored-flag';
-import { ArchiveIcon } from '@/lib/icons/archive-icon';
-import { ChatIcon } from '@/lib/icons/chat-icon';
-import { CollapseAllIcon } from '@/lib/icons/collapse-all-icon';
-import { GlobeIcon } from '@/lib/icons/globe-icon';
-import { NeedsInputIcon } from '@/lib/icons/needs-input-icon';
-import { NewChatIcon } from '@/lib/icons/new-chat-icon';
-import { PinIcon } from '@/lib/icons/pin-icon';
-import { PlusIcon } from '@/lib/icons/plus-icon';
-import { StartSiteIcon } from '@/lib/icons/start-site-icon';
-import { StopSiteIcon } from '@/lib/icons/stop-site-icon';
-import { UnpinIcon } from '@/lib/icons/unpin-icon';
-import { resumeChat } from '@/lib/last-visited';
+import { useOpenSite } from '@/data/use-open-site';
+import { ChatActionsMenuItems, useChatActions, getSessionTitle } from '@/features/chats';
+import { resumeChat } from '@/features/sidebar/last-visited';
+import { ReorderableList, type ReorderableListProps } from '@/features/sidebar/reorderable-list';
+import { SidebarButton } from '@/features/sidebar/sidebar-button';
+import { XdebugIcon } from '@/features/sidebar/xdebug-icon';
+import { SiteActionsMenuItems, useSiteActions, useOpenAddSite } from '@/features/sites';
+import { useStoredFlag } from '@/lib/hooks';
+import {
+	ArchiveIcon,
+	ChatIcon,
+	CollapseAllIcon,
+	GlobeIcon,
+	NeedsInputIcon,
+	NewChatIcon,
+	PinIcon,
+	PlusIcon,
+	StartSiteIcon,
+	StopSiteIcon,
+	UnpinIcon,
+} from '@/lib/icons';
+import {
+	Badge,
+	Button,
+	IconButton,
+	CollapsiblePanel,
+	Menu,
+	Spinner,
+	Tooltip,
+	TooltipContent,
+	TooltipTrigger,
+	VisuallyHidden,
+} from '@/lib/ui';
 import { useProvideCollapseAll } from './collapse-all';
 import {
 	BulkMenu,

@@ -3,19 +3,27 @@ import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { __, _x, sprintf } from '@wordpress/i18n';
 import { CheckIcon, SearchIcon } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
-import { AuthActions } from '@/components/auth-actions';
-import { Alert, AlertActions, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
-import { PreviewFrame, PreviewImage } from '@/components/ui/preview-frame';
-import { Spinner } from '@/components/ui/spinner';
 import { useConnector } from '@/data/core';
 import { useAuthUser } from '@/data/queries/use-auth-user';
 import { useUserLocale } from '@/data/queries/use-user-locale';
 import { useSyncableWpcomSites } from '@/data/queries/use-wpcom-sites';
-import { useOffline } from '@/hooks/use-offline';
-import { ExternalLinkIcon } from '@/lib/icons/external-link-icon';
+import { AuthActions } from '@/features/account';
+import { useOffline } from '@/lib/hooks';
+import { ExternalLinkIcon } from '@/lib/icons';
+import {
+	Alert,
+	AlertActions,
+	AlertDescription,
+	AlertTitle,
+	Badge,
+	Button,
+	InputGroup,
+	InputGroupAddon,
+	InputGroupInput,
+	PreviewFrame,
+	PreviewImage,
+	Spinner,
+} from '@/lib/ui';
 import styles from './connect-panel.module.css';
 import {
 	getRemoteSiteName,

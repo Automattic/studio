@@ -4,9 +4,9 @@ import '@/index.css';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from '@/app';
+import { applyUserPreferences } from '@/app/apply-user-preferences';
 import { persistPromise } from '@/data/core';
 import { createLocalConnector } from '@/data/core/connectors/local';
-import { applyUserPreferences } from '@/lib/apply-user-preferences';
 
 // Local entry point. Identical to `main.tsx` except it wires the HTTP/SSE local
 // connector instead of the Electron IPC connector, so the same React app runs

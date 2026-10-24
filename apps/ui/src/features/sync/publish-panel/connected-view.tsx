@@ -8,15 +8,6 @@ import {
 	HistoryIcon,
 } from 'lucide-react';
 import { useId, useRef, useState } from 'react';
-import { Button, IconButton } from '@/components/ui/button';
-import * as Menu from '@/components/ui/menu';
-import {
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from '@/components/ui/select';
 import { useConnector } from '@/data/core';
 import { useStartSite } from '@/data/queries/use-sites';
 import {
@@ -25,7 +16,17 @@ import {
 	usePushSiteToLive,
 } from '@/data/queries/use-sync-site';
 import { useUserLocale } from '@/data/queries/use-user-locale';
-import { SyncIcon } from '@/lib/icons/sync-icon';
+import { SyncIcon } from '@/lib/icons';
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+	Menu,
+	Button,
+	IconButton,
+} from '@/lib/ui';
 import { FilePicker } from './file-picker';
 import {
 	backupsUrl,

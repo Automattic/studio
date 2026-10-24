@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useConnector } from '@/data/core';
-import { emitComposerTextQuote } from '@/lib/composer-text-quote';
+import { emitComposerTextQuote } from '@/features/chats/composer-text-quote';
 
 // Elements carrying a message's full text opt in with this attribute, so a
 // right-click anywhere inside one can offer to copy the whole thing.

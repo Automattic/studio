@@ -3,9 +3,11 @@ import { __, sprintf } from '@wordpress/i18n';
 import { clsx } from 'clsx';
 import { CheckIcon, ChevronRightIcon } from 'lucide-react';
 import { useContext } from 'react';
-import { SettingsLinkContext } from '@/components/settings-dialog/context';
-import { findSettingId } from '@/components/settings-dialog/sections';
-import { Button, type ButtonProps } from '@/components/ui/button';
+import { useCopyText } from '@/data/host/use-copy-text';
+import { SettingsLinkContext } from '@/features/settings/settings-dialog/context';
+import { findSettingId } from '@/features/settings/settings-dialog/sections';
+import { LinkIcon } from '@/lib/icons';
+import { Button, type ButtonProps } from '@/lib/ui';
 import {
 	Field,
 	FieldContent,
@@ -14,18 +16,14 @@ import {
 	FieldLegend,
 	FieldSet,
 	FieldTitle,
-} from '@/components/ui/field';
-import {
 	Select,
 	SelectContent,
 	SelectItem,
 	SelectTrigger,
 	SelectValue,
-} from '@/components/ui/select';
-import { Switch } from '@/components/ui/switch';
-import { VisuallyHidden } from '@/components/ui/visually-hidden';
-import { useCopyText } from '@/hooks/use-copy-text';
-import { LinkIcon } from '@/lib/icons/link-icon';
+	Switch,
+	VisuallyHidden,
+} from '@/lib/ui';
 import styles from './style.module.css';
 import type { ReactNode } from 'react';
 

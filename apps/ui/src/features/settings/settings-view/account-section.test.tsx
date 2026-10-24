@@ -2,7 +2,7 @@ import '@testing-library/jest-dom/vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useAuthUser, useLogin, useLogout } from '@/data/queries/use-auth-user';
-import { useOffline } from '@/hooks/use-offline';
+import { useOffline } from '@/lib/hooks';
 import { AccountSection } from './account-section';
 
 vi.mock( '@/data/queries/use-auth-user', () => ( {
@@ -11,7 +11,7 @@ vi.mock( '@/data/queries/use-auth-user', () => ( {
 	useLogout: vi.fn(),
 } ) );
 
-vi.mock( '@/hooks/use-offline', () => ( {
+vi.mock( '@/lib/hooks/use-offline', () => ( {
 	useOffline: vi.fn(),
 } ) );
 

@@ -20,25 +20,9 @@ import {
 	type ReactNode,
 	type Ref,
 } from 'react';
-import {
-	getSiteAnnotations,
-	hasAnnotationContent,
-	removeAnnotations,
-	stageAnnotations,
-	subscribeAnnotationSend,
-} from '@/components/annotations/store';
-import { annotationSubmission } from '@/components/annotations/submission';
-import { ChatContextMenu } from '@/components/chat-actions';
-import { PreviewParticles } from '@/components/preview-particles';
-import { usePreviewBeside } from '@/components/preview-split-frame';
-import { ProgressiveBlur } from '@/components/progressive-blur';
-import { HeaderSidebarToggle } from '@/components/sidebar-toggle';
-import { SiteActionsMenu } from '@/components/site-actions-menu';
-import { SiteHeaderSpace, useSiteHeader } from '@/components/site-header-actions';
-import { SiteIcon } from '@/components/site-icon';
-import { SiteContextMenu, StoppedSitePreview } from '@/components/stopped-site-preview';
-import { Button, IconButton } from '@/components/ui/button';
 import { toast } from '@/data/app-messages';
+import { useTrafficLightSpace } from '@/data/host/use-traffic-light-space';
+import { useWindowControlsInset } from '@/data/host/use-window-controls-inset';
 import { useAgentRun } from '@/data/queries/use-agent-run';
 import { useAiSettings } from '@/data/queries/use-ai-settings';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
@@ -57,13 +41,35 @@ import {
 	useStartSite,
 } from '@/data/queries/use-sites';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
-import { useSiteSelectionTime } from '@/hooks/use-open-site';
-import { SessionUIProvider, useOptionalSessionPreviewUI } from '@/hooks/use-session-ui';
-import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
-import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
-import { useWindowControlsInset } from '@/hooks/use-window-controls-inset';
-import { formatComposerTextQuote, watchComposerTextQuote } from '@/lib/composer-text-quote';
-import { pendingPromptSlot } from '@/lib/pending-prompt';
+import { useSiteSelectionTime } from '@/data/use-open-site';
+import {
+	getSiteAnnotations,
+	hasAnnotationContent,
+	removeAnnotations,
+	stageAnnotations,
+	subscribeAnnotationSend,
+	annotationSubmission,
+} from '@/features/annotations';
+import { ChatContextMenu } from '@/features/chats/chat-actions';
+import {
+	formatComposerTextQuote,
+	watchComposerTextQuote,
+} from '@/features/chats/composer-text-quote';
+import { pendingPromptSlot } from '@/features/chats/pending-prompt';
+import { ProgressiveBlur } from '@/features/chats/progressive-blur';
+import { SessionUIProvider, useOptionalSessionPreviewUI } from '@/features/chats/use-session-ui';
+import { HeaderSidebarToggle, useSidebarCollapsed } from '@/features/sidebar';
+import {
+	PreviewParticles,
+	usePreviewBeside,
+	SiteActionsMenu,
+	SiteHeaderSpace,
+	useSiteHeader,
+	SiteIcon,
+	SiteContextMenu,
+	StoppedSitePreview,
+} from '@/features/sites';
+import { Button, IconButton } from '@/lib/ui';
 import { Composer, ComposerSkeleton, type ComposerHandle } from './composer';
 import { Conversation } from './conversation';
 import { QueuedPrompts } from './queued-prompts';

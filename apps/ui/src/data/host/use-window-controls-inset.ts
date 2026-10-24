@@ -1,6 +1,6 @@
 import { createContext, useContext } from 'react';
-import { useWindowControlsOverlay } from '@/hooks/use-window-controls-overlay';
-import { useWindowControlsSurface } from '@/hooks/use-window-controls-surface';
+import { useWindowControlsSurface } from '@/data/host/use-window-controls-surface';
+import { useWindowControlsOverlay } from '@/lib/hooks';
 
 /**
  * Whether the surrounding panel reaches the window's physical top-right corner,

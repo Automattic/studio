@@ -8,18 +8,20 @@ import {
 import { terminalConfig } from '@studio/common/lib/user-settings/terminal';
 import { __, sprintf } from '@wordpress/i18n';
 import { CodeIcon } from 'lucide-react';
-import { AppIcon } from '@/components/app-icon';
-import { DATABASE_HOME_PATH } from '@/components/site-preview/address-bar';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { useInstalledApps } from '@/data/queries/use-installed-apps';
 import { useStartSite } from '@/data/queries/use-sites';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
-import { DatabaseIcon } from '@/lib/icons/database-icon';
-import { ExternalLinkIcon } from '@/lib/icons/external-link-icon';
-import { FolderIcon } from '@/lib/icons/folder-icon';
-import { TerminalIcon } from '@/lib/icons/terminal-icon';
-import { WordPressIcon } from '@/lib/icons/wordpress-icon';
+import { AppIcon } from '@/features/sites/app-icon';
+import { DATABASE_HOME_PATH } from '@/features/sites/site-preview/address-bar';
+import {
+	DatabaseIcon,
+	ExternalLinkIcon,
+	FolderIcon,
+	TerminalIcon,
+	WordPressIcon,
+} from '@/lib/icons';
 import type { SiteDetails } from '@/data/core';
 import type { ReactElement } from 'react';
 

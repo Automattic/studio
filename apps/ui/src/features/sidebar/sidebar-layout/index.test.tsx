@@ -1,25 +1,25 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { SidebarToggle } from '@/components/sidebar-toggle';
 import { useConnector } from '@/data/core';
+import { SidebarToggle } from '@/features/sidebar/sidebar-toggle';
 import { SidebarLayout } from './index';
 import type { ReactElement, ReactNode } from 'react';
 
-vi.mock( '@/components/sidebar-header', () => ( {
+vi.mock( '@/features/sidebar/sidebar-header', () => ( {
 	SidebarHeader: () => null,
 } ) );
 
-vi.mock( '@/components/app-message-cards', () => ( {
+vi.mock( '@/features/notifications/app-message-cards', () => ( {
 	AppMessageCards: () => null,
 	AppMessageCardsDot: () => null,
 	AppMessageHistoryRecorder: () => null,
 } ) );
 
-vi.mock( '@/components/collapsed-site-switcher', () => ( {
+vi.mock( '@/features/sidebar/collapsed-site-switcher', () => ( {
 	CollapsedSiteSwitcher: ( { trigger }: { trigger: ReactElement } ) => trigger,
 } ) );
 
-vi.mock( '@/components/site-list', () => ( {
+vi.mock( '@/features/sidebar/site-list', () => ( {
 	SiteList: ( { onSiteOpen }: { onSiteOpen?: () => void } ) => (
 		<button type="button" onClick={ onSiteOpen }>
 			A chat
@@ -28,7 +28,7 @@ vi.mock( '@/components/site-list', () => ( {
 	SeenSessionTimestampsProvider: ( { children }: { children: ReactNode } ) => children,
 } ) );
 
-vi.mock( '@/components/user-menu', () => ( {
+vi.mock( '@/features/account/user-menu', () => ( {
 	UserMenu: () => <div data-testid="user-menu" />,
 } ) );
 
@@ -36,11 +36,11 @@ vi.mock( '@/data/core', () => ( {
 	useConnector: vi.fn(),
 } ) );
 
-vi.mock( '@/hooks/use-fullscreen', () => ( {
+vi.mock( '@/data/host/use-fullscreen', () => ( {
 	useFullscreen: () => false,
 } ) );
 
-vi.mock( '@/hooks/use-color-scheme', () => ( {
+vi.mock( '@/data/host/use-color-scheme', () => ( {
 	useColorScheme: () => 'light',
 } ) );
 

@@ -1,7 +1,7 @@
 import { __ } from '@wordpress/i18n';
-import * as Menu from '@/components/ui/menu';
-import { useOpenHeaderPanel } from '@/hooks/use-open-header-panel';
-import { ShareIcon } from '@/lib/icons/share-icon';
+import { useOpenHeaderPanel } from '@/features/sites';
+import { ShareIcon } from '@/lib/icons';
+import { Menu } from '@/lib/ui';
 import type { SiteDetails } from '@/data/core';
 
 export function SiteShareMenuItem( { site, disabled }: { site: SiteDetails; disabled: boolean } ) {

@@ -2,16 +2,16 @@ import { DESIGN_SYSTEM_PREVIEW_PATH } from '@studio/common/ai/chat-artifacts';
 import { TRACKS_EVENTS, type TracksEventName } from '@studio/common/lib/record-tracks-event';
 import { __ } from '@wordpress/i18n';
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
-import { SiteIcon } from '@/components/site-icon';
-import { Button } from '@/components/ui/button';
-import { CommandList, handleCommandKey, type CommandGroup } from '@/components/ui/command';
-import * as Popover from '@/components/ui/popover';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { AppearanceIcon } from '@/lib/icons/appearance-icon';
-import { DatabaseIcon } from '@/lib/icons/database-icon';
-import { ExternalLinkIcon } from '@/lib/icons/external-link-icon';
-import { SiteSettingsIcon } from '@/lib/icons/site-settings-icon';
-import { WordPressIcon } from '@/lib/icons/wordpress-icon';
+import { SiteIcon } from '@/features/sites/site-icon';
+import {
+	AppearanceIcon,
+	DatabaseIcon,
+	ExternalLinkIcon,
+	SiteSettingsIcon,
+	WordPressIcon,
+} from '@/lib/icons';
+import { Tooltip, TooltipContent, TooltipTrigger, Popover, Button } from '@/lib/ui';
+import { CommandList, handleCommandKey, type CommandGroup } from '@/lib/ui';
 import styles from './address-bar.module.css';
 import type { SiteDetails } from '@/data/core';
 import type { ComponentType, FormEvent, ReactNode } from 'react';

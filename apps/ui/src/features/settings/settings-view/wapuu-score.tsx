@@ -1,18 +1,18 @@
 import { __, sprintf } from '@wordpress/i18n';
-import { Button } from '@/components/ui/button';
+import { useConnector } from '@/data/core';
+import { useWapuuScore } from '@/data/queries/use-wapuu-score';
+import wapuuIdleUrl from '@/features/settings/wapuu-world/assets/wapuu-player-idle-sprite.png';
+import { MAX_SCORE } from '@/features/settings/wapuu-world/engine/game-loop';
 import {
+	Button,
 	Field,
 	FieldContent,
 	FieldDescription,
 	FieldGroup,
 	FieldLegend,
 	FieldSet,
-} from '@/components/ui/field';
-import { Progress } from '@/components/ui/progress';
-import wapuuIdleUrl from '@/components/wapuu-world/assets/wapuu-player-idle-sprite.png';
-import { MAX_SCORE } from '@/components/wapuu-world/engine/game-loop';
-import { useConnector } from '@/data/core';
-import { useWapuuScore } from '@/data/queries/use-wapuu-score';
+	Progress,
+} from '@/lib/ui';
 import styles from './style.module.css';
 
 const WAPUU_STUDIO_URL = 'https://wapuu.studio';

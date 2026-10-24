@@ -12,7 +12,7 @@ vi.mock( '@tanstack/react-router', () => ( {
 	useNavigate: () => navigateMock,
 } ) );
 
-vi.mock( '@/components/gravatar', () => ( {
+vi.mock( '@/features/account/gravatar', () => ( {
 	Gravatar: () => <span data-testid="gravatar" />,
 } ) );
 
@@ -21,7 +21,7 @@ vi.mock( '@/data/queries/use-auth-user', () => ( {
 	useLogout: () => ( { mutate: logoutMock } ),
 } ) );
 
-vi.mock( '@/components/account-prompt', () => ( {
+vi.mock( '@/features/account/account-prompt', () => ( {
 	AccountPromptDialog: ( { open, title }: { open: boolean; title: string } ) =>
 		open ? <div role="dialog" aria-label={ title } /> : null,
 } ) );
@@ -31,7 +31,7 @@ vi.mock( '@/data/app-messages', () => ( {
 	useNoticeHistory: () => [],
 } ) );
 
-vi.mock( '@/hooks/use-color-scheme', () => ( {
+vi.mock( '@/data/host/use-color-scheme', () => ( {
 	useColorScheme: () => 'light',
 } ) );
 

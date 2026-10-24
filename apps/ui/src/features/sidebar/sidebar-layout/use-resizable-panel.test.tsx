@@ -1,7 +1,10 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { ResizeHandle } from '@/components/resize-handle';
-import { SIDEBAR_PANEL_CONFIG, SIDEBAR_PANEL_STORAGE_KEY } from '@/lib/resizable-panels';
+import {
+	SIDEBAR_PANEL_CONFIG,
+	SIDEBAR_PANEL_STORAGE_KEY,
+} from '@/features/sidebar/resizable-panels';
+import { ResizeHandle } from '@/lib/ui';
 import { useResizablePanel } from './use-resizable-panel';
 
 const rtlState = vi.hoisted( () => ( { isRTL: false } ) );

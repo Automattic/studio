@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { useProvideCollapseAll } from '@/components/site-list/collapse-all';
-import { setCommandPaletteOpen } from '@/hooks/use-command-palette';
+import { setCommandPaletteOpen } from '@/features/commands/use-command-palette';
+import { useProvideCollapseAll } from '@/features/sidebar';
 import { CommandPalette, matchCommands } from './index';
 
 const { savePreferences } = vi.hoisted( () => ( { savePreferences: vi.fn() } ) );
@@ -22,10 +22,10 @@ vi.mock( '@/data/queries/use-user-preferences', () => ( {
 vi.mock( '@/data/queries/use-sidebar-pins', () => ( {
 	useSidebarPreferences: () => ( { showRecentChats: true, autoCollapseSites: false } ),
 } ) );
-vi.mock( '@/hooks/use-color-scheme', () => ( { useColorScheme: () => 'light' } ) );
-vi.mock( '@/hooks/use-open-settings', () => ( { useOpenSettings: () => vi.fn() } ) );
-vi.mock( '@/hooks/use-open-add-site', () => ( { useOpenAddSite: () => vi.fn() } ) );
-vi.mock( '@/hooks/use-open-site', () => ( { useOpenSite: () => vi.fn() } ) );
+vi.mock( '@/data/host/use-color-scheme', () => ( { useColorScheme: () => 'light' } ) );
+vi.mock( '@/features/settings/use-open-settings', () => ( { useOpenSettings: () => vi.fn() } ) );
+vi.mock( '@/features/sites/use-open-add-site', () => ( { useOpenAddSite: () => vi.fn() } ) );
+vi.mock( '@/data/use-open-site', () => ( { useOpenSite: () => vi.fn() } ) );
 
 const command = ( id: string, group: string, label: string, extra = {} ) =>
 	( { id, group, label, icon: () => <svg />, run: () => {}, ...extra } ) as Parameters<

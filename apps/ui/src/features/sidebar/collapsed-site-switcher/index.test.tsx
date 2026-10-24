@@ -6,7 +6,7 @@ vi.mock( '@wordpress/keycodes', () => ( {
 	isAppleOS: () => true,
 } ) );
 
-vi.mock( '@/components/site-list', () => ( {
+vi.mock( '@/features/sidebar/site-list', () => ( {
 	SiteList: ( { className, onSiteOpen }: { className?: string; onSiteOpen?: () => void } ) => (
 		<div className={ className } data-testid="site-list">
 			<button onClick={ onSiteOpen }>My site</button>

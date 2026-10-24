@@ -2,11 +2,17 @@ import { getBlueprintUseCases } from '@studio/common/lib/blueprint-catalog';
 import { __, sprintf } from '@wordpress/i18n';
 import { PlusIcon } from 'lucide-react';
 import { useEffect, useRef } from 'react';
-import { Button } from '@/components/ui/button';
-import { Empty, EmptyContent, EmptyDescription, EmptyHeader } from '@/components/ui/empty';
-import { PreviewFrame, PreviewImage } from '@/components/ui/preview-frame';
 import { useBlueprints } from '@/data/queries/use-blueprints';
-import { useOffline } from '@/hooks/use-offline';
+import { useOffline } from '@/lib/hooks';
+import {
+	Button,
+	Empty,
+	EmptyContent,
+	EmptyDescription,
+	EmptyHeader,
+	PreviewFrame,
+	PreviewImage,
+} from '@/lib/ui';
 import styles from './blueprint-gallery.module.css';
 import type { BlueprintUseCase } from '@studio/common/lib/blueprint-catalog';
 import type { Blueprint } from '@studio/common/lib/studio-blueprints-api';

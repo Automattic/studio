@@ -4,48 +4,51 @@ import { useNavigate } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
 import { displayShortcut } from '@wordpress/keycodes';
 import { useRef, useState } from 'react';
-import { DeleteSiteDialog } from '@/components/delete-site-dialog';
-import {
-	ImportSiteDialog,
-	IMPORT_FILE_ACCEPT,
-	useSiteBackupImport,
-} from '@/components/import-site-dialog';
-import { useOpenInDestinations } from '@/components/open-in-menu/use-open-in-destinations';
-import { SitePublishMenu } from '@/components/publish-panel/publish-menu';
-import { SiteShareMenuItem } from '@/components/share-dialog/share-menu-item';
-import { DATABASE_HOME_PATH, getRealmNavigationPath } from '@/components/site-preview/address-bar';
-import { Button } from '@/components/ui/button';
-import * as Menu from '@/components/ui/menu';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useConnector } from '@/data/core';
 import { useSessionsBusy } from '@/data/queries/use-agent-run';
 import { useSessions } from '@/data/queries/use-sessions';
 import { sitePinKey, useSidebarPins } from '@/data/queries/use-sidebar-pins';
 import { useIsSiteBusy, useSites, useStartSite, useStopSite } from '@/data/queries/use-sites';
-import { useItemShortcuts } from '@/hooks/use-item-shortcuts';
-import { useOpenSettings } from '@/hooks/use-open-settings';
-import { useSessionPreviewUI } from '@/hooks/use-session-ui';
+import { useSessionPreviewUI } from '@/features/chats';
+import { useOpenSettings } from '@/features/settings';
+import { SiteShareMenuItem } from '@/features/sharing';
+import { useItemShortcuts } from '@/features/sidebar';
+import { DeleteSiteDialog } from '@/features/sites/delete-site-dialog';
+import { getSiteUrl } from '@/features/sites/get-site-url';
+import {
+	ImportSiteDialog,
+	IMPORT_FILE_ACCEPT,
+	useSiteBackupImport,
+} from '@/features/sites/import-site-dialog';
+import { useOpenInDestinations } from '@/features/sites/open-in-menu/use-open-in-destinations';
+import {
+	DATABASE_HOME_PATH,
+	getRealmNavigationPath,
+} from '@/features/sites/site-preview/address-bar';
 import {
 	useSiteManagementActions,
 	type SiteManagementAction,
 	type SiteManagementActionId,
-} from '@/hooks/use-site-management-actions';
-import { getSiteUrl } from '@/lib/get-site-url';
-import { ArrowRightIcon } from '@/lib/icons/arrow-right-icon';
-import { ChevronDownIcon } from '@/lib/icons/chevron-down-icon';
-import { DatabaseIcon } from '@/lib/icons/database-icon';
-import { ExportIcon } from '@/lib/icons/export-icon';
-import { ExternalLinkIcon } from '@/lib/icons/external-link-icon';
-import { GlobeIcon } from '@/lib/icons/globe-icon';
-import { PinIcon } from '@/lib/icons/pin-icon';
-import { RenameIcon } from '@/lib/icons/rename-icon';
-import { RotateCwIcon } from '@/lib/icons/rotate-cw-icon';
-import { SiteSettingsIcon } from '@/lib/icons/site-settings-icon';
-import { StartSiteIcon } from '@/lib/icons/start-site-icon';
-import { StopOtherSitesIcon } from '@/lib/icons/stop-other-sites-icon';
-import { StopSiteIcon } from '@/lib/icons/stop-site-icon';
-import { UnpinIcon } from '@/lib/icons/unpin-icon';
-import { WordPressIcon } from '@/lib/icons/wordpress-icon';
+} from '@/features/sites/use-site-management-actions';
+import { SitePublishMenu } from '@/features/sync';
+import {
+	ArrowRightIcon,
+	ChevronDownIcon,
+	DatabaseIcon,
+	ExportIcon,
+	ExternalLinkIcon,
+	GlobeIcon,
+	PinIcon,
+	RenameIcon,
+	RotateCwIcon,
+	SiteSettingsIcon,
+	StartSiteIcon,
+	StopOtherSitesIcon,
+	StopSiteIcon,
+	UnpinIcon,
+	WordPressIcon,
+} from '@/lib/icons';
+import { Tooltip, TooltipContent, TooltipTrigger, Menu, Button } from '@/lib/ui';
 import styles from './style.module.css';
 import type { SiteDetails } from '@/data/core';
 

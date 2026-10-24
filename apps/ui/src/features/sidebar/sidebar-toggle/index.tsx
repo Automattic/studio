@@ -1,15 +1,14 @@
 import { __ } from '@wordpress/i18n';
 import { clsx } from 'clsx';
-import { AppMessageCardsDot } from '@/components/app-message-cards';
-import { CollapsedSiteSwitcher } from '@/components/collapsed-site-switcher';
-import { Button } from '@/components/ui/button';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { AppMessageCardsDot } from '@/features/notifications';
+import { CollapsedSiteSwitcher } from '@/features/sidebar/collapsed-site-switcher';
 import {
 	useSidebarCollapsed,
 	useSidebarOpen,
 	useToggleSidebar,
-} from '@/hooks/use-sidebar-collapsed';
-import { SidebarIcon } from '@/lib/icons/sidebar-icon';
+} from '@/features/sidebar/use-sidebar-collapsed';
+import { SidebarIcon } from '@/lib/icons';
+import { Button, Tooltip, TooltipContent, TooltipTrigger } from '@/lib/ui';
 import styles from './style.module.css';
 
 export function SidebarToggle() {

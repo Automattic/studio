@@ -1,11 +1,11 @@
 import { __ } from '@wordpress/i18n';
-import { LearnMoreLink } from '@/components/learn-more';
 import {
 	useInstallWordPressSkill,
 	useRemoveWordPressSkill,
 	useSetAllWordPressSkills,
 	useWordPressSkills,
 } from '@/data/queries/use-wordpress-skills';
+import { LearnMoreLink } from '@/features/settings/learn-more';
 import {
 	SettingsGroup,
 	SettingsLoadState,

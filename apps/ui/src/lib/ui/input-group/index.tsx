@@ -1,6 +1,6 @@
 import { clsx } from 'clsx';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/lib/ui/input';
+import { Textarea } from '@/lib/ui/textarea';
 import styles from './style.module.css';
 import type { ComponentProps, MouseEvent } from 'react';
 

@@ -1,6 +1,6 @@
 import { __ } from '@wordpress/i18n';
 import { isAppleOS } from '@wordpress/keycodes';
-import { Kbd, KbdGroup } from '@/components/ui/kbd';
+import { Kbd, KbdGroup } from '@/lib/ui';
 import { SettingsGroup, SettingsRow } from './rows';
 import styles from './style.module.css';
 

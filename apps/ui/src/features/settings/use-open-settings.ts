@@ -1,5 +1,5 @@
 import { useNavigate } from '@tanstack/react-router';
-import type { SettingsSectionId } from '@/components/settings-dialog';
+import type { SettingsSectionId } from '@/features/settings/settings-dialog';
 
 // Opens the settings dialog over the current screen, focusing the control of
 // the setting titled `focus` when given.

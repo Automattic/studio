@@ -11,15 +11,6 @@ import { __, _n, sprintf } from '@wordpress/i18n';
 import { clsx } from 'clsx';
 import { CircleHelpIcon, EllipsisIcon } from 'lucide-react';
 import { useState } from 'react';
-import { SigninNotice } from '@/components/agentic-signin-banner';
-import { AiAccessRequiredNotice, AiBlockedNotice } from '@/components/ai-access-required-notice';
-import { AiCreditsDetailsDialog } from '@/components/ai-credits-details-dialog';
-import { LearnMoreLink } from '@/components/learn-more';
-import { OfflineNotice } from '@/components/offline-banner';
-import { Button, IconButton } from '@/components/ui/button';
-import { Field, FieldDescription, FieldTitle } from '@/components/ui/field';
-import * as Menu from '@/components/ui/menu';
-import { Progress } from '@/components/ui/progress';
 import { useConnector } from '@/data/core';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
@@ -31,7 +22,16 @@ import {
 } from '@/data/queries/use-snapshots';
 import { useStudioAssistantTopUpPricing } from '@/data/queries/use-top-up-pricing';
 import { useUserLocale } from '@/data/queries/use-user-locale';
-import { useOpenAiCreditsCheckout } from '@/hooks/use-open-ai-credits-checkout';
+import {
+	AiCreditsDetailsDialog,
+	AiAccessRequiredNotice,
+	AiBlockedNotice,
+	useOpenAiCreditsCheckout,
+} from '@/features/credits';
+import { SigninNotice } from '@/features/settings/agentic-signin-banner';
+import { LearnMoreLink } from '@/features/settings/learn-more';
+import { OfflineNotice } from '@/features/settings/offline-banner';
+import { Progress, Menu, Field, FieldDescription, FieldTitle, Button, IconButton } from '@/lib/ui';
 import { SettingsGroup, SettingsRow, SettingsSelect } from './rows';
 import styles from './style.module.css';
 import type { AiCreditsMeterIntent } from '@studio/common/lib/studio-assistant-quota';

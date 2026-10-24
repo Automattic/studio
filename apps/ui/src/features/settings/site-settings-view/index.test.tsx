@@ -1,21 +1,23 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { SettingsDialogContext } from '@/components/settings-dialog/context';
 import { useIsSiteBusy, useUpdateSite, useXdebugEnabledSite } from '@/data/queries/use-sites';
 import { useWordPressVersions, useWpVersion } from '@/data/queries/use-wordpress-versions';
+import { SettingsDialogContext } from '@/features/settings/settings-dialog/context';
 import { SiteSettingsForm } from './index';
-import type { SiteSettingsSectionId } from '@/components/settings-dialog/context';
 import type { SiteDetails } from '@/data/core';
+import type { SiteSettingsSectionId } from '@/features/settings/settings-dialog/context';
 
 // Base UI's switch dispatches a PointerEvent, which jsdom lacks.
 vi.stubGlobal( 'PointerEvent', window.PointerEvent ?? MouseEvent );
 
-vi.mock( '@/components/learn-more', () => ( {
+vi.mock( '@/features/settings/learn-more', () => ( {
 	LearnHowLink: () => null,
 	LearnMoreLink: () => null,
 } ) );
-vi.mock( '@/components/settings-view/account-section', () => ( { ConnectionCard: () => null } ) );
+vi.mock( '@/features/settings/settings-view/account-section', () => ( {
+	ConnectionCard: () => null,
+} ) );
 vi.mock( '@/data/core', async ( importOriginal ) => ( {
 	...( await importOriginal< typeof import('@/data/core') >() ),
 	useConnector: () => ( { openSiteDebugLog: vi.fn() } ),
@@ -39,7 +41,7 @@ vi.mock( '@/data/queries/use-wordpress-versions', () => ( {
 	useWordPressVersions: vi.fn(),
 	useWpVersion: vi.fn(),
 } ) );
-vi.mock( '@/hooks/use-offline', () => ( { useOffline: () => false } ) );
+vi.mock( '@/lib/hooks/use-offline', () => ( { useOffline: () => false } ) );
 
 const SITE = {
 	id: 'site-1',

@@ -9,7 +9,7 @@ import {
 } from '@/data/queries/use-wordpress-skills';
 import { SkillsPanel } from './skills-panel';
 
-vi.mock( '@/components/learn-more', () => ( {
+vi.mock( '@/features/settings/learn-more', () => ( {
 	LearnMoreLink: () => <button type="button">Learn more</button>,
 } ) );
 

@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
-import { useSiteAnnotations } from '@/components/annotations/store';
+import { useSiteAnnotations } from '@/features/annotations';
 import styles from './style.module.css';
-import type { AnnotationAnchor } from '@/components/annotations/overlay';
+import type { AnnotationAnchor } from '@/features/annotations';
 import type { VisualAnnotationTarget } from '@studio/common/ai/visual-annotations';
 import type { MouseEvent } from 'react';
 

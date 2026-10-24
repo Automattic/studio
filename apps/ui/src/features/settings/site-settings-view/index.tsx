@@ -21,11 +21,16 @@ import { __, sprintf } from '@wordpress/i18n';
 import { EyeIcon, EyeOffIcon } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { CopyButton } from '@/components/copy-button';
-import { LearnMoreLink } from '@/components/learn-more';
-import { useSettingsDialog } from '@/components/settings-dialog/context';
-import { ConnectionCard } from '@/components/settings-view/account-section';
-import { SettingsGroup, SettingsRow, SettingsToggle } from '@/components/settings-view/rows';
+import { useConnector } from '@/data/core';
+import { useExistingCustomDomains } from '@/data/queries/use-create-site-helpers';
+import { useDebugLogExists } from '@/data/queries/use-debug-log';
+import { useIsSiteBusy, useUpdateSite, useXdebugEnabledSite } from '@/data/queries/use-sites';
+import { useWordPressVersions, useWpVersion } from '@/data/queries/use-wordpress-versions';
+import { CopyButton } from '@/features/chats';
+import { LearnMoreLink } from '@/features/settings/learn-more';
+import { useSettingsDialog } from '@/features/settings/settings-dialog/context';
+import { ConnectionCard } from '@/features/settings/settings-view/account-section';
+import { SettingsGroup, SettingsRow, SettingsToggle } from '@/features/settings/settings-view/rows';
 import {
 	CertificateTrustNotice,
 	getEnvironmentTypeOptions,
@@ -35,18 +40,12 @@ import {
 	SiteSelect,
 	validateAdminPassword,
 	validateSiteName,
-} from '@/components/site-fields';
-import { Button, IconButton } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { useConnector } from '@/data/core';
-import { useExistingCustomDomains } from '@/data/queries/use-create-site-helpers';
-import { useDebugLogExists } from '@/data/queries/use-debug-log';
-import { useIsSiteBusy, useUpdateSite, useXdebugEnabledSite } from '@/data/queries/use-sites';
-import { useWordPressVersions, useWpVersion } from '@/data/queries/use-wordpress-versions';
-import { useOffline } from '@/hooks/use-offline';
+} from '@/features/sites';
+import { useOffline } from '@/lib/hooks';
+import { Button, IconButton, Input } from '@/lib/ui';
 import styles from './style.module.css';
-import type { SiteSettingsSectionId } from '@/components/settings-dialog/context';
 import type { SiteDetails } from '@/data/core';
+import type { SiteSettingsSectionId } from '@/features/settings/settings-dialog/context';
 import type { DocsLinkKey } from '@studio/common/lib/docs-links';
 import type { SiteFileAccess } from '@studio/common/lib/site-file-access';
 import type { WpEnvironmentType } from '@studio/common/lib/wp-environment-type';

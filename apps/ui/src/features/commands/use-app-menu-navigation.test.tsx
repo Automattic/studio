@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useConnector } from '@/data/core';
-import { pendingBlueprintSlot } from '@/lib/pending-blueprint';
+import { pendingBlueprintSlot } from '@/features/sites';
 import { useAppMenuNavigation } from './use-app-menu-navigation';
 import type { ReactNode } from 'react';
 

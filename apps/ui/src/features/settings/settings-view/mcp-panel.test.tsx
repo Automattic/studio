@@ -1,12 +1,12 @@
 import '@testing-library/jest-dom/vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { TooltipProvider } from '@/components/ui/tooltip';
 import { useConnector } from '@/data/core';
+import { TooltipProvider } from '@/lib/ui';
 import { McpPanel } from './mcp-panel';
 import type { ReactNode } from 'react';
 
-vi.mock( '@/components/learn-more', () => ( {
+vi.mock( '@/features/settings/learn-more', () => ( {
 	LearnMoreLink: () => <a>Learn more</a>,
 } ) );
 

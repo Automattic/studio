@@ -1,9 +1,9 @@
 import { __ } from '@wordpress/i18n';
-import { SiteActionsMenuItems, useSiteActions } from '@/components/site-actions-menu';
-import * as Menu from '@/components/ui/menu';
 import { useSiteThumbnail } from '@/data/queries/use-site-thumbnail';
 import { useIsSiteBusy, useStartSite } from '@/data/queries/use-sites';
-import { StartSiteIcon } from '@/lib/icons/start-site-icon';
+import { SiteActionsMenuItems, useSiteActions } from '@/features/sites/site-actions-menu';
+import { StartSiteIcon } from '@/lib/icons';
+import { Menu } from '@/lib/ui';
 import styles from './style.module.css';
 import type { SiteDetails } from '@/data/core';
 import type { ReactElement } from 'react';

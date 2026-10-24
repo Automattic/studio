@@ -7,12 +7,14 @@ import { useConnector } from '@/data/core';
 import { persister } from '@/data/core/query-client';
 import { useInstalledApps } from '@/data/queries/use-installed-apps';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
-import { SIDEBAR_PANEL_STORAGE_KEY } from '@/lib/resizable-panels';
+import { SIDEBAR_PANEL_STORAGE_KEY } from '@/features/sidebar';
 import { AppearanceSettings, GeneralSettings } from './index';
 
-vi.mock( '@/components/site-list/sidebar-settings', () => ( { SidebarSettings: () => null } ) );
+vi.mock( '@/features/sidebar/site-list/sidebar-settings', () => ( {
+	SidebarSettings: () => null,
+} ) );
 
-vi.mock( '@/components/gravatar', () => ( {
+vi.mock( '@/features/account/gravatar', () => ( {
 	Gravatar: () => <span data-testid="gravatar" />,
 } ) );
 
@@ -38,7 +40,7 @@ vi.mock( '@/data/queries/use-auth-user', () => ( {
 	useLogout: () => ( { mutate: vi.fn(), isPending: false } ),
 } ) );
 
-vi.mock( '@/hooks/use-color-scheme', () => ( {
+vi.mock( '@/data/host/use-color-scheme', () => ( {
 	useColorScheme: () => 'light',
 } ) );
 

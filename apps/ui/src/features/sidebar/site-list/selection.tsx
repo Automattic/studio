@@ -3,22 +3,16 @@ import { useNavigate, useParams } from '@tanstack/react-router';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { displayShortcut, isAppleOS } from '@wordpress/keycodes';
 import { createContext, useContext, useEffect, useRef, useState } from 'react';
-import { getArchiveBlockedReason, useLeaveArchivedChat } from '@/components/chat-actions';
-import { DeleteSiteDialog } from '@/components/delete-site-dialog';
-import { useDeleteBlockedReason } from '@/components/site-actions-menu';
-import * as Menu from '@/components/ui/menu';
-import { VisuallyHidden } from '@/components/ui/visually-hidden';
 import { errorMessage, toast } from '@/data/app-messages';
 import { useSessionsBusy } from '@/data/queries/use-agent-run';
 import { useSessions, useUpdateSessionMetadata } from '@/data/queries/use-sessions';
 import { useSidebarPins } from '@/data/queries/use-sidebar-pins';
 import { useSites } from '@/data/queries/use-sites';
-import { ArchiveIcon } from '@/lib/icons/archive-icon';
-import { PinIcon } from '@/lib/icons/pin-icon';
-import { ReadStatusIcon } from '@/lib/icons/read-status-icon';
-import { TrashIcon } from '@/lib/icons/trash-icon';
-import { UnpinIcon } from '@/lib/icons/unpin-icon';
-import { isShortcut } from '@/lib/shortcuts';
+import { getArchiveBlockedReason, useLeaveArchivedChat } from '@/features/chats';
+import { useDeleteBlockedReason, DeleteSiteDialog } from '@/features/sites';
+import { ArchiveIcon, PinIcon, ReadStatusIcon, TrashIcon, UnpinIcon } from '@/lib/icons';
+import { VisuallyHidden, Menu } from '@/lib/ui';
+import { isShortcut } from '@/lib/utils';
 import styles from './style.module.css';
 import type {
 	KeyboardEvent,

@@ -12,8 +12,8 @@ import { siteThumbnailQueryKey } from '@/data/queries/use-site-thumbnail';
 import { SITES_QUERY_KEY } from '@/data/queries/use-sites';
 import { SNAPSHOTS_QUERY_KEY } from '@/data/queries/use-snapshots';
 import { WP_VERSION_QUERY_KEY } from '@/data/queries/use-wordpress-versions';
+import { getSnapshotUrl } from '@/data/snapshot-url';
 import { applySyncActivity, getSyncActivity } from '@/data/sync-activity';
-import { getSnapshotUrl } from '@/lib/snapshot-url';
 import type {
 	Connector,
 	PullSyncOptions,

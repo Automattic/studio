@@ -2,8 +2,9 @@ import { getAiModelLabel } from '@studio/common/ai/models';
 import { createInterpolateElement } from '@wordpress/element';
 import { __, sprintf } from '@wordpress/i18n';
 import { useRef } from 'react';
-import { Button } from '@/components/ui/button';
+import { useConfirmOnEnter } from '@/lib/hooks';
 import {
+	Button,
 	Dialog,
 	DialogClose,
 	DialogContent,
@@ -11,8 +12,7 @@ import {
 	DialogFooter,
 	DialogHeader,
 	DialogTitle,
-} from '@/components/ui/dialog';
-import { useConfirmOnEnter } from '@/hooks/use-confirm-on-enter';
+} from '@/lib/ui';
 import styles from './style.module.css';
 import type { AiModelId } from '@/data/core';
 

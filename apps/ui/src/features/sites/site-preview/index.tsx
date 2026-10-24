@@ -18,8 +18,18 @@ import {
 } from '@wordpress/keycodes';
 import { clsx } from 'clsx';
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { AnnotationOverlay, type AnnotationAnchor } from '@/components/annotations/overlay';
+import { useConnector } from '@/data/core';
+import { useColorScheme } from '@/data/host/use-color-scheme';
+import { useTrafficLightSpace } from '@/data/host/use-traffic-light-space';
+import { useWindowControlsInset } from '@/data/host/use-window-controls-inset';
+import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
+import { siteDesignQueryKey, useSiteDesign } from '@/data/queries/use-site-design';
+import { useSiteIcon } from '@/data/queries/use-site-icon';
+import { siteThumbnailQueryKey, useSiteThumbnail } from '@/data/queries/use-site-thumbnail';
+import { useIsSiteStarting, useIsSiteStopping, useSiteOperation } from '@/data/queries/use-sites';
 import {
+	AnnotationOverlay,
+	type AnnotationAnchor,
 	editAnnotation,
 	escapeAnnotations,
 	getSiteAnnotations,
@@ -28,45 +38,35 @@ import {
 	setAnnotating,
 	useSiteAnnotations,
 	type SiteAnnotations,
-} from '@/components/annotations/store';
-import { DesignSystemView } from '@/components/design-system-view';
-import { PreviewParticles } from '@/components/preview-particles';
+} from '@/features/annotations';
+import { useOptionalSessionPreviewUI } from '@/features/chats';
+import { useOpenSettings } from '@/features/settings';
+import { useSidebarCollapsed } from '@/features/sidebar';
+import { DesignSystemView } from '@/features/sites/design-system-view';
+import { getSiteUrl } from '@/features/sites/get-site-url';
+import { PreviewParticles } from '@/features/sites/preview-particles';
 import {
 	SiteHeaderSpace,
 	useSiteHeader,
 	useSiteHeaderNavigation,
-} from '@/components/site-header-actions';
-import { SiteContextMenu, StoppedSitePreview } from '@/components/stopped-site-preview';
-import { Button, IconButton } from '@/components/ui/button';
+} from '@/features/sites/site-header-actions';
+import { SiteContextMenu, StoppedSitePreview } from '@/features/sites/stopped-site-preview';
+import { AnnotateIcon, ArrowLeftIcon, ArrowRightIcon, GlobeIcon, RotateCwIcon } from '@/lib/icons';
 import {
+	Button,
+	IconButton,
 	Empty,
 	EmptyDescription,
 	EmptyHeader,
 	EmptyMedia,
 	EmptyTitle,
-} from '@/components/ui/empty';
-import * as Menu from '@/components/ui/menu';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { VisuallyHidden } from '@/components/ui/visually-hidden';
-import { useConnector } from '@/data/core';
-import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
-import { siteDesignQueryKey, useSiteDesign } from '@/data/queries/use-site-design';
-import { useSiteIcon } from '@/data/queries/use-site-icon';
-import { siteThumbnailQueryKey, useSiteThumbnail } from '@/data/queries/use-site-thumbnail';
-import { useIsSiteStarting, useIsSiteStopping, useSiteOperation } from '@/data/queries/use-sites';
-import { useColorScheme } from '@/hooks/use-color-scheme';
-import { useOpenSettings } from '@/hooks/use-open-settings';
-import { useOptionalSessionPreviewUI } from '@/hooks/use-session-ui';
-import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
-import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
-import { useWindowControlsInset } from '@/hooks/use-window-controls-inset';
-import { getSiteUrl } from '@/lib/get-site-url';
-import { AnnotateIcon } from '@/lib/icons/annotate-icon';
-import { ArrowLeftIcon } from '@/lib/icons/arrow-left-icon';
-import { ArrowRightIcon } from '@/lib/icons/arrow-right-icon';
-import { GlobeIcon } from '@/lib/icons/globe-icon';
-import { RotateCwIcon } from '@/lib/icons/rotate-cw-icon';
-import { isDialogOpen } from '@/lib/shortcuts';
+	Menu,
+	Tooltip,
+	TooltipContent,
+	TooltipTrigger,
+	VisuallyHidden,
+} from '@/lib/ui';
+import { isDialogOpen } from '@/lib/utils';
 import {
 	DATABASE_HOME_PATH,
 	getPathFromPreviewUrl,

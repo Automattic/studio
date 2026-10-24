@@ -1,10 +1,8 @@
 import { __ } from '@wordpress/i18n';
 import { isAppleOS } from '@wordpress/keycodes';
 import { useState, type ReactElement } from 'react';
-import { SiteList } from '@/components/site-list';
-import { Kbd, KbdGroup } from '@/components/ui/kbd';
-import * as Popover from '@/components/ui/popover';
-import { VisuallyHidden } from '@/components/ui/visually-hidden';
+import { SiteList } from '@/features/sidebar/site-list';
+import { Kbd, KbdGroup, Popover, VisuallyHidden } from '@/lib/ui';
 import styles from './style.module.css';
 
 const HOVER_OPEN_DELAY_MS = 180;

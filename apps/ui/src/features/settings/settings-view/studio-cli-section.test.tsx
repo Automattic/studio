@@ -5,7 +5,7 @@ import { useAppGlobals } from '@/data/queries/use-app-globals';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
 import { StudioCliSection } from './studio-cli-section';
 
-vi.mock( '@/components/learn-more', () => ( {
+vi.mock( '@/features/settings/learn-more', () => ( {
 	LearnMoreLink: () => null,
 } ) );
 

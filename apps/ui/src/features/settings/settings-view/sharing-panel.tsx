@@ -2,26 +2,27 @@ import { isSnapshotExpired } from '@studio/common/lib/snapshots';
 import { __, sprintf } from '@wordpress/i18n';
 import { PencilIcon } from 'lucide-react';
 import { useRef, useState } from 'react';
-import { AccountPrompt, previewSiteImage } from '@/components/account-prompt';
-import { CopyButton } from '@/components/copy-button';
-import { previewExpiry, RenamePreview } from '@/components/share-dialog/preview-share-panel';
-import { Button, IconButton } from '@/components/ui/button';
+import { useConnector } from '@/data/core';
+import { useAuthUser } from '@/data/queries/use-auth-user';
+import { useDeleteSnapshot, useSnapshotUsage, useSnapshots } from '@/data/queries/use-snapshots';
+import { useUserLocale } from '@/data/queries/use-user-locale';
+import { getSnapshotHostname, getSnapshotUrl } from '@/data/snapshot-url';
+import { AccountPrompt, previewSiteImage } from '@/features/account';
+import { CopyButton } from '@/features/chats';
+import { previewExpiry, RenamePreview } from '@/features/sharing';
+import { TrashIcon } from '@/lib/icons';
 import {
+	Button,
+	IconButton,
 	AlertDialog,
 	DialogContent,
 	DialogDescription,
 	DialogFooter,
 	DialogHeader,
 	DialogTitle,
-} from '@/components/ui/dialog';
-import { Empty } from '@/components/ui/empty';
-import { Field } from '@/components/ui/field';
-import { useConnector } from '@/data/core';
-import { useAuthUser } from '@/data/queries/use-auth-user';
-import { useDeleteSnapshot, useSnapshotUsage, useSnapshots } from '@/data/queries/use-snapshots';
-import { useUserLocale } from '@/data/queries/use-user-locale';
-import { TrashIcon } from '@/lib/icons/trash-icon';
-import { getSnapshotHostname, getSnapshotUrl } from '@/lib/snapshot-url';
+	Empty,
+	Field,
+} from '@/lib/ui';
 import { SettingsGroup, SettingsRow } from './rows';
 import styles from './style.module.css';
 import type { Snapshot } from '@/data/core';

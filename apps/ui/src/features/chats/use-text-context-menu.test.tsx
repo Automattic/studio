@@ -1,6 +1,6 @@
 import { fireEvent, render, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { watchComposerTextQuote } from '@/lib/composer-text-quote';
+import { watchComposerTextQuote } from '@/features/chats/composer-text-quote';
 import {
 	CODE_TEXT_ATTRIBUTE,
 	MESSAGE_TEXT_ATTRIBUTE,

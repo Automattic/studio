@@ -1,5 +1,5 @@
 import { clsx } from 'clsx';
-import { Label } from '@/components/ui/label';
+import { Label } from '@/lib/ui/label';
 import styles from './style.module.css';
 import type { ComponentProps, ReactNode } from 'react';
 

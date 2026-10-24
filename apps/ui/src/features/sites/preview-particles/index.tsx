@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { WordPressIcon } from '@/lib/icons/wordpress-icon';
+import { WordPressIcon } from '@/lib/icons';
 import {
 	createPreviewDots,
 	getPreviewDotFrame,

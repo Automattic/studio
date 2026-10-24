@@ -5,28 +5,29 @@ import { isAppleOS } from '@wordpress/keycodes';
 import { clsx } from 'clsx';
 import { ArrowUpIcon, PaperclipIcon, Trash2Icon, XIcon } from 'lucide-react';
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
+import { toast } from '@/data/app-messages';
+import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
+import { useComposerAttachments, useFileDrop } from '@/features/chats';
 import {
-	useComposerAttachments,
-	useFileDrop,
-} from '@/components/session-view/composer/use-composer-attachments';
-import { Badge } from '@/components/ui/badge';
-import { Button, IconButton } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
-import {
+	Badge,
+	Button,
+	IconButton,
+	Checkbox,
 	AlertDialog,
 	DialogContent,
 	DialogDescription,
 	DialogFooter,
 	DialogHeader,
 	DialogTitle,
-} from '@/components/ui/dialog';
-import { Field, FieldLabel } from '@/components/ui/field';
-import { Spinner } from '@/components/ui/spinner';
-import { Textarea } from '@/components/ui/textarea';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { toast } from '@/data/app-messages';
-import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
-import { isImeComposing } from '@/lib/is-ime-composing';
+	Field,
+	FieldLabel,
+	Spinner,
+	Textarea,
+	Tooltip,
+	TooltipContent,
+	TooltipTrigger,
+} from '@/lib/ui';
+import { isImeComposing } from '@/lib/utils';
 import {
 	changeAnnotation,
 	clearAnnotations,

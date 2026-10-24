@@ -12,7 +12,7 @@ vi.mock( '@/data/queries/use-blueprints', () => ( {
 	useBlueprints: () => mocks.blueprints,
 } ) );
 
-vi.mock( '@/hooks/use-offline', () => ( {
+vi.mock( '@/lib/hooks/use-offline', () => ( {
 	useOffline: () => mocks.isOffline,
 } ) );
 

@@ -1,11 +1,8 @@
 import { __ } from '@wordpress/i18n';
 import { useEffect } from 'react';
-import { resolveSettingsLink } from '@/components/settings-dialog/sections';
 import { useConnector } from '@/data/core';
-import { useOpenAddSite } from '@/hooks/use-open-add-site';
-import { useOpenSettings } from '@/hooks/use-open-settings';
-import { createSelectedBlueprint } from '@/lib/blueprint-selection';
-import { pendingBlueprintSlot } from '@/lib/pending-blueprint';
+import { resolveSettingsLink, useOpenSettings } from '@/features/settings';
+import { useOpenAddSite, createSelectedBlueprint, pendingBlueprintSlot } from '@/features/sites';
 
 export function useAppMenuNavigation() {
 	const connector = useConnector();

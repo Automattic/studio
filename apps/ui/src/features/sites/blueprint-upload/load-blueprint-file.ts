@@ -1,7 +1,7 @@
 import { __ } from '@wordpress/i18n';
-import { createSelectedBlueprint } from '@/lib/blueprint-selection';
+import { createSelectedBlueprint } from '@/features/sites/blueprint-selection';
 import type { Connector } from '@/data/core';
-import type { SelectedBlueprint } from '@/lib/blueprint-selection';
+import type { SelectedBlueprint } from '@/features/sites/blueprint-selection';
 
 export const BLUEPRINT_FILE_ACCEPT = 'application/json,.json,application/zip,.zip';
 

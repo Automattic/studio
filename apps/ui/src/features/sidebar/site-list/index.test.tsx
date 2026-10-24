@@ -20,7 +20,7 @@ import {
 } from '@/data/queries/use-sites';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useSiteSyncActivity } from '@/data/sync-activity';
-import { rememberVisit } from '@/lib/last-visited';
+import { rememberVisit } from '@/features/sidebar/last-visited';
 import { SiteList } from './index';
 import type { AiSessionSummary, SiteDetails } from '@/data/core';
 
@@ -119,19 +119,19 @@ vi.mock( '@/data/sync-activity', () => ( {
 	useSiteSyncActivity: vi.fn(),
 } ) );
 
-vi.mock( '@/hooks/use-session-ui', () => ( {
+vi.mock( '@/features/chats/use-session-ui', () => ( {
 	useSessionPreviewUI: () => ( { siteId: null } ),
 } ) );
 
-vi.mock( '@/components/publish-panel/publish-menu', () => ( {
+vi.mock( '@/features/sync/publish-panel/publish-menu', () => ( {
 	SitePublishMenu: () => null,
 } ) );
 
-vi.mock( '@/components/share-dialog/share-menu-item', () => ( {
+vi.mock( '@/features/sharing/share-dialog/share-menu-item', () => ( {
 	SiteShareMenuItem: () => null,
 } ) );
 
-vi.mock( '@/components/import-site-dialog', () => ( {
+vi.mock( '@/features/sites/import-site-dialog', () => ( {
 	IMPORT_FILE_ACCEPT: '',
 	ImportSiteDialog: () => null,
 	useSiteBackupImport: () => ( {} ),

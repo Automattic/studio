@@ -1,10 +1,10 @@
 import { clsx } from 'clsx';
-import { AddAiCreditsButton } from '@/components/add-ai-credits-button';
-import { NoticeCard } from '@/components/notice-card';
 import {
 	useActivePersistentMessages,
 	useRecordPersistentMessages,
 } from '@/data/queries/use-app-messages';
+import { AddAiCreditsButton } from '@/features/credits';
+import { NoticeCard } from '@/features/notifications/notice-card';
 import styles from './style.module.css';
 
 export function AppMessageCards( { className }: { className?: string } ) {

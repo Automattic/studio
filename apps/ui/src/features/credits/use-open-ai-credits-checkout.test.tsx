@@ -9,7 +9,7 @@ import { useOpenAiCreditsCheckout } from './use-open-ai-credits-checkout';
 const openExternalUrl = vi.fn();
 
 vi.mock( '@/data/core', () => ( { useConnector: () => ( { openExternalUrl } ) } ) );
-vi.mock( '@/hooks/use-add-ai-credits-url', () => ( {
+vi.mock( '@/features/credits/use-add-ai-credits-url', () => ( {
 	useAddAiCreditsUrlBuilder: () => ( credits?: number ) =>
 		`https://checkout.test/${ credits ?? 'default' }`,
 } ) );

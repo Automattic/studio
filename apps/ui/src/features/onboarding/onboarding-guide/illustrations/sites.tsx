@@ -1,7 +1,7 @@
 import { __ } from '@wordpress/i18n';
 import { clsx } from 'clsx';
-import { useColorScheme } from '@/hooks/use-color-scheme';
-import { SiteSettingsIcon } from '@/lib/icons/site-settings-icon';
+import { useColorScheme } from '@/data/host/use-color-scheme';
+import { SiteSettingsIcon } from '@/lib/icons';
 import { easings, envelope, sample, useTimeline, type Keyframe } from './choreography';
 import { Cursor, Tooltip } from './primitives';
 import styles from './style.module.css';

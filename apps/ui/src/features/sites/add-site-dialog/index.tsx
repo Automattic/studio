@@ -2,22 +2,26 @@ import { useNavigate, useSearch } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { ArchiveIcon, ChevronLeftIcon, CloudDownloadIcon, PlusIcon } from 'lucide-react';
 import { useCallback, useMemo, useRef, useState, useSyncExternalStore } from 'react';
-import { Button, IconButton } from '@/components/ui/button';
+import { sitePinKey, useSidebarPins } from '@/data/queries/use-sidebar-pins';
+import { useUserPreferences } from '@/data/queries/use-user-preferences';
+import { useSiteSyncActivity } from '@/data/sync-activity';
+import { closeOnPaletteShortcut } from '@/features/commands';
+import { pendingBlueprintSlot } from '@/features/sites/pending-blueprint';
 import {
+	Button,
+	IconButton,
 	Dialog,
 	DialogContent,
 	DialogPanel,
 	DialogTitle,
 	PanelHeader,
-} from '@/components/ui/dialog';
-import { Spinner } from '@/components/ui/spinner';
-import { Tabs, TabsList, TabsSidebar, TabsTrigger } from '@/components/ui/tabs';
-import { VisuallyHidden } from '@/components/ui/visually-hidden';
-import { sitePinKey, useSidebarPins } from '@/data/queries/use-sidebar-pins';
-import { useUserPreferences } from '@/data/queries/use-user-preferences';
-import { useSiteSyncActivity } from '@/data/sync-activity';
-import { closeOnPaletteShortcut } from '@/hooks/use-command-palette';
-import { pendingBlueprintSlot } from '@/lib/pending-blueprint';
+	Spinner,
+	Tabs,
+	TabsList,
+	TabsSidebar,
+	TabsTrigger,
+	VisuallyHidden,
+} from '@/lib/ui';
 import { BlueprintDetails } from './blueprint-details';
 import { BlueprintGallery, getUseCaseLabel, getUseCases } from './blueprint-gallery';
 import { ConnectPanel } from './connect-panel';
@@ -26,7 +30,7 @@ import { CreatePanel } from './create-panel';
 import { BackupDropZone, ImportPanel } from './import-panel';
 import styles from './style.module.css';
 import type { SyncSite } from '@/data/core';
-import type { AddSiteSection } from '@/hooks/use-open-add-site';
+import type { AddSiteSection } from '@/features/sites/use-open-add-site';
 import type { BlueprintUseCase } from '@studio/common/lib/blueprint-catalog';
 import type { Blueprint } from '@studio/common/lib/studio-blueprints-api';
 import type { NewSiteBehavior } from '@studio/common/lib/user-settings/preferences';

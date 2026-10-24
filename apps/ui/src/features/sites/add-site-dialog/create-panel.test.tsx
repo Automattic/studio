@@ -1,11 +1,11 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { forwardRef, useImperativeHandle } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { pendingPromptSlot } from '@/lib/pending-prompt';
+import { pendingPromptSlot } from '@/features/chats';
 import { CreatePanel } from './create-panel';
-import type { SelectedBlueprint } from '@/components/blueprint-upload';
-import type { CreateSiteFormValues } from '@/components/create-site-form';
 import type { SyncSite } from '@/data/core';
+import type { SelectedBlueprint } from '@/features/sites/blueprint-upload';
+import type { CreateSiteFormValues } from '@/features/sites/create-site-form';
 import type { ReactNode } from 'react';
 
 const mocks = vi.hoisted( () => ( {
@@ -46,14 +46,14 @@ vi.mock( './context', () => ( {
 	} ),
 } ) );
 
-vi.mock( '@/components/blueprint-upload', () => ( {
+vi.mock( '@/features/sites/blueprint-upload', () => ( {
 	BlueprintUpload: ( props: Record< string, unknown > ) => {
 		mocks.uploadProps = props;
 		return <div data-testid="blueprint-upload" />;
 	},
 } ) );
 
-vi.mock( '@/components/create-site-form', () => ( {
+vi.mock( '@/features/sites/create-site-form', () => ( {
 	CreateSiteForm: ( props: Record< string, unknown > ) => {
 		mocks.formProps = props;
 		return (
@@ -74,7 +74,7 @@ vi.mock( '@/components/create-site-form', () => ( {
 	},
 } ) );
 
-vi.mock( '@/components/session-view/composer', () => ( {
+vi.mock( '@/features/chats/session-view/composer', () => ( {
 	Composer: forwardRef< unknown, Record< string, unknown > >( function MockComposer( props, ref ) {
 		mocks.composerProps = props;
 		useImperativeHandle( ref, () => ( { getSubmission: () => mocks.submission } ) );

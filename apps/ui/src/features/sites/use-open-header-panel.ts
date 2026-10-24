@@ -1,6 +1,6 @@
 import { useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
-import { useSessionPreviewUI } from '@/hooks/use-session-ui';
+import { useSessionPreviewUI } from '@/features/chats';
 
 type HeaderPanelRequest =
 	| {

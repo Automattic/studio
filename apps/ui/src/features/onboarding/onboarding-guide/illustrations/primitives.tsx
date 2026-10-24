@@ -1,6 +1,6 @@
 import { clsx } from 'clsx';
 import styles from './style.module.css';
-import type { GuideIllustrationId } from '@/components/onboarding-guide/guide';
+import type { GuideIllustrationId } from '@/features/onboarding/onboarding-guide/guide';
 import type { CSSProperties, ReactNode } from 'react';
 
 // Shared building blocks for the illustration scenes. Motion is never baked in

@@ -24,7 +24,7 @@ vi.mock( '@wordpress/compose', async ( importOriginal ) => ( {
 	useReducedMotion: () => reducedMotion.value,
 } ) );
 
-vi.mock( '@/components/markdown', () => ( {
+vi.mock( '@/features/chats/markdown', () => ( {
 	Markdown: ( { children }: { children: string } ) => children,
 } ) );
 

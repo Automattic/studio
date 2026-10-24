@@ -1,14 +1,14 @@
 import { createInterpolateElement } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { BlueprintErrorDialog } from '@/components/blueprint-error-dialog';
 import { useConnector } from '@/data/core';
+import { BlueprintErrorDialog } from '@/features/sites/blueprint-error-dialog';
 import { BLUEPRINT_FILE_ACCEPT, loadBlueprintFile } from './load-blueprint-file';
 import styles from './style.module.css';
-import type { SelectedBlueprint } from '@/lib/blueprint-selection';
+import type { SelectedBlueprint } from '@/features/sites/blueprint-selection';
 import type { ChangeEvent } from 'react';
 
-export type { SelectedBlueprint } from '@/lib/blueprint-selection';
+export type { SelectedBlueprint } from '@/features/sites/blueprint-selection';
 
 interface BlueprintUploadProps {
 	onSelect: ( blueprint: SelectedBlueprint ) => void;

@@ -8,11 +8,10 @@ import {
 	type CSSProperties,
 	type ReactNode,
 } from 'react';
-import { ResizeHandle, ResizeOverlay } from '@/components/resize-handle';
-import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
-import { WindowControlsCornerContext } from '@/hooks/use-window-controls-inset';
-import { PREVIEW_SPLIT_MIN_WIDTH } from '@/lib/resizable-panels';
-import { getMotionDuration } from '@/lib/theme/motion';
+import { WindowControlsCornerContext } from '@/data/host/use-window-controls-inset';
+import { useSidebarCollapsed, PREVIEW_SPLIT_MIN_WIDTH } from '@/features/sidebar';
+import { getMotionDuration } from '@/lib/theme';
+import { ResizeHandle, ResizeOverlay } from '@/lib/ui';
 import styles from './style.module.css';
 import { usePreviewSplit } from './use-preview-split';
 

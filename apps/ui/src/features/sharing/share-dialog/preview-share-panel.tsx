@@ -2,24 +2,26 @@ import { DAY_MS, DEMO_SITE_EXPIRATION_DAYS } from '@studio/common/constants';
 import { __, sprintf } from '@wordpress/i18n';
 import { CopyIcon, EllipsisIcon, RefreshCwIcon } from 'lucide-react';
 import { useId, useState, type ReactNode } from 'react';
-import { Button, IconButton } from '@/components/ui/button';
-import { Field, FieldLabel } from '@/components/ui/field';
-import { Input } from '@/components/ui/input';
-import * as Menu from '@/components/ui/menu';
+import { useCopyText } from '@/data/host/use-copy-text';
+import { markPreviewSeen } from '@/data/preview-ready';
+import { useSiteThumbnail } from '@/data/queries/use-site-thumbnail';
+import { useDeleteSnapshot, useRenameSnapshot } from '@/data/queries/use-snapshots';
+import { useUserLocale } from '@/data/queries/use-user-locale';
+import { getSnapshotHostname, getSnapshotUrl } from '@/data/snapshot-url';
 import {
+	Button,
+	IconButton,
+	Field,
+	FieldLabel,
+	Input,
+	Menu,
 	Select,
 	SelectContent,
 	SelectItem,
 	SelectTrigger,
 	SelectValue,
-} from '@/components/ui/select';
-import { Spinner } from '@/components/ui/spinner';
-import { markPreviewSeen } from '@/data/preview-ready';
-import { useSiteThumbnail } from '@/data/queries/use-site-thumbnail';
-import { useDeleteSnapshot, useRenameSnapshot } from '@/data/queries/use-snapshots';
-import { useUserLocale } from '@/data/queries/use-user-locale';
-import { useCopyText } from '@/hooks/use-copy-text';
-import { getSnapshotHostname, getSnapshotUrl } from '@/lib/snapshot-url';
+	Spinner,
+} from '@/lib/ui';
 import styles from './style.module.css';
 import type { SiteDetails, Snapshot } from '@/data/core';
 

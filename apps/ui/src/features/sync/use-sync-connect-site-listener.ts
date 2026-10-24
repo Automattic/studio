@@ -4,11 +4,11 @@ import { SYNC_PUSH_SIZE_LIMIT_BYTES } from '@studio/common/lib/sync/constants';
 import { useQueryClient } from '@tanstack/react-query';
 import { __ } from '@wordpress/i18n';
 import { useEffect, useEffectEvent, useSyncExternalStore } from 'react';
-import { websiteIssue } from '@/components/publish-panel/options';
 import { useConnector } from '@/data/core';
 import { connectedWpcomSitesQueryKey } from '@/data/queries/use-connected-wpcom-sites';
 import { usePushSiteToLive } from '@/data/queries/use-sync-site';
 import { SYNCABLE_WPCOM_SITES_QUERY_KEY } from '@/data/queries/use-wpcom-sites';
+import { websiteIssue } from '@/features/sync/publish-panel/options';
 import type { Connector, SyncSite } from '@/data/core';
 
 type ConnectSiteEvent = Parameters< Parameters< Connector[ 'onSyncConnectSite' ] >[ 0 ] >[ 0 ];

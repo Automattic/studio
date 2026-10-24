@@ -3,11 +3,11 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { TooltipProvider } from '@/components/ui/tooltip';
 import { useConnector } from '@/data/core';
+import { WindowControlsCornerContext } from '@/data/host/use-window-controls-inset';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
-import { WindowControlsCornerContext } from '@/hooks/use-window-controls-inset';
-import { useWindowControlsOverlay } from '@/hooks/use-window-controls-overlay';
+import { useWindowControlsOverlay } from '@/lib/hooks';
+import { TooltipProvider } from '@/lib/ui';
 import {
 	getBrowserShortcutCommand,
 	getDirectionalHistoryEntries,
@@ -32,25 +32,25 @@ vi.mock( '@/data/queries/use-agentic-features', () => ( {
 } ) );
 
 // jsdom has no 2D canvas context, so swap the animated grid for a bare canvas.
-vi.mock( '@/components/share-dialog', async ( importOriginal ) => ( {
-	...( await importOriginal< typeof import('@/components/share-dialog') >() ),
+vi.mock( '@/features/sharing/share-dialog', async ( importOriginal ) => ( {
+	...( await importOriginal< typeof import('@/features/sharing/share-dialog') >() ),
 	ShareButton: () => null,
 } ) );
 
-vi.mock( '@/components/stopped-site-preview', async ( importOriginal ) => ( {
-	...( await importOriginal< typeof import('@/components/stopped-site-preview') >() ),
+vi.mock( '@/features/sites/stopped-site-preview', async ( importOriginal ) => ( {
+	...( await importOriginal< typeof import('@/features/sites/stopped-site-preview') >() ),
 	SiteContextMenu: ( { children }: { children: ReactNode } ) => children,
 } ) );
 
-vi.mock( '@/components/dot-grid', () => ( {
+vi.mock( '@/lib/ui/dot-grid', () => ( {
 	DotGrid: () => <canvas data-testid="dot-grid" />,
 } ) );
 
-vi.mock( '@/hooks/use-traffic-light-space', () => ( {
+vi.mock( '@/data/host/use-traffic-light-space', () => ( {
 	useTrafficLightSpace: vi.fn( () => ( { start: false, end: false } ) ),
 } ) );
 
-vi.mock( '@/hooks/use-window-controls-overlay', () => ( {
+vi.mock( '@/lib/hooks/use-window-controls-overlay', () => ( {
 	useWindowControlsOverlay: vi.fn( () => null ),
 } ) );
 

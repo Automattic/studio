@@ -7,21 +7,6 @@ import { __ } from '@wordpress/i18n';
 import { displayShortcut } from '@wordpress/keycodes';
 import { MaximizeIcon } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
-import { usePreviewBeside } from '@/components/preview-split-frame';
-import { getSessionTitle } from '@/components/session-view/session-chat-actions';
-import { Button } from '@/components/ui/button';
-import {
-	Dialog,
-	DialogClose,
-	DialogContent,
-	DialogDescription,
-	DialogFooter,
-	DialogHeader,
-	DialogTitle,
-} from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import * as Menu from '@/components/ui/menu';
-import { Spinner } from '@/components/ui/spinner';
 import { errorMessage, toast } from '@/data/app-messages';
 import { useSessionsBusy, useSiteAgentActivity } from '@/data/queries/use-agent-run';
 import { useSessions, useUpdateSessionMetadata } from '@/data/queries/use-sessions';
@@ -32,14 +17,31 @@ import {
 	useSidebarPreferences,
 } from '@/data/queries/use-sidebar-pins';
 import { useSites } from '@/data/queries/use-sites';
-import { useItemShortcuts } from '@/hooks/use-item-shortcuts';
-import { useOptionalSessionPreviewUI } from '@/hooks/use-session-ui';
-import { ArchiveIcon } from '@/lib/icons/archive-icon';
-import { ExitFullScreenIcon } from '@/lib/icons/exit-full-screen-icon';
-import { PinIcon } from '@/lib/icons/pin-icon';
-import { ReadStatusIcon } from '@/lib/icons/read-status-icon';
-import { RenameIcon } from '@/lib/icons/rename-icon';
-import { UnpinIcon } from '@/lib/icons/unpin-icon';
+import { getSessionTitle } from '@/features/chats/session-view/session-chat-actions';
+import { useOptionalSessionPreviewUI } from '@/features/chats/use-session-ui';
+import { useItemShortcuts } from '@/features/sidebar';
+import { usePreviewBeside } from '@/features/sites';
+import {
+	ArchiveIcon,
+	ExitFullScreenIcon,
+	PinIcon,
+	ReadStatusIcon,
+	RenameIcon,
+	UnpinIcon,
+} from '@/lib/icons';
+import {
+	Spinner,
+	Menu,
+	Input,
+	Dialog,
+	DialogClose,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+	Button,
+} from '@/lib/ui';
 import styles from './style.module.css';
 import type { AiSessionSummary } from '@/data/core';
 

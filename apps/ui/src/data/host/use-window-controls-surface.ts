@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useConnector } from '@/data/core';
-import { useWindowControlsOverlay } from '@/hooks/use-window-controls-overlay';
+import { useWindowControlsOverlay } from '@/lib/hooks';
 
 /**
  * Tells the host which surface the Windows/Linux window controls are sitting on

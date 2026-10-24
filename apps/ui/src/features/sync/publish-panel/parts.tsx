@@ -4,16 +4,12 @@ import { __ } from '@wordpress/i18n';
 import { clsx } from 'clsx';
 import { ChevronLeftIcon } from 'lucide-react';
 import { useEffect, useRef, type ReactNode } from 'react';
-import { Button } from '@/components/ui/button';
-import * as Popover from '@/components/ui/popover';
-import { Progress } from '@/components/ui/progress';
-import { Spinner } from '@/components/ui/spinner';
-import { VisuallyHidden } from '@/components/ui/visually-hidden';
 import {
 	PULL_FROM_LIVE_MUTATION_KEY,
 	PUSH_TO_LIVE_MUTATION_KEY,
 } from '@/data/queries/use-sync-site';
-import { PublishTransferIcon } from '@/lib/icons/publish-transfer-icon';
+import { PublishTransferIcon } from '@/lib/icons';
+import { Button, Popover, Progress, Spinner, VisuallyHidden } from '@/lib/ui';
 import styles from './style.module.css';
 import type { SyncActivity } from '@/data/sync-activity';
 

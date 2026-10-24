@@ -5,10 +5,16 @@ import {
 } from '@studio/common/lib/user-settings/preferences';
 import { __ } from '@wordpress/i18n';
 import { useEffect, useLayoutEffect, useState } from 'react';
-import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
-import { Slider } from '@/components/ui/slider';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { applyColorTint, previewAccentColor } from '@/lib/theme';
+import {
+	InputGroup,
+	InputGroupAddon,
+	InputGroupInput,
+	Slider,
+	Tooltip,
+	TooltipContent,
+	TooltipTrigger,
+} from '@/lib/ui';
 import { SettingsRow } from './rows';
 import styles from './style.module.css';
 

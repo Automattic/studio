@@ -8,16 +8,15 @@ import { useNavigate } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
 import { ArchiveIcon, UploadIcon } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { CreateSiteForm } from '@/components/create-site-form';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Button } from '@/components/ui/button';
 import { useConnector } from '@/data/core';
 import { useExistingCustomDomains } from '@/data/queries/use-create-site-helpers';
 import { useImportSite } from '@/data/queries/use-import-site';
 import { useCreateSite, useDeleteSite } from '@/data/queries/use-sites';
+import { CreateSiteForm } from '@/features/sites/create-site-form';
+import { Button, Alert, AlertDescription } from '@/lib/ui';
 import { useAddSite } from './context';
 import styles from './import-panel.module.css';
-import type { CreateSiteFormError, CreateSiteFormValues } from '@/components/create-site-form';
+import type { CreateSiteFormError, CreateSiteFormValues } from '@/features/sites/create-site-form';
 
 type ImportPhase = 'preparing' | 'creating' | 'importing';
 

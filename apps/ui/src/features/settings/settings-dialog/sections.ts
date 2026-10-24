@@ -7,15 +7,17 @@ import {
 	SettingsIcon,
 	TerminalIcon,
 } from 'lucide-react';
-import { AppearanceIcon } from '@/lib/icons/appearance-icon';
-import { IntelligenceIcon } from '@/lib/icons/intelligence-icon';
-import { KeyboardIcon } from '@/lib/icons/keyboard-icon';
-import { LanguageIcon } from '@/lib/icons/language-icon';
-import { McpIcon } from '@/lib/icons/mcp-icon';
-import { PhpIcon } from '@/lib/icons/php-icon';
-import { ShareIcon } from '@/lib/icons/share-icon';
-import { SiteSettingsIcon } from '@/lib/icons/site-settings-icon';
-import { SkillsIcon } from '@/lib/icons/skills-icon';
+import {
+	AppearanceIcon,
+	IntelligenceIcon,
+	KeyboardIcon,
+	LanguageIcon,
+	McpIcon,
+	PhpIcon,
+	ShareIcon,
+	SiteSettingsIcon,
+	SkillsIcon,
+} from '@/lib/icons';
 import type { ComponentType } from 'react';
 
 const STUDIO_SECTIONS = [

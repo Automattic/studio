@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import onboardingLayoutStyles from '@/components/onboarding-layout/style.module.css';
 import { ConnectorProvider } from '@/data/core';
+import onboardingLayoutStyles from '@/features/onboarding/onboarding-layout/style.module.css';
 import { OnboardingShellView } from './index';
 import type { Connector } from '@/data/core';
 import type { ReactNode } from 'react';
@@ -12,7 +12,7 @@ function Providers( { children }: { children: ReactNode } ) {
 	return <ConnectorProvider connector={ {} as Connector }>{ children }</ConnectorProvider>;
 }
 
-vi.mock( '@/components/dot-grid', () => ( {
+vi.mock( '@/lib/ui/dot-grid', () => ( {
 	DotGrid: () => <canvas data-testid="dot-grid" />,
 } ) );
 

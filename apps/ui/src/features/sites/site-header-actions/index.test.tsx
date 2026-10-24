@@ -2,9 +2,9 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { TooltipProvider } from '@/components/ui/tooltip';
 import { ConnectorProvider } from '@/data/core';
-import { requestHeaderPanel } from '@/hooks/use-open-header-panel';
+import { requestHeaderPanel } from '@/features/sites/use-open-header-panel';
+import { TooltipProvider } from '@/lib/ui';
 import { SiteHeaderActions, SiteHeaderActionsProvider, SiteHeaderSpace } from './index';
 import type { Connector, SiteDetails } from '@/data/core';
 

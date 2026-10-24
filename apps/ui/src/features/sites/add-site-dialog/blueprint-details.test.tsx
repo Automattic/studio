@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { pendingBlueprintSlot } from '@/lib/pending-blueprint';
+import { pendingBlueprintSlot } from '@/features/sites/pending-blueprint';
 import { BlueprintDetails } from './blueprint-details';
 import type { Blueprint } from '@studio/common/lib/studio-blueprints-api';
 

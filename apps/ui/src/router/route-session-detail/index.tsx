@@ -1,6 +1,6 @@
 import { createRoute, redirect } from '@tanstack/react-router';
-import { SessionView } from '@/components/session-view';
 import { resolveChatEnabled } from '@/data/queries/use-agentic-features';
+import { SessionView } from '@/features/chats';
 import { dashboardLayoutRoute } from '../layout-dashboard';
 
 function SessionDetail() {

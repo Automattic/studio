@@ -1,22 +1,22 @@
 import { isRTL, __ } from '@wordpress/i18n';
 import { EllipsisIcon } from 'lucide-react';
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
-import { PublishButton } from '@/components/publish-panel';
-import { ShareButton, ShareStatusIcon, useShareStatus } from '@/components/share-dialog';
-import { SiteLifecycleButton } from '@/components/site-lifecycle-button';
-import { Button } from '@/components/ui/button';
-import * as Menu from '@/components/ui/menu';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { useTrafficLightSpace } from '@/data/host/use-traffic-light-space';
 import { useIsSiteStarting, useIsSiteStopping, useSiteOperation } from '@/data/queries/use-sites';
-import { requestHeaderPanel } from '@/hooks/use-open-header-panel';
-import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
-import { useWindowControlsOverlay } from '@/hooks/use-window-controls-overlay';
-import { ArrowLeftIcon } from '@/lib/icons/arrow-left-icon';
-import { ArrowRightIcon } from '@/lib/icons/arrow-right-icon';
-import { ExternalLinkIcon } from '@/lib/icons/external-link-icon';
-import { RotateCwIcon } from '@/lib/icons/rotate-cw-icon';
-import { ShareIcon } from '@/lib/icons/share-icon';
-import { SiteSettingsIcon } from '@/lib/icons/site-settings-icon';
+import { ShareButton, ShareStatusIcon, useShareStatus } from '@/features/sharing';
+import { SiteLifecycleButton } from '@/features/sites/site-lifecycle-button';
+import { requestHeaderPanel } from '@/features/sites/use-open-header-panel';
+import { PublishButton } from '@/features/sync';
+import { useWindowControlsOverlay } from '@/lib/hooks';
+import {
+	ArrowLeftIcon,
+	ArrowRightIcon,
+	ExternalLinkIcon,
+	RotateCwIcon,
+	ShareIcon,
+	SiteSettingsIcon,
+} from '@/lib/icons';
+import { Tooltip, TooltipContent, TooltipTrigger, Menu, Button } from '@/lib/ui';
 import styles from './style.module.css';
 import { useSiteHeaderLayout, type SiteHeaderLayout } from './use-site-header-layout';
 import type { SiteDetails } from '@/data/core';

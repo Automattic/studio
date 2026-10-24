@@ -5,7 +5,7 @@ import { getVisibleToasts, resetAppMessagesForTests, toast } from '@/data/app-me
 import { useConnector } from '@/data/core';
 import { closeNoticeHistory, NoticeHistoryButton } from './index';
 
-vi.mock( '@/hooks/use-color-scheme', () => ( {
+vi.mock( '@/data/host/use-color-scheme', () => ( {
 	useColorScheme: () => 'light',
 } ) );
 

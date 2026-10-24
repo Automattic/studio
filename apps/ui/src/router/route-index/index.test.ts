@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { rememberVisit } from '@/lib/last-visited';
+import { rememberVisit } from '@/features/sidebar';
 import { indexRoute } from './index';
 import type { AiSessionSummary, SiteDetails } from '@/data/core';
 

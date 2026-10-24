@@ -5,6 +5,11 @@ import { ariaKeyShortcut, displayShortcut, isKeyboardEvent } from '@wordpress/ke
 import { clsx } from 'clsx';
 import { ChevronLeftIcon, SearchIcon, XIcon } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { toast } from '@/data/app-messages';
+import { useAuthUser } from '@/data/queries/use-auth-user';
+import { useSessions } from '@/data/queries/use-sessions';
+import { useSites } from '@/data/queries/use-sites';
+import { closeOnPaletteShortcut } from '@/features/commands';
 import {
 	AiPanel,
 	AppearanceSettings,
@@ -15,33 +20,28 @@ import {
 	SharingPanel,
 	SkillsPanel,
 	UsagePanel,
-} from '@/components/settings-view';
-import { SiteSettingsForm } from '@/components/site-settings-view';
-import { IconButton } from '@/components/ui/button';
+} from '@/features/settings/settings-view';
+import { SiteSettingsForm } from '@/features/settings/site-settings-view';
+import { readLastVisited } from '@/features/sidebar';
 import {
+	IconButton,
 	Dialog,
 	DialogContent,
 	DialogPanel,
 	DialogTitle,
 	PanelHeader,
-} from '@/components/ui/dialog';
-import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
-import { MarqueeLabel } from '@/components/ui/marquee-label';
-import {
+	InputGroup,
+	InputGroupAddon,
+	InputGroupInput,
+	MarqueeLabel,
 	Tabs,
 	TabsList,
 	TabsScopeIndicator,
 	TabsScopeLabel,
 	TabsSidebar,
 	TabsTrigger,
-} from '@/components/ui/tabs';
-import { VisuallyHidden } from '@/components/ui/visually-hidden';
-import { toast } from '@/data/app-messages';
-import { useAuthUser } from '@/data/queries/use-auth-user';
-import { useSessions } from '@/data/queries/use-sessions';
-import { useSites } from '@/data/queries/use-sites';
-import { closeOnPaletteShortcut } from '@/hooks/use-command-palette';
-import { readLastVisited } from '@/lib/last-visited';
+	VisuallyHidden,
+} from '@/lib/ui';
 import { SettingsDialogContext, SettingsLinkContext } from './context';
 import { getSections, isSiteSection, searchSettings } from './sections';
 import { SiteAgentFiles } from './site-agent-files';

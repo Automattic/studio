@@ -12,8 +12,8 @@ import {
 	useRef,
 	useState,
 } from 'react';
-import { IconButton } from '@/components/ui/button';
-import surfaceStyles from '@/components/ui/surface/style.module.css';
+import { IconButton } from '@/lib/ui/button';
+import surfaceStyles from '@/lib/ui/surface/style.module.css';
 import styles from './style.module.css';
 import type { ComponentProps, ReactNode, Ref } from 'react';
 

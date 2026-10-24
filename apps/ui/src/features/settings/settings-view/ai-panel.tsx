@@ -2,10 +2,6 @@ import { AI_PROVIDER_LABELS } from '@studio/common/ai/providers';
 import { __ } from '@wordpress/i18n';
 import { CheckIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { LearnMoreLink } from '@/components/learn-more';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import {
 	useAiSettings,
 	useSaveAnthropicApiKey,
@@ -13,7 +9,9 @@ import {
 } from '@/data/queries/use-ai-settings';
 import { useAuthUser, useLogin } from '@/data/queries/use-auth-user';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
-import { useOffline } from '@/hooks/use-offline';
+import { LearnMoreLink } from '@/features/settings/learn-more';
+import { useOffline } from '@/lib/hooks';
+import { Badge, Button, Input } from '@/lib/ui';
 import { SettingsGroup, SettingsRow, SettingsSelect, SettingsToggle } from './rows';
 import styles from './style.module.css';
 import type { AiProviderId } from '@studio/common/ai/providers';

@@ -12,16 +12,16 @@ import {
 } from '@/data/queries/use-snapshots';
 import { useStudioAssistantTopUpPricing } from '@/data/queries/use-top-up-pricing';
 import { useUserLocale } from '@/data/queries/use-user-locale';
-import { useOffline } from '@/hooks/use-offline';
+import { useOffline } from '@/lib/hooks';
 import { UsagePanel } from './usage-panel';
 import type { ReactNode } from 'react';
 
-vi.mock( '@/components/ai-credits-details-dialog', () => ( {
+vi.mock( '@/features/credits/ai-credits-details-dialog', () => ( {
 	AiCreditsDetailsDialog: ( { open }: { open: boolean } ) =>
 		open ? <div role="dialog">How AI credits work</div> : null,
 } ) );
 
-vi.mock( '@/components/ui/menu', () => ( {
+vi.mock( '@/lib/ui/menu', () => ( {
 	Root: ( { children }: { children: ReactNode } ) => <div>{ children }</div>,
 	Trigger: ( { render: trigger }: { render: ReactNode } ) => trigger,
 	Popup: ( { children }: { children: ReactNode } ) => <div>{ children }</div>,
@@ -55,7 +55,7 @@ vi.mock( '@/data/queries/use-snapshots', () => ( {
 	useSnapshots: vi.fn(),
 } ) );
 
-vi.mock( '@/hooks/use-offline', () => ( {
+vi.mock( '@/lib/hooks/use-offline', () => ( {
 	useOffline: vi.fn(),
 } ) );
 
@@ -67,11 +67,11 @@ vi.mock( '@/data/queries/use-top-up-pricing', () => ( {
 	useStudioAssistantTopUpPricing: vi.fn(),
 } ) );
 
-vi.mock( '@/hooks/use-open-ai-credits-checkout', () => ( {
+vi.mock( '@/features/credits/use-open-ai-credits-checkout', () => ( {
 	useOpenAiCreditsCheckout: () => vi.fn(),
 } ) );
 
-vi.mock( '@/components/learn-more', () => ( {
+vi.mock( '@/features/settings/learn-more', () => ( {
 	LearnMoreLink: () => <button type="button">Learn more…</button>,
 } ) );
 

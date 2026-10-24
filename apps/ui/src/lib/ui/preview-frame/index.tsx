@@ -1,6 +1,6 @@
 import { clsx } from 'clsx';
 import { useState } from 'react';
-import { Skeleton } from '@/components/ui/skeleton';
+import { Skeleton } from '@/lib/ui/skeleton';
 import styles from './style.module.css';
 import type { ComponentProps } from 'react';
 

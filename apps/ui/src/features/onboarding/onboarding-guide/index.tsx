@@ -1,9 +1,9 @@
 import { __ } from '@wordpress/i18n';
 import { clsx } from 'clsx';
 import { useRef, useState } from 'react';
-import { LearnMoreLink } from '@/components/learn-more';
-import { Button } from '@/components/ui/button';
+import { LearnMoreLink } from '@/features/settings';
 import {
+	Button,
 	Dialog,
 	DialogClose,
 	DialogContent,
@@ -11,8 +11,8 @@ import {
 	DialogDismissButton,
 	DialogFooter,
 	DialogTitle,
-} from '@/components/ui/dialog';
-import { VisuallyHidden } from '@/components/ui/visually-hidden';
+	VisuallyHidden,
+} from '@/lib/ui';
 import { GuideIllustration, isDarkGuideIllustration, needsCloseScrim } from './illustrations';
 import styles from './style.module.css';
 import type { GuideDefinition } from './guide';

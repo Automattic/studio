@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react';
-import { wapuuWorldSlot } from '@/lib/wapuu-world';
+import { wapuuWorldSlot } from '@/features/settings/wapuu-world/slot';
 import { useKonamiCode } from './use-konami-code';
 import { WapuuWorldGame } from './wapuu-world-game';
 

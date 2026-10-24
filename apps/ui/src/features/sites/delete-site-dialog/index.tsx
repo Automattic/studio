@@ -1,17 +1,18 @@
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { useId, useRef, useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
+import { useDeleteSite } from '@/data/queries/use-sites';
 import {
+	Button,
+	Checkbox,
 	AlertDialog,
 	DialogContent,
 	DialogDescription,
 	DialogFooter,
 	DialogHeader,
 	DialogTitle,
-} from '@/components/ui/dialog';
-import { Field, FieldLabel } from '@/components/ui/field';
-import { useDeleteSite } from '@/data/queries/use-sites';
+	Field,
+	FieldLabel,
+} from '@/lib/ui';
 import styles from './style.module.css';
 import type { SiteDetails } from '@/data/core';
 

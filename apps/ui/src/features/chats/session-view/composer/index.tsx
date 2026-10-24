@@ -72,29 +72,6 @@ import {
 	type ComponentType,
 } from 'react';
 import { createPortal } from 'react-dom';
-import { AiCreditsPurchaseDialog } from '@/components/ai-credits-purchase-dialog';
-import {
-	getStagedAnnotations,
-	isStagedAnnotation,
-	removeAnnotations,
-	useSiteAnnotations,
-} from '@/components/annotations/store';
-import {
-	annotationSubmission,
-	getAnnotationsAttachment,
-} from '@/components/annotations/submission';
-import { Button } from '@/components/ui/button';
-import {
-	CommandSheet,
-	getActiveCommand,
-	handleCommandKey,
-	type Command,
-	type CommandGroup,
-} from '@/components/ui/command';
-import * as HoverCard from '@/components/ui/hover-card';
-import { InputGroup, InputGroupTextarea } from '@/components/ui/input-group';
-import * as Popover from '@/components/ui/popover';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { useAiSettings } from '@/data/queries/use-ai-settings';
@@ -109,16 +86,43 @@ import {
 } from '@/data/queries/use-sessions';
 import { useStudioAssistantTopUpPricing } from '@/data/queries/use-top-up-pricing';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
-import { useAddAiCreditsUrl } from '@/hooks/use-add-ai-credits-url';
-import { useOpenSettings } from '@/hooks/use-open-settings';
-import { AnnotationIcon } from '@/lib/icons/annotation-icon';
-import { ChevronDownIcon } from '@/lib/icons/chevron-down-icon';
-import { ClaudeIcon } from '@/lib/icons/claude-icon';
-import { McpIcon } from '@/lib/icons/mcp-icon';
-import { StartSiteIcon } from '@/lib/icons/start-site-icon';
-import { StopSiteIcon } from '@/lib/icons/stop-site-icon';
-import { WordPressIcon } from '@/lib/icons/wordpress-icon';
-import { isImeComposing } from '@/lib/is-ime-composing';
+import {
+	annotationSubmission,
+	getAnnotationsAttachment,
+	getStagedAnnotations,
+	isStagedAnnotation,
+	removeAnnotations,
+	useSiteAnnotations,
+} from '@/features/annotations';
+import { AiCreditsPurchaseDialog, useAddAiCreditsUrl } from '@/features/credits';
+import { useOpenSettings } from '@/features/settings';
+import {
+	AnnotationIcon,
+	ChevronDownIcon,
+	ClaudeIcon,
+	McpIcon,
+	StartSiteIcon,
+	StopSiteIcon,
+	WordPressIcon,
+} from '@/lib/icons';
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipTrigger,
+	Popover,
+	InputGroup,
+	InputGroupTextarea,
+	HoverCard,
+	Button,
+} from '@/lib/ui';
+import {
+	CommandSheet,
+	getActiveCommand,
+	handleCommandKey,
+	type Command,
+	type CommandGroup,
+} from '@/lib/ui';
+import { isImeComposing } from '@/lib/utils';
 import { completeComposerDraftSend, getComposerDraft, saveComposerDraft } from './draft-store';
 import { FamilySwitchConfirmDialog } from './family-switch-confirm-dialog';
 import styles from './style.module.css';

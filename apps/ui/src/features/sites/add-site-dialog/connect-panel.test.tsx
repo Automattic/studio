@@ -44,7 +44,7 @@ vi.mock( '@/data/queries/use-wpcom-sites', () => ( {
 	} ),
 } ) );
 
-vi.mock( '@/hooks/use-offline', () => ( {
+vi.mock( '@/lib/hooks/use-offline', () => ( {
 	useOffline: () => mocks.isOffline,
 } ) );
 

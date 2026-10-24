@@ -1,9 +1,9 @@
 import { __ } from '@wordpress/i18n';
 import { clsx } from 'clsx';
 import { XIcon } from 'lucide-react';
-import { IconButton } from '@/components/ui/button';
-import { useWindowControlsOverlay } from '@/hooks/use-window-controls-overlay';
-import { useWindowControlsSurface } from '@/hooks/use-window-controls-surface';
+import { useWindowControlsSurface } from '@/data/host/use-window-controls-surface';
+import { useWindowControlsOverlay } from '@/lib/hooks';
+import { IconButton } from '@/lib/ui';
 import styles from './style.module.css';
 
 interface FullscreenChromeProps {

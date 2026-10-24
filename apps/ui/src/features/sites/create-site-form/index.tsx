@@ -18,7 +18,11 @@ import { RecommendedPHPVersion } from '@studio/common/types/php-versions';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { ChevronDownIcon, ChevronRightIcon, FileIcon } from 'lucide-react';
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
-import { LearnMoreLink } from '@/components/learn-more';
+import { useConnector } from '@/data/core';
+import { usePathValidator } from '@/data/queries/use-create-site-helpers';
+import { useSites } from '@/data/queries/use-sites';
+import { useWordPressVersions } from '@/data/queries/use-wordpress-versions';
+import { LearnMoreLink } from '@/features/settings';
 import {
 	CertificateTrustNotice,
 	getFileAccessOptions,
@@ -29,16 +33,20 @@ import {
 	ToggleField,
 	validateAdminPassword,
 	validateSiteName,
-} from '@/components/site-fields';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Button } from '@/components/ui/button';
-import { Field, FieldDescription, FieldGroup, FieldLabel, FieldTitle } from '@/components/ui/field';
-import { Input } from '@/components/ui/input';
-import { useConnector } from '@/data/core';
-import { usePathValidator } from '@/data/queries/use-create-site-helpers';
-import { useSites } from '@/data/queries/use-sites';
-import { useWordPressVersions } from '@/data/queries/use-wordpress-versions';
-import { useOffline } from '@/hooks/use-offline';
+} from '@/features/sites/site-fields';
+import { useOffline } from '@/lib/hooks';
+import {
+	Alert,
+	AlertDescription,
+	AlertTitle,
+	Button,
+	Field,
+	FieldDescription,
+	FieldGroup,
+	FieldLabel,
+	FieldTitle,
+	Input,
+} from '@/lib/ui';
 import styles from './style.module.css';
 import type { SiteFileAccess } from '@studio/common/lib/site-file-access';
 import type { WordPressVersion } from '@studio/common/lib/wordpress-versions';

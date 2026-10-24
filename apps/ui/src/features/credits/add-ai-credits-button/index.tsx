@@ -1,9 +1,9 @@
 import { __ } from '@wordpress/i18n';
 import { useState } from 'react';
-import { AiCreditsPurchaseDialog } from '@/components/ai-credits-purchase-dialog';
-import { Button, type ButtonProps } from '@/components/ui/button';
 import { useStudioAssistantTopUpPricing } from '@/data/queries/use-top-up-pricing';
-import { useOpenAiCreditsCheckout } from '@/hooks/use-open-ai-credits-checkout';
+import { AiCreditsPurchaseDialog } from '@/features/credits/ai-credits-purchase-dialog';
+import { useOpenAiCreditsCheckout } from '@/features/credits/use-open-ai-credits-checkout';
+import { Button, type ButtonProps } from '@/lib/ui';
 
 /**
  * The one way to buy AI credits, wherever the offer appears. With priced

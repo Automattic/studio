@@ -1,8 +1,8 @@
 import { __ } from '@wordpress/i18n';
 import { clsx } from 'clsx';
-import { Button } from '@/components/ui/button';
 import { useLogin } from '@/data/queries/use-auth-user';
-import { useOffline } from '@/hooks/use-offline';
+import { useOffline } from '@/lib/hooks';
+import { Button } from '@/lib/ui';
 import styles from './style.module.css';
 import type { TracksAuthSource } from '@studio/common/lib/record-tracks-event';
 

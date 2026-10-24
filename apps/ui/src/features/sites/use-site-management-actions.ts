@@ -10,11 +10,7 @@ import {
 	useIsSiteMutating,
 } from '@/data/queries/use-sites';
 import { useSiteSyncActivity } from '@/data/sync-activity';
-import { DatabaseIcon } from '@/lib/icons/database-icon';
-import { DuplicateIcon } from '@/lib/icons/duplicate-icon';
-import { ExportSiteIcon } from '@/lib/icons/export-site-icon';
-import { ImportIcon } from '@/lib/icons/import-icon';
-import { TrashIcon } from '@/lib/icons/trash-icon';
+import { DatabaseIcon, DuplicateIcon, ExportSiteIcon, ImportIcon, TrashIcon } from '@/lib/icons';
 import type { SiteDetails } from '@/data/core';
 import type { ComponentType } from 'react';
 

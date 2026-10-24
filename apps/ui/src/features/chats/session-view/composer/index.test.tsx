@@ -4,14 +4,14 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { createRef, type ComponentProps } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
 import {
 	changeAnnotation,
 	getSiteAnnotations,
 	pickAnnotation,
 	stageAnnotations,
-} from '@/components/annotations/store';
-import { TooltipProvider } from '@/components/ui/tooltip';
-import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
+} from '@/features/annotations';
+import { TooltipProvider } from '@/lib/ui';
 import { clearComposerDrafts } from './draft-store';
 import { Composer, type ComposerHandle } from '.';
 import type { ComposerSendAttachments } from './use-composer-attachments';

@@ -1,7 +1,7 @@
 import buildingBlocksIllustration from '@studio/common/assets/whats-new/building-blocks.svg';
 import designPickerIllustration from '@studio/common/assets/whats-new/design-picker.svg';
 import modelTiersIllustration from '@studio/common/assets/whats-new/model-tiers.svg';
-import type { GuideIllustrationId } from '@/components/onboarding-guide/guide';
+import type { GuideIllustrationId } from '@/features/onboarding/onboarding-guide/guide';
 
 // Fixed artwork for the What's New pages, shared with the classic renderer's
 // modal. Unlike the orientation scenes these are finished images rather than

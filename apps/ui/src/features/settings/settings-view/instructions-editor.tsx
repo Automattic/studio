@@ -1,19 +1,12 @@
 import { GLOBAL_INSTRUCTIONS_MAX_LENGTH } from '@studio/common/ai/global-instructions-length';
 import { __ } from '@wordpress/i18n';
 import { useEffect, useId, useRef, useState } from 'react';
-import { LearnMoreLink } from '@/components/learn-more';
-import {
-	Field,
-	FieldContent,
-	FieldDescription,
-	FieldError,
-	FieldLabel,
-} from '@/components/ui/field';
-import { Textarea } from '@/components/ui/textarea';
 import {
 	useAgentInstructions,
 	useSaveAgentInstructions,
 } from '@/data/queries/use-agent-instructions';
+import { LearnMoreLink } from '@/features/settings/learn-more';
+import { Field, FieldContent, FieldDescription, FieldError, FieldLabel, Textarea } from '@/lib/ui';
 import styles from './style.module.css';
 
 // Long enough that a typing burst lands as one write, short enough that the

@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ImportPanel } from './import-panel';
-import type { CreateSiteFormError, CreateSiteFormValues } from '@/components/create-site-form';
+import type { CreateSiteFormError, CreateSiteFormValues } from '@/features/sites/create-site-form';
 
 const mocks = vi.hoisted( () => ( {
 	navigate: vi.fn( async () => undefined ),
@@ -29,7 +29,7 @@ vi.mock( './context', () => ( {
 	} ),
 } ) );
 
-vi.mock( '@/components/create-site-form', () => ( {
+vi.mock( '@/features/sites/create-site-form', () => ( {
 	CreateSiteForm: ( props: Record< string, unknown > ) => {
 		mocks.formProps = props;
 		const submitError = props.submitError as string | CreateSiteFormError | undefined;

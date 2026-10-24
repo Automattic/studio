@@ -1,6 +1,5 @@
 import { isRTL } from '@wordpress/i18n';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { usePointerDrag } from '@/hooks/use-pointer-drag';
 import {
 	clampResizablePanelWidth,
 	getResizablePanelMaxWidth,
@@ -9,7 +8,8 @@ import {
 	PANEL_WIDTHS_RESET_EVENT,
 	storeResizablePanelWidth,
 	type ResizablePanelConfig,
-} from '@/lib/resizable-panels';
+} from '@/features/sidebar/resizable-panels';
+import { usePointerDrag } from '@/lib/hooks';
 import type { KeyboardEvent } from 'react';
 
 interface UseResizablePanelOptions {

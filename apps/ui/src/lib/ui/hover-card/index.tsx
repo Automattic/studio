@@ -1,6 +1,6 @@
 import { PreviewCard } from '@base-ui/react/preview-card';
 import { clsx } from 'clsx';
-import surface from '@/components/ui/surface/style.module.css';
+import surface from '@/lib/ui/surface/style.module.css';
 import styles from './style.module.css';
 import type { ComponentProps, ReactNode } from 'react';
 

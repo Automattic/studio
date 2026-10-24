@@ -1,12 +1,12 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { act } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { closeNoticeHistory, NoticeHistoryButton } from '@/components/notice-history';
 import { getVisibleToasts, showToast, resetAppMessagesForTests } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
+import { closeNoticeHistory, NoticeHistoryButton } from '@/features/notifications/notice-history';
 import { AppToasts } from './index';
 
-vi.mock( '@/hooks/use-color-scheme', () => ( {
+vi.mock( '@/data/host/use-color-scheme', () => ( {
 	useColorScheme: () => 'light',
 } ) );
 

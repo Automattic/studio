@@ -1,6 +1,6 @@
 import { clsx } from 'clsx';
 import { useId } from 'react';
-import * as Popover from '@/components/ui/popover';
+import * as Popover from '@/lib/ui/popover';
 import styles from './style.module.css';
 import type { ComponentProps, ComponentType, KeyboardEvent, ReactNode, Ref } from 'react';
 

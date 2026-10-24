@@ -1,8 +1,8 @@
 import { Button as BaseButton } from '@base-ui/react/button';
 import { clsx } from 'clsx';
-import { Kbd } from '@/components/ui/kbd';
-import { Spinner } from '@/components/ui/spinner';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { Kbd } from '@/lib/ui/kbd';
+import { Spinner } from '@/lib/ui/spinner';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/lib/ui/tooltip';
 import styles from './style.module.css';
 import type { ComponentProps, ReactNode } from 'react';
 

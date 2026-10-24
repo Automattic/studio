@@ -1,6 +1,6 @@
 import { isRTL } from '@wordpress/i18n';
 import { useConnector } from '@/data/core';
-import { useFullscreen } from '@/hooks/use-fullscreen';
+import { useFullscreen } from '@/data/host/use-fullscreen';
 
 /**
  * Which inline edge should leave a gap for the macOS window controls

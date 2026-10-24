@@ -1,6 +1,4 @@
 import { __ } from '@wordpress/i18n';
-import { Button } from '@/components/ui/button';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import {
 	useIsSiteBusy,
 	useIsSiteStarting,
@@ -8,8 +6,8 @@ import {
 	useStartSite,
 	useStopSite,
 } from '@/data/queries/use-sites';
-import { StartSiteIcon } from '@/lib/icons/start-site-icon';
-import { StopSiteIcon } from '@/lib/icons/stop-site-icon';
+import { StartSiteIcon, StopSiteIcon } from '@/lib/icons';
+import { Tooltip, TooltipContent, TooltipTrigger, Button } from '@/lib/ui';
 import styles from './style.module.css';
 import type { SiteDetails } from '@/data/core';
 

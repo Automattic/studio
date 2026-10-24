@@ -1,11 +1,10 @@
 import { aiSessionBelongsToSite } from '@studio/common/ai/sessions/owner-site';
 import { sortSites } from '@studio/common/lib/sort-sites';
 import { createRoute, redirect } from '@tanstack/react-router';
-import { SidebarLayout } from '@/components/sidebar-layout';
 import { resolveChatEnabled } from '@/data/queries/use-agentic-features';
 import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
 import { SITES_QUERY_KEY } from '@/data/queries/use-sites';
-import { readLastVisited, resumeChat } from '@/lib/last-visited';
+import { SidebarLayout, readLastVisited, resumeChat } from '@/features/sidebar';
 import { rootRoute } from '../layout-root';
 
 // Without sites, the workspace offers Add site once, until a site exists again.

@@ -5,7 +5,7 @@ import { Stage } from './primitives';
 import { SitesIllustration } from './sites';
 import styles from './style.module.css';
 import { WHATS_NEW_ART } from './whats-new-art';
-import type { GuideIllustrationId } from '@/components/onboarding-guide/guide';
+import type { GuideIllustrationId } from '@/features/onboarding/onboarding-guide/guide';
 import type { ComponentType } from 'react';
 
 // Each orientation page's illustration is a self-contained animated scene

@@ -54,18 +54,27 @@ import {
 	type ComponentProps,
 	type ReactNode,
 } from 'react';
-import { AiAccessRequiredNotice, AiBlockedNotice } from '@/components/ai-access-required-notice';
-import { CodeBlock } from '@/components/code-block';
-import { CopyButton } from '@/components/copy-button';
-import { Markdown } from '@/components/markdown';
-import { Button, IconButton } from '@/components/ui/button';
-import { CollapsiblePanel } from '@/components/ui/collapsible';
-import { Dialog, DialogClose, DialogContent, DialogDismissButton } from '@/components/ui/dialog';
-import { Spinner } from '@/components/ui/spinner';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
 import { useLocalMediaDataUrl } from '@/data/queries/use-local-media';
-import { MESSAGE_TEXT_ATTRIBUTE, QUOTABLE_TEXT_ATTRIBUTE } from '@/hooks/use-text-context-menu';
-import { isTextEntry } from '@/lib/shortcuts';
+import { CopyButton } from '@/features/chats/copy-button';
+import { Markdown } from '@/features/chats/markdown';
+import {
+	MESSAGE_TEXT_ATTRIBUTE,
+	QUOTABLE_TEXT_ATTRIBUTE,
+} from '@/features/chats/use-text-context-menu';
+import { AiAccessRequiredNotice, AiBlockedNotice } from '@/features/credits';
+import { CodeBlock } from '@/lib/markdown';
+import {
+	Button,
+	IconButton,
+	CollapsiblePanel,
+	Dialog,
+	DialogClose,
+	DialogContent,
+	DialogDismissButton,
+	Spinner,
+} from '@/lib/ui';
+import { isTextEntry } from '@/lib/utils';
 import { SCROLL_ANCHOR_ATTRIBUTE } from '../use-anchored-scroll';
 import styles from './style.module.css';
 import type { LoadedAiSession } from '@/data/core';

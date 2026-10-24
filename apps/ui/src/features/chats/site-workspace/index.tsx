@@ -1,4 +1,4 @@
-import { SessionView } from '@/components/session-view';
+import { SessionView } from '@/features/chats/session-view';
 import styles from './style.module.css';
 
 export function SiteWorkspace( { sessionId }: { sessionId?: string } ) {

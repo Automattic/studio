@@ -1,9 +1,9 @@
 import { __ } from '@wordpress/i18n';
-import * as Menu from '@/components/ui/menu';
 import { useAuthUser } from '@/data/queries/use-auth-user';
 import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
-import { useOpenHeaderPanel } from '@/hooks/use-open-header-panel';
-import { SyncIcon } from '@/lib/icons/sync-icon';
+import { useOpenHeaderPanel } from '@/features/sites';
+import { SyncIcon } from '@/lib/icons';
+import { Menu } from '@/lib/ui';
 import { WebsiteMenuItems } from './connected-view';
 import { websiteAddress } from './options';
 import type { SiteDetails } from '@/data/core';

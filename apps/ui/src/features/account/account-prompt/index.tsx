@@ -1,10 +1,8 @@
 import { __ } from '@wordpress/i18n';
 import { useId, type RefObject } from 'react';
-import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { VisuallyHidden } from '@/components/ui/visually-hidden';
 import { useLogin } from '@/data/queries/use-auth-user';
-import { useOffline } from '@/hooks/use-offline';
+import { useOffline } from '@/lib/hooks';
+import { Button, Dialog, DialogContent, DialogHeader, DialogTitle, VisuallyHidden } from '@/lib/ui';
 import site1 from './assets/site-1.png';
 import site2 from './assets/site-2.png';
 import site3 from './assets/site-3.png';

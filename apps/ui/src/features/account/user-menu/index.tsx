@@ -2,19 +2,24 @@ import { __ } from '@wordpress/i18n';
 import { ariaKeyShortcut, displayShortcut } from '@wordpress/keycodes';
 import { LogOutIcon, SettingsIcon, WifiOffIcon } from 'lucide-react';
 import { useRef, useState } from 'react';
-import { AccountPromptDialog } from '@/components/account-prompt';
-import { Gravatar } from '@/components/gravatar';
-import { NoticeHistoryButton } from '@/components/notice-history';
-import { getSections } from '@/components/settings-dialog/sections';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Button, IconButton } from '@/components/ui/button';
-import * as Menu from '@/components/ui/menu';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { toast } from '@/data/app-messages';
+import { useColorScheme } from '@/data/host/use-color-scheme';
 import { useAuthUser, useLogout } from '@/data/queries/use-auth-user';
-import { useColorScheme } from '@/hooks/use-color-scheme';
-import { useOffline } from '@/hooks/use-offline';
-import { useOpenSettings } from '@/hooks/use-open-settings';
+import { AccountPromptDialog } from '@/features/account/account-prompt';
+import { Gravatar } from '@/features/account/gravatar';
+import { NoticeHistoryButton } from '@/features/notifications';
+import { getSections, useOpenSettings } from '@/features/settings';
+import { useOffline } from '@/lib/hooks';
+import {
+	Alert,
+	AlertDescription,
+	Button,
+	IconButton,
+	Menu,
+	Tooltip,
+	TooltipContent,
+	TooltipTrigger,
+} from '@/lib/ui';
 import styles from './style.module.css';
 
 const MENU_SECTIONS: string[] = [ 'appearance', 'ai', 'usage' ];

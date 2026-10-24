@@ -2,8 +2,6 @@ import { __, sprintf } from '@wordpress/i18n';
 import { clsx } from 'clsx';
 import { CheckIcon, ChevronRightIcon, InfoIcon, TriangleAlertIcon, XIcon } from 'lucide-react';
 import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
-import { Button, IconButton } from '@/components/ui/button';
-import { Spinner } from '@/components/ui/spinner';
 import {
 	noticeToText,
 	runNoticeAction,
@@ -11,7 +9,8 @@ import {
 	type NoticeRecord,
 	type ToastAction,
 } from '@/data/app-messages';
-import { useCopyText } from '@/hooks/use-copy-text';
+import { useCopyText } from '@/data/host/use-copy-text';
+import { Button, IconButton, Spinner } from '@/lib/ui';
 import styles from './style.module.css';
 
 type Notice = Pick< NoticeRecord, 'intent' | 'title' | 'description' | 'action' | 'actionPending' >;

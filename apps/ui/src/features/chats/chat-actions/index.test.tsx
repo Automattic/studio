@@ -21,7 +21,7 @@ vi.mock( '@/data/queries/use-sidebar-pins', () => ( {
 } ) );
 
 const setOpen = vi.hoisted( () => vi.fn() );
-vi.mock( '@/hooks/use-session-ui', () => ( {
+vi.mock( '@/features/chats/use-session-ui', () => ( {
 	useOptionalSessionPreviewUI: () => ( { setOpen } ),
 } ) );
 

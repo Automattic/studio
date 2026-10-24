@@ -9,10 +9,6 @@ import { useNavigate } from '@tanstack/react-router';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { CloudDownloadIcon } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
-import { BlueprintUpload, type SelectedBlueprint } from '@/components/blueprint-upload';
-import { CreateSiteForm } from '@/components/create-site-form';
-import { Composer, type ComposerHandle } from '@/components/session-view/composer';
-import { Field, FieldDescription, FieldTitle } from '@/components/ui/field';
 import { useConnector } from '@/data/core';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import {
@@ -22,14 +18,18 @@ import {
 import { useCreateSession } from '@/data/queries/use-sessions';
 import { useCreateSite, useSites } from '@/data/queries/use-sites';
 import { useWordPressOrgPackageName } from '@/data/queries/use-wordpress-org-package-name';
-import { pendingBlueprintSlot } from '@/lib/pending-blueprint';
-import { pendingPromptSlot } from '@/lib/pending-prompt';
+import { Composer, type ComposerHandle } from '@/features/chats';
+import { pendingPromptSlot } from '@/features/chats';
+import { BlueprintUpload, type SelectedBlueprint } from '@/features/sites/blueprint-upload';
+import { CreateSiteForm } from '@/features/sites/create-site-form';
+import { pendingBlueprintSlot } from '@/features/sites/pending-blueprint';
+import { Field, FieldDescription, FieldTitle } from '@/lib/ui';
 import { useConnectSite } from './connect-site';
 import { useAddSite } from './context';
 import localStyles from './create-panel.module.css';
 import { getRemoteSiteName } from './site-presentation';
-import type { CreateSiteFormError, CreateSiteFormValues } from '@/components/create-site-form';
 import type { AiModelId, SyncSite } from '@/data/core';
+import type { CreateSiteFormError, CreateSiteFormValues } from '@/features/sites/create-site-form';
 
 function mapBlueprintSettingsToFormValues(
 	blueprint: SelectedBlueprint

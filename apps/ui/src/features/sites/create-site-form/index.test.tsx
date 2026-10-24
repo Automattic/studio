@@ -7,7 +7,7 @@ import { useConnector } from '@/data/core';
 import { usePathValidator } from '@/data/queries/use-create-site-helpers';
 import { useSites } from '@/data/queries/use-sites';
 import { useWordPressVersions } from '@/data/queries/use-wordpress-versions';
-import { useOffline } from '@/hooks/use-offline';
+import { useOffline } from '@/lib/hooks';
 import { CreateSiteForm } from './index';
 import type { CreateSiteFormValues } from './index';
 
@@ -16,7 +16,7 @@ vi.mock( '@/data/core', async ( importOriginal ) => {
 	return { ...actual, useConnector: vi.fn() };
 } );
 
-vi.mock( '@/components/learn-more', () => ( {
+vi.mock( '@/features/settings/learn-more', () => ( {
 	LearnHowLink: () => null,
 	LearnMoreLink: ( { docsLinksKey }: { docsLinksKey: string } ) => (
 		<span data-testid={ `learn-more-${ docsLinksKey }` } />
@@ -40,7 +40,7 @@ vi.mock( '@/data/queries/use-wordpress-versions', () => ( {
 	useWordPressVersions: vi.fn(),
 } ) );
 
-vi.mock( '@/hooks/use-offline', () => ( {
+vi.mock( '@/lib/hooks/use-offline', () => ( {
 	useOffline: vi.fn(),
 } ) );
 

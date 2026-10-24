@@ -20,10 +20,10 @@ vi.mock( '@tanstack/react-router', () => ( {
 	useParams: () => ( {} ),
 } ) );
 
-vi.mock( '@/components/settings-view', async () => {
-	const { SettingsRow } = await vi.importActual< typeof import('@/components/settings-view/rows') >(
-		'@/components/settings-view/rows'
-	);
+vi.mock( '@/features/settings/settings-view', async () => {
+	const { SettingsRow } = await vi.importActual<
+		typeof import('@/features/settings/settings-view/rows')
+	>( '@/features/settings/settings-view/rows' );
 	const panel = ( name: string ) => () => <p>{ name }</p>;
 	return {
 		AiPanel: panel( 'AI providers panel' ),
@@ -42,8 +42,10 @@ vi.mock( '@/components/settings-view', async () => {
 	};
 } );
 vi.mock( './site-agent-files', () => ( { SiteAgentFiles: () => null } ) );
-vi.mock( '@/components/settings-view/account-section', () => ( { ConnectionCard: () => null } ) );
-vi.mock( '@/components/learn-more', () => ( {
+vi.mock( '@/features/settings/settings-view/account-section', () => ( {
+	ConnectionCard: () => null,
+} ) );
+vi.mock( '@/features/settings/learn-more', () => ( {
 	LearnHowLink: () => null,
 	LearnMoreLink: () => null,
 } ) );
@@ -74,7 +76,7 @@ vi.mock( '@/data/queries/use-wordpress-versions', () => ( {
 	useWordPressVersions: () => ( { data: [] } ),
 	useWpVersion: () => ( { data: '6.9' } ),
 } ) );
-vi.mock( '@/hooks/use-offline', () => ( { useOffline: () => false } ) );
+vi.mock( '@/lib/hooks/use-offline', () => ( { useOffline: () => false } ) );
 
 const SITE = {
 	id: 'site-1',

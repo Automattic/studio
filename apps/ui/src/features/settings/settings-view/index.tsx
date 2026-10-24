@@ -8,9 +8,6 @@ import {
 import { SUPPORTED_TERMINALS, terminalConfig } from '@studio/common/lib/user-settings/terminal';
 import { __, sprintf } from '@wordpress/i18n';
 import { useCallback, useEffect, useState } from 'react';
-import { SidebarSettings } from '@/components/site-list/sidebar-settings';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { useConnector } from '@/data/core';
 import { persister } from '@/data/core/query-client';
 import {
@@ -20,8 +17,9 @@ import {
 import { useInstalledApps } from '@/data/queries/use-installed-apps';
 import { useUserLocale } from '@/data/queries/use-user-locale';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
-import { hasCustomPanelWidths, resetPanelWidths } from '@/lib/resizable-panels';
+import { SidebarSettings, hasCustomPanelWidths, resetPanelWidths } from '@/features/sidebar';
 import { applyColorTint, DEFAULT_COLOR_TINT, isDefaultColorTint } from '@/lib/theme';
+import { Input, Button } from '@/lib/ui';
 import { AccountSection } from './account-section';
 import { ColorTintSettings } from './color-tint-settings';
 import { InstructionsEditor } from './instructions-editor';

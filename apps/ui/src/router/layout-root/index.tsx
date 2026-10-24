@@ -3,18 +3,16 @@ import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { useQueryClient } from '@tanstack/react-query';
 import { createRootRouteWithContext, Outlet, useNavigate, useParams } from '@tanstack/react-router';
 import { useEffect, useRef } from 'react';
-import { AddSiteDialog } from '@/components/add-site-dialog';
-import { isSettingsSection, SettingsDialog } from '@/components/settings-dialog';
-import { WapuuWorldMount } from '@/components/wapuu-world';
 import { useConnector } from '@/data/core';
 import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
 import { SITES_QUERY_KEY } from '@/data/queries/use-sites';
-import { useAiCreditsPurchaseResult } from '@/hooks/use-ai-credits-purchase-result';
-import { useAppMenuNavigation } from '@/hooks/use-app-menu-navigation';
-import { isAddSiteSection } from '@/hooks/use-open-add-site';
-import type { SettingsSectionId } from '@/components/settings-dialog';
+import { useAppMenuNavigation } from '@/features/commands';
+import { useAiCreditsPurchaseResult } from '@/features/credits';
+import { WapuuWorldMount, isSettingsSection, SettingsDialog } from '@/features/settings';
+import { AddSiteDialog, isAddSiteSection } from '@/features/sites';
 import type { AiSessionSummary, Connector, SiteDetails } from '@/data/core';
-import type { AddSiteSection } from '@/hooks/use-open-add-site';
+import type { SettingsSectionId } from '@/features/settings';
+import type { AddSiteSection } from '@/features/sites';
 import type { QueryClient } from '@tanstack/react-query';
 
 export interface RouterContext {

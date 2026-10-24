@@ -1,6 +1,6 @@
 import { __ } from '@wordpress/i18n';
 import { PencilIcon, XIcon } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Button } from '@/lib/ui';
 import styles from './style.module.css';
 import type { QueuedPrompt } from '@/data/queries/use-agent-run';
 

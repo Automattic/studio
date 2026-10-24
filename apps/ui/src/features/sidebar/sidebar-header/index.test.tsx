@@ -14,7 +14,7 @@ vi.mock( '@/data/core', () => ( {
 	useConnector: vi.fn(),
 } ) );
 
-vi.mock( '@/hooks/use-traffic-light-space', () => ( {
+vi.mock( '@/data/host/use-traffic-light-space', () => ( {
 	useTrafficLightSpace: () => ( { start: false, end: false } ),
 } ) );
 

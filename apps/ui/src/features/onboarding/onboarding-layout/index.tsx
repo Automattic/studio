@@ -1,4 +1,4 @@
-import { FullscreenChrome } from '@/components/fullscreen-chrome';
+import { FullscreenChrome } from '@/features/onboarding/fullscreen-chrome';
 import styles from './style.module.css';
 import type { ReactNode, Ref } from 'react';
 

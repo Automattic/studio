@@ -10,6 +10,7 @@ import path from 'path';
 import { pathToFileURL } from 'url';
 import { selfHostThemeJsonFonts } from '@studio/common/lib/theme-fonts';
 import { trappedFullWidthNotes } from 'cli/ai/block-alignment';
+import { opensWithBlock } from 'cli/ai/block-validation-gate';
 import { renderDesignBoard } from 'cli/ai/design-board';
 import {
 	FRONT_PAGE_TEMPLATE,
@@ -176,12 +177,13 @@ function paletteNotes( themeJson: unknown, themePath: string ): string[] {
 		);
 }
 
-// Block markup files: a theme's templates, parts and patterns, and page
-// content scratch files.
-function isBlockMarkup( { relativePath, theme }: SiteFile ): boolean {
-	return theme
-		? /^(templates|parts|patterns)\/[^/]+\.(html|php)$/.test( theme.file )
-		: /^tmp\/[^/]+\.html$/.test( relativePath );
+// Block markup files: a theme's templates, parts and patterns, and any file
+// that opens with a block, as a page draft does wherever it is written.
+function isBlockMarkup( siteFile: SiteFile ): boolean {
+	return (
+		/^(templates|parts|patterns)\/[^/]+\.(html|php)$/.test( siteFile.theme?.file ?? '' ) ||
+		opensWithBlock( readSiteFile( siteFile ) )
+	);
 }
 
 const readSiteFile = ( { siteRoot, relativePath }: SiteFile ) =>

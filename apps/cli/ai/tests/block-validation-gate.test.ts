@@ -55,12 +55,16 @@ beforeEach( () => {
 afterEach( () => rmSync( site, { recursive: true, force: true } ) );
 
 describe( 'block markup files', () => {
-	it( 'covers theme templates, parts, and tmp page files only', () => {
+	it( 'covers theme templates and parts, and any file that opens with a block', () => {
 		expect( isBlockMarkupFile( '/s/wp-content/themes/t/parts/header.html' ) ).toBe( true );
 		expect( isBlockMarkupFile( '/s/wp-content/themes/t/templates/index.html' ) ).toBe( true );
-		expect( isBlockMarkupFile( '/s/tmp/page-home.html' ) ).toBe( true );
-		expect( isBlockMarkupFile( '/s/wp-content/themes/t/style.css' ) ).toBe( false );
-		expect( isBlockMarkupFile( '/s/DESIGN.md' ) ).toBe( false );
+		const draft = write( 'wp-content/uploads/home.tmp.html', '\n<!-- wp:paragraph -->' );
+		expect( isBlockMarkupFile( draft ) ).toBe( true );
+		// Code that mentions a delimiter, as a block's built script does.
+		const script = write( 'build/index.js', 'save: () => "<!-- wp:paragraph -->"' );
+		expect( isBlockMarkupFile( script ) ).toBe( false );
+		expect( isBlockMarkupFile( write( 'tmp/page-home.html', '<p>Hi</p>' ) ) ).toBe( false );
+		expect( isBlockMarkupFile( '/s/missing.html' ) ).toBe( false );
 	} );
 } );
 
@@ -165,7 +169,7 @@ describe( 'the gate', () => {
 	} );
 
 	it( 'reports each validated file once, and revalidates a file that changed', async () => {
-		const file = write( 'tmp/home.html', 'v1' );
+		const file = write( 'wp-content/themes/t/templates/home.html', 'v1' );
 		const validateFile = vi.fn( async ( filePath: string ) =>
 			ok( `validated ${ readFileSync( filePath, 'utf8' ) }`, readFileSync( filePath, 'utf8' ) )
 		);
@@ -177,7 +181,7 @@ describe( 'the gate', () => {
 	} );
 
 	it( 'saves a lossless fix once settled, never over a write made while it validated', async () => {
-		const file = write( 'tmp/home.html', 'v1' );
+		const file = write( 'wp-content/themes/t/templates/home.html', 'v1' );
 		let finish: () => void = () => {};
 		const validateFile = vi.fn( async ( filePath: string ) => {
 			const content = readFileSync( filePath, 'utf8' );

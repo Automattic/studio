@@ -3,7 +3,12 @@ import os from 'os';
 import path from 'path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { inPageAnchors } from 'cli/ai/block-validation-gate';
-import { clearThemePatternCache, lintThemeCss, resolveSiteFile } from 'cli/ai/site-file-guards';
+import {
+	blockMarkupNotes,
+	clearThemePatternCache,
+	lintThemeCss,
+	resolveSiteFile,
+} from 'cli/ai/site-file-guards';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 
 vi.mock( 'cli/ai/tools/utils', () => ( {
@@ -102,5 +107,26 @@ describe( 'clearThemePatternCache', () => {
 			'eval',
 			'wp_get_theme( "acme" )->delete_pattern_cache();',
 		] );
+	} );
+} );
+
+describe( 'block markup notes', () => {
+	const trapped =
+		'<!-- wp:group {"layout":{"type":"constrained"}} --><div><!-- wp:group {"layout":{"type":"constrained"}} --><div><!-- wp:cover {"align":"full"} --><div></div><!-- /wp:cover --></div><!-- /wp:group --></div><!-- /wp:group -->';
+
+	// A draft is block markup wherever it is written; a file that does not open with a block is not.
+	it.each( [
+		[ 'wp-content/uploads/home.tmp.html', trapped, 1 ],
+		[ 'tmp/page-home.html', trapped, 1 ],
+		[ 'notes.md', `Draft:\n${ trapped }`, 0 ],
+	] )( '%s gets %s note(s)', ( relativePath, content, count ) => {
+		const root = mkdtempSync( path.join( os.tmpdir(), 'studio-markup-' ) );
+		mkdirSync( path.join( root, 'wp-includes' ) );
+		mkdirSync( path.join( root, 'wp-content' ) );
+		mkdirSync( path.dirname( path.join( root, relativePath ) ), { recursive: true } );
+		writeFileSync( path.join( root, relativePath ), content );
+		const file = resolveSiteFile( path.join( root, relativePath ) )!;
+		expect( blockMarkupNotes( file ) ).toHaveLength( count );
+		rmSync( root, { recursive: true, force: true } );
 	} );
 } );

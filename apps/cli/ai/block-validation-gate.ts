@@ -2,8 +2,8 @@
  * Block validation as a gate the harness runs, not a tool the model must
  * remember to call.
  *
- * Writing block markup (a theme template or part, or a page scratch file in the
- * site's tmp/) queues that file. Validation starts in the background at once,
+ * Writing block markup (a theme template or part, or any file that opens with a
+ * block, as a page draft does wherever it is written) queues that file. Validation starts in the background at once,
  * and what puts content on the site or renders it (a shell command, which
  * runs WP-CLI, or take_screenshot) waits for it first. A fix the block editor
  * can make losslessly is applied to the file silently, once validation has
@@ -12,6 +12,7 @@
  * has to change itself.
  */
 import { createHash } from 'crypto';
+import { readFileSync } from 'fs';
 import { readFile, writeFile } from 'fs/promises';
 import path from 'path';
 import { validateHtmlBlockPolicy } from 'cli/ai/block-content-policy';
@@ -23,11 +24,27 @@ const SHARED_THEME_MARKUP =
 	/[\\/]wp-content[\\/]themes[\\/][^\\/]+[\\/](parts[\\/][^\\/]+|templates[\\/](?!front-page|home)[^\\/]+)\.html$/;
 const THEME_MARKUP =
 	/[\\/]wp-content[\\/]themes[\\/][^\\/]+[\\/](templates|parts)[\\/][^\\/]+\.html$/;
-const SCRATCH_MARKUP = /[\\/]tmp[\\/][^\\/]+\.html$/;
 
-/** Whether a file holds block markup the gate validates. */
+/**
+ * Whether content is block markup: it opens with a block's comment delimiter,
+ * as WordPress serializes a block (get_comment_delimited_block_content()).
+ * A draft is one wherever it is written; code that only mentions a delimiter
+ * does not open with one.
+ */
+export function opensWithBlock( content: string ): boolean {
+	return content.trimStart().startsWith( '<!-- wp:' );
+}
+
+/** Whether a file holds block markup the gate validates: a theme template or part, or any block markup. */
 export function isBlockMarkupFile( filePath: string ): boolean {
-	return THEME_MARKUP.test( filePath ) || SCRATCH_MARKUP.test( filePath );
+	if ( THEME_MARKUP.test( filePath ) ) {
+		return true;
+	}
+	try {
+		return opensWithBlock( readFileSync( filePath, 'utf8' ) );
+	} catch {
+		return false;
+	}
 }
 
 /**

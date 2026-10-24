@@ -296,7 +296,9 @@ it( 'reports the block validation of post content a shell call changed', async (
 	// Stopping continues the turn with the problem still open, once.
 	expect( await hook( 'Stop' ) ).toEqual( {
 		decision: 'block',
-		reason: expect.stringContaining( '1 core/html block(s) must become editable blocks' ),
+		reason: expect.stringMatching(
+			/^Studio's checks of the sites after your turn[^]*1 core\/html block\(s\) must become editable blocks/
+		),
 	} );
 	expect( await hook( 'Stop' ) ).toBeUndefined();
 } );

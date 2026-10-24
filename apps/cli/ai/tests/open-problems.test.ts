@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { OpenProblems } from 'cli/ai/open-problems';
+import { describeOpenProblems, OpenProblems } from 'cli/ai/open-problems';
 
 describe( 'OpenProblems', () => {
 	it( 'raises each problem still open once, and the problems of the sites changed', async () => {
@@ -21,5 +21,11 @@ describe( 'OpenProblems', () => {
 		open.record( '/a', '/a/page-1', 'page 1 is still invalid' );
 		const kept = new OpenProblems( open.toJSON(), [] );
 		expect( await kept.raise() ).toEqual( [ 'page 1 is still invalid' ] );
+	} );
+
+	it( 'tells the agent the problems come from Studio, not the user', () => {
+		expect( describeOpenProblems( [ 'a', 'b' ] ) ).toBe(
+			"Studio's checks of the sites after your turn, not a message from the user:\n- a\n- b"
+		);
 	} );
 } );

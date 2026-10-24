@@ -20,7 +20,7 @@ import { readFile, writeFile } from 'fs/promises';
 import os from 'os';
 import path from 'path';
 import { BlockValidationGate } from 'cli/ai/block-validation-gate';
-import { OpenProblems, type OpenProblemsState } from 'cli/ai/open-problems';
+import { describeOpenProblems, OpenProblems, type OpenProblemsState } from 'cli/ai/open-problems';
 import { PostContentCheck, type PostSnapshot } from 'cli/ai/post-content-check';
 import { createSiteNotes } from 'cli/ai/site-notes';
 
@@ -100,7 +100,9 @@ export async function runFileToolHook(
 		const problems = await withSession( input.session_id, ( { open } ) => open.raise() ).catch(
 			() => []
 		);
-		return problems.length ? { decision: 'block', reason: problems.join( '\n' ) } : undefined;
+		return problems.length
+			? { decision: 'block', reason: describeOpenProblems( problems ) }
+			: undefined;
 	}
 	const files = getWrittenFiles( input );
 	if ( input.hook_event_name === 'PreToolUse' ) {

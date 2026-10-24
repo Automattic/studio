@@ -64,6 +64,17 @@ export class OpenProblems {
 	}
 }
 
+/**
+ * The message that continues a turn with open problems, from Studio rather
+ * than the user, who does not see it.
+ */
+export function describeOpenProblems( problems: string[] ): string {
+	return [
+		"Studio's checks of the sites after your turn, not a message from the user:",
+		...problems.map( ( problem ) => `- ${ problem }` ),
+	].join( '\n' );
+}
+
 const bySession = new WeakMap< object, OpenProblems >();
 
 /** The open problems of an agent session, kept across its turns. */

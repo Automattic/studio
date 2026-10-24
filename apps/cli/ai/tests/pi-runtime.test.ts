@@ -25,6 +25,7 @@ const mocks = vi.hoisted( () => ( {
 
 vi.mock( 'cli/ai/open-problems', () => ( {
 	getOpenProblems: () => ( { raise: async () => mocks.openProblems.shift() ?? [] } ),
+	describeOpenProblems: ( problems: string[] ) => `checks: ${ problems.join( ' | ' ) }`,
 } ) );
 
 // Model-swap test uses a synthetic id outside `AI_MODELS`; route unknowns to
@@ -722,7 +723,7 @@ describe( 'pi runtime', () => {
 				{
 					message: {
 						customType: 'studio.open_problems',
-						content: 'page 9: 2 invalid blocks\nfront page not shown',
+						content: 'checks: page 9: 2 invalid blocks | front page not shown',
 						display: false,
 					},
 					options: { triggerTurn: true },

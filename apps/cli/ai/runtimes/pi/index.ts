@@ -45,7 +45,7 @@ import { getBlockValidationGate, type BlockValidationGate } from 'cli/ai/block-v
 import { withDesignSystemPreview } from 'cli/ai/chat-artifacts';
 import { isImageGenerationAvailable } from 'cli/ai/image-generation';
 import { emitEvent } from 'cli/ai/json-events';
-import { getOpenProblems } from 'cli/ai/open-problems';
+import { describeOpenProblems, getOpenProblems } from 'cli/ai/open-problems';
 import { PostContentCheck } from 'cli/ai/post-content-check';
 import { readActiveSiteFacts } from 'cli/ai/site-facts';
 import { createSiteNotes, type SiteNotes } from 'cli/ai/site-notes';
@@ -324,7 +324,7 @@ async function runAgentSessionTurn(
 			await getPendingWork( config.session ).settle();
 			const problems = await openProblems.raise();
 			return problems.length
-				? { customType: OPEN_PROBLEMS_TYPE, content: problems.join( '\n' ) }
+				? { customType: OPEN_PROBLEMS_TYPE, content: describeOpenProblems( problems ) }
 				: undefined;
 		};
 

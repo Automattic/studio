@@ -8,24 +8,20 @@ import {
 import { terminalConfig } from '@studio/common/lib/user-settings/terminal';
 import { __, sprintf } from '@wordpress/i18n';
 import { CodeIcon } from 'lucide-react';
+import { AppIcon } from '@/components/app-icon';
 import { DATABASE_HOME_PATH } from '@/components/site-preview/address-bar';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { useInstalledApps } from '@/data/queries/use-installed-apps';
 import { useStartSite } from '@/data/queries/use-sites';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
+import { DatabaseIcon } from '@/lib/icons/database-icon';
 import { ExternalLinkIcon } from '@/lib/icons/external-link-icon';
+import { FolderIcon } from '@/lib/icons/folder-icon';
+import { TerminalIcon } from '@/lib/icons/terminal-icon';
 import { WordPressIcon } from '@/lib/icons/wordpress-icon';
-import {
-	databaseLogo,
-	editorLogos,
-	finderLogo,
-	folderLogo,
-	terminalLogo,
-	terminalLogos,
-} from '@/lib/logos';
 import type { SiteDetails } from '@/data/core';
-import type { ReactElement, SVGProps } from 'react';
+import type { ReactElement } from 'react';
 
 export type OpenInDestination =
 	| 'browser'
@@ -38,20 +34,20 @@ export type OpenInDestination =
 interface OpenInDestinationEntry {
 	id: OpenInDestination;
 	label: string;
-	logo: ReactElement< SVGProps< SVGSVGElement > >;
+	logo: ReactElement;
 	disabled: boolean;
 	open: () => void;
 }
 
-function getFileManager(): { label: string; logo: ReactElement< SVGProps< SVGSVGElement > > } {
+function getFileManager(): { label: string; logo: ReactElement } {
 	const platform = navigator.platform.toLowerCase();
 	if ( platform.includes( 'win' ) ) {
-		return { label: __( 'File Explorer' ), logo: folderLogo };
+		return { label: __( 'File Explorer' ), logo: <FolderIcon /> };
 	}
 	if ( platform.includes( 'linux' ) ) {
-		return { label: __( 'File manager' ), logo: folderLogo };
+		return { label: __( 'File manager' ), logo: <FolderIcon /> };
 	}
-	return { label: __( 'Finder' ), logo: finderLogo };
+	return { label: __( 'Finder' ), logo: <AppIcon app="finder" fallback={ <FolderIcon /> } /> };
 }
 
 /**
@@ -85,9 +81,8 @@ export function useOpenInDestinations(
 	const terminalLabel = userPreferences?.terminal
 		? terminalConfig[ userPreferences.terminal ].name()
 		: __( 'Terminal' );
-	const configuredTerminalLogo = userPreferences?.terminal
-		? terminalLogos[ userPreferences.terminal ]
-		: terminalLogo;
+	const terminal = userPreferences?.terminal ?? 'terminal';
+	const isMac = /Mac/.test( navigator.platform );
 
 	const open = ( destination: OpenInDestination, label: string, run: () => Promise< unknown > ) => {
 		onOpen?.( destination );
@@ -141,21 +136,26 @@ export function useOpenInDestinations(
 		!! editor && {
 			id: 'editor',
 			label: editorLabel,
-			logo: editorLogos[ editor ] ?? <CodeIcon />,
+			logo: <AppIcon app={ editor } fallback={ <CodeIcon /> } />,
 			disabled: false,
 			open: () => open( 'editor', editorLabel, () => connector.openSiteInEditor( site.id ) ),
 		},
 		{
 			id: 'terminal',
 			label: terminalLabel,
-			logo: configuredTerminalLogo,
+			logo: (
+				<AppIcon
+					app={ terminal === 'terminal' && ! isMac ? undefined : terminal }
+					fallback={ <TerminalIcon /> }
+				/>
+			),
 			disabled: false,
 			open: () => open( 'terminal', terminalLabel, () => connector.openSiteInTerminal( site.id ) ),
 		},
 		{
 			id: 'phpmyadmin',
 			label: __( 'phpMyAdmin' ),
-			logo: databaseLogo,
+			logo: <AppIcon app="phpmyadmin" fallback={ <DatabaseIcon /> } />,
 			disabled: false,
 			open: () =>
 				open( 'phpmyadmin', __( 'phpMyAdmin' ), async () => {

@@ -1,11 +1,10 @@
 import { getBlueprintUseCases } from '@studio/common/lib/blueprint-catalog';
 import { __, sprintf } from '@wordpress/i18n';
 import { PlusIcon } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader } from '@/components/ui/empty';
-import { PreviewFrame } from '@/components/ui/preview-frame';
-import { Skeleton } from '@/components/ui/skeleton';
+import { PreviewFrame, PreviewImage } from '@/components/ui/preview-frame';
 import { useBlueprints } from '@/data/queries/use-blueprints';
 import { useOffline } from '@/hooks/use-offline';
 import styles from './blueprint-gallery.module.css';
@@ -25,27 +24,6 @@ export function getUseCases(): { value: BlueprintUseCase; label: string }[] {
 
 export function getUseCaseLabel( useCase: BlueprintUseCase ) {
 	return getUseCases().find( ( item ) => item.value === useCase )?.label ?? useCase;
-}
-
-// A screenshot with a skeleton while it loads or when it's missing.
-export function BlueprintScreenshot( { url, alt }: { url?: string; alt: string } ) {
-	const [ state, setState ] = useState< 'loading' | 'ready' | 'error' >( 'loading' );
-	return (
-		<PreviewFrame>
-			{ url && state !== 'error' ? (
-				<img
-					src={ url }
-					alt={ alt }
-					className={ styles.image }
-					onLoad={ () => setState( 'ready' ) }
-					onError={ () => setState( 'error' ) }
-				/>
-			) : null }
-			{ ! url || state !== 'ready' ? (
-				<Skeleton className={ styles.skeleton } aria-hidden="true" />
-			) : null }
-		</PreviewFrame>
-	);
 }
 
 export function BlueprintGallery( {
@@ -118,14 +96,17 @@ export function BlueprintGallery( {
 						onClick={ () => onView( blueprint ) }
 					>
 						<span className={ styles.thumbnail }>
-							<BlueprintScreenshot
-								url={ blueprint.image }
-								alt={ sprintf(
-									// translators: %s is a Blueprint name.
-									__( '%s preview' ),
-									blueprint.title
-								) }
-							/>
+							<PreviewFrame>
+								<PreviewImage
+									src={ blueprint.image }
+									alt={ sprintf(
+										// translators: %s is a Blueprint name.
+										__( '%s preview' ),
+										blueprint.title
+									) }
+									className={ styles.image }
+								/>
+							</PreviewFrame>
 							<span className={ styles.action } aria-hidden="true">
 								<span className={ styles.actionLabel }>{ __( 'View blueprint' ) }</span>
 							</span>

@@ -52,11 +52,6 @@
 	transition: opacity var(--motion-duration-layout);
 }
 
-.skeleton {
-	position: absolute;
-	inset: 0;
-}
-
 .thumbnail {
 	position: relative;
 	display: block;

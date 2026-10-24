@@ -8,7 +8,7 @@ import { Alert, AlertActions, AlertDescription, AlertTitle } from '@/components/
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
-import { PreviewFrame } from '@/components/ui/preview-frame';
+import { PreviewFrame, PreviewImage } from '@/components/ui/preview-frame';
 import { Spinner } from '@/components/ui/spinner';
 import { useConnector } from '@/data/core';
 import { useAuthUser } from '@/data/queries/use-auth-user';
@@ -85,7 +85,7 @@ function RemoteSiteCard( {
 				onClick={ () => onSelect( site ) }
 			>
 				<PreviewFrame className={ styles.siteThumb }>
-					<img
+					<PreviewImage
 						src={ `https://s0.wp.com/mshots/v1/${ encodeURIComponent( site.url ) }?w=600&h=400` }
 						alt=""
 					/>

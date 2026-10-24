@@ -11,12 +11,12 @@ import { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { PreviewFrame, PreviewImage } from '@/components/ui/preview-frame';
 import { useConnector } from '@/data/core';
 import { usePathValidator } from '@/data/queries/use-create-site-helpers';
 import { useCreateSite, useSites } from '@/data/queries/use-sites';
 import { ExternalLinkIcon } from '@/lib/icons/external-link-icon';
 import { pendingBlueprintSlot } from '@/lib/pending-blueprint';
-import { BlueprintScreenshot } from './blueprint-gallery';
 import styles from './blueprint-gallery.module.css';
 import { useAddSite } from './context';
 import type { SelectedBlueprint } from '@/lib/blueprint-selection';
@@ -133,14 +133,16 @@ export function BlueprintDetails( {
 						</AlertDescription>
 					</Alert>
 				) : null }
-				<BlueprintScreenshot
-					url={ blueprint.image }
-					alt={ sprintf(
-						// translators: %s is a Blueprint name.
-						__( '%s screenshot' ),
-						blueprint.title
-					) }
-				/>
+				<PreviewFrame>
+					<PreviewImage
+						src={ blueprint.image }
+						alt={ sprintf(
+							// translators: %s is a Blueprint name.
+							__( '%s screenshot' ),
+							blueprint.title
+						) }
+					/>
+				</PreviewFrame>
 			</div>
 		</>
 	);

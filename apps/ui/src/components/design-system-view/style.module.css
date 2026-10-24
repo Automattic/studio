@@ -10,10 +10,6 @@
 	line-height: 1.5;
 }
 
-.root * {
-	box-sizing: border-box;
-}
-
 /* The app styles headings with its own theme color. */
 .root :is(h1, h2, h3) {
 	color: inherit;
@@ -27,7 +23,6 @@
 }
 
 .eyebrow {
-	margin: 0;
 	font-size: var(--text-xxs);
 	opacity: 0.65;
 	text-transform: uppercase;
@@ -35,14 +30,12 @@
 }
 
 .title {
-	margin: 0;
 	font-size: clamp(40px, 9cqi, 104px);
 	line-height: 0.95;
 	overflow-wrap: anywhere;
 }
 
 .description {
-	margin: 0;
 	max-width: 60ch;
 	font-size: var(--text-xl);
 	opacity: 0.8;
@@ -85,10 +78,6 @@
 	font-weight: var(--font-weight-semibold);
 }
 
-.driftList dd {
-	margin: 0;
-}
-
 .driftList .driftActions {
 	display: flex;
 	gap: 12px;
@@ -96,11 +85,6 @@
 }
 
 .driftAction {
-	padding: 0;
-	border: 0;
-	background: none;
-	color: inherit;
-	font: inherit;
 	text-decoration: underline;
 	text-underline-offset: 3px;
 	cursor: pointer;
@@ -113,7 +97,6 @@
 
 .driftError {
 	flex-basis: 100%;
-	margin: 0;
 }
 
 .sections {
@@ -136,7 +119,6 @@
 	margin: 0 0 16px;
 	padding-top: 8px;
 	border-top: 1px solid var(--ds-hairline);
-	font-family: inherit;
 	font-size: var(--text-xxs);
 	font-weight: var(--font-weight-semibold);
 	letter-spacing: 0.12em;
@@ -149,10 +131,6 @@
 	flex-wrap: wrap;
 	align-items: flex-end;
 	gap: 32px;
-}
-
-.specimen {
-	margin: 0;
 }
 
 .aa {
@@ -280,7 +258,6 @@
 }
 
 .scaleSample {
-	margin: 0;
 	min-width: 0;
 	overflow-wrap: anywhere;
 }
@@ -404,7 +381,6 @@
 }
 
 .corner {
-	margin: 0;
 	font-size: var(--text-xs);
 }
 
@@ -438,6 +414,14 @@
 .guideline ol {
 	margin: 0 0 0.75em;
 	opacity: 0.85;
+}
+
+/* DESIGN.md prose keeps the browser's list and link styles. */
+.guideline :is(ul, ol, a) {
+	padding-inline-start: revert;
+	list-style: revert;
+	color: revert;
+	text-decoration: revert;
 }
 
 .guideline :last-child {

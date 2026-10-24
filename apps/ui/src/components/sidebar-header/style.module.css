@@ -2,8 +2,6 @@
    Linux) and the sidebar toggle at its start, past the macOS traffic lights. */
 .root {
 	--toggle-start: var(--traffic-light-space);
-
-	box-sizing: border-box;
 	display: flex;
 	align-items: center;
 	gap: 4px;

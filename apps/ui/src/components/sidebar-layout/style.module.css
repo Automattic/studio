@@ -10,7 +10,6 @@
 }
 
 .sidebar {
-	box-sizing: border-box;
 	width: var(--sidebar-width, 320px);
 	/* Both bounds are owned by useResizablePanel, which clamps --sidebar-width
 	   on every path. CSS min/max widths would compete with that single source
@@ -108,9 +107,6 @@
 	position: absolute;
 	inset: var(--band-height) 0 0;
 	z-index: 39;
-	padding: 0;
-	border: 0;
-	background: transparent;
 	-webkit-app-region: no-drag;
 }
 

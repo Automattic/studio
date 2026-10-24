@@ -7,7 +7,6 @@
 		grid-template-columns: minmax( 0, 1fr ) auto;
 		gap: 2px 8px;
 		width: 100%;
-		box-sizing: border-box;
 		padding: 8px 10px;
 		border: 1px solid var( --border );
 		border-radius: var( --radius-lg );

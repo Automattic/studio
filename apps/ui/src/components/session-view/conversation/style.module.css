@@ -23,8 +23,6 @@
 	justify-content: flex-end;
 	gap: 4px;
 	margin: 4px 0 0;
-	padding: 0;
-	list-style: none;
 	max-width: 80%;
 }
 
@@ -156,7 +154,6 @@
 }
 
 .userText {
-	box-sizing: border-box;
 	max-width: min(85%, 32rem);
 	padding: 12px 16px;
 	border-radius: 16px;
@@ -169,7 +166,6 @@
 }
 
 .assistantBubble {
-	box-sizing: border-box;
 	min-width: 0;
 	width: fit-content;
 	max-width: min(85%, 32rem);
@@ -208,12 +204,8 @@
 	width: fit-content;
 	max-width: 100%;
 	min-width: 0;
-	padding: 0;
-	border: 0;
 	border-radius: var(--radius-md);
-	background: none;
 	color: var(--muted-foreground);
-	font: inherit;
 	text-align: start;
 	cursor: pointer;
 	transition: color var(--motion-duration-feedback) ease;
@@ -260,7 +252,6 @@
 	display: flex;
 	flex-direction: column;
 	gap: 4px;
-	box-sizing: border-box;
 	max-height: min(320px, 45vh);
 	overflow: auto;
 	border-radius: 8px;
@@ -269,7 +260,6 @@
 
 .toolInput,
 .toolOutput {
-	margin: 0;
 	color: var(--foreground);
 	font-family: var(--font-mono);
 	font-size: 11px;
@@ -288,7 +278,6 @@
 }
 
 .toolDiff {
-	margin: 0;
 	display: flex;
 	flex-direction: column;
 	font-family: var(--font-mono);
@@ -321,12 +310,10 @@
 }
 
 .mediaArtifactItem {
-	margin: 0;
 	min-width: 0;
 }
 
 .mediaArtifactImage {
-	display: block;
 	width: 100%;
 	max-height: min(520px, 58vh);
 	border: 1px solid var(--border);
@@ -337,7 +324,6 @@
 
 .mediaArtifactLoading,
 .mediaArtifactUnavailable {
-	box-sizing: border-box;
 	min-height: 180px;
 	border: 1px solid var(--border);
 	border-radius: 12px;
@@ -446,11 +432,8 @@
 	gap: 4px;
 	width: 100%;
 	padding: 4px 0;
-	border: 0;
 	border-radius: 8px;
-	background: transparent;
 	color: var(--foreground);
-	font: inherit;
 	text-align: left;
 }
 
@@ -533,14 +516,10 @@
 }
 
 .questionText {
-	margin: 0;
 	color: var(--foreground);
 }
 
 .questionOptions {
-	list-style: none;
-	margin: 0;
-	padding: 0;
 	display: flex;
 	flex-direction: column;
 	gap: 16px;
@@ -548,8 +527,6 @@
 
 .questionOptionItem {
 	position: relative;
-	margin: 0;
-	padding: 0;
 }
 
 .questionOptionZoom {
@@ -568,7 +545,6 @@
 }
 
 .questionOptionZoomImage {
-	display: block;
 	max-width: calc(100vw - 2 * 24px);
 	max-height: calc(100dvh - 2 * 24px);
 }
@@ -647,7 +623,6 @@
 .questionOptionImageUnavailable {
 	grid-column: 1 / -1;
 	display: block;
-	box-sizing: border-box;
 	width: 100%;
 	aspect-ratio: 4 / 3;
 	border: 1px solid var(--border);
@@ -705,12 +680,8 @@
 	align-items: flex-start;
 	gap: 12px;
 	width: 100%;
-	background: transparent;
-	border: none;
-	padding: 0;
 	border-radius: var(--radius-md);
 	color: var(--foreground);
-	font: inherit;
 	text-align: left;
 	cursor: pointer;
 }
@@ -739,6 +710,7 @@
 }
 
 .questionOptionNumber {
+	box-sizing: content-box;
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
@@ -849,4 +821,9 @@
 	font-size: 11px;
 	text-align: center;
 	overflow-wrap: anywhere;
+}
+
+.errorMarker a {
+	color: revert;
+	text-decoration: revert;
 }

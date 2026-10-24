@@ -4,7 +4,6 @@
 	display: flex;
 	align-items: stretch;
 	justify-content: center;
-	box-sizing: border-box;
 	cursor: col-resize;
 	outline: none;
 	-webkit-app-region: no-drag;

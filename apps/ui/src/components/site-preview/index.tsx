@@ -1218,7 +1218,7 @@ export function SitePreview( {
 								<div className={ styles.emptyContent }>
 									{ isStarting ? null : <StoppedSitePreview site={ site } /> }
 									{ otherOperation || ( ! isStarting && ! siteThumbnail.data ) ? (
-										<p className={ styles.emptyText }>
+										<p>
 											{ otherOperation
 												? sprintf(
 														/* translators: %s: an operation in progress, e.g. "Saving settings". */

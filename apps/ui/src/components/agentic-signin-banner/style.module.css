@@ -25,8 +25,8 @@
 }
 
 .benefits {
-	margin: 0;
 	padding-inline-start: 16px;
+	list-style: disc;
 	display: flex;
 	flex-direction: column;
 	gap: 4px;

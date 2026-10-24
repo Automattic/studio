@@ -28,8 +28,6 @@
 }
 
 body {
-	margin: 0;
-	padding: 0;
 	font-family: var( --font-sans );
 	font-size: var( --text-sm );
 	line-height: 20px;
@@ -40,12 +38,21 @@ body {
 }
 
 @layer base {
-	/* Form controls don't inherit the page font by default. */
-	button,
-	input,
-	select,
-	textarea {
-		font-family: inherit;
+	/* A reset in the spirit of Tailwind's preflight: components start from no
+	   margins, padding, borders or list markers, size with border-box, and
+	   form controls take the surrounding text style. */
+	*,
+	::before,
+	::after,
+	::backdrop {
+		box-sizing: border-box;
+		margin: 0;
+		padding: 0;
+		border: 0 solid;
+	}
+
+	html {
+		tab-size: 4;
 	}
 
 	h1,
@@ -54,9 +61,49 @@ body {
 	h4,
 	h5,
 	h6 {
-		margin: 0;
 		font-size: inherit;
 		font-weight: inherit;
+	}
+
+	a {
+		color: inherit;
+		text-decoration: inherit;
+	}
+
+	code,
+	kbd,
+	samp,
+	pre {
+		font-family: var( --font-mono );
+		font-size: 1em;
+	}
+
+	table {
+		border-collapse: collapse;
+	}
+
+	ol,
+	ul,
+	menu {
+		list-style: none;
+	}
+
+	img,
+	svg,
+	video,
+	canvas,
+	iframe {
+		display: block;
+	}
+
+	button,
+	input,
+	select,
+	textarea {
+		font: inherit;
+		letter-spacing: inherit;
+		color: inherit;
+		background-color: transparent;
 	}
 
 	b,

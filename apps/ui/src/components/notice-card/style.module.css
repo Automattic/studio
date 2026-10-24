@@ -63,7 +63,6 @@
 .title {
 	flex: 1;
 	min-width: 0;
-	margin: 0;
 	font-weight: var(--font-weight-medium);
 	text-wrap: pretty;
 }
@@ -88,11 +87,7 @@
 .toggle {
 	position: absolute;
 	inset: 0;
-	padding: 0;
-	border: 0;
 	border-radius: var(--radius-sm);
-	background: none;
-	font: inherit;
 	cursor: pointer;
 }
 
@@ -110,7 +105,6 @@
 	max-width: 100%;
 	height: 1lh;
 	max-height: 192px;
-	margin: 0;
 	overflow: hidden;
 	color: var(--muted-foreground);
 	font-size: var(--text-xs);

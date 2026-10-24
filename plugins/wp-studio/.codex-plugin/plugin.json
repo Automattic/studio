@@ -25,7 +25,6 @@
   ],
   "skills": "./skills/",
   "mcpServers": "./.mcp.json",
-  "hooks": "./hooks/hooks.json",
   "interface": {
     "displayName": "WordPress Studio",
     "shortDescription": "Build & manage WordPress sites",

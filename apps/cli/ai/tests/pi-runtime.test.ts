@@ -1,3 +1,4 @@
+import path from 'path';
 import { ANTHROPIC_MODELS } from '@earendil-works/pi-ai/providers/anthropic.models';
 import { ModelRegistry, SessionManager } from '@earendil-works/pi-coding-agent';
 import { AI_MODELS } from '@studio/common/ai/models';
@@ -83,6 +84,9 @@ vi.mock( 'cli/ai/site-notes', () => ( {
 		afterWrite: async ( file: string ) => [ `wrote ${ file }` ],
 		afterResult: async ( site: string ) => [ `result on ${ site }` ],
 	} ),
+	// A shell command writes one theme file on each site it is given.
+	writtenFiles: async ( sites: string[] ) => async () =>
+		sites.map( ( site ) => `${ site }/wp-content/themes/t/style.css` ),
 } ) );
 
 vi.mock( 'cli/ai/site-changes', () => ( {
@@ -530,12 +534,12 @@ describe( 'pi runtime', () => {
 			running: false,
 		} as StudioAgentTurnConfig[ 'activeSite' ];
 		const write = await run( local );
-		const file = `${ mocks.studioRoot }/a/style.css`;
+		const file = path.resolve( mocks.studioRoot, 'a/style.css' );
 		const text = async ( params: Record< string, unknown > ) =>
 			( await write.execute( 'w', params ) ).content.map( ( part ) => part.text );
 
 		await expect( write.execute( 'w', { path: 'a/refused.php', content: '' } ) ).rejects.toThrow(
-			`Not run: ${ mocks.studioRoot }/a/refused.php`
+			`Not run: ${ path.resolve( mocks.studioRoot, 'a/refused.php' ) }`
 		);
 		expect( await text( { path: 'a/style.css', content: '' } ) ).toEqual( [
 			'',
@@ -558,6 +562,17 @@ describe( 'pi runtime', () => {
 				await none.execute( 'w', { path: 'a/style.css', content: '', nameOrPath: 'b' } )
 			).content.map( ( part ) => part.text )
 		).toEqual( [ '', `<studio-notes>\nwrote ${ file }\nresult on /sites/b\n</studio-notes>` ] );
+
+		// A shell command's writes to the request's site get the same notes.
+		await run( local );
+		expect(
+			( await getCreatedTool( 'Bash' ).execute( 'b', { command: 'true' } ) ).content.map(
+				( part ) => part.text
+			)
+		).toEqual( [
+			'',
+			'<studio-notes>\nwrote /sites/a/wp-content/themes/t/style.css\nresult on /sites/a\n</studio-notes>',
+		] );
 	} );
 
 	it( 'reports the post content a call changed, from a snapshot taken before it', async () => {
@@ -565,19 +580,21 @@ describe( 'pi runtime', () => {
 		await runRuntime( { prompt: 'hello', env: WPCOM_ENV, session: newSession() } );
 		mocks.steps.length = 0;
 		mocks.postChanges = { summaries: [ 'page 9 changed' ], problems: [ 'page 9 problem' ] };
-		const result = await getCreatedTool( 'Read' ).execute( 'r', { path: 'a/style.css' } );
-		expect( mocks.steps ).toEqual( [ 'snapshot', 'Read', 'settle' ] );
+		const result = await getCreatedTool( 'Bash' ).execute( 'b', { command: 'true' } );
+		expect( mocks.steps ).toEqual( [ 'snapshot', 'Bash', 'settle' ] );
 		expect( result.content.map( ( part ) => part.text ) ).toEqual( [
 			'',
 			'<studio-notes>\nBlock validation: page 9 changed\npage 9 problem\n</studio-notes>',
 		] );
 		// A failed call reports what it changed too.
 		mocks.failNext = true;
-		await expect(
-			getCreatedTool( 'Read' ).execute( 'r', { path: 'a/style.css' } )
-		).rejects.toThrow(
+		await expect( getCreatedTool( 'Bash' ).execute( 'b', { command: 'false' } ) ).rejects.toThrow(
 			'exit 1\n<studio-notes>\nBlock validation: page 9 changed\npage 9 problem\n</studio-notes>'
 		);
+		// A tool that only reads changes nothing to check.
+		mocks.steps.length = 0;
+		await getCreatedTool( 'Read' ).execute( 'r', { path: 'a/style.css' } );
+		expect( mocks.steps ).toEqual( [ 'Read' ] );
 		mocks.postChanges = { summaries: [], problems: [] };
 	} );
 

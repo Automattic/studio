@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'fs';
 import os from 'os';
 import path from 'path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { makeAnchorsHomeRelative } from 'cli/ai/block-validation-gate';
+import { inPageAnchors } from 'cli/ai/block-validation-gate';
 import { clearThemePatternCache, lintThemeCss, resolveSiteFile } from 'cli/ai/site-file-guards';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 
@@ -76,15 +76,13 @@ describe( 'theme CSS lint', () => {
 	} );
 } );
 
-describe( 'home-relative anchors', () => {
-	it( 'rewrites bare in-page links in block markup', () => {
-		const { content, count } = makeAnchorsHomeRelative(
-			'<!-- wp:navigation-link {"label":"Menu","url":"#menu"} /--><a href="#visit">Visit</a><a href="/about">About</a>'
-		);
-		expect( content ).toContain( '"url":"/#menu"' );
-		expect( content ).toContain( 'href="/#visit"' );
-		expect( content ).toContain( 'href="/about"' );
-		expect( count ).toBe( 2 );
+describe( 'in-page anchors', () => {
+	it( 'lists the bare in-page links in block markup', () => {
+		expect(
+			inPageAnchors(
+				'<!-- wp:navigation-link {"label":"Menu","url":"#menu"} /--><a href="#visit">Visit</a><a href="#visit">Again</a><a href="/about">About</a>'
+			)
+		).toEqual( [ '#menu', '#visit' ] );
 	} );
 } );
 

@@ -69,7 +69,7 @@ describe( 'validating a file', () => {
 	const fixed =
 		'<!-- wp:paragraph {"align":"center"} -->\n<p class="has-text-align-center">Hello</p>\n<!-- /wp:paragraph -->';
 
-	it( 'applies a lossless editor fix silently', async () => {
+	it( 'returns a lossless editor fix without writing it', async () => {
 		const file = write( 'tmp/home.html', original );
 		vi.mocked( validateBlocks ).mockResolvedValue( invalidWithFix( fixed ) );
 		const result = await validateBlockMarkupFile( file, 'http://localhost:8881' );
@@ -77,7 +77,8 @@ describe( 'validating a file', () => {
 		expect( result.summary ).toContain(
 			'1/1 blocks valid; saved through the block editor, fixing 1 block(s)'
 		);
-		expect( readFileSync( file, 'utf8' ) ).toBe( fixed );
+		expect( result.fixedContent ).toBe( fixed );
+		expect( readFileSync( file, 'utf8' ) ).toBe( original );
 	} );
 
 	it( 'refuses a fix that would drop classes, and says what to change', async () => {
@@ -141,11 +142,10 @@ describe( 'validating a file', () => {
 		expect( validateBlocks ).not.toHaveBeenCalled();
 	} );
 
-	it( 'makes in-page links home-relative in template parts', async () => {
-		const file = write(
-			'wp-content/themes/t/parts/header.html',
-			'<!-- wp:navigation-link {"label":"Menu","url":"#menu"} /-->'
-		);
+	it( 'notes in-page links in template parts, and leaves them as written', async () => {
+		const markup =
+			'<!-- wp:navigation-link {"label":"Menu","url":"#menu"} /--><a href="#top">Top</a><a href="/about">About</a>';
+		const file = write( 'wp-content/themes/t/parts/footer.html', markup );
 		vi.mocked( validateBlocks ).mockResolvedValue( {
 			totalBlocks: 1,
 			validBlocks: 1,
@@ -153,8 +153,8 @@ describe( 'validating a file', () => {
 			results: [],
 		} );
 		const result = await validateBlockMarkupFile( file, 'http://localhost:8881' );
-		expect( result.summary ).toContain( 'home-relative' );
-		expect( readFileSync( file, 'utf8' ) ).toContain( '"url":"/#menu"' );
+		expect( result.summary ).toContain( '#menu, #top link(s) to the page they render on' );
+		expect( readFileSync( file, 'utf8' ) ).toBe( markup );
 	} );
 } );
 
@@ -176,9 +176,28 @@ describe( 'the gate', () => {
 		expect( ( await gate.settle() ).summaries ).toEqual( [] );
 	} );
 
+	it( 'saves a lossless fix once settled, never over a write made while it validated', async () => {
+		const file = write( 'tmp/home.html', 'v1' );
+		let finish: () => void = () => {};
+		const validateFile = vi.fn( async ( filePath: string ) => {
+			const content = readFileSync( filePath, 'utf8' );
+			if ( content === 'v1' ) {
+				await new Promise< void >( ( resolve ) => ( finish = resolve ) );
+			}
+			return { ...ok( `validated ${ content }`, content ), fixedContent: `${ content } fixed` };
+		} );
+		const gate = new BlockValidationGate( validateFile );
+		gate.track( file, site );
+		writeFileSync( file, 'v2' );
+		finish();
+		expect( ( await gate.settle() ).summaries ).toEqual( [ 'validated v2' ] );
+		expect( readFileSync( file, 'utf8' ) ).toBe( 'v2 fixed' );
+		expect( ( await gate.settle() ).summaries ).toEqual( [] );
+	} );
+
 	it( 'keeps a file open while its latest validation has a problem', async () => {
 		const file = write( 'wp-content/themes/t/templates/home.html', 'bad' );
-		const open = new OpenProblems( undefined, [] );
+		const open = new OpenProblems( [] );
 		const gate = new BlockValidationGate( async ( filePath ) => {
 			const content = readFileSync( filePath, 'utf8' );
 			return {

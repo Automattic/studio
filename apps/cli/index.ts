@@ -312,24 +312,6 @@ async function main() {
 			sitesYargs.version( false ).demandCommand( 1, __( 'You must provide a valid command' ) );
 		} )
 		.command( {
-			// The WordPress Studio plugin's hooks on the agent's own tools and its stop.
-			command: '_file-tool-hook',
-			describe: false, // Hidden command
-			handler: async () => {
-				const { runFileToolHook } = await import( 'cli/ai/runtimes/hooks' );
-				const { closeSharedBrowser } = await import( 'cli/ai/browser-utils' );
-				let input = '';
-				for await ( const chunk of process.stdin ) {
-					input += chunk;
-				}
-				const output = await runFileToolHook( JSON.parse( input ) );
-				await closeSharedBrowser();
-				if ( output ) {
-					process.stdout.write( JSON.stringify( output ) );
-				}
-			},
-		} )
-		.command( {
 			command: '_events',
 			describe: false, // Hidden command
 			builder: ( yargs ) =>

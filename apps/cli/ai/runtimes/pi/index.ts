@@ -48,7 +48,7 @@ import { emitEvent } from 'cli/ai/json-events';
 import { describeOpenProblems, getOpenProblems } from 'cli/ai/open-problems';
 import { SiteChanges } from 'cli/ai/site-changes';
 import { readActiveSiteFacts } from 'cli/ai/site-facts';
-import { createSiteNotes, type SiteNotes } from 'cli/ai/site-notes';
+import { createSiteNotes, writtenFiles, type SiteNotes } from 'cli/ai/site-notes';
 import { studioMessage, validationLines } from 'cli/ai/studio-message';
 import { buildSystemPrompt } from 'cli/ai/system-prompt';
 import { resolveStudioToolDefinitions } from 'cli/ai/tools';
@@ -56,6 +56,7 @@ import { createAskUserQuestionTool } from 'cli/ai/tools/ask-user-question';
 import { createPresentDesignOptionsTool } from 'cli/ai/tools/present-design-options';
 import { createSkillTool } from 'cli/ai/tools/skill';
 import { siteOfCall } from 'cli/ai/tools/utils';
+import { readCliConfig } from 'cli/lib/cli-config/core';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import { createConfirmer, describeDestructiveCall, type Confirmer } from './confirmation';
 import { withLeakedToolCallMarkupRemoved } from './leaked-tool-call-markup';
@@ -375,14 +376,13 @@ async function createStudioAgentSession(
 	const chatArtifactsEnabled = typeof process.send === 'function';
 	const visionEnabled = aiModelSupportsImages( config.model );
 	const confirm = createConfirmer( config.onConfirm ?? config.onAskUser );
-	const [ userInstructions, imageGenerationEnabled, activeSiteFacts, mcpTools ] = await Promise.all(
-		[
+	const [ userInstructions, imageGenerationEnabled, activeSiteFacts, mcpServers ] =
+		await Promise.all( [
 			readGlobalInstructions(),
 			isImageGenerationAvailable(),
 			readActiveSiteFacts( config.activeSite ),
-			readMcpServers().then( ( servers ) => createMcpTools( servers, confirm ) ),
-		]
-	);
+			readMcpServers(),
+		] );
 
 	const skillScope = new SkillToolScope( config.session );
 	let activateTools: () => void = () => {};
@@ -395,6 +395,11 @@ async function createStudioAgentSession(
 			skillScope.unlock( skillName );
 			activateTools();
 		}
+	);
+	const mcpTools = await createMcpTools(
+		mcpServers,
+		confirm,
+		tools.map( ( tool ) => tool.name )
 	);
 	const systemPrompt = buildSystemPrompt( {
 		userInstructions,
@@ -412,8 +417,15 @@ async function createStudioAgentSession(
 		stated: new Map( localSite ? [ [ localSite, activeSiteFacts ] ] : [] ),
 		gate: blockValidationGate,
 	} );
-	// What a call changed in the content the sites render, reported on its result.
-	const siteChanges = new SiteChanges( undefined, getOpenProblems( config.session ) );
+	// What a call changed on the request's sites, or on every local site until
+	// the request has one, reported on its result.
+	const siteChanges = new SiteChanges( getOpenProblems( config.session ), async () => {
+		const { sites } = await readCliConfig();
+		const pinned = sitePin.localSitePaths();
+		return pinned.length
+			? sites.filter( ( { path: sitePath } ) => pinned.includes( path.resolve( sitePath ) ) )
+			: sites;
+	} );
 	const toolDefinitions = [ ...tools, ...mcpTools ].map( ( tool ) =>
 		toToolDefinition( tool, payloadGuardState, pendingWork, blockValidationGate, {
 			confirm,
@@ -694,6 +706,8 @@ function createSettingsManager( _env: Record< string, string > ): SettingsManage
 
 // A shell command can put content on the site through WP-CLI.
 const BLOCK_VALIDATION_GATED_TOOLS = new Set( [ 'Bash', 'take_screenshot' ] );
+// Tools that change nothing on a site, so there is nothing to check after them.
+const READ_ONLY_TOOLS = new Set( [ 'Read', 'Grep', 'Glob', 'Ls' ] );
 
 function toToolDefinition(
 	tool: AgentToolAny,
@@ -743,6 +757,9 @@ function toToolDefinition(
 			}
 			crossSite?.allow();
 			const writtenFile = getWrittenFile( tool.name, params, STUDIO_SITES_ROOT );
+			// A shell command can write the request's site files too.
+			const shellWrites =
+				tool.name === 'Bash' ? await writtenFiles( sitePin.localSitePaths() ) : undefined;
 			const fileWriteRefusal = writtenFile && ( await siteNotes.beforeWrite( writtenFile ) );
 			if ( fileWriteRefusal ) {
 				throw new Error( fileWriteRefusal );
@@ -755,14 +772,18 @@ function toToolDefinition(
 			const validationReport = BLOCK_VALIDATION_GATED_TOOLS.has( tool.name )
 				? validationLines( await blockValidationGate.settle() )
 				: [];
-			await siteChanges.snapshot().catch( () => undefined );
+			const checksChanges = ! READ_ONLY_TOOLS.has( tool.name );
+			if ( checksChanges ) {
+				await siteChanges.snapshot().catch( () => undefined );
+			}
 			// A call that fails can still have changed content, as a shell
 			// command does that exits non-zero after saving a page.
-			const changedContent = async () => {
-				return validationLines(
-					await siteChanges.settle().catch( () => ( { summaries: [], problems: [] } ) )
-				);
-			};
+			const changedContent = async () =>
+				checksChanges
+					? validationLines(
+							await siteChanges.settle().catch( () => ( { summaries: [], problems: [] } ) )
+					  )
+					: [];
 			// The validation report was taken from the gate, so it rides on a failure too.
 			const result = await tool
 				.execute( toolCallId, params, signal, onUpdate )
@@ -795,6 +816,13 @@ function toToolDefinition(
 				...validationReport,
 				...changed,
 				...( writtenFile ? await siteNotes.afterWrite( writtenFile ) : [] ),
+				...( shellWrites
+					? (
+							await Promise.all(
+								( await shellWrites() ).map( ( file ) => siteNotes.afterWrite( file ) )
+							)
+					  ).flat()
+					: [] ),
 				...( resultSite ? await siteNotes.afterResult( resultSite, resultText ) : [] ),
 				pendingWork.takeReports(),
 			] );

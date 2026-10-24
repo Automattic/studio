@@ -6,8 +6,10 @@
  * site's tmp/) queues that file. Validation starts in the background at once,
  * and what puts content on the site or renders it (a shell command, which
  * runs WP-CLI, or take_screenshot) waits for it first. A fix the block editor
- * can make losslessly is applied to the file silently; the model hears only
- * about what it has to change itself.
+ * can make losslessly is applied to the file silently, once validation has
+ * settled and only while the file still holds the content validated, so an
+ * edit made meanwhile is never overwritten; the model hears only about what it
+ * has to change itself.
  */
 import { createHash } from 'crypto';
 import { readFile, writeFile } from 'fs/promises';
@@ -29,20 +31,18 @@ export function isBlockMarkupFile( filePath: string ): boolean {
 }
 
 /**
- * Template parts and shared templates render on every URL that uses them,
- * where a bare `#anchor` points at the current page rather than the home
- * page section it names.
+ * The bare `#anchor` links in block markup. In a template part or shared
+ * template, which renders on every URL that uses it, such a link points at the
+ * page it is on: right for a "Back to top" link, wrong for a home page section.
  */
-export function makeAnchorsHomeRelative( content: string ): { content: string; count: number } {
-	let count = 0;
-	const rewrite = ( _match: string, prefix: string ) => {
-		count++;
-		return `${ prefix }/#`;
-	};
-	const rewritten = content
-		.replace( /(href=")#(?=[A-Za-z])/g, rewrite )
-		.replace( /("url"\s*:\s*")#(?=[A-Za-z])/g, rewrite );
-	return { content: rewritten, count };
+export function inPageAnchors( content: string ): string[] {
+	return [
+		...new Set(
+			[ ...content.matchAll( /(?:href="|"url"\s*:\s*")(#[A-Za-z][^"]*)"/g ) ].map(
+				( match ) => match[ 1 ]
+			)
+		),
+	];
 }
 
 function hash( content: string ): string {
@@ -106,9 +106,12 @@ function describeInvalidBlocks( report: ValidationReportBase ): string[] {
 }
 
 interface FileValidation {
+	/** The hash of the content validated. */
 	contentHash: string;
 	summary: string;
 	problem?: string;
+	/** What the block editor would save instead, losing nothing. */
+	fixedContent?: string;
 }
 
 export interface MarkupValidation {
@@ -119,33 +122,33 @@ export interface MarkupValidation {
 	invalidBlocks?: number;
 }
 
-/** Validates one block markup file, fixing it in place when that is lossless. */
+/** Validates one block markup file, with the lossless fix for the caller to save. */
 export async function validateBlockMarkupFile(
 	filePath: string,
 	siteUrl: string
 ): Promise< FileValidation > {
 	const label = filePath.split( path.sep ).slice( -2 ).join( '/' );
-	let content = await readFile( filePath, 'utf8' );
+	const content = await readFile( filePath, 'utf8' );
 	const notes: string[] = [];
 
-	if ( SHARED_THEME_MARKUP.test( filePath ) ) {
-		const homeRelative = makeAnchorsHomeRelative( content );
-		if ( homeRelative.count > 0 ) {
-			content = homeRelative.content;
-			await writeFile( filePath, content, 'utf8' );
-			notes.push( `${ homeRelative.count } in-page link(s) made home-relative (/#anchor)` );
-		}
+	const anchors = SHARED_THEME_MARKUP.test( filePath ) ? inPageAnchors( content ) : [];
+	if ( anchors.length > 0 ) {
+		notes.push(
+			`${ anchors.join(
+				', '
+			) } link(s) to the page they render on, and this file renders on every page that uses it; a link to a home page section is written /#anchor`
+		);
 	}
 
 	const result = await validateBlockMarkup( content, label, siteUrl, notes );
 	if ( result.fixedContent === undefined ) {
 		return { contentHash: hash( content ), summary: result.summary, problem: result.problem };
 	}
-	await writeFile( filePath, result.fixedContent, 'utf8' );
 	notes.push( `saved through the block editor, fixing ${ result.invalidBlocks } block(s)` );
 	return {
-		contentHash: hash( result.fixedContent ),
+		contentHash: hash( content ),
 		summary: `${ result.summary }; ${ notes.join( '; ' ) }`,
+		fixedContent: result.fixedContent,
 	};
 }
 
@@ -260,7 +263,9 @@ export class BlockValidationGate {
 		const summaries: string[] = [];
 		const problems: string[] = [];
 		for ( const [ filePath, tracked ] of this.files ) {
-			const result = await this.current( filePath, tracked.siteRoot );
+			const result = await this.current( filePath, tracked.siteRoot ).then(
+				( current ) => current && this.applyFix( filePath, current )
+			);
 			this.open?.record( tracked.siteRoot, filePath, result?.problem );
 			if ( ! result ) {
 				this.files.delete( filePath );
@@ -274,6 +279,30 @@ export class BlockValidationGate {
 			}
 		}
 		return { summaries, problems };
+	}
+
+	/**
+	 * Saves a validation's lossless fix, now that it holds the file's current
+	 * content, and returns the validation of the fixed file.
+	 */
+	private async applyFix(
+		filePath: string,
+		result: FileValidation
+	): Promise< FileValidation | undefined > {
+		const { fixedContent, ...validation } = result;
+		if ( fixedContent === undefined ) {
+			return result;
+		}
+		const content = await readFile( filePath, 'utf8' ).catch( () => undefined );
+		if ( content === undefined || hash( content ) !== result.contentHash ) {
+			// Written again while it was validated: validate what it holds now.
+			const current = await this.current( filePath, this.files.get( filePath )!.siteRoot );
+			return current && this.applyFix( filePath, current );
+		}
+		await writeFile( filePath, fixedContent, 'utf8' );
+		const fixed = { ...validation, contentHash: hash( fixedContent ) };
+		this.files.get( filePath )!.result = Promise.resolve( fixed );
+		return fixed;
 	}
 
 	/**

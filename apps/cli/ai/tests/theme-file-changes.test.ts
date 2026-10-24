@@ -25,7 +25,7 @@ beforeEach( () => {
 afterEach( () => rmSync( fixture.root, { recursive: true, force: true } ) );
 
 const checkThemes = () =>
-	new SiteChanges( new Map(), undefined, async () => [ site ], [ updatableThemeChanges ] );
+	new SiteChanges( undefined, async () => [ site ], [ updatableThemeChanges ] );
 
 describe( 'updatable theme file changes', () => {
 	it.each( [

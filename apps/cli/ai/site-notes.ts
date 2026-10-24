@@ -6,16 +6,17 @@
  *
  * - `beforeWrite`: a file tool is about to write a site's file. A note here
  *   refuses the write, and says where the change belongs.
- * - `write`: a file tool wrote a site's file. Sources may act on the file
- *   (self-host its fonts, give its theme a thumbnail) and say what they did,
- *   or say what WordPress will render differently from it.
+ * - `write`: a file tool, or a shell command (writtenFiles), wrote a site's
+ *   file. Sources may act on the file (self-host its fonts, give its theme a
+ *   thumbnail) and say what they did, or say what WordPress will render
+ *   differently from it.
  * - `result`: one of Studio's tools returned a result about a site.
  *
  * A new note is one more source in SOURCES, and reaches every surface that
- * fires its trigger: Studio Code fires all three; `studio mcp` fires `result`;
- * the WordPress Studio plugin's hooks on Claude Code's and Codex's own file
- * tools fire `beforeWrite` and `write`.
+ * fires its trigger: Studio Code fires all three; `studio mcp`, which Claude
+ * Code and Codex use, fires `result`.
  */
+import { readdir, stat } from 'fs/promises';
 import path from 'path';
 import { createBlockSettingsNotes } from 'cli/ai/block-settings';
 import { readSiteFacts } from 'cli/ai/site-facts';
@@ -150,4 +151,45 @@ export function createSiteNotes( options: SiteNotesOptions = {} ): SiteNotes {
 			return collect( result.map( ( source ) => () => source( sitePath, text ) ) );
 		},
 	};
+}
+
+// The folders of a site whose files the write sources have notes on.
+const NOTED_FOLDERS = [ path.join( 'wp-content', 'themes' ), 'tmp' ];
+const SKIPPED_FOLDERS = new Set( [ 'node_modules', '.git' ] );
+
+async function stamps( sitePaths: string[] ): Promise< Map< string, string > > {
+	const found = new Map< string, string >();
+	for ( const folder of sitePaths.flatMap( ( site ) =>
+		NOTED_FOLDERS.map( ( noted ) => path.join( site, noted ) )
+	) ) {
+		const entries = await readdir( folder, { recursive: true, withFileTypes: true } ).catch(
+			() => []
+		);
+		for ( const entry of entries ) {
+			const file = path.join( entry.parentPath, entry.name );
+			if (
+				entry.isFile() &&
+				! path
+					.relative( folder, file )
+					.split( path.sep )
+					.some( ( part ) => SKIPPED_FOLDERS.has( part ) )
+			) {
+				const { mtimeMs, size } = await stat( file ).catch( () => ( { mtimeMs: 0, size: -1 } ) );
+				found.set( file, `${ mtimeMs }:${ size }` );
+			}
+		}
+	}
+	return found;
+}
+
+/**
+ * Stamps the noted files of these sites, and returns what lists the ones
+ * written since: how a shell command's writes reach the `write` notes.
+ */
+export async function writtenFiles( sitePaths: string[] ): Promise< () => Promise< string[] > > {
+	const before = await stamps( sitePaths );
+	return async () =>
+		[ ...( await stamps( sitePaths ) ) ]
+			.filter( ( [ file, stamp ] ) => before.get( file ) !== stamp )
+			.map( ( [ file ] ) => file );
 }

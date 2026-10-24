@@ -42,6 +42,23 @@ describe( 'SitePin', () => {
 		).toBeUndefined();
 	} );
 
+	it( 'asks before WP-CLI changes another site, and lets it read one', async () => {
+		const pin = new SitePin( shop );
+		expect(
+			( await pin.confirmationFor( 'wp_cli', { nameOrPath: 'Blog', command: 'post delete 4' } ) )
+				?.confirmation.question
+		).toBe( 'Also change "Blog"? This request is about "Shop".' );
+		for ( const command of [
+			'option get blogname',
+			'post list --post_type=page',
+			'theme status',
+		] ) {
+			expect(
+				await pin.confirmationFor( 'wp_cli', { nameOrPath: 'Blog', command } )
+			).toBeUndefined();
+		}
+	} );
+
 	it( 'reads other sites freely', async () => {
 		const pin = new SitePin( shop );
 		expect(
@@ -58,6 +75,7 @@ describe( 'SitePin', () => {
 		expect(
 			( await pin.confirmationFor( 'site_import', { nameOrPath: 'Blog' } ) )?.confirmation.question
 		).toBe( 'Also change "Blog"? This request is about "Shop".' );
+		expect( pin.localSitePaths() ).toEqual( [ '/sites/shop', '/sites/new' ] );
 	} );
 
 	it( 'asks before creating a site while the request has one, once', async () => {

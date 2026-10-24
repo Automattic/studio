@@ -4,7 +4,7 @@ import { describeOpenProblems, OpenProblems } from 'cli/ai/open-problems';
 describe( 'OpenProblems', () => {
 	it( 'raises each problem still open once, and the problems of the sites changed', async () => {
 		const checked: string[] = [];
-		const open = new OpenProblems( undefined, [
+		const open = new OpenProblems( [
 			async ( site ) => {
 				checked.push( site );
 				return `${ site } has a problem`;
@@ -19,8 +19,7 @@ describe( 'OpenProblems', () => {
 		expect( await open.raise() ).toEqual( [] );
 
 		open.record( '/a', '/a/page-1', 'page 1 is still invalid' );
-		const kept = new OpenProblems( open.toJSON(), [] );
-		expect( await kept.raise() ).toEqual( [ 'page 1 is still invalid' ] );
+		expect( await open.raise() ).toEqual( [ 'page 1 is still invalid' ] );
 	} );
 
 	it( "tags the problems as Studio's checks", () => {

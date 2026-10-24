@@ -1,10 +1,9 @@
+import { NO_CHANGES, type SiteChanges, type SettledChanges } from 'cli/ai/site-changes';
 import { studioMessage, validationLines } from 'cli/ai/studio-message';
 import { siteOfCall } from 'cli/ai/tools/utils';
-import type { SiteChanges } from 'cli/ai/site-changes';
 import type { SiteNotes } from 'cli/ai/site-notes';
 import type { AnyStudioAgentTool } from 'cli/ai/tools/define-tool';
 
-// The site an MCP call works on is the one it names.
 // Runs a served tool for an MCP call. MCP wants `{content, isError}`; pi-native
 // handlers throw — translate.
 export async function runServedTool(
@@ -13,11 +12,25 @@ export async function runServedTool(
 	siteNotes: SiteNotes,
 	siteChanges?: SiteChanges
 ) {
-	await siteChanges?.snapshot().catch( () => undefined );
+	// The client changes sites between calls too, with its own file tools and
+	// shell, so what changed since the last call is reported with this one.
+	const since = await settled( siteChanges );
 	// A call that fails can still have changed content.
 	const changedContent = async () => {
-		const report = await siteChanges?.settle().catch( () => undefined );
-		return report ? validationLines( report ) : [];
+		const changed = await settled( siteChanges );
+		return [
+			...validationLines( {
+				summaries: [ ...since.summaries, ...changed.summaries ],
+				problems: [ ...since.problems, ...changed.problems ],
+			} ),
+			...(
+				await Promise.all(
+					[ ...new Set( [ ...since.written, ...changed.written ] ) ].map( ( file ) =>
+						siteNotes.afterWrite( file )
+					)
+				)
+			).flat(),
+		];
 	};
 	try {
 		const result = await tool.rawHandler( args as never );
@@ -50,4 +63,8 @@ export async function runServedTool(
 			isError: true,
 		};
 	}
+}
+
+async function settled( siteChanges?: SiteChanges ): Promise< SettledChanges > {
+	return ( await siteChanges?.settle().catch( () => undefined ) ) ?? NO_CHANGES;
 }

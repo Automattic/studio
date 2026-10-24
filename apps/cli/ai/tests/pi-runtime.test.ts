@@ -18,7 +18,7 @@ const mocks = vi.hoisted( () => ( {
 	configRoot: '/tmp/studio-ai-pi-runtime-config',
 	// What ran, in order: tool executions and the post content check.
 	steps: [] as string[],
-	postChanges: { summaries: [] as string[], problems: [] as string[] },
+	postChanges: { summaries: [] as string[], problems: [] as string[], written: [] as string[] },
 	failNext: false,
 	// What each end of a run finds still open on the sites.
 	openProblems: [] as string[][],
@@ -84,12 +84,10 @@ vi.mock( 'cli/ai/site-notes', () => ( {
 		afterWrite: async ( file: string ) => [ `wrote ${ file }` ],
 		afterResult: async ( site: string ) => [ `result on ${ site }` ],
 	} ),
-	// A shell command writes one theme file on each site it is given.
-	writtenFiles: async ( sites: string[] ) => async () =>
-		sites.map( ( site ) => `${ site }/wp-content/themes/t/style.css` ),
 } ) );
 
 vi.mock( 'cli/ai/site-changes', () => ( {
+	NO_CHANGES: { summaries: [], problems: [], written: [] },
 	SiteChanges: class {
 		async snapshot() {
 			mocks.steps.push( 'snapshot' );
@@ -563,7 +561,13 @@ describe( 'pi runtime', () => {
 			).content.map( ( part ) => part.text )
 		).toEqual( [ '', `<studio-notes>\nwrote ${ file }\nresult on /sites/b\n</studio-notes>` ] );
 
-		// A shell command's writes to the request's site get the same notes.
+		// A file any call wrote gets the same notes, once though a file tool wrote it too.
+		mocks.postChanges.written = [ file, '/sites/a/wp-content/themes/t/style.css' ];
+		expect( await text( { path: 'a/style.css', content: '' } ) ).toEqual( [
+			'',
+			`<studio-notes>\nwrote ${ file }\nwrote /sites/a/wp-content/themes/t/style.css\nresult on /sites/a\n</studio-notes>`,
+		] );
+		mocks.postChanges.written = [ '/sites/a/wp-content/themes/t/style.css' ];
 		await run( local );
 		expect(
 			( await getCreatedTool( 'Bash' ).execute( 'b', { command: 'true' } ) ).content.map(
@@ -573,13 +577,18 @@ describe( 'pi runtime', () => {
 			'',
 			'<studio-notes>\nwrote /sites/a/wp-content/themes/t/style.css\nresult on /sites/a\n</studio-notes>',
 		] );
+		mocks.postChanges.written = [];
 	} );
 
 	it( 'reports the post content a call changed, from a snapshot taken before it', async () => {
 		mocks.createdSessions.length = 0;
 		await runRuntime( { prompt: 'hello', env: WPCOM_ENV, session: newSession() } );
 		mocks.steps.length = 0;
-		mocks.postChanges = { summaries: [ 'page 9 changed' ], problems: [ 'page 9 problem' ] };
+		mocks.postChanges = {
+			summaries: [ 'page 9 changed' ],
+			problems: [ 'page 9 problem' ],
+			written: [],
+		};
 		const result = await getCreatedTool( 'Bash' ).execute( 'b', { command: 'true' } );
 		expect( mocks.steps ).toEqual( [ 'snapshot', 'Bash', 'settle' ] );
 		expect( result.content.map( ( part ) => part.text ) ).toEqual( [
@@ -595,7 +604,7 @@ describe( 'pi runtime', () => {
 		mocks.steps.length = 0;
 		await getCreatedTool( 'Read' ).execute( 'r', { path: 'a/style.css' } );
 		expect( mocks.steps ).toEqual( [ 'Read' ] );
-		mocks.postChanges = { summaries: [], problems: [] };
+		mocks.postChanges = { summaries: [], problems: [], written: [] };
 	} );
 
 	it( 'rejects oversized direct Write, Edit, and Bash payloads', async () => {

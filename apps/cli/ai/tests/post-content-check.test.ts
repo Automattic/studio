@@ -74,7 +74,7 @@ describe( 'post content changes', () => {
 	it( 'reports nothing for a site it has not seen before', async () => {
 		const check = checkPosts();
 		fixture.edit( 9, HTML_ONLY );
-		expect( await check.settle() ).toEqual( { summaries: [], problems: [] } );
+		expect( await check.settle() ).toEqual( { summaries: [], problems: [], written: [] } );
 	} );
 
 	it( 'asks for editable blocks in place of core/html', async () => {

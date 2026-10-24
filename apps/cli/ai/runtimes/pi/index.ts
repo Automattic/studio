@@ -46,9 +46,9 @@ import { withDesignSystemPreview } from 'cli/ai/chat-artifacts';
 import { isImageGenerationAvailable } from 'cli/ai/image-generation';
 import { emitEvent } from 'cli/ai/json-events';
 import { describeOpenProblems, getOpenProblems } from 'cli/ai/open-problems';
-import { SiteChanges } from 'cli/ai/site-changes';
+import { NO_CHANGES, SiteChanges } from 'cli/ai/site-changes';
 import { readActiveSiteFacts } from 'cli/ai/site-facts';
-import { createSiteNotes, writtenFiles, type SiteNotes } from 'cli/ai/site-notes';
+import { createSiteNotes, type SiteNotes } from 'cli/ai/site-notes';
 import { studioMessage, validationLines } from 'cli/ai/studio-message';
 import { buildSystemPrompt } from 'cli/ai/system-prompt';
 import { resolveStudioToolDefinitions } from 'cli/ai/tools';
@@ -757,9 +757,6 @@ function toToolDefinition(
 			}
 			crossSite?.allow();
 			const writtenFile = getWrittenFile( tool.name, params, STUDIO_SITES_ROOT );
-			// A shell command can write the request's site files too.
-			const shellWrites =
-				tool.name === 'Bash' ? await writtenFiles( sitePin.localSitePaths() ) : undefined;
 			const fileWriteRefusal = writtenFile && ( await siteNotes.beforeWrite( writtenFile ) );
 			if ( fileWriteRefusal ) {
 				throw new Error( fileWriteRefusal );
@@ -778,19 +775,15 @@ function toToolDefinition(
 			}
 			// A call that fails can still have changed content, as a shell
 			// command does that exits non-zero after saving a page.
-			const changedContent = async () =>
-				checksChanges
-					? validationLines(
-							await siteChanges.settle().catch( () => ( { summaries: [], problems: [] } ) )
-					  )
-					: [];
+			const settled = async () =>
+				checksChanges ? await siteChanges.settle().catch( () => NO_CHANGES ) : NO_CHANGES;
 			// The validation report was taken from the gate, so it rides on a failure too.
 			const result = await tool
 				.execute( toolCallId, params, signal, onUpdate )
 				.catch( async ( error: unknown ) => {
 					const report = studioMessage( 'notes', [
 						...validationReport,
-						...( await changedContent() ),
+						...validationLines( await settled() ),
 					] );
 					if ( ! report ) {
 						throw error;
@@ -807,22 +800,19 @@ function toToolDefinition(
 				pendingWork.add( details.pending );
 				delete details.pending;
 			}
-			const changed = await changedContent();
+			const changed = await settled();
+			// The files the call wrote, by its file tool or otherwise, as a shell command does.
+			const written = new Set( [ ...( writtenFile ? [ writtenFile ] : [] ), ...changed.written ] );
 			const resultSite = ( await siteOfCall( tool, params ) )?.path ?? localSite;
 			const resultText = result.content
 				.map( ( part ) => ( part.type === 'text' ? part.text : '' ) )
 				.join( '\n' );
 			const reports = studioMessage( 'notes', [
 				...validationReport,
-				...changed,
-				...( writtenFile ? await siteNotes.afterWrite( writtenFile ) : [] ),
-				...( shellWrites
-					? (
-							await Promise.all(
-								( await shellWrites() ).map( ( file ) => siteNotes.afterWrite( file ) )
-							)
-					  ).flat()
-					: [] ),
+				...validationLines( changed ),
+				...(
+					await Promise.all( [ ...written ].map( ( file ) => siteNotes.afterWrite( file ) ) )
+				).flat(),
 				...( resultSite ? await siteNotes.afterResult( resultSite, resultText ) : [] ),
 				pendingWork.takeReports(),
 			] );

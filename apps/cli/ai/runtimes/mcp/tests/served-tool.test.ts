@@ -109,3 +109,42 @@ it( 'reports the block validation of post content the call changed, on any site'
 		/Command exited with code 1\\n<studio-notes>\\nBlock validation: Bakery page 9 \\"\\": core\/html policy failed/
 	);
 } );
+
+it( 'reports on the next call what the client changed between calls, by its own tools', async () => {
+	const fixture = createSite();
+	fixture.save( 9, 'page', 'home', '<!-- wp:paragraph -->\n<p>Hi</p>\n<!-- /wp:paragraph -->' );
+	const root = mkdtempSync( path.join( tmpdir(), 'served-tool-' ) );
+	const site = { id: '1', name: 'Bakery', path: fixture.root, port: 8881, phpVersion: '8.3' };
+	writeFileSync( path.join( root, 'cli.json' ), JSON.stringify( { version: 1, sites: [ site ] } ) );
+	vi.stubEnv( 'E2E', '1' );
+	vi.stubEnv( 'E2E_CLI_CONFIG_PATH', root );
+	const tracked: string[] = [];
+	const siteNotes = createSiteNotes( {
+		gate: { track: ( file: string ) => tracked.push( file ) } as never,
+	} );
+	const siteChanges = new SiteChanges();
+	const list = defineTool(
+		'site_list',
+		'Lists sites.',
+		{},
+		async () => ( { content: [ { type: 'text', text: 'Bakery' } ] } ),
+		{ annotations: READ_ONLY }
+	);
+	const call = async () =>
+		( await runServedTool( list, {}, siteNotes, siteChanges ) ).content.map( ( part ) =>
+			part.type === 'text' ? part.text : ''
+		);
+
+	expect( await call() ).toEqual( [ 'Bakery' ] );
+	// As the client's own Edit and shell would, outside Studio's tools.
+	fixture.edit( 9, '<!-- wp:html -->\n<div class="hero"><h1>Hi</h1></div>\n<!-- /wp:html -->' );
+	const template = path.join( fixture.root, 'wp-content/themes/bakery/templates/index.html' );
+	mkdirSync( path.dirname( template ), { recursive: true } );
+	writeFileSync( template, '<!-- wp:paragraph --><p>Hi</p><!-- /wp:paragraph -->' );
+
+	expect( ( await call() )[ 1 ] ).toMatch(
+		/^<studio-notes>\nBlock validation: Bakery page 9 "": core\/html policy failed\n/
+	);
+	expect( tracked ).toEqual( [ template ] );
+	expect( await call() ).toEqual( [ 'Bakery' ] );
+} );

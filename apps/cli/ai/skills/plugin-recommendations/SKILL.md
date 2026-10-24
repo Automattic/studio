@@ -22,7 +22,7 @@ Prefer core blocks when they suffice, active plugins before new ones, and these 
 
 ## Using a plugin's blocks
 
-After installing, read the blocks from the plugin itself: `wp_cli eval 'foreach (WP_Block_Type_Registry::get_instance()->get_all_registered() as $n => $b) echo $n . PHP_EOL;'` lists what is registered, and the plugin's `block.json` files under `wp-content/plugins/<plugin>/` give each block's attributes and allowed children. A Jetpack block that is missing usually means its module is inactive (`wp_cli jetpack module list`, then `module activate <slug>`).
+After installing, read the blocks from the plugin itself: `wp eval 'foreach (WP_Block_Type_Registry::get_instance()->get_all_registered() as $n => $b) echo $n . PHP_EOL;'` lists what is registered, and the plugin's `block.json` files under `wp-content/plugins/<plugin>/` give each block's attributes and allowed children. A Jetpack block that is missing usually means its module is inactive (`wp jetpack module list`, then `module activate <slug>`).
 
 ## What the source will not tell you
 

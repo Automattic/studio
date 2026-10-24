@@ -58,7 +58,7 @@ Call `scaffold_theme` on its own: without `parentTheme` for a new theme, with it
 
 ## 4. Provision the site
 
-With wp_cli, activate the theme, install and activate the Site Spec's plugins, and set options, before writing page content.
+With `wp`, activate the theme, install and activate the Site Spec's plugins, and set options, before writing page content.
 
 ## 5. Publish the content
 

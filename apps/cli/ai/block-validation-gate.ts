@@ -4,17 +4,16 @@
  *
  * Writing block markup (a theme template or part, or a page scratch file in the
  * site's tmp/) queues that file. Validation starts in the background at once,
- * and the tools that put content on the site or render it (wp_cli,
- * take_screenshot, inspect_design) wait for it first. A fix the block editor
+ * and what puts content on the site or renders it (a shell command, which
+ * runs WP-CLI, take_screenshot, inspect_design) waits for it first. A fix the block editor
  * can make losslessly is applied to the file silently; the model hears only
  * about what it has to change itself.
  */
 import { createHash } from 'crypto';
-import { readFile, stat, writeFile } from 'fs/promises';
+import { readFile, writeFile } from 'fs/promises';
 import path from 'path';
 import { validateHtmlBlockPolicy } from 'cli/ai/block-content-policy';
 import { validateBlocks, type ValidationReportBase } from 'cli/ai/block-validator';
-import { splitCommandArgs } from 'cli/ai/wp-cli-args';
 import { getSiteByFolder, getSiteUrl } from 'cli/lib/cli-config/sites';
 
 const SHARED_THEME_MARKUP =
@@ -22,7 +21,6 @@ const SHARED_THEME_MARKUP =
 const THEME_MARKUP =
 	/[\\/]wp-content[\\/]themes[\\/][^\\/]+[\\/](templates|parts)[\\/][^\\/]+\.html$/;
 const SCRATCH_MARKUP = /[\\/]tmp[\\/][^\\/]+\.html$/;
-const POST_CONTENT = '--post_content=';
 
 /** Whether a file holds block markup the gate validates. */
 export function isBlockMarkupFile( filePath: string ): boolean {
@@ -86,28 +84,6 @@ function attributePaths( html: string ): Set< string > {
 		}
 	}
 	return paths;
-}
-
-function isJsonContent( content: string ): boolean {
-	return /^\s*{/.test( content );
-}
-
-/**
- * Post content that opens as JSON — global styles, navigation data — must
- * parse: WordPress drops content it cannot decode without saying so.
- */
-function jsonContentProblem( content: string, source: string ): string | undefined {
-	if ( ! isJsonContent( content ) ) {
-		return undefined;
-	}
-	try {
-		JSON.parse( content );
-		return undefined;
-	} catch ( error ) {
-		return `${ source } is not valid JSON, and WordPress ignores content it cannot decode: ${
-			error instanceof Error ? error.message : String( error )
-		}`;
-	}
 }
 
 function oneLine( html: string, length: number ): string {
@@ -283,58 +259,12 @@ export class BlockValidationGate {
 	}
 
 	/**
-	 * Revalidates every file: activating a theme or plugin changes which blocks
-	 * the editor recognizes, so earlier validations no longer hold.
-	 */
-	invalidate(): void {
-		for ( const [ filePath, tracked ] of this.files ) {
-			tracked.result = this.validate( filePath, tracked.siteRoot );
-			tracked.reported = undefined;
-		}
-	}
-
-	/**
-	 * The problems that keep a WP-CLI command's post content off the site:
-	 * invalid blocks in every file `post create` or `post update` reads, and
-	 * post content that opens as JSON but does not parse.
-	 */
-	async checkCommand( command: string, siteRoot: string ): Promise< string[] > {
-		const args = splitCommandArgs( command );
-		if ( args[ 0 ] !== 'post' || ! [ 'create', 'update' ].includes( args[ 1 ] ) ) {
-			return [];
-		}
-		const problems: string[] = [];
-		for ( const arg of args.slice( 2 ).filter( ( value ) => ! value.startsWith( '-' ) ) ) {
-			const filePath = path.resolve( siteRoot, arg );
-			if ( ! ( await stat( filePath ).catch( () => undefined ) )?.isFile() ) {
-				continue;
-			}
-			const content = await readFile( filePath, 'utf8' );
-			const problem = isJsonContent( content )
-				? jsonContentProblem( content, arg )
-				: ( await this.current( filePath, siteRoot, true ) )?.problem;
-			problems.push( ...( problem ? [ problem ] : [] ) );
-		}
-		const inline = args
-			.find( ( value ) => value.startsWith( POST_CONTENT ) )
-			?.slice( POST_CONTENT.length );
-		if ( inline !== undefined ) {
-			const problem = inline.includes( '<!-- wp:' )
-				? `--post_content holds block markup, which is validated from a file: write it to the site's tmp/ folder and pass the file path instead (\`post ${ args[ 1 ] } tmp/<name>.html\`).`
-				: jsonContentProblem( inline, '--post_content' );
-			problems.push( ...( problem ? [ problem ] : [] ) );
-		}
-		return problems;
-	}
-
-	/**
 	 * The validation of a file's current content, reusing the last one while
 	 * the file is unchanged; undefined once the file is gone.
 	 */
 	private async current(
 		filePath: string,
-		siteRoot: string,
-		markReported = false
+		siteRoot: string
 	): Promise< FileValidation | undefined > {
 		const content = await readFile( filePath, 'utf8' ).catch( () => undefined );
 		if ( content === undefined ) {
@@ -348,9 +278,6 @@ export class BlockValidationGate {
 		if ( result.contentHash !== hash( content ) ) {
 			tracked.result = this.validate( filePath, siteRoot );
 			result = await tracked.result;
-		}
-		if ( markReported ) {
-			tracked.reported = `${ result.contentHash } ${ result.summary }`;
 		}
 		this.files.set( filePath, tracked );
 		return result;

@@ -2,7 +2,6 @@ import path from 'node:path';
 import { resolveSite } from 'cli/ai/tools/utils';
 import { readCliConfig } from 'cli/lib/cli-config/core';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
-import { isReadOnlyWpCli } from './preview-reload';
 import type { Confirmation } from './confirmation';
 import type { SiteInfo } from 'cli/ai/types';
 
@@ -14,7 +13,6 @@ import type { SiteInfo } from 'cli/ai/types';
 
 // Tools that change the local site named by `nameOrPath`.
 const LOCAL_SITE_CHANGES = new Set( [
-	'wp_cli',
 	'scaffold_theme',
 	'site_import',
 	'site_pull',
@@ -51,9 +49,6 @@ async function targetOf( toolName: string, params: unknown ): Promise< SiteTarge
 		return site ? localTarget( site.path, site.name ) : undefined;
 	}
 	if ( ! LOCAL_SITE_CHANGES.has( toolName ) || typeof args.nameOrPath !== 'string' ) {
-		return undefined;
-	}
-	if ( toolName === 'wp_cli' && isReadOnlyWpCli( String( args.command ?? '' ) ) ) {
 		return undefined;
 	}
 	try {

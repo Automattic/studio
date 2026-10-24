@@ -14,17 +14,6 @@ export interface Confirmation {
 const CONFIRM = 'Yes, go ahead';
 const DECLINE = 'No';
 
-// WP-CLI commands that permanently delete or rewrite site data. `post delete`
-// and `comment delete` go to the trash unless forced.
-const IRREVERSIBLE_WP_CLI: RegExp[] = [
-	/^db\s+(reset|drop|clean|import)\b/,
-	/^site\s+(empty|delete)\b/,
-	/^(plugin|theme)\s+(delete|uninstall)\b/,
-	/^(user|term|menu|option|widget)\s+delete\b/,
-	/^(post|comment)\s+delete\b.*\s--force\b/,
-	/^search-replace\b(?!.*\s--dry-run\b)/,
-];
-
 function stringArg( params: unknown, key: string ): string {
 	const value = ( params as Record< string, unknown > | undefined )?.[ key ];
 	return typeof value === 'string' || typeof value === 'number' ? String( value ) : '';
@@ -75,18 +64,6 @@ export function describeDestructiveCall(
 				question: `Delete the preview site ${ stringArg( params, 'host' ) }?`,
 				consequence: 'Deletes it from WordPress.com.',
 			};
-		case 'wp_cli': {
-			const command = stringArg( params, 'command' )
-				.trim()
-				.replace( /^wp\s+/, '' );
-			if ( ! IRREVERSIBLE_WP_CLI.some( ( pattern ) => pattern.test( command ) ) ) {
-				return undefined;
-			}
-			return {
-				question: `Run "wp ${ command }" on "${ site }"?`,
-				consequence: 'Deletes or rewrites site data that cannot be restored from the trash.',
-			};
-		}
 		default:
 			return undefined;
 	}

@@ -168,52 +168,6 @@ describe( 'the gate', () => {
 		writeFileSync( file, 'v2' );
 		expect( ( await gate.settle() ).summaries ).toEqual( [ 'validated v2' ] );
 		expect( ( await gate.settle() ).summaries ).toEqual( [] );
-		gate.invalidate();
-		expect( ( await gate.settle() ).summaries ).toEqual( [ 'validated v2' ] );
-	} );
-
-	it( 'refuses post content from a file anywhere in the site', async () => {
-		write( 'home-content.html', 'bad' );
-		const validateFile = vi.fn( async () => ( {
-			...ok( 'home-content.html: 1 invalid block(s)', 'bad' ),
-			problem: 'fix it',
-		} ) );
-		const gate = new BlockValidationGate( validateFile );
-		expect(
-			await gate.checkCommand( 'post create home-content.html --post_type=page', site )
-		).toEqual( [ 'fix it' ] );
-		expect(
-			await gate.checkCommand( `post update 5 ${ path.join( site, 'home-content.html' ) }`, site )
-		).toEqual( [ 'fix it' ] );
-		expect( validateFile ).toHaveBeenCalledTimes( 1 );
-		expect( await gate.checkCommand( 'option update blogname home-content.html', site ) ).toEqual(
-			[]
-		);
-	} );
-
-	it( 'refuses post content that opens as JSON but does not parse', async () => {
-		const validateFile = vi.fn();
-		const gate = new BlockValidationGate( validateFile );
-		const broken = `post update 5 --post_content='{"version":3,"styles":{"color":{}}'`;
-		const [ problem ] = await gate.checkCommand( broken, site );
-		expect( problem ).toMatch( /^--post_content is not valid JSON/ );
-		write( 'styles.json', '{"version":3}' );
-		expect( await gate.checkCommand( 'post update 5 styles.json', site ) ).toEqual( [] );
-		expect(
-			await gate.checkCommand( `post update 5 --post_content='{"version":3}'`, site )
-		).toEqual( [] );
-		expect( validateFile ).not.toHaveBeenCalled();
-	} );
-
-	it( 'sends inline block markup to a file, where it is validated', async () => {
-		const gate = new BlockValidationGate( vi.fn() );
-		const command =
-			"post create --post_type=page --post_content='<!-- wp:paragraph --><p>Hi</p><!-- /wp:paragraph -->'";
-		const [ problem ] = await gate.checkCommand( command, site );
-		expect( problem ).toContain( 'post create tmp/<name>.html' );
-		expect( await gate.checkCommand( "post update 5 --post_content='Plain text'", site ) ).toEqual(
-			[]
-		);
 	} );
 
 	it( 'reports a file it could not validate', async () => {

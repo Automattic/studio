@@ -22,9 +22,7 @@ const shop = { name: 'Shop', path: '/sites/shop', running: true };
 describe( 'SitePin', () => {
 	it( "changes the request's site without asking", async () => {
 		const pin = new SitePin( shop );
-		expect(
-			await pin.confirmationFor( 'wp_cli', { nameOrPath: 'Shop', command: 'plugin install x' } )
-		).toBeUndefined();
+		expect( await pin.confirmationFor( 'scaffold_theme', { nameOrPath: 'Shop' } ) ).toBeUndefined();
 		expect(
 			await pin.confirmationFor( 'Write', { path: '/sites/shop/wp-content/a.css' } )
 		).toBeUndefined();
@@ -37,19 +35,11 @@ describe( 'SitePin', () => {
 			'Also change "Blog"? This request is about "Shop".'
 		);
 		ask?.allow();
-		expect(
-			await pin.confirmationFor( 'wp_cli', {
-				nameOrPath: 'Blog',
-				command: 'option update blogname B',
-			} )
-		).toBeUndefined();
+		expect( await pin.confirmationFor( 'scaffold_theme', { nameOrPath: 'Blog' } ) ).toBeUndefined();
 	} );
 
 	it( 'reads other sites freely', async () => {
 		const pin = new SitePin( shop );
-		expect(
-			await pin.confirmationFor( 'wp_cli', { nameOrPath: 'Blog', command: 'option get blogname' } )
-		).toBeUndefined();
 		expect(
 			await pin.confirmationFor( 'Read', { path: '/sites/blog/wp-config.php' } )
 		).toBeUndefined();
@@ -88,8 +78,6 @@ describe( 'SitePin', () => {
 			remote: true,
 			wpcomSiteId: 7,
 		} );
-		expect(
-			await pin.confirmationFor( 'wp_cli', { nameOrPath: 'Shop', command: 'post create x' } )
-		).toBeTruthy();
+		expect( await pin.confirmationFor( 'scaffold_theme', { nameOrPath: 'Shop' } ) ).toBeTruthy();
 	} );
 } );

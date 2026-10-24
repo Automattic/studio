@@ -75,6 +75,9 @@ export interface CreateStudioToolsOptions {
 	// How a local image is linked in the agent's reply so the host shows it to the user.
 	// Set by hosts without Studio's chat UI, which shows images as chat artifacts instead.
 	imageLink?: ( file: string ) => string;
+	// The agent has a shell whose `wp` runs Studio's WP-CLI (Studio Code's Bash
+	// tool), so wp_cli would be a second way to do the same thing.
+	shellRunsStudioWp?: boolean;
 }
 
 export function resolveStudioToolDefinitions(
@@ -82,6 +85,9 @@ export function resolveStudioToolDefinitions(
 ): AnyStudioAgentTool[] {
 	return studioToolDefinitions.flatMap( ( candidate ) => {
 		if ( candidate.name === generateImagesTool.name && ! options.imageGeneration ) {
+			return [];
+		}
+		if ( candidate.name === runWpCliTool.name && options.shellRunsStudioWp ) {
 			return [];
 		}
 		let tool = candidate;

@@ -27,7 +27,7 @@ tools: generate_images
 
 ## Without generate_images
 
-With an image tool of your own, make the same images with the same intent, then `wp_cli media import` content images from the site's `tmp/` (it prints attachment IDs) and copy theme images into the theme.
+With an image tool of your own, make the same images with the same intent, then `wp media import` content images from the site's `tmp/` (it prints attachment IDs) and copy theme images into the theme.
 
 ## Failures
 

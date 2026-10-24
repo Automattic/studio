@@ -272,7 +272,8 @@ describe( 'pi runtime', () => {
 	it( 'activates the tools a skill brings once the skill is loaded', async () => {
 		await runRuntime( { prompt: 'hello', session: newSession(), env: WPCOM_ENV } );
 		const session = mocks.createdSessions[ 0 ] as unknown as FakeSession;
-		expect( session.activeToolNames ).toContain( 'wp_cli' );
+		expect( session.activeToolNames ).toContain( 'Bash' );
+		expect( session.activeToolNames ).not.toContain( 'wp_cli' );
 		expect( session.activeToolNames ).not.toContain( 'install_taxonomy_scripts' );
 		await getCreatedTool( 'Skill' ).execute( 't', { name: 'taxonomist' } );
 		expect( session.activeToolNames ).toContain( 'install_taxonomy_scripts' );
@@ -508,11 +509,10 @@ describe( 'pi runtime', () => {
 				[
 					{
 						type: 'toolCall',
-						id: 'wp-cli-call-1',
-						name: 'wp_cli',
+						id: 'bash-call-1',
+						name: 'Bash',
 						arguments: {
-							nameOrPath: 'bakery',
-							command: 'post update 4 --post_content="<!-- wp:paragraph --><p>partial',
+							command: 'wp post update 4 --post_content="<!-- wp:paragraph --><p>partial',
 						},
 						index: 0,
 					},
@@ -530,9 +530,8 @@ describe( 'pi runtime', () => {
 		} );
 
 		await expect(
-			getCreatedTool( 'wp_cli' ).execute( 'wp-cli-call-1', {
-				nameOrPath: 'bakery',
-				command: 'post update 4 --post_content="<!-- wp:paragraph --><p>partial',
+			getCreatedTool( 'Bash' ).execute( 'bash-call-1', {
+				command: 'wp post update 4 --post_content="<!-- wp:paragraph --><p>partial',
 			} )
 		).rejects.toThrow( /hit the model output limit/ );
 	} );

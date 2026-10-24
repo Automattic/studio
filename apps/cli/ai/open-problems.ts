@@ -65,13 +65,16 @@ export class OpenProblems {
 }
 
 /**
- * The message that continues a turn with open problems, from Studio rather
- * than the user, who does not see it.
+ * The message that continues a turn with open problems. It reaches the model
+ * in the user's role, so it is tagged as Studio's, the way Pi tags the
+ * summaries it adds; the user does not see it.
  */
 export function describeOpenProblems( problems: string[] ): string {
 	return [
-		"Studio's checks of the sites after your turn, not a message from the user:",
+		'<studio-checks>',
+		'Studio checked the sites this turn changed:',
 		...problems.map( ( problem ) => `- ${ problem }` ),
+		'</studio-checks>',
 	].join( '\n' );
 }
 

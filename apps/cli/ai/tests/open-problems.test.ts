@@ -23,9 +23,9 @@ describe( 'OpenProblems', () => {
 		expect( await kept.raise() ).toEqual( [ 'page 1 is still invalid' ] );
 	} );
 
-	it( 'tells the agent the problems come from Studio, not the user', () => {
+	it( "tags the problems as Studio's checks", () => {
 		expect( describeOpenProblems( [ 'a', 'b' ] ) ).toBe(
-			"Studio's checks of the sites after your turn, not a message from the user:\n- a\n- b"
+			'<studio-checks>\nStudio checked the sites this turn changed:\n- a\n- b\n</studio-checks>'
 		);
 	} );
 } );

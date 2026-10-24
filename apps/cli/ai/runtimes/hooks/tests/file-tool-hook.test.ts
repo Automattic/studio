@@ -297,7 +297,7 @@ it( 'reports the block validation of post content a shell call changed', async (
 	expect( await hook( 'Stop' ) ).toEqual( {
 		decision: 'block',
 		reason: expect.stringMatching(
-			/^Studio's checks of the sites after your turn[^]*1 core\/html block\(s\) must become editable blocks/
+			/^<studio-checks>\nStudio checked the sites this turn changed:[^]*1 core\/html block\(s\) must become editable blocks/
 		),
 	} );
 	expect( await hook( 'Stop' ) ).toBeUndefined();

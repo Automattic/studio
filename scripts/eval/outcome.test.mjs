@@ -492,6 +492,90 @@ describe( 'site checks', () => {
 	} );
 } );
 
+describe( 'new-case checks', () => {
+	const homeFile = ( html ) => {
+		const file = path.join( dir, `home-${ count++ }.html` );
+		writeFileSync( file, html );
+		return file;
+	};
+	const page = ( title, link, extra = {} ) => ( {
+		type: 'page',
+		title,
+		link,
+		blocks: {},
+		...extra,
+	} );
+
+	test( 'menuReachesPages', () => {
+		const site = ( navTargets, pages = [ 'about', 'classes' ] ) => ( {
+			...workingSite,
+			content: [
+				page( 'Home', 'http://localhost:8881/', { isFront: true } ),
+				...pages.map( ( slug ) => page( slug, `http://localhost:8881/${ slug }/` ) ),
+			],
+			home: { ...workingSite.home, navTargets },
+		} );
+		const opens = ( slug, status = 200 ) => ( {
+			status,
+			url: `http://localhost:8881/${ slug }`,
+		} );
+		const vars = { minPages: 2 };
+		const judge = ( s ) => run( checks.menuReachesPages, outcome( s ), vars ).pass;
+		expect(
+			judge( site( { '/about': opens( 'about' ), '?page_id=7': opens( 'classes' ) } ) )
+		).toBe( true );
+		expect( judge( site( { '/about': opens( 'about' ) } ) ) ).toBe( false );
+		expect(
+			judge( site( { '/about': opens( 'about' ), '/classes': opens( 'classes', 404 ) } ) )
+		).toBe( false );
+		expect( judge( site( { '/about': opens( 'about' ) }, [ 'about' ] ) ) ).toBe( false );
+	} );
+
+	test( 'pluginBlockRendered', () => {
+		const site = ( editorScripts, html = '<p>Monday 9am</p>', blocks = { 'acme/hours': 1 } ) => ( {
+			...workingSite,
+			content: [ page( 'Home', '/', { isFront: true, blocks } ) ],
+			blockTypes: [ { name: 'acme/hours', editorScripts } ],
+			home: { ...workingSite.home, htmlFile: homeFile( html ) },
+		} );
+		const plugin = [ 'http://localhost:8881/wp-content/plugins/acme/build/index.js' ];
+		const vars = { text: 'Monday' };
+		const judge = ( s ) => run( checks.pluginBlockRendered, outcome( s ), vars ).pass;
+		expect( judge( site( plugin ) ) ).toBe( true );
+		expect( judge( site( [] ) ) ).toBe( false );
+		expect( judge( site( [ 'http://localhost:8881/wp-content/themes/acme/index.js' ] ) ) ).toBe(
+			false
+		);
+		expect( judge( site( plugin, '<p>Tuesday</p>' ) ) ).toBe( false );
+		expect( judge( site( plugin, undefined, { 'core/paragraph': 1 } ) ) ).toBe( false );
+	} );
+
+	test( 'blogPostsOnHome', () => {
+		const post = ( title, categories ) => ( {
+			type: 'post',
+			slug: title.toLowerCase(),
+			title,
+			renderedTitle: `${ title } &#8217;s`,
+			categories,
+		} );
+		const site = ( posts, html ) => ( {
+			...workingSite,
+			content: [ post( 'Hello-world', [ 'Uncategorized' ] ), ...posts ].map( ( p, i ) =>
+				i === 0 ? { ...p, slug: 'hello-world' } : p
+			),
+			home: { ...workingSite.home, htmlFile: homeFile( html ) },
+		} );
+		const posts = [ post( 'Rome', [ 'Europe' ] ), post( 'Kyoto', [ 'Asia' ] ) ];
+		const listed = '<h2>Rome &#8217;s</h2><h2>Kyoto &#8217;s</h2>';
+		const vars = { minPosts: 2, categories: [ { name: 'Europe' }, { name: 'Asia' } ] };
+		const judge = ( s ) => run( checks.blogPostsOnHome, outcome( s ), vars ).pass;
+		expect( judge( site( posts, listed ) ) ).toBe( true );
+		expect( judge( site( posts.slice( 0, 1 ), listed ) ) ).toBe( false );
+		expect( judge( site( [ posts[ 0 ], post( 'Kyoto', [ 'Europe' ] ) ], listed ) ) ).toBe( false );
+		expect( judge( site( posts, '<h2>Rome &#8217;s</h2>' ) ) ).toBe( false );
+	} );
+} );
+
 describe( 'routing checks', () => {
 	const skill = ( name ) => ( { name: 'Skill', input: { name } } );
 	const vars = { skills: [ { name: 'block-content' }, { name: 'imagery' } ] };

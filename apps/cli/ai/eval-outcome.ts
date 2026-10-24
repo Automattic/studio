@@ -86,7 +86,14 @@ $content = array();
 foreach ( get_posts( array( 'post_type' => array( 'page', 'post', 'wp_template', 'wp_template_part', 'wp_navigation', 'wp_block' ), 'post_status' => 'publish', 'numberposts' => -1 ) ) as $post ) {
 	$blocks = array();
 	$count( parse_blocks( $post->post_content ), $blocks );
-	$content[] = array( 'id' => $post->ID, 'type' => $post->post_type, 'slug' => $post->post_name, 'title' => $post->post_title, 'isFront' => $post->ID === $front, 'blocks' => $blocks, 'content' => $post->post_content );
+	$content[] = array( 'id' => $post->ID, 'type' => $post->post_type, 'slug' => $post->post_name, 'title' => $post->post_title, 'renderedTitle' => get_the_title( $post ), 'link' => get_permalink( $post ), 'categories' => 'post' === $post->post_type ? wp_get_post_categories( $post->ID, array( 'fields' => 'names' ) ) : array(), 'isFront' => $post->ID === $front, 'blocks' => $blocks, 'content' => $post->post_content );
+}
+$block_types = array();
+foreach ( WP_Block_Type_Registry::get_instance()->get_all_registered() as $name => $type ) {
+	if ( str_starts_with( $name, 'core/' ) ) { continue; }
+	$sources = array();
+	foreach ( (array) $type->editor_script_handles as $handle ) { $sources[] = wp_scripts()->registered[ $handle ]->src ?? $handle; }
+	$block_types[] = array( 'name' => $name, 'editorScripts' => $sources );
 }
 $styles = array();
 foreach ( WP_Block_Styles_Registry::get_instance()->get_all_registered() as $block => $variations ) {
@@ -106,6 +113,7 @@ echo 'OUTCOME_JSON=' . wp_json_encode( array(
 	'content' => $content,
 	'products' => post_type_exists( 'product' ) ? (int) wp_count_posts( 'product' )->publish : 0,
 	'blockStyles' => $styles,
+	'blockTypes' => $block_types,
 	'palette' => $palette,
 	'mergedStyles' => $merged['styles'] ?? array(),
 	'userGlobalStyles' => WP_Theme_JSON_Resolver::get_user_data()->get_raw_data(),
@@ -200,13 +208,24 @@ async function renderHome( url: string ) {
 		const nav = [ ...html.matchAll( /<nav\b[\s\S]*?<\/nav>/g ) ]
 			.map( ( m ) => m[ 0 ] )
 			.join( '\n' );
+		const navHrefs = [ ...nav.matchAll( /<a\b[^>]*\bhref="([^"]*)"/g ) ].map( ( m ) => m[ 1 ] );
+		// Where each of the site's own navigation links leads.
+		const navTargets: Record< string, { status: number; url: string } > = {};
+		for ( const href of new Set( navHrefs ) ) {
+			const target = new URL( href.replace( /&#0?38;|&amp;/g, '&' ), url );
+			target.hash = '';
+			if ( target.origin !== new URL( url ).origin ) continue;
+			const page = await fetch( target, { redirect: 'follow' } ).catch( () => undefined );
+			navTargets[ href ] = { status: page?.status ?? 0, url: page?.url ?? target.href };
+		}
 		return {
 			status: response.status,
 			html,
 			phpErrors: [
 				...html.matchAll( /<b>(Fatal error|Parse error|Warning|Notice|Deprecated)<\/b>:[^<]*/g ),
 			].map( ( m ) => m[ 0 ].replace( /<\/?b>/g, '' ) ),
-			navHrefs: [ ...nav.matchAll( /<a\b[^>]*\bhref="([^"]*)"/g ) ].map( ( m ) => m[ 1 ] ),
+			navHrefs,
+			navTargets,
 			ids: [ ...html.matchAll( /\bid="([^"]+)"/g ) ].map( ( m ) => m[ 1 ] ),
 		};
 	} catch ( error ) {

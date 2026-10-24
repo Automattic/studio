@@ -519,6 +519,80 @@ export const designTokenReachedTheme = check( ( d, vars ) => {
 		: fail( `DESIGN.md ${ vars.token } is ${ value }, but the theme palette does not have it` );
 } );
 
+// The rendered home page, as the capture saved it.
+const homeHtml = ( s ) => ( s.home?.htmlFile ? readFileSync( s.home.htmlFile, 'utf8' ) : '' );
+const pathOf = ( url ) => new URL( url ).pathname.replace( /\/?$/, '/' );
+
+// Every published page besides the home page is in the rendered navigation,
+// and its link opens that page.
+export const menuReachesPages = check( ( d, vars ) => {
+	const s = site( d, vars );
+	const pages = ( s.content || [] ).filter( ( c ) => c.type === 'page' && ! c.isFront );
+	if ( pages.length < vars.minPages )
+		return fail(
+			`${ pages.length } published page(s) besides the home page: ${ JSON.stringify(
+				pages.map( ( p ) => p.title )
+			) }`
+		);
+	const reached = Object.values( s.home?.navTargets || {} )
+		.filter( ( t ) => t.status === 200 )
+		.map( ( t ) => pathOf( t.url ) );
+	const missing = pages.filter( ( p ) => ! reached.includes( pathOf( p.link ) ) );
+	if ( missing.length )
+		return fail(
+			`the navigation does not open ${ missing
+				.map( ( p ) => `"${ p.title }"` )
+				.join( ', ' ) }; it leads to ${ JSON.stringify( s.home?.navTargets ) }`
+		);
+	return pass( `the navigation opens ${ pages.map( ( p ) => `"${ p.title }"` ).join( ', ' ) }` );
+} );
+
+// The home page shows a block that a plugin registers with WordPress, with an
+// editor script so editors can insert it, and it renders `vars.text`.
+export const pluginBlockRendered = check( ( d, vars ) => {
+	const s = site( d, vars );
+	const used = Object.keys( frontPage( s )?.blocks || {} );
+	const fromPlugin = ( s.blockTypes || [] ).filter(
+		( t ) =>
+			used.includes( t.name ) &&
+			t.editorScripts.some( ( src ) => String( src ).includes( '/wp-content/plugins/' ) )
+	);
+	if ( ! fromPlugin.length )
+		return fail(
+			`the home page uses no block a plugin registers with an editor script; it uses ${ JSON.stringify(
+				used
+			) }, and plugins register ${ JSON.stringify( s.blockTypes ) }`
+		);
+	if ( ! homeHtml( s ).includes( vars.text ) )
+		return fail( `the rendered home page does not show "${ vars.text }"` );
+	return pass( `the home page shows ${ fromPlugin.map( ( t ) => t.name ).join( ', ' ) }` );
+} );
+
+// At least `vars.minPosts` new posts, each category in `vars.categories` used,
+// and the rendered home page lists every new post.
+export const blogPostsOnHome = check( ( d, vars ) => {
+	const s = site( d, vars );
+	const posts = ( s.content || [] ).filter(
+		( c ) => c.type === 'post' && c.slug !== 'hello-world'
+	);
+	if ( posts.length < vars.minPosts ) return fail( `${ posts.length } new published post(s)` );
+	const empty = vars.categories
+		.map( ( c ) => c.name )
+		.filter( ( name ) => ! posts.some( ( p ) => p.categories.includes( name ) ) );
+	if ( empty.length ) return fail( `no new post is filed under ${ empty.join( ', ' ) }` );
+	const html = homeHtml( s );
+	const unlisted = posts.filter( ( p ) => ! html.includes( p.renderedTitle ) );
+	if ( unlisted.length )
+		return fail(
+			`the home page does not list ${ unlisted.map( ( p ) => `"${ p.title }"` ).join( ', ' ) }`
+		);
+	return pass(
+		`${ posts.length } posts in ${ vars.categories
+			.map( ( c ) => c.name )
+			.join( ', ' ) }, all on the home page`
+	);
+} );
+
 // Routing: every skill in `vars.skills` was loaded before the run's stop call
 // (`vars.stopAt`), that is, before the agent started the work. A run that never
 // reached a stop call is judged on all of its calls.

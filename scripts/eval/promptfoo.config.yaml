@@ -651,6 +651,72 @@ tests:
   # costs only the turns up to that point, and `skillsLoadedFirst` checks the
   # skills named in `skills` were loaded before it. The new-site cases also stop
   # at the site's creation. The outcome cases above judge the work itself.
+  # Cases written before any fix for them, to see whether the agent holds up
+  # on work the other cases do not cover: a multi-page site, a plugin, a blog.
+  - description: a multi-page site's menu opens every page
+    vars:
+      caseId: multi-page-site-menu
+      siteName: 'Eval Yoga Studio'
+      minPages: 3
+      timeoutMs: 600000
+      prompt: |
+        Build a site for a small yoga studio named "Eval Yoga Studio" with
+        four pages — Home, Classes, About, and Contact — and a header menu
+        that links to each page. Make every choice yourself: nobody can
+        answer questions during this run.
+    assert:
+      - type: javascript
+        value: file://outcome.mjs:siteWorks
+      - type: javascript
+        value: file://outcome.mjs:builtFrontPage
+      - type: javascript
+        value: file://outcome.mjs:menuReachesPages
+      - type: javascript
+        value: file://outcome.mjs:otherSitesUntouched
+
+  - description: a custom block from a new plugin is on the home page
+    vars:
+      caseId: custom-block-plugin
+      siteName: 'Eval Opening Hours'
+      text: Monday
+      timeoutMs: 600000
+      prompt: |
+        Create a new site named "Eval Opening Hours". Write a small plugin
+        for it that adds an "Opening hours" block, which editors can insert
+        from the block inserter and edit the hours in. Put the block on the
+        home page with the hours Monday to Friday, 9am to 5pm. Make every
+        choice yourself: nobody can answer questions during this run.
+    assert:
+      - type: javascript
+        value: file://outcome.mjs:siteWorks
+      - type: javascript
+        value: file://outcome.mjs:pluginBlockRendered
+      - type: javascript
+        value: file://outcome.mjs:otherSitesUntouched
+
+  - description: a blog's new posts are filed in their categories and listed on the home page
+    vars:
+      caseId: travel-blog-posts
+      minPosts: 3
+      categories:
+        - name: Europe
+        - name: Asia
+      timeoutMs: 600000
+      seed:
+        activeSite:
+          name: Eval Travel Blog
+      prompt: |
+        Turn this site into my travel blog: write three short posts about
+        trips, filed under the categories Europe and Asia (at least one in
+        each), and make the home page show the latest posts.
+    assert:
+      - type: javascript
+        value: file://outcome.mjs:siteWorks
+      - type: javascript
+        value: file://outcome.mjs:blogPostsOnHome
+      - type: javascript
+        value: file://outcome.mjs:otherSitesUntouched
+
   - description: 'routing: a request to make a site loads visual-design before creating it'
     vars:
       caseId: routing-new-site-make

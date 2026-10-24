@@ -6,8 +6,18 @@
 env:
   IMAGE_ID: $IMAGE_ID
 
+# Windows agents are sometimes stopped a second after they pick up a job, which
+# kills the job during setup, before any test runs. Retry only those exits.
+agent_stop_retry: &agent_stop_retry
+  automatic:
+    - exit_status: -1 # Agent lost
+      limit: 2
+    - exit_status: 3221225786 # STATUS_CONTROL_C_EXIT: the agent service was stopped mid-job
+      limit: 2
+
 e2e_config: &e2e_config
   timeout_in_minutes: 100
+  retry: *agent_stop_retry
   command: bash .buildkite/commands/run-e2e-tests.sh "{{matrix.platform}}" "{{matrix.arch}}"
   artifact_paths:
     - test-results/**/*.zip
@@ -57,6 +67,7 @@ steps:
       - label: Unit Tests on {{matrix}}
         key: unit_tests
         command: bash .buildkite/commands/run-unit-tests.sh "{{matrix}}"
+        retry: *agent_stop_retry
         plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
         agents:
           queue: "{{matrix}}"
@@ -138,6 +149,7 @@ steps:
         agents:
           queue: "{{matrix}}"
         timeout_in_minutes: 30
+        retry: *agent_stop_retry
         plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
         matrix:
           - mac

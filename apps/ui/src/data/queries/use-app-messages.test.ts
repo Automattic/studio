@@ -23,7 +23,7 @@ describe( 'deriveUpdateMessages', () => {
 
 		expect( message.title ).toBe( 'Downloading update' );
 		expect( message.description ).toBe( 'Updating from 1.20.0 to 1.21.0.' );
-		expect( message.cta ).toBeUndefined();
+		expect( message.action ).toBeUndefined();
 	} );
 
 	it( 'falls back to the current version when the target is not yet known', () => {
@@ -46,7 +46,7 @@ describe( 'deriveUpdateMessages', () => {
 		expect( message.description ).toBe( 'Updating from 1.20.0 to 1.21.0.' );
 		expect( message.id ).toBe( 'app-update:1.21.0' );
 
-		message.cta?.onClick();
+		void message.action?.onClick();
 		expect( onInstall ).toHaveBeenCalled();
 	} );
 

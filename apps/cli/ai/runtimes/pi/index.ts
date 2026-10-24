@@ -58,6 +58,7 @@ import { createSkillTool } from 'cli/ai/tools/skill';
 import { siteOfCall } from 'cli/ai/tools/utils';
 import { readCliConfig } from 'cli/lib/cli-config/core';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
+import { withDefaultTimeout } from './bash-timeout';
 import { createConfirmer, describeDestructiveCall, type Confirmer } from './confirmation';
 import { withLeakedToolCallMarkupRemoved } from './leaked-tool-call-markup';
 import { createMcpTools, isUserMcpTool, readMcpServers } from './mcp-tools';
@@ -867,7 +868,9 @@ function buildAgentTools(
 		designSystemPreview( renameTool( createWriteTool( STUDIO_SITES_ROOT ), 'Write' ) ),
 		designSystemPreview( renameTool( createEditTool( STUDIO_SITES_ROOT ), 'Edit' ) ),
 		renameTool(
-			createBashTool( STUDIO_SITES_ROOT, { spawnHook: getStudioWpSpawnHook() } ),
+			withDefaultTimeout(
+				createBashTool( STUDIO_SITES_ROOT, { spawnHook: getStudioWpSpawnHook() } )
+			),
 			'Bash'
 		),
 		renameTool( createGrepTool( STUDIO_SITES_ROOT ), 'Grep' ),

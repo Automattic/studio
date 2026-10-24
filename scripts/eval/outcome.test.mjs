@@ -226,6 +226,20 @@ describe( 'reply checks', () => {
 		expect(
 			run( checks.asksCurrentOrNew, { ...outcome( workingSite ), ...reply( 'Done.' ) } ).pass
 		).toBe( false );
+		// Studio asked before site_create, and the user cancelled.
+		const asked = {
+			questions: [
+				{
+					question:
+						'Create a new site "Joe\'s Bakery"? This request is about "Eval Active Site Two".',
+					answer: 'Cancel',
+				},
+			],
+		};
+		expect(
+			run( checks.asksCurrentOrNew, { ...outcome( workingSite ), ...reply( 'Done.' ), ...asked } )
+				.pass
+		).toBe( true );
 	} );
 } );
 
@@ -238,19 +252,14 @@ describe( 'site checks', () => {
 		blocks,
 	} );
 
-	test( 'builtFromDesign', () => {
+	test( 'builtFrontPage', () => {
 		const site = {
 			...workingSite,
 			showOnFront: 'page',
 			content: [ front( '', { 'core/group': 1, 'core/heading': 1 } ) ],
-			designMd: 'primary: "#112233"',
-			palette: [ { color: '#112233' } ],
 		};
-		expect( run( checks.builtFromDesign, outcome( site ) ).pass ).toBe( true );
-		expect(
-			run( checks.builtFromDesign, outcome( { ...site, palette: [ { color: '#ffffff' } ] } ) ).pass
-		).toBe( false );
-		expect( run( checks.builtFromDesign, outcome( { ...site, showOnFront: 'posts' } ) ).pass ).toBe(
+		expect( run( checks.builtFrontPage, outcome( site ) ).pass ).toBe( true );
+		expect( run( checks.builtFrontPage, outcome( { ...site, showOnFront: 'posts' } ) ).pass ).toBe(
 			false
 		);
 	} );

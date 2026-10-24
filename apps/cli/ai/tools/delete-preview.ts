@@ -25,5 +25,5 @@ export const deletePreviewTool = defineTool(
 			context.onProgress
 		);
 	},
-	{ promptSnippet: 'Delete a preview site by hostname', annotations: REMOTE_OVERWRITE }
+	{ annotations: REMOTE_OVERWRITE }
 );

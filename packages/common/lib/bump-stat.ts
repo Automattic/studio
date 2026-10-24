@@ -26,7 +26,8 @@ export function __bumpStat( group: string, stat: string, bumpInDev = false ) {
 	}
 
 	if ( process.env.E2E || ( process.env.NODE_ENV === 'development' && ! bumpInDev ) ) {
-		console.info( `Would have bumped stat: ${ group }=${ stat }` );
+		// On stderr, so a command's own output, such as `studio wp … --porcelain`, stays parseable.
+		console.error( `Would have bumped stat: ${ group }=${ stat }` );
 		return false;
 	}
 

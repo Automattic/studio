@@ -57,7 +57,3 @@ export function getServerFilesPath(): string {
 export function getMuPluginsPath(): string {
 	return path.join( getConfigDirectory(), 'mu-plugins' );
 }
-
-export function getAiPayloadsPath(): string {
-	return path.join( getConfigDirectory(), 'tmp', 'ai-payloads' );
-}

@@ -1,10 +1,11 @@
-import { mkdirSync, mkdtempSync, rmSync } from 'fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'fs';
+import { DatabaseSync } from 'node:sqlite';
 import os from 'os';
 import path from 'path';
 import { arePathsEqual } from '@studio/common/lib/fs-utils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { getFileWriteRefusal } from 'cli/ai/runtimes/pi/tool-safety';
-import { buildSystemPrompt } from 'cli/ai/system-prompt';
+import { getWrittenFile } from 'cli/ai/runtimes/pi/tool-safety';
+import { getSiteFileWriteRefusal, resolveSiteFile } from 'cli/ai/site-file-guards';
 import { findSiteByFolder } from 'cli/lib/cli-config/sites';
 
 vi.mock( 'cli/lib/cli-config/sites', () => ( { findSiteByFolder: vi.fn() } ) );
@@ -23,14 +24,44 @@ beforeEach( () => {
 	root = mkdtempSync( path.join( os.tmpdir(), 'studio-core-guard-' ) );
 	makeWordPressTree( studioSite() );
 	makeWordPressTree( unmanaged() );
+	for ( const [ theme, header ] of [ [ 'twentytwentyfive', 'Theme Name: Twenty Twenty-Five' ] ] ) {
+		const dir = path.join( studioSite(), 'wp-content', 'themes', theme );
+		mkdirSync( dir, { recursive: true } );
+		writeFileSync( path.join( dir, 'style.css' ), `/*\n${ header }\n*/` );
+	}
 } );
+
+// WordPress.org's theme update check, which updates fresh.
+const updateCheck = vi.fn( async ( _url: string, init: { body: URLSearchParams } ) => {
+	const themes = Object.keys( JSON.parse( init.body.get( 'themes' ) ?? '{}' ).themes );
+	return Response.json( {
+		themes: [],
+		no_update: Object.fromEntries(
+			themes.filter( ( theme ) => theme === 'fresh' ).map( ( theme ) => [ theme, {} ] )
+		),
+	} );
+} );
+vi.stubGlobal( 'fetch', updateCheck );
 
 afterEach( () => {
 	rmSync( root, { recursive: true, force: true } );
 	vi.mocked( findSiteByFolder ).mockReset();
 } );
 
-describe( 'getFileWriteRefusal', () => {
+// What Studio Code's Write and Edit hear before writing: the refusal of the
+// file a call writes.
+async function getFileWriteRefusal(
+	toolName: string,
+	params: unknown,
+	cwd: string,
+	isStudioSite?: ( folder: string ) => Promise< boolean >
+) {
+	const file = getWrittenFile( toolName, params, cwd );
+	const siteFile = file && resolveSiteFile( file );
+	return siteFile ? getSiteFileWriteRefusal( siteFile, isStudioSite ) : undefined;
+}
+
+describe( 'the file write refusal', () => {
 	it.each( [
 		'my-site/wp-includes/functions.php',
 		'my-site/wp-admin/includes/file.php',
@@ -44,6 +75,40 @@ describe( 'getFileWriteRefusal', () => {
 		}
 	} );
 
+	it( 'refuses a theme WordPress updates, by its last update check or WordPress.org, naming a child theme', async () => {
+		for ( const theme of [ 'premium', 'client-theme', 'café', 'fresh' ] ) {
+			const dir = path.join( studioSite(), 'wp-content', 'themes', theme );
+			mkdirSync( dir, { recursive: true } );
+			writeFileSync( path.join( dir, 'style.css' ), `/*\nTheme Name: ${ theme }\n*/` );
+		}
+		mkdirSync( path.join( studioSite(), 'wp-content', 'database' ) );
+		const db = new DatabaseSync( path.join( studioSite(), 'wp-content/database/.ht.sqlite' ) );
+		db.exec( 'CREATE TABLE wp_options ( option_name TEXT, option_value TEXT )' );
+		// What wp_update_themes() stores, from PHP's serialize(): twentytwentyfive
+		// from WordPress.org, premium from its Update URI.
+		db.prepare( 'INSERT INTO wp_options VALUES ( ?, ? )' ).run(
+			'_site_transient_update_themes',
+			'O:8:"stdClass":5:{s:12:"last_checked";i:1792685835;s:7:"checked";a:4:{s:16:"twentytwentyfive";s:3:"1.5";s:7:"premium";s:3:"2.0";s:12:"client-theme";s:3:"1.0";s:5:"café";s:1:"1";}s:8:"response";a:1:{s:7:"premium";a:3:{s:5:"theme";s:7:"premium";s:11:"new_version";s:3:"2.1";s:7:"package";s:31:"https://example.com/premium.zip";}}s:9:"no_update";a:1:{s:16:"twentytwentyfive";a:4:{s:5:"theme";s:16:"twentytwentyfive";s:11:"new_version";s:3:"1.5";s:3:"url";s:46:"https://wordpress.org/themes/twentytwentyfive/";s:7:"package";s:62:"https://downloads.wordpress.org/theme/twentytwentyfive.1.5.zip";}}s:12:"translations";a:0:{}}'
+		);
+		db.close();
+		const refusal = ( theme: string ) =>
+			getFileWriteRefusal(
+				'Edit',
+				{ path: `my-site/wp-content/themes/${ theme }/style.css` },
+				root,
+				isStudioSite
+			);
+
+		// Checked with an update source, or installed since and on WordPress.org.
+		for ( const updatable of [ 'twentytwentyfive', 'premium', 'fresh' ] ) {
+			expect( await refusal( updatable ) ).toContain( `Template: ${ updatable }` );
+		}
+		// Checked, with no update source: the user's own themes.
+		for ( const own of [ 'client-theme', 'café' ] ) {
+			expect( await refusal( own ) ).toBeUndefined();
+		}
+	} );
+
 	it( 'resolves absolute paths too', async () => {
 		const file = path.join( studioSite(), 'wp-includes', 'version.php' );
 		expect( await getFileWriteRefusal( 'Edit', { path: file }, '/', isStudioSite ) ).toContain(
@@ -53,7 +118,8 @@ describe( 'getFileWriteRefusal', () => {
 
 	it.each( [
 		'my-site/wp-config.php',
-		'my-site/wp-content/themes/acme/functions.php',
+		// A theme not checked yet that WordPress.org does not update.
+		'my-site/wp-content/themes/client-work/functions.php',
 		'my-site/wp-content/plugins/wp-includes/x.php',
 		'my-site/DESIGN.md',
 		'elsewhere/wp-includes/functions.php',
@@ -95,13 +161,5 @@ describe( 'getFileWriteRefusal', () => {
 				root
 			)
 		).toBeUndefined();
-	} );
-} );
-
-describe( 'core file rule in the prompt', () => {
-	it( 'is left to the tools, for Studio Code and external agents alike', () => {
-		for ( const prompt of [ buildSystemPrompt( {} ), buildSystemPrompt( { external: true } ) ] ) {
-			expect( prompt ).not.toMatch( /WordPress core|core files/ );
-		}
 	} );
 } );

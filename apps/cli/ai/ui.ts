@@ -903,11 +903,9 @@ export class AiChatUI implements AiOutputAdapter {
 				}
 				break;
 			}
-			case 'wp_cli':
 			case 'preview_create':
 			case 'preview_list':
-			case 'preview_update':
-			case 'validate_blocks': {
+			case 'preview_update': {
 				const nameOrPath = toolInput?.nameOrPath;
 				if ( typeof nameOrPath === 'string' ) {
 					await this.selectLocalSiteFromTool( nameOrPath );

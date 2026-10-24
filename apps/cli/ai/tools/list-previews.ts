@@ -47,7 +47,5 @@ export const listPreviewsTool = defineTool(
 	},
 	{
 		annotations: READ_ONLY,
-		promptSnippet:
-			'List preview sites (temporary, expiring hosted previews) for a local site. These are NOT connected WordPress.com remote sites.',
 	}
 );

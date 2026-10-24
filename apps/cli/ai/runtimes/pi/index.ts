@@ -41,23 +41,40 @@ import {
 import { findLastAssistant, isEmptyStop } from '@studio/common/ai/session-events';
 import { getAiTracksIdentity } from '@studio/common/ai/tracks-identity';
 import { type TSchema } from 'typebox';
+import { getBlockValidationGate, type BlockValidationGate } from 'cli/ai/block-validation-gate';
 import { withDesignSystemPreview } from 'cli/ai/chat-artifacts';
 import { isImageGenerationAvailable } from 'cli/ai/image-generation';
-import { createResultNotes, type NotedCall } from 'cli/ai/result-notes';
+import { emitEvent } from 'cli/ai/json-events';
+import { describeOpenProblems, getOpenProblems } from 'cli/ai/open-problems';
+import { NO_CHANGES, SiteChanges } from 'cli/ai/site-changes';
 import { readActiveSiteFacts } from 'cli/ai/site-facts';
-import { buildSystemPrompt, type ToolPromptContribution } from 'cli/ai/system-prompt';
+import { createSiteNotes, type SiteNotes } from 'cli/ai/site-notes';
+import { studioMessage, validationLines } from 'cli/ai/studio-message';
+import { buildSystemPrompt } from 'cli/ai/system-prompt';
 import { resolveStudioToolDefinitions } from 'cli/ai/tools';
 import { createAskUserQuestionTool } from 'cli/ai/tools/ask-user-question';
 import { createPresentDesignOptionsTool } from 'cli/ai/tools/present-design-options';
 import { createSkillTool } from 'cli/ai/tools/skill';
+import { siteOfCall } from 'cli/ai/tools/utils';
+import { readCliConfig } from 'cli/lib/cli-config/core';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
-import { getFileToolPrompt } from './file-tool-prompts';
+import { withDefaultTimeout } from './bash-timeout';
+import { createConfirmer, describeDestructiveCall, type Confirmer } from './confirmation';
 import { withLeakedToolCallMarkupRemoved } from './leaked-tool-call-markup';
+import { createMcpTools, isUserMcpTool, readMcpServers } from './mcp-tools';
 import { getPendingWork, type PendingWork } from './pending-work';
+import { changesPreview } from './preview-reload';
+import { SitePin } from './site-pin';
+import { SkillToolScope } from './skill-tool-scope';
 import { stripStaleImagesFromContext } from './strip-stale-images';
 import {
+	ensureStudioWpShimDirectory,
+	getStudioWpShimScript,
+	prependToPath,
+} from './studio-wp-shim';
+import {
 	getIncompleteToolCallReason,
-	getFileWriteRefusal,
+	getWrittenFile,
 	getPayloadLimitViolation,
 	type StudioToolPayloadGuardState,
 	updateStudioToolPayloadGuardState,
@@ -85,6 +102,7 @@ const STUDIO_AGENT_DIR = STUDIO_SITES_ROOT;
 // starts the same reasoning over and runs out again.
 const MAX_EMPTY_STOP_CONTINUES = 2;
 const EMPTY_STOP_CONTINUE_TYPE = 'studio.empty_stop_continue';
+const OPEN_PROBLEMS_TYPE = 'studio.open_problems';
 const STUDIO_COMPACTION_SETTINGS = {
 	enabled: true,
 	reserveTokens: 16_384,
@@ -99,6 +117,10 @@ export interface StudioAgentTurnConfig {
 	model?: AiModelId;
 	activeSite?: SiteInfo | null;
 	onAskUser?: AskUserHandler;
+	// Answers the harness's confirmations of irreversible calls. Defaults to
+	// onAskUser; a scripted user (the eval runner) answers without exposing
+	// AskUserQuestion to the agent.
+	onConfirm?: AskUserHandler;
 	onEvent: ( event: AgentSessionEvent ) => void;
 }
 
@@ -138,7 +160,12 @@ export function runStudioAgentTurn( config: StudioAgentTurnConfig ): StudioAgent
 			await activeSession?.abort();
 		},
 		hasTool( name ) {
-			return activeSession?.getAllTools().some( ( tool ) => tool.name === name ) ?? false;
+			// A tool from the user's own MCP server is reported like a made-up one,
+			// so its name stays out of telemetry.
+			return (
+				! isUserMcpTool( name ) &&
+				( activeSession?.getAllTools().some( ( tool ) => tool.name === name ) ?? false )
+			);
 		},
 	};
 }
@@ -249,29 +276,23 @@ async function runAgentSessionTurn(
 	try {
 		session = await createStudioAgentSession( config, family, resolved.creds, payloadGuardState );
 		setActiveSession( session );
-		let emptyStopContinues = 0;
-		let continueAfterEmptyStop = false;
-		let cutOffReasoning = '';
+		const previewAttached = typeof process.send === 'function';
+		const emit = ( event: AgentSessionEvent ) => {
+			config.onEvent( event );
+			if ( previewAttached && changesPreview( event ) ) {
+				emitEvent( { type: 'preview.reload', timestamp: new Date().toISOString() } );
+			}
+		};
+		// The end of each run is held until it is known whether the turn
+		// continues: consumers wait for the turn's real end.
+		let heldEnd: Extract< AgentSessionEvent, { type: 'agent_end' } > | undefined;
 		unsubscribe = session.subscribe( ( event ) => {
 			updateStudioToolPayloadGuardState( event, payloadGuardState );
-			if (
-				event.type === 'agent_end' &&
-				! event.willRetry &&
-				emptyStopContinues < MAX_EMPTY_STOP_CONTINUES
-			) {
-				const lastAssistant = findLastAssistant( event.messages );
-				if ( isEmptyStop( lastAssistant ) ) {
-					// Not final: consumers wait for the turn's real end.
-					continueAfterEmptyStop = true;
-					cutOffReasoning = ( lastAssistant?.content ?? [] )
-						.map( ( block ) => ( block.type === 'thinking' ? block.thinking : '' ) )
-						.join( '' )
-						.trim();
-					config.onEvent( { ...event, willRetry: true } );
-					return;
-				}
+			if ( event.type === 'agent_end' && ! event.willRetry ) {
+				heldEnd = event;
+				return;
 			}
-			config.onEvent( event );
+			emit( event );
 		} );
 
 		if ( controller.signal.aborted ) {
@@ -279,6 +300,37 @@ async function runAgentSessionTurn(
 			config.onEvent( syntheticErrorAgentEnd( 'aborted', '' ) );
 			return;
 		}
+
+		const openProblems = getOpenProblems( config.session );
+		let emptyStopContinues = 0;
+		// What continues the turn after a run ends, if anything: a reply cut off
+		// before it said anything, then the problems still open on the sites.
+		const continuation = async (
+			end: Extract< AgentSessionEvent, { type: 'agent_end' } >
+		): Promise< { customType: string; content: string } | undefined > => {
+			const lastAssistant = findLastAssistant( end.messages );
+			if ( isEmptyStop( lastAssistant ) && emptyStopContinues < MAX_EMPTY_STOP_CONTINUES ) {
+				emptyStopContinues++;
+				const cutOffReasoning = ( lastAssistant?.content ?? [] )
+					.map( ( block ) => ( block.type === 'thinking' ? block.thinking : '' ) )
+					.join( '' )
+					.trim();
+				return {
+					customType: EMPTY_STOP_CONTINUE_TYPE,
+					content: cutOffReasoning
+						? `Your reasoning was cut off before you replied. Continue from where it stopped:\n\n${ cutOffReasoning }`
+						: 'continue',
+				};
+			}
+			if ( lastAssistant?.stopReason !== 'stop' ) {
+				return undefined;
+			}
+			await getPendingWork( config.session ).settle();
+			const problems = await openProblems.raise();
+			return problems.length
+				? { customType: OPEN_PROBLEMS_TYPE, content: describeOpenProblems( problems ) }
+				: undefined;
+		};
 
 		await session.prompt( config.prompt, {
 			expandPromptTemplates: false,
@@ -289,23 +341,19 @@ async function runAgentSessionTurn(
 				mimeType: image.mimeType,
 			} ) ),
 		} );
-		while ( continueAfterEmptyStop ) {
-			continueAfterEmptyStop = false;
+		for ( let end = heldEnd; end; end = heldEnd ) {
+			heldEnd = undefined;
+			const next = await continuation( end );
+			if ( ! next ) {
+				emit( end );
+				break;
+			}
+			emit( { ...end, willRetry: true } );
 			if ( controller.signal.aborted ) {
 				config.onEvent( syntheticErrorAgentEnd( 'aborted', '' ) );
 				break;
 			}
-			emptyStopContinues++;
-			await session.sendCustomMessage(
-				{
-					customType: EMPTY_STOP_CONTINUE_TYPE,
-					content: cutOffReasoning
-						? `Your reasoning was cut off before you replied. Continue from where it stopped:\n\n${ cutOffReasoning }`
-						: 'continue',
-					display: false,
-				},
-				{ triggerTurn: true }
-			);
+			await session.sendCustomMessage( { ...next, display: false }, { triggerTurn: true } );
 		}
 		await getPendingWork( config.session ).settle();
 	} catch ( error ) {
@@ -328,32 +376,65 @@ async function createStudioAgentSession(
 	const model = buildModel( config.model, family, creds );
 	const chatArtifactsEnabled = typeof process.send === 'function';
 	const visionEnabled = aiModelSupportsImages( config.model );
-	const [ userInstructions, imageGenerationEnabled, activeSiteFacts ] = await Promise.all( [
-		readGlobalInstructions(),
-		isImageGenerationAvailable(),
-		readActiveSiteFacts( config.activeSite ),
-	] );
+	const confirm = createConfirmer( config.onConfirm ?? config.onAskUser );
+	const [ userInstructions, imageGenerationEnabled, activeSiteFacts, mcpServers ] =
+		await Promise.all( [
+			readGlobalInstructions(),
+			isImageGenerationAvailable(),
+			readActiveSiteFacts( config.activeSite ),
+			readMcpServers(),
+		] );
 
+	const skillScope = new SkillToolScope( config.session );
+	let activateTools: () => void = () => {};
 	const tools = buildAgentTools(
 		config,
 		chatArtifactsEnabled,
 		imageGenerationEnabled,
-		visionEnabled
+		visionEnabled,
+		( skillName ) => {
+			skillScope.unlock( skillName );
+			activateTools();
+		}
+	);
+	const mcpTools = await createMcpTools(
+		mcpServers,
+		confirm,
+		tools.map( ( tool ) => tool.name )
 	);
 	const systemPrompt = buildSystemPrompt( {
 		userInstructions,
-		tools: tools.map( toolPromptContribution ),
 		activeSite: config.activeSite,
 		activeSiteFacts,
 	} );
 
 	const pendingWork = getPendingWork( config.session );
+	const blockValidationGate = getBlockValidationGate( config.session );
+	const sitePin = new SitePin( config.activeSite );
 	const site = config.activeSite;
-	const notes = createResultNotes();
-	const resultNotes =
-		site && ! site.remote ? ( call: NotedCall ) => notes( site.path, call ) : undefined;
-	const toolDefinitions = tools.map( ( tool ) =>
-		toToolDefinition( tool, payloadGuardState, pendingWork, resultNotes )
+	const localSite = site && ! site.remote ? site.path : undefined;
+	const siteNotes = createSiteNotes( {
+		// The Active site section already states this turn's facts.
+		stated: new Map( localSite ? [ [ localSite, activeSiteFacts ] ] : [] ),
+		gate: blockValidationGate,
+	} );
+	// What a call changed on the request's sites, or on every local site until
+	// the request has one, reported on its result.
+	const siteChanges = new SiteChanges( getOpenProblems( config.session ), async () => {
+		const { sites } = await readCliConfig();
+		const pinned = sitePin.localSitePaths();
+		return pinned.length
+			? sites.filter( ( { path: sitePath } ) => pinned.includes( path.resolve( sitePath ) ) )
+			: sites;
+	} );
+	const toolDefinitions = [ ...tools, ...mcpTools ].map( ( tool ) =>
+		toToolDefinition( tool, payloadGuardState, pendingWork, blockValidationGate, {
+			confirm,
+			sitePin,
+			siteNotes,
+			localSite,
+			siteChanges,
+		} )
 	);
 	const modelRuntime = await createModelRuntime( model, family, creds );
 	const settingsManager = createSettingsManager( config.env );
@@ -385,6 +466,10 @@ async function createStudioAgentSession(
 		sessionStartEvent: { type: 'session_start', reason: 'startup' },
 	} );
 
+	const allToolNames = toolDefinitions.map( ( tool ) => tool.name );
+	activateTools = () =>
+		result.session.setActiveToolsByName( skillScope.activeToolNames( allToolNames ) );
+	activateTools();
 	return result.session;
 }
 
@@ -620,19 +705,30 @@ function createSettingsManager( _env: Record< string, string > ): SettingsManage
 	);
 }
 
-// pi's tools declare a prompt snippet and so do Studio's (see define-tool.ts);
-// the AgentTool type does not carry it, hence the cast.
-type ToolPromptFields = { promptSnippet?: string };
-
-function toolPromptContribution( tool: AgentToolAny ): ToolPromptContribution {
-	return { name: tool.name, promptSnippet: ( tool as ToolPromptFields ).promptSnippet };
-}
+// A shell command can put content on the site through WP-CLI.
+const BLOCK_VALIDATION_GATED_TOOLS = new Set( [ 'Bash', 'take_screenshot' ] );
+// Tools that change nothing on a site, so there is nothing to check after them.
+const READ_ONLY_TOOLS = new Set( [ 'Read', 'Grep', 'Glob', 'Ls' ] );
 
 function toToolDefinition(
 	tool: AgentToolAny,
 	payloadGuardState: StudioToolPayloadGuardState,
 	pendingWork: PendingWork,
-	resultNotes?: ( call: NotedCall ) => Promise< string >
+	blockValidationGate: BlockValidationGate,
+	{
+		confirm,
+		sitePin,
+		siteNotes,
+		localSite,
+		siteChanges,
+	}: {
+		confirm: Confirmer;
+		sitePin: SitePin;
+		siteNotes: SiteNotes;
+		siteChanges: SiteChanges;
+		// Studio's tools report on the site a call names, else the active site when it is a local one.
+		localSite?: string;
+	}
 ): ToolDefinition {
 	return {
 		name: tool.name,
@@ -641,50 +737,108 @@ function toToolDefinition(
 		parameters: tool.parameters,
 		prepareArguments: tool.prepareArguments,
 		executionMode: tool.executionMode,
-		promptSnippet: ( tool as ToolPromptFields ).promptSnippet,
 		execute: async ( toolCallId, params, signal, onUpdate ) => {
 			const incompleteToolCallReason = getIncompleteToolCallReason( payloadGuardState, toolCallId );
 			if ( incompleteToolCallReason ) {
 				throw new Error( incompleteToolCallReason );
 			}
-			const payloadLimitViolation = getPayloadLimitViolation( tool.name, params );
-			if ( payloadLimitViolation ) {
-				throw new Error( payloadLimitViolation );
+			const refusal = getPayloadLimitViolation( tool.name, params );
+			if ( refusal ) {
+				throw new Error( refusal );
 			}
-			const fileWriteRefusal = await getFileWriteRefusal( tool.name, params, STUDIO_SITES_ROOT );
+			// An irreversible call names its site in its own question, so it
+			// needs no second one about which site it changes.
+			const destructive = describeDestructiveCall( tool.name, params );
+			const crossSite = destructive
+				? undefined
+				: await sitePin.confirmationFor( tool.name, params );
+			const declined = await confirm( destructive ?? crossSite?.confirmation );
+			if ( declined ) {
+				throw new Error( declined );
+			}
+			crossSite?.allow();
+			const writtenFile = getWrittenFile( tool.name, params, STUDIO_SITES_ROOT );
+			const fileWriteRefusal = writtenFile && ( await siteNotes.beforeWrite( writtenFile ) );
 			if ( fileWriteRefusal ) {
 				throw new Error( fileWriteRefusal );
 			}
 			if ( ( tool as { settlesPendingWork?: boolean } ).settlesPendingWork ) {
 				await pendingWork.settle();
 			}
-			const result = await tool.execute( toolCallId, params, signal, onUpdate );
+			// Block markup written since the last check is validated before any
+			// tool puts content on the site or renders it.
+			const validationReport = BLOCK_VALIDATION_GATED_TOOLS.has( tool.name )
+				? validationLines( await blockValidationGate.settle() )
+				: [];
+			const checksChanges = ! READ_ONLY_TOOLS.has( tool.name );
+			if ( checksChanges ) {
+				await siteChanges.snapshot().catch( () => undefined );
+			}
+			// A call that fails can still have changed content, as a shell
+			// command does that exits non-zero after saving a page.
+			const settled = async () =>
+				checksChanges ? await siteChanges.settle().catch( () => NO_CHANGES ) : NO_CHANGES;
+			// The validation report was taken from the gate, so it rides on a failure too.
+			const result = await tool
+				.execute( toolCallId, params, signal, onUpdate )
+				.catch( async ( error: unknown ) => {
+					const report = studioMessage( 'notes', [
+						...validationReport,
+						...validationLines( await settled() ),
+					] );
+					if ( ! report ) {
+						throw error;
+					}
+					throw new Error(
+						`${ error instanceof Error ? error.message : String( error ) }\n${ report }`
+					);
+				} );
+			if ( tool.name === 'site_create' ) {
+				await sitePin.created( String( ( params as { name?: unknown } ).name ) );
+			}
 			const details = result.details as StudioToolResultDetails | undefined;
 			if ( details?.pending ) {
 				pendingWork.add( details.pending );
 				delete details.pending;
 			}
+			const changed = await settled();
+			// The files the call wrote, by its file tool or otherwise, as a shell command does.
+			const written = new Set( [ ...( writtenFile ? [ writtenFile ] : [] ), ...changed.written ] );
+			const resultSite = ( await siteOfCall( tool, params ) )?.path ?? localSite;
 			const resultText = result.content
 				.map( ( part ) => ( part.type === 'text' ? part.text : '' ) )
 				.join( '\n' );
-			const notes = [
-				await resultNotes?.( { args: params, result: resultText } ),
+			const reports = studioMessage( 'notes', [
+				...validationReport,
+				...validationLines( changed ),
+				...(
+					await Promise.all( [ ...written ].map( ( file ) => siteNotes.afterWrite( file ) ) )
+				).flat(),
+				...( resultSite ? await siteNotes.afterResult( resultSite, resultText ) : [] ),
 				pendingWork.takeReports(),
-			]
-				.filter( Boolean )
-				.join( '\n' );
-			return notes
-				? { ...result, content: [ ...result.content, { type: 'text', text: notes } ] }
+			] );
+			return reports
+				? { ...result, content: [ ...result.content, { type: 'text', text: reports } ] }
 				: result;
 		},
 	};
+}
+
+// Every chunk of the CLI bundle sits next to `main.mjs`, so it is this
+// module's sibling; `STUDIO_CLI_BIN` points elsewhere in development.
+function getStudioWpSpawnHook() {
+	const cliPath = process.env.STUDIO_CLI_BIN ?? path.join( import.meta.dirname, 'main.mjs' );
+	return prependToPath(
+		ensureStudioWpShimDirectory( getStudioWpShimScript( process.execPath, cliPath ) )
+	);
 }
 
 function buildAgentTools(
 	config: ResolvedStudioAgentTurnConfig,
 	chatArtifactsEnabled: boolean,
 	imageGenerationEnabled: boolean,
-	visionEnabled: boolean
+	visionEnabled: boolean,
+	onSkillLoad: ( skillName: string ) => void
 ): AgentToolAny[] {
 	const askUserTool: AgentToolAny[] = config.onAskUser
 		? [ createAskUserQuestionTool( config.onAskUser ) ]
@@ -700,13 +854,12 @@ function buildAgentTools(
 			  ]
 			: [];
 
-	const skillToolDef = createSkillTool();
+	const skillToolDef = createSkillTool( ( skill ) => onSkillLoad( skill.name ) );
 	const skillTool: AgentToolAny[] = skillToolDef ? [ skillToolDef ] : [];
 
-	// pi's tools are registered under Studio's names; the prompt text for them
-	// is Studio's too (file-tool-prompts.ts), so nothing of pi's wording leaks.
+	// pi's tools are registered under Studio's names.
 	const renameTool = < S extends TSchema >( tool: AgentTool< S >, name: string ): AgentTool< S > =>
-		( { ...tool, name, label: name, ...getFileToolPrompt( name ) } ) as AgentTool< S >;
+		( { ...tool, name, label: name } ) as AgentTool< S >;
 
 	const designSystemPreview = < TTool extends AgentToolAny >( tool: TTool ) =>
 		chatArtifactsEnabled ? withDesignSystemPreview( tool, STUDIO_SITES_ROOT ) : tool;
@@ -714,13 +867,19 @@ function buildAgentTools(
 		renameTool( createReadTool( STUDIO_SITES_ROOT ), 'Read' ),
 		designSystemPreview( renameTool( createWriteTool( STUDIO_SITES_ROOT ), 'Write' ) ),
 		designSystemPreview( renameTool( createEditTool( STUDIO_SITES_ROOT ), 'Edit' ) ),
-		renameTool( createBashTool( STUDIO_SITES_ROOT ), 'Bash' ),
+		renameTool(
+			withDefaultTimeout(
+				createBashTool( STUDIO_SITES_ROOT, { spawnHook: getStudioWpSpawnHook() } )
+			),
+			'Bash'
+		),
 		renameTool( createGrepTool( STUDIO_SITES_ROOT ), 'Grep' ),
 		renameTool( createFindTool( STUDIO_SITES_ROOT ), 'Glob' ),
 		renameTool( createLsTool( STUDIO_SITES_ROOT ), 'Ls' ),
 	];
 	const studioTools = resolveStudioToolDefinitions( {
 		emitChatArtifacts: chatArtifactsEnabled,
+		shell: true,
 		imageGeneration: imageGenerationEnabled,
 		visionEnabled,
 		canAskUser: Boolean( config.onAskUser ),

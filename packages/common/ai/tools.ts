@@ -310,10 +310,8 @@ export function getToolDisplayName( name: string, input?: Record< string, unknow
 		preview_delete: __( 'Delete preview' ),
 		refresh_browser: __( 'Refresh preview' ),
 		site_connected_remote_sites: __( 'List connected remote sites' ),
-		scaffold_theme: __( 'Scaffold theme' ),
 		pick_design: __( 'Pick design' ),
 		present_design_options: __( 'Present design options' ),
-		inspect_design: __( 'Inspect design' ),
 		validate_blocks: __( 'Validate blocks' ),
 		take_screenshot: __( 'Take screenshot' ),
 		generate_images: __( 'Generate images' ),
@@ -321,7 +319,6 @@ export function getToolDisplayName( name: string, input?: Record< string, unknow
 		need_for_speed: __( 'Audit performance' ),
 		rank_me_up: __( 'Audit SEO' ),
 		install_taxonomy_scripts: __( 'Install taxonomy scripts' ),
-		wpcom_request: __( 'WordPress.com API' ),
 		AskUserQuestion: __( 'Ask user' ),
 		Read: __( 'Read' ),
 		Write: __( 'Write' ),
@@ -418,15 +415,8 @@ export function getToolDetail( name: string, input?: Record< string, unknown > )
 			return typeof input.host === 'string' ? input.host : '';
 		case 'AskUserQuestion':
 			return getAskUserDetail( input );
-		case 'wpcom_request': {
-			const method = typeof input.method === 'string' ? input.method : '';
-			const path = typeof input.path === 'string' ? input.path : '';
-			return [ method, path ].filter( Boolean ).join( ' ' );
-		}
 		case 'wp_cli':
 			return typeof input.command === 'string' ? `wp ${ input.command }` : '';
-		case 'scaffold_theme':
-			return typeof input.name === 'string' ? input.name : '';
 		case 'present_design_options':
 			return ( Array.isArray( input.options ) ? input.options : [] )
 				.map( ( option ) =>
@@ -438,8 +428,6 @@ export function getToolDetail( name: string, input?: Record< string, unknown > )
 				)
 				.filter( Boolean )
 				.join( ' · ' );
-		case 'inspect_design':
-			return typeof input.url === 'string' ? input.url : '';
 		case 'validate_blocks':
 			if ( typeof input.filePath === 'string' ) {
 				return input.filePath.split( '/' ).slice( -2 ).join( '/' );

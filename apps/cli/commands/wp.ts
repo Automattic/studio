@@ -1,9 +1,10 @@
 import { __ } from '@wordpress/i18n';
 import { ArgumentsCamelCase } from 'yargs';
 import yargsParser from 'yargs-parser';
-import { getSiteByFolder } from 'cli/lib/cli-config/sites';
+import { getSiteContainingFolder } from 'cli/lib/cli-config/sites';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import { validatePhpVersion } from 'cli/lib/utils';
+import { getUnsupportedWpCliOptionMessage } from 'cli/lib/wp-cli-options';
 import { Logger, LoggerError } from 'cli/logger';
 import { GlobalOptions } from 'cli/types';
 
@@ -14,7 +15,7 @@ export async function runCommand(
 	args: string[],
 	options: { phpVersion?: string } = {}
 ): Promise< void > {
-	const site = await getSiteByFolder( siteFolder );
+	const site = await getSiteContainingFolder( siteFolder );
 	const phpVersion = validatePhpVersion( options.phpVersion ?? site.phpVersion );
 
 	// Connect the PHP child directly to the terminal for piped/interactive stdin, live
@@ -55,6 +56,11 @@ export async function commandHandler( argv: ArgumentsCamelCase< GlobalOptions > 
 					'Studio CLI does not support the WP-CLI `shell` command. Consider adding your code to a file and using the `eval` command.'
 				)
 			);
+		}
+
+		const unsupportedOptionMessage = getUnsupportedWpCliOptionMessage( wpCliArgv );
+		if ( unsupportedOptionMessage ) {
+			throw new LoggerError( unsupportedOptionMessage );
 		}
 
 		const phpVersion =

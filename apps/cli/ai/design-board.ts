@@ -2,8 +2,8 @@ import {
 	designSheet,
 	fontFamilyName as fontFamily,
 	googleFontsUrl,
-	parseDesignMd,
-	Style,
+	type DesignTokens,
+	type Style,
 } from '@studio/design-md';
 
 const escapeHtml = ( value: unknown ) =>
@@ -30,8 +30,113 @@ function fontLinks( styles: Style[] ): string {
 	return url ? `<link rel="stylesheet" href="${ url.replace( /&/g, '&amp;' ) }">` : '';
 }
 
-export function renderDesignBoard( design: string, image?: string ): string {
-	const tokens = parseDesignMd( design );
+type Tree = Record< string, unknown >;
+type Preset = Record< string, string >;
+
+const at = ( tree: unknown, ...keys: string[] ): unknown =>
+	keys.reduce< unknown >( ( node, key ) => ( node as Tree | undefined )?.[ key ], tree );
+
+const typography = ( tree: unknown, ...keys: string[] ) =>
+	( at( tree, ...keys, 'typography' ) ?? {} ) as Tree;
+
+// A theme.json padding object as CSS shorthand.
+const padding = ( value: unknown ) =>
+	value && typeof value === 'object'
+		? [ 'top', 'right', 'bottom', 'left' ]
+				.map( ( side ) => ( value as Tree )[ side ] ?? 0 )
+				.join( ' ' )
+		: value;
+
+/**
+ * Reads a theme.json as the design tokens the board shows: its palette led by
+ * the background, text and button colors, the type of its headings, body and
+ * buttons, and its button.
+ */
+function themeJsonTokens( themeJson: Tree ): DesignTokens {
+	const presets = ( group: string, list: string ) =>
+		( at( themeJson, 'settings', group, list ) ?? [] ) as Preset[];
+	const lists: Record< string, [ Preset[], string ] > = {
+		color: [ presets( 'color', 'palette' ), 'color' ],
+		'font-family': [ presets( 'typography', 'fontFamilies' ), 'fontFamily' ],
+		'font-size': [ presets( 'typography', 'fontSizes' ), 'size' ],
+	};
+	// A preset reference, either way theme.json writes one, as its value.
+	const value = ( raw: unknown ) => {
+		const match = String( raw ?? '' ).match(
+			/^var(?::preset\|([\w-]+)\|([\w-]+)|\(--wp--preset--([a-z-]+?)--([\w-]+)\))$/
+		);
+		if ( ! match ) {
+			return raw;
+		}
+		const [ list, field ] = lists[ match[ 1 ] ?? match[ 3 ] ] ?? [ [], '' ];
+		const slug = match[ 2 ] ?? match[ 4 ];
+		return list.find( ( preset ) => preset.slug === slug )?.[ field ] ?? raw;
+	};
+	const style = ( tree: Tree ): Style =>
+		Object.fromEntries(
+			[ 'fontFamily', 'fontSize', 'fontWeight', 'lineHeight', 'letterSpacing' ]
+				.filter( ( key ) => tree[ key ] !== undefined )
+				.map( ( key ) => [ key, value( tree[ key ] ) ] )
+		) as Style;
+	const styles = themeJson.styles;
+	const body = style( typography( styles ) );
+	const heading = { ...body, ...style( typography( styles, 'elements', 'heading' ) ) };
+	const button = at( styles, 'elements', 'button' );
+	const background = value( at( styles, 'color', 'background' ) );
+	const text = value( at( styles, 'color', 'text' ) );
+	const buttonBackground = value( at( button, 'color', 'background' ) );
+	const palette = lists.color[ 0 ].filter( ( preset ) => /^#[0-9a-f]{3,8}$/i.test( preset.color ) );
+	const lead = palette.find( ( preset ) => preset.color !== background && preset.color !== text )
+		?.color;
+	const radius = value( at( button, 'border', 'radius' ) );
+	return {
+		colors: Object.fromEntries(
+			[
+				[ 'primary', lead ],
+				[ 'background', background ],
+				[ 'text', text ],
+				...palette.map( ( preset ) => [ preset.slug, preset.color ] ),
+			].filter( ( [ , color ] ) => typeof color === 'string' && color.startsWith( '#' ) )
+		),
+		typography: {
+			display: { ...heading, ...style( typography( styles, 'elements', 'h1' ) ) },
+			headline: { ...heading, ...style( typography( styles, 'elements', 'h2' ) ) },
+			body,
+			label: { ...body, ...style( typography( button ) ) },
+		},
+		rounded: radius === undefined ? {} : { sm: radius, md: radius },
+		components: {
+			'button-primary': {
+				...( typeof buttonBackground === 'string' && { backgroundColor: buttonBackground } ),
+				...( at( button, 'color', 'text' ) !== undefined && {
+					textColor: value( at( button, 'color', 'text' ) ),
+				} ),
+				...( radius !== undefined && { rounded: radius } ),
+				...( at( button, 'spacing', 'padding' ) !== undefined && {
+					padding: padding( at( button, 'spacing', 'padding' ) ),
+				} ),
+			},
+		},
+	} as DesignTokens;
+}
+
+/** Renders a look's theme.json as a design-system board. */
+export function renderDesignBoard( themeJson: string, image?: string ): string {
+	let parsed: Tree;
+	try {
+		parsed = JSON.parse( themeJson );
+	} catch ( error ) {
+		throw new Error( `The look's theme.json is not valid JSON: ${ ( error as Error ).message }` );
+	}
+	const tokens = themeJsonTokens( parsed );
+	if (
+		Object.keys( tokens.colors ?? {} ).length < 2 ||
+		! Object.values( tokens.typography ?? {} ).some( ( style ) => style.fontFamily )
+	) {
+		throw new Error(
+			"The look's theme.json needs at least two hex colors in settings.color.palette, and a font family in styles.typography."
+		);
+	}
 	const {
 		palette,
 		background,

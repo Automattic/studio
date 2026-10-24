@@ -1,3 +1,4 @@
+import path from 'path';
 import { ANTHROPIC_MODELS } from '@earendil-works/pi-ai/providers/anthropic.models';
 import { ModelRegistry, SessionManager } from '@earendil-works/pi-coding-agent';
 import { AI_MODELS } from '@studio/common/ai/models';
@@ -15,6 +16,17 @@ const mocks = vi.hoisted( () => ( {
 	onCustomMessage: null as ( () => void ) | null,
 	studioRoot: '/tmp/studio-ai-pi-runtime',
 	configRoot: '/tmp/studio-ai-pi-runtime-config',
+	// What ran, in order: tool executions and the post content check.
+	steps: [] as string[],
+	postChanges: { summaries: [] as string[], problems: [] as string[], written: [] as string[] },
+	failNext: false,
+	// What each end of a run finds still open on the sites.
+	openProblems: [] as string[][],
+} ) );
+
+vi.mock( 'cli/ai/open-problems', () => ( {
+	getOpenProblems: () => ( { raise: async () => mocks.openProblems.shift() ?? [] } ),
+	describeOpenProblems: ( problems: string[] ) => `checks: ${ problems.join( ' | ' ) }`,
 } ) );
 
 // Model-swap test uses a synthetic id outside `AI_MODELS`; route unknowns to
@@ -37,7 +49,14 @@ vi.mock( '@earendil-works/pi-coding-agent', async ( importOriginal ) => {
 		label: name,
 		description: name,
 		parameters: {},
-		execute: async () => ( { content: [ { type: 'text', text: '' } ], details: undefined } ),
+		execute: async () => {
+			mocks.steps.push( name );
+			if ( mocks.failNext ) {
+				mocks.failNext = false;
+				throw new Error( 'exit 1' );
+			}
+			return { content: [ { type: 'text', text: '' } ], details: undefined };
+		},
 	} );
 	return {
 		...actual,
@@ -52,6 +71,34 @@ vi.mock( '@earendil-works/pi-coding-agent', async ( importOriginal ) => {
 	};
 } );
 
+// Each trigger answers with what it was fired with.
+vi.mock( 'cli/ai/tools/utils', async ( importOriginal ) => ( {
+	...( await importOriginal< typeof import('cli/ai/tools/utils') >() ),
+	siteOfCall: async ( _tool: unknown, args: { nameOrPath?: string } ) =>
+		args?.nameOrPath ? { path: `/sites/${ args.nameOrPath }` } : undefined,
+} ) );
+vi.mock( 'cli/ai/site-notes', () => ( {
+	createSiteNotes: () => ( {
+		beforeWrite: async ( file: string ) =>
+			file.endsWith( 'refused.php' ) ? `Not run: ${ file }` : undefined,
+		afterWrite: async ( file: string ) => [ `wrote ${ file }` ],
+		afterResult: async ( site: string ) => [ `result on ${ site }` ],
+	} ),
+} ) );
+
+vi.mock( 'cli/ai/site-changes', () => ( {
+	NO_CHANGES: { summaries: [], problems: [], written: [] },
+	SiteChanges: class {
+		async snapshot() {
+			mocks.steps.push( 'snapshot' );
+		}
+		async settle() {
+			mocks.steps.push( 'settle' );
+			return mocks.postChanges;
+		}
+	},
+} ) );
+
 vi.mock( 'cli/lib/site-paths', () => ( {
 	STUDIO_SITES_ROOT: mocks.studioRoot,
 	getDefaultSitePath: ( siteName: string ) => `${ mocks.studioRoot }/${ siteName }`,
@@ -62,7 +109,6 @@ vi.mock( '@studio/common/lib/well-known-paths', async ( importOriginal ) => {
 	return {
 		...actual,
 		getConfigDirectory: () => mocks.configRoot,
-		getAiPayloadsPath: () => `${ mocks.configRoot }/tmp/ai-payloads`,
 	};
 } );
 
@@ -143,6 +189,7 @@ class FakeSession {
 	public state: { model: { id: string; provider: string }; messages: unknown[] };
 	public aborted = false;
 	public disposed = false;
+	public activeToolNames: string[] = [];
 
 	constructor( public options: CreateAgentSessionOptions ) {
 		this.state = {
@@ -152,6 +199,10 @@ class FakeSession {
 			},
 			messages: options.sessionManager?.buildSessionContext().messages.slice() ?? [],
 		};
+	}
+
+	setActiveToolsByName( names: string[] ): void {
+		this.activeToolNames = names;
 	}
 
 	subscribe( listener: ( event: AgentSessionEvent ) => void ): () => void {
@@ -235,6 +286,7 @@ describe( 'pi runtime', () => {
 		mocks.continueEvents = [];
 		mocks.customMessages = [];
 		mocks.onCustomMessage = null;
+		mocks.openProblems = [];
 		mocks.createAgentSession.mockReset();
 		mocks.createAgentSession.mockImplementation( async ( options: CreateAgentSessionOptions ) => {
 			const session = new FakeSession( options );
@@ -263,6 +315,16 @@ describe( 'pi runtime', () => {
 				expect( last.errorMessage ).toMatch( /STUDIO_WPCOM_API_KEY/ );
 			}
 		}
+	} );
+
+	it( 'activates the tools a skill brings once the skill is loaded', async () => {
+		await runRuntime( { prompt: 'hello', session: newSession(), env: WPCOM_ENV } );
+		const session = mocks.createdSessions[ 0 ] as unknown as FakeSession;
+		expect( session.activeToolNames ).toContain( 'Bash' );
+		expect( session.activeToolNames ).not.toContain( 'wp_cli' );
+		expect( session.activeToolNames ).not.toContain( 'install_taxonomy_scripts' );
+		await getCreatedTool( 'Skill' ).execute( 't', { name: 'taxonomist' } );
+		expect( session.activeToolNames ).toContain( 'install_taxonomy_scripts' );
 	} );
 
 	it( 'emits a full exchange when AgentSession returns output', async () => {
@@ -449,6 +511,102 @@ describe( 'pi runtime', () => {
 		expect( takeScreenshot( 1 )?.description ).not.toContain( 'analyze visually' );
 	} );
 
+	it( 'asks the user before a destructive call runs, and does not run it when declined', async () => {
+		const onAskUser = vi.fn().mockResolvedValue( { 'Delete the site "nope"?': 'No' } );
+		await runRuntime( { prompt: 'hello', session: newSession(), env: WPCOM_ENV, onAskUser } );
+		await expect(
+			getCreatedTool( 'site_delete' ).execute( 't', { nameOrPath: 'nope' } )
+		).rejects.toThrow( 'Not run: the user answered "No" to: Delete the site "nope"?' );
+		expect( onAskUser ).toHaveBeenCalledTimes( 1 );
+	} );
+
+	it( 'fires the site notes triggers on a write, and on a result for a local active site', async () => {
+		const run = async ( activeSite: StudioAgentTurnConfig[ 'activeSite' ] ) => {
+			mocks.createdSessions.length = 0;
+			await runRuntime( { prompt: 'hello', env: WPCOM_ENV, session: newSession(), activeSite } );
+			return getCreatedTool( 'Write' );
+		};
+		const local = {
+			name: 'A',
+			path: '/sites/a',
+			running: false,
+		} as StudioAgentTurnConfig[ 'activeSite' ];
+		const write = await run( local );
+		const file = path.resolve( mocks.studioRoot, 'a/style.css' );
+		const text = async ( params: Record< string, unknown > ) =>
+			( await write.execute( 'w', params ) ).content.map( ( part ) => part.text );
+
+		await expect( write.execute( 'w', { path: 'a/refused.php', content: '' } ) ).rejects.toThrow(
+			`Not run: ${ path.resolve( mocks.studioRoot, 'a/refused.php' ) }`
+		);
+		expect( await text( { path: 'a/style.css', content: '' } ) ).toEqual( [
+			'',
+			`<studio-notes>\nwrote ${ file }\nresult on /sites/a\n</studio-notes>`,
+		] );
+		const remote = await run( {
+			...local!,
+			remote: true,
+		} as StudioAgentTurnConfig[ 'activeSite' ] );
+		expect(
+			( await remote.execute( 'w', { path: 'a/style.css', content: '' } ) ).content.map(
+				( part ) => part.text
+			)
+		).toEqual( [ '', `<studio-notes>\nwrote ${ file }\n</studio-notes>` ] );
+
+		// A call that names a local site reports on it, as one creating a site does.
+		const none = await run( undefined );
+		expect(
+			(
+				await none.execute( 'w', { path: 'a/style.css', content: '', nameOrPath: 'b' } )
+			).content.map( ( part ) => part.text )
+		).toEqual( [ '', `<studio-notes>\nwrote ${ file }\nresult on /sites/b\n</studio-notes>` ] );
+
+		// A file any call wrote gets the same notes, once though a file tool wrote it too.
+		mocks.postChanges.written = [ file, '/sites/a/wp-content/themes/t/style.css' ];
+		expect( await text( { path: 'a/style.css', content: '' } ) ).toEqual( [
+			'',
+			`<studio-notes>\nwrote ${ file }\nwrote /sites/a/wp-content/themes/t/style.css\nresult on /sites/a\n</studio-notes>`,
+		] );
+		mocks.postChanges.written = [ '/sites/a/wp-content/themes/t/style.css' ];
+		await run( local );
+		expect(
+			( await getCreatedTool( 'Bash' ).execute( 'b', { command: 'true' } ) ).content.map(
+				( part ) => part.text
+			)
+		).toEqual( [
+			'',
+			'<studio-notes>\nwrote /sites/a/wp-content/themes/t/style.css\nresult on /sites/a\n</studio-notes>',
+		] );
+		mocks.postChanges.written = [];
+	} );
+
+	it( 'reports the post content a call changed, from a snapshot taken before it', async () => {
+		mocks.createdSessions.length = 0;
+		await runRuntime( { prompt: 'hello', env: WPCOM_ENV, session: newSession() } );
+		mocks.steps.length = 0;
+		mocks.postChanges = {
+			summaries: [ 'page 9 changed' ],
+			problems: [ 'page 9 problem' ],
+			written: [],
+		};
+		const result = await getCreatedTool( 'Bash' ).execute( 'b', { command: 'true' } );
+		expect( mocks.steps ).toEqual( [ 'snapshot', 'Bash', 'settle' ] );
+		expect( result.content.map( ( part ) => part.text ) ).toEqual( [
+			'',
+			'<studio-notes>\nBlock validation: page 9 changed\npage 9 problem\n</studio-notes>',
+		] );
+		// A failed call reports what it changed too.
+		mocks.failNext = true;
+		await expect( getCreatedTool( 'Bash' ).execute( 'b', { command: 'false' } ) ).rejects.toThrow(
+			'exit 1\n<studio-notes>\nBlock validation: page 9 changed\npage 9 problem\n</studio-notes>'
+		);
+		// A tool that only reads changes nothing to check.
+		mocks.steps.length = 0;
+		await getCreatedTool( 'Read' ).execute( 'r', { path: 'a/style.css' } );
+		expect( mocks.steps ).toEqual( [ 'Read' ] );
+		mocks.postChanges = { summaries: [], problems: [], written: [] };
+	} );
+
 	it( 'rejects oversized direct Write, Edit, and Bash payloads', async () => {
 		await runRuntime( {
 			prompt: 'hello',
@@ -480,20 +638,16 @@ describe( 'pi runtime', () => {
 		).rejects.toThrow( /single-call safety limit/ );
 	} );
 
-	it( 'rejects remote wpcom_request calls from length-truncated assistant messages', async () => {
+	it( 'rejects tool calls from length-truncated assistant messages', async () => {
 		mocks.nextEvents = [
 			assistantMessage(
 				[
 					{
 						type: 'toolCall',
-						id: 'wpcom-call-1',
-						name: 'wpcom_request',
+						id: 'bash-call-1',
+						name: 'Bash',
 						arguments: {
-							method: 'POST',
-							path: '/pages/4',
-							body: {
-								content: '<!-- wp:paragraph --><p>partial',
-							},
+							command: 'wp post update 4 --post_content="<!-- wp:paragraph --><p>partial',
 						},
 						index: 0,
 					},
@@ -510,13 +664,9 @@ describe( 'pi runtime', () => {
 			session: newSession(),
 		} );
 
-		const wpcomRequest = getCreatedTool( 'wpcom_request' );
-
 		await expect(
-			wpcomRequest.execute( 'wpcom-call-1', {
-				method: 'POST',
-				path: '/pages/4',
-				body: { content: '<!-- wp:paragraph --><p>partial' },
+			getCreatedTool( 'Bash' ).execute( 'bash-call-1', {
+				command: 'wp post update 4 --post_content="<!-- wp:paragraph --><p>partial',
 			} )
 		).rejects.toThrow( /hit the model output limit/ );
 	} );
@@ -599,6 +749,30 @@ describe( 'pi runtime', () => {
 				expect( agentEnds( events ).map( ( event ) => event.willRetry ) ).toEqual( [ false ] );
 			}
 			expect( mocks.customMessages ).toHaveLength( 0 );
+		} );
+
+		it( 'continues a finished turn with the problems still open on the sites, until none are', async () => {
+			mocks.nextEvents = runEndingWith( assistantMessage( [ { type: 'text', text: 'Done.' } ] ) );
+			mocks.continueEvents = [
+				runEndingWith( assistantMessage( [ { type: 'text', text: 'Fixed.' } ] ) ),
+			];
+			mocks.openProblems = [ [ 'page 9: 2 invalid blocks', 'front page not shown' ] ];
+
+			const events = await runFast();
+
+			expect( mocks.customMessages ).toEqual( [
+				{
+					message: {
+						customType: 'studio.open_problems',
+						content: 'checks: page 9: 2 invalid blocks | front page not shown',
+						display: false,
+					},
+					options: { triggerTurn: true },
+				},
+			] );
+			const ends = agentEnds( events );
+			expect( ends.map( ( event ) => event.willRetry ) ).toEqual( [ true, false ] );
+			expect( ends[ 1 ].messages[ 0 ] ).toMatchObject( { content: [ { text: 'Fixed.' } ] } );
 		} );
 
 		it( 'ends the turn as interrupted when the user stops it first', async () => {

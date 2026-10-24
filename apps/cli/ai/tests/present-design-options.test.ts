@@ -1,5 +1,7 @@
+import { readFileSync } from 'node:fs';
 import os from 'node:os';
 import { describe, expect, it, vi } from 'vitest';
+import { renderDesignBoard } from 'cli/ai/design-board';
 import { createPresentDesignOptionsTool } from 'cli/ai/tools/present-design-options';
 
 vi.mock( 'cli/ai/screenshot-storage', () => ( {
@@ -51,5 +53,57 @@ describe( 'present_design_options', () => {
 				expect.objectContaining( { label: 'Collage' } ),
 			],
 		} );
+	} );
+
+	// A look is its theme.json: the board shows its tokens, and the picked one
+	// is handed over as a file to become the theme's theme.json.
+	it( 'renders a look from its theme.json and hands over the picked one as a file', async () => {
+		const look = ( ground: string ) =>
+			JSON.stringify( {
+				version: 3,
+				settings: {
+					color: {
+						palette: [
+							{ slug: 'ground', color: ground },
+							{ slug: 'ink', color: '#1b1b1b' },
+							{ slug: 'brick', color: '#b5432a' },
+						],
+					},
+					typography: {
+						fontFamilies: [
+							{ slug: 'display', name: 'Fraunces', fontFamily: '"Fraunces", serif' },
+						],
+					},
+				},
+				styles: {
+					color: { background: 'var:preset|color|ground', text: 'var(--wp--preset--color--ink)' },
+					typography: { fontFamily: 'var:preset|font-family|display' },
+					elements: {
+						button: {
+							color: { background: 'var:preset|color|brick' },
+							border: { radius: '999px' },
+						},
+					},
+				},
+			} );
+		const board = renderDesignBoard( look( '#f6efe4' ) );
+		expect( board ).toContain( 'background:#f6efe4;color:#1b1b1b' );
+		expect( board ).toContain( 'family=Fraunces' );
+		expect( board ).toContain( '.primary{background-color:#b5432a' );
+		expect( board ).toContain( 'border-radius:999px' );
+
+		const result = await createPresentDesignOptionsTool( {
+			onAskUser: async () => ( { 'Which look should I build?': 'Night' } ),
+		} ).rawHandler( {
+			catalog: 'directions',
+			question: 'Which look should I build?',
+			options: [
+				{ label: 'Day', description: 'Warm paper.', preview: look( '#f6efe4' ) },
+				{ label: 'Night', description: 'Ink ground.', preview: look( '#101010' ) },
+			],
+		} );
+		const file = textOf( result ).match( /theme\.json: (\S+)$/ )?.[ 1 ];
+		expect( textOf( result ) ).toContain( 'The user picked option 2: Night.' );
+		expect( readFileSync( file!, 'utf8' ) ).toBe( look( '#101010' ) );
 	} );
 } );

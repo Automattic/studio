@@ -14,7 +14,6 @@ import { Type, type TSchema } from 'typebox';
 import { Value } from 'typebox/value';
 import { type DesignTracksContext } from 'cli/ai/design-tracks';
 import { isImageGenerationAvailable } from 'cli/ai/image-generation';
-import { createResultNotes } from 'cli/ai/result-notes';
 import {
 	DESIGN_PICKER_HTML,
 	DESIGN_PICKER_URI,
@@ -22,6 +21,8 @@ import {
 } from 'cli/ai/runtimes/mcp/design-picker';
 import { type AppPage, createLibraryTools, libraryPage } from 'cli/ai/runtimes/mcp/library';
 import { runServedTool } from 'cli/ai/runtimes/mcp/served-tool';
+import { SiteChanges } from 'cli/ai/site-changes';
+import { createSiteNotes } from 'cli/ai/site-notes';
 import { loadSkills } from 'cli/ai/skills';
 import { buildSystemPrompt } from 'cli/ai/system-prompt';
 import { resolveStudioToolDefinitions } from 'cli/ai/tools';
@@ -40,9 +41,6 @@ interface ClientSupport {
 	// Makes images with a tool of its own, on the user's plan, which the
 	// runbooks use when generate_images is left out.
 	ownImageTool: boolean;
-	// Gets wpcom_request, which reaches any WordPress.com endpoint. OpenAI's plugin
-	// review asks for a tool per operation instead, so Codex goes without it for now.
-	wpcomRequest: boolean;
 }
 
 function describeClient( server: Server ): ClientSupport {
@@ -55,7 +53,6 @@ function describeClient( server: Server ): ClientSupport {
 		apps: codex || Boolean( capabilities?.extensions?.[ 'io.modelcontextprotocol/ui' ] ),
 		fileImageLinks: codex,
 		ownImageTool: codex,
-		wpcomRequest: ! codex,
 	};
 }
 
@@ -77,7 +74,6 @@ function createTools(
 		canAskUser: true,
 		imageLink,
 		tracks,
-		wpcomRequest: client.wpcomRequest,
 	} );
 	const designOptions = createPresentDesignOptionsTool( {
 		imageLink,
@@ -103,9 +99,7 @@ function createTools(
 		},
 		async ( args ) =>
 			textResult(
-				args.skill
-					? renderSkill( args.skill )
-					: buildSystemPrompt( { external: true, tools: [ ...definitions, designOptions ] } )
+				args.skill ? renderSkill( args.skill ) : buildSystemPrompt( { external: true } )
 			),
 		{ annotations: READ_ONLY }
 	);
@@ -136,7 +130,8 @@ export async function startMcpStdioServer(): Promise< void > {
 	// from terminal use. The plugin's MCP config sets STUDIO_PLUGIN_ID.
 	process.env.STUDIO_TRACKS_ORIGIN = 'studio-mcp';
 	const sessionId = randomUUID();
-	const resultNotes = createResultNotes();
+	const siteNotes = createSiteNotes();
+	const siteChanges = new SiteChanges();
 	const imageGeneration = await isImageGenerationAvailable();
 	const server = new Server(
 		{ name: 'studio', version: '1.0.0' },
@@ -194,7 +189,7 @@ export async function startMcpStdioServer(): Promise< void > {
 				isError: true,
 			};
 		}
-		return runServedTool( tool, args, resultNotes );
+		return runServedTool( tool, args, siteNotes, siteChanges );
 	} );
 
 	// Only clients that render MCP Apps get the pages listed.

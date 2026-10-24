@@ -42,7 +42,6 @@ export const listSitesTool = defineTool(
 		}
 	},
 	{
-		promptSnippet: 'List local and WordPress.com sites with their status',
 		annotations: REMOTE_READ,
 	}
 );

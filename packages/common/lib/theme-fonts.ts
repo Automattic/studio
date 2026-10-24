@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 /** A theme.json `fontFace` entry. */
@@ -126,4 +126,76 @@ export async function downloadThemeFonts(
 		} );
 	}
 	return fonts;
+}
+
+interface FontFamilyPreset {
+	slug?: string;
+	name?: string;
+	fontFamily?: string;
+	fontFace?: unknown[];
+}
+
+export interface SelfHostedFonts {
+	/** Families whose font files were downloaded and declared. */
+	hosted: string[];
+	/** Families Google Fonts had no files for, with why. */
+	failed: { family: string; error: string }[];
+}
+
+// Every weight a theme.json's styles set, and 400. Styles inherit their font
+// family, so a weight set on its own can still be a weight of any family.
+function weightsOf( styles: unknown ): string[] {
+	const weights = new Set< string >( [ '400' ] );
+	const walk = ( node: unknown ) => {
+		if ( ! node || typeof node !== 'object' ) {
+			return;
+		}
+		const { fontWeight } = node as { fontWeight?: unknown };
+		if ( /^\d{3}$/.test( String( fontWeight ) ) ) {
+			weights.add( String( fontWeight ) );
+		}
+		Object.values( node ).forEach( walk );
+	};
+	walk( styles );
+	return [ ...weights ].sort();
+}
+
+/**
+ * Self-hosts a theme's fonts: each font family preset in its theme.json that
+ * declares no font files gets them from Google Fonts, in the weights its styles
+ * use, downloaded into assets/fonts and declared as its `fontFace`.
+ */
+export async function selfHostThemeJsonFonts( themeDir: string ): Promise< SelfHostedFonts > {
+	const themeJsonPath = path.join( themeDir, 'theme.json' );
+	const themeJson = JSON.parse( await readFile( themeJsonPath, 'utf8' ) );
+	const families: FontFamilyPreset[] = themeJson?.settings?.typography?.fontFamilies ?? [];
+	const result: SelfHostedFonts = { hosted: [], failed: [] };
+	for ( const family of families ) {
+		const name =
+			family.name ??
+			family.fontFamily
+				?.split( ',' )[ 0 ]
+				.trim()
+				.replace( /^['"]|['"]$/g, '' );
+		if ( family.fontFace?.length || ! name ) {
+			continue;
+		}
+		const url = `https://fonts.googleapis.com/css2?family=${ name.replace(
+			/ /g,
+			'+'
+		) }:wght@${ weightsOf( themeJson.styles ).join( ';' ) }&display=swap`;
+		try {
+			family.fontFace = Object.values( await downloadThemeFonts( url, themeDir ) ).flat();
+			result.hosted.push( name );
+		} catch ( error ) {
+			result.failed.push( {
+				family: name,
+				error: error instanceof Error ? error.message : String( error ),
+			} );
+		}
+	}
+	if ( result.hosted.length ) {
+		await writeFile( themeJsonPath, JSON.stringify( themeJson, null, '\t' ) + '\n' );
+	}
+	return result;
 }

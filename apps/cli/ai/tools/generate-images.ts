@@ -14,6 +14,7 @@ import {
 } from '../image-generation';
 import { defineTool, REMOTE_CHANGE } from './define-tool';
 import { runWpCli, textResult } from './utils';
+import type { AnyStudioAgentTool } from './define-tool';
 
 const MAX_IMAGES_PER_CALL = 20;
 const UPLOADS_DIR = path.sep + path.join( 'wp-content', 'uploads' ) + path.sep;
@@ -88,7 +89,6 @@ foreach ( $data['failed'] as $id ) {
 export const generateImagesTool = defineTool(
 	'generate_images',
 	"Generate AI images (PNG) from text specs and write them to files inside a site. An image written under the site's wp-content/uploads/ is added to its media library; any other image, such as theme imagery in a theme's assets/images, stays where it is written. " +
-		'Load the `imagery` skill FIRST — it defines how to write subjects and page context, which aspect ratio fits which layout slot, and where generated images go (theme assets or the media library). ' +
 		'Batch every image a page or site needs into as few calls as possible; each call accepts up to ' +
 		`${ MAX_IMAGES_PER_CALL } images and generates them concurrently. ` +
 		"The call returns at once with each image's path, and for the media library its attachment ID and URL, while the images are generated in the background: the tools that render the site wait for them, and any that failed is reported with a later tool result. " +
@@ -107,7 +107,7 @@ export const generateImagesTool = defineTool(
 				pageContext: Type.Optional(
 					Type.String( {
 						description:
-							'Where and how the image is used, in pictorial slot language (e.g. "full-frame editorial photograph with the left third kept as open, low-detail negative space"). Steers mood and composition; it is not drawn. Write in English.',
+							'Where and how the image is used, in pictorial slot language (e.g. "full-frame editorial photograph with the left third kept as open, low-detail negative space"), not layout words such as "hero" or "headline", which get drawn. Steers mood and composition; it is not drawn. Write in English.',
 					} )
 				),
 				style: Type.Optional(
@@ -120,7 +120,7 @@ export const generateImagesTool = defineTool(
 						Object.fromEntries( IMAGE_ASPECT_RATIOS.map( ( ratio ) => [ ratio, ratio ] ) ),
 						{
 							description:
-								'Canvas shape, matched to the layout slot (see the imagery skill). Defaults to landscape.',
+								'Canvas shape, matched to the layout slot: images in one row or grid share a ratio, and full-bleed backgrounds are landscape or ultrawide. Defaults to landscape.',
 						}
 					)
 				),
@@ -237,8 +237,8 @@ export const generateImagesTool = defineTool(
 		};
 	},
 	{
-		promptSnippet:
-			'Generate AI images (PNG) from text specs into a site: images under its wp-content/uploads/ are added to the media library, others (theme imagery) stay files. Batch all the images a page needs into one call. Load the `imagery` skill first for spec-writing rules and file placement.',
 		annotations: REMOTE_CHANGE,
+		forHost: ( host ): AnyStudioAgentTool | undefined =>
+			host.imageGeneration ? generateImagesTool : undefined,
 	}
 );

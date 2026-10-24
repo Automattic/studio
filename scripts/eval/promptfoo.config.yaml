@@ -53,7 +53,7 @@ tests:
   - description: asking for a site leaves a working new site
     vars:
       caseId: site-creation
-      siteName: "Eval Test Site"
+      siteName: 'Eval Test Site'
       timeoutMs: 120000
       prompt: |
         Create a new site named "Eval Test Site".
@@ -69,7 +69,7 @@ tests:
   - description: screenshot verification shows the model desktop and mobile quickly
     vars:
       caseId: screenshot-all-timing
-      siteName: "Eval Screenshot Timing"
+      siteName: 'Eval Screenshot Timing'
       model: balanced
       timeoutMs: 240000
       prompt: |
@@ -84,13 +84,12 @@ tests:
         value: file://outcome.mjs:otherSitesUntouched
 
   # A fresh build: the site renders with valid blocks, has a static front
-  # page, runs its own theme with self-hosted fonts and a real screenshot,
-  # and its palette carries the DESIGN.md colors. Every turn stays under 60s
-  # so the UI never stalls.
-  - description: single-page build leaves a working site in its own theme, built from DESIGN.md
+  # page, and runs its own theme with self-hosted fonts and a real
+  # screenshot. Every turn stays under 60s so the UI never stalls.
+  - description: single-page build leaves a working site in its own theme
     vars:
       caseId: single-page-build-turn-cadence
-      siteName: "Eval Turn Timing"
+      siteName: 'Eval Turn Timing'
       timeoutMs: 600000
       prompt: |
         Build a simple WordPress site named "Eval Turn Timing". The
@@ -102,7 +101,7 @@ tests:
       - type: javascript
         value: file://outcome.mjs:siteWorks
       - type: javascript
-        value: file://outcome.mjs:builtFromDesign
+        value: file://outcome.mjs:builtFrontPage
       - type: javascript
         value: file://outcome.mjs:ownThemeWithFontsAndScreenshot
       - type: javascript
@@ -116,7 +115,7 @@ tests:
   - description: one-page site section links work from every page
     vars:
       caseId: one-page-nav-anchor-links
-      siteName: "Eval One Page Nav"
+      siteName: 'Eval One Page Nav'
       timeoutMs: 600000
       prompt: |
         Build a one-page site named "Eval One Page Nav": a single
@@ -206,7 +205,7 @@ tests:
   - description: slideshow request puts a Jetpack slideshow on the home page
     vars:
       caseId: jetpack-catchall-slideshow
-      siteName: "Catchall Eval Site"
+      siteName: 'Catchall Eval Site'
       plugin: jetpack
       blockPrefix: jetpack/
       timeoutMs: 600000
@@ -227,7 +226,7 @@ tests:
   - description: shop request leaves WooCommerce with products
     vars:
       caseId: woocommerce-shop-setup
-      siteName: "Eval Shop Site"
+      siteName: 'Eval Shop Site'
       timeoutMs: 600000
       prompt: |
         Build a small pet shop site named "Eval Shop Site" — keep it
@@ -247,7 +246,7 @@ tests:
   - description: customizing an installed theme leaves it as released and works through a child theme
     vars:
       caseId: child-theme-for-installed-theme
-      siteName: "Eval Child Theme Site"
+      siteName: 'Eval Child Theme Site'
       parentTheme: ollie
       timeoutMs: 600000
       prompt: |
@@ -270,7 +269,7 @@ tests:
   - description: added sections take their colors from the theme palette
     vars:
       caseId: section-uses-theme-palette
-      siteName: "Eval Palette Site"
+      siteName: 'Eval Palette Site'
       theme: twentytwentyfive
       timeoutMs: 600000
       prompt: |
@@ -295,7 +294,7 @@ tests:
   - description: hero eyebrow pill keeps content-column alignment
     vars:
       caseId: inline-block-constrained-alignment
-      siteName: "Eval Eyebrow Site"
+      siteName: 'Eval Eyebrow Site'
       timeoutMs: 600000
       prompt: |
         Build a simple one-page site named "Eval Eyebrow Site". The
@@ -318,7 +317,7 @@ tests:
   - description: repeated card treatment is a registered block style variation
     vars:
       caseId: repeated-treatment-uses-block-style
-      siteName: "Eval Block Style Site"
+      siteName: 'Eval Block Style Site'
       timeoutMs: 600000
       prompt: |
         Create a new site named "Eval Block Style Site" and build a simple
@@ -346,7 +345,7 @@ tests:
       prompt: |
         Build me a minimal one-page site for a small neighborhood bakery: a
         hero and a short about section. Skip the discovery questions. Before
-        writing any files, state the Site Spec and stop — I will confirm the
+        writing any files, state your plan and stop — I will confirm the
         plan first.
     assert:
       - type: javascript
@@ -355,12 +354,13 @@ tests:
         value: file://outcome.mjs:otherSitesUntouched
 
   # Site pick: with an active site and a prompt that names a different site,
-  # the agent asks whether to update the active site or create a new one
-  # before calling site_create.
+  # the user is asked whether to update the active site or create a new one
+  # before either happens. The user cancels whatever is asked.
   - description: a different site name asks before using or replacing the active site
     vars:
       caseId: active-site-different-name
       timeoutMs: 180000
+      answers: []
       seed:
         activeSite:
           name: Eval Active Site Two
@@ -378,7 +378,7 @@ tests:
     vars:
       caseId: design-system-annotation
       token: primary
-      originalValue: "#2F6BFF"
+      originalValue: '#2F6BFF'
       timeoutMs: 420000
       seed:
         activeSite:
@@ -651,14 +651,13 @@ tests:
   # costs only the turns up to that point, and `skillsLoadedFirst` checks the
   # skills named in `skills` were loaded before it. The new-site cases also stop
   # at the site's creation. The outcome cases above judge the work itself.
-  - description: "routing: a request to make a site loads build-site before creating it"
+  - description: 'routing: a request to make a site loads visual-design before creating it'
     vars:
       caseId: routing-new-site-make
       timeoutMs: 300000
-      skills: [{ name: build-site }]
+      skills: [{ name: visual-design }]
       stopAt:
         - tool: site_create
-        - tool: scaffold_theme
         - tool: Write
         - tool: Edit
         - tool: generate_images
@@ -669,11 +668,11 @@ tests:
     assert:
       - type: javascript
         value: file://outcome.mjs:skillsLoadedFirst
-  - description: "routing: a new site with a form loads build-site and plugin-recommendations before the work"
+  - description: 'routing: a new site with a form loads plugin-recommendations before the work'
     vars:
       caseId: routing-new-site-contact-form
       timeoutMs: 300000
-      skills: [{ name: build-site }, { name: plugin-recommendations }]
+      skills: [{ name: plugin-recommendations }]
       stopAt: &stopAtWork
         - tool: Write
         - tool: Edit
@@ -685,17 +684,17 @@ tests:
     assert:
       - type: javascript
         value: file://outcome.mjs:skillsLoadedFirst
-  - description: "routing: a new site with a slideshow loads build-site and plugin-recommendations before the work"
+  - description: 'routing: a new site with a slideshow loads plugin-recommendations before the work'
     vars:
       caseId: routing-new-site-slideshow
       timeoutMs: 300000
-      skills: [{ name: build-site }, { name: plugin-recommendations }]
+      skills: [{ name: plugin-recommendations }]
       stopAt: *stopAtWork
       prompt: Create a new site named "Routing Slideshow Site" and add a slideshow of three placeholder images to its homepage.
     assert:
       - type: javascript
         value: file://outcome.mjs:skillsLoadedFirst
-  - description: "routing: a contact form loads plugin-recommendations before the work"
+  - description: 'routing: a contact form loads plugin-recommendations before the work'
     vars:
       caseId: routing-form
       timeoutMs: 300000
@@ -708,7 +707,7 @@ tests:
     assert:
       - type: javascript
         value: file://outcome.mjs:skillsLoadedFirst
-  - description: "routing: a carousel loads plugin-recommendations before the work"
+  - description: 'routing: a carousel loads plugin-recommendations before the work'
     vars:
       caseId: routing-carousel
       timeoutMs: 300000
@@ -721,7 +720,7 @@ tests:
     assert:
       - type: javascript
         value: file://outcome.mjs:skillsLoadedFirst
-  - description: "routing: a newsletter signup loads plugin-recommendations before the work"
+  - description: 'routing: a newsletter signup loads plugin-recommendations before the work'
     vars:
       caseId: routing-newsletter
       timeoutMs: 300000
@@ -734,7 +733,7 @@ tests:
     assert:
       - type: javascript
         value: file://outcome.mjs:skillsLoadedFirst
-  - description: "routing: a poll loads plugin-recommendations before the work"
+  - description: 'routing: a poll loads plugin-recommendations before the work'
     vars:
       caseId: routing-poll
       timeoutMs: 300000
@@ -747,7 +746,7 @@ tests:
     assert:
       - type: javascript
         value: file://outcome.mjs:skillsLoadedFirst
-  - description: "routing: an events page loads plugin-recommendations before the work"
+  - description: 'routing: an events page loads plugin-recommendations before the work'
     vars:
       caseId: routing-events
       timeoutMs: 300000
@@ -760,7 +759,7 @@ tests:
     assert:
       - type: javascript
         value: file://outcome.mjs:skillsLoadedFirst
-  - description: "routing: a typography change loads visual-design before the work"
+  - description: 'routing: a typography change loads visual-design before the work'
     vars:
       caseId: routing-typography
       timeoutMs: 300000
@@ -773,7 +772,7 @@ tests:
     assert:
       - type: javascript
         value: file://outcome.mjs:skillsLoadedFirst
-  - description: "routing: a redesign loads visual-design before the work"
+  - description: 'routing: a redesign loads visual-design before the work'
     vars:
       caseId: routing-redesign
       timeoutMs: 300000
@@ -786,7 +785,7 @@ tests:
     assert:
       - type: javascript
         value: file://outcome.mjs:skillsLoadedFirst
-  - description: "routing: a new section loads block-content before the work"
+  - description: 'routing: a new section loads block-content before the work'
     vars:
       caseId: routing-section
       timeoutMs: 300000
@@ -799,7 +798,7 @@ tests:
     assert:
       - type: javascript
         value: file://outcome.mjs:skillsLoadedFirst
-  - description: "routing: a template part edit loads block-content before the work"
+  - description: 'routing: a template part edit loads block-content before the work'
     vars:
       caseId: routing-template-part
       timeoutMs: 300000
@@ -812,11 +811,11 @@ tests:
     assert:
       - type: javascript
         value: file://outcome.mjs:skillsLoadedFirst
-  - description: "routing: a section with a photo loads block-content and imagery before the work"
+  - description: 'routing: a section with a photo loads block-content before the work'
     vars:
       caseId: routing-hero-image
       timeoutMs: 300000
-      skills: [{ name: block-content }, { name: imagery }]
+      skills: [{ name: block-content }]
       stopAt: *stopAtWork
       seed:
         activeSite:
@@ -825,7 +824,7 @@ tests:
     assert:
       - type: javascript
         value: file://outcome.mjs:skillsLoadedFirst
-  - description: "routing: a layout complaint loads visual-polish before the work"
+  - description: 'routing: a layout complaint loads visual-polish before the work'
     vars:
       caseId: routing-polish
       timeoutMs: 300000
@@ -843,16 +842,6 @@ tests:
                 update_option( 'show_on_front', 'page' );
                 update_option( 'page_on_front', $id );
       prompt: The homepage spacing looks off and the buttons are misaligned. Fix it.
-    assert:
-      - type: javascript
-        value: file://outcome.mjs:skillsLoadedFirst
-  - description: "routing: a plan question loads hosting-plans-helper"
-    vars:
-      caseId: routing-plan-question
-      timeoutMs: 300000
-      skills: [{ name: hosting-plans-helper }]
-      stopAt: *stopAtWork
-      prompt: Which WordPress.com plan do I need to install my own plugins?
     assert:
       - type: javascript
         value: file://outcome.mjs:skillsLoadedFirst

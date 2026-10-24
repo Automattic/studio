@@ -4,6 +4,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { getSharedBrowser } from 'cli/ai/browser-utils';
 import { resolveScreenshotDirectory } from 'cli/ai/screenshot-storage';
+import { pageLayout } from 'cli/ai/tools/page-layout';
 
 type Browser = Awaited< ReturnType< typeof getSharedBrowser > >;
 type Page = Awaited< ReturnType< Browser[ 'newPage' ] > >;
@@ -55,9 +56,7 @@ export const SCREENSHOT_COLOR_SCHEME_DESCRIPTION =
 	'Color scheme to emulate: "light" or "dark". Defaults to the browser/system preference.';
 
 /**
- * Apply the media emulation shared by every browser-driving tool. Keeping
- * this in one place guarantees `inspect_design` reports styles under the same
- * prefers-color-scheme mode `take_screenshot` renders.
+ * Apply the prefers-color-scheme emulation a capture asks for.
  */
 export async function applyScreenshotMediaEmulation(
 	page: Page,
@@ -78,6 +77,8 @@ export interface ScreenshotCapture {
 	capturedHeight: number;
 	offset: number;
 	clipped: boolean;
+	/** The page's layout as text, for a model that cannot view the capture. */
+	layout?: string[];
 }
 
 /** A JPEG copy that fits {@link MODEL_IMAGE_MAX_EDGE_PX}, or undefined when the capture already does. */
@@ -213,6 +214,7 @@ export async function captureScreenshotBuffer(
 			`,
 		} );
 
+		const layout = options.forModel === false ? await pageLayout( page ) : undefined;
 		const dpr = options.deviceScaleFactor ?? 1;
 		const maxCssHeight = Math.floor( MAX_IMAGE_DIMENSION_PX / dpr );
 		const formatOptions =
@@ -242,6 +244,7 @@ export async function captureScreenshotBuffer(
 				capturedHeight: viewport.height,
 				offset: 0,
 				clipped: false,
+				layout,
 			};
 		}
 
@@ -276,6 +279,7 @@ export async function captureScreenshotBuffer(
 			capturedHeight,
 			offset,
 			clipped: offset + capturedHeight < documentHeight,
+			layout,
 		};
 	} finally {
 		await page.close();

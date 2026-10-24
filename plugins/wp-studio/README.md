@@ -37,6 +37,12 @@ In the ChatGPT app, open **WordPress** from the sidebar to see your local Studio
 site has its own page: start or stop it, open WP Admin, run a speed or SEO audit, pull a live site
 into Studio, or log in to WordPress.com.
 
+## WordPress.com sites
+
+The plugin also lists WordPress.com's own MCP server (`wordpress-com`), so the agent can read and
+change your WordPress.com sites with the same tools and approval WordPress.com gives every MCP
+client. Your client asks you to log in to WordPress.com the first time it connects.
+
 ## The Studio CLI
 
 The plugin carries the Studio CLI of its own version. The copy in Anthropic's directory is too small

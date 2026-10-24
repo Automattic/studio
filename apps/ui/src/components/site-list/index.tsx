@@ -895,7 +895,7 @@ export function SiteList( {
 				{ [ '65%', '48%', '72%', '56%' ].map( ( width ) => (
 					<div key={ width } className={ styles.skeletonRow }>
 						<span className={ styles.skeleton } />
-						<span className={ styles.skeleton } style={ { width } } />
+						<span className={ styles.skeleton } style={ { maxWidth: width } } />
 					</div>
 				) ) }
 			</div>

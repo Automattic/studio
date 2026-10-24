@@ -8,9 +8,7 @@ import {
 	googleFontsUrl,
 	parseDesignMd,
 	typographyStyles,
-	type DesignDrift,
 	type DesignFix,
-	type DesignTokens,
 } from '@studio/design-md';
 import { z } from 'zod';
 import { downloadThemeFonts } from '../lib/theme-fonts';
@@ -109,8 +107,25 @@ export async function fixSiteDesign(
 
 	const toTheme = fixed( 'theme' );
 	if ( toTheme.length ) {
-		const fontFaces = await downloadDriftFonts( files, tokens, current.themeJson, toTheme );
-		await writeDriftToTheme( files, tokens, current.themeJson, toTheme, fontFaces );
+		const themeFamilies = (
+			( current.themeJson.settings as { typography?: { fontFamilies?: { name?: string }[] } } )
+				?.typography?.fontFamilies ?? []
+		).map( ( family ) => family.name );
+		const families = toTheme
+			.filter(
+				( entry ) =>
+					entry.kind === 'font-family' ||
+					( entry.kind === 'style-font' && ! themeFamilies.includes( entry.design ) )
+			)
+			.map( ( entry ) => entry.design );
+		const fontsUrl = googleFontsUrl(
+			typographyStyles( tokens )
+				.map( ( [ , style ] ) => style )
+				.filter( ( style ) => families.includes( fontFamilyName( style.fontFamily ) ) )
+		);
+		const fontFaces = fontsUrl ? await downloadThemeFonts( fontsUrl, files.themeDir ) : {};
+		const themeJson = applyDesignToThemeJson( tokens, current.themeJson, toTheme, fontFaces );
+		await writeFile( files.themeJsonPath, JSON.stringify( themeJson, null, '\t' ) + '\n' );
 	}
 
 	const toDesign = fixed( 'design' );
@@ -119,80 +134,4 @@ export async function fixSiteDesign(
 	}
 
 	return readSiteDesignFiles( files );
-}
-
-// The font files of the families each drift writes to theme.json, downloaded
-// into the theme and keyed by family.
-async function downloadDriftFonts(
-	files: SiteDesignFiles,
-	tokens: DesignTokens,
-	themeJson: Record< string, unknown >,
-	drift: DesignDrift[]
-): Promise< Record< string, object[] > > {
-	const themeFamilies = (
-		( themeJson.settings as { typography?: { fontFamilies?: { name?: string }[] } } )?.typography
-			?.fontFamilies ?? []
-	).map( ( family ) => family.name );
-	const families = drift
-		.filter(
-			( entry ) =>
-				entry.kind === 'font-family' ||
-				( entry.kind === 'style-font' && ! themeFamilies.includes( entry.design ) )
-		)
-		.map( ( entry ) => entry.design );
-	const fontsUrl = googleFontsUrl(
-		typographyStyles( tokens )
-			.map( ( [ , style ] ) => style )
-			.filter( ( style ) => families.includes( fontFamilyName( style.fontFamily ) ) )
-	);
-	return fontsUrl ? downloadThemeFonts( fontsUrl, files.themeDir ) : {};
-}
-
-async function writeDriftToTheme(
-	files: SiteDesignFiles,
-	tokens: DesignTokens,
-	themeJson: Record< string, unknown >,
-	drift: DesignDrift[],
-	fontFaces: Record< string, object[] >
-): Promise< void > {
-	const written = applyDesignToThemeJson( tokens, themeJson, drift, fontFaces );
-	await writeFile( files.themeJsonPath, JSON.stringify( written, null, '\t' ) + '\n' );
-}
-
-export interface SettledThemeDesign {
-	drift: DesignDrift[];
-	fontsError?: string;
-}
-
-/**
- * Makes a theme built on the site's DESIGN.md carry its tokens: every color,
- * font family (with its font files), font size and spacing step under DESIGN.md's
- * name, and its body, heading and button fonts. Unless `built`, only a theme that
- * already uses DESIGN.md's names counts as built on it. Resolves the drifts it
- * settled, none when the site has no DESIGN.md or the theme no theme.json.
- */
-export async function settleThemeDesign(
-	sitePath: string,
-	themeSlug: string,
-	built: boolean
-): Promise< SettledThemeDesign > {
-	const files = await locateSiteDesign( sitePath, async () => themeSlug );
-	const current = files && ( await readSiteDesignFiles( files ) );
-	if ( ! files || ! current ) {
-		return { drift: [] };
-	}
-	const tokens = parseDesignMd( current.design );
-	const drift = designDrift( tokens, current.themeJson, built );
-	if ( ! drift.length ) {
-		return { drift };
-	}
-	let fontsError: string | undefined;
-	const fontFaces = await downloadDriftFonts( files, tokens, current.themeJson, drift ).catch(
-		( error: unknown ) => {
-			fontsError = error instanceof Error ? error.message : String( error );
-			return {};
-		}
-	);
-	await writeDriftToTheme( files, tokens, current.themeJson, drift, fontFaces );
-	return { drift, fontsError };
 }

@@ -9,7 +9,7 @@ tools: generate_images
 ## Images for the design steps
 
 - **The look image**: before the look options, one image of the site's first-screen scene in `landscape` at `<site>/wp-content/uploads/<scene>.png`, with a neutral grade in `pageContext` and no `imageGrade`. Pass its path as each look's `image`. A direction that rejects photography passes no image.
-- **The site's set**: once `DESIGN.md` is written, one call with 3–4 images in the picked look (its Imagery section as `imageGrade`): the first-screen scene plus distinct supporting subjects, each in the aspect ratio of its likely slot. The sneak peeks and the build use this set first; generate more only for slots it cannot fill, with the same `imageGrade`.
+- **The site's set**: once the look is picked, one call with 3–4 images in it (the direction's Imagery line as `imageGrade`): the first-screen scene plus distinct supporting subjects, each in the aspect ratio of its likely slot. The sneak peeks and the build use this set first; generate more only for slots it cannot fill, with the same `imageGrade`.
 
 ## Placing images
 

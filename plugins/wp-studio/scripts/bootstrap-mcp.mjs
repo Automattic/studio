@@ -314,7 +314,7 @@ async function standIn() {
 
 // A hook starts the Studio CLI only for a call that may write a WordPress
 // install's files; the CLI decides. Without a CLI yet, the call goes ahead.
-const MAY_TOUCH_WORDPRESS = /wp-content[\\/]|wp-includes[\\/]|wp-admin[\\/]|\.php\b|DESIGN\.md/;
+const MAY_TOUCH_WORDPRESS = /wp-content[\\/]|wp-includes[\\/]|wp-admin[\\/]|\.php\b/;
 async function runHook() {
 	let input = '';
 	for await ( const chunk of process.stdin ) {

@@ -84,10 +84,9 @@ tests:
         value: file://outcome.mjs:otherSitesUntouched
 
   # A fresh build: the site renders with valid blocks, has a static front
-  # page, runs its own theme with self-hosted fonts and a real screenshot,
-  # and its palette carries the DESIGN.md colors. Every turn stays under 60s
-  # so the UI never stalls.
-  - description: single-page build leaves a working site in its own theme, built from DESIGN.md
+  # page, and runs its own theme with self-hosted fonts and a real
+  # screenshot. Every turn stays under 60s so the UI never stalls.
+  - description: single-page build leaves a working site in its own theme
     vars:
       caseId: single-page-build-turn-cadence
       siteName: 'Eval Turn Timing'
@@ -102,7 +101,7 @@ tests:
       - type: javascript
         value: file://outcome.mjs:siteWorks
       - type: javascript
-        value: file://outcome.mjs:builtFromDesign
+        value: file://outcome.mjs:builtFrontPage
       - type: javascript
         value: file://outcome.mjs:ownThemeWithFontsAndScreenshot
       - type: javascript

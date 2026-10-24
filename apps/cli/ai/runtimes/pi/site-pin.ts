@@ -12,8 +12,16 @@ import type { SiteInfo } from 'cli/ai/types';
 // brand for that site or a second site, and only the user can say which.
 
 // Tools that change the local site named by `nameOrPath`.
-const LOCAL_SITE_CHANGES = new Set( [ 'site_import', 'site_pull', 'install_taxonomy_scripts' ] );
+const LOCAL_SITE_CHANGES = new Set( [
+	'site_import',
+	'site_pull',
+	'install_taxonomy_scripts',
+	'wp_cli',
+] );
 const FILE_CHANGES = new Set( [ 'Write', 'Edit' ] );
+// WP-CLI subcommands that only read, such as `option get` or `post list`.
+const WP_CLI_READS =
+	/^\s*(?:wp\s+)?(?:[\w-]+\s+){0,2}(?:get|list|status|is-active|is-installed|exists|path|version|count|pluck)(?:\s|$)/;
 
 interface SiteTarget {
 	key: string;
@@ -43,7 +51,11 @@ async function targetOf( toolName: string, params: unknown ): Promise< SiteTarge
 			.sort( ( a, b ) => b.path.length - a.path.length )[ 0 ];
 		return site ? localTarget( site.path, site.name ) : undefined;
 	}
-	if ( ! LOCAL_SITE_CHANGES.has( toolName ) || typeof args.nameOrPath !== 'string' ) {
+	if (
+		! LOCAL_SITE_CHANGES.has( toolName ) ||
+		typeof args.nameOrPath !== 'string' ||
+		( toolName === 'wp_cli' && WP_CLI_READS.test( String( args.command ?? '' ) ) )
+	) {
 		return undefined;
 	}
 	try {

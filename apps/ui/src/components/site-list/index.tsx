@@ -31,11 +31,7 @@ import { Spinner } from '@/components/ui/spinner';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { VisuallyHidden } from '@/components/ui/visually-hidden';
 import { XdebugIcon } from '@/components/xdebug-icon';
-import {
-	useSessionsNeedingInput,
-	useSiteAgentActivity,
-	type SiteAgentActivity,
-} from '@/data/queries/use-agent-run';
+import { useSessionsNeedingInput, useSiteAgentActivity } from '@/data/queries/use-agent-run';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useSessions } from '@/data/queries/use-sessions';
 import {
@@ -95,19 +91,17 @@ const CHATS_PAGE_SIZE = 10;
 // Recent is a shortcut to the latest chats; every chat is also under its site.
 const RECENT_CHATS_LIMIT = 10;
 
-type SiteRowActivity = SiteAgentActivity | 'sync' | 'import';
+type SiteRowActivity = 'idle' | 'working' | 'sync' | 'import';
 
 const ACTIVITY_EXIT_DURATION_MS = 180;
 
 function SiteAgentActivityTooltip( {
 	label,
-	ariaLabel = label,
 	className,
 	childProvidesLabel = false,
 	children,
 }: {
 	label: string;
-	ariaLabel?: string;
 	className?: string;
 	childProvidesLabel?: boolean;
 	children?: ReactNode;
@@ -123,7 +117,7 @@ function SiteAgentActivityTooltip( {
 							className
 						) }
 						role={ childProvidesLabel ? undefined : 'status' }
-						aria-label={ childProvidesLabel ? undefined : ariaLabel }
+						aria-label={ childProvidesLabel ? undefined : label }
 					/>
 				}
 			>
@@ -153,8 +147,6 @@ function SiteAgentActivityIndicator( { activity }: { activity: SiteRowActivity }
 	const renderedActivity = activity === 'idle' ? exitingActivity : activity;
 	const isVisible = activity !== 'idle';
 	const workingLabel = __( 'Working…' );
-	const pendingQuestionLabel = __( 'Needs an answer' );
-	const pendingQuestionAriaLabel = __( 'Studio needs an answer.' );
 	const syncLabel = __( 'Syncing live site' );
 	const importLabel = __( 'Importing backup' );
 
@@ -173,13 +165,6 @@ function SiteAgentActivityIndicator( { activity }: { activity: SiteRowActivity }
 						label={ workingLabel }
 					/>
 				</SiteAgentActivityTooltip>
-			) : null }
-			{ renderedActivity === 'pending-question' ? (
-				<SiteAgentActivityTooltip
-					label={ pendingQuestionLabel }
-					ariaLabel={ pendingQuestionAriaLabel }
-					className={ styles.siteAgentActivityQuestion }
-				/>
 			) : null }
 			{ renderedActivity === 'sync' || renderedActivity === 'import' ? (
 				<SiteAgentActivityTooltip
@@ -643,7 +628,8 @@ function SiteSection( {
 			: pendingDirection === 'push' || pendingDirection === 'pull'
 			? 'sync'
 			: undefined;
-	const displayActivity = siteActivity ? siteActivity : agentActivity;
+	// A chat waiting on an answer shows under Needs input instead.
+	const displayActivity = siteActivity ?? ( agentActivity === 'working' ? 'working' : 'idle' );
 	const openSite = useOpenSite();
 	const handleOpenSite = () => {
 		onOpen?.();

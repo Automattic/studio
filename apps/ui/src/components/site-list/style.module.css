@@ -10,7 +10,6 @@
 	--site-list-chat-status-size: 14px;
 	--site-list-chat-status-start-offset: 0px;
 	--site-list-chat-status-gap: var(--site-list-icon-gap);
-	--site-list-pending-indicator-bg: var(--status-attention);
 	--site-list-sync-indicator-bg: var(--status-sync);
 	/* Row hover and selection. Declared here so every mount point gets it,
 	   resolved against whatever theme scope wraps the list. */
@@ -172,27 +171,6 @@
 	--thinking-cell-size: 2.1px;
 	--thinking-cell-gap: 1.68px;
 	--thinking-min-opacity: 0.45;
-}
-
-.siteAgentActivityQuestion {
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	isolation: isolate;
-}
-
-.siteAgentActivityQuestion::before {
-	content: '';
-	position: absolute;
-	inset-block-start: calc((var(--site-list-chat-status-size) - 8.5px) / 2);
-	inset-inline-start: calc((var(--site-list-chat-status-size) - 10px) / 2);
-	inline-size: 10px;
-	block-size: 8.5px;
-	z-index: -1;
-	clip-path: path(
-		'M 5 8.4 C 5.45 8.4 5.85 8.15 6.05 7.75 L 9.45 1.35 C 9.75 0.75 9.35 0.35 8.7 0.35 L 1.3 0.35 C 0.65 0.35 0.25 0.75 0.55 1.35 L 3.95 7.75 C 4.15 8.15 4.55 8.4 5 8.4 Z'
-	);
-	background-color: var(--site-list-pending-indicator-bg);
 }
 
 .siteAgentActivitySync {
@@ -493,10 +471,8 @@
 	opacity: 1;
 }
 
-.chatRow:hover .chat,
-.chatRow:has(:focus-visible) .chat,
-.chatRow[data-popup-open] .chat,
-.chatActive:not(.chatNested) .chat {
+.chatRow:has(.chatActions):is(:hover, :has(:focus-visible), [data-popup-open]) .chat,
+.chatActive:not(.chatNested):has(.chatActions) .chat {
 	padding-inline-end: calc(2 * var(--site-list-action-size) + var(--site-list-row-padding));
 }
 

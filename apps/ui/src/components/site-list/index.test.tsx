@@ -844,21 +844,13 @@ describe( 'SiteList', () => {
 		} );
 	} );
 
-	it( 'shows pending chat activity before the site name', () => {
+	it( 'leaves a pending question to Needs input, not the site row', () => {
 		useSiteAgentActivityMock.mockReturnValue( 'pending-question' );
 
 		render( <SiteList /> );
 
 		const stoppedSiteRow = screen.getByText( 'Stopped Site' ).closest( 'section' )!;
-		const indicator = within( stoppedSiteRow ).getByRole( 'status', {
-			name: 'Studio needs an answer.',
-		} );
-		const siteName = screen.getByText( 'Stopped Site' );
-
-		expect( indicator ).toBeInTheDocument();
-		expect( indicator.compareDocumentPosition( siteName ) & Node.DOCUMENT_POSITION_FOLLOWING ).toBe(
-			Node.DOCUMENT_POSITION_FOLLOWING
-		);
+		expect( within( stoppedSiteRow ).queryByRole( 'status' ) ).not.toBeInTheDocument();
 	} );
 
 	// Without a per-row indicator there is nothing to tell two concurrent imports

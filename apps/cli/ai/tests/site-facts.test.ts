@@ -101,7 +101,7 @@ it( 'adds to a tool result the facts the agent does not have yet and the ones no
 	const site = createSite( 'wp_' );
 	const siteNotes = createSiteNotes( { stated: new Map( [ [ site.root, await site.facts() ] ] ) } );
 	const notes = ( session = siteNotes ) => session.afterResult( site.root, '' );
-	const said = ( ...lines: string[] ) => lines.map( ( line ) => `Note: ${ line }` );
+	const said = ( ...lines: string[] ) => lines;
 	// The facts the Active site section stated.
 	expect( await notes() ).toEqual( [] );
 

@@ -133,7 +133,6 @@ export interface SiteNotes {
 /** One agent session's notes: sources that say a thing once keep that here. */
 export function createSiteNotes( options: SiteNotesOptions = {} ): SiteNotes {
 	const { beforeWrite, write, result } = sources( options );
-	const asNotes = ( lines: string[] ) => lines.map( ( line ) => `Note: ${ line }` );
 	return {
 		async beforeWrite( filePath ) {
 			// Unlike a note, a refusal that fails stops the write.
@@ -145,12 +144,10 @@ export function createSiteNotes( options: SiteNotesOptions = {} ): SiteNotes {
 		},
 		async afterWrite( filePath ) {
 			const file = resolveSiteFile( filePath );
-			return file
-				? asNotes( await collect( write.map( ( source ) => () => source( file ) ) ) )
-				: [];
+			return file ? await collect( write.map( ( source ) => () => source( file ) ) ) : [];
 		},
 		async afterResult( sitePath, text ) {
-			return asNotes( await collect( result.map( ( source ) => () => source( sitePath, text ) ) ) );
+			return collect( result.map( ( source ) => () => source( sitePath, text ) ) );
 		},
 	};
 }

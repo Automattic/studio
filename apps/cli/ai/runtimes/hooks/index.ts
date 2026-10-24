@@ -23,6 +23,7 @@ import { BlockValidationGate } from 'cli/ai/block-validation-gate';
 import { describeOpenProblems, OpenProblems, type OpenProblemsState } from 'cli/ai/open-problems';
 import { PostContentCheck, type PostSnapshot } from 'cli/ai/post-content-check';
 import { createSiteNotes } from 'cli/ai/site-notes';
+import { studioMessage, validationLines } from 'cli/ai/studio-message';
 
 export interface HookInput {
 	hook_event_name?: string;
@@ -136,17 +137,13 @@ export async function runFileToolHook(
 		}
 		return { notes, files: await gate.settle(), content: await postContent.settle() };
 	} ).catch( () => undefined );
-	const { summaries, problems } = checked?.files ?? { summaries: [], problems: [] };
-	const changedContent = checked?.content ?? { summaries: [], problems: [] };
-	const notes = checked?.notes ?? [];
-	const context = [
-		...[ ...summaries, ...changedContent.summaries ].map(
-			( line ) => `Block validation: ${ line }`
-		),
-		...problems,
-		...changedContent.problems,
-		...notes,
-	].join( '\n' );
+	const context =
+		checked &&
+		studioMessage( 'notes', [
+			...validationLines( checked.files ),
+			...validationLines( checked.content ),
+			...checked.notes,
+		] );
 	return context
 		? { hookSpecificOutput: { hookEventName: 'PostToolUse', additionalContext: context } }
 		: undefined;

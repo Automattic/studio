@@ -1,3 +1,4 @@
+import { studioMessage, validationLines } from 'cli/ai/studio-message';
 import { resolveSite } from 'cli/ai/tools/utils';
 import type { PostContentCheck } from 'cli/ai/post-content-check';
 import type { SiteNotes } from 'cli/ai/site-notes';
@@ -26,11 +27,8 @@ export async function runServedTool(
 	await postContent?.snapshot().catch( () => undefined );
 	// A call that fails can still have changed content.
 	const changedContent = async () => {
-		const { summaries, problems } = ( await postContent?.settle().catch( () => undefined ) ) ?? {
-			summaries: [],
-			problems: [],
-		};
-		return [ ...summaries.map( ( line ) => `Block validation: ${ line }` ), ...problems ];
+		const report = await postContent?.settle().catch( () => undefined );
+		return report ? validationLines( report ) : [];
 	};
 	try {
 		const result = await tool.rawHandler( args as never );
@@ -39,13 +37,11 @@ export async function runServedTool(
 			.map( ( part ) => ( part.type === 'text' ? part.text : '' ) )
 			.join( '\n' );
 		const site = await siteNamed( args );
-		const notes = [
+		const notes = studioMessage( 'notes', [
 			...changed,
 			...( site ? await siteNotes.afterResult( site.path, resultText ) : [] ),
 			await result.pending,
-		]
-			.filter( Boolean )
-			.join( '\n' );
+		] );
 		return {
 			content: notes
 				? [ ...result.content, { type: 'text' as const, text: notes } ]
@@ -56,8 +52,10 @@ export async function runServedTool(
 	} catch ( error ) {
 		const message = [
 			error instanceof Error ? error.message : String( error ),
-			...( await changedContent() ),
-		].join( '\n' );
+			studioMessage( 'notes', await changedContent() ),
+		]
+			.filter( Boolean )
+			.join( '\n' );
 		return {
 			content: [ { type: 'text' as const, text: message } ],
 			isError: true,

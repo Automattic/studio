@@ -16,6 +16,7 @@ import {
 } from 'cli/ai/front-page-template';
 import { readSavedCopies } from 'cli/ai/saved-copies';
 import { readWordPressSite } from 'cli/ai/site-database';
+import { studioMessage } from 'cli/ai/studio-message';
 
 export interface OpenProblemsState {
 	// The sites changed, whose state is checked at the end of the turn.
@@ -70,12 +71,12 @@ export class OpenProblems {
  * summaries it adds; the user does not see it.
  */
 export function describeOpenProblems( problems: string[] ): string {
-	return [
-		'<studio-checks>',
-		'Studio checked the sites this turn changed:',
-		...problems.map( ( problem ) => `- ${ problem }` ),
-		'</studio-checks>',
-	].join( '\n' );
+	return (
+		studioMessage( 'checks', [
+			'Studio checked the sites this turn changed:',
+			...problems.map( ( problem ) => `- ${ problem }` ),
+		] ) ?? ''
+	);
 }
 
 const bySession = new WeakMap< object, OpenProblems >();

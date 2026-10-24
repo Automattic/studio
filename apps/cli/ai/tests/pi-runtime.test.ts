@@ -75,8 +75,8 @@ vi.mock( 'cli/ai/site-notes', () => ( {
 	createSiteNotes: () => ( {
 		beforeWrite: async ( file: string ) =>
 			file.endsWith( 'refused.php' ) ? `Not run: ${ file }` : undefined,
-		afterWrite: async ( file: string ) => [ `Note: wrote ${ file }` ],
-		afterResult: async ( site: string ) => [ `Note: result on ${ site }` ],
+		afterWrite: async ( file: string ) => [ `wrote ${ file }` ],
+		afterResult: async ( site: string ) => [ `result on ${ site }` ],
 	} ),
 } ) );
 
@@ -534,7 +534,7 @@ describe( 'pi runtime', () => {
 		);
 		expect( await text( { path: 'a/style.css', content: '' } ) ).toEqual( [
 			'',
-			`Note: wrote ${ file }\nNote: result on /sites/a`,
+			`<studio-notes>\nwrote ${ file }\nresult on /sites/a\n</studio-notes>`,
 		] );
 		const remote = await run( {
 			...local!,
@@ -544,7 +544,7 @@ describe( 'pi runtime', () => {
 			( await remote.execute( 'w', { path: 'a/style.css', content: '' } ) ).content.map(
 				( part ) => part.text
 			)
-		).toEqual( [ '', `Note: wrote ${ file }` ] );
+		).toEqual( [ '', `<studio-notes>\nwrote ${ file }\n</studio-notes>` ] );
 	} );
 
 	it( 'reports the post content a call changed, from a snapshot taken before it', async () => {
@@ -556,13 +556,15 @@ describe( 'pi runtime', () => {
 		expect( mocks.steps ).toEqual( [ 'snapshot', 'Read', 'settle' ] );
 		expect( result.content.map( ( part ) => part.text ) ).toEqual( [
 			'',
-			'Block validation: page 9 changed\npage 9 problem',
+			'<studio-notes>\nBlock validation: page 9 changed\npage 9 problem\n</studio-notes>',
 		] );
 		// A failed call reports what it changed too.
 		mocks.failNext = true;
 		await expect(
 			getCreatedTool( 'Read' ).execute( 'r', { path: 'a/style.css' } )
-		).rejects.toThrow( 'exit 1\nBlock validation: page 9 changed\npage 9 problem' );
+		).rejects.toThrow(
+			'exit 1\n<studio-notes>\nBlock validation: page 9 changed\npage 9 problem\n</studio-notes>'
+		);
 		mocks.postChanges = { summaries: [], problems: [] };
 	} );
 

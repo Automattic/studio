@@ -39,11 +39,11 @@ it( 'adds the declared settings of the core blocks a result shows, from the site
 	expect( await notes( {} ) ).toEqual( [] );
 	expect( await notes( { nameOrPath: 'Missing Site' } ) ).toEqual( [] );
 	expect( await notes( { nameOrPath: 'My Site' } ) ).toEqual( [
-		`Note: core/navigation settings, declared in ${ blockJson
+		`<studio-notes>\ncore/navigation settings, declared in ${ blockJson
 			.split( path.sep )
 			.join(
 				'/'
-			) }: submenuVisibility ("hover"|"click").\nNote: Address: http://localhost:8881 (home_url()).`,
+			) }: submenuVisibility ("hover"|"click").\nAddress: http://localhost:8881 (home_url()).\n</studio-notes>`,
 	] );
 	// Once per MCP session, as once per Studio Code turn.
 	expect( await notes( { nameOrPath: 'My Site' } ) ).toEqual( [] );
@@ -73,7 +73,7 @@ it( 'reports the block validation of post content the call changed, on any site'
 	expect( result.content.map( ( part ) => ( part.type === 'text' ? part.text : '' ) ) ).toEqual( [
 		'Success: Updated post 9.',
 		expect.stringMatching(
-			/^Block validation: Bakery page 9 "": core\/html policy failed\nBakery page 9 "": 1 core\/html block\(s\) must become editable blocks/
+			/^<studio-notes>\nBlock validation: Bakery page 9 "": core\/html policy failed\nBakery page 9 "": 1 core\/html block\(s\) must become editable blocks/
 		),
 	] );
 
@@ -95,6 +95,6 @@ it( 'reports the block validation of post content the call changed, on any site'
 	const failed = await runServedTool( failing, {}, createSiteNotes(), new PostContentCheck() );
 	expect( failed.isError ).toBe( true );
 	expect( JSON.stringify( failed.content ) ).toMatch(
-		/Command exited with code 1\\nBlock validation: Bakery page 9 \\"\\": core\/html policy failed/
+		/Command exited with code 1\\n<studio-notes>\\nBlock validation: Bakery page 9 \\"\\": core\/html policy failed/
 	);
 } );

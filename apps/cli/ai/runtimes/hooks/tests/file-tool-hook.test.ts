@@ -90,8 +90,10 @@ it( 'adds to a write the block validation and what WordPress renders instead of 
 		hookSpecificOutput: {
 			hookEventName: 'PostToolUse',
 			additionalContext: [
+				'<studio-notes>',
 				'Block validation: parts/header.html: 1/1 blocks valid',
-				'Note: WordPress renders the template part header from its copy saved in the Site Editor (post 14), not from this file.',
+				'WordPress renders the template part header from its copy saved in the Site Editor (post 14), not from this file.',
+				'</studio-notes>',
 			].join( '\n' ),
 		},
 	} );
@@ -175,7 +177,10 @@ it.each( [
 			);
 		}
 		expect( output?.hookSpecificOutput ).toEqual(
-			note && { hookEventName: 'PostToolUse', additionalContext: `Note: ${ note }` }
+			note && {
+				hookEventName: 'PostToolUse',
+				additionalContext: `<studio-notes>\n${ note }\n</studio-notes>`,
+			}
 		);
 	}
 );

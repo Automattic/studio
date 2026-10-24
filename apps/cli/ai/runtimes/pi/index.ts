@@ -49,6 +49,7 @@ import { describeOpenProblems, getOpenProblems } from 'cli/ai/open-problems';
 import { PostContentCheck } from 'cli/ai/post-content-check';
 import { readActiveSiteFacts } from 'cli/ai/site-facts';
 import { createSiteNotes, type SiteNotes } from 'cli/ai/site-notes';
+import { studioMessage, validationLines } from 'cli/ai/studio-message';
 import { buildSystemPrompt } from 'cli/ai/system-prompt';
 import { resolveStudioToolDefinitions } from 'cli/ai/tools';
 import { createAskUserQuestionTool } from 'cli/ai/tools/ask-user-question';
@@ -750,30 +751,25 @@ function toToolDefinition(
 			}
 			// Block markup written since the last check is validated before any
 			// tool puts content on the site or renders it.
-			let validationReport: string | undefined;
-			if ( BLOCK_VALIDATION_GATED_TOOLS.has( tool.name ) ) {
-				const { summaries, problems } = await blockValidationGate.settle();
-				validationReport =
-					[ ...summaries.map( ( line ) => `Block validation: ${ line }` ), ...problems ].join(
-						'\n'
-					) || undefined;
-			}
+			const validationReport = BLOCK_VALIDATION_GATED_TOOLS.has( tool.name )
+				? validationLines( await blockValidationGate.settle() )
+				: [];
 			await postContent.snapshot().catch( () => undefined );
 			// A call that fails can still have changed content, as a shell
 			// command does that exits non-zero after saving a page.
 			const changedContent = async () => {
-				const { summaries, problems } = await postContent
-					.settle()
-					.catch( () => ( { summaries: [], problems: [] } ) );
-				return [ ...summaries.map( ( line ) => `Block validation: ${ line }` ), ...problems ];
+				return validationLines(
+					await postContent.settle().catch( () => ( { summaries: [], problems: [] } ) )
+				);
 			};
 			// The validation report was taken from the gate, so it rides on a failure too.
 			const result = await tool
 				.execute( toolCallId, params, signal, onUpdate )
 				.catch( async ( error: unknown ) => {
-					const report = [ validationReport, ...( await changedContent() ) ]
-						.filter( Boolean )
-						.join( '\n' );
+					const report = studioMessage( 'notes', [
+						...validationReport,
+						...( await changedContent() ),
+					] );
 					if ( ! report ) {
 						throw error;
 					}
@@ -793,16 +789,13 @@ function toToolDefinition(
 			const resultText = result.content
 				.map( ( part ) => ( part.type === 'text' ? part.text : '' ) )
 				.join( '\n' );
-			const reports =
-				[
-					validationReport,
-					...changed,
-					...( writtenFile ? await siteNotes.afterWrite( writtenFile ) : [] ),
-					...( localSite ? await siteNotes.afterResult( localSite, resultText ) : [] ),
-					pendingWork.takeReports(),
-				]
-					.filter( Boolean )
-					.join( '\n' ) || undefined;
+			const reports = studioMessage( 'notes', [
+				...validationReport,
+				...changed,
+				...( writtenFile ? await siteNotes.afterWrite( writtenFile ) : [] ),
+				...( localSite ? await siteNotes.afterResult( localSite, resultText ) : [] ),
+				pendingWork.takeReports(),
+			] );
 			return reports
 				? { ...result, content: [ ...result.content, { type: 'text', text: reports } ] }
 				: result;

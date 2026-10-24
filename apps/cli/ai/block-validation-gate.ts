@@ -56,36 +56,6 @@ function hash( content: string ): string {
 	return createHash( 'sha1' ).update( content ).digest( 'hex' );
 }
 
-function classTokens( html: string ): Set< string > {
-	const tokens = new Set< string >();
-	for ( const match of html.matchAll( /\sclass="([^"]*)"/g ) ) {
-		match[ 1 ].split( /\s+/ ).forEach( ( token ) => token && tokens.add( token ) );
-	}
-	return tokens;
-}
-
-/** Every block comment attribute path, e.g. `core/group:layout.type`. */
-function attributePaths( html: string ): Set< string > {
-	const paths = new Set< string >();
-	const walk = ( prefix: string, value: unknown ) => {
-		if ( value && typeof value === 'object' && ! Array.isArray( value ) ) {
-			for ( const [ key, child ] of Object.entries( value ) ) {
-				walk( prefix ? `${ prefix }.${ key }` : key, child );
-			}
-		} else if ( ! prefix.endsWith( 'className' ) ) {
-			paths.add( prefix );
-		}
-	};
-	for ( const match of html.matchAll( /<!--\s+wp:([a-z0-9/-]+)\s+(\{[\s\S]*?\})\s+\/?-->/g ) ) {
-		try {
-			walk( `${ match[ 1 ] }:`, JSON.parse( match[ 2 ] ) );
-		} catch {
-			// Unparseable attributes are the editor's to report.
-		}
-	}
-	return paths;
-}
-
 function oneLine( html: string, length: number ): string {
 	const flat = html.replace( /\s+/g, ' ' ).trim();
 	return flat.length > length ? `${ flat.slice( 0, length ) }…` : flat;
@@ -95,14 +65,19 @@ function oneLine( html: string, length: number ): string {
  * Each invalid block with every mismatch the editor found, and the HTML the
  * block saves from its comment attributes — the markup that validates.
  */
-function describeInvalidBlocks( report: ValidationReportBase ): string[] {
+function describeInvalidBlocks(
+	report: ValidationReportBase,
+	lost = new Map< string, string >()
+): string[] {
 	return report.results
-		.filter( ( result ) => ! result.isValid )
+		.filter( ( result ) => ( lost.size ? lost.has( result.place ?? '' ) : ! result.isValid ) )
 		.slice( 0, 5 )
 		.flatMap( ( result ) => [
 			`  - ${ result.blockName }: ${
-				result.issues.slice( 0, 3 ).join( '; ' ) || 'does not match what the block saves'
-			}`,
+				lost.has( result.place ?? '' )
+					? `the editor's fix would ${ lost.get( result.place ?? '' ) }; `
+					: ''
+			}${ result.issues.slice( 0, 3 ).join( '; ' ) || 'does not match what the block saves' }`,
 			...( result.originalContent
 				? [ `    written: ${ oneLine( result.originalContent, 700 ) }` ]
 				: [] ),
@@ -170,6 +145,7 @@ export async function validateBlockMarkupFile(
 		summary: `${ result.summary }; saved through the block editor, which ${ notes.join(
 			' and '
 		) }`,
+		...( result.problem && { problem: result.problem } ),
 		fixedContent: result.fixedContent,
 	};
 }
@@ -223,38 +199,32 @@ export async function validateBlockMarkup(
 		};
 	}
 
-	const lostText = ! fix.sameText;
-	const fixedClasses = classTokens( fix.fixedContent );
-	const droppedClasses = [ ...classTokens( content ) ].filter(
-		( token ) => ! fixedClasses.has( token )
-	);
-	const fixedAttributes = attributePaths( fix.fixedContent );
-	const droppedAttributes = [ ...attributePaths( content ) ].filter(
-		( attribute ) => ! fixedAttributes.has( attribute )
-	);
-	if ( ! lostText && droppedClasses.length === 0 && droppedAttributes.length === 0 ) {
-		const presets = await storePaletteColors( fix.fixedContent, siteUrl, palette );
-		return {
-			summary: valid,
-			fixedContent: presets.content,
-			invalidBlocks: report.invalidBlocks,
-			...( presets.colors.length && { paletteColors: presets.colors } ),
-		};
+	// A block stays as written when the fix loses something from it or from a
+	// block it is inside; the editor's fix is saved for the rest.
+	const lost = new Map( fix.losses.map( ( loss ) => [ loss.place, loss.lost ] ) );
+	const keptAsWritten = ( place = '' ) =>
+		[ ...lost.keys() ].some( ( at ) => place === at || place.startsWith( `${ at }/` ) );
+	const fixedBlocks = report.results.filter(
+		( result ) => ! result.isValid && ! keptAsWritten( result.place )
+	).length;
+	const presets = fixedBlocks
+		? await storePaletteColors( fix.fixedContent, siteUrl, palette )
+		: undefined;
+	const saved = presets && {
+		fixedContent: presets.content,
+		invalidBlocks: fixedBlocks,
+		...( presets.colors.length && { paletteColors: presets.colors } ),
+	};
+	if ( lost.size === 0 ) {
+		return { summary: valid, ...saved };
 	}
 	return {
-		summary: `${ label }: ${ report.invalidBlocks } invalid block(s)`,
+		summary: `${ label }: ${ report.invalidBlocks - fixedBlocks } invalid block(s)`,
 		problem: [
-			`${ label }: ${
-				report.invalidBlocks
-			} block(s) do not match what the block saves, and the editor's fix would ${
-				lostText
-					? 'change the text'
-					: droppedClasses.length
-					? `drop the classes ${ droppedClasses.join( ' ' ) }`
-					: `drop the attributes ${ droppedAttributes.join( ', ' ) }`
-			}. Change the HTML to what the block saves, or change the comment attributes the block saves it from (className and style carry extra classes and styles):`,
-			...describeInvalidBlocks( report ),
+			`${ label }: ${ lost.size } block(s) do not match what the block saves, and the editor's fix would lose something from them. Change them to what the block saves, or change the comment attributes the block saves them from (className and style carry extra classes and styles):`,
+			...describeInvalidBlocks( report, lost ),
 		].join( '\n' ),
+		...saved,
 	};
 }
 

@@ -40,13 +40,26 @@ describe.runIf( siteUrl )( 'validating in the block editor (live)', () => {
 				'<p class="eyebrow has-red-color has-text-color has-small-font-size" style="font-weight:700">Eyebrow</p>',
 			],
 		},
+		{
+			name: "a paragraph's textAlign moves to where WordPress 7.0 reads it",
+			markup: paragraph( '{"textAlign":"center"}', '<p>Centered</p>' ),
+			fixed: [ '{"style":{"typography":{"textAlign":"center"}}}', 'has-text-align-center' ],
+		},
+		{
+			name: "an attribute at the block's default is kept",
+			markup: group(
+				'{}',
+				'<!-- wp:site-title {"level":1} /-->\n<!-- wp:paragraph -->\n<p>Hi</p>\n<!-- /wp:paragraph -->'
+			),
+			fixed: [ '<div class="wp-block-group"><!-- wp:site-title /-->' ],
+		},
 	] )(
 		'$name',
 		async ( { markup, fixed } ) => {
 			const report = await validateBlocks( markup, siteUrl! );
 			expect( report.error ).toBeUndefined();
 			expect( report.proposedFix?.report.invalidBlocks ).toBe( 0 );
-			expect( report.proposedFix?.sameText ).toBe( true );
+			expect( report.proposedFix?.losses ).toEqual( [] );
 			for ( const text of fixed ) {
 				expect( report.proposedFix?.fixedContent ).toContain( text );
 			}
@@ -56,16 +69,20 @@ describe.runIf( siteUrl )( 'validating in the block editor (live)', () => {
 
 	it.each( [
 		{
-			name: 'a block that renders as written',
+			name: 'leaves it out of the fix',
 			html: '<div class="wp-block-cover"><span aria-hidden="true" class="wp-block-cover__background has-background-dim"></span><div class="wp-block-cover__inner-container"></div></div>',
+			losses: [],
 		},
 		{
-			name: 'a block that renders the value too',
+			name: 'keeps the block as written when it renders the value too',
 			html: '<div class="wp-block-cover" style="min-height:100dvh"><span aria-hidden="true" class="wp-block-cover__background has-background-dim"></span><div class="wp-block-cover__inner-container"></div></div>',
+			losses: [
+				{ place: '/0', blockName: 'core/cover', lost: 'drop the styles min-height:100dvh' },
+			],
 		},
 	] )(
-		'reports an attribute of the wrong type, and leaves it out of the fix: $name',
-		async ( { html } ) => {
+		'reports an attribute of the wrong type, and $name',
+		async ( { html, losses } ) => {
 			const report = await validateBlocks(
 				`<!-- wp:cover {"minHeight":"100dvh"} -->\n${ html }\n<!-- /wp:cover -->`,
 				siteUrl!
@@ -73,8 +90,8 @@ describe.runIf( siteUrl )( 'validating in the block editor (live)', () => {
 			expect( report.results[ 0 ].issues ).toContain(
 				'core/cover\'s "minHeight" is of type number, so WordPress ignores "100dvh".'
 			);
+			expect( report.proposedFix?.losses ).toEqual( losses );
 			expect( report.proposedFix?.report.invalidBlocks ).toBe( 0 );
-			expect( report.proposedFix?.fixedContent ).not.toContain( '100dvh' );
 		},
 		60_000
 	);
@@ -95,8 +112,45 @@ describe.runIf( siteUrl )( 'validating in the block editor (live)', () => {
 			group( '{}', paragraph( '{}', '<p>A &mdash; B&nbsp;C</p>' ) ),
 			siteUrl!
 		);
-		expect( report.proposedFix?.sameText ).toBe( true );
+		expect( report.proposedFix?.losses ).toEqual( [] );
 	}, 60_000 );
+
+	it.each( [
+		{
+			name: 'its classes',
+			written:
+				'<!-- wp:image -->\n<figure class="wp-block-image"><img class="photo" src="https://example.com/a.png" alt=""/></figure>\n<!-- /wp:image -->',
+			blockName: 'core/image',
+			lost: 'drop the classes photo',
+		},
+		{
+			name: 'its styles',
+			written: paragraph( '{}', '<p style="position:sticky;top:0">Eyebrow</p>' ),
+			blockName: 'core/paragraph',
+			lost: 'drop the styles position:sticky; top:0px',
+		},
+		{
+			name: 'its text',
+			written: paragraph( '{}', '<div>Lost words</div>' ),
+			blockName: 'core/paragraph',
+			lost: 'change the text',
+		},
+	] )(
+		'names the block whose fix would lose $name, keeps it as written and saves the fix for the rest',
+		async ( { written, blockName, lost } ) => {
+			const markup = group(
+				'{}',
+				`${ paragraph( '{"textAlign":"center"}', '<p>Centered</p>' ) }\n${ written }`
+			);
+			const report = await validateBlocks( markup, siteUrl! );
+			expect( report.proposedFix?.losses ).toEqual( [ { place: '/0/1', blockName, lost } ] );
+			expect( report.proposedFix?.fixedContent ).toContain( 'has-text-align-center' );
+			expect( report.proposedFix?.fixedContent ).toContain(
+				`-->\n${ written.split( '\n' )[ 1 ] }\n<!--`
+			);
+		},
+		60_000
+	);
 } );
 
 describe.runIf( siteUrl )( 'storing palette colors as presets (live)', () => {

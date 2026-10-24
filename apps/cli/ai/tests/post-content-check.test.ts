@@ -29,7 +29,7 @@ const losslessFix: ValidationReport = {
 	results: [
 		{ blockName: 'core/group', isValid: false, issues: [ 'mismatch' ], originalContent: '' },
 	],
-	proposedFix: { fixedContent: WRAPPED_GROUP, report: valid, sameText: true },
+	proposedFix: { fixedContent: WRAPPED_GROUP, report: valid, losses: [] },
 };
 
 let fixture: ReturnType< typeof createSite >;
@@ -106,6 +106,31 @@ describe( 'post content changes', () => {
 		);
 		expect( readFileSync( path.join( fixture.root, 'tmp/page-9.html' ), 'utf8' ) ).toBe(
 			WRAPPED_GROUP
+		);
+	} );
+
+	it( 'names the blocks the saved fix keeps as written', async () => {
+		vi.mocked( validateBlocks ).mockResolvedValue( {
+			...losslessFix,
+			invalidBlocks: 2,
+			results: [
+				{ ...losslessFix.results[ 0 ], place: '/0' },
+				{ ...losslessFix.results[ 0 ], place: '/1', issues: [ 'sticky' ] },
+			],
+			proposedFix: {
+				...losslessFix.proposedFix!,
+				losses: [
+					{ place: '/1', blockName: 'core/group', lost: 'drop the styles position:sticky' },
+				],
+			},
+		} );
+		const check = checkPosts();
+		await check.snapshot();
+		fixture.edit( 9, UNWRAPPED_GROUP );
+		const { problems } = await check.settle();
+		expect( problems[ 0 ] ).toContain( 'tmp/page-9.html' );
+		expect( problems[ 0 ] ).toContain(
+			"core/group: the editor's fix would drop the styles position:sticky; sticky"
 		);
 	} );
 

@@ -2,6 +2,8 @@ import { EditorPage } from 'cli/ai/browser-utils';
 
 interface BlockValidationResult {
 	blockName: string;
+	/** The block's place in the content, as `/0/2` for the third block in the first. */
+	place?: string;
 	isValid: boolean;
 	issues: string[];
 	originalContent: string;
@@ -17,10 +19,18 @@ export interface ValidationReportBase {
 }
 
 export interface BlockFixProposal {
+	/** What the editor saves for every block that loses nothing; the rest stay as written. */
 	fixedContent: string;
 	report: ValidationReportBase;
-	/** Whether the fix shows the same text, read as the browser reads it. */
-	sameText: boolean;
+	/** The blocks the fix loses something from, and what. */
+	losses: BlockLoss[];
+}
+
+export interface BlockLoss {
+	place: string;
+	blockName: string;
+	/** What the fix loses, as `drop the styles position:sticky`. */
+	lost: string;
 }
 
 export interface ValidationReport extends ValidationReportBase {
@@ -218,10 +228,12 @@ export async function validateBlocks(
 			function validateContent( blockHtml: string ) {
 				const blocks = wpBlocks.parse( blockHtml );
 				const results: any[] = [];
+				// Each block as written, by place, for a block that stays as written.
+				const written = new Map< string, any >();
 
 				// `raw` is the block as written, from the default parser; it is
 				// only checked when it is the same block type.
-				function validateRecursive( block: any, raw?: any ) {
+				function validateRecursive( block: any, raw: any, place: string ) {
 					if ( ! block.name ) {
 						return;
 					}
@@ -300,8 +312,10 @@ export async function validateBlocks(
 						issues = [ ...issues, ...attributeProblems ];
 					}
 
+					written.set( place, raw );
 					results.push( {
 						blockName: block.name,
+						place,
 						isValid,
 						issues,
 						originalContent: block.originalContent || '',
@@ -309,7 +323,11 @@ export async function validateBlocks(
 					} );
 
 					( block.innerBlocks ?? [] ).forEach( ( inner: any, i: number ) =>
-						validateRecursive( inner, sameBlock ? raw.innerBlocks?.[ i ] : undefined )
+						validateRecursive(
+							inner,
+							sameBlock ? raw.innerBlocks?.[ i ] : undefined,
+							`${ place }/${ i }`
+						)
 					);
 				}
 
@@ -332,13 +350,17 @@ export async function validateBlocks(
 						} );
 					}
 				}
-				blocks
-					.filter( ( block: any ) => block.name !== 'core/freeform' )
-					.forEach( ( block: any, i: number ) => validateRecursive( block, rawBlocks[ i ] ) );
+				let named = 0;
+				blocks.forEach( ( block: any, i: number ) => {
+					if ( block.name !== 'core/freeform' ) {
+						validateRecursive( block, rawBlocks[ named++ ], `/${ i }` );
+					}
+				} );
 
 				const validCount = results.filter( ( r: any ) => r.isValid ).length;
 				return {
 					blocks,
+					written,
 					report: {
 						totalBlocks: results.length,
 						validBlocks: validCount,
@@ -378,6 +400,22 @@ export async function validateBlocks(
 					if ( withComment[ key ] === undefined && blockType.attributes?.[ key ] ) {
 						withComment[ key ] = value;
 					}
+				}
+				// WordPress 7.0 moved `textAlign` to the typography.textAlign block
+				// support, and the blocks that declared it migrate it there
+				// (migrate-text-align in @wordpress/block-library). A block with the
+				// support that never declared it reads it from there the same way.
+				const textAlign = sameBlock ? raw.attrs?.textAlign : undefined;
+				if (
+					typeof textAlign === 'string' &&
+					! blockType.attributes?.textAlign &&
+					blockType.supports?.typography?.textAlign &&
+					withComment.style?.typography?.textAlign === undefined
+				) {
+					withComment.style = {
+						...withComment.style,
+						typography: { ...withComment.style?.typography, textAlign },
+					};
 				}
 				const inner = fixedInnerBlocks.length > 0 ? fixedInnerBlocks : undefined;
 
@@ -422,17 +460,84 @@ export async function validateBlocks(
 			}
 
 			const fixed = validateContent( fixedContent );
-			// Entities and whitespace the serializer rewrites are the same text.
-			const textOf = ( markup: string ) =>
-				( new DOMParser().parseFromString( markup, 'text/html' ).body.textContent ?? '' )
-					.replace( /\s+/g, ' ' )
-					.trim();
+
+			// A block's own markup, without its inner blocks: its classes, inline
+			// style declarations and text, as the browser reads them.
+			function ownMarkup( markup: string ) {
+				const body = new DOMParser().parseFromString( markup, 'text/html' ).body;
+				const classes = new Set< string >();
+				const styles = new Set< string >();
+				body.querySelectorAll< HTMLElement >( '*' ).forEach( ( element ) => {
+					element.classList.forEach( ( name ) => classes.add( name ) );
+					// As the browser reads each declaration, so .85rem is 0.85rem.
+					for ( const property of Array.from( element.style ) ) {
+						styles.add( `${ property }:${ element.style.getPropertyValue( property ) }` );
+					}
+				} );
+				// Entities and whitespace the serializer rewrites are the same text.
+				return { classes, styles, text: ( body.textContent ?? '' ).replace( /\s+/g, ' ' ).trim() };
+			}
+
+			// What the fix loses from each block as written, block by block: its
+			// text, classes and styles. Its attributes it keeps, being made from
+			// them, apart from the editor's own migrations.
+			function losses( written: any[], fixes: any[], at = '' ): any[] {
+				return written.flatMap( ( block: any, i: number ) => {
+					const place = `${ at }/${ i }`;
+					const fix = fixes[ i ];
+					if ( ! block.name || ! fix || fix.name !== block.name ) {
+						return [];
+					}
+					const before = ownMarkup( block.originalContent ?? '' );
+					const after = ownMarkup( fix.originalContent ?? '' );
+					const missing = ( names: Set< string >, kept: Set< string > ) =>
+						[ ...names ].filter( ( name ) => ! kept.has( name ) );
+					const classes = missing( before.classes, after.classes );
+					const styles = missing( before.styles, after.styles );
+					const lost = [
+						before.text !== after.text ? 'change the text' : '',
+						classes.length ? `drop the classes ${ classes.join( ' ' ) }` : '',
+						styles.length ? `drop the styles ${ styles.join( '; ' ) }` : '',
+					].filter( Boolean );
+					return [
+						...( lost.length
+							? [
+									{
+										place,
+										blockName: block.name,
+										lost: lost.join( ' and ' ),
+									},
+							  ]
+							: [] ),
+						...losses( block.innerBlocks ?? [], fix.innerBlocks ?? [], place ),
+					];
+				} );
+			}
+
+			// The fix for every block that loses nothing. A block that would lose
+			// something stays as written, inner blocks and all: the serializer
+			// keeps a block that does not validate from its source.
+			const lossList = losses( initial.blocks, fixed.blocks );
+			const lossy = new Set( lossList.map( ( loss: any ) => loss.place ) );
+			function lossless( fixes: any[], at = '' ): any[] {
+				return fixes.map( ( fix: any, i: number ) => {
+					const place = `${ at }/${ i }`;
+					const raw = lossy.has( place ) && initial.written.get( place );
+					return raw
+						? { ...fix, isValid: false, __unstableBlockSource: raw }
+						: { ...fix, innerBlocks: lossless( fix.innerBlocks ?? [], place ) };
+				} );
+			}
+			const losslessContent = lossList.length
+				? wpBlocks.serialize( lossless( fixed.blocks ) )
+				: fixedContent;
+
 			return {
 				report: initial.report,
 				proposedFix: {
-					fixedContent,
+					fixedContent: losslessContent,
 					report: fixed.report,
-					sameText: textOf( fixedContent ) === textOf( html ),
+					losses: lossList,
 				},
 			};
 			/* eslint-enable @typescript-eslint/no-explicit-any */
@@ -444,7 +549,7 @@ export async function validateBlocks(
 			report.proposedFix = {
 				fixedContent: validation.proposedFix.fixedContent,
 				report: validation.proposedFix.report as ValidationReportBase,
-				sameText: validation.proposedFix.sameText,
+				losses: validation.proposedFix.losses,
 			};
 		}
 

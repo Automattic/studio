@@ -88,11 +88,14 @@ async function validatePost( site: SiteData, post: Row ) {
 		summary: result.invalidBlocks
 			? `${ label }: ${ result.invalidBlocks } invalid block(s)`
 			: result.summary,
-		problem: `${ label }: the block editor's save ${ saves.join(
-			' and '
-		) }, losing nothing; it is saved in ${ shellPath }. Apply it in the site's folder with \`wp post update ${
-			post.id
-		} ${ shellPath }\`.`,
+		problem: [
+			`${ label }: the block editor's save ${ saves.join(
+				' and '
+			) }, losing nothing; it is saved in ${ shellPath }. Apply it in the site's folder with \`wp post update ${
+				post.id
+			} ${ shellPath }\`.`,
+			...( result.problem ? [ result.problem ] : [] ),
+		].join( '\n' ),
 	};
 }
 

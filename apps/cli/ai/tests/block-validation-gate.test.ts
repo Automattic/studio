@@ -8,7 +8,12 @@ import {
 	isBlockMarkupFile,
 	validateBlockMarkupFile,
 } from 'cli/ai/block-validation-gate';
-import { storePaletteColors, validateBlocks, type ValidationReport } from 'cli/ai/block-validator';
+import {
+	storePaletteColors,
+	validateBlocks,
+	type BlockLoss,
+	type ValidationReport,
+} from 'cli/ai/block-validator';
 import { OpenProblems } from 'cli/ai/open-problems';
 
 vi.mock( 'cli/ai/block-validator', () => ( {
@@ -25,27 +30,24 @@ function write( relativePath: string, content: string ) {
 	return file;
 }
 
-function invalidWithFix(
-	fixedContent: string,
-	fixValid = true,
-	sameText = true
-): ValidationReport {
+function invalidWithFix( fixedContent: string, losses: BlockLoss[] = [] ): ValidationReport {
 	return {
 		totalBlocks: 1,
 		validBlocks: 0,
 		invalidBlocks: 1,
 		results: [
-			{ blockName: 'core/paragraph', isValid: false, issues: [ 'mismatch' ], originalContent: '' },
+			{
+				blockName: 'core/paragraph',
+				place: '/0',
+				isValid: false,
+				issues: [ 'mismatch' ],
+				originalContent: '',
+			},
 		],
 		proposedFix: {
 			fixedContent,
-			sameText,
-			report: {
-				totalBlocks: 1,
-				validBlocks: fixValid ? 1 : 0,
-				invalidBlocks: fixValid ? 0 : 1,
-				results: [],
-			},
+			losses,
+			report: { totalBlocks: 1, validBlocks: 1, invalidBlocks: 0, results: [] },
 		},
 	};
 }
@@ -113,18 +115,33 @@ describe( 'validating a file', () => {
 		expect( result.fixedContent ).toBe( fixed );
 	} );
 
-	it( 'refuses a fix that would drop classes, and says what to change', async () => {
-		const file = write(
-			'tmp/home.html',
-			'<!-- wp:paragraph --><p class="eyebrow">Hello</p><!-- /wp:paragraph -->'
-		);
-		vi.mocked( validateBlocks ).mockResolvedValue(
-			invalidWithFix( '<!-- wp:paragraph -->\n<p>Hello</p>\n<!-- /wp:paragraph -->' )
-		);
+	it( 'saves the fix for the blocks that lose nothing, and names the blocks that would', async () => {
+		const file = write( 'tmp/home.html', `${ original }\n${ original }` );
+		const report = invalidWithFix( `${ fixed }\n${ original }`, [
+			{ place: '/1', blockName: 'core/paragraph', lost: 'drop the classes eyebrow' },
+		] );
+		report.invalidBlocks = 2;
+		report.results.push( { ...report.results[ 0 ], place: '/1', issues: [ 'second' ] } );
+		vi.mocked( validateBlocks ).mockResolvedValue( report );
 		const result = await validateBlockMarkupFile( file, 'http://localhost:8881' );
-		expect( result.problem ).toContain( 'drop the classes eyebrow' );
-		expect( result.problem ).toContain( 'className' );
-		expect( readFileSync( file, 'utf8' ) ).toContain( 'class="eyebrow"' );
+		expect( result.fixedContent ).toBe( `${ fixed }\n${ original }` );
+		expect( result.summary ).toBe(
+			'tmp/home.html: 1 invalid block(s); saved through the block editor, which fixes 1 block(s)'
+		);
+		expect( result.problem ).toContain(
+			"core/paragraph: the editor's fix would drop the classes eyebrow; second"
+		);
+		expect( result.problem ).not.toContain( 'mismatch' );
+	} );
+
+	it( 'saves nothing when the fix itself does not validate', async () => {
+		const file = write( 'tmp/home.html', original );
+		const report = invalidWithFix( fixed );
+		report.proposedFix!.report.invalidBlocks = 1;
+		vi.mocked( validateBlocks ).mockResolvedValue( report );
+		const result = await validateBlockMarkupFile( file, 'http://localhost:8881' );
+		expect( result.fixedContent ).toBeUndefined();
+		expect( result.problem ).toContain( 'which the block editor cannot fix' );
 	} );
 
 	it( 'shows each mismatch and the HTML the block saves', async () => {
@@ -153,15 +170,6 @@ describe( 'validating a file', () => {
 		expect( result.problem ).toContain(
 			'the block saves: <div class="wp-block-cover has-background-dim-50">x</div>'
 		);
-	} );
-
-	it( 'refuses a fix that would change the text', async () => {
-		const file = write( 'tmp/home.html', original );
-		vi.mocked( validateBlocks ).mockResolvedValue(
-			invalidWithFix( '<!-- wp:paragraph -->\n<p></p>\n<!-- /wp:paragraph -->', true, false )
-		);
-		const result = await validateBlockMarkupFile( file, 'http://localhost:8881' );
-		expect( result.problem ).toContain( 'change the text' );
 	} );
 
 	it( 'gates core/html policy before the editor runs', async () => {

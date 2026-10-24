@@ -79,7 +79,7 @@ export async function maybePromptNightlySwitch(): Promise< void > {
 		buttons,
 		title: __( 'Try nightly builds?' ),
 		message: __(
-			'As an Automattician, you can run the latest trunk build of Studio and get updates daily.'
+			'As an Automattician, you can run the latest trunk build of WordPress Studio and get updates daily.'
 		),
 		detail: __(
 			'Nightly builds let you catch issues earlier and try new features before they ship. You can always reinstall the stable version if needed.'

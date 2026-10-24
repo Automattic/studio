@@ -77,7 +77,6 @@ describe( 'Conversation tool rows', () => {
 		expect( screen.queryByText( 'npm test' ) ).not.toBeInTheDocument();
 		expect( screen.queryByText( /first output line/ ) ).not.toBeInTheDocument();
 
-		openActivity();
 		const toolRow = screen.getByRole( 'button', { name: 'Run terminal command' } );
 		expect( toolRow ).toHaveAttribute( 'aria-expanded', 'false' );
 
@@ -103,7 +102,6 @@ describe( 'Conversation tool rows', () => {
 				toolResultEntry( `${ escape }[31mcommand failed${ escape }[0m`, true ),
 			] )
 		);
-		openActivity();
 
 		expect( screen.getByRole( 'button', { name: 'Run terminal command' } ) ).toHaveAttribute(
 			'aria-expanded',
@@ -124,7 +122,6 @@ describe( 'Conversation tool rows', () => {
 
 		renderConversation( data );
 
-		openActivity();
 		fireEvent.click( screen.getByRole( 'button', { name: 'Run terminal command' } ) );
 
 		expect( screen.getByText( /output line 13/ ) ).toBeInTheDocument();
@@ -141,7 +138,6 @@ describe( 'Conversation tool rows', () => {
 		] );
 
 		renderConversation( data );
-		openActivity();
 
 		const toolRow = screen.getByRole( 'button', { name: 'List published posts' } );
 		expect( toolRow ).toBeInTheDocument();
@@ -160,7 +156,6 @@ describe( 'Conversation tool rows', () => {
 		] );
 
 		renderConversation( data );
-		openActivity();
 
 		expect( screen.getByRole( 'button', { name: 'Read studio/app.tsx' } ) ).toBeInTheDocument();
 	} );
@@ -203,7 +198,6 @@ describe( 'Conversation tool rows', () => {
 		] );
 
 		renderConversation( data );
-		openActivity();
 		fireEvent.click( screen.getByRole( 'button', { name: 'Take screenshot' } ) );
 
 		expect( screen.getByText( /Screenshot captured/ ) ).toBeInTheDocument();
@@ -255,7 +249,7 @@ describe( 'Conversation chat artifacts', () => {
 
 		renderConversation( data );
 
-		expect( await screen.findByRole( 'status' ) ).toHaveTextContent( 'Image unavailable' );
+		expect( await screen.findByText( 'Image could not load' ) ).toHaveAttribute( 'role', 'status' );
 	} );
 
 	it( 'shows each annotation with its own images, and the rest on the first bubble', () => {
@@ -332,7 +326,7 @@ function localScreenshotWidget(): StudioChatArtifactWidgetDraft {
 }
 
 describe( 'Conversation Ask User questions', () => {
-	it( 'shows option descriptions and a selected historical answer', () => {
+	it( 'shows a historical answer as its lettered option', () => {
 		const question = "What kind of vibe do you want for your blog's design?";
 		const data = loadedSession( [
 			agentQuestionEntry(
@@ -354,17 +348,9 @@ describe( 'Conversation Ask User questions', () => {
 
 		renderConversation( data );
 
-		expect( screen.getAllByRole( 'listitem' ) ).toHaveLength( 2 );
-		expect(
-			screen.getByText( 'Quiet typography, generous spacing, and simple structure.' )
-		).toBeInTheDocument();
-		expect(
-			screen.getByText( 'Large headlines, sharp contrast, and magazine-style pacing.' )
-		).toBeInTheDocument();
-
-		const pickedOption = screen.getByRole( 'button', { name: 'Bold & Editorial' } );
-		expect( pickedOption ).toHaveAttribute( 'aria-pressed', 'true' );
-		expect( pickedOption ).toBeDisabled();
+		expect( screen.queryByRole( 'button' ) ).not.toBeInTheDocument();
+		expect( screen.getByText( 'B' ) ).toBeInTheDocument();
+		expect( screen.getByText( 'Bold & Editorial' ) ).toBeInTheDocument();
 	} );
 
 	it( 'submits multi-select picks together on confirm', () => {
@@ -384,7 +370,7 @@ describe( 'Conversation Ask User questions', () => {
 		fireEvent.click( screen.getByRole( 'button', { name: 'Shop' } ) );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Blog' } ) );
 		expect( onAnswerQuestion ).not.toHaveBeenCalled();
-		fireEvent.click( screen.getByRole( 'button', { name: 'Confirm' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Submit choices' } ) );
 		expect( onAnswerQuestion ).toHaveBeenCalledWith( 'Which pages?', 'Blog, Shop' );
 	} );
 
@@ -796,7 +782,7 @@ describe( 'Conversation Ask User questions', () => {
 		] );
 	} );
 
-	it( 'shows the typed part of an answer next to the picked options', () => {
+	it( 'shows an answer typed into the composer as given', () => {
 		const entry = agentQuestionEntry( 'Which pages?', [
 			'Blog',
 			'Contact',
@@ -811,11 +797,7 @@ describe( 'Conversation Ask User questions', () => {
 			] )
 		);
 
-		expect( screen.getByRole( 'button', { name: 'Shop' } ) ).toHaveAttribute(
-			'aria-pressed',
-			'true'
-		);
-		expect( screen.getByText( 'A landing page' ) ).toBeInTheDocument();
+		expect( screen.getByText( 'Contact, Shop, A landing page' ) ).toBeInTheDocument();
 	} );
 } );
 
@@ -845,7 +827,7 @@ describe( 'Conversation turn-closed markers', () => {
 } );
 
 describe( 'Conversation turn activity', () => {
-	it( 'folds the tool calls and the text between them into one line before the reply', () => {
+	it( 'keeps tool calls where they ran and closes the turn with its line', () => {
 		const items = entriesToTranscriptItems( [
 			promptEntry( 'Go' ),
 			assistantToolCallEntry( 'Read', { file_path: '/tmp/a.txt' }, 'Let me look.' ),
@@ -857,25 +839,26 @@ describe( 'Conversation turn activity', () => {
 
 		expect( items ).toMatchObject( [
 			{ kind: 'user-text', text: 'Go' },
+			{ kind: 'assistant-text', text: 'Let me look.' },
+			{ kind: 'tool-use' },
+			{ kind: 'agent-question-batch' },
+			{ kind: 'assistant-text', text: 'Done.' },
 			{
 				kind: 'activity',
 				status: 'success',
 				startedAt: Date.parse( '2026-06-05T12:00:00.000Z' ),
 				endedAt: Date.parse( '2026-06-05T12:00:03.000Z' ),
-				items: [ { kind: 'assistant-text', text: 'Let me look.' }, { kind: 'tool-use' } ],
 			},
-			{ kind: 'agent-question-batch' },
-			{ kind: 'assistant-text', text: 'Done.' },
 		] );
 	} );
 
-	it( 'marks a stopped turn before its marker', () => {
+	it( 'closes a stopped turn after its marker', () => {
 		expect(
 			entriesToTranscriptItems( [ promptEntry( 'Go' ), turnClosedEntry( 'interrupted' ) ] )
 		).toMatchObject( [
 			{ kind: 'user-text' },
-			{ kind: 'activity', status: 'interrupted', items: [] },
 			{ kind: 'interrupted-marker' },
+			{ kind: 'activity', status: 'interrupted' },
 		] );
 	} );
 
@@ -899,12 +882,7 @@ describe( 'Conversation turn activity', () => {
 			{ isRunning: true, startedAt: Date.now() }
 		);
 
-		const line = screen.getByRole( 'button', { name: 'Working for 0s' } );
 		expect( screen.getByText( 'Working for 0s' ) ).toHaveClass( 'studio-shimmer' );
-		expect( line ).toHaveAttribute( 'aria-expanded', 'false' );
-
-		fireEvent.click( line );
-		expect( line ).toHaveAttribute( 'aria-expanded', 'true' );
 		expect( screen.getByText( 'Run terminal command' ) ).toHaveClass( 'studio-shimmer' );
 	} );
 } );
@@ -1080,10 +1058,6 @@ function InteractiveConversation( {
 		},
 		onChooseFreeForm: () => {},
 	} );
-}
-
-function openActivity() {
-	fireEvent.click( screen.getByRole( 'button', { name: /^Worked/ } ) );
 }
 
 function loadedSession( entries: SessionEntry[] ): LoadedAiSession {

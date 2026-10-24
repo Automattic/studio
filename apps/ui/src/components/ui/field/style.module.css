@@ -170,6 +170,11 @@
 		text-decoration: underline;
 	}
 
+	.additional {
+		display: block;
+		margin-top: 4px;
+	}
+
 	.reserved {
 		grid-row: 1;
 		grid-column: 1;

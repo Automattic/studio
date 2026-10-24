@@ -459,17 +459,15 @@ export function InstructionsSettings( { onManageSite }: { onManageSite?: () => v
 			<SettingsGroup>
 				<SettingsRow
 					title={ __( 'Agent instructions' ) }
-					description={
-						<>
-							{ __(
-								'Set coding standards, preferred tools, and response style for new chats across all sites.'
-							) }
-							{ onManageSite ? (
-								<SettingsSectionLink onClick={ onManageSite }>
-									{ __( 'Manage instructions for this site' ) }
-								</SettingsSectionLink>
-							) : null }
-						</>
+					description={ __(
+						'Set coding standards, preferred tools, and response style for new chats across all sites.'
+					) }
+					additionalContent={
+						onManageSite ? (
+							<SettingsSectionLink onClick={ onManageSite }>
+								{ __( 'Manage instructions for this site' ) }
+							</SettingsSectionLink>
+						) : null
 					}
 				>
 					<SettingsToggle

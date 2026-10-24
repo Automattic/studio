@@ -1,0 +1,35 @@
+.block {
+	/* Syntax colors for highlighted code, from the theme's tokens. */
+	--shiki-foreground: var(--foreground);
+	--shiki-background: transparent;
+	--shiki-token-comment: var(--muted-foreground);
+	--shiki-token-punctuation: var(--muted-foreground);
+	--shiki-token-keyword: var(--accent-text);
+	--shiki-token-link: var(--accent-text);
+	--shiki-token-function: oklch(from var(--accent-text) l c calc(h - 70));
+	--shiki-token-string: var(--success);
+	--shiki-token-string-expression: var(--success);
+	--shiki-token-constant: var(--warning);
+	--shiki-token-parameter: var(--foreground);
+
+	position: relative;
+	overflow: hidden;
+	border-radius: var(--radius-md);
+	background-color: var(--background);
+	color: var(--foreground);
+}
+
+.pre {
+	margin: 0;
+	padding: 12px;
+	font-family: var(--font-mono);
+	font-size: var(--text-xs);
+	line-height: 20px;
+	overflow-x: auto;
+	-webkit-user-select: text;
+	user-select: text;
+}
+
+.pre > code {
+	white-space: pre;
+}

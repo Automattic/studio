@@ -18,10 +18,6 @@
 	gap: 12px;
 }
 
-.sectionLink {
-	display: block;
-	margin-block-start: 4px;
-}
 
 .instructionsHeader {
 	display: flex;
@@ -30,23 +26,7 @@
 	gap: 8px;
 }
 
-.preferenceSectionGroup {
-	box-sizing: border-box;
-	display: flex;
-	flex-direction: column;
-	gap: 0;
-	padding: 4px 20px;
-	border-radius: 12px;
-	background: var(--muted);
-}
 
-.preferenceSectionHeading {
-	margin: 16px 0 0;
-	color: var(--foreground);
-	font-size: var(--text-sm);
-	font-weight: 500;
-	line-height: 20px;
-}
 
 .groupLegend {
 	margin-block-end: 2px;
@@ -166,23 +146,7 @@
 	line-height: 20px;
 }
 
-.codeBlockWrap {
-	position: relative;
-}
 
-.codeBlock {
-	margin: 0;
-	padding: 12px;
-	padding-inline-end: 44px;
-	border-radius: var(--radius-md);
-	background: var(--background);
-	color: var(--foreground);
-	font-family: var(--font-mono);
-	font-size: var(--text-xs);
-	line-height: 20px;
-	overflow-x: auto;
-	white-space: pre;
-}
 
 .codeBlockCopyButton {
 	position: absolute;
@@ -201,24 +165,11 @@
 	image-rendering: pixelated;
 }
 
-.wapuuScoreBody {
-	display: flex;
-	align-items: center;
-	gap: 20px;
-}
 
 .wapuuScoreMeter {
-	display: flex;
-	flex: 1;
-	min-width: 0;
-	flex-direction: column;
 	gap: 8px;
 }
 
-.wapuuScoreValue {
-	color: var(--muted-foreground);
-	font-size: var(--text-xxs);
-}
 
 /* Signed out or offline: grey the figures, since none of them is live. */
 .usageDisabled :is( [data-slot='field-label'], [data-slot='field-legend'] ) {
@@ -260,49 +211,26 @@
 	margin-block: -4px;
 }
 
-.progressTrack {
-	overflow: hidden;
-	inline-size: 100%;
-	block-size: 4px;
-	border-radius: 999px;
-	background: var(--border);
-}
-
-.progressValue {
-	block-size: 100%;
-	background: var(--primary);
-}
-
 /* Escalation colors for the AI credits meter (80% / 90% / exhausted). The
    filters brighten the warning token toward the design's yellow and orange —
    taken as-is from the usage-interfaces exploration. */
-.progressValueWarning {
+.meter[data-intent='warning'] [data-slot='progress-indicator'] {
 	background: var(--warning);
 	filter: saturate( 2 ) brightness( 1.8 );
 }
 
-.progressValueCritical {
+.meter[data-intent='critical'] [data-slot='progress-indicator'] {
 	background: var(--warning);
 	filter: saturate( 1.6 ) brightness( 1.35 );
 }
 
-.progressValueExhausted {
+.meter[data-intent='exhausted'] [data-slot='progress-indicator'] {
 	background: var(--destructive);
 }
 
 .aiCreditsTrack {
-	position: relative;
-	background: color-mix(
-		in srgb,
-		var(--accent-text) 14%,
-		var(--border)
-	);
-}
-
-.aiCreditsMeterValue {
-	position: absolute;
-	inset: 0;
-	border-radius: inherit;
+	block-size: 4px;
+	border-radius: 999px;
 	background: linear-gradient(
 			90deg,
 			color-mix( in srgb, var(--accent-text) 32%, transparent ),
@@ -312,7 +240,8 @@
 			135deg,
 			color-mix( in srgb, var(--accent-text) 18%, transparent ) 0 8px,
 			transparent 8px 16px
-		);
+		),
+		color-mix( in srgb, var(--accent-text) 14%, var(--border) );
 }
 
 
@@ -322,24 +251,14 @@
 }
 
 
-.previewUsage,
 .previewUrl,
 .previewLink,
 .previewExpiry {
 	display: block;
 }
 
-.dialogText {
-	margin: 0;
-}
 
-.dialogText + .dialogText {
-	margin-block-start: 8px;
-}
 
-.previewUsage {
-	margin-block-start: 4px;
-}
 
 .previewLink {
 	max-width: 100%;

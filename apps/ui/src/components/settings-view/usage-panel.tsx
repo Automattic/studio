@@ -19,6 +19,7 @@ import { OfflineNotice } from '@/components/offline-banner';
 import { Button, IconButton } from '@/components/ui/button';
 import { Field, FieldDescription, FieldTitle } from '@/components/ui/field';
 import * as Menu from '@/components/ui/menu';
+import { Progress } from '@/components/ui/progress';
 import { useConnector } from '@/data/core';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
@@ -33,6 +34,7 @@ import { useUserLocale } from '@/data/queries/use-user-locale';
 import { useOpenAiCreditsCheckout } from '@/hooks/use-open-ai-credits-checkout';
 import { SettingsGroup, SettingsRow, SettingsSelect } from './rows';
 import styles from './style.module.css';
+import type { AiCreditsMeterIntent } from '@studio/common/lib/studio-assistant-quota';
 import type { ReactNode } from 'react';
 
 const DEFAULT_PREVIEW_SITE_LIMIT = 10;
@@ -45,18 +47,19 @@ function UnavailableMeter() {
 
 function UsageProgressBar( {
 	fraction,
-	valueClassName,
+	intent = 'ok',
 }: {
 	fraction: number;
-	valueClassName?: string;
+	intent?: AiCreditsMeterIntent;
 } ) {
 	return (
-		<div className={ styles.progressTrack } data-testid="usage-progress-bar" aria-hidden="true">
-			<div
-				className={ clsx( styles.progressValue, valueClassName ) }
-				style={ { inlineSize: `${ fraction * 100 }%` } }
-			/>
-		</div>
+		<Progress
+			className={ styles.meter }
+			value={ fraction * 100 }
+			data-intent={ intent }
+			data-testid="usage-progress-bar"
+			aria-hidden="true"
+		/>
 	);
 }
 
@@ -87,15 +90,6 @@ function MeterRow( {
 		</Field>
 	);
 }
-
-// The meter's fill color escalates with the fraction spent, matching the
-// callout copy's thresholds.
-const METER_INTENT_CLASS_NAMES: Record< string, string | undefined > = {
-	ok: undefined,
-	warning: styles.progressValueWarning,
-	critical: styles.progressValueCritical,
-	exhausted: styles.progressValueExhausted,
-};
 
 function CreditPurchaseRow() {
 	const locale = useUserLocale();
@@ -222,10 +216,7 @@ function AiCreditsRows() {
 							formatQuotaPercentage( meter.fraction, locale )
 						) }
 					>
-						<UsageProgressBar
-							fraction={ meter.fraction }
-							valueClassName={ METER_INTENT_CLASS_NAMES[ intent ] }
-						/>
+						<UsageProgressBar fraction={ meter.fraction } intent={ intent } />
 						<FieldDescription width="full">
 							{ formatAiCreditsCallout( quota, meter, locale ) }
 						</FieldDescription>
@@ -291,9 +282,7 @@ function AiCreditsRows() {
 				'AI credits are currently free while Studio Code is in Alpha. Build, iterate, and experiment, but know that credits will eventually have a cost.'
 			) }
 		>
-			<div className={ clsx( styles.progressTrack, styles.aiCreditsTrack ) } aria-hidden="true">
-				<div className={ styles.aiCreditsMeterValue } />
-			</div>
+			<div className={ styles.aiCreditsTrack } aria-hidden="true" />
 		</MeterRow>
 	);
 }

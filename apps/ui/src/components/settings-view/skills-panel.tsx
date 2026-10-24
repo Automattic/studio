@@ -46,17 +46,15 @@ export function SkillsPanel( { onManageSite }: { onManageSite?: () => void } ) {
 			<SettingsGroup>
 				<SettingsRow
 					title={ __( 'WordPress skills' ) }
-					description={
-						<>
-							{ __(
-								'Turn on WordPress skills for existing and new sites. Manage individual skills below.'
-							) }
-							{ onManageSite ? (
-								<SettingsSectionLink disabled={ saving } onClick={ onManageSite }>
-									{ __( 'Manage skills for this site' ) }
-								</SettingsSectionLink>
-							) : null }
-						</>
+					description={ __(
+						'Turn on WordPress skills for existing and new sites. Manage individual skills below.'
+					) }
+					additionalContent={
+						onManageSite ? (
+							<SettingsSectionLink disabled={ saving } onClick={ onManageSite }>
+								{ __( 'Manage skills for this site' ) }
+							</SettingsSectionLink>
+						) : null
 					}
 				>
 					<SettingsToggle

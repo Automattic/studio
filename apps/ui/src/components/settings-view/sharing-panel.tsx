@@ -175,17 +175,17 @@ export function SharingPanel() {
 							>
 								{ __( 'Learn more…' ) }
 							</Button>
-							{ live.length ? (
-								<span className={ styles.previewUsage }>
-									{ sprintf(
-										/* translators: 1: number of live previews, 2: the account's limit. */
-										__( '%1$d of %2$d preview sites used' ),
-										live.length,
-										usage.data?.siteLimit ?? 10
-									) }
-								</span>
-							) : null }
 						</>
+					}
+					additionalContent={
+						live.length
+							? sprintf(
+									/* translators: 1: number of live previews, 2: the account's limit. */
+									__( '%1$d of %2$d preview sites used' ),
+									live.length,
+									usage.data?.siteLimit ?? 10
+							  )
+							: null
 					}
 				/>
 			</SettingsGroup>
@@ -248,14 +248,14 @@ export function SharingPanel() {
 					<DialogHeader>
 						<DialogTitle>{ __( 'Delete preview' ) }</DialogTitle>
 						<DialogDescription tone="default" render={ <div /> }>
-							<p className={ styles.dialogText }>
+							<p>
 								{ sprintf(
 									/* translators: %s: preview name */
 									__( 'Are you sure you want to remove the preview for “%s” from Studio?' ),
 									deleting?.name || __( 'Preview site' )
 								) }
 							</p>
-							<p className={ styles.dialogText }>
+							<p>
 								{ __(
 									'Anyone you’ve shared this preview with will no longer be able to view it. Your site will not be deleted.'
 								) }

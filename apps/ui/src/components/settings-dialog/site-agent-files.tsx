@@ -55,20 +55,20 @@ export function SiteAgentFiles( {
 				<SettingsRow
 					title={ title }
 					description={
-						<>
+						skills
+							? __(
+									'Turn on WordPress skills for this site. Manage individual skills below. Turning skills off keeps their files and edits.'
+							  )
+							: __(
+									'Turn on agent instructions for this site. Manage individual files below. Turning instructions off keeps their files and edits.'
+							  )
+					}
+					additionalContent={
+						<SettingsSectionLink onClick={ onManageAll }>
 							{ skills
-								? __(
-										'Turn on WordPress skills for this site. Manage individual skills below. Turning skills off keeps their files and edits.'
-								  )
-								: __(
-										'Turn on agent instructions for this site. Manage individual files below. Turning instructions off keeps their files and edits.'
-								  ) }
-							<SettingsSectionLink onClick={ onManageAll }>
-								{ skills
-									? __( 'Manage skills for all sites' )
-									: __( 'Manage instructions for all sites' ) }
-							</SettingsSectionLink>
-						</>
+								? __( 'Manage skills for all sites' )
+								: __( 'Manage instructions for all sites' ) }
+						</SettingsSectionLink>
 					}
 				>
 					<SettingsToggle

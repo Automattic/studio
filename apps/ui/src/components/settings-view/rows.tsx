@@ -61,6 +61,7 @@ export function SettingsRow( {
 	title,
 	badge,
 	description,
+	additionalContent,
 	error,
 	stacked = false,
 	children,
@@ -69,6 +70,8 @@ export function SettingsRow( {
 	// Shown next to the title, like a "Connected" status.
 	badge?: ReactNode;
 	description?: ReactNode;
+	// Shown under the description, like a link to a related section.
+	additionalContent?: ReactNode;
 	// Shown in place of the description.
 	error?: string;
 	// Puts the control on its own line, for wide controls.
@@ -93,8 +96,12 @@ export function SettingsRow( {
 				) : (
 					<FieldTitle>{ title }</FieldTitle>
 				) }
-				{ description || error ? (
-					<FieldDescription width={ children ? 'default' : 'full' } error={ error }>
+				{ description || additionalContent || error ? (
+					<FieldDescription
+						width={ children ? 'default' : 'full' }
+						error={ error }
+						additionalContent={ additionalContent }
+					>
 						{ description }
 					</FieldDescription>
 				) : null }
@@ -127,15 +134,13 @@ function SettingLinkButton( { id, title }: { id: string; title: string } ) {
 	);
 }
 
-/** A link under a setting's description, to a related section. */
+/** A link to a related section, under a setting's description. */
 export function SettingsSectionLink( { children, ...props }: ButtonProps ) {
 	return (
-		<span className={ styles.sectionLink }>
-			<Button variant="inline-link" size="inline" { ...props }>
-				{ children }
-				<ChevronRightIcon data-icon="inline-end" aria-hidden="true" />
-			</Button>
-		</span>
+		<Button variant="inline-link" size="inline" { ...props }>
+			{ children }
+			<ChevronRightIcon data-icon="inline-end" aria-hidden="true" />
+		</Button>
 	);
 }
 

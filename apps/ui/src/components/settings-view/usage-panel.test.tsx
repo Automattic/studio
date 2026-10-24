@@ -545,7 +545,7 @@ describe( 'UsagePanel', () => {
 		const bars = screen.getAllByTestId( 'usage-progress-bar' );
 		expect( bars ).toHaveLength( 2 );
 		for ( const bar of bars ) {
-			expect( bar.firstElementChild ).toHaveStyle( { inlineSize: '0%' } );
+			expect( bar ).toHaveAttribute( 'aria-valuenow', '0' );
 		}
 	} );
 

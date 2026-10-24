@@ -1,5 +1,14 @@
 import { __, sprintf } from '@wordpress/i18n';
 import { Button } from '@/components/ui/button';
+import {
+	Field,
+	FieldContent,
+	FieldDescription,
+	FieldGroup,
+	FieldLegend,
+	FieldSet,
+} from '@/components/ui/field';
+import { Progress } from '@/components/ui/progress';
 import wapuuIdleUrl from '@/components/wapuu-world/assets/wapuu-player-idle-sprite.png';
 import { MAX_SCORE } from '@/components/wapuu-world/engine/game-loop';
 import { useConnector } from '@/data/core';
@@ -19,8 +28,8 @@ export function WapuuScore() {
 	const clamped = Math.min( score, MAX_SCORE );
 
 	return (
-		<section className={ styles.preferenceSectionGroup }>
-			<h2 className={ styles.preferenceSectionHeading }>
+		<FieldSet>
+			<FieldLegend variant="label">
 				<span className={ styles.wapuuScoreHeading }>
 					<img
 						src={ wapuuIdleUrl }
@@ -31,33 +40,23 @@ export function WapuuScore() {
 					/>
 					{ __( 'Wapuu score' ) }
 				</span>
-			</h2>
-			<div className={ styles.wapuuScoreBody }>
-				<div className={ styles.wapuuScoreMeter }>
-					<span className={ styles.wapuuScoreValue }>
-						{ sprintf( __( '%1$d of %2$d points' ), score, MAX_SCORE ) }
-					</span>
-					<div
-						className={ styles.progressTrack }
-						role="progressbar"
-						aria-valuemin={ 0 }
-						aria-valuemax={ MAX_SCORE }
-						aria-valuenow={ clamped }
-						aria-label={ __( 'Wapuu score' ) }
+			</FieldLegend>
+			<FieldGroup variant="settings">
+				<Field orientation="horizontal">
+					<FieldContent className={ styles.wapuuScoreMeter }>
+						<FieldDescription>
+							{ sprintf( __( '%1$d of %2$d points' ), score, MAX_SCORE ) }
+						</FieldDescription>
+						<Progress value={ clamped } max={ MAX_SCORE } aria-label={ __( 'Wapuu score' ) } />
+					</FieldContent>
+					<Button
+						variant="outline"
+						onClick={ () => void connector.openExternalUrl( WAPUU_STUDIO_URL ) }
 					>
-						<div
-							className={ styles.progressValue }
-							style={ { inlineSize: `${ ( clamped / MAX_SCORE ) * 100 }%` } }
-						/>
-					</div>
-				</div>
-				<Button
-					variant="outline"
-					onClick={ () => void connector.openExternalUrl( WAPUU_STUDIO_URL ) }
-				>
-					{ __( 'Visit wapuu.studio' ) }
-				</Button>
-			</div>
-		</section>
+						{ __( 'Visit wapuu.studio' ) }
+					</Button>
+				</Field>
+			</FieldGroup>
+		</FieldSet>
 	);
 }

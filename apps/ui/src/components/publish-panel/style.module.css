@@ -82,7 +82,6 @@
 
 .text,
 .description {
-	margin: 0;
 	color: var(--muted-foreground);
 	font-size: var(--text-sm);
 	line-height: 1.625;
@@ -94,7 +93,6 @@
 }
 
 .error {
-	margin: 0;
 	color: var(--destructive);
 	font-size: var(--text-sm);
 	line-height: 1.625;

@@ -20,7 +20,6 @@
 }
 
 .error {
-	margin: 0;
 	padding: 10px 12px;
 	border: 1px solid color-mix(in oklab, var(--destructive) 35%, transparent);
 	border-radius: 6px;

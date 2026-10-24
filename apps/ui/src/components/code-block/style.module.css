@@ -7,7 +7,6 @@
 }
 
 .pre {
-	margin: 0;
 	padding: 12px;
 	font-family: var(--font-mono);
 	font-size: var(--text-xs);

@@ -3,14 +3,9 @@
 		display: flex;
 		width: 100%;
 		min-height: 64px;
-		box-sizing: border-box;
-		margin: 0;
 		padding: 8px 10px;
 		border: 1px solid var( --input );
 		border-radius: var( --radius-lg );
-		background: transparent;
-		color: inherit;
-		font: inherit;
 		font-size: var( --text-sm );
 		line-height: 20px;
 		outline: none;

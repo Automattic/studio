@@ -54,7 +54,6 @@
 .closeButton {
 	margin-inline-start: 8px;
 	padding: 1px 7px;
-	border: none;
 	border-radius: 4px;
 	background: color-mix(in srgb, var(--accent-foreground) 20%, transparent);
 	color: var(--accent-foreground);
@@ -64,7 +63,6 @@
 }
 
 .canvas {
-	display: block;
 	image-rendering: pixelated;
 	cursor: default;
 }

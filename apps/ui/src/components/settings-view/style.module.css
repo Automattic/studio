@@ -75,7 +75,6 @@
 
 /* A text field that opens the folder picker. */
 .pathPickerButton {
-	box-sizing: border-box;
 	display: flex;
 	align-items: center;
 	inline-size: 100%;
@@ -84,7 +83,6 @@
 	border: 1px solid
 		var(--border);
 	border-radius: 9px;
-	background: transparent;
 	color: var(--foreground);
 	font-family: var(--font-sans);
 	font-size: var(--text-xs);
@@ -255,11 +253,7 @@
 .previewLink {
 	max-width: 100%;
 	overflow: hidden;
-	padding: 0;
-	border: 0;
-	background: none;
 	color: var(--accent-text);
-	font: inherit;
 	text-align: start;
 	text-overflow: ellipsis;
 	white-space: nowrap;
@@ -302,7 +296,6 @@
 }
 
 .previewIllustration img {
-	display: block;
 	width: 100%;
 	aspect-ratio: 2 / 1;
 	object-fit: cover;
@@ -310,7 +303,6 @@
 }
 
 .dialogError {
-	margin: 0;
 	color: var(--destructive);
 }
 
@@ -342,8 +334,6 @@
 	flex-shrink: 0;
 	width: 24px;
 	height: 24px;
-	padding: 0;
-	border: 0;
 	border-radius: 9999px;
 	cursor: pointer;
 }
@@ -361,7 +351,6 @@
 
 .hexPreview {
 	flex-shrink: 0;
-	box-sizing: border-box;
 	width: 16px;
 	height: 16px;
 	border: 1px solid var( --border );

@@ -32,7 +32,6 @@
 	display: flex;
 	align-items: center;
 	gap: 8px;
-	margin: 0;
 	overflow: hidden;
 	color: var(--muted-foreground);
 	font-size: var(--text-xs);

@@ -9,7 +9,6 @@
 
 
 .empty {
-	margin: 0;
 	padding: 16px 20px;
 	text-align: center;
 	color: var(--muted-foreground);
@@ -40,7 +39,6 @@
 }
 
 .error {
-	margin: 0;
 	color: var(--destructive);
 	font-size: var(--text-xs);
 }

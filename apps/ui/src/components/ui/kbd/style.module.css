@@ -7,7 +7,6 @@
 		width: fit-content;
 		min-width: 20px;
 		height: 20px;
-		box-sizing: border-box;
 		padding-inline: 4px;
 		border-radius: var( --radius-sm );
 		background-color: var( --muted );

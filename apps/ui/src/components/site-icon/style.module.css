@@ -1,6 +1,5 @@
 .root {
 	display: inline-grid;
-	box-sizing: border-box;
 	place-items: center;
 	width: var(--site-icon-size, 16px);
 	height: var(--site-icon-size, 16px);
@@ -21,7 +20,6 @@
 			transparent 50%
 		),
 		linear-gradient(135deg, var(--site-icon-color-d), var(--site-icon-color-a));
-	border: 0;
 	flex-shrink: 0;
 	line-height: 0;
 	box-shadow: none;
@@ -29,7 +27,6 @@
 }
 
 .image {
-	display: block;
 	width: 100%;
 	height: 100%;
 	object-fit: cover;
@@ -37,6 +34,5 @@
 
 .rootWithImage {
 	background: var(--chat);
-	border: 0;
 	box-shadow: none;
 }

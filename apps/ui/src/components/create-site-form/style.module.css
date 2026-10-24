@@ -71,7 +71,6 @@
 .submitErrorDetails pre {
 	max-height: 160px;
 	padding-top: 6px;
-	margin: 0;
 	overflow: auto;
 	font-family: var(--font-mono);
 	font-size: 11px;
@@ -88,7 +87,6 @@
 	display: flex;
 	align-items: center;
 	gap: 12px;
-	margin: 0;
 	padding: 12px;
 	border: 1px solid var(--border);
 	border-radius: var(--radius-lg);

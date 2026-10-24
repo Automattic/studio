@@ -10,8 +10,8 @@ import {
 } from 'react';
 import { useConnector } from '@/data/core';
 
-// Dashboard-scoped UI store (mounted once in the dashboard layout, shared by
-// every route under it). Holds the slices of UI state that the chat agent
+// App-wide UI store (mounted once in the root route, shared by every route
+// and dialog under it). Holds the slices of UI state that the chat agent
 // can influence (preview panel today; future: composer, conversation pane,
 // modals, etc.) so that components can read/update them while a separate
 // bridge — `useSessionCommands` — translates agent events into actions.
@@ -149,7 +149,7 @@ const SessionUIDispatchContext = createContext< Dispatch< SessionUIAction > | nu
 
 export function SessionUIProvider( { children }: { children: ReactNode } ) {
 	// Views mount their own provider so they stay usable standalone (e.g. in
-	// tests), but when one is already mounted above — the dashboard layout —
+	// tests), but when one is already mounted above — the root route —
 	// the nested provider reuses it instead of forking the state.
 	const parentState = useContext( SessionUIStateContext );
 	const parentDispatch = useContext( SessionUIDispatchContext );
@@ -198,8 +198,8 @@ interface SessionPreviewUI {
 	setRevealing: ( siteId: string, value: boolean ) => void;
 }
 
-// Like `useSessionPreviewUI`, but usable outside the dashboard layout —
-// returns null when no SessionUIProvider is mounted, so callers can fall
+// Like `useSessionPreviewUI`, but returns null when no SessionUIProvider is
+// mounted (standalone views, tests), so callers can fall
 // back to non-preview behavior (e.g. opening the external browser).
 export function useOptionalSessionPreviewUI(): SessionPreviewUI | null {
 	const state = useContext( SessionUIStateContext );

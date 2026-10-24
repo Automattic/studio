@@ -16,6 +16,7 @@ Work on the one site the request is about, and start it with site_start if it is
 
 For any change to content, templates, or the theme, load the `visual-design` skill first, along with the other skills the change calls for (Skill routing names them). Follow the site's existing look — its DESIGN.md and active theme — rather than redesigning it: the catalogs and design picks in `visual-design` are for builds. Then:
 
+- Before editing an existing theme's template or part, check for a copy saved in the Site Editor (`post list --post_type=wp_template,wp_template_part`): WordPress renders that saved copy instead of the file, so if one exists, make the change in the saved copy too, keep the user's other edits, and tell the user.
 - Change an installed third-party theme only through a child theme, following the `block-content` skill's theme-file rules.
 - Validate every template, part, and piece of content you write with validate_blocks before it reaches the site.
 

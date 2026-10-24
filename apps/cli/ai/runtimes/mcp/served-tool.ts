@@ -27,10 +27,7 @@ export async function runServedTool(
 			.map( ( part ) => ( part.type === 'text' ? part.text : '' ) )
 			.join( '\n' );
 		const site = await siteNamed( args );
-		const notes = [
-			site && ( await resultNotes( site.path, { args, result: resultText } ) ),
-			await result.pending,
-		]
+		const notes = [ site && ( await resultNotes( site.path, resultText ) ), await result.pending ]
 			.filter( Boolean )
 			.join( '\n' );
 		return {

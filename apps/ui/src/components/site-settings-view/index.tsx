@@ -357,7 +357,7 @@ export function SiteSettingsForm( {
 			<>
 				<ConnectionCard />
 				<SettingsGroup>
-					{ textRow( 'name', __( 'Site name' ), __( 'Name shown in Studio.' ) ) }
+					{ textRow( 'name', __( 'Site name' ), __( 'Name shown in WordPress Studio.' ) ) }
 					{ selectRow(
 						'wpVersion',
 						__( 'WordPress version' ),

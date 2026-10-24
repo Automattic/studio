@@ -111,7 +111,9 @@ describe( 'CommandPalette', () => {
 
 		pressK();
 		search( 'improve studio' );
-		fireEvent.click( await screen.findByText( 'Turn off “Improve Studio for everyone”' ) );
+		fireEvent.click(
+			await screen.findByText( 'Turn off “Improve WordPress Studio for everyone”' )
+		);
 		expect( savePreferences ).toHaveBeenLastCalledWith( {
 			analyticsEnabled: false,
 			source: { surface: 'settings' },

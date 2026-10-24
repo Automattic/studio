@@ -20,7 +20,7 @@ function useSteps() {
 		{
 			title: __( 'Sites run right on your machine' ),
 			subtitle: __(
-				'Every Studio site is a real WordPress install that lives locally, PHP and database included.'
+				'Every WordPress Studio site is a real WordPress install that lives locally, PHP and database included.'
 			),
 			illustration: (
 				<div className={ styles.tourIllustration }>
@@ -67,7 +67,7 @@ function useSteps() {
 				},
 				{
 					title: __( 'Anything you can imagine' ),
-					body: __( 'If WordPress can do it, you can build it in your Studio.' ),
+					body: __( 'If WordPress can do it, you can build it in your WordPress Studio.' ),
 				},
 			],
 		},

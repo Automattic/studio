@@ -551,7 +551,7 @@ describe( 'App initialization', () => {
 		expect( dialog.showMessageBox ).toHaveBeenCalledWith( {
 			type: 'question',
 			message: 'Keep the site running?',
-			detail: 'Your site can stay available in the background after Studio quits.',
+			detail: 'Your site can stay available in the background after WordPress Studio quits.',
 			buttons: [ 'Stop site', 'Keep site running', 'Cancel' ],
 			checkboxLabel: 'Remember my choice',
 			cancelId: 2,

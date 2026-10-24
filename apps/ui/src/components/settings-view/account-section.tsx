@@ -17,7 +17,7 @@ export function ConnectionCard() {
 			<SettingsRow
 				title={ __( 'Do more with WordPress.com' ) }
 				description={ __(
-					'Build with Studio, share local previews publicly, launch on WordPress.com, and keep sites in sync.'
+					'Build with WordPress Studio, share local previews publicly, launch on WordPress.com, and keep sites in sync.'
 				) }
 				error={ signup.error?.message }
 			>

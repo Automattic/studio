@@ -45,9 +45,8 @@ import { getBlockValidationGate, type BlockValidationGate } from 'cli/ai/block-v
 import { withDesignSystemPreview } from 'cli/ai/chat-artifacts';
 import { isImageGenerationAvailable } from 'cli/ai/image-generation';
 import { emitEvent } from 'cli/ai/json-events';
-import { createResultNotes } from 'cli/ai/result-notes';
 import { readActiveSiteFacts } from 'cli/ai/site-facts';
-import { withSiteFileGuards } from 'cli/ai/site-file-guards';
+import { createSiteNotes, type SiteNotes } from 'cli/ai/site-notes';
 import { buildSystemPrompt } from 'cli/ai/system-prompt';
 import { resolveStudioToolDefinitions } from 'cli/ai/tools';
 import { createAskUserQuestionTool } from 'cli/ai/tools/ask-user-question';
@@ -69,7 +68,7 @@ import {
 } from './studio-wp-shim';
 import {
 	getIncompleteToolCallReason,
-	getFileWriteRefusal,
+	getWrittenFile,
 	getPayloadLimitViolation,
 	type StudioToolPayloadGuardState,
 	updateStudioToolPayloadGuardState,
@@ -385,17 +384,18 @@ async function createStudioAgentSession(
 	const blockValidationGate = getBlockValidationGate( config.session );
 	const sitePin = new SitePin( config.activeSite );
 	const site = config.activeSite;
-	// The Active site section already states this turn's facts.
-	const notes = createResultNotes(
-		new Map( site && ! site.remote ? [ [ site.path, activeSiteFacts ] ] : [] )
-	);
-	const resultNotes =
-		site && ! site.remote ? ( result: string ) => notes( site.path, result ) : undefined;
+	const localSite = site && ! site.remote ? site.path : undefined;
+	const siteNotes = createSiteNotes( {
+		// The Active site section already states this turn's facts.
+		stated: new Map( localSite ? [ [ localSite, activeSiteFacts ] ] : [] ),
+		gate: blockValidationGate,
+	} );
 	const toolDefinitions = [ ...tools, ...mcpTools ].map( ( tool ) =>
 		toToolDefinition( tool, payloadGuardState, pendingWork, blockValidationGate, {
 			confirm,
 			sitePin,
-			resultNotes,
+			siteNotes,
+			localSite,
 		} )
 	);
 	const modelRuntime = await createModelRuntime( model, family, creds );
@@ -678,11 +678,14 @@ function toToolDefinition(
 	{
 		confirm,
 		sitePin,
-		resultNotes,
+		siteNotes,
+		localSite,
 	}: {
 		confirm: Confirmer;
 		sitePin: SitePin;
-		resultNotes?: ( result: string ) => Promise< string >;
+		siteNotes: SiteNotes;
+		// Studio's tools report on the active site when it is a local one.
+		localSite?: string;
 	}
 ): ToolDefinition {
 	return {
@@ -712,7 +715,8 @@ function toToolDefinition(
 				throw new Error( declined );
 			}
 			crossSite?.allow();
-			const fileWriteRefusal = await getFileWriteRefusal( tool.name, params, STUDIO_SITES_ROOT );
+			const writtenFile = getWrittenFile( tool.name, params, STUDIO_SITES_ROOT );
+			const fileWriteRefusal = writtenFile && ( await siteNotes.beforeWrite( writtenFile ) );
 			if ( fileWriteRefusal ) {
 				throw new Error( fileWriteRefusal );
 			}
@@ -752,7 +756,12 @@ function toToolDefinition(
 				.map( ( part ) => ( part.type === 'text' ? part.text : '' ) )
 				.join( '\n' );
 			const reports =
-				[ validationReport, await resultNotes?.( resultText ), pendingWork.takeReports() ]
+				[
+					validationReport,
+					...( writtenFile ? await siteNotes.afterWrite( writtenFile ) : [] ),
+					...( localSite ? await siteNotes.afterResult( localSite, resultText ) : [] ),
+					pendingWork.takeReports(),
+				]
 					.filter( Boolean )
 					.join( '\n' ) || undefined;
 			return reports
@@ -800,11 +809,7 @@ function buildAgentTools(
 		( { ...tool, name, label: name } ) as AgentTool< S >;
 
 	const designSystemPreview = < TTool extends AgentToolAny >( tool: TTool ) =>
-		withSiteFileGuards(
-			chatArtifactsEnabled ? withDesignSystemPreview( tool, STUDIO_SITES_ROOT ) : tool,
-			STUDIO_SITES_ROOT,
-			getBlockValidationGate( config.session )
-		);
+		chatArtifactsEnabled ? withDesignSystemPreview( tool, STUDIO_SITES_ROOT ) : tool;
 	const piTools: AgentToolAny[] = [
 		renameTool( createReadTool( STUDIO_SITES_ROOT ), 'Read' ),
 		designSystemPreview( renameTool( createWriteTool( STUDIO_SITES_ROOT ), 'Write' ) ),

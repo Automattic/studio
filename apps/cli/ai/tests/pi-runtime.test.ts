@@ -52,6 +52,16 @@ vi.mock( '@earendil-works/pi-coding-agent', async ( importOriginal ) => {
 	};
 } );
 
+// Each trigger answers with what it was fired with.
+vi.mock( 'cli/ai/site-notes', () => ( {
+	createSiteNotes: () => ( {
+		beforeWrite: async ( file: string ) =>
+			file.endsWith( 'refused.php' ) ? `Not run: ${ file }` : undefined,
+		afterWrite: async ( file: string ) => [ `Note: wrote ${ file }` ],
+		afterResult: async ( site: string ) => [ `Note: result on ${ site }` ],
+	} ),
+} ) );
+
 vi.mock( 'cli/lib/site-paths', () => ( {
 	STUDIO_SITES_ROOT: mocks.studioRoot,
 	getDefaultSitePath: ( siteName: string ) => `${ mocks.studioRoot }/${ siteName }`,
@@ -470,6 +480,40 @@ describe( 'pi runtime', () => {
 			getCreatedTool( 'site_delete' ).execute( 't', { nameOrPath: 'nope' } )
 		).rejects.toThrow( 'Not run: the user answered "No" to: Delete the site "nope"?' );
 		expect( onAskUser ).toHaveBeenCalledTimes( 1 );
+	} );
+
+	it( 'fires the site notes triggers on a write, and on a result for a local active site', async () => {
+		const run = async ( activeSite: StudioAgentTurnConfig[ 'activeSite' ] ) => {
+			mocks.createdSessions.length = 0;
+			await runRuntime( { prompt: 'hello', env: WPCOM_ENV, session: newSession(), activeSite } );
+			return getCreatedTool( 'Write' );
+		};
+		const local = {
+			name: 'A',
+			path: '/sites/a',
+			running: false,
+		} as StudioAgentTurnConfig[ 'activeSite' ];
+		const write = await run( local );
+		const file = `${ mocks.studioRoot }/a/style.css`;
+		const text = async ( params: Record< string, unknown > ) =>
+			( await write.execute( 'w', params ) ).content.map( ( part ) => part.text );
+
+		await expect( write.execute( 'w', { path: 'a/refused.php', content: '' } ) ).rejects.toThrow(
+			`Not run: ${ mocks.studioRoot }/a/refused.php`
+		);
+		expect( await text( { path: 'a/style.css', content: '' } ) ).toEqual( [
+			'',
+			`Note: wrote ${ file }\nNote: result on /sites/a`,
+		] );
+		const remote = await run( {
+			...local!,
+			remote: true,
+		} as StudioAgentTurnConfig[ 'activeSite' ] );
+		expect(
+			( await remote.execute( 'w', { path: 'a/style.css', content: '' } ) ).content.map(
+				( part ) => part.text
+			)
+		).toEqual( [ '', `Note: wrote ${ file }` ] );
 	} );
 
 	it( 'rejects oversized direct Write, Edit, and Bash payloads', async () => {

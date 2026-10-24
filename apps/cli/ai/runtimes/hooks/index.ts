@@ -1,9 +1,9 @@
 /**
  * Hooks on other agents' file tools, for agents that run Studio's tools over
  * MCP and write files with their own, such as Claude Code and Codex with the
- * WordPress Studio plugin. Before a write, the same refusal as Studio Code's
- * Write and Edit; after it, the same checks and notes, and the block
- * validation Studio Code runs before the markup reaches the site.
+ * WordPress Studio plugin. They fire the same file triggers as Studio Code's
+ * Write and Edit (site-notes.ts), and report the block validation Studio Code
+ * runs before the markup reaches the site.
  *
  * The input and output are the hook JSON both agents use: tool_input names
  * the file (file_path) or carries a patch (apply_patch), and
@@ -11,11 +11,7 @@
  */
 import path from 'path';
 import { BlockValidationGate } from 'cli/ai/block-validation-gate';
-import {
-	afterSiteFileWrite,
-	getSiteFileWriteRefusal,
-	resolveSiteFile,
-} from 'cli/ai/site-file-guards';
+import { createSiteNotes } from 'cli/ai/site-notes';
 
 export interface HookInput {
 	hook_event_name?: string;
@@ -54,9 +50,10 @@ export async function runFileToolHook(
 	gate = new BlockValidationGate()
 ): Promise< HookOutput | undefined > {
 	const files = getWrittenFiles( input );
+	const siteNotes = createSiteNotes( { gate } );
 	if ( input.hook_event_name === 'PreToolUse' ) {
 		for ( const file of files ) {
-			const reason = await getSiteFileWriteRefusal( file );
+			const reason = await siteNotes.beforeWrite( file );
 			if ( reason ) {
 				return {
 					hookSpecificOutput: {
@@ -74,17 +71,13 @@ export async function runFileToolHook(
 	}
 	const notes: string[] = [];
 	for ( const file of files ) {
-		const siteFile = resolveSiteFile( file );
-		if ( siteFile ) {
-			gate.track( file, siteFile.siteRoot );
-			notes.push( ...( await afterSiteFileWrite( siteFile ) ) );
-		}
+		notes.push( ...( await siteNotes.afterWrite( file ) ) );
 	}
 	const { summaries, problems } = await gate.settle();
 	const context = [
 		...summaries.map( ( line ) => `Block validation: ${ line }` ),
 		...problems,
-		...notes.map( ( note ) => `Note: ${ note }` ),
+		...notes,
 	].join( '\n' );
 	return context
 		? { hookSpecificOutput: { hookEventName: 'PostToolUse', additionalContext: context } }

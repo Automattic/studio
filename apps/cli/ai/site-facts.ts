@@ -7,7 +7,7 @@ import type { SiteInfo } from 'cli/ai/types';
 
 // Facts about a local site, read from its own files and database, one line
 // each. They are what the agent would otherwise look up before acting, stated
-// in the Active site section and in tool results (result-notes.ts), the same
+// in the Active site section and in tool results (site-notes.ts), the same
 // for Studio Code and MCP agents.
 //
 // A fact is a function of the site, owned by the module that knows that part

@@ -1,5 +1,5 @@
 import { resolveSite } from 'cli/ai/tools/utils';
-import type { createResultNotes } from 'cli/ai/result-notes';
+import type { SiteNotes } from 'cli/ai/site-notes';
 import type { AnyStudioAgentTool } from 'cli/ai/tools/define-tool';
 
 // The site an MCP call works on is the one it names.
@@ -19,7 +19,7 @@ async function siteNamed( args: Record< string, unknown > ) {
 export async function runServedTool(
 	tool: AnyStudioAgentTool,
 	args: Record< string, unknown >,
-	resultNotes: ReturnType< typeof createResultNotes >
+	siteNotes: SiteNotes
 ) {
 	try {
 		const result = await tool.rawHandler( args as never );
@@ -27,7 +27,10 @@ export async function runServedTool(
 			.map( ( part ) => ( part.type === 'text' ? part.text : '' ) )
 			.join( '\n' );
 		const site = await siteNamed( args );
-		const notes = [ site && ( await resultNotes( site.path, resultText ) ), await result.pending ]
+		const notes = [
+			...( site ? await siteNotes.afterResult( site.path, resultText ) : [] ),
+			await result.pending,
+		]
 			.filter( Boolean )
 			.join( '\n' );
 		return {

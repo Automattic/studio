@@ -4,7 +4,8 @@ import os from 'os';
 import path from 'path';
 import { arePathsEqual } from '@studio/common/lib/fs-utils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { getFileWriteRefusal } from 'cli/ai/runtimes/pi/tool-safety';
+import { getWrittenFile } from 'cli/ai/runtimes/pi/tool-safety';
+import { getSiteFileWriteRefusal, resolveSiteFile } from 'cli/ai/site-file-guards';
 import { findSiteByFolder } from 'cli/lib/cli-config/sites';
 
 vi.mock( 'cli/lib/cli-config/sites', () => ( { findSiteByFolder: vi.fn() } ) );
@@ -35,7 +36,20 @@ afterEach( () => {
 	vi.mocked( findSiteByFolder ).mockReset();
 } );
 
-describe( 'getFileWriteRefusal', () => {
+// What Studio Code's Write and Edit hear before writing: the refusal of the
+// file a call writes.
+async function getFileWriteRefusal(
+	toolName: string,
+	params: unknown,
+	cwd: string,
+	isStudioSite?: ( folder: string ) => Promise< boolean >
+) {
+	const file = getWrittenFile( toolName, params, cwd );
+	const siteFile = file && resolveSiteFile( file );
+	return siteFile ? getSiteFileWriteRefusal( siteFile, isStudioSite ) : undefined;
+}
+
+describe( 'the file write refusal', () => {
 	it.each( [
 		'my-site/wp-includes/functions.php',
 		'my-site/wp-admin/includes/file.php',

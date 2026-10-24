@@ -3,8 +3,8 @@ import { tmpdir } from 'os';
 import path from 'path';
 import { Type } from 'typebox';
 import { expect, it, vi } from 'vitest';
-import { createResultNotes } from 'cli/ai/result-notes';
 import { runServedTool } from 'cli/ai/runtimes/mcp/served-tool';
+import { createSiteNotes } from 'cli/ai/site-notes';
 import { defineTool, READ_ONLY } from 'cli/ai/tools/define-tool';
 
 it( 'adds the declared settings of the core blocks a result shows, from the site the call names, once', async () => {
@@ -27,9 +27,9 @@ it( 'adds the declared settings of the core blocks a result shows, from the site
 		async () => ( { content: [ { type: 'text', text: '<!-- wp:navigation /-->' } ] } ),
 		{ annotations: READ_ONLY }
 	);
-	const resultNotes = createResultNotes();
+	const siteNotes = createSiteNotes();
 	const notes = async ( args: Record< string, unknown > ) =>
-		( await runServedTool( tool, args, resultNotes ) ).content
+		( await runServedTool( tool, args, siteNotes ) ).content
 			.slice( 1 )
 			.map( ( part ) => ( part.type === 'text' ? part.text : '' ) );
 	const blockJson = path.join( sitePath, 'wp-includes/blocks/navigation/block.json' );
@@ -37,7 +37,7 @@ it( 'adds the declared settings of the core blocks a result shows, from the site
 	expect( await notes( {} ) ).toEqual( [] );
 	expect( await notes( { nameOrPath: 'Missing Site' } ) ).toEqual( [] );
 	expect( await notes( { nameOrPath: 'My Site' } ) ).toEqual( [
-		`core/navigation settings, declared in ${ blockJson
+		`Note: core/navigation settings, declared in ${ blockJson
 			.split( path.sep )
 			.join( '/' ) }: submenuVisibility ("hover"|"click").`,
 	] );

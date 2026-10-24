@@ -1,6 +1,5 @@
 import os from 'os';
 import path from 'path';
-import { getSiteFileWriteRefusal } from 'cli/ai/site-file-guards';
 import type { AgentSessionEvent } from '@earendil-works/pi-coding-agent';
 
 // Keep individual model-generated tool payloads below the range where long
@@ -112,21 +111,16 @@ function resolveToolPath( filePath: string, cwd: string ): string {
 	return path.resolve( cwd, expanded );
 }
 
-/**
- * Refuses Write and Edit on a Studio site's files that an update replaces,
- * naming where the change belongs (site-file-guards.ts).
- */
-export async function getFileWriteRefusal(
+/** The file a Write or Edit call writes, as an absolute path. */
+export function getWrittenFile(
 	toolName: string,
 	params: unknown,
-	cwd: string,
-	isStudioSite?: ( folder: string ) => Promise< boolean >
-): Promise< string | undefined > {
+	cwd: string
+): string | undefined {
 	const filePath = getStringParam( params, 'path' );
-	if ( ( toolName !== 'Write' && toolName !== 'Edit' ) || ! filePath ) {
-		return undefined;
-	}
-	return getSiteFileWriteRefusal( resolveToolPath( filePath, cwd ), isStudioSite );
+	return ( toolName === 'Write' || toolName === 'Edit' ) && filePath
+		? resolveToolPath( filePath, cwd )
+		: undefined;
 }
 
 // Only the last content block can be mid-generation when the model hits the

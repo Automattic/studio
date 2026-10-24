@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest';
-import { createResultNotes } from '../result-notes';
 import { readActiveSiteFacts } from '../site-facts';
+import { createSiteNotes } from '../site-notes';
 import { createSite as createWordPressSite } from './fixtures/wordpress-site';
 
 function createSite( prefix: string ) {
@@ -92,28 +92,28 @@ it( 'has no facts for a WordPress.com site without a known site ID, or no site',
 
 it( 'adds to a tool result the facts the agent does not have yet and the ones no longer true', async () => {
 	const site = createSite( 'wp_' );
-	const notes = createResultNotes( new Map( [ [ site.root, await site.facts() ] ] ) );
+	const siteNotes = createSiteNotes( { stated: new Map( [ [ site.root, await site.facts() ] ] ) } );
+	const notes = ( session = siteNotes ) => session.afterResult( site.root, '' );
+	const said = ( ...lines: string[] ) => lines.map( ( line ) => `Note: ${ line }` );
 	// The facts the Active site section stated.
-	expect( await notes( site.root, '' ) ).toBe( '' );
+	expect( await notes() ).toEqual( [] );
 
 	// A call activates WooCommerce, which turns on Coming soon mode.
 	site.setOptions( { woocommerce_coming_soon: 'yes', ...WOOCOMMERCE_ACTIVE } );
-	expect( await notes( site.root, '' ) ).toBe(
-		[
+	expect( await notes() ).toEqual(
+		said(
 			'Active plugins: woocommerce/woocommerce.php, hello.php.',
 			COMING_SOON( 'the site' ),
-			'No longer true: Active plugins: none.',
-		].join( '\n' )
+			'No longer true: Active plugins: none.'
+		)
 	);
-	expect( await notes( site.root, '' ) ).toBe( '' );
+	expect( await notes() ).toEqual( [] );
 
 	site.setOptions( { woocommerce_coming_soon: 'no' } );
-	expect( await notes( site.root, '' ) ).toBe( `No longer true: ${ COMING_SOON( 'the site' ) }` );
+	expect( await notes() ).toEqual( said( `No longer true: ${ COMING_SOON( 'the site' ) }` ) );
 
 	// A site the agent has no facts for, as over MCP, gets them with its first result.
-	expect( await createResultNotes()( site.root, '' ) ).toBe(
-		[ ...BASE.slice( 0, 2 ), 'Active plugins: woocommerce/woocommerce.php, hello.php.' ].join(
-			'\n'
-		)
+	expect( await notes( createSiteNotes() ) ).toEqual(
+		said( ...BASE.slice( 0, 2 ), 'Active plugins: woocommerce/woocommerce.php, hello.php.' )
 	);
 } );

@@ -1,12 +1,8 @@
 /**
- * Structural guards for the agent's file tools on a local site.
- *
- * Instead of teaching the model WordPress rules in prose, a write to a site's
- * file is checked at the moment of the change: before it, whether an update
- * would replace the file; after it, the theme's pattern cache is cleared and
- * the agent hears what WordPress will render differently from the file. Studio
- * Code's Write and Edit and the plugin's hooks on other agents' file tools
- * (runtimes/hooks) run the same checks.
+ * What a write to a local site's file means to WordPress: before it, whether
+ * an update would replace the file; after it, what Studio does for the file
+ * and what WordPress will render differently from it. site-notes.ts lists
+ * these with the trigger each runs on.
  */
 import { existsSync, readdirSync, readFileSync, statSync } from 'fs';
 import { unlink, writeFile } from 'fs/promises';
@@ -24,7 +20,6 @@ import { resolveSite } from 'cli/ai/tools/utils';
 import { findSiteByFolder } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
-import type { BlockValidationGate } from 'cli/ai/block-validation-gate';
 
 export interface SiteFile {
 	siteRoot: string;
@@ -144,14 +139,9 @@ async function isStudioSiteFolder( folder: string ): Promise< boolean > {
  * stays, and for WordPress trees Studio doesn't manage.
  */
 export async function getSiteFileWriteRefusal(
-	filePath: string,
+	{ siteRoot, relativePath, theme }: SiteFile,
 	isStudioSite: ( folder: string ) => Promise< boolean > = isStudioSiteFolder
 ): Promise< string | undefined > {
-	const siteFile = resolveSiteFile( filePath );
-	if ( ! siteFile ) {
-		return undefined;
-	}
-	const { siteRoot, relativePath, theme } = siteFile;
 	let reason: string | undefined;
 	if (
 		relativePath.startsWith( 'wp-includes/' ) ||
@@ -162,10 +152,7 @@ export async function getSiteFileWriteRefusal(
 	} else if ( theme && ( await isUpdatableTheme( siteRoot, theme.slug ) ) ) {
 		reason = `${ theme.slug } is a theme WordPress updates, and an update overwrites changes to its files. Make the change in a child theme of it, whose style.css names \`Template: ${ theme.slug }\`.`;
 	}
-	if ( ! reason || ! ( await isStudioSite( siteRoot ) ) ) {
-		return undefined;
-	}
-	return `Not run: ${ reason }`;
+	return reason && ( await isStudioSite( siteRoot ) ) ? reason : undefined;
 }
 
 // Palette slugs whose `.has-<slug>-color` class (class-wp-theme-json.php) is
@@ -173,8 +160,7 @@ export async function getSiteFileWriteRefusal(
 // color (wp-includes/js/dist/block-editor.js).
 const MARKER_SLUGS = [ 'text', 'link' ];
 
-/** What a theme.json just written makes WordPress render differently from what it says. */
-function themeJsonNotes( themeJson: unknown, themePath: string ): string[] {
+function paletteNotes( themeJson: unknown, themePath: string ): string[] {
 	const palette = ( themeJson as { settings?: { color?: { palette?: { slug?: unknown }[] } } } )
 		?.settings?.color?.palette;
 	return ( Array.isArray( palette ) ? palette : [] )
@@ -193,40 +179,43 @@ function isBlockMarkup( { relativePath, theme }: SiteFile ): boolean {
 		: /^tmp\/[^/]+\.html$/.test( relativePath );
 }
 
-/** What WordPress will render differently from the file just written, if anything. */
-async function getSiteFileWriteNotes( siteFile: SiteFile ): Promise< string[] > {
-	const { siteRoot, relativePath, theme } = siteFile;
-	const notes: string[] = [];
-	if ( isBlockMarkup( siteFile ) ) {
-		notes.push(
-			...trappedFullWidthNotes( readFileSync( path.join( siteRoot, relativePath ), 'utf8' ) )
-		);
-	}
-	if ( ! theme ) {
-		return notes;
-	}
-	if ( theme.file === 'theme.json' ) {
-		const themeJson = JSON.parse( readFileSync( path.join( theme.dir, theme.file ), 'utf8' ) );
-		notes.push( ...themeJsonNotes( themeJson, `wp-content/themes/${ theme.slug }` ) );
-	}
-	if ( theme.file.endsWith( '.css' ) ) {
-		const css = readFileSync( path.join( theme.dir, theme.file ), 'utf8' );
-		notes.push( ...lintThemeCss( css, await getBlockClassNames( siteRoot, theme.dir ) ) );
-	}
-	const savedCopy = await readWordPressSite( siteRoot, ( site ) =>
+const readSiteFile = ( { siteRoot, relativePath }: SiteFile ) =>
+	readFileSync( path.join( siteRoot, relativePath ), 'utf8' );
+
+/** Full-width blocks in block markup just written that cannot reach the page edges. */
+export function blockMarkupNotes( siteFile: SiteFile ): string[] {
+	return isBlockMarkup( siteFile ) ? trappedFullWidthNotes( readSiteFile( siteFile ) ) : [];
+}
+
+/** What a theme.json just written makes WordPress render differently from what it says. */
+export function themeJsonNotes( siteFile: SiteFile ): string[] {
+	const { theme } = siteFile;
+	return theme?.file === 'theme.json'
+		? paletteNotes( JSON.parse( readSiteFile( siteFile ) ), `wp-content/themes/${ theme.slug }` )
+		: [];
+}
+
+/** CSS in a theme stylesheet just written that fights WordPress's block layout. */
+export async function themeCssNotes( siteFile: SiteFile ): Promise< string[] > {
+	const { siteRoot, theme } = siteFile;
+	return theme?.file.endsWith( '.css' )
+		? lintThemeCss( readSiteFile( siteFile ), await getBlockClassNames( siteRoot, theme.dir ) )
+		: [];
+}
+
+/** That WordPress renders a saved Site Editor copy instead of the file just written. */
+export async function savedCopyNotes( { siteRoot, relativePath }: SiteFile ): Promise< string[] > {
+	const note = await readWordPressSite( siteRoot, ( site ) =>
 		savedCopyWriteNote( site, path.join( siteRoot, relativePath ) )
 	);
-	if ( savedCopy ) {
-		notes.push( savedCopy );
-	}
-	return notes;
+	return note ? [ note ] : [];
 }
 
 /**
  * Self-hosts the fonts a theme.json just written declares without font files,
  * and says what it downloaded.
  */
-async function selfHostFonts( siteFile: SiteFile ): Promise< string[] > {
+export async function selfHostFonts( siteFile: SiteFile ): Promise< string[] > {
 	const { theme } = siteFile;
 	if ( theme?.file !== 'theme.json' ) {
 		return [];
@@ -254,7 +243,7 @@ const THUMBNAIL = { width: 1200, height: 900 } as const;
  * Gives a theme without a thumbnail one: its theme.json's design board, the
  * 1200×900 screenshot.png Appearance → Themes shows.
  */
-async function writeThemeThumbnail( siteFile: SiteFile ): Promise< string[] > {
+export async function writeThemeThumbnail( siteFile: SiteFile ): Promise< string[] > {
 	const { theme } = siteFile;
 	if (
 		theme?.file !== 'theme.json' ||
@@ -280,30 +269,14 @@ async function writeThemeThumbnail( siteFile: SiteFile ): Promise< string[] > {
 }
 
 /**
- * After a write to a site's file: registers a changed pattern, self-hosts the
- * theme's fonts, gives it a thumbnail, and returns what WordPress will render
- * differently from the file.
- */
-export async function afterSiteFileWrite( siteFile: SiteFile ): Promise< string[] > {
-	await clearThemePatternCache( siteFile ).catch( () => undefined );
-	const fonts = await selfHostFonts( siteFile ).catch( () => [] );
-	const thumbnail = await writeThemeThumbnail( siteFile ).catch( () => [] );
-	return [
-		...fonts,
-		...thumbnail,
-		...( await getSiteFileWriteNotes( siteFile ).catch( () => [] ) ),
-	];
-}
-
-/**
  * WordPress caches the list of a theme's pattern files (outside theme
  * development mode), so a pattern file added or changed would not register.
  * Clears that theme's cache after a write to its patterns/ directory.
  */
-export async function clearThemePatternCache( siteFile: SiteFile ): Promise< void > {
+export async function clearThemePatternCache( siteFile: SiteFile ): Promise< string[] > {
 	const { siteRoot, theme } = siteFile;
 	if ( ! theme || ! /^patterns\/[^/]+\.php$/.test( theme.file ) ) {
-		return;
+		return [];
 	}
 	const site = await resolveSite( siteRoot );
 	try {
@@ -316,44 +289,5 @@ export async function clearThemePatternCache( siteFile: SiteFile ): Promise< voi
 	} finally {
 		await disconnectFromDaemon();
 	}
-}
-
-interface ToolResult {
-	content?: Array< { type: string; text?: string } >;
-}
-
-interface FileWritingTool {
-	execute( toolCallId: string, params: { path?: unknown }, ...rest: unknown[] ): Promise< unknown >;
-}
-
-/** Wraps Write or Edit with the site file guards. */
-export function withSiteFileGuards< TTool extends FileWritingTool >(
-	tool: TTool,
-	cwd: string,
-	gate?: BlockValidationGate
-): TTool {
-	return {
-		...tool,
-		async execute( toolCallId: string, params: { path?: unknown }, ...rest: unknown[] ) {
-			const siteFile =
-				typeof params.path === 'string'
-					? resolveSiteFile( path.resolve( cwd, params.path ) )
-					: undefined;
-			const result = ( await tool.execute( toolCallId, params, ...rest ) ) as ToolResult;
-			if ( siteFile && gate ) {
-				gate.track( path.join( siteFile.siteRoot, siteFile.relativePath ), siteFile.siteRoot );
-			}
-			const notes = siteFile ? await afterSiteFileWrite( siteFile ) : [];
-			if ( ! notes.length || ! result || typeof result !== 'object' ) {
-				return result;
-			}
-			return {
-				...result,
-				content: [
-					...( result.content ?? [] ),
-					{ type: 'text', text: notes.map( ( note ) => `Note: ${ note }` ).join( '\n' ) },
-				],
-			};
-		},
-	};
+	return [];
 }

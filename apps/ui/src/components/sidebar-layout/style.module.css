@@ -25,6 +25,7 @@
 	   avoiding the misalignment you get when the scrollbar lives on an
 	   inner wrapper. */
 	overflow-y: auto;
+	scrollbar-width: none;
 	-webkit-app-region: drag;
 	/* Eases with the frame when the width resets, so its rows don't snap ahead. */
 	transition: width var(--motion-duration-layout) var(--motion-ease-layout);

@@ -31,8 +31,7 @@
 	background-color: var(--secondary);
 	box-shadow:
 		0 0 0 1px var(--border),
-		0 1px 3px 0 rgb(0 0 0 / 10%),
-		0 1px 2px -1px rgb(0 0 0 / 10%);
+		var(--shadow-sm);
 	pointer-events: auto;
 	transform-origin: bottom;
 	transform: translateX(var(--toast-swipe-movement-x))

@@ -13,6 +13,10 @@
 /* Tokens stay light until app-providers.tsx sets `data-color-scheme`: until
    then, show the Desktop window's dark background (the sidebar's colour)
    instead of a full light page. */
+:root:not( [data-color-scheme] ) {
+	color-scheme: light dark;
+}
+
 :root:not( [data-color-scheme] ) body {
 	background-color: transparent;
 }
@@ -21,12 +25,10 @@ body {
 	margin: 0;
 	padding: 0;
 	font-family: var(--font-sans);
-	font-size: var(--text-xs);
-	line-height: 24px;
-	background-color: var(--chat);
+	font-size: var(--text-sm);
+	line-height: 20px;
+	background-color: var(--chrome);
 	color: var(--foreground);
-	color-scheme: light dark;
-	scrollbar-color: gray transparent;
 	-webkit-font-smoothing: antialiased;
 	-moz-osx-font-smoothing: grayscale;
 }
@@ -50,14 +52,6 @@ body {
 	}
 }
 
-/* Unlike `scrollbar-color`, `scrollbar-width` isn't inherited, so inner scroll
-   containers need it set directly. In the base layer, so components can hide it. */
-@layer base {
-	* {
-		scrollbar-width: thin;
-	}
-}
-
 /* `lang` is set on bootstrap in lib/apply-user-preferences.ts. */
 :root:lang( ckb ) {
 	--font-sans: 'Vazirmatn', -apple-system, system-ui, 'Segoe UI', 'Roboto', 'Oxygen-Sans', 'Ubuntu',
@@ -74,12 +68,6 @@ body {
 	}
 }
 
-/* Universal heading styles derived from the design system's font-size /
-   line-height ramp. Each level steps down one token (h1 = 2xl, h6 = xs),
-   keeping the rest of the type contract — family, weight, color, zero
-   margin — identical. Components can still override via their own class
-   where a specific context demands it, but bare `<h1>`…`<h6>` elements
-   pick up a consistent look for free. */
 @layer base {
 	h1,
 	h2,
@@ -87,40 +75,14 @@ body {
 	h4,
 	h5,
 	h6 {
-		font-family: var(--font-sans);
-		font-weight: var(--font-weight-normal);
-		color: var(--foreground);
 		margin: 0;
+		font-size: inherit;
+		font-weight: inherit;
 	}
 
-	h1 {
-		font-size: 32px;
-		line-height: 40px;
-	}
-
-	h2 {
-		font-size: 20px;
-		line-height: 32px;
-	}
-
-	h3 {
-		font-size: 15px;
-		line-height: 28px;
-	}
-
-	h4 {
-		font-size: var(--text-xs);
-		line-height: 24px;
-	}
-
-	h5 {
-		font-size: var(--text-xxs);
-		line-height: 20px;
-	}
-
-	h6 {
-		font-size: 11px;
-		line-height: 16px;
+	b,
+	strong {
+		font-weight: var(--font-weight-medium);
 	}
 }
 

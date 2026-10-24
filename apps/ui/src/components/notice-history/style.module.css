@@ -52,7 +52,7 @@
 	--button-background: var(--chrome);
 
 	align-self: flex-end;
-	box-shadow: 0 1px 2px 0 rgb(0 0 0 / 5%);
+	box-shadow: var(--shadow-xs);
 }
 
 /* The padding is room for each entry's ring, shadow and dismiss badge. */

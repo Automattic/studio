@@ -708,7 +708,7 @@
 	background: transparent;
 	border: none;
 	padding: 0;
-	border-radius: 8px;
+	border-radius: var(--radius-md);
 	color: var(--foreground);
 	font: inherit;
 	text-align: left;

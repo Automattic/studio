@@ -1,4 +1,5 @@
 import fs from 'fs';
+import path from 'path';
 import { type AgentTool } from '@earendil-works/pi-agent-core';
 import {
 	type Credential,
@@ -52,7 +53,6 @@ import { resolveStudioToolDefinitions } from 'cli/ai/tools';
 import { createAskUserQuestionTool } from 'cli/ai/tools/ask-user-question';
 import { createPresentDesignOptionsTool } from 'cli/ai/tools/present-design-options';
 import { createSkillTool } from 'cli/ai/tools/skill';
-import { resolveSite } from 'cli/ai/tools/utils';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import { createConfirmer, describeDestructiveCall, type Confirmer } from './confirmation';
 import { withLeakedToolCallMarkupRemoved } from './leaked-tool-call-markup';
@@ -63,8 +63,12 @@ import { SitePin } from './site-pin';
 import { SkillToolScope } from './skill-tool-scope';
 import { stripStaleImagesFromContext } from './strip-stale-images';
 import {
+	ensureStudioWpShimDirectory,
+	getStudioWpShimScript,
+	prependToPath,
+} from './studio-wp-shim';
+import {
 	getIncompleteToolCallReason,
-	getBashCommandRefusal,
 	getFileWriteRefusal,
 	getPayloadLimitViolation,
 	type StudioToolPayloadGuardState,
@@ -663,7 +667,8 @@ function createSettingsManager( _env: Record< string, string > ): SettingsManage
 	);
 }
 
-const BLOCK_VALIDATION_GATED_TOOLS = new Set( [ 'wp_cli', 'take_screenshot', 'inspect_design' ] );
+// A shell command can put content on the site through WP-CLI.
+const BLOCK_VALIDATION_GATED_TOOLS = new Set( [ 'Bash', 'take_screenshot', 'inspect_design' ] );
 
 function toToolDefinition(
 	tool: AgentToolAny,
@@ -692,8 +697,7 @@ function toToolDefinition(
 			if ( incompleteToolCallReason ) {
 				throw new Error( incompleteToolCallReason );
 			}
-			const refusal =
-				getPayloadLimitViolation( tool.name, params ) ?? getBashCommandRefusal( tool.name, params );
+			const refusal = getPayloadLimitViolation( tool.name, params );
 			if ( refusal ) {
 				throw new Error( refusal );
 			}
@@ -724,22 +728,6 @@ function toToolDefinition(
 					[ ...summaries.map( ( line ) => `Block validation: ${ line }` ), ...problems ].join(
 						'\n'
 					) || undefined;
-				const wpCli = params as { command?: unknown; nameOrPath?: unknown };
-				if ( tool.name === 'wp_cli' && typeof wpCli.command === 'string' ) {
-					const site = await resolveSite( String( wpCli.nameOrPath ) ).catch( () => undefined );
-					const problems = site
-						? await blockValidationGate.checkCommand( wpCli.command, site.path )
-						: [];
-					if ( problems.length > 0 ) {
-						throw new Error(
-							[
-								'Not run: this command would put invalid block content on the site. Fix the content, then run it again.',
-								...problems,
-								...( validationReport ? [ validationReport ] : [] ),
-							].join( '\n' )
-						);
-					}
-				}
 			}
 			// The validation report was taken from the gate, so it rides on a failure too.
 			const result = await tool
@@ -754,12 +742,6 @@ function toToolDefinition(
 				} );
 			if ( tool.name === 'site_create' ) {
 				await sitePin.created( String( ( params as { name?: unknown } ).name ) );
-			}
-			if (
-				tool.name === 'wp_cli' &&
-				/^\s*(plugin|theme)\s/.test( String( ( params as { command?: unknown } ).command ) )
-			) {
-				blockValidationGate.invalidate();
 			}
 			const details = result.details as StudioToolResultDetails | undefined;
 			if ( details?.pending ) {
@@ -778,6 +760,15 @@ function toToolDefinition(
 				: result;
 		},
 	};
+}
+
+// Every chunk of the CLI bundle sits next to `main.mjs`, so it is this
+// module's sibling; `STUDIO_CLI_BIN` points elsewhere in development.
+function getStudioWpSpawnHook() {
+	const cliPath = process.env.STUDIO_CLI_BIN ?? path.join( import.meta.dirname, 'main.mjs' );
+	return prependToPath(
+		ensureStudioWpShimDirectory( getStudioWpShimScript( process.execPath, cliPath ) )
+	);
 }
 
 function buildAgentTools(
@@ -818,13 +809,17 @@ function buildAgentTools(
 		renameTool( createReadTool( STUDIO_SITES_ROOT ), 'Read' ),
 		designSystemPreview( renameTool( createWriteTool( STUDIO_SITES_ROOT ), 'Write' ) ),
 		designSystemPreview( renameTool( createEditTool( STUDIO_SITES_ROOT ), 'Edit' ) ),
-		renameTool( createBashTool( STUDIO_SITES_ROOT ), 'Bash' ),
+		renameTool(
+			createBashTool( STUDIO_SITES_ROOT, { spawnHook: getStudioWpSpawnHook() } ),
+			'Bash'
+		),
 		renameTool( createGrepTool( STUDIO_SITES_ROOT ), 'Grep' ),
 		renameTool( createFindTool( STUDIO_SITES_ROOT ), 'Glob' ),
 		renameTool( createLsTool( STUDIO_SITES_ROOT ), 'Ls' ),
 	];
 	const studioTools = resolveStudioToolDefinitions( {
 		emitChatArtifacts: chatArtifactsEnabled,
+		shellRunsStudioWp: true,
 		imageGeneration: imageGenerationEnabled,
 		visionEnabled,
 		canAskUser: Boolean( config.onAskUser ),

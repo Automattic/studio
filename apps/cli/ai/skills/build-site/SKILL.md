@@ -57,7 +57,7 @@ Write a block theme in `wp-content/themes/`, or a child theme to restyle an inst
 
 ## 4. Provision the site
 
-With wp_cli, activate the theme, install and activate the Site Spec's plugins, and set options, before writing page content.
+With `wp`, activate the theme, install and activate the Site Spec's plugins, and set options, before writing page content.
 
 ## 5. Publish the content
 

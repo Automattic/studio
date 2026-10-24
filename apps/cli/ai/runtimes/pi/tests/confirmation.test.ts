@@ -27,31 +27,6 @@ describe( 'describeDestructiveCall', () => {
 			describeDestructiveCall( 'site_import', { importFile: '/b/export.xml' } )
 		).toBeUndefined();
 	} );
-
-	it.each( [
-		'plugin delete akismet',
-		'theme delete twentytwenty',
-		'user delete 2 --reassign=1',
-		'term delete category 4',
-		'option delete my_option',
-		'post delete 12 --force',
-		'site empty --yes',
-		'search-replace old.test new.test',
-		'wp db reset --yes',
-	] )( 'confirms the irreversible WP-CLI command "%s"', ( command ) => {
-		expect( describeDestructiveCall( 'wp_cli', { nameOrPath: 's', command } ) ).toBeTruthy();
-	} );
-
-	it.each( [
-		'post delete 12',
-		'comment delete 3',
-		'plugin deactivate akismet',
-		'search-replace old.test new.test --dry-run',
-		'option get blogname',
-		'post list --post_type=page',
-	] )( 'runs the recoverable WP-CLI command "%s" without asking', ( command ) => {
-		expect( describeDestructiveCall( 'wp_cli', { nameOrPath: 's', command } ) ).toBeUndefined();
-	} );
 } );
 
 describe( 'createConfirmer', () => {

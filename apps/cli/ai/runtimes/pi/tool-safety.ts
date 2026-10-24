@@ -184,17 +184,3 @@ export function getIncompleteToolCallReason(
 ): string | undefined {
 	return state.incompleteToolCallReasons?.[ toolCallId ];
 }
-
-// `wp` (or `studio wp`) in command position: start of the command, after a
-// separator or subshell opener, past env assignments and sudo.
-const WP_CLI_IN_SHELL =
-	/(?:^|[;&|(`\n]|\$\()\s*(?:[A-Za-z_][A-Za-z0-9_]*=\S*\s+)*(?:sudo\s+)?(?:studio\s+)?(?:\S*\/)?wp(?=\s|$|[;&|)`])/;
-
-export function getBashCommandRefusal( toolName: string, params: unknown ): string | undefined {
-	if ( toolName !== 'Bash' ) return undefined;
-	const command = getStringParam( params, 'command' );
-	if ( command && WP_CLI_IN_SHELL.test( command ) ) {
-		return "Not run: WP-CLI runs through wp_cli, which uses the site's own PHP runtime and database.";
-	}
-	return undefined;
-}

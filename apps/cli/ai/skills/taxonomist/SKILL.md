@@ -67,7 +67,7 @@ All data files go in a `taxonomist-data/` directory inside the site root:
 2. If multiple sites exist, ask the user which one to analyze
 3. Use `site_info` to verify the site is running
 4. If the site is stopped, start it with `site_start`
-5. Verify WordPress is working: `wp_cli` with `eval 'echo "OK";'`
+5. Verify WordPress is working: `wp eval 'echo "OK";'`
 
 ## Step 2: Export
 
@@ -75,23 +75,19 @@ Create the working directory structure, then export posts and categories.
 
 ### Export categories
 
-Use `wp_cli`:
+Run:
 ```
-term list category --format=json --fields=term_id,name,slug,description,count,parent
+wp term list category --format=json --fields=term_id,name,slug,description,count,parent
 ```
 
 Save the output to `taxonomist-data/export/categories.json`.
 
 ### Export posts
 
-Use `wp_cli`:
+Run:
 ```
-eval-file tmp/taxonomist/export-posts.php
-```
-
-With the environment variable:
-```
-TAXONOMIST_OUTPUT={site_path}/taxonomist-data/export/posts.json
+TAXONOMIST_OUTPUT={site_path}/taxonomist-data/export/posts.json \
+wp eval-file tmp/taxonomist/export-posts.php
 ```
 
 ### Post-export summary
@@ -107,14 +103,10 @@ Report to the user:
 
 Create a full taxonomy snapshot before any analysis.
 
-Use `wp_cli`:
+Run:
 ```
-eval-file tmp/taxonomist/backup.php
-```
-
-With the environment variable:
-```
-TAXONOMIST_OUTPUT={site_path}/taxonomist-data/backups/pre-analysis-{timestamp}.json
+TAXONOMIST_OUTPUT={site_path}/taxonomist-data/backups/pre-analysis-{timestamp}.json \
+wp eval-file tmp/taxonomist/backup.php
 ```
 
 ## Step 4: Analyze
@@ -204,68 +196,61 @@ If the user wants adjustments, iterate on the plan and use `AskUserQuestion` aga
 
 ## Step 7: Apply Descriptions
 
-After approval, first create any new categories and update descriptions using `wp_cli`:
+After approval, first create any new categories and update descriptions:
 
 ```
 # Create new categories
-term create category "Category Name" --slug=category-slug --description="Description here"
+wp term create category "Category Name" --slug=category-slug --description="Description here"
 
 # Update existing category descriptions
-term update category {term_id} --description="Updated description"
+wp term update category {term_id} --description="Updated description"
 ```
 
 ## Step 8: Apply Categories
 
 Prepare the suggestions JSON file from the approved plan, then run the apply script.
 
-First, do a **preview** (dry run) using `wp_cli`:
+First, do a **preview** (dry run):
 
 ```
-eval-file tmp/taxonomist/apply-changes.php
+TAXONOMIST_SUGGESTIONS={site_path}/taxonomist-data/results/suggestions.json \
+TAXONOMIST_LOG={site_path}/taxonomist-data/logs/changes-{timestamp}.tsv \
+TAXONOMIST_MODE=preview \
+wp eval-file tmp/taxonomist/apply-changes.php
 ```
 
-With environment variables:
-```
-TAXONOMIST_SUGGESTIONS={site_path}/taxonomist-data/results/suggestions.json
-TAXONOMIST_LOG={site_path}/taxonomist-data/logs/changes-{timestamp}.tsv
-TAXONOMIST_MODE=preview
-```
-
-Show the user the preview results. **Use `AskUserQuestion` to confirm** before applying. After they confirm, run again with:
+Show the user the preview results. **Use `AskUserQuestion` to confirm** before applying. After they confirm, run it in apply mode:
 
 ```
-TAXONOMIST_SUGGESTIONS={site_path}/taxonomist-data/results/suggestions.json
-TAXONOMIST_LOG={site_path}/taxonomist-data/logs/changes-{timestamp}.tsv
-TAXONOMIST_MODE=apply
-TAXONOMIST_REMOVE_CATS=uncategorized
+TAXONOMIST_SUGGESTIONS={site_path}/taxonomist-data/results/suggestions.json \
+TAXONOMIST_LOG={site_path}/taxonomist-data/logs/changes-{timestamp}.tsv \
+TAXONOMIST_MODE=apply \
+TAXONOMIST_REMOVE_CATS=uncategorized \
+wp eval-file tmp/taxonomist/apply-changes.php
 ```
 
 ## Step 9: Verify
 
 After applying changes:
 
-1. List categories with counts using `wp_cli`: `term list category --format=table --fields=term_id,name,slug,count`
-2. Check for posts with no categories: `eval 'echo count(get_posts(["posts_per_page" => -1, "category__in" => [get_option("default_category")]]));'`
+1. List categories with counts: `wp term list category --format=table --fields=term_id,name,slug,count`
+2. Check for posts with no categories: `wp eval 'echo count(get_posts(["posts_per_page" => -1, "category__in" => [get_option("default_category")]]));'`
 3. Report the change log location to the user
 4. Remind them that a full backup exists and can be restored
 
 ## Restoring from Backup
 
-If the user wants to undo all changes, use `wp_cli`:
+If the user wants to undo all changes, run:
 
 ```
-eval-file tmp/taxonomist/restore.php
-```
-
-With environment variable:
-```
-TAXONOMIST_BACKUP={site_path}/taxonomist-data/backups/pre-analysis-{timestamp}.json
+TAXONOMIST_BACKUP={site_path}/taxonomist-data/backups/pre-analysis-{timestamp}.json \
+wp eval-file tmp/taxonomist/restore.php
 ```
 
 ## Important Notes
 
-- **Use the Studio tools** (`site_list`, `site_info`, `site_start`, `wp_cli`, etc.) — not shell commands
+- **Manage sites with the Studio tools** (`site_list`, `site_info`, `site_start`) and run the WP-CLI commands above with `wp`
 - **Category slugs are the stable identifier** — always use slugs (not names or IDs) when referencing categories across steps
 - **Never modify WordPress core files** — all changes go through WP-CLI commands
-- **The default category cannot be deleted** — change it first via `wp_cli`: `option update default_category {new_id}` if needed
+- **The default category cannot be deleted** — change it first with `wp option update default_category {new_id}` if needed
 - **All data stays local** — exported posts, analysis results, and backups remain in the site's `taxonomist-data/` directory

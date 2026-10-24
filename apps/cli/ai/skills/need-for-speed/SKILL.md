@@ -40,7 +40,7 @@ Run a performance audit on a WordPress site to measure Core Web Vitals and page 
 
 Based on the metrics, suggest specific actions:
 
-- **High TTFB**: Enable page caching (e.g., `wp_cli: plugin install wp-super-cache --activate`), check for slow database queries, consider object caching.
+- **High TTFB**: Enable page caching (e.g., `wp plugin install wp-super-cache --activate`), check for slow database queries, consider object caching.
 - **High LCP / FCP**: Check for render-blocking CSS/JS, add lazy loading for below-the-fold images, defer non-critical scripts.
 - **Large JS payload**: Identify heavy plugins from the scripts URL list, suggest deactivating unused plugins, check for jQuery dependency chains.
 - **Large CSS payload**: Look for unused theme stylesheets, check for multiple Google Fonts loads.

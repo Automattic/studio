@@ -1,9 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-	getBashCommandRefusal,
-	getPayloadLimitViolation,
-	STUDIO_FILE_TOOL_MAX_BYTES,
-} from '../tool-safety';
+import { getPayloadLimitViolation, STUDIO_FILE_TOOL_MAX_BYTES } from '../tool-safety';
 
 const big = 'x'.repeat( STUDIO_FILE_TOOL_MAX_BYTES + 1 );
 const half = 'x'.repeat( Math.ceil( STUDIO_FILE_TOOL_MAX_BYTES / 2 ) );
@@ -47,32 +43,5 @@ describe( 'getPayloadLimitViolation', () => {
 	it( 'ignores Edit calls without a usable edits array', () => {
 		expect( getPayloadLimitViolation( 'Edit', { path: 'a.css' } ) ).toBeUndefined();
 		expect( getPayloadLimitViolation( 'Edit', { path: 'a.css', edits: '{' } ) ).toBeUndefined();
-	} );
-} );
-
-describe( 'getBashCommandRefusal', () => {
-	it( 'refuses WP-CLI in command position and names wp_cli', () => {
-		for ( const command of [
-			'wp option get home',
-			'cd ~/Studio/site && wp post list',
-			'FOO=1 sudo wp plugin list',
-			'studio wp option get home',
-			'echo $(wp option get home)',
-			'/usr/local/bin/wp --info',
-		] ) {
-			expect( getBashCommandRefusal( 'Bash', { command } ) ).toContain( 'wp_cli' );
-		}
-	} );
-
-	it( 'leaves paths and words that only contain wp alone', () => {
-		for ( const command of [
-			'ls wp-content/themes',
-			'grep -rn wp_enqueue_script wp-includes',
-			'cat ~/Studio/site/wp-config.php',
-			'echo wp',
-		] ) {
-			expect( getBashCommandRefusal( 'Bash', { command } ) ).toBeUndefined();
-		}
-		expect( getBashCommandRefusal( 'Read', { command: 'wp' } ) ).toBeUndefined();
 	} );
 } );

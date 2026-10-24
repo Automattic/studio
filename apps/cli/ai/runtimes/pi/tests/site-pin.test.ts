@@ -23,7 +23,7 @@ describe( 'SitePin', () => {
 	it( "changes the request's site without asking", async () => {
 		const pin = new SitePin( shop );
 		expect(
-			await pin.confirmationFor( 'wp_cli', { nameOrPath: 'Shop', command: 'plugin install x' } )
+			await pin.confirmationFor( 'install_taxonomy_scripts', { nameOrPath: 'Shop' } )
 		).toBeUndefined();
 		expect(
 			await pin.confirmationFor( 'Write', { path: '/sites/shop/wp-content/a.css' } )
@@ -38,18 +38,12 @@ describe( 'SitePin', () => {
 		);
 		ask?.allow();
 		expect(
-			await pin.confirmationFor( 'wp_cli', {
-				nameOrPath: 'Blog',
-				command: 'option update blogname B',
-			} )
+			await pin.confirmationFor( 'install_taxonomy_scripts', { nameOrPath: 'Blog' } )
 		).toBeUndefined();
 	} );
 
 	it( 'reads other sites freely', async () => {
 		const pin = new SitePin( shop );
-		expect(
-			await pin.confirmationFor( 'wp_cli', { nameOrPath: 'Blog', command: 'option get blogname' } )
-		).toBeUndefined();
 		expect(
 			await pin.confirmationFor( 'Read', { path: '/sites/blog/wp-config.php' } )
 		).toBeUndefined();
@@ -88,7 +82,7 @@ describe( 'SitePin', () => {
 			wpcomSiteId: 7,
 		} );
 		expect(
-			await pin.confirmationFor( 'wp_cli', { nameOrPath: 'Shop', command: 'post create x' } )
+			await pin.confirmationFor( 'install_taxonomy_scripts', { nameOrPath: 'Shop' } )
 		).toBeTruthy();
 	} );
 } );

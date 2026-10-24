@@ -52,22 +52,22 @@ function renderQuestion( pending: boolean ) {
 }
 
 describe( 'Agent question keys', () => {
-	it( 'answers with the option numbered like the key pressed, outside text fields', () => {
+	it( 'answers with the option lettered like the key pressed, outside text fields', () => {
 		const { onAnswerQuestion, onChooseFreeForm } = renderQuestion( true );
 
-		fireEvent.keyDown( screen.getByRole( 'textbox', { name: 'Composer' } ), { key: '1' } );
+		fireEvent.keyDown( screen.getByRole( 'textbox', { name: 'Composer' } ), { key: 'a' } );
 		expect( onAnswerQuestion ).not.toHaveBeenCalled();
 
-		fireEvent.keyDown( document.body, { key: '2' } );
+		fireEvent.keyDown( document.body, { key: 'b' } );
 		expect( onAnswerQuestion ).toHaveBeenCalledWith( question, 'List' );
 
-		fireEvent.keyDown( document.body, { key: '3' } );
+		fireEvent.keyDown( document.body, { key: 'C' } );
 		expect( onChooseFreeForm ).toHaveBeenCalledWith( question );
 	} );
 
 	it( 'leaves the keys alone once the question is no longer waiting', () => {
 		const { onAnswerQuestion } = renderQuestion( false );
-		fireEvent.keyDown( document.body, { key: '1' } );
+		fireEvent.keyDown( document.body, { key: 'a' } );
 		expect( onAnswerQuestion ).not.toHaveBeenCalled();
 	} );
 } );

@@ -7,6 +7,7 @@
  * changed is reported on that call's result. Each source reads one kind of
  * thing WordPress reads, as versions a check compares.
  */
+import { blockTheme } from 'cli/ai/block-theme';
 import { childThemeCopies } from 'cli/ai/child-theme-copies';
 import { postContentChanges } from 'cli/ai/post-content-check';
 import { siteFileWrites } from 'cli/ai/site-file-writes';
@@ -54,6 +55,7 @@ export const SITE_CHANGE_SOURCES: SiteChangeSource[] = [
 	postContentChanges,
 	updatableThemeChanges,
 	childThemeCopies,
+	blockTheme,
 	// Before siteFileWrites, which reports the functions.php it may add to.
 	themeStylesheet,
 	siteFileWrites,

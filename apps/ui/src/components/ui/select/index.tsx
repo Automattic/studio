@@ -140,16 +140,3 @@ export function SelectItem( {
 		</BaseSelect.Item>
 	);
 }
-
-export function SelectSeparator( {
-	className,
-	...props
-}: ComponentProps< typeof BaseSelect.Separator > ) {
-	return (
-		<BaseSelect.Separator
-			data-slot="select-separator"
-			className={ clsx( styles.separator, className ) }
-			{ ...props }
-		/>
-	);
-}

@@ -1,7 +1,6 @@
 import { ContextMenu as BaseContextMenu } from '@base-ui/react/context-menu';
 import { Menu as BaseMenu } from '@base-ui/react/menu';
 import { clsx } from 'clsx';
-import { CheckIcon } from 'lucide-react';
 import { forwardRef } from 'react';
 import { FloatingSurface } from '@/components/ui/surface';
 import surface from '@/components/ui/surface/style.module.css';
@@ -12,7 +11,6 @@ import type { ComponentPropsWithoutRef, ElementRef, ReactNode } from 'react';
 export const Root = BaseMenu.Root;
 export const Trigger = BaseMenu.Trigger;
 export const Group = BaseMenu.Group;
-export const RadioGroup = BaseMenu.RadioGroup;
 export const SubmenuRoot = BaseMenu.SubmenuRoot;
 export const ContextMenuRoot = BaseContextMenu.Root;
 export const ContextMenuTrigger = BaseContextMenu.Trigger;
@@ -128,28 +126,6 @@ export const SubmenuTrigger = forwardRef<
 		</BaseMenu.SubmenuTrigger>
 	);
 } );
-
-type RadioItemProps = ComponentPropsWithoutRef< typeof BaseMenu.RadioItem > & { icon?: ReactNode };
-
-export const RadioItem = forwardRef< ElementRef< typeof BaseMenu.RadioItem >, RadioItemProps >(
-	function RadioItem( { className, icon, children, ...props }, ref ) {
-		return (
-			<BaseMenu.RadioItem
-				ref={ ref }
-				className={ clsx( surface.item, styles.radioItem, className ) }
-				{ ...props }
-			>
-				<span className={ styles.indicator } aria-hidden="true">
-					<BaseMenu.RadioItemIndicator className={ styles.indicatorMark } keepMounted>
-						<CheckIcon />
-					</BaseMenu.RadioItemIndicator>
-				</span>
-				{ icon }
-				<span className={ styles.itemLabel }>{ children }</span>
-			</BaseMenu.RadioItem>
-		);
-	}
-);
 
 export function Shortcut( { children }: { children: ReactNode } ) {
 	return (

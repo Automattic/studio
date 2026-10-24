@@ -49,7 +49,7 @@ import styles from './style.module.css';
 import type { SiteSettingsSectionId } from './context';
 import type { SearchResult, SettingsScope, SettingsSectionId } from './sections';
 
-export { isSettingsSection, resolveSettingsLink } from './sections';
+export { isSettingsSection } from './sections';
 export type { SettingsSectionId } from './sections';
 
 const SITE_FORM_SECTIONS: SettingsSectionId[] = [ 'site', 'debugging', 'php' ];

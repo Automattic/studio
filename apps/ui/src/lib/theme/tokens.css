@@ -1,7 +1,7 @@
 /* Primitives (`components/ui`) sit in the `ui` layer, so feature styles, which
    are unlayered, always override them. Declared here, in the first stylesheet
    the entry points load, because layers rank in the order they first appear. */
-@layer wp-ui, base, ui;
+@layer base, ui;
 
 /* The app's design tokens. Colors derive from four appearance inputs set on
    the root by theme.ts — `--tint-hue`, `--tint-intensity` (with
@@ -13,6 +13,7 @@
 /* prettier-ignore */
 :root,
 [data-color-scheme] {
+	color-scheme: light;
 	--surface-0: oklch( calc( 1 - var( --tint-intensity, 0 ) * 0.00025 ) calc( var( --tint-intensity, 0 ) * 0.00025 * var( --tint-saturation, 1 ) ) var( --tint-hue, 260 ) );
 	--surface-1: color-mix( in oklab, var( --foreground ) calc( 2% + var( --contrast, 0 ) * 0.04% ), var( --surface-0 ) );
 	--surface-2: color-mix( in oklab, var( --foreground ) calc( 5% + var( --contrast, 0 ) * 0.07% ), var( --surface-0 ) );
@@ -24,7 +25,6 @@
 	--chat: var( --surface-1 );
 	--composer: var( --background );
 	--popover: var( --background );
-	--content: var( --surface-2 );
 	--muted: var( --surface-2 );
 
 	--foreground: oklch( calc( 0.275 - var( --contrast, 0 ) * 0.001 ) calc( var( --tint-intensity, 0 ) * 0.00025 * var( --tint-saturation, 1 ) ) var( --tint-hue, 260 ) );
@@ -64,7 +64,6 @@
 	/* Vivid status dots, a step brighter than the text colors above. */
 	--status-running: #16a34a;
 	--status-transitioning: #a16207;
-	--status-attention: #facc15;
 	--status-sync: #a855f7;
 
 	--radius: 0.575rem;
@@ -76,16 +75,19 @@
 
 	--font-sans: 'Inter Variable', -apple-system, system-ui, 'Segoe UI', 'Roboto', 'Oxygen-Sans', 'Ubuntu',
 		'Cantarell', 'Helvetica Neue', sans-serif;
-	--font-mono: 'Menlo', 'Consolas', monaco, monospace;
+	--font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
 	--text-xxs: 0.75rem;
 	--text-xs: 0.8125rem;
 	--text-sm: 0.875rem;
 	--text-base: 1rem;
-	--text-lg: 0.925rem;
 	--text-xl: 1.125rem;
 	--font-weight-normal: 400;
 	--font-weight-medium: 450;
 	--font-weight-semibold: 600;
+
+	--shadow-xs: 0 1px 2px 0 rgb( 0 0 0 / 5% );
+	--shadow-sm: 0 1px 3px 0 rgb( 0 0 0 / 10% ), 0 1px 2px -1px rgb( 0 0 0 / 10% );
+	--shadow-md: 0 4px 6px -1px rgb( 0 0 0 / 10% ), 0 2px 4px -2px rgb( 0 0 0 / 10% );
 
 	--focus-width: 2px;
 
@@ -104,13 +106,18 @@
 	--motion-ease-layout: cubic-bezier( 0.645, 0.045, 0.355, 1 );
 	--motion-ease-enter: cubic-bezier( 0.165, 0.84, 0.44, 1 );
 
-	--z-popover: 700;
-	--z-select: 750;
-	--z-tooltip: 800;
+	/* Layers above the content, bottom to top. Toasts stay readable over a dialog;
+	   a drag in progress covers everything. */
+	--z-dialog: 700;
+	--z-toast: 750;
+	--z-popover: 800;
+	--z-tooltip: 850;
+	--z-drag: 900;
 }
 
 /* prettier-ignore */
 [data-color-scheme='dark'] {
+	color-scheme: dark;
 	--surface-0: oklch( from #141414 calc( l - var( --contrast, 0 ) * 0.0006 ) calc( var( --tint-intensity, 0 ) * 0.00025 * var( --tint-saturation, 1 ) ) var( --tint-hue, 260 ) );
 	--surface-1: color-mix( in oklab, var( --foreground ) calc( 5% + var( --contrast, 0 ) * 0.04% ), var( --surface-0 ) );
 	--surface-2: color-mix( in oklab, var( --foreground ) calc( 12% + var( --contrast, 0 ) * 0.08% ), var( --surface-0 ) );

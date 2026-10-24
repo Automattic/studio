@@ -126,33 +126,3 @@ export function FileGlyph() {
 		</svg>
 	);
 }
-
-export function CameraGlyph() {
-	return (
-		<svg className={ styles.toolIcon } viewBox="0 0 16 16" aria-hidden="true">
-			<path
-				d="M2.5 5.5 H5 L6 3.5 H10 L11 5.5 H13.5 V12.5 H2.5 Z"
-				fill="none"
-				stroke="currentColor"
-				strokeWidth="1.1"
-				strokeLinejoin="round"
-			/>
-			<circle cx="8" cy="9" r="2.2" fill="none" stroke="currentColor" strokeWidth="1.1" />
-		</svg>
-	);
-}
-
-export function CheckGlyph() {
-	return (
-		<svg className={ styles.toolIcon } viewBox="0 0 16 16" aria-hidden="true">
-			<path
-				d="M3.5 8.5 L6.5 11.5 L12.5 4.5"
-				fill="none"
-				stroke="currentColor"
-				strokeWidth="1.3"
-				strokeLinecap="round"
-				strokeLinejoin="round"
-			/>
-		</svg>
-	);
-}

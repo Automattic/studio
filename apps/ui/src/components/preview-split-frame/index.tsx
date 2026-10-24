@@ -11,8 +11,8 @@ import {
 import { ResizeHandle, ResizeOverlay } from '@/components/resize-handle';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import { WindowControlsCornerContext } from '@/hooks/use-window-controls-inset';
-import { getMotionDuration } from '@/lib/motion';
 import { PREVIEW_SPLIT_MIN_WIDTH } from '@/lib/resizable-panels';
+import { getMotionDuration } from '@/lib/theme/motion';
 import styles from './style.module.css';
 import { usePreviewSplit } from './use-preview-split';
 

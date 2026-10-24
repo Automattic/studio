@@ -14,7 +14,7 @@ const WP_UI_PACKAGES = {
 		`@wordpress/${ name }`,
 		`@wordpress/${ name }/*`,
 	] ),
-	message: 'Use the primitives in @/components/ui and the tokens in src/theme.',
+	message: 'Use the primitives in @/components/ui and the tokens in src/lib/theme.',
 };
 
 export default defineConfig(
@@ -203,7 +203,7 @@ export default defineConfig(
 		},
 	},
 	{
-		// The agentic UI owns its design system: theme tokens in `src/theme/` and
+		// The agentic UI owns its design system: theme tokens in `src/lib/theme/` and
 		// primitives in `src/components/ui/`, which stay independent of app code.
 		files: [ 'apps/ui/src/**' ],
 		rules: {

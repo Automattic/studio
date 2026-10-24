@@ -1,13 +1,7 @@
 @layer ui {
-	/* Above the floating toast shelf (z-index: 110 in sidebar-layout). */
 	.positioner {
-		z-index: 120;
+		z-index: var( --z-popover );
 		outline: none;
-	}
-
-	/* Like menus, above dialogs: the composer sits in one in Add site. */
-	.commandsPositioner {
-		z-index: var( --z-select );
 	}
 
 	.commands {
@@ -31,6 +25,6 @@
 	.backdrop {
 		position: fixed;
 		inset: 0;
-		z-index: 120;
+		z-index: var( --z-popover );
 	}
 }

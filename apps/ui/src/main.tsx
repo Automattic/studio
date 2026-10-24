@@ -1,4 +1,5 @@
-import '@/theme/tokens.css';
+import '@/lib/theme/tokens.css';
+import '@/lib/theme/base.css';
 import '@/index.css';
 import { init as initSentry } from '@sentry/electron/renderer';
 import { captureException } from '@studio/common/lib/error-reporting';

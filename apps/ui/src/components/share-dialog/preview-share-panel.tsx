@@ -14,11 +14,11 @@ import {
 	SelectValue,
 } from '@/components/ui/select';
 import { Spinner } from '@/components/ui/spinner';
-import { useConnector } from '@/data/core';
 import { markPreviewSeen } from '@/data/preview-ready';
 import { useSiteThumbnail } from '@/data/queries/use-site-thumbnail';
 import { useDeleteSnapshot, useRenameSnapshot } from '@/data/queries/use-snapshots';
 import { useUserLocale } from '@/data/queries/use-user-locale';
+import { useCopyText } from '@/hooks/use-copy-text';
 import { getSnapshotHostname, getSnapshotUrl } from '@/lib/snapshot-url';
 import styles from './style.module.css';
 import type { SiteDetails, Snapshot } from '@/data/core';
@@ -115,12 +115,10 @@ export function PreviewSharePanel( {
 	footer?: ReactNode;
 	onPublish: ( hostname?: string ) => void;
 } ) {
-	const connector = useConnector();
 	const locale = useUserLocale();
 	const linkId = useId();
 	const [ selectedId, setSelectedId ] = useState< number >();
 	const [ editing, setEditing ] = useState< 'rename' | 'delete' | null >( null );
-	const [ copied, setCopied ] = useState< string | null >( null );
 	const [ imageFailed, setImageFailed ] = useState( false );
 	const remove = useDeleteSnapshot();
 	const thumbnail = useSiteThumbnail( site.id );
@@ -159,12 +157,7 @@ export function PreviewSharePanel( {
 	const url = snapshot ? getSnapshotUrl( snapshot ) : '';
 	const updating = !! snapshot && updatingHostname === getSnapshotHostname( snapshot );
 	const locked = busy || remove.isPending;
-	const copyLink = async () => {
-		await connector.copyText( url );
-		markPreviewSeen( site.id );
-		setCopied( url );
-		setTimeout( () => setCopied( null ), 2000 );
-	};
+	const { copied, copy } = useCopyText( url );
 
 	if ( ! snapshot ) {
 		return (
@@ -248,9 +241,15 @@ export function PreviewSharePanel( {
 					</div>
 				</div>
 			) : (
-				<Button disabled={ remove.isPending } onClick={ () => void copyLink() }>
+				<Button
+					disabled={ remove.isPending }
+					onClick={ () => {
+						copy();
+						markPreviewSeen( site.id );
+					} }
+				>
 					<CopyIcon data-icon="inline-start" />
-					{ copied === url ? __( 'Copied' ) : __( 'Copy link' ) }
+					{ copied ? __( 'Copied' ) : __( 'Copy link' ) }
 				</Button>
 			) }
 			{ editing === 'rename' ? (

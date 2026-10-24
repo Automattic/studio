@@ -143,6 +143,7 @@ vi.mock( '@/data/host/use-traffic-light-space', () => ( {
 
 type ComposerMockProps = {
 	onSend: ( prompt: string ) => Promise< void >;
+	autoFocus?: boolean;
 	notice?: { message: string; action?: { label: string; onClick: () => void } };
 };
 
@@ -489,6 +490,23 @@ describe( 'SessionView', () => {
 
 		expect( screen.getByTestId( 'composer' ) ).toBeInTheDocument();
 		expect( container.querySelector( '[class*="fadeInQuick"]' ) ).toBeNull();
+	} );
+
+	it( 'focuses the composer of a chat with no prompt yet', () => {
+		useSessionMock.mockReturnValue( { data: makeLoadedSession(), isLoading: false, error: null } );
+		const { rerender } = render( <SessionView sessionId="session-1" /> );
+		expect( composerProps.current?.autoFocus ).toBe( true );
+
+		useSessionMock.mockReturnValue( {
+			data: {
+				...makeLoadedSession(),
+				entries: [ { type: 'custom', customType: 'studio.user_prompt', id: 'p1' } ],
+			} as unknown as LoadedAiSession,
+			isLoading: false,
+			error: null,
+		} );
+		rerender( <SessionView sessionId="session-1" /> );
+		expect( composerProps.current?.autoFocus ).toBe( false );
 	} );
 
 	it( 'fades the chat surface behind the composer', () => {

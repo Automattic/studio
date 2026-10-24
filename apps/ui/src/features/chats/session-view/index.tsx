@@ -583,6 +583,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 						onAnswer={ targetQuestion ? answerTargetQuestion : undefined }
 						onInterrupt={ interrupt }
 						sessionId={ sessionId }
+						autoFocus={ isEmpty }
 						entries={ data.entries }
 						ownerSiteId={ ownerSite?.id }
 						onSwitchSession={ switchSession }

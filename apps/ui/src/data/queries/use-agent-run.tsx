@@ -99,7 +99,7 @@ interface LiveAgentEvents {
 // `winding_down` means the turn completed, but the subprocess is still draining.
 // `idle` means no active run.
 type RunPhase = 'idle' | 'starting' | 'running' | 'winding_down';
-export type SiteAgentActivity = 'idle' | 'working' | 'pending-question';
+type SiteAgentActivity = 'idle' | 'working' | 'pending-question';
 
 interface State {
 	phase: RunPhase;

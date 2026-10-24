@@ -185,7 +185,7 @@ export function clearAnnotations( siteId: string ) {
 	);
 }
 
-export type AnnotationSendRequest = { siteId: string; noteIds?: string[] };
+type AnnotationSendRequest = { siteId: string; noteIds?: string[] };
 
 // A request to send notes from the preview, held until a chat for that site
 // takes it. Without `noteIds` it sends the chat draft with every note; with

@@ -2,7 +2,7 @@ import { clsx } from 'clsx';
 import styles from './style.module.css';
 import type { ComponentProps } from 'react';
 
-export type AlertVariant = 'default' | 'info' | 'success' | 'warning' | 'destructive';
+type AlertVariant = 'default' | 'info' | 'success' | 'warning' | 'destructive';
 
 /** The variant for a notice's intent. */
 export const INTENT_VARIANTS = {

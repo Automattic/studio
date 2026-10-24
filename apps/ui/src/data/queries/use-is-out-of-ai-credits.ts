@@ -1,5 +1,5 @@
 import { getStudioCodeAiAccessState } from '@studio/common/lib/studio-assistant-quota';
-import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
+import { useStudioAssistantQuota } from './use-assistant-quota';
 
 /**
  * Whether the account has spent both AI credit pools and can't send another

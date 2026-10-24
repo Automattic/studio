@@ -3,7 +3,7 @@ import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { resetAiCreditsNoticeForTests } from '@/data/ai-credits-notice';
 import { getNoticeHistory, resetAppMessagesForTests } from '@/data/app-messages';
-import { useAiCreditsMeter } from '@/hooks/use-ai-credits-meter';
+import { useAiCreditsMeter } from './use-ai-credits-meter';
 import { useActivePersistentMessages, useRecordPersistentMessages } from './use-app-messages';
 import type { PersistentMessage } from './use-app-messages';
 import type { ReactNode } from 'react';
@@ -15,7 +15,7 @@ vi.mock( '@/data/queries/use-app-update', () => ( {
 	useAppUpdateStatus: () => ( { data: undefined } ),
 } ) );
 vi.mock( '@/data/queries/use-user-locale', () => ( { useUserLocale: () => 'en' } ) );
-vi.mock( '@/hooks/use-ai-credits-meter', () => ( { useAiCreditsMeter: vi.fn() } ) );
+vi.mock( './use-ai-credits-meter', () => ( { useAiCreditsMeter: vi.fn() } ) );
 
 const useMeterMock = vi.mocked( useAiCreditsMeter );
 

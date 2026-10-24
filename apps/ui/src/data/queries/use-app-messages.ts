@@ -12,7 +12,7 @@ import { DISMISSED_MESSAGES_QUERY_KEY, syncCardNotices } from '@/data/app-messag
 import { useConnector } from '@/data/core';
 import { useAppUpdateStatus } from '@/data/queries/use-app-update';
 import { useUserLocale } from '@/data/queries/use-user-locale';
-import { useAiCreditsMeter } from '@/hooks/use-ai-credits-meter';
+import { useAiCreditsMeter } from './use-ai-credits-meter';
 import type { AppUpdateStatus } from '@/data/core';
 
 // The sidebar announces the 80% step only. The composer strip takes 90% and

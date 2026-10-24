@@ -3,7 +3,7 @@ import {
 	getStudioCodeAiAccessState,
 	type AiCreditsMeter,
 } from '@studio/common/lib/studio-assistant-quota';
-import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
+import { useStudioAssistantQuota } from './use-assistant-quota';
 
 /** Null means there is no figure to show, not an empty balance — see `useIsOutOfAiCredits` for that. */
 export function useAiCreditsMeter(): AiCreditsMeter | null {

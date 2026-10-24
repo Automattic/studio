@@ -20,7 +20,7 @@ import { useConnector } from '@/data/core';
 import { useAiSettings } from '@/data/queries/use-ai-settings';
 import { ASSISTANT_QUOTA_QUERY_KEY } from '@/data/queries/use-assistant-quota';
 import { SESSIONS_QUERY_KEY, useSession } from '@/data/queries/use-sessions';
-import { useIsOutOfAiCredits } from '@/hooks/use-is-out-of-ai-credits';
+import { useIsOutOfAiCredits } from './use-is-out-of-ai-credits';
 import type {
 	AgentEvent,
 	AgentRunEvent,

@@ -18,7 +18,7 @@ vi.mock( '@/data/core', async ( importOriginal ) => {
 
 const { outOfCreditsState } = vi.hoisted( () => ( { outOfCreditsState: { value: false } } ) );
 
-vi.mock( '@/hooks/use-is-out-of-ai-credits', () => ( {
+vi.mock( './use-is-out-of-ai-credits', () => ( {
 	useIsOutOfAiCredits: () => outOfCreditsState.value,
 } ) );
 

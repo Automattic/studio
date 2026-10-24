@@ -740,15 +740,26 @@ function toToolDefinition(
 					) || undefined;
 			}
 			await postContent.snapshot().catch( () => undefined );
+			// A call that fails can still have changed content, as a shell
+			// command does that exits non-zero after saving a page.
+			const changedContent = async () => {
+				const { summaries, problems } = await postContent
+					.settle()
+					.catch( () => ( { summaries: [], problems: [] } ) );
+				return [ ...summaries.map( ( line ) => `Block validation: ${ line }` ), ...problems ];
+			};
 			// The validation report was taken from the gate, so it rides on a failure too.
 			const result = await tool
 				.execute( toolCallId, params, signal, onUpdate )
-				.catch( ( error: unknown ) => {
-					if ( ! validationReport ) {
+				.catch( async ( error: unknown ) => {
+					const report = [ validationReport, ...( await changedContent() ) ]
+						.filter( Boolean )
+						.join( '\n' );
+					if ( ! report ) {
 						throw error;
 					}
 					throw new Error(
-						`${ error instanceof Error ? error.message : String( error ) }\n${ validationReport }`
+						`${ error instanceof Error ? error.message : String( error ) }\n${ report }`
 					);
 				} );
 			if ( tool.name === 'site_create' ) {
@@ -759,17 +770,14 @@ function toToolDefinition(
 				pendingWork.add( details.pending );
 				delete details.pending;
 			}
-			const changedContent = await postContent
-				.settle()
-				.catch( () => ( { summaries: [], problems: [] } ) );
+			const changed = await changedContent();
 			const resultText = result.content
 				.map( ( part ) => ( part.type === 'text' ? part.text : '' ) )
 				.join( '\n' );
 			const reports =
 				[
 					validationReport,
-					...changedContent.summaries.map( ( line ) => `Block validation: ${ line }` ),
-					...changedContent.problems,
+					...changed,
 					...( writtenFile ? await siteNotes.afterWrite( writtenFile ) : [] ),
 					...( localSite ? await siteNotes.afterResult( localSite, resultText ) : [] ),
 					pendingWork.takeReports(),

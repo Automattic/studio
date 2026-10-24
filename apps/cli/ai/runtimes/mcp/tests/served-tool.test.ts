@@ -74,4 +74,25 @@ it( 'reports the block validation of post content the call changed, on any site'
 			/^Block validation: Bakery page 9 "": core\/html policy failed\nBakery page 9 "": 1 core\/html block\(s\) must become editable blocks/
 		),
 	] );
+
+	// A call that fails after changing content reports it too.
+	const failing = defineTool(
+		'wp_cli',
+		'Runs WP-CLI.',
+		{},
+		async () => {
+			fixture.edit(
+				9,
+				'<!-- wp:html -->\n<p>Hi again</p>\n<!-- /wp:html -->',
+				'2026-10-24 00:00:00'
+			);
+			throw new Error( 'Command exited with code 1' );
+		},
+		{ annotations: LOCAL_CHANGE }
+	);
+	const failed = await runServedTool( failing, {}, createSiteNotes(), new PostContentCheck() );
+	expect( failed.isError ).toBe( true );
+	expect( JSON.stringify( failed.content ) ).toMatch(
+		/Command exited with code 1\\nBlock validation: Bakery page 9 \\"\\": core\/html policy failed/
+	);
 } );

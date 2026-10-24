@@ -18,6 +18,7 @@ const mocks = vi.hoisted( () => ( {
 	// What ran, in order: tool executions and the post content check.
 	steps: [] as string[],
 	postChanges: { summaries: [] as string[], problems: [] as string[] },
+	failNext: false,
 } ) );
 
 // Model-swap test uses a synthetic id outside `AI_MODELS`; route unknowns to
@@ -42,6 +43,10 @@ vi.mock( '@earendil-works/pi-coding-agent', async ( importOriginal ) => {
 		parameters: {},
 		execute: async () => {
 			mocks.steps.push( name );
+			if ( mocks.failNext ) {
+				mocks.failNext = false;
+				throw new Error( 'exit 1' );
+			}
 			return { content: [ { type: 'text', text: '' } ], details: undefined };
 		},
 	} );
@@ -545,6 +550,11 @@ describe( 'pi runtime', () => {
 			'',
 			'Block validation: page 9 changed\npage 9 problem',
 		] );
+		// A failed call reports what it changed too.
+		mocks.failNext = true;
+		await expect(
+			getCreatedTool( 'Read' ).execute( 'r', { path: 'a/style.css' } )
+		).rejects.toThrow( 'exit 1\nBlock validation: page 9 changed\npage 9 problem' );
 		mocks.postChanges = { summaries: [], problems: [] };
 	} );
 

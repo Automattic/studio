@@ -23,20 +23,24 @@ export async function runServedTool(
 	siteNotes: SiteNotes,
 	postContent?: PostContentCheck
 ) {
-	try {
-		await postContent?.snapshot().catch( () => undefined );
-		const result = await tool.rawHandler( args as never );
-		const changedContent = ( await postContent?.settle().catch( () => undefined ) ) ?? {
+	await postContent?.snapshot().catch( () => undefined );
+	// A call that fails can still have changed content.
+	const changedContent = async () => {
+		const { summaries, problems } = ( await postContent?.settle().catch( () => undefined ) ) ?? {
 			summaries: [],
 			problems: [],
 		};
+		return [ ...summaries.map( ( line ) => `Block validation: ${ line }` ), ...problems ];
+	};
+	try {
+		const result = await tool.rawHandler( args as never );
+		const changed = await changedContent();
 		const resultText = result.content
 			.map( ( part ) => ( part.type === 'text' ? part.text : '' ) )
 			.join( '\n' );
 		const site = await siteNamed( args );
 		const notes = [
-			...changedContent.summaries.map( ( line ) => `Block validation: ${ line }` ),
-			...changedContent.problems,
+			...changed,
 			...( site ? await siteNotes.afterResult( site.path, resultText ) : [] ),
 			await result.pending,
 		]
@@ -50,7 +54,10 @@ export async function runServedTool(
 			isError: false,
 		};
 	} catch ( error ) {
-		const message = error instanceof Error ? error.message : String( error );
+		const message = [
+			error instanceof Error ? error.message : String( error ),
+			...( await changedContent() ),
+		].join( '\n' );
 		return {
 			content: [ { type: 'text' as const, text: message } ],
 			isError: true,

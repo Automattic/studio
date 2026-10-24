@@ -2,6 +2,7 @@ import { Type, type Static, type TObject, type TProperties } from 'typebox';
 import type { AgentTool, AgentToolUpdateCallback } from '@earendil-works/pi-agent-core';
 import type { StudioChatArtifactWidgetDraft } from '@studio/common/ai/chat-artifacts';
 import type { StudioToolProgressUpdate } from '@studio/common/ai/tool-progress';
+import type { DesignTracksContext } from 'cli/ai/design-tracks';
 
 /**
  * Tool authors throw on failure; pi's loop catches and produces a tool-result
@@ -84,8 +85,33 @@ export const REMOTE_OVERWRITE: ToolAnnotations = {
 	openWorldHint: true,
 };
 
+// What a host running Studio's tools (Studio Code, an MCP client) can do. Each
+// tool decides from it whether and how it appears there.
+export interface StudioToolHost {
+	// The agent has a shell whose `wp` runs Studio's WP-CLI (Studio Code's Bash).
+	shell?: boolean;
+	// Tool results carry chat artifacts the host shows: the desktop app sets
+	// this; standalone CLI and MCP runs leave it off so visual artifacts are
+	// ignored instead of leaking into terminal transcripts.
+	emitChatArtifacts?: boolean;
+	// Studio can generate images, and the host has no image tool of its own.
+	imageGeneration?: boolean;
+	// False for models that cannot view images. Defaults to true.
+	visionEnabled?: boolean;
+	// The host can put a question to the user.
+	canAskUser?: boolean;
+	// The chat session the design tools record Tracks events for; absent for the MCP server.
+	tracks?: DesignTracksContext;
+	// How a local image is linked in the agent's reply so the host shows it to the user.
+	// Set by hosts without Studio's chat UI, which shows images as chat artifacts instead.
+	imageLink?: ( file: string ) => string;
+}
+
 export interface ToolOptions {
 	annotations: ToolAnnotations;
+	// The tool as it appears on a host, or undefined where it does not.
+	// Without it the tool appears on every host as defined.
+	forHost?: ( host: StudioToolHost ) => AnyStudioAgentTool | undefined;
 	// The tool renders the site, so it runs only once the pending work of
 	// earlier tools, such as images still being generated, has settled.
 	settlesPendingWork?: boolean;
@@ -119,6 +145,7 @@ export interface AnyStudioAgentTool {
 	executionMode?: unknown;
 	settlesPendingWork?: boolean;
 	annotations: ToolAnnotations;
+	forHost?: ( host: StudioToolHost ) => AnyStudioAgentTool | undefined;
 }
 
 export function defineTool< TProps extends TProperties >(
@@ -136,6 +163,7 @@ export function defineTool< TProps extends TProperties >(
 		parameters,
 		label: name,
 		...( options.settlesPendingWork ? { settlesPendingWork: true } : {} ),
+		...( options.forHost ? { forHost: options.forHost } : {} ),
 		annotations: options.annotations,
 		rawHandler: ( args, context ) => handler( args, context ?? NOOP_TOOL_CONTEXT ),
 		execute: async ( _toolCallId, params, _signal, onUpdate ) => {

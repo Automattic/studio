@@ -5,6 +5,7 @@ import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import { getUnsupportedWpCliPostContentMessage } from 'cli/lib/wp-cli-post-content';
 import { defineTool, REMOTE_OVERWRITE } from './define-tool';
 import { resolveSite } from './utils';
+import type { AnyStudioAgentTool } from './define-tool';
 
 // LLMs sometimes emit en/em dashes (`‐porcelain`, `–color`); WP-CLI silently
 // ignores them, so reject up-front and let the agent retry with ASCII hyphens.
@@ -93,5 +94,7 @@ export const runWpCliTool = defineTool(
 	},
 	{
 		annotations: REMOTE_OVERWRITE,
+		// An agent with a shell runs `wp` there.
+		forHost: ( host ): AnyStudioAgentTool | undefined => ( host.shell ? undefined : runWpCliTool ),
 	}
 );

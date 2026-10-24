@@ -248,6 +248,15 @@ describe( 'Studio AI MCP tools', () => {
 		}
 	} );
 
+	it.each( [
+		{ host: {}, tool: 'wp_cli', appears: true },
+		{ host: { shell: true }, tool: 'wp_cli', appears: false },
+		{ host: {}, tool: 'generate_images', appears: false },
+		{ host: { imageGeneration: true }, tool: 'generate_images', appears: true },
+	] )( 'on host $host, $tool appears: $appears', ( { host, tool, appears } ) => {
+		expect( resolveStudioToolDefinitions( host ).some( ( t ) => t.name === tool ) ).toBe( appears );
+	} );
+
 	it( 'pick_design offers options only when the user can be asked, and draws one otherwise', async () => {
 		expect( getTool( 'pick_design' ).description ).not.toContain( 'options: 4' );
 		expect(

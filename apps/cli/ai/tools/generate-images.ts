@@ -14,6 +14,7 @@ import {
 } from '../image-generation';
 import { defineTool, REMOTE_CHANGE } from './define-tool';
 import { runWpCli, textResult } from './utils';
+import type { AnyStudioAgentTool } from './define-tool';
 
 const MAX_IMAGES_PER_CALL = 20;
 const UPLOADS_DIR = path.sep + path.join( 'wp-content', 'uploads' ) + path.sep;
@@ -238,5 +239,7 @@ export const generateImagesTool = defineTool(
 	},
 	{
 		annotations: REMOTE_CHANGE,
+		forHost: ( host ): AnyStudioAgentTool | undefined =>
+			host.imageGeneration ? generateImagesTool : undefined,
 	}
 );

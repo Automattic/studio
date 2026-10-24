@@ -819,7 +819,7 @@ function buildAgentTools(
 	];
 	const studioTools = resolveStudioToolDefinitions( {
 		emitChatArtifacts: chatArtifactsEnabled,
-		shellRunsStudioWp: true,
+		shell: true,
 		imageGeneration: imageGenerationEnabled,
 		visionEnabled,
 		canAskUser: Boolean( config.onAskUser ),

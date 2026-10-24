@@ -10,6 +10,7 @@ import {
 	VIEWPORTS,
 	type ScreenshotColorScheme,
 } from './screenshot-helpers';
+import type { AnyStudioAgentTool } from './define-tool';
 
 const screenshotViewportSchema = Type.Enum( [ 'desktop', 'mobile', 'all' ], {
 	description:
@@ -252,6 +253,12 @@ export function createTakeScreenshotTool( {
 		{
 			settlesPendingWork: true,
 			annotations: LOCAL_CHANGE,
+			forHost: ( host ): AnyStudioAgentTool | undefined =>
+				createTakeScreenshotTool( {
+					visionEnabled: host.visionEnabled !== false,
+					imageLink: host.imageLink,
+					userSeesCaptures: host.emitChatArtifacts === true || Boolean( host.imageLink ),
+				} ),
 		}
 	);
 }

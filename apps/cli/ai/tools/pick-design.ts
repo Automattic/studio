@@ -12,6 +12,7 @@ import { recordDesignTracksEvent, type DesignTracksContext } from 'cli/ai/design
 import { TRACKS_EVENTS } from 'cli/lib/tracks';
 import { defineTool, READ_ONLY } from './define-tool';
 import { textResult } from './utils';
+import type { AnyStudioAgentTool } from './define-tool';
 
 // Without a question tool (MCP, non-interactive runs) there is nobody to pick,
 // so the schema offers a single entry and a stray `options: 4` is coerced.
@@ -95,7 +96,12 @@ export function createPickDesignTool( {
 			}
 			return textResult( sections.join( '\n\n---\n\n' ) );
 		},
-		{ annotations: READ_ONLY }
+		{
+			annotations: READ_ONLY,
+			// Each session gets its own, so what the user has seen is its own.
+			forHost: ( host ): AnyStudioAgentTool | undefined =>
+				createPickDesignTool( { canAskUser: host.canAskUser === true, tracks: host.tracks } ),
+		}
 	);
 }
 

@@ -6,25 +6,24 @@ import { deleteSiteTool } from './delete-site';
 import { exportSiteTool } from './export-site';
 import { generateImagesTool } from './generate-images';
 import { importSiteTool } from './import-site';
-import { createInspectDesignTool, inspectDesignTool } from './inspect-design';
+import { inspectDesignTool } from './inspect-design';
 import { installTaxonomyScriptsTool } from './install-taxonomy-scripts';
 import { listConnectedRemoteSitesTool } from './list-connected-remote-sites';
 import { listPreviewsTool } from './list-previews';
 import { listSitesTool } from './list-sites';
 import { auditPerformanceTool } from './need-for-speed';
 import { openAnnotationBrowserTool } from './open-annotation-browser';
-import { createPickDesignTool, pickDesignTool } from './pick-design';
+import { pickDesignTool } from './pick-design';
 import { pullSiteTool } from './pull-site';
 import { pushSiteTool } from './push-site';
 import { auditSeoTool } from './rank-me-up';
 import { getSiteInfoTool } from './site-info';
 import { startSiteTool } from './start-site';
 import { stopSiteTool } from './stop-site';
-import { createTakeScreenshotTool, takeScreenshotTool } from './take-screenshot';
+import { takeScreenshotTool } from './take-screenshot';
 import { updatePreviewTool } from './update-preview';
 import { runWpCliTool } from './wp-cli';
-import type { AnyStudioAgentTool, StudioToolResultDetails } from './define-tool';
-import type { DesignTracksContext } from 'cli/ai/design-tracks';
+import type { AnyStudioAgentTool, StudioToolHost, StudioToolResultDetails } from './define-tool';
 
 export { captureCommandOutput } from './utils';
 
@@ -55,61 +54,11 @@ export const studioToolDefinitions: AnyStudioAgentTool[] = [
 	openAnnotationBrowserTool,
 ];
 
-export interface CreateStudioToolsOptions {
-	// Enable automatic chat artifact emission from tool results. Desktop agent
-	// runs set this; standalone CLI/MCP runs leave it off so visual artifacts are
-	// ignored instead of leaking into terminal transcripts.
-	emitChatArtifacts?: boolean;
-	// Enable generate_images. Callers resolve isImageGenerationAvailable()
-	// (async) and pass it; when off, sessions behave exactly as before the tool
-	// existed (no tool, no imagery prompt sections).
-	imageGeneration?: boolean;
-	// False for models that cannot view images. Defaults to true.
-	visionEnabled?: boolean;
-	// Lets pick_design offer options to pick from. Defaults to false.
-	canAskUser?: boolean;
-	// The chat session the design tools record Tracks events for; absent for the MCP server.
-	tracks?: DesignTracksContext;
-	// How a local image is linked in the agent's reply so the host shows it to the user.
-	// Set by hosts without Studio's chat UI, which shows images as chat artifacts instead.
-	imageLink?: ( file: string ) => string;
-	// The agent has a shell whose `wp` runs Studio's WP-CLI (Studio Code's Bash
-	// tool), so wp_cli would be a second way to do the same thing.
-	shellRunsStudioWp?: boolean;
-}
-
-export function resolveStudioToolDefinitions(
-	options: CreateStudioToolsOptions = {}
-): AnyStudioAgentTool[] {
-	return studioToolDefinitions.flatMap( ( candidate ) => {
-		if ( candidate.name === generateImagesTool.name && ! options.imageGeneration ) {
-			return [];
-		}
-		if ( candidate.name === runWpCliTool.name && options.shellRunsStudioWp ) {
-			return [];
-		}
-		let tool = candidate;
-		const userSeesCaptures = options.emitChatArtifacts === true || Boolean( options.imageLink );
-		if (
-			candidate.name === takeScreenshotTool.name &&
-			( options.visionEnabled === false || ! userSeesCaptures )
-		) {
-			tool = createTakeScreenshotTool( {
-				visionEnabled: options.visionEnabled !== false,
-				imageLink: options.imageLink,
-				userSeesCaptures,
-			} );
-		}
-		if ( candidate.name === inspectDesignTool.name && options.visionEnabled === false ) {
-			tool = createInspectDesignTool( { visionEnabled: false } );
-		}
-		if ( candidate.name === pickDesignTool.name && ( options.canAskUser || options.tracks ) ) {
-			tool = createPickDesignTool( {
-				canAskUser: options.canAskUser === true,
-				tracks: options.tracks,
-			} );
-		}
-		return [ withChatArtifactEmission( tool, options.emitChatArtifacts === true ) ];
+// The Studio tools as they appear on a host: each decides for itself.
+export function resolveStudioToolDefinitions( host: StudioToolHost = {} ): AnyStudioAgentTool[] {
+	return studioToolDefinitions.flatMap( ( definition ) => {
+		const tool = definition.forHost ? definition.forHost( host ) : definition;
+		return tool ? [ withChatArtifactEmission( tool, host.emitChatArtifacts === true ) ] : [];
 	} );
 }
 

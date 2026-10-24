@@ -9,6 +9,11 @@
  */
 import { readFile } from 'fs/promises';
 import path from 'path';
+import {
+	FRONT_PAGE_TEMPLATE,
+	frontPageTemplateProblem,
+	rendersPageContent,
+} from 'cli/ai/front-page-template';
 import { readSavedCopies } from 'cli/ai/saved-copies';
 import { readWordPressSite } from 'cli/ai/site-database';
 
@@ -72,18 +77,12 @@ export function getOpenProblems( session: object ): OpenProblems {
 }
 
 /**
- * A static front page WordPress does not show: the theme's front-page
- * template renders instead of the page (wp-includes/template.php,
- * get_front_page_template), and shows the page's content only through a
- * post-content block. A template that includes patterns is left alone, since
- * one of them may hold that block.
+ * A front-page template of the active theme that renders no page's content,
+ * which WordPress shows at the front page whatever Settings → Reading picks
+ * (front-page-template.ts).
  */
 export async function unrenderedFrontPage( sitePath: string ): Promise< string | undefined > {
 	const state = await readWordPressSite( sitePath, ( site ) => {
-		const pageId = Number( site.option( 'page_on_front' ) );
-		if ( site.option( 'show_on_front' ) !== 'page' || ! pageId ) {
-			return undefined;
-		}
 		const saved = readSavedCopies( site ).find(
 			( copy ) => copy.postType === 'wp_template' && copy.slug === 'front-page'
 		);
@@ -92,12 +91,12 @@ export async function unrenderedFrontPage( sitePath: string ): Promise< string |
 				`SELECT post_title AS title, post_content AS content FROM ${ site.prefix }posts WHERE ID = ?`,
 				id
 			)[ 0 ];
-		const page = post( pageId );
+		const pageId =
+			site.option( 'show_on_front' ) === 'page' ? Number( site.option( 'page_on_front' ) ) : 0;
 		return {
-			pageId,
-			title: page?.title ?? '',
+			frontPage: pageId ? `page ${ pageId } "${ post( pageId )?.title ?? '' }"` : undefined,
 			saved: saved && { id: saved.id, content: post( saved.id )?.content ?? '' },
-			themes: [ site.option( 'stylesheet' ), site.option( 'template' ) ].filter(
+			themes: [ ...new Set( [ site.option( 'stylesheet' ), site.option( 'template' ) ] ) ].filter(
 				( theme ): theme is string => typeof theme === 'string' && theme !== ''
 			),
 		};
@@ -105,18 +104,21 @@ export async function unrenderedFrontPage( sitePath: string ): Promise< string |
 	if ( ! state ) {
 		return undefined;
 	}
+	const themeDirs = state.themes.map( ( theme ) =>
+		path.join( sitePath, 'wp-content', 'themes', theme )
+	);
 	let template = state.saved?.content;
 	let source = `the front-page template saved in the Site Editor (post ${ state.saved?.id })`;
 	for ( const theme of state.saved ? [] : state.themes ) {
-		const file = `wp-content/themes/${ theme }/templates/front-page.html`;
+		const file = `wp-content/themes/${ theme }/${ FRONT_PAGE_TEMPLATE }`;
 		template = await readFile( path.join( sitePath, file ), 'utf8' ).catch( () => undefined );
 		source = file;
 		if ( template !== undefined ) {
 			break;
 		}
 	}
-	if ( template === undefined || /<!--\s*wp:(?:post-content|pattern)\b/.test( template ) ) {
+	if ( template === undefined || ( await rendersPageContent( template, themeDirs ) ) !== false ) {
 		return undefined;
 	}
-	return `Page ${ state.pageId } "${ state.title }" is the front page, and WordPress renders ${ source } there instead (wp-includes/template.php, get_front_page_template). It has no core/post-content block, so the page's content, and any edit to it, never shows. Add <!-- wp:post-content /--> where the page's content belongs, or keep the content in the template.`;
+	return frontPageTemplateProblem( source, state.frontPage );
 }

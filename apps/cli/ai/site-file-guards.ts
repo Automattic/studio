@@ -5,12 +5,17 @@
  * these with the trigger each runs on.
  */
 import { existsSync, readdirSync, readFileSync, statSync } from 'fs';
-import { unlink, writeFile } from 'fs/promises';
+import { readFile, unlink, writeFile } from 'fs/promises';
 import path from 'path';
 import { pathToFileURL } from 'url';
 import { selfHostThemeJsonFonts } from '@studio/common/lib/theme-fonts';
 import { trappedFullWidthNotes } from 'cli/ai/block-alignment';
 import { renderDesignBoard } from 'cli/ai/design-board';
+import {
+	FRONT_PAGE_TEMPLATE,
+	frontPageTemplateProblem,
+	rendersPageContent,
+} from 'cli/ai/front-page-template';
 import { savedCopyWriteNote } from 'cli/ai/saved-copies';
 import { resolveScreenshotDirectory } from 'cli/ai/screenshot-storage';
 import { readWordPressSite } from 'cli/ai/site-database';
@@ -320,4 +325,30 @@ export async function clearThemePatternCache( siteFile: SiteFile ): Promise< str
 		await disconnectFromDaemon();
 	}
 	return [];
+}
+
+/**
+ * A theme's front-page template written without a page's content
+ * (front-page-template.ts), noted for the file whether or not its theme is
+ * active yet.
+ */
+export async function frontPageTemplateNotes( {
+	siteRoot,
+	relativePath,
+	theme,
+}: SiteFile ): Promise< string[] > {
+	if ( theme?.file !== FRONT_PAGE_TEMPLATE ) {
+		return [];
+	}
+	const template = await readFile( path.join( siteRoot, relativePath ), 'utf8' );
+	const parent = (
+		await readFile( path.join( theme.dir, 'style.css' ), 'utf8' ).catch( () => '' )
+	).match( /^[\s*]*Template:\s*(\S+)/im )?.[ 1 ];
+	const themeDirs = [
+		theme.dir,
+		...( parent ? [ path.join( path.dirname( theme.dir ), parent ) ] : [] ),
+	];
+	return ( await rendersPageContent( template, themeDirs ) ) === false
+		? [ frontPageTemplateProblem( relativePath ) ]
+		: [];
 }

@@ -23,6 +23,7 @@ import {
 	blockMarkupNotes,
 	clearThemePatternCache,
 	externalImageNotes,
+	frontPageTemplateNotes,
 	getSiteFileWriteRefusal,
 	resolveSiteFile,
 	savedCopyNotes,
@@ -101,6 +102,7 @@ function sources( { stated = new Map(), gate }: SiteNotesOptions ): Sources {
 			themeCssNotes,
 			externalImageNotes,
 			savedCopyNotes,
+			frontPageTemplateNotes,
 		],
 		result: [ blockSettingsSource(), siteFactsSource( stated ) ],
 	};

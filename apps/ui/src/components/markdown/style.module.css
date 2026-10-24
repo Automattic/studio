@@ -1,5 +1,6 @@
 .root {
 	--markdown-gap: 12px;
+	--markdown-rule-gap: 16px;
 
 	min-width: 0;
 	color: var(--foreground);
@@ -8,28 +9,40 @@
 	overflow-wrap: break-word;
 }
 
-.root > *,
-.blockquote > * {
-	margin-block: 0;
-}
-
-.root > * + *,
-.blockquote > * + * {
-	margin-block-start: var(--markdown-gap);
-}
-
-.p {
-	margin: 0;
+/* Block margins collapse, so a heading, quote or table keeps its own space
+   whatever sits next to it. */
+.root > * {
+	margin-block: 0 var(--markdown-gap);
 }
 
 .h1,
 .h2,
 .h3,
 .h4 {
+	margin-block: var(--markdown-gap);
 	font-size: inherit;
 	font-weight: var(--font-weight-semibold);
-	line-height: inherit;
+	line-height: 20px;
 	color: var(--foreground);
+}
+
+.blockquote,
+.tableWrap {
+	margin-block: 16px;
+}
+
+.hr {
+	margin-block: var(--markdown-rule-gap);
+	border: 0;
+	border-top: 1px solid var(--border);
+}
+
+.root > :first-child {
+	margin-block-start: 0;
+}
+
+.root > :last-child {
+	margin-block-end: 0;
 }
 
 .ul,
@@ -57,12 +70,13 @@
 .li > .ul,
 .li > .ol {
 	margin-block-start: 4px;
+	padding-inline-start: 24px;
 }
 
 .a {
 	color: inherit;
 	text-decoration: underline;
-	text-decoration-color: color-mix(in srgb, currentColor 30%, transparent);
+	text-decoration-color: color-mix(in oklab, currentColor 30%, transparent);
 	text-underline-offset: 2px;
 }
 
@@ -77,28 +91,29 @@
 }
 
 .blockquote {
+	margin-inline: 0;
 	padding-inline-start: 12px;
-	border-inline-start: 2px solid var(--border);
+	border-inline-start: 2px solid color-mix(in oklab, var(--muted-foreground) 30%, transparent);
+	color: var(--muted-foreground);
 }
 
-.hr {
-	border: 0;
-	border-top: 1px solid var(--border);
+.blockquote > * {
+	margin-block: 0;
+}
+
+.blockquote > * + * {
+	margin-block-start: var(--markdown-gap);
 }
 
 .codeInline {
 	padding: 2px 4px;
 	border-radius: var(--radius-sm);
-	background-color: var(--muted);
+	background-color: color-mix(in oklab, var(--foreground) 5%, transparent);
 	font-family: var(--font-mono);
 	font-size: var(--text-xs);
+	line-height: 20px;
 	-webkit-user-select: text;
 	user-select: text;
-}
-
-.codeBlock {
-	border-radius: 7px;
-	background-color: var(--chrome);
 }
 
 .codeHeader {
@@ -108,22 +123,25 @@
 	gap: 8px;
 	padding: 8px 12px;
 	border-bottom: 1px solid var(--border);
-	background-color: var(--muted);
+	background-color: color-mix(in oklab, var(--muted) 80%, transparent);
 	color: var(--muted-foreground);
 	font-size: var(--text-xs);
 	line-height: 20px;
 }
 
-/* The copy button's 28px box would stretch the 20px header line. */
-.codeCopy {
-	margin-block: -4px;
-	margin-inline-end: -4px;
+.tableWrap {
+	display: flex;
+	flex-direction: column;
+	padding: 8px;
+	border: 1px solid var(--border);
+	border-radius: var(--radius-lg);
 }
 
-.tableWrap {
+.tableScroll {
 	overflow-x: auto;
 	border: 1px solid var(--border);
-	border-radius: 7px;
+	border-radius: var(--radius-md);
+	background-color: var(--background);
 }
 
 .table {
@@ -131,21 +149,22 @@
 	border-collapse: collapse;
 }
 
-.th,
-.td {
-	padding: 6px 10px;
+.table thead {
 	border-bottom: 1px solid var(--border);
-	text-align: start;
-	vertical-align: top;
+	background-color: color-mix(in oklab, var(--muted) 80%, transparent);
 }
 
-.table tr:last-child .td,
-.table tr:last-child .th {
-	border-bottom: 0;
+.table tbody tr:not(:last-child) {
+	border-bottom: 1px solid var(--border);
+}
+
+.th,
+.td {
+	padding: 8px 16px;
+	line-height: 20px;
+	text-align: start;
 }
 
 .th {
 	font-weight: var(--font-weight-semibold);
-	background-color: var(--muted);
 }
-

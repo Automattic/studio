@@ -55,6 +55,7 @@ import {
 	type ReactNode,
 } from 'react';
 import { AiAccessRequiredNotice, AiBlockedNotice } from '@/components/ai-access-required-notice';
+import { CodeBlock } from '@/components/code-block';
 import { CopyButton } from '@/components/copy-button';
 import { Markdown } from '@/components/markdown';
 import { Button, IconButton } from '@/components/ui/button';
@@ -490,29 +491,77 @@ function getProgressMessage( entries: SessionEntry[] ): string | null {
 		: null;
 }
 
+interface Joined {
+	joinedAbove?: boolean;
+	joinedBelow?: boolean;
+}
+
+function joinedAttributes( { joinedAbove, joinedBelow }: Joined ) {
+	return {
+		'data-joined-above': joinedAbove || undefined,
+		'data-joined-below': joinedBelow || undefined,
+	};
+}
+
+// Consecutive messages from the same side read as one group.
+function getSender( item: TranscriptItem | undefined ) {
+	if ( item?.kind === 'user-text' ) {
+		return 'user';
+	}
+	return item?.kind === 'assistant-text' || item?.kind === 'agent-question-batch'
+		? 'assistant'
+		: undefined;
+}
+
 function UserTurn( {
 	text,
 	attachments,
 	annotation,
+	...joined
 }: {
 	text: string;
 	attachments?: StudioChatAttachmentSummary[];
 	annotation?: StudioVisualAnnotationSummary;
-} ) {
+} & Joined ) {
 	return (
 		<div
 			className={ styles.userTurn }
+			{ ...joinedAttributes( joined ) }
 			{ ...{ [ MESSAGE_TEXT_ATTRIBUTE ]: text, [ SCROLL_ANCHOR_ATTRIBUTE ]: '' } }
 		>
-			{ text ? (
+			{ text || attachments?.length ? (
 				<div className={ styles.userTextRow }>
-					<CopyButton
-						className={ styles.messageActions }
-						size="icon-sm"
-						text={ text }
-						label={ __( 'Copy message' ) }
-					/>
-					<div className={ styles.userText }>{ text }</div>
+					{ text ? (
+						<CopyButton
+							className={ styles.messageActions }
+							size="icon-sm"
+							text={ text }
+							label={ __( 'Copy message' ) }
+						/>
+					) : null }
+					<div className={ styles.userText }>
+						{ text ? <div className={ styles.userTextBody }>{ text }</div> : null }
+						{ attachments?.length ? (
+							<ul className={ styles.userAttachments }>
+								{ attachments.map( ( attachment, index ) => (
+									<li key={ `${ attachment.name }:${ index }` } className={ styles.userAttachment }>
+										<span className={ styles.userAttachmentPreview }>
+											{ attachment.kind === 'image' && attachment.previewDataUrl ? (
+												<img src={ attachment.previewDataUrl } alt="" />
+											) : attachment.kind === 'image' ? (
+												<ImageIcon />
+											) : (
+												<FileTextIcon />
+											) }
+										</span>
+										<span className={ styles.userAttachmentName } title={ attachment.name }>
+											{ attachment.name }
+										</span>
+									</li>
+								) ) }
+							</ul>
+						) : null }
+					</div>
 				</div>
 			) : null }
 			{ annotation?.elementLabel || annotation?.tag ? (
@@ -525,32 +574,6 @@ function UserTurn( {
 					) : null }
 				</div>
 			) : null }
-			{ attachments && attachments.length > 0 ? (
-				<ul className={ styles.userAttachments }>
-					{ attachments.map( ( attachment, index ) =>
-						attachment.kind === 'image' && attachment.previewDataUrl ? (
-							<li
-								key={ `${ attachment.name }:${ index }` }
-								className={ styles.userAttachmentThumbItem }
-							>
-								<img
-									className={ styles.userAttachmentThumb }
-									src={ attachment.previewDataUrl }
-									alt={ attachment.name }
-									title={ attachment.name }
-								/>
-							</li>
-						) : (
-							<li key={ `${ attachment.name }:${ index }` } className={ styles.userAttachmentChip }>
-								{ attachment.kind === 'image' ? <ImageIcon /> : <FileTextIcon /> }
-								<span className={ styles.userAttachmentName } title={ attachment.name }>
-									{ attachment.name }
-								</span>
-							</li>
-						)
-					) }
-				</ul>
-			) : null }
 		</div>
 	);
 }
@@ -559,14 +582,16 @@ function AssistantText( {
 	text,
 	messageText,
 	copyText,
+	...joined
 }: {
 	text: string;
 	messageText: string;
 	copyText?: string;
-} ) {
+} & Joined ) {
 	return (
 		<div
 			className={ styles.assistantTurn }
+			{ ...joinedAttributes( joined ) }
 			{ ...{
 				[ MESSAGE_TEXT_ATTRIBUTE ]: messageText,
 				[ QUOTABLE_TEXT_ATTRIBUTE ]: true,
@@ -669,26 +694,6 @@ function getClassicToolDisplay(
 	return display;
 }
 
-function DiffBlock( { diff }: { diff: string } ) {
-	const lines = diff.replace( /\n$/, '' ).split( '\n' );
-	return (
-		<pre className={ styles.toolDiff }>
-			{ lines.map( ( line, index ) => (
-				<span
-					key={ index }
-					className={ clsx(
-						styles.diffLine,
-						line.startsWith( '+' ) && styles.diffLineAdded,
-						line.startsWith( '-' ) && styles.diffLineRemoved
-					) }
-				>
-					{ line.length > 0 ? line : ' ' }
-				</span>
-			) ) }
-		</pre>
-	);
-}
-
 function ToolUseRow( {
 	name,
 	input,
@@ -741,14 +746,22 @@ function ToolUseRow( {
 				line
 			) }
 			<CollapsiblePanel open={ hasExpandableDetails && expanded } id={ detailsId }>
-				<div className={ styles.toolOutputWrap }>
-					{ hasInput ? <pre className={ styles.toolInput }>{ display.inputText }</pre> : null }
-					{ hasOutput ? (
-						<pre className={ clsx( styles.toolOutput, result?.isError && styles.toolOutputError ) }>
-							{ resultText }
-						</pre>
+				<div className={ styles.toolDetails }>
+					{ hasInput ? (
+						<CodeBlock
+							className={ styles.toolCode }
+							code={ display.inputText }
+							language={ name === 'wp_cli' || name === 'Bash' ? 'shell' : 'json' }
+						/>
 					) : null }
-					{ hasDiff ? <DiffBlock diff={ result!.diff! } /> : null }
+					{ hasOutput ? <pre className={ styles.toolOutput }>{ resultText }</pre> : null }
+					{ hasDiff ? (
+						<CodeBlock
+							className={ styles.toolCode }
+							code={ result!.diff!.replace( /\n$/, '' ) }
+							language="diff"
+						/>
+					) : null }
 				</div>
 			</CollapsiblePanel>
 		</div>
@@ -757,7 +770,7 @@ function ToolUseRow( {
 
 function ChatArtifact( { widgets }: { widgets: StudioChatArtifactWidgetDraft[] } ) {
 	return (
-		<div className={ styles.mediaArtifactGrid }>
+		<div className={ styles.mediaArtifacts }>
 			{ widgets.map( ( widget, index ) => (
 				<MediaArtifactImage key={ `${ widget.type }:${ index }` } widget={ widget } />
 			) ) }
@@ -772,45 +785,42 @@ function MediaArtifactImage( { widget }: { widget: StudioChatArtifactWidgetDraft
 
 	const src = localPath ? localFileQuery.data ?? null : safeUrl;
 
-	if ( localFileQuery.isError || ( ! localPath && ! safeUrl ) ) {
+	if ( src ) {
 		return (
-			<div className={ styles.mediaArtifactUnavailable } role="status">
-				{ __( 'Image unavailable' ) }
-			</div>
-		);
-	}
-
-	if ( ! src ) {
-		return <div className={ styles.mediaArtifactLoading } aria-hidden="true" />;
-	}
-
-	return (
-		<figure className={ styles.mediaArtifactItem }>
 			<img
 				className={ styles.mediaArtifactImage }
 				src={ src }
 				alt={ getMediaAltText( widget, __( 'Image' ) ) }
 			/>
-		</figure>
+		);
+	}
+	return (
+		<div className={ styles.marker } role="status">
+			{ localFileQuery.isError || ! localPath
+				? __( 'Image could not load' )
+				: __( 'Loading image…' ) }
+		</div>
 	);
 }
 
-function PickedAnswer( { label, ariaHidden = false }: { label: string; ariaHidden?: boolean } ) {
+function getAnswerLetter(
+	options: AgentQuestionRenderItem[ 'options' ],
+	pickedLabel: string
+): string | undefined {
+	const index = options.findIndex( ( option ) => option.label === pickedLabel );
+	return index < 0 ? undefined : String.fromCharCode( 65 + index );
+}
+
+function QuestionAnswer( { letter, label }: { letter?: string; label: string } ) {
 	return (
-		<span
-			className={ clsx(
-				styles.questionOption,
-				styles.questionOptionPicked,
-				styles.questionSummaryOption
-			) }
-			aria-hidden={ ariaHidden ? 'true' : undefined }
-		>
-			<span className={ styles.questionOptionNumber }>
-				<QuestionOptionCheckIcon />
-			</span>
-			<span className={ styles.questionOptionCopy }>
-				<span className={ styles.questionOptionLabel }>{ label }</span>
-			</span>
+		<span className={ styles.questionAnswer }>
+			{ letter ? (
+				<span className={ styles.questionLetter } aria-hidden="true">
+					{ letter }
+				</span>
+			) : null }
+			<span className={ styles.questionAnswerLabel }>{ label }</span>
+			<CheckIcon aria-hidden="true" />
 		</span>
 	);
 }
@@ -823,8 +833,10 @@ function AgentQuestion( {
 	pickedLabel,
 	isCollapsing = false,
 	freeFormActive = false,
+	progress,
 	onAnswer,
 	onChooseFreeForm,
+	...joined
 }: {
 	question: string;
 	options: Array< { label: string; description: string; image?: string } >;
@@ -833,36 +845,28 @@ function AgentQuestion( {
 	pickedLabel: string | undefined;
 	isCollapsing?: boolean;
 	freeFormActive?: boolean;
+	progress?: string;
 	onAnswer: ( label: string ) => void;
 	onChooseFreeForm: () => void;
-} ) {
+} & Joined ) {
 	const optionsId = useId();
 	const isFolding = isCollapsing && Boolean( pickedLabel );
+	// The stop marker is written by the app, not the user.
+	const answered =
+		!! pickedLabel && pickedLabel !== STOPPED_WITHOUT_ANSWER && ! isInteractive && ! isFolding;
+	const answering = isInteractive && ! isFolding;
 	const freeFormLabel = getFreeFormOptionLabel();
 	// An off-contract model writes its own escape hatch. Drive the composer from
 	// that one rather than appending a second, so either way the user types the
 	// answer instead of sending the label back as one.
-	const ownFreeFormLabel =
-		isInteractive && ! isFolding ? findOwnFreeFormOptionLabel( options ) : undefined;
-	const showFreeForm = isInteractive && ! isFolding && ! ownFreeFormLabel;
+	const ownFreeFormLabel = answering ? findOwnFreeFormOptionLabel( options ) : undefined;
+	const showFreeForm = answering && ! ownFreeFormLabel;
 	const viewable = options.filter( ( option ) => option.image );
 	const hasImages = viewable.length > 0;
 	const [ draft, setDraft ] = useState< { pickedLabel?: string; labels: string[] } | null >( null );
 	const [ viewing, setViewing ] = useState< number | null >( null );
 	const answeredLabels = multiSelect ? pickedLabel?.split( ', ' ) ?? [] : [ pickedLabel ];
 	const pickedLabels = draft && draft.pickedLabel === pickedLabel ? draft.labels : answeredLabels;
-	// A reply typed into the composer answers the question without matching any
-	// listed label, so no button lights up. Show it instead, or the answer the
-	// user gave leaves no trace in the transcript.
-	const typedAnswer = pickedLabels
-		.filter(
-			( label ) =>
-				label &&
-				// The stop marker is written by the app, not the user.
-				label !== STOPPED_WITHOUT_ANSWER &&
-				! options.some( ( option ) => option.label === label )
-		)
-		.join( ', ' );
 	const toggle = ( label: string ) =>
 		setDraft( {
 			pickedLabel,
@@ -879,10 +883,10 @@ function AgentQuestion( {
 			onAnswer( label );
 		}
 	};
-	// The number keys pick the options they're numbered with.
+	// The letter keys pick the options they're lettered with.
 	const onKeyDown = useEffectEvent( ( event: KeyboardEvent ) => {
 		if (
-			! /^[1-9]$/.test( event.key ) ||
+			! /^[a-z]$/i.test( event.key ) ||
 			event.defaultPrevented ||
 			event.repeat ||
 			event.metaKey ||
@@ -894,7 +898,7 @@ function AgentQuestion( {
 		) {
 			return;
 		}
-		const index = Number( event.key ) - 1;
+		const index = event.key.toUpperCase().charCodeAt( 0 ) - 65;
 		if ( options[ index ] ) {
 			choose( options[ index ].label );
 		} else if ( showFreeForm && index === options.length ) {
@@ -904,7 +908,6 @@ function AgentQuestion( {
 		}
 		event.preventDefault();
 	} );
-	const answering = isInteractive && ! isFolding;
 	useEffect( () => {
 		if ( ! answering ) {
 			return;
@@ -913,124 +916,133 @@ function AgentQuestion( {
 		return () => document.removeEventListener( 'keydown', onKeyDown );
 	}, [ answering ] );
 
-	return (
-		<div className={ styles.question } data-state={ isFolding ? 'folding' : undefined }>
-			<p className={ styles.questionText }>{ question }</p>
-			{ multiSelect ? (
-				<span className={ styles.questionOptionDescription }>
-					{ __( 'Select all that apply.' ) }
-				</span>
-			) : null }
-			{ options.length > 0 ? (
-				<ol className={ styles.questionOptions } data-layout={ hasImages ? 'grid' : undefined }>
-					{ options.map( ( option, index ) => {
-						const isOwnFreeForm = option.label === ownFreeFormLabel;
-						const picked = isOwnFreeForm ? freeFormActive : pickedLabels.includes( option.label );
-						const description = isOwnFreeForm ? getFreeFormOptionDescription() : option.description;
-						const descriptionId =
-							description && ! isFolding
-								? `${ optionsId }-option-${ index }-description`
-								: undefined;
-						return (
-							<li
-								key={ index }
-								className={ styles.questionOptionItem }
-								data-picked={ picked ? 'true' : undefined }
-								data-wide={ hasImages && ! option.image ? 'true' : undefined }
-							>
-								<button
-									type="button"
-									className={ clsx(
-										styles.questionOption,
-										isOwnFreeForm && styles.questionOptionFreeForm,
-										picked && styles.questionOptionPicked
-									) }
-									disabled={ ! isInteractive }
-									onClick={ () => choose( option.label ) }
-									aria-label={ option.label }
-									aria-describedby={ descriptionId }
-									aria-pressed={ picked }
-									data-has-image={ option.image ? 'true' : undefined }
-								>
-									{ option.image ? <QuestionOptionImage path={ option.image } /> : null }
-									<span className={ styles.questionOptionNumber } aria-hidden="true">
-										{ picked ? <QuestionOptionCheckIcon /> : index + 1 }
-									</span>
-									<span className={ styles.questionOptionCopy }>
-										<span className={ styles.questionOptionLabel }>{ option.label }</span>
-										{ description ? (
-											<span id={ descriptionId } className={ styles.questionOptionDescription }>
-												{ description }
-											</span>
-										) : null }
-									</span>
-								</button>
-								{ option.image ? (
-									<IconButton
-										className={ styles.questionOptionZoom }
-										size="icon-2xs"
-										icon={ <SearchIcon /> }
-										label={ sprintf(
-											// translators: %s: name of a design option.
-											__( 'View %s larger' ),
-											option.label
-										) }
-										onClick={ () => setViewing( viewable.indexOf( option ) ) }
-									/>
-								) : null }
-							</li>
-						);
-					} ) }
-					{ showFreeForm ? (
-						<li
-							className={ styles.questionOptionItem }
-							data-picked={ freeFormActive ? 'true' : undefined }
-						>
-							<button
-								type="button"
-								className={ clsx(
-									styles.questionOption,
-									styles.questionOptionFreeForm,
-									freeFormActive && styles.questionOptionPicked
-								) }
-								onClick={ onChooseFreeForm }
-								aria-label={ freeFormLabel }
-								aria-pressed={ freeFormActive }
-							>
-								<span className={ styles.questionOptionNumber } aria-hidden="true">
-									{ freeFormActive ? <QuestionOptionCheckIcon /> : options.length + 1 }
-								</span>
-								<span className={ styles.questionOptionCopy }>
-									<span className={ styles.questionOptionLabel }>{ freeFormLabel }</span>
-									<span className={ styles.questionOptionDescription }>
-										{ getFreeFormOptionDescription() }
-									</span>
-								</span>
-							</button>
-						</li>
+	const choice = (
+		index: number,
+		label: string,
+		description: string | undefined,
+		picked: boolean,
+		{ image, freeForm = false }: { image?: string; freeForm?: boolean } = {}
+	) => {
+		const descriptionId = description ? `${ optionsId }-option-${ index }-description` : undefined;
+		return (
+			<button
+				type="button"
+				className={ clsx( styles.questionChoice, freeForm && styles.questionChoiceFreeForm ) }
+				disabled={ ! isInteractive }
+				onClick={ freeForm ? onChooseFreeForm : () => choose( label ) }
+				aria-label={ label }
+				aria-describedby={ descriptionId }
+				aria-pressed={ picked }
+				data-has-image={ image ? 'true' : undefined }
+			>
+				{ image ? <QuestionOptionImage path={ image } /> : null }
+				{ answering ? (
+					<span className={ styles.questionLetter } aria-hidden="true">
+						{ String.fromCharCode( 65 + index ) }
+					</span>
+				) : null }
+				<span className={ styles.questionChoiceLabel }>
+					<span>{ label }</span>
+					{ description ? (
+						<span id={ descriptionId } className={ styles.questionChoiceDescription }>
+							{ description }
+						</span>
 					) : null }
-				</ol>
-			) : null }
-			{ hasImages ? (
-				<QuestionOptionViewer
-					options={ viewable }
-					index={ viewing }
-					onIndexChange={ setViewing }
-					onChoose={ isInteractive && ! multiSelect ? onAnswer : undefined }
+				</span>
+				{ picked ? <CheckIcon aria-hidden="true" /> : null }
+			</button>
+		);
+	};
+
+	return (
+		<div
+			className={ styles.questionCard }
+			data-state={ isFolding ? 'folding' : undefined }
+			{ ...joinedAttributes( joined ) }
+		>
+			{ progress ? <span className={ styles.questionProgress }>{ progress }</span> : null }
+			<p className={ styles.questionText }>{ question }</p>
+			{ answered ? (
+				<QuestionAnswer
+					letter={ multiSelect ? undefined : getAnswerLetter( options, pickedLabel ) }
+					label={ pickedLabel }
 				/>
-			) : null }
-			{ typedAnswer ? <PickedAnswer label={ typedAnswer } /> : null }
-			{ multiSelect && isInteractive ? (
-				<div>
-					<Button
-						variant="outline"
-						disabled={ pickedLabels.length === 0 }
-						onClick={ () => onAnswer( pickedLabels.join( ', ' ) ) }
-					>
-						{ __( 'Confirm' ) }
-					</Button>
-				</div>
-			) : null }
+			) : (
+				<>
+					{ multiSelect ? (
+						<span className={ styles.questionHint }>{ __( 'Select all that apply.' ) }</span>
+					) : null }
+					<ol className={ styles.questionChoices } data-layout={ hasImages ? 'grid' : undefined }>
+						{ options.map( ( option, index ) => {
+							const isOwnFreeForm = option.label === ownFreeFormLabel;
+							const picked = isOwnFreeForm ? freeFormActive : pickedLabels.includes( option.label );
+							return (
+								<li
+									key={ index }
+									className={ styles.questionChoiceItem }
+									data-picked={ picked ? 'true' : undefined }
+									data-wide={ hasImages && ! option.image ? 'true' : undefined }
+								>
+									{ choice(
+										index,
+										option.label,
+										isOwnFreeForm ? getFreeFormOptionDescription() : option.description,
+										picked,
+										{ image: option.image, freeForm: isOwnFreeForm }
+									) }
+									{ option.image ? (
+										<IconButton
+											className={ styles.questionOptionZoom }
+											size="icon-2xs"
+											icon={ <SearchIcon /> }
+											label={ sprintf(
+												// translators: %s: name of a design option.
+												__( 'View %s larger' ),
+												option.label
+											) }
+											onClick={ () => setViewing( viewable.indexOf( option ) ) }
+										/>
+									) : null }
+								</li>
+							);
+						} ) }
+						{ showFreeForm ? (
+							<li
+								className={ styles.questionChoiceItem }
+								data-picked={ freeFormActive ? 'true' : undefined }
+								data-wide={ hasImages ? 'true' : undefined }
+							>
+								{ choice(
+									options.length,
+									freeFormLabel,
+									getFreeFormOptionDescription(),
+									freeFormActive,
+									{ freeForm: true }
+								) }
+							</li>
+						) : null }
+					</ol>
+					{ hasImages ? (
+						<QuestionOptionViewer
+							options={ viewable }
+							index={ viewing }
+							onIndexChange={ setViewing }
+							onChoose={ isInteractive && ! multiSelect ? onAnswer : undefined }
+						/>
+					) : null }
+					{ multiSelect && isInteractive ? (
+						<div>
+							<Button
+								variant="outline"
+								disabled={ pickedLabels.length === 0 }
+								onClick={ () => onAnswer( pickedLabels.join( ', ' ) ) }
+							>
+								{ __( 'Submit choices' ) }
+							</Button>
+						</div>
+					) : null }
+				</>
+			) }
 		</div>
 	);
 }
@@ -1125,10 +1137,6 @@ function QuestionOptionViewer( {
 			</DialogContent>
 		</Dialog>
 	);
-}
-
-function QuestionOptionCheckIcon() {
-	return <CheckIcon />;
 }
 
 function getQuestionPickedLabel(
@@ -1241,34 +1249,30 @@ function QuestionSummary( {
 	index,
 	total,
 	question,
+	options,
 	pickedLabel,
 	canEdit,
 	onClick,
+	...joined
 }: {
 	index: number;
 	total: number;
 	question: string;
+	options: AgentQuestionRenderItem[ 'options' ];
 	pickedLabel: string;
 	canEdit: boolean;
 	onClick: () => void;
-} ) {
-	const label = sprintf(
-		__( 'Edit question %1$d of %2$d: %3$s. Selected answer: %4$s' ),
-		index + 1,
-		total,
-		question,
-		pickedLabel
-	);
+} & Joined ) {
 	const content = (
-		<span className={ styles.questionSummaryBody }>
-			<span className={ styles.questionSummaryText }>{ question }</span>
-			<PickedAnswer label={ pickedLabel } ariaHidden={ canEdit } />
-		</span>
+		<>
+			<span className={ styles.questionText }>{ question }</span>
+			<QuestionAnswer letter={ getAnswerLetter( options, pickedLabel ) } label={ pickedLabel } />
+		</>
 	);
 
 	if ( ! canEdit ) {
 		return (
-			<div className={ styles.questionSummary } data-interactive="false">
+			<div className={ styles.questionCard } { ...joinedAttributes( joined ) }>
 				{ content }
 			</div>
 		);
@@ -1277,10 +1281,16 @@ function QuestionSummary( {
 	return (
 		<button
 			type="button"
-			className={ styles.questionSummary }
-			data-interactive="true"
+			className={ clsx( styles.questionCard, styles.questionSummary ) }
+			{ ...joinedAttributes( joined ) }
 			onClick={ onClick }
-			aria-label={ label }
+			aria-label={ sprintf(
+				__( 'Edit question %1$d of %2$d: %3$s. Selected answer: %4$s' ),
+				index + 1,
+				total,
+				question,
+				pickedLabel
+			) }
 		>
 			{ content }
 		</button>
@@ -1294,6 +1304,8 @@ function AgentQuestionBatch( {
 	freeFormQuestion,
 	onAnswer,
 	onChooseFreeForm,
+	joinedAbove,
+	joinedBelow,
 }: {
 	questions: AgentQuestionRenderItem[];
 	pendingQuestions: Set< string >;
@@ -1301,7 +1313,7 @@ function AgentQuestionBatch( {
 	freeFormQuestion: string | null;
 	onAnswer: ( question: string, label: string ) => void;
 	onChooseFreeForm: ( question: string ) => void;
-} ) {
+} & Joined ) {
 	const [ expandedIndex, setExpandedIndex ] = useState< number | null >( null );
 	const [ settlingIndex, setSettlingIndex ] = useState< number | null >( null );
 	const prefersReducedMotion = useReducedMotion();
@@ -1369,7 +1381,10 @@ function AgentQuestionBatch( {
 		// The scroll-into-view effect needs a target here too, or a lone question
 		// stays half-hidden behind the composer when the agent asks it.
 		return (
-			<div ref={ activeIndex === 0 ? activeQuestionRef : undefined }>
+			<div
+				ref={ activeIndex === 0 ? activeQuestionRef : undefined }
+				{ ...joinedAttributes( { joinedAbove, joinedBelow } ) }
+			>
 				<AgentQuestion
 					question={ question.question }
 					options={ question.options }
@@ -1379,6 +1394,8 @@ function AgentQuestionBatch( {
 					freeFormActive={ freeFormQuestion === question.question }
 					onAnswer={ ( label ) => onAnswer( question.question, label ) }
 					onChooseFreeForm={ () => onChooseFreeForm( question.question ) }
+					joinedAbove={ joinedAbove }
+					joinedBelow={ joinedBelow }
 				/>
 			</div>
 		);
@@ -1392,21 +1409,26 @@ function AgentQuestionBatch( {
 	};
 
 	return (
-		<div className={ styles.questionBatch }>
+		<div className={ styles.questionBatch } { ...joinedAttributes( { joinedAbove, joinedBelow } ) }>
 			{ questions.slice( 0, visibleQuestionCount ).map( ( question, index ) => {
 				const pickedLabel = getQuestionPickedLabel( question, pendingAnswers );
 				const isActive = index === activeIndex;
+				const joined = {
+					joinedAbove: joinedAbove || index > 0,
+					joinedBelow: joinedBelow || index < visibleQuestionCount - 1,
+				};
 				if ( ! isActive && pickedLabel ) {
-					const canEdit = pendingQuestions.has( question.question );
 					return (
 						<QuestionSummary
 							key={ question.key }
 							index={ index }
 							total={ total }
 							question={ question.question }
+							options={ question.options }
 							pickedLabel={ pickedLabel }
-							canEdit={ canEdit }
+							canEdit={ pendingQuestions.has( question.question ) }
 							onClick={ () => setExpandedIndex( index ) }
+							{ ...joined }
 						/>
 					);
 				}
@@ -1416,18 +1438,13 @@ function AgentQuestionBatch( {
 						ref={ isActive ? activeQuestionRef : undefined }
 						className={ styles.questionBatchStep }
 						data-state={ settlingIndex === index ? 'answered' : 'asking' }
-						data-has-prior={ index > 0 ? 'true' : undefined }
 						tabIndex={ isActive ? -1 : undefined }
 						aria-label={
 							isActive ? sprintf( __( 'Current question: %s' ), question.question ) : undefined
 						}
 					>
-						{ total > 1 ? (
-							<span className={ styles.questionBatchProgress }>
-								{ sprintf( __( 'Asking question %1$d of %2$d' ), index + 1, total ) }
-							</span>
-						) : null }
 						<AgentQuestion
+							progress={ sprintf( __( 'Asking question %1$d of %2$d' ), index + 1, total ) }
 							question={ question.question }
 							options={ question.options }
 							multiSelect={ question.multiSelect }
@@ -1437,6 +1454,7 @@ function AgentQuestionBatch( {
 							freeFormActive={ freeFormQuestion === question.question }
 							onAnswer={ ( label ) => handleAnswer( question, index, label ) }
 							onChooseFreeForm={ () => onChooseFreeForm( question.question ) }
+							{ ...joined }
 						/>
 					</div>
 				);
@@ -1577,7 +1595,7 @@ function TurnErrorMarker( { message }: { message: string } ) {
 		text = message || __( 'Something went wrong and this turn was stopped. Please try again.' );
 	}
 	return (
-		<div className={ styles.errorMarker } role="alert">
+		<div className={ styles.marker } role="alert">
 			{ text }
 		</div>
 	);
@@ -1613,7 +1631,12 @@ export function Conversation( {
 
 	return (
 		<div className={ styles.root }>
-			{ items.map( ( item ) => {
+			{ items.map( ( item, index ) => {
+				const sender = getSender( item );
+				const joined = {
+					joinedAbove: !! sender && getSender( items[ index - 1 ] ) === sender,
+					joinedBelow: !! sender && getSender( items[ index + 1 ] ) === sender,
+				};
 				switch ( item.kind ) {
 					case 'user-text':
 						return (
@@ -1622,6 +1645,7 @@ export function Conversation( {
 								text={ item.text }
 								attachments={ item.attachments }
 								annotation={ item.annotation }
+								{ ...joined }
 							/>
 						);
 					case 'assistant-text':
@@ -1631,6 +1655,7 @@ export function Conversation( {
 								text={ item.text }
 								messageText={ item.messageText }
 								copyText={ item.copyText }
+								{ ...joined }
 							/>
 						);
 					case 'agent-question-batch':
@@ -1643,6 +1668,7 @@ export function Conversation( {
 								freeFormQuestion={ freeFormQuestion }
 								onAnswer={ onAnswerQuestion }
 								onChooseFreeForm={ onChooseFreeForm }
+								{ ...joined }
 							/>
 						);
 					case 'chat-artifact':
@@ -1658,7 +1684,7 @@ export function Conversation( {
 						);
 					case 'interrupted-marker':
 						return (
-							<div key={ item.key } className={ styles.interruptedMarker } role="status">
+							<div key={ item.key } className={ styles.marker } role="status">
 								{ __( 'Interrupted by you' ) }
 							</div>
 						);

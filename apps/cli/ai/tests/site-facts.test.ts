@@ -1,3 +1,5 @@
+import { rmSync } from 'fs';
+import path from 'path';
 import { expect, it, vi } from 'vitest';
 import { findSiteByFolder } from 'cli/lib/cli-config/sites';
 import { readActiveSiteFacts } from '../site-facts';
@@ -40,6 +42,15 @@ it( 'states the WordPress version, the active theme and whether WordPress update
 		'WordPress 7.1.3.',
 		'Active theme: twentytwentyfive, which WordPress updates.',
 		'Active plugins: woocommerce/woocommerce.php, hello.php.',
+	] );
+} );
+
+it( 'states that WordPress is not installed until the site first starts', async () => {
+	const site = createSite( 'wp_' );
+	rmSync( path.join( site.root, 'wp-content/database' ), { recursive: true } );
+	expect( await site.facts() ).toEqual( [
+		'WordPress 7.1.3.',
+		'WordPress is not installed yet (is_blog_installed()): Studio installs it, with its database, when the site first starts (site_start).',
 	] );
 } );
 

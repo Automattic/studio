@@ -31,9 +31,19 @@ async function siteAddressFact( site: WordPressSite ): Promise< string | undefin
 	return studioSite ? `Address: ${ getSiteUrl( studioSite ) } (home_url()).` : undefined;
 }
 
+// WordPress is installed once its options hold siteurl (is_blog_installed());
+// Studio installs it the first time the site starts (installWordPress() in
+// lib/native-php/site-setup.ts), so a site never started has no database yet.
+function installedFact( site: WordPressSite ): string | undefined {
+	return site.option( 'siteurl' ) === undefined
+		? 'WordPress is not installed yet (is_blog_installed()): Studio installs it, with its database, when the site first starts (site_start).'
+		: undefined;
+}
+
 const SITE_FACTS: SiteFact[] = [
 	siteAddressFact,
 	wordPressVersionFact,
+	installedFact,
 	activeThemeFact,
 	themePresetsFact,
 	homepageFact,

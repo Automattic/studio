@@ -43,7 +43,7 @@ it( 'adds the declared settings of the core blocks a result shows, from the site
 			.split( path.sep )
 			.join(
 				'/'
-			) }: submenuVisibility ("hover"|"click").\nAddress: http://localhost:8881 (home_url()).\n</studio-notes>`,
+			) }: submenuVisibility ("hover"|"click").\nAddress: http://localhost:8881 (home_url()).\nWordPress is not installed yet (is_blog_installed()): Studio installs it, with its database, when the site first starts (site_start).\n</studio-notes>`,
 	] );
 	// Once per MCP session, as once per Studio Code turn.
 	expect( await notes( { nameOrPath: 'My Site' } ) ).toEqual( [] );

@@ -30,12 +30,12 @@ export const shellOpenExternalWrapper = async ( url: string ) => {
 		} else if ( url.startsWith( 'phpstorm://open?file=' ) ) {
 			title = __( 'Failed to open PHP Storm' );
 			message = __(
-				'Studio is unable to open PHPStorm. Please ensure it is functioning correctly.'
+				'WordPress Studio is unable to open PHPStorm. Please ensure it is functioning correctly.'
 			);
 		} else {
 			title = __( 'Failed to open browser' );
 			message = __(
-				'Studio is unable to open your default browser. Please ensure it is functioning correctly.'
+				'WordPress Studio is unable to open your default browser. Please ensure it is functioning correctly.'
 			);
 		}
 

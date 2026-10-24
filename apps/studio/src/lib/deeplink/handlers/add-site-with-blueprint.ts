@@ -94,7 +94,7 @@ export async function handleAddSiteWithBlueprint( urlObject: URL ): Promise< voi
 			type: 'error',
 			message: __( 'Failed to load Blueprint' ),
 			detail: getBlueprintDeeplinkErrorMessage( error ),
-			buttons: [ __( 'Open Studio Logs' ), __( 'OK' ) ],
+			buttons: [ __( 'Open WordPress Studio Logs' ), __( 'OK' ) ],
 			defaultId: 1,
 		} );
 

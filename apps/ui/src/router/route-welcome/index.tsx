@@ -123,7 +123,7 @@ function WelcomePage() {
 						}
 					/>
 					<FieldLabel htmlFor={ analyticsId } tone="muted">
-						{ __( 'Help improve Studio by sharing anonymous usage statistics' ) }
+						{ __( 'Help improve WordPress Studio by sharing anonymous usage statistics' ) }
 					</FieldLabel>
 				</Field>
 			</div>

@@ -26,7 +26,7 @@ function sitesPage( migrating: boolean ): GuidePage {
 			title: () => __( 'Welcome to WordPress Studio 2.0' ),
 			description: () =>
 				__(
-					'Everything you built in Studio is right here in the sidebar. Same sites, same files with a new workbench around them.'
+					'Everything you built in WordPress Studio is right here in the sidebar. Same sites, same files with a new workbench around them.'
 				),
 			action: () => __( 'Next' ),
 		};

@@ -36,7 +36,7 @@ function sanitizeImportErrorText( value: string ): string {
 }
 
 function getBestEffortImportError( error: unknown ): Error {
-	const fallbackMessage = __( 'Check Studio Logs for more details.' );
+	const fallbackMessage = __( 'Check WordPress Studio Logs for more details.' );
 
 	if ( error instanceof CliCommandError ) {
 		const sanitizedLastErrorMessage = sanitizeImportErrorText( error.lastErrorMessage ?? '' );
@@ -50,7 +50,7 @@ function getBestEffortImportError( error: unknown ): Error {
 }
 
 function getBestEffortExportError( error: unknown ): Error {
-	const fallbackMessage = __( 'Check Studio Logs for more details.' );
+	const fallbackMessage = __( 'Check WordPress Studio Logs for more details.' );
 	const parsedExportError = exportErrorPayloadSchema.safeParse( error );
 
 	if ( parsedExportError.success ) {
@@ -184,7 +184,7 @@ export async function importSite(
 async function showExportErrorModal( event: IpcMainInvokeEvent, error: unknown ) {
 	const errorToShow = simplifyErrorForDisplay(
 		getBestEffortExportError( error ),
-		__( 'Check Studio Logs for more details.' )
+		__( 'Check WordPress Studio Logs for more details.' )
 	);
 
 	await showErrorMessageBox( event, {

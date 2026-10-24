@@ -1042,7 +1042,7 @@ describe( 'SiteList', () => {
 
 		fireEvent.keyDown( await selectBothSites(), { key: 'Backspace', ctrlKey: true } );
 		expect( await screen.findByRole( 'alertdialog' ) ).toHaveTextContent(
-			'Remove 2 sites from Studio?'
+			'Remove 2 sites from WordPress Studio?'
 		);
 	} );
 

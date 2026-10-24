@@ -48,8 +48,8 @@ import type { SyncActivity } from '@/data/sync-activity';
 function lastTransfer( timestamp: string | null, direction: TransferDirection, locale?: string ) {
 	if ( ! timestamp ) {
 		return direction === 'push'
-			? __( 'Not yet published from Studio' )
-			: __( 'Not yet pulled into Studio' );
+			? __( 'Not yet published from WordPress Studio' )
+			: __( 'Not yet pulled into WordPress Studio' );
 	}
 	return sprintf(
 		/* translators: %s: date and time of the last transfer */
@@ -278,7 +278,7 @@ export function ConnectedView( {
 				) : restartFailed ? (
 					<>
 						<span className={ styles.heading } role="status">
-							{ __( 'Changes pulled into Studio' ) }
+							{ __( 'Changes pulled into WordPress Studio' ) }
 						</span>
 						<ErrorMessage error={ activity.message } />
 						<Button disabled={ startSite.isPending } onClick={ () => startSite.mutate( site.id ) }>
@@ -290,7 +290,9 @@ export function ConnectedView( {
 						<div className={ styles.success } role="status">
 							<span className={ styles.progressTitle }>
 								<CheckIcon />
-								<span className={ styles.heading }>{ __( 'Changes pulled into Studio' ) }</span>
+								<span className={ styles.heading }>
+									{ __( 'Changes pulled into WordPress Studio' ) }
+								</span>
 							</span>
 							<p className={ styles.text }>{ __( 'Your website wasn’t changed.' ) }</p>
 						</div>

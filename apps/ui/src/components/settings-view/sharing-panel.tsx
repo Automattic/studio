@@ -238,7 +238,9 @@ export function SharingPanel() {
 							<p>
 								{ sprintf(
 									/* translators: %s: preview name */
-									__( 'Are you sure you want to remove the preview for “%s” from Studio?' ),
+									__(
+										'Are you sure you want to remove the preview for “%s” from WordPress Studio?'
+									),
 									deleting?.name || __( 'Preview site' )
 								) }
 							</p>

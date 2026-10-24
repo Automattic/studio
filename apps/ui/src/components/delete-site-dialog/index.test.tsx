@@ -35,7 +35,7 @@ describe( 'DeleteSiteDialog', () => {
 		renderDialog( onDeleted );
 
 		expect(
-			screen.getByRole( 'alertdialog', { name: 'Remove “My Site” from Studio?' } )
+			screen.getByRole( 'alertdialog', { name: 'Remove “My Site” from WordPress Studio?' } )
 		).toBeInTheDocument();
 		expect(
 			screen.getByRole( 'checkbox', { name: 'Also move files and database to Trash' } )

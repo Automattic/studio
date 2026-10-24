@@ -557,7 +557,7 @@ export function CreateSiteForm( {
 		unavailableWpVersion &&
 		sprintf(
 			/* translators: %s: WordPress version, e.g. 5.9 */
-			__( "This Blueprint asks for WordPress %s, which Studio can't install." ),
+			__( "This Blueprint asks for WordPress %s, which WordPress Studio can't install." ),
 			unavailableWpVersion
 		);
 	const offlineMessage = __( 'Changing WordPress version requires an internet connection.' );

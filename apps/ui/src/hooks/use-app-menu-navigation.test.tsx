@@ -127,7 +127,8 @@ describe( 'useAppMenuNavigation', () => {
 		await waitFor( () =>
 			expect( showErrorMessageBox ).toHaveBeenCalledWith( {
 				title: 'Failed to load Blueprint',
-				message: 'Studio could not open the Blueprint. Please check the file and try again.',
+				message:
+					'WordPress Studio could not open the Blueprint. Please check the file and try again.',
 				error,
 				showOpenLogs: true,
 			} )

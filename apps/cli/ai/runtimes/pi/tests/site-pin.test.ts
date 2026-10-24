@@ -58,12 +58,11 @@ describe( 'SitePin', () => {
 
 	it( 'pins the first changed site when none is active, and includes sites the turn creates', async () => {
 		const pin = new SitePin( null );
-		expect( await pin.confirmationFor( 'scaffold_theme', { nameOrPath: 'Shop' } ) ).toBeUndefined();
+		expect( await pin.confirmationFor( 'site_import', { nameOrPath: 'Shop' } ) ).toBeUndefined();
 		await pin.created( 'New' );
 		expect( await pin.confirmationFor( 'Write', { path: '/sites/new/x.php' } ) ).toBeUndefined();
 		expect(
-			( await pin.confirmationFor( 'scaffold_theme', { nameOrPath: 'Blog' } ) )?.confirmation
-				.question
+			( await pin.confirmationFor( 'site_import', { nameOrPath: 'Blog' } ) )?.confirmation.question
 		).toBe( 'Also change "Blog"? This request is about "Shop".' );
 	} );
 

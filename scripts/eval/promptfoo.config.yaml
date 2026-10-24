@@ -659,7 +659,6 @@ tests:
       skills: [{ name: build-site }]
       stopAt:
         - tool: site_create
-        - tool: scaffold_theme
         - tool: Write
         - tool: Edit
         - tool: generate_images

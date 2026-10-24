@@ -15,7 +15,6 @@ import type { SiteInfo } from 'cli/ai/types';
 // Tools that change the local site named by `nameOrPath`.
 const LOCAL_SITE_CHANGES = new Set( [
 	'wp_cli',
-	'scaffold_theme',
 	'site_import',
 	'site_pull',
 	'install_taxonomy_scripts',

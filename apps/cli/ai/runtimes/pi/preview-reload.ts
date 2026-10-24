@@ -2,14 +2,7 @@ import type { AgentSessionEvent } from '@earendil-works/pi-coding-agent';
 
 // Tools whose success can change what the site renders. The Studio preview
 // reloads once after each model turn in which one of them succeeded.
-const PREVIEW_CHANGING_TOOLS = new Set( [
-	'Write',
-	'Edit',
-	'wp_cli',
-	'scaffold_theme',
-	'site_import',
-	'site_pull',
-] );
+const PREVIEW_CHANGING_TOOLS = new Set( [ 'Write', 'Edit', 'wp_cli', 'site_import', 'site_pull' ] );
 
 // WP-CLI verbs that only read, in `<command> <verb>` position (`post list`).
 const READ_ONLY_WP_CLI_VERBS = new Set( [

@@ -74,7 +74,7 @@ describe( 'getFileWriteRefusal', () => {
 			);
 
 		for ( const updatable of [ 'twentytwentyfive', 'premium' ] ) {
-			expect( await refusal( updatable ) ).toContain( `parentTheme: "${ updatable }"` );
+			expect( await refusal( updatable ) ).toContain( `Template: ${ updatable }` );
 		}
 		// Checked, with no update source, or not checked yet: the user's own themes.
 		for ( const own of [ 'client-theme', 'café', 'fresh' ] ) {

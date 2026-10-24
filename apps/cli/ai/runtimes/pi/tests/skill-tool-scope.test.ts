@@ -2,14 +2,7 @@ import { SessionManager } from '@earendil-works/pi-coding-agent';
 import { describe, expect, it } from 'vitest';
 import { SkillToolScope } from '../skill-tool-scope';
 
-const ALL = [
-	'Read',
-	'wp_cli',
-	'scaffold_theme',
-	'pick_design',
-	'install_taxonomy_scripts',
-	'need_for_speed',
-];
+const ALL = [ 'Read', 'wp_cli', 'pick_design', 'install_taxonomy_scripts', 'need_for_speed' ];
 
 function sessionWithSkillCall( skill?: string ): SessionManager {
 	const session = SessionManager.inMemory();
@@ -40,12 +33,7 @@ describe( 'SkillToolScope', () => {
 		const scope = new SkillToolScope( sessionWithSkillCall() );
 		expect( scope.activeToolNames( ALL ) ).toEqual( [ 'Read', 'wp_cli' ] );
 		scope.unlock( 'visual-design' );
-		expect( scope.activeToolNames( ALL ) ).toEqual( [
-			'Read',
-			'wp_cli',
-			'scaffold_theme',
-			'pick_design',
-		] );
+		expect( scope.activeToolNames( ALL ) ).toEqual( [ 'Read', 'wp_cli', 'pick_design' ] );
 	} );
 
 	it( 'restores tools from skills loaded earlier in the conversation', () => {

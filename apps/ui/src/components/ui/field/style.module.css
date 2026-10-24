@@ -59,6 +59,11 @@
 		background-color: color-mix( in oklab, var( --muted ) 70%, transparent );
 	}
 
+	/* Controls on the card step one surface up, so their hover fills still show. */
+	.group[data-variant='settings'] > * {
+		--muted: var( --surface-3 );
+	}
+
 	.group[data-variant='settings'] > .field {
 		padding-block: 16px;
 	}
@@ -163,6 +168,11 @@
 			:focus-visible
 		) {
 		text-decoration: underline;
+	}
+
+	.additional {
+		display: block;
+		margin-top: 4px;
 	}
 
 	.reserved {

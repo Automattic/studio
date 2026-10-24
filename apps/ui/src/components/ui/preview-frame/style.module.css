@@ -1,0 +1,35 @@
+@layer ui {
+	.frame {
+		position: relative;
+		display: block;
+		width: 100%;
+		aspect-ratio: 16 / 10;
+		overflow: hidden;
+		border-radius: var( --radius-sm );
+		background-color: var( --muted );
+	}
+
+	.frame::after {
+		position: absolute;
+		inset: 0;
+		z-index: 1;
+		border-radius: inherit;
+		box-shadow: inset 0 0 0 1px var( --border );
+		pointer-events: none;
+		content: '';
+	}
+
+	.image {
+		display: block;
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+		object-position: top;
+	}
+
+	.skeleton {
+		position: absolute;
+		inset: 0;
+		border-radius: 0;
+	}
+}

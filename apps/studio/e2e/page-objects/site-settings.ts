@@ -12,8 +12,8 @@ export default class SiteSettings {
 
 	async showSection( name: 'Settings' | 'PHP' | 'Debug' ) {
 		await this.page
-			.getByRole( 'navigation', { name: 'Settings sections' } )
-			.getByRole( 'button', { name } )
+			.getByRole( 'tablist', { name: 'Settings sections' } )
+			.getByRole( 'tab', { name } )
 			.click();
 	}
 

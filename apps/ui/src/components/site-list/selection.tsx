@@ -16,6 +16,7 @@ import { useSites } from '@/data/queries/use-sites';
 import { ArchiveIcon } from '@/lib/icons/archive-icon';
 import { PinIcon } from '@/lib/icons/pin-icon';
 import { ReadStatusIcon } from '@/lib/icons/read-status-icon';
+import { TrashIcon } from '@/lib/icons/trash-icon';
 import { UnpinIcon } from '@/lib/icons/unpin-icon';
 import { isShortcut } from '@/lib/shortcuts';
 import styles from './style.module.css';
@@ -414,6 +415,7 @@ export function BulkMenu( {
 				<Menu.Group>
 					{ deleteBlocked ? <Menu.GroupLabel>{ deleteBlocked }</Menu.GroupLabel> : null }
 					<Menu.Item destructive disabled={ !! deleteBlocked } onClick={ confirmDelete }>
+						<TrashIcon />
 						{ sprintf(
 							/* translators: %d: number of selected sites. */
 							_n( 'Delete %d site', 'Delete %d sites', siteIds.length ),

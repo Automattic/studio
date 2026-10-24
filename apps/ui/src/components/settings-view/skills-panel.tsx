@@ -1,13 +1,18 @@
 import { __ } from '@wordpress/i18n';
 import { LearnMoreLink } from '@/components/learn-more';
-import { Button } from '@/components/ui/button';
 import {
 	useInstallWordPressSkill,
 	useRemoveWordPressSkill,
 	useSetAllWordPressSkills,
 	useWordPressSkills,
 } from '@/data/queries/use-wordpress-skills';
-import { SettingsGroup, SettingsLoadState, SettingsRow, SettingsToggle } from './rows';
+import {
+	SettingsGroup,
+	SettingsLoadState,
+	SettingsRow,
+	SettingsSectionLink,
+	SettingsToggle,
+} from './rows';
 import styles from './style.module.css';
 
 function getErrorMessage( error: unknown ): string | null {
@@ -41,23 +46,15 @@ export function SkillsPanel( { onManageSite }: { onManageSite?: () => void } ) {
 			<SettingsGroup>
 				<SettingsRow
 					title={ __( 'WordPress skills' ) }
-					description={
-						<>
-							{ __(
-								'Turn on WordPress skills for existing and new sites. Manage individual skills below.'
-							) }
-							{ onManageSite ? (
-								<Button
-									className={ styles.manageLink }
-									variant="inline-link"
-									size="inline"
-									disabled={ saving }
-									onClick={ onManageSite }
-								>
-									{ __( 'Manage skills for this site' ) }
-								</Button>
-							) : null }
-						</>
+					description={ __(
+						'Turn on WordPress skills for existing and new sites. Manage individual skills below.'
+					) }
+					additionalContent={
+						onManageSite ? (
+							<SettingsSectionLink disabled={ saving } onClick={ onManageSite }>
+								{ __( 'Manage skills for this site' ) }
+							</SettingsSectionLink>
+						) : null
 					}
 				>
 					<SettingsToggle
@@ -81,7 +78,7 @@ export function SkillsPanel( { onManageSite }: { onManageSite?: () => void } ) {
 					description={
 						<>
 							{ __(
-								'Reusable instructions that teach agents specialized WordPress tasks. WordPress Studio adds the ones you turn on to every site.'
+								'Skills give AI agents guidance for WordPress development. Changes here apply to all existing sites and set the defaults for new sites. Use Site settings to manage skills for an individual site.'
 							) }{ ' ' }
 							<LearnMoreLink docsLinksKey="docsSkills" />
 						</>

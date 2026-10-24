@@ -7,6 +7,10 @@ import {
 } from '@/data/queries/use-agent-instructions';
 import { InstructionsEditor } from './instructions-editor';
 
+vi.mock( '@/components/learn-more', () => ( {
+	LearnMoreLink: () => <button type="button">Learn more…</button>,
+} ) );
+
 vi.mock( '@/data/queries/use-agent-instructions', () => ( {
 	useAgentInstructions: vi.fn(),
 	useSaveAgentInstructions: vi.fn(),

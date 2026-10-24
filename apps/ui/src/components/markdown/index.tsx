@@ -1,14 +1,14 @@
 import { __ } from '@wordpress/i18n';
-import { Fragment, isValidElement, useEffect, useMemo, useState } from 'react';
+import { isValidElement, useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { CodeBlock } from '@/components/code-block';
 import { CopyButton } from '@/components/copy-button';
 import { useConnector } from '@/data/core';
 import { CODE_TEXT_ATTRIBUTE } from '@/hooks/use-text-context-menu';
 import styles from './style.module.css';
 import type { MouseEvent, ReactNode } from 'react';
 import type { Components } from 'react-markdown';
-import type { ThemedToken } from 'shiki/core';
 
 /** Recursively collect the plain-text content of a React node tree. */
 function extractText( node: ReactNode ): string {
@@ -27,74 +27,27 @@ function extractText( node: ReactNode ): string {
 	return '';
 }
 
-function CodeBlock( { children }: { children?: ReactNode } ) {
+function MarkdownCodeBlock( { children }: { children?: ReactNode } ) {
 	// Strip the single trailing newline react-markdown appends to fenced code.
 	const text = useMemo( () => extractText( children ).replace( /\n$/, '' ), [ children ] );
 	const className = isValidElement< { className?: string } >( children )
 		? children.props.className
 		: undefined;
 	const language = /language-([\w-]+)/.exec( className ?? '' )?.[ 1 ];
-	const [ highlighted, setHighlighted ] = useState< {
-		text: string;
-		lines: ThemedToken[][];
-	} | null >( null );
-
-	useEffect( () => {
-		if ( ! language ) {
-			return;
-		}
-		let current = true;
-		void import( './highlight' )
-			.then( ( { highlight } ) => highlight( text, language ) )
-			.then( ( lines ) => {
-				if ( current && lines ) {
-					setHighlighted( { text, lines } );
-				}
-			} )
-			// Highlighting is cosmetic; the plain code stays.
-			.catch( () => undefined );
-		return () => {
-			current = false;
-		};
-	}, [ language, text ] );
-
-	// While a reply streams, the last highlighted prefix stays colored and only
-	// the new tail shows plain until it catches up.
-	const shown = highlighted && text.startsWith( highlighted.text ) ? highlighted : null;
-
 	return (
-		<div className={ styles.codeBlock } { ...{ [ CODE_TEXT_ATTRIBUTE ]: text } }>
+		<CodeBlock
+			className={ styles.codeBlock }
+			code={ text }
+			language={ language }
+			{ ...{ [ CODE_TEXT_ATTRIBUTE ]: text } }
+		>
 			<div className={ styles.codeHeader }>
 				<span>{ language ?? 'text' }</span>
 				{ text ? (
-					<CopyButton
-						className={ styles.codeCopy }
-						text={ text }
-						label={ __( 'Copy' ) }
-						variant="plain"
-					/>
+					<CopyButton className={ styles.codeCopy } text={ text } label={ __( 'Copy' ) } />
 				) : null }
 			</div>
-			<pre className={ styles.pre }>
-				{ shown ? (
-					<code className={ className }>
-						{ shown.lines.map( ( line, index ) => (
-							<Fragment key={ index }>
-								{ index > 0 ? '\n' : null }
-								{ line.map( ( token, tokenIndex ) => (
-									<span key={ tokenIndex } style={ { color: token.color } }>
-										{ token.content }
-									</span>
-								) ) }
-							</Fragment>
-						) ) }
-						{ text.slice( shown.text.length ) }
-					</code>
-				) : (
-					children
-				) }
-			</pre>
-		</div>
+		</CodeBlock>
 	);
 }
 
@@ -134,7 +87,7 @@ const baseComponents: Components = {
 			</code>
 		);
 	},
-	pre: ( { children } ) => <CodeBlock>{ children }</CodeBlock>,
+	pre: ( { children } ) => <MarkdownCodeBlock>{ children }</MarkdownCodeBlock>,
 };
 
 export function Markdown( { children }: { children: string } ) {

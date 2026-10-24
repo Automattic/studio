@@ -25,7 +25,9 @@ function useGravatarUrl( email: string | undefined, isDark: boolean ): string | 
 			if ( cancelled ) {
 				return;
 			}
-			setUrl( `https://www.gravatar.com/avatar/${ hash }?d=${ encodeURIComponent( fallback ) }` );
+			setUrl(
+				`https://www.gravatar.com/avatar/${ hash }?s=64&d=${ encodeURIComponent( fallback ) }`
+			);
 		} );
 		return () => {
 			cancelled = true;
@@ -44,19 +46,12 @@ type GravatarProps = {
 export function Gravatar( { email, isDark, className }: GravatarProps ) {
 	const url = useGravatarUrl( email, isDark );
 	const [ errored, setErrored ] = useState( false );
-	const rootClassName = `${ styles.root } ${ className ?? '' }`;
-
-	if ( ! url || errored ) {
-		return <span aria-hidden="true" className={ rootClassName } />;
-	}
 
 	return (
-		<img
-			aria-hidden="true"
-			className={ rootClassName }
-			src={ url }
-			alt=""
-			onError={ () => setErrored( true ) }
-		/>
+		<span aria-hidden="true" className={ `${ styles.root } ${ className ?? '' }` }>
+			{ url && ! errored ? (
+				<img className={ styles.image } src={ url } alt="" onError={ () => setErrored( true ) } />
+			) : null }
+		</span>
 	);
 }

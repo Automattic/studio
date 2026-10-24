@@ -1,7 +1,7 @@
 import { createRoute } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { Button } from '@/components/ui/button';
-import { Empty, EmptyDescription } from '@/components/ui/empty';
+import { Empty, EmptyContent, EmptyDescription, EmptyHeader } from '@/components/ui/empty';
 import { useSites } from '@/data/queries/use-sites';
 import { useOpenAddSite } from '@/hooks/use-open-add-site';
 import { PlusIcon } from '@/lib/icons/plus-icon';
@@ -14,20 +14,28 @@ function NoSites() {
 	if ( sites.isError ) {
 		return (
 			<Empty>
-				<EmptyDescription>{ __( 'Try loading your sites again.' ) }</EmptyDescription>
-				<Button variant="outline" loading={ sites.isFetching } onClick={ () => sites.refetch() }>
-					{ __( 'Try again' ) }
-				</Button>
+				<EmptyHeader>
+					<EmptyDescription>{ __( 'Try loading your sites again.' ) }</EmptyDescription>
+				</EmptyHeader>
+				<EmptyContent>
+					<Button variant="outline" loading={ sites.isFetching } onClick={ () => sites.refetch() }>
+						{ __( 'Try again' ) }
+					</Button>
+				</EmptyContent>
 			</Empty>
 		);
 	}
 	return (
 		<Empty>
-			<EmptyDescription>{ __( 'Add a local WordPress site to get started.' ) }</EmptyDescription>
-			<Button data-add-first-site onClick={ () => openAddSite() }>
-				<PlusIcon data-icon="inline-start" />
-				{ __( 'Add site' ) }
-			</Button>
+			<EmptyHeader>
+				<EmptyDescription>{ __( 'Add a local WordPress site to get started.' ) }</EmptyDescription>
+			</EmptyHeader>
+			<EmptyContent>
+				<Button data-add-first-site onClick={ () => openAddSite() }>
+					<PlusIcon data-icon="inline-start" />
+					{ __( 'Add site' ) }
+				</Button>
+			</EmptyContent>
 		</Empty>
 	);
 }

@@ -66,9 +66,10 @@
 	}
 
 	.groupLabel {
-		padding: 4px 8px 0;
+		padding: 4px 6px;
 		color: var( --muted-foreground );
-		font-size: 11px;
+		font-size: var( --text-xs );
+		font-weight: var( --font-weight-medium );
 		line-height: 20px;
 	}
 }

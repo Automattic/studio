@@ -23,7 +23,7 @@ function AgenticFeaturesSection() {
 	const savePreferences = useSaveUserPreferences();
 
 	return (
-		<SettingsGroup>
+		<SettingsGroup title={ __( 'Chat' ) }>
 			<SettingsRow
 				title={ __( 'Studio Code' ) }
 				description={ __(
@@ -85,17 +85,7 @@ function ProvidersSection( { onManageCredits }: { onManageCredits: () => void } 
 	};
 
 	return (
-		<SettingsGroup
-			title={ __( 'Providers' ) }
-			description={
-				<>
-					{ __(
-						'AI providers give WordPress Studio access to the models that understand your requests and make changes to your sites.'
-					) }{ ' ' }
-					<LearnMoreLink docsLinksKey="docsStudioCode" />
-				</>
-			}
-		>
+		<SettingsGroup title={ __( 'Providers' ) }>
 			{ settings.isError ? (
 				<SettingsRow title={ __( "Couldn't load AI providers." ) }>
 					<Button variant="outline" onClick={ () => void settings.refetch() }>
@@ -224,8 +214,21 @@ function ProvidersSection( { onManageCredits }: { onManageCredits: () => void } 
 export function AiPanel( { onManageCredits }: { onManageCredits: () => void } ) {
 	return (
 		<div className={ styles.preferencesPanel }>
-			<AgenticFeaturesSection />
+			<SettingsGroup>
+				<SettingsRow
+					title={ __( 'AI providers' ) }
+					description={
+						<>
+							{ __(
+								'AI providers give WordPress Studio access to the models that understand your requests and make changes to your sites. Connect one to build pages, write content, and customize themes and plugins through chat.'
+							) }{ ' ' }
+							<LearnMoreLink docsLinksKey="docsStudioCode" />
+						</>
+					}
+				/>
+			</SettingsGroup>
 			<ProvidersSection onManageCredits={ onManageCredits } />
+			<AgenticFeaturesSection />
 		</div>
 	);
 }

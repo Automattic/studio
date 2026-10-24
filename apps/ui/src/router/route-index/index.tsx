@@ -1,6 +1,7 @@
 import { aiSessionBelongsToSite } from '@studio/common/ai/sessions/owner-site';
 import { sortSites } from '@studio/common/lib/sort-sites';
 import { createRoute, redirect } from '@tanstack/react-router';
+import { SidebarLayout } from '@/components/sidebar-layout';
 import { resolveChatEnabled } from '@/data/queries/use-agentic-features';
 import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
 import { SITES_QUERY_KEY } from '@/data/queries/use-sites';
@@ -13,6 +14,10 @@ let addSiteOffered = false;
 export const indexRoute = createRoute( {
 	getParentRoute: () => rootRoute,
 	path: '/',
+	// The workspace shell shows, its sidebar loading, until the redirect.
+	pendingComponent: () => <SidebarLayout>{ null }</SidebarLayout>,
+	pendingMs: 0,
+	pendingMinMs: 0,
 	beforeLoad: async ( { context } ) => {
 		const sites = await context.queryClient
 			.fetchQuery( {

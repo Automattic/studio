@@ -1,14 +1,15 @@
 import { getLocalizedLink } from '@studio/common/lib/docs-links';
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { __, _x, sprintf } from '@wordpress/i18n';
-import { clsx } from 'clsx';
 import { CheckIcon, SearchIcon } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 import { AuthActions } from '@/components/auth-actions';
+import { Alert, AlertActions, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
+import { PreviewFrame, PreviewImage } from '@/components/ui/preview-frame';
 import { Spinner } from '@/components/ui/spinner';
-import { VisuallyHidden } from '@/components/ui/visually-hidden';
 import { useConnector } from '@/data/core';
 import { useAuthUser } from '@/data/queries/use-auth-user';
 import { useUserLocale } from '@/data/queries/use-user-locale';
@@ -73,32 +74,32 @@ function RemoteSiteCard( {
 		: _x( 'WP.com', 'hosting provider name' );
 	const environmentLabel = getEnvironmentLabel( site );
 	const siteStatus = isAvailable ? '' : getSiteStatus( site, group );
-	const className = clsx( styles.siteCard, ! isAvailable && styles.siteCardUnavailable );
 
 	return (
-		<li className={ styles.siteCardWrapper }>
-			<button
-				type="button"
-				className={ className }
+		<li className={ styles.site }>
+			<Button
+				variant="outline"
+				layout="row"
+				className={ styles.siteRow }
 				disabled={ ! isAvailable }
 				onClick={ () => onSelect( site ) }
 			>
-				<span className={ styles.siteThumb }>
-					<img
+				<PreviewFrame className={ styles.siteThumb }>
+					<PreviewImage
 						src={ `https://s0.wp.com/mshots/v1/${ encodeURIComponent( site.url ) }?w=600&h=400` }
 						alt=""
 					/>
-					<span className={ styles.badges }>
-						<Badge variant="muted">{ providerLabel }</Badge>
-						<Badge variant={ getEnvironmentVariant( site ) }>{ environmentLabel }</Badge>
-					</span>
-				</span>
+				</PreviewFrame>
 				<span className={ styles.siteText }>
 					<span className={ styles.siteName }>{ siteName }</span>
 					<span className={ styles.siteUrl }>{ site.url.replace( /^https?:\/\//, '' ) }</span>
-					{ siteStatus && <span className={ styles.siteStatus }>{ siteStatus }</span> }
 				</span>
-			</button>
+				<span className={ styles.badges }>
+					<Badge variant="muted">{ providerLabel }</Badge>
+					<Badge variant={ getEnvironmentVariant( site ) }>{ environmentLabel }</Badge>
+				</span>
+			</Button>
+			{ siteStatus && <p className={ styles.siteStatus }>{ siteStatus }</p> }
 			{ group === 'needs-transfer' && (
 				<Button
 					type="button"
@@ -148,7 +149,7 @@ function SignedOutView() {
 					<span>{ __( 'Supports staging and production sites.' ) }</span>
 				</li>
 			</ul>
-			<AuthActions className={ styles.authActions } source="add_site" />
+			<AuthActions source="add_site" />
 		</div>
 	);
 }
@@ -172,7 +173,6 @@ export function ConnectPanel( { onConnect }: { onConnect: ( site: SyncSite ) => 
 		[ presentedSites, searchQuery ]
 	);
 	const isSingleSite = presentedSites.length === 1 && searchQuery.trim() === '';
-	const isSingleAvailableSite = isSingleSite && presentedSites[ 0 ].group === 'available';
 	const isLoadingSites = remoteSites.isLoading;
 	const loadError = remoteSites.error;
 	const sections = [
@@ -225,18 +225,15 @@ export function ConnectPanel( { onConnect }: { onConnect: ( site: SyncSite ) => 
 			) }
 
 			{ user && ! isOffline && ! isLoadingSites && loadError && (
-				<div className={ styles.state }>
-					<h2>{ __( "We couldn't load your sites" ) }</h2>
-					<p>{ __( 'Check your connection and try again.' ) }</p>
-					<Button
-						type="button"
-						variant="outline"
-						loading={ remoteSites.isFetching }
-						onClick={ retry }
-					>
-						{ __( 'Retry' ) }
-					</Button>
-				</div>
+				<Alert variant="destructive">
+					<AlertTitle>{ __( "We couldn't load your sites" ) }</AlertTitle>
+					<AlertDescription>{ __( 'Check your connection and try again.' ) }</AlertDescription>
+					<AlertActions>
+						<Button variant="outline" loading={ remoteSites.isFetching } onClick={ retry }>
+							{ __( 'Retry' ) }
+						</Button>
+					</AlertActions>
+				</Alert>
 			) }
 
 			{ user && ! isOffline && ! isLoadingSites && ! loadError && presentedSites.length === 0 && (
@@ -263,16 +260,18 @@ export function ConnectPanel( { onConnect }: { onConnect: ( site: SyncSite ) => 
 				<>
 					<div className={ styles.siteControls }>
 						{ ! isSingleSite && (
-							<label className={ styles.search }>
-								<SearchIcon />
-								<VisuallyHidden>{ __( 'Search sites' ) }</VisuallyHidden>
-								<input
+							<InputGroup className={ styles.search }>
+								<InputGroupAddon>
+									<SearchIcon />
+								</InputGroupAddon>
+								<InputGroupInput
 									type="search"
+									aria-label={ __( 'Search sites' ) }
 									placeholder={ __( 'Search sites' ) }
 									value={ searchQuery }
 									onChange={ ( event ) => setSearchQuery( event.target.value ) }
 								/>
-							</label>
+							</InputGroup>
 						) }
 						<p className={ styles.helperLinks }>
 							<Button
@@ -311,10 +310,6 @@ export function ConnectPanel( { onConnect }: { onConnect: ( site: SyncSite ) => 
 								) }
 							</p>
 						</div>
-					) : isSingleAvailableSite ? (
-						<ul className={ `${ styles.siteGrid } ${ styles.singleSiteGrid }` }>
-							<RemoteSiteCard { ...filteredSites[ 0 ] } onSelect={ onConnect } />
-						</ul>
 					) : (
 						<div className={ styles.sections }>
 							{ sections.map(
@@ -325,7 +320,7 @@ export function ConnectPanel( { onConnect }: { onConnect: ( site: SyncSite ) => 
 												<h2>{ section.title }</h2>
 												<p>{ section.description }</p>
 											</div>
-											<ul className={ styles.siteGrid }>
+											<ul className={ styles.siteList }>
 												{ section.sites.map( ( entry ) => (
 													<RemoteSiteCard
 														key={ entry.site.id }

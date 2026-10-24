@@ -290,16 +290,17 @@ export function SiteSettingsForm( {
 		{ action, ...props }: ComponentProps< typeof Input > & { action?: ReactNode } = {}
 	) => (
 		<SettingsRow title={ title } description={ description } error={ errors[ key ] }>
-			<Input
-				aria-label={ title }
-				aria-invalid={ errors[ key ] ? true : undefined }
-				className={ styles.input }
-				value={ data[ key ] }
-				disabled={ disabled }
-				onChange={ ( event ) => handleChange( { [ key ]: event.target.value } ) }
-				{ ...props }
-			/>
-			{ action }
+			<div className={ styles.field }>
+				<Input
+					aria-label={ title }
+					aria-invalid={ errors[ key ] ? true : undefined }
+					value={ data[ key ] }
+					disabled={ disabled }
+					onChange={ ( event ) => handleChange( { [ key ]: event.target.value } ) }
+					{ ...props }
+				/>
+				{ action }
+			</div>
 		</SettingsRow>
 	);
 	const toggleRow = (
@@ -342,7 +343,7 @@ export function SiteSettingsForm( {
 		</SettingsRow>
 	);
 	const copyButton = ( key: TextKey, label: string ) => (
-		<CopyButton text={ data[ key ] } label={ label } variant="plain" />
+		<CopyButton text={ data[ key ] } label={ label } size="icon-sm" icon="copy" />
 	);
 
 	const resolvedPhpVersion = getClosestSupportedPhpVersion( data.phpVersion ) ?? data.phpVersion;
@@ -445,7 +446,7 @@ export function SiteSettingsForm( {
 						__( 'The email address used to log in to WordPress Admin.' ),
 						{
 							type: 'email',
-							className: `${ styles.input } ${ styles.emailInput }`,
+							className: styles.emailInput,
 							action: copyButton( 'adminEmail', __( 'Copy admin email' ) ),
 						}
 					) }
@@ -487,7 +488,7 @@ export function SiteSettingsForm( {
 						__( 'Environment' ),
 						<>
 							{ __(
-								'Sets the value returned by wp_get_environment_type(). Plugins and themes use it to vary their behavior between local, staging, and production sites.'
+								'Tells WordPress, themes, and plugins whether this site is used for local work, development, staging, or production. They may adjust features such as caching or debugging based on this value.'
 							) }
 							{ learnMore( 'docsWpEnvironmentType' ) }
 						</>,

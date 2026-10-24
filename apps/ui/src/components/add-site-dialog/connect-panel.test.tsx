@@ -159,6 +159,17 @@ describe( 'ConnectPanel', () => {
 		expect( mocks.onConnect ).toHaveBeenCalledWith( mocks.remoteSites[ 0 ] );
 	} );
 
+	it( 'keeps an empty frame instead of a broken thumbnail', () => {
+		mocks.user = { id: 1, email: 'user@example.com', displayName: 'User' };
+		mocks.remoteSites = [ site( 1, { name: 'Only site' } ) ];
+
+		const { container } = render( <ConnectPanel onConnect={ mocks.onConnect } /> );
+		fireEvent.error( container.querySelector( 'img' )! );
+
+		expect( container.querySelector( 'img' ) ).not.toBeInTheDocument();
+		expect( container.querySelector( '[data-slot="skeleton"]' ) ).toBeInTheDocument();
+	} );
+
 	it( 'labels a single unavailable site and explains why it cannot connect', () => {
 		mocks.user = { id: 1, email: 'user@example.com', displayName: 'User' };
 		mocks.remoteSites = [ site( 1, { syncSupport: 'needs-upgrade' } ) ];

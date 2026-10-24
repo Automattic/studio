@@ -508,6 +508,7 @@ function UserTurn( {
 				<div className={ styles.userTextRow }>
 					<CopyButton
 						className={ styles.messageActions }
+						size="icon-sm"
 						text={ text }
 						label={ __( 'Copy message' ) }
 					/>
@@ -577,6 +578,7 @@ function AssistantText( {
 			{ copyText ? (
 				<CopyButton
 					className={ styles.messageActions }
+					size="icon-sm"
 					text={ copyText }
 					label={ __( 'Copy message' ) }
 				/>

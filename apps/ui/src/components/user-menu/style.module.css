@@ -2,7 +2,7 @@
    notification bell at the end, as 36px controls inset 12px. Pinning to the
    sidebar bottom is handled by the layout's `sidebarFooter` wrapper. */
 .root {
-	padding: 8px 12px 10px;
+	padding: 0 12px 10px;
 }
 
 .alert {
@@ -19,27 +19,13 @@
 	color: var(--muted-foreground);
 }
 
-.userTrigger img {
+.avatar {
 	width: 24px;
 	height: 24px;
 }
 
 .spacer {
 	flex: 1;
-}
-
-/* Signed-out avatar: a circle with the settings icon, sized like the gravatar
-   it stands in for. */
-.settingsAvatar {
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	width: 24px;
-	height: 24px;
-	border-radius: 50%;
-	flex-shrink: 0;
-	background-color: var(--chat);
-	color: var(--muted-foreground);
 }
 
 .popup {
@@ -49,22 +35,16 @@
 .account {
 	display: flex;
 	align-items: center;
-	gap: 8px;
-	padding: 8px;
-}
-
-.account img {
-	width: 20px;
-	height: 20px;
-	flex-shrink: 0;
+	gap: 6px;
+	padding: 8px 6px;
 }
 
 .accountText {
 	display: flex;
 	flex-direction: column;
 	min-width: 0;
-	font-size: var(--text-sm);
-	line-height: 20px;
+	font-size: var(--text-xs);
+	line-height: 1.25;
 }
 
 .accountName,
@@ -72,6 +52,10 @@
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
+}
+
+.accountName {
+	font-weight: var(--font-weight-medium);
 }
 
 .accountEmail {

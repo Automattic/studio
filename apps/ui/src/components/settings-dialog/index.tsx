@@ -26,6 +26,15 @@ import {
 	PanelHeader,
 } from '@/components/ui/dialog';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
+import { MarqueeLabel } from '@/components/ui/marquee-label';
+import {
+	Tabs,
+	TabsList,
+	TabsScopeIndicator,
+	TabsScopeLabel,
+	TabsSidebar,
+	TabsTrigger,
+} from '@/components/ui/tabs';
 import { VisuallyHidden } from '@/components/ui/visually-hidden';
 import { toast } from '@/data/app-messages';
 import { useAuthUser } from '@/data/queries/use-auth-user';
@@ -294,7 +303,6 @@ export function SettingsDialog() {
 		<Dialog open={ !! settings } onOpenChange={ ( isOpen ) => ! isOpen && close() }>
 			<DialogContent
 				layout="settings"
-				className={ styles.popup }
 				onInputCapture={ () => {
 					pendingExit.current = null;
 				} }
@@ -312,142 +320,154 @@ export function SettingsDialog() {
 				} }
 			>
 				<DialogTitle render={ <VisuallyHidden /> }>{ __( 'Settings' ) }</DialogTitle>
-				<div className={ styles.sidebar }>
-					<div className={ styles.scopes } role="group" aria-label={ __( 'Settings for' ) }>
-						{ ( [ 'studio', 'site' ] as const ).map( ( candidate ) => (
-							<button
-								key={ candidate }
-								type="button"
-								className={ styles.scope }
-								aria-pressed={ scope === candidate }
-								disabled={ candidate === 'site' && ! site }
-								onClick={ () =>
-									candidate !== scope && go( candidate === 'site' ? siteSection : 'general' )
-								}
-							>
-								{ candidate === 'studio' ? __( 'Studio' ) : __( 'Site' ) }
-							</button>
-						) ) }
-					</div>
-					<InputGroup className={ styles.search }>
-						<InputGroupInput
-							placeholder={ __( 'Search' ) }
-							aria-label={ __( 'Search settings' ) }
-							value={ query }
-							onChange={ ( event ) => setQuery( event.target.value ) }
-							onKeyDown={ ( event ) => {
-								if ( event.key === 'Escape' && query ) {
-									event.stopPropagation();
-									setQuery( '' );
-								} else if ( event.key === 'Enter' && results[ 0 ] ) {
-									event.preventDefault();
-									open( results[ 0 ] );
-								}
-							} }
-						/>
-						<InputGroupAddon>
-							<SearchIcon />
-						</InputGroupAddon>
-						{ query ? (
-							<InputGroupAddon align="inline-end">
-								<IconButton
-									size="icon-xs"
-									icon={ <XIcon /> }
-									label={ __( 'Clear search' ) }
-									onClick={ () => setQuery( '' ) }
-								/>
-							</InputGroupAddon>
-						) : null }
-					</InputGroup>
-					<nav className={ styles.nav } aria-label={ __( 'Settings sections' ) }>
-						{ searching && ! results.length ? (
-							<p className={ styles.empty }>{ __( 'No settings found.' ) }</p>
-						) : null }
-						{ ( searching
-							? results
-							: getSections( scope, { signedIn } ).map( ( entry ) => ( {
-									scope,
-									section: entry,
-									setting: undefined,
-							  } ) )
-						).map( ( item ) => (
-							<button
-								key={ `${ item.scope }-${ item.section.id }-${ item.setting?.title ?? '' }` }
-								type="button"
-								className={ styles.navItem }
-								aria-current={ ! searching && item.section.id === section ? 'page' : undefined }
-								onClick={ () => open( item ) }
-							>
-								<item.section.icon className={ styles.navIcon } />
-								<span className={ styles.navLabel }>
-									{ item.setting?.title ?? item.section.label }
-								</span>
-								{ searching ? (
-									<span className={ styles.navScope }>
-										{ item.scope === 'site' ? __( 'Site' ) : __( 'Studio' ) }
-									</span>
-								) : null }
-							</button>
-						) ) }
-					</nav>
-				</div>
-				<DialogPanel
-					className={ styles.content }
-					scrollRef={ setContent }
-					header={
-						<PanelHeader
-							leading={
-								<IconButton
-									variant="segmented"
-									size="icon-sm"
-									icon={ <ChevronLeftIcon /> }
-									label={ __( 'Back in settings' ) }
-									shortcut={ {
-										displayShortcut: displayShortcut.primary( '[' ),
-										ariaKeyShortcut: ariaKeyShortcut.primary( '[' ),
-									} }
-									disabled={ history.index < 1 }
-									onClick={ () => traverse( -1 ) }
-								/>
-							}
-							title={ current.label }
-							actions={ <div ref={ setActions } className={ styles.actions } /> }
-							onClose={ close }
-							closeLabel={ __( 'Close settings' ) }
-						/>
-					}
+				<Tabs
+					orientation="vertical"
+					layout="sidebar"
+					value={ searching ? null : section }
+					onValueChange={ ( next: SettingsSectionId ) => go( next ) }
 				>
-					<SettingsDialogContext.Provider value={ { actions, setDirty, settle } }>
-						{ scope === 'studio' ? (
-							<SettingsLinkContext.Provider value>
-								<StudioSection id={ section } onNavigate={ go } hasSite={ !! site } />
-							</SettingsLinkContext.Provider>
-						) : null }
-						{ site ? (
-							<>
-								{ scope === 'site' &&
-								( section === 'site-skills' || section === 'site-instructions' ) ? (
-									<SiteAgentFiles
-										key={ `${ site.id }-${ section }` }
-										site={ site }
-										kind={ section === 'site-skills' ? 'skills' : 'instructions' }
-										onManageAll={ () =>
-											go( section === 'site-skills' ? 'skills' : 'instructions' )
-										}
+					<TabsSidebar>
+						<Tabs
+							value={ scope }
+							onValueChange={ ( next: SettingsScope ) =>
+								go( next === 'site' ? siteSection : 'general' )
+							}
+						>
+							<TabsList
+								variant="scope"
+								aria-label={ __( 'Settings scope' ) }
+								className={ styles.scopes }
+							>
+								<TabsTrigger value="studio">{ __( 'Studio' ) }</TabsTrigger>
+								<TabsTrigger value="site" disabled={ ! site }>
+									{ __( 'Site' ) }
+								</TabsTrigger>
+								<TabsScopeIndicator />
+							</TabsList>
+						</Tabs>
+						<InputGroup className={ styles.search }>
+							<InputGroupInput
+								placeholder={ __( 'Search' ) }
+								aria-label={ __( 'Search settings' ) }
+								value={ query }
+								onChange={ ( event ) => setQuery( event.target.value ) }
+								onKeyDown={ ( event ) => {
+									if ( event.key === 'Escape' && query ) {
+										event.stopPropagation();
+										setQuery( '' );
+									} else if ( event.key === 'Enter' && results[ 0 ] ) {
+										event.preventDefault();
+										open( results[ 0 ] );
+									}
+								} }
+							/>
+							<InputGroupAddon>
+								<SearchIcon />
+							</InputGroupAddon>
+							{ query ? (
+								<InputGroupAddon align="inline-end">
+									<IconButton
+										size="icon-xs"
+										icon={ <XIcon /> }
+										label={ __( 'Clear search' ) }
+										onClick={ () => setQuery( '' ) }
 									/>
-								) : null }
-								<div
-									className={ clsx(
-										( scope !== 'site' || ! SITE_FORM_SECTIONS.includes( section ) ) &&
-											styles.hidden
-									) }
-								>
-									<SiteSettingsForm key={ site.id } site={ site } section={ formSection } />
-								</div>
-							</>
-						) : null }
-					</SettingsDialogContext.Provider>
-				</DialogPanel>
+								</InputGroupAddon>
+							) : null }
+						</InputGroup>
+						{ ! searching ? (
+							<TabsList variant="sidebar" aria-label={ __( 'Settings sections' ) }>
+								{ getSections( scope, { signedIn } ).map( ( entry ) => (
+									<TabsTrigger key={ entry.id } value={ entry.id }>
+										<entry.icon />
+										<MarqueeLabel>{ entry.label }</MarqueeLabel>
+									</TabsTrigger>
+								) ) }
+							</TabsList>
+						) : results.length ? (
+							<Tabs
+								orientation="vertical"
+								value={ null }
+								onValueChange={ ( index: number ) => open( results[ index ] ) }
+							>
+								<TabsList variant="sidebar" aria-label={ __( 'Matching settings' ) }>
+									{ results.map( ( item, index ) => (
+										<TabsTrigger
+											key={ `${ item.scope }-${ item.section.id }-${ item.setting?.title ?? '' }` }
+											value={ index }
+											highlighted={ index === 0 }
+										>
+											<item.section.icon />
+											<MarqueeLabel>{ item.setting?.title ?? item.section.label }</MarqueeLabel>
+											<TabsScopeLabel>
+												{ item.scope === 'site' ? __( 'Site' ) : __( 'Studio' ) }
+											</TabsScopeLabel>
+										</TabsTrigger>
+									) ) }
+								</TabsList>
+							</Tabs>
+						) : (
+							<p className={ styles.empty }>{ __( 'No settings found.' ) }</p>
+						) }
+					</TabsSidebar>
+					<DialogPanel
+						className={ styles.content }
+						scrollRef={ setContent }
+						header={
+							<PanelHeader
+								leading={
+									<IconButton
+										variant="segmented"
+										size="icon-sm"
+										icon={ <ChevronLeftIcon /> }
+										label={ __( 'Back in settings' ) }
+										shortcut={ {
+											displayShortcut: displayShortcut.primary( '[' ),
+											ariaKeyShortcut: ariaKeyShortcut.primary( '[' ),
+										} }
+										disabled={ history.index < 1 }
+										onClick={ () => traverse( -1 ) }
+									/>
+								}
+								title={ current.label }
+								actions={ <div ref={ setActions } className={ styles.actions } /> }
+								onClose={ close }
+								closeLabel={ __( 'Close settings' ) }
+							/>
+						}
+					>
+						<SettingsDialogContext.Provider value={ { actions, setDirty, settle } }>
+							{ scope === 'studio' ? (
+								<SettingsLinkContext.Provider value>
+									<StudioSection id={ section } onNavigate={ go } hasSite={ !! site } />
+								</SettingsLinkContext.Provider>
+							) : null }
+							{ site ? (
+								<>
+									{ scope === 'site' &&
+									( section === 'site-skills' || section === 'site-instructions' ) ? (
+										<SiteAgentFiles
+											key={ `${ site.id }-${ section }` }
+											site={ site }
+											kind={ section === 'site-skills' ? 'skills' : 'instructions' }
+											onManageAll={ () =>
+												go( section === 'site-skills' ? 'skills' : 'instructions' )
+											}
+										/>
+									) : null }
+									<div
+										className={ clsx(
+											( scope !== 'site' || ! SITE_FORM_SECTIONS.includes( section ) ) &&
+												styles.hidden
+										) }
+									>
+										<SiteSettingsForm key={ site.id } site={ site } section={ formSection } />
+									</div>
+								</>
+							) : null }
+						</SettingsDialogContext.Provider>
+					</DialogPanel>
+				</Tabs>
 			</DialogContent>
 		</Dialog>
 	);

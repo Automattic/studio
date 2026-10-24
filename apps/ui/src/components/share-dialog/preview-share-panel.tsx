@@ -23,15 +23,18 @@ import { getSnapshotHostname, getSnapshotUrl } from '@/lib/snapshot-url';
 import styles from './style.module.css';
 import type { SiteDetails, Snapshot } from '@/data/core';
 
-export function previewExpiry( snapshot: Snapshot, locale?: string ) {
+export function previewExpiry(
+	snapshot: Snapshot,
+	locale?: string,
+	format: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric', year: 'numeric' }
+) {
 	return sprintf(
 		/* translators: %s: the date a preview site expires */
 		__( 'Expires %s' ),
-		new Date( snapshot.date + DEMO_SITE_EXPIRATION_DAYS * DAY_MS ).toLocaleDateString( locale, {
-			month: 'short',
-			day: 'numeric',
-			year: 'numeric',
-		} )
+		new Date( snapshot.date + DEMO_SITE_EXPIRATION_DAYS * DAY_MS ).toLocaleDateString(
+			locale,
+			format
+		)
 	);
 }
 

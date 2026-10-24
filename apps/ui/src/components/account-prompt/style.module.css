@@ -2,15 +2,22 @@
 	display: flex;
 	flex-direction: column;
 	align-items: center;
+	width: 100%;
 	margin-top: -16px;
 	padding-bottom: 32px;
 	text-align: center;
 	text-wrap: pretty;
 }
 
+:global([data-slot='empty']) > .body {
+	margin-top: 0;
+	padding-bottom: 0;
+}
+
 .illustration {
 	position: relative;
 	width: 100%;
+	max-width: 448px;
 	aspect-ratio: 2.6 / 1;
 	margin-bottom: 20px;
 	pointer-events: none;

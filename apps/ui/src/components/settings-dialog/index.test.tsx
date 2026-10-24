@@ -113,7 +113,7 @@ describe( 'SettingsDialog', () => {
 			target: { value: 'Renamed' },
 		} );
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'Studio' } ) );
+		fireEvent.click( screen.getByRole( 'tab', { name: 'Studio' } ) );
 		dialog.update();
 		expect( search.settings ).toBe( 'general' );
 
@@ -148,8 +148,8 @@ describe( 'SettingsDialog', () => {
 
 		fireEvent.change( input, { target: { value: 'theme' } } );
 		const [ top ] = within(
-			screen.getByRole( 'navigation', { name: 'Settings sections' } )
-		).getAllByRole( 'button' );
+			screen.getByRole( 'tablist', { name: 'Matching settings' } )
+		).getAllByRole( 'tab' );
 		expect( top ).toHaveTextContent( 'Theme' );
 		fireEvent.keyDown( input, { key: 'Enter' } );
 		dialog.update();
@@ -181,7 +181,7 @@ describe( 'SettingsDialog', () => {
 	// jsdom reports a non-Apple platform, where the primary modifier is Ctrl.
 	it( 'goes back and forward through the sections visited', () => {
 		const dialog = renderDialog( { settings: 'general' } );
-		fireEvent.click( screen.getByRole( 'button', { name: 'Keyboard' } ) );
+		fireEvent.click( screen.getByRole( 'tab', { name: 'Keyboard' } ) );
 		dialog.update();
 
 		fireEvent.keyDown( screen.getByRole( 'dialog' ), { key: '[', ctrlKey: true } );

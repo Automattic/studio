@@ -7,6 +7,7 @@
  * changed is reported on that call's result. Each source reads one kind of
  * thing WordPress reads, as versions a check compares.
  */
+import { childThemeCopies } from 'cli/ai/child-theme-copies';
 import { postContentChanges } from 'cli/ai/post-content-check';
 import { updatableThemeChanges } from 'cli/ai/theme-file-changes';
 import { readCliConfig, type SiteData } from 'cli/lib/cli-config/core';
@@ -37,6 +38,7 @@ export interface SiteChangeSource {
 export const SITE_CHANGE_SOURCES: SiteChangeSource[] = [
 	postContentChanges,
 	updatableThemeChanges,
+	childThemeCopies,
 ];
 
 async function localSites(): Promise< SiteData[] > {

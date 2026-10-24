@@ -20,10 +20,19 @@ function isUpdated( site: WordPressSite, theme: string ): boolean {
 const UPDATE_CHECK_URL = 'https://api.wordpress.org/themes/update-check/1.1/';
 const asked = new Map< string, Promise< boolean > >();
 
-/** The Version a theme's style.css header names. */
-export async function readThemeVersion( root: string, theme: string ): Promise< string > {
+/** A header of a theme's style.css, read as get_file_data() reads it. */
+export async function readThemeHeader(
+	root: string,
+	theme: string,
+	header: string
+): Promise< string > {
 	const css = await readFile( path.join( root, 'wp-content/themes', theme, 'style.css' ), 'utf8' );
-	return css.match( /^[ \t/*#@]*Version:(.*)$/im )?.[ 1 ].trim() ?? '';
+	return css.match( new RegExp( `^[ \\t/*#@]*${ header }:(.*)$`, 'im' ) )?.[ 1 ].trim() ?? '';
+}
+
+/** The Version a theme's style.css header names. */
+export function readThemeVersion( root: string, theme: string ): Promise< string > {
+	return readThemeHeader( root, theme, 'Version' );
 }
 
 // One answer per theme release; an unanswered check is asked again.

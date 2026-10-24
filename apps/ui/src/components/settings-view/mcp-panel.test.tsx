@@ -32,7 +32,9 @@ describe( 'McpPanel', () => {
 	it( 'copies the MCP configuration and shows copied feedback once the copy resolves', async () => {
 		render( <McpPanel />, { wrapper: Providers } );
 
-		expect( screen.getByText( /Connect other AI assistants to Studio/ ) ).toBeInTheDocument();
+		expect(
+			screen.getByText( /Connect other AI assistants to WordPress Studio/ )
+		).toBeInTheDocument();
 
 		fireEvent.click( screen.getByRole( 'button', { name: 'Copy MCP configuration' } ) );
 

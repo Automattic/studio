@@ -82,10 +82,14 @@ export function DeleteSiteDialog( {
 					<DialogTitle>
 						{ count === 1
 							? /* translators: %s: site name. */
-							  sprintf( __( 'Remove “%s” from Studio?' ), sites[ 0 ].name )
+							  sprintf( __( 'Remove “%s” from WordPress Studio?' ), sites[ 0 ].name )
 							: sprintf(
 									/* translators: %d: number of sites. */
-									_n( 'Remove %d site from Studio?', 'Remove %d sites from Studio?', count ),
+									_n(
+										'Remove %d site from WordPress Studio?',
+										'Remove %d sites from WordPress Studio?',
+										count
+									),
 									count
 							  ) }
 					</DialogTitle>

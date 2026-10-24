@@ -312,7 +312,7 @@ function ChatRow( {
 					variant="accent"
 					size="icon"
 					role="status"
-					aria-label={ __( 'Studio needs an answer.' ) }
+					aria-label={ __( 'WordPress Studio needs an answer.' ) }
 				>
 					<NeedsInputIcon />
 				</Badge>

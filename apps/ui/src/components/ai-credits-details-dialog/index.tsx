@@ -49,7 +49,7 @@ export function AiCreditsDetailsDialog( {
 				<DialogDescription tone="default" className={ styles.details } render={ <div /> }>
 					<p className={ styles.introduction }>
 						{ __(
-							'AI Credits are how you pay for AI usage in Studio — things like generating code, building out a site, or running other AI-powered features. They’re not money. You can’t withdraw them, exchange them for cash, or use them outside Studio.'
+							'AI Credits are how you pay for AI usage in WordPress Studio — things like generating code, building out a site, or running other AI-powered features. They’re not money. You can’t withdraw them, exchange them for cash, or use them outside WordPress Studio.'
 						) }
 					</p>
 					<section className={ styles.section }>

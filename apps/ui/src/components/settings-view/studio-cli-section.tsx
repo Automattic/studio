@@ -70,7 +70,7 @@ export function StudioCliSection() {
 							/>
 							<TooltipContent className={ styles.cliTooltip }>
 								{ __(
-									'This studio command was installed with the standalone CLI installer, so Studio can’t manage it. Run studio uninstall in a terminal to remove it.'
+									'This studio command was installed with the standalone CLI installer, so WordPress Studio can’t manage it. Run studio uninstall in a terminal to remove it.'
 								) }
 							</TooltipContent>
 						</Tooltip>

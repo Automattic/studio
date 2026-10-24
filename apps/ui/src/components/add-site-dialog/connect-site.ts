@@ -143,7 +143,7 @@ export function useConnectSite() {
 					const messages = {
 						create: __( 'Creating the local site…' ),
 						connect: __( 'Saving the WordPress.com connection…' ),
-						pull: __( 'Pulling the live site into Studio…' ),
+						pull: __( 'Pulling the live site into WordPress Studio…' ),
 						open: __( 'Opening the local site…' ),
 					};
 					setProgress( messages[ stage ] );

@@ -42,7 +42,7 @@ export function useAppMenuNavigation() {
 						ipcApi?.showErrorMessageBox( {
 							title: __( 'Failed to load Blueprint' ),
 							message: __(
-								'Studio could not open the Blueprint. Please check the file and try again.'
+								'WordPress Studio could not open the Blueprint. Please check the file and try again.'
 							),
 							error,
 							showOpenLogs: true,

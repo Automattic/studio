@@ -220,7 +220,7 @@ export function AiPanel( { onManageCredits }: { onManageCredits: () => void } ) 
 					description={
 						<>
 							{ __(
-								'AI providers give Studio access to the models that understand your requests and make changes to your sites. Connect one to build pages, write content, and customize themes and plugins through chat.'
+								'AI providers give WordPress Studio access to the models that understand your requests and make changes to your sites. Connect one to build pages, write content, and customize themes and plugins through chat.'
 							) }{ ' ' }
 							<LearnMoreLink docsLinksKey="docsStudioCode" />
 						</>

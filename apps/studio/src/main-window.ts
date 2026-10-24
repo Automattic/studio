@@ -71,8 +71,8 @@ async function loadRendererLocation( window: BrowserWindow, location: RendererLo
 		// A build that skipped `scripts/build-ui-renderer.ts`, e.g. a stale `dist/`.
 		console.error( 'Studio renderer not found:', location.filePath );
 		dialog.showErrorBox(
-			'Studio could not start',
-			`The app's interface is missing (${ location.filePath }). Rebuild Studio and try again.`
+			'WordPress Studio could not start',
+			`The app's interface is missing (${ location.filePath }). Rebuild WordPress Studio and try again.`
 		);
 		app.quit();
 		return;

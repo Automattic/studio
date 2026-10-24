@@ -10,7 +10,7 @@
  * hookSpecificOutput denies the call or adds context to its result.
  *
  * On a shell call they also report the content the call changed in the sites'
- * databases (post-content-check.ts). When the agent stops, the Stop hook
+ * databases and the files of themes WordPress updates (site-changes.ts). When the agent stops, the Stop hook
  * continues its turn with the problems still open (open-problems.ts). Each
  * hook is its own process, so the session's snapshots and open problems are
  * kept in a file between hooks.
@@ -21,7 +21,7 @@ import os from 'os';
 import path from 'path';
 import { BlockValidationGate } from 'cli/ai/block-validation-gate';
 import { describeOpenProblems, OpenProblems, type OpenProblemsState } from 'cli/ai/open-problems';
-import { PostContentCheck, type PostSnapshot } from 'cli/ai/post-content-check';
+import { SiteChanges, type Versions } from 'cli/ai/site-changes';
 import { createSiteNotes } from 'cli/ai/site-notes';
 import { studioMessage, validationLines } from 'cli/ai/studio-message';
 
@@ -62,7 +62,7 @@ export function getWrittenFiles( { tool_input: toolInput = {}, cwd = '' }: HookI
 }
 
 interface SessionState {
-	snapshots: Record< string, PostSnapshot >;
+	snapshots: Record< string, Versions >;
 	open?: OpenProblemsState;
 }
 
@@ -75,7 +75,7 @@ function stateFile( sessionId: string ): string {
 // a call's own.
 async function withSession< T >(
 	sessionId: string | undefined,
-	run: ( checks: { postContent: PostContentCheck; open: OpenProblems } ) => Promise< T >
+	run: ( checks: { siteChanges: SiteChanges; open: OpenProblems } ) => Promise< T >
 ): Promise< T > {
 	const file = sessionId ? stateFile( sessionId ) : undefined;
 	const kept: Partial< SessionState > = file
@@ -85,7 +85,7 @@ async function withSession< T >(
 		: {};
 	const snapshots = new Map( Object.entries( kept.snapshots ?? {} ) );
 	const open = new OpenProblems( kept.open );
-	const result = await run( { postContent: new PostContentCheck( snapshots, open ), open } );
+	const result = await run( { siteChanges: new SiteChanges( snapshots, open ), open } );
 	if ( file ) {
 		const state: SessionState = { snapshots: Object.fromEntries( snapshots ), open: open.toJSON() };
 		await writeFile( file, JSON.stringify( state ), 'utf8' );
@@ -108,7 +108,7 @@ export async function runFileToolHook(
 	const files = getWrittenFiles( input );
 	if ( input.hook_event_name === 'PreToolUse' ) {
 		const siteNotes = createSiteNotes( { gate: makeGate() } );
-		await withSession( input.session_id, ( { postContent } ) => postContent.snapshot() ).catch(
+		await withSession( input.session_id, ( { siteChanges } ) => siteChanges.snapshot() ).catch(
 			() => undefined
 		);
 		for ( const file of files ) {
@@ -128,14 +128,14 @@ export async function runFileToolHook(
 	if ( input.hook_event_name !== 'PostToolUse' ) {
 		return undefined;
 	}
-	const checked = await withSession( input.session_id, async ( { postContent, open } ) => {
+	const checked = await withSession( input.session_id, async ( { siteChanges, open } ) => {
 		const gate = makeGate( open );
 		const siteNotes = createSiteNotes( { gate } );
 		const notes: string[] = [];
 		for ( const file of files ) {
 			notes.push( ...( await siteNotes.afterWrite( file ) ) );
 		}
-		return { notes, files: await gate.settle(), content: await postContent.settle() };
+		return { notes, files: await gate.settle(), content: await siteChanges.settle() };
 	} ).catch( () => undefined );
 	const context =
 		checked &&

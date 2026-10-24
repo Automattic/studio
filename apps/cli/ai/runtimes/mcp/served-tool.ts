@@ -1,6 +1,6 @@
 import { studioMessage, validationLines } from 'cli/ai/studio-message';
 import { resolveSite } from 'cli/ai/tools/utils';
-import type { PostContentCheck } from 'cli/ai/post-content-check';
+import type { SiteChanges } from 'cli/ai/site-changes';
 import type { SiteNotes } from 'cli/ai/site-notes';
 import type { AnyStudioAgentTool } from 'cli/ai/tools/define-tool';
 
@@ -22,12 +22,12 @@ export async function runServedTool(
 	tool: AnyStudioAgentTool,
 	args: Record< string, unknown >,
 	siteNotes: SiteNotes,
-	postContent?: PostContentCheck
+	siteChanges?: SiteChanges
 ) {
-	await postContent?.snapshot().catch( () => undefined );
+	await siteChanges?.snapshot().catch( () => undefined );
 	// A call that fails can still have changed content.
 	const changedContent = async () => {
-		const report = await postContent?.settle().catch( () => undefined );
+		const report = await siteChanges?.settle().catch( () => undefined );
 		return report ? validationLines( report ) : [];
 	};
 	try {

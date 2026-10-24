@@ -30,7 +30,7 @@ export function createSite( prefix = 'wp_' ) {
 		CREATE TABLE ${ prefix }options ( option_name TEXT PRIMARY KEY, option_value TEXT );
 		INSERT INTO ${ prefix }options VALUES ( 'active_plugins', 'a:0:{}' );
 		INSERT INTO ${ prefix }options VALUES ( 'stylesheet', 'bakery' ), ( 'template', 'bakery-parent' );
-		INSERT INTO ${ prefix }options VALUES ( '_site_transient_update_themes', 'O:8:"stdClass":3:{s:7:"checked";a:2:{s:13:"bakery-parent";s:3:"1.0";s:16:"twentytwentyfive";s:3:"1.5";}s:8:"response";a:0:{}s:9:"no_update";a:2:{s:13:"bakery-parent";a:2:{s:5:"theme";s:13:"bakery-parent";s:11:"new_version";s:3:"1.0";}s:16:"twentytwentyfive";a:2:{s:5:"theme";s:16:"twentytwentyfive";s:11:"new_version";s:3:"1.5";}}}' );
+		INSERT INTO ${ prefix }options VALUES ( '_site_transient_update_themes', 'O:8:"stdClass":3:{s:7:"checked";a:3:{s:6:"bakery";s:3:"1.0";s:13:"bakery-parent";s:3:"1.0";s:16:"twentytwentyfive";s:3:"1.5";}s:8:"response";a:0:{}s:9:"no_update";a:2:{s:13:"bakery-parent";a:2:{s:5:"theme";s:13:"bakery-parent";s:11:"new_version";s:3:"1.0";}s:16:"twentytwentyfive";a:2:{s:5:"theme";s:16:"twentytwentyfive";s:11:"new_version";s:3:"1.5";}}}' );
 		INSERT INTO ${ prefix }terms VALUES ( 1, 'bakery' ), ( 2, 'other-theme' );
 		INSERT INTO ${ prefix }term_taxonomy VALUES ( 1, 1, 'wp_theme' ), ( 2, 2, 'wp_theme' );
 	` );

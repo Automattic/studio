@@ -3,8 +3,8 @@ import { tmpdir } from 'os';
 import path from 'path';
 import { Type } from 'typebox';
 import { expect, it, vi } from 'vitest';
-import { PostContentCheck } from 'cli/ai/post-content-check';
 import { runServedTool } from 'cli/ai/runtimes/mcp/served-tool';
+import { SiteChanges } from 'cli/ai/site-changes';
 import { createSiteNotes } from 'cli/ai/site-notes';
 import { createSite } from 'cli/ai/tests/fixtures/wordpress-site';
 import { defineTool, LOCAL_CHANGE, READ_ONLY } from 'cli/ai/tools/define-tool';
@@ -69,7 +69,7 @@ it( 'reports the block validation of post content the call changed, on any site'
 		},
 		{ annotations: LOCAL_CHANGE }
 	);
-	const result = await runServedTool( tool, {}, createSiteNotes(), new PostContentCheck() );
+	const result = await runServedTool( tool, {}, createSiteNotes(), new SiteChanges() );
 	expect( result.content.map( ( part ) => ( part.type === 'text' ? part.text : '' ) ) ).toEqual( [
 		'Success: Updated post 9.',
 		expect.stringMatching(
@@ -92,7 +92,7 @@ it( 'reports the block validation of post content the call changed, on any site'
 		},
 		{ annotations: LOCAL_CHANGE }
 	);
-	const failed = await runServedTool( failing, {}, createSiteNotes(), new PostContentCheck() );
+	const failed = await runServedTool( failing, {}, createSiteNotes(), new SiteChanges() );
 	expect( failed.isError ).toBe( true );
 	expect( JSON.stringify( failed.content ) ).toMatch(
 		/Command exited with code 1\\n<studio-notes>\\nBlock validation: Bakery page 9 \\"\\": core\/html policy failed/

@@ -80,8 +80,8 @@ vi.mock( 'cli/ai/site-notes', () => ( {
 	} ),
 } ) );
 
-vi.mock( 'cli/ai/post-content-check', () => ( {
-	PostContentCheck: class {
+vi.mock( 'cli/ai/site-changes', () => ( {
+	SiteChanges: class {
 		async snapshot() {
 			mocks.steps.push( 'snapshot' );
 		}

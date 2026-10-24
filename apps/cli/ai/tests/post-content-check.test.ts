@@ -2,7 +2,8 @@ import { existsSync, readFileSync, rmSync } from 'fs';
 import path from 'path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { validateBlocks, type ValidationReport } from 'cli/ai/block-validator';
-import { PostContentCheck } from 'cli/ai/post-content-check';
+import { postContentChanges } from 'cli/ai/post-content-check';
+import { SiteChanges } from 'cli/ai/site-changes';
 import { createSite } from 'cli/ai/tests/fixtures/wordpress-site';
 import type { SiteData } from 'cli/lib/cli-config/core';
 
@@ -37,7 +38,10 @@ beforeEach( () => {
 
 afterEach( () => rmSync( fixture.root, { recursive: true, force: true } ) );
 
-describe( 'PostContentCheck', () => {
+const checkPosts = () =>
+	new SiteChanges( new Map(), undefined, async () => [ site ], [ postContentChanges ] );
+
+describe( 'post content changes', () => {
 	it.each( [
 		{ name: 'an unchanged site', change: () => {}, reported: [] },
 		{
@@ -60,7 +64,7 @@ describe( 'PostContentCheck', () => {
 			reported: [],
 		},
 	] )( 'reports what a call changed: $name', async ( { change, reported } ) => {
-		const check = new PostContentCheck( new Map(), undefined, async () => [ site ] );
+		const check = checkPosts();
 		await check.snapshot();
 		change();
 		expect( ( await check.settle() ).summaries ).toEqual( reported );
@@ -69,13 +73,13 @@ describe( 'PostContentCheck', () => {
 	} );
 
 	it( 'reports nothing for a site it has not seen before', async () => {
-		const check = new PostContentCheck( new Map(), undefined, async () => [ site ] );
+		const check = checkPosts();
 		fixture.edit( 9, HTML_ONLY );
 		expect( await check.settle() ).toEqual( { summaries: [], problems: [] } );
 	} );
 
 	it( 'asks for editable blocks in place of core/html', async () => {
-		const check = new PostContentCheck( new Map(), undefined, async () => [ site ] );
+		const check = checkPosts();
 		await check.snapshot();
 		fixture.edit( 9, HTML_ONLY );
 		const { problems } = await check.settle();
@@ -85,7 +89,7 @@ describe( 'PostContentCheck', () => {
 
 	it( 'saves a lossless editor fix next to the site, with the command that applies it', async () => {
 		vi.mocked( validateBlocks ).mockResolvedValue( losslessFix );
-		const check = new PostContentCheck( new Map(), undefined, async () => [ site ] );
+		const check = checkPosts();
 		await check.snapshot();
 		fixture.edit( 9, UNWRAPPED_GROUP );
 		const { summaries, problems } = await check.settle();
@@ -103,7 +107,7 @@ describe( 'PostContentCheck', () => {
 
 	it( 'reports a validation that cannot run', async () => {
 		vi.mocked( validateBlocks ).mockRejectedValue( new Error( 'site is not running' ) );
-		const check = new PostContentCheck( new Map(), undefined, async () => [ site ] );
+		const check = checkPosts();
 		await check.snapshot();
 		fixture.edit( 9, UNWRAPPED_GROUP );
 		expect( ( await check.settle() ).summaries ).toEqual( [

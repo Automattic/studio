@@ -31,6 +31,18 @@ beforeEach( () => {
 	}
 } );
 
+// WordPress.org's theme update check, which updates fresh.
+const updateCheck = vi.fn( async ( _url: string, init: { body: URLSearchParams } ) => {
+	const themes = Object.keys( JSON.parse( init.body.get( 'themes' ) ?? '{}' ).themes );
+	return Response.json( {
+		themes: [],
+		no_update: Object.fromEntries(
+			themes.filter( ( theme ) => theme === 'fresh' ).map( ( theme ) => [ theme, {} ] )
+		),
+	} );
+} );
+vi.stubGlobal( 'fetch', updateCheck );
+
 afterEach( () => {
 	rmSync( root, { recursive: true, force: true } );
 	vi.mocked( findSiteByFolder ).mockReset();
@@ -63,7 +75,7 @@ describe( 'the file write refusal', () => {
 		}
 	} );
 
-	it( 'refuses a theme WordPress updates, by its last update check, naming a child theme', async () => {
+	it( 'refuses a theme WordPress updates, by its last update check or WordPress.org, naming a child theme', async () => {
 		for ( const theme of [ 'premium', 'client-theme', 'café', 'fresh' ] ) {
 			const dir = path.join( studioSite(), 'wp-content', 'themes', theme );
 			mkdirSync( dir, { recursive: true } );
@@ -87,11 +99,12 @@ describe( 'the file write refusal', () => {
 				isStudioSite
 			);
 
-		for ( const updatable of [ 'twentytwentyfive', 'premium' ] ) {
+		// Checked with an update source, or installed since and on WordPress.org.
+		for ( const updatable of [ 'twentytwentyfive', 'premium', 'fresh' ] ) {
 			expect( await refusal( updatable ) ).toContain( `Template: ${ updatable }` );
 		}
-		// Checked, with no update source, or not checked yet: the user's own themes.
-		for ( const own of [ 'client-theme', 'café', 'fresh' ] ) {
+		// Checked, with no update source: the user's own themes.
+		for ( const own of [ 'client-theme', 'café' ] ) {
 			expect( await refusal( own ) ).toBeUndefined();
 		}
 	} );
@@ -105,8 +118,8 @@ describe( 'the file write refusal', () => {
 
 	it.each( [
 		'my-site/wp-config.php',
-		// A theme WordPress has no update check for.
-		'my-site/wp-content/themes/twentytwentyfive/functions.php',
+		// A theme not checked yet that WordPress.org does not update.
+		'my-site/wp-content/themes/client-work/functions.php',
 		'my-site/wp-content/plugins/wp-includes/x.php',
 		'my-site/DESIGN.md',
 		'elsewhere/wp-includes/functions.php',

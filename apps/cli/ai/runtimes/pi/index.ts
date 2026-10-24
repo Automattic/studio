@@ -46,7 +46,7 @@ import { withDesignSystemPreview } from 'cli/ai/chat-artifacts';
 import { isImageGenerationAvailable } from 'cli/ai/image-generation';
 import { emitEvent } from 'cli/ai/json-events';
 import { describeOpenProblems, getOpenProblems } from 'cli/ai/open-problems';
-import { PostContentCheck } from 'cli/ai/post-content-check';
+import { SiteChanges } from 'cli/ai/site-changes';
 import { readActiveSiteFacts } from 'cli/ai/site-facts';
 import { createSiteNotes, type SiteNotes } from 'cli/ai/site-notes';
 import { studioMessage, validationLines } from 'cli/ai/studio-message';
@@ -412,14 +412,14 @@ async function createStudioAgentSession(
 		gate: blockValidationGate,
 	} );
 	// What a call changed in the content the sites render, reported on its result.
-	const postContent = new PostContentCheck( undefined, getOpenProblems( config.session ) );
+	const siteChanges = new SiteChanges( undefined, getOpenProblems( config.session ) );
 	const toolDefinitions = [ ...tools, ...mcpTools ].map( ( tool ) =>
 		toToolDefinition( tool, payloadGuardState, pendingWork, blockValidationGate, {
 			confirm,
 			sitePin,
 			siteNotes,
 			localSite,
-			postContent,
+			siteChanges,
 		} )
 	);
 	const modelRuntime = await createModelRuntime( model, family, creds );
@@ -704,12 +704,12 @@ function toToolDefinition(
 		sitePin,
 		siteNotes,
 		localSite,
-		postContent,
+		siteChanges,
 	}: {
 		confirm: Confirmer;
 		sitePin: SitePin;
 		siteNotes: SiteNotes;
-		postContent: PostContentCheck;
+		siteChanges: SiteChanges;
 		// Studio's tools report on the active site when it is a local one.
 		localSite?: string;
 	}
@@ -754,12 +754,12 @@ function toToolDefinition(
 			const validationReport = BLOCK_VALIDATION_GATED_TOOLS.has( tool.name )
 				? validationLines( await blockValidationGate.settle() )
 				: [];
-			await postContent.snapshot().catch( () => undefined );
+			await siteChanges.snapshot().catch( () => undefined );
 			// A call that fails can still have changed content, as a shell
 			// command does that exits non-zero after saving a page.
 			const changedContent = async () => {
 				return validationLines(
-					await postContent.settle().catch( () => ( { summaries: [], problems: [] } ) )
+					await siteChanges.settle().catch( () => ( { summaries: [], problems: [] } ) )
 				);
 			};
 			// The validation report was taken from the gate, so it rides on a failure too.

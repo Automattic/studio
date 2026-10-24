@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react';
 import { OnboardingGuide } from './index';
-import type { GuideDefinition } from '@/data/onboarding/guide';
+import type { GuideDefinition } from './guide';
 import type { ReactNode } from 'react';
 
 type GuideEndReason = 'completed' | 'dismissed';

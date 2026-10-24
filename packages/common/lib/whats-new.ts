@@ -3,7 +3,7 @@
 // will only auto-show for first-time users of Studio.
 export const FORCE_SHOW_WHATS_NEW = true;
 
-// Whether the announcements should auto-show; see apps/ui/src/data/onboarding.
+// Whether the announcements should auto-show; see apps/ui/src/components/onboarding-guide.
 export function hasUnseenWhatsNew(
 	lastSeenVersion: string | undefined,
 	currentVersion: string | undefined

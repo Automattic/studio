@@ -9,6 +9,10 @@ import {
 import { useCallback, useEffect, useState } from 'react';
 import { requestAnnotationSend } from '@/components/annotations/store';
 import { CommandPalette } from '@/components/command-palette';
+import { useOrientationAutostart } from '@/components/onboarding-guide/use-orientation-autostart';
+import { useOrientationReplay } from '@/components/onboarding-guide/use-orientation-replay';
+import { useWhatsNewAutostart } from '@/components/onboarding-guide/use-whats-new-autostart';
+import { useWhatsNewReplay } from '@/components/onboarding-guide/use-whats-new-replay';
 import {
 	PreviewSplitFrame,
 	type PreviewSplitFramePreviewProps,
@@ -19,10 +23,6 @@ import { SiteActionsMenu } from '@/components/site-actions-menu';
 import { SiteHeaderActions, SiteHeaderActionsProvider } from '@/components/site-header-actions';
 import { SitePreview } from '@/components/site-preview';
 import { SiteWorkspace } from '@/components/site-workspace';
-import { useOrientationAutostart } from '@/data/onboarding/use-orientation-autostart';
-import { useOrientationReplay } from '@/data/onboarding/use-orientation-replay';
-import { useWhatsNewAutostart } from '@/data/onboarding/use-whats-new-autostart';
-import { useWhatsNewReplay } from '@/data/onboarding/use-whats-new-replay';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useSession, useSessionLiveSite } from '@/data/queries/use-sessions';
 import { useIsSiteStopping, useSiteOperation, useSites } from '@/data/queries/use-sites';

@@ -1,8 +1,8 @@
 import { clsx } from 'clsx';
 import { Fragment, useEffect, useState } from 'react';
 import styles from './style.module.css';
-import type { ComponentProps } from 'react';
-import type { ThemedToken } from 'shiki/core';
+import type { ComponentProps, CSSProperties } from 'react';
+import type { TokensResult } from 'shiki/core';
 
 /**
  * Code, highlighted once its language's grammar loads. `children` sit in the
@@ -17,7 +17,7 @@ export function CodeBlock( {
 }: ComponentProps< 'div' > & { code: string; language?: string } ) {
 	const [ highlighted, setHighlighted ] = useState< {
 		code: string;
-		lines: ThemedToken[][];
+		result: TokensResult;
 	} | null >( null );
 
 	useEffect( () => {
@@ -27,9 +27,9 @@ export function CodeBlock( {
 		let current = true;
 		void import( './highlight' )
 			.then( ( { highlight } ) => highlight( code, language ) )
-			.then( ( lines ) => {
-				if ( current && lines ) {
-					setHighlighted( { code, lines } );
+			.then( ( result ) => {
+				if ( current && result ) {
+					setHighlighted( { code, result } );
 				}
 			} )
 			// Highlighting is cosmetic; the plain code stays.
@@ -54,11 +54,11 @@ export function CodeBlock( {
 			<pre className={ styles.pre }>
 				<code>
 					{ shown
-						? shown.lines.map( ( line, index ) => (
+						? shown.result.tokens.map( ( line, index ) => (
 								<Fragment key={ index }>
 									{ index > 0 ? '\n' : null }
 									{ line.map( ( token, tokenIndex ) => (
-										<span key={ tokenIndex } style={ { color: token.color } }>
+										<span key={ tokenIndex } style={ token.htmlStyle as CSSProperties }>
 											{ token.content }
 										</span>
 									) ) }

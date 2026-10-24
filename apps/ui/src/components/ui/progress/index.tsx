@@ -21,17 +21,3 @@ export function Progress( {
 		</BaseProgress.Root>
 	);
 }
-
-export function ProgressLabel( {
-	className,
-	...props
-}: ComponentProps< typeof BaseProgress.Label > ) {
-	return <BaseProgress.Label className={ clsx( styles.label, className ) } { ...props } />;
-}
-
-export function ProgressValue( {
-	className,
-	...props
-}: ComponentProps< typeof BaseProgress.Value > ) {
-	return <BaseProgress.Value className={ clsx( styles.value, className ) } { ...props } />;
-}

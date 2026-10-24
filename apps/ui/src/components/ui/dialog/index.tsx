@@ -27,7 +27,6 @@ const DialogContentContext = createContext< { showCloseButton: boolean; layout: 
 export const Dialog = BaseDialog.Root;
 /** A dialog that only closes through its own actions: no outside click or backdrop dismissal. */
 export const AlertDialog = BaseAlertDialog.Root;
-export const DialogTrigger = BaseDialog.Trigger;
 export const DialogClose = BaseDialog.Close;
 
 export function DialogDismissButton( {
@@ -186,7 +185,7 @@ export function DialogPanel( {
 }
 
 /** A scroll container whose top edge fades once its content has scrolled. */
-export function DialogScrollArea( {
+function DialogScrollArea( {
 	className,
 	onScroll,
 	ref,

@@ -27,36 +27,6 @@
 		rotate: -90deg;
 	}
 
-	.radioItem {
-		padding-inline-start: 4px;
-	}
-
-	.indicator {
-		display: inline-flex;
-		flex-shrink: 0;
-		align-items: center;
-		justify-content: center;
-		width: 18px;
-		height: 18px;
-	}
-
-	.indicatorMark {
-		display: inline-flex;
-		opacity: 0;
-	}
-
-	.indicatorMark[data-checked] {
-		opacity: 1;
-	}
-
-	.itemLabel {
-		flex: 1;
-		min-width: 0;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-	}
-
 	.shortcut {
 		margin-inline-start: auto;
 		padding-inline-start: 12px;

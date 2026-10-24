@@ -6,7 +6,6 @@ import type { ComponentProps, CSSProperties, ReactNode } from 'react';
 
 export const Root = BasePopover.Root;
 export const Trigger = BasePopover.Trigger;
-export const Close = BasePopover.Close;
 export const Title = BasePopover.Title;
 
 type PositionerProps = ComponentProps< typeof BasePopover.Positioner >;

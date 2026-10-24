@@ -45,29 +45,35 @@ Routes are **code-based** (not file-based), following the wp-calypso hosting das
 
 The router context carries both the `QueryClient` and `Connector`, enabling route-level data prefetching in `beforeLoad` hooks.
 
-### Component structure
-
-Components use a folder-per-component pattern with CSS Modules:
+### Source layout
 
 ```
-components/
-  sidebar-layout/
-    index.tsx
-    style.module.css
-  site-list/
-    index.tsx
-    style.module.css
-  onboarding-layout/
-    index.tsx
-    style.module.css
+src/
+  lib/        internal packages: ui, theme, icons, hooks, keyboard, pending-slot
+  features/   product areas: chats, sidebar, sites, settings, sync, sharing,
+              credits, account, commands, notifications, annotations, onboarding
+  data/       connectors, queries, and data/host/ for hooks over host APIs
+  router/     routes
+  app/        providers
 ```
 
-Code sits at the lowest layer that needs it, and imports only from layers below:
+- `lib/` packages know nothing about Studio, so they can move to `packages/` later (for example to share `lib/ui` and `lib/theme` with `apps/mcp-ui`). Each has a README and one entry: import `@/lib/ui`, never `@/lib/ui/button`. They import nothing from `features/`, `data/`, `router/` or `app/`.
+- A feature owns its components, hooks and helpers, in a folder per component with a CSS Module:
 
-- `lib/`: plain helpers and constants, with no data access.
-- `data/`: the connectors and the TanStack Query hooks built on them. It doesn't import from `hooks/`, `components/` or `router/`, apart from leaf hooks like `useOffline`.
-- `hooks/`: hooks that several features share.
-- `components/` and `router/`: features and routes. A hook, helper or guide used by one feature lives in that feature's folder.
+  ```
+  features/sites/
+    index.ts            what other features, routes and providers may use
+    site-preview/
+      index.tsx
+      style.module.css
+    get-site-url.ts
+  ```
+
+  Inside a feature, import with the full path (`@/features/sites/site-preview`). From anywhere else, import the entry (`@/features/sites`). Only `router/`, `app/` and other features import features; `data/` and `lib/` don't.
+- `data/` holds the connectors and the TanStack Query hooks built on them. It imports only `lib/`.
+- Something used by one feature lives in that feature. Something product-aware used by several lives in the feature that owns the concept and is exported from its entry. Only app-agnostic pieces go in `lib/`.
+
+These boundaries are lint-enforced (`import-x/no-restricted-paths` in the root `eslint.config.mjs`).
 
 UI is built on Base UI with its own primitives and theme. Icons come from `lucide-react`, plus custom icons in `src/lib/icons/`, one file each, drawn the same way (24px grid, stroke 2).
 
@@ -86,7 +92,7 @@ The theme lives in `src/lib/theme/`:
 - **Actions and status**: `--primary`, `--secondary`, `--accent` (and `--accent-text`, `--accent-foreground`), `--destructive`, `--success`, `--warning`, plus `--status-*` for the vivid status dots.
 - **Type, shape and motion**: `--font-sans`, `--font-mono`, `--text-xxs`…`--text-xl`, `--font-weight-*`, `--radius-*`, `--shadow-*`, `--z-*` layers, `--focus-width`, `--band-height`, `--control-size`, `--motion-duration-*` and `--motion-ease-*`.
 
-Primitives live in `src/components/ui/` (Button, IconButton, Dialog, Menu, Popover, Select, Field, Input, InputGroup, Textarea, Switch, Checkbox, Tooltip, Alert, Badge, Progress, Empty, Kbd, VisuallyHidden). They follow the rebuild's kit, sit in the `ui` cascade layer so feature CSS overrides them without specificity tricks, and import nothing from app code.
+Primitives live in `src/lib/ui/` (Button, IconButton, Dialog, Menu, Popover, Select, Field, Input, InputGroup, Textarea, Switch, Checkbox, Tooltip, Alert, Badge, Progress, Empty, Kbd, VisuallyHidden). They follow the rebuild's kit, sit in the `ui` cascade layer so feature CSS overrides them without specificity tricks, and import nothing from app code.
 
 Colors derive in CSS from a few inputs on the root element (`--tint-hue`, `--tint-intensity`, `--tint-saturation`, `--contrast`, `--accent-fill`), so light, dark and the Appearance settings change them without any palette code. Dark values apply under `[data-color-scheme='dark']`, on the root or on any element that should render in the other scheme.
 

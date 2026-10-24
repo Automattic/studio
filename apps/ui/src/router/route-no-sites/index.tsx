@@ -1,10 +1,9 @@
 import { createRoute } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
-import { Button } from '@/components/ui/button';
-import { Empty, EmptyContent, EmptyDescription, EmptyHeader } from '@/components/ui/empty';
 import { useSites } from '@/data/queries/use-sites';
-import { useOpenAddSite } from '@/hooks/use-open-add-site';
-import { PlusIcon } from '@/lib/icons/plus-icon';
+import { useOpenAddSite } from '@/features/sites';
+import { PlusIcon } from '@/lib/icons';
+import { Empty, EmptyContent, EmptyDescription, EmptyHeader, Button } from '@/lib/ui';
 import { dashboardLayoutRoute } from '../layout-dashboard';
 
 // The workspace before the first site, or when the sites couldn't load.

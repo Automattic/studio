@@ -7,27 +7,26 @@ import {
 	useRouterState,
 } from '@tanstack/react-router';
 import { useCallback, useEffect, useState } from 'react';
-import { requestAnnotationSend } from '@/components/annotations/store';
-import { CommandPalette } from '@/components/command-palette';
-import { useOrientationAutostart } from '@/components/onboarding-guide/use-orientation-autostart';
-import { useOrientationReplay } from '@/components/onboarding-guide/use-orientation-replay';
-import { useWhatsNewAutostart } from '@/components/onboarding-guide/use-whats-new-autostart';
-import { useWhatsNewReplay } from '@/components/onboarding-guide/use-whats-new-replay';
-import {
-	PreviewSplitFrame,
-	type PreviewSplitFramePreviewProps,
-} from '@/components/preview-split-frame';
-import { SidebarLayout } from '@/components/sidebar-layout';
-import { HeaderSidebarToggle } from '@/components/sidebar-toggle';
-import { SiteActionsMenu } from '@/components/site-actions-menu';
-import { SiteHeaderActions, SiteHeaderActionsProvider } from '@/components/site-header-actions';
-import { SitePreview } from '@/components/site-preview';
-import { SiteWorkspace } from '@/components/site-workspace';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useSession, useSessionLiveSite } from '@/data/queries/use-sessions';
 import { useIsSiteStopping, useSiteOperation, useSites } from '@/data/queries/use-sites';
-import { pathForSite, useSessionPreviewUI } from '@/hooks/use-session-ui';
-import { rememberVisit } from '@/lib/last-visited';
+import { requestAnnotationSend } from '@/features/annotations';
+import { SiteWorkspace, pathForSite, useSessionPreviewUI } from '@/features/chats';
+import { CommandPalette } from '@/features/commands';
+import {
+	useOrientationAutostart,
+	useOrientationReplay,
+	useWhatsNewAutostart,
+	useWhatsNewReplay,
+} from '@/features/onboarding';
+import { SidebarLayout, HeaderSidebarToggle, rememberVisit } from '@/features/sidebar';
+import { PreviewSplitFrame, type PreviewSplitFramePreviewProps } from '@/features/sites';
+import {
+	SiteActionsMenu,
+	SiteHeaderActions,
+	SiteHeaderActionsProvider,
+	SitePreview,
+} from '@/features/sites';
 import { rootRoute } from '../layout-root';
 
 // Session detail routes and a site's own page host the preview;

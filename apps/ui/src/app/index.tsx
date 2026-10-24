@@ -1,7 +1,7 @@
 import { RouterProvider } from '@tanstack/react-router';
 import { useMemo } from 'react';
 import { queryClient } from '@/data/core';
-import { useTextContextMenu } from '@/hooks/use-text-context-menu';
+import { useTextContextMenu } from '@/features/chats';
 import { createAppRouter } from '@/router/router';
 import { AppProviders } from './app-providers';
 import type { Connector } from '@/data/core';

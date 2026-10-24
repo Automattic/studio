@@ -41,7 +41,7 @@ Prefer targeted runs: `npm run eval -- --filter-pattern "<case>"`. The full suit
 
 **`/apps/studio/src`**: Main (index.ts, ipc-handlers.ts, storage/, lib/), preload.ts | modules/<feature>/lib/ (sync, cli, user-settings, import-export, …)
 **`/apps/cli`**: index.ts, commands/ (auth, preview, site), lib/ (appdata, i18n, browser)
-**`/apps/ui`**: Agentic UI (`@studio/ui`), the renderer of both the Desktop app and the `studio ui` browser app. app/ (providers, router), components/, data/, hooks/, lib/. `build:local` builds it for `studio ui`; the Desktop build comes from `scripts/build-ui-renderer.ts`.
+**`/apps/ui`**: Agentic UI (`@studio/ui`), the renderer of both the Desktop app and the `studio ui` browser app. lib/ (internal packages: ui, theme, icons, hooks, keyboard, pending-slot), features/ (product areas), data/ (connectors, queries), router/, app/ (providers); boundaries in its README, lint-enforced. `build:local` builds it for `studio ui`; the Desktop build comes from `scripts/build-ui-renderer.ts`.
 **`/apps/local`**: HTTP/SSE backend for `apps/ui` in the browser, bundled into the CLI.
 **`/apps/mcp-ui`**: MCP Apps pages that agent apps show for `studio mcp` (`@studio/mcp-ui`), currently the WordPress library. React + TanStack Query and plain CSS, built into one HTML document that `studio mcp` serves; the data layer talks to the host through one bridge, with no connectors. Not a target of `apps/ui`: see `docs/design-docs/studio-apps-and-surfaces.md`.
 **`/packages/common`**: Electron-free code shared by the Desktop app, `studio ui` and the CLI: ai/ (sessions, run-manager), sites/ (site operations over the CLI), lib/, types/, translations/
@@ -54,7 +54,7 @@ Prefer targeted runs: `npm run eval -- --filter-pattern "<case>"`. The full suit
 
 ## Tech Stack
 
-**Frontend** (`apps/ui`): React 19, TanStack Query + Router, Base UI with the app's own primitives (`src/components/ui/`) and theme (`src/lib/theme/`: tokens, base styles and the appearance logic), `lucide-react` plus custom icons in `src/lib/icons/`, TypeScript, Vite
+**Frontend** (`apps/ui`): React 19, TanStack Query + Router, Base UI with the app's own primitives (`src/lib/ui/`) and theme (`src/lib/theme/`: tokens, base styles and the appearance logic), `lucide-react` plus custom icons in `src/lib/icons/`, TypeScript, Vite
 **Main**: Electron
 **CLI**: native PHP binaries, WP-CLI, @wp-playground/blueprints (Blueprint types and schema validation)
 **Dev**: electron-vite, electron-forge, Vitest, Playwright
@@ -71,7 +71,7 @@ Prefer targeted runs: `npm run eval -- --filter-pattern "<case>"`. The full suit
 **Files**: React components (PascalCase), utils (camelCase), tests (.test.ts/.tsx)
 **Theming / colors (CSS)**: Always use the theme tokens in `apps/ui/src/lib/theme/tokens.css` (`--foreground`, `--muted-foreground`, `--border`, `--muted`, `--accent`, …) for color; they follow the color scheme and the Appearance settings. Type, radius, motion and shell metrics have tokens there too (`--text-*`, `--font-weight-*`, `--radius-*`, `--motion-*`, `--control-size`). See the `apps/ui` README.
 
-**UI primitives** (`apps/ui/src/components/ui/`): Button, IconButton, Dialog, Menu, Select, Field, Tooltip… built on Base UI, styled after the rebuild's kit. Feature code uses these rather than Base UI directly wherever a primitive exists; `@wordpress/ui`, `@wordpress/components`, `@wordpress/dataviews` and `@wordpress/theme` are not used (lint-enforced). Primitives sit in the `ui` cascade layer, so a feature's CSS module overrides them without specificity tricks; change a button's resting fill with `--button-background`, not `background-color`. Primitives import nothing from app code (`data/`, `hooks/`, the router; lint-enforced).
+**UI primitives** (`apps/ui/src/lib/ui/`, imported from `@/lib/ui`): Button, IconButton, Dialog, Menu, Select, Field, Tooltip… built on Base UI, styled after the rebuild's kit. Feature code uses these rather than Base UI directly wherever a primitive exists; `@wordpress/ui`, `@wordpress/components`, `@wordpress/dataviews` and `@wordpress/theme` are not used (lint-enforced). Primitives sit in the `ui` cascade layer, so a feature's CSS module overrides them without specificity tricks; change a button's resting fill with `--button-background`, not `background-color`. Primitives import nothing from app code (`data/`, `features/`, the router; lint-enforced).
 **IPC Handlers** (`apps/studio/src/ipc-handlers.ts`): every export is registered as a handler under its name, as `handlerName(event, ...args)` | Fire-and-forget handlers (called with `ipcRenderer.send`) are listed in `IPC_VOID_HANDLERS` in `apps/studio/src/constants.ts`
 **Storage**: **CRITICAL** - Always use file locking when writing config. Each config file has its own lockfile and helpers: `lockAppdata()` / `unlockAppdata()` for `app.json` (`apps/studio/src/storage/user-data.ts`), `lockCliConfig()` / `unlockCliConfig()` for `cli.json` (`apps/cli/lib/cli-config/core.ts`), and `lockSharedConfig()` / `unlockSharedConfig()` for `shared.json` (`packages/common/lib/shared-config.ts`).
 **i18n**: `@wordpress/i18n` (`__()` function), `packages/common/translations/`, `<I18nProvider>` (renderer), `loadTranslations()` (CLI)

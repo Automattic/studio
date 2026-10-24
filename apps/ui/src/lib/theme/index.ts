@@ -81,3 +81,5 @@ export function previewAccentColor( tint: Partial< ColorTint > ): string {
 		preview.remove();
 	}
 }
+
+export { getMotionDuration } from './motion';

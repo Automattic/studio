@@ -1,8 +1,8 @@
 import { createRoute, Outlet, useLocation, useNavigate } from '@tanstack/react-router';
 import { useEffect, useRef } from 'react';
-import { DotGrid } from '@/components/dot-grid';
-import { OnboardingLayout } from '@/components/onboarding-layout';
 import { useSites } from '@/data/queries/use-sites';
+import { OnboardingLayout } from '@/features/onboarding';
+import { DotGrid } from '@/lib/ui';
 import { rootRoute } from '../layout-root';
 import styles from './style.module.css';
 import type { ReactNode } from 'react';

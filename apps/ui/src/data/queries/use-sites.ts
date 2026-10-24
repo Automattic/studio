@@ -9,7 +9,7 @@ import { openStudioLogsAction, toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
 import { WP_VERSION_QUERY_KEY } from '@/data/queries/use-wordpress-versions';
-import { useOpenSite } from '@/hooks/use-open-site';
+import { useOpenSite } from '@/data/use-open-site';
 import type { Connector, CreateSiteParams, SiteDetails } from '@/data/core';
 import type { SiteOperationKind } from '@studio/common/lib/site-operation';
 import type { QueryClient } from '@tanstack/react-query';

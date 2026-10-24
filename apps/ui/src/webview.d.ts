@@ -1,7 +1,7 @@
 // Electron's `<webview>` tag, used by the site-preview surface. Only the
 // attributes we actually set are typed; the runtime API (`loadURL`,
 // `executeJavaScript`, `console-message`) is accessed through a local
-// interface in apps/ui/src/components/site-preview/index.tsx.
+// interface in apps/ui/src/features/sites/site-preview/index.tsx.
 import 'react';
 
 declare module 'react' {

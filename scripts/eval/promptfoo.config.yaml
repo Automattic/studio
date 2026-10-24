@@ -646,6 +646,289 @@ tests:
             return { pass: false, score: 0, reason: `change never reached the rendered styles and the agent did not ask; ${state}; final reply: ${finalText.slice(0, 300)}` };
           });
 
+  # The failures users report most (from user interviews and support reports).
+  # Each case asks for something WordPress already does natively, the way a
+  # user would ask, and passes only when the site the turn leaves behind uses
+  # that native feature instead of custom code, CSS or raw HTML.
+  # Each also has a tool call and token budget with headroom over five passing
+  # runs, so a run that reaches the right result by looping fails. Mini-Cart's
+  # normal runs took 23-36 tool calls; two that looped for 73-76 calls on a
+  # block hidden by WooCommerce's Coming soon mode go over its budget.
+
+  # A cart count is WooCommerce's Mini-Cart block, not hand-written fragments
+  # code. Passes when the rendered header (theme part or saved copy) has the
+  # block and the turn added no PHP or JS that reads the cart count.
+  - description: cart icon in the header is WooCommerce's Mini-Cart block
+    vars:
+      caseId: woo-mini-cart
+      timeoutMs: 600000
+      maxToolCalls: 40
+      maxTokens: 1200000
+      seed:
+        activeSite:
+          name: Eval Mini Cart
+          wpCli:
+            - [theme, activate, twentytwentyfive]
+            - [plugin, install, woocommerce, --activate]
+            - - eval
+              - |
+                if ( ! class_exists( 'WC_Product_Simple' ) ) { echo 'SEED_ERROR: WooCommerce is not loaded'; return; }
+                foreach ( array( 'Ceramic Mug' => '18', 'Canvas Tote' => '24', 'Linen Apron' => '32' ) as $name => $price ) {
+                	$product = new WC_Product_Simple();
+                	$product->set_name( $name );
+                	$product->set_regular_price( $price );
+                	$product->set_status( 'publish' );
+                	if ( ! $product->save() ) { echo 'SEED_ERROR: could not create ' . $name; return; }
+                }
+      prompt: |
+        Add a cart icon to the header that shows how many items are in the cart.
+    assert:
+      - type: javascript
+        value: file://outcome.mjs:siteWorks
+      - type: javascript
+        value: file://outcome.mjs:miniCartInHeader
+      - type: javascript
+        value: file://outcome.mjs:otherSitesUntouched
+      - type: javascript
+        value: file://outcome.mjs:withinBudget
+
+  # Questions that open on click are Details blocks (or Accordion), not a
+  # Custom HTML block with a script.
+  - description: FAQ that opens on click is built from Details blocks
+    vars:
+      caseId: faq-details-block
+      timeoutMs: 600000
+      maxToolCalls: 30
+      maxTokens: 450000
+      seed:
+        activeSite:
+          name: Eval FAQ
+          wpCli:
+            - [theme, activate, twentytwentyfive]
+      prompt: |
+        Add an FAQ section to the home page with three questions that open when you click them.
+    assert:
+      - type: javascript
+        value: file://outcome.mjs:siteWorks
+      - type: javascript
+        value: file://outcome.mjs:faqUsesDetailsBlocks
+      - type: javascript
+        value: file://outcome.mjs:otherSitesUntouched
+      - type: javascript
+        value: file://outcome.mjs:withinBudget
+
+  # A look the user can switch to in the Site Editor is a theme style
+  # variation (styles/*.json), not dark-mode CSS. The seeded theme is the
+  # site's own, so editing it is legitimate, and carries no dark CSS.
+  - description: a dark look to switch to is a theme style variation
+    vars:
+      caseId: style-variation-for-dark-look
+      timeoutMs: 600000
+      maxToolCalls: 35
+      maxTokens: 550000
+      seed:
+        activeSite:
+          name: Eval Dark Variation
+          files: &eval_lumen_theme_files
+            wp-content/themes/lumen/style.css: |
+              /*
+              Theme Name: Lumen
+              Description: A custom block theme scaffolded by Studio Code.
+              Requires at least: 6.7
+              Tested up to: 6.9
+              Requires PHP: 7.2
+              Version: 0.1.0
+              License: GNU General Public License v2 or later
+              License URI: http://www.gnu.org/licenses/gpl-2.0.html
+              Text Domain: lumen
+              */
+            wp-content/themes/lumen/functions.php: |
+              <?php
+              /**
+               * Lumen theme functions.
+               *
+               * @package lumen
+               */
+
+              add_action( 'wp_enqueue_scripts', function () {
+              	wp_enqueue_style(
+              		'lumen-style',
+              		get_parent_theme_file_uri( 'style.css' ),
+              		array(),
+              		wp_get_theme()->get( 'Version' )
+              	);
+              } );
+            wp-content/themes/lumen/theme.json: |
+              {
+              	"$schema": "https://schemas.wp.org/wp/6.7/theme.json",
+              	"version": 3,
+              	"settings": {
+              		"appearanceTools": true,
+              		"layout": { "contentSize": "720px", "wideSize": "1200px" },
+              		"color": {
+              			"palette": [
+              				{ "slug": "base", "name": "Base", "color": "#ffffff" },
+              				{ "slug": "contrast", "name": "Contrast", "color": "#111111" },
+              				{ "slug": "accent", "name": "Accent", "color": "#2563eb" }
+              			]
+              		},
+              		"typography": {
+              			"fontFamilies": [
+              				{ "slug": "system-sans", "name": "System Sans", "fontFamily": "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }
+              			]
+              		}
+              	},
+              	"styles": {
+              		"color": { "background": "var:preset|color|base", "text": "var:preset|color|contrast" },
+              		"typography": { "fontFamily": "var:preset|font-family|system-sans" },
+              		"elements": {
+              			"link": { "color": { "text": "var:preset|color|accent" } }
+              		}
+              	}
+              }
+            wp-content/themes/lumen/templates/index.html: |
+              <!-- wp:template-part {"slug":"header","tagName":"header"} /-->
+
+              <!-- wp:group {"tagName":"main","layout":{"type":"constrained"}} -->
+              <main class="wp-block-group">
+              	<!-- wp:heading -->
+              	<h2 class="wp-block-heading">Welcome to the studio</h2>
+              	<!-- /wp:heading -->
+
+              	<!-- wp:paragraph -->
+              	<p>We design calm, useful things.</p>
+              	<!-- /wp:paragraph -->
+              </main>
+              <!-- /wp:group -->
+
+              <!-- wp:template-part {"slug":"footer","tagName":"footer"} /-->
+            wp-content/themes/lumen/parts/header.html: |
+              <!-- wp:group {"layout":{"type":"flex","justifyContent":"space-between"}} -->
+              <div class="wp-block-group">
+              	<!-- wp:site-title {"level":0} /-->
+              	<!-- wp:navigation /-->
+              </div>
+              <!-- /wp:group -->
+            wp-content/themes/lumen/parts/footer.html: |
+              <!-- wp:group {"layout":{"type":"constrained"}} -->
+              <div class="wp-block-group">
+              	<!-- wp:site-title {"isLink":false,"level":0} /-->
+              </div>
+              <!-- /wp:group -->
+          wpCli:
+            - [theme, activate, lumen]
+      prompt: |
+        Give the site a dark version of its look that I can switch to in the Site Editor.
+    assert:
+      - type: javascript
+        value: file://outcome.mjs:siteWorks
+      - type: javascript
+        value: file://outcome.mjs:darkStyleVariation
+      - type: javascript
+        value: file://outcome.mjs:otherSitesUntouched
+      - type: javascript
+        value: file://outcome.mjs:withinBudget
+
+  # A single page is built from native blocks, not a Custom HTML block or a
+  # hand-written template of raw markup.
+  - description: an About page is built from native blocks
+    vars:
+      caseId: page-in-native-blocks
+      pageTitle: about
+      timeoutMs: 600000
+      maxToolCalls: 30
+      maxTokens: 450000
+      seed:
+        activeSite:
+          name: Eval About Page
+          wpCli:
+            - [theme, activate, twentytwentyfive]
+      prompt: |
+        Add an About page with a heading, two short paragraphs about the business, and a team photo placeholder.
+    assert:
+      - type: javascript
+        value: file://outcome.mjs:siteWorks
+      - type: javascript
+        value: file://outcome.mjs:pageInNativeBlocks
+      - type: javascript
+        value: file://outcome.mjs:otherSitesUntouched
+      - type: javascript
+        value: file://outcome.mjs:withinBudget
+
+  # Debugging, the way users ask for it: a plugin update left the site with
+  # a fatal error on every page. The update reads its saved hours as a
+  # list, but they were saved as text. Passes when the site renders with the
+  # plugin still active and still showing the hours.
+  - description: a site broken by a plugin update works again with the plugin's feature
+    vars:
+      caseId: debug-plugin-fatal
+      timeoutMs: 600000
+      plugins: [{ name: opening-hours }]
+      homeText: [{ text: Open Mon-Fri 7am-6pm }]
+      seed:
+        activeSite:
+          name: Eval Broken Plugin
+          files:
+            wp-content/plugins/opening-hours/opening-hours.php: |
+              <?php
+              /**
+               * Plugin Name: Opening Hours
+               * Description: Shows the shop's opening hours in the site footer.
+               * Version: 1.2.0
+               */
+
+              add_action( 'wp_footer', function () {
+              	$hours = get_option( 'opening_hours' );
+              	echo '<p class="opening-hours">Open ' . esc_html( implode( ', ', $hours ) ) . '</p>';
+              } );
+          wpCli:
+            - [plugin, activate, opening-hours]
+            - [option, update, opening_hours, "Mon-Fri 7am-6pm, Sat 8am-2pm"]
+      prompt: My site broke after I updated a plugin, it just shows an error now. Can you fix it?
+    assert:
+      - type: javascript
+        value: file://outcome.mjs:siteWorks
+      - type: javascript
+        value: file://outcome.mjs:featureStillWorks
+      - type: javascript
+        value: file://outcome.mjs:otherSitesUntouched
+
+  # Debugging after a move: the content still points its images at the old
+  # domain, though the uploads came along. Passes when every image on the home
+  # page loads from the site itself.
+  - description: images broken by a move to Studio load from the site again
+    vars:
+      caseId: debug-migrated-images
+      timeoutMs: 600000
+      minImages: 3
+      seed:
+        activeSite:
+          name: Eval Moved Site
+          wpCli:
+            - - eval
+              - |
+                $jpg = base64_decode( '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' );
+                $dir = wp_upload_dir( '2024/05' );
+                $blocks = '';
+                foreach ( array( 'sourdough' => 'Sourdough loaves', 'croissants' => 'Butter croissants', 'storefront' => 'Our shop on Main Street' ) as $name => $alt ) {
+                	file_put_contents( $dir['path'] . "/$name.jpg", $jpg );
+                	$old = "https://flourandember.com/wp-content/uploads/2024/05/$name.jpg";
+                	$id = wp_insert_attachment( array( 'guid' => $old, 'post_mime_type' => 'image/jpeg', 'post_title' => $alt, 'post_status' => 'inherit' ), "2024/05/$name.jpg" );
+                	$blocks .= "<!-- wp:image {\"id\":$id,\"sizeSlug\":\"full\"} -->\n<figure class=\"wp-block-image size-full\"><img src=\"$old\" alt=\"$alt\" class=\"wp-image-$id\"/></figure>\n<!-- /wp:image -->\n\n";
+                }
+                $page = wp_insert_post( array( 'post_type' => 'page', 'post_status' => 'publish', 'post_title' => 'Home', 'post_content' => "<!-- wp:paragraph -->\n<p>Fresh bread every morning.</p>\n<!-- /wp:paragraph -->\n\n" . $blocks ), true );
+                if ( is_wp_error( $page ) ) { echo 'SEED_ERROR: ' . $page->get_error_message(); return; }
+                update_option( 'show_on_front', 'page' );
+                update_option( 'page_on_front', $page );
+      prompt: I moved my site to Studio and now all the images are broken. Can you fix them?
+    assert:
+      - type: javascript
+        value: file://outcome.mjs:siteWorks
+      - type: javascript
+        value: file://outcome.mjs:homeImagesLoad
+      - type: javascript
+        value: file://outcome.mjs:otherSitesUntouched
+
   # Routing: which skills (runbooks) the agent loads before it starts the work.
   # Each run stops at its first call that does the work (`stopAt`), so a case
   # costs only the turns up to that point, and `skillsLoadedFirst` checks the

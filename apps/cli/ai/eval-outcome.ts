@@ -5,8 +5,10 @@
  * For each site the turn created, and the seeded active site, the capture
  * records the WordPress state (theme, plugins, published content as parsed
  * blocks, registered block styles, global styles), the rendered home page,
- * block validity in the site's own editor, the active theme's files, and
- * whether an installed parent theme still matches its WordPress.org release.
+ * block validity in the site's own editor, the active theme's files, the
+ * code (themes, plugins, mu-plugins) the turn added or changed on the active
+ * site, and whether an installed parent theme still matches its WordPress.org
+ * release.
  * Sites that existed before the turn are compared by their database and
  * wp-content modification times, so a change to an unrelated site shows up.
  */
@@ -39,6 +41,9 @@ export interface SiteFingerprint {
 	path: string;
 	name: string;
 	mtimeMs: number;
+	// Content hashes of the site's code (themes, plugins, mu-plugins), keyed by
+	// path relative to wp-content, so the files a turn adds or changes show up.
+	code: Record< string, string >;
 }
 
 // The newest modification time under a site's database and wp-content, which
@@ -71,7 +76,12 @@ export async function fingerprintSites(): Promise< SiteFingerprint[] > {
 	const { sites } = await readCliConfig();
 	return sites
 		.filter( ( site ) => existsSync( site.path ) )
-		.map( ( site ) => ( { path: site.path, name: site.name, mtimeMs: newestMtime( site.path ) } ) );
+		.map( ( site ) => ( {
+			path: site.path,
+			name: site.name,
+			mtimeMs: newestMtime( site.path ),
+			code: hashCode( site.path ),
+		} ) );
 }
 
 const PROBE_PHP = String.raw`
@@ -144,6 +154,54 @@ function hashFiles( dir: string ): Record< string, string > {
 	return hashes;
 }
 
+const CODE_DIRS = [ 'themes', 'plugins', 'mu-plugins' ];
+const CODE_TEXT_FILE = /\.(css|json|html|php|js|mjs|ts|tsx|jsx|md|txt)$/;
+
+function hashCode( sitePath: string ): Record< string, string > {
+	const hashes: Record< string, string > = {};
+	for ( const dir of CODE_DIRS ) {
+		for ( const [ file, hash ] of Object.entries(
+			hashFiles( path.join( sitePath, 'wp-content', dir ) )
+		) ) {
+			hashes[ `${ dir }/${ file }` ] = hash;
+		}
+	}
+	return hashes;
+}
+
+export interface CodeChange {
+	file: string;
+	status: 'added' | 'changed' | 'removed';
+	text?: string;
+}
+
+// The code files (relative to wp-content) a turn added, changed or removed,
+// with the text of the added and changed ones.
+function diffCode(
+	sitePath: string,
+	before: Record< string, string >,
+	after: Record< string, string >
+): CodeChange[] {
+	const changes: CodeChange[] = [];
+	for ( const file of [
+		...new Set( [ ...Object.keys( before ), ...Object.keys( after ) ] ),
+	].sort() ) {
+		if ( before[ file ] === after[ file ] ) continue;
+		const status = ! after[ file ] ? 'removed' : ! before[ file ] ? 'added' : 'changed';
+		const change: CodeChange = { file, status };
+		if ( status !== 'removed' && CODE_TEXT_FILE.test( file ) ) {
+			try {
+				const text = readFileSync( path.join( sitePath, 'wp-content', file ), 'utf8' );
+				if ( text.length < 200_000 ) change.text = text;
+			} catch {
+				// Removed after the hashes were taken.
+			}
+		}
+		changes.push( change );
+	}
+	return changes;
+}
+
 function readThemeText( dir: string ): Record< string, string > {
 	const files: Record< string, string > = {};
 	for ( const relative of Object.keys( hashFiles( dir ) ) ) {
@@ -197,6 +255,21 @@ async function renderHome( url: string ) {
 	try {
 		const response = await fetch( url, { redirect: 'follow' } );
 		const html = await response.text();
+		// Each image's address, and the status the site answers it with (null
+		// for images from another origin, which are not requested).
+		const images = await Promise.all(
+			[ ...html.matchAll( /<img\b[^>]*\bsrc="([^"]+)"/g ) ].map( async ( m ) => {
+				const src = new URL( m[ 1 ].replace( /&amp;/g, '&' ), url );
+				const sameOrigin = src.origin === new URL( url ).origin;
+				const status = sameOrigin
+					? await fetch( src, { method: 'HEAD' } ).then(
+							( r ) => r.status,
+							() => 0
+					  )
+					: null;
+				return { src: src.href, status };
+			} )
+		);
 		const nav = [ ...html.matchAll( /<nav\b[\s\S]*?<\/nav>/g ) ]
 			.map( ( m ) => m[ 0 ] )
 			.join( '\n' );
@@ -206,6 +279,7 @@ async function renderHome( url: string ) {
 			phpErrors: [
 				...html.matchAll( /<b>(Fatal error|Parse error|Warning|Notice|Deprecated)<\/b>:[^<]*/g ),
 			].map( ( m ) => m[ 0 ].replace( /<\/?b>/g, '' ) ),
+			images,
 			navHrefs: [ ...nav.matchAll( /<a\b[^>]*\bhref="([^"]*)"/g ) ].map( ( m ) => m[ 1 ] ),
 			ids: [ ...html.matchAll( /\bid="([^"]+)"/g ) ].map( ( m ) => m[ 1 ] ),
 		};
@@ -226,10 +300,13 @@ export interface SiteOutcome {
 export async function captureSiteOutcome(
 	sitePath: string,
 	created: boolean,
-	artifactDir: string
+	artifactDir: string,
+	code?: { before: Record< string, string >; after: Record< string, string > }
 ): Promise< SiteOutcome > {
 	const site = await getSiteByFolder( sitePath );
 	const outcome: SiteOutcome = { name: site.name, path: sitePath, created };
+	// Code files the turn added, changed or removed (null for sites it created).
+	outcome.codeChanges = code ? diffCode( sitePath, code.before, code.after ) : null;
 	try {
 		await connectToDaemon();
 		await runStartSiteCommand( sitePath, true, true, new Logger() );
@@ -338,8 +415,16 @@ export async function captureTurnOutcome(
 	const others = before.filter( ( site ) => site.path !== requestSitePath );
 
 	const sites: SiteOutcome[] = [];
-	if ( requestSitePath && after.has( requestSitePath ) ) {
-		sites.push( await captureSiteOutcome( requestSitePath, false, artifactDir ) );
+	const requestAfter = requestSitePath ? after.get( requestSitePath ) : undefined;
+	if ( requestSitePath && requestAfter ) {
+		sites.push(
+			await captureSiteOutcome(
+				requestSitePath,
+				false,
+				artifactDir,
+				requestBefore ? { before: requestBefore.code, after: requestAfter.code } : undefined
+			)
+		);
 	}
 	for ( const site of created ) {
 		sites.push( await captureSiteOutcome( site.path, true, artifactDir ) );

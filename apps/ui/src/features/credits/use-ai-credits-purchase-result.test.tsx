@@ -25,7 +25,8 @@ const refetchQueries = vi.fn( async () => {
 	}
 } );
 
-vi.mock( '@tanstack/react-query', () => ( {
+vi.mock( '@tanstack/react-query', async ( importOriginal ) => ( {
+	...( await importOriginal() ),
 	useQueryClient: () => ( {
 		getQueryData: () => ( { purchasedRemaining } ),
 		refetchQueries,

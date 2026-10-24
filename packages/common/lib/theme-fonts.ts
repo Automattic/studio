@@ -138,8 +138,8 @@ interface FontFamilyPreset {
 export interface SelfHostedFonts {
 	/** Families whose font files were downloaded and declared. */
 	hosted: string[];
-	/** Families Google Fonts had no files for, with why. */
-	failed: { family: string; error: string }[];
+	/** Families whose first font Google Fonts had no files for, with why. */
+	failed: { family: string; font: string; error: string }[];
 }
 
 // Every weight a theme.json's styles set, and 400. Styles inherit their font
@@ -171,16 +171,16 @@ export async function selfHostThemeJsonFonts( themeDir: string ): Promise< SelfH
 	const families: FontFamilyPreset[] = themeJson?.settings?.typography?.fontFamilies ?? [];
 	const result: SelfHostedFonts = { hosted: [], failed: [] };
 	for ( const family of families ) {
-		const name =
-			family.name ??
-			family.fontFamily
-				?.split( ',' )[ 0 ]
-				.trim()
-				.replace( /^['"]|['"]$/g, '' );
-		if ( family.fontFace?.length || ! name ) {
+		// The font the browser asks for first; the preset's name is only its label.
+		const font = family.fontFamily
+			?.split( ',' )[ 0 ]
+			.trim()
+			.replace( /^['"]|['"]$/g, '' );
+		const name = family.name ?? font;
+		if ( family.fontFace?.length || ! font || ! name ) {
 			continue;
 		}
-		const url = `https://fonts.googleapis.com/css2?family=${ name.replace(
+		const url = `https://fonts.googleapis.com/css2?family=${ font.replace(
 			/ /g,
 			'+'
 		) }:wght@${ weightsOf( themeJson.styles ).join( ';' ) }&display=swap`;
@@ -190,6 +190,7 @@ export async function selfHostThemeJsonFonts( themeDir: string ): Promise< SelfH
 		} catch ( error ) {
 			result.failed.push( {
 				family: name,
+				font,
 				error: error instanceof Error ? error.message : String( error ),
 			} );
 		}

@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs';
 import os from 'os';
 import path from 'path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -7,6 +7,7 @@ import {
 	clearThemePatternCache,
 	lintThemeCss,
 	resolveSiteFile,
+	selfHostFonts,
 } from 'cli/ai/site-file-guards';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 
@@ -117,5 +118,74 @@ describe( 'block markup notes', () => {
 		const file = resolveSiteFile( path.join( root, relativePath ) )!;
 		expect( blockMarkupNotes( file ) ).toHaveLength( count );
 		rmSync( root, { recursive: true, force: true } );
+	} );
+} );
+
+describe( 'self-hosted theme fonts', () => {
+	afterEach( () => vi.unstubAllGlobals() );
+
+	it( "downloads each family's first font from Google Fonts, and names the fonts it does not serve", async () => {
+		const requested: string[] = [];
+		vi.stubGlobal( 'fetch', async ( url: string ) => {
+			requested.push( url );
+			if ( url.includes( 'family=Manrope:' ) ) {
+				return new Response(
+					[ 400, 700 ]
+						.map(
+							( weight ) =>
+								`/* latin */ @font-face { font-family: 'Manrope'; font-style: normal; font-weight: ${ weight }; src: url(https://fonts.gstatic.com/manrope.woff2) format('woff2'); }`
+						)
+						.join( '\n' )
+				);
+			}
+			if ( url === 'https://fonts.gstatic.com/manrope.woff2' ) {
+				return new Response( 'woff2' );
+			}
+			return new Response( '', { status: 400 } );
+		} );
+		const themeJson = write(
+			'wp-content/themes/mine/theme.json',
+			JSON.stringify( {
+				settings: {
+					typography: {
+						fontFamilies: [
+							{ name: 'Body', slug: 'body', fontFamily: 'Manrope, sans-serif' },
+							{ name: 'System Sans', slug: 'system', fontFamily: '-apple-system, sans-serif' },
+							{ name: 'Held', slug: 'held', fontFamily: 'Held', fontFace: [ {} ] },
+						],
+					},
+				},
+				styles: { elements: { h1: { typography: { fontWeight: '700' } } } },
+			} )
+		);
+
+		expect( await selfHostFonts( resolveSiteFile( themeJson )! ) ).toEqual( [
+			'Studio downloaded the font files of Body from Google Fonts into wp-content/themes/mine/assets/fonts and declared them as their fontFace in theme.json.',
+			"System Sans in wp-content/themes/mine/theme.json asks first for -apple-system, which Google Fonts does not serve (https://fonts.googleapis.com/css2?family=-apple-system:wght@400;700&display=swap responded with HTTP 400), so the font each visitor sees is whichever their device has. Twenty Twenty-Five ships each family's files in the theme and declares them as its fontFace: put -apple-system's files in wp-content/themes/mine/assets/fonts and declare them, or choose a Google Fonts family, which Studio downloads.",
+		] );
+		expect( requested ).toEqual( [
+			'https://fonts.googleapis.com/css2?family=Manrope:wght@400;700&display=swap',
+			'https://fonts.gstatic.com/manrope.woff2',
+			'https://fonts.googleapis.com/css2?family=-apple-system:wght@400;700&display=swap',
+		] );
+		const families = JSON.parse( readFileSync( themeJson, 'utf8' ) ).settings.typography
+			.fontFamilies;
+		expect( families[ 0 ].fontFace ).toEqual( [
+			{
+				fontFamily: 'Manrope',
+				fontStyle: 'normal',
+				fontWeight: '400 700',
+				src: [ 'file:./assets/fonts/manrope/manrope-400-700-latin.woff2' ],
+			},
+		] );
+		expect(
+			readFileSync(
+				path.join(
+					site,
+					'wp-content/themes/mine/assets/fonts/manrope/manrope-400-700-latin.woff2'
+				),
+				'utf8'
+			)
+		).toBe( 'woff2' );
 	} );
 } );

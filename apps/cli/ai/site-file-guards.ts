@@ -268,8 +268,8 @@ export async function selfHostFonts( siteFile: SiteFile ): Promise< string[] > {
 			  ]
 			: [] ),
 		...failed.map(
-			( { family, error } ) =>
-				`${ family } has no font files in ${ themePath }/theme.json, and Google Fonts did not provide them (${ error }). Put its files in ${ themePath }/assets/fonts and declare them as its fontFace, or choose a Google Fonts family.`
+			( { family, font, error } ) =>
+				`${ family } in ${ themePath }/theme.json asks first for ${ font }, which Google Fonts does not serve (${ error }), so the font each visitor sees is whichever their device has. Twenty Twenty-Five ships each family's files in the theme and declares them as its fontFace: put ${ font }'s files in ${ themePath }/assets/fonts and declare them, or choose a Google Fonts family, which Studio downloads.`
 		),
 	];
 }

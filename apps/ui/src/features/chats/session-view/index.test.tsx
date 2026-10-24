@@ -719,6 +719,26 @@ describe( 'SessionView', () => {
 			await waitFor( () => expect( jumpButton() ).toHaveAttribute( 'data-visible' ) );
 		} );
 
+		it( 'holds the last prompt in place while images above it load', () => {
+			useSessionMock.mockReturnValue( withPromptsAt( 100, 900, 1500 ) );
+			vi.spyOn( HTMLElement.prototype, 'scrollHeight', 'get' ).mockReturnValue( 3000 );
+			vi.spyOn( HTMLElement.prototype, 'clientHeight', 'get' ).mockReturnValue( 600 );
+			const { container, rerender } = render( <SessionView sessionId="session-1" /> );
+			const scroller = container.querySelector( '[class*="_scroll_"]' ) as HTMLDivElement;
+			expect( scroller.scrollTop ).toBe( 1436 );
+
+			// An image above loads and pushes the prompt 900px down the view.
+			useSessionMock.mockReturnValue( withPromptsAt( 100, 900, 964 ) );
+			rerender( <SessionView sessionId="session-1" /> );
+			expect( scroller.scrollTop ).toBe( 2336 );
+
+			// Once the user scrolls, the view stays where they put it.
+			fireEvent.wheel( scroller );
+			useSessionMock.mockReturnValue( withPromptsAt( 100, 900, 1200 ) );
+			rerender( <SessionView sessionId="session-1" /> );
+			expect( scroller.scrollTop ).toBe( 2336 );
+		} );
+
 		it( 'pins a new prompt near the top while its reply streams below', () => {
 			useSessionMock.mockReturnValue( withPromptsAt( 0 ) );
 			const { container, rerender } = render( <SessionView sessionId="session-1" /> );

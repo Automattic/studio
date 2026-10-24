@@ -8,24 +8,11 @@ import wpcomXhrRequest from '@studio/common/lib/wpcom-xhr-request-factory';
 export interface WpcomSiteCapabilities {
 	planName: string;
 	features: ReadonlySet< string >;
+	// Each feature the plan lacks, with the product slugs of the plans that have it.
+	plansWith: Readonly< Record< string, readonly string[] > >;
 	canManage: boolean;
 	canEdit: boolean;
 }
-
-// Plan features that decide what an agent can do on a site, in the words the
-// active site line uses.
-const DESCRIBED_FEATURES: Array< [ feature: string, label: string ] > = [
-	[ 'global-styles', 'Global Styles' ],
-	[ 'custom-design', 'custom CSS' ],
-	[ 'install-plugins', 'installing plugins' ],
-	[ 'upload-themes', 'uploading themes' ],
-	[ 'premium-themes', 'premium themes' ],
-	[ 'ssh', 'SSH and SFTP' ],
-	[ 'staging-sites', 'staging sites' ],
-	[ 'studio-sync', 'Studio push and pull' ],
-];
-
-const LABELS = new Map( [ ...DESCRIBED_FEATURES, [ 'manage-plugins', 'managing plugins' ] ] );
 
 const cache = new Map< number, Promise< WpcomSiteCapabilities | undefined > >();
 
@@ -51,44 +38,72 @@ async function fetchCapabilities( siteId: number ): Promise< WpcomSiteCapabiliti
 	if ( ! token?.accessToken ) return undefined;
 	const wpcom = wpcomFactory( token.accessToken, wpcomXhrRequest );
 	const site = await wpcom.req.get< {
-		plan?: { product_name_short?: string; features?: { active?: string[] } };
+		plan?: {
+			product_name_short?: string;
+			features?: { active?: string[]; available?: Record< string, string[] > };
+		};
 		capabilities?: Record< string, boolean >;
 	} >( `/sites/${ siteId }`, { fields: 'ID,plan,capabilities' } );
 	return parseWpcomSiteCapabilities( site );
 }
 
+// The plans this site can move to, by product slug, under the names its plan
+// cards use: the platform's own offer, without the plans it no longer sells.
+export async function getWpcomUpgradePlans( siteId: number ): Promise< Map< string, string > > {
+	const token = await readAuthToken();
+	if ( ! token?.accessToken ) return new Map();
+	const wpcom = wpcomFactory( token.accessToken, wpcomXhrRequest );
+	const plans = await wpcom.req.get< Record< string, WpcomPlan > >( {
+		path: `/sites/${ siteId }/plans`,
+		apiNamespace: 'rest/v1.3',
+	} );
+	return parseWpcomUpgradePlans( plans );
+}
+
+interface WpcomPlan {
+	product_slug?: string;
+	plan_card_name?: string;
+	plan_card_order?: number;
+	available_for_upgrade?: boolean;
+}
+
+export function parseWpcomUpgradePlans(
+	plans: Record< string, WpcomPlan >
+): Map< string, string > {
+	return new Map(
+		Object.values( plans )
+			.filter( ( plan ) => plan.available_for_upgrade && plan.product_slug && plan.plan_card_name )
+			.sort( ( a, b ) => ( a.plan_card_order ?? 0 ) - ( b.plan_card_order ?? 0 ) )
+			.map( ( plan ) => [ plan.product_slug!, plan.plan_card_name! ] )
+	);
+}
+
 export function parseWpcomSiteCapabilities( site: {
-	plan?: { product_name_short?: string; features?: { active?: string[] } };
+	plan?: {
+		product_name_short?: string;
+		features?: { active?: string[]; available?: Record< string, string[] > };
+	};
 	capabilities?: Record< string, boolean >;
 } ): WpcomSiteCapabilities | undefined {
 	if ( ! site.plan ) return undefined;
 	return {
 		planName: site.plan.product_name_short ?? 'unknown',
 		features: new Set( site.plan.features?.active ?? [] ),
+		plansWith: site.plan.features?.available ?? {},
 		canManage: site.capabilities?.manage_options === true,
 		canEdit: site.capabilities?.edit_posts === true,
 	};
 }
 
-// "Personal plan: Global Styles, installing plugins; not custom CSS, …; you manage this site".
+// "Personal plan; you manage this site". What the plan includes is stated when
+// a write needs it: wpcom_request refuses it, naming the plans that do.
 export function describeWpcomSiteCapabilities( capabilities: WpcomSiteCapabilities ): string {
-	const has = DESCRIBED_FEATURES.filter( ( [ feature ] ) => capabilities.features.has( feature ) );
-	const lacks = DESCRIBED_FEATURES.filter(
-		( [ feature ] ) => ! capabilities.features.has( feature )
-	);
 	const role = capabilities.canManage
 		? 'you manage this site'
 		: capabilities.canEdit
 		? 'you edit content only'
 		: 'you can only read this site';
-	return [
-		`${ capabilities.planName } plan`,
-		has.length ? `includes ${ has.map( ( [ , label ] ) => label ).join( ', ' ) }` : '',
-		lacks.length ? `not ${ lacks.map( ( [ , label ] ) => label ).join( ', ' ) }` : '',
-		role,
-	]
-		.filter( Boolean )
-		.join( '; ' );
+	return `${ capabilities.planName } plan; ${ role }`;
 }
 
 export interface WpcomWrite {
@@ -126,10 +141,12 @@ function requirementsOf( write: WpcomWrite ): { features: string[]; admin: boole
 	return { features: [], admin: false };
 }
 
-export function getWpcomWriteRefusal(
+// Asks for the plans that would allow a write only when the site's plan does not.
+export async function getWpcomWriteRefusal(
 	capabilities: WpcomSiteCapabilities,
-	write: WpcomWrite
-): string | undefined {
+	write: WpcomWrite,
+	upgradePlans: () => Promise< ReadonlyMap< string, string > > = async () => new Map()
+): Promise< string | undefined > {
 	if ( write.method === 'GET' ) return undefined;
 	const { features, admin } = requirementsOf( write );
 	if ( admin && ! capabilities.canManage ) {
@@ -139,9 +156,19 @@ export function getWpcomWriteRefusal(
 		return `Not sent: the user's role on this site cannot change its content.`;
 	}
 	const missing = features.filter( ( feature ) => ! capabilities.features.has( feature ) );
-	if ( missing.length > 0 ) {
-		const names = missing.map( ( feature ) => LABELS.get( feature ) ?? feature ).join( ' and ' );
-		return `Not sent: this site's ${ capabilities.planName } plan does not include ${ names }. The hosting-plans-helper skill finds the plan that does.`;
-	}
-	return undefined;
+	if ( missing.length === 0 ) return undefined;
+	const offered = await upgradePlans().catch( () => new Map< string, string >() );
+	const plans = [ ...offered ]
+		.filter( ( [ slug ] ) =>
+			missing.every( ( feature ) => capabilities.plansWith[ feature ]?.includes( slug ) )
+		)
+		.map( ( [ , name ] ) => name );
+	const offer = plans.length
+		? ` Plans that include ${ missing.length > 1 ? 'them' : 'it' }: ${ [ ...new Set( plans ) ].join(
+				', '
+		  ) }.`
+		: '';
+	return `Not sent: this site's ${ capabilities.planName } plan does not include ${ missing.join(
+		' and '
+	) } (WordPress.com plan features).${ offer }`;
 }

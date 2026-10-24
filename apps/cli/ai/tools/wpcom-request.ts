@@ -5,7 +5,11 @@ import { getAiPayloadsPath } from '@studio/common/lib/well-known-paths';
 import wpcomFactory from '@studio/common/lib/wpcom-factory';
 import wpcomXhrRequest from '@studio/common/lib/wpcom-xhr-request-factory';
 import { Type } from 'typebox';
-import { getWpcomSiteCapabilities, getWpcomWriteRefusal } from 'cli/ai/wpcom-capabilities';
+import {
+	getWpcomSiteCapabilities,
+	getWpcomUpgradePlans,
+	getWpcomWriteRefusal,
+} from 'cli/ai/wpcom-capabilities';
 import { defineTool, REMOTE_OVERWRITE } from './define-tool';
 import { textResult } from './utils';
 
@@ -227,12 +231,16 @@ export const wpcomRequestTool = defineTool(
 			const capabilities = await getWpcomSiteCapabilities( args.siteId );
 			const refusal =
 				capabilities &&
-				getWpcomWriteRefusal( capabilities, {
-					method: args.method,
-					path: args.path.startsWith( '/' ) ? args.path : `/${ args.path }`,
-					apiNamespace,
-					body,
-				} );
+				( await getWpcomWriteRefusal(
+					capabilities,
+					{
+						method: args.method,
+						path: args.path.startsWith( '/' ) ? args.path : `/${ args.path }`,
+						apiNamespace,
+						body,
+					},
+					() => getWpcomUpgradePlans( args.siteId )
+				) );
 			if ( refusal ) {
 				throw new Error( refusal );
 			}

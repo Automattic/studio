@@ -37,9 +37,7 @@ describe( 'getFrameKey', () => {
 		const surface = createPreviewSurface( '/about', 0 );
 		const key = getFrameKey( SITE_URL, surface );
 		expect( getFrameKey( SITE_URL, { ...surface, reloadNonce: 1 } ) ).not.toBe( key );
-		expect(
-			getFrameKey( SITE_URL, { ...surface, browserCommand: { id: 3, type: 'reload' } } )
-		).not.toBe( key );
+		expect( getFrameKey( SITE_URL, { ...surface, reloadCommandId: 3 } ) ).not.toBe( key );
 		expect( getFrameKey( SITE_URL, { ...surface, browserCommand: { id: 4, type: 'back' } } ) ).toBe(
 			key
 		);

@@ -99,7 +99,11 @@ export function usePreviewSurfaces( {
 				return;
 			}
 			commandIdRef.current += 1;
-			patchSurface( key, { browserCommand: { id: commandIdRef.current, type } } );
+			const id = commandIdRef.current;
+			patchSurface( key, {
+				browserCommand: { id, type },
+				...( type === 'reload' ? { reloadCommandId: id } : {} ),
+			} );
 		},
 		[ patchSurface, queryClient, siteId ]
 	);

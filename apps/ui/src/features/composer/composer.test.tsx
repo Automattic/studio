@@ -12,8 +12,9 @@ import {
 	stageAnnotations,
 } from '@/features/annotations';
 import { TooltipProvider } from '@/lib/ui';
-import { Composer, type ComposerHandle } from './composer';
+import { Composer } from './composer';
 import { clearComposerDrafts } from './draft-store';
+import type { ComposerHandle } from './use-composer-handle';
 import type { AiSessionSummary, LoadedAiSession, SessionEntry } from '@/data/core';
 import type { ComposerSendAttachments } from '@/data/use-composer-attachments';
 

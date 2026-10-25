@@ -105,11 +105,13 @@ foreach ( WP_Block_Type_Registry::get_instance()->get_all_registered() as $name 
 	foreach ( (array) $type->editor_script_handles as $handle ) { $sources[] = wp_scripts()->registered[ $handle ]->src ?? $handle; }
 	$block_types[] = array( 'name' => $name, 'editorScripts' => $sources );
 }
+// Reading the theme's data registers the block styles of its styles/blocks/*.json
+// files (WP_Theme_JSON_Resolver::get_theme_data), so it comes first.
+$merged = WP_Theme_JSON_Resolver::get_merged_data()->get_raw_data();
 $styles = array();
 foreach ( WP_Block_Styles_Registry::get_instance()->get_all_registered() as $block => $variations ) {
 	$styles[ $block ] = array_keys( $variations );
 }
-$merged = WP_Theme_JSON_Resolver::get_merged_data()->get_raw_data();
 $palette = array();
 foreach ( (array) ( $merged['settings']['color']['palette'] ?? array() ) as $entries ) {
 	foreach ( (array) $entries as $entry ) { $palette[] = $entry; }

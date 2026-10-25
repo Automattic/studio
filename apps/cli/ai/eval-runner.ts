@@ -41,6 +41,7 @@ import {
 	resolveInitialAiProvider,
 	resolveUnavailableAiProvider,
 } from 'cli/ai/auth';
+import { createScriptedUser, evalAnswersSchema, type EvalAnswers } from 'cli/ai/eval-answers';
 import { captureTurnOutcome, fingerprintSites, type TurnOutcome } from 'cli/ai/eval-outcome';
 import { matchesStopRule, stopRuleSchema, type StopRule } from 'cli/ai/eval-stop';
 import { summarizeTiming, type ModelRequestRecord } from 'cli/ai/eval-timing';
@@ -116,11 +117,10 @@ interface EvalRunnerInput {
 	// Objects rather than strings: promptfoo expands an array of strings into
 	// one test case per element.
 	followUps?: Array< { prompt: string } >;
-	// Scripted replies for the questions the agent asks the user, in order:
-	// each question takes the next label. With answers set, the turn runs with
-	// Studio chat's ask-the-user handler, so AskUserQuestion and tools that
-	// confirm with the user work; once they run out, the user cancels.
-	answers?: Array< { label: string } >;
+	// The scripted user's replies (eval-answers.ts). With answers set, the turn
+	// runs with Studio chat's ask-the-user handler, so AskUserQuestion and
+	// tools that confirm with the user work.
+	answers?: EvalAnswers;
 	timeoutMs?: number;
 	model?: AiModelId;
 	seed?: EvalSeed;
@@ -524,9 +524,7 @@ function readInput(): EvalRunnerInput {
 		? z.array( z.object( { prompt: z.string() } ) ).parse( vars.followUps )
 		: undefined;
 
-	const answers = vars.answers
-		? z.array( z.object( { label: z.string() } ) ).parse( vars.answers )
-		: undefined;
+	const answers = vars.answers ? evalAnswersSchema.parse( vars.answers ) : undefined;
 
 	return {
 		prompt: ( vars.prompt as string ) ?? prompt,
@@ -577,22 +575,8 @@ async function runEval( input: EvalRunnerInput ) {
 	const toolEvents: ToolEvent[] = [];
 	const requests: ModelRequestRecord[] = [];
 	const textSegments: string[] = [];
-	const questions: Array< { question: string; options: string[]; answer: string } > = [];
-	const pendingAnswers = [ ...( input.answers ?? [] ) ];
-	const onAskUser: AskUserHandler | undefined = input.answers
-		? async ( asked ) =>
-				Object.fromEntries(
-					asked.map( ( { question, options } ) => {
-						const answer = pendingAnswers.shift()?.label ?? 'Cancel';
-						questions.push( {
-							question,
-							options: options.map( ( option ) => option.label ),
-							answer,
-						} );
-						return [ question, answer ];
-					} )
-				)
-		: undefined;
+	const scriptedUser = input.answers ? createScriptedUser( input.answers ) : undefined;
+	const onAskUser: AskUserHandler | undefined = scriptedUser?.onAskUser;
 	const toolNameById = new Map< string, string >();
 	const toolEventById = new Map< string, ToolEvent >();
 	let firstToolError: FirstToolError | null = null;
@@ -794,7 +778,7 @@ async function runEval( input: EvalRunnerInput ) {
 		toolEvents,
 		firstToolError,
 		textSegments,
-		questions,
+		questions: scriptedUser?.questions ?? [],
 		inspections,
 		outcome,
 	};

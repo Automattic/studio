@@ -6,7 +6,13 @@
 # state, rendered home page, block validity, theme files), the other sites it
 # left alone, and what the user was told. The runner captures that state after
 # the turn; the checks live in outcome.mjs and read their parameters from the
-# case's vars (`siteName` names the site the case asks for).
+# case's vars. The site judged is the seeded active site the request is about,
+# or else the one the turn created.
+#
+# Prompts read as a user would write them. The scripted user (answers in
+# defaultTest, eval-answers.ts) leaves the choices to the agent, keeps to
+# WordPress's default of a block theme, and declines what it does not fit;
+# a case overrides it to test a particular answer.
 
 description: Studio Code agent evaluation
 
@@ -22,6 +28,11 @@ providers:
 defaultTest:
   options:
     repeat: 1
+  vars:
+    answers:
+      - when: 'classic theme'
+        label: 'No'
+      - label: 'Whatever you think is best.'
 
 tests:
   - description: agent identifies as WordPress Studio AI
@@ -53,10 +64,9 @@ tests:
   - description: asking for a site leaves a working new site
     vars:
       caseId: site-creation
-      siteName: 'Eval Test Site'
       timeoutMs: 120000
       prompt: |
-        Create a new site named "Eval Test Site".
+        Create a new site named "Maple Street Books".
     assert:
       - type: javascript
         value: file://outcome.mjs:siteWorks
@@ -69,14 +79,12 @@ tests:
   - description: screenshot verification shows the model desktop and mobile quickly
     vars:
       caseId: screenshot-all-timing
-      siteName: 'Eval Screenshot Timing'
       model: balanced
       timeoutMs: 240000
       prompt: |
-        Create a new site named "Eval Screenshot Timing". Do not
-        customize the theme. Verify the homepage visually with screenshots
-        for both desktop and mobile, then briefly report whether the
-        screenshots were captured.
+        Create a new site called "Northwind Notes" and keep the theme it comes
+        with. Check the homepage on desktop and on mobile with screenshots,
+        and tell me briefly how it looks.
     assert:
       - type: javascript
         value: file://outcome.mjs:sawDesktopAndMobile
@@ -89,14 +97,10 @@ tests:
   - description: single-page build leaves a working site in its own theme
     vars:
       caseId: single-page-build-turn-cadence
-      siteName: 'Eval Turn Timing'
       timeoutMs: 600000
       prompt: |
-        Build a simple WordPress site named "Eval Turn Timing". The
-        site only needs a single page — no extra pages, no blog posts, no
-        navigation menu beyond what a one-page site requires. Use the site
-        name as the brand and skip the discovery questions: nobody can
-        answer during this run, so make every choice yourself.
+        Build a simple one-page website for Juniper & Oak, a small furniture
+        workshop. Just the one page: no blog and no extra pages.
     assert:
       - type: javascript
         value: file://outcome.mjs:siteWorks
@@ -115,13 +119,11 @@ tests:
   - description: one-page site section links work from every page
     vars:
       caseId: one-page-nav-anchor-links
-      siteName: 'Eval One Page Nav'
       timeoutMs: 600000
       prompt: |
-        Build a one-page site named "Eval One Page Nav": a single
-        scrollable home page with Features, About, and Contact sections, and
-        a header navigation menu whose items jump to those sections. Keep the
-        design simple — no extra pages and no blog posts.
+        Build a one-page site for Brightline Bikes: one scrolling home page
+        with Features, About and Contact sections, and a header menu that
+        jumps to each section. Keep it simple, with no extra pages or blog.
     assert:
       - type: javascript
         value: file://outcome.mjs:siteWorks
@@ -140,7 +142,7 @@ tests:
       seed:
         localSite:
           id: eval-site-categories
-          name: Eval Site Categories
+          name: Harbor Lights
           path: /tmp/eval-site-categories
           port: 8881
         connectedWpcomSites:
@@ -159,9 +161,9 @@ tests:
             atomicSiteId: 111
             localSiteId: eval-site-categories
             date: 1900000000000
-            name: Eval Site Categories
+            name: Harbor Lights
       prompt: |
-        For the local site named "Eval Site Categories", list everything it is
+        For the local site named "Harbor Lights", list everything it is
         connected or related to. For each item, tell me clearly whether it is a
         temporary PREVIEW site or a durable connected WordPress.com remote site.
         Do not create, delete, or modify anything — only inspect and report.
@@ -182,7 +184,7 @@ tests:
       seed:
         localSite:
           id: eval-site-push
-          name: Eval Site Push
+          name: Lakeside Studio
           path: /tmp/eval-site-push
           port: 8882
         connectedWpcomSites:
@@ -197,7 +199,7 @@ tests:
             lastPullTimestamp: null
             lastPushTimestamp: null
       prompt: |
-        Push my local site "Eval Site Push" to WordPress.com.
+        Push my local site "Lakeside Studio" to WordPress.com.
     assert:
       - type: javascript
         value: file://outcome.mjs:pushNotRunAndAsks
@@ -205,13 +207,12 @@ tests:
   - description: slideshow request puts a Jetpack slideshow on the home page
     vars:
       caseId: jetpack-catchall-slideshow
-      siteName: 'Catchall Eval Site'
       plugin: jetpack
       blockPrefix: jetpack/
       timeoutMs: 600000
       prompt: |
-        Create a new site named "Catchall Eval Site" and add a
-        slideshow of three placeholder images to its homepage.
+        Create a new site called "Seaside Gallery" and add a slideshow of
+        three placeholder images to its homepage.
     assert:
       - type: javascript
         value: file://outcome.mjs:siteWorks
@@ -222,16 +223,17 @@ tests:
 
   # Regression: a "shop"/"store" request framed with qualifiers ("small",
   # "for inspiration") must still end with a working store: WooCommerce
-  # active and products published.
-  - description: shop request leaves WooCommerce with products
+  # active, its shop page published, and a dog and a cat product that
+  # WooCommerce shows in the catalog and lets a visitor buy.
+  - description: shop request leaves WooCommerce with products for sale
     vars:
       caseId: woocommerce-shop-setup
-      siteName: 'Eval Shop Site'
+      minProducts: 2
       timeoutMs: 600000
       prompt: |
-        Build a small pet shop site named "Eval Shop Site" — keep it
-        small, just a couple of pages, look at a clean modern store for
-        inspiration. I want to sell dog and cat products.
+        Build a small online pet shop called "Paws & Whiskers", just a couple
+        of pages with the feel of a clean modern store. I want to sell dog and
+        cat products.
     assert:
       - type: javascript
         value: file://outcome.mjs:siteWorks
@@ -246,15 +248,13 @@ tests:
   - description: customizing an installed theme leaves it as released and works through a child theme
     vars:
       caseId: child-theme-for-installed-theme
-      siteName: 'Eval Child Theme Site'
       parentTheme: ollie
       timeoutMs: 600000
       prompt: |
-        Create a new site named "Eval Child Theme Site", install and
-        activate the Ollie theme from the WordPress.org directory, and
-        customize the design: make all headings a serif font and shift the
-        color palette warmer. Keep it quick — only typography and color
-        changes, no new pages or content.
+        Create a new site called "Fern & Field", install the Ollie theme from
+        WordPress.org, and customize the design: serif headings and a warmer
+        color palette. Only typography and color for now, no new pages or
+        content.
     assert:
       - type: javascript
         value: file://outcome.mjs:siteWorks
@@ -269,17 +269,14 @@ tests:
   - description: added sections take their colors from the theme palette
     vars:
       caseId: section-uses-theme-palette
-      siteName: 'Eval Palette Site'
       theme: twentytwentyfive
       timeoutMs: 600000
       prompt: |
-        Create a new site named "Eval Palette Site". Keep its current
-        default theme — do not create, scaffold, or switch themes.
-
-        Add two visually distinct sections to the site's homepage: a hero
-        section with a colored background and a heading, and a call-to-action
-        section with a contrasting colored background and a button. Make the
-        colors feel cohesive with the site's existing theme.
+        Create a new site called "Copper Kettle Café" and keep the theme it
+        comes with. Add two sections to the homepage: a hero with a colored
+        background and a heading, and a call to action with a contrasting
+        colored background and a button. The colors should feel like they
+        belong to the theme.
     assert:
       - type: javascript
         value: file://outcome.mjs:siteWorks
@@ -294,15 +291,13 @@ tests:
   - description: hero eyebrow pill keeps content-column alignment
     vars:
       caseId: inline-block-constrained-alignment
-      siteName: 'Eval Eyebrow Site'
       timeoutMs: 600000
       prompt: |
-        Build a simple one-page site named "Eval Eyebrow Site". The
-        homepage needs a full-width hero section whose content stays in the
-        normal content column, containing: a small uppercase eyebrow label
-        styled as a pill (rounded background that hugs the text) sitting
-        above the main heading, the main heading, and a short subtitle.
-        Keep the rest of the page minimal — no extra sections needed.
+        Build a simple one-page site for Summit Coaching. The homepage needs a
+        full-width hero whose content stays in the normal content column: a
+        small uppercase label styled as a pill (a rounded background that hugs
+        the text) above the main heading, then the heading and a short
+        subtitle. Keep the rest of the page minimal.
     assert:
       - type: javascript
         value: file://outcome.mjs:siteWorks
@@ -317,13 +312,12 @@ tests:
   - description: repeated card treatment is a registered block style variation
     vars:
       caseId: repeated-treatment-uses-block-style
-      siteName: 'Eval Block Style Site'
       timeoutMs: 600000
       prompt: |
-        Create a new site named "Eval Block Style Site" and build a simple
-        homepage for a coffee shop with a fresh scaffolded theme. The homepage
-        must include a features section of three cards that all share the same
-        visual treatment: same background, border radius, padding, and shadow.
+        Create a new site for my coffee shop, Ember Roasters, with a fresh
+        custom theme and a simple homepage. It needs a features section of
+        three cards that share the same look: same background, rounded
+        corners, padding and shadow.
     assert:
       - type: javascript
         value: file://outcome.mjs:siteWorks
@@ -341,12 +335,11 @@ tests:
       timeoutMs: 180000
       seed:
         activeSite:
-          name: Eval Active Site
+          name: Sunrise Bakery
       prompt: |
-        Build me a minimal one-page site for a small neighborhood bakery: a
-        hero and a short about section. Skip the discovery questions. Before
-        writing any files, state your plan and stop — I will confirm the
-        plan first.
+        Build me a minimal one-page site for my neighborhood bakery: a hero
+        and a short about section. Show me your plan before you write
+        anything; I'll confirm it first.
     assert:
       - type: javascript
         value: file://outcome.mjs:noSiteCreated
@@ -363,7 +356,7 @@ tests:
       answers: []
       seed:
         activeSite:
-          name: Eval Active Site Two
+          name: Corner Crumb
       prompt: |
         Build a one-page site named "Joe's Bakery".
     assert:
@@ -382,11 +375,11 @@ tests:
       timeoutMs: 420000
       seed:
         activeSite:
-          name: Eval Design Annotation
+          name: Calm Corner
           files:
             DESIGN.md: |
               ---
-              name: "Eval Design Annotation"
+              name: "Calm Corner"
               colors:
                 primary: "#2F6BFF"
                 background: "#FFFFFF"
@@ -446,7 +439,7 @@ tests:
       timeoutMs: 420000
       seed:
         activeSite:
-          name: Eval Template Override
+          name: Golden Crust Bakery
           files: &stu2155_theme_files
             wp-content/themes/bakery/style.css: |
               /*
@@ -589,7 +582,7 @@ tests:
       timeoutMs: 420000
       seed:
         activeSite:
-          name: Eval Global Styles Override
+          name: Crumb & Co
           files: *stu2155_theme_files
           wpCli:
             - [theme, activate, bakery]
@@ -646,30 +639,21 @@ tests:
             return { pass: false, score: 0, reason: `change never reached the rendered styles and the agent did not ask; ${state}; final reply: ${finalText.slice(0, 300)}` };
           });
 
-  # Routing: which skills (runbooks) the agent loads before it starts the work.
-  # Each run stops at its first call that does the work (`stopAt`), so a case
-  # costs only the turns up to that point, and `skillsLoadedFirst` checks the
-  # skills named in `skills` were loaded before it. The new-site cases also stop
-  # at the site's creation. The outcome cases above judge the work itself.
+
   # Cases written before any fix for them, to see whether the agent holds up
   # on work the other cases do not cover: a multi-page site, a plugin, a blog.
   - description: a multi-page site's menu opens every page
     vars:
       caseId: multi-page-site-menu
-      siteName: 'Eval Yoga Studio'
       pages:
         - title: Classes
         - title: About
         - title: Contact
       timeoutMs: 600000
-      # The user's answer when Studio asks before a write starts a classic theme.
-      answers:
-        - label: 'No'
       prompt: |
-        Build a site for a small yoga studio named "Eval Yoga Studio" with
-        four pages — Home, Classes, About, and Contact — and a header menu
-        that links to each page. Make every choice yourself: nobody can
-        answer questions during this run.
+        Build a site for my small yoga studio, Lotus Flow Yoga, with four
+        pages (Home, Classes, About and Contact) and a header menu that links
+        to each page.
     assert:
       - type: javascript
         value: file://outcome.mjs:siteWorks
@@ -683,15 +667,13 @@ tests:
   - description: a custom block from a new plugin is on the home page
     vars:
       caseId: custom-block-plugin
-      siteName: 'Eval Opening Hours'
       text: Monday
       timeoutMs: 600000
       prompt: |
-        Create a new site named "Eval Opening Hours". Write a small plugin
-        for it that adds an "Opening hours" block, which editors can insert
-        from the block inserter and edit the hours in. Put the block on the
-        home page with the hours Monday to Friday, 9am to 5pm. Make every
-        choice yourself: nobody can answer questions during this run.
+        Create a new site for Corner Bakehouse and write a small plugin for it
+        that adds an "Opening hours" block, which editors can insert from the
+        block inserter and edit the hours in. Put the block on the home page
+        with the hours Monday to Friday, 9am to 5pm.
     assert:
       - type: javascript
         value: file://outcome.mjs:siteWorks
@@ -710,7 +692,7 @@ tests:
       timeoutMs: 600000
       seed:
         activeSite:
-          name: Eval Travel Blog
+          name: Wander Notes
       prompt: |
         Turn this site into my travel blog: write three short posts about
         trips, filed under the categories Europe and Asia (at least one in
@@ -723,6 +705,91 @@ tests:
       - type: javascript
         value: file://outcome.mjs:otherSitesUntouched
 
+  # A plugin that gives AI agents its own abilities through the Abilities API
+  # (wp-includes/abilities-api.php, WordPress 6.9). The seed records the
+  # abilities the site already has; after the turn the inspection runs each new
+  # one through its REST route (/wp-abilities/v1/abilities/<name>/run), with an
+  # input made from its input schema: those that write as a visitor and as an
+  # administrator, then the read-only ones, which must list the added book.
+  - description: a plugin's abilities let an agent add a book and list it
+    vars:
+      caseId: abilities-plugin
+      timeoutMs: 600000
+      seed:
+        activeSite:
+          name: Chapter & Verse
+          wpCli:
+            - - eval
+              - |
+                update_option( 'eval_abilities_before', array_map( function ( $ability ) { return $ability->get_name(); }, wp_get_abilities() ), false );
+          inspect:
+            - - eval
+              - |
+                $book = 'The Left Hand of Darkness';
+                $fill = function ( $schema ) use ( &$fill, $book ) {
+                	$schema = (array) $schema;
+                	if ( isset( $schema['enum'] ) ) { return $schema['enum'][0]; }
+                	$type = (array) ( $schema['type'] ?? 'string' );
+                	if ( in_array( 'object', $type, true ) ) {
+                		$value = array();
+                		foreach ( (array) ( $schema['properties'] ?? array() ) as $key => $property ) { $value[ $key ] = $fill( $property ); }
+                		return $value;
+                	}
+                	if ( in_array( 'array', $type, true ) ) { return array(); }
+                	if ( array_intersect( array( 'integer', 'number' ), $type ) ) { return max( 1, (int) ( $schema['minimum'] ?? 1 ) ); }
+                	if ( in_array( 'boolean', $type, true ) ) { return false; }
+                	$formats = array( 'date' => '2026-01-15', 'date-time' => '2026-01-15T10:00:00', 'email' => 'reader@example.com', 'uri' => 'https://example.com/', 'url' => 'https://example.com/' );
+                	return $formats[ $schema['format'] ?? '' ] ?? $book;
+                };
+                $run = function ( $ability, $user ) use ( $fill ) {
+                	wp_set_current_user( $user );
+                	$annotations = (array) $ability->get_meta_item( 'annotations', array() );
+                	$method = ! empty( $annotations['readonly'] ) ? 'GET' : ( ! empty( $annotations['destructive'] ) && ! empty( $annotations['idempotent'] ) ? 'DELETE' : 'POST' );
+                	$request = new WP_REST_Request( $method, '/wp-abilities/v1/abilities/' . $ability->get_name() . '/run' );
+                	$schema = $ability->get_input_schema();
+                	$input = $schema ? $fill( $schema ) : null;
+                	if ( 'POST' === $method ) {
+                		$request->set_header( 'Content-Type', 'application/json' );
+                		$request->set_body( wp_json_encode( array( 'input' => $input ) ) );
+                	} elseif ( null !== $input ) {
+                		$request->set_query_params( array( 'input' => $input ) );
+                	}
+                	$response = rest_do_request( $request );
+                	return array( 'name' => $ability->get_name(), 'method' => $method, 'user' => $user, 'input' => $input, 'status' => $response->get_status(), 'body' => $response->get_data() );
+                };
+                $admins = get_users( array( 'role' => 'administrator', 'number' => 1, 'fields' => 'ID' ) );
+                $admin = (int) ( $admins[0] ?? 1 );
+                // The abilities the site had before the turn, recorded by the seed.
+                $before = (array) get_option( 'eval_abilities_before', array() );
+                $abilities = array_values( array_filter( wp_get_abilities(), function ( $ability ) use ( $before ) { return ! in_array( $ability->get_name(), $before, true ); } ) );
+                $listed = array();
+                foreach ( $abilities as $ability ) {
+                	$listed[] = array( 'name' => $ability->get_name(), 'inRest' => (bool) $ability->get_meta_item( 'show_in_rest' ), 'annotations' => $ability->get_meta_item( 'annotations' ), 'inputSchema' => $ability->get_input_schema() );
+                }
+                $writes = array_filter( $abilities, function ( $ability ) { $a = (array) $ability->get_meta_item( 'annotations', array() ); return empty( $a['readonly'] ) && empty( $a['destructive'] ); } );
+                $reads = array_filter( $abilities, function ( $ability ) { $a = (array) $ability->get_meta_item( 'annotations', array() ); return ! empty( $a['readonly'] ); } );
+                $runs = array();
+                foreach ( $writes as $ability ) { $runs[] = $run( $ability, 0 ); }
+                foreach ( $writes as $ability ) { $runs[] = $run( $ability, $admin ); }
+                foreach ( $reads as $ability ) { $runs[] = $run( $ability, $admin ); }
+                echo 'INSPECT_JSON=' . wp_json_encode( array( 'book' => $book, 'abilities' => $listed, 'runs' => $runs ) ) . "\n";
+      prompt: |
+        Write a plugin for my book club's site that keeps our reading list,
+        with a title and an author for each book. I want AI agents to be able
+        to list the books and add new ones through the WordPress Abilities API.
+    assert:
+      - type: javascript
+        value: file://outcome.mjs:siteWorks
+      - type: javascript
+        value: file://outcome.mjs:abilitiesWork
+      - type: javascript
+        value: file://outcome.mjs:otherSitesUntouched
+
+  # Routing: which skills (runbooks) the agent loads before it starts the work.
+  # Each run stops at its first call that does the work (`stopAt`), so a case
+  # costs only the turns up to that point, and `skillsLoadedFirst` checks the
+  # skills named in `skills` were loaded before it. The new-site cases also stop
+  # at the site's creation. The outcome cases above judge the work itself.
   - description: 'routing: a request to make a site loads visual-design before creating it'
     vars:
       caseId: routing-new-site-make
@@ -736,7 +803,7 @@ tests:
         - tool: wp_cli
           input:
             command: '\b(post|plugin|theme|option|menu|media|term|widget)\s+(create|update|install|activate|import|add|set)\b'
-      prompt: Make me a website for my bakery, Flour & Ember. Skip the questions and go.
+      prompt: Make me a website for my bakery, Flour & Ember.
     assert:
       - type: javascript
         value: file://outcome.mjs:skillsLoadedFirst
@@ -762,7 +829,7 @@ tests:
       timeoutMs: 300000
       skills: [{ name: plugin-recommendations }]
       stopAt: *stopAtWork
-      prompt: Create a new site named "Routing Slideshow Site" and add a slideshow of three placeholder images to its homepage.
+      prompt: Create a new site called "Tidewater Photos" and add a slideshow of three placeholder images to its homepage.
     assert:
       - type: javascript
         value: file://outcome.mjs:skillsLoadedFirst
@@ -774,7 +841,7 @@ tests:
       stopAt: *stopAtWork
       seed:
         activeSite:
-          name: Eval Routing Site
+          name: Flour & Ember
       prompt: Add a contact form to the homepage.
     assert:
       - type: javascript
@@ -787,7 +854,7 @@ tests:
       stopAt: *stopAtWork
       seed:
         activeSite:
-          name: Eval Routing Site
+          name: Flour & Ember
       prompt: Add a carousel of our recent projects to the homepage.
     assert:
       - type: javascript
@@ -800,7 +867,7 @@ tests:
       stopAt: *stopAtWork
       seed:
         activeSite:
-          name: Eval Routing Site
+          name: Flour & Ember
       prompt: Add a newsletter signup to the footer.
     assert:
       - type: javascript
@@ -813,7 +880,7 @@ tests:
       stopAt: *stopAtWork
       seed:
         activeSite:
-          name: Eval Routing Site
+          name: Flour & Ember
       prompt: Add a quick poll asking visitors which pastry we should bake next.
     assert:
       - type: javascript
@@ -826,7 +893,7 @@ tests:
       stopAt: *stopAtWork
       seed:
         activeSite:
-          name: Eval Routing Site
+          name: Flour & Ember
       prompt: Add an upcoming events page listing our three spring workshops.
     assert:
       - type: javascript
@@ -839,7 +906,7 @@ tests:
       stopAt: *stopAtWork
       seed:
         activeSite:
-          name: Eval Routing Site
+          name: Flour & Ember
       prompt: Make the headings use a more elegant serif font.
     assert:
       - type: javascript
@@ -852,7 +919,7 @@ tests:
       stopAt: *stopAtWork
       seed:
         activeSite:
-          name: Eval Routing Site
+          name: Flour & Ember
       prompt: Redesign this site to feel like a modern Scandinavian design studio.
     assert:
       - type: javascript
@@ -865,7 +932,7 @@ tests:
       stopAt: *stopAtWork
       seed:
         activeSite:
-          name: Eval Routing Site
+          name: Flour & Ember
       prompt: Add a testimonials section with three customer quotes to the homepage.
     assert:
       - type: javascript
@@ -878,7 +945,7 @@ tests:
       stopAt: *stopAtWork
       seed:
         activeSite:
-          name: Eval Routing Site
+          name: Flour & Ember
       prompt: Add a search block to the header template part.
     assert:
       - type: javascript
@@ -891,7 +958,7 @@ tests:
       stopAt: *stopAtWork
       seed:
         activeSite:
-          name: Eval Routing Site
+          name: Flour & Ember
       prompt: Add a hero section to the homepage with a photo of a sunlit bakery counter.
     assert:
       - type: javascript
@@ -904,7 +971,7 @@ tests:
       stopAt: *stopAtWork
       seed:
         activeSite:
-          name: Eval Routing Site
+          name: Flour & Ember
           wpCli:
             - - eval
               - |

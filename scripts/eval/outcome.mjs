@@ -40,13 +40,22 @@ const asksUser = ( text ) =>
 		text
 	);
 
-// The site a case is about: the one the turn created with `vars.siteName`,
-// otherwise the seeded active site.
+// The site a case is about: the one named `vars.siteName`; with a seeded
+// active site, that one, as the request is about it; otherwise the site the
+// turn created.
 function site( d, vars ) {
 	const sites = d.outcome?.sites || [];
+	const created = sites.filter( ( s ) => s.created );
+	if ( ! vars.siteName && ! vars.seed?.activeSite && created.length > 1 ) {
+		throw new Error(
+			`the turn created ${ created.length } sites: ${ created
+				.map( ( s ) => `"${ s.name }"` )
+				.join( ', ' ) }`
+		);
+	}
 	const found = vars.siteName
 		? sites.find( ( s ) => s.name === vars.siteName )
-		: sites.find( ( s ) => ! s.created ) || sites[ 0 ];
+		: ( vars.seed?.activeSite ? null : created[ 0 ] ) || sites.find( ( s ) => ! s.created );
 	if ( ! found ) {
 		throw new Error(
 			`no site${
@@ -263,13 +272,15 @@ export const pushNotRunAndAsks = check( ( d ) => {
 
 // No site was created or changed, and the user was asked whether to use the
 // active site or make a new one: by a question to the user, or in the reply.
-export const asksCurrentOrNew = check( ( d ) => {
+export const asksCurrentOrNew = check( ( d, vars ) => {
 	const created = ( d.outcome?.sites || [] ).filter( ( s ) => s.created );
 	if ( created.length ) return fail( `created "${ created[ 0 ].name }" without asking` );
 	if ( d.outcome?.requestSiteChanged ) return fail( 'changed the active site without asking' );
 	const text = [ ...( d.questions || [] ).map( ( q ) => q.question ), reply( d ) ].join( '\n' );
+	const active = vars.seed?.activeSite?.name;
 	const offers =
-		/(current|existing|active)\s+site|Eval Active Site/i.test( text ) &&
+		( /(current|existing|active)\s+site/i.test( text ) ||
+			Boolean( active && text.includes( active ) ) ) &&
 		/\b(new|separate|another|second)\b/i.test( text );
 	return offers && asksUser( text )
 		? pass( 'asked: active site or a new one' )
@@ -353,9 +364,20 @@ export const storeHasProducts = check( ( d, vars ) => {
 	const s = site( d, vars );
 	if ( ! s.plugins.includes( 'woocommerce' ) )
 		return fail( `WooCommerce is not active: ${ JSON.stringify( s.plugins ) }` );
-	return s.products > 0
-		? pass( `${ s.products } published product(s)` )
-		: fail( 'no published products' );
+	if ( s.shopPage !== 'publish' ) return fail( `the shop page is ${ s.shopPage || 'missing' }` );
+	const forSale = ( s.products || [] ).filter( ( p ) => p.purchasable && p.visible );
+	const needed = vars.minProducts ?? 1;
+	return forSale.length >= needed
+		? pass(
+				`${ forSale.length } product(s) for sale in the shop: ${ forSale
+					.map( ( p ) => `${ p.name } (${ p.price })` )
+					.join( ', ' ) }`
+		  )
+		: fail(
+				`${ forSale.length } of ${ needed } product(s) for sale; published: ${ JSON.stringify(
+					s.products
+				).slice( 0, 300 ) }`
+		  );
 } );
 
 // The design lives in a child theme of vars.parentTheme, the parent is still
@@ -551,6 +573,55 @@ export const menuReachesPages = check( ( d, vars ) => {
 				.join( ', ' ) }; it leads to ${ JSON.stringify( s.home?.navTargets ) }`
 		);
 	return pass( `the navigation opens ${ wanted.map( ( t ) => `"${ t }"` ).join( ', ' ) }` );
+} );
+
+// The abilities the turn added, run through the Abilities API's REST routes by
+// the case's inspection (INSPECT_JSON: each added ability, and each run with
+// its method, user, input, status and body). Each one that writes is in REST
+// and refuses a visitor; run by an administrator, one adds the case's book,
+// and then a read-only one lists it.
+export const abilitiesWork = check( ( d ) => {
+	const raw = ( d.inspections || [] )
+		.map( ( i ) => i.stdout )
+		.join( '\n' )
+		.match( /INSPECT_JSON=(.*)/ );
+	if ( ! raw )
+		return fail(
+			`no abilities inspection: ${ JSON.stringify( d.inspections || d.error || null ).slice(
+				0,
+				300
+			) }`
+		);
+	const { book, abilities, runs } = JSON.parse( raw[ 1 ] );
+	if ( ! abilities.length ) return fail( 'no ability was added' );
+	const hidden = abilities.filter( ( a ) => ! a.inRest ).map( ( a ) => a.name );
+	if ( hidden.length )
+		return fail( `not shown in REST (meta.show_in_rest): ${ hidden.join( ', ' ) }` );
+	const ok = ( r ) => r.status >= 200 && r.status < 300;
+	const open = runs.filter( ( r ) => r.user === 0 && ok( r ) ).map( ( r ) => r.name );
+	if ( open.length ) return fail( `a visitor ran ${ open.join( ', ' ) }` );
+	const adds = runs.filter( ( r ) => r.user !== 0 && r.method !== 'GET' );
+	if ( ! adds.some( ok ) )
+		return fail(
+			`no ability added the book: ${ JSON.stringify(
+				adds.map( ( r ) => [ r.name, r.status, r.body ] )
+			).slice( 0, 300 ) }`
+		);
+	const reads = runs.filter( ( r ) => r.method === 'GET' );
+	if ( ! reads.length )
+		return fail( 'no read-only ability (meta.annotations.readonly) to list the books' );
+	const lists = reads.filter( ( r ) => ok( r ) && JSON.stringify( r.body ).includes( book ) );
+	return lists.length
+		? pass(
+				`${ adds.find( ok ).name } added "${ book }" and ${
+					lists[ 0 ].name
+				} lists it; a visitor is refused`
+		  )
+		: fail(
+				`no read-only ability lists "${ book }": ${ JSON.stringify(
+					reads.map( ( r ) => [ r.name, r.status, r.body ] )
+				).slice( 0, 300 ) }`
+		  );
 } );
 
 // The home page shows a block that a plugin registers with WordPress, with an

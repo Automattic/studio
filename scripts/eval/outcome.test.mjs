@@ -78,6 +78,49 @@ describe( 'shared checks', () => {
 		expect( run( checks.siteWorks, { outcome: { sites: [] } } ).pass ).toBe( false );
 	} );
 
+	// siteWorks passes only on the site whose home page loads.
+	const broken = { ...workingSite, home: { status: 500, phpErrors: [] } };
+	test.each( [
+		{
+			name: 'the one the turn created',
+			sites: [
+				{ ...broken, name: 'Old' },
+				{ ...workingSite, name: 'Lotus', created: true },
+			],
+			vars: {},
+			pass: true,
+		},
+		{
+			name: 'the seeded active site, beside one the turn created',
+			sites: [
+				{ ...workingSite, name: 'Mine' },
+				{ ...broken, name: 'Extra', created: true },
+			],
+			vars: { seed: { activeSite: { name: 'Mine' } } },
+			pass: true,
+		},
+		{
+			name: 'the one named',
+			sites: [
+				{ ...broken, name: 'B', created: true },
+				{ ...workingSite, name: 'A', created: true },
+			],
+			vars: { siteName: 'A' },
+			pass: true,
+		},
+		{
+			name: 'none of several the turn created',
+			sites: [
+				{ ...workingSite, name: 'A', created: true },
+				{ ...workingSite, name: 'B', created: true },
+			],
+			vars: {},
+			pass: false,
+		},
+	] )( 'judges $name', ( { sites, vars, pass } ) => {
+		expect( run( checks.siteWorks, outcome( sites[ 0 ], { sites } ), vars ).pass ).toBe( pass );
+	} );
+
 	test( 'otherSitesUntouched', () => {
 		expect( run( checks.otherSitesUntouched, outcome( workingSite ) ).pass ).toBe( true );
 		expect(
@@ -230,17 +273,58 @@ describe( 'reply checks', () => {
 		const asked = {
 			questions: [
 				{
-					question:
-						'Create a new site "Joe\'s Bakery"? This request is about "Eval Active Site Two".',
+					question: 'Create a new site "Joe\'s Bakery"? This request is about "Corner Crumb".',
 					answer: 'Cancel',
 				},
 			],
 		};
 		expect(
+			run(
+				checks.asksCurrentOrNew,
+				{ ...outcome( workingSite ), ...reply( 'Done.' ), ...asked },
+				{ seed: { activeSite: { name: 'Corner Crumb' } } }
+			).pass
+		).toBe( true );
+		expect(
 			run( checks.asksCurrentOrNew, { ...outcome( workingSite ), ...reply( 'Done.' ), ...asked } )
 				.pass
-		).toBe( true );
+		).toBe( false );
 	} );
+} );
+
+// What the abilities case's inspection printed on a site with a reading-list
+// plugin, as written and with one thing changed each.
+const abilitiesRun = ( name ) => ( {
+	inspections: [
+		{
+			stdout: `INSPECT_JSON=${ JSON.stringify(
+				JSON.parse(
+					readFileSync( new URL( `./fixtures/abilities/${ name }.json`, import.meta.url ), 'utf8' )
+				)
+			) }\n`,
+		},
+	],
+} );
+
+test.each( [
+	{ name: 'added', pass: true, reason: 'book-club/add-book added' },
+	{ name: 'visitor-runs', pass: false, reason: 'a visitor ran book-club/add-book' },
+	{ name: 'no-read-only', pass: false, reason: 'meta.annotations.readonly' },
+	{ name: 'not-in-rest', pass: false, reason: 'not shown in REST' },
+	{ name: 'add-refused', pass: false, reason: 'no ability added the book' },
+	{ name: 'not-listed', pass: false, reason: 'no read-only ability lists' },
+] )( 'abilitiesWork: $name', ( { name, pass, reason } ) => {
+	const result = run( checks.abilitiesWork, abilitiesRun( name ) );
+	expect( result.pass ).toBe( pass );
+	expect( result.reason ).toContain( reason );
+} );
+
+test( 'abilitiesWork fails with no ability added or no inspection', () => {
+	const none = {
+		inspections: [ { stdout: 'INSPECT_JSON={"book":"B","abilities":[],"runs":[]}\n' } ],
+	};
+	expect( run( checks.abilitiesWork, none ).reason ).toContain( 'no ability was added' );
+	expect( run( checks.abilitiesWork, {} ).reason ).toContain( 'no abilities inspection' );
 } );
 
 describe( 'site checks', () => {
@@ -329,15 +413,24 @@ describe( 'site checks', () => {
 		).toBe( false );
 	} );
 
-	test( 'storeHasProducts', () => {
-		const site = { ...workingSite, plugins: [ 'woocommerce' ], products: 3 };
-		expect( run( checks.storeHasProducts, outcome( site ) ).pass ).toBe( true );
-		expect( run( checks.storeHasProducts, outcome( { ...site, products: 0 } ) ).pass ).toBe(
-			false
-		);
-		expect( run( checks.storeHasProducts, outcome( { ...site, plugins: [] } ) ).pass ).toBe(
-			false
-		);
+	// As WooCommerce reported them on a live site.
+	const store = {
+		...workingSite,
+		plugins: [ 'woocommerce' ],
+		shopPage: 'publish',
+		products: [
+			{ name: 'Hidden Bed', price: '40', purchasable: true, visible: false },
+			{ name: 'No Price Toy', price: '', purchasable: false, visible: true },
+			{ name: 'Chew Rope', price: '12', purchasable: true, visible: true },
+		],
+	};
+	test.each( [
+		{ name: 'one product for sale', site: store, vars: {}, pass: true },
+		{ name: 'fewer for sale than asked', site: store, vars: { minProducts: 2 }, pass: false },
+		{ name: 'no shop page', site: { ...store, shopPage: 'trash' }, vars: {}, pass: false },
+		{ name: 'no WooCommerce', site: { ...store, plugins: [] }, vars: {}, pass: false },
+	] )( 'storeHasProducts: $name', ( { site, vars, pass } ) => {
+		expect( run( checks.storeHasProducts, outcome( site ), vars ).pass ).toBe( pass );
 	} );
 
 	test( 'customizedThroughChildTheme', () => {

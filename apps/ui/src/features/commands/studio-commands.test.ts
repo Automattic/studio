@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { matchCommands } from './command-search';
 import { getAppCommands, getPaletteChats, getSettingCommands } from './studio-commands';
 import type { AiSessionSummary, SiteDetails } from '@/data/core';
 
@@ -64,5 +65,24 @@ describe( 'getSettingCommands', () => {
 		expect( byLabel( 'Turn off “Show recent chats”' ).run ).toBe( toggle.run );
 		byLabel( 'Terminal' ).run();
 		expect( openSettings ).toHaveBeenCalledWith( 'general', undefined, 'terminal' );
+	} );
+
+	it.each( [
+		[ 'shortcuts', 'settings-keyboard' ],
+		[ 'connect', 'settings-ai' ],
+		[ 'connect provider', 'settings-ai' ],
+		[ 'credit balance', 'settings-usage-ai-credits' ],
+		[ 'snapshots', 'settings-sharing-preview-sites' ],
+		[ 'colour', 'settings-appearance-color' ],
+		[ 'change color', 'settings-appearance-color' ],
+	] )( 'finds “%s” first by another name for a setting', ( query, id ) => {
+		const commands = getSettingCommands( {
+			scope: 'studio',
+			signedIn: true,
+			toggles: {},
+			openSettings: vi.fn(),
+		} );
+
+		expect( matchCommands( commands, query )[ 0 ]?.id ).toBe( id );
 	} );
 } );

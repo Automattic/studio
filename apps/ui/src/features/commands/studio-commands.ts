@@ -163,6 +163,7 @@ export function getAppCommands( {
 			group: 'settings',
 			label: colorScheme === 'dark' ? __( 'Use light mode' ) : __( 'Use dark mode' ),
 			icon: AppearanceIcon,
+			aliases: [ __( 'Toggle theme' ) ],
 			keywords: [ __( 'Appearance' ), __( 'Theme' ), __( 'Dark mode' ), __( 'Light mode' ) ],
 			run: () => savePreferences( { colorScheme: colorScheme === 'dark' ? 'light' : 'dark' } ),
 		},
@@ -171,7 +172,13 @@ export function getAppCommands( {
 			group: 'settings',
 			label: __( 'Reset appearance tint' ),
 			icon: RefreshCwIcon,
-			keywords: [ __( 'Appearance' ), __( 'Color' ), __( 'Intensity' ), __( 'Contrast' ) ],
+			keywords: [
+				__( 'Appearance' ),
+				__( 'Color' ),
+				__( 'Colour' ),
+				__( 'Intensity' ),
+				__( 'Contrast' ),
+			],
 			run: () => savePreferences( DEFAULT_COLOR_TINT ),
 		},
 		...settingCommands,
@@ -255,13 +262,14 @@ export function getSettingCommands( {
 			id: `${ group }-${ section.id }`,
 			group,
 			label: section.label,
+			aliases: section.aliases,
 			icon: section.icon,
 			description: site?.name,
 			keywords: [ getGroupLabel( group ) ],
 			searchOnly: true,
 			run: () => openSettings( section.id, site?.id ),
 		},
-		...section.settings.map( ( { id, title, description, icon } ): PaletteCommand => {
+		...section.settings.map( ( { id, title, description, icon, aliases } ): PaletteCommand => {
 			const toggle = scope === 'studio' && id ? toggles[ id ] : undefined;
 			return {
 				id: `${ group }-${ section.id }-${ id ?? title }`,
@@ -273,7 +281,7 @@ export function getSettingCommands( {
 							title
 					  )
 					: title,
-				aliases: [ title ],
+				aliases: [ title, ...( aliases ?? [] ) ],
 				icon: icon ?? section.icon,
 				description: site?.name ?? section.label,
 				keywords: [ section.label, description ],

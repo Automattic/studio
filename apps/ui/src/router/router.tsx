@@ -1,4 +1,4 @@
-import { createRouter } from '@tanstack/react-router';
+import { createRouter, type RouterHistory } from '@tanstack/react-router';
 import { createPackagedRouterHistory } from '@/app/router-history';
 import { dashboardLayoutRoute } from './layout-dashboard';
 import { rootRoute } from './layout-root';
@@ -19,11 +19,11 @@ const routeTree = rootRoute.addChildren( [
 	] ),
 ] );
 
-export function createAppRouter( context: RouterContext ) {
+export function createAppRouter( context: RouterContext, history?: RouterHistory ) {
 	return createRouter( {
 		routeTree,
 		context,
 		defaultPreload: 'intent',
-		history: createPackagedRouterHistory(),
+		history: history ?? createPackagedRouterHistory(),
 	} );
 }

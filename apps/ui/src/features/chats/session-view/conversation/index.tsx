@@ -30,7 +30,6 @@ import {
 	type NormalizedToolResult,
 } from '@studio/common/ai/tools';
 import { formatUsageCapNotice } from '@studio/common/lib/studio-assistant-quota';
-import { useReducedMotion } from '@wordpress/compose';
 import { __, isRTL, sprintf } from '@wordpress/i18n';
 import { clsx } from 'clsx';
 import {
@@ -63,6 +62,7 @@ import {
 	QUOTABLE_TEXT_ATTRIBUTE,
 } from '@/features/chats/use-text-context-menu';
 import { AiAccessRequiredNotice, AiBlockedNotice } from '@/features/credits';
+import { useReducedMotion } from '@/lib/hooks';
 import { isTextEntry } from '@/lib/keyboard';
 import {
 	CodeBlock,
@@ -616,7 +616,7 @@ function TraceTrigger( { children, ...props }: ComponentProps< 'button' > ) {
 
 const TOOL_DETAIL_MAX_LENGTH = 96;
 
-interface ClassicToolDisplay {
+interface ToolDisplay {
 	label: string;
 	detail: string;
 	inputText: string;
@@ -637,10 +637,7 @@ function stringifyToolInput( input: Record< string, unknown > ): string {
 	}
 }
 
-function getClassicToolInputText(
-	name: string,
-	input: Record< string, unknown > | undefined
-): string {
+function getToolInputText( name: string, input: Record< string, unknown > | undefined ): string {
 	if ( ! input || Object.keys( input ).length === 0 ) {
 		return '';
 	}
@@ -657,15 +654,12 @@ function getClassicToolInputText(
 	return stringifyToolInput( input );
 }
 
-function getClassicToolDisplay(
-	name: string,
-	input: Record< string, unknown > | undefined
-): ClassicToolDisplay {
+function getToolDisplay( name: string, input: Record< string, unknown > | undefined ): ToolDisplay {
 	const genericDetail = getToolDetail( name, input );
-	const display: ClassicToolDisplay = {
+	const display: ToolDisplay = {
 		label: getToolDisplayName( name, input ),
 		detail: genericDetail,
-		inputText: getClassicToolInputText( name, input ),
+		inputText: getToolInputText( name, input ),
 	};
 
 	switch ( name ) {
@@ -698,7 +692,7 @@ function ToolUseRow( {
 	result?: NormalizedToolResult;
 	isRunning: boolean;
 } ) {
-	const display = getClassicToolDisplay( name, input );
+	const display = getToolDisplay( name, input );
 	const detailsId = useId();
 	const resultText = result?.text?.trim() ?? '';
 	const hasOutput = resultText.length > 0;

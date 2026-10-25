@@ -98,6 +98,10 @@ describe( 'AddSiteDialog', () => {
 		expect( screen.queryByRole( 'navigation' ) ).not.toBeInTheDocument();
 		fireEvent.click( screen.getByRole( 'button', { name: 'Blueprints' } ) );
 		expect( screen.getByRole( 'button', { name: 'Personal Blog card' } ) ).toBeVisible();
+
+		fireEvent.click( screen.getByRole( 'tab', { name: 'Blog' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Back to Blueprints' } ) );
+		expect( screen.getByRole( 'tab', { name: 'Create' } ) ).toHaveFocus();
 	} );
 
 	it( 'opens on a blank site’s setup when the preference says so', () => {

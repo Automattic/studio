@@ -4,8 +4,8 @@ import os from 'os';
 import path from 'path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
-	ensureStudioWpShimDirectory,
-	getStudioWpShimScript,
+	ensureStudioShimDirectory,
+	getStudioShims,
 	prependToPath,
 } from 'cli/ai/runtimes/pi/studio-wp-shim';
 
@@ -20,34 +20,37 @@ describe.skipIf( process.platform === 'win32' )( 'studio wp shim', () => {
 		fs.rmSync( root, { recursive: true, force: true } );
 	} );
 
-	it( 'makes `wp` in the Bash tool run `studio wp` with the same arguments', () => {
-		// Stands in for the CLI entry: prints the arguments it receives.
-		const cliPath = path.join( root, 'main.mjs' );
-		fs.writeFileSync( cliPath, 'console.log( JSON.stringify( process.argv.slice( 2 ) ) );' );
-		const directory = ensureStudioWpShimDirectory(
-			getStudioWpShimScript( process.execPath, cliPath ),
-			path.join( root, 'agent-bin' )
-		);
-		const { env } = prependToPath( directory )( {
-			command: '',
-			cwd: root,
-			env: { PATH: '/usr/bin:/bin' },
-		} );
+	it.each( [
+		{
+			command: `wp post create --post_title="Ember & Oak" page.html`,
+			args: [ 'wp', 'post', 'create', '--post_title=Ember & Oak', 'page.html' ],
+		},
+		{
+			command: `studio wp post create --porcelain`,
+			args: [ 'wp', 'post', 'create', '--porcelain' ],
+		},
+		{ command: 'studio site list', args: [ 'site', 'list' ] },
+	] )(
+		'makes `$command` in the Bash tool run the Studio running the agent',
+		( { command, args } ) => {
+			// Stands in for the CLI entry: prints the arguments it receives.
+			const cliPath = path.join( root, 'main.mjs' );
+			fs.writeFileSync( cliPath, 'console.log( JSON.stringify( process.argv.slice( 2 ) ) );' );
+			const directory = ensureStudioShimDirectory(
+				getStudioShims( process.execPath, cliPath ),
+				path.join( root, 'agent-bin' )
+			);
+			const { env } = prependToPath( directory )( {
+				command: '',
+				cwd: root,
+				env: { PATH: '/usr/bin:/bin' },
+			} );
 
-		const output = execFileSync(
-			'/bin/sh',
-			[ '-c', `wp post create --post_title="Ember & Oak" page.html` ],
-			{ env, encoding: 'utf8' }
-		);
+			const output = execFileSync( '/bin/sh', [ '-c', command ], { env, encoding: 'utf8' } );
 
-		expect( JSON.parse( output ) ).toEqual( [
-			'wp',
-			'post',
-			'create',
-			'--post_title=Ember & Oak',
-			'page.html',
-		] );
-	} );
+			expect( JSON.parse( output ) ).toEqual( args );
+		}
+	);
 
 	it( 'passes stdin, inline environment variables and exit code through', () => {
 		// Stands in for the CLI entry: echoes stdin and an environment variable, then exits 3.
@@ -60,8 +63,8 @@ describe.skipIf( process.platform === 'win32' )( 'studio wp shim', () => {
 				'process.exit( 3 );',
 			].join( '\n' )
 		);
-		const directory = ensureStudioWpShimDirectory(
-			getStudioWpShimScript( process.execPath, cliPath ),
+		const directory = ensureStudioShimDirectory(
+			getStudioShims( process.execPath, cliPath ),
 			path.join( root, 'agent-bin' )
 		);
 		const { env } = prependToPath( directory )( {
@@ -81,10 +84,10 @@ describe.skipIf( process.platform === 'win32' )( 'studio wp shim', () => {
 	} );
 
 	it( 'reuses the shim directory for the same script', () => {
-		const script = getStudioWpShimScript( '/node', '/cli/main.mjs' );
+		const shims = getStudioShims( '/node', '/cli/main.mjs' );
 		const agentBin = path.join( root, 'agent-bin' );
-		expect( ensureStudioWpShimDirectory( script, agentBin ) ).toBe(
-			ensureStudioWpShimDirectory( script, agentBin )
+		expect( ensureStudioShimDirectory( shims, agentBin ) ).toBe(
+			ensureStudioShimDirectory( shims, agentBin )
 		);
 	} );
 } );

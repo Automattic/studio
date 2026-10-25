@@ -67,11 +67,7 @@ import { changesPreview } from './preview-reload';
 import { SitePin } from './site-pin';
 import { SkillToolScope } from './skill-tool-scope';
 import { stripStaleImagesFromContext } from './strip-stale-images';
-import {
-	ensureStudioWpShimDirectory,
-	getStudioWpShimScript,
-	prependToPath,
-} from './studio-wp-shim';
+import { ensureStudioShimDirectory, getStudioShims, prependToPath } from './studio-wp-shim';
 import {
 	getIncompleteToolCallReason,
 	getWrittenFile,
@@ -823,9 +819,7 @@ function toToolDefinition(
 // module's sibling; `STUDIO_CLI_BIN` points elsewhere in development.
 function getStudioWpSpawnHook() {
 	const cliPath = process.env.STUDIO_CLI_BIN ?? path.join( import.meta.dirname, 'main.mjs' );
-	return prependToPath(
-		ensureStudioWpShimDirectory( getStudioWpShimScript( process.execPath, cliPath ) )
-	);
+	return prependToPath( ensureStudioShimDirectory( getStudioShims( process.execPath, cliPath ) ) );
 }
 
 function buildAgentTools(

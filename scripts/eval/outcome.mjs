@@ -84,6 +84,103 @@ function siteDesignText( s, { includeThemeJson = true } = {} ) {
 	return [ ...content, ...files, s.customCss || '' ].join( '\n' );
 }
 
+// Every stylesheet that reaches the page, each on its own (in a blob joined
+// with block markup, the first rule's selector would start with the markup
+// before it), in roughly the order they load, comments stripped: theme `.css`
+// files, `css` in theme.json files and saved Global Styles, `<style>` blocks
+// in content, and custom CSS.
+function stylesheets( s ) {
+	const all = siteDesignText( s );
+	const jsonCss = [
+		...Object.entries( s.themeFiles || {} )
+			.filter( ( [ file ] ) => file.endsWith( '.json' ) )
+			.map( ( [ , text ] ) => text ),
+		JSON.stringify( s.userGlobalStyles ?? {} ),
+	].join( '\n' );
+	const sheets = [
+		...Object.entries( s.themeFiles || {} )
+			.filter( ( [ file ] ) => file.endsWith( '.css' ) )
+			.map( ( [ file, css ] ) => ( { source: file, css } ) ),
+		...[ ...jsonCss.matchAll( /"css"\s*:\s*"((?:[^"\\]|\\.)*)"/g ) ].map( ( m ) => ( {
+			source: 'theme.json css',
+			css: JSON.parse( `"${ m[ 1 ] }"` ),
+		} ) ),
+		...[ ...all.matchAll( /<style[^>]*>([\s\S]*?)<\/style>/g ) ].map( ( m ) => ( {
+			source: '<style>',
+			css: m[ 1 ],
+		} ) ),
+		{ source: 'custom CSS', css: s.customCss || '' },
+	];
+	return sheets.map( ( sheet ) => ( {
+		...sheet,
+		css: sheet.css.replace( /\/\*[\s\S]*?\*\//g, ' ' ),
+	} ) );
+}
+
+// The code files the turn added or changed on the active site.
+function codeChanges( s ) {
+	if ( ! Array.isArray( s.codeChanges ) )
+		throw new Error( `no record of the code the turn changed on "${ s.name }"` );
+	return s.codeChanges.filter( ( c ) => c.status !== 'removed' );
+}
+
+// Block markup with each `wp:pattern` and synced pattern (`wp:block`) it
+// references replaced by that pattern's content, a few levels deep.
+function expandPatterns( s, text, depth = 3 ) {
+	if ( depth <= 0 ) return text;
+	const patterns = Object.entries( s.themeFiles || {} )
+		.filter( ( [ file ] ) => /^patterns\/.+\.php$/.test( file ) )
+		.map( ( [ , src ] ) => [ src.match( /^[\s*]*Slug:\s*(\S+)/m )?.[ 1 ], src ] );
+	return text
+		.replace( /<!-- wp:pattern (\{.*?\}) \/-->/g, ( whole, attrs ) => {
+			const slug = attrs.match( /"slug"\s*:\s*"([^"]+)"/ )?.[ 1 ];
+			const file = patterns.find( ( [ patternSlug ] ) => slug && patternSlug === slug );
+			return file ? expandPatterns( s, file[ 1 ], depth - 1 ) : whole;
+		} )
+		.replace( /<!-- wp:block (\{.*?\}) \/-->/g, ( whole, attrs ) => {
+			const ref = Number( attrs.match( /"ref"\s*:\s*(\d+)/ )?.[ 1 ] );
+			const block = ( s.content || [] ).find( ( c ) => c.type === 'wp_block' && c.id === ref );
+			return block ? expandPatterns( s, block.content, depth - 1 ) : whole;
+		} );
+}
+
+// The template part WordPress renders for each slug: the copy saved in the
+// Site Editor, otherwise the theme's file, with its patterns expanded.
+function renderedParts( s ) {
+	const parts = {};
+	for ( const [ file, text ] of Object.entries( s.themeFiles || {} ) ) {
+		const slug = file.match( /^parts\/(.+)\.html$/ )?.[ 1 ];
+		if ( slug ) parts[ slug ] = text;
+	}
+	for ( const c of s.content || [] ) {
+		if ( c.type === 'wp_template_part' ) parts[ c.slug ] = c.content;
+	}
+	return Object.fromEntries(
+		Object.entries( parts ).map( ( [ slug, text ] ) => [ slug, expandPatterns( s, text ) ] )
+	);
+}
+
+// The markup the home page is built from: the static front page's content,
+// otherwise the front-page or home template (saved or theme file).
+function frontMarkup( s ) {
+	const front = frontPage( s );
+	if ( s.showOnFront === 'page' && front )
+		return { source: `page "${ front.title }"`, text: expandPatterns( s, front.content ) };
+	for ( const slug of [ 'front-page', 'home', 'index' ] ) {
+		const saved = ( s.content || [] ).find( ( c ) => c.type === 'wp_template' && c.slug === slug );
+		const text = saved?.content ?? s.themeFiles?.[ `templates/${ slug }.html` ];
+		if ( text !== undefined )
+			return {
+				source: `${ saved ? 'saved' : 'theme' } ${ slug } template`,
+				text: expandPatterns( s, text ),
+			};
+	}
+	return { source: 'nothing', text: '' };
+}
+
+const countBlocks = ( text, name ) =>
+	( text.match( new RegExp( `<!-- wp:${ name }(?=[\\s/])`, 'g' ) ) || [] ).length;
+
 // --- Shared outcome checks ---------------------------------------------------
 
 // The site the case is about exists, renders, and every published page,
@@ -102,6 +199,42 @@ export const siteWorks = check( ( d, vars ) => {
 		);
 	}
 	return pass( `"${ s.name }" renders at ${ s.url } with valid blocks` );
+} );
+
+// The rendered home page, as the capture saved it.
+const homeHtml = ( s ) => ( s.home?.htmlFile ? readFileSync( s.home.htmlFile, 'utf8' ) : '' );
+
+// The rendered home page shows each `vars.homeText`, and each plugin in
+// `vars.plugins` is still active: the feature works, not just the site.
+// (Both are lists of objects, like `followUps`, so promptfoo keeps them in one test.)
+export const featureStillWorks = check( ( d, vars ) => {
+	const s = site( d, vars );
+	const plugins = ( vars.plugins || [] ).map( ( p ) => p.name );
+	const texts = ( vars.homeText || [] ).map( ( t ) => t.text );
+	const inactive = plugins.filter( ( plugin ) => ! ( s.plugins || [] ).includes( plugin ) );
+	if ( inactive.length )
+		return fail( `not active: ${ inactive.join( ', ' ) }; active: ${ s.plugins }` );
+	const html = homeHtml( s );
+	const missing = texts.filter( ( text ) => ! html.includes( text ) );
+	if ( missing.length ) return fail( `home page does not show: ${ missing.join( ', ' ) }` );
+	return pass( `active: ${ plugins.join( ', ' ) }; home page shows ${ texts.join( ', ' ) }` );
+} );
+
+// Every image on the rendered home page loads from the site itself, and
+// there are at least `vars.minImages` of them.
+export const homeImagesLoad = check( ( d, vars ) => {
+	const s = site( d, vars );
+	const images = s.home?.images || [];
+	const broken = images.filter( ( image ) => image.status !== 200 );
+	if ( images.length < ( vars.minImages ?? 1 ) )
+		return fail( `home page shows ${ images.length } images, expected ${ vars.minImages ?? 1 }` );
+	if ( broken.length )
+		return fail(
+			`images that do not load from the site: ${ broken
+				.map( ( image ) => `${ image.src } (${ image.status ?? 'another site' })` )
+				.join( ', ' ) }`
+		);
+	return pass( `all ${ images.length } home page images load from the site` );
 } );
 
 // No other site the user has was changed or removed.
@@ -447,21 +580,8 @@ export const noInlineDisplayOnBlockWrappers = check( ( d, vars ) => {
 			.flatMap( ( m ) => m[ 1 ].split( /\s+/ ) )
 			.filter( Boolean )
 	);
-	// Each stylesheet on its own: in a blob joined with block markup, the
-	// first rule's selector would start with the markup before it.
-	const stylesheets = [
-		...Object.entries( s.themeFiles || {} )
-			.filter( ( [ file ] ) => file.endsWith( '.css' ) )
-			.map( ( [ , text ] ) => text ),
-		s.customCss || '',
-		...[ ...all.matchAll( /<style[^>]*>([\s\S]*?)<\/style>/g ) ].map( ( m ) => m[ 1 ] ),
-		...[ ...all.matchAll( /"css"\s*:\s*"((?:[^"\\]|\\.)*)"/g ) ].map( ( m ) =>
-			JSON.parse( `"${ m[ 1 ] }"` )
-		),
-	];
 	const offenders = [];
-	for ( const sheet of stylesheets ) {
-		const css = sheet.replace( /\/\*[\s\S]*?\*\//g, ' ' );
+	for ( const { css } of stylesheets( s ) ) {
 		for ( const m of css.matchAll(
 			/([^{}]+)\{([^{}]*display\s*:\s*inline(?:-block|-flex|-grid|-table)?(?![\w-])[^{}]*)\}/g
 		) ) {
@@ -541,8 +661,6 @@ export const designTokenReachedTheme = check( ( d, vars ) => {
 		: fail( `DESIGN.md ${ vars.token } is ${ value }, but the theme palette does not have it` );
 } );
 
-// The rendered home page, as the capture saved it.
-const homeHtml = ( s ) => ( s.home?.htmlFile ? readFileSync( s.home.htmlFile, 'utf8' ) : '' );
 const pathOf = ( url ) => new URL( url ).pathname.replace( /\/?$/, '/' );
 
 // Each page the prompt asks for (`vars.pages`, by `title`) is published, is in
@@ -667,6 +785,164 @@ export const blogPostsOnHome = check( ( d, vars ) => {
 		`${ posts.length } posts in ${ vars.categories
 			.map( ( c ) => c.name )
 			.join( ', ' ) }, all on the home page`
+	);
+} );
+
+// --- Native WordPress features over custom code ------------------------------
+
+// The header WordPress renders carries WooCommerce's Mini-Cart block, and the
+// turn added no cart-count code of its own to themes or plugins.
+export const miniCartInHeader = check( ( d, vars ) => {
+	const s = site( d, vars );
+	if ( ! ( s.plugins || [] ).includes( 'woocommerce' ) )
+		return fail( `WooCommerce is not active: ${ JSON.stringify( s.plugins ) }` );
+	const custom = codeChanges( s ).filter(
+		( c ) =>
+			/\.(php|m?js|jsx|tsx?)$/.test( c.file ) &&
+			! c.file.startsWith( 'plugins/woocommerce/' ) &&
+			/woocommerce_add_to_cart_fragments|add_to_cart_fragments|get_cart_contents_count|cart_contents_count|wc_cart_fragments|wc-cart-fragments|added_to_cart|wc_fragments/.test(
+				c.text || ''
+			)
+	);
+	if ( custom.length )
+		return fail( `custom cart-count code added: ${ custom.map( ( c ) => c.file ).join( ', ' ) }` );
+	const headers = Object.entries( renderedParts( s ) ).filter( ( [ slug ] ) =>
+		/header/.test( slug )
+	);
+	const withCart = headers.filter( ( [ , text ] ) => countBlocks( text, 'woocommerce/mini-cart' ) );
+	return withCart.length
+		? pass(
+				`header part ${ withCart
+					.map( ( [ slug ] ) => `"${ slug }"` )
+					.join( ', ' ) } has the Mini-Cart block`
+		  )
+		: fail(
+				`no woocommerce/mini-cart block in the header parts ${ JSON.stringify(
+					headers.map( ( [ slug ] ) => slug )
+				) }`
+		  );
+} );
+
+// The home page has at least three Details (or Accordion item) blocks, no
+// Custom HTML block or inline script, and the turn added no JavaScript file.
+export const faqUsesDetailsBlocks = check( ( d, vars ) => {
+	const s = site( d, vars );
+	const { source, text } = frontMarkup( s );
+	const items = countBlocks( text, 'details' ) + countBlocks( text, 'accordion-item' );
+	if ( items < 3 )
+		return fail( `${ source } has ${ items } Details/Accordion item block(s), not three` );
+	if ( countBlocks( text, 'html' ) ) return fail( `${ source } has a Custom HTML block` );
+	if ( /<script\b/i.test( text ) ) return fail( `${ source } has an inline script` );
+	const scripts = codeChanges( s ).filter( ( c ) => /\.(m?js|jsx|tsx?)$/.test( c.file ) );
+	if ( scripts.length )
+		return fail( `JavaScript added: ${ scripts.map( ( c ) => c.file ).join( ', ' ) }` );
+	return pass(
+		`${ source } has ${ items } Details/Accordion item blocks and no custom HTML or JS`
+	);
+} );
+
+// A published About page built from native blocks (heading, paragraph, image),
+// with no Custom HTML block, and no theme template of raw HTML from the turn.
+export const pageInNativeBlocks = check( ( d, vars ) => {
+	const s = site( d, vars );
+	const title = new RegExp( vars.pageTitle ?? 'about', 'i' );
+	const page = ( s.content || [] ).find( ( c ) => c.type === 'page' && title.test( c.title ) );
+	if ( ! page ) return fail( `no published page titled like ${ title }` );
+	const blocks = page.blocks || {};
+	if ( blocks[ 'core/html' ] ) return fail( `"${ page.title }" has a Custom HTML block` );
+	const missing = [
+		[ 'heading', [ 'core/heading' ] ],
+		[ 'paragraph', [ 'core/paragraph' ] ],
+		[ 'image', [ 'core/image', 'core/cover', 'core/media-text' ] ],
+	].filter( ( [ , names ] ) => ! names.some( ( n ) => blocks[ n ] ) );
+	if ( missing.length )
+		return fail(
+			`"${ page.title }" has no ${ missing
+				.map( ( [ k ] ) => k )
+				.join( ', ' ) } block: ${ JSON.stringify( blocks ) }`
+		);
+	const rawHtml = ( text ) =>
+		countBlocks( text, 'html' ) > 0 || ( ! text.includes( '<!-- wp:' ) && /<[a-z]/i.test( text ) );
+	const templates = [
+		...codeChanges( s )
+			.filter(
+				( c ) =>
+					/^themes\/[^/]+\/(templates|parts)\/.+\.html$/.test( c.file ) && rawHtml( c.text || '' )
+			)
+			.map( ( c ) => c.file ),
+		...codeChanges( s )
+			.filter(
+				( c ) =>
+					/^themes\/[^/]+\/(?:templates\/[^/]+|(?:page|front-page|home|index|singular|single)[\w-]*)\.php$/.test(
+						c.file
+					) || /Template Name:/.test( c.text || '' )
+			)
+			.map( ( c ) => c.file ),
+		...( s.content || [] )
+			.filter( ( c ) => c.type === 'wp_template' && rawHtml( c.content ) )
+			.map( ( c ) => `saved template "${ c.slug }"` ),
+	];
+	if ( templates.length ) return fail( `templates of raw HTML: ${ templates.join( ', ' ) }` );
+	return pass( `"${ page.title }" built from blocks: ${ Object.keys( blocks ).join( ', ' ) }` );
+} );
+
+// --- Design changes through theme.json -----------------------------------------
+
+// The theme has a valid style variation (`styles/*.json`) whose palette or
+// background differs from the theme's own, and no stylesheet carries a
+// dark mode of its own (`prefers-color-scheme`, `.dark`-style selectors).
+export const darkStyleVariation = check( ( d, vars ) => {
+	const s = site( d, vars );
+	const parse = ( text ) => {
+		try {
+			return JSON.parse( text );
+		} catch {
+			return null;
+		}
+	};
+	const base = parse( s.themeFiles?.[ 'theme.json' ] || '{}' ) || {};
+	const look = ( json ) =>
+		JSON.stringify( [
+			json?.settings?.color?.palette ?? null,
+			json?.styles?.color?.background ?? null,
+		] );
+	const variations = Object.entries( s.themeFiles || {} ).filter( ( [ file ] ) =>
+		/^styles\/[^/]+\.json$/.test( file )
+	);
+	if ( ! variations.length )
+		return fail( `${ s.theme?.stylesheet } has no styles/*.json variation` );
+	const invalid = variations.filter( ( [ , text ] ) => ! parse( text )?.version );
+	if ( invalid.length )
+		return fail( `invalid variation(s): ${ invalid.map( ( [ file ] ) => file ).join( ', ' ) }` );
+	const effective = ( json ) =>
+		look( {
+			settings: {
+				color: { palette: json.settings?.color?.palette ?? base.settings?.color?.palette },
+			},
+			styles: {
+				color: { background: json.styles?.color?.background ?? base.styles?.color?.background },
+			},
+		} );
+	const differing = variations.filter(
+		( [ , text ] ) => effective( parse( text ) ) !== look( base )
+	);
+	if ( ! differing.length )
+		return fail(
+			`no variation changes the palette or background: ${ variations
+				.map( ( [ f ] ) => f )
+				.join( ', ' ) }`
+		);
+	const darkCss = stylesheets( s ).filter( ( { css } ) =>
+		/prefers-color-scheme|(?:^|[\s,>+~}(])(?:html|body)?\.(?:is-)?dark(?:-mode|-theme)?(?![\w-])|\[data-(?:theme|color-scheme|mode)\s*=\s*["']?dark/i.test(
+			css
+		)
+	);
+	if ( darkCss.length )
+		return fail( `dark-mode CSS in ${ darkCss.map( ( c ) => c.source ).join( ', ' ) }` );
+	return pass(
+		`variation ${ differing
+			.map( ( [ f ] ) => f )
+			.join( ', ' ) } changes the colors, no dark-mode CSS`
 	);
 } );
 

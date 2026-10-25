@@ -671,6 +671,269 @@ describe( 'new-case checks', () => {
 	} );
 } );
 
+describe( 'native feature checks', () => {
+	const page = ( fields ) => ( {
+		type: 'page',
+		isFront: false,
+		content: '',
+		blocks: {},
+		...fields,
+	} );
+
+	test( 'miniCartInHeader', () => {
+		const site = ( fields ) => ( {
+			...workingSite,
+			plugins: [ 'woocommerce' ],
+			themeFiles: {
+				'parts/header.html': '<!-- wp:pattern {"slug":"twentytwentyfive/header"} /-->',
+				'patterns/header.php':
+					'<?php\n/**\n * Title: Header\n * Slug: twentytwentyfive/header\n */\n?>\n<!-- wp:site-title /-->',
+			},
+			content: [],
+			codeChanges: [],
+			...fields,
+		} );
+		const savedHeader = {
+			type: 'wp_template_part',
+			slug: 'header',
+			content: '<!-- wp:site-title /--><!-- wp:woocommerce/mini-cart /-->',
+		};
+		expect(
+			run( checks.miniCartInHeader, outcome( site( { content: [ savedHeader ] } ) ) ).pass
+		).toBe( true );
+		// Through the pattern the theme's header part renders.
+		expect(
+			run(
+				checks.miniCartInHeader,
+				outcome(
+					site( {
+						themeFiles: {
+							...site().themeFiles,
+							'patterns/header.php':
+								'<?php\n/**\n * Slug: twentytwentyfive/header\n */\n?>\n<!-- wp:woocommerce/mini-cart {"hasHiddenPrice":true} /-->',
+						},
+					} )
+				)
+			).pass
+		).toBe( true );
+		expect( run( checks.miniCartInHeader, outcome( site() ) ).pass ).toBe( false );
+		expect(
+			run(
+				checks.miniCartInHeader,
+				outcome(
+					site( {
+						content: [ savedHeader ],
+						codeChanges: [
+							{
+								file: 'themes/twentytwentyfive/functions.php',
+								status: 'added',
+								text: "add_filter( 'woocommerce_add_to_cart_fragments', 'cart_count' );",
+							},
+						],
+					} )
+				)
+			).pass
+		).toBe( false );
+		expect(
+			run( checks.miniCartInHeader, outcome( site( { content: [ savedHeader ], plugins: [] } ) ) )
+				.pass
+		).toBe( false );
+	} );
+
+	test( 'faqUsesDetailsBlocks', () => {
+		const details = '<!-- wp:details --><details></details><!-- /wp:details -->';
+		const site = ( content, codeChanges = [] ) => ( {
+			...workingSite,
+			showOnFront: 'page',
+			content: [ page( { isFront: true, title: 'Home', content } ) ],
+			codeChanges,
+		} );
+		expect( run( checks.faqUsesDetailsBlocks, outcome( site( details.repeat( 3 ) ) ) ).pass ).toBe(
+			true
+		);
+		// WordPress's Accordion block is the other native FAQ.
+		const accordionItem =
+			'<!-- wp:accordion-item --><div class="wp-block-accordion-item"></div><!-- /wp:accordion-item -->';
+		expect(
+			run( checks.faqUsesDetailsBlocks, outcome( site( accordionItem.repeat( 3 ) ) ) ).pass
+		).toBe( true );
+		// The home template, when the front page lists posts.
+		expect(
+			run(
+				checks.faqUsesDetailsBlocks,
+				outcome( {
+					...workingSite,
+					showOnFront: 'posts',
+					content: [ { type: 'wp_template', slug: 'home', content: details.repeat( 3 ) } ],
+					codeChanges: [],
+				} )
+			).pass
+		).toBe( true );
+		expect( run( checks.faqUsesDetailsBlocks, outcome( site( details.repeat( 2 ) ) ) ).pass ).toBe(
+			false
+		);
+		expect(
+			run(
+				checks.faqUsesDetailsBlocks,
+				outcome( site( details.repeat( 3 ) + '<!-- wp:html --><div></div><!-- /wp:html -->' ) )
+			).pass
+		).toBe( false );
+		expect(
+			run(
+				checks.faqUsesDetailsBlocks,
+				outcome(
+					site( details.repeat( 3 ), [
+						{ file: 'themes/twentytwentyfive/assets/faq.js', status: 'added', text: '' },
+					] )
+				)
+			).pass
+		).toBe( false );
+	} );
+
+	test( 'pageInNativeBlocks', () => {
+		const about = page( {
+			title: 'About',
+			blocks: { 'core/heading': 1, 'core/paragraph': 2, 'core/image': 1 },
+		} );
+		const site = ( fields ) => ( {
+			...workingSite,
+			content: [ about ],
+			codeChanges: [],
+			...fields,
+		} );
+		expect( run( checks.pageInNativeBlocks, outcome( site() ) ).pass ).toBe( true );
+		expect(
+			run(
+				checks.pageInNativeBlocks,
+				outcome( site( { content: [ { ...about, blocks: { 'core/html': 1 } } ] } ) )
+			).pass
+		).toBe( false );
+		expect(
+			run(
+				checks.pageInNativeBlocks,
+				outcome(
+					site( {
+						codeChanges: [
+							{
+								file: 'themes/twentytwentyfive/templates/page-about.html',
+								status: 'added',
+								text: '<main><h1>About</h1><p>We bake.</p></main>',
+							},
+						],
+					} )
+				)
+			).pass
+		).toBe( false );
+		expect( run( checks.pageInNativeBlocks, outcome( site( { content: [] } ) ) ).pass ).toBe(
+			false
+		);
+	} );
+} );
+
+describe( 'theme.json checks', () => {
+	const themeJson = JSON.stringify( {
+		version: 3,
+		settings: { color: { palette: [ { slug: 'base', color: '#ffffff' } ] } },
+		styles: { color: { background: 'var:preset|color|base' } },
+	} );
+
+	test( 'darkStyleVariation', () => {
+		const dark = JSON.stringify( {
+			version: 3,
+			title: 'Dark',
+			settings: { color: { palette: [ { slug: 'base', color: '#111111' } ] } },
+		} );
+		const site = ( files, customCss = '' ) => ( {
+			...workingSite,
+			theme: { stylesheet: 'eval-theme' },
+			themeFiles: { 'theme.json': themeJson, ...files },
+			customCss,
+		} );
+		expect(
+			run( checks.darkStyleVariation, outcome( site( { 'styles/dark.json': dark } ) ) ).pass
+		).toBe( true );
+		expect( run( checks.darkStyleVariation, outcome( site( {} ) ) ).pass ).toBe( false );
+		expect(
+			run(
+				checks.darkStyleVariation,
+				outcome( site( { 'styles/dark.json': JSON.stringify( { version: 3, title: 'Same' } ) } ) )
+			).pass
+		).toBe( false );
+		expect(
+			run(
+				checks.darkStyleVariation,
+				outcome(
+					site(
+						{ 'styles/dark.json': dark },
+						'@media (prefers-color-scheme: dark) { body { background: #000; } }'
+					)
+				)
+			).pass
+		).toBe( false );
+		expect(
+			run(
+				checks.darkStyleVariation,
+				outcome(
+					site( {
+						'styles/dark.json': dark,
+						'style.css': 'body.is-dark { background: #000; }',
+					} )
+				)
+			).pass
+		).toBe( false );
+	} );
+} );
+
+describe( 'debugging checks', () => {
+	const homeFile = ( html ) => {
+		const file = path.join( dir, `home-${ count++ }.html` );
+		writeFileSync( file, html );
+		return file;
+	};
+	const vars = {
+		plugins: [ { name: 'opening-hours' } ],
+		homeText: [ { text: 'Open Mon-Fri 7am-6pm' } ],
+	};
+	const hours = '<p class="opening-hours">Open Mon-Fri 7am-6pm, Sat 8am-2pm</p>';
+
+	test.each( [
+		[ 'the plugin is active and shows its hours', [ 'opening-hours' ], hours, true ],
+		[ 'the plugin was deactivated to stop the error', [], '<p>Welcome</p>', false ],
+		[ 'the plugin was deactivated and its hours pasted in', [], hours, false ],
+		[ 'the plugin is active but its output is gone', [ 'opening-hours' ], '<p>Welcome</p>', false ],
+	] )( 'featureStillWorks: %s', ( _, plugins, html, expected ) => {
+		const site = {
+			...workingSite,
+			plugins,
+			home: { ...workingSite.home, htmlFile: homeFile( html ) },
+		};
+		expect( run( checks.featureStillWorks, outcome( site ), vars ).pass ).toBe( expected );
+	} );
+
+	const image = ( src, status ) => ( { src, status } );
+	test.each( [
+		[
+			'every image loads from the site',
+			[ image( 'http://localhost:8881/a.jpg', 200 ), image( 'http://localhost:8881/b.jpg', 200 ) ],
+			true,
+		],
+		[
+			'an image still points at the old domain',
+			[ image( 'http://localhost:8881/a.jpg', 200 ), image( 'https://example.com/b.jpg', null ) ],
+			false,
+		],
+		[
+			'an image on the site is missing',
+			[ image( 'http://localhost:8881/a.jpg', 200 ), image( 'http://localhost:8881/b.jpg', 404 ) ],
+			false,
+		],
+		[ 'the images were removed', [ image( 'http://localhost:8881/a.jpg', 200 ) ], false ],
+	] )( 'homeImagesLoad: %s', ( _, images, expected ) => {
+		const site = { ...workingSite, home: { ...workingSite.home, images } };
+		expect( run( checks.homeImagesLoad, outcome( site ), { minImages: 2 } ).pass ).toBe( expected );
+	} );
+} );
+
 describe( 'routing checks', () => {
 	const skill = ( name ) => ( { name: 'Skill', input: { name } } );
 	const vars = { skills: [ { name: 'block-content' }, { name: 'imagery' } ] };

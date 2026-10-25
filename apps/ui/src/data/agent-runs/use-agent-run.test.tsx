@@ -3,9 +3,12 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useConnector } from '@/data/core';
-import { AgentRunProvider, useAgentRun } from './use-agent-run';
-import { SESSIONS_QUERY_KEY } from './use-sessions';
+import { ASSISTANT_QUOTA_QUERY_KEY } from '@/data/queries/use-assistant-quota';
+import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
+import { AgentRunProvider } from './provider';
+import { useAgentRun } from './use-agent-run';
 import type { AgentRunEvent, Connector, LoadedAiSession } from '@/data/core';
+import type { ActiveAgentRun } from '@studio/common/ai/agent-events';
 import type { ReactNode } from 'react';
 
 vi.mock( '@/data/core', async ( importOriginal ) => {
@@ -18,7 +21,7 @@ vi.mock( '@/data/core', async ( importOriginal ) => {
 
 const { outOfCreditsState } = vi.hoisted( () => ( { outOfCreditsState: { value: false } } ) );
 
-vi.mock( './use-is-out-of-ai-credits', () => ( {
+vi.mock( '@/data/queries/use-is-out-of-ai-credits', () => ( {
 	useIsOutOfAiCredits: () => outOfCreditsState.value,
 } ) );
 
@@ -38,6 +41,12 @@ function createLoadedSession( entries: LoadedAiSession[ 'entries' ] = [] ): Load
 		summary: { id: 'session-1' },
 		entries,
 	} as LoadedAiSession;
+}
+
+function deferredRuns() {
+	let resolve!: ( runs: ActiveAgentRun[] ) => void;
+	const promise = new Promise< ActiveAgentRun[] >( ( done ) => ( resolve = done ) );
+	return { promise, resolve };
 }
 
 function renderWithAgentRun( queryClient: QueryClient ) {
@@ -206,6 +215,71 @@ describe( 'useAgentRun queued handoff', () => {
 		act( () => restoreConnection() );
 
 		await waitFor( () => expect( screen.getByTestId( 'phase' ) ).toHaveTextContent( 'idle' ) );
+	} );
+
+	it( 'keeps a run that ended while a reconnect snapshot was in flight', async () => {
+		const snapshot = deferredRuns();
+		renderWithAgentRun( createQueryClient() );
+		await waitFor( () => expect( connector.onAgentEvent ).toHaveBeenCalled() );
+		startOldRun();
+		vi.mocked( connector.getActiveAgentRuns ).mockReturnValueOnce( snapshot.promise );
+
+		act( () => restoreConnection() );
+		act( () => {
+			agentListener( {
+				sessionId: 'session-1',
+				runId: 'run-old',
+				event: {
+					type: 'run.exited',
+					timestamp: '2026-06-24T12:00:02.000Z',
+					status: 'success',
+					code: 0,
+				},
+			} );
+		} );
+		await act( async () =>
+			snapshot.resolve( [
+				{ runId: 'run-old', sessionId: 'session-1', startedAt: 1, phase: 'running' },
+			] )
+		);
+
+		expect( screen.getByTestId( 'phase' ) ).toHaveTextContent( 'idle' );
+	} );
+
+	it( 'ignores a snapshot that lands after a newer one', async () => {
+		const older = deferredRuns();
+		const newer = deferredRuns();
+		renderWithAgentRun( createQueryClient() );
+		await waitFor( () => expect( connector.onConnectionRestored ).toHaveBeenCalled() );
+		vi.mocked( connector.getActiveAgentRuns )
+			.mockReturnValueOnce( older.promise )
+			.mockReturnValueOnce( newer.promise );
+
+		act( () => restoreConnection() );
+		act( () => restoreConnection() );
+		await act( async () => newer.resolve( [] ) );
+		await act( async () =>
+			older.resolve( [
+				{ runId: 'run-1', sessionId: 'session-1', startedAt: 1, phase: 'running' },
+			] )
+		);
+
+		expect( screen.getByTestId( 'phase' ) ).toHaveTextContent( 'idle' );
+	} );
+
+	it( 'refreshes the chats and the credit balance on reconnect', async () => {
+		const queryClient = createQueryClient();
+		const invalidateSpy = vi.spyOn( queryClient, 'invalidateQueries' );
+		renderWithAgentRun( queryClient );
+		await waitFor( () => expect( connector.onConnectionRestored ).toHaveBeenCalled() );
+
+		act( () => restoreConnection() );
+
+		expect( invalidateSpy ).toHaveBeenCalledWith(
+			{ queryKey: SESSIONS_QUERY_KEY },
+			{ cancelRefetch: false }
+		);
+		expect( invalidateSpy ).toHaveBeenCalledWith( { queryKey: ASSISTANT_QUOTA_QUERY_KEY } );
 	} );
 
 	it( 'holds a queued prompt instead of dispatching it once the credits are spent', async () => {

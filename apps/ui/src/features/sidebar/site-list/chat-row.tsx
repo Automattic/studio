@@ -2,7 +2,7 @@ import { useNavigate } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
 import { clsx } from 'clsx';
 import { useState } from 'react';
-import { useSiteAgentActivity } from '@/data/queries/use-agent-run';
+import { useSiteAgentActivity } from '@/data/agent-runs/use-agent-run';
 import { useSessions } from '@/data/queries/use-sessions';
 import { chatPinKey } from '@/data/queries/use-sidebar-pins';
 import { ChatActionsMenuItems, useChatActions, getSessionTitle } from '@/features/chats';

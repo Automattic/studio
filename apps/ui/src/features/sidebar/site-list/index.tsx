@@ -3,7 +3,7 @@ import { useParams, useRouterState } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { clsx } from 'clsx';
 import { Fragment, useMemo, useState, type ReactNode } from 'react';
-import { useSessionsNeedingInput } from '@/data/queries/use-agent-run';
+import { useSessionsNeedingInput } from '@/data/agent-runs/use-agent-run';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useSessions } from '@/data/queries/use-sessions';
 import { useSidebarPreferences } from '@/data/queries/use-sidebar-pins';

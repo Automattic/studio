@@ -50,6 +50,9 @@ export function SidebarLayout( { children }: { children: ReactNode } ) {
 		}
 	}, [ overlay, collapsed, setCollapsed ] );
 	const sidebarRef = useRef< HTMLElement >( null );
+	// Escape can close the overlay while focus is still in a menu it opened,
+	// which would hand focus back to the sidebar once it's inert.
+	const closedWithEscape = useRef( false );
 	// The overlay takes focus to its first item, and gives it back to the
 	// sidebar toggle when it closes.
 	useLayoutEffect( () => {
@@ -58,7 +61,11 @@ export function SidebarLayout( { children }: { children: ReactNode } ) {
 			sidebar
 				?.querySelector< HTMLElement >( 'button:not(:disabled)' )
 				?.focus( { preventScroll: true } );
-		} else if ( ! open && sidebar?.contains( document.activeElement ) ) {
+		} else if (
+			! open &&
+			( closedWithEscape.current || sidebar?.contains( document.activeElement ) )
+		) {
+			closedWithEscape.current = false;
 			const focusToggle = () =>
 				[ ...document.querySelectorAll< HTMLElement >( '[data-sidebar-toggle]' ) ]
 					.find( ( toggle ) => ! toggle.closest( '[inert]' ) )
@@ -80,6 +87,7 @@ export function SidebarLayout( { children }: { children: ReactNode } ) {
 		}
 		const closeOnEscape = ( event: KeyboardEvent ) => {
 			if ( event.key === 'Escape' && ! event.defaultPrevented ) {
+				closedWithEscape.current = true;
 				setOverlayOpen( false );
 			}
 		};

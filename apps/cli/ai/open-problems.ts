@@ -6,15 +6,11 @@
  * page sections that only work on the home page.
  *
  * Each problem is raised once, so the agent decides what to do with it: fix
- * it, or tell the user why it stays.
+ * it, or ask the user about one that needs their choice.
  */
 import { readFile } from 'fs/promises';
 import path from 'path';
-import {
-	FRONT_PAGE_TEMPLATE,
-	frontPageTemplateProblem,
-	rendersPageContent,
-} from 'cli/ai/front-page-template';
+import { frontPageTemplateProblem, rendersPageContent } from 'cli/ai/front-page-template';
 import { headerMenu } from 'cli/ai/header-menu';
 import { homeSectionLinks } from 'cli/ai/home-section-links';
 import { readSavedCopies } from 'cli/ai/saved-copies';
@@ -34,13 +30,9 @@ export class OpenProblems {
 	private readonly state: OpenProblemsState = { sites: [], open: {}, raised: [] };
 
 	constructor(
-		private readonly siteChecks: Array< ( sitePath: string ) => Promise< string | undefined > > = [
-			unrenderedFrontPage,
-			frontPageIsPostsPage,
-			postsPageContent,
-			homeSectionLinks,
-			headerMenu,
-		]
+		private readonly siteChecks: Array<
+			( sitePath: string ) => Promise< string | string[] | undefined >
+		> = [ unrenderedPages, frontPageIsPostsPage, postsPageContent, homeSectionLinks, headerMenu ]
 	) {}
 
 	/** Records the latest validation of a site's file or post, open while it has a problem. */
@@ -62,7 +54,7 @@ export class OpenProblems {
 				this.siteChecks.map( ( check ) => check( site ).catch( () => undefined ) )
 			)
 		);
-		const problems = [ ...Object.values( this.state.open ), ...siteProblems ].filter(
+		const problems = [ ...Object.values( this.state.open ), ...siteProblems.flat() ].filter(
 			( problem ): problem is string => !! problem && ! this.state.raised.includes( problem )
 		);
 		this.state.raised.push( ...problems );
@@ -147,46 +139,121 @@ export async function postsPageContent( sitePath: string ): Promise< string | un
 }
 
 /**
- * A front-page template of the active theme that renders no page's content,
- * which WordPress shows at the front page whatever Settings → Reading picks
- * (front-page-template.ts).
+ * The pages whose template, the one WordPress picks for each, renders no
+ * page's content: the front page's front-page template, which WordPress
+ * renders there whatever Settings → Reading picks (front-page-template.ts),
+ * and each page's template in the page hierarchy (get_page_template in
+ * wp-includes/template.php), page-{slug}, page-{id}, then page, singular and
+ * index. A Site Editor copy of a template comes before the theme's file. The
+ * posts page renders the posts index (postsPageContent).
  */
-export async function unrenderedFrontPage( sitePath: string ): Promise< string | undefined > {
+export async function unrenderedPages( sitePath: string ): Promise< string[] > {
 	const state = await readWordPressSite( sitePath, ( site ) => {
-		const saved = readSavedCopies( site ).find(
-			( copy ) => copy.postType === 'wp_template' && copy.slug === 'front-page'
+		const saved = new Map(
+			readSavedCopies( site )
+				.filter( ( copy ) => copy.postType === 'wp_template' )
+				.map( ( copy ) => [ copy.slug, copy.id ] )
 		);
-		const post = ( id: number ) =>
-			site.query< { title: string; content: string } >(
-				`SELECT post_title AS title, post_content AS content FROM ${ site.prefix }posts WHERE ID = ?`,
+		const content = ( id: number ) =>
+			site.query< { content: string } >(
+				`SELECT post_content AS content FROM ${ site.prefix }posts WHERE ID = ?`,
 				id
-			)[ 0 ];
-		const pageId =
-			site.option( 'show_on_front' ) === 'page' ? Number( site.option( 'page_on_front' ) ) : 0;
+			)[ 0 ]?.content ?? '';
+		const pages = site.query< { id: number; slug: string; title: string } >(
+			`SELECT ID AS id, post_name AS slug, post_title AS title FROM ${ site.prefix }posts WHERE post_type = 'page' AND post_status = 'publish' ORDER BY ID`
+		);
+		const staticFront = site.option( 'show_on_front' ) === 'page';
 		return {
-			frontPage: pageId ? `page ${ pageId } "${ post( pageId )?.title ?? '' }"` : undefined,
-			saved: saved && { id: saved.id, content: post( saved.id )?.content ?? '' },
+			saved: new Map(
+				[ ...saved ].map( ( [ slug, id ] ) => [ slug, { id, content: content( id ) } ] )
+			),
+			pages,
+			front: staticFront ? Number( site.option( 'page_on_front' ) ) : 0,
+			postsPage: staticFront ? Number( site.option( 'page_for_posts' ) ) : 0,
 			themes: activeThemes( site ),
 		};
 	} );
 	if ( ! state ) {
-		return undefined;
+		return [];
 	}
 	const themeDirs = state.themes.map( ( theme ) =>
 		path.join( sitePath, 'wp-content', 'themes', theme )
 	);
-	let template = state.saved?.content;
-	let source = `the front-page template saved in the Site Editor (post ${ state.saved?.id })`;
-	for ( const theme of state.saved ? [] : state.themes ) {
-		const file = `wp-content/themes/${ theme }/${ FRONT_PAGE_TEMPLATE }`;
-		template = await readFile( path.join( sitePath, file ), 'utf8' ).catch( () => undefined );
-		source = file;
-		if ( template !== undefined ) {
-			break;
+	// The first template of the hierarchy the site has.
+	const resolve = async ( slugs: string[] ) => {
+		for ( const slug of slugs ) {
+			const copy = state.saved.get( slug );
+			if ( copy ) {
+				return {
+					slug,
+					source: `the ${ slug } template saved in the Site Editor (post ${ copy.id })`,
+					content: copy.content,
+				};
+			}
+			for ( const theme of state.themes ) {
+				const file = `wp-content/themes/${ theme }/templates/${ slug }.html`;
+				const content = await readFile( path.join( sitePath, file ), 'utf8' ).catch(
+					() => undefined
+				);
+				if ( content !== undefined ) {
+					return { slug, source: file, content };
+				}
+			}
+		}
+		return undefined;
+	};
+	const unrendered = async ( slugs: string[] ) => {
+		const template = await resolve( slugs );
+		return template && ( await rendersPageContent( template.content, themeDirs ) ) === false
+			? template
+			: undefined;
+	};
+
+	const problems: string[] = [];
+	const front = state.pages.find( ( page ) => page.id === state.front );
+	const frontTemplate = await unrendered( [ 'front-page' ] );
+	if ( frontTemplate ) {
+		problems.push(
+			frontPageTemplateProblem(
+				frontTemplate.source,
+				front && `page ${ front.id } "${ front.title }"`
+			)
+		);
+	}
+	const byTemplate = new Map< string, { slug: string; pages: string[] } >();
+	for ( const page of state.pages ) {
+		if ( page.id === state.postsPage || ( page.id === state.front && frontTemplate ) ) {
+			continue;
+		}
+		const template = await unrendered( [
+			...( page.id === state.front ? [ 'front-page' ] : [] ),
+			`page-${ page.slug }`,
+			`page-${ page.id }`,
+			'page',
+			'singular',
+			'index',
+		] );
+		if ( template ) {
+			const entry = byTemplate.get( template.source ) ?? { slug: template.slug, pages: [] };
+			entry.pages.push( `page ${ page.id } "${ page.title }"` );
+			byTemplate.set( template.source, entry );
 		}
 	}
-	if ( template === undefined || ( await rendersPageContent( template, themeDirs ) ) !== false ) {
-		return undefined;
+	for ( const [ source, { slug, pages } ] of byTemplate ) {
+		const one = pages.length === 1;
+		problems.push(
+			`WordPress renders ${ pages.join(
+				', '
+			) } with ${ source } (the page template hierarchy, get_page_template in wp-includes/template.php), which has no core/post-content block, the only block that renders the page shown (wp-includes/blocks/post-content.php), so ${
+				one ? 'its' : 'their'
+			} content never shows, and edits to ${
+				one ? 'it' : 'them'
+			} change nothing on the site. Put the content in ${
+				one ? 'the page' : 'each page'
+			}, and render it with <!-- wp:post-content /--> in the template${
+				slug.startsWith( 'page-' ) ? ', or remove the template so page.html renders the page' : ''
+			}.`
+		);
 	}
-	return frontPageTemplateProblem( source, state.frontPage );
+	return problems;
 }

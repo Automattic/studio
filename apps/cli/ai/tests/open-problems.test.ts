@@ -15,12 +15,18 @@ describe( 'OpenProblems', () => {
 				checked.push( site );
 				return `${ site } has a problem`;
 			},
+			async ( site ) => [ `${ site } has a page problem`, `${ site } has another` ],
 		] );
 		open.record( '/a', '/a/page-1', 'page 1 is invalid' );
 		open.record( '/a', '/a/page-2', 'page 2 is invalid' );
 		open.record( '/a', '/a/page-2' );
 
-		expect( await open.raise() ).toEqual( [ 'page 1 is invalid', '/a has a problem' ] );
+		expect( await open.raise() ).toEqual( [
+			'page 1 is invalid',
+			'/a has a problem',
+			'/a has a page problem',
+			'/a has another',
+		] );
 		expect( checked ).toEqual( [ '/a' ] );
 		expect( await open.raise() ).toEqual( [] );
 

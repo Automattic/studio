@@ -46,8 +46,15 @@ export function isSiteSection( value: SettingsSectionId ) {
 	return ( SITE_SECTIONS as readonly string[] ).includes( value );
 }
 
-// A setting search can find. `id` is the stable name a settings link uses.
-type Setting = { id?: string; title: string; description: string; icon?: SectionIcon };
+// A setting search can find. `id` is the stable name a settings link uses,
+// and `aliases` other names people search for it by.
+type Setting = {
+	id?: string;
+	title: string;
+	description: string;
+	icon?: SectionIcon;
+	aliases?: string[];
+};
 
 type SectionIcon = ComponentType< { className?: string } >;
 
@@ -56,6 +63,7 @@ export type Section = {
 	label: string;
 	icon: SectionIcon;
 	settings: Setting[];
+	aliases?: string[];
 };
 
 const setting = ( title: string, description = '', id?: string, icon?: SectionIcon ): Setting => ( {
@@ -158,7 +166,10 @@ function getStudioSections( signedIn: boolean ): Section[] {
 			icon: AppearanceIcon,
 			settings: [
 				setting( __( 'Theme' ), __( 'Choose light, dark, or system.' ), 'theme' ),
-				setting( __( 'Color' ), __( 'Choose an accent color.' ), 'color' ),
+				{
+					...setting( __( 'Color' ), __( 'Choose an accent color.' ), 'color' ),
+					aliases: [ __( 'Colour' ), __( 'Change color' ) ],
+				},
 				setting( __( 'Intensity' ), __( 'Adjust the strength of the color tint.' ), 'intensity' ),
 				setting( __( 'Contrast' ), __( 'Increase separation between surfaces.' ), 'contrast' ),
 				setting(
@@ -173,11 +184,14 @@ function getStudioSections( signedIn: boolean ): Section[] {
 			label: __( 'Sharing' ),
 			icon: ShareIcon,
 			settings: [
-				setting(
-					__( 'Sharing previews on WordPress.com' ),
-					__( 'Share a temporary copy of your local site with anyone.' ),
-					'preview-sites'
-				),
+				{
+					...setting(
+						__( 'Sharing previews on WordPress.com' ),
+						__( 'Share a temporary copy of your local site with anyone.' ),
+						'preview-sites'
+					),
+					aliases: [ __( 'Snapshots' ) ],
+				},
 				setting( __( 'Live previews' ) ),
 			],
 		},
@@ -185,6 +199,7 @@ function getStudioSections( signedIn: boolean ): Section[] {
 			id: 'ai',
 			label: __( 'AI Providers' ),
 			icon: IntelligenceIcon,
+			aliases: [ __( 'Connect provider' ) ],
 			settings: [
 				setting(
 					__( 'Studio Code' ),
@@ -225,11 +240,14 @@ function getStudioSections( signedIn: boolean ): Section[] {
 			label: __( 'Usage' ),
 			icon: ChartNoAxesColumnIncreasingIcon,
 			settings: [
-				setting(
-					__( 'WordPress.com AI' ),
-					__( 'Use AI credits to build sites, shape content, and refine your design.' ),
-					'ai-credits'
-				),
+				{
+					...setting(
+						__( 'WordPress.com AI' ),
+						__( 'Use AI credits to build sites, shape content, and refine your design.' ),
+						'ai-credits'
+					),
+					aliases: [ __( 'Credit balance' ) ],
+				},
 				setting( __( 'Add credits' ), __( 'Get more WordPress.com AI credits to keep building.' ) ),
 				setting(
 					__( 'Preview sites' ),
@@ -266,7 +284,13 @@ function getStudioSections( signedIn: boolean ): Section[] {
 				),
 			],
 		},
-		{ id: 'keyboard', label: __( 'Keyboard' ), icon: KeyboardIcon, settings: [] },
+		{
+			id: 'keyboard',
+			label: __( 'Keyboard' ),
+			icon: KeyboardIcon,
+			settings: [],
+			aliases: [ __( 'Keyboard shortcuts' ) ],
+		},
 	];
 	return sections.filter( ( section ) => signedIn || section.id !== 'usage' );
 }
@@ -368,7 +392,7 @@ export function resolveSettingsLink( id: string ): SettingsSectionId {
 export type SearchResult = { scope: SettingsScope; section: Section; setting?: Setting };
 
 /**
- * Settings whose title or description has every word of `query`: exact title
+ * Settings whose title, description or aliases have every word of `query`: exact title
  * matches first, then title matches, then description matches, each with the
  * current scope ahead of the other.
  */
@@ -392,10 +416,13 @@ export function searchSettings(
 	return scopes
 		.flatMap( ( candidate, scopeIndex ) =>
 			getSections( candidate, { signedIn } ).flatMap( ( section ) =>
-				[ setting( section.label ), ...section.settings ]
+				[ { ...setting( section.label ), aliases: section.aliases }, ...section.settings ]
 					.filter( ( entry ) =>
 						words.every( ( word ) =>
-							`${ entry.title } ${ entry.description }`.toLocaleLowerCase().includes( word )
+							[ entry.title, entry.description, ...( entry.aliases ?? [] ) ]
+								.join( ' ' )
+								.toLocaleLowerCase()
+								.includes( word )
 						)
 					)
 					.map( ( entry ) => ( {

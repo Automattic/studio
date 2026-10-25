@@ -13,7 +13,39 @@ export const Trigger = BaseMenu.Trigger;
 export const Group = BaseMenu.Group;
 export const SubmenuRoot = BaseMenu.SubmenuRoot;
 export const ContextMenuRoot = BaseContextMenu.Root;
-export const ContextMenuTrigger = BaseContextMenu.Trigger;
+
+/** Opens its menu on right-click, and from the keyboard with Shift+F10 or the context menu key. */
+export const ContextMenuTrigger = forwardRef<
+	ElementRef< typeof BaseContextMenu.Trigger >,
+	ComponentPropsWithoutRef< typeof BaseContextMenu.Trigger >
+>( function ContextMenuTrigger( { onKeyDown, ...props }, ref ) {
+	return (
+		<BaseContextMenu.Trigger
+			ref={ ref }
+			onKeyDown={ ( event ) => {
+				onKeyDown?.( event );
+				if (
+					event.defaultPrevented ||
+					! ( event.key === 'ContextMenu' || ( event.shiftKey && event.key === 'F10' ) )
+				) {
+					return;
+				}
+				event.preventDefault();
+				const target = event.target as HTMLElement;
+				const { left, bottom } = target.getBoundingClientRect();
+				target.dispatchEvent(
+					new MouseEvent( 'contextmenu', {
+						bubbles: true,
+						cancelable: true,
+						clientX: left,
+						clientY: bottom,
+					} )
+				);
+			} }
+			{ ...props }
+		/>
+	);
+} );
 
 type ContextPopupProps = Omit<
 	ComponentPropsWithoutRef< typeof BaseMenu.Popup >,

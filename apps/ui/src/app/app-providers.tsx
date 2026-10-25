@@ -7,7 +7,7 @@ import { AgentRunProvider } from '@/data/agent-runs/provider';
 import { ConnectorProvider, queryClient as defaultQueryClient } from '@/data/core';
 import { useColorScheme } from '@/data/host/use-color-scheme';
 import { useSyncAppUpdateStatus } from '@/data/queries/use-app-update';
-import { useAuthChangeToasts } from '@/data/queries/use-auth-user';
+import { useAuthChangeToasts, useSyncAuthUserWithEvents } from '@/data/queries/use-auth-user';
 import { useSyncSessionsWithEvents } from '@/data/queries/use-sessions';
 import { useAutoStartSites, useSyncSitesWithEvents } from '@/data/queries/use-sites';
 import { useSyncSnapshotsWithEvents } from '@/data/queries/use-snapshots';
@@ -31,6 +31,7 @@ function SiteEventsBridge() {
 	useSyncSnapshotsWithEvents();
 	useSyncSessionsWithEvents();
 	useSyncActivityEvents();
+	useSyncAuthUserWithEvents();
 	useSyncConnectSiteListener();
 	useAutoStartSites();
 	useSyncAppUpdateStatus();

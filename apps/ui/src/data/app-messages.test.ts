@@ -9,6 +9,7 @@ import {
 	pauseToastExpiry,
 	resetAppMessagesForTests,
 	resumeToastExpiry,
+	runNoticeAction,
 	showToast,
 	syncCardNotices,
 	toast,
@@ -205,6 +206,20 @@ describe( 'app-messages', () => {
 		vi.advanceTimersByTime( 4_500 );
 		settleExit();
 		expect( titles() ).toEqual( [] );
+	} );
+
+	it( 'no longer runs an action that left with its toast', async () => {
+		const onClick = vi.fn();
+		const undo = { label: 'Undo', once: true, onClick };
+		toast.success( 'Chat archived', { action: undo } );
+		expect( await runNoticeAction( undo ) ).toBe( true );
+		expect( await runNoticeAction( undo ) ).toBe( false );
+
+		const retry = { label: 'Retry', onClick };
+		toast.error( 'Push failed', { action: retry } );
+		clearNoticeHistory();
+		expect( await runNoticeAction( retry ) ).toBe( false );
+		expect( onClick ).toHaveBeenCalledTimes( 1 );
 	} );
 
 	it( 'returns the toast id from showToast', () => {

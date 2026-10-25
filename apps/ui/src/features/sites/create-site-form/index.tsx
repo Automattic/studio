@@ -78,6 +78,9 @@ interface CreateSiteFormProps {
 	onExistingChange?: ( existing: boolean ) => void;
 	// Refuses a folder holding a WordPress site, for a site whose files come from elsewhere.
 	requiresEmptyPath?: boolean;
+	// The fields edited in an earlier opening of the form, restored as edits.
+	draft?: Partial< CreateSiteFormValues >;
+	onDraftChange?: ( draft: Partial< CreateSiteFormValues > ) => void;
 }
 
 export function CreateSiteForm( {
@@ -98,15 +101,20 @@ export function CreateSiteForm( {
 	sourceIcon,
 	onExistingChange,
 	requiresEmptyPath,
+	draft,
+	onDraftChange,
 }: CreateSiteFormProps ) {
 	const [ defaults ] = useState( createDefaultFormData );
 	const suggestedFieldsRef = useRef( getSuggestedFields( initialValues ?? {} ) );
-	const [ data, setData ] = useState< FormData >( () => {
-		if ( ! initialValues ) return defaults;
-		return applyInitialValues( defaults, initialValues, defaults );
-	} );
-	const dirtyFieldsRef = useRef( new Set< keyof CreateSiteFormValues >() );
-	const [ isNameEdited, setIsNameEdited ] = useState( false );
+	const [ data, setData ] = useState< FormData >( () =>
+		applyInitialValues(
+			applyInitialValues( defaults, initialValues ?? {}, defaults ),
+			draft ?? {},
+			defaults
+		)
+	);
+	const dirtyFieldsRef = useRef( getSuggestedFields( draft ?? {} ) );
+	const [ isNameEdited, setIsNameEdited ] = useState( draft?.name !== undefined );
 	const isSubmitQueuedRef = useRef( false );
 
 	useEffect( () => {
@@ -159,7 +167,7 @@ export function CreateSiteForm( {
 	const handleChangePartial = useCallback( ( update: Partial< FormData > ) => {
 		setData( ( prev ) => ( { ...prev, ...update } ) );
 	}, [] );
-	usePathAutoGenerate( data, handleChangePartial, !! isSubmitting );
+	usePathAutoGenerate( data, handleChangePartial, !! isSubmitting, requiresEmptyPath );
 
 	const handleChange = useCallback( ( update: Partial< FormData > ) => {
 		isSubmitQueuedRef.current = false;
@@ -174,16 +182,12 @@ export function CreateSiteForm( {
 		setData( ( prev ) => applyFormChange( prev, update ) );
 	}, [] );
 
-	const holdsWordPress = data.isWordPress && !! data.path && ! data.isPathPending;
-	const existing = holdsWordPress && ! requiresEmptyPath;
+	const existing = ! requiresEmptyPath && data.isWordPress && !! data.path && ! data.isPathPending;
 	// The path's required check opts out while `isPathPending` — see the
 	// `FormData` comment above.
 	const advancedErrors = {
 		path:
 			data.pathError ||
-			( holdsWordPress && requiresEmptyPath
-				? __( 'Choose an empty folder for your site.' )
-				: '' ) ||
 			( ! data.isPathPending && data.name.trim() && ! data.path
 				? __( 'Local path is required.' )
 				: '' ),
@@ -203,6 +207,14 @@ export function CreateSiteForm( {
 		( ! data.isPathPending && !! advancedErrors.path ) ||
 		!! advancedErrors.customDomain;
 	useEffect( () => onExistingChange?.( existing ), [ existing, onExistingChange ] );
+	useEffect( () => {
+		const values = { ...getSubmittedValues( data ), name: data.name };
+		onDraftChange?.(
+			Object.fromEntries(
+				[ ...dirtyFieldsRef.current ].map( ( field ) => [ field, values[ field ] ] )
+			)
+		);
+	}, [ data, onDraftChange ] );
 
 	// `isPathPending` is deliberately absent from `canSubmit`: it toggles on
 	// every keystroke of the name field while the path auto-gen resolves, and

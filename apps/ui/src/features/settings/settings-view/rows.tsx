@@ -2,7 +2,7 @@ import { buildSettingsLink } from '@studio/common/lib/settings-link';
 import { __, sprintf } from '@wordpress/i18n';
 import { clsx } from 'clsx';
 import { CheckIcon, ChevronRightIcon } from 'lucide-react';
-import { useContext } from 'react';
+import { createContext, useContext, useId } from 'react';
 import { useCopyText } from '@/data/host/use-copy-text';
 import { findSettingId } from '@/data/settings-sections';
 import { SettingsLinkContext } from '@/features/settings/settings-dialog/context';
@@ -38,7 +38,8 @@ export function SettingsGroup( {
 	children: ReactNode;
 } ) {
 	return (
-		<FieldSet>
+		// Without a heading the card isn't a group of its own, only its rows are.
+		<FieldSet role={ title ? undefined : 'none' }>
 			{ title ? (
 				<FieldLegend variant="label" className={ clsx( description && styles.groupLegend ) }>
 					{ title }
@@ -53,6 +54,11 @@ export function SettingsGroup( {
 		</FieldSet>
 	);
 }
+
+type ControlProps = { 'aria-describedby'?: string; 'aria-invalid'?: true };
+
+// Points a row's control at the row's description or error.
+const SettingsRowContext = createContext< ControlProps >( {} );
 
 /** A setting: its name and description on the left, its control on the right. */
 export function SettingsRow( {
@@ -74,29 +80,41 @@ export function SettingsRow( {
 	error?: string;
 	// Puts the control on its own line, for wide controls.
 	stacked?: boolean;
-	children?: ReactNode;
+	// SettingsToggle and SettingsSelect find the row's description themselves;
+	// other controls take it from a function child.
+	children?: ReactNode | ( ( control: ControlProps ) => ReactNode );
 } ) {
 	const id = useContext( SettingsLinkContext ) ? findSettingId( title ) : undefined;
+	const rowId = useId();
+	const hasDescription = !! ( description || additionalContent || error );
+	const control: ControlProps = {
+		'aria-describedby': hasDescription ? `${ rowId }-description` : undefined,
+		'aria-invalid': error ? true : undefined,
+	};
+	const content = typeof children === 'function' ? children( control ) : children;
+	const fieldTitle = <FieldTitle id={ `${ rowId }-title` }>{ title }</FieldTitle>;
 	return (
 		<Field
-			orientation={ stacked || ! children ? 'vertical' : 'horizontal' }
+			orientation={ stacked || ! content ? 'vertical' : 'horizontal' }
 			className={ styles.settingsRow }
+			aria-labelledby={ `${ rowId }-title` }
 			data-settings-row
 			data-setting-id={ id }
 		>
 			<FieldContent>
 				{ id || badge ? (
 					<div className={ styles.rowTitle }>
-						<FieldTitle>{ title }</FieldTitle>
+						{ fieldTitle }
 						{ badge }
 						{ id ? <SettingLinkButton id={ id } title={ title } /> : null }
 					</div>
 				) : (
-					<FieldTitle>{ title }</FieldTitle>
+					fieldTitle
 				) }
-				{ description || additionalContent || error ? (
+				{ hasDescription ? (
 					<FieldDescription
-						width={ children ? 'default' : 'full' }
+						id={ `${ rowId }-description` }
+						width={ content ? 'default' : 'full' }
 						error={ error }
 						additionalContent={ additionalContent }
 					>
@@ -104,7 +122,11 @@ export function SettingsRow( {
 					</FieldDescription>
 				) : null }
 			</FieldContent>
-			{ children ? <div className={ styles.settingsControl }>{ children }</div> : null }
+			{ content ? (
+				<div className={ styles.settingsControl }>
+					<SettingsRowContext.Provider value={ control }>{ content }</SettingsRowContext.Provider>
+				</div>
+			) : null }
 		</Field>
 	);
 }
@@ -153,8 +175,10 @@ export function SettingsToggle( {
 	disabled?: boolean;
 	onChange: ( checked: boolean ) => void;
 } ) {
+	const control = useContext( SettingsRowContext );
 	return (
 		<Switch
+			{ ...control }
 			aria-label={ label }
 			checked={ checked }
 			disabled={ disabled }
@@ -176,6 +200,7 @@ export function SettingsSelect< TValue extends string >( {
 	disabled?: boolean;
 	onChange: ( value: TValue ) => void;
 } ) {
+	const control = useContext( SettingsRowContext );
 	return (
 		<Select
 			items={ options }
@@ -187,7 +212,7 @@ export function SettingsSelect< TValue extends string >( {
 				}
 			} }
 		>
-			<SelectTrigger size="sm" aria-label={ label }>
+			<SelectTrigger size="sm" aria-label={ label } { ...control }>
 				<SelectValue />
 			</SelectTrigger>
 			<SelectContent>

@@ -15,12 +15,15 @@ function renderActions( {
 	host = 'chat',
 	headerWidth = 1000,
 	live = false,
+	navigation = false,
 }: {
 	running?: boolean;
 	host?: 'chat' | 'preview';
 	headerWidth?: number;
 	live?: boolean;
+	navigation?: boolean;
 } = {} ) {
+	let width = headerWidth;
 	// jsdom lays nothing out: every element measures 40px, the header as asked.
 	vi.spyOn( HTMLElement.prototype, 'getBoundingClientRect' ).mockReturnValue( {
 		width: 40,
@@ -28,7 +31,7 @@ function renderActions( {
 	vi.spyOn( HTMLElement.prototype, 'clientWidth', 'get' ).mockImplementation( function (
 		this: HTMLElement
 	) {
-		return this.hasAttribute( 'data-site-header' ) ? headerWidth : 0;
+		return this.hasAttribute( 'data-site-header' ) ? width : 0;
 	} );
 	const site: SiteDetails = {
 		id: `header-site-${ ++siteCount }`,
@@ -60,6 +63,11 @@ function renderActions( {
 				<TooltipProvider>
 					<SiteHeaderActionsProvider host={ host }>
 						<div data-site-header>
+							{ navigation ? (
+								<div data-site-header-navigation>
+									<button>Reload preview</button>
+								</div>
+							) : null }
 							<SiteHeaderSpace />
 						</div>
 						<SiteHeaderActions site={ site } live={ live } />
@@ -68,7 +76,13 @@ function renderActions( {
 			</ConnectorProvider>
 		</QueryClientProvider>
 	);
-	return { site, connector };
+	// The header re-measures on any change inside it.
+	const resize = ( next: number ) =>
+		act( async () => {
+			width = next;
+			document.querySelector( '[data-site-header]' )!.setAttribute( 'data-width', String( next ) );
+		} );
+	return { site, connector, resize };
 }
 
 describe( 'SiteHeaderActions', () => {
@@ -107,6 +121,15 @@ describe( 'SiteHeaderActions', () => {
 		);
 		await userEvent.click( screen.getByRole( 'button', { name: 'More preview actions' } ) );
 		expect( await screen.findByRole( 'menuitem', { name: 'Share' } ) ).toBeInTheDocument();
+	} );
+
+	it( 'hands focus to More when the focused browser control folds into it', async () => {
+		const { resize } = renderActions( { navigation: true } );
+		screen.getByRole( 'button', { name: 'Reload preview' } ).focus();
+
+		await resize( 60 );
+
+		expect( screen.getByRole( 'button', { name: 'More preview actions' } ) ).toHaveFocus();
 	} );
 
 	it( 'keeps Share and the Start label inline when they fit', () => {

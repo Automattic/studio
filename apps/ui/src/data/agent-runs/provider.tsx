@@ -342,6 +342,7 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 			const visualAnnotations = options.visualAnnotations;
 			// Synchronous, so a second send in the same tick queues behind this one.
 			dispatchSession( sessionId, { type: 'send_pending', startedAt: Date.now() } );
+			const revision = sessionRevisionsRef.current.get( sessionId );
 			await queryClient.cancelQueries( { queryKey: [ ...SESSIONS_QUERY_KEY, sessionId ] } );
 
 			const optimisticEntry: SessionEntry = {
@@ -378,6 +379,10 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 					void connector
 						.interruptAgentRun( newRunId )
 						.catch( ( error ) => toast.error( String( error ) ) );
+					return;
+				}
+				// The run's own events can beat the acknowledgement, even its exit.
+				if ( sessionRevisionsRef.current.get( sessionId ) !== revision ) {
 					return;
 				}
 				dispatchSession( sessionId, {

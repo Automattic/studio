@@ -17,7 +17,9 @@ export default class Sidebar {
 	}
 
 	getSiteRow( siteName: string ) {
-		return this.locator.getByRole( 'listitem' ).filter( {
+		// The performance comparison runs these page objects against trunk builds
+		// too, whose rows are sections rather than list items.
+		return this.locator.locator( 'li, section' ).filter( {
 			has: this.page.getByRole( 'button', { name: siteName, exact: true } ),
 		} );
 	}

@@ -1,6 +1,6 @@
 import { __, sprintf } from '@wordpress/i18n';
 import { clsx } from 'clsx';
-import { useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import {
 	AgentQuestion,
 	getAnswerLetter,
@@ -90,7 +90,7 @@ function QuestionSummary( {
 	);
 }
 
-export function AgentQuestionBatch( {
+export const AgentQuestionBatch = memo( function AgentQuestionBatch( {
 	questions,
 	pendingQuestions,
 	pendingAnswers,
@@ -247,4 +247,4 @@ export function AgentQuestionBatch( {
 			} ) }
 		</div>
 	);
-}
+} );

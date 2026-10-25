@@ -159,7 +159,7 @@ export function CreateSiteForm( {
 	const handleChangePartial = useCallback( ( update: Partial< FormData > ) => {
 		setData( ( prev ) => ( { ...prev, ...update } ) );
 	}, [] );
-	usePathAutoGenerate( data, handleChangePartial, !! isSubmitting );
+	usePathAutoGenerate( data, handleChangePartial, !! isSubmitting, requiresEmptyPath );
 
 	const handleChange = useCallback( ( update: Partial< FormData > ) => {
 		isSubmitQueuedRef.current = false;
@@ -174,16 +174,12 @@ export function CreateSiteForm( {
 		setData( ( prev ) => applyFormChange( prev, update ) );
 	}, [] );
 
-	const holdsWordPress = data.isWordPress && !! data.path && ! data.isPathPending;
-	const existing = holdsWordPress && ! requiresEmptyPath;
+	const existing = ! requiresEmptyPath && data.isWordPress && !! data.path && ! data.isPathPending;
 	// The path's required check opts out while `isPathPending` — see the
 	// `FormData` comment above.
 	const advancedErrors = {
 		path:
 			data.pathError ||
-			( holdsWordPress && requiresEmptyPath
-				? __( 'Choose an empty folder for your site.' )
-				: '' ) ||
 			( ! data.isPathPending && data.name.trim() && ! data.path
 				? __( 'Local path is required.' )
 				: '' ),

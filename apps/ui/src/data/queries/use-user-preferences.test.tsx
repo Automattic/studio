@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useConnector } from '@/data/core';
 import { useSaveUserPreferences, useUserPreferences } from './use-user-preferences';
@@ -65,6 +65,25 @@ describe( 'useSaveUserPreferences', () => {
 
 		await waitFor( () => expect( result.current.preferences.data?.colorScheme ).toBe( 'dark' ) );
 		expect( getUserPreferences ).toHaveBeenCalledTimes( 1 );
+	} );
+
+	it( 'shows each save at once, never letting an older one land over a newer one', async () => {
+		const { result } = renderPreferenceHooks();
+		await waitFor( () => expect( result.current.preferences.data ).toBeDefined() );
+
+		let finishFirstSave: () => void = () => undefined;
+		setUserPreferences.mockImplementationOnce(
+			() => new Promise< void >( ( resolve ) => ( finishFirstSave = resolve ) )
+		);
+		act( () => result.current.save.mutate( { tintIntensity: 30 } ) );
+		await waitFor( () => expect( result.current.preferences.data?.tintIntensity ).toBe( 30 ) );
+		await act( () => result.current.save.mutateAsync( { tintIntensity: 40 } ) );
+		await act( async () => finishFirstSave() );
+		expect( result.current.preferences.data?.tintIntensity ).toBe( 40 );
+
+		setUserPreferences.mockRejectedValueOnce( new Error( 'Disk full' ) );
+		await act( () => result.current.save.mutateAsync( { tintIntensity: 50 } ).catch( () => {} ) );
+		expect( result.current.preferences.data?.tintIntensity ).toBe( 40 );
 	} );
 
 	it( 'keeps a save when a fetch that started before it resolves afterwards', async () => {

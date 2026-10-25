@@ -225,11 +225,11 @@ function setActionPending( action: ToastAction, actionPending: boolean ) {
 // Runs an action from its toast or the history, one run at a time. Success
 // closes the toast; a failure says so and leaves the action there to try again.
 export async function runNoticeAction( action: ToastAction ): Promise< boolean > {
-	if (
-		[ ...visible, ...noticeHistory ].some(
-			( item ) => item.action === action && item.actionPending
-		)
-	) {
+	// A toast on its way out still shows its button, but the action left with it.
+	const offering = [ ...visible.filter( ( item ) => ! item.leaving ), ...noticeHistory ].filter(
+		( item ) => item.action === action
+	);
+	if ( ! offering.length || offering.some( ( item ) => item.actionPending ) ) {
 		return false;
 	}
 	const toastIds = visible.filter( ( item ) => item.action === action ).map( ( item ) => item.id );

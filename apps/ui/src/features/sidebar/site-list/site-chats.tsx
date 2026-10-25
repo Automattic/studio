@@ -1,15 +1,20 @@
 import { __, sprintf } from '@wordpress/i18n';
-import { clsx } from 'clsx';
 import { EllipsisIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { getSessionTitle } from '@/features/chats';
-import { SidebarButton } from '@/features/sidebar/sidebar-button';
-import { CollapsiblePanel } from '@/lib/ui';
+import {
+	CollapsiblePanel,
+	SidebarMenu,
+	SidebarMenuButton,
+	SidebarMenuItem,
+	SidebarMenuLabel,
+} from '@/lib/ui';
 import { ChatRow, RetryLoadingChats } from './chat-row';
 import { mergeVisibleOrder } from './sidebar-collections';
 import { SidebarReorderableList } from './sidebar-reorderable-list';
 import styles from './style.module.css';
 import type { AiSessionSummary, SiteDetails } from '@/data/core';
+import type { ReorderableItemProps } from '@/features/sidebar/reorderable-list';
 
 // Chats listed at first under a site, and how many more each Show more adds.
 const CHATS_INITIAL_COUNT = 5;
@@ -45,15 +50,29 @@ export function SiteChats( {
 			setChatCount( CHATS_INITIAL_COUNT );
 		}
 	}, [ expanded ] );
-	const renderChat = ( session: AiSessionSummary ) => (
+	const renderChat = ( session: AiSessionSummary, itemProps?: ReorderableItemProps ) => (
 		<ChatRow
 			key={ session.id }
 			session={ session }
 			active={ session.id === activeSessionId }
 			nested
 			onOpen={ onSiteOpen }
+			itemProps={ itemProps }
 		/>
 	);
+	const showMore =
+		chats.length > chatCount ? (
+			<SidebarMenuItem>
+				<SidebarMenuButton
+					muted
+					inset
+					onClick={ () => setChatCount( ( count ) => count + CHATS_PAGE_SIZE ) }
+				>
+					<EllipsisIcon />
+					<SidebarMenuLabel>{ __( 'Show more' ) }</SidebarMenuLabel>
+				</SidebarMenuButton>
+			</SidebarMenuItem>
+		) : null;
 
 	return (
 		<CollapsiblePanel open={ open }>
@@ -66,7 +85,11 @@ export function SiteChats( {
 				) }
 				className={ styles.chats }
 			>
-				{ loadError ? <RetryLoadingChats /> : null }
+				{ loadError ? (
+					<SidebarMenu>
+						<RetryLoadingChats />
+					</SidebarMenu>
+				) : null }
 				{ reorderable ? (
 					<SidebarReorderableList
 						items={ visibleChats }
@@ -81,19 +104,15 @@ export function SiteChats( {
 								)
 							)
 						}
-					/>
-				) : (
-					visibleChats.map( renderChat )
-				) }
-				{ chats.length > chatCount ? (
-					<SidebarButton
-						className={ clsx( styles.chat, styles.mutedRow ) }
-						onClick={ () => setChatCount( ( count ) => count + CHATS_PAGE_SIZE ) }
 					>
-						<EllipsisIcon className={ styles.rowIcon } />
-						<span className={ styles.chatTitle }>{ __( 'Show more' ) }</span>
-					</SidebarButton>
-				) : null }
+						{ showMore }
+					</SidebarReorderableList>
+				) : (
+					<SidebarMenu>
+						{ visibleChats.map( ( session ) => renderChat( session ) ) }
+						{ showMore }
+					</SidebarMenu>
+				) }
 			</div>
 		</CollapsiblePanel>
 	);

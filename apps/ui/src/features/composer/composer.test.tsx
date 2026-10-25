@@ -12,10 +12,10 @@ import {
 	stageAnnotations,
 } from '@/features/annotations';
 import { TooltipProvider } from '@/lib/ui';
+import { Composer, type ComposerHandle } from './composer';
 import { clearComposerDrafts } from './draft-store';
-import { Composer, type ComposerHandle } from '.';
-import type { ComposerSendAttachments } from './use-composer-attachments';
 import type { AiSessionSummary, LoadedAiSession, SessionEntry } from '@/data/core';
+import type { ComposerSendAttachments } from '@/data/use-composer-attachments';
 
 // "Connect provider…" opens the settings dialog through the router.
 vi.mock( '@tanstack/react-router', () => ( {

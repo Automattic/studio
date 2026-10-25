@@ -253,6 +253,7 @@ export default defineConfig(
 		rules: {
 			'no-restricted-imports': [ 'error', { patterns: [ WP_UI_PACKAGES ] } ],
 			'import-x/no-restricted-paths': [ 'error', UI_LAYERS ],
+			'import-x/no-cycle': 'error',
 		},
 	},
 	{

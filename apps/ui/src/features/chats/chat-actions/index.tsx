@@ -17,10 +17,9 @@ import {
 	useSidebarPreferences,
 } from '@/data/queries/use-sidebar-pins';
 import { useSites } from '@/data/queries/use-sites';
+import { useOptionalSessionPreviewUI } from '@/data/use-session-ui';
 import { getSessionTitle } from '@/features/chats/session-view/session-chat-actions';
-import { useOptionalSessionPreviewUI } from '@/features/chats/use-session-ui';
-import { useItemShortcuts } from '@/features/sidebar';
-import { usePreviewBeside } from '@/features/sites';
+import { usePreviewBeside, useItemShortcuts } from '@/features/sites';
 import {
 	ArchiveIcon,
 	ExitFullScreenIcon,

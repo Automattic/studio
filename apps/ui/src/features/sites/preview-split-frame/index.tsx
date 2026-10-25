@@ -9,7 +9,8 @@ import {
 	type ReactNode,
 } from 'react';
 import { WindowControlsCornerContext } from '@/data/host/use-window-controls-inset';
-import { useSidebarCollapsed, PREVIEW_SPLIT_MIN_WIDTH } from '@/features/sidebar';
+import { PREVIEW_SPLIT_MIN_WIDTH } from '@/data/resizable-panels';
+import { useSidebarCollapsed } from '@/data/use-sidebar-collapsed';
 import { getMotionDuration } from '@/lib/theme';
 import { ResizeHandle, ResizeOverlay } from '@/lib/ui';
 import styles from './style.module.css';

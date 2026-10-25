@@ -17,7 +17,7 @@ import {
 import { useInstalledApps } from '@/data/queries/use-installed-apps';
 import { useUserLocale } from '@/data/queries/use-user-locale';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
-import { SidebarSettings, hasCustomPanelWidths, resetPanelWidths } from '@/features/sidebar';
+import { hasCustomPanelWidths, resetPanelWidths } from '@/data/resizable-panels';
 import { applyColorTint, DEFAULT_COLOR_TINT, isDefaultColorTint } from '@/lib/theme';
 import { Input, Button } from '@/lib/ui';
 import { AccountSection } from './account-section';
@@ -33,6 +33,7 @@ import {
 	SettingsSelect,
 	SettingsToggle,
 } from './rows';
+import { SidebarSettings } from './sidebar-settings';
 import { StudioCliSection } from './studio-cli-section';
 import styles from './style.module.css';
 import { WapuuScore } from './wapuu-score';

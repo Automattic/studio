@@ -9,7 +9,8 @@ import { toast } from '@/data/app-messages';
 import { useAuthUser } from '@/data/queries/use-auth-user';
 import { useSessions } from '@/data/queries/use-sessions';
 import { useSites } from '@/data/queries/use-sites';
-import { closeOnPaletteShortcut } from '@/features/commands';
+import { getSections, isSiteSection, searchSettings } from '@/data/settings-sections';
+import { closeOnPaletteShortcut } from '@/data/use-command-palette';
 import {
 	AiPanel,
 	AppearanceSettings,
@@ -43,14 +44,10 @@ import {
 	VisuallyHidden,
 } from '@/lib/ui';
 import { SettingsDialogContext, SettingsLinkContext } from './context';
-import { getSections, isSiteSection, searchSettings } from './sections';
 import { SiteAgentFiles } from './site-agent-files';
 import styles from './style.module.css';
 import type { SiteSettingsSectionId } from './context';
-import type { SearchResult, SettingsScope, SettingsSectionId } from './sections';
-
-export { isSettingsSection } from './sections';
-export type { SettingsSectionId } from './sections';
+import type { SearchResult, SettingsScope, SettingsSectionId } from '@/data/settings-sections';
 
 const SITE_FORM_SECTIONS: SettingsSectionId[] = [ 'site', 'debugging', 'php' ];
 

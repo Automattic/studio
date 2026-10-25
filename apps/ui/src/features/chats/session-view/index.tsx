@@ -43,6 +43,8 @@ import {
 } from '@/data/queries/use-sites';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useSiteSelectionTime } from '@/data/use-open-site';
+import { SessionUIProvider, useOptionalSessionPreviewUI } from '@/data/use-session-ui';
+import { useSidebarCollapsed } from '@/data/use-sidebar-collapsed';
 import {
 	getSiteAnnotations,
 	hasAnnotationContent,
@@ -56,10 +58,9 @@ import {
 	formatComposerTextQuote,
 	watchComposerTextQuote,
 } from '@/features/chats/composer-text-quote';
-import { pendingPromptSlot } from '@/features/chats/pending-prompt';
 import { ProgressiveBlur } from '@/features/chats/progressive-blur';
-import { SessionUIProvider, useOptionalSessionPreviewUI } from '@/features/chats/use-session-ui';
-import { HeaderSidebarToggle, useSidebarCollapsed } from '@/features/sidebar';
+import { pendingPromptSlot } from '@/features/composer';
+import { Composer, ComposerSkeleton, type ComposerHandle } from '@/features/composer';
 import {
 	PreviewParticles,
 	usePreviewBeside,
@@ -71,7 +72,6 @@ import {
 	StoppedSitePreview,
 } from '@/features/sites';
 import { Button, IconButton } from '@/lib/ui';
-import { Composer, ComposerSkeleton, type ComposerHandle } from './composer';
 import { Conversation } from './conversation';
 import { QueuedPrompts } from './queued-prompts';
 import styles from './style.module.css';
@@ -82,10 +82,12 @@ import { useSessionCommands } from './use-session-commands';
 import type { AiSessionSummary, SiteDetails } from '@/data/core';
 
 function SessionHeader( {
+	start,
 	siteName,
 	site,
 	effectiveEnvironment,
 }: {
+	start?: ReactNode;
 	siteName?: string;
 	site?: SiteDetails;
 	effectiveEnvironment: 'local' | 'live';
@@ -115,7 +117,7 @@ function SessionHeader( {
 			}
 		>
 			<div data-site-header-reserved className={ styles.headerLead }>
-				<HeaderSidebarToggle />
+				{ start }
 				{ site ? <SiteActionsMenu site={ site } /> : null }
 				{ ! site && siteName ? (
 					<>
@@ -231,15 +233,20 @@ function SessionFrame( {
 	);
 }
 
-export function SessionView( { sessionId }: { sessionId: string } ) {
+interface SessionViewProps {
+	sessionId: string;
+	headerStart?: ReactNode;
+}
+
+export function SessionView( props: SessionViewProps ) {
 	return (
 		<SessionUIProvider>
-			<SessionViewContent sessionId={ sessionId } />
+			<SessionViewContent { ...props } />
 		</SessionUIProvider>
 	);
 }
 
-function SessionViewContent( { sessionId }: { sessionId: string } ) {
+function SessionViewContent( { sessionId, headerStart }: SessionViewProps ) {
 	const navigate = useNavigate();
 	const { data, isLoading, error, refetch } = useSession( sessionId );
 	const { data: sites } = useSites();
@@ -546,6 +553,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 			rootRef={ setFrameNode }
 			header={
 				<SessionHeader
+					start={ headerStart }
 					siteName={ data.summary.ownerSiteName }
 					site={ ownerSite }
 					effectiveEnvironment={ effectiveEnvironment }

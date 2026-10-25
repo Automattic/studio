@@ -3,9 +3,9 @@ import { EllipsisIcon } from 'lucide-react';
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useTrafficLightSpace } from '@/data/host/use-traffic-light-space';
 import { useIsSiteStarting, useIsSiteStopping, useSiteOperation } from '@/data/queries/use-sites';
+import { requestHeaderPanel } from '@/data/use-open-header-panel';
 import { ShareButton, ShareStatusIcon, useShareStatus } from '@/features/sharing';
 import { SiteLifecycleButton } from '@/features/sites/site-lifecycle-button';
-import { requestHeaderPanel } from '@/features/sites/use-open-header-panel';
 import { PublishButton } from '@/features/sync';
 import { useWindowControlsOverlay } from '@/lib/hooks';
 import {

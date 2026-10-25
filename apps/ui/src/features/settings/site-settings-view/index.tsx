@@ -27,7 +27,7 @@ import { useDebugLogExists } from '@/data/queries/use-debug-log';
 import { useIsSiteBusy, useUpdateSite, useXdebugEnabledSite } from '@/data/queries/use-sites';
 import { useWordPressVersions, useWpVersion } from '@/data/queries/use-wordpress-versions';
 import { CopyButton } from '@/features/chats';
-import { LearnMoreLink } from '@/features/settings/learn-more';
+import { LearnMoreLink } from '@/features/onboarding';
 import { useSettingsDialog } from '@/features/settings/settings-dialog/context';
 import { ConnectionCard } from '@/features/settings/settings-view/account-section';
 import { SettingsGroup, SettingsRow, SettingsToggle } from '@/features/settings/settings-view/rows';

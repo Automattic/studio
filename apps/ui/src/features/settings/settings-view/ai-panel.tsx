@@ -9,7 +9,7 @@ import {
 } from '@/data/queries/use-ai-settings';
 import { useAuthUser, useLogin } from '@/data/queries/use-auth-user';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
-import { LearnMoreLink } from '@/features/settings/learn-more';
+import { LearnMoreLink } from '@/features/onboarding';
 import { useOffline } from '@/lib/hooks';
 import { Badge, Button, Input } from '@/lib/ui';
 import { SettingsGroup, SettingsRow, SettingsSelect, SettingsToggle } from './rows';

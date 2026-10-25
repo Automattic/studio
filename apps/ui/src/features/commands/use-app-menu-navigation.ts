@@ -1,7 +1,8 @@
 import { __ } from '@wordpress/i18n';
 import { useEffect } from 'react';
 import { useConnector } from '@/data/core';
-import { resolveSettingsLink, useOpenSettings } from '@/features/settings';
+import { resolveSettingsLink } from '@/data/settings-sections';
+import { useOpenSettings } from '@/data/use-open-settings';
 import { useOpenAddSite, createSelectedBlueprint, pendingBlueprintSlot } from '@/features/sites';
 
 export function useAppMenuNavigation() {

@@ -17,8 +17,8 @@ const { navigate, openSettings, preview, startSite, stopSite, sites, agents } = 
 
 vi.mock( '@tanstack/react-router', () => ( { useNavigate: () => navigate } ) );
 vi.mock( '@/data/core', () => ( { useConnector: () => ( { trackEvent: vi.fn() } ) } ) );
-vi.mock( '@/features/chats/use-session-ui', () => ( { useSessionPreviewUI: () => preview } ) );
-vi.mock( '@/features/settings/use-open-settings', () => ( {
+vi.mock( '@/data/use-session-ui', () => ( { useSessionPreviewUI: () => preview } ) );
+vi.mock( '@/data/use-open-settings', () => ( {
 	useOpenSettings: () => openSettings,
 } ) );
 vi.mock( '@/features/sites/use-site-management-actions', () => ( {

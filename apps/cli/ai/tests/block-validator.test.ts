@@ -67,29 +67,41 @@ describe.runIf( siteUrl )( 'validating in the block editor (live)', () => {
 		60_000
 	);
 
+	const cover = ( html: string ) =>
+		`<!-- wp:cover {"minHeight":"100dvh"} -->\n${ html }\n<!-- /wp:cover -->`;
+	const coverIssue = 'core/cover\'s "minHeight" is of type number, so WordPress ignores "100dvh".';
+
 	it.each( [
 		{
 			name: 'leaves it out of the fix',
-			html: '<div class="wp-block-cover"><span aria-hidden="true" class="wp-block-cover__background has-background-dim"></span><div class="wp-block-cover__inner-container"></div></div>',
+			markup: cover(
+				'<div class="wp-block-cover"><span aria-hidden="true" class="wp-block-cover__background has-background-dim"></span><div class="wp-block-cover__inner-container"></div></div>'
+			),
+			issue: coverIssue,
 			losses: [],
 		},
 		{
 			name: 'keeps the block as written when it renders the value too',
-			html: '<div class="wp-block-cover" style="min-height:100dvh"><span aria-hidden="true" class="wp-block-cover__background has-background-dim"></span><div class="wp-block-cover__inner-container"></div></div>',
+			markup: cover(
+				'<div class="wp-block-cover" style="min-height:100dvh"><span aria-hidden="true" class="wp-block-cover__background has-background-dim"></span><div class="wp-block-cover__inner-container"></div></div>'
+			),
+			issue: coverIssue,
 			losses: [
 				{ place: '/0', blockName: 'core/cover', lost: 'drop the styles min-height:100dvh' },
 			],
 		},
+		{
+			name: 'leaves a value the block markup does not hold out of the fix',
+			markup:
+				'<!-- wp:columns {"verticalAlignment":null} -->\n<div class="wp-block-columns alignwide"></div>\n<!-- /wp:columns -->',
+			issue: 'core/columns\'s "verticalAlignment" is of type string, so WordPress ignores null.',
+			losses: [],
+		},
 	] )(
 		'reports an attribute of the wrong type, and $name',
-		async ( { html, losses } ) => {
-			const report = await validateBlocks(
-				`<!-- wp:cover {"minHeight":"100dvh"} -->\n${ html }\n<!-- /wp:cover -->`,
-				siteUrl!
-			);
-			expect( report.results[ 0 ].issues ).toContain(
-				'core/cover\'s "minHeight" is of type number, so WordPress ignores "100dvh".'
-			);
+		async ( { markup, issue, losses } ) => {
+			const report = await validateBlocks( markup, siteUrl! );
+			expect( report.results[ 0 ].issues ).toContain( issue );
 			expect( report.proposedFix?.losses ).toEqual( losses );
 			expect( report.proposedFix?.report.invalidBlocks ).toBe( 0 );
 		},

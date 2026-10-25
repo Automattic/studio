@@ -397,7 +397,9 @@ export async function validateBlocks(
 				const parsed = migration?.attributes ?? block.attributes;
 				const withComment = { ...parsed };
 				for ( const [ key, value ] of Object.entries( sameBlock ? raw.attrs ?? {} : {} ) ) {
-					if ( withComment[ key ] === undefined && blockType.attributes?.[ key ] ) {
+					// A value of the wrong type WordPress ignores, and so does the fix.
+					const schema = blockType.attributes?.[ key ];
+					if ( withComment[ key ] === undefined && schema && hasType( value, schema.type ) ) {
 						withComment[ key ] = value;
 					}
 				}

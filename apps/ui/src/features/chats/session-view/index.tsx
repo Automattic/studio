@@ -4,7 +4,7 @@ import {
 } from '@studio/common/ai/providers';
 import { pickLiveSite } from '@studio/common/ai/sessions/effective-site';
 import { findAiSessionOwnerSite } from '@studio/common/ai/sessions/owner-site';
-import { hasPaidAiCredits } from '@studio/common/lib/studio-assistant-quota';
+import { canUsePaidAiModels } from '@studio/common/lib/studio-assistant-quota';
 import { useNavigate } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
 import { clsx } from 'clsx';
@@ -26,6 +26,7 @@ import { useWindowControlsInset } from '@/data/host/use-window-controls-inset';
 import { useAgentRun } from '@/data/queries/use-agent-run';
 import { useAiSettings } from '@/data/queries/use-ai-settings';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
+import { useAuthUser } from '@/data/queries/use-auth-user';
 import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
 import { useIsOutOfAiCredits } from '@/data/queries/use-is-out-of-ai-credits';
 import {
@@ -265,6 +266,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		isLoading: isQuotaPending,
 		isFetched: isQuotaFetched,
 	} = useStudioAssistantQuota();
+	const { data: authUser } = useAuthUser();
 	// Refetching a failed check (opening the model picker does) puts the query
 	// back to pending; only the first check holds the chat back.
 	const isQuotaLoading = isQuotaPending && ! isQuotaFetched;
@@ -272,14 +274,14 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	const sessionProvider = getEffectiveSessionProvider( data?.entries ?? [], aiSettings );
 	const isWpcom = sessionProvider === 'wpcom';
 	const notice = useComposerNotice( sessionProvider );
-	// A fresh wpcom session defaults to balanced when purchased credits
-	// remain, fast otherwise.
+	// A fresh wpcom session defaults to balanced when the paid tiers are
+	// unlocked, fast otherwise.
 	const currentModel = useMemo(
 		() =>
 			resolveSessionModelForProvider( data?.entries ?? [], sessionProvider, {
-				hasPaidAiCredits: hasPaidAiCredits( quota ),
+				canUsePaidModels: canUsePaidAiModels( quota, authUser?.email ),
 			} ),
-		[ data?.entries, sessionProvider, quota ]
+		[ data?.entries, sessionProvider, quota, authUser?.email ]
 	);
 	const pendingQuestionTexts = useMemo(
 		() => new Set( pendingQuestions.map( ( q ) => q.question ) ),
@@ -583,6 +585,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 						onAnswer={ targetQuestion ? answerTargetQuestion : undefined }
 						onInterrupt={ interrupt }
 						sessionId={ sessionId }
+						autoFocus={ isEmpty }
 						entries={ data.entries }
 						ownerSiteId={ ownerSite?.id }
 						onSwitchSession={ switchSession }

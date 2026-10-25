@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { newSessionRoute } from './index';
 
-function createContext( agenticFeaturesEnabled: boolean ) {
+function createContext( agenticFeaturesEnabled: boolean, sessions: object[] = [] ) {
 	return {
 		queryClient: {
 			fetchQuery: ( { queryFn }: { queryFn: () => unknown } ) => queryFn(),
@@ -12,6 +12,7 @@ function createContext( agenticFeaturesEnabled: boolean ) {
 			agenticRequiresAuth: true,
 			getAuthUser: async () => null,
 			getUserPreferences: async () => ( { agenticFeaturesEnabled } ),
+			getSessions: async () => sessions,
 			createSession: vi.fn( async () => ( { id: 'session-1' } ) ),
 		},
 	};
@@ -32,6 +33,19 @@ describe( 'newSessionRoute.beforeLoad', () => {
 			options: { to: '/sessions/$sessionId', params: { sessionId: 'session-1' } },
 		} );
 		expect( context.connector.createSession ).toHaveBeenCalledWith( 'site-1' );
+	} );
+
+	it( 'reopens the site’s empty chat instead of creating another one', async () => {
+		const context = createContext( true, [
+			{ id: 'other-site', ownerSiteId: 'site-2' },
+			{ id: 'started', ownerSiteId: 'site-1', firstPrompt: 'Hello' },
+			{ id: 'empty', ownerSiteId: 'site-1' },
+		] );
+
+		await expect( runBeforeLoad( context ) ).rejects.toMatchObject( {
+			options: { to: '/sessions/$sessionId', params: { sessionId: 'empty' } },
+		} );
+		expect( context.connector.createSession ).not.toHaveBeenCalled();
 	} );
 
 	it( 'redirects to overview when Studio Code is switched off', async () => {

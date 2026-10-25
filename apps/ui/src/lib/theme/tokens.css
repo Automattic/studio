@@ -72,15 +72,29 @@
 	--radius-md: calc( var( --radius ) * 0.8 );
 	--radius-lg: var( --radius );
 	--radius-xl: calc( var( --radius ) * 1.4 );
+	--radius-2xl: 1rem;
+	--radius-3xl: 1.5rem;
+	--radius-full: 9999px;
 
 	--font-sans: 'Inter Variable', -apple-system, system-ui, 'Segoe UI', 'Roboto', 'Oxygen-Sans', 'Ubuntu',
 		'Cantarell', 'Helvetica Neue', sans-serif;
 	--font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+	--text-2xs: 0.6875rem;
 	--text-xxs: 0.75rem;
+	--text-xxs--line-height: 1.1rem;
 	--text-xs: 0.8125rem;
+	--text-xs--line-height: 1.25rem;
 	--text-sm: 0.875rem;
+	--text-sm--line-height: 1.25rem;
+	--text-md: 0.9375rem;
 	--text-base: 1rem;
 	--text-xl: 1.125rem;
+	--text-2xl: 1.25rem;
+	--leading-none: 1;
+	--leading-tight: 1.25;
+	--leading-snug: 1.375;
+	--leading-normal: 1.5;
+	--leading-relaxed: 1.625;
 	--font-weight-normal: 400;
 	--font-weight-medium: 450;
 	--font-weight-semibold: 600;
@@ -88,6 +102,25 @@
 	--shadow-xs: 0 1px 2px 0 rgb( 0 0 0 / 5% );
 	--shadow-sm: 0 1px 3px 0 rgb( 0 0 0 / 10% ), 0 1px 2px -1px rgb( 0 0 0 / 10% );
 	--shadow-md: 0 4px 6px -1px rgb( 0 0 0 / 10% ), 0 2px 4px -2px rgb( 0 0 0 / 10% );
+	--shadow-raised: 0 1px 3px rgb( 0 0 0 / 20% );
+
+	/* A 4px grid, numbered like Tailwind's spacing scale: `--space-1_5` is 1.5 × 4px. */
+	--space-0_5: 2px;
+	--space-1: 4px;
+	--space-1_5: 6px;
+	--space-2: 8px;
+	--space-2_5: 10px;
+	--space-3: 12px;
+	--space-3_5: 14px;
+	--space-4: 16px;
+	--space-4_5: 18px;
+	--space-5: 20px;
+	--space-6: 24px;
+	--space-7: 28px;
+	--space-8: 32px;
+	--space-10: 40px;
+	--space-12: 48px;
+	--space-16: 64px;
 
 	--focus-width: 2px;
 
@@ -105,6 +138,14 @@
 	--motion-duration-reveal: 600ms;
 	--motion-ease-layout: cubic-bezier( 0.645, 0.045, 0.355, 1 );
 	--motion-ease-enter: cubic-bezier( 0.165, 0.84, 0.44, 1 );
+
+	/* Layers inside the workspace: a sticky row over its scroller, overlays and
+	   handles over a pane, the band's separator over the panels, and the sidebar
+	   opened over the content on a small window. */
+	--z-sticky: 10;
+	--z-overlay: 20;
+	--z-band: 30;
+	--z-sidebar: 40;
 
 	/* Layers above the content, bottom to top. Toasts stay readable over a dialog;
 	   a drag in progress covers everything. */
@@ -146,6 +187,43 @@
 * {
 	--hover: var( --muted );
 }
+
+/* A surface sets `--surface` to its fill, and `--muted` inside it resolves one
+   step up so cards and hover fills still show on it, stepping back down at the
+   end of the palette. */
+@property --surface {
+	syntax: '<color>';
+	inherits: true;
+	initial-value: transparent;
+}
+
+@container style( --surface: var( --surface-0 ) ) or style( --surface: var( --surface-1 ) ) {
+	* {
+		--muted: var( --surface-2 );
+	}
+}
+
+@container style( --surface: var( --surface-2 ) ) {
+	* {
+		--muted: var( --surface-3 );
+	}
+}
+
+@container style( --surface: var( --surface-3 ) ) {
+	* {
+		--muted: var( --surface-4 );
+	}
+}
+
+@container style( --surface: var( --surface-4 ) ) {
+	* {
+		--muted: var( --surface-3 );
+	}
+}
+
+/* Media queries can't read custom properties, so the one breakpoint is written
+   out where it's used: `( width < 640px )`, a window too small for the sidebar
+   beside the content. */
 
 @media ( -webkit-min-device-pixel-ratio: 2 ), ( min-resolution: 192dpi ) {
 	:root {

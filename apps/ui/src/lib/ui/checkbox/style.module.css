@@ -8,19 +8,20 @@
 		width: 16px;
 		height: 16px;
 		border: 1px solid var( --input );
+		/* eslint-disable-next-line studio/use-theme-tokens -- the rebuild's 4px checkbox. */
 		border-radius: 4px;
+		background-color: light-dark(
+			transparent,
+			color-mix( in oklab, var( --input ) 30%, transparent )
+		);
 		cursor: pointer;
 		outline: none;
 	}
 
 	.checkbox::after {
 		position: absolute;
-		inset: -8px -12px;
+		inset: calc( var( --space-2 ) * -1 ) calc( var( --space-3 ) * -1 );
 		content: '';
-	}
-
-	:root[data-color-scheme='dark'] .checkbox:not( [data-checked] ) {
-		background-color: color-mix( in oklab, var( --input ) 30%, transparent );
 	}
 
 	.checkbox[data-checked] {

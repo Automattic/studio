@@ -50,9 +50,9 @@ export async function highlight( code: string, language: string ): Promise< Toke
 	if ( ! instance.getLoadedLanguages().includes( lang ) ) {
 		await instance.loadLanguage( grammar() );
 	}
-	// Each token carries its dark color as `--shiki-dark`.
 	return instance.codeToTokens( code, {
 		lang,
 		themes: { light: 'github-light', dark: 'github-dark' },
+		defaultColor: 'light-dark()',
 	} );
 }

@@ -2,36 +2,37 @@
 .root {
 	--site-list-chat-status-size: 14px;
 	--site-list-chat-status-start-offset: 0px;
-	--site-list-chat-status-gap: 6px;
-	--site-list-sync-indicator-bg: var(--status-sync);
+	--site-list-chat-status-gap: var( --space-1_5 );
+	--site-list-sync-indicator-bg: var( --status-sync );
 
-	padding: 12px 12px 20px;
+	padding: var( --space-3 ) var( --space-3 ) var( --space-5 );
 	display: flex;
 	flex-direction: column;
-	gap: 4px;
-	font-size: var(--text-sm);
-	line-height: 20px;
+	gap: var( --space-1 );
+	font-size: var( --text-sm );
+	line-height: var( --text-sm--line-height );
 	user-select: none;
 	-webkit-app-region: no-drag;
 }
 
 .dragWrapper {
-	border-radius: 6px;
+	border-radius: var( --radius-md );
 }
 
 .dragPreview {
 	opacity: 0.95;
-	filter: drop-shadow(0 6px 14px rgb(0 0 0 / 14%));
+	/* eslint-disable-next-line studio/use-theme-tokens -- the dragged row's shadow. */
+	filter: drop-shadow( 0 6px 14px rgb( 0 0 0 / 14% ) );
 }
 
 .dragPreview .siteRow {
-	background-color: var(--hover);
+	background-color: var( --hover );
 }
 
 /* Keep scrollIntoView targets clear of the sidebar's sticky header and
    footer, which paint over the scrollport's edges. */
 .site {
-	scroll-margin-block: 64px;
+	scroll-margin-block: var( --space-16 );
 }
 
 .siteText {
@@ -42,19 +43,19 @@
 }
 
 .siteActions {
-	gap: 2px;
+	gap: var( --space-0_5 );
 }
 
 .chats {
 	display: flex;
 	flex-direction: column;
 	gap: 1px;
-	padding-block: 1px 8px;
+	padding-block: 1px var( --space-2 );
 }
 
 .empty {
-	padding: 4px 8px;
-	color: var(--muted-foreground);
+	padding: var( --space-1 ) var( --space-2 );
+	color: var( --muted-foreground );
 }
 
 /* Wraps the sidebar's groups without adding a box of its own. */
@@ -67,7 +68,7 @@
 	visibility: hidden;
 }
 
-@media (prefers-reduced-motion: reduce) {
+@media ( prefers-reduced-motion: reduce ) {
 	.dragPreview {
 		filter: none;
 	}

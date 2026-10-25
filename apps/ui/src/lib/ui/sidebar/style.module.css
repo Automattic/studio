@@ -4,11 +4,11 @@
 	.group {
 		display: flex;
 		flex-direction: column;
-		padding-block-start: 4px;
+		padding-block-start: var( --space-1 );
 	}
 
 	.group[data-open] {
-		padding-block-end: 12px;
+		padding-block-end: var( --space-3 );
 	}
 
 	.groupHeader {
@@ -22,9 +22,9 @@
 		display: inline-flex;
 		flex: 1;
 		align-items: center;
-		gap: 4px;
+		gap: var( --space-1 );
 		height: 100%;
-		padding: 0 8px;
+		padding: 0 var( --space-2 );
 		border-radius: var( --radius-md );
 		color: var( --muted-foreground );
 		font-weight: var( --font-weight-medium );
@@ -37,7 +37,7 @@
 	}
 
 	.groupLabel:focus-visible {
-		outline: 2px solid var( --ring );
+		outline: var( --focus-width ) solid var( --ring );
 		outline-offset: -2px;
 	}
 
@@ -61,7 +61,7 @@
 		flex: none;
 		width: 36px;
 		height: 16px;
-		margin-inline: 8px;
+		margin-inline: var( --space-2 );
 	}
 
 	.menu {
@@ -80,10 +80,10 @@
 		position: relative;
 		display: flex;
 		align-items: center;
-		gap: 6px;
+		gap: var( --space-1_5 );
 		min-width: 0;
 		height: 36px;
-		padding-inline: 8px;
+		padding-inline: var( --space-2 );
 		border-radius: var( --radius-md );
 		color: var( --foreground );
 		text-align: start;
@@ -93,12 +93,12 @@
 	}
 
 	.button[data-inset] {
-		padding-inline-start: 30px;
+		padding-inline-start: calc( var( --space-2 ) + 16px + var( --space-1_5 ) );
 	}
 
 	.button[data-inset] > svg:first-child {
 		position: absolute;
-		inset-inline-start: 8px;
+		inset-inline-start: var( --space-2 );
 	}
 
 	.button[data-muted] {
@@ -140,8 +140,8 @@
 
 	.actions {
 		position: absolute;
-		inset-block-start: 2px;
-		inset-inline-end: 2px;
+		inset-block-start: var( --space-0_5 );
+		inset-inline-end: var( --space-0_5 );
 		display: flex;
 	}
 
@@ -160,7 +160,7 @@
 
 	/* A trailing dot sits in the last action's slot, and gives way to the actions. */
 	.button:has( > [data-slot='notification-dot'][data-position='end'] ) {
-		padding-inline-end: 40px;
+		padding-inline-end: calc( 32px + var( --space-2 ) );
 	}
 
 	.item:is(
@@ -184,15 +184,15 @@
 			:has( > .actions:not( [data-show-on-hover] ) )
 		)
 		> .button {
-		padding-inline-end: calc( 2 * 32px + 8px );
+		padding-inline-end: calc( 2 * 32px + var( --space-2 ) );
 	}
 
 	.skeleton {
 		display: flex;
 		align-items: center;
-		gap: 6px;
+		gap: var( --space-1_5 );
 		height: 36px;
-		padding-inline: 8px;
+		padding-inline: var( --space-2 );
 	}
 
 	.skeletonIcon {

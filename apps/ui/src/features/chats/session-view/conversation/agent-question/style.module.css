@@ -1,20 +1,20 @@
 .questionCard[data-joined-above] {
-	border-start-start-radius: var(--radius-sm);
+	border-start-start-radius: var( --radius-sm );
 }
 
 .questionCard[data-joined-below] {
-	border-end-start-radius: var(--radius-sm);
+	border-end-start-radius: var( --radius-sm );
 }
 
 .questionBatch {
 	display: flex;
 	flex-direction: column;
-	gap: 4px;
+	gap: var( --space-1 );
 	overflow-anchor: none;
 }
 
 .questionBatchStep {
-	animation: questionBatchStepEnter 120ms ease-out;
+	animation: questionBatchStepEnter var( --motion-duration-feedback ) ease-out;
 }
 
 .questionBatchStep[data-state='answered'] {
@@ -26,40 +26,36 @@
 }
 
 .questionBatchStep[data-state='answered'] .questionProgress {
-	animation: questionAnsweredElementFade 180ms ease-out forwards;
+	animation: questionAnsweredElementFade var( --motion-duration-surface ) ease-out forwards;
 }
 
 .questionCard {
+	--surface: var( --muted );
 	display: flex;
 	flex-direction: column;
-	gap: 16px;
+	gap: var( --space-4 );
 	width: 100%;
-	padding: 16px;
-	border-radius: 16px;
-	background-color: var(--muted);
-}
-
-/* The card is a muted surface, so the rows inside it step up a shade. */
-.questionCard > * {
-	--muted: var(--surface-3);
+	padding: var( --space-4 );
+	border-radius: var( --radius-2xl );
+	background-color: var( --surface );
 }
 
 .questionText {
-	color: var(--foreground);
-	font-weight: var(--font-weight-medium);
-	line-height: 1.375;
+	color: var( --foreground );
+	font-weight: var( --font-weight-medium );
+	line-height: var( --leading-snug );
 	text-wrap: pretty;
 }
 
 .questionProgress {
-	color: var(--muted-foreground);
-	font-weight: var(--font-weight-medium);
+	color: var( --muted-foreground );
+	font-weight: var( --font-weight-medium );
 	font-variant-numeric: tabular-nums;
 }
 
 .questionHint,
 .questionChoiceDescription {
-	color: var(--muted-foreground);
+	color: var( --muted-foreground );
 }
 
 .questionSummary {
@@ -67,23 +63,23 @@
 	cursor: pointer;
 }
 
-.questionSummary:is(:hover, :focus-visible) .questionAnswer {
-	background-color: var(--hover);
+.questionSummary:is( :hover, :focus-visible ) .questionAnswer {
+	background-color: var( --hover );
 }
 
 .questionSummary:focus-visible {
-	outline: 2px solid var(--ring);
+	outline: var( --focus-width ) solid var( --ring );
 	outline-offset: 2px;
 }
 
 .questionAnswer {
 	display: flex;
 	align-items: center;
-	gap: 6px;
+	gap: var( --space-1_5 );
 	min-height: 36px;
-	padding: 6px 8px;
-	border-radius: var(--radius-md);
-	color: var(--muted-foreground);
+	padding: var( --space-1_5 ) var( --space-2 );
+	border-radius: var( --radius-md );
+	color: var( --muted-foreground );
 }
 
 .questionAnswerLabel {
@@ -103,18 +99,18 @@
 	justify-content: center;
 	width: 24px;
 	height: 24px;
-	border-radius: var(--radius-sm);
-	background-color: var(--border);
-	color: var(--foreground);
-	font-family: var(--font-mono);
-	font-size: var(--text-sm);
-	font-weight: var(--font-weight-medium);
-	line-height: 1;
+	border-radius: var( --radius-sm );
+	background-color: var( --border );
+	color: var( --foreground );
+	font-family: var( --font-mono );
+	font-size: var( --text-sm );
+	font-weight: var( --font-weight-medium );
+	line-height: var( --leading-none );
 }
 
 .questionChoices {
 	display: grid;
-	margin-inline-start: -8px;
+	margin-inline-start: calc( var( --space-2 ) * -1 );
 }
 
 .questionChoiceItem {
@@ -125,24 +121,24 @@
 .questionChoice {
 	display: flex;
 	align-items: center;
-	gap: 8px;
+	gap: var( --space-2 );
 	width: 100%;
 	min-height: 36px;
-	padding: 8px;
-	border-radius: var(--radius-md);
-	color: var(--foreground);
+	padding: var( --space-2 );
+	border-radius: var( --radius-md );
+	color: var( --foreground );
 	text-align: start;
 	cursor: pointer;
 }
 
-.questionChoice:hover:not(:disabled),
+.questionChoice:hover:not( :disabled ),
 .questionChoice[aria-pressed='true'] {
-	background-color: var(--hover);
+	background-color: var( --hover );
 }
 
 .questionChoice:focus-visible {
 	outline: none;
-	box-shadow: inset 0 0 0 2px var(--ring);
+	box-shadow: inset 0 0 0 2px var( --ring );
 }
 
 .questionChoice:disabled {
@@ -158,18 +154,18 @@
 	display: flex;
 	flex: 1;
 	flex-direction: column;
-	gap: 2px;
+	gap: var( --space-0_5 );
 	min-width: 0;
-	line-height: 1.375;
+	line-height: var( --leading-snug );
 }
 
 .questionChoiceFreeForm .questionChoiceLabel > :first-child {
-	color: var(--muted-foreground);
+	color: var( --muted-foreground );
 }
 
 .questionChoices[data-layout='grid'] {
-	grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
-	gap: 4px;
+	grid-template-columns: repeat( auto-fit, minmax( min( 100%, 240px ), 1fr ) );
+	gap: var( --space-1 );
 }
 
 .questionChoices[data-layout='grid'] .questionChoiceItem[data-wide='true'] {
@@ -189,8 +185,8 @@
 	flex-basis: 100%;
 	width: 100%;
 	aspect-ratio: 4 / 3;
-	border-radius: var(--radius-lg);
-	background-color: var(--background);
+	border-radius: var( --radius-lg );
+	background-color: var( --background );
 }
 
 .questionOptionImage {
@@ -199,12 +195,7 @@
 }
 
 .questionOptionImageLoading {
-	background-image: linear-gradient(
-		90deg,
-		transparent,
-		var(--border),
-		transparent
-	);
+	background-image: linear-gradient( 90deg, transparent, var( --border ), transparent );
 	background-size: 200% 100%;
 	animation: questionOptionImageLoading 1.2s ease-in-out infinite;
 }
@@ -213,15 +204,15 @@
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	color: var(--muted-foreground);
-	font-size: var(--text-xxs);
+	color: var( --muted-foreground );
+	font-size: var( --text-xxs );
 }
 
 .questionOptionZoom {
 	position: absolute;
-	top: 16px;
-	inset-inline-end: 16px;
-	box-shadow: 0 1px 3px rgb(0 0 0 / 20%);
+	top: var( --space-4 );
+	inset-inline-end: var( --space-4 );
+	box-shadow: var( --shadow-raised );
 }
 
 .questionOptionZoomPopup {
@@ -229,29 +220,29 @@
 	max-width: none;
 	padding: 0;
 	overflow: hidden;
-	border-radius: var(--radius-lg);
+	border-radius: var( --radius-lg );
 }
 
 .questionOptionZoomImage {
-	max-width: calc(100vw - 2 * 24px);
-	max-height: calc(100dvh - 2 * 24px);
+	max-width: calc( 100vw - 2 * 24px );
+	max-height: calc( 100dvh - 2 * 24px );
 }
 
 .questionOptionZoomClose,
 .questionOptionZoomStep {
 	position: absolute;
-	box-shadow: 0 1px 3px rgb(0 0 0 / 20%);
+	box-shadow: var( --shadow-raised );
 }
 
 .questionOptionZoom,
 .questionOptionZoomClose,
 .questionOptionZoomStep {
-	--button-background: var(--chat);
+	--button-background: var( --chat );
 }
 
 .questionOptionZoomClose {
-	top: 8px;
-	inset-inline-end: 8px;
+	top: var( --space-2 );
+	inset-inline-end: var( --space-2 );
 }
 
 .questionOptionZoomStep {
@@ -260,24 +251,24 @@
 }
 
 .questionOptionZoomPrevious {
-	inset-inline-start: 8px;
+	inset-inline-start: var( --space-2 );
 }
 
 .questionOptionZoomNext {
-	inset-inline-end: 8px;
+	inset-inline-end: var( --space-2 );
 }
 
 .questionOptionZoomChoose {
 	position: absolute;
 	inset-inline: 0;
-	bottom: 12px;
+	bottom: var( --space-3 );
 	width: fit-content;
 	margin-inline: auto;
-	box-shadow: 0 1px 3px rgb(0 0 0 / 20%);
+	box-shadow: var( --shadow-raised );
 }
 
-.questionCard[data-state='folding'] .questionChoiceItem:not([data-picked='true']) {
-	animation: questionAnsweredElementFade 180ms ease-out forwards;
+.questionCard[data-state='folding'] .questionChoiceItem:not( [data-picked='true'] ) {
+	animation: questionAnsweredElementFade var( --motion-duration-surface ) ease-out forwards;
 }
 
 @keyframes questionBatchStepEnter {
@@ -310,10 +301,10 @@
 	}
 }
 
-@media (prefers-reduced-motion: reduce) {
+@media ( prefers-reduced-motion: reduce ) {
 	.questionBatchStep,
 	.questionBatchStep[data-state='answered'] .questionProgress,
-	.questionCard[data-state='folding'] .questionChoiceItem:not([data-picked='true']),
+	.questionCard[data-state='folding'] .questionChoiceItem:not( [data-picked='true'] ),
 	.questionOptionImageLoading {
 		animation: none;
 	}

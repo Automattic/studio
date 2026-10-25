@@ -31,13 +31,7 @@ const STUDIO_SECTIONS = [
 	'instructions',
 	'keyboard',
 ] as const;
-export const SITE_SECTIONS = [
-	'site',
-	'debugging',
-	'php',
-	'site-skills',
-	'site-instructions',
-] as const;
+const SITE_SECTIONS = [ 'site', 'debugging', 'php', 'site-skills', 'site-instructions' ] as const;
 
 export type SettingsSectionId =
 	| ( typeof STUDIO_SECTIONS )[ number ]
@@ -53,7 +47,7 @@ export function isSiteSection( value: SettingsSectionId ) {
 }
 
 // A setting search can find. `id` is the stable name a settings link uses.
-export type Setting = { id?: string; title: string; description: string; icon?: SectionIcon };
+type Setting = { id?: string; title: string; description: string; icon?: SectionIcon };
 
 type SectionIcon = ComponentType< { className?: string } >;
 

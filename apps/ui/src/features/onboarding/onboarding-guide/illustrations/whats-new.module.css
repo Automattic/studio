@@ -16,7 +16,7 @@
 .workspace {
 	display: grid;
 	grid-template-columns: 52% 1fr;
-	background: var(--chrome);
+	background: var( --chrome );
 }
 
 .sidebar {
@@ -28,7 +28,7 @@
 
 .sectionLabel {
 	padding: 0 6px 4px;
-	color: var(--muted-foreground);
+	color: var( --muted-foreground );
 }
 
 .row {
@@ -37,8 +37,8 @@
 	gap: 6px;
 	height: 22px;
 	padding: 0 6px;
-	border-radius: var(--radius-sm);
-	color: var(--foreground);
+	border-radius: var( --radius-sm );
+	color: var( --foreground );
 	white-space: nowrap;
 }
 
@@ -47,7 +47,7 @@
 }
 
 .rowSelected {
-	background: var(--hover);
+	background: var( --hover );
 }
 
 .rowIcon {
@@ -67,7 +67,7 @@
 	height: 5px;
 	margin-inline-start: auto;
 	border-radius: 50%;
-	background: var(--accent);
+	background: var( --accent );
 }
 
 .preview {
@@ -76,16 +76,16 @@
 	gap: 8px;
 	margin-top: 48px;
 	padding: 16px;
-	border-top: 1px solid var(--border);
-	border-inline-start: 1px solid var(--border);
-	border-start-start-radius: var(--radius-lg);
+	border-top: 1px solid var( --border );
+	border-inline-start: 1px solid var( --border );
+	border-start-start-radius: var( --radius-lg );
 	/* The site in the preview is always a light page. */
 	color: #1e1e1e;
 	background: #fff;
 }
 
 .previewTitle {
-	font-weight: var(--font-weight-semibold);
+	font-weight: var( --font-weight-semibold );
 }
 
 .previewHeading {
@@ -114,23 +114,23 @@
 	flex-direction: column;
 	gap: 8px;
 	padding: 18px 56px 0 24px;
-	background: var(--chat);
-	color: var(--foreground);
+	background: var( --chat );
+	color: var( --foreground );
 }
 
 .prompt {
 	align-self: flex-end;
 	padding: 6px 10px;
 	border-radius: 12px;
-	background: var(--primary);
-	color: var(--primary-foreground);
+	background: var( --primary );
+	color: var( --primary-foreground );
 }
 
 .reply {
 	align-self: flex-start;
 	padding: 6px 10px;
 	border-radius: 12px;
-	background: var(--muted);
+	background: var( --muted );
 }
 
 .composer {
@@ -139,13 +139,13 @@
 	gap: 10px;
 	margin: 4px -32px 0 0;
 	padding: 9px 10px 8px;
-	border: 1px solid var(--border);
+	border: 1px solid var( --border );
 	border-radius: 16px;
-	background: var(--composer);
+	background: var( --composer );
 }
 
 .composerPlaceholder {
-	color: var(--muted-foreground);
+	color: var( --muted-foreground );
 }
 
 .composerBar {
@@ -165,9 +165,9 @@
 	gap: 4px;
 	padding: 2px 8px;
 	border-radius: 999px;
-	background: color-mix(in srgb, var(--accent) 14%, transparent);
-	color: var(--accent-text);
-	font-weight: var(--font-weight-medium);
+	background: color-mix( in srgb, var( --accent ) 14%, transparent );
+	color: var( --accent-text );
+	font-weight: var( --font-weight-medium );
 }
 
 .chip svg {
@@ -180,7 +180,7 @@
 	align-items: center;
 	gap: 2px;
 	margin-inline-start: auto;
-	color: var(--muted-foreground);
+	color: var( --muted-foreground );
 }
 
 .model svg {
@@ -194,8 +194,8 @@
 	width: 22px;
 	height: 22px;
 	border-radius: 50%;
-	background: var(--accent);
-	color: var(--accent-foreground);
+	background: var( --accent );
+	color: var( --accent-foreground );
 }
 
 .send svg {
@@ -206,7 +206,7 @@
 /* ---- Publish and Share ---- */
 
 .publish {
-	background: var(--muted);
+	background: var( --muted );
 }
 
 .band {
@@ -220,8 +220,8 @@
 	gap: 6px;
 	height: 40px;
 	padding: 0 16px 0 0;
-	border-block: 1px solid var(--border);
-	background: var(--chrome);
+	border-block: 1px solid var( --border );
+	background: var( --chrome );
 }
 
 .address {
@@ -230,18 +230,18 @@
 	margin-inline-end: auto;
 	margin-inline-start: -20px;
 	padding: 5px 12px;
-	border: 1px solid var(--border);
+	border: 1px solid var( --border );
 	border-radius: 999px;
-	color: var(--muted-foreground);
+	color: var( --muted-foreground );
 	text-align: center;
 }
 
 .publishButton {
 	padding: 5px 10px;
-	border-radius: var(--radius-md);
-	background: var(--primary);
-	color: var(--primary-foreground);
-	font-weight: var(--font-weight-medium);
+	border-radius: var( --radius-md );
+	background: var( --primary );
+	color: var( --primary-foreground );
+	font-weight: var( --font-weight-medium );
 }
 
 .iconButton {
@@ -249,9 +249,9 @@
 	place-items: center;
 	width: 26px;
 	height: 26px;
-	border-radius: var(--radius-md);
-	background: var(--hover);
-	color: var(--foreground);
+	border-radius: var( --radius-md );
+	background: var( --hover );
+	color: var( --foreground );
 }
 
 .iconButton svg {
@@ -268,29 +268,29 @@
 	gap: 6px;
 	width: 190px;
 	padding: 10px;
-	border: 1px solid var(--border);
-	border-radius: var(--radius-lg);
-	background: var(--popover);
-	color: var(--popover-foreground);
-	box-shadow: var(--shadow-md);
+	border: 1px solid var( --border );
+	border-radius: var( --radius-lg );
+	background: var( --popover );
+	color: var( --popover-foreground );
+	box-shadow: var( --shadow-md );
 }
 
 .panelLabel {
-	color: var(--muted-foreground);
+	color: var( --muted-foreground );
 }
 
 .panelField {
 	padding: 4px 8px;
-	border: 1px solid var(--border);
-	border-radius: var(--radius-md);
+	border: 1px solid var( --border );
+	border-radius: var( --radius-md );
 }
 
 .panelButton {
 	padding: 5px;
-	border-radius: var(--radius-md);
-	background: var(--accent);
-	color: var(--accent-foreground);
-	font-weight: var(--font-weight-medium);
+	border-radius: var( --radius-md );
+	background: var( --accent );
+	color: var( --accent-foreground );
+	font-weight: var( --font-weight-medium );
 	text-align: center;
 }
 
@@ -299,7 +299,7 @@
 .paletteScene {
 	display: grid;
 	place-items: center;
-	background: var(--muted);
+	background: var( --muted );
 }
 
 .palette {
@@ -308,11 +308,11 @@
 	gap: 3px;
 	width: 270px;
 	padding: 7px;
-	border: 1px solid var(--border);
-	border-radius: var(--radius-xl);
-	background: var(--popover);
-	color: var(--popover-foreground);
-	box-shadow: var(--shadow-md);
+	border: 1px solid var( --border );
+	border-radius: var( --radius-xl );
+	background: var( --popover );
+	color: var( --popover-foreground );
+	box-shadow: var( --shadow-md );
 }
 
 .paletteInput {
@@ -322,28 +322,28 @@
 	height: 28px;
 	padding: 0 8px;
 	border-radius: 10px;
-	outline: 1.5px solid var(--accent);
+	outline: 1.5px solid var( --accent );
 }
 
 .paletteSearch {
 	width: 13px;
 	height: 13px;
-	color: var(--muted-foreground);
+	color: var( --muted-foreground );
 }
 
 .kbd {
 	margin-inline-start: auto;
 	padding: 1px 5px;
-	border: 1px solid var(--border);
-	border-radius: var(--radius-xs);
-	color: var(--muted-foreground);
+	border: 1px solid var( --border );
+	border-radius: var( --radius-xs );
+	color: var( --muted-foreground );
 	font-family: inherit;
 	font-size: 10px;
 }
 
 .paletteGroup {
 	padding: 5px 6px 1px;
-	color: var(--muted-foreground);
+	color: var( --muted-foreground );
 	font-size: 10px;
 }
 
@@ -353,11 +353,11 @@
 	gap: 6px;
 	height: 24px;
 	padding: 0 6px;
-	border-radius: var(--radius-md);
+	border-radius: var( --radius-md );
 }
 
 .paletteItemActive {
-	background: var(--hover);
+	background: var( --hover );
 }
 
 .paletteItemIcon {
@@ -367,7 +367,7 @@
 
 .paletteItemMeta {
 	margin-inline-start: auto;
-	color: var(--muted-foreground);
+	color: var( --muted-foreground );
 }
 
 /* ---- Appearance ---- */
@@ -375,7 +375,7 @@
 .appearance {
 	display: grid;
 	place-items: center;
-	background: var(--muted);
+	background: var( --muted );
 }
 
 .card {
@@ -383,11 +383,11 @@
 	flex-direction: column;
 	width: 250px;
 	padding: 4px 14px;
-	border: 1px solid var(--border);
-	border-radius: var(--radius-xl);
-	background: var(--background);
-	color: var(--foreground);
-	box-shadow: var(--shadow-sm);
+	border: 1px solid var( --border );
+	border-radius: var( --radius-xl );
+	background: var( --background );
+	color: var( --foreground );
+	box-shadow: var( --shadow-sm );
 }
 
 .setting {
@@ -398,7 +398,7 @@
 }
 
 .setting + .setting {
-	border-top: 1px solid var(--border);
+	border-top: 1px solid var( --border );
 }
 
 .swatches {
@@ -413,7 +413,7 @@
 }
 
 .swatchSelected {
-	outline: 2px solid var(--scene-accent);
+	outline: 2px solid var( --scene-accent );
 	outline-offset: 2px;
 }
 
@@ -422,14 +422,14 @@
 	width: 110px;
 	height: 4px;
 	border-radius: 2px;
-	background: var(--border);
+	background: var( --border );
 }
 
 .sliderFill {
 	position: absolute;
 	inset: 0 40% 0 0;
 	border-radius: 2px;
-	background: var(--scene-accent);
+	background: var( --scene-accent );
 }
 
 .sliderFillLow {
@@ -442,10 +442,10 @@
 	left: 60%;
 	width: 12px;
 	height: 12px;
-	border: 2px solid var(--scene-accent);
+	border: 2px solid var( --scene-accent );
 	border-radius: 50%;
-	background: var(--background);
-	transform: translate(-50%, -50%);
+	background: var( --background );
+	transform: translate( -50%, -50% );
 }
 
 .sliderThumbLow {

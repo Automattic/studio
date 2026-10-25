@@ -41,7 +41,8 @@
 	min-width: 0;
 }
 
-.browserLocation[data-site-header-address] {
+/* Out of room, the address gives way rather than push the actions over it. */
+.browserLocationInline[data-site-header-address] {
 	min-width: 72px;
 }
 

@@ -134,7 +134,10 @@ export function PreviewHeader( {
 				) : null }
 			</div>
 			<div
-				className={ styles.browserLocation }
+				className={ clsx(
+					styles.browserLocation,
+					headerLayout === 'inline' && styles.browserLocationInline
+				) }
 				data-site-header-address={ ( canPreview && ! isStarting && ! isStopping ) || undefined }
 			>
 				{ isStarting || isStopping ? (

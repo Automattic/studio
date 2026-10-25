@@ -79,16 +79,18 @@ describe( 'SiteActionsMenu', () => {
 		agents.busy = [];
 	} );
 
-	it( 'starts or stops the current site with ⌥⌘S, shown in its menu', async () => {
-		render( <SiteActionsMenu site={ createSite( 'blog', false ) } /> );
-		console.log( 'DBG', document.body.innerHTML.slice( 0, 600 ) );
-		fireEvent.keyDown( document.body, { key: 'ß', code: 'KeyS', ctrlKey: true, altKey: true } );
-		expect( startSite.mutate ).toHaveBeenCalledWith( 'blog' );
+	it( 'starts or stops the current site with ⌥⌘S, also from its menu, which shows it', async () => {
+		const shortcut = { key: 'ß', code: 'KeyS', ctrlKey: true, altKey: true };
+		render( <SiteActionsMenu site={ createSite( 'blog', true ) } /> );
+		fireEvent.keyDown( document.body, shortcut );
+		expect( stopSite.mutate ).toHaveBeenCalledWith( 'blog' );
 
 		fireEvent.click( screen.getByRole( 'button', { name: 'Site actions for blog' } ) );
-		expect( await screen.findByRole( 'menuitem', { name: /Start site/ } ) ).toHaveTextContent(
-			'Ctrl+Alt+S'
-		);
+		fireEvent.click( await screen.findByText( 'Stop' ) );
+		const stop = await screen.findByRole( 'menuitem', { name: /Stop site/ } );
+		expect( stop ).toHaveTextContent( 'Ctrl+Alt+S' );
+		fireEvent.keyDown( stop, shortcut );
+		expect( stopSite.mutate ).toHaveBeenCalledTimes( 2 );
 	} );
 
 	it( 'holds off Delete, saying why, while one of the site’s chats is running', async () => {

@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { setCommandPaletteOpen } from '@/data/use-command-palette';
 import { useProvideCollapseAll } from '@/features/sidebar';
+import { AlertDialog, DialogContent, DialogTitle } from '@/lib/ui';
 import { CommandPalette } from './index';
 
 const { savePreferences, openWhatsNew } = vi.hoisted( () => ( {
@@ -53,7 +54,11 @@ describe( 'CommandPalette', () => {
 		const { rerender } = render(
 			<>
 				<CommandPalette />
-				<div data-slot="dialog-content" />
+				<AlertDialog open>
+					<DialogContent>
+						<DialogTitle>Confirm</DialogTitle>
+					</DialogContent>
+				</AlertDialog>
 			</>
 		);
 		pressK();

@@ -752,6 +752,10 @@ export function createIpcConnector(): Connector {
 			await ipcApi.saveWapuuScore( score );
 		},
 
+		readyForDeeplinks() {
+			ipcApi.readyForDeeplinks();
+		},
+
 		async popupAppMenu( position: { x: number; y: number } ): Promise< void > {
 			ipcApi.popupAppMenu( position );
 		},

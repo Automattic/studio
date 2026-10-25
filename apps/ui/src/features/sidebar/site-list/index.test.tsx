@@ -524,8 +524,19 @@ describe( 'SiteList', () => {
 		fireEvent.click( within( recent ).getByText( 'Make it blue' ), { metaKey: true } );
 		fireEvent.click( within( recent ).getByText( 'Add a menu' ), { metaKey: true } );
 		expect( screen.getByText( '2 chats selected' ) ).toHaveAttribute( 'role', 'status' );
+		expect( within( recent ).getByRole( 'button', { name: 'Make it blue' } ) ).toHaveAttribute(
+			'aria-pressed',
+			'true'
+		);
+		expect( screen.getByRole( 'button', { name: 'Stopped Site' } ) ).toHaveAttribute(
+			'aria-pressed',
+			'false'
+		);
 		expect( navigateMock ).not.toHaveBeenCalled();
 
+		fireEvent.contextMenu( within( recent ).getByText( 'Add a menu' ) );
+		fireEvent.keyDown( await screen.findByRole( 'menu' ), { key: 'Escape' } );
+		expect( screen.getByText( '2 chats selected' ) ).toBeInTheDocument();
 		fireEvent.contextMenu( within( recent ).getByText( 'Add a menu' ) );
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Archive 2 chats' } ) );
 
@@ -534,6 +545,48 @@ describe( 'SiteList', () => {
 			sessionId: 'chat-a',
 			patch: { archived: true },
 		} );
+	} );
+
+	it( 'keeps the sites and the chats that failed selected after a bulk chat action', async () => {
+		useSessionsMock.mockReturnValue( {
+			data: [
+				createSession( {
+					id: 'chat-a',
+					firstPrompt: 'Make it blue',
+					ownerSitePath: '/Users/example/Studio/running-site',
+				} ),
+				createSession( {
+					id: 'chat-b',
+					firstPrompt: 'Add a menu',
+					ownerSitePath: '/Users/example/Studio/stopped-site',
+				} ),
+			],
+			isLoading: false,
+		} );
+		archiveSession.mockImplementation( async ( { sessionId }: { sessionId: string } ) => {
+			if ( sessionId === 'chat-b' ) {
+				throw new Error( 'Disk full' );
+			}
+		} );
+
+		render( <SiteList sections /> );
+
+		const recent = screen.getByRole( 'group', { name: 'Recent' } );
+		const sites = screen.getByRole( 'group', { name: 'Sites' } );
+		fireEvent.click( within( recent ).getByText( 'Make it blue' ), { metaKey: true } );
+		fireEvent.click( within( recent ).getByText( 'Add a menu' ), { metaKey: true } );
+		fireEvent.click( within( sites ).getByText( 'Stopped Site' ), { metaKey: true } );
+		fireEvent.contextMenu( within( recent ).getByText( 'Add a menu' ) );
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Archive 2 chats' } ) );
+
+		await waitFor( () =>
+			expect( getVisibleToasts()[ 0 ]?.title ).toBe( '1 of 2 items updated. 1 failed.' )
+		);
+		expect( screen.getByText( '2 items selected' ) ).toHaveAttribute( 'role', 'status' );
+		expect( within( recent ).getByRole( 'button', { name: 'Add a menu' } ) ).toHaveAttribute(
+			'aria-pressed',
+			'true'
+		);
 	} );
 
 	it( 'starts a ⌘/Ctrl-click selection from the open chat, never from its site', async () => {
@@ -1107,14 +1160,17 @@ describe( 'SiteList', () => {
 		await waitFor( () => expect( getVisibleToasts()[ 0 ]?.title ).toBe( '2 chats archived' ) );
 	} );
 
-	it( 'pins every selected row with ⌥⌘P, and asks before deleting the selected sites with ⌘⌫', async () => {
+	it( 'opens the bulk menu with Shift+F10, pins every selected row with ⌥⌘P, and names the sites ⌘⌫ deletes', async () => {
 		render( <SiteList sections /> );
 
 		const selectBothSites = async () => {
 			const sites = screen.getByRole( 'group', { name: 'Sites' } );
 			fireEvent.click( within( sites ).getByText( 'Stopped Site' ), { metaKey: true } );
 			fireEvent.click( within( sites ).getByText( 'Running Site' ), { metaKey: true } );
-			fireEvent.contextMenu( within( sites ).getByText( 'Running Site' ) );
+			fireEvent.keyDown( within( sites ).getByRole( 'button', { name: 'Running Site' } ), {
+				key: 'F10',
+				shiftKey: true,
+			} );
 			// A closed menu stays mounted for its exit transition.
 			return waitFor( () => {
 				const menu = document.querySelector( '[role="menu"]:not([data-closed])' );
@@ -1136,9 +1192,13 @@ describe( 'SiteList', () => {
 		expect( screen.getByRole( 'menu' ) ).toHaveAttribute( 'data-closed' );
 
 		fireEvent.keyDown( await selectBothSites(), { key: 'Backspace', ctrlKey: true } );
-		expect( await screen.findByRole( 'alertdialog' ) ).toHaveTextContent(
-			'Remove 2 sites from WordPress Studio?'
-		);
+		const dialog = await screen.findByRole( 'alertdialog' );
+		expect( dialog ).toHaveTextContent( 'Remove 2 sites from WordPress Studio?' );
+		expect(
+			within( dialog )
+				.getAllByRole( 'listitem' )
+				.map( ( item ) => item.textContent )
+		).toEqual( [ 'Stopped Site', 'Running Site' ] );
 	} );
 
 	it( 'holds off archiving and deleting while a chat is running or has prompts queued', async () => {

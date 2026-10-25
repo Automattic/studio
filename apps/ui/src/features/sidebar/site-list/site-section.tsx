@@ -17,7 +17,7 @@ import {
 	SidebarMenuItem,
 	SidebarMenuLabel,
 } from '@/lib/ui';
-import { useSelectableRow } from './selection';
+import { useRowPressed, useSelectableRow } from './selection';
 import { SiteAgentActivityIndicator } from './site-activity-indicator';
 import { SiteChats } from './site-chats';
 import { SiteRowMenu } from './site-row-menu';
@@ -63,6 +63,7 @@ export function SiteSection( {
 } ) {
 	const { site } = row;
 	const selectable = useSelectableRow( sitePinKey( site.id ) );
+	const pressed = useRowPressed( sitePinKey( site.id ) );
 	const navigate = useNavigate();
 	const sectionRef = useRef< HTMLLIElement >( null );
 	const isActive = isChatActive || isContextActive;
@@ -130,6 +131,7 @@ export function SiteSection( {
 								render={ <button type="button" /> }
 								className={ status === 'transitioning' ? 'studio-shimmer' : undefined }
 								aria-current={ isSelected ? 'page' : undefined }
+								aria-pressed={ pressed }
 								aria-expanded={ onOpen && chats.length > 0 ? showChats : undefined }
 							>
 								{ site.name }

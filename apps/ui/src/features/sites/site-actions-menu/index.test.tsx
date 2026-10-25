@@ -52,7 +52,7 @@ vi.mock( '@/data/queries/use-sessions', () => ( {
 		data: [ { id: 'blog-chat', ownerSiteId: 'blog', ownerSitePath: '/sites/blog' } ],
 	} ),
 } ) );
-vi.mock( '@/data/queries/use-agent-run', () => ( {
+vi.mock( '@/data/agent-runs/use-agent-run', () => ( {
 	useSessionsBusy: ( ids: string[] ) => ids.some( ( id ) => agents.busy.includes( id ) ),
 } ) );
 vi.mock( '@/data/queries/use-sites', () => ( {

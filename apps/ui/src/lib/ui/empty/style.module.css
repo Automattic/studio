@@ -1,0 +1,61 @@
+@layer ui {
+	.empty {
+		display: flex;
+		flex: 1;
+		flex-direction: column;
+		gap: 20px;
+		align-items: center;
+		justify-content: center;
+		width: 100%;
+		min-width: 0;
+		padding: 24px;
+		text-align: center;
+		text-wrap: balance;
+	}
+
+	.header {
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+		align-items: center;
+		max-width: 384px;
+	}
+
+	.content {
+		display: flex;
+		flex-direction: column;
+		gap: 10px;
+		align-items: center;
+		width: 100%;
+		max-width: 384px;
+		min-width: 0;
+		text-wrap: balance;
+	}
+
+	.media {
+		display: flex;
+		width: 32px;
+		height: 32px;
+		flex-shrink: 0;
+		align-items: center;
+		justify-content: center;
+		margin-block-end: 8px;
+		border-radius: var( --radius-lg );
+		background: var( --muted );
+		color: var( --foreground );
+	}
+
+	.title {
+		font-size: var( --text-sm );
+		font-weight: var( --font-weight-medium );
+		line-height: 20px;
+		letter-spacing: -0.02em;
+	}
+
+	.description {
+		max-width: 384px;
+		color: var( --muted-foreground );
+		font-size: var( --text-sm );
+		line-height: 1.625;
+	}
+}

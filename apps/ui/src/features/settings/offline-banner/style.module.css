@@ -1,0 +1,23 @@
+/* Keep in sync with agentic-signin-banner/style.module.css so the two
+   banners read as one component wherever they stack. */
+.root {
+	margin-bottom: calc(20px * 1.25);
+	padding: 16px 20px;
+	border: 1px solid var(--border);
+	border-radius: 16px;
+	background: var(--muted);
+}
+
+.heading {
+	margin: 0 0 8px;
+	font-size: var(--text-xs);
+	line-height: 24px;
+	font-weight: var(--font-weight-semibold);
+	color: var(--foreground);
+}
+
+.description {
+	font-size: var(--text-xxs);
+	line-height: 20px;
+	color: var(--muted-foreground);
+}

@@ -36,8 +36,8 @@ export default class AppSettings {
 
 	async showSection( name: string ) {
 		await this.page
-			.getByRole( 'navigation', { name: 'Settings sections' } )
-			.getByRole( 'button', { name } )
+			.getByRole( 'tablist', { name: 'Settings sections' } )
+			.getByRole( 'tab', { name } )
 			.click();
 	}
 

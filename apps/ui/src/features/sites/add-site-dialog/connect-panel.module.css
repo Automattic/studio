@@ -1,0 +1,156 @@
+.page {
+	display: flex;
+	flex-direction: column;
+	gap: 24px;
+	width: 100%;
+	max-width: 448px;
+	margin-inline: auto;
+	padding-block: 16px;
+}
+
+.intro {
+	color: var(--muted-foreground);
+}
+
+.signedOut {
+	display: flex;
+	flex-direction: column;
+	gap: 24px;
+}
+
+.benefits {
+	display: grid;
+	gap: 12px;
+	color: var(--muted-foreground);
+}
+
+.benefits li {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+}
+
+.benefits svg {
+	flex: none;
+	color: var(--accent-text);
+}
+
+.state {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 12px;
+}
+
+.state h2 {
+	font-size: var(--text-sm);
+	font-weight: var(--font-weight-medium);
+}
+
+.state p {
+	margin: 0;
+	color: var(--muted-foreground);
+}
+
+.siteControls {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 8px;
+}
+
+.search {
+	width: 100%;
+}
+
+.helperLinks {
+	display: flex;
+	align-items: center;
+	gap: 2px;
+	color: var(--muted-foreground);
+}
+
+.helperLinks button {
+	padding-inline: 2px;
+}
+
+.sections {
+	display: flex;
+	flex-direction: column;
+	gap: 32px;
+}
+
+.section {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+
+.sectionHeader h2 {
+	font-size: var(--text-sm);
+	font-weight: var(--font-weight-medium);
+}
+
+.sectionHeader p {
+	margin: 2px 0 0;
+	color: var(--muted-foreground);
+	font-size: var(--text-xs);
+}
+
+.siteList {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.site {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 4px;
+	min-width: 0;
+}
+
+.siteRow {
+	gap: 12px;
+}
+
+.siteThumb {
+	flex: none;
+	width: 56px;
+}
+
+.siteText {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	min-width: 0;
+}
+
+.siteName,
+.siteUrl {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.siteUrl {
+	color: var(--muted-foreground);
+	font-weight: var(--font-weight-normal);
+}
+
+.badges {
+	display: flex;
+	flex: none;
+	gap: 4px;
+}
+
+.siteStatus {
+	padding-inline: 2px;
+	color: var(--muted-foreground);
+	font-size: var(--text-xs);
+}
+
+.siteAction {
+	padding-inline: 2px;
+}

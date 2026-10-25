@@ -1,0 +1,137 @@
+.root {
+	display: flex;
+	flex-direction: column;
+}
+
+.shell {
+	flex-direction: column;
+	align-items: stretch;
+	height: auto;
+}
+
+/* On the composer's surface the muted fill and hover wash step up a shade. */
+:global(html[data-color-scheme='dark']) .shell {
+	--muted: var(--surface-4);
+	--hover: var(--muted);
+}
+
+/* Text-input chrome, like the form inputs beside it, instead of the chat composer. */
+.shellField {
+	border-radius: 9px;
+	background-color: color-mix(
+		in srgb,
+		var(--chrome) 60%,
+		transparent
+	);
+}
+
+.shellField:has(.input:focus-visible) {
+	border-color: var(--input);
+	box-shadow: none;
+	outline: var(--focus-width) solid var(--ring);
+	outline-offset: var(--focus-width);
+}
+
+.shellField .input {
+	min-height: calc(3lh + 28px);
+}
+
+.dropOverlay {
+	position: absolute;
+	inset: 0;
+	z-index: 40;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border: 2px solid var(--ring);
+	border-radius: inherit;
+	background-color: color-mix(
+		in srgb,
+		var(--accent-text) 10%,
+		transparent
+	);
+	pointer-events: none;
+}
+
+.dropOverlay span {
+	padding: 8px 16px;
+	border-radius: 13px;
+	background-color: var(--accent);
+	color: var(--accent-foreground);
+	font-size: var(--text-sm);
+	font-weight: var(--font-weight-medium);
+}
+
+.fileInput {
+	display: none;
+}
+
+.inputArea {
+	position: relative;
+	min-width: 0;
+}
+
+/* Grows with its text up to six lines, then scrolls. */
+.input {
+	min-height: 0;
+	max-height: calc(6lh + 28px);
+	padding: 14px;
+	overflow-y: auto;
+}
+
+.inputShimmering::placeholder {
+	color: transparent;
+}
+
+.placeholder {
+	position: absolute;
+	top: 14px;
+	right: 14px;
+	left: 14px;
+	overflow: hidden;
+	color: var(--muted-foreground);
+	font-size: var(--text-sm);
+	line-height: 20px;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	pointer-events: none;
+}
+
+.toolbar {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+	min-width: 0;
+	padding: 6px 8px 8px;
+}
+
+.leftActions,
+.rightActions {
+	display: flex;
+	align-items: center;
+}
+
+.rightActions {
+	gap: 4px;
+}
+
+.leftActions {
+	flex: 1 1 auto;
+	min-width: 0;
+	overflow-x: auto;
+	scrollbar-width: none;
+}
+
+.rightActions {
+	flex: 0 0 auto;
+}
+
+/* Inside the composer the menu chevrons keep the text color. */
+.shell [data-dropdown-indicator] {
+	color: var(--foreground);
+}
+
+.dialogDescription {
+	text-wrap: pretty;
+}

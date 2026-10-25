@@ -1,0 +1,55 @@
+/* A little wider than the composer below it, as in the chat's 12px inset. */
+.root {
+	display: flex;
+	flex-direction: column;
+	max-height: 160px;
+	margin: 0 -2px 14px;
+	padding: 8px;
+	overflow-y: auto;
+	border: 1px solid var(--border);
+	border-radius: var(--radius-xl);
+	background-color: var(--background);
+}
+
+.item {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	min-width: 0;
+	padding: 4px 8px;
+	border-radius: var(--radius-md);
+	font-size: var(--text-sm);
+	line-height: 20px;
+}
+
+.row {
+	display: flex;
+	gap: 8px;
+	align-items: center;
+}
+
+.text {
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	color: var(--muted-foreground);
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.actions {
+	display: flex;
+	gap: 4px;
+	opacity: 0;
+	transition: opacity var(--motion-duration-feedback) ease;
+}
+
+.item:is(:hover, :focus-within) .actions {
+	opacity: 1;
+}
+
+@media (hover: none) {
+	.actions {
+		opacity: 1;
+	}
+}

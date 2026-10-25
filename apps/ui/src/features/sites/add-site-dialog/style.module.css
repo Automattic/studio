@@ -1,0 +1,49 @@
+.navGroup {
+	display: flex;
+	flex: none;
+	align-items: center;
+	height: 36px;
+	margin: 16px 0 0;
+	padding: 0 8px;
+	color: var(--muted-foreground);
+	font-size: var(--text-sm);
+	font-weight: var(--font-weight-medium);
+	line-height: 20px;
+}
+
+.leading {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+}
+
+.title {
+	display: block;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.crumbSeparator {
+	color: var(--muted-foreground);
+}
+
+.progress {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	overflow: hidden;
+	color: var(--muted-foreground);
+	font-size: var(--text-xs);
+	white-space: nowrap;
+}
+
+.actions {
+	display: contents;
+}
+
+.content {
+	/* Room above the first row for a focused card's outline. */
+	padding-top: 3px;
+	container-type: inline-size;
+}

@@ -1,0 +1,47 @@
+.popup {
+	width: 272px;
+	max-width: calc(100vw - 2 * 20px);
+}
+
+.surface {
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+	border-radius: inherit;
+	color: var(--foreground);
+}
+
+.scrollArea {
+	max-height: min(236px, calc(100vh - 80px));
+	overflow-y: auto;
+	padding-block: 12px;
+}
+
+/* Outranks site-list's own `.root` padding shorthand. */
+.scrollArea .siteList {
+	padding-block-end: 8px;
+}
+
+.surface svg {
+	width: 16px;
+	height: 16px;
+}
+
+.openSidebarCta {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+	flex-shrink: 0;
+	width: 100%;
+	padding-block: 12px;
+	padding-inline-start: 20px;
+	padding-inline-end: 12px;
+	border-block-start: 1px solid var(--border);
+	font-size: var(--text-xxs);
+	cursor: pointer;
+}
+
+.openSidebarCta:hover {
+	background-color: var(--hover);
+}

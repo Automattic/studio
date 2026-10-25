@@ -10,10 +10,10 @@ import { markPreviewReady, markPreviewSeen } from '@/data/preview-ready';
 import { connectedWpcomSitesQueryKey } from '@/data/queries/use-connected-wpcom-sites';
 import { siteThumbnailQueryKey } from '@/data/queries/use-site-thumbnail';
 import { SITES_QUERY_KEY } from '@/data/queries/use-sites';
-import { SNAPSHOTS_QUERY_KEY } from '@/data/queries/use-snapshots';
 import { WP_VERSION_QUERY_KEY } from '@/data/queries/use-wordpress-versions';
+import { SNAPSHOTS_QUERY_KEY } from '@/data/queries/user-scoped-query-keys';
+import { getSnapshotUrl } from '@/data/snapshot-url';
 import { applySyncActivity, getSyncActivity } from '@/data/sync-activity';
-import { getSnapshotUrl } from '@/lib/snapshot-url';
 import type {
 	Connector,
 	PullSyncOptions,
@@ -153,22 +153,24 @@ function getPlainErrorMessage(
 	canOpenLogs: boolean
 ) {
 	if ( localChangesApplied ) {
-		return __( 'Studio couldn’t restart the site. Your changes have already been pulled.' );
+		return __(
+			'WordPress Studio couldn’t restart the site. Your changes have already been pulled.'
+		);
 	}
 	if ( direction === 'pull' ) {
 		return canOpenLogs
 			? __(
-					"Studio couldn't copy the live site. Try again. If the problem continues, check Studio Logs for details."
+					"WordPress Studio couldn't copy the live site. Try again. If the problem continues, check WordPress Studio Logs for details."
 			  )
-			: __( "Studio couldn't copy the live site. Try again." );
+			: __( "WordPress Studio couldn't copy the live site. Try again." );
 	}
 	if ( direction === 'import' ) {
 		return canOpenLogs
 			? __(
-					"Studio couldn't import this backup. Check that it's a complete, supported backup and try again. If the problem continues, check Studio Logs for details."
+					"WordPress Studio couldn't import this backup. Check that it's a complete, supported backup and try again. If the problem continues, check WordPress Studio Logs for details."
 			  )
 			: __(
-					"Studio couldn't import this backup. Check that it's a complete, supported backup and try again."
+					"WordPress Studio couldn't import this backup. Check that it's a complete, supported backup and try again."
 			  );
 	}
 	return undefined;

@@ -9,7 +9,7 @@ import { openStudioLogsAction, toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
 import { WP_VERSION_QUERY_KEY } from '@/data/queries/use-wordpress-versions';
-import { useOpenSite } from '@/hooks/use-open-site';
+import { useOpenSite } from '@/data/use-open-site';
 import type { Connector, CreateSiteParams, SiteDetails } from '@/data/core';
 import type { SiteOperationKind } from '@studio/common/lib/site-operation';
 import type { QueryClient } from '@tanstack/react-query';
@@ -184,8 +184,7 @@ interface UpdateSiteInput {
 	wpVersion?: string;
 }
 
-// Spaced values (1000, 2000, …) match the legacy desktop sidebar's
-// convention for the same appdata field.
+// Spaced values (1000, 2000, …), the convention of this app.json field.
 const toSortOrderUpdates = ( orderedSiteIds: string[] ) =>
 	orderedSiteIds.map( ( siteId, index ) => ( { siteId, sortOrder: ( index + 1 ) * 1000 } ) );
 
@@ -370,9 +369,8 @@ export function useSyncSitesWithEvents(): void {
 
 // Boot-time counterpart of the "Stop, restart on next launch" quit behavior:
 // those sites keep their autoStart flag when stopped on quit, and the renderer
-// starts them again on launch (mirrors the legacy UI's use-site-details
-// bootstrapping). Gated on isFetchedAfterMount so a rehydrated persisted cache
-// with stale flags can't trigger starts.
+// starts them again on launch. Gated on isFetchedAfterMount so a rehydrated
+// persisted cache with stale flags can't trigger starts.
 export function useAutoStartSites(): void {
 	const { data: sites, isFetchedAfterMount } = useSites();
 	const { mutate: startSite } = useStartSite();

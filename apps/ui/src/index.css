@@ -1,34 +1,3 @@
-@import '@fontsource-variable/inter';
-
-/* Vazirmatn (SIL OFL, see ./fonts/OFL.txt) — the macOS system font lacks
-   Central Kurdish glyphs (e.g. ێ ۆ ڵ). Applied to the ckb locale below. */
-@font-face {
-	font-family: 'Vazirmatn';
-	src: url( './fonts/Vazirmatn-Variable.woff2' ) format( 'woff2' );
-	font-weight: 100 900;
-	font-style: normal;
-	font-display: swap;
-}
-
-/* Tokens stay light until app-providers.tsx sets `data-color-scheme`: until
-   then, show the Desktop window's dark background (the sidebar's colour)
-   instead of a full light page. */
-:root:not( [data-color-scheme] ) body {
-	background-color: transparent;
-}
-
-body {
-	margin: 0;
-	padding: 0;
-	font-family: var(--font-sans);
-	font-size: var(--text-xs);
-	line-height: 24px;
-	background-color: var(--chat);
-	color: var(--foreground);
-	color-scheme: light dark;
-	scrollbar-color: gray transparent;
-}
-
 /* A column edge's short separator inside the top band. Set
    `--studio-column-edge` to its inline offset. */
 .studio-column-edge::before {
@@ -38,87 +7,13 @@ body {
 	top: calc( ( var( --band-height ) - var( --band-separator-height ) ) / 2 );
 	width: 1px;
 	height: var( --band-separator-height );
-	background-color: var(--border);
+	background-color: var( --border );
 	pointer-events: none;
 }
 
 @media ( max-width: 639px ) {
 	.studio-column-edge::before {
 		content: none;
-	}
-}
-
-/* Unlike `scrollbar-color`, `scrollbar-width` isn't inherited, so inner scroll
-   containers need it set directly. In the base layer, so components can hide it. */
-@layer base {
-	* {
-		scrollbar-width: thin;
-	}
-}
-
-/* `lang` is set on bootstrap in lib/apply-user-preferences.ts. */
-:root:lang( ckb ) {
-	--font-sans: 'Vazirmatn', -apple-system, system-ui, 'Segoe UI', 'Roboto', 'Oxygen-Sans', 'Ubuntu',
-		'Cantarell', 'Helvetica Neue', sans-serif;
-}
-
-/* Form controls don't inherit the page font by default. */
-@layer base {
-	button,
-	input,
-	select,
-	textarea {
-		font-family: inherit;
-	}
-}
-
-/* Universal heading styles derived from the design system's font-size /
-   line-height ramp. Each level steps down one token (h1 = 2xl, h6 = xs),
-   keeping the rest of the type contract — family, weight, color, zero
-   margin — identical. Components can still override via their own class
-   where a specific context demands it, but bare `<h1>`…`<h6>` elements
-   pick up a consistent look for free. */
-@layer base {
-	h1,
-	h2,
-	h3,
-	h4,
-	h5,
-	h6 {
-		font-family: var(--font-sans);
-		font-weight: var(--font-weight-normal);
-		color: var(--foreground);
-		margin: 0;
-	}
-
-	h1 {
-		font-size: 32px;
-		line-height: 40px;
-	}
-
-	h2 {
-		font-size: 20px;
-		line-height: 32px;
-	}
-
-	h3 {
-		font-size: 15px;
-		line-height: 28px;
-	}
-
-	h4 {
-		font-size: var(--text-xs);
-		line-height: 24px;
-	}
-
-	h5 {
-		font-size: var(--text-xxs);
-		line-height: 20px;
-	}
-
-	h6 {
-		font-size: 11px;
-		line-height: 16px;
 	}
 }
 
@@ -140,24 +35,14 @@ body:has([data-base-ui-portal] :is([role='menu'], [role='dialog'])[data-open]) *
 	-webkit-app-region: no-drag;
 }
 
-/* Icons draw on a 24px grid and render at 16px unless a component sizes them. */
-@layer base {
-	:root svg {
-		width: 16px;
-		height: 16px;
-	}
-
-	:root svg[data-keep-size] {
-		width: auto;
-		height: auto;
-	}
-}
-
 /* Text that is working: a highlight band sweeps across it, dimming it in light
    mode and lifting it in dark mode. `--shimmer-highlight` sets the band's color. */
 .studio-shimmer {
 	--shimmer-spread: calc( 3ch + 40px );
-	--shimmer-band: var( --shimmer-highlight, oklch( from currentColor l c h / calc( alpha * 0.2 ) ) );
+	--shimmer-band: var(
+		--shimmer-highlight,
+		oklch( from currentColor l c h / calc( alpha * 0.2 ) )
+	);
 	--shimmer-edge: color-mix( in oklch, var( --shimmer-band ), currentColor 50% );
 
 	background: linear-gradient(
@@ -199,54 +84,5 @@ body:has([data-base-ui-portal] :is([role='menu'], [role='dialog'])[data-open]) *
 	.studio-shimmer {
 		background: none;
 		-webkit-text-fill-color: currentColor;
-	}
-}
-
-/* Honor the user's reduced-motion preference across the entire app. Class-
-   scoped transitions out-specify a `*`-targeted rule, so `!important` is
-   needed to clamp them. Components that genuinely need to keep motion can
-   re-enable it with a more specific `!important` rule inside the same
-   media query. */
-@media ( prefers-reduced-motion: reduce ) {
-	*,
-	*::before,
-	*::after {
-		animation-duration: 0.01ms !important;
-		animation-iteration-count: 1 !important;
-		transition-duration: 0.01ms !important;
-		scroll-behavior: auto !important;
-	}
-}
-
-/* Honor the user's reduced-transparency preference (macOS: Accessibility →
-   Display → Reduce transparency), and degrade the same way where
-   `backdrop-filter` isn't supported at all.
-
-   Blur is structural in this app, not decoration: headers, footers, scrims
-   and the composer rely on it to obscure the content scrolling underneath
-   them. Dropping the blur without painting the surface would leave text
-   stacked on text, so both are handled together — `--surface-alpha` is the
-   lever. Translucent surfaces mix their fill with
-   `var( --surface-alpha, <their own resting alpha> )`, so forcing it to 100%
-   here turns every one of them opaque while leaving the resting design
-   untouched everywhere else. */
-@media ( prefers-reduced-transparency: reduce ) {
-	:root {
-		--surface-alpha: 100%;
-	}
-
-	/* Class-scoped rules out-specify a `*`-targeted rule, hence `!important`
-	   — same reasoning as the reduced-motion block above. */
-	*,
-	*::before,
-	*::after {
-		-webkit-backdrop-filter: none !important;
-		backdrop-filter: none !important;
-	}
-}
-
-@supports not ( backdrop-filter: blur( 1px ) ) {
-	:root {
-		--surface-alpha: 100%;
 	}
 }

@@ -64,14 +64,14 @@ export function providerServesModel( provider: AiProviderId, model: AiModelId ):
 
 /**
  * The fallback when no model was chosen or the provider can't serve the
- * requested one. On wpcom, paid credits upgrade the default to the balanced
- * tier; everyone else (including callers without quota data) gets fast.
+ * requested one. On wpcom, the balanced tier when the paid tiers are unlocked;
+ * everyone else (including callers without quota data) gets fast.
  */
 export function getAiProviderDefaultModel(
 	provider: AiProviderId,
-	options?: { hasPaidAiCredits?: boolean }
+	options?: { canUsePaidModels?: boolean }
 ): AiModelId {
-	if ( provider === 'wpcom' && options?.hasPaidAiCredits ) {
+	if ( provider === 'wpcom' && options?.canUsePaidModels ) {
 		return PAID_DEFAULT_MODEL;
 	}
 	return getAiProviderModels( provider )[ 0 ]?.id ?? DEFAULT_MODEL;
@@ -84,7 +84,7 @@ export function getAiProviderDefaultModel(
 export function resolveSessionModelForProvider(
 	entries: SessionEntry[],
 	provider: AiProviderId,
-	options?: { hasPaidAiCredits?: boolean }
+	options?: { canUsePaidModels?: boolean }
 ): AiModelId {
 	const defaultModel = getAiProviderDefaultModel( provider, options );
 	const model = resolveSessionModel( entries, defaultModel );

@@ -878,21 +878,6 @@ export async function clearAuthenticationToken() {
 	return await updateSharedConfig( { authToken: undefined } );
 }
 
-export async function saveLastSeenVersion( event: IpcMainInvokeEvent, version: string ) {
-	await updateAppdata( { lastSeenVersion: version } );
-}
-
-export async function getLastSeenVersion(
-	_event: IpcMainInvokeEvent
-): Promise< string | undefined > {
-	// If we're running in E2E mode, return the app version
-	if ( process.env.E2E ) {
-		return app.getVersion();
-	}
-	const userData = await loadUserData();
-	return userData.lastSeenVersion;
-}
-
 export async function openSiteURL(
 	event: IpcMainInvokeEvent,
 	id: string,
@@ -1264,7 +1249,7 @@ export async function showErrorMessageBox(
 		type: 'error',
 		message: title,
 		detail,
-		buttons: [ ...( showOpenLogs ? [ __( 'Open Studio Logs' ) ] : [] ), __( 'OK' ) ],
+		buttons: [ ...( showOpenLogs ? [ __( 'Open WordPress Studio Logs' ) ] : [] ), __( 'OK' ) ],
 	} );
 
 	if ( showOpenLogs && response.response === 0 ) {
@@ -1339,7 +1324,7 @@ export async function trustCertificate( event: IpcMainInvokeEvent ): Promise< vo
 			await showErrorMessageBox( event, {
 				title: __( 'Certificate Trust Failed' ),
 				message: __(
-					'Studio was unable to trust the certificate automatically. You may need to trust it manually using certificate manager.'
+					'WordPress Studio was unable to trust the certificate automatically. You may need to trust it manually using certificate manager.'
 				),
 				showOpenLogs: true,
 			} );

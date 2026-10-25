@@ -1,0 +1,83 @@
+@layer ui {
+	.switch {
+		position: relative;
+		display: inline-flex;
+		flex-shrink: 0;
+		align-items: center;
+		width: 36px;
+		height: 20px;
+		padding: 1px;
+		border: 1px solid transparent;
+		border-radius: 9999px;
+		background-color: var( --border );
+		cursor: pointer;
+		outline: none;
+		transition: background-color var( --motion-duration-feedback );
+	}
+
+	.switch::after {
+		position: absolute;
+		inset: -8px -12px;
+		content: '';
+	}
+
+	.switch[data-size='sm'] {
+		width: 24px;
+		height: 14px;
+		padding: 0;
+	}
+
+	.switch[data-checked] {
+		background-color: var( --accent );
+	}
+
+	.switch:focus-visible {
+		box-shadow:
+			0 0 0 2px var( --background ),
+			0 0 0 4px var( --ring );
+	}
+
+	.switch[data-disabled] {
+		cursor: not-allowed;
+		opacity: 0.5;
+	}
+
+	.thumb {
+		display: block;
+		width: 16px;
+		height: 16px;
+		border-radius: 9999px;
+		background-color: var( --background );
+		box-shadow: var( --shadow-sm );
+		pointer-events: none;
+		transition: translate var( --motion-duration-surface ) var( --motion-ease-enter );
+	}
+
+	:root[data-color-scheme='dark'] .thumb[data-unchecked] {
+		background-color: var( --foreground );
+	}
+
+	.thumb[data-checked] {
+		background-color: var( --accent-foreground );
+		translate: 16px 0;
+	}
+
+	[data-size='sm'] > .thumb {
+		width: 12px;
+		height: 12px;
+	}
+
+	[data-size='sm'] > .thumb[data-checked] {
+		translate: calc( 100% - 2px ) 0;
+	}
+
+	.switch:dir( rtl ) > .thumb[data-checked] {
+		translate: -16px 0;
+	}
+
+	@media ( prefers-reduced-motion: reduce ) {
+		.thumb {
+			transition: none;
+		}
+	}
+}

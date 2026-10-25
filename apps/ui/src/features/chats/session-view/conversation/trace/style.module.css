@@ -1,0 +1,114 @@
+.activity {
+	display: flex;
+	flex-direction: column;
+}
+
+.toolRow + .toolRow {
+	margin-top: -16px;
+}
+
+.toolDetails {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	min-width: 0;
+	margin-block: 8px 4px;
+	margin-inline-start: 7px;
+	padding-inline: 12px 4px;
+	border-inline-start: 1px solid var(--border);
+	color: var(--muted-foreground);
+	font-size: var(--text-xs);
+	line-height: 20px;
+	overflow-wrap: break-word;
+}
+
+.activityProgress {
+	color: var(--muted-foreground);
+	font-size: var(--text-xs);
+	line-height: 20px;
+	opacity: 0.8;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.traceLine {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	min-width: 0;
+	max-width: 100%;
+	color: var(--muted-foreground);
+	font-size: var(--text-xs);
+	line-height: 20px;
+}
+
+.traceLine svg {
+	flex: none;
+}
+
+.traceTitle {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.traceTrigger {
+	appearance: none;
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	width: fit-content;
+	max-width: 100%;
+	min-width: 0;
+	border-radius: var(--radius-md);
+	color: var(--muted-foreground);
+	text-align: start;
+	cursor: pointer;
+	transition: color var(--motion-duration-feedback) ease;
+}
+
+.traceTrigger:hover {
+	color: var(--foreground);
+}
+
+.traceTrigger .traceLine {
+	color: inherit;
+}
+
+.traceTrigger:has([data-status='error']),
+.traceLine[data-status='error'] {
+	color: var(--destructive);
+}
+
+.traceTrigger:focus-visible {
+	outline: 2px solid var(--ring);
+	outline-offset: 2px;
+}
+
+.traceChevron {
+	flex: none;
+	transition: rotate var(--motion-duration-feedback) ease;
+}
+
+.traceTrigger[aria-expanded='true'] .traceChevron {
+	rotate: 90deg;
+}
+
+.traceChevron:dir(rtl) {
+	scale: -1 1;
+}
+
+.traceTrigger[aria-expanded='true'] .traceChevron:dir(rtl) {
+	rotate: -90deg;
+}
+
+.toolCode pre {
+	padding: 8px;
+}
+
+.toolOutput {
+	font: inherit;
+	white-space: pre-wrap;
+}

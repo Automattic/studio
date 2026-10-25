@@ -581,7 +581,7 @@ async function appBoot() {
 					  }
 					: {
 							message: __( 'Sync will continue' ),
-							detail: __( 'The sync will keep running after you quit Studio.' ),
+							detail: __( 'The sync will keep running after you quit WordPress Studio.' ),
 							type: 'info',
 					  };
 
@@ -623,8 +623,8 @@ async function appBoot() {
 					type: 'question',
 					message: _n( 'Keep the site running?', 'Keep the sites running?', runningSiteCount ),
 					detail: _n(
-						'Your site can stay available in the background after Studio quits.',
-						'Your sites can stay available in the background after Studio quits.',
+						'Your site can stay available in the background after WordPress Studio quits.',
+						'Your sites can stay available in the background after WordPress Studio quits.',
 						runningSiteCount
 					),
 					buttons: [

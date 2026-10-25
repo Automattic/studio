@@ -185,8 +185,7 @@ export interface Connector {
 	// process handler. `wpVersion` is only forwarded when the user explicitly
 	// picked a pinned version — undefined means "keep auto-updating".
 	updateSite( site: SiteDetails, wpVersion?: string ): Promise< void >;
-	// Persists the sidebar's manual site order (the same per-site `sortOrder`
-	// the legacy desktop sidebar uses).
+	// Persists the sidebar's manual site order (each site's `sortOrder`).
 	updateSitesSortOrder( updates: { siteId: string; sortOrder: number }[] ): Promise< void >;
 	// The last page of the site captured in a preview, shown while it's stopped.
 	// Null when the site has not been captured yet.
@@ -607,12 +606,6 @@ export interface Connector {
 	// (desktop only). No-ops where there's no OS menu.
 	onShowWhatsNew( listener: () => void ): () => void;
 
-	// App version the user last dismissed the What's New announcements on. The
-	// same value the classic renderer reads, so the two UIs never show the same
-	// announcements twice.
-	getLastSeenVersion(): Promise< string | undefined >;
-	saveLastSeenVersion( version: string ): Promise< void >;
-
 	// Auto-updater status.
 	getAppUpdateStatus(): Promise< AppUpdateStatus >;
 	installAppUpdate(): Promise< void >;
@@ -650,6 +643,8 @@ export interface OnboardingHintsState {
 	// Studio (vs a fresh install that starts here). Drives the guide's first-page
 	// "Welcome to WordPress Studio 2.0" migrating copy.
 	migratedFromClassic?: boolean;
+	// WHATS_NEW_VERSION of the What's New guide the user last saw.
+	whatsNewSeenVersion?: number;
 }
 
 export type { SiteAgentFile, SiteAgentFileKind };

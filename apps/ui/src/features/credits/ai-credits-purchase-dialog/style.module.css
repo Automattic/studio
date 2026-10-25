@@ -1,0 +1,47 @@
+.amountCards {
+	display: grid;
+	grid-template-columns: repeat( 2, minmax( 0, 1fr ) );
+	gap: 8px;
+}
+
+.descriptionEmphasis {
+	font-weight: var(--font-weight-semibold);
+}
+
+.amountOption {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 4px;
+	padding: 12px;
+	border: 1px solid var(--border);
+	border-radius: 16px;
+	color: var(--foreground);
+	cursor: pointer;
+	text-align: start;
+}
+
+.amountOption:hover,
+.amountOption[data-selected] {
+	border-color: var(--accent);
+	background-color: color-mix(in oklab, var(--accent) 10%, var(--background));
+}
+
+.amountOption[data-selected] {
+	box-shadow: inset 0 0 0 0.5px var(--accent);
+}
+
+.amountOption:focus-visible {
+	outline: var(--focus-width) solid var(--ring);
+	outline-offset: 1px;
+}
+
+.optionPrice {
+	font-size: 15px;
+	font-weight: var(--font-weight-semibold);
+}
+
+.optionCredits {
+	color: var(--muted-foreground);
+	font-size: var(--text-xxs);
+}

@@ -1,0 +1,53 @@
+/* The sidebar's part of the workspace's top band: the app menu (Windows and
+   Linux) and the sidebar toggle at its start, past the macOS traffic lights. */
+.root {
+	--toggle-start: var(--traffic-light-space);
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	height: var(--band-height);
+	flex-shrink: 0;
+	padding-inline: var(--traffic-light-space) 12px;
+	box-shadow: inset 0 calc(-1 * 1px) 0
+		var(--border);
+	-webkit-app-region: drag;
+	/* Stay pinned while the sidebar scrolls. Opaque background so
+	   scrolling content doesn't bleed through. */
+	position: sticky;
+	top: 0;
+	z-index: 1;
+	background-color: var(--studio-sidebar-bg);
+}
+
+/* No traffic lights to clear: non-macOS, the browser (`studio ui`), or macOS
+   fullscreen (which hides them). */
+.flush {
+	--toggle-start: 12px;
+
+	padding-inline-start: 12px;
+}
+
+/* The toggle stays in the window's corner while the sidebar slides out, and
+   hands over to the header's toggle, which lands on the same spot, once the
+   slide ends. */
+.toggleSlot {
+	display: flex;
+	width: var(--control-size);
+	height: var(--control-size);
+	flex-shrink: 0;
+}
+
+.toggleSlot:first-child > * {
+	position: fixed;
+	top: calc((var(--band-height) - var(--control-size)) / 2);
+	inset-inline-start: var(--toggle-start);
+}
+
+.toggleSlot[data-sidebar-open='false'] > * {
+	visibility: hidden;
+	transition: visibility 0s var(--motion-duration-layout);
+}
+
+.root > * {
+	-webkit-app-region: no-drag;
+}

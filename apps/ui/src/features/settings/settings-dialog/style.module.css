@@ -1,0 +1,44 @@
+.scopes {
+	margin: 12px 12px 0;
+}
+
+.search {
+	width: auto;
+	margin: 12px 12px 0;
+}
+
+
+.empty {
+	padding: 16px 20px;
+	text-align: center;
+	color: var(--muted-foreground);
+	font-size: var(--text-xs);
+}
+
+.actions {
+	display: contents;
+}
+
+.hidden {
+	display: none;
+}
+
+/* The setting picked from the search results. */
+.content :global([data-settings-match]) {
+	margin-inline: -12px;
+	padding-inline: 12px;
+	border-radius: 8px;
+	background: color-mix(in srgb, var(--accent-text) 12%, transparent);
+	transition: background-color var(--motion-duration-layout);
+}
+
+.sections {
+	display: flex;
+	flex-direction: column;
+	gap: 32px;
+}
+
+.error {
+	color: var(--destructive);
+	font-size: var(--text-xs);
+}

@@ -1,0 +1,764 @@
+/* ---- Shared stage ----
+   Motion for the scenes is driven in JS by the choreography timeline; this file
+   only holds static styling and two tiny local effects (caret blink, tool
+   shimmer). */
+
+/* The full-bleed header slot. A fixed aspect ratio gives the popup header a
+   stable height that can't collapse while the dialog animates in; overflow is
+   visible so tooltips can extend past the edge. */
+.stage {
+	box-sizing: content-box;
+	position: relative;
+	display: grid;
+	place-items: center;
+	width: 100%;
+	aspect-ratio: 320 / 150;
+	flex-shrink: 0;
+	overflow: visible;
+	border-bottom: 1px solid var(--border);
+}
+
+/* ---- Preview scene ---- */
+
+.previewTabsScene {
+	position: absolute;
+	inset: 0;
+	display: grid;
+	place-items: center;
+	overflow: hidden;
+	background: var(--muted);
+}
+
+.previewSequence {
+	position: absolute;
+	inset: 0;
+	transform: scale(1.35);
+	transform-origin: center;
+}
+
+.previewToolbar {
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	transition: transform 50ms linear;
+	will-change: transform;
+}
+
+.previewTabs {
+	position: relative;
+	display: inline-flex;
+	align-items: center;
+	gap: 2px;
+	height: 32px;
+	padding: 2px;
+	border: 1px solid var(--border);
+	border-radius: 999px;
+}
+
+.previewTabsIndicator {
+	position: absolute;
+	top: 2px;
+	bottom: 2px;
+	left: 0;
+	border-radius: 999px;
+	background: color-mix(in srgb, var(--foreground) 14%, transparent);
+	transition:
+		width 200ms ease,
+		transform 200ms ease;
+}
+
+.previewTab {
+	position: relative;
+	z-index: 1;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 0;
+	width: 34px;
+	height: 26px;
+	padding: 0 9px;
+	overflow: hidden;
+	border-radius: 999px;
+	color: var(--muted-foreground);
+	font-size: 11px;
+	font-weight: var(--font-weight-semibold);
+	line-height: 16px;
+	white-space: nowrap;
+	transition:
+		width 200ms ease,
+		color 200ms ease,
+		gap 200ms ease;
+}
+
+.previewTabActive {
+	gap: 6px;
+	color: var(--foreground);
+}
+
+.previewTabActive[data-realm='frontend'] {
+	width: 150px;
+	padding-inline: 5px 9px;
+}
+
+.previewTabActive[data-realm='admin'] {
+	width: 108px;
+	padding-inline: 9px 12px;
+}
+
+.previewTabActive[data-realm='database'] {
+	width: 104px;
+	padding-inline: 9px 12px;
+}
+
+.previewTabIcon {
+	display: grid;
+	flex: 0 0 16px;
+	place-items: center;
+	width: 16px;
+	height: 16px;
+}
+
+.previewTabIcon svg {
+	width: 16px;
+	height: 16px;
+}
+
+.previewTabTitle {
+	max-width: 0;
+	overflow: hidden;
+	opacity: 0;
+	transition:
+		max-width 200ms ease,
+		opacity 120ms ease;
+}
+
+.previewTabActive .previewTabTitle {
+	max-width: 120px;
+	opacity: 1;
+	transition-delay: 60ms;
+}
+
+.previewTabsCursor {
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	z-index: 5;
+	transform-origin: 4px 3px;
+	filter: drop-shadow(0 2px 3px rgb(0 0 0 / 25%));
+	will-change: transform, opacity;
+}
+
+.previewAnnotateControl {
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	will-change: opacity;
+}
+
+.previewAnnotateButton {
+	display: grid;
+	flex: 0 0 32px;
+	place-items: center;
+	width: 40px;
+	height: 40px;
+	border-radius: 8px;
+	color: var(--foreground);
+	transition:
+		background 160ms ease,
+		color 160ms ease;
+}
+
+.previewAnnotateButton svg {
+	width: 20px;
+	height: 20px;
+}
+
+.previewAnnotateButtonActive {
+	background: color-mix(in srgb, var(--foreground) 14%, transparent);
+	color: var(--foreground);
+}
+
+.previewAnnotateTooltip {
+	position: absolute;
+	bottom: calc(100% + 6px);
+	left: 50%;
+	padding: 7px 12px;
+	border-radius: 8px;
+	border: 1px solid var(--border);
+	background: var(--chrome);
+	box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05), 0 2px 3px 0 rgba(0, 0, 0, 0.04), 0 6px 6px 0 rgba(0, 0, 0, 0.03), 0 8px 8px 0 rgba(0, 0, 0, 0.02);
+	color: var(--foreground);
+	font-size: 11px;
+	font-weight: 500;
+	line-height: 1;
+	transform: translateX(-50%);
+	white-space: nowrap;
+}
+
+.previewSkeletonPage {
+	position: absolute;
+	top: calc(50% - 41px);
+	left: 50%;
+	width: 190px;
+	height: 82px;
+	padding: 14px;
+	border: 1px solid var(--border);
+	border-radius: 5px;
+	background: var(--chrome);
+	transform: translateX(-50%);
+}
+
+.previewSkeletonTitle,
+.previewSkeletonCopy,
+.previewSkeletonCta {
+	border-radius: 999px;
+	background: color-mix(in srgb, var(--foreground) 18%, transparent);
+}
+
+.previewSkeletonTitle {
+	width: 92px;
+	height: 9px;
+	margin-bottom: 9px;
+}
+
+.previewSkeletonCopy {
+	width: 134px;
+	height: 5px;
+}
+
+.previewSkeletonCta {
+	position: absolute;
+	bottom: 12px;
+	left: 50%;
+	width: 60px;
+	height: 14px;
+	transform: translateX(-50%);
+	transition:
+		background 160ms ease,
+		box-shadow 160ms ease;
+}
+
+.previewSkeletonCtaPicking {
+	background: color-mix(in srgb, var(--accent-text) 12%, transparent);
+	box-shadow: 0 0 0 2px var(--ring);
+}
+
+.previewCommentComposer {
+	position: absolute;
+	z-index: 2;
+	top: calc(50% - 58px);
+	left: calc(50% + 80px);
+	display: flex;
+	width: 240px;
+	flex-direction: column;
+	gap: 5px;
+	padding: 8px;
+	border-radius: 9px;
+	background: #1a1a1a;
+	box-shadow:
+		0 2px 12px rgb(0 0 0 / 30%),
+		0 0 0 1px rgb(255 255 255 / 8%);
+	color: #fff;
+	margin-left: -120px;
+	transform: scale(0.72);
+	transform-origin: top center;
+}
+
+.previewCommentTarget {
+	overflow: hidden;
+	color: rgb(255 255 255 / 50%);
+	font-size: 8px;
+	line-height: 1;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.previewCommentTextarea {
+	min-height: 52px;
+	padding: 7px;
+	border: 1px solid #2563eb;
+	border-radius: 4px;
+	background: rgb(255 255 255 / 5%);
+	color: #fff;
+	font-size: 9px;
+	line-height: 1.4;
+}
+
+.previewCommentCaret {
+	display: inline-block;
+	width: 1px;
+	height: 9px;
+	margin-inline-start: 1px;
+	background: currentColor;
+	vertical-align: -1px;
+	animation: previewCommentCaret 800ms step-end infinite;
+}
+
+@keyframes previewCommentCaret {
+	50% {
+		opacity: 0;
+	}
+}
+
+.previewCommentActions {
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	gap: 6px;
+	font-size: 8px;
+	line-height: 1;
+}
+
+.previewCommentCancel,
+.previewCommentSave {
+	display: grid;
+	place-items: center;
+	height: 22px;
+	padding: 0 10px;
+	border-radius: 11px;
+	font-weight: var(--font-weight-semibold);
+}
+
+.previewCommentCancel {
+	color: rgb(255 255 255 / 70%);
+}
+
+.previewCommentSave {
+	background: #fff;
+	color: #1a1a1a;
+}
+
+.previewAnnotationMarker {
+	position: absolute;
+	display: grid;
+	place-items: center;
+	width: 18px;
+	height: 18px;
+	border: 1px solid #fff;
+	border-radius: 50%;
+	background: #2563eb;
+	box-shadow: 0 1px 4px rgb(0 0 0 / 30%);
+	color: #fff;
+	font-size: 8px;
+	font-weight: 700;
+	line-height: 1;
+	transform-origin: center;
+}
+
+.previewAnnotationMarkerOne {
+	top: 56px;
+	left: calc(50% + 30px);
+}
+
+.previewAnnotationMarkerTwo {
+	top: 14px;
+	left: 106px;
+}
+
+.previewAnnotationMarkerThree {
+	top: 32px;
+	left: 148px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.previewTabsIndicator,
+	.previewTab,
+	.previewTabTitle,
+	.previewAnnotateButton {
+		transition: none;
+	}
+
+	.previewCommentCaret {
+		animation: none;
+	}
+}
+/* ---- Sites scene ---- */
+
+.sitesScene {
+	position: absolute;
+	inset: 0;
+	display: grid;
+	place-items: center;
+	background: var(--sites-chrome-bg);
+}
+
+/* A stack of rows so the focus row reads as one entry in a real sidebar list.
+   No container mask — a mask would clip the focus row's tooltips at the list's
+   edge; the neighbours recede via per-row opacity instead. */
+.list {
+	display: flex;
+	flex-direction: column;
+	gap: 1px;
+	width: 264px;
+}
+
+/* Quiet, non-interactive neighbours; the outer ones fade further back. */
+.rowGhost {
+	display: flex;
+	align-items: center;
+	height: 34px;
+	padding: 0 8px 0 12px;
+	border-radius: 6px;
+	opacity: 0.7;
+}
+
+.rowGhostFar {
+	opacity: 0.4;
+}
+
+.rowGhostName {
+	overflow: hidden;
+	font-size: var(--text-xs);
+	line-height: 1.2;
+	color: var(--muted-foreground);
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+
+.row {
+	position: relative;
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	width: 100%;
+	height: 34px;
+	padding: 0 8px 0 12px;
+	border-radius: 6px;
+	background: var(--hover);
+}
+
+.rowName {
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	font-size: var(--text-xs);
+	line-height: 1.2;
+	color: var(--foreground);
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+
+.rowActions {
+	display: flex;
+	align-items: center;
+	gap: 2px;
+	flex-shrink: 0;
+}
+
+/* The scene tints the background (hover) inline via the timeline. */
+.btn {
+	position: relative;
+	display: grid;
+	place-items: center;
+	width: 24px;
+	height: 24px;
+	border-radius: 4px;
+	color: var(--foreground);
+}
+
+.btnGlyph {
+	width: 16px;
+	height: 16px;
+}
+
+/* The status glyphs stack in the button's single grid cell so they can
+   crossfade between states (play → starting dot → running dot). */
+.statusPlay,
+.statusDot {
+	grid-area: 1 / 1;
+}
+
+.statusPlay {
+	width: 9px;
+	height: 9px;
+	fill: var(--foreground);
+}
+
+.statusDot {
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+}
+
+/* Tooltip pill. Visibility/lift come from the scene inline; positioning and
+   look live here. Centered over the button. */
+.tooltip {
+	position: absolute;
+	bottom: calc(100% + 7px);
+	left: 50%;
+	padding: 3px 8px;
+	border-radius: 4px;
+	background: #fff;
+	color: #1e1e1e;
+	font-size: 11px;
+	font-weight: var(--font-weight-semibold);
+	line-height: 1.4;
+	white-space: nowrap;
+	box-shadow: 0 2px 8px rgb(0 0 0 / 24%);
+	pointer-events: none;
+}
+
+.cursor {
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	transform-origin: 4px 3px;
+	filter: drop-shadow(0 2px 3px rgb(0 0 0 / 30%));
+	will-change: transform, opacity;
+}
+
+/* ---- Chat scene ----
+   Theme-adaptive (the chat pane follows light/dark). */
+
+.chatScene {
+	position: absolute;
+	inset: 0;
+	overflow: hidden;
+	background: var(--muted);
+}
+
+/* Above the resting composer, with room up top so the first bubble clears the
+   modal's Skip button. */
+.chatConversation {
+	position: absolute;
+	top: 46px;
+	right: 26px;
+	bottom: 20px;
+	left: 26px;
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+	overflow: hidden;
+}
+
+.userBubble {
+	align-self: flex-end;
+	max-width: 82%;
+	padding: 5px 11px;
+	border-radius: 14px 14px 6px 14px;
+	background: color-mix(in srgb, var(--accent-text) 12%, transparent);
+	color: var(--foreground);
+	font-size: var(--text-xxs);
+	line-height: 1.4;
+	transform-origin: bottom right;
+}
+
+.assistantText {
+	color: var(--foreground);
+	font-size: var(--text-xxs);
+	line-height: 1.45;
+}
+
+/* Blinking cursor at the end of the streaming reply. */
+.streamCaret {
+	display: inline-block;
+	width: 6px;
+	height: 13px;
+	margin-left: 2px;
+	vertical-align: -2px;
+	background: var(--muted-foreground);
+	animation: chatCaretBlink 1s steps(1) infinite;
+}
+
+.toolChip {
+	align-self: flex-start;
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	color: var(--muted-foreground);
+	font-size: 11px;
+}
+
+.toolIcon {
+	width: 14px;
+	height: 14px;
+	flex-shrink: 0;
+}
+
+/* A light band sweeps across the label to signal the tool is working. */
+.toolShimmer {
+	background: linear-gradient(
+		100deg,
+		var(--muted-foreground) 35%,
+		var(--foreground) 50%,
+		var(--muted-foreground) 65%
+	);
+	background-size: 220% 100%;
+	background-clip: text;
+	-webkit-background-clip: text;
+	-webkit-text-fill-color: transparent;
+	color: transparent;
+	animation: toolShimmer 1.6s linear infinite;
+}
+
+@keyframes toolShimmer {
+	from {
+		background-position: 200% 0;
+	}
+	to {
+		background-position: -200% 0;
+	}
+}
+
+/* Subtle text control at the modal's top-left, shown once the playback ends.
+   Opacity/pointer-events are set inline by the scene. */
+.replayButton {
+	position: absolute;
+	top: 10px;
+	left: 14px;
+	z-index: 2;
+	padding: 2px 4px;
+	color: var(--muted-foreground);
+	font-size: 11px;
+	font-weight: var(--font-weight-semibold);
+	cursor: pointer;
+	transition: color 120ms ease;
+}
+
+.replayButton:hover {
+	color: var(--foreground);
+}
+
+.composer {
+	position: absolute;
+	right: 26px;
+	bottom: 12px;
+	left: 26px;
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	padding: 8px 10px 7px;
+	border-radius: 8px 8px 20px 8px;
+	background: var(--chrome);
+	outline: 1.5px solid var(--accent-text);
+	will-change: transform;
+}
+
+.composerInput {
+	position: relative;
+	min-height: 17px;
+}
+
+.composerPlaceholder {
+	position: absolute;
+	inset: 0;
+	text-align: start;
+	color: var(--muted-foreground);
+	font-size: var(--text-xxs);
+	line-height: 17px;
+	white-space: nowrap;
+}
+
+.composerTyped {
+	position: absolute;
+	inset: 0;
+	display: inline-flex;
+	align-items: center;
+	overflow: hidden;
+	color: var(--foreground);
+	font-size: var(--text-xxs);
+	line-height: 17px;
+	white-space: nowrap;
+}
+
+.composerCaret {
+	flex-shrink: 0;
+	width: 1.5px;
+	height: 13px;
+	margin-left: 1px;
+	background: var(--accent-text);
+	animation: chatCaretBlink 1s steps(1) infinite;
+}
+
+.composerBar {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+}
+
+.composerButtons {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+
+/* Black stop button (fg-content-neutral) with a light square, matching the
+   real composer's busy state; shown alongside the send button. */
+.stopButton {
+	display: grid;
+	place-items: center;
+	width: 22px;
+	height: 22px;
+	border-radius: 999px;
+	background: var(--foreground);
+	color: var(--chrome);
+}
+
+.stopGlyph {
+	width: 8px;
+	height: 8px;
+	border-radius: 1px;
+	background: currentColor;
+}
+
+.plusButton {
+	display: grid;
+	place-items: center;
+	width: 18px;
+	height: 18px;
+	color: var(--muted-foreground);
+}
+
+.plusButton svg {
+	width: 16px;
+	height: 16px;
+}
+
+.sendButton {
+	display: grid;
+	place-items: center;
+	width: 22px;
+	height: 22px;
+	border-radius: 999px;
+	background: color-mix(in srgb, var(--foreground) 14%, transparent);
+	color: var(--muted-foreground);
+	transition: background 150ms ease, color 150ms ease;
+}
+
+.sendButton svg {
+	width: 15px;
+	height: 15px;
+}
+
+.sendButtonActive {
+	background: var(--accent-text);
+	color: #fff;
+}
+
+@keyframes chatCaretBlink {
+	0%,
+	49% {
+		opacity: 1;
+	}
+	50%,
+	100% {
+		opacity: 0;
+	}
+}
+
+/* The choreography timeline already rests on a static frame under reduced
+   motion; only the small looping CSS effects need silencing. */
+@media (prefers-reduced-motion: reduce) {
+	.streamCaret,
+	.composerCaret {
+		animation: none;
+	}
+
+	.toolShimmer {
+		animation: none;
+		color: var(--muted-foreground);
+		-webkit-text-fill-color: var(--muted-foreground);
+	}
+}

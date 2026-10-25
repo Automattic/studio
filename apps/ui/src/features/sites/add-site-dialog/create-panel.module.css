@@ -1,0 +1,144 @@
+.blueprint {
+	margin-top: 32px;
+}
+
+.summary {
+	width: 100%;
+	text-align: left;
+}
+
+.summaryHeader {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 16px;
+	margin-bottom: 12px;
+}
+
+/* A quiet section label, so the Blueprint's own name below stays dominant. */
+.summaryHeader h2 {
+	color: var(--muted-foreground);
+	font-size: var(--text-xxs);
+	font-weight: 500;
+}
+
+.summaryRemove {
+	color: var(--accent-text);
+	font-size: var(--text-xxs);
+	cursor: pointer;
+}
+
+.summaryRemove:hover {
+	text-decoration: underline;
+}
+
+.summaryRemove:focus-visible {
+	border-radius: 2px;
+	outline: 2px solid var(--ring);
+	outline-offset: 2px;
+}
+
+.summaryOverview {
+	display: grid;
+	grid-template-columns: 112px minmax( 0, 1fr );
+	align-items: start;
+	gap: 16px;
+}
+
+.summaryOverviewWithoutImage {
+	grid-template-columns: 1fr;
+}
+
+.summaryImageViewport {
+	position: relative;
+	width: 112px;
+	aspect-ratio: 16 / 10;
+	overflow: hidden;
+	border-radius: 6px;
+	background: var(--chat);
+}
+
+.summaryImage {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+}
+
+.summaryContent {
+	min-width: 0;
+}
+
+.summaryTitle {
+	color: var(--foreground);
+	font-size: var(--text-xs);
+	font-weight: var(--font-weight-semibold);
+}
+
+.summaryExcerpt {
+	margin: 4px 0 0;
+	color: var(--muted-foreground);
+	font-size: var(--text-xxs);
+	line-height: 1.4;
+}
+
+.summaryPackages {
+	display: grid;
+	grid-template-columns: repeat( 2, minmax( 0, 1fr ) );
+	gap: 24px;
+	margin-top: 24px;
+}
+
+.summaryPackageGroup h3 {
+	margin: 0 0 6px;
+	color: var(--foreground);
+	font-size: var(--text-xxs);
+	font-weight: var(--font-weight-semibold);
+}
+
+.summaryPackageGroup:only-child {
+	grid-column: 1 / -1;
+}
+
+.summaryPackageGroup ul {
+	padding-left: 18px;
+	list-style: disc;
+}
+
+.summaryPackageGroup li {
+	margin-top: 3px;
+	color: var(--muted-foreground);
+	font-size: var(--text-xxs);
+}
+
+.summaryPackageGroup a {
+	color: var(--accent-text);
+	overflow-wrap: anywhere;
+}
+
+.summaryPackageGroup a:hover {
+	text-decoration: underline;
+}
+
+.summaryPackageGroup a:focus-visible {
+	border-radius: 2px;
+	outline: 2px solid var(--ring);
+	outline-offset: 2px;
+}
+
+@media ( max-width: 520px ) {
+	.summaryOverview,
+	.summaryPackages {
+		grid-template-columns: 1fr;
+	}
+
+	.summaryImageViewport {
+		width: 100%;
+		aspect-ratio: 16 / 9;
+	}
+}
+
+.page {
+	width: 100%;
+	max-width: 448px;
+	margin-inline: auto;
+}

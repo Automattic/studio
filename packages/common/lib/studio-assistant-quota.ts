@@ -1,5 +1,6 @@
 import { __, sprintf } from '@wordpress/i18n';
 import { z } from 'zod';
+import { isAutomatticianEmail } from './automattician';
 
 export const STUDIO_ASSISTANT_QUOTA_URL =
 	'https://public-api.wordpress.com/wpcom/v2/studio-app/ai-assistant/quota';
@@ -132,6 +133,17 @@ export function hasPaidAiCredits(
 	quota: Pick< StudioAssistantQuota, 'purchasedRemaining' > | null | undefined
 ): boolean {
 	return ( quota?.purchasedRemaining ?? 0 ) > 0;
+}
+
+/**
+ * Whether the paid model tiers are unlocked: purchased credits remain, or the
+ * account is an Automattician's, which the credit gate exempts.
+ */
+export function canUsePaidAiModels(
+	quota: Pick< StudioAssistantQuota, 'purchasedRemaining' > | null | undefined,
+	email: string | undefined | null
+): boolean {
+	return hasPaidAiCredits( quota ) || isAutomatticianEmail( email );
 }
 
 export type StudioCodeAiAccessState = 'available' | 'blocked' | 'not-enabled';

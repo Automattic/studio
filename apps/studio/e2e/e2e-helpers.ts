@@ -10,7 +10,7 @@ import AddSite, { type CreateSiteOptions } from './page-objects/add-site';
 import Sidebar from './page-objects/sidebar';
 import type { ChildProcess } from 'node:child_process';
 
-// `ORIENTATION_GUIDE_VERSION` in apps/ui/src/data/onboarding/orientation-guide.ts.
+// `ORIENTATION_GUIDE_VERSION` in apps/ui/src/features/onboarding/onboarding-guide/orientation-guide.ts.
 const ORIENTATION_GUIDE_VERSION = 2;
 
 export type PersistedSite = { id: string; name: string; path: string; port: number };
@@ -71,7 +71,11 @@ export class E2ESession {
 				? {}
 				: {
 						onboardingCompleted: true,
-						onboardingHints: { tourDismissedVersion: ORIENTATION_GUIDE_VERSION },
+						// What's New is never due, whatever its version.
+						onboardingHints: {
+							tourDismissedVersion: ORIENTATION_GUIDE_VERSION,
+							whatsNewSeenVersion: Number.MAX_SAFE_INTEGER,
+						},
 						agenticFeaturesEnabled: false,
 				  } ),
 		};

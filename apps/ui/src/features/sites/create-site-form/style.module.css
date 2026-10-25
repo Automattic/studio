@@ -1,0 +1,100 @@
+.form {
+	text-align: left;
+}
+
+.panel {
+	display: flex;
+	flex-direction: column;
+	gap: 24px;
+}
+
+.actions {
+	display: flex;
+	justify-content: flex-end;
+	gap: 8px;
+	margin-top: 28px;
+}
+
+.pathRow {
+	display: flex;
+	gap: 8px;
+}
+
+.advancedToggle {
+	align-self: flex-start;
+}
+
+.advancedCollapse {
+	display: grid;
+	grid-template-rows: 0fr;
+	margin-top: -24px;
+	transition:
+		grid-template-rows var(--motion-duration-layout) var(--motion-ease-layout),
+		margin-top var(--motion-duration-layout) var(--motion-ease-layout);
+}
+
+.advancedCollapseOpen {
+	grid-template-rows: 1fr;
+	margin-top: 0;
+}
+
+.advancedCollapseInner {
+	overflow: hidden;
+	min-height: 0;
+	padding: 4px;
+	margin: -4px;
+}
+
+.advancedErrorCount {
+	margin-left: 8px;
+	font-size: var(--text-xxs);
+	font-weight: 500;
+	color: var(--destructive);
+}
+
+.submitErrorDetails {
+	margin-top: 6px;
+}
+
+.submitErrorDetails summary {
+	width: fit-content;
+	font-weight: 500;
+	cursor: pointer;
+}
+
+.submitErrorDetails pre {
+	max-height: 160px;
+	padding-top: 6px;
+	overflow: auto;
+	font-family: var(--font-mono);
+	font-size: 11px;
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+}
+
+.panelFooter {
+	padding-top: 24px;
+	border-top: 1px solid var(--border);
+}
+
+.source {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	padding: 12px;
+	border: 1px solid var(--border);
+	border-radius: var(--radius-lg);
+	background: var(--background);
+}
+
+.source svg {
+	flex: none;
+	color: var(--muted-foreground);
+}
+
+.source span {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}

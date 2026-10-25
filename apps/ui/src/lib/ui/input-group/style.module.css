@@ -1,0 +1,91 @@
+@layer ui {
+	.group {
+		position: relative;
+		display: flex;
+		align-items: center;
+		width: 100%;
+		min-width: 0;
+		height: var( --control-size );
+		border: 1px solid var( --input );
+		border-radius: var( --radius-lg );
+		outline: none;
+	}
+
+	.group:has( [data-slot='input-group-control']:focus-visible ):not( :has( [aria-invalid='true'] ) ) {
+		border-color: var( --ring );
+		box-shadow: inset 0 0 0 1px var( --ring );
+	}
+
+	.group:has( [aria-invalid='true'] ) {
+		border-color: var( --destructive );
+	}
+
+	.group:has( [data-slot='input-group-control']:disabled ) {
+		opacity: 0.5;
+	}
+
+	.group:has( > textarea ) {
+		flex-direction: column;
+		height: auto;
+	}
+
+	.group[data-variant='composer'] {
+		border-color: var( --input );
+		border-radius: 24px;
+		background-color: var( --composer );
+		color: var( --foreground );
+	}
+
+	.group:has( > [data-align='inline-end'] ) > input {
+		padding-inline-end: 6px;
+	}
+
+	.group:has( > [data-align='inline-start'] ) > input {
+		padding-inline-start: 6px;
+	}
+
+	.addon {
+		display: flex;
+		gap: 8px;
+		align-items: center;
+		justify-content: center;
+		height: auto;
+		padding-block: 6px;
+		color: var( --muted-foreground );
+		font-size: var( --text-sm );
+		font-weight: var( --font-weight-medium );
+		cursor: text;
+		user-select: none;
+	}
+
+	[data-variant='composer'] > .addon {
+		color: var( --foreground );
+	}
+
+	.addon > svg:not( [data-size] ) {
+		width: 16px;
+		height: 16px;
+	}
+
+	.addon[data-align='inline-start'] {
+		order: -1;
+		padding-inline-start: 8px;
+	}
+
+	.addon[data-align='inline-end'] {
+		order: 1;
+		padding-inline-end: 8px;
+	}
+
+	.addon[data-align='inline-start']:has( > button ) {
+		margin-inline-start: -0.3rem;
+	}
+
+	.addon[data-align='inline-end']:has( > button ) {
+		margin-inline-end: -0.3rem;
+	}
+
+	.control {
+		background: transparent;
+	}
+}

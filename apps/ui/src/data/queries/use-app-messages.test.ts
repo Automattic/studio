@@ -23,7 +23,7 @@ describe( 'deriveUpdateMessages', () => {
 
 		expect( message.title ).toBe( 'Downloading update' );
 		expect( message.description ).toBe( 'Updating from 1.20.0 to 1.21.0.' );
-		expect( message.cta ).toBeUndefined();
+		expect( message.action ).toBeUndefined();
 	} );
 
 	it( 'falls back to the current version when the target is not yet known', () => {
@@ -42,11 +42,11 @@ describe( 'deriveUpdateMessages', () => {
 			onInstall
 		);
 
-		expect( message.title ).toBe( 'Studio 1.21.0 is ready to install' );
+		expect( message.title ).toBe( 'WordPress Studio 1.21.0 is ready to install' );
 		expect( message.description ).toBe( 'Updating from 1.20.0 to 1.21.0.' );
 		expect( message.id ).toBe( 'app-update:1.21.0' );
 
-		message.cta?.onClick();
+		void message.action?.onClick();
 		expect( onInstall ).toHaveBeenCalled();
 	} );
 
@@ -56,7 +56,7 @@ describe( 'deriveUpdateMessages', () => {
 			noop
 		);
 
-		expect( message.title ).toBe( 'A Studio update is ready to install' );
+		expect( message.title ).toBe( 'A WordPress Studio update is ready to install' );
 		expect( message.description ).toBe( 'Restart to finish updating.' );
 		expect( message.id ).toBe( 'app-update' );
 	} );
@@ -66,14 +66,14 @@ describe( 'deriveUpdateMessages', () => {
 			state: 'error',
 			currentVersion: '1.20.0',
 			reason: 'read-only-volume',
-			detail: 'Studio is running from a disk image.',
+			detail: 'WordPress Studio is running from a disk image.',
 		};
 
 		const [ message ] = deriveUpdateMessages( status, noop );
 
 		expect( message.intent ).toBe( 'error' );
-		expect( message.title ).toBe( "Couldn't update Studio" );
-		expect( message.description ).toBe( 'Studio is running from a disk image.' );
+		expect( message.title ).toBe( "Couldn't update WordPress Studio" );
+		expect( message.description ).toBe( 'WordPress Studio is running from a disk image.' );
 	} );
 
 	it( 'falls back to generic guidance for an error with no detail', () => {
@@ -83,7 +83,7 @@ describe( 'deriveUpdateMessages', () => {
 		);
 
 		expect( message.description ).toBe(
-			'Studio will try again the next time it checks for updates.'
+			'WordPress Studio will try again the next time it checks for updates.'
 		);
 	} );
 } );

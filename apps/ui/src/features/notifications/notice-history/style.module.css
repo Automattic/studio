@@ -1,0 +1,76 @@
+.bell {
+	position: relative;
+}
+
+.bell:has(.dot) svg {
+	mask-image: radial-gradient(circle at calc(100% - 2px) 2px, transparent 5.5px, #000 6px);
+}
+
+.dot {
+	position: absolute;
+	/* Inside the button's 1px border. */
+	inset-block-start: 7.5px;
+	inset-inline-end: 7.5px;
+	width: 7px;
+	height: 7px;
+	border-radius: 50%;
+	background-color: var(--accent);
+	pointer-events: none;
+}
+
+.empty {
+	width: min(320px, calc(100vw - 24px));
+	padding: 16px;
+}
+
+.emptyTitle {
+	font-size: var(--text-sm);
+	font-weight: var(--font-weight-medium);
+	line-height: 20px;
+}
+
+.emptyText {
+	margin: 4px 0 0;
+	color: var(--muted-foreground);
+	font-size: var(--text-sm);
+	line-height: 20px;
+}
+
+/* The entries float on their own, like the toasts they were. */
+.history {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	width: min(320px, calc(100vw - 24px));
+	background: none;
+	box-shadow: none;
+	overflow: visible;
+}
+
+.clearAll {
+	--button-background: var(--chrome);
+
+	align-self: flex-end;
+	box-shadow: var(--shadow-xs);
+}
+
+/* The padding is room for each entry's ring, shadow and dismiss badge. */
+.list {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	max-height: min(440px, calc(100svh - 160px));
+	margin: -8px;
+	padding: 8px;
+	overflow-y: auto;
+	overscroll-behavior: contain;
+}
+
+.time {
+	flex: none;
+	color: var(--muted-foreground);
+	font-size: var(--text-xxs);
+	line-height: 1.25;
+	white-space: nowrap;
+	font-variant-numeric: tabular-nums;
+}

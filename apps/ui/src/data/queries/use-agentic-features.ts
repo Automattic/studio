@@ -4,7 +4,7 @@ import {
 	useUserPreferences,
 	USER_PREFERENCES_QUERY_KEY,
 } from '@/data/queries/use-user-preferences';
-import { useOffline } from '@/hooks/use-offline';
+import { useOffline } from '@/lib/hooks';
 import type { AuthUser, Connector } from '@/data/core';
 import type { QueryClient } from '@tanstack/react-query';
 

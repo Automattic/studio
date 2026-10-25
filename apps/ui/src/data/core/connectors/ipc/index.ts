@@ -214,9 +214,8 @@ export function createIpcConnector(): Connector {
 			if ( ! sourceSite ) {
 				throw new Error( 'Source site not found.' );
 			}
-			// `%s Copy` matches the legacy Studio flow, and the helper bumps
-			// the suffix (`Copy 2`, `Copy 3`…) when earlier copies already
-			// exist.
+			// The helper bumps the suffix (`Copy 2`, `Copy 3`…) when earlier
+			// copies already exist.
 			const baseName = `${ sourceSite.name } Copy`;
 			const newName = ( await ipcApi.generateNumberedNameFromList( baseName, sites ) ) as string;
 			const newSiteId = crypto.randomUUID();
@@ -903,14 +902,6 @@ export function createIpcConnector(): Connector {
 
 		onShowWhatsNew( listener ) {
 			return ipcListener.subscribe( 'show-whats-new', () => listener() );
-		},
-
-		async getLastSeenVersion() {
-			return ipcApi.getLastSeenVersion();
-		},
-
-		async saveLastSeenVersion( version ) {
-			await ipcApi.saveLastSeenVersion( version );
 		},
 
 		async getAppUpdateStatus() {

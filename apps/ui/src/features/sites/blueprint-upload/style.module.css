@@ -1,0 +1,43 @@
+.root {
+	text-align: center;
+}
+
+.fileInput {
+	display: none;
+}
+
+.prompt {
+	color: var(--muted-foreground);
+	font-size: var(--text-xs);
+}
+
+.action {
+	color: var(--accent-text);
+	font-weight: 500;
+	cursor: pointer;
+}
+
+.action:hover {
+	text-decoration: underline;
+}
+
+.action:focus-visible {
+	border-radius: 2px;
+	outline: 2px solid var(--accent);
+	outline-offset: 2px;
+}
+
+.fullScreenDrop {
+	position: fixed;
+	inset: 0;
+	z-index: 20;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border: 2px dashed var(--accent);
+	background: var(--chrome);
+	color: var(--foreground);
+	font-size: 1.25rem;
+	font-weight: var(--font-weight-semibold);
+	pointer-events: none;
+}

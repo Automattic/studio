@@ -1,0 +1,72 @@
+/* The sidebar footer: the account avatar at the start, Settings and the
+   notification bell at the end, as 36px controls inset 12px. Pinning to the
+   sidebar bottom is handled by the layout's `sidebarFooter` wrapper. */
+.root {
+	padding: 0 12px 10px;
+}
+
+.alert {
+	margin-block-end: 8px;
+}
+
+.row {
+	display: flex;
+	align-items: center;
+}
+
+.offline {
+	display: flex;
+	color: var(--muted-foreground);
+}
+
+.avatar {
+	width: 24px;
+	height: 24px;
+}
+
+.spacer {
+	flex: 1;
+}
+
+.popup {
+	min-width: 228px;
+}
+
+.account {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 8px 6px;
+}
+
+.accountText {
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+	font-size: var(--text-xs);
+	line-height: 1.25;
+}
+
+.accountName,
+.accountEmail {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.accountName {
+	font-weight: var(--font-weight-medium);
+}
+
+.accountEmail {
+	color: var(--muted-foreground);
+}
+
+.itemLabel {
+	flex: 1;
+}
+
+.shortcut {
+	color: var(--muted-foreground);
+	font: inherit;
+}

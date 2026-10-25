@@ -1,0 +1,290 @@
+/* Slides in from the window's end, below the preview header. */
+.panel {
+	display: flex;
+	flex-direction: column;
+	width: 320px;
+	max-width: calc(100vw - 24px);
+	max-height: calc(100dvh - var(--control-size) - 42px);
+	overflow-x: hidden;
+	overflow-y: auto;
+	font-size: var(--text-sm);
+	line-height: 20px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+	.panel {
+		transition-property: translate, opacity;
+		transition-duration: var(--motion-duration-layout);
+		transition-timing-function: var(--motion-ease-layout);
+	}
+
+	.panel[data-starting-style],
+	.panel[data-ending-style] {
+		scale: 1;
+		translate: calc(100% + 12px) 0;
+	}
+}
+
+.trigger {
+	--button-active-duration: var(--motion-duration-layout);
+	--button-active-easing: var(--motion-ease-layout);
+}
+
+.triggerLabel {
+	position: relative;
+}
+
+.errorDot {
+	position: absolute;
+	inset-block-start: -2px;
+	inset-inline-end: -8px;
+	width: 6px;
+	height: 6px;
+	border-radius: 50%;
+	background: var(--destructive);
+}
+
+.panelHeader {
+	display: flex;
+	flex: none;
+	align-items: center;
+	gap: 12px;
+	padding: 14px 14px 14px 16px;
+}
+
+.body {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	padding: 0 16px 16px;
+}
+
+.bodyInsetTop {
+	padding-top: 16px;
+}
+
+.loading {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	min-height: 128px;
+}
+
+.heading {
+	margin: 0;
+	min-width: 0;
+	overflow-wrap: anywhere;
+	font-size: var(--text-sm);
+	font-weight: var(--font-weight-medium);
+	line-height: 20px;
+	letter-spacing: -0.02em;
+}
+
+.text,
+.description {
+	color: var(--muted-foreground);
+	font-size: var(--text-sm);
+	line-height: 1.625;
+}
+
+.description {
+	font-size: var(--text-xs);
+	line-height: 20px;
+}
+
+.error {
+	color: var(--destructive);
+	font-size: var(--text-sm);
+	line-height: 1.625;
+}
+
+.errorMessage {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 10px;
+}
+
+.field {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.website {
+	display: flex;
+	align-items: center;
+	min-width: 0;
+}
+
+.include {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.include > .text {
+	flex: none;
+}
+
+.footer {
+	display: flex;
+	gap: 8px;
+}
+
+.primary {
+	flex: 1;
+}
+
+.intro {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+}
+
+.introActions {
+	display: flex;
+	flex-direction: column;
+}
+
+.choice {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.choiceButton {
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 4px;
+}
+
+.choiceName,
+.choiceLabel {
+	max-width: 100%;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.choiceLabel {
+	color: var(--muted-foreground);
+}
+
+.websiteRow {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.websiteRowText {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	gap: 2px;
+	min-width: 0;
+}
+
+.address {
+	display: block;
+	min-width: 0;
+	overflow: hidden;
+	font-size: var(--text-sm);
+	font-weight: var(--font-weight-medium);
+	line-height: 20px;
+	letter-spacing: -0.02em;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.progress,
+.success {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+}
+
+.progressTitle {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.stack,
+.fileNode,
+.fileChildren {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.fileChildren {
+	padding-inline-start: 24px;
+}
+
+.selectionRow {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.disclosure {
+	display: flex;
+	flex: none;
+	align-items: center;
+	justify-content: center;
+	width: 28px;
+	height: 28px;
+}
+
+.selectionLabel {
+	min-width: 0;
+	overflow-wrap: anywhere;
+}
+
+.symlink {
+	display: inline-flex;
+	flex: none;
+	color: var(--muted-foreground);
+}
+
+@keyframes transfer-dot {
+	0% {
+		opacity: 0;
+		transform: translateY(3px);
+	}
+
+	25%,
+	70% {
+		opacity: 1;
+	}
+
+	100% {
+		opacity: 0;
+		transform: translateY(-3px);
+	}
+}
+
+.transferIcon {
+	flex: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+	.transferIcon circle {
+		animation: transfer-dot 960ms linear infinite;
+		transform-box: fill-box;
+		transform-origin: center;
+	}
+
+	.transferIcon circle:nth-child(2) {
+		animation-delay: -120ms;
+	}
+
+	.transferIcon circle:nth-child(3) {
+		animation-delay: -240ms;
+	}
+
+	.transferIcon[data-publish-transfer='pull'] circle {
+		animation-direction: reverse;
+	}
+}

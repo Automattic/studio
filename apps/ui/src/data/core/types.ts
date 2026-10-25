@@ -582,6 +582,9 @@ export interface Connector {
 	// shortcut) in the application menu.
 	onAddSite( listener: () => void ): () => void;
 	onAddSiteWithBlueprint( listener: ( payload: { blueprintPath: string } ) => void ): () => void;
+	// Tells the host the app now listens for the events links send (Settings, Add
+	// site, sync and checkout returns), so a link that arrived earlier opens.
+	readyForDeeplinks?(): void;
 
 	// Fires when the user activates "Settings…" (or its keyboard shortcut) in
 	// the application menu, or opens a link to one setting.

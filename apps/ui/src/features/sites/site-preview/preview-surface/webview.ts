@@ -11,6 +11,7 @@ export interface WebviewTag extends HTMLElement {
 	goBack?(): void;
 	goForward?(): void;
 	reload?(): void;
+	stop?(): void;
 	isLoading?(): boolean;
 }
 
@@ -26,6 +27,11 @@ export interface WebviewPageTitleUpdatedEvent extends Event {
 export interface WebviewFailLoadEvent extends Event {
 	errorCode: number;
 	isMainFrame: boolean;
+}
+
+export interface WebviewStartNavigationEvent extends Event {
+	isMainFrame: boolean;
+	isInPlace: boolean;
 }
 
 // Chromium's ERR_ABORTED: a load replaced by another one, not a failure.
@@ -71,6 +77,8 @@ export async function reloadPreview(
 	intendedUrl: string,
 	currentUrl: string
 ): Promise< void > {
+	// Chromium ignores a reload while a load is still pending.
+	webview.stop?.();
 	const ipcApi = getPreviewIpc();
 	try {
 		await ipcApi?.clearWebviewCache?.( getWebviewContentsId( webview ) );

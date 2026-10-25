@@ -11,10 +11,11 @@ type Handlers = {
 /**
  * ⌥⌘R or F2 renames, ⌥⌘P pins, ⇧⌘A archives and ⌥⌘S starts or stops (Ctrl+Alt
  * and Ctrl+Shift elsewhere). Spread the returned props on a sidebar row, the
- * menu open on it, and the elements marked `data-item-shortcuts-active` for the
+ * menus open on it, and the elements marked `data-item-shortcuts-active` for the
  * open chat and the current site. A shortcut acts on the focused row or menu,
  * else the open chat, else the current site; F2 only on a focused one, and ⌥⌘S
- * always on the current site. Keys typed in a text field stay there.
+ * always on the current site, from no menu but its own. Keys typed in a text
+ * field stay there.
  */
 export function useItemShortcuts( handlers: Handlers ) {
 	const id = useId();
@@ -41,12 +42,13 @@ export function useItemShortcuts( handlers: Handlers ) {
 		}
 		const target = event.target instanceof Element ? event.target : null;
 		const focused = target?.closest( '[data-item-shortcuts]' );
-		const unscoped = f2 || target?.closest( '[role="dialog"], [role="menu"]' );
+		const popup = target?.closest( '[role="dialog"], [role="menu"]' );
 		const active = ( kind: string ) =>
 			document.querySelector( `[data-item-shortcuts-active="${ kind }"]` );
+		const site = active( 'site' );
 		const scope = lifecycle
-			? ! unscoped && active( 'site' )
-			: focused ?? ( unscoped ? null : active( 'chat' ) ?? active( 'site' ) );
+			? ( ! popup || focused?.getAttribute( 'data-item-shortcuts' ) === id ) && site
+			: focused ?? ( f2 || popup ? null : active( 'chat' ) ?? site );
 		if ( scope && scope.getAttribute( 'data-item-shortcuts' ) === id ) {
 			event.preventDefault();
 			action();

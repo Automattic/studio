@@ -1,21 +1,9 @@
-/* Sidebar rows: 36px tall with 8px padding, a 16px icon and 14px text,
-   inset 12px from the sidebar's edges. */
+/* The rows themselves come from the sidebar kit in @/lib/ui. */
 .root {
-	--site-list-row-height: 36px;
-	--site-list-row-padding: 8px;
-	--site-list-icon-gap: 6px;
-	/* Where a row's text starts, past its padding and icon. */
-	--site-list-text-inset: calc(
-		var( --site-list-row-padding ) + 16px + var( --site-list-icon-gap )
-	);
-	--site-list-action-size: 32px;
 	--site-list-chat-status-size: 14px;
 	--site-list-chat-status-start-offset: 0px;
-	--site-list-chat-status-gap: var( --site-list-icon-gap );
+	--site-list-chat-status-gap: var( --space-1_5 );
 	--site-list-sync-indicator-bg: var( --status-sync );
-	/* Row hover and selection. Declared here so every mount point gets it,
-	   resolved against whatever theme scope wraps the list. */
-	--sidebar-row-background: var( --hover );
 
 	padding: var( --space-3 ) var( --space-3 ) var( --space-5 );
 	display: flex;
@@ -27,82 +15,24 @@
 	-webkit-app-region: no-drag;
 }
 
-.sites {
-	display: flex;
-	flex-direction: column;
-	gap: 1px;
-}
-
-/* Structural drag styles (touch-action, fixed preview positioning,
-   will-change) live in the shared reorderable-list module; these classes
-   carry only the site rows' visual treatment. */
-
-.siteDragWrapper {
+.dragWrapper {
 	border-radius: var( --radius-md );
 }
 
-.siteDragPreview {
+.dragPreview {
 	opacity: 0.95;
 	/* eslint-disable-next-line studio/use-theme-tokens -- the dragged row's shadow. */
 	filter: drop-shadow( 0 6px 14px rgb( 0 0 0 / 14% ) );
 }
 
-.siteDragPreview .siteHeader {
-	background-color: var( --sidebar-row-background );
+.dragPreview .siteRow {
+	background-color: var( --hover );
 }
 
+/* Keep scrollIntoView targets clear of the sidebar's sticky header and
+   footer, which paint over the scrollport's edges. */
 .site {
-	display: flex;
-	flex-direction: column;
-	/* Keep scrollIntoView targets clear of the sidebar's sticky header and
-	   footer, which paint over the scrollport's edges. */
 	scroll-margin-block: var( --space-16 );
-}
-
-.siteHeader {
-	position: relative;
-	display: flex;
-	align-items: center;
-	gap: var( --site-list-icon-gap );
-	min-width: 0;
-	height: var( --site-list-row-height );
-	padding-inline: var( --site-list-row-padding );
-	border-radius: var( --radius-md );
-	color: var( --foreground );
-	cursor: pointer;
-}
-
-.siteHeader:hover,
-.siteHeader:has( :focus-visible ),
-.siteActive:not( .siteWithChats ) .siteHeader,
-.siteContextActive .siteHeader {
-	background-color: var( --sidebar-row-background );
-}
-
-.siteHeader:has( .siteToggle:focus-visible ) {
-	box-shadow: inset 0 0 0 2px var( --ring );
-}
-
-.siteToggle:focus-visible {
-	box-shadow: none;
-}
-
-.siteIcon {
-	composes: dotted from '@/lib/theme/recipes.module.css';
-	position: relative;
-	display: inline-flex;
-	flex-shrink: 0;
-}
-
-.siteXdebug {
-	width: 16px;
-	height: 16px;
-}
-
-.runningDot {
-	composes: dot from '@/lib/theme/recipes.module.css';
-	top: -1.5px;
-	right: -1.5px;
 }
 
 .siteText {
@@ -112,267 +42,20 @@
 	align-items: center;
 }
 
-.siteToggle {
-	flex: 1 1 auto;
-	min-width: 0;
-	font: inherit;
-	/* Unfolded is not pressed: keep the name at full strength. */
-	opacity: 1;
-}
-
-.siteName {
-	composes: truncate from '@/lib/theme/recipes.module.css';
-	--shimmer-highlight: var( --muted-foreground );
-
-	color: var( --foreground );
-	max-width: 100%;
-}
-
-/* A row's 32px actions, pinned inside its trailing edge. They show on hover,
-   on keyboard focus, and while the row's menu is open; a running start or stop
-   stays visible. The row's text makes room for them. */
 .siteActions {
-	position: absolute;
-	inset-block-start: var( --space-0_5 );
-	inset-inline-end: var( --space-0_5 );
-	display: flex;
 	gap: var( --space-0_5 );
-}
-
-.siteActions .rowAction {
-	opacity: 0;
-}
-
-.siteHeader:hover .rowAction,
-.siteHeader:has( :focus-visible ) .rowAction,
-.siteHeader[data-popup-open] .rowAction,
-.siteActive:not( .siteWithChats ) .rowAction,
-.siteContextActive .rowAction,
-.siteStatus[aria-busy='true'] {
-	opacity: 1;
-}
-
-.siteHeader:hover,
-.siteHeader:has( :focus-visible ),
-.siteHeader[data-popup-open],
-.siteActive:not( .siteWithChats ) .siteHeader,
-.siteContextActive .siteHeader {
-	padding-inline-end: calc( 2 * var( --site-list-action-size ) + var( --site-list-row-padding ) );
-}
-
-@media ( prefers-reduced-motion: reduce ) {
-	.skeleton {
-		animation: none;
-		transition: none;
-	}
-
-	.siteDragPreview {
-		filter: none;
-	}
-}
-
-.empty {
-	padding: var( --space-1 ) var( --site-list-row-padding );
-	color: var( --muted-foreground );
-}
-
-.group {
-	display: flex;
-	flex-direction: column;
-	padding-block-start: var( --space-1 );
-}
-
-.group[data-open] {
-	padding-block-end: var( --space-3 );
-}
-
-.groupHeader {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	height: var( --site-list-row-height );
-}
-
-/* The label reads muted; its chevron points down when open and shows on hover,
-   and stays visible pointing right while the group is collapsed. */
-.groupToggle {
-	display: inline-flex;
-	flex: 1;
-	align-items: center;
-	gap: var( --space-1 );
-	height: 100%;
-	padding: 0 var( --site-list-row-padding );
-	border-radius: var( --radius-md );
-	color: var( --muted-foreground );
-	font-weight: var( --font-weight-medium );
-	cursor: pointer;
-	transition: color var( --motion-duration-feedback ) ease;
-}
-
-.groupToggle:hover {
-	color: var( --foreground );
-}
-
-.groupToggle:focus-visible {
-	outline: var( --focus-width ) solid var( --ring );
-	outline-offset: -2px;
-}
-
-.groupChevron {
-	opacity: 0;
-	transition:
-		rotate var( --motion-duration-feedback ) ease,
-		opacity var( --motion-duration-feedback ) ease;
-}
-
-.groupToggle[aria-expanded='true'] .groupChevron {
-	rotate: 90deg;
-}
-
-.group:hover .groupChevron,
-.groupToggle[aria-expanded='false'] .groupChevron {
-	opacity: 1;
 }
 
 .chats {
 	display: flex;
 	flex-direction: column;
 	gap: 1px;
-}
-
-.site .chats {
 	padding-block: 1px var( --space-2 );
 }
 
-.groupActions {
-	display: flex;
-}
-
-/* Show more and Retry loading chats. */
-.chats .mutedRow {
+.empty {
+	padding: var( --space-1 ) var( --space-2 );
 	color: var( --muted-foreground );
-}
-
-.chats .mutedRow:hover {
-	background-color: var( --sidebar-row-background );
-	color: var( --foreground );
-}
-
-.site .mutedRow {
-	position: relative;
-	padding-inline-start: var( --site-list-text-inset );
-}
-
-.mutedRow .rowIcon {
-	position: absolute;
-	inset-inline-start: var( --site-list-row-padding );
-}
-
-.skeletonRow {
-	display: flex;
-	align-items: center;
-	gap: var( --site-list-icon-gap );
-	height: var( --site-list-row-height );
-	padding-inline: var( --site-list-row-padding );
-}
-
-.skeleton {
-	flex: 1;
-	height: 16px;
-	border-radius: var( --radius-md );
-	background-color: var( --muted );
-	animation: global( studio-pulse ) 2s cubic-bezier( 0.4, 0, 0.6, 1 ) infinite;
-}
-
-.skeleton:first-child {
-	flex: none;
-	width: 16px;
-}
-
-.skeletonLabel.skeletonLabel {
-	width: 36px;
-	margin-inline: var( --site-list-row-padding );
-}
-
-.chatRow {
-	position: relative;
-	display: flex;
-	align-items: center;
-	border-radius: var( --radius-md );
-}
-
-.chatRow:hover,
-.chatRow[data-popup-open],
-.chatActive {
-	background-color: var( --sidebar-row-background );
-}
-
-.chat {
-	flex: 1 1 auto;
-	gap: var( --site-list-icon-gap );
-	height: var( --site-list-row-height );
-	min-width: 0;
-	padding-inline: var( --site-list-row-padding );
-	border-radius: var( --radius-md );
-	color: var( --foreground );
-	font: inherit;
-}
-
-.chatNested .chat {
-	padding-inline-start: var( --site-list-text-inset );
-}
-
-.rowIcon {
-	flex-shrink: 0;
-}
-
-.chatActions {
-	position: absolute;
-	inset-inline-end: var( --space-0_5 );
-	display: flex;
-	opacity: 0;
-	transition: opacity var( --motion-duration-surface ) var( --motion-ease-enter );
-}
-
-.chatRow:hover .chatActions,
-.chatRow:has( :focus-visible ) .chatActions,
-.chatRow[data-popup-open] .chatActions,
-.chatActive:not( .chatNested ) .chatActions {
-	opacity: 1;
-}
-
-.chatRow:has( .chatActions ):is( :hover, :has( :focus-visible ), [data-popup-open] ) .chat,
-.chatActive:not( .chatNested ):has( .chatActions ) .chat {
-	padding-inline-end: calc( 2 * var( --site-list-action-size ) + var( --site-list-row-padding ) );
-}
-
-.chatTitle {
-	composes: truncate from '@/lib/theme/recipes.module.css';
-	--shimmer-highlight: var( --muted-foreground );
-
-	flex: 1 1 auto;
-	min-width: 0;
-	text-align: start;
-}
-
-/* Sits in the archive button's slot, which takes over on hover. */
-.unreadDot {
-	position: absolute;
-	inset-inline-end: calc( var( --space-0_5 ) + ( var( --site-list-action-size ) - 7px ) / 2 );
-	width: 7px;
-	height: 7px;
-	border-radius: var( --radius-full );
-	background-color: var( --accent );
-}
-
-.chat:has( .unreadDot ) {
-	padding-inline-end: calc( var( --site-list-action-size ) + var( --site-list-row-padding ) );
-}
-
-.chatRow:hover .unreadDot,
-.chatRow:has( :focus-visible ) .unreadDot,
-.chatRow[data-popup-open] .unreadDot {
-	opacity: 0;
 }
 
 /* Wraps the sidebar's groups without adding a box of its own. */
@@ -380,12 +63,13 @@
 	display: contents;
 }
 
-.siteHeader[data-selected],
-.chatRow[data-selected] {
-	background-color: var( --sidebar-row-background );
+/* While several rows are selected, their hover actions step aside. */
+.selection[data-selecting] [data-slot='sidebar-menu-actions'] {
+	visibility: hidden;
 }
 
-/* While several rows are selected, their hover actions step aside. */
-.selection[data-selecting] :is( .chatActions, .siteActions ) {
-	visibility: hidden;
+@media ( prefers-reduced-motion: reduce ) {
+	.dragPreview {
+		filter: none;
+	}
 }

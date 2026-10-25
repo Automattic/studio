@@ -82,15 +82,10 @@ describe( 'indexRoute.beforeLoad', () => {
 		} );
 	} );
 
-	it( 'offers Add site once over the empty workspace until a site exists', async () => {
-		expect( await runBeforeLoad( [], [] ) ).toMatchObject( {
-			to: '/sites',
-			search: { addSite: 'create' },
-		} );
-		expect( ( await runBeforeLoad( [], [] ) ).search ).toEqual( {} );
-
-		await runBeforeLoad( [ createSite() ], [] );
-		expect( ( await runBeforeLoad( [], [] ) ).search ).toEqual( { addSite: 'create' } );
+	it( 'lands on the empty workspace, which offers Add site, keeping Settings open', async () => {
+		const redirect = await runBeforeLoad( [], [], true, { settings: 'general' } );
+		expect( redirect.to ).toBe( '/sites' );
+		expect( redirect.search ).toEqual( { settings: 'general' } );
 	} );
 
 	it( 'lands on the empty workspace, without Add site, when the sites fail to load', async () => {

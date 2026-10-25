@@ -49,8 +49,10 @@ export function useComposerAttachments( initialAttachments: ComposerAttachment[]
 		[ setTrackedAttachments ]
 	);
 
+	// `reserved` attachments travel in the same message from elsewhere, so they
+	// count against the limits without joining this list.
 	const addFiles = useCallback(
-		async ( incoming: FileList | File[] ) => {
+		async ( incoming: FileList | File[], reserved: ComposerAttachment[] = [] ) => {
 			const list = Array.from( incoming );
 			if ( list.length === 0 ) {
 				return;
@@ -75,7 +77,7 @@ export function useComposerAttachments( initialAttachments: ComposerAttachment[]
 			const prepared = await prepareComposerAttachments( list, {
 				resolveFilePath: ( file ) => connector.getFilePath( file ),
 				messages,
-				existingAttachments: attachmentsRef.current,
+				existingAttachments: [ ...reserved, ...attachmentsRef.current ],
 			} );
 			if ( prepared.error ) {
 				toast.error( prepared.error );
@@ -85,14 +87,14 @@ export function useComposerAttachments( initialAttachments: ComposerAttachment[]
 			}
 
 			const merged = mergeComposerAttachments(
-				attachmentsRef.current,
+				[ ...reserved, ...attachmentsRef.current ],
 				prepared.attachments,
 				messages
 			);
 			if ( merged.error ) {
 				toast.error( merged.error );
 			}
-			setTrackedAttachments( merged.attachments );
+			setTrackedAttachments( merged.attachments.slice( reserved.length ) );
 		},
 		[ connector, setTrackedAttachments ]
 	);

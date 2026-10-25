@@ -130,10 +130,16 @@
 	z-index: 2;
 }
 
-/* The conversation and the composer share one reading column. */
+/* The conversation and the composer share one reading column. As the preview
+   opens or closes, it eases to its width beside the preview with the chat pane
+   instead of keeping its full width until the pane runs out of room. */
 .column {
-	max-width: var( --column-max-width );
+	max-width: min(
+		var( --column-max-width ),
+		var( --content-column-width, 100vw ) - 2 * var( --column-inline-gutter )
+	);
 	margin: 0 auto;
+	transition: max-width var( --content-column-motion, 0s ) var( --motion-ease-layout );
 }
 
 .composerColumn {

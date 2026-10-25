@@ -99,8 +99,10 @@ export async function validateBlocks(
 ): Promise< ValidationReport > {
 	try {
 		const page = await editorKnowing( siteUrl, blockNames( content ) );
+		// What the editor threw beside the content, for a block it did not register.
+		const input = [ content, getEditorPage( siteUrl ).loadErrors ] as const;
 
-		const validation = await page.evaluate( ( html: string ) => {
+		const validation = await page.evaluate( ( [ html, thrown ] ) => {
 			/* eslint-disable @typescript-eslint/no-explicit-any */
 			const wpBlocks = ( window as any ).wp?.blocks;
 			if ( ! wpBlocks ) {
@@ -288,6 +290,8 @@ export async function validateBlocks(
 									registered.length
 										? `The registered ${ prefix } blocks are ${ registered.join( ', ' ) }.`
 										: `No ${ prefix } blocks are registered in the site's block editor.`
+								}${
+									thrown.length ? ` The site's block editor threw: ${ thrown.join( '; ' ) }.` : ''
 								}`,
 							],
 							originalContent: block.attributes?.originalContent ?? '',
@@ -591,7 +595,7 @@ export async function validateBlocks(
 				},
 			};
 			/* eslint-enable @typescript-eslint/no-explicit-any */
-		}, content );
+		}, input );
 
 		const report = validation.report as ValidationReport;
 

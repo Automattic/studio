@@ -200,6 +200,12 @@ async function getPageDiagnostics( page: Page ): Promise< string > {
 	}
 }
 
+/** An error a page threw, with the script line it threw from. */
+function thrownAt( error: Error ): string {
+	const frame = error.stack?.match( /\(?(https?:\/\/[^\s)]+?)(?:\?[^\s):]*)?:(\d+):\d+\)?/ );
+	return frame ? `${ error.message } (${ frame[ 1 ] } line ${ frame[ 2 ] })` : error.message;
+}
+
 /**
  * A long-lived page that stays open on a site's block editor so repeated
  * validation calls don't have to re-navigate and re-load all block scripts.
@@ -208,6 +214,8 @@ export class EditorPage {
 	private page: Page | null = null;
 	private loading: Promise< Page > | null = null;
 	private readonly siteUrl: string;
+	/** What the editor page threw, as message and the script line that threw it. */
+	loadErrors: string[] = [];
 
 	constructor( siteUrl: string ) {
 		this.siteUrl = siteUrl;
@@ -228,6 +236,8 @@ export class EditorPage {
 		const page = await browser.newPage( {
 			ignoreHTTPSErrors: true,
 		} );
+		const loadErrors: string[] = [];
+		page.on( 'pageerror', ( error ) => loadErrors.push( thrownAt( error ) ) );
 
 		const loginUrl = `${ this.siteUrl }/studio-auto-login?redirect_to=/wp-admin/post-new.php`;
 		await page.goto( loginUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 } );
@@ -264,6 +274,7 @@ export class EditorPage {
 		}
 
 		this.page = page;
+		this.loadErrors = loadErrors;
 		return page;
 	}
 

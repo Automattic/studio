@@ -1,3 +1,5 @@
+import { mkdirSync, rmSync, writeFileSync } from 'fs';
+import path from 'path';
 import { afterAll, describe, expect, it } from 'vitest';
 import {
 	bindNavigationLinks,
@@ -12,6 +14,8 @@ import { getSharedBrowser } from 'cli/ai/browser-utils';
 // Runs the site's own block editor, so it needs a running WordPress site:
 // STUDIO_BLOCK_EDITOR_URL=http://localhost:8881 npx vitest run block-validator
 const siteUrl = process.env.STUDIO_BLOCK_EDITOR_URL;
+// The same site's folder, for cases that add a plugin to it.
+const sitePath = process.env.STUDIO_BLOCK_EDITOR_PATH;
 
 const group = ( attrs: string, inner: string ) =>
 	`<!-- wp:group ${ attrs } -->\n${ inner }\n<!-- /wp:group -->`;
@@ -444,5 +448,44 @@ describe.runIf( siteUrl )( 'storing palette colors as presets (live)', () => {
 			siteUrl!
 		);
 		expect( report.invalidBlocks ).toBe( 0 );
-	} );
+	}, 60_000 );
+} );
+
+describe.runIf( siteUrl && sitePath )( 'a block whose editor script throws (live)', () => {
+	afterAll( cleanupValidatorPages );
+
+	it( 'reports what the editor threw beside the block it did not register', async () => {
+		// As a plugin writes a block.json editorScript that reads wp, with no
+		// index.asset.php naming the scripts it depends on.
+		const plugin = path.join( sitePath!, 'wp-content/mu-plugins/studio-test-thrower' );
+		mkdirSync( plugin, { recursive: true } );
+		writeFileSync(
+			path.join( plugin, 'block.json' ),
+			JSON.stringify( {
+				apiVersion: 3,
+				name: 'studio-test/thrower',
+				title: 'Thrower',
+				editorScript: 'file:./index.js',
+			} )
+		);
+		writeFileSync(
+			path.join( plugin, 'index.js' ),
+			"wp.blocks.registerBlockType( 'studio-test/thrower', { edit: () => null, save: () => null } );\n"
+		);
+		writeFileSync(
+			path.join( sitePath!, 'wp-content/mu-plugins/studio-test-thrower.php' ),
+			"<?php\nadd_action( 'init', fn() => register_block_type( __DIR__ . '/studio-test-thrower/block.json' ) );\n"
+		);
+		try {
+			const report = await validateBlocks( '<!-- wp:studio-test/thrower /-->', siteUrl! );
+			expect( report.results[ 0 ].issues[ 0 ] ).toMatch(
+				/^studio-test\/thrower is not registered on the site, so the editor shows it as an unsupported block\. No studio-test\/ blocks are registered in the site's block editor\. The site's block editor threw: wp is not defined \(http:\/\/\S+\/wp-content\/mu-plugins\/studio-test-thrower\/index\.js line 1\)\.$/
+			);
+		} finally {
+			rmSync( plugin, { recursive: true, force: true } );
+			rmSync( path.join( sitePath!, 'wp-content/mu-plugins/studio-test-thrower.php' ), {
+				force: true,
+			} );
+		}
+	}, 60_000 );
 } );

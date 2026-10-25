@@ -1,3 +1,4 @@
+import fs from 'fs';
 import path from 'path';
 import { ANTHROPIC_MODELS } from '@earendil-works/pi-ai/providers/anthropic.models';
 import { ModelRegistry, SessionManager } from '@earendil-works/pi-coding-agent';
@@ -518,6 +519,37 @@ describe( 'pi runtime', () => {
 			getCreatedTool( 'site_delete' ).execute( 't', { nameOrPath: 'nope' } )
 		).rejects.toThrow( 'Not run: the user answered "No" to: Delete the site "nope"?' );
 		expect( onAskUser ).toHaveBeenCalledTimes( 1 );
+	} );
+
+	it( 'asks the user before a write starts a classic theme, and does not write it when declined', async () => {
+		const site = path.join( mocks.studioRoot, 'classic-site' );
+		fs.mkdirSync( path.join( site, 'wp-includes' ), { recursive: true } );
+		fs.mkdirSync( path.join( site, 'wp-content/themes/yoga' ), { recursive: true } );
+		const question = 'Make "yoga" a classic theme?';
+		const onAskUser = vi.fn().mockResolvedValue( { [ question ]: 'No' } );
+		// WordPress.org updates no theme.
+		vi.stubGlobal(
+			'fetch',
+			async () => new Response( JSON.stringify( { themes: {}, no_update: {} } ) )
+		);
+		try {
+			await runRuntime( { prompt: 'hello', session: newSession(), env: WPCOM_ENV, onAskUser } );
+			await expect(
+				getCreatedTool( 'Write' ).execute( 'w', {
+					path: 'classic-site/wp-content/themes/yoga/index.php',
+					content: '<?php get_header();',
+				} )
+			).rejects.toThrow(
+				`Not run: the user answered "No" to: ${ question } "yoga" is to be a block theme`
+			);
+			expect( onAskUser ).toHaveBeenCalledTimes( 1 );
+			expect( fs.existsSync( path.join( site, 'wp-content/themes/yoga/index.php' ) ) ).toBe(
+				false
+			);
+		} finally {
+			fs.rmSync( site, { recursive: true, force: true } );
+			vi.unstubAllGlobals();
+		}
 	} );
 
 	it( 'fires the site notes triggers on a write, and on a result for a local active site', async () => {

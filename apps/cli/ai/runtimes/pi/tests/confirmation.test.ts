@@ -48,6 +48,35 @@ describe( 'createConfirmer', () => {
 		);
 	} );
 
+	// A call whose No has a consequence of its own says it, to the user and on the refusal.
+	it.each( [
+		{
+			name: 'the user declines',
+			ask: vi.fn().mockResolvedValue( { 'Make "yoga" a classic theme?': 'No' } ),
+			refusal:
+				'Not run: the user answered "No" to: Make "yoga" a classic theme? It is a block theme.',
+		},
+		{
+			name: 'the session cannot ask',
+			ask: undefined,
+			refusal:
+				'Not run: Make "yoga" a classic theme? needs the user\'s confirmation, and this session cannot ask for it. It is a block theme.',
+		},
+	] )( 'says what follows from No when $name', async ( { ask, refusal } ) => {
+		const call = {
+			question: 'Make "yoga" a classic theme?',
+			consequence: 'PHP templates.',
+			declined: 'It is a block theme.',
+		};
+		expect( await createConfirmer( ask )( call ) ).toBe( refusal );
+		if ( ask ) {
+			expect( ask.mock.calls[ 0 ][ 0 ][ 0 ].options[ 1 ] ).toEqual( {
+				label: 'No',
+				description: 'It is a block theme.',
+			} );
+		}
+	} );
+
 	it( 'does not ask about other calls', async () => {
 		const ask = vi.fn();
 		expect(

@@ -9,6 +9,8 @@ import type { AskUserHandler, AskUserQuestion } from 'cli/ai/types';
 export interface Confirmation {
 	question: string;
 	consequence: string;
+	/** What follows from No, where it is more than nothing changing. */
+	declined?: string;
 }
 
 const CONFIRM = 'Yes, go ahead';
@@ -79,14 +81,15 @@ export function createConfirmer( onAskUser: AskUserHandler | undefined ): Confir
 		if ( ! call ) {
 			return undefined;
 		}
+		const then = call.declined ? ` ${ call.declined }` : '';
 		if ( ! onAskUser ) {
-			return `Not run: ${ call.question } needs the user's confirmation, and this session cannot ask for it.`;
+			return `Not run: ${ call.question } needs the user's confirmation, and this session cannot ask for it.${ then }`;
 		}
 		const question: AskUserQuestion = {
 			question: call.question,
 			options: [
 				{ label: CONFIRM, description: call.consequence },
-				{ label: DECLINE, description: 'Nothing changes.' },
+				{ label: DECLINE, description: call.declined ?? 'Nothing changes.' },
 			],
 			allowFreeForm: false,
 		};
@@ -97,6 +100,6 @@ export function createConfirmer( onAskUser: AskUserHandler | undefined ): Confir
 			? undefined
 			: `Not run: the user answered "${ answers[ call.question ] ?? DECLINE }" to: ${
 					call.question
-			  }`;
+			  }${ then }`;
 	};
 }

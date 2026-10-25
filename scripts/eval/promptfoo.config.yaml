@@ -662,6 +662,9 @@ tests:
         - title: About
         - title: Contact
       timeoutMs: 600000
+      # The user's answer when Studio asks before a write starts a classic theme.
+      answers:
+        - label: 'No'
       prompt: |
         Build a site for a small yoga studio named "Eval Yoga Studio" with
         four pages — Home, Classes, About, and Contact — and a header menu

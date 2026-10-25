@@ -6,11 +6,13 @@
  * and styles are edited in the Site Editor, around page content that is blocks.
  *
  * A theme the site already had keeps the kind it is. One made during the
- * session that is classic, or that WordPress lists as broken for having
- * neither index yet, stays an open problem while it is.
+ * session is classic only when the user chooses it, asked before the write
+ * that starts it (classicThemeQuestion); one that WordPress lists as broken
+ * for having neither index yet stays an open problem while it is.
  */
 import { readFile, readdir, stat } from 'fs/promises';
 import path from 'path';
+import { resolveSiteFile } from 'cli/ai/site-file-guards';
 import { readThemeHeader, isUpdatableTheme } from 'cli/ai/themes';
 import type { SiteChangeSource, Versions } from 'cli/ai/site-changes';
 
@@ -50,13 +52,38 @@ async function defaultTheme( root: string ): Promise< string | undefined > {
 	return php.match( /define\(\s*'WP_DEFAULT_THEME',\s*'([^']+)'/ )?.[ 1 ];
 }
 
-async function classicThemeProblem( root: string, theme: string ): Promise< string > {
-	const templates = await rootTemplates( path.join( root, 'wp-content', 'themes', theme ) );
-	const fallback = await defaultTheme( root );
-	const named = fallback ? `, ${ fallback } (WP_DEFAULT_THEME),` : '';
-	return `${ theme } (wp-content/themes/${ theme }), made this session, is becoming a classic theme: its PHP templates (${ templates.join(
-		', '
-	) }) and what they write are edited only in code. WordPress treats a theme as a block theme when it has templates/index.html (WP_Theme::is_block_theme() in wp-includes/class-wp-theme.php); then the Site Editor edits its templates, parts and styles, and the block editor each page's content. WordPress's default theme${ named } is a block theme: its templates are block markup in templates/*.html, its parts in parts/*.html, and its one PHP file at the root is functions.php. Write ${ theme }'s templates and parts that way, with each page's content in the page as blocks, in place of its PHP templates.`;
+/**
+ * The question a write that starts a classic theme asks the user first: a
+ * root PHP template, such as index.php, header.php or page.php, in a theme
+ * made without one, with no block template index. A classic theme is the
+ * user's choice: its templates are edited only in code. Themes the site has
+ * keep their kind, so a classic theme's further templates, a block theme's
+ * PHP and a child theme (its parent's kind) ask nothing, nor do themes
+ * WordPress updates, whose files Studio does not write.
+ */
+export async function classicThemeQuestion(
+	filePath: string
+): Promise< { question: string; consequence: string; declined: string } | undefined > {
+	const file = resolveSiteFile( filePath );
+	const theme = file?.theme;
+	if (
+		! file ||
+		! theme ||
+		! /^[^/]+\.php$/.test( theme.file ) ||
+		theme.file === 'functions.php' ||
+		( await themeKind( file.siteRoot, theme.slug ) ) !== 'unfinished' ||
+		( await isUpdatableTheme( file.siteRoot, theme.slug ) )
+	) {
+		return undefined;
+	}
+	const fallback = await defaultTheme( file.siteRoot );
+	return {
+		question: `Make "${ theme.slug }" a classic theme?`,
+		consequence: `Its templates are PHP files, edited only in code: the Site Editor cannot edit its templates, header, footer or styles.`,
+		declined: `"${ theme.slug }" is to be a block theme, as WordPress's default theme${
+			fallback ? `, ${ fallback } (WP_DEFAULT_THEME),` : ''
+		} is: its templates are block markup in templates/*.html, with templates/index.html (WP_Theme::is_block_theme() in wp-includes/class-wp-theme.php), and its parts in parts/*.html, all edited in the Site Editor.`,
+	};
 }
 
 // A theme WordPress reports broken, with neither index (WP_Theme::__construct()).
@@ -90,18 +117,13 @@ export const blockTheme: SiteChangeSource = {
 			if ( ! created || before[ theme ] === next[ theme ] ) {
 				continue;
 			}
-			const kind = next[ theme ].slice( CREATED.length );
-			const problem = {
-				classic: classicThemeProblem,
-				unfinished: missingTemplateProblem,
-			}[ kind ];
+			const broken =
+				next[ theme ] === `${ CREATED }unfinished` &&
+				! ( await isUpdatableTheme( site.path, theme ) );
 			reports.push( {
 				key: `block theme ${ theme }`,
-				problem:
-					problem && ! ( await isUpdatableTheme( site.path, theme ) )
-						? await problem( site.path, theme )
-						: undefined,
-				atTurnEnd: kind === 'unfinished',
+				problem: broken ? await missingTemplateProblem( site.path, theme ) : undefined,
+				atTurnEnd: true,
 			} );
 		}
 		// A theme made this session and deleted since leaves no problem.

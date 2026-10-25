@@ -1,7 +1,7 @@
 import { mkdirSync, rmSync, writeFileSync } from 'fs';
 import path from 'path';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { blockTheme } from 'cli/ai/block-theme';
+import { blockTheme, classicThemeQuestion } from 'cli/ai/block-theme';
 import { OpenProblems } from 'cli/ai/open-problems';
 import { SiteChanges } from 'cli/ai/site-changes';
 import { createSite } from 'cli/ai/tests/fixtures/wordpress-site';
@@ -43,38 +43,14 @@ afterEach( () => {
 	rmSync( fixture.root, { recursive: true, force: true } );
 } );
 
-// `shown` counts the call results that tell of the problem.
+// The broken theme is raised only at the end of the turn, which a theme being written passes through.
 it.each( [
-	{
-		name: 'a classic theme made this session',
-		calls: [ () => write( 'yoga/style.css', header( 'Yoga' ) ), () => write( 'yoga/index.php' ) ],
-		shown: 1,
-		templates: 'index.php',
-		classic: 'yoga',
-	},
-	{
-		name: 'a classic theme made this session, told at its first PHP template',
-		calls: [
-			() => {
-				write( 'yoga/style.css', header( 'Yoga' ) );
-				write( 'yoga/functions.php', '<?php' );
-			},
-			() => write( 'yoga/header.php' ),
-			() => write( 'yoga/page.php' ),
-		],
-		shown: 1,
-		// Told when the theme became classic, of the PHP templates it had then.
-		templates: 'header.php',
-		classic: 'yoga',
-	},
 	{
 		name: 'a block theme made this session',
 		calls: [
 			() => write( 'yoga/style.css', header( 'Yoga' ) ),
 			() => write( 'yoga/templates/index.html', '<!-- wp:post-content /-->' ),
 		],
-		shown: 0,
-		classic: undefined,
 	},
 	{
 		name: 'a theme left with no template',
@@ -83,90 +59,95 @@ it.each( [
 			() => write( 'yoga/theme.json', '{}' ),
 			() => write( 'yoga/functions.php', '<?php' ),
 		],
-		// Raised only at the end of the turn, which a theme being written passes through.
-		shown: 0,
-		classic: undefined,
 		broken: 'yoga',
 	},
 	{
-		name: 'a classic theme made this session, then given a block template index',
+		name: 'a theme left with no template, then deleted',
 		calls: [
 			() => write( 'yoga/style.css', header( 'Yoga' ) ),
-			() => write( 'yoga/index.php' ),
-			() => write( 'yoga/templates/index.html', '<!-- wp:post-content /-->' ),
-		],
-		shown: 1,
-		classic: undefined,
-	},
-	{
-		name: 'a classic theme made this session, then deleted',
-		calls: [
-			() => {
-				write( 'yoga/style.css', header( 'Yoga' ) );
-				write( 'yoga/index.php' );
-			},
 			() => rmSync( path.join( fixture.root, 'wp-content/themes/yoga' ), { recursive: true } ),
 		],
-		shown: 1,
-		classic: undefined,
 	},
 	{
-		name: 'a classic theme the site had, edited',
-		calls: [ () => write( 'legacy/page.php', '<?php the_content();' ) ],
-		shown: 0,
-		classic: undefined,
+		// The user chose it (classicThemeQuestion).
+		name: 'a classic theme made this session',
+		calls: [ () => write( 'yoga/style.css', header( 'Yoga' ) ), () => write( 'yoga/index.php' ) ],
 	},
 	{
-		name: 'a child, made this session, of the classic theme the site had',
-		calls: [
-			() => {
-				write( 'legacy-child/style.css', header( 'Legacy child', 'legacy' ) );
-				write( 'legacy-child/index.php' );
-			},
-		],
-		shown: 0,
-		classic: undefined,
+		name: 'a theme installed from WordPress.org, with no template',
+		calls: [ () => write( 'installed/style.css', `${ header( 'Installed' ) }\nVersion: 1.0` ) ],
 	},
+] )( 'raises at the end of the turn $name', async ( { calls, broken } ) => {
+	const open = new OpenProblems( [] );
+	const changes = new SiteChanges( open, async () => [ site ], [ blockTheme ] );
+	const results: string[] = [];
+	for ( const call of [ ...calls, () => write( 'legacy/footer.php' ) ] ) {
+		await changes.snapshot();
+		call();
+		results.push( ...( await changes.settle() ).problems );
+	}
+	expect( results ).toEqual( [] );
+	expect( await open.raise() ).toEqual(
+		broken
+			? [
+					`${ broken } (wp-content/themes/${ broken }), made this session, has neither templates/index.html nor index.php, so WordPress lists it as broken: "Template is missing. Standalone themes need to have a templates/index.html or index.php template file." (WP_Theme::__construct() in wp-includes/class-wp-theme.php). WordPress's default theme, twentytwentyfive (WP_DEFAULT_THEME), is a block theme with templates/index.html. Give ${ broken } its templates/index.html.`,
+			  ]
+			: []
+	);
+} );
+
+it.each( [
 	{
-		name: 'a classic theme installed from WordPress.org',
-		calls: [
-			() => {
-				write( 'installed/style.css', `${ header( 'Installed' ) }\nVersion: 1.0` );
-				write( 'installed/index.php' );
-			},
-		],
-		shown: 0,
-		classic: undefined,
+		name: 'the first PHP template of a theme being made',
+		before: [ 'yoga/style.css' ],
+		file: 'yoga/header.php',
+		asks: true,
 	},
-] )(
-	'raises at the end of the turn $name',
-	async ( { calls, shown, classic, templates, broken } ) => {
-		const open = new OpenProblems( [] );
-		const changes = new SiteChanges( open, async () => [ site ], [ blockTheme ] );
-		const results: string[] = [];
-		for ( const call of [ ...calls, () => write( 'legacy/footer.php' ) ] ) {
-			await changes.snapshot();
-			call();
-			results.push( ...( await changes.settle() ).problems );
-		}
-		// A problem is told on the result of the call that made it, once.
-		expect( results ).toHaveLength( shown );
-		expect( await open.raise() ).toEqual(
-			classic
-				? [
-						expect.stringMatching(
-							new RegExp(
-								`^${ classic } \\(wp-content/themes/${ classic }\\), made this session, is becoming a classic theme: its PHP templates \\(${ templates }\\) .*WP_Theme::is_block_theme\\(\\).*WordPress's default theme, twentytwentyfive \\(WP_DEFAULT_THEME\\), is a block theme: its templates are block markup in templates/\\*\\.html, its parts in parts/\\*\\.html, and its one PHP file at the root is functions\\.php`
-							)
-						),
-				  ]
-				: [
-						...( broken
-							? [
-									`${ broken } (wp-content/themes/${ broken }), made this session, has neither templates/index.html nor index.php, so WordPress lists it as broken: "Template is missing. Standalone themes need to have a templates/index.html or index.php template file." (WP_Theme::__construct() in wp-includes/class-wp-theme.php). WordPress's default theme, twentytwentyfive (WP_DEFAULT_THEME), is a block theme with templates/index.html. Give ${ broken } its templates/index.html.`,
-							  ]
-							: [] ),
-				  ]
+	{ name: 'the first file of a theme', file: 'yoga/index.php', asks: true },
+	{ name: "a theme's functions.php", before: [ 'yoga/style.css' ], file: 'yoga/functions.php' },
+	{
+		name: 'a PHP file below the theme root',
+		before: [ 'yoga/style.css' ],
+		file: 'yoga/inc/setup.php',
+	},
+	{ name: 'a block template', before: [ 'yoga/style.css' ], file: 'yoga/templates/index.html' },
+	{
+		name: 'a PHP template of a block theme',
+		before: [ 'yoga/style.css', 'yoga/templates/index.html' ],
+		file: 'yoga/page.php',
+	},
+	{ name: 'a further template of a classic theme', file: 'legacy/page.php' },
+	{ name: 'a child theme', before: [ 'legacy-child/style.css' ], file: 'legacy-child/page.php' },
+	{
+		name: 'a theme WordPress updates',
+		before: [ 'installed/style.css' ],
+		file: 'installed/index.php',
+	},
+] )( 'asks before writing $name: $asks', async ( { before = [], file, asks } ) => {
+	for ( const written of before ) {
+		write(
+			written,
+			written.endsWith( 'style.css' )
+				? {
+						'yoga/style.css': header( 'Yoga' ),
+						'legacy-child/style.css': header( 'Legacy child', 'legacy' ),
+						'installed/style.css': `${ header( 'Installed' ) }\nVersion: 1.0`,
+				  }[ written ]
+				: ''
 		);
 	}
-);
+	const question = await classicThemeQuestion(
+		path.join( fixture.root, 'wp-content/themes', file )
+	);
+	expect( question ).toEqual(
+		asks
+			? {
+					question: 'Make "yoga" a classic theme?',
+					consequence:
+						'Its templates are PHP files, edited only in code: the Site Editor cannot edit its templates, header, footer or styles.',
+					declined:
+						'"yoga" is to be a block theme, as WordPress\'s default theme, twentytwentyfive (WP_DEFAULT_THEME), is: its templates are block markup in templates/*.html, with templates/index.html (WP_Theme::is_block_theme() in wp-includes/class-wp-theme.php), and its parts in parts/*.html, all edited in the Site Editor.',
+			  }
+			: undefined
+	);
+} );

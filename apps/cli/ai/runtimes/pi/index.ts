@@ -41,6 +41,7 @@ import {
 import { findLastAssistant, isEmptyStop } from '@studio/common/ai/session-events';
 import { getAiTracksIdentity } from '@studio/common/ai/tracks-identity';
 import { type TSchema } from 'typebox';
+import { classicThemeQuestion } from 'cli/ai/block-theme';
 import { getBlockValidationGate, type BlockValidationGate } from 'cli/ai/block-validation-gate';
 import { withDesignSystemPreview } from 'cli/ai/chat-artifacts';
 import { isImageGenerationAvailable } from 'cli/ai/image-generation';
@@ -743,12 +744,16 @@ function toToolDefinition(
 			const crossSite = destructive
 				? undefined
 				: await sitePin.confirmationFor( tool.name, params );
-			const declined = await confirm( destructive ?? crossSite?.confirmation );
+			const writtenFile = getWrittenFile( tool.name, params, STUDIO_SITES_ROOT );
+			const declined = await confirm(
+				destructive ??
+					crossSite?.confirmation ??
+					( writtenFile ? await classicThemeQuestion( writtenFile ) : undefined )
+			);
 			if ( declined ) {
 				throw new Error( declined );
 			}
 			crossSite?.allow();
-			const writtenFile = getWrittenFile( tool.name, params, STUDIO_SITES_ROOT );
 			const fileWriteRefusal = writtenFile && ( await siteNotes.beforeWrite( writtenFile ) );
 			if ( fileWriteRefusal ) {
 				throw new Error( fileWriteRefusal );

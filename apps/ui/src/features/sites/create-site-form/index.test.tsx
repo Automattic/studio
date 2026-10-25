@@ -162,6 +162,28 @@ describe( 'CreateSiteForm', () => {
 		expect( screen.getByLabelText( /Admin username/ ) ).toHaveValue( 'blueprint-admin' );
 	} );
 
+	it( 'starts from the fields edited in an earlier opening, over suggestions', () => {
+		const onDraftChange = vi.fn();
+		const props = { existingDomainNames: [], onSubmit: vi.fn(), onCancel: vi.fn(), onDraftChange };
+		const { unmount } = render(
+			<CreateSiteForm { ...props } initialValues={ { name: 'Proposed' } } />
+		);
+		fireEvent.change( screen.getByLabelText( /Site name/ ), { target: { value: 'My draft ' } } );
+		unmount();
+
+		render(
+			<CreateSiteForm
+				{ ...props }
+				initialValues={ { name: 'Proposed', adminUsername: 'blueprint-admin' } }
+				draft={ onDraftChange.mock.lastCall?.[ 0 ] }
+			/>
+		);
+		expect( screen.getByLabelText( /Site name/ ) ).toHaveValue( 'My draft ' );
+		openAdvancedSettings();
+		expect( screen.getByLabelText( /Admin username/ ) ).toHaveValue( 'blueprint-admin' );
+		expect( onDraftChange ).toHaveBeenLastCalledWith( { name: 'My draft ' } );
+	} );
+
 	it( 'keeps path validation pending while an asynchronous name suggestion resolves', async () => {
 		const pending = deferred< {
 			path: string;

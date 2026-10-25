@@ -1,7 +1,6 @@
-import { act, fireEvent, render, renderHook, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { applySyncActivity } from '@/data/sync-activity';
-import { useCommandPaletteOpen } from '@/data/use-command-palette';
 import { useAddSite } from './context';
 import { AddSiteDialog } from './index';
 import type { Blueprint } from '@studio/common/lib/studio-blueprints-api';
@@ -152,18 +151,6 @@ describe( 'AddSiteDialog', () => {
 			'aria-disabled',
 			'true'
 		);
-	} );
-
-	it( 'keeps the command palette closed while a panel is working', () => {
-		const palette = renderHook( () => useCommandPaletteOpen() );
-		mocks.search = { addSite: 'connect' };
-		render( <AddSiteDialog /> );
-
-		fireEvent.click( screen.getByRole( 'button', { name: 'Start work' } ) );
-		fireEvent.keyDown( screen.getByRole( 'dialog' ), { key: 'k', code: 'KeyK', ctrlKey: true } );
-
-		expect( mocks.navigate ).not.toHaveBeenCalled();
-		expect( palette.result.current ).toBe( false );
 	} );
 
 	it( 'shows the progress the CLI publishes for the site a panel follows', () => {

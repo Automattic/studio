@@ -1,6 +1,4 @@
 import { useSyncExternalStore } from 'react';
-import { isShortcut } from '@/lib/keyboard';
-import type { KeyboardEvent } from 'react';
 
 let paletteOpen = false;
 const listeners = new Set< () => void >();
@@ -25,20 +23,4 @@ export function useCommandPaletteOpen() {
 		() => paletteOpen,
 		() => false
 	);
-}
-
-// ⌘K in a dialog the palette takes over from, such as Settings: asks the
-// dialog to close, and it opens the palette once it has. A dialog opened over
-// it keeps the key.
-export function closeOnPaletteShortcut( close: ( openPalette: () => void ) => void ) {
-	return ( event: KeyboardEvent< HTMLElement > ) => {
-		if (
-			! event.repeat &&
-			isShortcut( event.nativeEvent, 'k' ) &&
-			event.currentTarget.contains( event.target as Node )
-		) {
-			event.preventDefault();
-			close( () => setCommandPaletteOpen( true ) );
-		}
-	};
 }

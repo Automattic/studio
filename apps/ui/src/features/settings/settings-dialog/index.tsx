@@ -10,7 +10,6 @@ import { useAuthUser } from '@/data/queries/use-auth-user';
 import { useSessions } from '@/data/queries/use-sessions';
 import { useSites } from '@/data/queries/use-sites';
 import { getSections, isSiteSection, searchSettings } from '@/data/settings-sections';
-import { closeOnPaletteShortcut } from '@/data/use-command-palette';
 import {
 	AiPanel,
 	AppearanceSettings,
@@ -235,17 +234,13 @@ export function SettingsDialog() {
 	};
 
 	// With unsaved site changes, closing waits for Discard or Save.
-	const close = ( then?: () => void ) => {
-		const exit = () => {
-			closeNow();
-			then?.();
-		};
+	const close = () => {
 		if ( dirty ) {
-			pendingExit.current = exit;
+			pendingExit.current = closeNow;
 			actions?.querySelector< HTMLElement >( 'button' )?.focus();
 			return;
 		}
-		exit();
+		closeNow();
 	};
 
 	const settle = useCallback( () => {
@@ -301,14 +296,13 @@ export function SettingsDialog() {
 	const current = getSections( scope, { signedIn } ).find( ( entry ) => entry.id === section )!;
 
 	return (
-		<Dialog open={ !! settings } onOpenChange={ ( isOpen ) => ! isOpen && close() }>
+		<Dialog replaceable open={ !! settings } onOpenChange={ ( isOpen ) => ! isOpen && close() }>
 			<DialogContent
 				layout="settings"
 				onInputCapture={ () => {
 					pendingExit.current = null;
 				} }
 				onKeyDown={ ( event ) => {
-					closeOnPaletteShortcut( close )( event );
 					const step = isKeyboardEvent.primary( event.nativeEvent, '[' )
 						? -1
 						: isKeyboardEvent.primary( event.nativeEvent, ']' )
@@ -432,7 +426,7 @@ export function SettingsDialog() {
 								}
 								title={ current.label }
 								actions={ <div ref={ setActions } className={ styles.actions } /> }
-								onClose={ () => close() }
+								onClose={ close }
 								closeLabel={ __( 'Close settings' ) }
 							/>
 						}

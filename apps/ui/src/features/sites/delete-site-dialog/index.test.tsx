@@ -64,6 +64,24 @@ describe( 'DeleteSiteDialog', () => {
 		);
 	} );
 
+	it( 'unticks the Trash checkbox when the dialog is reopened', async () => {
+		mutateAsync.mockResolvedValue( undefined );
+		const view = renderDialog();
+
+		await userEvent.click( screen.getByRole( 'checkbox' ) );
+		view.rerender(
+			<DeleteSiteDialog sites={ [ SITE ] } open={ false } onOpenChange={ vi.fn() } />
+		);
+		await waitFor( () => expect( screen.queryByRole( 'alertdialog' ) ).not.toBeInTheDocument() );
+		view.rerender( <DeleteSiteDialog sites={ [ SITE ] } open onOpenChange={ vi.fn() } /> );
+
+		expect( await screen.findByRole( 'checkbox' ) ).not.toBeChecked();
+		await userEvent.click( screen.getByRole( 'button', { name: 'Remove site' } ) );
+		await waitFor( () =>
+			expect( mutateAsync ).toHaveBeenCalledWith( { id: 'site-1', deleteFiles: false } )
+		);
+	} );
+
 	it( 'stays open and shows the failure reason when deleting fails', async () => {
 		mutateAsync.mockRejectedValue( new Error( 'Site is running' ) );
 		const onDeleted = vi.fn();

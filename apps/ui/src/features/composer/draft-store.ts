@@ -37,7 +37,24 @@ export function saveComposerDraft( sessionId: string | undefined, draft: Compose
 	}
 }
 
-// Once a send is accepted, drop what was sent from the stored draft, keeping
+type DraftSendListener = (
+	sessionId: string | undefined,
+	sentText: string,
+	sentAttachmentIds: ReadonlySet< string >
+) => void;
+
+const draftSendListeners = new Set< DraftSendListener >();
+
+// The composer that sent may have been remounted (the user left the chat and
+// came back) by the time the send is accepted, so mounted composers listen.
+export function onComposerDraftSent( listener: DraftSendListener ): () => void {
+	draftSendListeners.add( listener );
+	return () => {
+		draftSendListeners.delete( listener );
+	};
+}
+
+// Once a send is accepted, drop what was sent from the draft, keeping
 // anything typed or attached meanwhile.
 export function completeComposerDraftSend(
 	sessionId: string | undefined,
@@ -49,6 +66,7 @@ export function completeComposerDraftSend(
 		text: draft.text.trim() === sentText ? '' : draft.text,
 		attachments: draft.attachments.filter( ( item ) => ! sentAttachmentIds.has( item.id ) ),
 	} );
+	draftSendListeners.forEach( ( listener ) => listener( sessionId, sentText, sentAttachmentIds ) );
 }
 
 export function clearComposerDrafts(): void {

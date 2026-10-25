@@ -371,6 +371,37 @@ describe( 'Composer menu', () => {
 		expect( screen.getByRole( 'combobox' ) ).toHaveValue( 'Retry this draft' );
 	} );
 
+	it( 'clears an accepted send from the composer reopened while it was pending', async () => {
+		connectorMocks.getStudioAssistantQuota.mockReset();
+		let acceptSend: () => void = () => {};
+		const onSend = vi.fn(
+			() =>
+				new Promise< void >( ( resolve ) => {
+					acceptSend = resolve;
+				} )
+		);
+		const { container, rerenderComposer } = renderComposer( { onSend } );
+		fireEvent.change( screen.getByRole( 'combobox' ), { target: { value: 'Sent message' } } );
+		fireEvent.change( container.querySelector( 'input[type="file"]' ) as HTMLInputElement, {
+			target: { files: [ new File( [ 'Sent' ], 'sent.txt', { type: 'text/plain' } ) ] },
+		} );
+		await screen.findByRole( 'listitem', { name: /^sent\.txt/ } );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Send message' } ) );
+		await waitFor( () => expect( onSend ).toHaveBeenCalledOnce() );
+
+		rerenderComposer( { onSend, sessionId: 'session-2' } );
+		rerenderComposer( { onSend } );
+		expect( screen.getByRole( 'combobox' ) ).toHaveValue( 'Sent message' );
+
+		await act( async () => acceptSend() );
+		expect( screen.getByRole( 'combobox' ) ).toHaveValue( '' );
+		expect( screen.queryByRole( 'listitem' ) ).not.toBeInTheDocument();
+
+		rerenderComposer( { onSend, sessionId: 'session-2' } );
+		rerenderComposer( { onSend } );
+		expect( screen.getByRole( 'combobox' ) ).toHaveValue( '' );
+	} );
+
 	it( 'holds sends behind the out-of-credits notice and flags a blocked send', async () => {
 		connectorMocks.getStudioAssistantQuota.mockResolvedValue( {
 			costCap: 100,

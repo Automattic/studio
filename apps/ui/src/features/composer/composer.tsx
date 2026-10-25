@@ -25,6 +25,7 @@ import { composerSubmission } from '@/features/composer/composer-submission';
 import {
 	completeComposerDraftSend,
 	getComposerDraft,
+	onComposerDraftSent,
 	saveComposerDraft,
 } from '@/features/composer/draft-store';
 import { FamilySwitchConfirmDialog } from '@/features/composer/family-switch-confirm-dialog';
@@ -267,6 +268,18 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		}
 	}, [ attachments, sessionId, value ] );
 
+	useEffect(
+		() =>
+			onComposerDraftSent( ( sentSessionId, sentText, sentAttachmentIds ) => {
+				if ( sentSessionId !== sessionId ) {
+					return;
+				}
+				setValue( ( current ) => ( current.trim() === sentText ? '' : current ) );
+				removeAttachments( sentAttachmentIds );
+			} ),
+		[ removeAttachments, sessionId ]
+	);
+
 	const {
 		changeModel,
 		pendingModel,
@@ -338,10 +351,6 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 			setSending( false );
 		}
 		completeComposerDraftSend( sessionId, trimmed, sentIds );
-		if ( ( textareaRef.current?.value ?? '' ).trim() === trimmed ) {
-			setValue( '' );
-		}
-		removeAttachments( sentIds );
 		if ( annotationSiteId && sentNotes.length ) {
 			removeAnnotations(
 				annotationSiteId,
@@ -359,7 +368,6 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		answerQuestion,
 		onSend,
 		sessionId,
-		removeAttachments,
 		annotationSiteId,
 		model,
 	] );

@@ -1,3 +1,6 @@
+import { mkdtemp, writeFile } from 'fs/promises';
+import os from 'os';
+import path from 'path';
 import { describe, expect, it, vi } from 'vitest';
 import { createConfirmer, describeDestructiveCall } from '../confirmation';
 
@@ -26,6 +29,55 @@ describe( 'describeDestructiveCall', () => {
 		expect(
 			describeDestructiveCall( 'site_import', { importFile: '/b/export.xml' } )
 		).toBeUndefined();
+	} );
+} );
+
+describe( 'the category plan', async () => {
+	const dir = await mkdtemp( path.join( os.tmpdir(), 'studio-category-plan-' ) );
+	const suggestions = path.join( dir, 'suggestions.json' );
+	const categories = path.join( dir, 'categories.json' );
+	await writeFile(
+		suggestions,
+		JSON.stringify( [
+			{ post_id: 1, cats: [ 'a' ] },
+			{ post_id: 2, cats: [ 'b' ] },
+		] )
+	);
+	await writeFile( categories, JSON.stringify( [ { slug: 'a', name: 'A' } ] ) );
+	const script = 'wp eval-file tmp/taxonomist/apply-changes.php';
+
+	it.each( [
+		{
+			tool: 'Bash',
+			command: `${ script } suggestions=${ suggestions } categories=${ categories } mode=apply`,
+			consequence:
+				'Creates or updates 1 category, and sets the categories of 2 posts, logging each change. The backup taken before the analysis restores them.',
+		},
+		{
+			tool: 'wp_cli',
+			command: `eval-file tmp/taxonomist/apply-changes.php mode=apply suggestions="${ suggestions }"`,
+			consequence:
+				'Sets the categories of 2 posts, logging each change. The backup taken before the analysis restores them.',
+		},
+		{
+			tool: 'Bash',
+			command: `${ script } suggestions=/missing.json mode=apply`,
+			consequence:
+				'Sets the categories of every post in the plan, logging each change. The backup taken before the analysis restores them.',
+		},
+		{ tool: 'Bash', command: `${ script } suggestions=${ suggestions }`, consequence: undefined },
+		{
+			tool: 'Bash',
+			command: `${ script } suggestions=${ suggestions } mode=preview`,
+			consequence: undefined,
+		},
+		{
+			tool: 'Bash',
+			command: 'wp eval-file tmp/taxonomist/backup.php mode=apply',
+			consequence: undefined,
+		},
+	] )( 'asks before $tool runs: $command', ( { tool, command, consequence } ) => {
+		expect( describeDestructiveCall( tool, { command } )?.consequence ).toBe( consequence );
 	} );
 } );
 

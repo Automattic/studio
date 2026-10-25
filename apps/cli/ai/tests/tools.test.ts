@@ -909,6 +909,33 @@ describe( 'Studio AI MCP tools', () => {
 		] );
 	} );
 
+	// A MySQL client's access denied, as `db query` gets on a Studio site, which keeps its data in SQLite.
+	it.each( [
+		{
+			stderr:
+				"ERROR 1045 (28000): Access denied for user 'username_here'@'localhost' (using password: YES)",
+			note: true,
+		},
+		{
+			stderr:
+				"mysqldump: Got error: 1045: Access denied for user 'username_here'@'localhost' (using password: YES) when trying to connect",
+			note: true,
+		},
+		{ stderr: 'Error: Could not find the post with ID 1045.', note: false },
+	] )(
+		'says where a Studio site keeps its data when WP-CLI fails with $stderr',
+		async ( { stderr, note } ) => {
+			vi.mocked( runWpCliCommand ).mockResolvedValue(
+				mockWpCliResponse( { stderr, exitCode: 1 } ) as never
+			);
+			const error = await getTool( 'wp_cli' )
+				.rawHandler( { nameOrPath: 'My Site', command: 'db query "SELECT 1"' } as never )
+				.catch( ( caught: Error ) => caught.message );
+			expect( error ).toContain( stderr );
+			expect( String( error ).includes( 'stores its database in SQLite' ) ).toBe( note );
+		}
+	);
+
 	it( 'rejects typographic dash options before dispatching to WP-CLI', async () => {
 		vi.mocked( isServerRunning ).mockResolvedValue( {
 			name: 'site-123',

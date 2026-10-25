@@ -1,10 +1,11 @@
+import { readFileSync } from 'fs';
 import type { AskUserHandler, AskUserQuestion } from 'cli/ai/types';
 
 // The harness asks the user before calls that need their yes, so the agent
 // cannot skip the question and needs no rule telling it to ask. Calls that
 // delete or replace the user's work in a way WordPress cannot undo (no trash,
-// no revision) are described here; site-pin.ts describes changes to a site
-// other than the request's.
+// no revision), or that change a whole site's content at once, are described
+// here; site-pin.ts describes changes to a site other than the request's.
 
 export interface Confirmation {
 	question: string;
@@ -21,12 +22,57 @@ function stringArg( params: unknown, key: string ): string {
 	return typeof value === 'string' || typeof value === 'number' ? String( value ) : '';
 }
 
+// How many entries a JSON array file lists, when it can be read.
+function entries( file: string | undefined ): number | undefined {
+	try {
+		const list: unknown = file && JSON.parse( readFileSync( file, 'utf8' ) );
+		return Array.isArray( list ) ? list.length : undefined;
+	} catch {
+		return undefined;
+	}
+}
+
+// The taxonomist skill's apply-changes.php in apply mode, run with `wp eval-file`
+// from a shell or wp_cli: it saves the plan's categories and sets every
+// suggested post's. Its preview (the default mode) changes nothing.
+function describeCategoryPlan( command: string ): Confirmation | undefined {
+	const arg = ( key: string ) =>
+		command.match( new RegExp( `(?:^|\\s)${ key }=["']?([^\\s"']+)` ) )?.[ 1 ];
+	if ( ! /\bapply-changes\.php\b/.test( command ) || arg( 'mode' ) !== 'apply' ) {
+		return undefined;
+	}
+	const plural = ( count: number, one: string, many: string ) =>
+		`${ count } ${ count === 1 ? one : many }`;
+	const posts = entries( arg( 'suggestions' ) );
+	const categories = entries( arg( 'categories' ) );
+	const postsSet = `the categories of ${
+		posts === undefined ? 'every post in the plan' : plural( posts, 'post', 'posts' )
+	}`;
+	return {
+		question: 'Apply the category plan?',
+		consequence: `${
+			categories
+				? `Creates or updates ${ plural(
+						categories,
+						'category',
+						'categories'
+				  ) }, and sets ${ postsSet }`
+				: `Sets ${ postsSet }`
+		}, logging each change. The backup taken before the analysis restores them.`,
+		declined: 'Ask the user what to change in the plan, then preview it again.',
+	};
+}
+
 export function describeDestructiveCall(
 	toolName: string,
 	params: unknown
 ): Confirmation | undefined {
 	const site = stringArg( params, 'nameOrPath' );
 	const remote = stringArg( params, 'remoteSite' );
+	const command = stringArg( params, 'command' );
+	if ( command ) {
+		return describeCategoryPlan( command );
+	}
 	switch ( toolName ) {
 		case 'site_push':
 			return {

@@ -32,12 +32,11 @@ This skill operates through an interactive, step-by-step process on a local Stud
 3. **Backup** — Snapshot current taxonomy state before any changes
 4. **Analyze** — Use parallel sub-agents to analyze every post's content and suggest optimal categories
 5. **Plan** — Present a comprehensive category plan with descriptions
-6. **Review** — Iterate with the user until the plan is approved
-7. **Apply descriptions** — Update category descriptions first
-8. **Apply categories** — Execute post re-categorization, logging every change
-9. **Verify** — Confirm site integrity
+6. **Review** — Iterate with the user on the plan
+7. **Apply** — Preview, then save the categories and re-categorize the posts, logging every change
+8. **Verify** — Confirm site integrity
 
-**Steps 1-6 require NO write access to the site.** The site is only modified after explicit user approval.
+Steps 1–6 only read the site. Step 7's apply is the one write, and Studio asks the user to approve it before it runs.
 
 ## Working Directory
 
@@ -86,8 +85,7 @@ Save the output to `taxonomist-data/export/categories.json`.
 
 Run:
 ```
-TAXONOMIST_OUTPUT={site_path}/taxonomist-data/export/posts.json \
-wp eval-file tmp/taxonomist/export-posts.php
+wp eval-file tmp/taxonomist/export-posts.php output={site_path}/taxonomist-data/export/posts.json
 ```
 
 ### Post-export summary
@@ -105,8 +103,7 @@ Create a full taxonomy snapshot before any analysis.
 
 Run:
 ```
-TAXONOMIST_OUTPUT={site_path}/taxonomist-data/backups/pre-analysis-{timestamp}.json \
-wp eval-file tmp/taxonomist/backup.php
+wp eval-file tmp/taxonomist/backup.php output={site_path}/taxonomist-data/backups/pre-analysis-{timestamp}.json
 ```
 
 ## Step 4: Analyze
@@ -185,51 +182,39 @@ Then show the **full dry run** — a table of every post that would change, show
 
 ## Step 6: Review
 
-**CRITICAL: You MUST use the `AskUserQuestion` tool here to get explicit approval before proceeding.** Do NOT continue to Step 7 without the user's explicit "yes" or approval.
-
-Present the plan, then use `AskUserQuestion` with options like:
-- "Approve and apply changes"
+Present the plan and ask the user what they would change, with options like:
+- "Looks good, preview the changes"
 - "I want to adjust some categories first"
 - "Cancel — don't make any changes"
 
-If the user wants adjustments, iterate on the plan and use `AskUserQuestion` again for each revision until they approve.
+Revise the plan with them until they are happy with it.
 
-## Step 7: Apply Descriptions
+## Step 7: Apply
 
-After approval, first create any new categories and update descriptions:
+Save the plan as two files in `taxonomist-data/results/`:
+- `categories.json`: the categories to create, and the new names or descriptions of existing ones, by slug: `[{"slug": "machine-learning", "name": "Machine Learning", "description": "..."}]`
+- `suggestions.json`: each post's categories, by slug: `[{"post_id": 123, "cats": ["wordpress", "ai"]}]`
 
-```
-# Create new categories
-wp term create category "Category Name" --slug=category-slug --description="Description here"
-
-# Update existing category descriptions
-wp term update category {term_id} --description="Updated description"
-```
-
-## Step 8: Apply Categories
-
-Prepare the suggestions JSON file from the approved plan, then run the apply script.
-
-First, do a **preview** (dry run):
+Preview the changes (the default mode changes nothing) and show the user the result:
 
 ```
-TAXONOMIST_SUGGESTIONS={site_path}/taxonomist-data/results/suggestions.json \
-TAXONOMIST_LOG={site_path}/taxonomist-data/logs/changes-{timestamp}.tsv \
-TAXONOMIST_MODE=preview \
-wp eval-file tmp/taxonomist/apply-changes.php
+wp eval-file tmp/taxonomist/apply-changes.php \
+  suggestions={site_path}/taxonomist-data/results/suggestions.json \
+  categories={site_path}/taxonomist-data/results/categories.json \
+  log={site_path}/taxonomist-data/logs/preview-{timestamp}.tsv
 ```
 
-Show the user the preview results. **Use `AskUserQuestion` to confirm** before applying. After they confirm, run it in apply mode:
+Then run it with `mode=apply`, adding `remove=` with the slugs to strip from re-categorized posts (such as `remove=uncategorized`). Studio asks the user to approve it before it runs:
 
 ```
-TAXONOMIST_SUGGESTIONS={site_path}/taxonomist-data/results/suggestions.json \
-TAXONOMIST_LOG={site_path}/taxonomist-data/logs/changes-{timestamp}.tsv \
-TAXONOMIST_MODE=apply \
-TAXONOMIST_REMOVE_CATS=uncategorized \
-wp eval-file tmp/taxonomist/apply-changes.php
+wp eval-file tmp/taxonomist/apply-changes.php \
+  suggestions={site_path}/taxonomist-data/results/suggestions.json \
+  categories={site_path}/taxonomist-data/results/categories.json \
+  log={site_path}/taxonomist-data/logs/changes-{timestamp}.tsv \
+  mode=apply remove=uncategorized
 ```
 
-## Step 9: Verify
+## Step 8: Verify
 
 After applying changes:
 
@@ -243,14 +228,12 @@ After applying changes:
 If the user wants to undo all changes, run:
 
 ```
-TAXONOMIST_BACKUP={site_path}/taxonomist-data/backups/pre-analysis-{timestamp}.json \
-wp eval-file tmp/taxonomist/restore.php
+wp eval-file tmp/taxonomist/restore.php backup={site_path}/taxonomist-data/backups/pre-analysis-{timestamp}.json
 ```
 
 ## Important Notes
 
 - **Manage sites with the Studio tools** (`site_list`, `site_info`, `site_start`) and run the WP-CLI commands above with `wp`
 - **Category slugs are the stable identifier** — always use slugs (not names or IDs) when referencing categories across steps
-- **Never modify WordPress core files** — all changes go through WP-CLI commands
 - **The default category cannot be deleted** — change it first with `wp option update default_category {new_id}` if needed
 - **All data stays local** — exported posts, analysis results, and backups remain in the site's `taxonomist-data/` directory

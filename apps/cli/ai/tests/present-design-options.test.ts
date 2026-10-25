@@ -42,7 +42,7 @@ describe( 'present_design_options', () => {
 	it( 'gives a picker the previews and tells the agent to end its turn', async () => {
 		const result = await createPresentDesignOptionsTool( { picker: true } ).rawHandler( args );
 
-		expect( textOf( result ) ).toContain( 'end your turn now' );
+		expect( textOf( result ) ).toContain( 'which is the whole question: end your turn with it' );
 		expect( result._meta ).toEqual( {
 			question: 'Which layout should I build?',
 			options: [

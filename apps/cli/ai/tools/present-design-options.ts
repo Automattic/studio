@@ -140,7 +140,7 @@ async function handOverOptions(
 				gridImage,
 				{
 					type: 'text',
-					text: `The ${ options.length } options (the grid above) are shown to the user under this tool call as a clickable picker with their previews. Do not show or list them again, and ask nothing else: end your turn now. The user's pick arrives as their next message.\n\n${ nextStep }`,
+					text: `The ${ options.length } options (the grid above) are shown to the user under this tool call as a clickable picker with their previews, which is the whole question: end your turn with it, and the user's pick arrives as their next message.\n\n${ nextStep }`,
 				},
 			],
 			_meta: {

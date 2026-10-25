@@ -82,7 +82,8 @@ UI is built on Base UI with its own primitives and theme. Icons come from `lucid
 The theme lives in `src/lib/theme/`:
 
 - `tokens.css`: every design token, below.
-- `base.css`: the page and element defaults (fonts, body, headings, icon size, reduced motion and transparency).
+- `base.css`: the page and element defaults (fonts, body, headings, shared keyframes, reduced motion and transparency).
+- `recipes.module.css`: declaration groups that components pull in with `composes` (truncation, the band's hairline, the image outline, the dot on an icon).
 - `index.ts`: applies the color scheme and the Appearance settings to the root; `accent-contrast.ts` and `color.ts` keep the accent readable; `motion.ts` reads the motion tokens from script.
 
 `tokens.css` defines every token the UI uses:

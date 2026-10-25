@@ -38,20 +38,12 @@
 }
 
 .image {
+	composes: imageOutline from '@/lib/theme/recipes.module.css';
 	position: relative;
 	width: 48px;
 	height: 48px;
 	border-radius: 12px;
 	background-color: var(--muted);
-}
-
-.image::after {
-	position: absolute;
-	inset: 0;
-	border-radius: inherit;
-	box-shadow: inset 0 0 0 1px var(--border);
-	content: '';
-	pointer-events: none;
 }
 
 .image img {

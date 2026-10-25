@@ -62,11 +62,6 @@
 		color: var( --foreground );
 	}
 
-	.addon > svg:not( [data-size] ) {
-		width: 16px;
-		height: 16px;
-	}
-
 	.addon[data-align='inline-start'] {
 		order: -1;
 		padding-inline-start: 8px;

@@ -85,11 +85,9 @@
 	}
 
 	.description {
-		overflow: hidden;
+		composes: truncate from '@/lib/theme/recipes.module.css';
 		color: var( --muted-foreground );
 		font-size: var( --text-xxs );
-		text-overflow: ellipsis;
-		white-space: nowrap;
 	}
 
 	/* On the composer's surface the muted fill and hover wash step up a shade. */

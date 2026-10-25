@@ -18,10 +18,8 @@
 }
 
 .title {
+	composes: truncate from '@/lib/theme/recipes.module.css';
 	display: block;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
 }
 
 .crumbSeparator {

@@ -100,15 +100,13 @@
 	outline-offset: 2px;
 }
 
-.pathPickerValue,
-.pathPickerPlaceholder {
+.pathPickerValue {
+	composes: truncate from '@/lib/theme/recipes.module.css';
 	min-width: 0;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
 }
 
 .pathPickerPlaceholder {
+	composes: pathPickerValue;
 	color: var(--muted-foreground);
 }
 
@@ -251,12 +249,10 @@
 
 
 .previewLink {
+	composes: truncate from '@/lib/theme/recipes.module.css';
 	max-width: 100%;
-	overflow: hidden;
 	color: var(--accent-text);
 	text-align: start;
-	text-overflow: ellipsis;
-	white-space: nowrap;
 	cursor: pointer;
 }
 

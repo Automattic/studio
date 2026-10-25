@@ -2,7 +2,7 @@ import type { ComponentProps } from 'react';
 
 export function ExportIcon( props: ComponentProps< 'svg' > ) {
 	return (
-		<svg viewBox="0 0 24 24" fill="none" aria-hidden="true" { ...props }>
+		<svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true" { ...props }>
 			<path
 				fillRule="evenodd"
 				clipRule="evenodd"

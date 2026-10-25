@@ -29,12 +29,10 @@
 }
 
 .text {
+	composes: truncate from '@/lib/theme/recipes.module.css';
 	flex: 1;
 	min-width: 0;
-	overflow: hidden;
 	color: var(--muted-foreground);
-	text-overflow: ellipsis;
-	white-space: nowrap;
 }
 
 .actions {

@@ -1,20 +1,13 @@
 .bell {
+	composes: dotted from '@/lib/theme/recipes.module.css';
 	position: relative;
 }
 
-.bell:has(.dot) svg {
-	mask-image: radial-gradient(circle at calc(100% - 2px) 2px, transparent 5.5px, #000 6px);
-}
-
 .dot {
-	position: absolute;
+	composes: dot from '@/lib/theme/recipes.module.css';
 	/* Inside the button's 1px border. */
 	inset-block-start: 7.5px;
 	inset-inline-end: 7.5px;
-	width: 7px;
-	height: 7px;
-	border-radius: 50%;
-	background-color: var(--accent);
 	pointer-events: none;
 }
 

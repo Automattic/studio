@@ -159,15 +159,13 @@
 	gap: 4px;
 }
 
-.choiceName,
-.choiceLabel {
+.choiceName {
+	composes: truncate from '@/lib/theme/recipes.module.css';
 	max-width: 100%;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
 }
 
 .choiceLabel {
+	composes: choiceName;
 	color: var(--muted-foreground);
 }
 
@@ -186,15 +184,13 @@
 }
 
 .address {
+	composes: truncate from '@/lib/theme/recipes.module.css';
 	display: block;
 	min-width: 0;
-	overflow: hidden;
 	font-size: var(--text-sm);
 	font-weight: var(--font-weight-medium);
 	line-height: 20px;
 	letter-spacing: -0.02em;
-	text-overflow: ellipsis;
-	white-space: nowrap;
 }
 
 .progress,

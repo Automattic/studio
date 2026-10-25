@@ -46,8 +46,6 @@
 
 	.alert > svg {
 		grid-row: span 2;
-		width: 16px;
-		height: 16px;
 		color: var( --alert-tone );
 		translate: 0 2px;
 	}

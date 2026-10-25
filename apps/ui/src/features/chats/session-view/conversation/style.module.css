@@ -35,9 +35,7 @@
 }
 
 .annotationElementText {
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
+	composes: truncate from '@/lib/theme/recipes.module.css';
 }
 
 .userTextRow,
@@ -158,9 +156,7 @@
 }
 
 .userAttachmentName {
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
+	composes: truncate from '@/lib/theme/recipes.module.css';
 }
 
 .activity {
@@ -188,13 +184,11 @@
 }
 
 .activityProgress {
+	composes: truncate from '@/lib/theme/recipes.module.css';
 	color: var(--muted-foreground);
 	font-size: var(--text-xs);
 	line-height: 20px;
 	opacity: 0.8;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
 }
 
 .traceLine {
@@ -213,10 +207,8 @@
 }
 
 .traceTitle {
+	composes: truncate from '@/lib/theme/recipes.module.css';
 	min-width: 0;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
 }
 
 .traceTrigger {

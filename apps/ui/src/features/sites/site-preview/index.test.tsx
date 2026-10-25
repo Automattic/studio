@@ -197,10 +197,13 @@ describe( 'SitePreview', () => {
 
 		const initialIframe = container.querySelector( 'iframe' );
 		expect( initialIframe ).toBeInTheDocument();
+		fireEvent.load( initialIframe! );
+		expect( screen.queryByRole( 'status' ) ).not.toBeInTheDocument();
 
 		// jsdom reports a non-Apple platform, so the primary modifier is Ctrl.
 		fireEvent.keyDown( document.body, { key: 'r', ctrlKey: true } );
 		expect( container.querySelector( 'iframe' ) ).not.toBe( initialIframe );
+		expect( screen.getByRole( 'status' ) ).toHaveTextContent( 'Loading site preview' );
 
 		// ⌘⇧R is an alias for the same reload.
 		const reloadedIframe = container.querySelector( 'iframe' );

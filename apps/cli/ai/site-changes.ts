@@ -7,6 +7,7 @@
  * changed is reported on that call's result. Each source reads one kind of
  * thing WordPress reads, as versions a check compares.
  */
+import { adminCapabilities } from 'cli/ai/admin-capabilities';
 import { blockTheme } from 'cli/ai/block-theme';
 import { childThemeCopies } from 'cli/ai/child-theme-copies';
 import { postContentChanges } from 'cli/ai/post-content-check';
@@ -64,6 +65,7 @@ export const SITE_CHANGE_SOURCES: SiteChangeSource[] = [
 	// Before siteFileWrites, which reports the functions.php it may add to.
 	themeStylesheet,
 	siteFileWrites,
+	adminCapabilities,
 ];
 
 async function localSites(): Promise< SiteData[] > {

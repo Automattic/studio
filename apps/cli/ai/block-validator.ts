@@ -485,13 +485,125 @@ export async function validateBlocks(
 					try {
 						const made = wpBlocks.createBlock( block.name, attributes, inner );
 						if ( wpBlocks.parse( wpBlocks.serialize( [ made ] ) )[ 0 ]?.isValid !== false ) {
-							return made;
+							return sameBlock ? withWrittenStyles( made, raw ) : made;
 						}
 					} catch {
 						// The next set of attributes.
 					}
 				}
 				return block;
+			}
+
+			// The style attribute path the style engine saves each CSS property
+			// from, as getCSSRules in @wordpress/style-engine reads them: it is
+			// handed a style whose every value names its own path.
+			let stylePaths: Map< string, string[] > | undefined;
+			function stylePathOf( property: string ) {
+				if ( ! stylePaths ) {
+					const PATH = Symbol( 'path' );
+					const at = ( path: string[] ): any =>
+						new Proxy( function () {}, {
+							get: ( _target, key ) =>
+								key === PATH ? path : typeof key === 'symbol' ? undefined : at( [ ...path, key ] ),
+							apply: () => undefined,
+						} );
+					const rules = ( window as any ).wp?.styleEngine?.getCSSRules?.( at( [] ) ) ?? [];
+					stylePaths = new Map(
+						rules
+							.filter( ( rule: any ) => rule.value?.[ PATH ] )
+							.map( ( rule: any ) => [ rule.key, rule.value[ PATH ] ] )
+					);
+				}
+				return stylePaths.get(
+					property.replace( /-([a-z])/g, ( _m, letter ) => letter.toUpperCase() )
+				);
+			}
+
+			// The elements of a block's own markup, without its inner blocks.
+			function elementsOf( ownHtml: string ) {
+				return Array.from(
+					new DOMParser()
+						.parseFromString( ownHtml, 'text/html' )
+						.body.querySelectorAll< HTMLElement >( '*' )
+				);
+			}
+
+			// An element's inline styles as the browser reads them, so .85rem is
+			// 0.85rem. A shorthand sets each longhand it leaves out to initial,
+			// which is what an unset longhand is, so those are left out.
+			function declarations( element: HTMLElement ) {
+				return new Map(
+					Array.from( element.style )
+						.map(
+							( property ) => [ property, element.style.getPropertyValue( property ) ] as const
+						)
+						.filter( ( [ , value ] ) => value !== 'initial' )
+				);
+			}
+
+			// The block made again with the inline styles written in its own markup
+			// that it would drop, stored where the block saves them from: the style
+			// attribute path the style engine reads, holding a preset as
+			// var:preset|… the way the editor stores one. Kept when each element
+			// it saves holds the styles written on it; what it loses otherwise,
+			// the fix's losses tell.
+			function withWrittenStyles( made: any, raw: any ) {
+				if ( typeof rawParse !== 'function' ) {
+					return made;
+				}
+				const ownHtml = ( one: any ) =>
+					String( rawParse( wpBlocks.serialize( [ one ] ) )?.[ 0 ]?.innerHTML ?? '' );
+				const written = elementsOf( String( raw.innerHTML ?? '' ) );
+				const holdsWritten = ( saved: HTMLElement[] ) =>
+					written.map( ( element, i ) => {
+						const there = saved[ i ] ? declarations( saved[ i ] ) : new Map();
+						return [ ...declarations( element ) ].filter(
+							( [ property, value ] ) => there.get( property ) !== value
+						);
+					} );
+				const dropped = holdsWritten( elementsOf( ownHtml( made ) ) );
+				if ( ! dropped.flat().length ) {
+					return made;
+				}
+				const style = structuredClone( made.attributes.style ?? {} );
+				for ( const [ i, missing ] of dropped.entries() ) {
+					// Each value as written, so a color stays as it was written.
+					const asWritten = new Map(
+						String( written[ i ].getAttribute( 'style' ) ?? '' )
+							.split( ';' )
+							.map( ( declaration ) => declaration.split( ':' ) )
+							.filter( ( parts ) => parts.length === 2 )
+							.map( ( [ property, value ] ) => [ property.trim().toLowerCase(), value.trim() ] )
+					);
+					for ( const [ property, value ] of missing ) {
+						const path = stylePathOf( property );
+						if ( ! path ) {
+							return made;
+						}
+						// Of a shorthand too, as background:#efe6d8 writes background-color.
+						const text =
+							[ asWritten.get( property ), ...asWritten.values() ].find( ( candidate ) => {
+								const scratch = document.createElement( 'div' );
+								scratch.style.setProperty( property, candidate ?? '' );
+								return scratch.style.getPropertyValue( property ) === value;
+							} ) ?? value;
+						const preset = /^var\(--wp--(preset--.+)\)$/.exec( text )?.[ 1 ];
+						const stored = preset ? `var:${ preset.split( '--' ).join( '|' ) }` : text;
+						const leaf = path
+							.slice( 0, -1 )
+							.reduce( ( at: any, key: string ) => ( at[ key ] ??= {} ), style );
+						leaf[ path[ path.length - 1 ] ] =
+							( window as any ).wp.styleEngine.getCSSValueFromRawStyle( stored ) === text
+								? stored
+								: text;
+					}
+				}
+				const restyled = wpBlocks.createBlock(
+					made.name,
+					{ ...made.attributes, style },
+					made.innerBlocks
+				);
+				return holdsWritten( elementsOf( ownHtml( restyled ) ) ).flat().length ? made : restyled;
 			}
 
 			const initial = validateContent( html );
@@ -523,9 +635,8 @@ export async function validateBlocks(
 				const styles = new Set< string >();
 				body.querySelectorAll< HTMLElement >( '*' ).forEach( ( element ) => {
 					element.classList.forEach( ( name ) => classes.add( name ) );
-					// As the browser reads each declaration, so .85rem is 0.85rem.
-					for ( const property of Array.from( element.style ) ) {
-						styles.add( `${ property }:${ element.style.getPropertyValue( property ) }` );
+					for ( const [ property, value ] of declarations( element ) ) {
+						styles.add( `${ property }:${ value }` );
 					}
 				} );
 				// Entities and whitespace the serializer rewrites are the same text.

@@ -120,6 +120,84 @@ describe.runIf( siteUrl )( 'validating in the block editor (live)', () => {
 		60_000
 	);
 
+	it.each( [
+		{
+			name: 'a spacing preset, as the editor stores a preset',
+			written:
+				'<!-- wp:columns -->\n<div class="wp-block-columns" style="margin-top:var(--wp--preset--spacing--50)"></div>\n<!-- /wp:columns -->',
+			saved: '<!-- wp:columns {"style":{"spacing":{"margin":{"top":"var:preset|spacing|50"}}}} -->',
+		},
+		{
+			name: 'a color, a radius and padding, as written',
+			written:
+				'<!-- wp:group -->\n<div class="wp-block-group" style="background-color:#efe6d8;border-top-left-radius:28px;padding-top:2.4rem"></div>\n<!-- /wp:group -->',
+			saved:
+				'<!-- wp:group {"style":{"color":{"background":"#efe6d8"},"border":{"radius":{"topLeft":"28px"}},"spacing":{"padding":{"top":"2.4rem"}}}} -->',
+		},
+		{
+			name: 'a background shorthand, as the color it sets',
+			written:
+				'<!-- wp:column -->\n<div class="wp-block-column" style="background:#efe6d8"></div>\n<!-- /wp:column -->',
+			saved: '<!-- wp:column {"style":{"color":{"background":"#efe6d8"}}} -->',
+		},
+		{
+			name: 'on the element the block saves them on',
+			written:
+				'<!-- wp:button -->\n<div class="wp-block-button"><a class="wp-block-button__link wp-element-button" style="padding-top:1rem">Book</a></div>\n<!-- /wp:button -->',
+			saved:
+				'<!-- wp:button {"style":{"spacing":{"padding":{"top":"1rem"}}}} -->\n<div class="wp-block-button"><a class="wp-block-button__link wp-element-button" style="padding-top:1rem">Book</a></div>',
+		},
+		{
+			name: 'only its own, beside an inner block with styles of its own',
+			written:
+				'<!-- wp:group -->\n<div class="wp-block-group" style="padding-top:1rem"><!-- wp:group -->\n<div class="wp-block-group" style="padding-top:2rem"></div>\n<!-- /wp:group --></div>\n<!-- /wp:group -->',
+			saved:
+				'<!-- wp:group {"style":{"spacing":{"padding":{"top":"1rem"}}}} -->\n<div class="wp-block-group" style="padding-top:1rem"><!-- wp:group {"style":{"spacing":{"padding":{"top":"2rem"}}}} -->',
+		},
+	] )(
+		'stores the inline styles a block would drop where it saves them from: $name',
+		async ( { written, saved } ) => {
+			const report = await validateBlocks( written, siteUrl! );
+			expect( report.invalidBlocks ).toBeGreaterThan( 0 );
+			expect( report.proposedFix?.losses ).toEqual( [] );
+			expect( report.proposedFix?.report.invalidBlocks ).toBe( 0 );
+			expect( report.proposedFix?.fixedContent ).toContain( saved );
+		},
+		60_000
+	);
+
+	it.each( [
+		{
+			name: 'a style no block attribute saves',
+			written:
+				'<!-- wp:separator -->\n<hr class="wp-block-separator has-alpha-channel-opacity" style="opacity:0.4"/>\n<!-- /wp:separator -->',
+			lost: 'drop the styles opacity:0.4',
+		},
+		{
+			// The comment's font size preset and the written size both name one.
+			name: 'a style its attributes already set otherwise',
+			written:
+				'<!-- wp:button {"fontSize":"small"} -->\n<div class="wp-block-button has-custom-font-size" style="font-size:0.9rem"><a class="wp-block-button__link wp-element-button">Book</a></div>\n<!-- /wp:button -->',
+			lost: 'drop the styles font-size:0.9rem',
+		},
+		{
+			// core/image saves its border on the img.
+			name: 'a style the block saves on another element',
+			written:
+				'<!-- wp:image -->\n<figure class="wp-block-image" style="border-top-left-radius:12px"><img src="https://example.com/a.jpg" alt=""/></figure>\n<!-- /wp:image -->',
+			lost: 'drop the styles border-top-left-radius:12px',
+		},
+	] )(
+		'keeps the block as written for $name',
+		async ( { written, lost } ) => {
+			const report = await validateBlocks( written, siteUrl! );
+			expect( report.proposedFix?.losses ).toEqual( [
+				{ place: '/0', blockName: expect.any( String ), lost },
+			] );
+		},
+		60_000
+	);
+
 	it( 'reports HTML outside any block', async () => {
 		const report = await validateBlocks(
 			`<section class="hero"><h1>Hi</h1></section>\n${ paragraph( '{}', '<p>Ok</p>' ) }`,

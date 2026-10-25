@@ -42,10 +42,6 @@ vi.mock( '@/features/sites/stopped-site-preview', async ( importOriginal ) => ( 
 	SiteContextMenu: ( { children }: { children: ReactNode } ) => children,
 } ) );
 
-vi.mock( '@/lib/ui/dot-grid', () => ( {
-	DotGrid: () => <canvas data-testid="dot-grid" />,
-} ) );
-
 vi.mock( '@/data/host/use-traffic-light-space', () => ( {
 	useTrafficLightSpace: vi.fn( () => ( { start: false, end: false } ) ),
 } ) );

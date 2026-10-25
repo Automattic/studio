@@ -1,10 +1,6 @@
-export { FeatureList } from './feature-list';
-export { OnboardingFooter } from './onboarding-footer';
 export { OnboardingGuideProvider } from './onboarding-guide/use-onboarding-guide';
 export { useOrientationAutostart } from './onboarding-guide/use-orientation-autostart';
 export { useOrientationReplay } from './onboarding-guide/use-orientation-replay';
 export { useWhatsNewAutostart } from './onboarding-guide/use-whats-new-autostart';
 export { useOpenWhatsNew, useWhatsNewReplay } from './onboarding-guide/use-whats-new-replay';
-export { SiteListIllustration } from './onboarding-illustrations';
-export { AgentPixelField } from './onboarding-illustrations/agent-pixel-field';
-export { OnboardingLayout } from './onboarding-layout';
+export { WelcomeDialog } from './welcome-dialog';

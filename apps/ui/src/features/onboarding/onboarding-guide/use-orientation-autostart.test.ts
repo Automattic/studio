@@ -75,7 +75,7 @@ describe( 'deriveOrientationAutostart', () => {
 		expect( deriveOrientationAutostart( { ...base, alreadyStarted: true } ) ).toBeNull();
 	} );
 
-	it( 'waits while Settings or Add site is open', () => {
+	it( 'waits while Welcome, Settings or Add site is open', () => {
 		expect( deriveOrientationAutostart( { ...base, dialogOpen: true } ) ).toBeNull();
 	} );
 } );

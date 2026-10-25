@@ -33,7 +33,7 @@ export const indexRoute = createRoute( {
 		const firstSite = sites[ 0 ];
 		if ( ! firstSite ) {
 			if ( ! ( await context.connector.getOnboardingCompleted() ) ) {
-				throw redirect( { to: '/welcome', search } );
+				throw redirect( { to: '/sites', search: { ...search, welcome: true } } );
 			}
 			const offer = ! addSiteOffered;
 			addSiteOffered = true;

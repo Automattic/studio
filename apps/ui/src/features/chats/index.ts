@@ -12,7 +12,6 @@ export {
 	useComposerAttachments,
 	useFileDrop,
 } from './session-view/composer/use-composer-attachments';
-export { EmptyBackground } from './session-view/empty-background';
 export { getSessionTitle } from './session-view/session-chat-actions';
 export { SiteWorkspace } from './site-workspace';
 export {

@@ -19,7 +19,7 @@
 		content: '';
 	}
 
-	:root[data-color-scheme='dark'] .checkbox {
+	:root[data-color-scheme='dark'] .checkbox:not( [data-checked] ) {
 		background-color: color-mix( in oklab, var( --input ) 30%, transparent );
 	}
 

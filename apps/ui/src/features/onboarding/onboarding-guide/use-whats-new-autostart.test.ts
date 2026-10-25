@@ -48,7 +48,7 @@ describe( 'deriveWhatsNewAutostart', () => {
 		expect( deriveWhatsNewAutostart( { ...base, hints: {} } ) ).toBe( 'mark-seen' );
 	} );
 
-	it( 'waits while Settings or Add site is open', () => {
+	it( 'waits while Welcome, Settings or Add site is open', () => {
 		expect( deriveWhatsNewAutostart( { ...base, dialogOpen: true } ) ).toBeNull();
 	} );
 

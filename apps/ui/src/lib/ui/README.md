@@ -1,6 +1,6 @@
 # lib/ui
 
-The UI primitives: Button, IconButton, Dialog, Menu, Popover, Select, Field, Tooltip and the rest, built on Base UI and styled after the rebuild's kit. Also small app-agnostic components that several features use: CodeBlock (Shiki highlighting in the current color scheme), DotGrid and ResizeHandle.
+The UI primitives: Button, IconButton, Dialog, Menu, Popover, Select, Field, Tooltip and the rest, built on Base UI and styled after the rebuild's kit. Also small app-agnostic components that several features use: CodeBlock (Shiki highlighting in the current color scheme) and ResizeHandle.
 
 **Belongs here:** a control or visual that knows nothing about Studio. **Doesn't:** anything that reads data, calls the connector, or knows about sites, chats or notices. That goes in the feature that owns it.
 

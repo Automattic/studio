@@ -10,4 +10,4 @@ The modal is a guide in `apps/ui`: its pages (copy and illustrations) are define
 
 `WHATS_NEW_VERSION`, next to the pages, is the content version. Bump it in the same change that replaces the pages. The user's last seen version is `whatsNewSeenVersion` in the onboarding hints in `app.json`, shared by the Desktop app and `studio ui`, so seeing the pages in one settles both. Closing the guide any way (Done, Skip or Esc) records the current version.
 
-`deriveWhatsNewAutostart` (`apps/ui/src/features/onboarding/onboarding-guide/use-whats-new-autostart.ts`) opens it once the user has a site, the workspace state has loaded, and no guide, Settings or Add site dialog is open. A first-run user gets the orientation guide instead, and the current version is marked as seen.
+`deriveWhatsNewAutostart` (`apps/ui/src/features/onboarding/onboarding-guide/use-whats-new-autostart.ts`) opens it once the user has a site, the workspace state has loaded, and no guide, Welcome, Settings or Add site dialog is open. A first-run user gets the orientation guide instead, and the current version is marked as seen.

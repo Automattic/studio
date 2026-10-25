@@ -1,5 +1,5 @@
 import { __ } from '@wordpress/i18n';
-import { useEffect, useState, useSyncExternalStore } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { clearNoticeHistory, dismissNotice, useNoticeHistory } from '@/data/app-messages';
 import { NoticeCard } from '@/features/notifications/notice-card';
 import { BellIcon } from '@/lib/icons';
@@ -72,18 +72,53 @@ function useNow( active: boolean ) {
 
 export function NoticeHistoryButton() {
 	const open = useNoticeHistoryOpen();
-	const notices = useNoticeHistory();
+	const history = useNoticeHistory();
 	const now = useNow( open );
+	// The list stays as it was while the popover closes, so emptying it doesn't
+	// flash the empty state on the way out.
+	const [ notices, setNotices ] = useState( history );
+	if ( open && notices !== history ) {
+		setNotices( history );
+	}
+	const bell = useRef< HTMLButtonElement >( null );
+	// Opened from elsewhere as the sidebar slides in, the history waits for the
+	// bell to get where it's going before anchoring to it.
+	const [ anchored, setAnchored ] = useState( false );
+	useLayoutEffect( () => {
+		if ( ! open ) {
+			setAnchored( false );
+			return;
+		}
+		const trigger = bell.current;
+		const moving = ( document.getAnimations?.() ?? [] ).filter( ( animation ) => {
+			const target = ( animation.effect as KeyframeEffect | null )?.target;
+			return trigger && target && target !== trigger && target.contains( trigger );
+		} );
+		if ( ! moving.length ) {
+			setAnchored( true );
+			return;
+		}
+		let cancelled = false;
+		void Promise.allSettled( moving.map( ( animation ) => animation.finished ) ).then( () => {
+			if ( ! cancelled ) {
+				setAnchored( true );
+			}
+		} );
+		return () => {
+			cancelled = true;
+		};
+	}, [ open ] );
 
 	return (
-		<Popover.Root open={ open } onOpenChange={ setOpen }>
+		<Popover.Root open={ open && anchored } onOpenChange={ setOpen }>
 			<Popover.Trigger
+				ref={ bell }
 				render={
 					<IconButton
 						icon={ <BellIcon /> }
 						label={ __( 'Notification history' ) }
 						aria-label={
-							notices.length > 0
+							history.length > 0
 								? __( 'Notification history, notifications available' )
 								: __( 'Notification history' )
 						}
@@ -91,7 +126,7 @@ export function NoticeHistoryButton() {
 					/>
 				}
 			>
-				{ notices.length > 0 ? <span className={ styles.dot } aria-hidden="true" /> : null }
+				{ history.length > 0 ? <span className={ styles.dot } aria-hidden="true" /> : null }
 			</Popover.Trigger>
 			<Popover.Popup
 				side="top"

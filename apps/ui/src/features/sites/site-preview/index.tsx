@@ -349,7 +349,7 @@ export function SitePreview( {
 					<SiteContextMenu site={ site } disabled={ canPreview }>
 						<div className={ styles.empty }>
 							<PreviewParticles active={ loadingStage || navigating } showLogo={ loadingStage } />
-							{ loadingStage ? (
+							{ loadingStage || navigating ? (
 								<VisuallyHidden role="status">{ __( 'Loading site preview' ) }</VisuallyHidden>
 							) : null }
 							{ canPreview ? null : (

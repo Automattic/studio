@@ -44,6 +44,15 @@ describe( 'validateSelectedSitePath', () => {
 		);
 	} );
 
+	it( 'asks for an empty folder when the site must start empty', () => {
+		for ( const isWordPress of [ true, false ] ) {
+			expect(
+				validateSelectedSitePath( { ...selectedPath, isEmpty: false, isWordPress }, false, true )
+					.error
+			).toBe( 'Choose an empty folder for your site.' );
+		}
+	} );
+
 	it( 'allows an existing WordPress directory', () => {
 		expect(
 			validateSelectedSitePath( { ...selectedPath, isEmpty: false, isWordPress: true }, false )

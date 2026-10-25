@@ -31,6 +31,10 @@ function getLastAnchor( node: HTMLElement ) {
 	return { count: anchors.length, last: anchors[ anchors.length - 1 ] };
 }
 
+function getViewTop( node: HTMLElement, element: HTMLElement ) {
+	return element.getBoundingClientRect().top - node.getBoundingClientRect().top;
+}
+
 /**
  * Scrolls the transcript like a log anchored on the user's prompts. A chat
  * opens at its last prompt (or its end, when that turn fits). A new prompt
@@ -62,6 +66,9 @@ export function useAnchoredScroll( {
 		following: true,
 		jumping: false,
 		holding: false,
+		heldTop: 0,
+		heldAt: 0,
+		lastTop: 0,
 	} );
 
 	const settle = useCallback( () => {
@@ -75,11 +82,7 @@ export function useAnchoredScroll( {
 		const insetTop = parseFloat( style.paddingTop ) || 0;
 		const insetBottom = parseFloat( style.paddingBottom ) || 0;
 		const anchorOffset = () =>
-			last.getBoundingClientRect().top -
-			scrollNode.getBoundingClientRect().top +
-			scrollNode.scrollTop -
-			insetTop -
-			ANCHOR_PEEK_PX;
+			getViewTop( scrollNode, last ) + scrollNode.scrollTop - insetTop - ANCHOR_PEEK_PX;
 
 		if ( state.sessionId !== sessionId ) {
 			state = stateRef.current = {
@@ -89,11 +92,16 @@ export function useAnchoredScroll( {
 				following: true,
 				jumping: false,
 				holding: !! last,
+				heldTop: 0,
+				heldAt: 0,
+				lastTop: 0,
 			};
 			spacer.style.height = '0px';
 		}
 		if ( state.holding && last && count === state.anchors ) {
 			scrollTo( scrollNode, anchorOffset() );
+			state.heldTop = scrollNode.scrollTop;
+			state.heldAt = getViewTop( scrollNode, last );
 			const away = isScrolledAwayFromLatest( scrollNode );
 			state.following = ! away;
 			setIsScrolledAway( away );
@@ -126,17 +134,43 @@ export function useAnchoredScroll( {
 		const onScroll = () => {
 			const away = isScrolledAwayFromLatest( scrollNode );
 			const state = stateRef.current;
+			// Any step up stops following, before the view is far enough from the
+			// end to count as away; a streaming reply would pull it back otherwise.
+			// The browser clamping at the end isn't the user.
+			const top = scrollNode.scrollTop;
+			const movedUp =
+				top < state.lastTop && top < scrollNode.scrollHeight - scrollNode.clientHeight - 1;
+			state.lastTop = top;
+			// Find in page or keyboard scrolling moves the view without the
+			// events below, and the prompt moves with the scroll. Scroll anchoring
+			// and late layout above it move one without the other.
+			const scrolled = scrollNode.scrollTop - state.heldTop;
+			if ( state.holding && Math.abs( scrolled ) > 1 ) {
+				const { last } = getLastAnchor( scrollNode );
+				const moved = last ? getViewTop( scrollNode, last ) - state.heldAt : 0;
+				state.holding = Math.abs( moved + scrolled ) > 1;
+			}
 			// A jump keeps the button hidden while its smooth scroll is on the way.
 			if ( state.jumping && away ) {
 				return;
 			}
 			state.jumping = false;
-			state.following = ! away;
+			state.following = ! away && ! movedUp;
 			setIsScrolledAway( away );
 		};
 		const listening = new AbortController();
 		const options = { passive: true, signal: listening.signal };
 		scrollNode.addEventListener( 'scroll', onScroll, options );
+		// A wheel turn up lands before its smooth scroll does.
+		scrollNode.addEventListener(
+			'wheel',
+			( event ) => {
+				if ( event.deltaY < 0 ) {
+					stateRef.current.following = false;
+				}
+			},
+			options
+		);
 		for ( const type of [ 'wheel', 'touchmove', 'keydown', 'pointerdown' ] ) {
 			scrollNode.addEventListener(
 				type,

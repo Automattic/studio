@@ -65,6 +65,7 @@ describe( 'parseOmniboxInput', () => {
 			path: '/wp-admin/?page=1#top',
 		} );
 		expect( parseOmniboxInput( 'https://example.com/about', SITE_URL ) ).toBeNull();
+		expect( parseOmniboxInput( '//example.com/', SITE_URL ) ).toBeNull();
 	} );
 
 	it( 'normalizes paths and treats words as searches', () => {
@@ -101,6 +102,8 @@ describe( 'preview realms', () => {
 		expect( getPreviewRealm( DATABASE_HOME_PATH ) ).toBe( 'database' );
 		expect( getPreviewRealm( autoLoginPath( '/wp-admin/plugins.php' ) ) ).toBe( 'admin' );
 		expect( getPreviewRealm( DESIGN_SYSTEM_PREVIEW_PATH ) ).toBe( 'design' );
+		expect( getPreviewRealm( '/wp-admin-guide/' ) ).toBe( 'frontend' );
+		expect( getPreviewRealm( '/phpmyadmin-notes/' ) ).toBe( 'frontend' );
 	} );
 
 	it( 'maps realms to open events', () => {
@@ -115,6 +118,7 @@ describe( 'preview realms', () => {
 			autoLoginPath( '/wp-admin/plugins.php' )
 		);
 		expect( getRealmNavigationPath( '/about/', SITE_URL ) ).toBe( '/about/' );
+		expect( getRealmNavigationPath( '/wp-admin-guide/', SITE_URL ) ).toBe( '/wp-admin-guide/' );
 	} );
 } );
 

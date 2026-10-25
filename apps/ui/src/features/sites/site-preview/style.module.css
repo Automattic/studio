@@ -8,7 +8,7 @@
 	height: 100%;
 	min-width: 0;
 	min-height: 0;
-	background-color: var(--chat);
+	background-color: var( --chat );
 	overflow: hidden;
 }
 
@@ -17,7 +17,7 @@
 	min-height: 0;
 	display: flex;
 	position: relative;
-	background-color: var(--chrome);
+	background-color: var( --chrome );
 	overflow: hidden;
 }
 
@@ -36,10 +36,10 @@
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	padding: 20px;
-	background-color: var(--chat);
-	color: var(--muted-foreground);
-	font-size: var(--text-xxs);
+	padding: var( --space-5 );
+	background-color: var( --chat );
+	color: var( --muted-foreground );
+	font-size: var( --text-xxs );
 	text-align: center;
 	overflow: hidden;
 }
@@ -49,7 +49,7 @@
 	z-index: 1;
 	display: flex;
 	flex-direction: column;
-	gap: 12px;
+	gap: var( --space-3 );
 	align-items: center;
-	width: min(100%, 420px);
+	width: min( 100%, 420px );
 }

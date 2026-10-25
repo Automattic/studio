@@ -2,15 +2,15 @@
 	.badge {
 		display: inline-flex;
 		flex-shrink: 0;
-		gap: 4px;
+		gap: var( --space-1 );
 		align-items: center;
 		justify-content: center;
 		width: fit-content;
 		height: 20px;
 		overflow: hidden;
-		padding: 2px 8px;
+		padding: var( --space-0_5 ) var( --space-2 );
 		border: 1px solid transparent;
-		border-radius: 26px;
+		border-radius: var( --radius-full );
 		font-size: var( --text-xs );
 		font-weight: var( --font-weight-medium );
 		white-space: nowrap;
@@ -24,25 +24,25 @@
 
 	.badge[data-size='count'] {
 		min-width: 20px;
-		padding-inline: 4px;
-		border-radius: 9999px;
+		padding-inline: var( --space-1 );
+		border-radius: var( --radius-full );
 		font-variant-numeric: tabular-nums;
 	}
 
 	.badge[data-size='xs'] {
-		gap: 2px;
+		gap: var( --space-0_5 );
 		height: auto;
-		padding: 4px;
+		padding: var( --space-1 );
 		border: 0;
 		border-radius: var( --radius-xs );
-		font-size: 11px;
-		line-height: 1;
+		font-size: var( --text-2xs );
+		line-height: var( --leading-none );
 	}
 
 	.badge[data-size='icon'] {
 		width: 24px;
 		height: 24px;
-		padding: 4px;
+		padding: var( --space-1 );
 		border: 0;
 		border-radius: var( --radius-xs );
 	}
@@ -78,11 +78,10 @@
 	}
 
 	.badge[data-variant='destructive'] {
-		background-color: color-mix( in oklab, var( --destructive ) 10%, transparent );
+		background-color: light-dark(
+			color-mix( in oklab, var( --destructive ) 10%, transparent ),
+			color-mix( in oklab, var( --destructive ) 20%, transparent )
+		);
 		color: var( --destructive );
-	}
-
-	:root[data-color-scheme='dark'] .badge[data-variant='destructive'] {
-		background-color: color-mix( in oklab, var( --destructive ) 20%, transparent );
 	}
 }

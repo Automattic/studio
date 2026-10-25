@@ -26,6 +26,7 @@ import {
 	type WebviewConsoleEvent,
 	type WebviewFailLoadEvent,
 	type WebviewPageTitleUpdatedEvent,
+	type WebviewStartNavigationEvent,
 	type WebviewTag,
 } from './webview';
 import type { SiteAnnotations } from '@/features/annotations';
@@ -268,12 +269,17 @@ export function WebviewSurface( {
 			publishBrowserState();
 			publishNavigationHistory();
 		};
-		const handleStartLoading = () => {
-			didReadTitleAfterLoad = false;
-			if ( inspectorEnabledRef.current ) {
+		// Only a new main document drops the inspector; frames and in-page
+		// navigations keep it.
+		const handleStartNavigation = ( event: Event ) => {
+			const { isMainFrame, isInPlace } = event as WebviewStartNavigationEvent;
+			if ( isMainFrame && ! isInPlace && inspectorEnabledRef.current ) {
 				setInspectorReady( false );
 				onInspectorReadyRef.current?.( false );
 			}
+		};
+		const handleStartLoading = () => {
+			didReadTitleAfterLoad = false;
 			publishBrowserState( { title: null, failed: false } );
 			startProgress();
 		};
@@ -291,6 +297,7 @@ export function WebviewSurface( {
 		webview.addEventListener( 'page-title-updated', handlePageTitleUpdated );
 		webview.addEventListener( 'did-navigate', handleNavigate );
 		webview.addEventListener( 'did-navigate-in-page', handleNavigate );
+		webview.addEventListener( 'did-start-navigation', handleStartNavigation );
 		webview.addEventListener( 'did-start-loading', handleStartLoading );
 		webview.addEventListener( 'did-stop-loading', handleStopLoading );
 		const handleFailLoad = ( event: Event ) => {
@@ -317,6 +324,7 @@ export function WebviewSurface( {
 			webview.removeEventListener( 'page-title-updated', handlePageTitleUpdated );
 			webview.removeEventListener( 'did-navigate', handleNavigate );
 			webview.removeEventListener( 'did-navigate-in-page', handleNavigate );
+			webview.removeEventListener( 'did-start-navigation', handleStartNavigation );
 			webview.removeEventListener( 'did-start-loading', handleStartLoading );
 			webview.removeEventListener( 'did-stop-loading', handleStopLoading );
 			webview.removeEventListener( 'did-finish-load', handleFinishLoad );

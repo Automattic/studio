@@ -55,6 +55,7 @@ import {
 import { pendingPromptSlot } from '@/features/composer';
 import { Composer, ComposerSkeleton, type ComposerHandle } from '@/features/composer';
 import { PreviewParticles, SiteContextMenu, StoppedSitePreview } from '@/features/sites';
+import { getMotionDuration } from '@/lib/theme';
 import { Button, IconButton } from '@/lib/ui';
 import { Conversation } from './conversation';
 import { QueuedPrompts } from './queued-prompts';
@@ -276,6 +277,14 @@ function SessionViewContent( { sessionId, headerStart }: SessionViewProps ) {
 	if ( showEmpty && emptySessionId !== sessionId ) {
 		setEmptySessionId( sessionId );
 	}
+	useEffect( () => {
+		if ( showEmpty || emptySessionId === null ) return;
+		const timeoutId = window.setTimeout(
+			() => setEmptySessionId( null ),
+			getMotionDuration( 'layout' )
+		);
+		return () => window.clearTimeout( timeoutId );
+	}, [ showEmpty, emptySessionId ] );
 	const isChatReady = !! data && ! isQuotaLoading && ! notice && ! isOutOfCredits;
 	useEffect( () => {
 		// Read the slot live rather than the rendered value: StrictMode runs the
@@ -445,15 +454,7 @@ function SessionViewContent( { sessionId, headerStart }: SessionViewProps ) {
 		>
 			{ emptySessionId === sessionId ? (
 				<SiteContextMenu site={ ownerSite } disabled={ ! ownerSite || ownerSite.running }>
-					<div
-						className={ styles.emptyState }
-						data-hidden={ ! showEmpty || undefined }
-						onTransitionEnd={ ( event ) => {
-							if ( event.target === event.currentTarget && ! showEmpty ) {
-								setEmptySessionId( null );
-							}
-						} }
-					>
+					<div className={ styles.emptyState } data-hidden={ ! showEmpty || undefined }>
 						<PreviewParticles
 							active={ siteLoading }
 							showLogo={ siteLoading }

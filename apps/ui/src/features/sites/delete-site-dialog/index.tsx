@@ -76,7 +76,12 @@ export function DeleteSiteDialog( {
 		<AlertDialog
 			open={ open }
 			onOpenChange={ ( next ) => ! pending && onOpenChange( next ) }
-			onOpenChangeComplete={ ( next ) => ! next && setError( undefined ) }
+			onOpenChangeComplete={ ( next ) => {
+				if ( ! next ) {
+					setDeleteFiles( false );
+					setError( undefined );
+				}
+			} }
 		>
 			<DialogContent layout="confirmation" showCloseButton={ ! pending } initialFocus={ cancelRef }>
 				<DialogHeader>
@@ -104,6 +109,13 @@ export function DeleteSiteDialog( {
 							  ) }
 					</DialogDescription>
 				</DialogHeader>
+				{ count > 1 ? (
+					<ul className={ styles.sites }>
+						{ sites.map( ( site ) => (
+							<li key={ site.id }>{ site.name }</li>
+						) ) }
+					</ul>
+				) : null }
 				<Field orientation="horizontal">
 					<Checkbox
 						id={ deleteFilesId }

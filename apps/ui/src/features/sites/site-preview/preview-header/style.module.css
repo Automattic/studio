@@ -1,24 +1,23 @@
 /* Navigation at the start, the address centred in the room left over, and
    actions at the end. */
 .header {
+	composes: bandEdge from '@/lib/theme/recipes.module.css';
 	position: relative;
 	display: flex;
 	align-items: center;
-	gap: 12px;
-	padding-inline: 12px 8px;
-	height: var(--band-height);
+	gap: var( --space-3 );
+	padding-inline: var( --space-3 ) var( --space-2 );
+	height: var( --band-height );
 	flex-shrink: 0;
-	transition: padding var(--motion-duration-layout) var(--motion-ease-layout);
-	background-color: var(--chrome);
-	box-shadow: inset 0 calc(-1 * 1px) 0
-		var(--border);
+	transition: padding var( --motion-duration-layout ) var( --motion-ease-layout );
+	background-color: var( --chrome );
 	-webkit-app-region: drag;
 }
 
 /* Clears the macOS traffic lights, which always sit at the window's physical
    top-left — hence the physical padding rather than an inline-start one. */
 .headerTrafficLights {
-	padding-left: var(--traffic-light-space);
+	padding-left: var( --traffic-light-space );
 }
 
 /* The toolbar doubles as a window drag region; the controls (including the
@@ -31,7 +30,7 @@
 	display: flex;
 	flex-shrink: 0;
 	align-items: center;
-	gap: 4px;
+	gap: var( --space-1 );
 }
 
 .browserLocation {
@@ -42,51 +41,45 @@
 	min-width: 0;
 }
 
-.browserLocation[data-site-header-address] {
+/* Out of room, the address gives way rather than push the actions over it. */
+.browserLocationInline[data-site-header-address] {
 	min-width: 72px;
 }
 
 /* Holds the address field's place while the site starts or stops. */
 .addressStatus {
+	composes: truncate from '@/lib/theme/recipes.module.css';
 	display: flex;
 	flex: 1 1 auto;
 	min-width: 0;
 	max-width: 416px;
-	height: var(--control-size);
+	height: var( --control-size );
 	align-items: center;
 	justify-content: center;
-	padding-inline: 12px;
-	border: 1px solid var(--border);
-	border-radius: 999px;
-	color: var(--muted-foreground);
-	font-size: var(--text-xxs);
-	white-space: nowrap;
-	overflow: hidden;
-	text-overflow: ellipsis;
+	padding-inline: var( --space-3 );
+	border: 1px solid var( --border );
+	border-radius: var( --radius-full );
+	color: var( --muted-foreground );
+	font-size: var( --text-xxs );
 	user-select: none;
 }
 
 .historyEntry {
 	display: flex;
-	width: min(320px, calc(100vw - 64px));
+	width: min( 320px, calc( 100vw - 64px ) );
 	min-width: 0;
 	flex-direction: column;
 }
 
-.historyTitle,
-.historyPath {
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
-}
-
 .historyTitle {
-	color: var(--foreground);
+	composes: truncate from '@/lib/theme/recipes.module.css';
+	color: var( --foreground );
 }
 
 .historyPath {
-	color: var(--muted-foreground);
-	font-size: 11px;
+	composes: truncate from '@/lib/theme/recipes.module.css';
+	color: var( --muted-foreground );
+	font-size: var( --text-2xs );
 }
 
 .disabledControlTooltipTarget {
@@ -94,15 +87,15 @@
 }
 
 .annotateButton {
-	gap: 4px;
+	gap: var( --space-1 );
 }
 
 .annotateButtonActive {
-	--button-hover-background: color-mix(in srgb, var(--accent) 15%, transparent);
-	--button-hover-color: var(--accent-text);
+	--button-hover-background: color-mix( in srgb, var( --accent ) 15%, transparent );
+	--button-hover-color: var( --accent-text );
 }
 
-.annotateButtonActive:not(:disabled) {
+.annotateButtonActive:not( :disabled ) {
 	opacity: 1;
 }
 
@@ -124,13 +117,13 @@
 	inset: 0;
 	display: block;
 	width: 100%;
-	background-color: var(--accent-text);
+	background-color: var( --accent-text );
 	transform-origin: left center;
 	transition: transform 160ms ease-out;
 }
 
 /* Page-load progress grows from the reading start. */
-.loadingProgress span:dir(rtl) {
+.loadingProgress span:dir( rtl ) {
 	transform-origin: right center;
 }
 
@@ -151,6 +144,6 @@
 .headerItem {
 	display: flex;
 	align-items: center;
-	gap: 4px;
+	gap: var( --space-1 );
 	flex-shrink: 0;
 }

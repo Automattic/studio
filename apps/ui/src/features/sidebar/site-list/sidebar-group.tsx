@@ -1,8 +1,6 @@
-import { ChevronRightIcon } from 'lucide-react';
 import { useEffect, useRef, type ReactNode } from 'react';
 import { useStoredFlag } from '@/lib/hooks';
-import { CollapsiblePanel } from '@/lib/ui';
-import styles from './style.module.css';
+import { CollapsiblePanel, SidebarGroup, SidebarGroupHeader, SidebarGroupLabel } from '@/lib/ui';
 
 // Opens a collapsed group when something is added to it, e.g. a new site.
 // `keys` is undefined until the group's items have loaded.
@@ -20,7 +18,7 @@ function useOpenOnAddedItems( keys: string[] | undefined, open: boolean, onOpen:
 	}, [ keys, open, onOpen ] );
 }
 
-export function SidebarGroup( {
+export function SiteListGroup( {
 	id,
 	title,
 	action,
@@ -39,29 +37,17 @@ export function SidebarGroup( {
 	const expanded = storedExpanded || ! foldable;
 	useOpenOnAddedItems( itemKeys, expanded, () => setExpanded( true ) );
 	return (
-		<div
-			role="group"
-			className={ styles.group }
-			aria-label={ title }
-			data-open={ ( foldable && expanded ) || undefined }
-		>
-			<div className={ styles.groupHeader }>
-				{ foldable ? (
-					<button
-						type="button"
-						className={ styles.groupToggle }
-						aria-expanded={ expanded }
-						onClick={ () => setExpanded( ! expanded ) }
-					>
-						{ title }
-						<ChevronRightIcon className={ styles.groupChevron } />
-					</button>
-				) : (
-					<span className={ styles.groupToggle }>{ title }</span>
-				) }
+		<SidebarGroup role="group" aria-label={ title } open={ foldable && expanded }>
+			<SidebarGroupHeader>
+				<SidebarGroupLabel
+					expanded={ foldable ? expanded : undefined }
+					onExpandedChange={ setExpanded }
+				>
+					{ title }
+				</SidebarGroupLabel>
 				{ action }
-			</div>
+			</SidebarGroupHeader>
 			<CollapsiblePanel open={ expanded }>{ children }</CollapsiblePanel>
-		</div>
+		</SidebarGroup>
 	);
 }

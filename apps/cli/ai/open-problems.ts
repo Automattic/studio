@@ -16,7 +16,7 @@ import { homeSectionLinks } from 'cli/ai/home-section-links';
 import { readSavedCopies } from 'cli/ai/saved-copies';
 import { readWordPressSite } from 'cli/ai/site-database';
 import { studioMessage } from 'cli/ai/studio-message';
-import { activeThemes } from 'cli/ai/themes';
+import { activeThemes, isUpdatableTheme } from 'cli/ai/themes';
 
 interface OpenProblemsState {
 	// The sites changed, whose state is checked at the end of the turn.
@@ -168,6 +168,7 @@ export async function unrenderedPages( sitePath: string ): Promise< string[] > {
 				[ ...saved ].map( ( [ slug, id ] ) => [ slug, { id, content: content( id ) } ] )
 			),
 			pages,
+			staticFront,
 			front: staticFront ? Number( site.option( 'page_on_front' ) ) : 0,
 			postsPage: staticFront ? Number( site.option( 'page_for_posts' ) ) : 0,
 			themes: activeThemes( site ),
@@ -196,7 +197,7 @@ export async function unrenderedPages( sitePath: string ): Promise< string[] > {
 					() => undefined
 				);
 				if ( content !== undefined ) {
-					return { slug, source: file, content };
+					return { slug, source: file, content, theme };
 				}
 			}
 		}
@@ -219,6 +220,26 @@ export async function unrenderedPages( sitePath: string ): Promise< string[] > {
 				front && `page ${ front.id } "${ front.title }"`
 			)
 		);
+	}
+	// The posts index renders with home.html (get_home_template), where the
+	// front page's front-page template does not come first
+	// (wp-includes/template-loader.php).
+	const home = await resolve( [ 'home' ] );
+	if ( home && ! ( home.theme && ( await isUpdatableTheme( sitePath, home.theme ) ) ) ) {
+		const frontPageTemplate = await resolve( [ 'front-page' ] );
+		const reason = state.staticFront
+			? !! state.front &&
+			  ! state.postsPage &&
+			  `Settings → Reading shows page ${ state.front }${
+					front ? ` "${ front.title }"` : ''
+			  } at the front page (show_on_front, page_on_front) and names no posts page (page_for_posts)`
+			: frontPageTemplate &&
+			  `the front page shows the latest posts (show_on_front) with ${ frontPageTemplate.source }, which WordPress renders there before home.html (wp-includes/template-loader.php), and the site has no posts page`;
+		if ( reason ) {
+			problems.push(
+				`WordPress renders ${ home.source } at the posts index (get_home_template in wp-includes/template.php), and ${ reason }, so it renders nowhere and edits to it change nothing on the site. Put what it holds where WordPress renders it, such as the front page's content in its page, or name a posts page for it in page_for_posts.`
+			);
+		}
 	}
 	const byTemplate = new Map< string, { slug: string; pages: string[] } >();
 	for ( const page of state.pages ) {

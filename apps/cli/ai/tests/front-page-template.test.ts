@@ -197,3 +197,66 @@ it( 'tells one page or several what to do', async () => {
 		'WordPress renders page 7 "About" with wp-content/themes/bakery/templates/page.html (the page template hierarchy, get_page_template in wp-includes/template.php), which has no core/post-content block, the only block that renders the page shown (wp-includes/blocks/post-content.php), so its content never shows, and edits to it change nothing on the site. Put the content in the page, and render it with <!-- wp:post-content /--> in the template.',
 	] );
 } );
+
+// home.html renders at the posts index, which Settings → Reading may leave nowhere.
+it.each( [
+	{
+		name: 'a static front page and no posts page',
+		options: { show_on_front: 'page', page_on_front: '9', page_for_posts: '0' },
+		raised:
+			'and Settings → Reading shows page 9 "Home" at the front page (show_on_front, page_on_front) and names no posts page (page_for_posts), so it renders nowhere',
+	},
+	{
+		name: 'a posts page',
+		options: { show_on_front: 'page', page_on_front: '9', page_for_posts: '8' },
+	},
+	{
+		name: 'a static front page naming no page, which shows the posts index',
+		options: { show_on_front: 'page', page_on_front: '0' },
+		templates: { 'front-page': SHOWN },
+	},
+	{ name: 'the latest posts on the front', options: { show_on_front: 'posts' } },
+	{
+		name: 'the latest posts on the front, with a front-page template',
+		options: { show_on_front: 'posts' },
+		templates: { 'front-page': SHOWN },
+		raised:
+			'with wp-content/themes/bakery/templates/front-page.html, which WordPress renders there before home.html',
+	},
+	{
+		name: 'a theme WordPress updates',
+		options: { show_on_front: 'page', page_on_front: '9', page_for_posts: '0' },
+		theme: 'bakery-parent',
+	},
+	{
+		name: 'a Site Editor copy',
+		options: { show_on_front: 'page', page_on_front: '9', page_for_posts: '0' },
+		theme: 'bakery-parent',
+		saved: true,
+		raised:
+			'WordPress renders the home template saved in the Site Editor (post 30) at the posts index',
+	},
+] )( 'home.html: $name', async ( { options, templates = {}, theme = 'bakery', saved, raised } ) => {
+	const site = createSite();
+	site.setOptions( options as Record< string, string > );
+	site.save( 8, 'page', 'journal', '', 1, 'publish', 'Journal' );
+	site.save( 9, 'page', 'home', '', 1, 'publish', 'Home' );
+	const dir = path.join( site.root, 'wp-content/themes', theme, 'templates' );
+	mkdirSync( dir, { recursive: true } );
+	for ( const [ slug, content ] of Object.entries( {
+		home: NOT_SHOWN,
+		page: SHOWN,
+		...templates,
+	} ) ) {
+		writeFileSync( path.join( dir, `${ slug }.html` ), content );
+	}
+	if ( saved ) {
+		site.save( 30, 'wp_template', 'home', NOT_SHOWN );
+	}
+	const problems = await unrenderedPages( site.root );
+	expect( problems ).toHaveLength( raised ? 1 : 0 );
+	if ( raised ) {
+		expect( problems[ 0 ] ).toContain( raised );
+		expect( problems[ 0 ] ).toContain( 'get_home_template in wp-includes/template.php' );
+	}
+} );

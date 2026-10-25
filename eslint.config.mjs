@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import css from '@eslint/css';
 import js from '@eslint/js';
 import { defineConfig, globalIgnores } from 'eslint/config';
 import pluginImport from 'eslint-plugin-import-x';
@@ -71,15 +72,18 @@ export default defineConfig(
 		'vendor/',
 		'wp-files/',
 	] ),
-	js.configs.recommended,
-	tsEslint.configs.recommended,
-	pluginImport.flatConfigs.recommended,
-	pluginImport.flatConfigs.electron,
-	pluginImport.flatConfigs.typescript,
-	pluginPrettier,
-	pluginReactHooks.configs.flat.recommended,
-	pluginJestDom.configs[ 'flat/recommended' ],
 	{
+		files: [ '**/*.{js,mjs,cjs,jsx,ts,mts,cts,tsx}' ],
+		extends: [
+			js.configs.recommended,
+			tsEslint.configs.recommended,
+			pluginImport.flatConfigs.recommended,
+			pluginImport.flatConfigs.electron,
+			pluginImport.flatConfigs.typescript,
+			pluginPrettier,
+			pluginReactHooks.configs.flat.recommended,
+			pluginJestDom.configs[ 'flat/recommended' ],
+		],
 		plugins: {
 			studio: pluginStudio,
 		},
@@ -247,7 +251,7 @@ export default defineConfig(
 	{
 		// The agentic UI owns its design system: theme tokens in `src/lib/theme/` and
 		// primitives in `src/lib/ui/`, which stay independent of app code.
-		files: [ 'apps/ui/src/**' ],
+		files: [ 'apps/ui/src/**/*.{ts,tsx}' ],
 		rules: {
 			'no-restricted-imports': [ 'error', { patterns: [ WP_UI_PACKAGES ] } ],
 			'import-x/no-restricted-paths': [ 'error', UI_LAYERS ],
@@ -255,7 +259,7 @@ export default defineConfig(
 		},
 	},
 	{
-		files: [ 'apps/ui/src/lib/**' ],
+		files: [ 'apps/ui/src/lib/**/*.{ts,tsx}' ],
 		rules: {
 			'no-restricted-imports': [
 				'error',
@@ -276,6 +280,24 @@ export default defineConfig(
 		files: [ 'apps/ui/**/*.test.{ts,tsx}' ],
 		rules: {
 			'jest-dom/prefer-to-have-value': 'off',
+		},
+	},
+	{
+		files: [ 'apps/ui/src/**/*.css' ],
+		plugins: { css, prettier: pluginPrettier.plugins.prettier, studio: pluginStudio },
+		language: 'css/css',
+		languageOptions: { tolerant: true },
+		rules: {
+			'prettier/prettier': 'error',
+			'studio/use-theme-tokens': 'error',
+		},
+	},
+	{
+		// Tokens are defined here, and the onboarding illustrations are artwork drawn
+		// with their own literal values.
+		files: [ 'apps/ui/src/lib/theme/**', 'apps/ui/src/features/onboarding/onboarding-guide/illustrations/**' ],
+		rules: {
+			'studio/use-theme-tokens': 'off',
 		},
 	}
 );

@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useConnector } from '@/data/core';
+import { resetPanelLayout } from '@/data/resizable-panels';
 import { SidebarToggle } from '@/features/sidebar/sidebar-toggle';
 import { SidebarLayout } from './index';
 import type { ReactElement, ReactNode } from 'react';
@@ -144,7 +145,7 @@ describe( 'SidebarLayout', () => {
 		expect( screen.getByRole( 'button', { name: 'Show sidebar' } ) ).toHaveFocus();
 	} );
 
-	it( 'keeps the sidebar collapsed across restarts', async () => {
+	it( 'keeps the sidebar collapsed across restarts, until the interface is reset', async () => {
 		const { unmount } = render(
 			<SidebarLayout>
 				<SidebarToggle />
@@ -159,6 +160,9 @@ describe( 'SidebarLayout', () => {
 			</SidebarLayout>
 		);
 		expect( screen.getByRole( 'button', { name: 'Show sidebar' } ) ).toBeInTheDocument();
+
+		act( () => resetPanelLayout() );
+		expect( screen.getByRole( 'button', { name: 'Hide sidebar' } ) ).toBeInTheDocument();
 	} );
 
 	it( 'resets the sidebar width when its resize handle is double-clicked', () => {

@@ -3,7 +3,9 @@ import { clsx } from 'clsx';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useConnector } from '@/data/core';
 import {
+	PANEL_WIDTHS_RESET_EVENT,
 	PREVIEW_SPLIT_MIN_WIDTH,
+	SIDEBAR_COLLAPSED_STORAGE_KEY,
 	SIDEBAR_PANEL_CONFIG,
 	SIDEBAR_PANEL_STORAGE_KEY,
 } from '@/data/resizable-panels';
@@ -29,7 +31,12 @@ export function SidebarLayout( { children }: { children: ReactNode } ) {
 		edge: 'right',
 		storageKey: SIDEBAR_PANEL_STORAGE_KEY,
 	} );
-	const [ collapsed, setCollapsed ] = useStoredFlag( 'studio-ui-sidebar-collapsed', false );
+	const [ collapsed, setCollapsed ] = useStoredFlag( SIDEBAR_COLLAPSED_STORAGE_KEY, false );
+	useEffect( () => {
+		const reopen = () => setCollapsed( false );
+		window.addEventListener( PANEL_WIDTHS_RESET_EVENT, reopen );
+		return () => window.removeEventListener( PANEL_WIDTHS_RESET_EVENT, reopen );
+	}, [ setCollapsed ] );
 	const [ overlayOpen, setOverlayOpen ] = useState( false );
 	// When docking the sidebar would leave the content less than the chat and
 	// preview need, it opens over the content instead, closed by default. The

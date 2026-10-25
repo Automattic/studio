@@ -483,6 +483,41 @@ describe( 'useAgentRun queued handoff', () => {
 		expect( screen.getByTestId( 'started-at' ) ).toHaveTextContent( '1000' );
 		nowSpy.mockRestore();
 	} );
+
+	it( 'stays idle when a run exits before its start is acknowledged', async () => {
+		let resolveContinueSession: ( value: { runId: string } ) => void = () => undefined;
+		connector.continueSession = vi.fn(
+			() =>
+				new Promise< { runId: string } >( ( resolve ) => {
+					resolveContinueSession = resolve;
+				} )
+		);
+		renderWithAgentRun( createQueryClient() );
+		await waitFor( () => expect( connector.onAgentEvent ).toHaveBeenCalled() );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Queue' } ) );
+		await waitFor( () => expect( connector.continueSession ).toHaveBeenCalled() );
+
+		act( () => {
+			agentListener( {
+				sessionId: 'session-1',
+				runId: 'run-next',
+				event: { type: 'run.started', timestamp: '2026-06-24T12:00:00.000Z' },
+			} );
+			agentListener( {
+				sessionId: 'session-1',
+				runId: 'run-next',
+				event: {
+					type: 'run.exited',
+					timestamp: '2026-06-24T12:00:01.000Z',
+					status: 'error',
+					code: 1,
+				},
+			} );
+		} );
+		await act( async () => resolveContinueSession( { runId: 'run-next' } ) );
+
+		expect( screen.getByTestId( 'phase' ) ).toHaveTextContent( 'idle' );
+	} );
 	function startOldRun() {
 		act( () => {
 			agentListener( {

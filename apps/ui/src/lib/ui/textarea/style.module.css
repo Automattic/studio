@@ -3,11 +3,11 @@
 		display: flex;
 		width: 100%;
 		min-height: 64px;
-		padding: 8px 10px;
+		padding: var( --space-2 ) var( --space-2_5 );
 		border: 1px solid var( --input );
 		border-radius: var( --radius-lg );
 		font-size: var( --text-sm );
-		line-height: 20px;
+		line-height: var( --text-sm--line-height );
 		outline: none;
 		field-sizing: content;
 	}

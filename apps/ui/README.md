@@ -113,3 +113,9 @@ Or serve it in the browser through `studio ui`:
 ```bash
 npm run cli:build:ui && node apps/cli/dist/cli/main.mjs ui
 ```
+
+For hot reload in the browser, keep that server running and start the Vite dev server, which proxies `/api` to it (`STUDIO_UI_SERVER=http://localhost:<port>` for a server on another port), then open http://localhost:5400:
+
+```bash
+npm -w @studio/ui run dev:local
+```

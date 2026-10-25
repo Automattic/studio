@@ -27,9 +27,10 @@ export function useCommandPaletteOpen() {
 	);
 }
 
-// ⌘K in a dialog the palette takes over from, such as Settings: closes the
-// dialog and opens the palette. A dialog opened over it keeps the key.
-export function closeOnPaletteShortcut( close: () => void ) {
+// ⌘K in a dialog the palette takes over from, such as Settings: asks the
+// dialog to close, and it opens the palette once it has. A dialog opened over
+// it keeps the key.
+export function closeOnPaletteShortcut( close: ( openPalette: () => void ) => void ) {
 	return ( event: KeyboardEvent< HTMLElement > ) => {
 		if (
 			! event.repeat &&
@@ -37,8 +38,7 @@ export function closeOnPaletteShortcut( close: () => void ) {
 			event.currentTarget.contains( event.target as Node )
 		) {
 			event.preventDefault();
-			close();
-			setCommandPaletteOpen( true );
+			close( () => setCommandPaletteOpen( true ) );
 		}
 	};
 }

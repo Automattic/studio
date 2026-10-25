@@ -1,9 +1,18 @@
 import '@testing-library/jest-dom/vitest';
-import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import {
+	act,
+	fireEvent,
+	render,
+	renderHook,
+	screen,
+	waitFor,
+	within,
+} from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { toast } from '@/data/app-messages';
 import { useAuthUser } from '@/data/queries/use-auth-user';
 import { useUpdateSite } from '@/data/queries/use-sites';
+import { setCommandPaletteOpen, useCommandPaletteOpen } from '@/data/use-command-palette';
 import { SettingsDialog } from './index';
 import type { SiteDetails } from '@/data/core';
 
@@ -142,6 +151,22 @@ describe( 'SettingsDialog', () => {
 		} );
 
 		expect( back ).toHaveBeenCalledTimes( 1 );
+	} );
+
+	it( 'opens the command palette on ⌘K only once unsaved changes stop holding it open', () => {
+		const palette = renderHook( () => useCommandPaletteOpen() );
+		renderDialog( { settings: 'site' } );
+		const name = screen.getByRole( 'textbox', { name: 'Site name' } );
+		fireEvent.change( name, { target: { value: 'Renamed' } } );
+
+		fireEvent.keyDown( name, { key: 'k', code: 'KeyK', ctrlKey: true } );
+		expect( back ).not.toHaveBeenCalled();
+		expect( palette.result.current ).toBe( false );
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Discard' } ) );
+		expect( back ).toHaveBeenCalledTimes( 1 );
+		expect( palette.result.current ).toBe( true );
+		act( () => setCommandPaletteOpen( false ) );
 	} );
 
 	it( 'opens the top search result on Enter, ranking exact title matches first', () => {

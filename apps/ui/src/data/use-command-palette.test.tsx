@@ -9,7 +9,7 @@ import {
 
 describe( 'closeOnPaletteShortcut', () => {
 	it( 'closes the dialog for the palette, unless the key comes from a dialog over it', () => {
-		const close = vi.fn();
+		const close = vi.fn( ( openPalette: () => void ) => openPalette() );
 		const { result } = renderHook( () => useCommandPaletteOpen() );
 		render(
 			<div onKeyDown={ closeOnPaletteShortcut( close ) }>

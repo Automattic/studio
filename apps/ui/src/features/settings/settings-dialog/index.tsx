@@ -235,13 +235,17 @@ export function SettingsDialog() {
 	};
 
 	// With unsaved site changes, closing waits for Discard or Save.
-	const close = () => {
+	const close = ( then?: () => void ) => {
+		const exit = () => {
+			closeNow();
+			then?.();
+		};
 		if ( dirty ) {
-			pendingExit.current = closeNow;
+			pendingExit.current = exit;
 			actions?.querySelector< HTMLElement >( 'button' )?.focus();
 			return;
 		}
-		closeNow();
+		exit();
 	};
 
 	const settle = useCallback( () => {
@@ -428,7 +432,7 @@ export function SettingsDialog() {
 								}
 								title={ current.label }
 								actions={ <div ref={ setActions } className={ styles.actions } /> }
-								onClose={ close }
+								onClose={ () => close() }
 								closeLabel={ __( 'Close settings' ) }
 							/>
 						}

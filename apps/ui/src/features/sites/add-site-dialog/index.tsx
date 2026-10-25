@@ -257,7 +257,12 @@ export function AddSiteDialog() {
 				layout="creation"
 				initialFocus={ getInitialFocus }
 				finalFocus={ getFinalFocus }
-				onKeyDown={ closeOnPaletteShortcut( close ) }
+				onKeyDown={ closeOnPaletteShortcut( ( openPalette ) => {
+					if ( ! progress ) {
+						close();
+						openPalette();
+					}
+				} ) }
 			>
 				<DialogTitle render={ <VisuallyHidden /> }>{ __( 'Add site' ) }</DialogTitle>
 				{ hasSidebar ? (

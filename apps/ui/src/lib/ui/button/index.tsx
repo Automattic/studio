@@ -43,6 +43,8 @@ export type ButtonProps = ComponentProps< typeof BaseButton > & {
 	size?: ButtonSize;
 	shape?: 'default' | 'round';
 	layout?: 'default' | 'row' | 'inline';
+	/** How fast the expanded or pressed state fades in: `layout` for a trigger whose popup slides in. */
+	activeMotion?: 'surface' | 'layout';
 	disabledAppearance?: 'default' | 'icon' | 'outline';
 	/** Disables the button and leads its label with a spinner. */
 	loading?: boolean;
@@ -55,6 +57,7 @@ export function Button( {
 	size = 'default',
 	shape = 'default',
 	layout = 'default',
+	activeMotion = 'surface',
 	disabledAppearance = 'default',
 	loading = false,
 	loadingAnnouncement,
@@ -71,6 +74,7 @@ export function Button( {
 			data-size={ size }
 			data-shape={ shape === 'default' ? undefined : shape }
 			data-layout={ layout === 'default' ? undefined : layout }
+			data-active-motion={ activeMotion === 'surface' ? undefined : activeMotion }
 			data-disabled-appearance={ disabledAppearance === 'default' ? undefined : disabledAppearance }
 			aria-busy={ loading || undefined }
 			disabled={ disabled || loading }

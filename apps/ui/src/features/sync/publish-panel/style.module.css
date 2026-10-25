@@ -25,11 +25,6 @@
 	}
 }
 
-.trigger {
-	--button-active-duration: var(--motion-duration-layout);
-	--button-active-easing: var(--motion-ease-layout);
-}
-
 .triggerLabel {
 	position: relative;
 }
@@ -153,10 +148,11 @@
 	gap: 4px;
 }
 
-.choiceButton {
+.choiceText {
+	display: flex;
 	flex-direction: column;
-	align-items: flex-start;
 	gap: 4px;
+	min-width: 0;
 }
 
 .choiceName,

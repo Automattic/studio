@@ -98,11 +98,11 @@
 	font-size: var(--text-xs);
 }
 
-.createAccount {
+.actions {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 16px;
 	margin-top: 28px;
-}
-
-.logIn {
-	margin-top: 16px;
 	font-size: var(--text-xs);
 }

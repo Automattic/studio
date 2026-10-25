@@ -244,18 +244,19 @@ export function PublishButton( {
 									<Button
 										variant="outline"
 										layout="row"
-										className={ styles.choiceButton }
 										disabled={ offline || busy || Boolean( websiteIssue( remote ) ) }
 										onClick={ () => connect.mutate( remote ) }
 									>
-										<span className={ styles.choiceName } title={ remote.name || remote.url }>
-											{ remote.name || remote.url }
-										</span>
-										<span
-											className={ styles.choiceLabel }
-											title={ `${ websiteAddress( remote ) } · ${ websiteLabel( remote ) }` }
-										>
-											{ websiteAddress( remote ) } · { websiteLabel( remote ) }
+										<span className={ styles.choiceText }>
+											<span className={ styles.choiceName } title={ remote.name || remote.url }>
+												{ remote.name || remote.url }
+											</span>
+											<span
+												className={ styles.choiceLabel }
+												title={ `${ websiteAddress( remote ) } · ${ websiteLabel( remote ) }` }
+											>
+												{ websiteAddress( remote ) } · { websiteLabel( remote ) }
+											</span>
 										</span>
 									</Button>
 									{ websiteIssue( remote ) ? (
@@ -400,7 +401,7 @@ export function PublishButton( {
 					render={
 						<Button
 							ref={ trigger }
-							className={ styles.trigger }
+							activeMotion="layout"
 							aria-label={ __( 'Publish…' ) }
 							aria-description={ error ?? status }
 						/>

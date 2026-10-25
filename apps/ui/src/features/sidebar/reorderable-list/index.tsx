@@ -1,6 +1,7 @@
 import { __, sprintf } from '@wordpress/i18n';
 import { clsx } from 'clsx';
 import {
+	Fragment,
 	useEffect,
 	useLayoutEffect,
 	useMemo,
@@ -12,7 +13,7 @@ import {
 	type ReactNode,
 } from 'react';
 import { getMotionDuration } from '@/lib/theme';
-import { VisuallyHidden } from '@/lib/ui';
+import { SidebarMenu, VisuallyHidden } from '@/lib/ui';
 import styles from './style.module.css';
 
 type ActiveDrag = {
@@ -57,11 +58,11 @@ function insertIdAtIndex( ids: string[], movedId: string, targetIndex: number ) 
 // scrollTop), so captured rects stay valid while auto-scroll moves the list.
 type RowRect = { top: number; height: number };
 
-function measureRowRects( rowElements: Map< string, HTMLDivElement >, scrollOffset: number ) {
+function measureRowRects( list: HTMLElement | null, scrollOffset: number ) {
 	const rects = new Map< string, RowRect >();
-	for ( const [ id, element ] of rowElements ) {
+	for ( const element of list?.querySelectorAll( ':scope > [data-reorder-id]' ) ?? [] ) {
 		const { top, height } = element.getBoundingClientRect();
-		rects.set( id, { top: top + scrollOffset, height } );
+		rects.set( element.getAttribute( 'data-reorder-id' )!, { top: top + scrollOffset, height } );
 	}
 	return rects;
 }
@@ -82,12 +83,19 @@ function prefersReducedMotion() {
 	return window.matchMedia?.( '(prefers-reduced-motion: reduce)' ).matches ?? false;
 }
 
+/** Props for the list item a row renders: its drag state, or the drag preview's placement. */
+export type ReorderableItemProps = {
+	className: string;
+	style?: CSSProperties;
+	'aria-hidden'?: true;
+} & Record< `data-${ string }`, string | true | undefined >;
+
 export type ReorderableListProps< T > = {
 	/** Full ordered list, dragged item included. */
 	items: T[];
 	getItemId: ( item: T ) => string;
-	/** Renders a row; also used for the floating drag preview. */
-	renderItem: ( item: T ) => ReactNode;
+	/** Renders a row as a `SidebarMenuItem` spread with `props`; also used for the floating drag preview. */
+	renderItem: ( item: T, props: ReorderableItemProps ) => ReactNode;
 	onReorder: ( nextIds: string[] ) => void;
 	className?: string;
 	itemClassName?: string;
@@ -98,6 +106,8 @@ export type ReorderableListProps< T > = {
 	disabled?: boolean;
 	/** Names a dropped row when its new position is announced. */
 	getItemLabel?: ( item: T ) => string;
+	/** Rows after the reorderable ones, like Show more. */
+	children?: ReactNode;
 };
 
 export function ReorderableList< T >( {
@@ -111,19 +121,18 @@ export function ReorderableList< T >( {
 	excludeSelector,
 	disabled = false,
 	getItemLabel,
+	children,
 }: ReorderableListProps< T > ) {
 	const [ activeDrag, setActiveDrag ] = useState< ActiveDrag | null >( null );
 	const [ announcement, setAnnouncement ] = useState( '' );
 	const activeDragRef = useRef< ActiveDrag | null >( null );
 	const dragCandidateRef = useRef< DragCandidate | null >( null );
 	const dragStartOrderRef = useRef< string[] >( [] );
-	const rowElementsRef = useRef< Map< string, HTMLDivElement > >( new Map() );
 	const dragStartRowRectsRef = useRef< Map< string, RowRect > >( new Map() );
 	const suppressNextClickRef = useRef( false );
 	const removeDragListenersRef = useRef< ( () => void ) | null >( null );
-	const containerRef = useRef< HTMLDivElement | null >( null );
+	const containerRef = useRef< HTMLUListElement | null >( null );
 	const scrollParentRef = useRef< HTMLElement | null >( null );
-	const previewRef = useRef< HTMLDivElement | null >( null );
 	const autoScrollRef = useRef< { step: number; rafId: number } | null >( null );
 
 	// The landing relies on the parent applying the new order synchronously in
@@ -141,7 +150,10 @@ export function ReorderableList< T >( {
 			return;
 		}
 		// Keyboard interaction continues from the item the user just moved.
-		const row = rowElementsRef.current.get( landingId );
+		const list = containerRef.current;
+		const row = [ ...( list?.querySelectorAll( ':scope > [data-reorder-id]' ) ?? [] ) ].find(
+			( element ) => element.getAttribute( 'data-reorder-id' ) === landingId
+		);
 		if ( row && ! row.contains( document.activeElement ) ) {
 			row
 				.querySelector< HTMLElement >( 'button, a[href], [tabindex]' )
@@ -151,7 +163,7 @@ export function ReorderableList< T >( {
 			activeDragRef.current = null;
 			setActiveDrag( null );
 		};
-		const preview = previewRef.current;
+		const preview = list?.querySelector( ':scope > [data-reorder-preview]' );
 		const duration = prefersReducedMotion() ? 0 : getMotionDuration( 'surface' );
 		if ( ! row || ! preview || ! duration || typeof preview.animate !== 'function' ) {
 			land();
@@ -363,8 +375,11 @@ export function ReorderableList< T >( {
 		}
 	};
 
-	const handlePointerDown = ( event: ReactPointerEvent< HTMLElement >, id: string ) => {
+	const handlePointerDown = ( event: ReactPointerEvent< HTMLElement > ) => {
+		const row = ( event.target as Element ).closest( '[data-reorder-id]' );
 		if (
+			! row ||
+			row.parentElement !== event.currentTarget ||
 			disabled ||
 			activeDragRef.current ||
 			event.button !== 0 ||
@@ -378,11 +393,12 @@ export function ReorderableList< T >( {
 		}
 		// A list nested in a row drags its own rows, not the row around it.
 		event.stopPropagation();
-		const rowRect = event.currentTarget.getBoundingClientRect();
+		const id = row.getAttribute( 'data-reorder-id' )!;
+		const rowRect = row.getBoundingClientRect();
 		scrollParentRef.current = findScrollParent( containerRef.current );
 		dragStartOrderRef.current = itemIds;
 		dragStartRowRectsRef.current = measureRowRects(
-			rowElementsRef.current,
+			containerRef.current,
 			scrollParentRef.current?.scrollTop ?? 0
 		);
 		dragCandidateRef.current = {
@@ -427,48 +443,42 @@ export function ReorderableList< T >( {
 	};
 
 	return (
-		<div ref={ containerRef } className={ className }>
-			{ items.map( ( item, index ) => {
-				const id = getItemId( item );
-				return (
-					<div
-						key={ id }
-						ref={ ( node ) => {
-							if ( node ) {
-								rowElementsRef.current.set( id, node );
-							} else {
-								rowElementsRef.current.delete( id );
-							}
-						} }
-						className={ clsx( styles.itemWrapper, itemClassName ) }
-						data-reorder-id={ id }
-						data-drag-source={ ( activeDrag?.id === id && ! landingId ) || undefined }
-						data-dropping={ landingId === id || undefined }
-						data-drop-position={ getDropPosition( index ) }
-						onPointerDown={ ( event ) => handlePointerDown( event, id ) }
-						onClickCapture={ handleClickCapture }
-					>
-						{ renderItem( item ) }
-					</div>
-				);
-			} ) }
-			{ activeDrag && draggedItem !== undefined ? (
-				<div
-					ref={ previewRef }
-					className={ clsx( styles.dragPreview, previewClassName ) }
-					style={
-						{
-							inlineSize: activeDrag.previewWidth,
-							insetBlockStart: activeDrag.currentY - activeDrag.pointerOffsetY,
-							insetInlineStart: activeDrag.previewLeft,
-						} as CSSProperties
-					}
-					aria-hidden="true"
-				>
-					{ renderItem( draggedItem ) }
-				</div>
-			) : null }
+		<>
+			<SidebarMenu
+				ref={ containerRef }
+				className={ className }
+				onPointerDown={ handlePointerDown }
+				onClickCapture={ handleClickCapture }
+			>
+				{ items.map( ( item, index ) => {
+					const id = getItemId( item );
+					return (
+						<Fragment key={ id }>
+							{ renderItem( item, {
+								className: clsx( styles.itemWrapper, itemClassName ),
+								'data-reorder-id': id,
+								'data-drag-source': ( activeDrag?.id === id && ! landingId ) || undefined,
+								'data-dropping': landingId === id || undefined,
+								'data-drop-position': getDropPosition( index ),
+							} ) }
+						</Fragment>
+					);
+				} ) }
+				{ activeDrag && draggedItem !== undefined
+					? renderItem( draggedItem, {
+							'data-reorder-preview': true,
+							className: clsx( styles.dragPreview, previewClassName ),
+							style: {
+								inlineSize: activeDrag.previewWidth,
+								insetBlockStart: activeDrag.currentY - activeDrag.pointerOffsetY,
+								insetInlineStart: activeDrag.previewLeft,
+							},
+							'aria-hidden': true,
+					  } )
+					: null }
+				{ children }
+			</SidebarMenu>
 			{ getItemLabel ? <VisuallyHidden role="status">{ announcement }</VisuallyHidden> : null }
-		</div>
+		</>
 	);
 }

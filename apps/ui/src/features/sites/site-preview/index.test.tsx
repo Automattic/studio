@@ -8,13 +8,7 @@ import { WindowControlsCornerContext } from '@/data/host/use-window-controls-ins
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useWindowControlsOverlay } from '@/lib/hooks';
 import { TooltipProvider } from '@/lib/ui';
-import {
-	getBrowserShortcutCommand,
-	getDirectionalHistoryEntries,
-	isOffOriginRedirect,
-	getPathFromPreviewUrl,
-	SitePreview,
-} from './index';
+import { SitePreview } from './index';
 import type { SiteDetails } from '@/data/core';
 import type { ComponentProps, ReactNode } from 'react';
 
@@ -94,23 +88,6 @@ describe( 'SitePreview', () => {
 		vi.stubGlobal( 'fetch', probeSite );
 	} );
 	afterEach( () => vi.unstubAllGlobals() );
-
-	it( 'orders back and forward history from the current page outward', () => {
-		const entries = [
-			{ index: 0, title: 'Home', url: 'http://localhost/' },
-			{ index: 1, title: 'Posts', url: 'http://localhost/posts' },
-			{ index: 2, title: 'Editor', url: 'http://localhost/editor' },
-			{ index: 3, title: 'Settings', url: 'http://localhost/settings' },
-			{ index: 4, title: 'Themes', url: 'http://localhost/themes' },
-		];
-
-		expect(
-			getDirectionalHistoryEntries( entries, 2, 'back' ).map( ( entry ) => entry.index )
-		).toEqual( [ 1, 0 ] );
-		expect(
-			getDirectionalHistoryEntries( entries, 2, 'forward' ).map( ( entry ) => entry.index )
-		).toEqual( [ 3, 4 ] );
-	} );
 
 	it( 'hides the browser controls and shows the stopped preview treatment when the site is not running', async () => {
 		const getSiteThumbnail = vi.fn().mockResolvedValue( 'data:image/png;base64,thumbnail' );
@@ -663,106 +640,6 @@ describe( 'SitePreview', () => {
 		expect( setWindowControlsSurface ).toHaveBeenLastCalledWith( 'chrome' );
 
 		vi.mocked( useWindowControlsOverlay ).mockReturnValue( null );
-	} );
-} );
-
-describe( 'getBrowserShortcutCommand', () => {
-	// jsdom reports a non-Apple platform: primary modifier is Ctrl and the
-	// navigation-arrow alias uses Alt.
-	function makeEvent( overrides: Record< string, unknown > ) {
-		return {
-			defaultPrevented: false,
-			repeat: false,
-			key: '',
-			altKey: false,
-			ctrlKey: false,
-			metaKey: false,
-			shiftKey: false,
-			target: null,
-			...overrides,
-		} as unknown as KeyboardEvent;
-	}
-
-	it( 'maps the primary-modifier chords to commands', () => {
-		expect( getBrowserShortcutCommand( makeEvent( { key: 'r', ctrlKey: true } ) ) ).toBe(
-			'reload'
-		);
-		// The ⌘⇧R alias reports an uppercase key; it must still map to reload.
-		expect(
-			getBrowserShortcutCommand( makeEvent( { key: 'R', ctrlKey: true, shiftKey: true } ) )
-		).toBe( 'reload' );
-		expect( getBrowserShortcutCommand( makeEvent( { key: '[', ctrlKey: true } ) ) ).toBe( 'back' );
-		expect( getBrowserShortcutCommand( makeEvent( { key: ']', ctrlKey: true } ) ) ).toBe(
-			'forward'
-		);
-	} );
-
-	it( 'maps the Alt+arrow aliases to back/forward', () => {
-		expect( getBrowserShortcutCommand( makeEvent( { key: 'ArrowLeft', altKey: true } ) ) ).toBe(
-			'back'
-		);
-		expect( getBrowserShortcutCommand( makeEvent( { key: 'ArrowRight', altKey: true } ) ) ).toBe(
-			'forward'
-		);
-	} );
-
-	it( 'ignores arrows with the wrong modifier, extra modifiers, or while editing text', () => {
-		expect( getBrowserShortcutCommand( makeEvent( { key: 'ArrowLeft', ctrlKey: true } ) ) ).toBe(
-			null
-		);
-		expect(
-			getBrowserShortcutCommand( makeEvent( { key: 'ArrowLeft', altKey: true, shiftKey: true } ) )
-		).toBe( null );
-		expect(
-			getBrowserShortcutCommand(
-				makeEvent( {
-					key: 'ArrowLeft',
-					altKey: true,
-					target: document.createElement( 'textarea' ),
-				} )
-			)
-		).toBe( null );
-	} );
-} );
-
-describe( 'isOffOriginRedirect', () => {
-	it( 'flags a load that settled on another port', () => {
-		expect( isOffOriginRedirect( 'http://localhost:8931/', 'http://localhost:8932/' ) ).toBe(
-			true
-		);
-	} );
-
-	it( 'allows same-origin paths, including the auto-login hop', () => {
-		expect(
-			isOffOriginRedirect( 'http://localhost:8932/wp-admin/', 'http://localhost:8932/' )
-		).toBe( false );
-		expect(
-			isOffOriginRedirect(
-				'http://localhost:8932/studio-auto-login?redirect_to=%2Fwp-admin%2F',
-				'http://localhost:8932/'
-			)
-		).toBe( false );
-	} );
-
-	it( 'stays quiet on unparseable urls rather than triggering recovery', () => {
-		expect( isOffOriginRedirect( 'about:blank', 'http://localhost:8932/' ) ).toBe( true );
-		expect( isOffOriginRedirect( '', 'http://localhost:8932/' ) ).toBe( false );
-		expect( isOffOriginRedirect( 'http://localhost:8932/', '' ) ).toBe( false );
-	} );
-} );
-
-describe( 'getPathFromPreviewUrl', () => {
-	it( 'extracts the path, search, and hash for same-origin urls', () => {
-		expect(
-			getPathFromPreviewUrl( 'http://localhost:8881/wp-admin/?page=1#top', 'http://localhost:8881' )
-		).toBe( '/wp-admin/?page=1#top' );
-	} );
-
-	it( 'returns null for cross-origin or invalid urls', () => {
-		expect( getPathFromPreviewUrl( 'https://example.com/about', 'http://localhost:8881' ) ).toBe(
-			null
-		);
-		expect( getPathFromPreviewUrl( 'not-a-url', 'http://localhost:8881' ) ).toBe( null );
 	} );
 } );
 

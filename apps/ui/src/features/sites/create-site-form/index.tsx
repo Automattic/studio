@@ -3,26 +3,13 @@ import {
 	generateCustomDomainFromSiteName,
 	getDomainNameValidationError,
 } from '@studio/common/lib/domains';
-import { getErrorMessage } from '@studio/common/lib/error-formatting';
-import {
-	DEFAULT_ADMIN_EMAIL,
-	DEFAULT_ADMIN_USERNAME,
-	generatePassword,
-	validateAdminEmail,
-	validateAdminUsername,
-} from '@studio/common/lib/passwords';
-import { SITE_FILE_ACCESS_SITE_DIRECTORY } from '@studio/common/lib/site-file-access';
+import { validateAdminEmail, validateAdminUsername } from '@studio/common/lib/passwords';
 import { getFileAccessDescription } from '@studio/common/lib/site-file-access-labels';
 import { getLatestVersionLabel } from '@studio/common/lib/wordpress-versions';
-import { RecommendedPHPVersion } from '@studio/common/types/php-versions';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { ChevronDownIcon, ChevronRightIcon, FileIcon } from 'lucide-react';
-import { useCallback, useEffect, useId, useRef, useState } from 'react';
-import { useConnector } from '@/data/core';
-import { usePathValidator } from '@/data/queries/use-create-site-helpers';
-import { useSites } from '@/data/queries/use-sites';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useWordPressVersions } from '@/data/queries/use-wordpress-versions';
-import { LearnMoreLink } from '@/features/onboarding';
 import {
 	CertificateTrustNotice,
 	getFileAccessOptions,
@@ -41,30 +28,28 @@ import {
 	AlertTitle,
 	Button,
 	Field,
-	FieldDescription,
 	FieldGroup,
-	FieldLabel,
 	FieldTitle,
-	Input,
 } from '@/lib/ui';
+import {
+	applyFormChange,
+	applyInitialValues,
+	createDefaultFormData,
+	findOfferedWpVersion,
+	getSubmittedValues,
+	getSuggestedFields,
+	INITIAL_VALUE_FIELDS,
+	type CreateSiteFormValues,
+	type FormData,
+} from './form-data';
+import { PathField } from './path-field';
 import styles from './style.module.css';
+import { usePathAutoGenerate } from './use-path-auto-generate';
 import type { SiteFileAccess } from '@studio/common/lib/site-file-access';
-import type { WordPressVersion } from '@studio/common/lib/wordpress-versions';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { FormEvent, ReactElement, ReactNode } from 'react';
 
-export interface CreateSiteFormValues {
-	name: string;
-	path: string;
-	phpVersion: SupportedPHPVersion;
-	fileAccess: SiteFileAccess;
-	wpVersion: string;
-	customDomain?: string;
-	enableHttps: boolean;
-	adminUsername: string;
-	adminPassword: string;
-	adminEmail: string;
-}
+export type { CreateSiteFormValues } from './form-data';
 
 export interface CreateSiteFormError {
 	title: string;
@@ -91,303 +76,6 @@ interface CreateSiteFormProps {
 	sourceIcon?: ReactElement;
 	// Whether the folder already holds a WordPress site, which Studio adds as it is.
 	onExistingChange?: ( existing: boolean ) => void;
-}
-
-interface FormData {
-	name: string;
-	path: string;
-	// Stops the name→path auto-gen from overriding a manually picked folder.
-	hasCustomPath: boolean;
-	pathError: string;
-	isWordPress: boolean;
-	// Suppresses the path field's required check during the auto-gen async
-	// window so a seeded name doesn't flash "1 error found" on the Advanced
-	// toggle before `generateProposedPath` resolves.
-	isPathPending: boolean;
-	phpVersion: SupportedPHPVersion;
-	fileAccess: SiteFileAccess;
-	wpVersion: string;
-	useCustomDomain: boolean;
-	customDomain: string;
-	enableHttps: boolean;
-	adminUsername: string;
-	adminPassword: string;
-	adminEmail: string;
-}
-
-const SIMPLE_FIELDS = [
-	'name',
-	'phpVersion',
-	'fileAccess',
-	'wpVersion',
-	'enableHttps',
-	'adminUsername',
-	'adminPassword',
-	'adminEmail',
-] as const satisfies readonly ( keyof CreateSiteFormValues )[];
-const INITIAL_VALUE_FIELDS = [ ...SIMPLE_FIELDS, 'path', 'customDomain' ] as const;
-const TYPED_PATH_CHECK_DELAY_MS = 300;
-
-function createDefaultFormData(): FormData {
-	return {
-		name: '',
-		path: '',
-		hasCustomPath: false,
-		pathError: '',
-		isWordPress: false,
-		isPathPending: false,
-		phpVersion: RecommendedPHPVersion,
-		fileAccess: SITE_FILE_ACCESS_SITE_DIRECTORY,
-		wpVersion: DEFAULT_WORDPRESS_VERSION,
-		useCustomDomain: false,
-		customDomain: '',
-		enableHttps: false,
-		adminUsername: DEFAULT_ADMIN_USERNAME,
-		adminPassword: generatePassword(),
-		adminEmail: DEFAULT_ADMIN_EMAIL,
-	};
-}
-
-function getSuggestedFields(
-	values: Partial< CreateSiteFormValues >
-): Set< keyof CreateSiteFormValues > {
-	return new Set(
-		( Object.keys( values ) as ( keyof CreateSiteFormValues )[] ).filter(
-			( field ) => values[ field ] !== undefined
-		)
-	);
-}
-
-function applyInitialValues(
-	prev: FormData,
-	values: Partial< CreateSiteFormValues >,
-	defaults: FormData,
-	previousSuggestedFields: Set< keyof CreateSiteFormValues > = new Set(),
-	dirtyFields: Set< keyof CreateSiteFormValues > = new Set()
-): FormData {
-	const next: FormData = { ...prev };
-	const defaultValuesByField: Record< keyof CreateSiteFormValues, Partial< FormData > > = {
-		name: { name: defaults.name },
-		path: {
-			path: defaults.path,
-			hasCustomPath: defaults.hasCustomPath,
-			pathError: defaults.pathError,
-			isWordPress: defaults.isWordPress,
-			isPathPending: defaults.isPathPending,
-		},
-		phpVersion: { phpVersion: defaults.phpVersion },
-		fileAccess: { fileAccess: defaults.fileAccess },
-		wpVersion: { wpVersion: defaults.wpVersion },
-		customDomain: {
-			useCustomDomain: defaults.useCustomDomain,
-			customDomain: defaults.customDomain,
-		},
-		enableHttps: { enableHttps: defaults.enableHttps },
-		adminUsername: { adminUsername: defaults.adminUsername },
-		adminPassword: { adminPassword: defaults.adminPassword },
-		adminEmail: { adminEmail: defaults.adminEmail },
-	};
-	for ( const field of previousSuggestedFields ) {
-		if ( values[ field ] !== undefined || dirtyFields.has( field ) ) continue;
-		Object.assign( next, defaultValuesByField[ field ] );
-	}
-	for ( const field of SIMPLE_FIELDS ) {
-		if ( values[ field ] !== undefined && ! dirtyFields.has( field ) ) {
-			Object.assign( next, { [ field ]: values[ field ] } );
-		}
-	}
-	if ( values.path !== undefined && ! dirtyFields.has( 'path' ) ) {
-		next.path = values.path;
-		next.hasCustomPath = !! values.path;
-		next.pathError = '';
-		next.isWordPress = false;
-		next.isPathPending = false;
-	}
-	if ( values.customDomain !== undefined && ! dirtyFields.has( 'customDomain' ) ) {
-		next.useCustomDomain = !! values.customDomain;
-		next.customDomain = values.customDomain;
-	}
-	if ( ! next.hasCustomPath && next.name !== prev.name ) {
-		next.isPathPending = !! next.name.trim();
-		next.pathError = '';
-		if ( ! next.name.trim() ) next.path = '';
-	}
-	return Object.keys( next ).some(
-		( key ) => next[ key as keyof FormData ] !== prev[ key as keyof FormData ]
-	)
-		? next
-		: prev;
-}
-
-// Called from the form (not `PathField`) so it runs even when Advanced is
-// collapsed — otherwise `data.path` would stay empty on first load and the
-// Advanced toggle would falsely show "1 error found".
-function usePathAutoGenerate(
-	data: FormData,
-	onChange: ( update: Partial< FormData > ) => void,
-	isSubmitting: boolean
-) {
-	const connector = useConnector();
-	const { data: sites } = useSites();
-	const { generateProposedPath, selectPath } = usePathValidator( sites );
-
-	const onChangeRef = useRef( onChange );
-	useEffect( () => {
-		onChangeRef.current = onChange;
-	}, [ onChange ] );
-
-	const pendingNameRef = useRef< string | null >( null );
-	useEffect( () => {
-		if ( isSubmitting ) return;
-		if ( data.hasCustomPath ) {
-			pendingNameRef.current = null;
-			onChangeRef.current( { isPathPending: false } );
-			return;
-		}
-		const trimmed = data.name.trim();
-		if ( ! trimmed ) {
-			pendingNameRef.current = null;
-			onChangeRef.current( { path: '', pathError: '', isPathPending: false } );
-			return;
-		}
-		pendingNameRef.current = trimmed;
-		onChangeRef.current( { isPathPending: true } );
-		let cancelled = false;
-		void ( async () => {
-			try {
-				const result = await generateProposedPath( trimmed );
-				if ( cancelled || pendingNameRef.current !== trimmed ) return;
-				onChangeRef.current( {
-					path: result.path,
-					pathError: result.error ?? '',
-					isWordPress: result.isWordPress,
-					isPathPending: false,
-				} );
-			} catch {
-				if ( cancelled || pendingNameRef.current !== trimmed ) return;
-				onChangeRef.current( {
-					path: '',
-					pathError: __( 'Unable to suggest a folder for this site name.' ),
-					isPathPending: false,
-				} );
-			}
-		} )();
-		return () => {
-			cancelled = true;
-		};
-	}, [ data.name, data.hasCustomPath, generateProposedPath, isSubmitting ] );
-
-	// Without a native picker the folder is typed, so it's checked as it's typed.
-	const typedPath =
-		data.hasCustomPath && ! connector.capabilities.nativeFolderPicker ? data.path.trim() : '';
-	useEffect( () => {
-		if ( isSubmitting || ! typedPath ) return;
-		onChangeRef.current( { isPathPending: true } );
-		let cancelled = false;
-		const timer = setTimeout( async () => {
-			try {
-				const result = await selectPath( typedPath );
-				if ( cancelled ) return;
-				onChangeRef.current( {
-					pathError: result?.error ?? '',
-					isWordPress: !! result?.isWordPress,
-					isPathPending: false,
-				} );
-			} catch ( error ) {
-				if ( cancelled ) return;
-				onChangeRef.current( { pathError: getErrorMessage( error ), isPathPending: false } );
-			}
-		}, TYPED_PATH_CHECK_DELAY_MS );
-		return () => {
-			cancelled = true;
-			clearTimeout( timer );
-		};
-	}, [ typedPath, selectPath, isSubmitting ] );
-}
-
-// On the desktop the path comes from the name→path auto-gen or the native
-// folder dialog, never typed. In the browser (`studio ui`) there's no native
-// picker, so it is edited as text, still prefilled from the site name.
-function PathField( {
-	data: item,
-	error,
-	onChange,
-}: {
-	data: FormData;
-	error: string;
-	onChange: ( update: Partial< FormData > ) => void;
-} ) {
-	const id = useId();
-	const connector = useConnector();
-	const { data: sites } = useSites();
-	const { selectPath } = usePathValidator( sites );
-	const isNative = connector.capabilities.nativeFolderPicker;
-
-	const handleSelect = useCallback( async () => {
-		const result = await selectPath( item.hasCustomPath ? item.path : '' );
-		if ( ! result ) return;
-		onChange( {
-			path: result.path,
-			hasCustomPath: true,
-			pathError: result.error ?? '',
-			isWordPress: result.isWordPress,
-			...( ! item.name && result.name ? { name: result.name } : {} ),
-		} );
-	}, [ item.hasCustomPath, item.name, item.path, onChange, selectPath ] );
-
-	const help =
-		item.path && item.isWordPress ? (
-			__( 'The existing WordPress site at this path will be added.' )
-		) : (
-			<>
-				{ __( 'Select an empty directory or a directory with an existing WordPress site.' ) }{ ' ' }
-				<LearnMoreLink docsLinksKey="docsSites" />
-			</>
-		);
-
-	return (
-		<Field>
-			<FieldLabel htmlFor={ id }>{ __( 'Local path' ) }</FieldLabel>
-			<div className={ styles.pathRow }>
-				<Input
-					id={ id }
-					value={ item.path }
-					readOnly={ isNative }
-					placeholder={ isNative ? __( 'Choose a folder…' ) : undefined }
-					aria-invalid={ error ? true : undefined }
-					aria-describedby={ `${ id }-description` }
-					onChange={ ( event ) =>
-						onChange( {
-							path: event.target.value,
-							hasCustomPath: true,
-							pathError: '',
-							isWordPress: false,
-						} )
-					}
-				/>
-				{ isNative && (
-					<Button
-						variant="outline"
-						onClick={ handleSelect }
-						aria-label={
-							item.path
-								? sprintf(
-										// translators: %s is the currently selected folder path.
-										__( '%s, select a different folder' ),
-										item.path
-								  )
-								: __( 'Select a folder' )
-						}
-					>
-						{ __( 'Choose…' ) }
-					</Button>
-				) }
-			</div>
-			<FieldDescription id={ `${ id }-description` } error={ error }>
-				{ help }
-			</FieldDescription>
-		</Field>
-	);
 }
 
 export function CreateSiteForm( {
@@ -480,20 +168,7 @@ export function CreateSiteForm( {
 			}
 		}
 		if ( update.name !== undefined ) setIsNameEdited( true );
-		setData( ( prev ) => {
-			const next: FormData = { ...prev, ...update };
-			if ( update.name !== undefined && ! prev.hasCustomPath && next.name !== prev.name ) {
-				next.isPathPending = !! next.name.trim();
-				next.pathError = '';
-				if ( ! next.name.trim() ) next.path = '';
-			}
-			// Seed the custom-domain input on first toggle with a sensible
-			// default derived from the site name.
-			if ( ! prev.useCustomDomain && next.useCustomDomain && ! next.customDomain ) {
-				next.customDomain = generateCustomDomainFromSiteName( next.name );
-			}
-			return next;
-		} );
+		setData( ( prev ) => applyFormChange( prev, update ) );
 	}, [] );
 
 	// The path's required check opts out while `isPathPending` — see the
@@ -529,20 +204,7 @@ export function CreateSiteForm( {
 	const canSubmit = ! nameError && ! advancedErrorCount && ! isSubmitting && ! isSubmitDisabled;
 
 	const submitForm = () => {
-		onSubmit( {
-			name: data.name.trim(),
-			path: data.path,
-			phpVersion: data.phpVersion,
-			fileAccess: data.fileAccess,
-			wpVersion: data.wpVersion,
-			customDomain: data.useCustomDomain
-				? data.customDomain || generateCustomDomainFromSiteName( data.name )
-				: undefined,
-			enableHttps: data.useCustomDomain && data.enableHttps,
-			adminUsername: data.adminUsername,
-			adminPassword: data.adminPassword,
-			adminEmail: data.adminEmail,
-		} );
+		onSubmit( getSubmittedValues( data ) );
 	};
 
 	const handleSubmit = ( event: FormEvent ) => {
@@ -764,15 +426,5 @@ export function CreateSiteForm( {
 				</Button>
 			</div>
 		</form>
-	);
-}
-
-// The list only offers each branch's newest release, so a Blueprint asking for
-// "6.5" or "6.5.5" gets 6.5's newest release (the list is newest-first).
-function findOfferedWpVersion( version: string, offered: WordPressVersion[] = [] ) {
-	const branch = version.split( '.' ).slice( 0, 2 ).join( '.' );
-	return (
-		offered.find( ( { value } ) => value === version )?.value ??
-		offered.find( ( { value } ) => value.startsWith( `${ branch }.` ) )?.value
 	);
 }

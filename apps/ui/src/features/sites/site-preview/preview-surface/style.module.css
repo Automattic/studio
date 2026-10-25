@@ -1,0 +1,85 @@
+/* One stacked layer per visited realm (front end / WP Admin / database). Each
+   holds that realm's own surface at its own size, so switching segments never
+   resizes or reloads anything — it just changes which layer is visible. */
+.realmLayer {
+	position: absolute;
+	inset: 0;
+	z-index: 1;
+	display: flex;
+	min-width: 0;
+	min-height: 0;
+	overflow: hidden;
+	transition: opacity var(--motion-duration-surface) var(--motion-ease-enter);
+}
+
+/* A loading page hides at once, showing the loading stage behind it, and
+   fades in when it's ready. */
+.realmLayer[data-loading] {
+	opacity: 0;
+	transition-duration: 0s;
+}
+
+/* Kept mounted and laid out — so the guest holds its size and scroll
+   position — but out of sight and out of reach. */
+.realmLayerHidden {
+	visibility: hidden;
+	pointer-events: none;
+}
+
+/* Wraps each preview surface and anchors the loading spinner overlay. */
+.surfaceFrame {
+	position: relative;
+	display: flex;
+	flex: 1 1 auto;
+	min-width: 0;
+	min-height: 0;
+	overflow: hidden;
+}
+
+.spinnerOverlay {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	pointer-events: none;
+	background-color: color-mix(
+		in srgb,
+		var(--chrome) 60%,
+		transparent
+	);
+}
+
+.spinner {
+	width: 20px;
+	height: 20px;
+	border-radius: 50%;
+	border: 2px solid var(--border);
+	border-top-color: var(--accent-text);
+	animation: sitePreviewSpin 0.8s linear infinite;
+}
+
+@keyframes sitePreviewSpin {
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+/* Studio renders the design system itself, so its surface scrolls like a page. */
+.designSurface {
+	display: block;
+	overflow-y: auto;
+}
+
+.iframe {
+	flex: 1;
+	width: 100%;
+	height: 100%;
+	background-color: var(--chrome);
+}
+
+.loadFailed {
+	position: absolute;
+	inset: 0;
+	background-color: var(--chat);
+}

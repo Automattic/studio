@@ -179,7 +179,7 @@ function paletteNotes( themeJson: unknown, themePath: string ): string[] {
 
 // Block markup files: a theme's templates, parts and patterns, and any file
 // that opens with a block, as a page draft does wherever it is written.
-function isBlockMarkup( siteFile: SiteFile ): boolean {
+export function isBlockMarkup( siteFile: SiteFile ): boolean {
 	return (
 		/^(templates|parts|patterns)\/[^/]+\.(html|php)$/.test( siteFile.theme?.file ?? '' ) ||
 		opensWithBlock( readSiteFile( siteFile ) )

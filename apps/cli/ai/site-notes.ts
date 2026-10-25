@@ -33,6 +33,7 @@ import {
 	writeThemeThumbnail,
 	type SiteFile,
 } from 'cli/ai/site-file-guards';
+import { repeatedStyleValueNotes } from 'cli/ai/repeated-style-values';
 import { themeJsonFileNotes } from 'cli/ai/theme-json-files';
 import type { BlockValidationGate } from 'cli/ai/block-validation-gate';
 
@@ -99,6 +100,7 @@ function sources( { stated = new Map(), gate }: SiteNotesOptions ): Sources {
 			selfHostFonts,
 			writeThemeThumbnail,
 			blockMarkupNotes,
+			repeatedStyleValueNotes,
 			themeJsonNotes,
 			themeJsonFileNotes,
 			themeCssNotes,

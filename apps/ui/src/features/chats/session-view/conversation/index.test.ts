@@ -187,7 +187,7 @@ describe( 'Conversation tool rows', () => {
 		expect(
 			screen.getByText( "What kind of vibe do you want for your blog's design?" )
 		).toBeInTheDocument();
-		expect( screen.getByRole( 'button', { name: 'Minimal & Clean' } ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'radio', { name: 'Minimal & Clean' } ) ).toBeInTheDocument();
 	} );
 
 	it( 'hides legacy media payload markers from expanded tool details for any tool', () => {

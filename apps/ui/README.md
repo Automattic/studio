@@ -96,7 +96,7 @@ The theme lives in `src/lib/theme/`:
 - **Actions and status**: `--primary`, `--secondary`, `--accent` (and `--accent-text`, `--accent-foreground`), `--destructive`, `--success`, `--warning`, plus `--status-*` for the vivid status dots.
 - **Type, shape and motion**: `--font-sans`, `--font-mono`, `--text-xxs`…`--text-xl`, `--font-weight-*`, `--radius-*`, `--shadow-*`, `--z-*` layers, `--focus-width`, `--band-height`, `--control-size`, `--motion-duration-*` and `--motion-ease-*`.
 
-Primitives live in `src/lib/ui/` (Button, IconButton, Dialog, Menu, Popover, Select, Field, Input, InputGroup, Textarea, Switch, Checkbox, Tooltip, Alert, Badge, Progress, Empty, Kbd, VisuallyHidden). They follow the rebuild's kit, sit in the `ui` cascade layer so feature CSS overrides them without specificity tricks, and import nothing from app code.
+Primitives live in `src/lib/ui/`. They follow the rebuild's kit, sit in the `ui` cascade layer so feature CSS overrides them without specificity tricks, and import nothing from app code. [COMPONENTS.md](COMPONENTS.md) says which primitive to use for what, which feature owns each surface, and when to change a primitive rather than override it.
 
 Colors derive in CSS from a few inputs on the root element (`--tint-hue`, `--tint-intensity`, `--tint-saturation`, `--contrast`, `--accent-fill`), so light, dark and the Appearance settings change them without any palette code. Dark values apply under `[data-color-scheme='dark']`, on the root or on any element that should render in the other scheme.
 

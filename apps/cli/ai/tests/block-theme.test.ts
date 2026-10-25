@@ -49,6 +49,22 @@ it.each( [
 		name: 'a classic theme made this session',
 		calls: [ () => write( 'yoga/style.css', header( 'Yoga' ) ), () => write( 'yoga/index.php' ) ],
 		shown: 1,
+		templates: 'index.php',
+		classic: 'yoga',
+	},
+	{
+		name: 'a classic theme made this session, told at its first PHP template',
+		calls: [
+			() => {
+				write( 'yoga/style.css', header( 'Yoga' ) );
+				write( 'yoga/functions.php', '<?php' );
+			},
+			() => write( 'yoga/header.php' ),
+			() => write( 'yoga/page.php' ),
+		],
+		shown: 1,
+		// Told when the theme became classic, of the PHP templates it had then.
+		templates: 'header.php',
 		classic: 'yoga',
 	},
 	{
@@ -61,10 +77,11 @@ it.each( [
 		classic: undefined,
 	},
 	{
-		name: 'a theme still being written, with neither index',
+		name: 'a theme still being written, with no template',
 		calls: [
 			() => write( 'yoga/style.css', header( 'Yoga' ) ),
 			() => write( 'yoga/theme.json', '{}' ),
+			() => write( 'yoga/functions.php', '<?php' ),
 		],
 		shown: 0,
 		classic: undefined,
@@ -119,7 +136,7 @@ it.each( [
 		shown: 0,
 		classic: undefined,
 	},
-] )( 'raises at the end of the turn $name', async ( { calls, shown, classic } ) => {
+] )( 'raises at the end of the turn $name', async ( { calls, shown, classic, templates } ) => {
 	const open = new OpenProblems( [] );
 	const changes = new SiteChanges( open, async () => [ site ], [ blockTheme ] );
 	const results: string[] = [];
@@ -135,7 +152,7 @@ it.each( [
 			? [
 					expect.stringMatching(
 						new RegExp(
-							`^${ classic } \\(wp-content/themes/${ classic }\\), made this session, is a classic theme: .*WP_Theme::is_block_theme\\(\\).*WordPress's default theme, twentytwentyfive \\(WP_DEFAULT_THEME\\), is a block theme: its templates are block markup in templates/\\*\\.html`
+							`^${ classic } \\(wp-content/themes/${ classic }\\), made this session, is becoming a classic theme: its PHP templates \\(${ templates }\\) .*WP_Theme::is_block_theme\\(\\).*WordPress's default theme, twentytwentyfive \\(WP_DEFAULT_THEME\\), is a block theme: its templates are block markup in templates/\\*\\.html, its parts in parts/\\*\\.html, and its one PHP file at the root is functions\\.php`
 						)
 					),
 			  ]

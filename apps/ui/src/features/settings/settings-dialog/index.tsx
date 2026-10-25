@@ -4,7 +4,7 @@ import { __ } from '@wordpress/i18n';
 import { ariaKeyShortcut, displayShortcut, isKeyboardEvent } from '@wordpress/keycodes';
 import { clsx } from 'clsx';
 import { ChevronLeftIcon, SearchIcon, XIcon } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { toast } from '@/data/app-messages';
 import { useAuthUser } from '@/data/queries/use-auth-user';
 import { useSessions } from '@/data/queries/use-sessions';
@@ -161,15 +161,11 @@ export function SettingsDialog() {
 	const [ query, setQuery ] = useState( '' );
 	// The setting to reveal, by link id or title.
 	const [ target, setTarget ] = useState< string | null >( null );
-	const [ requestedFocus, setRequestedFocus ] = useState< string >();
-	if ( settingsFocus !== requestedFocus ) {
-		setRequestedFocus( settingsFocus );
-		setTarget( settingsFocus ?? null );
-	}
 	const [ dirty, setDirty ] = useState( false );
 	const [ actions, setActions ] = useState< HTMLElement | null >( null );
 	const [ content, setContent ] = useState< HTMLDivElement | null >( null );
 	const pendingExit = useRef< ( () => void ) | null >( null );
+	const panelId = useId();
 
 	// Each opening starts fresh.
 	useEffect( () => {
@@ -180,6 +176,19 @@ export function SettingsDialog() {
 			pendingExit.current = null;
 		}
 	}, [ settings ] );
+
+	// A link's setting leaves the URL once taken, so following it again reveals it again.
+	useEffect( () => {
+		if ( settingsFocus ) {
+			setQuery( '' );
+			setTarget( settingsFocus );
+			void navigate( {
+				to: '.',
+				search: ( { settingsFocus: _focus, ...rest }: Record< string, unknown > ) => rest,
+				replace: true,
+			} );
+		}
+	}, [ settingsFocus, navigate ] );
 
 	// Every section shown joins the history, unless Back or Forward led there.
 	useEffect( () => {
@@ -373,7 +382,7 @@ export function SettingsDialog() {
 						{ ! searching ? (
 							<TabsList variant="sidebar" aria-label={ __( 'Settings sections' ) }>
 								{ getSections( scope, { signedIn } ).map( ( entry ) => (
-									<TabsTrigger key={ entry.id } value={ entry.id }>
+									<TabsTrigger key={ entry.id } value={ entry.id } aria-controls={ panelId }>
 										<entry.icon />
 										<MarqueeLabel>{ entry.label }</MarqueeLabel>
 									</TabsTrigger>
@@ -391,6 +400,12 @@ export function SettingsDialog() {
 											key={ `${ item.scope }-${ item.section.id }-${ item.setting?.title ?? '' }` }
 											value={ index }
 											highlighted={ index === 0 }
+											aria-label={ item.setting?.title ?? item.section.label }
+											aria-description={
+												item.scope === 'site'
+													? __( 'Site settings' )
+													: __( 'WordPress Studio settings' )
+											}
 										>
 											<item.section.icon />
 											<MarqueeLabel>{ item.setting?.title ?? item.section.label }</MarqueeLabel>
@@ -402,10 +417,15 @@ export function SettingsDialog() {
 								</TabsList>
 							</Tabs>
 						) : (
-							<p className={ styles.empty }>{ __( 'No settings found.' ) }</p>
+							<p role="status" className={ styles.empty }>
+								{ __( 'No settings found.' ) }
+							</p>
 						) }
 					</TabsSidebar>
 					<DialogPanel
+						id={ panelId }
+						role="tabpanel"
+						aria-label={ current.label }
 						className={ styles.content }
 						scrollRef={ setContent }
 						header={

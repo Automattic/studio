@@ -578,20 +578,26 @@ describe( 'SessionView', () => {
 			expect( accessState.openSettings ).toHaveBeenCalledWith( 'ai' );
 		} );
 
-		it( 'keeps the transcript readable above a payment notice on WordPress.com chats only', () => {
+		it( 'keeps the transcript readable above a payment notice on WordPress.com chats only, and re-checks it when Studio regains focus', () => {
+			const refetch = vi.fn();
 			useStudioAssistantQuotaMock.mockReturnValue( {
 				data: makeQuota( { hasPaymentMethod: false } ),
 				isLoading: false,
+				refetch,
 			} );
 
 			const { rerender } = renderLoadedChat();
 			expect( screen.getByTestId( 'conversation' ) ).toBeInTheDocument();
 			expect( screen.getByText( PAYMENT_NOTICE ) ).toBeInTheDocument();
 			expect( screen.getByRole( 'button', { name: 'Set up' } ) ).toBeInTheDocument();
+			fireEvent.focus( window );
+			expect( refetch ).toHaveBeenCalledTimes( 1 );
 
 			aiSettingsState.data = { provider: 'anthropic-api-key', hasAnthropicApiKey: true };
 			rerender( <SessionView sessionId="session-1" /> );
 			expect( screen.queryByText( PAYMENT_NOTICE ) ).not.toBeInTheDocument();
+			fireEvent.focus( window );
+			expect( refetch ).toHaveBeenCalledTimes( 1 );
 		} );
 
 		it( 'asks a blocked account to connect a different provider', () => {
@@ -896,6 +902,26 @@ describe( 'SessionView', () => {
 		sitesState.data = [ { ...OWNER_SITE, running: true } ];
 		rerender( <SessionView sessionId="session-1" /> );
 		expect( screen.queryByTestId( 'stopped-site-preview' ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'removes the stopped site screenshot once the first prompt is in, even without a fade', async () => {
+		sitesState.data = [ OWNER_SITE ];
+		useSessionMock.mockReturnValue( { data: makeOwnedSession(), isLoading: false, error: null } );
+		const { rerender } = render( <SessionView sessionId="session-1" /> );
+
+		useSessionMock.mockReturnValue( {
+			data: {
+				...makeOwnedSession(),
+				entries: [ { id: 'prompt-1', type: 'custom', customType: 'studio.user_prompt' } ],
+			} as unknown as LoadedAiSession,
+			isLoading: false,
+			error: null,
+		} );
+		rerender( <SessionView sessionId="session-1" /> );
+
+		await waitFor( () =>
+			expect( screen.queryByTestId( 'stopped-site-preview' ) ).not.toBeInTheDocument()
+		);
 	} );
 } );
 

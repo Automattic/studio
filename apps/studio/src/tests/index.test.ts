@@ -477,8 +477,11 @@ describe( 'App initialization', () => {
 		Object.defineProperty( process, 'platform', { value: 'darwin' } );
 
 		const { mockedEvents } = mockElectron();
-		const mockHandleDeeplink = vi.fn();
-		vi.doMock( '../lib/deeplink', () => ( { handleDeeplink: mockHandleDeeplink } ) );
+		const mockOpenDeeplink = vi.fn();
+		vi.doMock( '../lib/deeplink', () => ( {
+			openDeeplink: mockOpenDeeplink,
+			markStudioStarted: vi.fn(),
+		} ) );
 
 		vi.resetModules();
 		await import( '../index' );
@@ -486,7 +489,7 @@ describe( 'App initialization', () => {
 
 		const testUrl = 'wp-studio://auth#test-hash';
 		await openUrl( {}, testUrl );
-		expect( mockHandleDeeplink ).toHaveBeenCalledWith( testUrl );
+		expect( mockOpenDeeplink ).toHaveBeenCalledWith( testUrl );
 
 		Object.defineProperty( process, 'platform', { value: originalProcessPlatform } );
 	} );

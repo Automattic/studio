@@ -33,6 +33,8 @@ export type PreviewRealm = 'frontend' | 'admin' | 'database' | 'design';
 
 export const DATABASE_HOME_PATH = '/phpmyadmin/index.php?route=/database/structure&db=wordpress';
 
+const isAdminPath = ( path: string ) => /^\/wp-admin(?:[/?#]|$)/.test( path );
+
 export function getPreviewRealm( path: string ): PreviewRealm {
 	if ( path === DESIGN_SYSTEM_PREVIEW_PATH ) {
 		return 'design';
@@ -40,12 +42,13 @@ export function getPreviewRealm( path: string ): PreviewRealm {
 	let target = path;
 	if ( path.startsWith( '/studio-auto-login' ) ) {
 		const query = path.split( '?' )[ 1 ] ?? '';
-		target = new URLSearchParams( query ).get( 'redirect_to' ) ?? '';
+		const redirectTo = new URLSearchParams( query ).get( 'redirect_to' ) ?? '';
+		target = redirectTo.replace( /^https?:\/\/[^/?#]*/i, '' );
 	}
-	if ( target.includes( '/wp-admin' ) ) {
+	if ( isAdminPath( target ) ) {
 		return 'admin';
 	}
-	if ( target.includes( '/phpmyadmin' ) ) {
+	if ( /^\/phpmyadmin(?:[/?#]|$)/.test( target ) ) {
 		return 'database';
 	}
 	return 'frontend';
@@ -63,7 +66,7 @@ export function getRealmOpenEvent( realm: PreviewRealm ): TracksEventName {
 }
 
 export function getRealmNavigationPath( path: string, siteUrl: string ): string {
-	if ( ! path.startsWith( '/wp-admin' ) ) {
+	if ( ! isAdminPath( path ) ) {
 		return path;
 	}
 	try {
@@ -81,7 +84,8 @@ export function parseOmniboxInput( raw: string, siteUrl: string ): OmniboxIntent
 	if ( ! value ) {
 		return null;
 	}
-	if ( /^https?:\/\//i.test( value ) ) {
+	// `//host/` is an address on another host, not a path.
+	if ( /^(?:https?:)?\/\//i.test( value ) ) {
 		const path = getPathFromPreviewUrl( value, siteUrl );
 		return path ? { type: 'path', path } : null;
 	}
@@ -396,7 +400,7 @@ export function PreviewAddressBar( {
 					spellCheck={ false }
 				/>
 				{ hideActions ? null : (
-					<span className={ styles.actions }>
+					<span className={ styles.actions } data-address-action>
 						{ onOpenSettings ? (
 							<AddressAction
 								icon={ <SiteSettingsIcon /> }

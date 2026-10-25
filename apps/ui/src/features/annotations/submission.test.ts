@@ -1,3 +1,4 @@
+import { MAX_VISUAL_ANNOTATIONS } from '@studio/common/ai/visual-annotations';
 import { describe, expect, it } from 'vitest';
 import { annotationSubmission } from './submission';
 import type { PreviewAnnotation } from './store';
@@ -73,5 +74,16 @@ describe( 'annotationSubmission', () => {
 				[ note( { images: [ 'a', 'b', 'c', 'd', 'e' ].map( image ) } ) ]
 			)
 		).toThrow( 'You can attach up to 4 images.' );
+	} );
+
+	it( 'names the limit when the typed message pushes the notes past it', () => {
+		const notes = Array.from( { length: MAX_VISUAL_ANNOTATIONS }, ( _, index ) =>
+			note( { id: `n${ index }`, number: index + 1 } )
+		);
+
+		expect( () => annotationSubmission( '', [], notes ) ).not.toThrow();
+		expect( () => annotationSubmission( 'And this', [], notes ) ).toThrow(
+			'You can send up to 100 annotations at once.'
+		);
 	} );
 } );

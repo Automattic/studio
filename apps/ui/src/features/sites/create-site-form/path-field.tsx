@@ -25,7 +25,7 @@ export function PathField( {
 	const id = useId();
 	const connector = useConnector();
 	const { data: sites } = useSites();
-	const { selectPath } = usePathValidator( sites );
+	const { selectPath } = usePathValidator( sites, requiresEmptyPath );
 	const isNative = connector.capabilities.nativeFolderPicker;
 
 	const handleSelect = useCallback( async () => {

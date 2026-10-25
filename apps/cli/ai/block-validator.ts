@@ -51,7 +51,7 @@ function getEditorPage( siteUrl: string ): EditorPage {
 }
 
 /** The block names that block comments in content name, `core/` for those without a namespace. */
-function blockNames( content: string ): string[] {
+export function blockNames( content: string ): string[] {
 	return [
 		...new Set(
 			[ ...content.matchAll( /<!--\s*wp:([a-z][a-z0-9_-]*(?:\/[a-z][a-z0-9_-]*)?)/g ) ].map(
@@ -268,7 +268,30 @@ export async function validateBlocks(
 					if ( ! block.name ) {
 						return;
 					}
-					if ( block.name === 'core/freeform' || block.name === 'core/missing' ) {
+					if ( block.name === 'core/freeform' ) {
+						return;
+					}
+					if ( block.name === 'core/missing' ) {
+						// The parser reads a block whose type is not registered as core/missing.
+						const name = String( block.attributes?.originalName ?? '' );
+						const prefix = `${ name.split( '/' )[ 0 ] }/`;
+						const registered = wpBlocks
+							.getBlockTypes()
+							.map( ( type: any ) => type.name )
+							.filter( ( registeredName: string ) => registeredName.startsWith( prefix ) );
+						results.push( {
+							blockName: name,
+							place,
+							isValid: false,
+							issues: [
+								`${ name } is not registered on the site, so the editor shows it as an unsupported block. ${
+									registered.length
+										? `The registered ${ prefix } blocks are ${ registered.join( ', ' ) }.`
+										: `No ${ prefix } blocks are registered: the plugin that registers them is not active.`
+								}`,
+							],
+							originalContent: block.attributes?.originalContent ?? '',
+						} );
 						return;
 					}
 
@@ -278,13 +301,7 @@ export async function validateBlocks(
 					let expectedContent: string | undefined;
 					const sameBlock = rawName( raw ) === block.name;
 
-					if ( ! blockType ) {
-						isValid = false;
-						issues.push(
-							`Block type "${ block.name }" is not registered. ` +
-								'It may require a plugin that is not active.'
-						);
-					} else if ( typeof block.isValid === 'boolean' ) {
+					if ( typeof block.isValid === 'boolean' ) {
 						// The parser already ran the save-function comparison. Reuse its
 						// verdict: it knows about blocks like core/html whose save returns
 						// null and whose content lives in the raw inner HTML, which a
@@ -786,82 +803,63 @@ export async function bindNavigationLinks(
 	}, content );
 }
 
-export interface InsertedBlock {
+/** A block and what the editor inserts for it. */
+export interface InsertedTemplate {
 	name: string;
-	title?: string;
-	/** The variation the markup is of, when the block has variations in the inserter. */
-	variation?: string;
-	/** Each variation the inserter offers, as `name: title`. */
-	variations: string[];
-	/** What the editor inserts, serialized. */
-	markup?: string;
-	/** The registered blocks that go inside it, by their `parent`, `ancestor`, or its `allowedBlocks`. */
-	children: string[];
-	/** The other registered blocks in its namespace. */
-	namespace: string[];
+	markup: string;
 }
 
+// The blocks a note shows, enough for a form and a field it names.
+const MAX_TEMPLATES = 3;
+
 /**
- * What the site's block editor inserts for a block: its default variation in
- * the inserter, or the variation named, built from the variation's
- * attributes and inner blocks and serialized
- * (createBlock and createBlocksFromInnerBlocksTemplate in @wordpress/blocks,
- * as the inserter builds it), with the blocks of the site's active plugins.
+ * What the site's block editor inserts for each registered block that
+ * content names, where the insert brings inner blocks of its own: the
+ * block's default inserter variation, built from its attributes and inner
+ * blocks and serialized (createBlock and createBlocksFromInnerBlocksTemplate
+ * in @wordpress/blocks, as the inserter builds it), with the blocks of the
+ * site's active plugins. A block that another insert already holds is
+ * left out.
  */
-export async function insertedBlock(
-	name: string,
-	siteUrl: string,
-	variation?: string
-): Promise< InsertedBlock > {
-	const page = await editorKnowing( siteUrl, [ name ] );
+export async function insertedTemplates(
+	names: string[],
+	siteUrl: string
+): Promise< InsertedTemplate[] > {
+	if ( ! names.length ) {
+		return [];
+	}
+	const page = await editorKnowing( siteUrl, names );
 	return page.evaluate(
-		( { blockName, variationName } ) => {
+		( { wanted, max } ) => {
 			/* eslint-disable @typescript-eslint/no-explicit-any */
 			const wpBlocks = ( window as any ).wp.blocks;
-			const type = wpBlocks.getBlockType( blockName );
-			const all: any[] = wpBlocks.getBlockTypes();
-			const prefix = `${ blockName.split( '/' )[ 0 ] }/`;
-			const namespace = all
-				.map( ( t ) => t.name )
-				.filter( ( n: string ) => n.startsWith( prefix ) && n !== blockName );
-			if ( ! type ) {
-				return { name: blockName, variations: [], children: [], namespace };
+			const templates: Array< { name: string; markup: string } > = [];
+			for ( const name of wanted ) {
+				if ( ! wpBlocks.getBlockType( name ) ) {
+					continue;
+				}
+				const variations: any[] = wpBlocks.getBlockVariations( name, 'inserter' ) ?? [];
+				const chosen = variations.find( ( v ) => v.isDefault ) ?? variations[ 0 ];
+				const block = wpBlocks.createBlock(
+					name,
+					{ ...( chosen?.attributes ?? {} ) },
+					wpBlocks.createBlocksFromInnerBlocksTemplate( chosen?.innerBlocks ?? [] )
+				);
+				if ( block.innerBlocks.length ) {
+					templates.push( { name, markup: wpBlocks.serialize( [ block ] ) } );
+				}
 			}
-			const variations: any[] = wpBlocks.getBlockVariations( blockName, 'inserter' ) ?? [];
-			const chosen = variationName
-				? variations.find( ( v ) => v.name === variationName )
-				: variations.find( ( v ) => v.isDefault ) ?? variations[ 0 ];
-			const children = all
+			const holds = ( outer: { markup: string }, name: string ) =>
+				outer.markup.includes( `<!-- wp:${ name } ` );
+			return templates
 				.filter(
-					( t ) =>
-						t.parent?.includes( blockName ) ||
-						t.ancestor?.includes( blockName ) ||
-						type.allowedBlocks?.includes( t.name )
+					( template ) =>
+						! templates.some( ( other ) => other !== template && holds( other, template.name ) )
 				)
-				.map( ( t ) => t.name );
-			const result = {
-				name: blockName,
-				title: type.title,
-				variations: variations.map( ( v ) => `${ v.name }: ${ v.title }` ),
-				children,
-				namespace,
-			};
-			if ( variationName && ! chosen ) {
-				return result;
-			}
-			const block = wpBlocks.createBlock(
-				blockName,
-				{ ...( chosen?.attributes ?? {} ) },
-				wpBlocks.createBlocksFromInnerBlocksTemplate( chosen?.innerBlocks ?? [] )
-			);
-			return {
-				...result,
-				...( chosen && { variation: chosen.name } ),
-				markup: wpBlocks.serialize( [ block ] ),
-			};
+				.slice( 0, max );
 			/* eslint-enable @typescript-eslint/no-explicit-any */
 		},
-		{ blockName: name, variationName: variation }
+		{ wanted: names, max: MAX_TEMPLATES }
 	);
 }
 

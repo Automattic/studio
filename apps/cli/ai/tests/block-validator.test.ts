@@ -2,7 +2,7 @@ import { afterAll, describe, expect, it } from 'vitest';
 import {
 	bindNavigationLinks,
 	cleanupValidatorPages,
-	insertedBlock,
+	insertedTemplates,
 	storePaletteColors,
 	validateBlocks,
 } from 'cli/ai/block-validator';
@@ -271,88 +271,123 @@ describe.runIf( siteUrl )( 'storing palette colors as presets (live)', () => {
 		}
 	} );
 
-	it.each( [
-		{
-			name: 'the default variation',
-			block: 'core/group',
-			variation: undefined,
-			chosen: 'group',
-			has: '<!-- wp:group {"layout":{"type":"constrained"}} -->',
-		},
-		{
-			name: 'a variation by name',
-			block: 'core/group',
-			variation: 'group-row',
-			chosen: 'group-row',
-			has: '"layout":{"type":"flex","flexWrap":"nowrap"}',
-		},
-		{
-			name: 'a block without variations',
-			block: 'core/columns',
-			variation: undefined,
-			chosen: undefined,
-			has: '<!-- wp:columns -->',
-		},
-	] )( 'gives what the editor inserts: $name', async ( { block, variation, chosen, has } ) => {
-		const inserted = await insertedBlock( block, siteUrl!, variation );
-		expect( inserted.variation ).toBe( chosen );
-		expect( inserted.markup ).toContain( has );
-		expect( ( await validateBlocks( inserted.markup!, siteUrl! ) ).invalidBlocks ).toBe( 0 );
+	// The site's editor tab, as the validator loaded it.
+	const editorTab = async () =>
+		( await getSharedBrowser() )
+			.contexts()
+			.flatMap( ( context ) => context.pages() )
+			.find(
+				( page ) =>
+					page.url().startsWith( siteUrl! ) &&
+					page.url().includes( 'post-new.php' ) &&
+					! page.isClosed()
+			)!;
+
+	it( 'gives what the editor inserts for blocks whose default variation brings inner blocks', async () => {
+		await insertedTemplates( [ 'core/paragraph' ], siteUrl! );
+		// As a plugin registers them: each inserts the next, and the last a paragraph.
+		await (
+			await editorTab()
+		).evaluate( () => {
+			/* eslint-disable @typescript-eslint/no-explicit-any */
+			const { blocks, blockEditor, element } = ( window as any ).wp;
+			for ( const [ name, inner ] of [
+				[ 'studio-test/form', 'studio-test/field' ],
+				[ 'studio-test/field', 'core/paragraph' ],
+				[ 'studio-test/a', 'core/paragraph' ],
+				[ 'studio-test/b', 'core/paragraph' ],
+				[ 'studio-test/c', 'core/paragraph' ],
+			] ) {
+				blocks.registerBlockType( name, {
+					apiVersion: 3,
+					title: name,
+					category: 'widgets',
+					attributes: { kind: { type: 'string' } },
+					edit: () => null,
+					save: () => element.createElement( blockEditor.InnerBlocks.Content ),
+					variations: [
+						{
+							name: 'default',
+							title: name,
+							isDefault: true,
+							scope: [ 'inserter' ],
+							attributes: { kind: 'default' },
+							innerBlocks: [ [ inner, inner === 'core/paragraph' ? { content: 'Hi' } : {} ] ],
+						},
+					],
+				} );
+			}
+			/* eslint-enable @typescript-eslint/no-explicit-any */
+		} );
+
+		expect( await insertedTemplates( [ 'studio-test/field' ], siteUrl! ) ).toEqual( [
+			{
+				name: 'studio-test/field',
+				markup:
+					'<!-- wp:studio-test/field {"kind":"default"} -->\n<!-- wp:paragraph -->\n<p>Hi</p>\n<!-- /wp:paragraph -->\n<!-- /wp:studio-test/field -->',
+			},
+		] );
+		// A block another insert holds, and blocks that insert no inner blocks, are left out.
+		expect(
+			(
+				await insertedTemplates(
+					[ 'studio-test/field', 'core/paragraph', 'studio-test/form', 'core/group' ],
+					siteUrl!
+				)
+			).map( ( template ) => template.name )
+		).toEqual( [ 'studio-test/form' ] );
+		expect(
+			(
+				await insertedTemplates(
+					[ 'studio-test/a', 'studio-test/b', 'studio-test/c', 'studio-test/field' ],
+					siteUrl!
+				)
+			).map( ( template ) => template.name )
+		).toEqual( [ 'studio-test/a', 'studio-test/b', 'studio-test/c' ] );
 	} );
 
-	it( 'names the variations, the blocks inside, and the namespace', async () => {
-		const columns = await insertedBlock( 'core/columns', siteUrl! );
-		expect( columns.title ).toBe( 'Columns' );
-		expect( columns.children ).toEqual( [ 'core/column' ] );
-		expect( columns.namespace ).toContain( 'core/paragraph' );
-		expect( columns.namespace ).not.toContain( 'core/columns' );
-		// Its children by their parent, as core/comments names none in allowedBlocks.
-		expect( ( await insertedBlock( 'core/comments', siteUrl! ) ).children ).toContain(
-			'core/comment-template'
+	it( 'reports a block that is not registered, with the blocks its namespace registers', async () => {
+		const report = await validateBlocks(
+			'<!-- wp:core/paragraphs -->\n<p>A</p>\n<!-- /wp:core/paragraphs -->\n\n<!-- wp:nope/form /-->',
+			siteUrl!
 		);
-		expect( ( await insertedBlock( 'core/group', siteUrl! ) ).variations ).toContain(
-			'group-row: Row'
+		expect( report.invalidBlocks ).toBe( 2 );
+		expect( report.results[ 0 ] ).toMatchObject( {
+			blockName: 'core/paragraphs',
+			isValid: false,
+			originalContent: expect.stringContaining( '<p>A</p>' ),
+		} );
+		expect( report.results[ 0 ].issues[ 0 ] ).toMatch(
+			/^core\/paragraphs is not registered on the site, so the editor shows it as an unsupported block\. The registered core\/ blocks are .*core\/paragraph,/
 		);
-	} );
-
-	it( 'gives no markup for a variation the inserter lacks, or a block not registered', async () => {
-		expect( ( await insertedBlock( 'core/group', siteUrl!, 'nope' ) ).markup ).toBeUndefined();
-		const missing = await insertedBlock( 'core/nope', siteUrl! );
-		expect( missing.title ).toBeUndefined();
-		expect( missing.namespace ).toContain( 'core/paragraph' );
+		expect( report.results[ 1 ].issues[ 0 ] ).toBe(
+			'nope/form is not registered on the site, so the editor shows it as an unsupported block. No nope/ blocks are registered: the plugin that registers them is not active.'
+		);
 	} );
 
 	it( 'loads the editor again for a block registered since it loaded', async () => {
 		// As a block of a plugin activated after the editor loaded.
-		const forget = async ( name: string ) => {
-			const browser = await getSharedBrowser();
-			const editor = browser
-				.contexts()
-				.flatMap( ( context ) => context.pages() )
-				.find(
-					( page ) => page.url().startsWith( siteUrl! ) && page.url().includes( 'post-new.php' )
-				);
-			await editor!.evaluate(
+		const forget = async ( name: string ) =>
+			( await editorTab() ).evaluate(
 				// eslint-disable-next-line @typescript-eslint/no-explicit-any
 				( block ) => ( window as any ).wp.blocks.unregisterBlockType( block ),
 				name
 			);
-		};
-		await insertedBlock( 'core/verse', siteUrl! );
-		const loaded = ( await getSharedBrowser() )
-			.contexts()
-			.flatMap( ( context ) => context.pages() )
-			.find( ( page ) => page.url().includes( 'post-new.php' ) && ! page.isClosed() );
+		await insertedTemplates( [ 'core/paragraph' ], siteUrl! );
+		const loaded = await editorTab();
 		// A block the editor knows, without a namespace as core's are written, keeps it.
 		await validateBlocks( '<!-- wp:paragraph -->\n<p>A</p>\n<!-- /wp:paragraph -->', siteUrl! );
-		expect( loaded!.isClosed() ).toBe( false );
+		expect( loaded.isClosed() ).toBe( false );
+
 		await forget( 'core/verse' );
-		expect( ( await insertedBlock( 'core/verse', siteUrl! ) ).title ).toBeDefined();
+		await insertedTemplates( [ 'core/verse' ], siteUrl! );
+		expect( loaded.isClosed() ).toBe( true );
+
 		await forget( 'core/verse' );
 		const report = await validateBlocks(
 			'<!-- wp:verse -->\n<pre class="wp-block-verse">A</pre>\n<!-- /wp:verse -->',
 			siteUrl!
 		);
-		expect( report.results.map( ( result ) => result.blockName ) ).toEqual( [ 'core/verse' ] );
+		expect( report.invalidBlocks ).toBe( 0 );
 	} );
 } );

@@ -8,10 +8,14 @@ import { createSite } from 'cli/ai/tests/fixtures/wordpress-site';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import type { SiteData } from 'cli/lib/cli-config/core';
 
-vi.mock( 'cli/ai/block-validator', () => ( {
+vi.mock( 'cli/ai/block-validator', async () => ( {
 	validateBlocks: vi.fn(),
 	storePaletteColors: vi.fn( async ( content: string ) => ( { content, colors: [] } ) ),
 	bindNavigationLinks: vi.fn( async ( content: string ) => ( { content, links: [] } ) ),
+	insertedTemplates: vi.fn( async () => [] ),
+	blockNames: (
+		await vi.importActual< typeof import('cli/ai/block-validator') >( 'cli/ai/block-validator' )
+	).blockNames,
 } ) );
 vi.mock( 'cli/lib/daemon-client', () => ( {
 	connectToDaemon: vi.fn(),

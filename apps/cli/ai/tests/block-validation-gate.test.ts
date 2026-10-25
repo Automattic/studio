@@ -10,6 +10,7 @@ import {
 } from 'cli/ai/block-validation-gate';
 import {
 	bindNavigationLinks,
+	insertedTemplates,
 	storePaletteColors,
 	validateBlocks,
 	type BlockLoss,
@@ -17,10 +18,14 @@ import {
 } from 'cli/ai/block-validator';
 import { OpenProblems } from 'cli/ai/open-problems';
 
-vi.mock( 'cli/ai/block-validator', () => ( {
+vi.mock( 'cli/ai/block-validator', async () => ( {
 	validateBlocks: vi.fn(),
 	storePaletteColors: vi.fn( async ( content: string ) => ( { content, colors: [] } ) ),
 	bindNavigationLinks: vi.fn( async ( content: string ) => ( { content, links: [] } ) ),
+	insertedTemplates: vi.fn( async () => [] ),
+	blockNames: (
+		await vi.importActual< typeof import('cli/ai/block-validator') >( 'cli/ai/block-validator' )
+	).blockNames,
 } ) );
 
 let site: string;
@@ -192,14 +197,71 @@ describe( 'validating a file', () => {
 		);
 	} );
 
-	it( 'gates core/html policy before the editor runs', async () => {
+	const form = {
+		name: 'jetpack/contact-form',
+		markup:
+			'<!-- wp:jetpack/contact-form -->\n<div class="wp-block-jetpack-contact-form"></div>\n<!-- /wp:jetpack/contact-form -->',
+	};
+	const insertsForm = `What the site's block editor inserts for jetpack/contact-form, from its default inserter variation (createBlock in @wordpress/blocks), to write it from:\n${ form.markup }`;
+
+	it( 'gates core/html policy before the editor runs, with what the editor inserts for the block it names', async () => {
 		const file = write(
 			'tmp/home.html',
 			'<!-- wp:html --><form><input /></form><!-- /wp:html -->'
 		);
+		vi.mocked( insertedTemplates ).mockResolvedValueOnce( [ form ] );
 		const result = await validateBlockMarkupFile( file, 'http://localhost:8881' );
-		expect( result.problem ).toContain( 'core/html' );
+		expect( result.problem ).toContain( 'core/html contains form markup' );
+		expect( result.problem!.endsWith( insertsForm ) ).toBe( true );
+		expect( insertedTemplates ).toHaveBeenLastCalledWith(
+			[ 'jetpack/contact-form' ],
+			'http://localhost:8881'
+		);
 		expect( validateBlocks ).not.toHaveBeenCalled();
+	} );
+
+	it( 'shows what the editor inserts for the blocks an unfixable block holds', async () => {
+		const written =
+			'<div class="wp-block-group"><!-- wp:jetpack/contact-form --><!-- wp:jetpack/field-name /--></div>';
+		const file = write( 'tmp/home.html', `<!-- wp:group -->${ written }<!-- /wp:group -->` );
+		vi.mocked( validateBlocks ).mockResolvedValue( {
+			totalBlocks: 2,
+			validBlocks: 1,
+			invalidBlocks: 1,
+			results: [
+				{
+					blockName: 'core/paragraph',
+					isValid: true,
+					issues: [],
+					originalContent: '<!-- wp:paragraph -->',
+				},
+				{
+					blockName: 'core/group',
+					isValid: false,
+					issues: [ 'Expected token' ],
+					originalContent: written,
+				},
+			],
+		} );
+		vi.mocked( insertedTemplates ).mockResolvedValueOnce( [ form ] );
+		const result = await validateBlockMarkupFile( file, 'http://localhost:8881' );
+		expect( insertedTemplates ).toHaveBeenLastCalledWith(
+			[ 'jetpack/contact-form', 'jetpack/field-name' ],
+			'http://localhost:8881'
+		);
+		expect( result.problem ).toContain( 'which the block editor cannot fix' );
+		expect( result.problem!.endsWith( insertsForm ) ).toBe( true );
+	} );
+
+	it( 'reports an unfixable block when the editor cannot say what it inserts', async () => {
+		const file = write( 'tmp/home.html', original );
+		const report = invalidWithFix( fixed );
+		report.proposedFix!.report.invalidBlocks = 1;
+		vi.mocked( validateBlocks ).mockResolvedValue( report );
+		vi.mocked( insertedTemplates ).mockRejectedValueOnce( new Error( 'editor closed' ) );
+		const result = await validateBlockMarkupFile( file, 'http://localhost:8881' );
+		expect( result.problem ).toContain( 'which the block editor cannot fix' );
+		expect( result.problem ).not.toContain( 'inserts' );
 	} );
 } );
 

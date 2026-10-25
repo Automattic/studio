@@ -18,6 +18,8 @@ import path from 'path';
 import { validateHtmlBlockPolicy } from 'cli/ai/block-content-policy';
 import {
 	bindNavigationLinks,
+	blockNames,
+	insertedTemplates,
 	storePaletteColors,
 	validateBlocks,
 	type PaletteColorsResult,
@@ -118,6 +120,15 @@ export function describeBoundLinks( links: string[] ): string {
 		) }, which named a page or term by id with no url, to its permalink, as the editor's link picker does (useEntityBinding in @wordpress/block-library): core prints a link's href only from its url (wp-includes/blocks/navigation-link.php)`;
 }
 
+/** What the editor inserts for the blocks named, for a note to write them from. */
+async function describeTemplates( names: string[], siteUrl: string ): Promise< string[] > {
+	const templates = await insertedTemplates( names, siteUrl ).catch( () => [] );
+	return templates.map(
+		( { name, markup } ) =>
+			`What the site's block editor inserts for ${ name }, from its default inserter variation (createBlock in @wordpress/blocks), to write it from:\n${ markup }`
+	);
+}
+
 /** What the editor stores for the palette colors and entity links the markup writes otherwise. */
 async function storeAsTheEditorDoes(
 	content: string,
@@ -199,6 +210,10 @@ export async function validateBlockMarkup(
 				...policy.invalidHtmlBlocks.map(
 					( block ) => `  - line ${ block.line }: ${ block.issues[ 0 ] }`
 				),
+				...( await describeTemplates(
+					[ ...new Set( policy.invalidHtmlBlocks.flatMap( ( block ) => block.block ?? [] ) ) ],
+					siteUrl
+				) ),
 			].join( '\n' ),
 		};
 	}
@@ -226,6 +241,15 @@ export async function validateBlockMarkup(
 			problem: [
 				`${ label }: ${ report.invalidBlocks } invalid block(s), which the block editor cannot fix:`,
 				...describeInvalidBlocks( report ),
+				...( await describeTemplates(
+					blockNames(
+						report.results
+							.filter( ( result ) => ! result.isValid )
+							.map( ( result ) => result.originalContent )
+							.join( '\n' )
+					),
+					siteUrl
+				) ),
 			].join( '\n' ),
 		};
 	}

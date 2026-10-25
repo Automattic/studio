@@ -7,7 +7,8 @@ const PLUGIN_RECOMMENDATION_HTML_BLOCK_POLICIES = [
 	{
 		htmlPatterns: [ /<(form|input|select|textarea|fieldset)\b/i ],
 		htmlPolicyMessage:
-			"core/html contains form markup. A form plugin's block, such as Jetpack Forms (jetpack/contact-form), stays editable in the block editor and handles submission; block_markup gives what the editor inserts for it once the plugin is active, and the plugin-recommendations skill names the plugin for each feature.",
+			"core/html contains form markup. A form plugin's block, such as Jetpack Forms (jetpack/contact-form), stays editable in the block editor and handles submission; the plugin-recommendations skill names the plugin for each feature.",
+		block: 'jetpack/contact-form',
 	},
 ];
 
@@ -16,6 +17,8 @@ export interface HtmlBlockPolicyResult {
 	line: number;
 	content: string;
 	issues: string[];
+	/** The block a plugin registers for it, when one is recommended. */
+	block?: string;
 }
 
 export interface HtmlBlockPolicyReport {
@@ -61,11 +64,16 @@ export function validateHtmlBlockPolicy( content: string ): HtmlBlockPolicyRepor
 			continue;
 		}
 
+		const html = blockContent.replace( BLOCK_COMMENT_PATTERN, '' );
+		const block = PLUGIN_RECOMMENDATION_HTML_BLOCK_POLICIES.find( ( recommendation ) =>
+			recommendation.htmlPatterns.some( ( pattern ) => pattern.test( html ) )
+		)?.block;
 		invalidHtmlBlocks.push( {
 			blockNumber: totalHtmlBlocks,
 			line: content.slice( 0, match.index ?? 0 ).split( '\n' ).length,
 			content: blockContent.trim(),
 			issues,
+			...( block && { block } ),
 		} );
 	}
 

@@ -98,7 +98,7 @@ The theme lives in `src/lib/theme/`:
 
 Primitives live in `src/lib/ui/` (Button, IconButton, Dialog, Menu, Popover, Select, Field, Input, InputGroup, Textarea, Switch, Checkbox, Tooltip, Alert, Badge, Progress, Empty, Kbd, VisuallyHidden). They follow the rebuild's kit, sit in the `ui` cascade layer so feature CSS overrides them without specificity tricks, and import nothing from app code.
 
-Colors derive in CSS from a few inputs on the root element (`--tint-hue`, `--tint-intensity`, `--tint-saturation`, `--contrast`, `--accent-fill`), so light, dark and the Appearance settings change them without any palette code. Dark values apply under `[data-color-scheme='dark']`, on the root or on any element that should render in the other scheme.
+Colors derive in CSS from a few inputs on the root element (`--tint-hue`, `--tint-intensity`, `--tint-saturation`, `--contrast`, `--accent-fill`), so light, dark and the Appearance settings change them without any palette code. Dark values apply under `[data-color-scheme='dark']`, on the root or on any element that should render in the other scheme. Components follow the nearest scheme with `light-dark()` for a color, or a `[data-color-scheme='dark'] .x` selector for anything else; never `:root[...]` or `html[...]`, which ignore a scene's own scheme. A surface sets `--surface` to its fill, and `--muted` inside it steps up a shade on its own.
 
 ## Development
 

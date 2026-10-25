@@ -644,6 +644,7 @@ describe( 'SessionView', () => {
 				data: undefined,
 				isLoading: false,
 				isError: true,
+				error: new Error( 'Unauthorized' ),
 				refetch: refetchQuota,
 			} );
 
@@ -714,6 +715,32 @@ describe( 'SessionView', () => {
 
 		expect( screen.getByTestId( 'composer' ) ).toBeInTheDocument();
 		expect( screen.queryByTestId( 'composer-skeleton' ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'keeps the usage notice while a failed quota request is retried', async () => {
+		const actual = await vi.importActual< typeof import('@/data/queries/use-assistant-quota') >(
+			'@/data/queries/use-assistant-quota'
+		);
+		useStudioAssistantQuotaMock.mockImplementation( actual.useStudioAssistantQuota );
+		connectorMock.getAuthUser.mockResolvedValue( { id: 1 } );
+		connectorMock.getStudioAssistantQuota.mockRejectedValue( new Error( 'Unauthorized' ) );
+		useSessionMock.mockReturnValue( { data: makeLoadedSession(), isLoading: false, error: null } );
+		const queryClient = new QueryClient( { defaultOptions: { queries: { retry: false } } } );
+
+		render(
+			<QueryClientProvider client={ queryClient }>
+				<SessionView sessionId="session-1" />
+			</QueryClientProvider>
+		);
+		expect( await screen.findByText( 'AI usage is currently unavailable.' ) ).toBeInTheDocument();
+
+		connectorMock.getStudioAssistantQuota.mockReturnValue( new Promise( () => {} ) );
+		await act( async () => {
+			void queryClient.refetchQueries( { queryKey: actual.ASSISTANT_QUOTA_QUERY_KEY } );
+			await new Promise( ( resolve ) => setTimeout( resolve, 50 ) );
+		} );
+
+		expect( screen.getByText( 'AI usage is currently unavailable.' ) ).toBeInTheDocument();
 	} );
 
 	describe( 'scroll anchoring', () => {

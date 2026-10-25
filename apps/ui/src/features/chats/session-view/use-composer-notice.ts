@@ -6,6 +6,7 @@ import {
 	STUDIO_CODE_AI_BETA_APPLY_URL,
 } from '@studio/common/lib/studio-assistant-quota';
 import { __ } from '@wordpress/i18n';
+import { useState } from 'react';
 import { useConnector } from '@/data/core';
 import { useAiSettings } from '@/data/queries/use-ai-settings';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
@@ -28,6 +29,13 @@ export function useComposerNotice( provider: AiProviderId ): ComposerNotice | un
 	const { data: user, isLoading: isUserLoading } = useAuthUser();
 	const settings = useAiSettings();
 	const quota = useStudioAssistantQuota();
+	// Refetching a failed check (opening the model picker does) clears its
+	// error through every retry; the failure stands until one succeeds.
+	const [ settledQuotaError, setSettledQuotaError ] = useState( quota.error );
+	if ( ! quota.isFetching && quota.error !== settledQuotaError ) {
+		setSettledQuotaError( quota.error );
+	}
+	const quotaError = quota.error ?? settledQuotaError;
 
 	const retry = {
 		label: __( 'Try again' ),
@@ -39,7 +47,7 @@ export function useComposerNotice( provider: AiProviderId ): ComposerNotice | un
 	if ( isOffline ) {
 		return { message: __( 'You are offline. Reconnect to send a message.' ) };
 	}
-	if ( quota.error?.message === STUDIO_ASSISTANT_QUOTA_OFFLINE ) {
+	if ( quotaError?.message === STUDIO_ASSISTANT_QUOTA_OFFLINE ) {
 		return { message: __( 'You are offline. Reconnect to send a message.' ), action: retry };
 	}
 	if ( settings.isLoading || ( provider === 'wpcom' && isUserLoading ) ) {
@@ -55,7 +63,7 @@ export function useComposerNotice( provider: AiProviderId ): ComposerNotice | un
 	if ( ! user ) {
 		return { message: __( 'Connect a provider to build and edit your site.' ), action: connect };
 	}
-	if ( quota.isError ) {
+	if ( quotaError ) {
 		return { message: __( 'AI usage is currently unavailable.' ), action: retry };
 	}
 	if ( ! quota.data ) {

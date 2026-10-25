@@ -11,8 +11,8 @@ import { useIsSiteBusy } from '@/data/queries/use-sites';
 import { useSnapshotUsage, useSnapshots } from '@/data/queries/use-snapshots';
 import { useSyncableWpcomSites } from '@/data/queries/use-wpcom-sites';
 import { useSiteSyncActivity } from '@/data/sync-activity';
+import { subscribeHeaderPanelRequest } from '@/data/use-open-header-panel';
 import { AccountPrompt } from '@/features/account';
-import { subscribeHeaderPanelRequest } from '@/features/sites';
 import { ShareIcon } from '@/lib/icons';
 import {
 	VisuallyHidden,

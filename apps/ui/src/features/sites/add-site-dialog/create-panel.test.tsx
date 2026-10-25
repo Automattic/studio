@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { forwardRef, useImperativeHandle } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { pendingPromptSlot } from '@/features/chats';
+import { pendingPromptSlot } from '@/features/composer';
 import { CreatePanel } from './create-panel';
 import type { SyncSite } from '@/data/core';
 import type { SelectedBlueprint } from '@/features/sites/blueprint-upload';
@@ -74,7 +74,7 @@ vi.mock( '@/features/sites/create-site-form', () => ( {
 	},
 } ) );
 
-vi.mock( '@/features/chats/session-view/composer', () => ( {
+vi.mock( '@/features/composer/composer', () => ( {
 	Composer: forwardRef< unknown, Record< string, unknown > >( function MockComposer( props, ref ) {
 		mocks.composerProps = props;
 		useImperativeHandle( ref, () => ( { getSubmission: () => mocks.submission } ) );

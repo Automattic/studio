@@ -31,24 +31,19 @@ import { useSessions } from '@/data/queries/use-sessions';
 import { useSidebarPreferences } from '@/data/queries/use-sidebar-pins';
 import { useSites } from '@/data/queries/use-sites';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
+import { getSections } from '@/data/settings-sections';
+import { setCommandPaletteOpen, useCommandPaletteOpen } from '@/data/use-command-palette';
+import { useOpenHeaderPanel } from '@/data/use-open-header-panel';
+import { useOpenSettings } from '@/data/use-open-settings';
 import { useOpenSite } from '@/data/use-open-site';
+import { useSessionUIDispatch, useSessionPreviewUI } from '@/data/use-session-ui';
+import { useSidebarOpen, useToggleSidebar } from '@/data/use-sidebar-collapsed';
 import { setAnnotating, useSiteAnnotations } from '@/features/annotations';
-import {
-	getSessionTitle,
-	useChatActions,
-	useSessionUIDispatch,
-	useSessionPreviewUI,
-} from '@/features/chats';
-import {
-	setCommandPaletteOpen,
-	useCommandPaletteOpen,
-} from '@/features/commands/use-command-palette';
+import { getSessionTitle, useChatActions } from '@/features/chats';
 import { openNoticeHistory } from '@/features/notifications';
 import { useOpenWhatsNew } from '@/features/onboarding';
-import { useOpenSettings, getSections } from '@/features/settings';
-import { useCollapseAll, useSidebarOpen, useToggleSidebar } from '@/features/sidebar';
+import { useCollapseAll } from '@/features/sidebar';
 import {
-	useOpenHeaderPanel,
 	useOpenAddSite,
 	useSiteActions,
 	useOpenInDestinations,

@@ -8,7 +8,7 @@ import {
 	PANEL_WIDTHS_RESET_EVENT,
 	storeResizablePanelWidth,
 	type ResizablePanelConfig,
-} from '@/features/sidebar/resizable-panels';
+} from '@/data/resizable-panels';
 import { usePointerDrag } from '@/lib/hooks';
 import type { KeyboardEvent } from 'react';
 

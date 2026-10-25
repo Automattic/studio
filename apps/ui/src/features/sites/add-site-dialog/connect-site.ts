@@ -6,7 +6,7 @@ import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { useCreateSite, useDeleteSite, useStartSite } from '@/data/queries/use-sites';
 import { usePullSiteFromLive } from '@/data/queries/use-sync-site';
-import { requestHeaderPanel } from '@/features/sites/use-open-header-panel';
+import { requestHeaderPanel } from '@/data/use-open-header-panel';
 import { useAddSite } from './context';
 import type { CreateSiteParams, SiteDetails, SyncSite } from '@/data/core';
 

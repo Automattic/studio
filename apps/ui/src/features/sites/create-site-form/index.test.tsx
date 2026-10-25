@@ -16,7 +16,7 @@ vi.mock( '@/data/core', async ( importOriginal ) => {
 	return { ...actual, useConnector: vi.fn() };
 } );
 
-vi.mock( '@/features/settings/learn-more', () => ( {
+vi.mock( '@/features/onboarding/learn-more', () => ( {
 	LearnHowLink: () => null,
 	LearnMoreLink: ( { docsLinksKey }: { docsLinksKey: string } ) => (
 		<span data-testid={ `learn-more-${ docsLinksKey }` } />

@@ -4,7 +4,7 @@ import { ChatContextMenu } from './index';
 import type { AiSessionSummary } from '@/data/core';
 
 vi.mock( '@tanstack/react-router', () => ( { useNavigate: () => vi.fn() } ) );
-vi.mock( '@/data/queries/use-agent-run', () => ( {
+vi.mock( '@/data/agent-runs/use-agent-run', () => ( {
 	useSiteAgentActivity: () => undefined,
 	useSessionsBusy: () => false,
 } ) );
@@ -21,7 +21,7 @@ vi.mock( '@/data/queries/use-sidebar-pins', () => ( {
 } ) );
 
 const setOpen = vi.hoisted( () => vi.fn() );
-vi.mock( '@/features/chats/use-session-ui', () => ( {
+vi.mock( '@/data/use-session-ui', () => ( {
 	useOptionalSessionPreviewUI: () => ( { setOpen } ),
 } ) );
 

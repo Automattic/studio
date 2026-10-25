@@ -116,6 +116,6 @@
 
 	.toast,
 	.content {
-		transition-duration: var(--motion-duration-feedback) !important;
+		transition-duration: var(--motion-duration-feedback);
 	}
 }

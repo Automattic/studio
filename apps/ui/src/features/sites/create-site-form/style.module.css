@@ -45,12 +45,6 @@
 	margin: calc(var(--space-1) * -1);
 }
 
-@media ( prefers-reduced-motion: reduce ) {
-	.advancedCollapse {
-		transition: none;
-	}
-}
-
 .advancedErrorCount {
 	margin-left: var(--space-2);
 	font-size: var(--text-xxs);

@@ -10,9 +10,9 @@ import { useConnector } from '@/data/core';
 import { useAiSettings } from '@/data/queries/use-ai-settings';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
 import { useAuthUser } from '@/data/queries/use-auth-user';
-import { useOpenSettings } from '@/features/settings';
+import { useOpenSettings } from '@/data/use-open-settings';
 import { useOffline } from '@/lib/hooks';
-import type { ComposerNotice } from './composer';
+import type { ComposerNotice } from '@/features/composer';
 import type { AiProviderId } from '@studio/common/ai/providers';
 
 /**

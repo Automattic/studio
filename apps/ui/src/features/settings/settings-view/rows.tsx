@@ -4,8 +4,8 @@ import { clsx } from 'clsx';
 import { CheckIcon, ChevronRightIcon } from 'lucide-react';
 import { useContext } from 'react';
 import { useCopyText } from '@/data/host/use-copy-text';
+import { findSettingId } from '@/data/settings-sections';
 import { SettingsLinkContext } from '@/features/settings/settings-dialog/context';
-import { findSettingId } from '@/features/settings/settings-dialog/sections';
 import { LinkIcon } from '@/lib/icons';
 import { Button, type ButtonProps } from '@/lib/ui';
 import {

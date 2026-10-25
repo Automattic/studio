@@ -147,12 +147,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-	.dot,
-	.back {
-		transition: none;
-	}
-
-	.backHidden {
+	.dot {
 		transition: none;
 	}
 }

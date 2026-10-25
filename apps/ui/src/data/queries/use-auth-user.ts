@@ -3,26 +3,10 @@ import { __ } from '@wordpress/i18n';
 import { useCallback, useEffect, useRef } from 'react';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
-import { connectedWpcomSitesQueryKey } from '@/data/queries/use-connected-wpcom-sites';
-import { SNAPSHOTS_QUERY_KEY, SNAPSHOT_USAGE_QUERY_KEY } from '@/data/queries/use-snapshots';
-import {
-	ALL_CONNECTED_WPCOM_SITES_QUERY_KEY,
-	SYNCABLE_WPCOM_SITES_QUERY_KEY,
-} from '@/data/queries/use-wpcom-sites';
+import { USER_SCOPED_QUERY_KEYS } from '@/data/queries/user-scoped-query-keys';
 import type { TracksAuthSource } from '@studio/common/lib/record-tracks-event';
 
 const AUTH_USER_QUERY_KEY = [ 'auth-user' ] as const;
-
-// Removed (not just invalidated) on auth transitions so a different user
-// never sees stale data from the persisted cache.
-const CONNECTED_WPCOM_SITES_PREFIX = connectedWpcomSitesQueryKey( '' ).slice( 0, 1 );
-const USER_SCOPED_QUERY_KEYS: ReadonlyArray< readonly string[] > = [
-	SYNCABLE_WPCOM_SITES_QUERY_KEY,
-	ALL_CONNECTED_WPCOM_SITES_QUERY_KEY,
-	CONNECTED_WPCOM_SITES_PREFIX,
-	SNAPSHOTS_QUERY_KEY,
-	SNAPSHOT_USAGE_QUERY_KEY,
-];
 
 export function useAuthUser() {
 	const connector = useConnector();

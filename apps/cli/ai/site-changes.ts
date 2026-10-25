@@ -11,6 +11,7 @@ import { blockTheme } from 'cli/ai/block-theme';
 import { childThemeCopies } from 'cli/ai/child-theme-copies';
 import { postContentChanges } from 'cli/ai/post-content-check';
 import { siteFileWrites } from 'cli/ai/site-file-writes';
+import { templatePartAreas } from 'cli/ai/template-part-areas';
 import { updatableThemeChanges } from 'cli/ai/theme-file-changes';
 import { themeStylesheet } from 'cli/ai/theme-stylesheet';
 import { readCliConfig, type SiteData } from 'cli/lib/cli-config/core';
@@ -59,6 +60,7 @@ export const SITE_CHANGE_SOURCES: SiteChangeSource[] = [
 	updatableThemeChanges,
 	childThemeCopies,
 	blockTheme,
+	templatePartAreas,
 	// Before siteFileWrites, which reports the functions.php it may add to.
 	themeStylesheet,
 	siteFileWrites,

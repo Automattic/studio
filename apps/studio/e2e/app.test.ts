@@ -20,13 +20,12 @@ test.describe( 'Electron app', () => {
 		expect( await session.mainWindow.title() ).toBe( 'WordPress Studio' );
 	} );
 
-	test( 'first screens are onboarding, then Add site', async () => {
-		await expect(
-			session.mainWindow.getByRole( 'heading', { name: 'WordPress Studio', level: 1 } )
-		).toBeVisible();
-		await session.mainWindow.getByRole( 'button', { name: 'Skip' } ).click();
-		await session.mainWindow.getByRole( 'button', { name: 'Continue' } ).click();
-		await session.mainWindow.getByRole( 'button', { name: 'Skip log in' } ).click();
+	test( 'first launch welcomes, then opens Add site', async () => {
+		const welcome = session.mainWindow.getByRole( 'alertdialog', {
+			name: 'Welcome to WordPress Studio',
+		} );
+		await expect( welcome ).toBeVisible();
+		await welcome.getByRole( 'button', { name: 'Continue without an account' } ).click();
 		await expect( session.mainWindow.getByRole( 'dialog', { name: 'Add site' } ) ).toBeVisible();
 	} );
 } );

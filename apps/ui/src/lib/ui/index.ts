@@ -6,7 +6,6 @@ export * from './code-block';
 export * from './collapsible';
 export * from './command';
 export * from './dialog';
-export * from './dot-grid';
 export * from './empty';
 export * from './field';
 export * as HoverCard from './hover-card';

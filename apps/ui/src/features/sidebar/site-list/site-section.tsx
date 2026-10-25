@@ -110,6 +110,7 @@ export function SiteSection( {
 			<SiteRowMenu
 				site={ site }
 				onSiteOpen={ onSiteOpen }
+				onStart={ isActive ? undefined : handleOpenSite }
 				trigger={
 					<SidebarMenuButton
 						render={ <div /> }

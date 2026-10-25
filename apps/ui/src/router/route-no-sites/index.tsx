@@ -1,6 +1,7 @@
-import { createRoute } from '@tanstack/react-router';
+import { createRoute, useNavigate, useSearch } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { clsx } from 'clsx';
+import { useEffect, useRef } from 'react';
 import { useTrafficLightSpace } from '@/data/host/use-traffic-light-space';
 import { useSites } from '@/data/queries/use-sites';
 import { useSidebarCollapsed } from '@/data/use-sidebar-collapsed';
@@ -28,7 +29,10 @@ function NoSitesHeader() {
 	);
 }
 
-// The workspace before the first site, or when the sites couldn't load.
+// The workspace before the first site, or when the sites couldn't load. It
+// offers Add site once, unless the welcome is showing (it opens Add site
+// itself), and leaves for the sites when one appears, such as a site created
+// in a terminal.
 function NoSites() {
 	return (
 		<>
@@ -40,7 +44,28 @@ function NoSites() {
 
 function NoSitesContent() {
 	const sites = useSites();
+	const navigate = useNavigate();
 	const openAddSite = useOpenAddSite();
+	const { welcome, addSite } = useSearch( { strict: false } ) as {
+		welcome?: true;
+		addSite?: string;
+	};
+	const hasSites = !! sites.data?.length;
+	const empty = sites.isSuccess && ! hasSites;
+	const offered = useRef( false );
+	useEffect( () => {
+		if ( empty && ! welcome && ! offered.current ) {
+			offered.current = true;
+			if ( ! addSite ) {
+				openAddSite();
+			}
+		}
+	}, [ empty, welcome, addSite, openAddSite ] );
+	useEffect( () => {
+		if ( hasSites && ! addSite ) {
+			void navigate( { to: '/', search: true, replace: true } );
+		}
+	}, [ hasSites, addSite, navigate ] );
 	if ( sites.isError ) {
 		return (
 			<Empty>

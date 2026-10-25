@@ -3,8 +3,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { SiteActionsMenu } from './index';
 import type { SiteDetails } from '@/data/core';
 
-const { navigate, openSettings, preview, startSite, stopSite, sites, agents } = vi.hoisted(
-	() => ( {
+const { navigate, openSettings, preview, startSite, stopSite, sites, agents, siteState } =
+	vi.hoisted( () => ( {
 		navigate: vi.fn(),
 		openSettings: vi.fn(),
 		preview: { siteId: 'other', setSite: vi.fn(), updatePath: vi.fn(), setOpen: vi.fn() },
@@ -12,8 +12,8 @@ const { navigate, openSettings, preview, startSite, stopSite, sites, agents } = 
 		stopSite: { mutate: vi.fn(), mutateAsync: vi.fn() },
 		sites: [] as SiteDetails[],
 		agents: { busy: [] as string[] },
-	} )
-);
+		siteState: { busy: false },
+	} ) );
 
 vi.mock( '@tanstack/react-router', () => ( { useNavigate: () => navigate } ) );
 vi.mock( '@/data/core', () => ( { useConnector: () => ( { trackEvent: vi.fn() } ) } ) );
@@ -28,6 +28,7 @@ vi.mock( '@/features/sites/use-site-management-actions', () => ( {
 			label: id,
 			icon: () => <svg />,
 			run: vi.fn(),
+			disabled: siteState.busy,
 		} ) ),
 } ) );
 vi.mock( '@/features/sites/open-in-menu/use-open-in-destinations', () => ( {
@@ -56,7 +57,7 @@ vi.mock( '@/data/agent-runs/use-agent-run', () => ( {
 	useSessionsBusy: ( ids: string[] ) => ids.some( ( id ) => agents.busy.includes( id ) ),
 } ) );
 vi.mock( '@/data/queries/use-sites', () => ( {
-	useIsSiteBusy: () => false,
+	useIsSiteBusy: () => siteState.busy,
 	useSites: () => ( { data: sites } ),
 	useStartSite: () => startSite,
 	useStopSite: () => stopSite,
@@ -77,6 +78,7 @@ describe( 'SiteActionsMenu', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
 		agents.busy = [];
+		siteState.busy = false;
 	} );
 
 	it( 'starts or stops the current site with ⌥⌘S, also from its menu, which shows it', async () => {
@@ -125,6 +127,24 @@ describe( 'SiteActionsMenu', () => {
 		await choose( blog, 'Stop', 'Stop other sites' );
 
 		expect( stopSite.mutate.mock.calls ).toEqual( [ [ 'shop' ] ] );
+	} );
+
+	it( 'marks the site busy and holds off its submenus with nothing to do', async () => {
+		siteState.busy = true;
+		render( <SiteActionsMenu site={ createSite( 'blog', false ) } /> );
+		const trigger = screen.getByRole( 'button', { name: 'Site actions for blog' } );
+		expect( trigger ).toHaveAttribute( 'aria-busy', 'true' );
+
+		fireEvent.click( trigger );
+		for ( const name of [ 'Go to', 'Export' ] ) {
+			expect( await screen.findByRole( 'menuitem', { name } ) ).toHaveAttribute(
+				'aria-disabled',
+				'true'
+			);
+		}
+		expect( screen.getByRole( 'menuitem', { name: 'Open in' } ) ).not.toHaveAttribute(
+			'aria-disabled'
+		);
 	} );
 
 	it( 'renames from the site settings, with the name field focused', async () => {

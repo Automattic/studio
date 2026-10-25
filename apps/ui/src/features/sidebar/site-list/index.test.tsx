@@ -266,6 +266,19 @@ describe( 'SiteList', () => {
 		} );
 	} );
 
+	it( 'opens a stopped site started from its row’s right-click menu, as its start button does', async () => {
+		render( <SiteList /> );
+
+		fireEvent.contextMenu( screen.getByText( 'Stopped Site' ) );
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: /^Start site/ } ) );
+
+		expect( startSite ).toHaveBeenCalledWith( 'stopped-site' );
+		expect( navigateMock ).toHaveBeenCalledWith( {
+			to: '/sites/$siteId/new',
+			params: { siteId: 'stopped-site' },
+		} );
+	} );
+
 	it( 'opens site actions from a row right-click without opening the latest chat', async () => {
 		render( <SiteList /> );
 

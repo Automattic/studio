@@ -750,8 +750,11 @@ function toToolDefinition(
 					crossSite?.confirmation ??
 					( writtenFile ? await classicThemeQuestion( writtenFile ) : undefined )
 			);
+			if ( declined?.endsTurn ) {
+				return { content: [ { type: 'text', text: declined.text } ], details: {}, terminate: true };
+			}
 			if ( declined ) {
-				throw new Error( declined );
+				throw new Error( declined.text );
 			}
 			crossSite?.allow();
 			const fileWriteRefusal = writtenFile && ( await siteNotes.beforeWrite( writtenFile ) );

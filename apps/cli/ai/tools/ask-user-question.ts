@@ -6,6 +6,12 @@ import type { TSchema } from 'typebox';
 
 // Factory because the tool closes over `onAskUser` (the active AiChatUI
 // instance).
+/** What a call says when the user closes its questions without answering; the turn ends on it. */
+export const closedWithoutAnswering = ( questions: string[] ) =>
+	`The user closed without answering: ${ questions.join(
+		' '
+	) } The turn ends here, and the user replies when ready.`;
+
 export function createAskUserQuestionTool(
 	onAskUser: ( questions: AskUserQuestion[] ) => Promise< Record< string, string > >
 ): AgentTool< TSchema > {
@@ -48,9 +54,7 @@ export function createAskUserQuestionTool(
 					content: [
 						{
 							type: 'text' as const,
-							text: `The user closed without answering: ${ dismissed
-								.map( ( { question } ) => question )
-								.join( ' ' ) } The turn ends here, and the user replies when ready.${
+							text: `${ closedWithoutAnswering( dismissed.map( ( { question } ) => question ) ) }${
 								Object.keys( answers ).length ? ` Answered: ${ JSON.stringify( answers ) }` : ''
 							}`,
 						},

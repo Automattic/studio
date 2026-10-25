@@ -95,10 +95,24 @@ describe( 'createConfirmer', () => {
 
 	it( 'reports the answer when the user declines', async () => {
 		const ask = vi.fn().mockResolvedValue( { [ question ]: 'No' } );
-		expect( await createConfirmer( ask )( describeDestructiveCall( 'site_push', push ) ) ).toBe(
-			`Not run: the user answered "No" to: ${ question }`
+		expect( await createConfirmer( ask )( describeDestructiveCall( 'site_push', push ) ) ).toEqual(
+			{ text: `Not run: the user answered "No" to: ${ question }` }
 		);
 	} );
+
+	// A question the user closes hands the turn back to them, rather than reading as No.
+	it.each( [ {}, { [ question ]: '' }, { [ question ]: ' ' } ] )(
+		'ends the turn when the user closes the question: %j',
+		async ( answers ) => {
+			const ask = vi.fn().mockResolvedValue( answers );
+			expect(
+				await createConfirmer( ask )( describeDestructiveCall( 'site_push', push ) )
+			).toEqual( {
+				text: `Not run: The user closed without answering: ${ question } The turn ends here, and the user replies when ready.`,
+				endsTurn: true,
+			} );
+		}
+	);
 
 	// A call whose No has a consequence of its own says it, to the user and on the refusal.
 	it.each( [
@@ -120,7 +134,7 @@ describe( 'createConfirmer', () => {
 			consequence: 'PHP templates.',
 			declined: 'It is a block theme.',
 		};
-		expect( await createConfirmer( ask )( call ) ).toBe( refusal );
+		expect( await createConfirmer( ask )( call ) ).toEqual( { text: refusal } );
 		if ( ask ) {
 			expect( ask.mock.calls[ 0 ][ 0 ][ 0 ].options[ 1 ] ).toEqual( {
 				label: 'No',
@@ -140,7 +154,7 @@ describe( 'createConfirmer', () => {
 	it( 'does not run the call when the session cannot ask', async () => {
 		expect(
 			await createConfirmer( undefined )( describeDestructiveCall( 'site_push', push ) )
-		).toContain( 'cannot ask for it' );
+		).toMatchObject( { text: expect.stringContaining( 'cannot ask for it' ) } );
 	} );
 
 	it( 'asks one question at a time', async () => {

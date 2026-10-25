@@ -521,6 +521,16 @@ describe( 'pi runtime', () => {
 		expect( onAskUser ).toHaveBeenCalledTimes( 1 );
 	} );
 
+	it( 'ends the turn, without running the call, when the user closes its question', async () => {
+		const onAskUser = vi.fn().mockResolvedValue( {} );
+		await runRuntime( { prompt: 'hello', session: newSession(), env: WPCOM_ENV, onAskUser } );
+		const result = await getCreatedTool( 'site_delete' ).execute( 't', { nameOrPath: 'nope' } );
+		expect( result ).toMatchObject( {
+			content: [ { text: expect.stringContaining( 'The user closed without answering' ) } ],
+			terminate: true,
+		} );
+	} );
+
 	it( 'asks the user before a write starts a classic theme, and does not write it when declined', async () => {
 		const site = path.join( mocks.studioRoot, 'classic-site' );
 		fs.mkdirSync( path.join( site, 'wp-includes' ), { recursive: true } );

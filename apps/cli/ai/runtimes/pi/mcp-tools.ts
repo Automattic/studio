@@ -260,8 +260,15 @@ function createMcpTool(
 			const question = result.isError ? approval?.request( textOf( result.content ) ) : undefined;
 			if ( approval && question ) {
 				const declined = await confirm( question );
+				if ( declined?.endsTurn ) {
+					return {
+						content: [ { type: 'text', text: declined.text } ],
+						details: {},
+						terminate: true,
+					};
+				}
 				if ( declined ) {
-					throw new Error( declined );
+					throw new Error( declined.text );
 				}
 				result = await call( { ...args, [ approval.argument ]: true }, signal );
 			}

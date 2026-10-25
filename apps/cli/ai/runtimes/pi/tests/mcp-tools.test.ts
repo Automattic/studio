@@ -47,14 +47,21 @@ describe( 'MCP tools', () => {
 
 	it.each( [
 		{ answer: undefined, outcome: 'wrote 4' },
-		{ answer: 'Not run: the user answered "No"', outcome: /the user answered "No"/ },
+		{ answer: { text: 'Not run: the user answered "No"' }, outcome: /the user answered "No"/ },
+		{
+			answer: { text: 'Not run: the user closed without answering', endsTurn: true },
+			outcome: 'Not run: the user closed without answering',
+			terminate: true,
+		},
 	] )( 'sends an approval the server asks for only once the user gives it', async ( c ) => {
 		const confirm = vi.fn( async () => c.answer );
 		const tools = await toolsOf( confirm );
 		// The model cannot approve on the user's behalf.
 		const run = tools.shop_write.execute( 't', { id: '4', user_confirmed: true } );
 		if ( typeof c.outcome === 'string' ) {
-			expect( textOf( await run ) ).toBe( c.outcome );
+			const result = await run;
+			expect( textOf( result ) ).toBe( c.outcome );
+			expect( result.terminate ).toBe( c.terminate );
 		} else {
 			await expect( run ).rejects.toThrow( c.outcome );
 		}

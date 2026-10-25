@@ -1,4 +1,5 @@
 import { readFileSync } from 'fs';
+import { closedWithoutAnswering } from 'cli/ai/tools/ask-user-question';
 import type { AskUserHandler, AskUserQuestion } from 'cli/ai/types';
 
 // The harness asks the user before calls that need their yes, so the agent
@@ -117,9 +118,15 @@ export function describeDestructiveCall(
 	}
 }
 
+/** Why a call did not run; a question the user closed without answering ends the turn. */
+export interface Refusal {
+	text: string;
+	endsTurn?: boolean;
+}
+
 // Returns why the call did not run, or undefined once the user confirms (or
 // nothing needs confirming). Questions are asked one at a time.
-export type Confirmer = ( call: Confirmation | undefined ) => Promise< string | undefined >;
+export type Confirmer = ( call: Confirmation | undefined ) => Promise< Refusal | undefined >;
 
 export function createConfirmer( onAskUser: AskUserHandler | undefined ): Confirmer {
 	let queue: Promise< unknown > = Promise.resolve();
@@ -129,7 +136,9 @@ export function createConfirmer( onAskUser: AskUserHandler | undefined ): Confir
 		}
 		const then = call.declined ? ` ${ call.declined }` : '';
 		if ( ! onAskUser ) {
-			return `Not run: ${ call.question } needs the user's confirmation, and this session cannot ask for it.${ then }`;
+			return {
+				text: `Not run: ${ call.question } needs the user's confirmation, and this session cannot ask for it.${ then }`,
+			};
 		}
 		const question: AskUserQuestion = {
 			question: call.question,
@@ -141,11 +150,12 @@ export function createConfirmer( onAskUser: AskUserHandler | undefined ): Confir
 		};
 		const answer = queue.then( () => onAskUser( [ question ] ) );
 		queue = answer.catch( () => undefined );
-		const answers = await answer;
-		return answers[ call.question ] === CONFIRM
+		const given = ( await answer )[ call.question ]?.trim();
+		if ( ! given ) {
+			return { text: `Not run: ${ closedWithoutAnswering( [ call.question ] ) }`, endsTurn: true };
+		}
+		return given === CONFIRM
 			? undefined
-			: `Not run: the user answered "${ answers[ call.question ] ?? DECLINE }" to: ${
-					call.question
-			  }${ then }`;
+			: { text: `Not run: the user answered "${ given }" to: ${ call.question }${ then }` };
 	};
 }

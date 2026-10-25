@@ -222,20 +222,13 @@ export function useUpdateSite() {
 	const connector = useConnector();
 	const queryClient = useQueryClient();
 	return useMutation( {
+		// The refetch is awaited so the settings form, which re-seeds from the
+		// list once the save settles, never re-seeds from the pre-save site.
 		mutationFn: async ( { site, wpVersion }: UpdateSiteInput ) => {
 			await connector.updateSite( site, wpVersion );
-			// No invalidateQueries here: the site-updated event this edit
-			// emits makes `useSyncSitesWithEvents` refetch the list, so a
-			// refetch now would only duplicate it.
+			await queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } );
 		},
 		onSuccess: ( _data, { site, wpVersion } ) => {
-			// The settings form re-seeds from the list once the save settles, before
-			// the site-updated refetch lands: without the saved site it would show the
-			// pre-edit values again, and the next save would write them back.
-			queryClient.setQueryData< SiteDetails[] >(
-				SITES_QUERY_KEY,
-				( sites ) => sites?.map( ( cached ) => ( cached.id === site.id ? site : cached ) )
-			);
 			// Seed the applied version rather than refetching, which can still
 			// report the pre-edit version and flash it back into the form.
 			// `latest` is the auto-update mode, not a version, so there is

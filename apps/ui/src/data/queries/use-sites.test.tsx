@@ -10,7 +10,6 @@ import {
 	useStartSite,
 	useStopSite,
 	useSyncSitesWithEvents,
-	useUpdateSite,
 } from './use-sites';
 import type { Connector, SiteDetails } from '@/data/core';
 import type { ReactNode } from 'react';
@@ -242,29 +241,5 @@ describe( 'useSyncSitesWithEvents', () => {
 		await act( async () => pendingFetches[ 1 ]( [ createSite( {} ) ] ) );
 
 		await waitFor( () => expect( result.current.data?.[ 0 ].operation ).toBeUndefined() );
-	} );
-} );
-
-describe( 'useUpdateSite', () => {
-	it( 'lists the saved values without waiting for the site-updated refetch', async () => {
-		resetAppMessagesForTests();
-		const site = createSite( { name: 'My site' } );
-		useConnectorMock.mockReturnValue( {
-			getSites: vi.fn( () => Promise.resolve( [ site ] ) ),
-			updateSite: vi.fn( () => Promise.resolve() ),
-		} as unknown as Connector );
-		const queryClient = new QueryClient( { defaultOptions: { queries: { retry: false } } } );
-		const { result } = renderHook( () => ( { sites: useSites(), updateSite: useUpdateSite() } ), {
-			wrapper: ( { children }: { children: ReactNode } ) => (
-				<QueryClientProvider client={ queryClient }>{ children }</QueryClientProvider>
-			),
-		} );
-		await waitFor( () => expect( result.current.sites.data ).toEqual( [ site ] ) );
-
-		await act( () =>
-			result.current.updateSite.mutateAsync( { site: { ...site, name: 'Renamed' } } )
-		);
-
-		await waitFor( () => expect( result.current.sites.data?.[ 0 ].name ).toBe( 'Renamed' ) );
 	} );
 } );

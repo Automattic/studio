@@ -33,6 +33,7 @@ import {
 	writeThemeThumbnail,
 	type SiteFile,
 } from 'cli/ai/site-file-guards';
+import { themeJsonFileNotes } from 'cli/ai/theme-json-files';
 import type { BlockValidationGate } from 'cli/ai/block-validation-gate';
 
 type Notes = string[] | Promise< string[] >;
@@ -99,6 +100,7 @@ function sources( { stated = new Map(), gate }: SiteNotesOptions ): Sources {
 			writeThemeThumbnail,
 			blockMarkupNotes,
 			themeJsonNotes,
+			themeJsonFileNotes,
 			themeCssNotes,
 			externalImageNotes,
 			savedCopyNotes,

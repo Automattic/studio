@@ -2,7 +2,7 @@ import { sortSites } from '@studio/common/lib/sort-sites';
 import { useParams, useRouterState } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { clsx } from 'clsx';
-import { useMemo, useState, type ReactNode } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import { useSessionsNeedingInput } from '@/data/agent-runs/use-agent-run';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useSessions } from '@/data/queries/use-sessions';
@@ -29,7 +29,6 @@ import {
 	getListedSessions,
 	getSidebarCollections,
 	hasSeveralUnfoldedSites,
-	sortSitesByManualOrder,
 	type SiteRow,
 } from './sidebar-collections';
 import { SiteListGroup } from './sidebar-group';
@@ -66,14 +65,10 @@ export function SiteList( {
 		[ allSessions, activeSessionId ]
 	);
 	const activeSiteId = params.siteId;
-	const [ manualSiteOrder, setManualSiteOrder ] = useState< string[] >( [] );
 	const updateSitesSortOrder = useUpdateSitesSortOrder();
 	const { pins, chatOrder, showRecentChats, autoCollapseSites, save } = useSidebarPreferences();
 
-	const orderedSites = useMemo(
-		() => sortSitesByManualOrder( sortSites( [ ...( sites ?? [] ) ] ), manualSiteOrder ),
-		[ sites, manualSiteOrder ]
-	);
+	const orderedSites = useMemo( () => sortSites( [ ...( sites ?? [] ) ] ), [ sites ] );
 	const rows = useMemo(
 		() => createSiteRows( orderedSites, sessions ),
 		[ orderedSites, sessions ]
@@ -83,11 +78,10 @@ export function SiteList( {
 		[ activeSessionId, activeSiteId, pathname, rows ]
 	);
 	const activeSiteKey = activeChatSiteKey ?? activeContextSiteKey;
-	const persistOrder = ( nextSiteIds: string[] ) => {
-		setManualSiteOrder( nextSiteIds );
-		updateSitesSortOrder.mutate( nextSiteIds );
-	};
-	const { revealed, collapseAll, toggle } = useRevealedSites( activeSiteKey, autoCollapseSites );
+	const { revealed, collapseAll, fold, toggle } = useRevealedSites(
+		activeSiteKey,
+		autoCollapseSites
+	);
 
 	const { pinnedItems, siteRows, chatsBySite, needsInputChats, recentChats } =
 		getSidebarCollections( rows, sessions, {
@@ -143,7 +137,8 @@ export function SiteList( {
 				getItemId={ ( row ) => row.site.id }
 				getItemLabel={ ( row ) => row.site.name }
 				renderItem={ renderSiteRow }
-				onReorder={ persistOrder }
+				onReorder={ ( ids ) => updateSitesSortOrder.mutate( ids ) }
+				onDragStart={ ( row ) => fold( [ row.site.id ] ) }
 			/>
 		);
 	}
@@ -221,6 +216,7 @@ export function SiteList( {
 									: renderChat( item.session, item.siteName, itemProps )
 							}
 							onReorder={ ( sidebarPins ) => save( { sidebarPins } ) }
+							onDragStart={ ( item ) => item.row && fold( [ item.row.site.id ] ) }
 						/>
 					</SiteListGroup>
 				) : null }

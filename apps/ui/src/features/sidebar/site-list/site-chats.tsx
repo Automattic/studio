@@ -75,7 +75,7 @@ export function SiteChats( {
 		) : null;
 
 	return (
-		<CollapsiblePanel open={ open }>
+		<CollapsiblePanel open={ open } className={ styles.chatsPanel }>
 			<div
 				role="group"
 				aria-label={ sprintf(

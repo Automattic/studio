@@ -6,7 +6,7 @@ import styles from './style.module.css';
 export function SidebarReorderableList< T >(
 	props: Pick<
 		ReorderableListProps< T >,
-		'items' | 'getItemId' | 'getItemLabel' | 'renderItem' | 'onReorder' | 'children'
+		'items' | 'getItemId' | 'getItemLabel' | 'renderItem' | 'onReorder' | 'onDragStart' | 'children'
 	>
 ) {
 	return (

@@ -3,7 +3,7 @@ import { act } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getVisibleToasts, resetAppMessagesForTests, toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
-import { closeNoticeHistory, NoticeHistoryButton } from './index';
+import { closeNoticeHistory, NoticeHistoryButton, openNoticeHistory } from './index';
 
 vi.mock( '@/data/host/use-color-scheme', () => ( {
 	useColorScheme: () => 'light',
@@ -61,6 +61,43 @@ describe( 'NoticeHistory', () => {
 		fireEvent.click( screen.getByRole( 'button', { name: 'Clear all' } ) );
 		openHistory();
 		expect( screen.getByText( 'No notifications.' ) ).toBeInTheDocument();
+	} );
+
+	it( 'keeps the cleared notices on screen while the history closes', () => {
+		render( <NoticeHistoryButton /> );
+		act( () => {
+			toast.success( 'Site started' );
+		} );
+		openHistory();
+		// The popover stays mounted until its exit animation finishes.
+		Element.prototype.getAnimations = () => [ { finished: new Promise( () => {} ) } as Animation ];
+		try {
+			fireEvent.click( screen.getByRole( 'button', { name: 'Clear all' } ) );
+
+			expect( screen.getByText( 'Site started' ) ).toBeInTheDocument();
+			expect( screen.queryByText( 'No notifications.' ) ).not.toBeInTheDocument();
+		} finally {
+			delete ( Element.prototype as Partial< Element > ).getAnimations;
+		}
+	} );
+
+	it( 'opens from elsewhere once the sidebar has brought the bell into place', async () => {
+		const { container } = render( <NoticeHistoryButton /> );
+		let arrive = () => {};
+		const slide = {
+			effect: { target: container },
+			finished: new Promise< void >( ( resolve ) => ( arrive = resolve ) ),
+		};
+		document.getAnimations = () => [ slide as unknown as Animation ];
+		try {
+			act( () => openNoticeHistory() );
+			expect( screen.queryByText( 'No notifications.' ) ).not.toBeInTheDocument();
+
+			await act( async () => arrive() );
+			expect( screen.getByText( 'No notifications.' ) ).toBeInTheDocument();
+		} finally {
+			delete ( document as Partial< Document > ).getAnimations;
+		}
 	} );
 
 	it( 'dismisses one notice and its toast, keeping the rest', () => {

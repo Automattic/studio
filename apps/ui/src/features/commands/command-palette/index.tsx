@@ -20,7 +20,8 @@ import {
 	useSiteManagementActions,
 	getSiteUrl,
 } from '@/features/sites';
-import { isDialogOpen, isShortcut } from '@/lib/keyboard';
+import { isShortcut } from '@/lib/keyboard';
+import { replaceOpenDialogs } from '@/lib/ui';
 import { PaletteDialog, type PaletteProps } from './palette-dialog';
 import type { AiSessionSummary, SiteDetails } from '@/data/core';
 
@@ -41,17 +42,18 @@ export function CommandPalette( {
 	const open = useCommandPaletteOpen();
 	const commands = useAppCommands();
 
-	// Settings and Add site hand ⌘K over themselves; other dialogs keep it.
+	// Takes the place of a replaceable dialog (Settings, Add site); other dialogs keep ⌘K.
 	useEffect( () => {
 		const onKeyDown = ( event: KeyboardEvent ) => {
 			if ( event.defaultPrevented || event.repeat || ! isShortcut( event, 'k' ) ) {
 				return;
 			}
-			if ( ! open && isDialogOpen() ) {
-				return;
+			if ( open ) {
+				event.preventDefault();
+				setCommandPaletteOpen( false );
+			} else if ( replaceOpenDialogs( () => setCommandPaletteOpen( true ) ) ) {
+				event.preventDefault();
 			}
-			event.preventDefault();
-			setCommandPaletteOpen( ! open );
 		};
 		document.addEventListener( 'keydown', onKeyDown );
 		return () => document.removeEventListener( 'keydown', onKeyDown );

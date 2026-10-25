@@ -6,7 +6,12 @@
  * page sections that only work on the home page.
  *
  * Each problem is raised once, so the agent decides what to do with it: fix
- * it, or ask the user about one that needs their choice.
+ * it, or ask the user about one that needs their choice. A site's state is
+ * checked against the site as Studio first saw it in the session, so what
+ * the user's site already had is not raised as the turn's: in run 27 a site
+ * whose page template rendered no page content had its saved Site Editor
+ * styles lost to a child theme the agent made to fix that, after it had
+ * changed the background it was asked for.
  */
 import { readFile } from 'fs/promises';
 import path from 'path';
@@ -28,6 +33,9 @@ interface OpenProblemsState {
 
 export class OpenProblems {
 	private readonly state: OpenProblemsState = { sites: [], open: {}, raised: [] };
+	// Each site's problems as Studio first saw it, before the session changed
+	// it: the user's site as it was, not the session's to raise.
+	private readonly before = new Map< string, Promise< string[] > >();
 
 	constructor(
 		private readonly siteChecks: Array<
@@ -47,15 +55,33 @@ export class OpenProblems {
 		}
 	}
 
+	/** Notes a site's problems as they are, before a call that can change it. */
+	async see( site: string ): Promise< void > {
+		if ( ! this.before.has( site ) ) {
+			this.before.set( site, this.siteProblems( site ) );
+		}
+		await this.before.get( site );
+	}
+
+	private async siteProblems( site: string ): Promise< string[] > {
+		const problems = await Promise.all(
+			this.siteChecks.map( ( check ) => check( site ).catch( () => undefined ) )
+		);
+		return problems.flat().filter( ( problem ): problem is string => !! problem );
+	}
+
 	/** The open problems not raised before, which are raised now. */
 	async raise(): Promise< string[] > {
 		const siteProblems = await Promise.all(
-			this.state.sites.flatMap( ( site ) =>
-				this.siteChecks.map( ( check ) => check( site ).catch( () => undefined ) )
-			)
+			this.state.sites.map( async ( site ) => {
+				const before = ( await this.before.get( site ) ) ?? [];
+				return ( await this.siteProblems( site ) ).filter(
+					( problem ) => ! before.includes( problem )
+				);
+			} )
 		);
 		const problems = [ ...Object.values( this.state.open ), ...siteProblems.flat() ].filter(
-			( problem ): problem is string => !! problem && ! this.state.raised.includes( problem )
+			( problem ) => ! this.state.raised.includes( problem )
 		);
 		this.state.raised.push( ...problems );
 		return problems;

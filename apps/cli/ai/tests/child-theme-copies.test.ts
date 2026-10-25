@@ -94,7 +94,8 @@ it( 'reports a copy once, and keeps it open until it is changed or deleted', asy
 		record: ( _site: string, key: string, problem?: string ) => {
 			recorded.set( key, problem );
 		},
-	} as Pick< OpenProblems, 'record' > as OpenProblems;
+		see: async () => undefined,
+	} as Pick< OpenProblems, 'record' | 'see' > as OpenProblems;
 	const check = new SiteChanges( open, async () => [ site ], [ childThemeCopies ] );
 	const isOpen = () => [ ...recorded.values() ].some( Boolean );
 

@@ -84,6 +84,7 @@ export class SiteChanges {
 	/** Records each site it checks as it is now. */
 	async snapshot(): Promise< void > {
 		for ( const site of await this.sites() ) {
+			await this.open?.see( site.path );
 			for ( const source of this.sources ) {
 				const key = `${ source.name } ${ site.path }`;
 				this.snapshots.set( key, await source.read( site.path, this.snapshots.get( key ) ) );

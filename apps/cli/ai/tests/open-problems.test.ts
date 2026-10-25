@@ -5,7 +5,9 @@ import {
 	OpenProblems,
 	postsPageContent,
 } from 'cli/ai/open-problems';
+import { SiteChanges } from 'cli/ai/site-changes';
 import { createSite } from 'cli/ai/tests/fixtures/wordpress-site';
+import type { SiteData } from 'cli/lib/cli-config/core';
 
 describe( 'OpenProblems', () => {
 	it( 'raises each problem still open once, and the problems of the sites changed', async () => {
@@ -32,6 +34,22 @@ describe( 'OpenProblems', () => {
 
 		open.record( '/a', '/a/page-1', 'page 1 is still invalid' );
 		expect( await open.raise() ).toEqual( [ 'page 1 is still invalid' ] );
+	} );
+
+	it( 'raises only the problems a site did not have when Studio first saw it', async () => {
+		const state: Record< string, string[] > = { '/a': [ 'index.html renders no page content' ] };
+		const open = new OpenProblems( [ async ( site ) => state[ site ] ] );
+		const changes = new SiteChanges( open, async () => [ { path: '/a' } as SiteData ], [] );
+		await changes.snapshot();
+		state[ '/a' ] = [ ...state[ '/a' ], 'the menu links nowhere' ];
+		open.record( '/a', '/a/page-1' );
+		// A later call's snapshot leaves what the session's calls did the session's.
+		await changes.snapshot();
+		state[ '/a' ] = [ ...state[ '/a' ], 'the front page is the posts page' ];
+		expect( await open.raise() ).toEqual( [
+			'the menu links nowhere',
+			'the front page is the posts page',
+		] );
 	} );
 
 	it( "tags the problems as Studio's checks", () => {

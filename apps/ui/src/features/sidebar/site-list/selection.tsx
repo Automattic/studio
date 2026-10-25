@@ -6,7 +6,7 @@ import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { useSessionsBusy } from '@/data/agent-runs/use-agent-run';
 import { errorMessage, toast } from '@/data/app-messages';
 import { useSessions, useUpdateSessionMetadata } from '@/data/queries/use-sessions';
-import { useSidebarPins } from '@/data/queries/use-sidebar-pins';
+import { chatPinKey, useSidebarPins } from '@/data/queries/use-sidebar-pins';
 import { useSites } from '@/data/queries/use-sites';
 import { getArchiveBlockedReason, useLeaveArchivedChat } from '@/features/chats';
 import { useDeleteBlockedReason, DeleteSiteDialog } from '@/features/sites';
@@ -97,8 +97,9 @@ export function SidebarSelection( { children }: { children: ReactNode } ) {
 	}
 	function select( key: string, range: boolean, add = false ) {
 		const keys = [ ...new Set( rows().map( ( row ) => row.getAttribute( KEY_ATTRIBUTE )! ) ) ];
-		const current = keyOf( root.current?.querySelector( '[aria-current="page"]' ) ?? null );
-		const start = anchor.current ?? current;
+		// The open chat, not its site row, which is marked current along with it.
+		const current = params.sessionId ? chatPinKey( params.sessionId ) : null;
+		const start = anchor.current ?? ( current && keys.includes( current ) ? current : null );
 		if ( range ) {
 			const from = start ? keys.indexOf( start ) : -1;
 			const to = keys.indexOf( key );

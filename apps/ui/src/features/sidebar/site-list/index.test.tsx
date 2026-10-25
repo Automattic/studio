@@ -536,6 +536,42 @@ describe( 'SiteList', () => {
 		} );
 	} );
 
+	it( 'starts a ⌘/Ctrl-click selection from the open chat, never from its site', async () => {
+		useSessionsMock.mockReturnValue( {
+			data: [
+				createSession( {
+					id: 'new-chat',
+					firstPrompt: undefined,
+					ownerSitePath: '/Users/example/Studio/running-site',
+				} ),
+				createSession( {
+					id: 'chat-a',
+					firstPrompt: 'Make it blue',
+					ownerSitePath: '/Users/example/Studio/stopped-site',
+				} ),
+				createSession( {
+					id: 'chat-b',
+					firstPrompt: 'Add a menu',
+					ownerSitePath: '/Users/example/Studio/stopped-site',
+				} ),
+			],
+			isLoading: false,
+		} );
+		paramsMock = { sessionId: 'new-chat' };
+		pathnameMock = '/sessions/new-chat';
+
+		render( <SiteList sections /> );
+
+		const recent = screen.getByRole( 'group', { name: 'Recent' } );
+		fireEvent.click( within( recent ).getByText( 'Make it blue' ), { metaKey: true } );
+		fireEvent.click( within( recent ).getByText( 'Add a menu' ), { metaKey: true } );
+		expect( screen.getByText( '3 chats selected' ) ).toHaveAttribute( 'role', 'status' );
+
+		fireEvent.contextMenu( within( recent ).getByText( 'Add a menu' ) );
+		expect( await screen.findByRole( 'menuitem', { name: 'Archive 3 chats' } ) ).toBeVisible();
+		expect( screen.queryByRole( 'menuitem', { name: /Delete/ } ) ).not.toBeInTheDocument();
+	} );
+
 	it( 'moves chats waiting on an answer to Needs input, out of Recent and Pinned', () => {
 		needingInputMock = [ 'other-chat' ];
 		pinsMock = [ 'chat:other-chat' ];

@@ -116,6 +116,7 @@ import { DEFAULT_TERMINAL } from 'src/constants';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
 import { setPendingAuthContext } from 'src/lib/auth-tracks-context';
 import { bumpStat, getBlueprintMetric, StatsGroup } from 'src/lib/bump-stats';
+import { markDeeplinkListener } from 'src/lib/deeplink';
 import {
 	extractErrorFromProcessManagerLogs,
 	simplifyErrorForDisplay,
@@ -1263,6 +1264,10 @@ export async function showErrorMessageBox(
 
 export async function setupAppMenu() {
 	await setupMenu();
+}
+
+export function readyForDeeplinks( event: IpcMainInvokeEvent ) {
+	markDeeplinkListener( event.sender );
 }
 
 export async function popupAppMenu(

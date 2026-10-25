@@ -10,7 +10,6 @@ import { useAuthUser } from '@/data/queries/use-auth-user';
 import { useSessions } from '@/data/queries/use-sessions';
 import { useSites } from '@/data/queries/use-sites';
 import { getSections, isSiteSection, searchSettings } from '@/data/settings-sections';
-import { closeOnPaletteShortcut } from '@/data/use-command-palette';
 import {
 	AiPanel,
 	AppearanceSettings,
@@ -297,14 +296,13 @@ export function SettingsDialog() {
 	const current = getSections( scope, { signedIn } ).find( ( entry ) => entry.id === section )!;
 
 	return (
-		<Dialog open={ !! settings } onOpenChange={ ( isOpen ) => ! isOpen && close() }>
+		<Dialog replaceable open={ !! settings } onOpenChange={ ( isOpen ) => ! isOpen && close() }>
 			<DialogContent
 				layout="settings"
 				onInputCapture={ () => {
 					pendingExit.current = null;
 				} }
 				onKeyDown={ ( event ) => {
-					closeOnPaletteShortcut( close )( event );
 					const step = isKeyboardEvent.primary( event.nativeEvent, '[' )
 						? -1
 						: isKeyboardEvent.primary( event.nativeEvent, ']' )

@@ -196,7 +196,13 @@ export function getAppCommands( {
 			label: __( 'Show notifications' ),
 			icon: BellIcon,
 			aliases: [ __( 'Notifications' ) ],
-			run: openNotifications,
+			// The history opens from the bell in the sidebar.
+			run: () => {
+				if ( ! sidebarOpen ) {
+					toggleSidebar();
+				}
+				openNotifications();
+			},
 		},
 		{
 			id: 'whats-new',

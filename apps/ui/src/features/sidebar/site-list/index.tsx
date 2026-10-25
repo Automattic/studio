@@ -17,7 +17,7 @@ import {
 	type ReactElement,
 	type ReactNode,
 } from 'react';
-import { useSessionsNeedingInput, useSiteAgentActivity } from '@/data/queries/use-agent-run';
+import { useSessionsNeedingInput, useSiteAgentActivity } from '@/data/agent-runs/use-agent-run';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useSessions } from '@/data/queries/use-sessions';
 import {

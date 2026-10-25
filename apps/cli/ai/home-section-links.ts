@@ -10,9 +10,9 @@ import { getSiteByFolder, getSiteUrl } from 'cli/lib/cli-config/sites';
 
 // A post ID no site has, so WordPress renders its 404 template, which shows
 // the header and footer as every page does (WP_Query sets is_404).
-const NOT_FOUND = '?p=2147483647';
+export const NOT_FOUND = '?p=2147483647';
 
-async function render( url: string ): Promise< string | undefined > {
+export async function render( url: string ): Promise< string | undefined > {
 	const response = await fetch( url, { signal: AbortSignal.timeout( 10_000 ) } ).catch(
 		() => undefined
 	);

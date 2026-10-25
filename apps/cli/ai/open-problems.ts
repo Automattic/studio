@@ -15,6 +15,7 @@ import {
 	frontPageTemplateProblem,
 	rendersPageContent,
 } from 'cli/ai/front-page-template';
+import { headerMenu } from 'cli/ai/header-menu';
 import { homeSectionLinks } from 'cli/ai/home-section-links';
 import { readSavedCopies } from 'cli/ai/saved-copies';
 import { readWordPressSite } from 'cli/ai/site-database';
@@ -38,6 +39,7 @@ export class OpenProblems {
 			frontPageIsPostsPage,
 			postsPageContent,
 			homeSectionLinks,
+			headerMenu,
 		]
 	) {}
 

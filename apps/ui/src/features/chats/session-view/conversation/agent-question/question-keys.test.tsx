@@ -1,8 +1,8 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
+import { Conversation } from '@/features/chats/session-view/conversation';
 import { TooltipProvider } from '@/lib/ui';
-import { Conversation } from '.';
 import type { LoadedAiSession, SessionEntry } from '@/data/core';
 
 vi.mock( '@/data/core', () => ( { useConnector: () => ( {} ) } ) );

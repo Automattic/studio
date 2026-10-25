@@ -87,6 +87,7 @@ const api: IpcApi = {
 	showErrorMessageBox: ( options ) => ipcRendererSend( 'showErrorMessageBox', options ),
 	setupAppMenu: () => ipcRendererInvoke( 'setupAppMenu' ),
 	popupAppMenu: ( position ) => ipcRendererSend( 'popupAppMenu', position ),
+	readyForDeeplinks: () => ipcRendererSend( 'readyForDeeplinks' ),
 	getAbsolutePathFromSite: ( siteId, relativePath ) =>
 		ipcRendererInvoke( 'getAbsolutePathFromSite', siteId, relativePath ),
 	getConnectedWpcomSites: ( localSiteId ) =>
@@ -122,7 +123,6 @@ const api: IpcApi = {
 	getUserPreferences: () => ipcRendererInvoke( 'getUserPreferences' ),
 	setUserPreferences: ( patch ) => ipcRendererInvoke( 'setUserPreferences', patch ),
 	getOnboardingHints: () => ipcRendererInvoke( 'getOnboardingHints' ),
-	consumePendingSettingsLink: () => ipcRendererInvoke( 'consumePendingSettingsLink' ),
 	saveOnboardingHints: ( partial ) => ipcRendererInvoke( 'saveOnboardingHints', partial ),
 	comparePaths: ( path1, path2 ) => ipcRendererInvoke( 'comparePaths', path1, path2 ),
 	listLocalFileTree: ( siteId, path, maxDepth ) =>

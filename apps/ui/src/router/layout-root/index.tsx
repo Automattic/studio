@@ -33,6 +33,14 @@ function AiCreditsPurchaseResult() {
 	return null;
 }
 
+// After the link listeners above. The host's reply crosses IPC, so listeners
+// mounted higher up in the same commit are subscribed by then too.
+function DeeplinkListenersReady() {
+	const connector = useConnector();
+	useEffect( () => connector.readyForDeeplinks?.(), [ connector ] );
+	return null;
+}
+
 /**
  * Sends the user to the root — which lands on the next available site — when
  * the site they're looking at is deleted from outside the app (`studio site
@@ -113,6 +121,7 @@ export const rootRoute = createRootRouteWithContext< RouterContext >()( {
 		<SessionUIProvider>
 			<AppMenuNavigation />
 			<AiCreditsPurchaseResult />
+			<DeeplinkListenersReady />
 			<DeletedSiteRedirect />
 			<WapuuWorldMount />
 			<Outlet />

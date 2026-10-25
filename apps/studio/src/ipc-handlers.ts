@@ -116,7 +116,7 @@ import { DEFAULT_TERMINAL } from 'src/constants';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
 import { setPendingAuthContext } from 'src/lib/auth-tracks-context';
 import { bumpStat, getBlueprintMetric, StatsGroup } from 'src/lib/bump-stats';
-import { takePendingSettingsLink } from 'src/lib/deeplink/handlers/settings';
+import { markDeeplinkListener } from 'src/lib/deeplink';
 import {
 	extractErrorFromProcessManagerLogs,
 	simplifyErrorForDisplay,
@@ -1266,6 +1266,10 @@ export async function setupAppMenu() {
 	await setupMenu();
 }
 
+export function readyForDeeplinks( event: IpcMainInvokeEvent ) {
+	markDeeplinkListener( event.sender );
+}
+
 export async function popupAppMenu(
 	_event: IpcMainInvokeEvent,
 	position?: { x: number; y: number }
@@ -1471,9 +1475,3 @@ export async function goToWebviewNavigationHistoryEntry(
 }
 
 export { showTextContextMenu } from 'src/text-context-menu';
-
-export async function consumePendingSettingsLink(
-	_event: IpcMainInvokeEvent
-): Promise< string | null > {
-	return takePendingSettingsLink();
-}

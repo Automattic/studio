@@ -752,6 +752,10 @@ export function createIpcConnector(): Connector {
 			await ipcApi.saveWapuuScore( score );
 		},
 
+		readyForDeeplinks() {
+			ipcApi.readyForDeeplinks();
+		},
+
 		async popupAppMenu( position: { x: number; y: number } ): Promise< void > {
 			ipcApi.popupAppMenu( position );
 		},
@@ -875,19 +879,10 @@ export function createIpcConnector(): Connector {
 		onOpenSettings( listener ) {
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			const ipcListener = ( window as any ).ipcListener;
-			// A link's setting is taken from main, so a link that came before this
-			// subscription opens once, whichever of the two reaches it first.
-			const openLink = async () => {
-				const settingId = await ipcApi.consumePendingSettingsLink();
-				if ( settingId ) {
-					listener( { settingId } );
-				}
-			};
-			void openLink();
 			return ipcListener.subscribe(
 				'user-settings',
 				( _event: unknown, target?: { settingId?: string } ) =>
-					target?.settingId ? void openLink() : listener( {} )
+					listener( { settingId: target?.settingId } )
 			);
 		},
 

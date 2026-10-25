@@ -82,11 +82,13 @@ export const AssistantText = memo( function AssistantText( {
 	text,
 	messageText,
 	copyText,
+	streaming,
 	...joined
 }: {
 	text: string;
 	messageText: string;
 	copyText?: string;
+	streaming?: boolean;
 } & Joined ) {
 	return (
 		<div
@@ -98,7 +100,7 @@ export const AssistantText = memo( function AssistantText( {
 			} }
 		>
 			<div className={ styles.assistantBubble }>
-				<Markdown>{ text }</Markdown>
+				<Markdown streaming={ streaming }>{ text }</Markdown>
 			</div>
 			{ copyText ? (
 				<CopyButton

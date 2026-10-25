@@ -850,6 +850,25 @@ describe( 'SessionView', () => {
 			expect( spacer ).toHaveStyle( { height: '0px' } );
 			expect( scroller.scrollTop ).toBe( 1800 );
 		} );
+
+		it( 'stops following the moment the user scrolls up while a reply streams', async () => {
+			useSessionMock.mockReturnValue( withPromptsAt( 0 ) );
+			const { container, rerender } = render( <SessionView sessionId="session-1" /> );
+			const scroller = container.querySelector( '[class*="_scroll_"]' ) as HTMLDivElement;
+			layoutAt( scroller, { scrollHeight: 1800 } );
+			useSessionMock.mockReturnValue( withPromptsAt( 0, 700 ) );
+			rerender( <SessionView sessionId="session-1" /> );
+			expect( scroller.scrollTop ).toBe( 1800 );
+
+			fireEvent.wheel( scroller, { deltaY: -40 } );
+			layoutAt( scroller, { scrollHeight: 3000 } );
+			scroller.scrollTop = 1800;
+			useSessionMock.mockReturnValue( withPromptsAt( 0, 700 ) );
+			rerender( <SessionView sessionId="session-1" /> );
+
+			expect( scroller.scrollTop ).toBe( 1800 );
+			await waitFor( () => expect( jumpButton() ).toHaveAttribute( 'data-visible' ) );
+		} );
 	} );
 
 	it( 'starts a stopped site on send only when auto-start is on', async () => {

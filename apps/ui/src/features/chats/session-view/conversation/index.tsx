@@ -166,6 +166,7 @@ export const Conversation = memo( function Conversation( {
 								text={ item.text }
 								messageText={ item.messageText }
 								copyText={ item.copyText }
+								streaming={ item.streaming }
 								{ ...joined }
 							/>
 						);

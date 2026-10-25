@@ -10,6 +10,7 @@ import {
 	type StudioCustomEntry,
 } from '@studio/common/ai/sessions/entry-types';
 import { getToolResultDiff, type NormalizedToolResult } from '@studio/common/ai/tools';
+import { isStreamingReply } from '@/data/agent-runs/streaming-reply';
 import type { SessionEntry } from '@earendil-works/pi-coding-agent';
 import type { StudioVisualAnnotationSummary } from '@studio/common/ai/visual-annotations';
 
@@ -29,7 +30,14 @@ type RenderItem =
 			attachments?: StudioChatAttachmentSummary[];
 			annotation?: StudioVisualAnnotationSummary;
 	  }
-	| { kind: 'assistant-text'; key: string; text: string; messageText: string; copyText?: string }
+	| {
+			kind: 'assistant-text';
+			key: string;
+			text: string;
+			messageText: string;
+			copyText?: string;
+			streaming?: boolean;
+	  }
 	| {
 			kind: 'tool-use';
 			key: string;
@@ -227,6 +235,7 @@ export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 							text,
 							messageText: fullMessageText,
 							copyText: block === lastTextBlock ? fullMessageText : undefined,
+							streaming: isStreamingReply( entry ) || undefined,
 						} );
 					}
 				} else if (

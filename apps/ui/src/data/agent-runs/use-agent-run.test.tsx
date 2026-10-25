@@ -612,4 +612,40 @@ describe( 'useAgentRun queued handoff', () => {
 		await waitFor( () => expect( connector.answerAgentQuestion ).toHaveBeenCalled() );
 		await waitFor( () => expect( screen.getByTestId( 'questions' ) ).toHaveTextContent( 'Q1' ) );
 	} );
+
+	it( 'streams a reply into one entry, holding back tool calls until it ends', async () => {
+		const queryClient = createQueryClient();
+		const key = [ ...SESSIONS_QUERY_KEY, 'session-1' ];
+		queryClient.setQueryData< LoadedAiSession >( key, createLoadedSession() );
+		renderWithAgentRun( queryClient );
+		await waitFor( () => expect( connector.onAgentEvent ).toHaveBeenCalled() );
+
+		const text = ( value: string ) => ( { type: 'text', text: value } );
+		const toolCall = { type: 'toolCall', id: 'call-1', name: 'Edit', arguments: {} };
+		const emit = ( type: 'message_update' | 'message_end', content: unknown[] ) =>
+			act( () =>
+				agentListener( {
+					sessionId: 'session-1',
+					runId: 'run-1',
+					event: {
+						type: 'message',
+						timestamp: '2026-06-24T12:00:00.000Z',
+						message: { type, message: { role: 'assistant', content } },
+					},
+				} as unknown as AgentRunEvent )
+			);
+		const contents = () =>
+			queryClient
+				.getQueryData< LoadedAiSession >( key )!
+				.entries.map( ( entry ) => ( entry as { message: { content: unknown } } ).message.content );
+
+		emit( 'message_update', [ text( 'Upd' ) ] );
+		emit( 'message_update', [ text( 'Updating' ) ] );
+		emit( 'message_update', [ text( 'Updating the header' ), toolCall ] );
+		expect( contents() ).toEqual( [ [ text( 'Upd' ) ] ] );
+		await waitFor( () => expect( contents() ).toEqual( [ [ text( 'Updating the header' ) ] ] ) );
+
+		emit( 'message_end', [ text( 'Updating the header.' ), toolCall ] );
+		expect( contents() ).toEqual( [ [ text( 'Updating the header.' ), toolCall ] ] );
+	} );
 } );

@@ -6,6 +6,7 @@ import { useConnector } from '@/data/core';
 import { CopyButton } from '@/features/chats/copy-button';
 import { CODE_TEXT_ATTRIBUTE } from '@/features/chats/use-text-context-menu';
 import { CodeBlock } from '@/lib/ui';
+import { closeOpenMarkdown, splitMarkdownBlocks } from './blocks';
 import styles from './style.module.css';
 import type { MouseEvent, ReactNode } from 'react';
 import type { Components } from 'react-markdown';
@@ -87,7 +88,28 @@ const baseComponents: Components = {
 
 const remarkPlugins = [ remarkGfm ];
 
-export const Markdown = memo( function Markdown( { children }: { children: string } ) {
+const MarkdownBlock = memo( function MarkdownBlock( {
+	text,
+	components,
+}: {
+	text: string;
+	components: Components;
+} ) {
+	return (
+		<ReactMarkdown remarkPlugins={ remarkPlugins } components={ components }>
+			{ text }
+		</ReactMarkdown>
+	);
+} );
+
+// Renders block by block, so a streaming reply re-parses only its last block.
+export const Markdown = memo( function Markdown( {
+	children,
+	streaming = false,
+}: {
+	children: string;
+	streaming?: boolean;
+} ) {
 	const connector = useConnector();
 
 	const components = useMemo< Components >( () => {
@@ -118,11 +140,16 @@ export const Markdown = memo( function Markdown( { children }: { children: strin
 		};
 	}, [ connector ] );
 
+	const blocks = splitMarkdownBlocks( children );
 	return (
 		<div className={ styles.root }>
-			<ReactMarkdown remarkPlugins={ remarkPlugins } components={ components }>
-				{ children }
-			</ReactMarkdown>
+			{ blocks.map( ( block, index ) => (
+				<MarkdownBlock
+					key={ index }
+					text={ streaming && index === blocks.length - 1 ? closeOpenMarkdown( block ) : block }
+					components={ components }
+				/>
+			) ) }
 		</div>
 	);
 } );

@@ -68,6 +68,7 @@ export function useAnchoredScroll( {
 		holding: false,
 		heldTop: 0,
 		heldAt: 0,
+		lastTop: 0,
 	} );
 
 	const settle = useCallback( () => {
@@ -93,6 +94,7 @@ export function useAnchoredScroll( {
 				holding: !! last,
 				heldTop: 0,
 				heldAt: 0,
+				lastTop: 0,
 			};
 			spacer.style.height = '0px';
 		}
@@ -132,6 +134,13 @@ export function useAnchoredScroll( {
 		const onScroll = () => {
 			const away = isScrolledAwayFromLatest( scrollNode );
 			const state = stateRef.current;
+			// Any step up stops following, before the view is far enough from the
+			// end to count as away; a streaming reply would pull it back otherwise.
+			// The browser clamping at the end isn't the user.
+			const top = scrollNode.scrollTop;
+			const movedUp =
+				top < state.lastTop && top < scrollNode.scrollHeight - scrollNode.clientHeight - 1;
+			state.lastTop = top;
 			// Find in page or keyboard scrolling moves the view without the
 			// events below, and the prompt moves with the scroll. Scroll anchoring
 			// and late layout above it move one without the other.
@@ -146,12 +155,22 @@ export function useAnchoredScroll( {
 				return;
 			}
 			state.jumping = false;
-			state.following = ! away;
+			state.following = ! away && ! movedUp;
 			setIsScrolledAway( away );
 		};
 		const listening = new AbortController();
 		const options = { passive: true, signal: listening.signal };
 		scrollNode.addEventListener( 'scroll', onScroll, options );
+		// A wheel turn up lands before its smooth scroll does.
+		scrollNode.addEventListener(
+			'wheel',
+			( event ) => {
+				if ( event.deltaY < 0 ) {
+					stateRef.current.following = false;
+				}
+			},
+			options
+		);
 		for ( const type of [ 'wheel', 'touchmove', 'keydown', 'pointerdown' ] ) {
 			scrollNode.addEventListener(
 				type,

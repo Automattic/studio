@@ -21,8 +21,8 @@ const connectorMocks = vi.hoisted( () => ( {
 
 const reducedMotion = vi.hoisted( () => ( { value: false } ) );
 
-vi.mock( '@wordpress/compose', async ( importOriginal ) => ( {
-	...( await importOriginal< typeof import('@wordpress/compose') >() ),
+vi.mock( '@/lib/hooks', async ( importOriginal ) => ( {
+	...( await importOriginal< typeof import('@/lib/hooks') >() ),
 	useReducedMotion: () => reducedMotion.value,
 } ) );
 

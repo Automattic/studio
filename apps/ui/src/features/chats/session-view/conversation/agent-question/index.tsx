@@ -1,4 +1,3 @@
-import { useReducedMotion } from '@wordpress/compose';
 import { __, sprintf } from '@wordpress/i18n';
 import { clsx } from 'clsx';
 import { useEffect, useRef, useState } from 'react';
@@ -9,6 +8,7 @@ import {
 } from '@/features/chats/session-view/conversation/agent-question/agent-question';
 import { scrollElementIntoViewIfNeeded } from '@/features/chats/session-view/conversation/agent-question/scroll-into-view';
 import { joinedAttributes, type Joined } from '@/features/chats/session-view/conversation/joined';
+import { useReducedMotion } from '@/lib/hooks';
 import styles from './style.module.css';
 import type { AgentQuestionRenderItem } from '@/features/chats/session-view/conversation/transcript-items';
 

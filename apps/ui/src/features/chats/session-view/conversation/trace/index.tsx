@@ -2,7 +2,7 @@ import { __, sprintf } from '@wordpress/i18n';
 import { clsx } from 'clsx';
 import { ChevronRightIcon, CircleAlertIcon, CircleCheckIcon, CircleStopIcon } from 'lucide-react';
 import { useEffect, useId, useState, type ComponentProps } from 'react';
-import { getClassicToolDisplay } from '@/features/chats/session-view/conversation/trace/tool-display';
+import { getToolDisplay } from '@/features/chats/session-view/conversation/trace/tool-display';
 import { CodeBlock, CollapsiblePanel, Spinner } from '@/lib/ui';
 import styles from './style.module.css';
 import type { TurnActivity } from '@/features/chats/session-view/conversation/transcript-items';
@@ -28,7 +28,7 @@ export function ToolUseRow( {
 	result?: NormalizedToolResult;
 	isRunning: boolean;
 } ) {
-	const display = getClassicToolDisplay( name, input );
+	const display = getToolDisplay( name, input );
 	const detailsId = useId();
 	const resultText = result?.text?.trim() ?? '';
 	const hasOutput = resultText.length > 0;

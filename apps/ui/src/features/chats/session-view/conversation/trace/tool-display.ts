@@ -3,7 +3,7 @@ import { __ } from '@wordpress/i18n';
 
 const TOOL_DETAIL_MAX_LENGTH = 96;
 
-interface ClassicToolDisplay {
+interface ToolDisplay {
 	label: string;
 	detail: string;
 	inputText: string;
@@ -24,10 +24,7 @@ function stringifyToolInput( input: Record< string, unknown > ): string {
 	}
 }
 
-function getClassicToolInputText(
-	name: string,
-	input: Record< string, unknown > | undefined
-): string {
+function getToolInputText( name: string, input: Record< string, unknown > | undefined ): string {
 	if ( ! input || Object.keys( input ).length === 0 ) {
 		return '';
 	}
@@ -44,15 +41,15 @@ function getClassicToolInputText(
 	return stringifyToolInput( input );
 }
 
-export function getClassicToolDisplay(
+export function getToolDisplay(
 	name: string,
 	input: Record< string, unknown > | undefined
-): ClassicToolDisplay {
+): ToolDisplay {
 	const genericDetail = getToolDetail( name, input );
-	const display: ClassicToolDisplay = {
+	const display: ToolDisplay = {
 		label: getToolDisplayName( name, input ),
 		detail: genericDetail,
-		inputText: getClassicToolInputText( name, input ),
+		inputText: getToolInputText( name, input ),
 	};
 
 	switch ( name ) {

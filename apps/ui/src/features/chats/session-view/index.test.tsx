@@ -105,7 +105,7 @@ vi.mock( '@/data/core', async ( importOriginal ) => ( {
 	useConnector: () => connectorMock,
 } ) );
 
-vi.mock( '@/data/queries/use-agent-run', () => ( {
+vi.mock( '@/data/agent-runs/use-agent-run', () => ( {
 	useAgentRun: () => ( {
 		isRunning: false,
 		hasActiveRun: agentRunState.hasActiveRun,

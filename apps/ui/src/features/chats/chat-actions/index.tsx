@@ -7,8 +7,8 @@ import { __ } from '@wordpress/i18n';
 import { displayShortcut } from '@wordpress/keycodes';
 import { MaximizeIcon } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
+import { useSessionsBusy, useSiteAgentActivity } from '@/data/agent-runs/use-agent-run';
 import { errorMessage, toast } from '@/data/app-messages';
-import { useSessionsBusy, useSiteAgentActivity } from '@/data/queries/use-agent-run';
 import { useSessions, useUpdateSessionMetadata } from '@/data/queries/use-sessions';
 import {
 	chatPinKey,

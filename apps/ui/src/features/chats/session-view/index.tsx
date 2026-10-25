@@ -20,10 +20,10 @@ import {
 	type ReactNode,
 	type Ref,
 } from 'react';
+import { useAgentRun } from '@/data/agent-runs/use-agent-run';
 import { toast } from '@/data/app-messages';
 import { useTrafficLightSpace } from '@/data/host/use-traffic-light-space';
 import { useWindowControlsInset } from '@/data/host/use-window-controls-inset';
-import { useAgentRun } from '@/data/queries/use-agent-run';
 import { useAiSettings } from '@/data/queries/use-ai-settings';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
 import { useAuthUser } from '@/data/queries/use-auth-user';

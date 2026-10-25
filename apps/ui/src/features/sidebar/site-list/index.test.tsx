@@ -1,8 +1,8 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { useSiteAgentActivity } from '@/data/agent-runs/use-agent-run';
 import { getVisibleToasts, resetAppMessagesForTests } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
-import { useSiteAgentActivity } from '@/data/queries/use-agent-run';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useSessions } from '@/data/queries/use-sessions';
 import {
@@ -73,7 +73,7 @@ vi.mock( '@/data/queries/use-sidebar-pins', async ( importOriginal ) => ( {
 	useSidebarPreferences: () => ( { pins: pinsMock, ...sidebarPreferencesMock, save: saveSidebar } ),
 } ) );
 
-vi.mock( '@/data/queries/use-agent-run', () => ( {
+vi.mock( '@/data/agent-runs/use-agent-run', () => ( {
 	useSiteAgentActivity: vi.fn(),
 	useSessionsNeedingInput: () => needingInputMock,
 	useSessionsBusy: ( ids: string[] ) => ids.some( ( id ) => busySessionsMock.includes( id ) ),

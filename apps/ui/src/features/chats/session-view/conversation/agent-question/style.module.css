@@ -1,0 +1,320 @@
+.questionCard[data-joined-above] {
+	border-start-start-radius: var(--radius-sm);
+}
+
+.questionCard[data-joined-below] {
+	border-end-start-radius: var(--radius-sm);
+}
+
+.questionBatch {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-1);
+	overflow-anchor: none;
+}
+
+.questionBatchStep {
+	animation: questionBatchStepEnter var(--motion-duration-feedback) ease-out;
+}
+
+.questionBatchStep[data-state='answered'] {
+	animation: none;
+}
+
+.questionBatchStep:focus {
+	outline: none;
+}
+
+.questionBatchStep[data-state='answered'] .questionProgress {
+	animation: questionAnsweredElementFade var(--motion-duration-surface) ease-out forwards;
+}
+
+.questionCard {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-4);
+	width: 100%;
+	padding: var(--space-4);
+	border-radius: var(--radius-2xl);
+	background-color: var(--muted);
+}
+
+/* The card is a muted surface, so the rows inside it step up a shade. */
+.questionCard > * {
+	--muted: var(--surface-3);
+}
+
+.questionText {
+	color: var(--foreground);
+	font-weight: var(--font-weight-medium);
+	line-height: var(--leading-snug);
+	text-wrap: pretty;
+}
+
+.questionProgress {
+	color: var(--muted-foreground);
+	font-weight: var(--font-weight-medium);
+	font-variant-numeric: tabular-nums;
+}
+
+.questionHint,
+.questionChoiceDescription {
+	color: var(--muted-foreground);
+}
+
+.questionSummary {
+	text-align: start;
+	cursor: pointer;
+}
+
+.questionSummary:is(:hover, :focus-visible) .questionAnswer {
+	background-color: var(--hover);
+}
+
+.questionSummary:focus-visible {
+	outline: var(--focus-width) solid var(--ring);
+	outline-offset: 2px;
+}
+
+.questionAnswer {
+	display: flex;
+	align-items: center;
+	gap: var(--space-1_5);
+	min-height: 36px;
+	padding: var(--space-1_5) var(--space-2);
+	border-radius: var(--radius-md);
+	color: var(--muted-foreground);
+}
+
+.questionAnswerLabel {
+	flex: 1;
+	min-width: 0;
+}
+
+.questionAnswer svg,
+.questionChoice > svg {
+	flex: none;
+}
+
+.questionLetter {
+	display: inline-flex;
+	flex: none;
+	align-items: center;
+	justify-content: center;
+	width: 24px;
+	height: 24px;
+	border-radius: var(--radius-sm);
+	background-color: var(--border);
+	color: var(--foreground);
+	font-family: var(--font-mono);
+	font-size: var(--text-sm);
+	font-weight: var(--font-weight-medium);
+	line-height: var(--leading-none);
+}
+
+.questionChoices {
+	display: grid;
+	margin-inline-start: calc(var(--space-2) * -1);
+}
+
+.questionChoiceItem {
+	position: relative;
+	min-width: 0;
+}
+
+.questionChoice {
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+	width: 100%;
+	min-height: 36px;
+	padding: var(--space-2);
+	border-radius: var(--radius-md);
+	color: var(--foreground);
+	text-align: start;
+	cursor: pointer;
+}
+
+.questionChoice:hover:not(:disabled),
+.questionChoice[aria-pressed='true'] {
+	background-color: var(--hover);
+}
+
+.questionChoice:focus-visible {
+	outline: none;
+	box-shadow: inset 0 0 0 2px var(--ring);
+}
+
+.questionChoice:disabled {
+	opacity: 0.5;
+	cursor: default;
+}
+
+.questionChoice[aria-pressed='true']:disabled {
+	opacity: 1;
+}
+
+.questionChoiceLabel {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	gap: var(--space-0_5);
+	min-width: 0;
+	line-height: var(--leading-snug);
+}
+
+.questionChoiceFreeForm .questionChoiceLabel > :first-child {
+	color: var(--muted-foreground);
+}
+
+.questionChoices[data-layout='grid'] {
+	grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+	gap: var(--space-1);
+}
+
+.questionChoices[data-layout='grid'] .questionChoiceItem[data-wide='true'] {
+	grid-column: 1 / -1;
+}
+
+.questionChoice[data-has-image='true'] {
+	flex-wrap: wrap;
+	align-content: flex-start;
+	height: 100%;
+}
+
+.questionOptionImage,
+.questionOptionImageLoading,
+.questionOptionImageUnavailable {
+	display: block;
+	flex-basis: 100%;
+	width: 100%;
+	aspect-ratio: 4 / 3;
+	border-radius: var(--radius-lg);
+	background-color: var(--background);
+}
+
+.questionOptionImage {
+	object-fit: cover;
+	object-position: top;
+}
+
+.questionOptionImageLoading {
+	background-image: linear-gradient(
+		90deg,
+		transparent,
+		var(--border),
+		transparent
+	);
+	background-size: 200% 100%;
+	animation: questionOptionImageLoading 1.2s ease-in-out infinite;
+}
+
+.questionOptionImageUnavailable {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	color: var(--muted-foreground);
+	font-size: var(--text-xxs);
+}
+
+.questionOptionZoom {
+	position: absolute;
+	top: var(--space-4);
+	inset-inline-end: var(--space-4);
+	box-shadow: var(--shadow-raised);
+}
+
+.questionOptionZoomPopup {
+	width: fit-content;
+	max-width: none;
+	padding: 0;
+	overflow: hidden;
+	border-radius: var(--radius-lg);
+}
+
+.questionOptionZoomImage {
+	max-width: calc(100vw - 2 * 24px);
+	max-height: calc(100dvh - 2 * 24px);
+}
+
+.questionOptionZoomClose,
+.questionOptionZoomStep {
+	position: absolute;
+	box-shadow: var(--shadow-raised);
+}
+
+.questionOptionZoom,
+.questionOptionZoomClose,
+.questionOptionZoomStep {
+	--button-background: var(--chat);
+}
+
+.questionOptionZoomClose {
+	top: var(--space-2);
+	inset-inline-end: var(--space-2);
+}
+
+.questionOptionZoomStep {
+	top: 50%;
+	translate: 0 -50%;
+}
+
+.questionOptionZoomPrevious {
+	inset-inline-start: var(--space-2);
+}
+
+.questionOptionZoomNext {
+	inset-inline-end: var(--space-2);
+}
+
+.questionOptionZoomChoose {
+	position: absolute;
+	inset-inline: 0;
+	bottom: var(--space-3);
+	width: fit-content;
+	margin-inline: auto;
+	box-shadow: var(--shadow-raised);
+}
+
+.questionCard[data-state='folding'] .questionChoiceItem:not([data-picked='true']) {
+	animation: questionAnsweredElementFade var(--motion-duration-surface) ease-out forwards;
+}
+
+@keyframes questionBatchStepEnter {
+	from {
+		opacity: 0;
+	}
+
+	to {
+		opacity: 1;
+	}
+}
+
+@keyframes questionAnsweredElementFade {
+	from {
+		opacity: 1;
+	}
+
+	to {
+		opacity: 0.38;
+	}
+}
+
+@keyframes questionOptionImageLoading {
+	from {
+		background-position: 200% 0;
+	}
+
+	to {
+		background-position: -200% 0;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.questionBatchStep,
+	.questionBatchStep[data-state='answered'] .questionProgress,
+	.questionCard[data-state='folding'] .questionChoiceItem:not([data-picked='true']),
+	.questionOptionImageLoading {
+		animation: none;
+	}
+}

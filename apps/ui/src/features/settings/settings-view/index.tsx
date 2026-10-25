@@ -104,7 +104,6 @@ function DefaultSiteDirectoryRow( {
 						event.preventDefault();
 						if ( directory && directory !== value ) {
 							onSave( directory );
-							setDraft( null );
 						}
 					} }
 				>
@@ -470,6 +469,7 @@ export function InstructionsSettings( { onManageSite }: { onManageSite?: () => v
 							</SettingsSectionLink>
 						) : null
 					}
+					error={ setEnabled.error?.message }
 				>
 					<SettingsToggle
 						label={ __( 'Agent instructions' ) }

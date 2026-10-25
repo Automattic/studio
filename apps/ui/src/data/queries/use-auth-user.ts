@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useIsMutating, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { __ } from '@wordpress/i18n';
 import { useCallback, useEffect, useRef } from 'react';
 import { toast } from '@/data/app-messages';
@@ -65,10 +65,15 @@ export function useLogin( {
 } ) {
 	const connector = useConnector();
 	const queryClient = useQueryClient();
-	return useMutation( {
+	const mutationKey = [ 'authenticate', signup ? 'signup' : 'login' ];
+	const login = useMutation( {
+		mutationKey,
 		mutationFn: () => connector.authenticate( signup, source ),
 		onSuccess: () => queryClient.invalidateQueries( { queryKey: AUTH_USER_QUERY_KEY } ),
 	} );
+	// A login outlives the prompt that started it, so one opened meanwhile waits for it.
+	const running = useIsMutating( { mutationKey } ) > 0;
+	return { ...login, isPending: login.isPending || running };
 }
 
 export function useLogout() {

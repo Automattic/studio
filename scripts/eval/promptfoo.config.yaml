@@ -10,10 +10,10 @@
 
 description: Studio Code agent evaluation
 
-# Each case creates its sites in its own folder, but two cases starting sites at
-# the same moment can still pick the same free port.
+# Each case creates its sites in its own folder and gives them ports from a
+# range of its own (eval-port-range.ts), so cases run side by side.
 evaluateOptions:
-  maxConcurrency: 1
+  maxConcurrency: 4
 
 providers:
   - id: exec:node ../../apps/cli/dist/cli/eval-runner.mjs

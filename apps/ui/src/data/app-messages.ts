@@ -6,7 +6,7 @@ import type { Connector } from '@/data/core';
 // use-app-messages so the update hooks can reset it without an import cycle.
 export const DISMISSED_MESSAGES_QUERY_KEY = [ 'dismissed-messages' ] as const;
 
-export type ToastIntent = 'success' | 'info' | 'error';
+type ToastIntent = 'success' | 'info' | 'error';
 
 export type ToastAction = {
 	label: string;

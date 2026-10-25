@@ -109,6 +109,13 @@ export function DeleteSiteDialog( {
 							  ) }
 					</DialogDescription>
 				</DialogHeader>
+				{ count > 1 ? (
+					<ul className={ styles.sites }>
+						{ sites.map( ( site ) => (
+							<li key={ site.id }>{ site.name }</li>
+						) ) }
+					</ul>
+				) : null }
 				<Field orientation="horizontal">
 					<Checkbox
 						id={ deleteFilesId }

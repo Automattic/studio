@@ -12,7 +12,7 @@ For a feature core blocks do not cleanly provide, use the recommended plugin's o
 | To sell products — shop, store, storefront, catalog, prices | WooCommerce | `woocommerce` |
 | Contact, feedback, or multi-field forms | Jetpack Forms | `jetpack`, `contact-form` module |
 | Email newsletter, subscribe form | Jetpack Newsletter | `jetpack`, `subscriptions` module |
-| Slideshow, carousel, tiled gallery, related posts, business hours, other non-core features | Jetpack blocks (`jetpack/slideshow`, `jetpack/tiled-gallery`, …) | `jetpack` |
+| Slideshow, carousel, tiled gallery, related posts, business hours, other non-core features | Jetpack blocks (`jetpack/slideshow`, `jetpack/tiled-gallery`, …) | `jetpack`, `blocks` module |
 | Social auto-sharing, stats, search, SEO meta | Jetpack modules | `jetpack` |
 | Online courses, lessons, quizzes | Sensei LMS | `sensei-lms` |
 | Polls, surveys, ratings, NPS, applause | Crowdsignal | `crowdsignal-forms` |
@@ -22,7 +22,7 @@ Prefer core blocks when they suffice, active plugins before new ones, and these 
 
 ## Using a plugin's blocks
 
-A Jetpack block that is missing usually means its module is inactive (`wp jetpack module list`, then `module activate <slug>`).
+Jetpack registers its blocks only while its `blocks` module is active (`Jetpack_Gutenberg::should_load` in `class.jetpack-gutenberg.php`), which a site that has never connected to WordPress.com starts without, and a block can also need its feature's module, as forms need `contact-form`. `wp jetpack module list` shows which are active, and `wp jetpack module activate <slug>` turns one on.
 
 ## What the source will not tell you
 

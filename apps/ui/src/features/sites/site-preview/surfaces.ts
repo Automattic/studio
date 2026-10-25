@@ -30,6 +30,9 @@ export interface PreviewSurfaceState {
 	// The annotation inspector is running in the page.
 	inspectorReady: boolean;
 	browserCommand: BrowserCommand | null;
+	// The last reload command, which a frame applies by remounting. Kept apart
+	// from `browserCommand` so a later back or forward doesn't remount it again.
+	reloadCommandId: number;
 	reloadNonce: number;
 }
 
@@ -49,6 +52,7 @@ export function createPreviewSurface( path: string, reloadNonce: number ): Previ
 		browser: EMPTY_BROWSER_STATE,
 		inspectorReady: false,
 		browserCommand: null,
+		reloadCommandId: 0,
 		reloadNonce,
 	};
 }
@@ -58,6 +62,7 @@ function arePreviewSurfacesEqual( a: PreviewSurfaceState, b: PreviewSurfaceState
 		a.path === b.path &&
 		a.reloadNonce === b.reloadNonce &&
 		a.browserCommand === b.browserCommand &&
+		a.reloadCommandId === b.reloadCommandId &&
 		a.inspectorReady === b.inspectorReady &&
 		areBrowserStatesEqual( a.browser, b.browser )
 	);
@@ -105,8 +110,7 @@ export function aimMountedSurface(
 
 // A frame remounts, and so reloads, whenever its key changes.
 export function getFrameKey( siteUrl: string, surface: PreviewSurfaceState ) {
-	const reloadId = surface.browserCommand?.type === 'reload' ? surface.browserCommand.id : 0;
-	return `${ siteUrl }${ surface.path }#${ surface.reloadNonce }#${ reloadId }`;
+	return `${ siteUrl }${ surface.path }#${ surface.reloadNonce }#${ surface.reloadCommandId }`;
 }
 
 export function getSafePath( path: unknown ) {

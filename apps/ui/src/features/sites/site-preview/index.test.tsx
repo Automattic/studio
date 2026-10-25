@@ -213,6 +213,25 @@ describe( 'SitePreview', () => {
 		expect( container.querySelector( 'iframe' ) ).toBe( aliasReloadedIframe );
 	} );
 
+	it( 'keeps the reloaded frame when Back or Forward follows a reload', () => {
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
+			capabilities: CAPABILITIES,
+		} as never );
+
+		const { container } = renderPreview(
+			<SitePreview site={ createSite( { running: true } ) } path="/" reloadNonce={ 0 } />
+		);
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Reload preview' } ) );
+		const reloadedIframe = container.querySelector( 'iframe' );
+		fireEvent.keyDown( document.body, { key: '[', ctrlKey: true } );
+		fireEvent.keyDown( document.body, { key: ']', ctrlKey: true } );
+
+		expect( container.querySelector( 'iframe' ) ).toBe( reloadedIframe );
+	} );
+
 	it( 'reloads the preview from the composer, but not from a dialog', () => {
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn().mockResolvedValue( undefined ),

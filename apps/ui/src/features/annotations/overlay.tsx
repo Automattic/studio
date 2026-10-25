@@ -7,7 +7,7 @@ import { ArrowUpIcon, PaperclipIcon, Trash2Icon, XIcon } from 'lucide-react';
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { toast } from '@/data/app-messages';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
-import { useComposerAttachments, useFileDrop } from '@/features/chats';
+import { useComposerAttachments, useFileDrop } from '@/data/use-composer-attachments';
 import { isImeComposing } from '@/lib/keyboard';
 import {
 	Badge,

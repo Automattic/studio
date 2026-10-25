@@ -6,14 +6,15 @@ import { useEffect, useRef } from 'react';
 import { useConnector } from '@/data/core';
 import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
 import { SITES_QUERY_KEY } from '@/data/queries/use-sites';
-import { SessionUIProvider } from '@/features/chats';
+import { isSettingsSection } from '@/data/settings-sections';
+import { SessionUIProvider } from '@/data/use-session-ui';
 import { useAppMenuNavigation } from '@/features/commands';
 import { useAiCreditsPurchaseResult } from '@/features/credits';
 import { WelcomeDialog } from '@/features/onboarding';
-import { WapuuWorldMount, isSettingsSection, SettingsDialog } from '@/features/settings';
+import { WapuuWorldMount, SettingsDialog } from '@/features/settings';
 import { AddSiteDialog, isAddSiteSection } from '@/features/sites';
 import type { AiSessionSummary, Connector, SiteDetails } from '@/data/core';
-import type { SettingsSectionId } from '@/features/settings';
+import type { SettingsSectionId } from '@/data/settings-sections';
 import type { AddSiteSection } from '@/features/sites';
 import type { QueryClient } from '@tanstack/react-query';
 

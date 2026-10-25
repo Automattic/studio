@@ -119,7 +119,7 @@ vi.mock( '@/data/sync-activity', () => ( {
 	useSiteSyncActivity: vi.fn(),
 } ) );
 
-vi.mock( '@/features/chats/use-session-ui', () => ( {
+vi.mock( '@/data/use-session-ui', () => ( {
 	useSessionPreviewUI: () => ( { siteId: null } ),
 } ) );
 

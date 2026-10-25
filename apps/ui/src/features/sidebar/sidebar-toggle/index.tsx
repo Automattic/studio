@@ -1,12 +1,12 @@
 import { __ } from '@wordpress/i18n';
 import { clsx } from 'clsx';
-import { AppMessageCardsDot } from '@/features/notifications';
-import { CollapsedSiteSwitcher } from '@/features/sidebar/collapsed-site-switcher';
 import {
 	useSidebarCollapsed,
 	useSidebarOpen,
 	useToggleSidebar,
-} from '@/features/sidebar/use-sidebar-collapsed';
+} from '@/data/use-sidebar-collapsed';
+import { AppMessageCardsDot } from '@/features/notifications';
+import { CollapsedSiteSwitcher } from '@/features/sidebar/collapsed-site-switcher';
 import { SidebarIcon } from '@/lib/icons';
 import { Button, Tooltip, TooltipContent, TooltipTrigger } from '@/lib/ui';
 import styles from './style.module.css';

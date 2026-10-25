@@ -22,7 +22,7 @@ import { useConnector } from '@/data/core';
 import { usePathValidator } from '@/data/queries/use-create-site-helpers';
 import { useSites } from '@/data/queries/use-sites';
 import { useWordPressVersions } from '@/data/queries/use-wordpress-versions';
-import { LearnMoreLink } from '@/features/settings';
+import { LearnMoreLink } from '@/features/onboarding';
 import {
 	CertificateTrustNotice,
 	getFileAccessOptions,

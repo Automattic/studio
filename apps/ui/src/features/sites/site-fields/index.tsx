@@ -32,7 +32,7 @@ import { __ } from '@wordpress/i18n';
 import { WifiOffIcon } from 'lucide-react';
 import { useId, useState } from 'react';
 import { useCertificateTrust, useTrustCertificate } from '@/data/queries/use-certificate-trust';
-import { LearnHowLink } from '@/features/settings';
+import { LearnHowLink } from '@/features/onboarding';
 import {
 	Button,
 	Field,

@@ -3,7 +3,7 @@ import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ConnectorProvider } from '@/data/core';
-import { requestHeaderPanel } from '@/features/sites/use-open-header-panel';
+import { requestHeaderPanel } from '@/data/use-open-header-panel';
 import { TooltipProvider } from '@/lib/ui';
 import { SiteHeaderActions, SiteHeaderActionsProvider, SiteHeaderSpace } from './index';
 import type { Connector, SiteDetails } from '@/data/core';

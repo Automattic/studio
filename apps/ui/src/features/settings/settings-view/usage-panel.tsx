@@ -28,8 +28,8 @@ import {
 	AiBlockedNotice,
 	useOpenAiCreditsCheckout,
 } from '@/features/credits';
+import { LearnMoreLink } from '@/features/onboarding';
 import { SigninNotice } from '@/features/settings/agentic-signin-banner';
-import { LearnMoreLink } from '@/features/settings/learn-more';
 import { OfflineNotice } from '@/features/settings/offline-banner';
 import { Progress, Menu, Field, FieldDescription, FieldTitle, Button, IconButton } from '@/lib/ui';
 import { SettingsGroup, SettingsRow, SettingsSelect } from './rows';

@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { WindowControlsCornerContext } from '@/data/host/use-window-controls-inset';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
 import { useSession } from '@/data/queries/use-sessions';
-import { pendingPromptSlot } from '@/features/chats/pending-prompt';
+import { pendingPromptSlot } from '@/features/composer';
 import { isScrolledAwayFromLatest } from './use-anchored-scroll';
 import { SessionView } from './index';
 import type { LoadedAiSession } from '@/data/core';
@@ -89,7 +89,7 @@ vi.mock( '@/data/queries/use-auth-user', () => ( {
 	useAuthUser: () => ( { data: accessState.user, isLoading: false } ),
 } ) );
 vi.mock( '@/lib/hooks/use-offline', () => ( { useOffline: () => accessState.offline } ) );
-vi.mock( '@/features/settings/use-open-settings', () => ( {
+vi.mock( '@/data/use-open-settings', () => ( {
 	useOpenSettings: () => accessState.openSettings,
 } ) );
 
@@ -123,7 +123,7 @@ vi.mock( '@/data/agent-runs/use-agent-run', () => ( {
 
 vi.mock( './use-session-commands', () => ( { useSessionCommands: vi.fn() } ) );
 
-vi.mock( '@/features/chats/use-session-ui', () => ( {
+vi.mock( '@/data/use-session-ui', () => ( {
 	SessionUIProvider: ( { children }: { children: React.ReactNode } ) => children,
 	useOptionalSessionPreviewUI: () => null,
 	useSessionPreviewUI: () => ( {
@@ -152,7 +152,7 @@ const composerProps = vi.hoisted( () => ( {
 	current: undefined as undefined | ComposerMockProps,
 } ) );
 
-vi.mock( './composer', () => ( {
+vi.mock( '@/features/composer/composer', () => ( {
 	Composer: ( props: ComposerMockProps ) => {
 		composerProps.current = props;
 		useStudioAssistantQuota();

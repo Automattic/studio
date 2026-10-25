@@ -4,7 +4,7 @@ import {
 	getPreviewSplitLayout,
 	getResizablePanelMaxWidth,
 	type ResizablePanelConfig,
-} from './resizable-panels';
+} from '@/data/resizable-panels';
 
 const config: ResizablePanelConfig = {
 	defaultWidth: 320,

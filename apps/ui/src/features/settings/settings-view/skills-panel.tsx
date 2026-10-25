@@ -5,7 +5,7 @@ import {
 	useSetAllWordPressSkills,
 	useWordPressSkills,
 } from '@/data/queries/use-wordpress-skills';
-import { LearnMoreLink } from '@/features/settings/learn-more';
+import { LearnMoreLink } from '@/features/onboarding';
 import {
 	SettingsGroup,
 	SettingsLoadState,

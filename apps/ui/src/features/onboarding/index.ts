@@ -1,3 +1,4 @@
+export { LearnHowLink, LearnMoreLink } from './learn-more';
 export { OnboardingGuideProvider } from './onboarding-guide/use-onboarding-guide';
 export { useOrientationAutostart } from './onboarding-guide/use-orientation-autostart';
 export { useOrientationReplay } from './onboarding-guide/use-orientation-replay';

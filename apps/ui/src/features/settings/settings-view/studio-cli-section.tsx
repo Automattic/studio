@@ -2,7 +2,7 @@ import { __ } from '@wordpress/i18n';
 import { useState } from 'react';
 import { useAppGlobals } from '@/data/queries/use-app-globals';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
-import { LearnMoreLink } from '@/features/settings/learn-more';
+import { LearnMoreLink } from '@/features/onboarding';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/lib/ui';
 import { SettingsGroup, SettingsRow, SettingsToggle } from './rows';
 import styles from './style.module.css';

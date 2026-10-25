@@ -5,7 +5,7 @@ import { useCallback, useMemo, useRef, useState, useSyncExternalStore } from 're
 import { sitePinKey, useSidebarPins } from '@/data/queries/use-sidebar-pins';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useSiteSyncActivity } from '@/data/sync-activity';
-import { closeOnPaletteShortcut } from '@/features/commands';
+import { closeOnPaletteShortcut } from '@/data/use-command-palette';
 import { pendingBlueprintSlot } from '@/features/sites/pending-blueprint';
 import {
 	Button,

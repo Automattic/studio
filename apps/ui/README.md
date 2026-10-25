@@ -51,9 +51,11 @@ The router context carries both the `QueryClient` and `Connector`, enabling rout
 ```
 src/
   lib/        internal packages: ui, theme, icons, hooks, keyboard, pending-slot
-  features/   product areas: chats, sidebar, sites, settings, sync, sharing,
-              credits, account, commands, notifications, annotations, onboarding
-  data/       connectors, queries, and data/host/ for hooks over host APIs
+  features/   product areas: chats, composer, sidebar, sites, settings, sync,
+              sharing, credits, account, commands, notifications, annotations,
+              onboarding
+  data/       connectors, queries, data/host/ for hooks over host APIs, and
+              the app state several features share
   router/     routes
   app/        providers
 ```
@@ -71,10 +73,11 @@ src/
   ```
 
   Inside a feature, import with the full path (`@/features/sites/site-preview`). From anywhere else, import the entry (`@/features/sites`). Only `router/`, `app/` and other features import features; `data/` and `lib/` don't.
-- `data/` holds the connectors and the TanStack Query hooks built on them. It imports only `lib/`.
+- `data/` holds the connectors and the TanStack Query hooks built on them, plus the app state several features read, such as the session's preview UI, the sidebar's state and the settings sections. It imports only `lib/`.
 - Something used by one feature lives in that feature. Something product-aware used by several lives in the feature that owns the concept and is exported from its entry. Only app-agnostic pieces go in `lib/`.
+- Features depend on each other in one direction: if `sidebar` imports `chats`, `chats` doesn't import `sidebar`, not even through another feature. Type-only imports don't count. When two features need each other, move the shared piece down into `data/` (state and hooks) or into the lower feature, or let `router/` pass the higher feature's component in as a prop.
 
-These boundaries are lint-enforced (`import-x/no-restricted-paths` in the root `eslint.config.mjs`).
+These boundaries are lint-enforced (`import-x/no-restricted-paths` and `import-x/no-cycle` in the root `eslint.config.mjs`).
 
 UI is built on Base UI with its own primitives and theme. Icons come from `lucide-react`, plus custom icons in `src/lib/icons/`, one file each, drawn the same way (24px grid, stroke 2).
 

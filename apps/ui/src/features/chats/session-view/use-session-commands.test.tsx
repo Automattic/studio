@@ -1,7 +1,7 @@
 import { act, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useConnector } from '@/data/core';
-import { SessionUIProvider, useSessionPreviewUI } from '@/features/chats/use-session-ui';
+import { SessionUIProvider, useSessionPreviewUI } from '@/data/use-session-ui';
 import { useSessionCommands } from './use-session-commands';
 import type { AgentRunEvent, Connector } from '@/data/core';
 import type { ReactNode } from 'react';

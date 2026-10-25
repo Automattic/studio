@@ -1,9 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-	SIDEBAR_PANEL_CONFIG,
-	SIDEBAR_PANEL_STORAGE_KEY,
-} from '@/features/sidebar/resizable-panels';
+import { SIDEBAR_PANEL_CONFIG, SIDEBAR_PANEL_STORAGE_KEY } from '@/data/resizable-panels';
 import { ResizeHandle } from '@/lib/ui';
 import { useResizablePanel } from './use-resizable-panel';
 

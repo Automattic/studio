@@ -1,0 +1,142 @@
+@layer ui {
+	.questionnaire {
+		display: flex;
+		flex-direction: column;
+		gap: 16px;
+		min-inline-size: 0;
+	}
+
+	/* The legend sits above the fieldset's content rather than in its flex
+	   layout, so it spaces itself from the choices. */
+	.title {
+		padding-block-end: 16px;
+		color: var( --foreground );
+		font-weight: var( --font-weight-medium );
+		line-height: 1.375;
+		text-wrap: pretty;
+	}
+
+	.progress {
+		color: var( --muted-foreground );
+		font-weight: var( --font-weight-medium );
+		font-variant-numeric: tabular-nums;
+	}
+
+	.description {
+		color: var( --muted-foreground );
+	}
+
+	.choices {
+		display: grid;
+		margin-inline-start: -8px;
+	}
+
+	.choices[data-layout='grid'] {
+		grid-template-columns: repeat( auto-fit, minmax( min( 100%, 240px ), 1fr ) );
+		gap: 4px;
+	}
+
+	.choices[data-layout='grid'] .item[data-wide] {
+		grid-column: 1 / -1;
+	}
+
+	.item {
+		position: relative;
+		min-width: 0;
+	}
+
+	.input {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		overflow: hidden;
+		clip-path: inset( 50% );
+		white-space: nowrap;
+		opacity: 0;
+	}
+
+	.choice {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		width: 100%;
+		min-height: 36px;
+		padding: 8px;
+		border-radius: var( --radius-md );
+		color: var( --foreground );
+		text-align: start;
+		cursor: pointer;
+	}
+
+	.choice:is( :hover:not( :has( > .input:disabled ) ), :has( > .input:checked ) ) {
+		background-color: var( --hover );
+	}
+
+	.choice:has( > .input:focus-visible ) {
+		box-shadow: inset 0 0 0 2px var( --ring );
+	}
+
+	.choice:has( > .input:disabled:not( :checked ) ) {
+		opacity: 0.5;
+		cursor: default;
+	}
+
+	.choice:has( > .input:disabled ) {
+		cursor: default;
+	}
+
+	.choice[data-media] {
+		flex-wrap: wrap;
+		align-content: flex-start;
+		height: 100%;
+	}
+
+	.choice > svg,
+	.answer > svg {
+		flex: none;
+	}
+
+	.label {
+		display: flex;
+		flex: 1;
+		flex-direction: column;
+		gap: 2px;
+		min-width: 0;
+		line-height: 1.375;
+	}
+
+	.choice[data-muted] .label > :first-child {
+		color: var( --muted-foreground );
+	}
+
+	.letter {
+		display: inline-flex;
+		flex: none;
+		align-items: center;
+		justify-content: center;
+		width: 24px;
+		height: 24px;
+		border-radius: var( --radius-sm );
+		background-color: var( --border );
+		color: var( --foreground );
+		font-family: var( --font-mono );
+		font-size: var( --text-sm );
+		font-weight: var( --font-weight-medium );
+		line-height: 1;
+	}
+
+	.answer {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		min-height: 36px;
+		padding: 6px 8px;
+		border-radius: var( --radius-md );
+		color: var( --muted-foreground );
+	}
+
+	.answerLabel {
+		flex: 1;
+		min-width: 0;
+	}
+}

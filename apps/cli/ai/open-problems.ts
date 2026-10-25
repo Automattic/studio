@@ -36,6 +36,7 @@ export class OpenProblems {
 		private readonly siteChecks: Array< ( sitePath: string ) => Promise< string | undefined > > = [
 			unrenderedFrontPage,
 			frontPageIsPostsPage,
+			postsPageContent,
 			homeSectionLinks,
 		]
 	) {}
@@ -115,6 +116,31 @@ export async function frontPageIsPostsPage( sitePath: string ): Promise< string 
 	} );
 	return page
 		? `Settings → Reading names page ${ page.id } "${ page.title }" as both the front page (page_on_front) and the posts page (page_for_posts), which its screen warns against ("these pages should not be the same!", wp-admin/options-reading.php): WordPress then queries the posts index at the front page instead of that page (WP_Query::parse_query in wp-includes/class-wp-query.php). Set page_for_posts to another page, or to 0 for none.`
+		: undefined;
+}
+
+/**
+ * Settings → Reading naming a page with content as the posts page, where
+ * WordPress shows the posts index instead (WP_Query::parse_query). The same
+ * page as the front page is frontPageIsPostsPage's.
+ */
+export async function postsPageContent( sitePath: string ): Promise< string | undefined > {
+	const page = await readWordPressSite( sitePath, ( site ) => {
+		const postsPage = Number( site.option( 'page_for_posts' ) );
+		if (
+			site.option( 'show_on_front' ) !== 'page' ||
+			postsPage === Number( site.option( 'page_on_front' ) )
+		) {
+			return undefined;
+		}
+		const [ post ] = site.query< { title: string; content: string } >(
+			`SELECT post_title AS title, post_content AS content FROM ${ site.prefix }posts WHERE ID = ?`,
+			postsPage
+		);
+		return post?.content.trim() ? { id: postsPage, title: post.title } : undefined;
+	} );
+	return page
+		? `Settings → Reading names page ${ page.id } "${ page.title }", which has content, as the posts page (page_for_posts): WordPress queries the posts index at that page, so its content shows nowhere (WP_Query::parse_query in wp-includes/class-wp-query.php), and the editor shows "You are currently editing the page that shows your latest posts." (wp-admin/edit-form-advanced.php). Set page_for_posts to an empty page for the posts index, or to 0 for none.`
 		: undefined;
 }
 

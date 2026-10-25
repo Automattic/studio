@@ -1,0 +1,65 @@
+.page {
+	min-height: 100dvh;
+	background: var( --chrome );
+	color: var( --foreground );
+}
+
+.header {
+	position: sticky;
+	top: 0;
+	z-index: 1;
+	display: flex;
+	gap: 16px;
+	align-items: center;
+	justify-content: space-between;
+	padding: 12px 16px;
+	border-bottom: 1px solid var( --border );
+	background: var( --chrome );
+}
+
+.title {
+	margin: 0;
+	font-size: var( --text-sm );
+	font-weight: var( --font-weight-medium );
+}
+
+.schemes {
+	text-transform: capitalize;
+}
+
+.columns {
+	display: grid;
+	grid-template-columns: repeat( auto-fit, minmax( min( 100%, 560px ), 1fr ) );
+}
+
+.column {
+	display: flex;
+	flex-direction: column;
+	gap: 40px;
+	min-width: 0;
+	padding: 24px clamp( 16px, 4vw, 48px ) 64px;
+	background: var( --chat );
+	color: var( --foreground );
+}
+
+.section {
+	width: 100%;
+	max-width: 720px;
+	margin-inline: auto;
+}
+
+.sectionTitle {
+	margin: 0 0 16px;
+	color: var( --muted-foreground );
+	font-size: var( --text-xs );
+	font-weight: var( --font-weight-medium );
+}
+
+.stage {
+	position: relative;
+	overflow: hidden;
+	height: 320px;
+	border: 1px solid var( --border );
+	border-radius: var( --radius-lg );
+	background: var( --background );
+}

@@ -6,6 +6,7 @@
 	"scripts": {
 		"dev": "vite",
 		"dev:local": "STUDIO_TARGET=local vite",
+		"playground": "vite --port 5300 --open /chat.html",
 		"build": "vite build",
 		"build:local": "STUDIO_TARGET=local vite build",
 		"lint": "eslint src",

@@ -19,8 +19,3 @@
 .pre > code {
 	white-space: pre;
 }
-
-/* Shiki's GitHub Dark colors, carried by each token. */
-:global(html[data-color-scheme='dark']) .pre span {
-	color: var(--shiki-dark) !important;
-}

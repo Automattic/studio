@@ -188,6 +188,39 @@
 	--hover: var( --muted );
 }
 
+/* A surface sets `--surface` to its fill, and `--muted` inside it resolves one
+   step up so cards and hover fills still show on it, stepping back down at the
+   end of the palette. */
+@property --surface {
+	syntax: '<color>';
+	inherits: true;
+	initial-value: transparent;
+}
+
+@container style( --surface: var( --surface-0 ) ) or style( --surface: var( --surface-1 ) ) {
+	* {
+		--muted: var( --surface-2 );
+	}
+}
+
+@container style( --surface: var( --surface-2 ) ) {
+	* {
+		--muted: var( --surface-3 );
+	}
+}
+
+@container style( --surface: var( --surface-3 ) ) {
+	* {
+		--muted: var( --surface-4 );
+	}
+}
+
+@container style( --surface: var( --surface-4 ) ) {
+	* {
+		--muted: var( --surface-3 );
+	}
+}
+
 /* Media queries can't read custom properties, so the one breakpoint is written
    out where it's used: `( width < 640px )`, a window too small for the sidebar
    beside the content. */

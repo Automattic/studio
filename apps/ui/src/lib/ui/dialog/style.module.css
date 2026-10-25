@@ -73,15 +73,12 @@
 	}
 
 	.content[data-surface='composer'] {
+		--surface: var( --composer );
 		border: 1px solid var( --input );
 		border-radius: var( --radius-3xl );
-		background-color: var( --composer );
+		background-color: var( --surface );
 		box-shadow: none;
 		color: var( --foreground );
-	}
-
-	:root[data-color-scheme='dark'] .content[data-surface='composer'] {
-		--muted: var( --surface-4 );
 	}
 
 	.content[data-layout='confirmation'] {

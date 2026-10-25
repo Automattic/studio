@@ -5,6 +5,7 @@
 	}
 
 	.commands {
+		--surface: var( --composer );
 		display: flex;
 		flex-direction: column;
 		width: var( --anchor-width );
@@ -13,7 +14,7 @@
 		overflow: hidden;
 		border: 1px solid var( --input );
 		border-radius: var( --radius-3xl );
-		background-color: var( --composer );
+		background-color: var( --surface );
 		color: var( --foreground );
 		font-size: var( --text-sm );
 		line-height: var( --text-sm--line-height );

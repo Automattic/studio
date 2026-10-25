@@ -30,9 +30,10 @@
 	}
 
 	.group[data-variant='composer'] {
+		--surface: var( --composer );
 		border-color: var( --input );
 		border-radius: var( --radius-3xl );
-		background-color: var( --composer );
+		background-color: var( --surface );
 		color: var( --foreground );
 	}
 
@@ -60,6 +61,11 @@
 
 	[data-variant='composer'] > .addon {
 		color: var( --foreground );
+	}
+
+	.addon > svg:not( [data-size] ) {
+		width: 16px;
+		height: 16px;
 	}
 
 	.addon[data-align='inline-start'] {

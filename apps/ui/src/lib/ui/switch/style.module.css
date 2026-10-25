@@ -47,14 +47,10 @@
 		width: 16px;
 		height: 16px;
 		border-radius: var( --radius-full );
-		background-color: var( --background );
+		background-color: light-dark( var( --background ), var( --foreground ) );
 		box-shadow: var( --shadow-sm );
 		pointer-events: none;
 		transition: translate var( --motion-duration-surface ) var( --motion-ease-enter );
-	}
-
-	:root[data-color-scheme='dark'] .thumb[data-unchecked] {
-		background-color: var( --foreground );
 	}
 
 	.thumb[data-checked] {

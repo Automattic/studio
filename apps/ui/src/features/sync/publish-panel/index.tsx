@@ -109,8 +109,8 @@ export function PublishButton( {
 		clearPublishSetupError( site.id );
 		setWaitingFor( connections.map( ( website ) => website.id ) );
 		void connector.trackEvent( TRACKS_EVENTS.SYNC_PUBLISH_SITE );
-		void connector.openExternalUrl( checkoutUrl );
 		void connector.watchForPublishedSite?.( site.id );
+		void connector.openExternalUrl( checkoutUrl );
 	}, [ connections, connector, site ] );
 	const selectWebsite = ( id: number | null ) => {
 		setSelectedId( id );

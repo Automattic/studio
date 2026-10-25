@@ -1,8 +1,9 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getNoticeHistory, resetAppMessagesForTests } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
+import { markPreviewReady, usePreviewReady } from '@/data/preview-ready';
 import { useAuthChangeToasts, useAuthUser } from './use-auth-user';
 import type { AuthUser } from '@/data/core';
 
@@ -22,7 +23,12 @@ function renderAuthUser() {
 	function Probe() {
 		const { data } = useAuthUser();
 		useAuthChangeToasts();
-		return <span data-testid="state">{ data ? 'signed-in' : 'signed-out' }</span>;
+		const previewReady = usePreviewReady( 'site' );
+		return (
+			<span data-testid="state" data-preview-ready={ previewReady }>
+				{ data ? 'signed-in' : 'signed-out' }
+			</span>
+		);
 	}
 
 	render(
@@ -95,7 +101,7 @@ describe( 'useAuthUser', () => {
 		await waitFor( () => expect( screen.getByTestId( 'state' ) ).toHaveTextContent( 'signed-in' ) );
 	} );
 
-	it( 'says when the signed-in user changes, but not on the first lookup', async () => {
+	it( 'says when the signed-in user changes, but not on the first lookup, and forgets its ready preview', async () => {
 		let user: AuthUser | null = SIGNED_IN_USER;
 		let notifyAuthChanged: () => void = () => {};
 		useConnectorMock.mockReturnValue( {
@@ -109,12 +115,15 @@ describe( 'useAuthUser', () => {
 		renderAuthUser();
 		await waitFor( () => expect( screen.getByTestId( 'state' ) ).toHaveTextContent( 'signed-in' ) );
 		expect( getNoticeHistory() ).toHaveLength( 0 );
+		act( () => markPreviewReady( 'site' ) );
+		expect( screen.getByTestId( 'state' ) ).toHaveAttribute( 'data-preview-ready', 'true' );
 
 		user = null;
-		notifyAuthChanged();
+		act( () => notifyAuthChanged() );
 		await waitFor( () =>
 			expect( getNoticeHistory()[ 0 ]?.title ).toBe( 'Logged out of WordPress.com' )
 		);
+		expect( screen.getByTestId( 'state' ) ).toHaveAttribute( 'data-preview-ready', 'false' );
 
 		user = SIGNED_IN_USER;
 		notifyAuthChanged();

@@ -33,6 +33,7 @@ import {
 	clearAnnotations,
 	closeAnnotationEditor,
 	escapeAnnotations,
+	getSiteAnnotations,
 	hasAnnotationContent,
 	isAnnotationsBusy,
 	isStagedAnnotation,
@@ -214,8 +215,11 @@ function NoteEditor( {
 			toast.error( __( 'Only PNG, JPEG, GIF, and WebP images can be attached.' ) );
 			return;
 		}
+		const otherImages = getSiteAnnotations( siteId )
+			.notes.filter( ( item ) => item.id !== note.id )
+			.flatMap( ( item ) => item.images );
 		setAnnotationsPreparing( siteId, true );
-		void addFiles( list ).finally( () => setAnnotationsPreparing( siteId, false ) );
+		void addFiles( list, otherImages ).finally( () => setAnnotationsPreparing( siteId, false ) );
 	};
 	const isDragging = useFileDrop( editorNode, addImages );
 

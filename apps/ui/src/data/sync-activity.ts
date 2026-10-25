@@ -46,9 +46,8 @@ function scheduleExpiry( siteId: string ) {
 	timers.set( siteId, timer );
 }
 
-// Same wording as the classic renderer's push states, so a user moving between
-// the two UIs reads the same thing. The percentage goes in the message because
-// that is how a pull already reads here — the CLI puts it in its own text.
+// The percentage goes in the message because that is how a pull already reads
+// here — the CLI puts it in its own text.
 function getPushPhaseMessage( phase: PushPhase, progress?: number ): string {
 	const message = {
 		creatingBackup: __( 'Creating backup…' ),

@@ -434,6 +434,34 @@ describe( 'CreateSiteForm', () => {
 		expect( onExistingChange ).toHaveBeenLastCalledWith( true );
 	} );
 
+	it( 'refuses an existing WordPress site when the folder must start empty', async () => {
+		usePathValidatorMock.mockReturnValue( {
+			generateProposedPath: vi.fn( async () => ( {
+				path: '/sites/occupied',
+				isEmpty: false,
+				isWordPress: true,
+			} ) ),
+			selectPath: vi.fn(),
+		} );
+		render(
+			<CreateSiteForm
+				initialValues={ { name: 'Occupied' } }
+				existingDomainNames={ [] }
+				onSubmit={ vi.fn() }
+				onCancel={ vi.fn() }
+				requiresEmptyPath
+			/>
+		);
+
+		await waitFor( () =>
+			expect( screen.getByLabelText( 'Local path' ) ).toHaveAccessibleDescription(
+				'Choose an empty folder for your site.'
+			)
+		);
+		expect( screen.queryByText( 'Existing local WordPress site' ) ).not.toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'Create site' } ) ).toBeDisabled();
+	} );
+
 	it( 'opens Advanced settings on its own for a folder it cannot use', async () => {
 		usePathValidatorMock.mockReturnValue( {
 			generateProposedPath: vi.fn( async () => ( {

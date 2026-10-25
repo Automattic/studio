@@ -76,6 +76,8 @@ interface CreateSiteFormProps {
 	sourceIcon?: ReactElement;
 	// Whether the folder already holds a WordPress site, which Studio adds as it is.
 	onExistingChange?: ( existing: boolean ) => void;
+	// Refuses a folder holding a WordPress site, for a site whose files come from elsewhere.
+	requiresEmptyPath?: boolean;
 }
 
 export function CreateSiteForm( {
@@ -95,6 +97,7 @@ export function CreateSiteForm( {
 	source,
 	sourceIcon,
 	onExistingChange,
+	requiresEmptyPath,
 }: CreateSiteFormProps ) {
 	const [ defaults ] = useState( createDefaultFormData );
 	const suggestedFieldsRef = useRef( getSuggestedFields( initialValues ?? {} ) );
@@ -171,11 +174,16 @@ export function CreateSiteForm( {
 		setData( ( prev ) => applyFormChange( prev, update ) );
 	}, [] );
 
+	const holdsWordPress = data.isWordPress && !! data.path && ! data.isPathPending;
+	const existing = holdsWordPress && ! requiresEmptyPath;
 	// The path's required check opts out while `isPathPending` — see the
 	// `FormData` comment above.
 	const advancedErrors = {
 		path:
 			data.pathError ||
+			( holdsWordPress && requiresEmptyPath
+				? __( 'Choose an empty folder for your site.' )
+				: '' ) ||
 			( ! data.isPathPending && data.name.trim() && ! data.path
 				? __( 'Local path is required.' )
 				: '' ),
@@ -194,7 +202,6 @@ export function CreateSiteForm( {
 		isAdvancedOpen ||
 		( ! data.isPathPending && !! advancedErrors.path ) ||
 		!! advancedErrors.customDomain;
-	const existing = data.isWordPress && !! data.path && ! data.isPathPending;
 	useEffect( () => onExistingChange?.( existing ), [ existing, onExistingChange ] );
 
 	// `isPathPending` is deliberately absent from `canSubmit`: it toggles on
@@ -286,7 +293,12 @@ export function CreateSiteForm( {
 				>
 					<div className={ styles.advancedCollapseInner }>
 						<FieldGroup>
-							<PathField data={ data } error={ advancedErrors.path } onChange={ handleChange } />
+							<PathField
+								data={ data }
+								error={ advancedErrors.path }
+								requiresEmptyPath={ requiresEmptyPath }
+								onChange={ handleChange }
+							/>
 							{ existing ? null : wpVersionOptions ? (
 								<SelectField
 									label={ __( 'WordPress version' ) }

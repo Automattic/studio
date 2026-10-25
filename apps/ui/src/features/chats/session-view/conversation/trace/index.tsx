@@ -1,7 +1,7 @@
 import { __, sprintf } from '@wordpress/i18n';
 import { clsx } from 'clsx';
 import { ChevronRightIcon, CircleAlertIcon, CircleCheckIcon, CircleStopIcon } from 'lucide-react';
-import { useEffect, useId, useState, type ComponentProps } from 'react';
+import { memo, useEffect, useId, useState, type ComponentProps } from 'react';
 import { getToolDisplay } from '@/features/chats/session-view/conversation/trace/tool-display';
 import { CodeBlock, CollapsiblePanel, Spinner } from '@/lib/ui';
 import styles from './style.module.css';
@@ -17,7 +17,7 @@ function TraceTrigger( { children, ...props }: ComponentProps< 'button' > ) {
 	);
 }
 
-export function ToolUseRow( {
+export const ToolUseRow = memo( function ToolUseRow( {
 	name,
 	input,
 	result,
@@ -89,9 +89,9 @@ export function ToolUseRow( {
 			</CollapsiblePanel>
 		</div>
 	);
-}
+} );
 
-export function TurnActivityLine( {
+export const TurnActivityLine = memo( function TurnActivityLine( {
 	activity: { startedAt, endedAt, status },
 	waitingOnUser,
 	progressMessage,
@@ -145,4 +145,4 @@ export function TurnActivityLine( {
 			) : null }
 		</div>
 	);
-}
+} );

@@ -61,6 +61,7 @@ export function MarqueeLabel( { children, className, ...props }: ComponentProps<
 				played ||
 				timer !== undefined ||
 				reducedMotion.matches ||
+				viewport.clientWidth === 0 ||
 				distance <= 1 ||
 				! text.animate
 			) {

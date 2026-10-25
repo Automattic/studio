@@ -1,57 +1,55 @@
 /* A tab above the composer, which overlaps its bottom edge. */
 .notice {
-	margin-bottom: -24px;
-	padding: 6px 10px 30px 16px;
-	border-radius: 24px 24px 0 0;
-	background-color: var(--muted);
-	color: var(--muted-foreground);
-	font-size: var(--text-xs);
-	line-height: 20px;
+	margin-bottom: calc( var( --space-6 ) * -1 );
+	padding: var( --space-1_5 ) var( --space-2_5 ) 30px var( --space-4 );
+	border-radius: var( --radius-3xl ) var( --radius-3xl ) 0 0;
+	background-color: var( --muted );
+	color: var( --muted-foreground );
+	font-size: var( --text-xs );
+	line-height: var( --text-xs--line-height );
 }
 
 .notice[data-feedback] {
-	background-color: var(--destructive-surface);
-	color: var(--destructive);
+	background-color: var( --destructive-surface );
+	color: var( --destructive );
 }
 
 .noticeContent {
 	display: flex;
 	min-height: 36px;
 	align-items: center;
-	gap: 12px;
+	gap: var( --space-3 );
 }
 
 .noticeContent[data-submit-feedback='shake'] {
-	animation: submitShake var(--motion-duration-layout) var(--motion-ease-layout);
+	animation: submitShake var( --motion-duration-layout ) var( --motion-ease-layout );
 }
 
 .noticeMessage {
+	composes: truncate from '@/lib/theme/recipes.module.css';
 	flex: 1;
 	min-width: 0;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
 }
 
 @keyframes submitShake {
 	20% {
-		transform: translateX(-6px);
+		transform: translateX( -6px );
 	}
 
 	40% {
-		transform: translateX(5px);
+		transform: translateX( 5px );
 	}
 
 	60% {
-		transform: translateX(-3px);
+		transform: translateX( -3px );
 	}
 
 	80% {
-		transform: translateX(1px);
+		transform: translateX( 1px );
 	}
 }
 
-@media (prefers-reduced-motion: reduce) {
+@media ( prefers-reduced-motion: reduce ) {
 	.noticeContent[data-submit-feedback='shake'] {
 		animation: none;
 	}

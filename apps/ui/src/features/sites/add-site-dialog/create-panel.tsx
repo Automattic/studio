@@ -237,7 +237,8 @@ function SelectedBlueprintSummary( {
 export function CreatePanel( { remote, onCancel }: { remote?: SyncSite; onCancel: () => void } ) {
 	const connector = useConnector();
 	const navigate = useNavigate();
-	const { setProgress, pinNewSite } = useAddSite();
+	const { setProgress, pinNewSite, setupDraft, setSetupDraft } = useAddSite();
+	const [ restoredDraft ] = useState( setupDraft );
 	const { data: sites } = useSites();
 	const existingDomainNames = useExistingCustomDomains();
 	const { data: proposedName } = useProposedSiteName(
@@ -399,6 +400,9 @@ export function CreatePanel( { remote, onCancel }: { remote?: SyncSite; onCancel
 				source={ remote?.url.replace( /^https?:\/\//, '' ) }
 				sourceIcon={ <CloudDownloadIcon /> }
 				onExistingChange={ setExisting }
+				requiresEmptyPath={ !! remote }
+				draft={ restoredDraft }
+				onDraftChange={ setSetupDraft }
 				panelFooter={
 					selectedBlueprint ? (
 						<SelectedBlueprintSummary

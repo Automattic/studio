@@ -79,8 +79,8 @@ describe( 'Conversation Ask User questions', () => {
 			{ pendingQuestions: new Set( [ 'Which pages?' ] ), onAnswerQuestion }
 		);
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'Shop' } ) );
-		fireEvent.click( screen.getByRole( 'button', { name: 'Blog' } ) );
+		fireEvent.click( screen.getByRole( 'checkbox', { name: 'Shop' } ) );
+		fireEvent.click( screen.getByRole( 'checkbox', { name: 'Blog' } ) );
 		expect( onAnswerQuestion ).not.toHaveBeenCalled();
 		fireEvent.click( screen.getByRole( 'button', { name: 'Submit choices' } ) );
 		expect( onAnswerQuestion ).toHaveBeenCalledWith( 'Which pages?', 'Blog, Shop' );
@@ -116,13 +116,10 @@ describe( 'Conversation Ask User questions', () => {
 			expect( screen.getByText( 'Install Jetpack recommended tools.' ) ).toBeInTheDocument();
 			expect( screen.queryByText( 'Activate dark mode?' ) ).not.toBeInTheDocument();
 
-			fireEvent.click( screen.getByRole( 'button', { name: 'Yes' } ) );
+			fireEvent.click( screen.getByRole( 'radio', { name: 'Yes' } ) );
 
 			expect( onAnswerQuestion ).toHaveBeenCalledWith( 'Install Jetpack?', 'Yes' );
-			expect( screen.getByRole( 'button', { name: 'Yes' } ) ).toHaveAttribute(
-				'aria-pressed',
-				'true'
-			);
+			expect( screen.getByRole( 'radio', { name: 'Yes' } ) ).toBeChecked();
 			expect( screen.queryByText( 'Activate dark mode?' ) ).not.toBeInTheDocument();
 
 			await act( async () => vi.advanceTimersByTime( 700 ) );
@@ -131,7 +128,7 @@ describe( 'Conversation Ask User questions', () => {
 			const answeredSummary = screen.getByRole( 'button', {
 				name: 'Edit question 1 of 3: Install Jetpack?. Selected answer: Yes',
 			} );
-			const activeQuestion = screen.getByText( 'Activate dark mode?' ).closest( '[tabindex="-1"]' );
+			const activeQuestion = screen.getByRole( 'group', { name: 'Activate dark mode?' } );
 			expect( answeredSummary ).toBeInTheDocument();
 			expect( answeredSummary ).toHaveTextContent( 'Install Jetpack?' );
 			expect( answeredSummary ).toHaveTextContent( 'Yes' );
@@ -148,13 +145,10 @@ describe( 'Conversation Ask User questions', () => {
 			);
 
 			expect( screen.getByText( 'Asking question 1 of 3' ) ).toBeInTheDocument();
-			expect( screen.getByRole( 'button', { name: 'Yes' } ) ).toHaveAttribute(
-				'aria-pressed',
-				'true'
-			);
+			expect( screen.getByRole( 'radio', { name: 'Yes' } ) ).toBeChecked();
 			expect( screen.queryByText( 'Activate dark mode?' ) ).not.toBeInTheDocument();
 
-			fireEvent.click( screen.getByRole( 'button', { name: 'No' } ) );
+			fireEvent.click( screen.getByRole( 'radio', { name: 'No' } ) );
 			expect( onAnswerQuestion ).toHaveBeenCalledWith( 'Install Jetpack?', 'No' );
 
 			await act( async () => vi.advanceTimersByTime( 700 ) );
@@ -244,7 +238,7 @@ describe( 'Conversation Ask User questions', () => {
 			await act( async () => vi.advanceTimersByTime( 20 ) );
 			scrollBy.mockClear();
 
-			fireEvent.click( screen.getByRole( 'button', { name: 'Yes' } ) );
+			fireEvent.click( screen.getByRole( 'radio', { name: 'Yes' } ) );
 			await act( async () => vi.advanceTimersByTime( 700 ) );
 			await act( async () => vi.advanceTimersByTime( 20 ) );
 
@@ -292,7 +286,7 @@ describe( 'Conversation Ask User questions', () => {
 			await act( async () => vi.advanceTimersByTime( 20 ) );
 			scrollBy.mockClear();
 
-			fireEvent.click( screen.getByRole( 'button', { name: 'Yes' } ) );
+			fireEvent.click( screen.getByRole( 'radio', { name: 'Yes' } ) );
 			await act( async () => vi.advanceTimersByTime( 20 ) );
 
 			expect( screen.getByText( 'Asking question 2 of 2' ) ).toBeInTheDocument();
@@ -346,10 +340,10 @@ describe( 'Conversation Ask User questions', () => {
 			onChooseFreeForm,
 		} );
 
-		const button = screen.getByRole( 'button', { name: 'Something else' } );
-		expect( button ).toHaveAttribute( 'aria-pressed', 'false' );
+		const choice = screen.getByRole( 'radio', { name: 'Something else' } );
+		expect( choice ).not.toBeChecked();
 
-		fireEvent.click( button );
+		fireEvent.click( choice );
 		expect( onChooseFreeForm ).toHaveBeenCalledWith( 'Install Jetpack?' );
 	} );
 
@@ -363,10 +357,7 @@ describe( 'Conversation Ask User questions', () => {
 			freeFormQuestion: 'Install Jetpack?',
 		} );
 
-		expect( screen.getByRole( 'button', { name: 'Something else' } ) ).toHaveAttribute(
-			'aria-pressed',
-			'true'
-		);
+		expect( screen.getByRole( 'radio', { name: 'Something else' } ) ).toBeChecked();
 	} );
 
 	it( 'hides the free-form option once the batch is no longer interactive', () => {
@@ -376,7 +367,7 @@ describe( 'Conversation Ask User questions', () => {
 
 		renderConversation( data );
 
-		expect( screen.queryByRole( 'button', { name: 'Something else' } ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'radio', { name: 'Something else' } ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'does not duplicate a free-form option an off-contract model wrote itself', () => {
@@ -386,7 +377,7 @@ describe( 'Conversation Ask User questions', () => {
 
 		renderConversation( data, { pendingQuestions: new Set( [ 'Install Jetpack?' ] ) } );
 
-		expect( screen.getAllByRole( 'button', { name: 'Something else' } ) ).toHaveLength( 1 );
+		expect( screen.getAllByRole( 'radio', { name: 'Something else' } ) ).toHaveLength( 1 );
 	} );
 
 	it( 'shows a typed answer as a message below the questions it answered', () => {
@@ -449,7 +440,7 @@ describe( 'Conversation Ask User questions', () => {
 			onAnswerQuestion,
 		} );
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'Something else' } ) );
+		fireEvent.click( screen.getByRole( 'radio', { name: 'Something else' } ) );
 
 		expect( onChooseFreeForm ).toHaveBeenCalledWith( 'Install Jetpack?' );
 		// Answering with the literal label tells the agent nothing, and it has to

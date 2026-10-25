@@ -3,6 +3,7 @@ import { __ } from '@wordpress/i18n';
 import { useCallback, useEffect, useRef } from 'react';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
+import { clearPreviewReady } from '@/data/preview-ready';
 import { USER_SCOPED_QUERY_KEYS } from '@/data/queries/user-scoped-query-keys';
 import type { TracksAuthSource } from '@studio/common/lib/record-tracks-event';
 
@@ -10,9 +11,17 @@ const AUTH_USER_QUERY_KEY = [ 'auth-user' ] as const;
 
 export function useAuthUser() {
 	const connector = useConnector();
+	return useQuery( {
+		queryKey: AUTH_USER_QUERY_KEY,
+		queryFn: () => connector.getAuthUser(),
+	} );
+}
+
+/** Refreshes the account when it changes outside this window. Mount once near the app root. */
+export function useSyncAuthUserWithEvents(): void {
+	const connector = useConnector();
 	const queryClient = useQueryClient();
 	const removeUserScopedQueries = useRemoveUserScopedQueries();
-
 	useEffect( () => {
 		return connector.onAuthStateChanged?.( () => {
 			removeUserScopedQueries();
@@ -22,11 +31,6 @@ export function useAuthUser() {
 			void queryClient.resetQueries( { queryKey: AUTH_USER_QUERY_KEY } );
 		} );
 	}, [ connector, queryClient, removeUserScopedQueries ] );
-
-	return useQuery( {
-		queryKey: AUTH_USER_QUERY_KEY,
-		queryFn: () => connector.getAuthUser(),
-	} );
 }
 
 // However the account changed: a login here, a logout in the CLI, an expired token.
@@ -53,6 +57,7 @@ function useRemoveUserScopedQueries() {
 		for ( const key of USER_SCOPED_QUERY_KEYS ) {
 			queryClient.removeQueries( { queryKey: key } );
 		}
+		clearPreviewReady();
 	}, [ queryClient ] );
 }
 

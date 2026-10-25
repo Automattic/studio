@@ -22,6 +22,13 @@ export function markPreviewSeen( siteId: string ) {
 	}
 }
 
+// A preview belongs to the account that published it.
+export function clearPreviewReady() {
+	if ( ready.size ) {
+		update( new Set() );
+	}
+}
+
 export function usePreviewReady( siteId: string ) {
 	return useSyncExternalStore(
 		( listener ) => {

@@ -6,15 +6,14 @@ import styles from './style.module.css';
 export function SidebarReorderableList< T >(
 	props: Pick<
 		ReorderableListProps< T >,
-		'items' | 'getItemId' | 'getItemLabel' | 'renderItem' | 'onReorder'
+		'items' | 'getItemId' | 'getItemLabel' | 'renderItem' | 'onReorder' | 'onDragStart' | 'children'
 	>
 ) {
 	return (
 		<ReorderableList
 			{ ...props }
-			className={ styles.sites }
-			itemClassName={ styles.siteDragWrapper }
-			previewClassName={ styles.siteDragPreview }
+			itemClassName={ styles.dragWrapper }
+			previewClassName={ styles.dragPreview }
 			excludeSelector="[data-reorder-exclude]"
 			disabled={ useIsSelecting() }
 		/>

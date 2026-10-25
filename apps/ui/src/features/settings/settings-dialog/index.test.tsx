@@ -152,11 +152,13 @@ describe( 'SettingsDialog', () => {
 		const [ top ] = within(
 			screen.getByRole( 'tablist', { name: 'Matching settings' } )
 		).getAllByRole( 'tab' );
-		expect( top ).toHaveTextContent( 'Theme' );
+		expect( top ).toHaveAccessibleName( 'Theme' );
+		expect( top ).toHaveAccessibleDescription( 'WordPress Studio settings' );
 		fireEvent.keyDown( input, { key: 'Enter' } );
 		dialog.update();
 
 		expect( search.settings ).toBe( 'appearance' );
+		expect( screen.getByRole( 'tabpanel', { name: 'Appearance' } ) ).toHaveTextContent( 'Theme' );
 	} );
 
 	it( 'finds settings by their description', () => {
@@ -172,7 +174,8 @@ describe( 'SettingsDialog', () => {
 	it( 'clears the search on Escape without closing', () => {
 		renderDialog( { settings: 'general' } );
 		const input = screen.getByRole( 'textbox', { name: 'Search settings' } );
-		fireEvent.change( input, { target: { value: 'theme' } } );
+		fireEvent.change( input, { target: { value: 'no such setting' } } );
+		expect( screen.getByText( 'No settings found.' ) ).toHaveAttribute( 'role', 'status' );
 
 		fireEvent.keyDown( input, { key: 'Escape' } );
 
@@ -199,6 +202,36 @@ describe( 'SettingsDialog', () => {
 		renderDialog( { settings: 'appearance', settingsFocus: 'theme' } );
 
 		await waitFor( () => expect( screen.getByRole( 'textbox', { name: 'Theme' } ) ).toHaveFocus() );
+	} );
+
+	it( 'reveals a linked setting again when its link is followed again or it is searched for', () => {
+		vi.useFakeTimers();
+		try {
+			const dialog = renderDialog( { settings: 'appearance', settingsFocus: 'theme' } );
+			const row = screen.getByRole( 'textbox', { name: 'Theme' } ).closest( '[data-settings-row]' );
+			expect( row ).toHaveAttribute( 'data-settings-match' );
+			act( () => {
+				vi.advanceTimersByTime( 3000 );
+			} );
+			expect( row ).not.toHaveAttribute( 'data-settings-match' );
+
+			const input = screen.getByRole( 'textbox', { name: 'Search settings' } );
+			fireEvent.change( input, { target: { value: 'php' } } );
+			search = { ...search, settingsFocus: 'theme' };
+			dialog.update();
+			expect( input ).toHaveValue( '' );
+			expect( row ).toHaveAttribute( 'data-settings-match' );
+			act( () => {
+				vi.advanceTimersByTime( 3000 );
+			} );
+
+			fireEvent.change( input, { target: { value: 'theme' } } );
+			fireEvent.keyDown( input, { key: 'Enter' } );
+			dialog.update();
+			expect( row ).toHaveAttribute( 'data-settings-match' );
+		} finally {
+			vi.useRealTimers();
+		}
 	} );
 
 	it( 'says so when a linked setting is not on this device', async () => {

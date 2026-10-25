@@ -1,22 +1,22 @@
 .root {
 	/* The sidebar and its sticky header/footer share one surface. */
-	--studio-sidebar-bg: var(--chrome);
+	--studio-sidebar-bg: var( --chrome );
 
 	position: relative;
 	display: flex;
 	height: 100vh;
 	overflow: hidden;
-	background-color: var(--chat);
+	background-color: var( --chat );
 }
 
 .sidebar {
-	width: var(--sidebar-width, 320px);
+	width: var( --sidebar-width, 320px );
 	/* Both bounds are owned by useResizablePanel, which clamps --sidebar-width
 	   on every path. CSS min/max widths would compete with that single source
 	   of truth and can crush the sidebar below its 240px floor on narrow windows. */
 	min-width: 0;
 	flex-shrink: 0;
-	background-color: var(--studio-sidebar-bg);
+	background-color: var( --studio-sidebar-bg );
 	display: flex;
 	flex-direction: column;
 	/* The sidebar itself scrolls so the scrollbar gutter affects the
@@ -27,7 +27,7 @@
 	scrollbar-width: none;
 	-webkit-app-region: drag;
 	/* Eases with the frame when the width resets, so its rows don't snap ahead. */
-	transition: width var(--motion-duration-layout) var(--motion-ease-layout);
+	transition: width var( --motion-duration-layout ) var( --motion-ease-layout );
 }
 
 /* Collapsing animates this frame's width while the sidebar inside keeps its
@@ -38,9 +38,9 @@
 	display: flex;
 	justify-content: flex-end;
 	flex-shrink: 0;
-	width: var(--sidebar-width, 320px);
+	width: var( --sidebar-width, 320px );
 	overflow: hidden;
-	transition: width var(--motion-duration-layout) var(--motion-ease-layout);
+	transition: width var( --motion-duration-layout ) var( --motion-ease-layout );
 }
 
 /* While dragging or arrow-keying the handle the width updates every step; the
@@ -49,7 +49,7 @@
    preview-split-frame). */
 .sidebarResizing,
 .sidebarResizing .sidebar,
-.root:has(> .resizeHandle:focus-visible) :is(.sidebarFrame, .sidebar) {
+.root:has( > .resizeHandle:focus-visible ) :is( .sidebarFrame, .sidebar ) {
 	transition: none;
 }
 
@@ -61,8 +61,8 @@
 	position: sticky;
 	bottom: 0;
 	z-index: 1;
-	padding-top: 24px;
-	background: linear-gradient(to bottom, transparent, var(--studio-sidebar-bg) 32px);
+	padding-top: var( --space-6 );
+	background: linear-gradient( to bottom, transparent, var( --studio-sidebar-bg ) 32px );
 	pointer-events: none;
 	-webkit-app-region: no-drag;
 }
@@ -73,14 +73,14 @@
 
 /* The sidebar's edge below the band, in its own last column. It slides out
    with the frame, which clips it once collapsed. */
-.sidebarFrame:not(.sidebarOverlay)::after {
+.sidebarFrame:not( .sidebarOverlay )::after {
 	content: '';
 	position: absolute;
-	top: var(--band-height);
+	top: var( --band-height );
 	bottom: 0;
 	inset-inline-end: 0;
 	width: 1px;
-	background-color: var(--border);
+	background-color: var( --border );
 	pointer-events: none;
 }
 
@@ -92,21 +92,21 @@
    that keeps its toggle, instead of taking the content's width. */
 .sidebarOverlay {
 	position: absolute;
-	top: var(--band-height);
+	top: var( --band-height );
 	bottom: 0;
 	inset-inline-start: 0;
-	z-index: 40;
+	z-index: var( --z-sidebar );
 }
 
 .sidebarOverlay .sidebar {
-	border-inline-end: 1px solid var(--border);
+	border-inline-end: 1px solid var( --border );
 }
 
 /* Clicking anywhere else closes the overlay. */
 .overlayBackdrop {
 	position: absolute;
-	inset: var(--band-height) 0 0;
-	z-index: 39;
+	inset: var( --band-height ) 0 0;
+	z-index: calc( var( --z-sidebar ) - 1 );
 	-webkit-app-region: no-drag;
 }
 
@@ -121,8 +121,8 @@
 
 /* Above the panels so the band's separator reads across them. */
 .main::before {
-	z-index: 30;
-	transition: opacity var(--motion-duration-layout) var(--motion-ease-layout);
+	z-index: var( --z-band );
+	transition: opacity var( --motion-duration-layout ) var( --motion-ease-layout );
 }
 
 .mainUndocked::before {
@@ -135,25 +135,24 @@
    above main (a later flex sibling) so its focus line sits on the border. */
 .resizeHandle {
 	position: relative;
-	z-index: 20;
+	z-index: var( --z-overlay );
 	flex-shrink: 0;
-	margin-inline-end: -8px;
+	margin-inline-end: calc( var( --space-2 ) * -1 );
 	justify-content: flex-start;
 }
 
 .resizeHandle span {
-	margin-block-start: var(--band-height);
+	margin-block-start: var( --band-height );
 }
 
 /* Hovering or dragging the handle darkens the column edge. */
-.root:has(> .resizeHandle:hover) .sidebarFrame::after,
+.root:has( > .resizeHandle:hover ) .sidebarFrame::after,
 .resizeHandle:hover + .main::before,
 .sidebarResizing::after,
 .sidebarResizing ~ .main::before {
-	background-color: color-mix(in oklab, var(--foreground) 15%, transparent);
+	background-color: color-mix( in oklab, var( --foreground ) 15%, transparent );
 }
 
 .sidebarCards {
-	padding: 0 8px 8px;
+	padding: 0 var( --space-2 ) var( --space-2 );
 }
-

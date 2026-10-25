@@ -1,5 +1,5 @@
 .trigger {
-	color: var(--foreground);
+	color: var( --foreground );
 	-webkit-app-region: no-drag;
 }
 

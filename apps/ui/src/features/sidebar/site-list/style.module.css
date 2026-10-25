@@ -1,113 +1,44 @@
-/* Sidebar rows: 36px tall with 8px padding, a 16px icon and 14px text,
-   inset 12px from the sidebar's edges. */
+/* The rows themselves come from the sidebar kit in @/lib/ui. */
 .root {
-	--site-list-row-height: 36px;
-	--site-list-row-padding: 8px;
-	--site-list-icon-gap: 6px;
-	/* Where a row's text starts, past its padding and icon. */
-	--site-list-text-inset: calc(var(--site-list-row-padding) + 16px + var(--site-list-icon-gap));
-	--site-list-action-size: 32px;
 	--site-list-chat-status-size: 14px;
 	--site-list-chat-status-start-offset: 0px;
-	--site-list-chat-status-gap: var(--site-list-icon-gap);
-	--site-list-sync-indicator-bg: var(--status-sync);
-	/* Row hover and selection. Declared here so every mount point gets it,
-	   resolved against whatever theme scope wraps the list. */
-	--sidebar-row-background: var(--hover);
+	--site-list-chat-status-gap: var( --space-1_5 );
+	--site-list-sync-indicator-bg: var( --status-sync );
 
-	padding: 12px 12px
-		20px;
+	padding: var( --space-3 ) var( --space-3 ) var( --space-5 );
 	display: flex;
 	flex-direction: column;
-	gap: 4px;
-	font-size: var(--text-sm);
-	line-height: 20px;
+	gap: var( --space-1 );
+	font-size: var( --text-sm );
+	line-height: var( --text-sm--line-height );
 	user-select: none;
 	-webkit-app-region: no-drag;
 }
 
-.sites {
-	display: flex;
-	flex-direction: column;
-	gap: 1px;
+.dragWrapper {
+	border-radius: var( --radius-md );
 }
 
-/* Structural drag styles (touch-action, fixed preview positioning,
-   will-change) live in the shared reorderable-list module; these classes
-   carry only the site rows' visual treatment. */
-
-.siteDragWrapper {
-	border-radius: 6px;
+/* A dragged site folds its chats at once, so the rows below settle before
+   they are measured for the drop. */
+.dragWrapper[data-drag-source] .chatsPanel {
+	display: none;
 }
 
-.siteDragPreview {
+.dragPreview {
 	opacity: 0.95;
-	filter: drop-shadow(0 6px 14px rgb(0 0 0 / 14%));
+	/* eslint-disable-next-line studio/use-theme-tokens -- the dragged row's shadow. */
+	filter: drop-shadow( 0 6px 14px rgb( 0 0 0 / 14% ) );
 }
 
-.siteDragPreview .siteHeader {
-	background-color: var(--sidebar-row-background);
+.dragPreview .siteRow {
+	background-color: var( --hover );
 }
 
+/* Keep scrollIntoView targets clear of the sidebar's sticky header and
+   footer, which paint over the scrollport's edges. */
 .site {
-	display: flex;
-	flex-direction: column;
-	/* Keep scrollIntoView targets clear of the sidebar's sticky header and
-	   footer, which paint over the scrollport's edges. */
-	scroll-margin-block: 64px;
-}
-
-.siteHeader {
-	position: relative;
-	display: flex;
-	align-items: center;
-	gap: var(--site-list-icon-gap);
-	min-width: 0;
-	height: var(--site-list-row-height);
-	padding-inline: var(--site-list-row-padding);
-	border-radius: var(--radius-md);
-	color: var(--foreground);
-	cursor: pointer;
-}
-
-.siteHeader:hover,
-.siteHeader:has(:focus-visible),
-.siteActive:not(.siteWithChats) .siteHeader,
-.siteContextActive .siteHeader {
-	background-color: var(--sidebar-row-background);
-}
-
-.siteHeader:has(.siteToggle:focus-visible) {
-	box-shadow: inset 0 0 0 2px var(--ring);
-}
-
-.siteToggle:focus-visible {
-	box-shadow: none;
-}
-
-.siteIcon {
-	position: relative;
-	display: inline-flex;
-	flex-shrink: 0;
-}
-
-.siteXdebug {
-	width: 16px;
-	height: 16px;
-}
-
-.siteIcon:has(.runningDot) > svg {
-	mask-image: radial-gradient(circle at calc(100% - 2px) 2px, transparent 5.5px, #000 6px);
-}
-
-.runningDot {
-	position: absolute;
-	top: -1.5px;
-	right: -1.5px;
-	width: 7px;
-	height: 7px;
-	border-radius: 50%;
-	background-color: var(--accent);
+	scroll-margin-block: var( --space-16 );
 }
 
 .siteText {
@@ -117,277 +48,20 @@
 	align-items: center;
 }
 
-.siteToggle {
-	flex: 1 1 auto;
-	min-width: 0;
-	font: inherit;
-	/* Unfolded is not pressed: keep the name at full strength. */
-	opacity: 1;
-}
-
-.siteName {
-	--shimmer-highlight: var(--muted-foreground);
-
-	color: var(--foreground);
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
-	max-width: 100%;
-}
-
-/* A row's 32px actions, pinned inside its trailing edge. They show on hover,
-   on keyboard focus, and while the row's menu is open; a running start or stop
-   stays visible. The row's text makes room for them. */
 .siteActions {
-	position: absolute;
-	inset-block-start: 2px;
-	inset-inline-end: 2px;
-	display: flex;
-	gap: 2px;
-}
-
-.siteActions .rowAction {
-	opacity: 0;
-}
-
-.siteHeader:hover .rowAction,
-.siteHeader:has(:focus-visible) .rowAction,
-.siteHeader[data-popup-open] .rowAction,
-.siteActive:not(.siteWithChats) .rowAction,
-.siteContextActive .rowAction,
-.siteStatus[aria-busy='true'] {
-	opacity: 1;
-}
-
-.siteHeader:hover,
-.siteHeader:has(:focus-visible),
-.siteHeader[data-popup-open],
-.siteActive:not(.siteWithChats) .siteHeader,
-.siteContextActive .siteHeader {
-	padding-inline-end: calc(2 * var(--site-list-action-size) + var(--site-list-row-padding));
-}
-
-@media (prefers-reduced-motion: reduce) {
-	.skeleton {
-		animation: none;
-		transition: none;
-	}
-
-	.siteDragPreview {
-		filter: none;
-	}
-}
-
-.empty {
-	padding: 4px var(--site-list-row-padding);
-	color: var(--muted-foreground);
-}
-
-.group {
-	display: flex;
-	flex-direction: column;
-	padding-block-start: 4px;
-}
-
-.group[data-open] {
-	padding-block-end: 12px;
-}
-
-.groupHeader {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	height: var(--site-list-row-height);
-}
-
-/* The label reads muted; its chevron points down when open and shows on hover,
-   and stays visible pointing right while the group is collapsed. */
-.groupToggle {
-	display: inline-flex;
-	flex: 1;
-	align-items: center;
-	gap: 4px;
-	height: 100%;
-	padding: 0 var(--site-list-row-padding);
-	border-radius: var(--radius-md);
-	color: var(--muted-foreground);
-	font-weight: var(--font-weight-medium);
-	cursor: pointer;
-	transition: color var(--motion-duration-feedback) ease;
-}
-
-.groupToggle:hover {
-	color: var(--foreground);
-}
-
-.groupToggle:focus-visible {
-	outline: 2px solid var(--ring);
-	outline-offset: -2px;
-}
-
-.groupChevron {
-	opacity: 0;
-	transition:
-		rotate var(--motion-duration-feedback) ease,
-		opacity var(--motion-duration-feedback) ease;
-}
-
-.groupToggle[aria-expanded='true'] .groupChevron {
-	rotate: 90deg;
-}
-
-.group:hover .groupChevron,
-.groupToggle[aria-expanded='false'] .groupChevron {
-	opacity: 1;
+	gap: var( --space-0_5 );
 }
 
 .chats {
 	display: flex;
 	flex-direction: column;
 	gap: 1px;
+	padding-block: 1px var( --space-2 );
 }
 
-.site .chats {
-	padding-block: 1px 8px;
-}
-
-.groupActions {
-	display: flex;
-}
-
-/* Show more and Retry loading chats. */
-.chats .mutedRow {
-	color: var(--muted-foreground);
-}
-
-.chats .mutedRow:hover {
-	background-color: var(--sidebar-row-background);
-	color: var(--foreground);
-}
-
-.site .mutedRow {
-	position: relative;
-	padding-inline-start: var(--site-list-text-inset);
-}
-
-.mutedRow .rowIcon {
-	position: absolute;
-	inset-inline-start: var(--site-list-row-padding);
-}
-
-.skeletonRow {
-	display: flex;
-	align-items: center;
-	gap: var(--site-list-icon-gap);
-	height: var(--site-list-row-height);
-	padding-inline: var(--site-list-row-padding);
-}
-
-.skeleton {
-	flex: 1;
-	height: 16px;
-	border-radius: var(--radius-md);
-	background-color: var(--muted);
-	animation: skeletonPulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-}
-
-.skeleton:first-child {
-	flex: none;
-	width: 16px;
-}
-
-.skeletonLabel.skeletonLabel {
-	width: 36px;
-	margin-inline: var(--site-list-row-padding);
-}
-
-@keyframes skeletonPulse {
-	50% {
-		opacity: 0.5;
-	}
-}
-
-.chatRow {
-	position: relative;
-	display: flex;
-	align-items: center;
-	border-radius: var(--radius-md);
-}
-
-.chatRow:hover,
-.chatRow[data-popup-open],
-.chatActive {
-	background-color: var(--sidebar-row-background);
-}
-
-.chat {
-	flex: 1 1 auto;
-	gap: var(--site-list-icon-gap);
-	height: var(--site-list-row-height);
-	min-width: 0;
-	padding-inline: var(--site-list-row-padding);
-	border-radius: var(--radius-md);
-	color: var(--foreground);
-	font: inherit;
-}
-
-.chatNested .chat {
-	padding-inline-start: var(--site-list-text-inset);
-}
-
-.rowIcon {
-	flex-shrink: 0;
-}
-
-.chatActions {
-	position: absolute;
-	inset-inline-end: 2px;
-	display: flex;
-	opacity: 0;
-	transition: opacity var(--motion-duration-surface) var(--motion-ease-enter);
-}
-
-.chatRow:hover .chatActions,
-.chatRow:has(:focus-visible) .chatActions,
-.chatRow[data-popup-open] .chatActions,
-.chatActive:not(.chatNested) .chatActions {
-	opacity: 1;
-}
-
-.chatRow:has(.chatActions):is(:hover, :has(:focus-visible), [data-popup-open]) .chat,
-.chatActive:not(.chatNested):has(.chatActions) .chat {
-	padding-inline-end: calc(2 * var(--site-list-action-size) + var(--site-list-row-padding));
-}
-
-.chatTitle {
-	--shimmer-highlight: var(--muted-foreground);
-
-	flex: 1 1 auto;
-	min-width: 0;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
-	text-align: start;
-}
-
-/* Sits in the archive button's slot, which takes over on hover. */
-.unreadDot {
-	position: absolute;
-	inset-inline-end: calc(2px + (var(--site-list-action-size) - 7px) / 2);
-	width: 7px;
-	height: 7px;
-	border-radius: 50%;
-	background-color: var(--accent);
-}
-
-.chat:has(.unreadDot) {
-	padding-inline-end: calc(var(--site-list-action-size) + var(--site-list-row-padding));
-}
-
-.chatRow:hover .unreadDot,
-.chatRow:has(:focus-visible) .unreadDot,
-.chatRow[data-popup-open] .unreadDot {
-	opacity: 0;
+.empty {
+	padding: var( --space-1 ) var( --space-2 );
+	color: var( --muted-foreground );
 }
 
 /* Wraps the sidebar's groups without adding a box of its own. */
@@ -395,12 +69,13 @@
 	display: contents;
 }
 
-.siteHeader[data-selected],
-.chatRow[data-selected] {
-	background-color: var(--sidebar-row-background);
+/* While several rows are selected, their hover actions step aside. */
+.selection[data-selecting] [data-slot='sidebar-menu-actions'] {
+	visibility: hidden;
 }
 
-/* While several rows are selected, their hover actions step aside. */
-.selection[data-selecting] :is(.chatActions, .siteActions) {
-	visibility: hidden;
+@media ( prefers-reduced-motion: reduce ) {
+	.dragPreview {
+		filter: none;
+	}
 }

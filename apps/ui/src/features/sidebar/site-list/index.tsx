@@ -2,7 +2,7 @@ import { sortSites } from '@studio/common/lib/sort-sites';
 import { useParams, useRouterState } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { clsx } from 'clsx';
-import { Fragment, useMemo, useState, type ReactNode } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { useSessionsNeedingInput } from '@/data/agent-runs/use-agent-run';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useSessions } from '@/data/queries/use-sessions';
@@ -11,7 +11,15 @@ import { useSites, useUpdateSitesSortOrder } from '@/data/queries/use-sites';
 import { getSessionTitle } from '@/features/chats';
 import { useOpenAddSite } from '@/features/sites';
 import { CollapseAllIcon, PlusIcon } from '@/lib/icons';
-import { IconButton } from '@/lib/ui';
+import {
+	IconButton,
+	SidebarGroup,
+	SidebarGroupHeader,
+	SidebarGroupLabelSkeleton,
+	SidebarMenu,
+	SidebarMenuItem,
+	SidebarMenuSkeleton,
+} from '@/lib/ui';
 import { ChatRow, RetryLoadingChats } from './chat-row';
 import { useProvideCollapseAll } from './collapse-all';
 import { SidebarSelection } from './selection';
@@ -24,12 +32,13 @@ import {
 	sortSitesByManualOrder,
 	type SiteRow,
 } from './sidebar-collections';
-import { SidebarGroup } from './sidebar-group';
+import { SiteListGroup } from './sidebar-group';
 import { SidebarReorderableList } from './sidebar-reorderable-list';
 import { SiteSection } from './site-section';
 import styles from './style.module.css';
 import { useRevealedSites } from './use-revealed-sites';
 import type { AiSessionSummary } from '@/data/core';
+import type { ReorderableItemProps } from '@/features/sidebar/reorderable-list';
 
 export function SiteList( {
 	className,
@@ -88,8 +97,10 @@ export function SiteList( {
 			chatEnabled,
 		} );
 
-	const renderSiteRow = ( row: SiteRow ) => (
+	const renderSiteRow = ( row: SiteRow, itemProps?: ReorderableItemProps ) => (
 		<SiteSection
+			key={ row.site.id }
+			itemProps={ itemProps }
 			row={ row }
 			chats={ chatsBySite.get( row.site.id ) ?? [] }
 			isChatActive={ row.site.id === activeChatSiteKey }
@@ -113,25 +124,18 @@ export function SiteList( {
 	let listContent: ReactNode;
 	if ( sitesLoading ) {
 		listContent = (
-			<div className={ styles.sites } aria-hidden="true">
+			<SidebarMenu aria-hidden="true">
 				{ [ '65%', '48%', '72%', '56%' ].map( ( width ) => (
-					<div key={ width } className={ styles.skeletonRow }>
-						<span className={ styles.skeleton } />
-						<span className={ styles.skeleton } style={ { maxWidth: width } } />
-					</div>
+					<SidebarMenuItem key={ width }>
+						<SidebarMenuSkeleton width={ width } />
+					</SidebarMenuItem>
 				) ) }
-			</div>
+			</SidebarMenu>
 		);
 	} else if ( rows.length === 0 ) {
 		listContent = sections ? null : <p className={ styles.empty }>{ __( 'No sites yet' ) }</p>;
 	} else if ( ! reorderable ) {
-		listContent = (
-			<div className={ styles.sites }>
-				{ siteRows.map( ( row ) => (
-					<Fragment key={ row.site.id }>{ renderSiteRow( row ) }</Fragment>
-				) ) }
-			</div>
-		);
+		listContent = <SidebarMenu>{ siteRows.map( ( row ) => renderSiteRow( row ) ) }</SidebarMenu>;
 	} else {
 		listContent = (
 			<SidebarReorderableList
@@ -154,20 +158,25 @@ export function SiteList( {
 	if ( sitesLoading ) {
 		return (
 			<div className={ clsx( styles.root, className ) }>
-				<div className={ styles.group }>
-					<div className={ styles.groupHeader } aria-hidden="true">
-						<span className={ clsx( styles.skeleton, styles.skeletonLabel ) } />
-					</div>
+				<SidebarGroup>
+					<SidebarGroupHeader aria-hidden="true">
+						<SidebarGroupLabelSkeleton />
+					</SidebarGroupHeader>
 					{ listContent }
-				</div>
+				</SidebarGroup>
 			</div>
 		);
 	}
 
 	const loaded = ! sitesLoading && ! sessionsLoading;
-	const renderChat = ( session: AiSessionSummary, siteName?: string ) => (
+	const renderChat = (
+		session: AiSessionSummary,
+		siteName?: string,
+		itemProps?: ReorderableItemProps
+	) => (
 		<ChatRow
 			key={ session.id }
+			itemProps={ itemProps }
 			session={ session }
 			active={ session.id === activeSessionId }
 			siteName={ siteName }
@@ -179,14 +188,14 @@ export function SiteList( {
 		<div className={ clsx( styles.root, className ) }>
 			<SidebarSelection>
 				{ needsInputChats.length > 0 ? (
-					<SidebarGroup id="needs-input" title={ __( 'Needs input' ) } foldable={ false }>
-						<div className={ styles.chats }>
+					<SiteListGroup id="needs-input" title={ __( 'Needs input' ) } foldable={ false }>
+						<SidebarMenu>
 							{ needsInputChats.map( ( session ) => renderChat( session ) ) }
-						</div>
-					</SidebarGroup>
+						</SidebarMenu>
+					</SiteListGroup>
 				) : null }
 				{ pinnedItems.length > 0 ? (
-					<SidebarGroup
+					<SiteListGroup
 						id="pinned"
 						title={ __( 'Pinned' ) }
 						itemKeys={ loaded ? pinnedItems.map( ( item ) => item.key ) : undefined }
@@ -206,20 +215,22 @@ export function SiteList( {
 							getItemLabel={ ( item ) =>
 								item.row ? item.row.site.name : getSessionTitle( item.session )
 							}
-							renderItem={ ( item ) =>
-								item.row ? renderSiteRow( item.row ) : renderChat( item.session, item.siteName )
+							renderItem={ ( item, itemProps ) =>
+								item.row
+									? renderSiteRow( item.row, itemProps )
+									: renderChat( item.session, item.siteName, itemProps )
 							}
 							onReorder={ ( sidebarPins ) => save( { sidebarPins } ) }
 						/>
-					</SidebarGroup>
+					</SiteListGroup>
 				) : null }
-				<SidebarGroup
+				<SiteListGroup
 					id="sites"
 					title={ __( 'Sites' ) }
 					itemKeys={ loaded ? siteRows.map( ( row ) => row.site.id ) : undefined }
 					foldable={ sitesLoading || siteRows.length > 0 }
 					action={
-						<span className={ styles.groupActions }>
+						<>
 							{ canCollapseAll ? (
 								<IconButton
 									variant="muted-ghost"
@@ -236,27 +247,25 @@ export function SiteList( {
 								label={ __( 'Add site' ) }
 								onClick={ () => openAddSite() }
 							/>
-						</span>
+						</>
 					}
 				>
 					{ listContent }
-				</SidebarGroup>
+				</SiteListGroup>
 				{ showRecentChats && ( recentChats.length > 0 || sessionsError ) ? (
-					<SidebarGroup
+					<SiteListGroup
 						id="recent"
 						title={ __( 'Recent' ) }
 						itemKeys={ loaded ? recentChats.map( ( session ) => session.id ) : undefined }
 					>
-						{ sessionsError ? (
-							<div className={ styles.chats }>
+						<SidebarMenu>
+							{ sessionsError ? (
 								<RetryLoadingChats />
-							</div>
-						) : (
-							<div className={ styles.chats }>
-								{ recentChats.map( ( session ) => renderChat( session ) ) }
-							</div>
-						) }
-					</SidebarGroup>
+							) : (
+								recentChats.map( ( session ) => renderChat( session ) )
+							) }
+						</SidebarMenu>
+					</SiteListGroup>
 				) : null }
 			</SidebarSelection>
 		</div>

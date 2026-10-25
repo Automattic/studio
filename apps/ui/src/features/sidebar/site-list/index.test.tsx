@@ -413,7 +413,7 @@ describe( 'SiteList', () => {
 
 		render( <SiteList /> );
 
-		const row = screen.getByText( 'Xdebug Site' ).closest( 'section' )!;
+		const row = screen.getByText( 'Xdebug Site' ).closest( 'li' )!;
 		expect( within( row ).getByLabelText( 'Xdebug enabled' ) ).toBeInTheDocument();
 	} );
 
@@ -432,7 +432,7 @@ describe( 'SiteList', () => {
 
 		render( <SiteList /> );
 
-		const stoppedRow = screen.getByText( 'Stopped Site' ).closest( 'section' )!;
+		const stoppedRow = screen.getByText( 'Stopped Site' ).closest( 'li' )!;
 		const siteButton = within( stoppedRow ).getByRole( 'button', { name: 'Stopped Site' } );
 
 		expect( siteButton ).toHaveAttribute( 'aria-current', 'page' );
@@ -466,7 +466,7 @@ describe( 'SiteList', () => {
 		render( <SiteList sections /> );
 
 		const sites = screen.getByRole( 'group', { name: 'Sites' } );
-		const openSite = within( sites ).getByText( 'Stopped Site' ).closest( 'section' )!;
+		const openSite = within( sites ).getByText( 'Stopped Site' ).closest( 'li' )!;
 		expect( within( openSite ).getByRole( 'button', { name: 'Add a menu' } ) ).toHaveAttribute(
 			'aria-current',
 			'page'
@@ -655,11 +655,13 @@ describe( 'SiteList', () => {
 
 		render( <SiteList /> );
 
-		const stoppedRow = screen.getByText( 'Stopped Site' ).closest( 'section' )!;
+		const stoppedRow = screen.getByText( 'Stopped Site' ).closest( 'li' )!;
 		const siteButton = within( stoppedRow ).getByRole( 'button', { name: 'Stopped Site' } );
 
 		expect( siteButton ).not.toHaveAttribute( 'aria-current' );
-		expect( stoppedRow.getAttribute( 'class' ) ?? '' ).toContain( 'siteContextActive' );
+		expect( siteButton.closest( '[data-slot="sidebar-menu-button"]' ) ).toHaveAttribute(
+			'data-active'
+		);
 	} );
 
 	it( 'opens the latest active chat when a site is clicked', () => {
@@ -686,7 +688,9 @@ describe( 'SiteList', () => {
 
 		expect( screen.queryByText( 'Latest visible chat' ) ).not.toBeInTheDocument();
 
-		const stoppedRow = screen.getByText( 'Stopped Site' ).closest( 'header' );
+		const stoppedRow = screen
+			.getByText( 'Stopped Site' )
+			.closest( '[data-slot="sidebar-menu-button"]' );
 		expect( stoppedRow ).toBeInTheDocument();
 
 		fireEvent.click( stoppedRow! );
@@ -885,7 +889,7 @@ describe( 'SiteList', () => {
 
 		render( <SiteList /> );
 
-		const stoppedSiteRow = screen.getByText( 'Stopped Site' ).closest( 'section' )!;
+		const stoppedSiteRow = screen.getByText( 'Stopped Site' ).closest( 'li' )!;
 		expect( within( stoppedSiteRow ).queryByRole( 'status' ) ).not.toBeInTheDocument();
 	} );
 
@@ -899,8 +903,8 @@ describe( 'SiteList', () => {
 
 		render( <SiteList /> );
 
-		const importingRow = screen.getByText( 'Running Site' ).closest( 'section' )!;
-		const otherRow = screen.getByText( 'Stopped Site' ).closest( 'section' )!;
+		const importingRow = screen.getByText( 'Running Site' ).closest( 'li' )!;
+		const otherRow = screen.getByText( 'Stopped Site' ).closest( 'li' )!;
 
 		expect(
 			within( importingRow ).getByRole( 'status', { name: 'Importing backup' } )
@@ -916,7 +920,7 @@ describe( 'SiteList', () => {
 
 		render( <SiteList /> );
 
-		const runningSiteRow = screen.getByText( 'Running Site' ).closest( 'section' )!;
+		const runningSiteRow = screen.getByText( 'Running Site' ).closest( 'li' )!;
 		const indicator = within( runningSiteRow ).getByRole( 'status', {
 			name: 'Syncing live site',
 		} );

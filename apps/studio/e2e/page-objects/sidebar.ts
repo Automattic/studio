@@ -17,7 +17,7 @@ export default class Sidebar {
 	}
 
 	getSiteRow( siteName: string ) {
-		return this.locator.locator( 'section' ).filter( {
+		return this.locator.getByRole( 'listitem' ).filter( {
 			has: this.page.getByRole( 'button', { name: siteName, exact: true } ),
 		} );
 	}

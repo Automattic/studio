@@ -1,0 +1,209 @@
+/* Rows are 36px tall with 8px padding, a 16px icon and a 6px gap, so a nested
+   row's label lines up 30px in. Trailing actions are 32px buttons inset 2px. */
+@layer ui {
+	.group {
+		display: flex;
+		flex-direction: column;
+		padding-block-start: 4px;
+	}
+
+	.group[data-open] {
+		padding-block-end: 12px;
+	}
+
+	.groupHeader {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		height: 36px;
+	}
+
+	.groupLabel {
+		display: inline-flex;
+		flex: 1;
+		align-items: center;
+		gap: 4px;
+		height: 100%;
+		padding: 0 8px;
+		border-radius: var( --radius-md );
+		color: var( --muted-foreground );
+		font-weight: var( --font-weight-medium );
+		cursor: pointer;
+		transition: color var( --motion-duration-feedback ) ease;
+	}
+
+	.groupLabel:hover {
+		color: var( --foreground );
+	}
+
+	.groupLabel:focus-visible {
+		outline: 2px solid var( --ring );
+		outline-offset: -2px;
+	}
+
+	.groupLabel > svg {
+		opacity: 0;
+		transition:
+			rotate var( --motion-duration-feedback ) ease,
+			opacity var( --motion-duration-feedback ) ease;
+	}
+
+	.groupLabel[aria-expanded='true'] > svg {
+		rotate: 90deg;
+	}
+
+	.group:hover .groupLabel > svg,
+	.groupLabel[aria-expanded='false'] > svg {
+		opacity: 1;
+	}
+
+	.groupLabelSkeleton {
+		flex: none;
+		width: 36px;
+		height: 16px;
+		margin-inline: 8px;
+	}
+
+	.menu {
+		display: flex;
+		flex-direction: column;
+		gap: 1px;
+	}
+
+	.item {
+		position: relative;
+		display: flex;
+		flex-direction: column;
+	}
+
+	.button {
+		position: relative;
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		min-width: 0;
+		height: 36px;
+		padding-inline: 8px;
+		border-radius: var( --radius-md );
+		color: var( --foreground );
+		text-align: start;
+		outline: none;
+		cursor: pointer;
+		user-select: none;
+	}
+
+	.button[data-inset] {
+		padding-inline-start: 30px;
+	}
+
+	.button[data-inset] > svg:first-child {
+		position: absolute;
+		inset-inline-start: 8px;
+	}
+
+	.button[data-muted] {
+		color: var( --muted-foreground );
+	}
+
+	.button > svg {
+		flex-shrink: 0;
+	}
+
+	.button :focus-visible {
+		outline: none;
+	}
+
+	.button:is( :focus-visible, :has( :focus-visible ) ) {
+		box-shadow: inset 0 0 0 2px var( --ring );
+	}
+
+	/* Hovered, holding keyboard focus, active, selected, its menu open, or its actions hovered. */
+	.button:is( :hover, :has( :focus-visible ), [data-active], [data-selected], [data-popup-open] ),
+	.item:is( [data-selected], [data-popup-open], :has( > .actions:hover ) ) > .button {
+		background-color: var( --hover );
+	}
+
+	.button[data-muted]:hover {
+		color: var( --foreground );
+	}
+
+	.label {
+		--shimmer-highlight: var( --muted-foreground );
+
+		flex: 1 1 auto;
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		text-align: start;
+	}
+
+	.actions {
+		position: absolute;
+		inset-block-start: 2px;
+		inset-inline-end: 2px;
+		display: flex;
+	}
+
+	/* While the row is idle, hover-only actions hide, apart from a busy one. */
+	.item:not(
+			[data-popup-open],
+			:has( > .button:is( :hover, :focus-visible, [data-popup-open] ) ),
+			:has( > .button :focus-visible ),
+			:has( > .actions:hover ),
+			:has( > .actions :focus-visible )
+		)
+		> .actions[data-show-on-hover]
+		> :not( [aria-busy='true'] ) {
+		opacity: 0;
+	}
+
+	/* A trailing dot sits in the last action's slot, and gives way to the actions. */
+	.button:has( > [data-slot='notification-dot'][data-position='end'] ) {
+		padding-inline-end: 40px;
+	}
+
+	.item:is(
+			[data-popup-open],
+			:has( > .button:is( :hover, :focus-visible, [data-popup-open] ) ),
+			:has( > .button :focus-visible ),
+			:has( > .actions:hover ),
+			:has( > .actions :focus-visible )
+		)
+		> .button
+		> [data-slot='notification-dot'][data-position='end'] {
+		opacity: 0;
+	}
+
+	.item:has( > .actions ):is(
+			[data-popup-open],
+			:has( > .button:is( :hover, :focus-visible, [data-popup-open] ) ),
+			:has( > .button :focus-visible ),
+			:has( > .actions:hover ),
+			:has( > .actions :focus-visible ),
+			:has( > .actions:not( [data-show-on-hover] ) )
+		)
+		> .button {
+		padding-inline-end: calc( 2 * 32px + 8px );
+	}
+
+	.skeleton {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		height: 36px;
+		padding-inline: 8px;
+	}
+
+	.skeletonIcon {
+		flex: none;
+		width: 16px;
+		height: 16px;
+	}
+
+	.skeletonLabel {
+		flex: 1;
+		max-width: var( --skeleton-width );
+		height: 16px;
+	}
+}

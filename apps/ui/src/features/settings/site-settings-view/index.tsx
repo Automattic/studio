@@ -73,8 +73,8 @@ interface FormData {
 }
 
 function getEffectiveWpVersion( site: SiteDetails, installedVersion?: string ): string {
-	// Mirrors the legacy apps/studio behavior: sites created before the auto-
-	// updating flag existed count as auto-updating too.
+	// Sites created before the auto-updating flag existed count as
+	// auto-updating too.
 	if ( site.isWpAutoUpdating !== false ) {
 		return '';
 	}
@@ -262,9 +262,8 @@ export function SiteSettingsForm( {
 			enableScriptDebug: data.enableScriptDebug,
 			environmentType: data.environmentType,
 		};
-		// Only forward the version when the user actually changed it — same as
-		// the legacy settings modal — so unrelated saves of a pinned site don't
-		// trigger a WordPress reinstall. Switching back to auto-updating still
+		// Only forward the version when the user actually changed it, so
+		// unrelated saves of a pinned site don't trigger a WordPress reinstall. Switching back to auto-updating still
 		// has to install the latest release, so the empty "auto-update" value
 		// maps to DEFAULT_WORDPRESS_VERSION rather than forwarding nothing.
 		const wpVersionChanged = data.wpVersion !== initial.wpVersion;

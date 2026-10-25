@@ -97,8 +97,8 @@ export function validateAdminPassword( password: string ): string {
 	return password ? '' : __( 'Admin password is required.' );
 }
 
-// Numeric compare on the leading `x.y.z` part, like Classic's semver.coerce
-// (`6.9-beta1` sorts with `6.9`; unparseable values sort last).
+// Numeric compare on the leading `x.y.z` part (`6.9-beta1` sorts with `6.9`;
+// unparseable values sort last).
 function compareWpVersions( a: string, b: string ): number {
 	const parse = ( version: string ) =>
 		( version.match( /^\d+(\.\d+)*/ )?.[ 0 ] ?? '' ).split( '.' ).map( Number );
@@ -112,8 +112,7 @@ function compareWpVersions( a: string, b: string ): number {
 	return 0;
 }
 
-// Insert `option` into the descending-ordered `options` list (ported from the
-// legacy wp-version-selector's addWpVersionToList).
+// Insert `option` into the descending-ordered `options` list.
 function addVersionOption( option: SiteOption, options: SiteOption[] ): SiteOption[] {
 	const index = options.findIndex(
 		( existing ) => compareWpVersions( option.value, existing.value ) > 0

@@ -60,9 +60,9 @@ import type { ComposerSendAttachments } from '@/data/use-composer-attachments';
  */
 export function ComposerSkeleton() {
 	return (
-		<div className={ styles.root } style={ { visibility: 'hidden' } } aria-hidden="true">
+		<div className={ styles.root } style={ { visibility: 'hidden' } } inert>
 			<div className={ styles.shell }>
-				<textarea className={ styles.input } rows={ 1 } disabled tabIndex={ -1 } />
+				<textarea className={ styles.input } rows={ 1 } />
 				<div className={ styles.toolbar }>
 					<Button size="icon" />
 				</div>

@@ -5,7 +5,7 @@ import type { PreferenceChangeSource, UserPreferences, WritableUserPreferences }
 export const USER_PREFERENCES_QUERY_KEY = [ 'user-preferences' ] as const;
 
 // No staleTime override: preferences can change outside this renderer (the
-// legacy UI writes the same config), so the persisted cache paints instantly
+// Desktop app and `studio ui` share the same config), so the persisted cache paints instantly
 // and a mount/focus refetch reconciles it. Settings save on change, so a
 // background refetch can't wipe in-progress edits.
 export function useUserPreferences() {

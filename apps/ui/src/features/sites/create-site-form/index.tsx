@@ -439,7 +439,7 @@ export function CreateSiteForm( {
 	const { data: wpVersions } = useWordPressVersions();
 	const isOffline = useOffline();
 	// While offline, "latest" is the only version installable without a
-	// download, so it's forced — same as the legacy version selector.
+	// download, so it's forced.
 	useEffect( () => {
 		if ( ! isOffline && ! wpVersions?.length ) return;
 		setData( ( prev ) => {

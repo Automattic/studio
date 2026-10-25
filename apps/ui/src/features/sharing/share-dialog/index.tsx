@@ -30,6 +30,7 @@ import {
 	DialogHeader,
 	DialogTitle,
 	Button,
+	NotificationDot,
 } from '@/lib/ui';
 import { PreviewSharePanel } from './preview-share-panel';
 import styles from './style.module.css';
@@ -227,9 +228,7 @@ export function ShareStatusIcon( {
 	return (
 		<span className={ styles.statusIcon }>
 			{ status.publishing ? <Spinner /> : icon }
-			{ status.ready && ! status.publishing ? (
-				<span className={ styles.readyDot } aria-hidden="true" />
-			) : null }
+			{ status.ready && ! status.publishing ? <NotificationDot position="icon" /> : null }
 		</span>
 	);
 }

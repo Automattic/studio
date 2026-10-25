@@ -14,11 +14,12 @@ const TYPED_PATH_CHECK_DELAY_MS = 300;
 export function usePathAutoGenerate(
 	data: FormData,
 	onChange: ( update: Partial< FormData > ) => void,
-	isSubmitting: boolean
+	isSubmitting: boolean,
+	requiresEmptyPath?: boolean
 ) {
 	const connector = useConnector();
 	const { data: sites } = useSites();
-	const { generateProposedPath, selectPath } = usePathValidator( sites );
+	const { generateProposedPath, selectPath } = usePathValidator( sites, requiresEmptyPath );
 
 	const onChangeRef = useRef( onChange );
 	useEffect( () => {

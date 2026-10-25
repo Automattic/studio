@@ -130,6 +130,7 @@ describe( 'SidebarLayout', () => {
 		render(
 			<SidebarLayout>
 				<SidebarToggle />
+				<button type="button">Closing menu item</button>
 			</SidebarLayout>
 		);
 
@@ -141,6 +142,11 @@ describe( 'SidebarLayout', () => {
 		expect( screen.getByRole( 'button', { name: 'Show sidebar' } ) ).toHaveFocus();
 
 		fireEvent.click( screen.getByRole( 'button', { name: 'Show sidebar' } ) );
+		fireEvent.keyDown( window, { key: 'Escape' } );
+		expect( screen.getByRole( 'button', { name: 'Show sidebar' } ) ).toHaveFocus();
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Show sidebar' } ) );
+		screen.getByRole( 'button', { name: 'Closing menu item' } ).focus();
 		fireEvent.keyDown( window, { key: 'Escape' } );
 		expect( screen.getByRole( 'button', { name: 'Show sidebar' } ) ).toHaveFocus();
 	} );

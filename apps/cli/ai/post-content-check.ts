@@ -7,6 +7,7 @@
 import { mkdir, rm, writeFile } from 'fs/promises';
 import path from 'path';
 import {
+	describeBoundLinks,
 	describePaletteColors,
 	sitePalette,
 	validateBlockMarkup,
@@ -112,6 +113,7 @@ async function validatePost(
 			? `fixes ${ result.invalidBlocks } block(s) that do not match what the block saves`
 			: undefined,
 		result.paletteColors?.length ? describePaletteColors( result.paletteColors ) : undefined,
+		result.boundLinks?.length ? describeBoundLinks( result.boundLinks ) : undefined,
 	].filter( Boolean );
 	const saved = await savePost( site, post.id, relativePath ).then(
 		() => true,

@@ -1,5 +1,10 @@
 import { afterAll, describe, expect, it } from 'vitest';
-import { cleanupValidatorPages, storePaletteColors, validateBlocks } from 'cli/ai/block-validator';
+import {
+	bindNavigationLinks,
+	cleanupValidatorPages,
+	storePaletteColors,
+	validateBlocks,
+} from 'cli/ai/block-validator';
 
 // Runs the site's own block editor, so it needs a running WordPress site:
 // STUDIO_BLOCK_EDITOR_URL=http://localhost:8881 npx vitest run block-validator
@@ -216,5 +221,51 @@ describe.runIf( siteUrl )( 'storing palette colors as presets (live)', () => {
 			content: markup,
 			colors: [],
 		} );
+	} );
+
+	const nav = ( links: string ) => `<!-- wp:navigation -->\n${ links }\n<!-- /wp:navigation -->`;
+	const postLink =
+		'<!-- wp:navigation-link {"label":"About","type":"page","id":2,"kind":"post-type","metadata":{"bindings":{"url":{"source":"core/post-data","args":{"field":"link"}}}}} /-->';
+
+	it.each( [
+		{
+			name: 'a page named by id with no url',
+			markup: nav( '<!-- wp:navigation-link {"label":"About","type":"page","id":2} /-->' ),
+			bound: [ 'About' ],
+			has: postLink,
+		},
+		{
+			name: 'a category named by id, in a submenu',
+			markup: nav(
+				'<!-- wp:navigation-submenu {"label":"More","type":"page","id":2,"kind":"post-type"} -->\n<!-- wp:navigation-link {"label":"News","type":"category","id":1} /-->\n<!-- /wp:navigation-submenu -->'
+			),
+			bound: [ 'News', 'More' ],
+			has: '{"label":"News","type":"category","id":1,"kind":"taxonomy","metadata":{"bindings":{"url":{"source":"core/term-data","args":{"field":"link"}}}}}',
+		},
+		{
+			name: 'a link with a url',
+			markup: nav(
+				'<!-- wp:navigation-link {"label":"About","type":"page","id":2,"url":"/about/"} /-->'
+			),
+			bound: [],
+		},
+		{
+			name: 'a link already bound',
+			markup: nav( postLink ),
+			bound: [],
+		},
+		{
+			name: 'a custom link',
+			markup: nav( '<!-- wp:navigation-link {"label":"Shop","kind":"custom","id":7} /-->' ),
+			bound: [],
+		},
+	] )( 'binds a navigation link to what it names: $name', async ( { markup, bound, has } ) => {
+		const result = await bindNavigationLinks( markup, siteUrl! );
+		expect( result.links ).toEqual( bound );
+		if ( has ) {
+			expect( result.content ).toContain( has );
+		} else {
+			expect( result.content ).toBe( markup );
+		}
 	} );
 } );

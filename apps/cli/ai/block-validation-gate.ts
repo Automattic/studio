@@ -17,6 +17,7 @@ import { readFile, writeFile } from 'fs/promises';
 import path from 'path';
 import { validateHtmlBlockPolicy } from 'cli/ai/block-content-policy';
 import {
+	bindNavigationLinks,
 	storePaletteColors,
 	validateBlocks,
 	type PaletteColorsResult,
@@ -104,6 +105,33 @@ interface MarkupValidation {
 	invalidBlocks?: number;
 	/** The palette colors the fix stores as presets. */
 	paletteColors?: PaletteColorsResult[ 'colors' ];
+	/** The navigation links the fix binds to the entity they name. */
+	boundLinks?: string[];
+}
+
+/** How the editor links a navigation link to the post or term it names, for a note. */
+export function describeBoundLinks( links: string[] ): string {
+	return `binds the url of the navigation link(s) ${ links
+		.map( ( label ) => `"${ label }"` )
+		.join(
+			', '
+		) }, which named a page or term by id with no url, to its permalink, as the editor's link picker does (useEntityBinding in @wordpress/block-library): core prints a link's href only from its url (wp-includes/blocks/navigation-link.php)`;
+}
+
+/** What the editor stores for the palette colors and entity links the markup writes otherwise. */
+async function storeAsTheEditorDoes(
+	content: string,
+	siteUrl: string,
+	palette: Array< [ string, string ] >
+) {
+	const presets = await storePaletteColors( content, siteUrl, palette );
+	const bound = await bindNavigationLinks( presets.content, siteUrl );
+	return {
+		content: bound.content,
+		changed: presets.colors.length > 0 || bound.links.length > 0,
+		...( presets.colors.length && { paletteColors: presets.colors } ),
+		...( bound.links.length && { boundLinks: bound.links } ),
+	};
 }
 
 /** How the editor stores colors written as palette values, for a note. */
@@ -139,6 +167,7 @@ export async function validateBlockMarkupFile(
 	const notes = [
 		result.invalidBlocks ? `fixes ${ result.invalidBlocks } block(s)` : undefined,
 		result.paletteColors?.length ? describePaletteColors( result.paletteColors ) : undefined,
+		result.boundLinks?.length ? describeBoundLinks( result.boundLinks ) : undefined,
 	].filter( Boolean );
 	return {
 		contentHash: hash( content ),
@@ -182,10 +211,12 @@ export async function validateBlockMarkup(
 	}
 	const valid = `${ label }: ${ report.totalBlocks }/${ report.totalBlocks } blocks valid`;
 	if ( report.invalidBlocks === 0 ) {
-		const presets = await storePaletteColors( content, siteUrl, palette );
-		return presets.colors.length
-			? { summary: valid, fixedContent: presets.content, paletteColors: presets.colors }
-			: { summary: valid };
+		const {
+			content: stored,
+			changed,
+			...notes
+		} = await storeAsTheEditorDoes( content, siteUrl, palette );
+		return changed ? { summary: valid, fixedContent: stored, ...notes } : { summary: valid };
 	}
 
 	const fix = report.proposedFix;
@@ -207,13 +238,14 @@ export async function validateBlockMarkup(
 	const fixedBlocks = report.results.filter(
 		( result ) => ! result.isValid && ! keptAsWritten( result.place )
 	).length;
-	const presets = fixedBlocks
-		? await storePaletteColors( fix.fixedContent, siteUrl, palette )
+	const stored = fixedBlocks
+		? await storeAsTheEditorDoes( fix.fixedContent, siteUrl, palette )
 		: undefined;
-	const saved = presets && {
-		fixedContent: presets.content,
+	const saved = stored && {
+		fixedContent: stored.content,
 		invalidBlocks: fixedBlocks,
-		...( presets.colors.length && { paletteColors: presets.colors } ),
+		...( stored.paletteColors && { paletteColors: stored.paletteColors } ),
+		...( stored.boundLinks && { boundLinks: stored.boundLinks } ),
 	};
 	if ( lost.size === 0 ) {
 		return { summary: valid, ...saved };

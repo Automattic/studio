@@ -679,6 +679,82 @@ export async function storePaletteColors(
 	);
 }
 
+export interface NavigationLinksResult {
+	content: string;
+	/** The label of each link bound to the entity it names. */
+	links: string[];
+}
+
+/**
+ * Binds the url of each navigation link that names a post or term by its id
+ * but has no url to that entity's link, as the editor's link picker does
+ * (useEntityBinding in @wordpress/block-library): core prints a link's href
+ * only from its url (wp-includes/blocks/navigation-link.php), and fills the
+ * url from the binding with the entity's permalink (core/post-data and
+ * core/term-data in wp-includes/block-bindings). Content the editor would
+ * save otherwise is returned as is.
+ */
+export async function bindNavigationLinks(
+	content: string,
+	siteUrl: string
+): Promise< NavigationLinksResult > {
+	if ( ! /<!--\s*wp:navigation-(?:link|submenu)\s/.test( content ) ) {
+		return { content, links: [] };
+	}
+	const page = await getEditorPage( siteUrl ).getPage();
+	return page.evaluate( ( html ) => {
+		/* eslint-disable @typescript-eslint/no-explicit-any */
+		const wpBlocks = ( window as any ).wp.blocks;
+		const links: string[] = [];
+		const TAXONOMIES = [ 'category', 'tag', 'post_tag' ];
+		const visit = ( block: any ): any => {
+			const innerBlocks = ( block.innerBlocks ?? [] ).map( visit );
+			const { id, url, type, kind, metadata, label } = block.attributes ?? {};
+			if (
+				! [ 'core/navigation-link', 'core/navigation-submenu' ].includes( block.name ) ||
+				! Number.isInteger( id ) ||
+				url ||
+				metadata?.bindings?.url ||
+				kind === 'custom'
+			) {
+				return { ...block, innerBlocks };
+			}
+			const entityKind =
+				kind === 'taxonomy' || ( ! kind && TAXONOMIES.includes( type ) ) ? 'taxonomy' : 'post-type';
+			links.push( String( label ?? id ) );
+			return {
+				...block,
+				innerBlocks,
+				attributes: {
+					...block.attributes,
+					kind: entityKind,
+					metadata: {
+						...metadata,
+						bindings: {
+							...metadata?.bindings,
+							url: {
+								source: entityKind === 'taxonomy' ? 'core/term-data' : 'core/post-data',
+								args: { field: 'link' },
+							},
+						},
+					},
+				},
+			};
+		};
+		const blocks = wpBlocks.parse( html ).map( visit );
+		if ( ! links.length ) {
+			return { content: html, links };
+		}
+		const fixed = wpBlocks.serialize( blocks );
+		const valid = ( list: any[] ): boolean =>
+			list.every( ( block ) => block.isValid !== false && valid( block.innerBlocks ?? [] ) );
+		return valid( wpBlocks.parse( fixed ) )
+			? { content: fixed, links }
+			: { content: html, links: [] };
+		/* eslint-enable @typescript-eslint/no-explicit-any */
+	}, content );
+}
+
 /** Clean up all cached editor pages. */
 export async function cleanupValidatorPages(): Promise< void > {
 	for ( const ep of editorPages.values() ) {

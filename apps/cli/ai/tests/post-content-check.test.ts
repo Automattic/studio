@@ -11,6 +11,7 @@ import type { SiteData } from 'cli/lib/cli-config/core';
 vi.mock( 'cli/ai/block-validator', () => ( {
 	validateBlocks: vi.fn(),
 	storePaletteColors: vi.fn( async ( content: string ) => ( { content, colors: [] } ) ),
+	bindNavigationLinks: vi.fn( async ( content: string ) => ( { content, links: [] } ) ),
 } ) );
 vi.mock( 'cli/lib/daemon-client', () => ( {
 	connectToDaemon: vi.fn(),

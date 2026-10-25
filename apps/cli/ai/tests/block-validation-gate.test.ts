@@ -9,6 +9,7 @@ import {
 	validateBlockMarkupFile,
 } from 'cli/ai/block-validation-gate';
 import {
+	bindNavigationLinks,
 	storePaletteColors,
 	validateBlocks,
 	type BlockLoss,
@@ -19,6 +20,7 @@ import { OpenProblems } from 'cli/ai/open-problems';
 vi.mock( 'cli/ai/block-validator', () => ( {
 	validateBlocks: vi.fn(),
 	storePaletteColors: vi.fn( async ( content: string ) => ( { content, colors: [] } ) ),
+	bindNavigationLinks: vi.fn( async ( content: string ) => ( { content, links: [] } ) ),
 } ) );
 
 let site: string;
@@ -112,6 +114,24 @@ describe( 'validating a file', () => {
 		expect( result.summary ).toBe(
 			"parts/hero.html: 1/1 blocks valid; saved through the block editor, which stores #503AA8 as the palette's accent-3, as the editor stores a palette color (encodeColorValueWithPalette in @wordpress/block-editor), so it follows the palette"
 		);
+		expect( result.fixedContent ).toBe( fixed );
+	} );
+
+	it( 'returns the content with its entity links bound, as the link picker binds them', async () => {
+		const file = write( 'parts/header.html', original );
+		vi.mocked( validateBlocks ).mockResolvedValue( {
+			totalBlocks: 1,
+			validBlocks: 1,
+			invalidBlocks: 0,
+			results: [],
+		} );
+		vi.mocked( bindNavigationLinks ).mockResolvedValueOnce( {
+			content: fixed,
+			links: [ 'About' ],
+		} );
+		const result = await validateBlockMarkupFile( file, 'http://localhost:8881' );
+		expect( bindNavigationLinks ).toHaveBeenLastCalledWith( original, 'http://localhost:8881' );
+		expect( result.summary ).toContain( 'binds the url of the navigation link(s) "About"' );
 		expect( result.fixedContent ).toBe( fixed );
 	} );
 

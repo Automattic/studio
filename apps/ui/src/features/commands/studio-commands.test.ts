@@ -49,6 +49,33 @@ describe( 'getAppCommands', () => {
 	} );
 } );
 
+it( 'shows the sidebar before opening the notifications from its bell', () => {
+	const toggleSidebar = vi.fn();
+	const openNotifications = vi.fn();
+	const notifications = ( sidebarOpen: boolean ) =>
+		getAppCommands( {
+			sites: [],
+			chats: [],
+			colorScheme: 'light',
+			sidebarOpen,
+			settingCommands: [],
+			openAddSite: vi.fn(),
+			openSettings: vi.fn(),
+			openSite: vi.fn(),
+			openChat: vi.fn(),
+			savePreferences: vi.fn(),
+			toggleSidebar,
+			openNotifications,
+			openWhatsNew: vi.fn(),
+		} ).find( ( { id } ) => id === 'notifications' )!;
+
+	notifications( true ).run();
+	expect( toggleSidebar ).not.toHaveBeenCalled();
+	notifications( false ).run();
+	expect( toggleSidebar ).toHaveBeenCalledTimes( 1 );
+	expect( openNotifications ).toHaveBeenCalledTimes( 2 );
+} );
+
 describe( 'getSettingCommands', () => {
 	it( 'turns a known switch on or off in place and opens any other setting', () => {
 		const openSettings = vi.fn();

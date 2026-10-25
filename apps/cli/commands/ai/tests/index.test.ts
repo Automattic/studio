@@ -444,6 +444,7 @@ describe( 'AI runCommand — Tracks events', () => {
 			tool_calls: 2,
 			tool_errors: 1,
 			failed_tools: 'wp_cli',
+			skills_loaded: '',
 			edits: 1,
 			model_requests: 2,
 			input_tokens: 130,

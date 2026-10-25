@@ -17,8 +17,6 @@ vi.mock( '@tanstack/react-router', () => ( {
 	useSearch: () => search,
 	useNavigate: () => navigate,
 	useRouter: () => ( { history: { canGoBack: () => true, back } } ),
-	useRouterState: ( { select }: { select: ( state: object ) => unknown } ) =>
-		select( { location: { pathname: '/sessions/chat' } } ),
 	useParams: () => ( {} ),
 } ) );
 

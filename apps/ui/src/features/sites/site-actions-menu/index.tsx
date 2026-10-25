@@ -77,7 +77,7 @@ export function useSiteActions(
 	const navigate = useNavigate();
 	const openSettings = useOpenSettings();
 	const preview = useSessionPreviewUI();
-	const { data: sites, refetch: refetchSites } = useSites();
+	const { data: sites } = useSites();
 	const startSite = useStartSite();
 	const stopSite = useStopSite();
 	const busy = useIsSiteBusy( site );
@@ -102,13 +102,6 @@ export function useSiteActions(
 		}
 		startSite.mutate( site.id );
 		onStart?.();
-	};
-	// Reads the sites again first: a site may have started or stopped since the list was cached.
-	const stopRunning = async ( { keepCurrent = false } = {} ) => {
-		const { data: latest } = await refetchSites();
-		( latest ?? [] )
-			.filter( ( candidate ) => candidate.running && ! ( keepCurrent && candidate.id === site.id ) )
-			.forEach( ( candidate ) => stopSite.mutate( candidate.id ) );
 	};
 	const shortcuts = useItemShortcuts( {
 		rename,
@@ -140,8 +133,8 @@ export function useSiteActions(
 		pinned: isPinned( sitePinKey( site.id ) ),
 		togglePin: togglePinned,
 		toggleRunning,
-		stopOthers: () => void stopRunning( { keepCurrent: true } ),
-		stopAll: () => void stopRunning(),
+		stop: ( stopping: SiteDetails[] ) =>
+			stopping.forEach( ( candidate ) => stopSite.mutate( candidate.id ) ),
 		restart: () =>
 			stopSite.mutateAsync( site.id ).then(
 				() => startSite.mutate( site.id ),
@@ -232,7 +225,7 @@ export function SiteActionsMenuItems( {
 						<StopSiteIcon />
 						{ __( 'Stop' ) }
 					</Menu.SubmenuTrigger>
-					<Menu.SubmenuPopup>
+					<Menu.SubmenuPopup { ...actions.shortcuts }>
 						{ site.running ? (
 							<Menu.Item onClick={ actions.toggleRunning }>
 								<StopSiteIcon />
@@ -241,13 +234,13 @@ export function SiteActionsMenuItems( {
 							</Menu.Item>
 						) : null }
 						{ site.running && othersRunning.length ? (
-							<Menu.Item onClick={ actions.stopOthers }>
+							<Menu.Item onClick={ () => actions.stop( othersRunning ) }>
 								<StopOtherSitesIcon />
 								{ __( 'Stop other sites' ) }
 							</Menu.Item>
 						) : null }
 						{ running.length > 1 ? (
-							<Menu.Item onClick={ actions.stopAll }>
+							<Menu.Item onClick={ () => actions.stop( running ) }>
 								<StopOtherSitesIcon />
 								{ __( 'Stop all sites' ) }
 							</Menu.Item>

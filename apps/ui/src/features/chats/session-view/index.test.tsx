@@ -578,20 +578,26 @@ describe( 'SessionView', () => {
 			expect( accessState.openSettings ).toHaveBeenCalledWith( 'ai' );
 		} );
 
-		it( 'keeps the transcript readable above a payment notice on WordPress.com chats only', () => {
+		it( 'keeps the transcript readable above a payment notice on WordPress.com chats only, and re-checks it when Studio regains focus', () => {
+			const refetch = vi.fn();
 			useStudioAssistantQuotaMock.mockReturnValue( {
 				data: makeQuota( { hasPaymentMethod: false } ),
 				isLoading: false,
+				refetch,
 			} );
 
 			const { rerender } = renderLoadedChat();
 			expect( screen.getByTestId( 'conversation' ) ).toBeInTheDocument();
 			expect( screen.getByText( PAYMENT_NOTICE ) ).toBeInTheDocument();
 			expect( screen.getByRole( 'button', { name: 'Set up' } ) ).toBeInTheDocument();
+			fireEvent.focus( window );
+			expect( refetch ).toHaveBeenCalledTimes( 1 );
 
 			aiSettingsState.data = { provider: 'anthropic-api-key', hasAnthropicApiKey: true };
 			rerender( <SessionView sessionId="session-1" /> );
 			expect( screen.queryByText( PAYMENT_NOTICE ) ).not.toBeInTheDocument();
+			fireEvent.focus( window );
+			expect( refetch ).toHaveBeenCalledTimes( 1 );
 		} );
 
 		it( 'asks a blocked account to connect a different provider', () => {
@@ -805,6 +811,24 @@ describe( 'SessionView', () => {
 			expect( scroller.scrollTop ).toBe( 2336 );
 		} );
 
+		it( 'stops holding once find in page scrolls the view', () => {
+			useSessionMock.mockReturnValue( withPromptsAt( 100, 900, 1500 ) );
+			vi.spyOn( HTMLElement.prototype, 'scrollHeight', 'get' ).mockReturnValue( 3000 );
+			vi.spyOn( HTMLElement.prototype, 'clientHeight', 'get' ).mockReturnValue( 600 );
+			const { container, rerender } = render( <SessionView sessionId="session-1" /> );
+			const scroller = container.querySelector( '[class*="_scroll_"]' ) as HTMLDivElement;
+
+			const lastPrompt = [
+				...scroller.querySelectorAll< HTMLElement >( '[data-scroll-anchor]' ),
+			].at( -1 )!;
+			scroller.scrollTop = 400;
+			lastPrompt.dataset.top = '2536';
+			fireEvent.scroll( scroller );
+			useSessionMock.mockReturnValue( withPromptsAt( 100, 900, 964 ) );
+			rerender( <SessionView sessionId="session-1" /> );
+			expect( scroller.scrollTop ).toBe( 400 );
+		} );
+
 		it( 'pins a new prompt near the top while its reply streams below', () => {
 			useSessionMock.mockReturnValue( withPromptsAt( 0 ) );
 			const { container, rerender } = render( <SessionView sessionId="session-1" /> );
@@ -831,6 +855,25 @@ describe( 'SessionView', () => {
 			rerender( <SessionView sessionId="session-1" /> );
 			expect( spacer ).toHaveStyle( { height: '0px' } );
 			expect( scroller.scrollTop ).toBe( 1800 );
+		} );
+
+		it( 'stops following the moment the user scrolls up while a reply streams', async () => {
+			useSessionMock.mockReturnValue( withPromptsAt( 0 ) );
+			const { container, rerender } = render( <SessionView sessionId="session-1" /> );
+			const scroller = container.querySelector( '[class*="_scroll_"]' ) as HTMLDivElement;
+			layoutAt( scroller, { scrollHeight: 1800 } );
+			useSessionMock.mockReturnValue( withPromptsAt( 0, 700 ) );
+			rerender( <SessionView sessionId="session-1" /> );
+			expect( scroller.scrollTop ).toBe( 1800 );
+
+			fireEvent.wheel( scroller, { deltaY: -40 } );
+			layoutAt( scroller, { scrollHeight: 3000 } );
+			scroller.scrollTop = 1800;
+			useSessionMock.mockReturnValue( withPromptsAt( 0, 700 ) );
+			rerender( <SessionView sessionId="session-1" /> );
+
+			expect( scroller.scrollTop ).toBe( 1800 );
+			await waitFor( () => expect( jumpButton() ).toHaveAttribute( 'data-visible' ) );
 		} );
 	} );
 

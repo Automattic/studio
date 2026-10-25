@@ -1,4 +1,15 @@
-/* The content column runs under the header band; centre below it. */
-.empty {
-	margin-top: var( --band-height );
+/* The band the other workspace views have, here holding only the sidebar
+   toggle. */
+.header {
+	display: flex;
+	flex-shrink: 0;
+	align-items: center;
+	height: var( --band-height );
+	padding-inline: var( --space-3 );
+	transition: padding var( --motion-duration-layout ) var( --motion-ease-layout );
+	-webkit-app-region: drag;
+}
+
+.headerSidebarCollapsed {
+	padding-inline-start: var( --traffic-light-space );
 }

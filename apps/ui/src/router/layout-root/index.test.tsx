@@ -87,7 +87,7 @@ describe( 'DeletedSiteRedirect', () => {
 
 		emitDelete( DELETED_SITE.id );
 
-		expect( navigateMock ).toHaveBeenCalledWith( { to: '/', search: true } );
+		expect( navigateMock ).toHaveBeenCalledWith( { to: '/' } );
 	} );
 
 	it( 'redirects when the open route is the deleted site itself', () => {
@@ -96,7 +96,7 @@ describe( 'DeletedSiteRedirect', () => {
 
 		emitDelete( DELETED_SITE.id );
 
-		expect( navigateMock ).toHaveBeenCalledWith( { to: '/', search: true } );
+		expect( navigateMock ).toHaveBeenCalledWith( { to: '/' } );
 	} );
 
 	it( 'stays put when the open chat belongs to another site', () => {

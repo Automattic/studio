@@ -8,6 +8,16 @@
 	margin-top: calc( var( --space-5 ) * -1 );
 }
 
+/* Rows off screen skip layout and paint. The clip margin keeps focus rings
+   that paint containment would cut; without it, every row renders. */
+@supports ( overflow-clip-margin: 4px ) {
+	.root > * {
+		content-visibility: auto;
+		contain-intrinsic-size: auto 80px;
+		overflow-clip-margin: 4px;
+	}
+}
+
 .mediaArtifacts {
 	display: flex;
 	flex-direction: column;

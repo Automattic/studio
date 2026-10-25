@@ -11,6 +11,7 @@ import {
 	loadedSession,
 	renderConversation,
 } from '@/features/chats/session-view/conversation/test-render';
+import { getToolDisplay } from '@/features/chats/session-view/conversation/trace/tool-display';
 import type { SessionEntry } from '@/data/core';
 import type { StudioChatArtifactWidgetDraft } from '@studio/common/ai/chat-artifacts';
 
@@ -21,14 +22,25 @@ const connectorMocks = vi.hoisted( () => ( {
 
 const reducedMotion = vi.hoisted( () => ( { value: false } ) );
 
+const markdown = vi.hoisted( () => vi.fn( ( { children }: { children: string } ) => children ) );
+
 vi.mock( '@/lib/hooks', async ( importOriginal ) => ( {
 	...( await importOriginal< typeof import('@/lib/hooks') >() ),
 	useReducedMotion: () => reducedMotion.value,
 } ) );
 
-vi.mock( '@/features/chats/markdown', () => ( {
-	Markdown: ( { children }: { children: string } ) => children,
-} ) );
+vi.mock( '@/features/chats/markdown', () => ( { Markdown: markdown } ) );
+
+vi.mock(
+	'@/features/chats/session-view/conversation/trace/tool-display',
+	async ( importOriginal ) => {
+		const actual =
+			await importOriginal<
+				typeof import('@/features/chats/session-view/conversation/trace/tool-display')
+			>();
+		return { ...actual, getToolDisplay: vi.fn( actual.getToolDisplay ) };
+	}
+);
 
 vi.mock( '@/data/core', () => ( {
 	useConnector: () => connectorMocks,
@@ -272,6 +284,31 @@ function localScreenshotWidget(): StudioChatArtifactWidgetDraft {
 		},
 	};
 }
+
+describe( 'Conversation rendering', () => {
+	it( 'renders only the new turn as a chat grows, even from refetched entries', () => {
+		const entries = [
+			promptEntry( 'Tidy the header' ),
+			assistantToolCallEntry( 'Read', { path: 'header.html' }, 'Reading it.' ),
+			toolResultEntry( '<header />' ),
+			assistantTextEntry( 'Done.' ),
+		];
+		const { rerenderWith } = renderConversation( loadedSession( entries ) );
+		markdown.mockClear();
+		vi.mocked( getToolDisplay ).mockClear();
+
+		rerenderWith(
+			loadedSession( [
+				...structuredClone( entries ),
+				promptEntry( 'Now the footer' ),
+				assistantTextEntry( 'On it.' ),
+			] )
+		);
+
+		expect( markdown.mock.calls.map( ( [ props ] ) => props.children ) ).toEqual( [ 'On it.' ] );
+		expect( getToolDisplay ).not.toHaveBeenCalled();
+	} );
+} );
 
 describe( 'Conversation turn activity', () => {
 	it( 'shimmers the working line and the running tool until they finish', () => {

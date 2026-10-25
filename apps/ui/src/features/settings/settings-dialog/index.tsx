@@ -1,11 +1,5 @@
 import { findAiSessionOwnerSite } from '@studio/common/ai/sessions/owner-site';
-import {
-	useNavigate,
-	useParams,
-	useRouter,
-	useRouterState,
-	useSearch,
-} from '@tanstack/react-router';
+import { useNavigate, useParams, useRouter, useSearch } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { ariaKeyShortcut, displayShortcut, isKeyboardEvent } from '@wordpress/keycodes';
 import { clsx } from 'clsx';
@@ -16,7 +10,6 @@ import { useAuthUser } from '@/data/queries/use-auth-user';
 import { useSessions } from '@/data/queries/use-sessions';
 import { useSites } from '@/data/queries/use-sites';
 import { getSections, isSiteSection, searchSettings } from '@/data/settings-sections';
-import { closeOnPaletteShortcut } from '@/data/use-command-palette';
 import {
 	AiPanel,
 	AppearanceSettings,
@@ -173,14 +166,6 @@ export function SettingsDialog() {
 		setRequestedFocus( settingsFocus );
 		setTarget( settingsFocus ?? null );
 	}
-	// Closing steps back to the page Settings opened over, while that page is still below.
-	const pathname = useRouterState( { select: ( state ) => state.location.pathname } );
-	const [ openedOver, setOpenedOver ] = useState< string >();
-	if ( settings && ! openedOver ) {
-		setOpenedOver( pathname );
-	} else if ( ! settings && openedOver ) {
-		setOpenedOver( undefined );
-	}
 	const [ dirty, setDirty ] = useState( false );
 	const [ actions, setActions ] = useState< HTMLElement | null >( null );
 	const [ content, setContent ] = useState< HTMLDivElement | null >( null );
@@ -232,7 +217,7 @@ export function SettingsDialog() {
 	};
 
 	const closeNow = () => {
-		if ( openedOver === pathname && router.history.canGoBack() ) {
+		if ( router.history.canGoBack() ) {
 			router.history.back();
 			return;
 		}
@@ -311,14 +296,13 @@ export function SettingsDialog() {
 	const current = getSections( scope, { signedIn } ).find( ( entry ) => entry.id === section )!;
 
 	return (
-		<Dialog open={ !! settings } onOpenChange={ ( isOpen ) => ! isOpen && close() }>
+		<Dialog replaceable open={ !! settings } onOpenChange={ ( isOpen ) => ! isOpen && close() }>
 			<DialogContent
 				layout="settings"
 				onInputCapture={ () => {
 					pendingExit.current = null;
 				} }
 				onKeyDown={ ( event ) => {
-					closeOnPaletteShortcut( close )( event );
 					const step = isKeyboardEvent.primary( event.nativeEvent, '[' )
 						? -1
 						: isKeyboardEvent.primary( event.nativeEvent, ']' )

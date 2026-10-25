@@ -6,7 +6,7 @@ import {
 	STUDIO_CODE_AI_BETA_APPLY_URL,
 } from '@studio/common/lib/studio-assistant-quota';
 import { __ } from '@wordpress/i18n';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useConnector } from '@/data/core';
 import { useAiSettings } from '@/data/queries/use-ai-settings';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
@@ -36,6 +36,18 @@ export function useComposerNotice( provider: AiProviderId ): ComposerNotice | un
 		setSettledQuotaError( quota.error );
 	}
 	const quotaError = quota.error ?? settledQuotaError;
+	// A payment method added in the browser shows up once Studio is back in
+	// front, which a desktop window reports only as focus.
+	const needsPaymentMethod = provider === 'wpcom' && quota.data?.hasPaymentMethod === false;
+	const { refetch: refetchQuota } = quota;
+	useEffect( () => {
+		if ( ! needsPaymentMethod ) {
+			return;
+		}
+		const recheck = () => void refetchQuota();
+		window.addEventListener( 'focus', recheck );
+		return () => window.removeEventListener( 'focus', recheck );
+	}, [ needsPaymentMethod, refetchQuota ] );
 
 	const retry = {
 		label: __( 'Try again' ),

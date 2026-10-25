@@ -55,7 +55,7 @@ export function useProposedSiteName( sites: SiteDetails[] | undefined, baseName?
  * - `selectPath(currentPath)` — opens the native folder picker and runs the
  *   same validation on the user's choice.
  */
-export function usePathValidator( sites: SiteDetails[] | undefined ) {
+export function usePathValidator( sites: SiteDetails[] | undefined, requiresEmptyPath = false ) {
 	const connector = useConnector();
 
 	const checkPathExists = useCallback(
@@ -72,9 +72,13 @@ export function usePathValidator( sites: SiteDetails[] | undefined ) {
 	const generateProposedPath = useCallback(
 		async ( siteName: string ): Promise< PathValidationResult > => {
 			const result = await connector.generateProposedSitePath( siteName );
-			return validateProposedSitePath( result, await checkPathExists( result.path ) );
+			return validateProposedSitePath(
+				result,
+				await checkPathExists( result.path ),
+				requiresEmptyPath
+			);
 		},
-		[ connector, checkPathExists ]
+		[ connector, checkPathExists, requiresEmptyPath ]
 	);
 
 	const selectPath = useCallback(
@@ -82,9 +86,9 @@ export function usePathValidator( sites: SiteDetails[] | undefined ) {
 			const response = await connector.selectSiteFolder( currentPath );
 			if ( ! response ) return null;
 			const exists = await checkPathExists( response.path );
-			return validateSelectedSitePath( response, exists );
+			return validateSelectedSitePath( response, exists, requiresEmptyPath );
 		},
-		[ connector, checkPathExists ]
+		[ connector, checkPathExists, requiresEmptyPath ]
 	);
 
 	return { generateProposedPath, selectPath };

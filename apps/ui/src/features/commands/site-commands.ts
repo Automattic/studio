@@ -182,7 +182,7 @@ export function getSiteCommands( {
 									group: 'site' as const,
 									label: __( 'Stop other sites' ),
 									icon: StopOtherSitesIcon,
-									run: actions.stopOthers,
+									run: () => actions.stop( othersRunning ),
 								},
 						  ]
 						: [] ),
@@ -194,7 +194,7 @@ export function getSiteCommands( {
 						group: 'site' as const,
 						label: __( 'Stop all sites' ),
 						icon: StopOtherSitesIcon,
-						run: actions.stopAll,
+						run: () => actions.stop( running ),
 					},
 			  ]
 			: [] ),

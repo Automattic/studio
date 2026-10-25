@@ -12,7 +12,7 @@ function useLeaveDeletedSite( siteId: string ) {
 	const siteExists = sites?.some( ( site ) => site.id === siteId ) ?? true;
 	useEffect( () => {
 		if ( ! siteExists ) {
-			void navigate( { to: '/', search: true } );
+			void navigate( { to: '/' } );
 		}
 	}, [ siteExists, navigate ] );
 }

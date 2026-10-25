@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { setCommandPaletteOpen } from '@/features/commands/use-command-palette';
+import { setCommandPaletteOpen } from '@/data/use-command-palette';
 import { useProvideCollapseAll } from '@/features/sidebar';
 import { CommandPalette, matchCommands } from './index';
 
@@ -26,7 +26,7 @@ vi.mock( '@/data/queries/use-sidebar-pins', () => ( {
 	useSidebarPreferences: () => ( { showRecentChats: true, autoCollapseSites: false } ),
 } ) );
 vi.mock( '@/data/host/use-color-scheme', () => ( { useColorScheme: () => 'light' } ) );
-vi.mock( '@/features/settings/use-open-settings', () => ( { useOpenSettings: () => vi.fn() } ) );
+vi.mock( '@/data/use-open-settings', () => ( { useOpenSettings: () => vi.fn() } ) );
 vi.mock( '@/features/sites/use-open-add-site', () => ( { useOpenAddSite: () => vi.fn() } ) );
 vi.mock( '@/data/use-open-site', () => ( { useOpenSite: () => vi.fn() } ) );
 vi.mock( '@/features/onboarding/onboarding-guide/use-whats-new-replay', () => ( {

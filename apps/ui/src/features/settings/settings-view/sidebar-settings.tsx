@@ -1,6 +1,6 @@
 import { __ } from '@wordpress/i18n';
 import { useSidebarPreferences } from '@/data/queries/use-sidebar-pins';
-import { SettingsRow, SettingsToggle } from '@/features/settings';
+import { SettingsRow, SettingsToggle } from './rows';
 
 const getSidebarSettingTitles = () => [
 	__( 'Show recent chats' ),

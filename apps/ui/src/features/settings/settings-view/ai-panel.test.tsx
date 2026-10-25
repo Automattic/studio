@@ -27,7 +27,7 @@ vi.mock( '@/data/queries/use-auth-user', () => ( {
 	useLogin: vi.fn(),
 } ) );
 
-vi.mock( '@/features/settings/learn-more', () => ( { LearnMoreLink: () => null } ) );
+vi.mock( '@/features/onboarding/learn-more', () => ( { LearnMoreLink: () => null } ) );
 vi.mock( '@/lib/hooks/use-offline', () => ( { useOffline: () => false } ) );
 
 const SIGNED_OUT = { provider: 'wpcom', hasAnthropicApiKey: false, anthropicApiKeyPreview: null };

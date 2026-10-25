@@ -5,7 +5,7 @@ import {
 	closeOnPaletteShortcut,
 	setCommandPaletteOpen,
 	useCommandPaletteOpen,
-} from './use-command-palette';
+} from '@/data/use-command-palette';
 
 describe( 'closeOnPaletteShortcut', () => {
 	it( 'closes the dialog for the palette, unless the key comes from a dialog over it', () => {

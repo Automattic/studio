@@ -7,7 +7,7 @@ import { useEffect, useEffectEvent, useSyncExternalStore } from 'react';
 import { useConnector } from '@/data/core';
 import { connectedWpcomSitesQueryKey } from '@/data/queries/use-connected-wpcom-sites';
 import { usePushSiteToLive } from '@/data/queries/use-sync-site';
-import { SYNCABLE_WPCOM_SITES_QUERY_KEY } from '@/data/queries/use-wpcom-sites';
+import { SYNCABLE_WPCOM_SITES_QUERY_KEY } from '@/data/queries/user-scoped-query-keys';
 import { websiteIssue } from '@/features/sync/publish-panel/options';
 import type { Connector, SyncSite } from '@/data/core';
 

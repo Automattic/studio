@@ -18,8 +18,8 @@ import {
 import { useCreateSession } from '@/data/queries/use-sessions';
 import { useCreateSite, useSites } from '@/data/queries/use-sites';
 import { useWordPressOrgPackageName } from '@/data/queries/use-wordpress-org-package-name';
-import { Composer, type ComposerHandle } from '@/features/chats';
-import { pendingPromptSlot } from '@/features/chats';
+import { Composer, type ComposerHandle } from '@/features/composer';
+import { pendingPromptSlot } from '@/features/composer';
 import { BlueprintUpload, type SelectedBlueprint } from '@/features/sites/blueprint-upload';
 import { CreateSiteForm } from '@/features/sites/create-site-form';
 import { pendingBlueprintSlot } from '@/features/sites/pending-blueprint';

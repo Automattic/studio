@@ -7,8 +7,8 @@ import { __ } from '@wordpress/i18n';
 import { displayShortcut } from '@wordpress/keycodes';
 import { MaximizeIcon } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
+import { useSessionsBusy, useSiteAgentActivity } from '@/data/agent-runs/use-agent-run';
 import { errorMessage, toast } from '@/data/app-messages';
-import { useSessionsBusy, useSiteAgentActivity } from '@/data/queries/use-agent-run';
 import { useSessions, useUpdateSessionMetadata } from '@/data/queries/use-sessions';
 import {
 	chatPinKey,
@@ -17,10 +17,9 @@ import {
 	useSidebarPreferences,
 } from '@/data/queries/use-sidebar-pins';
 import { useSites } from '@/data/queries/use-sites';
+import { useOptionalSessionPreviewUI } from '@/data/use-session-ui';
 import { getSessionTitle } from '@/features/chats/session-view/session-chat-actions';
-import { useOptionalSessionPreviewUI } from '@/features/chats/use-session-ui';
-import { useItemShortcuts } from '@/features/sidebar';
-import { usePreviewBeside } from '@/features/sites';
+import { usePreviewBeside, useItemShortcuts } from '@/features/sites';
 import {
 	ArchiveIcon,
 	ExitFullScreenIcon,

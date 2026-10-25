@@ -2,7 +2,11 @@ import { DESIGN_SYSTEM_PREVIEW_PATH } from '@studio/common/ai/chat-artifacts';
 import { act, renderHook } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { useConnector } from '@/data/core';
-import { SessionUIProvider, useSessionPreviewUI, useSessionUIDispatch } from './use-session-ui';
+import {
+	SessionUIProvider,
+	useSessionPreviewUI,
+	useSessionUIDispatch,
+} from '@/data/use-session-ui';
 import type { Connector } from '@/data/core';
 import type { ReactNode } from 'react';
 

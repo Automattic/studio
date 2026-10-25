@@ -39,9 +39,5 @@ export { SiteIcon } from './site-icon';
 export { SitePreview } from './site-preview';
 export { SiteContextMenu, StoppedSitePreview } from './stopped-site-preview';
 export { type AddSiteSection, isAddSiteSection, useOpenAddSite } from './use-open-add-site';
-export {
-	requestHeaderPanel,
-	subscribeHeaderPanelRequest,
-	useOpenHeaderPanel,
-} from './use-open-header-panel';
+export { useItemShortcuts } from './use-item-shortcuts';
 export { useSiteManagementActions } from './use-site-management-actions';

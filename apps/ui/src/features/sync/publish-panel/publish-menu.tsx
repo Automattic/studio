@@ -1,7 +1,7 @@
 import { __ } from '@wordpress/i18n';
 import { useAuthUser } from '@/data/queries/use-auth-user';
 import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
-import { useOpenHeaderPanel } from '@/features/sites';
+import { useOpenHeaderPanel } from '@/data/use-open-header-panel';
 import { SyncIcon } from '@/lib/icons';
 import { Menu } from '@/lib/ui';
 import { WebsiteMenuItems } from './connected-view';

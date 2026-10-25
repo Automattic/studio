@@ -194,9 +194,3 @@
 		margin-top: 12px;
 	}
 }
-
-@media (prefers-reduced-motion: reduce) {
-	.close {
-		transition: none;
-	}
-}

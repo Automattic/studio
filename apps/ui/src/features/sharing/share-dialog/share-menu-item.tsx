@@ -1,5 +1,5 @@
 import { __ } from '@wordpress/i18n';
-import { useOpenHeaderPanel } from '@/features/sites';
+import { useOpenHeaderPanel } from '@/data/use-open-header-panel';
 import { ShareIcon } from '@/lib/icons';
 import { Menu } from '@/lib/ui';
 import type { SiteDetails } from '@/data/core';

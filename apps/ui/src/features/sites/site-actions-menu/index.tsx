@@ -4,15 +4,14 @@ import { useNavigate } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
 import { displayShortcut } from '@wordpress/keycodes';
 import { useRef, useState } from 'react';
+import { useSessionsBusy } from '@/data/agent-runs/use-agent-run';
 import { useConnector } from '@/data/core';
-import { useSessionsBusy } from '@/data/queries/use-agent-run';
 import { useSessions } from '@/data/queries/use-sessions';
 import { sitePinKey, useSidebarPins } from '@/data/queries/use-sidebar-pins';
 import { useIsSiteBusy, useSites, useStartSite, useStopSite } from '@/data/queries/use-sites';
-import { useSessionPreviewUI } from '@/features/chats';
-import { useOpenSettings } from '@/features/settings';
+import { useOpenSettings } from '@/data/use-open-settings';
+import { useSessionPreviewUI } from '@/data/use-session-ui';
 import { SiteShareMenuItem } from '@/features/sharing';
-import { useItemShortcuts } from '@/features/sidebar';
 import { DeleteSiteDialog } from '@/features/sites/delete-site-dialog';
 import { getSiteUrl } from '@/features/sites/get-site-url';
 import {
@@ -25,6 +24,7 @@ import {
 	DATABASE_HOME_PATH,
 	getRealmNavigationPath,
 } from '@/features/sites/site-preview/address-bar';
+import { useItemShortcuts } from '@/features/sites/use-item-shortcuts';
 import {
 	useSiteManagementActions,
 	type SiteManagementAction,

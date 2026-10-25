@@ -8,7 +8,7 @@ import {
 	PREVIEW_CONTENT_DEFAULT_WIDTH,
 	PREVIEW_PANEL_MIN_WIDTH,
 	storeResizablePanelWidth,
-} from '@/features/sidebar';
+} from '@/data/resizable-panels';
 import { usePointerDrag } from '@/lib/hooks';
 import type { KeyboardEvent, MouseEventHandler, RefObject } from 'react';
 

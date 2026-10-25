@@ -2,7 +2,8 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { useContext } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { WindowControlsCornerContext } from '@/data/host/use-window-controls-inset';
-import { SidebarCollapsedContext, PREVIEW_CONTENT_WIDTH_STORAGE_KEY } from '@/features/sidebar';
+import { PREVIEW_CONTENT_WIDTH_STORAGE_KEY } from '@/data/resizable-panels';
+import { SidebarCollapsedContext } from '@/data/use-sidebar-collapsed';
 import { PreviewSplitFrame } from './index';
 import type { ComponentProps } from 'react';
 

@@ -7,7 +7,7 @@ The design tokens, the base element styles, and the code that applies the color 
 ## API
 
 - `tokens.css`: every token (`--background`, `--foreground`, `--muted`, `--border`, `--accent`, `--text-*`, `--radius-*`, `--motion-*`, `--z-*`, …). Dark values apply under `[data-color-scheme='dark']`.
-- `base.css`: the reset, fonts, body and element defaults, reduced motion and transparency.
+- `base.css`: the reset, fonts, body and element defaults, reduced transparency.
 - `@/lib/theme`: `applyTheme`, `applyColorTint`, `resolveColorScheme`, `previewAccentColor`, `DEFAULT_COLOR_TINT`, `isDefaultColorTint`, `getMotionDuration`.
 
 ```ts

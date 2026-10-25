@@ -10,8 +10,9 @@ import { useCallback, useEffect, useState } from 'react';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useSession, useSessionLiveSite } from '@/data/queries/use-sessions';
 import { useIsSiteStopping, useSiteOperation, useSites } from '@/data/queries/use-sites';
+import { pathForSite, useSessionPreviewUI } from '@/data/use-session-ui';
 import { requestAnnotationSend } from '@/features/annotations';
-import { SiteWorkspace, pathForSite, useSessionPreviewUI } from '@/features/chats';
+import { SiteWorkspace } from '@/features/chats';
 import { CommandPalette } from '@/features/commands';
 import {
 	useOrientationAutostart,
@@ -205,7 +206,11 @@ function DashboardLayout() {
 	const workspaceSiteId = newSessionSiteId ?? sessionSite?.id;
 	const workspace =
 		( sessionId || newSessionSiteId ) && workspaceSiteId ? (
-			<SiteWorkspace key={ workspaceSiteId } sessionId={ sessionId } />
+			<SiteWorkspace
+				key={ workspaceSiteId }
+				sessionId={ sessionId }
+				headerStart={ <HeaderSidebarToggle /> }
+			/>
 		) : (
 			<Outlet />
 		);

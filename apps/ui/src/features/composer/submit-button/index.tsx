@@ -21,6 +21,7 @@ export function SendButton( {
 			variant={ feedback ? 'destructive' : canSend ? 'accent' : 'default' }
 			size="icon"
 			shape="round"
+			activeMotion="instant"
 			onClick={ onSend }
 			disabled={ ! canSend }
 			aria-label={ label }

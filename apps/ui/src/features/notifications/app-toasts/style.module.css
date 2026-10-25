@@ -3,8 +3,8 @@
    hovering or focusing the deck spreads it into a list. */
 .viewport {
 	position: fixed;
-	inset-block-end: 12px;
-	inset-inline-end: 12px;
+	inset-block-end: var(--space-3);
+	inset-inline-end: var(--space-3);
 	z-index: var(--z-toast);
 	width: min(320px, calc(100vw - 24px));
 	pointer-events: none;
@@ -85,8 +85,8 @@
    clip for the dismiss button that overhangs the corner. */
 .content {
 	height: calc(100% + 24px);
-	margin: -12px;
-	padding: 12px;
+	margin: calc(var(--space-3) * -1);
+	padding: var(--space-3);
 	overflow: clip;
 	transition: opacity var(--motion-duration-feedback) var(--motion-ease-enter);
 }

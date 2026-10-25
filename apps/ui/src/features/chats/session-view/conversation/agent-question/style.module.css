@@ -9,12 +9,12 @@
 .questionBatch {
 	display: flex;
 	flex-direction: column;
-	gap: 4px;
+	gap: var(--space-1);
 	overflow-anchor: none;
 }
 
 .questionBatchStep {
-	animation: questionBatchStepEnter 120ms ease-out;
+	animation: questionBatchStepEnter var(--motion-duration-feedback) ease-out;
 }
 
 .questionBatchStep[data-state='answered'] {
@@ -26,16 +26,16 @@
 }
 
 .questionBatchStep[data-state='answered'] .questionProgress {
-	animation: questionAnsweredElementFade 180ms ease-out forwards;
+	animation: questionAnsweredElementFade var(--motion-duration-surface) ease-out forwards;
 }
 
 .questionCard {
 	display: flex;
 	flex-direction: column;
-	gap: 16px;
+	gap: var(--space-4);
 	width: 100%;
-	padding: 16px;
-	border-radius: 16px;
+	padding: var(--space-4);
+	border-radius: var(--radius-2xl);
 	background-color: var(--muted);
 }
 
@@ -47,7 +47,7 @@
 .questionText {
 	color: var(--foreground);
 	font-weight: var(--font-weight-medium);
-	line-height: 1.375;
+	line-height: var(--leading-snug);
 	text-wrap: pretty;
 }
 
@@ -72,16 +72,16 @@
 }
 
 .questionSummary:focus-visible {
-	outline: 2px solid var(--ring);
+	outline: var(--focus-width) solid var(--ring);
 	outline-offset: 2px;
 }
 
 .questionAnswer {
 	display: flex;
 	align-items: center;
-	gap: 6px;
+	gap: var(--space-1_5);
 	min-height: 36px;
-	padding: 6px 8px;
+	padding: var(--space-1_5) var(--space-2);
 	border-radius: var(--radius-md);
 	color: var(--muted-foreground);
 }
@@ -109,12 +109,12 @@
 	font-family: var(--font-mono);
 	font-size: var(--text-sm);
 	font-weight: var(--font-weight-medium);
-	line-height: 1;
+	line-height: var(--leading-none);
 }
 
 .questionChoices {
 	display: grid;
-	margin-inline-start: -8px;
+	margin-inline-start: calc(var(--space-2) * -1);
 }
 
 .questionChoiceItem {
@@ -125,10 +125,10 @@
 .questionChoice {
 	display: flex;
 	align-items: center;
-	gap: 8px;
+	gap: var(--space-2);
 	width: 100%;
 	min-height: 36px;
-	padding: 8px;
+	padding: var(--space-2);
 	border-radius: var(--radius-md);
 	color: var(--foreground);
 	text-align: start;
@@ -158,9 +158,9 @@
 	display: flex;
 	flex: 1;
 	flex-direction: column;
-	gap: 2px;
+	gap: var(--space-0_5);
 	min-width: 0;
-	line-height: 1.375;
+	line-height: var(--leading-snug);
 }
 
 .questionChoiceFreeForm .questionChoiceLabel > :first-child {
@@ -169,7 +169,7 @@
 
 .questionChoices[data-layout='grid'] {
 	grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
-	gap: 4px;
+	gap: var(--space-1);
 }
 
 .questionChoices[data-layout='grid'] .questionChoiceItem[data-wide='true'] {
@@ -219,9 +219,9 @@
 
 .questionOptionZoom {
 	position: absolute;
-	top: 16px;
-	inset-inline-end: 16px;
-	box-shadow: 0 1px 3px rgb(0 0 0 / 20%);
+	top: var(--space-4);
+	inset-inline-end: var(--space-4);
+	box-shadow: var(--shadow-raised);
 }
 
 .questionOptionZoomPopup {
@@ -240,7 +240,7 @@
 .questionOptionZoomClose,
 .questionOptionZoomStep {
 	position: absolute;
-	box-shadow: 0 1px 3px rgb(0 0 0 / 20%);
+	box-shadow: var(--shadow-raised);
 }
 
 .questionOptionZoom,
@@ -250,8 +250,8 @@
 }
 
 .questionOptionZoomClose {
-	top: 8px;
-	inset-inline-end: 8px;
+	top: var(--space-2);
+	inset-inline-end: var(--space-2);
 }
 
 .questionOptionZoomStep {
@@ -260,24 +260,24 @@
 }
 
 .questionOptionZoomPrevious {
-	inset-inline-start: 8px;
+	inset-inline-start: var(--space-2);
 }
 
 .questionOptionZoomNext {
-	inset-inline-end: 8px;
+	inset-inline-end: var(--space-2);
 }
 
 .questionOptionZoomChoose {
 	position: absolute;
 	inset-inline: 0;
-	bottom: 12px;
+	bottom: var(--space-3);
 	width: fit-content;
 	margin-inline: auto;
-	box-shadow: 0 1px 3px rgb(0 0 0 / 20%);
+	box-shadow: var(--shadow-raised);
 }
 
 .questionCard[data-state='folding'] .questionChoiceItem:not([data-picked='true']) {
-	animation: questionAnsweredElementFade 180ms ease-out forwards;
+	animation: questionAnsweredElementFade var(--motion-duration-surface) ease-out forwards;
 }
 
 @keyframes questionBatchStepEnter {

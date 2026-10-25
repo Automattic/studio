@@ -7,10 +7,10 @@
 }
 
 .pre {
-	padding: 12px;
+	padding: var(--space-3);
 	font-family: var(--font-mono);
 	font-size: var(--text-xs);
-	line-height: 20px;
+	line-height: var(--text-xs--line-height);
 	overflow-x: auto;
 	-webkit-user-select: text;
 	user-select: text;

@@ -7,10 +7,10 @@
 	align-self: flex-end;
 	display: flex;
 	align-items: center;
-	gap: 4px;
+	gap: var(--space-1);
 	max-width: 80%;
-	margin-top: 4px;
-	padding: 8px 12px;
+	margin-top: var(--space-1);
+	padding: var(--space-2) var(--space-3);
 	border: 1px solid var(--border);
 	border-radius: 12px;
 	background-color: var(--chat);
@@ -34,7 +34,7 @@
 .assistantTurn {
 	display: flex;
 	align-items: center;
-	gap: 8px;
+	gap: var(--space-2);
 }
 
 .userTextRow {
@@ -64,12 +64,12 @@
 .assistantBubble {
 	display: flex;
 	flex-direction: column;
-	gap: 8px;
+	gap: var(--space-2);
 	min-width: 0;
 	max-width: min(85%, 32rem);
-	padding: 12px 16px;
+	padding: var(--space-3) var(--space-4);
 	overflow: hidden;
-	border-radius: 16px;
+	border-radius: var(--radius-2xl);
 	overflow-wrap: break-word;
 }
 
@@ -106,16 +106,16 @@
 .userAttachments {
 	display: flex;
 	flex-wrap: wrap;
-	gap: 8px;
+	gap: var(--space-2);
 }
 
 .userAttachment {
 	display: inline-flex;
 	align-items: center;
-	gap: 6px;
+	gap: var(--space-1_5);
 	min-width: 0;
 	max-width: 256px;
-	padding: 0 6px;
+	padding: 0 var(--space-1_5);
 	border: 1px solid var(--border);
 	border-radius: var(--radius-md);
 	font-weight: var(--font-weight-medium);

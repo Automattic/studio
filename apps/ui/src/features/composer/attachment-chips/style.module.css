@@ -2,8 +2,8 @@
 	display: flex;
 	flex-wrap: wrap;
 	align-items: flex-end;
-	gap: 12px;
-	padding: 14px 14px 6px;
+	gap: var(--space-3);
+	padding: var(--space-3_5) var(--space-3_5) var(--space-1_5);
 }
 
 .attachment {
@@ -37,12 +37,12 @@
 }
 
 .attachmentFile {
-	gap: 8px;
+	gap: var(--space-2);
 	align-items: center;
 	height: 36px;
-	padding: 0 12px;
+	padding: 0 var(--space-3);
 	font-size: var(--text-xs);
-	line-height: 20px;
+	line-height: var(--text-xs--line-height);
 }
 
 .attachmentFile:hover {
@@ -73,15 +73,15 @@
 	--button-background: var(--chrome);
 
 	position: absolute;
-	top: -8px;
-	right: -8px;
+	top: calc(var(--space-2) * -1);
+	right: calc(var(--space-2) * -1);
 	z-index: 1;
 	box-shadow: var(--shadow-sm);
 }
 
 .attachmentRemove::after {
 	position: absolute;
-	inset: -4px;
+	inset: calc(var(--space-1) * -1);
 	content: '';
 }
 
@@ -126,10 +126,10 @@
 
 .attachmentHoverText {
 	min-height: var(--attachment-hover-artwork-height);
-	padding: 12px;
+	padding: var(--space-3);
 	color: var(--foreground);
 	font-family: var(--font-mono);
-	font-size: 11px;
+	font-size: var(--text-2xs);
 	line-height: 1.35;
 	white-space: pre-wrap;
 	overflow-wrap: anywhere;
@@ -139,8 +139,8 @@
 	display: flex;
 	min-width: 0;
 	flex-direction: column;
-	gap: 2px;
-	padding: 8px 10px;
+	gap: var(--space-0_5);
+	padding: var(--space-2) var(--space-2_5);
 	color: var(--foreground);
 }
 
@@ -148,7 +148,7 @@
 	overflow: hidden;
 	font-size: var(--text-xxs);
 	font-weight: var(--font-weight-semibold);
-	line-height: 1.25;
+	line-height: var(--leading-tight);
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
@@ -156,7 +156,7 @@
 .attachmentHoverMeta {
 	overflow: hidden;
 	color: var(--muted-foreground);
-	font-size: 11px;
+	font-size: var(--text-2xs);
 	line-height: 1.2;
 	text-overflow: ellipsis;
 	white-space: nowrap;

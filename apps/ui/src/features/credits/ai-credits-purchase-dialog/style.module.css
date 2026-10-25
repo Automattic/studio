@@ -1,7 +1,7 @@
 .amountCards {
 	display: grid;
 	grid-template-columns: repeat( 2, minmax( 0, 1fr ) );
-	gap: 8px;
+	gap: var(--space-2);
 }
 
 .descriptionEmphasis {
@@ -12,10 +12,10 @@
 	display: flex;
 	flex-direction: column;
 	align-items: flex-start;
-	gap: 4px;
-	padding: 12px;
+	gap: var(--space-1);
+	padding: var(--space-3);
 	border: 1px solid var(--border);
-	border-radius: 16px;
+	border-radius: var(--radius-2xl);
 	color: var(--foreground);
 	cursor: pointer;
 	text-align: start;
@@ -37,7 +37,7 @@
 }
 
 .optionPrice {
-	font-size: 15px;
+	font-size: var(--text-md);
 	font-weight: var(--font-weight-semibold);
 }
 

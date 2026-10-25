@@ -1,17 +1,17 @@
 .root {
 	display: flex;
 	flex-direction: column;
-	gap: 24px;
+	gap: var(--space-6);
 }
 
 .root > [data-joined-above] {
-	margin-top: -20px;
+	margin-top: calc(var(--space-5) * -1);
 }
 
 .mediaArtifacts {
 	display: flex;
 	flex-direction: column;
-	gap: 12px;
+	gap: var(--space-3);
 }
 
 .mediaArtifactImage {
@@ -22,11 +22,11 @@
 .marker {
 	display: flex;
 	align-items: center;
-	gap: 8px;
+	gap: var(--space-2);
 	min-height: 16px;
 	color: var(--muted-foreground);
 	font-size: var(--text-sm);
-	line-height: 20px;
+	line-height: var(--text-sm--line-height);
 	overflow-wrap: anywhere;
 }
 

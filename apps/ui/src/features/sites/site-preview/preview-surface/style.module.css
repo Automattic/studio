@@ -53,7 +53,7 @@
 .spinner {
 	width: 20px;
 	height: 20px;
-	border-radius: 50%;
+	border-radius: var(--radius-full);
 	border: 2px solid var(--border);
 	border-top-color: var(--accent-text);
 	animation: sitePreviewSpin 0.8s linear infinite;

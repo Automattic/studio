@@ -6,22 +6,22 @@
 
 	.content {
 		display: inline-flex;
-		gap: 6px;
+		gap: var( --space-1_5 );
 		align-items: center;
 		width: fit-content;
 		max-width: 320px;
-		padding: 4px 8px;
+		padding: var( --space-1 ) var( --space-2 );
 		border-radius: var( --radius-sm );
 		background-color: var( --foreground );
 		color: var( --background );
 		font-size: var( --text-xxs );
-		line-height: 1.25;
+		line-height: var( --leading-tight );
 		transform-origin: var( --transform-origin );
 		transition: opacity var( --motion-duration-feedback ) var( --motion-ease-enter );
 	}
 
 	.content:has( [data-slot='kbd'] ) {
-		padding-inline-end: 4px;
+		padding-inline-end: var( --space-1 );
 	}
 
 	.content:is( [data-starting-style], [data-ending-style] ) {

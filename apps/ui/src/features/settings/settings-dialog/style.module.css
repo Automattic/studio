@@ -1,15 +1,15 @@
 .scopes {
-	margin: 12px 12px 0;
+	margin: var(--space-3) var(--space-3) 0;
 }
 
 .search {
 	width: auto;
-	margin: 12px 12px 0;
+	margin: var(--space-3) var(--space-3) 0;
 }
 
 
 .empty {
-	padding: 16px 20px;
+	padding: var(--space-4) var(--space-5);
 	text-align: center;
 	color: var(--muted-foreground);
 	font-size: var(--text-xs);
@@ -25,8 +25,8 @@
 
 /* The setting picked from the search results. */
 .content :global([data-settings-match]) {
-	margin-inline: -12px;
-	padding-inline: 12px;
+	margin-inline: calc(var(--space-3) * -1);
+	padding-inline: var(--space-3);
 	border-radius: 8px;
 	background: color-mix(in srgb, var(--accent-text) 12%, transparent);
 	transition: background-color var(--motion-duration-layout);
@@ -35,7 +35,7 @@
 .sections {
 	display: flex;
 	flex-direction: column;
-	gap: 32px;
+	gap: var(--space-8);
 }
 
 .error {

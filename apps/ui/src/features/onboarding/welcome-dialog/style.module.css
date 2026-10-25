@@ -1,32 +1,32 @@
 .dialog {
-	gap: 20px;
-	padding: 24px;
+	gap: var(--space-5);
+	padding: var(--space-6);
 }
 
 .intro {
 	display: flex;
 	flex-direction: column;
-	gap: 6px;
+	gap: var(--space-1_5);
 }
 
 .appIcon {
 	width: 44px;
 	height: 44px;
-	margin-bottom: 8px;
+	margin-bottom: var(--space-2);
 }
 
 .actions {
 	display: flex;
 	flex-direction: column;
-	gap: 8px;
+	gap: var(--space-2);
 }
 
 .perks {
 	display: flex;
 	flex-direction: column;
-	gap: 8px;
-	margin-bottom: 6px;
-	padding-inline-start: 12px;
+	gap: var(--space-2);
+	margin-bottom: var(--space-1_5);
+	padding-inline-start: var(--space-3);
 	border-inline-start: 2px solid var(--border);
 }
 
@@ -39,7 +39,7 @@
 .perksList {
 	display: flex;
 	flex-direction: column;
-	gap: 6px;
+	gap: var(--space-1_5);
 	color: var(--muted-foreground);
 	font-size: var(--text-xs);
 	line-height: 18px;
@@ -48,7 +48,7 @@
 .perksList li {
 	display: flex;
 	align-items: center;
-	gap: 10px;
+	gap: var(--space-2_5);
 }
 
 .perksList svg {
@@ -77,9 +77,9 @@
 .account {
 	display: flex;
 	align-items: center;
-	gap: 10px;
-	margin-bottom: 4px;
-	padding: 8px 8px 8px 12px;
+	gap: var(--space-2_5);
+	margin-bottom: var(--space-1);
+	padding: var(--space-2) var(--space-2) var(--space-2) var(--space-3);
 	border-radius: var(--radius-md);
 	background: var(--muted);
 }
@@ -112,9 +112,9 @@
 .footer {
 	display: flex;
 	flex-direction: column;
-	gap: 12px;
-	margin-inline: -24px;
-	padding: 16px 24px 0;
+	gap: var(--space-3);
+	margin-inline: calc(var(--space-6) * -1);
+	padding: var(--space-4) var(--space-6) 0;
 	border-top: 1px solid var(--border);
 }
 

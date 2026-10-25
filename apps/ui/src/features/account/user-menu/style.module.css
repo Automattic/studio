@@ -2,11 +2,11 @@
    notification bell at the end, as 36px controls inset 12px. Pinning to the
    sidebar bottom is handled by the layout's `sidebarFooter` wrapper. */
 .root {
-	padding: 0 12px 10px;
+	padding: 0 var(--space-3) var(--space-2_5);
 }
 
 .alert {
-	margin-block-end: 8px;
+	margin-block-end: var(--space-2);
 }
 
 .row {
@@ -35,8 +35,8 @@
 .account {
 	display: flex;
 	align-items: center;
-	gap: 6px;
-	padding: 8px 6px;
+	gap: var(--space-1_5);
+	padding: var(--space-2) var(--space-1_5);
 }
 
 .accountText {
@@ -44,7 +44,7 @@
 	flex-direction: column;
 	min-width: 0;
 	font-size: var(--text-xs);
-	line-height: 1.25;
+	line-height: var(--leading-tight);
 }
 
 .accountName,

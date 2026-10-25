@@ -4,8 +4,8 @@
 	position: relative;
 	display: flex;
 	align-items: center;
-	gap: 12px;
-	padding-inline: 12px 8px;
+	gap: var(--space-3);
+	padding-inline: var(--space-3) var(--space-2);
 	height: var(--band-height);
 	flex-shrink: 0;
 	transition: padding var(--motion-duration-layout) var(--motion-ease-layout);
@@ -31,7 +31,7 @@
 	display: flex;
 	flex-shrink: 0;
 	align-items: center;
-	gap: 4px;
+	gap: var(--space-1);
 }
 
 .browserLocation {
@@ -55,9 +55,9 @@
 	height: var(--control-size);
 	align-items: center;
 	justify-content: center;
-	padding-inline: 12px;
+	padding-inline: var(--space-3);
 	border: 1px solid var(--border);
-	border-radius: 999px;
+	border-radius: var(--radius-full);
 	color: var(--muted-foreground);
 	font-size: var(--text-xxs);
 	white-space: nowrap;
@@ -86,7 +86,7 @@
 
 .historyPath {
 	color: var(--muted-foreground);
-	font-size: 11px;
+	font-size: var(--text-2xs);
 }
 
 .disabledControlTooltipTarget {
@@ -94,7 +94,7 @@
 }
 
 .annotateButton {
-	gap: 4px;
+	gap: var(--space-1);
 }
 
 .annotateButtonActive {
@@ -151,6 +151,6 @@
 .headerItem {
 	display: flex;
 	align-items: center;
-	gap: 4px;
+	gap: var(--space-1);
 	flex-shrink: 0;
 }

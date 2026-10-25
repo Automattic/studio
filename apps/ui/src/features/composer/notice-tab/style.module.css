@@ -1,12 +1,12 @@
 /* A tab above the composer, which overlaps its bottom edge. */
 .notice {
-	margin-bottom: -24px;
-	padding: 6px 10px 30px 16px;
-	border-radius: 24px 24px 0 0;
+	margin-bottom: calc(var(--space-6) * -1);
+	padding: var(--space-1_5) var(--space-2_5) 30px var(--space-4);
+	border-radius: var(--radius-3xl) var(--radius-3xl) 0 0;
 	background-color: var(--muted);
 	color: var(--muted-foreground);
 	font-size: var(--text-xs);
-	line-height: 20px;
+	line-height: var(--text-xs--line-height);
 }
 
 .notice[data-feedback] {
@@ -18,7 +18,7 @@
 	display: flex;
 	min-height: 36px;
 	align-items: center;
-	gap: 12px;
+	gap: var(--space-3);
 }
 
 .noticeContent[data-submit-feedback='shake'] {

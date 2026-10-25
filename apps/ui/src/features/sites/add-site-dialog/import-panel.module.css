@@ -8,10 +8,10 @@
 	display: flex;
 	flex-direction: column;
 	align-items: center;
-	gap: 16px;
+	gap: var(--space-4);
 	max-width: 512px;
-	margin: 16px auto 0;
-	padding: 40px;
+	margin: var(--space-4) auto 0;
+	padding: var(--space-10);
 	border: 1px dashed var(--border);
 	border-radius: var(--radius-xl);
 	text-align: center;
@@ -28,7 +28,7 @@
 
 .dropHelp {
 	max-width: 512px;
-	margin: 12px auto 0;
+	margin: var(--space-3) auto 0;
 	color: var(--muted-foreground);
 	font-size: var(--text-xxs);
 	line-height: 1.3;
@@ -41,5 +41,5 @@
 
 .dropError {
 	max-width: 512px;
-	margin: 24px auto 0;
+	margin: var(--space-6) auto 0;
 }

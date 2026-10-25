@@ -3,11 +3,11 @@
 	--ds-hairline: color-mix(in srgb, var(--ds-text) 18%, transparent);
 	container-type: inline-size;
 	min-height: 100%;
-	padding: 48px clamp(20px, 5cqi, 64px) 64px;
+	padding: var(--space-12) clamp(var(--space-5), 5cqi, var(--space-16)) var(--space-16);
 	background-color: var(--ds-background);
 	color: var(--ds-text);
-	font-size: 15px;
-	line-height: 1.5;
+	font-size: var(--text-md);
+	line-height: var(--leading-normal);
 }
 
 /* The app styles headings with its own theme color. */
@@ -18,8 +18,8 @@
 .header {
 	display: flex;
 	flex-direction: column;
-	gap: 12px;
-	margin-bottom: 40px;
+	gap: var(--space-3);
+	margin-bottom: var(--space-10);
 }
 
 .eyebrow {
@@ -45,8 +45,8 @@
 	display: flex;
 	flex-wrap: wrap;
 	align-items: baseline;
-	gap: 4px 16px;
-	margin: 8px 0 0;
+	gap: var(--space-1) var(--space-4);
+	margin: var(--space-2) 0 0;
 	font-size: var(--text-xs);
 	opacity: 0.75;
 }
@@ -61,9 +61,9 @@
 
 .driftList {
 	display: grid;
-	gap: 6px;
-	margin: 12px 0 0;
-	padding: 12px 14px;
+	gap: var(--space-1_5);
+	margin: var(--space-3) 0 0;
+	padding: var(--space-3) var(--space-3_5);
 	border: 1px solid var(--ds-hairline);
 	border-radius: 8px;
 }
@@ -71,7 +71,7 @@
 .driftList div {
 	display: flex;
 	flex-wrap: wrap;
-	gap: 4px 12px;
+	gap: var(--space-1) var(--space-3);
 }
 
 .driftList dt {
@@ -80,7 +80,7 @@
 
 .driftList .driftActions {
 	display: flex;
-	gap: 12px;
+	gap: var(--space-3);
 	margin-inline-start: auto;
 }
 
@@ -102,7 +102,7 @@
 .sections {
 	display: grid;
 	grid-template-columns: repeat(auto-fill, minmax(min(100%, 420px), 1fr));
-	gap: 40px 48px;
+	gap: var(--space-10) var(--space-12);
 }
 
 .section {
@@ -116,8 +116,8 @@
 }
 
 .sectionTitle {
-	margin: 0 0 16px;
-	padding-top: 8px;
+	margin: 0 0 var(--space-4);
+	padding-top: var(--space-2);
 	border-top: 1px solid var(--ds-hairline);
 	font-size: var(--text-xxs);
 	font-weight: var(--font-weight-semibold);
@@ -130,7 +130,7 @@
 	display: flex;
 	flex-wrap: wrap;
 	align-items: flex-end;
-	gap: 32px;
+	gap: var(--space-8);
 }
 
 .aa {
@@ -144,7 +144,7 @@
 }
 
 .specimen figcaption {
-	margin-top: 12px;
+	margin-top: var(--space-3);
 	font-size: var(--text-xs);
 	opacity: 0.65;
 }
@@ -152,7 +152,7 @@
 .palette {
 	display: flex;
 	flex-direction: column;
-	gap: 4px;
+	gap: var(--space-1);
 	height: 320px;
 	border-radius: min(var(--ds-small), 10px);
 	overflow: hidden;
@@ -161,7 +161,7 @@
 .lead {
 	flex: 2;
 	display: flex;
-	gap: 4px;
+	gap: var(--space-1);
 	min-height: 0;
 }
 
@@ -173,13 +173,13 @@
 	flex: 1;
 	display: flex;
 	flex-direction: column;
-	gap: 4px;
+	gap: var(--space-1);
 }
 
 .accents {
 	flex: 1;
 	display: flex;
-	gap: 4px;
+	gap: var(--space-1);
 }
 
 .pair > .tile,
@@ -192,7 +192,7 @@
 	flex-direction: column;
 	justify-content: flex-end;
 	min-width: 0;
-	padding: 12px 14px;
+	padding: var(--space-3) var(--space-3_5);
 	font-size: var(--text-xs);
 	line-height: 1.35;
 }
@@ -225,9 +225,9 @@
 .scaleRow {
 	display: grid;
 	grid-template-columns: minmax(160px, 1fr) 3fr;
-	gap: 8px 32px;
+	gap: var(--space-2) var(--space-8);
 	align-items: baseline;
-	padding: 16px 0;
+	padding: var(--space-4) 0;
 	border-top: 1px solid var(--ds-hairline);
 }
 
@@ -245,7 +245,7 @@
 .scaleMeta {
 	display: flex;
 	flex-direction: column;
-	gap: 2px;
+	gap: var(--space-0_5);
 	font-size: var(--text-xs);
 }
 
@@ -266,13 +266,13 @@
 	display: flex;
 	flex-wrap: wrap;
 	align-items: flex-start;
-	gap: 32px;
+	gap: var(--space-8);
 }
 
 .stack {
 	display: flex;
 	flex-direction: column;
-	gap: 18px;
+	gap: var(--space-4_5);
 	min-width: 0;
 }
 
@@ -280,12 +280,12 @@
 	display: flex;
 	flex-wrap: wrap;
 	align-items: center;
-	gap: 14px;
+	gap: var(--space-3_5);
 }
 
 .button {
 	border: 1px solid transparent;
-	font-size: 15px;
+	font-size: var(--text-md);
 	line-height: 1.2;
 }
 
@@ -302,14 +302,14 @@
 .input {
 	width: 240px;
 	max-width: 100%;
-	padding: 12px 14px;
+	padding: var(--space-3) var(--space-3_5);
 	border: 1px solid color-mix(in srgb, var(--ds-text) 35%, transparent);
 	border-radius: var(--ds-small);
 	opacity: 0.75;
 }
 
 .tag {
-	padding: 6px 12px;
+	padding: var(--space-1_5) var(--space-3);
 	border-radius: var(--ds-tag-radius);
 	background-color: color-mix(in srgb, var(--ds-primary) 16%, var(--ds-background));
 	font-size: var(--text-xxs);
@@ -324,17 +324,17 @@
 	display: flex;
 	flex-direction: column;
 	align-items: flex-start;
-	gap: 10px;
+	gap: var(--space-2_5);
 	flex-shrink: 0;
 	width: 220px;
 	min-height: 190px;
-	padding: 18px 20px;
+	padding: var(--space-4_5) var(--space-5);
 	border-radius: var(--ds-card-radius);
 	background-color: color-mix(in srgb, var(--ds-text) 6%, var(--ds-background));
 }
 
 .card strong {
-	font-size: 20px;
+	font-size: var(--text-2xl);
 }
 
 .card u {
@@ -347,13 +347,13 @@
 .spacing {
 	display: flex;
 	flex-direction: column;
-	gap: 10px;
+	gap: var(--space-2_5);
 }
 
 .spacingRow {
 	display: grid;
 	grid-template-columns: 48px 1fr 64px;
-	gap: 12px;
+	gap: var(--space-3);
 	align-items: center;
 	font-size: var(--text-xs);
 }
@@ -376,8 +376,8 @@
 .corners {
 	display: flex;
 	flex-wrap: wrap;
-	gap: 20px;
-	margin-top: 28px;
+	gap: var(--space-5);
+	margin-top: var(--space-7);
 }
 
 .corner {
@@ -393,19 +393,19 @@
 }
 
 .corner figcaption {
-	margin-top: 8px;
+	margin-top: var(--space-2);
 	opacity: 0.65;
 }
 
 .guidelines {
 	display: grid;
 	grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
-	gap: 32px 48px;
+	gap: var(--space-8) var(--space-12);
 }
 
 .guideline h3 {
-	margin: 0 0 8px;
-	font-size: 20px;
+	margin: 0 0 var(--space-2);
+	font-size: var(--text-2xl);
 	line-height: 1.2;
 }
 
@@ -430,7 +430,7 @@
 
 .guideline code {
 	font-size: 0.9em;
-	padding: 1px 4px;
+	padding: 1px var(--space-1);
 	border-radius: 4px;
 	background-color: color-mix(in srgb, var(--ds-text) 10%, transparent);
 }
@@ -440,9 +440,9 @@
 	flex-direction: column;
 	align-items: center;
 	justify-content: center;
-	gap: 8px;
+	gap: var(--space-2);
 	height: 100%;
-	padding: 32px;
+	padding: var(--space-8);
 	color: var(--foreground);
 	text-align: center;
 }
@@ -474,8 +474,8 @@
 .annotationMarker {
 	position: absolute;
 	z-index: 1;
-	top: -12px;
-	inset-inline-end: -12px;
+	top: calc(var(--space-3) * -1);
+	inset-inline-end: calc(var(--space-3) * -1);
 	display: inline-flex;
 	box-sizing: content-box;
 	align-items: center;
@@ -483,7 +483,7 @@
 	width: 20px;
 	height: 20px;
 	border: 2px solid #fff;
-	border-radius: 50%;
+	border-radius: var(--radius-full);
 	background: var(--accent);
 	box-shadow:
 		0 0 0 1px var(--accent),
@@ -496,7 +496,7 @@
 
 /* The palette clips its tiles' corners, so their markers sit inside. */
 .tile .annotationMarker {
-	top: 8px;
-	inset-inline-end: 8px;
+	top: var(--space-2);
+	inset-inline-end: var(--space-2);
 }
 

@@ -1,5 +1,5 @@
 .offlineTooltip {
-	gap: 8px;
+	gap: var(--space-2);
 }
 
 .offlineTooltip svg {
@@ -8,12 +8,12 @@
 
 .helpAction {
 	display: flex;
-	margin-block-start: 4px;
+	margin-block-start: var(--space-1);
 }
 
 .textControl {
 	display: flex;
 	align-items: center;
-	gap: 4px;
+	gap: var(--space-1);
 	min-width: min(224px, 100%);
 }

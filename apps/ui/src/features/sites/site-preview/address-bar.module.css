@@ -6,10 +6,10 @@
 	flex: 1 1 auto;
 	min-width: 0;
 	height: var(--control-size);
-	padding-inline: 12px;
+	padding-inline: var(--space-3);
 	align-items: center;
 	border: 1px solid var(--border);
-	border-radius: 999px;
+	border-radius: var(--radius-full);
 	overflow: hidden;
 }
 
@@ -36,7 +36,7 @@
 .actions {
 	position: absolute;
 	inset-block: 0;
-	inset-inline-end: 2px;
+	inset-inline-end: var(--space-0_5);
 	display: flex;
 	align-items: center;
 	opacity: 0;
@@ -66,10 +66,10 @@
 	width: 100%;
 	min-width: 0;
 	/* Balances the realm icon, so the address centres on the whole field. */
-	padding-inline: 4px 20px;
+	padding-inline: var(--space-1) var(--space-5);
 	color: var(--foreground);
 	font-size: var(--text-xs);
-	line-height: 20px;
+	line-height: var(--text-xs--line-height);
 	text-align: center;
 	outline: 0;
 }
@@ -81,7 +81,7 @@
 .shortcutsPopup {
 	width: var(--anchor-width);
 	max-width: calc(100vw - 16px);
-	padding: 6px;
+	padding: var(--space-1_5);
 }
 
 /* Rows rounded for the menu surface rather than the composer's. */

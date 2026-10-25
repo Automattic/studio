@@ -4,28 +4,28 @@
 }
 
 .toolRow + .toolRow {
-	margin-top: -16px;
+	margin-top: calc(var(--space-4) * -1);
 }
 
 .toolDetails {
 	display: flex;
 	flex-direction: column;
-	gap: 8px;
+	gap: var(--space-2);
 	min-width: 0;
-	margin-block: 8px 4px;
+	margin-block: var(--space-2) var(--space-1);
 	margin-inline-start: 7px;
-	padding-inline: 12px 4px;
+	padding-inline: var(--space-3) var(--space-1);
 	border-inline-start: 1px solid var(--border);
 	color: var(--muted-foreground);
 	font-size: var(--text-xs);
-	line-height: 20px;
+	line-height: var(--text-xs--line-height);
 	overflow-wrap: break-word;
 }
 
 .activityProgress {
 	color: var(--muted-foreground);
 	font-size: var(--text-xs);
-	line-height: 20px;
+	line-height: var(--text-xs--line-height);
 	opacity: 0.8;
 	overflow: hidden;
 	text-overflow: ellipsis;
@@ -35,12 +35,12 @@
 .traceLine {
 	display: flex;
 	align-items: center;
-	gap: 8px;
+	gap: var(--space-2);
 	min-width: 0;
 	max-width: 100%;
 	color: var(--muted-foreground);
 	font-size: var(--text-xs);
-	line-height: 20px;
+	line-height: var(--text-xs--line-height);
 }
 
 .traceLine svg {
@@ -58,7 +58,7 @@
 	appearance: none;
 	display: flex;
 	align-items: center;
-	gap: 4px;
+	gap: var(--space-1);
 	width: fit-content;
 	max-width: 100%;
 	min-width: 0;
@@ -83,7 +83,7 @@
 }
 
 .traceTrigger:focus-visible {
-	outline: 2px solid var(--ring);
+	outline: var(--focus-width) solid var(--ring);
 	outline-offset: 2px;
 }
 
@@ -105,7 +105,7 @@
 }
 
 .toolCode pre {
-	padding: 8px;
+	padding: var(--space-2);
 }
 
 .toolOutput {

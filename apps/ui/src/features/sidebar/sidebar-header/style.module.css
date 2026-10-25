@@ -4,10 +4,10 @@
 	--toggle-start: var(--traffic-light-space);
 	display: flex;
 	align-items: center;
-	gap: 4px;
+	gap: var(--space-1);
 	height: var(--band-height);
 	flex-shrink: 0;
-	padding-inline: var(--traffic-light-space) 12px;
+	padding-inline: var(--traffic-light-space) var(--space-3);
 	box-shadow: inset 0 calc(-1 * 1px) 0
 		var(--border);
 	-webkit-app-region: drag;
@@ -24,7 +24,7 @@
 .flush {
 	--toggle-start: 12px;
 
-	padding-inline-start: 12px;
+	padding-inline-start: var(--space-3);
 }
 
 /* The toggle stays in the window's corner while the sidebar slides out, and

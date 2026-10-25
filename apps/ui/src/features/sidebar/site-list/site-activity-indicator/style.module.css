@@ -9,7 +9,7 @@
 	pointer-events: none;
 	transform: scale(0.75);
 	transition: inline-size 160ms ease, flex-basis 160ms ease, margin-inline-start 160ms ease,
-		margin-inline-end 160ms ease, opacity 120ms ease, transform 160ms ease;
+		margin-inline-end 160ms ease, opacity var(--motion-duration-feedback) ease, transform 160ms ease;
 }
 
 .siteAgentActivitySlotVisible {
@@ -56,7 +56,7 @@
 .siteAgentActivitySyncDot {
 	inline-size: 3px;
 	block-size: 3px;
-	border-radius: 999px;
+	border-radius: var(--radius-full);
 	background-color: currentColor;
 	animation-name: siteAgentSyncDotBounce;
 	animation-duration: 760ms;

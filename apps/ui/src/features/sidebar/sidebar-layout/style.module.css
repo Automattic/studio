@@ -61,7 +61,7 @@
 	position: sticky;
 	bottom: 0;
 	z-index: 1;
-	padding-top: 24px;
+	padding-top: var(--space-6);
 	background: linear-gradient(to bottom, transparent, var(--studio-sidebar-bg) 32px);
 	pointer-events: none;
 	-webkit-app-region: no-drag;
@@ -95,7 +95,7 @@
 	top: var(--band-height);
 	bottom: 0;
 	inset-inline-start: 0;
-	z-index: 40;
+	z-index: var(--z-sidebar);
 }
 
 .sidebarOverlay .sidebar {
@@ -106,7 +106,7 @@
 .overlayBackdrop {
 	position: absolute;
 	inset: var(--band-height) 0 0;
-	z-index: 39;
+	z-index: calc(var(--z-sidebar) - 1);
 	-webkit-app-region: no-drag;
 }
 
@@ -121,7 +121,7 @@
 
 /* Above the panels so the band's separator reads across them. */
 .main::before {
-	z-index: 30;
+	z-index: var(--z-band);
 	transition: opacity var(--motion-duration-layout) var(--motion-ease-layout);
 }
 
@@ -135,9 +135,9 @@
    above main (a later flex sibling) so its focus line sits on the border. */
 .resizeHandle {
 	position: relative;
-	z-index: 20;
+	z-index: var(--z-overlay);
 	flex-shrink: 0;
-	margin-inline-end: -8px;
+	margin-inline-end: calc(var(--space-2) * -1);
 	justify-content: flex-start;
 }
 
@@ -154,6 +154,6 @@
 }
 
 .sidebarCards {
-	padding: 0 8px 8px;
+	padding: 0 var(--space-2) var(--space-2);
 }
 

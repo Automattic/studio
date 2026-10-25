@@ -3,18 +3,18 @@
 	flex: none;
 	align-items: center;
 	height: 36px;
-	margin: 16px 0 0;
-	padding: 0 8px;
+	margin: var(--space-4) 0 0;
+	padding: 0 var(--space-2);
 	color: var(--muted-foreground);
 	font-size: var(--text-sm);
 	font-weight: var(--font-weight-medium);
-	line-height: 20px;
+	line-height: var(--text-sm--line-height);
 }
 
 .leading {
 	display: flex;
 	align-items: center;
-	gap: 12px;
+	gap: var(--space-3);
 }
 
 .title {
@@ -31,7 +31,7 @@
 .progress {
 	display: flex;
 	align-items: center;
-	gap: 8px;
+	gap: var(--space-2);
 	overflow: hidden;
 	color: var(--muted-foreground);
 	font-size: var(--text-xs);

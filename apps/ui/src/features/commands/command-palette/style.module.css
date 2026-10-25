@@ -1,16 +1,16 @@
 /* Sits a little above center, and stays put as results narrow. */
 .popup {
-	top: max(16px, calc(50dvh - 168px));
+	top: max(var(--space-4), calc(50dvh - 168px));
 	display: block;
 	max-width: 448px;
 	overflow: hidden;
-	padding: 10px;
+	padding: var(--space-2_5);
 	transform: translateX(-50%);
 	transition: none;
 }
 
 .inputGroup {
-	border-radius: 14px;
+	border-radius: calc(var(--radius-3xl) - var(--space-2_5));
 }
 
 .icon {

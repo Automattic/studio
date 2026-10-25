@@ -1,5 +1,5 @@
 .state {
-	padding: 20px;
+	padding: var(--space-5);
 	color: var(--muted-foreground);
 	font-size: var(--text-xxs);
 	line-height: 24px;
@@ -8,31 +8,31 @@
 .preferencesPanel {
 	display: flex;
 	flex-direction: column;
-	gap: 32px;
+	gap: var(--space-8);
 }
 
 .instructionsHeader {
 	display: flex;
 	align-items: baseline;
 	justify-content: space-between;
-	gap: 8px;
+	gap: var(--space-2);
 }
 
 
 
 .groupLegend {
-	margin-block-end: 2px;
+	margin-block-end: var(--space-0_5);
 }
 
 .groupDescription {
-	margin-block-end: 8px;
-	padding-inline: 20px;
+	margin-block-end: var(--space-2);
+	padding-inline: var(--space-5);
 }
 
 .rowTitle {
 	display: flex;
 	align-items: center;
-	gap: 4px;
+	gap: var(--space-1);
 }
 
 .linkButton {
@@ -54,7 +54,7 @@
 .settingsControl {
 	display: flex;
 	align-items: center;
-	gap: 8px;
+	gap: var(--space-2);
 }
 
 .settingsRow[data-orientation='vertical'] > .settingsControl {
@@ -62,7 +62,7 @@
 	align-items: stretch;
 }
 
-@media ( max-width: 640px ) {
+@media (width < 640px) {
 	.settingsRow[data-orientation='horizontal'] {
 		flex-direction: column;
 		align-items: stretch;
@@ -79,14 +79,14 @@
 	align-items: center;
 	inline-size: 100%;
 	block-size: 36px;
-	padding: 0 10px;
+	padding: 0 var(--space-2_5);
 	border: 1px solid
 		var(--border);
-	border-radius: 9px;
+	border-radius: var(--radius-lg);
 	color: var(--foreground);
 	font-family: var(--font-sans);
 	font-size: var(--text-xs);
-	line-height: 20px;
+	line-height: var(--text-xs--line-height);
 	text-align: start;
 	cursor: pointer;
 }
@@ -118,14 +118,14 @@
 
 .cliTooltip {
 	max-inline-size: 280px;
-	line-height: 20px;
+	line-height: var(--text-sm--line-height);
 }
 
 .errorMessage {
-	margin-block-end: 12px;
-	padding: 8px 12px;
+	margin-block-end: var(--space-3);
+	padding: var(--space-2) var(--space-3);
 	border: 1px solid color-mix( in srgb, var(--destructive) 35%, transparent );
-	border-radius: 6px;
+	border-radius: var(--radius-lg);
 	background: color-mix(
 		in srgb,
 		var(--destructive) 8%,
@@ -140,15 +140,15 @@
 
 .codeBlockCopyButton {
 	position: absolute;
-	inset-block-start: 6px;
-	inset-inline-end: 6px;
+	inset-block-start: var(--space-1_5);
+	inset-inline-end: var(--space-1_5);
 	z-index: 1;
 }
 
 .wapuuScoreHeading {
 	display: inline-flex;
 	align-items: center;
-	gap: 4px;
+	gap: var(--space-1);
 }
 
 .wapuuScoreIcon {
@@ -157,7 +157,7 @@
 
 
 .wapuuScoreMeter {
-	gap: 8px;
+	gap: var(--space-2);
 }
 
 
@@ -171,7 +171,7 @@
 .unavailableBar {
 	inline-size: 100%;
 	block-size: 4px;
-	border-radius: 999px;
+	border-radius: var(--radius-full);
 	background: repeating-linear-gradient(
 			135deg,
 			color-mix( in srgb, var(--muted-foreground) 22%, transparent ) 0
@@ -182,7 +182,7 @@
 }
 
 .meterRow {
-	gap: 8px;
+	gap: var(--space-2);
 }
 
 .meterSummary {
@@ -190,15 +190,15 @@
 	flex-wrap: wrap;
 	align-items: center;
 	justify-content: space-between;
-	gap: 4px 16px;
+	gap: var(--space-1) var(--space-4);
 }
 
 .meterSummary > [data-slot='field-label'] {
-	gap: 4px;
+	gap: var(--space-1);
 }
 
 .meterSummary > [data-slot='field-label'] > button {
-	margin-block: -4px;
+	margin-block: calc(var(--space-1) * -1);
 }
 
 /* Escalation colors for the AI credits meter (80% / 90% / exhausted). The
@@ -220,7 +220,7 @@
 
 .aiCreditsTrack {
 	block-size: 4px;
-	border-radius: 999px;
+	border-radius: var(--radius-full);
 	background: linear-gradient(
 			90deg,
 			color-mix( in srgb, var(--accent-text) 32%, transparent ),
@@ -236,8 +236,8 @@
 
 
 .expiredToggle {
-	margin-inline: 16px;
-	margin-block-end: 16px;
+	margin-inline: var(--space-4);
+	margin-block-end: var(--space-4);
 }
 
 
@@ -272,7 +272,7 @@
 	width: 176px;
 	overflow: hidden;
 	border: 1px solid var(--border);
-	border-radius: 12px;
+	border-radius: var(--radius-xl);
 	background: var(--chrome);
 	box-shadow: var(--shadow-xs);
 }
@@ -280,15 +280,15 @@
 .previewIllustrationBar {
 	display: flex;
 	justify-content: flex-end;
-	padding: 8px 12px;
+	padding: var(--space-2) var(--space-3);
 	border-bottom: 1px solid
 		var(--border);
 }
 
 .previewIllustrationButton {
-	padding: 2px 8px;
+	padding: var(--space-0_5) var(--space-2);
 	border: 1px solid var(--border);
-	border-radius: 6px;
+	border-radius: var(--radius-lg);
 	box-shadow: 0 0 0 3px
 		color-mix( in srgb, var(--accent) 25%, transparent );
 	font-size: var(--text-xxs);
@@ -308,13 +308,13 @@
 
 .pathForm {
 	display: flex;
-	gap: 8px;
+	gap: var(--space-2);
 }
 
 .keyForm {
 	display: flex;
 	align-items: center;
-	gap: 8px;
+	gap: var(--space-2);
 }
 
 .settingsControl:has( > .colorControl, > .sliderControl ) {
@@ -326,7 +326,7 @@
 	display: flex;
 	flex-wrap: wrap;
 	align-items: center;
-	gap: 6px;
+	gap: var(--space-1_5);
 	width: 100%;
 }
 
@@ -334,7 +334,7 @@
 	flex-shrink: 0;
 	width: 24px;
 	height: 24px;
-	border-radius: 9999px;
+	border-radius: var(--radius-full);
 	cursor: pointer;
 }
 

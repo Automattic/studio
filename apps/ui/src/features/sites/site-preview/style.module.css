@@ -36,7 +36,7 @@
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	padding: 20px;
+	padding: var(--space-5);
 	background-color: var(--chat);
 	color: var(--muted-foreground);
 	font-size: var(--text-xxs);
@@ -49,7 +49,7 @@
 	z-index: 1;
 	display: flex;
 	flex-direction: column;
-	gap: 12px;
+	gap: var(--space-3);
 	align-items: center;
 	width: min(100%, 420px);
 }

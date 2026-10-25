@@ -1,7 +1,7 @@
 .root {
 	display: flex;
 	flex-direction: column;
-	gap: 24px;
+	gap: var(--space-6);
 }
 
 .notice {
@@ -11,7 +11,7 @@
 .grid {
 	display: grid;
 	grid-template-columns: 1fr;
-	gap: 28px 24px;
+	gap: var(--space-7) var(--space-6);
 }
 
 @container (min-width: 384px) {
@@ -23,7 +23,7 @@
 .card {
 	display: flex;
 	flex-direction: column;
-	gap: 8px;
+	gap: var(--space-2);
 	min-width: 0;
 	border: 1px solid transparent;
 	color: var(--foreground);
@@ -55,7 +55,7 @@
 }
 
 .card:focus-visible :is(.thumbnail, .blank) {
-	outline: 2px solid var(--ring);
+	outline: var(--focus-width) solid var(--ring);
 	outline-offset: 2px;
 }
 
@@ -122,17 +122,17 @@
 	display: flex;
 	align-items: center;
 	height: 32px;
-	padding: 0 10px;
+	padding: 0 var(--space-2_5);
 	border-radius: var(--radius-md);
 	background: var(--accent);
 	color: var(--accent-foreground);
 	font-size: var(--text-xs);
 	font-weight: var(--font-weight-medium);
-	line-height: 20px;
+	line-height: var(--text-xs--line-height);
 }
 
 .details {
 	display: flex;
 	flex-direction: column;
-	gap: 24px;
+	gap: var(--space-6);
 }

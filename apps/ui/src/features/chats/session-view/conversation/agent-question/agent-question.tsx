@@ -5,14 +5,22 @@ import {
 	STOPPED_WITHOUT_ANSWER,
 } from '@studio/common/ai/tools';
 import { __, sprintf } from '@wordpress/i18n';
-import { clsx } from 'clsx';
-import { CheckIcon, SearchIcon } from 'lucide-react';
-import { useEffect, useEffectEvent, useId, useState } from 'react';
+import { SearchIcon } from 'lucide-react';
+import { useState, type Ref } from 'react';
 import { useLocalMediaDataUrl } from '@/data/queries/use-local-media';
 import { QuestionOptionViewer } from '@/features/chats/session-view/conversation/agent-question/option-viewer';
 import { joinedAttributes, type Joined } from '@/features/chats/session-view/conversation/joined';
-import { isTextEntry } from '@/lib/keyboard';
-import { Button, IconButton } from '@/lib/ui';
+import {
+	Button,
+	IconButton,
+	Questionnaire,
+	QuestionnaireAnswer,
+	QuestionnaireChoice,
+	QuestionnaireChoices,
+	QuestionnaireDescription,
+	QuestionnaireProgress,
+	QuestionnaireTitle,
+} from '@/lib/ui';
 import styles from './style.module.css';
 import type { AgentQuestionRenderItem } from '@/features/chats/session-view/conversation/transcript-items';
 
@@ -22,20 +30,6 @@ export function getAnswerLetter(
 ): string | undefined {
 	const index = options.findIndex( ( option ) => option.label === pickedLabel );
 	return index < 0 ? undefined : String.fromCharCode( 65 + index );
-}
-
-export function QuestionAnswer( { letter, label }: { letter?: string; label: string } ) {
-	return (
-		<span className={ styles.questionAnswer }>
-			{ letter ? (
-				<span className={ styles.questionLetter } aria-hidden="true">
-					{ letter }
-				</span>
-			) : null }
-			<span className={ styles.questionAnswerLabel }>{ label }</span>
-			<CheckIcon aria-hidden="true" />
-		</span>
-	);
 }
 
 export function AgentQuestion( {
@@ -49,6 +43,8 @@ export function AgentQuestion( {
 	progress,
 	onAnswer,
 	onChooseFreeForm,
+	ref,
+	tabIndex,
 	...joined
 }: {
 	question: string;
@@ -61,8 +57,9 @@ export function AgentQuestion( {
 	progress?: string;
 	onAnswer: ( label: string ) => void;
 	onChooseFreeForm: () => void;
+	ref?: Ref< HTMLFieldSetElement >;
+	tabIndex?: number;
 } & Joined ) {
-	const optionsId = useId();
 	const isFolding = isCollapsing && Boolean( pickedLabel );
 	// The stop marker is written by the app, not the user.
 	const answered =
@@ -96,76 +93,7 @@ export function AgentQuestion( {
 			onAnswer( label );
 		}
 	};
-	// The letter keys pick the options they're lettered with.
-	const onKeyDown = useEffectEvent( ( event: KeyboardEvent ) => {
-		if (
-			! /^[a-z]$/i.test( event.key ) ||
-			event.defaultPrevented ||
-			event.repeat ||
-			event.metaKey ||
-			event.ctrlKey ||
-			event.altKey ||
-			isTextEntry( event.target ) ||
-			( event.target instanceof Element &&
-				event.target.closest( '[role="dialog"], [role="menu"]' ) )
-		) {
-			return;
-		}
-		const index = event.key.toUpperCase().charCodeAt( 0 ) - 65;
-		if ( options[ index ] ) {
-			choose( options[ index ].label );
-		} else if ( showFreeForm && index === options.length ) {
-			onChooseFreeForm();
-		} else {
-			return;
-		}
-		event.preventDefault();
-	} );
-	useEffect( () => {
-		if ( ! answering ) {
-			return;
-		}
-		document.addEventListener( 'keydown', onKeyDown );
-		return () => document.removeEventListener( 'keydown', onKeyDown );
-	}, [ answering ] );
-
-	const choice = (
-		index: number,
-		label: string,
-		description: string | undefined,
-		picked: boolean,
-		{ image, freeForm = false }: { image?: string; freeForm?: boolean } = {}
-	) => {
-		const descriptionId = description ? `${ optionsId }-option-${ index }-description` : undefined;
-		return (
-			<button
-				type="button"
-				className={ clsx( styles.questionChoice, freeForm && styles.questionChoiceFreeForm ) }
-				disabled={ ! isInteractive }
-				onClick={ freeForm ? onChooseFreeForm : () => choose( label ) }
-				aria-label={ label }
-				aria-describedby={ descriptionId }
-				aria-pressed={ picked }
-				data-has-image={ image ? 'true' : undefined }
-			>
-				{ image ? <QuestionOptionImage path={ image } /> : null }
-				{ answering ? (
-					<span className={ styles.questionLetter } aria-hidden="true">
-						{ String.fromCharCode( 65 + index ) }
-					</span>
-				) : null }
-				<span className={ styles.questionChoiceLabel }>
-					<span>{ label }</span>
-					{ description ? (
-						<span id={ descriptionId } className={ styles.questionChoiceDescription }>
-							{ description }
-						</span>
-					) : null }
-				</span>
-				{ picked ? <CheckIcon aria-hidden="true" /> : null }
-			</button>
-		);
-	};
+	const letter = ( index: number ) => ( answering ? String.fromCharCode( 65 + index ) : undefined );
 
 	return (
 		<div
@@ -173,89 +101,104 @@ export function AgentQuestion( {
 			data-state={ isFolding ? 'folding' : undefined }
 			{ ...joinedAttributes( joined ) }
 		>
-			{ progress ? <span className={ styles.questionProgress }>{ progress }</span> : null }
-			<p className={ styles.questionText }>{ question }</p>
-			{ answered ? (
-				<QuestionAnswer
-					letter={ multiSelect ? undefined : getAnswerLetter( options, pickedLabel ) }
-					label={ pickedLabel }
-				/>
-			) : (
-				<>
-					{ multiSelect ? (
-						<span className={ styles.questionHint }>{ __( 'Select all that apply.' ) }</span>
-					) : null }
-					<ol className={ styles.questionChoices } data-layout={ hasImages ? 'grid' : undefined }>
-						{ options.map( ( option, index ) => {
-							const isOwnFreeForm = option.label === ownFreeFormLabel;
-							const picked = isOwnFreeForm ? freeFormActive : pickedLabels.includes( option.label );
-							return (
-								<li
-									key={ index }
-									className={ styles.questionChoiceItem }
-									data-picked={ picked ? 'true' : undefined }
-									data-wide={ hasImages && ! option.image ? 'true' : undefined }
-								>
-									{ choice(
-										index,
-										option.label,
-										isOwnFreeForm ? getFreeFormOptionDescription() : option.description,
-										picked,
-										{ image: option.image, freeForm: isOwnFreeForm }
-									) }
-									{ option.image ? (
-										<IconButton
-											className={ styles.questionOptionZoom }
-											size="icon-2xs"
-											icon={ <SearchIcon /> }
-											label={ sprintf(
-												// translators: %s: name of a design option.
-												__( 'View %s larger' ),
-												option.label
-											) }
-											onClick={ () => setViewing( viewable.indexOf( option ) ) }
-										/>
-									) : null }
-								</li>
-							);
-						} ) }
-						{ showFreeForm ? (
-							<li
-								className={ styles.questionChoiceItem }
-								data-picked={ freeFormActive ? 'true' : undefined }
-								data-wide={ hasImages ? 'true' : undefined }
-							>
-								{ choice(
-									options.length,
-									freeFormLabel,
-									getFreeFormOptionDescription(),
-									freeFormActive,
-									{ freeForm: true }
-								) }
-							</li>
+			{ progress ? (
+				<QuestionnaireProgress className={ styles.questionProgress }>
+					{ progress }
+				</QuestionnaireProgress>
+			) : null }
+			<Questionnaire
+				ref={ ref }
+				tabIndex={ tabIndex }
+				multiple={ multiSelect }
+				shortcuts={ answering }
+				className={ styles.questionnaire }
+			>
+				<QuestionnaireTitle>{ question }</QuestionnaireTitle>
+				{ answered ? (
+					<QuestionnaireAnswer
+						letter={ multiSelect ? undefined : getAnswerLetter( options, pickedLabel ) }
+					>
+						{ pickedLabel }
+					</QuestionnaireAnswer>
+				) : (
+					<>
+						{ multiSelect ? (
+							<QuestionnaireDescription>
+								{ __( 'Select all that apply.' ) }
+							</QuestionnaireDescription>
 						) : null }
-					</ol>
-					{ hasImages ? (
-						<QuestionOptionViewer
-							options={ viewable }
-							index={ viewing }
-							onIndexChange={ setViewing }
-							onChoose={ isInteractive && ! multiSelect ? onAnswer : undefined }
-						/>
-					) : null }
-					{ multiSelect && isInteractive ? (
-						<div>
-							<Button
-								variant="outline"
-								disabled={ pickedLabels.length === 0 }
-								onClick={ () => onAnswer( pickedLabels.join( ', ' ) ) }
-							>
-								{ __( 'Submit choices' ) }
-							</Button>
-						</div>
-					) : null }
-				</>
-			) }
+						<QuestionnaireChoices layout={ hasImages ? 'grid' : 'list' }>
+							{ options.map( ( option, index ) => {
+								const isOwnFreeForm = option.label === ownFreeFormLabel;
+								return (
+									<QuestionnaireChoice
+										key={ index }
+										label={ option.label }
+										description={
+											isOwnFreeForm ? getFreeFormOptionDescription() : option.description
+										}
+										shortcut={ letter( index ) }
+										checked={
+											isOwnFreeForm ? freeFormActive : pickedLabels.includes( option.label )
+										}
+										disabled={ ! isInteractive }
+										muted={ isOwnFreeForm }
+										wide={ hasImages && ! option.image }
+										media={ option.image ? <QuestionOptionImage path={ option.image } /> : null }
+										action={
+											option.image ? (
+												<IconButton
+													className={ styles.questionOptionZoom }
+													size="icon-2xs"
+													icon={ <SearchIcon /> }
+													label={ sprintf(
+														// translators: %s: name of a design option.
+														__( 'View %s larger' ),
+														option.label
+													) }
+													onClick={ () => setViewing( viewable.indexOf( option ) ) }
+												/>
+											) : null
+										}
+										onSelect={ () => choose( option.label ) }
+									/>
+								);
+							} ) }
+							{ showFreeForm ? (
+								<QuestionnaireChoice
+									label={ freeFormLabel }
+									description={ getFreeFormOptionDescription() }
+									shortcut={ letter( options.length ) }
+									checked={ freeFormActive }
+									disabled={ ! isInteractive }
+									muted
+									wide={ hasImages }
+									onSelect={ onChooseFreeForm }
+								/>
+							) : null }
+						</QuestionnaireChoices>
+						{ hasImages ? (
+							<QuestionOptionViewer
+								options={ viewable }
+								index={ viewing }
+								onIndexChange={ setViewing }
+								onChoose={ isInteractive && ! multiSelect ? onAnswer : undefined }
+							/>
+						) : null }
+						{ multiSelect && isInteractive ? (
+							<div>
+								<Button
+									variant="outline"
+									disabled={ pickedLabels.length === 0 }
+									onClick={ () => onAnswer( pickedLabels.join( ', ' ) ) }
+								>
+									{ __( 'Submit choices' ) }
+								</Button>
+							</div>
+						) : null }
+					</>
+				) }
+			</Questionnaire>
 		</div>
 	);
 }

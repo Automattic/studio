@@ -4,11 +4,11 @@ import { memo, useEffect, useRef, useState } from 'react';
 import {
 	AgentQuestion,
 	getAnswerLetter,
-	QuestionAnswer,
 } from '@/features/chats/session-view/conversation/agent-question/agent-question';
 import { scrollElementIntoViewIfNeeded } from '@/features/chats/session-view/conversation/agent-question/scroll-into-view';
 import { joinedAttributes, type Joined } from '@/features/chats/session-view/conversation/joined';
 import { useReducedMotion } from '@/lib/hooks';
+import { QuestionnaireAnswer } from '@/lib/ui';
 import styles from './style.module.css';
 import type { AgentQuestionRenderItem } from '@/features/chats/session-view/conversation/transcript-items';
 
@@ -57,7 +57,9 @@ function QuestionSummary( {
 	const content = (
 		<>
 			<span className={ styles.questionText }>{ question }</span>
-			<QuestionAnswer letter={ getAnswerLetter( options, pickedLabel ) } label={ pickedLabel } />
+			<QuestionnaireAnswer letter={ getAnswerLetter( options, pickedLabel ) }>
+				{ pickedLabel }
+			</QuestionnaireAnswer>
 		</>
 	);
 
@@ -108,7 +110,7 @@ export const AgentQuestionBatch = memo( function AgentQuestionBatch( {
 	const [ expandedIndex, setExpandedIndex ] = useState< number | null >( null );
 	const [ settlingIndex, setSettlingIndex ] = useState< number | null >( null );
 	const prefersReducedMotion = useReducedMotion();
-	const activeQuestionRef = useRef< HTMLDivElement | null >( null );
+	const activeQuestionRef = useRef< HTMLFieldSetElement | null >( null );
 	const shouldFocusActiveQuestionRef = useRef( false );
 	const total = questions.length;
 	const firstUnansweredIndex = findFirstUnansweredQuestionIndex(
@@ -172,23 +174,19 @@ export const AgentQuestionBatch = memo( function AgentQuestionBatch( {
 		// The scroll-into-view effect needs a target here too, or a lone question
 		// stays half-hidden behind the composer when the agent asks it.
 		return (
-			<div
+			<AgentQuestion
 				ref={ activeIndex === 0 ? activeQuestionRef : undefined }
-				{ ...joinedAttributes( { joinedAbove, joinedBelow } ) }
-			>
-				<AgentQuestion
-					question={ question.question }
-					options={ question.options }
-					multiSelect={ question.multiSelect }
-					isInteractive={ pendingQuestions.has( question.question ) }
-					pickedLabel={ getQuestionPickedLabel( question, pendingAnswers ) }
-					freeFormActive={ freeFormQuestion === question.question }
-					onAnswer={ ( label ) => onAnswer( question.question, label ) }
-					onChooseFreeForm={ () => onChooseFreeForm( question.question ) }
-					joinedAbove={ joinedAbove }
-					joinedBelow={ joinedBelow }
-				/>
-			</div>
+				question={ question.question }
+				options={ question.options }
+				multiSelect={ question.multiSelect }
+				isInteractive={ pendingQuestions.has( question.question ) }
+				pickedLabel={ getQuestionPickedLabel( question, pendingAnswers ) }
+				freeFormActive={ freeFormQuestion === question.question }
+				onAnswer={ ( label ) => onAnswer( question.question, label ) }
+				onChooseFreeForm={ () => onChooseFreeForm( question.question ) }
+				joinedAbove={ joinedAbove }
+				joinedBelow={ joinedBelow }
+			/>
 		);
 	}
 
@@ -226,15 +224,12 @@ export const AgentQuestionBatch = memo( function AgentQuestionBatch( {
 				return (
 					<div
 						key={ question.key }
-						ref={ isActive ? activeQuestionRef : undefined }
 						className={ styles.questionBatchStep }
 						data-state={ settlingIndex === index ? 'answered' : 'asking' }
-						tabIndex={ isActive ? -1 : undefined }
-						aria-label={
-							isActive ? sprintf( __( 'Current question: %s' ), question.question ) : undefined
-						}
 					>
 						<AgentQuestion
+							ref={ isActive ? activeQuestionRef : undefined }
+							tabIndex={ isActive ? -1 : undefined }
 							progress={ sprintf( __( 'Asking question %1$d of %2$d' ), index + 1, total ) }
 							question={ question.question }
 							options={ question.options }

@@ -24,6 +24,8 @@ export function SiteListGroup( {
 	action,
 	itemKeys,
 	foldable = true,
+	hidden = false,
+	onFold,
 	children,
 }: {
 	id: string;
@@ -31,17 +33,28 @@ export function SiteListGroup( {
 	action?: ReactNode;
 	itemKeys?: string[];
 	foldable?: boolean;
+	// An empty group stays mounted, hidden, so its first item still opens it.
+	hidden?: boolean;
+	onFold?: () => void;
 	children: ReactNode;
 } ) {
 	const [ storedExpanded, setExpanded ] = useStoredFlag( `studio-ui-sidebar-group-${ id }`, true );
 	const expanded = storedExpanded || ! foldable;
 	useOpenOnAddedItems( itemKeys, expanded, () => setExpanded( true ) );
+	if ( hidden ) {
+		return null;
+	}
 	return (
 		<SidebarGroup role="group" aria-label={ title } open={ foldable && expanded }>
 			<SidebarGroupHeader>
 				<SidebarGroupLabel
 					expanded={ foldable ? expanded : undefined }
-					onExpandedChange={ setExpanded }
+					onExpandedChange={ ( next ) => {
+						setExpanded( next );
+						if ( ! next ) {
+							onFold?.();
+						}
+					} }
 				>
 					{ title }
 				</SidebarGroupLabel>

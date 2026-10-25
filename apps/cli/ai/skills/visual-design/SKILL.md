@@ -30,6 +30,7 @@ The look is written once, as the theme's `theme.json` (version 3) — the file W
 
 - **settings**: `color.palette` (hex values, each color once), `typography.fontFamilies` (Google Fonts families, each with `slug`, `name`, and `fontFamily` with a fallback stack; Studio downloads the font files into the theme when theme.json is written), `typography.fontSizes`, `spacing.spacingSizes`, and `layout` content and wide sizes.
 - **styles**: the root `color` and `typography` from those presets, and `elements` for `heading` (with `h1` and `h2` sizes), `link`, and `button` (colors, `border.radius`, `spacing.padding`, `typography`). The direction's Shapes become radii and borders here; its Surface, Imagery, and Motion, which theme.json has no place for, go in the theme's CSS.
+- **block styles**: a treatment several blocks of one type share, such as cards, outline buttons or framed images, is a block style: a `styles/blocks/<slug>.json` file in the theme with `title`, `slug`, `blockTypes` and `styles` (theme.json's shape for one block), as Twenty Twenty-Five's are. WordPress registers each (`WP_Theme_JSON_Resolver::get_style_variations`), the block's Styles panel offers it, and a block takes it as `"className":"is-style-<slug>"`.
 - **A draft**, for a design option, is that whole theme.json. It is rendered as a design-system board — the heading and body type, the palette led by the ground and text, the button and link, and the look image — so the user judges exactly the tokens. The picked draft becomes the theme's theme.json unchanged.
 
 ## Sneak peeks

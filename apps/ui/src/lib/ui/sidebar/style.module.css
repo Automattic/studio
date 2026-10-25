@@ -138,7 +138,11 @@
 		text-align: start;
 	}
 
+	/* Hovering an action fills its row, so the actions sit on the row's hover
+	   fill and their own hover steps one up from it. */
 	.actions {
+		--surface: var( --hover );
+
 		position: absolute;
 		inset-block-start: var( --space-0_5 );
 		inset-inline-end: var( --space-0_5 );

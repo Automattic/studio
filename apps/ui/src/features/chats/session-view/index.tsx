@@ -8,21 +8,17 @@ import { canUsePaidAiModels } from '@studio/common/lib/studio-assistant-quota';
 import { useNavigate } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
 import { clsx } from 'clsx';
-import { ArrowDownIcon, XIcon } from 'lucide-react';
+import { ArrowDownIcon } from 'lucide-react';
 import {
 	useCallback,
 	useEffect,
-	useLayoutEffect,
 	useMemo,
 	useRef,
 	useState,
 	useSyncExternalStore,
 	type ReactNode,
-	type Ref,
 } from 'react';
 import { toast } from '@/data/app-messages';
-import { useTrafficLightSpace } from '@/data/host/use-traffic-light-space';
-import { useWindowControlsInset } from '@/data/host/use-window-controls-inset';
 import { useAgentRun } from '@/data/queries/use-agent-run';
 import { useAiSettings } from '@/data/queries/use-ai-settings';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
@@ -44,7 +40,6 @@ import {
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useSiteSelectionTime } from '@/data/use-open-site';
 import { SessionUIProvider, useOptionalSessionPreviewUI } from '@/data/use-session-ui';
-import { useSidebarCollapsed } from '@/data/use-sidebar-collapsed';
 import {
 	getSiteAnnotations,
 	hasAnnotationContent,
@@ -53,185 +48,23 @@ import {
 	subscribeAnnotationSend,
 	annotationSubmission,
 } from '@/features/annotations';
-import { ChatContextMenu } from '@/features/chats/chat-actions';
 import {
 	formatComposerTextQuote,
 	watchComposerTextQuote,
 } from '@/features/chats/composer-text-quote';
-import { ProgressiveBlur } from '@/features/chats/progressive-blur';
 import { pendingPromptSlot } from '@/features/composer';
 import { Composer, ComposerSkeleton, type ComposerHandle } from '@/features/composer';
-import {
-	PreviewParticles,
-	usePreviewBeside,
-	SiteActionsMenu,
-	SiteHeaderSpace,
-	useSiteHeader,
-	SiteIcon,
-	SiteContextMenu,
-	StoppedSitePreview,
-} from '@/features/sites';
+import { PreviewParticles, SiteContextMenu, StoppedSitePreview } from '@/features/sites';
 import { Button, IconButton } from '@/lib/ui';
 import { Conversation } from './conversation';
 import { QueuedPrompts } from './queued-prompts';
+import { SessionFrame } from './session-frame';
+import { SessionHeader } from './session-header';
 import styles from './style.module.css';
 import { useAnchoredScroll } from './use-anchored-scroll';
 import { useComposerNotice } from './use-composer-notice';
 import { useMarkChatRead } from './use-mark-chat-read';
 import { useSessionCommands } from './use-session-commands';
-import type { AiSessionSummary, SiteDetails } from '@/data/core';
-
-function SessionHeader( {
-	start,
-	siteName,
-	site,
-	effectiveEnvironment,
-}: {
-	start?: ReactNode;
-	siteName?: string;
-	site?: SiteDetails;
-	effectiveEnvironment: 'local' | 'live';
-} ) {
-	const sidebarCollapsed = useSidebarCollapsed();
-	const reserveTrafficLightSpace = useTrafficLightSpace().start;
-	const windowControlsInset = useWindowControlsInset( 'toolbar' );
-	const { host } = useSiteHeader();
-	const preview = useOptionalSessionPreviewUI();
-	const previewBeside = usePreviewBeside();
-	const local = site && effectiveEnvironment === 'local';
-
-	return (
-		<header
-			data-site-header
-			className={ clsx(
-				styles.header,
-				local && host === 'chat' && styles.headerWithSiteActions,
-				sidebarCollapsed && reserveTrafficLightSpace && styles.headerSidebarCollapsed
-			) }
-			style={
-				windowControlsInset > 0
-					? {
-							paddingRight: windowControlsInset + 8,
-					  }
-					: undefined
-			}
-		>
-			<div data-site-header-reserved className={ styles.headerLead }>
-				{ start }
-				{ site ? <SiteActionsMenu site={ site } /> : null }
-				{ ! site && siteName ? (
-					<>
-						<SiteIcon className={ styles.headerSiteIcon } seed={ siteName } />
-						<span className={ styles.headerSite }>{ siteName }</span>
-						<span className={ styles.headerDot } aria-hidden="true" />
-						<span className={ styles.headerEnv }>
-							{ effectiveEnvironment === 'live' ? __( 'Live' ) : __( 'Local' ) }
-						</span>
-					</>
-				) : null }
-			</div>
-			<span className={ styles.headerSpacer } aria-hidden="true" />
-			{ site && ( site.running || ! local ) ? (
-				<div data-site-header-reserved className={ styles.headerActions } data-header-actions>
-					{ preview && previewBeside ? (
-						<IconButton
-							icon={ <XIcon /> }
-							label={ __( 'Hide chat' ) }
-							onClick={ () => preview.setChatHidden( true ) }
-						/>
-					) : null }
-				</div>
-			) : null }
-			{ local && host === 'chat' ? <SiteHeaderSpace /> : null }
-		</header>
-	);
-}
-
-interface SessionFrameProps {
-	session?: AiSessionSummary;
-	canExpand?: boolean;
-	header?: ReactNode;
-	composer?: ReactNode;
-	scrollRef?: Ref< HTMLDivElement >;
-	rootRef?: ( node: HTMLDivElement | null ) => void;
-	children?: ReactNode;
-}
-
-// Lays out the chat column as fixed chrome over a full-height conversation
-// scroller. The site preview panel lives in the dashboard layout's
-// PreviewSplitFrame, which keeps it mounted across routes.
-function SessionFrame( {
-	session,
-	canExpand,
-	header,
-	composer,
-	scrollRef,
-	rootRef: onRootNode,
-	children,
-}: SessionFrameProps ) {
-	const rootRef = useRef< HTMLDivElement | null >( null );
-	const headerRef = useRef< HTMLDivElement >( null );
-	const composerRef = useRef< HTMLDivElement >( null );
-
-	useLayoutEffect( () => {
-		const root = rootRef.current;
-		if ( ! root ) {
-			return;
-		}
-
-		const updateChromeSize = () => {
-			root.style.setProperty( '--header-height', `${ headerRef.current?.offsetHeight ?? 0 }px` );
-			root.style.setProperty(
-				'--composer-height',
-				`${ composerRef.current?.offsetHeight ?? 0 }px`
-			);
-		};
-
-		updateChromeSize();
-
-		if ( typeof ResizeObserver === 'undefined' ) {
-			window.addEventListener( 'resize', updateChromeSize );
-			return () => window.removeEventListener( 'resize', updateChromeSize );
-		}
-
-		const resizeObserver = new ResizeObserver( updateChromeSize );
-		if ( headerRef.current ) {
-			resizeObserver.observe( headerRef.current );
-		}
-		if ( composerRef.current ) {
-			resizeObserver.observe( composerRef.current );
-		}
-
-		return () => resizeObserver.disconnect();
-	}, [] );
-
-	return (
-		<ChatContextMenu session={ session } canExpand={ canExpand }>
-			<div
-				ref={ ( node ) => {
-					rootRef.current = node;
-					onRootNode?.( node );
-				} }
-				className={ styles.root }
-			>
-				<div ref={ headerRef } className={ styles.headerLayer }>
-					{ header }
-				</div>
-				<div ref={ scrollRef } className={ styles.scroll }>
-					{ children }
-				</div>
-				{ composer ? (
-					<>
-						<ProgressiveBlur direction="up" className={ styles.composerBlur } fadeToSurface />
-						<div ref={ composerRef } className={ styles.composerOuter }>
-							{ composer }
-						</div>
-					</>
-				) : null }
-			</div>
-		</ChatContextMenu>
-	);
-}
 
 interface SessionViewProps {
 	sessionId: string;

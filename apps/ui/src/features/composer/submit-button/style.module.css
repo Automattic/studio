@@ -1,0 +1,15 @@
+.stopButton[aria-busy='true'] {
+	animation: stopPulse 1s ease-in-out infinite;
+}
+
+@keyframes stopPulse {
+	50% {
+		opacity: 0.5;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.stopButton[aria-busy='true'] {
+		animation: none;
+	}
+}

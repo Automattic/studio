@@ -79,14 +79,16 @@ describe( 'AiPanel', () => {
 		render( <AiPanel onManageCredits={ onManageCredits } /> );
 
 		fireEvent.click( screen.getByRole( 'button', { name: 'Connect', expanded: false } ) );
-		fireEvent.change( screen.getByLabelText( 'Anthropic API key' ), {
+		fireEvent.change( screen.getByLabelText( 'Anthropic API key', { selector: 'input' } ), {
 			target: { value: '  sk-ant-test-1234  ' },
 		} );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Save' } ) );
 
 		await waitFor( () => expect( setProvider ).toHaveBeenCalledWith( 'anthropic-api-key' ) );
 		expect( saveKey ).toHaveBeenCalledWith( 'sk-ant-test-1234' );
-		expect( screen.queryByLabelText( 'Anthropic API key' ) ).not.toBeInTheDocument();
+		expect(
+			screen.queryByLabelText( 'Anthropic API key', { selector: 'input' } )
+		).not.toBeInTheDocument();
 	} );
 
 	it( 'removes a saved key', () => {

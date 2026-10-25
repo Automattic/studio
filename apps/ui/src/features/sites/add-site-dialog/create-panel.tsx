@@ -399,6 +399,7 @@ export function CreatePanel( { remote, onCancel }: { remote?: SyncSite; onCancel
 				source={ remote?.url.replace( /^https?:\/\//, '' ) }
 				sourceIcon={ <CloudDownloadIcon /> }
 				onExistingChange={ setExisting }
+				requiresEmptyPath={ !! remote }
 				panelFooter={
 					selectedBlueprint ? (
 						<SelectedBlueprintSummary

@@ -860,6 +860,26 @@ describe( 'SessionView', () => {
 		rerender( <SessionView sessionId="session-1" /> );
 		expect( screen.queryByTestId( 'stopped-site-preview' ) ).not.toBeInTheDocument();
 	} );
+
+	it( 'removes the stopped site screenshot once the first prompt is in, even without a fade', async () => {
+		sitesState.data = [ OWNER_SITE ];
+		useSessionMock.mockReturnValue( { data: makeOwnedSession(), isLoading: false, error: null } );
+		const { rerender } = render( <SessionView sessionId="session-1" /> );
+
+		useSessionMock.mockReturnValue( {
+			data: {
+				...makeOwnedSession(),
+				entries: [ { id: 'prompt-1', type: 'custom', customType: 'studio.user_prompt' } ],
+			} as unknown as LoadedAiSession,
+			isLoading: false,
+			error: null,
+		} );
+		rerender( <SessionView sessionId="session-1" /> );
+
+		await waitFor( () =>
+			expect( screen.queryByTestId( 'stopped-site-preview' ) ).not.toBeInTheDocument()
+		);
+	} );
 } );
 
 describe( 'isScrolledAwayFromLatest', () => {

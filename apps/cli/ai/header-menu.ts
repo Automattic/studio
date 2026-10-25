@@ -1,5 +1,6 @@
 /**
- * A header that links to several of the site's pages with no navigation. The
+ * A header that links to several of the site's pages, or of the home page's
+ * sections, with no navigation. The
  * block that renders a menu is core/navigation: a <nav> landmark
  * (wp-includes/blocks/navigation.php) that the Site Editor edits as the
  * site's menu, as the header of WordPress's default theme holds it. One link
@@ -44,13 +45,13 @@ export async function headerMenu( sitePath: string ): Promise< string | undefine
 	const pages = new Set(
 		[ ...header.matchAll( /<a\b[^>]*\bhref="([^"]*)"/g ) ]
 			.map( ( match ) => new URL( match[ 1 ].replace( /&amp;/g, '&' ), `${ url }/` ) )
-			.filter( ( link ) => link.origin === origin && link.pathname !== '/' )
-			.map( ( link ) => link.pathname )
+			.map( ( link ) => ( link.origin === origin ? link.pathname + link.hash : '/' ) )
+			.filter( ( target ) => target !== '/' )
 	);
 	if ( pages.size < 2 ) {
 		return undefined;
 	}
 	return `The header of ${ url } links to ${ [ ...pages ].join(
 		', '
-	) } with no navigation: core/navigation is the block that renders a site's menu, as a <nav> landmark the Site Editor edits as the menu (wp-includes/blocks/navigation.php), as the header of WordPress's default theme does. Put these links in a core/navigation block in the header, with a core/navigation-link to each page.`;
+	) } with no navigation: core/navigation is the block that renders a site's menu, as a <nav> landmark the Site Editor edits as the menu (wp-includes/blocks/navigation.php), as the header of WordPress's default theme does. Put these links in a core/navigation block in the header, with a core/navigation-link to each.`;
 }

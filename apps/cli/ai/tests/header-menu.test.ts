@@ -38,6 +38,14 @@ it.each( [
 				'<a href="https://instagram.com/yoga">IG</a><a href="https://maps.example/studio">Map</a><a href="/#classes">Classes</a>'
 		),
 	},
+	{
+		name: 'links to several home sections with no navigation',
+		html: part(
+			brand +
+				'<p><a href="/#features">Features</a></p><p><a href="http://localhost:8881/#about">About</a></p>'
+		),
+		problem: 'The header of http://localhost:8881 links to /#features, /#about with no navigation',
+	},
 	{ name: 'a page with no header template part', html: `<div>${ links }</div>` },
 	{ name: 'a site whose server is not running', html: undefined },
 ] )( '$name', async ( { html, problem } ) => {

@@ -11,9 +11,17 @@ const AUTH_USER_QUERY_KEY = [ 'auth-user' ] as const;
 
 export function useAuthUser() {
 	const connector = useConnector();
+	return useQuery( {
+		queryKey: AUTH_USER_QUERY_KEY,
+		queryFn: () => connector.getAuthUser(),
+	} );
+}
+
+/** Refreshes the account when it changes outside this window. Mount once near the app root. */
+export function useSyncAuthUserWithEvents(): void {
+	const connector = useConnector();
 	const queryClient = useQueryClient();
 	const removeUserScopedQueries = useRemoveUserScopedQueries();
-
 	useEffect( () => {
 		return connector.onAuthStateChanged?.( () => {
 			removeUserScopedQueries();
@@ -23,11 +31,6 @@ export function useAuthUser() {
 			void queryClient.resetQueries( { queryKey: AUTH_USER_QUERY_KEY } );
 		} );
 	}, [ connector, queryClient, removeUserScopedQueries ] );
-
-	return useQuery( {
-		queryKey: AUTH_USER_QUERY_KEY,
-		queryFn: () => connector.getAuthUser(),
-	} );
 }
 
 // However the account changed: a login here, a logout in the CLI, an expired token.

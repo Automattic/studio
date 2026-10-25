@@ -240,3 +240,35 @@ describe( 'createIpcConnector debug log', () => {
 		expect( openLocalPath ).not.toHaveBeenCalled();
 	} );
 } );
+
+describe( 'createIpcConnector errors', () => {
+	const startServer = vi.fn();
+
+	beforeEach( () => {
+		vi.clearAllMocks();
+		vi.stubGlobal( 'ipcApi', { startServer } );
+		vi.stubGlobal( 'ipcListener', { subscribe: vi.fn() } );
+	} );
+
+	afterEach( () => {
+		vi.unstubAllGlobals();
+	} );
+
+	it( 'keeps only the CLI’s own message from a failed command', async () => {
+		startServer.mockRejectedValue(
+			new Error(
+				"Error invoking remote method 'startServer': CliCommandError: [Last error message] The site could not start.\n  [Base message] Failed to start site\n  [stderr] diagnostic output\n  [Exit code] 1"
+			)
+		);
+		await expect( createIpcConnector().startSite( 'site-1' ) ).rejects.toThrow(
+			/^The site could not start\.$/
+		);
+
+		startServer.mockRejectedValue(
+			new Error(
+				"Error invoking remote method 'startServer': CliCommandError: [Base message] Failed to start site\n  [Exit code] 1"
+			)
+		);
+		await expect( createIpcConnector().startSite( 'site-1' ) ).rejects.toThrow( /^$/ );
+	} );
+} );

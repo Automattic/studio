@@ -1,5 +1,9 @@
 import { DEBUG_LOG_RELATIVE_PATH } from '@studio/common/constants';
-import { getErrorMessage, stripIpcErrorPrefix } from '@studio/common/lib/error-formatting';
+import {
+	getErrorMessage,
+	stripCliErrorEnvelope,
+	stripIpcErrorPrefix,
+} from '@studio/common/lib/error-formatting';
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
 import {
@@ -77,13 +81,15 @@ export function createIpcConnector(): Connector {
 	// desktop OS.
 	const isMacOS = /mac/i.test( navigator.platform || navigator.userAgent );
 
-	// Unwrap Electron's IPC error envelope so user-facing messages (e.g. why a
-	// key was rejected) can be shown as-is.
+	// Unwrap Electron's IPC error envelope, and the CLI's, so user-facing
+	// messages (e.g. why a key was rejected) can be shown as-is.
 	async function unwrapIpcError< T >( call: Promise< T > ): Promise< T > {
 		try {
 			return await call;
 		} catch ( error ) {
-			throw new Error( stripIpcErrorPrefix( getErrorMessage( error ) ?? String( error ) ) );
+			throw new Error(
+				stripCliErrorEnvelope( stripIpcErrorPrefix( getErrorMessage( error ) ?? String( error ) ) )
+			);
 		}
 	}
 

@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getNoticeHistory, resetAppMessagesForTests } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { markPreviewReady, usePreviewReady } from '@/data/preview-ready';
-import { useAuthChangeToasts, useAuthUser } from './use-auth-user';
+import { useAuthChangeToasts, useAuthUser, useSyncAuthUserWithEvents } from './use-auth-user';
 import type { AuthUser } from '@/data/core';
 
 const SIGNED_IN_USER: AuthUser = { id: 1, email: 'user@example.com', displayName: 'Example User' };
@@ -22,6 +22,7 @@ function renderAuthUser() {
 
 	function Probe() {
 		const { data } = useAuthUser();
+		useSyncAuthUserWithEvents();
 		useAuthChangeToasts();
 		const previewReady = usePreviewReady( 'site' );
 		return (
@@ -31,9 +32,15 @@ function renderAuthUser() {
 		);
 	}
 
+	function OtherReader() {
+		useAuthUser();
+		return null;
+	}
+
 	render(
 		<QueryClientProvider client={ queryClient }>
 			<Probe />
+			<OtherReader />
 		</QueryClientProvider>
 	);
 }
@@ -78,12 +85,13 @@ describe( 'useAuthUser', () => {
 		await waitFor( () => expect( screen.getByTestId( 'state' ) ).toHaveTextContent( 'signed-in' ) );
 	} );
 
-	it( 'picks up a sign-in that lands after the lookup settles', async () => {
+	it( 'picks up a sign-in that lands after the lookup settles, looking it up once', async () => {
 		let user: AuthUser | null = null;
 		let notifyAuthChanged: () => void = () => {};
+		const getAuthUser = vi.fn( () => Promise.resolve( user ) );
 
 		useConnectorMock.mockReturnValue( {
-			getAuthUser: vi.fn( () => Promise.resolve( user ) ),
+			getAuthUser,
 			onAuthStateChanged: ( listener: () => void ) => {
 				notifyAuthChanged = listener;
 				return () => {};
@@ -99,6 +107,7 @@ describe( 'useAuthUser', () => {
 		notifyAuthChanged();
 
 		await waitFor( () => expect( screen.getByTestId( 'state' ) ).toHaveTextContent( 'signed-in' ) );
+		expect( getAuthUser ).toHaveBeenCalledTimes( 2 );
 	} );
 
 	it( 'says when the signed-in user changes, but not on the first lookup, and forgets its ready preview', async () => {

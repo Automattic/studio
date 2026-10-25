@@ -189,41 +189,44 @@ export function SiteList( {
 						</SidebarMenu>
 					</SiteListGroup>
 				) : null }
-				{ pinnedItems.length > 0 ? (
-					<SiteListGroup
-						id="pinned"
-						title={ __( 'Pinned' ) }
-						itemKeys={ loaded ? pinnedItems.map( ( item ) => item.key ) : undefined }
-						action={
-							<IconButton
-								variant="muted-ghost"
-								size="icon-sm"
-								icon={ <PlusIcon /> }
-								label={ __( 'Add pinned site' ) }
-								onClick={ () => openAddSite( 'create', { pin: true } ) }
-							/>
-						}
-					>
-						<SidebarReorderableList
-							items={ pinnedItems }
-							getItemId={ ( item ) => item.key }
-							getItemLabel={ ( item ) =>
-								item.row ? item.row.site.name : getSessionTitle( item.session )
-							}
-							renderItem={ ( item, itemProps ) =>
-								item.row
-									? renderSiteRow( item.row, itemProps )
-									: renderChat( item.session, item.siteName, itemProps )
-							}
-							onReorder={ ( sidebarPins ) => save( { sidebarPins } ) }
-							onDragStart={ ( item ) => item.row && fold( [ item.row.site.id ] ) }
+				<SiteListGroup
+					id="pinned"
+					title={ __( 'Pinned' ) }
+					hidden={ pinnedItems.length === 0 }
+					itemKeys={ loaded ? pinnedItems.map( ( item ) => item.key ) : undefined }
+					onFold={ () =>
+						fold( pinnedItems.flatMap( ( item ) => ( item.row ? [ item.row.site.id ] : [] ) ) )
+					}
+					action={
+						<IconButton
+							variant="muted-ghost"
+							size="icon-sm"
+							icon={ <PlusIcon /> }
+							label={ __( 'Add pinned site' ) }
+							onClick={ () => openAddSite( 'create', { pin: true } ) }
 						/>
-					</SiteListGroup>
-				) : null }
+					}
+				>
+					<SidebarReorderableList
+						items={ pinnedItems }
+						getItemId={ ( item ) => item.key }
+						getItemLabel={ ( item ) =>
+							item.row ? item.row.site.name : getSessionTitle( item.session )
+						}
+						renderItem={ ( item, itemProps ) =>
+							item.row
+								? renderSiteRow( item.row, itemProps )
+								: renderChat( item.session, item.siteName, itemProps )
+						}
+						onReorder={ ( sidebarPins ) => save( { sidebarPins } ) }
+						onDragStart={ ( item ) => item.row && fold( [ item.row.site.id ] ) }
+					/>
+				</SiteListGroup>
 				<SiteListGroup
 					id="sites"
 					title={ __( 'Sites' ) }
 					itemKeys={ loaded ? siteRows.map( ( row ) => row.site.id ) : undefined }
+					onFold={ () => fold( siteRows.map( ( row ) => row.site.id ) ) }
 					foldable={ sitesLoading || siteRows.length > 0 }
 					action={
 						<>
@@ -248,10 +251,11 @@ export function SiteList( {
 				>
 					{ listContent }
 				</SiteListGroup>
-				{ showRecentChats && ( recentChats.length > 0 || sessionsError ) ? (
+				{ showRecentChats ? (
 					<SiteListGroup
 						id="recent"
 						title={ __( 'Recent' ) }
+						hidden={ recentChats.length === 0 && ! sessionsError }
 						itemKeys={ loaded ? recentChats.map( ( session ) => session.id ) : undefined }
 					>
 						<SidebarMenu>

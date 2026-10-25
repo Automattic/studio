@@ -1272,9 +1272,18 @@ describe( 'SiteList', () => {
 		fireEvent.click( screen.getByRole( 'button', { name: 'Collapse all' } ) );
 		expect( screen.queryByText( 'Add a menu' ) ).not.toBeInTheDocument();
 		expect( screen.queryByText( 'Make it blue' ) ).not.toBeInTheDocument();
+
+		// Folding the group folds its sites too.
+		fireEvent.click( screen.getByRole( 'button', { name: 'Stopped Site' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Sites' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Sites' } ) );
+		expect( screen.getByRole( 'button', { name: 'Stopped Site' } ) ).toBeInTheDocument();
+		expect( screen.queryByText( 'Add a menu' ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'remembers collapsed groups, and opens one when something is added to it', () => {
+		window.localStorage.setItem( 'studio-ui-sidebar-group-pinned', 'false' );
+		window.localStorage.setItem( 'studio-ui-sidebar-group-recent', 'false' );
 		const { unmount } = render( <SiteList sections /> );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Sites' } ) );
 		expect( screen.queryByText( 'Stopped Site' ) ).not.toBeInTheDocument();
@@ -1292,6 +1301,18 @@ describe( 'SiteList', () => {
 		} );
 		rerender( <SiteList sections /> );
 		expect( screen.getByText( 'New Site' ) ).toBeInTheDocument();
+
+		// Groups that were empty open on their first item.
+		pinsMock = [ 'site:stopped-site' ];
+		useSessionsMock.mockReturnValue( {
+			data: [ createSession( { firstPrompt: 'First chat' } ) ],
+			isLoading: false,
+		} );
+		rerender( <SiteList sections /> );
+		const pinned = within( screen.getByRole( 'group', { name: 'Pinned' } ) );
+		expect( pinned.getByRole( 'button', { name: 'Stopped Site' } ) ).toBeInTheDocument();
+		const recent = within( screen.getByRole( 'group', { name: 'Recent' } ) );
+		expect( recent.getByRole( 'button', { name: 'First chat' } ) ).toBeInTheDocument();
 	} );
 
 	it( 'drags chats into a new order within their site, announcing where one lands', () => {

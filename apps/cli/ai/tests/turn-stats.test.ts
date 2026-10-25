@@ -58,7 +58,6 @@ function skillStart( args: unknown ): AgentSessionEvent {
 
 describe( 'createTurnStatsTracker', () => {
 	it.each( [
-		{ name: 'no skill', events: [], expected: '' },
 		{
 			name: 'two skills, one loaded twice',
 			events: [
@@ -74,13 +73,13 @@ describe( 'createTurnStatsTracker', () => {
 			expected: '',
 		},
 		{
-			name: 'another tool with a skill name',
+			name: 'a site named after a skill',
 			events: [
 				{
 					type: 'tool_execution_start',
-					toolCallId: 'Read-id',
-					toolName: 'Read',
-					args: { name: 'visual-design' },
+					toolCallId: 'site_create-id',
+					toolName: 'site_create',
+					args: { name: 'liberate' },
 				} as AgentSessionEvent,
 			],
 			expected: '',

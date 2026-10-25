@@ -1,401 +1,58 @@
-import {
-	formatComposerAttachmentSize,
-	getComposerAttachmentImageSrc,
-	getComposerAttachmentTextPreview,
-	getComposerAttachmentTypeDescription,
-	hasComposerAttachmentVisualPreview,
-	watchComposerAttachmentTextScroll,
-} from '@studio/common/ai/composer-attachment-preview';
-import { watchComposerFilePaste } from '@studio/common/ai/composer-attachments';
-import {
-	aiModelRequiresPaidCredits,
-	aiModelSupportsImages,
-	getAiModelFamily,
-	getAiModelLabel,
-} from '@studio/common/ai/models';
-import {
-	AI_PROVIDER_IDS,
-	AI_PROVIDER_LABELS,
-	getAiProviderModels,
-	getEffectiveSessionProvider,
-	type AiProviderId,
-} from '@studio/common/ai/providers';
-import { isStudioCustomEntryOfType } from '@studio/common/ai/sessions/entry-types';
-import {
-	getAiSkillCommands,
-	getSlashCommandMatches,
-	resolveSkillFromPrompt,
-	type SkillSlashCommand,
-} from '@studio/common/ai/slash-commands';
-import {
-	canUsePaidAiModels,
-	clampQuotaFraction,
-	formatQuotaPercentage,
-	getStudioCodeAiAccessState,
-	getTotalRemainingAiCredits,
-	type StudioAssistantQuota,
-} from '@studio/common/lib/studio-assistant-quota';
-import { useQueryClient } from '@tanstack/react-query';
+import { aiModelSupportsImages } from '@studio/common/ai/models';
+import { resolveSkillFromPrompt } from '@studio/common/ai/slash-commands';
 import { __, sprintf } from '@wordpress/i18n';
 import { clsx } from 'clsx';
+import { GlobeIcon, PlusIcon } from 'lucide-react';
 import {
-	ArrowUpIcon,
-	ChartNoAxesCombinedIcon,
-	FileTextIcon,
-	GaugeIcon,
-	GlobeIcon,
-	PaperclipIcon,
-	PencilRulerIcon,
-	PlayIcon,
-	PlugIcon,
-	PlusIcon,
-	SlidersHorizontalIcon,
-	SparklesIcon,
-	TagsIcon,
-	UnlockIcon,
-	XIcon,
-} from 'lucide-react';
-import {
-	cloneElement,
 	forwardRef,
 	useCallback,
 	useEffect,
 	useId,
-	useImperativeHandle,
 	useLayoutEffect,
-	useMemo,
 	useRef,
 	useState,
-	type ChangeEvent,
 	type MouseEvent,
-	type ComponentType,
 } from 'react';
 import { createPortal } from 'react-dom';
 import { toast } from '@/data/app-messages';
-import { useConnector } from '@/data/core';
-import { useAiSettings } from '@/data/queries/use-ai-settings';
-import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
-import { useAuthUser } from '@/data/queries/use-auth-user';
 import { useIsOutOfAiCredits } from '@/data/queries/use-is-out-of-ai-credits';
-import {
-	createModelChangeEntry,
-	openNewSession,
-	primeSessionQueryData,
-	SESSIONS_QUERY_KEY,
-} from '@/data/queries/use-sessions';
-import { useStudioAssistantTopUpPricing } from '@/data/queries/use-top-up-pricing';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
-import {
-	toComposerSendAttachments,
-	useComposerAttachments,
-	useFileDrop,
-	type ComposerAttachment,
-	type ComposerSendAttachments,
-} from '@/data/use-composer-attachments';
 import { useOpenSettings } from '@/data/use-open-settings';
+import { getStagedAnnotations, removeAnnotations } from '@/features/annotations';
+import { AttachmentChips } from '@/features/composer/attachment-chips';
+import { applyCommandToDraft, getComposerCommands } from '@/features/composer/composer-commands';
+import { composerSubmission } from '@/features/composer/composer-submission';
 import {
-	annotationSubmission,
-	getAnnotationsAttachment,
-	getStagedAnnotations,
-	isStagedAnnotation,
-	removeAnnotations,
-	useSiteAnnotations,
-} from '@/features/annotations';
-import { AiCreditsPurchaseDialog, useAddAiCreditsUrl } from '@/features/credits';
-import {
-	AnnotationIcon,
-	ChevronDownIcon,
-	ClaudeIcon,
-	McpIcon,
-	StartSiteIcon,
-	StopSiteIcon,
-	WordPressIcon,
-} from '@/lib/icons';
+	completeComposerDraftSend,
+	getComposerDraft,
+	saveComposerDraft,
+} from '@/features/composer/draft-store';
+import { FamilySwitchConfirmDialog } from '@/features/composer/family-switch-confirm-dialog';
+import { ModeChip } from '@/features/composer/mode-chip';
+import { ModelPicker } from '@/features/composer/model-picker';
+import { NoticeTab, type ComposerNotice } from '@/features/composer/notice-tab';
+import { SendButton, StopButton } from '@/features/composer/submit-button';
+import { useAddCredits } from '@/features/composer/use-add-credits';
+import { useCommandSheet } from '@/features/composer/use-command-sheet';
+import { useComposerHandle, type ComposerHandle } from '@/features/composer/use-composer-handle';
+import { useDraftAttachments } from '@/features/composer/use-draft-attachments';
+import { useModelAccess } from '@/features/composer/use-model-access';
+import { useModelSwitch } from '@/features/composer/use-model-switch';
+import { useSubmitFeedback } from '@/features/composer/use-submit-feedback';
+import { AiCreditsPurchaseDialog } from '@/features/credits';
+import { StartSiteIcon } from '@/lib/icons';
 import { isImeComposing } from '@/lib/keyboard';
 import {
-	Tooltip,
-	TooltipContent,
-	TooltipTrigger,
-	Popover,
+	Button,
+	CommandSheet,
+	handleCommandKey,
 	InputGroup,
 	InputGroupTextarea,
-	HoverCard,
-	Button,
+	Popover,
 } from '@/lib/ui';
-import {
-	CommandSheet,
-	getActiveCommand,
-	handleCommandKey,
-	type Command,
-	type CommandGroup,
-} from '@/lib/ui';
-import { completeComposerDraftSend, getComposerDraft, saveComposerDraft } from './draft-store';
-import { FamilySwitchConfirmDialog } from './family-switch-confirm-dialog';
 import styles from './style.module.css';
-import type {
-	AiModelId,
-	LoadedAiSession,
-	SessionEntry,
-	StudioChatFileAttachment,
-	StudioChatImage,
-	StudioVisualAnnotationSummary,
-} from '@/data/core';
-
-function AttachmentHoverTextPreview( { text }: { text: string } ) {
-	const viewportRef = useRef< HTMLDivElement | null >( null );
-	const textRef = useRef< HTMLPreElement | null >( null );
-
-	useLayoutEffect( () => {
-		return watchComposerAttachmentTextScroll( viewportRef.current, textRef.current );
-	}, [ text ] );
-
-	return (
-		<div className={ styles.attachmentHoverTextViewport } aria-hidden="true" ref={ viewportRef }>
-			<pre className={ styles.attachmentHoverText } ref={ textRef }>
-				{ text }
-			</pre>
-		</div>
-	);
-}
-
-function renderAttachmentHoverVisual( attachment: ComposerAttachment ) {
-	const imageSrc = getComposerAttachmentImageSrc( attachment );
-	if ( imageSrc ) {
-		return <img className={ styles.attachmentHoverImage } src={ imageSrc } alt="" />;
-	}
-	const textPreview = getComposerAttachmentTextPreview( attachment );
-	return textPreview ? <AttachmentHoverTextPreview text={ textPreview } /> : null;
-}
-
-function AttachmentChip( {
-	attachment,
-	isAnnotations,
-	onRemove,
-}: {
-	attachment: ComposerAttachment;
-	isAnnotations: boolean;
-	onRemove: () => void;
-} ) {
-	const imageSrc = attachment.kind === 'image' ? getComposerAttachmentImageSrc( attachment ) : null;
-	const sizeLabel = formatComposerAttachmentSize( attachment.size );
-	const chip = (
-		<li
-			className={ clsx(
-				styles.attachment,
-				imageSrc ? styles.attachmentImage : styles.attachmentFile
-			) }
-			aria-label={
-				sizeLabel
-					? sprintf(
-							/* translators: 1: attachment file name, 2: attachment size. */
-							__( '%1$s, %2$s' ),
-							attachment.name,
-							sizeLabel
-					  )
-					: attachment.name
-			}
-		/>
-	);
-	const content = (
-		<>
-			{ imageSrc ? (
-				<img className={ styles.attachmentThumb } src={ imageSrc } alt="" />
-			) : (
-				<>
-					{ isAnnotations ? <AnnotationIcon /> : <FileTextIcon /> }
-					<span className={ styles.attachmentName }>{ attachment.name }</span>
-				</>
-			) }
-			<Button
-				variant="outline"
-				size="icon-2xs"
-				shape="round"
-				className={ styles.attachmentRemove }
-				aria-label={ __( 'Remove attachment' ) }
-				onClick={ onRemove }
-			>
-				<XIcon />
-			</Button>
-		</>
-	);
-	if ( ! hasComposerAttachmentVisualPreview( attachment ) ) {
-		return cloneElement( chip, {}, content );
-	}
-	return (
-		<HoverCard.Root>
-			<HoverCard.Trigger render={ chip }>{ content }</HoverCard.Trigger>
-			<HoverCard.Popup
-				side="top"
-				align="start"
-				sideOffset={ 8 }
-				className={ styles.attachmentHoverPreview }
-			>
-				<div className={ styles.attachmentHoverArtwork }>
-					{ renderAttachmentHoverVisual( attachment ) }
-				</div>
-				<div className={ styles.attachmentHoverDetails }>
-					<span className={ styles.attachmentHoverName }>{ attachment.name }</span>
-					<span className={ styles.attachmentHoverMeta }>
-						{ [ getComposerAttachmentTypeDescription( attachment, __( 'File' ) ), sizeLabel ]
-							.filter( Boolean )
-							.join( ' · ' ) }
-					</span>
-				</div>
-			</HoverCard.Popup>
-		</HoverCard.Root>
-	);
-}
-
-function getModelDescription( id: AiModelId ): string {
-	switch ( id ) {
-		case 'fast':
-			return __( 'Quick fixes and questions' );
-		case 'balanced':
-		case 'claude-sonnet-5':
-			return __( 'Build features, style pages, and fix bugs' );
-		case 'strong':
-		case 'claude-opus-5':
-			return __( 'Plan complex builds and solve harder problems' );
-		default:
-			return '';
-	}
-}
-
-// Accounts on the older monthly cap have no credit counts, only usage against the cap.
-function getCreditsLabel( quota: StudioAssistantQuota | null | undefined, locale?: string ) {
-	const remaining = quota ? getTotalRemainingAiCredits( quota ) : undefined;
-	if ( remaining !== undefined ) {
-		return {
-			hasCredits: true,
-			label:
-				remaining <= 0
-					? __( 'No AI credits remaining' )
-					: sprintf(
-							/* translators: %s: compact number of AI credits remaining (e.g. 200K or 1.5M). */
-							__( 'AI credits: %s remaining' ),
-							new Intl.NumberFormat( locale, {
-								notation: 'compact',
-								maximumFractionDigits: 1,
-							} ).format( remaining )
-					  ),
-		};
-	}
-	if ( ! quota || quota.costCap <= 0 ) {
-		return { hasCredits: false, label: __( 'AI usage unavailable' ) };
-	}
-	return {
-		hasCredits: false,
-		label: sprintf(
-			/* translators: %s: percentage of the AI allowance left. */
-			__( 'AI allowance: %s remaining' ),
-			formatQuotaPercentage( 1 - clampQuotaFraction( quota.costUsage, quota.costCap ), locale )
-		),
-	};
-}
-
-function toComposerDraftAttachments( {
-	images = [],
-	files = [],
-}: {
-	images?: StudioChatImage[];
-	files?: StudioChatFileAttachment[];
-} ): ComposerAttachment[] {
-	return [
-		...images.map(
-			( image ): ComposerAttachment => ( {
-				id: image.id,
-				kind: 'image',
-				name: image.name,
-				mimeType: image.mimeType,
-				size: image.size,
-				dataBase64: image.dataBase64,
-			} )
-		),
-		...files.map(
-			( file ): ComposerAttachment => ( {
-				id: file.id,
-				kind: 'file',
-				name: file.name,
-				path: file.path,
-				mimeType: file.mimeType,
-				size: file.size ?? 0,
-			} )
-		),
-	];
-}
-
-// Optimistic mirror of the `studio.session_context` entry the backend appends
-// for a provider switch, so the picker updates before the write lands.
-function createSessionContextEntry( provider: AiProviderId, model: AiModelId ): SessionEntry {
-	return {
-		type: 'custom',
-		id: Math.random().toString( 36 ).slice( 2, 10 ),
-		parentId: null,
-		timestamp: new Date().toISOString(),
-		customType: 'studio.session_context',
-		data: { provider, model },
-	} as unknown as SessionEntry;
-}
-
-const COMMAND_ICONS: Partial< Record< string, ComponentType< { className?: string } > > > = {
-	annotate: PencilRulerIcon,
-	taxonomist: TagsIcon,
-	'need-for-speed': GaugeIcon,
-	'rank-me-up': ChartNoAxesCombinedIcon,
-	liberate: UnlockIcon,
-	'auto-start': StartSiteIcon,
-	'connect-provider': McpIcon,
-	model: SlidersHorizontalIcon,
-	live: GlobeIcon,
-	local: PlayIcon,
-};
-
-// A blocked send shakes the notice, then holds it in the error color briefly.
-const SUBMIT_SHAKE_MS = 240;
-const SUBMIT_FEEDBACK_MS = 900;
-
-// A mode the composer is in; hovering offers to remove it.
-function ModeChip( {
-	icon: ModeIcon,
-	label,
-	onRemove,
-	disabled,
-}: {
-	icon: ComponentType< { className?: string } >;
-	label: string;
-	onRemove: () => void;
-	disabled?: boolean;
-} ) {
-	const removeLabel = sprintf(
-		/* translators: %s: name of a composer mode, e.g. "Auto-start". */
-		__( 'Remove %s' ),
-		label
-	);
-	return (
-		<Tooltip>
-			<TooltipTrigger
-				render={
-					<Button
-						variant="ghost"
-						size="sm"
-						shape="round"
-						className={ styles.modeChip }
-						aria-label={ removeLabel }
-						disabled={ disabled }
-						onClick={ onRemove }
-					/>
-				}
-			>
-				<span className={ styles.modeChipIcon }>
-					<ModeIcon />
-					<XIcon />
-				</span>
-				{ label }
-			</TooltipTrigger>
-			<TooltipContent>{ removeLabel }</TooltipContent>
-		</Tooltip>
-	);
-}
+import type { AiModelId, SessionEntry, StudioVisualAnnotationSummary } from '@/data/core';
+import type { ComposerSendAttachments } from '@/data/use-composer-attachments';
 
 /**
  * Invisible structural placeholder that mirrors Composer's outer DOM, so the
@@ -457,40 +114,6 @@ interface ComposerProps {
 	notice?: ComposerNotice;
 }
 
-export interface ComposerNotice {
-	message: string;
-	action?: { label: string; onClick: () => void };
-}
-
-/**
- * Imperative API surfaced via the Composer's forwarded ref. Lets parents
- * (e.g. the annotate-toolbar hand-off) inject a draft without making the
- * value a controlled prop — the latter would re-render the entire
- * SessionView (and the heavy Conversation tree) on every keystroke.
- */
-export interface ComposerHandle {
-	appendDraft( text: string ): void;
-	replaceDraft(
-		text: string,
-		options?: {
-			images?: StudioChatImage[];
-			files?: StudioChatFileAttachment[];
-		}
-	): void;
-	getSubmission(): { prompt: string; attachments: ComposerSendAttachments } | null;
-	focus(): void;
-	send(): Promise< void >;
-}
-
-function focusAtEnd( node: HTMLTextAreaElement | null ) {
-	if ( ! node ) {
-		return;
-	}
-	node.focus();
-	const length = node.value.length;
-	node.setSelectionRange( length, length );
-}
-
 function shouldShellFocusTextarea( target: EventTarget ) {
 	if ( ! ( target instanceof Element ) ) {
 		return true;
@@ -531,68 +154,23 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 	const [ initialDraft ] = useState( () => getComposerDraft( sessionId ) );
 	const [ value, setValue ] = useState( initialDraft.text );
 	const [ sending, setSending ] = useState( false );
-	const [ addOpen, setAddOpen ] = useState( false );
-	const [ dismissedText, setDismissedText ] = useState< string | null >( null );
-	const [ highlight, setHighlight ] = useState< string >();
 	const [ modelOpen, setModelOpen ] = useState( false );
-	const [ modelHighlight, setModelHighlight ] = useState< string >();
-	const [ submitFeedback, setSubmitFeedback ] = useState< 'shake' | 'error' | null >( null );
+	const { feedback: submitFeedback, shake } = useSubmitFeedback();
 	const [ shellNode, setShellNode ] = useState< HTMLDivElement | null >( null );
 	const [ rootNode, setRootNode ] = useState< HTMLDivElement | null >( null );
 	const textareaRef = useRef< HTMLTextAreaElement | null >( null );
 	const fileInputRef = useRef< HTMLInputElement | null >( null );
 	const insertedCursorRef = useRef< number | null >( null );
 	const commandListRef = useRef< HTMLDivElement | null >( null );
-	const modelListRef = useRef< HTMLDivElement | null >( null );
-	const modelTriggerRef = useRef< HTMLButtonElement | null >( null );
 	const pendingCommandRef = useRef< ( () => void ) | undefined >( undefined );
 	const slashListId = useId();
 	const draftEffectInitializedRef = useRef( false );
-	const connector = useConnector();
-	const queryClient = useQueryClient();
 	const openSettings = useOpenSettings();
 
-	const { data: aiSettings } = useAiSettings();
-	const sessionProvider = useMemo(
-		() => getEffectiveSessionProvider( entries ?? [], aiSettings ),
-		[ entries, aiSettings ]
-	);
-
-	// The paid tiers are listed but disabled for accounts without purchased
-	// credits; Automatticians are exempt.
-	const {
-		data: quota,
-		isError: isQuotaError,
-		refetch: refetchQuota,
-	} = useStudioAssistantQuota( { refetchOnWindowFocus: 'always' } );
-	const { data: authUser } = useAuthUser();
-	// The providers this chat can use; another provider's model starts a new
-	// chat, which needs a session to come from.
-	const providers = AI_PROVIDER_IDS.filter(
-		( id ) =>
-			( id === 'wpcom' ? !! authUser : aiSettings?.hasAnthropicApiKey ) &&
-			( !! sessionId || id === sessionProvider )
-	);
-	const canUsePaidTiers = canUsePaidAiModels( quota, authUser?.email );
-	const isModelLocked = useCallback(
-		( id: AiModelId ) => aiModelRequiresPaidCredits( id ) && ! canUsePaidTiers,
-		[ canUsePaidTiers ]
-	);
+	const { sessionProvider, providers, isModelLocked } = useModelAccess( { sessionId, entries } );
 	const isWpcom = sessionProvider === 'wpcom';
 	const isOutOfCredits = useIsOutOfAiCredits() && ! isField && isWpcom;
-
-	// The chooser when priced options exist, else straight to checkout for the
-	// single fixed top-up.
-	const addAiCreditsUrl = useAddAiCreditsUrl();
-	const { data: topUpPricing } = useStudioAssistantTopUpPricing();
-	const [ creditsPurchaseOpen, setCreditsPurchaseOpen ] = useState( false );
-	const openAddCredits = () => {
-		if ( ( topUpPricing?.options.length ?? 0 ) > 0 ) {
-			setCreditsPurchaseOpen( true );
-			return;
-		}
-		void connector.openExternalUrl( addAiCreditsUrl );
-	};
+	const { openAddCredits, purchaseOpen, setPurchaseOpen } = useAddCredits();
 	const notice =
 		blockingNotice ??
 		( isOutOfCredits
@@ -608,126 +186,50 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 	const setAutoStart = ( autoStartSiteOnChat: boolean ) =>
 		savePreferences.mutate( { autoStartSiteOnChat } );
 
-	const composerCommands: SkillSlashCommand[] = [
-		...( canAutoStart && ! autoStartOn
-			? [
-					{
-						name: 'auto-start',
-						displayName: __( 'Auto-start' ),
-						description: __( 'Start stopped sites when you send a chat message.' ),
-					},
-			  ]
-			: [] ),
-		...( busy || ! providers.length
-			? []
-			: [
-					{
-						name: 'model',
-						displayName: __( 'Choose model' ),
-						description: __( 'Select a model for this chat.' ),
-					},
-			  ] ),
-		{
-			name: 'connect-provider',
-			displayName: __( 'Connect AI providers' ),
-			description: __( 'Use WordPress.com AI credits or your own API key.' ),
-		},
-		...( onEnvironmentChange && environment === 'local' && liveUrl
-			? [ { name: 'live', displayName: __( 'Work on live site' ), description: liveUrl } ]
-			: [] ),
-		...( onEnvironmentChange && environment === 'live'
-			? [
-					{
-						name: 'local',
-						displayName: __( 'Work on local site' ),
-						description: __( 'Work on the local site on your computer.' ),
-					},
-			  ]
-			: [] ),
-	];
-	const skills = getAiSkillCommands();
-	const isSkill = ( command: SkillSlashCommand ) =>
-		skills.some( ( skill ) => skill.name === command.name );
-	const slash = getSlashCommandMatches( value, null, composerCommands );
-	const sheetOpen = addOpen || ( slash.open && dismissedText !== value );
-
-	const closeSheet = () => {
-		setAddOpen( false );
-		setDismissedText( value );
-	};
+	const sheet = useCommandSheet( {
+		value,
+		commands: getComposerCommands( {
+			canAutoStart,
+			autoStartOn,
+			canChooseModel: ! busy && providers.length > 0,
+			environment,
+			liveUrl,
+			canChangeEnvironment: !! onEnvironmentChange,
+		} ),
+		isDisabled: ( name ) =>
+			( name === 'auto-start' && ( ! preferences || savePreferences.isPending ) ) ||
+			( ( name === 'live' || name === 'local' ) && busy ),
+	} );
 
 	// Replaces the `/fragment` before the cursor: a skill lands as `/name`, an
 	// action runs and leaves the draft without its fragment.
 	const runCommand = ( name: string ) => {
-		closeSheet();
+		sheet.close();
 		if ( name === 'add-files' ) {
 			fileInputRef.current?.click();
 			return;
 		}
 		const start = textareaRef.current?.selectionStart ?? value.length;
 		const end = textareaRef.current?.selectionEnd ?? start;
-		const before = value.slice( 0, start );
-		const after = value.slice( end );
-		const fragment = /(?:^|\s)(\/[\w-]*)$/.exec( before );
-		const prefix = fragment ? before.slice( 0, -fragment[ 1 ].length ) : before;
-		const setDraft = ( text: string, cursor: number ) => {
-			insertedCursorRef.current = cursor;
-			setValue( text );
+		const isSkill = sheet.skills.some( ( skill ) => skill.name === name );
+		const draft = applyCommandToDraft( value, start, end, name, isSkill );
+		if ( ! isSkill ) {
+			if ( name === 'model' ) {
+				pendingCommandRef.current = () => setModelOpen( true );
+			} else if ( name === 'connect-provider' ) {
+				openSettings( 'ai' );
+			} else if ( name === 'live' || name === 'local' ) {
+				onEnvironmentChange?.( name );
+			} else if ( name === 'auto-start' ) {
+				setAutoStart( true );
+			}
+		}
+		if ( draft ) {
+			insertedCursorRef.current = draft.cursor;
+			setValue( draft.text );
 			textareaRef.current?.focus();
-		};
-		if ( skills.some( ( skill ) => skill.name === name ) ) {
-			const command = `${ prefix && ! /\s$/.test( prefix ) ? ' ' : '' }/${ name }${
-				/^\s/.test( after ) ? '' : ' '
-			}`;
-			setDraft(
-				prefix + command + after,
-				prefix.length + command.length + ( /^\s/.test( after ) ? 1 : 0 )
-			);
-			return;
-		}
-		if ( name === 'model' ) {
-			pendingCommandRef.current = () => setModelOpen( true );
-		} else if ( name === 'connect-provider' ) {
-			openSettings( 'ai' );
-		} else if ( name === 'live' || name === 'local' ) {
-			onEnvironmentChange?.( name );
-		} else if ( name === 'auto-start' ) {
-			setAutoStart( true );
-		}
-		if ( fragment ) {
-			setDraft( prefix + after, prefix.length );
 		}
 	};
-
-	const toCommand = ( command: SkillSlashCommand ): Command => ( {
-		value: command.name,
-		label: command.displayName ?? command.name,
-		description: command.description,
-		icon: COMMAND_ICONS[ command.name ] ?? SparklesIcon,
-		disabled:
-			( command.name === 'auto-start' && ( ! preferences || savePreferences.isPending ) ) ||
-			( ( command.name === 'live' || command.name === 'local' ) && busy ),
-	} );
-	const commandGroups: CommandGroup[] = [
-		{
-			label: __( 'Commands' ),
-			items: [
-				...( addOpen
-					? [ { value: 'add-files', label: __( 'Add files' ), icon: PaperclipIcon } ]
-					: [] ),
-				...( addOpen
-					? composerCommands
-					: slash.matches.filter( ( command ) => ! isSkill( command ) )
-				).map( toCommand ),
-			],
-		},
-		{
-			label: __( 'Skills' ),
-			heading: __( 'Skills' ),
-			items: ( addOpen ? skills : slash.matches.filter( isSkill ) ).map( toCommand ),
-		},
-	];
-	const activeCommand = sheetOpen ? getActiveCommand( commandGroups, highlight ) : undefined;
 
 	useLayoutEffect( () => {
 		const cursor = insertedCursorRef.current;
@@ -737,32 +239,25 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		}
 	}, [ value ] );
 
-	// File/image attachments (attach button, drop and paste). Images ride as
-	// base64 content blocks; other files are referenced by disk path.
+	const fileDropTarget = dropTarget ?? shellNode;
 	const {
 		attachments,
-		addFiles,
-		removeAttachment,
 		removeAttachments,
-		restore: restoreAttachments,
+		restoreAttachments,
 		pasteHandlers,
-	} = useComposerAttachments( initialDraft.attachments );
+		stagedNotes,
+		annotationsAttachment,
+		shownAttachments,
+		removeShownAttachment,
+		isDraggingFiles,
+		onFileInputChange,
+	} = useDraftAttachments( {
+		initialAttachments: initialDraft.attachments,
+		annotationSiteId,
+		dropTarget: fileDropTarget,
+		textareaRef,
+	} );
 	const hasAttachments = attachments.length > 0;
-	const { notes } = useSiteAnnotations( annotationSiteId );
-	const stagedNotes = useMemo( () => notes.filter( isStagedAnnotation ), [ notes ] );
-	const annotationsAttachment = stagedNotes.length ? getAnnotationsAttachment( stagedNotes ) : null;
-	const shownAttachments = annotationsAttachment
-		? [ annotationsAttachment, ...attachments ]
-		: attachments;
-	const dropFiles = useCallback(
-		( files: FileList ) => {
-			void addFiles( files );
-			textareaRef.current?.focus();
-		},
-		[ addFiles ]
-	);
-	const fileDropTarget = dropTarget ?? shellNode;
-	const isDraggingFiles = useFileDrop( fileDropTarget, dropFiles );
 
 	useEffect( () => {
 		if ( draftEffectInitializedRef.current ) {
@@ -772,38 +267,30 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		}
 	}, [ attachments, sessionId, value ] );
 
-	useEffect( () => {
-		if ( submitFeedback === null ) {
-			return;
-		}
-		const timer = window.setTimeout(
-			() => setSubmitFeedback( submitFeedback === 'shake' ? 'error' : null ),
-			submitFeedback === 'shake' ? SUBMIT_SHAKE_MS : SUBMIT_FEEDBACK_MS - SUBMIT_SHAKE_MS
-		);
-		return () => window.clearTimeout( timer );
-	}, [ submitFeedback ] );
-
-	// Cross-family swap state. We hold the picked model (and provider, when
-	// the swap came from the provider picker) here while the confirmation
-	// dialog is open; nothing is persisted until the user confirms.
-	const [ pendingFamilyChange, setPendingFamilyChange ] = useState< {
-		model: AiModelId;
-		provider?: AiProviderId;
-	} | null >( null );
-	const [ familySwitchInFlight, setFamilySwitchInFlight ] = useState( false );
+	const {
+		changeModel,
+		pendingModel,
+		familySwitchInFlight,
+		cancelFamilyChange,
+		confirmFamilyChange,
+	} = useModelSwitch( {
+		model,
+		sessionId,
+		entries,
+		sessionProvider,
+		ownerSiteId,
+		onSwitchSession,
+		onModelChange,
+		isModelLocked,
+		text: value,
+		attachments,
+	} );
 
 	useEffect( () => {
 		if ( autoFocus ) {
 			textareaRef.current?.focus();
 		}
 	}, [ autoFocus, sessionId ] );
-
-	useEffect( () => {
-		return watchComposerFilePaste( ( files ) => {
-			void addFiles( files );
-			textareaRef.current?.focus();
-		} );
-	}, [ addFiles ] );
 
 	const answerQuestion =
 		onAnswer && ! hasAttachments && ! resolveSkillFromPrompt( value ) ? onAnswer : undefined;
@@ -819,7 +306,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 			return;
 		}
 		if ( blockingNotice || isOutOfCredits ) {
-			setSubmitFeedback( 'shake' );
+			shake();
 			return;
 		}
 		if ( answerQuestion && trimmed ) {
@@ -829,12 +316,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		}
 		let submission;
 		try {
-			submission = sentNotes.length
-				? annotationSubmission( trimmed, attachments, sentNotes )
-				: {
-						prompt: trimmed || __( 'Please review the attached files.' ),
-						options: toComposerSendAttachments( attachments ),
-				  };
+			submission = composerSubmission( trimmed, attachments, sentNotes );
 		} catch ( error ) {
 			toast.error( ( error as Error ).message );
 			return;
@@ -873,6 +355,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		busy,
 		blockingNotice,
 		isOutOfCredits,
+		shake,
 		answerQuestion,
 		onSend,
 		sessionId,
@@ -881,35 +364,14 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		model,
 	] );
 
-	useImperativeHandle(
-		ref,
-		() => ( {
-			appendDraft( text ) {
-				if ( ! text ) return;
-				setValue( ( current ) =>
-					current.trim() ? `${ current.trimEnd() }\n\n${ text }` : text
-				);
-				// Defer focus to the next paint so the textarea reflects the
-				// new value before we move the caret to the end.
-				queueMicrotask( () => focusAtEnd( textareaRef.current ) );
-			},
-			replaceDraft( text, options ) {
-				setValue( text );
-				restoreAttachments( toComposerDraftAttachments( options ?? {} ) );
-				queueMicrotask( () => focusAtEnd( textareaRef.current ) );
-			},
-			getSubmission() {
-				const prompt = value.trim();
-				if ( ! prompt && attachments.length === 0 ) return null;
-				return { prompt, attachments: toComposerSendAttachments( attachments ) };
-			},
-			focus() {
-				focusAtEnd( textareaRef.current );
-			},
-			send,
-		} ),
-		[ restoreAttachments, value, attachments, send ]
-	);
+	useComposerHandle( ref, {
+		value,
+		setValue,
+		attachments,
+		restoreAttachments,
+		textareaRef,
+		send,
+	} );
 
 	const openFilePicker = useCallback( () => {
 		fileInputRef.current?.click();
@@ -923,162 +385,6 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		textareaRef.current?.focus();
 	}, [] );
 
-	const onFileInputChange = useCallback(
-		( event: ChangeEvent< HTMLInputElement > ) => {
-			if ( event.target.files && event.target.files.length > 0 ) {
-				void addFiles( event.target.files );
-			}
-			// Reset so picking the same file again re-triggers change.
-			event.target.value = '';
-		},
-		[ addFiles ]
-	);
-
-	// Show the entry right away, then write it; refetch on write fail so the
-	// transcript falls back to what actually landed.
-	const appendEntryOptimistically = useCallback(
-		( entry: SessionEntry, write: ( id: string ) => Promise< void > ) => {
-			if ( ! sessionId ) {
-				return;
-			}
-			const queryKey = [ ...SESSIONS_QUERY_KEY, sessionId ];
-			queryClient.setQueryData< LoadedAiSession >( queryKey, ( prev ) =>
-				prev ? { ...prev, entries: [ ...( prev.entries ?? [] ), entry ] } : prev
-			);
-			void write( sessionId ).catch( () => {
-				void queryClient.invalidateQueries( { queryKey } );
-			} );
-		},
-		[ queryClient, sessionId ]
-	);
-
-	// Same-family swap: optimistic `model_change` entry.
-	const applySameFamilyModel = useCallback(
-		( picked: AiModelId ) => {
-			appendEntryOptimistically( createModelChangeEntry( picked ), ( id ) =>
-				connector.setSessionModel( id, picked )
-			);
-		},
-		[ appendEntryOptimistically, connector ]
-	);
-
-	const sessionHasTurns = useMemo(
-		() =>
-			( entries ?? [] ).some( ( entry ) =>
-				isStudioCustomEntryOfType( entry, 'studio.user_prompt' )
-			),
-		[ entries ]
-	);
-
-	// Pin this conversation to a provider and one of its models in the same
-	// entry. Providers don't share a model family, so the switch goes through
-	// the same fresh-session confirmation as a cross-family model switch.
-	const handleProviderChange = useCallback(
-		( picked: AiProviderId, nextModel: AiModelId ) => {
-			if (
-				getAiModelFamily( model ) !== getAiModelFamily( nextModel ) &&
-				onSwitchSession &&
-				sessionHasTurns
-			) {
-				setPendingFamilyChange( { model: nextModel, provider: picked } );
-				return;
-			}
-			appendEntryOptimistically( createSessionContextEntry( picked, nextModel ), ( id ) =>
-				connector.setSessionProvider( id, picked, nextModel )
-			);
-		},
-		[ appendEntryOptimistically, connector, model, onSwitchSession, sessionHasTurns ]
-	);
-
-	const handleModelChange = useCallback(
-		( provider: AiProviderId, picked: AiModelId ) => {
-			if ( picked === model || isModelLocked( picked ) ) {
-				return;
-			}
-			if ( provider !== sessionProvider ) {
-				handleProviderChange( provider, picked );
-				return;
-			}
-			if ( onModelChange ) {
-				onModelChange( picked );
-				return;
-			}
-			// Cross-family switch: defer until the user confirms in the dialog
-			// — the runtimes don't share a transcript, so continuing the same
-			// JSONL across families would make the on-screen history disagree
-			// with the agent's actual memory. We skip the prompt when the
-			// session has no user turns yet, or when the parent cannot switch
-			// to a freshly created session.
-			if (
-				getAiModelFamily( model ) !== getAiModelFamily( picked ) &&
-				onSwitchSession &&
-				sessionHasTurns
-			) {
-				setPendingFamilyChange( { model: picked } );
-				return;
-			}
-			applySameFamilyModel( picked );
-		},
-		[
-			applySameFamilyModel,
-			handleProviderChange,
-			isModelLocked,
-			model,
-			onModelChange,
-			onSwitchSession,
-			sessionHasTurns,
-			sessionProvider,
-		]
-	);
-
-	const cancelFamilyChange = useCallback( () => {
-		if ( familySwitchInFlight ) {
-			return;
-		}
-		setPendingFamilyChange( null );
-	}, [ familySwitchInFlight ] );
-
-	const confirmFamilyChange = useCallback( async () => {
-		if ( ! pendingFamilyChange || ! onSwitchSession ) {
-			return;
-		}
-		const { model: pickedModel, provider: pickedProvider } = pendingFamilyChange;
-		setFamilySwitchInFlight( true );
-		try {
-			const newSession = await openNewSession(
-				{ connector, queryClient },
-				ownerSiteId,
-				pickedProvider ? undefined : pickedModel
-			);
-			if ( pickedProvider ) {
-				// Pin the fresh session to the provider (with a model it
-				// serves) before navigating; on failure the user re-picks
-				// from the new view's dropdown.
-				await connector
-					.setSessionProvider( newSession.id, pickedProvider, pickedModel )
-					.then( () =>
-						primeSessionQueryData( queryClient, newSession, [
-							createSessionContextEntry( pickedProvider, pickedModel ),
-						] )
-					)
-					.catch( () => undefined );
-			}
-			saveComposerDraft( newSession.id, { text: value, attachments } );
-			setPendingFamilyChange( null );
-			onSwitchSession( newSession.id );
-		} finally {
-			setFamilySwitchInFlight( false );
-		}
-	}, [
-		attachments,
-		connector,
-		onSwitchSession,
-		ownerSiteId,
-		pendingFamilyChange,
-		queryClient,
-		value,
-	] );
-
 	const showStop = ! isField && busy && ( sending || ! hasContent );
 	const canSend = hasContent && ! sending;
 	const placeholder = answerQuestion
@@ -1091,82 +397,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		: busy
 		? __( 'Queue message' )
 		: __( 'Send message' );
-	const stopLabel = isInterrupting ? __( 'Force stop' ) : __( 'Stop response' );
 	const addLabel = isField ? __( 'Upload attachment' ) : __( 'Add' );
-	const modelLabel = getAiModelLabel( model );
-	const credits = getCreditsLabel( isQuotaError ? null : quota, preferences?.locale );
-	const canPurchaseCredits =
-		isWpcom &&
-		!! quota &&
-		credits.hasCredits &&
-		! isQuotaError &&
-		getStudioCodeAiAccessState( quota ) === 'available' &&
-		quota.hasPaymentMethod;
-	const modelDetails = [ modelLabel, AI_PROVIDER_LABELS[ sessionProvider ] ];
-	if ( isWpcom ) {
-		modelDetails.push( credits.label );
-	}
-	const pickModelCommand = ( value: string ) => {
-		setModelOpen( false );
-		if ( value === 'get-credits' ) {
-			openAddCredits();
-		} else if ( value === 'connect-provider' ) {
-			openSettings( 'ai' );
-		} else {
-			const provider = providers.find( ( id ) =>
-				getAiProviderModels( id ).some( ( item ) => item.id === value )
-			);
-			if ( provider ) {
-				handleModelChange( provider, value as AiModelId );
-			}
-		}
-	};
-	const modelGroups: CommandGroup[] = [
-		{
-			label: __( 'Models' ),
-			items: providers.flatMap( ( provider ) =>
-				getAiProviderModels( provider ).map( ( { id } ): Command => {
-					const description = sprintf(
-						/* translators: 1: the model's provider, 2: what the model is good at. */
-						__( '%1$s · %2$s' ),
-						provider === 'wpcom' ? 'WordPress' : 'Claude',
-						getModelDescription( id )
-					);
-					return {
-						value: id,
-						label: getAiModelLabel( id ),
-						description: isModelLocked( id )
-							? `${ description } · ${ __( 'Purchased credits required' ) }`
-							: description,
-						icon: provider === 'wpcom' ? WordPressIcon : ClaudeIcon,
-						disabled: isModelLocked( id ),
-					};
-				} )
-			),
-		},
-		{
-			label: __( 'Actions' ),
-			heading: __( 'Actions' ),
-			items: [
-				...( canPurchaseCredits
-					? [
-							{
-								value: 'get-credits',
-								label: __( 'Get more credits' ),
-								description: credits.label,
-								icon: PlusIcon,
-							},
-					  ]
-					: [] ),
-				{
-					value: 'connect-provider',
-					label: __( 'Connect provider…' ),
-					description: __( 'Add or manage your AI providers' ),
-					icon: PlugIcon,
-				},
-			],
-		},
-	];
 
 	const addButton = (
 		<Button
@@ -1182,17 +413,8 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 
 	return (
 		<Popover.Root
-			open={ sheetOpen }
-			onOpenChange={ ( open, details ) => {
-				if ( details.reason === 'trigger-press' && ! addOpen ) {
-					setAddOpen( true );
-					return;
-				}
-				setAddOpen( open );
-				if ( ! open ) {
-					setDismissedText( value );
-				}
-			} }
+			open={ sheet.open }
+			onOpenChange={ sheet.onOpenChange }
 			onOpenChangeComplete={ ( open ) => {
 				const pending = pendingCommandRef.current;
 				pendingCommandRef.current = undefined;
@@ -1202,30 +424,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 			} }
 		>
 			<div className={ styles.root } ref={ setRootNode }>
-				{ notice ? (
-					<div
-						className={ styles.notice }
-						role="alert"
-						data-feedback={ submitFeedback ?? undefined }
-					>
-						<div
-							className={ styles.noticeContent }
-							data-submit-feedback={ submitFeedback ?? undefined }
-						>
-							<span className={ styles.noticeMessage }>{ notice.message }</span>
-							{ notice.action ? (
-								<Button
-									size="composer-notice"
-									shape="round"
-									variant={ submitFeedback ? 'destructive' : 'default' }
-									onClick={ notice.action.onClick }
-								>
-									{ notice.action.label }
-								</Button>
-							) : null }
-						</div>
-					</div>
-				) : null }
+				{ notice ? <NoticeTab notice={ notice } feedback={ submitFeedback } /> : null }
 				<InputGroup
 					ref={ setShellNode }
 					variant="composer"
@@ -1242,23 +441,11 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 						  )
 						: null }
 					{ shownAttachments.length ? (
-						<ul className={ styles.attachments } aria-label={ __( 'Attachments' ) }>
-							{ shownAttachments.map( ( attachment ) => (
-								<AttachmentChip
-									key={ attachment.id }
-									attachment={ attachment }
-									isAnnotations={ attachment === annotationsAttachment }
-									onRemove={ () =>
-										attachment === annotationsAttachment && annotationSiteId
-											? removeAnnotations(
-													annotationSiteId,
-													stagedNotes.map( ( note ) => note.id )
-											  )
-											: removeAttachment( attachment.id )
-									}
-								/>
-							) ) }
-						</ul>
+						<AttachmentChips
+							attachments={ shownAttachments }
+							annotationsAttachment={ annotationsAttachment }
+							onRemove={ removeShownAttachment }
+						/>
 					) : null }
 					<div className={ styles.inputArea }>
 						{ placeholderBusy && value.length === 0 ? (
@@ -1277,15 +464,16 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 							role="combobox"
 							aria-autocomplete="list"
 							aria-haspopup="listbox"
-							aria-expanded={ sheetOpen && ! addOpen }
-							aria-controls={ sheetOpen && ! addOpen ? slashListId : undefined }
+							aria-expanded={ sheet.open && ! sheet.addOpen }
+							aria-controls={ sheet.open && ! sheet.addOpen ? slashListId : undefined }
 							aria-activedescendant={
-								! addOpen && activeCommand ? `${ slashListId }-${ activeCommand.value }` : undefined
+								! sheet.addOpen && sheet.activeCommand
+									? `${ slashListId }-${ sheet.activeCommand.value }`
+									: undefined
 							}
 							onChange={ ( event ) => {
 								setValue( event.target.value );
-								setDismissedText( null );
-								setHighlight( undefined );
+								sheet.onDraftChange();
 							} }
 							onPaste={ pasteHandlers.onPaste }
 							onKeyDown={ ( event ) => {
@@ -1293,13 +481,19 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 									return;
 								}
 								if (
-									sheetOpen &&
-									! addOpen &&
-									handleCommandKey( event, commandGroups, highlight, setHighlight, runCommand )
+									sheet.open &&
+									! sheet.addOpen &&
+									handleCommandKey(
+										event,
+										sheet.groups,
+										sheet.highlight,
+										sheet.setHighlight,
+										runCommand
+									)
 								) {
 									return;
 								}
-								if ( event.key === 'Escape' && sheetOpen ) {
+								if ( event.key === 'Escape' && sheet.open ) {
 									return;
 								}
 								if ( event.key === 'Escape' && busy ) {
@@ -1344,69 +538,28 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 						</div>
 						<div className={ styles.rightActions }>
 							{ providers.length ? (
-								<Popover.Root
+								<ModelPicker
 									open={ modelOpen }
-									onOpenChange={ ( open ) => {
-										setModelOpen( open );
-										if ( open ) {
-											setModelHighlight( model );
-											if ( isWpcom ) {
-												void refetchQuota();
-											}
-										}
-									} }
-								>
-									<Popover.Trigger
-										render={
-											<Button
-												ref={ modelTriggerRef }
-												variant="ghost"
-												shape="round"
-												aria-label={ __( 'Model' ) }
-												aria-description={ modelDetails.join( ' · ' ) }
-												title={ modelDetails.join( ' · ' ) }
-												disabled={ busy }
-											/>
-										}
-									>
-										<span>{ modelLabel }</span>
-										<ChevronDownIcon data-icon="inline-end" data-dropdown-indicator />
-									</Popover.Trigger>
-									<CommandSheet
-										label={ __( 'Choose a model' ) }
-										groups={ modelGroups }
-										highlighted={ modelHighlight }
-										onHighlight={ setModelHighlight }
-										onSelect={ pickModelCommand }
-										listRef={ modelListRef }
-										anchor={ rootNode }
-										initialFocus={ modelListRef }
-										finalFocus={ modelTriggerRef }
-									/>
-								</Popover.Root>
+									onOpenChange={ setModelOpen }
+									model={ model }
+									providers={ providers }
+									sessionProvider={ sessionProvider }
+									isModelLocked={ isModelLocked }
+									disabled={ busy }
+									anchor={ rootNode }
+									onChange={ changeModel }
+									onAddCredits={ openAddCredits }
+								/>
 							) : null }
 							{ isField ? null : showStop ? (
-								<Button
-									size="icon"
-									shape="round"
-									className={ styles.stopButton }
-									onClick={ () => void onInterrupt() }
-									aria-label={ stopLabel }
-									aria-busy={ isInterrupting }
-								>
-									<StopSiteIcon fill="currentColor" />
-								</Button>
+								<StopButton isInterrupting={ isInterrupting } onStop={ () => void onInterrupt() } />
 							) : (
-								<Button
-									variant={ submitFeedback ? 'destructive' : canSend ? 'accent' : 'default' }
-									size="icon"
-									shape="round"
-									onClick={ () => void send() }
-									disabled={ ! canSend }
-									aria-label={ sendLabel }
-								>
-									<ArrowUpIcon />
-								</Button>
+								<SendButton
+									label={ sendLabel }
+									canSend={ canSend }
+									feedback={ submitFeedback }
+									onSend={ () => void send() }
+								/>
 							) }
 						</div>
 					</div>
@@ -1414,26 +567,24 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 			</div>
 			<CommandSheet
 				label={ __( 'Commands' ) }
-				groups={ commandGroups }
-				highlighted={ highlight }
-				onHighlight={ setHighlight }
+				groups={ sheet.groups }
+				highlighted={ sheet.highlight }
+				onHighlight={ sheet.setHighlight }
 				onSelect={ runCommand }
 				listRef={ commandListRef }
 				id={ slashListId }
 				anchor={ rootNode }
-				initialFocus={ () => ( addOpen ? commandListRef.current : false ) }
+				initialFocus={ () => ( sheet.addOpen ? commandListRef.current : false ) }
 				finalFocus={ () => ( pendingCommandRef.current ? false : textareaRef.current ) }
 			/>
 			<FamilySwitchConfirmDialog
 				currentModel={ model }
-				pendingModel={ pendingFamilyChange?.model ?? null }
+				pendingModel={ pendingModel }
 				inFlight={ familySwitchInFlight }
 				onCancel={ cancelFamilyChange }
 				onConfirm={ () => void confirmFamilyChange() }
 			/>
-			{ creditsPurchaseOpen ? (
-				<AiCreditsPurchaseDialog open onOpenChange={ setCreditsPurchaseOpen } />
-			) : null }
+			{ purchaseOpen ? <AiCreditsPurchaseDialog open onOpenChange={ setPurchaseOpen } /> : null }
 		</Popover.Root>
 	);
 } );

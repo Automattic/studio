@@ -1,4 +1,5 @@
-const COLOR = /#[\da-f]{3,8}\b|\b(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch)\((?!\s*from\b)|\b(?:black|white)\b/i;
+const COLOR =
+	/#[\da-f]{3,8}\b|\b(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch)\((?!\s*from\b)|\b(?:black|white)\b/i;
 const LENGTH = /\d(?:px|rem)\b/;
 
 // Top-level comma-separated layers of a value.

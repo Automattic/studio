@@ -30,6 +30,8 @@ function createSession( overrides: Partial< AiSessionSummary > = {} ): AiSession
 	};
 }
 
+let onboardingCompleted = true;
+
 async function runBeforeLoad(
 	sites: SiteDetails[] | Error,
 	sessions: AiSessionSummary[],
@@ -46,7 +48,7 @@ async function runBeforeLoad(
 				return sites;
 			},
 			getSessions: async () => sessions,
-			getOnboardingCompleted: async () => true,
+			getOnboardingCompleted: async () => onboardingCompleted,
 			getUserPreferences: async () => ( { agenticFeaturesEnabled } ),
 		},
 	};
@@ -69,6 +71,15 @@ async function runBeforeLoad(
 describe( 'indexRoute.beforeLoad', () => {
 	beforeEach( () => {
 		window.localStorage.clear();
+		onboardingCompleted = true;
+	} );
+
+	it( 'welcomes a first launch over the empty workspace, keeping Settings open', async () => {
+		onboardingCompleted = false;
+		expect( await runBeforeLoad( [], [], true, { settings: 'general' } ) ).toMatchObject( {
+			to: '/sites',
+			search: { settings: 'general', welcome: true },
+		} );
 	} );
 
 	it( 'offers Add site once over the empty workspace until a site exists', async () => {

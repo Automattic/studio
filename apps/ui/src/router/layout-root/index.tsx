@@ -9,6 +9,7 @@ import { SITES_QUERY_KEY } from '@/data/queries/use-sites';
 import { SessionUIProvider } from '@/features/chats';
 import { useAppMenuNavigation } from '@/features/commands';
 import { useAiCreditsPurchaseResult } from '@/features/credits';
+import { WelcomeDialog } from '@/features/onboarding';
 import { WapuuWorldMount, isSettingsSection, SettingsDialog } from '@/features/settings';
 import { AddSiteDialog, isAddSiteSection } from '@/features/sites';
 import type { AiSessionSummary, Connector, SiteDetails } from '@/data/core';
@@ -95,6 +96,7 @@ interface RootSearch {
 	settingsFocus?: string;
 	addSite?: AddSiteSection;
 	pin?: true;
+	welcome?: true;
 }
 
 export const rootRoute = createRootRouteWithContext< RouterContext >()( {
@@ -104,6 +106,7 @@ export const rootRoute = createRootRouteWithContext< RouterContext >()( {
 		...( typeof search.settingsFocus === 'string' ? { settingsFocus: search.settingsFocus } : {} ),
 		...( isAddSiteSection( search.addSite ) ? { addSite: search.addSite } : {} ),
 		...( search.pin === true || search.pin === 'true' ? { pin: true } : {} ),
+		...( search.welcome === true || search.welcome === 'true' ? { welcome: true } : {} ),
 	} ),
 	component: () => (
 		<SessionUIProvider>
@@ -114,6 +117,7 @@ export const rootRoute = createRootRouteWithContext< RouterContext >()( {
 			<Outlet />
 			<SettingsDialog />
 			<AddSiteDialog />
+			<WelcomeDialog />
 		</SessionUIProvider>
 	),
 } );

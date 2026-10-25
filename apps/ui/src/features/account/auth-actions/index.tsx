@@ -11,8 +11,6 @@ interface AuthActionsProps {
 	source: TracksAuthSource;
 }
 
-// Shared by the welcome, tour and connect screens so the sign-in prompts
-// can't drift apart.
 export function AuthActions( { className, source }: AuthActionsProps ) {
 	const isOffline = useOffline();
 	const login = useLogin( { source } );

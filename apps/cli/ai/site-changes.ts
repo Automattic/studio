@@ -8,6 +8,7 @@
  * thing WordPress reads, as versions a check compares.
  */
 import { adminCapabilities } from 'cli/ai/admin-capabilities';
+import { renderedBlocks } from 'cli/ai/block-render-check';
 import { blockTheme } from 'cli/ai/block-theme';
 import { childThemeCopies } from 'cli/ai/child-theme-copies';
 import { postContentChanges } from 'cli/ai/post-content-check';
@@ -58,6 +59,8 @@ export interface SiteChangeSource {
 
 export const SITE_CHANGE_SOURCES: SiteChangeSource[] = [
 	postContentChanges,
+	// After postContentChanges, which may save the editor's save of a post.
+	renderedBlocks,
 	updatableThemeChanges,
 	childThemeCopies,
 	blockTheme,

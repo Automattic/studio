@@ -23,7 +23,7 @@ const RENDERED_TYPES = [
 	'wp_navigation',
 ];
 
-interface Row {
+export interface Row {
 	id: number;
 	type: string;
 	title: string;
@@ -36,7 +36,7 @@ const RENDERED = `post_type IN (${ RENDERED_TYPES.map( () => '?' ).join(
 
 // Each rendered post's version, by post ID: its modified time and content
 // length, so a check reads the content of changed posts only.
-async function readVersions( sitePath: string ): Promise< Versions > {
+export async function readVersions( sitePath: string ): Promise< Versions > {
 	const rows = await readWordPressSite( sitePath, ( site ) =>
 		site.query< { id: number; version: string } >(
 			`SELECT ID AS id, post_modified_gmt || ' ' || length(post_content) AS version
@@ -47,7 +47,7 @@ async function readVersions( sitePath: string ): Promise< Versions > {
 	return Object.fromEntries( rows.map( ( row ) => [ row.id, row.version ] ) );
 }
 
-async function readPosts( sitePath: string, ids: string[] ): Promise< Row[] > {
+export async function readPosts( sitePath: string, ids: string[] ): Promise< Row[] > {
 	return readWordPressSite( sitePath, ( site ) =>
 		site.query< Row >(
 			`SELECT ID AS id, post_type AS type, post_title AS title, post_content AS content

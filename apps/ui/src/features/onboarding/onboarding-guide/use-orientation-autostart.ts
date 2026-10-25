@@ -4,6 +4,7 @@ import { useOnboardingHints, useSetOnboardingHints } from '@/data/queries/use-on
 import { useSites } from '@/data/queries/use-sites';
 import { getOrientationGuide, ORIENTATION_GUIDE_VERSION } from './orientation-guide';
 import { useOnboardingGuide } from './use-onboarding-guide';
+import { useRootDialogOpen } from './use-root-dialog-open';
 import type { OrientationVariant } from './orientation-guide';
 import type { OnboardingHintsState } from '@/data/core';
 
@@ -11,6 +12,7 @@ interface AutostartInputs {
 	siteCount: number;
 	agentic: { chatEnabled: boolean; isReady: boolean };
 	hints: OnboardingHintsState | undefined;
+	dialogOpen: boolean;
 	guideOpen: boolean;
 	alreadyStarted: boolean;
 }
@@ -18,17 +20,18 @@ interface AutostartInputs {
 /**
  * Pure decision: which orientation guide variant (if any) to auto-open.
  * Returns null unless the user has at least one site, the agentic gate has
- * resolved, hints have loaded, nothing is already showing, and this app session
+ * resolved, hints have loaded, nothing else is open, and this app session
  * hasn't opened the guide yet.
  */
 export function deriveOrientationAutostart( {
 	siteCount,
 	agentic,
 	hints,
+	dialogOpen,
 	guideOpen,
 	alreadyStarted,
 }: AutostartInputs ): OrientationVariant | null {
-	if ( alreadyStarted || guideOpen ) {
+	if ( alreadyStarted || guideOpen || dialogOpen ) {
 		return null;
 	}
 	// Having a site is the real "past the NUX" signal, and the only one that works
@@ -65,6 +68,7 @@ export function useOrientationAutostart(): void {
 	const agentic = useAgenticFeatures();
 	const { data: hints } = useOnboardingHints();
 	const setHints = useSetOnboardingHints();
+	const dialogOpen = useRootDialogOpen();
 	const { isOpen, openGuide } = useOnboardingGuide();
 
 	const startedRef = useRef( false );
@@ -75,6 +79,7 @@ export function useOrientationAutostart(): void {
 			siteCount: sites?.length ?? 0,
 			agentic: { chatEnabled: agentic.chatEnabled, isReady: agentic.isReady },
 			hints,
+			dialogOpen,
 			guideOpen: isOpen,
 			alreadyStarted: startedRef.current,
 		} );
@@ -98,7 +103,16 @@ export function useOrientationAutostart(): void {
 		// No timer cleanup here: a dependency change re-runs this effect and
 		// returns early (startedRef guard); clearing on every re-run would
 		// cancel the pending open. The mount-scoped cleanup below handles it.
-	}, [ sites?.length, agentic.chatEnabled, agentic.isReady, hints, isOpen, openGuide, setHints ] );
+	}, [
+		sites?.length,
+		agentic.chatEnabled,
+		agentic.isReady,
+		hints,
+		dialogOpen,
+		isOpen,
+		openGuide,
+		setHints,
+	] );
 
 	useEffect( () => {
 		return () => {

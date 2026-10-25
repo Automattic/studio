@@ -7,6 +7,7 @@ const base = {
 	siteCount: 1,
 	agentic: { chatEnabled: true, isReady: true },
 	hints: {} as OnboardingHintsState,
+	dialogOpen: false,
 	guideOpen: false,
 	alreadyStarted: false,
 };
@@ -72,5 +73,9 @@ describe( 'deriveOrientationAutostart', () => {
 	it( 'does not open while the guide is already open or already started', () => {
 		expect( deriveOrientationAutostart( { ...base, guideOpen: true } ) ).toBeNull();
 		expect( deriveOrientationAutostart( { ...base, alreadyStarted: true } ) ).toBeNull();
+	} );
+
+	it( 'waits while Settings or Add site is open', () => {
+		expect( deriveOrientationAutostart( { ...base, dialogOpen: true } ) ).toBeNull();
 	} );
 } );

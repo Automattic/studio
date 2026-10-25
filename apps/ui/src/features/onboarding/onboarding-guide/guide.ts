@@ -10,9 +10,11 @@ export type GuideIllustrationId =
 	| 'chat'
 	| 'preview'
 	// What's New.
-	| 'design-picker'
-	| 'model-tiers'
-	| 'building-blocks';
+	| 'workspace'
+	| 'studio-code'
+	| 'publish-share'
+	| 'command-palette'
+	| 'appearance';
 
 export interface GuidePage {
 	illustration: GuideIllustrationId;

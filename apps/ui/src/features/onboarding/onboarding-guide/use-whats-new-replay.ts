@@ -1,37 +1,30 @@
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect } from 'react';
 import { useConnector } from '@/data/core';
-import { useSaveLastSeenVersion, useWhatsNewVersion } from '@/data/queries/use-whats-new-seen';
+import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
+import { useSetOnboardingHints } from '@/data/queries/use-onboarding-hints';
 import { useOnboardingGuide } from './use-onboarding-guide';
-import { getWhatsNewGuide } from './whats-new';
+import { getWhatsNewGuide, WHATS_NEW_VERSION } from './whats-new';
 
 /**
- * Reopens the What's New guide when the user picks Help ▸ What's New in the
- * application menu. Replaying also records the current version, so a user who
- * dug it out of the menu before it auto-opened isn't interrupted later. No-ops
- * on surfaces without an OS menu — the connector subscription never fires.
+ * Opens the What's New guide. However it ends, the current pages count as seen.
+ */
+export function useOpenWhatsNew(): () => void {
+	const { chatEnabled } = useAgenticFeatures();
+	const { mutate: setHints } = useSetOnboardingHints();
+	const { openGuide } = useOnboardingGuide();
+	return useCallback( () => {
+		openGuide( getWhatsNewGuide( { chatEnabled } ), {
+			onEnd: () => setHints( { whatsNewSeenVersion: WHATS_NEW_VERSION } ),
+		} );
+	}, [ chatEnabled, openGuide, setHints ] );
+}
+
+/**
+ * Reopens the What's New guide from Help ▸ What's New in the application menu.
+ * No-ops on surfaces without an OS menu.
  */
 export function useWhatsNewReplay(): void {
 	const connector = useConnector();
-	const currentVersion = useWhatsNewVersion();
-	const saveLastSeenVersion = useSaveLastSeenVersion();
-	const { openGuide } = useOnboardingGuide();
-
-	// The menu event fires outside React's data flow, so read the current version
-	// through a ref instead of resubscribing when app globals resolve.
-	const versionRef = useRef( currentVersion );
-	useEffect( () => {
-		versionRef.current = currentVersion;
-	}, [ currentVersion ] );
-
-	useEffect( () => {
-		return connector.onShowWhatsNew( () => {
-			openGuide( getWhatsNewGuide(), {
-				onEnd: () => {
-					if ( versionRef.current !== undefined ) {
-						saveLastSeenVersion.mutate( versionRef.current );
-					}
-				},
-			} );
-		} );
-	}, [ connector, openGuide, saveLastSeenVersion ] );
+	const openWhatsNew = useOpenWhatsNew();
+	useEffect( () => connector.onShowWhatsNew( openWhatsNew ), [ connector, openWhatsNew ] );
 }

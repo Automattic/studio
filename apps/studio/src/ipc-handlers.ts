@@ -878,21 +878,6 @@ export async function clearAuthenticationToken() {
 	return await updateSharedConfig( { authToken: undefined } );
 }
 
-export async function saveLastSeenVersion( event: IpcMainInvokeEvent, version: string ) {
-	await updateAppdata( { lastSeenVersion: version } );
-}
-
-export async function getLastSeenVersion(
-	_event: IpcMainInvokeEvent
-): Promise< string | undefined > {
-	// If we're running in E2E mode, return the app version
-	if ( process.env.E2E ) {
-		return app.getVersion();
-	}
-	const userData = await loadUserData();
-	return userData.lastSeenVersion;
-}
-
 export async function openSiteURL(
 	event: IpcMainInvokeEvent,
 	id: string,

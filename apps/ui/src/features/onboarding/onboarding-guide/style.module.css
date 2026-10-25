@@ -12,20 +12,6 @@
 	z-index: 1;
 }
 
-/* Over artwork the icon's default near-black vanishes on a dark illustration,
-   and no single colour works for art that is dark in one corner and light in
-   another. Deliberately not themed: the artwork doesn't change with the colour
-   scheme, so a theme-aware scrim would invert away from the thing it sits on. */
-.closeOverArt {
-	color: #fff;
-	background: rgb(0 0 0 / 55%);
-}
-
-.closeOverArt:hover {
-	color: #fff;
-	background: rgb(0 0 0 / 70%);
-}
-
 /* This artwork stays dark in both themes, so match the dark theme's neutral
    hover fill and keep the icon light in both themes. */
 .closeOnDark {

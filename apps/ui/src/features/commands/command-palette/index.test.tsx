@@ -4,7 +4,10 @@ import { setCommandPaletteOpen } from '@/features/commands/use-command-palette';
 import { useProvideCollapseAll } from '@/features/sidebar';
 import { CommandPalette, matchCommands } from './index';
 
-const { savePreferences } = vi.hoisted( () => ( { savePreferences: vi.fn() } ) );
+const { savePreferences, openWhatsNew } = vi.hoisted( () => ( {
+	savePreferences: vi.fn(),
+	openWhatsNew: vi.fn(),
+} ) );
 
 vi.mock( '@tanstack/react-router', () => ( { useNavigate: () => vi.fn() } ) );
 vi.mock( '@/data/queries/use-sites', () => ( { useSites: () => ( { data: [] } ) } ) );
@@ -26,6 +29,9 @@ vi.mock( '@/data/host/use-color-scheme', () => ( { useColorScheme: () => 'light'
 vi.mock( '@/features/settings/use-open-settings', () => ( { useOpenSettings: () => vi.fn() } ) );
 vi.mock( '@/features/sites/use-open-add-site', () => ( { useOpenAddSite: () => vi.fn() } ) );
 vi.mock( '@/data/use-open-site', () => ( { useOpenSite: () => vi.fn() } ) );
+vi.mock( '@/features/onboarding/onboarding-guide/use-whats-new-replay', () => ( {
+	useOpenWhatsNew: () => openWhatsNew,
+} ) );
 
 const command = ( id: string, group: string, label: string, extra = {} ) =>
 	( { id, group, label, icon: () => <svg />, run: () => {}, ...extra } ) as Parameters<
@@ -131,6 +137,14 @@ describe( 'CommandPalette', () => {
 			tintIntensity: 0,
 			contrast: 0,
 		} );
+	} );
+
+	it( 'replays What’s New, which the browser app has no menu for', async () => {
+		render( <CommandPalette /> );
+		pressK();
+		search( 'new features' );
+		fireEvent.click( await screen.findByText( 'What’s New' ) );
+		expect( openWhatsNew ).toHaveBeenCalled();
 	} );
 
 	it( 'offers Collapse all while the sidebar has more than one site unfolded', async () => {

@@ -1,22 +1,19 @@
-import { hasUnseenWhatsNew } from '@studio/common/lib/whats-new';
 import { useEffect, useRef } from 'react';
-import { useOnboardingHints } from '@/data/queries/use-onboarding-hints';
+import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
+import { useOnboardingHints, useSetOnboardingHints } from '@/data/queries/use-onboarding-hints';
 import { useSites } from '@/data/queries/use-sites';
-import {
-	useLastSeenVersion,
-	useSaveLastSeenVersion,
-	useWhatsNewVersion,
-} from '@/data/queries/use-whats-new-seen';
 import { ORIENTATION_GUIDE_VERSION } from './orientation-guide';
 import { useOnboardingGuide } from './use-onboarding-guide';
-import { getWhatsNewGuide } from './whats-new';
+import { useRootDialogOpen } from './use-root-dialog-open';
+import { useOpenWhatsNew } from './use-whats-new-replay';
+import { WHATS_NEW_VERSION } from './whats-new';
 import type { OnboardingHintsState } from '@/data/core';
 
 interface AutostartInputs {
 	siteCount: number;
+	agenticReady: boolean;
 	hints: OnboardingHintsState | undefined;
-	lastSeenVersion: string | null | undefined;
-	currentVersion: string | undefined;
+	dialogOpen: boolean;
 	guideOpen: boolean;
 	alreadyStarted: boolean;
 }
@@ -24,37 +21,30 @@ interface AutostartInputs {
 type WhatsNewAutostart = 'show' | 'mark-seen' | null;
 
 /**
- * Pure decision: whether to auto-open the announcements. Returns null unless the
- * user has at least one site, the stored marker has loaded, nothing is already
- * showing, and this app session hasn't opened the guide yet.
+ * Pure decision: whether to auto-open the What's New guide. Returns null until
+ * the user has a site, the workspace state has loaded and nothing else is open,
+ * and once the current pages have been seen.
  */
 export function deriveWhatsNewAutostart( {
 	siteCount,
+	agenticReady,
 	hints,
-	lastSeenVersion,
-	currentVersion,
+	dialogOpen,
 	guideOpen,
 	alreadyStarted,
 }: AutostartInputs ): WhatsNewAutostart {
-	if ( alreadyStarted || guideOpen ) {
+	if ( alreadyStarted || guideOpen || dialogOpen ) {
 		return null;
 	}
-	// Having a site is the real "past the NUX" signal — see the note in
-	// use-orientation-autostart.ts for why `onboardingCompleted` can't be used.
-	if ( siteCount < 1 ) {
+	if ( siteCount < 1 || ! agenticReady || hints === undefined ) {
 		return null;
 	}
-	if ( hints === undefined || lastSeenVersion === undefined || currentVersion === undefined ) {
+	if ( ( hints.whatsNewSeenVersion ?? 0 ) >= WHATS_NEW_VERSION ) {
 		return null;
 	}
-	if ( ! hasUnseenWhatsNew( lastSeenVersion ?? undefined, currentVersion ) ) {
-		return null;
-	}
-	// A first arrival in the workbench belongs to the orientation guide, and none
-	// of this is news to someone seeing the app for the first time — bank the
-	// version so it only interrupts on the next release with new content. This
-	// also keeps the two exclusive: orientation autostarts on exactly the state
-	// that returns 'mark-seen'.
+	// Someone who hasn't been through the orientation guide gets that instead,
+	// and nothing in What's New is news to them: mark it seen so the two never
+	// stack. Orientation autostarts on exactly the state that returns 'mark-seen'.
 	const orientationSeen =
 		( hints.tourCompletedVersion ?? 0 ) >= ORIENTATION_GUIDE_VERSION ||
 		( hints.tourDismissedVersion ?? 0 ) >= ORIENTATION_GUIDE_VERSION;
@@ -66,29 +56,27 @@ export function deriveWhatsNewAutostart( {
 const GUIDE_START_DELAY_MS = 500;
 
 /**
- * Auto-opens the What's New guide when there are unseen announcements. Mounted
- * in the dashboard layout.
+ * Auto-opens the What's New guide once per WHATS_NEW_VERSION. Mounted in the
+ * dashboard layout.
  */
 export function useWhatsNewAutostart(): void {
 	const { data: sites } = useSites();
+	const { isReady: agenticReady } = useAgenticFeatures();
 	const { data: hints } = useOnboardingHints();
-	const { data: lastSeenVersion } = useLastSeenVersion();
-	const saveLastSeenVersion = useSaveLastSeenVersion();
-	const { isOpen, openGuide } = useOnboardingGuide();
+	const { mutate: setHints } = useSetOnboardingHints();
+	const dialogOpen = useRootDialogOpen();
+	const { isOpen } = useOnboardingGuide();
+	const openWhatsNew = useOpenWhatsNew();
 
-	const currentVersion = useWhatsNewVersion();
 	const startedRef = useRef( false );
 	const startTimerRef = useRef< ReturnType< typeof setTimeout > | null >( null );
 
 	useEffect( () => {
-		if ( currentVersion === undefined ) {
-			return;
-		}
 		const decision = deriveWhatsNewAutostart( {
 			siteCount: sites?.length ?? 0,
+			agenticReady,
 			hints,
-			lastSeenVersion,
-			currentVersion,
+			dialogOpen,
 			guideOpen: isOpen,
 			alreadyStarted: startedRef.current,
 		} );
@@ -97,29 +85,17 @@ export function useWhatsNewAutostart(): void {
 		}
 		startedRef.current = true;
 		if ( decision === 'mark-seen' ) {
-			saveLastSeenVersion.mutate( currentVersion );
+			setHints( { whatsNewSeenVersion: WHATS_NEW_VERSION } );
 			return;
 		}
 		startTimerRef.current = setTimeout( () => {
 			startTimerRef.current = null;
-			openGuide( getWhatsNewGuide(), {
-				// Skipping counts as seen: these are announcements, not a task, and
-				// re-interrupting someone who closed them is worse than them missing one.
-				onEnd: () => saveLastSeenVersion.mutate( currentVersion ),
-			} );
+			openWhatsNew();
 		}, GUIDE_START_DELAY_MS );
 		// No timer cleanup here: a dependency change re-runs this effect and
 		// returns early (startedRef guard); clearing on every re-run would
 		// cancel the pending open. The mount-scoped cleanup below handles it.
-	}, [
-		sites?.length,
-		hints,
-		lastSeenVersion,
-		currentVersion,
-		isOpen,
-		openGuide,
-		saveLastSeenVersion,
-	] );
+	}, [ sites?.length, agenticReady, hints, dialogOpen, isOpen, openWhatsNew, setHints ] );
 
 	useEffect( () => {
 		return () => {

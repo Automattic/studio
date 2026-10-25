@@ -176,7 +176,7 @@ if [ "$PLATFORM" = "linux" ]; then
     export STUDIO_E2E_DAEMON_LOGS_DIR=/tmp/test-results/daemon-logs
     inner_exit=0
     xvfb-run -a -s "-screen 0 1920x1080x24" \
-      npx playwright test --max-failures=1 --output=/tmp/test-results || inner_exit=$?
+      npx playwright test --project=studio --project=ui-desktop --max-failures=1 --output=/tmp/test-results || inner_exit=$?
     if [ "$inner_exit" -eq 0 ]; then
       rm -rf "$STUDIO_E2E_DAEMON_LOGS_DIR"
     fi
@@ -199,7 +199,7 @@ else
   # cleanup. They are uploaded only when the run fails.
   export STUDIO_E2E_DAEMON_LOGS_DIR=test-results/daemon-logs
   test_exit=0
-  npx playwright test || test_exit=$?
+  npx playwright test --project=studio --project=ui-desktop || test_exit=$?
   if [ "$test_exit" -eq 0 ]; then
     rm -rf "$STUDIO_E2E_DAEMON_LOGS_DIR"
   fi

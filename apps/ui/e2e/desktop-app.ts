@@ -1,9 +1,19 @@
+import { spawn } from 'node:child_process';
 import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { _electron as electron } from 'playwright';
+import { portFinder } from '../../../packages/common/lib/port-finder';
 import { packagedApp } from './packaged-app';
 import type { ElectronApplication, Page } from 'playwright';
+
+// Workers run concurrently, so each assigns site ports from its own range.
+function basePort() {
+	return (
+		process.env.STUDIO_BASE_PORT ??
+		String( 8881 + Number( process.env.TEST_PARALLEL_INDEX ?? 0 ) * 1000 )
+	);
+}
 
 export async function createSession() {
 	// Keep Unix socket paths within the macOS path-length limit.
@@ -48,9 +58,7 @@ export async function launch(
 		E2E_APP_DATA_PATH: path.join( session.directory, 'appData' ),
 		DEV_CONFIG_DIR: session.config,
 		STUDIO_PROCESS_MANAGER_HOME: path.join( session.directory, 'daemon' ),
-		STUDIO_BASE_PORT:
-			process.env.STUDIO_BASE_PORT ??
-			String( 8881 + Number( process.env.TEST_PARALLEL_INDEX ?? 0 ) * 1000 ),
+		STUDIO_BASE_PORT: basePort(),
 	};
 	delete env.ELECTRON_RENDERER_URL;
 	delete env.ELECTRON_UI_RENDERER_URL;
@@ -92,4 +100,59 @@ export async function previewText( app: ElectronApplication, page: Page ) {
 	return app.evaluate( async ( { webContents }, guestId ) => {
 		return webContents.fromId( guestId )?.executeJavaScript( 'document.body.innerText' );
 	}, id );
+}
+
+const cliMain = path.resolve( import.meta.dirname, '../../cli/dist/cli/main.mjs' );
+
+/** Starts `studio ui` on the given config directories and resolves once it serves requests. */
+export async function startStudioUi( env: {
+	DEV_CONFIG_DIR: string;
+	STUDIO_PROCESS_MANAGER_HOME: string;
+} ) {
+	const port = await portFinder.getOpenPort();
+	const childEnv = { ...process.env, STUDIO_BASE_PORT: basePort(), ...env };
+	const server = spawn(
+		process.execPath,
+		[ cliMain, 'ui', '--no-open', '--port', String( port ) ],
+		{
+			env: childEnv,
+			stdio: [ 'ignore', 'pipe', 'pipe' ],
+		}
+	);
+	let output = '';
+	server.stdout.on( 'data', ( chunk ) => ( output += String( chunk ) ) );
+	server.stderr.on( 'data', ( chunk ) => ( output += String( chunk ) ) );
+	const exited = new Promise< void >( ( resolve ) => server.once( 'exit', () => resolve() ) );
+	const origin = `http://localhost:${ port }`;
+	const stop = async () => {
+		if ( server.exitCode === null && server.signalCode === null ) {
+			server.kill( 'SIGTERM' );
+			const forceStop = setTimeout( () => server.kill( 'SIGKILL' ), 3000 );
+			await exited;
+			clearTimeout( forceStop );
+		}
+		await new Promise( ( resolve ) => {
+			const cleanup = spawn( process.execPath, [ cliMain, 'site', 'stop', '--all' ], {
+				env: childEnv,
+				stdio: 'ignore',
+			} );
+			cleanup.once( 'exit', resolve );
+			cleanup.once( 'error', resolve );
+		} );
+	};
+	const deadline = Date.now() + 60_000;
+	for (;;) {
+		if ( server.exitCode !== null ) throw new Error( `studio ui exited:\n${ output }` );
+		const healthy = await fetch( `${ origin }/api/health` ).then(
+			( response ) => response.ok,
+			() => false
+		);
+		if ( healthy ) break;
+		if ( Date.now() > deadline ) {
+			await stop();
+			throw new Error( `studio ui did not start:\n${ output }` );
+		}
+		await new Promise( ( resolve ) => setTimeout( resolve, 250 ) );
+	}
+	return { origin, stop, logs: () => output };
 }

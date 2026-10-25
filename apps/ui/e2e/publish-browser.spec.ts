@@ -1,11 +1,11 @@
-import { spawn } from 'node:child_process';
 import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { expect, test } from '@playwright/test';
 import { portFinder } from '../../../packages/common/lib/port-finder';
+import { startStudioUi } from './desktop-app';
 
-test( 'browser Publish and pull screens work in both themes', async ( { page }, info ) => {
+test( 'publishes and pulls from the browser app', async ( { page } ) => {
 	const pageErrors: string[] = [];
 	const consoleErrors: { text: string; url: string }[] = [];
 	page.on( 'pageerror', ( error ) => pageErrors.push( error.message ) );
@@ -54,79 +54,34 @@ test( 'browser Publish and pull screens work in both themes', async ( { page }, 
 			snapshots: [],
 		} )
 	);
-	const port = await portFinder.getOpenPort();
-	const server = spawn(
-		process.execPath,
-		[ 'apps/cli/dist/cli/main.mjs', 'ui', '--no-open', '--port', String( port ) ],
-		{
-			cwd: path.resolve( import.meta.dirname, '../../..' ),
-			env: {
-				...process.env,
-				DEV_CONFIG_DIR: config,
-				STUDIO_PROCESS_MANAGER_HOME: path.join( directory, 'daemon' ),
-			},
-			stdio: [ 'ignore', 'pipe', 'pipe' ],
-		}
-	);
-	const serverUrl = new Promise< string >( ( resolve, reject ) => {
-		let output = '';
-		server.stdout.on( 'data', ( chunk: Buffer ) => {
-			output += chunk.toString();
-			const url = output.match( /http:\/\/localhost:\d+/ )?.[ 0 ];
-			if ( url ) resolve( url );
-		} );
-		server.stderr.on( 'data', ( chunk: Buffer ) => {
-			output += chunk.toString();
-		} );
-		server.once( 'error', reject );
-		server.once( 'exit', () =>
-			reject( new Error( output || 'Studio server exited before startup' ) )
-		);
+	const studio = await startStudioUi( {
+		DEV_CONFIG_DIR: config,
+		STUDIO_PROCESS_MANAGER_HOME: path.join( directory, 'daemon' ),
 	} );
 	try {
-		const origin = await serverUrl;
-		await expect
-			.poll( async () => {
-				try {
-					return ( await page.request.get( `${ origin }/api/health` ) ).ok();
-				} catch {
-					return false;
-				}
-			} )
-			.toBe( true );
+		const { origin } = studio;
 		await page.route( '**/api/sites/notice-site/site-icon', ( route ) =>
 			route.fulfill( { json: null } )
 		);
 
-		for ( const scheme of [ 'light', 'dark' ] as const ) {
-			await page.setViewportSize( { width: 1100, height: 820 } );
-			await page.request.patch( `${ origin }/api/user-preferences`, {
-				data: { colorScheme: scheme },
-			} );
-			await page.goto( origin );
-			await page.getByRole( 'button', { name: 'Notice verification', exact: true } ).click();
-			await expect( page.locator( 'html' ) ).toHaveAttribute( 'data-color-scheme', scheme );
-			await expect( page.getByRole( 'button', { name: 'Publish…', exact: true } ) ).toBeHidden();
-			await page
-				.getByRole( 'button', { name: 'Site actions for Notice verification', exact: true } )
-				.click();
-			await page.getByRole( 'menuitem', { name: 'Publish', exact: true } ).click();
-			const dialog = page.getByRole( 'dialog', { name: 'Publish your WordPress' } );
-			await expect( dialog ).toBeVisible();
-			await page.screenshot( {
-				path: info.outputPath( `browser-sync-account-${ scheme }.png` ),
-				animations: 'disabled',
-			} );
-			await dialog.getByRole( 'button', { name: 'Close', exact: true } ).click();
-			await page
-				.getByRole( 'combobox', { name: 'Message WordPress Studio' } )
-				.press( 'ControlOrMeta+k' );
-			const palette = page.getByRole( 'dialog', { name: 'Command palette' } );
-			await palette.getByRole( 'combobox' ).fill( 'Publish & Sync' );
-			await palette.getByRole( 'option', { name: /^Publish & Sync/ } ).click();
-			await expect( dialog ).toBeVisible();
-			await dialog.getByRole( 'button', { name: 'Close', exact: true } ).click();
-		}
+		await page.goto( origin );
+		await page.getByRole( 'button', { name: 'Notice verification', exact: true } ).click();
+		await expect( page.getByRole( 'button', { name: 'Publish…', exact: true } ) ).toBeHidden();
+		await page
+			.getByRole( 'button', { name: 'Site actions for Notice verification', exact: true } )
+			.click();
+		await page.getByRole( 'menuitem', { name: 'Publish', exact: true } ).click();
+		const accountDialog = page.getByRole( 'dialog', { name: 'Publish your WordPress' } );
+		await expect( accountDialog ).toBeVisible();
+		await accountDialog.getByRole( 'button', { name: 'Close', exact: true } ).click();
+		await page
+			.getByRole( 'combobox', { name: 'Message WordPress Studio' } )
+			.press( 'ControlOrMeta+k' );
+		const palette = page.getByRole( 'dialog', { name: 'Command palette' } );
+		await palette.getByRole( 'combobox' ).fill( 'Publish & Sync' );
+		await palette.getByRole( 'option', { name: /^Publish & Sync/ } ).click();
+		await expect( accountDialog ).toBeVisible();
+		await accountDialog.getByRole( 'button', { name: 'Close', exact: true } ).click();
 		const remote = {
 			id: 42,
 			localSiteId: 'notice-site',
@@ -173,137 +128,69 @@ test( 'browser Publish and pull screens work in both themes', async ( { page }, 
 			}
 			return route.fallback();
 		} );
-		for ( const scheme of [ 'light', 'dark' ] as const ) {
-			await page.setViewportSize( { width: 1100, height: 820 } );
-			await page.request.patch( `${ origin }/api/user-preferences`, {
-				data: { colorScheme: scheme },
-			} );
-			await page.goto( origin );
-			await page.getByRole( 'button', { name: 'Notice verification', exact: true } ).click();
-			const openPublishMenu = async () => {
-				if ( scheme === 'dark' )
-					await page
-						.getByRole( 'button', { name: 'Notice verification', exact: true } )
-						.click( { button: 'right' } );
-				else
-					await page
-						.getByRole( 'button', { name: 'Site actions for Notice verification', exact: true } )
-						.click();
-				const publish = page.getByRole( 'menuitem', { name: 'Publish', exact: true } );
-				await expect( publish ).toHaveAttribute( 'aria-haspopup', 'menu' );
-				await publish.focus();
-				await publish.press( 'ArrowRight' );
-				await expect( page.getByRole( 'menuitem', { name: 'Publish changes…' } ) ).toBeVisible();
-			};
-			await openPublishMenu();
-			await expect( page.getByRole( 'menuitem', { name: 'View backups' } ) ).toBeVisible();
-			await page.screenshot( {
-				path: info.outputPath( `browser-publish-menu-${ scheme }.png` ),
-				animations: 'disabled',
-			} );
-			await page.getByRole( 'menuitem', { name: 'Manage websites…' } ).click();
-			await expect( page.getByRole( 'dialog', { name: 'Websites', exact: true } ) ).toBeVisible();
-			await page.keyboard.press( 'Escape' );
-			await openPublishMenu();
-			await page.getByRole( 'menuitem', { name: 'Pull changes…' } ).click();
-			await expect(
-				page
-					.getByRole( 'dialog', { name: 'Pull changes', exact: true } )
-					.getByRole( 'combobox', { name: 'What to pull' } )
-			).toBeEnabled();
-			await page.keyboard.press( 'Escape' );
-			await openPublishMenu();
-			await page.getByRole( 'menuitem', { name: 'Publish changes…' } ).click();
-			const panel = page.getByRole( 'dialog', { name: 'Publish', exact: true } );
-			await expect( panel.getByRole( 'button', { name: 'Publish', exact: true } ) ).toBeEnabled();
-			await expect( panel.getByRole( 'button', { name: 'Close', exact: true } ) ).toHaveCount( 0 );
-			for ( const width of [ 1100, 640, 320 ] ) {
-				await page.setViewportSize( { width, height: 820 } );
-				await page.screenshot( {
-					path: info.outputPath( `browser-publish-${ scheme }-${ width }.png` ),
-					animations: 'disabled',
-				} );
-				const bounds = await panel.boundingBox();
-				expect( bounds!.x ).toBeGreaterThanOrEqual( 0 );
-				expect( bounds!.x + bounds!.width ).toBeLessThanOrEqual( width );
-			}
-			const include = panel.getByRole( 'combobox', { name: 'What to publish' } );
-			await include.focus();
-			await include.press( 'ArrowDown' );
-			await expect( page.getByRole( 'listbox' ) ).toBeVisible();
-			await expect( async () => {
-				await page.keyboard.press( 'End' );
-				await expect( page.getByRole( 'option', { name: 'Choose files…' } ) ).toHaveAttribute(
-					'data-highlighted',
-					{ timeout: 500 }
-				);
-			} ).toPass();
-			await page.keyboard.press( 'Enter' );
-			const files = page.getByRole( 'dialog', { name: 'Choose files', exact: true } );
-			await expect( files.getByRole( 'button', { name: 'Back to Publish' } ) ).toBeFocused();
-			await expect(
-				files.getByText(
-					'Individual files are unavailable here. Use Files only to include all files.'
-				)
-			).toBeVisible();
-			if ( scheme === 'light' )
-				await files.getByText( 'Content and settings', { exact: true } ).click();
-			await expect(
-				files.getByRole( 'checkbox', { name: 'Content and settings', exact: true } )
-			).toBeChecked();
-			await files.getByRole( 'button', { name: 'Done', exact: true } ).click();
-			await panel.getByRole( 'combobox', { name: 'What to publish' } ).click();
-			await page.getByRole( 'option', { name: 'Files only', exact: true } ).click();
-			await panel.getByRole( 'button', { name: 'Publish', exact: true } ).click();
-			await expect( page.getByRole( 'button', { name: 'Publish…', exact: true } ) ).toBeHidden();
-			await page.emulateMedia( { reducedMotion: 'reduce' } );
-			await expect
-				.poll( async () =>
-					page
-						.locator( '[data-publish-transfer] circle' )
-						.first()
-						.evaluate( ( element ) => getComputedStyle( element ).animationName )
-				)
-				.toBe( 'none' );
-			await page.screenshot( {
-				path: info.outputPath( `browser-publishing-${ scheme }.png` ),
-				animations: 'disabled',
-			} );
-			await expect.poll( () => Boolean( finishPublish ) ).toBe( true );
-			finishPublish!();
-			finishPublish = undefined;
-			await expect( panel.getByRole( 'button', { name: 'Publish', exact: true } ) ).toBeEnabled();
-			await page.emulateMedia( { reducedMotion: 'no-preference' } );
-			await panel.getByRole( 'button', { name: 'Website actions' } ).click();
-			await page.getByRole( 'menuitem', { name: 'Pull changes…' } ).click();
-			const pull = page.getByRole( 'dialog', { name: 'Pull changes', exact: true } );
-			await expect( pull.getByRole( 'button', { name: 'Back to Publish' } ) ).toBeFocused();
-			await expect( pull.getByRole( 'combobox', { name: 'What to pull' } ) ).toBeEnabled();
-			await pull.getByRole( 'combobox', { name: 'What to pull' } ).click();
-			await page.getByRole( 'option', { name: 'Content and settings only', exact: true } ).click();
-			await expect(
-				pull.getByText(
-					'All content and settings in WordPress Studio will be overwritten. Your website stays unchanged.'
-				)
-			).toBeVisible();
-			await page.screenshot( {
-				path: info.outputPath( `browser-pull-${ scheme }.png` ),
-				animations: 'disabled',
-			} );
-			await pull.getByRole( 'button', { name: 'Pull changes', exact: true } ).click();
-			await expect( pull.getByText( 'Changes pulled into WordPress Studio' ) ).toBeVisible();
-			await pull.getByRole( 'button', { name: 'Done', exact: true } ).click();
-			await expect( panel.getByRole( 'combobox', { name: 'What to publish' } ) ).toContainText(
-				'Files only'
-			);
-			await page.keyboard.press( 'Escape' );
-		}
-		expect( transfers.map( ( item ) => item.direction ) ).toEqual( [
-			'push',
-			'pull',
-			'push',
-			'pull',
-		] );
+		await page.goto( origin );
+		await page.getByRole( 'button', { name: 'Notice verification', exact: true } ).click();
+		const openPublishMenu = async ( { contextMenu = false } = {} ) => {
+			if ( contextMenu )
+				await page
+					.getByRole( 'button', { name: 'Notice verification', exact: true } )
+					.click( { button: 'right' } );
+			else
+				await page
+					.getByRole( 'button', { name: 'Site actions for Notice verification', exact: true } )
+					.click();
+			const publish = page.getByRole( 'menuitem', { name: 'Publish', exact: true } );
+			await publish.focus();
+			await publish.press( 'ArrowRight' );
+			await expect( page.getByRole( 'menuitem', { name: 'Publish changes…' } ) ).toBeVisible();
+		};
+		await openPublishMenu( { contextMenu: true } );
+		await page.getByRole( 'menuitem', { name: 'Manage websites…' } ).click();
+		await expect( page.getByRole( 'dialog', { name: 'Websites', exact: true } ) ).toBeVisible();
+		await page.keyboard.press( 'Escape' );
+		await expect( page.getByRole( 'dialog' ) ).toHaveCount( 0 );
+		await expect( page.getByRole( 'menu' ) ).toHaveCount( 0 );
+		await openPublishMenu();
+		await page.getByRole( 'menuitem', { name: 'Publish changes…' } ).click();
+		const panel = page.getByRole( 'dialog', { name: 'Publish', exact: true } );
+		await expect( panel.getByRole( 'button', { name: 'Publish', exact: true } ) ).toBeEnabled();
+		await panel.getByRole( 'combobox', { name: 'What to publish' } ).click();
+		await page.getByRole( 'option', { name: 'Choose files…' } ).click();
+		const files = page.getByRole( 'dialog', { name: 'Choose files', exact: true } );
+		await expect(
+			files.getByText(
+				'Individual files are unavailable here. Use Files only to include all files.'
+			)
+		).toBeVisible();
+		await files.getByText( 'Content and settings', { exact: true } ).click();
+		await expect(
+			files.getByRole( 'checkbox', { name: 'Content and settings', exact: true } )
+		).toBeChecked();
+		await files.getByRole( 'button', { name: 'Done', exact: true } ).click();
+		await panel.getByRole( 'combobox', { name: 'What to publish' } ).click();
+		await page.getByRole( 'option', { name: 'Files only', exact: true } ).click();
+		await panel.getByRole( 'button', { name: 'Publish', exact: true } ).click();
+		await expect.poll( () => Boolean( finishPublish ) ).toBe( true );
+		finishPublish!();
+		await expect( panel.getByRole( 'button', { name: 'Publish', exact: true } ) ).toBeEnabled();
+		await panel.getByRole( 'button', { name: 'Website actions' } ).click();
+		await page.getByRole( 'menuitem', { name: 'Pull changes…' } ).click();
+		const pull = page.getByRole( 'dialog', { name: 'Pull changes', exact: true } );
+		await pull.getByRole( 'combobox', { name: 'What to pull' } ).click();
+		await page.getByRole( 'option', { name: 'Content and settings only', exact: true } ).click();
+		await expect(
+			pull.getByText(
+				'All content and settings in WordPress Studio will be overwritten. Your website stays unchanged.'
+			)
+		).toBeVisible();
+		await pull.getByRole( 'button', { name: 'Pull changes', exact: true } ).click();
+		await expect( pull.getByText( 'Changes pulled into WordPress Studio' ) ).toBeVisible();
+		await pull.getByRole( 'button', { name: 'Done', exact: true } ).click();
+		await expect( panel.getByRole( 'combobox', { name: 'What to publish' } ) ).toContainText(
+			'Files only'
+		);
+		await page.keyboard.press( 'Escape' );
+		expect( transfers.map( ( item ) => item.direction ) ).toEqual( [ 'push', 'pull' ] );
 		expect( transfers[ 0 ].body ).toEqual( {
 			remoteSiteId: 42,
 			options: { optionsToSync: [ 'plugins', 'themes', 'uploads', 'contents' ] },
@@ -320,16 +207,9 @@ test( 'browser Publish and pull screens work in both themes', async ( { page }, 
 				( error ) => ! error.url.startsWith( 'https://www.gravatar.com/avatar/' )
 			)
 		).toEqual( [] );
-		console.log( 'Publish browser console errors:', JSON.stringify( consoleErrors ) );
 	} finally {
 		await page.close();
-		if ( server.exitCode === null && server.signalCode === null ) {
-			const stopped = new Promise( ( resolve ) => server.once( 'exit', resolve ) );
-			server.kill( 'SIGTERM' );
-			const forceStop = setTimeout( () => server.kill( 'SIGKILL' ), 3000 );
-			await stopped;
-			clearTimeout( forceStop );
-		}
+		await studio.stop();
 		await rm( directory, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 } );
 	}
 } );

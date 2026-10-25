@@ -4,7 +4,7 @@
  * reaches those rows by any route (WP-CLI with inline or file content, `wp
  * eval`, REST, an import), so it is checked where it lands (site-changes.ts).
  */
-import { mkdir, writeFile } from 'fs/promises';
+import { mkdir, rm, writeFile } from 'fs/promises';
 import path from 'path';
 import {
 	describePaletteColors,
@@ -13,6 +13,8 @@ import {
 } from 'cli/ai/block-validation-gate';
 import { readWordPressSite } from 'cli/ai/site-database';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
+import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
+import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import type { ChangeReport, SiteChangeSource, Versions } from 'cli/ai/site-changes';
 import type { SiteData } from 'cli/lib/cli-config/core';
 
@@ -59,11 +61,38 @@ async function readPosts( sitePath: string, ids: string[] ): Promise< Row[] > {
 	);
 }
 
-// A lossless fix is saved in the site's tmp/ for the agent to apply, since the
-// row belongs to the running site; named by its absolute path, which holds
-// whatever folder the agent's shell is in, with forward slashes, which the
-// shell keeps where it reads a Windows backslash as an escape.
-async function validatePost( site: SiteData, post: Row ) {
+/**
+ * Saves a post's content from a file of its site, as an administrator's save
+ * in the editor does: through wp_update_post(), without the kses filters a
+ * user without unfiltered_html saves through (kses_remove_filters()).
+ */
+async function savePost( site: SiteData, id: number, relativePath: string ): Promise< void > {
+	const php = `kses_remove_filters();
+$saved = wp_update_post( wp_slash( array( 'ID' => ${ id }, 'post_content' => file_get_contents( ABSPATH . ${ JSON.stringify(
+		relativePath
+	) } ) ) ), true );
+if ( is_wp_error( $saved ) ) { fwrite( STDERR, $saved->get_error_message() ); exit( 1 ); }`;
+	try {
+		await connectToDaemon();
+		await using command = await runWpCliCommand( site, [ 'eval', php ] );
+		const exitCode = await command.response.exitCode;
+		if ( exitCode !== 0 ) {
+			throw new Error( `wp eval exited ${ exitCode }` );
+		}
+	} finally {
+		await disconnectFromDaemon();
+	}
+}
+
+// A lossless fix is saved to the post, as Studio saves one to a file
+// (block-validation-gate.ts). One Studio cannot save stays in the site's tmp/
+// for the agent to apply; named by its absolute path, which holds whatever
+// folder the agent's shell is in, with forward slashes, which the shell keeps
+// where it reads a Windows backslash as an escape.
+async function validatePost(
+	site: SiteData,
+	post: Row
+): Promise< Omit< ChangeReport, 'key' > & { saved?: boolean } > {
 	const label = `${ site.name } ${ post.type } ${ post.id } "${ post.title }"`;
 	const result = await validateBlockMarkup(
 		post.content,
@@ -74,16 +103,31 @@ async function validatePost( site: SiteData, post: Row ) {
 	if ( result.fixedContent === undefined ) {
 		return result;
 	}
-	const fixFile = path.join( site.path, 'tmp', `${ post.type }-${ post.id }.html` );
+	const relativePath = `tmp/${ post.type }-${ post.id }.html`;
+	const fixFile = path.join( site.path, relativePath );
 	await mkdir( path.dirname( fixFile ), { recursive: true } );
 	await writeFile( fixFile, result.fixedContent, 'utf8' );
-	const shellPath = fixFile.split( path.sep ).join( '/' );
 	const saves = [
 		result.invalidBlocks
 			? `fixes ${ result.invalidBlocks } block(s) that do not match what the block saves`
 			: undefined,
 		result.paletteColors?.length ? describePaletteColors( result.paletteColors ) : undefined,
 	].filter( Boolean );
+	const saved = await savePost( site, post.id, relativePath ).then(
+		() => true,
+		() => false
+	);
+	if ( saved ) {
+		await rm( fixFile, { force: true } );
+		return {
+			summary: `${ label }: Studio saved the block editor's save of it, which ${ saves.join(
+				' and '
+			) }, losing nothing, so it now holds what the editor saves`,
+			problem: result.problem,
+			saved: true,
+		};
+	}
+	const shellPath = fixFile.split( path.sep ).join( '/' );
 	return {
 		summary: result.invalidBlocks
 			? `${ label }: ${ result.invalidBlocks } invalid block(s)`
@@ -105,15 +149,21 @@ export const postContentChanges: SiteChangeSource = {
 	async check( site, before, after ) {
 		const changed = Object.keys( after ).filter( ( id ) => before[ id ] !== after[ id ] );
 		const reports: ChangeReport[] = [];
+		let saved = false;
 		for ( const post of changed.length ? await readPosts( site.path, changed ) : [] ) {
-			const result = await validatePost( site, post ).catch( ( error: unknown ) => ( {
-				summary: `${ site.name } ${ post.type } ${ post.id }: not validated (${
-					error instanceof Error ? error.message : String( error )
-				})`,
-				problem: undefined,
-			} ) );
+			const { saved: savedPost, ...result } = await validatePost( site, post ).catch(
+				( error: unknown ) => ( {
+					summary: `${ site.name } ${ post.type } ${ post.id }: not validated (${
+						error instanceof Error ? error.message : String( error )
+					})`,
+					problem: undefined,
+					saved: false,
+				} )
+			);
+			saved = saved || !! savedPost;
 			reports.push( { key: String( post.id ), ...result } );
 		}
-		return { reports };
+		// The posts Studio saved are compared from what it saved.
+		return { reports, next: saved ? await readVersions( site.path ) : undefined };
 	},
 };

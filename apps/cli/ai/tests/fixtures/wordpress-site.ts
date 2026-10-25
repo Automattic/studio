@@ -79,5 +79,17 @@ export function createSite( prefix = 'wp_' ) {
 			modified,
 			id
 		);
-	return { root, save, setOptions, edit };
+	const content = ( id: number ) => {
+		const db = new DatabaseSync( path.join( root, 'wp-content/database/.ht.sqlite' ) );
+		try {
+			return (
+				db.prepare( `SELECT post_content FROM ${ prefix }posts WHERE ID = ?` ).get( id ) as {
+					post_content: string;
+				}
+			 ).post_content;
+		} finally {
+			db.close();
+		}
+	};
+	return { root, save, setOptions, edit, content };
 }

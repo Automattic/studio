@@ -5,12 +5,19 @@ import { storePaletteColors, validateBlocks, type ValidationReport } from 'cli/a
 import { postContentChanges } from 'cli/ai/post-content-check';
 import { SiteChanges } from 'cli/ai/site-changes';
 import { createSite } from 'cli/ai/tests/fixtures/wordpress-site';
+import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import type { SiteData } from 'cli/lib/cli-config/core';
 
 vi.mock( 'cli/ai/block-validator', () => ( {
 	validateBlocks: vi.fn(),
 	storePaletteColors: vi.fn( async ( content: string ) => ( { content, colors: [] } ) ),
 } ) );
+vi.mock( 'cli/lib/daemon-client', () => ( {
+	connectToDaemon: vi.fn(),
+	disconnectFromDaemon: vi.fn(),
+} ) );
+// WP-CLI saves the file the PHP names to the post it names, as wp_update_post() would.
+vi.mock( 'cli/lib/run-wp-cli-command', () => ( { runWpCliCommand: vi.fn() } ) );
 vi.mock( 'cli/ai/theme-presets', () => ( {
 	themePresets: vi.fn( async () => ( { colors: [ [ 'accent-3', '#503AA8' ] ] } ) ),
 } ) );
@@ -40,7 +47,27 @@ beforeEach( () => {
 	fixture.save( 9, 'page', 'home', PARAGRAPH );
 	site = { id: '1', name: 'Bakery', path: fixture.root, port: 8881 } as SiteData;
 	vi.mocked( validateBlocks ).mockReset().mockResolvedValue( valid );
+	saves( true );
 } );
+
+// WP-CLI runs `wp eval` with the PHP Studio passes, saving the file it names
+// to the post it names, or failing.
+function saves( works: boolean ) {
+	vi.mocked( runWpCliCommand )
+		.mockReset()
+		.mockImplementation( async ( _site, args ) => {
+			const php = args[ 1 ];
+			const [ , id, file ] = php.match( /'ID' => (\d+)[\s\S]*ABSPATH \. "([^"]+)"/ )!;
+			expect( php ).toContain( 'kses_remove_filters();' );
+			if ( works ) {
+				fixture.edit( Number( id ), readFileSync( path.join( fixture.root, file ), 'utf8' ) );
+			}
+			return {
+				response: { exitCode: Promise.resolve( works ? 0 : 1 ) },
+				[ Symbol.asyncDispose ]: async () => {},
+			} as unknown as Awaited< ReturnType< typeof runWpCliCommand > >;
+		} );
+}
 
 afterEach( () => rmSync( fixture.root, { recursive: true, force: true } ) );
 
@@ -92,7 +119,26 @@ describe( 'post content changes', () => {
 		expect( validateBlocks ).not.toHaveBeenCalled();
 	} );
 
-	it( 'saves a lossless editor fix next to the site, with the command that applies it', async () => {
+	it( 'saves a lossless editor fix to the post, and compares the post from it', async () => {
+		vi.mocked( validateBlocks ).mockResolvedValue( losslessFix );
+		const check = checkPosts();
+		await check.snapshot();
+		fixture.edit( 9, UNWRAPPED_GROUP );
+		expect( await check.settle() ).toEqual( {
+			summaries: [
+				'Bakery page 9 "": Studio saved the block editor\'s save of it, which fixes 1 block(s) that do not match what the block saves, losing nothing, so it now holds what the editor saves',
+			],
+			problems: [],
+			written: [],
+		} );
+		expect( fixture.content( 9 ) ).toBe( WRAPPED_GROUP );
+		expect( existsSync( path.join( fixture.root, 'tmp/page-9.html' ) ) ).toBe( false );
+		// What Studio saved is not checked again.
+		expect( ( await check.settle() ).summaries ).toEqual( [] );
+	} );
+
+	it( 'saves a lossless editor fix next to the site, with the command that applies it, when it cannot save it', async () => {
+		saves( false );
 		vi.mocked( validateBlocks ).mockResolvedValue( losslessFix );
 		const check = checkPosts();
 		await check.snapshot();
@@ -127,14 +173,15 @@ describe( 'post content changes', () => {
 		const check = checkPosts();
 		await check.snapshot();
 		fixture.edit( 9, UNWRAPPED_GROUP );
-		const { problems } = await check.settle();
-		expect( problems[ 0 ] ).toContain( 'tmp/page-9.html' );
+		const { summaries, problems } = await check.settle();
+		expect( summaries[ 0 ] ).toContain( "Studio saved the block editor's save of it" );
+		expect( fixture.content( 9 ) ).toBe( WRAPPED_GROUP );
 		expect( problems[ 0 ] ).toContain(
 			"core/group: the editor's fix would drop the styles position:sticky; sticky"
 		);
 	} );
 
-	it( "saves the content with the palette's colors stored as presets, with the command that applies it", async () => {
+	it( "saves the content with the palette's colors stored as presets", async () => {
 		const PRESET = '<!-- wp:group {"backgroundColor":"accent-3"} -->';
 		vi.mocked( storePaletteColors ).mockResolvedValueOnce( {
 			content: PRESET,
@@ -149,11 +196,11 @@ describe( 'post content changes', () => {
 			'http://localhost:8881',
 			[ [ 'accent-3', '#503AA8' ] ]
 		);
-		expect( summaries ).toEqual( [ 'Bakery page 9 "": 1/1 blocks valid' ] );
-		expect( problems[ 0 ] ).toContain(
-			`Bakery page 9 "": the block editor's save stores #503AA8 as the palette's accent-3, as the editor stores a palette color (encodeColorValueWithPalette in @wordpress/block-editor), so it follows the palette, losing nothing; it is saved in`
-		);
-		expect( readFileSync( path.join( fixture.root, 'tmp/page-9.html' ), 'utf8' ) ).toBe( PRESET );
+		expect( problems ).toEqual( [] );
+		expect( summaries ).toEqual( [
+			`Bakery page 9 "": Studio saved the block editor's save of it, which stores #503AA8 as the palette's accent-3, as the editor stores a palette color (encodeColorValueWithPalette in @wordpress/block-editor), so it follows the palette, losing nothing, so it now holds what the editor saves`,
+		] );
+		expect( fixture.content( 9 ) ).toBe( PRESET );
 	} );
 
 	it( 'reports a validation that cannot run', async () => {

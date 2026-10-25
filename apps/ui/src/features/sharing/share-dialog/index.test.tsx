@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { ConnectorProvider } from '@/data/core';
@@ -9,7 +9,10 @@ import type { Connector, SiteDetails, Snapshot } from '@/data/core';
 // Sync activity outlives a render, so every test shares its own site.
 let siteCount = 0;
 
-function renderDialog( previews: Partial< Snapshot >[] = [] ) {
+function renderDialog(
+	previews: Partial< Snapshot >[] = [],
+	overrides: Partial< Connector > = {}
+) {
 	const site: SiteDetails = {
 		id: `site-${ ++siteCount }`,
 		name: 'Ada Portfolio',
@@ -46,16 +49,18 @@ function renderDialog( previews: Partial< Snapshot >[] = [] ) {
 		renameSnapshot: vi.fn().mockResolvedValue( undefined ),
 		copyText: vi.fn().mockResolvedValue( undefined ),
 		trackEvent: vi.fn(),
+		...overrides,
 	} as unknown as Connector;
+	const onOpenChange = vi.fn();
 	const queryClient = new QueryClient( { defaultOptions: { queries: { retry: false } } } );
 	render(
 		<QueryClientProvider client={ queryClient }>
 			<ConnectorProvider connector={ connector }>
-				<ShareDialog site={ site } open onOpenChange={ vi.fn() } />
+				<ShareDialog site={ site } open onOpenChange={ onOpenChange } />
 			</ConnectorProvider>
 		</QueryClientProvider>
 	);
-	return { connector, site };
+	return { connector, site, onOpenChange };
 }
 
 describe( 'ShareDialog', () => {
@@ -65,6 +70,32 @@ describe( 'ShareDialog', () => {
 		await userEvent.click( await screen.findByRole( 'button', { name: 'Create preview' } ) );
 		expect( connector.publishPreviewSite ).toHaveBeenCalledOnce();
 		expect( connector.publishPreviewSite ).toHaveBeenCalledWith( site.id, undefined, undefined );
+	} );
+
+	it( 'watches for the return from checkout before opening it, and keeps a failure to open it', async () => {
+		const { connector, site, onOpenChange } = renderDialog( [ {} ], {
+			getPublishCheckoutUrl: vi.fn().mockReturnValue( 'https://wordpress.com/checkout' ),
+			watchForPublishedSite: vi.fn().mockResolvedValue( undefined ),
+			openExternalUrl: vi
+				.fn()
+				.mockRejectedValueOnce( new Error( 'Unable to open checkout' ) )
+				.mockResolvedValue( undefined ),
+		} );
+		const watch = vi.mocked( connector.watchForPublishedSite! );
+		const open = vi.mocked( connector.openExternalUrl );
+
+		await userEvent.click( await screen.findByRole( 'button', { name: 'Choose a plan' } ) );
+
+		expect( await screen.findByRole( 'alert' ) ).toHaveTextContent( 'Unable to open checkout' );
+		expect( watch ).toHaveBeenCalledWith( site.id );
+		expect( watch.mock.invocationCallOrder[ 0 ] ).toBeLessThan(
+			open.mock.invocationCallOrder[ 0 ]
+		);
+		expect( onOpenChange ).not.toHaveBeenCalled();
+
+		await userEvent.click( screen.getByRole( 'button', { name: 'Choose a plan' } ) );
+
+		await waitFor( () => expect( onOpenChange ).toHaveBeenCalledWith( false ) );
 	} );
 
 	it( 'copies the link and updates the preview it shows', async () => {

@@ -3,6 +3,7 @@ import { __ } from '@wordpress/i18n';
 import { useCallback, useEffect, useRef } from 'react';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
+import { clearPreviewReady } from '@/data/preview-ready';
 import { USER_SCOPED_QUERY_KEYS } from '@/data/queries/user-scoped-query-keys';
 import type { TracksAuthSource } from '@studio/common/lib/record-tracks-event';
 
@@ -56,6 +57,7 @@ function useRemoveUserScopedQueries() {
 		for ( const key of USER_SCOPED_QUERY_KEYS ) {
 			queryClient.removeQueries( { queryKey: key } );
 		}
+		clearPreviewReady();
 	}, [ queryClient ] );
 }
 

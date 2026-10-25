@@ -17,7 +17,7 @@ import {
 	SidebarMenuLabel,
 	VisuallyHidden,
 } from '@/lib/ui';
-import { BulkMenu, useIsBulkTarget, useSelectableRow } from './selection';
+import { BulkMenu, useIsBulkTarget, useRowPressed, useSelectableRow } from './selection';
 import type { AiSessionSummary } from '@/data/core';
 import type { ReorderableItemProps } from '@/features/sidebar/reorderable-list';
 
@@ -55,6 +55,7 @@ export function ChatRow( {
 	const actions = useChatActions( session, active );
 	const selectable = useSelectableRow( chatPinKey( session.id ) );
 	const bulk = useIsBulkTarget( chatPinKey( session.id ) );
+	const pressed = useRowPressed( chatPinKey( session.id ) );
 	const [ menuOpen, setMenuOpen ] = useState( false );
 	const title = getSessionTitle( session );
 	const needsInput = activity === 'pending-question';
@@ -69,6 +70,7 @@ export function ChatRow( {
 								active={ active }
 								inset={ nested }
 								aria-current={ active ? 'page' : undefined }
+								aria-pressed={ pressed }
 								tooltip={
 									siteName
 										? sprintf(

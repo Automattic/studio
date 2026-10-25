@@ -29,6 +29,7 @@ import { CreatePanel } from './create-panel';
 import { BackupDropZone, ImportPanel } from './import-panel';
 import styles from './style.module.css';
 import type { SyncSite } from '@/data/core';
+import type { CreateSiteFormValues } from '@/features/sites/create-site-form';
 import type { AddSiteSection } from '@/features/sites/use-open-add-site';
 import type { BlueprintUseCase } from '@studio/common/lib/blueprint-catalog';
 import type { Blueprint } from '@studio/common/lib/studio-blueprints-api';
@@ -70,7 +71,9 @@ export function AddSiteDialog() {
 	const [ followedSite, followSite ] = useState< string >();
 	const [ actions, setActions ] = useState< HTMLElement | null >( null );
 	const [ lastViewed, setLastViewed ] = useState< string >();
+	const [ setupDraft, setSetupDraft ] = useState< Partial< CreateSiteFormValues > >();
 	const popup = useRef< HTMLDivElement >( null );
+	const createTab = useRef< HTMLButtonElement >( null );
 	const getInitialFocus = useCallback(
 		() =>
 			popup.current?.querySelector< HTMLElement >( 'input, [data-start-blank]' ) ??
@@ -85,6 +88,7 @@ export function AddSiteDialog() {
 			setProgress( null );
 			followSite( undefined );
 			setLastViewed( undefined );
+			setSetupDraft( undefined );
 		}
 	}
 	const pendingBlueprint = useSyncExternalStore(
@@ -104,8 +108,10 @@ export function AddSiteDialog() {
 			pinNewSite: ( siteId: string ) => {
 				if ( pin ) setPins( [ ...pins, sitePinKey( siteId ) ] );
 			},
+			setupDraft,
+			setSetupDraft,
 		} ),
-		[ actions, pin, pins, setPins ]
+		[ actions, pin, pins, setPins, setupDraft ]
 	);
 
 	const close = () => {
@@ -127,6 +133,11 @@ export function AddSiteDialog() {
 			: view.name === 'gallery' && view.useCase
 			? () => setView( { name: 'gallery' } )
 			: undefined;
+	// Back from a Blueprint category leaves focus on Create, in place of the Back button.
+	const goBack = () => {
+		back?.();
+		if ( view.name === 'gallery' ) createTab.current?.focus();
+	};
 
 	const title =
 		view.name === 'details'
@@ -169,7 +180,7 @@ export function AddSiteDialog() {
 											: __( 'Back' )
 									}
 									disabled={ !! progress }
-									onClick={ back }
+									onClick={ goBack }
 								/>
 								{ view.name === 'details' ? (
 									<>
@@ -281,7 +292,11 @@ export function AddSiteDialog() {
 						<TabsSidebar inert={ progress ? true : undefined }>
 							<TabsList variant="sidebar" aria-label={ __( 'Ways to add a site' ) }>
 								{ navItems.map( ( item ) => (
-									<TabsTrigger key={ item.value } value={ item.value }>
+									<TabsTrigger
+										key={ item.value }
+										ref={ item.value === 'create' ? createTab : undefined }
+										value={ item.value }
+									>
 										{ item.icon }
 										{ item.label }
 									</TabsTrigger>

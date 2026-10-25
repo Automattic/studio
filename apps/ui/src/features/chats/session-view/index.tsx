@@ -222,7 +222,7 @@ function SessionViewContent( { sessionId, headerStart }: SessionViewProps ) {
 	);
 
 	const isOutOfCredits = useIsOutOfAiCredits() && isWpcom;
-	useMarkChatRead( sessionId, data?.summary.unread );
+	useMarkChatRead( sessionId, data?.summary, hasActiveRun );
 
 	const [ frameNode, setFrameNode ] = useState< HTMLDivElement | null >( null );
 	const { data: preferences } = useUserPreferences();

@@ -324,18 +324,14 @@
 }
 
 .questionCard {
+	--surface: var(--muted);
 	display: flex;
 	flex-direction: column;
 	gap: 16px;
 	width: 100%;
 	padding: 16px;
 	border-radius: 16px;
-	background-color: var(--muted);
-}
-
-/* The card is a muted surface, so the rows inside it step up a shade. */
-.questionCard > * {
-	--muted: var(--surface-3);
+	background-color: var(--surface);
 }
 
 .questionText {

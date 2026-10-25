@@ -42,13 +42,12 @@
 		isolation: isolate;
 		min-width: 16px;
 		height: 16px;
-		background-color: color-mix( in oklab, var( --background ) 20%, transparent );
+		background-color: light-dark(
+			color-mix( in oklab, var( --background ) 20%, transparent ),
+			color-mix( in oklab, var( --background ) 10%, transparent )
+		);
 		color: var( --background );
 		font-size: var( --text-xxs );
-	}
-
-	:root[data-color-scheme='dark'] [data-slot='tooltip-content'] .kbd {
-		background-color: color-mix( in oklab, var( --background ) 10%, transparent );
 	}
 
 	.group {

@@ -92,12 +92,6 @@
 		white-space: nowrap;
 	}
 
-	/* On the composer's surface the muted fill and hover wash step up a shade. */
-	:global( html[data-color-scheme='dark'] ) .sheet {
-		--muted: var( --surface-4 );
-		--hover: var( --muted );
-	}
-
 	/* The palette's long list scrolls without a bar. */
 	.list[data-size='default'] {
 		scrollbar-width: none;

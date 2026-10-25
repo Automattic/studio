@@ -62,12 +62,6 @@
 	height: auto;
 }
 
-/* On the composer's surface the muted fill and hover wash step up a shade. */
-:global(html[data-color-scheme='dark']) .shell {
-	--muted: var(--surface-4);
-	--hover: var(--muted);
-}
-
 /* Text-input chrome, like the form inputs beside it, instead of the chat composer. */
 .shellField {
 	border-radius: 9px;

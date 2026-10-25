@@ -46,12 +46,11 @@
 		height: 36px;
 		padding: 0 2px;
 		border-radius: var( --radius-lg );
-		background-color: var( --muted );
+		background-color: light-dark( var( --muted ), var( --background ) );
 	}
 
-	:root[data-color-scheme='dark'] .list[data-variant='scope'] {
+	[data-color-scheme='dark'] .list[data-variant='scope'] {
 		border: 1px solid var( --border );
-		background-color: var( --background );
 	}
 
 	.list[data-variant='sidebar'] {
@@ -123,13 +122,9 @@
 		width: var( --active-tab-width );
 		height: var( --active-tab-height );
 		border-radius: var( --radius-md );
-		background-color: var( --background );
+		background-color: light-dark( var( --background ), var( --muted ) );
 		translate: var( --active-tab-left ) var( --active-tab-top );
 		pointer-events: none;
-	}
-
-	:root[data-color-scheme='dark'] .indicator {
-		background-color: var( --muted );
 	}
 
 	.list:has( [data-active]:focus-visible ) > .indicator {

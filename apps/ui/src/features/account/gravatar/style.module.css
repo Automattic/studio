@@ -19,7 +19,7 @@
 	mix-blend-mode: darken;
 }
 
-:root[data-color-scheme='dark'] .root::after {
+[data-color-scheme='dark'] .root::after {
 	mix-blend-mode: lighten;
 }
 

@@ -9,6 +9,10 @@
 		height: 16px;
 		border: 1px solid var( --input );
 		border-radius: 4px;
+		background-color: light-dark(
+			transparent,
+			color-mix( in oklab, var( --input ) 30%, transparent )
+		);
 		cursor: pointer;
 		outline: none;
 	}
@@ -17,10 +21,6 @@
 		position: absolute;
 		inset: -8px -12px;
 		content: '';
-	}
-
-	:root[data-color-scheme='dark'] .checkbox:not( [data-checked] ) {
-		background-color: color-mix( in oklab, var( --input ) 30%, transparent );
 	}
 
 	.checkbox[data-checked] {

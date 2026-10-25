@@ -45,19 +45,14 @@
 	}
 
 	.group[data-variant='settings'] {
+		--surface: var( --muted );
 		gap: 0;
 		padding: 20px;
 		border-radius: var( --radius-xl );
-		background-color: var( --muted );
-	}
-
-	:root[data-color-scheme='dark'] .group[data-variant='settings'] {
-		background-color: color-mix( in oklab, var( --muted ) 70%, transparent );
-	}
-
-	/* Controls on the card step one surface up, so their hover fills still show. */
-	.group[data-variant='settings'] > * {
-		--muted: var( --surface-3 );
+		background-color: light-dark(
+			var( --surface ),
+			color-mix( in oklab, var( --surface ) 70%, transparent )
+		);
 	}
 
 	.group[data-variant='settings'] > .field {

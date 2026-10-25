@@ -3,12 +3,12 @@
 	flex-wrap: wrap;
 	align-items: center;
 	justify-content: space-between;
-	gap: 16px;
-	margin-bottom: calc(20px * 1.25);
-	padding: 16px 20px;
-	border: 1px solid var(--border);
-	border-radius: 16px;
-	background: var(--muted);
+	gap: var( --space-4 );
+	margin-bottom: calc( var( --space-5 ) * 1.25 );
+	padding: var( --space-4 ) var( --space-5 );
+	border: 1px solid var( --border );
+	border-radius: var( --radius-2xl );
+	background: var( --muted );
 }
 
 .text {
@@ -17,22 +17,22 @@
 }
 
 .heading {
-	margin: 0 0 8px;
-	font-size: var(--text-xs);
+	margin: 0 0 var( --space-2 );
+	font-size: var( --text-xs );
 	line-height: 24px;
-	font-weight: var(--font-weight-semibold);
-	color: var(--foreground);
+	font-weight: var( --font-weight-semibold );
+	color: var( --foreground );
 }
 
 .benefits {
-	padding-inline-start: 16px;
+	padding-inline-start: var( --space-4 );
 	list-style: disc;
 	display: flex;
 	flex-direction: column;
-	gap: 4px;
-	font-size: var(--text-xxs);
+	gap: var( --space-1 );
+	font-size: var( --text-xxs );
 	line-height: 20px;
-	color: var(--muted-foreground);
+	color: var( --muted-foreground );
 }
 
 .actions {

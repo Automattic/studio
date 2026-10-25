@@ -3,38 +3,36 @@
 	flex: none;
 	align-items: center;
 	height: 36px;
-	margin: 16px 0 0;
-	padding: 0 8px;
-	color: var(--muted-foreground);
-	font-size: var(--text-sm);
-	font-weight: var(--font-weight-medium);
-	line-height: 20px;
+	margin: var( --space-4 ) 0 0;
+	padding: 0 var( --space-2 );
+	color: var( --muted-foreground );
+	font-size: var( --text-sm );
+	font-weight: var( --font-weight-medium );
+	line-height: var( --text-sm--line-height );
 }
 
 .leading {
 	display: flex;
 	align-items: center;
-	gap: 12px;
+	gap: var( --space-3 );
 }
 
 .title {
+	composes: truncate from '@/lib/theme/recipes.module.css';
 	display: block;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
 }
 
 .crumbSeparator {
-	color: var(--muted-foreground);
+	color: var( --muted-foreground );
 }
 
 .progress {
 	display: flex;
 	align-items: center;
-	gap: 8px;
+	gap: var( --space-2 );
 	overflow: hidden;
-	color: var(--muted-foreground);
-	font-size: var(--text-xs);
+	color: var( --muted-foreground );
+	font-size: var( --text-xs );
 	white-space: nowrap;
 }
 

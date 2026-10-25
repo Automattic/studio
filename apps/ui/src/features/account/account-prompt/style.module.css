@@ -3,13 +3,13 @@
 	flex-direction: column;
 	align-items: center;
 	width: 100%;
-	margin-top: -16px;
-	padding-bottom: 32px;
+	margin-top: calc( var( --space-4 ) * -1 );
+	padding-bottom: var( --space-8 );
 	text-align: center;
 	text-wrap: pretty;
 }
 
-:global([data-slot='empty']) > .body {
+:global( [data-slot='empty'] ) > .body {
 	margin-top: 0;
 	padding-bottom: 0;
 }
@@ -19,7 +19,7 @@
 	width: 100%;
 	max-width: 448px;
 	aspect-ratio: 2.6 / 1;
-	margin-bottom: 20px;
+	margin-bottom: var( --space-5 );
 	pointer-events: none;
 }
 
@@ -29,13 +29,14 @@
 	position: absolute;
 	top: 50%;
 	aspect-ratio: 4 / 3;
-	border-radius: var(--radius-md);
-	background-color: var(--muted);
+	border-radius: var( --radius-md );
+	background-color: var( --muted );
 	background-position: center;
 	background-size: cover;
+	/* eslint-disable-next-line studio/use-theme-tokens -- a one-off card shadow, lighter than --shadow-sm. */
 	box-shadow:
-		inset 0 0 0 1px var(--border),
-		0 1px 3px rgb(0 0 0 / 10%);
+		inset 0 0 0 1px var( --border ),
+		0 1px 3px rgb( 0 0 0 / 10% );
 }
 
 .cardStart,
@@ -45,40 +46,40 @@
 
 .cardStart {
 	left: 10%;
-	transform: translateY(-45%) rotate(-8deg);
+	transform: translateY( -45% ) rotate( -8deg );
 }
 
 .cardEnd {
 	right: 10%;
-	transform: translateY(-45%) rotate(8deg);
+	transform: translateY( -45% ) rotate( 8deg );
 }
 
 .cardCenter {
 	left: 50%;
 	z-index: 1;
 	width: 43%;
-	transform: translate(-50%, -50%);
+	transform: translate( -50%, -50% );
 }
 
-@media (prefers-reduced-motion: no-preference) {
+@media ( prefers-reduced-motion: no-preference ) {
 	.cardStart,
 	.cardEnd {
-		transition: transform calc(var(--motion-duration-layout) * 2) var(--motion-ease-enter);
+		transition: transform calc( var( --motion-duration-layout ) * 2 ) var( --motion-ease-enter );
 	}
 
 	@starting-style {
 		.cardStart {
-			transform: translate(62.5%, -50%) scale(0.97);
+			transform: translate( 62.5%, -50% ) scale( 0.97 );
 		}
 
 		.cardEnd {
-			transform: translate(-62.5%, -50%) scale(0.97);
+			transform: translate( -62.5%, -50% ) scale( 0.97 );
 		}
 	}
 }
 
 .title {
-	font-size: var(--text-xl);
+	font-size: var( --text-xl );
 	font-weight: 550;
 	line-height: 1.4;
 	letter-spacing: -0.02em;
@@ -86,23 +87,23 @@
 
 .description {
 	max-width: 320px;
-	margin: 4px 0 0;
-	color: var(--muted-foreground);
-	font-size: var(--text-sm);
-	line-height: 1.625;
+	margin: var( --space-1 ) 0 0;
+	color: var( --muted-foreground );
+	font-size: var( --text-sm );
+	line-height: var( --leading-relaxed );
 }
 
 .error {
-	margin: 12px 0 0;
-	color: var(--destructive);
-	font-size: var(--text-xs);
+	margin: var( --space-3 ) 0 0;
+	color: var( --destructive );
+	font-size: var( --text-xs );
 }
 
 .actions {
 	display: flex;
 	flex-direction: column;
 	align-items: center;
-	gap: 16px;
-	margin-top: 28px;
-	font-size: var(--text-xs);
+	gap: var( --space-4 );
+	margin-top: var( --space-7 );
+	font-size: var( --text-xs );
 }

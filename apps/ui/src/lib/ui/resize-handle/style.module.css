@@ -1,6 +1,6 @@
 .resizeHandle {
 	width: 8px;
-	z-index: 20;
+	z-index: var( --z-overlay );
 	display: flex;
 	align-items: stretch;
 	justify-content: center;
@@ -15,13 +15,13 @@
 }
 
 .resizeHandle:focus-visible .resizeHandleIndicator {
-	background-color: var(--ring);
+	background-color: var( --ring );
 }
 
 .resizeOverlay {
 	position: fixed;
 	inset: 0;
-	z-index: var(--z-drag);
+	z-index: var( --z-drag );
 	cursor: col-resize;
 	user-select: none;
 	-webkit-app-region: no-drag;

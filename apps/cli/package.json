@@ -22,6 +22,7 @@
 		"directory": "apps/cli"
 	},
 	"dependencies": {
+		"@agentclientprotocol/sdk": "^2.0.2",
 		"@anthropic-ai/sdk": "^0.91.1",
 		"@earendil-works/pi-agent-core": "0.84.2",
 		"@earendil-works/pi-ai": "0.84.2",

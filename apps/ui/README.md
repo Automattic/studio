@@ -1,8 +1,8 @@
 # @studio/ui
 
-A new UI layer for Studio that runs as the Electron renderer.
+The UI of Studio: the renderer of the Desktop app and the page `studio ui` serves in the browser.
 
-The UI is built around a portable connector pattern, so the same React app could be wired to a different backend (e.g. a REST API for a hosted/web version) without changing the UI code. For now, only the Electron IPC connector is shipped.
+The UI is built around a portable connector pattern, so the same React app runs against either backend without changing the UI code: the `ipc` connector talks to the Electron main process, the `local` connector to the `apps/local` HTTP server.
 
 ## Architecture
 
@@ -17,11 +17,12 @@ data/core/
   query-client.ts         # TanStack Query client with localStorage persistence
   connectors/
     ipc/index.ts          # Electron IPC implementation
+    local/index.ts        # `studio ui` HTTP/SSE implementation
 ```
 
 Components access data through the `useConnector()` hook, which pulls the active connector from React Context. This keeps all UI code environment-agnostic.
 
-The interface includes both a data surface (`getSites`, `createSite`, `deleteSite`, `startSite`, `stopSite`) and an auth surface (`requiresAuth`, `isAuthenticated`, `authenticate`, `logout`, `getAuthUser`). The auth surface is reserved for future non-Electron connectors -- the IPC connector sets `requiresAuth: false` and delegates to the desktop app.
+The interface includes both a data surface (`getSites`, `createSite`, `deleteSite`, `startSite`, `stopSite`, …) and an auth surface (`getAuthUser`, `authenticate`, `logout`).
 
 ### Data fetching with TanStack Query
 
@@ -82,7 +83,7 @@ UI is built on Base UI with its own primitives and theme. Icons come from `lucid
 The theme lives in `src/lib/theme/`:
 
 - `tokens.css`: every design token, below.
-- `base.css`: the page and element defaults (fonts, body, headings, icon size, reduced motion and transparency).
+- `base.css`: the page and element defaults (fonts, body, headings, icon size, reduced transparency).
 - `index.ts`: applies the color scheme and the Appearance settings to the root; `accent-contrast.ts` and `color.ts` keep the accent readable; `motion.ts` reads the motion tokens from script.
 
 `tokens.css` defines every token the UI uses:
@@ -98,8 +99,14 @@ Colors derive in CSS from a few inputs on the root element (`--tint-hue`, `--tin
 
 ## Development
 
-Run the full Electron app with the new UI as the renderer:
+Run the Desktop app with the UI as its renderer:
 
 ```bash
-npm run start:new
+npm start
+```
+
+Or serve it in the browser through `studio ui`:
+
+```bash
+npm run cli:build:ui && node apps/cli/dist/cli/main.mjs ui
 ```

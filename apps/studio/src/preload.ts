@@ -122,6 +122,7 @@ const api: IpcApi = {
 	getUserPreferences: () => ipcRendererInvoke( 'getUserPreferences' ),
 	setUserPreferences: ( patch ) => ipcRendererInvoke( 'setUserPreferences', patch ),
 	getOnboardingHints: () => ipcRendererInvoke( 'getOnboardingHints' ),
+	consumePendingSettingsLink: () => ipcRendererInvoke( 'consumePendingSettingsLink' ),
 	saveOnboardingHints: ( partial ) => ipcRendererInvoke( 'saveOnboardingHints', partial ),
 	comparePaths: ( path1, path2 ) => ipcRendererInvoke( 'comparePaths', path1, path2 ),
 	listLocalFileTree: ( siteId, path, maxDepth ) =>

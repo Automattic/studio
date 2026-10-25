@@ -15,6 +15,7 @@ import path from 'path';
 import * as Sentry from '@sentry/electron/main';
 import { PROTOCOL_PREFIX } from '@studio/common/constants';
 import { runMigrations } from '@studio/common/lib/migration';
+import { parseSettingsLink } from '@studio/common/lib/settings-link';
 import { getCurrentUserId } from '@studio/common/lib/shared-config';
 import { suppressPunycodeWarning } from '@studio/common/lib/suppress-punycode-warning';
 import { updateSiteMetadata } from '@studio/common/sites/metadata';
@@ -162,6 +163,9 @@ const isInInstaller = require( 'electron-squirrel-startup' );
 const gotTheLock = app.requestSingleInstanceLock();
 
 let finishedInitialization = false;
+// A settings link that launches Studio, opened once it has started. Windows and
+// Linux pass it in the arguments, macOS in an early `open-url`.
+let launchSettingsLink = process.argv.find( ( arg ) => parseSettingsLink( arg ) );
 
 const YOUTUBE_EMBED_REFERRER = 'https://developer.wordpress.com/studio/';
 const YOUTUBE_EMBED_URL_PATTERNS = [
@@ -377,6 +381,10 @@ async function appBoot() {
 	function setupCustomProtocolHandler() {
 		if ( process.platform === 'darwin' ) {
 			app.on( 'open-url', ( _event, url ) => {
+				if ( ! finishedInitialization && parseSettingsLink( url ) ) {
+					launchSettingsLink = url;
+					return;
+				}
 				void handleDeeplink( url );
 			} );
 		} else {
@@ -535,6 +543,10 @@ async function appBoot() {
 		await autoInstallLinuxCliIfNeeded();
 
 		finishedInitialization = true;
+		if ( launchSettingsLink ) {
+			void handleDeeplink( launchSettingsLink );
+			launchSettingsLink = undefined;
+		}
 	} );
 
 	// Quit when all windows are closed, except on macOS. There, it's common

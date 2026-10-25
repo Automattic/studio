@@ -240,3 +240,31 @@ describe( 'createIpcConnector debug log', () => {
 		expect( openLocalPath ).not.toHaveBeenCalled();
 	} );
 } );
+
+describe( 'createIpcConnector settings links', () => {
+	const consumePendingSettingsLink = vi.fn();
+	const subscribe = vi.fn();
+
+	beforeEach( () => {
+		vi.clearAllMocks();
+		vi.stubGlobal( 'ipcApi', { consumePendingSettingsLink } );
+		vi.stubGlobal( 'ipcListener', { subscribe } );
+	} );
+
+	afterEach( () => {
+		vi.unstubAllGlobals();
+	} );
+
+	it( 'opens a link that arrived before the subscription once, and the menu item each time', async () => {
+		consumePendingSettingsLink.mockResolvedValueOnce( 'language' ).mockResolvedValue( null );
+		const listener = vi.fn();
+
+		createIpcConnector().onOpenSettings( listener );
+		const [ [ , receive ] ] = subscribe.mock.calls;
+		receive( {}, { settingId: 'language' } );
+		receive( {}, { tabName: 'general' } );
+
+		await vi.waitFor( () => expect( consumePendingSettingsLink ).toHaveBeenCalledTimes( 2 ) );
+		expect( listener.mock.calls ).toEqual( [ [ {} ], [ { settingId: 'language' } ] ] );
+	} );
+} );

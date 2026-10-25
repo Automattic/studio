@@ -201,6 +201,36 @@ describe( 'SettingsDialog', () => {
 		await waitFor( () => expect( screen.getByRole( 'textbox', { name: 'Theme' } ) ).toHaveFocus() );
 	} );
 
+	it( 'reveals a linked setting again when its link is followed again or it is searched for', () => {
+		vi.useFakeTimers();
+		try {
+			const dialog = renderDialog( { settings: 'appearance', settingsFocus: 'theme' } );
+			const row = screen.getByRole( 'textbox', { name: 'Theme' } ).closest( '[data-settings-row]' );
+			expect( row ).toHaveAttribute( 'data-settings-match' );
+			act( () => {
+				vi.advanceTimersByTime( 3000 );
+			} );
+			expect( row ).not.toHaveAttribute( 'data-settings-match' );
+
+			const input = screen.getByRole( 'textbox', { name: 'Search settings' } );
+			fireEvent.change( input, { target: { value: 'php' } } );
+			search = { ...search, settingsFocus: 'theme' };
+			dialog.update();
+			expect( input ).toHaveValue( '' );
+			expect( row ).toHaveAttribute( 'data-settings-match' );
+			act( () => {
+				vi.advanceTimersByTime( 3000 );
+			} );
+
+			fireEvent.change( input, { target: { value: 'theme' } } );
+			fireEvent.keyDown( input, { key: 'Enter' } );
+			dialog.update();
+			expect( row ).toHaveAttribute( 'data-settings-match' );
+		} finally {
+			vi.useRealTimers();
+		}
+	} );
+
 	it( 'says so when a linked setting is not on this device', async () => {
 		vi.useFakeTimers();
 		try {

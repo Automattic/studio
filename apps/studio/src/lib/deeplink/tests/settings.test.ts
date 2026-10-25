@@ -4,6 +4,7 @@
 import { vi } from 'vitest';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
 import { handleDeeplink } from 'src/lib/deeplink/deeplink-handler';
+import { takePendingSettingsLink } from 'src/lib/deeplink/handlers/settings';
 import { getMainWindow } from 'src/main-window';
 
 vi.mock( 'src/ipc-utils' );
@@ -28,6 +29,8 @@ describe( 'the settings deeplink', () => {
 		expect( sendIpcEventToRenderer ).toHaveBeenCalledWith( 'user-settings', {
 			settingId: 'code-editor',
 		} );
+		expect( takePendingSettingsLink() ).toBe( 'code-editor' );
+		expect( takePendingSettingsLink() ).toBeNull();
 	} );
 
 	it( 'passes an id this version does not know on to the renderer', async () => {

@@ -440,6 +440,7 @@ describe( 'CreateSiteForm', () => {
 				path: '/sites/occupied',
 				isEmpty: false,
 				isWordPress: true,
+				error: 'Choose an empty folder for your site.',
 			} ) ),
 			selectPath: vi.fn(),
 		} );
@@ -458,6 +459,7 @@ describe( 'CreateSiteForm', () => {
 				'Choose an empty folder for your site.'
 			)
 		);
+		expect( usePathValidatorMock ).toHaveBeenCalledWith( expect.anything(), true );
 		expect( screen.queryByText( 'Existing local WordPress site' ) ).not.toBeInTheDocument();
 		expect( screen.getByRole( 'button', { name: 'Create site' } ) ).toBeDisabled();
 	} );

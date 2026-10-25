@@ -78,7 +78,7 @@ export class OpenProblems {
 export function describeOpenProblems( problems: string[] ): string {
 	return (
 		studioMessage( 'checks', [
-			'Studio checked the sites this turn changed:',
+			"Studio checked the sites this turn changed. Each item is how WordPress treats the site as it is now, from WordPress's source. The turn is done when each is resolved, or, for one that needs the user's choice, when the user is asked:",
 			...problems.map( ( problem ) => `- ${ problem }` ),
 		] ) ?? ''
 	);

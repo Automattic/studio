@@ -33,7 +33,6 @@ export interface UserData {
 	lastBumpStats?: Record< string, Partial< Record< StatsMetric, number > > >;
 	promptWindowsSpeedUpResult?: PromptWindowsSpeedUpResult;
 	sentryUserId?: string;
-	lastSeenVersion?: string;
 	preferredTerminal?: SupportedTerminal;
 	preferredEditor?: SupportedEditor;
 	colorScheme?: 'system' | 'light' | 'dark';
@@ -66,6 +65,7 @@ export interface OnboardingHintsState {
 	tourCompletedVersion?: number;
 	tourDismissedVersion?: number;
 	migratedFromClassic?: boolean;
+	whatsNewSeenVersion?: number;
 }
 
 export const EMPTY_USER_DATA: UserData = {

@@ -762,13 +762,3 @@
 		-webkit-text-fill-color: var(--muted-foreground);
 	}
 }
-
-/* Fixed What's New artwork rather than a built scene: fill the stage, cropping
-   rather than letterboxing on a narrow viewport. */
-.artwork {
-	position: absolute;
-	inset: 0;
-	width: 100%;
-	height: 100%;
-	object-fit: cover;
-}

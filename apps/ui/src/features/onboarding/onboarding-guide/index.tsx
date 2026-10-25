@@ -13,7 +13,7 @@ import {
 	DialogTitle,
 	VisuallyHidden,
 } from '@/lib/ui';
-import { GuideIllustration, isDarkGuideIllustration, needsCloseScrim } from './illustrations';
+import { GuideIllustration, isDarkGuideIllustration } from './illustrations';
 import styles from './style.module.css';
 import type { GuideDefinition } from './guide';
 
@@ -71,12 +71,11 @@ export function OnboardingGuide( { guide, onComplete, onDismiss }: OnboardingGui
 				initialFocus={ advanceRef }
 				data-orientation-guide
 			>
-				<GuideIllustration id={ page.illustration } title={ page.title() } />
+				<GuideIllustration id={ page.illustration } />
 				<DialogClose
 					className={ clsx(
 						styles.close,
-						isDarkGuideIllustration( page.illustration ) && styles.closeOnDark,
-						needsCloseScrim( page.illustration ) && styles.closeOverArt
+						isDarkGuideIllustration( page.illustration ) && styles.closeOnDark
 					) }
 					render={ <DialogDismissButton label={ __( 'Skip' ) } /> }
 				/>

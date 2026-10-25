@@ -1,26 +1,23 @@
-import { FORCE_SHOW_WHATS_NEW } from '@studio/common/lib/whats-new';
 import { describe, expect, it } from 'vitest';
 import { ORIENTATION_GUIDE_VERSION } from './orientation-guide';
 import { deriveWhatsNewAutostart } from './use-whats-new-autostart';
+import { WHATS_NEW_VERSION } from './whats-new';
 import type { OnboardingHintsState } from '@/data/core';
 
-// Everything ready, the user has been through orientation, and they have never
-// dismissed the announcements — the state in which they actually open.
+// Someone upgrading: they have a site, went through orientation on an earlier
+// release, and haven't seen the current pages.
 const base = {
 	siteCount: 1,
+	agenticReady: true,
 	hints: { tourCompletedVersion: ORIENTATION_GUIDE_VERSION } as OnboardingHintsState,
-	lastSeenVersion: null,
-	currentVersion: '1.17.0',
+	dialogOpen: false,
 	guideOpen: false,
 	alreadyStarted: false,
 };
 
 describe( 'deriveWhatsNewAutostart', () => {
-	it( 'shows the announcements to someone who has never dismissed them', () => {
+	it( 'shows the pages to someone upgrading', () => {
 		expect( deriveWhatsNewAutostart( base ) ).toBe( 'show' );
-	} );
-
-	it( 'shows them when orientation was skipped rather than completed', () => {
 		expect(
 			deriveWhatsNewAutostart( {
 				...base,
@@ -29,44 +26,39 @@ describe( 'deriveWhatsNewAutostart', () => {
 		).toBe( 'show' );
 	} );
 
-	it( 'banks the version without showing when orientation has not run yet', () => {
-		// A first-run user gets the orientation guide instead; nothing here is news
-		// to them, and two modals in a row is worse than none.
-		expect( deriveWhatsNewAutostart( { ...base, hints: {} } ) ).toBe( 'mark-seen' );
-	} );
-
-	it( 'banks the version when orientation itself was bumped and is about to re-run', () => {
+	it( 'shows them again when the pages change', () => {
 		expect(
 			deriveWhatsNewAutostart( {
 				...base,
-				hints: { tourCompletedVersion: ORIENTATION_GUIDE_VERSION - 1 },
+				hints: { ...base.hints, whatsNewSeenVersion: WHATS_NEW_VERSION - 1 },
 			} )
-		).toBe( 'mark-seen' );
+		).toBe( 'show' );
 	} );
 
-	it( 'waits until there is at least one site', () => {
+	it( 'does not show the pages once seen', () => {
+		expect(
+			deriveWhatsNewAutostart( {
+				...base,
+				hints: { ...base.hints, whatsNewSeenVersion: WHATS_NEW_VERSION },
+			} )
+		).toBeNull();
+	} );
+
+	it( 'marks them seen without showing on a first run, which gets the orientation guide', () => {
+		expect( deriveWhatsNewAutostart( { ...base, hints: {} } ) ).toBe( 'mark-seen' );
+	} );
+
+	it( 'waits while Welcome, Settings or Add site is open', () => {
+		expect( deriveWhatsNewAutostart( { ...base, dialogOpen: true } ) ).toBeNull();
+	} );
+
+	it( 'waits for a site and for the workspace state to load', () => {
 		expect( deriveWhatsNewAutostart( { ...base, siteCount: 0 } ) ).toBeNull();
-	} );
-
-	it( 'waits until hints, the stored version, and the current version have loaded', () => {
+		expect( deriveWhatsNewAutostart( { ...base, agenticReady: false } ) ).toBeNull();
 		expect( deriveWhatsNewAutostart( { ...base, hints: undefined } ) ).toBeNull();
-		expect( deriveWhatsNewAutostart( { ...base, lastSeenVersion: undefined } ) ).toBeNull();
-		expect( deriveWhatsNewAutostart( { ...base, currentVersion: undefined } ) ).toBeNull();
 	} );
 
-	it( 'does not re-show once the announcements have been dismissed', () => {
-		expect( deriveWhatsNewAutostart( { ...base, lastSeenVersion: '1.17.0' } ) ).toBeNull();
-	} );
-
-	it( 'follows FORCE_SHOW_WHATS_NEW on an app version the user has not seen', () => {
-		// The switch is the release lever: a version bump alone never re-shows the
-		// modal, so this tracks the constant rather than asserting one branch.
-		expect( deriveWhatsNewAutostart( { ...base, lastSeenVersion: '1.16.0' } ) ).toBe(
-			FORCE_SHOW_WHATS_NEW ? 'show' : null
-		);
-	} );
-
-	it( 'does not open while a guide is already open or already started', () => {
+	it( 'does not open over another guide, or twice in a session', () => {
 		expect( deriveWhatsNewAutostart( { ...base, guideOpen: true } ) ).toBeNull();
 		expect( deriveWhatsNewAutostart( { ...base, alreadyStarted: true } ) ).toBeNull();
 	} );

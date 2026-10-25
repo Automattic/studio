@@ -16,6 +16,7 @@ import {
 	RefreshCwIcon,
 	SearchIcon,
 	SettingsIcon,
+	SparklesIcon,
 	TerminalIcon,
 	UploadIcon,
 	XIcon,
@@ -43,6 +44,7 @@ import {
 	useCommandPaletteOpen,
 } from '@/features/commands/use-command-palette';
 import { openNoticeHistory } from '@/features/notifications';
+import { useOpenWhatsNew } from '@/features/onboarding';
 import { useOpenSettings, getSections } from '@/features/settings';
 import { useCollapseAll, useSidebarOpen, useToggleSidebar } from '@/features/sidebar';
 import {
@@ -250,6 +252,7 @@ function useAppCommands(): PaletteCommand[] {
 	const savePreferences = useSaveUserPreferences();
 	const collapseAll = useCollapseAll();
 	const settingCommands = useSettingCommands( 'studio' );
+	const openWhatsNew = useOpenWhatsNew();
 
 	const chats = chatEnabled
 		? ( sessions ?? [] )
@@ -327,6 +330,14 @@ function useAppCommands(): PaletteCommand[] {
 			icon: BellIcon,
 			aliases: [ __( 'Notifications' ) ],
 			run: openNoticeHistory,
+		},
+		{
+			id: 'whats-new',
+			group: 'commands',
+			label: __( 'What’s New' ),
+			icon: SparklesIcon,
+			keywords: [ __( 'New features' ) ],
+			run: openWhatsNew,
 		},
 		...( collapseAll
 			? [

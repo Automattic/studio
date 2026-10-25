@@ -2,15 +2,12 @@
 
 The What's New modal allows users to view new features and updates in WordPress Studio.
 
-It can also be opened manually through the app menu via _Help → What's New_.
+It can also be opened manually through the app menu via _Help → What's New_, or from the ⌘K command palette in both apps.
 
 ## Implementation
 
-The modal is a guide in `apps/ui`: its pages (copy, illustrations and links) are defined in `apps/ui/src/features/onboarding/onboarding-guide/whats-new.ts`.
+The modal is a guide in `apps/ui`: its pages (copy and illustrations) are defined in `apps/ui/src/features/onboarding/onboarding-guide/whats-new.ts`, and the illustrations are scenes drawn with the theme tokens in `illustrations/whats-new.tsx`.
 
-It relies on the `lastSeenVersion` value stored in `app.json` (`useLastSeenVersion` in `apps/ui/src/data/queries/use-whats-new-seen.ts`). `hasUnseenWhatsNew` in `packages/common/lib/whats-new.ts` decides whether it is due:
+`WHATS_NEW_VERSION`, next to the pages, is the content version. Bump it in the same change that replaces the pages. The user's last seen version is `whatsNewSeenVersion` in the onboarding hints in `app.json`, shared by the Desktop app and `studio ui`, so seeing the pages in one settles both. Closing the guide any way (Done, Skip or Esc) records the current version.
 
-- when `lastSeenVersion` is not set, the modal is due;
-- otherwise it is due only when `FORCE_SHOW_WHATS_NEW` is `true` and the app version changed. Flip the flag to `true` when shipping new modal content, and back to `false` once the next release no longer needs to announce it.
-
-`deriveWhatsNewAutostart` (`apps/ui/src/features/onboarding/onboarding-guide/use-whats-new-autostart.ts`) opens it only once the user has a site and has been through the orientation guide. A first-run user gets the orientation guide instead, and the current version is marked as seen.
+`deriveWhatsNewAutostart` (`apps/ui/src/features/onboarding/onboarding-guide/use-whats-new-autostart.ts`) opens it once the user has a site, the workspace state has loaded, and no guide, Welcome, Settings or Add site dialog is open. A first-run user gets the orientation guide instead, and the current version is marked as seen.

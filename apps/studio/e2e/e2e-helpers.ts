@@ -71,7 +71,11 @@ export class E2ESession {
 				? {}
 				: {
 						onboardingCompleted: true,
-						onboardingHints: { tourDismissedVersion: ORIENTATION_GUIDE_VERSION },
+						// What's New is never due, whatever its version.
+						onboardingHints: {
+							tourDismissedVersion: ORIENTATION_GUIDE_VERSION,
+							whatsNewSeenVersion: Number.MAX_SAFE_INTEGER,
+						},
 						agenticFeaturesEnabled: false,
 				  } ),
 		};

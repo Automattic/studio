@@ -3,7 +3,6 @@ import { SyncCancelledError } from '@studio/common/lib/sync/cancel';
 import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
 import { __ } from '@wordpress/i18n';
 import { isShortcut } from '@/lib/keyboard';
-import { readLastSeenVersion, writeLastSeenVersion } from '../browser-whats-new';
 import { buildPublishCheckoutUrl } from '../publish-checkout-url';
 import { UnsupportedError } from '../unsupported-error';
 import { readWapuuScore, writeWapuuScore } from '../wapuu-score-storage';
@@ -989,12 +988,6 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		onShowWhatsNew() {
 			// No application menu in a browser tab.
 			return () => {};
-		},
-		async getLastSeenVersion() {
-			return readLastSeenVersion();
-		},
-		async saveLastSeenVersion( version ) {
-			writeLastSeenVersion( version );
 		},
 		async getAppUpdateStatus() {
 			// This front end updates through the CLI's own notifier, not Electron's autoUpdater.

@@ -607,12 +607,6 @@ export interface Connector {
 	// (desktop only). No-ops where there's no OS menu.
 	onShowWhatsNew( listener: () => void ): () => void;
 
-	// App version the user last dismissed the What's New announcements on. The
-	// same value the classic renderer reads, so the two UIs never show the same
-	// announcements twice.
-	getLastSeenVersion(): Promise< string | undefined >;
-	saveLastSeenVersion( version: string ): Promise< void >;
-
 	// Auto-updater status.
 	getAppUpdateStatus(): Promise< AppUpdateStatus >;
 	installAppUpdate(): Promise< void >;
@@ -650,6 +644,8 @@ export interface OnboardingHintsState {
 	// Studio (vs a fresh install that starts here). Drives the guide's first-page
 	// "Welcome to WordPress Studio 2.0" migrating copy.
 	migratedFromClassic?: boolean;
+	// WHATS_NEW_VERSION of the What's New guide the user last saw.
+	whatsNewSeenVersion?: number;
 }
 
 export type { SiteAgentFile, SiteAgentFileKind };

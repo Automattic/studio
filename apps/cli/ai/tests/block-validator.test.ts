@@ -2,6 +2,7 @@ import { afterAll, describe, expect, it } from 'vitest';
 import {
 	bindNavigationLinks,
 	cleanupValidatorPages,
+	dropCommentsBetweenBlocks,
 	insertedTemplates,
 	storePaletteColors,
 	validateBlocks,
@@ -223,6 +224,60 @@ describe.runIf( siteUrl )( 'storing palette colors as presets (live)', () => {
 			content: markup,
 			colors: [],
 		} );
+	} );
+
+	const hello = '<!-- wp:paragraph -->\n<p>Hello</p>\n<!-- /wp:paragraph -->';
+	it.each( [
+		{
+			name: 'comments between blocks',
+			markup: `<!-- ===== HERO ===== -->\n${ hello }\n\n<!-- one --><!-- two -->\n${ hello }`,
+			expected: { content: `${ hello }\n\n${ hello }`, comments: 2 },
+		},
+		{
+			name: 'a comment inside a block',
+			markup: paragraph( '', '<p>Hello<!-- note --></p>' ),
+			expected: { content: paragraph( '', '<p>Hello<!-- note --></p>' ), comments: 0 },
+		},
+		{
+			name: 'a comment beside HTML outside any block',
+			markup: `<!-- note --><div>Hi</div>\n${ hello }`,
+			expected: { content: `<!-- note --><div>Hi</div>\n${ hello }`, comments: 0 },
+		},
+		{
+			name: 'a paragraph holding only a comment',
+			markup: '<!-- wp:paragraph -->\n<p><!-- note --></p>\n<!-- /wp:paragraph -->',
+			expected: {
+				content: '<!-- wp:paragraph -->\n<p><!-- note --></p>\n<!-- /wp:paragraph -->',
+				comments: 0,
+			},
+		},
+		{
+			name: 'a line break outside any block, beside a comment',
+			markup: `<br>\n${ hello }\n<!-- note -->\n${ hello }`,
+			// The editor's parse wraps the line break in a paragraph (autop).
+			expected: { content: `<p></p>\n\n${ hello }\n\n${ hello }`, comments: 1 },
+		},
+		{
+			name: 'no comments',
+			markup: hello,
+			expected: { content: hello, comments: 0 },
+		},
+	] )( 'drops what renders nothing between blocks: $name', async ( { markup, expected } ) => {
+		expect( await dropCommentsBetweenBlocks( markup, siteUrl! ) ).toEqual( expected );
+	} );
+
+	it( 'keeps a comment between blocks from becoming a Classic block when colors are stored', async () => {
+		const markup = `<!-- ===== HERO ===== -->\n${ paragraph(
+			'{"style":{"color":{"background":"#503AA8"}}}',
+			'<p class="has-background" style="background-color:#503AA8">Hello</p>'
+		) }`;
+		const stored = async ( content: string ) =>
+			( await storePaletteColors( content, siteUrl!, palette ) ).content;
+		expect( ( await validateBlocks( await stored( markup ), siteUrl! ) ).results ).toEqual(
+			expect.arrayContaining( [ expect.objectContaining( { blockName: 'core/freeform' } ) ] )
+		);
+		const dropped = ( await dropCommentsBetweenBlocks( markup, siteUrl! ) ).content;
+		expect( ( await validateBlocks( await stored( dropped ), siteUrl! ) ).invalidBlocks ).toBe( 0 );
 	} );
 
 	const nav = ( links: string ) => `<!-- wp:navigation -->\n${ links }\n<!-- /wp:navigation -->`;

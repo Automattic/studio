@@ -733,6 +733,48 @@ export interface NavigationLinksResult {
 	links: string[];
 }
 
+export interface BetweenBlockCommentsResult {
+	content: string;
+	/** How many runs of HTML comments between blocks were dropped. */
+	comments: number;
+}
+
+/**
+ * Drops HTML comments that stand between blocks. The editor parses text
+ * outside any block as a Classic block and wraps it in paragraphs
+ * (normalizeRawBlock in @wordpress/blocks runs autop on it), so a comment
+ * there turns into a Classic block holding a paragraph the first time the
+ * content is saved through the editor. A comment renders nothing, so
+ * dropping it changes nothing on the page. Comments inside a block are left
+ * to the block.
+ */
+export async function dropCommentsBetweenBlocks(
+	content: string,
+	siteUrl: string
+): Promise< BetweenBlockCommentsResult > {
+	if ( ! /<!--(?!\s*\/?wp:)/.test( content ) ) {
+		return { content, comments: 0 };
+	}
+	const page = await getEditorPage( siteUrl ).getPage();
+	return page.evaluate( ( html ) => {
+		/* eslint-disable @typescript-eslint/no-explicit-any */
+		const wpBlocks = ( window as any ).wp.blocks;
+		const onlyComments = ( block: any ) =>
+			block.name === 'core/freeform' &&
+			/<!--/.test( block.attributes?.content ?? '' ) &&
+			! String( block.attributes?.content ?? '' )
+				.replace( /<!--[\s\S]*?-->/g, '' )
+				.replace( /<\/?p>|<br\s*\/?>/gi, '' )
+				.trim();
+		const blocks = wpBlocks.parse( html );
+		const kept = blocks.filter( ( block: any ) => ! onlyComments( block ) );
+		return kept.length === blocks.length
+			? { content: html, comments: 0 }
+			: { content: wpBlocks.serialize( kept ), comments: blocks.length - kept.length };
+		/* eslint-enable @typescript-eslint/no-explicit-any */
+	}, content );
+}
+
 /**
  * Binds the url of each navigation link that names a post or term by its id
  * but has no url to that entity's link, as the editor's link picker does

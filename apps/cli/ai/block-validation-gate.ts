@@ -21,6 +21,7 @@ import {
 	blockNames,
 	insertedTemplates,
 	storePaletteColors,
+	dropCommentsBetweenBlocks,
 	validateBlocks,
 	type PaletteColorsResult,
 	type ValidationReportBase,
@@ -109,10 +110,24 @@ interface MarkupValidation {
 	paletteColors?: PaletteColorsResult[ 'colors' ];
 	/** The navigation links the fix binds to the entity they name. */
 	boundLinks?: string[];
+	/** How many runs of HTML comments between blocks the save drops. */
+	droppedComments?: number;
+}
+
+/** What saving through the editor changes, for a note. */
+export function describeEditorSave( result: MarkupValidation, fixes: string ): string[] {
+	return [
+		result.invalidBlocks ? `fixes ${ result.invalidBlocks } block(s)${ fixes }` : undefined,
+		result.droppedComments
+			? `drops ${ result.droppedComments } HTML comment(s) between blocks, which the editor would turn into Classic blocks (normalizeRawBlock in @wordpress/blocks wraps text outside a block in paragraphs) and which render nothing`
+			: undefined,
+		result.paletteColors?.length ? describePaletteColors( result.paletteColors ) : undefined,
+		result.boundLinks?.length ? describeBoundLinks( result.boundLinks ) : undefined,
+	].filter( ( note ): note is string => Boolean( note ) );
 }
 
 /** How the editor links a navigation link to the post or term it names, for a note. */
-export function describeBoundLinks( links: string[] ): string {
+function describeBoundLinks( links: string[] ): string {
 	return `binds the url of the navigation link(s) ${ links
 		.map( ( label ) => `"${ label }"` )
 		.join(
@@ -129,24 +144,40 @@ async function describeTemplates( names: string[], siteUrl: string ): Promise< s
 	);
 }
 
-/** What the editor stores for the palette colors and entity links the markup writes otherwise. */
+/**
+ * What the editor stores for the markup: comments between blocks dropped, palette
+ * colors as presets, entity links bound. `invalidBefore` counts the problems in
+ * the content it replaces.
+ */
 async function storeAsTheEditorDoes(
 	content: string,
 	siteUrl: string,
-	palette: Array< [ string, string ] >
+	palette: Array< [ string, string ] >,
+	invalidBefore: () => Promise< number >
 ) {
-	const presets = await storePaletteColors( content, siteUrl, palette );
+	const between = await dropCommentsBetweenBlocks( content, siteUrl );
+	const presets = await storePaletteColors( between.content, siteUrl, palette );
 	const bound = await bindNavigationLinks( presets.content, siteUrl );
-	return {
+	const stored = {
 		content: bound.content,
-		changed: presets.colors.length > 0 || bound.links.length > 0,
+		changed: between.comments > 0 || presets.colors.length > 0 || bound.links.length > 0,
+		...( between.comments && { droppedComments: between.comments } ),
 		...( presets.colors.length && { paletteColors: presets.colors } ),
 		...( bound.links.length && { boundLinks: bound.links } ),
 	};
+	// A save stands only when the editor finds no more problems in it than in
+	// what it replaces, whatever the pass that changed it.
+	if (
+		stored.changed &&
+		( await validateBlocks( stored.content, siteUrl ) ).invalidBlocks > ( await invalidBefore() )
+	) {
+		return { content, changed: false };
+	}
+	return stored;
 }
 
 /** How the editor stores colors written as palette values, for a note. */
-export function describePaletteColors( colors: PaletteColorsResult[ 'colors' ] ): string {
+function describePaletteColors( colors: PaletteColorsResult[ 'colors' ] ): string {
 	const each = [
 		...new Set( colors.map( ( { color, slug } ) => `${ color } as the palette's ${ slug }` ) ),
 	];
@@ -175,11 +206,7 @@ export async function validateBlockMarkupFile(
 	if ( result.fixedContent === undefined ) {
 		return { contentHash: hash( content ), summary: result.summary, problem: result.problem };
 	}
-	const notes = [
-		result.invalidBlocks ? `fixes ${ result.invalidBlocks } block(s)` : undefined,
-		result.paletteColors?.length ? describePaletteColors( result.paletteColors ) : undefined,
-		result.boundLinks?.length ? describeBoundLinks( result.boundLinks ) : undefined,
-	].filter( Boolean );
+	const notes = describeEditorSave( result, '' );
 	return {
 		contentHash: hash( content ),
 		summary: `${ result.summary }; saved through the block editor, which ${ notes.join(
@@ -230,7 +257,7 @@ export async function validateBlockMarkup(
 			content: stored,
 			changed,
 			...notes
-		} = await storeAsTheEditorDoes( content, siteUrl, palette );
+		} = await storeAsTheEditorDoes( content, siteUrl, palette, async () => 0 );
 		return changed ? { summary: valid, fixedContent: stored, ...notes } : { summary: valid };
 	}
 
@@ -263,13 +290,16 @@ export async function validateBlockMarkup(
 		( result ) => ! result.isValid && ! keptAsWritten( result.place )
 	).length;
 	const stored = fixedBlocks
-		? await storeAsTheEditorDoes( fix.fixedContent, siteUrl, palette )
+		? await storeAsTheEditorDoes( fix.fixedContent, siteUrl, palette, async () =>
+				lost.size ? ( await validateBlocks( fix.fixedContent, siteUrl ) ).invalidBlocks : 0
+		  )
 		: undefined;
 	const saved = stored && {
 		fixedContent: stored.content,
 		invalidBlocks: fixedBlocks,
 		...( stored.paletteColors && { paletteColors: stored.paletteColors } ),
 		...( stored.boundLinks && { boundLinks: stored.boundLinks } ),
+		...( stored.droppedComments && { droppedComments: stored.droppedComments } ),
 	};
 	if ( lost.size === 0 ) {
 		return { summary: valid, ...saved };

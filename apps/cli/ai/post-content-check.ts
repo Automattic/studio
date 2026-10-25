@@ -6,12 +6,7 @@
  */
 import { mkdir, rm, writeFile } from 'fs/promises';
 import path from 'path';
-import {
-	describeBoundLinks,
-	describePaletteColors,
-	sitePalette,
-	validateBlockMarkup,
-} from 'cli/ai/block-validation-gate';
+import { describeEditorSave, sitePalette, validateBlockMarkup } from 'cli/ai/block-validation-gate';
 import { readWordPressSite } from 'cli/ai/site-database';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
@@ -108,13 +103,7 @@ async function validatePost(
 	const fixFile = path.join( site.path, relativePath );
 	await mkdir( path.dirname( fixFile ), { recursive: true } );
 	await writeFile( fixFile, result.fixedContent, 'utf8' );
-	const saves = [
-		result.invalidBlocks
-			? `fixes ${ result.invalidBlocks } block(s) that do not match what the block saves`
-			: undefined,
-		result.paletteColors?.length ? describePaletteColors( result.paletteColors ) : undefined,
-		result.boundLinks?.length ? describeBoundLinks( result.boundLinks ) : undefined,
-	].filter( Boolean );
+	const saves = describeEditorSave( result, ' that do not match what the block saves' );
 	const saved = await savePost( site, post.id, relativePath ).then(
 		() => true,
 		() => false

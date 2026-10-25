@@ -10,6 +10,7 @@ import {
 } from 'cli/ai/block-validation-gate';
 import {
 	bindNavigationLinks,
+	dropCommentsBetweenBlocks,
 	insertedTemplates,
 	storePaletteColors,
 	validateBlocks,
@@ -22,6 +23,7 @@ vi.mock( 'cli/ai/block-validator', async () => ( {
 	validateBlocks: vi.fn(),
 	storePaletteColors: vi.fn( async ( content: string ) => ( { content, colors: [] } ) ),
 	bindNavigationLinks: vi.fn( async ( content: string ) => ( { content, links: [] } ) ),
+	dropCommentsBetweenBlocks: vi.fn( async ( content: string ) => ( { content, comments: 0 } ) ),
 	insertedTemplates: vi.fn( async () => [] ),
 	blockNames: (
 		await vi.importActual< typeof import('cli/ai/block-validator') >( 'cli/ai/block-validator' )
@@ -138,6 +140,49 @@ describe( 'validating a file', () => {
 		expect( bindNavigationLinks ).toHaveBeenLastCalledWith( original, 'http://localhost:8881' );
 		expect( result.summary ).toContain( 'binds the url of the navigation link(s) "About"' );
 		expect( result.fixedContent ).toBe( fixed );
+	} );
+
+	it( 'returns the content with the comments between its blocks dropped', async () => {
+		const file = write( 'templates/page.html', original );
+		vi.mocked( validateBlocks ).mockResolvedValue( {
+			totalBlocks: 1,
+			validBlocks: 1,
+			invalidBlocks: 0,
+			results: [],
+		} );
+		vi.mocked( dropCommentsBetweenBlocks ).mockResolvedValueOnce( { content: fixed, comments: 2 } );
+		const result = await validateBlockMarkupFile( file, 'http://localhost:8881', [
+			[ 'accent-3', '#503AA8' ],
+		] );
+		expect( dropCommentsBetweenBlocks ).toHaveBeenLastCalledWith(
+			original,
+			'http://localhost:8881'
+		);
+		expect( storePaletteColors ).toHaveBeenLastCalledWith( fixed, 'http://localhost:8881', [
+			[ 'accent-3', '#503AA8' ],
+		] );
+		expect( result.summary ).toContain(
+			'drops 2 HTML comment(s) between blocks, which the editor would turn into Classic blocks'
+		);
+		expect( result.fixedContent ).toBe( fixed );
+	} );
+
+	it( 'keeps the content as written when what the editor would store has more problems', async () => {
+		const file = write( 'templates/page.html', original );
+		const valid = { totalBlocks: 1, validBlocks: 1, invalidBlocks: 0, results: [] };
+		vi.mocked( validateBlocks )
+			.mockResolvedValueOnce( valid )
+			.mockResolvedValueOnce( { ...valid, validBlocks: 0, invalidBlocks: 1 } );
+		vi.mocked( storePaletteColors ).mockResolvedValueOnce( {
+			content: fixed,
+			colors: [ { color: '#503AA8', slug: 'accent-3' } ],
+		} );
+		const result = await validateBlockMarkupFile( file, 'http://localhost:8881' );
+		expect( validateBlocks ).toHaveBeenLastCalledWith( fixed, 'http://localhost:8881' );
+		expect( result ).toEqual( {
+			contentHash: expect.any( String ),
+			summary: 'templates/page.html: 1/1 blocks valid',
+		} );
 	} );
 
 	it( 'saves the fix for the blocks that lose nothing, and names the blocks that would', async () => {

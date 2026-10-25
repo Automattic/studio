@@ -12,6 +12,7 @@ vi.mock( 'cli/ai/block-validator', async () => ( {
 	validateBlocks: vi.fn(),
 	storePaletteColors: vi.fn( async ( content: string ) => ( { content, colors: [] } ) ),
 	bindNavigationLinks: vi.fn( async ( content: string ) => ( { content, links: [] } ) ),
+	dropCommentsBetweenBlocks: vi.fn( async ( content: string ) => ( { content, comments: 0 } ) ),
 	insertedTemplates: vi.fn( async () => [] ),
 	blockNames: (
 		await vi.importActual< typeof import('cli/ai/block-validator') >( 'cli/ai/block-validator' )

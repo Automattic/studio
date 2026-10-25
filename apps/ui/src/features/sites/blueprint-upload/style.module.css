@@ -7,13 +7,13 @@
 }
 
 .prompt {
-	color: var(--muted-foreground);
-	font-size: var(--text-xs);
+	color: var( --muted-foreground );
+	font-size: var( --text-xs );
 }
 
 .action {
-	color: var(--accent-text);
-	font-weight: 500;
+	color: var( --accent-text );
+	font-weight: var( --font-weight-medium );
 	cursor: pointer;
 }
 
@@ -22,22 +22,23 @@
 }
 
 .action:focus-visible {
+	/* eslint-disable-next-line studio/use-theme-tokens -- a focus ring hugging a text link. */
 	border-radius: 2px;
-	outline: 2px solid var(--accent);
+	outline: 2px solid var( --accent );
 	outline-offset: 2px;
 }
 
 .fullScreenDrop {
 	position: fixed;
 	inset: 0;
-	z-index: 20;
+	z-index: var( --z-overlay );
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	border: 2px dashed var(--accent);
-	background: var(--chrome);
-	color: var(--foreground);
-	font-size: 1.25rem;
-	font-weight: var(--font-weight-semibold);
+	border: 2px dashed var( --accent );
+	background: var( --chrome );
+	color: var( --foreground );
+	font-size: var( --text-2xl );
+	font-weight: var( --font-weight-semibold );
 	pointer-events: none;
 }

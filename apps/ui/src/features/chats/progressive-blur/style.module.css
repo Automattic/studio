@@ -3,7 +3,7 @@
 	pointer-events: none;
 	overflow: hidden;
 	contain: paint;
-	--progressive-blur-surface-color: var(--chat);
+	--progressive-blur-surface-color: var( --chat );
 	--progressive-blur-surface-hold-stop: 58%;
 	--progressive-blur-surface-fade-stop: 100%;
 
@@ -12,11 +12,11 @@
 	   with the text on top. It stays invisible (0%) for callers that don't ask
 	   for it, but `--surface-alpha` forces it opaque under reduced
 	   transparency — so every caller gets a readable surface, opted in or not. */
-	--progressive-blur-surface-strength: var(--surface-alpha, 0%);
+	--progressive-blur-surface-strength: var( --surface-alpha, 0% );
 }
 
 .fadeToSurface {
-	--progressive-blur-surface-strength: var(--surface-alpha, 78%);
+	--progressive-blur-surface-strength: var( --surface-alpha, 78% );
 }
 
 .down {
@@ -30,18 +30,18 @@
 .layer {
 	position: absolute;
 	inset: 0;
-	backdrop-filter: blur(var(--progressive-blur-radius));
+	backdrop-filter: blur( var( --progressive-blur-radius ) );
 	mask-image: linear-gradient(
-		var(--progressive-blur-direction),
+		var( --progressive-blur-direction ),
 		black 0%,
-		black var(--progressive-blur-solid-stop),
-		transparent var(--progressive-blur-fade-stop)
+		black var( --progressive-blur-solid-stop ),
+		transparent var( --progressive-blur-fade-stop )
 	);
 	-webkit-mask-image: linear-gradient(
-		var(--progressive-blur-direction),
+		var( --progressive-blur-direction ),
 		black 0%,
-		black var(--progressive-blur-solid-stop),
-		transparent var(--progressive-blur-fade-stop)
+		black var( --progressive-blur-solid-stop ),
+		transparent var( --progressive-blur-fade-stop )
 	);
 }
 
@@ -49,20 +49,20 @@
 	position: absolute;
 	inset: 0;
 	background: linear-gradient(
-		var(--progressive-blur-direction),
+		var( --progressive-blur-direction ),
 		color-mix(
 				in srgb,
-				var(--progressive-blur-surface-color) var(--progressive-blur-surface-strength),
+				var( --progressive-blur-surface-color ) var( --progressive-blur-surface-strength ),
 				transparent
 			)
 			0%,
 		color-mix(
 				in srgb,
-				var(--progressive-blur-surface-color) var(--progressive-blur-surface-strength),
+				var( --progressive-blur-surface-color ) var( --progressive-blur-surface-strength ),
 				transparent
 			)
-			var(--progressive-blur-surface-hold-stop),
-		transparent var(--progressive-blur-surface-fade-stop)
+			var( --progressive-blur-surface-hold-stop ),
+		transparent var( --progressive-blur-surface-fade-stop )
 	);
 }
 

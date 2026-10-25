@@ -3,10 +3,10 @@
    hovering or focusing the deck spreads it into a list. */
 .viewport {
 	position: fixed;
-	inset-block-end: 12px;
-	inset-inline-end: 12px;
-	z-index: var(--z-toast);
-	width: min(320px, calc(100vw - 24px));
+	inset-block-end: var( --space-3 );
+	inset-inline-end: var( --space-3 );
+	z-index: var( --z-toast );
+	width: min( 320px, calc( 100vw - 24px ) );
 	pointer-events: none;
 	-webkit-app-region: no-drag;
 }
@@ -14,37 +14,38 @@
 .toast {
 	--gap: 8px;
 	--peek: 12px;
-	--height: var(--toast-frontmost-height, var(--toast-height));
-	--scale: max(0, 1 - var(--toast-index) * 0.1);
-	--shrink: calc(1 - var(--scale));
+	--height: var( --toast-frontmost-height, var( --toast-height ) );
+	--scale: max( 0, 1 - var( --toast-index ) * 0.1 );
+	--shrink: calc( 1 - var( --scale ) );
 	--offset-y: calc(
-		var(--toast-offset-y) * -1 - var(--toast-index) * var(--gap) + var(--toast-swipe-movement-y)
+		var( --toast-offset-y ) * -1 - var( --toast-index ) * var( --gap ) +
+			var( --toast-swipe-movement-y )
 	);
 
 	position: absolute;
 	inset-block-end: 0;
 	inset-inline-end: 0;
-	z-index: calc(1000 - var(--toast-index));
+	z-index: calc( 1000 - var( --toast-index ) );
 	width: 100%;
-	height: var(--height);
-	border-radius: var(--radius-xl);
-	background-color: var(--secondary);
+	height: var( --height );
+	border-radius: var( --radius-xl );
+	background-color: var( --secondary );
 	box-shadow:
-		0 0 0 1px var(--border),
-		var(--shadow-sm);
+		0 0 0 1px var( --border ),
+		var( --shadow-sm );
 	pointer-events: auto;
 	transform-origin: bottom;
-	transform: translateX(var(--toast-swipe-movement-x))
+	transform: translateX( var( --toast-swipe-movement-x ) )
 		translateY(
 			calc(
-				var(--toast-swipe-movement-y) - var(--toast-index) * var(--peek) - var(--shrink) *
-					var(--height)
+				var( --toast-swipe-movement-y ) - var( --toast-index ) * var( --peek ) - var( --shrink ) *
+					var( --height )
 			)
 		)
-		scale(var(--scale));
+		scale( var( --scale ) );
 	transition:
-		transform var(--motion-duration-layout) var(--motion-ease-enter),
-		opacity var(--motion-duration-layout) var(--motion-ease-enter);
+		transform var( --motion-duration-layout ) var( --motion-ease-enter ),
+		opacity var( --motion-duration-layout ) var( --motion-ease-enter );
 }
 
 /* Bridges the gap so the pointer can travel between spread toasts. */
@@ -53,7 +54,7 @@
 	inset-block-start: 100%;
 	inset-inline-start: 0;
 	width: 100%;
-	height: calc(var(--gap) + 1px);
+	height: calc( var( --gap ) + 1px );
 	content: '';
 }
 
@@ -62,33 +63,34 @@
 }
 
 .toast[data-expanded] {
-	height: var(--toast-height);
-	transform: translateX(var(--toast-swipe-movement-x)) translateY(var(--offset-y));
+	height: var( --toast-height );
+	transform: translateX( var( --toast-swipe-movement-x ) ) translateY( var( --offset-y ) );
 }
 
-@media (prefers-reduced-motion: no-preference) {
+@media ( prefers-reduced-motion: no-preference ) {
 	.toast[data-starting-style],
-	.toast[data-ending-style]:not([data-swipe-direction]) {
-		transform: translateY(150%);
+	.toast[data-ending-style]:not( [data-swipe-direction] ) {
+		transform: translateY( 150% );
 	}
 
 	.toast[data-ending-style][data-swipe-direction='down'] {
-		transform: translateY(calc(var(--toast-swipe-movement-y) + 150%));
+		transform: translateY( calc( var( --toast-swipe-movement-y ) + 150% ) );
 	}
 
 	.toast[data-ending-style][data-swipe-direction='right'] {
-		transform: translateX(calc(var(--toast-swipe-movement-x) + 150%)) translateY(var(--offset-y));
+		transform: translateX( calc( var( --toast-swipe-movement-x ) + 150% ) )
+			translateY( var( --offset-y ) );
 	}
 }
 
 /* Clipped to the front toast's height while behind it, with room inside the
    clip for the dismiss button that overhangs the corner. */
 .content {
-	height: calc(100% + 24px);
-	margin: -12px;
-	padding: 12px;
+	height: calc( 100% + 24px );
+	margin: calc( var( --space-3 ) * -1 );
+	padding: var( --space-3 );
 	overflow: clip;
-	transition: opacity var(--motion-duration-feedback) var(--motion-ease-enter);
+	transition: opacity var( --motion-duration-feedback ) var( --motion-ease-enter );
 }
 
 .content[data-behind] {
@@ -104,7 +106,7 @@
 	box-shadow: none;
 }
 
-@media (prefers-reduced-motion: reduce) {
+@media ( prefers-reduced-motion: reduce ) {
 	.toast {
 		transition-property: opacity;
 	}
@@ -116,6 +118,6 @@
 
 	.toast,
 	.content {
-		transition-duration: var(--motion-duration-feedback);
+		transition-duration: var( --motion-duration-feedback );
 	}
 }

@@ -18,4 +18,4 @@ import { PinIcon } from '@/lib/icons';
 
 - One file per icon, named `<name>-icon.tsx`, re-exported from `index.ts`.
 - Drawn the same way as lucide: a 24px grid, `stroke="currentColor"`, `strokeWidth="2"`, round caps and joins, `aria-hidden`.
-- Size and color come from CSS: `base.css` sizes icons, and `data-keep-size` opts out.
+- Icons render at 16px, like lucide's under the app's `LucideProvider`; a component's CSS (or `size` on a lucide icon) sets another size. Color comes from CSS.

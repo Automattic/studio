@@ -95,7 +95,7 @@ export function BackupDropZone( { onFile }: { onFile: ( file: File ) => void } )
 					handleFile( event.dataTransfer.files[ 0 ] );
 				} }
 			>
-				<UploadIcon className={ styles.dropIcon } data-keep-size />
+				<UploadIcon className={ styles.dropIcon } size={ 24 } />
 				<p className={ styles.dropLabel }>{ __( 'Drop a WordPress backup here.' ) }</p>
 				<input
 					ref={ inputRef }

@@ -2,20 +2,20 @@ import { __ } from '@wordpress/i18n';
 import { clsx } from 'clsx';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useConnector } from '@/data/core';
-import { UserMenu } from '@/features/account';
-import { AppMessageCards, AppMessageHistoryRecorder, AppToasts } from '@/features/notifications';
 import {
 	PREVIEW_SPLIT_MIN_WIDTH,
 	SIDEBAR_PANEL_CONFIG,
 	SIDEBAR_PANEL_STORAGE_KEY,
-} from '@/features/sidebar/resizable-panels';
-import { SidebarHeader } from '@/features/sidebar/sidebar-header';
-import { SiteList } from '@/features/sidebar/site-list';
+} from '@/data/resizable-panels';
 import {
 	SidebarCollapsedContext,
 	SidebarOpenContext,
 	SidebarToggleContext,
-} from '@/features/sidebar/use-sidebar-collapsed';
+} from '@/data/use-sidebar-collapsed';
+import { UserMenu } from '@/features/account';
+import { AppMessageCards, AppMessageHistoryRecorder, AppToasts } from '@/features/notifications';
+import { SidebarHeader } from '@/features/sidebar/sidebar-header';
+import { SiteList } from '@/features/sidebar/site-list';
 import { useStoredFlag } from '@/lib/hooks';
 import { ResizeHandle, ResizeOverlay } from '@/lib/ui';
 import styles from './style.module.css';

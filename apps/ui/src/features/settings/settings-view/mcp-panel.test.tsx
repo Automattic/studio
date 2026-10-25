@@ -6,7 +6,7 @@ import { TooltipProvider } from '@/lib/ui';
 import { McpPanel } from './mcp-panel';
 import type { ReactNode } from 'react';
 
-vi.mock( '@/features/settings/learn-more', () => ( {
+vi.mock( '@/features/onboarding/learn-more', () => ( {
 	LearnMoreLink: () => <a>Learn more</a>,
 } ) );
 

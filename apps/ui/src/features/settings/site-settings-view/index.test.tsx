@@ -11,7 +11,7 @@ import type { SiteSettingsSectionId } from '@/features/settings/settings-dialog/
 // Base UI's switch dispatches a PointerEvent, which jsdom lacks.
 vi.stubGlobal( 'PointerEvent', window.PointerEvent ?? MouseEvent );
 
-vi.mock( '@/features/settings/learn-more', () => ( {
+vi.mock( '@/features/onboarding/learn-more', () => ( {
 	LearnHowLink: () => null,
 	LearnMoreLink: () => null,
 } ) );

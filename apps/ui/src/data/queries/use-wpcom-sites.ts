@@ -2,10 +2,11 @@ import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { useConnector } from '@/data/core';
 import { useAuthUser } from '@/data/queries/use-auth-user';
+import {
+	ALL_CONNECTED_WPCOM_SITES_QUERY_KEY,
+	SYNCABLE_WPCOM_SITES_QUERY_KEY,
+} from '@/data/queries/user-scoped-query-keys';
 import type { SyncSite } from '@/data/core';
-
-export const SYNCABLE_WPCOM_SITES_QUERY_KEY = [ 'syncable-wpcom-sites' ] as const;
-export const ALL_CONNECTED_WPCOM_SITES_QUERY_KEY = [ 'all-connected-wpcom-sites' ] as const;
 
 export function useSyncableWpcomSites( options: { enabled?: boolean } = {} ) {
 	const connector = useConnector();

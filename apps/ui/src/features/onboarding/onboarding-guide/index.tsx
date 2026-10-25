@@ -1,7 +1,7 @@
 import { __ } from '@wordpress/i18n';
 import { clsx } from 'clsx';
 import { useRef, useState } from 'react';
-import { LearnMoreLink } from '@/features/settings';
+import { LearnMoreLink } from '@/features/onboarding/learn-more';
 import {
 	Button,
 	Dialog,

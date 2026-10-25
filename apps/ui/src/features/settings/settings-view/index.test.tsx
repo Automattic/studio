@@ -7,10 +7,10 @@ import { useConnector } from '@/data/core';
 import { persister } from '@/data/core/query-client';
 import { useInstalledApps } from '@/data/queries/use-installed-apps';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
-import { SIDEBAR_PANEL_STORAGE_KEY } from '@/features/sidebar';
+import { SIDEBAR_PANEL_STORAGE_KEY } from '@/data/resizable-panels';
 import { AppearanceSettings, GeneralSettings } from './index';
 
-vi.mock( '@/features/sidebar/site-list/sidebar-settings', () => ( {
+vi.mock( './sidebar-settings', () => ( {
 	SidebarSettings: () => null,
 } ) );
 

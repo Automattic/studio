@@ -1,5 +1,5 @@
-import { useMediaQuery } from '@wordpress/compose';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
+import { useMediaQuery } from '@/lib/hooks';
 
 /**
  * The active color scheme that should drive theming.

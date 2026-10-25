@@ -2,7 +2,7 @@ import { __ } from '@wordpress/i18n';
 import { PencilIcon, XIcon } from 'lucide-react';
 import { Button } from '@/lib/ui';
 import styles from './style.module.css';
-import type { QueuedPrompt } from '@/data/queries/use-agent-run';
+import type { QueuedPrompt } from '@/data/agent-runs/use-agent-run';
 
 interface QueuedPromptsProps {
 	prompts: QueuedPrompt[];

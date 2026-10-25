@@ -45,7 +45,7 @@ vi.mock( './site-agent-files', () => ( { SiteAgentFiles: () => null } ) );
 vi.mock( '@/features/settings/settings-view/account-section', () => ( {
 	ConnectionCard: () => null,
 } ) );
-vi.mock( '@/features/settings/learn-more', () => ( {
+vi.mock( '@/features/onboarding/learn-more', () => ( {
 	LearnHowLink: () => null,
 	LearnMoreLink: () => null,
 } ) );

@@ -5,10 +5,11 @@ import { useRef, useState } from 'react';
 import { toast } from '@/data/app-messages';
 import { useColorScheme } from '@/data/host/use-color-scheme';
 import { useAuthUser, useLogout } from '@/data/queries/use-auth-user';
+import { getSections } from '@/data/settings-sections';
+import { useOpenSettings } from '@/data/use-open-settings';
 import { AccountPromptDialog } from '@/features/account/account-prompt';
 import { Gravatar } from '@/features/account/gravatar';
 import { NoticeHistoryButton } from '@/features/notifications';
-import { getSections, useOpenSettings } from '@/features/settings';
 import { useOffline } from '@/lib/hooks';
 import {
 	Alert,

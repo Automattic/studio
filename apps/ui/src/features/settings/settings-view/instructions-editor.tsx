@@ -5,7 +5,7 @@ import {
 	useAgentInstructions,
 	useSaveAgentInstructions,
 } from '@/data/queries/use-agent-instructions';
-import { LearnMoreLink } from '@/features/settings/learn-more';
+import { LearnMoreLink } from '@/features/onboarding';
 import { Field, FieldContent, FieldDescription, FieldError, FieldLabel, Textarea } from '@/lib/ui';
 import styles from './style.module.css';
 

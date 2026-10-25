@@ -7,7 +7,7 @@ import {
 } from '@/data/queries/use-agent-instructions';
 import { InstructionsEditor } from './instructions-editor';
 
-vi.mock( '@/features/settings/learn-more', () => ( {
+vi.mock( '@/features/onboarding/learn-more', () => ( {
 	LearnMoreLink: () => <button type="button">Learn more…</button>,
 } ) );
 

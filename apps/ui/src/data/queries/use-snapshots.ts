@@ -5,10 +5,11 @@ import { useEffect } from 'react';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { useAuthUser } from '@/data/queries/use-auth-user';
+import {
+	SNAPSHOT_USAGE_QUERY_KEY,
+	SNAPSHOTS_QUERY_KEY,
+} from '@/data/queries/user-scoped-query-keys';
 import type { Snapshot, SnapshotUsage } from '@/data/core';
-
-export const SNAPSHOTS_QUERY_KEY = [ 'snapshots' ] as const;
-export const SNAPSHOT_USAGE_QUERY_KEY = [ 'snapshot-usage' ] as const;
 
 function getSnapshotUsageQueryKey( userId?: number ) {
 	return userId === undefined

@@ -17,7 +17,7 @@ import {
 import { useInstalledApps } from '@/data/queries/use-installed-apps';
 import { useUserLocale } from '@/data/queries/use-user-locale';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
-import { SidebarSettings, hasCustomPanelWidths, resetPanelWidths } from '@/features/sidebar';
+import { hasCustomPanelWidths, resetPanelWidths } from '@/data/resizable-panels';
 import { applyColorTint, DEFAULT_COLOR_TINT, isDefaultColorTint } from '@/lib/theme';
 import { Input, Button } from '@/lib/ui';
 import { AccountSection } from './account-section';
@@ -33,6 +33,7 @@ import {
 	SettingsSelect,
 	SettingsToggle,
 } from './rows';
+import { SidebarSettings } from './sidebar-settings';
 import { StudioCliSection } from './studio-cli-section';
 import styles from './style.module.css';
 import { WapuuScore } from './wapuu-score';
@@ -60,16 +61,16 @@ function appElements< TApp extends keyof InstalledApps >(
 	];
 }
 
-const COLOR_SCHEME_ELEMENTS: { value: ColorScheme; label: string }[] = [
+const getColorSchemeElements = (): { value: ColorScheme; label: string }[] => [
 	{ value: 'system', label: __( 'System' ) },
 	{ value: 'light', label: __( 'Light' ) },
 	{ value: 'dark', label: __( 'Dark' ) },
 ];
 
-const QUIT_SITES_BEHAVIOR_ELEMENTS: {
+const getQuitSitesBehaviorElements = (): {
 	value: QuitSitesBehavior | typeof UNSET;
 	label: string;
-}[] = [
+}[] => [
 	{ value: UNSET, label: __( 'Ask every time' ) },
 	{ value: 'leave-running', label: __( 'Keep sites running' ) },
 	{ value: 'stop-and-auto-start', label: __( 'Stop, restart on next launch' ) },
@@ -244,7 +245,7 @@ function PreferencesPanel( {
 					<SettingsSelect< QuitSitesBehavior | typeof UNSET >
 						label={ __( 'When WordPress Studio quits' ) }
 						value={ data.quitSitesBehavior }
-						options={ QUIT_SITES_BEHAVIOR_ELEMENTS }
+						options={ getQuitSitesBehaviorElements() }
 						onChange={ ( quitSitesBehavior ) => onChange( { quitSitesBehavior } ) }
 					/>
 				</SettingsRow>
@@ -431,7 +432,7 @@ export function AppearanceSettings() {
 					<SettingsSelect
 						label={ __( 'Theme' ) }
 						value={ data.colorScheme }
-						options={ COLOR_SCHEME_ELEMENTS }
+						options={ getColorSchemeElements() }
 						onChange={ ( colorScheme ) => handleChange( { colorScheme } ) }
 					/>
 				</SettingsRow>

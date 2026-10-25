@@ -86,6 +86,14 @@ import {
 import { useStudioAssistantTopUpPricing } from '@/data/queries/use-top-up-pricing';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
 import {
+	toComposerSendAttachments,
+	useComposerAttachments,
+	useFileDrop,
+	type ComposerAttachment,
+	type ComposerSendAttachments,
+} from '@/data/use-composer-attachments';
+import { useOpenSettings } from '@/data/use-open-settings';
+import {
 	annotationSubmission,
 	getAnnotationsAttachment,
 	getStagedAnnotations,
@@ -94,7 +102,6 @@ import {
 	useSiteAnnotations,
 } from '@/features/annotations';
 import { AiCreditsPurchaseDialog, useAddAiCreditsUrl } from '@/features/credits';
-import { useOpenSettings } from '@/features/settings';
 import {
 	AnnotationIcon,
 	ChevronDownIcon,
@@ -125,13 +132,6 @@ import {
 import { completeComposerDraftSend, getComposerDraft, saveComposerDraft } from './draft-store';
 import { FamilySwitchConfirmDialog } from './family-switch-confirm-dialog';
 import styles from './style.module.css';
-import {
-	toComposerSendAttachments,
-	useComposerAttachments,
-	useFileDrop,
-	type ComposerAttachment,
-	type ComposerSendAttachments,
-} from './use-composer-attachments';
 import type {
 	AiModelId,
 	LoadedAiSession,
@@ -403,9 +403,9 @@ function ModeChip( {
  */
 export function ComposerSkeleton() {
 	return (
-		<div className={ styles.root } style={ { visibility: 'hidden' } } aria-hidden="true">
+		<div className={ styles.root } style={ { visibility: 'hidden' } } inert>
 			<div className={ styles.shell }>
-				<textarea className={ styles.input } rows={ 1 } disabled tabIndex={ -1 } />
+				<textarea className={ styles.input } rows={ 1 } />
 				<div className={ styles.toolbar }>
 					<Button size="icon" />
 				</div>

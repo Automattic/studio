@@ -15,7 +15,7 @@ import { useConnector } from '@/data/core';
 import { ASSISTANT_QUOTA_QUERY_KEY } from '@/data/queries/use-assistant-quota';
 import { useAuthUser } from '@/data/queries/use-auth-user';
 import { useUserLocale } from '@/data/queries/use-user-locale';
-import { useOpenSettings } from '@/features/settings';
+import { useOpenSettings } from '@/data/use-open-settings';
 import type { StudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 
 // One id for every outcome, so a repeated deeplink replaces the toast in place

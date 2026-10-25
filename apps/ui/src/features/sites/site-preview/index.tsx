@@ -27,6 +27,9 @@ import { siteDesignQueryKey, useSiteDesign } from '@/data/queries/use-site-desig
 import { useSiteIcon } from '@/data/queries/use-site-icon';
 import { siteThumbnailQueryKey, useSiteThumbnail } from '@/data/queries/use-site-thumbnail';
 import { useIsSiteStarting, useIsSiteStopping, useSiteOperation } from '@/data/queries/use-sites';
+import { useOpenSettings } from '@/data/use-open-settings';
+import { useOptionalSessionPreviewUI } from '@/data/use-session-ui';
+import { useSidebarCollapsed } from '@/data/use-sidebar-collapsed';
 import {
 	AnnotationOverlay,
 	type AnnotationAnchor,
@@ -39,9 +42,6 @@ import {
 	useSiteAnnotations,
 	type SiteAnnotations,
 } from '@/features/annotations';
-import { useOptionalSessionPreviewUI } from '@/features/chats';
-import { useOpenSettings } from '@/features/settings';
-import { useSidebarCollapsed } from '@/features/sidebar';
 import { DesignSystemView } from '@/features/sites/design-system-view';
 import { getSiteUrl } from '@/features/sites/get-site-url';
 import { PreviewParticles } from '@/features/sites/preview-particles';

@@ -3,7 +3,7 @@ import { EllipsisIcon } from 'lucide-react';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { useSiteAgentFiles, useUpdateSiteAgentFiles } from '@/data/queries/use-site-agent-files';
-import { LearnMoreLink } from '@/features/settings/learn-more';
+import { LearnMoreLink } from '@/features/onboarding';
 import {
 	SettingsGroup,
 	SettingsLoadState,

@@ -14,8 +14,8 @@ import { useIsSiteBusy } from '@/data/queries/use-sites';
 import { useCancelSync, useDisconnectWpcomSite } from '@/data/queries/use-sync-site';
 import { usePickableWpcomSites, useSyncableWpcomSites } from '@/data/queries/use-wpcom-sites';
 import { useSiteSyncActivity } from '@/data/sync-activity';
+import { subscribeHeaderPanelRequest } from '@/data/use-open-header-panel';
 import { AccountPromptDialog } from '@/features/account';
-import { subscribeHeaderPanelRequest } from '@/features/sites';
 import {
 	clearPublishSetupError,
 	retryPublishSetup,

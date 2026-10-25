@@ -805,6 +805,24 @@ describe( 'SessionView', () => {
 			expect( scroller.scrollTop ).toBe( 2336 );
 		} );
 
+		it( 'stops holding once find in page scrolls the view', () => {
+			useSessionMock.mockReturnValue( withPromptsAt( 100, 900, 1500 ) );
+			vi.spyOn( HTMLElement.prototype, 'scrollHeight', 'get' ).mockReturnValue( 3000 );
+			vi.spyOn( HTMLElement.prototype, 'clientHeight', 'get' ).mockReturnValue( 600 );
+			const { container, rerender } = render( <SessionView sessionId="session-1" /> );
+			const scroller = container.querySelector( '[class*="_scroll_"]' ) as HTMLDivElement;
+
+			const lastPrompt = [
+				...scroller.querySelectorAll< HTMLElement >( '[data-scroll-anchor]' ),
+			].at( -1 )!;
+			scroller.scrollTop = 400;
+			lastPrompt.dataset.top = '2536';
+			fireEvent.scroll( scroller );
+			useSessionMock.mockReturnValue( withPromptsAt( 100, 900, 964 ) );
+			rerender( <SessionView sessionId="session-1" /> );
+			expect( scroller.scrollTop ).toBe( 400 );
+		} );
+
 		it( 'pins a new prompt near the top while its reply streams below', () => {
 			useSessionMock.mockReturnValue( withPromptsAt( 0 ) );
 			const { container, rerender } = render( <SessionView sessionId="session-1" /> );

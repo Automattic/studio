@@ -149,6 +149,7 @@
 }
 
 /* Signed out or offline: grey the figures, since none of them is live. */
+/* eslint-disable-next-line studio/no-primitive-overrides -- Field has no disabled look for a whole group. */
 .usageDisabled :is( [data-slot='field-label'], [data-slot='field-legend'] ) {
 	color: var( --muted-foreground );
 }
@@ -179,10 +180,12 @@
 	gap: var( --space-1 ) var( --space-4 );
 }
 
+/* eslint-disable-next-line studio/no-primitive-overrides -- the meter's label row holds an inline button. */
 .meterSummary > [data-slot='field-label'] {
 	gap: var( --space-1 );
 }
 
+/* eslint-disable-next-line studio/no-primitive-overrides -- the meter's label row holds an inline button. */
 .meterSummary > [data-slot='field-label'] > button {
 	margin-block: calc( var( --space-1 ) * -1 );
 }
@@ -190,16 +193,19 @@
 /* Escalation colors for the AI credits meter (80% / 90% / exhausted). The
    filters brighten the warning token toward the design's yellow and orange —
    taken as-is from the usage-interfaces exploration. */
+/* eslint-disable-next-line studio/no-primitive-overrides -- Progress has no intent colors; the credits meter is the only meter that escalates. */
 .meter[data-intent='warning'] [data-slot='progress-indicator'] {
 	background: var( --warning );
 	filter: saturate( 2 ) brightness( 1.8 );
 }
 
+/* eslint-disable-next-line studio/no-primitive-overrides -- Progress has no intent colors; the credits meter is the only meter that escalates. */
 .meter[data-intent='critical'] [data-slot='progress-indicator'] {
 	background: var( --warning );
 	filter: saturate( 1.6 ) brightness( 1.35 );
 }
 
+/* eslint-disable-next-line studio/no-primitive-overrides -- Progress has no intent colors; the credits meter is the only meter that escalates. */
 .meter[data-intent='exhausted'] [data-slot='progress-indicator'] {
 	background: var( --destructive );
 }

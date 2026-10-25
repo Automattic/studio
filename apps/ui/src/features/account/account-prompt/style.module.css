@@ -9,6 +9,7 @@
 	text-wrap: pretty;
 }
 
+/* eslint-disable-next-line studio/no-primitive-overrides -- the prompt drops its dialog offsets inside an Empty, which spaces it already. */
 :global( [data-slot='empty'] ) > .body {
 	margin-top: 0;
 	padding-bottom: 0;

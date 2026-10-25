@@ -25,10 +25,12 @@
 	}
 }
 
+/* eslint-disable studio/no-primitive-overrides -- the trigger dims along with the panel's slide-in. */
 .trigger {
 	--button-active-duration: var( --motion-duration-layout );
 	--button-active-easing: var( --motion-ease-layout );
 }
+/* eslint-enable studio/no-primitive-overrides */
 
 .triggerLabel {
 	position: relative;

@@ -38,7 +38,8 @@ function AiCreditsPurchaseResult() {
  * the site they're looking at is deleted from outside the app (`studio site
  * delete` in a terminal). Deleting a site takes its chats with it, so the open
  * route would otherwise be left pointing at a session that no longer exists.
- * The in-app delete flow redirects itself, from the confirmation dialog.
+ * Settings or Add site stay open across the move. The in-app delete flow
+ * redirects itself, from the confirmation dialog.
  */
 export function DeletedSiteRedirect() {
 	const connector = useConnector();
@@ -61,7 +62,7 @@ export function DeletedSiteRedirect() {
 
 				const { sessionId, siteId } = paramsRef.current;
 				if ( siteId && siteId === event.siteId ) {
-					void navigate( { to: '/' } );
+					void navigate( { to: '/', search: true } );
 					return;
 				}
 				if ( ! sessionId ) {
@@ -82,7 +83,7 @@ export function DeletedSiteRedirect() {
 						? aiSessionBelongsToSite( openSession, deletedSite )
 						: openSession.ownerSiteId === event.siteId );
 				if ( belongsToDeletedSite ) {
-					void navigate( { to: '/' } );
+					void navigate( { to: '/', search: true } );
 				}
 			} ),
 		[ connector, navigate, queryClient ]

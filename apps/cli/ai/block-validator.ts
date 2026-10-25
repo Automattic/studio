@@ -50,6 +50,39 @@ function getEditorPage( siteUrl: string ): EditorPage {
 	return ep;
 }
 
+/** The block names that block comments in content name, `core/` for those without a namespace. */
+function blockNames( content: string ): string[] {
+	return [
+		...new Set(
+			[ ...content.matchAll( /<!--\s*wp:([a-z][a-z0-9_-]*(?:\/[a-z][a-z0-9_-]*)?)/g ) ].map(
+				( [ , name ] ) => ( name.includes( '/' ) ? name : `core/${ name }` )
+			)
+		),
+	];
+}
+
+/**
+ * The site's block editor, loaded again when it lacks a block that the names
+ * name: the editor registers the blocks of the plugins active when it loaded,
+ * and a plugin activated since adds its own.
+ */
+async function editorKnowing( siteUrl: string, names: string[] ) {
+	const editorPage = getEditorPage( siteUrl );
+	const page = await editorPage.getPage();
+	const knows = ( loaded: typeof page ) =>
+		loaded.evaluate(
+			( wanted ) =>
+				// eslint-disable-next-line @typescript-eslint/no-explicit-any
+				wanted.every( ( name ) => ( window as any ).wp.blocks.getBlockType( name ) ),
+			names
+		);
+	if ( await knows( page ) ) {
+		return page;
+	}
+	await editorPage.close();
+	return editorPage.getPage();
+}
+
 /**
  * Validate WordPress block content using the site's own block editor in a
  * real browser.
@@ -64,10 +97,8 @@ export async function validateBlocks(
 	content: string,
 	siteUrl: string
 ): Promise< ValidationReport > {
-	const editorPage = getEditorPage( siteUrl );
-
 	try {
-		const page = await editorPage.getPage();
+		const page = await editorKnowing( siteUrl, blockNames( content ) );
 
 		const validation = await page.evaluate( ( html: string ) => {
 			/* eslint-disable @typescript-eslint/no-explicit-any */
@@ -559,7 +590,7 @@ export async function validateBlocks(
 	} catch ( error ) {
 		// If navigation or evaluation failed, discard the cached page so the
 		// next call gets a fresh one.
-		await editorPage.close();
+		await getEditorPage( siteUrl ).close();
 		editorPages.delete( siteUrl );
 
 		return {
@@ -753,6 +784,85 @@ export async function bindNavigationLinks(
 			: { content: html, links: [] };
 		/* eslint-enable @typescript-eslint/no-explicit-any */
 	}, content );
+}
+
+export interface InsertedBlock {
+	name: string;
+	title?: string;
+	/** The variation the markup is of, when the block has variations in the inserter. */
+	variation?: string;
+	/** Each variation the inserter offers, as `name: title`. */
+	variations: string[];
+	/** What the editor inserts, serialized. */
+	markup?: string;
+	/** The registered blocks that go inside it, by their `parent`, `ancestor`, or its `allowedBlocks`. */
+	children: string[];
+	/** The other registered blocks in its namespace. */
+	namespace: string[];
+}
+
+/**
+ * What the site's block editor inserts for a block: its default variation in
+ * the inserter, or the variation named, built from the variation's
+ * attributes and inner blocks and serialized
+ * (createBlock and createBlocksFromInnerBlocksTemplate in @wordpress/blocks,
+ * as the inserter builds it), with the blocks of the site's active plugins.
+ */
+export async function insertedBlock(
+	name: string,
+	siteUrl: string,
+	variation?: string
+): Promise< InsertedBlock > {
+	const page = await editorKnowing( siteUrl, [ name ] );
+	return page.evaluate(
+		( { blockName, variationName } ) => {
+			/* eslint-disable @typescript-eslint/no-explicit-any */
+			const wpBlocks = ( window as any ).wp.blocks;
+			const type = wpBlocks.getBlockType( blockName );
+			const all: any[] = wpBlocks.getBlockTypes();
+			const prefix = `${ blockName.split( '/' )[ 0 ] }/`;
+			const namespace = all
+				.map( ( t ) => t.name )
+				.filter( ( n: string ) => n.startsWith( prefix ) && n !== blockName );
+			if ( ! type ) {
+				return { name: blockName, variations: [], children: [], namespace };
+			}
+			const variations: any[] = wpBlocks.getBlockVariations( blockName, 'inserter' ) ?? [];
+			const chosen = variationName
+				? variations.find( ( v ) => v.name === variationName )
+				: variations.find( ( v ) => v.isDefault ) ?? variations[ 0 ];
+			const children = all
+				.filter(
+					( t ) =>
+						t.parent?.includes( blockName ) ||
+						t.ancestor?.includes( blockName ) ||
+						type.allowedBlocks?.includes( t.name )
+				)
+				.map( ( t ) => t.name );
+			const result = {
+				name: blockName,
+				title: type.title,
+				variations: variations.map( ( v ) => `${ v.name }: ${ v.title }` ),
+				children,
+				namespace,
+			};
+			if ( variationName && ! chosen ) {
+				return result;
+			}
+			const block = wpBlocks.createBlock(
+				blockName,
+				{ ...( chosen?.attributes ?? {} ) },
+				wpBlocks.createBlocksFromInnerBlocksTemplate( chosen?.innerBlocks ?? [] )
+			);
+			return {
+				...result,
+				...( chosen && { variation: chosen.name } ),
+				markup: wpBlocks.serialize( [ block ] ),
+			};
+			/* eslint-enable @typescript-eslint/no-explicit-any */
+		},
+		{ blockName: name, variationName: variation }
+	);
 }
 
 /** Clean up all cached editor pages. */

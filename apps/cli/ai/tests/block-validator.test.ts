@@ -2,9 +2,11 @@ import { afterAll, describe, expect, it } from 'vitest';
 import {
 	bindNavigationLinks,
 	cleanupValidatorPages,
+	insertedBlock,
 	storePaletteColors,
 	validateBlocks,
 } from 'cli/ai/block-validator';
+import { getSharedBrowser } from 'cli/ai/browser-utils';
 
 // Runs the site's own block editor, so it needs a running WordPress site:
 // STUDIO_BLOCK_EDITOR_URL=http://localhost:8881 npx vitest run block-validator
@@ -267,5 +269,90 @@ describe.runIf( siteUrl )( 'storing palette colors as presets (live)', () => {
 		} else {
 			expect( result.content ).toBe( markup );
 		}
+	} );
+
+	it.each( [
+		{
+			name: 'the default variation',
+			block: 'core/group',
+			variation: undefined,
+			chosen: 'group',
+			has: '<!-- wp:group {"layout":{"type":"constrained"}} -->',
+		},
+		{
+			name: 'a variation by name',
+			block: 'core/group',
+			variation: 'group-row',
+			chosen: 'group-row',
+			has: '"layout":{"type":"flex","flexWrap":"nowrap"}',
+		},
+		{
+			name: 'a block without variations',
+			block: 'core/columns',
+			variation: undefined,
+			chosen: undefined,
+			has: '<!-- wp:columns -->',
+		},
+	] )( 'gives what the editor inserts: $name', async ( { block, variation, chosen, has } ) => {
+		const inserted = await insertedBlock( block, siteUrl!, variation );
+		expect( inserted.variation ).toBe( chosen );
+		expect( inserted.markup ).toContain( has );
+		expect( ( await validateBlocks( inserted.markup!, siteUrl! ) ).invalidBlocks ).toBe( 0 );
+	} );
+
+	it( 'names the variations, the blocks inside, and the namespace', async () => {
+		const columns = await insertedBlock( 'core/columns', siteUrl! );
+		expect( columns.title ).toBe( 'Columns' );
+		expect( columns.children ).toEqual( [ 'core/column' ] );
+		expect( columns.namespace ).toContain( 'core/paragraph' );
+		expect( columns.namespace ).not.toContain( 'core/columns' );
+		// Its children by their parent, as core/comments names none in allowedBlocks.
+		expect( ( await insertedBlock( 'core/comments', siteUrl! ) ).children ).toContain(
+			'core/comment-template'
+		);
+		expect( ( await insertedBlock( 'core/group', siteUrl! ) ).variations ).toContain(
+			'group-row: Row'
+		);
+	} );
+
+	it( 'gives no markup for a variation the inserter lacks, or a block not registered', async () => {
+		expect( ( await insertedBlock( 'core/group', siteUrl!, 'nope' ) ).markup ).toBeUndefined();
+		const missing = await insertedBlock( 'core/nope', siteUrl! );
+		expect( missing.title ).toBeUndefined();
+		expect( missing.namespace ).toContain( 'core/paragraph' );
+	} );
+
+	it( 'loads the editor again for a block registered since it loaded', async () => {
+		// As a block of a plugin activated after the editor loaded.
+		const forget = async ( name: string ) => {
+			const browser = await getSharedBrowser();
+			const editor = browser
+				.contexts()
+				.flatMap( ( context ) => context.pages() )
+				.find(
+					( page ) => page.url().startsWith( siteUrl! ) && page.url().includes( 'post-new.php' )
+				);
+			await editor!.evaluate(
+				// eslint-disable-next-line @typescript-eslint/no-explicit-any
+				( block ) => ( window as any ).wp.blocks.unregisterBlockType( block ),
+				name
+			);
+		};
+		await insertedBlock( 'core/verse', siteUrl! );
+		const loaded = ( await getSharedBrowser() )
+			.contexts()
+			.flatMap( ( context ) => context.pages() )
+			.find( ( page ) => page.url().includes( 'post-new.php' ) && ! page.isClosed() );
+		// A block the editor knows, without a namespace as core's are written, keeps it.
+		await validateBlocks( '<!-- wp:paragraph -->\n<p>A</p>\n<!-- /wp:paragraph -->', siteUrl! );
+		expect( loaded!.isClosed() ).toBe( false );
+		await forget( 'core/verse' );
+		expect( ( await insertedBlock( 'core/verse', siteUrl! ) ).title ).toBeDefined();
+		await forget( 'core/verse' );
+		const report = await validateBlocks(
+			'<!-- wp:verse -->\n<pre class="wp-block-verse">A</pre>\n<!-- /wp:verse -->',
+			siteUrl!
+		);
+		expect( report.results.map( ( result ) => result.blockName ) ).toEqual( [ 'core/verse' ] );
 	} );
 } );

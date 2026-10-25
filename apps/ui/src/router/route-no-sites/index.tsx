@@ -5,6 +5,7 @@ import { useOpenAddSite } from '@/features/sites';
 import { PlusIcon } from '@/lib/icons';
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, Button } from '@/lib/ui';
 import { dashboardLayoutRoute } from '../layout-dashboard';
+import styles from './style.module.css';
 
 // The workspace before the first site, or when the sites couldn't load.
 function NoSites() {
@@ -12,7 +13,7 @@ function NoSites() {
 	const openAddSite = useOpenAddSite();
 	if ( sites.isError ) {
 		return (
-			<Empty>
+			<Empty className={ styles.empty }>
 				<EmptyHeader>
 					<EmptyDescription>{ __( 'Try loading your sites again.' ) }</EmptyDescription>
 				</EmptyHeader>
@@ -25,7 +26,7 @@ function NoSites() {
 		);
 	}
 	return (
-		<Empty>
+		<Empty className={ styles.empty }>
 			<EmptyHeader>
 				<EmptyDescription>{ __( 'Add a local WordPress site to get started.' ) }</EmptyDescription>
 			</EmptyHeader>

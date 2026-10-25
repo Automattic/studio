@@ -37,6 +37,8 @@ function getLastAnchor( node: HTMLElement ) {
  * moves near the top, with a spacer below it so it can, and its reply streams
  * in underneath; once the reply fills the view, the view follows it. Scrolling
  * away stops the following until the user returns to the latest message.
+ * An opened chat holds its last prompt in place while late layout (images,
+ * highlighted code) settles above it, until the user scrolls.
  */
 export function useAnchoredScroll( {
 	scrollNode,
@@ -59,6 +61,7 @@ export function useAnchoredScroll( {
 		pinned: false,
 		following: true,
 		jumping: false,
+		holding: false,
 	} );
 
 	const settle = useCallback( () => {
@@ -66,7 +69,7 @@ export function useAnchoredScroll( {
 		if ( ! scrollNode || ! spacer ) {
 			return;
 		}
-		const state = stateRef.current;
+		let state = stateRef.current;
 		const { count, last } = getLastAnchor( scrollNode );
 		const style = getComputedStyle( scrollNode );
 		const insetTop = parseFloat( style.paddingTop ) || 0;
@@ -79,20 +82,24 @@ export function useAnchoredScroll( {
 			ANCHOR_PEEK_PX;
 
 		if ( state.sessionId !== sessionId ) {
-			stateRef.current = {
+			state = stateRef.current = {
 				sessionId,
 				anchors: count,
 				pinned: false,
 				following: true,
 				jumping: false,
+				holding: !! last,
 			};
 			spacer.style.height = '0px';
-			scrollTo( scrollNode, last ? anchorOffset() : scrollNode.scrollHeight );
+		}
+		if ( state.holding && last && count === state.anchors ) {
+			scrollTo( scrollNode, anchorOffset() );
 			const away = isScrolledAwayFromLatest( scrollNode );
-			stateRef.current.following = ! away;
+			state.following = ! away;
 			setIsScrolledAway( away );
 			return;
 		}
+		state.holding = false;
 
 		if ( count > state.anchors ) {
 			state.pinned = true;
@@ -130,8 +137,12 @@ export function useAnchoredScroll( {
 		const listening = new AbortController();
 		const options = { passive: true, signal: listening.signal };
 		scrollNode.addEventListener( 'scroll', onScroll, options );
-		for ( const type of [ 'wheel', 'touchmove', 'keydown' ] ) {
-			scrollNode.addEventListener( type, () => ( stateRef.current.jumping = false ), options );
+		for ( const type of [ 'wheel', 'touchmove', 'keydown', 'pointerdown' ] ) {
+			scrollNode.addEventListener(
+				type,
+				() => Object.assign( stateRef.current, { jumping: false, holding: false } ),
+				options
+			);
 		}
 		if ( typeof ResizeObserver === 'undefined' ) {
 			return () => listening.abort();
@@ -159,8 +170,7 @@ export function useAnchoredScroll( {
 		if ( ! scrollNode ) {
 			return;
 		}
-		stateRef.current.following = true;
-		stateRef.current.jumping = true;
+		Object.assign( stateRef.current, { following: true, jumping: true, holding: false } );
 		setIsScrolledAway( false );
 		const prefersReducedMotion = window.matchMedia?.( '(prefers-reduced-motion: reduce)' ).matches;
 		scrollNode.scrollTo( {

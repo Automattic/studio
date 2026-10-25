@@ -780,12 +780,20 @@ export function SiteList( {
 } ) {
 	const openAddSite = useOpenAddSite();
 	const { data: sites, isLoading: sitesLoading } = useSites();
-	const { data: sessions, isLoading: sessionsLoading, isError: sessionsError } = useSessions();
+	const { data: allSessions, isLoading: sessionsLoading, isError: sessionsError } = useSessions();
 	const needingInput = useSessionsNeedingInput();
 	const { chatEnabled } = useAgenticFeatures();
 	const params = useParams( { strict: false } ) as { sessionId?: string; siteId?: string };
 	const pathname = useRouterState( { select: ( state ) => state.location.pathname } );
 	const activeSessionId = params.sessionId;
+	// A new chat isn't listed until its first prompt, unless it's open.
+	const sessions = useMemo(
+		() =>
+			allSessions?.filter(
+				( session ) => session.firstPrompt || session.title || session.id === activeSessionId
+			),
+		[ allSessions, activeSessionId ]
+	);
 	const activeSiteId = params.siteId;
 	const [ manualSiteOrder, setManualSiteOrder ] = useState< string[] >( [] );
 	const updateSitesSortOrder = useUpdateSitesSortOrder();

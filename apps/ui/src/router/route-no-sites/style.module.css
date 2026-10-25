@@ -1,0 +1,4 @@
+/* The content column runs under the header band; centre below it. */
+.empty {
+	margin-top: var(--band-height);
+}

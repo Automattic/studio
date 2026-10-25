@@ -27,13 +27,12 @@ import {
 	resolveSkillFromPrompt,
 	type SkillSlashCommand,
 } from '@studio/common/ai/slash-commands';
-import { isAutomatticianEmail } from '@studio/common/lib/automattician';
 import {
+	canUsePaidAiModels,
 	clampQuotaFraction,
 	formatQuotaPercentage,
 	getStudioCodeAiAccessState,
 	getTotalRemainingAiCredits,
-	hasPaidAiCredits,
 	type StudioAssistantQuota,
 } from '@studio/common/lib/studio-assistant-quota';
 import { useQueryClient } from '@tanstack/react-query';
@@ -574,7 +573,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 			( id === 'wpcom' ? !! authUser : aiSettings?.hasAnthropicApiKey ) &&
 			( !! sessionId || id === sessionProvider )
 	);
-	const canUsePaidTiers = hasPaidAiCredits( quota ) || isAutomatticianEmail( authUser?.email );
+	const canUsePaidTiers = canUsePaidAiModels( quota, authUser?.email );
 	const isModelLocked = useCallback(
 		( id: AiModelId ) => aiModelRequiresPaidCredits( id ) && ! canUsePaidTiers,
 		[ canUsePaidTiers ]

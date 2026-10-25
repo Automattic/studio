@@ -20,7 +20,7 @@ const { navigateMock, agentRunState, sitesState, aiSettingsState, accessState } 
 			refetch: vi.fn(),
 		},
 		accessState: {
-			user: { id: 1 } as { id: number } | null,
+			user: { id: 1 } as { id: number; email?: string } | null,
 			offline: false,
 			openSettings: vi.fn(),
 		},
@@ -143,6 +143,8 @@ vi.mock( '@/data/host/use-traffic-light-space', () => ( {
 
 type ComposerMockProps = {
 	onSend: ( prompt: string ) => Promise< void >;
+	autoFocus?: boolean;
+	model?: string;
 	notice?: { message: string; action?: { label: string; onClick: () => void } };
 };
 
@@ -491,6 +493,43 @@ describe( 'SessionView', () => {
 		expect( container.querySelector( '[class*="fadeInQuick"]' ) ).toBeNull();
 	} );
 
+	it( 'starts a chat on Balanced when the paid models are unlocked, Fast otherwise', () => {
+		useSessionMock.mockReturnValue( { data: makeLoadedSession(), isLoading: false, error: null } );
+		const { rerender } = render( <SessionView sessionId="session-1" /> );
+		expect( composerProps.current?.model ).toBe( 'fast' );
+
+		accessState.user = { id: 1, email: 'someone@automattic.com' };
+		rerender( <SessionView sessionId="session-1" /> );
+		expect( composerProps.current?.model ).toBe( 'balanced' );
+
+		accessState.user = { id: 1 };
+		useStudioAssistantQuotaMock.mockReturnValue( {
+			data: makeQuota( { purchasedRemaining: 1000 } ),
+			isLoading: false,
+			isFetching: false,
+			refetch: vi.fn(),
+		} );
+		rerender( <SessionView sessionId="session-1" /> );
+		expect( composerProps.current?.model ).toBe( 'balanced' );
+	} );
+
+	it( 'focuses the composer of a chat with no prompt yet', () => {
+		useSessionMock.mockReturnValue( { data: makeLoadedSession(), isLoading: false, error: null } );
+		const { rerender } = render( <SessionView sessionId="session-1" /> );
+		expect( composerProps.current?.autoFocus ).toBe( true );
+
+		useSessionMock.mockReturnValue( {
+			data: {
+				...makeLoadedSession(),
+				entries: [ { type: 'custom', customType: 'studio.user_prompt', id: 'p1' } ],
+			} as unknown as LoadedAiSession,
+			isLoading: false,
+			error: null,
+		} );
+		rerender( <SessionView sessionId="session-1" /> );
+		expect( composerProps.current?.autoFocus ).toBe( false );
+	} );
+
 	it( 'fades the chat surface behind the composer', () => {
 		useSessionMock.mockReturnValue( {
 			data: makeLoadedSession(),
@@ -717,6 +756,26 @@ describe( 'SessionView', () => {
 			// The last prompt sits at the top, with a peek of the turn before it.
 			expect( scroller.scrollTop ).toBe( 1436 );
 			await waitFor( () => expect( jumpButton() ).toHaveAttribute( 'data-visible' ) );
+		} );
+
+		it( 'holds the last prompt in place while images above it load', () => {
+			useSessionMock.mockReturnValue( withPromptsAt( 100, 900, 1500 ) );
+			vi.spyOn( HTMLElement.prototype, 'scrollHeight', 'get' ).mockReturnValue( 3000 );
+			vi.spyOn( HTMLElement.prototype, 'clientHeight', 'get' ).mockReturnValue( 600 );
+			const { container, rerender } = render( <SessionView sessionId="session-1" /> );
+			const scroller = container.querySelector( '[class*="_scroll_"]' ) as HTMLDivElement;
+			expect( scroller.scrollTop ).toBe( 1436 );
+
+			// An image above loads and pushes the prompt 900px down the view.
+			useSessionMock.mockReturnValue( withPromptsAt( 100, 900, 964 ) );
+			rerender( <SessionView sessionId="session-1" /> );
+			expect( scroller.scrollTop ).toBe( 2336 );
+
+			// Once the user scrolls, the view stays where they put it.
+			fireEvent.wheel( scroller );
+			useSessionMock.mockReturnValue( withPromptsAt( 100, 900, 1200 ) );
+			rerender( <SessionView sessionId="session-1" /> );
+			expect( scroller.scrollTop ).toBe( 2336 );
 		} );
 
 		it( 'pins a new prompt near the top while its reply streams below', () => {

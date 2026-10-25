@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
 	DATABASE_HOME_PATH,
+	getPathFromPreviewUrl,
 	getPreviewRealm,
 	getRealmNavigationPath,
 	getRealmOpenEvent,
@@ -75,6 +76,21 @@ describe( 'parseOmniboxInput', () => {
 			type: 'search',
 			term: 'hello world',
 		} );
+	} );
+} );
+
+describe( 'getPathFromPreviewUrl', () => {
+	it( 'extracts the path, search, and hash for same-origin urls', () => {
+		expect(
+			getPathFromPreviewUrl( 'http://localhost:8881/wp-admin/?page=1#top', 'http://localhost:8881' )
+		).toBe( '/wp-admin/?page=1#top' );
+	} );
+
+	it( 'returns null for cross-origin or invalid urls', () => {
+		expect( getPathFromPreviewUrl( 'https://example.com/about', 'http://localhost:8881' ) ).toBe(
+			null
+		);
+		expect( getPathFromPreviewUrl( 'not-a-url', 'http://localhost:8881' ) ).toBe( null );
 	} );
 } );
 

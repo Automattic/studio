@@ -287,7 +287,7 @@ export async function validateBlocks(
 								`${ name } is not registered on the site, so the editor shows it as an unsupported block. ${
 									registered.length
 										? `The registered ${ prefix } blocks are ${ registered.join( ', ' ) }.`
-										: `No ${ prefix } blocks are registered: the plugin that registers them is not active.`
+										: `No ${ prefix } blocks are registered in the site's block editor.`
 								}`,
 							],
 							originalContent: block.attributes?.originalContent ?? '',

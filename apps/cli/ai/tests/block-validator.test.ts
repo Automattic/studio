@@ -416,7 +416,7 @@ describe.runIf( siteUrl )( 'storing palette colors as presets (live)', () => {
 			/^core\/paragraphs is not registered on the site, so the editor shows it as an unsupported block\. The registered core\/ blocks are .*core\/paragraph,/
 		);
 		expect( report.results[ 1 ].issues[ 0 ] ).toBe(
-			'nope/form is not registered on the site, so the editor shows it as an unsupported block. No nope/ blocks are registered: the plugin that registers them is not active.'
+			"nope/form is not registered on the site, so the editor shows it as an unsupported block. No nope/ blocks are registered in the site's block editor."
 		);
 	} );
 

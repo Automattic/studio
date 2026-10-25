@@ -21,12 +21,15 @@ export type Versions = Record< string, string >;
 
 /**
  * What a change means: a line for the result, the problem it leaves, if any,
- * and the file it wrote, for the write notes.
+ * and the file it wrote, for the write notes. A problem the calls of a turn
+ * pass through, as a theme being written does, is raised only if it is still
+ * open at the end of the turn.
  */
 export interface ChangeReport {
 	key: string;
 	summary?: string;
 	problem?: string;
+	atTurnEnd?: boolean;
 	written?: string;
 }
 
@@ -102,7 +105,7 @@ export class SiteChanges {
 				for ( const report of reports ) {
 					this.open?.record( site.path, `${ site.path }#${ report.key }`, report.problem );
 					summaries.push( ...( report.summary ? [ report.summary ] : [] ) );
-					problems.push( ...( report.problem ? [ report.problem ] : [] ) );
+					problems.push( ...( report.problem && ! report.atTurnEnd ? [ report.problem ] : [] ) );
 					written.push( ...( report.written ? [ report.written ] : [] ) );
 				}
 			}

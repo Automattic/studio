@@ -77,14 +77,16 @@ it.each( [
 		classic: undefined,
 	},
 	{
-		name: 'a theme still being written, with no template',
+		name: 'a theme left with no template',
 		calls: [
 			() => write( 'yoga/style.css', header( 'Yoga' ) ),
 			() => write( 'yoga/theme.json', '{}' ),
 			() => write( 'yoga/functions.php', '<?php' ),
 		],
+		// Raised only at the end of the turn, which a theme being written passes through.
 		shown: 0,
 		classic: undefined,
+		broken: 'yoga',
 	},
 	{
 		name: 'a classic theme made this session, then given a block template index',
@@ -136,26 +138,35 @@ it.each( [
 		shown: 0,
 		classic: undefined,
 	},
-] )( 'raises at the end of the turn $name', async ( { calls, shown, classic, templates } ) => {
-	const open = new OpenProblems( [] );
-	const changes = new SiteChanges( open, async () => [ site ], [ blockTheme ] );
-	const results: string[] = [];
-	for ( const call of [ ...calls, () => write( 'legacy/footer.php' ) ] ) {
-		await changes.snapshot();
-		call();
-		results.push( ...( await changes.settle() ).problems );
+] )(
+	'raises at the end of the turn $name',
+	async ( { calls, shown, classic, templates, broken } ) => {
+		const open = new OpenProblems( [] );
+		const changes = new SiteChanges( open, async () => [ site ], [ blockTheme ] );
+		const results: string[] = [];
+		for ( const call of [ ...calls, () => write( 'legacy/footer.php' ) ] ) {
+			await changes.snapshot();
+			call();
+			results.push( ...( await changes.settle() ).problems );
+		}
+		// A problem is told on the result of the call that made it, once.
+		expect( results ).toHaveLength( shown );
+		expect( await open.raise() ).toEqual(
+			classic
+				? [
+						expect.stringMatching(
+							new RegExp(
+								`^${ classic } \\(wp-content/themes/${ classic }\\), made this session, is becoming a classic theme: its PHP templates \\(${ templates }\\) .*WP_Theme::is_block_theme\\(\\).*WordPress's default theme, twentytwentyfive \\(WP_DEFAULT_THEME\\), is a block theme: its templates are block markup in templates/\\*\\.html, its parts in parts/\\*\\.html, and its one PHP file at the root is functions\\.php`
+							)
+						),
+				  ]
+				: [
+						...( broken
+							? [
+									`${ broken } (wp-content/themes/${ broken }), made this session, has neither templates/index.html nor index.php, so WordPress lists it as broken: "Template is missing. Standalone themes need to have a templates/index.html or index.php template file." (WP_Theme::__construct() in wp-includes/class-wp-theme.php). WordPress's default theme, twentytwentyfive (WP_DEFAULT_THEME), is a block theme with templates/index.html. Give ${ broken } its templates/index.html.`,
+							  ]
+							: [] ),
+				  ]
+		);
 	}
-	// A problem is told on the result of the call that made it, once.
-	expect( results ).toHaveLength( shown );
-	expect( await open.raise() ).toEqual(
-		classic
-			? [
-					expect.stringMatching(
-						new RegExp(
-							`^${ classic } \\(wp-content/themes/${ classic }\\), made this session, is becoming a classic theme: its PHP templates \\(${ templates }\\) .*WP_Theme::is_block_theme\\(\\).*WordPress's default theme, twentytwentyfive \\(WP_DEFAULT_THEME\\), is a block theme: its templates are block markup in templates/\\*\\.html, its parts in parts/\\*\\.html, and its one PHP file at the root is functions\\.php`
-						)
-					),
-			  ]
-			: []
-	);
-} );
+);

@@ -22,11 +22,7 @@ import { getStagedAnnotations, removeAnnotations } from '@/features/annotations'
 import { AttachmentChips } from '@/features/composer/attachment-chips';
 import { applyCommandToDraft, getComposerCommands } from '@/features/composer/composer-commands';
 import { composerSubmission } from '@/features/composer/composer-submission';
-import {
-	completeComposerDraftSend,
-	getComposerDraft,
-	saveComposerDraft,
-} from '@/features/composer/draft-store';
+import { getComposerDraft, saveComposerDraft } from '@/features/composer/draft-store';
 import { FamilySwitchConfirmDialog } from '@/features/composer/family-switch-confirm-dialog';
 import { ModeChip } from '@/features/composer/mode-chip';
 import { ModelPicker } from '@/features/composer/model-picker';
@@ -242,7 +238,6 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 	const fileDropTarget = dropTarget ?? shellNode;
 	const {
 		attachments,
-		removeAttachments,
 		restoreAttachments,
 		pasteHandlers,
 		stagedNotes,
@@ -325,23 +320,21 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 			toast.error( __( 'Choose a model that supports images before sending these attachments.' ) );
 			return;
 		}
-		// The draft stays editable until the send is accepted; only then is what
-		// was sent removed, keeping anything typed or attached in the meantime.
-		const sentIds = new Set( attachments.map( ( item ) => item.id ) );
+		// Cleared up front so a composer remounted before the send is accepted
+		// doesn't bring the sent draft back; a failed send restores it.
+		setValue( '' );
+		restoreAttachments( [] );
 		setSending( true );
 		try {
 			await onSend( submission.prompt, submission.options );
 		} catch {
-			// The parent reports the failure in a toast; the draft is untouched.
+			// The parent reports the failure in a toast.
+			setValue( ( current ) => current || value );
+			restoreAttachments( attachments );
 			return;
 		} finally {
 			setSending( false );
 		}
-		completeComposerDraftSend( sessionId, trimmed, sentIds );
-		if ( ( textareaRef.current?.value ?? '' ).trim() === trimmed ) {
-			setValue( '' );
-		}
-		removeAttachments( sentIds );
 		if ( annotationSiteId && sentNotes.length ) {
 			removeAnnotations(
 				annotationSiteId,
@@ -358,8 +351,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		shake,
 		answerQuestion,
 		onSend,
-		sessionId,
-		removeAttachments,
+		restoreAttachments,
 		annotationSiteId,
 		model,
 	] );

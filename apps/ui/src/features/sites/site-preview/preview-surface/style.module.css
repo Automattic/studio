@@ -9,7 +9,7 @@
 	min-width: 0;
 	min-height: 0;
 	overflow: hidden;
-	transition: opacity var(--motion-duration-surface) var(--motion-ease-enter);
+	transition: opacity var( --motion-duration-surface ) var( --motion-ease-enter );
 }
 
 /* A loading page hides at once, showing the loading stage behind it, and
@@ -43,20 +43,16 @@
 	align-items: center;
 	justify-content: center;
 	pointer-events: none;
-	background-color: color-mix(
-		in srgb,
-		var(--chrome) 60%,
-		transparent
-	);
+	background-color: color-mix( in srgb, var( --chrome ) 60%, transparent );
 }
 
 .spinner {
 	width: 20px;
 	height: 20px;
-	border-radius: var(--radius-full);
-	border: 2px solid var(--border);
-	border-top-color: var(--accent-text);
-	animation: global(studio-spin) 0.8s linear infinite;
+	border-radius: var( --radius-full );
+	border: 2px solid var( --border );
+	border-top-color: var( --accent-text );
+	animation: global( studio-spin ) 0.8s linear infinite;
 }
 
 /* Studio renders the design system itself, so its surface scrolls like a page. */
@@ -69,11 +65,11 @@
 	flex: 1;
 	width: 100%;
 	height: 100%;
-	background-color: var(--chrome);
+	background-color: var( --chrome );
 }
 
 .loadFailed {
 	position: absolute;
 	inset: 0;
-	background-color: var(--chat);
+	background-color: var( --chat );
 }

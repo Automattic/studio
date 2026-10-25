@@ -5,19 +5,19 @@
 	position: relative;
 	display: flex;
 	align-items: center;
-	gap: var(--space-3);
-	padding-inline: var(--space-3) var(--space-2);
-	height: var(--band-height);
+	gap: var( --space-3 );
+	padding-inline: var( --space-3 ) var( --space-2 );
+	height: var( --band-height );
 	flex-shrink: 0;
-	transition: padding var(--motion-duration-layout) var(--motion-ease-layout);
-	background-color: var(--chrome);
+	transition: padding var( --motion-duration-layout ) var( --motion-ease-layout );
+	background-color: var( --chrome );
 	-webkit-app-region: drag;
 }
 
 /* Clears the macOS traffic lights, which always sit at the window's physical
    top-left — hence the physical padding rather than an inline-start one. */
 .headerTrafficLights {
-	padding-left: var(--traffic-light-space);
+	padding-left: var( --traffic-light-space );
 }
 
 /* The toolbar doubles as a window drag region; the controls (including the
@@ -30,7 +30,7 @@
 	display: flex;
 	flex-shrink: 0;
 	align-items: center;
-	gap: var(--space-1);
+	gap: var( --space-1 );
 }
 
 .browserLocation {
@@ -52,33 +52,33 @@
 	flex: 1 1 auto;
 	min-width: 0;
 	max-width: 416px;
-	height: var(--control-size);
+	height: var( --control-size );
 	align-items: center;
 	justify-content: center;
-	padding-inline: var(--space-3);
-	border: 1px solid var(--border);
-	border-radius: var(--radius-full);
-	color: var(--muted-foreground);
-	font-size: var(--text-xxs);
+	padding-inline: var( --space-3 );
+	border: 1px solid var( --border );
+	border-radius: var( --radius-full );
+	color: var( --muted-foreground );
+	font-size: var( --text-xxs );
 	user-select: none;
 }
 
 .historyEntry {
 	display: flex;
-	width: min(320px, calc(100vw - 64px));
+	width: min( 320px, calc( 100vw - 64px ) );
 	min-width: 0;
 	flex-direction: column;
 }
 
 .historyTitle {
 	composes: truncate from '@/lib/theme/recipes.module.css';
-	color: var(--foreground);
+	color: var( --foreground );
 }
 
 .historyPath {
 	composes: truncate from '@/lib/theme/recipes.module.css';
-	color: var(--muted-foreground);
-	font-size: var(--text-2xs);
+	color: var( --muted-foreground );
+	font-size: var( --text-2xs );
 }
 
 .disabledControlTooltipTarget {
@@ -86,15 +86,15 @@
 }
 
 .annotateButton {
-	gap: var(--space-1);
+	gap: var( --space-1 );
 }
 
 .annotateButtonActive {
-	--button-hover-background: color-mix(in srgb, var(--accent) 15%, transparent);
-	--button-hover-color: var(--accent-text);
+	--button-hover-background: color-mix( in srgb, var( --accent ) 15%, transparent );
+	--button-hover-color: var( --accent-text );
 }
 
-.annotateButtonActive:not(:disabled) {
+.annotateButtonActive:not( :disabled ) {
 	opacity: 1;
 }
 
@@ -116,13 +116,13 @@
 	inset: 0;
 	display: block;
 	width: 100%;
-	background-color: var(--accent-text);
+	background-color: var( --accent-text );
 	transform-origin: left center;
 	transition: transform 160ms ease-out;
 }
 
 /* Page-load progress grows from the reading start. */
-.loadingProgress span:dir(rtl) {
+.loadingProgress span:dir( rtl ) {
 	transform-origin: right center;
 }
 
@@ -143,6 +143,6 @@
 .headerItem {
 	display: flex;
 	align-items: center;
-	gap: var(--space-1);
+	gap: var( --space-1 );
 	flex-shrink: 0;
 }

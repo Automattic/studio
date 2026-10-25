@@ -11,49 +11,41 @@
 
 /* Text-input chrome, like the form inputs beside it, instead of the chat composer. */
 .shellField {
-	border-radius: var(--radius-lg);
-	background-color: color-mix(
-		in srgb,
-		var(--chrome) 60%,
-		transparent
-	);
+	border-radius: var( --radius-lg );
+	background-color: color-mix( in srgb, var( --chrome ) 60%, transparent );
 }
 
-.shellField:has(.input:focus-visible) {
-	border-color: var(--input);
+.shellField:has( .input:focus-visible ) {
+	border-color: var( --input );
 	box-shadow: none;
-	outline: var(--focus-width) solid var(--ring);
-	outline-offset: var(--focus-width);
+	outline: var( --focus-width ) solid var( --ring );
+	outline-offset: var( --focus-width );
 }
 
 .shellField .input {
-	min-height: calc(3lh + 28px);
+	min-height: calc( 3lh + 28px );
 }
 
 .dropOverlay {
 	position: absolute;
 	inset: 0;
-	z-index: var(--z-sidebar);
+	z-index: var( --z-sidebar );
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	border: 2px solid var(--ring);
+	border: 2px solid var( --ring );
 	border-radius: inherit;
-	background-color: color-mix(
-		in srgb,
-		var(--accent-text) 10%,
-		transparent
-	);
+	background-color: color-mix( in srgb, var( --accent-text ) 10%, transparent );
 	pointer-events: none;
 }
 
 .dropOverlay span {
-	padding: var(--space-2) var(--space-4);
-	border-radius: var(--radius-xl);
-	background-color: var(--accent);
-	color: var(--accent-foreground);
-	font-size: var(--text-sm);
-	font-weight: var(--font-weight-medium);
+	padding: var( --space-2 ) var( --space-4 );
+	border-radius: var( --radius-xl );
+	background-color: var( --accent );
+	color: var( --accent-foreground );
+	font-size: var( --text-sm );
+	font-weight: var( --font-weight-medium );
 }
 
 .fileInput {
@@ -68,8 +60,8 @@
 /* Grows with its text up to six lines, then scrolls. */
 .input {
 	min-height: 0;
-	max-height: calc(6lh + 28px);
-	padding: var(--space-3_5);
+	max-height: calc( 6lh + 28px );
+	padding: var( --space-3_5 );
 	overflow-y: auto;
 }
 
@@ -80,12 +72,12 @@
 .placeholder {
 	composes: truncate from '@/lib/theme/recipes.module.css';
 	position: absolute;
-	top: var(--space-3_5);
-	right: var(--space-3_5);
-	left: var(--space-3_5);
-	color: var(--muted-foreground);
-	font-size: var(--text-sm);
-	line-height: var(--text-sm--line-height);
+	top: var( --space-3_5 );
+	right: var( --space-3_5 );
+	left: var( --space-3_5 );
+	color: var( --muted-foreground );
+	font-size: var( --text-sm );
+	line-height: var( --text-sm--line-height );
 	pointer-events: none;
 }
 
@@ -93,9 +85,9 @@
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	gap: var(--space-2);
+	gap: var( --space-2 );
 	min-width: 0;
-	padding: var(--space-1_5) var(--space-2) var(--space-2);
+	padding: var( --space-1_5 ) var( --space-2 ) var( --space-2 );
 }
 
 .leftActions,
@@ -105,7 +97,7 @@
 }
 
 .rightActions {
-	gap: var(--space-1);
+	gap: var( --space-1 );
 }
 
 .leftActions {
@@ -121,7 +113,7 @@
 
 /* Inside the composer the menu chevrons keep the text color. */
 .shell [data-dropdown-indicator] {
-	color: var(--foreground);
+	color: var( --foreground );
 }
 
 .dialogDescription {

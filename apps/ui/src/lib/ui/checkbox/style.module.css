@@ -8,6 +8,7 @@
 		width: 16px;
 		height: 16px;
 		border: 1px solid var( --input );
+		/* eslint-disable-next-line studio/use-theme-tokens -- the rebuild's 4px checkbox. */
 		border-radius: 4px;
 		background-color: light-dark(
 			transparent,

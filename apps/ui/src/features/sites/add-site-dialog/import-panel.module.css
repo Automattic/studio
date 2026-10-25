@@ -8,38 +8,38 @@
 	display: flex;
 	flex-direction: column;
 	align-items: center;
-	gap: var(--space-4);
+	gap: var( --space-4 );
 	max-width: 512px;
-	margin: var(--space-4) auto 0;
-	padding: var(--space-10);
-	border: 1px dashed var(--border);
-	border-radius: var(--radius-xl);
+	margin: var( --space-4 ) auto 0;
+	padding: var( --space-10 );
+	border: 1px dashed var( --border );
+	border-radius: var( --radius-xl );
 	text-align: center;
 }
 
 .dropZone[data-dragging] {
-	border-color: var(--ring);
-	background: color-mix(in srgb, var(--accent) 6%, transparent);
+	border-color: var( --ring );
+	background: color-mix( in srgb, var( --accent ) 6%, transparent );
 }
 
 .dropIcon {
-	color: var(--muted-foreground);
+	color: var( --muted-foreground );
 }
 
 .dropHelp {
 	max-width: 512px;
-	margin: var(--space-3) auto 0;
-	color: var(--muted-foreground);
-	font-size: var(--text-xxs);
+	margin: var( --space-3 ) auto 0;
+	color: var( --muted-foreground );
+	font-size: var( --text-xxs );
 	line-height: 1.3;
 	text-align: center;
 }
 
 .dropLabel {
-	color: var(--muted-foreground);
+	color: var( --muted-foreground );
 }
 
 .dropError {
 	max-width: 512px;
-	margin: var(--space-6) auto 0;
+	margin: var( --space-6 ) auto 0;
 }

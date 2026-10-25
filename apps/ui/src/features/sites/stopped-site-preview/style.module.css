@@ -3,7 +3,7 @@
 	display: block;
 	width: 100%;
 	max-width: 320px;
-	border-radius: var(--radius-lg);
+	border-radius: var( --radius-lg );
 	cursor: pointer;
 }
 
@@ -14,9 +14,9 @@
 	width: 100%;
 	aspect-ratio: 16 / 10;
 	overflow: hidden;
-	border-radius: var(--radius-sm);
-	background: var(--muted);
-	transition: transform var(--motion-duration-surface) var(--motion-ease-enter);
+	border-radius: var( --radius-sm );
+	background: var( --muted );
+	transition: transform var( --motion-duration-surface ) var( --motion-ease-enter );
 }
 
 .frame::after {
@@ -37,10 +37,10 @@
 	align-items: center;
 	justify-content: center;
 	opacity: 0;
-	transform: scale(0.97);
+	transform: scale( 0.97 );
 	transition:
-		opacity var(--motion-duration-surface) var(--motion-ease-enter),
-		transform var(--motion-duration-surface) var(--motion-ease-enter);
+		opacity var( --motion-duration-surface ) var( --motion-ease-enter ),
+		transform var( --motion-duration-surface ) var( --motion-ease-enter );
 	pointer-events: none;
 }
 
@@ -50,9 +50,9 @@
 	height: 64px;
 	align-items: center;
 	justify-content: center;
-	border-radius: var(--radius-full);
-	background: color-mix(in srgb, var(--background) 90%, transparent);
-	color: var(--foreground);
+	border-radius: var( --radius-full );
+	background: color-mix( in srgb, var( --background ) 90%, transparent );
+	color: var( --foreground );
 }
 
 .play svg {
@@ -60,14 +60,14 @@
 	height: 32px;
 }
 
-.root:is(:hover, :focus-visible) .overlay {
+.root:is( :hover, :focus-visible ) .overlay {
 	opacity: 1;
-	transform: scale(1);
+	transform: scale( 1 );
 }
 
-@media (hover: hover) and (pointer: fine) {
+@media ( hover: hover ) and ( pointer: fine ) {
 	.root:hover .frame {
-		transform: scale(1.03);
+		transform: scale( 1.03 );
 	}
 }
 
@@ -76,15 +76,15 @@
 }
 
 .root:focus-visible .play {
-	box-shadow: inset 0 0 0 2px var(--ring);
-	color: var(--accent-text);
+	box-shadow: inset 0 0 0 2px var( --ring );
+	color: var( --accent-text );
 }
 
 .root:disabled {
 	cursor: default;
 }
 
-@media (prefers-reduced-motion: reduce) {
+@media ( prefers-reduced-motion: reduce ) {
 	.frame,
 	.overlay {
 		transition: none;

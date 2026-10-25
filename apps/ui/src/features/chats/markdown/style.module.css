@@ -3,36 +3,36 @@
 	--markdown-rule-gap: 16px;
 
 	min-width: 0;
-	color: var(--foreground);
-	font-size: var(--text-sm);
-	line-height: var(--leading-relaxed);
+	color: var( --foreground );
+	font-size: var( --text-sm );
+	line-height: var( --leading-relaxed );
 	overflow-wrap: break-word;
 }
 
 /* Block margins collapse, so a heading, quote or table keeps its own space
    whatever sits next to it. */
 .root > * {
-	margin-block: 0 var(--markdown-gap);
+	margin-block: 0 var( --markdown-gap );
 }
 
 .h1,
 .h2,
 .h3,
 .h4 {
-	margin-block: var(--markdown-gap);
-	font-weight: var(--font-weight-semibold);
-	line-height: var(--text-sm--line-height);
-	color: var(--foreground);
+	margin-block: var( --markdown-gap );
+	font-weight: var( --font-weight-semibold );
+	line-height: var( --text-sm--line-height );
+	color: var( --foreground );
 }
 
 .blockquote,
 .tableWrap {
-	margin-block: var(--space-4);
+	margin-block: var( --space-4 );
 }
 
 .hr {
-	margin-block: var(--markdown-rule-gap);
-	border-top: 1px solid var(--border);
+	margin-block: var( --markdown-rule-gap );
+	border-top: 1px solid var( --border );
 }
 
 .root > :first-child {
@@ -45,7 +45,7 @@
 
 .ul,
 .ol {
-	padding-inline-start: var(--space-5);
+	padding-inline-start: var( --space-5 );
 	list-style-position: outside;
 }
 
@@ -58,18 +58,18 @@
 }
 
 .li {
-	padding-block: var(--space-0_5);
+	padding-block: var( --space-0_5 );
 }
 
 .li > .ul,
 .li > .ol {
-	margin-block-start: var(--space-1);
-	padding-inline-start: var(--space-6);
+	margin-block-start: var( --space-1 );
+	padding-inline-start: var( --space-6 );
 }
 
 .a {
 	text-decoration: underline;
-	text-decoration-color: color-mix(in oklab, currentColor 30%, transparent);
+	text-decoration-color: color-mix( in oklab, currentColor 30%, transparent );
 	text-underline-offset: 2px;
 }
 
@@ -80,26 +80,26 @@
 
 .root strong,
 .root b {
-	font-weight: var(--font-weight-semibold);
+	font-weight: var( --font-weight-semibold );
 }
 
 .blockquote {
-	padding-inline-start: var(--space-3);
-	border-inline-start: 2px solid color-mix(in oklab, var(--muted-foreground) 30%, transparent);
-	color: var(--muted-foreground);
+	padding-inline-start: var( --space-3 );
+	border-inline-start: 2px solid color-mix( in oklab, var( --muted-foreground ) 30%, transparent );
+	color: var( --muted-foreground );
 }
 
 .blockquote > * + * {
-	margin-block-start: var(--markdown-gap);
+	margin-block-start: var( --markdown-gap );
 }
 
 .codeInline {
-	padding: var(--space-0_5) var(--space-1);
-	border-radius: var(--radius-sm);
-	background-color: color-mix(in oklab, var(--foreground) 5%, transparent);
-	font-family: var(--font-mono);
-	font-size: var(--text-xs);
-	line-height: var(--text-xs--line-height);
+	padding: var( --space-0_5 ) var( --space-1 );
+	border-radius: var( --radius-sm );
+	background-color: color-mix( in oklab, var( --foreground ) 5%, transparent );
+	font-family: var( --font-mono );
+	font-size: var( --text-xs );
+	line-height: var( --text-xs--line-height );
 	-webkit-user-select: text;
 	user-select: text;
 }
@@ -108,28 +108,28 @@
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	gap: var(--space-2);
-	padding: var(--space-2) var(--space-3);
-	border-bottom: 1px solid var(--border);
-	background-color: color-mix(in oklab, var(--muted) 80%, transparent);
-	color: var(--muted-foreground);
-	font-size: var(--text-xs);
-	line-height: var(--text-xs--line-height);
+	gap: var( --space-2 );
+	padding: var( --space-2 ) var( --space-3 );
+	border-bottom: 1px solid var( --border );
+	background-color: color-mix( in oklab, var( --muted ) 80%, transparent );
+	color: var( --muted-foreground );
+	font-size: var( --text-xs );
+	line-height: var( --text-xs--line-height );
 }
 
 .tableWrap {
 	display: flex;
 	flex-direction: column;
-	padding: var(--space-2);
-	border: 1px solid var(--border);
-	border-radius: var(--radius-lg);
+	padding: var( --space-2 );
+	border: 1px solid var( --border );
+	border-radius: var( --radius-lg );
 }
 
 .tableScroll {
 	overflow-x: auto;
-	border: 1px solid var(--border);
-	border-radius: var(--radius-md);
-	background-color: var(--background);
+	border: 1px solid var( --border );
+	border-radius: var( --radius-md );
+	background-color: var( --background );
 }
 
 .table {
@@ -137,21 +137,21 @@
 }
 
 .table thead {
-	border-bottom: 1px solid var(--border);
-	background-color: color-mix(in oklab, var(--muted) 80%, transparent);
+	border-bottom: 1px solid var( --border );
+	background-color: color-mix( in oklab, var( --muted ) 80%, transparent );
 }
 
-.table tbody tr:not(:last-child) {
-	border-bottom: 1px solid var(--border);
+.table tbody tr:not( :last-child ) {
+	border-bottom: 1px solid var( --border );
 }
 
 .th,
 .td {
-	padding: var(--space-2) var(--space-4);
-	line-height: var(--text-sm--line-height);
+	padding: var( --space-2 ) var( --space-4 );
+	line-height: var( --text-sm--line-height );
 	text-align: start;
 }
 
 .th {
-	font-weight: var(--font-weight-semibold);
+	font-weight: var( --font-weight-semibold );
 }

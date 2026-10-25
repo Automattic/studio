@@ -2,45 +2,45 @@
 	display: flex;
 	flex-wrap: wrap;
 	align-items: flex-end;
-	gap: var(--space-3);
-	padding: var(--space-3_5) var(--space-3_5) var(--space-1_5);
+	gap: var( --space-3 );
+	padding: var( --space-3_5 ) var( --space-3_5 ) var( --space-1_5 );
 }
 
 .attachment {
 	composes: imageOutline from '@/lib/theme/recipes.module.css';
 	position: relative;
 	display: flex;
-	background-color: var(--muted);
-	color: var(--foreground);
-	font-size: var(--text-sm);
+	background-color: var( --muted );
+	color: var( --foreground );
+	font-size: var( --text-sm );
 	user-select: none;
 }
 
 .attachmentImage {
 	width: 96px;
 	height: 96px;
-	border-radius: var(--radius-xl);
+	border-radius: var( --radius-xl );
 }
 
 .attachmentFile {
 	max-width: 240px;
-	border-radius: var(--radius-lg);
+	border-radius: var( --radius-lg );
 }
 
 .attachmentFile {
-	gap: var(--space-2);
+	gap: var( --space-2 );
 	align-items: center;
 	height: 36px;
-	padding: 0 var(--space-3);
-	font-size: var(--text-xs);
-	line-height: var(--text-xs--line-height);
+	padding: 0 var( --space-3 );
+	font-size: var( --text-xs );
+	line-height: var( --text-xs--line-height );
 }
 
 .attachmentFile:hover {
-	background-color: var(--hover);
+	background-color: var( --hover );
 }
 
-.attachmentFile svg:not([data-size]) {
+.attachmentFile svg:not( [data-size] ) {
 	flex: none;
 }
 
@@ -57,22 +57,22 @@
 }
 
 .attachmentRemove {
-	--button-background: var(--chrome);
+	--button-background: var( --chrome );
 
 	position: absolute;
-	top: calc(var(--space-2) * -1);
-	right: calc(var(--space-2) * -1);
+	top: calc( var( --space-2 ) * -1 );
+	right: calc( var( --space-2 ) * -1 );
 	z-index: 1;
-	box-shadow: var(--shadow-sm);
+	box-shadow: var( --shadow-sm );
 }
 
 .attachmentRemove::after {
 	position: absolute;
-	inset: calc(var(--space-1) * -1);
+	inset: calc( var( --space-1 ) * -1 );
 	content: '';
 }
 
-.attachmentRemove svg:not([data-size]) {
+.attachmentRemove svg:not( [data-size] ) {
 	width: 11px;
 	height: 11px;
 }
@@ -82,21 +82,21 @@
 
 	width: 285px;
 	overflow: hidden;
-	border-radius: var(--radius-lg);
-	background-color: var(--popover);
+	border-radius: var( --radius-lg );
+	background-color: var( --popover );
 	box-shadow:
-		0 0 0 1px color-mix(in oklab, var(--foreground) 10%, transparent),
-		var(--shadow-md);
+		0 0 0 1px color-mix( in oklab, var( --foreground ) 10%, transparent ),
+		var( --shadow-md );
 	user-select: none;
 }
 
 .attachmentHoverArtwork {
 	display: block;
 	width: 100%;
-	height: var(--attachment-hover-artwork-height);
+	height: var( --attachment-hover-artwork-height );
 	overflow: hidden;
-	border-bottom: 1px solid var(--border);
-	background-color: var(--chat);
+	border-bottom: 1px solid var( --border );
+	background-color: var( --chat );
 }
 
 .attachmentHoverImage {
@@ -112,11 +112,11 @@
 }
 
 .attachmentHoverText {
-	min-height: var(--attachment-hover-artwork-height);
-	padding: var(--space-3);
-	color: var(--foreground);
-	font-family: var(--font-mono);
-	font-size: var(--text-2xs);
+	min-height: var( --attachment-hover-artwork-height );
+	padding: var( --space-3 );
+	color: var( --foreground );
+	font-family: var( --font-mono );
+	font-size: var( --text-2xs );
 	line-height: 1.35;
 	white-space: pre-wrap;
 	overflow-wrap: anywhere;
@@ -126,21 +126,21 @@
 	display: flex;
 	min-width: 0;
 	flex-direction: column;
-	gap: var(--space-0_5);
-	padding: var(--space-2) var(--space-2_5);
-	color: var(--foreground);
+	gap: var( --space-0_5 );
+	padding: var( --space-2 ) var( --space-2_5 );
+	color: var( --foreground );
 }
 
 .attachmentHoverName {
 	composes: truncate from '@/lib/theme/recipes.module.css';
-	font-size: var(--text-xxs);
-	font-weight: var(--font-weight-semibold);
-	line-height: var(--leading-tight);
+	font-size: var( --text-xxs );
+	font-weight: var( --font-weight-semibold );
+	line-height: var( --leading-tight );
 }
 
 .attachmentHoverMeta {
 	composes: truncate from '@/lib/theme/recipes.module.css';
-	color: var(--muted-foreground);
-	font-size: var(--text-2xs);
+	color: var( --muted-foreground );
+	font-size: var( --text-2xs );
 	line-height: 1.2;
 }

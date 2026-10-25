@@ -293,9 +293,15 @@ export default defineConfig(
 		},
 	},
 	{
-		// Tokens are defined here, and the onboarding illustrations are artwork drawn
-		// with their own literal values.
-		files: [ 'apps/ui/src/lib/theme/**', 'apps/ui/src/features/onboarding/onboarding-guide/illustrations/**' ],
+		// Tokens are defined in the theme. The onboarding illustrations and Wapuu World
+		// are artwork drawn with their own values, and the design system view renders
+		// a site's own type, colors and radii.
+		files: [
+			'apps/ui/src/lib/theme/**',
+			'apps/ui/src/features/onboarding/onboarding-guide/illustrations/**',
+			'apps/ui/src/features/settings/wapuu-world/**',
+			'apps/ui/src/features/sites/design-system-view/**',
+		],
 		rules: {
 			'studio/use-theme-tokens': 'off',
 		},

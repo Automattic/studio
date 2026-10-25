@@ -1,62 +1,62 @@
 .page {
 	display: flex;
 	flex-direction: column;
-	gap: var(--space-6);
+	gap: var( --space-6 );
 	width: 100%;
 	max-width: 448px;
 	margin-inline: auto;
-	padding-block: var(--space-4);
+	padding-block: var( --space-4 );
 }
 
 .intro {
-	color: var(--muted-foreground);
+	color: var( --muted-foreground );
 }
 
 .signedOut {
 	display: flex;
 	flex-direction: column;
-	gap: var(--space-6);
+	gap: var( --space-6 );
 }
 
 .benefits {
 	display: grid;
-	gap: var(--space-3);
-	color: var(--muted-foreground);
+	gap: var( --space-3 );
+	color: var( --muted-foreground );
 }
 
 .benefits li {
 	display: flex;
 	align-items: center;
-	gap: var(--space-3);
+	gap: var( --space-3 );
 }
 
 .benefits svg {
 	flex: none;
-	color: var(--accent-text);
+	color: var( --accent-text );
 }
 
 .state {
 	display: flex;
 	flex-direction: column;
 	align-items: flex-start;
-	gap: var(--space-3);
+	gap: var( --space-3 );
 }
 
 .state h2 {
-	font-size: var(--text-sm);
-	font-weight: var(--font-weight-medium);
+	font-size: var( --text-sm );
+	font-weight: var( --font-weight-medium );
 }
 
 .state p {
 	margin: 0;
-	color: var(--muted-foreground);
+	color: var( --muted-foreground );
 }
 
 .siteControls {
 	display: flex;
 	flex-direction: column;
 	align-items: flex-start;
-	gap: var(--space-2);
+	gap: var( --space-2 );
 }
 
 .search {
@@ -66,53 +66,53 @@
 .helperLinks {
 	display: flex;
 	align-items: center;
-	gap: var(--space-0_5);
-	color: var(--muted-foreground);
+	gap: var( --space-0_5 );
+	color: var( --muted-foreground );
 }
 
 .helperLinks button {
-	padding-inline: var(--space-0_5);
+	padding-inline: var( --space-0_5 );
 }
 
 .sections {
 	display: flex;
 	flex-direction: column;
-	gap: var(--space-8);
+	gap: var( --space-8 );
 }
 
 .section {
 	display: flex;
 	flex-direction: column;
-	gap: var(--space-3);
+	gap: var( --space-3 );
 }
 
 .sectionHeader h2 {
-	font-size: var(--text-sm);
-	font-weight: var(--font-weight-medium);
+	font-size: var( --text-sm );
+	font-weight: var( --font-weight-medium );
 }
 
 .sectionHeader p {
-	margin: var(--space-0_5) 0 0;
-	color: var(--muted-foreground);
-	font-size: var(--text-xs);
+	margin: var( --space-0_5 ) 0 0;
+	color: var( --muted-foreground );
+	font-size: var( --text-xs );
 }
 
 .siteList {
 	display: flex;
 	flex-direction: column;
-	gap: var(--space-2);
+	gap: var( --space-2 );
 }
 
 .site {
 	display: flex;
 	flex-direction: column;
 	align-items: flex-start;
-	gap: var(--space-1);
+	gap: var( --space-1 );
 	min-width: 0;
 }
 
 .siteRow {
-	gap: var(--space-3);
+	gap: var( --space-3 );
 }
 
 .siteThumb {
@@ -133,22 +133,22 @@
 
 .siteUrl {
 	composes: siteName;
-	color: var(--muted-foreground);
-	font-weight: var(--font-weight-normal);
+	color: var( --muted-foreground );
+	font-weight: var( --font-weight-normal );
 }
 
 .badges {
 	display: flex;
 	flex: none;
-	gap: var(--space-1);
+	gap: var( --space-1 );
 }
 
 .siteStatus {
-	padding-inline: var(--space-0_5);
-	color: var(--muted-foreground);
-	font-size: var(--text-xs);
+	padding-inline: var( --space-0_5 );
+	color: var( --muted-foreground );
+	font-size: var( --text-xs );
 }
 
 .siteAction {
-	padding-inline: var(--space-0_5);
+	padding-inline: var( --space-0_5 );
 }

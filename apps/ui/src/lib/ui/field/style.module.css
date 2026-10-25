@@ -146,17 +146,20 @@
 		color: var( --destructive );
 	}
 
-	.description :is( a, [data-variant='link'], [data-variant='inline-link'], [data-variant='inline-accent'] ) {
+	.description
+		:is( a, [data-variant='link'], [data-variant='inline-link'], [data-variant='inline-accent'] ) {
 		color: var( --accent-text );
 		text-decoration: none;
 		text-underline-offset: 2px;
 	}
 
 	.description
-		:is( a, [data-variant='link'], [data-variant='inline-link'], [data-variant='inline-accent'] ):is(
-			:hover,
-			:focus-visible
-		) {
+		:is(
+			a,
+			[data-variant='link'],
+			[data-variant='inline-link'],
+			[data-variant='inline-accent']
+		):is( :hover, :focus-visible ) {
 		text-decoration: underline;
 	}
 

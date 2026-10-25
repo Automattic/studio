@@ -1,16 +1,16 @@
 .block {
 	position: relative;
 	overflow: hidden;
-	border-radius: var(--radius-md);
-	background-color: var(--background);
-	color: var(--foreground);
+	border-radius: var( --radius-md );
+	background-color: var( --background );
+	color: var( --foreground );
 }
 
 .pre {
-	padding: var(--space-3);
-	font-family: var(--font-mono);
-	font-size: var(--text-xs);
-	line-height: var(--text-xs--line-height);
+	padding: var( --space-3 );
+	font-family: var( --font-mono );
+	font-size: var( --text-xs );
+	line-height: var( --text-xs--line-height );
 	overflow-x: auto;
 	-webkit-user-select: text;
 	user-select: text;

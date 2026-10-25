@@ -55,7 +55,10 @@
 		cursor: default;
 	}
 
-	.button:is( :disabled, [data-disabled] ):is( :has( [data-slot='spinner'] ), [data-disabled-appearance] ) {
+	.button:is( :disabled, [data-disabled] ):is(
+			:has( [data-slot='spinner'] ),
+			[data-disabled-appearance]
+		) {
 		opacity: 1;
 	}
 
@@ -88,7 +91,11 @@
 	}
 
 	/* Variants. Hover only applies to enabled buttons. */
-	.button:is( :hover:not( :disabled, [data-disabled] ), [aria-expanded='true'], [aria-pressed='true'] ) {
+	.button:is(
+			:hover:not( :disabled, [data-disabled] ),
+			[aria-expanded='true'],
+			[aria-pressed='true']
+		) {
 		background-color: var( --button-hover-background, var( --button-background, transparent ) );
 	}
 
@@ -98,7 +105,11 @@
 			[data-variant='inline-text'],
 			[data-variant='inline-accent'],
 			[data-variant='overlay']
-		):is( :hover:not( :disabled, [data-disabled] ), [aria-expanded='true'], [aria-pressed='true'] ) {
+		):is(
+			:hover:not( :disabled, [data-disabled] ),
+			[aria-expanded='true'],
+			[aria-pressed='true']
+		) {
 		color: var( --button-hover-color );
 	}
 
@@ -179,21 +190,20 @@
 		backdrop-filter: blur( 12px );
 	}
 
-	.button:is( [data-variant='link'], [data-variant='inline-link'], [data-variant='inline-accent'] ):hover:not(
-			:disabled,
-			[data-disabled]
-		) {
+	.button:is(
+			[data-variant='link'],
+			[data-variant='inline-link'],
+			[data-variant='inline-accent']
+		):hover:not( :disabled, [data-disabled] ) {
 		text-decoration: underline;
 	}
 
 	.button[data-variant='link'] {
-
 		color: var( --primary );
 		text-underline-offset: 4px;
 	}
 
 	.button:is( [data-variant='inline-link'], [data-variant='inline-text'] ) {
-
 		color: var( --muted-foreground );
 		text-underline-offset: 2px;
 	}

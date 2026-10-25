@@ -237,11 +237,9 @@ export default defineConfig(
 		},
 	},
 	{
-		// Module-level translations can't go stale in these apps: the CLI is a
-		// one-shot process that loads the locale before importing modules, and the
-		// UI reloads the window on language change. The rule matters for the
-		// Desktop main process, which swaps locale data live without a restart.
-		files: [ 'apps/cli/**', 'apps/ui/**' ],
+		// Module-level translations can't go stale in the CLI: it is a one-shot
+		// process that loads the locale before importing modules.
+		files: [ 'apps/cli/**' ],
 		rules: {
 			'studio/no-module-level-translations': 'off',
 		},

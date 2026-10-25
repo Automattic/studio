@@ -1,13 +1,13 @@
 @layer ui {
 	.kbd {
 		display: inline-flex;
-		gap: 4px;
+		gap: var( --space-1 );
 		align-items: center;
 		justify-content: center;
 		width: fit-content;
 		min-width: 20px;
 		height: 20px;
-		padding-inline: 4px;
+		padding-inline: var( --space-1 );
 		border-radius: var( --radius-sm );
 		background-color: var( --muted );
 		color: var( --muted-foreground );
@@ -31,7 +31,7 @@
 	.kbd[data-variant='settings'] {
 		min-width: 24px;
 		height: 24px;
-		padding-inline: 6px;
+		padding-inline: var( --space-1_5 );
 		border-radius: var( --radius-xs );
 		background-color: var( --secondary );
 		color: var( --foreground );
@@ -53,7 +53,7 @@
 
 	.group {
 		display: inline-flex;
-		gap: 2px;
+		gap: var( --space-0_5 );
 		align-items: center;
 	}
 }

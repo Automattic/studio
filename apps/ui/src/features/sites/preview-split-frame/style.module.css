@@ -113,7 +113,7 @@
 	inset-block: 0;
 	inset-inline-start: var(--preview-frame-content-width);
 	z-index: 3;
-	padding-inline-start: 4px;
+	padding-inline-start: var(--space-1);
 	transform: translateX(-4px);
 	justify-content: flex-start;
 }

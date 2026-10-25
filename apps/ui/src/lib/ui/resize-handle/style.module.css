@@ -1,6 +1,6 @@
 .resizeHandle {
 	width: 8px;
-	z-index: 20;
+	z-index: var(--z-overlay);
 	display: flex;
 	align-items: stretch;
 	justify-content: center;

@@ -1,13 +1,13 @@
 .details {
 	display: flex;
 	flex-direction: column;
-	gap: 12px;
+	gap: var(--space-3);
 }
 
 .section {
 	display: flex;
 	flex-direction: column;
-	gap: 4px;
+	gap: var(--space-1);
 }
 
 .section h3 {
@@ -16,12 +16,12 @@
 }
 
 .section ul {
-	padding-inline-start: 16px;
+	padding-inline-start: var(--space-4);
 	list-style: disc;
 }
 
 .section li + li {
-	margin-block-start: 4px;
+	margin-block-start: var(--space-1);
 }
 
 .learnMoreButton,

@@ -1,11 +1,11 @@
 .page {
 	display: flex;
 	flex-direction: column;
-	gap: 24px;
+	gap: var(--space-6);
 	width: 100%;
 	max-width: 448px;
 	margin-inline: auto;
-	padding-block: 16px;
+	padding-block: var(--space-4);
 }
 
 .intro {
@@ -15,19 +15,19 @@
 .signedOut {
 	display: flex;
 	flex-direction: column;
-	gap: 24px;
+	gap: var(--space-6);
 }
 
 .benefits {
 	display: grid;
-	gap: 12px;
+	gap: var(--space-3);
 	color: var(--muted-foreground);
 }
 
 .benefits li {
 	display: flex;
 	align-items: center;
-	gap: 12px;
+	gap: var(--space-3);
 }
 
 .benefits svg {
@@ -39,7 +39,7 @@
 	display: flex;
 	flex-direction: column;
 	align-items: flex-start;
-	gap: 12px;
+	gap: var(--space-3);
 }
 
 .state h2 {
@@ -56,7 +56,7 @@
 	display: flex;
 	flex-direction: column;
 	align-items: flex-start;
-	gap: 8px;
+	gap: var(--space-2);
 }
 
 .search {
@@ -66,24 +66,24 @@
 .helperLinks {
 	display: flex;
 	align-items: center;
-	gap: 2px;
+	gap: var(--space-0_5);
 	color: var(--muted-foreground);
 }
 
 .helperLinks button {
-	padding-inline: 2px;
+	padding-inline: var(--space-0_5);
 }
 
 .sections {
 	display: flex;
 	flex-direction: column;
-	gap: 32px;
+	gap: var(--space-8);
 }
 
 .section {
 	display: flex;
 	flex-direction: column;
-	gap: 12px;
+	gap: var(--space-3);
 }
 
 .sectionHeader h2 {
@@ -92,7 +92,7 @@
 }
 
 .sectionHeader p {
-	margin: 2px 0 0;
+	margin: var(--space-0_5) 0 0;
 	color: var(--muted-foreground);
 	font-size: var(--text-xs);
 }
@@ -100,19 +100,19 @@
 .siteList {
 	display: flex;
 	flex-direction: column;
-	gap: 8px;
+	gap: var(--space-2);
 }
 
 .site {
 	display: flex;
 	flex-direction: column;
 	align-items: flex-start;
-	gap: 4px;
+	gap: var(--space-1);
 	min-width: 0;
 }
 
 .siteRow {
-	gap: 12px;
+	gap: var(--space-3);
 }
 
 .siteThumb {
@@ -142,15 +142,15 @@
 .badges {
 	display: flex;
 	flex: none;
-	gap: 4px;
+	gap: var(--space-1);
 }
 
 .siteStatus {
-	padding-inline: 2px;
+	padding-inline: var(--space-0_5);
 	color: var(--muted-foreground);
 	font-size: var(--text-xs);
 }
 
 .siteAction {
-	padding-inline: 2px;
+	padding-inline: var(--space-0_5);
 }

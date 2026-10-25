@@ -5,15 +5,15 @@
 		position: relative;
 		display: grid;
 		grid-template-columns: minmax( 0, 1fr ) auto;
-		gap: 2px 8px;
+		gap: var( --space-0_5 ) var( --space-2 );
 		width: 100%;
-		padding: 8px 10px;
+		padding: var( --space-2 ) var( --space-2_5 );
 		border: 1px solid var( --border );
 		border-radius: var( --radius-lg );
 		background-color: var( --popover );
 		color: var( --popover-foreground );
 		font-size: var( --text-sm );
-		line-height: 20px;
+		line-height: var( --text-sm--line-height );
 		text-align: start;
 	}
 
@@ -84,7 +84,7 @@
 		display: flex;
 		grid-column: 1 / -1;
 		flex-wrap: wrap;
-		gap: 8px;
-		margin-block-start: 6px;
+		gap: var( --space-2 );
+		margin-block-start: var( --space-1_5 );
 	}
 }

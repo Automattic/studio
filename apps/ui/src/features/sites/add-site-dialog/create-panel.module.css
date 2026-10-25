@@ -1,5 +1,5 @@
 .blueprint {
-	margin-top: 32px;
+	margin-top: var(--space-8);
 }
 
 .summary {
@@ -11,15 +11,15 @@
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	gap: 16px;
-	margin-bottom: 12px;
+	gap: var(--space-4);
+	margin-bottom: var(--space-3);
 }
 
 /* A quiet section label, so the Blueprint's own name below stays dominant. */
 .summaryHeader h2 {
 	color: var(--muted-foreground);
 	font-size: var(--text-xxs);
-	font-weight: 500;
+	font-weight: var(--font-weight-medium);
 }
 
 .summaryRemove {
@@ -34,7 +34,7 @@
 
 .summaryRemove:focus-visible {
 	border-radius: 2px;
-	outline: 2px solid var(--ring);
+	outline: var(--focus-width) solid var(--ring);
 	outline-offset: 2px;
 }
 
@@ -42,7 +42,7 @@
 	display: grid;
 	grid-template-columns: 112px minmax( 0, 1fr );
 	align-items: start;
-	gap: 16px;
+	gap: var(--space-4);
 }
 
 .summaryOverviewWithoutImage {
@@ -54,7 +54,7 @@
 	width: 112px;
 	aspect-ratio: 16 / 10;
 	overflow: hidden;
-	border-radius: 6px;
+	border-radius: var(--radius-sm);
 	background: var(--chat);
 }
 
@@ -75,7 +75,7 @@
 }
 
 .summaryExcerpt {
-	margin: 4px 0 0;
+	margin: var(--space-1) 0 0;
 	color: var(--muted-foreground);
 	font-size: var(--text-xxs);
 	line-height: 1.4;
@@ -84,12 +84,12 @@
 .summaryPackages {
 	display: grid;
 	grid-template-columns: repeat( 2, minmax( 0, 1fr ) );
-	gap: 24px;
-	margin-top: 24px;
+	gap: var(--space-6);
+	margin-top: var(--space-6);
 }
 
 .summaryPackageGroup h3 {
-	margin: 0 0 6px;
+	margin: 0 0 var(--space-1_5);
 	color: var(--foreground);
 	font-size: var(--text-xxs);
 	font-weight: var(--font-weight-semibold);
@@ -100,7 +100,7 @@
 }
 
 .summaryPackageGroup ul {
-	padding-left: 18px;
+	padding-left: var(--space-4_5);
 	list-style: disc;
 }
 
@@ -121,11 +121,11 @@
 
 .summaryPackageGroup a:focus-visible {
 	border-radius: 2px;
-	outline: 2px solid var(--ring);
+	outline: var(--focus-width) solid var(--ring);
 	outline-offset: 2px;
 }
 
-@media ( max-width: 520px ) {
+@media (width < 640px) {
 	.summaryOverview,
 	.summaryPackages {
 		grid-template-columns: 1fr;

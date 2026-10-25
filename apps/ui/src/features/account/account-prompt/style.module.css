@@ -3,8 +3,8 @@
 	flex-direction: column;
 	align-items: center;
 	width: 100%;
-	margin-top: -16px;
-	padding-bottom: 32px;
+	margin-top: calc(var(--space-4) * -1);
+	padding-bottom: var(--space-8);
 	text-align: center;
 	text-wrap: pretty;
 }
@@ -19,7 +19,7 @@
 	width: 100%;
 	max-width: 448px;
 	aspect-ratio: 2.6 / 1;
-	margin-bottom: 20px;
+	margin-bottom: var(--space-5);
 	pointer-events: none;
 }
 
@@ -86,23 +86,23 @@
 
 .description {
 	max-width: 320px;
-	margin: 4px 0 0;
+	margin: var(--space-1) 0 0;
 	color: var(--muted-foreground);
 	font-size: var(--text-sm);
-	line-height: 1.625;
+	line-height: var(--leading-relaxed);
 }
 
 .error {
-	margin: 12px 0 0;
+	margin: var(--space-3) 0 0;
 	color: var(--destructive);
 	font-size: var(--text-xs);
 }
 
 .createAccount {
-	margin-top: 28px;
+	margin-top: var(--space-7);
 }
 
 .logIn {
-	margin-top: 16px;
+	margin-top: var(--space-4);
 	font-size: var(--text-xs);
 }

@@ -18,8 +18,8 @@
 	position: relative;
 	display: flex;
 	align-items: center;
-	gap: 12px;
-	padding-inline: 12px 8px;
+	gap: var(--space-3);
+	padding-inline: var(--space-3) var(--space-2);
 	height: var(--band-height);
 	flex-shrink: 0;
 	transition: padding var(--motion-duration-layout) var(--motion-ease-layout);
@@ -45,7 +45,7 @@
 	display: flex;
 	flex-shrink: 0;
 	align-items: center;
-	gap: 4px;
+	gap: var(--space-1);
 }
 
 .browserLocation {
@@ -69,9 +69,9 @@
 	height: var(--control-size);
 	align-items: center;
 	justify-content: center;
-	padding-inline: 12px;
+	padding-inline: var(--space-3);
 	border: 1px solid var(--border);
-	border-radius: 999px;
+	border-radius: var(--radius-full);
 	color: var(--muted-foreground);
 	font-size: var(--text-xxs);
 	white-space: nowrap;
@@ -100,7 +100,7 @@
 
 .historyPath {
 	color: var(--muted-foreground);
-	font-size: 11px;
+	font-size: var(--text-2xs);
 }
 
 .disabledControlTooltipTarget {
@@ -108,7 +108,7 @@
 }
 
 .annotateButton {
-	gap: 4px;
+	gap: var(--space-1);
 }
 
 .annotateButtonActive {
@@ -221,7 +221,7 @@
 .spinner {
 	width: 20px;
 	height: 20px;
-	border-radius: 50%;
+	border-radius: var(--radius-full);
 	border: 2px solid var(--border);
 	border-top-color: var(--accent-text);
 	animation: sitePreviewSpin 0.8s linear infinite;
@@ -252,7 +252,7 @@
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	padding: 20px;
+	padding: var(--space-5);
 	background-color: var(--chat);
 	color: var(--muted-foreground);
 	font-size: var(--text-xxs);
@@ -271,7 +271,7 @@
 	z-index: 1;
 	display: flex;
 	flex-direction: column;
-	gap: 12px;
+	gap: var(--space-3);
 	align-items: center;
 	width: min(100%, 420px);
 }
@@ -293,7 +293,7 @@
 .headerItem {
 	display: flex;
 	align-items: center;
-	gap: 4px;
+	gap: var(--space-1);
 	flex-shrink: 0;
 }
 

@@ -1,12 +1,12 @@
 .form {
 	display: flex;
 	flex-direction: column;
-	gap: 32px;
+	gap: var(--space-8);
 }
 
 .submitError {
-	padding: 10px 12px;
-	border-radius: 4px;
+	padding: var(--space-2_5) var(--space-3);
+	border-radius: var(--radius-lg);
 	border: 1px solid color-mix(in oklab, var(--destructive) 35%, transparent);
 	background: var(--destructive-surface);
 	color: var(--destructive);
@@ -16,7 +16,7 @@
 .field {
 	display: flex;
 	align-items: center;
-	gap: 4px;
+	gap: var(--space-1);
 	min-width: 224px;
 	max-width: 100%;
 }
@@ -27,7 +27,7 @@
 
 .debugLogAction {
 	display: flex;
-	margin-block-start: 4px;
+	margin-block-start: var(--space-1);
 }
 
 .busy {

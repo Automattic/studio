@@ -5,19 +5,19 @@
 .panel {
 	display: flex;
 	flex-direction: column;
-	gap: 24px;
+	gap: var(--space-6);
 }
 
 .actions {
 	display: flex;
 	justify-content: flex-end;
-	gap: 8px;
-	margin-top: 28px;
+	gap: var(--space-2);
+	margin-top: var(--space-7);
 }
 
 .pathRow {
 	display: flex;
-	gap: 8px;
+	gap: var(--space-2);
 }
 
 .advancedToggle {
@@ -27,7 +27,7 @@
 .advancedCollapse {
 	display: grid;
 	grid-template-rows: 0fr;
-	margin-top: -24px;
+	margin-top: calc(var(--space-6) * -1);
 	transition:
 		grid-template-rows var(--motion-duration-layout) var(--motion-ease-layout),
 		margin-top var(--motion-duration-layout) var(--motion-ease-layout);
@@ -41,8 +41,8 @@
 .advancedCollapseInner {
 	overflow: hidden;
 	min-height: 0;
-	padding: 4px;
-	margin: -4px;
+	padding: var(--space-1);
+	margin: calc(var(--space-1) * -1);
 }
 
 @media ( prefers-reduced-motion: reduce ) {
@@ -52,42 +52,42 @@
 }
 
 .advancedErrorCount {
-	margin-left: 8px;
+	margin-left: var(--space-2);
 	font-size: var(--text-xxs);
-	font-weight: 500;
+	font-weight: var(--font-weight-medium);
 	color: var(--destructive);
 }
 
 .submitErrorDetails {
-	margin-top: 6px;
+	margin-top: var(--space-1_5);
 }
 
 .submitErrorDetails summary {
 	width: fit-content;
-	font-weight: 500;
+	font-weight: var(--font-weight-medium);
 	cursor: pointer;
 }
 
 .submitErrorDetails pre {
 	max-height: 160px;
-	padding-top: 6px;
+	padding-top: var(--space-1_5);
 	overflow: auto;
 	font-family: var(--font-mono);
-	font-size: 11px;
+	font-size: var(--text-2xs);
 	white-space: pre-wrap;
 	overflow-wrap: anywhere;
 }
 
 .panelFooter {
-	padding-top: 24px;
+	padding-top: var(--space-6);
 	border-top: 1px solid var(--border);
 }
 
 .source {
 	display: flex;
 	align-items: center;
-	gap: 12px;
-	padding: 12px;
+	gap: var(--space-3);
+	padding: var(--space-3);
 	border: 1px solid var(--border);
 	border-radius: var(--radius-lg);
 	background: var(--background);

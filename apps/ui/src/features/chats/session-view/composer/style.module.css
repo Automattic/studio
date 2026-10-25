@@ -5,13 +5,13 @@
 
 /* A tab above the composer, which overlaps its bottom edge. */
 .notice {
-	margin-bottom: -24px;
-	padding: 6px 10px 30px 16px;
-	border-radius: 24px 24px 0 0;
+	margin-bottom: calc(var(--space-6) * -1);
+	padding: var(--space-1_5) var(--space-2_5) 30px var(--space-4);
+	border-radius: var(--radius-3xl) var(--radius-3xl) 0 0;
 	background-color: var(--muted);
 	color: var(--muted-foreground);
 	font-size: var(--text-xs);
-	line-height: 20px;
+	line-height: var(--text-xs--line-height);
 }
 
 .notice[data-feedback] {
@@ -23,7 +23,7 @@
 	display: flex;
 	min-height: 36px;
 	align-items: center;
-	gap: 12px;
+	gap: var(--space-3);
 }
 
 .noticeContent[data-submit-feedback='shake'] {
@@ -70,7 +70,7 @@
 
 /* Text-input chrome, like the form inputs beside it, instead of the chat composer. */
 .shellField {
-	border-radius: 9px;
+	border-radius: var(--radius-lg);
 	background-color: color-mix(
 		in srgb,
 		var(--chrome) 60%,
@@ -92,7 +92,7 @@
 .dropOverlay {
 	position: absolute;
 	inset: 0;
-	z-index: 40;
+	z-index: var(--z-sidebar);
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -107,8 +107,8 @@
 }
 
 .dropOverlay span {
-	padding: 8px 16px;
-	border-radius: 13px;
+	padding: var(--space-2) var(--space-4);
+	border-radius: var(--radius-xl);
 	background-color: var(--accent);
 	color: var(--accent-foreground);
 	font-size: var(--text-sm);
@@ -123,8 +123,8 @@
 	display: flex;
 	flex-wrap: wrap;
 	align-items: flex-end;
-	gap: 12px;
-	padding: 14px 14px 6px;
+	gap: var(--space-3);
+	padding: var(--space-3_5) var(--space-3_5) var(--space-1_5);
 }
 
 .attachment {
@@ -158,12 +158,12 @@
 }
 
 .attachmentFile {
-	gap: 8px;
+	gap: var(--space-2);
 	align-items: center;
 	height: 36px;
-	padding: 0 12px;
+	padding: 0 var(--space-3);
 	font-size: var(--text-xs);
-	line-height: 20px;
+	line-height: var(--text-xs--line-height);
 }
 
 .attachmentFile:hover {
@@ -194,15 +194,15 @@
 	--button-background: var(--chrome);
 
 	position: absolute;
-	top: -8px;
-	right: -8px;
+	top: calc(var(--space-2) * -1);
+	right: calc(var(--space-2) * -1);
 	z-index: 1;
 	box-shadow: var(--shadow-sm);
 }
 
 .attachmentRemove::after {
 	position: absolute;
-	inset: -4px;
+	inset: calc(var(--space-1) * -1);
 	content: '';
 }
 
@@ -247,10 +247,10 @@
 
 .attachmentHoverText {
 	min-height: var(--attachment-hover-artwork-height);
-	padding: 12px;
+	padding: var(--space-3);
 	color: var(--foreground);
 	font-family: var(--font-mono);
-	font-size: 11px;
+	font-size: var(--text-2xs);
 	line-height: 1.35;
 	white-space: pre-wrap;
 	overflow-wrap: anywhere;
@@ -260,8 +260,8 @@
 	display: flex;
 	min-width: 0;
 	flex-direction: column;
-	gap: 2px;
-	padding: 8px 10px;
+	gap: var(--space-0_5);
+	padding: var(--space-2) var(--space-2_5);
 	color: var(--foreground);
 }
 
@@ -269,7 +269,7 @@
 	overflow: hidden;
 	font-size: var(--text-xxs);
 	font-weight: var(--font-weight-semibold);
-	line-height: 1.25;
+	line-height: var(--leading-tight);
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
@@ -277,7 +277,7 @@
 .attachmentHoverMeta {
 	overflow: hidden;
 	color: var(--muted-foreground);
-	font-size: 11px;
+	font-size: var(--text-2xs);
 	line-height: 1.2;
 	text-overflow: ellipsis;
 	white-space: nowrap;
@@ -292,7 +292,7 @@
 .input {
 	min-height: 0;
 	max-height: calc(6lh + 28px);
-	padding: 14px;
+	padding: var(--space-3_5);
 	overflow-y: auto;
 }
 
@@ -302,13 +302,13 @@
 
 .placeholder {
 	position: absolute;
-	top: 14px;
-	right: 14px;
-	left: 14px;
+	top: var(--space-3_5);
+	right: var(--space-3_5);
+	left: var(--space-3_5);
 	overflow: hidden;
 	color: var(--muted-foreground);
 	font-size: var(--text-sm);
-	line-height: 20px;
+	line-height: var(--text-sm--line-height);
 	text-overflow: ellipsis;
 	white-space: nowrap;
 	pointer-events: none;
@@ -318,9 +318,9 @@
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	gap: 8px;
+	gap: var(--space-2);
 	min-width: 0;
-	padding: 6px 8px 8px;
+	padding: var(--space-1_5) var(--space-2) var(--space-2);
 }
 
 .leftActions,
@@ -330,7 +330,7 @@
 }
 
 .rightActions {
-	gap: 4px;
+	gap: var(--space-1);
 }
 
 .leftActions {

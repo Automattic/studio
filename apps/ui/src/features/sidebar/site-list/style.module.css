@@ -15,13 +15,13 @@
 	   resolved against whatever theme scope wraps the list. */
 	--sidebar-row-background: var(--hover);
 
-	padding: 12px 12px
-		20px;
+	padding: var(--space-3) var(--space-3)
+		var(--space-5);
 	display: flex;
 	flex-direction: column;
-	gap: 4px;
+	gap: var(--space-1);
 	font-size: var(--text-sm);
-	line-height: 20px;
+	line-height: var(--text-sm--line-height);
 	user-select: none;
 	-webkit-app-region: no-drag;
 }
@@ -37,7 +37,7 @@
    carry only the site rows' visual treatment. */
 
 .siteDragWrapper {
-	border-radius: 6px;
+	border-radius: var(--radius-md);
 }
 
 .siteDragPreview {
@@ -54,7 +54,7 @@
 	flex-direction: column;
 	/* Keep scrollIntoView targets clear of the sidebar's sticky header and
 	   footer, which paint over the scrollport's edges. */
-	scroll-margin-block: 64px;
+	scroll-margin-block: var(--space-16);
 }
 
 .siteHeader {
@@ -106,7 +106,7 @@
 	right: -1.5px;
 	width: 7px;
 	height: 7px;
-	border-radius: 50%;
+	border-radius: var(--radius-full);
 	background-color: var(--accent);
 }
 
@@ -136,7 +136,7 @@
 	pointer-events: none;
 	transform: scale(0.75);
 	transition: inline-size 160ms ease, flex-basis 160ms ease, margin-inline-start 160ms ease,
-		margin-inline-end 160ms ease, opacity 120ms ease, transform 160ms ease;
+		margin-inline-end 160ms ease, opacity var(--motion-duration-feedback) ease, transform 160ms ease;
 }
 
 .siteAgentActivitySlotVisible {
@@ -183,7 +183,7 @@
 .siteAgentActivitySyncDot {
 	inline-size: 3px;
 	block-size: 3px;
-	border-radius: 999px;
+	border-radius: var(--radius-full);
 	background-color: currentColor;
 	animation-name: siteAgentSyncDotBounce;
 	animation-duration: 760ms;
@@ -214,10 +214,10 @@
    stays visible. The row's text makes room for them. */
 .siteActions {
 	position: absolute;
-	inset-block-start: 2px;
-	inset-inline-end: 2px;
+	inset-block-start: var(--space-0_5);
+	inset-inline-end: var(--space-0_5);
 	display: flex;
-	gap: 2px;
+	gap: var(--space-0_5);
 }
 
 .siteActions .rowAction {
@@ -286,18 +286,18 @@
 }
 
 .empty {
-	padding: 4px var(--site-list-row-padding);
+	padding: var(--space-1) var(--site-list-row-padding);
 	color: var(--muted-foreground);
 }
 
 .group {
 	display: flex;
 	flex-direction: column;
-	padding-block-start: 4px;
+	padding-block-start: var(--space-1);
 }
 
 .group[data-open] {
-	padding-block-end: 12px;
+	padding-block-end: var(--space-3);
 }
 
 .groupHeader {
@@ -313,7 +313,7 @@
 	display: inline-flex;
 	flex: 1;
 	align-items: center;
-	gap: 4px;
+	gap: var(--space-1);
 	height: 100%;
 	padding: 0 var(--site-list-row-padding);
 	border-radius: var(--radius-md);
@@ -328,7 +328,7 @@
 }
 
 .groupToggle:focus-visible {
-	outline: 2px solid var(--ring);
+	outline: var(--focus-width) solid var(--ring);
 	outline-offset: -2px;
 }
 
@@ -355,7 +355,7 @@
 }
 
 .site .chats {
-	padding-block: 1px 8px;
+	padding-block: 1px var(--space-2);
 }
 
 .groupActions {
@@ -448,7 +448,7 @@
 
 .chatActions {
 	position: absolute;
-	inset-inline-end: 2px;
+	inset-inline-end: var(--space-0_5);
 	display: flex;
 	opacity: 0;
 	transition: opacity var(--motion-duration-surface) var(--motion-ease-enter);
@@ -480,10 +480,10 @@
 /* Sits in the archive button's slot, which takes over on hover. */
 .unreadDot {
 	position: absolute;
-	inset-inline-end: calc(2px + (var(--site-list-action-size) - 7px) / 2);
+	inset-inline-end: calc(var(--space-0_5) + (var(--site-list-action-size) - 7px) / 2);
 	width: 7px;
 	height: 7px;
-	border-radius: 50%;
+	border-radius: var(--radius-full);
 	background-color: var(--accent);
 }
 

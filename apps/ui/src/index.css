@@ -11,7 +11,7 @@
 	pointer-events: none;
 }
 
-@media ( max-width: 639px ) {
+@media ( width < 640px ) {
 	.studio-column-edge::before {
 		content: none;
 	}

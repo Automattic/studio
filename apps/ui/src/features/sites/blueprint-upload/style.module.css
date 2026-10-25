@@ -13,7 +13,7 @@
 
 .action {
 	color: var(--accent-text);
-	font-weight: 500;
+	font-weight: var(--font-weight-medium);
 	cursor: pointer;
 }
 
@@ -30,14 +30,14 @@
 .fullScreenDrop {
 	position: fixed;
 	inset: 0;
-	z-index: 20;
+	z-index: var(--z-overlay);
 	display: flex;
 	align-items: center;
 	justify-content: center;
 	border: 2px dashed var(--accent);
 	background: var(--chrome);
 	color: var(--foreground);
-	font-size: 1.25rem;
+	font-size: var(--text-2xl);
 	font-weight: var(--font-weight-semibold);
 	pointer-events: none;
 }

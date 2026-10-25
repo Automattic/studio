@@ -21,7 +21,7 @@
 	display: inline-flex;
 	flex-shrink: 0;
 	width: 0;
-	margin-inline-end: calc(-1 * 4px);
+	margin-inline-end: calc(-1 * var(--space-1));
 	overflow: hidden;
 	opacity: 0;
 	transition:

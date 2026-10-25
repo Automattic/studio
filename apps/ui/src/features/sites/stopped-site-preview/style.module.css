@@ -55,7 +55,7 @@
 	height: 64px;
 	align-items: center;
 	justify-content: center;
-	border-radius: 50%;
+	border-radius: var(--radius-full);
 	background: color-mix(in srgb, var(--background) 90%, transparent);
 	color: var(--foreground);
 }

@@ -20,7 +20,7 @@ const { navigateMock, agentRunState, sitesState, aiSettingsState, accessState } 
 			refetch: vi.fn(),
 		},
 		accessState: {
-			user: { id: 1 } as { id: number } | null,
+			user: { id: 1 } as { id: number; email?: string } | null,
 			offline: false,
 			openSettings: vi.fn(),
 		},
@@ -144,6 +144,7 @@ vi.mock( '@/data/host/use-traffic-light-space', () => ( {
 type ComposerMockProps = {
 	onSend: ( prompt: string ) => Promise< void >;
 	autoFocus?: boolean;
+	model?: string;
 	notice?: { message: string; action?: { label: string; onClick: () => void } };
 };
 
@@ -490,6 +491,26 @@ describe( 'SessionView', () => {
 
 		expect( screen.getByTestId( 'composer' ) ).toBeInTheDocument();
 		expect( container.querySelector( '[class*="fadeInQuick"]' ) ).toBeNull();
+	} );
+
+	it( 'starts a chat on Balanced when the paid models are unlocked, Fast otherwise', () => {
+		useSessionMock.mockReturnValue( { data: makeLoadedSession(), isLoading: false, error: null } );
+		const { rerender } = render( <SessionView sessionId="session-1" /> );
+		expect( composerProps.current?.model ).toBe( 'fast' );
+
+		accessState.user = { id: 1, email: 'someone@automattic.com' };
+		rerender( <SessionView sessionId="session-1" /> );
+		expect( composerProps.current?.model ).toBe( 'balanced' );
+
+		accessState.user = { id: 1 };
+		useStudioAssistantQuotaMock.mockReturnValue( {
+			data: makeQuota( { purchasedRemaining: 1000 } ),
+			isLoading: false,
+			isFetching: false,
+			refetch: vi.fn(),
+		} );
+		rerender( <SessionView sessionId="session-1" /> );
+		expect( composerProps.current?.model ).toBe( 'balanced' );
 	} );
 
 	it( 'focuses the composer of a chat with no prompt yet', () => {

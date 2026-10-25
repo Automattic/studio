@@ -11,7 +11,7 @@ import { SidebarButton } from '@/features/sidebar/sidebar-button';
 import { XdebugIcon } from '@/features/sidebar/xdebug-icon';
 import { GlobeIcon, NewChatIcon } from '@/lib/icons';
 import { IconButton } from '@/lib/ui';
-import { useSelectableRow } from './selection';
+import { useRowPressed, useSelectableRow } from './selection';
 import { SiteAgentActivityIndicator } from './site-activity-indicator';
 import { SiteChats } from './site-chats';
 import { SiteRowMenu } from './site-row-menu';
@@ -53,6 +53,7 @@ export function SiteSection( {
 } ) {
 	const { site } = row;
 	const selectable = useSelectableRow( sitePinKey( site.id ) );
+	const pressed = useRowPressed( sitePinKey( site.id ) );
 	const navigate = useNavigate();
 	const sectionRef = useRef< HTMLElement >( null );
 	const isActive = isChatActive || isContextActive;
@@ -121,6 +122,7 @@ export function SiteSection( {
 									handleOpenSite();
 								} }
 								aria-current={ isSelected ? 'page' : undefined }
+								aria-pressed={ pressed }
 								aria-expanded={ onOpen && chats.length > 0 ? showChats : undefined }
 							>
 								<span

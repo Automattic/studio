@@ -17,7 +17,7 @@ import {
 	TooltipTrigger,
 	VisuallyHidden,
 } from '@/lib/ui';
-import { BulkMenu, useIsBulkTarget, useSelectableRow } from './selection';
+import { BulkMenu, useIsBulkTarget, useRowPressed, useSelectableRow } from './selection';
 import styles from './style.module.css';
 import type { AiSessionSummary } from '@/data/core';
 
@@ -50,6 +50,7 @@ export function ChatRow( {
 	const actions = useChatActions( session, active );
 	const selectable = useSelectableRow( chatPinKey( session.id ) );
 	const bulk = useIsBulkTarget( chatPinKey( session.id ) );
+	const pressed = useRowPressed( chatPinKey( session.id ) );
 	const [ menuOpen, setMenuOpen ] = useState( false );
 	const title = getSessionTitle( session );
 	const needsInput = activity === 'pending-question';
@@ -58,6 +59,7 @@ export function ChatRow( {
 		<SidebarButton
 			className={ styles.chat }
 			aria-current={ active ? 'page' : undefined }
+			aria-pressed={ pressed }
 			onClick={ () => {
 				onOpen?.();
 				void navigate( {

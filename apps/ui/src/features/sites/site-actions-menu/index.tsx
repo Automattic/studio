@@ -214,7 +214,7 @@ export function SiteActionsMenuItems( {
 						<StopSiteIcon />
 						{ __( 'Stop' ) }
 					</Menu.SubmenuTrigger>
-					<Menu.SubmenuPopup>
+					<Menu.SubmenuPopup { ...actions.shortcuts }>
 						{ site.running ? (
 							<Menu.Item onClick={ actions.toggleRunning }>
 								<StopSiteIcon />

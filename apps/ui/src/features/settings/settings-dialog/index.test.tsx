@@ -152,11 +152,13 @@ describe( 'SettingsDialog', () => {
 		const [ top ] = within(
 			screen.getByRole( 'tablist', { name: 'Matching settings' } )
 		).getAllByRole( 'tab' );
-		expect( top ).toHaveTextContent( 'Theme' );
+		expect( top ).toHaveAccessibleName( 'Theme' );
+		expect( top ).toHaveAccessibleDescription( 'WordPress Studio settings' );
 		fireEvent.keyDown( input, { key: 'Enter' } );
 		dialog.update();
 
 		expect( search.settings ).toBe( 'appearance' );
+		expect( screen.getByRole( 'tabpanel', { name: 'Appearance' } ) ).toHaveTextContent( 'Theme' );
 	} );
 
 	it( 'finds settings by their description', () => {
@@ -172,7 +174,8 @@ describe( 'SettingsDialog', () => {
 	it( 'clears the search on Escape without closing', () => {
 		renderDialog( { settings: 'general' } );
 		const input = screen.getByRole( 'textbox', { name: 'Search settings' } );
-		fireEvent.change( input, { target: { value: 'theme' } } );
+		fireEvent.change( input, { target: { value: 'no such setting' } } );
+		expect( screen.getByText( 'No settings found.' ) ).toHaveAttribute( 'role', 'status' );
 
 		fireEvent.keyDown( input, { key: 'Escape' } );
 

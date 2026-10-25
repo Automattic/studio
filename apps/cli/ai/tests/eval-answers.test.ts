@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createScriptedUser, type EvalAnswers } from 'cli/ai/eval-answers';
+import { createScriptedUser, DISMISSED, type EvalAnswers } from 'cli/ai/eval-answers';
 import type { AskUserQuestion } from 'cli/ai/types';
 
 const confirmation = ( question: string ): AskUserQuestion => ( {
@@ -43,10 +43,10 @@ describe( 'createScriptedUser', () => {
 			expected: [ 'Whatever you think is best.', 'No' ],
 		},
 		{
-			name: 'cancel where the only answer is not one of its options',
+			name: 'a dismissal where the only answer is not one of its options',
 			answers: userWhoDelegates,
 			asked: [ confirmation( 'Push the local site "Lotus" to example.com?' ) ],
-			expected: [ 'Cancel' ],
+			expected: [ undefined ],
 		},
 		{
 			name: 'the same answer to every question it fits',
@@ -55,15 +55,17 @@ describe( 'createScriptedUser', () => {
 			expected: [ 'Cancel', 'Cancel' ],
 		},
 		{
-			name: 'cancel with no answers',
+			name: 'a dismissal with no answers',
 			answers: [],
 			asked: [ openQuestion( 'Update this site or create a new one?' ) ],
-			expected: [ 'Cancel' ],
+			expected: [ undefined ],
 		},
 	] )( 'gives $name', async ( { answers, asked, expected } ) => {
 		const user = createScriptedUser( answers );
 		const given = await user.onAskUser( asked );
 		expect( asked.map( ( { question } ) => given[ question ] ) ).toEqual( expected );
-		expect( user.questions.map( ( { answer } ) => answer ) ).toEqual( expected );
+		expect( user.questions.map( ( { answer } ) => answer ) ).toEqual(
+			expected.map( ( answer ) => answer ?? DISMISSED )
+		);
 	} );
 } );

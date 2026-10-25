@@ -348,7 +348,7 @@ tests:
 
   # Site pick: with an active site and a prompt that names a different site,
   # the user is asked whether to update the active site or create a new one
-  # before either happens. The user cancels whatever is asked.
+  # before either happens. The user dismisses whatever is asked.
   - description: a different site name asks before using or replacing the active site
     vars:
       caseId: active-site-different-name

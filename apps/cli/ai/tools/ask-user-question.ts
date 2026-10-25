@@ -40,6 +40,24 @@ export function createAskUserQuestionTool(
 				allowFreeForm: true,
 			} ) );
 			const answers = await onAskUser( questions );
+			const dismissed = questions.filter( ( { question } ) => ! answers[ question ]?.trim() );
+			// A question the user closes without answering hands the turn back
+			// to them: what comes next is theirs to say.
+			if ( dismissed.length ) {
+				return {
+					content: [
+						{
+							type: 'text' as const,
+							text: `The user closed without answering: ${ dismissed
+								.map( ( { question } ) => question )
+								.join( ' ' ) } The turn ends here, and the user replies when ready.${
+								Object.keys( answers ).length ? ` Answered: ${ JSON.stringify( answers ) }` : ''
+							}`,
+						},
+					],
+					terminate: true,
+				};
+			}
 			return {
 				content: [ { type: 'text' as const, text: JSON.stringify( answers ) } ],
 			};

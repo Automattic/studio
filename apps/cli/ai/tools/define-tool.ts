@@ -25,6 +25,8 @@ export type ToolContent = ToolTextContent | ToolImageContent;
 
 export interface ToolResult {
 	content: ToolContent[];
+	// Ends the turn after this call, as Pi's AgentToolResult.terminate does.
+	terminate?: boolean;
 	studioArtifacts?: StudioChatArtifactWidgetDraft[];
 	// Data for the host's MCP App, kept out of the model's context. Not
 	// `structuredContent`: Claude Code gives that to the model instead of `content`.
@@ -183,7 +185,11 @@ export function defineTool< TProps extends TProperties >(
 				result.studioArtifacts?.length || result.pending
 					? { studioArtifacts: result.studioArtifacts, pending: result.pending }
 					: undefined;
-			return { content: result.content, details };
+			return {
+				content: result.content,
+				details,
+				...( result.terminate ? { terminate: true } : {} ),
+			};
 		},
 	};
 }

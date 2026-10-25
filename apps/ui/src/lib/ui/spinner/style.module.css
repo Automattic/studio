@@ -3,7 +3,7 @@
 		flex-shrink: 0;
 		width: 16px;
 		height: 16px;
-		animation: spin 1s linear infinite;
+		animation: global( studio-spin ) 1s linear infinite;
 	}
 
 	.spinner[data-size='xs'] {
@@ -14,12 +14,6 @@
 	@media ( prefers-reduced-motion: reduce ) {
 		.spinner {
 			animation: none;
-		}
-	}
-
-	@keyframes spin {
-		to {
-			transform: rotate( 360deg );
 		}
 	}
 }

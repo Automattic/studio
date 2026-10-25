@@ -12,5 +12,8 @@ bash .buildkite/commands/install-node-dependencies.sh
 echo '--- :eslint: Lint'
 npm run lint
 
+echo '--- :scissors: Unused code in apps/ui'
+npm -w @studio/ui run lint:unused
+
 echo '--- :typescript: Typecheck'
 npm run typecheck

@@ -3,7 +3,7 @@
 .stack {
 	display: flex;
 	flex-direction: column;
-	margin-top: calc(-1 * 8px);
+	margin-top: calc( -1 * var( --space-2 ) );
 }
 
 /* Collapsible row, same treatment as the toasts: @starting-style animates
@@ -13,10 +13,10 @@
 	container-type: inline-size;
 	display: grid;
 	grid-template-rows: 1fr;
-	margin-top: 8px;
+	margin-top: var( --space-2 );
 	transition:
-		grid-template-rows 180ms ease,
-		margin-top 180ms ease;
+		grid-template-rows var( --motion-duration-surface ) ease,
+		margin-top var( --motion-duration-surface ) ease;
 }
 
 @starting-style {
@@ -34,7 +34,7 @@
 	overflow-clip-margin: 12px;
 }
 
-@media (prefers-reduced-motion: reduce) {
+@media ( prefers-reduced-motion: reduce ) {
 	.cell {
 		transition: none;
 	}
@@ -48,7 +48,7 @@
 	right: -1px;
 	width: 6px;
 	height: 6px;
-	border-radius: 50%;
-	background-color: var(--accent-text);
+	border-radius: var( --radius-full );
+	background-color: var( --accent-text );
 	pointer-events: none;
 }

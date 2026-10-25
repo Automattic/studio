@@ -2,17 +2,17 @@
 	.questionnaire {
 		display: flex;
 		flex-direction: column;
-		gap: 16px;
+		gap: var( --space-4 );
 		min-inline-size: 0;
 	}
 
 	/* The legend sits above the fieldset's content rather than in its flex
 	   layout, so it spaces itself from the choices. */
 	.title {
-		padding-block-end: 16px;
+		padding-block-end: var( --space-4 );
 		color: var( --foreground );
 		font-weight: var( --font-weight-medium );
-		line-height: 1.375;
+		line-height: var( --leading-snug );
 		text-wrap: pretty;
 	}
 
@@ -28,12 +28,12 @@
 
 	.choices {
 		display: grid;
-		margin-inline-start: -8px;
+		margin-inline-start: calc( var( --space-2 ) * -1 );
 	}
 
 	.choices[data-layout='grid'] {
 		grid-template-columns: repeat( auto-fit, minmax( min( 100%, 240px ), 1fr ) );
-		gap: 4px;
+		gap: var( --space-1 );
 	}
 
 	.choices[data-layout='grid'] .item[data-wide] {
@@ -58,10 +58,10 @@
 	.choice {
 		display: flex;
 		align-items: center;
-		gap: 8px;
+		gap: var( --space-2 );
 		width: 100%;
 		min-height: 36px;
-		padding: 8px;
+		padding: var( --space-2 );
 		border-radius: var( --radius-md );
 		color: var( --foreground );
 		text-align: start;
@@ -100,9 +100,9 @@
 		display: flex;
 		flex: 1;
 		flex-direction: column;
-		gap: 2px;
+		gap: var( --space-0_5 );
 		min-width: 0;
-		line-height: 1.375;
+		line-height: var( --leading-snug );
 	}
 
 	.choice[data-muted] .label > :first-child {
@@ -122,15 +122,15 @@
 		font-family: var( --font-mono );
 		font-size: var( --text-sm );
 		font-weight: var( --font-weight-medium );
-		line-height: 1;
+		line-height: var( --leading-none );
 	}
 
 	.answer {
 		display: flex;
 		align-items: center;
-		gap: 6px;
+		gap: var( --space-1_5 );
 		min-height: 36px;
-		padding: 6px 8px;
+		padding: var( --space-1_5 ) var( --space-2 );
 		border-radius: var( --radius-md );
 		color: var( --muted-foreground );
 	}

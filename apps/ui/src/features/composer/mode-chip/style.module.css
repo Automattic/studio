@@ -8,10 +8,10 @@
 	visibility: hidden;
 }
 
-.modeChip:not(:disabled):is(:hover, :focus-visible) .modeChipIcon > :first-child {
+.modeChip:not( :disabled ):is( :hover, :focus-visible ) .modeChipIcon > :first-child {
 	visibility: hidden;
 }
 
-.modeChip:not(:disabled):is(:hover, :focus-visible) .modeChipIcon > :last-child {
+.modeChip:not( :disabled ):is( :hover, :focus-visible ) .modeChipIcon > :last-child {
 	visibility: visible;
 }

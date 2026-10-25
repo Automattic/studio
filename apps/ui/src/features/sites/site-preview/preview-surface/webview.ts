@@ -28,6 +28,11 @@ export interface WebviewFailLoadEvent extends Event {
 	isMainFrame: boolean;
 }
 
+export interface WebviewStartNavigationEvent extends Event {
+	isMainFrame: boolean;
+	isInPlace: boolean;
+}
+
 // Chromium's ERR_ABORTED: a load replaced by another one, not a failure.
 export const ERR_ABORTED = -3;
 

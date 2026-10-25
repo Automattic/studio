@@ -179,9 +179,12 @@ export function removeAnnotations( siteId: string, ids: string[] ) {
 	} ) );
 }
 
+// Cancel: deletes every note and leaves annotation mode.
 export function clearAnnotations( siteId: string ) {
 	update( siteId, ( current ) =>
-		current.notes.length ? { ...current, notes: [], editingId: null } : current
+		current.active || current.notes.length
+			? { ...current, active: false, notes: [], editingId: null }
+			: current
 	);
 }
 

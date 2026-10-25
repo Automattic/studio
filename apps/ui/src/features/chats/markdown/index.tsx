@@ -1,5 +1,5 @@
 import { __ } from '@wordpress/i18n';
-import { isValidElement, useMemo } from 'react';
+import { isValidElement, memo, useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useConnector } from '@/data/core';
@@ -85,7 +85,9 @@ const baseComponents: Components = {
 	pre: ( { children } ) => <MarkdownCodeBlock>{ children }</MarkdownCodeBlock>,
 };
 
-export function Markdown( { children }: { children: string } ) {
+const remarkPlugins = [ remarkGfm ];
+
+export const Markdown = memo( function Markdown( { children }: { children: string } ) {
 	const connector = useConnector();
 
 	const components = useMemo< Components >( () => {
@@ -118,9 +120,9 @@ export function Markdown( { children }: { children: string } ) {
 
 	return (
 		<div className={ styles.root }>
-			<ReactMarkdown remarkPlugins={ [ remarkGfm ] } components={ components }>
+			<ReactMarkdown remarkPlugins={ remarkPlugins } components={ components }>
 				{ children }
 			</ReactMarkdown>
 		</div>
 	);
-}
+} );

@@ -11,8 +11,9 @@ import {
 	isUsageCapError,
 } from '@studio/common/ai/json-events';
 import { formatUsageCapNotice } from '@studio/common/lib/studio-assistant-quota';
+import { replaceEqualDeep } from '@tanstack/react-query';
 import { __ } from '@wordpress/i18n';
-import { useMemo, type ReactNode } from 'react';
+import { memo, useMemo, useState, type ReactNode } from 'react';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
 import { useLocalMediaDataUrl } from '@/data/queries/use-local-media';
 import { AgentQuestionBatch } from '@/features/chats/session-view/conversation/agent-question';
@@ -27,7 +28,11 @@ import { AiAccessRequiredNotice, AiBlockedNotice } from '@/features/credits';
 import styles from './style.module.css';
 import type { LoadedAiSession } from '@/data/core';
 
-function ChatArtifact( { widgets }: { widgets: StudioChatArtifactWidgetDraft[] } ) {
+const ChatArtifact = memo( function ChatArtifact( {
+	widgets,
+}: {
+	widgets: StudioChatArtifactWidgetDraft[];
+} ) {
 	return (
 		<div className={ styles.mediaArtifacts }>
 			{ widgets.map( ( widget, index ) => (
@@ -35,7 +40,7 @@ function ChatArtifact( { widgets }: { widgets: StudioChatArtifactWidgetDraft[] }
 			) ) }
 		</div>
 	);
-}
+} );
 
 function MediaArtifactImage( { widget }: { widget: StudioChatArtifactWidgetDraft } ) {
 	const localPath = getLocalMediaPath( widget );
@@ -67,7 +72,7 @@ function MediaArtifactImage( { widget }: { widget: StudioChatArtifactWidgetDraft
 // monthly usage cap shows the reset date once the quota query resolves, and
 // out-of-credits (STU-2236) points at buying credits — waiting doesn't fix
 // that one.
-function TurnErrorMarker( { message }: { message: string } ) {
+const TurnErrorMarker = memo( function TurnErrorMarker( { message }: { message: string } ) {
 	const isUsageCap = isUsageCapError( message );
 	const isAccessRequired = isAiAccessRequiredError( message );
 	const { data: quota } = useStudioAssistantQuota( { enabled: isUsageCap || isAccessRequired } );
@@ -92,9 +97,20 @@ function TurnErrorMarker( { message }: { message: string } ) {
 			{ text }
 		</div>
 	);
+} );
+
+// Keeps the previous render's items wherever they are unchanged, so a
+// streaming update re-renders only the rows it touched.
+function useStableItems< T >( value: T ): T {
+	const [ stable, setStable ] = useState( value );
+	const next = replaceEqualDeep( stable, value );
+	if ( next !== stable ) {
+		setStable( next );
+	}
+	return next;
 }
 
-export function Conversation( {
+export const Conversation = memo( function Conversation( {
 	data,
 	isRunning,
 	startedAt,
@@ -116,9 +132,11 @@ export function Conversation( {
 	onChooseFreeForm: ( question: string ) => void;
 } ) {
 	const entries = data.entries;
-	const items = useMemo(
-		() => entriesToTranscriptItems( entries, { running: isRunning, startedAt } ),
-		[ entries, isRunning, startedAt ]
+	const items = useStableItems(
+		useMemo(
+			() => entriesToTranscriptItems( entries, { running: isRunning, startedAt } ),
+			[ entries, isRunning, startedAt ]
+		)
 	);
 	const progressMessage = useMemo( () => getProgressMessage( entries ), [ entries ] );
 
@@ -181,8 +199,8 @@ export function Conversation( {
 							<TurnActivityLine
 								key={ item.key }
 								activity={ item }
-								waitingOnUser={ pendingQuestions.size > 0 }
-								progressMessage={ progressMessage }
+								waitingOnUser={ item.status === 'running' && pendingQuestions.size > 0 }
+								progressMessage={ item.status === 'running' ? progressMessage : null }
 							/>
 						);
 					case 'interrupted-marker':
@@ -199,4 +217,4 @@ export function Conversation( {
 			} ) }
 		</div>
 	);
-}
+} );

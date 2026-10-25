@@ -1,5 +1,6 @@
 import { __ } from '@wordpress/i18n';
 import { FileTextIcon, ImageIcon } from 'lucide-react';
+import { memo } from 'react';
 import { CopyButton } from '@/features/chats/copy-button';
 import { Markdown } from '@/features/chats/markdown';
 import { joinedAttributes, type Joined } from '@/features/chats/session-view/conversation/joined';
@@ -12,7 +13,7 @@ import styles from './style.module.css';
 import type { StudioChatAttachmentSummary } from '@studio/common/ai/sessions/entry-types';
 import type { StudioVisualAnnotationSummary } from '@studio/common/ai/visual-annotations';
 
-export function UserTurn( {
+export const UserTurn = memo( function UserTurn( {
 	text,
 	attachments,
 	annotation,
@@ -75,9 +76,9 @@ export function UserTurn( {
 			) : null }
 		</div>
 	);
-}
+} );
 
-export function AssistantText( {
+export const AssistantText = memo( function AssistantText( {
 	text,
 	messageText,
 	copyText,
@@ -109,4 +110,4 @@ export function AssistantText( {
 			) : null }
 		</div>
 	);
-}
+} );

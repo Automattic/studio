@@ -358,11 +358,14 @@ export function entriesToTranscriptItems(
 		turns.push( [ turnStart, entries.length ] );
 	}
 
+	// Items come in entry order and turns cover the entries end to end.
+	let nextItem = 0;
 	return turns.flatMap( ( [ start, end ], turnIndex ) => {
 		const turnEntries = entries.slice( start, end );
-		const turnItems = items.filter(
-			( item ) => entryIndexOf( item ) >= start && entryIndexOf( item ) < end
-		);
+		const turnItems: RenderItem[] = [];
+		while ( nextItem < items.length && entryIndexOf( items[ nextItem ] ) < end ) {
+			turnItems.push( items[ nextItem++ ] );
+		}
 		const prompt = turnEntries.find( isPromptEntry );
 		const closed = turnEntries.find( ( entry ) =>
 			isStudioCustomEntryOfType( entry, 'studio.turn_closed' )

@@ -62,10 +62,10 @@ describe( 'createTurnStatsTracker', () => {
 			name: 'two skills, one loaded twice',
 			events: [
 				skillStart( { name: 'visual-design' } ),
-				skillStart( { name: 'block-content' } ),
+				skillStart( { name: 'rank-me-up' } ),
 				skillStart( { name: 'visual-design' } ),
 			],
-			expected: 'block-content,visual-design',
+			expected: 'rank-me-up,visual-design',
 		},
 		{
 			name: 'a name Studio ships no skill for',

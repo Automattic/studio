@@ -110,16 +110,17 @@ body {
 	strong {
 		font-weight: var( --font-weight-medium );
 	}
+}
 
-	/* Icons draw on a 24px grid and render at 16px unless a component sizes them. */
-	:root svg {
-		width: 16px;
-		height: 16px;
+@keyframes studio-spin {
+	to {
+		transform: rotate( 360deg );
 	}
+}
 
-	:root svg[data-keep-size] {
-		width: auto;
-		height: auto;
+@keyframes studio-pulse {
+	50% {
+		opacity: 0.5;
 	}
 }
 

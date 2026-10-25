@@ -7,22 +7,13 @@
 }
 
 .attachment {
+	composes: imageOutline from '@/lib/theme/recipes.module.css';
 	position: relative;
 	display: flex;
 	background-color: var(--muted);
 	color: var(--foreground);
 	font-size: var(--text-sm);
 	user-select: none;
-}
-
-/* The border sits inside the tile so images keep their full size. */
-.attachment::after {
-	position: absolute;
-	inset: 0;
-	border-radius: inherit;
-	box-shadow: inset 0 0 0 1px var(--border);
-	content: '';
-	pointer-events: none;
 }
 
 .attachmentImage {
@@ -51,8 +42,6 @@
 
 .attachmentFile svg:not([data-size]) {
 	flex: none;
-	width: 16px;
-	height: 16px;
 }
 
 .attachmentThumb {
@@ -63,10 +52,8 @@
 }
 
 .attachmentName {
+	composes: truncate from '@/lib/theme/recipes.module.css';
 	min-width: 0;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
 }
 
 .attachmentRemove {
@@ -145,19 +132,15 @@
 }
 
 .attachmentHoverName {
-	overflow: hidden;
+	composes: truncate from '@/lib/theme/recipes.module.css';
 	font-size: var(--text-xxs);
 	font-weight: var(--font-weight-semibold);
 	line-height: var(--leading-tight);
-	text-overflow: ellipsis;
-	white-space: nowrap;
 }
 
 .attachmentHoverMeta {
-	overflow: hidden;
+	composes: truncate from '@/lib/theme/recipes.module.css';
 	color: var(--muted-foreground);
 	font-size: var(--text-2xs);
 	line-height: 1.2;
-	text-overflow: ellipsis;
-	white-space: nowrap;
 }

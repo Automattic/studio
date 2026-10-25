@@ -127,14 +127,12 @@
 	min-width: 0;
 }
 
-.siteName,
-.siteUrl {
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
+.siteName {
+	composes: truncate from '@/lib/theme/recipes.module.css';
 }
 
 .siteUrl {
+	composes: siteName;
 	color: var(--muted-foreground);
 	font-weight: var(--font-weight-normal);
 }

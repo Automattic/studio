@@ -23,13 +23,11 @@
 }
 
 .activityProgress {
+	composes: truncate from '@/lib/theme/recipes.module.css';
 	color: var(--muted-foreground);
 	font-size: var(--text-xs);
 	line-height: var(--text-xs--line-height);
 	opacity: 0.8;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
 }
 
 .traceLine {
@@ -48,10 +46,8 @@
 }
 
 .traceTitle {
+	composes: truncate from '@/lib/theme/recipes.module.css';
 	min-width: 0;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
 }
 
 .traceTrigger {

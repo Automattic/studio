@@ -26,11 +26,9 @@
 }
 
 .noticeMessage {
+	composes: truncate from '@/lib/theme/recipes.module.css';
 	flex: 1;
 	min-width: 0;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
 }
 
 @keyframes submitShake {

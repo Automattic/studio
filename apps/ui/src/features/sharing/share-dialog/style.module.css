@@ -44,6 +44,7 @@
 }
 
 .frame {
+	composes: imageOutline from '@/lib/theme/recipes.module.css';
 	position: relative;
 	display: flex;
 	align-items: center;
@@ -52,15 +53,6 @@
 	overflow: hidden;
 	border-radius: var(--radius-sm);
 	background: var(--muted);
-}
-
-.frame::after {
-	content: '';
-	position: absolute;
-	inset: 0;
-	border-radius: inherit;
-	box-shadow: inset 0 0 0 1px var(--border);
-	pointer-events: none;
 }
 
 .frame img {

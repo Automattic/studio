@@ -25,9 +25,7 @@
 }
 
 .annotationElementText {
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
+	composes: truncate from '@/lib/theme/recipes.module.css';
 }
 
 .userTextRow,
@@ -146,7 +144,5 @@
 }
 
 .userAttachmentName {
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
+	composes: truncate from '@/lib/theme/recipes.module.css';
 }

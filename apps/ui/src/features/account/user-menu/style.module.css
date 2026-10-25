@@ -47,18 +47,13 @@
 	line-height: var(--leading-tight);
 }
 
-.accountName,
-.accountEmail {
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
-}
-
 .accountName {
+	composes: truncate from '@/lib/theme/recipes.module.css';
 	font-weight: var(--font-weight-medium);
 }
 
 .accountEmail {
+	composes: truncate from '@/lib/theme/recipes.module.css';
 	color: var(--muted-foreground);
 }
 

@@ -142,8 +142,6 @@
 }
 
 .chevron svg {
-	width: 16px;
-	height: 16px;
 	transition: rotate var(--motion-duration-layout) var(--motion-ease-layout);
 }
 

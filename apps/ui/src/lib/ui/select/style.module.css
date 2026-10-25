@@ -56,11 +56,6 @@
 		padding-block: var( --space-2 );
 	}
 
-	.item svg:not( [data-size] ) {
-		width: 16px;
-		height: 16px;
-	}
-
 	.itemBody {
 		display: flex;
 		flex: 1;

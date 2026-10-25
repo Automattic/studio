@@ -22,11 +22,6 @@
 	padding-block-end: var(--space-2);
 }
 
-.surface svg {
-	width: 16px;
-	height: 16px;
-}
-
 .openSidebarCta {
 	display: flex;
 	align-items: center;

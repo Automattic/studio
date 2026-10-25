@@ -84,16 +84,14 @@
 }
 
 .placeholder {
+	composes: truncate from '@/lib/theme/recipes.module.css';
 	position: absolute;
 	top: var(--space-3_5);
 	right: var(--space-3_5);
 	left: var(--space-3_5);
-	overflow: hidden;
 	color: var(--muted-foreground);
 	font-size: var(--text-sm);
 	line-height: var(--text-sm--line-height);
-	text-overflow: ellipsis;
-	white-space: nowrap;
 	pointer-events: none;
 }
 

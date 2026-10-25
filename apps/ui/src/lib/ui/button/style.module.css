@@ -74,11 +74,6 @@
 		pointer-events: none;
 	}
 
-	.button svg:not( [data-size] ) {
-		width: 16px;
-		height: 16px;
-	}
-
 	.button [data-dropdown-indicator] {
 		margin-inline: calc( var( --space-1 ) * -1 ) calc( var( --space-0_5 ) * -1 );
 		color: var( --muted-foreground );

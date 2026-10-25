@@ -202,19 +202,14 @@
 }
 
 .tileHex {
+	composes: truncate from '@/lib/theme/recipes.module.css';
 	text-transform: uppercase;
 }
 
 .tileName {
+	composes: truncate from '@/lib/theme/recipes.module.css';
 	text-transform: capitalize;
 	opacity: 0.8;
-}
-
-.tileHex,
-.tileName {
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
 }
 
 .scale {

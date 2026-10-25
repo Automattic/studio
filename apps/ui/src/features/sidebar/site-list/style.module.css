@@ -86,6 +86,7 @@
 }
 
 .siteIcon {
+	composes: dotted from '@/lib/theme/recipes.module.css';
 	position: relative;
 	display: inline-flex;
 	flex-shrink: 0;
@@ -96,18 +97,10 @@
 	height: 16px;
 }
 
-.siteIcon:has(.runningDot) > svg {
-	mask-image: radial-gradient(circle at calc(100% - 2px) 2px, transparent 5.5px, #000 6px);
-}
-
 .runningDot {
-	position: absolute;
+	composes: dot from '@/lib/theme/recipes.module.css';
 	top: -1.5px;
 	right: -1.5px;
-	width: 7px;
-	height: 7px;
-	border-radius: var(--radius-full);
-	background-color: var(--accent);
 }
 
 .siteText {
@@ -126,12 +119,10 @@
 }
 
 .siteName {
+	composes: truncate from '@/lib/theme/recipes.module.css';
 	--shimmer-highlight: var(--muted-foreground);
 
 	color: var(--foreground);
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
 	max-width: 100%;
 }
 
@@ -288,7 +279,7 @@
 	height: 16px;
 	border-radius: var(--radius-md);
 	background-color: var(--muted);
-	animation: skeletonPulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+	animation: global(studio-pulse) 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
 .skeleton:first-child {
@@ -299,12 +290,6 @@
 .skeletonLabel.skeletonLabel {
 	width: 36px;
 	margin-inline: var(--site-list-row-padding);
-}
-
-@keyframes skeletonPulse {
-	50% {
-		opacity: 0.5;
-	}
 }
 
 .chatRow {
@@ -360,13 +345,11 @@
 }
 
 .chatTitle {
+	composes: truncate from '@/lib/theme/recipes.module.css';
 	--shimmer-highlight: var(--muted-foreground);
 
 	flex: 1 1 auto;
 	min-width: 0;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
 	text-align: start;
 }
 

@@ -53,8 +53,6 @@
 
 .perksList svg {
 	flex: none;
-	width: 16px;
-	height: 16px;
 }
 
 .perksList b {
@@ -97,10 +95,8 @@
 }
 
 .accountName {
+	composes: truncate from '@/lib/theme/recipes.module.css';
 	font-weight: var(--font-weight-medium);
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
 }
 
 .accountHint {

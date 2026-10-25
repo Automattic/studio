@@ -1,6 +1,7 @@
 /* The sidebar's part of the workspace's top band: the app menu (Windows and
    Linux) and the sidebar toggle at its start, past the macOS traffic lights. */
 .root {
+	composes: bandEdge from '@/lib/theme/recipes.module.css';
 	--toggle-start: var(--traffic-light-space);
 	display: flex;
 	align-items: center;
@@ -8,8 +9,6 @@
 	height: var(--band-height);
 	flex-shrink: 0;
 	padding-inline: var(--traffic-light-space) var(--space-3);
-	box-shadow: inset 0 calc(-1 * 1px) 0
-		var(--border);
 	-webkit-app-region: drag;
 	/* Stay pinned while the sidebar scrolls. Opaque background so
 	   scrolling content doesn't bleed through. */

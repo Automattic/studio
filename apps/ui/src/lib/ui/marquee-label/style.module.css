@@ -1,18 +1,14 @@
 @layer ui {
-	.viewport,
-	.text {
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-	}
 
 	.viewport {
+		composes: truncate from '@/lib/theme/recipes.module.css';
 		flex: 1;
 		min-width: 0;
 		text-align: start;
 	}
 
 	.text {
+		composes: truncate from '@/lib/theme/recipes.module.css';
 		display: block;
 	}
 

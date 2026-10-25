@@ -86,8 +86,6 @@
 
 	.trigger svg {
 		flex: none;
-		width: 16px;
-		height: 16px;
 	}
 
 	[data-variant='scope'] > .trigger {

@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, render, renderHook, waitFor } from '@testing-library/react';
+import { act, render, renderHook, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getVisibleToasts, resetAppMessagesForTests } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
@@ -241,5 +241,34 @@ describe( 'useSyncSitesWithEvents', () => {
 		await act( async () => pendingFetches[ 1 ]( [ createSite( {} ) ] ) );
 
 		await waitFor( () => expect( result.current.data?.[ 0 ].operation ).toBeUndefined() );
+	} );
+} );
+
+describe( 'useSites', () => {
+	function SitesError() {
+		useSites();
+		return <p>Couldn’t load sites</p>;
+	}
+
+	function SiteListShell() {
+		const { isError } = useSites();
+		return isError ? <SitesError /> : null;
+	}
+
+	it( 'keeps a failed list failed when another reader mounts', async () => {
+		const getSites = vi.fn( () => Promise.reject( new Error( 'Registry unavailable' ) ) );
+		useConnectorMock.mockReturnValue( { getSites } as unknown as Connector );
+		const queryClient = new QueryClient( { defaultOptions: { queries: { retry: false } } } );
+
+		render(
+			<QueryClientProvider client={ queryClient }>
+				<SiteListShell />
+			</QueryClientProvider>
+		);
+
+		await screen.findByText( 'Couldn’t load sites' );
+		await act( () => new Promise( ( resolve ) => setTimeout( resolve, 100 ) ) );
+		expect( screen.getByText( 'Couldn’t load sites' ) ).toBeInTheDocument();
+		expect( getSites ).toHaveBeenCalledTimes( 1 );
 	} );
 } );

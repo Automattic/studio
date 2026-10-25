@@ -40,6 +40,10 @@ export function useSites() {
 		queryFn: () => connector.getSites(),
 		// Also catches running states that changed without a site event (e.g. a daemon crash).
 		refetchInterval: 2 * 60 * 1000,
+		// The sidebar mounts another reader once the list stops loading: a failed
+		// list refetched on each new mount would go back to loading, unmount that
+		// reader, fail again and repeat forever.
+		retryOnMount: false,
 	} );
 }
 

@@ -7,10 +7,16 @@ import { useIsSiteStarting, useIsSiteStopping, useSiteOperation } from '@/data/q
 import { useSiteSyncActivity } from '@/data/sync-activity';
 import { useOpenSite } from '@/data/use-open-site';
 import { resumeChat } from '@/features/sidebar/last-visited';
-import { SidebarButton } from '@/features/sidebar/sidebar-button';
 import { XdebugIcon } from '@/features/sidebar/xdebug-icon';
 import { GlobeIcon, NewChatIcon } from '@/lib/icons';
-import { IconButton } from '@/lib/ui';
+import {
+	IconButton,
+	NotificationDot,
+	SidebarMenuActions,
+	SidebarMenuButton,
+	SidebarMenuItem,
+	SidebarMenuLabel,
+} from '@/lib/ui';
 import { useSelectableRow } from './selection';
 import { SiteAgentActivityIndicator } from './site-activity-indicator';
 import { SiteChats } from './site-chats';
@@ -20,6 +26,7 @@ import { SiteStatusButton } from './site-status-button';
 import styles from './style.module.css';
 import type { SiteRow } from './sidebar-collections';
 import type { AiSessionSummary } from '@/data/core';
+import type { ReorderableItemProps } from '@/features/sidebar/reorderable-list';
 
 export function SiteSection( {
 	row,
@@ -34,6 +41,7 @@ export function SiteSection( {
 	onOpen,
 	onReorderChats,
 	onSiteOpen,
+	itemProps,
 }: {
 	row: SiteRow;
 	// The site's chats listed under its row, in order.
@@ -50,16 +58,19 @@ export function SiteSection( {
 	onOpen?: () => void;
 	onReorderChats: ( ids: string[] ) => void;
 	onSiteOpen?: () => void;
+	// Drag handling, when the row is in a reorderable list.
+	itemProps?: ReorderableItemProps;
 } ) {
 	const { site } = row;
 	const selectable = useSelectableRow( sitePinKey( site.id ) );
 	const navigate = useNavigate();
-	const sectionRef = useRef< HTMLElement >( null );
+	const sectionRef = useRef< HTMLLIElement >( null );
 	const isActive = isChatActive || isContextActive;
 	// Users who switched Studio Code off use the site's own page as its home.
 	const isSelected = isChatActive || ( isContextActive && ! chatEnabled );
-	const showContextOutline = isContextActive && chatEnabled;
 	const showChats = expanded && chatEnabled && ( chats.length > 0 || loadError );
+	// Highlighted, with its actions showing, unless its open chat is listed under it.
+	const highlighted = ( isSelected && ! showChats ) || ( isContextActive && chatEnabled );
 	// Keep the active site visible — e.g. when launch restores a site that
 	// sits below the sidebar's fold. `nearest` no-ops when already visible.
 	useEffect( () => {
@@ -90,74 +101,67 @@ export function SiteSection( {
 	};
 
 	return (
-		<section
+		<SidebarMenuItem
+			{ ...itemProps }
 			ref={ sectionRef }
-			className={ clsx(
-				styles.site,
-				isSelected && styles.siteActive,
-				showContextOutline && styles.siteContextActive,
-				showChats && styles.siteWithChats
-			) }
+			className={ clsx( styles.site, itemProps?.className ) }
 		>
 			<SiteRowMenu
 				site={ site }
 				onSiteOpen={ onSiteOpen }
 				trigger={
-					<header { ...selectable } className={ styles.siteHeader } onClick={ handleOpenSite }>
+					<SidebarMenuButton
+						render={ <div /> }
+						{ ...selectable }
+						active={ highlighted }
+						className={ styles.siteRow }
+						onClick={ handleOpenSite }
+					>
 						<span
-							className={ styles.siteIcon }
 							role={ site.enableXdebug ? 'img' : undefined }
 							aria-label={ site.enableXdebug ? __( 'Xdebug enabled' ) : undefined }
 						>
-							{ site.enableXdebug ? <XdebugIcon className={ styles.siteXdebug } /> : <GlobeIcon /> }
-							{ status === 'running' ? <span className={ styles.runningDot } /> : null }
+							{ site.enableXdebug ? <XdebugIcon /> : <GlobeIcon /> }
+							{ status === 'running' ? <NotificationDot position="icon" /> : null }
 						</span>
 						<div className={ styles.siteText }>
 							<SiteAgentActivityIndicator activity={ displayActivity } />
-							<SidebarButton
-								className={ styles.siteToggle }
-								onClick={ ( event ) => {
-									event.stopPropagation();
-									handleOpenSite();
-								} }
+							<SidebarMenuLabel
+								render={ <button type="button" /> }
+								className={ status === 'transitioning' ? 'studio-shimmer' : undefined }
 								aria-current={ isSelected ? 'page' : undefined }
 								aria-expanded={ onOpen && chats.length > 0 ? showChats : undefined }
 							>
-								<span
-									className={ clsx(
-										styles.siteName,
-										status === 'transitioning' && 'studio-shimmer'
-									) }
-								>
-									{ site.name }
-								</span>
-							</SidebarButton>
+								{ site.name }
+							</SidebarMenuLabel>
 						</div>
-						<div className={ styles.siteActions } data-reorder-exclude>
-							{ chatEnabled ? (
-								<IconButton
-									variant="muted-ghost"
-									size="icon-sm"
-									icon={ <NewChatIcon /> }
-									label={ sprintf( __( 'New chat for %s' ), site.name ) }
-									className={ styles.rowAction }
-									onClick={ ( event ) => {
-										event.stopPropagation();
-										onSiteOpen?.();
-										void navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );
-									} }
-								/>
-							) : null }
-							<SiteStatusButton
-								site={ site }
-								isStarting={ isStarting }
-								isStopping={ isStopping }
-								onStart={ isActive ? undefined : handleOpenSite }
-							/>
-						</div>
-					</header>
+					</SidebarMenuButton>
 				}
 			/>
+			<SidebarMenuActions
+				showOnHover={ ! highlighted }
+				className={ styles.siteActions }
+				data-reorder-exclude
+			>
+				{ chatEnabled ? (
+					<IconButton
+						variant="muted-ghost"
+						size="icon-sm"
+						icon={ <NewChatIcon /> }
+						label={ sprintf( __( 'New chat for %s' ), site.name ) }
+						onClick={ () => {
+							onSiteOpen?.();
+							void navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );
+						} }
+					/>
+				) : null }
+				<SiteStatusButton
+					site={ site }
+					isStarting={ isStarting }
+					isStopping={ isStopping }
+					onStart={ isActive ? undefined : handleOpenSite }
+				/>
+			</SidebarMenuActions>
 			<SiteChats
 				site={ site }
 				chats={ chats }
@@ -169,6 +173,6 @@ export function SiteSection( {
 				onReorderChats={ onReorderChats }
 				onSiteOpen={ onSiteOpen }
 			/>
-		</section>
+		</SidebarMenuItem>
 	);
 }

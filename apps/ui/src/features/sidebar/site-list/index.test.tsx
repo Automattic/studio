@@ -413,7 +413,7 @@ describe( 'SiteList', () => {
 
 		render( <SiteList /> );
 
-		const row = screen.getByText( 'Xdebug Site' ).closest( 'section' )!;
+		const row = screen.getByText( 'Xdebug Site' ).closest( 'li' )!;
 		expect( within( row ).getByLabelText( 'Xdebug enabled' ) ).toBeInTheDocument();
 	} );
 
@@ -432,7 +432,7 @@ describe( 'SiteList', () => {
 
 		render( <SiteList /> );
 
-		const stoppedRow = screen.getByText( 'Stopped Site' ).closest( 'section' )!;
+		const stoppedRow = screen.getByText( 'Stopped Site' ).closest( 'li' )!;
 		const siteButton = within( stoppedRow ).getByRole( 'button', { name: 'Stopped Site' } );
 
 		expect( siteButton ).toHaveAttribute( 'aria-current', 'page' );
@@ -466,7 +466,7 @@ describe( 'SiteList', () => {
 		render( <SiteList sections /> );
 
 		const sites = screen.getByRole( 'group', { name: 'Sites' } );
-		const openSite = within( sites ).getByText( 'Stopped Site' ).closest( 'section' )!;
+		const openSite = within( sites ).getByText( 'Stopped Site' ).closest( 'li' )!;
 		expect( within( openSite ).getByRole( 'button', { name: 'Add a menu' } ) ).toHaveAttribute(
 			'aria-current',
 			'page'
@@ -655,11 +655,13 @@ describe( 'SiteList', () => {
 
 		render( <SiteList /> );
 
-		const stoppedRow = screen.getByText( 'Stopped Site' ).closest( 'section' )!;
+		const stoppedRow = screen.getByText( 'Stopped Site' ).closest( 'li' )!;
 		const siteButton = within( stoppedRow ).getByRole( 'button', { name: 'Stopped Site' } );
 
 		expect( siteButton ).not.toHaveAttribute( 'aria-current' );
-		expect( stoppedRow.getAttribute( 'class' ) ?? '' ).toContain( 'siteContextActive' );
+		expect( siteButton.closest( '[data-slot="sidebar-menu-button"]' ) ).toHaveAttribute(
+			'data-active'
+		);
 	} );
 
 	it( 'opens the latest active chat when a site is clicked', () => {
@@ -686,7 +688,9 @@ describe( 'SiteList', () => {
 
 		expect( screen.queryByText( 'Latest visible chat' ) ).not.toBeInTheDocument();
 
-		const stoppedRow = screen.getByText( 'Stopped Site' ).closest( 'header' );
+		const stoppedRow = screen
+			.getByText( 'Stopped Site' )
+			.closest( '[data-slot="sidebar-menu-button"]' );
 		expect( stoppedRow ).toBeInTheDocument();
 
 		fireEvent.click( stoppedRow! );
@@ -885,7 +889,7 @@ describe( 'SiteList', () => {
 
 		render( <SiteList /> );
 
-		const stoppedSiteRow = screen.getByText( 'Stopped Site' ).closest( 'section' )!;
+		const stoppedSiteRow = screen.getByText( 'Stopped Site' ).closest( 'li' )!;
 		expect( within( stoppedSiteRow ).queryByRole( 'status' ) ).not.toBeInTheDocument();
 	} );
 
@@ -899,8 +903,8 @@ describe( 'SiteList', () => {
 
 		render( <SiteList /> );
 
-		const importingRow = screen.getByText( 'Running Site' ).closest( 'section' )!;
-		const otherRow = screen.getByText( 'Stopped Site' ).closest( 'section' )!;
+		const importingRow = screen.getByText( 'Running Site' ).closest( 'li' )!;
+		const otherRow = screen.getByText( 'Stopped Site' ).closest( 'li' )!;
 
 		expect(
 			within( importingRow ).getByRole( 'status', { name: 'Importing backup' } )
@@ -916,7 +920,7 @@ describe( 'SiteList', () => {
 
 		render( <SiteList /> );
 
-		const runningSiteRow = screen.getByText( 'Running Site' ).closest( 'section' )!;
+		const runningSiteRow = screen.getByText( 'Running Site' ).closest( 'li' )!;
 		const indicator = within( runningSiteRow ).getByRole( 'status', {
 			name: 'Syncing live site',
 		} );
@@ -1234,9 +1238,18 @@ describe( 'SiteList', () => {
 		fireEvent.click( screen.getByRole( 'button', { name: 'Collapse all' } ) );
 		expect( screen.queryByText( 'Add a menu' ) ).not.toBeInTheDocument();
 		expect( screen.queryByText( 'Make it blue' ) ).not.toBeInTheDocument();
+
+		// Folding the group folds its sites too.
+		fireEvent.click( screen.getByRole( 'button', { name: 'Stopped Site' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Sites' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Sites' } ) );
+		expect( screen.getByRole( 'button', { name: 'Stopped Site' } ) ).toBeInTheDocument();
+		expect( screen.queryByText( 'Add a menu' ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'remembers collapsed groups, and opens one when something is added to it', () => {
+		window.localStorage.setItem( 'studio-ui-sidebar-group-pinned', 'false' );
+		window.localStorage.setItem( 'studio-ui-sidebar-group-recent', 'false' );
 		const { unmount } = render( <SiteList sections /> );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Sites' } ) );
 		expect( screen.queryByText( 'Stopped Site' ) ).not.toBeInTheDocument();
@@ -1254,6 +1267,18 @@ describe( 'SiteList', () => {
 		} );
 		rerender( <SiteList sections /> );
 		expect( screen.getByText( 'New Site' ) ).toBeInTheDocument();
+
+		// Groups that were empty open on their first item.
+		pinsMock = [ 'site:stopped-site' ];
+		useSessionsMock.mockReturnValue( {
+			data: [ createSession( { firstPrompt: 'First chat' } ) ],
+			isLoading: false,
+		} );
+		rerender( <SiteList sections /> );
+		const pinned = within( screen.getByRole( 'group', { name: 'Pinned' } ) );
+		expect( pinned.getByRole( 'button', { name: 'Stopped Site' } ) ).toBeInTheDocument();
+		const recent = within( screen.getByRole( 'group', { name: 'Recent' } ) );
+		expect( recent.getByRole( 'button', { name: 'First chat' } ) ).toBeInTheDocument();
 	} );
 
 	it( 'drags chats into a new order within their site, announcing where one lands', () => {

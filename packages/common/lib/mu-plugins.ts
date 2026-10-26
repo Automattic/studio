@@ -185,13 +185,22 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 	`,
 	} );
 
-	// WordPress sends as wordpress@<site host>, and PHPMailer refuses `wordpress@localhost`
-	// (no dot in the domain), so without this every email a localhost site sends fails.
 	muPlugins.push( {
-		filename: '0-mail-from.php',
+		filename: '0-email.php',
 		content: `<?php
+		// WordPress sends as wordpress@<site host>, and PHPMailer refuses wordpress@localhost
+		// (no dot in the domain), so without this every email a localhost site sends fails.
 		add_filter( 'wp_mail_from', function ( $from_email ) {
 			return preg_match( '/@[^.@]+$/', $from_email ) ? $from_email . '.localdomain' : $from_email;
+		} );
+
+		// Tags the email with the site it came from, so the inbox every site shares can
+		// show just this site's email. Studio passes the tag in the studio.email_tag PHP setting.
+		add_action( 'phpmailer_init', function ( $phpmailer ) {
+			$tag = get_cfg_var( 'studio.email_tag' );
+			if ( $tag ) {
+				$phpmailer->addCustomHeader( 'X-Tags', $tag );
+			}
 		} );
 		`,
 	} );

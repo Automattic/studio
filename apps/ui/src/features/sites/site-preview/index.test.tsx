@@ -396,6 +396,50 @@ describe( 'SitePreview', () => {
 		);
 	} );
 
+	it( "offers the site's email only while the inbox runs, and shows the inbox itself", async () => {
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
+			capabilities: CAPABILITIES,
+		} as never );
+		const inboxUrl = 'http://127.0.0.1:8025/search?q=tag%3A%22Example%20Site%22';
+		const onPathChange = vi.fn();
+
+		const { container, rerender } = renderPreview(
+			<SitePreview
+				site={ createSite( { running: true } ) }
+				path="/"
+				reloadNonce={ 0 }
+				onPathChange={ onPathChange }
+			/>
+		);
+		fireEvent.click( screen.getByRole( 'textbox', { name: 'Address' } ) );
+		await screen.findByRole( 'option', { name: 'Database' } );
+		expect( screen.queryByRole( 'option', { name: 'Email' } ) ).not.toBeInTheDocument();
+
+		const withInbox = ( path: string ) => (
+			<QueryClientProvider client={ new QueryClient() }>
+				<TooltipProvider>
+					<SitePreview
+						site={ createSite( { running: true, emailInboxUrl: inboxUrl } ) }
+						path={ path }
+						reloadNonce={ 0 }
+						onPathChange={ onPathChange }
+					/>
+				</TooltipProvider>
+			</QueryClientProvider>
+		);
+		rerender( withInbox( '/' ) );
+		fireEvent.click( screen.getByRole( 'textbox', { name: 'Address' } ) );
+		fireEvent.click( await screen.findByRole( 'option', { name: 'Email' } ) );
+		expect( onPathChange ).toHaveBeenCalledWith( 'studio:email' );
+
+		rerender( withInbox( 'studio:email' ) );
+		expect(
+			Array.from( container.querySelectorAll( 'iframe' ), ( frame ) => frame.getAttribute( 'src' ) )
+		).toContain( inboxUrl );
+	} );
+
 	it( 'keeps the front end and WP Admin on one shared surface', () => {
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn().mockResolvedValue( undefined ),

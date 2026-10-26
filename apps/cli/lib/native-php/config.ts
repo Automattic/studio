@@ -235,6 +235,9 @@ type DefaultPhpArgsOptions = {
 	enableXdebug?: boolean;
 	autoPrependFile?: string;
 	workerIndex?: number;
+	// Marks the email this PHP process sends with its site, so the shared inbox can show
+	// one site's email. Read by Studio's mail mu-plugin.
+	emailTag?: string;
 };
 
 export function getDefaultPhpArgs(
@@ -245,6 +248,7 @@ export function getDefaultPhpArgs(
 		enableXdebug = false,
 		autoPrependFile,
 		workerIndex,
+		emailTag,
 	}: DefaultPhpArgsOptions = {}
 ): string[] {
 	// Partition the file_cache directory by PHP version to match the cache_id
@@ -308,6 +312,9 @@ export function getDefaultPhpArgs(
 	const sendmailCommand = getMailpitSendmailCommand();
 	if ( sendmailCommand ) {
 		args.push( '-d', `sendmail_path="${ toPhpIniPath( sendmailCommand ) }"` );
+		if ( emailTag ) {
+			args.push( '-d', `studio.email_tag="${ emailTag }"` );
+		}
 	}
 
 	return args;

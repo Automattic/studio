@@ -267,6 +267,7 @@ function toSiteDetails( site: SiteListItem, sortOrder?: number ) {
 		enableScriptDebug: site.enableScriptDebug,
 		environmentType: site.environmentType,
 		operation: site.operation,
+		emailInboxUrl: site.emailInboxUrl,
 		sortOrder,
 	};
 }

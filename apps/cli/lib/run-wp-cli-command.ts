@@ -11,6 +11,7 @@ import {
 	getWpCliPharPath,
 } from 'cli/lib/dependency-management/paths';
 import { ensurePhpBinaryAvailable } from './dependency-management/php-binary';
+import { getSiteEmailTag } from './mailpit/paths';
 import { getDefaultPhpArgs } from './native-php/config';
 import {
 	DETACH_FOR_GROUP_KILL,
@@ -220,7 +221,10 @@ export async function runWpCliCommand(
 		? undefined
 		: loadImportedRuntimeStartOptions( site )?.autoPrependFile;
 	// Don't apply open_basedir or disable_functions to the WP-CLI process
-	const defaultArgs = getDefaultPhpArgs( phpVersion, { autoPrependFile } );
+	const defaultArgs = getDefaultPhpArgs( phpVersion, {
+		autoPrependFile,
+		emailTag: getSiteEmailTag( site ),
+	} );
 	const wpCliArgs = applyWpCliCommandOptions( args, options );
 	const child = spawn(
 		getPhpBinaryPath( phpVersion ),

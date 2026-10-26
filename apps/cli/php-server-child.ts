@@ -27,6 +27,7 @@ import {
 } from 'cli/lib/types/wordpress-server-ipc';
 import { requestSetAdminCredentials } from './lib/admin-credentials';
 import { getPhpMyAdminPath } from './lib/dependency-management/paths';
+import { getSiteEmailTag } from './lib/mailpit/paths';
 import { runBlueprint } from './lib/native-php/blueprints';
 import { containsPath, dropCoveredPaths } from './lib/native-php/open-basedir';
 import {
@@ -638,6 +639,7 @@ async function doStartServer(
 				disallowRiskyFunctions: isFileAccessRestricted( config ),
 				enableXdebug: config.enableXdebug,
 				autoPrependFile,
+				emailTag: getSiteEmailTag( { id: config.siteId, name: config.siteTitle ?? '' } ),
 				workerIndex: index,
 			} );
 			spawnedChildren.push( serverChild );

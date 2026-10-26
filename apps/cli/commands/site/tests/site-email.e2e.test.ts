@@ -2,7 +2,8 @@
  * @vitest-environment node
  *
  * Email a site sends lands in Studio's inbox, whether a page request sends it
- * (WordPress's lost-password form) or WP-CLI does, and arrives unchanged.
+ * (WordPress's lost-password form) or WP-CLI does, and arrives unchanged. Each
+ * site's inbox address shows just that site's email.
  *
  * Needs the CLI built first (skips otherwise). Tagged `e2e`:
  * `npm test -- --tagsFilter='e2e'`.
@@ -138,6 +139,64 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: site email', () => {
 	);
 
 	it(
+		"gives each site an inbox address that shows just that site's email",
+		{ tags: [ 'e2e' ], timeout: 300_000 },
+		async () => {
+			if ( ! env ) {
+				throw new Error( 'CLI e2e env was not initialised' );
+			}
+
+			// Mailpit drops characters like these from tags, so this name tests that
+			// the tag the email carries matches the one its inbox filters by.
+			const otherPath = path.join( env.sitesDir, 'email-e2e-other' );
+			const created = await runCli(
+				[
+					'site',
+					'create',
+					'--name',
+					"Café & Co's: Shop",
+					'--path',
+					otherPath,
+					'--wp',
+					'latest',
+					'--skip-browser',
+					'--skip-log-details',
+				],
+				env
+			);
+			expect( created.code, created.stderr ).toBe( 0 );
+			const sent = await runCli(
+				[ 'wp', '--path', otherPath, 'eval', "wp_mail( 'c@example.com', 'Shop email', 'Hi' );" ],
+				env
+			);
+			expect( sent.code, sent.stderr ).toBe( 0 );
+
+			const listed = await runCli( [ 'site', 'list', '--format', 'json' ], env );
+			const sites: Array< { path: string; emailInboxUrl?: string } > = JSON.parse( listed.stdout );
+			const subjectsIn = async ( siteDir: string ) => {
+				const site = sites.find( ( s ) => s.path === siteDir );
+				// The page the inbox opens on, and the search behind it.
+				const page = new URL( site?.emailInboxUrl ?? '' );
+				expect( `${ page.origin }${ page.pathname }` ).toBe( `${ inboxUrl }/search` );
+				const response = await fetch(
+					`${ inboxUrl }/api/v1/search?query=${ encodeURIComponent(
+						page.searchParams.get( 'q' )!
+					) }`
+				);
+				const found: { messages: InboxMessage[] } = await response.json();
+				return found.messages.map( ( m ) => m.Subject ).sort();
+			};
+			expect( {
+				first: await subjectsIn( sitePath ),
+				other: await subjectsIn( otherPath ),
+			} ).toEqual( {
+				first: [ 'Order received', '[Email E2E Site] Password Reset' ],
+				other: [ 'Shop email' ],
+			} );
+		}
+	);
+
+	it(
 		'stops the inbox with the last site, keeping its mail',
 		{ tags: [ 'e2e' ], timeout: 120_000 },
 		async () => {
@@ -145,7 +204,7 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: site email', () => {
 				throw new Error( 'CLI e2e env was not initialised' );
 			}
 
-			const stopped = await runCli( [ 'site', 'stop', '--path', sitePath ], env );
+			const stopped = await runCli( [ 'site', 'stop', '--all' ], env );
 			expect( stopped.code, stopped.stderr ).toBe( 0 );
 			// No site sends email to a stopped inbox.
 			expect( fs.existsSync( portsPath() ) ).toBe( false );
@@ -158,7 +217,7 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: site email', () => {
 			expect( started.code, started.stderr ).toBe( 0 );
 			const ports = JSON.parse( fs.readFileSync( portsPath(), 'utf8' ) );
 			inboxUrl = `http://127.0.0.1:${ String( ports.httpPort ) }`;
-			expect( ( await inbox() ).length ).toBe( 2 );
+			expect( ( await inbox() ).length ).toBe( 3 );
 		}
 	);
 } );

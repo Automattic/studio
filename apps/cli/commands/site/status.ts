@@ -65,7 +65,7 @@ export async function runCommand( siteFolder: string, format: 'table' | 'json' )
 			{
 				key: __( 'Email inbox' ),
 				jsonKey: 'emailInboxUrl',
-				value: getMailpitInboxUrl(),
+				value: getMailpitInboxUrl( site ),
 				type: 'url',
 				hidden: ! isOnline,
 			},

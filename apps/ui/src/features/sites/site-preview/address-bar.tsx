@@ -7,6 +7,7 @@ import {
 	AppearanceIcon,
 	DatabaseIcon,
 	ExternalLinkIcon,
+	MailIcon,
 	SiteSettingsIcon,
 	WordPressIcon,
 } from '@/lib/icons';
@@ -29,15 +30,23 @@ export function getPathFromPreviewUrl( url: string, baseUrl: string ) {
 	}
 }
 
-export type PreviewRealm = 'frontend' | 'admin' | 'database' | 'design';
+export type PreviewRealm = 'frontend' | 'admin' | 'database' | 'email' | 'design';
 
 export const DATABASE_HOME_PATH = '/phpmyadmin/index.php?route=/database/structure&db=wordpress';
+
+// The site's email lives in Studio's shared inbox, at an address of its own
+// (`site.emailInboxUrl`) rather than a path on the site, so like the design system
+// it is reached through a path that stands for it.
+export const EMAIL_PREVIEW_PATH = 'studio:email';
 
 const isAdminPath = ( path: string ) => /^\/wp-admin(?:[/?#]|$)/.test( path );
 
 export function getPreviewRealm( path: string ): PreviewRealm {
 	if ( path === DESIGN_SYSTEM_PREVIEW_PATH ) {
 		return 'design';
+	}
+	if ( path === EMAIL_PREVIEW_PATH ) {
+		return 'email';
 	}
 	let target = path;
 	if ( path.startsWith( '/studio-auto-login' ) ) {
@@ -58,6 +67,7 @@ const REALM_OPEN_EVENTS: Record< PreviewRealm, TracksEventName > = {
 	frontend: TRACKS_EVENTS.SITE_OPEN_IN_BROWSER,
 	admin: TRACKS_EVENTS.SITE_OPEN_WP_ADMIN,
 	database: TRACKS_EVENTS.SITE_OPEN_PHPMYADMIN,
+	email: TRACKS_EVENTS.SITE_OPEN_EMAIL_INBOX,
 	design: TRACKS_EVENTS.SITE_OPEN_DESIGN_SYSTEM,
 };
 
@@ -171,6 +181,9 @@ function storeRecentLocation(
 function getDisplayUrl( siteUrl: string, path: string ): string {
 	if ( path === DESIGN_SYSTEM_PREVIEW_PATH ) {
 		return __( 'Design system' );
+	}
+	if ( path === EMAIL_PREVIEW_PATH ) {
+		return __( 'Email' );
 	}
 	try {
 		return new URL( path, siteUrl ).toString().replace( /^(https?:\/\/[^/?#]+)\/$/i, '$1' );
@@ -292,18 +305,21 @@ export function PreviewAddressBar( {
 		frontend: FrontEndIcon,
 		admin: WordPressIcon,
 		database: DatabaseIcon,
+		email: MailIcon,
 		design: AppearanceIcon,
 	};
 	const realmLabels: Record< PreviewRealm, string > = {
 		frontend: __( 'Front end' ),
 		admin: __( 'WP Admin' ),
 		database: __( 'Database' ),
+		email: __( 'Email' ),
 		design: __( 'Design system' ),
 	};
 	const realms: PreviewRealm[] = [
 		'frontend',
 		'admin',
 		'database',
+		...( site.emailInboxUrl ? [ 'email' as const ] : [] ),
 		...( hasDesignSystem ? [ 'design' as const ] : [] ),
 	];
 	const shortcutGroups: CommandGroup[] = [

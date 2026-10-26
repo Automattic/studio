@@ -56,7 +56,32 @@ export function getMailpitSendmailCommand(): string | undefined {
 	return `"${ binaryPath }" sendmail -S 127.0.0.1:${ ports.smtpPort }`;
 }
 
-export function getMailpitInboxUrl(): string | undefined {
+/**
+ * The tag that marks a site's email in the shared inbox: the site's name, as Mailpit
+ * would store it. Mailpit keeps only letters, digits, `.`, `_`, `-` and single spaces
+ * in a tag, so applying the same rule here makes the tag a message carries the one
+ * its site's inbox filters by. A name with none of those characters falls back to
+ * the site's id.
+ */
+export function getSiteEmailTag( site: { id: string; name: string } ): string {
+	const tag = site.name
+		.replace( /[^A-Za-z0-9._ -]+/g, ' ' )
+		.replace( /\s+/g, ' ' )
+		.trim();
+	return tag || site.id;
+}
+
+/**
+ * The inbox's address, or `undefined` while Mailpit isn't running. Given a site,
+ * the inbox opens filtered to that site's email.
+ */
+export function getMailpitInboxUrl( site?: { id: string; name: string } ): string | undefined {
 	const ports = readPorts();
-	return ports ? `http://127.0.0.1:${ ports.httpPort }` : undefined;
+	if ( ! ports ) {
+		return undefined;
+	}
+	const inboxUrl = `http://127.0.0.1:${ ports.httpPort }`;
+	return site
+		? `${ inboxUrl }/search?q=${ encodeURIComponent( `tag:"${ getSiteEmailTag( site ) }"` ) }`
+		: inboxUrl;
 }

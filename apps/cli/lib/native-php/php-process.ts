@@ -43,6 +43,7 @@ export type BasePhpOptions = {
 	autoPrependFile?: string;
 	detached?: boolean;
 	disallowRiskyFunctions?: boolean;
+	emailTag?: string;
 	env?: NodeJS.ProcessEnv;
 	enableXdebug?: boolean;
 	onlyPathsThatPhpCanAccess?: string[];
@@ -92,6 +93,7 @@ export function spawnPhpProcess(
 		disallowRiskyFunctions = false,
 		autoPrependFile,
 		workerIndex,
+		emailTag,
 	}: SpawnPhpProcessOptions
 ): ChildProcess {
 	const defaultArgs = getDefaultPhpArgs( phpVersion, {
@@ -100,6 +102,7 @@ export function spawnPhpProcess(
 		enableXdebug,
 		autoPrependFile,
 		workerIndex,
+		emailTag,
 	} );
 	const phpArgs = [ ...defaultArgs, ...args ];
 	const phpScriptProcess = spawn( getPhpBinaryPath( phpVersion ), phpArgs, {

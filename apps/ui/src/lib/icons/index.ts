@@ -22,6 +22,7 @@ export * from './intelligence-icon';
 export * from './keyboard-icon';
 export * from './language-icon';
 export * from './link-icon';
+export * from './mail-icon';
 export * from './mcp-icon';
 export * from './needs-input-icon';
 export * from './new-chat-icon';

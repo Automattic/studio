@@ -109,6 +109,9 @@ export interface SiteDetails {
 	// The Studio operation currently holding the site, from the CLI. Present
 	// regardless of who started it — the user, the desktop app, or the agent.
 	operation?: SiteOperation;
+	// The shared email inbox, filtered to this site's email, from the CLI. Absent while
+	// the inbox isn't running.
+	emailInboxUrl?: string;
 }
 
 export interface LocalMediaFile {

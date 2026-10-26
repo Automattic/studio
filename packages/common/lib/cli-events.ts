@@ -46,6 +46,8 @@ export type SiteDetails = z.infer< typeof siteDetailsSchema >;
 
 export const siteListItemSchema = siteDetailsSchema.extend( {
 	running: z.boolean(),
+	// The shared email inbox, filtered to this site's email. Absent while it isn't running.
+	emailInboxUrl: z.string().optional(),
 } );
 
 export type SiteListItem = z.infer< typeof siteListItemSchema >;

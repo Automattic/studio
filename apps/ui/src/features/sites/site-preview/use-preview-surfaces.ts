@@ -5,6 +5,7 @@ import { useConnector } from '@/data/core';
 import { siteDesignQueryKey } from '@/data/queries/use-site-design';
 import {
 	DATABASE_HOME_PATH,
+	EMAIL_PREVIEW_PATH,
 	getPathFromPreviewUrl,
 	getPreviewRealm,
 	getRealmNavigationPath,
@@ -27,6 +28,7 @@ const DEFAULT_REALM_PATHS: Record< PreviewRealm, string > = {
 	frontend: '/',
 	admin: '/wp-admin/',
 	database: DATABASE_HOME_PATH,
+	email: EMAIL_PREVIEW_PATH,
 	design: DESIGN_SYSTEM_PREVIEW_PATH,
 };
 

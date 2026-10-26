@@ -5,7 +5,8 @@
  * (WP_Theme_JSON_Resolver::get_theme_data and get_style_variations in
  * wp-includes/class-wp-theme-json-resolver.php), which migrates the file to
  * the current schema and removes what the schema has no place for. Studio
- * runs that same read on the site, and says which keys it removed.
+ * runs that same read on the site, and says which keys it removed. Of a style
+ * variation of the active theme, it says what WordPress lists it as.
  */
 import { resolveSite, runWpCli } from 'cli/ai/tools/utils';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
@@ -63,7 +64,31 @@ if ( is_array( $decoded ) ) {
 	}
 	$walk( $before, $kept, '' );
 }
-echo 'THEME_JSON_READ=' . wp_json_encode( array( 'decoded' => is_array( $decoded ), 'error' => json_last_error_msg(), 'version' => isset( $decoded['version'] ), 'latest' => WP_Theme_JSON::LATEST_SCHEMA, 'dropped' => $dropped ) );`;
+// The active theme's style variation, as the Site Editor's Styles lists it:
+// the entry WP_Theme_JSON_Resolver::get_style_variations() builds from this file.
+$listed = null;
+if ( is_array( $decoded ) && 0 === strpos( wp_normalize_path( ${ JSON.stringify(
+	file
+) } ), wp_normalize_path( get_stylesheet_directory() . '/styles/' ) ) ) {
+	$own = Closure::bind(
+		static fn( $decoded ) => ( new WP_Theme_JSON( static::translate( $decoded, wp_get_theme()->get( 'TextDomain' ) ) ) )->get_raw_data(),
+		null,
+		WP_Theme_JSON_Resolver::class
+	)( $decoded );
+	if ( empty( $own['title'] ) ) {
+		$own['title'] = basename( ${ JSON.stringify( file ) }, '.json' );
+	}
+	$variations = WP_Theme_JSON_Resolver::get_style_variations();
+	if ( in_array( $own, $variations, true ) ) {
+		$listed = array(
+			'title'     => $own['title'],
+			'theme'     => wp_get_theme()->get( 'Name' ),
+			'palette'   => array_map( fn( $c ) => $c['slug'] . ' ' . $c['color'], $own['settings']['color']['palette']['theme'] ?? array() ),
+			'colors'    => array_filter( array( 'background' => $own['styles']['color']['background'] ?? null, 'text' => $own['styles']['color']['text'] ?? null ) ),
+		);
+	}
+}
+echo 'THEME_JSON_READ=' . wp_json_encode( array( 'decoded' => is_array( $decoded ), 'error' => json_last_error_msg(), 'version' => isset( $decoded['version'] ), 'latest' => WP_Theme_JSON::LATEST_SCHEMA, 'dropped' => $dropped, 'listed' => $listed ) );`;
 
 interface Read {
 	decoded: boolean;
@@ -71,23 +96,55 @@ interface Read {
 	version: boolean;
 	latest: number;
 	dropped: string[];
+	listed: {
+		title: string;
+		theme: string;
+		palette: string[];
+		colors: Record< string, string >;
+	} | null;
 }
 
 const SHOWN = 12;
 
-/** The keys WordPress removes from a theme JSON file, as a note, or undefined when it keeps them all. */
-export async function themeJsonDrops(
+/**
+ * What WordPress makes of a theme JSON file, as notes: the keys it removes,
+ * and the style variation it lists the file as.
+ */
+export async function themeJsonFileRead(
 	site: SiteData,
 	file: string,
 	relativePath: string
-): Promise< string | undefined > {
+): Promise< string[] > {
 	const output = await runWpCli( site, [ 'eval', READ( file ) ] );
 	const read = JSON.parse(
 		output.slice( output.indexOf( 'THEME_JSON_READ=' ) + 'THEME_JSON_READ='.length )
 	) as Read;
 	if ( ! read.decoded ) {
-		return `WordPress cannot decode ${ relativePath } as JSON (wp_json_file_decode in wp-includes/functions.php): ${ read.error }. It reads nothing from it until the file is valid JSON.`;
+		return [
+			`WordPress cannot decode ${ relativePath } as JSON (wp_json_file_decode in wp-includes/functions.php): ${ read.error }. It reads nothing from it until the file is valid JSON.`,
+		];
 	}
+	return [ dropNote( read, relativePath ), listedNote( read ) ].filter(
+		( note ): note is string => !! note
+	);
+}
+
+function listedNote( { listed }: Read ): string | undefined {
+	if ( ! listed ) {
+		return undefined;
+	}
+	const reads = [
+		...( listed.palette.length ? [ `palette ${ listed.palette.join( ', ' ) }` ] : [] ),
+		...Object.entries( listed.colors ).map( ( [ key, value ] ) => `${ key } ${ value }` ),
+	];
+	return `WordPress lists "${ listed.title }" among ${
+		listed.theme
+	}'s style variations (WP_Theme_JSON_Resolver::get_style_variations() in wp-includes/class-wp-theme-json-resolver.php)${
+		reads.length ? `: ${ reads.join( '; ' ) }` : ''
+	}. The user switches to it in the Site Editor's Styles, which saves it as the site's Global Styles.`;
+}
+
+function dropNote( read: Read, relativePath: string ): string | undefined {
 	if ( ! read.dropped.length ) {
 		return undefined;
 	}
@@ -107,8 +164,7 @@ export async function themeJsonFileNotes( siteFile: SiteFile ): Promise< string[
 	const site = await resolveSite( siteRoot );
 	try {
 		await connectToDaemon();
-		const note = await themeJsonDrops( site, `${ siteRoot }/${ relativePath }`, relativePath );
-		return note ? [ note ] : [];
+		return await themeJsonFileRead( site, `${ siteRoot }/${ relativePath }`, relativePath );
 	} finally {
 		await disconnectFromDaemon();
 	}

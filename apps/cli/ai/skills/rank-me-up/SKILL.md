@@ -99,7 +99,7 @@ Missing OG tags don't hurt rankings directly but kill click-through from social 
 ### Resources
 
 - **`robotsTxtFound: false`**: WordPress generates a virtual one — usually fine, but a real file gives more control.
-- **`robotsTxtBlocksAll: true`**: CRITICAL — `Disallow: /` blocks all crawlers. Often a forgotten "Discourage search engines" setting in WP Admin → Reading.
+- **`robotsTxtBlocksAll: true`**: the most serious finding — `Disallow: /` blocks all crawlers. Often a forgotten "Discourage search engines" setting in WP Admin → Reading.
 - **`sitemapFound: false`**: Install Jetpack and enable its SEO Tools module, or enable WP core's sitemap (`/wp-sitemap.xml`). See "Recommended SEO Plugin" below.
 
 ### Links

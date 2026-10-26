@@ -46,4 +46,25 @@ describe( 'AskUserQuestion', () => {
 		expect( result.content ).toEqual( [ { type: 'text', text } ] );
 		expect( result.terminate ).toBe( terminate );
 	} );
+
+	it( 'shows the user one free-form option, the one Studio adds', async () => {
+		let shown: unknown;
+		const tool = createAskUserQuestionTool( async ( questions ) => {
+			shown = questions[ 0 ].options.map( ( option ) => option.label );
+			return { 'Which look?': 'Warm' };
+		} );
+		await tool.execute( 'call-1', {
+			questions: [
+				{
+					question: 'Which look?',
+					options: [
+						{ label: 'Warm', description: '' },
+						{ label: ' other ', description: '' },
+						{ label: 'Other colors', description: '' },
+					],
+				},
+			],
+		} as never );
+		expect( shown ).toEqual( [ 'Warm', 'Other colors' ] );
+	} );
 } );

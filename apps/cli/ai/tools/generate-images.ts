@@ -102,7 +102,7 @@ export const generateImagesTool = defineTool(
 				} ),
 				subject: Type.String( {
 					description:
-						'What the image shows and from what point of view (composition, framing, vantage, mood). 1-3 sentences. Never ask for rendered text, and never restate the site-wide imageGrade here.',
+						'What the image shows and from what point of view (composition, framing, vantage, mood). 1-3 sentences, of the scene alone: the page carries the words, and imageGrade the treatment all images share.',
 				} ),
 				pageContext: Type.Optional(
 					Type.String( {
@@ -130,7 +130,7 @@ export const generateImagesTool = defineTool(
 		siteContext: Type.Optional(
 			Type.String( {
 				description:
-					"One sentence of subject matter steering shared by all images (e.g. 'A neighborhood bakery selling sourdough and pastries.'). NEVER include the site or business name — a name in the prompt is what painted-in fake wordmarks stand in for.",
+					"One sentence of subject matter steering shared by all images (e.g. 'A neighborhood bakery selling sourdough and pastries.'). Studio leaves the site's name out of the prompt, since the image model paints a name it is given in as a fake wordmark.",
 			} )
 		),
 		imageGrade: Type.Optional(
@@ -173,10 +173,21 @@ export const generateImagesTool = defineTool(
 			);
 		}
 
+		// The site the images are for, wherever in it they are written.
+		const { sites } = await readCliConfig();
+		const siteName = (
+			site ??
+			sites.find( ( candidate ) =>
+				targets.every( ( target ) =>
+					target.resolvedPath.startsWith( path.resolve( candidate.path ) + path.sep )
+				)
+			)
+		)?.name;
 		const requests = targets.map( ( image ) => ( {
 			prompt: composeImagePrompt( image, {
 				siteContext: args.siteContext,
 				imageGrade: args.imageGrade,
+				siteName,
 			} ),
 			aspectRatio: image.aspectRatio,
 		} ) );

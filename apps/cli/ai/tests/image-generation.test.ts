@@ -9,6 +9,7 @@ import {
 	interpretImageResponse,
 	resolveImageSize,
 	TransientImageError,
+	withoutName,
 } from '../image-generation';
 import { resolveImageFilePath } from '../tools/generate-images';
 
@@ -72,6 +73,44 @@ describe( 'composeImagePrompt', () => {
 		expect( prompt.startsWith( 'A red canoe on a still lake' ) ).toBe( true );
 		expect( prompt.length ).toBeLessThan( longContext.length );
 	} );
+} );
+
+describe( 'withoutName', () => {
+	it.each( [
+		{ text: 'Corner Crumb, a neighborhood bakery.', expected: 'a neighborhood bakery.' },
+		{
+			text: 'A bakery called corner crumb selling sourdough.',
+			expected: 'A bakery called selling sourdough.',
+		},
+		{ text: "Loaves on Corner Crumb's counter.", expected: 'Loaves on counter.' },
+		{ text: 'Loaves on Corner Crumb’s counter, at dawn.', expected: 'Loaves on counter, at dawn.' },
+		{ text: 'A bakery, Corner Crumb, at dawn.', expected: 'A bakery, at dawn.' },
+		{ text: 'The Corner Crumbs team.', expected: 'The Corner Crumbs team.' },
+		{ text: 'A bakery at dawn.', expected: 'A bakery at dawn.' },
+		{ text: 'Bread from Corner Crumb.', expected: 'Bread from.' },
+		{ text: 'A Scorner Crumb sign.', expected: 'A Scorner Crumb sign.' },
+	] )( '$text', ( { text, expected } ) => {
+		expect( withoutName( text, 'Corner Crumb' ) ).toBe( expected );
+	} );
+
+	it( 'takes a name with regex characters as written', () => {
+		expect( withoutName( 'Coffee at Joe (+1) today.', 'Joe (+1)' ) ).toBe( 'Coffee at today.' );
+		expect( withoutName( 'Coffee at Joe today.', 'Joe (+1)' ) ).toBe( 'Coffee at Joe today.' );
+	} );
+
+	it( 'leaves the text when there is no name', () => {
+		expect( withoutName( 'A bakery at dawn.', '  ' ) ).toBe( 'A bakery at dawn.' );
+	} );
+} );
+
+it( 'composes a prompt without the site name in the subject, composition or site context', () => {
+	const prompt = composeImagePrompt(
+		{ subject: 'The Corner Crumb counter at dawn', pageContext: 'Corner Crumb hero with open sky' },
+		{ siteContext: 'Corner Crumb is a neighborhood bakery.', siteName: 'Corner Crumb' }
+	);
+	expect( prompt ).not.toMatch( /corner crumb/i );
+	expect( prompt ).toContain( 'The counter at dawn' );
+	expect( prompt ).toContain( 'is a neighborhood bakery.' );
 } );
 
 describe( 'fitToTokens', () => {

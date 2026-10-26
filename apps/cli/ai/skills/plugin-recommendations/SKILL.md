@@ -1,11 +1,11 @@
 ---
 name: plugin-recommendations
-description: Choose recommended plugins and plugin-provided blocks for features core WordPress blocks do not cover - ecommerce (WooCommerce), forms and newsletters (Jetpack), online courses and quizzes (Sensei LMS), polls, surveys and ratings (Crowdsignal), spam protection (Akismet) - while keeping generated content editable and avoiding raw HTML fallbacks. Any request to sell products or build a shop, store, or storefront requires WooCommerce with products.
+description: Choose recommended plugins and plugin-provided blocks for features core WordPress blocks do not cover - ecommerce (WooCommerce), forms and newsletters (Jetpack), online courses and quizzes (Sensei LMS), polls, surveys and ratings (Crowdsignal), spam protection (Akismet) - with content that stays editable in the editor. Any request to sell products or build a shop, store, or storefront requires WooCommerce with products.
 ---
 
 # Plugin Recommendations
 
-For a feature core blocks do not cleanly provide, use the recommended plugin's own blocks — never a hand-built `core/html`, a plain `<form>`, or core blocks driven by custom CSS/JS.
+For a feature core blocks leave out, use the recommended plugin's own blocks, which the editor edits and the plugin keeps working.
 
 | The site needs… | Plugin | Install slug |
 | --- | --- | --- |
@@ -27,6 +27,6 @@ Jetpack registers its blocks only while its `blocks` module is active (`Jetpack_
 ## What the source will not tell you
 
 - **Selling means WooCommerce with real products**, whatever the size or framing of the request. Install it and create 4–8 products that fit the shop, in categories, before design work. `wc` commands need `--user=admin`. Give products images by attachment ID (`--images='[{"id":N}]'`) from `generate_images` or `media import`; remote image URLs are rejected. After activation, delete `_transient__wc_activation_redirect`, add a `woocommerce/mini-cart` and a Shop link to the header, and keep WooCommerce's default templates unless the design needs a different structure.
-- **Jetpack Newsletter** cannot be activated on a local site (it needs WordPress.com): install Jetpack and recommend it, without building a substitute form.
+- **Jetpack Newsletter** cannot be activated on a local site (it needs WordPress.com): install Jetpack and recommend it: its subscribe block works once the site is connected to WordPress.com.
 - **Crowdsignal** blocks need a Crowdsignal.com connection to record responses; mention it when the user expects live results.
 - **Sensei LMS** creates its pages on activation; paid courses also need WooCommerce.

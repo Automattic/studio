@@ -218,13 +218,23 @@ function getOpcacheRootDir(): string {
 
 	opcacheRootDir = fs.mkdtempSync( path.join( getFullyResolvedTmpDirPath(), 'studio-opcache-' ) );
 	const dirToClean = opcacheRootDir;
-	process.once( 'exit', () => {
+	const cleanup = () => {
 		try {
 			fs.rmSync( dirToClean, { recursive: true, force: true } );
 		} catch {
 			// Best effort. The OS will reap tmp eventually.
 		}
-	} );
+	};
+	process.once( 'exit', cleanup );
+	for ( const signal of [ 'SIGTERM', 'SIGINT' ] as const ) {
+		process.prependOnceListener( signal, () => {
+			cleanup();
+			// Leave existing shutdown handlers in charge; otherwise restore Node's default.
+			if ( process.listenerCount( signal ) === 0 ) {
+				process.kill( process.pid, signal );
+			}
+		} );
+	}
 	return opcacheRootDir;
 }
 

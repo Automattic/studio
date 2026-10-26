@@ -351,7 +351,7 @@ tests:
 
   # Site pick: with an active site and a prompt that names no other site, the
   # agent builds into the active site instead of asking whether to create a
-  # separate one. Seeds a real (stopped) site as the active site.
+  # separate one. Seeds a real running site as the active site.
   - description: a plan-only request on the active site creates no new site
     vars:
       caseId: active-site-reused

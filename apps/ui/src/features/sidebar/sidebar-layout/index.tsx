@@ -40,7 +40,7 @@ function SidebarContents( {
 	return (
 		<>
 			<SiteList
-				className={ floating ? styles.flyoutList : undefined }
+				className={ floating ? styles.sidebarFlyoutList : undefined }
 				sections
 				active={ active }
 				onSiteOpen={ onSiteOpen }
@@ -61,47 +61,49 @@ export function SidebarLayout( { children }: { children: ReactNode } ) {
 	} );
 	const [ collapsed, setCollapsed ] = useStoredFlag( SIDEBAR_COLLAPSED_STORAGE_KEY, false );
 
-	const [ flyoutState, setFlyoutState ] = useState< 'closed' | 'hover' | 'open' >( 'closed' );
-	const peek = flyoutState === 'hover';
-	const overlayOpen = flyoutState === 'open';
-	const [ instantDock, setInstantDock ] = useState( false );
+	const [ sidebarFlyoutState, setSidebarFlyoutState ] = useState< 'closed' | 'hover' | 'open' >(
+		'closed'
+	);
+	const peek = sidebarFlyoutState === 'hover';
+	const sidebarFlyoutOpen = sidebarFlyoutState === 'open';
+	const [ instantSidebarDock, setInstantSidebarDock ] = useState( false );
 	const dockedSidebarRef = useRef< HTMLElement >( null );
-	const flyoutScrollTop = useRef( 0 );
+	const sidebarFlyoutScrollTop = useRef( 0 );
 	useLayoutEffect( () => {
-		if ( ! instantDock ) return;
+		if ( ! instantSidebarDock ) return;
 		if ( dockedSidebarRef.current ) {
-			dockedSidebarRef.current.scrollTop = flyoutScrollTop.current;
+			dockedSidebarRef.current.scrollTop = sidebarFlyoutScrollTop.current;
 			dockedSidebarRef.current
 				.querySelector< HTMLElement >( '[data-sidebar-toggle]' )
 				?.focus( { preventScroll: true } );
 		}
 		let secondFrame = 0;
 		const firstFrame = requestAnimationFrame( () => {
-			secondFrame = requestAnimationFrame( () => setInstantDock( false ) );
+			secondFrame = requestAnimationFrame( () => setInstantSidebarDock( false ) );
 		} );
 		return () => {
 			cancelAnimationFrame( firstFrame );
 			cancelAnimationFrame( secondFrame );
 		};
-	}, [ instantDock ] );
+	}, [ instantSidebarDock ] );
 	const hoverBlockedUntil = useRef( 0 );
-	const restoreFlyoutFocus = useRef( false );
-	const flyoutRef = useRef< HTMLElement >( null );
-	const flyoutAnchor = useRef< HTMLDivElement >( null );
+	const restoreSidebarFlyoutFocus = useRef( false );
+	const sidebarFlyoutRef = useRef< HTMLElement >( null );
+	const sidebarFlyoutAnchor = useRef< HTMLDivElement >( null );
 	const hoverTimer = useRef< ReturnType< typeof setTimeout > | undefined >( undefined );
 	const clearHoverTimer = useCallback( () => clearTimeout( hoverTimer.current ), [] );
-	const closeOverlay = useCallback( () => {
+	const closeSidebarFlyout = useCallback( () => {
 		clearHoverTimer();
-		setFlyoutState( 'closed' );
+		setSidebarFlyoutState( 'closed' );
 	}, [ clearHoverTimer ] );
 	useEffect( () => {
 		const reopen = () => {
-			closeOverlay();
+			closeSidebarFlyout();
 			setCollapsed( false );
 		};
 		window.addEventListener( PANEL_WIDTHS_RESET_EVENT, reopen );
 		return () => window.removeEventListener( PANEL_WIDTHS_RESET_EVENT, reopen );
-	}, [ closeOverlay, setCollapsed ] );
+	}, [ closeSidebarFlyout, setCollapsed ] );
 	// When docking the sidebar would leave the content less than the chat and
 	// preview need, it opens over the content instead, closed by default. The
 	// docked state is kept for when the window widens again.
@@ -110,41 +112,45 @@ export function SidebarLayout( { children }: { children: ReactNode } ) {
 	const [ wasOverlay, setWasOverlay ] = useState( overlay );
 	if ( wasOverlay !== overlay ) {
 		setWasOverlay( overlay );
-		setFlyoutState( 'closed' );
+		setSidebarFlyoutState( 'closed' );
 	}
 	const docked = ! overlay && ! collapsed;
-	const open = docked || overlayOpen;
+	const open = docked || sidebarFlyoutOpen;
 	const hoverEnter = useCallback( () => {
 		clearHoverTimer();
 		if ( ! open && ! peek && performance.now() >= hoverBlockedUntil.current ) {
 			hoverTimer.current = setTimeout( () => {
-				setFlyoutState( 'hover' );
+				setSidebarFlyoutState( 'hover' );
 			}, HOVER_OPEN_DELAY_MS );
 		}
 	}, [ clearHoverTimer, open, peek ] );
 	const hoverLeave = useCallback( () => {
 		clearHoverTimer();
 		if ( peek ) {
-			hoverTimer.current = setTimeout( () => setFlyoutState( 'closed' ), HOVER_CLOSE_DELAY_MS );
+			hoverTimer.current = setTimeout(
+				() => setSidebarFlyoutState( 'closed' ),
+				HOVER_CLOSE_DELAY_MS
+			);
 		}
 	}, [ clearHoverTimer, peek ] );
 	const toggleSidebar = useCallback( () => {
-		setInstantDock( peek && ! overlay );
-		if ( peek && ! overlay ) flyoutScrollTop.current = flyoutRef.current?.scrollTop ?? 0;
+		setInstantSidebarDock( peek && ! overlay );
+		if ( peek && ! overlay )
+			sidebarFlyoutScrollTop.current = sidebarFlyoutRef.current?.scrollTop ?? 0;
 		hoverBlockedUntil.current = performance.now() + HOVER_CLOSE_DELAY_MS;
 		clearHoverTimer();
 		if ( overlay ) {
-			restoreFlyoutFocus.current = ! overlayOpen;
-			setFlyoutState( overlayOpen ? 'closed' : 'open' );
+			restoreSidebarFlyoutFocus.current = ! sidebarFlyoutOpen;
+			setSidebarFlyoutState( sidebarFlyoutOpen ? 'closed' : 'open' );
 			if ( peek )
-				flyoutRef.current
+				sidebarFlyoutRef.current
 					?.querySelector< HTMLElement >( 'button:not(:disabled)' )
 					?.focus( { preventScroll: true } );
 		} else {
-			setFlyoutState( 'closed' );
+			setSidebarFlyoutState( 'closed' );
 			setCollapsed( ! collapsed );
 		}
-	}, [ overlay, overlayOpen, collapsed, peek, setCollapsed, clearHoverTimer ] );
+	}, [ overlay, sidebarFlyoutOpen, collapsed, peek, setCollapsed, clearHoverTimer ] );
 	const findToggle = () =>
 		[ ...document.querySelectorAll< HTMLElement >( '[data-sidebar-toggle]' ) ].find(
 			( toggle ) => ! toggle.closest( '[inert]' )
@@ -160,15 +166,19 @@ export function SidebarLayout( { children }: { children: ReactNode } ) {
 					<SidebarHoverContext.Provider
 						value={ { peek, onEnter: hoverEnter, onLeave: hoverLeave } }
 					>
-						<div className={ clsx( styles.root, instantDock && styles.instantDock ) }>
-							<div ref={ flyoutAnchor } className={ styles.flyoutAnchor } aria-hidden />
-							{ ! instantDock && (
+						<div className={ clsx( styles.root, instantSidebarDock && styles.instantSidebarDock ) }>
+							<div
+								ref={ sidebarFlyoutAnchor }
+								className={ styles.sidebarFlyoutAnchor }
+								aria-hidden
+							/>
+							{ ! instantSidebarDock && (
 								<Popover.Root
-									open={ peek || overlayOpen }
+									open={ peek || sidebarFlyoutOpen }
 									onOpenChange={ ( next, details ) => {
 										if (
 											details.reason === 'escape-key' &&
-											flyoutRef.current?.querySelector( '[data-selected]' )
+											sidebarFlyoutRef.current?.querySelector( '[data-selected]' )
 										) {
 											details.cancel();
 											return;
@@ -178,38 +188,38 @@ export function SidebarLayout( { children }: { children: ReactNode } ) {
 											details.cancel();
 											return;
 										}
-										if ( ! next ) closeOverlay();
+										if ( ! next ) closeSidebarFlyout();
 									} }
 								>
 									<Popover.Popup
-										anchor={ flyoutAnchor }
+										anchor={ sidebarFlyoutAnchor }
 										side="bottom"
 										align="start"
 										sideOffset={ 8 }
 										alignOffset={ 8 }
 										initialFocus={ () =>
-											overlayOpen
-												? flyoutRef.current?.querySelector< HTMLElement >(
+											sidebarFlyoutOpen
+												? sidebarFlyoutRef.current?.querySelector< HTMLElement >(
 														'button:not(:disabled)'
 												  ) ?? false
 												: false
 										}
 										finalFocus={ () => {
-											if ( ! restoreFlyoutFocus.current ) return false;
-											restoreFlyoutFocus.current = false;
+											if ( ! restoreSidebarFlyoutFocus.current ) return false;
+											restoreSidebarFlyoutFocus.current = false;
 											return findToggle() ?? false;
 										} }
 										aria-label={ __( 'Sidebar' ) }
-										className={ styles.flyout }
+										className={ styles.sidebarFlyout }
 										style={ sidebarStyle }
 									>
 										<aside
-											className={ styles.flyoutContents }
-											ref={ flyoutRef }
+											className={ styles.sidebarFlyoutContents }
+											ref={ sidebarFlyoutRef }
 											onPointerEnter={ clearHoverTimer }
 											onPointerLeave={ hoverLeave }
 										>
-											<SidebarContents active floating onSiteOpen={ closeOverlay } />
+											<SidebarContents active floating onSiteOpen={ closeSidebarFlyout } />
 										</aside>
 									</Popover.Popup>
 								</Popover.Root>
@@ -228,13 +238,13 @@ export function SidebarLayout( { children }: { children: ReactNode } ) {
 									<SidebarContents active={ docked } />
 								</aside>
 							</div>
-							{ flyoutState !== 'closed' ? (
+							{ sidebarFlyoutState !== 'closed' ? (
 								<button
 									type="button"
-									className={ styles.overlayBackdrop }
+									className={ styles.sidebarFlyoutBackdrop }
 									aria-label={ __( 'Close sidebar' ) }
 									tabIndex={ -1 }
-									onClick={ closeOverlay }
+									onClick={ closeSidebarFlyout }
 								/>
 							) : null }
 							{ docked ? (

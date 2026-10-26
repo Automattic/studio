@@ -126,13 +126,15 @@ describe( 'overlay sidebar', () => {
 		resize( 800 );
 		const { user } = await setup();
 		fireEvent.click( toggle() );
-		const flyout = within( await screen.findByRole( 'dialog', { name: 'Sidebar' } ) );
-		await user.click( await flyout.findByRole( 'button', { name: 'Test User' } ) );
+		const sidebarFlyout = within( await screen.findByRole( 'dialog', { name: 'Sidebar' } ) );
+		await user.click( await sidebarFlyout.findByRole( 'button', { name: 'Test User' } ) );
 		const item = ( await screen.findAllByRole( 'menuitem' ) )[ 0 ];
 		fireEvent.keyDown( item, { key: 'Escape' } );
 		await waitFor( () => expect( screen.queryByRole( 'menu' ) ).not.toBeInTheDocument() );
 		expect( screen.getByRole( 'button', { name: 'Close sidebar' } ) ).toBeInTheDocument();
-		fireEvent.keyDown( flyout.getByRole( 'button', { name: 'Test User' } ), { key: 'Escape' } );
+		fireEvent.keyDown( sidebarFlyout.getByRole( 'button', { name: 'Test User' } ), {
+			key: 'Escape',
+		} );
 		expect( screen.queryByRole( 'button', { name: 'Close sidebar' } ) ).not.toBeInTheDocument();
 		await waitFor( () => expect( toggle() ).toHaveFocus() );
 	} );

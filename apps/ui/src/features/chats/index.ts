@@ -1,9 +1,4 @@
-export {
-	ChatActionsMenuItems,
-	getArchiveBlockedReason,
-	useChatActions,
-	useLeaveArchivedChat,
-} from './chat-actions';
+export { ChatActionsMenuItems, useChatActions, useLeaveArchivedChat } from './chat-actions';
 export { CopyButton } from './copy-button';
 export { SessionView } from './session-view';
 export { getSessionTitle } from './session-view/session-chat-actions';

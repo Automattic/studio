@@ -316,10 +316,7 @@ export function SiteActionsMenuItems( {
 			<SiteShareMenuItem site={ site } disabled={ busy } />
 			<SitePublishMenu site={ site } disabled={ busy } />
 			<Menu.Separator />
-			<Menu.Group>
-				{ deleteBlocked ? <Menu.GroupLabel>{ deleteBlocked }</Menu.GroupLabel> : null }
-				{ manageItem( manage.delete, __( 'Delete site' ), !! deleteBlocked ) }
-			</Menu.Group>
+			{ manageItem( manage.delete, __( 'Delete site' ), !! deleteBlocked ) }
 		</div>
 	);
 }

@@ -6,7 +6,7 @@
  * wp-includes/class-wp-theme-json-resolver.php), the block's Styles panel
  * offers, and Global Styles edits, as Twenty Twenty-Five's are.
  *
- * The move keeps the look: the class's rules go to the block style's "css"
+ * The move keeps the look: the class's rules go to the block style's "styles": { "css" }
  * as they were, which WordPress prints for each block that has the style
  * (wp_render_block_style_variation_support_styles() in
  * wp-includes/block-supports/block-style-variations.php), and each block
@@ -331,7 +331,7 @@ export async function moveToBlockStyle(
 		', '
 	) } blocks into a block style, WordPress's form for a look blocks of one type share: ${ styleFile }, which WordPress registers for its "blockTypes" (WP_Theme_JSON_Resolver::get_style_variations() in wp-includes/class-wp-theme-json-resolver.php), the block's Styles panel offers, and Global Styles edits. Its rules moved from ${ moved.join(
 		', '
-	) } into the style's "css", as they were, and the blocks in ${ places.join(
+	) } into the style's "styles": { "css" }, as they were, and the blocks in ${ places.join(
 		', '
 	) } carry "is-style-${ name }" beside "${ name }", so they render as before. A block takes the look as "className":"is-style-${ name }"; the style's "styles" can hold each property at its path (WP_Theme_JSON::PROPERTIES_METADATA in wp-includes/class-wp-theme-json.php).`;
 }

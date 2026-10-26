@@ -192,7 +192,7 @@ export function createSharedBlockClassNotes(): ( siteFile: SiteFile ) => Promise
 				'blocks'
 			) }/<slug>.json with "blockTypes", which WordPress registers (WP_Theme_JSON_Resolver::get_style_variations() in wp-includes/class-wp-theme-json-resolver.php), the block's Styles panel offers, and Global Styles edits, as Twenty Twenty-Five's are; a block takes it as "className":"is-style-<slug>". Its "styles" hold each property at its path (WP_Theme_JSON::PROPERTIES_METADATA in wp-includes/class-wp-theme-json.php): ${ paths.join(
 				', '
-			) }; anything else goes in its "css".`,
+			) }; anything else goes in "styles": { "css" } (WP_Theme_JSON::process_blocks_custom_css()), where \`&\` stands for the block.`,
 		];
 	};
 }

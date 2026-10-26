@@ -144,7 +144,9 @@ describe.runIf( WORDPRESS )( 'createSharedBlockClassNotes', () => {
 			'background color.gradient, border-radius border.radius, box-shadow shadow'
 		);
 		expect( note ).toContain( '"className":"is-style-<slug>"' );
-		expect( note ).toContain( 'shadow; anything else goes in its "css".' );
+		expect( note ).toContain(
+			'shadow; anything else goes in "styles": { "css" } (WP_Theme_JSON::process_blocks_custom_css()), where `&` stands for the block.'
+		);
 		expect( note ).not.toContain( '.cell' );
 		expect( note ).not.toContain( '.eyebrow' );
 	} );

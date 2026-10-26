@@ -11,6 +11,7 @@ import { pathToFileURL } from 'url';
 import { selfHostThemeJsonFonts } from '@studio/common/lib/theme-fonts';
 import { trappedFullWidthNotes } from 'cli/ai/block-alignment';
 import { opensWithBlock } from 'cli/ai/block-validation-gate';
+import { buttonsWithoutLinkNotes } from 'cli/ai/button-links';
 import { renderDesignBoard } from 'cli/ai/design-board';
 import {
 	FRONT_PAGE_TEMPLATE,
@@ -196,9 +197,13 @@ export function isBlockMarkup( siteFile: SiteFile ): boolean {
 const readSiteFile = ( { siteRoot, relativePath }: SiteFile ) =>
 	readFileSync( path.join( siteRoot, relativePath ), 'utf8' );
 
-/** Full-width blocks in block markup just written that cannot reach the page edges. */
+/** Blocks in block markup just written that cannot reach the page edges, and buttons that open nothing. */
 export function blockMarkupNotes( siteFile: SiteFile ): string[] {
-	return isBlockMarkup( siteFile ) ? trappedFullWidthNotes( readSiteFile( siteFile ) ) : [];
+	if ( ! isBlockMarkup( siteFile ) ) {
+		return [];
+	}
+	const markup = readSiteFile( siteFile );
+	return [ ...trappedFullWidthNotes( markup ), ...buttonsWithoutLinkNotes( markup ) ];
 }
 
 /** What a theme.json just written makes WordPress render differently from what it says. */

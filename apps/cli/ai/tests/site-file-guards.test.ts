@@ -109,6 +109,12 @@ describe( 'block markup notes', () => {
 		[ 'wp-content/uploads/home.tmp.html', trapped, 1 ],
 		[ 'tmp/page-home.html', trapped, 1 ],
 		[ 'notes.md', `Draft:\n${ trapped }`, 0 ],
+		// And a button that opens nothing is a note of its own.
+		[
+			'tmp/shop.html',
+			`${ trapped }<!-- wp:button --><div class="wp-block-button"><a class="wp-block-button__link wp-element-button">Add</a></div><!-- /wp:button -->`,
+			2,
+		],
 	] )( '%s gets %s note(s)', ( relativePath, content, count ) => {
 		const root = mkdtempSync( path.join( os.tmpdir(), 'studio-markup-' ) );
 		mkdirSync( path.join( root, 'wp-includes' ) );

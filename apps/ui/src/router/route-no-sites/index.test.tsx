@@ -1,63 +1,28 @@
-import { render } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { noSitesRoute } from './index';
-import type { SiteDetails } from '@/data/core';
-
-const { navigate, openAddSite, state } = vi.hoisted( () => ( {
-	navigate: vi.fn(),
-	openAddSite: vi.fn(),
-	state: {
-		search: {} as Record< string, unknown >,
-		sites: [] as SiteDetails[],
-	},
-} ) );
-
-vi.mock( '@tanstack/react-router', async ( importOriginal ) => ( {
-	...( await importOriginal< object >() ),
-	useNavigate: () => navigate,
-	useSearch: () => state.search,
-} ) );
-vi.mock( '@/data/queries/use-sites', () => ( {
-	useSites: () => ( { data: state.sites, isSuccess: true, isError: false } ),
-} ) );
-vi.mock( '@/features/sites', () => ( { useOpenAddSite: () => openAddSite } ) );
-vi.mock( '@/features/sidebar', () => ( { HeaderSidebarToggle: () => null } ) );
-vi.mock( '@/data/host/use-traffic-light-space', () => ( {
-	useTrafficLightSpace: () => ( { start: false } ),
-} ) );
-vi.mock( '../layout-dashboard', () => ( { dashboardLayoutRoute: {} } ) );
-
-const NoSites = noSitesRoute.options.component!;
+import { screen, waitFor } from '@testing-library/react';
+import { describe, expect, it } from 'vitest';
+import { createFakeConnector } from '@/test/fake-connector';
+import { renderApp } from '@/test/render';
 
 describe( 'the empty workspace', () => {
-	beforeEach( () => {
-		vi.clearAllMocks();
-		state.search = {};
-		state.sites = [];
+	it( 'leaves Add site to the welcome, which opens it itself', async () => {
+		renderApp( { path: '/sites?welcome=true' } );
+		expect(
+			await screen.findByRole( 'alertdialog', { name: 'Welcome to WordPress Studio' } )
+		).toBeVisible();
+		expect( screen.queryByRole( 'dialog', { name: 'Add site' } ) ).not.toBeInTheDocument();
 	} );
 
-	it( 'offers Add site once, after the welcome', () => {
-		state.search = { welcome: true };
-		const { rerender } = render( <NoSites /> );
-		expect( openAddSite ).not.toHaveBeenCalled();
+	it( 'offers Add site, then leaves for a site that appears', async () => {
+		const connector = createFakeConnector();
+		const { history, user } = renderApp( { connector, path: '/sites' } );
+		expect( await screen.findByRole( 'dialog', { name: 'Add site' } ) ).toBeVisible();
+		await user.keyboard( '{Escape}' );
+		await waitFor( () =>
+			expect( screen.queryByRole( 'dialog', { name: 'Add site' } ) ).not.toBeInTheDocument()
+		);
 
-		state.search = {};
-		rerender( <NoSites /> );
-		expect( openAddSite ).toHaveBeenCalledTimes( 1 );
+		await connector.createSite( { name: 'From the terminal', path: '/sites/from-cli' } );
 
-		state.search = { addSite: 'create' };
-		rerender( <NoSites /> );
-		state.search = {};
-		rerender( <NoSites /> );
-		expect( openAddSite ).toHaveBeenCalledTimes( 1 );
-	} );
-
-	it( 'leaves for the sites when one appears', () => {
-		const { rerender } = render( <NoSites /> );
-
-		state.sites = [ { id: 'new-site', name: 'New site' } as SiteDetails ];
-		rerender( <NoSites /> );
-
-		expect( navigate ).toHaveBeenCalledWith( { to: '/', search: true, replace: true } );
+		await waitFor( () => expect( history.location.pathname ).not.toBe( '/sites' ) );
 	} );
 } );

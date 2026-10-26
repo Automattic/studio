@@ -17,9 +17,7 @@
  * with the site's code loaded and with its plugins and themes skipped: the
  * ones denied only with the code loaded are the code's.
  */
-import { readdir, stat } from 'fs/promises';
-import path from 'path';
-import { readWordPressSite } from 'cli/ai/site-database';
+import { activeCodeVersion } from 'cli/ai/active-code';
 import { runWpCli } from 'cli/ai/tools/utils';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import type { SiteChangeSource, Versions } from 'cli/ai/site-changes';
@@ -71,56 +69,10 @@ async function deniedCaps( site: SiteData, skipCode: boolean ): Promise< Denied 
 	return JSON.parse( json ) as Denied;
 }
 
-async function phpFiles( dir: string ): Promise< string[] > {
-	const entries = await readdir( dir, { recursive: true, withFileTypes: true } ).catch( () => [] );
-	return Promise.all(
-		entries
-			.filter( ( entry ) => entry.isFile() && entry.name.endsWith( '.php' ) )
-			.map( async ( entry ) => {
-				const file = path.join( entry.parentPath, entry.name );
-				const { mtimeMs, size } = await stat( file ).catch( () => ( { mtimeMs: 0, size: -1 } ) );
-				return `${ path.relative( dir, file ) }:${ mtimeMs }:${ size }`;
-			} )
-	);
-}
-
 // The site's active code, as one version: which plugins and themes are
 // active, and their PHP files. Must-use plugins load with plugins skipped too.
 async function readVersions( sitePath: string ): Promise< Versions > {
-	const content = path.join( sitePath, 'wp-content' );
-	const active = await readWordPressSite( sitePath, ( site ) => {
-		const plugins = site.option( 'active_plugins' );
-		return {
-			plugins: plugins && typeof plugins === 'object' ? Object.values( plugins ).map( String ) : [],
-			themes: [ ...new Set( [ site.option( 'template' ), site.option( 'stylesheet' ) ] ) ].filter(
-				( theme ): theme is string => typeof theme === 'string' && theme !== ''
-			),
-		};
-	} );
-	const dirs = [
-		...active.plugins
-			.filter( ( plugin ) => plugin.includes( '/' ) )
-			.map( ( plugin ) => path.join( content, 'plugins', path.dirname( plugin ) ) ),
-		...active.themes.map( ( theme ) => path.join( content, 'themes', theme ) ),
-	];
-	const singleFiles = await Promise.all(
-		active.plugins
-			.filter( ( plugin ) => ! plugin.includes( '/' ) )
-			.map( ( plugin ) =>
-				stat( path.join( content, 'plugins', plugin ) ).then(
-					( { mtimeMs, size } ) => `${ plugin }:${ mtimeMs }:${ size }`,
-					() => plugin
-				)
-			)
-	);
-	const files = await Promise.all( dirs.map( phpFiles ) );
-	return {
-		code: JSON.stringify( [
-			active,
-			singleFiles,
-			files.map( ( dirFiles ) => dirFiles.sort().join( '|' ) ),
-		] ),
-	};
+	return { code: await activeCodeVersion( sitePath, ( name ) => name.endsWith( '.php' ) ) };
 }
 
 const list = ( items: string[] ) =>

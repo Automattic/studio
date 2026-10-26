@@ -8,6 +8,7 @@
  * thing WordPress reads, as versions a check compares.
  */
 import { adminCapabilities } from 'cli/ai/admin-capabilities';
+import { blockEditorScripts } from 'cli/ai/block-editor-scripts';
 import { renderedBlocks } from 'cli/ai/block-render-check';
 import { blockTheme } from 'cli/ai/block-theme';
 import { childThemeCopies } from 'cli/ai/child-theme-copies';
@@ -74,6 +75,7 @@ export const SITE_CHANGE_SOURCES: SiteChangeSource[] = [
 	themeStylesheet,
 	siteFileWrites,
 	adminCapabilities,
+	blockEditorScripts,
 ];
 
 async function localSites(): Promise< SiteData[] > {

@@ -65,7 +65,7 @@ export function SiteList( {
 		[ allSessions, activeSessionId ]
 	);
 	const activeSiteId = params.siteId;
-	const [ recentNavigation, setRecentNavigation ] = useState( false );
+	const [ chatNavigation, setChatNavigation ] = useState< 'recent' | 'pinned' >();
 	const updateSitesSortOrder = useUpdateSitesSortOrder();
 	const { pins, chatOrder, showRecentChats, autoCollapseSites, save } = useSidebarPreferences();
 
@@ -84,16 +84,17 @@ export function SiteList( {
 			chatOrder,
 			needingInput,
 		} );
-	const activeChatIsRecent =
-		recentNavigation &&
-		showRecentChats &&
-		recentChats.some( ( session ) => session.id === activeSessionId );
-	const activeSiteKey = activeChatIsRecent
-		? activeContextSiteKey
-		: activeChatSiteKey ?? activeContextSiteKey;
+	const activeChatIsShortcut =
+		( chatNavigation === 'recent' &&
+			showRecentChats &&
+			recentChats.some( ( session ) => session.id === activeSessionId ) ) ||
+		( chatNavigation === 'pinned' &&
+			pinnedItems.some( ( item ) => item.session && item.session.id === activeSessionId ) );
+	const activeSiteKey = activeChatSiteKey ?? activeContextSiteKey;
 	const { revealed, collapseAll, fold, toggle } = useRevealedSites(
 		activeSiteKey,
-		autoCollapseSites
+		autoCollapseSites,
+		! activeChatIsShortcut
 	);
 
 	const renderSiteRow = ( row: SiteRow, itemProps?: ReorderableItemProps ) => (
@@ -102,7 +103,7 @@ export function SiteList( {
 			itemProps={ itemProps }
 			row={ row }
 			chats={ chatsBySite.get( row.site.id ) ?? [] }
-			isChatActive={ ! activeChatIsRecent && row.site.id === activeChatSiteKey }
+			isChatActive={ ! activeChatIsShortcut && row.site.id === activeChatSiteKey }
 			isContextActive={ row.site.id === activeContextSiteKey }
 			activeSessionId={ activeSessionId }
 			expanded={ sections && revealed.has( row.site.id ) }
@@ -116,7 +117,7 @@ export function SiteList( {
 				)
 			}
 			onSiteOpen={ () => {
-				setRecentNavigation( false );
+				setChatNavigation( undefined );
 				onSiteOpen?.();
 			} }
 		/>
@@ -175,7 +176,7 @@ export function SiteList( {
 		session: AiSessionSummary,
 		siteName?: string,
 		itemProps?: ReorderableItemProps,
-		fromRecent = false
+		navigation?: 'recent' | 'pinned'
 	) => (
 		<ChatRow
 			key={ session.id }
@@ -184,7 +185,7 @@ export function SiteList( {
 			active={ session.id === activeSessionId }
 			siteName={ siteName }
 			onOpen={ () => {
-				setRecentNavigation( fromRecent );
+				setChatNavigation( navigation );
 				onSiteOpen?.();
 			} }
 		/>
@@ -227,7 +228,7 @@ export function SiteList( {
 						renderItem={ ( item, itemProps ) =>
 							item.row
 								? renderSiteRow( item.row, itemProps )
-								: renderChat( item.session, item.siteName, itemProps )
+								: renderChat( item.session, item.siteName, itemProps, 'pinned' )
 						}
 						onReorder={ ( sidebarPins ) => save( { sidebarPins } ) }
 						onDragStart={ ( item ) => item.row && fold( [ item.row.site.id ] ) }
@@ -273,7 +274,9 @@ export function SiteList( {
 							{ sessionsError ? (
 								<RetryLoadingChats />
 							) : (
-								recentChats.map( ( session ) => renderChat( session, undefined, undefined, true ) )
+								recentChats.map( ( session ) =>
+									renderChat( session, undefined, undefined, 'recent' )
+								)
 							) }
 						</SidebarMenu>
 					</SiteListGroup>

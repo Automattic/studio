@@ -87,6 +87,47 @@ describe( 'sidebar site sections', () => {
 		await waitFor( () => expect( secondSite ).toHaveAttribute( 'aria-expanded', 'true' ) );
 	} );
 
+	it.each( [
+		{ sitePinned: false, showRecentChats: false },
+		{ sitePinned: false, showRecentChats: true },
+		{ sitePinned: true, showRecentChats: false },
+		{ sitePinned: true, showRecentChats: true },
+	] )(
+		'opens a pinned chat without expanding its site (sitePinned: $sitePinned, showRecentChats: $showRecentChats)',
+		async ( { sitePinned, showRecentChats } ) => {
+			const { history } = setup( {
+				sessions: [
+					chat( 'first', 'one' ),
+					chat( 'pinned-chat', 'two' ),
+					chat( 'other-chat', 'two' ),
+				],
+				preferences: {
+					sidebarPins: [ 'chat:pinned-chat', ...( sitePinned ? [ 'site:two' ] : [] ) ],
+					showRecentChats,
+					autoCollapseSites: true,
+				},
+				path: '/sessions/first',
+			} );
+			const pinned = await screen.findByRole( 'group', { name: 'Pinned' } );
+			const firstSite = screen.getByRole( 'button', { name: 'My site' } );
+			const secondSite = screen.getByRole( 'button', { name: 'Second site' } );
+			await waitFor( () => expect( firstSite ).toHaveAttribute( 'aria-expanded', 'true' ) );
+			expect( secondSite ).toHaveAttribute( 'aria-expanded', 'false' );
+			fireEvent.click( within( pinned ).getByRole( 'button', { name: 'Pinned-chat' } ) );
+			await waitFor( () => expect( history.location.pathname ).toBe( '/sessions/pinned-chat' ) );
+			expect( firstSite ).toHaveAttribute( 'aria-expanded', 'true' );
+			expect( secondSite ).toHaveAttribute( 'aria-expanded', 'false' );
+			expect( secondSite ).not.toHaveAttribute( 'aria-current' );
+			expect( within( pinned ).getByRole( 'button', { name: 'Pinned-chat' } ) ).toHaveAttribute(
+				'aria-current',
+				'page'
+			);
+			fireEvent.click( secondSite );
+			await waitFor( () => expect( secondSite ).toHaveAttribute( 'aria-expanded', 'true' ) );
+			expect( firstSite ).toHaveAttribute( 'aria-expanded', 'false' );
+		}
+	);
+
 	it( 'opens the next Recent chat after archiving the active chat', async () => {
 		const { history } = setup( {
 			sessions: [

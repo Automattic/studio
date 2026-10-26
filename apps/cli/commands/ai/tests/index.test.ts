@@ -481,7 +481,11 @@ describe( 'AI runCommand — pinned provider falls back when unusable', () => {
 
 		await runCommand( { adapter: new JsonAdapter(), initialMessage: 'hello', resumeSession } );
 
-		expect( resolveAiEnvironment ).toHaveBeenCalledWith( 'wpcom', expect.anything() );
+		expect( resolveAiEnvironment ).toHaveBeenCalledWith(
+			'wpcom',
+			expect.anything(),
+			expect.anything()
+		);
 	} );
 
 	it( 'never rewrites the pin on disk during a fallback run', async () => {
@@ -519,7 +523,11 @@ describe( 'AI runCommand — pinned provider falls back when unusable', () => {
 
 		await runCommand( { adapter: new JsonAdapter(), initialMessage: 'hello', resumeSession } );
 
-		expect( resolveAiEnvironment ).toHaveBeenCalledWith( 'anthropic-api-key', expect.anything() );
+		expect( resolveAiEnvironment ).toHaveBeenCalledWith(
+			'anthropic-api-key',
+			expect.anything(),
+			expect.anything()
+		);
 		// The Desktop wpcom default must not overwrite the pin on disk.
 		expect( saveSelectedAiProvider ).not.toHaveBeenCalled();
 	} );

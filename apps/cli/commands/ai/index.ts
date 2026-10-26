@@ -584,7 +584,7 @@ export async function runCommand( options: {
 		await maybeAutoSwitchProvider();
 		const sm = await ensureSession();
 		const sessionId = sm.getSessionId();
-		const env = await resolveAiEnvironment( currentProvider, {
+		const env = await resolveAiEnvironment( currentProvider, currentModel, {
 			sessionId,
 		} );
 

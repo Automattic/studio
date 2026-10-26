@@ -18,6 +18,7 @@ This doc is the map of that structure. It does not replace the per-feature docs 
 | **CLI** | `apps/cli` | Node (via Electron's `ELECTRON_RUN_AS_NODE`, or standalone npm) | none (terminal) | Native PHP site servers | Power users, scripts, and the other surfaces |
 | **Local web** (`studio ui`) | `apps/local` + `apps/ui` | Node (Express + SSE), bundled into the CLI | `apps/ui` (`dist-local`) in the browser | `@studio/common` in-process + forks the CLI | Users who want the agentic UI in a browser, on their own machine |
 | **External agents** (`studio mcp`) | `apps/cli` + `apps/mcp-ui` | The CLI, started by an agent app over stdio | The agent app's chat, plus MCP Apps pages (`apps/mcp-ui`, the design picker) | The CLI in-process | Users of Codex, ChatGPT, Claude and other agents |
+| **ACP editors** (`studio code acp`) | `apps/cli` | The CLI, started by an editor over stdio | The editor's agent panel | The CLI in-process | Users of Zed, JetBrains, T3 Code and other ACP editors |
 
 Two of these surfaces run **on the user's machine and own real local WordPress sites** (desktop and local web). One is a pure **execution engine** that the others delegate to (CLI). The last runs on the user's machine too, but **inside someone else's agent app**: Studio provides tools and pages, not the app (external agents).
 
@@ -106,6 +107,12 @@ Agent apps that render [MCP Apps](https://github.com/modelcontextprotocol/ext-ap
 Site changes reach each `studio mcp` process through an `_events` socket of its own (see [How the CLI and Studio apps communicate](./cli-host-communication.md)); the library waits on them to refresh its list.
 
 `apps/mcp-ui` is not another target of `apps/ui`: hosts load a page as one small document with nothing to fetch, while `apps/ui` is a whole app for other backends. It follows `apps/ui`'s conventions (React, TanStack Query, a data layer apart from the components) but shares no code, and has no connectors: there is one host to reach, through one bridge (`apps/mcp-ui/src/data/bridge.ts`).
+
+### ACP editors — `studio code acp` (`apps/cli`)
+
+`studio code acp` is the reverse of `studio mcp`: instead of lending Studio's tools to another agent's model, it runs Studio Code itself inside an editor that speaks the [Agent Client Protocol](https://agentclientprotocol.com) (Zed, JetBrains, T3 Code), over stdio (`apps/cli/ai/runtimes/acp`). Each ACP session is an ordinary Studio Code session — the same JSONL file, listed and resumable from the Studio apps and `studio code sessions` — and each prompt runs through the same runtime (`runStudioAgentTurn`) as `studio code`.
+
+No Studio UI is attached, so the runtime leaves out the UI-only tools, as it does in a terminal. The editor shows the agent's text, reasoning, and tool calls; the provider and model are ACP config options; the skill slash commands are ACP commands; and AskUserQuestion becomes an ACP form, offered only to editors that can show forms. Sign-in stays with `studio auth login`, which editors that support terminal auth run for the user.
 
 ## Convergence: local ↔ desktop
 

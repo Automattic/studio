@@ -118,8 +118,6 @@ export function createIpcConnector(): Connector {
 	return {
 		async init() {
 			// Install the application menu (View > Toggle DevTools, etc.).
-			// The old renderer does this from its app bootstrap; the new UI
-			// needs to opt in explicitly.
 			await ipcApi.setupAppMenu();
 		},
 
@@ -130,7 +128,6 @@ export function createIpcConnector(): Connector {
 			studioLogs: true,
 		},
 
-		// Auth — optional in Electron, delegated to main process
 		agenticRequiresAuth: true,
 
 		async getAuthUser(): Promise< AuthUser | null > {

@@ -112,7 +112,7 @@ export function usePreviewSplit( { showPreview }: UsePreviewSplitOptions ): UseP
 	// Keep the measured container fresh so the displayed width and the handle's
 	// aria values track window/sidebar resizes. CSS no longer absorbs resizes,
 	// so this recompute is load-bearing. Falls back to a window resize listener
-	// where ResizeObserver is unavailable (mirrors the theme-pattern widget).
+	// where ResizeObserver is unavailable.
 	useEffect( () => {
 		if ( ! showPreview ) {
 			return;

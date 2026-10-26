@@ -27,10 +27,15 @@ afterEach( () => vi.unstubAllGlobals() );
 function setup( {
 	behavior = 'choose',
 	blueprint = portfolio,
-}: { behavior?: 'choose' | 'blank'; blueprint?: Blueprint } = {} ) {
+	path = '/?addSite=create',
+}: { behavior?: 'choose' | 'blank'; blueprint?: Blueprint | null; path?: string } = {} ) {
 	vi.stubGlobal(
 		'fetch',
-		vi.fn( async () => Response.json( { blueprints: [ blueprint ] } ) )
+		vi.fn( async () =>
+			blueprint
+				? Response.json( { blueprints: [ blueprint ] } )
+				: new Response( null, { status: 500 } )
+		)
 	);
 	const site = makeSite( { id: 'created', name: 'New site', path: '/sites/new' } );
 	const connector = createFakeConnector(
@@ -41,7 +46,7 @@ function setup( {
 			getFilePath: async () => '/tmp/upload/backup.zip',
 		}
 	);
-	const view = renderApp( { connector, path: '/?addSite=create' } );
+	const view = renderApp( { connector, path } );
 	return { ...view, connector, site };
 }
 
@@ -247,6 +252,44 @@ describe( 'Add site flow', () => {
 			)
 		);
 		expect( connector.createSite ).not.toHaveBeenCalled();
+	} );
+
+	it( 'falls back to the Playground preview for a Blueprint without a demo', async () => {
+		const { connector } = setup( { blueprint: { ...portfolio, slug: 'my-recipe' } } );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'View Portfolio' } ) );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Preview in browser' } ) );
+		await waitFor( () =>
+			expect( connector.openExternalUrl ).toHaveBeenCalledWith( portfolio.playground_url )
+		);
+	} );
+
+	it( 'leaves the choice to the setup form when the Blueprint folder is taken', async () => {
+		const { connector } = setup();
+		connector.generateProposedSitePath.mockResolvedValue( {
+			path: '/sites/Portfolio',
+			isEmpty: false,
+			isWordPress: true,
+		} );
+		await useBlueprint();
+		expect( await screen.findByLabelText( 'Site name' ) ).toBeVisible();
+		expect(
+			await screen.findByRole( 'button', { name: 'Create site from Blueprint' } )
+		).toBeVisible();
+		expect( connector.createSite ).not.toHaveBeenCalled();
+	} );
+
+	it( 'keeps Blank site when the Blueprints cannot load', async () => {
+		setup( { blueprint: null } );
+		expect( await screen.findByText( /Blueprints could not be loaded/ ) ).toBeVisible();
+		expect( screen.getByRole( 'button', { name: 'Start with Blank site' } ) ).toBeVisible();
+	} );
+
+	it( 'waits for Settings to close before opening', async () => {
+		setup( { path: '/?addSite=create&settings=general' } );
+		const settings = await screen.findByRole( 'dialog', { name: 'Settings' } );
+		expect( screen.queryByRole( 'dialog', { name: 'Add site' } ) ).not.toBeInTheDocument();
+		fireEvent.keyDown( settings, { key: 'Escape' } );
+		expect( await screen.findByRole( 'dialog', { name: 'Add site' } ) ).toBeVisible();
 	} );
 
 	it( 'allows another starting method after Blueprint creation fails', async () => {

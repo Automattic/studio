@@ -1,482 +1,184 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { forwardRef, useImperativeHandle } from 'react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { pendingPromptSlot } from '@/features/composer';
-import { CreatePanel } from './create-panel';
-import type { SyncSite } from '@/data/core';
-import type { SelectedBlueprint } from '@/features/sites/blueprint-upload';
-import type { CreateSiteFormValues } from '@/features/sites/create-site-form';
-import type { ReactNode } from 'react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { createFakeConnector, type FakeConnectorInitialState } from '@/test/fake-connector';
+import { renderApp } from '@/test/render';
+import type { Connector } from '@/data/core';
+import type { StudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
+import type { Blueprint } from '@wp-playground/blueprints';
 
-const mocks = vi.hoisted( () => ( {
-	navigate: vi.fn( async () => undefined ),
-	setProgress: vi.fn(),
-	mutateAsync: vi.fn(),
-	connectWpcomSite: vi.fn(),
-	trackEvent: vi.fn(),
-	deleteSite: vi.fn(),
-	pullSite: vi.fn(),
-	startSite: vi.fn(),
-	toastError: vi.fn(),
-	createSession: vi.fn( async () => ( { id: 'session-1' } ) ),
-	pinNewSite: vi.fn(),
-	cleanup: vi.fn( async () => undefined ),
-	openExternalUrl: vi.fn( async () => undefined ),
-	proposedName: 'My Studio Site',
-	chatEnabled: true,
-	submission: null as {
-		prompt: string;
-		attachments: Record< 'images' | 'files', object[] >;
-	} | null,
-	formProps: null as Record< string, unknown > | null,
-	uploadProps: null as Record< string, unknown > | null,
-	composerProps: null as Record< string, unknown > | null,
-} ) );
+const BRIEF_PLACEHOLDER =
+	'A warm, modern website for my neighborhood bakery. Include a menu and our story…';
 
-vi.mock( '@tanstack/react-router', async ( importOriginal ) => {
-	const actual = await importOriginal< typeof import('@tanstack/react-router') >();
-	return { ...actual, useNavigate: () => mocks.navigate };
-} );
+afterEach( () => vi.unstubAllGlobals() );
 
-vi.mock( './context', () => ( {
-	useAddSite: () => ( {
-		setProgress: mocks.setProgress,
-		pinNewSite: mocks.pinNewSite,
-		actions: null,
-	} ),
-} ) );
-
-vi.mock( '@/features/sites/blueprint-upload', () => ( {
-	BlueprintUpload: ( props: Record< string, unknown > ) => {
-		mocks.uploadProps = props;
-		return <div data-testid="blueprint-upload" />;
-	},
-} ) );
-
-vi.mock( '@/features/sites/create-site-form', () => ( {
-	CreateSiteForm: ( props: Record< string, unknown > ) => {
-		mocks.formProps = props;
-		return (
-			<>
-				{ props.panelFooter as ReactNode }
-				<button
-					type="button"
-					onClick={ () =>
-						( props.onSubmit as ( values: CreateSiteFormValues ) => void )( formValues )
-					}
-				>
-					Submit
-				</button>
-				{ props.children as ReactNode }
-				{ props.submitError ? <p>{ String( props.submitError ) }</p> : null }
-			</>
-		);
-	},
-} ) );
-
-vi.mock( '@/features/composer/composer', () => ( {
-	Composer: forwardRef< unknown, Record< string, unknown > >( function MockComposer( props, ref ) {
-		mocks.composerProps = props;
-		useImperativeHandle( ref, () => ( { getSubmission: () => mocks.submission } ) );
-		return <div data-testid="composer" />;
-	} ),
-} ) );
-
-vi.mock( '@/data/core', async ( importOriginal ) => {
-	const actual = await importOriginal< typeof import('@/data/core') >();
-	const connector = {
-		cleanupBlueprintTempDir: mocks.cleanup,
-		openExternalUrl: mocks.openExternalUrl,
-		connectWpcomSite: mocks.connectWpcomSite,
-		trackEvent: mocks.trackEvent,
-	};
-	return { ...actual, useConnector: () => connector };
-} );
-
-vi.mock( '@/data/queries/use-agentic-features', () => ( {
-	useAgenticFeatures: () => ( { chatEnabled: mocks.chatEnabled } ),
-} ) );
-
-vi.mock( '@/data/queries/use-sessions', () => ( {
-	useCreateSession: () => ( { mutateAsync: mocks.createSession } ),
-} ) );
-
-vi.mock( '@/data/queries/use-create-site-helpers', () => ( {
-	useExistingCustomDomains: () => [],
-	useProposedSiteName: ( _sites: unknown, baseName?: string ) => ( {
-		data: baseName ?? mocks.proposedName,
-	} ),
-} ) );
-
-vi.mock( '@/data/queries/use-sites', () => ( {
-	useSites: () => ( { data: [] } ),
-	useCreateSite: () => ( { mutateAsync: mocks.mutateAsync, isPending: false } ),
-	useDeleteSite: () => ( { mutateAsync: mocks.deleteSite } ),
-	useStartSite: () => ( { mutateAsync: mocks.startSite } ),
-} ) );
-
-vi.mock( '@/data/queries/use-sync-site', () => ( {
-	usePullSiteFromLive: () => ( { mutateAsync: mocks.pullSite } ),
-} ) );
-
-vi.mock( '@/data/app-messages', () => ( {
-	toast: { error: mocks.toastError },
-} ) );
-
-vi.mock( '@/data/queries/use-wordpress-org-package-name', () => ( {
-	useWordPressOrgPackageName: ( kind?: 'plugin' | 'theme', slug?: string ) => ( {
-		data:
-			kind === 'plugin' && slug === 'query-monitor'
-				? 'Query Monitor'
-				: kind === 'theme' && slug === 'twentytwentyfour'
-				? 'Twenty Twenty-Four'
-				: null,
-	} ),
-} ) );
-
-const formValues: CreateSiteFormValues = {
-	name: 'My Site',
-	path: '/sites/my-site',
-	phpVersion: '8.3',
-	fileAccess: 'site-directory',
-	wpVersion: 'latest',
-	enableHttps: false,
-	adminUsername: 'admin',
-	adminPassword: 'password',
-	adminEmail: 'admin@example.com',
-};
-
-const remote: SyncSite = {
-	id: 7,
-	localSiteId: '',
-	name: 'Remote site',
-	url: 'https://remote.example.com',
-	isStaging: false,
-	isPressable: true,
-	syncSupport: 'syncable',
-	lastPullTimestamp: null,
-	lastPushTimestamp: null,
-};
-
-function blueprint( name: string, tempDir?: string ): SelectedBlueprint {
-	return {
-		title: name,
-		excerpt: '',
-		blueprint: { meta: { title: name, author: 'Studio' } },
-		file: { name: `${ name }.zip`, size: 10 },
-		filePath: tempDir ? `${ tempDir }/blueprint.json` : undefined,
-		tempDir,
-	};
+async function setup(
+	state: FakeConnectorInitialState = {},
+	overrides: Partial< Connector > = {}
+) {
+	vi.stubGlobal(
+		'fetch',
+		vi.fn( async ( url: string ) =>
+			Response.json(
+				String( url ).includes( 'api.wordpress.org/plugins' )
+					? { name: 'Query Monitor' }
+					: { blueprints: [] }
+			)
+		)
+	);
+	const connector = createFakeConnector(
+		{ ...state, preferences: { newSiteBehavior: 'blank', ...state.preferences } },
+		overrides
+	);
+	const view = renderApp( { connector, path: '/?addSite=create' } );
+	const dialog = await screen.findByRole( 'dialog', { name: 'Add site' } );
+	await waitFor( () =>
+		expect( within( dialog ).getByLabelText( 'Site name' ) ).toHaveValue( 'My WordPress Website' )
+	);
+	return { ...view, dialog };
 }
 
-function selectBlueprint( selected: SelectedBlueprint ) {
-	act( () => ( mocks.uploadProps?.onSelect as ( value: SelectedBlueprint ) => void )( selected ) );
+function uploadBlueprint( blueprint: Blueprint & { meta?: object } ) {
+	const contents = JSON.stringify( { meta: { title: 'Network', author: 'Studio' }, ...blueprint } );
+	const file = new File( [ contents ], 'blueprint.json', { type: 'application/json' } );
+	Object.defineProperty( file, 'text', { value: async () => contents } );
+	fireEvent.change( document.querySelector( 'input[type="file"][accept*="json"]' )!, {
+		target: { files: [ file ] },
+	} );
 }
 
-describe( 'CreatePanel', () => {
-	beforeEach( () => {
-		vi.clearAllMocks();
-		mocks.formProps = null;
-		mocks.uploadProps = null;
-		mocks.composerProps = null;
-		mocks.proposedName = 'My Studio Site';
-		mocks.chatEnabled = true;
-		mocks.submission = null;
-		mocks.mutateAsync.mockResolvedValue( { id: 'site-1' } );
-		mocks.connectWpcomSite.mockResolvedValue( undefined );
-		mocks.pullSite.mockResolvedValue( undefined );
-		mocks.startSite.mockResolvedValue( undefined );
-		mocks.deleteSite.mockResolvedValue( undefined );
-		const pending = pendingPromptSlot.getSnapshot();
-		if ( pending ) pendingPromptSlot.clear( pending );
+const brief = () => screen.queryByPlaceholderText( BRIEF_PLACEHOLDER );
+
+async function createSite( dialog: HTMLElement, name = 'Create site' ) {
+	const button = within( dialog ).getByRole( 'button', { name } );
+	await waitFor( () => expect( button ).toBeEnabled() );
+	fireEvent.click( button );
+}
+
+describe( 'Add site › blank setup', () => {
+	it( 'offers the brief only with Studio Code on and no Blueprint picked', async () => {
+		const { unmount } = await setup();
+		expect( brief() ).toBeVisible();
+		uploadBlueprint( {} );
+		expect( await screen.findByRole( 'heading', { name: 'Network' } ) ).toBeVisible();
+		expect( brief() ).not.toBeInTheDocument();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Remove' } ) );
+		expect( await screen.findByPlaceholderText( BRIEF_PLACEHOLDER ) ).toBeVisible();
+		unmount();
+
+		await setup( { preferences: { agenticFeaturesEnabled: false } } );
+		expect( brief() ).not.toBeInTheDocument();
 	} );
 
-	it( 'creates a blank site without a Blueprint payload', async () => {
-		render( <CreatePanel onCancel={ vi.fn() } /> );
-		fireEvent.click( screen.getByRole( 'button', { name: 'Submit' } ) );
-
-		await waitFor( () => expect( mocks.mutateAsync ).toHaveBeenCalledOnce() );
-		expect( mocks.mutateAsync.mock.calls[ 0 ][ 0 ] ).not.toHaveProperty( 'blueprint' );
-		expect( mocks.mutateAsync.mock.calls[ 0 ][ 0 ] ).not.toHaveProperty( 'flowType' );
-		expect( mocks.mutateAsync.mock.calls[ 0 ][ 0 ] ).toMatchObject( {
-			fileAccess: 'site-directory',
-		} );
-		expect( mocks.mutateAsync.mock.calls[ 0 ][ 0 ] ).not.toHaveProperty( 'runtime' );
-		expect( mocks.createSession ).not.toHaveBeenCalled();
-		expect( mocks.pinNewSite ).toHaveBeenCalledWith( 'site-1' );
-		expect( mocks.navigate ).toHaveBeenCalledWith( {
-			to: '/sites/$siteId/new',
-			params: { siteId: 'site-1' },
-		} );
-	} );
-
-	it( 'offers the brief only while chat is available and no Blueprint is selected', () => {
-		const { rerender } = render( <CreatePanel onCancel={ vi.fn() } /> );
-		expect( screen.getByText( 'What should we create?' ) ).toBeInTheDocument();
-		expect( screen.getByTestId( 'composer' ) ).toBeInTheDocument();
-
-		selectBlueprint( blueprint( 'Selected' ) );
-		expect( screen.queryByTestId( 'composer' ) ).not.toBeInTheDocument();
-		act( () => ( mocks.uploadProps?.onRemove as () => void )() );
-		expect( screen.getByTestId( 'composer' ) ).toBeInTheDocument();
-
-		mocks.chatEnabled = false;
-		rerender( <CreatePanel onCancel={ vi.fn() } /> );
-		expect( screen.queryByTestId( 'composer' ) ).not.toBeInTheDocument();
-	} );
-
-	it( 'opens a session with the brief as its first prompt after creating the site', async () => {
-		mocks.submission = { prompt: 'A bakery site', attachments: { images: [], files: [] } };
-		render( <CreatePanel onCancel={ vi.fn() } /> );
-		fireEvent.click( screen.getByRole( 'button', { name: 'Submit' } ) );
-
-		await waitFor( () =>
-			expect( mocks.navigate ).toHaveBeenCalledWith( {
-				to: '/sessions/$sessionId',
-				params: { sessionId: 'session-1' },
-			} )
-		);
-		expect( mocks.mutateAsync ).toHaveBeenCalledWith(
+	it( 'creates the site with the brief as its first chat prompt', async () => {
+		const { connector, dialog, history } = await setup();
+		fireEvent.change( brief()!, { target: { value: 'A bakery site' } } );
+		await createSite( dialog );
+		await waitFor( () => expect( history.location.pathname ).toMatch( /^\/sessions\// ) );
+		expect( connector.createSite ).toHaveBeenCalledWith(
 			expect.objectContaining( { flowType: 'ai' } )
 		);
-		expect( mocks.createSession ).toHaveBeenCalledWith( { siteId: 'site-1', model: undefined } );
-		expect( pendingPromptSlot.getSnapshot() ).toEqual( {
-			sessionId: 'session-1',
-			prompt: 'A bakery site',
-			attachments: { images: [], files: [] },
-		} );
-	} );
-
-	it( 'records a picked model on the session and stands in for an attachments-only brief', async () => {
-		const image = { id: 'image-1', name: 'moodboard.png' };
-		mocks.submission = { prompt: '', attachments: { images: [ image ], files: [] } };
-		render( <CreatePanel onCancel={ vi.fn() } /> );
-
-		act( () =>
-			( mocks.composerProps?.onModelChange as ( model: string ) => void )( 'claude-opus-5' )
-		);
-		fireEvent.click( screen.getByRole( 'button', { name: 'Submit' } ) );
-
-		await waitFor( () => expect( mocks.navigate ).toHaveBeenCalledOnce() );
-		expect( mocks.createSession ).toHaveBeenCalledWith( {
-			siteId: 'site-1',
-			model: 'claude-opus-5',
-		} );
-		expect( pendingPromptSlot.getSnapshot() ).toMatchObject( {
-			prompt: 'Build this site using the attached files as references.',
-			attachments: { images: [ image ] },
-		} );
-	} );
-
-	it( 'keeps the submitted suggestions visible until navigation completes', async () => {
-		let finishNavigation: () => void = () => undefined;
-		mocks.navigate.mockImplementationOnce(
-			() =>
-				new Promise< undefined >( ( resolve ) => {
-					finishNavigation = () => resolve( undefined );
-				} )
-		);
-		const { rerender } = render( <CreatePanel onCancel={ vi.fn() } /> );
-		fireEvent.click( screen.getByRole( 'button', { name: 'Submit' } ) );
-		await waitFor( () => expect( mocks.navigate ).toHaveBeenCalledOnce() );
-
-		mocks.proposedName = 'My Next Studio Site';
-		rerender( <CreatePanel onCancel={ vi.fn() } /> );
-
-		expect( mocks.formProps?.initialValues ).toEqual( { name: 'My Studio Site' } );
-		expect( mocks.formProps?.isSubmitting ).toBe( true );
-		await act( async () => finishNavigation() );
-	} );
-
-	it( 'replaces and removes Blueprints while cleaning extracted temporary files', async () => {
-		render( <CreatePanel onCancel={ vi.fn() } /> );
-		const first = blueprint( 'First', '/tmp/first' );
-		const second = blueprint( 'Second', '/tmp/second' );
-
-		selectBlueprint( first );
-		selectBlueprint( second );
-		expect( mocks.cleanup ).toHaveBeenCalledWith( '/tmp/first' );
-
-		act( () => ( mocks.uploadProps?.onRemove as () => void )() );
-		expect( mocks.cleanup ).toHaveBeenCalledWith( '/tmp/second' );
-		expect( mocks.formProps?.submitLabel ).toBeUndefined();
-	} );
-
-	it( 'shows what the selected Blueprint will create', () => {
-		const { container } = render( <CreatePanel onCancel={ vi.fn() } /> );
-		const selected: SelectedBlueprint = {
-			slug: 'development',
-			title: 'Theme & plugin development',
-			excerpt: 'Development tools pre-installed.',
-			image: 'https://example.com/development.png',
-			blueprint: {
-				preferredVersions: { php: '8.3', wp: 'latest' },
-				steps: [
-					{
-						step: 'installPlugin',
-						pluginData: { resource: 'wordpress.org/plugins', slug: 'query-monitor' },
-					},
-					{
-						step: 'installTheme',
-						themeData: { resource: 'bundled', path: './twentytwentyfour.zip' },
-					},
-				],
-			},
-			file: { name: 'Development', size: 0 },
-		};
-
-		selectBlueprint( selected );
-
-		expect(
-			screen.getByRole( 'heading', { name: 'Theme & plugin development' } )
-		).toBeInTheDocument();
-		expect( screen.getByRole( 'heading', { name: 'Blueprint' } ) ).toBeInTheDocument();
-		expect( screen.getByText( 'Development tools pre-installed.' ) ).toBeInTheDocument();
-		expect( screen.getByRole( 'heading', { name: '1 plugin' } ) ).toBeInTheDocument();
-		const pluginLink = screen.getByRole( 'link', { name: 'Query Monitor' } );
-		expect( pluginLink ).toHaveAttribute( 'href', 'https://wordpress.org/plugins/query-monitor/' );
-		expect( pluginLink ).toHaveAttribute( 'title', 'Open on WordPress.org' );
-		expect( screen.getByRole( 'heading', { name: '1 theme' } ) ).toBeInTheDocument();
-		expect( screen.getByText( 'Twenty Twenty-Four' ) ).toBeInTheDocument();
-		expect( screen.queryByRole( 'link', { name: 'Twenty Twenty-Four' } ) ).not.toBeInTheDocument();
-		expect( container.querySelector( 'img' ) ).toHaveAttribute(
-			'src',
-			'https://example.com/development.png'
-		);
-		fireEvent.click( pluginLink );
-		expect( mocks.openExternalUrl ).toHaveBeenCalledWith(
-			'https://wordpress.org/plugins/query-monitor/'
-		);
-
-		fireEvent.click( screen.getByRole( 'button', { name: 'Remove' } ) );
-		expect(
-			screen.queryByRole( 'heading', { name: 'Theme & plugin development' } )
-		).not.toBeInTheDocument();
-		expect( screen.getByTestId( 'blueprint-upload' ) ).toBeInTheDocument();
-	} );
-
-	it( 'blocks submission while the Blueprint upload is invalid', () => {
-		render( <CreatePanel onCancel={ vi.fn() } /> );
-
-		act( () => ( mocks.uploadProps?.onValidityChange as ( isValid: boolean ) => void )( false ) );
-		expect( mocks.formProps?.isSubmitDisabled ).toBe( true );
-
-		act( () => ( mocks.uploadProps?.onValidityChange as ( isValid: boolean ) => void )( true ) );
-		expect( mocks.formProps?.isSubmitDisabled ).toBe( false );
-	} );
-
-	it( 'requires a custom domain for a multisite Blueprint', () => {
-		render( <CreatePanel onCancel={ vi.fn() } /> );
-		const multisite = blueprint( 'Network' );
-		multisite.blueprint.steps = [ { step: 'enableMultisite' } ];
-		selectBlueprint( multisite );
-
-		expect( mocks.formProps?.requiresCustomDomain ).toBe( true );
-		expect( mocks.formProps?.initialValues ).toMatchObject( { customDomain: 'network.wp.local' } );
-	} );
-
-	it( 'keeps the selected Blueprint for a retry after failure', async () => {
-		mocks.mutateAsync.mockRejectedValue( new Error( 'Creation failed' ) );
-		const { unmount } = render( <CreatePanel onCancel={ vi.fn() } /> );
-		const selected = blueprint( 'Selected', '/tmp/selected' );
-		selectBlueprint( selected );
-		fireEvent.click( screen.getByRole( 'button', { name: 'Submit' } ) );
-
 		await waitFor( () =>
-			expect( mocks.formProps?.submitError ).toEqual(
-				expect.objectContaining( { details: 'Creation failed' } )
+			expect( connector.continueSession ).toHaveBeenCalledWith(
+				expect.any( String ),
+				expect.stringContaining( 'A bakery site' ),
+				expect.anything()
 			)
 		);
-		expect( mocks.setProgress ).toHaveBeenCalledWith( 'Creating site…' );
-		expect( mocks.setProgress ).toHaveBeenCalledWith( null );
-		expect( mocks.mutateAsync ).toHaveBeenCalledWith(
-			expect.objectContaining( {
-				blueprint: expect.objectContaining( {
-					filePath: '/tmp/selected/blueprint.json',
-				} ),
-			} )
+	} );
+
+	it( 'keeps the picked model and stands in for a brief of attachments only', async () => {
+		const { connector, dialog } = await setup(
+			{},
+			{
+				getStudioAssistantQuota: async () =>
+					( {
+						allowanceRemaining: 1000,
+						purchasedRemaining: 500,
+						hasPaymentMethod: true,
+					} ) as StudioAssistantQuota,
+			}
 		);
-		expect( mocks.formProps?.submitLabel ).toBe( 'Create site from Blueprint' );
-		expect( mocks.cleanup ).not.toHaveBeenCalled();
-
-		unmount();
-		expect( mocks.cleanup ).toHaveBeenCalledWith( '/tmp/selected' );
+		const image = new File( [ 'image-bytes' ], 'moodboard.png', { type: 'image/png' } );
+		fireEvent.change( dialog.querySelector( 'input[type="file"]:not([accept*="json"])' )!, {
+			target: { files: [ image ] },
+		} );
+		await screen.findByRole( 'listitem', { name: /^moodboard\.png/ } );
+		fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Model' } ) );
+		const balanced = await screen.findByRole( 'option', { name: /^Balanced/ } );
+		await waitFor( () => expect( balanced ).not.toHaveAttribute( 'aria-disabled', 'true' ) );
+		fireEvent.click( balanced );
+		await createSite( dialog );
+		await waitFor( () =>
+			expect( connector.setSessionModel ).toHaveBeenCalledWith( expect.any( String ), 'balanced' )
+		);
+		await waitFor( () =>
+			expect( connector.continueSession ).toHaveBeenCalledWith(
+				expect.any( String ),
+				expect.stringContaining( 'Build this site using the attached files as references.' ),
+				expect.anything()
+			)
+		);
 	} );
 
-	it( 'adds an existing WordPress folder as it is, without the Blueprint or brief', async () => {
-		mocks.submission = { prompt: 'A bakery site', attachments: { images: [], files: [] } };
-		render( <CreatePanel onCancel={ vi.fn() } /> );
-		selectBlueprint( blueprint( 'Selected' ) );
-		act( () => ( mocks.formProps?.onExistingChange as ( existing: boolean ) => void )( true ) );
-		fireEvent.click( screen.getByRole( 'button', { name: 'Submit' } ) );
-
-		await waitFor( () => expect( mocks.navigate ).toHaveBeenCalledOnce() );
-		expect( mocks.mutateAsync.mock.calls[ 0 ][ 0 ] ).not.toHaveProperty( 'blueprint' );
-		expect( mocks.mutateAsync.mock.calls[ 0 ][ 0 ] ).not.toHaveProperty( 'flowType' );
-		expect( mocks.createSession ).not.toHaveBeenCalled();
+	it( 'shows what an uploaded Blueprint will install', async () => {
+		const { connector } = await setup();
+		uploadBlueprint( {
+			meta: { title: 'Theme & plugin development', author: 'Studio' },
+			steps: [
+				{
+					step: 'installPlugin',
+					pluginData: { resource: 'wordpress.org/plugins', slug: 'query-monitor' },
+				},
+				{
+					step: 'installTheme',
+					themeData: { resource: 'bundled', path: './twentytwentyfour.zip' },
+				},
+			],
+		} as Blueprint );
+		expect(
+			await screen.findByRole( 'heading', { name: 'Theme & plugin development' } )
+		).toBeVisible();
+		expect( screen.getByRole( 'heading', { name: '1 plugin' } ) ).toBeVisible();
+		expect( screen.getByRole( 'heading', { name: '1 theme' } ) ).toBeVisible();
+		fireEvent.click( await screen.findByRole( 'link', { name: 'Query Monitor' } ) );
+		expect( connector.openExternalUrl ).toHaveBeenCalledWith(
+			'https://wordpress.org/plugins/query-monitor/'
+		);
+		expect( screen.getByRole( 'button', { name: 'Create site from Blueprint' } ) ).toBeVisible();
 	} );
 
-	describe( 'set up for a remote site from Connect', () => {
-		it( 'creates the local site from the setup, then opens it while the pull runs', async () => {
-			let finishPull: () => void = () => undefined;
-			mocks.pullSite.mockImplementationOnce(
-				() => new Promise< void >( ( resolve ) => ( finishPull = resolve ) )
-			);
-			render( <CreatePanel remote={ remote } onCancel={ vi.fn() } /> );
+	it( 'requires a custom domain for a multisite Blueprint', async () => {
+		const { dialog } = await setup();
+		uploadBlueprint( { steps: [ { step: 'enableMultisite' } ] } );
+		await screen.findByRole( 'heading', { name: 'Network' } );
+		fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Advanced settings' } ) );
+		const toggle = await within( dialog ).findByRole( 'switch', { name: 'Use custom domain' } );
+		expect( toggle ).toBeChecked();
+		expect(
+			within( dialog ).getByText( 'This Blueprint requires a custom domain.' )
+		).toBeVisible();
+		expect( within( dialog ).getByRole( 'textbox', { name: 'Domain name' } ) ).toHaveValue(
+			'network.wp.local'
+		);
+	} );
 
-			expect( mocks.formProps?.initialValues ).toEqual( { name: 'Remote site' } );
-			expect( mocks.formProps?.source ).toBe( 'remote.example.com' );
-			expect( mocks.formProps?.requiresEmptyPath ).toBe( true );
-			expect( screen.queryByTestId( 'composer' ) ).not.toBeInTheDocument();
-			expect( screen.queryByTestId( 'blueprint-upload' ) ).not.toBeInTheDocument();
-			expect( mocks.mutateAsync ).not.toHaveBeenCalled();
-
-			fireEvent.click( screen.getByRole( 'button', { name: 'Submit' } ) );
-
-			await waitFor( () =>
-				expect( mocks.navigate ).toHaveBeenCalledWith( {
-					to: '/sites/$siteId',
-					params: { siteId: 'site-1' },
-				} )
-			);
-			expect( mocks.mutateAsync ).toHaveBeenCalledWith(
-				expect.objectContaining( {
-					name: 'My Site',
-					path: '/sites/my-site',
-					phpVersion: '8.3',
-					skipStart: true,
-					flowType: 'sync',
-				} )
-			);
-			expect( mocks.pinNewSite ).toHaveBeenCalledWith( 'site-1' );
-			expect( mocks.connectWpcomSite ).toHaveBeenCalledWith(
-				'site-1',
-				expect.objectContaining( { id: 7, syncSupport: 'already-connected' } )
-			);
-			expect( mocks.pullSite ).toHaveBeenCalledWith( {
-				siteId: 'site-1',
-				remoteSiteId: 7,
-				syncSite: remote,
-			} );
-			expect( mocks.startSite ).not.toHaveBeenCalled();
-
-			finishPull();
-			await waitFor( () => expect( mocks.startSite ).toHaveBeenCalledWith( 'site-1' ) );
+	it( 'adds an existing WordPress folder as it is, without the brief', async () => {
+		const { connector, dialog, history } = await setup();
+		connector.selectSiteFolder.mockResolvedValueOnce( {
+			name: 'Existing',
+			path: '/projects/existing',
+			isEmpty: false,
+			isWordPress: true,
 		} );
-
-		it( 'removes the local site and stays on the setup when connecting fails', async () => {
-			mocks.connectWpcomSite.mockRejectedValue( new Error( 'Connection failed' ) );
-			render( <CreatePanel remote={ remote } onCancel={ vi.fn() } /> );
-
-			fireEvent.click( screen.getByRole( 'button', { name: 'Submit' } ) );
-
-			await waitFor( () =>
-				expect( mocks.formProps?.submitError ).toEqual(
-					expect.objectContaining( { details: 'Connection failed' } )
-				)
-			);
-			expect( mocks.deleteSite ).toHaveBeenCalledWith( { id: 'site-1', deleteFiles: true } );
-			expect( mocks.navigate ).not.toHaveBeenCalled();
-		} );
+		fireEvent.change( brief()!, { target: { value: 'A bakery site' } } );
+		fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Advanced settings' } ) );
+		fireEvent.click(
+			within( dialog ).getByRole( 'button', { name: /select a different folder|Select a folder/ } )
+		);
+		await waitFor( () => expect( brief() ).not.toBeInTheDocument() );
+		await createSite( dialog );
+		await waitFor( () => expect( history.location.pathname ).toMatch( /^\/sessions\/|\/new$/ ) );
+		expect( connector.createSite.mock.calls[ 0 ][ 0 ] ).not.toHaveProperty( 'flowType' );
+		expect( connector.continueSession ).not.toHaveBeenCalled();
 	} );
 } );

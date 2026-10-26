@@ -71,7 +71,7 @@ function useUpgradePrompt( site: SiteDetails, open: boolean ) {
 	};
 }
 
-export function ShareDialog( {
+function ShareDialog( {
 	site,
 	open,
 	onOpenChange,

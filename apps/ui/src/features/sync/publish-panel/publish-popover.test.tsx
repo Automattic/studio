@@ -411,6 +411,89 @@ describe( 'PublishPopover', () => {
 		expect( screen.getByRole( 'button', { name: 'Publish' } ) ).toBeDisabled();
 	} );
 
+	it( 'disables publishing to a website the account can no longer reach', async () => {
+		const { connector, ready } = setup( [ remote ] );
+		connector.fetchSyncableWpcomSites.mockResolvedValue( [] );
+		await ready;
+		expect(
+			await screen.findByText(
+				'This website is no longer available to this account. Choose another website.'
+			)
+		).toBeVisible();
+		expect( screen.getByRole( 'button', { name: 'Publish' } ) ).toBeDisabled();
+	} );
+
+	it( 'marks symbolic links and publishes only the files picked', async () => {
+		const { connector, ready, site } = setup( [ remote ] );
+		connector.listLocalFileTree.mockResolvedValue( [
+			{
+				name: 'plugins',
+				isDirectory: true,
+				path: 'wp-content/plugins',
+				children: [
+					{ name: 'akismet', isDirectory: true, path: 'wp-content/plugins/akismet' },
+					{ name: 'shared', isDirectory: true, isSymlink: true, path: 'wp-content/plugins/shared' },
+				],
+			},
+		] );
+		await ready;
+		await selectScope( 'Choose files…' );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Expand plugins' } ) );
+		fireEvent.click( screen.getByRole( 'checkbox', { name: 'shared (symbolic link)' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Done' } ) );
+		const publish = await screen.findByRole( 'button', { name: 'Publish' } );
+		await waitFor( () => expect( publish ).toBeEnabled() );
+		fireEvent.click( publish );
+		await waitFor( () =>
+			expect( connector.pushSiteToLive ).toHaveBeenCalledWith( site.id, 42, {
+				optionsToSync: [ 'plugins' ],
+				specificSelectionPaths: [ 'plugins/shared' ],
+			} )
+		);
+	} );
+
+	it( 'lets a site connected in Add site retry the first pull that failed', async () => {
+		const { connector, emit, site } = setup( [ remote ] );
+		connector.getLatestRewindId.mockResolvedValue( 'rewind-1' );
+		await screen.findByRole( 'button', { name: 'Publish…' } );
+		act( () => requestHeaderPanel( { panel: 'publish', siteId: site.id, view: 'pull' } ) );
+		emit( { kind: 'pending', direction: 'pull', remoteSiteId: 42 } );
+		emit( { kind: 'error', direction: 'pull', message: 'Backup failed' } );
+		expect(
+			await screen.findByText(
+				'Your local site is saved. Retry to finish bringing in its content.'
+			)
+		).toBeVisible();
+		const retry = await screen.findByRole( 'button', { name: 'Try pulling again' } );
+		await waitFor( () => expect( retry ).toBeEnabled() );
+		fireEvent.click( retry );
+		await waitFor( () =>
+			expect( connector.pullSiteFromLive ).toHaveBeenCalledWith( site.id, 42, {
+				optionsToSync: [ 'all' ],
+			} )
+		);
+	} );
+
+	it( 'publishes once when the checkout callback arrives twice', async () => {
+		const { connector, completeSetup } = setup();
+		await screen.findByRole( 'button', { name: 'Publish…' } );
+		await completeSetup();
+		await completeSetup();
+		await waitFor( () => expect( connector.pushSiteToLive ).toHaveBeenCalled() );
+		expect( connector.connectWpcomSite ).toHaveBeenCalledTimes( 1 );
+		expect( connector.pushSiteToLive ).toHaveBeenCalledTimes( 1 );
+	} );
+
+	it( 'keeps a site over the size limit from publishing after checkout', async () => {
+		const { connector, completeSetup, ready } = setup();
+		connector.getDirectorySize.mockResolvedValue( Number.MAX_SAFE_INTEGER );
+		await completeSetup();
+		await ready;
+		expect( await screen.findByText( /exceeds the .* GB publishing limit/ ) ).toBeVisible();
+		await waitFor( () => expect( connector.connectWpcomSite ).toHaveBeenCalled() );
+		expect( connector.pushSiteToLive ).not.toHaveBeenCalled();
+	} );
+
 	it( 'retries a delayed setup callback without opening another setup', async () => {
 		const { connector, completeSetup, ready } = setup();
 		await ready;

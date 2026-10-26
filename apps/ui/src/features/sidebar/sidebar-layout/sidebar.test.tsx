@@ -1,9 +1,9 @@
-import { act, fireEvent, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { SIDEBAR_PANEL_STORAGE_KEY } from '@/data/resizable-panels';
+import { resetPanelLayout, SIDEBAR_PANEL_STORAGE_KEY } from '@/data/resizable-panels';
 import { HeaderSidebarToggle } from '@/features/sidebar/sidebar-toggle';
-import { createFakeConnector } from '@/test/fake-connector';
-import { renderWithProviders } from '@/test/render';
+import { createFakeConnector, makeSite } from '@/test/fake-connector';
+import { renderApp, renderWithProviders } from '@/test/render';
 import { SidebarLayout } from './index';
 
 const originalWidth = window.innerWidth;
@@ -59,6 +59,16 @@ describe( 'resizable sidebar', () => {
 		expect( restored ).toHaveAttribute( 'aria-valuenow', '256' );
 	} );
 
+	it( 'stays collapsed across restarts until the interface is reset', async () => {
+		const { unmount } = await setup();
+		fireEvent.click( toggle() );
+		unmount();
+		await setup();
+		expect( toggle() ).toHaveAccessibleName( 'Show sidebar' );
+		act( () => resetPanelLayout() );
+		expect( toggle() ).toHaveAccessibleName( 'Hide sidebar' );
+	} );
+
 	it( 'drags the edge and retains width after collapsing and reopening', async () => {
 		await setup();
 		fireEvent.mouseDown( handle(), { button: 0, clientX: 256 } );
@@ -87,9 +97,9 @@ describe( 'overlay sidebar', () => {
 
 	it( 'dismisses a nested menu before the overlay and restores focus to the toggle', async () => {
 		resize( 800 );
-		await setup();
+		const { user } = await setup();
 		fireEvent.click( toggle() );
-		fireEvent.click( await screen.findByRole( 'button', { name: 'Test User' } ) );
+		await user.click( await screen.findByRole( 'button', { name: 'Test User' } ) );
 		const item = ( await screen.findAllByRole( 'menuitem' ) )[ 0 ];
 		fireEvent.keyDown( item, { key: 'Escape' } );
 		await waitFor( () => expect( screen.queryByRole( 'menu' ) ).not.toBeInTheDocument() );
@@ -97,6 +107,19 @@ describe( 'overlay sidebar', () => {
 		fireEvent.keyDown( screen.getByRole( 'button', { name: 'Test User' } ), { key: 'Escape' } );
 		expect( screen.queryByRole( 'button', { name: 'Close sidebar' } ) ).not.toBeInTheDocument();
 		expect( toggle() ).toHaveFocus();
+	} );
+
+	it( 'focuses its first item on open and closes after a site pick', async () => {
+		resize( 800 );
+		renderApp( {
+			connector: createFakeConnector( { sites: [ makeSite( { name: 'My site' } ) ] } ),
+			path: '/sites/site-1',
+		} );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Show sidebar' } ) );
+		const sidebar = document.activeElement?.closest( 'aside' ) as HTMLElement;
+		expect( sidebar ).toContainElement( screen.getByRole( 'button', { name: 'Test User' } ) );
+		fireEvent.click( await within( sidebar ).findByRole( 'button', { name: /^My site/ } ) );
+		expect( screen.queryByRole( 'button', { name: 'Close sidebar' } ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'does not replace a saved closed preference when opened with the keyboard', async () => {

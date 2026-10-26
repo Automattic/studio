@@ -1,302 +1,152 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { ImportPanel } from './import-panel';
-import type { CreateSiteFormError, CreateSiteFormValues } from '@/features/sites/create-site-form';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { describe, expect, it } from 'vitest';
+import { createFakeConnector } from '@/test/fake-connector';
+import { renderApp } from '@/test/render';
 
-const mocks = vi.hoisted( () => ( {
-	navigate: vi.fn( async () => undefined ),
-	setProgress: vi.fn(),
-	getFilePath: vi.fn(),
-	createSite: vi.fn(),
-	importSite: vi.fn(),
-	deleteSite: vi.fn(),
-	formProps: null as Record< string, unknown > | null,
-	followSite: vi.fn(),
-	onCancel: vi.fn(),
-	onChooseAnother: vi.fn(),
-} ) );
+type Failures = { createSite?: Error; import?: Error; deleteSite?: Error };
 
-vi.mock( '@tanstack/react-router', () => ( {
-	useNavigate: () => mocks.navigate,
-} ) );
+const backup = new File( [ 'backup' ], 'studio-backup-My Store-2026-07-17.zip' );
 
-vi.mock( './context', () => ( {
-	useAddSite: () => ( {
-		setProgress: mocks.setProgress,
-		followSite: mocks.followSite,
-		pinNewSite: () => {},
-		actions: null,
-	} ),
-} ) );
-
-vi.mock( '@/features/sites/create-site-form', () => ( {
-	CreateSiteForm: ( props: Record< string, unknown > ) => {
-		mocks.formProps = props;
-		const submitError = props.submitError as string | CreateSiteFormError | undefined;
-		return (
-			<>
-				<button
-					type="button"
-					disabled={ Boolean( props.isSubmitting ) }
-					onClick={ () =>
-						( props.onSubmit as ( values: CreateSiteFormValues ) => void )( formValues )
-					}
-				>
-					{ String( props.submitLabel ?? 'Import site' ) }
-				</button>
-				{ submitError && (
-					<div role="alert">
-						{ typeof submitError === 'string' ? (
-							submitError
-						) : (
-							<>
-								<strong>{ submitError.title }</strong>
-								<span>{ submitError.message }</span>
-								<span>{ submitError.details }</span>
-							</>
-						) }
-					</div>
-				) }
-			</>
-		);
-	},
-} ) );
-
-vi.mock( '@/data/core', async ( importOriginal ) => {
-	const actual = await importOriginal< typeof import('@/data/core') >();
-	return {
-		...actual,
-		useConnector: () => ( { getFilePath: mocks.getFilePath } ),
-	};
-} );
-
-vi.mock( '@/data/queries/use-create-site-helpers', () => ( {
-	useExistingCustomDomains: () => [],
-} ) );
-
-vi.mock( '@/data/queries/use-import-site', () => ( {
-	useImportSite: () => ( { mutateAsync: mocks.importSite } ),
-} ) );
-
-vi.mock( '@/data/queries/use-sites', () => ( {
-	useCreateSite: () => ( { mutateAsync: mocks.createSite } ),
-	useDeleteSite: () => ( { mutateAsync: mocks.deleteSite } ),
-} ) );
-
-const selectedBackup = new File( [ 'backup' ], 'studio-backup-My Store-2026-07-17.zip' );
-const formValues: CreateSiteFormValues = {
-	name: 'My Store',
-	path: '/sites/my-store',
-	phpVersion: '8.3',
-	fileAccess: 'site-directory',
-	wpVersion: 'latest',
-	enableHttps: false,
-	adminUsername: 'admin',
-	adminPassword: 'password',
-	adminEmail: 'admin@example.com',
-};
-
-async function renderConfiguredImport( file = selectedBackup ) {
-	const view = render(
-		<ImportPanel
-			backup={ file }
-			onCancel={ mocks.onCancel }
-			onChooseAnother={ mocks.onChooseAnother }
-		/>
+async function setup() {
+	const connector = createFakeConnector();
+	connector.getFilePath.mockResolvedValue( '/tmp/backup.zip' );
+	const view = renderApp( { connector, path: '/?addSite=import' } );
+	const dialog = await screen.findByRole( 'dialog', { name: 'Add site' } );
+	fireEvent.change( dialog.querySelector( 'input[type="file"]' )!, {
+		target: { files: [ backup ] },
+	} );
+	await waitFor( () =>
+		expect( within( dialog ).getByLabelText( 'Site name' ) ).toHaveValue( 'My Store' )
 	);
-	await waitFor( () => expect( mocks.formProps ).not.toBeNull() );
-	return view;
+	const submit = async ( name = 'Import site' ) => {
+		const button = within( dialog ).getByRole( 'button', { name } );
+		await waitFor( () => expect( button ).toBeEnabled() );
+		fireEvent.click( button );
+	};
+	return { ...view, connector, dialog, submit };
 }
 
-describe( 'ImportPanel', () => {
-	beforeEach( () => {
-		vi.clearAllMocks();
-		mocks.formProps = null;
-		mocks.getFilePath.mockResolvedValue( '/tmp/backup.zip' );
-		mocks.createSite.mockResolvedValue( { id: 'site-1' } );
-		mocks.importSite.mockResolvedValue( undefined );
-		mocks.deleteSite.mockResolvedValue( undefined );
-	} );
-
-	it( 'adopts a selected File without resolving it until submit', async () => {
-		await renderConfiguredImport();
-
-		expect( mocks.getFilePath ).not.toHaveBeenCalled();
-		expect( mocks.formProps?.initialValues ).toEqual( { name: 'My Store' } );
-		expect( mocks.formProps?.isSubmitting ).toBe( false );
-	} );
-
-	it( 'rolls back a failed import and retries the same File with a fresh path', async () => {
-		mocks.getFilePath
-			.mockResolvedValueOnce( '/tmp/studio-upload-first/backup.zip' )
-			.mockResolvedValueOnce( '/tmp/studio-upload-second/backup.zip' );
-		mocks.createSite
-			.mockResolvedValueOnce( { id: 'site-1' } )
-			.mockResolvedValueOnce( { id: 'site-2' } );
-		mocks.importSite.mockRejectedValueOnce( new Error( 'Import exploded' ) );
-		await renderConfiguredImport();
-
-		fireEvent.click( screen.getByRole( 'button', { name: 'Import site' } ) );
-		await screen.findByText( 'WordPress Studio could not import this backup.' );
-
-		// The import starts the site; a running site's WP-CLI lookups would race it.
-		expect( mocks.createSite ).toHaveBeenCalledWith(
-			expect.objectContaining( { skipStart: true } )
+describe( 'Add site › Import', () => {
+	it( 'adopts the chosen backup, resolving its path only on submit', async () => {
+		const { connector, history, submit } = await setup();
+		expect( connector.getFilePath ).not.toHaveBeenCalled();
+		await submit();
+		await waitFor( () =>
+			expect( history.location.pathname ).toMatch( /^\/sites\/created-|^\/sessions\// )
 		);
-		expect( mocks.deleteSite ).toHaveBeenCalledWith( { id: 'site-1', deleteFiles: true } );
-		expect( mocks.importSite ).toHaveBeenNthCalledWith(
-			1,
-			expect.objectContaining( {
-				siteId: 'site-1',
-				backupPath: '/tmp/studio-upload-first/backup.zip',
+		expect( connector.getFilePath ).toHaveBeenCalledWith( backup );
+		expect( connector.createSite ).toHaveBeenCalledWith(
+			expect.objectContaining( { name: 'My Store', skipStart: true } )
+		);
+		expect( connector.importSiteFromBackup ).toHaveBeenCalledWith(
+			expect.stringMatching( /^created-/ ),
+			'/tmp/backup.zip',
+			expect.anything()
+		);
+	} );
+
+	it( 'rolls back a failed import and retries the same backup with a fresh path', async () => {
+		const { connector, dialog, history, submit } = await setup();
+		connector.getFilePath
+			.mockResolvedValueOnce( '/tmp/first/backup.zip' )
+			.mockResolvedValueOnce( '/tmp/second/backup.zip' );
+		connector.importSiteFromBackup.mockRejectedValueOnce( new Error( 'Import exploded' ) );
+		await submit();
+		expect(
+			await within( dialog ).findByText( 'WordPress Studio could not import this backup.' )
+		).toBeVisible();
+		const [ firstSite ] = connector.importSiteFromBackup.mock.calls[ 0 ];
+		expect( connector.deleteSite ).toHaveBeenCalledWith( firstSite, true );
+		expect( within( dialog ).getByText( /removed the incomplete site/i ) ).toBeVisible();
+		expect( within( dialog ).getByText( 'Import exploded' ) ).toBeInTheDocument();
+		expect(
+			within( dialog ).getByRole( 'button', { name: 'Choose another backup' } )
+		).toBeVisible();
+
+		await submit( 'Retry import' );
+		await waitFor( () => expect( history.location.pathname ).not.toBe( '/' ) );
+		expect( connector.getFilePath ).toHaveBeenNthCalledWith( 2, backup );
+		expect( connector.importSiteFromBackup ).toHaveBeenLastCalledWith(
+			expect.not.stringMatching( firstSite ),
+			'/tmp/second/backup.zip',
+			expect.anything()
+		);
+	} );
+
+	it( 'shows the progress the CLI publishes for the site it imports into', async () => {
+		const { connector, dialog, submit } = await setup();
+		connector.importSiteFromBackup.mockReturnValue( new Promise( () => {} ) );
+		await submit();
+		await waitFor( () => expect( connector.importSiteFromBackup ).toHaveBeenCalled() );
+		const [ siteId ] = connector.importSiteFromBackup.mock.calls[ 0 ];
+		act( () =>
+			connector.emit( 'onSyncActivity', {
+				siteId,
+				activity: { kind: 'pending', direction: 'import', message: '25% · Extracting…' },
 			} )
 		);
-		expect( mocks.formProps?.isSubmitting ).toBe( false );
-		expect( mocks.setProgress ).toHaveBeenLastCalledWith( null );
-		expect( mocks.formProps?.submitLabel ).toBe( 'Retry import' );
-		expect( mocks.formProps?.cancelLabel ).toBe( 'Choose another backup' );
-		expect( screen.getByText( /removed the incomplete site/i ) ).toBeVisible();
-		expect( screen.getByText( 'Import exploded' ) ).toBeInTheDocument();
-
-		fireEvent.click( screen.getByRole( 'button', { name: 'Retry import' } ) );
-		await waitFor( () => expect( mocks.importSite ).toHaveBeenCalledTimes( 2 ) );
-
-		expect( mocks.getFilePath ).toHaveBeenCalledTimes( 2 );
-		expect( mocks.getFilePath ).toHaveBeenNthCalledWith( 2, selectedBackup );
-		expect( mocks.importSite ).toHaveBeenNthCalledWith(
-			2,
-			expect.objectContaining( {
-				siteId: 'site-2',
-				backupPath: '/tmp/studio-upload-second/backup.zip',
-			} )
-		);
-		expect( mocks.navigate ).toHaveBeenLastCalledWith( {
-			to: '/sites/$siteId/new',
-			params: { siteId: 'site-2' },
-		} );
-		await waitFor( () => expect( mocks.formProps?.isSubmitting ).toBe( false ) );
+		expect( await within( dialog ).findByText( '25% · Extracting…' ) ).toBeVisible();
 	} );
 
-	it( 'follows the CLI progress of the site it imports into', async () => {
-		let finishImport = () => {};
-		mocks.importSite.mockImplementationOnce(
-			() => new Promise< void >( ( resolve ) => ( finishImport = resolve ) )
-		);
-		await renderConfiguredImport();
-
-		fireEvent.click( screen.getByRole( 'button', { name: 'Import site' } ) );
-
-		await waitFor( () => expect( mocks.followSite ).toHaveBeenCalledWith( 'site-1' ) );
-		finishImport();
-		await waitFor( () => expect( mocks.followSite ).toHaveBeenLastCalledWith( undefined ) );
-	} );
-
-	it( 'restores interaction when resolving the selected File fails', async () => {
-		mocks.getFilePath.mockRejectedValue( new Error( 'Upload failed' ) );
-		await renderConfiguredImport();
-
-		fireEvent.click( screen.getByRole( 'button', { name: 'Import site' } ) );
-		await screen.findByText( 'WordPress Studio could not access this backup.' );
-
-		expect( mocks.createSite ).not.toHaveBeenCalled();
-		expect( mocks.deleteSite ).not.toHaveBeenCalled();
-		expect( mocks.formProps?.isSubmitting ).toBe( false );
-		expect( mocks.setProgress ).toHaveBeenLastCalledWith( null );
-		expect( screen.getByText( /still available and readable/i ) ).toBeVisible();
-		expect( screen.getByText( 'Upload failed' ) ).toBeInTheDocument();
-	} );
-
-	it( 'keeps recovery action labels while a retry is active', async () => {
-		mocks.getFilePath.mockRejectedValueOnce( new Error( 'Upload failed' ) );
-		await renderConfiguredImport();
-
-		fireEvent.click( screen.getByRole( 'button', { name: 'Import site' } ) );
-		await screen.findByText( 'WordPress Studio could not access this backup.' );
-
-		let resolvePath: ( path: string ) => void = () => undefined;
-		mocks.getFilePath.mockImplementationOnce(
-			() =>
-				new Promise< string >( ( resolve ) => {
-					resolvePath = resolve;
-				} )
-		);
-		fireEvent.click( screen.getByRole( 'button', { name: 'Retry import' } ) );
-
-		expect( mocks.formProps?.isSubmitting ).toBe( true );
-		expect( mocks.formProps?.submitLabel ).toBe( 'Retry import' );
-		expect( mocks.formProps?.cancelLabel ).toBe( 'Choose another backup' );
-
-		resolvePath( '/tmp/backup.zip' );
-		await waitFor( () => expect( mocks.formProps?.isSubmitting ).toBe( false ) );
-	} );
-
-	it( 'explains site creation failures without exposing raw details first', async () => {
-		mocks.createSite.mockRejectedValue( new Error( 'EACCES: cannot create directory' ) );
-		await renderConfiguredImport();
-
-		fireEvent.click( screen.getByRole( 'button', { name: 'Import site' } ) );
-
+	it( 'keeps its recovery actions when the backup cannot be read, through the retry', async () => {
+		const { connector, dialog, submit } = await setup();
+		connector.getFilePath.mockRejectedValueOnce( new Error( 'Upload failed' ) );
+		await submit();
 		expect(
-			await screen.findByText( 'WordPress Studio could not create the site.' )
+			await within( dialog ).findByText( 'WordPress Studio could not access this backup.' )
 		).toBeVisible();
-		expect( screen.getByText( /Review the site name and local folder/ ) ).toBeVisible();
-		expect( screen.getByText( 'EACCES: cannot create directory' ) ).toBeInTheDocument();
-		expect( mocks.deleteSite ).not.toHaveBeenCalled();
-	} );
+		expect( within( dialog ).getByText( /still available and readable/i ) ).toBeVisible();
+		expect( within( dialog ).getByText( 'Upload failed' ) ).toBeInTheDocument();
+		expect( connector.createSite ).not.toHaveBeenCalled();
 
-	it( 'explains unsafe backup paths with a recovery step', async () => {
-		mocks.importSite.mockRejectedValue(
-			new Error( 'Failed to import site: absolute path: /wp-content/index.php' )
-		);
-		await renderConfiguredImport();
-
-		fireEvent.click( screen.getByRole( 'button', { name: 'Import site' } ) );
-
+		connector.getFilePath.mockReturnValueOnce( new Promise( () => {} ) );
+		await submit( 'Retry import' );
+		expect( within( dialog ).getByRole( 'button', { name: /Retry import/ } ) ).toBeVisible();
 		expect(
-			await screen.findByText( /contains a file path WordPress Studio cannot safely restore/ )
+			within( dialog ).getByRole( 'button', { name: 'Choose another backup' } )
 		).toBeVisible();
-		expect( screen.getByText( /Export the site again/ ) ).toBeVisible();
-		expect( mocks.deleteSite ).toHaveBeenCalledWith( { id: 'site-1', deleteFiles: true } );
 	} );
 
-	it( 'surfaces rollback failures and restores interaction', async () => {
-		mocks.importSite.mockRejectedValue( new Error( 'Invalid backup' ) );
-		mocks.deleteSite.mockRejectedValue( new Error( 'Folder is locked' ) );
-		await renderConfiguredImport();
-
-		fireEvent.click( screen.getByRole( 'button', { name: 'Import site' } ) );
-
-		expect(
-			await screen.findByText( 'WordPress Studio could not finish cleaning up.' )
-		).toBeVisible();
-		expect( screen.getByText( /could not remove “My Store”/ ) ).toBeVisible();
-		expect(
-			screen.getByText( /Import error: Invalid backup.*Cleanup error: Folder is locked/s )
-		).toBeInTheDocument();
-		expect( mocks.formProps?.isSubmitting ).toBe( false );
-		expect( mocks.setProgress ).toHaveBeenLastCalledWith( null );
+	it( 'ignores a second submit while the import is under way', async () => {
+		const { connector, dialog } = await setup();
+		connector.getFilePath.mockReturnValue( new Promise( () => {} ) );
+		const button = within( dialog ).getByRole( 'button', { name: 'Import site' } );
+		await waitFor( () => expect( button ).toBeEnabled() );
+		fireEvent.click( button );
+		fireEvent.click( button );
+		await waitFor( () => expect( connector.getFilePath ).toHaveBeenCalledOnce() );
 	} );
 
-	it( 'ignores duplicate submissions while work is active', async () => {
-		let resolvePath: ( path: string ) => void = () => undefined;
-		mocks.getFilePath.mockImplementation(
-			() =>
-				new Promise< string >( ( resolve ) => {
-					resolvePath = resolve;
-				} )
-		);
-		await renderConfiguredImport();
-		const submit = mocks.formProps?.onSubmit as ( values: CreateSiteFormValues ) => Promise< void >;
-
-		let firstSubmit: Promise< void > | undefined;
-		act( () => {
-			firstSubmit = submit( formValues );
-			void submit( formValues );
-		} );
-		expect( mocks.getFilePath ).toHaveBeenCalledOnce();
-
-		resolvePath( '/tmp/backup.zip' );
-		await act( async () => firstSubmit );
-		expect( mocks.createSite ).toHaveBeenCalledOnce();
-	} );
+	it.each( [
+		[
+			'creating the site',
+			{ createSite: new Error( 'EACCES: cannot create directory' ) },
+			'WordPress Studio could not create the site.',
+			/Review the site name and local folder/,
+		],
+		[
+			'an unsafe backup path',
+			{ import: new Error( 'Failed to import site: absolute path: /wp-content/index.php' ) },
+			/contains a file path WordPress Studio cannot safely restore/,
+			/Export the site again/,
+		],
+		[
+			'cleaning up',
+			{ import: new Error( 'Invalid backup' ), deleteSite: new Error( 'Folder is locked' ) },
+			'WordPress Studio could not finish cleaning up.',
+			/could not remove “My Store”/,
+		],
+	] as [ string, Failures, string | RegExp, RegExp ][] )(
+		'explains a failure %s',
+		async ( _, failures, title, recovery ) => {
+			const { connector, dialog, submit } = await setup();
+			if ( failures.createSite ) connector.createSite.mockRejectedValue( failures.createSite );
+			if ( failures.import ) connector.importSiteFromBackup.mockRejectedValue( failures.import );
+			if ( failures.deleteSite ) connector.deleteSite.mockRejectedValue( failures.deleteSite );
+			await submit();
+			expect( await within( dialog ).findByText( title ) ).toBeVisible();
+			expect( within( dialog ).getByText( recovery ) ).toBeVisible();
+			expect( within( dialog ).getByLabelText( 'Site name' ) ).toBeEnabled();
+		}
+	);
 } );

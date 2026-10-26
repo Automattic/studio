@@ -1,4 +1,4 @@
-import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'fs';
+import { cpSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'fs';
 import os from 'os';
 import path from 'path';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
@@ -21,8 +21,19 @@ const savedImage =
 const wrapper = `<?php
 add_action( 'init', function () {
 	register_block_type( 'studio-test/wrapper', array( 'render_callback' => function () { return '<div>Wrapped</div>'; } ) );
+	register_block_type( __DIR__ . '/returns' );
 } );
 `;
+// A block.json render file that returns its HTML instead of printing it.
+const returns = {
+	'block.json': JSON.stringify( {
+		apiVersion: 3,
+		name: 'studio-test/returns',
+		title: 'Returns',
+		render: 'file:./render.php',
+	} ),
+	'render.php': "<?php\nreturn '<p>Hours</p>';\n",
+};
 
 describe.runIf( WORDPRESS )( 'the blocks WordPress renders as nothing', () => {
 	let site: SiteData;
@@ -45,6 +56,10 @@ describe.runIf( WORDPRESS )( 'the blocks WordPress renders as nothing', () => {
 		cpSync( WORDPRESS!, root, { recursive: true } );
 		mkdirSync( path.join( root, 'wp-content/mu-plugins' ), { recursive: true } );
 		writeFileSync( path.join( root, 'wp-content/mu-plugins/wrapper.php' ), wrapper );
+		mkdirSync( path.join( root, 'wp-content/mu-plugins/returns' ) );
+		for ( const [ name, text ] of Object.entries( returns ) ) {
+			writeFileSync( path.join( root, 'wp-content/mu-plugins/returns', name ), text );
+		}
 		site = { id: 'site', name: 'Seaside Gallery', path: root } as SiteData;
 	} );
 	afterAll( () => rmSync( site.path, { recursive: true, force: true } ) );
@@ -54,13 +69,25 @@ describe.runIf( WORDPRESS )( 'the blocks WordPress renders as nothing', () => {
 			name: 'a block written without the saved HTML its attributes are read from',
 			content: image,
 			empty: [
-				{ name: 'core/image', saved: false, sourced: expect.arrayContaining( [ 'url', 'alt' ] ) },
+				{
+					name: 'core/image',
+					saved: false,
+					sourced: expect.arrayContaining( [ 'url', 'alt' ] ),
+					render: null,
+				},
 			],
 		},
 		{
 			name: 'the same block inside a static one',
 			content: `<!-- wp:group --><div class="wp-block-group">${ image }</div><!-- /wp:group -->`,
-			empty: [ { name: 'core/image', saved: false, sourced: expect.arrayContaining( [ 'url' ] ) } ],
+			empty: [
+				{
+					name: 'core/image',
+					saved: false,
+					sourced: expect.arrayContaining( [ 'url' ] ),
+					render: null,
+				},
+			],
 		},
 		{ name: 'a block with its saved HTML', content: savedImage, empty: [] },
 		{
@@ -81,6 +108,20 @@ describe.runIf( WORDPRESS )( 'the blocks WordPress renders as nothing', () => {
 	] )( '$name', async ( { content, empty } ) => {
 		const id = await create( content );
 		expect( ( await emptyBlocks( site, [ id ] ) )[ id ] ).toEqual( empty );
+	} );
+
+	it( 'names the render file of a block whose block.json render prints nothing', async () => {
+		const id = await create( '<!-- wp:studio-test/returns /-->' );
+		const { reports } = await renderedBlocks.check(
+			site,
+			{ [ id ]: 'before' },
+			{ [ id ]: 'written' }
+		);
+		expect( reports[ 0 ].problem ).toBe(
+			`Seaside Gallery page ${ id } "Gallery": WordPress renders these blocks as nothing on the front end (render_block() through the_content, in wp-includes/blocks.php): studio-test/returns, whose output is what ${ realpathSync(
+				path.join( site.path, 'wp-content/mu-plugins/returns/render.php' )
+			) } prints: register_block_type_from_metadata() (wp-includes/blocks.php) requires the file inside ob_start() and returns ob_get_clean().`
+		);
 	} );
 
 	it( 'leaves content the front end renders only inside another, as a pattern is', async () => {
@@ -114,6 +155,9 @@ describe.runIf( WORDPRESS )( 'the blocks WordPress renders as nothing', () => {
 				),
 			},
 		] );
+		expect( ( await reports( { [ id ]: 'written' } ) )[ 0 ].problem ).toMatch(
+			/ The block editor writes a block's saved HTML from its attributes when it inserts it\.$/
+		);
 		await runWpCli( site, [ 'post', 'update', String( id ), `--post_content=${ savedImage }` ] );
 		expect( await reports( { [ id ]: 'fixed' } ) ).toEqual( [
 			{ key: `rendered ${ id }`, problem: undefined },

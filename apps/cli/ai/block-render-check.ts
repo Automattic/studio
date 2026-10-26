@@ -41,10 +41,18 @@ foreach ( ${ JSON.stringify( ids ) } as $id ) {
 					$sourced[] = $name;
 				}
 			}
+			// The file a block.json "render" names, which
+			// register_block_type_from_metadata() requires inside an output buffer.
+			$render = null;
+			if ( $type && $type->render_callback instanceof Closure ) {
+				$used   = ( new ReflectionFunction( $type->render_callback ) )->getStaticVariables();
+				$render = isset( $used['template_path'] ) && is_string( $used['template_path'] ) ? $used['template_path'] : null;
+			}
 			$found[] = array(
 				'name'    => $block['blockName'],
 				'saved'   => '' !== trim( implode( '', array_filter( $block['innerContent'], 'is_string' ) ) ),
 				'sourced' => $sourced,
+				'render'  => $render,
 			);
 		}
 		return $html;
@@ -63,6 +71,7 @@ interface EmptyBlock {
 	name: string;
 	saved: boolean;
 	sourced: string[];
+	render: string | null;
 }
 
 /** The blocks of each post that render as nothing, by post ID. */
@@ -81,8 +90,14 @@ export async function emptyBlocks(
 	}
 }
 
+// Whether the block is one written without the saved HTML its attributes are read from.
+const unsaved = ( block: EmptyBlock ) => ! block.saved && block.sourced.length > 0;
+
 function describe( block: EmptyBlock ): string {
-	if ( block.saved || ! block.sourced.length ) {
+	if ( block.render ) {
+		return `${ block.name }, whose output is what ${ block.render } prints: register_block_type_from_metadata() (wp-includes/blocks.php) requires the file inside ob_start() and returns ob_get_clean()`;
+	}
+	if ( ! unsaved( block ) ) {
 		return block.name;
 	}
 	return `${
@@ -120,9 +135,11 @@ export const renderedBlocks: SiteChangeSource = {
 							post.title
 					  }": WordPress renders these blocks as nothing on the front end (render_block() through the_content, in wp-includes/blocks.php): ${ blocks
 							.map( describe )
-							.join(
-								'; '
-							) }. The block editor writes a block's saved HTML from its attributes when it inserts it.`
+							.join( '; ' ) }.${
+							blocks.some( unsaved )
+								? " The block editor writes a block's saved HTML from its attributes when it inserts it."
+								: ''
+					  }`
 					: undefined,
 			};
 		} );

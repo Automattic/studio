@@ -3,7 +3,7 @@
 Local Markdown mirror of the WordPress Studio docs on developer.wordpress.com, plus the scripts that keep it up to date and generate screenshots. This directory is self-contained: it has its own `package.json` and `node_modules`, and is not part of the Studio npm workspaces.
 
 ```sh
-cd docs/wpcom
+cd docs/user
 npm install
 npx playwright install chromium   # first time only, for screenshots
 ```

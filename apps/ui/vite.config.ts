@@ -60,6 +60,10 @@ const browserDevEntryPlugin: Plugin = {
 	},
 };
 
+// The browser dev server proxies the `studio ui` server, so the app calls it
+// same-origin, as it does when that server serves the built app.
+const studioUiServer = process.env.STUDIO_UI_SERVER ?? 'http://localhost:8081';
+
 export default defineConfig( {
 	plugins: [
 		react(),
@@ -93,6 +97,12 @@ export default defineConfig( {
 	},
 	server: {
 		port: active?.port ?? 5200,
+		proxy: isBrowser
+			? {
+					'/api': { target: studioUiServer, changeOrigin: true },
+					'/auth/callback': { target: studioUiServer, changeOrigin: true },
+			  }
+			: undefined,
 	},
 	build: {
 		outDir: active?.outDir ?? 'dist',

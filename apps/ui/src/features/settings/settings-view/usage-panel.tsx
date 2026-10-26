@@ -54,10 +54,8 @@ function UsageProgressBar( {
 } ) {
 	return (
 		<Progress
-			className={ styles.meter }
 			value={ fraction * 100 }
-			data-intent={ intent }
-			data-testid="usage-progress-bar"
+			intent={ intent === 'ok' ? undefined : intent }
 			aria-hidden="true"
 		/>
 	);
@@ -83,7 +81,7 @@ function MeterRow( {
 			data-setting-id={ settingId }
 		>
 			<div className={ styles.meterSummary }>
-				<FieldTitle>{ label }</FieldTitle>
+				<FieldTitle className={ styles.meterLabel }>{ label }</FieldTitle>
 				{ detail ? <FieldDescription width="full">{ detail }</FieldDescription> : null }
 			</div>
 			{ children }

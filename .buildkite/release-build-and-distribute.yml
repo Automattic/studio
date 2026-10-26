@@ -73,7 +73,7 @@ steps:
     steps:
       - label: 🔨 Windows Release Build - {{matrix}}
         agents:
-          queue: windows
+          queue: windows-staging
         env:
           SIGN_WINDOWS_BUILD: 1
         command: |

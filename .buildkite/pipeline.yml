@@ -16,15 +16,15 @@ e2e_config: &e2e_config
     - test-results/daemon-logs/**/*.log
   plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
   agents:
-    queue: "{{matrix.platform}}"
+    queue: "{{matrix.queue}}"
   env:
     # See https://playwright.dev/docs/ci#debugging-browser-launches
     DEBUG: "pw:browser"
   matrix:
-    setup: { platform: [], arch: [] }
+    setup: { platform: [], arch: [], queue: [] }
     adjustments:
-      - with: { platform: mac, arch: arm64 }
-      - with: { platform: windows, arch: x64 }
+      - with: { platform: mac, arch: arm64, queue: mac }
+      - with: { platform: windows, arch: x64, queue: windows-staging }
 
 steps:
   - label: Lint
@@ -62,7 +62,7 @@ steps:
           queue: "{{matrix}}"
         matrix:
           - mac
-          - windows
+          - windows-staging
         notify:
           - github_commit_status:
               context: Unit Tests
@@ -141,7 +141,7 @@ steps:
         plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
         matrix:
           - mac
-          - windows
+          - windows-staging
 
       # Separate from the matrix above: Mac and Windows share queue/plugin
       # defaults that Linux doesn't. Same pattern as the unit-test group.
@@ -248,7 +248,7 @@ steps:
     steps:
       - label: 🔨 Windows Dev Build - {{matrix}}
         agents:
-          queue: windows
+          queue: windows-staging
         env:
           SIGN_WINDOWS_BUILD: 1
         command: powershell -File .buildkite/commands/build-for-windows.ps1 -BuildType dev -Architecture {{matrix}}

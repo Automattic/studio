@@ -141,7 +141,7 @@ add_action( 'wp_abilities_api_init', function () {
 				expect( reportOf( reports, 'registered' ) ).toEqual( {
 					key: 'registered',
 					summary:
-						'Reading Room: with plugin reading-list/reading-list.php loaded, WordPress registers post types book (register_post_type()); REST routes /bookclub/v1, /bookclub/v1/books (register_rest_route()); abilities bookclub/list-books (wp_register_ability(), in wp-includes/abilities-api.php); no taxonomies (register_taxonomy()), block types (register_block_type()) and shortcodes (add_shortcode()) of its own.',
+						'Reading Room: with plugin reading-list/reading-list.php loaded, WordPress registers post types book (register_post_type(); with show_in_rest false, out of the REST API: book); REST routes /bookclub/v1, /bookclub/v1/books (register_rest_route()); abilities bookclub/list-books (wp_register_ability(), in wp-includes/abilities-api.php; with meta show_in_rest false, so not listed by wp-includes/rest-api/endpoints/class-wp-rest-abilities-v1-list-controller.php, out of the REST API: bookclub/list-books); no taxonomies (register_taxonomy()), block types (register_block_type()) and shortcodes (add_shortcode()) of its own.',
 				} );
 			} );
 
@@ -181,7 +181,7 @@ add_action( 'wp_abilities_api_init', function () {
 				expect( reportOf( reports, 'registered' ) ).toEqual( {
 					key: 'registered',
 					summary: expect.stringMatching(
-						/^Reading Room: with theme twentytwentyfive loaded, WordPress registers taxonomies course \(register_taxonomy\(\)\); no post types/
+						/^Reading Room: with theme twentytwentyfive loaded, WordPress registers taxonomies course \(register_taxonomy\(\); with show_in_rest false, out of the REST API: course\); no post types/
 					),
 				} );
 			} );
@@ -190,8 +190,11 @@ add_action( 'wp_abilities_api_init', function () {
 				const before = await adminCapabilities.read( site.path );
 				await activate(
 					READING_LIST.replace(
+						"'execute_callback' => '__return_empty_array', 'permission_callback' => '__return_true' ) );",
+						"'execute_callback' => '__return_empty_array', 'permission_callback' => '__return_true', 'meta' => array( 'show_in_rest' => true ) ) );"
+					).replace(
 						"register_post_type( 'book', array( 'public' => true ) );",
-						`register_post_type( 'book', array( 'public' => true ) ); register_taxonomy( 'genre', 'book' ); register_block_type( 'bookclub/shelf', array( 'render_callback' => '__return_empty_string' ) ); foreach ( range( 1, 14 ) as $i ) { add_shortcode( "book$i", '__return_empty_string' ); }`
+						`register_post_type( 'book', array( 'public' => true, 'show_in_rest' => true ) ); register_taxonomy( 'genre', 'book' ); register_block_type( 'bookclub/shelf', array( 'render_callback' => '__return_empty_string' ) ); foreach ( range( 1, 14 ) as $i ) { add_shortcode( "book$i", '__return_empty_string' ); }`
 					)
 				);
 				const after = await adminCapabilities.read( site.path );
@@ -199,7 +202,7 @@ add_action( 'wp_abilities_api_init', function () {
 				expect( reportOf( reports, 'registered' ) ).toEqual( {
 					key: 'registered',
 					summary:
-						'Reading Room: with plugin reading-list/reading-list.php loaded, WordPress registers post types book (register_post_type()); taxonomies genre (register_taxonomy()); REST routes /bookclub/v1, /bookclub/v1/books (register_rest_route()); block types bookclub/shelf (register_block_type()); abilities bookclub/list-books (wp_register_ability(), in wp-includes/abilities-api.php); shortcodes book1, book2, book3, book4, book5, book6, book7, book8, book9, book10, book11, book12 and 2 more (add_shortcode()).',
+						'Reading Room: with plugin reading-list/reading-list.php loaded, WordPress registers post types book (register_post_type()); taxonomies genre (register_taxonomy(); with show_in_rest false, out of the REST API: genre); REST routes /bookclub/v1, /bookclub/v1/books, /wp/v2/book, /wp/v2/book/(?P<id>[\\d]+), /wp/v2/book/(?P<id>[\\d]+)/autosaves, /wp/v2/book/(?P<parent>[\\d]+)/autosaves/(?P<id>[\\d]+) (register_rest_route()); block types bookclub/shelf (register_block_type()); abilities bookclub/list-books (wp_register_ability(), in wp-includes/abilities-api.php); shortcodes book1, book2, book3, book4, book5, book6, book7, book8, book9, book10, book11, book12 and 2 more (add_shortcode()).',
 				} );
 			} );
 

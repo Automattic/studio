@@ -46,7 +46,21 @@ const REGISTERED = `echo 'REGISTERED=' . wp_json_encode( array(
 	'block types' => array_keys( WP_Block_Type_Registry::get_instance()->get_all_registered() ),
 	'abilities'   => function_exists( 'wp_get_abilities' ) ? array_map( function ( $ability ) { return $ability->get_name(); }, array_values( wp_get_abilities() ) ) : array(),
 	'shortcodes'  => array_keys( $GLOBALS['shortcode_tags'] ),
+) ) . "\\n";
+echo 'OUT_OF_REST=' . wp_json_encode( array(
+	'post types' => array_keys( get_post_types( array( 'show_in_rest' => false ) ) ),
+	'taxonomies' => array_keys( get_taxonomies( array( 'show_in_rest' => false ) ) ),
+	'abilities'  => function_exists( 'wp_get_abilities' ) ? array_values( array_filter( array_map( function ( $ability ) { return $ability->get_meta_item( 'show_in_rest' ) ? null : $ability->get_name(); }, array_values( wp_get_abilities() ) ) ) ) : array(),
 ) ) . "\\n";`;
+
+// The setting that keeps a registry's item out of WordPress's REST API, which
+// is how agents and the block editor reach it.
+const IN_REST: Record< string, string > = {
+	'post types': 'show_in_rest false',
+	taxonomies: 'show_in_rest false',
+	abilities:
+		'meta show_in_rest false, so not listed by wp-includes/rest-api/endpoints/class-wp-rest-abilities-v1-list-controller.php',
+};
 
 type Registered = Record< string, string[] >;
 
@@ -91,11 +105,12 @@ const printed = ( output: string, marker: string ) =>
 async function askWordPress(
 	site: SiteData,
 	skip: string[]
-): Promise< { denied: Denied; registered: Registered } > {
+): Promise< { denied: Denied; registered: Registered; outOfRest: Registered } > {
 	const output = await runWpCli( site, [ 'eval', REGISTERED + DENIED, ...skip ] );
 	return {
 		denied: printed( output, 'DENIED_CAPS=' ),
 		registered: printed( output, 'REGISTERED=' ),
+		outOfRest: printed( output, 'OUT_OF_REST=' ),
 	};
 }
 
@@ -129,7 +144,12 @@ const list = ( items: string[] ) =>
 
 const MAX_NAMES = 12;
 
-function describeRegistered( site: SiteData, changed: string[], added: Registered ): string {
+function describeRegistered(
+	site: SiteData,
+	changed: string[],
+	added: Registered,
+	outOfRest: Registered
+): string {
 	const names = ( items: string[] ) =>
 		items.length > MAX_NAMES
 			? `${ items.slice( 0, MAX_NAMES ).join( ', ' ) } and ${ items.length - MAX_NAMES } more`
@@ -137,9 +157,16 @@ function describeRegistered( site: SiteData, changed: string[], added: Registere
 	const holds = Object.keys( REGISTRIES ).filter( ( registry ) => added[ registry ]?.length );
 	const none = Object.keys( REGISTRIES ).filter( ( registry ) => ! added[ registry ]?.length );
 	return `${ site.name }: with ${ list( changed ) } loaded, WordPress registers ${ [
-		...holds.map(
-			( registry ) => `${ registry } ${ names( added[ registry ] ) } (${ REGISTRIES[ registry ] })`
-		),
+		...holds.map( ( registry ) => {
+			const hidden = added[ registry ].filter(
+				( name ) => outOfRest[ registry ]?.includes( name )
+			);
+			return `${ registry } ${ names( added[ registry ] ) } (${ REGISTRIES[ registry ] }${
+				hidden.length
+					? `; with ${ IN_REST[ registry ] }, out of the REST API: ${ names( hidden ) }`
+					: ''
+			})`;
+		} ),
 		...( none.length
 			? [
 					`no ${ list(
@@ -223,7 +250,12 @@ export const adminCapabilities: SiteChangeSource = {
 						: undefined,
 				},
 				...( changed.length
-					? [ { key: 'registered', summary: describeRegistered( site, changed, added ) } ]
+					? [
+							{
+								key: 'registered',
+								summary: describeRegistered( site, changed, added, withCode.outOfRest ),
+							},
+					  ]
 					: [] ),
 			],
 		};

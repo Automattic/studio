@@ -1268,6 +1268,54 @@ export async function insertedTemplates(
 	);
 }
 
+interface SavedExample {
+	name: string;
+	from: 'example' | 'variation' | 'defaults';
+	markup: string;
+}
+
+/**
+ * What the site's block editor saves for each named block, made the way its
+ * inserter previews it: from the example its block type declares
+ * (getBlockFromExample in @wordpress/blocks), or else with the attributes and
+ * inner blocks of its default inserter variation (createBlock).
+ */
+export async function savedExamples( names: string[], siteUrl: string ): Promise< SavedExample[] > {
+	if ( ! names.length ) {
+		return [];
+	}
+	const page = await editorKnowing( siteUrl, names );
+	return page.evaluate( ( wanted ) => {
+		/* eslint-disable @typescript-eslint/no-explicit-any */
+		const wpBlocks = ( window as any ).wp.blocks;
+		return wanted.flatMap( ( name ): SavedExample[] => {
+			const type = wpBlocks.getBlockType( name );
+			if ( ! type ) {
+				return [];
+			}
+			if ( type.example ) {
+				const block = wpBlocks.getBlockFromExample( name, type.example );
+				return [ { name, from: 'example', markup: wpBlocks.serialize( [ block ] ) } ];
+			}
+			const variations: any[] = wpBlocks.getBlockVariations( name, 'inserter' ) ?? [];
+			const chosen = variations.find( ( v ) => v.isDefault ) ?? variations[ 0 ];
+			const block = wpBlocks.createBlock(
+				name,
+				{ ...( chosen?.attributes ?? {} ) },
+				wpBlocks.createBlocksFromInnerBlocksTemplate( chosen?.innerBlocks ?? [] )
+			);
+			return [
+				{
+					name,
+					from: chosen ? 'variation' : 'defaults',
+					markup: wpBlocks.serialize( [ block ] ),
+				},
+			];
+		} );
+		/* eslint-enable @typescript-eslint/no-explicit-any */
+	}, names );
+}
+
 /** Clean up all cached editor pages. */
 /**
  * The site's blocks whose save makes each element of the HTML, its outermost

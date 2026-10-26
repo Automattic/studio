@@ -1,6 +1,7 @@
 import '@testing-library/jest-dom/vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { getNoticeHistory, resetAppMessagesForTests } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { TooltipProvider } from '@/lib/ui';
 import { McpPanel } from './mcp-panel';
@@ -55,22 +56,19 @@ describe( 'McpPanel', () => {
 		expect( copyText ).toHaveBeenCalledWith( 'npm install -g wp-studio' );
 	} );
 
-	it( 'does not show copied feedback when the copy fails', async () => {
-		const error = new Error( 'Clipboard unavailable' );
-		const consoleError = vi.spyOn( console, 'error' ).mockImplementation( () => undefined );
-		copyText.mockRejectedValueOnce( error );
+	it( 'reports a failed copy instead of showing copied feedback', async () => {
+		resetAppMessagesForTests();
+		copyText.mockRejectedValueOnce( new Error( 'Clipboard unavailable' ) );
+		render( <McpPanel />, { wrapper: Providers } );
 
-		try {
-			render( <McpPanel />, { wrapper: Providers } );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Copy MCP configuration' } ) );
 
-			fireEvent.click( screen.getByRole( 'button', { name: 'Copy MCP configuration' } ) );
-
-			await waitFor( () =>
-				expect( consoleError ).toHaveBeenCalledWith( 'Failed to copy text:', error )
-			);
-			expect( screen.queryByText( 'Copied' ) ).not.toBeInTheDocument();
-		} finally {
-			consoleError.mockRestore();
-		}
+		await waitFor( () =>
+			expect( getNoticeHistory()[ 0 ] ).toMatchObject( {
+				title: 'Could not copy.',
+				description: 'Clipboard unavailable',
+			} )
+		);
+		expect( screen.queryByText( 'Copied' ) ).not.toBeInTheDocument();
 	} );
 } );

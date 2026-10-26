@@ -13,12 +13,14 @@ export function SiteRowMenu( {
 	site,
 	trigger,
 	onSiteOpen,
+	onStart,
 }: {
 	site: SiteDetails;
 	trigger: ReactElement;
 	onSiteOpen?: () => void;
+	onStart?: () => void;
 } ) {
-	const actions = useSiteActions( site, { onOpen: onSiteOpen } );
+	const actions = useSiteActions( site, { onOpen: onSiteOpen, onStart } );
 	const bulk = useIsBulkTarget( sitePinKey( site.id ) );
 	const [ menuOpen, setMenuOpen ] = useState( false );
 

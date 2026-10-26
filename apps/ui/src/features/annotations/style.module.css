@@ -1,7 +1,7 @@
 .overlay {
 	position: absolute;
 	inset: 0;
-	z-index: 20;
+	z-index: var( --z-overlay );
 	pointer-events: none;
 }
 
@@ -9,49 +9,37 @@
 	position: absolute;
 	display: flex;
 	flex-direction: column;
-	gap: 4px;
+	gap: var( --space-1 );
 	width: 320px;
-	max-width: calc(100% - 16px);
-	max-height: calc(100% - 80px);
-	padding: 4px;
+	max-width: calc( 100% - 16px );
+	max-height: calc( 100% - 80px );
+	padding: var( --space-1 );
 	overflow-y: auto;
-	border: 1px solid var(--input);
-	border-radius: 24px;
-	background-color: var(--composer);
-	color: var(--foreground);
+	border: 1px solid var( --input );
+	border-radius: var( --radius-3xl );
+	background-color: var( --composer );
+	color: var( --foreground );
 	pointer-events: auto;
 }
 
 .editorDragging {
-	background-color: color-mix(
-		in srgb,
-		var(--accent) 10%,
-		var(--composer)
-	);
+	background-color: color-mix( in srgb, var( --accent ) 10%, var( --composer ) );
 }
 
 .images {
 	display: flex;
 	flex-wrap: wrap;
-	gap: 12px;
-	padding: 8px 8px 4px;
+	gap: var( --space-3 );
+	padding: var( --space-2 ) var( --space-2 ) var( --space-1 );
 }
 
 .image {
+	composes: imageOutline from '@/lib/theme/recipes.module.css';
 	position: relative;
 	width: 48px;
 	height: 48px;
-	border-radius: 12px;
-	background-color: var(--muted);
-}
-
-.image::after {
-	position: absolute;
-	inset: 0;
-	border-radius: inherit;
-	box-shadow: inset 0 0 0 1px var(--border);
-	content: '';
-	pointer-events: none;
+	border-radius: var( --radius-xl );
+	background-color: var( --muted );
 }
 
 .image img {
@@ -63,27 +51,28 @@
 
 .imageRemove {
 	position: absolute;
-	top: -8px;
-	right: -8px;
+	top: calc( var( --space-2 ) * -1 );
+	right: calc( var( --space-2 ) * -1 );
 	z-index: 1;
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
 	width: 24px;
 	height: 24px;
-	border: 1px solid var(--border);
-	border-radius: 50%;
-	background-color: var(--chrome);
-	box-shadow: 0 1px 2px rgb(0 0 0 / 10%);
-	color: var(--foreground);
+	border: 1px solid var( --border );
+	border-radius: var( --radius-full );
+	background-color: var( --chrome );
+	/* eslint-disable-next-line studio/use-theme-tokens -- a one-off button shadow. */
+	box-shadow: 0 1px 2px rgb( 0 0 0 / 10% );
+	color: var( --foreground );
 	cursor: pointer;
 }
 
 .toolbar {
 	display: flex;
 	align-items: center;
-	gap: 4px;
-	padding: 0 4px 4px;
+	gap: var( --space-1 );
+	padding: 0 var( --space-1 ) var( --space-1 );
 }
 
 .save {
@@ -92,40 +81,40 @@
 
 .bar {
 	position: absolute;
-	bottom: 16px;
+	bottom: var( --space-4 );
 	left: 50%;
 	display: flex;
 	align-items: center;
-	gap: 4px;
-	padding: 6px;
-	border-radius: var(--radius-xl);
-	background-color: var(--popover);
+	gap: var( --space-1 );
+	padding: var( --space-1_5 );
+	border-radius: var( --radius-xl );
+	background-color: var( --popover );
 	box-shadow:
-		0 0 0 1px var(--border),
-		var(--shadow-sm);
+		0 0 0 1px var( --border ),
+		var( --shadow-sm );
 	pointer-events: auto;
-	transform: translateX(-50%);
+	transform: translateX( -50% );
 }
 
 .bar[data-open='false'] {
 	visibility: hidden;
 	opacity: 0;
 	pointer-events: none;
-	transform: translate(-50%, calc(100% + 16px));
+	transform: translate( -50%, calc( 100% + 16px ) );
 }
 
-@media (prefers-reduced-motion: no-preference) {
+@media ( prefers-reduced-motion: no-preference ) {
 	.bar {
 		transition:
-			transform var(--motion-duration-layout) var(--motion-ease-enter),
-			opacity var(--motion-duration-layout) var(--motion-ease-enter),
-			visibility var(--motion-duration-layout);
+			transform var( --motion-duration-layout ) var( --motion-ease-enter ),
+			opacity var( --motion-duration-layout ) var( --motion-ease-enter ),
+			visibility var( --motion-duration-layout );
 	}
 
 	@starting-style {
 		.bar[data-open='true'] {
 			opacity: 0;
-			transform: translate(-50%, calc(100% + 16px));
+			transform: translate( -50%, calc( 100% + 16px ) );
 		}
 	}
 }

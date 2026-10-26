@@ -23,7 +23,7 @@
 	.value {
 		display: flex;
 		flex: 1;
-		gap: 6px;
+		gap: var( --space-1_5 );
 		align-items: center;
 		overflow: hidden;
 		text-align: start;
@@ -48,24 +48,19 @@
 
 	.item {
 		width: 100%;
-		padding-inline-end: 32px;
+		padding-inline-end: var( --space-8 );
 	}
 
 	.item[data-described] {
 		align-items: flex-start;
-		padding-block: 8px;
-	}
-
-	.item svg:not( [data-size] ) {
-		width: 16px;
-		height: 16px;
+		padding-block: var( --space-2 );
 	}
 
 	.itemBody {
 		display: flex;
 		flex: 1;
 		flex-direction: column;
-		gap: 2px;
+		gap: var( --space-0_5 );
 		min-width: 0;
 	}
 
@@ -73,7 +68,7 @@
 		display: flex;
 		flex: 1;
 		flex-shrink: 0;
-		gap: 8px;
+		gap: var( --space-2 );
 		white-space: nowrap;
 	}
 
@@ -85,7 +80,7 @@
 
 	.indicator {
 		position: absolute;
-		inset-inline-end: 8px;
+		inset-inline-end: var( --space-2 );
 		display: flex;
 		align-items: center;
 		justify-content: center;
@@ -97,12 +92,12 @@
 	.arrow {
 		position: sticky;
 		bottom: 0;
-		z-index: 10;
+		z-index: var( --z-sticky );
 		display: flex;
 		align-items: center;
 		justify-content: center;
 		width: 100%;
-		padding-block: 4px;
+		padding-block: var( --space-1 );
 		background-color: var( --popover );
 		cursor: default;
 	}

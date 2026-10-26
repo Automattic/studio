@@ -14,7 +14,7 @@
 	}
 
 	.padded {
-		padding: 6px;
+		padding: var( --space-1_5 );
 	}
 
 	.motion {
@@ -48,14 +48,14 @@
 	.item {
 		position: relative;
 		display: flex;
-		gap: 6px;
+		gap: var( --space-1_5 );
 		align-items: center;
 		min-height: 32px;
-		padding: 6px 8px;
+		padding: var( --space-1_5 ) var( --space-2 );
 		border-radius: var( --radius-md );
 		font-size: var( --text-xs );
 		font-weight: var( --font-weight-medium );
-		line-height: 20px;
+		line-height: var( --text-xs--line-height );
 		cursor: default;
 		outline: none;
 		user-select: none;
@@ -78,12 +78,12 @@
 
 	.separator {
 		height: 1px;
-		margin: 6px 8px;
+		margin: var( --space-1_5 ) var( --space-2 );
 		background-color: var( --border );
 	}
 
 	.groupLabel {
-		padding: 4px 6px;
+		padding: var( --space-1 ) var( --space-1_5 );
 		color: var( --muted-foreground );
 		font-size: var( --text-xs );
 		font-weight: var( --font-weight-medium );

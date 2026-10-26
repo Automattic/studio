@@ -1,5 +1,6 @@
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { isSnapshotExpired } from '@studio/common/lib/snapshots';
+import { useMutation } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
 import { useEffect, useId, useState, type ReactNode } from 'react';
 import { useConnector } from '@/data/core';
@@ -23,6 +24,7 @@ import {
 	Field,
 	FieldContent,
 	FieldDescription,
+	FieldError,
 	FieldTitle,
 	Dialog,
 	DialogContent,
@@ -30,6 +32,7 @@ import {
 	DialogHeader,
 	DialogTitle,
 	Button,
+	NotificationDot,
 } from '@/lib/ui';
 import { PreviewSharePanel } from './preview-share-panel';
 import styles from './style.module.css';
@@ -49,16 +52,22 @@ function useUpgradePrompt( site: SiteDetails, open: boolean ) {
 					! remote.isPressable &&
 					remote.hasStudioPublishingPlan === true
 		  );
+	const checkout = useMutation( {
+		mutationFn: async ( url: string ) => {
+			void connector.trackEvent( TRACKS_EVENTS.SYNC_PUBLISH_SITE );
+			// Watch first, so a quick return from checkout can't be missed.
+			void connector.watchForPublishedSite?.( site.id );
+			await connector.openExternalUrl( url );
+		},
+	} );
 	const checkoutUrl = connector.getPublishCheckoutUrl( site );
 	if ( ! user || ! checkoutUrl || connected.isPending || hasPlan !== false ) {
 		return null;
 	}
 	return {
-		choosePlan: () => {
-			void connector.trackEvent( TRACKS_EVENTS.SYNC_PUBLISH_SITE );
-			void connector.openExternalUrl( checkoutUrl );
-			void connector.watchForPublishedSite?.( site.id );
-		},
+		choosePlan: ( onOpened: () => void ) => checkout.mutate( checkoutUrl, { onSuccess: onOpened } ),
+		pending: checkout.isPending,
+		error: checkout.error,
 	};
 }
 
@@ -129,13 +138,12 @@ export function ShareDialog( {
 			<Button
 				variant="outline"
 				size="sm"
-				onClick={ () => {
-					upgrade.choosePlan();
-					onOpenChange( false );
-				} }
+				disabled={ upgrade.pending }
+				onClick={ () => upgrade.choosePlan( () => onOpenChange( false ) ) }
 			>
 				{ __( 'Choose a plan' ) }
 			</Button>
+			<FieldError>{ upgrade.error?.message }</FieldError>
 		</Field>
 	) : null;
 
@@ -227,9 +235,7 @@ export function ShareStatusIcon( {
 	return (
 		<span className={ styles.statusIcon }>
 			{ status.publishing ? <Spinner /> : icon }
-			{ status.ready && ! status.publishing ? (
-				<span className={ styles.readyDot } aria-hidden="true" />
-			) : null }
+			{ status.ready && ! status.publishing ? <NotificationDot position="icon" /> : null }
 		</span>
 	);
 }

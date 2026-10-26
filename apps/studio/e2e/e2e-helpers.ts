@@ -15,6 +15,14 @@ const ORIENTATION_GUIDE_VERSION = 2;
 
 export type PersistedSite = { id: string; name: string; path: string; port: number };
 
+export type LaunchOptions = {
+	firstRun?: boolean;
+	// Merged into the initial app data, e.g. `{ agenticFeaturesEnabled: true }`.
+	appData?: Record< string, unknown >;
+	// Merged into shared.json, e.g. an AI provider and its key.
+	sharedConfig?: Record< string, unknown >;
+};
+
 export class E2ESession {
 	electronApp!: ElectronApplication;
 	mainWindow!: Page;
@@ -51,7 +59,10 @@ export class E2ESession {
 	 * onboarding and the orientation guide, with AI features off so a signed-out site opens on its
 	 * preview rather than on a sign-in prompt.
 	 */
-	async launch( testEnv: NodeJS.ProcessEnv = {}, { firstRun = false } = {} ) {
+	async launch(
+		testEnv: NodeJS.ProcessEnv = {},
+		{ firstRun = false, appData, sharedConfig }: LaunchOptions = {}
+	) {
 		await fs.mkdir( this.appDataPath, { recursive: true } );
 		await fs.mkdir( this.homePath, { recursive: true } );
 		await fs.mkdir( this.cliConfigPath, { recursive: true } );
@@ -78,12 +89,20 @@ export class E2ESession {
 						},
 						agenticFeaturesEnabled: false,
 				  } ),
+			...appData,
 		};
 
 		await fs.writeFile(
 			path.join( studioAppDataPath, 'appdata-v1.json' ),
 			JSON.stringify( initialAppdata, null, 2 )
 		);
+		// On macOS the app's AppleLanguages default is shared by every session, and the app falls back
+		// to it without a saved locale, so a language another worker picks would leak in.
+		await fs.writeJson( path.join( this.sharedConfigPath, 'shared.json' ), {
+			version: 1,
+			locale: 'en',
+			...sharedConfig,
+		} );
 
 		await this.launchFirstWindow( testEnv );
 	}
@@ -165,6 +184,24 @@ export class E2ESession {
 			)
 			.toBeTruthy();
 		return site as PersistedSite;
+	}
+
+	async getAppConfig(): Promise< Record< string, unknown > > {
+		return fs.readJson( path.join( this.sharedConfigPath, 'app.json' ) );
+	}
+
+	// The text of the page the site preview shows.
+	async previewText(): Promise< string | undefined > {
+		const guestId = await this.mainWindow
+			.locator( 'webview' )
+			.evaluate( ( element ) =>
+				( element as HTMLElement & { getWebContentsId: () => number } ).getWebContentsId()
+			);
+		return this.electronApp.evaluate(
+			( { webContents }, id ) =>
+				webContents.fromId( id )?.executeJavaScript( 'document.body.innerText' ),
+			guestId
+		);
 	}
 
 	async getSiteUrl( siteName: string ) {
@@ -360,14 +397,15 @@ export class E2ESession {
  */
 export async function launchWithSite(
 	session: E2ESession,
-	{ folder, ...options }: Omit< CreateSiteOptions, 'pickFolder' > & { folder?: string } = {}
+	{ folder, ...options }: Omit< CreateSiteOptions, 'pickFolder' > & { folder?: string } = {},
+	launchOptions: LaunchOptions = {}
 ) {
 	const env: NodeJS.ProcessEnv = {};
 	if ( folder ) {
 		env.E2E_OPEN_FOLDER_DIALOG = path.join( session.homePath, 'Studio', folder );
 		await fs.mkdir( env.E2E_OPEN_FOLDER_DIALOG, { recursive: true } );
 	}
-	await session.launch( env );
+	await session.launch( env, launchOptions );
 	const siteName = await new AddSite( session.mainWindow ).createSite( {
 		...options,
 		pickFolder: Boolean( folder ),

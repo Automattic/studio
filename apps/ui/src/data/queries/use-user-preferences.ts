@@ -16,21 +16,53 @@ export function useUserPreferences() {
 	} );
 }
 
+type PreferencesPatch = Partial< WritableUserPreferences > & { source?: PreferenceChangeSource };
+
 export function useSaveUserPreferences() {
 	const connector = useConnector();
 	const queryClient = useQueryClient();
 	return useMutation( {
 		// `source` is Tracks-only metadata, split out so it never lands in the patch.
-		mutationFn: ( {
-			source,
-			...partial
-		}: Partial< WritableUserPreferences > & { source?: PreferenceChangeSource } ) =>
+		mutationFn: ( { source, ...partial }: PreferencesPatch ) =>
 			connector.setUserPreferences( partial, source ).then( () => partial ),
-		onSuccess: async ( partial ) => {
-			// A fetch still in flight may have read the preferences before this
-			// save landed; cancel it so its result can't overwrite the save.
+		// Applied before the write, so an older save landing can't undo a newer
+		// one (a slider stepped from the keyboard). The CLI toggle waits for its
+		// real state instead (see below).
+		onMutate: async ( { source: _source, ...partial }: PreferencesPatch ) => {
+			// Cancelled first: a fetch still in flight would revert or overwrite
+			// the patch when it settles.
 			await queryClient.cancelQueries( { queryKey: USER_PREFERENCES_QUERY_KEY } );
-
+			const previous = queryClient.getQueryData< UserPreferences >( USER_PREFERENCES_QUERY_KEY );
+			if ( ! previous || 'studioCliInstalled' in partial ) {
+				return undefined;
+			}
+			queryClient.setQueryData< UserPreferences >( USER_PREFERENCES_QUERY_KEY, {
+				...previous,
+				...partial,
+			} );
+			return { previous };
+		},
+		onError: ( _error, { source: _source, ...partial }, context ) => {
+			if ( ! context ) {
+				return;
+			}
+			const restored = Object.fromEntries(
+				Object.keys( partial ).map( ( key ) => [
+					key,
+					context.previous[ key as keyof UserPreferences ],
+				] )
+			);
+			queryClient.setQueryData< UserPreferences >( USER_PREFERENCES_QUERY_KEY, ( current ) =>
+				current ? { ...current, ...restored } : current
+			);
+		},
+		onSuccess: async ( partial, _variables, context ) => {
+			// A fetch that started during the save may have read the preferences
+			// before it landed; cancel it so its result can't overwrite the save.
+			await queryClient.cancelQueries( { queryKey: USER_PREFERENCES_QUERY_KEY } );
+			if ( context ) {
+				return;
+			}
 			// Main-process save handlers don't transform the input, so we merge
 			// the submitted partial directly into the cache instead of refetching
 			// every field.

@@ -3,7 +3,7 @@
 	min-height: 0;
 	position: relative;
 	overflow: hidden;
-	background-color: var(--chat);
+	background-color: var( --chat );
 }
 
 /* Opaque and above the preview slot so it covers the (still mounted)
@@ -21,18 +21,23 @@
 	min-height: 0;
 	z-index: 1;
 	overflow: auto;
-	background-color: var(--chat);
+	background-color: var( --chat );
 }
 
+/* The content reads its column's width beside the preview from
+   `--content-column-width`, and how long the column takes to get there from
+   `--content-column-motion`, so a width cap inside it can ease along. */
 .rootPreviewOpen .contentColumn {
-	width: var(--preview-frame-content-width);
+	--content-column-width: var( --preview-frame-content-width );
+
+	width: var( --content-column-width );
 }
 
 /* With both panes showing, the divider takes its own column between them:
    the band's surface in the band, a doubled border below it. The band's
    separator sits at the preview's edge. */
 .rootEdge::before {
-	--studio-column-edge: calc(var(--preview-frame-content-width) + 1px);
+	--studio-column-edge: calc( var( --preview-frame-content-width ) + 1px );
 
 	z-index: 2;
 }
@@ -41,33 +46,37 @@
 	content: '';
 	position: absolute;
 	inset-block: 0;
-	inset-inline-start: var(--preview-frame-content-width);
+	inset-inline-start: var( --preview-frame-content-width );
 	z-index: 2;
 	width: 1px;
 	background:
-		linear-gradient(var(--chrome) var(--band-height), var(--border) var(--band-height)),
-		linear-gradient(var(--border), var(--border)) var(--chrome);
+		linear-gradient( var( --chrome ) var( --band-height ), var( --border ) var( --band-height ) ),
+		linear-gradient( var( --border ), var( --border ) ) var( --chrome );
 	pointer-events: none;
 }
 
 .rootEdge .previewSlot {
-	width: calc(100% - var(--preview-frame-content-width) - 1px);
+	width: calc( 100% - var( --preview-frame-content-width ) - 1px );
 }
 
-.rootPreviewAnimating :is(.contentColumn, .previewSlot) {
-	transition: width var(--motion-duration-layout) var(--motion-ease-layout);
+.rootPreviewAnimating :is( .contentColumn, .previewSlot ) {
+	transition: width var( --motion-duration-layout ) var( --motion-ease-layout );
+}
+
+.rootPreviewAnimating .contentColumn {
+	--content-column-motion: var( --motion-duration-layout );
 }
 
 /* The chat header's actions fade back in once the column is halfway open,
    and fade out as soon as it closes. */
 .contentColumn [data-header-actions] {
-	transition: opacity var(--motion-duration-feedback) var(--motion-ease-enter)
-		calc(var(--motion-duration-layout) / 2);
+	transition: opacity var( --motion-duration-feedback ) var( --motion-ease-enter )
+		calc( var( --motion-duration-layout ) / 2 );
 }
 
 .contentColumnCollapsed [data-header-actions] {
 	opacity: 0;
-	transition: opacity var(--motion-duration-feedback) var(--motion-ease-enter);
+	transition: opacity var( --motion-duration-feedback ) var( --motion-ease-enter );
 }
 
 /* Full preview: the column is width 0 once the slide finishes; visibility
@@ -99,7 +108,7 @@
 /* The preview grows into the room the content column gives up, so its page
    reflows as the split opens and closes. */
 .rootPreviewOpen .previewSlot {
-	width: calc(100% - var(--preview-frame-content-width));
+	width: calc( 100% - var( --preview-frame-content-width ) );
 }
 
 .previewSlotInteractive {
@@ -111,15 +120,15 @@
 .previewResizeHandle {
 	position: absolute;
 	inset-block: 0;
-	inset-inline-start: var(--preview-frame-content-width);
+	inset-inline-start: var( --preview-frame-content-width );
 	z-index: 3;
-	padding-inline-start: 4px;
-	transform: translateX(-4px);
+	padding-inline-start: var( --space-1 );
+	transform: translateX( -4px );
 	justify-content: flex-start;
 }
 
 /* In RTL the handle is offset from the right edge, so the centering nudge
    flips too. */
-.previewResizeHandle:dir(rtl) {
-	transform: translateX(4px);
+.previewResizeHandle:dir( rtl ) {
+	transform: translateX( 4px );
 }

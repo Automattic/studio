@@ -47,12 +47,53 @@ function propsFor( events: AgentSessionEvent[], outcome: 'success' | 'error' = '
 	return tracker.getProps( { outcome, site: null, hasTool } );
 }
 
+function skillStart( args: unknown ): AgentSessionEvent {
+	return {
+		type: 'tool_execution_start',
+		toolCallId: 'Skill-id',
+		toolName: 'Skill',
+		args,
+	} as AgentSessionEvent;
+}
+
 describe( 'createTurnStatsTracker', () => {
+	it.each( [
+		{
+			name: 'two skills, one loaded twice',
+			events: [
+				skillStart( { name: 'visual-design' } ),
+				skillStart( { name: 'block-content' } ),
+				skillStart( { name: 'visual-design' } ),
+			],
+			expected: 'block-content,visual-design',
+		},
+		{
+			name: 'a name Studio ships no skill for',
+			events: [ skillStart( { name: '/Users/me/notes' } ), skillStart( {} ) ],
+			expected: '',
+		},
+		{
+			name: 'a site named after a skill',
+			events: [
+				{
+					type: 'tool_execution_start',
+					toolCallId: 'site_create-id',
+					toolName: 'site_create',
+					args: { name: 'liberate' },
+				} as AgentSessionEvent,
+			],
+			expected: '',
+		},
+	] )( 'reports the skills loaded in a turn: $name', ( { events, expected } ) => {
+		expect( propsFor( events ).skills_loaded ).toBe( expected );
+	} );
+
 	it( 'reports zeroes for a turn with no tools or model responses', () => {
 		expect( propsFor( [] ) ).toEqual( {
 			tool_calls: 0,
 			tool_errors: 0,
 			failed_tools: '',
+			skills_loaded: '',
 			edits: 0,
 			model_requests: 0,
 			input_tokens: 0,

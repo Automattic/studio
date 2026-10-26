@@ -6,10 +6,11 @@ import {
 } from '@studio/common/ai/composer-attachments';
 import {
 	formatVisualAnnotationsPrompt,
+	MAX_VISUAL_ANNOTATIONS,
 	validateStudioVisualAnnotations,
 	type StudioVisualAnnotationSummary,
 } from '@studio/common/ai/visual-annotations';
-import { _n, sprintf } from '@wordpress/i18n';
+import { __, _n, sprintf } from '@wordpress/i18n';
 import type { PreviewAnnotation } from './store';
 
 function truncateText( text: string, maxLength: number ): string {
@@ -56,6 +57,17 @@ export function annotationSubmission(
 				? { imageIds: ordinary.images.map( ( image ) => image.id ) }
 				: {} ),
 		} );
+	}
+	if ( visualAnnotations.length > MAX_VISUAL_ANNOTATIONS ) {
+		throw new Error(
+			sprintf(
+				/* translators: %d: maximum number of annotations in one message. */
+				__(
+					'You can send up to %d annotations at once. Send fewer annotations or send your message separately.'
+				),
+				MAX_VISUAL_ANNOTATIONS
+			)
+		);
 	}
 	validateStudioChatImages( images );
 	validateStudioVisualAnnotations( visualAnnotations, images );

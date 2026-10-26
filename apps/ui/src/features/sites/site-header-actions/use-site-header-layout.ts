@@ -1,4 +1,4 @@
-import { useLayoutEffect, useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 
 /**
  * How the header under the site actions fits them: everything inline, the
@@ -20,6 +20,8 @@ const pixels = ( value: string ) => parseFloat( value ) || 0;
 export function useSiteHeaderLayout( space: HTMLElement | null, actions: HTMLElement | null ) {
 	const [ layout, setLayout ] = useState< SiteHeaderLayout >( 'inline' );
 	const [ actionsWidth, setActionsWidth ] = useState( 0 );
+	// Set when the layout change folds away the focused control.
+	const refocus = useRef( false );
 
 	useLayoutEffect( () => {
 		const header = space?.closest< HTMLElement >( '[data-site-header]' );
@@ -66,6 +68,13 @@ export function useSiteHeaderLayout( space: HTMLElement | null, actions: HTMLEle
 				next = 'actions-overflow';
 			}
 			if ( next !== current ) {
+				const focused = document.activeElement;
+				refocus.current = Boolean(
+					focused &&
+						( actions.querySelector( '[data-site-header-trailing]' )?.contains( focused ) ||
+							( next !== 'inline' && focused.closest( '[data-address-action]' ) ) ||
+							( next === 'navigation-overflow' && navigation?.contains( focused ) ) )
+				);
 				current = next;
 				setLayout( next );
 			}
@@ -84,6 +93,19 @@ export function useSiteHeaderLayout( space: HTMLElement | null, actions: HTMLEle
 			mutations.disconnect();
 		};
 	}, [ actions, space ] );
+
+	// The More menu, or Share once it fits again, takes over from it.
+	useLayoutEffect( () => {
+		if ( ! refocus.current ) {
+			return;
+		}
+		refocus.current = false;
+		[
+			...( actions?.querySelectorAll< HTMLElement >( '[data-site-header-trailing] button' ) ?? [] ),
+		]
+			.find( ( button ) => ! button.closest( '[hidden]' ) )
+			?.focus();
+	}, [ actions, layout ] );
 
 	return { layout, actionsWidth };
 }

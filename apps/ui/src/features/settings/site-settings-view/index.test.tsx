@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useIsSiteBusy, useUpdateSite, useXdebugEnabledSite } from '@/data/queries/use-sites';
@@ -126,17 +126,19 @@ describe( 'SiteSettingsForm', () => {
 		} as SiteDetails );
 		renderForm( 'debugging' );
 
-		expect( screen.getByRole( 'switch', { name: 'Xdebug' } ) ).toHaveAttribute( 'data-disabled' );
-		expect(
-			screen.getByText( 'Xdebug is enabled on another site: Other Site' )
-		).toBeInTheDocument();
+		const xdebug = within( screen.getByRole( 'group', { name: 'Xdebug' } ) ).getByRole( 'switch' );
+		expect( xdebug ).toHaveAttribute( 'data-disabled' );
+		expect( xdebug ).toHaveAttribute( 'aria-invalid', 'true' );
+		expect( xdebug ).toHaveAccessibleDescription( 'Xdebug is enabled on another site: Other Site' );
 	} );
 
 	it( 'keeps an unsupported PHP version listed with the version that runs instead', () => {
 		renderForm( 'php', { ...SITE, phpVersion: '7.4' } );
 
 		expect( screen.getByRole( 'combobox', { name: 'PHP version' } ) ).toHaveTextContent( '7.4' );
-		expect( screen.getByText( 'Native PHP will use 8.2' ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'combobox', { name: 'PHP version' } ) ).toHaveAccessibleDescription(
+			'Native PHP will use 8.2'
+		);
 	} );
 
 	it( 'saves a renamed site', () => {
@@ -161,7 +163,9 @@ describe( 'SiteSettingsForm', () => {
 		fireEvent.change( screen.getByRole( 'textbox', { name: 'Site name' } ), {
 			target: { value: '' },
 		} );
-		expect( screen.getByText( 'Site name is required.' ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'textbox', { name: 'Site name' } ) ).toHaveAccessibleDescription(
+			'Site name is required.'
+		);
 		expect( screen.getByRole( 'button', { name: 'Save' } ) ).toBeDisabled();
 
 		fireEvent.change( screen.getByRole( 'textbox', { name: 'Site name' } ), {

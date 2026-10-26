@@ -86,7 +86,8 @@ UI is built on Base UI with its own primitives and theme. Icons come from `lucid
 The theme lives in `src/lib/theme/`:
 
 - `tokens.css`: every design token, below.
-- `base.css`: the page and element defaults (fonts, body, headings, icon size, reduced transparency).
+- `base.css`: the page and element defaults (fonts, body, headings, shared keyframes, reduced transparency).
+- `recipes.module.css`: declaration groups that components pull in with `composes` (truncation, the band's hairline, the image outline, the dot on an icon).
 - `index.ts`: applies the color scheme and the Appearance settings to the root; `accent-contrast.ts` and `color.ts` keep the accent readable; `motion.ts` reads the motion tokens from script.
 
 `tokens.css` defines every token the UI uses:
@@ -94,11 +95,15 @@ The theme lives in `src/lib/theme/`:
 - **Surfaces**, from lightest to darkest in light mode: `--surface-0`…`--surface-4`, named by role as `--background`, `--chrome` (sidebar, header band), `--chat`, `--composer`, `--popover` and `--muted` (cards, code, chips). `--hover` is the hover fill of the surface it sits on.
 - **Text and lines**: `--foreground`, `--muted-foreground`, `--border`, `--input`, `--ring`.
 - **Actions and status**: `--primary`, `--secondary`, `--accent` (and `--accent-text`, `--accent-foreground`), `--destructive`, `--success`, `--warning`, plus `--status-*` for the vivid status dots.
-- **Type, shape and motion**: `--font-sans`, `--font-mono`, `--text-xxs`…`--text-xl`, `--font-weight-*`, `--radius-*`, `--shadow-*`, `--z-*` layers, `--focus-width`, `--band-height`, `--control-size`, `--motion-duration-*` and `--motion-ease-*`.
+- **Type**: `--font-sans`, `--font-mono`, `--text-2xs`…`--text-2xl` (with `--text-*--line-height` where a size has its own line height), `--leading-*` and `--font-weight-*`.
+- **Space and shape**: `--space-*` on a 4px grid, numbered like Tailwind's spacing (`--space-1_5` is 6px), `--radius-*` up to `--radius-3xl` and `--radius-full`, `--shadow-*`, `--focus-width`, `--band-height` and `--control-size`.
+- **Layers and motion**: `--z-*` layers inside the workspace and above it, `--motion-duration-*` and `--motion-ease-*`. Media queries can't read tokens, so the one breakpoint, `( width < 640px )`, is written where it's used.
 
 Primitives live in `src/lib/ui/` (Button, IconButton, Dialog, Menu, Popover, Select, Field, Input, InputGroup, Textarea, Switch, Checkbox, Tooltip, Alert, Badge, Progress, Empty, Kbd, VisuallyHidden). They follow the rebuild's kit, sit in the `ui` cascade layer so feature CSS overrides them without specificity tricks, and import nothing from app code.
 
-Colors derive in CSS from a few inputs on the root element (`--tint-hue`, `--tint-intensity`, `--tint-saturation`, `--contrast`, `--accent-fill`), so light, dark and the Appearance settings change them without any palette code. Dark values apply under `[data-color-scheme='dark']`, on the root or on any element that should render in the other scheme.
+Outside `src/lib/theme/`, ESLint (`studio/use-theme-tokens`) flags literal colors, font sizes, radii, elevation shadows and stacking layers, and formats CSS with Prettier, so `npx eslint --fix` covers stylesheets too. A literal that has to stay carries an `eslint-disable-next-line` comment saying why.
+
+Colors derive in CSS from a few inputs on the root element (`--tint-hue`, `--tint-intensity`, `--tint-saturation`, `--contrast`, `--accent-fill`), so light, dark and the Appearance settings change them without any palette code. Dark values apply under `[data-color-scheme='dark']`, on the root or on any element that should render in the other scheme. Components follow the nearest scheme with `light-dark()` for a color, or a `[data-color-scheme='dark'] .x` selector for anything else; never `:root[...]` or `html[...]`, which ignore a scene's own scheme. A surface sets `--surface` to its fill, and `--muted` inside it steps up a shade on its own.
 
 ## Development
 
@@ -113,3 +118,11 @@ Or serve it in the browser through `studio ui`:
 ```bash
 npm run cli:build:ui && node apps/cli/dist/cli/main.mjs ui
 ```
+
+## Testing
+
+- **Behavior tests over the fake connector.** Render the real providers with `renderApp( { connector, path } )` (the whole app at a route) or `renderWithProviders( ui )` (one component) from `src/test/render.tsx`, over `createFakeConnector()` from `src/test/fake-connector.ts`: an in-memory `Connector` whose methods are `vi.fn`s and whose `emit()` drives the `on*` events. Seed its state, drive the UI, and assert what the user sees or the connector call it made. Don't `vi.mock` app modules; mock only browser or platform APIs jsdom lacks.
+- **Query by role and accessible name.** Reach for `data-*` attributes, class names or hook internals only when they are the contract under test.
+- **Plain unit tests for pure logic**, next to the module. The `ipc` and `local` connector adapters keep their own tests, since the fake connector bypasses them.
+- **`e2e/` is for critical Studio flows**, run on every platform: creating, previewing and managing a site, chatting, publishing and settings that persist. Keep it small; cover detailed UI behavior with behavior tests instead.
+- A bug fix comes with a regression test at the lowest level that shows the bug from the user's side.

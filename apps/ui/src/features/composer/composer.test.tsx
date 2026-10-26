@@ -1,7 +1,7 @@
 import { DEFAULT_MODEL } from '@studio/common/ai/models';
 import { getAiSkillCommands } from '@studio/common/ai/slash-commands';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { createRef, type ComponentProps } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
@@ -28,6 +28,7 @@ const connectorMocks = vi.hoisted( () => ( {
 	getAiSettings: vi.fn(),
 	getAuthUser: vi.fn(),
 	getStudioAssistantQuota: vi.fn(),
+	getStudioAssistantTopUpPricing: vi.fn(),
 	getUserPreferences: vi.fn(),
 	setUserPreferences: vi.fn(),
 	getFilePath: vi.fn( ( file: File ) => `/tmp/studio-attachments/${ file.name }` ),
@@ -150,6 +151,27 @@ describe( 'Composer menu', () => {
 				'Fast · WordPress.com · AI credits: 1.2M remaining'
 			)
 		);
+	} );
+
+	it( 'returns focus to the Model button when Add AI credits is cancelled', async () => {
+		connectorMocks.getStudioAssistantQuota.mockResolvedValue( {
+			costCap: 1_000_000,
+			studioCodeAiHasAccess: true,
+			hasPaymentMethod: true,
+			allowanceRemaining: 0,
+			purchasedRemaining: 1_000_000,
+		} );
+		connectorMocks.getStudioAssistantTopUpPricing.mockResolvedValue( {
+			options: [ { credits: 100_000, display: '$10' } ],
+		} );
+		renderComposer();
+
+		const trigger = await screen.findByRole( 'button', { name: 'Model' } );
+		fireEvent.click( trigger );
+		fireEvent.click( await screen.findByRole( 'option', { name: /^Get more credits/ } ) );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Cancel' } ) );
+
+		await waitFor( () => expect( trigger ).toHaveFocus() );
 	} );
 
 	it( 'lists only WordPress.com models until an Anthropic API key is saved', async () => {
@@ -302,31 +324,6 @@ describe( 'Composer menu', () => {
 		expect( screen.getByRole( 'button', { name: 'Queue message' } ) ).toBeEnabled();
 	} );
 
-	it( 'keeps the draft until the send is accepted, clearing only what was sent', async () => {
-		let acceptSend: () => void = () => {};
-		const onSend = vi.fn(
-			() =>
-				new Promise< void >( ( resolve ) => {
-					acceptSend = resolve;
-				} )
-		);
-		renderComposer( { onSend } );
-		const textarea = screen.getByRole( 'combobox' );
-
-		fireEvent.change( textarea, { target: { value: 'First message' } } );
-		fireEvent.click( screen.getByRole( 'button', { name: 'Send message' } ) );
-		expect( textarea ).toHaveValue( 'First message' );
-
-		await act( async () => acceptSend() );
-		expect( textarea ).toHaveValue( '' );
-
-		fireEvent.change( textarea, { target: { value: 'Second message' } } );
-		fireEvent.click( screen.getByRole( 'button', { name: 'Send message' } ) );
-		fireEvent.change( textarea, { target: { value: 'Second message, edited meanwhile' } } );
-		await act( async () => acceptSend() );
-		expect( textarea ).toHaveValue( 'Second message, edited meanwhile' );
-	} );
-
 	it( 'sends staged annotations with the message once the agent is idle', async () => {
 		const onSend = vi.fn().mockResolvedValue( undefined );
 		const id = pickAnnotation( 'composer-site', { tag: 'h1', selector: 'h1', path: '/' } )!;
@@ -369,6 +366,25 @@ describe( 'Composer menu', () => {
 
 		renderComposer();
 		expect( screen.getByRole( 'combobox' ) ).toHaveValue( 'Retry this draft' );
+	} );
+
+	it( 'keeps a sent draft out of the composer reopened before the send is accepted', async () => {
+		connectorMocks.getStudioAssistantQuota.mockReset();
+		const onSend = vi.fn( () => new Promise< void >( () => {} ) );
+		const { container, rerenderComposer } = renderComposer( { onSend } );
+		fireEvent.change( screen.getByRole( 'combobox' ), { target: { value: 'Sent message' } } );
+		fireEvent.change( container.querySelector( 'input[type="file"]' ) as HTMLInputElement, {
+			target: { files: [ new File( [ 'Sent' ], 'sent.txt', { type: 'text/plain' } ) ] },
+		} );
+		await screen.findByRole( 'listitem', { name: /^sent\.txt/ } );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Send message' } ) );
+		await waitFor( () => expect( onSend ).toHaveBeenCalledOnce() );
+
+		rerenderComposer( { onSend, sessionId: 'session-2' } );
+		rerenderComposer( { onSend } );
+
+		expect( screen.getByRole( 'combobox' ) ).toHaveValue( '' );
+		expect( screen.queryByRole( 'listitem' ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'holds sends behind the out-of-credits notice and flags a blocked send', async () => {

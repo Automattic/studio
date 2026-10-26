@@ -19,9 +19,13 @@ export function useRevealedSites( activeSiteKey: string | undefined, autoCollaps
 		}
 	}, [ activeSiteKey ] );
 	const collapseAll = useCallback( () => setRevealed( new Set() ), [] );
+	const fold = ( siteIds: string[] ) =>
+		setRevealed(
+			( current ) => new Set( [ ...current ].filter( ( id ) => ! siteIds.includes( id ) ) )
+		);
 	const toggle = ( siteId: string ) =>
 		setRevealed( ( current ) =>
 			toggleRevealedSite( current, siteId, activeSiteKey, autoCollapse )
 		);
-	return { revealed, collapseAll, toggle };
+	return { revealed, collapseAll, fold, toggle };
 }

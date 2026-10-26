@@ -1,12 +1,13 @@
 import { QueryClientProvider } from '@tanstack/react-query';
 import { defaultI18n } from '@wordpress/i18n';
 import { I18nProvider } from '@wordpress/react-i18n';
+import { LucideProvider } from 'lucide-react';
 import { useLayoutEffect } from 'react';
 import { AgentRunProvider } from '@/data/agent-runs/provider';
-import { ConnectorProvider, queryClient } from '@/data/core';
+import { ConnectorProvider, queryClient as defaultQueryClient } from '@/data/core';
 import { useColorScheme } from '@/data/host/use-color-scheme';
 import { useSyncAppUpdateStatus } from '@/data/queries/use-app-update';
-import { useAuthChangeToasts } from '@/data/queries/use-auth-user';
+import { useAuthChangeToasts, useSyncAuthUserWithEvents } from '@/data/queries/use-auth-user';
 import { useSyncSessionsWithEvents } from '@/data/queries/use-sessions';
 import { useAutoStartSites, useSyncSitesWithEvents } from '@/data/queries/use-sites';
 import { useSyncSnapshotsWithEvents } from '@/data/queries/use-snapshots';
@@ -17,10 +18,12 @@ import { useSyncConnectSiteListener } from '@/features/sync';
 import { applyTheme } from '@/lib/theme';
 import { TooltipProvider } from '@/lib/ui';
 import type { Connector } from '@/data/core';
+import type { QueryClient } from '@tanstack/react-query';
 import type { PropsWithChildren } from 'react';
 
 interface AppProvidersProps extends PropsWithChildren {
 	connector: Connector;
+	queryClient?: QueryClient;
 }
 
 function SiteEventsBridge() {
@@ -28,6 +31,7 @@ function SiteEventsBridge() {
 	useSyncSnapshotsWithEvents();
 	useSyncSessionsWithEvents();
 	useSyncActivityEvents();
+	useSyncAuthUserWithEvents();
 	useSyncConnectSiteListener();
 	useAutoStartSites();
 	useSyncAppUpdateStatus();
@@ -48,13 +52,19 @@ function ThemedApp( { children }: PropsWithChildren ) {
 		[ colorScheme, accentColor, tintIntensity, contrast ]
 	);
 	return (
-		<TooltipProvider>
-			<OnboardingGuideProvider>{ children }</OnboardingGuideProvider>
-		</TooltipProvider>
+		<LucideProvider size={ 16 }>
+			<TooltipProvider>
+				<OnboardingGuideProvider>{ children }</OnboardingGuideProvider>
+			</TooltipProvider>
+		</LucideProvider>
 	);
 }
 
-export function AppProviders( { children, connector }: AppProvidersProps ) {
+export function AppProviders( {
+	children,
+	connector,
+	queryClient = defaultQueryClient,
+}: AppProvidersProps ) {
 	return (
 		<ConnectorProvider connector={ connector }>
 			<QueryClientProvider client={ queryClient }>

@@ -17,7 +17,7 @@ import {
 import { useInstalledApps } from '@/data/queries/use-installed-apps';
 import { useUserLocale } from '@/data/queries/use-user-locale';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
-import { hasCustomPanelWidths, resetPanelWidths } from '@/data/resizable-panels';
+import { hasCustomPanelLayout, resetPanelLayout } from '@/data/resizable-panels';
 import { applyColorTint, DEFAULT_COLOR_TINT, isDefaultColorTint } from '@/lib/theme';
 import { Input, Button } from '@/lib/ui';
 import { AccountSection } from './account-section';
@@ -104,7 +104,6 @@ function DefaultSiteDirectoryRow( {
 						event.preventDefault();
 						if ( directory && directory !== value ) {
 							onSave( directory );
-							setDraft( null );
 						}
 					} }
 				>
@@ -140,10 +139,10 @@ function DefaultSiteDirectoryRow( {
 	);
 }
 
-// True when every interface preference and panel width is at its default.
+// True when every interface preference and the panel layout are at their defaults.
 function isDefaultInterface( saved: UserPreferences ) {
 	return (
-		! hasCustomPanelWidths() &&
+		! hasCustomPanelLayout() &&
 		Object.entries( INTERFACE_PREFERENCE_DEFAULTS ).every(
 			( [ key, value ] ) => ( saved[ key as keyof UserPreferences ] ?? value ) === value
 		)
@@ -367,7 +366,7 @@ function usePreferencesForm() {
 	);
 
 	const resetInterface = () =>
-		savePreferences.mutate( { ...INTERFACE_PREFERENCE_DEFAULTS }, { onSuccess: resetPanelWidths } );
+		savePreferences.mutate( { ...INTERFACE_PREFERENCE_DEFAULTS }, { onSuccess: resetPanelLayout } );
 
 	return {
 		saved,
@@ -470,6 +469,7 @@ export function InstructionsSettings( { onManageSite }: { onManageSite?: () => v
 							</SettingsSectionLink>
 						) : null
 					}
+					error={ setEnabled.error?.message }
 				>
 					<SettingsToggle
 						label={ __( 'Agent instructions' ) }

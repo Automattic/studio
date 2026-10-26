@@ -14,16 +14,18 @@ import type { FormData } from './form-data';
 export function PathField( {
 	data: item,
 	error,
+	requiresEmptyPath,
 	onChange,
 }: {
 	data: FormData;
 	error: string;
+	requiresEmptyPath?: boolean;
 	onChange: ( update: Partial< FormData > ) => void;
 } ) {
 	const id = useId();
 	const connector = useConnector();
 	const { data: sites } = useSites();
-	const { selectPath } = usePathValidator( sites );
+	const { selectPath } = usePathValidator( sites, requiresEmptyPath );
 	const isNative = connector.capabilities.nativeFolderPicker;
 
 	const handleSelect = useCallback( async () => {
@@ -39,11 +41,15 @@ export function PathField( {
 	}, [ item.hasCustomPath, item.name, item.path, onChange, selectPath ] );
 
 	const help =
-		item.path && item.isWordPress ? (
+		item.path && item.isWordPress && ! requiresEmptyPath ? (
 			__( 'The existing WordPress site at this path will be added.' )
 		) : (
 			<>
-				{ __( 'Select an empty directory or a directory with an existing WordPress site.' ) }{ ' ' }
+				{ requiresEmptyPath
+					? __( 'Select an empty directory.' )
+					: __(
+							'Select an empty directory or a directory with an existing WordPress site.'
+					  ) }{ ' ' }
 				<LearnMoreLink docsLinksKey="docsSites" />
 			</>
 		);

@@ -84,6 +84,10 @@ export function useSessions() {
 	return useQuery( {
 		queryKey: SESSIONS_QUERY_KEY,
 		queryFn: () => connector.getSessions(),
+		// The sidebar mounts its retry row once a first load fails: refetched on
+		// that mount, the list would go back to loading, unmount the row, fail
+		// again and repeat forever.
+		retryOnMount: false,
 	} );
 }
 

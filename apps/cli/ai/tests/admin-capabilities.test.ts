@@ -73,6 +73,14 @@ describe.runIf( WORDPRESS )(
 				absent: [ 'Post type', 'capability_type' ],
 			},
 			{
+				// As WooCommerce's install gives the administrator role edit_product.
+				name: 'a role holding the meta capabilities a post type names from its capability_type',
+				code: plugin(
+					"register_post_type( 'product', array( 'public' => true, 'map_meta_cap' => true, 'capability_type' => 'product' ) ); get_role( 'administrator' )->add_cap( 'edit_product' ); get_role( 'administrator' )->add_cap( 'read_product' );"
+				),
+				problem: undefined,
+			},
+			{
 				name: 'a post type with capabilities of its own',
 				code: plugin(
 					"register_post_type( 'book', array( 'public' => true, 'map_meta_cap' => true, 'capability_type' => 'book' ) );"

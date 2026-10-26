@@ -7,7 +7,10 @@
  * post type that names a primitive capability, such as edit_posts, as its
  * edit_post, read_post or delete_post makes WordPress map that capability as
  * the meta capability for every check (_post_type_meta_capabilities() in
- * wp-includes/post.php).
+ * wp-includes/post.php). The meta capabilities a post type names from its own
+ * capability_type (get_post_type_capabilities()) need a post by design, so a
+ * role that holds them, as WooCommerce gives the administrator edit_product,
+ * is not reported.
  *
  * When the PHP of a site's active plugins or themes changes, or the plugins and theme active change, Studio asks WordPress
  * which of the role's capabilities user_can() denies the first administrator,
@@ -38,12 +41,21 @@ foreach ( $admins && $role ? array_keys( array_filter( $role->capabilities ) ) :
 		continue;
 	}
 	$types = array();
+	$own   = false;
 	foreach ( isset( $post_type_meta_caps[ $cap ] ) ? get_post_types( array( 'map_meta_cap' => true ), 'objects' ) : array() as $type ) {
 		foreach ( array( 'read_post', 'edit_post', 'delete_post' ) as $meta ) {
 			if ( $type->cap->$meta === $cap ) {
-				$types[] = array( $type->name, $meta );
+				// The meta capability get_post_type_capabilities() names from the
+				// type's capability_type, as WooCommerce's edit_product, needs a post
+				// by design, whatever roles hold its name.
+				$singular = ( (array) $type->capability_type )[0];
+				$own      = $own || $cap === str_replace( '_post', '_' . $singular, $meta );
+				$types[]  = array( $type->name, $meta );
 			}
 		}
+	}
+	if ( $own ) {
+		continue;
 	}
 	$denied['caps']->$cap = array( 'mapped' => map_meta_cap( $cap, $denied['user'] ), 'types' => $types );
 }

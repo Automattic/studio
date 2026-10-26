@@ -59,7 +59,7 @@ export async function getReprintMetadata( options: {
 	}
 }
 
-export function decodeReprintPath( value: string ): string {
+function decodeReprintPath( value: string ): string {
 	const prefix = 'base64:';
 	return value.startsWith( prefix )
 		? Buffer.from( value.slice( prefix.length ), 'base64' ).toString( 'utf-8' )

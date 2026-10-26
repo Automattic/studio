@@ -1,0 +1,149 @@
+/* Navigation at the start, the address centred in the room left over, and
+   actions at the end. */
+.header {
+	composes: bandEdge from '@/lib/theme/recipes.module.css';
+	position: relative;
+	display: flex;
+	align-items: center;
+	gap: var( --space-3 );
+	padding-inline: var( --space-3 ) var( --space-2 );
+	height: var( --band-height );
+	flex-shrink: 0;
+	transition: padding var( --motion-duration-layout ) var( --motion-ease-layout );
+	background-color: var( --chrome );
+	-webkit-app-region: drag;
+}
+
+/* Clears the macOS traffic lights, which always sit at the window's physical
+   top-left — hence the physical padding rather than an inline-start one. */
+.headerTrafficLights {
+	padding-left: var( --traffic-light-space );
+}
+
+/* The toolbar doubles as a window drag region; the controls (including the
+   omnibox trigger button) opt back out so they keep receiving mouse events. */
+.header button {
+	-webkit-app-region: no-drag;
+}
+
+.headerSide {
+	display: flex;
+	flex-shrink: 0;
+	align-items: center;
+	gap: var( --space-1 );
+}
+
+.browserLocation {
+	display: flex;
+	flex: 1;
+	align-items: center;
+	justify-content: center;
+	min-width: 0;
+}
+
+/* Out of room, the address gives way rather than push the actions over it. */
+.browserLocationInline[data-site-header-address] {
+	min-width: 72px;
+}
+
+/* Holds the address field's place while the site starts or stops. */
+.addressStatus {
+	composes: truncate from '@/lib/theme/recipes.module.css';
+	display: flex;
+	flex: 1 1 auto;
+	min-width: 0;
+	max-width: 416px;
+	height: var( --control-size );
+	align-items: center;
+	justify-content: center;
+	padding-inline: var( --space-3 );
+	border: 1px solid var( --border );
+	border-radius: var( --radius-full );
+	color: var( --muted-foreground );
+	font-size: var( --text-xxs );
+	user-select: none;
+}
+
+.historyEntry {
+	display: flex;
+	width: min( 320px, calc( 100vw - 64px ) );
+	min-width: 0;
+	flex-direction: column;
+}
+
+.historyTitle {
+	composes: truncate from '@/lib/theme/recipes.module.css';
+	color: var( --foreground );
+}
+
+.historyPath {
+	composes: truncate from '@/lib/theme/recipes.module.css';
+	color: var( --muted-foreground );
+	font-size: var( --text-2xs );
+}
+
+.disabledControlTooltipTarget {
+	display: inline-flex;
+}
+
+.annotateButton {
+	gap: var( --space-1 );
+}
+
+.annotateButtonActive {
+	--button-hover-background: color-mix( in srgb, var( --accent ) 15%, transparent );
+	--button-hover-color: var( --accent-text );
+}
+
+.annotateButtonActive:not( :disabled ) {
+	opacity: 1;
+}
+
+/* 2px bar overlapping the header's bottom border, like a browser's page-load
+   indicator. The inner span is scaled by inline style as progress advances. */
+.loadingProgress {
+	position: absolute;
+	bottom: -1px;
+	left: 0;
+	right: 0;
+	z-index: 1;
+	height: 2px;
+	overflow: hidden;
+	pointer-events: none;
+}
+
+.loadingProgress span {
+	position: absolute;
+	inset: 0;
+	display: block;
+	width: 100%;
+	background-color: var( --accent-text );
+	transform-origin: left center;
+	transition: transform 160ms ease-out;
+}
+
+/* Page-load progress grows from the reading start. */
+.loadingProgress span:dir( rtl ) {
+	transform-origin: right center;
+}
+
+.navigation {
+	display: flex;
+	align-items: center;
+}
+
+/* Out of room: the navigation moves into the More menu, but keeps its size
+   so the header can tell when it fits again. */
+.navigationHidden {
+	position: absolute;
+	visibility: hidden;
+	pointer-events: none;
+}
+
+.toolbarStart,
+.headerItem {
+	display: flex;
+	align-items: center;
+	gap: var( --space-1 );
+	flex-shrink: 0;
+}

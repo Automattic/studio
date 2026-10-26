@@ -1,5 +1,6 @@
 import { __, sprintf } from '@wordpress/i18n';
 import { z } from 'zod';
+import { isAutomatticianEmail } from './automattician';
 
 export const STUDIO_ASSISTANT_QUOTA_URL =
 	'https://public-api.wordpress.com/wpcom/v2/studio-app/ai-assistant/quota';
@@ -134,6 +135,17 @@ export function hasPaidAiCredits(
 	return ( quota?.purchasedRemaining ?? 0 ) > 0;
 }
 
+/**
+ * Whether the paid model tiers are unlocked: purchased credits remain, or the
+ * account is an Automattician's, which the credit gate exempts.
+ */
+export function canUsePaidAiModels(
+	quota: Pick< StudioAssistantQuota, 'purchasedRemaining' > | null | undefined,
+	email: string | undefined | null
+): boolean {
+	return hasPaidAiCredits( quota ) || isAutomatticianEmail( email );
+}
+
 export type StudioCodeAiAccessState = 'available' | 'blocked' | 'not-enabled';
 
 /**
@@ -154,25 +166,36 @@ export function getStudioCodeAiAccessState(
 	return quota.studioCodeAiAccess === 'blocked' ? 'blocked' : 'not-enabled';
 }
 
+// The message of the error `requestStudioAssistantQuota` rejects with when
+// WordPress.com can't be reached, which browsers may not report as offline.
+export const STUDIO_ASSISTANT_QUOTA_OFFLINE = 'offline';
+
 /**
- * Fetch the account's Studio AI quota from WordPress.com. Resolves `null` on
- * any failure (network, auth, unexpected shape) so callers can fall back to
- * static copy.
+ * Fetch the account's Studio AI quota from WordPress.com. Rejects with
+ * `STUDIO_ASSISTANT_QUOTA_OFFLINE` when the request can't be sent at all.
+ */
+export async function requestStudioAssistantQuota(
+	accessToken: string
+): Promise< StudioAssistantQuota > {
+	const response = await fetch( STUDIO_ASSISTANT_QUOTA_URL, {
+		headers: { Authorization: `Bearer ${ accessToken }` },
+	} ).catch( () => {
+		throw new Error( STUDIO_ASSISTANT_QUOTA_OFFLINE );
+	} );
+	if ( ! response.ok ) {
+		throw new Error( `Failed to fetch Studio assistant quota: ${ response.status }` );
+	}
+	return studioAssistantQuotaSchema.parse( await response.json() );
+}
+
+/**
+ * Like `requestStudioAssistantQuota`, but resolves `null` on any failure so
+ * callers can fall back to static copy.
  */
 export async function fetchStudioAssistantQuota(
 	accessToken: string
 ): Promise< StudioAssistantQuota | null > {
-	try {
-		const response = await fetch( STUDIO_ASSISTANT_QUOTA_URL, {
-			headers: { Authorization: `Bearer ${ accessToken }` },
-		} );
-		if ( ! response.ok ) {
-			return null;
-		}
-		return studioAssistantQuotaSchema.parse( await response.json() );
-	} catch {
-		return null;
-	}
+	return requestStudioAssistantQuota( accessToken ).catch( () => null );
 }
 
 export function clampQuotaFraction( value: number, maxValue: number ): number {
@@ -320,30 +343,6 @@ export function formatAiCreditsUsageTitle( fraction: number, locale?: string ): 
 
 export function formatAiCreditsThresholdDescription(): string {
 	return __( 'Add AI credits to keep chatting without interruption.' );
-}
-
-export function formatAiCreditsUsedLabel(
-	meter: Pick< AiCreditsMeter, 'usedCredits' | 'totalCredits' >,
-	locale?: string
-): string {
-	const credits = new Intl.NumberFormat( locale );
-	return sprintf(
-		/* translators: 1: AI credits used (e.g. 1,200,000). 2: total AI credits the meter is measured against (e.g. 1,500,000). */
-		__( '%1$s of %2$s AI credits used' ),
-		credits.format( meter.usedCredits ),
-		credits.format( meter.totalCredits )
-	);
-}
-
-export function formatAiCreditsAvailableLabel(
-	meter: Pick< AiCreditsMeter, 'remainingCredits' >,
-	locale?: string
-): string {
-	return sprintf(
-		/* translators: %s: number of AI credits still available (e.g. 300,000). */
-		__( '%s available' ),
-		new Intl.NumberFormat( locale ).format( meter.remainingCredits )
-	);
 }
 
 /**

@@ -21,7 +21,6 @@ export const ROOT_CA_CERT_PATH = path.join( getCertificatesPath(), 'studio-ca.cr
 
 /**
  * Checks if the root CA certificate is already trusted by the system
- * @returns A promise that resolves to true if the certificate is trusted, false otherwise
  */
 export async function isRootCATrusted(): Promise< boolean > {
 	if ( ! fs.existsSync( ROOT_CA_CERT_PATH ) ) {
@@ -89,7 +88,6 @@ export async function trustRootCA(): Promise< void > {
 
 		const platform = process.platform;
 		if ( platform === 'win32' ) {
-			// Windows - Use certutil
 			await new Promise< void >( ( resolve, reject ) => {
 				sudo.exec(
 					`certutil -addstore -f "ROOT" "${ ROOT_CA_CERT_PATH }"`,

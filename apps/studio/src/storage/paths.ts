@@ -1,6 +1,4 @@
 import { app } from 'electron';
-import fs from 'fs';
-import fsPromises from 'fs/promises';
 import path from 'path';
 import { getAppConfigPath } from '@studio/common/lib/well-known-paths';
 
@@ -91,20 +89,4 @@ function getAppName(): string {
 		throw new Error( 'Electron app not available in child process' );
 	}
 	return app.getName();
-}
-
-async function ensurePathIsDirectory( directory: string ) {
-	const stats = await fsPromises.stat( directory );
-	if ( ! stats.isDirectory() ) {
-		throw new Error( 'Selected path is not a directory.' );
-	}
-}
-
-async function ensurePathIsWritable( directory: string ) {
-	await fsPromises.access( directory, fs.constants.W_OK );
-}
-
-export async function ensureWritableDirectory( directory: string ) {
-	await ensurePathIsDirectory( directory );
-	await ensurePathIsWritable( directory );
 }

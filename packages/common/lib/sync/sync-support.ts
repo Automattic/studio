@@ -14,6 +14,12 @@ function hasSupportedPlan( site: SitesEndpointSite ): boolean {
 	return site.plan?.features.active.includes( STUDIO_SYNC_FEATURE_NAME ) ?? false;
 }
 
+export function hasStudioPublishingPlan( site: SitesEndpointSite ): boolean {
+	return Boolean(
+		site.plan && ! site.plan.expired && ! site.plan.is_free && hasSupportedPlan( site )
+	);
+}
+
 // Sites hosted outside wp.com and Pressable (e.g. jurassic.ninja).
 function isUnsupported( site: SitesEndpointSite ): boolean {
 	return !! site.jetpack && ! isAtomicSite( site );

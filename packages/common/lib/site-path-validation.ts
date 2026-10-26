@@ -19,9 +19,20 @@ export interface PathValidationResult extends SitePathDetails {
 	error?: string;
 }
 
+function getContentsError( { isEmpty, isWordPress }: SitePathDetails, requiresEmptyPath: boolean ) {
+	if ( isEmpty ) {
+		return undefined;
+	}
+	if ( requiresEmptyPath ) {
+		return __( 'Choose an empty folder for your site.' );
+	}
+	return isWordPress ? undefined : __( 'Choose an empty folder or an existing WordPress site.' );
+}
+
 export function validateProposedSitePath(
 	result: ProposedSitePathDetails,
-	pathExists: boolean
+	pathExists: boolean,
+	requiresEmptyPath = false
 ): PathValidationResult {
 	const base = {
 		path: result.path,
@@ -31,7 +42,7 @@ export function validateProposedSitePath(
 	if ( result.isNameTooLong ) {
 		return {
 			...base,
-			error: __( 'The site name is too long. Please choose a shorter site name.' ),
+			error: __( 'Use a shorter site name.' ),
 		};
 	}
 	if ( pathExists ) {
@@ -42,20 +53,14 @@ export function validateProposedSitePath(
 			),
 		};
 	}
-	if ( ! result.isEmpty && ! result.isWordPress ) {
-		return {
-			...base,
-			error: __(
-				'This directory is not empty. Please select an empty directory or an existing WordPress folder.'
-			),
-		};
-	}
-	return base;
+	const error = getContentsError( result, requiresEmptyPath );
+	return error ? { ...base, error } : base;
 }
 
 export function validateSelectedSitePath(
 	result: SelectedSitePathDetails,
-	pathExists: boolean
+	pathExists: boolean,
+	requiresEmptyPath = false
 ): PathValidationResult {
 	const base = {
 		path: result.path,
@@ -71,13 +76,6 @@ export function validateSelectedSitePath(
 			),
 		};
 	}
-	if ( ! result.isEmpty && ! result.isWordPress ) {
-		return {
-			...base,
-			error: __(
-				'This directory is not empty. Please select an empty directory or an existing WordPress folder.'
-			),
-		};
-	}
-	return base;
+	const error = getContentsError( result, requiresEmptyPath );
+	return error ? { ...base, error } : base;
 }

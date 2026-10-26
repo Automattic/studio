@@ -71,8 +71,8 @@ async function loadRendererLocation( window: BrowserWindow, location: RendererLo
 		// A build that skipped `scripts/build-ui-renderer.ts`, e.g. a stale `dist/`.
 		console.error( 'Studio renderer not found:', location.filePath );
 		dialog.showErrorBox(
-			'Studio could not start',
-			`The app's interface is missing (${ location.filePath }). Rebuild Studio and try again.`
+			'WordPress Studio could not start',
+			`The app's interface is missing (${ location.filePath }). Rebuild WordPress Studio and try again.`
 		);
 		app.quit();
 		return;
@@ -199,7 +199,6 @@ export async function createMainWindow(): Promise< BrowserWindow > {
 		}
 	} );
 
-	// Restore fullscreen state if it was saved
 	if ( savedBounds?.isFullScreen ) {
 		mainWindow.setFullScreen( true );
 	}
@@ -241,7 +240,6 @@ export async function createMainWindow(): Promise< BrowserWindow > {
 
 	mainWindow.on( 'enter-full-screen', () => {
 		sendIpcEventToRendererWithWindow( mainWindow, 'window-fullscreen-change', true );
-		// Save fullscreen state
 		if ( mainWindow && ! mainWindow.isDestroyed() ) {
 			const bounds = mainWindow.getBounds();
 			void saveWindowBounds( { ...bounds, isFullScreen: true } );
@@ -250,7 +248,6 @@ export async function createMainWindow(): Promise< BrowserWindow > {
 
 	mainWindow.on( 'leave-full-screen', () => {
 		sendIpcEventToRendererWithWindow( mainWindow, 'window-fullscreen-change', false );
-		// Save bounds after leaving fullscreen
 		if ( mainWindow && ! mainWindow.isDestroyed() ) {
 			const bounds = mainWindow.getBounds();
 			void saveWindowBounds( { ...bounds, isFullScreen: false } );
@@ -292,9 +289,9 @@ export function setAgenticControlsSurface( surface: WindowControlsSurface ) {
 
 export function getTitleBarOverlayOptions() {
 	const isDark = nativeTheme.shouldUseDarkColors;
-	// The content surface tracks `--wpds-color-background-surface-neutral`; the
-	// toolbars, and the default, `--wpds-color-background-surface-neutral-strong`.
-	const toolbar = isDark ? '#1c1c1c' : '#ffffff';
+	// The renderer's `--chrome` (the toolbars, and the default) and `--chat`
+	// (the content surface) tokens at the default appearance, and `--foreground`.
+	const toolbar = isDark ? '#1b1b1b' : '#ffffff';
 	const surfaceColors = {
 		chrome: toolbar,
 		content: isDark ? '#141414' : '#fafafa',
@@ -302,7 +299,7 @@ export function getTitleBarOverlayOptions() {
 	};
 	return {
 		color: surfaceColors[ agenticControlsSurface ],
-		symbolColor: isDark ? '#e0e0e0' : '#1e1e1e',
+		symbolColor: isDark ? '#cecece' : '#282828',
 		height: AGENTIC_TITLEBAR_HEIGHT,
 	};
 }

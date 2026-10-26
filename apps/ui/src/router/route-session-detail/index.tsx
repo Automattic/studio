@@ -1,21 +1,12 @@
-import { createRoute, redirect, useNavigate } from '@tanstack/react-router';
-import { useEffect } from 'react';
-import { SessionView } from '@/components/session-view';
-import { resolveAgenticFeatures, useAgenticFeatures } from '@/data/queries/use-agentic-features';
+import { createRoute, redirect } from '@tanstack/react-router';
+import { resolveChatEnabled } from '@/data/queries/use-agentic-features';
+import { SessionView } from '@/features/chats';
+import { HeaderSidebarToggle } from '@/features/sidebar';
 import { dashboardLayoutRoute } from '../layout-dashboard';
 
 function SessionDetail() {
 	const { sessionId } = sessionDetailRoute.useParams();
-	const navigate = useNavigate();
-	const { isReady, chatEnabled } = useAgenticFeatures();
-
-	useEffect( () => {
-		if ( isReady && ! chatEnabled ) {
-			void navigate( { to: '/' } );
-		}
-	}, [ isReady, chatEnabled, navigate ] );
-
-	return <SessionView sessionId={ sessionId } />;
+	return <SessionView sessionId={ sessionId } headerStart={ <HeaderSidebarToggle /> } />;
 }
 
 export const sessionDetailRoute = createRoute( {
@@ -23,8 +14,7 @@ export const sessionDetailRoute = createRoute( {
 	path: '/sessions/$sessionId',
 	component: SessionDetail,
 	beforeLoad: async ( { context } ) => {
-		const { chatEnabled } = await resolveAgenticFeatures( context );
-		if ( ! chatEnabled ) {
+		if ( ! ( await resolveChatEnabled( context ) ) ) {
 			throw redirect( { to: '/' } );
 		}
 	},

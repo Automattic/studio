@@ -1,155 +1,113 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, renderHook } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { resetAiCreditsNoticeForTests } from '@/data/ai-credits-notice';
-import { getNoticeHistory, resetAppMessagesForTests } from '@/data/app-messages';
-import { useAiCreditsMeter } from '@/hooks/use-ai-credits-meter';
+import { act, renderHook, waitFor } from '@testing-library/react';
+import { describe, expect, it } from 'vitest';
+import { AppProviders } from '@/app/app-providers';
+import { getNoticeHistory } from '@/data/app-messages';
+import { createFakeConnector, TEST_USER } from '@/test/fake-connector';
+import { createTestQueryClient } from '@/test/render';
 import { useActivePersistentMessages, useRecordPersistentMessages } from './use-app-messages';
-import type { PersistentMessage } from './use-app-messages';
+import { ASSISTANT_QUOTA_QUERY_KEY } from './use-assistant-quota';
+import type { StudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 import type { ReactNode } from 'react';
 
-vi.mock( '@/data/core', () => ( {
-	useConnector: () => ( { installAppUpdate: vi.fn() } ),
-} ) );
-vi.mock( '@/data/queries/use-app-update', () => ( {
-	useAppUpdateStatus: () => ( { data: undefined } ),
-} ) );
-vi.mock( '@/data/queries/use-user-locale', () => ( { useUserLocale: () => 'en' } ) );
-vi.mock( '@/hooks/use-ai-credits-meter', () => ( { useAiCreditsMeter: vi.fn() } ) );
+const quotaAt = ( fraction: number ) =>
+	( {
+		costUsage: 0,
+		costCap: 1000000,
+		allowanceRemaining: Math.round( 1000000 * ( 1 - fraction ) ),
+	} ) as StudioAssistantQuota;
 
-const useMeterMock = vi.mocked( useAiCreditsMeter );
-
-function mockUsage( fraction: number ) {
-	useMeterMock.mockReturnValue( {
-		fraction,
-		usedCredits: 1000000 * fraction,
-		totalCredits: 1000000,
-		remainingCredits: 1000000 * ( 1 - fraction ),
-	} );
+async function renderMessages( fraction: number ) {
+	const connector = createFakeConnector();
+	connector.getStudioAssistantQuota.mockResolvedValue( quotaAt( fraction ) );
+	const queryClient = createTestQueryClient();
+	const view = renderHook(
+		() => {
+			useRecordPersistentMessages();
+			return useActivePersistentMessages();
+		},
+		{
+			wrapper: ( { children }: { children: ReactNode } ) => (
+				<AppProviders connector={ connector } queryClient={ queryClient }>
+					{ children }
+				</AppProviders>
+			),
+		}
+	);
+	await waitFor( () => expect( connector.getStudioAssistantQuota ).toHaveBeenCalled() );
+	const setUsage = ( next: number ) =>
+		act( async () => {
+			queryClient.setQueryData( [ ...ASSISTANT_QUOTA_QUERY_KEY, TEST_USER.id ], quotaAt( next ) );
+			// TanStack Query notifies observers on a timeout.
+			await new Promise( ( resolve ) => setTimeout( resolve ) );
+		} );
+	const creditsMessages = () =>
+		view.result.current.messages.filter( ( message ) => message.id.startsWith( 'ai-credits:' ) );
+	const dismiss = () => act( () => view.result.current.dismiss( creditsMessages()[ 0 ] ) );
+	return { creditsMessages, setUsage, dismiss };
 }
 
-function wrapper( { children }: { children: ReactNode } ) {
-	const queryClient = new QueryClient( { defaultOptions: { queries: { retry: false } } } );
-	return <QueryClientProvider client={ queryClient }>{ children }</QueryClientProvider>;
-}
-
-function creditsMessages( messages: PersistentMessage[] ) {
-	return messages.filter( ( message ) => message.id.startsWith( 'ai-credits:' ) );
-}
-
-describe( 'useActivePersistentMessages AI credits notices', () => {
-	beforeEach( () => {
-		vi.clearAllMocks();
-		resetAiCreditsNoticeForTests();
-	} );
-
-	it( 'warns once usage reaches 80%, reporting the live figure', () => {
-		mockUsage( 0.83 );
-		const { result } = renderHook( () => useActivePersistentMessages(), { wrapper } );
-
-		expect( creditsMessages( result.current.messages ) ).toEqual( [
-			expect.objectContaining( {
-				id: 'ai-credits:warning',
-				title: 'At 83% usage',
-				description: 'Add AI credits to keep chatting without interruption.',
-				purchaseCta: true,
-			} ),
-		] );
-	} );
-
-	it( 'leaves 90% to the composer strip', () => {
-		mockUsage( 0.9 );
-		const { result } = renderHook( () => useActivePersistentMessages(), { wrapper } );
-
-		expect( creditsMessages( result.current.messages ) ).toEqual( [] );
-	} );
-
-	it( 'stays quiet below 80%', () => {
-		mockUsage( 0.5 );
-		const { result } = renderHook( () => useActivePersistentMessages(), { wrapper } );
-
-		expect( creditsMessages( result.current.messages ) ).toEqual( [] );
-	} );
-
-	it( 'leaves exhaustion to the composer lockout', () => {
-		mockUsage( 1 );
-		const { result } = renderHook( () => useActivePersistentMessages(), { wrapper } );
-
-		expect( creditsMessages( result.current.messages ) ).toEqual( [] );
-	} );
-
-	it( 'stays dismissed while usage sits at the same step', () => {
-		mockUsage( 0.83 );
-		const { result, rerender } = renderHook( () => useActivePersistentMessages(), { wrapper } );
-
-		act( () => result.current.dismiss( result.current.messages[ 0 ] ) );
-		rerender();
-
-		expect( creditsMessages( result.current.messages ) ).toEqual( [] );
-	} );
-
-	it( 're-arms after a trip through 90% brings usage back to the 80% step', () => {
-		mockUsage( 0.83 );
-		const { result, rerender } = renderHook( () => useActivePersistentMessages(), { wrapper } );
-		act( () => result.current.dismiss( result.current.messages[ 0 ] ) );
-
-		// Past 90% the strip takes over, which retires the sidebar's dismissal.
-		mockUsage( 0.92 );
-		rerender();
-		expect( creditsMessages( result.current.messages ) ).toEqual( [] );
-
-		mockUsage( 0.85 );
-		rerender();
-
-		expect( creditsMessages( result.current.messages ) ).toEqual( [
-			expect.objectContaining( { id: 'ai-credits:warning' } ),
-		] );
-	} );
-
-	it( 're-arms when a top-up drops usage below the dismissed step', () => {
-		mockUsage( 0.83 );
-		const { result, rerender } = renderHook( () => useActivePersistentMessages(), { wrapper } );
-		act( () => result.current.dismiss( result.current.messages[ 0 ] ) );
-
-		mockUsage( 0.5 );
-		rerender();
-		mockUsage( 0.83 );
-		rerender();
-
-		expect( creditsMessages( result.current.messages ) ).toEqual( [
-			expect.objectContaining( { id: 'ai-credits:warning' } ),
-		] );
-	} );
-} );
-
-describe( 'useRecordPersistentMessages', () => {
-	beforeEach( () => {
-		vi.clearAllMocks();
-		resetAiCreditsNoticeForTests();
-		resetAppMessagesForTests();
-	} );
-
-	it( 'logs a sidebar card to the notification history and keeps it after dismissal', () => {
-		mockUsage( 0.83 );
-		const { result } = renderHook(
-			() => {
-				useRecordPersistentMessages();
-				return useActivePersistentMessages();
-			},
-			{ wrapper }
+describe( 'AI credits sidebar notice', () => {
+	it( 'warns once usage reaches 80%, reporting the live figure', async () => {
+		const { creditsMessages } = await renderMessages( 0.83 );
+		await waitFor( () =>
+			expect( creditsMessages() ).toEqual( [
+				expect.objectContaining( {
+					id: 'ai-credits:warning',
+					title: 'At 83% usage',
+					description: 'Add AI credits to keep chatting without interruption.',
+					purchaseCta: true,
+				} ),
+			] )
 		);
+	} );
 
-		expect( getNoticeHistory() ).toEqual( [
-			expect.objectContaining( {
-				id: 'ai-credits:warning',
-				intent: 'warning',
-				title: 'At 83% usage',
-			} ),
+	it.each( [
+		[ 'below 80%', 0.5 ],
+		[ 'at 90%, which the composer strip shows', 0.9 ],
+		[ 'once exhausted, which the composer lockout shows', 1 ],
+	] )( 'stays quiet %s', async ( _, fraction ) => {
+		const { creditsMessages, setUsage } = await renderMessages( 0.83 );
+		await waitFor( () => expect( creditsMessages() ).toHaveLength( 1 ) );
+		await setUsage( fraction );
+		expect( creditsMessages() ).toEqual( [] );
+	} );
+
+	it( 'stays dismissed while usage sits at the same step', async () => {
+		const { creditsMessages, setUsage, dismiss } = await renderMessages( 0.83 );
+		await waitFor( () => expect( creditsMessages() ).toHaveLength( 1 ) );
+		dismiss();
+		await setUsage( 0.85 );
+		expect( creditsMessages() ).toEqual( [] );
+	} );
+
+	it.each( [
+		[ 'a trip through 90%', 0.92 ],
+		[ 'a top-up below the dismissed step', 0.5 ],
+	] )( 're-arms after %s', async ( _, detour ) => {
+		const { creditsMessages, setUsage, dismiss } = await renderMessages( 0.83 );
+		await waitFor( () => expect( creditsMessages() ).toHaveLength( 1 ) );
+		dismiss();
+		await setUsage( detour );
+		expect( creditsMessages() ).toEqual( [] );
+		await setUsage( 0.85 );
+		expect( creditsMessages() ).toEqual( [
+			expect.objectContaining( { id: 'ai-credits:warning' } ),
 		] );
+	} );
 
-		act( () => result.current.dismiss( result.current.messages[ 0 ] ) );
-
-		expect( result.current.messages ).toEqual( [] );
+	it( 'logs the card to the notification history and keeps it after dismissal', async () => {
+		const { creditsMessages, dismiss } = await renderMessages( 0.83 );
+		await waitFor( () =>
+			expect( getNoticeHistory() ).toEqual( [
+				expect.objectContaining( {
+					id: 'ai-credits:warning',
+					intent: 'warning',
+					title: 'At 83% usage',
+				} ),
+			] )
+		);
+		dismiss();
+		expect( creditsMessages() ).toEqual( [] );
 		expect( getNoticeHistory() ).toHaveLength( 1 );
 	} );
 } );

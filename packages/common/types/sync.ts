@@ -89,14 +89,14 @@ export const syncSiteSchema = z.object( {
 	lastPushTimestamp: z.string().nullable(),
 	wpVersion: z.string().optional(),
 	planName: z.string().optional(),
+	hasStudioPublishingPlan: z.boolean().optional(),
 	createdAt: z.string().optional(),
 } );
 
 export type SyncSite = z.infer< typeof syncSiteSchema >;
 
-// Phases a push moves through, named after the legacy renderer's push state
-// keys so both UIs gate cancellation on the same boundary. The last three are
-// remote work, reported by polling the import endpoint.
+// Phases a push moves through. The last three are remote work, reported by
+// polling the import endpoint.
 export const PUSH_PHASES = [
 	'creatingBackup',
 	'uploading',

@@ -1,8 +1,9 @@
+import { stripCliErrorEnvelope } from '@studio/common/lib/error-formatting';
 import { getAuthenticationUrl, getSignUpUrl } from '@studio/common/lib/oauth';
 import { SyncCancelledError } from '@studio/common/lib/sync/cancel';
 import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
 import { __ } from '@wordpress/i18n';
-import { readLastSeenVersion, writeLastSeenVersion } from '../browser-whats-new';
+import { isShortcut } from '@/lib/keyboard';
 import { buildPublishCheckoutUrl } from '../publish-checkout-url';
 import { UnsupportedError } from '../unsupported-error';
 import { readWapuuScore, writeWapuuScore } from '../wapuu-score-storage';
@@ -71,8 +72,20 @@ type ServerEvent =
  * The server delegates to the local Studio CLI, so the same business logic the
  * desktop app runs is reachable here. The capabilities that depend on the local
  * machine (the real site list, start/stop, the agent) are implemented for real;
- * the rest grow in later increments (site create/export land in Phase 2).
+ * the few a browser can't offer throw `UnsupportedError`.
  */
+// A browser tab has no application menu, so the page binds its accelerators.
+function onMenuShortcut( listener: () => void, key: string, modifier?: 'shift' ) {
+	const onKeyDown = ( event: KeyboardEvent ) => {
+		if ( ! event.defaultPrevented && ! event.repeat && isShortcut( event, key, modifier ) ) {
+			event.preventDefault();
+			listener();
+		}
+	};
+	document.addEventListener( 'keydown', onKeyDown );
+	return () => document.removeEventListener( 'keydown', onKeyDown );
+}
+
 export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): Connector {
 	// The server namespaces its API under /api so the SPA's real-path routes
 	// (also /sessions/:id, /sites/:id) can share the same origin.
@@ -109,7 +122,8 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			try {
 				const payload: unknown = JSON.parse( text );
 				if ( payload && typeof payload === 'object' && 'error' in payload ) {
-					serverError = typeof payload.error === 'string' ? payload.error : undefined;
+					serverError =
+						typeof payload.error === 'string' ? stripCliErrorEnvelope( payload.error ) : undefined;
 				}
 			} catch {
 				// Not JSON; fall through to the transport error.
@@ -390,10 +404,13 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				`/site-defaults/path?name=${ encodeURIComponent( siteName ) }`
 			);
 		},
-		async selectSiteFolder(): Promise< SelectedSiteFolder | null > {
-			// No native folder picker in a browser; the create form falls back to
-			// an editable path field (see capabilities.nativeFolderPicker).
-			return null;
+		// No native folder picker in a browser: the create form has the path typed
+		// (see capabilities.nativeFolderPicker), and this checks what it holds.
+		async selectSiteFolder( folderPath ): Promise< SelectedSiteFolder | null > {
+			return api< SelectedSiteFolder >( '/site-defaults/folder', {
+				method: 'POST',
+				body: JSON.stringify( { path: folderPath } ),
+			} );
 		},
 		async selectDefaultSiteDirectory(): Promise< string | null > {
 			// No native folder picker in a browser.
@@ -796,11 +813,11 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				body: JSON.stringify( { anthropicApiKey: key } ),
 			} );
 		},
-
-		// The local server has no REST-proxy route yet; the preview omnibox
-		// only offers search where the webview connector serves it.
-		async fetchSiteRest() {
-			throw new UnsupportedError( 'fetchSiteRest' );
+		async setAiProvider( provider ): Promise< AiSettings > {
+			return api< AiSettings >( '/ai-settings/provider', {
+				method: 'PUT',
+				body: JSON.stringify( { provider } ),
+			} );
 		},
 
 		// The server runs on the user's machine, so it opens paths in OS apps on
@@ -812,6 +829,14 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		// callers route the user to Settings, matching the desktop contract.
 		async openSiteInEditor( siteId ) {
 			await api( `/sites/${ encodeURIComponent( siteId ) }/open-in-editor`, { method: 'POST' } );
+		},
+		async openSiteAgentFile( siteId, kind, id, target ) {
+			await api(
+				`/sites/${ encodeURIComponent( siteId ) }/agent-files/${ kind }/${ encodeURIComponent(
+					id
+				) }/open`,
+				{ method: 'POST', body: JSON.stringify( { target } ) }
+			);
 		},
 		async openSiteInTerminal( siteId ) {
 			await api( `/sites/${ encodeURIComponent( siteId ) }/open-in-terminal`, { method: 'POST' } );
@@ -917,9 +942,8 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			snapshotEventListeners.add( listener );
 			return () => snapshotEventListeners.delete( listener );
 		},
-		onToggleSitePreview() {
-			// No application menu in a browser tab.
-			return () => {};
+		onToggleSitePreview( listener ) {
+			return onMenuShortcut( listener, 'b', 'shift' );
 		},
 		async copyText( text ) {
 			await navigator.clipboard.writeText( text );
@@ -931,20 +955,17 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				)
 			);
 		},
-		onToggleSidebar() {
-			// No application menu in a browser tab.
-			return () => {};
+		onToggleSidebar( listener ) {
+			return onMenuShortcut( listener, 'b' );
 		},
-		onAddSite() {
-			// No application menu in a browser tab.
-			return () => {};
+		onAddSite( listener ) {
+			return onMenuShortcut( listener, 'n' );
 		},
 		onAddSiteWithBlueprint() {
 			return () => {};
 		},
-		onOpenSettings() {
-			// No application menu in a browser tab.
-			return () => {};
+		onOpenSettings( listener ) {
+			return onMenuShortcut( () => listener( {} ), ',' );
 		},
 		onAiCreditsPurchased() {
 			// A browser tab can't receive the wp-studio:// checkout return link.
@@ -963,12 +984,6 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		onShowWhatsNew() {
 			// No application menu in a browser tab.
 			return () => {};
-		},
-		async getLastSeenVersion() {
-			return readLastSeenVersion();
-		},
-		async saveLastSeenVersion( version ) {
-			writeLastSeenVersion( version );
 		},
 		async getAppUpdateStatus() {
 			// This front end updates through the CLI's own notifier, not Electron's autoUpdater.

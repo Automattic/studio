@@ -149,15 +149,6 @@ export async function deleteAllSnapshots( token: string ): Promise< void > {
 	}
 }
 
-export async function validateAccessToken( token: string ): Promise< void > {
-	const wpcom = wpcomFactory( token, wpcomXhrRequest );
-	try {
-		await wpcom.req.get( '/me', { fields: 'ID' } );
-	} catch ( error ) {
-		throw new LoggerError( __( 'Invalid authentication token' ), error );
-	}
-}
-
 const userResponseSchema = z.object( {
 	ID: z.number(),
 	email: z.string().email(),

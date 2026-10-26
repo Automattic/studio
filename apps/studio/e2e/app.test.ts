@@ -9,26 +9,20 @@ test.describe( 'Electron app', () => {
 	} );
 
 	test.afterEach( async ( { page: _page }, testInfo ) => {
-		await session.reportMainProcessLogsOnFailure( testInfo );
+		await session.reportFailure( testInfo );
 	} );
 
 	test.afterAll( async () => {
 		await session.cleanup();
 	} );
 
-	test( 'should ensure app title is correct.', async () => {
+	test( 'first launch welcomes, then opens Add site', async () => {
 		expect( await session.mainWindow.title() ).toBe( 'WordPress Studio' );
-	} );
-
-	test( 'first screen displayed is onboarding', async () => {
-		await expect(
-			session.mainWindow.getByRole( 'heading', { name: 'WordPress Studio', level: 1 } )
-		).toBeVisible();
-		await session.mainWindow.getByRole( 'button', { name: 'Skip' } ).click();
-		await session.mainWindow.getByRole( 'button', { name: 'Continue' } ).click();
-		await session.mainWindow.getByRole( 'button', { name: 'Skip log in' } ).click();
-		await expect(
-			session.mainWindow.getByRole( 'heading', { name: 'Add a site', level: 1 } )
-		).toBeVisible();
+		const welcome = session.mainWindow.getByRole( 'alertdialog', {
+			name: 'Welcome to WordPress Studio',
+		} );
+		await expect( welcome ).toBeVisible();
+		await welcome.getByRole( 'button', { name: 'Continue without an account' } ).click();
+		await expect( session.mainWindow.getByRole( 'dialog', { name: 'Add site' } ) ).toBeVisible();
 	} );
 } );

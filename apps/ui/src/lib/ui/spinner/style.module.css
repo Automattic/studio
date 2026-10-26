@@ -1,0 +1,14 @@
+@layer ui {
+	.spinner {
+		flex-shrink: 0;
+		width: 16px;
+		height: 16px;
+		animation: global( studio-spin ) 1s linear infinite;
+	}
+
+	@media ( prefers-reduced-motion: reduce ) {
+		.spinner {
+			animation: none;
+		}
+	}
+}

@@ -81,7 +81,7 @@ test.describe( 'Import backup formats', () => {
 	} );
 
 	test.afterEach( async ( { page: _page }, testInfo ) => {
-		await session.reportMainProcessLogsOnFailure( testInfo );
+		await session.reportFailure( testInfo );
 		// Run one site at a time to keep peak memory low on constrained hosts.
 		await session.stopAllSites();
 	} );

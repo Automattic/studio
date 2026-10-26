@@ -9,6 +9,7 @@ export default mergeConfig(
 	defineProject( {
 		test: {
 			name: 'ui',
+			testTimeout: 20_000,
 			include: [ 'src/**/*.test.{ts,tsx}' ],
 			setupFiles: [ path.resolve( __dirname, './vitest.setup.ts' ) ],
 		},

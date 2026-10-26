@@ -74,11 +74,6 @@ describe( 'User data', () => {
 			const result = await loadUserData();
 			expect( result ).toEqual( { version: 1, siteMetadata: {} } );
 		} );
-
-		test( 'normalizes version to 1', async () => {
-			const result = await loadUserData();
-			expect( result.version ).toBe( 1 );
-		} );
 	} );
 
 	describe( 'saveUserData', () => {

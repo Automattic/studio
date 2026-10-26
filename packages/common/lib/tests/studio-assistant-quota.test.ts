@@ -1,17 +1,17 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
 	formatAiAccessRequiredNotice,
 	formatAiCreditsAddedTitle,
-	formatAiCreditsAvailableLabel,
 	formatAiCreditsCallout,
 	formatAiCreditsThresholdDescription,
 	formatAiCreditsUsageTitle,
-	formatAiCreditsUsedLabel,
 	getAiCreditsMeter,
 	getAiCreditsMeterIntent,
 	formatUsageCapNotice,
 	getStudioCodeAiAccessState,
+	requestStudioAssistantQuota,
 	resolveAiCreditsThresholdNotice,
+	STUDIO_ASSISTANT_QUOTA_OFFLINE,
 	studioAssistantQuotaSchema,
 } from '@studio/common/lib/studio-assistant-quota';
 
@@ -276,17 +276,6 @@ describe( 'getAiCreditsMeterIntent', () => {
 	} );
 } );
 
-describe( 'AI credits meter labels', () => {
-	it( 'formats used and available figures for the reader', () => {
-		expect(
-			formatAiCreditsUsedLabel( { usedCredits: 1200000, totalCredits: 1500000 }, 'en-US' )
-		).toBe( '1,200,000 of 1,500,000 AI credits used' );
-		expect( formatAiCreditsAvailableLabel( { remainingCredits: 300000 }, 'en-US' ) ).toBe(
-			'300,000 available'
-		);
-	} );
-} );
-
 describe( 'formatAiCreditsCallout', () => {
 	const neverBought = { costCap: 1500000, allowanceRemaining: 960000, purchasedAtTopUp: 0 };
 
@@ -400,5 +389,23 @@ describe( 'formatAiCreditsAddedTitle', () => {
 	it( 'formats the added credits for the locale', () => {
 		expect( formatAiCreditsAddedTitle( 500000, 'en' ) ).toBe( '500,000 AI credits added' );
 		expect( formatAiCreditsAddedTitle( 500000, 'de' ) ).toBe( '500.000 AI credits added' );
+	} );
+} );
+
+describe( 'requestStudioAssistantQuota', () => {
+	afterEach( () => {
+		vi.unstubAllGlobals();
+	} );
+
+	it( 'tells a lost connection apart from a failed lookup', async () => {
+		vi.stubGlobal( 'fetch', vi.fn().mockRejectedValue( new TypeError( 'fetch failed' ) ) );
+		await expect( requestStudioAssistantQuota( 'token' ) ).rejects.toThrow(
+			STUDIO_ASSISTANT_QUOTA_OFFLINE
+		);
+
+		vi.stubGlobal( 'fetch', vi.fn().mockResolvedValue( new Response( '', { status: 500 } ) ) );
+		await expect( requestStudioAssistantQuota( 'token' ) ).rejects.not.toThrow(
+			STUDIO_ASSISTANT_QUOTA_OFFLINE
+		);
 	} );
 } );

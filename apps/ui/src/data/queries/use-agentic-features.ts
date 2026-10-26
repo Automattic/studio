@@ -1,28 +1,23 @@
 import { useConnector } from '@/data/core';
-import { useAuthUser, AUTH_USER_QUERY_KEY } from '@/data/queries/use-auth-user';
+import { useAuthUser } from '@/data/queries/use-auth-user';
 import {
 	useUserPreferences,
 	USER_PREFERENCES_QUERY_KEY,
 } from '@/data/queries/use-user-preferences';
-import { useOffline } from '@/hooks/use-offline';
+import { useOffline } from '@/lib/hooks';
 import type { AuthUser, Connector } from '@/data/core';
 import type { QueryClient } from '@tanstack/react-query';
 
-export type AgenticFeatureReason = 'signed-out' | 'offline' | null;
+type AgenticFeatureReason = 'signed-out' | 'offline' | null;
 
 interface AgenticFeatures {
 	// Whether the host can reach the agentic backend at all (online + signed
-	// in). Gates everything that needs it, chat included, plus previews,
-	// sync and publishing.
+	// in). Gates previews, sync and publishing.
 	enabled: boolean;
-	// Whether chat is on offer: `enabled`, and the user hasn't switched
-	// agentic features off in Settings → AI. Non-chat networked features stay
-	// available when they do, so gate those on `enabled` instead.
+	// Whether chat is on offer: the user hasn't switched agentic features off
+	// in Settings → AI. Chats stay open offline and signed out: an Anthropic
+	// key needs no WordPress.com account, and the composer says what's missing.
 	chatEnabled: boolean;
-	// Whether the chat surface should show the sign-in prompt instead: the
-	// user is signed out and hasn't switched agentic features off. Off means
-	// Overview is the site's home, signed in or not.
-	chatPromptsSignIn: boolean;
 	reason: AgenticFeatureReason;
 }
 
@@ -32,12 +27,9 @@ export function deriveAgenticFeatures(
 	isOffline = false,
 	agenticFeaturesEnabled = true
 ): AgenticFeatures {
-	const withChat = (
-		features: Omit< AgenticFeatures, 'chatEnabled' | 'chatPromptsSignIn' >
-	): AgenticFeatures => ( {
+	const withChat = ( features: Omit< AgenticFeatures, 'chatEnabled' > ): AgenticFeatures => ( {
 		...features,
-		chatEnabled: features.enabled && agenticFeaturesEnabled,
-		chatPromptsSignIn: features.reason === 'signed-out' && agenticFeaturesEnabled,
+		chatEnabled: agenticFeaturesEnabled,
 	} );
 	// Agentic features need the network regardless of the connector's auth
 	// requirements, so offline wins over any auth state.
@@ -73,31 +65,13 @@ export function useAgenticFeatures(): AgenticFeatures & { isReady: boolean } {
 	return { ...features, isReady: ! isLoading && ! preferencesLoading };
 }
 
-export async function resolveAgenticFeatures( context: {
+export async function resolveChatEnabled( context: {
 	queryClient: QueryClient;
 	connector: Connector;
-} ): Promise< AgenticFeatures > {
+} ): Promise< boolean > {
 	const preferences = await context.queryClient.fetchQuery( {
 		queryKey: USER_PREFERENCES_QUERY_KEY,
 		queryFn: () => context.connector.getUserPreferences(),
 	} );
-	// Skip the auth fetch offline — it could hang without a network.
-	if ( ! navigator.onLine ) {
-		return deriveAgenticFeatures(
-			context.connector,
-			undefined,
-			true,
-			preferences.agenticFeaturesEnabled
-		);
-	}
-	const user = await context.queryClient.fetchQuery( {
-		queryKey: AUTH_USER_QUERY_KEY,
-		queryFn: () => context.connector.getAuthUser(),
-	} );
-	return deriveAgenticFeatures(
-		context.connector,
-		user,
-		false,
-		preferences.agenticFeaturesEnabled
-	);
+	return preferences.agenticFeaturesEnabled;
 }

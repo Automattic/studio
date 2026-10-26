@@ -1,0 +1,123 @@
+/* Toasts: a deck at the window's bottom right, above dialogs and below menus.
+   Collapsed, the toasts behind the front one shrink and peek out above it;
+   hovering or focusing the deck spreads it into a list. */
+.viewport {
+	position: fixed;
+	inset-block-end: var( --space-3 );
+	inset-inline-end: var( --space-3 );
+	z-index: var( --z-toast );
+	width: min( 320px, calc( 100vw - 24px ) );
+	pointer-events: none;
+	-webkit-app-region: no-drag;
+}
+
+.toast {
+	--gap: 8px;
+	--peek: 12px;
+	--height: var( --toast-frontmost-height, var( --toast-height ) );
+	--scale: max( 0, 1 - var( --toast-index ) * 0.1 );
+	--shrink: calc( 1 - var( --scale ) );
+	--offset-y: calc(
+		var( --toast-offset-y ) * -1 - var( --toast-index ) * var( --gap ) +
+			var( --toast-swipe-movement-y )
+	);
+
+	position: absolute;
+	inset-block-end: 0;
+	inset-inline-end: 0;
+	z-index: calc( 1000 - var( --toast-index ) );
+	width: 100%;
+	height: var( --height );
+	border-radius: var( --radius-xl );
+	background-color: var( --secondary );
+	box-shadow:
+		0 0 0 1px var( --border ),
+		var( --shadow-sm );
+	pointer-events: auto;
+	transform-origin: bottom;
+	transform: translateX( var( --toast-swipe-movement-x ) )
+		translateY(
+			calc(
+				var( --toast-swipe-movement-y ) - var( --toast-index ) * var( --peek ) - var( --shrink ) *
+					var( --height )
+			)
+		)
+		scale( var( --scale ) );
+	transition:
+		transform var( --motion-duration-layout ) var( --motion-ease-enter ),
+		opacity var( --motion-duration-layout ) var( --motion-ease-enter );
+}
+
+/* Bridges the gap so the pointer can travel between spread toasts. */
+.toast::after {
+	position: absolute;
+	inset-block-start: 100%;
+	inset-inline-start: 0;
+	width: 100%;
+	height: calc( var( --gap ) + 1px );
+	content: '';
+}
+
+.toast[data-swiping] {
+	transition: none;
+}
+
+.toast[data-expanded] {
+	height: var( --toast-height );
+	transform: translateX( var( --toast-swipe-movement-x ) ) translateY( var( --offset-y ) );
+}
+
+@media ( prefers-reduced-motion: no-preference ) {
+	.toast[data-starting-style],
+	.toast[data-ending-style]:not( [data-swipe-direction] ) {
+		transform: translateY( 150% );
+	}
+
+	.toast[data-ending-style][data-swipe-direction='down'] {
+		transform: translateY( calc( var( --toast-swipe-movement-y ) + 150% ) );
+	}
+
+	.toast[data-ending-style][data-swipe-direction='right'] {
+		transform: translateX( calc( var( --toast-swipe-movement-x ) + 150% ) )
+			translateY( var( --offset-y ) );
+	}
+}
+
+/* Clipped to the front toast's height while behind it, with room inside the
+   clip for the dismiss button that overhangs the corner. */
+.content {
+	height: calc( 100% + 24px );
+	margin: calc( var( --space-3 ) * -1 );
+	padding: var( --space-3 );
+	overflow: clip;
+	transition: opacity var( --motion-duration-feedback ) var( --motion-ease-enter );
+}
+
+.content[data-behind] {
+	opacity: 0;
+}
+
+.content[data-expanded] {
+	opacity: 1;
+}
+
+.toast .card {
+	background: none;
+	box-shadow: none;
+}
+
+@media ( prefers-reduced-motion: reduce ) {
+	.toast {
+		transition-property: opacity;
+	}
+
+	.toast[data-starting-style],
+	.toast[data-ending-style] {
+		opacity: 0;
+	}
+
+	.toast,
+	.content {
+		transition-duration: var( --motion-duration-feedback );
+	}
+}

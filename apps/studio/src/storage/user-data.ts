@@ -74,7 +74,6 @@ type UserDataSafeKeys =
 	| 'promptWindowsSpeedUpResult'
 	| 'quitSitesBehavior'
 	| 'sentryUserId'
-	| 'lastSeenVersion'
 	| 'preferredTerminal'
 	| 'preferredEditor'
 	| 'colorScheme'

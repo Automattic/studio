@@ -116,6 +116,7 @@ import { DEFAULT_TERMINAL } from 'src/constants';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
 import { setPendingAuthContext } from 'src/lib/auth-tracks-context';
 import { bumpStat, getBlueprintMetric, StatsGroup } from 'src/lib/bump-stats';
+import { markDeeplinkListener } from 'src/lib/deeplink';
 import {
 	extractErrorFromProcessManagerLogs,
 	simplifyErrorForDisplay,
@@ -216,12 +217,11 @@ export {
 	saveGlobalAgentInstructions,
 	saveOnboardingHints,
 	saveWapuuScore,
+	setAiProvider,
 	setUserPreferences,
 } from 'src/modules/user-settings/lib/ipc-handlers';
 
 export { importSite, exportSite } from 'src/modules/import-export/lib/ipc-handlers';
-
-export { fetchSiteRest as fetchSiteRestApi } from 'src/lib/wordpress-rest-api';
 
 export async function recordAnalyticsEvent(
 	_event: IpcMainInvokeEvent,
@@ -294,14 +294,10 @@ export async function continueAiSession(
 		visualAnnotations?: unknown;
 	} = {}
 ): Promise< { runId: string } > {
-	if ( ! ( await oauthClient.isAuthenticated() ) ) {
-		throw new Error( __( 'WordPress.com login required. Log in to use Studio Code.' ) );
-	}
-
 	await reconcileSessionEnvironment( getSessionsDirectory(), sessionId );
 	const images = validateStudioChatImages( options.images );
 	const files = validateStudioChatFiles( options.files );
-	const visualAnnotations = validateStudioVisualAnnotations( options.visualAnnotations );
+	const visualAnnotations = validateStudioVisualAnnotations( options.visualAnnotations, images );
 	return startAgentRun( {
 		sessionId,
 		prompt: expandSkillCommandPrompt( prompt ),
@@ -881,21 +877,6 @@ export async function clearAuthenticationToken() {
 	return await updateSharedConfig( { authToken: undefined } );
 }
 
-export async function saveLastSeenVersion( event: IpcMainInvokeEvent, version: string ) {
-	await updateAppdata( { lastSeenVersion: version } );
-}
-
-export async function getLastSeenVersion(
-	_event: IpcMainInvokeEvent
-): Promise< string | undefined > {
-	// If we're running in E2E mode, return the app version
-	if ( process.env.E2E ) {
-		return app.getVersion();
-	}
-	const userData = await loadUserData();
-	return userData.lastSeenVersion;
-}
-
 export async function openSiteURL(
 	event: IpcMainInvokeEvent,
 	id: string,
@@ -1267,7 +1248,7 @@ export async function showErrorMessageBox(
 		type: 'error',
 		message: title,
 		detail,
-		buttons: [ ...( showOpenLogs ? [ __( 'Open Studio Logs' ) ] : [] ), __( 'OK' ) ],
+		buttons: [ ...( showOpenLogs ? [ __( 'Open WordPress Studio Logs' ) ] : [] ), __( 'OK' ) ],
 	} );
 
 	if ( showOpenLogs && response.response === 0 ) {
@@ -1281,6 +1262,10 @@ export async function showErrorMessageBox(
 
 export async function setupAppMenu() {
 	await setupMenu();
+}
+
+export function readyForDeeplinks( event: IpcMainInvokeEvent ) {
+	markDeeplinkListener( event.sender );
 }
 
 export async function popupAppMenu(
@@ -1342,7 +1327,7 @@ export async function trustCertificate( event: IpcMainInvokeEvent ): Promise< vo
 			await showErrorMessageBox( event, {
 				title: __( 'Certificate Trust Failed' ),
 				message: __(
-					'Studio was unable to trust the certificate automatically. You may need to trust it manually using certificate manager.'
+					'WordPress Studio was unable to trust the certificate automatically. You may need to trust it manually using certificate manager.'
 				),
 				showOpenLogs: true,
 			} );
@@ -1415,16 +1400,6 @@ export async function setWindowControlsSurface(
 		return;
 	}
 	setAgenticControlsSurface( surface );
-	parentWindow.setTitleBarOverlay( getTitleBarOverlayOptions() );
-}
-
-export async function setTitleBarBackdropEffect( event: IpcMainInvokeEvent, enabled: boolean ) {
-	void enabled;
-	const parentWindow = BrowserWindow.fromWebContents( event.sender );
-	if ( ! parentWindow || ( process.platform !== 'win32' && process.platform !== 'linux' ) ) {
-		return;
-	}
-
 	parentWindow.setTitleBarOverlay( getTitleBarOverlayOptions() );
 }
 

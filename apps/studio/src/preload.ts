@@ -42,8 +42,6 @@ const api: IpcApi = {
 	deletePreviewSite: ( hostname ) => ipcRendererInvoke( 'deletePreviewSite', hostname ),
 	renamePreviewSite: ( hostname, name ) => ipcRendererInvoke( 'renamePreviewSite', hostname, name ),
 	deleteAllSnapshots: () => ipcRendererInvoke( 'deleteAllSnapshots' ),
-	getLastSeenVersion: () => ipcRendererInvoke( 'getLastSeenVersion' ),
-	saveLastSeenVersion: ( version ) => ipcRendererInvoke( 'saveLastSeenVersion', version ),
 	getSiteDetails: () => ipcRendererInvoke( 'getSiteDetails' ),
 	openSiteURL: ( id, relativeURL = '', { autoLogin = true } = {} ) =>
 		ipcRendererSend( 'openSiteURL', id, relativeURL, { autoLogin } ),
@@ -63,7 +61,6 @@ const api: IpcApi = {
 	getSiteDesign: ( id ) => ipcRendererInvoke( 'getSiteDesign', id ),
 	fixSiteDesignDrift: ( id, fixes ) => ipcRendererInvoke( 'fixSiteDesignDrift', id, fixes ),
 	getIsMultisite: ( id ) => ipcRendererInvoke( 'getIsMultisite', id ),
-	fetchSiteRestApi: ( siteId, request ) => ipcRendererInvoke( 'fetchSiteRestApi', siteId, request ),
 	generateProposedSitePath: ( siteName ) =>
 		ipcRendererInvoke( 'generateProposedSitePath', siteName ),
 	generateSiteNameFromList: ( usedSites ) =>
@@ -89,6 +86,7 @@ const api: IpcApi = {
 	showErrorMessageBox: ( options ) => ipcRendererSend( 'showErrorMessageBox', options ),
 	setupAppMenu: () => ipcRendererInvoke( 'setupAppMenu' ),
 	popupAppMenu: ( position ) => ipcRendererSend( 'popupAppMenu', position ),
+	readyForDeeplinks: () => ipcRendererSend( 'readyForDeeplinks' ),
 	getAbsolutePathFromSite: ( siteId, relativePath ) =>
 		ipcRendererInvoke( 'getAbsolutePathFromSite', siteId, relativePath ),
 	getConnectedWpcomSites: ( localSiteId ) =>
@@ -118,6 +116,7 @@ const api: IpcApi = {
 		ipcRendererInvoke( 'saveGlobalAgentInstructions', content, options ),
 	getAiSettings: () => ipcRendererInvoke( 'getAiSettings' ),
 	saveAnthropicApiKey: ( key ) => ipcRendererInvoke( 'saveAnthropicApiKey', key ),
+	setAiProvider: ( provider ) => ipcRendererInvoke( 'setAiProvider', provider ),
 	saveWapuuScore: ( score ) => ipcRendererInvoke( 'saveWapuuScore', score ),
 	getWapuuScore: () => ipcRendererInvoke( 'getWapuuScore' ),
 	getUserPreferences: () => ipcRendererInvoke( 'getUserPreferences' ),
@@ -132,8 +131,6 @@ const api: IpcApi = {
 		ipcRendererInvoke( 'extractBlueprintBundle', zipFilePath ),
 	cleanupBlueprintTempDir: ( tempDir ) => ipcRendererInvoke( 'cleanupBlueprintTempDir', tempDir ),
 	showTextContextMenu: ( context ) => ipcRendererInvoke( 'showTextContextMenu', context ),
-	setTitleBarBackdropEffect: ( enabled ) =>
-		ipcRendererInvoke( 'setTitleBarBackdropEffect', enabled ),
 	setWindowControlsSurface: ( surface ) => ipcRendererInvoke( 'setWindowControlsSurface', surface ),
 	updateSitesSortOrder: ( updates ) => ipcRendererInvoke( 'updateSitesSortOrder', updates ),
 	isStudioCliInstalled: () => ipcRendererInvoke( 'isStudioCliInstalled' ),

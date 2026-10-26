@@ -34,7 +34,7 @@ const backgroundPath = path.resolve(
 );
 
 const dmgSpecs = {
-	title: packageJson.productName,
+	title: 'WordPress Studio',
 	icon: volumeIconPath,
 	'icon-size': 80,
 	background: backgroundPath,

@@ -42,8 +42,10 @@ import {
 	resolveUnavailableAiProvider,
 } from 'cli/ai/auth';
 import { captureTurnOutcome, fingerprintSites, type TurnOutcome } from 'cli/ai/eval-outcome';
+import { matchesStopRule, stopRuleSchema, type StopRule } from 'cli/ai/eval-stop';
 import { summarizeTiming, type ModelRequestRecord } from 'cli/ai/eval-timing';
 import { runStudioAgentTurn } from 'cli/ai/runtimes/pi';
+import { addAssistantMessageUsage, createTokenUsage } from 'cli/ai/token-usage';
 import { runCommand as runCreateSiteCommand } from 'cli/commands/site/create';
 import { runCommand as runDeleteSiteCommand } from 'cli/commands/site/delete';
 import { Mode as StopMode, runCommand as runStopSiteCommand } from 'cli/commands/site/stop';
@@ -122,6 +124,9 @@ interface EvalRunnerInput {
 	timeoutMs?: number;
 	model?: AiModelId;
 	seed?: EvalSeed;
+	// Ends the run at the first tool call matching one of these rules, before
+	// any follow-ups; the result's `stoppedAt` names it.
+	stopAt?: StopRule[];
 }
 
 interface Inspection {
@@ -528,6 +533,7 @@ function readInput(): EvalRunnerInput {
 		followUps,
 		answers,
 		timeoutMs: typeof vars.timeoutMs === 'number' ? vars.timeoutMs : undefined,
+		stopAt: vars.stopAt ? z.array( stopRuleSchema ).parse( vars.stopAt ) : undefined,
 		model,
 		seed,
 	};
@@ -598,13 +604,14 @@ async function runEval( input: EvalRunnerInput ) {
 	let success = false;
 	let error: string | null = null;
 	let timedOut = false;
+	let stoppedAt: { toolUseId: string; toolName: string; index: number } | null = null;
 	// From the last assistant message: a provider failure ends the turn with
 	// stopReason "error" and its message here, without throwing.
 	let stopReason: string | null = null;
 	let errorMessage: string | null = null;
 	// Summed from each assistant message's usage, so evals can compare the
 	// token cost of prompt variants, not just their outcomes.
-	const usage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, totalTokens: 0 };
+	const usage = createTokenUsage();
 
 	await isolateSiteRegistry();
 	const bystanderPaths = await createBystanderSites();
@@ -629,14 +636,7 @@ async function runEval( input: EvalRunnerInput ) {
 
 	const handleEvent = ( event: AgentSessionEvent ): void => {
 		if ( event.type === 'message_end' && event.message.role === 'assistant' ) {
-			const messageUsage = event.message.usage;
-			if ( messageUsage ) {
-				usage.input += messageUsage.input;
-				usage.output += messageUsage.output;
-				usage.cacheRead += messageUsage.cacheRead;
-				usage.cacheWrite += messageUsage.cacheWrite;
-				usage.totalTokens += messageUsage.totalTokens;
-			}
+			const messageUsage = addAssistantMessageUsage( usage, event );
 			const now = Date.now();
 			// pi stamps the assistant message just before it sends the request.
 			const requestStartedAt = event.message.timestamp || turnStart;
@@ -663,6 +663,10 @@ async function runEval( input: EvalRunnerInput ) {
 			turnStart = now;
 		}
 		for ( const tc of extractToolCalls( event ) ) {
+			if ( input.stopAt && ! stoppedAt && matchesStopRule( tc, input.stopAt ) ) {
+				stoppedAt = { toolUseId: tc.id, toolName: tc.name, index: toolCalls.length };
+				void query.interrupt();
+			}
 			toolCalls.push( tc );
 			toolNameById.set( tc.id, tc.name );
 			const evt: ToolEvent = {
@@ -745,7 +749,7 @@ async function runEval( input: EvalRunnerInput ) {
 	try {
 		await query.result;
 		for ( const followUp of input.followUps ?? [] ) {
-			if ( timedOut ) {
+			if ( timedOut || stoppedAt ) {
 				break;
 			}
 			query = runTurn( followUp.prompt );
@@ -774,6 +778,7 @@ async function runEval( input: EvalRunnerInput ) {
 		success,
 		error,
 		timedOut,
+		stoppedAt,
 		model: resolvedModel,
 		numTurns: numTurnsResult,
 		stopReason,

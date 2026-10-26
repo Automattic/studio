@@ -11,13 +11,13 @@ import { getSharedBrowser } from 'cli/ai/browser-utils';
 // Types
 // ---------------------------------------------------------------------------
 
-export interface AssetBreakdown {
+interface AssetBreakdown {
 	count: number;
 	totalBytes: number;
 	urls: string[];
 }
 
-export interface AuditMetrics {
+interface AuditMetrics {
 	// Core Web Vitals timing (milliseconds)
 	ttfb: number;
 	fcp: number;
@@ -106,13 +106,11 @@ function collectMetricsScript(): AuditMetrics {
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	const audit = ( window as any ).__auditMetrics ?? { lcpValue: 0, clsValue: 0, fcpValue: 0 };
 
-	// Navigation timing
 	const navEntries = performance.getEntriesByType( 'navigation' );
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	const nav = navEntries[ 0 ] as any;
 	const ttfb = nav ? nav.responseStart - nav.requestStart : 0;
 
-	// Resource entries
 	const resources = performance.getEntriesByType( 'resource' );
 
 	function getSize( entry: PerformanceResourceTiming ): number {

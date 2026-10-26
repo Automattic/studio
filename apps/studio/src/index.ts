@@ -34,7 +34,7 @@ import {
 	getPlatformMetric,
 	StatsGroup,
 } from 'src/lib/bump-stats';
-import { handleDeeplink } from 'src/lib/deeplink';
+import { markStudioStarted, openDeeplink } from 'src/lib/deeplink';
 import {
 	getSavedLocale,
 	getSupportedLocale,
@@ -43,6 +43,7 @@ import {
 } from 'src/lib/locale-node';
 import { setSentryWpcomUserIdMain } from 'src/lib/main-sentry-utils';
 import { maybePromptNightlySwitch, startNightlyPromptPoller } from 'src/lib/nightly-prompt';
+import { forwardPreviewCommandPalette } from 'src/lib/preview-shortcuts';
 import { getSentryReleaseInfo } from 'src/lib/sentry-release';
 import { parseWebUrl } from 'src/lib/shell-open-external-wrapper';
 import { getSites, stopAllServers } from 'src/lib/sites';
@@ -157,7 +158,6 @@ suppressPunycodeWarning();
 
 const isInInstaller = require( 'electron-squirrel-startup' );
 
-// Ensure we're the only instance of the app running
 const gotTheLock = app.requestSingleInstanceLock();
 
 let finishedInitialization = false;
@@ -255,6 +255,10 @@ async function appBoot() {
 		const isSitePreviewWebview = contents.getType() === 'webview';
 		if ( isSitePreviewWebview ) {
 			contents.on( 'before-input-event', ( event, input ) => {
+				if ( forwardPreviewCommandPalette( contents, input ) ) {
+					event.preventDefault();
+					return;
+				}
 				const zoomCommand = getAppZoomCommand( input );
 				if ( ! zoomCommand ) {
 					return;
@@ -372,12 +376,21 @@ async function appBoot() {
 	function setupCustomProtocolHandler() {
 		if ( process.platform === 'darwin' ) {
 			app.on( 'open-url', ( _event, url ) => {
-				void handleDeeplink( url );
+				openDeeplink( url );
 			} );
 		} else {
 			// Handle custom protocol links on Windows and Linux
+			// A link that launches Studio arrives in its own arguments.
+			const launchLink = process.argv.find( ( arg ) => arg.startsWith( PROTOCOL_PREFIX ) );
+			if ( launchLink ) {
+				openDeeplink( launchLink );
+			}
 			app.on( 'second-instance', async ( _event, argv ) => {
+				const customProtocolParameter = argv?.find( ( arg ) => arg.startsWith( PROTOCOL_PREFIX ) );
 				if ( ! finishedInitialization ) {
+					if ( customProtocolParameter ) {
+						openDeeplink( customProtocolParameter );
+					}
 					return;
 				}
 
@@ -389,9 +402,8 @@ async function appBoot() {
 					mainWindow.focus();
 				}
 
-				const customProtocolParameter = argv?.find( ( arg ) => arg.startsWith( PROTOCOL_PREFIX ) );
 				if ( customProtocolParameter ) {
-					void handleDeeplink( customProtocolParameter );
+					openDeeplink( customProtocolParameter );
 				}
 			} );
 		}
@@ -425,7 +437,6 @@ async function appBoot() {
 		// By default Electron automatically approves all permissions requests (e.g. notifications, webcam)
 		// We'll opt-in to permissions we specifically need instead.
 		session.defaultSession.setPermissionRequestHandler( ( webContents, permission, callback ) => {
-			// Reject all permission requests
 			callback( false );
 		} );
 
@@ -447,7 +458,7 @@ async function appBoot() {
 			}
 
 			const basePolicies = [
-				"default-src 'self'", // Allow resources from these domains
+				"default-src 'self'",
 				"script-src-attr 'none'",
 				"img-src 'self' https://*.gravatar.com https://*.wp.com https://blueprintlibrary.wordpress.com https://blueprintslibraryv2.wpcomstaging.com data:",
 				"style-src 'self' 'unsafe-inline' https://fonts.googleapis.com", // unsafe-inline: components inject their styles at runtime
@@ -530,6 +541,7 @@ async function appBoot() {
 		await autoInstallLinuxCliIfNeeded();
 
 		finishedInitialization = true;
+		markStudioStarted();
 	} );
 
 	// Quit when all windows are closed, except on macOS. There, it's common
@@ -576,7 +588,7 @@ async function appBoot() {
 					  }
 					: {
 							message: __( 'Sync will continue' ),
-							detail: __( 'The sync will keep running after you quit Studio.' ),
+							detail: __( 'The sync will keep running after you quit WordPress Studio.' ),
 							type: 'info',
 					  };
 
@@ -618,8 +630,8 @@ async function appBoot() {
 					type: 'question',
 					message: _n( 'Keep the site running?', 'Keep the sites running?', runningSiteCount ),
 					detail: _n(
-						'Your site can stay available in the background after Studio quits.',
-						'Your sites can stay available in the background after Studio quits.',
+						'Your site can stay available in the background after WordPress Studio quits.',
+						'Your sites can stay available in the background after WordPress Studio quits.',
 						runningSiteCount
 					),
 					buttons: [

@@ -4,7 +4,6 @@ import {
 	managerMessageSchema,
 } from 'cli/lib/types/wordpress-server-ipc';
 
-// Zod schema for process descriptions
 const processDescriptionSchemaBase = z.object( {
 	name: z.string(),
 	pmId: z.number(),

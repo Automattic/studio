@@ -15,7 +15,7 @@ describe( 'validateProposedSitePath', () => {
 	it( 'rejects names that are too long', () => {
 		expect(
 			validateProposedSitePath( { ...availablePath, isNameTooLong: true }, false ).error
-		).toBe( 'The site name is too long. Please choose a shorter site name.' );
+		).toBe( 'Use a shorter site name.' );
 	} );
 
 	it( 'rejects paths already used by Studio', () => {
@@ -26,7 +26,7 @@ describe( 'validateProposedSitePath', () => {
 
 	it( 'rejects non-empty directories without WordPress', () => {
 		expect( validateProposedSitePath( { ...availablePath, isEmpty: false }, false ).error ).toBe(
-			'This directory is not empty. Please select an empty directory or an existing WordPress folder.'
+			'Choose an empty folder or an existing WordPress site.'
 		);
 	} );
 } );
@@ -42,6 +42,15 @@ describe( 'validateSelectedSitePath', () => {
 		expect( validateSelectedSitePath( selectedPath, true ).error ).toBe(
 			'The directory is already associated with another Studio site. Please choose a different custom local path.'
 		);
+	} );
+
+	it( 'asks for an empty folder when the site must start empty', () => {
+		for ( const isWordPress of [ true, false ] ) {
+			expect(
+				validateSelectedSitePath( { ...selectedPath, isEmpty: false, isWordPress }, false, true )
+					.error
+			).toBe( 'Choose an empty folder for your site.' );
+		}
 	} );
 
 	it( 'allows an existing WordPress directory', () => {

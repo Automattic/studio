@@ -10,10 +10,18 @@ import AddSite, { type CreateSiteOptions } from './page-objects/add-site';
 import Sidebar from './page-objects/sidebar';
 import type { ChildProcess } from 'node:child_process';
 
-// `ORIENTATION_GUIDE_VERSION` in apps/ui/src/data/onboarding/orientation-guide.ts.
+// `ORIENTATION_GUIDE_VERSION` in apps/ui/src/features/onboarding/onboarding-guide/orientation-guide.ts.
 const ORIENTATION_GUIDE_VERSION = 2;
 
 export type PersistedSite = { id: string; name: string; path: string; port: number };
+
+export type LaunchOptions = {
+	firstRun?: boolean;
+	// Merged into the initial app data, e.g. `{ agenticFeaturesEnabled: true }`.
+	appData?: Record< string, unknown >;
+	// Merged into shared.json, e.g. an AI provider and its key.
+	sharedConfig?: Record< string, unknown >;
+};
 
 export class E2ESession {
 	electronApp!: ElectronApplication;
@@ -51,7 +59,10 @@ export class E2ESession {
 	 * onboarding and the orientation guide, with AI features off so a signed-out site opens on its
 	 * preview rather than on a sign-in prompt.
 	 */
-	async launch( testEnv: NodeJS.ProcessEnv = {}, { firstRun = false } = {} ) {
+	async launch(
+		testEnv: NodeJS.ProcessEnv = {},
+		{ firstRun = false, appData, sharedConfig }: LaunchOptions = {}
+	) {
 		await fs.mkdir( this.appDataPath, { recursive: true } );
 		await fs.mkdir( this.homePath, { recursive: true } );
 		await fs.mkdir( this.cliConfigPath, { recursive: true } );
@@ -71,15 +82,27 @@ export class E2ESession {
 				? {}
 				: {
 						onboardingCompleted: true,
-						onboardingHints: { tourDismissedVersion: ORIENTATION_GUIDE_VERSION },
+						// What's New is never due, whatever its version.
+						onboardingHints: {
+							tourDismissedVersion: ORIENTATION_GUIDE_VERSION,
+							whatsNewSeenVersion: Number.MAX_SAFE_INTEGER,
+						},
 						agenticFeaturesEnabled: false,
 				  } ),
+			...appData,
 		};
 
 		await fs.writeFile(
 			path.join( studioAppDataPath, 'appdata-v1.json' ),
 			JSON.stringify( initialAppdata, null, 2 )
 		);
+		// On macOS the app's AppleLanguages default is shared by every session, and the app falls back
+		// to it without a saved locale, so a language another worker picks would leak in.
+		await fs.writeJson( path.join( this.sharedConfigPath, 'shared.json' ), {
+			version: 1,
+			locale: 'en',
+			...sharedConfig,
+		} );
 
 		await this.launchFirstWindow( testEnv );
 	}
@@ -161,6 +184,24 @@ export class E2ESession {
 			)
 			.toBeTruthy();
 		return site as PersistedSite;
+	}
+
+	async getAppConfig(): Promise< Record< string, unknown > > {
+		return fs.readJson( path.join( this.sharedConfigPath, 'app.json' ) );
+	}
+
+	// The text of the page the site preview shows.
+	async previewText(): Promise< string | undefined > {
+		const guestId = await this.mainWindow
+			.locator( 'webview' )
+			.evaluate( ( element ) =>
+				( element as HTMLElement & { getWebContentsId: () => number } ).getWebContentsId()
+			);
+		return this.electronApp.evaluate(
+			( { webContents }, id ) =>
+				webContents.fromId( id )?.executeJavaScript( 'document.body.innerText' ),
+			guestId
+		);
 	}
 
 	async getSiteUrl( siteName: string ) {
@@ -264,14 +305,34 @@ export class E2ESession {
 		} );
 
 		this.startCapturingMainProcessLogs();
+		// Playwright's `trace` option only records browsers it launches itself, so the app's window
+		// is recorded here. `reportFailure` keeps the recording of each failed test.
+		await this.electronApp.context().tracing.start( { snapshots: true } );
 
 		this.mainWindow = await this.electronApp.firstWindow( { timeout: 60_000 } );
 	}
 
-	async reportMainProcessLogsOnFailure( testInfo: TestInfo ) {
+	// Attaches the app window's trace and the main process logs to a failed test. Every test starts
+	// a new trace chunk, so a failure's trace covers that test (or, for the first test, the launch
+	// before it too).
+	async reportFailure( testInfo: TestInfo ) {
+		const tracing = this.electronApp.context().tracing;
 		if ( testInfo.status === testInfo.expectedStatus ) {
+			await tracing.stopChunk().catch( () => {} );
+			await tracing.startChunk().catch( () => {} );
 			return;
 		}
+
+		const tracePath = testInfo.outputPath( 'app-trace.zip' );
+		await tracing
+			.stopChunk( { path: tracePath } )
+			.then( () =>
+				testInfo.attach( 'app-trace', { path: tracePath, contentType: 'application/zip' } )
+			)
+			.catch( () => {
+				// Best effort: missing diagnostics must not fail the test.
+			} );
+		await tracing.startChunk().catch( () => {} );
 
 		const logs =
 			this.getMainProcessLogs() || 'No main process logs were captured before the failure.';
@@ -331,19 +392,20 @@ export class E2ESession {
 }
 
 /**
- * Launches Studio and creates a site through "Add a site", resolving once it runs. `folder` makes
+ * Launches Studio and creates a site through Add site, resolving once it runs. `folder` makes
  * the mocked folder dialog return `~/Studio/<folder>`, and has the form pick it.
  */
 export async function launchWithSite(
 	session: E2ESession,
-	{ folder, ...options }: Omit< CreateSiteOptions, 'pickFolder' > & { folder?: string } = {}
+	{ folder, ...options }: Omit< CreateSiteOptions, 'pickFolder' > & { folder?: string } = {},
+	launchOptions: LaunchOptions = {}
 ) {
 	const env: NodeJS.ProcessEnv = {};
 	if ( folder ) {
 		env.E2E_OPEN_FOLDER_DIALOG = path.join( session.homePath, 'Studio', folder );
 		await fs.mkdir( env.E2E_OPEN_FOLDER_DIALOG, { recursive: true } );
 	}
-	await session.launch( env );
+	await session.launch( env, launchOptions );
 	const siteName = await new AddSite( session.mainWindow ).createSite( {
 		...options,
 		pickFolder: Boolean( folder ),

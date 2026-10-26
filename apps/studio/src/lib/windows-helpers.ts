@@ -48,7 +48,7 @@ export async function promptWindowsSpeedUpSites( {
 		buttons,
 		title: __( 'Want to speed up site creation?' ),
 		message: __(
-			"Microsoft Defender's Real-time protection may slow site creation.\n\nTo create sites quickly, we recommend disabling Real-time protection for the Studio app."
+			"Microsoft Defender's Real-time protection may slow site creation.\n\nTo create sites quickly, we recommend disabling Real-time protection for WordPress Studio."
 		),
 		...( skipIfAlreadyPrompted && { checkboxLabel: __( "Don't ask again" ) } ),
 		cancelId: buttons.indexOf( NOT_INTERESTED ),
@@ -56,7 +56,6 @@ export async function promptWindowsSpeedUpSites( {
 
 	switch ( response ) {
 		case buttons.indexOf( AUTOMATIC_UPDATE ):
-			// Update Windows Defender configuration
 			await updateAppdata( {
 				promptWindowsSpeedUpResult: {
 					response: 'yes',
@@ -72,13 +71,12 @@ export async function promptWindowsSpeedUpSites( {
 					type: 'error',
 					title: __( 'Something went wrong' ),
 					message: __(
-						'The configuration couldn\'t be changed to speed up site creation.\n\nTo initiate this process again, please go to "Help > How can I make Studio faster?" in the application menu.'
+						'The configuration couldn\'t be changed to speed up site creation.\n\nTo initiate this process again, please go to "Help > How can I make WordPress Studio faster?" in the application menu.'
 					),
 				} );
 			}
 			break;
 		case buttons.indexOf( NOT_INTERESTED ):
-			// Skip it, user is not interested
 			await updateAppdata( {
 				promptWindowsSpeedUpResult: {
 					response: 'no',
@@ -101,7 +99,7 @@ async function excludeProcessInWindowsDefender() {
 	}
 	const command = `PowerShell -NoProfile -ExecutionPolicy Bypass -Command "Add-MpPreference -ExclusionProcess ${ exePath }"`;
 	const options = {
-		name: 'Studio app',
+		name: 'WordPress Studio',
 	};
 	await new Promise< void >( ( resolve, reject ) =>
 		sudo.exec( command, options, function ( error ) {

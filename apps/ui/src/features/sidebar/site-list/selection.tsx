@@ -28,8 +28,16 @@ const KEY_ATTRIBUTE = 'data-select-key';
 const SelectionContext = createContext< {
 	selection: string[] | null;
 	clear: () => void;
+	deselect: ( keys: string[] ) => void;
+	reselect: ( keys: string[] ) => void;
 	deleteSites: ( siteIds: string[] ) => void;
-} >( { selection: null, clear: () => {}, deleteSites: () => {} } );
+} >( {
+	selection: null,
+	clear: () => {},
+	deselect: () => {},
+	reselect: () => {},
+	deleteSites: () => {},
+} );
 
 /** Whether rows are being multi-selected, which holds off dragging them. */
 export function useIsSelecting() {
@@ -43,6 +51,12 @@ export function useSelectableRow( key: string ) {
 		[ KEY_ATTRIBUTE ]: key,
 		'data-selected': selection?.includes( key ) || undefined,
 	};
+}
+
+/** The row button's `aria-pressed` while rows are being multi-selected. */
+export function useRowPressed( key: string ) {
+	const { selection } = useContext( SelectionContext );
+	return selection ? selection.includes( key ) : undefined;
 }
 
 /** Whether right-clicking this row should act on a multi-row selection. */
@@ -95,6 +109,17 @@ export function SidebarSelection( { children }: { children: ReactNode } ) {
 		setSelection( null );
 		anchor.current = null;
 	}
+	function deselect( keys: string[] ) {
+		setSelection( ( current ) => {
+			const kept = current?.filter( ( key ) => ! keys.includes( key ) );
+			return kept?.length ? kept : null;
+		} );
+	}
+	function reselect( keys: string[] ) {
+		if ( keys.length ) {
+			setSelection( ( current ) => [ ...new Set( [ ...( current ?? [] ), ...keys ] ) ] );
+		}
+	}
 	function select( key: string, range: boolean, add = false ) {
 		const keys = [ ...new Set( rows().map( ( row ) => row.getAttribute( KEY_ATTRIBUTE )! ) ) ];
 		// The open chat, not its site row, which is marked current along with it.
@@ -133,7 +158,8 @@ export function SidebarSelection( { children }: { children: ReactNode } ) {
 	}
 
 	function onKeyDownCapture( event: KeyboardEvent ) {
-		if ( isEditing( event.target ) ) {
+		// Keys in a row's menu reach here through its portal.
+		if ( isEditing( event.target ) || ! root.current?.contains( event.target as Node ) ) {
 			return;
 		}
 		if ( event.key === 'Escape' && selection ) {
@@ -173,7 +199,9 @@ export function SidebarSelection( { children }: { children: ReactNode } ) {
 	const viewing = sessions?.find( ( session ) => session.id === params.sessionId );
 
 	return (
-		<SelectionContext.Provider value={ { selection, clear, deleteSites: setDeleting } }>
+		<SelectionContext.Provider
+			value={ { selection, clear, deselect, reselect, deleteSites: setDeleting } }
+		>
 			<div
 				ref={ root }
 				className={ styles.selection }
@@ -201,7 +229,6 @@ export function SidebarSelection( { children }: { children: ReactNode } ) {
 						( site ) =>
 							site.id === params.siteId || ( viewing && aiSessionBelongsToSite( viewing, site ) )
 					);
-					clear();
 					if ( viewingDeleted ) {
 						void navigate( { to: '/' } );
 					}
@@ -243,7 +270,7 @@ export function BulkMenu( {
 	onClick?: MouseEventHandler< HTMLElement >;
 	onPointerDown?: PointerEventHandler< HTMLElement >;
 } ) {
-	const { selection, clear, deleteSites } = useContext( SelectionContext );
+	const { selection, clear, deselect, reselect, deleteSites } = useContext( SelectionContext );
 	const params = useParams( { strict: false } ) as { sessionId?: string };
 	const { data: sessions } = useSessions();
 	const { data: sites } = useSites();
@@ -277,9 +304,12 @@ export function BulkMenu( {
 		toast.success( itemsUpdated( changed.length ) );
 	};
 
-	// Each chat is updated on its own, so one failure doesn't stop the rest.
+	// Each chat is updated on its own, so one failure doesn't stop the rest. The
+	// rest of the selection stays, and chats that failed come back for a retry.
 	const updateChats = async ( patch: { archived?: boolean; unread?: boolean } ) => {
 		onClose();
+		const chatKeys = chatIds.map( ( id ) => chatPinKey( id ) );
+		deselect( chatKeys );
 		const results = await Promise.allSettled(
 			chatIds.map( ( sessionId ) => mutateAsync( { sessionId, patch } ) )
 		);
@@ -287,7 +317,7 @@ export function BulkMenu( {
 		const errors = results.flatMap( ( result ) =>
 			result.status === 'rejected' ? [ errorMessage( result.reason ) ] : []
 		);
-		clear();
+		reselect( chatKeys.filter( ( _, index ) => results[ index ].status === 'rejected' ) );
 		const undo =
 			patch.archived && updated.length
 				? {

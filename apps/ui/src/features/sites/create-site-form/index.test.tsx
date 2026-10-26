@@ -162,6 +162,28 @@ describe( 'CreateSiteForm', () => {
 		expect( screen.getByLabelText( /Admin username/ ) ).toHaveValue( 'blueprint-admin' );
 	} );
 
+	it( 'starts from the fields edited in an earlier opening, over suggestions', () => {
+		const onDraftChange = vi.fn();
+		const props = { existingDomainNames: [], onSubmit: vi.fn(), onCancel: vi.fn(), onDraftChange };
+		const { unmount } = render(
+			<CreateSiteForm { ...props } initialValues={ { name: 'Proposed' } } />
+		);
+		fireEvent.change( screen.getByLabelText( /Site name/ ), { target: { value: 'My draft ' } } );
+		unmount();
+
+		render(
+			<CreateSiteForm
+				{ ...props }
+				initialValues={ { name: 'Proposed', adminUsername: 'blueprint-admin' } }
+				draft={ onDraftChange.mock.lastCall?.[ 0 ] }
+			/>
+		);
+		expect( screen.getByLabelText( /Site name/ ) ).toHaveValue( 'My draft ' );
+		openAdvancedSettings();
+		expect( screen.getByLabelText( /Admin username/ ) ).toHaveValue( 'blueprint-admin' );
+		expect( onDraftChange ).toHaveBeenLastCalledWith( { name: 'My draft ' } );
+	} );
+
 	it( 'keeps path validation pending while an asynchronous name suggestion resolves', async () => {
 		const pending = deferred< {
 			path: string;
@@ -432,6 +454,36 @@ describe( 'CreateSiteForm', () => {
 		expect( screen.queryByText( 'WordPress version' ) ).not.toBeInTheDocument();
 
 		expect( onExistingChange ).toHaveBeenLastCalledWith( true );
+	} );
+
+	it( 'refuses an existing WordPress site when the folder must start empty', async () => {
+		usePathValidatorMock.mockReturnValue( {
+			generateProposedPath: vi.fn( async () => ( {
+				path: '/sites/occupied',
+				isEmpty: false,
+				isWordPress: true,
+				error: 'Choose an empty folder for your site.',
+			} ) ),
+			selectPath: vi.fn(),
+		} );
+		render(
+			<CreateSiteForm
+				initialValues={ { name: 'Occupied' } }
+				existingDomainNames={ [] }
+				onSubmit={ vi.fn() }
+				onCancel={ vi.fn() }
+				requiresEmptyPath
+			/>
+		);
+
+		await waitFor( () =>
+			expect( screen.getByLabelText( 'Local path' ) ).toHaveAccessibleDescription(
+				'Choose an empty folder for your site.'
+			)
+		);
+		expect( usePathValidatorMock ).toHaveBeenCalledWith( expect.anything(), true );
+		expect( screen.queryByText( 'Existing local WordPress site' ) ).not.toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'Create site' } ) ).toBeDisabled();
 	} );
 
 	it( 'opens Advanced settings on its own for a folder it cannot use', async () => {

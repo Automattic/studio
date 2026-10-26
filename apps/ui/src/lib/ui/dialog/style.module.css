@@ -56,6 +56,10 @@
 	}
 
 	@media ( prefers-reduced-motion: reduce ) {
+		.overlay {
+			transition-duration: var( --motion-duration-feedback );
+		}
+
 		.content {
 			transition-property: opacity;
 			transition-duration: var( --motion-duration-feedback );

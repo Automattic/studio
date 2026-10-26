@@ -40,6 +40,10 @@ export function useSites() {
 		queryFn: () => connector.getSites(),
 		// Also catches running states that changed without a site event (e.g. a daemon crash).
 		refetchInterval: 2 * 60 * 1000,
+		// The sidebar mounts another reader once the list stops loading: a failed
+		// list refetched on each new mount would go back to loading, unmount that
+		// reader, fail again and repeat forever.
+		retryOnMount: false,
 	} );
 }
 
@@ -222,11 +226,11 @@ export function useUpdateSite() {
 	const connector = useConnector();
 	const queryClient = useQueryClient();
 	return useMutation( {
+		// The refetch is awaited so the settings form, which re-seeds from the
+		// list once the save settles, never re-seeds from the pre-save site.
 		mutationFn: async ( { site, wpVersion }: UpdateSiteInput ) => {
 			await connector.updateSite( site, wpVersion );
-			// No invalidateQueries here: the site-updated event this edit
-			// emits makes `useSyncSitesWithEvents` refetch the list, so a
-			// refetch now would only duplicate it.
+			await queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } );
 		},
 		onSuccess: ( _data, { site, wpVersion } ) => {
 			// Seed the applied version rather than refetching, which can still

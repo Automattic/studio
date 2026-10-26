@@ -31,6 +31,11 @@
 		--button-active-duration: var( --motion-duration-layout );
 	}
 
+	.button[data-active-motion='layout'] {
+		--button-active-duration: var( --motion-duration-layout );
+		--button-active-easing: var( --motion-ease-layout );
+	}
+
 	@media ( prefers-reduced-motion: no-preference ) {
 		.button:not( :focus-visible, [aria-haspopup='menu'], [aria-haspopup='listbox'] ) {
 			transition-property: color, background-color, border-color, transform, opacity;
@@ -40,6 +45,11 @@
 			transition-timing-function: ease, ease, ease, ease,
 				var( --button-active-easing, var( --motion-ease-enter ) );
 		}
+	}
+
+	/* Switches state at once, as feedback timed to another animation. */
+	.button[data-active-motion='instant'] {
+		transition: none;
 	}
 
 	.button:is( [aria-expanded='true'], [aria-pressed='true'] ) {

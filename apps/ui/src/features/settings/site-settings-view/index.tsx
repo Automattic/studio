@@ -288,17 +288,19 @@ export function SiteSettingsForm( {
 		{ action, ...props }: ComponentProps< typeof Input > & { action?: ReactNode } = {}
 	) => (
 		<SettingsRow title={ title } description={ description } error={ errors[ key ] }>
-			<div className={ styles.field }>
-				<Input
-					aria-label={ title }
-					aria-invalid={ errors[ key ] ? true : undefined }
-					value={ data[ key ] }
-					disabled={ disabled }
-					onChange={ ( event ) => handleChange( { [ key ]: event.target.value } ) }
-					{ ...props }
-				/>
-				{ action }
-			</div>
+			{ ( control ) => (
+				<div className={ styles.field }>
+					<Input
+						{ ...control }
+						aria-label={ title }
+						value={ data[ key ] }
+						disabled={ disabled }
+						onChange={ ( event ) => handleChange( { [ key ]: event.target.value } ) }
+						{ ...props }
+					/>
+					{ action }
+				</div>
+			) }
 		</SettingsRow>
 	);
 	const toggleRow = (
@@ -330,14 +332,17 @@ export function SiteSettingsForm( {
 		locked = false
 	) => (
 		<SettingsRow title={ title } description={ description }>
-			<SiteSelect
-				size="sm"
-				aria-label={ title }
-				value={ data[ key ] }
-				options={ options }
-				disabled={ disabled || locked }
-				onChange={ ( value ) => handleChange( { [ key ]: value } ) }
-			/>
+			{ ( control ) => (
+				<SiteSelect
+					{ ...control }
+					size="sm"
+					aria-label={ title }
+					value={ data[ key ] }
+					options={ options }
+					disabled={ disabled || locked }
+					onChange={ ( value ) => handleChange( { [ key ]: value } ) }
+				/>
+			) }
 		</SettingsRow>
 	);
 	const copyButton = ( key: TextKey, label: string ) => (
@@ -557,7 +562,11 @@ export function SiteSettingsForm( {
 				</p>
 			) : null }
 			{ sections[ section ] }
-			{ submitError && <div className={ styles.submitError }>{ submitError }</div> }
+			{ submitError && (
+				<div role="alert" className={ styles.submitError }>
+					{ submitError }
+				</div>
+			) }
 			{ dirty && dialog.actions
 				? createPortal(
 						<>

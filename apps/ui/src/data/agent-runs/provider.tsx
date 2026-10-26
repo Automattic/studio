@@ -16,6 +16,7 @@ import {
 	type AgentRunAction,
 	type SendMessageOptions,
 } from './store';
+import { streamingReplyEntry, type StreamingReply } from './streaming-reply';
 import type {
 	AgentEvent,
 	AgentRunEvent,
@@ -34,6 +35,12 @@ function shortEntryId(): string {
 	return Math.random().toString( 36 ).slice( 2, 10 );
 }
 
+function replaceEntry( entries: SessionEntry[], entry: SessionEntry ): SessionEntry[] {
+	return entries.some( ( candidate ) => candidate.id === entry.id )
+		? entries.map( ( candidate ) => ( candidate.id === entry.id ? entry : candidate ) )
+		: [ ...entries, entry ];
+}
+
 function getTimestampMs( timestamp: string ): number {
 	const parsed = Date.parse( timestamp );
 	return Number.isNaN( parsed ) ? Date.now() : parsed;
@@ -49,6 +56,7 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 	// Bumped by every change to a session's run, so a snapshot of active runs
 	// requested before the change doesn't overwrite it when it lands.
 	const sessionRevisionsRef = useRef< Map< string, number > >( new Map() );
+	const streamingRepliesRef = useRef< Map< string, StreamingReply > >( new Map() );
 
 	const dispatchSession = useCallback(
 		( sessionId: string, action: AgentRunAction ) => {
@@ -79,6 +87,15 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 		},
 		[ queryClient ]
 	);
+
+	const endStreamingReply = useCallback( ( sessionId: string ) => {
+		const reply = streamingRepliesRef.current.get( sessionId );
+		if ( reply?.frame !== undefined ) {
+			cancelAnimationFrame( reply.frame );
+		}
+		streamingRepliesRef.current.delete( sessionId );
+		return reply;
+	}, [] );
 
 	useEffect( () => {
 		let cancelled = false;
@@ -149,6 +166,7 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 				( stateStore.getState()[ sessionId ] ?? initialAgentRunState ).queuedPrompts.length > 0;
 			dispatchSession( sessionId, { type: 'run_ended' } );
 			subscribedRunIdsBySessionRef.current.delete( sessionId );
+			endStreamingReply( sessionId );
 			// The finished run consumed AI credits; refresh the balance shown
 			// in the composer and in Settings → Usage.
 			void queryClient.invalidateQueries( { queryKey: ASSISTANT_QUOTA_QUERY_KEY } );
@@ -246,21 +264,43 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 						] );
 						return;
 					}
-					// Only message-bearing pi event variants need optimistic entries.
-					if (
-						inner.type === 'message_end' &&
-						( inner.message as { role?: string } ).role === 'assistant'
-					) {
-						updateCache( payload.sessionId, ( entries ) => [
-							...entries,
-							{
+					if ( inner.type === 'message_update' && inner.message.role === 'assistant' ) {
+						const { sessionId } = payload;
+						const reply = streamingRepliesRef.current.get( sessionId );
+						if ( ! reply ) {
+							const started = {
+								entryId: shortEntryId(),
+								timestamp: event.timestamp,
+								message: inner.message,
+							};
+							streamingRepliesRef.current.set( sessionId, started );
+							updateCache( sessionId, ( entries ) => [
+								...entries,
+								streamingReplyEntry( started ),
+							] );
+							return;
+						}
+						reply.message = inner.message;
+						// Updates arrive per token; one transcript update per frame is enough.
+						reply.frame ??= requestAnimationFrame( () => {
+							reply.frame = undefined;
+							updateCache( sessionId, ( entries ) =>
+								replaceEntry( entries, streamingReplyEntry( reply ) )
+							);
+						} );
+						return;
+					}
+					if ( inner.type === 'message_end' && inner.message.role === 'assistant' ) {
+						const reply = endStreamingReply( payload.sessionId );
+						updateCache( payload.sessionId, ( entries ) =>
+							replaceEntry( entries, {
 								type: 'message',
-								id: shortEntryId(),
+								id: reply?.entryId ?? shortEntryId(),
 								parentId: null,
 								timestamp: event.timestamp,
 								message: inner.message,
-							} as unknown as SessionEntry,
-						] );
+							} as unknown as SessionEntry )
+						);
 					} else if ( inner.type === 'turn_end' ) {
 						const toolResults = inner.toolResults;
 						if ( Array.isArray( toolResults ) && toolResults.length > 0 ) {
@@ -332,7 +372,7 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 					return;
 			}
 		} );
-	}, [ connector, dispatchSession, queryClient, stateStore, updateCache ] );
+	}, [ connector, dispatchSession, endStreamingReply, queryClient, stateStore, updateCache ] );
 
 	const startRun = useCallback(
 		async ( sessionId: string, prompt: string, options: SendMessageOptions = {} ) => {
@@ -342,6 +382,7 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 			const visualAnnotations = options.visualAnnotations;
 			// Synchronous, so a second send in the same tick queues behind this one.
 			dispatchSession( sessionId, { type: 'send_pending', startedAt: Date.now() } );
+			const revision = sessionRevisionsRef.current.get( sessionId );
 			await queryClient.cancelQueries( { queryKey: [ ...SESSIONS_QUERY_KEY, sessionId ] } );
 
 			const optimisticEntry: SessionEntry = {
@@ -378,6 +419,10 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 					void connector
 						.interruptAgentRun( newRunId )
 						.catch( ( error ) => toast.error( String( error ) ) );
+					return;
+				}
+				// The run's own events can beat the acknowledgement, even its exit.
+				if ( sessionRevisionsRef.current.get( sessionId ) !== revision ) {
 					return;
 				}
 				dispatchSession( sessionId, {
@@ -432,6 +477,7 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 				interruptPendingStartSessionIdsRef.current.add( sessionId );
 			}
 			subscribedRunIdsBySessionRef.current.delete( sessionId );
+			endStreamingReply( sessionId );
 			updateCache( sessionId, ( entries ) => [
 				...entries,
 				{
@@ -448,7 +494,7 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 				await connector.interruptAgentRun( interruptedRunId );
 			}
 		},
-		[ connector, dispatchSession, stateStore, updateCache ]
+		[ connector, dispatchSession, endStreamingReply, stateStore, updateCache ]
 	);
 
 	// The transcript reads the highlight straight off the cached entry, so a pick

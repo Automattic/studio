@@ -100,11 +100,11 @@
 	font-size: var( --text-xs );
 }
 
-.createAccount {
+.actions {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: var( --space-4 );
 	margin-top: var( --space-7 );
-}
-
-.logIn {
-	margin-top: var( --space-4 );
 	font-size: var( --text-xs );
 }

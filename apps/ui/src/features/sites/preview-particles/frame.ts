@@ -61,7 +61,8 @@ export function createPreviewDots( width: number, height: number ): PreviewDot[]
 
 // Where a dot sits at `time` (ms) when the field moves by `amount` (0–1): a
 // ripple out from the center plus a slow swirl. With `clearCenter`, dots fade
-// out of the middle to leave room for the logo.
+// out of the middle to leave room for the logo; without it, dots near the
+// middle move less so the field doesn't open a hole there.
 export function getPreviewDotFrame(
 	dot: PreviewDot,
 	{
@@ -73,7 +74,7 @@ export function getPreviewDotFrame(
 	}: { time: number; amount: number; centerX: number; centerY: number; clearCenter: boolean }
 ) {
 	const wave = Math.sin( dot.distance / 85 - time / 650 );
-	const movement = amount * dot.edge;
+	const movement = amount * dot.edge * ( clearCenter ? 1 : Math.min( 1, dot.distance / 96 ) );
 	const ripple = wave * 26 * movement;
 	const swirl = Math.sin( time / 1100 - dot.distance / 180 ) * 52 * movement;
 	const x = dot.x + dot.dx * ripple - dot.dy * swirl;

@@ -25,13 +25,6 @@
 	}
 }
 
-/* eslint-disable studio/no-primitive-overrides -- the trigger dims along with the panel's slide-in. */
-.trigger {
-	--button-active-duration: var( --motion-duration-layout );
-	--button-active-easing: var( --motion-ease-layout );
-}
-/* eslint-enable studio/no-primitive-overrides */
-
 .triggerLabel {
 	position: relative;
 }
@@ -155,10 +148,11 @@
 	gap: var( --space-1 );
 }
 
-.choiceButton {
+.choiceText {
+	display: flex;
 	flex-direction: column;
-	align-items: flex-start;
 	gap: var( --space-1 );
+	min-width: 0;
 }
 
 .choiceName {

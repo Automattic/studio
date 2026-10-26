@@ -7,7 +7,7 @@ import { useConnector } from '@/data/core';
 import { persister } from '@/data/core/query-client';
 import { useInstalledApps } from '@/data/queries/use-installed-apps';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
-import { SIDEBAR_PANEL_STORAGE_KEY } from '@/data/resizable-panels';
+import { SIDEBAR_COLLAPSED_STORAGE_KEY, SIDEBAR_PANEL_STORAGE_KEY } from '@/data/resizable-panels';
 import { AppearanceSettings, GeneralSettings } from './index';
 
 vi.mock( './sidebar-settings', () => ( {
@@ -212,10 +212,15 @@ describe( 'Studio settings', () => {
 		);
 	} );
 
-	it( 'resets the interface preferences and panel widths, and only when something changed', () => {
+	it( 'resets the interface preferences and panel layout, and only when something changed', () => {
 		const { unmount } = render( <GeneralSettings /> );
 		expect( screen.getByRole( 'button', { name: 'Reset interface' } ) ).toBeDisabled();
 		unmount();
+
+		window.localStorage.setItem( SIDEBAR_COLLAPSED_STORAGE_KEY, 'true' );
+		const hidden = render( <GeneralSettings /> );
+		expect( screen.getByRole( 'button', { name: 'Reset interface' } ) ).toBeEnabled();
+		hidden.unmount();
 
 		mockPreferences( { newSiteBehavior: 'blank' } );
 		window.localStorage.setItem( SIDEBAR_PANEL_STORAGE_KEY, '320' );
@@ -240,6 +245,7 @@ describe( 'Studio settings', () => {
 			expect.any( Object )
 		);
 		expect( window.localStorage.getItem( SIDEBAR_PANEL_STORAGE_KEY ) ).toBeNull();
+		expect( window.localStorage.getItem( SIDEBAR_COLLAPSED_STORAGE_KEY ) ).toBeNull();
 	} );
 
 	it( 'turns the annotation delete confirmation back on', () => {
@@ -256,19 +262,20 @@ describe( 'Studio settings', () => {
 		);
 	} );
 
-	it( 'saves a typed default directory where there is no folder picker', () => {
+	it( 'saves a typed default directory where there is no folder picker, keeping it if that fails', () => {
 		useConnectorMock.mockReturnValue( { capabilities: { nativeFolderPicker: false } } as never );
+		mutate.mockImplementation( ( _patch, options ) => options?.onError?.() );
 		render( <GeneralSettings /> );
+		const directory = screen.getByRole( 'textbox', { name: 'Default directory' } );
 
-		fireEvent.change( screen.getByRole( 'textbox', { name: 'Default directory' } ), {
-			target: { value: ' /Users/example/Sites ' },
-		} );
+		fireEvent.change( directory, { target: { value: ' /Users/example/Sites ' } } );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Save' } ) );
 
 		expect( mutate ).toHaveBeenCalledWith(
 			{ defaultSiteDirectory: '/Users/example/Sites' },
 			expect.any( Object )
 		);
+		expect( directory ).toHaveValue( ' /Users/example/Sites ' );
 	} );
 
 	it( 'clears the persisted cache and reloads after a locale change is saved', async () => {

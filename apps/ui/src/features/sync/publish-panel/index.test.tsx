@@ -208,6 +208,23 @@ describe( 'PublishButton', () => {
 		);
 	} );
 
+	it( 'publishes once when the checkout callback arrives twice', async () => {
+		let connectSite: Parameters< Connector[ 'onSyncConnectSite' ] >[ 0 ] = () => {};
+		const { connector, site } = renderButton( {
+			onSyncConnectSite: vi.fn( ( listener ) => {
+				connectSite = listener;
+				return () => {};
+			} ),
+		} );
+
+		connectSite( { remoteSiteId: remote.id, studioSiteId: site.id, autoOpenPush: true } );
+		connectSite( { remoteSiteId: remote.id, studioSiteId: site.id, autoOpenPush: true } );
+
+		await waitFor( () => expect( connector.pushSiteToLive ).toHaveBeenCalled() );
+		expect( connector.connectWpcomSite ).toHaveBeenCalledTimes( 1 );
+		expect( connector.pushSiteToLive ).toHaveBeenCalledTimes( 1 );
+	} );
+
 	it( 'keeps a site over the size limit from publishing after checkout', async () => {
 		let connectSite: Parameters< Connector[ 'onSyncConnectSite' ] >[ 0 ] = () => {};
 		const { connector, site } = renderButton( {

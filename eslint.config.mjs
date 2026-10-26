@@ -63,7 +63,7 @@ const UI_LAYERS = {
 };
 
 // Custom properties the primitives use, beyond the theme tokens. Feature CSS may
-// set only the documented hooks (see apps/ui/COMPONENTS.md).
+// set only the documented hooks (see apps/ui/src/lib/ui/README.md).
 const cssCustomProperties = ( dir ) =>
 	fs
 		.readdirSync( uiPath( dir ), { recursive: true } )

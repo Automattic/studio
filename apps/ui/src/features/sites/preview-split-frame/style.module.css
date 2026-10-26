@@ -24,8 +24,13 @@
 	background-color: var( --chat );
 }
 
+/* The content reads its column's width beside the preview from
+   `--content-column-width`, and how long the column takes to get there from
+   `--content-column-motion`, so a width cap inside it can ease along. */
 .rootPreviewOpen .contentColumn {
-	width: var( --preview-frame-content-width );
+	--content-column-width: var( --preview-frame-content-width );
+
+	width: var( --content-column-width );
 }
 
 /* With both panes showing, the divider takes its own column between them:
@@ -56,6 +61,10 @@
 
 .rootPreviewAnimating :is( .contentColumn, .previewSlot ) {
 	transition: width var( --motion-duration-layout ) var( --motion-ease-layout );
+}
+
+.rootPreviewAnimating .contentColumn {
+	--content-column-motion: var( --motion-duration-layout );
 }
 
 /* The chat header's actions fade back in once the column is halfway open,

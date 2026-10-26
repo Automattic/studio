@@ -53,6 +53,7 @@ type BasePhpOptions = {
 type SpawnPhpProcessOptions = BasePhpOptions & {
 	mode?: 'pipe' | 'no-pipe';
 	workerIndex?: number;
+	siteId?: string;
 };
 type RunPhpCommandOptions = BasePhpOptions & {
 	mode?: 'pipe' | 'no-pipe' | 'capture';
@@ -92,6 +93,7 @@ export function spawnPhpProcess(
 		disallowRiskyFunctions = false,
 		autoPrependFile,
 		workerIndex,
+		siteId,
 	}: SpawnPhpProcessOptions
 ): ChildProcess {
 	const defaultArgs = getDefaultPhpArgs( phpVersion, {
@@ -100,6 +102,7 @@ export function spawnPhpProcess(
 		enableXdebug,
 		autoPrependFile,
 		workerIndex,
+		siteId,
 	} );
 	const phpArgs = [ ...defaultArgs, ...args ];
 	const phpScriptProcess = spawn( getPhpBinaryPath( phpVersion ), phpArgs, {

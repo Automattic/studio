@@ -2,10 +2,10 @@ import fs from 'fs';
 import { rootCertificates } from 'node:tls';
 import os from 'os';
 import path from 'path';
+import { getConfigDirectory } from '@studio/common/lib/well-known-paths';
 import { writeFile } from 'atomically';
 import semver from 'semver';
 import { getPhpBinaryPath } from '../dependency-management/paths';
-import { getFullyResolvedTmpDirPath } from './tmp-dir';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 
 // Disabled to shrink the attack surface available to PHP code running inside a
@@ -208,24 +208,8 @@ function getXdebugFilename(): string {
 	return process.platform === 'win32' ? 'php_xdebug.dll' : 'xdebug.so';
 }
 
-// Process-scoped opcache dir, created lazily and removed when the process exits
-let opcacheRootDir: string | null = null;
-
-function getOpcacheRootDir(): string {
-	if ( opcacheRootDir ) {
-		return opcacheRootDir;
-	}
-
-	opcacheRootDir = fs.mkdtempSync( path.join( getFullyResolvedTmpDirPath(), 'studio-opcache-' ) );
-	const dirToClean = opcacheRootDir;
-	process.once( 'exit', () => {
-		try {
-			fs.rmSync( dirToClean, { recursive: true, force: true } );
-		} catch {
-			// Best effort. The OS will reap tmp eventually.
-		}
-	} );
-	return opcacheRootDir;
+export function getSiteOpcacheDirectory( siteId: string ): string {
+	return path.join( getConfigDirectory(), 'opcache', siteId );
 }
 
 type DefaultPhpArgsOptions = {
@@ -234,6 +218,7 @@ type DefaultPhpArgsOptions = {
 	enableXdebug?: boolean;
 	autoPrependFile?: string;
 	workerIndex?: number;
+	siteId?: string;
 };
 
 export function getDefaultPhpArgs(
@@ -244,29 +229,29 @@ export function getDefaultPhpArgs(
 		enableXdebug = false,
 		autoPrependFile,
 		workerIndex,
+		siteId,
 	}: DefaultPhpArgsOptions = {}
 ): string[] {
-	// Partition the file_cache directory by PHP version to match the cache_id
-	// already pinned in php.ini — opcache's on-disk script blob format isn't
-	// stable across minor versions and reusing a cache populated by a different
-	// PHP can crash the server at startup.
-	// Server workers also get a directory each: a worker reading an entry another
-	// worker is still writing segfaults under CPU load (STU-2484).
-	const versionCacheDirectory = path.join( getOpcacheRootDir(), `php${ phpVersion }` );
-	const cacheDirectory =
-		workerIndex === undefined
-			? versionCacheDirectory
-			: path.join( versionCacheDirectory, `worker-${ workerIndex }` );
-	fs.mkdirSync( cacheDirectory, { recursive: true } );
-
 	// `-c` points the binary at our php.ini and short-circuits the default
 	// ini search, so host PHP installations (and PHPRC) can't leak in
-	const args: string[] = [
-		'-c',
-		getNativePhpIniPath( phpVersion ),
-		'-d',
-		`opcache.file_cache="${ cacheDirectory }"`,
-	];
+	const args: string[] = [ '-c', getNativePhpIniPath( phpVersion ) ];
+
+	if ( workerIndex !== undefined ) {
+		if ( ! siteId ) {
+			throw new Error( 'Server workers require a site ID for the opcache file cache' );
+		}
+		// The site owns this directory: killed processes leave nothing new behind,
+		// restarts reuse a warm cache, and site deletion removes it.
+		// PHP versions have incompatible cache formats. Workers must also stay separate:
+		// reading an entry another worker is still writing can segfault (STU-2484).
+		const cacheDirectory = path.join(
+			getSiteOpcacheDirectory( siteId ),
+			`php${ phpVersion }`,
+			`worker-${ workerIndex }`
+		);
+		fs.mkdirSync( cacheDirectory, { recursive: true } );
+		args.push( '-d', `opcache.file_cache="${ cacheDirectory }"` );
+	}
 
 	if ( enableXdebug ) {
 		// On macOS the `php` binary has every other extension baked in and ext/

@@ -639,6 +639,7 @@ async function doStartServer(
 				enableXdebug: config.enableXdebug,
 				autoPrependFile,
 				workerIndex: index,
+				siteId: config.siteId,
 			} );
 			spawnedChildren.push( serverChild );
 

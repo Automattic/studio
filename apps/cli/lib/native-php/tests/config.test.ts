@@ -1,7 +1,9 @@
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { getDefaultPhpArgs, getNativePhpIniContents } from 'cli/lib/native-php/config';
+import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 
 describe( 'getNativePhpIniContents', () => {
 	const originalPlatform = process.platform;
@@ -43,20 +45,42 @@ describe( 'getDefaultPhpArgs', () => {
 		return directive?.match( /^opcache\.file_cache="(.*)"$/ )?.[ 1 ] ?? '';
 	}
 
-	it( 'gives each server worker its own opcache file cache directory', () => {
-		const first = getFileCacheDirectory( getDefaultPhpArgs( '8.4', { workerIndex: 0 } ) );
-		const second = getFileCacheDirectory( getDefaultPhpArgs( '8.4', { workerIndex: 1 } ) );
-
-		expect( first ).not.toBe( second );
-		expect( path.basename( first ) ).toBe( 'worker-0' );
-		expect( fs.existsSync( first ) ).toBe( true );
-		expect( fs.existsSync( second ) ).toBe( true );
-	} );
-
-	it( 'partitions the opcache file cache by PHP version', () => {
-		const cacheDirectory = getFileCacheDirectory( getDefaultPhpArgs( '8.4' ) );
-
-		expect( path.basename( cacheDirectory ) ).toBe( 'php8.4' );
+	it( 'only caches server workers, partitioned stably by site, PHP version and worker', () => {
+		const dataDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-config-test-' ) );
+		vi.stubEnv( 'DEV_CONFIG_DIR', dataDir );
+		try {
+			const cases: [ string | undefined, SupportedPHPVersion, number | undefined ][] = [
+				[ undefined, '8.4', undefined ],
+				[ 'site-a', '8.4', undefined ],
+				[ 'site-a', '8.4', 0 ],
+				[ 'site-a', '8.4', 0 ],
+				[ 'site-a', '8.4', 1 ],
+				[ 'site-a', '8.3', 0 ],
+				[ 'site-b', '8.4', 0 ],
+			];
+			for ( const [ siteId, phpVersion, workerIndex ] of cases ) {
+				const args = getDefaultPhpArgs( phpVersion, { siteId, workerIndex } );
+				const cacheDirectory = getFileCacheDirectory( args );
+				if ( workerIndex === undefined ) {
+					expect( args.some( ( arg ) => arg.startsWith( 'opcache.file_cache=' ) ) ).toBe( false );
+					expect( fs.readdirSync( dataDir ) ).toEqual( [] );
+				} else {
+					expect( cacheDirectory ).toBe(
+						path.join(
+							dataDir,
+							'opcache',
+							siteId!,
+							`php${ phpVersion }`,
+							`worker-${ workerIndex }`
+						)
+					);
+					expect( fs.statSync( cacheDirectory ).isDirectory() ).toBe( true );
+				}
+			}
+		} finally {
+			vi.unstubAllEnvs();
+			fs.rmSync( dataDir, { recursive: true, force: true } );
+		}
 	} );
 
 	it( 'omits Xdebug directives by default', () => {

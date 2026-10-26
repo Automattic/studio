@@ -196,7 +196,8 @@ describe( 'removeOwnedSqliteSymlink', () => {
 		fs.mkdirSync( target );
 		fs.symlinkSync( target, symlink, 'junction' );
 		const symlinkIno = fs.lstatSync( symlink ).ino;
-		fs.rmSync( symlink );
+		// Keep the old inode allocated so the replacement cannot reuse it.
+		fs.renameSync( symlink, path.join( tempDir, 'original-plugin' ) );
 		fs.mkdirSync( symlink );
 
 		await removeOwnedSqliteSymlink( symlink, symlinkIno );

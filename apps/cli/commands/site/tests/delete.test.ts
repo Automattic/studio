@@ -18,6 +18,7 @@ import {
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/daemon-client';
 import { removeDomainFromHosts } from 'cli/lib/hosts-file';
+import { getSiteOpcacheDirectory } from 'cli/lib/native-php/config';
 import { stopProxyIfNoSitesNeedIt } from 'cli/lib/site-utils';
 import { getSnapshotsFromConfig, deleteSnapshotFromConfig } from 'cli/lib/snapshots';
 import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
@@ -154,6 +155,7 @@ describe( 'CLI: studio site delete', () => {
 		vi.mocked( deleteAiSessionsForSite ).mockResolvedValue( [] );
 		vi.mocked( removeAllConnectedWpcomSitesForLocalSite ).mockResolvedValue( undefined );
 		vi.spyOn( fs, 'existsSync' ).mockReturnValue( true );
+		vi.spyOn( fs.promises, 'rm' ).mockResolvedValue( undefined );
 	} );
 
 	afterEach( () => {
@@ -195,6 +197,25 @@ describe( 'CLI: studio site delete', () => {
 	} );
 
 	describe( 'Success Cases', () => {
+		it( 'removes the site cache even when keeping site files', async () => {
+			await runCommand( testSiteFolder, false );
+
+			expect( fs.promises.rm ).toHaveBeenCalledWith( getSiteOpcacheDirectory( testSite.id ), {
+				recursive: true,
+				force: true,
+			} );
+		} );
+
+		it( 'continues deleting the site if cache cleanup fails', async () => {
+			vi.mocked( fs.promises.rm ).mockRejectedValueOnce( new Error( 'Permission denied' ) );
+
+			await expect( runCommand( testSiteFolder, false ) ).resolves.not.toThrow();
+			expect( emitCliEvent ).toHaveBeenCalledWith( {
+				event: SITE_EVENTS.DELETED,
+				data: { siteId: testSite.id },
+			} );
+		} );
+
 		it( 'should delete a running site and stop it first', async () => {
 			vi.mocked( isServerRunning ).mockResolvedValue( testProcessDescription );
 			vi.mocked( getSnapshotsFromConfig ).mockResolvedValue( [] );

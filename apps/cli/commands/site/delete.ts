@@ -20,6 +20,7 @@ import {
 } from 'cli/lib/cli-config/core';
 import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/daemon-client';
 import { removeDomainFromHosts } from 'cli/lib/hosts-file';
+import { getSiteOpcacheDirectory } from 'cli/lib/native-php/config';
 import { withSiteOperations } from 'cli/lib/site-operations';
 import { stopProxyIfNoSitesNeedIt } from 'cli/lib/site-utils';
 import { getSnapshotsFromConfig, deleteSnapshotFromConfig } from 'cli/lib/snapshots';
@@ -422,6 +423,15 @@ async function deleteSite(
 		await saveCliConfig( cliConfig );
 	} finally {
 		await unlockCliConfig();
+	}
+
+	try {
+		await fs.promises.rm( getSiteOpcacheDirectory( site.id ), { recursive: true, force: true } );
+	} catch ( error ) {
+		logger.reportError(
+			new LoggerError( __( 'Failed to delete PHP cache. Proceeding anyway…' ), error ),
+			false
+		);
 	}
 
 	try {

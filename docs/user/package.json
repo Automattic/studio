@@ -1,0 +1,18 @@
+{
+  "name": "studio-user-docs",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Local Markdown mirror of the WordPress Studio docs on developer.wordpress.com, generated via the site's own 'Copy page' transform.",
+  "scripts": {
+    "build-manifest": "node scripts/build-manifest.mjs",
+    "fetch": "node scripts/fetch-section.mjs",
+    "verify": "node scripts/verify-section.mjs",
+    "screenshots": "node scripts/capture-screenshots.mjs"
+  },
+  "dependencies": {
+    "cheerio": "^1.0.0",
+    "playwright": "^1.47.0",
+    "turndown": "^7.2.0"
+  }
+}

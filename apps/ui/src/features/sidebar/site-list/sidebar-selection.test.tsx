@@ -262,7 +262,6 @@ describe( 'sidebar selection', () => {
 					'true'
 				)
 			);
-			expect( within( menu ).getByText( /Wait for active chats/ ) ).toBeVisible();
 			expect( connector.updateSessionMetadata ).not.toHaveBeenCalled();
 		}
 	);

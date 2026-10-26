@@ -87,6 +87,22 @@ describe( 'sidebar site sections', () => {
 		await waitFor( () => expect( secondSite ).toHaveAttribute( 'aria-expanded', 'true' ) );
 	} );
 
+	it( 'opens the next Recent chat after archiving the active chat', async () => {
+		const { history } = setup( {
+			sessions: [
+				chat( 'newest', 'one', { updatedAt: '2026-10-26T12:00:00Z' } ),
+				chat( 'current', 'one', { updatedAt: '2026-10-26T11:00:00Z' } ),
+				chat( 'next', 'two', { updatedAt: '2026-10-26T10:00:00Z' } ),
+			],
+			path: '/sessions/current',
+		} );
+		const recent = await screen.findByRole( 'group', { name: 'Recent' } );
+		const current = await within( recent ).findByRole( 'button', { name: 'Current' } );
+		fireEvent.contextMenu( current );
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Archive' } ) );
+		await waitFor( () => expect( history.location.pathname ).toBe( '/sessions/next' ) );
+	} );
+
 	it( 'renames and archives chats from the sidebar menu without header actions', async () => {
 		const { connector } = setup( {
 			sites: [ makeSite( { ...site, running: true } ) ],

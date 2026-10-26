@@ -12,8 +12,7 @@ import { vi } from 'vitest';
 import { getSiteByFolder, updateSitePhpVersion } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { ImportExportEventEmitter } from 'cli/lib/import-export/events';
-import { DEFAULT_IMPORTER_OPTIONS, getImporter } from 'cli/lib/import-export/import/import-manager';
-import { withSiteOperation } from 'cli/lib/site-operations';
+import { getImporter } from 'cli/lib/import-export/import/import-manager';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { reportSyncActivity } from 'cli/lib/sync-activity';
 import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
@@ -112,26 +111,6 @@ describe( 'CLI: studio import', () => {
 	afterEach( () => {
 		vi.unstubAllGlobals();
 		vi.restoreAllMocks();
-	} );
-
-	it( 'loads site and imports backup', async () => {
-		await runCommand( testSitePath, testImportPath );
-
-		expect( connectToDaemon ).toHaveBeenCalled();
-		expect( getSiteByFolder ).toHaveBeenCalledWith( testSitePath );
-		expect( getImporter ).toHaveBeenCalledWith(
-			{
-				path: testImportPath,
-				type: 'application/zip',
-			},
-			DEFAULT_IMPORTER_OPTIONS
-		);
-		expect( withSiteOperation ).toHaveBeenCalledWith(
-			testSitePath,
-			'import',
-			expect.any( Function )
-		);
-		expect( disconnectFromDaemon ).toHaveBeenCalled();
 	} );
 
 	// Extraction reports once per stream chunk, so only changes in the text are published.

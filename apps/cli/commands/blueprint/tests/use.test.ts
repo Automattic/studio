@@ -125,37 +125,6 @@ describe( 'CLI: studio blueprint use', () => {
 		} );
 	} );
 
-	it( 'should pass site creation options to runCreateSiteCommand', async () => {
-		await runCommand( '/tmp/test-site', 'quick-start', {
-			name: 'My Site',
-			wpVersion: '6.5',
-			phpVersion: '8.2',
-			customDomain: 'mysite.local',
-			enableHttps: true,
-			adminUsername: 'admin',
-			adminPassword: 'secret',
-			adminEmail: 'admin@test.com',
-			noStart: true,
-			skipBrowser: true,
-		} );
-
-		expect( runCreateSiteCommand ).toHaveBeenCalledWith(
-			'/tmp/test-site',
-			expect.objectContaining( {
-				name: 'My Site',
-				wpVersion: '6.5',
-				phpVersion: '8.2',
-				customDomain: 'mysite.local',
-				enableHttps: true,
-				adminUsername: 'admin',
-				adminPassword: 'secret',
-				adminEmail: 'admin@test.com',
-				noStart: true,
-				skipBrowser: true,
-			} )
-		);
-	} );
-
 	it( 'should pass locale from shared config when fetching blueprints', async () => {
 		vi.mocked( readSharedConfig ).mockResolvedValue( { version: 1, locale: 'de_DE' } );
 

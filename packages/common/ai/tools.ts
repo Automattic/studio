@@ -309,7 +309,7 @@ export function getToolDisplayName( name: string, input?: Record< string, unknow
 		preview_update: __( 'Update preview' ),
 		preview_delete: __( 'Delete preview' ),
 		refresh_browser: __( 'Refresh preview' ),
-		site_connected_remote_sites: __( 'List connected remote sites' ),
+		site_publish_targets: __( 'List publish targets' ),
 		pick_design: __( 'Pick design' ),
 		present_design_options: __( 'Present design options' ),
 		validate_blocks: __( 'Validate blocks' ),

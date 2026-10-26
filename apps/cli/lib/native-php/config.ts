@@ -4,8 +4,7 @@ import os from 'os';
 import path from 'path';
 import { writeFile } from 'atomically';
 import semver from 'semver';
-import { getPhpBinaryPath } from '../dependency-management/paths';
-import { getMailpitSendmailCommand } from '../mailpit/paths';
+import { getBundledSendmailScriptPath, getPhpBinaryPath } from '../dependency-management/paths';
 import { getFullyResolvedTmpDirPath } from './tmp-dir';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 
@@ -235,9 +234,8 @@ type DefaultPhpArgsOptions = {
 	enableXdebug?: boolean;
 	autoPrependFile?: string;
 	workerIndex?: number;
-	// Marks the email this PHP process sends with its site, so the shared inbox can show
-	// one site's email. Read by Studio's mail mu-plugin.
-	emailTag?: string;
+	// Where the email this PHP process sends is saved; see `lib/site-email.ts`.
+	emailDirectory?: string;
 };
 
 export function getDefaultPhpArgs(
@@ -248,7 +246,7 @@ export function getDefaultPhpArgs(
 		enableXdebug = false,
 		autoPrependFile,
 		workerIndex,
-		emailTag,
+		emailDirectory,
 	}: DefaultPhpArgsOptions = {}
 ): string[] {
 	// Partition the file_cache directory by PHP version to match the cache_id
@@ -308,13 +306,17 @@ export function getDefaultPhpArgs(
 		args.push( '-d', `auto_prepend_file="${ toPhpIniPath( autoPrependFile ) }"` );
 	}
 
-	// Email the site sends lands in Studio's inbox instead of a sendmail no local machine has set up.
-	const sendmailCommand = getMailpitSendmailCommand();
-	if ( sendmailCommand ) {
+	if ( emailDirectory ) {
+		// `-n`: the script needs no extensions, so it skips loading php.ini.
+		const sendmailCommand = [
+			getPhpBinaryPath( phpVersion ),
+			'-n',
+			getBundledSendmailScriptPath(),
+			emailDirectory,
+		]
+			.map( ( part ) => `"${ part }"` )
+			.join( ' ' );
 		args.push( '-d', `sendmail_path="${ toPhpIniPath( sendmailCommand ) }"` );
-		if ( emailTag ) {
-			args.push( '-d', `studio.email_tag="${ emailTag }"` );
-		}
 	}
 
 	return args;

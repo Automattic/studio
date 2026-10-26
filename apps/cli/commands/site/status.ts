@@ -6,7 +6,7 @@ import { __, _n } from '@wordpress/i18n';
 import CliTable3 from 'cli-table3';
 import { getSiteByFolder, getSiteUrl } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
-import { getMailpitInboxUrl } from 'cli/lib/mailpit/paths';
+import { getSiteEmailDirectory } from 'cli/lib/site-email';
 import { getPrettyPath } from 'cli/lib/utils';
 import { isServerRunning } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
@@ -62,14 +62,12 @@ export async function runCommand( siteFolder: string, format: 'table' | 'json' )
 				type: 'url',
 				hidden: ! isOnline,
 			},
-			{
-				key: __( 'Email inbox' ),
-				jsonKey: 'emailInboxUrl',
-				value: getMailpitInboxUrl( site ),
-				type: 'url',
-				hidden: ! isOnline,
-			},
 			{ key: __( 'Site Path' ), jsonKey: 'sitePath', value: sitePath },
+			{
+				key: __( 'Email' ),
+				jsonKey: 'emailPath',
+				value: getPrettyPath( getSiteEmailDirectory( site.id ) ),
+			},
 			{ key: __( 'Status' ), jsonKey: 'status', value: status },
 			{ key: __( 'PHP version' ), jsonKey: 'phpVersion', value: site.phpVersion },
 			{ key: __( 'File access' ), jsonKey: 'fileAccess', value: fileAccessLabel },

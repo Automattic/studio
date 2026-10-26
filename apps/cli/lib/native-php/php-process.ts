@@ -39,11 +39,11 @@ export const DETACH_FOR_GROUP_KILL = process.platform !== 'win32';
 // in-flight children (mid-startup workers, install/blueprint subprocesses) callers don't track.
 const livePhpProcesses = new Set< ChildProcess >();
 
-export type BasePhpOptions = {
+type BasePhpOptions = {
 	autoPrependFile?: string;
 	detached?: boolean;
 	disallowRiskyFunctions?: boolean;
-	emailTag?: string;
+	emailDirectory?: string;
 	env?: NodeJS.ProcessEnv;
 	enableXdebug?: boolean;
 	onlyPathsThatPhpCanAccess?: string[];
@@ -93,7 +93,7 @@ export function spawnPhpProcess(
 		disallowRiskyFunctions = false,
 		autoPrependFile,
 		workerIndex,
-		emailTag,
+		emailDirectory,
 	}: SpawnPhpProcessOptions
 ): ChildProcess {
 	const defaultArgs = getDefaultPhpArgs( phpVersion, {
@@ -102,7 +102,7 @@ export function spawnPhpProcess(
 		enableXdebug,
 		autoPrependFile,
 		workerIndex,
-		emailTag,
+		emailDirectory,
 	} );
 	const phpArgs = [ ...defaultArgs, ...args ];
 	const phpScriptProcess = spawn( getPhpBinaryPath( phpVersion ), phpArgs, {

@@ -5,7 +5,6 @@ import { useConnector } from '@/data/core';
 import { siteDesignQueryKey } from '@/data/queries/use-site-design';
 import {
 	DATABASE_HOME_PATH,
-	EMAIL_PREVIEW_PATH,
 	getPathFromPreviewUrl,
 	getPreviewRealm,
 	getRealmNavigationPath,
@@ -28,7 +27,6 @@ const DEFAULT_REALM_PATHS: Record< PreviewRealm, string > = {
 	frontend: '/',
 	admin: '/wp-admin/',
 	database: DATABASE_HOME_PATH,
-	email: EMAIL_PREVIEW_PATH,
 	design: DESIGN_SYSTEM_PREVIEW_PATH,
 };
 
@@ -176,11 +174,9 @@ export function usePreviewSurfaces( {
 	// another surface reloads it, so it shows what changed while it was hidden.
 	const switchRealm = useCallback(
 		( realm: PreviewRealm ) => {
-			// Re-selecting the active realm (e.g. via its shortcut) is a no-op.
 			if ( activeRealm === realm ) {
 				return;
 			}
-			// The agentic UI opens the realm in its in-app preview panel.
 			void connector.trackEvent( getRealmOpenEvent( realm ), { browser: 'internal' } );
 			const target = lastRealmPathsRef.current[ realm ];
 			const key = getSurfaceKey( realm );

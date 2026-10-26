@@ -5,7 +5,6 @@ import CliTable3 from 'cli-table3';
 import { readCliConfig, type SiteData } from 'cli/lib/cli-config/core';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
-import { getMailpitInboxUrl } from 'cli/lib/mailpit/paths';
 import { getLiveSiteOperation } from 'cli/lib/site-operations';
 import { pickPublicSiteFields } from 'cli/lib/site-public-fields';
 import { isSiteRunning } from 'cli/lib/site-utils';
@@ -23,7 +22,6 @@ interface SiteListTableEntry {
 
 interface SiteListJsonEntry extends SiteDetails {
 	running: boolean;
-	emailInboxUrl?: string;
 }
 
 async function getSiteListData( sites: SiteData[] ): Promise< {
@@ -54,7 +52,6 @@ async function getSiteListData( sites: SiteData[] ): Promise< {
 			operation: getLiveSiteOperation( site ),
 			url,
 			running,
-			emailInboxUrl: getMailpitInboxUrl( site ),
 		} );
 	}
 

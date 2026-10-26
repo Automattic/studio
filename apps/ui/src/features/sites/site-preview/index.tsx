@@ -133,9 +133,7 @@ export function SitePreview( {
 		canPreview &&
 		chatEnabled &&
 		( connector.capabilities.annotatePreview || activeSurfaceKey === 'design' );
-	// phpMyAdmin and the email inbox are tools, not the site, so there's nothing to annotate.
-	const canAnnotateSurface =
-		showAnnotate && activeSurfaceKey !== 'database' && activeSurfaceKey !== 'email';
+	const canAnnotateSurface = showAnnotate && activeSurfaceKey !== 'database';
 	const canAnnotate =
 		canAnnotateSurface &&
 		( activeSurfaceKey === 'design' ? !! siteDesign.data : !! activeSurface?.inspectorReady );
@@ -203,12 +201,6 @@ export function SitePreview( {
 		? () => void connector.openExternalUrl( `${ siteUrl }${ safePath }` )
 		: activeRealm === 'design'
 		? undefined
-		: activeRealm === 'email'
-		? () => {
-				if ( ! site.emailInboxUrl ) return;
-				void connector.trackEvent( getRealmOpenEvent( activeRealm ), { browser: 'external' } );
-				void connector.openExternalUrl( site.emailInboxUrl );
-		  }
 		: () => {
 				void connector.trackEvent( getRealmOpenEvent( activeRealm ), { browser: 'external' } );
 				void connector
@@ -263,11 +255,7 @@ export function SitePreview( {
 								active: annotations.active,
 								disabled: ! canAnnotate || isAnnotationsBusy( annotations ),
 								disabledReason:
-									activeSurfaceKey === 'database'
-										? __( 'Not available for Database' )
-										: activeSurfaceKey === 'email'
-										? __( 'Not available for Email' )
-										: undefined,
+									activeSurfaceKey === 'database' ? __( 'Not available for Database' ) : undefined,
 								onClick: () => setAnnotating( site.id, ! annotations.active ),
 						  }
 						: undefined
@@ -283,12 +271,7 @@ export function SitePreview( {
 								return null;
 							}
 							const active = key === activeSurfaceKey;
-							// The inbox lives at its own address rather than on the site.
-							const surfaceUrl =
-								key === 'email' ? site.emailInboxUrl : `${ siteUrl }${ surface.path }`;
-							if ( ! surfaceUrl ) {
-								return null;
-							}
+							const surfaceUrl = `${ siteUrl }${ surface.path }`;
 							if ( key === 'design' ) {
 								return (
 									<SurfaceLayer key={ key } active={ active } design>

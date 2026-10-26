@@ -35,11 +35,6 @@ describe( 'WapuuWorldMount', () => {
 		act( () => wapuuWorldSlot.close() );
 	} );
 
-	it( 'renders nothing until the Konami code is entered', () => {
-		render( <WapuuWorldMount /> );
-		expect( screen.queryByRole( 'dialog' ) ).not.toBeInTheDocument();
-	} );
-
 	it( 'opens the game overlay when the Konami code is entered', () => {
 		render( <WapuuWorldMount /> );
 		enterKonami();

@@ -42,7 +42,6 @@ async function handleAuthCallback( hash: string ): Promise< StoredAuthToken > {
 	const error = params.get( 'error' );
 
 	if ( error ) {
-		// Close the browser if code found or error
 		throw new AuthCallbackError(
 			error,
 			error === 'access_denied' ? 'access_denied' : 'token_error'

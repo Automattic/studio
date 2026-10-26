@@ -52,8 +52,12 @@ import {
 	formatComposerTextQuote,
 	watchComposerTextQuote,
 } from '@/features/chats/composer-text-quote';
-import { pendingPromptSlot } from '@/features/composer';
-import { Composer, ComposerSkeleton, type ComposerHandle } from '@/features/composer';
+import {
+	Composer,
+	ComposerSkeleton,
+	pendingPromptSlot,
+	type ComposerHandle,
+} from '@/features/composer';
 import { PreviewParticles, SiteContextMenu, StoppedSitePreview } from '@/features/sites';
 import { getMotionDuration } from '@/lib/theme';
 import { Button, IconButton } from '@/lib/ui';

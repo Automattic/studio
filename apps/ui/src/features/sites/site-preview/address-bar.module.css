@@ -86,5 +86,6 @@
 
 /* Rows rounded for the menu surface rather than the composer's. */
 .shortcuts {
+	/* eslint-disable-next-line studio/no-primitive-overrides -- the suggestions sit on a menu surface, not the composer. */
 	--command-radius: var( --radius-md );
 }

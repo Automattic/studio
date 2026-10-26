@@ -1028,12 +1028,6 @@ export function normalizeSiteUrl( url: string ): string {
  * public URL best matches `url`.  Matches on the full normalized URL
  * first, then falls back to host-only matching so `example.com` and
  * `example.com/blog` both resolve to the same WP.com site record.
- *
- * No existing Studio helper does this today — `getSiteByFolder` /
- * `getHostnameFromUrl` operate on local sites or return a string, and
- * `findSite` variants all key on site id.  Keep this one local to
- * pull-reprint; if a second caller ever needs the same shape, the
- * natural home would be `cli/lib/wpcom-sites`.
  */
 export function findMatchingWpComSite< T extends { url: string } >(
 	sites: T[],

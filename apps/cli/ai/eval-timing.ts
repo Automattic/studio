@@ -22,7 +22,7 @@ export type TimedToolEvent = {
 	outputChars?: number;
 };
 
-export type ToolTiming = {
+type ToolTiming = {
 	calls: number;
 	totalMs: number;
 	maxMs: number;

@@ -31,14 +31,14 @@ export function AppMessageCards( { className }: { className?: string } ) {
 	);
 }
 
-export function AppMessageCardsDot( { className }: { className?: string } ) {
+export function AppMessageCardsDot() {
 	const { messages } = useActivePersistentMessages();
 
 	if ( ! messages.length ) {
 		return null;
 	}
 
-	return <span className={ clsx( styles.dot, className ) } aria-hidden="true" />;
+	return <span className={ styles.dot } aria-hidden="true" />;
 }
 
 // Separate from the cards so logging continues while the sidebar is collapsed.

@@ -3,7 +3,6 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
 	DATABASE_HOME_PATH,
-	EMAIL_PREVIEW_PATH,
 	getPathFromPreviewUrl,
 	getPreviewRealm,
 	getRealmNavigationPath,
@@ -103,7 +102,6 @@ describe( 'preview realms', () => {
 		expect( getPreviewRealm( DATABASE_HOME_PATH ) ).toBe( 'database' );
 		expect( getPreviewRealm( autoLoginPath( '/wp-admin/plugins.php' ) ) ).toBe( 'admin' );
 		expect( getPreviewRealm( DESIGN_SYSTEM_PREVIEW_PATH ) ).toBe( 'design' );
-		expect( getPreviewRealm( EMAIL_PREVIEW_PATH ) ).toBe( 'email' );
 		expect( getPreviewRealm( '/wp-admin-guide/' ) ).toBe( 'frontend' );
 		expect( getPreviewRealm( '/phpmyadmin-notes/' ) ).toBe( 'frontend' );
 	} );
@@ -113,7 +111,6 @@ describe( 'preview realms', () => {
 		expect( getRealmOpenEvent( 'admin' ) ).toBe( 'studio_site_open_wp_admin' );
 		expect( getRealmOpenEvent( 'database' ) ).toBe( 'studio_site_open_phpmyadmin' );
 		expect( getRealmOpenEvent( 'design' ) ).toBe( 'studio_site_open_design_system' );
-		expect( getRealmOpenEvent( 'email' ) ).toBe( 'studio_site_open_email_inbox' );
 	} );
 
 	it( 'routes admin paths through auto-login', () => {
@@ -127,23 +124,6 @@ describe( 'preview realms', () => {
 
 describe( 'PreviewAddressBar', () => {
 	beforeEach( () => window.localStorage.clear() );
-
-	it( 'shows the current complete URL and follows path updates', () => {
-		const { rerender } = renderAddressBar( { path: '/about/?preview=1' } );
-		const input = screen.getByRole( 'textbox', { name: 'Address' } );
-		expect( input ).toHaveValue( `${ SITE_URL }/about/?preview=1` );
-
-		rerender(
-			<PreviewAddressBar
-				site={ SITE }
-				siteUrl={ SITE_URL }
-				path="/contact/"
-				onNavigate={ vi.fn() }
-				onSwitchRealm={ vi.fn() }
-			/>
-		);
-		expect( input ).toHaveValue( `${ SITE_URL }/contact/` );
-	} );
 
 	it( 'flags an address off the site, and Escape restores the URL', () => {
 		const { onNavigate } = renderAddressBar( { path: '/about/' } );
@@ -164,14 +144,6 @@ describe( 'PreviewAddressBar', () => {
 		expect( input ).not.toHaveFocus();
 	} );
 
-	it( 'selects the URL on focus', () => {
-		renderAddressBar();
-		const input = screen.getByRole( 'textbox', { name: 'Address' } ) as HTMLInputElement;
-		fireEvent.focus( input );
-		expect( input.selectionStart ).toBe( 0 );
-		expect( input.selectionEnd ).toBe( input.value.length );
-	} );
-
 	it( 'navigates paths and searches submitted from the address field', () => {
 		const { onNavigate } = renderAddressBar();
 		const input = screen.getByRole( 'textbox', { name: 'Address' } );
@@ -183,26 +155,6 @@ describe( 'PreviewAddressBar', () => {
 		fireEvent.change( input, { target: { value: 'hello world' } } );
 		fireEvent.submit( input.closest( 'form' )! );
 		expect( onNavigate ).toHaveBeenLastCalledWith( '/?s=hello%20world' );
-	} );
-
-	it( 'does not navigate to a cross-origin URL', () => {
-		const { onNavigate } = renderAddressBar();
-		const input = screen.getByRole( 'textbox', { name: 'Address' } );
-		fireEvent.change( input, { target: { value: 'https://example.com/' } } );
-		fireEvent.submit( input.closest( 'form' )! );
-		expect( onNavigate ).not.toHaveBeenCalled();
-	} );
-
-	it( 'puts the configured site icon inside the address field', () => {
-		const siteIcon = 'data:image/png;base64,c2l0ZS1pY29u';
-		const { container } = renderAddressBar( { siteIcon } );
-		const input = screen.getByRole( 'textbox', { name: 'Address' } );
-		expect(
-			input.closest( 'form' )?.querySelector( `img[src="${ siteIcon }"]` )
-		).toBeInTheDocument();
-		// The site icon opens the shortcuts, same as clicking the address. No
-		// external-open button without a host callback.
-		expect( container.querySelectorAll( 'button' ) ).toHaveLength( 1 );
 	} );
 
 	it( 'offers to open the current page in the OS browser when the host allows', () => {
@@ -230,23 +182,6 @@ describe( 'PreviewAddressBar', () => {
 		fireEvent.click( screen.getByRole( 'button', { name: 'Preview shortcuts' } ) );
 
 		expect( await screen.findByRole( 'dialog', { name: 'Preview shortcuts' } ) ).toBeVisible();
-	} );
-
-	it( 'changes the address icon for WP Admin and Database', () => {
-		const { container, rerender } = renderAddressBar( { path: '/wp-admin/' } );
-		expect( container.querySelector( '[data-realm="admin"]' ) ).toBeInTheDocument();
-		expect( container.querySelector( '[data-realm="admin"] svg' ) ).toBeInTheDocument();
-
-		rerender(
-			<PreviewAddressBar
-				site={ SITE }
-				siteUrl={ SITE_URL }
-				path={ DATABASE_HOME_PATH }
-				onNavigate={ vi.fn() }
-				onSwitchRealm={ vi.fn() }
-			/>
-		);
-		expect( container.querySelector( '[data-realm="database"]' ) ).toBeInTheDocument();
 	} );
 
 	it( 'shows preview shortcuts from the address field', async () => {

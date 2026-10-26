@@ -23,8 +23,6 @@ const BUNDLED_LATEST_WP = path.join( REAL_SERVER_FILES, 'wordpress-versions', 'l
 // Native PHP binaries are downloaded on first use; sharing the real cache means
 // each run downloads a given version at most once instead of per isolated env.
 const REAL_PHP_BIN = path.join( os.homedir(), '.studio', 'php-bin' );
-// Mailpit, which catches every site's email, is downloaded the same way.
-const REAL_MAILPIT_BIN = path.join( os.homedir(), '.studio', 'mailpit-bin' );
 
 export interface CliEnv {
 	root: string;
@@ -71,8 +69,6 @@ export function setupCliEnv(): CliEnv {
 	fs.symlinkSync( REAL_SERVER_FILES, path.join( configDir, 'server-files' ), 'junction' );
 	fs.mkdirSync( REAL_PHP_BIN, { recursive: true } );
 	fs.symlinkSync( REAL_PHP_BIN, path.join( configDir, 'php-bin' ), 'junction' );
-	fs.mkdirSync( REAL_MAILPIT_BIN, { recursive: true } );
-	fs.symlinkSync( REAL_MAILPIT_BIN, path.join( configDir, 'mailpit-bin' ), 'junction' );
 
 	// Pre-seed cli.json with a recent dependency-check timestamp so the spawned
 	// CLI skips its 24h WordPress-version update: keeps the run offline and

@@ -21,12 +21,6 @@
 		content: '';
 	}
 
-	.switch[data-size='sm'] {
-		width: 24px;
-		height: 14px;
-		padding: 0;
-	}
-
 	.switch[data-checked] {
 		background-color: var( --accent );
 	}
@@ -56,15 +50,6 @@
 	.thumb[data-checked] {
 		background-color: var( --accent-foreground );
 		translate: 16px 0;
-	}
-
-	[data-size='sm'] > .thumb {
-		width: 12px;
-		height: 12px;
-	}
-
-	[data-size='sm'] > .thumb[data-checked] {
-		translate: calc( 100% - 2px ) 0;
 	}
 
 	.switch:dir( rtl ) > .thumb[data-checked] {

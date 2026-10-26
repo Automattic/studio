@@ -57,7 +57,6 @@ export function setupLogging( {
 		logStream?.end( `[${ new Date().toISOString() }][info][${ processId }] App is terminating` );
 	} );
 
-	// Handle Ctrl+C (SIGINT) to gracefully close the log stream
 	process.on( 'SIGINT', () => {
 		logStream?.end(
 			`[${ new Date().toISOString() }][info][${ processId }] App was terminated by SIGINT`

@@ -39,7 +39,6 @@ import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { Snapshot } from '@studio/common/types/snapshot';
 import type { PullSyncOptions, PushSyncOptions, SyncSite } from '@studio/common/types/sync';
 import type { RawDirectoryEntry } from '@studio/common/types/sync-tree';
-import type { SiteRestRequest, SiteRestResponse } from '@studio/common/types/wordpress-rest';
 import type { DesignFix } from '@studio/design-md';
 import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 
@@ -109,9 +108,6 @@ export interface SiteDetails {
 	// The Studio operation currently holding the site, from the CLI. Present
 	// regardless of who started it — the user, the desktop app, or the agent.
 	operation?: SiteOperation;
-	// The shared email inbox, filtered to this site's email, from the CLI. Absent while
-	// the inbox isn't running.
-	emailInboxUrl?: string;
 }
 
 export interface LocalMediaFile {
@@ -217,8 +213,7 @@ export interface Connector {
 	// semantics as `exportFullSite`.
 	exportDatabase( siteId: string ): Promise< string | null >;
 
-	// Site-creation helpers — surface the same main-process capabilities the
-	// desktop app's add-site flow relies on (folder pickers and path validation).
+	// Site-creation helpers: folder pickers and path validation.
 	generateProposedSitePath( siteName: string ): Promise< ProposedSitePath >;
 	generateProposedSiteName( usedSites: SiteDetails[] ): Promise< string >;
 	generateNumberedSiteName( baseName: string, usedSites: SiteDetails[] ): Promise< string >;
@@ -467,11 +462,6 @@ export interface Connector {
 	// platform 'browser'.
 	getAppGlobals(): Promise< AppGlobals >;
 
-	// Site WordPress REST API. Proxies requests to the selected site with its
-	// auth (auto-login cookie + REST nonce) attached, so renderer features
-	// like the preview omnibox search can query site content directly.
-	fetchSiteRest( siteId: string, request: SiteRestRequest ): Promise< SiteRestResponse >;
-
 	// Open the given site's folder in the system file manager, preferred
 	// editor, or preferred terminal. When no editor/terminal preference is
 	// set these reject — callers are expected to route the user to Settings.
@@ -599,7 +589,7 @@ export interface Connector {
 	onAiCreditsPurchased( listener: () => void ): () => void;
 
 	// Agentic UI onboarding state. Distinct from getOnboardingCompleted (the
-	// pre-workbench first-run welcome flag). setOnboardingHints shallow-merges
+	// first-run welcome flag). setOnboardingHints shallow-merges
 	// its partial. Persisted to app.json.
 	getOnboardingHints(): Promise< OnboardingHintsState >;
 	setOnboardingHints( partial: Partial< OnboardingHintsState > ): Promise< void >;
@@ -639,7 +629,7 @@ export type AppUpdateStatus = (
 };
 
 // Persisted first-run onboarding state for the workbench. Separate from the
-// pre-workbench welcome flag (getOnboardingCompleted).
+// welcome flag (getOnboardingCompleted).
 export interface OnboardingHintsState {
 	// Version of the orientation guide the user finished or explicitly skipped.
 	tourCompletedVersion?: number;

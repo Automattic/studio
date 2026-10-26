@@ -70,6 +70,7 @@
 }
 
 /* While several rows are selected, their hover actions step aside. */
+/* eslint-disable-next-line studio/no-primitive-overrides -- a multi-selection spans rows, so the list hides each row's actions. */
 .selection[data-selecting] [data-slot='sidebar-menu-actions'] {
 	visibility: hidden;
 }

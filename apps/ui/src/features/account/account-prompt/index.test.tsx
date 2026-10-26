@@ -1,39 +1,41 @@
-import '@testing-library/jest-dom/vitest';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
-import { useConnector } from '@/data/core';
+import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { useState } from 'react';
+import { describe, expect, it } from 'vitest';
+import { createFakeConnector } from '@/test/fake-connector';
+import { renderWithProviders } from '@/test/render';
 import { AccountPromptDialog } from './index';
 
-vi.mock( '@/data/core', () => ( { useConnector: vi.fn() } ) );
+function Prompt() {
+	const [ open, setOpen ] = useState( true );
+	return (
+		<>
+			<button onClick={ () => setOpen( true ) }>Share</button>
+			<AccountPromptDialog
+				open={ open }
+				onOpenChange={ setOpen }
+				title="Do more with WordPress.com"
+				description="Log in to share your site."
+				source="unknown"
+			/>
+		</>
+	);
+}
 
 describe( 'AccountPromptDialog', () => {
 	it( 'keeps a login started before the prompt was closed and reopened from starting again', async () => {
-		const authenticate = vi.fn( () => new Promise< void >( () => {} ) );
-		vi.mocked( useConnector, { partial: true } ).mockReturnValue( { authenticate } );
-		const queryClient = new QueryClient();
-		const renderPrompt = ( open: boolean ) => (
-			<QueryClientProvider client={ queryClient }>
-				<AccountPromptDialog
-					open={ open }
-					onOpenChange={ () => {} }
-					title="Do more with WordPress.com"
-					description="Log in to share your site."
-					source="unknown"
-				/>
-			</QueryClientProvider>
-		);
-		const view = render( renderPrompt( true ) );
-		fireEvent.click( screen.getByRole( 'button', { name: 'Log in to WordPress.com' } ) );
-		await waitFor( () => expect( authenticate ).toHaveBeenCalledTimes( 1 ) );
+		const connector = createFakeConnector( { user: null } );
+		connector.authenticate.mockReturnValue( new Promise( () => {} ) );
+		renderWithProviders( <Prompt />, { connector } );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Log in to WordPress.com' } ) );
+		await waitFor( () => expect( connector.authenticate ).toHaveBeenCalledTimes( 1 ) );
 
-		view.rerender( renderPrompt( false ) );
+		fireEvent.keyDown( screen.getByRole( 'dialog' ), { key: 'Escape' } );
 		await waitFor( () => expect( screen.queryByRole( 'dialog' ) ).not.toBeInTheDocument() );
-		view.rerender( renderPrompt( true ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Share' } ) );
 
 		const logIn = await screen.findByRole( 'button', { name: 'Log in to WordPress.com' } );
 		expect( logIn ).toHaveAttribute( 'aria-disabled', 'true' );
 		fireEvent.click( logIn );
-		expect( authenticate ).toHaveBeenCalledTimes( 1 );
+		expect( connector.authenticate ).toHaveBeenCalledTimes( 1 );
 	} );
 } );

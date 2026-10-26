@@ -13,16 +13,9 @@ import { createLocalConnector } from '@/data/core/connectors/local';
 // in a plain browser tab against the local server started by `studio ui`
 // (`apps/local`, bundled into the Studio CLI).
 
-function getDefaultApiBaseUrl(): string {
-	// Production builds are served by the local server itself, so the API is
-	// same-origin. The Vite dev server (:5400) is a separate origin and targets
-	// the server's default port instead.
-	return import.meta.env.DEV ? 'http://localhost:8081' : window.location.origin;
-}
-
 async function bootstrap() {
 	const connector = createLocalConnector( {
-		apiBaseUrl: import.meta.env.VITE_STUDIO_API_URL ?? getDefaultApiBaseUrl(),
+		apiBaseUrl: window.location.origin,
 	} );
 
 	await Promise.all( [ connector.init?.(), applyUserPreferences( connector ), persistPromise ] );

@@ -20,9 +20,9 @@ function invalidateSkills( queryClient: QueryClient ) {
 	void queryClient.invalidateQueries( { queryKey: SITE_AGENT_FILES_QUERY_KEY } );
 }
 
-// Flip installed state in the cache up front so toggles respond instantly
-// (FormToggle has no pending state); mutations roll back with the returned
-// snapshot on error and re-sync from the connector on settled.
+// Flip installed state in the cache up front so toggles respond instantly;
+// mutations roll back with the returned snapshot on error and re-sync from the
+// connector on settled.
 function useOptimisticInstalled() {
 	const queryClient = useQueryClient();
 	return async ( skillIds: string[], installed: boolean ) => {

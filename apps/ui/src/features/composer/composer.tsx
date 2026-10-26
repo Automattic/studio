@@ -82,10 +82,8 @@ interface ComposerProps {
 	onInterrupt: () => Promise< void >;
 	sessionId?: string;
 	entries?: SessionEntry[];
-	// Local owner site id, when the session is anchored to one. Required to
-	// spin up a fresh session via `connector.createSession` on a confirmed
-	// family swap; if absent we fall back to the in-place model change so the
-	// dropdown still works for unowned sessions.
+	// The local site the session belongs to; a confirmed family switch opens
+	// the fresh session under it.
 	ownerSiteId?: string;
 	onSwitchSession?: ( sessionId: string ) => void;
 	autoFocus?: boolean;
@@ -330,7 +328,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		} catch {
 			// The parent reports the failure in a toast.
 			setValue( ( current ) => current || value );
-			restoreAttachments( attachments );
+			restoreAttachments( ( current ) => [ ...attachments, ...current ] );
 			return;
 		} finally {
 			setSending( false );
@@ -420,7 +418,6 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 				<InputGroup
 					ref={ setShellNode }
 					variant="composer"
-					data-session-composer
 					className={ clsx( styles.shell, isField && styles.shellField ) }
 					onMouseDown={ focusTextareaFromShell }
 				>
@@ -486,6 +483,10 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 									return;
 								}
 								if ( event.key === 'Escape' && sheet.open ) {
+									return;
+								}
+								if ( event.key === 'Enter' && sheet.open ) {
+									event.preventDefault();
 									return;
 								}
 								if ( event.key === 'Escape' && busy ) {

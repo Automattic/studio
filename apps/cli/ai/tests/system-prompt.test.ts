@@ -1,7 +1,7 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { loadSkills } from '../skills';
 import { buildSystemPrompt } from '../system-prompt';
 import { resolveStudioToolDefinitions } from '../tools';
@@ -172,6 +172,24 @@ describe( 'buildSystemPrompt', () => {
 			);
 		} finally {
 			fs.rmSync( sitePath, { recursive: true, force: true } );
+		}
+	} );
+
+	it( "names the active site's email folder once the site has sent email", () => {
+		const configDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-config-' ) );
+		vi.stubEnv( 'DEV_CONFIG_DIR', configDir );
+		try {
+			const activeSite = { id: 'site-1', name: 'Mailer', path: '/sites/mailer', running: true };
+			const emailPath = path.join( configDir, 'email', 'site-1' );
+			expect( buildSystemPrompt( { activeSite } ) ).not.toContain( emailPath );
+
+			fs.mkdirSync( emailPath, { recursive: true } );
+			expect( buildSystemPrompt( { activeSite } ) ).toContain(
+				`"Mailer" at /sites/mailer (running), email it sent: ${ emailPath }`
+			);
+		} finally {
+			vi.unstubAllEnvs();
+			fs.rmSync( configDir, { recursive: true, force: true } );
 		}
 	} );
 

@@ -199,7 +199,6 @@ export async function createMainWindow(): Promise< BrowserWindow > {
 		}
 	} );
 
-	// Restore fullscreen state if it was saved
 	if ( savedBounds?.isFullScreen ) {
 		mainWindow.setFullScreen( true );
 	}
@@ -241,7 +240,6 @@ export async function createMainWindow(): Promise< BrowserWindow > {
 
 	mainWindow.on( 'enter-full-screen', () => {
 		sendIpcEventToRendererWithWindow( mainWindow, 'window-fullscreen-change', true );
-		// Save fullscreen state
 		if ( mainWindow && ! mainWindow.isDestroyed() ) {
 			const bounds = mainWindow.getBounds();
 			void saveWindowBounds( { ...bounds, isFullScreen: true } );
@@ -250,7 +248,6 @@ export async function createMainWindow(): Promise< BrowserWindow > {
 
 	mainWindow.on( 'leave-full-screen', () => {
 		sendIpcEventToRendererWithWindow( mainWindow, 'window-fullscreen-change', false );
-		// Save bounds after leaving fullscreen
 		if ( mainWindow && ! mainWindow.isDestroyed() ) {
 			const bounds = mainWindow.getBounds();
 			void saveWindowBounds( { ...bounds, isFullScreen: false } );

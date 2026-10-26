@@ -1,3 +1,4 @@
+// eslint-disable-next-line no-restricted-imports -- toasts render only here, so Toast has no primitive.
 import { Toast } from '@base-ui/react/toast';
 import { __ } from '@wordpress/i18n';
 import { useEffect, useRef, useState, type FocusEvent } from 'react';

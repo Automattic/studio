@@ -49,7 +49,7 @@ export interface SlashCommandContext {
 	clearSession(): Promise< void >;
 }
 
-export type SlashCommandHandler = (
+type SlashCommandHandler = (
 	prompt: string,
 	ctx: SlashCommandContext
 ) => Promise< 'continue' | 'break' >;

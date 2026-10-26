@@ -12,9 +12,9 @@ import { useConnector } from '@/data/core';
 
 // App-wide UI store (mounted once in the root route, shared by every route
 // and dialog under it). Holds the slices of UI state that the chat agent
-// can influence (preview panel today; future: composer, conversation pane,
-// modals, etc.) so that components can read/update them while a separate
-// bridge — `useSessionCommands` — translates agent events into actions.
+// can influence (the preview panel) so that components can read/update them
+// while a separate bridge — `useSessionCommands` — translates agent events
+// into actions.
 //
 // Add a new behavior by:
 //   1. Extending `SessionUIState` with the new slice.

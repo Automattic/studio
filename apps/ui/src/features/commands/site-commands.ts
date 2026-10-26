@@ -18,7 +18,6 @@ import {
 	AnnotateIcon,
 	ChatIcon,
 	ExternalLinkIcon,
-	MailIcon,
 	NewChatIcon,
 	PinIcon,
 	RotateCwIcon,
@@ -164,19 +163,6 @@ export function getSiteCommands( {
 						keywords: keywords.phpmyadmin,
 						run: actions.openDatabase,
 					},
-					...( actions.openEmail
-						? [
-								{
-									id: 'email',
-									group: 'site' as const,
-									label: __( 'Open email' ),
-									icon: MailIcon,
-									description,
-									keywords: [ __( 'Inbox' ), __( 'Mail' ), 'wp_mail', 'Mailpit' ],
-									run: actions.openEmail,
-								},
-						  ]
-						: [] ),
 					...( site.running
 						? [
 								{

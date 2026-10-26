@@ -52,7 +52,8 @@
 	cursor: pointer;
 }
 
-.questionSummary:is( :hover, :focus-visible ) [data-slot='questionnaire-answer'] {
+/* The whole folded summary is the button, so its hover lights the answer. */
+.questionSummary:is( :hover, :focus-visible ) .pickedAnswer {
 	background-color: var( --hover );
 }
 
@@ -150,7 +151,8 @@
 	box-shadow: var( --shadow-raised );
 }
 
-.questionCard[data-state='folding'] [data-slot='questionnaire-choice']:not( [data-checked] ) {
+/* The card folds away the choices that weren't picked. */
+.questionCard[data-state='folding'] .choice:not( [data-checked] ) {
 	animation: questionAnsweredElementFade var( --motion-duration-surface ) ease-out forwards;
 }
 
@@ -187,7 +189,7 @@
 @media ( prefers-reduced-motion: reduce ) {
 	.questionBatchStep,
 	.questionBatchStep[data-state='answered'] .questionProgress,
-	.questionCard[data-state='folding'] [data-slot='questionnaire-choice']:not( [data-checked] ),
+	.questionCard[data-state='folding'] .choice:not( [data-checked] ),
 	.questionOptionImageLoading {
 		animation: none;
 	}

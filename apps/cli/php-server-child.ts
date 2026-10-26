@@ -27,7 +27,6 @@ import {
 } from 'cli/lib/types/wordpress-server-ipc';
 import { requestSetAdminCredentials } from './lib/admin-credentials';
 import { getPhpMyAdminPath } from './lib/dependency-management/paths';
-import { getSiteEmailTag } from './lib/mailpit/paths';
 import { runBlueprint } from './lib/native-php/blueprints';
 import { containsPath, dropCoveredPaths } from './lib/native-php/open-basedir';
 import {
@@ -46,6 +45,7 @@ import {
 	installWordPress,
 	writeSiteUrlPrependFile,
 } from './lib/native-php/site-setup';
+import { getSiteEmailDirectory } from './lib/site-email';
 import { SymlinkWatcher, collectSymlinkAllowlistEntries } from './lib/symlinks';
 import type { ChildProcess } from 'node:child_process';
 
@@ -639,7 +639,7 @@ async function doStartServer(
 				disallowRiskyFunctions: isFileAccessRestricted( config ),
 				enableXdebug: config.enableXdebug,
 				autoPrependFile,
-				emailTag: getSiteEmailTag( { id: config.siteId, name: config.siteTitle ?? '' } ),
+				emailDirectory: getSiteEmailDirectory( config.siteId ),
 				workerIndex: index,
 			} );
 			spawnedChildren.push( serverChild );

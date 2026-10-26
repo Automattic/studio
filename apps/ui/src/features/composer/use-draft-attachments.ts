@@ -30,7 +30,6 @@ export function useDraftAttachments( {
 		attachments,
 		addFiles,
 		removeAttachment,
-		removeAttachments,
 		restore: restoreAttachments,
 		pasteHandlers,
 	} = useComposerAttachments( initialAttachments );
@@ -77,7 +76,6 @@ export function useDraftAttachments( {
 
 	return {
 		attachments,
-		removeAttachments,
 		restoreAttachments,
 		pasteHandlers,
 		stagedNotes,

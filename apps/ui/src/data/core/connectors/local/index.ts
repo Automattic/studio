@@ -72,7 +72,7 @@ type ServerEvent =
  * The server delegates to the local Studio CLI, so the same business logic the
  * desktop app runs is reachable here. The capabilities that depend on the local
  * machine (the real site list, start/stop, the agent) are implemented for real;
- * the rest grow in later increments (site create/export land in Phase 2).
+ * the few a browser can't offer throw `UnsupportedError`.
  */
 // A browser tab has no application menu, so the page binds its accelerators.
 function onMenuShortcut( listener: () => void, key: string, modifier?: 'shift' ) {
@@ -818,12 +818,6 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				method: 'PUT',
 				body: JSON.stringify( { provider } ),
 			} );
-		},
-
-		// The local server has no REST-proxy route yet; the preview omnibox
-		// only offers search where the webview connector serves it.
-		async fetchSiteRest() {
-			throw new UnsupportedError( 'fetchSiteRest' );
 		},
 
 		// The server runs on the user's machine, so it opens paths in OS apps on

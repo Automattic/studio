@@ -121,7 +121,7 @@ function splitPostContentCommandArgs( command: string, postContentIndex: number 
 	];
 }
 
-function splitCommandArgs( command: string ): string[] {
+export function splitCommandArgs( command: string ): string[] {
 	const postContentMarker = '--post_content=';
 	const postContentIndex = command.indexOf( postContentMarker );
 

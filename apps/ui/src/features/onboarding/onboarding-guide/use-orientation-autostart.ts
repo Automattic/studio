@@ -36,10 +36,9 @@ export function deriveOrientationAutostart( {
 	}
 	// Having a site is the real "past the NUX" signal, and the only one that works
 	// for existing users. `onboardingCompleted` is written solely by the welcome
-	// screen (route-welcome), which route-index only routes to when there are no
-	// sites — so anyone who had sites before that flag existed keeps it `false`
-	// forever and would never see the guide. The guides mount in the dashboard
-	// layout, so they can't render during the welcome flow anyway.
+	// dialog, which only opens when there are no sites — so anyone who had sites
+	// before that flag existed keeps it `false` forever and would never see the
+	// guide.
 	if ( siteCount < 1 || ! agentic.isReady ) {
 		return null;
 	}

@@ -7,7 +7,7 @@ import type { AgentSessionEvent } from '@earendil-works/pi-coding-agent';
 // Keep individual model-generated tool payloads below the range where long
 // strings have been observed to arrive incomplete.
 export const STUDIO_FILE_TOOL_MAX_BYTES = 14 * 1024;
-export const STUDIO_BASH_COMMAND_MAX_BYTES = 8 * 1024;
+const STUDIO_BASH_COMMAND_MAX_BYTES = 8 * 1024;
 
 export interface StudioToolPayloadGuardState {
 	incompleteToolCallReasons?: Record< string, string >;

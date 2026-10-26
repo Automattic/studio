@@ -1,15 +1,12 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { Conversation } from '@/features/chats/session-view/conversation';
-import { TooltipProvider } from '@/lib/ui';
+import { renderWithProviders } from '@/test/render';
 import type { LoadedAiSession, SessionEntry } from '@/data/core';
-
-vi.mock( '@/data/core', () => ( { useConnector: () => ( {} ) } ) );
 
 const question = 'Which layout?';
 
-function renderQuestion( pending: boolean ) {
+async function renderQuestion( pending: boolean ) {
 	const data = {
 		summary: { id: 'session-1' },
 		entries: [
@@ -31,29 +28,28 @@ function renderQuestion( pending: boolean ) {
 	} as unknown as LoadedAiSession;
 	const onAnswerQuestion = vi.fn();
 	const onChooseFreeForm = vi.fn();
-	render(
-		<QueryClientProvider client={ new QueryClient() }>
-			<TooltipProvider delay={ 0 }>
-				<Conversation
-					data={ data }
-					isRunning={ pending }
-					startedAt={ null }
-					pendingQuestions={ new Set( pending ? [ question ] : [] ) }
-					pendingAnswers={ {} }
-					freeFormQuestion={ null }
-					onAnswerQuestion={ onAnswerQuestion }
-					onChooseFreeForm={ onChooseFreeForm }
-				/>
-				<textarea aria-label="Composer" />
-			</TooltipProvider>
-		</QueryClientProvider>
+	renderWithProviders(
+		<>
+			<Conversation
+				data={ data }
+				isRunning={ pending }
+				startedAt={ null }
+				pendingQuestions={ new Set( pending ? [ question ] : [] ) }
+				pendingAnswers={ {} }
+				freeFormQuestion={ null }
+				onAnswerQuestion={ onAnswerQuestion }
+				onChooseFreeForm={ onChooseFreeForm }
+			/>
+			<textarea aria-label="Composer" />
+		</>
 	);
+	await screen.findByRole( 'group', { name: question } );
 	return { onAnswerQuestion, onChooseFreeForm };
 }
 
 describe( 'Agent question keys', () => {
-	it( 'answers with the option lettered like the key pressed inside the question', () => {
-		const { onAnswerQuestion, onChooseFreeForm } = renderQuestion( true );
+	it( 'answers with the option lettered like the key pressed inside the question', async () => {
+		const { onAnswerQuestion, onChooseFreeForm } = await renderQuestion( true );
 		const group = screen.getByRole( 'group', { name: question } );
 
 		fireEvent.keyDown( document.body, { key: 'b' } );
@@ -67,8 +63,8 @@ describe( 'Agent question keys', () => {
 		expect( onChooseFreeForm ).toHaveBeenCalledWith( question );
 	} );
 
-	it( 'moves between options with the arrow keys without answering', () => {
-		const { onAnswerQuestion } = renderQuestion( true );
+	it( 'moves between options with the arrow keys without answering', async () => {
+		const { onAnswerQuestion } = await renderQuestion( true );
 		const grid = screen.getByRole( 'radio', { name: 'Grid' } );
 		grid.focus();
 
@@ -80,8 +76,8 @@ describe( 'Agent question keys', () => {
 		expect( onAnswerQuestion ).not.toHaveBeenCalled();
 	} );
 
-	it( 'leaves the keys alone once the question is no longer waiting', () => {
-		const { onAnswerQuestion } = renderQuestion( false );
+	it( 'leaves the keys alone once the question is no longer waiting', async () => {
+		const { onAnswerQuestion } = await renderQuestion( false );
 		fireEvent.keyDown( screen.getByRole( 'group', { name: question } ), { key: 'a' } );
 		expect( onAnswerQuestion ).not.toHaveBeenCalled();
 	} );

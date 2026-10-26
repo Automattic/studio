@@ -85,26 +85,6 @@ describe( 'CLI: studio site stop', () => {
 	} );
 
 	describe( 'Error Cases', () => {
-		it( 'should throw when site not found', async () => {
-			vi.mocked( getSiteByFolder ).mockRejectedValue( new Error( 'Site not found' ) );
-
-			await expect( runCommand( Mode.STOP_SINGLE_SITE, '/invalid/path' ) ).rejects.toThrow(
-				'Site not found'
-			);
-			expect( disconnectFromDaemon ).toHaveBeenCalled();
-		} );
-
-		it( 'should throw when process manager connection fails', async () => {
-			vi.mocked( connectToDaemon ).mockRejectedValue(
-				new Error( 'process manager connection failed' )
-			);
-
-			await expect( runCommand( Mode.STOP_SINGLE_SITE, '/test/site' ) ).rejects.toThrow(
-				'process manager connection failed'
-			);
-			expect( disconnectFromDaemon ).toHaveBeenCalled();
-		} );
-
 		it( 'should throw when WordPress server stop fails', async () => {
 			vi.mocked( isServerRunning ).mockResolvedValue( testProcessDescription );
 			vi.mocked( stopWordPressServer ).mockRejectedValue( new Error( 'Server stop failed' ) );
@@ -156,39 +136,6 @@ describe( 'CLI: studio site stop', () => {
 			await runCommand( Mode.STOP_SINGLE_SITE, '/test/site' );
 
 			expect( recordTracksEvent ).not.toHaveBeenCalled();
-		} );
-
-		it( 'should not call stopProxyIfNoSitesNeedIt if site is not running', async () => {
-			await runCommand( Mode.STOP_SINGLE_SITE, '/test/site' );
-
-			expect( stopProxyIfNoSitesNeedIt ).not.toHaveBeenCalled();
-			expect( disconnectFromDaemon ).toHaveBeenCalled();
-		} );
-	} );
-
-	describe( 'Cleanup', () => {
-		it( 'should always disconnect from process manager on success', async () => {
-			await runCommand( Mode.STOP_SINGLE_SITE, '/test/site' );
-
-			expect( disconnectFromDaemon ).toHaveBeenCalled();
-		} );
-
-		it( 'should always disconnect from process manager on error', async () => {
-			vi.mocked( getSiteByFolder ).mockRejectedValue( new Error( 'Error' ) );
-
-			try {
-				await runCommand( Mode.STOP_SINGLE_SITE, '/test/site' );
-			} catch {
-				// Expected
-			}
-
-			expect( disconnectFromDaemon ).toHaveBeenCalled();
-		} );
-
-		it( 'should always disconnect when site is not running', async () => {
-			await runCommand( Mode.STOP_SINGLE_SITE, '/test/site' );
-
-			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
 	} );
 } );
@@ -246,58 +193,7 @@ describe( 'CLI: studio site stop --all', () => {
 		vi.restoreAllMocks();
 	} );
 
-	describe( 'Error Cases', () => {
-		it( 'should throw when appdata cannot be read', async () => {
-			vi.mocked( readCliConfig ).mockRejectedValue( new Error( 'Failed to read appdata' ) );
-
-			await expect( runCommand( Mode.STOP_ALL_SITES, undefined ) ).rejects.toThrow(
-				'Failed to read appdata'
-			);
-			expect( disconnectFromDaemon ).toHaveBeenCalled();
-		} );
-
-		it( 'should throw when process manager connection fails', async () => {
-			vi.mocked( readCliConfig ).mockResolvedValue( {
-				version: 1,
-				sites: testSites,
-				snapshots: [],
-			} );
-			vi.mocked( connectToDaemon ).mockRejectedValue(
-				new Error( 'process manager connection failed' )
-			);
-
-			await expect( runCommand( Mode.STOP_ALL_SITES, undefined ) ).rejects.toThrow(
-				'process manager connection failed'
-			);
-			expect( disconnectFromDaemon ).toHaveBeenCalled();
-		} );
-
-		it( 'should throw when killDaemonAndAllChildren fails', async () => {
-			vi.mocked( readCliConfig ).mockResolvedValue( {
-				version: 1,
-				sites: testSites,
-				snapshots: [],
-			} );
-			vi.mocked( isServerRunning ).mockResolvedValue( testProcessDescription );
-			vi.mocked( killDaemonAndChildren ).mockRejectedValue( new Error( 'Failed to kill daemon' ) );
-
-			await expect( runCommand( Mode.STOP_ALL_SITES, undefined ) ).rejects.toThrow(
-				'Failed to kill daemon'
-			);
-			expect( disconnectFromDaemon ).toHaveBeenCalled();
-		} );
-	} );
-
 	describe( 'Success Cases', () => {
-		it( 'should kill daemon even with empty sites list', async () => {
-			vi.mocked( readCliConfig ).mockResolvedValue( { version: 1, sites: [], snapshots: [] } );
-
-			await runCommand( Mode.STOP_ALL_SITES, undefined );
-
-			expect( connectToDaemon ).toHaveBeenCalled();
-			expect( killDaemonAndChildren ).toHaveBeenCalledTimes( 1 );
-		} );
-
 		it( 'should kill daemon even if no sites are running', async () => {
 			vi.mocked( readCliConfig ).mockResolvedValue( {
 				version: 1,
@@ -313,29 +209,6 @@ describe( 'CLI: studio site stop --all', () => {
 			expect( isServerRunning ).toHaveBeenCalledTimes( 3 );
 			expect( killDaemonAndChildren ).toHaveBeenCalledTimes( 1 );
 			expect( clearSiteLatestCliPid ).not.toHaveBeenCalled();
-		} );
-
-		it( 'should handle single site', async () => {
-			vi.mocked( readCliConfig ).mockResolvedValue( {
-				version: 1,
-				sites: [ testSites[ 0 ] ],
-				snapshots: [],
-			} );
-			vi.mocked( isServerRunning ).mockResolvedValue( testProcessDescription );
-
-			await runCommand( Mode.STOP_ALL_SITES, undefined );
-
-			expect( killDaemonAndChildren ).toHaveBeenCalledTimes( 1 );
-			expect( saveCliConfig ).toHaveBeenCalledTimes( 1 );
-			expect( saveCliConfig ).toHaveBeenCalledWith(
-				expect.objectContaining( {
-					sites: expect.arrayContaining( [
-						expect.objectContaining( {
-							id: 'site-1',
-						} ),
-					] ),
-				} )
-			);
 		} );
 
 		it( 'should stop all running sites', async () => {

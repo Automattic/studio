@@ -22,7 +22,6 @@ import {
 import { useOpenInDestinations } from '@/features/sites/open-in-menu/use-open-in-destinations';
 import {
 	DATABASE_HOME_PATH,
-	EMAIL_PREVIEW_PATH,
 	getRealmNavigationPath,
 } from '@/features/sites/site-preview/address-bar';
 import { useItemShortcuts } from '@/features/sites/use-item-shortcuts';
@@ -39,7 +38,6 @@ import {
 	ExportIcon,
 	ExternalLinkIcon,
 	GlobeIcon,
-	MailIcon,
 	PinIcon,
 	RenameIcon,
 	RotateCwIcon,
@@ -144,8 +142,6 @@ export function useSiteActions(
 			),
 		openAdmin: () => void goTo( '/wp-admin/' ),
 		openDatabase: () => void goTo( DATABASE_HOME_PATH ),
-		// Only while the inbox is running, which is while the site is.
-		openEmail: site.emailInboxUrl ? () => void goTo( EMAIL_PREVIEW_PATH ) : undefined,
 		openImport: () => importInputRef.current?.click(),
 		openDelete: () => setDeleteOpen( true ),
 		dialogs: (
@@ -273,12 +269,6 @@ export function SiteActionsMenuItems( {
 						<DatabaseIcon />
 						{ __( 'Database' ) }
 					</Menu.Item>
-					{ actions.openEmail ? (
-						<Menu.Item onClick={ actions.openEmail }>
-							<MailIcon />
-							{ __( 'Email' ) }
-						</Menu.Item>
-					) : null }
 				</Menu.SubmenuPopup>
 			</Menu.SubmenuRoot>
 			<Menu.SubmenuRoot>

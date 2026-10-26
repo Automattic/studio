@@ -35,7 +35,7 @@ export function isDarkGuideIllustration( id: GuideIllustrationId ): boolean {
 export function GuideIllustration( { id }: { id: GuideIllustrationId } ) {
 	const Scene = SCENES[ id ];
 	return (
-		<Stage id={ id }>
+		<Stage>
 			<Scene />
 		</Stage>
 	);

@@ -44,12 +44,7 @@ export function CodeBlock( {
 	const shown = highlighted && code.startsWith( highlighted.code ) ? highlighted : null;
 
 	return (
-		<div
-			data-slot="code-block"
-			data-language={ language }
-			className={ clsx( styles.block, className ) }
-			{ ...props }
-		>
+		<div data-slot="code-block" className={ clsx( styles.block, className ) } { ...props }>
 			{ children }
 			<pre className={ styles.pre }>
 				<code>

@@ -24,9 +24,8 @@ import type {
 import type { SyncActivity, SyncDirection } from '@studio/common/lib/sync/activity';
 import type { SyncSite } from '@studio/common/types/sync';
 
-// Mutation keys are exported so downstream consumers (e.g. a cross-page
-// activity indicator or future bulk-sync UI) can filter the react-query
-// mutation cache for in-flight push/pull operations by site.
+// Exported so the publish panel can find a site's in-flight push or pull in
+// the mutation cache.
 export const PUSH_TO_LIVE_MUTATION_KEY = [ 'pushSiteToLive' ] as const;
 export const PULL_FROM_LIVE_MUTATION_KEY = [ 'pullSiteFromLive' ] as const;
 

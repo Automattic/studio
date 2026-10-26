@@ -38,19 +38,12 @@ describe( 'useAutoStartSites', () => {
 		return connector;
 	}
 
-	it( 'starts only the stopped sites flagged for auto-start', async () => {
+	it( 'starts only the stopped sites flagged for auto-start, without announcing them', async () => {
 		const connector = renderAutoStart();
 		await waitFor( () =>
 			expect( connector.startSite ).toHaveBeenCalledWith( 'stopped-auto-start' )
 		);
 		expect( connector.startSite ).toHaveBeenCalledTimes( 1 );
-	} );
-
-	it( 'does not announce the sites it started', async () => {
-		const connector = renderAutoStart();
-		await waitFor( () =>
-			expect( connector.startSite ).toHaveBeenCalledWith( 'stopped-auto-start' )
-		);
 		expect( getVisibleToasts() ).toHaveLength( 0 );
 	} );
 } );

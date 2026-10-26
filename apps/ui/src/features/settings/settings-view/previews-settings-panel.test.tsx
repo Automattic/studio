@@ -164,8 +164,8 @@ it( 'confirms individual preview deletion before calling the backend', async () 
 	expect(
 		within( dialog ).getByText(
 			'Anyone you’ve shared this preview with will no longer be able to view it. Your site will not be deleted.'
-		).tagName
-	).toBe( 'P' );
+		)
+	).toBeVisible();
 	fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Delete preview' } ) );
 	await waitFor( () =>
 		expect( connector.deleteSnapshot ).toHaveBeenCalledWith( 'one.example.com' )

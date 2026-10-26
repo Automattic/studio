@@ -1,4 +1,5 @@
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { resetLocaleData, setLocaleData } from '@wordpress/i18n';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { resetPanelLayout, SIDEBAR_PANEL_STORAGE_KEY } from '@/data/resizable-panels';
 import { HeaderSidebarToggle } from '@/features/sidebar/sidebar-toggle';
@@ -38,7 +39,10 @@ beforeEach( () => {
 	localStorage.clear();
 	resize( 1280 );
 } );
-afterEach( () => resize( originalWidth ) );
+afterEach( () => {
+	resize( originalWidth );
+	resetLocaleData();
+} );
 
 describe( 'resizable sidebar', () => {
 	it( 'resizes with the keyboard, clamps bounds, and persists its width', async () => {
@@ -53,6 +57,8 @@ describe( 'resizable sidebar', () => {
 		fireEvent.keyDown( restored, { key: 'Home' } );
 		fireEvent.keyDown( restored, { key: 'ArrowLeft' } );
 		expect( restored ).toHaveAttribute( 'aria-valuenow', '256' );
+		fireEvent.keyDown( restored, { key: 'ArrowRight', shiftKey: true } );
+		expect( restored ).toHaveAttribute( 'aria-valuenow', '296' );
 		fireEvent.keyDown( restored, { key: 'End' } );
 		expect( restored ).toHaveAttribute( 'aria-valuenow', '320' );
 		fireEvent.mouseDown( restored, { detail: 2 } );
@@ -78,6 +84,27 @@ describe( 'resizable sidebar', () => {
 		expect( screen.queryByRole( 'separator', { name: 'Resize sidebar' } ) ).not.toBeInTheDocument();
 		fireEvent.click( toggle() );
 		expect( handle() ).toHaveAttribute( 'aria-valuenow', '320' );
+	} );
+
+	it( 'clamps a drag to the maximum and ignores non-primary buttons', async () => {
+		await setup();
+		fireEvent.mouseDown( handle(), { button: 2, clientX: 256 } );
+		fireEvent.mouseUp( document, { clientX: 900 } );
+		expect( handle() ).toHaveAttribute( 'aria-valuenow', '256' );
+		expect( localStorage.getItem( SIDEBAR_PANEL_STORAGE_KEY ) ).toBeNull();
+		fireEvent.mouseDown( handle(), { button: 0, clientX: 256 } );
+		fireEvent.mouseUp( document, { clientX: 900 } );
+		expect( handle() ).toHaveAttribute( 'aria-valuenow', '320' );
+	} );
+
+	it( 'mirrors the drag and arrow-key direction in RTL', async () => {
+		setLocaleData( { 'text direction\u0004ltr': [ 'rtl' ] } );
+		await setup();
+		fireEvent.mouseDown( handle(), { button: 0, clientX: 500 } );
+		fireEvent.mouseUp( document, { clientX: 460 } );
+		expect( handle() ).toHaveAttribute( 'aria-valuenow', '296' );
+		fireEvent.keyDown( handle(), { key: 'ArrowLeft' } );
+		expect( handle() ).toHaveAttribute( 'aria-valuenow', '312' );
 	} );
 } );
 

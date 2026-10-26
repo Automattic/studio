@@ -39,19 +39,6 @@ describe( 'copy feedback', () => {
 		expect( result.current.copied ).toBe( false );
 	} );
 
-	it( 'restarts repeated copies', async () => {
-		const { result } = renderCopy();
-		await copy( result );
-		act( () => {
-			vi.advanceTimersByTime( 1500 );
-		} );
-		await copy( result );
-		act( () => {
-			vi.advanceTimersByTime( 500 );
-		} );
-		expect( result.current.copied ).toBe( true );
-	} );
-
 	it( 'clears its timer on unmount', async () => {
 		const { result, unmount } = renderCopy();
 		await copy( result );

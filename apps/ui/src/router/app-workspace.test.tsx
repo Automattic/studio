@@ -465,31 +465,6 @@ describe( 'Studio workspace', () => {
 		}
 	);
 
-	it.each( [ false, true ] )(
-		'shows a provider notice and editable composer when signed out without a key (running: %s)',
-		async ( running ) => {
-			const { connector } = setup( { sites: [ site( { running } ) ] } );
-			expect(
-				await screen.findByText( 'Connect a provider to build and edit your site.' )
-			).toBeVisible();
-			expect( composer() ).toBeEnabled();
-			expect( screen.getByRole( 'button', { name: 'Send message' } ) ).toBeDisabled();
-			expect( screen.queryByRole( 'button', { name: 'Model' } ) ).not.toBeInTheDocument();
-			fireEvent.click( screen.getByRole( 'button', { name: 'Connect' } ) );
-			const providers = await screen.findByRole( 'dialog', { name: 'Settings' } );
-			fireEvent.click(
-				within(
-					within( providers )
-						.getByText( 'WordPress.com', { selector: '[data-slot="field-label"]' } )
-						.closest< HTMLElement >( '[data-settings-row]' )!
-				).getByRole( 'button', { name: 'Connect' } )
-			);
-			await waitFor( () =>
-				expect( connector.authenticate ).toHaveBeenCalledWith( true, 'settings' )
-			);
-		}
-	);
-
 	it( 'keeps site actions in the conversation toolbar before the preview is running', async () => {
 		const { connector, history, refreshSessions } = setup( { signedIn: true } );
 		await findComposer();

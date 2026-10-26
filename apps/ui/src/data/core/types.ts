@@ -213,8 +213,7 @@ export interface Connector {
 	// semantics as `exportFullSite`.
 	exportDatabase( siteId: string ): Promise< string | null >;
 
-	// Site-creation helpers — surface the same main-process capabilities the
-	// desktop app's add-site flow relies on (folder pickers and path validation).
+	// Site-creation helpers: folder pickers and path validation.
 	generateProposedSitePath( siteName: string ): Promise< ProposedSitePath >;
 	generateProposedSiteName( usedSites: SiteDetails[] ): Promise< string >;
 	generateNumberedSiteName( baseName: string, usedSites: SiteDetails[] ): Promise< string >;
@@ -590,7 +589,7 @@ export interface Connector {
 	onAiCreditsPurchased( listener: () => void ): () => void;
 
 	// Agentic UI onboarding state. Distinct from getOnboardingCompleted (the
-	// pre-workbench first-run welcome flag). setOnboardingHints shallow-merges
+	// first-run welcome flag). setOnboardingHints shallow-merges
 	// its partial. Persisted to app.json.
 	getOnboardingHints(): Promise< OnboardingHintsState >;
 	setOnboardingHints( partial: Partial< OnboardingHintsState > ): Promise< void >;
@@ -630,7 +629,7 @@ export type AppUpdateStatus = (
 };
 
 // Persisted first-run onboarding state for the workbench. Separate from the
-// pre-workbench welcome flag (getOnboardingCompleted).
+// welcome flag (getOnboardingCompleted).
 export interface OnboardingHintsState {
 	// Version of the orientation guide the user finished or explicitly skipped.
 	tourCompletedVersion?: number;

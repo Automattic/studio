@@ -485,13 +485,60 @@ export async function validateBlocks(
 					try {
 						const made = wpBlocks.createBlock( block.name, attributes, inner );
 						if ( wpBlocks.parse( wpBlocks.serialize( [ made ] ) )[ 0 ]?.isValid !== false ) {
-							return sameBlock ? withWrittenStyles( made, raw ) : made;
+							return sameBlock ? withWrittenClasses( withWrittenStyles( made, raw ), raw ) : made;
 						}
 					} catch {
 						// The next set of attributes.
 					}
 				}
 				return block;
+			}
+
+			// The block made again with the number a class written in its own
+			// markup ends in, as wp-image-6, stored in the comment attribute the
+			// block saves that class from: core/image saves wp-image-<id> from its
+			// id (@wordpress/block-library image/save.js), as the media library
+			// picker stores it. A number stored where the block does not save the
+			// class from loses the class, so the fix keeps the block as written.
+			function withWrittenClasses( made: any, raw: any ) {
+				if ( typeof rawParse !== 'function' ) {
+					return made;
+				}
+				const ownClasses = ( one: any ) =>
+					new Set(
+						elementsOf(
+							String( rawParse( wpBlocks.serialize( [ one ] ) )?.[ 0 ]?.innerHTML ?? '' )
+						).flatMap( ( element ) => [ ...element.classList ] )
+					);
+				const saved = ownClasses( made );
+				const numbered = [
+					...new Set(
+						elementsOf( String( raw.innerHTML ?? '' ) ).flatMap( ( element ) => [
+							...element.classList,
+						] )
+					),
+				].filter( ( name ) => ! saved.has( name ) && /-\d+$/.test( name ) );
+				const attributes = Object.entries( wpBlocks.getBlockType( made.name )?.attributes ?? {} )
+					.filter( ( [ , schema ]: [ string, any ] ) =>
+						[ 'number', 'integer' ].includes( schema.type )
+					)
+					.map( ( [ key ] ) => key );
+				let result = made;
+				for ( const name of numbered ) {
+					const number = Number( /(\d+)$/.exec( name )?.[ 1 ] );
+					for ( const key of attributes ) {
+						const candidate = wpBlocks.createBlock(
+							result.name,
+							{ ...result.attributes, [ key ]: number },
+							result.innerBlocks
+						);
+						if ( wpBlocks.parse( wpBlocks.serialize( [ candidate ] ) )[ 0 ]?.isValid !== false ) {
+							result = candidate;
+							break;
+						}
+					}
+				}
+				return result;
 			}
 
 			// The style attribute path the style engine saves each CSS property
@@ -643,6 +690,28 @@ export async function validateBlocks(
 				return { classes, styles, text: ( body.textContent ?? '' ).replace( /\s+/g, ' ' ).trim() };
 			}
 
+			// Whether the inner blocks are those written: the parser makes them
+			// when it migrates a block, and the fix when it makes it again.
+			const sameInnerBlocks = ( block: any, fix: any, place: string ) =>
+				( initial.written.get( place )?.innerBlocks ?? block.innerBlocks ?? [] ).length ===
+					( block.innerBlocks ?? [] ).length &&
+				( block.innerBlocks ?? [] ).length === ( fix.innerBlocks ?? [] ).length &&
+				( block.innerBlocks ?? [] ).every(
+					( inner: any, i: number ) => inner.name === fix.innerBlocks[ i ].name
+				);
+
+			// What a block holds with its inner blocks: their classes, styles and text.
+			function holds( block: any ): ReturnType< typeof ownMarkup > {
+				const all = [ block, ...( block.innerBlocks ?? [] ) ].map( ( one: any, i: number ) =>
+					i === 0 ? ownMarkup( one.originalContent ?? '' ) : holds( one )
+				);
+				return {
+					classes: new Set( all.flatMap( ( one ) => [ ...one.classes ] ) ),
+					styles: new Set( all.flatMap( ( one ) => [ ...one.styles ] ) ),
+					text: all.map( ( one ) => one.text.replace( /\s+/g, '' ) ).join( '' ),
+				};
+			}
+
 			// What the fix loses from each block as written, block by block: its
 			// text, classes and styles. Its attributes it keeps, being made from
 			// them, apart from the editor's own migrations.
@@ -653,8 +722,15 @@ export async function validateBlocks(
 					if ( ! block.name || ! fix || fix.name !== block.name ) {
 						return [];
 					}
-					const before = ownMarkup( block.originalContent ?? '' );
-					const after = ownMarkup( fix.originalContent ?? '' );
+					// When the editor makes the inner blocks again, as a list written
+					// with bare <li> items migrates to core/list-item blocks
+					// (core/list deprecations in @wordpress/block-library), what the
+					// block holds moves between it and its inner blocks: what it holds
+					// as a whole is compared, and spaces between the blocks are not
+					// text.
+					const reshaped = ! sameInnerBlocks( block, fix, place );
+					const before = reshaped ? holds( block ) : ownMarkup( block.originalContent ?? '' );
+					const after = reshaped ? holds( fix ) : ownMarkup( fix.originalContent ?? '' );
 					const missing = ( names: Set< string >, kept: Set< string > ) =>
 						[ ...names ].filter( ( name ) => ! kept.has( name ) );
 					const classes = missing( before.classes, after.classes );
@@ -674,7 +750,7 @@ export async function validateBlocks(
 									},
 							  ]
 							: [] ),
-						...losses( block.innerBlocks ?? [], fix.innerBlocks ?? [], place ),
+						...( reshaped ? [] : losses( block.innerBlocks ?? [], fix.innerBlocks ?? [], place ) ),
 					];
 				} );
 			}

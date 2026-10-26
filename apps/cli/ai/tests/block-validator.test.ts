@@ -168,6 +168,69 @@ describe.runIf( siteUrl )( 'validating in the block editor (live)', () => {
 
 	it.each( [
 		{
+			name: 'core/image',
+			written:
+				'<!-- wp:image {"sizeSlug":"large"} -->\n<figure class="wp-block-image size-large"><img src="https://example.com/a.jpg" alt="" class="wp-image-6"/></figure>\n<!-- /wp:image -->',
+			saved: '<!-- wp:image {"id":6,"sizeSlug":"large"} -->',
+		},
+		{
+			name: 'core/media-text',
+			written:
+				'<!-- wp:media-text {"mediaType":"image"} -->\n<div class="wp-block-media-text is-stacked-on-mobile"><figure class="wp-block-media-text__media"><img src="https://example.com/a.jpg" alt="" class="wp-image-7 size-full"/></figure><div class="wp-block-media-text__content"></div></div>\n<!-- /wp:media-text -->',
+			saved: '"mediaId":7',
+		},
+	] )(
+		'stores the media library id a class names where $name saves it from',
+		async ( { written, saved } ) => {
+			const report = await validateBlocks( written, siteUrl! );
+			expect( report.invalidBlocks ).toBeGreaterThan( 0 );
+			expect( report.proposedFix?.losses ).toEqual( [] );
+			expect( report.proposedFix?.report.invalidBlocks ).toBe( 0 );
+			expect( report.proposedFix?.fixedContent ).toContain( saved );
+		},
+		60_000
+	);
+
+	it.each( [
+		{
+			name: 'a class the block already saves',
+			written:
+				'<!-- wp:cover -->\n<div class="wp-block-cover" style="padding-top:1rem"><span aria-hidden="true" class="wp-block-cover__background has-background-dim-100 has-background-dim"></span><div class="wp-block-cover__inner-container"></div></div>\n<!-- /wp:cover -->',
+			saved: '<!-- wp:cover {"style":{"spacing":{"padding":{"top":"1rem"}}}} -->',
+		},
+		{
+			name: 'an id the comment already sets',
+			written:
+				'<!-- wp:image {"id":5} -->\n<figure class="wp-block-image" style="margin-top:1rem"><img src="https://example.com/a.jpg" alt="" class="wp-image-5 wp-image-6"/></figure>\n<!-- /wp:image -->',
+			saved: undefined,
+		},
+	] )(
+		'stores no id from $name',
+		async ( { written, saved } ) => {
+			const report = await validateBlocks( written, siteUrl! );
+			expect( report.proposedFix?.fixedContent ?? '' ).not.toMatch( /"id":(100|6)\b/ );
+			if ( saved ) {
+				expect( report.proposedFix?.fixedContent ).toContain( saved );
+			}
+		},
+		60_000
+	);
+
+	it( 'reads a list the editor migrates from bare items as losing nothing beside a block that loses something', async () => {
+		const report = await validateBlocks(
+			'<!-- wp:separator -->\n<hr class="wp-block-separator has-alpha-channel-opacity" style="opacity:0.4"/>\n<!-- /wp:separator -->\n\n<!-- wp:list {"className":"hours"} -->\n<ul class="wp-block-list hours"><li><span>Monday</span><strong>7 am</strong></li>\n<li>Sunday</li></ul>\n<!-- /wp:list -->',
+			siteUrl!
+		);
+		expect( report.proposedFix?.losses ).toEqual( [
+			{ place: '/0', blockName: 'core/separator', lost: 'drop the styles opacity:0.4' },
+		] );
+		expect( report.proposedFix?.fixedContent ).toContain(
+			'<!-- wp:list-item -->\n<li><span>Monday</span><strong>7 am</strong></li>'
+		);
+	}, 60_000 );
+
+	it.each( [
+		{
 			name: 'a style no block attribute saves',
 			written:
 				'<!-- wp:separator -->\n<hr class="wp-block-separator has-alpha-channel-opacity" style="opacity:0.4"/>\n<!-- /wp:separator -->',

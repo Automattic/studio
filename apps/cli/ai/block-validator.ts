@@ -1056,13 +1056,29 @@ export async function dropCommentsBetweenBlocks(
 	return page.evaluate( ( html ) => {
 		/* eslint-disable @typescript-eslint/no-explicit-any */
 		const wpBlocks = ( window as any ).wp.blocks;
-		const onlyComments = ( block: any ) =>
-			block.name === 'core/freeform' &&
-			/<!--/.test( block.attributes?.content ?? '' ) &&
-			! String( block.attributes?.content ?? '' )
-				.replace( /<!--[\s\S]*?-->/g, '' )
-				.replace( /<\/?p>|<br\s*\/?>/gi, '' )
-				.trim();
+		// Classic content of nothing but HTML comments, with the paragraphs and
+		// line breaks wpautop() wraps them in, as the browser parses it.
+		const onlyComments = ( block: any ) => {
+			if ( block.name !== 'core/freeform' ) {
+				return false;
+			}
+			const parsed = document.createElement( 'template' );
+			parsed.innerHTML = String( block.attributes?.content ?? '' );
+			const nodes = document.createTreeWalker( parsed.content );
+			let comments = 0;
+			for ( let node = nodes.nextNode(); node; node = nodes.nextNode() ) {
+				if ( node.nodeType === Node.COMMENT_NODE ) {
+					comments++;
+				} else if (
+					node.nodeType === Node.TEXT_NODE
+						? node.textContent?.trim()
+						: ! [ 'P', 'BR' ].includes( node.nodeName )
+				) {
+					return false;
+				}
+			}
+			return comments > 0;
+		};
 		const blocks = wpBlocks.parse( html );
 		const kept = blocks.filter( ( block: any ) => ! onlyComments( block ) );
 		return kept.length === blocks.length

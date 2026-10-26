@@ -7,6 +7,16 @@ import { createSiteNotes } from '../site-notes';
 import { createSite as createWordPressSite } from './fixtures/wordpress-site';
 import type { SiteData } from 'cli/lib/cli-config/core';
 
+// The site's WordPress is not run: what its code registers is read by admin-capabilities' tests.
+vi.mock( 'cli/lib/daemon-client', () => ( {
+	connectToDaemon: vi.fn(),
+	disconnectFromDaemon: vi.fn(),
+} ) );
+vi.mock( 'cli/lib/run-wp-cli-command', () => ( {
+	runWpCliCommand: vi.fn( async () => {
+		throw new Error( 'WordPress is not run in this test' );
+	} ),
+} ) );
 vi.mock( 'cli/lib/cli-config/sites', async ( importOriginal ) => ( {
 	...( await importOriginal< typeof import('cli/lib/cli-config/sites') >() ),
 	findSiteByFolder: vi.fn(),

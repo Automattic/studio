@@ -26,7 +26,7 @@ import {
 	SettingsManager,
 	type AgentSession,
 	type AgentSessionEvent,
-	type SessionManager,
+	SessionManager,
 	type ToolDefinition,
 } from '@earendil-works/pi-coding-agent';
 import { readGlobalInstructions } from '@studio/common/ai/global-instructions';
@@ -68,6 +68,7 @@ import { SitePin } from './site-pin';
 import { SkillToolScope } from './skill-tool-scope';
 import { stripStaleImagesFromContext } from './strip-stale-images';
 import { ensureStudioShimDirectory, getStudioShims, prependToPath } from './studio-wp-shim';
+import { createSubagentTool } from './subagent';
 import { withTextOnlyImages } from './text-only-read';
 import {
 	getIncompleteToolCallReason,
@@ -118,6 +119,8 @@ export interface StudioAgentTurnConfig {
 	// AskUserQuestion to the agent.
 	onConfirm?: AskUserHandler;
 	onEvent: ( event: AgentSessionEvent ) => void;
+	// A turn run for another turn's subagent call, which runs no subagents of its own.
+	subagent?: boolean;
 }
 
 interface ResolvedStudioAgentTurnConfig extends StudioAgentTurnConfig {
@@ -886,7 +889,32 @@ function buildAgentTools(
 		canAskUser: Boolean( config.onAskUser ),
 		tracks,
 	} ) as unknown as AgentToolAny[];
-	return [ ...studioTools, ...askUserTool, ...designOptionsTool, ...skillTool, ...piTools ];
+	// A subagent's turn is this turn's, from a fresh session and with nobody to
+	// ask: confirmations still reach the user.
+	const subagentTool: AgentToolAny[] = config.subagent
+		? []
+		: [
+				createSubagentTool( ( task, onEvent ) =>
+					runStudioAgentTurn( {
+						prompt: task,
+						session: SessionManager.inMemory( STUDIO_SITES_ROOT ),
+						env: config.env,
+						model: config.model,
+						activeSite: config.activeSite,
+						onConfirm: config.onConfirm ?? config.onAskUser,
+						onEvent,
+						subagent: true,
+					} )
+				),
+		  ];
+	return [
+		...studioTools,
+		...askUserTool,
+		...designOptionsTool,
+		...skillTool,
+		...subagentTool,
+		...piTools,
+	];
 }
 
 function parseJsonHeaderEnv(

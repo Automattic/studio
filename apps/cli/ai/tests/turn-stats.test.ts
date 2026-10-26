@@ -171,6 +171,24 @@ describe( 'createTurnStatsTracker', () => {
 		expect( props.cache_write_tokens ).toBe( 10 );
 	} );
 
+	it( "adds what a tool call spent on a model of its own, as a subagent's turn", () => {
+		const subagent = {
+			...toolEnd( 'subagent' ),
+			result: {
+				content: [],
+				details: { usage: { input: 50, output: 7, cacheRead: 3, cacheWrite: 1, totalTokens: 61 } },
+			},
+		} as AgentSessionEvent;
+		const props = propsFor( [ assistantEnd( 100, 20 ), subagent ] );
+		expect( props.model_requests ).toBe( 1 );
+		expect( props ).toMatchObject( {
+			input_tokens: 150,
+			output_tokens: 27,
+			cache_read_tokens: 13,
+			cache_write_tokens: 6,
+		} );
+	} );
+
 	it( 'keeps counting across an attempt that will be retried', () => {
 		const tracker = createTurnStatsTracker();
 		tracker.handleEvent( assistantEnd( 100, 0 ) );

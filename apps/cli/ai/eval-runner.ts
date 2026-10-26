@@ -45,7 +45,7 @@ import { createScriptedUser, evalAnswersSchema, type EvalAnswers } from 'cli/ai/
 import { captureTurnOutcome, fingerprintSites, type TurnOutcome } from 'cli/ai/eval-outcome';
 import { summarizeTiming, type ModelRequestRecord } from 'cli/ai/eval-timing';
 import { runStudioAgentTurn } from 'cli/ai/runtimes/pi';
-import { addAssistantMessageUsage, createTokenUsage } from 'cli/ai/token-usage';
+import { addAssistantMessageUsage, addToolCallUsage, createTokenUsage } from 'cli/ai/token-usage';
 import { runCommand as runCreateSiteCommand } from 'cli/commands/site/create';
 import { runCommand as runDeleteSiteCommand } from 'cli/commands/site/delete';
 import {
@@ -658,6 +658,7 @@ async function runEval( input: EvalRunnerInput ) {
 		textSegments.push( ...extractTextSegments( event ) );
 
 		if ( event.type === 'tool_execution_end' ) {
+			addToolCallUsage( usage, event );
 			const tr = extractToolResult( event );
 			if ( tr ) {
 				const id = tr.toolUseId;

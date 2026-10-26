@@ -24,6 +24,8 @@ const mocks = vi.hoisted( () => ( {
 	failNext: false,
 	// What each end of a run finds still open on the sites.
 	openProblems: [] as string[][],
+	// The next prompt runs until its session is aborted.
+	holdNextPrompt: false,
 } ) );
 
 vi.mock( 'cli/ai/open-problems', () => ( {
@@ -192,6 +194,7 @@ class FakeSession {
 	public aborted = false;
 	public disposed = false;
 	public activeToolNames: string[] = [];
+	public prompts: string[] = [];
 
 	constructor( public options: CreateAgentSessionOptions ) {
 		this.state = {
@@ -212,7 +215,15 @@ class FakeSession {
 		return () => {};
 	}
 
-	async prompt( _text: string ): Promise< void > {
+	async prompt( text: string ): Promise< void > {
+		this.prompts.push( text );
+		if ( mocks.holdNextPrompt ) {
+			mocks.holdNextPrompt = false;
+			while ( ! this.aborted ) {
+				await new Promise( ( resolve ) => setTimeout( resolve, 5 ) );
+			}
+			throw new Error( 'aborted' );
+		}
 		const events = mocks.nextEvents ?? DEFAULT_MOCK_EVENTS;
 		mocks.nextEvents = null;
 		for ( const event of events ) {
@@ -289,6 +300,7 @@ describe( 'pi runtime', () => {
 		mocks.customMessages = [];
 		mocks.onCustomMessage = null;
 		mocks.openProblems = [];
+		mocks.holdNextPrompt = false;
 		mocks.createAgentSession.mockReset();
 		mocks.createAgentSession.mockImplementation( async ( options: CreateAgentSessionOptions ) => {
 			const session = new FakeSession( options );
@@ -498,6 +510,102 @@ describe( 'pi runtime', () => {
 		expect( takeScreenshot( 0 )?.description ).toContain( 'analyze visually' );
 		expect( takeScreenshot( 1 )?.description ).toContain( 'This model cannot view images' );
 		expect( takeScreenshot( 1 )?.description ).not.toContain( 'analyze visually' );
+	} );
+
+	describe( 'subagent', () => {
+		const usage = ( totalTokens: number ) => ( {
+			input: totalTokens,
+			output: 0,
+			cacheRead: 0,
+			cacheWrite: 0,
+			totalTokens,
+			cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+		} );
+		const message = ( text: string, totalTokens: number ) => ( {
+			role: 'assistant' as const,
+			content: [ { type: 'text' as const, text } ],
+			api: 'openai-completions' as const,
+			provider: 'studio-wpcom',
+			model: 'balanced',
+			usage: usage( totalTokens ),
+			stopReason: 'stop' as const,
+			timestamp: 0,
+		} );
+		const reply = ( text: string, totalTokens: number ): MessageEndEvent => ( {
+			type: 'message_end',
+			message: message( text, totalTokens ),
+		} );
+		const subagentTool = async () => {
+			const onAskUser = vi.fn().mockResolvedValue( { 'Delete the site "nope"?': 'No' } );
+			await runRuntime( { prompt: 'hello', session: newSession(), env: WPCOM_ENV, onAskUser } );
+			return { tool: getCreatedTool( 'subagent' ), onAskUser };
+		};
+		const child = () => mocks.createdSessions[ 1 ];
+		const childTools = () =>
+			( ( child().options.customTools ?? [] ) as unknown as RuntimeTool[] ).map(
+				( tool ) => tool.name
+			);
+
+		it( 'runs the task as a turn of its own and returns its last reply and what it spent', async () => {
+			const { tool, onAskUser } = await subagentTool();
+			mocks.nextEvents = [
+				reply( 'reading the batch', 100 ),
+				reply( 'wrote batch-001-results.json: 20 posts', 50 ),
+				{ type: 'agent_end', willRetry: false, messages: [] },
+			];
+			const result = await tool.execute( 's', { task: 'analyze batch-001.json' } );
+			expect( child().prompts ).toEqual( [ 'analyze batch-001.json' ] );
+			expect( child().options.sessionManager ).not.toBe(
+				mocks.createdSessions[ 0 ].options.sessionManager
+			);
+			expect( result ).toMatchObject( {
+				content: [ { type: 'text', text: 'wrote batch-001-results.json: 20 posts' } ],
+				details: { usage: { input: 150, totalTokens: 150 } },
+			} );
+			// It cannot ask the user, nor run subagents of its own; Studio's confirmations still ask.
+			expect( childTools() ).toContain( 'Bash' );
+			expect( childTools() ).not.toContain( 'AskUserQuestion' );
+			expect( childTools() ).not.toContain( 'subagent' );
+			const childDelete = ( child().options.customTools as unknown as RuntimeTool[] ).find(
+				( item ) => item.name === 'site_delete'
+			)!;
+			await expect( childDelete.execute( 't', { nameOrPath: 'nope' } ) ).rejects.toThrow(
+				'Not run'
+			);
+			expect( onAskUser ).toHaveBeenCalledTimes( 1 );
+		} );
+
+		it( 'fails with what stopped the turn', async () => {
+			const { tool } = await subagentTool();
+			mocks.nextEvents = [
+				reply( 'half done', 10 ),
+				{
+					type: 'agent_end',
+					willRetry: false,
+					messages: [ { ...message( '', 0 ), stopReason: 'error', errorMessage: 'rate limited' } ],
+				},
+			];
+			await expect( tool.execute( 's', { task: 'analyze' } ) ).rejects.toThrow(
+				'The subagent stopped: rate limited. Its last reply: half done'
+			);
+		} );
+
+		it( 'stops the turn when the call is aborted', async () => {
+			const { tool } = await subagentTool();
+			mocks.holdNextPrompt = true;
+			const controller = new AbortController();
+			const running = (
+				tool.execute as (
+					id: string,
+					params: Record< string, unknown >,
+					signal: AbortSignal
+				) => Promise< unknown >
+			 )( 's', { task: 'analyze' }, controller.signal );
+			await vi.waitFor( () => expect( child()?.prompts ).toEqual( [ 'analyze' ] ) );
+			controller.abort();
+			await expect( running ).rejects.toThrow( 'The subagent stopped: aborted' );
+			expect( child().aborted ).toBe( true );
+		} );
 	} );
 
 	it( 'asks the user before a destructive call runs, and does not run it when declined', async () => {

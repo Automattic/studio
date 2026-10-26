@@ -309,8 +309,6 @@ export function getToolDisplayName( name: string, input?: Record< string, unknow
 		preview_update: __( 'Update preview' ),
 		preview_delete: __( 'Delete preview' ),
 		site_publish_targets: __( 'List publish targets' ),
-		pick_design: __( 'Pick design' ),
-		present_design_options: __( 'Present design options' ),
 		take_screenshot: __( 'Take screenshot' ),
 		generate_images: __( 'Generate images' ),
 		open_annotation_browser: __( 'Open annotation browser' ),
@@ -413,17 +411,6 @@ export function getToolDetail( name: string, input?: Record< string, unknown > )
 			return getAskUserDetail( input );
 		case 'wp_cli':
 			return typeof input.command === 'string' ? `wp ${ input.command }` : '';
-		case 'present_design_options':
-			return ( Array.isArray( input.options ) ? input.options : [] )
-				.map( ( option ) =>
-					option &&
-					typeof option === 'object' &&
-					typeof ( option as { label?: unknown } ).label === 'string'
-						? ( option as { label: string } ).label
-						: ''
-				)
-				.filter( Boolean )
-				.join( ' · ' );
 		case 'take_screenshot':
 		case 'open_annotation_browser':
 			return typeof input.url === 'string' ? input.url : '';

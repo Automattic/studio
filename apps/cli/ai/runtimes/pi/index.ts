@@ -39,7 +39,6 @@ import {
 	type AiModelId,
 } from '@studio/common/ai/models';
 import { findLastAssistant, isEmptyStop } from '@studio/common/ai/session-events';
-import { getAiTracksIdentity } from '@studio/common/ai/tracks-identity';
 import { type TSchema } from 'typebox';
 import { classicThemeQuestion } from 'cli/ai/block-theme';
 import { getBlockValidationGate, type BlockValidationGate } from 'cli/ai/block-validation-gate';
@@ -53,7 +52,6 @@ import { studioMessage, validationLines } from 'cli/ai/studio-message';
 import { buildSystemPrompt } from 'cli/ai/system-prompt';
 import { resolveStudioToolDefinitions } from 'cli/ai/tools';
 import { createAskUserQuestionTool } from 'cli/ai/tools/ask-user-question';
-import { createPresentDesignOptionsTool } from 'cli/ai/tools/present-design-options';
 import { createSkillTool } from 'cli/ai/tools/skill';
 import { siteOfCall } from 'cli/ai/tools/utils';
 import { readCliConfig } from 'cli/lib/cli-config/core';
@@ -844,16 +842,6 @@ function buildAgentTools(
 	const askUserTool: AgentToolAny[] = config.onAskUser
 		? [ createAskUserQuestionTool( config.onAskUser ) ]
 		: [];
-	const tracks = getAiTracksIdentity( config.session.getSessionId() );
-	const designOptionsTool: AgentToolAny[] =
-		config.onAskUser && chatArtifactsEnabled
-			? [
-					createPresentDesignOptionsTool( {
-						onAskUser: config.onAskUser,
-						tracks,
-					} ) as unknown as AgentToolAny,
-			  ]
-			: [];
 
 	const skillToolDef = createSkillTool( ( skill ) => onSkillLoad( skill.name ) );
 	const skillTool: AgentToolAny[] = skillToolDef ? [ skillToolDef ] : [];
@@ -886,8 +874,6 @@ function buildAgentTools(
 		shell: true,
 		imageGeneration: imageGenerationEnabled,
 		visionEnabled,
-		canAskUser: Boolean( config.onAskUser ),
-		tracks,
 	} ) as unknown as AgentToolAny[];
 	// A subagent's turn is this turn's, from a fresh session and with nobody to
 	// ask: confirmations still reach the user.
@@ -907,14 +893,7 @@ function buildAgentTools(
 					} )
 				),
 		  ];
-	return [
-		...studioTools,
-		...askUserTool,
-		...designOptionsTool,
-		...skillTool,
-		...subagentTool,
-		...piTools,
-	];
+	return [ ...studioTools, ...askUserTool, ...skillTool, ...subagentTool, ...piTools ];
 }
 
 function parseJsonHeaderEnv(

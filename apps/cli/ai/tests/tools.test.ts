@@ -7,7 +7,6 @@ import { fetchSyncableSites } from '@studio/common/lib/sync/sync-api';
 import { vi } from 'vitest';
 import { getSharedBrowser } from 'cli/ai/browser-utils';
 import { setChatArtifactCallback } from 'cli/ai/chat-artifacts';
-import { loadDesignCatalog } from 'cli/ai/design-catalog';
 import { generateImages, isImageGenerationAvailable } from 'cli/ai/image-generation';
 import { emitEvent } from 'cli/ai/json-events';
 import { setScreenshotDirectoryProvider } from 'cli/ai/screenshot-storage';
@@ -251,44 +250,6 @@ describe( 'Studio AI MCP tools', () => {
 	] )( 'on host $host, $tool appears: $appears', ( { host, tool, appears } ) => {
 		expect( resolveStudioToolDefinitions( host ).some( ( t ) => t.name === tool ) ).toBe( appears );
 	} );
-
-	it( 'pick_design offers options only when the user can be asked, and draws one otherwise', async () => {
-		expect( getTool( 'pick_design' ).description ).not.toContain( 'options: 4' );
-		expect(
-			resolveStudioToolDefinitions( { canAskUser: true } ).find( ( t ) => t.name === 'pick_design' )
-				?.description
-		).toContain( 'options: 4' );
-		const text =
-			getTextContent(
-				await executeTool( getTool( 'pick_design' ), { catalog: 'layouts', options: 4 } )
-			) ?? '';
-		expect( text ).not.toContain( 'Option 1' );
-		expect( text ).toContain( 'cannot be asked in this session' );
-	} );
-
-	// Each draw says what follows it, so the design steps need no runbook.
-	it.each( [
-		{ canAskUser: false, catalog: 'layouts', options: 1, next: 'Next: write the theme.' },
-		{ canAskUser: false, catalog: 'directions', options: 1, next: 'in this look' },
-		{ canAskUser: true, catalog: 'directions', options: 4, next: 'Once picked, make the' },
-		{ canAskUser: true, catalog: 'layouts', options: 4, next: 'Once picked, write the theme.' },
-	] )(
-		'pick_design says what follows a $catalog draw of $options',
-		async ( { canAskUser, catalog, options, next } ) => {
-			const tool = resolveStudioToolDefinitions( { canAskUser } ).find(
-				( t ) => t.name === 'pick_design'
-			)!;
-			const chosen =
-				catalog === 'directions'
-					? loadDesignCatalog( 'directions' )
-							.slice( 0, options )
-							.map( ( { name } ) => ( { name, reason: 'Fits.' } ) )
-					: undefined;
-			expect( getTextContent( await executeTool( tool, { catalog, options, chosen } ) ) ).toContain(
-				next
-			);
-		}
-	);
 
 	it( 'refuses to guess between sites that share a name', async () => {
 		vi.mocked( readCliConfig ).mockResolvedValue( {

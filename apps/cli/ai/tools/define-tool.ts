@@ -2,7 +2,6 @@ import { Type, type Static, type TObject, type TProperties } from 'typebox';
 import type { AgentTool, AgentToolUpdateCallback } from '@earendil-works/pi-agent-core';
 import type { StudioChatArtifactWidgetDraft } from '@studio/common/ai/chat-artifacts';
 import type { StudioToolProgressUpdate } from '@studio/common/ai/tool-progress';
-import type { DesignTracksContext } from 'cli/ai/design-tracks';
 
 /**
  * Tool authors throw on failure; pi's loop catches and produces a tool-result
@@ -23,7 +22,7 @@ interface ToolImageContent {
 
 type ToolContent = ToolTextContent | ToolImageContent;
 
-export interface ToolResult {
+interface ToolResult {
 	content: ToolContent[];
 	// Ends the turn after this call, as Pi's AgentToolResult.terminate does.
 	terminate?: boolean;
@@ -100,10 +99,6 @@ export interface StudioToolHost {
 	imageGeneration?: boolean;
 	// False for models that cannot view images. Defaults to true.
 	visionEnabled?: boolean;
-	// The host can put a question to the user.
-	canAskUser?: boolean;
-	// The chat session the design tools record Tracks events for; absent for the MCP server.
-	tracks?: DesignTracksContext;
 	// How a local image is linked in the agent's reply so the host shows it to the user.
 	// Set by hosts without Studio's chat UI, which shows images as chat artifacts instead.
 	imageLink?: ( file: string ) => string;

@@ -11,7 +11,6 @@ import { listPreviewsTool } from './list-previews';
 import { listSitesTool } from './list-sites';
 import { auditPerformanceTool } from './need-for-speed';
 import { openAnnotationBrowserTool } from './open-annotation-browser';
-import { pickDesignTool } from './pick-design';
 import { publishTargetsTool } from './publish-targets';
 import { pullSiteTool } from './pull-site';
 import { pushSiteTool } from './push-site';
@@ -38,7 +37,6 @@ export const studioToolDefinitions: AnyStudioAgentTool[] = [
 	updatePreviewTool,
 	deletePreviewTool,
 	runWpCliTool,
-	pickDesignTool,
 	takeScreenshotTool,
 	generateImagesTool,
 	installTaxonomyScriptsTool,

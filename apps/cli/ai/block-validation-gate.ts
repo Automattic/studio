@@ -201,7 +201,7 @@ async function htmlPolicyProblem(
 		return undefined;
 	}
 	return [
-		`${ label }: ${ invalidHtmlBlocks.length } core/html block(s) must become editable blocks, which convert_to_blocks makes them:`,
+		`${ label }: ${ invalidHtmlBlocks.length } core/html block(s) hold markup the editor shows as raw HTML, which convert_to_blocks saves as editable blocks:`,
 		...invalidHtmlBlocks.map( ( block ) => `  - line ${ block.line }: ${ block.issues[ 0 ] }` ),
 		...( await describeSavingBlocks(
 			invalidHtmlBlocks.map( ( block ) => block.content ).join( '\n' ),

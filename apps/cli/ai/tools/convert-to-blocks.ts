@@ -188,7 +188,7 @@ async function writeRefusal( filePath: string ): Promise< string | undefined > {
 
 export const convertToBlocksTool = defineTool(
 	'convert_to_blocks',
-	"Converts the HTML in a block markup file or a post to editable blocks with Blocks Engine, keeping the blocks it already has. It runs in the site's WordPress, styled by the active theme's stylesheets, saves the result, and adds the support stylesheets the conversion returns to the active theme. It saves nothing when the page would lose text or an image, and lists what would be lost.",
+	"Saves the HTML in a block markup file or a post as the editable blocks the block editor makes from it, with Blocks Engine, keeping the blocks it already has: write a page, template or template part as HTML, and this makes it blocks. It runs in the site's WordPress, styled by the active theme's stylesheets, saves the result, and adds the support stylesheets the conversion returns to the active theme. It saves nothing when the page would lose text or an image, and lists what would be lost.",
 	{
 		nameOrPath: Type.String( { description: 'The site name or file system path to the site' } ),
 		file: Type.Optional(

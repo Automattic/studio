@@ -6,7 +6,6 @@ import { fetch } from './lib/with-retry.ts';
 
 const WP_FILES_PATH = path.join( import.meta.dirname, '..', 'wp-files' );
 const AI_SKILLS_PATH = path.join( WP_FILES_PATH, 'skills' );
-const LOCAL_AI_SKILLS_PATH = path.join( import.meta.dirname, '..', 'skills' );
 
 const REPO_ZIP_URL = 'https://github.com/WordPress/agent-skills/archive/refs/heads/trunk.zip';
 
@@ -66,27 +65,8 @@ async function downloadRemoteSkills(): Promise< void > {
 	await fs.remove( extractPath );
 }
 
-async function copyLocalContent(): Promise< void > {
-	console.log( '[ai-skills] Copying local content...' );
-
-	const entries = await fs.readdir( LOCAL_AI_SKILLS_PATH, { withFileTypes: true } );
-	for ( const entry of entries ) {
-		// Each skill is a folder.
-		if ( ! entry.isDirectory() ) {
-			continue;
-		}
-
-		const source = path.join( LOCAL_AI_SKILLS_PATH, entry.name );
-		const destination = path.join( AI_SKILLS_PATH, entry.name );
-		await fs.remove( destination );
-		await fs.copy( source, destination );
-		console.log( `[ai-skills] Copied ${ entry.name }` );
-	}
-}
-
 async function downloadAiSkills(): Promise< void > {
 	await fs.ensureDir( AI_SKILLS_PATH );
-	await copyLocalContent();
 	await downloadRemoteSkills();
 	console.log( '[ai-skills] Done' );
 }

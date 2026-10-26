@@ -264,14 +264,16 @@ test.describe( 'Site settings', () => {
 			( await session.waitForSite( siteName ) ).path,
 			'.agents',
 			'skills',
-			'studio-cli',
+			'wp-plugin-development',
 			'SKILL.md'
 		);
-		const skill = page.getByRole( 'switch', { name: 'Studio CLI', exact: true } );
+		const skill = page.getByRole( 'switch', { name: 'Plugin Development', exact: true } );
 		await skill.click();
 		await expect( skill ).toBeChecked();
 		await expect.poll( () => pathExists( skillFile ) ).toBe( true );
-		await page.getByRole( 'button', { name: 'Actions for Studio CLI', exact: true } ).click();
+		await page
+			.getByRole( 'button', { name: 'Actions for Plugin Development', exact: true } )
+			.click();
 		await page.getByRole( 'menuitem', { name: 'Uninstall', exact: true } ).click();
 		await expect( skill ).not.toBeChecked();
 		await expect.poll( () => pathExists( skillFile ) ).toBe( false );

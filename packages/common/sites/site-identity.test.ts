@@ -40,4 +40,16 @@ describe( 'readSiteIcon', () => {
 			readSiteIcon( cliPrinting( '{"relativePath":"wp-content\\/gone.png"}' ), sitePath )
 		).resolves.toBeNull();
 	} );
+
+	it( 'reads a site without an icon despite stray output', async () => {
+		await expect(
+			readSiteIcon( cliPrinting( 'null\n[notice X 0] something' ), sitePath )
+		).resolves.toBeNull();
+	} );
+
+	it( 'rejects instead of throwing when the output has no JSON', async () => {
+		await expect( readSiteIcon( cliPrinting( 'Fatal error' ), sitePath ) ).rejects.toThrow(
+			SyntaxError
+		);
+	} );
 } );

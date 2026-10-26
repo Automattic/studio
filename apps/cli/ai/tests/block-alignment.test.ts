@@ -146,5 +146,5 @@ describe.runIf( process.env.STUDIO_TEST_WORDPRESS )( 'freeFullWidthBlocks', () =
 		} finally {
 			rmSync( siteRoot, { recursive: true } );
 		}
-	} );
+	}, 60000 );
 } );

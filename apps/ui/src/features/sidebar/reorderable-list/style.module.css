@@ -29,7 +29,7 @@
 .itemWrapper[data-drop-position]::before {
 	inset-inline: 0;
 	height: 2px;
-	/* eslint-disable-next-line studio/use-theme-tokens -- the drop line's rounded ends, as in the rebuild. */
+	/* eslint-disable-next-line studio/use-theme-tokens -- the 2px drop line's rounded ends. */
 	border-radius: 1px;
 	translate: 0 -50%;
 }

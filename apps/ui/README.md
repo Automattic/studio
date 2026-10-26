@@ -99,7 +99,7 @@ The theme lives in `src/lib/theme/`:
 - **Space and shape**: `--space-*` on a 4px grid, numbered like Tailwind's spacing (`--space-1_5` is 6px), `--radius-*` up to `--radius-3xl` and `--radius-full`, `--shadow-*`, `--focus-width`, `--band-height` and `--control-size`.
 - **Layers and motion**: `--z-*` layers inside the workspace and above it, `--motion-duration-*` and `--motion-ease-*`. Media queries can't read tokens, so the one breakpoint, `( width < 640px )`, is written where it's used.
 
-Primitives live in `src/lib/ui/`. They follow the rebuild's kit and import nothing from app code. [Their README](src/lib/ui/README.md) says which one fits a need, and when to change a primitive rather than override it.
+Primitives live in `src/lib/ui/`. They import nothing from app code. [Their README](src/lib/ui/README.md) says which one fits a need, and when to change a primitive rather than override it.
 
 Outside `src/lib/theme/`, ESLint (`studio/use-theme-tokens`) flags literal colors, font sizes, radii, elevation shadows and stacking layers, and formats CSS with Prettier, so `npx eslint --fix` covers stylesheets too. A literal that has to stay carries an `eslint-disable-next-line` comment saying why.
 

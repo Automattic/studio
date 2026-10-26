@@ -766,9 +766,58 @@ export async function validateBlocks(
 				};
 			}
 
+			// A block's own markup with a slot for each inner block: its elements,
+			// and the elements around each slot, outermost first.
+			function slots( raw: any ) {
+				const parts = ( raw?.innerContent ?? [] ).map( ( part: unknown ) =>
+					typeof part === 'string' ? part : '<studio-slot></studio-slot>'
+				);
+				const body = new DOMParser().parseFromString( parts.join( '' ), 'text/html' ).body;
+				const around = [ ...body.querySelectorAll( 'studio-slot' ) ].map( ( slot ) => {
+					const elements: HTMLElement[] = [];
+					for ( let at = slot.parentElement; at && at !== body; at = at.parentElement ) {
+						elements.unshift( at );
+					}
+					return elements;
+				} );
+				const elements = [ ...body.querySelectorAll< HTMLElement >( ':not(studio-slot)' ) ];
+				return { elements, around };
+			}
+			// The same element in another save: its tag, with the classes written
+			// on it. An element written without classes has nothing to know it by.
+			const same = ( written: HTMLElement, saved: HTMLElement ) =>
+				written.classList.length > 0 &&
+				written.tagName === saved.tagName &&
+				[ ...written.classList ].every( ( name ) => saved.classList.contains( name ) );
+			const elementName = ( at: HTMLElement ) =>
+				at.tagName.toLowerCase() + [ ...at.classList ].map( ( name ) => `.${ name }` ).join( '' );
+
+			// The inner blocks the fix moves into or out of an element the block was
+			// written with, as a cover's save moves everything into its inner
+			// container. Elements the fix adds are not moves.
+			function moves( place: string, block: any ): string[] {
+				const before = slots( initial.written.get( place ) );
+				const after = slots( fixed.written.get( place ) );
+				return ( block.innerBlocks ?? [] ).flatMap( ( inner: any, i: number ) => {
+					const was = before.around[ i ] ?? [];
+					const is = after.around[ i ] ?? [];
+					const into = before.elements.filter(
+						( written ) =>
+							! was.includes( written ) && is.some( ( saved ) => same( written, saved ) )
+					);
+					const outOf = was.filter(
+						( written ) => ! is.some( ( saved ) => same( written, saved ) )
+					);
+					return [
+						...into.map( ( at ) => `move ${ inner.name } into ${ elementName( at ) }` ),
+						...outOf.map( ( at ) => `move ${ inner.name } out of ${ elementName( at ) }` ),
+					];
+				} );
+			}
+
 			// What the fix loses from each block as written, block by block: its
-			// text, classes and styles. Its attributes it keeps, being made from
-			// them, apart from the editor's own migrations.
+			// text, classes, styles and where its inner blocks sit. Its attributes
+			// it keeps, being made from them, apart from the editor's own migrations.
 			function losses( written: any[], fixes: any[], at = '' ): any[] {
 				return written.flatMap( ( block: any, i: number ) => {
 					const place = `${ at }/${ i }`;
@@ -793,6 +842,7 @@ export async function validateBlocks(
 						before.text !== after.text ? 'change the text' : '',
 						classes.length ? `drop the classes ${ classes.join( ' ' ) }` : '',
 						styles.length ? `drop the styles ${ styles.join( '; ' ) }` : '',
+						...( reshaped ? [] : moves( place, block ) ),
 					].filter( Boolean );
 					return [
 						...( lost.length

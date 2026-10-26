@@ -1,6 +1,5 @@
 import { mkdirSync, rmSync, writeFileSync } from 'fs';
 import path from 'path';
-import { afterAll, describe, expect, it } from 'vitest';
 import {
 	bindNavigationLinks,
 	blocksSavingElements,
@@ -11,6 +10,7 @@ import {
 	validateBlocks,
 } from 'cli/ai/block-validator';
 import { getSharedBrowser } from 'cli/ai/browser-utils';
+import { afterAll, describe, expect, it } from 'vitest';
 
 // Runs the site's own block editor, so it needs a running WordPress site:
 // STUDIO_BLOCK_EDITOR_URL=http://localhost:8881 npx vitest run block-validator
@@ -310,6 +310,32 @@ describe.runIf( siteUrl )( 'validating in the block editor (live)', () => {
 			expect.objectContaining( { blockName: 'core/freeform', isValid: false } )
 		);
 		expect( report.validBlocks ).toBe( 1 );
+	}, 60_000 );
+
+	it( 'keeps a block as written when its fix would move an inner block to another element', async () => {
+		const cover =
+			'<!-- wp:cover {"url":"https://example.com/a.png","dimRatio":50} -->\n' +
+			'<div class="wp-block-cover"><span aria-hidden="true" class="wp-block-cover__background has-background-dim"></span>' +
+			'<!-- wp:image -->\n<figure class="wp-block-image"><img src="https://example.com/b.png" alt=""/></figure>\n<!-- /wp:image -->' +
+			'<div class="wp-block-cover__inner-container">' +
+			paragraph( '{}', '<p>Hello</p>' ) +
+			'</div></div>\n<!-- /wp:cover -->';
+		const report = await validateBlocks(
+			`${ paragraph( '{"textAlign":"center"}', '<p>Centered</p>' ) }\n${ cover }`,
+			siteUrl!
+		);
+		expect( report.proposedFix?.losses ).toEqual( [
+			{
+				place: '/1',
+				blockName: 'core/cover',
+				lost: 'move core/image into div.wp-block-cover__inner-container',
+			},
+		] );
+		expect( report.proposedFix?.fixedContent ).toContain( 'has-text-align-center' );
+		// The image stays before the inner container, where it was written.
+		expect( report.proposedFix?.fixedContent ).toContain(
+			'<!-- /wp:image -->\n<div class="wp-block-cover__inner-container">'
+		);
 	}, 60_000 );
 
 	it( 'reads entities as the text they show', async () => {

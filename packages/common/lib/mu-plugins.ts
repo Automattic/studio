@@ -66,11 +66,6 @@ function getLoaderMuPluginContent( muPluginsDir: string ): string {
 		`;
 }
 
-/**
- * Get all standard mu-plugins for WordPress local development
- * @param options Configuration options for mu-plugins
- * @returns Array of mu-plugin definitions
- */
 function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 	const muPlugins: MuPlugin[] = [];
 
@@ -93,7 +88,6 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 		} );
 	}
 
-	// HTTPS detection for reverse proxy
 	muPlugins.push( {
 		filename: '0-https-for-reverse-proxy.php',
 		content: `<?php
@@ -104,7 +98,6 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 		`,
 	} );
 
-	// Redirect to SITEURL constant
 	muPlugins.push( {
 		filename: '0-redirect-to-siteurl-constant.php',
 		content: `<?php
@@ -147,7 +140,6 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 		`,
 	} );
 
-	// Check theme availability
 	muPlugins.push( {
 		filename: '0-check-theme-availability.php',
 		content: `<?php
@@ -176,7 +168,6 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 	`,
 	} );
 
-	// Enable permalinks
 	muPlugins.push( {
 		filename: '0-permalinks.php',
 		content: `<?php
@@ -185,7 +176,6 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 	`,
 	} );
 
-	// Trailing slash handling for wp-admin
 	muPlugins.push( {
 		filename: '0-wp-admin-trailing-slash.php',
 		content: `<?php
@@ -212,7 +202,6 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 		`,
 	} );
 
-	// Deactivate Jetpack modules
 	muPlugins.push( {
 		filename: '0-deactivate-jetpack-modules.php',
 		content: `<?php
@@ -252,7 +241,6 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 		} );
 	}
 
-	// Studio-specific: Fix plugin spinner display
 	muPlugins.push( {
 		filename: '0-tmp-fix-hide-plugins-spinner.php',
 		content: `<?php
@@ -645,7 +633,6 @@ export const STUDIO_LOADER_MU_PLUGIN_FILENAME = '99-studio-loader.php';
  * scrub anything previously installed by Studio.
  */
 export const LEGACY_MU_PLUGIN_FILENAMES = [
-	// Current mu-plugins (from getStandardMuPlugins)
 	'0-allowed-redirect-hosts.php',
 	'0-auto-login.php',
 	'0-check-theme-availability.php',
@@ -665,7 +652,6 @@ export const LEGACY_MU_PLUGIN_FILENAMES = [
 	'0-tmp-fix-hide-plugins-spinner.php',
 	'0-tmp-fix-qm-plugin-sapi.php',
 	'0-wp-admin-trailing-slash.php',
-	// Retired mu-plugins from older Studio versions
 	'0-32bit-integer-warnings.php',
 	'0-dns-functions.php',
 	'0-sqlite.php',
@@ -679,8 +665,6 @@ export const LEGACY_MU_PLUGIN_FILENAMES = [
  * Newer versions load them through `STUDIO_LOADER_MU_PLUGIN_FILENAME`. Having both
  * copies causes PHP fatal errors like "Cannot redeclare" because the same functions
  * are defined in both the on-disk file and the loaded one.
- *
- * @param sitePath - Absolute path to the WordPress site directory
  */
 export async function cleanupLegacyMuPlugins( sitePath: string ): Promise< void > {
 	const muPluginsDir = path.join( sitePath, 'wp-content', 'mu-plugins' );

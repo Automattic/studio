@@ -6,7 +6,6 @@ import path from 'path';
 // SQLite-compatible drop-ins are preserved.
 const STOCK_DB_DROPIN_MARKER = 'This file is auto-generated and copied from the sqlite plugin.';
 
-// Abstract base class for SQLite integration across different contexts
 export abstract class SqliteIntegrationProvider {
 	abstract getSqliteDirname(): string;
 	protected abstract getSqlitePluginSourcePath(): string;

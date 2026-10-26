@@ -1,20 +1,29 @@
 import { Type } from 'typebox';
-import { runCommand as runPullCommand } from 'cli/commands/pull';
+import { HOST_IDS, HOSTS } from 'cli/ai/hosts';
 import { parseSyncOptions } from 'cli/lib/sync-api';
 import { defineTool, REMOTE_OVERWRITE } from './define-tool';
 import { captureCommandOutput, resolveSite, textResult } from './utils';
 
 export const pullSiteTool = defineTool(
 	'site_pull',
-	'Pulls a WordPress.com site to a local WordPress site. Requires WordPress.com authentication ' +
-		'(studio auth login). Creates a remote backup, downloads it, and imports it locally. ' +
+	'Pulls a remote site on one of the hosts in site_publish_targets to a local WordPress site: ' +
+		'creates a remote backup, downloads it, and imports it locally. ' +
 		'This can take several minutes depending on site size. ' +
 		'Make sure a local site exists first (create one with site_create if needed); a running local site is stopped during the pull and restarted afterward. ' +
 		'Studio asks the user to confirm before the pull overwrites the local site.',
 	{
 		nameOrPath: Type.String( { description: 'The local site name or file system path' } ),
+		host: Type.Optional(
+			Type.Union(
+				HOST_IDS.map( ( id ) => Type.Literal( id ) ),
+				{
+					description:
+						'The host the remote site is on, from site_publish_targets. Defaults to "wpcom".',
+				}
+			)
+		),
 		remoteSite: Type.String( {
-			description: 'The remote WordPress.com site URL or numeric site ID to pull from',
+			description: "The remote site URL or the host's id for it, to pull from",
 		} ),
 		options: Type.Optional(
 			Type.String( {
@@ -29,7 +38,8 @@ export const pullSiteTool = defineTool(
 			const syncOptions = parseSyncOptions( args.options ?? 'all' );
 
 			const result = await captureCommandOutput(
-				( logger ) => runPullCommand( site.path, syncOptions, args.remoteSite, undefined, logger ),
+				( logger ) =>
+					HOSTS[ args.host ?? 'wpcom' ].pull( site.path, args.remoteSite, syncOptions, logger ),
 				context.onProgress
 			);
 			const output = result.consoleOutput || result.progressOutput || 'Pull completed.';

@@ -1,6 +1,5 @@
 import { __ } from '@wordpress/i18n';
 import {
-	COPY_SITE_MUTATION_KEY,
 	EXPORT_DATABASE_MUTATION_KEY,
 	EXPORT_FULL_SITE_MUTATION_KEY,
 	useCopySite,
@@ -20,11 +19,6 @@ export interface SiteManagementAction {
 	id: SiteManagementActionId;
 	icon: ComponentType;
 	label: string;
-	// True while this action's own work is in flight (drives spinners on
-	// surfaces that show them).
-	loading: boolean;
-	// Assistive-tech announcement for the loading state.
-	loadingAnnouncement: string;
 	disabled: boolean;
 	destructive: boolean;
 	run: () => void;
@@ -35,15 +29,12 @@ export interface SiteManagementAction {
  * Export database, Delete — shared by every surface that offers them, so labels, icons,
  * order, and disabled logic don't drift apart between surfaces.
  *
- * Import and Delete both need surface-owned UI (a file picker plus an overwrite
- * confirmation, and a confirmation dialog whose "deleted" navigation differs per
- * surface), so this hook doesn't own either: pass `onImport` / `onDelete` and the
- * matching action's `run` calls them. Import is omitted entirely on surfaces
- * that don't pass `onImport`, since they have nowhere to host that UI.
+ * Import and Delete open UI the caller owns (a file picker with an overwrite
+ * confirmation, a delete confirmation): pass `onImport` and `onDelete`.
  */
 export function useSiteManagementActions(
 	site: SiteDetails,
-	{ onDelete, onImport }: { onDelete: () => void; onImport?: () => void }
+	{ onDelete, onImport }: { onDelete: () => void; onImport: () => void }
 ): SiteManagementAction[] {
 	const copySite = useCopySite();
 	const exportFullSite = useExportFullSite();
@@ -52,7 +43,6 @@ export function useSiteManagementActions(
 	// Read from the mutation cache rather than each mutation's own `isPending`,
 	// so progress survives navigating away and back — the observers these hooks
 	// create die with the screen, the cache entries don't.
-	const isDuplicating = useIsSiteMutating( site.id, COPY_SITE_MUTATION_KEY );
 	const isExportingFullSite = useIsSiteMutating( site.id, EXPORT_FULL_SITE_MUTATION_KEY );
 	const isExportingDatabase = useIsSiteMutating( site.id, EXPORT_DATABASE_MUTATION_KEY );
 
@@ -76,32 +66,22 @@ export function useSiteManagementActions(
 			id: 'duplicate',
 			icon: DuplicateIcon,
 			label: __( 'Duplicate' ),
-			loading: isDuplicating,
-			loadingAnnouncement: __( 'Duplicating site' ),
 			disabled: isWriting,
 			destructive: false,
 			run: () => copySite.mutate( site.id ),
 		},
-		...( onImport
-			? [
-					{
-						id: 'import' as const,
-						icon: ImportIcon,
-						label: __( 'Import' ),
-						loading: isImporting,
-						loadingAnnouncement: __( 'Importing site' ),
-						disabled: isWriting || isExporting,
-						destructive: false,
-						run: onImport,
-					},
-			  ]
-			: [] ),
+		{
+			id: 'import',
+			icon: ImportIcon,
+			label: __( 'Import' ),
+			disabled: isWriting || isExporting,
+			destructive: false,
+			run: onImport,
+		},
 		{
 			id: 'export',
 			icon: ExportSiteIcon,
 			label: __( 'Export entire site' ),
-			loading: isExportingFullSite,
-			loadingAnnouncement: __( 'Exporting site' ),
 			disabled: isWriting || isExporting,
 			destructive: false,
 			run: () => exportFullSite.mutate( site.id ),
@@ -110,8 +90,6 @@ export function useSiteManagementActions(
 			id: 'export-db',
 			icon: DatabaseIcon,
 			label: __( 'Export database' ),
-			loading: isExportingDatabase,
-			loadingAnnouncement: __( 'Exporting database' ),
 			disabled: isWriting || isExporting,
 			destructive: false,
 			run: () => exportDatabase.mutate( site.id ),
@@ -120,8 +98,6 @@ export function useSiteManagementActions(
 			id: 'delete',
 			icon: TrashIcon,
 			label: __( 'Delete' ),
-			loading: false,
-			loadingAnnouncement: '',
 			// Also blocked mid-export: the archive is still being read off disk.
 			disabled: isWriting || isExporting,
 			destructive: true,

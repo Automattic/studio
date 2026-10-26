@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { useItemShortcuts } from './use-item-shortcuts';
 
 function Item( {
@@ -38,6 +38,8 @@ function renderItems() {
 const pin = { key: 'π', code: 'KeyP', ctrlKey: true, altKey: true };
 
 describe( 'useItemShortcuts', () => {
+	afterEach( () => vi.restoreAllMocks() );
+
 	it( 'acts on the focused row, else the open chat, else the current site', () => {
 		const { row, chat, site, rerender } = renderItems();
 
@@ -87,4 +89,22 @@ describe( 'useItemShortcuts', () => {
 		fireEvent.keyDown( screen.getByRole( 'textbox', { name: 'Name' } ), pin );
 		expect( chat.pin ).not.toHaveBeenCalled();
 	} );
+
+	it.each( [ 'MacIntel', 'Win32' ] )(
+		'uses the primary modifier on %s and ignores held keys',
+		( platform ) => {
+			vi.spyOn( navigator, 'platform', 'get' ).mockReturnValue( platform );
+			const { chat } = renderItems();
+			const rename = {
+				code: 'KeyR',
+				altKey: true,
+				metaKey: platform === 'MacIntel',
+				ctrlKey: platform !== 'MacIntel',
+			};
+			fireEvent.keyDown( document.body, { ...rename, repeat: true } );
+			expect( chat.rename ).not.toHaveBeenCalled();
+			fireEvent.keyDown( document.body, rename );
+			expect( chat.rename ).toHaveBeenCalledOnce();
+		}
+	);
 } );

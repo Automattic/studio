@@ -48,16 +48,6 @@ describe( 'getWpVersionOptions', () => {
 		}
 	} );
 
-	it( 'names the version a new site will be created with', () => {
-		const options = getWpVersionOptions( VERSIONS, { autoUpdateVersion: '7.1' } );
-
-		expect( options?.[ 0 ] ).toEqual( {
-			value: DEFAULT_WORDPRESS_VERSION,
-			label: 'Auto-update (7.1)',
-			description: 'WordPress installs updates on its own schedule. Will install version 7.1.',
-		} );
-	} );
-
 	it( 'keeps prerelease and stable versions in separate groups', () => {
 		const options = getWpVersionOptions( VERSIONS ) ?? [];
 

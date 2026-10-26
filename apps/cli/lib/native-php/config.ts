@@ -2,10 +2,10 @@ import fs from 'fs';
 import { rootCertificates } from 'node:tls';
 import os from 'os';
 import path from 'path';
-import { getConfigDirectory } from '@studio/common/lib/well-known-paths';
 import { writeFile } from 'atomically';
 import semver from 'semver';
 import { getPhpBinaryPath } from '../dependency-management/paths';
+import { getFullyResolvedTmpDirPath } from './tmp-dir';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 
 // Disabled to shrink the attack surface available to PHP code running inside a
@@ -208,8 +208,11 @@ function getXdebugFilename(): string {
 	return process.platform === 'win32' ? 'php_xdebug.dll' : 'xdebug.so';
 }
 
+// A fixed path per site, so restarts reuse it and nothing new piles up when a
+// process is killed. It lives in tmp so the OS clears caches of sites that were
+// never deleted through Studio (e.g. kept eval sites).
 export function getSiteOpcacheDirectory( siteId: string ): string {
-	return path.join( getConfigDirectory(), 'opcache', siteId );
+	return path.join( getFullyResolvedTmpDirPath(), 'studio-opcache', siteId );
 }
 
 type DefaultPhpArgsOptions = {

@@ -47,7 +47,7 @@ describe( 'getDefaultPhpArgs', () => {
 
 	it( 'only caches server workers, partitioned stably by site, PHP version and worker', () => {
 		const dataDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-config-test-' ) );
-		vi.stubEnv( 'DEV_CONFIG_DIR', dataDir );
+		vi.spyOn( os, 'tmpdir' ).mockReturnValue( dataDir );
 		try {
 			const cases: [ string | undefined, SupportedPHPVersion, number | undefined ][] = [
 				[ undefined, '8.4', undefined ],
@@ -68,7 +68,7 @@ describe( 'getDefaultPhpArgs', () => {
 					expect( cacheDirectory ).toBe(
 						path.join(
 							dataDir,
-							'opcache',
+							'studio-opcache',
 							siteId!,
 							`php${ phpVersion }`,
 							`worker-${ workerIndex }`
@@ -78,7 +78,7 @@ describe( 'getDefaultPhpArgs', () => {
 				}
 			}
 		} finally {
-			vi.unstubAllEnvs();
+			vi.restoreAllMocks();
 			fs.rmSync( dataDir, { recursive: true, force: true } );
 		}
 	} );

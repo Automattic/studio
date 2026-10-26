@@ -70,6 +70,26 @@ const CLASSIC = `<section class="lantern-row">
 </section>
 `;
 
+// theme.json gives h3 a fluid preset size and the flow layout a block gap.
+const THEME_JSON = JSON.stringify( {
+	version: 3,
+	settings: {
+		spacing: { blockGap: true },
+		typography: {
+			fontSizes: [
+				{ slug: 'lantern-display', name: 'Display', size: 'clamp(1.75rem, 3vw, 2.25rem)' },
+			],
+		},
+	},
+	styles: {
+		spacing: { blockGap: '1.5rem' },
+		elements: { h3: { typography: { fontSize: 'var:preset|font-size|lantern-display' } } },
+	},
+} );
+const CARD_STYLE = '.lantern-card { display: flex; flex-direction: column; }\n';
+const CARD = `<div class="lantern-card"><h3>Night ferries</h3><p>Boats leave the harbor every hour.</p></div>
+`;
+
 describe.runIf( WORDPRESS && TRANSFORMER )( 'convert_to_blocks', () => {
 	let site: SiteData;
 	let theme: string;
@@ -158,6 +178,22 @@ describe.runIf( WORDPRESS && TRANSFORMER )( 'convert_to_blocks', () => {
 		const saved = await postContent();
 		expect( saved ).toMatch( /^<!-- wp:/ );
 		expect( saved ).toContain( 'Boats leave the harbor every hour.' );
+	}, 120_000 );
+
+	it( 'converts with the theme.json styles and block gap the site renders with', async () => {
+		writeFileSync( path.join( theme, 'theme.json' ), THEME_JSON );
+		writeFileSync( path.join( theme, 'functions.php' ), FUNCTIONS );
+		writeFileSync( path.join( theme, 'style.css' ), `${ STYLE }${ CARD_STYLE }` );
+		const file = path.join( theme, 'parts', 'section.html' );
+		writeFileSync( file, CARD );
+		await convert( { file } );
+
+		// The card's flex column keeps each margin; the h3's em margins follow
+		// its fluid theme.json size instead of being frozen to pixels.
+		const saved = readFileSync( file, 'utf8' );
+		expect( saved ).toContain(
+			'<h3 class="wp-block-heading" style="margin-top:1em;margin-bottom:1em">Night ferries</h3>'
+		);
 	}, 120_000 );
 
 	it( 'leaves the file unchanged when the page would lose text', async () => {

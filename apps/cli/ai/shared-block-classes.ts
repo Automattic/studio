@@ -7,10 +7,13 @@
  * wp_register_block_style_variations_from_theme_json_partials() in
  * wp-includes/block-supports/block-style-variations.php), the block's Styles
  * panel offers it, and Global Styles edits it, as Twenty Twenty-Five's are.
+ * Studio moves such a look into a block style when it can do so as it renders
+ * (block-style-move.ts), and says where one belongs when it cannot.
  */
 import { readFileSync } from 'fs';
 import { readdir } from 'fs/promises';
 import path from 'path';
+import { moveToBlockStyle, type Markup } from 'cli/ai/block-style-move';
 import { readWordPressSite } from 'cli/ai/site-database';
 import { isBlockMarkup, type SiteFile } from 'cli/ai/site-file-guards';
 import { themePresets } from 'cli/ai/theme-presets';
@@ -94,10 +97,10 @@ function themeJsonCss( dir: string ): string {
 }
 
 /**
- * Says, once a session for each class and block type, which classes a write
- * to a theme's stylesheet or block markup leaves styling a look that several
- * blocks of one type share, and where a block style's theme.json holds their
- * properties.
+ * Moves into a block style each look a write to a theme's stylesheet or block
+ * markup leaves several blocks of one type sharing through a class, and says,
+ * once a session for each class and block type, which of them it could not
+ * move and where a block style's theme.json holds their properties.
  */
 export function createSharedBlockClassNotes(): ( siteFile: SiteFile ) => Promise< string[] > {
 	const said = new Set< string >();
@@ -126,29 +129,44 @@ export function createSharedBlockClassNotes(): ( siteFile: SiteFile ) => Promise
 		const templates = ( await themeFiles( theme.dir, /\.(html|php)$/ ) ).filter( ( file ) =>
 			/^(templates|parts|patterns)$/.test( path.basename( path.dirname( file ) ) )
 		);
-		const saved = await readWordPressSite( siteRoot, ( site ) =>
-			site
-				.query< { content: string } >(
-					`SELECT post_content AS content FROM ${ site.prefix }posts WHERE post_status = 'publish' AND post_content LIKE '%"className":%'`
+		const markup = async (): Promise< Markup[] > => [
+			...templates.map( ( file ) => ( { file, content: readFileSync( file, 'utf8' ) } ) ),
+			...( await readWordPressSite( siteRoot, ( site ) =>
+				site.query< { post: number; content: string } >(
+					`SELECT ID AS post, post_content AS content FROM ${ site.prefix }posts WHERE post_status NOT IN ('trash', 'auto-draft', 'inherit') AND post_content LIKE '%"className":%'`
 				)
-				.map( ( row ) => row.content )
-		);
-		const counts = blockClassCounts( [
-			...templates.map( ( file ) => readFileSync( file, 'utf8' ) ),
-			...saved,
-		] );
+			) ),
+		];
+		const counts = blockClassCounts( ( await markup() ).map( ( item ) => item.content ) );
 		const presets = await readWordPressSite( siteRoot, themePresets );
 		if ( ! presets ) {
 			return [];
 		}
 		const shared: string[] = [];
+		const moves: string[] = [];
 		const held = new Set< string >();
 		for ( const [ found, properties ] of styled ) {
 			const looks = [ ...properties ].filter( ( property ) => {
 				const at = presets.styleProperties[ property ];
 				return at && ! PLACEMENT.includes( at.split( '.' )[ 0 ] );
 			} );
-			for ( const [ type, blocks ] of counts.get( found ) ?? [] ) {
+			const types = [ ...( counts.get( found ) ?? [] ) ];
+			const sharedLook = looks.length && types.some( ( [ , blocks ] ) => blocks >= SHARED );
+			const moved = sharedLook
+				? await moveToBlockStyle(
+						siteRoot,
+						theme.dir,
+						found,
+						types.map( ( [ type ] ) => type ),
+						stylesheets,
+						await markup()
+				  ).catch( () => undefined )
+				: undefined;
+			if ( moved ) {
+				moves.push( moved );
+				continue;
+			}
+			for ( const [ type, blocks ] of types ) {
 				const key = `${ siteRoot } ${ found } ${ type }`;
 				if ( blocks < SHARED || ! looks.length || said.has( key ) ) {
 					continue;
@@ -159,12 +177,13 @@ export function createSharedBlockClassNotes(): ( siteFile: SiteFile ) => Promise
 			}
 		}
 		if ( ! shared.length ) {
-			return [];
+			return moves;
 		}
 		const paths = [ ...held ]
 			.filter( ( property ) => presets.styleProperties[ property ] )
 			.map( ( property ) => `${ property } ${ presets.styleProperties[ property ] }` );
 		return [
+			...moves,
 			`The theme's stylesheets give a look to classes that several blocks of one type carry: ${ shared.join(
 				', '
 			) }. WordPress's form for a look blocks of one type share is a block style: ${ path.join(

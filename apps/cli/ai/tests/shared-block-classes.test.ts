@@ -1,4 +1,12 @@
-import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'fs';
+import {
+	cpSync,
+	existsSync,
+	mkdirSync,
+	mkdtempSync,
+	readFileSync,
+	rmSync,
+	writeFileSync,
+} from 'fs';
 import os from 'os';
 import path from 'path';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
@@ -21,6 +29,8 @@ vi.mock( 'cli/ai/tools/utils', async ( importOriginal ) => ( {
 	resolveSite: async ( root: string ) => ( { id: 'site', name: 'Ember Roasters', path: root } ),
 } ) );
 
+// A block whose element lacks the class, so Studio has no element to add a
+// block style to, and says where one goes instead.
 const block = ( name: string, className: string ) =>
 	`<!-- wp:${ name } ${ JSON.stringify( { className } ) } --><div></div><!-- /wp:${ name } -->`;
 const times = ( n: number, markup: string ) => Array( n ).fill( markup ).join( '\n' );
@@ -92,7 +102,8 @@ const WORDPRESS = process.env.STUDIO_TEST_WORDPRESS;
 describe.runIf( WORDPRESS )( 'createSharedBlockClassNotes', () => {
 	let root: string;
 	const notes = createSharedBlockClassNotes();
-	const theme = 'wp-content/themes/ember';
+	// A slug WordPress.org has no theme of, so Studio may write to it.
+	const theme = 'wp-content/themes/studio-test-ember';
 	const write = ( relativePath: string, content: string ) => {
 		const file = path.join( root, theme, relativePath );
 		mkdirSync( path.dirname( file ), { recursive: true } );
@@ -107,7 +118,7 @@ describe.runIf( WORDPRESS )( 'createSharedBlockClassNotes', () => {
 		writeFileSync( path.join( root, theme, 'templates', 'index.html' ), '' );
 		writeFileSync( path.join( root, theme, 'theme.json' ), '{"version":3}' );
 		writeFileSync( path.join( root, theme, 'style.css' ), '/*\nTheme Name: Ember\n*/' );
-		await runWpCli( site(), [ 'theme', 'activate', 'ember' ] );
+		await runWpCli( site(), [ 'theme', 'activate', 'studio-test-ember' ] );
 	} );
 	afterAll( () => rmSync( root, { recursive: true, force: true } ) );
 
@@ -191,4 +202,148 @@ describe.runIf( WORDPRESS )( 'createSharedBlockClassNotes', () => {
 		const [ note ] = await write( 'assets/css/badge.css', '.badge { color: red }' );
 		expect( note ).toContain( 'carry: `.badge` on 3 core/button (color).' );
 	} );
+
+	it( 'moves a look it can move as it renders into a block style, which WordPress registers and prints', async () => {
+		const card = ( name: string, tag: string ) =>
+			`<!-- wp:${ name } {"className":"feature"} -->\n<${ tag } class="wp-block-${ name } feature"><p>x</p></${ tag }>\n<!-- /wp:${ name } -->`;
+		const template = path.join( root, theme, 'templates', 'home.html' );
+		writeFileSync( template, times( 3, card( 'group', 'div' ) ) );
+		const output = await runWpCli( site(), [
+			'post',
+			'create',
+			'--post_status=publish',
+			'--porcelain',
+			`--post_content=${ card( 'column', 'div' ) }`,
+		] );
+		const post = output.trim().split( /\s+/ ).pop();
+		const [ note, ...rest ] = await write(
+			'assets/css/feature.css',
+			'.feature { background-color: #fff; border-radius: 8px }\n.feature:hover { box-shadow: 0 1px 2px #0003 }\n.feature h3 { margin: 0 }\n'
+		);
+		expect( rest ).toEqual( [] );
+		expect( note ).toContain(
+			'Studio moved the look `.feature` gives core/group, core/column blocks into a block style'
+		);
+		expect( note ).toContain( `${ path.join( root, theme, 'styles', 'blocks', 'feature.json' ) }` );
+		expect( readFileSync( path.join( root, theme, 'assets', 'css', 'feature.css' ), 'utf8' ) ).toBe(
+			'.feature h3 { margin: 0 }\n'
+		);
+		expect(
+			readFileSync( template, 'utf8' ).split(
+				'{"className":"feature is-style-feature"} -->\n<div class="wp-block-group feature is-style-feature">'
+			)
+		).toHaveLength( 4 );
+		const wordpress = await runWpCli( site(), [
+			'eval',
+			`// WordPress prints a block style's CSS for each block it renders with it
+// (wp_render_block_style_variation_support_styles() in wp-includes/block-supports/block-style-variations.php).
+do_blocks( get_post( ${ post } )->post_content );
+$css = wp_styles()->get_data( 'block-style-variation-styles', 'after' );
+$css = is_array( $css ) ? implode( '', $css ) : '';
+$registry = WP_Block_Styles_Registry::get_instance();
+echo wp_json_encode( array(
+	'registered' => $registry->is_registered( 'core/column', 'feature' ) && $registry->is_registered( 'core/group', 'feature' ),
+	'post' => get_post( ${ post } )->post_content,
+	'css' => $css,
+) );`,
+		] );
+		const result = JSON.parse( wordpress.slice( wordpress.indexOf( '{' ) ) );
+		expect( result.registered ).toBe( true );
+		expect( result.post ).toContain( '"className":"feature is-style-feature"' );
+		expect( result.post ).toContain( 'class="wp-block-column feature is-style-feature"' );
+		expect( result.css ).toBe(
+			':root :where(.wp-block-column.is-style-feature--1){background-color: #fff; border-radius: 8px;}:root :where(.wp-block-column.is-style-feature--1:hover ){box-shadow: 0 1px 2px #0003;}'
+		);
+	}, 60000 );
+
+	// Each case sets up, beside three blocks that could take the style, what
+	// keeps Studio from moving the look, and returns what undoes it.
+	const themeFile = ( file: string, content: string ) => {
+		const at = path.join( root, theme, file );
+		const before = existsSync( at ) ? readFileSync( at, 'utf8' ) : undefined;
+		mkdirSync( path.dirname( at ), { recursive: true } );
+		writeFileSync( at, content );
+		return () => ( before === undefined ? rmSync( at ) : writeFileSync( at, before ) );
+	};
+	it.each( [
+		{
+			name: 'an element outside a block carries it',
+			slug: 'tile',
+			setUp: async ( slug: string ) =>
+				themeFile(
+					'templates/archive.html',
+					`<!-- wp:html --><div class="${ slug }">x</div><!-- /wp:html -->`
+				),
+		},
+		{
+			name: "another theme file's code names it",
+			slug: 'ribbon',
+			setUp: async ( slug: string ) =>
+				themeFile(
+					'functions.php',
+					`<?php add_filter( 'body_class', fn ( $c ) => [ ...$c, '${ slug }' ] );`
+				),
+		},
+		{
+			name: 'the theme has a block style of its name',
+			slug: 'stamp',
+			setUp: async ( slug: string ) =>
+				themeFile(
+					`styles/blocks/${ slug }.json`,
+					'{"version":3,"title":"Stamp","blockTypes":["core/group"],"styles":{"color":{"text":"red"}}}'
+				),
+		},
+		{
+			name: "theme.json's CSS styles it",
+			slug: 'chip',
+			setUp: async ( slug: string ) =>
+				themeFile(
+					'theme.json',
+					JSON.stringify( { version: 3, styles: { css: `.${ slug } { color: red }` } } )
+				),
+		},
+		{
+			name: 'Additional CSS the site saved styles it',
+			slug: 'flag',
+			setUp: async ( slug: string ) => {
+				const output = await runWpCli( site(), [
+					'post',
+					'create',
+					'--post_type=custom_css',
+					'--post_status=publish',
+					'--post_title=studio-test-ember',
+					'--porcelain',
+					`--post_content=.${ slug } { color: red }`,
+				] );
+				const id = output.trim().split( /\s+/ ).pop()!;
+				return () => runWpCli( site(), [ 'post', 'delete', id, '--force' ] );
+			},
+		},
+	] )(
+		'leaves a look in the stylesheet, and says where it goes, when $name',
+		async ( { slug, setUp } ) => {
+			const undo = await setUp( slug );
+			try {
+				const template = path.join( root, theme, 'templates', `${ slug }.html` );
+				const blocks = times(
+					3,
+					`<!-- wp:group {"className":"${ slug }"} --><div class="wp-block-group ${ slug }"></div><!-- /wp:group -->`
+				);
+				writeFileSync( template, blocks );
+				const css = `.${ slug } { background-color: #eee }\n`;
+				const notes = await write( `assets/css/${ slug }.css`, css );
+				expect( notes.join( '\n' ) ).toContain( `\`.${ slug }\` on 3 core/group (` );
+				expect( notes.join( '\n' ) ).not.toContain( 'Studio moved' );
+				expect( readFileSync( template, 'utf8' ) ).toBe( blocks );
+				expect(
+					readFileSync( path.join( root, theme, 'assets', 'css', `${ slug }.css` ), 'utf8' )
+				).toBe( css );
+			} finally {
+				await undo();
+				rmSync( path.join( root, theme, 'templates', `${ slug }.html` ) );
+				rmSync( path.join( root, theme, 'assets', 'css', `${ slug }.css` ) );
+			}
+		},
+		60000
+	);
 } );

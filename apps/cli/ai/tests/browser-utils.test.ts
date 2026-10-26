@@ -101,7 +101,13 @@ describe( 'browser-utils', () => {
 	} );
 
 	it( 'loads the block editor once for concurrent validations', async () => {
-		const page = { on: vi.fn(), goto: vi.fn(), waitForFunction: vi.fn(), isClosed: () => false };
+		const page = {
+			on: vi.fn(),
+			goto: vi.fn(),
+			url: () => 'http://localhost:8881/wp-admin/post-new.php',
+			waitForFunction: vi.fn(),
+			isClosed: () => false,
+		};
 		const newPage = vi.fn().mockResolvedValue( page );
 		vi.mocked( chromium.launch ).mockResolvedValue( { newPage, close: vi.fn() } as never );
 

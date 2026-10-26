@@ -239,8 +239,18 @@ export class EditorPage {
 		const loadErrors: string[] = [];
 		page.on( 'pageerror', ( error ) => loadErrors.push( thrownAt( error ) ) );
 
-		const loginUrl = `${ this.siteUrl }/studio-auto-login?redirect_to=/wp-admin/post-new.php`;
+		const editorPath = '/wp-admin/post-new.php';
+		const loginUrl = `${ this.siteUrl }/studio-auto-login?redirect_to=${ editorPath }`;
 		await page.goto( loginUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 } );
+		// A plugin can send the first admin page after its activation elsewhere
+		// once, as WooCommerce's setup wizard does with a transient it deletes on
+		// redirecting, so the editor is loaded again where the login lands elsewhere.
+		if ( ! new URL( page.url() ).pathname.endsWith( editorPath ) ) {
+			await page.goto( `${ this.siteUrl }${ editorPath }`, {
+				waitUntil: 'domcontentloaded',
+				timeout: 30_000,
+			} );
+		}
 
 		// Wait for the block editor scripts to be fully loaded and blocks registered.
 		// wp is set early as a global but wp.blocks is populated later, so every

@@ -75,15 +75,18 @@ describe( 'resizable sidebar', () => {
 		expect( toggle() ).toHaveAccessibleName( 'Hide sidebar' );
 	} );
 
-	it( 'drags the edge and retains width after collapsing and reopening', async () => {
+	it( 'retains width but resets scroll after collapsing and reopening', async () => {
 		await setup();
 		fireEvent.mouseDown( handle(), { button: 0, clientX: 256 } );
 		fireEvent.mouseUp( document, { clientX: 320 } );
 		expect( handle() ).toHaveAttribute( 'aria-valuenow', '320' );
+		const sidebar = toggle().closest( 'aside' )!;
+		sidebar.scrollTop = 120;
 		fireEvent.click( toggle() );
 		expect( screen.queryByRole( 'separator', { name: 'Resize sidebar' } ) ).not.toBeInTheDocument();
 		fireEvent.click( toggle() );
 		expect( handle() ).toHaveAttribute( 'aria-valuenow', '320' );
+		expect( sidebar.scrollTop ).toBe( 0 );
 	} );
 
 	it( 'clamps a drag to the maximum and ignores non-primary buttons', async () => {

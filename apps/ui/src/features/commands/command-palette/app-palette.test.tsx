@@ -314,6 +314,21 @@ describe( 'Command palette in the Studio workspace', () => {
 		);
 	} );
 
+	it( 'replays What’s New from the palette and marks it seen when skipped', async () => {
+		const { connector } = setup();
+		await screen.findByRole( 'button', { name: 'Site actions for My site' } );
+		await paletteCommand( 'new features', /^What’s New/ );
+		expect(
+			await screen.findByRole( 'dialog', { name: 'Meet the new WordPress Studio' } )
+		).toBeVisible();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Skip' } ) );
+		await waitFor( () =>
+			expect( connector.setOnboardingHints ).toHaveBeenCalledWith(
+				expect.objectContaining( { whatsNewSeenVersion: expect.any( Number ) } )
+			)
+		);
+	} );
+
 	it.each( [ 'light', 'dark' ] as const )(
 		'toggles from the rendered %s theme with one palette command',
 		async ( scheme ) => {

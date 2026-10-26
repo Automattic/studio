@@ -1,76 +1,54 @@
-import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
-import { CollapsedSiteSwitcher } from './index';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { createFakeConnector, makeSite } from '@/test/fake-connector';
+import { renderApp } from '@/test/render';
 
-vi.mock( '@wordpress/keycodes', () => ( {
-	isAppleOS: () => true,
-} ) );
+const sites = [
+	makeSite( { id: 'one', name: 'My site' } ),
+	makeSite( { id: 'two', name: 'Other site' } ),
+];
 
-vi.mock( '@/features/sidebar/site-list', () => ( {
-	SiteList: ( { className, onSiteOpen }: { className?: string; onSiteOpen?: () => void } ) => (
-		<div className={ className } data-testid="site-list">
-			<button onClick={ onSiteOpen }>My site</button>
-		</div>
-	),
-} ) );
-
-function renderSwitcher( onToggleSidebar: () => void = () => {} ) {
-	render(
-		<CollapsedSiteSwitcher
-			onToggleSidebar={ onToggleSidebar }
-			trigger={ <button aria-label="Show sidebar">Toggle</button> }
-		/>
-	);
-	return screen.getByRole( 'button', { name: 'Show sidebar' } );
+async function setup() {
+	localStorage.setItem( 'studio-ui-sidebar-collapsed', 'true' );
+	const view = renderApp( { connector: createFakeConnector( { sites } ), path: '/sites/one' } );
+	const trigger = await screen.findByRole( 'button', { name: 'Show sidebar' } );
+	const open = async () => {
+		await view.user.hover( trigger );
+		return screen.findByRole( 'dialog', { name: 'Sites' } );
+	};
+	return { ...view, trigger, open };
 }
 
-describe( 'CollapsedSiteSwitcher', () => {
-	it( 'mounts the shared site list only while the popover is open', () => {
-		const trigger = renderSwitcher();
+const switcherClosed = () =>
+	waitFor( () =>
+		expect( screen.queryByRole( 'dialog', { name: 'Sites' } ) ).not.toBeInTheDocument()
+	);
 
-		expect( screen.queryByTestId( 'site-list' ) ).not.toBeInTheDocument();
+beforeEach( () => localStorage.clear() );
 
-		fireEvent.click( trigger );
-
-		expect( screen.getByTestId( 'site-list' ) ).toBeInTheDocument();
+describe( 'collapsed site switcher', () => {
+	it( 'lists the sites on hover and closes once one opens', async () => {
+		const { connector, open } = await setup();
+		const switcher = await open();
+		fireEvent.click( await within( switcher ).findByRole( 'button', { name: /^Other site/ } ) );
+		await switcherClosed();
+		await waitFor( () => expect( connector.createSession ).toHaveBeenCalledWith( 'two' ) );
 	} );
 
-	it( 'closes after a site opens', () => {
-		const trigger = renderSwitcher();
-		fireEvent.click( trigger );
-
-		fireEvent.click( screen.getByRole( 'button', { name: 'My site' } ) );
-
-		expect( screen.queryByTestId( 'site-list' ) ).not.toBeInTheDocument();
+	it( 'closes on Escape, and leaves Escape alone while closed', async () => {
+		const { trigger, open } = await setup();
+		const switcher = await open();
+		fireEvent.keyDown( switcher, { key: 'Escape' } );
+		await switcherClosed();
+		expect( fireEvent.keyDown( trigger, { key: 'Escape' } ) ).toBe( true );
 	} );
 
-	it( 'closes on Escape', () => {
-		const trigger = renderSwitcher();
-		fireEvent.click( trigger );
-		expect( screen.getByTestId( 'site-list' ) ).toBeInTheDocument();
-
-		fireEvent.keyDown( screen.getByTestId( 'site-list' ), { key: 'Escape' } );
-
-		expect( screen.queryByTestId( 'site-list' ) ).not.toBeInTheDocument();
-	} );
-
-	it( 'does not consume Escape while closed', () => {
-		const trigger = renderSwitcher();
-
-		const eventWasCancelled = ! fireEvent.keyDown( trigger, { key: 'Escape' } );
-
-		expect( eventWasCancelled ).toBe( false );
-		expect( screen.queryByTestId( 'site-list' ) ).not.toBeInTheDocument();
-	} );
-
-	it( 'opens the full sidebar and shows the Cmd+B hint for the CTA', () => {
-		const onToggleSidebar = vi.fn();
-		const trigger = renderSwitcher( onToggleSidebar );
-		fireEvent.click( trigger );
-
-		const cta = screen.getByRole( 'button', { name: 'Open sidebar Command B' } );
-		fireEvent.click( cta );
-
-		expect( onToggleSidebar ).toHaveBeenCalledTimes( 1 );
+	it( 'opens the full sidebar from its call to action', async () => {
+		const { open } = await setup();
+		const switcher = await open();
+		fireEvent.click( within( switcher ).getByRole( 'button', { name: /^Open sidebar/ } ) );
+		expect(
+			await screen.findByRole( 'separator', { name: 'Resize sidebar' } )
+		).toBeInTheDocument();
 	} );
 } );

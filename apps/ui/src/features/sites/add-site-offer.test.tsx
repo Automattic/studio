@@ -1,5 +1,5 @@
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { resetAppMessagesForTests } from '@/data/app-messages';
 import { SITES_QUERY_KEY } from '@/data/queries/use-sites';
 import { createFakeConnector, makeSite } from '@/test/fake-connector';
@@ -35,6 +35,11 @@ async function resetAddSiteOffer() {
 beforeEach( () => {
 	localStorage.clear();
 	resetAppMessagesForTests();
+} );
+
+afterEach( () => {
+	vi.unstubAllGlobals();
+	vi.restoreAllMocks();
 } );
 
 describe( 'site creation', () => {
@@ -174,6 +179,39 @@ describe( 'site creation', () => {
 		act( () => connector.emit( 'onToggleSidebar' ) );
 		act( () => connector.emit( 'onAddSite' ) );
 		expect( await screen.findByRole( 'dialog' ) ).toBeVisible();
+	} );
+
+	it( 'opens Add site with a deep-linked Blueprint', async () => {
+		const connector = createFakeConnector( { sites: [ mySite() ] } );
+		connector.readBlueprintFile.mockResolvedValue( {
+			meta: { title: 'Deep-linked Blueprint', author: 'Studio' },
+		} );
+		renderApp( { connector } );
+		await screen.findByRole( 'button', { name: 'Site actions for My site' } );
+		act( () =>
+			connector.emit( 'onAddSiteWithBlueprint', { blueprintPath: '/tmp/deep-link.json' } )
+		);
+		const dialog = await screen.findByRole( 'dialog' );
+		expect( await within( dialog ).findByText( 'Deep-linked Blueprint' ) ).toBeVisible();
+		expect( connector.readBlueprintFile ).toHaveBeenCalledWith( '/tmp/deep-link.json' );
+	} );
+
+	it( 'shows an error box when a deep-linked Blueprint cannot be read', async () => {
+		const showErrorMessageBox = vi.fn();
+		vi.stubGlobal( 'ipcApi', { showErrorMessageBox } );
+		vi.spyOn( console, 'error' ).mockImplementation( () => {} );
+		const connector = createFakeConnector( { sites: [ mySite() ] } );
+		const error = new Error( 'Unreadable Blueprint' );
+		connector.readBlueprintFile.mockRejectedValue( error );
+		renderApp( { connector } );
+		await screen.findByRole( 'button', { name: 'Site actions for My site' } );
+		act( () => connector.emit( 'onAddSiteWithBlueprint', { blueprintPath: '/tmp/broken.json' } ) );
+		await waitFor( () =>
+			expect( showErrorMessageBox ).toHaveBeenCalledWith(
+				expect.objectContaining( { title: 'Failed to load Blueprint', error } )
+			)
+		);
+		expect( screen.queryByRole( 'dialog' ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'keeps the proposed location when the folder picker is cancelled', async () => {

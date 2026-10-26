@@ -13,9 +13,10 @@
 import { readFileSync } from 'fs';
 import { readdir } from 'fs/promises';
 import path from 'path';
-import { moveToBlockStyle, type Markup } from 'cli/ai/block-style-move';
+import { moveToBlockStyle } from 'cli/ai/block-style-move';
 import { readWordPressSite } from 'cli/ai/site-database';
 import { isBlockMarkup, type SiteFile } from 'cli/ai/site-file-guards';
+import { siteMarkup } from 'cli/ai/site-markup';
 import { themePresets } from 'cli/ai/theme-presets';
 
 // The blocks of one type that carry a class before it reads as a shared look.
@@ -126,17 +127,7 @@ export function createSharedBlockClassNotes(): ( siteFile: SiteFile ) => Promise
 		if ( ! styled.size ) {
 			return [];
 		}
-		const templates = ( await themeFiles( theme.dir, /\.(html|php)$/ ) ).filter( ( file ) =>
-			/^(templates|parts|patterns)$/.test( path.basename( path.dirname( file ) ) )
-		);
-		const markup = async (): Promise< Markup[] > => [
-			...templates.map( ( file ) => ( { file, content: readFileSync( file, 'utf8' ) } ) ),
-			...( await readWordPressSite( siteRoot, ( site ) =>
-				site.query< { post: number; content: string } >(
-					`SELECT ID AS post, post_content AS content FROM ${ site.prefix }posts WHERE post_status NOT IN ('trash', 'auto-draft', 'inherit') AND post_content LIKE '%"className":%'`
-				)
-			) ),
-		];
+		const markup = () => siteMarkup( siteRoot, theme.dir, { holding: '%"className":%' } );
 		const counts = blockClassCounts( ( await markup() ).map( ( item ) => item.content ) );
 		const presets = await readWordPressSite( siteRoot, ( site ) =>
 			themePresets( site, theme.slug )

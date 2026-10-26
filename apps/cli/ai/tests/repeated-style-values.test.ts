@@ -160,6 +160,26 @@ describe( 'repeatedStyleValues', () => {
 	] )( '$name', ( { markup, repeated } ) => {
 		expect( repeatedStyleValues( markup ) ).toEqual( repeated );
 	} );
+
+	it.each( [
+		{
+			name: 'a value it sets that the rest of the site sets too',
+			markup: small,
+			others: [ times( 2, small ) ],
+			repeated: [ { path: 'typography.fontSize', value: '0.8rem', blocks: 3 } ],
+		},
+		{
+			name: 'nothing for a value only the rest of the site repeats',
+			markup: paragraph( { typography: { fontSize: '1rem' } } ),
+			others: [ times( 3, small ) ],
+			repeated: [],
+		},
+	] )(
+		'counts across the markup the site renders with it: $name',
+		( { markup, others, repeated } ) => {
+			expect( repeatedStyleValues( markup, others ) ).toEqual( repeated );
+		}
+	);
 } );
 
 // A real WordPress install whose presets the note names, when one is given.
@@ -205,6 +225,14 @@ describe.runIf( WORDPRESS )( 'repeatedStyleValueNotes', () => {
 				) } share one look: {"border":{"color":"var:preset|color|cream","radius":"20px","width":"1px"},"color":{"background":"var:preset|color|paper"},"shadow":"0 12px 30px rgba(42,33,26,0.10)"}. A look blocks of one type share is a block style in WordPress: a theme's styles/<slug>.json with "blockTypes": [ "core/group" ]`
 			),
 		] );
+	} );
+
+	// As run 38's 01a1…60a14f7e82 wrote its homepage before it was a page.
+	it( 'names the raw values block markup outside a theme repeats', async () => {
+		const [ note ] = await write( 'homepage.html', times( 3, small ) );
+		expect( note ).toContain(
+			'sets the same raw style values on several blocks: typography.fontSize 0.8rem on 3.'
+		);
 	} );
 
 	it( "names the presets of the file's theme, active or not", async () => {
@@ -451,6 +479,90 @@ describe.runIf( WORDPRESS && EDITOR )( 'repeated raw font sizes made presets', (
 		expect( saved ).not.toContain( '1.4rem' );
 		expect( saved.match( /"fontSize":"size-1-4-rem"/g ) ).toHaveLength( 3 );
 		expect( ( await validateBlocks( saved, EDITOR! ) ).invalidBlocks ).toBe( 0 );
+	}, 120000 );
+
+	// As run 39's 01a1…546c9e0db6 wrote them: 0.8rem once in the header part
+	// and twice in the page, three blocks the site renders, none repeating it alone.
+	const eyebrow = paragraph( { typography: { fontSize: '0.8rem' } } ).replace(
+		'<p>',
+		'<p style="font-size:0.8rem">'
+	);
+	const pageWith = async ( content: string ) =>
+		(
+			await runWpCli( site(), [
+				'post',
+				'create',
+				'--post_type=page',
+				'--post_status=publish',
+				'--post_title=Home',
+				`--post_content=${ content }`,
+				'--porcelain',
+			] )
+		).trim();
+	const postContent = ( id: string ) =>
+		runWpCli( site(), [ 'post', 'get', id, '--field=post_content' ] );
+
+	it( "makes a size a page and the theme's header repeat between them a preset, and saves both with it", async () => {
+		const slug = 'studio-test-roast-site-wide-page';
+		const dir = `wp-content/themes/${ slug }`;
+		put( `${ dir }/style.css`, `/*\nTheme Name: ${ slug }\n*/\n` );
+		const themeJson = put( `${ dir }/theme.json`, JSON.stringify( { version: 3 } ) );
+		put( `${ dir }/templates/index.html`, '<!-- wp:post-content /-->' );
+		const header = put( `${ dir }/parts/header.html`, eyebrow );
+		// Parts Studio leaves as they are: one without the value with a block its
+		// save fixes, and one with it beside a block its save would lose a style of.
+		const unwrapped =
+			'<!-- wp:paragraph -->\n<p style="margin-top:1rem">Hello</p>\n<!-- /wp:paragraph -->';
+		const footer = put( `${ dir }/parts/footer.html`, unwrapped );
+		const lossy = `${ eyebrow }\n<!-- wp:separator -->\n<hr class="wp-block-separator has-alpha-channel-opacity" style="opacity:0.4"/>\n<!-- /wp:separator -->`;
+		const aside = put( `${ dir }/parts/aside.html`, lossy );
+		await runWpCli( site(), [ 'theme', 'activate', slug ] );
+		expect( await notes( header ) ).toEqual( [] );
+		const check = new SiteChanges( undefined, async () => [ site() ], [ postContentChanges ] );
+		await check.snapshot();
+		const id = await pageWith( times( 2, eyebrow ) );
+
+		const { summaries } = await check.settle();
+		const summary = summaries.join( '\n' );
+		expect( summary ).toContain( `it added size-0-8-rem (0.8rem) to ${ themeJson }` );
+		expect( summary ).toContain( 'Studio saved parts/header.html, which set the same values' );
+		expect( ( await postContent( id ) ).match( /"fontSize":"size-0-8-rem"/g ) ).toHaveLength( 2 );
+		expect( readFileSync( header, 'utf8' ) ).toContain( '"fontSize":"size-0-8-rem"' );
+		expect( readFileSync( header, 'utf8' ) ).not.toContain( '0.8rem' );
+		expect( readFileSync( footer, 'utf8' ) ).toBe( unwrapped );
+		expect( readFileSync( aside, 'utf8' ) ).toBe( lossy );
+		expect( summary ).not.toMatch( /Studio saved [^.]*(footer|aside)/ );
+	}, 120000 );
+
+	it( 'counts no page for a theme the site does not render it with', async () => {
+		const dir = 'wp-content/themes/studio-test-roast-inactive';
+		put( `${ dir }/style.css`, '/*\nTheme Name: studio-test-roast-inactive\n*/\n' );
+		const themeJson = put( `${ dir }/theme.json`, JSON.stringify( { version: 3 } ) );
+		await pageWith( times( 2, eyebrow ) );
+		expect( await notes( put( `${ dir }/templates/index.html`, eyebrow ) ) ).toEqual( [] );
+		expect( JSON.parse( readFileSync( themeJson, 'utf8' ) ) ).toEqual( { version: 3 } );
+	}, 120000 );
+
+	it( 'makes a size a template and a page repeat between them a preset, and saves both with it', async () => {
+		const slug = 'studio-test-roast-site-wide-template';
+		const dir = `wp-content/themes/${ slug }`;
+		put( `${ dir }/style.css`, `/*\nTheme Name: ${ slug }\n*/\n` );
+		put( `${ dir }/theme.json`, JSON.stringify( { version: 3 } ) );
+		put( `${ dir }/templates/index.html`, '<!-- wp:post-content /-->' );
+		await runWpCli( site(), [ 'theme', 'activate', slug ] );
+		const id = await pageWith( times( 2, eyebrow ) );
+		const written = put( `${ dir }/templates/index.html`, eyebrow );
+
+		const [ note, ...rest ] = await notes( written );
+		expect( note ).toContain( 'it added size-0-8-rem (0.8rem)' );
+		expect( rest ).toEqual( [
+			expect.stringMatching(
+				new RegExp( `^Studio saved [^.]*\\bpost ${ id }\\b[^.]*, which set the same values` )
+			),
+		] );
+		expect( ( await postContent( id ) ).match( /"fontSize":"size-0-8-rem"/g ) ).toHaveLength( 2 );
+		await saveThroughEditor( written, slug );
+		expect( readFileSync( written, 'utf8' ) ).toContain( '"fontSize":"size-0-8-rem"' );
 	}, 120000 );
 
 	it( 'notes the sizes and adds no preset where no gate saves the file', async () => {

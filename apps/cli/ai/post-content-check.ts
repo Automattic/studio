@@ -13,20 +13,10 @@ import {
 } from 'cli/ai/block-validation-gate';
 import { repeatedPostStyleNotes } from 'cli/ai/repeated-style-values';
 import { readWordPressSite } from 'cli/ai/site-database';
+import { RENDERED, RENDERED_TYPES, savePost } from 'cli/ai/site-markup';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
-import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
-import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import type { ChangeReport, SiteChangeSource, Versions } from 'cli/ai/site-changes';
 import type { SiteData } from 'cli/lib/cli-config/core';
-
-export const RENDERED_TYPES = [
-	'post',
-	'page',
-	'wp_template',
-	'wp_template_part',
-	'wp_block',
-	'wp_navigation',
-];
 
 export interface Row {
 	id: number;
@@ -34,10 +24,6 @@ export interface Row {
 	title: string;
 	content: string;
 }
-
-const RENDERED = `post_type IN (${ RENDERED_TYPES.map( () => '?' ).join(
-	', '
-) }) AND post_status NOT IN ('auto-draft', 'inherit', 'trash')`;
 
 // Each rendered post's version, by post ID: its modified time and content
 // length, so a check reads the content of changed posts only.
@@ -62,29 +48,6 @@ export async function readPosts( sitePath: string, ids: string[] ): Promise< Row
 	);
 }
 
-/**
- * Saves a post's content from a file, as an administrator's save
- * in the editor does: through wp_update_post(), without the kses filters a
- * user without unfiltered_html saves through (kses_remove_filters()).
- */
-export async function savePost( site: SiteData, id: number, file: string ): Promise< void > {
-	const php = `kses_remove_filters();
-$saved = wp_update_post( wp_slash( array( 'ID' => ${ id }, 'post_content' => file_get_contents( ${ JSON.stringify(
-		file
-	) } ) ) ), true );
-if ( is_wp_error( $saved ) ) { fwrite( STDERR, $saved->get_error_message() ); exit( 1 ); }`;
-	try {
-		await connectToDaemon();
-		await using command = await runWpCliCommand( site, [ 'eval', php ] );
-		const exitCode = await command.response.exitCode;
-		if ( exitCode !== 0 ) {
-			throw new Error( `wp eval exited ${ exitCode }` );
-		}
-	} finally {
-		await disconnectFromDaemon();
-	}
-}
-
 // A lossless fix is saved to the post, as Studio saves one to a file
 // (block-validation-gate.ts). One Studio cannot save stays in the site's tmp/
 // for the agent to apply; named by its absolute path, which holds whatever
@@ -96,7 +59,7 @@ async function validatePost(
 ): Promise< Omit< ChangeReport, 'key' > & { saved?: boolean } > {
 	const label = `${ site.name } ${ post.type } ${ post.id } "${ post.title }"`;
 	// Before the presets the save stores its blocks with are read.
-	const presetNotes = await repeatedPostStyleNotes( site.path, post.content, label ).catch(
+	const presetNotes = await repeatedPostStyleNotes( site.path, post.id, post.content, label ).catch(
 		() => []
 	);
 	const result = await validateBlockMarkup(

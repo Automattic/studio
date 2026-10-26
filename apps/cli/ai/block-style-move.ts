@@ -19,19 +19,11 @@
  * otherwise nothing is.
  */
 import { existsSync, readFileSync } from 'fs';
-import { mkdir, readdir, rm, writeFile } from 'fs/promises';
+import { mkdir, readdir, writeFile } from 'fs/promises';
 import path from 'path';
-import { savePost } from 'cli/ai/post-content-check';
 import { readWordPressSite } from 'cli/ai/site-database';
+import { placeOf, saveMarkup, type Markup } from 'cli/ai/site-markup';
 import { isUpdatableTheme } from 'cli/ai/themes';
-import { resolveSite } from 'cli/ai/tools/utils';
-
-/** A file or post of block markup, as it reads now. */
-export interface Markup {
-	file?: string;
-	post?: number;
-	content: string;
-}
 
 interface Rule {
 	start: number;
@@ -283,17 +275,11 @@ export async function moveToBlockStyle(
 	}
 	const changed = styled.filter( ( item ) => item.styled !== item.content );
 	// The posts first: one Studio cannot save leaves the stylesheet as it was.
-	const site = await resolveSite( siteRoot );
 	for ( const item of changed.filter( ( candidate ) => candidate.post ) ) {
-		const draft = path.join( siteRoot, 'tmp', `block-style-${ item.post }.html` );
-		await mkdir( path.dirname( draft ), { recursive: true } );
-		await writeFile( draft, item.styled!, 'utf8' );
 		try {
-			await savePost( site, item.post!, draft );
+			await saveMarkup( siteRoot, item, item.styled! );
 		} catch {
 			return undefined;
-		} finally {
-			await rm( draft, { force: true } );
 		}
 	}
 	for ( const item of changed.filter( ( candidate ) => candidate.file ) ) {
@@ -324,9 +310,7 @@ export async function moveToBlockStyle(
 			moved.push( path.relative( themeDir, sheet.file ) );
 		}
 	}
-	const places = changed.map( ( item ) =>
-		item.file ? path.relative( themeDir, item.file ) : `post ${ item.post }`
-	);
+	const places = changed.map( ( item ) => placeOf( item, themeDir ) );
 	return `Studio moved the look \`.${ name }\` gives ${ blockTypes.join(
 		', '
 	) } blocks into a block style, WordPress's form for a look blocks of one type share: ${ styleFile }, which WordPress registers for its "blockTypes" (WP_Theme_JSON_Resolver::get_style_variations() in wp-includes/class-wp-theme-json-resolver.php), the block's Styles panel offers, and Global Styles edits. Its rules moved from ${ moved.join(

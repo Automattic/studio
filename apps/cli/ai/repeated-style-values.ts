@@ -19,11 +19,18 @@
  */
 import { readdir, readFile, writeFile } from 'fs/promises';
 import path from 'path';
-import { isBlockMarkupFile } from 'cli/ai/block-validation-gate';
+import {
+	isBlockMarkupFile,
+	sitePresetValues,
+	validateBlockMarkup,
+	validateBlockMarkupFile,
+} from 'cli/ai/block-validation-gate';
 import { readWordPressSite } from 'cli/ai/site-database';
 import { isBlockMarkup, type SiteFile } from 'cli/ai/site-file-guards';
+import { placeOf, saveMarkup, siteMarkup, type Markup } from 'cli/ai/site-markup';
 import { themePresets } from 'cli/ai/theme-presets';
 import { isUpdatableTheme, readThemeHeader } from 'cli/ai/themes';
+import { getSiteByFolder, getSiteUrl } from 'cli/lib/cli-config/sites';
 
 // The blocks set to one raw value before it reads as a shared treatment.
 const REPEATED = 3;
@@ -71,11 +78,9 @@ function leaves( value: unknown, at: string, out: Array< [ string, string ] > ):
 	}
 }
 
-/** Each raw style value set on REPEATED or more blocks of the markup, with its count. */
-export function repeatedStyleValues(
-	markup: string
-): Array< { path: string; value: string; blocks: number } > {
-	const counts = new Map< string, { path: string; value: string; blocks: number } >();
+/** Each raw style value a block of the markup sets, by its path in `style`. */
+function rawStyleValues( markup: string ): Array< [ string, string ] > {
+	const raw: Array< [ string, string ] > = [];
 	for ( const [ , json ] of markup.matchAll( BLOCK_ATTRIBUTES ) ) {
 		let attributes: { style?: unknown };
 		try {
@@ -85,18 +90,38 @@ export function repeatedStyleValues(
 		}
 		const values: Array< [ string, string ] > = [];
 		leaves( attributes.style, '', values );
-		for ( const [ at, value ] of values ) {
-			// A preset or variable is already shared, and zero needs no name.
-			if ( value.startsWith( 'var' ) || /^0[a-z%]*$/.test( value ) ) {
-				continue;
-			}
+		// A preset or variable is already shared, and zero needs no name.
+		raw.push(
+			...values.filter(
+				( [ , value ] ) => ! value.startsWith( 'var' ) && ! /^0[a-z%]*$/.test( value )
+			)
+		);
+	}
+	return raw;
+}
+
+/**
+ * Each raw style value the markup sets that REPEATED or more blocks set, in it
+ * and in `others`, the rest of the markup the site renders with it: a preset
+ * is the site's, so the blocks that share a value are counted where they are.
+ */
+export function repeatedStyleValues(
+	markup: string,
+	others: string[] = []
+): Array< { path: string; value: string; blocks: number } > {
+	const counts = new Map< string, { path: string; value: string; blocks: number } >();
+	for ( const source of [ markup, ...others ] ) {
+		for ( const [ at, value ] of rawStyleValues( source ) ) {
 			const key = `${ at } ${ value }`;
 			const seen = counts.get( key ) ?? { path: at, value, blocks: 0 };
 			seen.blocks++;
 			counts.set( key, seen );
 		}
 	}
-	return [ ...counts.values() ].filter( ( { blocks } ) => blocks >= REPEATED );
+	const own = new Set( rawStyleValues( markup ).map( ( [ at, value ] ) => `${ at } ${ value }` ) );
+	return [ ...counts.entries() ]
+		.filter( ( [ key, { blocks } ] ) => own.has( key ) && blocks >= REPEATED )
+		.map( ( [ , seen ] ) => seen );
 }
 
 // Each attribute a block takes a preset's look by, and where a block style's
@@ -176,7 +201,7 @@ function sortKeys< T >( value: T ): T {
 }
 
 /** A note on each look several blocks of one type in `label` share whole. */
-export function repeatedLookNotes( markup: string, label: string ): string[] {
+function repeatedLookNotes( markup: string, label: string ): string[] {
 	return repeatedLooks( markup ).map(
 		( { blockName, blocks, styles } ) =>
 			`${ blocks } ${ blockName } blocks in ${ label } share one look: ${ JSON.stringify(
@@ -299,6 +324,66 @@ interface Holder {
 	siteRoot: string;
 	theme?: { slug: string; dir: string };
 	label: string;
+	/** The rest of the markup the site renders with the holder's. */
+	others: Markup[];
+}
+
+/**
+ * The rest of the block markup the site renders with a theme's: its files,
+ * and the content in the database when it is the active theme, `except` the
+ * holder itself. Files a gate cannot save through the editor are left out.
+ */
+async function otherMarkup(
+	siteRoot: string,
+	theme: { slug: string; dir: string } | undefined,
+	except: { file?: string; post?: number }
+): Promise< Markup[] > {
+	if ( ! theme ) {
+		return [];
+	}
+	const active = await readWordPressSite( siteRoot, ( site ): unknown[] => [
+		site.option( 'stylesheet' ),
+		site.option( 'template' ),
+	] ).catch( (): unknown[] => [] );
+	const markup = await siteMarkup( siteRoot, theme.dir, {
+		posts: active.includes( theme.slug ),
+		holding: '%"style":%',
+	} );
+	return markup.filter(
+		( item ) =>
+			( item.file ? item.file !== except.file && isBlockMarkupFile( item.file ) : true ) &&
+			( item.post === undefined || item.post !== except.post )
+	);
+}
+
+/**
+ * Saves each of `others` that sets one of `values` through the block editor
+ * with the theme's presets, which stores those values as the presets, as it
+ * stores a picked preset: the gate's lossless save. Returns where it saved.
+ */
+async function saveWithPresets(
+	{ siteRoot, theme, others }: Holder,
+	values: string[]
+): Promise< string[] > {
+	const holding = others.filter( ( item ) =>
+		values.some( ( value ) => item.content.includes( `"${ value }"` ) )
+	);
+	if ( ! holding.length ) {
+		return [];
+	}
+	const siteUrl = getSiteUrl( await getSiteByFolder( siteRoot ) );
+	const presetValues = await sitePresetValues( siteRoot, theme?.slug );
+	const saved: string[] = [];
+	for ( const item of holding ) {
+		const { fixedContent } = item.file
+			? await validateBlockMarkupFile( item.file, siteUrl, presetValues )
+			: await validateBlockMarkup( item.content, placeOf( item ), siteUrl, presetValues );
+		if ( fixedContent !== undefined ) {
+			await saveMarkup( siteRoot, item, fixedContent );
+			saved.push( placeOf( item, theme?.dir ) );
+		}
+	}
+	return saved;
 }
 
 /**
@@ -322,7 +407,10 @@ async function presetsForRepeatedValues(
 			presets[ kind ].some( ( [ , size ] ) => size === value )
 		);
 	};
-	let repeated = repeatedStyleValues( markup ).filter( ( value ) => ! stored( value ) );
+	let repeated = repeatedStyleValues(
+		markup,
+		holder.others.map( ( item ) => item.content )
+	).filter( ( value ) => ! stored( value ) );
 	const made: Array< { note: string; added: string[]; kind: PresetKind } > = [];
 	for ( const kind of Object.keys( MADE ) as PresetKind[] ) {
 		const values = repeated
@@ -341,7 +429,21 @@ async function presetsForRepeatedValues(
 				( { kind, added } ) => kindOf( value.path ) === kind && added.includes( value.value )
 			)
 	);
-	return { notes: made.map( ( { note } ) => note ), repeated };
+	const notes = made.map( ( { note } ) => note );
+	const saved = made.length
+		? await saveWithPresets(
+				holder,
+				made.flatMap( ( { added } ) => added )
+		  ).catch( () => [] )
+		: [];
+	if ( saved.length ) {
+		notes.push(
+			`Studio saved ${ saved.join(
+				', '
+			) }, which set the same values, through the block editor with those presets, which stores their blocks as it stores a picked preset.`
+		);
+	}
+	return { notes, repeated };
 }
 
 /**
@@ -351,11 +453,12 @@ async function presetsForRepeatedValues(
  */
 export async function repeatedPostStyleNotes(
 	siteRoot: string,
+	post: number,
 	content: string,
 	label: string
 ): Promise< string[] > {
 	const looks = repeatedLookNotes( content, label );
-	if ( ! repeatedStyleValues( content ).length ) {
+	if ( ! rawStyleValues( content ).length ) {
 		return looks;
 	}
 	const found = await readWordPressSite( siteRoot, async ( site ) => ( {
@@ -366,8 +469,9 @@ export async function repeatedPostStyleNotes(
 		return looks;
 	}
 	const theme = { slug: found.slug, dir: path.join( siteRoot, 'wp-content/themes', found.slug ) };
+	const others = await otherMarkup( siteRoot, theme, { post } );
 	const { notes } = await presetsForRepeatedValues(
-		{ siteRoot, theme, label },
+		{ siteRoot, theme, label, others },
 		content,
 		found.presets
 	);
@@ -385,9 +489,11 @@ export async function repeatedStyleValueNotes(
 	const file = path.join( siteFile.siteRoot, siteFile.relativePath );
 	const markup = await readFile( file, 'utf8' );
 	const looks = repeatedLookNotes( markup, file );
-	if ( ! repeatedStyleValues( markup ).length ) {
+	// The site's markup is read only for a file that sets a raw value.
+	if ( ! rawStyleValues( markup ).length ) {
 		return looks;
 	}
+	const others = await otherMarkup( siteFile.siteRoot, siteFile.theme, { file } );
 	// The presets the file renders with: its theme's, or the active theme's.
 	const presets = await readWordPressSite( siteFile.siteRoot, ( site ) =>
 		themePresets( site, siteFile.theme?.slug )
@@ -400,11 +506,17 @@ export async function repeatedStyleValueNotes(
 	const { notes, repeated } =
 		gateSaves && isBlockMarkupFile( file )
 			? await presetsForRepeatedValues(
-					{ siteRoot: siteFile.siteRoot, theme: siteFile.theme, label: file },
+					{ siteRoot: siteFile.siteRoot, theme: siteFile.theme, label: file, others },
 					markup,
 					presets
 			  )
-			: { notes: [], repeated: repeatedStyleValues( markup ) };
+			: {
+					notes: [],
+					repeated: repeatedStyleValues(
+						markup,
+						others.map( ( item ) => item.content )
+					),
+			  };
 	const kinds = STYLES.map( ( style ) => ( {
 		...style,
 		values: repeated.filter( ( value ) => style.path.test( value.path ) ),

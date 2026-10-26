@@ -5,7 +5,7 @@
  *
  * A change to a copy, by any tool or script, is saved to its post as an
  * administrator's save in the editor saves it (savePost() in
- * post-content-check.ts), which then checks it as it checks any saved post. A
+ * site-markup.ts), which then checks it as it checks any saved post. A
  * change to a post, in the editor or by any route, rewrites its copy. When a
  * copy and its post both changed, the post stands: the copy is rewritten from
  * it, and the copy's change is kept in <ID>.unsaved.html.
@@ -15,8 +15,8 @@ import { existsSync, mkdirSync } from 'fs';
 import { readFile, rename, rm, writeFile } from 'fs/promises';
 import path from 'path';
 import { getConfigDirectory } from '@studio/common/lib/well-known-paths';
-import { RENDERED_TYPES, savePost } from 'cli/ai/post-content-check';
 import { readWordPressSite } from 'cli/ai/site-database';
+import { RENDERED, RENDERED_TYPES, savePost } from 'cli/ai/site-markup';
 import { findSiteByFolder } from 'cli/lib/cli-config/sites';
 import type { ChangeReport, SiteChangeSource, Versions } from 'cli/ai/site-changes';
 import type { WordPressSite } from 'cli/ai/site-database';
@@ -52,10 +52,6 @@ const hash = ( content: string ) => createHash( 'sha1' ).update( content ).diges
 
 const copyOf = ( workspace: string, post: Pick< Post, 'id' | 'type' > ) =>
 	path.join( workspace, post.type, `${ post.id }.html` );
-
-const RENDERED = `post_type IN (${ RENDERED_TYPES.map( () => '?' ).join(
-	', '
-) }) AND post_status NOT IN ('auto-draft', 'inherit', 'trash')`;
 
 function readPosts( site: WordPressSite ): Post[] {
 	return site.query< Post >(

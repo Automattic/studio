@@ -19,22 +19,7 @@ describe( 'AppToasts', () => {
 		vi.restoreAllMocks();
 	} );
 
-	it( 'replaces a toast in place when the same id is shown again', async () => {
-		await render( <AppToasts /> );
-
-		act( () => {
-			showToast( { id: 'sync-1', intent: 'info', title: 'Pushing to live', durationMs: 0 } );
-		} );
-		expect( screen.getByText( 'Pushing to live' ) ).toBeVisible();
-
-		act( () => {
-			showToast( { id: 'sync-1', intent: 'success', title: 'Push complete' } );
-		} );
-		expect( screen.getByText( 'Push complete' ) ).toBeVisible();
-		expect( screen.queryByText( 'Pushing to live' ) ).not.toBeInTheDocument();
-	} );
-
-	it( 'survives a replacement that drops the description', async () => {
+	it( 'replaces a toast in place, even when the replacement drops the description', async () => {
 		await render( <AppToasts /> );
 
 		// A running sync carries phase detail; its result usually doesn't. The
@@ -55,17 +40,8 @@ describe( 'AppToasts', () => {
 		} );
 
 		expect( screen.getByText( 'Push complete' ) ).toBeVisible();
+		expect( screen.queryByText( 'Pushing to live' ) ).not.toBeInTheDocument();
 		expect( screen.queryByText( 'Uploading… 62%' ) ).not.toBeInTheDocument();
-	} );
-
-	it( 'keeps a pinned toast open with no expiry timer', async () => {
-		await render( <AppToasts /> );
-
-		act( () => {
-			showToast( { id: 'sync-1', intent: 'info', title: 'Pulling from live', durationMs: 0 } );
-		} );
-
-		expect( screen.getByText( 'Pulling from live' ) ).toBeVisible();
 	} );
 
 	it( 'expands a long error to read and copy it', async () => {

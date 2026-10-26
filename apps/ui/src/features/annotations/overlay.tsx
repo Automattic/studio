@@ -254,11 +254,10 @@ function NoteEditor( {
 		if ( ! hasContent ) return;
 		if ( direct ) {
 			onSend( [ note.id ] );
-			closeAnnotationEditor( siteId );
 		} else {
 			stageAnnotations( siteId, [ note.id ] );
-			closeAnnotationEditor( siteId );
 		}
+		closeAnnotationEditor( siteId );
 	};
 	const submitLabel = isAppleOS()
 		? __( 'Save annotation (Enter). Send directly (⌘Enter).' )

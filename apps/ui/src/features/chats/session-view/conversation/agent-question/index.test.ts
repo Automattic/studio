@@ -165,6 +165,37 @@ describe( 'Conversation Ask User questions', () => {
 		expect( screen.queryByText( /^Asking question/ ) ).not.toBeInTheDocument();
 	} );
 
+	it( 'waits for confirmation before submitting multiple choices', () => {
+		const onAnswerQuestion = vi.fn();
+		renderConversation(
+			loadedSession( [ multiSelectEntry( 'Which finish?', [ 'White', 'Speckle' ] ) ] ),
+			{
+				pendingQuestions: new Set( [ 'Which finish?' ] ),
+				onAnswerQuestion,
+			}
+		);
+
+		fireEvent.click( screen.getByRole( 'checkbox', { name: 'White' } ) );
+		fireEvent.click( screen.getByRole( 'checkbox', { name: 'Speckle' } ) );
+		expect( onAnswerQuestion ).not.toHaveBeenCalled();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Submit choices' } ) );
+		expect( onAnswerQuestion ).toHaveBeenCalledWith( 'Which finish?', 'White, Speckle' );
+	} );
+
+	it( 'keeps only the saved decision visible when reopening history', () => {
+		renderConversation(
+			loadedSession( [
+				agentQuestionEntry( 'Which finish?', [ 'White', 'Speckle' ], 'q1', 'Speckle' ),
+			] )
+		);
+
+		expect( screen.getByText( 'Which finish?' ) ).toBeVisible();
+		expect( screen.getByText( 'Speckle' ) ).toBeVisible();
+		expect( screen.queryByText( 'White' ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'textbox' ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'radio' ) ).not.toBeInTheDocument();
+	} );
+
 	describe( 'free-form answers', () => {
 		const question = 'Install Jetpack?';
 

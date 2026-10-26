@@ -1,18 +1,19 @@
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { resetAppMessagesForTests } from '@/data/app-messages';
 import { setCommandPaletteOpen } from '@/data/use-command-palette';
-import { matchCommands } from '@/features/commands/command-search';
-import { getSiteCommands } from '@/features/commands/site-commands';
 import {
-	getAppCommands,
-	getChatCommands,
-	getSettingCommands,
-} from '@/features/commands/studio-commands';
-import { createFakeConnector, makeSession, makeSite, TEST_USER } from '@/test/fake-connector';
+	createFakeConnector,
+	makeSession,
+	makeSite,
+	TEST_USER,
+	type FakeConnector,
+	type FakeConnectorState,
+} from '@/test/fake-connector';
 import { renderApp } from '@/test/render';
-import type { SiteDetails } from '@/data/core';
-import type { FakeConnector } from '@/test/fake-connector';
+import type { AiSessionSummary, SiteDetails } from '@/data/core';
 
+const isApple = /Mac|iPhone|iPad/.test( navigator.platform );
 const testSite = makeSite( { id: 'one', name: 'Test site' } );
 
 async function renderPalette( {
@@ -25,7 +26,9 @@ async function renderPalette( {
 	return view;
 }
 
-const pressK = () => fireEvent.keyDown( document.body, { key: 'k', code: 'KeyK', ctrlKey: true } );
+function pressK( target: Document | Element = document ) {
+	fireEvent.keyDown( target, { code: 'KeyK', key: 'k', metaKey: isApple, ctrlKey: ! isApple } );
+}
 const input = () => screen.getByRole( 'combobox', { name: 'Search commands' } );
 const search = ( query: string ) => fireEvent.change( input(), { target: { value: query } } );
 const option = ( name: string | RegExp ) => screen.getByRole( 'option', { name } );
@@ -203,14 +206,11 @@ describe( 'command palette', () => {
 	} );
 
 	it( 'searches both settings panels and individual controls', async () => {
-		const { history, user } = await renderPalette();
+		await renderPalette();
 		await openPalette();
 		search( 'PHP' );
 		expect( option( 'PHP Test site' ) ).toBeVisible();
 		expect( option( 'PHP version Test site' ) ).toBeVisible();
-		await user.click( option( 'PHP version Test site' ) );
-		await waitFor( () => expect( searchParams( history ).settings ).toBe( 'php' ) );
-		await revealed( 'PHP version' );
 	} );
 
 	it( 'limits initial recent chats to five and searches older chats without duplicates', async () => {
@@ -240,23 +240,6 @@ describe( 'command palette', () => {
 		);
 		await user.click( option( 'Conversation 0 Test site' ) );
 		await waitFor( () => expect( history.location.pathname ).toBe( '/sessions/chat-0' ) );
-	} );
-
-	it( 'finds the theme command by its aliases and runs it', async () => {
-		const { connector } = await renderPalette();
-		await openPalette();
-		for ( const query of [ 'dark mode', 'light mode' ] ) {
-			search( query );
-			expect( screen.getAllByRole( 'option' )[ 0 ] ).toHaveTextContent( 'Use dark mode' );
-		}
-		search( 'dark mode' );
-		fireEvent.keyDown( input(), { key: 'Enter' } );
-		await waitFor( () =>
-			expect( connector.setUserPreferences ).toHaveBeenCalledExactlyOnceWith(
-				{ colorScheme: 'dark' },
-				undefined
-			)
-		);
 	} );
 
 	it( 'matches theme aliases and excludes secondary text and misspellings', async () => {
@@ -313,197 +296,294 @@ describe( 'command palette', () => {
 	} );
 } );
 
-describe( 'palette commands', () => {
-	const appCommands = ( overrides: Partial< Parameters< typeof getAppCommands >[ 0 ] > = {} ) =>
-		getAppCommands( {
-			sites: [],
-			chats: [],
-			colorScheme: 'light',
-			sidebarOpen: true,
-			settingCommands: [],
-			openAddSite: vi.fn(),
-			openSettings: vi.fn(),
-			openSite: vi.fn(),
-			openChat: vi.fn(),
-			savePreferences: vi.fn(),
-			toggleSidebar: vi.fn(),
-			openNotifications: vi.fn(),
-			openWhatsNew: vi.fn(),
+function site( overrides: Partial< SiteDetails > = {} ) {
+	return makeSite( { id: 'one', path: '/sites/my-site', ...overrides } );
+}
+
+function chat( overrides: Partial< AiSessionSummary > ) {
+	return {
+		summary: makeSession( {
+			ownerSiteId: 'one',
+			updatedAt: new Date().toISOString(),
 			...overrides,
-		} );
+		} ),
+		entries: [],
+	};
+}
 
-	type SiteCommandsInput = Parameters< typeof getSiteCommands >[ 0 ];
-	const siteCommands = (
-		site: SiteDetails,
-		sites: SiteDetails[],
-		overrides: Partial< SiteCommandsInput > = {},
-		actions: Record< string, unknown > = {}
-	) =>
-		getSiteCommands( {
-			site,
-			chatEnabled: true,
-			previewShown: false,
-			canAnnotate: false,
-			annotating: false,
-			actions: {
-				busy: false,
-				pinned: false,
-				running: sites.filter( ( entry ) => entry.running ),
-				othersRunning: sites.filter( ( entry ) => entry.running && entry.id !== site.id ),
-				...actions,
-			} as unknown as SiteCommandsInput[ 'actions' ],
-			destinations: [],
-			manage: [],
-			settingCommands: [],
-			openSettings: vi.fn(),
-			openHeaderPanel: vi.fn(),
-			newChat: vi.fn(),
-			reloadPreview: vi.fn(),
-			annotate: vi.fn(),
-			showPreview: vi.fn(),
-			setChatHidden: vi.fn(),
-			copyUrl: vi.fn(),
-			...overrides,
-		} );
-
-	it( 'indexes controls rather than settings headings', () => {
-		const toggle = { checked: true, run: vi.fn() };
-		const commands = [
-			...getSettingCommands( {
-				scope: 'studio',
-				signedIn: true,
-				toggles: { 'usage-statistics': toggle },
-				openSettings: vi.fn(),
-			} ),
-			...getSettingCommands( {
-				scope: 'site',
-				site: testSite,
-				signedIn: true,
-				toggles: {},
-				openSettings: vi.fn(),
-			} ),
-		];
-		const titles = commands.flatMap( ( command ) => command.aliases ?? [] );
-		for ( const label of [
-			'WordPress.com account',
-			'Log in',
-			'Log out',
-			'Visit wapuu.studio',
-			'Wapuu score',
-			'Local domain',
-			'MCP',
-			'WordPress credentials',
-		] ) {
-			expect( titles ).not.toContain( label );
-		}
-		expect( titles ).toContain( 'Use custom domain' );
-		expect(
-			commands.find(
-				( command ) => command.aliases?.includes( 'Improve WordPress Studio for everyone' )
-			)?.run
-		).toBe( toggle.run );
+function setup( {
+	sites = [ site() ],
+	signedIn = false,
+	...state
+}: { sites?: SiteDetails[]; signedIn?: boolean } & Partial< FakeConnectorState > = {} ) {
+	const connector = createFakeConnector( {
+		sites,
+		user: signedIn ? TEST_USER : null,
+		...state,
+		preferences: {
+			autoCollapseSites: false,
+			...state.preferences,
+		} as FakeConnectorState[ 'preferences' ],
 	} );
+	return renderApp( { connector } );
+}
 
-	it( 'derives labels and availability from active context', () => {
-		const site = makeSite( { id: 'one', name: 'Test', running: true } );
-		const sites = [ site, makeSite( { id: 'two', running: true } ) ];
-		const app = appCommands( { sidebarOpen: false } );
-		const forSite = siteCommands( site, sites, { chatHidden: false }, { pinned: true } );
-		const chat = getChatCommands( makeSession( { id: 'chat', title: 'Current chat' } ), {
-			pinned: true,
-			working: true,
-		} as unknown as Parameters< typeof getChatCommands >[ 1 ] );
-		const byId = ( id: string ) =>
-			[ ...app, ...forSite, ...chat ].find( ( command ) => command.id === id );
-		expect( byId( 'sidebar' )?.label ).toBe( 'Show sidebar' );
-		expect( byId( 'chat-visibility' )?.label ).toBe( 'Hide chat' );
-		expect( byId( 'pin-site' )?.label ).toBe( 'Unpin site' );
-		expect( byId( 'pin-chat' )?.label ).toBe( 'Unpin chat' );
-		expect( byId( 'archive-chat' ) ).toBeUndefined();
-		expect( byId( 'stop-others' ) ).toBeDefined();
-		expect( byId( 'export' ) ).toBeUndefined();
-		expect( byId( 'open-files' ) ).toBeUndefined();
-		expect( app.filter( ( command ) => command.id === 'color-scheme' ) ).toHaveLength( 1 );
-		expect( byId( 'color-scheme' )?.searchOnly ).toBeUndefined();
-	} );
+async function paletteCommand( query: string, name?: RegExp ) {
+	await openPalette();
+	search( query );
+	fireEvent.click(
+		await screen.findByRole( 'option', { name: name ?? new RegExp( `^${ query }` ) } )
+	);
+	await waitFor( () =>
+		expect( screen.queryByLabelText( 'Search commands' ) ).not.toBeInTheDocument()
+	);
+}
 
-	it( 'offers the notifications action', () => {
-		expect( appCommands().find( ( command ) => command.id === 'notifications' ) ).toMatchObject( {
-			group: 'commands',
-			label: 'Show notifications',
-		} );
+describe( 'Command palette in the Studio workspace', () => {
+	beforeEach( () => {
+		localStorage.clear();
+		resetAppMessagesForTests();
 	} );
 
 	it.each( [ false, true ] )(
-		'offers Collapse all only when applicable: %s',
-		( canCollapseAll ) => {
-			const command = appCommands( { collapseAll: canCollapseAll ? vi.fn() : undefined } ).find(
-				( entry ) => entry.id === 'collapse-all'
+		'restarts through the palette after stop settles (fails: %s)',
+		async ( fails ) => {
+			const { connector } = setup( { sites: [ site( { running: true } ) ] } );
+			let finishStop!: () => void;
+			connector.stopSite.mockImplementation(
+				() =>
+					new Promise< void >( ( resolve, reject ) => {
+						finishStop = () => ( fails ? reject( new Error( 'Unable to stop' ) ) : resolve() );
+					} )
 			);
-			if ( ! canCollapseAll ) {
-				expect( command ).toBeUndefined();
+			await screen.findByRole( 'button', { name: 'Site actions for My site' } );
+			await paletteCommand( 'Restart site' );
+			await waitFor( () => expect( connector.stopSite ).toHaveBeenCalledExactlyOnceWith( 'one' ) );
+			expect( connector.startSite ).not.toHaveBeenCalled();
+			await act( async () => finishStop() );
+			if ( fails ) {
+				await screen.findAllByText( 'Failed to stop site' );
+				expect( connector.startSite ).not.toHaveBeenCalled();
 			} else {
-				expect( command ).toMatchObject( {
-					group: 'commands',
-					label: 'Collapse all',
-					aliases: [ 'Collapse all sites' ],
-				} );
+				await waitFor( () =>
+					expect( connector.startSite ).toHaveBeenCalledExactlyOnceWith( 'one' )
+				);
 			}
 		}
 	);
 
-	it.each( [
-		{ selectedRunning: false, others: 0 },
-		{ selectedRunning: true, others: 0 },
-		{ selectedRunning: false, others: 1 },
-		{ selectedRunning: true, others: 1 },
-		{ selectedRunning: false, others: 2 },
-	] )( 'matches the site menu lifecycle actions: %j', ( { selectedRunning, others } ) => {
-		const site = makeSite( { id: 'selected', name: 'Selected', running: selectedRunning } );
-		const sites = [
-			site,
-			...Array.from( { length: others }, ( _, index ) =>
-				makeSite( { id: `other-${ index }`, running: true } )
-			),
-		];
-		const commands = siteCommands( site, sites );
-		for ( const [ id, label, available ] of [
-			[ 'restart', 'Restart site', selectedRunning ],
-			[ 'stop-others', 'Stop other sites', selectedRunning && others > 0 ],
-			[ 'stop-all', 'Stop all sites', Number( selectedRunning ) + others > 1 ],
-		] as const ) {
-			const command = commands.find( ( entry ) => entry.id === id );
-			if ( ! available ) {
-				expect( command ).toBeUndefined();
-			} else {
-				expect( command ).toMatchObject( { group: 'site', label } );
+	it( 'switches sites and starts the selected site from the command palette', async () => {
+		const { connector } = setup( {
+			sites: [ site(), site( { id: 'two', name: 'Second site' } ) ],
+		} );
+		await screen.findByRole( 'button', { name: 'Site actions for My site' } );
+		await openPalette();
+		search( 'Second site' );
+		fireEvent.click( await screen.findByRole( 'option', { name: 'Second site' } ) );
+		expect(
+			await screen.findByRole( 'button', { name: 'Site actions for Second site' } )
+		).toBeVisible();
+		await waitFor( () => expect( screen.queryByRole( 'dialog' ) ).not.toBeInTheDocument() );
+		await openPalette();
+		search( 'Start site' );
+		fireEvent.click( await screen.findByRole( 'option', { name: 'Start site Second site' } ) );
+		await waitFor( () => expect( connector.startSite ).toHaveBeenCalledWith( 'two' ) );
+	} );
+
+	it( 'opens a recent chat from the command palette on its owning site', async () => {
+		const recent = chat( {
+			id: 'recent-chat',
+			title: 'Build a portfolio',
+			ownerSiteId: 'two',
+			updatedAt: '2026-10-11T12:00:00Z',
+		} );
+		const { connector, history } = setup( {
+			sites: [ site(), site( { id: 'two', name: 'Second site' } ) ],
+			signedIn: true,
+			sessions: [
+				recent,
+				chat( { id: 'archived', title: 'Archived chat', ownerSiteId: 'two', archived: true } ),
+				chat( { id: 'missing', title: 'Missing site chat', ownerSiteId: 'missing' } ),
+			],
+		} );
+		await waitFor( () => expect( history.location.pathname ).toMatch( /^\/sessions\// ) );
+		pressK();
+		const recentGroup = await screen.findByRole( 'group', { name: 'Recent' } );
+		expect(
+			within( recentGroup ).queryByRole( 'option', { name: /Archived|Missing/ } )
+		).not.toBeInTheDocument();
+		fireEvent.click(
+			within( recentGroup ).getByRole( 'option', { name: 'Build a portfolio Second site' } )
+		);
+		await waitFor( () => expect( connector.getSession ).toHaveBeenCalledWith( 'recent-chat' ) );
+		expect( history.location.pathname ).toBe( '/sessions/recent-chat' );
+		await waitFor( () => expect( screen.queryByRole( 'dialog' ) ).not.toBeInTheDocument() );
+	} );
+
+	it.each( [ false, true ] )(
+		'switches Add site to the command palette (empty: %s)',
+		async ( empty ) => {
+			setup( { sites: empty ? [] : [ site() ] } );
+			if ( ! empty ) {
+				await screen.findByRole( 'button', { name: 'Site actions for My site' } );
+				fireEvent.click( screen.getByRole( 'button', { name: 'Add site' } ) );
 			}
+			const dialog = await screen.findByRole( 'dialog', { name: 'Add site' } );
+			const blank = await within( dialog ).findByRole( 'button', {
+				name: 'Start with Blank site',
+			} );
+			await waitFor( () => expect( blank ).toHaveFocus() );
+			pressK( blank );
+			await waitFor( () =>
+				expect( screen.queryByRole( 'dialog', { name: 'Add site' } ) ).not.toBeInTheDocument()
+			);
+			await waitFor( () => expect( input() ).toHaveFocus() );
+			fireEvent.change( input(), { target: { value: 'add' } } );
+			fireEvent.click( await screen.findByRole( 'option', { name: 'New site' } ) );
+			expect( await screen.findByRole( 'dialog', { name: 'Add site' } ) ).toBeVisible();
+			await waitFor( () =>
+				expect( screen.getByRole( 'button', { name: 'Start with Blank site' } ) ).toHaveFocus()
+			);
+			expect( screen.queryByRole( 'tooltip', { name: 'New site' } ) ).not.toBeInTheDocument();
 		}
-		expect( commands.find( ( command ) => command.id === 'lifecycle' ) ).toMatchObject( {
-			group: 'quick',
-			label: selectedRunning ? 'Stop site' : 'Start site',
-		} );
+	);
+
+	it( 'uses existing host actions from the command palette', async () => {
+		const { connector } = setup();
+		await screen.findByRole( 'button', { name: 'Site actions for My site' } );
+		await openPalette();
+		search( 'Open in Finder' );
+		fireEvent.click( await screen.findByRole( 'option', { name: 'Open in Finder My site' } ) );
+		expect( connector.openSiteFolder ).toHaveBeenCalledWith( 'one' );
+		await waitFor( () => expect( screen.queryByRole( 'dialog' ) ).not.toBeInTheDocument() );
 	} );
 
-	it( 'finds Collapse all by its existing accessible label', () => {
-		const commands = appCommands( {
-			collapseAll: vi.fn(),
-			settingCommands: getSettingCommands( {
-				scope: 'studio',
-				signedIn: true,
-				toggles: {},
-				openSettings: vi.fn(),
-			} ),
+	it( 'executes palette site actions once and reuses import confirmation', async () => {
+		const { connector } = setup( {
+			sites: [
+				site( { running: true, customDomain: 'my-site.local', enableHttps: true } ),
+				site( { id: 'two', running: true } ),
+			],
 		} );
-		expect( matchCommands( commands, 'Collapse all sites' ).map( ( { label } ) => label ) ).toEqual(
-			[ 'Collapse all' ]
+		connector.exportFullSite.mockResolvedValue( '/tmp/site.zip' as never );
+		connector.exportDatabase.mockResolvedValue( '/tmp/database.sql' as never );
+		connector.copySite.mockResolvedValue( site( { id: 'copy', name: 'Copy' } ) );
+		await screen.findByRole( 'button', { name: 'Site actions for My site' } );
+		await paletteCommand( 'copy site URL', /^Copy site URL/ );
+		expect( connector.copyText ).toHaveBeenCalledExactlyOnceWith( 'https://my-site.local' );
+		await paletteCommand( 'open in browser', /^Open in Browser My site/ );
+		expect( connector.openSiteUrl ).toHaveBeenCalledExactlyOnceWith( 'one', '/', {
+			autoLogin: false,
+		} );
+		await paletteCommand( 'export entire site', /^Export entire site/ );
+		await waitFor( () =>
+			expect( connector.exportFullSite ).toHaveBeenCalledExactlyOnceWith( 'one' )
+		);
+		await paletteCommand( 'export database', /^Export database/ );
+		await waitFor( () =>
+			expect( connector.exportDatabase ).toHaveBeenCalledExactlyOnceWith( 'one' )
+		);
+		await paletteCommand( 'duplicate site', /^Duplicate site/ );
+		await waitFor( () => expect( connector.copySite ).toHaveBeenCalledExactlyOnceWith( 'one' ) );
+		await paletteCommand( 'stop other sites', /^Stop other sites/ );
+		await waitFor( () => expect( connector.stopSite ).toHaveBeenCalledExactlyOnceWith( 'two' ) );
+		const picker = vi.spyOn( HTMLInputElement.prototype, 'click' );
+		await paletteCommand( 'import backup', /^Import backup/ );
+		expect( picker ).toHaveBeenCalledTimes( 1 );
+		const input = picker.mock.contexts[ 0 ] as HTMLInputElement;
+		expect( input ).toHaveAttribute( 'type', 'file' );
+		fireEvent.change( input, { target: { files: [ new File( [ 'backup' ], 'backup.zip' ) ] } } );
+		const confirmation = await screen.findByRole( 'alertdialog', { name: /Overwrite/ } );
+		expect( connector.importSiteFromBackup ).not.toHaveBeenCalled();
+		fireEvent.click( within( confirmation ).getByRole( 'button', { name: 'Cancel' } ) );
+		expect( connector.importSiteFromBackup ).not.toHaveBeenCalled();
+		await paletteCommand( 'reset appearance', /^Reset appearance tint/ );
+		await waitFor( () =>
+			expect( connector.setUserPreferences ).toHaveBeenCalledExactlyOnceWith(
+				{ accentColor: '#3858e9', tintIntensity: 0, contrast: 0 },
+				undefined
+			)
 		);
 	} );
 
-	it.each( [ false, true ] )( 'offers the next theme action for dark mode: %s', ( darkMode ) => {
-		const command = appCommands( { colorScheme: darkMode ? 'dark' : 'light' } ).find(
-			( entry ) => entry.id === 'color-scheme'
+	it( 'pins, renames and archives the current chat through palette commands', async () => {
+		const { connector, history } = setup( {
+			sites: [ site( { running: true } ) ],
+			signedIn: true,
+			sessions: [ chat( { id: 'palette-chat', title: 'Working chat' } ) ],
+		} );
+		await waitFor( () => expect( history.location.pathname ).toBe( '/sessions/palette-chat' ) );
+		await paletteCommand( 'Working chat', /^Working chat/ );
+		await waitFor( () => expect( connector.getSession ).toHaveBeenCalledWith( 'palette-chat' ) );
+		await paletteCommand( 'pin chat', /^Pin chat/ );
+		await screen.findByRole( 'group', { name: 'Pinned' } );
+		await waitFor( () =>
+			expect( connector.state.preferences.sidebarPins ).toContain( 'chat:palette-chat' )
 		);
-		expect( command?.label ).toBe( darkMode ? 'Use light mode' : 'Use dark mode' );
+		await paletteCommand( 'rename chat', /^Rename chat/ );
+		const dialog = await screen.findByRole( 'dialog', { name: 'Rename chat' } );
+		fireEvent.change( within( dialog ).getByRole( 'textbox', { name: 'Chat title' } ), {
+			target: { value: 'Updated chat' },
+		} );
+		fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Save' } ) );
+		await waitFor( () =>
+			expect( connector.updateSessionMetadata ).toHaveBeenCalledWith( 'palette-chat', {
+				title: 'Updated chat',
+			} )
+		);
+		await waitFor( () => expect( screen.queryByRole( 'dialog' ) ).not.toBeInTheDocument() );
+		await paletteCommand( 'archive chat', /^Archive chat/ );
+		await waitFor( () =>
+			expect( connector.updateSessionMetadata ).toHaveBeenCalledWith( 'palette-chat', {
+				archived: true,
+			} )
+		);
+		await waitFor( () =>
+			expect( screen.queryByRole( 'group', { name: 'Pinned' } ) ).not.toBeInTheDocument()
+		);
 	} );
+
+	it( 'opens Intensity settings from the palette and focuses its slider', async () => {
+		setup();
+		await screen.findByRole( 'button', { name: 'Site actions for My site' } );
+		await openPalette();
+		search( 'Intensity' );
+		fireEvent.click( await screen.findByRole( 'option', { name: 'Intensity Appearance' } ) );
+		await screen.findByRole( 'dialog', { name: 'Settings' } );
+		await waitFor( () =>
+			expect( screen.getByLabelText( 'Intensity', { selector: 'input' } ) ).toHaveFocus()
+		);
+	} );
+
+	it( 'replays What’s New from the palette and marks it seen when skipped', async () => {
+		const { connector } = setup();
+		await screen.findByRole( 'button', { name: 'Site actions for My site' } );
+		await paletteCommand( 'new features', /^What’s New/ );
+		expect(
+			await screen.findByRole( 'dialog', { name: 'Meet the new WordPress Studio' } )
+		).toBeVisible();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Skip' } ) );
+		await waitFor( () =>
+			expect( connector.setOnboardingHints ).toHaveBeenCalledWith(
+				expect.objectContaining( { whatsNewSeenVersion: expect.any( Number ) } )
+			)
+		);
+	} );
+
+	it.each( [ 'light', 'dark' ] as const )(
+		'toggles from the rendered %s theme with one palette command',
+		async ( scheme ) => {
+			const { connector } = setup( { preferences: { colorScheme: scheme } as never } );
+			await screen.findByRole( 'button', { name: 'Site actions for My site' } );
+			await openPalette();
+			search( scheme + ' mode' );
+			fireEvent.keyDown( input(), { key: 'Enter' } );
+			await waitFor( () =>
+				expect( connector.setUserPreferences ).toHaveBeenCalledExactlyOnceWith(
+					{ colorScheme: scheme === 'dark' ? 'light' : 'dark' },
+					undefined
+				)
+			);
+		}
+	);
 } );

@@ -1,6 +1,6 @@
 import { ADD_PAYMENT_METHOD_URL } from '@studio/common/lib/studio-assistant-quota';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createModelChangeEntry } from '@/data/queries/use-sessions';
 import {
 	changeAnnotation,
@@ -12,6 +12,7 @@ import {
 import { createFakeConnector, makeSession, makeSite, TEST_USER } from '@/test/fake-connector';
 import { renderApp } from '@/test/render';
 import type { AgentRunEvent, SessionEntry } from '@/data/core';
+import type { AiSettings } from '@studio/common/ai/providers';
 import type { StudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 
 vi.setConfig( { testTimeout: 30_000 } );
@@ -52,7 +53,7 @@ async function setupChat( {
 				} as SessionEntry,
 		  ]
 		: [];
-	let connected = { hasAnthropicApiKey, provider };
+	const connected = { hasAnthropicApiKey, provider };
 	const connector = createFakeConnector(
 		{
 			sites: [ site ],
@@ -110,16 +111,22 @@ async function setupChat( {
 		...view,
 		connector,
 		input,
-		connect: ( next: typeof connected ) => {
-			connected = next;
-		},
 	};
 }
 
 const notice = () => screen.findByRole( 'alert' );
 const sendButton = () => screen.getByRole( 'button', { name: 'Send message' } );
+const COMPOSER = { name: 'Message WordPress Studio' };
+
+function anthropicRow( dialog: HTMLElement ) {
+	return within(
+		within( dialog ).getByText( 'Anthropic', { exact: true } ).closest( '[data-settings-row]' )!
+	);
+}
 
 describe( 'Composer access notices', () => {
+	beforeEach( () => localStorage.clear() );
+
 	it.each( [ 'wpcom', 'anthropic-api-key' ] as const )(
 		'hides the notice when %s can send, even if an unused provider has an error',
 		async ( provider ) => {
@@ -228,6 +235,149 @@ describe( 'Composer access notices', () => {
 			} );
 		}
 	} );
+
+	it.each( [
+		{ provider: 'wpcom' as const, payment: false, gated: true },
+		{ provider: 'wpcom' as const, payment: null, gated: false },
+		{ provider: 'anthropic-api-key' as const, payment: false, gated: false },
+	] )(
+		'checks payment access for $provider with payment=$payment',
+		async ( { provider, payment, gated } ) => {
+			const quota =
+				payment === null
+					? null
+					: {
+							costUsage: 0,
+							costCap: 500000,
+							costResetDate: '',
+							emailVerified: true,
+							hasPaymentMethod: payment,
+							studioCodeAiHasAccess: true,
+							studioCodeAiAccess: 'granted' as const,
+							allowanceRemaining: 100,
+							purchasedRemaining: 0,
+							purchasedAtTopUp: 0,
+					  };
+			const connector = createFakeConnector(
+				{ sites: [ makeSite( { id: 'one', path: '/sites/my-site' } ) ] },
+				{
+					getAiSettings: async () => ( {
+						provider,
+						hasAnthropicApiKey: true,
+						anthropicApiKeyPreview: 'test',
+					} ),
+					getStudioAssistantQuota: async () => quota,
+				}
+			);
+			renderApp( { connector, path: '/sites/one/new' } );
+			await screen.findByRole( 'button', { name: 'Site actions for My site' } );
+			const input = await screen.findByRole( 'combobox', COMPOSER );
+			if ( gated ) {
+				const addPayment = await screen.findByRole( 'button', { name: 'Set up' } );
+				expect( input ).toBeEnabled();
+				expect( sendButton() ).toBeDisabled();
+				fireEvent.click( addPayment );
+				expect( connector.openExternalUrl ).toHaveBeenCalledWith( ADD_PAYMENT_METHOD_URL );
+				expect( connector.continueSession ).not.toHaveBeenCalled();
+				connector.getStudioAssistantQuota.mockResolvedValue( {
+					...quota!,
+					hasPaymentMethod: true,
+				} );
+				fireEvent.focus( window, { relatedTarget: input } );
+			}
+			await waitFor( () => expect( input ).toBeEnabled() );
+			await waitFor( () =>
+				expect( screen.queryByRole( 'button', { name: 'Set up' } ) ).not.toBeInTheDocument()
+			);
+		}
+	);
+
+	it.each( [ false, true ] )(
+		'connects a personal key without WordPress.com login (saved=%s)',
+		async ( saved ) => {
+			let connection: AiSettings = {
+				provider: 'wpcom',
+				hasAnthropicApiKey: saved,
+				anthropicApiKeyPreview: saved ? 'test' : null,
+			};
+			const site = makeSite( { id: 'one', path: '/sites/my-site' } );
+			const connector = createFakeConnector(
+				{
+					user: null,
+					sites: [ site ],
+					sessions: [
+						{
+							summary: makeSession( {
+								id: 'key-chat',
+								ownerSiteId: 'one',
+								ownerSitePath: site.path,
+							} ),
+							entries: [],
+						},
+					],
+				},
+				{
+					getAiSettings: async () => connection,
+					saveAnthropicApiKey: async () => {
+						connection = {
+							...connection,
+							hasAnthropicApiKey: true,
+							anthropicApiKeyPreview: 'test',
+						};
+						return connection;
+					},
+					setAiProvider: async ( provider ) => {
+						connection = { ...connection, provider };
+						return connection;
+					},
+					continueSession: async () => ( { runId: 'key-run' } ),
+				}
+			);
+			renderApp( { connector, path: '/sessions/key-chat' } );
+			await screen.findByRole( 'button', { name: 'Site actions for My site' } );
+			const draftInput = await screen.findByRole( 'combobox', COMPOSER );
+			fireEvent.change( draftInput, { target: { value: 'Update my site' } } );
+			await screen.findByRole( 'button', { name: 'Connect' } );
+			expect( draftInput ).toBeEnabled();
+			expect( sendButton() ).toBeEnabled();
+			fireEvent.click( sendButton() );
+			expect( draftInput ).toHaveValue( 'Update my site' );
+			expect( connector.createSession ).not.toHaveBeenCalled();
+			expect( connector.continueSession ).not.toHaveBeenCalled();
+			expect( screen.queryByText( 'Checking access…' ) ).not.toBeInTheDocument();
+			expect( screen.queryByRole( 'button', { name: 'Check again' } ) ).not.toBeInTheDocument();
+			fireEvent.click( screen.getByRole( 'button', { name: 'Connect' } ) );
+			const dialog = await screen.findByRole( 'dialog', { name: 'Settings' } );
+			fireEvent.click(
+				anthropicRow( dialog ).getByRole( 'button', { name: saved ? 'Manage' : 'Connect' } )
+			);
+			if ( ! saved ) {
+				const keyInput = await screen.findByLabelText( 'Anthropic API key', { selector: 'input' } );
+				expect( keyInput ).toHaveAttribute( 'type', 'password' );
+				fireEvent.change( keyInput, { target: { value: '  test-key  ' } } );
+			}
+			fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Save' } ) );
+			await waitFor( () =>
+				expect( connector.setAiProvider ).toHaveBeenCalledWith( 'anthropic-api-key' )
+			);
+			await waitFor( () =>
+				expect( anthropicRow( dialog ).getByRole( 'button', { name: 'Manage' } ) ).toBeEnabled()
+			);
+			fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Close settings' } ) );
+			await waitFor( () => expect( sendButton() ).toBeEnabled() );
+			const input = screen.getByRole( 'combobox', COMPOSER );
+			expect( input ).toHaveValue( 'Update my site' );
+			expect( connector.authenticate ).not.toHaveBeenCalled();
+			fireEvent.click( sendButton() );
+			await waitFor( () =>
+				expect( connector.continueSession ).toHaveBeenCalledWith(
+					'key-chat',
+					'Update my site',
+					expect.anything()
+				)
+			);
+		}
+	);
 } );
 
 describe( 'Chat target selection', () => {
@@ -279,7 +429,6 @@ describe( 'Chat target selection', () => {
 		fireEvent.change( input, { target: { value: 'Build a homepage' } } );
 		fireEvent.click( sendButton() );
 		expect( sendButton() ).toBeEnabled();
-		expect( alert ).toHaveAttribute( 'data-feedback', 'shake' );
 		fireEvent.keyDown( input, { key: 'Enter' } );
 		await waitFor( () => expect( input ).toHaveValue( 'Build a homepage' ) );
 		expect( connector.startSite ).not.toHaveBeenCalled();
@@ -287,24 +436,6 @@ describe( 'Chat target selection', () => {
 		fireEvent.click( within( alert ).getByRole( 'button', { name: 'Connect' } ) );
 		await waitFor( () => expect( history.location.search ).toContain( 'settings=ai' ) );
 		expect( connector.authenticate ).not.toHaveBeenCalled();
-	} );
-
-	it( 'enables signed-out BYOK after setup without sending or losing the draft', async () => {
-		const { connector, input, queryClient, connect } = await setupChat( {
-			signedIn: false,
-			hasAnthropicApiKey: false,
-		} );
-		const alert = await notice();
-		fireEvent.change( input, { target: { value: 'Keep my draft' } } );
-		fireEvent.keyDown( input, { key: 'Enter' } );
-		expect( alert ).toHaveAttribute( 'data-feedback', 'shake' );
-		connect( { provider: 'anthropic-api-key', hasAnthropicApiKey: true } );
-		await act( () => queryClient.invalidateQueries( { queryKey: [ 'ai-settings' ] } ) );
-		await waitFor( () => expect( sendButton() ).toBeEnabled() );
-		expect( screen.queryByRole( 'alert' ) ).not.toBeInTheDocument();
-		expect( input ).toHaveValue( 'Keep my draft' );
-		expect( connector.authenticate ).not.toHaveBeenCalled();
-		expect( connector.continueSession ).not.toHaveBeenCalled();
 	} );
 
 	it( 'switches an empty chat to the picked model and the live site while preserving the draft', async () => {

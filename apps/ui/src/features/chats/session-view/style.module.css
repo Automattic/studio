@@ -175,7 +175,7 @@
 }
 
 /* Composer fade-in after the entitlement check resolves. No fill mode:
-   natural opacity is 1, and index.css's reduced-motion clamp covers it. */
+   natural opacity is 1, and the reduced-motion tokens shorten it. */
 .fadeInQuick {
 	animation: fade-in-quick var( --motion-duration-surface ) ease-out;
 }
@@ -190,7 +190,6 @@
 	}
 }
 
-/* An empty chat's dot field, with a stopped site's screenshot over it. */
 .loadError {
 	display: flex;
 	flex-direction: column;
@@ -203,6 +202,7 @@
 	font-size: var( --text-sm );
 }
 
+/* An empty chat's dot field, with a stopped site's screenshot over it. */
 .emptyState {
 	position: absolute;
 	inset: 0 0 var( --composer-height );

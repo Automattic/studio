@@ -60,7 +60,6 @@ export function ModelPicker( {
 		isWpcom &&
 		!! quota &&
 		credits.hasCredits &&
-		! isQuotaError &&
 		getStudioCodeAiAccessState( quota ) === 'available' &&
 		quota.hasPaymentMethod;
 	const modelDetails = [ modelLabel, AI_PROVIDER_LABELS[ sessionProvider ] ];

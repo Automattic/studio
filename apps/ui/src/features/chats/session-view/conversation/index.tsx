@@ -69,9 +69,7 @@ function MediaArtifactImage( { widget }: { widget: StudioChatArtifactWidgetDraft
 
 // In-flow marker for a turn that ended in an error. The proxy's quota
 // refusals get dedicated copy instead of the raw provider message: the
-// monthly usage cap shows the reset date once the quota query resolves, and
-// out-of-credits (STU-2236) points at buying credits — waiting doesn't fix
-// that one.
+// monthly usage cap shows the reset date once the quota query resolves.
 const TurnErrorMarker = memo( function TurnErrorMarker( { message }: { message: string } ) {
 	const isUsageCap = isUsageCapError( message );
 	const isAccessRequired = isAiAccessRequiredError( message );
@@ -212,8 +210,6 @@ export const Conversation = memo( function Conversation( {
 						);
 					case 'error-marker':
 						return <TurnErrorMarker key={ item.key } message={ item.message } />;
-					default:
-						return null;
 				}
 			} ) }
 		</div>

@@ -46,11 +46,6 @@ export function SessionFrame( {
 
 		updateChromeSize();
 
-		if ( typeof ResizeObserver === 'undefined' ) {
-			window.addEventListener( 'resize', updateChromeSize );
-			return () => window.removeEventListener( 'resize', updateChromeSize );
-		}
-
 		const resizeObserver = new ResizeObserver( updateChromeSize );
 		if ( headerRef.current ) {
 			resizeObserver.observe( headerRef.current );
@@ -79,7 +74,7 @@ export function SessionFrame( {
 				</div>
 				{ composer ? (
 					<>
-						<ProgressiveBlur direction="up" className={ styles.composerBlur } fadeToSurface />
+						<ProgressiveBlur className={ styles.composerBlur } />
 						<div ref={ composerRef } className={ styles.composerOuter }>
 							{ composer }
 						</div>

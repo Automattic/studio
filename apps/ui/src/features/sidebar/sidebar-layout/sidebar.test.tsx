@@ -126,14 +126,15 @@ describe( 'overlay sidebar', () => {
 		resize( 800 );
 		const { user } = await setup();
 		fireEvent.click( toggle() );
-		await user.click( await screen.findByRole( 'button', { name: 'Test User' } ) );
+		const flyout = within( await screen.findByRole( 'dialog', { name: 'Sidebar' } ) );
+		await user.click( await flyout.findByRole( 'button', { name: 'Test User' } ) );
 		const item = ( await screen.findAllByRole( 'menuitem' ) )[ 0 ];
 		fireEvent.keyDown( item, { key: 'Escape' } );
 		await waitFor( () => expect( screen.queryByRole( 'menu' ) ).not.toBeInTheDocument() );
 		expect( screen.getByRole( 'button', { name: 'Close sidebar' } ) ).toBeInTheDocument();
-		fireEvent.keyDown( screen.getByRole( 'button', { name: 'Test User' } ), { key: 'Escape' } );
+		fireEvent.keyDown( flyout.getByRole( 'button', { name: 'Test User' } ), { key: 'Escape' } );
 		expect( screen.queryByRole( 'button', { name: 'Close sidebar' } ) ).not.toBeInTheDocument();
-		expect( toggle() ).toHaveFocus();
+		await waitFor( () => expect( toggle() ).toHaveFocus() );
 	} );
 
 	it( 'focuses its first item on open and closes after a site pick', async () => {
@@ -143,8 +144,13 @@ describe( 'overlay sidebar', () => {
 			path: '/sites/site-1',
 		} );
 		fireEvent.click( await screen.findByRole( 'button', { name: 'Show sidebar' } ) );
+		await waitFor( () => expect( document.activeElement?.closest( 'aside' ) ).not.toBeNull() );
 		const sidebar = document.activeElement?.closest( 'aside' ) as HTMLElement;
-		expect( sidebar ).toContainElement( screen.getByRole( 'button', { name: 'Test User' } ) );
+		expect( sidebar ).toContainElement(
+			within( screen.getByRole( 'dialog', { name: 'Sidebar' } ) ).getByRole( 'button', {
+				name: 'Test User',
+			} )
+		);
 		fireEvent.click( await within( sidebar ).findByRole( 'button', { name: /^My site/ } ) );
 		expect( screen.queryByRole( 'button', { name: 'Close sidebar' } ) ).not.toBeInTheDocument();
 	} );
@@ -155,7 +161,7 @@ describe( 'overlay sidebar', () => {
 		const { connector } = await setup();
 		act( () => connector.emit( 'onToggleSidebar' ) );
 		expect( screen.getByRole( 'button', { name: 'Close sidebar' } ) ).toBeInTheDocument();
-		expect( document.activeElement?.closest( 'aside' ) ).not.toBeNull();
+		await waitFor( () => expect( document.activeElement?.closest( 'aside' ) ).not.toBeNull() );
 		resize( 1440 );
 		expect( toggle() ).toHaveAccessibleName( 'Show sidebar' );
 		expect( localStorage.getItem( 'studio-ui-sidebar-collapsed' ) ).toBe( 'true' );

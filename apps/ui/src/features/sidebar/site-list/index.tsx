@@ -39,14 +39,16 @@ import type { AiSessionSummary } from '@/data/core';
 import type { ReorderableItemProps } from '@/features/sidebar/reorderable-list';
 
 export function SiteList( {
+	active = true,
 	className,
 	onSiteOpen,
 	reorderable = true,
 	sections = false,
 }: {
 	className?: string;
+	active?: boolean;
 	onSiteOpen?: () => void;
-	/** The collapsed-sidebar switcher renders a read-only order. */
+	/** Whether site and chat rows can be reordered. */
 	reorderable?: boolean;
 	/** The sidebar groups sites, with their chats, and recent chats. */
 	sections?: boolean;
@@ -140,7 +142,7 @@ export function SiteList( {
 	}
 
 	const canCollapseAll = sections && hasSeveralUnfoldedSites( siteRows, chatsBySite, revealed );
-	useProvideCollapseAll( canCollapseAll ? collapseAll : undefined );
+	useProvideCollapseAll( active && canCollapseAll ? collapseAll : undefined );
 
 	if ( ! sections ) {
 		return <div className={ clsx( styles.root, className ) }>{ listContent }</div>;

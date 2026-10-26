@@ -12,6 +12,7 @@ import {
 import {
 	SidebarCollapsedContext,
 	SidebarOpenContext,
+	SidebarHoverContext,
 	SidebarToggleContext,
 } from '@/data/use-sidebar-collapsed';
 import { UserMenu } from '@/features/account';
@@ -19,10 +20,38 @@ import { AppMessageCards, AppMessageHistoryRecorder, AppToasts } from '@/feature
 import { SidebarHeader } from '@/features/sidebar/sidebar-header';
 import { SiteList } from '@/features/sidebar/site-list';
 import { useStoredFlag } from '@/lib/hooks';
-import { ResizeHandle, ResizeOverlay } from '@/lib/ui';
+import { Popover, ResizeHandle, ResizeOverlay } from '@/lib/ui';
 import styles from './style.module.css';
 import { useResizablePanel } from './use-resizable-panel';
 import type { CSSProperties, ReactNode } from 'react';
+
+const HOVER_OPEN_DELAY_MS = 180;
+const HOVER_CLOSE_DELAY_MS = 350;
+
+function SidebarContents( {
+	active,
+	floating = false,
+	onSiteOpen,
+}: {
+	active: boolean;
+	floating?: boolean;
+	onSiteOpen?: () => void;
+} ) {
+	return (
+		<>
+			<SiteList
+				className={ floating ? styles.flyoutList : undefined }
+				sections
+				active={ active }
+				onSiteOpen={ onSiteOpen }
+			/>
+			<div className={ styles.sidebarFooter }>
+				{ active ? <AppMessageCards className={ styles.sidebarCards } /> : null }
+				<UserMenu />
+			</div>
+		</>
+	);
+}
 
 export function SidebarLayout( { children }: { children: ReactNode } ) {
 	const connector = useConnector();
@@ -31,137 +60,209 @@ export function SidebarLayout( { children }: { children: ReactNode } ) {
 		storageKey: SIDEBAR_PANEL_STORAGE_KEY,
 	} );
 	const [ collapsed, setCollapsed ] = useStoredFlag( SIDEBAR_COLLAPSED_STORAGE_KEY, false );
+
+	const [ flyoutState, setFlyoutState ] = useState< 'closed' | 'hover' | 'open' >( 'closed' );
+	const peek = flyoutState === 'hover';
+	const overlayOpen = flyoutState === 'open';
+	const [ instantDock, setInstantDock ] = useState( false );
+	const dockedSidebarRef = useRef< HTMLElement >( null );
+	const flyoutScrollTop = useRef( 0 );
+	useLayoutEffect( () => {
+		if ( ! instantDock ) return;
+		if ( dockedSidebarRef.current ) {
+			dockedSidebarRef.current.scrollTop = flyoutScrollTop.current;
+			dockedSidebarRef.current
+				.querySelector< HTMLElement >( '[data-sidebar-toggle]' )
+				?.focus( { preventScroll: true } );
+		}
+		let secondFrame = 0;
+		const firstFrame = requestAnimationFrame( () => {
+			secondFrame = requestAnimationFrame( () => setInstantDock( false ) );
+		} );
+		return () => {
+			cancelAnimationFrame( firstFrame );
+			cancelAnimationFrame( secondFrame );
+		};
+	}, [ instantDock ] );
+	const hoverBlockedUntil = useRef( 0 );
+	const restoreFlyoutFocus = useRef( false );
+	const flyoutRef = useRef< HTMLElement >( null );
+	const flyoutAnchor = useRef< HTMLDivElement >( null );
+	const hoverTimer = useRef< ReturnType< typeof setTimeout > | undefined >( undefined );
+	const clearHoverTimer = useCallback( () => clearTimeout( hoverTimer.current ), [] );
+	const closeOverlay = useCallback( () => {
+		clearHoverTimer();
+		setFlyoutState( 'closed' );
+	}, [ clearHoverTimer ] );
 	useEffect( () => {
-		const reopen = () => setCollapsed( false );
+		const reopen = () => {
+			closeOverlay();
+			setCollapsed( false );
+		};
 		window.addEventListener( PANEL_WIDTHS_RESET_EVENT, reopen );
 		return () => window.removeEventListener( PANEL_WIDTHS_RESET_EVENT, reopen );
-	}, [ setCollapsed ] );
-	const [ overlayOpen, setOverlayOpen ] = useState( false );
+	}, [ closeOverlay, setCollapsed ] );
 	// When docking the sidebar would leave the content less than the chat and
 	// preview need, it opens over the content instead, closed by default. The
 	// docked state is kept for when the window widens again.
 	const overlay = sidebarResize.viewportWidth - sidebarResize.width < PREVIEW_SPLIT_MIN_WIDTH;
+	useEffect( () => clearHoverTimer, [ overlay, clearHoverTimer ] );
 	const [ wasOverlay, setWasOverlay ] = useState( overlay );
 	if ( wasOverlay !== overlay ) {
 		setWasOverlay( overlay );
-		setOverlayOpen( false );
+		setFlyoutState( 'closed' );
 	}
-	const open = overlay ? overlayOpen : ! collapsed;
-	const docked = ! overlay && open;
+	const docked = ! overlay && ! collapsed;
+	const open = docked || overlayOpen;
+	const hoverEnter = useCallback( () => {
+		clearHoverTimer();
+		if ( ! open && ! peek && performance.now() >= hoverBlockedUntil.current ) {
+			hoverTimer.current = setTimeout( () => {
+				setFlyoutState( 'hover' );
+			}, HOVER_OPEN_DELAY_MS );
+		}
+	}, [ clearHoverTimer, open, peek ] );
+	const hoverLeave = useCallback( () => {
+		clearHoverTimer();
+		if ( peek ) {
+			hoverTimer.current = setTimeout( () => setFlyoutState( 'closed' ), HOVER_CLOSE_DELAY_MS );
+		}
+	}, [ clearHoverTimer, peek ] );
 	const toggleSidebar = useCallback( () => {
+		setInstantDock( peek && ! overlay );
+		if ( peek && ! overlay ) flyoutScrollTop.current = flyoutRef.current?.scrollTop ?? 0;
+		hoverBlockedUntil.current = performance.now() + HOVER_CLOSE_DELAY_MS;
+		clearHoverTimer();
 		if ( overlay ) {
-			setOverlayOpen( ( current ) => ! current );
+			restoreFlyoutFocus.current = ! overlayOpen;
+			setFlyoutState( overlayOpen ? 'closed' : 'open' );
+			if ( peek )
+				flyoutRef.current
+					?.querySelector< HTMLElement >( 'button:not(:disabled)' )
+					?.focus( { preventScroll: true } );
 		} else {
+			setFlyoutState( 'closed' );
 			setCollapsed( ! collapsed );
 		}
-	}, [ overlay, collapsed, setCollapsed ] );
-	const sidebarRef = useRef< HTMLElement >( null );
-	// Escape can close the overlay while focus is still in a menu it opened,
-	// which would hand focus back to the sidebar once it's inert.
-	const closedWithEscape = useRef( false );
-	// The overlay takes focus to its first item, and gives it back to the
-	// sidebar toggle when it closes.
-	useLayoutEffect( () => {
-		const sidebar = sidebarRef.current;
-		if ( overlay && overlayOpen ) {
-			sidebar
-				?.querySelector< HTMLElement >( 'button:not(:disabled)' )
-				?.focus( { preventScroll: true } );
-		} else if (
-			! open &&
-			( closedWithEscape.current || sidebar?.contains( document.activeElement ) )
-		) {
-			closedWithEscape.current = false;
-			const focusToggle = () =>
-				[ ...document.querySelectorAll< HTMLElement >( '[data-sidebar-toggle]' ) ]
-					.find( ( toggle ) => ! toggle.closest( '[inert]' ) )
-					?.focus();
-			focusToggle();
-			// A pick also navigates, which can replace the header holding the toggle.
-			const frame = requestAnimationFrame(
-				() => document.activeElement === document.body && focusToggle()
-			);
-			return () => cancelAnimationFrame( frame );
-		}
-	}, [ overlay, overlayOpen, open ] );
+	}, [ overlay, overlayOpen, collapsed, peek, setCollapsed, clearHoverTimer ] );
+	const findToggle = () =>
+		[ ...document.querySelectorAll< HTMLElement >( '[data-sidebar-toggle]' ) ].find(
+			( toggle ) => ! toggle.closest( '[inert]' )
+		);
 	const sidebarStyle = { '--sidebar-width': `${ sidebarResize.width }px` } as CSSProperties;
 
 	useEffect( () => connector.onToggleSidebar( toggleSidebar ), [ connector, toggleSidebar ] );
-	useEffect( () => {
-		if ( ! overlay || ! overlayOpen ) {
-			return;
-		}
-		const closeOnEscape = ( event: KeyboardEvent ) => {
-			if ( event.key === 'Escape' && ! event.defaultPrevented ) {
-				closedWithEscape.current = true;
-				setOverlayOpen( false );
-			}
-		};
-		window.addEventListener( 'keydown', closeOnEscape );
-		return () => window.removeEventListener( 'keydown', closeOnEscape );
-	}, [ overlay, overlayOpen ] );
 
 	return (
 		<SidebarCollapsedContext.Provider value={ ! docked }>
 			<SidebarOpenContext.Provider value={ open }>
 				<SidebarToggleContext.Provider value={ toggleSidebar }>
-					<div className={ styles.root }>
-						<div
-							className={ clsx(
-								styles.sidebarFrame,
-								overlay && styles.sidebarOverlay,
-								! open && styles.sidebarCollapsed,
-								sidebarResize.isResizing && styles.sidebarResizing
+					<SidebarHoverContext.Provider
+						value={ { peek, onEnter: hoverEnter, onLeave: hoverLeave } }
+					>
+						<div className={ clsx( styles.root, instantDock && styles.instantDock ) }>
+							<div ref={ flyoutAnchor } className={ styles.flyoutAnchor } aria-hidden />
+							{ ! instantDock && (
+								<Popover.Root
+									open={ peek || overlayOpen }
+									onOpenChange={ ( next, details ) => {
+										if (
+											details.reason === 'escape-key' &&
+											flyoutRef.current?.querySelector( '[data-selected]' )
+										) {
+											details.cancel();
+											return;
+										}
+										const target = details.event.target;
+										if ( target instanceof Element && target.closest( '[data-sidebar-toggle]' ) ) {
+											details.cancel();
+											return;
+										}
+										if ( ! next ) closeOverlay();
+									} }
+								>
+									<Popover.Popup
+										anchor={ flyoutAnchor }
+										side="bottom"
+										align="start"
+										sideOffset={ 8 }
+										alignOffset={ 8 }
+										initialFocus={ () =>
+											overlayOpen
+												? flyoutRef.current?.querySelector< HTMLElement >(
+														'button:not(:disabled)'
+												  ) ?? false
+												: false
+										}
+										finalFocus={ () => {
+											if ( ! restoreFlyoutFocus.current ) return false;
+											restoreFlyoutFocus.current = false;
+											return findToggle() ?? false;
+										} }
+										aria-label={ __( 'Sidebar' ) }
+										className={ styles.flyout }
+										style={ sidebarStyle }
+									>
+										<aside
+											className={ styles.flyoutContents }
+											ref={ flyoutRef }
+											onPointerEnter={ clearHoverTimer }
+											onPointerLeave={ hoverLeave }
+										>
+											<SidebarContents active floating onSiteOpen={ closeOverlay } />
+										</aside>
+									</Popover.Popup>
+								</Popover.Root>
 							) }
-							style={ sidebarStyle }
-							inert={ ! open }
-						>
-							<aside ref={ sidebarRef } className={ styles.sidebar }>
-								{ overlay ? null : <SidebarHeader /> }
-								<SiteList
-									sections
-									onSiteOpen={ overlay ? () => setOverlayOpen( false ) : undefined }
+							<div
+								className={ clsx(
+									styles.sidebarFrame,
+									! docked && styles.sidebarCollapsed,
+									sidebarResize.isResizing && styles.sidebarResizing
+								) }
+								style={ sidebarStyle }
+								inert={ ! docked }
+							>
+								<aside ref={ dockedSidebarRef } className={ styles.sidebar }>
+									<SidebarHeader />
+									<SidebarContents active={ docked } />
+								</aside>
+							</div>
+							{ flyoutState !== 'closed' ? (
+								<button
+									type="button"
+									className={ styles.overlayBackdrop }
+									aria-label={ __( 'Close sidebar' ) }
+									tabIndex={ -1 }
+									onClick={ closeOverlay }
 								/>
-								<div className={ styles.sidebarFooter }>
-									{ open ? <AppMessageCards className={ styles.sidebarCards } /> : null }
-									<UserMenu />
-								</div>
-							</aside>
+							) : null }
+							{ docked ? (
+								<ResizeHandle
+									className={ styles.resizeHandle }
+									label={ __( 'Resize sidebar' ) }
+									minWidth={ sidebarResize.minWidth }
+									maxWidth={ sidebarResize.maxWidth }
+									width={ sidebarResize.width }
+									onResizeStart={ sidebarResize.handleResizeStart }
+									onKeyDown={ sidebarResize.handleKeyDown }
+									onReset={ sidebarResize.resetWidth }
+								/>
+							) : null }
+							<main
+								className={ clsx(
+									styles.main,
+									'studio-column-edge',
+									! docked && styles.mainUndocked
+								) }
+							>
+								{ children }
+							</main>
+							{ sidebarResize.isResizing ? <ResizeOverlay /> : null }
+							<AppToasts />
+							<AppMessageHistoryRecorder />
 						</div>
-						{ overlay && overlayOpen ? (
-							<button
-								type="button"
-								className={ styles.overlayBackdrop }
-								aria-label={ __( 'Close sidebar' ) }
-								tabIndex={ -1 }
-								onClick={ () => setOverlayOpen( false ) }
-							/>
-						) : null }
-						{ docked ? (
-							<ResizeHandle
-								className={ styles.resizeHandle }
-								label={ __( 'Resize sidebar' ) }
-								minWidth={ sidebarResize.minWidth }
-								maxWidth={ sidebarResize.maxWidth }
-								width={ sidebarResize.width }
-								onResizeStart={ sidebarResize.handleResizeStart }
-								onKeyDown={ sidebarResize.handleKeyDown }
-								onReset={ sidebarResize.resetWidth }
-							/>
-						) : null }
-						<main
-							className={ clsx(
-								styles.main,
-								'studio-column-edge',
-								! docked && styles.mainUndocked
-							) }
-						>
-							{ children }
-						</main>
-						{ sidebarResize.isResizing ? <ResizeOverlay /> : null }
-						<AppToasts />
-						<AppMessageHistoryRecorder />
-					</div>
+					</SidebarHoverContext.Provider>
 				</SidebarToggleContext.Provider>
 			</SidebarOpenContext.Provider>
 		</SidebarCollapsedContext.Provider>

@@ -73,7 +73,7 @@
 
 /* The sidebar's edge below the band, in its own last column. It slides out
    with the frame, which clips it once collapsed. */
-.sidebarFrame:not( .sidebarOverlay )::after {
+.sidebarFrame::after {
 	content: '';
 	position: absolute;
 	z-index: 2;
@@ -87,20 +87,6 @@
 
 .sidebarCollapsed {
 	width: 0;
-}
-
-/* On a small window the sidebar opens over the content, under the header band
-   that keeps its toggle, instead of taking the content's width. */
-.sidebarOverlay {
-	position: absolute;
-	top: var( --band-height );
-	bottom: 0;
-	inset-inline-start: 0;
-	z-index: var( --z-sidebar );
-}
-
-.sidebarOverlay .sidebar {
-	border-inline-end: 1px solid var( --border );
 }
 
 /* Clicking anywhere else closes the overlay. */
@@ -156,4 +142,62 @@
 
 .sidebarCards {
 	padding: 0 var( --space-2 ) var( --space-2 );
+}
+
+.flyoutAnchor {
+	position: absolute;
+	inset-block-start: 0;
+	inset-inline: 0;
+	height: var( --band-height );
+	pointer-events: none;
+}
+
+.flyout {
+	--studio-sidebar-bg: var( --popover );
+	width: var( --sidebar-width );
+	max-width: calc( 100vw - 16px );
+	overflow: hidden;
+}
+
+.flyoutContents {
+	display: flex;
+	flex-direction: column;
+	max-height: calc( 100dvh - var( --band-height ) - 16px );
+	overflow-y: auto;
+	scrollbar-width: none;
+	-webkit-app-region: no-drag;
+}
+
+.flyoutContents .flyoutList {
+	padding-block-start: var( --space-1 );
+}
+
+@media ( prefers-reduced-motion: no-preference ) {
+	.flyout {
+		transition-property: translate, opacity;
+		transition-duration: var( --motion-duration-layout );
+		transition-timing-function: var( --motion-ease-layout );
+	}
+
+	.flyout[data-starting-style],
+	.flyout[data-ending-style] {
+		scale: 1;
+		translate: calc( -100% - 8px ) 0;
+	}
+
+	.flyout:dir( rtl )[data-starting-style],
+	.flyout:dir( rtl )[data-ending-style] {
+		translate: calc( 100% + 8px ) 0;
+	}
+}
+
+.instantDock {
+	--motion-duration-layout: 0ms;
+}
+
+.instantDock .sidebarFrame,
+.instantDock .sidebar,
+.instantDock .main::before,
+.instantDock [data-sidebar-header-slot] {
+	transition: none;
 }

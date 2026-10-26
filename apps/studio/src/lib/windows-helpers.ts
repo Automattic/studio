@@ -56,7 +56,6 @@ export async function promptWindowsSpeedUpSites( {
 
 	switch ( response ) {
 		case buttons.indexOf( AUTOMATIC_UPDATE ):
-			// Update Windows Defender configuration
 			await updateAppdata( {
 				promptWindowsSpeedUpResult: {
 					response: 'yes',
@@ -78,7 +77,6 @@ export async function promptWindowsSpeedUpSites( {
 			}
 			break;
 		case buttons.indexOf( NOT_INTERESTED ):
-			// Skip it, user is not interested
 			await updateAppdata( {
 				promptWindowsSpeedUpResult: {
 					response: 'no',

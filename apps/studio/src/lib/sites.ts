@@ -45,8 +45,6 @@ export async function forgetSite( id: string ): Promise< void > {
 
 /**
  * Stop all running sites using the CLI `site stop --all` command.
- *
- * @param timeoutAfterMs Optional timeout in milliseconds.
  */
 export async function stopAllServers( timeoutAfterMs?: number ) {
 	let timeoutId: NodeJS.Timeout | undefined;

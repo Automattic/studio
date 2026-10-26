@@ -49,7 +49,10 @@ describe( 'fetchStudioBlueprints', () => {
 
 		await fetchStudioBlueprints( 'fr_FR' );
 
-		expect( globalThis.fetch ).toHaveBeenCalledWith( expect.stringContaining( '?locale=fr_FR' ) );
+		expect( globalThis.fetch ).toHaveBeenCalledWith(
+			expect.stringContaining( '?locale=fr_FR' ),
+			expect.anything()
+		);
 	} );
 
 	it( 'should not include locale param when not provided', async () => {

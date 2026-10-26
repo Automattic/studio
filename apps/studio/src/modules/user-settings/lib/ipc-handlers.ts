@@ -62,10 +62,6 @@ export async function getDefaultSiteDirectory(): Promise< string > {
 	return readDefaultSiteDirectory( defaultSitePath );
 }
 
-export async function getAgenticFeaturesEnabled(): Promise< boolean > {
-	return ( await loadUserData() ).agenticFeaturesEnabled !== false;
-}
-
 export async function saveWapuuScore( _event: IpcMainInvokeEvent, score: number ): Promise< void > {
 	if ( ! Number.isFinite( score ) || score < 0 || score > 100_000 ) {
 		return;

@@ -191,6 +191,28 @@ describe( 'reply checks', () => {
 				reply( '- abc123-studio.wp.build and myprod.wordpress.com are previews' )
 			).pass
 		).toBe( false );
+		const sections =
+			'## 1. Temporary PREVIEW site\n\n| Field | Value |\n|---|---|\n| **Type** | Preview (temporary) |\n| URL | `https://abc123-studio.wp.build` |\n\n' +
+			'## 2. Connected WordPress.com site\n\n| Field | Value |\n|---|---|\n| Name | My Production Site |\n| URL | myprod.wordpress.com |\n\nUnlike the preview above, it is durable.';
+		expect( run( checks.classifiesPreviewAndRemote, reply( sections ) ).pass ).toBe( true );
+		expect(
+			run(
+				checks.classifiesPreviewAndRemote,
+				reply(
+					sections
+						.replace( 'Temporary PREVIEW', 'Durable' )
+						.replace( 'Preview (temporary)', 'Site' )
+				)
+			).pass
+		).toBe( false );
+		expect(
+			run(
+				checks.classifiesPreviewAndRemote,
+				reply(
+					'## Related sites\n\n| Site | Kind |\n|---|---|\n| abc123-studio.wp.build | WordPress.com site |\n| myprod.wordpress.com | temporary preview |'
+				)
+			).pass
+		).toBe( false );
 	} );
 
 	test( 'pushNotRunAndAsks', () => {

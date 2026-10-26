@@ -296,26 +296,66 @@ describe( 'site checks', () => {
 		);
 	} );
 
-	test( 'ownThemeWithFontsAndScreenshot', () => {
+	describe( 'ownThemeWithFontsAndScreenshot', () => {
+		const fonts = ( file ) =>
+			JSON.stringify( {
+				settings: {
+					typography: { fontFamilies: [ { fontFace: [ { src: [ `file:./${ file }` ] } ] } ] },
+				},
+			} );
+		const font = 'assets/fonts/inter.woff2';
 		const site = {
 			...workingSite,
 			theme: { stylesheet: 'eval-theme' },
-			themeFiles: {
-				'theme.json': '{"src":["file:./assets/fonts/inter.woff2"]}',
-			},
-			themeFileList: [ 'assets/fonts/inter.woff2' ],
+			themeFiles: { 'theme.json': fonts( font ) },
+			themeFileList: [ font ],
 			themeScreenshot: 'png:1200x900',
 		};
-		expect( run( checks.ownThemeWithFontsAndScreenshot, outcome( site ) ).pass ).toBe( true );
-		expect(
-			run(
-				checks.ownThemeWithFontsAndScreenshot,
-				outcome( { ...site, theme: { stylesheet: 'twentytwentyfive' } } )
-			).pass
-		).toBe( false );
-		expect(
-			run( checks.ownThemeWithFontsAndScreenshot, outcome( { ...site, themeFileList: [] } ) ).pass
-		).toBe( false );
+		// A child theme of raft with no theme.json of its own, as run 48's was.
+		const child = {
+			...site,
+			theme: { stylesheet: 'raft-child', template: 'raft' },
+			themeFiles: {},
+			themeFileList: [],
+			parentThemeJson: fonts( font ),
+			parentThemeFileList: [ font ],
+		};
+		test.each( [
+			[ 'its own theme with its fonts', site, true ],
+			[
+				'its own theme with a twentytwenty name',
+				{ ...site, theme: { stylesheet: 'twentytwenty-bakery' } },
+				true,
+			],
+			[
+				'a theme from WordPress.org',
+				{ ...site, theme: { stylesheet: 'raft' }, themeChanges: [] },
+				false,
+			],
+			[ 'a font file the theme does not have', { ...site, themeFileList: [] }, false ],
+			[
+				'a font outside fontFamilies',
+				{ ...site, themeFiles: { 'theme.json': `{"src":["file:./${ font }"]}` } },
+				false,
+			],
+			[ "a child theme with its parent's fonts", child, true ],
+			// WordPress serves a child's file:./ source from the parent when the child lacks it.
+			[
+				'a child declaring fonts its parent ships',
+				{ ...child, themeFiles: { 'theme.json': fonts( font ) } },
+				true,
+			],
+			[
+				'a child declaring fonts no theme ships',
+				{ ...child, themeFiles: { 'theme.json': fonts( 'other.woff2' ) } },
+				false,
+			],
+			[ 'a child of a parent without fonts', { ...child, parentThemeJson: '{}' }, false ],
+		] )( '%s', ( _name, value, expected ) => {
+			expect( run( checks.ownThemeWithFontsAndScreenshot, outcome( value ) ).pass ).toBe(
+				expected
+			);
+		} );
 	} );
 
 	test( 'navAnchorsWorkEverywhere', () => {

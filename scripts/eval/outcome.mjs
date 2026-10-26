@@ -316,14 +316,33 @@ export const builtFromDesign = check( ( d, vars ) => {
 	);
 } );
 
+// The font families a theme.json declares, or undefined.
+function fontFamilies( themeJson ) {
+	try {
+		return JSON.parse( themeJson ).settings?.typography?.fontFamilies;
+	} catch {
+		return undefined;
+	}
+}
+
 // The active theme is a new theme, with self-hosted fonts and a real screenshot.
 export const ownThemeWithFontsAndScreenshot = check( ( d, vars ) => {
 	const s = site( d, vars );
-	if ( /^twentytwenty/.test( s.theme.stylesheet ) )
+	// A theme from WordPress.org is one with a release to compare with, whatever its name.
+	if ( Array.isArray( s.themeChanges ) )
 		return fail( `the site still runs ${ s.theme.stylesheet }` );
-	const themeJson = s.themeFiles?.[ 'theme.json' ] || '';
-	const fontSources = [ ...themeJson.matchAll( /"file:\.\/([^"]+)"/g ) ].map( ( m ) => m[ 1 ] );
-	const missing = fontSources.filter( ( f ) => ! s.themeFileList.includes( f ) );
+	// A child theme's theme.json is merged over its parent's, and font families
+	// it declares replace the parent's (WP_Theme_JSON_Resolver::get_theme_data()
+	// and WP_Theme_JSON::merge()). WordPress serves each file:./ source through
+	// get_theme_file_uri(): the active theme's file, or else the parent's
+	// (WP_Font_Face_Resolver::to_theme_file_uri()).
+	const own = fontFamilies( s.themeFiles?.[ 'theme.json' ] );
+	const parent = own ? undefined : fontFamilies( s.parentThemeJson );
+	const fileList = [ ...( s.themeFileList ?? [] ), ...( s.parentThemeFileList ?? [] ) ];
+	const fontSources = [
+		...JSON.stringify( own ?? parent ?? [] ).matchAll( /"file:\.\/([^"]+)"/g ),
+	].map( ( m ) => m[ 1 ] );
+	const missing = fontSources.filter( ( f ) => ! fileList.includes( f ) );
 	if ( ! fontSources.length ) return fail( 'theme.json loads no self-hosted fonts' );
 	if ( missing.length )
 		return fail( `theme.json fonts missing from the theme: ${ missing.join( ', ' ) }` );
@@ -331,7 +350,9 @@ export const ownThemeWithFontsAndScreenshot = check( ( d, vars ) => {
 		return fail( `theme screenshot is ${ s.themeScreenshot ?? 'missing' }` );
 	}
 	return pass(
-		`theme ${ s.theme.stylesheet }: ${ fontSources.length } self-hosted font file(s), screenshot ${ s.themeScreenshot }`
+		`theme ${ s.theme.stylesheet }: ${ fontSources.length } self-hosted font file(s)${
+			parent ? ` of ${ s.theme.template }` : ''
+		}, screenshot ${ s.themeScreenshot }`
 	);
 } );
 

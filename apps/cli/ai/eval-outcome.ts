@@ -266,11 +266,11 @@ async function captureSiteOutcome(
 		// Files changed from the WordPress.org release (null for themes not from there).
 		outcome.themeChanges = await changedFromRelease( themeDir, stylesheet, stylesheetVersion );
 		if ( template !== stylesheet ) {
-			outcome.parentThemeChanges = await changedFromRelease(
-				path.join( themes, template ),
-				template,
-				templateVersion
-			);
+			const parentDir = path.join( themes, template );
+			outcome.parentThemeChanges = await changedFromRelease( parentDir, template, templateVersion );
+			// The parent's theme.json, which the child's is merged over.
+			outcome.parentThemeJson = readThemeText( parentDir )[ 'theme.json' ];
+			outcome.parentThemeFileList = Object.keys( hashFiles( parentDir ) ).sort();
 		}
 		const designPath = path.join( sitePath, 'DESIGN.md' );
 		outcome.designMd = existsSync( designPath ) ? readFileSync( designPath, 'utf8' ) : null;

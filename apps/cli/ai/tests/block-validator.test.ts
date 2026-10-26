@@ -3,6 +3,7 @@ import path from 'path';
 import { afterAll, describe, expect, it } from 'vitest';
 import {
 	bindNavigationLinks,
+	blocksSavingElements,
 	cleanupValidatorPages,
 	dropCommentsBetweenBlocks,
 	insertedTemplates,
@@ -24,6 +25,27 @@ const paragraph = ( attrs: string, html: string ) =>
 
 describe.runIf( siteUrl )( 'validating in the block editor (live)', () => {
 	afterAll( cleanupValidatorPages );
+
+	it( 'names the blocks whose save makes each element, sorted', async () => {
+		const saving = await blocksSavingElements(
+			'<div class="faq"><details><summary>Hours?</summary><p>9 to 5.</p></details></div>',
+			siteUrl!
+		);
+		expect( saving.map( ( { element } ) => element ) ).toEqual( [
+			'div',
+			'details',
+			'summary',
+			'p',
+		] );
+		const blocks = Object.fromEntries(
+			saving.map( ( { element, blocks } ) => [ element, blocks ] )
+		);
+		expect( blocks.details ).toEqual( [ 'core/details' ] );
+		expect( blocks.summary ).toEqual( [] );
+		expect( blocks.p ).toContain( 'core/paragraph' );
+		expect( blocks.div ).toEqual( expect.arrayContaining( [ 'core/columns', 'core/group' ] ) );
+		expect( blocks.div ).toEqual( [ ...blocks.div ].sort() );
+	}, 60_000 );
 
 	it.each( [
 		{

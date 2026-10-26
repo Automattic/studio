@@ -33,7 +33,7 @@ describe( 'HTML block content policy', () => {
 		);
 
 		expect( issues ).toHaveLength( 1 );
-		expect( issues[ 0 ] ).toContain( 'should use editable core blocks' );
+		expect( issues[ 0 ] ).toContain( 'should use editable blocks' );
 	} );
 
 	it( 'returns invalid core/html blocks from full block content', () => {

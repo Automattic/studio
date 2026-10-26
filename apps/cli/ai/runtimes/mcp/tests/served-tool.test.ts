@@ -12,6 +12,28 @@ import { defineTool, LOCAL_CHANGE, READ_ONLY } from 'cli/ai/tools/define-tool';
 // The fixture is a site's files and database, not a WordPress install, so the
 // checks that ask WordPress (wp-cli) find nothing to report, as they do when a
 // site's PHP cannot run.
+// The site's block editor finds the content's blocks valid.
+vi.mock( 'cli/ai/block-validator', async () => ( {
+	validateBlocks: vi.fn( async () => ( {
+		totalBlocks: 1,
+		validBlocks: 1,
+		invalidBlocks: 0,
+		results: [],
+	} ) ),
+	storePresetValues: vi.fn( async ( content: string ) => ( {
+		content,
+		colors: [],
+		fontSizes: [],
+		spacingSizes: [],
+	} ) ),
+	bindNavigationLinks: vi.fn( async ( content: string ) => ( { content, links: [] } ) ),
+	dropCommentsBetweenBlocks: vi.fn( async ( content: string ) => ( { content, comments: 0 } ) ),
+	insertedTemplates: vi.fn( async () => [] ),
+	blocksSavingElements: vi.fn( async () => [] ),
+	blockNames: (
+		await vi.importActual< typeof import('cli/ai/block-validator') >( 'cli/ai/block-validator' )
+	).blockNames,
+} ) );
 vi.mock( 'cli/lib/run-wp-cli-command', () => ( {
 	runWpCliCommand: vi.fn( async () => {
 		throw new Error( 'No WordPress to run.' );
@@ -97,7 +119,7 @@ it( 'reports the block validation of post content the call changed, on any site'
 	expect( result.content.map( ( part ) => ( part.type === 'text' ? part.text : '' ) ) ).toEqual( [
 		'Success: Updated post 9.',
 		expect.stringMatching(
-			/^<studio-notes>\nBlock validation: Bakery page 9 "": core\/html policy failed\nBakery page 9 "": 1 core\/html block\(s\) must become editable blocks/
+			/^<studio-notes>\nBlock validation: Bakery page 9 "": 1\/1 blocks valid; core\/html policy failed\nBakery page 9 "": 1 core\/html block\(s\) must become editable blocks/
 		),
 	] );
 
@@ -119,7 +141,7 @@ it( 'reports the block validation of post content the call changed, on any site'
 	const failed = await runServedTool( failing, {}, createSiteNotes(), new SiteChanges() );
 	expect( failed.isError ).toBe( true );
 	expect( JSON.stringify( failed.content ) ).toMatch(
-		/Command exited with code 1\\n<studio-notes>\\nBlock validation: Bakery page 9 \\"\\": core\/html policy failed/
+		/Command exited with code 1\\n<studio-notes>\\nBlock validation: Bakery page 9 \\"\\": 1\/1 blocks valid; core\/html policy failed/
 	);
 } );
 
@@ -156,7 +178,7 @@ it( 'reports on the next call what the client changed between calls, by its own 
 	writeFileSync( template, '<!-- wp:paragraph --><p>Hi</p><!-- /wp:paragraph -->' );
 
 	expect( ( await call() )[ 1 ] ).toMatch(
-		/^<studio-notes>\nBlock validation: Bakery page 9 "": core\/html policy failed\n/
+		/^<studio-notes>\nBlock validation: Bakery page 9 "": 1\/1 blocks valid; core\/html policy failed\n/
 	);
 	expect( tracked ).toEqual( [ template ] );
 	expect( await call() ).toEqual( [ 'Bakery' ] );

@@ -19,6 +19,7 @@ vi.mock( 'cli/ai/block-validator', async () => ( {
 	bindNavigationLinks: vi.fn( async ( content: string ) => ( { content, links: [] } ) ),
 	dropCommentsBetweenBlocks: vi.fn( async ( content: string ) => ( { content, comments: 0 } ) ),
 	insertedTemplates: vi.fn( async () => [] ),
+	blocksSavingElements: vi.fn( async () => [] ),
 	blockNames: (
 		await vi.importActual< typeof import('cli/ai/block-validator') >( 'cli/ai/block-validator' )
 	).blockNames,
@@ -127,7 +128,8 @@ describe( 'post content changes', () => {
 		fixture.edit( 9, HTML_ONLY );
 		const { problems } = await check.settle();
 		expect( problems.join( '\n' ) ).toContain( '1 core/html block(s) must become editable blocks' );
-		expect( validateBlocks ).not.toHaveBeenCalled();
+		// The editor still validates the rest.
+		expect( validateBlocks ).toHaveBeenCalled();
 	} );
 
 	it( 'saves a lossless editor fix to the post, and compares the post from it', async () => {

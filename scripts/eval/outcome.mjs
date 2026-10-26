@@ -383,30 +383,35 @@ export const storeHasProducts = check( ( d, vars ) => {
 
 // The design lives in a child theme of vars.parentTheme, the parent is still
 // its WordPress.org release, and headings use a serif face.
+// Both places WordPress keeps a customization through the theme's updates: a
+// child theme, or the Site Editor's Global Styles (the wp_global_styles post).
 export const customizedThroughChildTheme = check( ( d, vars ) => {
 	const s = site( d, vars );
-	if ( s.theme.template !== vars.parentTheme || s.theme.stylesheet === vars.parentTheme ) {
+	const child = s.theme.template === vars.parentTheme && s.theme.stylesheet !== vars.parentTheme;
+	if ( ! child && s.theme.stylesheet !== vars.parentTheme ) {
 		return fail(
-			`active theme is ${ s.theme.stylesheet } (template ${ s.theme.template }), not a child of ${ vars.parentTheme }`
+			`active theme is ${ s.theme.stylesheet } (template ${ s.theme.template }), not ${ vars.parentTheme } or a child of it`
 		);
 	}
-	if ( s.parentThemeChanges === null || s.parentThemeChanges === undefined )
+	const parentChanges = child ? s.parentThemeChanges : s.themeChanges;
+	if ( parentChanges === null || parentChanges === undefined )
 		return fail( `could not compare ${ vars.parentTheme } with its release` );
-	if ( s.parentThemeChanges.length )
+	if ( parentChanges.length )
 		return fail(
-			`${ vars.parentTheme } differs from its release: ${ s.parentThemeChanges
+			`${ vars.parentTheme } differs from its release: ${ parentChanges
 				.slice( 0, 5 )
 				.join( ', ' ) }`
 		);
-	const heading =
-		JSON.stringify( s.mergedStyles?.elements?.heading ?? {} ) +
-		JSON.stringify( s.userGlobalStyles?.styles?.elements?.heading ?? {} );
+	// The released theme sets its own heading font, so on it only the user's
+	// Global Styles show the customization.
+	const user = JSON.stringify( s.userGlobalStyles?.styles?.elements?.heading ?? {} );
+	const heading = child ? JSON.stringify( s.mergedStyles?.elements?.heading ?? {} ) + user : user;
 	if ( ! /fontFamily/.test( heading ) )
-		return fail( 'no heading font family in the merged styles' );
+		return fail( `no heading font family in the ${ child ? 'merged styles' : 'Global Styles' }` );
 	return pass(
-		`child theme ${ s.theme.stylesheet }; ${ vars.parentTheme } untouched; heading font ${
-			heading.match( /"fontFamily":"([^"]+)"/ )?.[ 1 ]
-		}`
+		`${ child ? `child theme ${ s.theme.stylesheet }` : 'Global Styles' }; ${
+			vars.parentTheme
+		} untouched; heading font ${ heading.match( /"fontFamily":"([^"]+)"/ )?.[ 1 ] }`
 	);
 } );
 

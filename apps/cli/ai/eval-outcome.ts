@@ -42,7 +42,9 @@ export interface SiteFingerprint {
 }
 
 // The newest modification time under a site's database and wp-content, which
-// moves whenever the site is changed.
+// moves whenever the site is changed. A read of the SQLite database moves its
+// -shm file, the WAL index, which holds none of the site
+// (https://sqlite.org/walformat.html).
 function newestMtime( dir: string, depth = 6 ): number {
 	let newest = 0;
 	const walk = ( current: string, level: number ) => {
@@ -53,7 +55,8 @@ function newestMtime( dir: string, depth = 6 ): number {
 			return;
 		}
 		for ( const entry of entries ) {
-			if ( entry.name === 'node_modules' || entry.name === 'cache' ) continue;
+			if ( [ 'node_modules', 'cache' ].includes( entry.name ) || entry.name.endsWith( '-shm' ) )
+				continue;
 			const full = path.join( current, entry.name );
 			try {
 				newest = Math.max( newest, statSync( full ).mtimeMs );
@@ -291,10 +294,14 @@ async function captureSiteOutcome(
 				} );
 			}
 		}
+		// A file as its WordPress.org release ships it is the theme author's, and
+		// may hold blocks of a plugin the site does not run.
+		const released = ( file: string ) =>
+			Array.isArray( outcome.themeChanges ) && ! outcome.themeChanges.includes( file );
 		for ( const [ file, text ] of Object.entries(
 			outcome.themeFiles as Record< string, string >
 		) ) {
-			if ( ! /^(templates|parts)\/.+\.html$/.test( file ) ) continue;
+			if ( ! /^(templates|parts)\/.+\.html$/.test( file ) || released( file ) ) continue;
 			const report = await validateBlocks( text, url );
 			if ( report.invalidBlocks > 0 ) {
 				invalid.push( {

@@ -258,9 +258,9 @@ tests:
         value: file://outcome.mjs:otherSitesUntouched
 
   # Regression (STU-2017): edits to an installed theme are lost on its next
-  # update. The parent must still match its WordPress.org release, and the
-  # active child theme carries the heading font.
-  - description: customizing an installed theme leaves it as released and works through a child theme
+  # update. The theme must still match its WordPress.org release, and the
+  # heading font lives where an update keeps it: a child theme, or Global Styles.
+  - description: customizing an installed theme leaves it as released and works through a child theme or Global Styles
     vars:
       caseId: child-theme-for-installed-theme
       siteName: "Eval Child Theme Site"

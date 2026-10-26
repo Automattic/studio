@@ -11,7 +11,7 @@
  * compared with.
  */
 import { createHash } from 'crypto';
-import { existsSync } from 'fs';
+import { existsSync, readdirSync, readFileSync } from 'fs';
 import { readdir, readFile, stat } from 'fs/promises';
 import path from 'path';
 import { isUpdatableTheme, readThemeVersion } from 'cli/ai/themes';
@@ -58,10 +58,47 @@ export function updatableThemeChangeHome( themeDir: string, slug: string, file: 
 			? `the site's Global Styles for ${ slug }, as the Site Editor's Styles panel saves them: the wp_global_styles post whose JSON WordPress merges over the theme's theme.json, with CSS in its styles.css (WP_Theme_JSON_Resolver::get_user_global_styles_post_id() and get_merged_data() in wp-includes/class-wp-theme-json-resolver.php)`
 			: `the site's Additional CSS, as the Customizer saves it (wp_update_custom_css_post() in wp-includes/theme.php)`;
 	}
+	const template = ( which: string ) =>
+		`a template saved for ${ slug }, as the Site Editor saves one it customizes: a wp_template or wp_template_part post with the wp_theme term ${ slug }${ which }, which WordPress serves in place of the theme's file (get_block_templates() in wp-includes/block-template-utils.php)`;
 	if ( blockTheme && /^(templates|parts)\/[^/]+\.html$/.test( file ) ) {
-		return `a template saved for ${ slug }, as the Site Editor saves one it customizes: a wp_template or wp_template_part post with the wp_theme term ${ slug }, which WordPress serves in place of the theme's file (get_block_templates() in wp-includes/block-template-utils.php)`;
+		return template( '' );
+	}
+	const usedBy = blockTheme ? templatesUsingPattern( themeDir, file ) : [];
+	if ( usedBy.length ) {
+		return template(
+			` for ${ usedBy.join( ', ' ) }, which ${
+				usedBy.length === 1 ? 'shows' : 'show'
+			} this pattern through a Pattern block; the saved one holds the pattern's blocks in its place (render_block_core_pattern() in wp-includes/blocks/pattern.php)`
+		);
 	}
 	return `a child theme of ${ slug }, whose style.css names \`Template: ${ slug }\`; it takes effect once the site switches to it, which is the user's choice of theme`;
+}
+
+// The theme's templates and parts that show a pattern of its own, by the
+// pattern's Slug header (as _register_theme_block_patterns() reads it, in
+// wp-includes/block-patterns.php).
+function templatesUsingPattern( themeDir: string, file: string ): string[] {
+	const pattern = path.join( themeDir, file );
+	if ( ! /^patterns\/[^/]+\.php$/.test( file ) || ! existsSync( pattern ) ) {
+		return [];
+	}
+	const source = readFileSync( pattern, 'utf8' );
+	const patternSlug = source.match( /^[ \t/*#@]*Slug:(.*)$/m )?.[ 1 ].trim();
+	if ( ! patternSlug ) {
+		return [];
+	}
+	const block = new RegExp(
+		`<!--\\s+wp:pattern\\s+\\{[^}]*"slug":"${ patternSlug.replace(
+			/[.*+?^${}()|[\]\\/]/g,
+			'\\$&'
+		) }"`
+	);
+	return [ 'templates', 'parts' ].flatMap( ( dir ) =>
+		( existsSync( path.join( themeDir, dir ) ) ? readdirSync( path.join( themeDir, dir ) ) : [] )
+			.filter( ( name ) => name.endsWith( '.html' ) )
+			.map( ( name ) => `${ dir }/${ name }` )
+			.filter( ( name ) => block.test( readFileSync( path.join( themeDir, name ), 'utf8' ) ) )
+	);
 }
 
 function problem( themeDir: string, slug: string, files: string[] ): string {

@@ -80,6 +80,38 @@ describe( 'updatable theme file changes', () => {
 		);
 	} );
 
+	it( "keeps a pattern a block theme's templates show in the templates saved for it", () => {
+		// As Twenty Twenty-Five's parts/header.html shows its header pattern.
+		write(
+			'twentytwentyfive/patterns/header.php',
+			'<?php\n/**\n * Title: Header\n * Slug: twentytwentyfive/header\n */\n?><!-- wp:group /-->'
+		);
+		write(
+			'twentytwentyfive/parts/header.html',
+			'<!-- wp:pattern {"slug":"twentytwentyfive/header"} /-->'
+		);
+		write(
+			'twentytwentyfive/parts/footer.html',
+			'<!-- wp:pattern {"slug":"twentytwentyfive/footer"} /-->'
+		);
+		write(
+			'twentytwentyfive/templates/page-wide.html',
+			'<!-- wp:pattern {"slug":"twentytwentyfive/header"} /--><!-- wp:post-content /-->'
+		);
+		const dir = path.join( fixture.root, 'wp-content/themes/twentytwentyfive' );
+		expect( updatableThemeChangeHome( dir, 'twentytwentyfive', 'patterns/header.php' ) ).toContain(
+			'with the wp_theme term twentytwentyfive for templates/page-wide.html, parts/header.html, which show this pattern through a Pattern block'
+		);
+		// A pattern only the inserter offers has no template to save.
+		write(
+			'twentytwentyfive/patterns/hero.php',
+			'<?php\n/**\n * Slug: twentytwentyfive/hero\n */'
+		);
+		expect( updatableThemeChangeHome( dir, 'twentytwentyfive', 'patterns/hero.php' ) ).toMatch(
+			/^a child theme of twentytwentyfive/
+		);
+	} );
+
 	it.each( [
 		{ file: 'style.css', home: "the site's Additional CSS" },
 		{ file: 'header.php', home: 'a child theme of classic' },

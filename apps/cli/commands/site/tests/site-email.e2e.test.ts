@@ -3,7 +3,8 @@
  *
  * Email a site sends is saved, unchanged, as an `.eml` file in that site's email
  * folder, whether a page request sends it (WordPress's lost-password form) or WP-CLI
- * does. `site status` names the folder, and deleting the site removes it.
+ * does. `site status` names the folder, and deleting the site removes it. An email
+ * that can't be saved makes `wp_mail()` fail instead of vanishing.
  *
  * Needs the CLI built first (skips otherwise). Tagged `e2e`:
  * `npm test -- --tagsFilter='e2e'`.
@@ -131,6 +132,37 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: site email', () => {
 				html: true,
 				attachment: true,
 			} );
+		}
+	);
+
+	it(
+		'makes wp_mail fail, with the reason on stderr, when the email cannot be saved',
+		{ tags: [ 'e2e' ], timeout: 120_000 },
+		async () => {
+			const { directory } = await emailOf( sitePath );
+			const saved = `${ directory }-saved`;
+			fs.renameSync( directory, saved );
+			// A file where the folder should be: no platform can save the email there.
+			fs.writeFileSync( directory, '' );
+			try {
+				const sent = await runCli(
+					[
+						'wp',
+						'--path',
+						sitePath,
+						'eval',
+						"echo wp_mail( 'a@example.com', 'Lost', 'x' ) ? 'SENT' : 'FAILED';",
+					],
+					env!
+				);
+				expect( {
+					stdout: sent.stdout.trim(),
+					stderr: sent.stderr.includes( 'Studio could not save the email' ),
+				} ).toEqual( { stdout: 'FAILED', stderr: true } );
+			} finally {
+				fs.rmSync( directory );
+				fs.renameSync( saved, directory );
+			}
 		}
 	);
 

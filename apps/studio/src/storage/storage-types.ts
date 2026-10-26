@@ -46,8 +46,6 @@ export interface UserData {
 	lastNightlyUpdateCheck?: number;
 	nightlyPromptResult?: NightlyPromptResult;
 	dontShowArm64Warning?: boolean;
-	// Whether chat/agent features are offered in the UI.
-	agenticFeaturesEnabled?: boolean;
 	/** Agentic UI onboarding state (orientation tour, getting-started checklist). Opaque blob owned by the renderer. */
 	onboardingHints?: OnboardingHintsState;
 }

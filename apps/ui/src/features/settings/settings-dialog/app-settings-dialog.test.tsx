@@ -573,17 +573,6 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 		expect( connector.setAiProvider ).not.toHaveBeenCalled();
 	} );
 
-	it( 'turns Studio Code off', async () => {
-		const { connector } = await setup( { section: 'ai' } );
-		fireEvent.click( await screen.findByRole( 'switch', { name: 'Studio Code' } ) );
-		await waitFor( () =>
-			expect( connector.setUserPreferences ).toHaveBeenCalledWith(
-				{ agenticFeaturesEnabled: false },
-				undefined
-			)
-		);
-	} );
-
 	it( 'toggles custom instructions without changing saved text', async () => {
 		let enabled = true;
 		const { connector } = await setup( {

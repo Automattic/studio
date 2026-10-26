@@ -8,38 +8,12 @@ import {
 	useSetAiProvider,
 } from '@/data/queries/use-ai-settings';
 import { useAuthUser, useLogin } from '@/data/queries/use-auth-user';
-import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
 import { LearnMoreLink } from '@/features/onboarding';
 import { useOffline } from '@/lib/hooks';
 import { Badge, Button, Input } from '@/lib/ui';
-import { SettingsGroup, SettingsRow, SettingsSelect, SettingsToggle } from './rows';
+import { SettingsGroup, SettingsRow, SettingsSelect } from './rows';
 import styles from './style.module.css';
 import type { AiProviderId } from '@studio/common/ai/providers';
-
-function AgenticFeaturesSection() {
-	const { data: preferences, isLoading } = useUserPreferences();
-	const savePreferences = useSaveUserPreferences();
-
-	return (
-		<SettingsGroup title={ __( 'Chat' ) }>
-			<SettingsRow
-				title={ __( 'Studio Code' ) }
-				description={ __(
-					'Chat with an agent that builds and edits your sites. Turning this off hides chat — your existing conversations are kept.'
-				) }
-			>
-				<SettingsToggle
-					label={ __( 'Studio Code' ) }
-					checked={ preferences?.agenticFeaturesEnabled ?? true }
-					disabled={ isLoading }
-					onChange={ ( agenticFeaturesEnabled ) =>
-						savePreferences.mutate( { agenticFeaturesEnabled } )
-					}
-				/>
-			</SettingsRow>
-		</SettingsGroup>
-	);
-}
 
 const connectedBadge = () => (
 	<Badge size="xs" variant="accent">
@@ -226,7 +200,6 @@ export function AiPanel( { onManageCredits }: { onManageCredits: () => void } ) 
 				/>
 			</SettingsGroup>
 			<ProvidersSection onManageCredits={ onManageCredits } />
-			<AgenticFeaturesSection />
 		</div>
 	);
 }

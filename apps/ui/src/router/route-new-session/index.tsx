@@ -1,5 +1,4 @@
 import { createRoute, redirect } from '@tanstack/react-router';
-import { resolveChatEnabled } from '@/data/queries/use-agentic-features';
 import { openNewSession, SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
 import { dashboardLayoutRoute } from '../layout-dashboard';
 
@@ -12,13 +11,6 @@ export const newSessionRoute = createRoute( {
 	getParentRoute: () => dashboardLayoutRoute,
 	path: '/sites/$siteId/new',
 	beforeLoad: async ( { params, context } ) => {
-		if ( ! ( await resolveChatEnabled( context ) ) ) {
-			throw redirect( {
-				to: '/sites/$siteId',
-				params: { siteId: params.siteId },
-			} );
-		}
-
 		const sessions = await context.queryClient
 			.fetchQuery( {
 				queryKey: SESSIONS_QUERY_KEY,

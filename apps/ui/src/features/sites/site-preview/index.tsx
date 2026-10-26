@@ -2,7 +2,6 @@ import { getSiteOperationLabel } from '@studio/common/lib/site-operation-labels'
 import { __, sprintf } from '@wordpress/i18n';
 import { Suspense, useCallback, useRef, useState, type ReactNode } from 'react';
 import { useConnector } from '@/data/core';
-import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useGlobalStyles } from '@/data/queries/use-global-styles';
 import { useSiteThumbnail } from '@/data/queries/use-site-thumbnail';
 import { useIsSiteStarting, useIsSiteStopping, useSiteOperation } from '@/data/queries/use-sites';
@@ -80,7 +79,6 @@ export function SitePreview( {
 }: SitePreviewProps ) {
 	const connector = useConnector();
 	const openSettings = useOpenSettings();
-	const { chatEnabled } = useAgenticFeatures();
 	const operation = useSiteOperation( site );
 	const startPending = useIsSiteStarting( site.id );
 	const stopPending = useIsSiteStopping( site.id );
@@ -131,7 +129,6 @@ export function SitePreview( {
 	const showAnnotate =
 		! live &&
 		canPreview &&
-		chatEnabled &&
 		( connector.capabilities.annotatePreview || activeSurfaceKey === 'design' );
 	const canAnnotateSurface = showAnnotate && activeSurfaceKey !== 'database';
 	const canAnnotate =

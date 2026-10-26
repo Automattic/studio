@@ -4,7 +4,6 @@ import { __ } from '@wordpress/i18n';
 import { clsx } from 'clsx';
 import { useMemo, type ReactNode } from 'react';
 import { useSessionsNeedingInput } from '@/data/agent-runs/use-agent-run';
-import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useSessions } from '@/data/queries/use-sessions';
 import { useSidebarPreferences } from '@/data/queries/use-sidebar-pins';
 import { useSites, useUpdateSitesSortOrder } from '@/data/queries/use-sites';
@@ -56,7 +55,6 @@ export function SiteList( {
 	const { data: sites, isLoading: sitesLoading } = useSites();
 	const { data: allSessions, isLoading: sessionsLoading, isError: sessionsError } = useSessions();
 	const needingInput = useSessionsNeedingInput();
-	const { chatEnabled } = useAgenticFeatures();
 	const params = useParams( { strict: false } ) as { sessionId?: string; siteId?: string };
 	const pathname = useRouterState( { select: ( state ) => state.location.pathname } );
 	const activeSessionId = params.sessionId;
@@ -88,7 +86,6 @@ export function SiteList( {
 			pins: sections ? pins : [],
 			chatOrder,
 			needingInput,
-			chatEnabled,
 		} );
 
 	const renderSiteRow = ( row: SiteRow, itemProps?: ReorderableItemProps ) => (
@@ -99,7 +96,6 @@ export function SiteList( {
 			chats={ chatsBySite.get( row.site.id ) ?? [] }
 			isChatActive={ row.site.id === activeChatSiteKey }
 			isContextActive={ row.site.id === activeContextSiteKey }
-			chatEnabled={ chatEnabled }
 			activeSessionId={ activeSessionId }
 			expanded={ sections && revealed.has( row.site.id ) }
 			loadError={ sessionsError }

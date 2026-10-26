@@ -665,8 +665,6 @@ export interface UserPreferences {
 	// app never installs over or uninstalls — the settings toggle disables
 	// itself in that case.
 	studioCliExternallyManaged: boolean;
-	// Whether chat/agent features are offered at all.
-	agenticFeaturesEnabled: boolean;
 	// The sidebar's Pinned group, in order, as `site:<id>` and `chat:<id>` keys.
 	sidebarPins?: string[];
 	// Each site's chats in the order the user dragged them into, by site id.

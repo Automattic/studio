@@ -1,24 +1,11 @@
 import { __, sprintf } from '@wordpress/i18n';
 import { displayShortcut } from '@wordpress/keycodes';
-import type { GuideDefinition, GuidePage } from './guide';
+import type { GuideDefinition } from './guide';
 
 // Bump whenever the pages below change, so everyone sees the new ones once.
 export const WHATS_NEW_VERSION = 1;
 
-// Only when chat is on offer, like the tour's chat page.
-function studioCodePage(): GuidePage {
-	return {
-		illustration: 'studio-code',
-		title: () => __( 'Studio Code, right beside your site' ),
-		description: () =>
-			__(
-				'Ask for a change and watch it land in the preview. Switch a chat to Live to work on your WordPress.com site.'
-			),
-		action: () => __( 'Next' ),
-	};
-}
-
-export function getWhatsNewGuide( { chatEnabled }: { chatEnabled: boolean } ): GuideDefinition {
+export function getWhatsNewGuide(): GuideDefinition {
 	return {
 		pages: [
 			{
@@ -30,7 +17,15 @@ export function getWhatsNewGuide( { chatEnabled }: { chatEnabled: boolean } ): G
 					),
 				action: () => __( 'Next' ),
 			},
-			...( chatEnabled ? [ studioCodePage() ] : [] ),
+			{
+				illustration: 'studio-code',
+				title: () => __( 'Studio Code, right beside your site' ),
+				description: () =>
+					__(
+						'Ask for a change and watch it land in the preview. Switch a chat to Live to work on your WordPress.com site.'
+					),
+				action: () => __( 'Next' ),
+			},
 			{
 				illustration: 'publish-share',
 				title: () => __( 'Publish and share' ),

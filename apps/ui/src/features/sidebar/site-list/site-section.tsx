@@ -33,7 +33,6 @@ export function SiteSection( {
 	chats,
 	isChatActive,
 	isContextActive,
-	chatEnabled,
 	activeSessionId,
 	expanded,
 	loadError,
@@ -48,7 +47,6 @@ export function SiteSection( {
 	chats: AiSessionSummary[];
 	isChatActive: boolean;
 	isContextActive: boolean;
-	chatEnabled: boolean;
 	activeSessionId?: string;
 	// Lists the site's chats under its row.
 	expanded: boolean;
@@ -67,11 +65,9 @@ export function SiteSection( {
 	const navigate = useNavigate();
 	const sectionRef = useRef< HTMLLIElement >( null );
 	const isActive = isChatActive || isContextActive;
-	// Users who switched Studio Code off use the site's own page as its home.
-	const isSelected = isChatActive || ( isContextActive && ! chatEnabled );
-	const showChats = expanded && chatEnabled && ( chats.length > 0 || loadError );
+	const showChats = expanded && ( chats.length > 0 || loadError );
 	// Highlighted, with its actions showing, unless its open chat is listed under it.
-	const highlighted = ( isSelected && ! showChats ) || ( isContextActive && chatEnabled );
+	const highlighted = ( isChatActive && ! showChats ) || isContextActive;
 	// Keep the active site visible — e.g. when launch restores a site that
 	// sits below the sidebar's fold. `nearest` no-ops when already visible.
 	useEffect( () => {
@@ -131,7 +127,7 @@ export function SiteSection( {
 							<SidebarMenuLabel
 								render={ <button type="button" /> }
 								className={ status === 'transitioning' ? 'studio-shimmer' : undefined }
-								aria-current={ isSelected ? 'page' : undefined }
+								aria-current={ isChatActive ? 'page' : undefined }
 								aria-pressed={ pressed }
 								aria-expanded={ onOpen && chats.length > 0 ? showChats : undefined }
 							>
@@ -146,18 +142,16 @@ export function SiteSection( {
 				className={ styles.siteActions }
 				data-reorder-exclude
 			>
-				{ chatEnabled ? (
-					<IconButton
-						variant="muted-ghost"
-						size="icon-sm"
-						icon={ <NewChatIcon /> }
-						label={ sprintf( __( 'New chat for %s' ), site.name ) }
-						onClick={ () => {
-							onSiteOpen?.();
-							void navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );
-						} }
-					/>
-				) : null }
+				<IconButton
+					variant="muted-ghost"
+					size="icon-sm"
+					icon={ <NewChatIcon /> }
+					label={ sprintf( __( 'New chat for %s' ), site.name ) }
+					onClick={ () => {
+						onSiteOpen?.();
+						void navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );
+					} }
+				/>
 				<SiteStatusButton
 					site={ site }
 					isStarting={ isStarting }

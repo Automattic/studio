@@ -99,12 +99,10 @@ export function getSidebarCollections(
 		pins,
 		chatOrder,
 		needingInput,
-		chatEnabled,
 	}: {
 		pins: string[];
 		chatOrder: Record< string, string[] | undefined >;
 		needingInput: string[];
-		chatEnabled: boolean;
 	}
 ) {
 	const pinned = new Set( pins );
@@ -119,7 +117,7 @@ export function getSidebarCollections(
 		if ( row ) {
 			return [ { key, row } ];
 		}
-		return session && chatEnabled && ! session.archived && ! needingInput.includes( session.id )
+		return session && ! session.archived && ! needingInput.includes( session.id )
 			? [ { key, session, siteName: findSessionSiteRow( rows, session.id )?.site.name } ]
 			: [];
 	} );
@@ -136,9 +134,9 @@ export function getSidebarCollections(
 		] )
 	);
 
-	const openChats = chatEnabled
-		? ( sessions ?? [] ).filter( ( session ) => ! session.archived ).sort( byMostRecent )
-		: [];
+	const openChats = ( sessions ?? [] )
+		.filter( ( session ) => ! session.archived )
+		.sort( byMostRecent );
 	// Chats waiting on an answer move to the top until it's given.
 	const needsInputChats = openChats.filter( ( session ) => needingInput.includes( session.id ) );
 	const recentChats = openChats

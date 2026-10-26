@@ -74,7 +74,7 @@ src/
 
   Inside a feature, import with the full path (`@/features/sites/site-preview`). From anywhere else, import the entry (`@/features/sites`). Only `router/`, `app/` and other features import features; `data/` and `lib/` don't.
 - `data/` holds the connectors and the TanStack Query hooks built on them, plus the app state several features read, such as the session's preview UI, the sidebar's state and the settings sections. It imports only `lib/`.
-- Something used by one feature lives in that feature. Something product-aware used by several lives in the feature that owns the concept and is exported from its entry. Only app-agnostic pieces go in `lib/`.
+- Something used by one feature lives in that feature. Something product-aware used by several lives in the feature that owns the concept and is exported from its entry. Only app-agnostic pieces go in `lib/`. Such shared pieces include `CopyButton` (chats), `SiteIcon` (sites), `Gravatar` (account) and `LearnMoreLink` (onboarding). Toasts go through `showToast` in `data/app-messages`.
 - Features depend on each other in one direction: if `sidebar` imports `chats`, `chats` doesn't import `sidebar`, not even through another feature. Type-only imports don't count. When two features need each other, move the shared piece down into `data/` (state and hooks) or into the lower feature, or let `router/` pass the higher feature's component in as a prop.
 
 These boundaries are lint-enforced (`import-x/no-restricted-paths` and `import-x/no-cycle` in the root `eslint.config.mjs`).
@@ -99,7 +99,7 @@ The theme lives in `src/lib/theme/`:
 - **Space and shape**: `--space-*` on a 4px grid, numbered like Tailwind's spacing (`--space-1_5` is 6px), `--radius-*` up to `--radius-3xl` and `--radius-full`, `--shadow-*`, `--focus-width`, `--band-height` and `--control-size`.
 - **Layers and motion**: `--z-*` layers inside the workspace and above it, `--motion-duration-*` and `--motion-ease-*`. Media queries can't read tokens, so the one breakpoint, `( width < 640px )`, is written where it's used.
 
-Primitives live in `src/lib/ui/` (Button, IconButton, Dialog, Menu, Popover, Select, Field, Input, InputGroup, Textarea, Switch, Checkbox, Tooltip, Alert, Badge, Progress, Empty, Kbd, VisuallyHidden). They follow the rebuild's kit, sit in the `ui` cascade layer so feature CSS overrides them without specificity tricks, and import nothing from app code.
+Primitives live in `src/lib/ui/`. They import nothing from app code. [Their README](src/lib/ui/README.md) says which one fits a need, and when to change a primitive rather than override it.
 
 Outside `src/lib/theme/`, ESLint (`studio/use-theme-tokens`) flags literal colors, font sizes, radii, elevation shadows and stacking layers, and formats CSS with Prettier, so `npx eslint --fix` covers stylesheets too. A literal that has to stay carries an `eslint-disable-next-line` comment saying why.
 

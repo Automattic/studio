@@ -11,13 +11,13 @@ import { getSharedBrowser } from 'cli/ai/browser-utils';
 // Types
 // ---------------------------------------------------------------------------
 
-export interface AssetBreakdown {
+interface AssetBreakdown {
 	count: number;
 	totalBytes: number;
 	urls: string[];
 }
 
-export interface AuditMetrics {
+interface AuditMetrics {
 	// Core Web Vitals timing (milliseconds)
 	ttfb: number;
 	fcp: number;

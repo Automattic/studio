@@ -31,7 +31,7 @@ const getHostsFilePath = (): string => {
 /**
  * Reads the hosts file content
  */
-export const readHostsFile = async (): Promise< string > => {
+const readHostsFile = async (): Promise< string > => {
 	try {
 		const hostsPath = getHostsFilePath();
 		const content = await readFile( hostsPath, 'utf8' );
@@ -72,7 +72,7 @@ export const writeHostsFile = async ( content: string ): Promise< void > => {
  *
  * 	Remove backslashes as a security measure and escape regex special characters.
  */
-export function createHostsEntryPattern( domain: string ): RegExp {
+function createHostsEntryPattern( domain: string ): RegExp {
 	const sanitizedDomain = domain.replace( /\\/g, '' );
 	const escapedDomain = escapeRegex( sanitizedDomain );
 	return new RegExp( `(?:127\\.0\\.0\\.1|::1)\\s+${ escapedDomain }(\\s|$)`, 'i' );

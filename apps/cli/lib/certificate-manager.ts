@@ -78,7 +78,7 @@ function initializeCertificatesDirectory() {
 /**
  * Generate a root CA certificate if it doesn't exist
  */
-export async function ensureRootCA(): Promise< { cert: string; key: string } > {
+async function ensureRootCA(): Promise< { cert: string; key: string } > {
 	// If the certificate already exists, no need to generate a new one
 	if ( fs.existsSync( CA_CERT_PATH ) && fs.existsSync( CA_KEY_PATH ) ) {
 		return {

@@ -33,7 +33,7 @@ function describeAttribute( name: string, attribute: BlockAttribute ): string {
 // stored in the block comment. Attributes read from the block's HTML
 // (`source`) are its content, and `__unstable`/`__experimental` ones are
 // internal, so both are left out.
-export function describeCoreBlockSettings( blocksDir: string, slug: string ): string | undefined {
+function describeCoreBlockSettings( blocksDir: string, slug: string ): string | undefined {
 	const file = path.join( blocksDir, slug, 'block.json' );
 	let attributes: Record< string, BlockAttribute >;
 	try {

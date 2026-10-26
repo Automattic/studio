@@ -201,7 +201,7 @@ async function startHttpsProxy(): Promise< void > {
 /**
  * Stop the proxy servers gracefully
  */
-export async function stopProxyServers(): Promise< void > {
+async function stopProxyServers(): Promise< void > {
 	console.log( '[Proxy] Stopping proxy servers…' );
 
 	const promises: Promise< void >[] = [];
@@ -268,11 +268,4 @@ export async function startProxyServers(): Promise< void > {
 		console.error( '[Proxy] Failed to start proxy servers:', error );
 		throw error;
 	}
-}
-
-/**
- * Check if the proxy is running
- */
-export function isProxyRunning(): boolean {
-	return isHttpProxyRunning || isHttpsProxyRunning;
 }

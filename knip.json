@@ -23,7 +23,7 @@
 				"process-manager-daemon.ts",
 				"proxy-daemon.ts",
 				"logger.ts",
-				"ai/eval-runner.ts",
+				"ai/eval-runner-entry.ts",
 				"commands/**/*.ts",
 				"vite.config.*.ts"
 			],

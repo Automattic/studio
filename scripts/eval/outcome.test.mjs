@@ -475,13 +475,37 @@ describe( 'site checks', () => {
 				vars
 			).pass
 		).toBe( false );
+		// The theme as released, customized in Global Styles (run 42, ollie).
+		const released = {
+			...workingSite,
+			theme: { stylesheet: 'twentytwentyfour', template: 'twentytwentyfour' },
+			themeChanges: [],
+			mergedStyles: { elements: { heading: { typography: { fontFamily: 'Inter' } } } },
+		};
+		const customized = {
+			...released,
+			userGlobalStyles: {
+				styles: { elements: { heading: { typography: { fontFamily: 'Fraunces' } } } },
+			},
+		};
+		expect( run( checks.customizedThroughChildTheme, outcome( customized ), vars ).pass ).toBe(
+			true
+		);
+		// What the released theme sets is no customization.
+		expect( run( checks.customizedThroughChildTheme, outcome( released ), vars ).pass ).toBe(
+			false
+		);
 		expect(
 			run(
 				checks.customizedThroughChildTheme,
-				outcome( {
-					...site,
-					theme: { stylesheet: 'twentytwentyfour', template: 'twentytwentyfour' },
-				} ),
+				outcome( { ...customized, themeChanges: [ 'theme.json' ] } ),
+				vars
+			).pass
+		).toBe( false );
+		expect(
+			run(
+				checks.customizedThroughChildTheme,
+				outcome( { ...customized, theme: { stylesheet: 'other', template: 'other' } } ),
 				vars
 			).pass
 		).toBe( false );

@@ -401,12 +401,11 @@ describe( 'site preview controls', () => {
 	} );
 
 	it.each( [
-		[ 'the host supports it', true, true, true ],
-		[ 'the host cannot annotate', false, true, false ],
-		[ 'Studio Code is on', true, false, false ],
-	] )( 'shows Annotate only when %s', async ( _, annotatePreview, agentic, shown ) => {
+		[ 'the host supports it', true, true ],
+		[ 'the host cannot annotate', false, false ],
+	] )( 'shows Annotate only when %s', async ( _, annotatePreview, shown ) => {
 		const connector = createFakeConnector(
-			{ preferences: { agenticFeaturesEnabled: agentic } },
+			{},
 			{ capabilities: { nativeFolderPicker: true, annotatePreview, studioLogs: true } }
 		);
 		await renderPreview( 'browser', {}, connector );

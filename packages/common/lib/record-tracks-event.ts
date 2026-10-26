@@ -36,7 +36,6 @@ export const TRACKS_EVENTS = {
 	SETTING_DEFAULT_DIRECTORY_CHANGE: 'studio_setting_default_directory_change',
 	SETTING_QUIT_ACTION_CHANGE: 'studio_setting_quit_action_change',
 	SETTING_CLI_CHANGE: 'studio_setting_cli_change',
-	SETTING_AGENTIC_FEATURES_CHANGE: 'studio_setting_agentic_features_change',
 	SETTING_INSTRUCTIONS_CHANGE: 'studio_setting_instructions_change',
 	SETTING_AI_PROVIDER_CHANGE: 'studio_setting_ai_provider_change',
 	CODE_MESSAGE_SENT: 'studio_code_message_sent',

@@ -42,7 +42,6 @@ export interface UserPreferences extends ColorTint {
 	locale: string | undefined;
 	analyticsEnabled: boolean;
 	defaultSiteDirectory: string;
-	agenticFeaturesEnabled: boolean;
 	// The sidebar's Pinned group, in order, as `site:<id>` and `chat:<id>` keys.
 	sidebarPins: string[];
 	// Each site's chats in the order the user dragged them into, by site id.
@@ -89,7 +88,6 @@ export const userPreferencesPatchSchema = z.object( {
 	locale: z.string().refine( isSupportedLocale ).nullish(),
 	analyticsEnabled: z.boolean().nullish(),
 	defaultSiteDirectory: z.string().nullish(),
-	agenticFeaturesEnabled: z.boolean().nullish(),
 	sidebarPins: sidebarPinsSchema.nullish(),
 	sidebarChatOrder: sidebarChatOrderSchema.nullish(),
 	showRecentChats: z.boolean().nullish(),
@@ -117,7 +115,6 @@ const APP_CONFIG_KEYS = [
 	[ 'colorScheme', 'colorScheme' ],
 	[ 'quitSitesBehavior', 'quitSitesBehavior' ],
 	[ 'defaultSiteDirectory', 'defaultSiteDirectory' ],
-	[ 'agenticFeaturesEnabled', 'agenticFeaturesEnabled' ],
 	[ 'sidebarPins', 'sidebarPins' ],
 	[ 'sidebarChatOrder', 'sidebarChatOrder' ],
 	[ 'showRecentChats', 'showRecentChats' ],
@@ -159,7 +156,6 @@ export async function readUserPreferences( {
 		locale: shared.locale,
 		analyticsEnabled: ! isAnalyticsOptedOutInConfig( shared ),
 		defaultSiteDirectory: getDefaultSiteDirectory( config, sitesRoot ),
-		agenticFeaturesEnabled: config.agenticFeaturesEnabled !== false,
 		sidebarPins: sidebarPinsSchema.catch( [] ).parse( config.sidebarPins ),
 		sidebarChatOrder: sidebarChatOrderSchema.catch( {} ).parse( config.sidebarChatOrder ?? {} ),
 		showRecentChats: z.boolean().catch( showRecentChats ).parse( config.showRecentChats ),
@@ -222,15 +218,6 @@ async function getChangeEvents(
 		events.push( [
 			TRACKS_EVENTS.SETTING_QUIT_ACTION_CHANGE,
 			{ behavior: quitSitesBehavior, surface },
-		] );
-	}
-	if (
-		typeof patch.agenticFeaturesEnabled === 'boolean' &&
-		patch.agenticFeaturesEnabled !== ( config.agenticFeaturesEnabled !== false )
-	) {
-		events.push( [
-			TRACKS_EVENTS.SETTING_AGENTIC_FEATURES_CHANGE,
-			{ enabled: patch.agenticFeaturesEnabled, surface },
 		] );
 	}
 	if ( typeof patch.analyticsEnabled === 'boolean' ) {

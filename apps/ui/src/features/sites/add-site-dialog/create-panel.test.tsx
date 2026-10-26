@@ -55,18 +55,14 @@ async function createSite( dialog: HTMLElement, name = 'Create site' ) {
 }
 
 describe( 'Add site › blank setup', () => {
-	it( 'offers the brief only with Studio Code on and no Blueprint picked', async () => {
-		const { unmount } = await setup();
+	it( 'offers the brief only with no Blueprint picked', async () => {
+		await setup();
 		expect( brief() ).toBeVisible();
 		uploadBlueprint( {} );
 		expect( await screen.findByRole( 'heading', { name: 'Network' } ) ).toBeVisible();
 		expect( brief() ).not.toBeInTheDocument();
 		fireEvent.click( screen.getByRole( 'button', { name: 'Remove' } ) );
 		expect( await screen.findByPlaceholderText( BRIEF_PLACEHOLDER ) ).toBeVisible();
-		unmount();
-
-		await setup( { preferences: { agenticFeaturesEnabled: false } } );
-		expect( brief() ).not.toBeInTheDocument();
 	} );
 
 	it( 'creates the site with the brief as its first chat prompt', async () => {

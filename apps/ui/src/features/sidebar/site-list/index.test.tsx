@@ -161,13 +161,6 @@ describe( 'sidebar site list', () => {
 		await waitFor( () => expect( view.history.location.pathname ).toBe( '/sessions/older' ) );
 	} );
 
-	it( "opens the site's page when Studio Code is switched off", async () => {
-		const { history } = await setup( { preferences: { agenticFeaturesEnabled: false } } );
-		fireEvent.click( await siteButton( 'My site' ) );
-		await waitFor( () => expect( history.location.pathname ).toBe( '/sites/one' ) );
-		expect( await siteButton( 'My site' ) ).toHaveAttribute( 'aria-current', 'page' );
-	} );
-
 	it( 'lists sites while chats are still loading', async () => {
 		const connector = createFakeConnector( { sites: [ mySite ] } );
 		connector.getSessions.mockReturnValue( new Promise( () => {} ) );

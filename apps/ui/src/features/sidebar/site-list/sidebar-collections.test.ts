@@ -37,7 +37,7 @@ const sessions = [
 	chat( 'x1', 'gone', '2026-01-05T00:00:00Z' ),
 ];
 const rows = createSiteRows( sites, sessions );
-const defaults = { pins: [], chatOrder: {}, needingInput: [], chatEnabled: true };
+const defaults = { pins: [], chatOrder: {}, needingInput: [] };
 
 describe( 'getListedSessions', () => {
 	it( 'hides a chat without a prompt or title unless it is open', () => {
@@ -150,18 +150,6 @@ describe( 'getSidebarCollections', () => {
 		expect( empty[ 0 ].chats ).toEqual( [] );
 		expect( result.chatsBySite.get( 'a' ) ).toEqual( [] );
 		expect( result.pinnedItems ).toEqual( [] );
-	} );
-
-	it( 'leaves chats out of Pinned, Needs input and Recent when chat is off', () => {
-		const result = getSidebarCollections( rows, sessions, {
-			...defaults,
-			pins: [ 'chat:a1', 'site:b' ],
-			needingInput: [ 'a2' ],
-			chatEnabled: false,
-		} );
-		expect( result.pinnedItems.map( ( item ) => item.key ) ).toEqual( [ 'site:b' ] );
-		expect( result.needsInputChats ).toEqual( [] );
-		expect( result.recentChats ).toEqual( [] );
 	} );
 } );
 

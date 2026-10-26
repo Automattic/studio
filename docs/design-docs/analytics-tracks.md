@@ -446,7 +446,7 @@ Sensitive values are never sent as strings (see `is_default` and the directory n
 | `studio_setting_default_directory_change` | `writeUserPreferences` | `is_default` (boolean), `surface` (`settings`) — the directory path is **never** sent (it contains the user's home path). |
 | `studio_setting_quit_action_change` | `writeUserPreferences` | `behavior` (`stop`/`stop-and-auto-start`/`leave-running`), `surface` (`settings`) |
 | `studio_setting_cli_change` | `installStudioCli`/`uninstallStudioCli` | `installed` (boolean), `surface` (`settings`) |
-| `studio_setting_agentic_features_change` | `writeUserPreferences` | `enabled` (boolean), `surface` (`settings`) |
+| `studio_setting_agentic_features_change` | No longer emitted: was the Studio Code on/off toggle in Settings → AI, removed in October 2026 | `enabled` (boolean), `surface` (`settings`) |
 | `studio_setting_ui_change` | No longer emitted: was the Classic ↔ agentic UI switch, removed with Classic in October 2026 | `type` (`classic`/`agentic`), `surface` (`settings`/`banner`/`menu`) |
 | `studio_setting_instructions_change` | `saveGlobalAgentInstructions` | `has_content` (boolean), `length_bucket` (`empty`/`short` ≤200/`medium` ≤1000/`long`), `surface` (`settings`) — the instructions text is **never** sent. See the edit-session note below. |
 | `studio_setting_ai_provider_change` | `saveAnthropicApiKey` | `provider` (`wpcom`/`anthropic-api-key`), `has_anthropic_api_key` (boolean), `surface` (`settings`) — the API key is **never** sent. One event covers both handlers, since clearing the key also falls the provider back to WordPress.com. `studio ui` emits the same event from its own `/ai-settings` routes. |

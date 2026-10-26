@@ -202,11 +202,6 @@ function getStudioSections( signedIn: boolean ): Section[] {
 			aliases: [ __( 'Connect provider' ) ],
 			settings: [
 				setting(
-					__( 'Studio Code' ),
-					__( 'Chat with an agent that builds and edits your sites.' ),
-					'studio-code'
-				),
-				setting(
 					__( 'WordPress.com' ),
 					__( 'Get started with a one-time free allowance, then buy more as you go.' ),
 					'wpcom-provider'

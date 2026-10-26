@@ -10,7 +10,7 @@ import type { OnboardingHintsState } from '@/data/core';
 
 interface AutostartInputs {
 	siteCount: number;
-	agentic: { chatEnabled: boolean; isReady: boolean };
+	agenticReady: boolean;
 	hints: OnboardingHintsState | undefined;
 	dialogOpen: boolean;
 	guideOpen: boolean;
@@ -25,7 +25,7 @@ interface AutostartInputs {
  */
 export function deriveOrientationAutostart( {
 	siteCount,
-	agentic,
+	agenticReady,
 	hints,
 	dialogOpen,
 	guideOpen,
@@ -39,7 +39,7 @@ export function deriveOrientationAutostart( {
 	// dialog, which only opens when there are no sites — so anyone who had sites
 	// before that flag existed keeps it `false` forever and would never see the
 	// guide.
-	if ( siteCount < 1 || ! agentic.isReady ) {
+	if ( siteCount < 1 || ! agenticReady ) {
 		return null;
 	}
 	if ( hints === undefined ) {
@@ -51,7 +51,7 @@ export function deriveOrientationAutostart( {
 	if ( seen ) {
 		return null;
 	}
-	return { migrating: hints.migratedFromClassic ?? false, chatEnabled: agentic.chatEnabled };
+	return { migrating: hints.migratedFromClassic ?? false };
 }
 
 // Let the workbench render and settle before the guide appears, so it reads as
@@ -64,7 +64,7 @@ const GUIDE_START_DELAY_MS = 500;
  */
 export function useOrientationAutostart(): void {
 	const { data: sites } = useSites();
-	const agentic = useAgenticFeatures();
+	const { isReady: agenticReady } = useAgenticFeatures();
 	const { data: hints } = useOnboardingHints();
 	const setHints = useSetOnboardingHints();
 	const dialogOpen = useRootDialogOpen();
@@ -76,7 +76,7 @@ export function useOrientationAutostart(): void {
 	useEffect( () => {
 		const variant = deriveOrientationAutostart( {
 			siteCount: sites?.length ?? 0,
-			agentic: { chatEnabled: agentic.chatEnabled, isReady: agentic.isReady },
+			agenticReady,
 			hints,
 			dialogOpen,
 			guideOpen: isOpen,
@@ -102,16 +102,7 @@ export function useOrientationAutostart(): void {
 		// No timer cleanup here: a dependency change re-runs this effect and
 		// returns early (startedRef guard); clearing on every re-run would
 		// cancel the pending open. The mount-scoped cleanup below handles it.
-	}, [
-		sites?.length,
-		agentic.chatEnabled,
-		agentic.isReady,
-		hints,
-		dialogOpen,
-		isOpen,
-		openGuide,
-		setHints,
-	] );
+	}, [ sites?.length, agenticReady, hints, dialogOpen, isOpen, openGuide, setHints ] );
 
 	useEffect( () => {
 		return () => {

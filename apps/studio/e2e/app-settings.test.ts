@@ -17,7 +17,7 @@ test.describe( 'Studio settings', () => {
 	};
 
 	test.beforeAll( async () => {
-		await session.launch( {}, { appData: { agenticFeaturesEnabled: true } } );
+		await session.launch();
 		await closeAddSite();
 	} );
 

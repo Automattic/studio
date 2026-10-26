@@ -178,9 +178,6 @@ export function useAnchoredScroll( {
 				options
 			);
 		}
-		if ( typeof ResizeObserver === 'undefined' ) {
-			return () => listening.abort();
-		}
 		// Late layout (images, highlighted code) and viewport resizes move the
 		// anchor without a transcript change.
 		const observer = new ResizeObserver( () => settle() );

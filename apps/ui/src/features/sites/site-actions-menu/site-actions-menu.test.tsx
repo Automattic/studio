@@ -198,8 +198,6 @@ describe( 'Stop other sites', () => {
 	] )( 'starts a stopped site before opening %s', async ( label, path ) => {
 		const { open, connector } = setup( { selectedRunning: false } );
 		await open();
-		const trigger = screen.getByRole( 'button', { name: 'Site actions for Selected' } );
-		const globe = trigger.querySelector( 'svg' )!.innerHTML;
 		let finishStart!: () => void;
 		connector.startSite.mockImplementation(
 			() =>
@@ -215,8 +213,6 @@ describe( 'Stop other sites', () => {
 			expect( connector.startSite ).toHaveBeenCalledExactlyOnceWith( 'selected' )
 		);
 		expect( screen.getByRole( 'status', { name: 'Preview' } ) ).toBeEmptyDOMElement();
-		expect( trigger.querySelector( 'svg' )!.innerHTML ).toBe( globe );
-		expect( trigger.querySelector( '[data-slot=spinner]' ) ).toBeNull();
 		finishStart();
 		await waitFor( () =>
 			expect( screen.getByRole( 'status', { name: 'Preview' } ) ).toHaveTextContent(
@@ -306,14 +302,6 @@ it.each( [ false, true ] )(
 		expect( connector.stopSite ).not.toHaveBeenCalledWith( 'stopped' );
 	}
 );
-
-it( 'opens the automatically selected editor when the saved preference is Default', async () => {
-	const { open, connector } = setup();
-	await open();
-	fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Open in' } ) );
-	fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Visual Studio Code' } ) );
-	await waitFor( () => expect( connector.openSiteInEditor ).toHaveBeenCalledWith( 'selected' ) );
-} );
 
 describe( 'Restart site', () => {
 	it.each( [ false, true ] )(

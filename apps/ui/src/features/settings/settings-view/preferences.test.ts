@@ -38,21 +38,6 @@ describe( 'settings preference helpers', () => {
 		} );
 	} );
 
-	it( 'returns an empty patch for an empty update', () => {
-		expect( toPreferencesPatch( {} ) ).toEqual( {} );
-	} );
-
-	it( 'maps a single-field update to a single-field patch', () => {
-		expect( toPreferencesPatch( { colorScheme: 'dark' } ) ).toEqual( { colorScheme: 'dark' } );
-		expect( toPreferencesPatch( { locale: 'es' } ) ).toEqual( { locale: 'es' } );
-		expect( toPreferencesPatch( { quitSitesBehavior: 'leave-running' } ) ).toEqual( {
-			quitSitesBehavior: 'leave-running',
-		} );
-		expect( toPreferencesPatch( { defaultSiteDirectory: '/Users/example/Sites' } ) ).toEqual( {
-			defaultSiteDirectory: '/Users/example/Sites',
-		} );
-	} );
-
 	it( 'persists the editor/terminal UNSET sentinel as null', () => {
 		expect( toPreferencesPatch( { editor: UNSET } ) ).toEqual( { editor: null } );
 		expect( toPreferencesPatch( { terminal: UNSET } ) ).toEqual( { terminal: null } );

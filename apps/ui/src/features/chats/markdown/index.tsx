@@ -11,7 +11,6 @@ import styles from './style.module.css';
 import type { MouseEvent, ReactNode } from 'react';
 import type { Components } from 'react-markdown';
 
-/** Recursively collect the plain-text content of a React node tree. */
 function extractText( node: ReactNode ): string {
 	if ( typeof node === 'string' ) {
 		return node;
@@ -68,7 +67,6 @@ const baseComponents: Components = {
 	th: ( { children } ) => <th className={ styles.th }>{ children }</th>,
 	td: ( { children } ) => <td className={ styles.td }>{ children }</td>,
 	code: ( { className, children, ref: _ref, ...props } ) => {
-		// Inline code: no language class, no embedded newline.
 		const isInline = ! className && ! String( children ).includes( '\n' );
 		if ( isInline ) {
 			return (

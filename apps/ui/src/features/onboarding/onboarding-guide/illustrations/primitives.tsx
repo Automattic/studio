@@ -1,6 +1,4 @@
-import { clsx } from 'clsx';
 import styles from './style.module.css';
-import type { GuideIllustrationId } from '@/features/onboarding/onboarding-guide/guide';
 import type { CSSProperties, ReactNode } from 'react';
 
 // Shared building blocks for the illustration scenes. Motion is never baked in
@@ -10,12 +8,8 @@ import type { CSSProperties, ReactNode } from 'react';
 // The full-bleed header slot every illustration fills: a fixed aspect ratio so
 // the popup header keeps a stable height, and a positioning context for the
 // scene. Each scene owns its own background and (if needed) color-scheme scope.
-export function Stage( { id, children }: { id: GuideIllustrationId; children: ReactNode } ) {
-	return (
-		<div className={ styles.stage } data-illustration={ id }>
-			{ children }
-		</div>
-	);
+export function Stage( { children }: { children: ReactNode } ) {
+	return <div className={ styles.stage }>{ children }</div>;
 }
 
 // A pointer used to demonstrate interactions. Position/scale/opacity come from
@@ -46,18 +40,10 @@ export function Cursor( { className, style }: { className?: string; style?: CSSP
 }
 
 // A tooltip pill. The scene controls visibility/lift through `style` (opacity +
-// transform) and placement through `className`.
-export function Tooltip( {
-	className,
-	style,
-	children,
-}: {
-	className?: string;
-	style?: CSSProperties;
-	children: ReactNode;
-} ) {
+// transform).
+export function Tooltip( { style, children }: { style?: CSSProperties; children: ReactNode } ) {
 	return (
-		<span className={ clsx( styles.tooltip, className ) } style={ style }>
+		<span className={ styles.tooltip } style={ style }>
 			{ children }
 		</span>
 	);

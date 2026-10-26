@@ -116,6 +116,7 @@ export function AgentQuestion( {
 				<QuestionnaireTitle>{ question }</QuestionnaireTitle>
 				{ answered ? (
 					<QuestionnaireAnswer
+						className={ styles.pickedAnswer }
 						letter={ multiSelect ? undefined : getAnswerLetter( options, pickedLabel ) }
 					>
 						{ pickedLabel }
@@ -133,6 +134,7 @@ export function AgentQuestion( {
 								return (
 									<QuestionnaireChoice
 										key={ index }
+										className={ styles.choice }
 										label={ option.label }
 										description={
 											isOwnFreeForm ? getFreeFormOptionDescription() : option.description
@@ -203,13 +205,13 @@ export function AgentQuestion( {
 	);
 }
 
-function QuestionOptionImage( { path }: { path: string | undefined } ) {
-	const localFileQuery = useLocalMediaDataUrl( path ?? null );
+function QuestionOptionImage( { path }: { path: string } ) {
+	const localFileQuery = useLocalMediaDataUrl( path );
 
-	if ( ! path || localFileQuery.isError ) {
+	if ( localFileQuery.isError ) {
 		return (
 			<span className={ styles.questionOptionImageUnavailable } aria-hidden="true">
-				{ path ? __( 'Preview unavailable' ) : null }
+				{ __( 'Preview unavailable' ) }
 			</span>
 		);
 	}

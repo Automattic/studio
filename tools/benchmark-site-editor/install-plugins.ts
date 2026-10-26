@@ -35,7 +35,7 @@ interface Blueprint {
  * This is the single source of truth for which plugins to install across
  * all environments (Studio, Playground Web, custom).
  */
-export function getPluginSlugsFromBlueprint( blueprintPath: string ): string[] {
+function getPluginSlugsFromBlueprint( blueprintPath: string ): string[] {
 	const blueprint: Blueprint = JSON.parse( fs.readFileSync( blueprintPath, 'utf-8' ) );
 	return blueprint.steps
 		.filter( ( step ) => step.step === 'installPlugin' && step.pluginData?.slug )

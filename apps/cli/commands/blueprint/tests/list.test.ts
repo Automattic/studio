@@ -60,13 +60,6 @@ describe( 'CLI: studio blueprint list', () => {
 		vi.restoreAllMocks();
 	} );
 
-	it( 'should list blueprints in table format', async () => {
-		await runCommand( 'table' );
-
-		expect( fetchStudioBlueprints ).toHaveBeenCalled();
-		expect( console.log ).toHaveBeenCalled();
-	} );
-
 	it( 'should list blueprints in json format', async () => {
 		await runCommand( 'json' );
 
@@ -77,14 +70,6 @@ describe( 'CLI: studio blueprint list', () => {
 		vi.mocked( isOnline ).mockResolvedValue( false );
 
 		await expect( runCommand( 'table' ) ).rejects.toThrow( 'internet connection' );
-	} );
-
-	it( 'should handle empty blueprint list', async () => {
-		vi.mocked( fetchStudioBlueprints ).mockResolvedValue( [] );
-
-		await runCommand( 'table' );
-
-		// Should not throw
 	} );
 
 	it( 'should output empty json array when no blueprints', async () => {

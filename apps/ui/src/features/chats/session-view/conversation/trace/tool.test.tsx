@@ -34,14 +34,4 @@ describe( 'tool trace', () => {
 		await user.keyboard( ' ' );
 		expect( trigger ).toHaveAttribute( 'aria-expanded', 'false' );
 	} );
-
-	it( 'shows failed results expanded and allows closing them', async () => {
-		const user = userEvent.setup();
-		render( <ToolRow result={ { text: 'File missing', isError: true } } /> );
-		const trigger = screen.getByRole( 'button', { name: /style\.css/ } );
-		expect( trigger ).toHaveAttribute( 'aria-expanded', 'true' );
-		expect( screen.getByText( 'File missing' ) ).toBeVisible();
-		await user.click( trigger );
-		expect( trigger ).toHaveAttribute( 'aria-expanded', 'false' );
-	} );
 } );

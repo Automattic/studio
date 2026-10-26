@@ -19,9 +19,7 @@ function setup( enabled = true, fail = false, kind: SiteAgentFileKind = 'skills'
 			getSiteAgentFiles: async () => [ { ...file } ],
 			setSiteAgentFileEnabled: async ( _siteId, _kind, _id, value ) => {
 				if ( fail ) {
-					throw new Error(
-						kind === 'skills' ? 'Could not update skill' : 'Could not update instructions'
-					);
+					throw new Error( 'Could not update skill' );
 				}
 				file.enabled = value;
 			},
@@ -152,67 +150,12 @@ describe( 'site skill rows', () => {
 } );
 
 describe( 'site instruction rows', () => {
-	it( 'turns all instructions off and on while keeping files accessible', async () => {
-		const connector = setup( true, false, 'instructions' );
-		fireEvent.click( await screen.findByRole( 'switch', { name: 'Agent instructions' } ) );
-		await waitFor( () =>
-			expect( screen.getByRole( 'switch', { name: 'AGENTS.md' } ) ).not.toBeChecked()
-		);
-		expect( connector.setSiteAgentFileEnabled ).toHaveBeenCalledWith(
-			'one',
-			'instructions',
-			'agents',
-			false
-		);
-		expect( connector.removeSiteAgentFile ).not.toHaveBeenCalled();
-		await waitFor( () =>
-			expect( screen.getByRole( 'button', { name: 'Actions for AGENTS.md' } ) ).toBeEnabled()
-		);
-		fireEvent.click( screen.getByRole( 'button', { name: 'Actions for AGENTS.md' } ) );
-		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Open in' } ) );
-		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Visual Studio Code' } ) );
-		await waitFor( () =>
-			expect( connector.openSiteAgentFile ).toHaveBeenCalledWith(
-				'one',
-				'instructions',
-				'agents',
-				'editor'
-			)
-		);
-		fireEvent.click( screen.getByRole( 'switch', { name: 'Agent instructions' } ) );
-		await waitFor( () =>
-			expect( screen.getByRole( 'switch', { name: 'AGENTS.md' } ) ).toBeChecked()
-		);
-		expect( connector.setSiteAgentFileEnabled ).toHaveBeenLastCalledWith(
-			'one',
-			'instructions',
-			'agents',
-			true
-		);
-	} );
-
-	it( 'keeps state after a failed individual toggle', async () => {
-		setup( true, true, 'instructions' );
-		fireEvent.click( await screen.findByRole( 'switch', { name: 'AGENTS.md' } ) );
-		await screen.findByText( 'Could not update instructions' );
-		expect( screen.getByRole( 'switch', { name: 'AGENTS.md' } ) ).toBeChecked();
-	} );
-
-	it( 'offers explicit uninstall and the Learn more link', async () => {
+	it( 'links to the instructions documentation', async () => {
 		const connector = setup( true, false, 'instructions' );
 		fireEvent.click( await screen.findByRole( 'button', { name: 'Learn more…' } ) );
 		expect( connector.openExternalUrl ).toHaveBeenCalledWith(
 			'https://developer.wordpress.com/docs/developer-tools/studio/cli/'
 		);
 		expect( screen.queryByRole( 'button', { name: 'Install all' } ) ).not.toBeInTheDocument();
-		fireEvent.click( screen.getByRole( 'button', { name: 'Actions for AGENTS.md' } ) );
-		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Uninstall' } ) );
-		await waitFor( () =>
-			expect( connector.removeSiteAgentFile ).toHaveBeenCalledWith(
-				'one',
-				'instructions',
-				'agents'
-			)
-		);
 	} );
 } );

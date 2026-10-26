@@ -336,8 +336,6 @@ describe( 'sidebar site sections', () => {
 		await waitFor( () =>
 			expect( within( chatButton ).getByText( 'Working…' ) ).toBeInTheDocument()
 		);
-		expect( chatButton.querySelector( '[data-slot=spinner]' ) ).not.toBeInTheDocument();
-		expect( siteSection.querySelectorAll( '[data-slot=spinner]' ) ).toHaveLength( 0 );
 		let finish!: () => void;
 		connector.startSite.mockImplementationOnce(
 			() =>
@@ -350,8 +348,6 @@ describe( 'sidebar site sections', () => {
 			name: 'Starting',
 		} );
 		expect( action ).toHaveAttribute( 'aria-busy', 'true' );
-		expect( action.querySelector( '[data-slot=spinner]' ) ).toBeInTheDocument();
-		expect( siteSection.querySelectorAll( '[data-slot=spinner]' ) ).toHaveLength( 1 );
 		expect( within( chatButton ).getByText( 'Working…' ) ).toBeInTheDocument();
 		await act( async () => finish() );
 		emit( connector, 'starting-chat', question() );

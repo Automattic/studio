@@ -119,20 +119,9 @@ export function DialogHeader( { className, children, ...props }: ComponentProps<
 	);
 }
 
-export function DialogFooter( {
-	className,
-	separator = false,
-	padding = false,
-	...props
-}: ComponentProps< 'div' > & { separator?: boolean; padding?: boolean } ) {
+export function DialogFooter( { className, ...props }: ComponentProps< 'div' > ) {
 	return (
-		<div
-			data-slot="dialog-footer"
-			data-separator={ separator || undefined }
-			data-padding={ padding || undefined }
-			className={ clsx( styles.footer, className ) }
-			{ ...props }
-		/>
+		<div data-slot="dialog-footer" className={ clsx( styles.footer, className ) } { ...props } />
 	);
 }
 
@@ -194,13 +183,11 @@ export function PanelHeader( {
 export function DialogPanel( {
 	className,
 	header,
-	footer,
 	scrollRef,
 	children,
 	...props
 }: ComponentProps< 'div' > & {
 	header: ReactNode;
-	footer?: ReactNode;
 	scrollRef?: Ref< HTMLDivElement >;
 } ) {
 	return (
@@ -209,7 +196,6 @@ export function DialogPanel( {
 			<DialogScrollArea ref={ scrollRef } className={ styles.panelScroll }>
 				<div className={ styles.panelBody }>{ children }</div>
 			</DialogScrollArea>
-			{ footer }
 		</div>
 	);
 }

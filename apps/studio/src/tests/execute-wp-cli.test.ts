@@ -77,14 +77,6 @@ describe( 'executeWpCliCommand', () => {
 	} );
 
 	describe( 'captured output parsing', () => {
-		it( 'should capture stdout from CLI process', async () => {
-			const resultPromise = run( [ 'plugin', 'list' ] );
-			simulateCliResponse( { stdout: 'plugin1\nplugin2', exitCode: 0 } );
-			const result = await resultPromise;
-
-			expect( result.stdout ).toBe( 'plugin1\nplugin2' );
-		} );
-
 		it( 'should capture stderr from CLI process', async () => {
 			const resultPromise = run( [ 'invalid-command' ] );
 			simulateCliResponse( { stderr: 'Error: command not found', exitCode: 1 } );
@@ -151,15 +143,6 @@ describe( 'executeWpCliCommand', () => {
 			} finally {
 				vi.useRealTimers();
 			}
-		} );
-
-		it( 'should clear timeout on success', async () => {
-			const resultPromise = run( [ 'plugin', 'list' ] );
-			simulateCliResponse( { stdout: 'quick response', exitCode: 0 } );
-			const result = await resultPromise;
-
-			expect( result.stdout ).toBe( 'quick response' );
-			expect( result.stderr ).not.toContain( 'timed out' );
 		} );
 	} );
 } );

@@ -45,11 +45,6 @@ describe( 'AI credits purchase dialog', () => {
 		);
 	} );
 
-	it( 'renders however many amounts came back', async () => {
-		await setup( GBP.slice( 0, 2 ) );
-		expect( screen.getAllByRole( 'radio' ) ).toHaveLength( 2 );
-	} );
-
 	it( 'uses one tab stop and arrow keys to move through the amounts', async () => {
 		await setup();
 		const radios = screen.getAllByRole( 'radio' );

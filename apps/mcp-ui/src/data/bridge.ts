@@ -14,7 +14,7 @@ const owns = ( value: unknown, key: string ) =>
 const text = ( value: unknown ) => ( typeof value === 'string' ? value : '' );
 
 // Some hosts (Codex) pass tool results wrapped as JSON text.
-export function unwrap( value: unknown ): ToolResult {
+function unwrap( value: unknown ): ToolResult {
 	const payload = record( value );
 	if ( owns( payload, '_meta' ) || payload.isError ) {
 		return payload as ToolResult;
@@ -44,7 +44,7 @@ const metaOf = ( value: unknown ): JsonRecord => {
 	return record( result._meta );
 };
 
-export function localSitesFrom( value: unknown ): LocalSite[] {
+function localSitesFrom( value: unknown ): LocalSite[] {
 	const { localSites } = metaOf( value );
 	if ( ! Array.isArray( localSites ) ) {
 		throw new Error( LOAD_FAILED );

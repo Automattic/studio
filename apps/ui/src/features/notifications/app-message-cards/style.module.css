@@ -6,9 +6,8 @@
 	margin-top: calc( -1 * var( --space-2 ) );
 }
 
-/* Collapsible row, same treatment as the toasts: @starting-style animates
-   0fr→1fr on mount so an arriving card pushes its neighbors instead of
-   making them jump. */
+/* Collapsible row: @starting-style animates 0fr→1fr on mount so an arriving
+   card pushes its neighbors instead of making them jump. */
 .cell {
 	container-type: inline-size;
 	display: grid;

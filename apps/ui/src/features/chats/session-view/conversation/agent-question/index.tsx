@@ -165,10 +165,6 @@ export const AgentQuestionBatch = memo( function AgentQuestionBatch( {
 		return () => window.cancelAnimationFrame( animationFrameId );
 	}, [ activeIndex, prefersReducedMotion, settlingIndex ] );
 
-	if ( total === 0 ) {
-		return null;
-	}
-
 	if ( total === 1 ) {
 		const question = questions[ 0 ];
 		// The scroll-into-view effect needs a target here too, or a lone question

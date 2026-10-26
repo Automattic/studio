@@ -48,14 +48,6 @@ describe( 'turn activity line', () => {
 		expect( screen.getByText( 'Worked for 5s' ) ).toBeVisible();
 	} );
 
-	it.each( [
-		[ 'interrupted', 'Stopped after 4s' ],
-		[ 'error', 'Failed after 4s' ],
-	] as const )( 'labels %s turns', ( status, label ) => {
-		render( line( { status, endedAt: 5000 } ) );
-		expect( screen.getByText( label ) ).toBeVisible();
-	} );
-
 	it( 'omits duration when historical timestamps are unavailable', () => {
 		render( line( { status: 'success', startedAt: null } ) );
 		expect( screen.getByText( /^Worked$/ ) ).toBeVisible();

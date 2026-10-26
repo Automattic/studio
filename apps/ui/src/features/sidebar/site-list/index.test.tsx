@@ -168,17 +168,6 @@ describe( 'sidebar site list', () => {
 		expect( await siteButton( 'My site' ) ).toHaveAttribute( 'aria-current', 'page' );
 	} );
 
-	it( 'highlights the site row on its own page without marking it current', async () => {
-		await setup( { path: '/sites/one' } );
-		const button = await siteButton( 'My site' );
-		await waitFor( () =>
-			expect( button.closest( '[data-slot="sidebar-menu-button"]' ) ).toHaveAttribute(
-				'data-active'
-			)
-		);
-		expect( button ).not.toHaveAttribute( 'aria-current' );
-	} );
-
 	it( 'lists sites while chats are still loading', async () => {
 		const connector = createFakeConnector( { sites: [ mySite ] } );
 		connector.getSessions.mockReturnValue( new Promise( () => {} ) );

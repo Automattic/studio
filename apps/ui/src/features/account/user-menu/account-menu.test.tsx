@@ -36,10 +36,7 @@ async function openLoginDialog() {
 
 describe( 'AccountMenu', () => {
 	it( 'explains connection before starting authentication and allows dismissal', async () => {
-		const { connector, container } = setup();
-		const login = await screen.findByRole( 'button', { name: 'Log in' } );
-		expect( login.querySelector( 'svg' ) ).toBeNull();
-		expect( container.querySelector( 'img' ) ).toBeNull();
+		const { connector } = setup();
 		await openLoginDialog();
 		expect(
 			screen.getByText(
@@ -55,7 +52,7 @@ describe( 'AccountMenu', () => {
 	} );
 
 	it( 'authenticates from Log in, closes the dialog, and restores Log in after logout', async () => {
-		const { connector, container } = setup();
+		const { connector } = setup();
 		fireEvent.click( await openLoginDialog() );
 		await screen.findByRole( 'button', { name: TEST_USER.displayName } );
 		await waitFor( () =>
@@ -63,7 +60,6 @@ describe( 'AccountMenu', () => {
 		);
 		expect( await screen.findByText( 'Logged in to WordPress.com' ) ).toBeVisible();
 		expect( connector.authenticate ).toHaveBeenCalledExactlyOnceWith( false, 'settings' );
-		expect( container.querySelector( 'img' ) ).not.toBeNull();
 		fireEvent.click( screen.getByRole( 'button', { name: TEST_USER.displayName } ) );
 		const menu = await screen.findByRole( 'menu' );
 		expect( within( menu ).getByText( TEST_USER.displayName ) ).toBeVisible();

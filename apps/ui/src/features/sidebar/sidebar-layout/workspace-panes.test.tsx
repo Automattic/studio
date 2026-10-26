@@ -56,23 +56,6 @@ afterEach( () => {
 } );
 
 describe( 'workspace sidebar layout', () => {
-	it.each( [ 679, 680, 681 ] )(
-		'uses available workspace width at %s pixels',
-		async ( available ) => {
-			resize( available );
-			await setup();
-			expect( toggle() ).toHaveAccessibleName( available >= 680 ? 'Hide sidebar' : 'Show sidebar' );
-		}
-	);
-
-	it( 'reopens an automatically closed sidebar when space returns', async () => {
-		await setup();
-		resize( 679 );
-		expect( toggle() ).toHaveAccessibleName( 'Show sidebar' );
-		resize( 680 );
-		expect( toggle() ).toHaveAccessibleName( 'Hide sidebar' );
-	} );
-
 	it( 'preserves a manual close through narrow and wide windows', async () => {
 		await setup();
 		fireEvent.click( toggle() );

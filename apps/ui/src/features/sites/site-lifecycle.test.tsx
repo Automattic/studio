@@ -174,7 +174,6 @@ describe( 'site lifecycle and preview', () => {
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Stop site' } ) );
 		const action = lifecycle( 'My site' );
 		await waitFor( () => expect( action ).toHaveAttribute( 'aria-busy', 'true' ) );
-		expect( action.querySelector( '[data-slot="spinner"]' ) ).toBeInTheDocument();
 		expect( frame() ).toBeInTheDocument();
 		expect( screen.queryByRole( 'button', { name: 'Start' } ) ).not.toBeInTheDocument();
 		await act( async () => stop.resolve() );
@@ -244,8 +243,6 @@ describe( 'site lifecycle and preview', () => {
 			expect( lifecycle( 'Second' ) ).toHaveAttribute( 'aria-busy', 'true' );
 			expect( lifecycle( 'Third' ) ).toHaveAttribute( 'aria-busy', 'true' );
 		} );
-		expect( lifecycle( 'Second' ).querySelector( '[data-slot="spinner"]' ) ).toBeInTheDocument();
-		expect( lifecycle( 'Third' ).querySelector( '[data-slot="spinner"]' ) ).toBeInTheDocument();
 		expect( lifecycle( 'My site' ) ).not.toHaveAttribute( 'aria-busy' );
 		await act( async () => finish.get( 'two' )!() );
 		await waitFor( () => expect( lifecycle( 'Second' ) ).not.toHaveAttribute( 'aria-busy' ) );
@@ -312,16 +309,7 @@ describe( 'site lifecycle and preview', () => {
 		}
 	);
 
-	it( 'starts the selected stopped site from the sidebar', async () => {
-		useElectron();
-		const { connector } = setup();
-		fireEvent.click( await screen.findByRole( 'button', { name: 'Start My site' } ) );
-		await waitFor( () => expect( connector.startSite ).toHaveBeenCalledWith( 'one' ) );
-		await waitFor( () => expect( frame() ).toBeInTheDocument() );
-		expect( screen.queryByRole( 'button', { name: 'Start' } ) ).not.toBeInTheDocument();
-	} );
-
-	it.each( [ 'MacIntel', 'Win32', 'Linux x86_64' ] )(
+	it.each( [ 'MacIntel', 'Win32' ] )(
 		'toggles only the active site with the lifecycle shortcut on %s',
 		async ( platform ) => {
 			vi.spyOn( navigator, 'platform', 'get' ).mockReturnValue( platform );

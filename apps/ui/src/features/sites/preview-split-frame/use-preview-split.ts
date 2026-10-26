@@ -189,7 +189,6 @@ export function usePreviewSplit( { showPreview }: UsePreviewSplitOptions ): UseP
 		[ ensurePreferred, measureRootWidth, persistContentWidth ]
 	);
 
-	// One clamp, two consumers: the rendered content width and the handle bounds.
 	const layout = useMemo(
 		() =>
 			containerWidth === null

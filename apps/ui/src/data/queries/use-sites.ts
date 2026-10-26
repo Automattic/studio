@@ -29,7 +29,7 @@ const STOP_SITE_MUTATION_KEY = [ 'stopSite' ] as const;
 // component that created it, so a remounted screen would report "idle" while
 // the work is still running. Counting the mutation cache instead is the same
 // trick `useIsSiteStarting` uses.
-export const COPY_SITE_MUTATION_KEY = [ 'copySite' ] as const;
+const COPY_SITE_MUTATION_KEY = [ 'copySite' ] as const;
 export const EXPORT_FULL_SITE_MUTATION_KEY = [ 'exportFullSite' ] as const;
 export const EXPORT_DATABASE_MUTATION_KEY = [ 'exportDatabase' ] as const;
 

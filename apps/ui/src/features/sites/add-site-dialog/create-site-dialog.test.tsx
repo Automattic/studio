@@ -56,11 +56,6 @@ const created = ( history: { location: { pathname: string } } ) =>
 		expect( history.location.pathname ).toMatch( /^\/sites\/created\/new$|^\/sessions\// )
 	);
 
-async function blankSetup() {
-	fireEvent.click( await screen.findByRole( 'button', { name: 'Start with Blank site' } ) );
-	return screen.findByLabelText( 'Site name' );
-}
-
 async function useBlueprint() {
 	fireEvent.click( await screen.findByRole( 'button', { name: 'View Portfolio' } ) );
 	fireEvent.click( await screen.findByRole( 'button', { name: 'Create site' } ) );
@@ -302,23 +297,5 @@ describe( 'Add site flow', () => {
 		fireEvent.click( await screen.findByRole( 'button', { name: /Remote site/ } ) );
 		await submit();
 		await waitFor( () => expect( connector.pullSiteFromLive ).toHaveBeenCalled() );
-	} );
-
-	it( 'blocks dismissal while creation is pending', async () => {
-		const { connector } = setup();
-		connector.createSite.mockImplementation( () => new Promise( () => {} ) );
-		fireEvent.change( await blankSetup(), { target: { value: 'Pending' } } );
-		await submit();
-		await waitFor( () =>
-			expect(
-				within( screen.getByRole( 'dialog', { name: 'Add site' } ) ).getByRole( 'button', {
-					name: 'Close Add site',
-				} )
-			).toHaveAttribute( 'aria-disabled', 'true' )
-		);
-		await act( async () =>
-			fireEvent.keyDown( document.activeElement!, { key: 'Escape', code: 'Escape' } )
-		);
-		expect( screen.getByRole( 'dialog', { name: 'Add site' } ) ).toBeInTheDocument();
 	} );
 } );

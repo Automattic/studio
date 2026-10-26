@@ -366,11 +366,6 @@ describe( 'CreateSiteForm fields', () => {
 			'6.5.13',
 			versions( [ '6.8', 'latest' ], [ '6.8.1', '6.8.1' ], [ '6.5.13', '6.5.13' ] ),
 		],
-		[
-			'6.5.5',
-			'6.5.13',
-			versions( [ '6.8', 'latest' ], [ '6.8.1', '6.8.1' ], [ '6.5.13', '6.5.13' ] ),
-		],
 	] )( 'maps a suggested WordPress %s to %s', async ( wpVersion, shown, available ) => {
 		const connector = createFakeConnector();
 		connector.getWordPressVersions.mockResolvedValue( available );

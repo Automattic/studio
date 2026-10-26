@@ -183,8 +183,7 @@ export function CreateSiteForm( {
 	}, [] );
 
 	const existing = ! requiresEmptyPath && data.isWordPress && !! data.path && ! data.isPathPending;
-	// The path's required check opts out while `isPathPending` — see the
-	// `FormData` comment above.
+	// The path's required check opts out while `FormData.isPathPending`.
 	const advancedErrors = {
 		path:
 			data.pathError ||

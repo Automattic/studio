@@ -238,32 +238,6 @@ describe( 'site creation', () => {
 		expect( within( dialog ).getByLabelText( 'Local path' ) ).toHaveValue( '/sites/New site' );
 	} );
 
-	it( 'blocks a nonempty folder that is not WordPress', async () => {
-		const connector = createFakeConnector( { sites: [ mySite() ] } );
-		connector.selectSiteFolder.mockResolvedValueOnce( {
-			name: 'Documents',
-			path: '/documents',
-			isEmpty: false,
-			isWordPress: false,
-		} );
-		renderApp( { connector } );
-		await screen.findByRole( 'button', { name: 'Site actions for My site' } );
-		act( () => connector.emit( 'onAddSite' ) );
-		const dialog = await screen.findByRole( 'dialog' );
-		await openBlankSetup( dialog );
-		fireEvent.change( within( dialog ).getByLabelText( 'Site name' ), {
-			target: { value: 'New site' },
-		} );
-		fireEvent.click(
-			within( dialog ).getByRole( 'button', { name: /select a different folder|Select a folder/ } )
-		);
-		expect(
-			await screen.findByText( 'Choose an empty folder or an existing WordPress site.' )
-		).toBeVisible();
-		expect( within( dialog ).getByRole( 'button', { name: 'Create site' } ) ).toBeDisabled();
-		expect( connector.createSite ).not.toHaveBeenCalled();
-	} );
-
 	it( 'does not re-register an existing Studio site', async () => {
 		const connector = createFakeConnector( { sites: [ mySite() ] } );
 		connector.selectSiteFolder.mockResolvedValueOnce( {

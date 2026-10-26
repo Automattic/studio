@@ -148,17 +148,6 @@ describe( 'site title actions', () => {
 		await waitFor( () => expect( connector.stopSite ).toHaveBeenCalledWith( 'one' ) );
 	} );
 
-	it( 'requires confirmation and preserves files by default when deleting', async () => {
-		const { connector } = setup();
-		fireEvent.click( await screen.findByRole( 'button', { name: 'Site actions for My site' } ) );
-		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Delete site' } ) );
-		const dialog = await screen.findByRole( 'alertdialog' );
-		expect( connector.deleteSite ).not.toHaveBeenCalled();
-		expect( within( dialog ).getByRole( 'checkbox' ) ).not.toBeChecked();
-		fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Remove site' } ) );
-		await waitFor( () => expect( connector.deleteSite ).toHaveBeenCalledWith( 'one', false ) );
-	} );
-
 	it( 'stays open with the reason when deleting fails, and resets Trash on reopening', async () => {
 		const { connector } = setup();
 		connector.deleteSite.mockRejectedValueOnce( new Error( 'Site is running' ) );

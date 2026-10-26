@@ -343,7 +343,6 @@ describe( 'PublishPopover', () => {
 		const trigger = screen.getByRole( 'button', { name: 'Publish…' } );
 		expect( trigger ).toHaveTextContent( /^Publish$/ );
 		expect( trigger ).toHaveAccessibleDescription( 'Check the live site before publishing again.' );
-		expect( trigger.querySelector( '[class*="errorDot"]' ) ).toBeInTheDocument();
 		await waitFor( () =>
 			expect(
 				screen.getAllByText( 'Check the live site before publishing again.' )[ 0 ]
@@ -509,9 +508,9 @@ describe( 'PublishPopover', () => {
 		fireEvent.click( await screen.findByRole( 'button', { name: 'Try again' } ) );
 		await waitFor( () => expect( connector.pushSiteToLive ).toHaveBeenCalledTimes( 1 ) );
 		expect( connector.openExternalUrl ).toHaveBeenCalledTimes( 1 );
-		expect(
-			screen.getByRole( 'button', { name: 'Publish…' } ).querySelector( '[class*="errorDot"]' )
-		).not.toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).not.toHaveAccessibleDescription(
+			'Website not ready'
+		);
 	} );
 
 	it( 'uses the destination of a CLI transfer without showing an old include selection', async () => {

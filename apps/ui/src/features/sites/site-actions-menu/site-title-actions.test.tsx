@@ -167,7 +167,7 @@ describe( 'site title actions', () => {
 		expect( within( dialog ).getByRole( 'checkbox' ) ).not.toBeChecked();
 	} );
 
-	it( 'holds off Delete, saying why, while one of the site’s chats is running', async () => {
+	it( 'disables Delete without a menu explanation while one of the site’s chats is running', async () => {
 		setup( [ site() ], {
 			getActiveAgentRuns: async () => [
 				{ sessionId: 'one-chat', phase: 'running', runId: 'run', startedAt: Date.now() },
@@ -181,8 +181,8 @@ describe( 'site title actions', () => {
 			)
 		);
 		expect(
-			screen.getByText( 'Wait for active chats and queued prompts to finish.' )
-		).toBeInTheDocument();
+			screen.queryByText( 'Wait for active chats and queued prompts to finish.' )
+		).not.toBeInTheDocument();
 	} );
 
 	it( 'tells the user when a destination cannot open', async () => {

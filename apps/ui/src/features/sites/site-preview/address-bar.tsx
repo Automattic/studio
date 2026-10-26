@@ -228,10 +228,32 @@ export function PreviewAddressBar( {
 	const [ shortcutsOpen, setShortcutsOpen ] = useState( false );
 	const [ highlighted, setHighlighted ] = useState< string >();
 	const shortcutsId = useId();
+	const addressInputId = useId();
 	const [ recentLocations, setRecentLocations ] = useState< RecentPreviewLocation[] >( () =>
 		loadRecentLocations( site.id )
 	);
 	const addressBarRef = useRef< HTMLFormElement | null >( null );
+	const addressTextRef = useRef< HTMLSpanElement | null >( null );
+	const selectOnMouseUp = useRef( false );
+
+	const animateAddressAlignment = ( input: HTMLInputElement, focused: boolean ) => {
+		const style = getComputedStyle( input );
+		const currentOffset =
+			style.transform && style.transform !== 'none'
+				? new DOMMatrixReadOnly( style.transform ).m41
+				: 0;
+		input.getAnimations?.().forEach( ( animation ) => animation.cancel() );
+		const textWidth = addressTextRef.current?.getBoundingClientRect().width ?? 0;
+		const offset = Math.max( 0, ( input.clientWidth - textWidth ) / 2 );
+		if ( ! offset || window.matchMedia( '(prefers-reduced-motion: reduce)' ).matches ) return;
+		const direction = style.direction === 'rtl' ? -1 : 1;
+		const start = currentOffset + offset * direction * ( focused ? 1 : -1 );
+		const duration = style.getPropertyValue( '--motion-duration-surface' ).trim();
+		input.animate( [ { transform: `translateX(${ start }px)` }, { transform: 'translateX(0)' } ], {
+			duration: parseFloat( duration ) * ( duration.endsWith( 'ms' ) ? 1 : 1000 ),
+			easing: style.getPropertyValue( '--motion-ease-enter' ).trim(),
+		} );
+	};
 
 	const restore = () => {
 		setValue( displayUrl );
@@ -280,7 +302,7 @@ export function PreviewAddressBar( {
 	};
 	const realmLabels: Record< PreviewRealm, string > = {
 		frontend: __( 'Front end' ),
-		admin: __( 'WP Admin' ),
+		admin: __( 'WordPress Admin' ),
 		database: __( 'Database' ),
 		design: __( 'Design system' ),
 	};
@@ -319,10 +341,12 @@ export function PreviewAddressBar( {
 	};
 	return (
 		<Popover.Root
+			triggerId={ addressInputId }
 			open={ shortcutsOpen }
 			// The webview swallows outside clicks; the modal backdrop catches them.
 			modal
-			onOpenChange={ ( open ) => {
+			onOpenChange={ ( open, details ) => {
+				if ( details.reason === 'trigger-press' && ( shortcutsOpen || remote ) ) return;
 				setShortcutsOpen( open );
 				setHighlighted( undefined );
 				if ( ! open ) {
@@ -340,19 +364,47 @@ export function PreviewAddressBar( {
 						/>
 					</span>
 				) }
-				<input
+				<span ref={ addressTextRef } className={ styles.addressText } aria-hidden="true">
+					{ value }
+				</span>
+				<Popover.Trigger
+					id={ addressInputId }
+					nativeButton={ false }
+					render={
+						<input
+							role="textbox"
+							value={ value }
+							onMouseDown={ ( event ) => {
+								selectOnMouseUp.current = document.activeElement !== event.currentTarget;
+								if ( event.button === 0 && ! remote ) setShortcutsOpen( true );
+							} }
+							onMouseUp={ ( event ) => {
+								if ( selectOnMouseUp.current ) {
+									event.preventDefault();
+									event.currentTarget.select();
+									selectOnMouseUp.current = false;
+								}
+							} }
+							onFocus={ ( event ) => {
+								event.currentTarget.select();
+								if ( ! remote ) setShortcutsOpen( true );
+								animateAddressAlignment( event.currentTarget, true );
+							} }
+							onBlur={ ( event ) => {
+								selectOnMouseUp.current = false;
+								animateAddressAlignment( event.currentTarget, false );
+							} }
+							onChange={ ( event ) => {
+								setValue( event.target.value );
+								setInvalid( false );
+							} }
+						/>
+					}
 					className={ styles.input }
-					value={ value }
-					onChange={ ( event ) => {
-						setValue( event.target.value );
-						setInvalid( false );
-					} }
-					onClick={ () => setShortcutsOpen( ! remote ) }
-					onFocus={ ( event ) => {
-						event.currentTarget.select();
-					} }
 					aria-controls={ shortcutsOpen ? shortcutsId : undefined }
+					onKeyUp={ ( event ) => event.preventBaseUIHandler() }
 					onKeyDown={ ( event ) => {
+						event.preventBaseUIHandler();
 						// Enter goes to the typed address until a shortcut is highlighted.
 						if (
 							shortcutsOpen &&

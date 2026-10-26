@@ -59,15 +59,17 @@ describe( 'sidebar hover overlay', () => {
 		expect( fireEvent.keyDown( trigger, { key: 'Escape' } ) ).toBe( true );
 	} );
 
-	it( 'docks the sidebar when the hovered toggle is clicked', async () => {
+	it( 'docks the sidebar at the top when the hovered toggle is clicked', async () => {
 		const { trigger, open } = await setup();
-		await open();
+		const sidebar = await open();
+		sidebar.scrollTop = 120;
 		fireEvent.click( trigger );
 		expect(
 			await screen.findByRole( 'separator', { name: 'Resize sidebar' } )
 		).toBeInTheDocument();
 		expect( screen.queryByRole( 'dialog', { name: 'Sidebar' } ) ).not.toBeInTheDocument();
 		expect( document.activeElement ).toHaveAccessibleName( 'Hide sidebar' );
+		expect( document.activeElement?.closest( 'aside' )?.scrollTop ).toBe( 0 );
 	} );
 } );
 

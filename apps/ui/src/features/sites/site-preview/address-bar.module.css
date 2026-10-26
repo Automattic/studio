@@ -1,4 +1,5 @@
 .addressBar {
+	-webkit-app-region: no-drag;
 	position: relative;
 	display: flex;
 	width: 100%;
@@ -61,10 +62,14 @@
 }
 
 .input:focus {
+	padding-inline: 0;
 	text-align: start;
 }
 
 .shortcutsPopup {
+	transition: none;
+	opacity: 1;
+	scale: 1;
 	width: var( --anchor-width );
 	max-width: calc( 100vw - 16px );
 	padding: var( --space-1_5 );
@@ -74,4 +79,13 @@
 .shortcuts {
 	/* eslint-disable-next-line studio/no-primitive-overrides -- the suggestions sit on a menu surface, not the composer. */
 	--command-radius: var( --radius-md );
+}
+
+.addressText {
+	position: absolute;
+	visibility: hidden;
+	white-space: pre;
+	font-size: var( --text-xs );
+	line-height: var( --text-xs--line-height );
+	pointer-events: none;
 }

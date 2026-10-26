@@ -7,8 +7,6 @@
 	--composer-height: 0px;
 	/* The composer sits this far above the panel's bottom edge. */
 	--composer-bottom-gap: 14px;
-	--composer-blur-overhang: 40px;
-	--scrollbar-blur-safe-area: 14px;
 
 	position: relative;
 	height: 100%;
@@ -98,19 +96,6 @@
 	   (non-scrolling) composer. */
 	scrollbar-gutter: stable both-edges;
 	scrollbar-width: thin;
-}
-
-.composerBlur {
-	inset-inline-start: 0;
-	inset-inline-end: var( --scrollbar-blur-safe-area );
-	z-index: 1;
-}
-
-.composerBlur {
-	bottom: 0;
-	height: calc(
-		var( --composer-height ) + var( --composer-bottom-gap ) + var( --composer-blur-overhang )
-	);
 }
 
 .headerLayer {
@@ -205,13 +190,13 @@
 /* An empty chat's dot field, with a stopped site's screenshot over it. */
 .emptyState {
 	position: absolute;
-	inset: 0 0 var( --composer-height );
+	inset: 0;
 	display: flex;
 	align-items: center;
 	justify-content: center;
 	/* Centred between the header and the composer. */
 	padding: calc( var( --header-height ) + var( --space-6 ) ) var( --space-6 )
-		calc( var( --space-6 ) + 2 * var( --composer-bottom-gap ) );
+		calc( var( --space-6 ) + var( --composer-height ) + 2 * var( --composer-bottom-gap ) );
 	transition: opacity var( --motion-duration-layout ) var( --motion-ease-layout );
 }
 

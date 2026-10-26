@@ -75,15 +75,18 @@ describe( 'resizable sidebar', () => {
 		expect( toggle() ).toHaveAccessibleName( 'Hide sidebar' );
 	} );
 
-	it( 'drags the edge and retains width after collapsing and reopening', async () => {
+	it( 'retains width but resets scroll after collapsing and reopening', async () => {
 		await setup();
 		fireEvent.mouseDown( handle(), { button: 0, clientX: 256 } );
 		fireEvent.mouseUp( document, { clientX: 320 } );
 		expect( handle() ).toHaveAttribute( 'aria-valuenow', '320' );
+		const sidebar = toggle().closest( 'aside' )!;
+		sidebar.scrollTop = 120;
 		fireEvent.click( toggle() );
 		expect( screen.queryByRole( 'separator', { name: 'Resize sidebar' } ) ).not.toBeInTheDocument();
 		fireEvent.click( toggle() );
 		expect( handle() ).toHaveAttribute( 'aria-valuenow', '320' );
+		expect( sidebar.scrollTop ).toBe( 0 );
 	} );
 
 	it( 'clamps a drag to the maximum and ignores non-primary buttons', async () => {
@@ -109,6 +112,23 @@ describe( 'resizable sidebar', () => {
 } );
 
 describe( 'overlay sidebar', () => {
+	it.each( [ false, true ] )(
+		'does not pin on widening with the panel open: %s',
+		async ( openPanel ) => {
+			await setup();
+			expect( handle() ).toBeInTheDocument();
+			resize( 800 );
+			if ( openPanel ) fireEvent.click( toggle() );
+			resize( 1280 );
+			expect(
+				screen.queryByRole( 'separator', { name: 'Resize sidebar' } )
+			).not.toBeInTheDocument();
+			expect( !! screen.queryByRole( 'dialog', { name: 'Sidebar' } ) ).toBe( openPanel );
+			fireEvent.click( toggle() );
+			expect( handle() ).toBeInTheDocument();
+		}
+	);
+
 	it( 'overlays the content below the docking width', async () => {
 		localStorage.setItem( SIDEBAR_PANEL_STORAGE_KEY, '320' );
 		resize( 935 );
@@ -117,6 +137,9 @@ describe( 'overlay sidebar', () => {
 		fireEvent.click( toggle() );
 		expect( screen.queryByRole( 'separator', { name: 'Resize sidebar' } ) ).not.toBeInTheDocument();
 		resize( 936 );
+		expect( screen.queryByRole( 'separator', { name: 'Resize sidebar' } ) ).not.toBeInTheDocument();
+		expect( screen.getByRole( 'dialog', { name: 'Sidebar' } ) ).toBeInTheDocument();
+		fireEvent.click( toggle() );
 		expect( handle() ).toHaveAttribute( 'aria-valuenow', '256' );
 		resize( 935 );
 		expect( toggle() ).toHaveAccessibleName( 'Show sidebar' );

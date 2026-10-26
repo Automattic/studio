@@ -1,5 +1,6 @@
 import { DESIGN_SYSTEM_PREVIEW_PATH } from '@studio/common/ai/chat-artifacts';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
 	DATABASE_HOME_PATH,
@@ -30,11 +31,13 @@ function autoLoginPath( target: string ) {
 
 function renderAddressBar( {
 	path = '/',
+	remote = false,
 	site = SITE,
 	onNavigate = vi.fn< ( path: string ) => void >(),
 	onSwitchRealm = vi.fn< ( realm: PreviewRealm ) => void >(),
 }: {
 	path?: string;
+	remote?: boolean;
 	site?: SiteDetails;
 	onNavigate?: Mock< ( path: string ) => void >;
 	onSwitchRealm?: Mock< ( realm: PreviewRealm ) => void >;
@@ -44,6 +47,7 @@ function renderAddressBar( {
 			site={ site }
 			siteUrl={ SITE_URL }
 			path={ path }
+			remote={ remote }
 			onNavigate={ onNavigate }
 			onSwitchRealm={ onSwitchRealm }
 		/>
@@ -122,10 +126,67 @@ describe( 'preview realms', () => {
 describe( 'PreviewAddressBar', () => {
 	beforeEach( () => window.localStorage.clear() );
 
-	it( 'flags an address off the site, and Escape restores the URL', () => {
-		const { onNavigate } = renderAddressBar( { path: '/about/' } );
+	it( 'opens shortcuts on mouse-down before the click finishes', async () => {
+		const user = userEvent.setup();
+		renderAddressBar();
 		const input = screen.getByRole( 'textbox', { name: 'Address' } );
-		input.focus();
+		await user.pointer( { keys: '[MouseLeft>]', target: input } );
+		expect( screen.getByRole( 'option', { name: 'WordPress Admin' } ) ).toBeVisible();
+		expect( input ).toHaveFocus();
+		await user.pointer( { keys: '[/MouseLeft]', target: input } );
+		expect( screen.getByRole( 'option', { name: 'WordPress Admin' } ) ).toBeVisible();
+		await user.click( screen.getByRole( 'option', { name: 'WordPress Admin' } ) );
+	} );
+
+	it( 'opens shortcuts on keyboard focus', async () => {
+		const user = userEvent.setup();
+		renderAddressBar();
+		await user.tab();
+		expect( screen.getByRole( 'textbox', { name: 'Address' } ) ).toHaveFocus();
+		expect( await screen.findByRole( 'option', { name: 'WordPress Admin' } ) ).toBeVisible();
+		await user.click( screen.getByRole( 'option', { name: 'WordPress Admin' } ) );
+	} );
+
+	it( 'keeps remote addresses editable without local shortcuts', async () => {
+		const user = userEvent.setup();
+		const { onNavigate } = renderAddressBar( { remote: true } );
+		const input = screen.getByRole( 'textbox', { name: 'Address' } );
+		await user.click( input );
+		expect( screen.queryByRole( 'dialog', { name: 'Preview shortcuts' } ) ).not.toBeInTheDocument();
+		await user.keyboard( '/about{Enter}' );
+		expect( onNavigate ).toHaveBeenCalledWith( '/about' );
+	} );
+
+	it( 'keeps the address editable while shortcuts are open', async () => {
+		const user = userEvent.setup();
+		const { onNavigate } = renderAddressBar();
+		const input = screen.getByRole( 'textbox', { name: 'Address' } ) as HTMLInputElement;
+		await user.click( input );
+		expect( await screen.findByRole( 'option', { name: 'WordPress Admin' } ) ).toBeVisible();
+		expect( input ).toHaveFocus();
+		expect( input.selectionStart ).toBe( 0 );
+		expect( input.selectionEnd ).toBe( SITE_URL.length );
+		await user.keyboard( '/about' );
+		expect( input ).toHaveValue( '/about' );
+		await user.clear( input );
+		await user.keyboard( `${ SITE_URL }/about` );
+		expect( input ).toHaveValue( `${ SITE_URL }/about` );
+		await user.click( input );
+		expect( input.selectionStart ).toBe( input.selectionEnd );
+		expect( screen.getByRole( 'option', { name: 'WordPress Admin' } ) ).toBeVisible();
+		await user.keyboard( '{Enter}' );
+		expect( onNavigate ).toHaveBeenLastCalledWith( '/about' );
+		await user.click( input );
+		await user.clear( input );
+		await user.keyboard( 'hello world{Enter}' );
+		expect( onNavigate ).toHaveBeenLastCalledWith( '/?s=hello%20world' );
+	} );
+
+	it( 'flags an address off the site, and Escape restores the URL', async () => {
+		const user = userEvent.setup();
+		const { onNavigate } = renderAddressBar( { path: '/about/', remote: true } );
+		const input = screen.getByRole( 'textbox', { name: 'Address' } );
+		await user.click( input );
 
 		fireEvent.change( input, { target: { value: 'https://example.com/' } } );
 		fireEvent.submit( input.closest( 'form' )! );
@@ -134,7 +195,7 @@ describe( 'PreviewAddressBar', () => {
 		expect( input ).toHaveAttribute( 'aria-invalid', 'true' );
 		expect( input ).toHaveAttribute( 'title', 'Enter a path or an address on this site.' );
 
-		fireEvent.keyDown( input, { key: 'Escape' } );
+		await user.keyboard( '{Escape}' );
 
 		expect( input ).toHaveValue( `${ SITE_URL }/about/` );
 		expect( input ).not.toHaveAttribute( 'aria-invalid' );
@@ -179,7 +240,7 @@ describe( 'PreviewAddressBar', () => {
 		fireEvent.click( input );
 
 		expect( await screen.findByRole( 'option', { name: /Front end/ } ) ).toBeVisible();
-		expect( screen.getByRole( 'option', { name: /WP Admin/ } ) ).toBeVisible();
+		expect( screen.getByRole( 'option', { name: /WordPress Admin/ } ) ).toBeVisible();
 		fireEvent.click( screen.getByRole( 'option', { name: /Database/ } ) );
 
 		expect( onSwitchRealm ).toHaveBeenCalledWith( 'database' );
@@ -187,14 +248,14 @@ describe( 'PreviewAddressBar', () => {
 			expect( screen.queryByRole( 'option', { name: /Database/ } ) ).not.toBeInTheDocument()
 		);
 		fireEvent.focus( input );
-		expect( screen.queryByRole( 'option', { name: /Database/ } ) ).not.toBeInTheDocument();
+		expect( await screen.findByRole( 'option', { name: /Database/ } ) ).toBeVisible();
 	} );
 
 	it( 'picks a shortcut with the arrow keys, and Enter otherwise goes to the address', async () => {
 		const { onSwitchRealm, onNavigate } = renderAddressBar();
 		const input = screen.getByRole( 'textbox', { name: 'Address' } );
 		fireEvent.click( input );
-		await screen.findByRole( 'option', { name: 'WP Admin' } );
+		await screen.findByRole( 'option', { name: 'WordPress Admin' } );
 
 		fireEvent.change( input, { target: { value: '/about/' } } );
 		fireEvent.submit( input.closest( 'form' )! );
@@ -202,7 +263,7 @@ describe( 'PreviewAddressBar', () => {
 
 		fireEvent.click( input );
 		fireEvent.keyDown( input, { key: 'ArrowDown' } );
-		expect( await screen.findByRole( 'option', { name: 'WP Admin' } ) ).toHaveAttribute(
+		expect( await screen.findByRole( 'option', { name: 'WordPress Admin' } ) ).toHaveAttribute(
 			'aria-selected',
 			'true'
 		);

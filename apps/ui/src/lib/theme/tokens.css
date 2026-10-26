@@ -232,7 +232,8 @@
 }
 
 @media ( prefers-reduced-motion: reduce ) {
-	:root {
+	:root,
+	[data-color-scheme] {
 		--motion-duration-surface: 120ms;
 		--motion-duration-layout: 0ms;
 		--motion-duration-reveal: 150ms;

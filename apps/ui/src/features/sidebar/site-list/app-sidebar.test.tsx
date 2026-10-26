@@ -294,12 +294,12 @@ describe( 'Sidebar in the Studio workspace', () => {
 				pinnedGroup().getByRole( 'button', { name: 'Pinned conversation' } )
 			);
 			const siteRow = screen.getByRole( 'button', { name: 'My site' } );
+			if ( siteRow.getAttribute( 'aria-expanded' ) === 'true' ) {
+				fireEvent.click( siteRow );
+			}
 			if ( selected ) {
 				fireEvent.click( pinned );
 				await waitFor( () => expect( history.location.pathname ).toBe( '/sessions/pinned-chat' ) );
-			}
-			if ( siteRow.getAttribute( 'aria-expanded' ) === 'true' ) {
-				fireEvent.click( siteRow );
 			}
 			const createCalls = connector.createSession.mock.calls.length;
 			expect( siteRow ).toHaveAttribute( 'aria-expanded', 'false' );

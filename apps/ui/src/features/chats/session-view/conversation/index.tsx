@@ -27,6 +27,7 @@ import {
 import { AiAccessRequiredNotice, AiBlockedNotice } from '@/features/credits';
 import styles from './style.module.css';
 import type { LoadedAiSession } from '@/data/core';
+import type { TranscriptItem } from '@/features/chats/session-view/conversation/transcript-items';
 
 const ChatArtifact = memo( function ChatArtifact( {
 	widgets,
@@ -138,80 +139,75 @@ export const Conversation = memo( function Conversation( {
 	);
 	const progressMessage = useMemo( () => getProgressMessage( entries ), [ entries ] );
 
-	return (
-		<div className={ styles.root }>
-			{ items.map( ( item, index ) => {
-				const sender = getSender( item );
-				const joined = {
-					joinedAbove: !! sender && getSender( items[ index - 1 ] ) === sender,
-					joinedBelow: !! sender && getSender( items[ index + 1 ] ) === sender,
-				};
-				switch ( item.kind ) {
-					case 'user-text':
-						return (
-							<UserTurn
-								key={ item.key }
-								text={ item.text }
-								attachments={ item.attachments }
-								annotation={ item.annotation }
-								{ ...joined }
-							/>
-						);
-					case 'assistant-text':
-						return (
-							<AssistantText
-								key={ item.key }
-								text={ item.text }
-								messageText={ item.messageText }
-								copyText={ item.copyText }
-								streaming={ item.streaming }
-								{ ...joined }
-							/>
-						);
-					case 'tool-use':
-						return (
-							<ToolUseRow
-								key={ item.key }
-								name={ item.name }
-								input={ item.input }
-								result={ item.result }
-								isRunning={ item.running ?? false }
-							/>
-						);
-					case 'agent-question-batch':
-						return (
-							<AgentQuestionBatch
-								key={ item.key }
-								questions={ item.questions }
-								pendingQuestions={ pendingQuestions }
-								pendingAnswers={ pendingAnswers }
-								freeFormQuestion={ freeFormQuestion }
-								onAnswer={ onAnswerQuestion }
-								onChooseFreeForm={ onChooseFreeForm }
-								{ ...joined }
-							/>
-						);
-					case 'chat-artifact':
-						return <ChatArtifact key={ item.key } widgets={ item.widgets } />;
-					case 'activity':
-						return (
-							<TurnActivityLine
-								key={ item.key }
-								activity={ item }
-								waitingOnUser={ item.status === 'running' && pendingQuestions.size > 0 }
-								progressMessage={ item.status === 'running' ? progressMessage : null }
-							/>
-						);
-					case 'interrupted-marker':
-						return (
-							<div key={ item.key } className={ styles.marker } role="status">
-								{ __( 'Interrupted by you' ) }
-							</div>
-						);
-					case 'error-marker':
-						return <TurnErrorMarker key={ item.key } message={ item.message } />;
-				}
-			} ) }
-		</div>
-	);
+	const renderItems = ( rows: TranscriptItem[] ): ReactNode =>
+		rows.map( ( item, index ) => {
+			const sender = getSender( item );
+			const joined = {
+				joinedAbove: !! sender && getSender( rows[ index - 1 ] ) === sender,
+				joinedBelow: !! sender && getSender( rows[ index + 1 ] ) === sender,
+			};
+			switch ( item.kind ) {
+				case 'user-text':
+					return (
+						<UserTurn
+							key={ item.key }
+							text={ item.text }
+							attachments={ item.attachments }
+							annotation={ item.annotation }
+							{ ...joined }
+						/>
+					);
+				case 'assistant-text':
+					return (
+						<AssistantText
+							key={ item.key }
+							text={ item.text }
+							messageText={ item.messageText }
+							copyText={ item.copyText }
+							streaming={ item.streaming }
+							{ ...joined }
+						/>
+					);
+				case 'tool-use':
+					return (
+						<ToolUseRow
+							key={ item.key }
+							name={ item.name }
+							input={ item.input }
+							result={ item.result }
+							isRunning={ item.running ?? false }
+						/>
+					);
+				case 'agent-question-batch':
+					return (
+						<AgentQuestionBatch
+							key={ item.key }
+							questions={ item.questions }
+							pendingQuestions={ pendingQuestions }
+							pendingAnswers={ pendingAnswers }
+							freeFormQuestion={ freeFormQuestion }
+							onAnswer={ onAnswerQuestion }
+							onChooseFreeForm={ onChooseFreeForm }
+							{ ...joined }
+						/>
+					);
+				case 'chat-artifact':
+					return <ChatArtifact key={ item.key } widgets={ item.widgets } />;
+				case 'activity':
+					return (
+						<TurnActivityLine
+							key={ item.key }
+							activity={ item }
+							waitingOnUser={ item.status === 'running' && pendingQuestions.size > 0 }
+							progressMessage={ item.status === 'running' ? progressMessage : null }
+							renderItems={ ( activityItems ) => (
+								<div className={ styles.activityItems }>{ renderItems( activityItems ) }</div>
+							) }
+						/>
+					);
+				case 'error-marker':
+					return <TurnErrorMarker key={ item.key } message={ item.message } />;
+			}
+		} );
+	return <div className={ styles.root }>{ renderItems( items ) }</div>;
 } );

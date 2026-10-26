@@ -74,11 +74,9 @@ export function SidebarLayout( { children }: { children: ReactNode } ) {
 	const sidebarFlyoutOpen = sidebarFlyoutState === 'open';
 	const [ instantSidebarDock, setInstantSidebarDock ] = useState( false );
 	const dockedSidebarRef = useRef< HTMLElement >( null );
-	const sidebarFlyoutScrollTop = useRef( 0 );
 	useLayoutEffect( () => {
 		if ( ! instantSidebarDock ) return;
 		if ( dockedSidebarRef.current ) {
-			dockedSidebarRef.current.scrollTop = sidebarFlyoutScrollTop.current;
 			dockedSidebarRef.current
 				.querySelector< HTMLElement >( '[data-sidebar-toggle]' )
 				?.focus( { preventScroll: true } );
@@ -122,18 +120,24 @@ export function SidebarLayout( { children }: { children: ReactNode } ) {
 		window.addEventListener( PANEL_WIDTHS_RESET_EVENT, reopen );
 		return () => window.removeEventListener( PANEL_WIDTHS_RESET_EVENT, reopen );
 	}, [ closeSidebarFlyout, setCollapsed ] );
-	// When docking the sidebar would leave the content less than the chat and
-	// preview need, it opens over the content instead, closed by default. The
-	// docked state is kept for when the window widens again.
+	// A narrow window unpins the sidebar; widening it never pins it automatically.
 	const overlay = sidebarResize.viewportWidth - sidebarResize.width < PREVIEW_SPLIT_MIN_WIDTH;
-	useEffect( () => clearHoverTimer, [ overlay, clearHoverTimer ] );
+	useEffect( () => {
+		if ( overlay ) setCollapsed( true );
+		return clearHoverTimer;
+	}, [ overlay, setCollapsed, clearHoverTimer ] );
 	const [ wasOverlay, setWasOverlay ] = useState( overlay );
 	if ( wasOverlay !== overlay ) {
 		setWasOverlay( overlay );
-		setSidebarFlyoutState( 'closed' );
+		setSidebarFlyoutState( ! overlay && sidebarFlyoutState !== 'closed' ? 'hover' : 'closed' );
 	}
 	const docked = ! overlay && ! collapsed;
 	const open = docked || sidebarFlyoutOpen;
+	const sidebarFlyoutVisible = sidebarFlyoutState !== 'closed';
+	useLayoutEffect( () => {
+		if ( docked && dockedSidebarRef.current ) dockedSidebarRef.current.scrollTop = 0;
+		if ( sidebarFlyoutVisible && sidebarFlyoutRef.current ) sidebarFlyoutRef.current.scrollTop = 0;
+	}, [ docked, sidebarFlyoutVisible ] );
 	const hoverEnter = useCallback( () => {
 		clearHoverTimer();
 		if ( ! hasOpenDialog && ! open && ! peek && performance.now() >= hoverBlockedUntil.current ) {
@@ -154,8 +158,6 @@ export function SidebarLayout( { children }: { children: ReactNode } ) {
 	const toggleSidebar = useCallback( () => {
 		if ( hasOpenDialog ) return;
 		setInstantSidebarDock( peek && ! overlay );
-		if ( peek && ! overlay )
-			sidebarFlyoutScrollTop.current = sidebarFlyoutRef.current?.scrollTop ?? 0;
 		hoverBlockedUntil.current = performance.now() + HOVER_CLOSE_DELAY_MS;
 		clearHoverTimer();
 		if ( overlay ) {

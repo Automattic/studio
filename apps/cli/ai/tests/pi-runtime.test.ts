@@ -207,6 +207,10 @@ class FakeSession {
 		this.activeToolNames = names;
 	}
 
+	get systemPrompt(): string {
+		return this.options.resourceLoader?.getSystemPrompt() ?? '';
+	}
+
 	subscribe( listener: ( event: AgentSessionEvent ) => void ): () => void {
 		this.listener = listener;
 		return () => {};
@@ -317,6 +321,18 @@ describe( 'pi runtime', () => {
 				expect( last.errorMessage ).toMatch( /STUDIO_WPCOM_API_KEY/ );
 			}
 		}
+	} );
+
+	it( 'reports the system prompt its model requests carry', async () => {
+		const handle = runStudioAgentTurn( {
+			prompt: 'hello',
+			session: newSession(),
+			env: WPCOM_ENV,
+			onEvent: () => {},
+		} );
+		expect( handle.systemPrompt() ).toBeUndefined();
+		await handle.result;
+		expect( handle.systemPrompt() ).toMatch( /^You are WordPress Studio, built by Automattic\./ );
 	} );
 
 	it( 'activates the tools a skill brings once the skill is loaded', async () => {

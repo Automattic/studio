@@ -130,11 +130,14 @@ export interface StudioAgentTurnHandle {
 	interrupt(): Promise< void >;
 	/** Whether `name` is one of the turn's registered tools, not a name the model made up. */
 	hasTool( name: string ): boolean;
+	/** The system prompt the turn's model requests carry, once its session is set up. */
+	systemPrompt(): string | undefined;
 }
 
 export function runStudioAgentTurn( config: StudioAgentTurnConfig ): StudioAgentTurnHandle {
 	const controller = new AbortController();
 	let activeSession: AgentSession | undefined;
+	let systemPrompt: string | undefined;
 	const resolvedConfig: ResolvedStudioAgentTurnConfig = {
 		...config,
 		env: config.env ?? { ...( process.env as Record< string, string > ) },
@@ -147,6 +150,7 @@ export function runStudioAgentTurn( config: StudioAgentTurnConfig ): StudioAgent
 
 	const result = runAgentSessionTurn( resolvedConfig, controller, ( session ) => {
 		activeSession = session;
+		systemPrompt = session?.systemPrompt ?? systemPrompt;
 	} );
 
 	return {
@@ -162,6 +166,9 @@ export function runStudioAgentTurn( config: StudioAgentTurnConfig ): StudioAgent
 				! isUserMcpTool( name ) &&
 				( activeSession?.getAllTools().some( ( tool ) => tool.name === name ) ?? false )
 			);
+		},
+		systemPrompt() {
+			return systemPrompt;
 		},
 	};
 }

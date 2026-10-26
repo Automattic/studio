@@ -579,6 +579,8 @@ async function runEval( input: EvalRunnerInput ) {
 	let firstToolError: FirstToolError | null = null;
 	// Wall-clock per turn, measured between successive assistant messages.
 	const turnDurationsMs: number[] = [];
+	// Each turn's system prompt, so a result shows the facts the agent was given.
+	const systemPrompts: string[] = [];
 	let turnIndex = 0;
 	let numTurns = 0;
 	let numTurnsResult: number | null = null;
@@ -728,6 +730,7 @@ async function runEval( input: EvalRunnerInput ) {
 			if ( timedOut ) {
 				break;
 			}
+			systemPrompts.push( query.systemPrompt() ?? '' );
 			query = runTurn( followUp.prompt );
 			await query.result;
 		}
@@ -735,6 +738,7 @@ async function runEval( input: EvalRunnerInput ) {
 		error = caught instanceof Error ? caught.message : String( caught );
 	} finally {
 		clearTimeout( timeout );
+		systemPrompts.push( query.systemPrompt() ?? '' );
 		outcome = await captureTurnOutcome(
 			sitesBeforeTurn,
 			seeded?.activeSitePath,
@@ -764,6 +768,7 @@ async function runEval( input: EvalRunnerInput ) {
 		timing: summarizeTiming( requests, toolEvents ),
 		requests,
 		turnDurationsMs,
+		systemPrompts,
 		toolCalls,
 		toolResults,
 		toolEvents,

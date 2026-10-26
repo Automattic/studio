@@ -360,7 +360,7 @@ describe( 'site preview controls', () => {
 			fireEvent.click( screen.getByRole( 'textbox', { name: 'Address' } ) );
 			fireEvent.click( await screen.findByRole( 'option', { name } ) );
 		};
-		await pick( 'WP Admin' );
+		await pick( 'WordPress Admin' );
 		expect( onPathChange ).toHaveBeenLastCalledWith(
 			`/studio-auto-login?redirect_to=${ encodeURIComponent( `${ SITE_URL }/wp-admin/` ) }`
 		);
@@ -375,7 +375,7 @@ describe( 'site preview controls', () => {
 		update( { path: '/wp-admin/' } );
 		onPathChange.mockClear();
 		connector.trackEvent.mockClear();
-		await pick( 'WP Admin' );
+		await pick( 'WordPress Admin' );
 		expect( onPathChange ).not.toHaveBeenCalled();
 		expect( connector.trackEvent ).not.toHaveBeenCalled();
 	} );

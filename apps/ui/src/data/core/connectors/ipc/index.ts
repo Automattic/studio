@@ -6,10 +6,7 @@ import {
 } from '@studio/common/lib/error-formatting';
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
-import {
-	getSiteAgentFileFolder,
-	getSiteAgentFilePaths,
-} from '@studio/common/lib/site-agent-file-paths';
+import { getSiteAgentFilePaths } from '@studio/common/lib/site-agent-file-paths';
 import { fetchSnapshotUsage } from '@studio/common/lib/snapshots';
 import { requestStudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 import { fetchStudioAssistantTopUpPricing } from '@studio/common/lib/studio-assistant-top-up-pricing';
@@ -689,22 +686,18 @@ export function createIpcConnector(): Connector {
 			await ipcApi.openAppAtPath( editor, sitePath );
 		},
 
-		async openSiteAgentFile( siteId, kind, id, target ): Promise< void > {
-			for ( const relative of getSiteAgentFilePaths( kind, id ) ) {
+		async openSiteAgentFile( siteId, id, target ): Promise< void > {
+			for ( const relative of getSiteAgentFilePaths( id ) ) {
 				const filePath = await ipcApi.getAbsolutePathFromSite( siteId, relative );
 				if ( ! filePath ) {
 					continue;
 				}
-				const folder = await ipcApi.getAbsolutePathFromSite(
-					siteId,
-					getSiteAgentFileFolder( kind, relative )
-				);
 				if ( target === 'editor' ) {
 					return ipcApi.openAppAtPath( await resolveEditor(), filePath );
 				}
 				return target === 'terminal'
-					? ipcApi.openTerminalAtPath( folder )
-					: ipcApi.openLocalPath( folder );
+					? ipcApi.openTerminalAtPath( filePath )
+					: ipcApi.openLocalPath( filePath );
 			}
 			throw new Error( 'File not found.' );
 		},
@@ -798,14 +791,14 @@ export function createIpcConnector(): Connector {
 		async removeWordPressSkillFromAllSites( skillId: string ): Promise< void > {
 			await ipcApi.removeWordPressSkillFromAllSites( skillId );
 		},
-		async getSiteAgentFiles( siteId, kind ) {
-			return ( await ipcApi.getSiteAgentFiles( siteId, kind ) ) as SiteAgentFile[];
+		async getSiteAgentFiles( siteId ) {
+			return ( await ipcApi.getSiteAgentFiles( siteId ) ) as SiteAgentFile[];
 		},
-		async setSiteAgentFileEnabled( siteId, kind, id, enabled ) {
-			await ipcApi.setSiteAgentFileEnabled( siteId, kind, id, enabled );
+		async setSiteAgentFileEnabled( siteId, id, enabled ) {
+			await ipcApi.setSiteAgentFileEnabled( siteId, id, enabled );
 		},
-		async removeSiteAgentFile( siteId, kind, id ) {
-			await ipcApi.removeSiteAgentFile( siteId, kind, id );
+		async removeSiteAgentFile( siteId, id ) {
+			await ipcApi.removeSiteAgentFile( siteId, id );
 		},
 
 		// Window state

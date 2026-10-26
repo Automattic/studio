@@ -71,8 +71,8 @@ async function copyLocalContent(): Promise< void > {
 
 	const entries = await fs.readdir( LOCAL_AI_SKILLS_PATH, { withFileTypes: true } );
 	for ( const entry of entries ) {
-		// Skip non-content files (e.g. .ts)
-		if ( entry.isFile() && ! entry.name.endsWith( '.md' ) ) {
+		// Each skill is a folder.
+		if ( ! entry.isDirectory() ) {
 			continue;
 		}
 

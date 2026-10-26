@@ -824,12 +824,13 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		async openSiteInEditor( siteId ) {
 			await api( `/sites/${ encodeURIComponent( siteId ) }/open-in-editor`, { method: 'POST' } );
 		},
-		async openSiteAgentFile( siteId, kind, id, target ) {
+		async openSiteAgentFile( siteId, id, target ) {
 			await api(
-				`/sites/${ encodeURIComponent( siteId ) }/agent-files/${ kind }/${ encodeURIComponent(
-					id
-				) }/open`,
-				{ method: 'POST', body: JSON.stringify( { target } ) }
+				`/sites/${ encodeURIComponent( siteId ) }/skills/${ encodeURIComponent( id ) }/open`,
+				{
+					method: 'POST',
+					body: JSON.stringify( { target } ),
+				}
 			);
 		},
 		async openSiteInTerminal( siteId ) {
@@ -898,26 +899,19 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		async removeWordPressSkillFromAllSites( skillId ) {
 			await api( `/skills/${ encodeURIComponent( skillId ) }`, { method: 'DELETE' } );
 		},
-		async getSiteAgentFiles( siteId, kind ) {
-			return api< SiteAgentFile[] >(
-				`/sites/${ encodeURIComponent( siteId ) }/agent-files/${ kind }`
-			);
+		async getSiteAgentFiles( siteId ) {
+			return api< SiteAgentFile[] >( `/sites/${ encodeURIComponent( siteId ) }/skills` );
 		},
-		async setSiteAgentFileEnabled( siteId, kind, id, enabled ) {
-			await api(
-				`/sites/${ encodeURIComponent( siteId ) }/agent-files/${ kind }/${ encodeURIComponent(
-					id
-				) }`,
-				{ method: 'PUT', body: JSON.stringify( { enabled } ) }
-			);
+		async setSiteAgentFileEnabled( siteId, id, enabled ) {
+			await api( `/sites/${ encodeURIComponent( siteId ) }/skills/${ encodeURIComponent( id ) }`, {
+				method: 'PUT',
+				body: JSON.stringify( { enabled } ),
+			} );
 		},
-		async removeSiteAgentFile( siteId, kind, id ) {
-			await api(
-				`/sites/${ encodeURIComponent( siteId ) }/agent-files/${ kind }/${ encodeURIComponent(
-					id
-				) }`,
-				{ method: 'DELETE' }
-			);
+		async removeSiteAgentFile( siteId, id ) {
+			await api( `/sites/${ encodeURIComponent( siteId ) }/skills/${ encodeURIComponent( id ) }`, {
+				method: 'DELETE',
+			} );
 		},
 
 		// Window chrome — no traffic lights in a browser tab.

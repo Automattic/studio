@@ -9,7 +9,7 @@ import type {
 	LoadedAiSession,
 } from '@studio/common/ai/sessions/types';
 import type { StudioVisualAnnotationSummary } from '@studio/common/ai/visual-annotations';
-import type { SiteAgentFile, SiteAgentFileKind } from '@studio/common/lib/agent-skills';
+import type { SiteAgentFile } from '@studio/common/lib/agent-skills';
 import type { SiteEvent, SnapshotEvent } from '@studio/common/lib/cli-events';
 import type { SupportedLocale } from '@studio/common/lib/locale';
 import type {
@@ -494,22 +494,12 @@ export interface Connector {
 	installWordPressSkillToAllSites( skillId: string ): Promise< void >;
 	removeWordPressSkillFromAllSites( skillId: string ): Promise< void >;
 
-	// One site's skills and instruction files. Switching one off keeps its
-	// edits, out of the folders agents read.
-	getSiteAgentFiles( siteId: string, kind: SiteAgentFileKind ): Promise< SiteAgentFile[] >;
-	setSiteAgentFileEnabled(
-		siteId: string,
-		kind: SiteAgentFileKind,
-		id: string,
-		enabled: boolean
-	): Promise< void >;
-	removeSiteAgentFile( siteId: string, kind: SiteAgentFileKind, id: string ): Promise< void >;
-	openSiteAgentFile(
-		siteId: string,
-		kind: SiteAgentFileKind,
-		id: string,
-		target: SiteAgentFileOpenTarget
-	): Promise< void >;
+	// One site's skills. Switching one off keeps its edits, out of the
+	// folders agents read.
+	getSiteAgentFiles( siteId: string ): Promise< SiteAgentFile[] >;
+	setSiteAgentFileEnabled( siteId: string, id: string, enabled: boolean ): Promise< void >;
+	removeSiteAgentFile( siteId: string, id: string ): Promise< void >;
+	openSiteAgentFile( siteId: string, id: string, target: SiteAgentFileOpenTarget ): Promise< void >;
 
 	// Whether the UI should render a button that opens the app menu via
 	// `popupAppMenu`. True only in the Windows/Linux desktop app, which has no
@@ -640,7 +630,7 @@ export interface OnboardingHintsState {
 	whatsNewSeenVersion?: number;
 }
 
-export type { SiteAgentFile, SiteAgentFileKind };
+export type { SiteAgentFile };
 
 export interface SkillStatus {
 	id: string;

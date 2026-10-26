@@ -48,7 +48,6 @@ import {
 	removeSiteAgentFile,
 	removeSkillFromAllSites,
 	setSiteAgentFileEnabled,
-	type SiteAgentFileKind,
 } from '@studio/common/lib/agent-skills';
 import { downloadAndExtractBlueprintBundle } from '@studio/common/lib/blueprint-bundle';
 import {
@@ -97,10 +96,7 @@ import {
 	readAuthToken,
 	updateSharedConfig,
 } from '@studio/common/lib/shared-config';
-import {
-	getSiteAgentFileFolder,
-	getSiteAgentFilePaths,
-} from '@studio/common/lib/site-agent-file-paths';
+import { getSiteAgentFilePaths } from '@studio/common/lib/site-agent-file-paths';
 import {
 	isSitePreviewPath,
 	readSitePreview,
@@ -2006,29 +2002,28 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} )
 	);
 
-	// --- A site's skills and instruction files ---------------------------------
+	// --- A site's skills ---------------------------------------------------------
 	const readAgentFileRequest = async ( req: Request, res: Response ) => {
-		const kind = req.params.kind;
 		const sitePath = await readSitePath( req.params.id );
-		if ( ( kind !== 'skills' && kind !== 'instructions' ) || ! sitePath ) {
+		if ( ! sitePath ) {
 			res.status( 404 ).json( { error: 'Not found' } );
 			return null;
 		}
-		return { sitePath, kind: kind as SiteAgentFileKind };
+		return { sitePath };
 	};
 
 	api.get(
-		'/sites/:id/agent-files/:kind',
+		'/sites/:id/skills',
 		asyncHandler( async ( req: Request, res: Response ) => {
 			const target = await readAgentFileRequest( req, res );
 			if ( target ) {
-				res.json( await getSiteAgentFiles( target.sitePath, target.kind ) );
+				res.json( await getSiteAgentFiles( target.sitePath ) );
 			}
 		} )
 	);
 
 	api.put(
-		'/sites/:id/agent-files/:kind/:fileId',
+		'/sites/:id/skills/:fileId',
 		asyncHandler( async ( req: Request, res: Response ) => {
 			const target = await readAgentFileRequest( req, res );
 			if ( ! target ) {
@@ -2041,7 +2036,6 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			await setSiteAgentFileEnabled(
 				target.sitePath,
 				bundledSkillsPath,
-				target.kind,
 				req.params.fileId,
 				req.body.enabled
 			);
@@ -2050,26 +2044,26 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	);
 
 	api.post(
-		'/sites/:id/agent-files/:kind/:fileId/open',
+		'/sites/:id/skills/:fileId/open',
 		asyncHandler( async ( req: Request, res: Response ) => {
 			const target = await readAgentFileRequest( req, res );
 			if ( ! target ) {
 				return;
 			}
 			// The path uses the catalog's id, never the requested one, so it stays inside the site.
-			const file = ( await getSiteAgentFiles( target.sitePath, target.kind ) ).find(
+			const file = ( await getSiteAgentFiles( target.sitePath ) ).find(
 				( candidate ) => candidate.id === req.params.fileId
 			);
 			const relative =
 				file &&
-				getSiteAgentFilePaths( target.kind, file.id ).find( ( candidate ) =>
+				getSiteAgentFilePaths( file.id ).find( ( candidate ) =>
 					existsSync( path.join( target.sitePath, candidate ) )
 				);
 			if ( ! relative ) {
 				res.status( 404 ).json( { error: 'File not found' } );
 				return;
 			}
-			const folder = path.join( target.sitePath, getSiteAgentFileFolder( target.kind, relative ) );
+			const folder = path.join( target.sitePath, relative );
 			if ( req.body?.target === 'editor' ) {
 				const editor = await readPreferredEditor();
 				if ( ! editor ) {
@@ -2087,11 +2081,11 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	);
 
 	api.delete(
-		'/sites/:id/agent-files/:kind/:fileId',
+		'/sites/:id/skills/:fileId',
 		asyncHandler( async ( req: Request, res: Response ) => {
 			const target = await readAgentFileRequest( req, res );
 			if ( target ) {
-				await removeSiteAgentFile( target.sitePath, target.kind, req.params.fileId );
+				await removeSiteAgentFile( target.sitePath, req.params.fileId );
 				res.sendStatus( 204 );
 			}
 		} )

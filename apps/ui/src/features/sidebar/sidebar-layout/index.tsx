@@ -28,7 +28,6 @@ export function SidebarLayout( { children }: { children: ReactNode } ) {
 	const connector = useConnector();
 	const sidebarResize = useResizablePanel( {
 		config: SIDEBAR_PANEL_CONFIG,
-		edge: 'right',
 		storageKey: SIDEBAR_PANEL_STORAGE_KEY,
 	} );
 	const [ collapsed, setCollapsed ] = useStoredFlag( SIDEBAR_COLLAPSED_STORAGE_KEY, false );

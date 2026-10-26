@@ -93,8 +93,6 @@ export function createIpcConnector(): Connector {
 		}
 	}
 
-	// Preview CLI commands are path-based, not id-based. Look up the matching
-	// site once per call so UI code can keep working with the stable site id.
 	async function resolveEditor(): Promise< SupportedEditor > {
 		const { editor } = ( await ipcApi.getUserPreferences() ) as { editor: SupportedEditor | null };
 		const resolved =
@@ -106,6 +104,8 @@ export function createIpcConnector(): Connector {
 		return resolved;
 	}
 
+	// Preview CLI commands are path-based, not id-based. Look up the matching
+	// site once per call so UI code can keep working with the stable site id.
 	async function resolveSiteFolder( siteId: string ): Promise< string > {
 		const sites = ( await ipcApi.getSiteDetails() ) as SiteDetails[];
 		const site = sites.find( ( candidate ) => candidate.id === siteId );

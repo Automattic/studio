@@ -52,6 +52,34 @@ describe( 'createSiteRows', () => {
 		expect( rows.map( ( row ) => row.sessionIds ) ).toEqual( [ [ 'a1', 'a2', 'a3' ], [ 'b1' ] ] );
 		expect( rows[ 0 ].chats.map( ( session ) => session.id ) ).toEqual( [ 'a2', 'a1' ] );
 	} );
+
+	it( 'uses an explicit owner ID before legacy paths and never rebinds deleted owners', () => {
+		const time = '2026-01-01T00:00:00Z';
+		const legacyPath = { ownerSiteId: undefined, ownerSitePath: '/sites/a' };
+		const explicit = chat( 'explicit', 'b', time, { ownerSitePath: '/sites/a' } );
+		const legacy = chat( 'legacy', '', time, legacyPath );
+		const removed = chat( 'removed', 'deleted', time, { ownerSitePath: '/sites/a' } );
+		const orphan = chat( 'orphan', '', time, { ownerSiteId: undefined } );
+		const result = createSiteRows(
+			[ ...sites, { ...site( 'legacy' ), path: '/sites/a' } ],
+			[ explicit, legacy, removed, orphan ]
+		);
+		expect( result.map( ( row ) => row.chats ) ).toEqual( [ [ legacy ], [ explicit ], [] ] );
+	} );
+
+	it( 'preserves stable ordering for tied or invalid dates and duplicate IDs', () => {
+		const b = chat( 'b', 'b', '2026-01-01T00:00:00Z' );
+		const a = chat( 'a', 'a', '2026-01-01T00:00:00Z' );
+		const invalid = chat( 'invalid', 'a', 'invalid' );
+		const duplicate = chat( 'a', 'b', '2026-01-02T00:00:00Z' );
+		const input = [ b, a, invalid, duplicate ];
+		const result = createSiteRows( sites, input );
+		expect( result.map( ( row ) => row.chats ) ).toEqual( [
+			[ a, invalid ],
+			[ duplicate, b ],
+		] );
+		expect( input ).toEqual( [ b, a, invalid, duplicate ] );
+	} );
 } );
 
 describe( 'getActiveSiteKeys', () => {
@@ -113,6 +141,15 @@ describe( 'getSidebarCollections', () => {
 		expect( result.pinnedItems ).toEqual( [] );
 		expect( result.chatsBySite.get( 'a' )?.map( ( { id } ) => id ) ).toEqual( [ 'a1' ] );
 		expect( result.recentChats.map( ( { id } ) => id ) ).not.toContain( 'a2' );
+	} );
+
+	it( 'returns empty collections for missing sites or sessions', () => {
+		expect( createSiteRows( [], sessions ) ).toEqual( [] );
+		const empty = createSiteRows( sites, [] );
+		const result = getSidebarCollections( empty, [], defaults );
+		expect( empty[ 0 ].chats ).toEqual( [] );
+		expect( result.chatsBySite.get( 'a' ) ).toEqual( [] );
+		expect( result.pinnedItems ).toEqual( [] );
 	} );
 
 	it( 'leaves chats out of Pinned, Needs input and Recent when chat is off', () => {

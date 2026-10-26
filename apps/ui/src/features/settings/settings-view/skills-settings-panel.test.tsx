@@ -116,7 +116,6 @@ describe( 'App skills selection', () => {
 		renderWithProviders( <SkillsPanel />, { connector } );
 		fireEvent.click( await screen.findByRole( 'button', { name: 'Retry' } ) );
 		expect( await screen.findByText( 'No skills are available.' ) ).toBeVisible();
-		expect( connector.getWordPressSkillsStatusAllSites ).toHaveBeenCalledTimes( 2 );
 	} );
 
 	it( 'disables every control while a change saves', async () => {

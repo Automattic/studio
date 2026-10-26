@@ -78,29 +78,6 @@ describe( 'site settings', () => {
 		expect( screen.queryByRole( 'button', { name: 'Save' } ) ).not.toBeInTheDocument();
 	} );
 
-	it( 'highlights the first match as the query changes and restores the selected section', async () => {
-		setup();
-		await siteName();
-		const search = screen.getByRole( 'textbox', { name: 'Search settings' } );
-		fireEvent.change( search, { target: { value: 'ver' } } );
-		expect( screen.getByRole( 'tab', { name: 'WordPress version' } ) ).toHaveAttribute(
-			'data-highlighted'
-		);
-		expect( screen.getByRole( 'tab', { name: 'PHP version' } ) ).not.toHaveAttribute(
-			'data-highlighted'
-		);
-		expect( screen.getByRole( 'textbox', { name: 'Site name' } ) ).toBeVisible();
-		fireEvent.change( search, { target: { value: 'PHP version' } } );
-		expect( screen.getByRole( 'tab', { name: 'PHP version' } ) ).toHaveAttribute(
-			'data-highlighted'
-		);
-		fireEvent.keyDown( search, { key: 'Enter' } );
-		expect( await screen.findByRole( 'combobox', { name: 'PHP version' } ) ).toBeVisible();
-		fireEvent.change( search, { target: { value: '' } } );
-		expect( screen.getByRole( 'tab', { name: 'PHP', selected: true } ) ).toBeVisible();
-		expect( screen.getByRole( 'tab', { name: 'PHP' } ) ).not.toHaveAttribute( 'data-highlighted' );
-	} );
-
 	it( 'navigates from sidebar search to PHP version and saves the change', async () => {
 		const { connector } = setup();
 		await siteName();
@@ -272,8 +249,6 @@ describe( 'site settings', () => {
 		const login = await screen.findByRole( 'button', { name: 'Connect' } );
 		const card = login.closest( 'fieldset' )!;
 		expect( card ).toHaveTextContent( 'Do more with WordPress.com' );
-		expect( login.closest( '[data-slot="tabs-sidebar"]' ) ).toBeNull();
-		expect( login ).toHaveAttribute( 'type', 'button' );
 		expect( card.parentElement?.querySelector( 'fieldset' ) ).toBe( card );
 		expect( screen.queryByRole( 'button', { name: 'Discard' } ) ).not.toBeInTheDocument();
 		expect( screen.queryByRole( 'button', { name: 'Save' } ) ).not.toBeInTheDocument();

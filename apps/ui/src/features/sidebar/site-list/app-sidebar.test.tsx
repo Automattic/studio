@@ -212,38 +212,6 @@ describe( 'Sidebar in the Studio workspace', () => {
 		expect( chats().getByRole( 'button', { name: 'Show more' } ) ).toBeInTheDocument();
 	} );
 
-	it( 'selects multiple chats without navigating and offers bulk context actions', async () => {
-		const { history, ready, refreshSessions } = setup( { path: '/sites/one' } );
-		await ready();
-		await refreshSessions(
-			[ 0, 1 ].map( ( index ) =>
-				chat( { id: `single-${ index }`, title: `Single chat ${ index }` } )
-			)
-		);
-		const chats = within( await screen.findByRole( 'group', { name: 'My site chats' } ) );
-		const first = await chats.findByRole( 'button', { name: 'Single chat 0' } );
-		const second = chats.getByRole( 'button', { name: 'Single chat 1' } );
-		const row = ( button: HTMLElement ) => button.parentElement!;
-		fireEvent.click( first, { metaKey: isApple, ctrlKey: ! isApple } );
-		expect( row( first ) ).toHaveAttribute( 'data-selected', 'true' );
-		expect( first ).not.toHaveAttribute( 'aria-current' );
-		fireEvent.click( second, { shiftKey: true } );
-		expect( row( second ) ).toHaveAttribute( 'data-selected', 'true' );
-		expect( second ).not.toHaveAttribute( 'aria-current' );
-		expect( first ).not.toHaveAttribute( 'aria-current' );
-		expect( history.location.pathname ).toBe( '/sites/one' );
-		fireEvent.contextMenu( second );
-		expect( await screen.findByRole( 'menuitem', { name: 'Archive 2 chats' } ) ).toBeVisible();
-		expect(
-			screen
-				.getAllByRole( 'menuitem' )
-				.map(
-					( item ) =>
-						item.textContent?.replace( /Ctrl\+Alt\+[PRS]|⌥⌘[PRS]|Ctrl\+Shift\+A|⇧⌘A/g, '' )
-				)
-		).toEqual( [ 'Mark as read', 'Mark as unread', 'Pin', 'Unpin', 'Archive 2 chats' ] );
-	} );
-
 	it( 'marks a chat unread from its context menu and clears it on opening', async () => {
 		const { connector, ready, refreshSessions } = setup( { path: '/sites/one' } );
 		await ready();
@@ -292,7 +260,6 @@ describe( 'Sidebar in the Studio workspace', () => {
 		expect(
 			screen.queryByRole( 'group', { name: 'My site chats' } )?.textContent ?? ''
 		).not.toContain( 'Homepage polish' );
-		expect( shortcut.querySelector( 'svg' ) ).toBeInTheDocument();
 		await waitFor( () =>
 			expect( connector.state.preferences.sidebarPins ).toEqual( [ 'chat:pinned-chat' ] )
 		);

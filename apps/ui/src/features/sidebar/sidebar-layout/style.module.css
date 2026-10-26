@@ -13,7 +13,7 @@
 	width: var( --sidebar-width, 320px );
 	/* Both bounds are owned by useResizablePanel, which clamps --sidebar-width
 	   on every path. CSS min/max widths would compete with that single source
-	   of truth and can crush the sidebar below its 240px floor on narrow windows. */
+	   of truth and can crush the sidebar below its minimum width on narrow windows. */
 	min-width: 0;
 	flex-shrink: 0;
 	background-color: var( --studio-sidebar-bg );

@@ -149,7 +149,7 @@ export function useStartSite() {
 		// claims a site came up.
 		mutationFn: async ( id: string ): Promise< boolean > => {
 			// A stop this window fired moments ago hasn't been recorded by the CLI
-			// yet, and racing it used to loop forever. Deliberately the only
+			// yet, and a start racing it loops. Deliberately the only
 			// pre-flight: everything else is the CLI's call, so a stale cache
 			// can't silently swallow a start.
 			if ( isSiteMutating( queryClient, STOP_SITE_MUTATION_KEY, id ) ) {

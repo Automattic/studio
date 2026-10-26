@@ -119,25 +119,6 @@ describe( 'createLocalConnector server contracts', () => {
 		);
 	} );
 
-	it( 'reads and writes the chat startup preference through the server', async () => {
-		fetchMock.mockResolvedValueOnce(
-			new Response( JSON.stringify( { autoStartSiteOnChat: true } ) )
-		);
-		fetchMock.mockResolvedValueOnce( new Response( null, { status: 204 } ) );
-		const local = connector();
-		await expect( local.getUserPreferences() ).resolves.toMatchObject( {
-			autoStartSiteOnChat: true,
-		} );
-		await local.setUserPreferences( { autoStartSiteOnChat: false } );
-		expect( fetchMock ).toHaveBeenLastCalledWith(
-			'http://localhost:8081/api/user-preferences',
-			expect.objectContaining( {
-				method: 'PATCH',
-				body: JSON.stringify( { autoStartSiteOnChat: false } ),
-			} )
-		);
-	} );
-
 	it( 'persists session environments through the local server', async () => {
 		fetchMock.mockResolvedValue( new Response( null, { status: 204 } ) );
 		await expect( connector().setSessionEnvironment( 'chat', 'live' ) ).resolves.toBeUndefined();

@@ -29,10 +29,10 @@ function SelectionWave() {
 }
 
 function Toggle() {
-	const [ active, setActive ] = useState( true );
+	const [ active, setActive ] = useState( false );
 	return (
 		<>
-			<PreviewParticles active={ active } showLogo />
+			<PreviewParticles active={ active } showLogo={ active } />
 			<Button variant="outline" size="sm" onClick={ () => setActive( ! active ) }>
 				{ active ? 'Settle' : 'Start loading' }
 			</Button>

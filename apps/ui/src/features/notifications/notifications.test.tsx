@@ -47,14 +47,14 @@ describe( 'notifications popover', () => {
 		showToast( {
 			title: 'A very long notification title',
 			description: 'Expandable description',
-			action: { label: 'Open site', onClick: vi.fn() },
+			action: { label: 'Open', onClick: vi.fn() },
 		} );
 		await setup();
 		fireEvent.click( await screen.findByRole( 'button', { name: /Notification history/ } ) );
 		const summary = await screen.findByRole( 'button', {
 			name: 'View notification: A very long notification title',
 		} );
-		const action = screen.getByRole( 'button', { name: 'Open site' } );
+		const action = screen.getByRole( 'button', { name: 'Open' } );
 		expect( action.closest( 'li' ) ).toBe( summary.closest( 'li' ) );
 		expect( within( summary ).queryByRole( 'button' ) ).not.toBeInTheDocument();
 		expect( within( summary.closest( 'li' )! ).getByText( 'Just now' ) ).toBeVisible();
@@ -100,6 +100,56 @@ describe( 'notifications popover', () => {
 			screen.queryByRole( 'button', { name: 'View notification: Saved' } )
 		).not.toBeInTheDocument();
 	} );
+
+	it.each( [ undefined, 'Restart to finish updating.' ] )(
+		'expands the original title without duplicating it (description: %s)',
+		async ( description ) => {
+			vi.spyOn( HTMLElement.prototype, 'scrollWidth', 'get' ).mockReturnValue( 500 );
+			vi.spyOn( HTMLElement.prototype, 'clientWidth', 'get' ).mockReturnValue( 120 );
+			const title = 'A long site name that does not fit on one line';
+			showToast( { title, description } );
+			await setup();
+			fireEvent.click( bell() );
+			expect( screen.queryByText( 'View details' ) ).not.toBeInTheDocument();
+			const disclosure = await screen.findByRole( 'button', {
+				name: `View notification: ${ title }`,
+			} );
+			expect( disclosure ).toHaveAttribute( 'aria-expanded', 'false' );
+			fireEvent.click( disclosure );
+			expect( disclosure ).toHaveAttribute( 'aria-expanded', 'true' );
+			expect( screen.getAllByText( title ) ).toHaveLength( 1 );
+			expect( screen.getByText( title ) ).toHaveAttribute( 'data-expanded', 'true' );
+			fireEvent.click( disclosure );
+			expect( disclosure ).toHaveAttribute( 'aria-expanded', 'false' );
+			expect( screen.getByText( title ) ).not.toHaveAttribute( 'data-expanded' );
+		}
+	);
+
+	it.each( [ false, true ] )(
+		'keeps one error action in the header (primary action: %s)',
+		async ( hasAction ) => {
+			const title = 'Could not update';
+			showToast( {
+				title,
+				intent: 'error',
+				description: 'Update diagnostics',
+				action: hasAction ? { label: 'Retry', onClick: vi.fn() } : undefined,
+			} );
+			await setup();
+			fireEvent.click( bell() );
+			const disclosure = await screen.findByRole( 'button', {
+				name: `View notification: ${ title }`,
+			} );
+			fireEvent.click( disclosure );
+			const action = screen.getByRole( 'button', {
+				name: hasAction ? 'Retry' : 'Copy',
+			} );
+			expect( action.parentElement?.parentElement?.parentElement ).toContainElement(
+				screen.getByText( title )
+			);
+			expect( screen.getAllByRole( 'button', { name: /^(Copy|Retry)$/ } ) ).toHaveLength( 1 );
+		}
+	);
 
 	it( 'closes with Escape and returns focus to the bell', async () => {
 		await setup();
@@ -160,7 +210,7 @@ describe( 'notifications popover', () => {
 			() =>
 				void showToast( {
 					title: 'Site duplicated: Portfolio',
-					action: { label: 'Open site', onClick },
+					action: { label: 'Open', onClick },
 				} )
 		);
 		expect( screen.queryByRole( 'button', { name: 'Details' } ) ).not.toBeInTheDocument();
@@ -169,7 +219,7 @@ describe( 'notifications popover', () => {
 		);
 		fireEvent.click( bell() );
 		const dialog = await screen.findByRole( 'dialog', { name: 'Notification history' } );
-		fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Open site' } ) );
+		fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Open' } ) );
 		await waitFor( () => expect( onClick ).toHaveBeenCalledOnce() );
 		await waitFor( () =>
 			expect(

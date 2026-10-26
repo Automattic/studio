@@ -154,7 +154,7 @@ export function useConnectSite() {
 				throw error;
 			}
 			toast.error(
-				__( 'Setup did not finish. The local site and WordPress.com connection were kept.' )
+				__( 'Setup did not finish. The local site and WordPress.com connection were kept' )
 			);
 			if ( error.localSiteId ) {
 				await navigate( { to: '/sites/$siteId', params: { siteId: error.localSiteId } } );

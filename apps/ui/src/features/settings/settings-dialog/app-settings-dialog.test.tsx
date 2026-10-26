@@ -381,7 +381,7 @@ describe( 'WordPress Studio settings', () => {
 	it( 'says so when a linked setting is not available on this device', async () => {
 		await setup( { section: 'general&settingsFocus=future-setting' } );
 		expect(
-			await screen.findByText( 'This setting is not available on this device.' )
+			await screen.findByText( 'This setting is not available on this device' )
 		).toBeVisible();
 	} );
 
@@ -816,7 +816,7 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 		fireEvent.click( await screen.findByRole( 'button', { name: 'Copy MCP configuration' } ) );
 		await waitFor( () =>
 			expect( getNoticeHistory()[ 0 ] ).toMatchObject( {
-				title: 'Could not copy.',
+				title: 'Could not copy',
 				description: 'Clipboard unavailable',
 			} )
 		);

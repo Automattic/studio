@@ -212,7 +212,7 @@ function NoteEditor( {
 	const addImages = ( files: FileList | File[] ) => {
 		const list = Array.from( files );
 		if ( list.some( ( file ) => ! isStudioChatImageMimeType( file.type ) ) ) {
-			toast.error( __( 'Only PNG, JPEG, GIF, and WebP images can be attached.' ) );
+			toast.error( __( 'Only PNG, JPEG, GIF, and WebP images can be attached' ) );
 			return;
 		}
 		const otherImages = getSiteAnnotations( siteId )

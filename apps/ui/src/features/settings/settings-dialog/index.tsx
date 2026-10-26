@@ -282,7 +282,7 @@ export function SettingsDialog() {
 		const timeout = setTimeout( () => {
 			observer.disconnect();
 			if ( ! row ) {
-				toast.info( __( 'This setting is not available on this device.' ) );
+				toast.info( __( 'This setting is not available on this device' ) );
 			}
 			setTarget( null );
 		}, 3000 );

@@ -109,6 +109,7 @@ import {
 import { fetchSnapshotUsage } from '@studio/common/lib/snapshots';
 import { requestStudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 import { fetchStudioAssistantTopUpPricing } from '@studio/common/lib/studio-assistant-top-up-pricing';
+import { fetchStudioBlueprints } from '@studio/common/lib/studio-blueprints-api';
 import { getLocalFileSize, listLocalFileTree } from '@studio/common/lib/sync/local-file-tree';
 import {
 	fetchHostingPhpVersion,
@@ -1118,8 +1119,8 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				flowType?: TracksSiteCreateFlowType;
 				// Optional Blueprint to apply on creation: `blueprint` is the parsed
 				// blueprint JSON; `filePath` (set for uploaded ZIP bundles) lets the
-				// CLI resolve relative assets. `bundleUrl` triggers a server-side
-				// download so API blueprints with bundled resources resolve correctly.
+				// CLI resolve relative assets. `bundleUrl` names a bundle from Studio's
+				// blueprint catalog, which the server downloads so relative paths resolve.
 				blueprint?: {
 					blueprint?: SiteCreateOptions[ 'blueprint' ];
 					slug?: string;
@@ -1142,7 +1143,17 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			let bundleTempDir: string | undefined;
 			let blueprintFilePath = body.blueprint?.filePath;
 			if ( body.blueprint?.bundleUrl && ! blueprintFilePath ) {
-				const result = await downloadAndExtractBlueprintBundle( body.blueprint.bundleUrl );
+				// Download the catalog's copy of the URL, so this server only fetches
+				// bundles Studio publishes, whatever a caller sends.
+				const requestedUrl = body.blueprint.bundleUrl;
+				const catalogUrl = ( await fetchStudioBlueprints() ).find(
+					( item ) => item.bundle_url === requestedUrl
+				)?.bundle_url;
+				if ( ! catalogUrl ) {
+					res.status( 400 ).json( { error: 'Unknown blueprint bundle' } );
+					return;
+				}
+				const result = await downloadAndExtractBlueprintBundle( catalogUrl );
 				bundleTempDir = result.tempDir;
 				blueprintFilePath = result.blueprintJsonPath;
 			}

@@ -161,6 +161,23 @@ describe.runIf( WORDPRESS )( 'createSharedBlockClassNotes', () => {
 		expect( note ).toContain( 'carry: `.kicker` on 3 core/heading (letter-spacing).' );
 	} );
 
+	it( 'reads the CSS theme.json holds', async () => {
+		writeFileSync(
+			path.join( root, theme, 'templates', 'archive.html' ),
+			times( 3, block( 'group', 'feature-card' ) )
+		);
+		const [ note ] = await write(
+			'theme.json',
+			JSON.stringify( {
+				version: 3,
+				styles: { css: '.feature-card { border-radius: 1rem; box-shadow: 0 8px 24px #0002 }' },
+			} )
+		);
+		expect( note ).toContain(
+			'carry: `.feature-card` on 3 core/group (border-radius, box-shadow).'
+		);
+	} );
+
 	it( 'says nothing on a write outside the stylesheets and block markup', async () => {
 		writeFileSync(
 			path.join( root, theme, 'templates', 'single.html' ),

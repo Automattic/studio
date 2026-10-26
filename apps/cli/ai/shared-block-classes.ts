@@ -80,6 +80,19 @@ async function themeFiles( dir: string, extensions: RegExp ): Promise< string[] 
 		.filter( ( file ) => ! file.includes( `${ path.sep }node_modules${ path.sep }` ) );
 }
 
+// theme.json's styles.css, which WordPress prints last of the global styles
+// (WP_Theme_JSON::get_stylesheet() with 'custom-css' in
+// wp-includes/class-wp-theme-json.php, wp_enqueue_global_styles() in
+// wp-includes/script-loader.php).
+function themeJsonCss( dir: string ): string {
+	try {
+		const css = JSON.parse( readFileSync( path.join( dir, 'theme.json' ), 'utf8' ) )?.styles?.css;
+		return typeof css === 'string' ? css : '';
+	} catch {
+		return '';
+	}
+}
+
 /**
  * Says, once a session for each class and block type, which classes a write
  * to a theme's stylesheet or block markup leaves styling a look that several
@@ -90,12 +103,22 @@ export function createSharedBlockClassNotes(): ( siteFile: SiteFile ) => Promise
 	const said = new Set< string >();
 	return async ( siteFile ) => {
 		const { siteRoot, theme } = siteFile;
-		if ( ! theme || ! ( theme.file.endsWith( '.css' ) || isBlockMarkup( siteFile ) ) ) {
+		if (
+			! theme ||
+			! (
+				theme.file.endsWith( '.css' ) ||
+				theme.file === 'theme.json' ||
+				isBlockMarkup( siteFile )
+			)
+		) {
 			return [];
 		}
 		const stylesheets = await themeFiles( theme.dir, /\.css$/ );
 		const styled = classProperties(
-			stylesheets.map( ( file ) => readFileSync( file, 'utf8' ) ).join( '\n' )
+			[
+				...stylesheets.map( ( file ) => readFileSync( file, 'utf8' ) ),
+				themeJsonCss( theme.dir ),
+			].join( '\n' )
 		);
 		if ( ! styled.size ) {
 			return [];

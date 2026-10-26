@@ -436,11 +436,11 @@ async function captureSiteOutcome(
 		// Files changed from the WordPress.org release (null for themes not from there).
 		outcome.themeChanges = await changedFromRelease( themeDir, stylesheet, stylesheetVersion );
 		if ( template !== stylesheet ) {
-			outcome.parentThemeChanges = await changedFromRelease(
-				path.join( themes, template ),
-				template,
-				templateVersion
-			);
+			const parentDir = path.join( themes, template );
+			outcome.parentThemeChanges = await changedFromRelease( parentDir, template, templateVersion );
+			// The parent's theme.json, which the child's is merged over.
+			outcome.parentThemeJson = readThemeText( parentDir )[ 'theme.json' ];
+			outcome.parentThemeFileList = Object.keys( hashFiles( parentDir ) ).sort();
 		}
 		const home = { ...( await renderHome( url ) ), imageFrames: await homeImageFrames( url ) };
 		if ( 'html' in home && home.html ) {

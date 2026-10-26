@@ -444,15 +444,25 @@ export const builtFrontPage = check( ( d, vars ) => {
 	return pass( `front page "${ front.title }" built` );
 } );
 
+// The font families a theme.json declares, or undefined.
+function fontFamilies( themeJson ) {
+	try {
+		return JSON.parse( themeJson ).settings?.typography?.fontFamilies;
+	} catch {
+		return undefined;
+	}
+}
+
 // The design is the site's own, kept where WordPress keeps a design: a theme
-// of its own (or a child theme), with the fonts its theme.json names in it and
-// a screenshot; or the installed theme customized as the Site Editor does,
+// of its own (or a child theme), with the fonts it resolves self-hosted and a
+// screenshot; or a theme from WordPress.org customized as the Site Editor does,
 // through Global Styles (the wp_global_styles post) or templates and template
 // parts saved for the theme (get_block_templates() in
 // wp-includes/block-template-utils.php), with the fonts it adds served by the site.
 export const siteHasItsOwnDesign = check( ( d, vars ) => {
 	const s = site( d, vars );
-	if ( /^twentytwenty/.test( s.theme.stylesheet ) ) {
+	// The active theme has a WordPress.org release to compare with.
+	if ( Array.isArray( s.themeChanges ) ) {
 		const user = s.userGlobalStyles ?? {};
 		const styled = Object.keys( user.styles ?? {} ).length > 0;
 		const saved = ( s.content || [] )
@@ -478,9 +488,16 @@ export const siteHasItsOwnDesign = check( ( d, vars ) => {
 				.join( ', ' ) }`
 		);
 	}
-	const themeJson = s.themeFiles?.[ 'theme.json' ] || '';
-	const fontSources = [ ...themeJson.matchAll( /"file:\.\/([^"]+)"/g ) ].map( ( m ) => m[ 1 ] );
-	const missing = fontSources.filter( ( f ) => ! s.themeFileList.includes( f ) );
+	// A child theme's theme.json is merged over its parent's, and font families
+	// it declares replace the parent's (WP_Theme_JSON_Resolver::get_theme_data()
+	// and WP_Theme_JSON::merge()); each file:./ source is in the theme declaring it.
+	const own = fontFamilies( s.themeFiles?.[ 'theme.json' ] );
+	const parent = own ? undefined : fontFamilies( s.parentThemeJson );
+	const fileList = ( parent ? s.parentThemeFileList : s.themeFileList ) ?? [];
+	const fontSources = [
+		...JSON.stringify( own ?? parent ?? [] ).matchAll( /"file:\.\/([^"]+)"/g ),
+	].map( ( m ) => m[ 1 ] );
+	const missing = fontSources.filter( ( f ) => ! fileList.includes( f ) );
 	if ( ! fontSources.length ) return fail( 'theme.json loads no self-hosted fonts' );
 	if ( missing.length )
 		return fail( `theme.json fonts missing from the theme: ${ missing.join( ', ' ) }` );
@@ -488,7 +505,9 @@ export const siteHasItsOwnDesign = check( ( d, vars ) => {
 		return fail( `theme screenshot is ${ s.themeScreenshot ?? 'missing' }` );
 	}
 	return pass(
-		`theme ${ s.theme.stylesheet }: ${ fontSources.length } self-hosted font file(s), screenshot ${ s.themeScreenshot }`
+		`theme ${ s.theme.stylesheet }: ${ fontSources.length } self-hosted font file(s)${
+			parent ? ` of ${ s.theme.template }` : ''
+		}, screenshot ${ s.themeScreenshot }`
 	);
 } );
 

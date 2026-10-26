@@ -371,32 +371,80 @@ describe( 'site checks', () => {
 	} );
 
 	describe( 'siteHasItsOwnDesign', () => {
-		const site = {
-			...workingSite,
-			theme: { stylesheet: 'eval-theme' },
-			themeFiles: {
-				'theme.json': '{"src":["file:./assets/fonts/inter.woff2"]}',
-			},
-			themeFileList: [ 'assets/fonts/inter.woff2' ],
-			themeScreenshot: 'png:1200x900',
-		};
-		const tt5 = {
-			...workingSite,
-			url: 'http://localhost:8890',
-			theme: { stylesheet: 'twentytwentyfive' },
-		};
-		const part = { type: 'wp_template_part', slug: 'header', content: '' };
 		const font = ( src ) => ( {
 			settings: {
 				typography: { fontFamilies: { custom: [ { fontFace: [ { src: [ src ] } ] } ] } },
 			},
 		} );
+		const themeJson = ( src ) =>
+			JSON.stringify( { version: 3, settings: { typography: font( src ).settings.typography } } );
+		const site = {
+			...workingSite,
+			theme: { stylesheet: 'eval-theme', template: 'eval-theme' },
+			themeFiles: { 'theme.json': themeJson( 'file:./assets/fonts/inter.woff2' ) },
+			themeFileList: [ 'assets/fonts/inter.woff2' ],
+			themeScreenshot: 'png:1200x900',
+			themeChanges: null,
+		};
+		const child = {
+			...site,
+			theme: { stylesheet: 'eval-child', template: 'raft' },
+			themeFiles: { 'style.css': '/* Template: raft */' },
+			themeFileList: [ 'style.css' ],
+			parentThemeJson: themeJson( 'file:./assets/fonts/figtree.woff2' ),
+			parentThemeFileList: [ 'assets/fonts/figtree.woff2' ],
+		};
+		const tt5 = {
+			...workingSite,
+			url: 'http://localhost:8890',
+			theme: { stylesheet: 'twentytwentyfive', template: 'twentytwentyfive' },
+			themeChanges: [],
+		};
+		const part = { type: 'wp_template_part', slug: 'header', content: '' };
 		test.each( [
 			{ name: 'its own theme', site, pass: true },
 			{
 				name: 'its own theme with no fonts',
 				site: { ...site, themeFiles: { 'theme.json': '{}' } },
 				pass: false,
+			},
+			{
+				name: 'its own theme naming a font outside its font families',
+				site: {
+					...site,
+					themeFiles: {
+						'theme.json': '{"settings":{"custom":{"hero":"file:./assets/fonts/inter.woff2"}}}',
+					},
+				},
+				pass: false,
+			},
+			{ name: 'a child theme with the fonts of its parent', site: child, pass: true },
+			{
+				name: 'a child theme of a parent without fonts',
+				site: { ...child, parentThemeJson: '{"version":3}' },
+				pass: false,
+			},
+			{
+				name: "a child theme whose font families replace its parent's, without their files",
+				site: {
+					...child,
+					themeFiles: { 'theme.json': themeJson( 'file:./assets/fonts/figtree.woff2' ) },
+				},
+				pass: false,
+			},
+			{
+				name: 'its own theme named like a WordPress.org theme it is not',
+				site: { ...site, theme: { stylesheet: 'twentytwenty-oak' } },
+				pass: true,
+			},
+			{
+				name: 'another WordPress.org theme with its Global Styles',
+				site: {
+					...tt5,
+					theme: { stylesheet: 'raft', template: 'raft' },
+					userGlobalStyles: { styles: { color: { background: '#111' } } },
+				},
+				pass: true,
 			},
 			{
 				name: 'its own theme without its fonts',

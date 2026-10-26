@@ -23,6 +23,11 @@
 	font-weight: var( --font-weight-medium );
 }
 
+.title a {
+	color: var( --muted-foreground );
+	text-decoration: none;
+}
+
 .schemes {
 	text-transform: capitalize;
 }

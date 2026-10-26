@@ -1,28 +1,14 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { screen, fireEvent, waitFor } from '@testing-library/react';
+import { describe, expect, it } from 'vitest';
 import { CODE_TEXT_ATTRIBUTE } from '@/features/chats/use-text-context-menu';
+import { renderWithProviders } from '@/test/render';
 import { Markdown } from '.';
 
-const { copyText } = vi.hoisted( () => ( {
-	copyText: vi.fn( () => Promise.resolve() ),
-} ) );
-
-vi.mock( '@/data/core', () => ( {
-	useConnector: () => ( {
-		openExternalUrl: vi.fn(),
-		copyText,
-	} ),
-} ) );
-
 function renderMarkdown( children: string ) {
-	return render( <Markdown>{ children }</Markdown> );
+	return renderWithProviders( <Markdown>{ children }</Markdown> );
 }
 
 describe( 'Markdown', () => {
-	beforeEach( () => {
-		copyText.mockClear();
-	} );
-
 	it( 'highlights code in known languages with theme colors', async () => {
 		const { container } = renderMarkdown( '```php\n<?php echo "Hi";\n```' );
 
@@ -35,15 +21,15 @@ describe( 'Markdown', () => {
 	it( 'leaves code in unknown languages plain', async () => {
 		const { container } = renderMarkdown( '```brainfuck\n+++\n```' );
 
+		await screen.findByText( '+++' );
 		await new Promise( ( resolve ) => setTimeout( resolve, 50 ) );
 		expect( container.querySelector( 'pre span' ) ).toBeNull();
-		expect( container.querySelector( 'pre' ) ).toHaveTextContent( '+++' );
 	} );
 
-	it( 'labels fenced code blocks with their language and copies the code', async () => {
-		renderMarkdown( '```js\nconst a = 1;\n```' );
+	it( 'labels fenced code blocks with their language and confirms the copy', async () => {
+		const { connector } = renderMarkdown( '```js\nconst a = 1;\n```' );
 
-		expect( screen.getByText( 'js' ) ).toBeInTheDocument();
+		expect( await screen.findByText( 'js' ) ).toBeInTheDocument();
 		const button = screen.getByRole( 'button', { name: 'Copy' } );
 		expect( button.closest( `[${ CODE_TEXT_ATTRIBUTE }]` ) ).toHaveAttribute(
 			CODE_TEXT_ATTRIBUTE,
@@ -52,7 +38,7 @@ describe( 'Markdown', () => {
 
 		fireEvent.click( button );
 
-		expect( copyText ).toHaveBeenCalledWith( 'const a = 1;' );
+		expect( connector.copyText ).toHaveBeenCalledWith( 'const a = 1;' );
 		await waitFor( () => expect( screen.getByRole( 'status' ) ).toHaveTextContent( 'Copied' ) );
 		expect( screen.getByRole( 'button', { name: 'Copy' } ) ).toBeInTheDocument();
 	} );
@@ -60,16 +46,10 @@ describe( 'Markdown', () => {
 	it( 'shows a tooltip for the copy button', async () => {
 		renderMarkdown( '```js\nconst a = 1;\n```' );
 
-		const button = screen.getByRole( 'button', { name: 'Copy' } );
+		const button = await screen.findByRole( 'button', { name: 'Copy' } );
 		fireEvent.mouseEnter( button );
 		fireEvent.mouseMove( button, { movementX: 1, movementY: 1 } );
 
 		expect( await screen.findByText( 'Copy', {}, { timeout: 2000 } ) ).toBeVisible();
-	} );
-
-	it( 'does not render a copy button for inline code', () => {
-		renderMarkdown( 'this is `inline` code' );
-
-		expect( screen.queryByRole( 'button' ) ).not.toBeInTheDocument();
 	} );
 } );

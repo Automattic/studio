@@ -444,6 +444,21 @@ describe( 'Chat pane context menu', () => {
 		expect( await screen.findByRole( 'menuitem', { name: 'Exit full screen' } ) ).toBeVisible();
 	} );
 
+	it( 'has no chat actions while the chat is loading', async () => {
+		const connector = createFakeConnector( {
+			sites: [ makeSite( { id: SITE_ID } ) ],
+			sessions: [ { summary: makeSession( { id: 'chat', ownerSiteId: SITE_ID } ), entries: [] } ],
+		} );
+		connector.getSession.mockReturnValue( new Promise( () => {} ) );
+		renderApp( { connector, path: '/sessions/chat' } );
+		await waitFor( () => expect( connector.getSession ).toHaveBeenCalled() );
+		const skeleton = document.querySelector( '[inert]' )!;
+		const event = new MouseEvent( 'contextmenu', { bubbles: true, cancelable: true } );
+		fireEvent( skeleton, event );
+		expect( event.defaultPrevented ).toBe( false );
+		expect( screen.queryByRole( 'menu' ) ).not.toBeInTheDocument();
+	} );
+
 	it( 'preserves the native composer context menu and its draft', async () => {
 		const { input } = await setupChat( { pinnedProvider: 'wpcom' } );
 		fireEvent.change( input, { target: { value: 'Keep this draft' } } );

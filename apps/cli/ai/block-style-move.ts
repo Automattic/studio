@@ -104,13 +104,43 @@ function stylesClassed( selector: string, name: string ): boolean {
 	return token( name ).test( compounds[ compounds.length - 1 ] );
 }
 
+// A selector's specificity as one number, ids then classes and pseudo-classes
+// then types, or undefined for one whose arguments set it (:where(), :is(),
+// :not(), :has()). What it leaves out only lowers it.
+function specificity( selector: string ): number | undefined {
+	if ( /:(where|is|not|has|matches)\(/.test( selector ) ) {
+		return undefined;
+	}
+	const count = ( pattern: RegExp ) => selector.match( pattern )?.length ?? 0;
+	return (
+		count( /#[A-Za-z0-9_-]+/g ) * 10000 +
+		count( /\.[A-Za-z0-9_-]+|(?<!:):[a-z-]+/g ) * 100 +
+		count( /(^|[\s>+~])[a-z][a-z0-9-]*/gi )
+	);
+}
+
+// A block style's css prints as `:root :where(.is-style-<slug>)`, one class's
+// weight (WP_Theme_JSON::process_blocks_custom_css() in
+// wp-includes/class-wp-theme-json.php).
+const BLOCK_STYLE_WEIGHT = 100;
+
+// Whether a rule styling the class in a context, as `.grid > .card`, stays in
+// the stylesheet as it renders: the block keeps its class, and the rule
+// outweighs the block style's, as it outweighed the class's own rule.
+const outweighs = ( selector: string ) => ( specificity( selector ) ?? 0 ) > BLOCK_STYLE_WEIGHT;
+
 /** The block style's css for a class, from the stylesheets: undefined if a rule it cannot move styles it. */
 export function movableCss( stylesheets: string[], name: string ): string | undefined {
 	const css: string[] = [];
 	for ( const stylesheet of stylesheets ) {
 		for ( const rule of cssRules( stylesheet ) ) {
 			const styled = rule.selectors.filter( ( selector ) => stylesClassed( selector, name ) );
-			if ( ! styled.length ) {
+			if (
+				! styled.length ||
+				( rule.topLevel &&
+					styled.every( outweighs ) &&
+					! rule.selectors.some( ( selector ) => ownState( selector, name ) !== undefined ) )
+			) {
 				continue;
 			}
 			const states = rule.selectors.map( ( selector ) => ownState( selector, name ) );

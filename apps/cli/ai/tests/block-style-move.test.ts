@@ -21,9 +21,32 @@ describe( 'movableCss', () => {
 			css: [ '.card { padding: 1rem }\n@media (max-width: 600px) { .card { padding: 0 } }' ],
 			expected: undefined,
 		},
+		// As run 40's 01a1…712dc42208 stretched its cards in their columns.
 		{
-			name: 'moves nothing another selector also styles',
-			css: [ '.card { padding: 1rem }\n.grid > .card { padding: 0 }' ],
+			name: 'leaves a rule for the class in a context, which outweighs the block style as it outweighed the class',
+			css: [
+				'.card { padding: 1rem }\n.wp-block-columns.features .wp-block-column > .card { width: 100% }\ndiv .card { margin: 0 }\n#features .card { order: 1 }\n:first-child > .card { margin: 0 }',
+			],
+			expected: 'padding: 1rem;',
+		},
+		{
+			name: 'moves nothing a rule for the class in a context only as weighty as the block style also styles',
+			css: [ '.card { padding: 1rem }\n* > .card { padding: 0 }' ],
+			expected: undefined,
+		},
+		{
+			name: 'moves nothing a rule styles in a context beside a state of its own',
+			css: [ '.card { padding: 1rem }\n.card:hover, .grid .card { color: red }' ],
+			expected: undefined,
+		},
+		{
+			name: 'moves nothing a rule whose weight its arguments set also styles',
+			css: [ '.card { padding: 1rem }\n:where(.grid) .card { padding: 0 }' ],
+			expected: undefined,
+		},
+		{
+			name: 'moves nothing a media query styles in a context',
+			css: [ '.card { padding: 1rem }\n@media (max-width: 600px) { .grid .card { padding: 0 } }' ],
 			expected: undefined,
 		},
 		{

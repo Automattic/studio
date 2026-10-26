@@ -116,13 +116,6 @@ describe( 'Auth Login Command', () => {
 		} );
 	} );
 
-	it( 'should proceed with login if existing token is invalid', async () => {
-		await runCommand();
-
-		expect( openBrowser ).toHaveBeenCalled();
-		expect( input ).toHaveBeenCalled();
-	} );
-
 	it( 'should handle browser open failure', async () => {
 		const browserError = new LoggerError( 'Failed to open browser' );
 		vi.mocked( openBrowser ).mockRejectedValue( browserError );

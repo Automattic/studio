@@ -4,16 +4,14 @@ import { buildSystemPrompt, PROXY_IDENTITY } from '../system-prompt';
 import { resolveStudioToolDefinitions } from '../tools';
 
 describe( 'buildSystemPrompt', () => {
-	it( 'starts with the identity paragraph the WordPress.com AI proxy requires, verbatim', () => {
-		expect( buildSystemPrompt().startsWith( `${ PROXY_IDENTITY }\n` ) ).toBe( true );
+	// The WordPress.com AI proxy refuses any other opening with a 403.
+	it( 'opens with the line the WordPress.com AI proxy admits, byte for byte', () => {
+		expect( PROXY_IDENTITY ).toBe( 'You are WordPress Studio, built by Automattic.' );
+		expect( buildSystemPrompt().startsWith( `${ PROXY_IDENTITY } ` ) ).toBe( true );
 	} );
 
-	// The proxy's identity paragraph is fixed; everything Studio adds after it is fact only.
 	it( 'states identity and environment only', () => {
-		for ( const prompt of [
-			buildSystemPrompt().slice( PROXY_IDENTITY.length ),
-			buildSystemPrompt( { external: true } ),
-		] ) {
+		for ( const prompt of [ buildSystemPrompt(), buildSystemPrompt( { external: true } ) ] ) {
 			expect( prompt ).toContain( 'wp-includes/' );
 			expect( prompt ).toContain( 'WordPress.com' );
 			expect( prompt ).not.toMatch( /\b(MUST|never|always|do not|don't)\b/i );

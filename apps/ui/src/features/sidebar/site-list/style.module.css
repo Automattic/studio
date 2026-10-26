@@ -19,6 +19,12 @@
 	border-radius: var( --radius-md );
 }
 
+/* A dragged site folds its chats at once, so the rows below settle before
+   they are measured for the drop. */
+.dragWrapper[data-drag-source] .chatsPanel {
+	display: none;
+}
+
 .dragPreview {
 	opacity: 0.95;
 	/* eslint-disable-next-line studio/use-theme-tokens -- the dragged row's shadow. */

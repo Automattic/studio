@@ -262,19 +262,20 @@ describe( 'Studio settings', () => {
 		);
 	} );
 
-	it( 'saves a typed default directory where there is no folder picker', () => {
+	it( 'saves a typed default directory where there is no folder picker, keeping it if that fails', () => {
 		useConnectorMock.mockReturnValue( { capabilities: { nativeFolderPicker: false } } as never );
+		mutate.mockImplementation( ( _patch, options ) => options?.onError?.() );
 		render( <GeneralSettings /> );
+		const directory = screen.getByRole( 'textbox', { name: 'Default directory' } );
 
-		fireEvent.change( screen.getByRole( 'textbox', { name: 'Default directory' } ), {
-			target: { value: ' /Users/example/Sites ' },
-		} );
+		fireEvent.change( directory, { target: { value: ' /Users/example/Sites ' } } );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Save' } ) );
 
 		expect( mutate ).toHaveBeenCalledWith(
 			{ defaultSiteDirectory: '/Users/example/Sites' },
 			expect.any( Object )
 		);
+		expect( directory ).toHaveValue( ' /Users/example/Sites ' );
 	} );
 
 	it( 'clears the persisted cache and reloads after a locale change is saved', async () => {

@@ -166,13 +166,13 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 	const { sessionProvider, providers, isModelLocked } = useModelAccess( { sessionId, entries } );
 	const isWpcom = sessionProvider === 'wpcom';
 	const isOutOfCredits = useIsOutOfAiCredits() && ! isField && isWpcom;
-	const { openAddCredits, purchaseOpen, setPurchaseOpen } = useAddCredits();
+	const { openAddCredits, purchase, closePurchase } = useAddCredits();
 	const notice =
 		blockingNotice ??
 		( isOutOfCredits
 			? {
 					message: __( 'Add AI credits to send another message.' ),
-					action: { label: __( 'Add credits' ), onClick: openAddCredits },
+					action: { label: __( 'Add credits' ), onClick: () => openAddCredits() },
 			  }
 			: undefined );
 
@@ -576,7 +576,13 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 				onCancel={ cancelFamilyChange }
 				onConfirm={ () => void confirmFamilyChange() }
 			/>
-			{ purchaseOpen ? <AiCreditsPurchaseDialog open onOpenChange={ setPurchaseOpen } /> : null }
+			{ purchase ? (
+				<AiCreditsPurchaseDialog
+					open
+					onOpenChange={ closePurchase }
+					finalFocus={ purchase.returnFocus }
+				/>
+			) : null }
 		</Popover.Root>
 	);
 } );

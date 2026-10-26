@@ -864,13 +864,13 @@ describe( 'SiteList', () => {
 			stoppedRow!,
 			createPointerEvent( 'pointerdown', { button: 0, clientX: 16, clientY: 10 } )
 		);
-		fireEvent( window, createPointerEvent( 'pointermove', { clientX: 16, clientY: 70 } ) );
+		fireEvent( window, createPointerEvent( 'pointermove', { clientX: 16, clientY: 60 } ) );
 
 		expect( stoppedRow ).toHaveAttribute( 'data-drag-source' );
 		expect( runningRow ).toHaveAttribute( 'data-drop-position', 'after' );
 		expect( updateSitesSortOrder ).not.toHaveBeenCalled();
 
-		fireEvent( window, createPointerEvent( 'pointerup', { clientX: 16, clientY: 70 } ) );
+		fireEvent( window, createPointerEvent( 'pointerup', { clientX: 16, clientY: 60 } ) );
 
 		const stoppedSite = screen.getByText( 'Stopped Site' );
 		const runningSite = screen.getByText( 'Running Site' );
@@ -903,9 +903,9 @@ describe( 'SiteList', () => {
 				stoppedRow,
 				createPointerEvent( 'pointerdown', { button: 0, clientX: 16, clientY: 10 } )
 			);
-			fireEvent( window, createPointerEvent( 'pointermove', { clientX: 16, clientY: 70 } ) );
+			fireEvent( window, createPointerEvent( 'pointermove', { clientX: 16, clientY: 60 } ) );
 			stoppedTop = 35;
-			fireEvent( window, createPointerEvent( 'pointerup', { clientX: 16, clientY: 70 } ) );
+			fireEvent( window, createPointerEvent( 'pointerup', { clientX: 16, clientY: 60 } ) );
 
 			expect( animate ).toHaveBeenCalledWith(
 				[ { transform: 'none' }, expect.objectContaining( { transform: expect.any( String ) } ) ],
@@ -923,6 +923,40 @@ describe( 'SiteList', () => {
 			document.documentElement.style.removeProperty( '--motion-duration-surface' );
 			Reflect.deleteProperty( Element.prototype, 'animate' );
 		}
+	} );
+
+	it( 'folds a dragged site, and moves nothing when it is dropped outside its group', () => {
+		paramsMock = { siteId: 'stopped-site' };
+		pathnameMock = '/sites/stopped-site/new';
+		useSessionsMock.mockReturnValue( {
+			data: createChats( '/Users/example/Studio/stopped-site', 2 ),
+			isLoading: false,
+		} );
+
+		render( <SiteList sections /> );
+
+		const site = screen.getByRole( 'button', { name: 'Stopped Site' } );
+		const stoppedRow = document.querySelector( '[data-reorder-id="stopped-site"]' )!;
+		const runningRow = document.querySelector( '[data-reorder-id="running-site"]' )!;
+		vi.spyOn( stoppedRow, 'getBoundingClientRect' ).mockReturnValue(
+			createRect( { top: 0, left: 8, width: 272, height: 34 } )
+		);
+		vi.spyOn( runningRow, 'getBoundingClientRect' ).mockReturnValue(
+			createRect( { top: 35, left: 8, width: 272, height: 34 } )
+		);
+		expect( site ).toHaveAttribute( 'aria-expanded', 'true' );
+
+		fireEvent(
+			stoppedRow,
+			createPointerEvent( 'pointerdown', { button: 0, clientX: 16, clientY: 10 } )
+		);
+		fireEvent( window, createPointerEvent( 'pointermove', { clientX: 16, clientY: 200 } ) );
+		expect( site ).toHaveAttribute( 'aria-expanded', 'false' );
+		expect( runningRow ).not.toHaveAttribute( 'data-drop-position' );
+		fireEvent( window, createPointerEvent( 'pointerup', { clientX: 16, clientY: 200 } ) );
+
+		expect( updateSitesSortOrder ).not.toHaveBeenCalled();
+		expect( site ).toHaveAttribute( 'aria-expanded', 'false' );
 	} );
 
 	it( 'creates a chat when a site has no active chats', () => {
@@ -1383,14 +1417,20 @@ describe( 'SiteList', () => {
 		fireEvent( window, createPointerEvent( 'pointerup', { clientX: 10, clientY: 80 } ) );
 
 		fireEvent( first, createPointerEvent( 'pointerdown', { clientX: 10, clientY: 10 } ) );
-		fireEvent( window, createPointerEvent( 'pointermove', { clientX: 10, clientY: 80 } ) );
+		fireEvent( window, createPointerEvent( 'pointermove', { clientX: 10, clientY: 60 } ) );
 		expect( second ).toHaveAttribute( 'data-drop-position', 'after' );
-		fireEvent( window, createPointerEvent( 'pointerup', { clientX: 10, clientY: 80 } ) );
+		fireEvent( window, createPointerEvent( 'pointerup', { clientX: 10, clientY: 60 } ) );
 
 		expect( saveSidebar ).toHaveBeenCalledWith(
 			{ sidebarChatOrder: { 'stopped-site': [ 'chat-2', 'chat-1' ] } },
 			'Couldn’t save the chat order'
 		);
+		// The new order shows before the saved preferences come back.
+		expect(
+			within( screen.getByRole( 'group', { name: 'Stopped Site chats' } ) )
+				.getAllByRole( 'button', { name: /^Chat \d+$/ } )
+				.map( ( button ) => button.textContent )
+		).toEqual( [ 'Chat 2', 'Chat 1' ] );
 		expect( screen.getByText( 'Chat 1 moved to position 2 of 2' ) ).toBeInTheDocument();
 		expect( updateSitesSortOrder ).not.toHaveBeenCalled();
 	} );

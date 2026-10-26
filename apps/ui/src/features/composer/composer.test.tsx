@@ -28,6 +28,7 @@ const connectorMocks = vi.hoisted( () => ( {
 	getAiSettings: vi.fn(),
 	getAuthUser: vi.fn(),
 	getStudioAssistantQuota: vi.fn(),
+	getStudioAssistantTopUpPricing: vi.fn(),
 	getUserPreferences: vi.fn(),
 	setUserPreferences: vi.fn(),
 	getFilePath: vi.fn( ( file: File ) => `/tmp/studio-attachments/${ file.name }` ),
@@ -150,6 +151,27 @@ describe( 'Composer menu', () => {
 				'Fast · WordPress.com · AI credits: 1.2M remaining'
 			)
 		);
+	} );
+
+	it( 'returns focus to the Model button when Add AI credits is cancelled', async () => {
+		connectorMocks.getStudioAssistantQuota.mockResolvedValue( {
+			costCap: 1_000_000,
+			studioCodeAiHasAccess: true,
+			hasPaymentMethod: true,
+			allowanceRemaining: 0,
+			purchasedRemaining: 1_000_000,
+		} );
+		connectorMocks.getStudioAssistantTopUpPricing.mockResolvedValue( {
+			options: [ { credits: 100_000, display: '$10' } ],
+		} );
+		renderComposer();
+
+		const trigger = await screen.findByRole( 'button', { name: 'Model' } );
+		fireEvent.click( trigger );
+		fireEvent.click( await screen.findByRole( 'option', { name: /^Get more credits/ } ) );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Cancel' } ) );
+
+		await waitFor( () => expect( trigger ).toHaveFocus() );
 	} );
 
 	it( 'lists only WordPress.com models until an Anthropic API key is saved', async () => {

@@ -42,6 +42,10 @@ const DRAG_START_THRESHOLD = 4;
 const AUTO_SCROLL_EDGE_PX = 40;
 const AUTO_SCROLL_MAX_STEP_PX = 12;
 
+function isSameOrder( a: string[], b: string[] ) {
+	return a.length === b.length && a.every( ( id, index ) => id === b[ index ] );
+}
+
 function insertIdAtIndex( ids: string[], movedId: string, targetIndex: number ) {
 	const fromIndex = ids.indexOf( movedId );
 	if ( fromIndex === -1 ) {
@@ -106,6 +110,8 @@ export type ReorderableListProps< T > = {
 	disabled?: boolean;
 	/** Names a dropped row when its new position is announced. */
 	getItemLabel?: ( item: T ) => string;
+	/** A drag starts on this item, before the rows are measured for it. */
+	onDragStart?: ( item: T ) => void;
 	/** Rows after the reorderable ones, like Show more. */
 	children?: ReactNode;
 };
@@ -121,6 +127,7 @@ export function ReorderableList< T >( {
 	excludeSelector,
 	disabled = false,
 	getItemLabel,
+	onDragStart,
 	children,
 }: ReorderableListProps< T > ) {
 	const [ activeDrag, setActiveDrag ] = useState< ActiveDrag | null >( null );
@@ -135,15 +142,35 @@ export function ReorderableList< T >( {
 	const scrollParentRef = useRef< HTMLElement | null >( null );
 	const autoScrollRef = useRef< { step: number; rafId: number } | null >( null );
 
-	// The landing relies on the parent applying the new order synchronously in
-	// its own state (same React commit as the drop) — deriving the order from
-	// an async source instead would fly the row to its old slot.
-	const itemIds = useMemo( () => items.map( getItemId ), [ items, getItemId ] );
+	// A dropped order shows until `items` changes: a parent reading its order
+	// from the query cache renders it a tick after the drop, and the landing
+	// must fly to the new slot.
+	const [ dropped, setDropped ] = useState< { ids: string[]; over: string[] } | null >( null );
+	const parentIds = useMemo( () => items.map( getItemId ), [ items, getItemId ] );
+	const droppedIds = dropped && isSameOrder( dropped.over, parentIds ) ? dropped.ids : undefined;
+	if ( dropped && ! droppedIds ) {
+		setDropped( null );
+	}
+	const itemIds = droppedIds ?? parentIds;
+	const orderedItems = droppedIds
+		? droppedIds.map( ( id ) => items[ parentIds.indexOf( id ) ] )
+		: items;
 	const sourceIndex = activeDrag ? itemIds.indexOf( activeDrag.id ) : -1;
 	const draggedItem = activeDrag
 		? items.find( ( item ) => getItemId( item ) === activeDrag.id )
 		: undefined;
 	const landingId = activeDrag?.landing ? activeDrag.id : undefined;
+	const draggingId = activeDrag && ! activeDrag.landing ? activeDrag.id : undefined;
+
+	// Rows can move as the drag starts (a dragged site folds its chats).
+	useLayoutEffect( () => {
+		if ( draggingId ) {
+			dragStartRowRectsRef.current = measureRowRects(
+				containerRef.current,
+				scrollParentRef.current?.scrollTop ?? 0
+			);
+		}
+	}, [ draggingId ] );
 
 	useLayoutEffect( () => {
 		if ( ! landingId ) {
@@ -215,11 +242,18 @@ export function ReorderableList< T >( {
 
 	// Hit-test against the rows' positions captured at drag start: reading
 	// `getBoundingClientRect` per row on every pointermove forces a layout
-	// reflow each frame.
+	// reflow each frame. Outside the rows there is no drop target (-1).
 	const getDropIndex = ( clientY: number, draggedId: string ) => {
 		const sourceOrder = dragStartOrderRef.current.length > 0 ? dragStartOrderRef.current : itemIds;
 		const rowRects = dragStartRowRectsRef.current;
 		const pointerY = clientY + ( scrollParentRef.current?.scrollTop ?? 0 );
+		const rects = [ ...rowRects.values() ];
+		if (
+			pointerY < Math.min( ...rects.map( ( rect ) => rect.top ) ) ||
+			pointerY > Math.max( ...rects.map( ( rect ) => rect.top + rect.height ) )
+		) {
+			return -1;
+		}
 
 		let index = 0;
 		for ( const id of sourceOrder ) {
@@ -319,6 +353,12 @@ export function ReorderableList< T >( {
 		}
 
 		event.preventDefault();
+		if ( ! active ) {
+			const item = items.find( ( value ) => getItemId( value ) === candidate.id );
+			if ( item !== undefined ) {
+				onDragStart?.( item );
+			}
+		}
 		updateActiveDrag( {
 			id: candidate.id,
 			currentY: event.clientY,
@@ -335,23 +375,29 @@ export function ReorderableList< T >( {
 			return;
 		}
 		const active = activeDragRef.current;
-		if ( active ) {
+		if ( active && active.dropIndex !== -1 ) {
 			const sourceOrder =
 				dragStartOrderRef.current.length > 0 ? dragStartOrderRef.current : itemIds;
 			const nextIds = insertIdAtIndex( sourceOrder, active.id, active.dropIndex );
 			onReorder( nextIds );
-			const dropped = items.find( ( item ) => getItemId( item ) === active.id );
-			if ( dropped !== undefined && getItemLabel ) {
+			setDropped( {
+				ids: insertIdAtIndex( itemIds, active.id, active.dropIndex ),
+				over: parentIds,
+			} );
+			const item = items.find( ( value ) => getItemId( value ) === active.id );
+			if ( item !== undefined && getItemLabel ) {
 				setAnnouncement(
 					sprintf(
 						/* translators: 1: name of the moved item, 2: its new position, 3: number of items. */
 						__( '%1$s moved to position %2$d of %3$d' ),
-						getItemLabel( dropped ),
+						getItemLabel( item ),
 						nextIds.indexOf( active.id ) + 1,
 						nextIds.length
 					)
 				);
 			}
+		}
+		if ( active ) {
 			suppressNextClickRef.current = true;
 			// The rows' click-capture consumes the flag, but a drop outside any
 			// row never reaches it — clear on the next click wherever it lands
@@ -450,7 +496,7 @@ export function ReorderableList< T >( {
 				onPointerDown={ handlePointerDown }
 				onClickCapture={ handleClickCapture }
 			>
-				{ items.map( ( item, index ) => {
+				{ orderedItems.map( ( item, index ) => {
 					const id = getItemId( item );
 					return (
 						<Fragment key={ id }>

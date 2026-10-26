@@ -104,12 +104,10 @@ import {
 } from '@studio/common/sites/lifecycle';
 import { updateSiteMetadata } from '@studio/common/sites/metadata';
 import {
-	designFixesSchema,
-	fixSiteDesign,
-	readSiteDesign,
-	type SiteDesign,
-} from '@studio/common/sites/site-design';
-import { readSiteIcon, readThemeDetails } from '@studio/common/sites/site-identity';
+	readGlobalStyles,
+	readSiteIcon,
+	type GlobalStyles,
+} from '@studio/common/sites/site-identity';
 import { readSite, readSitePath, readSitePaths } from '@studio/common/sites/site-path';
 import { __ } from '@wordpress/i18n';
 import { DEFAULT_TERMINAL } from 'src/constants';
@@ -939,26 +937,12 @@ export async function getWpVersion( _event: IpcMainInvokeEvent, id: string ) {
 	return sitePath ? getWordPressVersion( sitePath ) : '-';
 }
 
-const activeThemeSlug = ( sitePath: string ) => async () =>
-	( await readThemeDetails( executeCliCommand, sitePath ).catch( () => undefined ) )?.slug;
-
-export async function getSiteDesign(
+export async function getGlobalStyles(
 	_event: IpcMainInvokeEvent,
 	id: string
-): Promise< SiteDesign | null > {
+): Promise< GlobalStyles > {
 	const sitePath = await readSitePath( id );
-	return sitePath ? readSiteDesign( sitePath, activeThemeSlug( sitePath ) ) : null;
-}
-
-export async function fixSiteDesignDrift(
-	_event: IpcMainInvokeEvent,
-	id: string,
-	fixes: unknown
-): Promise< SiteDesign | null > {
-	const sitePath = await readSitePath( id );
-	return sitePath
-		? fixSiteDesign( sitePath, activeThemeSlug( sitePath ), designFixesSchema.parse( fixes ) )
-		: null;
+	return sitePath ? readGlobalStyles( executeCliCommand, sitePath ) : null;
 }
 
 export async function getIsMultisite( _event: IpcMainInvokeEvent, id: string ) {

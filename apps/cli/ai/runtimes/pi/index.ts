@@ -43,7 +43,6 @@ import { getAiTracksIdentity } from '@studio/common/ai/tracks-identity';
 import { type TSchema } from 'typebox';
 import { classicThemeQuestion } from 'cli/ai/block-theme';
 import { getBlockValidationGate, type BlockValidationGate } from 'cli/ai/block-validation-gate';
-import { withDesignSystemPreview } from 'cli/ai/chat-artifacts';
 import { isImageGenerationAvailable } from 'cli/ai/image-generation';
 import { emitEvent } from 'cli/ai/json-events';
 import { describeOpenProblems, getOpenProblems } from 'cli/ai/open-problems';
@@ -857,8 +856,6 @@ function buildAgentTools(
 	const renameTool = < S extends TSchema >( tool: AgentTool< S >, name: string ): AgentTool< S > =>
 		( { ...tool, name, label: name } ) as AgentTool< S >;
 
-	const designSystemPreview = < TTool extends AgentToolAny >( tool: TTool ) =>
-		chatArtifactsEnabled ? withDesignSystemPreview( tool, STUDIO_SITES_ROOT ) : tool;
 	const piTools: AgentToolAny[] = [
 		renameTool(
 			visionEnabled
@@ -866,8 +863,8 @@ function buildAgentTools(
 				: withTextOnlyImages( createReadTool( STUDIO_SITES_ROOT ) ),
 			'Read'
 		),
-		designSystemPreview( renameTool( createWriteTool( STUDIO_SITES_ROOT ), 'Write' ) ),
-		designSystemPreview( renameTool( createEditTool( STUDIO_SITES_ROOT ), 'Edit' ) ),
+		renameTool( createWriteTool( STUDIO_SITES_ROOT ), 'Write' ),
+		renameTool( createEditTool( STUDIO_SITES_ROOT ), 'Edit' ),
 		renameTool(
 			withDefaultTimeout(
 				createBashTool( STUDIO_SITES_ROOT, { spawnHook: getStudioWpSpawnHook() } )

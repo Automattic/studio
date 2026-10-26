@@ -355,14 +355,8 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		async getSiteIcon( siteId ) {
 			return api< string | null >( `/sites/${ encodeURIComponent( siteId ) }/site-icon` );
 		},
-		async getSiteDesign( siteId ) {
-			return api( `/sites/${ encodeURIComponent( siteId ) }/design` );
-		},
-		async fixSiteDesignDrift( siteId, fixes ) {
-			return api( `/sites/${ encodeURIComponent( siteId ) }/design/fixes`, {
-				method: 'POST',
-				body: JSON.stringify( { fixes } ),
-			} );
+		async getGlobalStyles( siteId ) {
+			return api( `/sites/${ encodeURIComponent( siteId ) }/global-styles` );
 		},
 
 		// Site creation — delegated to the CLI `create` on the local machine.

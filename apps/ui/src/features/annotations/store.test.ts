@@ -32,10 +32,10 @@ describe( 'annotation store', () => {
 	} );
 
 	it( 'reopens the note of a design token picked again', () => {
-		const id = pickAnnotation( 'design-site', { designKey: 'colors.primary' } )!;
+		const id = pickAnnotation( 'design-site', { designKey: 'var:preset|color|primary' } )!;
 		changeAnnotation( 'design-site', id, { comment: 'Warmer' } );
 
-		expect( pickAnnotation( 'design-site', { designKey: 'colors.primary' } ) ).toBe( id );
+		expect( pickAnnotation( 'design-site', { designKey: 'var:preset|color|primary' } ) ).toBe( id );
 		expect( getSiteAnnotations( 'design-site' ).notes ).toHaveLength( 1 );
 	} );
 

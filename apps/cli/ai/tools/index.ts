@@ -7,12 +7,12 @@ import { exportSiteTool } from './export-site';
 import { generateImagesTool } from './generate-images';
 import { importSiteTool } from './import-site';
 import { installTaxonomyScriptsTool } from './install-taxonomy-scripts';
-import { listConnectedRemoteSitesTool } from './list-connected-remote-sites';
 import { listPreviewsTool } from './list-previews';
 import { listSitesTool } from './list-sites';
 import { auditPerformanceTool } from './need-for-speed';
 import { openAnnotationBrowserTool } from './open-annotation-browser';
 import { pickDesignTool } from './pick-design';
+import { publishTargetsTool } from './publish-targets';
 import { pullSiteTool } from './pull-site';
 import { pushSiteTool } from './push-site';
 import { auditSeoTool } from './rank-me-up';
@@ -44,7 +44,7 @@ export const studioToolDefinitions: AnyStudioAgentTool[] = [
 	installTaxonomyScriptsTool,
 	auditPerformanceTool,
 	auditSeoTool,
-	listConnectedRemoteSitesTool,
+	publishTargetsTool,
 	pushSiteTool,
 	pullSiteTool,
 	importSiteTool,

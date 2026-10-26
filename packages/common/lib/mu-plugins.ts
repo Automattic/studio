@@ -307,6 +307,28 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 		} );
 
 		/**
+		 * Gets the settings and styles WordPress resolves for the site,
+		 * as the Site Editor's Styles show them, or null when the active
+		 * theme is not a block theme.
+		 *
+		 * ## EXAMPLES
+		 *
+		 *     wp studio get-global-styles
+		 *
+		 * @when after_wp_load
+		 */
+		WP_CLI::add_command( 'studio get-global-styles', function() {
+			if ( ! wp_is_block_theme() ) {
+				echo json_encode( null );
+				return;
+			}
+			echo wp_json_encode( [
+				'settings' => (object) wp_get_global_settings(),
+				'styles' => (object) wp_get_global_styles(),
+			] );
+		} );
+
+		/**
 		 * Gets the path of the configured Site Icon relative to the
 		 * WordPress install root, or null when no Site Icon is set.
 		 *

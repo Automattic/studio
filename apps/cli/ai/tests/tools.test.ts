@@ -595,46 +595,63 @@ describe( 'Studio AI MCP tools', () => {
 		] );
 	} );
 
-	it( 'tags connected remote sites with type "wpcom-remote"', async () => {
-		const site = {
-			id: 111,
-			localSiteId: '',
-			name: 'My Production Site',
-			url: 'https://myprod.wordpress.com',
-			isStaging: false,
-			isPressable: false,
-			environmentType: 'production',
-			syncSupport: 'syncable' as const,
-			lastPullTimestamp: null,
-			lastPushTimestamp: null,
-		};
-		vi.mocked( getConnectedWpcomSitesForLocalSite ).mockResolvedValue( [
-			{ ...site, localSiteId: 'site-123', name: 'Name at connect time' },
-		] );
-		vi.mocked( readAuthToken ).mockResolvedValue( { accessToken: 'token' } as never );
-		vi.mocked( fetchSyncableSites ).mockResolvedValue( [ site ] );
-
-		const result = await getTool( 'site_connected_remote_sites' ).rawHandler( {
-			nameOrPath: 'My Site',
-		} as never );
-
-		expect( getConnectedWpcomSitesForLocalSite ).toHaveBeenCalledWith( 'site-123' );
-		const parsed = JSON.parse( getTextContent( result ) ?? '[]' );
-		expect( parsed ).toEqual( [
-			{
-				type: 'wpcom-remote',
+	it.each( [
+		{ signedIn: true, expected: { signedIn: true, targets: [ 'already-connected' ] } },
+		{
+			signedIn: false,
+			expected: {
+				signedIn: false,
+				signIn: 'The user signs in to WordPress.com with /login.',
+				targets: [],
+			},
+		},
+	] )(
+		'lists each built-in host with its connected targets (signed in: $signedIn)',
+		async ( { signedIn, expected } ) => {
+			const site = {
 				id: 111,
+				localSiteId: '',
 				name: 'My Production Site',
 				url: 'https://myprod.wordpress.com',
 				isStaging: false,
 				isPressable: false,
 				environmentType: 'production',
-				syncSupport: 'already-connected',
-				lastPushTimestamp: null,
+				syncSupport: 'syncable' as const,
 				lastPullTimestamp: null,
-			},
-		] );
-	} );
+				lastPushTimestamp: null,
+			};
+			vi.mocked( getConnectedWpcomSitesForLocalSite ).mockResolvedValue( [
+				{ ...site, localSiteId: 'site-123', name: 'Name at connect time' },
+			] );
+			vi.mocked( readAuthToken ).mockResolvedValue(
+				( signedIn ? { accessToken: 'token' } : null ) as never
+			);
+			vi.mocked( fetchSyncableSites ).mockResolvedValue( [ site ] );
+
+			const result = await getTool( 'site_publish_targets' ).rawHandler( {
+				nameOrPath: 'My Site',
+			} as never );
+
+			const [ wpcom, ...others ] = JSON.parse( getTextContent( result ) ?? '[]' );
+			expect( others ).toEqual( [] );
+			expect( {
+				host: wpcom.host,
+				name: wpcom.name,
+				signedIn: wpcom.signedIn,
+				signIn: wpcom.signIn,
+				targets: wpcom.targets.map( ( t: { syncSupport: string } ) => t.syncSupport ),
+			} ).toEqual( { host: 'wpcom', name: 'WordPress.com', signIn: undefined, ...expected } );
+			expect( wpcom.publishes ).toContain( 'Pressable' );
+			if ( signedIn ) {
+				expect( getConnectedWpcomSitesForLocalSite ).toHaveBeenCalledWith( 'site-123' );
+				expect( wpcom.targets[ 0 ] ).toMatchObject( {
+					id: 111,
+					name: 'My Production Site',
+					url: 'https://myprod.wordpress.com',
+				} );
+			}
+		}
+	);
 
 	describe( 'site_list', () => {
 		beforeEach( () => {

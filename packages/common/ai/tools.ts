@@ -308,11 +308,9 @@ export function getToolDisplayName( name: string, input?: Record< string, unknow
 		preview_list: __( 'List previews' ),
 		preview_update: __( 'Update preview' ),
 		preview_delete: __( 'Delete preview' ),
-		refresh_browser: __( 'Refresh preview' ),
-		site_connected_remote_sites: __( 'List connected remote sites' ),
+		site_publish_targets: __( 'List publish targets' ),
 		pick_design: __( 'Pick design' ),
 		present_design_options: __( 'Present design options' ),
-		validate_blocks: __( 'Validate blocks' ),
 		take_screenshot: __( 'Take screenshot' ),
 		generate_images: __( 'Generate images' ),
 		open_annotation_browser: __( 'Open annotation browser' ),
@@ -328,8 +326,6 @@ export function getToolDisplayName( name: string, input?: Record< string, unknow
 		Grep: __( 'Search' ),
 		Ls: __( 'List' ),
 		Skill: __( 'Load skill' ),
-		Task: __( 'Run task' ),
-		TodoWrite: __( 'Update todo list' ),
 	};
 	return displayNames[ name ] ?? name;
 }
@@ -428,11 +424,6 @@ export function getToolDetail( name: string, input?: Record< string, unknown > )
 				)
 				.filter( Boolean )
 				.join( ' · ' );
-		case 'validate_blocks':
-			if ( typeof input.filePath === 'string' ) {
-				return input.filePath.split( '/' ).slice( -2 ).join( '/' );
-			}
-			return __( 'inline content' );
 		case 'take_screenshot':
 		case 'open_annotation_browser':
 			return typeof input.url === 'string' ? input.url : '';

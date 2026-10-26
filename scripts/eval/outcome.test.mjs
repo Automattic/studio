@@ -584,30 +584,20 @@ describe( 'site checks', () => {
 		).toBe( false );
 	} );
 
-	test( 'designTokenReachedTheme', () => {
-		const vars = { token: 'primary', originalValue: '#000000' };
-		const site = ( designMd, palette ) => ( { ...workingSite, designMd, palette } );
-		expect(
-			run(
-				checks.designTokenReachedTheme,
-				outcome( site( 'primary: "#2255aa"', [ { color: '#2255AA' } ] ) ),
-				vars
-			).pass
-		).toBe( true );
-		expect(
-			run(
-				checks.designTokenReachedTheme,
-				outcome( site( 'primary: "#2255aa"', [ { color: '#000000' } ] ) ),
-				vars
-			).pass
-		).toBe( false );
-		expect(
-			run(
-				checks.designTokenReachedTheme,
-				outcome( site( 'primary: "#000000"', [ { color: '#000000' } ] ) ),
-				vars
-			).pass
-		).toBe( false );
+	test( 'presetColorChanged', () => {
+		const vars = { slug: 'accent-1', originalValue: '#FFEE58' };
+		const theme = { slug: 'accent-1', color: '#FFEE58' };
+		const cases = [
+			[ [ theme, { slug: 'accent-1', color: '#C2552B' } ], true ],
+			[ [ { slug: 'accent-1', color: '#C2552B' }, theme ], false ],
+			[ [ theme, { slug: 'accent-2', color: '#C2552B' } ], false ],
+			[ [], false ],
+		];
+		for ( const [ palette, expected ] of cases ) {
+			expect(
+				run( checks.presetColorChanged, outcome( { ...workingSite, palette } ), vars ).pass
+			).toBe( expected );
+		}
 	} );
 } );
 
@@ -957,30 +947,6 @@ describe( 'debugging checks', () => {
 	] )( 'homeImagesLoad: %s', ( _, images, expected ) => {
 		const site = { ...workingSite, home: { ...workingSite.home, images } };
 		expect( run( checks.homeImagesLoad, outcome( site ), { minImages: 2 } ).pass ).toBe( expected );
-	} );
-} );
-
-describe( 'routing checks', () => {
-	const skill = ( name ) => ( { name: 'Skill', input: { name } } );
-	const vars = { skills: [ { name: 'block-content' }, { name: 'imagery' } ] };
-
-	test( 'skillsLoadedFirst', () => {
-		const calls = [ skill( 'block-content' ), { name: 'Write', input: {} }, skill( 'imagery' ) ];
-		expect(
-			run(
-				checks.skillsLoadedFirst,
-				{ toolCalls: calls, stoppedAt: { toolName: 'Write', index: 1 } },
-				vars
-			).pass
-		).toBe( false );
-		expect(
-			run(
-				checks.skillsLoadedFirst,
-				{ toolCalls: [ skill( 'imagery' ), ...calls ], stoppedAt: { toolName: 'Write', index: 2 } },
-				vars
-			).pass
-		).toBe( true );
-		expect( run( checks.skillsLoadedFirst, { toolCalls: calls }, vars ).pass ).toBe( true );
 	} );
 } );
 

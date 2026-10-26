@@ -16,7 +16,7 @@ export type {
 	PushSyncOptions,
 	QuitSitesBehavior,
 	SessionEntry,
-	SiteDesign,
+	GlobalStyles,
 	SiteDetails,
 	SiteAgentFileKind,
 	SkillStatus,

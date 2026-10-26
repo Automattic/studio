@@ -26,8 +26,8 @@ import { rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
-import { getSharedBrowser } from 'cli/ai/browser-utils';
 import { validateBlocks } from 'cli/ai/block-validator';
+import { getSharedBrowser } from 'cli/ai/browser-utils';
 import { runCommand as runStartSiteCommand } from 'cli/commands/site/start';
 import { Mode as StopMode, runCommand as runStopSiteCommand } from 'cli/commands/site/stop';
 import { readCliConfig } from 'cli/lib/cli-config/core';
@@ -430,9 +430,6 @@ export async function captureSiteOutcome(
 				templateVersion
 			);
 		}
-		const designPath = path.join( sitePath, 'DESIGN.md' );
-		outcome.designMd = existsSync( designPath ) ? readFileSync( designPath, 'utf8' ) : null;
-
 		const home = { ...( await renderHome( url ) ), imageFrames: await homeImageFrames( url ) };
 		if ( 'html' in home && home.html ) {
 			const file = path.join( artifactDir, `${ path.basename( sitePath ) }-home.html` );

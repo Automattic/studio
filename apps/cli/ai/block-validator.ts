@@ -494,12 +494,17 @@ export async function validateBlocks(
 				return block;
 			}
 
-			// The block made again with the number a class written in its own
-			// markup ends in, as wp-image-6, stored in the comment attribute the
-			// block saves that class from: core/image saves wp-image-<id> from its
-			// id (@wordpress/block-library image/save.js), as the media library
-			// picker stores it. A number stored where the block does not save the
-			// class from loses the class, so the fix keeps the block as written.
+			// The block made again with each class written in its own markup that
+			// it would drop stored in the comment attribute the block saves that
+			// class from, as the editor stores it: core/image saves wp-image-<id>
+			// from its id (image/save.js), and a color or font size preset saves
+			// has-<slug>-color or has-<slug>-font-size from textColor or fontSize
+			// (getColorClassName, getFontSizeClass in @wordpress/block-editor).
+			// Which class each attribute saves, the block's own save tells: each
+			// is made with a probe value, and the class holding it read. A value
+			// stored where the block does not save the class from loses the class,
+			// so the fix keeps the block as written.
+			const PROBE = { string: 'studioprobe', number: 424242 };
 			function withWrittenClasses( made: any, raw: any ) {
 				if ( typeof rawParse !== 'function' ) {
 					return made;
@@ -511,31 +516,80 @@ export async function validateBlocks(
 						).flatMap( ( element ) => [ ...element.classList ] )
 					);
 				const saved = ownClasses( made );
-				const numbered = [
+				const dropped = [
 					...new Set(
 						elementsOf( String( raw.innerHTML ?? '' ) ).flatMap( ( element ) => [
 							...element.classList,
 						] )
 					),
-				].filter( ( name ) => ! saved.has( name ) && /-\d+$/.test( name ) );
-				const attributes = Object.entries( wpBlocks.getBlockType( made.name )?.attributes ?? {} )
-					.filter( ( [ , schema ]: [ string, any ] ) =>
-						[ 'number', 'integer' ].includes( schema.type )
-					)
-					.map( ( [ key ] ) => key );
+				].filter( ( name ) => ! saved.has( name ) );
+				if ( ! dropped.length ) {
+					return made;
+				}
+				const templates = Object.entries( wpBlocks.getBlockType( made.name )?.attributes ?? {} )
+					.filter( ( [ key ] ) => key !== 'className' )
+					.flatMap( ( [ key, schema ]: [ string, any ] ) => {
+						const kind =
+							schema.type === 'string'
+								? 'string'
+								: [ 'number', 'integer' ].includes( schema.type )
+								? 'number'
+								: undefined;
+						if ( ! kind ) {
+							return [];
+						}
+						const probe = String( PROBE[ kind ] );
+						let classes: Set< string >;
+						try {
+							classes = ownClasses(
+								wpBlocks.createBlock(
+									made.name,
+									{ ...made.attributes, [ key ]: PROBE[ kind ] },
+									made.innerBlocks
+								)
+							);
+						} catch {
+							return [];
+						}
+						return [ ...classes ].flatMap( ( name ) => {
+							const at = name.indexOf( probe );
+							return at < 0
+								? []
+								: [
+										{
+											key,
+											kind,
+											before: name.slice( 0, at ),
+											after: name.slice( at + probe.length ),
+										},
+								  ];
+						} );
+					} )
+					// The most specific first: has-<slug>-border-color is
+					// borderColor's, though textColor's has-<slug>-color matches it.
+					.sort(
+						( a, b ) => b.before.length + b.after.length - ( a.before.length + a.after.length )
+					);
 				let result = made;
-				for ( const name of numbered ) {
-					const number = Number( /(\d+)$/.exec( name )?.[ 1 ] );
-					for ( const key of attributes ) {
-						const candidate = wpBlocks.createBlock(
+				for ( const name of dropped ) {
+					// As has-text-color, which storing the color already saves.
+					if ( ownClasses( result ).has( name ) ) {
+						continue;
+					}
+					for ( const { key, kind, before, after } of templates ) {
+						const value =
+							name.startsWith( before ) && name.endsWith( after )
+								? name.slice( before.length, name.length - after.length )
+								: '';
+						if ( ! value ) {
+							continue;
+						}
+						result = wpBlocks.createBlock(
 							result.name,
-							{ ...result.attributes, [ key ]: number },
+							{ ...result.attributes, [ key ]: kind === 'number' ? Number( value ) : value },
 							result.innerBlocks
 						);
-						if ( wpBlocks.parse( wpBlocks.serialize( [ candidate ] ) )[ 0 ]?.isValid !== false ) {
-							result = candidate;
-							break;
-						}
+						break;
 					}
 				}
 				return result;

@@ -179,8 +179,20 @@ describe.runIf( siteUrl )( 'validating in the block editor (live)', () => {
 				'<!-- wp:media-text {"mediaType":"image"} -->\n<div class="wp-block-media-text is-stacked-on-mobile"><figure class="wp-block-media-text__media"><img src="https://example.com/a.jpg" alt="" class="wp-image-7 size-full"/></figure><div class="wp-block-media-text__content"></div></div>\n<!-- /wp:media-text -->',
 			saved: '"mediaId":7',
 		},
+		{
+			name: 'core/paragraph, a palette text color',
+			written:
+				'<!-- wp:paragraph -->\n<p class="has-sage-dark-color has-text-color" style="margin-top:1rem">Hi</p>\n<!-- /wp:paragraph -->',
+			saved: '"textColor":"sage-dark"',
+		},
+		{
+			name: 'core/button, a palette border color its text color class also matches',
+			written:
+				'<!-- wp:button {"style":{"border":{"width":"1px"}}} -->\n<div class="wp-block-button"><a class="wp-block-button__link has-cream-border-color has-border-color wp-element-button" style="border-width:1px;padding-top:1rem">Go</a></div>\n<!-- /wp:button -->',
+			saved: '"borderColor":"cream"',
+		},
 	] )(
-		'stores the media library id a class names where $name saves it from',
+		'stores the value a class names where $name saves it from',
 		async ( { written, saved } ) => {
 			const report = await validateBlocks( written, siteUrl! );
 			expect( report.invalidBlocks ).toBeGreaterThan( 0 );
@@ -204,11 +216,17 @@ describe.runIf( siteUrl )( 'validating in the block editor (live)', () => {
 				'<!-- wp:image {"id":5} -->\n<figure class="wp-block-image" style="margin-top:1rem"><img src="https://example.com/a.jpg" alt="" class="wp-image-5 wp-image-6"/></figure>\n<!-- /wp:image -->',
 			saved: undefined,
 		},
+		{
+			name: 'a class whose number is not one',
+			written:
+				'<!-- wp:image -->\n<figure class="wp-block-image" style="margin-top:1rem"><img src="https://example.com/a.jpg" alt="" class="wp-image-hero"/></figure>\n<!-- /wp:image -->',
+			saved: undefined,
+		},
 	] )(
 		'stores no id from $name',
 		async ( { written, saved } ) => {
 			const report = await validateBlocks( written, siteUrl! );
-			expect( report.proposedFix?.fixedContent ?? '' ).not.toMatch( /"id":(100|6)\b/ );
+			expect( report.proposedFix?.fixedContent ?? '' ).not.toMatch( /"id":(100|6|null)\b/ );
 			if ( saved ) {
 				expect( report.proposedFix?.fixedContent ).toContain( saved );
 			}

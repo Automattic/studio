@@ -721,7 +721,6 @@ export async function runBlueprint(
 				{ logger }
 			);
 		} finally {
-			// Always stop the process after blueprint is applied
 			await stopProcess( processName );
 		}
 	} finally {

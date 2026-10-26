@@ -9,14 +9,12 @@ import { sudoExec } from 'cli/lib/sudo-exec';
 const readFile = promisify( fs.readFile );
 const writeFile = promisify( fs.writeFile );
 
-// Host file paths for different operating systems
 const HOST_FILES: Record< string, string > = {
 	win32: path.resolve( process.env.SystemRoot ?? 'C:\\Windows', 'System32\\drivers\\etc\\hosts' ),
 	darwin: '/etc/hosts',
 	linux: '/etc/hosts',
 };
 
-// Get the appropriate hosts file path for the current platform
 const getHostsFilePath = (): string => {
 	const currentPlatform = platform();
 	const hostsPath = HOST_FILES[ currentPlatform ];
@@ -129,9 +127,6 @@ export const addDomainToHosts = async ( domain: string, port: number ): Promise<
 	}
 };
 
-/**
- * Removes a domain from the hosts file
- */
 export const removeDomainFromHosts = async ( domain: string ): Promise< void > => {
 	try {
 		const hostsContent = await readHostsFile();
@@ -142,7 +137,6 @@ export const removeDomainFromHosts = async ( domain: string ): Promise< void > =
 			entries.filter( ( entry ) => ! entry.match( pattern ) )
 		);
 
-		// Only write if content changed
 		if ( newContent !== hostsContent ) {
 			await writeHostsFile( newContent );
 		}

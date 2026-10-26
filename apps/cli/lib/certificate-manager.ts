@@ -66,9 +66,6 @@ const SITE_CERT_VALIDITY_DAYS = 825; // a little over 2 years
 const CERT_DIRECTORY = getCertificatesPath();
 const CA_KEY_PATH = path.join( CERT_DIRECTORY, 'studio-ca.key' );
 
-/**
- * Initialize the certificates directory
- */
 function initializeCertificatesDirectory() {
 	if ( ! fs.existsSync( path.join( CERT_DIRECTORY, 'domains' ) ) ) {
 		fs.mkdirSync( path.join( CERT_DIRECTORY, 'domains' ), { recursive: true } );
@@ -210,7 +207,6 @@ export async function generateSiteCertificate(
 			},
 		] );
 
-		// Sign with the CA's private key
 		cert.sign( caPrivateKey, forge.md.sha256.create() );
 
 		const certPem = forge.pki.certificateToPem( cert );
@@ -226,9 +222,6 @@ export async function generateSiteCertificate(
 	}
 }
 
-/**
- * Delete the certificate files for a specific domain
- */
 export function deleteSiteCertificate( domain: string ): boolean {
 	try {
 		const siteCertPath = path.join( CERT_DIRECTORY, 'domains', `${ domain }.crt` );

@@ -69,6 +69,7 @@ import { SitePin } from './site-pin';
 import { SkillToolScope } from './skill-tool-scope';
 import { stripStaleImagesFromContext } from './strip-stale-images';
 import { ensureStudioShimDirectory, getStudioShims, prependToPath } from './studio-wp-shim';
+import { withTextOnlyImages } from './text-only-read';
 import {
 	getIncompleteToolCallReason,
 	getWrittenFile,
@@ -401,7 +402,7 @@ async function createStudioAgentSession(
 	const systemPrompt = buildSystemPrompt( {
 		userInstructions,
 		activeSite: config.activeSite,
-		activeSiteFacts,
+		activeSiteFacts: activeSiteFacts.flat(),
 	} );
 
 	const pendingWork = getPendingWork( config.session );
@@ -861,7 +862,12 @@ function buildAgentTools(
 	const designSystemPreview = < TTool extends AgentToolAny >( tool: TTool ) =>
 		chatArtifactsEnabled ? withDesignSystemPreview( tool, STUDIO_SITES_ROOT ) : tool;
 	const piTools: AgentToolAny[] = [
-		renameTool( createReadTool( STUDIO_SITES_ROOT ), 'Read' ),
+		renameTool(
+			visionEnabled
+				? createReadTool( STUDIO_SITES_ROOT )
+				: withTextOnlyImages( createReadTool( STUDIO_SITES_ROOT ) ),
+			'Read'
+		),
 		designSystemPreview( renameTool( createWriteTool( STUDIO_SITES_ROOT ), 'Write' ) ),
 		designSystemPreview( renameTool( createEditTool( STUDIO_SITES_ROOT ), 'Edit' ) ),
 		renameTool(

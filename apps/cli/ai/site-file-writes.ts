@@ -3,9 +3,15 @@
  * so each gets the write notes a file tool's write gets (site-notes.ts): fonts
  * self-hosted, block markup validated wherever a draft is written, theme.json
  * and theme CSS checked. Each file's version is its modified time and size.
+ *
+ * The files of a theme WordPress updates are its release's, which an update
+ * replaces: a call that changes them is reported for that
+ * (theme-file-changes.ts), and one that installs or updates the theme wrote
+ * none of its markup.
  */
 import { readdir, stat } from 'fs/promises';
 import path from 'path';
+import { isUpdatableTheme } from 'cli/ai/themes';
 import type { SiteChangeSource, Versions } from 'cli/ai/site-changes';
 
 // What holds no file the write notes are about: WordPress core, which Studio
@@ -47,11 +53,29 @@ export const siteFileWrites: SiteChangeSource = {
 		await walk( sitePath, '', versions );
 		return versions;
 	},
-	async check( _site, before, after ) {
+	async check( site, before, after ) {
+		const themesDir = path.join( site.path, 'wp-content', 'themes' );
+		const themeOf = ( file: string ) => {
+			const [ slug, ...rest ] = path.relative( themesDir, file ).split( path.sep );
+			return rest.length && slug !== '..' ? slug : undefined;
+		};
+		const changed = Object.keys( after ).filter( ( file ) => before[ file ] !== after[ file ] );
+		const themes = [ ...new Set( changed.map( themeOf ) ) ].filter(
+			( slug ): slug is string => !! slug
+		);
+		const updated = new Set(
+			(
+				await Promise.all(
+					themes.map( async ( slug ) =>
+						( await isUpdatableTheme( site.path, slug ) ) ? slug : ''
+					)
+				)
+			).filter( Boolean )
+		);
 		return {
-			reports: Object.entries( after )
-				.filter( ( [ file, version ] ) => before[ file ] !== version )
-				.map( ( [ file ] ) => ( { key: `file ${ file }`, written: file } ) ),
+			reports: changed
+				.filter( ( file ) => ! updated.has( themeOf( file ) ?? '' ) )
+				.map( ( file ) => ( { key: `file ${ file }`, written: file } ) ),
 		};
 	},
 };

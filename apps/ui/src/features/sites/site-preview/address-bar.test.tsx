@@ -31,20 +31,17 @@ function autoLoginPath( target: string ) {
 function renderAddressBar( {
 	path = '/',
 	site = SITE,
-	siteIcon,
 	onNavigate = vi.fn< ( path: string ) => void >(),
 	onSwitchRealm = vi.fn< ( realm: PreviewRealm ) => void >(),
 }: {
 	path?: string;
 	site?: SiteDetails;
-	siteIcon?: string;
 	onNavigate?: Mock< ( path: string ) => void >;
 	onSwitchRealm?: Mock< ( realm: PreviewRealm ) => void >;
 } = {} ) {
 	const result = render(
 		<PreviewAddressBar
 			site={ site }
-			siteIcon={ siteIcon }
 			siteUrl={ SITE_URL }
 			path={ path }
 			onNavigate={ onNavigate }
@@ -176,23 +173,13 @@ describe( 'PreviewAddressBar', () => {
 		expect( screen.queryByRole( 'dialog', { name: 'Preview shortcuts' } ) ).not.toBeInTheDocument();
 	} );
 
-	it( 'opens the shortcuts from the site icon too', async () => {
-		renderAddressBar();
-
-		fireEvent.click( screen.getByRole( 'button', { name: 'Preview shortcuts' } ) );
-
-		expect( await screen.findByRole( 'dialog', { name: 'Preview shortcuts' } ) ).toBeVisible();
-	} );
-
 	it( 'shows preview shortcuts from the address field', async () => {
-		const siteIcon = 'data:image/png;base64,c2hvcnRjdXQtaWNvbg==';
-		const { onSwitchRealm } = renderAddressBar( { siteIcon } );
+		const { onSwitchRealm } = renderAddressBar();
 		const input = screen.getByRole( 'textbox', { name: 'Address' } );
 		fireEvent.click( input );
 
 		expect( await screen.findByRole( 'option', { name: /Front end/ } ) ).toBeVisible();
 		expect( screen.getByRole( 'option', { name: /WP Admin/ } ) ).toBeVisible();
-		expect( document.querySelectorAll( `img[src="${ siteIcon }"]` ) ).toHaveLength( 2 );
 		fireEvent.click( screen.getByRole( 'option', { name: /Database/ } ) );
 
 		expect( onSwitchRealm ).toHaveBeenCalledWith( 'database' );

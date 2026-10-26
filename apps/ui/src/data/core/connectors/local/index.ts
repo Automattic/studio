@@ -352,9 +352,6 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			);
 			return thumbnail;
 		},
-		async getSiteIcon( siteId ) {
-			return api< string | null >( `/sites/${ encodeURIComponent( siteId ) }/site-icon` );
-		},
 		async getSiteDesign( siteId ) {
 			return api( `/sites/${ encodeURIComponent( siteId ) }/design` );
 		},

@@ -196,9 +196,6 @@ export interface Connector {
 		siteId: string,
 		capture: { path: string; width: number; height: number; guestId?: number }
 	): Promise< string | null >;
-	// The site's Site Icon (a data URL, or null when it has none), read on
-	// demand when the host can inspect local sites.
-	getSiteIcon?( siteId: string ): Promise< string | null >;
 	// The site's DESIGN.md and its active theme's theme.json, or null when it
 	// lacks either.
 	getSiteDesign( siteId: string ): Promise< SiteDesign | null >;

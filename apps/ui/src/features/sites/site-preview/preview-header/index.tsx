@@ -2,7 +2,6 @@ import { __ } from '@wordpress/i18n';
 import { clsx } from 'clsx';
 import { useTrafficLightSpace } from '@/data/host/use-traffic-light-space';
 import { useWindowControlsInset } from '@/data/host/use-window-controls-inset';
-import { useSiteIcon } from '@/data/queries/use-site-icon';
 import { useSidebarCollapsed } from '@/data/use-sidebar-collapsed';
 import { SiteHeaderSpace, useSiteHeader } from '@/features/sites/site-header-actions';
 import { PreviewAddressBar, type PreviewRealm } from '@/features/sites/site-preview/address-bar';
@@ -68,7 +67,6 @@ export function PreviewHeader( {
 	const trafficLightSpace = useTrafficLightSpace();
 	const sidebarCollapsed = useSidebarCollapsed();
 	const windowControlsInset = useWindowControlsInset( 'toolbar' );
-	const siteIcon = useSiteIcon( site.id );
 	const { host: headerHost, layout: headerLayout } = useSiteHeader();
 
 	return (
@@ -147,7 +145,6 @@ export function PreviewHeader( {
 				) : canPreview ? (
 					<PreviewAddressBar
 						site={ site }
-						siteIcon={ siteIcon }
 						siteUrl={ siteUrl }
 						path={ path }
 						remote={ live }

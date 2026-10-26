@@ -109,7 +109,7 @@ import {
 	readSiteDesign,
 	type SiteDesign,
 } from '@studio/common/sites/site-design';
-import { readSiteIcon, readThemeDetails } from '@studio/common/sites/site-identity';
+import { readThemeDetails } from '@studio/common/sites/site-identity';
 import { readSite, readSitePath, readSitePaths } from '@studio/common/sites/site-path';
 import { __ } from '@wordpress/i18n';
 import { DEFAULT_TERMINAL } from 'src/constants';
@@ -1052,13 +1052,6 @@ export async function readLocalMediaFile(
 			buffer.byteOffset + buffer.byteLength
 		) as ArrayBuffer,
 	};
-}
-
-export async function getSiteIcon(
-	_event: IpcMainInvokeEvent,
-	id: string
-): Promise< string | null > {
-	return readSiteIcon( executeCliCommand, await requireSitePath( id ) );
 }
 
 export async function getOnboardingData( _event: IpcMainInvokeEvent ): Promise< boolean > {

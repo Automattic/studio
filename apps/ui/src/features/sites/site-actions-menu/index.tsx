@@ -1,3 +1,4 @@
+import { DESIGN_SYSTEM_PREVIEW_PATH } from '@studio/common/ai/chat-artifacts';
 import { aiSessionBelongsToSite } from '@studio/common/ai/sessions/owner-site';
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { useNavigate } from '@tanstack/react-router';
@@ -8,6 +9,7 @@ import { useSessionsBusy } from '@/data/agent-runs/use-agent-run';
 import { useConnector } from '@/data/core';
 import { useSessions } from '@/data/queries/use-sessions';
 import { sitePinKey, useSidebarPins } from '@/data/queries/use-sidebar-pins';
+import { useSiteDesign } from '@/data/queries/use-site-design';
 import { useIsSiteBusy, useSites, useStartSite, useStopSite } from '@/data/queries/use-sites';
 import { useOpenSettings } from '@/data/use-open-settings';
 import { useSessionPreviewUI } from '@/data/use-session-ui';
@@ -32,6 +34,7 @@ import {
 } from '@/features/sites/use-site-management-actions';
 import { SitePublishMenu } from '@/features/sync';
 import {
+	AppearanceIcon,
 	ArrowRightIcon,
 	ChevronDownIcon,
 	DatabaseIcon,
@@ -142,6 +145,7 @@ export function useSiteActions(
 			),
 		openAdmin: () => void goTo( '/wp-admin/' ),
 		openDatabase: () => void goTo( DATABASE_HOME_PATH ),
+		openDesignSystem: () => void goTo( DESIGN_SYSTEM_PREVIEW_PATH ),
 		openImport: () => importInputRef.current?.click(),
 		openDelete: () => setDeleteOpen( true ),
 		dialogs: (
@@ -182,6 +186,7 @@ export function SiteActionsMenuItems( {
 	current?: boolean;
 } ) {
 	const { site, busy, running, othersRunning } = actions;
+	const siteDesign = useSiteDesign( site );
 	const destinations = useOpenInDestinations( site );
 	const manage = Object.fromEntries(
 		useSiteManagementActions( site, {
@@ -269,6 +274,12 @@ export function SiteActionsMenuItems( {
 						<DatabaseIcon />
 						{ __( 'Database' ) }
 					</Menu.Item>
+					{ siteDesign.data ? (
+						<Menu.Item onClick={ actions.openDesignSystem }>
+							<AppearanceIcon />
+							{ __( 'Design system' ) }
+						</Menu.Item>
+					) : null }
 				</Menu.SubmenuPopup>
 			</Menu.SubmenuRoot>
 			<Menu.SubmenuRoot>

@@ -32,7 +32,7 @@ export function createSkillTool( onLoad?: ( skill: Skill ) => void ): AgentTool<
 
 	return defineTool(
 		'Skill',
-		`Loads a skill: the runbook for one of Studio's workflows, and the tools it brings, which are available from then on. Loading one is a step of your own, as reading a file is; the user sees the work it does.\n\nSkills:\n${ skillIndex }`,
+		`Loads a skill: the runbook for one of Studio's workflows, and the tools it brings, which are available from then on.\n\nSkills:\n${ skillIndex }`,
 		{
 			name: Type.Enum( names, { description: 'The name of the skill to load.' } ),
 		},

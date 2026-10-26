@@ -1405,16 +1405,6 @@ export async function setWindowControlsSurface(
 	parentWindow.setTitleBarOverlay( getTitleBarOverlayOptions() );
 }
 
-export async function setTitleBarBackdropEffect( event: IpcMainInvokeEvent, enabled: boolean ) {
-	void enabled;
-	const parentWindow = BrowserWindow.fromWebContents( event.sender );
-	if ( ! parentWindow || ( process.platform !== 'win32' && process.platform !== 'linux' ) ) {
-		return;
-	}
-
-	parentWindow.setTitleBarOverlay( getTitleBarOverlayOptions() );
-}
-
 export async function updateSitesSortOrder(
 	event: IpcMainInvokeEvent,
 	updates: { siteId: string; sortOrder: number }[]

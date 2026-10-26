@@ -132,8 +132,6 @@ const api: IpcApi = {
 		ipcRendererInvoke( 'extractBlueprintBundle', zipFilePath ),
 	cleanupBlueprintTempDir: ( tempDir ) => ipcRendererInvoke( 'cleanupBlueprintTempDir', tempDir ),
 	showTextContextMenu: ( context ) => ipcRendererInvoke( 'showTextContextMenu', context ),
-	setTitleBarBackdropEffect: ( enabled ) =>
-		ipcRendererInvoke( 'setTitleBarBackdropEffect', enabled ),
 	setWindowControlsSurface: ( surface ) => ipcRendererInvoke( 'setWindowControlsSurface', surface ),
 	updateSitesSortOrder: ( updates ) => ipcRendererInvoke( 'updateSitesSortOrder', updates ),
 	isStudioCliInstalled: () => ipcRendererInvoke( 'isStudioCliInstalled' ),

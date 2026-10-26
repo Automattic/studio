@@ -21,6 +21,8 @@ import { runCommand as runListPreviewCommand } from 'cli/commands/preview/list';
 import { runCommand as runUpdatePreviewCommand } from 'cli/commands/preview/update';
 import { runCommand as runCreateSiteCommand } from 'cli/commands/site/create';
 import { runCommand as runDeleteSiteCommand } from 'cli/commands/site/delete';
+import { runCommand as runListSitesCommand } from 'cli/commands/site/list';
+import { getWpComSites } from 'cli/lib/api';
 import { readCliConfig } from 'cli/lib/cli-config/core';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
@@ -33,9 +35,15 @@ import {
 	withChatArtifactEmission,
 } from '../tools';
 import { createSiteTool } from '../tools/create-site';
-import { LOCAL_CHANGE, READ_ONLY, type AnyStudioAgentTool } from '../tools/define-tool';
+import {
+	LOCAL_CHANGE,
+	READ_ONLY,
+	REMOTE_READ,
+	type AnyStudioAgentTool,
+} from '../tools/define-tool';
 import { enrichPreviewListOutput } from '../tools/list-previews';
 import { createTakeScreenshotTool } from '../tools/take-screenshot';
+import { splitCommandArgs } from '../tools/wp-cli';
 
 vi.mock( 'cli/ai/block-validator', () => ( {
 	validateBlocks: vi.fn(),
@@ -81,6 +89,11 @@ vi.mock( 'cli/commands/site/create', () => ( {
 
 vi.mock( 'cli/commands/site/delete', () => ( {
 	runCommand: vi.fn(),
+} ) );
+
+vi.mock( 'cli/lib/api', async ( importOriginal ) => ( {
+	...( await importOriginal< typeof import('cli/lib/api') >() ),
+	getWpComSites: vi.fn(),
 } ) );
 
 vi.mock( 'cli/commands/site/list', () => ( {
@@ -245,14 +258,15 @@ describe( 'Studio AI MCP tools', () => {
 		setLocalSiteSelectedCallback( null );
 	} );
 
-	it( 'includes preview tools in the MCP registry', () => {
-		expect( studioToolDefinitions.map( ( tool ) => tool.name ) ).toEqual(
-			expect.arrayContaining( [
-				'preview_create',
-				'preview_list',
-				'preview_update',
-				'preview_delete',
-			] )
+	it( 'offers refresh_browser only when a Studio UI shows the preview', async () => {
+		const names = ( options?: Parameters< typeof resolveStudioToolDefinitions >[ 0 ] ) =>
+			resolveStudioToolDefinitions( options ).map( ( tool ) => tool.name );
+		expect( names() ).not.toContain( 'refresh_browser' );
+		expect( names( { emitChatArtifacts: true } ) ).toContain( 'refresh_browser' );
+
+		await getTool( 'refresh_browser' ).rawHandler( {} as never );
+		expect( emitEvent ).toHaveBeenCalledWith(
+			expect.objectContaining( { type: 'preview.reload' } )
 		);
 	} );
 
@@ -260,11 +274,27 @@ describe( 'Studio AI MCP tools', () => {
 		const annotations = Object.fromEntries(
 			studioToolDefinitions.map( ( tool ) => [ tool.name, tool.annotations ] )
 		);
-		expect( annotations.site_list ).toEqual( READ_ONLY );
+		expect( annotations.site_list ).toEqual( REMOTE_READ );
+		expect( annotations.site_info ).toEqual( READ_ONLY );
 		expect( annotations.scaffold_theme ).toEqual( LOCAL_CHANGE );
-		for ( const name of [ 'site_delete', 'site_push', 'site_pull', 'wp_cli', 'wpcom_request' ] ) {
-			expect( annotations[ name ] ).toBeUndefined();
+		for ( const name of [
+			'site_delete',
+			'site_push',
+			'site_pull',
+			'wp_cli',
+			'wpcom_request',
+			'validate_blocks',
+		] ) {
+			const { readOnlyHint, destructiveHint, openWorldHint } = annotations[ name ];
+			expect( readOnlyHint || ( ! destructiveHint && ! openWorldHint ) ).toBe( false );
 		}
+	} );
+
+	it( 'leaves out wpcom_request only for hosts that turn it off', () => {
+		const names = ( options: Parameters< typeof resolveStudioToolDefinitions >[ 0 ] ) =>
+			resolveStudioToolDefinitions( options ).map( ( tool ) => tool.name );
+		expect( names( {} ) ).toContain( 'wpcom_request' );
+		expect( names( { wpcomRequest: false } ) ).not.toContain( 'wpcom_request' );
 	} );
 
 	it( 'reports invalid core/html blocks and skips editor validation', async () => {
@@ -365,37 +395,15 @@ describe( 'Studio AI MCP tools', () => {
 		expect( text ).toContain( 'cannot be asked in this session' );
 	} );
 
-	it( 'exposes refresh_browser only when a Studio UI is attached', () => {
-		const names = resolveStudioToolDefinitions().map( ( tool ) => tool.name );
-		expect( names ).not.toContain( 'refresh_browser' );
-		const namesWithArtifacts = resolveStudioToolDefinitions( {
-			emitChatArtifacts: true,
-		} ).map( ( tool ) => tool.name );
-		expect( namesWithArtifacts ).toContain( 'refresh_browser' );
-	} );
+	it( 'refuses to guess between sites that share a name', async () => {
+		vi.mocked( readCliConfig ).mockResolvedValue( {
+			sites: [ mockSite, { ...mockSite, id: 'site-456', path: '/other/my-site' } ],
+		} as Awaited< ReturnType< typeof readCliConfig > > );
 
-	it( 'refresh_browser emits a preview.reload event and is registered', async () => {
-		expect( studioToolDefinitions.map( ( tool ) => tool.name ) ).toContain( 'refresh_browser' );
-		const emitEventMock = vi.mocked( emitEvent );
-		emitEventMock.mockClear();
-		const result = await getTool( 'refresh_browser' ).rawHandler( {} as never );
-		expect( getTextContent( result ) ).toBe( 'Reloaded the site preview.' );
-		expect( emitEventMock ).toHaveBeenCalledWith(
-			expect.objectContaining( { type: 'preview.reload' } )
-		);
-	} );
-
-	it( 'deletes a site with progress threaded to the tool logger', async () => {
-		const result = await getTool( 'site_delete' ).rawHandler( {
-			nameOrPath: 'My Site',
-		} as never );
-
-		expect( runDeleteSiteCommand ).toHaveBeenCalledWith(
-			mockSite.path,
-			true,
-			expect.any( Logger )
-		);
-		expect( getTextContent( result ) ).toBe( 'Site "My Site" deleted.' );
+		await expect(
+			getTool( 'site_delete' ).rawHandler( { nameOrPath: 'My Site' } as never )
+		).rejects.toThrow( '/sites/my-site, /other/my-site' );
+		expect( runDeleteSiteCommand ).not.toHaveBeenCalled();
 	} );
 
 	describe( 'take_screenshot', () => {
@@ -453,6 +461,35 @@ describe( 'Studio AI MCP tools', () => {
 
 			expect( result.content.map( ( block ) => block.type ) ).toEqual( [ 'text' ] );
 			expect( result.studioArtifacts ).toBeUndefined();
+		} );
+
+		it( 'says when the user sees only the saved file path', async () => {
+			const note = 'The user does not see this capture';
+			const resultWith = async (
+				options: Parameters< typeof resolveStudioToolDefinitions >[ 0 ],
+				display?: boolean
+			) => {
+				mockScreenshotBrowser(
+					createMockPage( { buffer: Buffer.from( 'jpeg' ), documentHeight: 900 } )
+				);
+				const tool = resolveStudioToolDefinitions( options ).find(
+					( definition ) => definition.name === 'take_screenshot'
+				);
+				const result = await tool!.rawHandler( {
+					url: 'http://localhost:8903/',
+					display,
+				} as never );
+				return result.content.find( ( block ) => block.type === 'text' )?.text ?? '';
+			};
+			const imageLink = ( file: string ) => `file://${ file }`;
+			expect( await resultWith( {} ) ).toContain( note );
+			expect( await resultWith( { emitChatArtifacts: true } ) ).not.toContain( note );
+			const linked = await resultWith( { imageLink } );
+			expect( linked ).not.toContain( note );
+			expect( linked ).toContain(
+				`![Screenshot (desktop)](file://${ screenshotDirectory }${ path.sep }`
+			);
+			expect( await resultWith( { imageLink }, false ) ).not.toContain( '![' );
 		} );
 	} );
 
@@ -561,19 +598,6 @@ describe( 'Studio AI MCP tools', () => {
 		expect( parsed.hover[ 0 ].computedStyle[ 'background-color' ] ).toBe( 'rgb(255, 0, 0)' );
 	} );
 
-	it( 'creates previews for a resolved local site', async () => {
-		const result = await getTool( 'preview_create' ).rawHandler( {
-			nameOrPath: 'My Site',
-		} as never );
-
-		expect( runCreatePreviewCommand ).toHaveBeenCalledWith(
-			'/sites/my-site',
-			undefined,
-			expect.any( Logger )
-		);
-		expect( getTextContent( result ) ).toContain( 'Preview site created for "My Site".' );
-	} );
-
 	it( 'emits a site preview artifact when site_create succeeds with chat artifacts enabled', async () => {
 		const tool = resolveStudioToolDefinitions( {
 			emitChatArtifacts: true,
@@ -625,24 +649,6 @@ describe( 'Studio AI MCP tools', () => {
 				execute,
 			};
 		};
-
-		it( 'forwards execute arguments and preserves details when emitting', async () => {
-			const { tool, execute } = makeFakeTool();
-			const signal = new AbortController().signal;
-			const onUpdate = () => {};
-
-			const wrapped = withChatArtifactEmission( tool, true );
-			const result = await wrapped.execute( 'tool-call-9', { a: 1 } as never, signal, onUpdate );
-
-			expect( execute ).toHaveBeenCalledWith( 'tool-call-9', { a: 1 }, signal, onUpdate );
-			expect( result.details ).toEqual( { studioArtifacts: [ widget ] } );
-			expect( emitEvent ).toHaveBeenCalledWith(
-				expect.objectContaining( {
-					type: 'chat.artifact',
-					artifact: expect.objectContaining( { widgets: [ widget ] } ),
-				} )
-			);
-		} );
 
 		it( 'returns the tool unchanged when chat artifacts are disabled', () => {
 			const { tool } = makeFakeTool();
@@ -791,6 +797,60 @@ describe( 'Studio AI MCP tools', () => {
 		] );
 	} );
 
+	describe( 'site_list', () => {
+		beforeEach( () => {
+			vi.mocked( runListSitesCommand ).mockImplementation( async () => {
+				console.log( JSON.stringify( [ { id: 'site-123', name: 'My Site', running: false } ] ) );
+			} );
+		} );
+
+		it( 'lists local and WordPress.com sites together', async () => {
+			vi.mocked( readAuthToken ).mockResolvedValue( { accessToken: 'token' } as never );
+			vi.mocked( getWpComSites ).mockResolvedValue( [
+				{ id: 111, name: 'My Production Site', url: 'https://myprod.wordpress.com' },
+			] );
+
+			const result = await getTool( 'site_list' ).rawHandler( {} as never );
+
+			expect( getWpComSites ).toHaveBeenCalledWith( 'token' );
+			expect( JSON.parse( getTextContent( result )! ) ).toEqual( {
+				local: [ { id: 'site-123', name: 'My Site', running: false } ],
+				wordpressCom: {
+					signedIn: true,
+					sites: [ { id: 111, name: 'My Production Site', url: 'https://myprod.wordpress.com' } ],
+				},
+			} );
+		} );
+
+		it( 'says when the user is not logged in to WordPress.com', async () => {
+			vi.mocked( readAuthToken ).mockResolvedValue( null );
+
+			const result = await getTool( 'site_list' ).rawHandler( {} as never );
+
+			expect( getWpComSites ).not.toHaveBeenCalled();
+			expect( JSON.parse( getTextContent( result )! ).wordpressCom ).toEqual( {
+				signedIn: false,
+				sites: [],
+			} );
+		} );
+
+		it( 'keeps the local sites when WordPress.com cannot be reached', async () => {
+			vi.mocked( readAuthToken ).mockResolvedValue( { accessToken: 'token' } as never );
+			vi.mocked( getWpComSites ).mockRejectedValue( new Error( 'Failed to fetch' ) );
+
+			const parsed = JSON.parse(
+				getTextContent( await getTool( 'site_list' ).rawHandler( {} as never ) )!
+			);
+
+			expect( parsed.local ).toHaveLength( 1 );
+			expect( parsed.wordpressCom ).toEqual( {
+				signedIn: true,
+				sites: [],
+				error: 'Failed to fetch',
+			} );
+		} );
+	} );
+
 	it( 'updates previews with a normalized hostname', async () => {
 		const result = await getTool( 'preview_update' ).rawHandler( {
 			nameOrPath: 'My Site',
@@ -858,148 +918,78 @@ describe( 'Studio AI MCP tools', () => {
 		expect( onProgress ).toHaveBeenCalledWith( 'Applying changes… (76%)', true );
 	} );
 
-	it( 'rejects shell syntax in wp_cli post content before dispatching to WP-CLI', async () => {
-		vi.mocked( isServerRunning ).mockResolvedValue( {
-			name: 'site-123',
-			pmId: 1,
-			status: 'online',
-			pid: 1234,
-		} );
-
+	it.each( [
+		[
+			'shell syntax in post content',
+			'post create --post_type=page --post_title=Home --post_content="$(cat /tmp/one-page-content.txt)"',
+			/does not run in a shell/,
+		],
+		[
+			'typographic dash options',
+			'post create --post_type=page --post_title="About" --post_content="Hello world" –porcelain',
+			/typographic dash/,
+		],
+	] )( 'wp_cli rejects %s before dispatching to WP-CLI', async ( _name, command, error ) => {
 		await expect(
-			getTool( 'wp_cli' ).rawHandler( {
-				nameOrPath: 'My Site',
-				command:
-					'post create --post_type=page --post_title=Home --post_content="$(cat /tmp/one-page-content.txt)"',
-			} as never )
-		).rejects.toThrow( /does not run in a shell/ );
-
+			getTool( 'wp_cli' ).rawHandler( { nameOrPath: 'My Site', command } as never )
+		).rejects.toThrow( error );
 		expect( runWpCliCommand ).not.toHaveBeenCalled();
 	} );
 
-	it( 'treats unquoted post_content as a single trailing literal argument', async () => {
-		vi.mocked( isServerRunning ).mockResolvedValue( {
-			name: 'site-123',
-			pmId: 1,
-			status: 'online',
-			pid: 1234,
-		} );
-		vi.mocked( runWpCliCommand ).mockResolvedValue(
-			mockWpCliResponse( { stdout: '123' } ) as never
-		);
-
-		await getTool( 'wp_cli' ).rawHandler( {
-			nameOrPath: 'My Site',
-			command: `post create --post_type=page --post_title="About" --post_status=publish --post_content=<!-- wp:paragraph -->
+	it.each( [
+		[
+			'keeps unquoted post_content as one trailing literal argument',
+			`post create --post_type=page --post_title="About" --post_status=publish --post_content=<!-- wp:paragraph -->
 <p>Hello world</p>
 <!-- /wp:paragraph -->`,
-		} as never );
-
-		expect( runWpCliCommand ).toHaveBeenCalledWith( mockSite, [
-			'post',
-			'create',
-			'--post_type=page',
-			'--post_title=About',
-			'--post_status=publish',
-			'--post_content=<!-- wp:paragraph -->\n<p>Hello world</p>\n<!-- /wp:paragraph -->',
-		] );
-	} );
-
-	it( 'strips matching outer quotes from trailing post_content', async () => {
-		vi.mocked( isServerRunning ).mockResolvedValue( {
-			name: 'site-123',
-			pmId: 1,
-			status: 'online',
-			pid: 1234,
-		} );
-		vi.mocked( runWpCliCommand ).mockResolvedValue(
-			mockWpCliResponse( { stdout: '123' } ) as never
-		);
-
-		await getTool( 'wp_cli' ).rawHandler( {
-			nameOrPath: 'My Site',
-			command: 'post create --post_type=page --post_title="About" --post_content="Hello world"',
-		} as never );
-
-		expect( runWpCliCommand ).toHaveBeenCalledWith( mockSite, [
-			'post',
-			'create',
-			'--post_type=page',
-			'--post_title=About',
-			'--post_content=Hello world',
-		] );
-	} );
-
-	it( 'keeps flags after quoted post_content out of the page content', async () => {
-		vi.mocked( isServerRunning ).mockResolvedValue( {
-			name: 'site-123',
-			pmId: 1,
-			status: 'online',
-			pid: 1234,
-		} );
-		vi.mocked( runWpCliCommand ).mockResolvedValue(
-			mockWpCliResponse( { stdout: '123' } ) as never
-		);
-
-		await getTool( 'wp_cli' ).rawHandler( {
-			nameOrPath: 'My Site',
-			command:
-				'post create --post_type=page --post_title="About" --post_content="Hello world" --porcelain',
-		} as never );
-
-		expect( runWpCliCommand ).toHaveBeenCalledWith( mockSite, [
-			'post',
-			'create',
-			'--post_type=page',
-			'--post_title=About',
-			'--post_content=Hello world',
-			'--porcelain',
-		] );
-	} );
-
-	it( 'keeps porcelain after empty quoted post_content out of the page content', async () => {
-		vi.mocked( isServerRunning ).mockResolvedValue( {
-			name: 'site-123',
-			pmId: 1,
-			status: 'online',
-			pid: 1234,
-		} );
-		vi.mocked( runWpCliCommand ).mockResolvedValue(
-			mockWpCliResponse( { stdout: '123' } ) as never
-		);
-
-		await getTool( 'wp_cli' ).rawHandler( {
-			nameOrPath: 'My Site',
-			command: 'post create --post_type=page --post_title="About" --post_content="" --porcelain',
-		} as never );
-
-		expect( runWpCliCommand ).toHaveBeenCalledWith( mockSite, [
-			'post',
-			'create',
-			'--post_type=page',
-			'--post_title=About',
-			'--post_content=',
-			'--porcelain',
-		] );
-	} );
-
-	it( 'rejects typographic dash options before dispatching to WP-CLI', async () => {
-		vi.mocked( isServerRunning ).mockResolvedValue( {
-			name: 'site-123',
-			pmId: 1,
-			status: 'online',
-			pid: 1234,
-		} );
-
-		await expect(
-			getTool( 'wp_cli' ).rawHandler( {
-				nameOrPath: 'My Site',
-				command:
-					'post create --post_type=page --post_title="About" --post_content="Hello world" –porcelain',
-			} as never )
-		).rejects.toThrow( /typographic dash/ );
-
-		expect( runWpCliCommand ).not.toHaveBeenCalled();
+			[
+				'post',
+				'create',
+				'--post_type=page',
+				'--post_title=About',
+				'--post_status=publish',
+				'--post_content=<!-- wp:paragraph -->\n<p>Hello world</p>\n<!-- /wp:paragraph -->',
+			],
+		],
+		[
+			'strips matching outer quotes from trailing post_content',
+			'post create --post_type=page --post_title="About" --post_content="Hello world"',
+			[ 'post', 'create', '--post_type=page', '--post_title=About', '--post_content=Hello world' ],
+		],
+		[
+			'keeps flags after quoted post_content out of the content',
+			'post create --post_title="About" --post_content="Hello world" --porcelain',
+			[ 'post', 'create', '--post_title=About', '--post_content=Hello world', '--porcelain' ],
+		],
+		[
+			'keeps flags after empty quoted post_content out of the content',
+			'post create --post_title="About" --post_content="" --porcelain',
+			[ 'post', 'create', '--post_title=About', '--post_content=', '--porcelain' ],
+		],
+		[
+			'reads backslash-escaped quotes inside double-quoted post_content',
+			String.raw`post update 5 --post_content="{\"styles\":{\"color\":{\"background\":\"#1e2a44\"}}}" --porcelain`,
+			[
+				'post',
+				'update',
+				'5',
+				'--post_content={"styles":{"color":{"background":"#1e2a44"}}}',
+				'--porcelain',
+			],
+		],
+		[
+			'reads post_content when quotes wrap the whole argument',
+			`post update 5 '--post_content={"styles":{"color":{"background":"#1e2a44"}}}' --porcelain`,
+			[
+				'post',
+				'update',
+				'5',
+				'--post_content={"styles":{"color":{"background":"#1e2a44"}}}',
+				'--porcelain',
+			],
+		],
+	] )( 'splitCommandArgs %s', ( _name, command, expected ) => {
+		expect( splitCommandArgs( command ) ).toEqual( expected );
 	} );
 
 	it( 'reserves media-library attachments, returns at once, and reports failures once the images are done', async () => {
@@ -1077,10 +1067,6 @@ describe( 'Studio AI MCP tools', () => {
 		afterEach( async () => {
 			vi.unstubAllGlobals();
 			await rm( tempSiteRoot, { recursive: true, force: true } );
-		} );
-
-		it( 'is registered in the tool definitions', () => {
-			expect( studioToolDefinitions.map( ( tool ) => tool.name ) ).toContain( 'scaffold_theme' );
 		} );
 
 		it( 'creates the expected files and directories under wp-content/themes/<slug>', async () => {

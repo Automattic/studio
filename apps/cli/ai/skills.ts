@@ -5,6 +5,9 @@ export interface Skill {
 	name: string;
 	description: string;
 	body: string;
+	// A top-level skill: something users ask for directly (`user-invokable: true`),
+	// as opposed to a runbook other skills load. Plugins expose these as their own skills.
+	userInvokable: boolean;
 }
 
 function parseSkillFile( filePath: string ): Skill | null {
@@ -17,7 +20,8 @@ function parseSkillFile( filePath: string ): Skill | null {
 	const description = frontmatter.match( /^description:\s*(.+)$/m )?.[ 1 ]?.trim();
 	if ( ! name || ! description ) return null;
 
-	return { name, description, body: body.trim() };
+	const userInvokable = /^user-invokable:\s*true\s*$/m.test( frontmatter );
+	return { name, description, body: body.trim(), userInvokable };
 }
 
 let cachedSkills: Skill[] | null = null;
@@ -29,7 +33,7 @@ let cachedSkills: Skill[] | null = null;
 // Resolving relative to `import.meta.dirname` therefore works in both
 // cases — callers that need a skill asset MUST go through this helper
 // rather than hand-rolling their own relative path.
-export function getSkillsRoot(): string {
+function getSkillsRoot(): string {
 	return path.resolve( import.meta.dirname, 'skills' );
 }
 

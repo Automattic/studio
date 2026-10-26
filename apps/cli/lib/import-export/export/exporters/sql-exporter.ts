@@ -19,7 +19,6 @@ export class SqlExporter extends ImportExportEventEmitter implements Exporter {
 	}
 
 	async canHandle(): Promise< boolean > {
-		// Check for extension of the backup file to be sql.
 		if ( ! this.options.backupFile.toLowerCase().endsWith( '.sql' ) ) {
 			return false;
 		}

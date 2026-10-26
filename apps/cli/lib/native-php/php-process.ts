@@ -39,7 +39,7 @@ export const DETACH_FOR_GROUP_KILL = process.platform !== 'win32';
 // in-flight children (mid-startup workers, install/blueprint subprocesses) callers don't track.
 const livePhpProcesses = new Set< ChildProcess >();
 
-export type BasePhpOptions = {
+type BasePhpOptions = {
 	autoPrependFile?: string;
 	detached?: boolean;
 	disallowRiskyFunctions?: boolean;

@@ -1,6 +1,10 @@
 import { HOUR_MS, DAY_MS, DEMO_SITE_EXPIRATION_DAYS } from '@studio/common/constants';
 import { __ } from '@wordpress/i18n';
-import { addDays, addHours, DurationUnit, formatDuration, intervalToDuration } from 'date-fns';
+import { addDays } from 'date-fns/addDays';
+import { addHours } from 'date-fns/addHours';
+import { formatDuration } from 'date-fns/formatDuration';
+import { intervalToDuration } from 'date-fns/intervalToDuration';
+import type { DurationUnit } from 'date-fns';
 
 export {
 	getSnapshotsFromConfig,

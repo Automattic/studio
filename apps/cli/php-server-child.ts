@@ -17,11 +17,13 @@ import {
 	getSiteFileAccess,
 	SITE_FILE_ACCESS_SITE_DIRECTORY,
 } from '@studio/common/lib/site-file-access';
+import { getMuPluginsPath } from '@studio/common/lib/well-known-paths';
 import { z } from 'zod';
 import {
 	managerMessageSchema,
 	ChildMessageRaw,
 	ServerConfig,
+	SiteStartPhase,
 } from 'cli/lib/types/wordpress-server-ipc';
 import { requestSetAdminCredentials } from './lib/admin-credentials';
 import { getPhpMyAdminPath } from './lib/dependency-management/paths';
@@ -94,6 +96,8 @@ let phpWorkerPorts: number[] = [];
 let phpWorkerRequestTracker = new PhpWorkerRequestTracker( 0 );
 let startupAbortController: AbortController | null = null;
 let startingPromise: Promise< void > | null = null;
+// The `start-server` message whose start is running, so its step times reach only that caller.
+let startingMessageId: string | null = null;
 let blueprintQueue: Promise< unknown > = Promise.resolve();
 
 // Symlink-aware open_basedir state. PHP's open_basedir cannot be extended at
@@ -146,18 +150,11 @@ function errorToConsole( ...args: Parameters< typeof console.error > ) {
 	console.error( `[PHP Server]`, ...args );
 }
 
-function shouldUsePrimaryWorker( req: http.IncomingMessage ): boolean {
-	const method = req.method?.toUpperCase() ?? 'GET';
-	if ( ! [ 'GET', 'HEAD', 'OPTIONS' ].includes( method ) ) {
-		return true;
-	}
-
-	const requestUrl = req.url ?? '/';
-	if ( requestUrl.startsWith( '/phpmyadmin' ) ) {
-		return true;
-	}
-
-	return false;
+// phpMyAdmin pins to worker 0 because its file-based session store belongs to a
+// single worker. WordPress keeps its state in the database, so every other
+// request, POSTs included, balances across the pool.
+export function shouldUsePrimaryWorker( req: http.IncomingMessage ): boolean {
+	return ( req.url ?? '/' ).startsWith( '/phpmyadmin' );
 }
 
 function pickPhpWorker( req: http.IncomingMessage ): { index: number; port: number } {
@@ -208,6 +205,26 @@ async function waitForServerReady( url: string, signal?: AbortSignal ): Promise<
 			await new Promise< void >( ( resolve ) => setTimeout( resolve, pollIntervalMs ) );
 		}
 	}
+}
+
+// Reports how long a completed start step took. A failed start reports only the steps it finished.
+function reportPhase( phase: SiteStartPhase, startedAt: number ): void {
+	if ( ! startingMessageId ) {
+		return;
+	}
+	const message: ChildMessageRaw = {
+		originalMessageId: startingMessageId,
+		topic: 'start-phase',
+		data: { phase, ms: Date.now() - startedAt },
+	};
+	process.send?.( message );
+}
+
+async function timePhase< T >( phase: SiteStartPhase, run: () => Promise< T > ): Promise< T > {
+	const startedAt = Date.now();
+	const result = await run();
+	reportPhase( phase, startedAt );
+	return result;
 }
 
 async function setAdminCredentials( config: ServerConfig, signal: AbortSignal ): Promise< void > {
@@ -481,25 +498,32 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 		stopSignal.throwIfAborted();
 
 		if ( ! isImportedSite ) {
-			await ensureWpConfig( config.sitePath, phpVersion, stopSignal, config );
+			await timePhase( 'wp_config', () =>
+				ensureWpConfig( config.sitePath, phpVersion, stopSignal, config )
+			);
 			stopSignal.throwIfAborted();
 		}
 
-		const muPluginsPath = await writeStudioMuPlugins( config.sitePath, config.isWpAutoUpdating );
+		await writeStudioMuPlugins( config.sitePath, config.isWpAutoUpdating );
 		stopSignal.throwIfAborted();
 
 		if ( ! isImportedSite ) {
-			await installWordPress(
-				config,
-				phpVersion,
-				stopSignal,
-				SET_DEFAULT_PERMALINKS_PATH,
-				logToConsole
+			await timePhase( 'wordpress_install', () =>
+				installWordPress(
+					config,
+					phpVersion,
+					stopSignal,
+					SET_DEFAULT_PERMALINKS_PATH,
+					logToConsole
+				)
 			);
 			stopSignal.throwIfAborted();
 
-			if ( config.blueprint ) {
-				await runBlueprint( config, config.blueprint, phpVersion, stopSignal );
+			const blueprint = config.blueprint;
+			if ( blueprint ) {
+				await timePhase( 'blueprint', () =>
+					runBlueprint( config, blueprint, phpVersion, stopSignal )
+				);
 				stopSignal.throwIfAborted();
 			}
 		}
@@ -512,7 +536,10 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 			staticOpenBasedirAllowlist.add( getPhpMyAdminPath() );
 			staticOpenBasedirAllowlist.add( getNativePhpMyAdminWpEnvPath( config ) );
 			staticOpenBasedirAllowlist.add( getPhpMyAdminSessionPath( config ) );
-			staticOpenBasedirAllowlist.add( muPluginsPath );
+			// The whole root, not this start's hashed folder: a WP-CLI run from another
+			// Studio version or with other settings can repoint the loader while the
+			// server runs.
+			staticOpenBasedirAllowlist.add( getMuPluginsPath() );
 			staticOpenBasedirAllowlist.add( os.tmpdir() );
 			if ( config.autoPrependFile ) {
 				staticOpenBasedirAllowlist.add( path.dirname( config.autoPrependFile ) );
@@ -525,10 +552,16 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 			// wp-content is scanned separately: on a Reprint-pulled site it is a symlink
 			// into the pull's raw directory, and a scan of the site alone stops on that
 			// link and never sees the symlinked plugins and themes behind it.
-			symlinkOpenBasedirAllowlist = new Set( [
-				...( await collectSymlinkAllowlistEntries( config.sitePath ) ),
-				...( await collectSymlinkAllowlistEntries( path.join( config.sitePath, 'wp-content' ) ) ),
-			] );
+			symlinkOpenBasedirAllowlist = await timePhase(
+				'symlink_scan',
+				async () =>
+					new Set( [
+						...( await collectSymlinkAllowlistEntries( config.sitePath ) ),
+						...( await collectSymlinkAllowlistEntries(
+							path.join( config.sitePath, 'wp-content' )
+						) ),
+					] )
+			);
 			stopSignal.throwIfAborted();
 		}
 
@@ -536,7 +569,7 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 
 		phpProcess = await doStartServer( config, stopSignal );
 		stopSignal.throwIfAborted();
-		await setAdminCredentials( config, stopSignal );
+		await timePhase( 'admin_credentials', () => setAdminCredentials( config, stopSignal ) );
 		stopSignal.throwIfAborted();
 	} catch ( error ) {
 		killPhpProcess();
@@ -573,6 +606,7 @@ async function doStartServer(
 		`Spawning native PHP worker pool with ${ NATIVE_PHP_WORKER_POOL_SIZE } workers on public port ${ config.port }`
 	);
 
+	const workersStartedAt = Date.now();
 	try {
 		const phpMyAdminWpEnvPath = await writeNativePhpMyAdminWpEnv( config );
 		const siteUrl = config.absoluteUrl || `http://localhost:${ config.port }`;
@@ -638,12 +672,16 @@ async function doStartServer(
 			)
 		);
 
+		reportPhase( 'php_workers', workersStartedAt );
+
+		const proxyStartedAt = Date.now();
 		proxyServer = await startPhpProxyServer( config, stopSignal );
 		phpProxyServer = proxyServer;
 		phpWorkerProcesses = spawnedChildren;
 
 		stopSignal?.throwIfAborted();
 		await waitForServerReady( `http://localhost:${ config.port }/`, stopSignal );
+		reportPhase( 'proxy_ready', proxyStartedAt );
 
 		// Watch for symlinks created after startup. open_basedir cannot be extended
 		// at runtime, so the watcher triggers a debounced restart with an updated
@@ -760,9 +798,11 @@ async function ipcMessageHandler( packet: unknown ) {
 			case 'start-server':
 				// Track in-flight startup operations so concurrent messages cannot spawn two PHP servers.
 				if ( ! startingPromise ) {
+					startingMessageId = validMessage.messageId;
 					startingPromise = startServer( validMessage.data.config, abortController.signal ).finally(
 						() => {
 							startingPromise = null;
+							startingMessageId = null;
 						}
 					);
 				}

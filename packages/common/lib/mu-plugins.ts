@@ -5,9 +5,10 @@
  * available to WordPress instances. Shared between desktop app and CLI.
  */
 
-import { copyFile, mkdir, mkdtemp, readdir, readFile, unlink, writeFile } from 'fs/promises';
-import { tmpdir } from 'os';
+import { createHash, randomUUID } from 'crypto';
+import { mkdir, readdir, readFile, rename, rm, unlink, writeFile } from 'fs/promises';
 import path from 'path';
+import { getMuPluginsPath } from './well-known-paths.ts';
 
 export interface MuPlugin {
 	filename: string;
@@ -24,10 +25,6 @@ export interface MuPluginOptions {
 
 export function escapePhpSingleQuotedString( value: string ): string {
 	return value.replace( /\\/g, '\\\\' ).replace( /'/g, "\\'" );
-}
-
-function unescapePhpSingleQuotedString( value: string ): string {
-	return value.replace( /\\'/g, "'" ).replace( /\\\\/g, '\\' );
 }
 
 function getLoaderMuPluginContent( muPluginsDir: string ): string {
@@ -69,83 +66,6 @@ function getLoaderMuPluginContent( muPluginsDir: string ): string {
 		`;
 }
 
-async function getExistingMuPluginsDir(
-	loaderPath: string,
-	options: MuPluginOptions
-): Promise< string | null > {
-	let loaderContent: string;
-	try {
-		loaderContent = await readFile( loaderPath, 'utf8' );
-	} catch {
-		return null;
-	}
-
-	const match = loaderContent.match( /\$studio_mu_plugins_dir = '((?:\\\\|\\'|[^\\'])*)';/ );
-	if ( ! match ) {
-		return null;
-	}
-
-	const muPluginsDir = unescapePhpSingleQuotedString( match[ 1 ] );
-	if ( loaderContent !== getLoaderMuPluginContent( muPluginsDir ) ) {
-		return null;
-	}
-
-	let existingFiles: string[];
-	try {
-		existingFiles = await readdir( muPluginsDir );
-	} catch {
-		return null;
-	}
-
-	const expectedPlugins = getStandardMuPlugins( options );
-	const actualFiles = existingFiles.filter( ( file ) => file.endsWith( '.php' ) );
-
-	if ( expectedPlugins.length !== actualFiles.length ) {
-		return null;
-	}
-
-	for ( const plugin of expectedPlugins ) {
-		let content: string;
-		try {
-			content = await readFile( path.join( muPluginsDir, plugin.filename ), 'utf8' );
-		} catch {
-			return null;
-		}
-		if ( content !== plugin.content ) {
-			return null;
-		}
-	}
-
-	return muPluginsDir;
-}
-
-/**
- * Create a loader mu-plugin that loads the Studio mu-plugins.
- *
- * The loader is wired to the on-disk directory created by
- * `createMuPluginsDirectory()`. Routing through this loader keeps the user's
- * `wp-content/mu-plugins/` empty (or close to it).
- *
- * @returns The path to the loader mu-plugin
- */
-async function createLoaderMuPlugin( muPluginsDir: string ): Promise< string > {
-	try {
-		// Create a temporary file for the loader mu-plugin
-		const tempDir = await mkdtemp( path.join( tmpdir(), 'studio-loader-' ) );
-		const loaderPath = path.join( tempDir, '99-studio-loader.php' );
-
-		await writeFile( loaderPath, getLoaderMuPluginContent( muPluginsDir ) );
-		return loaderPath;
-	} catch ( error ) {
-		throw new Error( `Failed to create loader mu-plugin: ${ error }` );
-	}
-}
-
-/**
- * Get all standard mu-plugins for WordPress local development
- * @param options Configuration options for mu-plugins
- * @returns Array of mu-plugin definitions
- */
 function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 	const muPlugins: MuPlugin[] = [];
 
@@ -168,7 +88,6 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 		} );
 	}
 
-	// HTTPS detection for reverse proxy
 	muPlugins.push( {
 		filename: '0-https-for-reverse-proxy.php',
 		content: `<?php
@@ -179,7 +98,6 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 		`,
 	} );
 
-	// Redirect to SITEURL constant
 	muPlugins.push( {
 		filename: '0-redirect-to-siteurl-constant.php',
 		content: `<?php
@@ -222,7 +140,6 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 		`,
 	} );
 
-	// Check theme availability
 	muPlugins.push( {
 		filename: '0-check-theme-availability.php',
 		content: `<?php
@@ -251,7 +168,6 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 	`,
 	} );
 
-	// Enable permalinks
 	muPlugins.push( {
 		filename: '0-permalinks.php',
 		content: `<?php
@@ -260,7 +176,6 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 	`,
 	} );
 
-	// Trailing slash handling for wp-admin
 	muPlugins.push( {
 		filename: '0-wp-admin-trailing-slash.php',
 		content: `<?php
@@ -287,7 +202,6 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 		`,
 	} );
 
-	// Deactivate Jetpack modules
 	muPlugins.push( {
 		filename: '0-deactivate-jetpack-modules.php',
 		content: `<?php
@@ -327,7 +241,6 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 		} );
 	}
 
-	// Studio-specific: Fix plugin spinner display
 	muPlugins.push( {
 		filename: '0-tmp-fix-hide-plugins-spinner.php',
 		content: `<?php
@@ -632,40 +545,61 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 	return muPlugins;
 }
 
-async function createMuPluginsDirectory( options: MuPluginOptions ): Promise< string > {
+// Content-addressed, so every process that runs a site (the server, WP-CLI,
+// imports) resolves the same directory regardless of its TMPDIR. A loader
+// pointing at another process's temp directory falls outside the running
+// server's open_basedir (STU-2532).
+function getMuPluginsDirectory( muPlugins: MuPlugin[] ): string {
+	const hash = createHash( 'sha256' );
+	for ( const plugin of muPlugins ) {
+		hash.update( plugin.filename ).update( '\0' ).update( plugin.content ).update( '\0' );
+	}
+	return path.join( getMuPluginsPath(), hash.digest( 'hex' ).slice( 0, 16 ) );
+}
+
+// Skips identical content and otherwise replaces the file through a rename, so
+// a running site never reads a half-written file.
+async function writeFileIfChanged( filePath: string, content: string ): Promise< void > {
 	try {
-		// Create a temporary directory for mu-plugins
-		const tempDir = await mkdtemp( path.join( tmpdir(), 'studio-mu-plugins-' ) );
-
-		// Get the standard mu-plugins
-		const muPlugins = getStandardMuPlugins( options );
-
-		// Write each mu-plugin file to the temporary directory
-		for ( const plugin of muPlugins ) {
-			const pluginPath = path.join( tempDir, plugin.filename );
-			await writeFile( pluginPath, plugin.content );
+		if ( ( await readFile( filePath, 'utf8' ) ) === content ) {
+			return;
 		}
-		return tempDir;
+	} catch {
+		// Missing or unreadable; write it.
+	}
+
+	const tempPath = `${ filePath }.${ randomUUID() }.tmp`;
+	try {
+		await writeFile( tempPath, content );
+		await rename( tempPath, filePath );
 	} catch ( error ) {
-		throw new Error( `Failed to create mu-plugins directory: ${ error }` );
+		await rm( tempPath, { force: true } );
+		throw error;
 	}
 }
 
 /**
- * Get mu-plugins for a WordPress instance.
- *
- * Returns `[studioMuPluginsHostPath, loaderMuPluginHostPath]`. The loader
- * requires plugins from the on-disk temp directory directly, so the caller
- * only needs to drop the loader file into the site's `wp-content/mu-plugins/`
- * for WordPress to pick it up.
+ * Write the Studio mu-plugins for a WordPress instance and return their directory.
  */
-export async function getMuPlugins( options: MuPluginOptions = {} ): Promise< [ string, string ] > {
-	const studioMuPluginsHostPath = await createMuPluginsDirectory( options );
-	const loaderMuPluginHostPath = await createLoaderMuPlugin( studioMuPluginsHostPath );
-
-	return [ studioMuPluginsHostPath, loaderMuPluginHostPath ];
+export async function getMuPlugins( options: MuPluginOptions = {} ): Promise< string > {
+	const muPlugins = getStandardMuPlugins( options );
+	const muPluginsDir = getMuPluginsDirectory( muPlugins );
+	try {
+		await mkdir( muPluginsDir, { recursive: true } );
+		for ( const plugin of muPlugins ) {
+			await writeFileIfChanged( path.join( muPluginsDir, plugin.filename ), plugin.content );
+		}
+	} catch ( error ) {
+		throw new Error( `Failed to create mu-plugins directory: ${ error }` );
+	}
+	return muPluginsDir;
 }
 
+/**
+ * Point the site's loader mu-plugin at the Studio mu-plugins. WordPress
+ * auto-loads the loader, which requires the rest from the Studio-managed
+ * directory, keeping the user's `wp-content/mu-plugins/` nearly empty.
+ */
 export async function writeStudioMuPlugins(
 	siteFolder: string,
 	isWpAutoUpdating: MuPluginOptions[ 'isWpAutoUpdating' ]
@@ -673,22 +607,13 @@ export async function writeStudioMuPlugins(
 	const muPluginsDir = path.join( siteFolder, 'wp-content', 'mu-plugins' );
 	await mkdir( muPluginsDir, { recursive: true } );
 	await cleanupLegacyMuPlugins( siteFolder );
-	const loaderPath = path.join( muPluginsDir, STUDIO_LOADER_MU_PLUGIN_FILENAME );
 
-	const options: MuPluginOptions = { isWpAutoUpdating };
-	const existingMuPluginsDir = await getExistingMuPluginsDir( loaderPath, options );
-	if ( existingMuPluginsDir ) {
-		return existingMuPluginsDir;
-	}
-
-	// `getMuPlugins` writes the plugin files to a temp directory and produces
-	// a loader file that requires them. We only copy the loader into
-	// wp-content/mu-plugins/ — WordPress auto-loads it
-	// at runtime and it pulls the rest in from the temp directory, keeping
-	// the user's mu-plugins/ nearly empty.
-	const [ tmpMuPluginsDir, loaderHostPath ] = await getMuPlugins( options );
-	await copyFile( loaderHostPath, loaderPath );
-	return tmpMuPluginsDir;
+	const studioMuPluginsDir = await getMuPlugins( { isWpAutoUpdating } );
+	await writeFileIfChanged(
+		path.join( muPluginsDir, STUDIO_LOADER_MU_PLUGIN_FILENAME ),
+		getLoaderMuPluginContent( studioMuPluginsDir )
+	);
+	return studioMuPluginsDir;
 }
 
 /**
@@ -701,14 +626,13 @@ export const STUDIO_LOADER_MU_PLUGIN_FILENAME = '99-studio-loader.php';
 
 /**
  * Mu-plugin filenames that older Studio versions wrote directly into
- * `wp-content/mu-plugins/`. Newer versions keep these files in a temp
+ * `wp-content/mu-plugins/`. Newer versions keep these files in a Studio-managed
  * directory and load them through `STUDIO_LOADER_MU_PLUGIN_FILENAME`, so
  * any on-disk copies are leftovers we should clean up at startup. The
  * list includes both currently-shipped and retired filenames so it can
  * scrub anything previously installed by Studio.
  */
 export const LEGACY_MU_PLUGIN_FILENAMES = [
-	// Current mu-plugins (from getStandardMuPlugins)
 	'0-allowed-redirect-hosts.php',
 	'0-auto-login.php',
 	'0-check-theme-availability.php',
@@ -728,7 +652,6 @@ export const LEGACY_MU_PLUGIN_FILENAMES = [
 	'0-tmp-fix-hide-plugins-spinner.php',
 	'0-tmp-fix-qm-plugin-sapi.php',
 	'0-wp-admin-trailing-slash.php',
-	// Retired mu-plugins from older Studio versions
 	'0-32bit-integer-warnings.php',
 	'0-dns-functions.php',
 	'0-sqlite.php',
@@ -742,8 +665,6 @@ export const LEGACY_MU_PLUGIN_FILENAMES = [
  * Newer versions load them through `STUDIO_LOADER_MU_PLUGIN_FILENAME`. Having both
  * copies causes PHP fatal errors like "Cannot redeclare" because the same functions
  * are defined in both the on-disk file and the loaded one.
- *
- * @param sitePath - Absolute path to the WordPress site directory
  */
 export async function cleanupLegacyMuPlugins( sitePath: string ): Promise< void > {
 	const muPluginsDir = path.join( sitePath, 'wp-content', 'mu-plugins' );

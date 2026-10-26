@@ -32,7 +32,7 @@ const MODEL_JPEG_QUALITY = 80;
  * height dimension; clip the capture region to keep us inside the limit and
  * let callers pass `offset` to fetch subsequent slices on follow-up calls.
  */
-export const MAX_IMAGE_DIMENSION_PX = 8000;
+const MAX_IMAGE_DIMENSION_PX = 8000;
 
 // pi re-encodes larger tool images as much heavier PNGs, and Anthropic rejects
 // larger images in requests carrying more than 20 of them.

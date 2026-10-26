@@ -1,4 +1,4 @@
-import { app } from 'electron';
+import { app, systemPreferences } from 'electron';
 import { match } from '@formatjs/intl-localematcher';
 import {
 	DEFAULT_LOCALE,
@@ -20,15 +20,29 @@ export function getSupportedLocale() {
 	return matched.toLowerCase() as SupportedLocale;
 }
 
-export async function getUserLocaleWithFallback() {
+export async function getSavedLocale(): Promise< SupportedLocale | undefined > {
 	try {
 		const { locale } = await readSharedConfig();
-		if ( ! locale || ! isSupportedLocale( locale ) ) {
-			return getSupportedLocale();
-		}
-		return locale;
+		return isSupportedLocale( locale ) ? locale : undefined;
 	} catch ( error ) {
-		return getSupportedLocale();
+		return undefined;
+	}
+}
+
+export async function getUserLocaleWithFallback() {
+	return ( await getSavedLocale() ) ?? getSupportedLocale();
+}
+
+// macOS translates the items it adds to the app menus itself (e.g. window tiling in the Window
+// menu), in the app's AppleLanguages rather than Studio's locale. It reads it at launch, so a
+// change applies from the next start.
+export function setMacAppLanguage( locale: string ) {
+	if ( process.platform === 'darwin' && isSupportedLocale( locale ) ) {
+		systemPreferences.setUserDefault(
+			'AppleLanguages',
+			'array',
+			Intl.getCanonicalLocales( locale )
+		);
 	}
 }
 

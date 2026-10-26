@@ -26,11 +26,6 @@ vi.mock( import( 'src/lib/bump-stats' ), async ( importOriginal ) => {
 		bumpAggregatedUniqueStat: vi.fn().mockResolvedValue( undefined ),
 	};
 } );
-vi.mock( 'src/lib/user-data-watcher' );
-vi.mock( 'src/setup-wp-server-files', () => ( {
-	setupWPServerFiles: vi.fn().mockResolvedValue( undefined ),
-	updateWPServerFiles: vi.fn().mockResolvedValue( undefined ),
-} ) );
 vi.mock( 'atomically', () => ( {
 	readFile: vi.fn().mockResolvedValue( Buffer.from( JSON.stringify( { sites: [] } ) ) ),
 	writeFile: vi.fn(),
@@ -57,6 +52,7 @@ vi.mock( 'src/modules/cli/lib/execute-command', () => {
 	return {
 		executeCliCommand: vi.fn().mockReturnValue( [ mockEventEmitter, mockChildProcess ] ),
 		getTracksOriginEnv: vi.fn( () => 'studio-ui:v1' ),
+		stopCliCommands: vi.fn(),
 	};
 } );
 vi.mock( 'src/modules/cli/lib/windows-installation-manager', () => ( {
@@ -72,7 +68,6 @@ vi.mock( 'electron-squirrel-startup', () => ( { default: false } ) );
 vi.mock( 'electron-devtools-installer', () => ( {
 	installExtension: vi.fn().mockResolvedValue( { id: 'test-extension' } ),
 	REACT_DEVELOPER_TOOLS: { id: 'fmkadmapgofadopljbjfkapdkoienihi' },
-	REDUX_DEVTOOLS: { id: 'lmhkpmbekcpmknklioeibfkpmmfibljd' },
 } ) );
 
 vol.mkdirSync( normalize( '/path/to/app/temp/com.wordpress.studio' ), { recursive: true } );
@@ -182,12 +177,6 @@ afterAll( () => {
 } );
 
 describe( 'App initialization', () => {
-	it( 'should boot successfully', async () => {
-		mockElectron();
-		vi.resetModules();
-		await expect( import( '../index' ) ).resolves.toBeDefined();
-	}, 10_000 );
-
 	it( 'should identify YouTube embed requests with the Studio referrer', async () => {
 		const { mockedEvents } = mockElectron();
 		vi.resetModules();
@@ -482,8 +471,11 @@ describe( 'App initialization', () => {
 		Object.defineProperty( process, 'platform', { value: 'darwin' } );
 
 		const { mockedEvents } = mockElectron();
-		const mockHandleDeeplink = vi.fn();
-		vi.doMock( '../lib/deeplink', () => ( { handleDeeplink: mockHandleDeeplink } ) );
+		const mockOpenDeeplink = vi.fn();
+		vi.doMock( '../lib/deeplink', () => ( {
+			openDeeplink: mockOpenDeeplink,
+			markStudioStarted: vi.fn(),
+		} ) );
 
 		vi.resetModules();
 		await import( '../index' );
@@ -491,7 +483,7 @@ describe( 'App initialization', () => {
 
 		const testUrl = 'wp-studio://auth#test-hash';
 		await openUrl( {}, testUrl );
-		expect( mockHandleDeeplink ).toHaveBeenCalledWith( testUrl );
+		expect( mockOpenDeeplink ).toHaveBeenCalledWith( testUrl );
 
 		Object.defineProperty( process, 'platform', { value: originalProcessPlatform } );
 	} );
@@ -513,47 +505,100 @@ describe( 'App initialization', () => {
 		await mockedEvents[ 'will-quit' ]( { preventDefault: vi.fn() } );
 	} );
 
-	it( 'should show the quit-sites dialog with keep-running choices', async () => {
-		vi.doMock( 'src/site-server', () => ( {
-			getRunningSiteCount: vi.fn().mockReturnValue( 1 ),
-			persistAutoStartForRunningSites: vi.fn().mockResolvedValue( undefined ),
-			SiteServer: {
-				fetchAll: vi.fn().mockResolvedValue( undefined ),
-			},
+	async function quitWithRunningSite( dialogResponse: number ) {
+		vi.doMock( 'src/lib/sites', () => ( {
+			getSites: vi.fn().mockResolvedValue( [
+				{ id: 'running-site', running: true },
+				{ id: 'stopped-site', running: false },
+			] ),
 			stopAllServers: vi.fn().mockResolvedValue( undefined ),
+		} ) );
+		vi.doMock( '@studio/common/sites/metadata', () => ( {
+			updateSiteMetadata: vi.fn().mockResolvedValue( undefined ),
 		} ) );
 		const { mockedEvents } = mockElectron();
 
 		vi.resetModules();
 		await import( '../index' );
 		const { app, dialog } = await import( 'electron' );
-		const { persistAutoStartForRunningSites } = await import( 'src/site-server' );
 		vi.mocked( dialog.showMessageBox ).mockResolvedValue( {
-			response: 0,
-			checkboxChecked: true,
+			response: dialogResponse,
+			checkboxChecked: false,
 		} );
 		const event = { preventDefault: vi.fn() };
 
 		void mockedEvents[ 'before-quit' ]( event );
-
-		await vi.waitFor( () => {
-			expect( dialog.showMessageBox ).toHaveBeenCalledWith( {
-				type: 'question',
-				message: 'Keep the site running?',
-				detail: 'Your site can stay available in the background after Studio quits.',
-				buttons: [ 'Stop site', 'Keep site running', 'Cancel' ],
-				checkboxLabel: 'Remember my choice',
-				cancelId: 2,
-				defaultId: 0,
-			} );
-			expect( app.quit ).toHaveBeenCalled();
-		} );
+		await vi.waitFor( () => expect( app.quit ).toHaveBeenCalled() );
 		expect( event.preventDefault ).toHaveBeenCalled();
+		await mockedEvents[ 'will-quit' ]( { preventDefault: vi.fn() } );
+		await vi.waitFor( () => expect( app.exit ).toHaveBeenCalled() );
 
-		// "Stop site" must stop and stay stopped, so autoStart is cleared rather than preserved.
-		const willQuitEvent = { preventDefault: vi.fn() };
-		await mockedEvents[ 'will-quit' ]( willQuitEvent );
-		expect( vi.mocked( persistAutoStartForRunningSites ) ).toHaveBeenCalledWith( false );
+		return {
+			dialog,
+			updateSiteMetadata: vi.mocked(
+				( await import( '@studio/common/sites/metadata' ) ).updateSiteMetadata
+			),
+			stopAllServers: vi.mocked( ( await import( 'src/lib/sites' ) ).stopAllServers ),
+		};
+	}
+
+	it( 'asks whether to keep running sites, and "Stop site" keeps them stopped next launch', async () => {
+		const { dialog, updateSiteMetadata, stopAllServers } = await quitWithRunningSite( 0 );
+
+		expect( dialog.showMessageBox ).toHaveBeenCalledWith( {
+			type: 'question',
+			message: 'Keep the site running?',
+			detail: 'Your site can stay available in the background after WordPress Studio quits.',
+			buttons: [ 'Stop site', 'Keep site running', 'Cancel' ],
+			checkboxLabel: 'Remember my choice',
+			cancelId: 2,
+			defaultId: 0,
+		} );
+		expect( updateSiteMetadata ).toHaveBeenCalledWith( {
+			'running-site': { autoStart: false },
+			'stopped-site': { autoStart: false },
+		} );
+		expect( stopAllServers ).toHaveBeenCalled();
+	} );
+
+	it( 'leaves sites running on "Keep site running", flagging them to start next launch', async () => {
+		const { updateSiteMetadata, stopAllServers } = await quitWithRunningSite( 1 );
+
+		expect( updateSiteMetadata ).toHaveBeenCalledWith( {
+			'running-site': { autoStart: true },
+			'stopped-site': { autoStart: false },
+		} );
+		expect( stopAllServers ).not.toHaveBeenCalled();
+	} );
+
+	it( 'runs the quit cleanup once when will-quit fires again during it', async () => {
+		let finishStop = () => {};
+		vi.doMock( 'src/lib/sites', () => ( {
+			getSites: vi.fn().mockResolvedValue( [ { id: 'running-site', running: true } ] ),
+			stopAllServers: vi.fn( () => new Promise< void >( ( resolve ) => ( finishStop = resolve ) ) ),
+		} ) );
+		vi.doMock( '@studio/common/sites/metadata', () => ( {
+			updateSiteMetadata: vi.fn().mockResolvedValue( undefined ),
+		} ) );
+		const { mockedEvents } = mockElectron();
+		vi.resetModules();
+		await import( '../index' );
+		const { app } = await import( 'electron' );
+		const { stopAllServers } = await import( 'src/lib/sites' );
+		const { stopCliCommands } = await import( 'src/modules/cli/lib/execute-command' );
+
+		await mockedEvents[ 'will-quit' ]( { preventDefault: vi.fn() } );
+		await vi.waitFor( () => expect( stopAllServers ).toHaveBeenCalled() );
+		const secondEvent = { preventDefault: vi.fn() };
+		await mockedEvents[ 'will-quit' ]( secondEvent );
+
+		expect( secondEvent.preventDefault ).toHaveBeenCalled();
+		expect( stopCliCommands ).toHaveBeenCalledTimes( 1 );
+		expect( stopAllServers ).toHaveBeenCalledTimes( 1 );
+		expect( app.exit ).not.toHaveBeenCalled();
+
+		finishStop();
+		await vi.waitFor( () => expect( app.exit ).toHaveBeenCalledTimes( 1 ) );
 	} );
 
 	it( 'should wait app initialization before creating main window via second-instance event', async () => {

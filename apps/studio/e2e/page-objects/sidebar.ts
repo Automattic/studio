@@ -4,7 +4,7 @@ export default class Sidebar {
 	constructor( private page: Page ) {}
 
 	get addSiteButton() {
-		return this.page.getByRole( 'button', { name: 'Add site' } );
+		return this.page.getByRole( 'button', { name: 'Add site', exact: true } );
 	}
 
 	get locator() {
@@ -17,7 +17,9 @@ export default class Sidebar {
 	}
 
 	getSiteRow( siteName: string ) {
-		return this.locator.locator( 'section' ).filter( {
+		// The performance comparison runs these page objects against trunk builds
+		// too, whose rows are sections rather than list items.
+		return this.locator.locator( 'li, section' ).filter( {
 			has: this.page.getByRole( 'button', { name: siteName, exact: true } ),
 		} );
 	}
@@ -37,8 +39,22 @@ export default class Sidebar {
 		await this.getSiteButton( siteName ).click();
 	}
 
-	async openContextMenuItem( siteName: string, item: string ) {
+	// Earlier items open submenus: `openContextMenuItem( site, 'Export', 'Export site' )`.
+	async openContextMenuItem( siteName: string, ...items: string[] ) {
 		await this.getSiteButton( siteName ).click( { button: 'right' } );
-		await this.page.getByRole( 'menuitem', { name: item } ).click();
+		for ( const item of items ) {
+			await this.page.getByRole( 'menuitem', { name: item, exact: true } ).click();
+		}
+	}
+
+	// Imports a backup into a site, confirming the overwrite. The site menu's
+	// "Import" opens this input's native file picker.
+	async importBackup( siteName: string, backupPath: string ) {
+		await this.getSiteRow( siteName )
+			.getByTestId( 'import-backup-file' )
+			.setInputFiles( backupPath );
+		const dialog = this.page.getByRole( 'alertdialog' );
+		await expect( dialog ).toContainText( 'Importing a backup will replace' );
+		await dialog.getByRole( 'button', { name: 'Import' } ).click();
 	}
 }

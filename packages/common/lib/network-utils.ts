@@ -36,8 +36,6 @@ function firstFulfilled< T >( promises: Promise< T >[] ): Promise< T > {
  * IPv4 and IPv6 are resolved separately and the first answer wins. A single
  * unspecified-family lookup waits for both records, and on networks that drop
  * AAAA queries that wait alone can exceed the timeout.
- *
- * @returns Promise that resolves to true if online, false if offline
  */
 export async function isOnline(): Promise< boolean > {
 	let timer: ReturnType< typeof setTimeout > | undefined;

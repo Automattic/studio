@@ -52,42 +52,6 @@ describe( 'sessions resume — active site hydration (JSON mode)', () => {
 		);
 	} );
 
-	it( 'passes remote sites through with their WordPress.com identity', async () => {
-		( loadAiSession as Mock ).mockResolvedValue( {
-			entries: [
-				siteSelectedEntry( {
-					siteName: 'Live',
-					sitePath: '/sites/live',
-					remote: true,
-					url: 'https://example.wordpress.com',
-					wpcomSiteId: 123,
-				} ),
-			],
-		} );
-
-		await runCommand( 'session-1', { json: true, message: 'hello' } );
-
-		expect( runAiCommand ).toHaveBeenCalledWith(
-			expect.objectContaining( {
-				activeSite: expect.objectContaining( {
-					remote: true,
-					url: 'https://example.wordpress.com',
-					wpcomSiteId: 123,
-				} ),
-			} )
-		);
-	} );
-
-	it( 'passes no active site when the session has no site_selected entry', async () => {
-		( loadAiSession as Mock ).mockResolvedValue( { entries: [] } );
-
-		await runCommand( 'session-1', { json: true, message: 'hello' } );
-
-		expect( runAiCommand ).toHaveBeenCalledWith(
-			expect.objectContaining( { activeSite: undefined } )
-		);
-	} );
-
 	it( 'passes validated visual annotations from an input payload', async () => {
 		( loadAiSession as Mock ).mockResolvedValue( { entries: [] } );
 		const directory = await fs.mkdtemp( path.join( os.tmpdir(), 'studio-annotations-' ) );

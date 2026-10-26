@@ -20,6 +20,7 @@ async function main() {
 	try {
 		console.log( '[Proxy Daemon] Starting WordPress Studio Proxy Daemon…' );
 		await startProxyServers();
+		process.send?.( { topic: 'ready' } );
 	} catch ( error ) {
 		console.error( '[Proxy Daemon] Failed to start:', error );
 		process.exit( 1 );

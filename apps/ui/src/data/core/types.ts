@@ -3,8 +3,13 @@ import type { StudioChatFileAttachment } from '@studio/common/ai/chat-files';
 import type { StudioChatImage } from '@studio/common/ai/chat-images';
 import type { AiModelId } from '@studio/common/ai/models';
 import type { AiProviderId, AiSettings } from '@studio/common/ai/providers';
-import type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessions/types';
+import type {
+	AiSessionMetadata,
+	AiSessionSummary,
+	LoadedAiSession,
+} from '@studio/common/ai/sessions/types';
 import type { StudioVisualAnnotationSummary } from '@studio/common/ai/visual-annotations';
+import type { SiteAgentFile, SiteAgentFileKind } from '@studio/common/lib/agent-skills';
 import type { SiteEvent, SnapshotEvent } from '@studio/common/lib/cli-events';
 import type { SupportedLocale } from '@studio/common/lib/locale';
 import type {
@@ -13,6 +18,7 @@ import type {
 	TracksProps,
 	TracksSiteCreateFlowType,
 } from '@studio/common/lib/record-tracks-event';
+import type { SiteAgentFileOpenTarget } from '@studio/common/lib/site-agent-file-paths';
 import type { SiteFileAccess } from '@studio/common/lib/site-file-access';
 import type { SiteOperation } from '@studio/common/lib/site-operation';
 import type { SnapshotUsage } from '@studio/common/lib/snapshots';
@@ -20,24 +26,30 @@ import type { StudioAssistantQuota } from '@studio/common/lib/studio-assistant-q
 import type { StudioAssistantTopUpPricing } from '@studio/common/lib/studio-assistant-top-up-pricing';
 import type { SyncEvent } from '@studio/common/lib/sync/activity';
 import type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
-import type { ColorScheme, QuitSitesBehavior } from '@studio/common/lib/user-settings/preferences';
+import type {
+	ColorScheme,
+	NewSiteBehavior,
+	QuitSitesBehavior,
+} from '@studio/common/lib/user-settings/preferences';
 import type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
 import type { WordPressVersion } from '@studio/common/lib/wordpress-versions';
 import type { WpEnvironmentType } from '@studio/common/lib/wp-environment-type';
 import type { SiteDesign } from '@studio/common/sites/site-design';
-import type { SiteStorageUsage } from '@studio/common/sites/storage-usage';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { Snapshot } from '@studio/common/types/snapshot';
 import type { PullSyncOptions, PushSyncOptions, SyncSite } from '@studio/common/types/sync';
 import type { RawDirectoryEntry } from '@studio/common/types/sync-tree';
-import type { SiteRestRequest, SiteRestResponse } from '@studio/common/types/wordpress-rest';
 import type { DesignFix } from '@studio/design-md';
 import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 
-export type { ActiveAgentRun, AgentRunEvent } from '@studio/common/ai/agent-events';
+export type { ActiveAgentRun } from '@studio/common/ai/agent-events';
 export type { StudioChatFileAttachment } from '@studio/common/ai/chat-files';
 export type { StudioChatImage } from '@studio/common/ai/chat-images';
-export type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessions/types';
+export type {
+	AiSessionMetadata,
+	AiSessionSummary,
+	LoadedAiSession,
+} from '@studio/common/ai/sessions/types';
 export type { StudioVisualAnnotationSummary } from '@studio/common/ai/visual-annotations';
 export type { SessionEntry } from '@earendil-works/pi-coding-agent';
 export type { StudioCustomEntry } from '@studio/common/ai/sessions/entry-types';
@@ -52,11 +64,10 @@ export type { SupportedLocale } from '@studio/common/lib/locale';
 export type { StudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 export type { StudioAssistantTopUpPricing } from '@studio/common/lib/studio-assistant-top-up-pricing';
 export type { SiteDesign } from '@studio/common/sites/site-design';
-export type { SiteStorageUsage } from '@studio/common/sites/storage-usage';
 
 export type InstalledApps = Record< SupportedEditor | SupportedTerminal, boolean >;
 
-export interface AiSessionSitePlacement {
+interface AiSessionSitePlacement {
 	kind: 'site';
 	siteId: string;
 	sitePath: string;
@@ -94,16 +105,6 @@ export interface SiteDetails {
 	// True for sites that were running when the app quit with the
 	// "Stop, restart on next launch" behavior; the renderer starts them on boot.
 	autoStart?: boolean;
-	themeDetails?: {
-		name: string;
-		path: string;
-		slug: string;
-		isBlockTheme: boolean;
-		// Only supplied by the desktop (IPC) connector.
-		supportsWidgets?: boolean;
-		supportsMenus?: boolean;
-	};
-	siteIcon?: string | null;
 	// The Studio operation currently holding the site, from the CLI. Present
 	// regardless of who started it — the user, the desktop app, or the agent.
 	operation?: SiteOperation;
@@ -123,34 +124,18 @@ export interface AuthUser {
 
 // What native affordances the host environment offers, so the UI can choose
 // between a native flow and a browser-friendly fallback (instead of branching on
-// "am I in Electron"). The desktop app has them all; the browser (`studio ui` /
-// hosted) does not — except `openInOS`, which the local server can do because it
-// runs on the user's own machine.
-export interface ConnectorCapabilities {
+// "am I in Electron"). The desktop app has them all; the browser (`studio ui`)
+// does not.
+interface ConnectorCapabilities {
 	// A native OS folder picker is available (`selectSiteFolder`). When false,
 	// the UI offers an editable path field instead.
 	nativeFolderPicker: boolean;
-	// The host can open paths in OS apps (file manager, editor, terminal) and
-	// detect installed apps. True on the desktop and the local server (both on
-	// the user's machine); false when hosted remotely.
-	openInOS: boolean;
 	// The preview can host the annotation inspector (script injection + a bridge
 	// into the previewed page). Only the desktop's <webview> supports this; in a
 	// browser the preview is a cross-origin <iframe> that can't be injected, so
 	// the Annotate control is hidden (except on the design system page, which
 	// Studio renders itself).
 	annotatePreview: boolean;
-	// `readLocalMediaFile` can read media files from the host's disk (used to
-	// render screenshots and generated images inline). The local server limits
-	// it to raster images in the sessions and site folders; hosted can't.
-	readLocalMedia: boolean;
-	// The host can read/write the user's global Studio Code instructions file
-	// (~/.studio/knowledge/instructions.md). False when hosted remotely, which
-	// hides the Studio Code settings tab.
-	agentInstructions: boolean;
-	// The host can read/write the AI provider settings in the CLI config. False
-	// (hosted) hides the Anthropic API key section in AI settings.
-	aiSettings: boolean;
 	// The host keeps a Studio log file the user can open (`openStudioLogs`).
 	// Only the desktop app does — the CLI writes site server output to
 	// `~/.studio/daemon/logs` and everything else to the terminal that started
@@ -199,21 +184,21 @@ export interface Connector {
 	// process handler. `wpVersion` is only forwarded when the user explicitly
 	// picked a pinned version — undefined means "keep auto-updating".
 	updateSite( site: SiteDetails, wpVersion?: string ): Promise< void >;
-	// Persists the sidebar's manual site order (the same per-site `sortOrder`
-	// the legacy desktop sidebar uses).
+	// Persists the sidebar's manual site order (each site's `sortOrder`).
 	updateSitesSortOrder( updates: { siteId: string; sortOrder: number }[] ): Promise< void >;
-	// Cached screenshot thumbnail captured by the desktop app while the site
-	// was running. Returns null when the site has not produced a thumbnail yet.
+	// The last page of the site captured in a preview, shown while it's stopped.
+	// Null when the site has not been captured yet.
 	getSiteThumbnail( siteId: string ): Promise< string | null >;
-	// Resolves active theme details when the host exposes that capability.
-	// Desktop reuses the same IPC flow as the Classic UI.
-	getThemeDetails?( siteId: string ): Promise< SiteDetails[ 'themeDetails' ] >;
-	// Size of the local site's files, grouped for the overview's disk summary.
-	// Hosted sites return null because their storage is not on this machine.
-	// Measuring walks the whole site directory, so `signal` is honored all the
-	// way down: aborting it stops the walk rather than leaving it to finish for
-	// a site the user has already left.
-	getSiteStorageUsage( siteId: string, signal?: AbortSignal ): Promise< SiteStorageUsage | null >;
+	// Captures the preview's page as the site's thumbnail and returns it, or null
+	// when that page isn't kept (sign-in and admin screens). The Desktop app
+	// captures the preview webview, named by `guestId`.
+	captureSitePreview(
+		siteId: string,
+		capture: { path: string; width: number; height: number; guestId?: number }
+	): Promise< string | null >;
+	// The site's Site Icon (a data URL, or null when it has none), read on
+	// demand when the host can inspect local sites.
+	getSiteIcon?( siteId: string ): Promise< string | null >;
 	// The site's DESIGN.md and its active theme's theme.json, or null when it
 	// lacks either.
 	getSiteDesign( siteId: string ): Promise< SiteDesign | null >;
@@ -228,8 +213,7 @@ export interface Connector {
 	// semantics as `exportFullSite`.
 	exportDatabase( siteId: string ): Promise< string | null >;
 
-	// Site-creation helpers — surface the same main-process capabilities the
-	// desktop app's add-site flow relies on (folder pickers and path validation).
+	// Site-creation helpers: folder pickers and path validation.
 	generateProposedSitePath( siteName: string ): Promise< ProposedSitePath >;
 	generateProposedSiteName( usedSites: SiteDetails[] ): Promise< string >;
 	generateNumberedSiteName( baseName: string, usedSites: SiteDetails[] ): Promise< string >;
@@ -379,10 +363,7 @@ export interface Connector {
 	// AI sessions (shared with the CLI — stored as JSONL on disk)
 	getSessions(): Promise< AiSessionSummary[] >;
 	getSession( sessionId: string ): Promise< LoadedAiSession >;
-	updateSessionMetadata(
-		sessionId: string,
-		patch: Pick< AiSessionSummary, 'archived' >
-	): Promise< AiSessionSummary >;
+	updateSessionMetadata( sessionId: string, patch: AiSessionMetadata ): Promise< AiSessionSummary >;
 
 	// Create an empty session file so it appears immediately. When `siteId`
 	// is omitted, the session is a user chat with no owner site.
@@ -414,9 +395,13 @@ export interface Connector {
 		provider: AiProviderId,
 		model: AiModelId
 	): Promise< void >;
+	// Point the session's next turn at its local site or its connected live site.
+	setSessionEnvironment( sessionId: string, environment: 'local' | 'live' ): Promise< void >;
 	interruptAgentRun( runId: string ): Promise< void >;
 	answerAgentQuestion( runId: string, answers: Record< string, string > ): Promise< void >;
 	onAgentEvent( listener: ( event: AgentRunEvent ) => void ): () => void;
+	// Fires when a dropped event stream reconnects, so listeners can re-read what they missed.
+	onConnectionRestored?( listener: () => void ): () => void;
 	onSessionPlacementUpdated(
 		listener: ( event: AiSessionPlacementUpdatedEvent ) => void
 	): () => void;
@@ -448,8 +433,11 @@ export interface Connector {
 	trustCertificate(): Promise< void >;
 
 	// The user's global Studio Code instructions, a markdown file injected into
-	// every agent session. Gated by `capabilities.agentInstructions`.
+	// every agent session.
 	getAgentInstructions(): Promise< string >;
+	// Whether those instructions reach the agent.
+	getAgentInstructionsEnabled(): Promise< boolean >;
+	setAgentInstructionsEnabled( enabled: boolean ): Promise< void >;
 	// `editSession` marks the save that ends an edit session and carries the value
 	// it started from, so it counts as one change. Autosaves omit it.
 	saveAgentInstructions(
@@ -457,11 +445,12 @@ export interface Connector {
 		options?: { editSession?: { previousContent: string } }
 	): Promise< void >;
 
-	// AI provider settings stored in the CLI config, gated by
-	// `capabilities.aiSettings`. Clearing the key (null) also falls back to
-	// WordPress.com.
+	// AI provider settings stored in the CLI config. Clearing the key (null)
+	// also falls back to WordPress.com.
 	getAiSettings(): Promise< AiSettings >;
 	saveAnthropicApiKey( key: string | null ): Promise< AiSettings >;
+	// The provider new conversations use.
+	setAiProvider( provider: AiProviderId ): Promise< AiSettings >;
 
 	// Apps detected on disk (editors + terminals). Options in the preferences
 	// form are filtered against this so users can't pick something that isn't
@@ -473,11 +462,6 @@ export interface Connector {
 	// platform 'browser'.
 	getAppGlobals(): Promise< AppGlobals >;
 
-	// Site WordPress REST API. Proxies requests to the selected site with its
-	// auth (auto-login cookie + REST nonce) attached, so renderer features
-	// like the preview omnibox search can query site content directly.
-	fetchSiteRest( siteId: string, request: SiteRestRequest ): Promise< SiteRestResponse >;
-
 	// Open the given site's folder in the system file manager, preferred
 	// editor, or preferred terminal. When no editor/terminal preference is
 	// set these reject — callers are expected to route the user to Settings.
@@ -487,7 +471,7 @@ export interface Connector {
 
 	// The site's WordPress debug log, resolved host-side from the site id. Its
 	// existence is a query, not a `SiteDetails` field: the file comes and goes
-	// while the UI is open. Both are gated on `capabilities.openInOS`.
+	// while the UI is open.
 	siteDebugLogExists( siteId: string ): Promise< boolean >;
 	openSiteDebugLog( siteId: string ): Promise< void >;
 
@@ -513,10 +497,27 @@ export interface Connector {
 	installWordPressSkillToAllSites( skillId: string ): Promise< void >;
 	removeWordPressSkillFromAllSites( skillId: string ): Promise< void >;
 
+	// One site's skills and instruction files. Switching one off keeps its
+	// edits, out of the folders agents read.
+	getSiteAgentFiles( siteId: string, kind: SiteAgentFileKind ): Promise< SiteAgentFile[] >;
+	setSiteAgentFileEnabled(
+		siteId: string,
+		kind: SiteAgentFileKind,
+		id: string,
+		enabled: boolean
+	): Promise< void >;
+	removeSiteAgentFile( siteId: string, kind: SiteAgentFileKind, id: string ): Promise< void >;
+	openSiteAgentFile(
+		siteId: string,
+		kind: SiteAgentFileKind,
+		id: string,
+		target: SiteAgentFileOpenTarget
+	): Promise< void >;
+
 	// Whether the UI should render a button that opens the app menu via
 	// `popupAppMenu`. True only in the Windows/Linux desktop app, which has no
 	// native menu bar; macOS has the native application menu and the browser
-	// (`studio ui` / hosted) has no app menu at all.
+	// (`studio ui`) has no app menu at all.
 	showsAppMenuButton: boolean;
 
 	// Clipboard — routed to the host so it works where the renderer's
@@ -542,7 +543,7 @@ export interface Connector {
 	// Whether this host overlays macOS window controls ("traffic lights") on the
 	// top-left of the content, so the UI must reserve space for them. True only
 	// in the macOS desktop app; false on other platforms and in the browser
-	// (`studio ui` / hosted), where there are no traffic lights. Combined with
+	// (`studio ui`), where there are no traffic lights. Combined with
 	// `isFullscreen` — macOS hides the traffic lights in fullscreen — to decide
 	// when to actually leave the gap (see `useTrafficLightSpace`).
 	reservesTrafficLightSpace: boolean;
@@ -552,14 +553,8 @@ export interface Connector {
 	// `useWindowControlsSurface`). Only the Electron host has an overlay.
 	setWindowControlsSurface?( surface: 'chrome' | 'content' | 'toolbar' ): Promise< void >;
 
-	// Moves the macOS traffic lights to line up with the site preview toolbar
-	// while it sits beside them, and back again (see `useTrafficLightsPosition`).
-	// Only the Electron host has traffic lights to move.
-	setTrafficLightsPosition?( position: 'default' | 'toolbar' ): Promise< void >;
-
 	// Window state (macOS fullscreen hides traffic lights, so the UI needs
 	// to reclaim the space we normally leave for them).
-	ensureWindowWidth( minimumWidth: number ): Promise< number | null >;
 	isFullscreen(): Promise< boolean >;
 	onFullscreenChange( listener: ( fullscreen: boolean ) => void ): () => void;
 
@@ -580,10 +575,13 @@ export interface Connector {
 	// shortcut) in the application menu.
 	onAddSite( listener: () => void ): () => void;
 	onAddSiteWithBlueprint( listener: ( payload: { blueprintPath: string } ) => void ): () => void;
+	// Tells the host the app now listens for the events links send (Settings, Add
+	// site, sync and checkout returns), so a link that arrived earlier opens.
+	readyForDeeplinks?(): void;
 
 	// Fires when the user activates "Settings…" (or its keyboard shortcut) in
-	// the application menu.
-	onOpenSettings( listener: () => void ): () => void;
+	// the application menu, or opens a link to one setting.
+	onOpenSettings( listener: ( target: { settingId?: string } ) => void ): () => void;
 
 	// Fires when WordPress.com checkout sends the user back after an AI credits
 	// top-up (wp-studio://ai-credits-purchased). Desktop only — a browser tab
@@ -591,8 +589,8 @@ export interface Connector {
 	onAiCreditsPurchased( listener: () => void ): () => void;
 
 	// Agentic UI onboarding state. Distinct from getOnboardingCompleted (the
-	// pre-workbench first-run welcome flag). setOnboardingHints shallow-merges
-	// its partial. Desktop persists to app.json; hosted/web to localStorage.
+	// first-run welcome flag). setOnboardingHints shallow-merges
+	// its partial. Persisted to app.json.
 	getOnboardingHints(): Promise< OnboardingHintsState >;
 	setOnboardingHints( partial: Partial< OnboardingHintsState > ): Promise< void >;
 
@@ -603,12 +601,6 @@ export interface Connector {
 	// Fires when the user picks Help ▸ What's New in the application menu
 	// (desktop only). No-ops where there's no OS menu.
 	onShowWhatsNew( listener: () => void ): () => void;
-
-	// App version the user last dismissed the What's New announcements on. The
-	// same value the classic renderer reads, so the two UIs never show the same
-	// announcements twice.
-	getLastSeenVersion(): Promise< string | undefined >;
-	saveLastSeenVersion( version: string ): Promise< void >;
 
 	// Auto-updater status.
 	getAppUpdateStatus(): Promise< AppUpdateStatus >;
@@ -637,7 +629,7 @@ export type AppUpdateStatus = (
 };
 
 // Persisted first-run onboarding state for the workbench. Separate from the
-// pre-workbench welcome flag (getOnboardingCompleted).
+// welcome flag (getOnboardingCompleted).
 export interface OnboardingHintsState {
 	// Version of the orientation guide the user finished or explicitly skipped.
 	tourCompletedVersion?: number;
@@ -647,7 +639,11 @@ export interface OnboardingHintsState {
 	// Studio (vs a fresh install that starts here). Drives the guide's first-page
 	// "Welcome to WordPress Studio 2.0" migrating copy.
 	migratedFromClassic?: boolean;
+	// WHATS_NEW_VERSION of the What's New guide the user last saw.
+	whatsNewSeenVersion?: number;
 }
+
+export type { SiteAgentFile, SiteAgentFileKind };
 
 export interface SkillStatus {
 	id: string;
@@ -660,7 +656,8 @@ export interface UserPreferences {
 	editor: SupportedEditor | null;
 	terminal: SupportedTerminal | null;
 	colorScheme: ColorScheme;
-	quitSitesBehavior?: QuitSitesBehavior;
+	// `null` clears it back to "ask every time".
+	quitSitesBehavior?: QuitSitesBehavior | null;
 	locale: string | undefined;
 	// Whether the user shares anonymous usage statistics (Tracks). Default true.
 	// See `docs/design-docs/analytics-tracks.md`.
@@ -671,8 +668,22 @@ export interface UserPreferences {
 	// app never installs over or uninstalls — the settings toggle disables
 	// itself in that case.
 	studioCliExternallyManaged: boolean;
-	// Whether chat/agent features are offered at all.
-	agenticFeaturesEnabled: boolean;
+	// The sidebar's Pinned group, in order, as `site:<id>` and `chat:<id>` keys.
+	sidebarPins?: string[];
+	// Each site's chats in the order the user dragged them into, by site id.
+	sidebarChatOrder?: Record< string, string[] >;
+	showRecentChats?: boolean;
+	// Opening a site's chats in the sidebar folds the others.
+	autoCollapseSites?: boolean;
+	// Start a stopped local site when a chat message is sent to it.
+	autoStartSiteOnChat?: boolean;
+	// Ask before discarding preview annotations.
+	confirmDeleteAnnotations?: boolean;
+	newSiteBehavior?: NewSiteBehavior;
+	// The appearance tint: a `#rrggbb` accent color, and percentages.
+	accentColor?: string;
+	tintIntensity?: number;
+	contrast?: number;
 }
 
 export interface AppGlobals {

@@ -1,24 +1,35 @@
 import { aiSessionBelongsToSite } from '@studio/common/ai/sessions/owner-site';
 import { sortSites } from '@studio/common/lib/sort-sites';
 import { createRoute, redirect } from '@tanstack/react-router';
-import { resolveAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
 import { SITES_QUERY_KEY } from '@/data/queries/use-sites';
-import { readLastVisited } from '@/lib/last-visited';
+import { SidebarLayout, readLastVisited, resumeChat } from '@/features/sidebar';
 import { rootRoute } from '../layout-root';
 
 export const indexRoute = createRoute( {
 	getParentRoute: () => rootRoute,
 	path: '/',
-	beforeLoad: async ( { context } ) => {
-		const sites = await context.queryClient.fetchQuery( {
-			queryKey: SITES_QUERY_KEY,
-			queryFn: () => context.connector.getSites(),
-		} );
+	// The workspace shell shows, its sidebar loading, until the redirect.
+	pendingComponent: () => <SidebarLayout>{ null }</SidebarLayout>,
+	pendingMs: 0,
+	pendingMinMs: 0,
+	// Redirects carry the root search along, so Settings or Add site opened from
+	// the shell isn't closed by them.
+	beforeLoad: async ( { context, search } ) => {
+		const sites = await context.queryClient
+			.fetchQuery( {
+				queryKey: SITES_QUERY_KEY,
+				queryFn: () => context.connector.getSites(),
+			} )
+			.catch( () => null );
+		// The empty workspace offers to load them again.
+		if ( ! sites ) {
+			throw redirect( { to: '/sites', search } );
+		}
 		const firstSite = sites[ 0 ];
 		if ( ! firstSite ) {
-			const onboardingCompleted = await context.connector.getOnboardingCompleted();
-			throw redirect( { to: onboardingCompleted ? '/onboarding' : '/welcome' } );
+			const welcome = ! ( await context.connector.getOnboardingCompleted() );
+			throw redirect( { to: '/sites', search: welcome ? { ...search, welcome } : search } );
 		}
 
 		// Return the user to their last visited site (recorded by the dashboard
@@ -30,30 +41,29 @@ export const indexRoute = createRoute( {
 			( lastVisited.siteId && sites.find( ( site ) => site.id === lastVisited.siteId ) ) ||
 			sortSites( [ ...sites ] )[ 0 ];
 
-		const { chatEnabled, chatPromptsSignIn } = await resolveAgenticFeatures( context );
-		if ( ! chatEnabled ) {
-			throw redirect( {
-				to: chatPromptsSignIn ? '/sites/$siteId/new' : '/sites/$siteId/overview',
-				params: { siteId: targetSite.id },
-			} );
-		}
-
 		const sessions = await context.queryClient.fetchQuery( {
 			queryKey: SESSIONS_QUERY_KEY,
 			queryFn: () => context.connector.getSessions(),
 		} );
 
-		// Sessions arrive sorted newest-first, so the first session owned by
-		// the site is its most recently updated active one.
-		const topSession = sessions.find(
-			( session ) => ! session.archived && aiSessionBelongsToSite( session, targetSite )
+		// Sessions arrive sorted newest-first, so without a chat to return to
+		// the site opens its most recently updated active one.
+		const topSession = resumeChat(
+			targetSite.id,
+			sessions.filter(
+				( session ) => ! session.archived && aiSessionBelongsToSite( session, targetSite )
+			)
 		);
 		if ( topSession ) {
-			throw redirect( { to: '/sessions/$sessionId', params: { sessionId: topSession.id } } );
+			throw redirect( {
+				to: '/sessions/$sessionId',
+				params: { sessionId: topSession.id },
+				search,
+			} );
 		}
 
 		// No sessions yet: the new-session route creates an empty
 		// session for the site and redirects to it.
-		throw redirect( { to: '/sites/$siteId/new', params: { siteId: targetSite.id } } );
+		throw redirect( { to: '/sites/$siteId/new', params: { siteId: targetSite.id }, search } );
 	},
 } );

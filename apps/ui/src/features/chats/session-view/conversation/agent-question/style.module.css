@@ -1,0 +1,196 @@
+.questionCard[data-joined-above] {
+	border-start-start-radius: var( --radius-sm );
+}
+
+.questionCard[data-joined-below] {
+	border-end-start-radius: var( --radius-sm );
+}
+
+.questionBatch {
+	display: flex;
+	flex-direction: column;
+	gap: var( --space-1 );
+	overflow-anchor: none;
+}
+
+.questionBatchStep {
+	animation: questionBatchStepEnter var( --motion-duration-feedback ) ease-out;
+}
+
+.questionBatchStep[data-state='answered'] {
+	animation: none;
+}
+
+.questionnaire:focus {
+	outline: none;
+}
+
+.questionBatchStep[data-state='answered'] .questionProgress {
+	animation: questionAnsweredElementFade var( --motion-duration-surface ) ease-out forwards;
+}
+
+.questionCard {
+	--surface: var( --muted );
+	display: flex;
+	flex-direction: column;
+	gap: var( --space-4 );
+	width: 100%;
+	padding: var( --space-4 );
+	border-radius: var( --radius-2xl );
+	background-color: var( --surface );
+}
+
+.questionText {
+	color: var( --foreground );
+	font-weight: var( --font-weight-medium );
+	line-height: var( --leading-snug );
+	text-wrap: pretty;
+}
+
+.questionSummary {
+	text-align: start;
+	cursor: pointer;
+}
+
+/* The whole folded summary is the button, so its hover lights the answer. */
+.questionSummary:is( :hover, :focus-visible ) .pickedAnswer {
+	background-color: var( --hover );
+}
+
+.questionSummary:focus-visible {
+	outline: var( --focus-width ) solid var( --ring );
+	outline-offset: 2px;
+}
+
+.questionOptionImage,
+.questionOptionImageLoading,
+.questionOptionImageUnavailable {
+	display: block;
+	flex-basis: 100%;
+	width: 100%;
+	aspect-ratio: 4 / 3;
+	border-radius: var( --radius-lg );
+	background-color: var( --background );
+}
+
+.questionOptionImage {
+	object-fit: cover;
+	object-position: top;
+}
+
+.questionOptionImageLoading {
+	background-image: linear-gradient( 90deg, transparent, var( --border ), transparent );
+	background-size: 200% 100%;
+	animation: questionOptionImageLoading 1.2s ease-in-out infinite;
+}
+
+.questionOptionImageUnavailable {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	color: var( --muted-foreground );
+	font-size: var( --text-xxs );
+}
+
+.questionOptionZoom {
+	position: absolute;
+	top: var( --space-4 );
+	inset-inline-end: var( --space-4 );
+	box-shadow: var( --shadow-raised );
+}
+
+.questionOptionZoomPopup {
+	width: fit-content;
+	max-width: none;
+	padding: 0;
+	overflow: hidden;
+	border-radius: var( --radius-lg );
+}
+
+.questionOptionZoomImage {
+	max-width: calc( 100vw - 2 * 24px );
+	max-height: calc( 100dvh - 2 * 24px );
+}
+
+.questionOptionZoomClose,
+.questionOptionZoomStep {
+	position: absolute;
+	box-shadow: var( --shadow-raised );
+}
+
+.questionOptionZoom,
+.questionOptionZoomClose,
+.questionOptionZoomStep {
+	--button-background: var( --chat );
+}
+
+.questionOptionZoomClose {
+	top: var( --space-2 );
+	inset-inline-end: var( --space-2 );
+}
+
+.questionOptionZoomStep {
+	top: 50%;
+	translate: 0 -50%;
+}
+
+.questionOptionZoomPrevious {
+	inset-inline-start: var( --space-2 );
+}
+
+.questionOptionZoomNext {
+	inset-inline-end: var( --space-2 );
+}
+
+.questionOptionZoomChoose {
+	position: absolute;
+	inset-inline: 0;
+	bottom: var( --space-3 );
+	width: fit-content;
+	margin-inline: auto;
+	box-shadow: var( --shadow-raised );
+}
+
+/* The card folds away the choices that weren't picked. */
+.questionCard[data-state='folding'] .choice:not( [data-checked] ) {
+	animation: questionAnsweredElementFade var( --motion-duration-surface ) ease-out forwards;
+}
+
+@keyframes questionBatchStepEnter {
+	from {
+		opacity: 0;
+	}
+
+	to {
+		opacity: 1;
+	}
+}
+
+@keyframes questionAnsweredElementFade {
+	from {
+		opacity: 1;
+	}
+
+	to {
+		opacity: 0.38;
+	}
+}
+
+@keyframes questionOptionImageLoading {
+	from {
+		background-position: 200% 0;
+	}
+
+	to {
+		background-position: -200% 0;
+	}
+}
+
+@media ( prefers-reduced-motion: reduce ) {
+	.questionBatchStep,
+	.questionBatchStep[data-state='answered'] .questionProgress,
+	.questionCard[data-state='folding'] .choice:not( [data-checked] ),
+	.questionOptionImageLoading {
+		animation: none;
+	}
+}

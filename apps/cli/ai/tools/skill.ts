@@ -1,7 +1,7 @@
 import { Type } from 'typebox';
 import { renderDesignCatalogIndex } from 'cli/ai/design-catalog';
 import { findSkill, loadSkills } from 'cli/ai/skills';
-import { defineTool } from './define-tool';
+import { defineTool, READ_ONLY } from './define-tool';
 import type { AgentTool } from '@earendil-works/pi-agent-core';
 import type { TSchema } from 'typebox';
 
@@ -30,6 +30,7 @@ export function createSkillTool(): AgentTool< TSchema > | null {
 		},
 		async ( args ) => ( {
 			content: [ { type: 'text' as const, text: renderSkill( args.name ) } ],
-		} )
+		} ),
+		{ annotations: READ_ONLY }
 	);
 }

@@ -1,6 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useConnector } from '@/data/core';
+import { SITE_AGENT_FILES_QUERY_KEY } from '@/data/queries/use-site-agent-files';
 import type { SkillStatus } from '@/data/core';
+import type { QueryClient } from '@tanstack/react-query';
 
 export const WORDPRESS_SKILLS_QUERY_KEY = [ 'wordpress-skills' ] as const;
 
@@ -12,9 +14,15 @@ export function useWordPressSkills() {
 	} );
 }
 
-// Flip installed state in the cache up front so toggles respond instantly
-// (FormToggle has no pending state); mutations roll back with the returned
-// snapshot on error and re-sync from the connector on settled.
+// Skills for all sites change each site's files too.
+function invalidateSkills( queryClient: QueryClient ) {
+	void queryClient.invalidateQueries( { queryKey: WORDPRESS_SKILLS_QUERY_KEY } );
+	void queryClient.invalidateQueries( { queryKey: SITE_AGENT_FILES_QUERY_KEY } );
+}
+
+// Flip installed state in the cache up front so toggles respond instantly;
+// mutations roll back with the returned snapshot on error and re-sync from the
+// connector on settled.
 function useOptimisticInstalled() {
 	const queryClient = useQueryClient();
 	return async ( skillIds: string[], installed: boolean ) => {
@@ -41,29 +49,28 @@ export function useInstallWordPressSkill() {
 		onError: ( _error, _skillId, previous ) => {
 			queryClient.setQueryData( WORDPRESS_SKILLS_QUERY_KEY, previous );
 		},
-		onSettled: () => {
-			void queryClient.invalidateQueries( { queryKey: WORDPRESS_SKILLS_QUERY_KEY } );
-		},
+		onSettled: () => invalidateSkills( queryClient ),
 	} );
 }
 
-export function useInstallAllWordPressSkills() {
+// The Studio-wide switch: every skill on, or off, for all sites.
+export function useSetAllWordPressSkills() {
 	const connector = useConnector();
 	const queryClient = useQueryClient();
 	const applyOptimistic = useOptimisticInstalled();
 	return useMutation( {
-		mutationFn: async ( skillIds: string[] ) => {
+		mutationFn: async ( { skillIds, installed }: { skillIds: string[]; installed: boolean } ) => {
 			for ( const skillId of skillIds ) {
-				await connector.installWordPressSkillToAllSites( skillId );
+				await ( installed
+					? connector.installWordPressSkillToAllSites( skillId )
+					: connector.removeWordPressSkillFromAllSites( skillId ) );
 			}
 		},
-		onMutate: ( skillIds ) => applyOptimistic( skillIds, true ),
-		onError: ( _error, _skillIds, previous ) => {
+		onMutate: ( { skillIds, installed } ) => applyOptimistic( skillIds, installed ),
+		onError: ( _error, _change, previous ) => {
 			queryClient.setQueryData( WORDPRESS_SKILLS_QUERY_KEY, previous );
 		},
-		onSettled: () => {
-			void queryClient.invalidateQueries( { queryKey: WORDPRESS_SKILLS_QUERY_KEY } );
-		},
+		onSettled: () => invalidateSkills( queryClient ),
 	} );
 }
 
@@ -77,8 +84,6 @@ export function useRemoveWordPressSkill() {
 		onError: ( _error, _skillId, previous ) => {
 			queryClient.setQueryData( WORDPRESS_SKILLS_QUERY_KEY, previous );
 		},
-		onSettled: () => {
-			void queryClient.invalidateQueries( { queryKey: WORDPRESS_SKILLS_QUERY_KEY } );
-		},
+		onSettled: () => invalidateSkills( queryClient ),
 	} );
 }

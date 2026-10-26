@@ -55,7 +55,6 @@ vi.mock( '@studio/common/lib/fs-utils', () => ( {
 	arePathsEqual: mocks.arePathsEqual,
 	isWordPressDirectory: mocks.isWordPressDirectory,
 } ) );
-vi.mock( 'cli/lib/api', () => ( { validateAccessToken: vi.fn().mockResolvedValue( undefined ) } ) );
 
 const mockAuthToken = Object.freeze( {
 	accessToken: 'mock-token',

@@ -201,6 +201,7 @@ async function runPush(
 			splitDatabaseDumpByTable: true,
 			specificSelectionPaths,
 			ignoreFilter: deployIgnore,
+			stripStudioWpConfigConstants: true,
 		} );
 
 		if ( ! exporter ) {

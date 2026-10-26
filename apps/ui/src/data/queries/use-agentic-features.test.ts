@@ -6,32 +6,17 @@ const user = { id: 1, displayName: 'Test', email: 'test@example.com' } as unknow
 
 describe( 'deriveAgenticFeatures', () => {
 	it( 'always enables features when the connector does not gate them on auth', () => {
-		const connector = { agenticRequiresAuth: false };
-		expect( deriveAgenticFeatures( connector, undefined ) ).toEqual( {
-			enabled: true,
-			chatEnabled: true,
-			chatPromptsSignIn: false,
-			reason: null,
-		} );
-		expect( deriveAgenticFeatures( connector, null ) ).toEqual( {
-			enabled: true,
-			chatEnabled: true,
-			chatPromptsSignIn: false,
-			reason: null,
-		} );
-		expect( deriveAgenticFeatures( connector, user ) ).toEqual( {
-			enabled: true,
-			chatEnabled: true,
-			chatPromptsSignIn: false,
-			reason: null,
-		} );
+		for ( const authUser of [ undefined, null, user ] ) {
+			expect( deriveAgenticFeatures( { agenticRequiresAuth: false }, authUser ) ).toEqual( {
+				enabled: true,
+				reason: null,
+			} );
+		}
 	} );
 
 	it( 'disables features without a signed-out reason while auth is still loading', () => {
 		expect( deriveAgenticFeatures( { agenticRequiresAuth: true }, undefined ) ).toEqual( {
 			enabled: false,
-			chatEnabled: false,
-			chatPromptsSignIn: false,
 			reason: null,
 		} );
 	} );
@@ -39,8 +24,6 @@ describe( 'deriveAgenticFeatures', () => {
 	it( 'disables features with a signed-out reason for signed-out users', () => {
 		expect( deriveAgenticFeatures( { agenticRequiresAuth: true }, null ) ).toEqual( {
 			enabled: false,
-			chatEnabled: false,
-			chatPromptsSignIn: true,
 			reason: 'signed-out',
 		} );
 	} );
@@ -48,58 +31,16 @@ describe( 'deriveAgenticFeatures', () => {
 	it( 'enables features for signed-in users', () => {
 		expect( deriveAgenticFeatures( { agenticRequiresAuth: true }, user ) ).toEqual( {
 			enabled: true,
-			chatEnabled: true,
-			chatPromptsSignIn: false,
 			reason: null,
 		} );
 	} );
 
-	it( 'disables features with an offline reason regardless of auth state', () => {
-		expect( deriveAgenticFeatures( { agenticRequiresAuth: true }, user, true ) ).toEqual( {
-			enabled: false,
-			chatEnabled: false,
-			chatPromptsSignIn: false,
-			reason: 'offline',
-		} );
-		expect( deriveAgenticFeatures( { agenticRequiresAuth: false }, undefined, true ) ).toEqual( {
-			enabled: false,
-			chatEnabled: false,
-			chatPromptsSignIn: false,
-			reason: 'offline',
-		} );
-		expect( deriveAgenticFeatures( { agenticRequiresAuth: true }, null, true ) ).toEqual( {
-			enabled: false,
-			chatEnabled: false,
-			chatPromptsSignIn: false,
-			reason: 'offline',
-		} );
-	} );
-
-	// Turning agentic features off in Settings → AI only takes chat away.
-	// Previews, sync and publishing keep working, so `enabled` stays true.
-	it( 'sends signed-out users to Overview, not the sign-in prompt, when chat is off', () => {
-		expect( deriveAgenticFeatures( { agenticRequiresAuth: true }, null, false, false ) ).toEqual( {
-			enabled: false,
-			chatEnabled: false,
-			chatPromptsSignIn: false,
-			reason: 'signed-out',
-		} );
-	} );
-
-	it( 'disables only chat when the user switches agentic features off', () => {
-		expect( deriveAgenticFeatures( { agenticRequiresAuth: true }, user, false, false ) ).toEqual( {
-			enabled: true,
-			chatEnabled: false,
-			chatPromptsSignIn: false,
-			reason: null,
-		} );
-		expect(
-			deriveAgenticFeatures( { agenticRequiresAuth: false }, undefined, false, false )
-		).toEqual( {
-			enabled: true,
-			chatEnabled: false,
-			chatPromptsSignIn: false,
-			reason: null,
-		} );
+	it( 'disables networked features offline', () => {
+		for ( const connector of [ { agenticRequiresAuth: true }, { agenticRequiresAuth: false } ] ) {
+			expect( deriveAgenticFeatures( connector, user, true ) ).toEqual( {
+				enabled: false,
+				reason: 'offline',
+			} );
+		}
 	} );
 } );

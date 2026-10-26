@@ -8,19 +8,44 @@ import { MakerZIP } from '@electron-forge/maker-zip';
 import { AutoUnpackNativesPlugin } from '@electron-forge/plugin-auto-unpack-natives';
 import { exec as pkgExec } from '@yao-pkg/pkg';
 import { globSync } from 'glob';
+import { PROTOCOL_PREFIX } from '../../packages/common/constants';
 import { RecommendedPHPVersion } from '../../packages/common/types/php-versions';
-import { windowsSign } from './windowsSign';
+import { squirrelWindowsSign, windowsSign } from './windowsSign';
 import type { ForgeConfig } from '@electron-forge/shared-types';
 
 const repoRoot = path.resolve( __dirname, '../..' );
 const bundledPhpBinaryRoot = path.join( __dirname, 'php-bin' );
+// The name users read. productName stays "Studio" because it names the app
+// bundle, executable, DMG and log and data folders that releases rely on.
+const displayName = 'WordPress Studio';
 
 const config: ForgeConfig = {
 	packagerConfig: {
 		asar: true,
+		// macOS only lets an app handle URL schemes its Info.plist declares.
+		protocols: [ { name: 'Studio', schemes: [ PROTOCOL_PREFIX ] } ],
 		extendInfo: {
 			MDItemKeywords: 'WordPress, WordPress Studio, WP, local WordPress development',
+			// Finder, the Dock and the menu bar then take the name from the
+			// InfoPlist.strings written below.
+			LSHasLocalizedDisplayName: true,
 		},
+		afterCopyExtraResources: [
+			async ( { buildPath, platform } ) => {
+				if ( platform !== 'darwin' ) {
+					return;
+				}
+				const strings = `CFBundleDisplayName = "${ displayName }";\nCFBundleName = "${ displayName }";\n`;
+				const localizations = globSync( '*.app/Contents/Resources/*.lproj', {
+					cwd: buildPath,
+					absolute: true,
+				} );
+				for ( const localization of localizations ) {
+					fs.writeFileSync( path.join( localization, 'InfoPlist.strings' ), strings );
+				}
+			},
+		],
+		win32metadata: { FileDescription: displayName },
 		// prePackage installs the self-contained production dependency tree.
 		prune: false,
 		extraResource: [
@@ -61,11 +86,8 @@ const config: ForgeConfig = {
 			// Config files
 			/^\/tsconfig\./,
 			/^\/vitest\./,
-			/^\/postcss\./,
-			/^\/tailwind\./,
 			/^\/forge\./,
 			/^\/electron\./,
-			/^\/index\.html$/,
 			/^\/.*\.md$/,
 			/^\/.*\.txt$/,
 			/^\/.*\.log$/,
@@ -82,10 +104,8 @@ const config: ForgeConfig = {
 		new MakerZIP( {}, [ 'darwin' ] ),
 		new MakerDeb( {
 			options: {
-				// Display name for app launchers and stores. Overrides
-				// package.json.productName ("Studio") so Linux users see the
-				// fully-qualified "WordPress Studio" in their menus.
-				productName: 'WordPress Studio',
+				// Display name for app launchers and stores.
+				productName: displayName,
 				categories: [ 'Utility' ],
 				name: 'studio',
 				bin: 'studio',
@@ -117,6 +137,8 @@ const config: ForgeConfig = {
 		} ),
 		new MakerSquirrel(
 			{
+				// Names the uninstall entry; shortcuts take the exe's ProductName.
+				title: displayName,
 				loadingGif: path.join( __dirname, 'installers', 'loading.gif' ),
 				setupIcon: path.join( __dirname, 'assets', 'studio-app-icon.ico' ),
 				// This icon is shown in Control Panel -> Programs and Features
@@ -127,7 +149,7 @@ const config: ForgeConfig = {
 
 				// Sign via the custom Azure Trusted Signing hook (signtool, SHA256-only).
 				// Undefined when SIGN_WINDOWS_BUILD isn't set (e.g. package-only jobs), leaving the build unsigned.
-				...( windowsSign ? { windowsSign } : {} ),
+				...( squirrelWindowsSign ? { windowsSign: squirrelWindowsSign } : {} ),
 			},
 			[ 'win32' ]
 		),
@@ -136,6 +158,7 @@ const config: ForgeConfig = {
 			: [
 					new MakerDMG(
 						{
+							title: displayName,
 							icon: path.join( __dirname, 'assets', 'studio-app-icon.icns' ),
 							background: path.join( __dirname, 'assets', 'dmg-background.png' ),
 							contents: [
@@ -246,38 +269,6 @@ const config: ForgeConfig = {
 							if ( fs.statSync( dirToRemove ).isDirectory() ) {
 								fs.rmSync( dirToRemove, { recursive: true, force: true } );
 								console.log( `Removed koffi/build/koffi/${ platformArchDir }` );
-							}
-						}
-					}
-				}
-			}
-
-			// Clean up fs-ext-extra-prebuilt binaries (file format:
-			// fs-ext-{platform}-{arch}-{runtime}-{version}.node). The root postinstall
-			// already filtered by platform; this strips the unused arch for the target build.
-			const fsExtBinDir = path.join( cliNodeModules, 'fs-ext-extra-prebuilt', 'binaries' );
-			const fsExtPrefix = `fs-ext-${ platform }-${ arch }-`;
-			if ( fs.existsSync( fsExtBinDir ) ) {
-				const fsExtFiles = fs.readdirSync( fsExtBinDir );
-				if ( ! fsExtFiles.some( ( f ) => f.startsWith( fsExtPrefix ) ) ) {
-					console.warn(
-						`Skipping fs-ext cleanup: no file starting with ${ fsExtPrefix } in ${ fsExtBinDir }`
-					);
-				} else {
-					for ( const file of fsExtFiles ) {
-						if ( ! file.startsWith( fsExtPrefix ) ) {
-							// Tolerate transient failures (Windows AV locks, permissions) — this
-							// cleanup is a size optimization; aborting packaging over a stuck file
-							// would be worse than shipping a few hundred extra KB. Mirrors the
-							// behavior of scripts/remove-fs-ext-other-platform-binaries.mjs.
-							try {
-								fs.unlinkSync( path.join( fsExtBinDir, file ) );
-								console.log( `Removed fs-ext-extra-prebuilt/binaries/${ file }` );
-							} catch ( e ) {
-								const message = e instanceof Error ? e.message : String( e );
-								console.warn(
-									`Could not remove fs-ext-extra-prebuilt/binaries/${ file }: ${ message }`
-								);
 							}
 						}
 					}

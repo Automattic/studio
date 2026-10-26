@@ -86,10 +86,7 @@ $transformer->to_file( $wp_config_path );
 	}
 }
 
-export function getSiteUrlPrependContent(
-	siteUrl: string,
-	originalAutoPrependFile?: string
-): string {
+function getSiteUrlPrependContent( siteUrl: string, originalAutoPrependFile?: string ): string {
 	const escapedSiteUrl = escapePhpSingleQuotedString( siteUrl );
 	const chained = originalAutoPrependFile
 		? `require '${ escapePhpSingleQuotedString( originalAutoPrependFile ) }';`
@@ -126,7 +123,7 @@ export function writeSiteUrlPrependFile(
 	return prependPath;
 }
 
-export async function isWordPressInstalled(
+async function isWordPressInstalled(
 	siteFolder: string,
 	phpVersion: SupportedPHPVersion,
 	signal: AbortSignal

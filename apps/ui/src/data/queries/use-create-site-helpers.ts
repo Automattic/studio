@@ -29,15 +29,18 @@ export function useExistingCustomDomains(): string[] {
 }
 
 /**
- * Asks the main process for a randomly-selected, non-colliding site name so
- * the create form can pre-fill "Site name" on first render. Skips until the
- * caller has loaded the current site list.
+ * Asks the main process for a non-colliding site name so the create form can
+ * pre-fill "Site name" on first render: a random one, or `baseName` numbered.
+ * Skips until the caller has loaded the current site list.
  */
-export function useProposedSiteName( sites: SiteDetails[] | undefined ) {
+export function useProposedSiteName( sites: SiteDetails[] | undefined, baseName?: string ) {
 	const connector = useConnector();
 	return useQuery( {
-		queryKey: [ ...PROPOSED_SITE_NAME_QUERY_KEY, ( sites ?? [] ).map( ( s ) => s.id ) ],
-		queryFn: () => connector.generateProposedSiteName( sites ?? [] ),
+		queryKey: [ ...PROPOSED_SITE_NAME_QUERY_KEY, baseName, ( sites ?? [] ).map( ( s ) => s.id ) ],
+		queryFn: () =>
+			baseName
+				? connector.generateNumberedSiteName( baseName, sites ?? [] )
+				: connector.generateProposedSiteName( sites ?? [] ),
 		enabled: !! sites,
 		staleTime: Infinity,
 	} );
@@ -52,7 +55,7 @@ export function useProposedSiteName( sites: SiteDetails[] | undefined ) {
  * - `selectPath(currentPath)` — opens the native folder picker and runs the
  *   same validation on the user's choice.
  */
-export function usePathValidator( sites: SiteDetails[] | undefined ) {
+export function usePathValidator( sites: SiteDetails[] | undefined, requiresEmptyPath = false ) {
 	const connector = useConnector();
 
 	const checkPathExists = useCallback(
@@ -69,9 +72,13 @@ export function usePathValidator( sites: SiteDetails[] | undefined ) {
 	const generateProposedPath = useCallback(
 		async ( siteName: string ): Promise< PathValidationResult > => {
 			const result = await connector.generateProposedSitePath( siteName );
-			return validateProposedSitePath( result, await checkPathExists( result.path ) );
+			return validateProposedSitePath(
+				result,
+				await checkPathExists( result.path ),
+				requiresEmptyPath
+			);
 		},
-		[ connector, checkPathExists ]
+		[ connector, checkPathExists, requiresEmptyPath ]
 	);
 
 	const selectPath = useCallback(
@@ -79,9 +86,9 @@ export function usePathValidator( sites: SiteDetails[] | undefined ) {
 			const response = await connector.selectSiteFolder( currentPath );
 			if ( ! response ) return null;
 			const exists = await checkPathExists( response.path );
-			return validateSelectedSitePath( response, exists );
+			return validateSelectedSitePath( response, exists, requiresEmptyPath );
 		},
-		[ connector, checkPathExists ]
+		[ connector, checkPathExists, requiresEmptyPath ]
 	);
 
 	return { generateProposedPath, selectPath };

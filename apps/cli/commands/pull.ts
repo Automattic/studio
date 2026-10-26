@@ -167,7 +167,6 @@ export async function runCommand(
 			);
 		}
 
-		// Check backup size before downloading
 		const backupFileSize = await checkBackupSize( downloadUrl );
 		if ( backupFileSize > SYNC_PUSH_SIZE_LIMIT_BYTES ) {
 			if ( confirmLargeBackup ) {
@@ -263,6 +262,7 @@ export async function runCommand(
 						kind: 'error',
 						direction: 'pull',
 						message: failure instanceof Error ? failure.message : String( failure ),
+						localChangesApplied: pullCompleted,
 				  }
 				: { kind: pullCompleted ? 'success' : 'cancelled', direction: 'pull' }
 		);

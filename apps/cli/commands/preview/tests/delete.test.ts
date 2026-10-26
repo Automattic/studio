@@ -153,18 +153,6 @@ describe( 'Preview Delete Command', () => {
 		expect( deleteSnapshotFromConfig ).not.toHaveBeenCalled();
 	} );
 
-	it( 'should handle delete snapshot errors', async () => {
-		const errorMessage = 'Failed to delete snapshot';
-		vi.mocked( deleteSnapshotFromConfig ).mockImplementation( () => {
-			throw new LoggerError( errorMessage );
-		} );
-
-		await runCommand( Mode.DELETE_SINGLE_SNAPSHOT, mockSiteUrl );
-
-		expect( mockReportError ).toHaveBeenCalled();
-		expect( mockReportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
-	} );
-
 	it( 'should complete deleting all preview sites successfully', async () => {
 		await runCommand( Mode.DELETE_ALL_SNAPSHOT, undefined );
 

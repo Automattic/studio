@@ -1,5 +1,5 @@
 {
-	"$schema": "https://unpkg.com/knip@5/schema.json",
+	"$schema": "https://unpkg.com/knip@6/schema.json",
 	"workspaces": {
 		".": {
 			"entry": ["scripts/**/*.{ts,mjs,cjs}"],
@@ -10,13 +10,12 @@
 				"src/index.ts",
 				"src/preload.ts",
 				"src/migrations/index.ts",
-				"src/additional-phrases.ts",
 				"forge.config.ts",
-				"electron.vite.config.ts",
 				"e2e/global-setup.ts",
 				"e2e/**/*.test.ts"
 			],
-			"project": "{src,e2e}/**/*.{ts,tsx}"
+			"project": "{src,e2e}/**/*.{ts,tsx}",
+			"ignoreDependencies": ["ignore", "tus-js-client", "wpcom", "@wp-playground/blueprints"]
 		},
 		"apps/cli": {
 			"entry": [
@@ -25,18 +24,14 @@
 				"process-manager-daemon.ts",
 				"proxy-daemon.ts",
 				"logger.ts",
-				"ai/eval-runner.ts",
+				"ai/eval-runner-entry.ts",
 				"commands/**/*.ts",
 				"vite.config.*.ts"
 			],
 			"project": "**/*.ts"
 		},
 		"apps/ui": {
-			"entry": ["src/main.hosted.tsx", "src/main.local.tsx"],
-			"project": "src/**/*.{ts,tsx}"
-		},
-		"apps/hosted": {
-			"entry": ["src/index.ts"],
+			"entry": ["src/main.local.tsx", "src/dev/{chat,animation}.tsx"],
 			"project": "src/**/*.{ts,tsx}"
 		},
 		"apps/local": {
@@ -44,7 +39,7 @@
 			"project": "src/**/*.{ts,tsx}"
 		},
 		"packages/common": {
-			"entry": ["translations/index.ts", "globals.ts"],
+			"entry": ["globals.ts"],
 			"project": "**/*.ts"
 		},
 		"tools/eslint-plugin-studio": {
@@ -52,8 +47,7 @@
 		}
 	},
 	"ignoreDependencies": [
-		"@sentry/react",
 		"@automattic/wp-babel-makepot"
 	],
-	"ignoreBinaries": ["scripts/eval/promptfoo.config.yaml"]
+	"ignoreBinaries": ["mdfind", "attrib"]
 }

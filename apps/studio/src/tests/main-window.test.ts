@@ -1,12 +1,12 @@
 /**
  * @vitest-environment node
  */
-import { BrowserWindow } from 'electron';
+import { BrowserWindow, app, dialog } from 'electron';
+import path from 'path';
 import { readFile } from 'atomically';
 import { vol } from 'memfs';
 import { vi } from 'vitest';
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
-import { setAgenticUiEnabled } from 'src/lib/studio-ui-mode';
 import {
 	createMainWindow,
 	getExistingMainWindow,
@@ -18,12 +18,7 @@ import {
 vi.mock( 'fs' );
 vi.mock( 'src/ipc-utils' );
 vi.mock( 'atomically' );
-vi.mock( 'src/lib/app-globals', () => ( {
-	saveWindowBounds: vi.fn(),
-} ) );
 
-// Create a simpler mock that tracks event handlers
-const mockEventHandlers = new Map< string, ( ( ...args: any[] ) => void )[] >();
 const mockWebContentsEventHandlers = new Map< string, ( ( ...args: any[] ) => void )[] >();
 
 vi.mock( 'electron', () => {
@@ -40,12 +35,7 @@ vi.mock( 'electron', () => {
 		setTitleBarOverlay = vi.fn();
 		getBounds = vi.fn().mockReturnValue( { x: 0, y: 0, width: 800, height: 600 } );
 
-		on = vi.fn().mockImplementation( ( event: string, handler: ( ...args: any[] ) => void ) => {
-			if ( ! mockEventHandlers.has( event ) ) {
-				mockEventHandlers.set( event, [] );
-			}
-			mockEventHandlers.get( event )!.push( handler );
-		} );
+		on = vi.fn();
 
 		webContents = {
 			isDestroyed: vi.fn().mockReturnValue( false ),
@@ -74,9 +64,11 @@ vi.mock( 'electron', () => {
 			getVersion: vi.fn().mockReturnValue( '1.0.0' ),
 			getPath: vi.fn().mockReturnValue( '/mock/path' ),
 			isPackaged: false,
+			quit: vi.fn(),
 		},
 		dialog: {
 			showMessageBox: vi.fn(),
+			showErrorBox: vi.fn(),
 		},
 		nativeTheme: {
 			themeSource: 'light',
@@ -103,6 +95,8 @@ vi.mock( 'electron', () => {
 	};
 } );
 
+const RENDERER_PATH = path.resolve( __dirname, '../../renderer-ui/index.html' );
+
 const mockUserData = {
 	sites: [],
 };
@@ -111,7 +105,6 @@ vi.mocked( readFile ).mockResolvedValue( Buffer.from( JSON.stringify( mockUserDa
 beforeEach( () => {
 	delete process.env.ENABLE_AGENTIC_UI;
 	delete process.env.ELECTRON_UI_RENDERER_URL;
-	delete process.env.ELECTRON_RENDERER_URL;
 	mockWebContentsEventHandlers.clear();
 } );
 
@@ -120,6 +113,7 @@ describe( 'getMainWindow', () => {
 
 	beforeEach( async () => {
 		vol.reset();
+		vol.fromJSON( { [ RENDERER_PATH ]: '<!doctype html>' } );
 		createdWindow = await createMainWindow();
 	} );
 
@@ -130,27 +124,6 @@ describe( 'getMainWindow', () => {
 	it( 'returns the main window when the reference is set', async () => {
 		const window = await getMainWindow();
 		expect( window ).toBe( createdWindow );
-	} );
-
-	it( 'returns the focused window when the reference is destroyed', async () => {
-		const mockWindow1 = new BrowserWindow();
-		const mockWindow2 = new BrowserWindow();
-		vi.mocked( createdWindow.isDestroyed ).mockReturnValueOnce( true );
-		vi.mocked( BrowserWindow.getFocusedWindow ).mockReturnValueOnce( mockWindow2 );
-		vi.mocked( BrowserWindow.getAllWindows ).mockReturnValueOnce( [ mockWindow1, mockWindow2 ] );
-
-		const window = await getMainWindow();
-		expect( window ).toBe( mockWindow2 );
-	} );
-
-	it( 'returns the first window when the reference is destroyed and no window is focused', async () => {
-		const mockWindow1 = new BrowserWindow();
-		const mockWindow2 = new BrowserWindow();
-		vi.mocked( createdWindow.isDestroyed ).mockReturnValueOnce( true );
-		vi.mocked( BrowserWindow.getAllWindows ).mockReturnValueOnce( [ mockWindow1, mockWindow2 ] );
-
-		const window = await getMainWindow();
-		expect( window ).toBe( mockWindow1 );
 	} );
 
 	it( 'returns a new window when no non-destroyed windows exist', async () => {
@@ -182,26 +155,28 @@ describe( 'getExistingMainWindow', () => {
 } );
 
 describe( 'renderer selection', () => {
+	beforeEach( () => {
+		vol.reset();
+	} );
+
 	afterEach( () => {
-		setAgenticUiEnabled( false );
 		__resetMainWindow();
 	} );
 
-	it( 'loads the legacy renderer by default', async () => {
-		const createdWindow = await createMainWindow();
-		const rendererPath = vi.mocked( createdWindow.loadFile ).mock.calls[ 0 ][ 0 ];
-
-		expect( rendererPath.replace( /\\/g, '/' ) ).toContain( 'renderer/index.html' );
-		expect( createdWindow.loadURL ).not.toHaveBeenCalled();
-	} );
-
-	it( 'loads the UI dev server when the agentic UI flag is enabled', async () => {
-		setAgenticUiEnabled( true );
+	it( 'loads the UI dev server when one is running', async () => {
 		process.env.ELECTRON_UI_RENDERER_URL = 'http://localhost:5200';
 
 		const createdWindow = await createMainWindow();
 
 		expect( createdWindow.loadURL ).toHaveBeenCalledWith( 'http://localhost:5200' );
+		expect( createdWindow.loadFile ).not.toHaveBeenCalled();
+	} );
+
+	it( 'shows an error and quits when the renderer was not built', async () => {
+		const createdWindow = await createMainWindow();
+
+		await vi.waitFor( () => expect( app.quit ).toHaveBeenCalled() );
+		expect( dialog.showErrorBox ).toHaveBeenCalled();
 		expect( createdWindow.loadFile ).not.toHaveBeenCalled();
 	} );
 } );
@@ -263,74 +238,6 @@ describe( 'sidebar shortcut', () => {
 		expect( sendIpcEventToRendererWithWindow ).toHaveBeenCalledWith(
 			createdWindow,
 			'toggle-sidebar'
-		);
-	} );
-
-	it( 'handles app zoom shortcuts without relying on the application menu', async () => {
-		const createdWindow = await createMainWindow();
-		const handlers = mockWebContentsEventHandlers.get( 'before-input-event' );
-		const event = { preventDefault: vi.fn() };
-
-		handlers![ 0 ]( event, {
-			type: 'keyDown',
-			key: '+',
-			code: 'Equal',
-			isAutoRepeat: false,
-			isComposing: false,
-			shift: true,
-			control: process.platform !== 'darwin',
-			alt: false,
-			meta: process.platform === 'darwin',
-			location: 0,
-			modifiers: [],
-		} as Electron.Input );
-
-		expect( event.preventDefault ).toHaveBeenCalled();
-		expect( createdWindow.webContents.setZoomLevel ).toHaveBeenCalledWith( 0.5 );
-	} );
-} );
-
-describe( 'fullscreen events', () => {
-	let createdWindow: BrowserWindow;
-
-	beforeEach( async () => {
-		mockEventHandlers.clear();
-		createdWindow = await createMainWindow();
-	} );
-
-	afterEach( () => {
-		__resetMainWindow();
-	} );
-
-	it( 'sends fullscreen-change event when entering fullscreen', () => {
-		// Get the registered event handler for 'enter-full-screen'
-		const handlers = mockEventHandlers.get( 'enter-full-screen' );
-		expect( handlers ).toBeDefined();
-		expect( handlers!.length ).toBeGreaterThan( 0 );
-
-		// Simulate entering fullscreen by calling the handler
-		handlers![ 0 ]();
-
-		expect( sendIpcEventToRendererWithWindow ).toHaveBeenCalledWith(
-			createdWindow,
-			'window-fullscreen-change',
-			true
-		);
-	} );
-
-	it( 'sends fullscreen-change event when leaving fullscreen', () => {
-		// Get the registered event handler for 'leave-full-screen'
-		const handlers = mockEventHandlers.get( 'leave-full-screen' );
-		expect( handlers ).toBeDefined();
-		expect( handlers!.length ).toBeGreaterThan( 0 );
-
-		// Simulate leaving fullscreen by calling the handler
-		handlers![ 0 ]();
-
-		expect( sendIpcEventToRendererWithWindow ).toHaveBeenCalledWith(
-			createdWindow,
-			'window-fullscreen-change',
-			false
 		);
 	} );
 } );

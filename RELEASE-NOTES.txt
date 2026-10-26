@@ -1,6 +1,71 @@
 Unreleased
 ==========
 
+2.0.4
+=====
+* Native PHP: Update the bundled PHP binaries to 8.2.35, 8.3.36, 8.4.27 and 8.5.12 #5266 #5269 #5268 #5267
+
+2.0.0
+=====
+<!-- Release notes generated using configuration in .github/release.yml at HEAD -->
+* Desktop: Revoke the WordPress.com token on logout #5042
+* Browser UI: Show the file tree, size estimate and multisite warning when pushing #5081
+* CI: Only load CLI e2e test files in the CLI e2e job #5097
+* Agentic UI: Say why a site failed to start, with a link to the logs #5044
+* Agentic UI: Write renderer errors and console output to the Desktop log file #5077
+* Remove the dev-only Test Render Failure menu item #5040
+* Translate the app menu, dialogs and notifications with the Agentic UI #5041
+* Desktop: Show an error when WordPress.com login fails #5037
+* Desktop: Recheck which sites are running on focus and every 2 minutes #5053
+* Agentic UI: Explain why a push failed, with a link to Studio Logs #5055
+* Agentic UI: Say when a new site's folder already holds a WordPress site #5051
+* Agentic UI: Say why a preview site failed to publish #5052
+* CLI: Check the preview size limit when updating a preview #5056
+* Agentic UI: Keep a Blueprint's WordPress version when it names a branch like 6.5 #5057
+* Browser UI: Show preview-site usage and enforce the preview limit #5060
+* Agentic UI: Use slim scrollbars in inner scroll areas on Windows and Linux #5064
+* Agentic UI: Stop flashing a light page when launching in dark mode #5065
+* Warn again when Studio runs under Rosetta or Windows ARM emulation #5063
+* WordPress tab: keep the space at the end of the New site draft #5102
+* Agentic UI: Mirror WordPress components correctly in right-to-left languages #5067
+* Agentic UI: Explain why creating a site failed, without the raw CLI output #5069
+* Agentic UI: Show preview dates in the app's language, with the exact expiry on hover #5070
+* Browser UI: Report how a site was created (import, sync, AI, duplicate) #5071
+* Agentic UI: Report Desktop crashes to Sentry with source maps #5072
+* Agentic UI: Confirm when a duplicated site is ready and say why duplicating failed #5073
+* Browser UI: Remember the orientation guide's progress in the same place as Desktop #5075
+* Agentic UI: Report failed site and database exports #5079
+* Agentic UI: Say a newly published site is connected and needs a push #5068
+* Browser UI: Put new sites in the default site directory and show it read-only #5080
+* Agentic UI: Title the window WordPress Studio, as the classic UI did #5104
+* Share one root certificate trust implementation between the CLI and Desktop #5105
+* Agentic UI: Keep the uploaded Blueprint ZIP selected after a failed site creation #5076
+* Agentic UI: Warn when Studio's HTTPS certificate isn't trusted, with a way to trust it #5106
+* Track Studio usage through studio mcp, and tell plugin users apart #5107
+* WordPress Studio plugin for Codex in the ChatGPT app #5103
+* Stop crediting WordPress Playground for local sites in the About window #5113
+* Codex plugin: fit the manifest to OpenAI's directory rules #5111
+* Desktop: Cut ~180 MB from the packaged app #5098
+* Remove the classic UI, part 1: Always load the Agentic UI renderer #5110
+* Declare @studio/common as a source-only package #5101
+* Remove the classic UI, part 2: Delete the classic renderer #5112
+* build(deps): bump actions/download-artifact from 8.0.1 to 8.0.2 #5119
+* build(deps-dev): bump the electron group with 2 updates #5122
+* Remove the classic UI, part 3: Remove classic-only IPCs and main-process code #5114
+* Publish the Studio plugins from their own marketplace repository #5125
+* Remove the classic UI, part 4: Update docs and tooling #5115
+* build(deps): bump the ruby-minor-and-patch group with 2 updates #5121
+* build(deps): bump ruby/setup-ruby from 1.327.0 to 1.328.0 #5120
+* Ship the Codex plugin with the Studio CLI inside #5128
+* Remove the classic UI, part 5: Resolve sites from the CLI instead of an in-memory registry #5126
+* build(deps): bump actions/setup-node from 7.0.0 to 7.1.0 #5118
+* build(deps): bump shivammathur/setup-php from 2.37.2 to 2.40.0 #5116
+* build(deps): bump actions/upload-artifact from 7.0.1 to 7.0.2 #5117
+* Start the WordPress Studio plugin for Codex on Windows #5129
+* Translate the macOS-provided menu items into Studio's language #5131
+* Agentic UI: add copy buttons for the site URL and local path #5021
+**Full Changelog**: https://github.com/Automattic/studio/compare/v1.24.0...v2.0.0
+
 1.24.0
 =====
 <!-- Release notes generated using configuration in .github/release.yml at HEAD -->

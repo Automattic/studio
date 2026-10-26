@@ -188,3 +188,35 @@ describe( 'createLocalConnector debug log', () => {
 		);
 	} );
 } );
+
+describe( 'createLocalConnector menu shortcuts', () => {
+	it( 'binds the application menu’s accelerators in the page', () => {
+		const connector = createLocalConnector( { apiBaseUrl: 'http://localhost:8081' } );
+		const toggleSidebar = vi.fn();
+		const toggleSitePreview = vi.fn();
+		const openSettings = vi.fn();
+		const addSite = vi.fn();
+		const unsubscribe = [
+			connector.onToggleSidebar( toggleSidebar ),
+			connector.onToggleSitePreview( toggleSitePreview ),
+			connector.onOpenSettings( openSettings ),
+			connector.onAddSite( addSite ),
+		];
+
+		const press = ( init: KeyboardEventInit ) =>
+			document.body.dispatchEvent(
+				new KeyboardEvent( 'keydown', { ctrlKey: true, bubbles: true, cancelable: true, ...init } )
+			);
+		expect( press( { key: 'b', code: 'KeyB' } ) ).toBe( false );
+		press( { key: 'B', code: 'KeyB', shiftKey: true } );
+		press( { key: ',', code: 'Comma' } );
+		press( { key: 'n', code: 'KeyN' } );
+		unsubscribe.forEach( ( stop ) => stop() );
+		press( { key: 'b', code: 'KeyB' } );
+
+		expect( toggleSidebar ).toHaveBeenCalledTimes( 1 );
+		expect( toggleSitePreview ).toHaveBeenCalledTimes( 1 );
+		expect( openSettings ).toHaveBeenCalledTimes( 1 );
+		expect( addSite ).toHaveBeenCalledTimes( 1 );
+	} );
+} );

@@ -12,10 +12,9 @@ import { __, sprintf } from '@wordpress/i18n';
 // items below are declared by us, but the menu itself is the real native
 // widget on every platform (NSMenu, Win32, GTK).
 //
-// The renderer drives this rather than `webContents.on( 'context-menu' )`,
-// matching `showSiteContextMenu`: only the renderer knows which message was
-// clicked, and pushing that to the main process afterwards would race the
-// browser's own context-menu request.
+// The renderer drives this rather than `webContents.on( 'context-menu' )`:
+// only the renderer knows which message was clicked, and pushing that to the
+// main process afterwards would race the browser's own context-menu request.
 
 // Long enough to recognise the phrase, short enough that the menu doesn't
 // stretch across the screen. macOS truncates its own Look Up label similarly.

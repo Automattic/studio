@@ -25,7 +25,6 @@ import { stopSiteTool } from './stop-site';
 import { createTakeScreenshotTool, takeScreenshotTool } from './take-screenshot';
 import { updatePreviewTool } from './update-preview';
 import { validateBlocksTool } from './validate-blocks';
-import { waitForAnnotationsTool } from './wait-for-annotations';
 import { runWpCliTool } from './wp-cli';
 import { wpcomRequestTool } from './wpcom-request';
 import type { AnyStudioAgentTool, StudioToolResultDetails } from './define-tool';
@@ -45,7 +44,6 @@ export const studioToolDefinitions: AnyStudioAgentTool[] = [
 	updatePreviewTool,
 	deletePreviewTool,
 	runWpCliTool,
-	refreshBrowserTool,
 	scaffoldThemeTool,
 	pickDesignTool,
 	validateBlocksTool,
@@ -62,7 +60,7 @@ export const studioToolDefinitions: AnyStudioAgentTool[] = [
 	importSiteTool,
 	exportSiteTool,
 	openAnnotationBrowserTool,
-	waitForAnnotationsTool,
+	refreshBrowserTool,
 ];
 
 export interface CreateStudioToolsOptions {
@@ -76,6 +74,9 @@ export interface CreateStudioToolsOptions {
 	imageGeneration?: boolean;
 	// False for models that cannot view images. Defaults to true.
 	visionEnabled?: boolean;
+	// False leaves out wpcom_request, for hosts that don't accept a tool reaching any
+	// WordPress.com endpoint. Defaults to true.
+	wpcomRequest?: boolean;
 	// Lets pick_design offer options to pick from. Defaults to false.
 	canAskUser?: boolean;
 	// The chat session the design tools record Tracks events for; absent for the MCP server.
@@ -89,23 +90,22 @@ export function resolveStudioToolDefinitions(
 	options: CreateStudioToolsOptions = {}
 ): AnyStudioAgentTool[] {
 	return studioToolDefinitions.flatMap( ( candidate ) => {
-		// refresh_browser only makes sense when a Studio UI with a preview pane
-		// is attached to consume the preview.reload event; emitChatArtifacts is
-		// the existing "UI attached" signal (process.send available).
-		if ( candidate.name === refreshBrowserTool.name && options.emitChatArtifacts !== true ) {
-			return [];
-		}
 		if ( candidate.name === generateImagesTool.name && ! options.imageGeneration ) {
 			return [];
 		}
+		if ( candidate.name === wpcomRequestTool.name && options.wpcomRequest === false ) {
+			return [];
+		}
+		// Only a Studio UI shows the preview it reloads.
+		if ( candidate.name === refreshBrowserTool.name && ! options.emitChatArtifacts ) {
+			return [];
+		}
 		let tool = candidate;
-		if (
-			candidate.name === takeScreenshotTool.name &&
-			( options.visionEnabled === false || options.imageLink )
-		) {
+		if ( candidate.name === takeScreenshotTool.name ) {
 			tool = createTakeScreenshotTool( {
 				visionEnabled: options.visionEnabled !== false,
 				imageLink: options.imageLink,
+				userSeesCapture: options.emitChatArtifacts === true || Boolean( options.imageLink ),
 			} );
 		}
 		if ( candidate.name === inspectDesignTool.name && options.visionEnabled === false ) {

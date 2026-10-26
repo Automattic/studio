@@ -37,10 +37,12 @@ import {
 	type AiModelFamily,
 	type AiModelId,
 } from '@studio/common/ai/models';
+import { findLastAssistant, isEmptyStop } from '@studio/common/ai/session-events';
 import { getAiTracksIdentity } from '@studio/common/ai/tracks-identity';
 import { type TSchema } from 'typebox';
 import { withDesignSystemPreview } from 'cli/ai/chat-artifacts';
 import { isImageGenerationAvailable } from 'cli/ai/image-generation';
+import { createResultNotes } from 'cli/ai/result-notes';
 import { buildSystemPrompt, type ToolPromptContribution } from 'cli/ai/system-prompt';
 import { resolveStudioToolDefinitions } from 'cli/ai/tools';
 import { createAskUserQuestionTool } from 'cli/ai/tools/ask-user-question';
@@ -48,10 +50,12 @@ import { createPresentDesignOptionsTool } from 'cli/ai/tools/present-design-opti
 import { createSkillTool } from 'cli/ai/tools/skill';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import { getFileToolPrompt } from './file-tool-prompts';
+import { withLeakedToolCallMarkupRemoved } from './leaked-tool-call-markup';
 import { getPendingWork, type PendingWork } from './pending-work';
 import { stripStaleImagesFromContext } from './strip-stale-images';
 import {
 	getIncompleteToolCallReason,
+	getFileWriteRefusal,
 	getPayloadLimitViolation,
 	type StudioToolPayloadGuardState,
 	updateStudioToolPayloadGuardState,
@@ -72,6 +76,13 @@ type ProviderConfigInput = Parameters< ModelRuntime[ 'registerProvider' ] >[ 1 ]
 
 const STUDIO_WPCOM_PROVIDER = 'studio-wpcom';
 const STUDIO_AGENT_DIR = STUDIO_SITES_ROOT;
+// A reply with nothing in it ends the turn without the user seeing why (see
+// `isEmptyStop`). Resume it with a message the user doesn't see, up to this
+// many times per turn. pi leaves a reply that has only reasoning out of the
+// next request, so the message carries that reasoning; otherwise the model
+// starts the same reasoning over and runs out again.
+const MAX_EMPTY_STOP_CONTINUES = 2;
+const EMPTY_STOP_CONTINUE_TYPE = 'studio.empty_stop_continue';
 const STUDIO_COMPACTION_SETTINGS = {
 	enabled: true,
 	reserveTokens: 16_384,
@@ -97,6 +108,8 @@ interface ResolvedStudioAgentTurnConfig extends StudioAgentTurnConfig {
 export interface StudioAgentTurnHandle {
 	result: Promise< void >;
 	interrupt(): Promise< void >;
+	/** Whether `name` is one of the turn's registered tools, not a name the model made up. */
+	hasTool( name: string ): boolean;
 }
 
 export function runStudioAgentTurn( config: StudioAgentTurnConfig ): StudioAgentTurnHandle {
@@ -121,6 +134,9 @@ export function runStudioAgentTurn( config: StudioAgentTurnConfig ): StudioAgent
 		async interrupt() {
 			controller.abort();
 			await activeSession?.abort();
+		},
+		hasTool( name ) {
+			return activeSession?.getAllTools().some( ( tool ) => tool.name === name ) ?? false;
 		},
 	};
 }
@@ -231,8 +247,28 @@ async function runAgentSessionTurn(
 	try {
 		session = await createStudioAgentSession( config, family, resolved.creds, payloadGuardState );
 		setActiveSession( session );
+		let emptyStopContinues = 0;
+		let continueAfterEmptyStop = false;
+		let cutOffReasoning = '';
 		unsubscribe = session.subscribe( ( event ) => {
 			updateStudioToolPayloadGuardState( event, payloadGuardState );
+			if (
+				event.type === 'agent_end' &&
+				! event.willRetry &&
+				emptyStopContinues < MAX_EMPTY_STOP_CONTINUES
+			) {
+				const lastAssistant = findLastAssistant( event.messages );
+				if ( isEmptyStop( lastAssistant ) ) {
+					// Not final: consumers wait for the turn's real end.
+					continueAfterEmptyStop = true;
+					cutOffReasoning = ( lastAssistant?.content ?? [] )
+						.map( ( block ) => ( block.type === 'thinking' ? block.thinking : '' ) )
+						.join( '' )
+						.trim();
+					config.onEvent( { ...event, willRetry: true } );
+					return;
+				}
+			}
 			config.onEvent( event );
 		} );
 
@@ -251,6 +287,24 @@ async function runAgentSessionTurn(
 				mimeType: image.mimeType,
 			} ) ),
 		} );
+		while ( continueAfterEmptyStop ) {
+			continueAfterEmptyStop = false;
+			if ( controller.signal.aborted ) {
+				config.onEvent( syntheticErrorAgentEnd( 'aborted', '' ) );
+				break;
+			}
+			emptyStopContinues++;
+			await session.sendCustomMessage(
+				{
+					customType: EMPTY_STOP_CONTINUE_TYPE,
+					content: cutOffReasoning
+						? `Your reasoning was cut off before you replied. Continue from where it stopped:\n\n${ cutOffReasoning }`
+						: 'continue',
+					display: false,
+				},
+				{ triggerTurn: true }
+			);
+		}
 		await getPendingWork( config.session ).settle();
 	} catch ( error ) {
 		const aborted = controller.signal.aborted;
@@ -284,14 +338,18 @@ async function createStudioAgentSession(
 		visionEnabled
 	);
 	const systemPrompt = buildSystemPrompt( {
-		chatArtifactsEnabled,
 		userInstructions,
 		tools: tools.map( toolPromptContribution ),
+		activeSite: config.activeSite,
 	} );
 
 	const pendingWork = getPendingWork( config.session );
+	const site = config.activeSite;
+	const notes = createResultNotes();
+	const resultNotes =
+		site && ! site.remote ? ( text: string ) => notes( site.path, text ) : undefined;
 	const toolDefinitions = tools.map( ( tool ) =>
-		toToolDefinition( tool, payloadGuardState, pendingWork )
+		toToolDefinition( tool, payloadGuardState, pendingWork, resultNotes )
 	);
 	const modelRuntime = await createModelRuntime( model, family, creds );
 	const settingsManager = createSettingsManager( config.env );
@@ -490,9 +548,9 @@ function escapePiConfigValue( value: string ): string {
 }
 
 // The wpcom lane only needs pi's stock streaming for each tier's API; the
-// custom provider exists to wrap the stream with the usage-cap 429 rewrite
-// and to strip stale screenshots, which would otherwise bloat requests past
-// the proxy's body limit.
+// custom provider exists to wrap the stream with the usage-cap 429 rewrite and
+// the leaked tool-call cleanup, and to strip stale screenshots, which would
+// otherwise bloat requests past the proxy's body limit.
 function createWpcomProviderConfig(
 	model: StudioWpcomModel,
 	creds: ResolvedCredentials
@@ -516,17 +574,19 @@ function createWpcomProviderConfig(
 		headers: creds.extraHeaders,
 		streamSimple: ( m, ctx, options?: SimpleStreamOptions ) =>
 			withUsageCapErrorRewrite(
-				stream( m, stripStaleImagesFromContext( ctx ), {
-					...options,
-					...( apiModelId
-						? {
-								onPayload: async ( params: unknown, payloadModel ) => {
-									const next = ( await options?.onPayload?.( params, payloadModel ) ) ?? params;
-									return { ...( next as Record< string, unknown > ), model: apiModelId };
-								},
-						  }
-						: {} ),
-				} )
+				withLeakedToolCallMarkupRemoved(
+					stream( m, stripStaleImagesFromContext( ctx ), {
+						...options,
+						...( apiModelId
+							? {
+									onPayload: async ( params: unknown, payloadModel ) => {
+										const next = ( await options?.onPayload?.( params, payloadModel ) ) ?? params;
+										return { ...( next as Record< string, unknown > ), model: apiModelId };
+									},
+							  }
+							: {} ),
+					} )
+				)
 			),
 		models: [
 			{
@@ -556,19 +616,19 @@ function createSettingsManager( _env: Record< string, string > ): SettingsManage
 	);
 }
 
-// pi's tools declare a prompt snippet and guidelines and so do Studio's (see
-// define-tool.ts); the AgentTool type does not carry them, hence the cast.
-type ToolPromptFields = { promptSnippet?: string; promptGuidelines?: string[] };
+// pi's tools declare a prompt snippet and so do Studio's (see define-tool.ts);
+// the AgentTool type does not carry it, hence the cast.
+type ToolPromptFields = { promptSnippet?: string };
 
 function toolPromptContribution( tool: AgentToolAny ): ToolPromptContribution {
-	const { promptSnippet, promptGuidelines } = tool as ToolPromptFields;
-	return { name: tool.name, promptSnippet, promptGuidelines };
+	return { name: tool.name, promptSnippet: ( tool as ToolPromptFields ).promptSnippet };
 }
 
 function toToolDefinition(
 	tool: AgentToolAny,
 	payloadGuardState: StudioToolPayloadGuardState,
-	pendingWork: PendingWork
+	pendingWork: PendingWork,
+	resultNotes?: ( text: string ) => Promise< string >
 ): ToolDefinition {
 	return {
 		name: tool.name,
@@ -578,7 +638,6 @@ function toToolDefinition(
 		prepareArguments: tool.prepareArguments,
 		executionMode: tool.executionMode,
 		promptSnippet: ( tool as ToolPromptFields ).promptSnippet,
-		promptGuidelines: ( tool as ToolPromptFields ).promptGuidelines,
 		execute: async ( toolCallId, params, signal, onUpdate ) => {
 			const incompleteToolCallReason = getIncompleteToolCallReason( payloadGuardState, toolCallId );
 			if ( incompleteToolCallReason ) {
@@ -587,6 +646,10 @@ function toToolDefinition(
 			const payloadLimitViolation = getPayloadLimitViolation( tool.name, params );
 			if ( payloadLimitViolation ) {
 				throw new Error( payloadLimitViolation );
+			}
+			const fileWriteRefusal = await getFileWriteRefusal( tool.name, params, STUDIO_SITES_ROOT );
+			if ( fileWriteRefusal ) {
+				throw new Error( fileWriteRefusal );
 			}
 			if ( ( tool as { settlesPendingWork?: boolean } ).settlesPendingWork ) {
 				await pendingWork.settle();
@@ -597,9 +660,14 @@ function toToolDefinition(
 				pendingWork.add( details.pending );
 				delete details.pending;
 			}
-			const reports = pendingWork.takeReports();
-			return reports
-				? { ...result, content: [ ...result.content, { type: 'text', text: reports } ] }
+			const resultText = result.content
+				.map( ( part ) => ( part.type === 'text' ? part.text : '' ) )
+				.join( '\n' );
+			const notes = [ await resultNotes?.( resultText ), pendingWork.takeReports() ]
+				.filter( Boolean )
+				.join( '\n' );
+			return notes
+				? { ...result, content: [ ...result.content, { type: 'text', text: notes } ] }
 				: result;
 		},
 	};

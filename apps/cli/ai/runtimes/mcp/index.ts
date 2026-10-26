@@ -14,12 +14,14 @@ import { Type, type TSchema } from 'typebox';
 import { Value } from 'typebox/value';
 import { type DesignTracksContext } from 'cli/ai/design-tracks';
 import { isImageGenerationAvailable } from 'cli/ai/image-generation';
+import { createResultNotes } from 'cli/ai/result-notes';
 import {
 	DESIGN_PICKER_HTML,
 	DESIGN_PICKER_URI,
 	MCP_APP_MIME_TYPE,
 } from 'cli/ai/runtimes/mcp/design-picker';
 import { type AppPage, createLibraryTools, libraryPage } from 'cli/ai/runtimes/mcp/library';
+import { runServedTool } from 'cli/ai/runtimes/mcp/served-tool';
 import { loadSkills } from 'cli/ai/skills';
 import { buildSystemPrompt } from 'cli/ai/system-prompt';
 import { resolveStudioToolDefinitions } from 'cli/ai/tools';
@@ -38,6 +40,9 @@ interface ClientSupport {
 	// Makes images with a tool of its own, on the user's plan, which the
 	// runbooks use when generate_images is left out.
 	ownImageTool: boolean;
+	// Gets wpcom_request, which reaches any WordPress.com endpoint. OpenAI's plugin
+	// review asks for a tool per operation instead, so Codex goes without it for now.
+	wpcomRequest: boolean;
 }
 
 function describeClient( server: Server ): ClientSupport {
@@ -50,6 +55,7 @@ function describeClient( server: Server ): ClientSupport {
 		apps: codex || Boolean( capabilities?.extensions?.[ 'io.modelcontextprotocol/ui' ] ),
 		fileImageLinks: codex,
 		ownImageTool: codex,
+		wpcomRequest: ! codex,
 	};
 }
 
@@ -71,6 +77,7 @@ function createTools(
 		canAskUser: true,
 		imageLink,
 		tracks,
+		wpcomRequest: client.wpcomRequest,
 	} );
 	const designOptions = createPresentDesignOptionsTool( {
 		imageLink,
@@ -81,7 +88,11 @@ function createTools(
 	// hosts keep in context for every conversation and may truncate.
 	const instructionsTool = defineTool(
 		'studio_instructions',
-		"Returns how to build and manage WordPress sites with the Studio tools: the site workflow, when to load which skill, and the rules the result must follow. Call it before your first WordPress site task and follow it. With `skill`, returns that skill's runbook instead.",
+		"Returns how to build and manage WordPress sites with the Studio tools: the rules every task follows and when to load which skill. Call it before your first WordPress site task and follow it. With `skill`, returns that skill's runbook instead. The skills for what users ask directly:\n" +
+			loadSkills()
+				.filter( ( skill ) => skill.userInvokable )
+				.map( ( skill ) => `- ${ skill.name }: ${ skill.description }` )
+				.join( '\n' ),
 		{
 			skill: Type.Optional(
 				Type.Enum(
@@ -125,6 +136,7 @@ export async function startMcpStdioServer(): Promise< void > {
 	// from terminal use. The plugin's MCP config sets STUDIO_PLUGIN_ID.
 	process.env.STUDIO_TRACKS_ORIGIN = 'studio-mcp';
 	const sessionId = randomUUID();
+	const resultNotes = createResultNotes();
 	const imageGeneration = await isImageGenerationAvailable();
 	const server = new Server(
 		{ name: 'studio', version: '1.0.0' },
@@ -182,28 +194,12 @@ export async function startMcpStdioServer(): Promise< void > {
 				isError: true,
 			};
 		}
-		// MCP wants `{content, isError}`; pi-native handlers throw — translate.
-		try {
-			const result = await tool.rawHandler( args as never );
-			const report = await result.pending;
-			return {
-				content: report
-					? [ ...result.content, { type: 'text' as const, text: report } ]
-					: result.content,
-				_meta: result._meta,
-				isError: false,
-			};
-		} catch ( error ) {
-			const message = error instanceof Error ? error.message : String( error );
-			return {
-				content: [ { type: 'text' as const, text: message } ],
-				isError: true,
-			};
-		}
+		return runServedTool( tool, args, resultNotes );
 	} );
 
+	// Only clients that render MCP Apps get the pages listed.
 	server.setRequestHandler( ListResourcesRequestSchema, async () => ( {
-		resources: appPages().map( ( { uri, name, _meta } ) => ( {
+		resources: ( client.apps ? appPages() : [] ).map( ( { uri, name, _meta } ) => ( {
 			uri,
 			name,
 			mimeType: MCP_APP_MIME_TYPE,

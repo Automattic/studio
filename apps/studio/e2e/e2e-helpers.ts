@@ -10,10 +10,18 @@ import AddSite, { type CreateSiteOptions } from './page-objects/add-site';
 import Sidebar from './page-objects/sidebar';
 import type { ChildProcess } from 'node:child_process';
 
-// `ORIENTATION_GUIDE_VERSION` in apps/ui/src/data/onboarding/orientation-guide.ts.
+// `ORIENTATION_GUIDE_VERSION` in apps/ui/src/features/onboarding/onboarding-guide/orientation-guide.ts.
 const ORIENTATION_GUIDE_VERSION = 2;
 
 export type PersistedSite = { id: string; name: string; path: string; port: number };
+
+export type LaunchOptions = {
+	firstRun?: boolean;
+	// Merged into the initial app data, e.g. `{ onboardingCompleted: false }`.
+	appData?: Record< string, unknown >;
+	// Merged into shared.json, e.g. an AI provider and its key.
+	sharedConfig?: Record< string, unknown >;
+};
 
 export class E2ESession {
 	electronApp!: ElectronApplication;
@@ -24,6 +32,8 @@ export class E2ESession {
 	homePath: string;
 	cliConfigPath: string;
 	sharedConfigPath: string;
+	userDataPath: string;
+	daemonHomePath: string;
 	private mainProcessLogs: string[] = [];
 	private readonly maxMainProcessLogChunks = 500;
 	private stdoutListener?: ( chunk: Buffer | string ) => void;
@@ -36,18 +46,27 @@ export class E2ESession {
 		this.homePath = path.join( this.sessionPath, 'home' );
 		this.cliConfigPath = path.join( this.sessionPath, 'cliConfig' );
 		this.sharedConfigPath = path.join( this.sessionPath, 'sharedConfig' );
+		// Electron keys its single-instance lock to the user data directory.
+		this.userDataPath = path.join( this.sessionPath, 'userData' );
+		// Each session runs its own process-manager daemon: quitting the app stops the daemon and
+		// every site it runs, which must not reach another worker's sites. Kept short and directly
+		// under tmpdir because the daemon's Unix socket path is limited to ~104 characters on macOS.
+		this.daemonHomePath = path.join( tmpdir(), `sd-${ randomUUID().slice( 0, 8 ) }` );
 	}
 
 	/**
 	 * `firstRun` launches like a fresh install, on the welcome screen. Otherwise the run starts past
-	 * onboarding and the orientation guide, with AI features off so a signed-out site opens on its
-	 * overview rather than on a sign-in prompt.
+	 * onboarding and the orientation guide.
 	 */
-	async launch( testEnv: NodeJS.ProcessEnv = {}, { firstRun = false } = {} ) {
+	async launch(
+		testEnv: NodeJS.ProcessEnv = {},
+		{ firstRun = false, appData, sharedConfig }: LaunchOptions = {}
+	) {
 		await fs.mkdir( this.appDataPath, { recursive: true } );
 		await fs.mkdir( this.homePath, { recursive: true } );
 		await fs.mkdir( this.cliConfigPath, { recursive: true } );
 		await fs.mkdir( this.sharedConfigPath, { recursive: true } );
+		await fs.mkdir( this.daemonHomePath, { recursive: true } );
 
 		// Path must include 'Studio' subfolder to match Electron app's path structure
 		const studioAppDataPath = path.join( this.appDataPath, 'Studio' );
@@ -62,15 +81,26 @@ export class E2ESession {
 				? {}
 				: {
 						onboardingCompleted: true,
-						onboardingHints: { tourDismissedVersion: ORIENTATION_GUIDE_VERSION },
-						agenticFeaturesEnabled: false,
+						// What's New is never due, whatever its version.
+						onboardingHints: {
+							tourDismissedVersion: ORIENTATION_GUIDE_VERSION,
+							whatsNewSeenVersion: Number.MAX_SAFE_INTEGER,
+						},
 				  } ),
+			...appData,
 		};
 
 		await fs.writeFile(
 			path.join( studioAppDataPath, 'appdata-v1.json' ),
 			JSON.stringify( initialAppdata, null, 2 )
 		);
+		// On macOS the app's AppleLanguages default is shared by every session, and the app falls back
+		// to it without a saved locale, so a language another worker picks would leak in.
+		await fs.writeJson( path.join( this.sharedConfigPath, 'shared.json' ), {
+			version: 1,
+			locale: 'en',
+			...sharedConfig,
+		} );
 
 		await this.launchFirstWindow( testEnv );
 	}
@@ -154,6 +184,24 @@ export class E2ESession {
 		return site as PersistedSite;
 	}
 
+	async getAppConfig(): Promise< Record< string, unknown > > {
+		return fs.readJson( path.join( this.sharedConfigPath, 'app.json' ) );
+	}
+
+	// The text of the page the site preview shows.
+	async previewText(): Promise< string | undefined > {
+		const guestId = await this.mainWindow
+			.locator( 'webview' )
+			.evaluate( ( element ) =>
+				( element as HTMLElement & { getWebContentsId: () => number } ).getWebContentsId()
+			);
+		return this.electronApp.evaluate(
+			( { webContents }, id ) =>
+				webContents.fromId( id )?.executeJavaScript( 'document.body.innerText' ),
+			guestId
+		);
+	}
+
 	async getSiteUrl( siteName: string ) {
 		const { port } = await this.waitForSite( siteName );
 		return `http://localhost:${ port }`;
@@ -164,9 +212,30 @@ export class E2ESession {
 		await this.launchFirstWindow( testEnv );
 	}
 
+	async stopAllSites() {
+		await this.mainWindow.evaluate( async () => {
+			const sites = await window.ipcApi.getSiteDetails();
+			await Promise.all(
+				sites
+					.filter( ( site ) => site.running )
+					.map( ( site ) => window.ipcApi.stopServer( site.id ) )
+			);
+		} );
+	}
+
 	async cleanup() {
 		await this.closeApp();
-		await rimraf( this.sessionPath, {
+		// CI sets this to upload each session's daemon and site logs when a run fails.
+		const keptLogsDir = process.env.STUDIO_E2E_DAEMON_LOGS_DIR;
+		const daemonLogsDir = path.join( this.daemonHomePath, 'logs' );
+		if ( keptLogsDir && fs.existsSync( daemonLogsDir ) ) {
+			await fs
+				.copy( daemonLogsDir, path.resolve( keptLogsDir, path.basename( this.daemonHomePath ) ) )
+				.catch( () => {
+					// Best effort: missing diagnostics must not fail the test.
+				} );
+		}
+		await rimraf( [ this.sessionPath, this.daemonHomePath ], {
 			backoff: 2,
 			maxBackoff: 2500,
 			maxRetries: 50,
@@ -216,7 +285,7 @@ export class E2ESession {
 				: [];
 
 		this.electronApp = await electron.launch( {
-			args: [ ...linuxFlags, appInfo.main ],
+			args: [ ...linuxFlags, `--user-data-dir=${ this.userDataPath }`, appInfo.main ],
 			executablePath,
 			env: {
 				...process.env,
@@ -226,19 +295,42 @@ export class E2ESession {
 				E2E_HOME_PATH: this.homePath,
 				E2E_CLI_CONFIG_PATH: this.cliConfigPath,
 				E2E_SHARED_CONFIG_PATH: this.sharedConfigPath,
+				STUDIO_PROCESS_MANAGER_HOME: this.daemonHomePath,
+				// Workers run concurrently, so each assigns site ports from its own range.
+				STUDIO_BASE_PORT: String( 8881 + Number( process.env.TEST_PARALLEL_INDEX ?? 0 ) * 1000 ),
 			},
 			timeout: 60_000,
 		} );
 
 		this.startCapturingMainProcessLogs();
+		// Playwright's `trace` option only records browsers it launches itself, so the app's window
+		// is recorded here. `reportFailure` keeps the recording of each failed test.
+		await this.electronApp.context().tracing.start( { snapshots: true } );
 
 		this.mainWindow = await this.electronApp.firstWindow( { timeout: 60_000 } );
 	}
 
-	async reportMainProcessLogsOnFailure( testInfo: TestInfo ) {
+	// Attaches the app window's trace and the main process logs to a failed test. Every test starts
+	// a new trace chunk, so a failure's trace covers that test (or, for the first test, the launch
+	// before it too).
+	async reportFailure( testInfo: TestInfo ) {
+		const tracing = this.electronApp.context().tracing;
 		if ( testInfo.status === testInfo.expectedStatus ) {
+			await tracing.stopChunk().catch( () => {} );
+			await tracing.startChunk().catch( () => {} );
 			return;
 		}
+
+		const tracePath = testInfo.outputPath( 'app-trace.zip' );
+		await tracing
+			.stopChunk( { path: tracePath } )
+			.then( () =>
+				testInfo.attach( 'app-trace', { path: tracePath, contentType: 'application/zip' } )
+			)
+			.catch( () => {
+				// Best effort: missing diagnostics must not fail the test.
+			} );
+		await tracing.startChunk().catch( () => {} );
 
 		const logs =
 			this.getMainProcessLogs() || 'No main process logs were captured before the failure.';
@@ -298,19 +390,20 @@ export class E2ESession {
 }
 
 /**
- * Launches Studio and creates a site through "Add a site", resolving once it runs. `folder` makes
+ * Launches Studio and creates a site through Add site, resolving once it runs. `folder` makes
  * the mocked folder dialog return `~/Studio/<folder>`, and has the form pick it.
  */
 export async function launchWithSite(
 	session: E2ESession,
-	{ folder, ...options }: Omit< CreateSiteOptions, 'pickFolder' > & { folder?: string } = {}
+	{ folder, ...options }: Omit< CreateSiteOptions, 'pickFolder' > & { folder?: string } = {},
+	launchOptions: LaunchOptions = {}
 ) {
 	const env: NodeJS.ProcessEnv = {};
 	if ( folder ) {
 		env.E2E_OPEN_FOLDER_DIALOG = path.join( session.homePath, 'Studio', folder );
 		await fs.mkdir( env.E2E_OPEN_FOLDER_DIALOG, { recursive: true } );
 	}
-	await session.launch( env );
+	await session.launch( env, launchOptions );
 	const siteName = await new AddSite( session.mainWindow ).createSite( {
 		...options,
 		pickFolder: Boolean( folder ),

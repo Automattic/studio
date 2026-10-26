@@ -1,12 +1,13 @@
+import { existsSync } from 'fs';
+import os from 'os';
+import path from 'path';
+import { findSiteByFolder } from 'cli/lib/cli-config/sites';
 import type { AgentSessionEvent } from '@earendil-works/pi-coding-agent';
 
 // Keep individual model-generated tool payloads below the range where long
 // strings have been observed to arrive incomplete.
 export const STUDIO_FILE_TOOL_MAX_BYTES = 14 * 1024;
-export const STUDIO_BASH_COMMAND_MAX_BYTES = 8 * 1024;
-// Guidance, not a limit: an Edit call this size streams in well under the
-// per-turn budget on every tier.
-export const STUDIO_EDIT_CALL_TARGET_BYTES = 8 * 1024;
+const STUDIO_BASH_COMMAND_MAX_BYTES = 8 * 1024;
 
 export interface StudioToolPayloadGuardState {
 	incompleteToolCallReasons?: Record< string, string >;
@@ -101,6 +102,69 @@ export function getPayloadLimitViolation( toolName: string, params: unknown ): s
 	}
 
 	return undefined;
+}
+
+const CORE_ROOT_FILE = /^(index|xmlrpc|wp-(?!config\b)[a-z-]+)\.php$/;
+
+function resolveToolPath( filePath: string, cwd: string ): string {
+	const withoutAt = filePath.replace( /^@/, '' );
+	const expanded =
+		withoutAt === '~' || withoutAt.startsWith( '~/' )
+			? path.join( os.homedir(), withoutAt.slice( 1 ) )
+			: withoutAt;
+	return path.resolve( cwd, expanded );
+}
+
+/** The WordPress install a file is in, if any: the nearest folder with wp-includes/ and wp-content/. */
+function findWordPressRoot( filePath: string ): string | undefined {
+	for (
+		let dir = path.dirname( filePath );
+		dir !== path.dirname( dir );
+		dir = path.dirname( dir )
+	) {
+		if (
+			existsSync( path.join( dir, 'wp-includes' ) ) &&
+			existsSync( path.join( dir, 'wp-content' ) )
+		) {
+			return dir;
+		}
+	}
+	return undefined;
+}
+
+async function isStudioSiteFolder( folder: string ): Promise< boolean > {
+	return Boolean( await findSiteByFolder( folder ) );
+}
+
+/**
+ * A Studio site's WordPress core is replaced when Studio updates WordPress, so
+ * a change there is lost. Refuses Write and Edit on it and names where the
+ * change belongs. WordPress trees that Studio doesn't manage stay writable.
+ */
+export async function getFileWriteRefusal(
+	toolName: string,
+	params: unknown,
+	cwd: string,
+	isStudioSite: ( folder: string ) => Promise< boolean > = isStudioSiteFolder
+): Promise< string | undefined > {
+	const filePath = getStringParam( params, 'path' );
+	if ( ( toolName !== 'Write' && toolName !== 'Edit' ) || ! filePath ) {
+		return undefined;
+	}
+	const absolutePath = resolveToolPath( filePath, cwd );
+	const root = findWordPressRoot( absolutePath );
+	if ( ! root ) {
+		return undefined;
+	}
+	const relativePath = path.relative( root, absolutePath ).split( path.sep ).join( '/' );
+	const isCore =
+		relativePath.startsWith( 'wp-includes/' ) ||
+		relativePath.startsWith( 'wp-admin/' ) ||
+		CORE_ROOT_FILE.test( relativePath );
+	if ( ! isCore || ! ( await isStudioSite( root ) ) ) {
+		return undefined;
+	}
+	return `Not run: ${ relativePath } is this Studio site's copy of WordPress core, which a WordPress update replaces. Read it as reference. Make the change in wp-content/ (a theme, child theme, or plugin).`;
 }
 
 // Only the last content block can be mid-generation when the model hits the

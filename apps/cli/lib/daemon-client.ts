@@ -3,7 +3,11 @@ import crypto from 'crypto';
 import { EventEmitter } from 'events';
 import fs from 'fs';
 import path from 'path';
-import { LOCKFILE_STALE_TIME, LOCKFILE_WAIT_TIME } from '@studio/common/constants';
+import {
+	LOCKFILE_STALE_TIME,
+	LOCKFILE_WAIT_TIME,
+	PROXY_PROCESS_NAME,
+} from '@studio/common/constants';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { lockFileAsync, unlockFileAsync } from '@studio/common/lib/lockfile';
 import { z } from 'zod';
@@ -11,6 +15,7 @@ import {
 	PROCESS_MANAGER_EVENTS_SOCKET_PATH,
 	PROCESS_MANAGER_CONTROL_SOCKET_PATH,
 	PROCESS_MANAGER_HOME,
+	WINDOWS_PIPE_PREFIX,
 } from 'cli/lib/paths';
 import { SocketStreamClient, SocketMessageDecoder, SocketRequestClient } from 'cli/lib/socket';
 import {
@@ -27,12 +32,10 @@ import {
 } from 'cli/lib/types/wordpress-server-ipc';
 import type { SocketEvent } from '@studio/common/lib/cli-events';
 
-const PROXY_PROCESS_NAME = 'studio-proxy';
 const CONNECTION_TIMEOUT_MS = 10_000;
 const PROCESS_MANAGER_LOCKFILE_PATH = path.join( PROCESS_MANAGER_HOME, 'pm-connection.lock' );
-// Named pipes on Windows share one system-wide namespace, hence the `studio-` prefix.
 const EVENTS_SOCKET_DIR = process.platform === 'win32' ? '\\\\.\\pipe\\' : PROCESS_MANAGER_HOME;
-const EVENTS_SOCKET_PREFIX = process.platform === 'win32' ? 'studio-' : '';
+const EVENTS_SOCKET_PREFIX = process.platform === 'win32' ? WINDOWS_PIPE_PREFIX : '';
 
 function eventsSocketPath( name: string ): string {
 	return path.join( EVENTS_SOCKET_DIR, `${ EVENTS_SOCKET_PREFIX }${ name }.sock` );

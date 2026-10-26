@@ -6,7 +6,14 @@
  * promptfoo config, not here.
  */
 
-import { mkdirSync, writeFileSync, writeSync as fsWriteSync } from 'node:fs';
+import {
+	mkdirSync,
+	mkdtempSync,
+	readdirSync,
+	readFileSync,
+	writeFileSync,
+	writeSync as fsWriteSync,
+} from 'node:fs';
 import { rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -22,6 +29,7 @@ import {
 	addConnectedWpcomSite,
 	removeConnectedWpcomSite,
 } from '@studio/common/lib/connected-sites';
+import { portFinder } from '@studio/common/lib/port-finder';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { SITE_FILE_ACCESS_SITE_DIRECTORY } from '@studio/common/lib/site-file-access';
 import { getGlobalInstructionsPath } from '@studio/common/lib/well-known-paths';
@@ -33,8 +41,11 @@ import {
 	resolveInitialAiProvider,
 	resolveUnavailableAiProvider,
 } from 'cli/ai/auth';
+import { captureTurnOutcome, fingerprintSites, type TurnOutcome } from 'cli/ai/eval-outcome';
+import { matchesStopRule, stopRuleSchema, type StopRule } from 'cli/ai/eval-stop';
+import { summarizeTiming, type ModelRequestRecord } from 'cli/ai/eval-timing';
 import { runStudioAgentTurn } from 'cli/ai/runtimes/pi';
-import { formatActiveSitePrefix } from 'cli/ai/site-selection';
+import { addAssistantMessageUsage, createTokenUsage } from 'cli/ai/token-usage';
 import { runCommand as runCreateSiteCommand } from 'cli/commands/site/create';
 import { runCommand as runDeleteSiteCommand } from 'cli/commands/site/delete';
 import { Mode as StopMode, runCommand as runStopSiteCommand } from 'cli/commands/site/stop';
@@ -51,6 +62,7 @@ import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import { Logger } from 'cli/logger';
 import type { AgentSessionEvent } from '@earendil-works/pi-coding-agent';
 import type { AiProviderId } from 'cli/ai/providers';
+import type { AskUserHandler, SiteInfo } from 'cli/ai/types';
 
 // Optional fixtures a test can pre-seed before the agent turn, so flows that
 // depend on connected remote sites and/or preview sites can be exercised
@@ -80,6 +92,18 @@ const evalSeedSchema = z.object( {
 			files: z.record( z.string(), z.string() ).optional(),
 			wpCli: z.array( z.array( z.string() ) ).optional(),
 			inspect: z.array( z.array( z.string() ) ).optional(),
+			// WordPress.com sites connected to this site, whose id is only known
+			// once it exists.
+			connectedWpcomSites: z.array( syncSiteSchema.omit( { localSiteId: true } ) ).optional(),
+		} )
+		.optional(),
+	// One of the user's WordPress.com sites, active for the turn as when it is
+	// picked in the app or CLI. Nothing is created; the site must exist.
+	remoteActiveSite: z
+		.object( {
+			name: z.string(),
+			url: z.string(),
+			wpcomSiteId: z.number(),
 		} )
 		.optional(),
 } );
@@ -87,9 +111,22 @@ type EvalSeed = z.infer< typeof evalSeedSchema >;
 
 interface EvalRunnerInput {
 	prompt: string;
+	// Sent in order, each as a new user message in the same session once the
+	// previous one finishes, so a case can measure a multi-message conversation.
+	// Objects rather than strings: promptfoo expands an array of strings into
+	// one test case per element.
+	followUps?: Array< { prompt: string } >;
+	// Scripted replies for the questions the agent asks the user, in order:
+	// each question takes the next label. With answers set, the turn runs with
+	// Studio chat's ask-the-user handler, so AskUserQuestion and tools that
+	// confirm with the user work; once they run out, the user cancels.
+	answers?: Array< { label: string } >;
 	timeoutMs?: number;
 	model?: AiModelId;
 	seed?: EvalSeed;
+	// Ends the run at the first tool call matching one of these rules, before
+	// any follow-ups; the result's `stoppedAt` names it.
+	stopAt?: StopRule[];
 }
 
 interface Inspection {
@@ -102,7 +139,8 @@ interface Inspection {
 interface SeededFixtures {
 	cleanup: () => Promise< void >;
 	inspect: () => Promise< Inspection[] >;
-	promptPrefix?: string;
+	activeSite?: SiteInfo;
+	activeSitePath?: string;
 }
 
 /**
@@ -112,6 +150,79 @@ interface SeededFixtures {
  * `globalInstructions` is the exception: it overwrites the user's real
  * instructions file, so cleanup restores the prior content instead.
  */
+// The folder site_create gives a site of this name.
+function siteSlug( name: string ): string {
+	return name
+		.toLowerCase()
+		.replace( /[^a-z0-9]+/g, '-' )
+		.replace( /^-|-$/g, '' );
+}
+
+const REGISTRY_PREFIX = 'studio-eval-registry-';
+
+// Each eval runs against its own Studio site registry (cli.json), so sites that
+// other Studio sessions on this machine create never enter the turn, and
+// concurrent cases do not see each other's sites. Ports already given to the
+// user's sites and to other eval registries stay reserved.
+async function isolateSiteRegistry() {
+	const ports = ( await readCliConfig() ).sites.map( ( site ) => site.port );
+	for ( const entry of readdirSync( os.tmpdir() ) ) {
+		if ( ! entry.startsWith( REGISTRY_PREFIX ) ) continue;
+		try {
+			const registry = JSON.parse(
+				readFileSync( path.join( os.tmpdir(), entry, 'cli.json' ), 'utf8' )
+			) as { sites?: Array< { port: number } > };
+			ports.push( ...( registry.sites ?? [] ).map( ( site ) => site.port ) );
+		} catch {
+			// A registry with no sites yet.
+		}
+	}
+	for ( const port of ports ) {
+		portFinder.addUnavailablePort( port );
+	}
+	process.env.E2E = '1';
+	process.env.E2E_CLI_CONFIG_PATH = mkdtempSync( path.join( os.tmpdir(), REGISTRY_PREFIX ) );
+}
+
+// Stopped sites the request is not about, as a user with a few sites has, so
+// the outcome can show whether the turn left the user's other sites alone.
+const BYSTANDER_SITES = [ 'Portfolio', 'Client Work' ];
+
+async function createBystanderSites(): Promise< string[] > {
+	const created: string[] = [];
+	for ( const name of BYSTANDER_SITES ) {
+		const bystanderPath = path.join( STUDIO_SITES_ROOT, `eval-bystander-${ siteSlug( name ) }` );
+		try {
+			await runCreateSiteCommand(
+				bystanderPath,
+				{
+					name,
+					wpVersion: 'latest',
+					phpVersion: DEFAULT_PHP_VERSION,
+					fileAccess: SITE_FILE_ACCESS_SITE_DIRECTORY,
+					enableHttps: false,
+					noStart: true,
+					skipBrowser: true,
+					skipLogDetails: true,
+				},
+				new Logger()
+			);
+		} catch ( error ) {
+			await rm( bystanderPath, { recursive: true, force: true } );
+			await deleteSites( created );
+			throw error;
+		}
+		created.push( bystanderPath );
+	}
+	return created;
+}
+
+async function deleteSites( sitePaths: string[] ): Promise< void > {
+	for ( const sitePath of sitePaths ) {
+		await runDeleteSiteCommand( sitePath, true, new Logger() ).catch( () => undefined );
+	}
+}
+
 async function seedFixtures( seed: EvalSeed ): Promise< SeededFixtures > {
 	const {
 		localSite,
@@ -119,6 +230,7 @@ async function seedFixtures( seed: EvalSeed ): Promise< SeededFixtures > {
 		snapshots = [],
 		globalInstructions,
 		activeSite,
+		remoteActiveSite,
 	} = seed;
 
 	let restoreInstructions: ( () => Promise< void > ) | null = null;
@@ -169,14 +281,10 @@ async function seedFixtures( seed: EvalSeed ): Promise< SeededFixtures > {
 		seededConnections.push( site );
 	}
 
-	let promptPrefix: string | undefined;
+	let seededSite: SiteInfo | undefined;
 	let activeSitePath: string | undefined;
 	if ( activeSite ) {
-		const slug = activeSite.name
-			.toLowerCase()
-			.replace( /[^a-z0-9]+/g, '-' )
-			.replace( /^-|-$/g, '' );
-		activeSitePath = path.join( STUDIO_SITES_ROOT, slug );
+		activeSitePath = path.join( STUDIO_SITES_ROOT, siteSlug( activeSite.name ) );
 		// WordPress is installed on first start, so WP-CLI seeds need a started site.
 		const needsInstall = !! activeSite.wpCli?.length;
 		await runCreateSiteCommand(
@@ -219,11 +327,17 @@ async function seedFixtures( seed: EvalSeed ): Promise< SeededFixtures > {
 			await runDeleteSiteCommand( activeSitePath, true, new Logger() ).catch( () => undefined );
 			throw error;
 		}
-		promptPrefix = formatActiveSitePrefix( {
+		seededSite = {
 			name: activeSite.name,
 			path: activeSitePath,
 			running: false,
-		} );
+		};
+		const { id: localSiteId } = await getSiteByFolder( activeSitePath );
+		for ( const connection of activeSite.connectedWpcomSites ?? [] ) {
+			const site = { ...connection, localSiteId };
+			await addConnectedWpcomSite( localSiteId, site );
+			seededConnections.push( site );
+		}
 	}
 
 	const inspect = async (): Promise< Inspection[] > => {
@@ -277,7 +391,14 @@ async function seedFixtures( seed: EvalSeed ): Promise< SeededFixtures > {
 			}
 		}
 	};
-	return { cleanup, inspect, promptPrefix };
+	return {
+		cleanup,
+		inspect,
+		activeSitePath,
+		activeSite: remoteActiveSite
+			? { ...remoteActiveSite, path: '', running: false, remote: true }
+			: seededSite,
+	};
 }
 
 function extractToolCalls( event: AgentSessionEvent ) {
@@ -312,6 +433,8 @@ type ToolEvent = {
 	endedAtMs?: number;
 	durationMs?: number;
 	isError?: boolean;
+	// Length of the result's text block: what the tool adds to the context.
+	outputChars?: number;
 	turnIndex: number;
 };
 
@@ -397,9 +520,20 @@ function readInput(): EvalRunnerInput {
 		seed = evalSeedSchema.parse( vars.seed );
 	}
 
+	const followUps = vars.followUps
+		? z.array( z.object( { prompt: z.string() } ) ).parse( vars.followUps )
+		: undefined;
+
+	const answers = vars.answers
+		? z.array( z.object( { label: z.string() } ) ).parse( vars.answers )
+		: undefined;
+
 	return {
 		prompt: ( vars.prompt as string ) ?? prompt,
+		followUps,
+		answers,
 		timeoutMs: typeof vars.timeoutMs === 'number' ? vars.timeoutMs : undefined,
+		stopAt: vars.stopAt ? z.array( stopRuleSchema ).parse( vars.stopAt ) : undefined,
 		model,
 		seed,
 	};
@@ -441,7 +575,24 @@ async function runEval( input: EvalRunnerInput ) {
 		details?: unknown;
 	}[] = [];
 	const toolEvents: ToolEvent[] = [];
+	const requests: ModelRequestRecord[] = [];
 	const textSegments: string[] = [];
+	const questions: Array< { question: string; options: string[]; answer: string } > = [];
+	const pendingAnswers = [ ...( input.answers ?? [] ) ];
+	const onAskUser: AskUserHandler | undefined = input.answers
+		? async ( asked ) =>
+				Object.fromEntries(
+					asked.map( ( { question, options } ) => {
+						const answer = pendingAnswers.shift()?.label ?? 'Cancel';
+						questions.push( {
+							question,
+							options: options.map( ( option ) => option.label ),
+							answer,
+						} );
+						return [ question, answer ];
+					} )
+				)
+		: undefined;
 	const toolNameById = new Map< string, string >();
 	const toolEventById = new Map< string, ToolEvent >();
 	let firstToolError: FirstToolError | null = null;
@@ -453,33 +604,57 @@ async function runEval( input: EvalRunnerInput ) {
 	let success = false;
 	let error: string | null = null;
 	let timedOut = false;
-	let lastTurnEndedEmpty = false;
+	let stoppedAt: { toolUseId: string; toolName: string; index: number } | null = null;
+	// From the last assistant message: a provider failure ends the turn with
+	// stopReason "error" and its message here, without throwing.
+	let stopReason: string | null = null;
+	let errorMessage: string | null = null;
+	// Summed from each assistant message's usage, so evals can compare the
+	// token cost of prompt variants, not just their outcomes.
+	const usage = createTokenUsage();
+
+	await isolateSiteRegistry();
+	const bystanderPaths = await createBystanderSites();
 
 	let seeded: SeededFixtures | null = null;
 	let inspections: Inspection[] = [];
-	let prompt = input.prompt.trim();
+	let outcome: TurnOutcome | { error: string } | null = null;
+	const prompt = input.prompt.trim();
 	if ( input.seed ) {
 		seeded = await seedFixtures( input.seed );
-		if ( seeded.promptPrefix ) {
-			prompt = `${ seeded.promptPrefix }\n\n${ prompt }`;
-		}
 	}
 
 	phaseStartedAt = Date.now();
-	const sessionDirEnv = process.env.STUDIO_EVAL_SESSION_DIR?.trim();
-	let session: SessionManager;
-	if ( sessionDirEnv ) {
-		mkdirSync( sessionDirEnv, { recursive: true } );
-		session = SessionManager.create( STUDIO_SITES_ROOT, sessionDirEnv );
-	} else {
-		session = SessionManager.inMemory( STUDIO_SITES_ROOT );
-	}
+	// Every run keeps its session JSONL (the full transcript) and reports its
+	// path as `sessionFile`; STUDIO_EVAL_SESSION_DIR picks the directory.
+	const sessionDir =
+		process.env.STUDIO_EVAL_SESSION_DIR?.trim() || path.join( os.tmpdir(), 'studio-eval-sessions' );
+	mkdirSync( sessionDir, { recursive: true } );
+	const session = SessionManager.create( STUDIO_SITES_ROOT, sessionDir );
 	const queryStartedAt = Date.now();
 	let turnStart = queryStartedAt;
 
 	const handleEvent = ( event: AgentSessionEvent ): void => {
 		if ( event.type === 'message_end' && event.message.role === 'assistant' ) {
+			const messageUsage = addAssistantMessageUsage( usage, event );
 			const now = Date.now();
+			// pi stamps the assistant message just before it sends the request.
+			const requestStartedAt = event.message.timestamp || turnStart;
+			requests.push( {
+				startedAtMs: requestStartedAt - evalStartedAt,
+				endedAtMs: now - evalStartedAt,
+				durationMs: now - requestStartedAt,
+				contextTokens: messageUsage
+					? messageUsage.input + messageUsage.cacheRead + messageUsage.cacheWrite
+					: 0,
+				outputTokens: messageUsage?.output ?? 0,
+				stopReason: event.message.stopReason,
+				...( event.message.errorMessage ? { errorMessage: event.message.errorMessage } : {} ),
+				hasText: event.message.content.some(
+					( block ) => block.type === 'text' && block.text.trim() !== ''
+				),
+				toolCalls: event.message.content.filter( ( block ) => block.type === 'toolCall' ).length,
+			} );
 			turnDurationsMs.push( now - turnStart );
 			turnIndex += 1;
 			if ( turnIndex === 1 ) {
@@ -488,6 +663,10 @@ async function runEval( input: EvalRunnerInput ) {
 			turnStart = now;
 		}
 		for ( const tc of extractToolCalls( event ) ) {
+			if ( input.stopAt && ! stoppedAt && matchesStopRule( tc, input.stopAt ) ) {
+				stoppedAt = { toolUseId: tc.id, toolName: tc.name, index: toolCalls.length };
+				void query.interrupt();
+			}
 			toolCalls.push( tc );
 			toolNameById.set( tc.id, tc.name );
 			const evt: ToolEvent = {
@@ -511,6 +690,7 @@ async function runEval( input: EvalRunnerInput ) {
 					evt.endedAtMs = elapsed();
 					evt.durationMs = evt.endedAtMs - evt.startedAtMs;
 					evt.isError = tr.isError;
+					evt.outputChars = tr.text?.length ?? 0;
 				}
 				if ( tr.isError && ! firstToolError ) {
 					firstToolError = {
@@ -542,13 +722,8 @@ async function runEval( input: EvalRunnerInput ) {
 				! lastAssistant ||
 				( lastAssistant.stopReason !== 'error' && lastAssistant.stopReason !== 'aborted' );
 			numTurnsResult = numTurns;
-			lastTurnEndedEmpty = Boolean(
-				lastAssistant &&
-					lastAssistant.stopReason === 'stop' &&
-					! lastAssistant.content.some(
-						( block ) => block.type === 'toolCall' || ( block.type === 'text' && block.text.trim() )
-					)
-			);
+			stopReason = lastAssistant?.stopReason ?? null;
+			errorMessage = lastAssistant?.errorMessage ?? null;
 		}
 	};
 
@@ -557,9 +732,12 @@ async function runEval( input: EvalRunnerInput ) {
 			prompt: turnPrompt,
 			env,
 			session,
+			activeSite: seeded?.activeSite,
 			onEvent: handleEvent,
+			onAskUser,
 			...( input.model ? { model: input.model } : {} ),
 		} );
+	const sitesBeforeTurn = await fingerprintSites();
 	let query = runTurn( prompt );
 	phaseTimingsMs.start_ai_agent_ms = Date.now() - phaseStartedAt;
 
@@ -568,28 +746,31 @@ async function runEval( input: EvalRunnerInput ) {
 		void query.interrupt();
 	}, input.timeoutMs ?? 300000 );
 
-	// Some hosted tiers end a turn with an empty message once their reasoning
-	// budget runs out. STUDIO_EVAL_AUTO_CONTINUE=<n> resumes such a turn with
-	// "continue" up to n times, the way a person would.
-	const maxAutoContinues = Number( process.env.STUDIO_EVAL_AUTO_CONTINUE ?? 0 ) || 0;
-	let autoContinues = 0;
-
 	try {
 		await query.result;
-		while ( autoContinues < maxAutoContinues && ! timedOut && lastTurnEndedEmpty ) {
-			autoContinues++;
-			lastTurnEndedEmpty = false;
-			query = runTurn( 'continue' );
+		for ( const followUp of input.followUps ?? [] ) {
+			if ( timedOut || stoppedAt ) {
+				break;
+			}
+			query = runTurn( followUp.prompt );
 			await query.result;
 		}
 	} catch ( caught ) {
 		error = caught instanceof Error ? caught.message : String( caught );
 	} finally {
 		clearTimeout( timeout );
+		outcome = await captureTurnOutcome(
+			sitesBeforeTurn,
+			seeded?.activeSitePath,
+			mkdtempSync( path.join( os.tmpdir(), 'studio-eval-outcome-' ) )
+		).catch( ( caught ) => ( {
+			error: caught instanceof Error ? caught.message : String( caught ),
+		} ) );
 		if ( seeded ) {
 			inspections = await seeded.inspect().catch( () => [] );
 			await seeded.cleanup().catch( () => undefined );
 		}
+		await deleteSites( bystanderPaths );
 	}
 	phaseTimingsMs.total_eval_ms = elapsed();
 
@@ -597,17 +778,25 @@ async function runEval( input: EvalRunnerInput ) {
 		success,
 		error,
 		timedOut,
+		stoppedAt,
 		model: resolvedModel,
 		numTurns: numTurnsResult,
-		autoContinues,
+		stopReason,
+		errorMessage,
+		usage,
+		sessionFile: session.getSessionFile() ?? null,
 		phaseTimingsMs,
+		timing: summarizeTiming( requests, toolEvents ),
+		requests,
 		turnDurationsMs,
 		toolCalls,
 		toolResults,
 		toolEvents,
 		firstToolError,
 		textSegments,
+		questions,
 		inspections,
+		outcome,
 	};
 }
 

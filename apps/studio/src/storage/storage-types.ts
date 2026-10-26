@@ -1,8 +1,8 @@
+import { SupportedEditor } from '@studio/common/lib/user-settings/editor';
 import { StatsMetric } from 'src/lib/bump-stats';
-import { SupportedEditor } from 'src/modules/user-settings/lib/editor';
 import type { AiSessionSitePlacement } from '@studio/common/ai/sessions/placement';
 import type { QuitSitesBehavior } from '@studio/common/lib/user-settings/preferences';
-import type { SupportedTerminal } from 'src/modules/user-settings/lib/terminal';
+import type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
 
 export interface WindowBounds {
 	x: number;
@@ -14,14 +14,12 @@ export interface WindowBounds {
 
 export type { QuitSitesBehavior };
 
-export interface AppdataSiteData {
-	themeDetails?: SiteDetails[ 'themeDetails' ];
-	siteIconPath?: SiteDetails[ 'siteIconPath' ];
+interface AppdataSiteData {
 	sortOrder?: number;
 	autoStart?: boolean;
 }
 
-export interface NightlyPromptResult {
+interface NightlyPromptResult {
 	response: 'yes' | 'no';
 	dontAskAgain: boolean;
 }
@@ -35,30 +33,24 @@ export interface UserData {
 	lastBumpStats?: Record< string, Partial< Record< StatsMetric, number > > >;
 	promptWindowsSpeedUpResult?: PromptWindowsSpeedUpResult;
 	sentryUserId?: string;
-	lastSeenVersion?: string;
 	preferredTerminal?: SupportedTerminal;
 	preferredEditor?: SupportedEditor;
 	colorScheme?: 'system' | 'light' | 'dark';
-	betaFeatures?: BetaFeatures;
+	/** Beta features the user opted into, by key. Migration 09 removes the classic-era `enableAgenticUi`. */
+	betaFeatures?: Record< string, boolean >;
 	quitSitesBehavior?: QuitSitesBehavior;
 	defaultSiteDirectory?: string;
-	/** @deprecated Used only for migration to cliUserUninstalled. Do not write; remove after one release cycle. */
-	cliAutoInstalled?: boolean;
 	cliUserUninstalled?: boolean;
 	wapuuScore?: number;
 	aiSessionPlacements?: Record< string, AiSessionSitePlacement >;
 	lastNightlyUpdateCheck?: number;
 	nightlyPromptResult?: NightlyPromptResult;
-	agenticUiBannerDismissed?: boolean;
 	dontShowArm64Warning?: boolean;
-	// Whether chat/agent features are offered inside the new UI. Distinct from
-	// `betaFeatures.enableAgenticUi`, which picks the renderer (new vs classic).
-	agenticFeaturesEnabled?: boolean;
 	/** Agentic UI onboarding state (orientation tour, getting-started checklist). Opaque blob owned by the renderer. */
 	onboardingHints?: OnboardingHintsState;
 }
 
-export interface PromptWindowsSpeedUpResult {
+interface PromptWindowsSpeedUpResult {
 	response: 'yes' | 'no';
 	appVersion: string;
 	dontAskAgain: boolean;
@@ -71,6 +63,7 @@ export interface OnboardingHintsState {
 	tourCompletedVersion?: number;
 	tourDismissedVersion?: number;
 	migratedFromClassic?: boolean;
+	whatsNewSeenVersion?: number;
 }
 
 export const EMPTY_USER_DATA: UserData = {

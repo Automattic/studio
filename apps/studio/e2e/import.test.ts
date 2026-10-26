@@ -38,7 +38,7 @@ test.describe( 'Import', () => {
 	} );
 
 	test.afterEach( async ( { page: _page }, testInfo ) => {
-		await session.reportMainProcessLogsOnFailure( testInfo );
+		await session.reportFailure( testInfo );
 	} );
 
 	test.afterAll( async () => {
@@ -46,6 +46,9 @@ test.describe( 'Import', () => {
 	} );
 
 	test( 'import site from Jetpack backup', async ( { page } ) => {
+		// The import alone takes over two minutes on Windows CI, so the test needs more than the
+		// default 180 s for its 600 s import wait to apply.
+		test.setTimeout( 720_000 );
 		await new AddSite( session.mainWindow ).importSite( backupPath, siteName );
 		// Import process can take longer than a regular site creation
 		await expect( session.mainWindow.getByText( 'Import finished' ) ).toBeVisible( {

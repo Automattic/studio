@@ -80,10 +80,21 @@ describe( 'transformSitesResponse', () => {
 		expect( result.find( ( s ) => s.id === 3 )?.wpVersion ).toBe( '6.5' );
 		expect( result.find( ( s ) => s.id === 1 )?.wpVersion ).toBeUndefined();
 	} );
+
+	it( 'flags sites on a paid plan that includes publishing from Studio', () => {
+		const expired = { ...atomicSite(), ID: 4, plan: { ...atomicSite().plan, expired: true } };
+		const result = transformSitesResponse( [ atomicSite(), freeSite(), expired ] );
+
+		expect( result.map( ( site ) => site.hasStudioPublishingPlan ) ).toEqual( [
+			true,
+			false,
+			false,
+		] );
+	} );
 } );
 
 describe( 'withWpcomDetails', () => {
-	it( 'takes details from the site list, keeps the stored sync times, and flags missing sites', () => {
+	it( 'takes details from the site list, keeps the stored sync times, and keeps the stored name and URL of sites gone from WordPress.com', () => {
 		const atomic = { ...simpleBusinessSite(), ID: 3, is_wpcom_atomic: true, jetpack: true };
 		const [ business, free ] = transformSitesResponse( [ atomic, freeSite() ] );
 		const stored = ( id: number ) => ( {
@@ -107,6 +118,11 @@ describe( 'withWpcomDetails', () => {
 			lastPushTimestamp: '2026-10-01T09:00:00.000Z',
 		} );
 		expect( downgraded.syncSupport ).toBe( 'needs-upgrade' );
-		expect( gone ).toMatchObject( { id: 99, name: '', syncSupport: 'deleted' } );
+		expect( gone ).toMatchObject( {
+			id: 99,
+			name: 'Old name',
+			url: business.url,
+			syncSupport: 'deleted',
+		} );
 	} );
 } );

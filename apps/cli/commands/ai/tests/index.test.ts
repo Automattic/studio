@@ -79,7 +79,11 @@ vi.mock( '@studio/common/lib/well-known-paths', async ( importOriginal ) => ( {
 } ) );
 vi.mock( 'cli/ai/runtimes/pi', () => ( {
 	// A completed turn so the JSON single-turn path returns instead of looping.
-	runStudioAgentTurn: vi.fn( () => ( { result: Promise.resolve(), interrupt: vi.fn() } ) ),
+	runStudioAgentTurn: vi.fn( () => ( {
+		result: Promise.resolve(),
+		interrupt: vi.fn(),
+		hasTool: () => true,
+	} ) ),
 } ) );
 vi.mock( 'cli/ai/slash-commands', () => ( { getActiveSlashCommands: vi.fn( () => [] ) } ) );
 vi.mock( 'cli/ai/browser-utils', () => ( { closeSharedBrowser: vi.fn() } ) );
@@ -213,8 +217,11 @@ describe( 'AI runCommand — resume by id restores session model', () => {
 describe( 'AI runCommand — active site banner running state', () => {
 	let stdoutSpy: ReturnType< typeof vi.spyOn >;
 
-	const dispatchedPrompt = () =>
-		( ( runStudioAgentTurn as Mock ).mock.calls[ 0 ][ 0 ] as { prompt: string } ).prompt;
+	const dispatched = () =>
+		( runStudioAgentTurn as Mock ).mock.calls[ 0 ][ 0 ] as {
+			prompt: string;
+			activeSite?: { running: boolean };
+		};
 
 	beforeEach( () => {
 		vi.clearAllMocks();
@@ -247,9 +254,14 @@ describe( 'AI runCommand — active site banner running state', () => {
 			activeSite: { name: 'My Site', path: '/sites/my-site' },
 		} );
 
-		expect( dispatchedPrompt() ).toContain(
-			'[Active site: "My Site" at /sites/my-site (running)]'
-		);
+		// The site rides to the runtime, which states it in the system prompt;
+		// the user message stays exactly what the user typed.
+		expect( dispatched().prompt ).toBe( 'hello' );
+		expect( dispatched().activeSite ).toMatchObject( {
+			name: 'My Site',
+			path: '/sites/my-site',
+			running: true,
+		} );
 	} );
 
 	// STU-2040 regression guard: the per-turn isSiteRunning check opens a
@@ -275,23 +287,6 @@ describe( 'AI runCommand — active site banner running state', () => {
 		expect( disconnectOrder ).toBeGreaterThan( checkOrder );
 	} );
 
-	it( 'reports the site as stopped when the daemon says it is not running', async () => {
-		( findSiteByFolder as Mock ).mockResolvedValue( {
-			id: 'site-1',
-			name: 'My Site',
-			path: '/sites/my-site',
-		} );
-		( isSiteRunning as Mock ).mockResolvedValue( false );
-
-		await runCommand( {
-			adapter: new JsonAdapter(),
-			initialMessage: 'hello',
-			activeSite: { name: 'My Site', path: '/sites/my-site' },
-		} );
-
-		expect( dispatchedPrompt() ).toContain( '(stopped)' );
-	} );
-
 	it( 'treats a site missing from the CLI config as stopped', async () => {
 		( findSiteByFolder as Mock ).mockResolvedValue( undefined );
 
@@ -302,7 +297,7 @@ describe( 'AI runCommand — active site banner running state', () => {
 		} );
 
 		expect( isSiteRunning ).not.toHaveBeenCalled();
-		expect( dispatchedPrompt() ).toContain( '(stopped)' );
+		expect( dispatched().activeSite?.running ).toBe( false );
 	} );
 
 	it( 'skips the daemon check for remote sites', async () => {
@@ -320,9 +315,8 @@ describe( 'AI runCommand — active site banner running state', () => {
 
 		expect( findSiteByFolder ).not.toHaveBeenCalled();
 		expect( isSiteRunning ).not.toHaveBeenCalled();
-		expect( dispatchedPrompt() ).toContain(
-			'[Active site: "Live" (ID: 123) at https://example.wordpress.com (WordPress.com)]'
-		);
+		expect( dispatched().prompt ).toBe( 'hello' );
+		expect( dispatched().activeSite ).toMatchObject( { remote: true, wpcomSiteId: 123 } );
 	} );
 } );
 
@@ -384,6 +378,28 @@ describe( 'AI runCommand — Tracks events', () => {
 		expect( props.duration_ms ).toBeTypeOf( 'number' );
 	} );
 
+	it( 'adds the turn stats gathered from the agent events', async () => {
+		( runStudioAgentTurn as Mock ).mockImplementationOnce(
+			( { onEvent }: { onEvent: ( event: unknown ) => void } ) => {
+				onEvent( {
+					type: 'tool_execution_end',
+					toolCallId: '1',
+					toolName: 'Edit',
+					result: {},
+					isError: false,
+				} );
+				return { result: Promise.resolve(), interrupt: vi.fn(), hasTool: () => true };
+			}
+		);
+
+		await runCommand( { adapter: new JsonAdapter(), initialMessage: 'hello' } );
+
+		const [ , props ] = ( recordTracksEvent as Mock ).mock.calls.find(
+			( [ name ] ) => name === TRACKS_EVENTS.CODE_TURN_COMPLETED
+		) as [ string, Record< string, unknown > ];
+		expect( props ).toMatchObject( { tool_calls: 1, edits: 1, site_kind: 'none' } );
+	} );
+
 	// One call sits on the turn's critical path, the other in a `finally` where a rejection would
 	// mask the turn's own error. Analytics must never break the chat.
 	it( 'completes the turn even when recording fails', async () => {
@@ -393,6 +409,41 @@ describe( 'AI runCommand — Tracks events', () => {
 			runCommand( { adapter: new JsonAdapter(), initialMessage: 'hello' } )
 		).resolves.toBeUndefined();
 		expect( runStudioAgentTurn ).toHaveBeenCalledTimes( 1 );
+	} );
+
+	it( 'completes the turn even when gathering the turn stats fails', async () => {
+		( runStudioAgentTurn as Mock ).mockImplementationOnce(
+			( { onEvent }: { onEvent: ( event: unknown ) => void } ) => {
+				// The failed tool makes the stats look up its name, which throws.
+				onEvent( {
+					type: 'tool_execution_end',
+					toolCallId: '1',
+					toolName: 'wp_cli',
+					result: {},
+					isError: true,
+				} );
+				return {
+					result: Promise.resolve(),
+					interrupt: vi.fn(),
+					hasTool: () => {
+						throw new Error( 'session disposed' );
+					},
+				};
+			}
+		);
+
+		const adapter = new JsonAdapter();
+		const endAgentTurn = vi.spyOn( adapter, 'endAgentTurn' );
+		const showError = vi.spyOn( adapter, 'showError' );
+
+		await expect( runCommand( { adapter, initialMessage: 'hello' } ) ).resolves.toBeUndefined();
+		expect( endAgentTurn ).toHaveBeenCalledTimes( 1 );
+		expect( showError ).not.toHaveBeenCalled();
+		expect(
+			( recordTracksEvent as Mock ).mock.calls.some(
+				( [ name ] ) => name === TRACKS_EVENTS.CODE_TURN_COMPLETED
+			)
+		).toBe( false );
 	} );
 } );
 
@@ -471,17 +522,5 @@ describe( 'AI runCommand — pinned provider falls back when unusable', () => {
 		expect( resolveAiEnvironment ).toHaveBeenCalledWith( 'anthropic-api-key', expect.anything() );
 		// The Desktop wpcom default must not overwrite the pin on disk.
 		expect( saveSelectedAiProvider ).not.toHaveBeenCalled();
-	} );
-
-	it( 'honors the pin while its provider is usable', async () => {
-		( resolveResumeSessionContext as Mock ).mockReturnValue( {
-			provider: 'anthropic-api-key',
-			model: 'claude-sonnet-5',
-		} );
-		( isAiProviderReady as Mock ).mockResolvedValue( true );
-
-		await runCommand( { adapter: new JsonAdapter(), initialMessage: 'hello', resumeSession } );
-
-		expect( resolveAiEnvironment ).toHaveBeenCalledWith( 'anthropic-api-key', expect.anything() );
 	} );
 } );

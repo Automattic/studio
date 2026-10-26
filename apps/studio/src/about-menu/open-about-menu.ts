@@ -10,7 +10,7 @@ function getAboutPath(): string {
 	if ( process.env.NODE_ENV === 'development' ) {
 		return path.join( __dirname, '../../src/about-menu/about-menu.html' );
 	}
-	return path.join( __dirname, '../renderer/about-menu.html' );
+	return path.join( __dirname, '../renderer-ui/about-menu.html' );
 }
 
 export function escapeSingleQuotes( str: string ) {
@@ -57,7 +57,6 @@ export function openAboutWindow() {
 		return { action: 'deny' };
 	} );
 
-	// Read package.json and pass version to about window
 	const packageJson = app.getVersion();
 
 	aboutWindow.webContents.on( 'dom-ready', () => {

@@ -1,5 +1,5 @@
 import { sitesEndpointSiteSchema } from '@studio/common/types/sync';
-import { getSyncSupport, isPressableSite } from './sync-support';
+import { getSyncSupport, hasStudioPublishingPlan, isPressableSite } from './sync-support';
 import type { SitesEndpointSite, SyncSite, SyncSupport } from '@studio/common/types/sync';
 
 export function transformSingleSiteResponse(
@@ -20,6 +20,7 @@ export function transformSingleSiteResponse(
 		lastPushTimestamp: null,
 		wpVersion: site.options?.software_version,
 		planName: site.plan?.product_name_short,
+		hasStudioPublishingPlan: hasStudioPublishingPlan( site ),
 		createdAt: site.options?.created_at,
 	};
 }
@@ -76,7 +77,8 @@ export function transformSitesResponse(
  * access to it.
  */
 export function withWpcomDetails( connections: SyncSite[], wpcomSites: SyncSite[] ): SyncSite[] {
-	return connections.map( ( { id, localSiteId, lastPullTimestamp, lastPushTimestamp } ) => {
+	return connections.map( ( connection ) => {
+		const { id, localSiteId, lastPullTimestamp, lastPushTimestamp } = connection;
 		const site = wpcomSites.find( ( candidate ) => candidate.id === id );
 		const syncSupport = ! site
 			? 'deleted'
@@ -84,7 +86,8 @@ export function withWpcomDetails( connections: SyncSite[], wpcomSites: SyncSite[
 			? 'already-connected'
 			: site.syncSupport;
 		return {
-			...( site ?? { id, name: '', url: '', isStaging: false, isPressable: false } ),
+			// A site gone from WordPress.com keeps the name and URL it was connected under.
+			...( site ?? connection ),
 			localSiteId,
 			syncSupport,
 			lastPullTimestamp,

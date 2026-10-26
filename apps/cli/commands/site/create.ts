@@ -5,11 +5,6 @@ import { confirm, input, password, select } from '@inquirer/prompts';
 import { DEFAULT_WORDPRESS_VERSION } from '@studio/common/constants';
 import { installAiInstructionsToSite } from '@studio/common/lib/agent-skills';
 import {
-	createBlueprintTempDirSync,
-	removeBlueprintTempDir,
-	removeBlueprintTempDirSync,
-} from '@studio/common/lib/blueprint-bundle';
-import {
 	__isStepDefinition,
 	extractFormValuesFromBlueprint,
 } from '@studio/common/lib/blueprint-settings';
@@ -54,7 +49,7 @@ import {
 	SupportedPHPVersions,
 	type SupportedPHPVersion,
 } from '@studio/common/types/php-versions';
-import { __, _n, sprintf } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
 import { bumpStat, getPlatformMetric } from 'cli/lib/bump-stat';
 import {
 	lockCliConfig,
@@ -65,30 +60,32 @@ import {
 } from 'cli/lib/cli-config/core';
 import { getSiteUrl, removeSiteFromConfig } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/daemon-client';
-import {
-	captureCompareCommand,
-	captureRootFor,
-	liberateWebsite,
-	type PartialCaptureReport,
-} from 'cli/lib/data-liberation-client';
+import { type liberateWebsite } from 'cli/lib/data-liberation-client';
 import {
 	getAiInstructionsPath,
 	getWordPressVersionPath,
 } from 'cli/lib/dependency-management/paths';
 import { updateServerFiles } from 'cli/lib/dependency-management/setup';
 import { downloadWordPress } from 'cli/lib/dependency-management/wordpress';
-import { resolveStaticSiteImporterPlugin } from 'cli/lib/import-runtime';
 import { copyLanguagePackToSite } from 'cli/lib/language-packs';
 import { validateSupportedPhpVersion } from 'cli/lib/php-versions';
-import { runWpCliCommand, type RunWpCliCommandOptions } from 'cli/lib/run-wp-cli-command';
 import { getPreferredSiteLanguage } from 'cli/lib/site-language';
 import { generateSiteName } from 'cli/lib/site-name';
 import { getDefaultSitePath } from 'cli/lib/site-paths';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
+import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import {
-	isSqliteIntegrationAvailable,
-	keepSqliteIntegrationUpdated,
-} from 'cli/lib/sqlite-integration';
+	completeSourceImport,
+	prepareSourceImport,
+	removeStaticSiteImportBundle,
+	type PreparedSourceImport,
+} from 'cli/lib/static-site-import/prepare';
+import { StaticSiteImportRun } from 'cli/lib/static-site-import/run';
+import {
+	isUrl,
+	sourceSiteName,
+	type StaticSiteImportPlan,
+} from 'cli/lib/static-site-import/source';
 import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { StatsGroup } from 'cli/lib/types/bump-stats';
 import { untildify } from 'cli/lib/utils';
@@ -104,48 +101,6 @@ import { StudioArgv } from 'cli/types';
 import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 
 const defaultLogger = new Logger< LoggerAction >();
-// Without an explicit importer, `--from` installs the newest Static Site Importer release (see
-// `cli/lib/import-runtime`), which vendors the matching Blocks Engine. To run an unreleased build, pass a paired zip
-// from the importer's `npm run build:dev-package` to `--static-site-importer-path`.
-const SSI_PLUGIN_SLUG = 'static-site-importer';
-const PARTIAL_CAPTURE_REPORTED_ROUTES = 10;
-const STATIC_SITE_IMPORT_DIR = '.studio-import';
-const STATIC_SITE_IMPORT_REQUEST_FILE = 'request.json';
-const STATIC_SITE_IMPORT_PROGRESS_INTERVAL_MS = 30_000;
-const DATA_LIBERATION_CAPTURE_RECEIPT_SCHEMA = 'data-liberation/capture-receipt/v1';
-// JSON compiler-evidence sidecars written next to `website/`. Copied into the
-// staged importer source and named in `metadata.reports` so SSI keeps them at
-// the artifact root instead of prefixing `website/`. Large capture directories
-// (`screenshots/`, `media/`, `resources/`, `layout-geometry/`) and `sections/`
-// (forwarded separately) are excluded.
-const ARTIFACT_ROOT_REPORT_FILES = [
-	'capture-receipt.json',
-	'asset-evidence.json',
-	'breakpoints.json',
-	'cleanup-evidence.json',
-	'computed-styles.json',
-	'css-variables.json',
-	'diagnostics.json',
-	'interaction-states.json',
-	'layout-geometry-proof.json',
-	'layout-geometry-report.json',
-	'palette.json',
-	'scroll-states.json',
-	'source-profile.json',
-	'typography.json',
-] as const;
-const STATIC_SITE_IMPORT_RECEIPT_SCHEMA = 'static-site-importer/import-cli-receipt/v1';
-type StaticSiteImportProgressPhase = 'import' | 'finalization';
-
-type StaticSiteImporterSource = {
-	path: string;
-	payload: Record< string, unknown >;
-	stagedSourcePath?: string;
-	stagedReportFiles?: Array< { name: string; from: string } >;
-};
-
-type StaticSiteImporterPlugin = string | { path: string };
-
 export type CreateCommandOptions = {
 	name?: string;
 	siteId?: string;
@@ -157,12 +112,7 @@ export type CreateCommandOptions = {
 	blueprint?: {
 		contents: unknown;
 		uri: string;
-		staticSiteImport?: {
-			request: string;
-			bundlePath?: string;
-			sourcePath?: string;
-			reportFiles?: Array< { name: string; from: string } >;
-		};
+		staticSiteImport?: StaticSiteImportPlan;
 	};
 	adminUsername?: string;
 	adminPassword?: string;
@@ -186,823 +136,6 @@ function parseFlowType( value: string | undefined ): TracksSiteCreateFlowType | 
 	return SITE_CREATE_FLOW_TYPES.find( ( flowType ) => flowType === value );
 }
 
-function readSiteArtifact( artifactPath: string ): Record< string, unknown > {
-	if ( ! fs.existsSync( artifactPath ) ) {
-		throw new LoggerError( sprintf( __( 'Artifact file not found: %s' ), artifactPath ) );
-	}
-
-	try {
-		const artifactContent = fs.readFileSync( artifactPath, 'utf-8' );
-		const artifact = JSON.parse( artifactContent );
-		if ( ! artifact || typeof artifact !== 'object' || Array.isArray( artifact ) ) {
-			throw new Error( __( 'Artifact JSON must be an object.' ) );
-		}
-		return artifact as Record< string, unknown >;
-	} catch ( error ) {
-		throw new LoggerError(
-			sprintf( __( 'Failed to parse artifact JSON file: %s' ), artifactPath ),
-			error
-		);
-	}
-}
-
-function isUrl( value: string ): boolean {
-	return value.startsWith( 'http://' ) || value.startsWith( 'https://' );
-}
-
-function sourceFilePayload( filePath: string, relativePath: string ): Record< string, string > {
-	return {
-		path: relativePath.replace( /\\/g, '/' ),
-		content_base64: fs.readFileSync( filePath ).toString( 'base64' ),
-	};
-}
-
-function resolveDataLiberationWebsiteRoot( sourceDir: string ): string {
-	const receiptPath = path.join( sourceDir, 'capture-receipt.json' );
-	if ( ! fs.existsSync( receiptPath ) ) {
-		return sourceDir;
-	}
-
-	const receipt = readSiteArtifact( receiptPath );
-	if ( receipt.schema !== DATA_LIBERATION_CAPTURE_RECEIPT_SCHEMA ) {
-		return sourceDir;
-	}
-
-	if ( typeof receipt.websiteRoot !== 'string' || ! receipt.websiteRoot.trim() ) {
-		throw new LoggerError( __( 'Data Liberation capture receipt must declare a website root.' ) );
-	}
-
-	const outputRoot = path.resolve( sourceDir );
-	const websiteRoot = path.resolve( sourceDir, receipt.websiteRoot );
-	const relativeRoot = path.relative( outputRoot, websiteRoot );
-	if ( relativeRoot === '..' || relativeRoot.startsWith( `..${ path.sep }` ) ) {
-		throw new LoggerError(
-			__( 'Data Liberation website root must stay inside the capture directory.' )
-		);
-	}
-	if ( ! fs.existsSync( websiteRoot ) || ! fs.statSync( websiteRoot ).isDirectory() ) {
-		throw new LoggerError(
-			sprintf( __( 'Data Liberation capture root not found: %s' ), websiteRoot )
-		);
-	}
-
-	return websiteRoot;
-}
-
-function isDataLiberationCaptureRoot( directory: string ): boolean {
-	const receiptPath = path.join( directory, 'capture-receipt.json' );
-	if ( ! fs.existsSync( receiptPath ) || ! fs.statSync( receiptPath ).isFile() ) {
-		return false;
-	}
-
-	try {
-		const receipt = JSON.parse( fs.readFileSync( receiptPath, 'utf-8' ) ) as {
-			schema?: unknown;
-		};
-		return receipt.schema === DATA_LIBERATION_CAPTURE_RECEIPT_SCHEMA;
-	} catch {
-		return false;
-	}
-}
-
-function collectArtifactRootReports(
-	sourcePath: string,
-	websiteRoot: string
-): Array< { name: string; from: string } > {
-	// `--from <url>` stages `website/` (liberateWebsite's return value). Sidecars
-	// live on the capture root, one directory up.
-	for ( const candidateRoot of [ sourcePath, path.dirname( sourcePath ) ] ) {
-		if (
-			path.resolve( candidateRoot ) === path.resolve( websiteRoot ) ||
-			! isDataLiberationCaptureRoot( candidateRoot )
-		) {
-			continue;
-		}
-
-		const files: Array< { name: string; from: string } > = [];
-		for ( const name of ARTIFACT_ROOT_REPORT_FILES ) {
-			const filePath = path.join( candidateRoot, name );
-			if ( fs.existsSync( filePath ) && fs.statSync( filePath ).isFile() ) {
-				files.push( { name, from: filePath } );
-			}
-		}
-		return files;
-	}
-
-	return [];
-}
-
-function resolveStaticSiteImporterSource( sourcePath: string ): StaticSiteImporterSource {
-	if ( isUrl( sourcePath ) ) {
-		throw new LoggerError(
-			__( 'Remote URLs must be rendered by Data Liberation before SSI materialization.' )
-		);
-	}
-
-	if ( ! fs.existsSync( sourcePath ) ) {
-		throw new LoggerError( sprintf( __( 'Import source not found: %s' ), sourcePath ) );
-	}
-
-	const stat = fs.statSync( sourcePath );
-	if ( stat.isDirectory() ) {
-		const artifactPath = path.join( sourcePath, 'artifact.json' );
-		if ( fs.existsSync( artifactPath ) ) {
-			const artifact = readSiteArtifact( artifactPath );
-			if ( artifact.schema === 'blocks-engine/php-transformer/site-artifact/v1' ) {
-				return {
-					path: artifactPath,
-					payload: { artifact },
-				};
-			}
-		}
-
-		const stagedSourcePath = resolveDataLiberationWebsiteRoot( sourcePath );
-		if ( fs.readdirSync( stagedSourcePath ).length === 0 ) {
-			throw new LoggerError( sprintf( __( 'Import source directory is empty: %s' ), sourcePath ) );
-		}
-		return {
-			path: sourcePath,
-			payload: {},
-			stagedSourcePath,
-			stagedReportFiles: collectArtifactRootReports( sourcePath, stagedSourcePath ),
-		};
-	}
-
-	if ( ! stat.isFile() ) {
-		throw new LoggerError(
-			sprintf( __( 'Import source must be a file or directory: %s' ), sourcePath )
-		);
-	}
-
-	const extension = path.extname( sourcePath ).toLowerCase();
-	if ( extension === '.json' ) {
-		const artifact = readSiteArtifact( sourcePath );
-		return {
-			path: sourcePath,
-			payload: { artifact },
-		};
-	}
-
-	if ( extension === '.zip' ) {
-		return {
-			path: sourcePath,
-			payload: {
-				archive: {
-					name: path.basename( sourcePath ),
-					content_base64: fs.readFileSync( sourcePath ).toString( 'base64' ),
-				},
-			},
-		};
-	}
-
-	if ( extension === '.fig' ) {
-		throw new LoggerError(
-			__( 'Figma files are not supported by the canonical Static Site Importer command.' )
-		);
-	}
-
-	return {
-		path: sourcePath,
-		payload: {
-			files: [ sourceFilePayload( sourcePath, path.basename( sourcePath ) ) ],
-		},
-	};
-}
-
-function buildStaticSiteImporterRequest(
-	source: StaticSiteImporterSource,
-	siteName: string,
-	originalSourceUrl?: string
-): Record< string, unknown > {
-	const payload = source.payload;
-	let requestSource: Record< string, unknown >;
-	let themeMaterialization: unknown;
-	const artifact = payload.artifact;
-
-	if ( source.stagedSourcePath ) {
-		const reports = ( source.stagedReportFiles ?? [] ).map( ( file ) => file.name );
-		requestSource = {
-			type: 'files',
-			ref: 'request-bundle:source',
-			...( reports.length > 0 ? { metadata: { reports } } : {} ),
-		};
-	} else if ( artifact && typeof artifact === 'object' && ! Array.isArray( artifact ) ) {
-		const {
-			schema: _schema,
-			entrypoint,
-			files,
-			theme_materialization,
-			...metadata
-		} = artifact as Record< string, unknown >;
-		themeMaterialization = theme_materialization;
-		requestSource = {
-			type: 'files',
-			entrypoint: typeof entrypoint === 'string' ? entrypoint : '',
-			files: Array.isArray( files ) ? files : [],
-			metadata,
-		};
-	} else if ( payload.archive && typeof payload.archive === 'object' ) {
-		requestSource = { type: 'zip', zip: payload.archive };
-	} else if ( Array.isArray( payload.files ) ) {
-		requestSource = { type: 'files', files: payload.files };
-	} else {
-		throw new LoggerError( __( 'This source type is not supported by the canonical importer.' ) );
-	}
-
-	const request: Record< string, unknown > = {
-		operation: 'apply',
-		name: siteName,
-		site_title: siteName,
-		activate: true,
-		overwrite: true,
-		client_script_policy: 'isolated_preview',
-		client_script_isolated: true,
-		client_script_provenance: {
-			ref: `studio-create-from:sha256:${ crypto
-				.createHash( 'sha256' )
-				.update( JSON.stringify( requestSource ) )
-				.digest( 'hex' ) }`,
-		},
-		source_metadata: {
-			source: 'studio-create-from',
-			source_path: originalSourceUrl ?? source.path,
-		},
-		fail_on_quality: true,
-		write_theme_report_artifacts: true,
-		require_proven_dynamic_client_assets: true,
-		seed_entities: true,
-		materialize_dependencies: true,
-		source: requestSource,
-	};
-	if ( themeMaterialization === 'block' || themeMaterialization === 'classic' ) {
-		request.theme_materialization = themeMaterialization;
-	}
-	return request;
-}
-
-function artifactTitle( artifact: Record< string, unknown > ): string | undefined {
-	const directTitle = artifact.site_title || artifact.title || artifact.name;
-	if ( typeof directTitle === 'string' && directTitle.trim() ) {
-		return directTitle.trim();
-	}
-
-	const provenance = artifact.provenance;
-	if ( provenance && typeof provenance === 'object' && ! Array.isArray( provenance ) ) {
-		const provenanceTitle = ( provenance as Record< string, unknown > ).title;
-		if ( typeof provenanceTitle === 'string' && provenanceTitle.trim() ) {
-			return provenanceTitle.trim();
-		}
-	}
-
-	return undefined;
-}
-
-function capturedSourceTitle( websitePath: string ): string | undefined {
-	const captureRoot = [ websitePath, path.dirname( websitePath ) ].find(
-		isDataLiberationCaptureRoot
-	);
-	if ( ! captureRoot ) return undefined;
-	const title = readSiteArtifact( path.join( captureRoot, 'capture-receipt.json' ) ).title;
-	return typeof title === 'string' && title.trim() ? title.trim() : undefined;
-}
-
-export function buildCreateFromSourceBlueprint(
-	sourcePath: string,
-	siteName: string,
-	staticSiteImporterPlugin: StaticSiteImporterPlugin,
-	originalSourceUrl?: string
-): {
-	contents: BlueprintV1Declaration;
-	uri: string;
-	staticSiteImport: {
-		request: string;
-		bundlePath?: string;
-		sourcePath?: string;
-		reportFiles?: Array< { name: string; from: string } >;
-	};
-} {
-	const source = resolveStaticSiteImporterSource( sourcePath );
-	const request = buildStaticSiteImporterRequest( source, siteName, originalSourceUrl );
-	return importerBlueprint( staticSiteImporterPlugin, {
-		request: `${ JSON.stringify( request, null, 2 ) }\n`,
-		sourcePath: source.stagedSourcePath,
-		reportFiles: source.stagedReportFiles,
-	} );
-}
-
-/** The blueprint that installs the importer, carrying the import it will run. */
-function importerBlueprint(
-	staticSiteImporterPlugin: StaticSiteImporterPlugin,
-	staticSiteImport: {
-		request: string;
-		sourcePath?: string;
-		reportFiles?: Array< { name: string; from: string } >;
-	}
-): ReturnType< typeof buildCreateFromSourceBlueprint > {
-	const tempDir = createBlueprintTempDirSync();
-	const blueprintPath = path.join( tempDir, 'blueprint.json' );
-	const pluginData =
-		typeof staticSiteImporterPlugin === 'string'
-			? { resource: 'url' as const, url: staticSiteImporterPlugin }
-			: { resource: 'bundled' as const, path: `${ SSI_PLUGIN_SLUG }.zip` };
-	const blueprint: BlueprintV1Declaration = {
-		landingPage: '/',
-		features: {
-			networking: true,
-		},
-		steps: [
-			{
-				step: 'installPlugin',
-				pluginData,
-				options: {
-					activate: true,
-					targetFolderName: SSI_PLUGIN_SLUG,
-				},
-			},
-		],
-	};
-
-	try {
-		if ( typeof staticSiteImporterPlugin !== 'string' ) {
-			fs.copyFileSync(
-				staticSiteImporterPlugin.path,
-				path.join( tempDir, `${ SSI_PLUGIN_SLUG }.zip` )
-			);
-		}
-		fs.writeFileSync( blueprintPath, `${ JSON.stringify( blueprint, null, 2 ) }\n` );
-	} catch ( error ) {
-		removeBlueprintTempDirSync( tempDir );
-		throw error;
-	}
-	return {
-		contents: blueprint,
-		uri: blueprintPath,
-		staticSiteImport: { ...staticSiteImport, bundlePath: tempDir },
-	};
-}
-
-// A partial capture still imports, so the routes it dropped have to stay discoverable after
-// the terminal output is gone: the message names each one, and the caller keeps the capture
-// directory the diagnostics live in instead of deleting it with the rest of the source.
-function partialCaptureWarning( report: PartialCaptureReport ): string {
-	const lines = [
-		sprintf(
-			/* translators: 1: dropped route count, 2: discovered route count */
-			__(
-				'Data Liberation could not capture %1$d of %2$d routes. They are missing from the imported site:'
-			),
-			report.droppedRoutes.length,
-			report.routesDiscovered
-		),
-		...report.droppedRoutes
-			.slice( 0, PARTIAL_CAPTURE_REPORTED_ROUTES )
-			.map( ( route ) => `  - ${ route.url }: ${ route.reason }` ),
-	];
-	const unlisted = report.droppedRoutes.length - PARTIAL_CAPTURE_REPORTED_ROUTES;
-	if ( unlisted > 0 ) {
-		/* translators: %d: number of failed routes not listed individually */
-		lines.push( sprintf( __( '  …and %d more.' ), unlisted ) );
-	}
-	lines.push(
-		sprintf(
-			/* translators: %s: path to the retained capture diagnostics file */
-			__( 'The capture was kept for review: %s' ),
-			report.diagnosticsPath
-		)
-	);
-	return lines.join( '\n' );
-}
-
-/**
- * Turn a `--from` source into the blueprint that imports it. A URL is first captured with the
- * newest Data Liberation release into the sibling `<site>-source` directory; every source is
- * then imported with the newest Static Site Importer release unless an importer is given.
- */
-export async function prepareSourceImport(
-	source: string,
-	sitePath: string,
-	siteName: string | undefined,
-	logger: Logger< LoggerAction >,
-	options: {
-		staticSiteImporter?: StaticSiteImporterPlugin;
-		liberate?: typeof liberateWebsite;
-	} = {}
-): Promise< {
-	blueprint: ReturnType< typeof buildCreateFromSourceBlueprint >;
-	liberationOutputDir?: string;
-	compareCommand?: ( siteUrl: string ) => string;
-	capturedPartially: boolean;
-	siteName: string;
-} > {
-	const sourceUrl = isUrl( source ) ? source : undefined;
-	let importSource = source;
-	let liberationOutputDir: string | undefined;
-	let compareCommand: ( ( siteUrl: string ) => string ) | undefined;
-	let capturedPartially = false;
-	const resumable = sourceUrl ? stagedUrlImport( sitePath, sourceUrl ) : undefined;
-	if ( sourceUrl && resumable ) {
-		// Re-running the command after a failed import resumes it. The staged request already
-		// names its capture, so the source is not captured again.
-		logger.reportSuccess( __( 'Resuming the staged import; the source is not captured again' ) );
-		const blueprint = importerBlueprint(
-			options.staticSiteImporter ?? { path: ( await resolveStaticSiteImporterPlugin() ).path },
-			{ request: resumable, sourcePath: staticSiteImportSourcePath( sitePath ) }
-		);
-		const keptCapture = captureRootFor(
-			sourceUrl,
-			path.join( path.dirname( sitePath ), `${ path.basename( sitePath ) }-source` )
-		);
-		return {
-			blueprint,
-			siteName: siteName ?? artifactTitle( JSON.parse( resumable ) ) ?? __( 'Imported Site' ),
-			compareCommand: fs.existsSync( keptCapture )
-				? await captureCompareCommand( keptCapture ).catch( () => undefined )
-				: undefined,
-			capturedPartially: false,
-		};
-	}
-	if ( sourceUrl ) {
-		if ( ! ( await isSqliteIntegrationAvailable() ) ) {
-			throw new LoggerError(
-				__(
-					'Cannot set up WordPress. Bundled SQLite integration files not found. Please reinstall Studio.'
-				)
-			);
-		}
-		let lastProgressAt = 0;
-		liberationOutputDir = path.join(
-			path.dirname( sitePath ),
-			`${ path.basename( sitePath ) }-source`
-		);
-		logger.reportStart(
-			LoggerAction.IMPORT_SITE,
-			__( 'Preparing source website with Data Liberation…' )
-		);
-		const liberated = await ( options.liberate ?? liberateWebsite )(
-			sourceUrl,
-			liberationOutputDir,
-			{
-				onProgress: ( message ) => {
-					const now = Date.now();
-					if ( now - lastProgressAt >= STATIC_SITE_IMPORT_PROGRESS_INTERVAL_MS ) {
-						lastProgressAt = now;
-						logger.reportProgress( message );
-					}
-				},
-			}
-		);
-		importSource = liberated.websiteDir;
-		compareCommand = liberated.compareCommand;
-		if ( liberated.partialCapture ) {
-			capturedPartially = true;
-			logger.reportWarning( partialCaptureWarning( liberated.partialCapture ) );
-		}
-		logger.reportSuccess( __( 'Source website prepared' ) );
-	}
-	const resolvedSiteName = siteName ?? capturedSourceTitle( importSource ) ?? __( 'Imported Site' );
-	const blueprint = buildCreateFromSourceBlueprint(
-		importSource,
-		resolvedSiteName,
-		options.staticSiteImporter ?? { path: ( await resolveStaticSiteImporterPlugin() ).path },
-		sourceUrl
-	);
-	return {
-		blueprint,
-		liberationOutputDir,
-		compareCommand,
-		capturedPartially,
-		siteName: resolvedSiteName,
-	};
-}
-
-export function staticSiteImportProgressMessage(
-	phase: StaticSiteImportProgressPhase,
-	elapsedMs: number
-): string {
-	const elapsedSeconds = Math.floor( elapsedMs / 1000 );
-	if ( phase === 'import' ) {
-		return sprintf( __( 'Static site import… %d sec elapsed' ), elapsedSeconds );
-	}
-	return sprintf( __( 'Finalization… %d sec elapsed' ), elapsedSeconds );
-}
-
-/**
- * The request of an unfinished import of `sourceUrl` staged in `sitePath`, if there is one.
- * Its staged source travels with it, so resuming needs neither the original capture nor a new one.
- */
-function stagedUrlImport( sitePath: string, sourceUrl: string ): string | undefined {
-	try {
-		const request = fs.readFileSync( staticSiteImportRequestPath( sitePath ), 'utf-8' );
-		const staged = JSON.parse( request ) as { source_metadata?: { source_path?: unknown } };
-		return staged.source_metadata?.source_path === sourceUrl &&
-			fs.existsSync( staticSiteImportSourcePath( sitePath ) )
-			? request
-			: undefined;
-	} catch {
-		return undefined;
-	}
-}
-
-function staticSiteImportRequestPath( sitePath: string ): string {
-	return path.join( sitePath, STATIC_SITE_IMPORT_DIR, STATIC_SITE_IMPORT_REQUEST_FILE );
-}
-
-function staticSiteImportSourcePath( sitePath: string ): string {
-	return path.join( sitePath, STATIC_SITE_IMPORT_DIR, 'source' );
-}
-
-type WpCliResult = { exitCode: number; stdout: string; stderr: string };
-
-async function runWpCli(
-	site: SiteData,
-	args: string[],
-	options: RunWpCliCommandOptions = {}
-): Promise< WpCliResult > {
-	await using command = await runWpCliCommand( site, args, options );
-	const [ exitCode, stdout, stderr ] = await Promise.all( [
-		command.response.exitCode,
-		command.response.stdoutText,
-		command.response.stderrText,
-	] );
-	return { exitCode, stdout, stderr };
-}
-
-function wpCliFailureDetail( { exitCode, stdout, stderr }: WpCliResult ): string {
-	return stderr.trim() || stdout.trim() || sprintf( __( 'WP-CLI exited with code %d.' ), exitCode );
-}
-
-function removeStagedStaticSiteImport( sitePath: string ): void {
-	fs.rmSync( path.join( sitePath, STATIC_SITE_IMPORT_DIR ), { recursive: true, force: true } );
-}
-
-function decodeStaticSiteImportReceipt( output: string ): Record< string, unknown > | undefined {
-	const lines = output.trim().split( /\r?\n/ );
-	for ( let index = lines.length - 1; index >= 0; index-- ) {
-		try {
-			const receipt = JSON.parse( lines[ index ] );
-			if ( receipt && typeof receipt === 'object' && ! Array.isArray( receipt ) ) {
-				return receipt as Record< string, unknown >;
-			}
-		} catch {
-			// WP-CLI may print informational lines before the terminal JSON receipt.
-		}
-	}
-	return undefined;
-}
-
-function staticSiteImportReceiptError( receipt: Record< string, unknown > | undefined ): string {
-	const response = receipt?.response;
-	if ( ! response || typeof response !== 'object' || Array.isArray( response ) ) {
-		return '';
-	}
-	const error = ( response as Record< string, unknown > ).error;
-	if ( ! error || typeof error !== 'object' || Array.isArray( error ) ) {
-		return '';
-	}
-	const code = ( error as Record< string, unknown > ).code;
-	const message = ( error as Record< string, unknown > ).message;
-	const detail = [ code, message ]
-		.filter( ( value ) => typeof value === 'string' && value )
-		.join( ': ' );
-	if ( code === 'static_site_importer_quality_failed' ) {
-		return sprintf(
-			/* translators: %s: Static Site Importer quality validation detail */
-			__(
-				'Static Site Importer materialized a preview but did not accept it. The site and staged request were preserved: %s'
-			),
-			detail || __( 'Quality validation failed.' )
-		);
-	}
-	return detail;
-}
-
-function staticSiteImportResult(
-	receipt: Record< string, unknown > | undefined
-): Record< string, unknown > | undefined {
-	const response = receipt?.response;
-	if ( ! response || typeof response !== 'object' || Array.isArray( response ) ) {
-		return undefined;
-	}
-	const result = ( response as Record< string, unknown > ).result;
-	if ( result && typeof result === 'object' && ! Array.isArray( result ) ) {
-		return result as Record< string, unknown >;
-	}
-	return response as Record< string, unknown >;
-}
-
-function staticSiteImportQualityFailure(
-	receipt: Record< string, unknown > | undefined
-): string | undefined {
-	const importResult = staticSiteImportResult( receipt );
-	if ( ! importResult ) {
-		return undefined;
-	}
-	const validation = importResult.import_validation_result;
-	const summary = importResult.import_report_summary;
-	const quality =
-		validation && typeof validation === 'object' && ! Array.isArray( validation )
-			? validation
-			: summary && typeof summary === 'object' && ! Array.isArray( summary )
-			? summary
-			: undefined;
-	if ( ! quality ) {
-		return undefined;
-	}
-	const counts = ( quality as Record< string, unknown > ).counts;
-	const {
-		status,
-		quality_pass: qualityPass,
-		fail_import: failImport,
-		fallback_count: fallbackCount,
-		failure_reasons: failureReasons,
-	} = quality as Record< string, unknown >;
-	if ( status !== 'failed' && qualityPass !== false && failImport !== true ) {
-		return undefined;
-	}
-	const failures = Array.isArray( failureReasons )
-		? failureReasons.filter(
-				( reason ): reason is string => typeof reason === 'string' && Boolean( reason )
-		  )
-		: [];
-	const fallbackBlocks =
-		counts && typeof counts === 'object' && ! Array.isArray( counts )
-			? ( counts as Record< string, unknown > ).fallback_blocks
-			: fallbackCount;
-	const detail = failures.length
-		? failures
-				.map( ( reason ) => {
-					const count = ( quality as Record< string, unknown > )[ `${ reason }_count` ];
-					return typeof count === 'number'
-						? sprintf(
-								/* translators: 1: number of failures, 2: Static Site Importer failure reason */
-								_n( 'SSI reported %1$d %2$s failure.', 'SSI reported %1$d %2$s failures.', count ),
-								count,
-								reason
-						  )
-						: sprintf(
-								/* translators: %s: Static Site Importer failure reason */
-								__( 'SSI reported a %s failure.' ),
-								reason
-						  );
-				} )
-				.join( ' ' )
-		: typeof fallbackBlocks === 'number'
-		? sprintf(
-				/* translators: %d: number of fallback blocks */
-				__( 'SSI reported %d fallback blocks.' ),
-				fallbackBlocks
-		  )
-		: __( 'SSI rejected the imported content.' );
-	return sprintf(
-		/* translators: %s: Static Site Importer validation detail */
-		__( '%s Review the importer diagnostics and retry.' ),
-		detail
-	);
-}
-
-async function runStaticSiteImport(
-	site: SiteData,
-	request: string,
-	sourcePath?: string,
-	resume = false,
-	logger: Logger< LoggerAction > = defaultLogger,
-	reportFiles: Array< { name: string; from: string } > = []
-): Promise< boolean > {
-	const requestPath = staticSiteImportRequestPath( site.path );
-	if ( resume ) {
-		if ( ! fs.existsSync( requestPath ) || fs.readFileSync( requestPath, 'utf-8' ) !== request ) {
-			throw new LoggerError( __( 'The staged static site import request does not match.' ) );
-		}
-	} else {
-		fs.mkdirSync( path.dirname( requestPath ), { recursive: true } );
-		if ( sourcePath ) {
-			await fs.promises.cp( sourcePath, staticSiteImportSourcePath( site.path ), {
-				recursive: true,
-				errorOnExist: true,
-				force: false,
-			} );
-			for ( const report of reportFiles ) {
-				await fs.promises.copyFile(
-					report.from,
-					path.join( staticSiteImportSourcePath( site.path ), report.name )
-				);
-			}
-		}
-		fs.writeFileSync( requestPath, request );
-	}
-
-	const startedAt = Date.now();
-	logger.reportStart( LoggerAction.IMPORT_SITE, staticSiteImportProgressMessage( 'import', 0 ) );
-	const progressTimer = setInterval( () => {
-		logger.reportProgress( staticSiteImportProgressMessage( 'import', Date.now() - startedAt ) );
-	}, STATIC_SITE_IMPORT_PROGRESS_INTERVAL_MS );
-	progressTimer.unref?.();
-
-	let result: WpCliResult;
-	try {
-		result = await runWpCli(
-			site,
-			[
-				'static-site-importer',
-				'import',
-				`--request=${ path.posix.join( STATIC_SITE_IMPORT_DIR, STATIC_SITE_IMPORT_REQUEST_FILE ) }`,
-			],
-			{ liveOutput: true, onLiveOutput: () => logger.spinner.stop() }
-		);
-	} finally {
-		clearInterval( progressTimer );
-	}
-
-	logger.reportProgress( staticSiteImportProgressMessage( 'import', Date.now() - startedAt ) );
-	const { exitCode, stdout } = result;
-	const receipt = decodeStaticSiteImportReceipt( stdout );
-	const receiptError = staticSiteImportReceiptError( receipt );
-	if ( exitCode !== 0 ) {
-		throw new LoggerError(
-			__( 'Static site import failed.' ),
-			new Error( receiptError || wpCliFailureDetail( result ) )
-		);
-	}
-	if ( receipt?.schema !== STATIC_SITE_IMPORT_RECEIPT_SCHEMA || receipt.status !== 'completed' ) {
-		throw new LoggerError(
-			__( 'Static site import returned an invalid terminal receipt.' ),
-			new Error( receiptError || stdout.trim() || __( 'The importer did not return a receipt.' ) )
-		);
-	}
-	const qualityFailure = staticSiteImportQualityFailure( receipt );
-
-	if ( qualityFailure ) {
-		throw new LoggerError(
-			__( 'Static site import failed quality validation' ),
-			new Error( qualityFailure )
-		);
-	}
-
-	const finalizationStartedAt = Date.now();
-	logger.reportProgress( staticSiteImportProgressMessage( 'finalization', 0 ) );
-	const cleanupSucceeded = await cleanupStaticSiteImporterPlugin( site, logger );
-	logger.reportProgress(
-		staticSiteImportProgressMessage( 'finalization', Date.now() - finalizationStartedAt )
-	);
-	logger.reportSuccess( __( 'Static site imported successfully' ) );
-	return cleanupSucceeded;
-}
-
-async function cleanupStaticSiteImporterPlugin(
-	site: SiteData,
-	logger: Logger< LoggerAction > = defaultLogger
-): Promise< boolean > {
-	try {
-		// `is-installed` exits non-zero when the plugin is absent, which keeps cleanup
-		// idempotent across a rerun that already removed it.
-		const installed = await runWpCli( site, [ 'plugin', 'is-installed', SSI_PLUGIN_SLUG ] );
-		if ( installed.exitCode !== 0 ) {
-			return true;
-		}
-
-		const deactivated = await runWpCli( site, [
-			'plugin',
-			'deactivate',
-			SSI_PLUGIN_SLUG,
-			'--quiet',
-		] );
-		if ( deactivated.exitCode !== 0 ) {
-			throw new Error( wpCliFailureDetail( deactivated ) );
-		}
-
-		const deleted = await runWpCli( site, [ 'plugin', 'delete', SSI_PLUGIN_SLUG ] );
-		if ( deleted.exitCode !== 0 ) {
-			throw new Error( wpCliFailureDetail( deleted ) );
-		}
-		return true;
-	} catch ( error ) {
-		logger.reportError(
-			new LoggerError(
-				__(
-					'Static Site Importer cleanup failed. The imported site and staged request were preserved.'
-				),
-				error
-			),
-			false
-		);
-		return false;
-	}
-}
-
-function reportRetainedImportedSite( site: SiteData ): void {
-	const siteUrl = getSiteUrl( site );
-	console.log( '' );
-	console.log(
-		site.running
-			? __( 'The site is running and can be inspected.' )
-			: __( 'The imported site was kept and can be inspected.' )
-	);
-	console.log( sprintf( __( 'Path: %s' ), site.path ) );
-	console.log( sprintf( __( 'URL: %s' ), siteUrl ) );
-	console.log( __( 'Re-run the same command to resume the import.' ) );
-	console.log( '' );
-}
-
 export async function runCommand(
 	sitePath: string,
 	options: CreateCommandOptions,
@@ -1011,12 +144,9 @@ export async function runCommand(
 	const phpVersion = validateSupportedPhpVersion( options.phpVersion );
 	const isOnlineStatus = await isOnline();
 	const staticSiteImport = options.blueprint?.staticSiteImport;
-	// How far the static import got. `attempted` means the site now holds real import
-	// state, so failure handling must preserve it (and the staged request) for a rerun
-	// instead of tearing the site down.
-	let importOutcome: 'not-attempted' | 'attempted' | 'succeeded' = 'not-attempted';
-	// A site already registered at this path owns its own staged request; never clean it up.
-	let siteAlreadyExisted = false;
+	const importRun = staticSiteImport
+		? new StaticSiteImportRun( sitePath, staticSiteImport, logger )
+		: undefined;
 
 	try {
 		if ( isOnlineStatus ) {
@@ -1089,31 +219,8 @@ export async function runCommand(
 
 		const cliConfig = await readCliConfig();
 		const existingSite = cliConfig.sites.find( ( site ) => arePathsEqual( site.path, sitePath ) );
-		siteAlreadyExisted = Boolean( existingSite );
-		const canResumeStaticSiteImport =
-			existingSite &&
-			staticSiteImport &&
-			fs.existsSync( staticSiteImportRequestPath( sitePath ) ) &&
-			( ! staticSiteImport.sourcePath ||
-				fs.existsSync( staticSiteImportSourcePath( sitePath ) ) ) &&
-			fs.readFileSync( staticSiteImportRequestPath( sitePath ), 'utf-8' ) ===
-				staticSiteImport.request;
-		if ( existingSite && staticSiteImport && canResumeStaticSiteImport ) {
-			try {
-				importOutcome = 'attempted';
-				const cleanupSucceeded = await runStaticSiteImport(
-					existingSite,
-					staticSiteImport.request,
-					staticSiteImport.sourcePath,
-					true,
-					logger,
-					staticSiteImport.reportFiles
-				);
-				importOutcome = cleanupSucceeded ? 'succeeded' : 'attempted';
-			} catch ( error ) {
-				reportRetainedImportedSite( existingSite );
-				throw new LoggerError( __( 'Failed to import static site' ), error );
-			}
+		if ( importRun?.canResumeOn( existingSite ) ) {
+			await importRun.resume( existingSite );
 			return;
 		}
 		if ( existingSite ) {
@@ -1299,18 +406,7 @@ export async function runCommand(
 					? `${ siteDetails.enableHttps ? 'https' : 'http' }://${ siteDetails.customDomain }`
 					: `http://localhost:${ siteDetails.port }`;
 
-				if ( staticSiteImport ) {
-					importOutcome = 'attempted';
-					const cleanupSucceeded = await runStaticSiteImport(
-						siteDetails,
-						staticSiteImport.request,
-						staticSiteImport.sourcePath,
-						false,
-						logger,
-						staticSiteImport.reportFiles
-					);
-					importOutcome = cleanupSucceeded ? 'succeeded' : 'attempted';
-				}
+				await importRun?.run( siteDetails );
 
 				if ( ! options.skipLogDetails ) {
 					logSiteDetails( siteDetails );
@@ -1319,16 +415,14 @@ export async function runCommand(
 					await openSiteInBrowser( siteDetails );
 				}
 			} catch ( error ) {
-				if ( importOutcome === 'not-attempted' ) {
+				if ( ! importRun?.retainSiteAfterFailure( siteDetails ) ) {
 					await removeSiteFromConfig( siteDetails.id );
 					if ( ! isWordPressDirResult ) {
 						await fs.promises.rm( sitePath, { recursive: true, force: true } );
 					}
-				} else {
-					reportRetainedImportedSite( siteDetails );
 				}
 				throw new LoggerError(
-					staticSiteImport
+					importRun
 						? __( 'Failed to import static site' )
 						: __( 'Failed to start WordPress server' ),
 					error
@@ -1354,31 +448,16 @@ export async function runCommand(
 					logger.reportSuccess( __( 'Blueprint applied successfully' ) );
 
 					stripWpConfigDbConstants( sitePath );
-					if ( staticSiteImport ) {
-						importOutcome = 'attempted';
-						const cleanupSucceeded = await runStaticSiteImport(
-							siteDetails,
-							staticSiteImport.request,
-							staticSiteImport.sourcePath,
-							false,
-							logger,
-							staticSiteImport.reportFiles
-						);
-						importOutcome = cleanupSucceeded ? 'succeeded' : 'attempted';
-					}
+					await importRun?.run( siteDetails );
 				} catch ( error ) {
-					if ( importOutcome === 'not-attempted' ) {
+					if ( ! importRun?.retainSiteAfterFailure( siteDetails ) ) {
 						await removeSiteFromConfig( siteDetails.id );
 						if ( ! isWordPressDirResult ) {
 							await fs.promises.rm( sitePath, { recursive: true, force: true } );
 						}
-					} else {
-						reportRetainedImportedSite( siteDetails );
 					}
 					throw new LoggerError(
-						staticSiteImport
-							? __( 'Failed to import static site' )
-							: __( 'Failed to apply Blueprint' ),
+						importRun ? __( 'Failed to import static site' ) : __( 'Failed to apply Blueprint' ),
 						error
 					);
 				}
@@ -1413,15 +492,7 @@ export async function runCommand(
 
 		await emitCliEvent( { event: SITE_EVENTS.CREATED, data: { siteId: siteDetails.id } } );
 	} finally {
-		// Keep the staged request only when it is resumable: the import ran but did not
-		// finish. A site that already existed always keeps its own staged request.
-		if (
-			staticSiteImport &&
-			( importOutcome === 'succeeded' ||
-				( importOutcome === 'not-attempted' && ! siteAlreadyExisted ) )
-		) {
-			removeStagedStaticSiteImport( sitePath );
-		}
+		importRun?.finish();
 		await disconnectFromDaemon();
 	}
 }
@@ -1627,11 +698,8 @@ export const registerCommand = (
 				} );
 		},
 		handler: async ( argv ) => {
-			const artifact =
-				argv.from && ! isUrl( argv.from ) && path.extname( argv.from ).toLowerCase() === '.json'
-					? readSiteArtifact( argv.from )
-					: undefined;
-			let siteName = argv.name ?? ( artifact ? artifactTitle( artifact ) : undefined );
+			const sourceUrl = argv.from && isUrl( argv.from ) ? argv.from : undefined;
+			let siteName = argv.from ? sourceSiteName( argv.from, argv.name ) : argv.name;
 			let sitePath = argv.path;
 			let wpVersion = argv.wp;
 			let phpVersion = argv.php;
@@ -1693,7 +761,7 @@ export const registerCommand = (
 
 			try {
 				if ( process.stdin.isTTY ) {
-					if ( ! siteName ) {
+					if ( ! siteName && ! sourceUrl ) {
 						const defaultName = await generateSiteName();
 						siteName = await input( {
 							message: __( 'Site name:' ),
@@ -1822,14 +890,10 @@ export const registerCommand = (
 			};
 
 			try {
-				const importSource = argv.from;
-				const sourceUrl = importSource && isUrl( importSource ) ? importSource : undefined;
-				let liberationOutputDir: string | undefined;
-				let compareCommand: ( ( siteUrl: string ) => string ) | undefined;
-				let capturedPartially = false;
-				if ( importSource ) {
-					const prepared = await prepareSourceImport(
-						importSource,
+				let preparedImport: PreparedSourceImport | undefined;
+				if ( argv.from ) {
+					preparedImport = await prepareSourceImport(
+						argv.from,
 						sitePath,
 						siteName,
 						defaultLogger,
@@ -1840,11 +904,8 @@ export const registerCommand = (
 							liberate: dependencies.liberate,
 						}
 					);
-					config.blueprint = prepared.blueprint;
-					config.name = prepared.siteName;
-					liberationOutputDir = prepared.liberationOutputDir;
-					compareCommand = prepared.compareCommand;
-					capturedPartially = prepared.capturedPartially;
+					config.blueprint = preparedImport.blueprint;
+					config.name = preparedImport.siteName;
 				} else if ( argv.blueprint ) {
 					if ( isUrl( argv.blueprint ) ) {
 						config.blueprint = {
@@ -1873,29 +934,13 @@ export const registerCommand = (
 
 				try {
 					await runCommand( sitePath, config );
-					if ( sourceUrl && liberationOutputDir && ! argv.keepSource && ! capturedPartially ) {
-						await fs.promises
-							.rm( liberationOutputDir, { recursive: true, force: true } )
-							.catch( () => {} );
-					} else if ( compareCommand ) {
-						const site = ( await readCliConfig() ).sites.find(
-							( candidate ) => candidate.path === sitePath
-						);
-						if ( site ) {
-							console.log(
-								sprintf(
-									/* translators: %s: command that compares the new site with the original site */
-									__( 'Compare the new site with the original, page by page:\n  %s' ),
-									compareCommand( getSiteUrl( site ) )
-								)
-							);
-						}
+					if ( preparedImport ) {
+						await completeSourceImport( preparedImport, sitePath, {
+							keepSource: !! argv.keepSource,
+						} );
 					}
 				} finally {
-					const bundlePath = config.blueprint?.staticSiteImport?.bundlePath;
-					if ( bundlePath ) {
-						await removeBlueprintTempDir( bundlePath ).catch( () => {} );
-					}
+					await removeStaticSiteImportBundle( config.blueprint?.staticSiteImport );
 				}
 
 				if ( __ENABLE_CLI_TELEMETRY__ && ! argv.avoidTelemetry ) {

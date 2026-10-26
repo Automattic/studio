@@ -1,0 +1,49 @@
+@layer ui {
+	.root {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var( --space-3 );
+	}
+
+	.track {
+		position: relative;
+		display: flex;
+		align-items: center;
+		width: 100%;
+		height: 4px;
+		overflow-x: hidden;
+		border-radius: var( --radius-full );
+		background-color: var( --muted );
+	}
+
+	[data-slot='field-group'][data-variant='settings'] .track {
+		background-color: var( --border );
+	}
+
+	.indicator {
+		height: 100%;
+		background-color: var( --primary );
+		transition: width var( --motion-duration-feedback ) linear;
+	}
+
+	/* The filters brighten the warning token toward a yellow, then an orange. */
+	.root[data-intent='warning'] .indicator {
+		background-color: var( --warning );
+		filter: saturate( 2 ) brightness( 1.8 );
+	}
+
+	.root[data-intent='critical'] .indicator {
+		background-color: var( --warning );
+		filter: saturate( 1.6 ) brightness( 1.35 );
+	}
+
+	.root[data-intent='exhausted'] .indicator {
+		background-color: var( --destructive );
+	}
+
+	@media ( prefers-reduced-motion: reduce ) {
+		.indicator {
+			transition: none;
+		}
+	}
+}

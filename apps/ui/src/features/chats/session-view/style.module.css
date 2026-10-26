@@ -1,0 +1,221 @@
+/* The chat column. The site preview panel lives in the dashboard layout's
+   PreviewSplitFrame, which hosts this view in its content column. */
+.root {
+	--column-inline-gutter: 14px;
+	--column-max-width: 644px;
+	--header-height: var( --band-height );
+	--composer-height: 0px;
+	/* The composer sits this far above the panel's bottom edge. */
+	--composer-bottom-gap: 14px;
+	--composer-blur-overhang: 40px;
+	--scrollbar-blur-safe-area: 14px;
+
+	position: relative;
+	height: 100%;
+	min-height: 0;
+	overflow: hidden;
+	isolation: isolate;
+}
+
+.header {
+	composes: bandEdge from '@/lib/theme/recipes.module.css';
+	display: flex;
+	align-items: center;
+	gap: var( --space-1 );
+	padding-inline: var( --space-3 );
+	height: var( --band-height );
+	transition: padding var( --motion-duration-layout ) var( --motion-ease-layout );
+	background-color: var( --chrome );
+	font-size: var( --text-xxs );
+	color: var( --foreground );
+	-webkit-app-region: drag;
+}
+
+.headerLead {
+	display: flex;
+	align-items: center;
+	gap: var( --space-1 );
+	min-width: 0;
+}
+
+.headerWithSiteActions {
+	padding-inline-end: var( --space-2 );
+}
+
+.headerSidebarCollapsed {
+	padding-inline-start: var( --traffic-light-space );
+}
+
+.headerSite {
+	font-weight: var( --font-weight-semibold );
+}
+
+.headerSiteIcon {
+	margin-inline-end: calc( -1 * var( --space-1 ) );
+}
+
+.headerDot {
+	width: 6px;
+	height: 6px;
+	border-radius: var( --radius-full );
+	background-color: var( --status-running );
+	flex-shrink: 0;
+	/* Extra horizontal margin around the dot only — keeps the toggle-to-title
+	   gap at the header's base 8px while giving the site/dot/local grouping
+	   more breathing room. */
+	margin: 0 var( --space-1 );
+}
+
+.headerEnv {
+	color: var( --muted-foreground );
+}
+
+.headerSpacer {
+	flex: 1;
+}
+
+.headerActions {
+	display: flex;
+	align-items: center;
+	gap: var( --space-1 );
+	-webkit-app-region: no-drag;
+}
+
+.scroll {
+	position: absolute;
+	inset: 0;
+	height: 100%;
+	min-height: 0;
+	overflow-y: auto;
+	overflow-x: hidden;
+	padding-block: var( --header-height )
+		calc( var( --composer-height ) + var( --composer-bottom-gap ) );
+	padding-inline: var( --column-inline-gutter );
+	container-type: inline-size;
+	z-index: 0;
+	/* Reserve scrollbar space symmetrically so the centered column doesn't
+	   shift left when the scrollbar appears — keeping it aligned with the
+	   (non-scrolling) composer. */
+	scrollbar-gutter: stable both-edges;
+	scrollbar-width: thin;
+}
+
+.composerBlur {
+	inset-inline-start: 0;
+	inset-inline-end: var( --scrollbar-blur-safe-area );
+	z-index: 1;
+}
+
+.composerBlur {
+	bottom: 0;
+	height: calc(
+		var( --composer-height ) + var( --composer-bottom-gap ) + var( --composer-blur-overhang )
+	);
+}
+
+.headerLayer {
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	z-index: 2;
+}
+
+.composerOuter {
+	position: absolute;
+	left: 0;
+	right: 0;
+	bottom: var( --composer-bottom-gap );
+	padding: 0 var( --column-inline-gutter );
+	z-index: 2;
+}
+
+/* The conversation and the composer share one reading column. As the preview
+   opens or closes, it eases to its width beside the preview with the chat pane
+   instead of keeping its full width until the pane runs out of room. */
+.column {
+	max-width: min(
+		var( --column-max-width ),
+		var( --content-column-width, 100vw ) - 2 * var( --column-inline-gutter )
+	);
+	margin: 0 auto;
+	transition: max-width var( --content-column-motion, 0s ) var( --motion-ease-layout );
+}
+
+.composerColumn {
+	position: relative;
+}
+
+.conversationSpacing {
+	padding-top: var( --space-4 );
+	padding-bottom: 30px;
+}
+
+/* Anchors the scroll-to-latest button to the composer column, floating it
+   above the composer without contributing to the measured composer height. */
+.scrollToLatestWrap {
+	position: absolute;
+	bottom: calc( 100% + var( --space-4_5 ) );
+	inset-inline: 0;
+	display: flex;
+	justify-content: center;
+	pointer-events: none;
+	-webkit-app-region: no-drag;
+}
+
+.scrollToLatestButton {
+	--button-background: var( --background );
+
+	opacity: 0;
+}
+
+.scrollToLatestButton[data-visible] {
+	pointer-events: auto;
+	opacity: 1;
+}
+
+/* Composer fade-in after the entitlement check resolves. No fill mode:
+   natural opacity is 1, and the reduced-motion tokens shorten it. */
+.fadeInQuick {
+	animation: fade-in-quick var( --motion-duration-surface ) ease-out;
+}
+
+@keyframes fade-in-quick {
+	from {
+		opacity: 0;
+	}
+
+	to {
+		opacity: 1;
+	}
+}
+
+.loadError {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: var( --space-3 );
+	height: 100%;
+	padding: var( --space-6 );
+	color: var( --muted-foreground );
+	font-size: var( --text-sm );
+}
+
+/* An empty chat's dot field, with a stopped site's screenshot over it. */
+.emptyState {
+	position: absolute;
+	inset: 0 0 var( --composer-height );
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	/* Centred between the header and the composer. */
+	padding: calc( var( --header-height ) + var( --space-6 ) ) var( --space-6 )
+		calc( var( --space-6 ) + 2 * var( --composer-bottom-gap ) );
+	transition: opacity var( --motion-duration-layout ) var( --motion-ease-layout );
+}
+
+.emptyState[data-hidden] {
+	opacity: 0;
+	pointer-events: none;
+}

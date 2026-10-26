@@ -2,6 +2,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { __ } from '@wordpress/i18n';
 import { openBrowser } from 'cli/lib/browser';
+import { capturePreview } from 'cli/lib/capture-preview';
 import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { StudioArgv } from 'cli/types';
 
@@ -58,6 +59,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				// The CLI wrapper owns the opt-out and the common props.
 				recordTracksEvent: ( event, props ) =>
 					recordTracksEvent( event, { ...getTracksOrigin(), ...props } ),
+				capturePreview,
 			} );
 
 			// The browser UI's equivalent of the desktop's `appBoot` launch event. No

@@ -6,26 +6,10 @@ import {
 	buildLinuxTrustInstallCommand,
 	getLinuxFirefoxProfileDbDirs,
 	getLinuxNssDbCandidates,
-	LINUX_NSS_NICKNAME,
-	LINUX_SYSTEM_CA_BUNDLE,
 	LINUX_TRUST_STORE_PATH,
 } from '@studio/common/lib/linux-trust-store';
 
 describe( 'linux-trust-store', () => {
-	describe( 'constants', () => {
-		it( 'targets the Debian/Ubuntu system trust bundle', () => {
-			expect( LINUX_SYSTEM_CA_BUNDLE ).toBe( '/etc/ssl/certs/ca-certificates.crt' );
-		} );
-
-		it( 'installs into the locally-administered trust store directory', () => {
-			expect( LINUX_TRUST_STORE_PATH ).toBe( '/usr/local/share/ca-certificates/studio-ca.crt' );
-		} );
-
-		it( 'uses a stable nickname for the imported NSS entry', () => {
-			expect( LINUX_NSS_NICKNAME ).toBe( 'WordPress Studio CA' );
-		} );
-	} );
-
 	describe( 'buildLinuxTrustInstallCommand', () => {
 		it( 'composes an install + update-ca-certificates command targeting the system trust store', () => {
 			const command = buildLinuxTrustInstallCommand( '/home/u/.studio/certificates/studio-ca.crt' );

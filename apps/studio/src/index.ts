@@ -17,12 +17,9 @@ import { PROTOCOL_PREFIX } from '@studio/common/constants';
 import { runMigrations } from '@studio/common/lib/migration';
 import { getCurrentUserId } from '@studio/common/lib/shared-config';
 import { suppressPunycodeWarning } from '@studio/common/lib/suppress-punycode-warning';
+import { updateSiteMetadata } from '@studio/common/sites/metadata';
 import { __, _n } from '@wordpress/i18n';
-import {
-	installExtension,
-	REACT_DEVELOPER_TOOLS,
-	REDUX_DEVTOOLS,
-} from 'electron-devtools-installer';
+import { installExtension, REACT_DEVELOPER_TOOLS } from 'electron-devtools-installer';
 import { IPC_VOID_HANDLERS } from 'src/constants';
 import * as ipcHandlers from 'src/ipc-handlers';
 import { markAppQuitting } from 'src/ipc-utils';
@@ -37,30 +34,36 @@ import {
 	getPlatformMetric,
 	StatsGroup,
 } from 'src/lib/bump-stats';
-import { handleDeeplink } from 'src/lib/deeplink';
-import { getUserLocaleWithFallback, loadLocaleData } from 'src/lib/locale-node';
+import { markStudioStarted, openDeeplink } from 'src/lib/deeplink';
+import {
+	getSavedLocale,
+	getSupportedLocale,
+	loadLocaleData,
+	setMacAppLanguage,
+} from 'src/lib/locale-node';
 import { setSentryWpcomUserIdMain } from 'src/lib/main-sentry-utils';
 import { maybePromptNightlySwitch, startNightlyPromptPoller } from 'src/lib/nightly-prompt';
+import { forwardPreviewCommandPalette } from 'src/lib/preview-shortcuts';
 import { getSentryReleaseInfo } from 'src/lib/sentry-release';
 import { parseWebUrl } from 'src/lib/shell-open-external-wrapper';
-import { setAgenticUiEnabled } from 'src/lib/studio-ui-mode';
+import { getSites, stopAllServers } from 'src/lib/sites';
 import { recordTracksEvent, TRACKS_EVENTS } from 'src/lib/tracks';
 import { setupLogging } from 'src/logging';
-import { createMainWindow, getCurrentRendererUrl, getMainWindow } from 'src/main-window';
+import {
+	createMainWindow,
+	getCurrentRendererUrl,
+	getExistingMainWindow,
+	getMainWindow,
+} from 'src/main-window';
 import { migrations } from 'src/migrations';
 import {
 	startCliEventsSubscriber,
 	stopCliEventsSubscriber,
 } from 'src/modules/cli/lib/cli-events-subscriber';
+import { stopCliCommands } from 'src/modules/cli/lib/execute-command';
 import { autoInstallLinuxCliIfNeeded } from 'src/modules/cli/lib/linux-installation-manager';
 import { autoInstallMacOSCliIfNeeded } from 'src/modules/cli/lib/macos-installation-manager';
 import { autoInstallWindowsCliIfNeeded } from 'src/modules/cli/lib/windows-installation-manager';
-import {
-	getRunningSiteCount,
-	persistAutoStartForRunningSites,
-	SiteServer,
-	stopAllServers,
-} from 'src/site-server';
 import {
 	loadUserData,
 	lockAppdata,
@@ -74,11 +77,6 @@ import { getAutoUpdaterState, setupUpdates } from 'src/updates';
 import packageJson from '../package.json';
 
 const STOP_ALL_SERVERS_ON_QUIT_TIMEOUT_MS = process.env.E2E ? 20_000 : 6_000;
-
-// Helper function to get the actual URL for validation
-function getRendererUrl(): string {
-	return getCurrentRendererUrl();
-}
 
 function isOtherSiteThanPreview( contents: WebContents, url: string ) {
 	const currentUrl = parseWebUrl( contents.getURL() );
@@ -160,7 +158,6 @@ suppressPunycodeWarning();
 
 const isInInstaller = require( 'electron-squirrel-startup' );
 
-// Ensure we're the only instance of the app running
 const gotTheLock = app.requestSingleInstanceLock();
 
 let finishedInitialization = false;
@@ -258,6 +255,10 @@ async function appBoot() {
 		const isSitePreviewWebview = contents.getType() === 'webview';
 		if ( isSitePreviewWebview ) {
 			contents.on( 'before-input-event', ( event, input ) => {
+				if ( forwardPreviewCommandPalette( contents, input ) ) {
+					event.preventDefault();
+					return;
+				}
 				const zoomCommand = getAppZoomCommand( input );
 				if ( ! zoomCommand ) {
 					return;
@@ -287,7 +288,7 @@ async function appBoot() {
 				return;
 			}
 			const { origin } = new URL( navigationUrl );
-			const allowedOrigins = [ new URL( getRendererUrl() ).origin ];
+			const allowedOrigins = [ new URL( getCurrentRendererUrl() ).origin ];
 			if ( ! allowedOrigins.includes( origin ) ) {
 				event.preventDefault();
 			}
@@ -334,7 +335,7 @@ async function appBoot() {
 			);
 		}
 
-		if ( new URL( event.senderFrame.url ).origin === new URL( getRendererUrl() ).origin ) {
+		if ( new URL( event.senderFrame.url ).origin === new URL( getCurrentRendererUrl() ).origin ) {
 			return true;
 		}
 
@@ -375,12 +376,21 @@ async function appBoot() {
 	function setupCustomProtocolHandler() {
 		if ( process.platform === 'darwin' ) {
 			app.on( 'open-url', ( _event, url ) => {
-				void handleDeeplink( url );
+				openDeeplink( url );
 			} );
 		} else {
 			// Handle custom protocol links on Windows and Linux
+			// A link that launches Studio arrives in its own arguments.
+			const launchLink = process.argv.find( ( arg ) => arg.startsWith( PROTOCOL_PREFIX ) );
+			if ( launchLink ) {
+				openDeeplink( launchLink );
+			}
 			app.on( 'second-instance', async ( _event, argv ) => {
+				const customProtocolParameter = argv?.find( ( arg ) => arg.startsWith( PROTOCOL_PREFIX ) );
 				if ( ! finishedInitialization ) {
+					if ( customProtocolParameter ) {
+						openDeeplink( customProtocolParameter );
+					}
 					return;
 				}
 
@@ -392,21 +402,28 @@ async function appBoot() {
 					mainWindow.focus();
 				}
 
-				const customProtocolParameter = argv?.find( ( arg ) => arg.startsWith( PROTOCOL_PREFIX ) );
 				if ( customProtocolParameter ) {
-					void handleDeeplink( customProtocolParameter );
+					openDeeplink( customProtocolParameter );
 				}
 			} );
 		}
 	}
 
 	app.on( 'ready', async () => {
-		const locale = await getUserLocaleWithFallback();
+		const savedLocale = await getSavedLocale();
+		const locale = savedLocale ?? getSupportedLocale();
 		loadLocaleData( locale );
+		// The locale may have been changed outside the app (e.g. from `studio ui`).
+		if ( savedLocale ) {
+			setMacAppLanguage( savedLocale );
+		}
 		if ( process.env.NODE_ENV === 'development' ) {
-			await installExtension( REACT_DEVELOPER_TOOLS );
-			await installExtension( REDUX_DEVTOOLS );
-			await launchExtensionBackgroundWorkers();
+			try {
+				await installExtension( REACT_DEVELOPER_TOOLS );
+				await launchExtensionBackgroundWorkers();
+			} catch ( error ) {
+				console.warn( 'Failed to set up React Developer Tools', error );
+			}
 		}
 
 		console.log( `App version: ${ app.getVersion() }` );
@@ -420,7 +437,6 @@ async function appBoot() {
 		// By default Electron automatically approves all permissions requests (e.g. notifications, webcam)
 		// We'll opt-in to permissions we specifically need instead.
 		session.defaultSession.setPermissionRequestHandler( ( webContents, permission, callback ) => {
-			// Reject all permission requests
 			callback( false );
 		} );
 
@@ -436,16 +452,16 @@ async function appBoot() {
 		session.defaultSession.webRequest.onHeadersReceived( ( details, callback ) => {
 			// Only set a custom CSP header the main window UI. For other pages (like login) we should
 			// use the CSP provided by the server, which is more likely to be up-to-date and complete.
-			if ( details.url !== getRendererUrl() ) {
+			if ( details.url !== getCurrentRendererUrl() ) {
 				callback( details );
 				return;
 			}
 
 			const basePolicies = [
-				"default-src 'self'", // Allow resources from these domains
+				"default-src 'self'",
 				"script-src-attr 'none'",
 				"img-src 'self' https://*.gravatar.com https://*.wp.com https://blueprintlibrary.wordpress.com https://blueprintslibraryv2.wpcomstaging.com data:",
-				"style-src 'self' 'unsafe-inline' https://fonts.googleapis.com", // unsafe-inline used by tailwindcss in development, and also in production after the app rename
+				"style-src 'self' 'unsafe-inline' https://fonts.googleapis.com", // unsafe-inline: components inject their styles at runtime
 				// The agentic UI's design system view loads DESIGN.md fonts.
 				"font-src 'self' https://fonts.gstatic.com",
 				process.env.NODE_ENV === 'development'
@@ -481,16 +497,11 @@ async function appBoot() {
 
 		await runMigrations( migrations ).catch( Sentry.captureException );
 
-		await setupSentryUserId();
-		setAgenticUiEnabled( true );
-
-		// Fetch data from CLI and subscribe to CLI events before starting the user data
-		// watcher. The watcher can trigger getMainWindow() which creates the window early,
-		// so sites must be loaded first.
-		await SiteServer.fetchAll();
 		await startCliEventsSubscriber();
 
 		await createMainWindow();
+
+		void setupSentryUserId().catch( Sentry.captureException );
 
 		void maybePromptNightlySwitch().catch( Sentry.captureException );
 		startNightlyPromptPoller();
@@ -530,6 +541,7 @@ async function appBoot() {
 		await autoInstallLinuxCliIfNeeded();
 
 		finishedInitialization = true;
+		markStudioStarted();
 	} );
 
 	// Quit when all windows are closed, except on macOS. There, it's common
@@ -548,12 +560,12 @@ async function appBoot() {
 	 * - There are running sites, and the user has confirmed they want to stop them upon closing the app
 	 */
 	let shouldStopSitesOnQuit = true;
-	let clearAutoStartOnQuit = false;
 	let isQuittingConfirmed = false;
+	let restartSitesOnLaunch = true;
 
 	const applyQuitSitesBehavior = ( behavior: QuitSitesBehavior ) => {
 		shouldStopSitesOnQuit = behavior !== 'leave-running';
-		clearAutoStartOnQuit = behavior === 'stop';
+		restartSitesOnLaunch = behavior !== 'stop';
 	};
 
 	app.on( 'before-quit', ( event ) => {
@@ -576,7 +588,7 @@ async function appBoot() {
 					  }
 					: {
 							message: __( 'Sync will continue' ),
-							detail: __( 'The sync will keep running after you quit Studio.' ),
+							detail: __( 'The sync will keep running after you quit WordPress Studio.' ),
 							type: 'info',
 					  };
 
@@ -595,26 +607,21 @@ async function appBoot() {
 			}
 		}
 
-		const runningSiteCount = getRunningSiteCount();
-		if ( getAutoUpdaterState() !== 'waiting-for-restart' && runningSiteCount > 0 ) {
-			event.preventDefault();
+		if ( getAutoUpdaterState() === 'waiting-for-restart' ) {
+			return;
+		}
 
-			void ( async () => {
-				const userData = await loadUserData();
+		event.preventDefault();
 
-				if ( userData.quitSitesBehavior !== undefined ) {
-					applyQuitSitesBehavior( userData.quitSitesBehavior );
-					isQuittingConfirmed = true;
-					app.quit();
-					return;
-				}
+		void ( async () => {
+			const runningSiteCount = ( await getSites().catch( () => [] ) ).filter(
+				( site ) => site.running
+			).length;
+			const userData = runningSiteCount > 0 ? await loadUserData() : undefined;
 
-				if ( process.env.E2E ) {
-					isQuittingConfirmed = true;
-					app.quit();
-					return;
-				}
-
+			if ( userData && userData.quitSitesBehavior !== undefined ) {
+				applyQuitSitesBehavior( userData.quitSitesBehavior );
+			} else if ( userData && ! process.env.E2E ) {
 				const STOP_SITES_BUTTON_INDEX = 0;
 				const KEEP_RUNNING_BUTTON_INDEX = 1;
 				const CANCEL_BUTTON_INDEX = 2;
@@ -623,8 +630,8 @@ async function appBoot() {
 					type: 'question',
 					message: _n( 'Keep the site running?', 'Keep the sites running?', runningSiteCount ),
 					detail: _n(
-						'Your site can stay available in the background after Studio quits.',
-						'Your sites can stay available in the background after Studio quits.',
+						'Your site can stay available in the background after WordPress Studio quits.',
+						'Your sites can stay available in the background after WordPress Studio quits.',
 						runningSiteCount
 					),
 					buttons: [
@@ -649,33 +656,48 @@ async function appBoot() {
 				}
 
 				applyQuitSitesBehavior( behavior );
-				isQuittingConfirmed = true;
-				app.quit();
-			} )();
+			}
 
-			return;
-		}
+			isQuittingConfirmed = true;
+			app.quit();
+		} )();
 	} );
 
+	let isQuitCleanupRunning = false;
 	app.on( 'will-quit', ( event ) => {
+		event.preventDefault();
+		// `will-quit` fires again if anything calls `app.quit()` while the cleanup runs, for example
+		// `window-all-closed` on Windows and Linux. Cleanup ends in `app.exit()`, so a repeat only
+		// waits: running it again would kill the `site stop --all` this one started.
+		if ( isQuitCleanupRunning ) {
+			return;
+		}
+		isQuitCleanupRunning = true;
+
 		markAppQuitting();
 		globalShortcut.unregisterAll();
 		stopCliEventsSubscriber();
+		stopCliCommands();
 
-		if ( shouldStopSitesOnQuit ) {
-			event.preventDefault();
-			void ( async () => {
-				try {
-					// The events subscriber is already stopped, so the "Stop" choice clears autoStart here.
-					if ( clearAutoStartOnQuit ) {
-						await persistAutoStartForRunningSites( false );
-					}
+		void ( async () => {
+			try {
+				// The sites running now start again on the next launch, unless the user chose to stop them.
+				const sites = await getSites().catch( () => [] );
+				await updateSiteMetadata(
+					Object.fromEntries(
+						sites.map( ( site ) => [
+							site.id,
+							{ autoStart: restartSitesOnLaunch && site.running },
+						] )
+					)
+				).catch( ( error ) => console.error( 'Failed to save auto-start on quit:', error ) );
+				if ( shouldStopSitesOnQuit ) {
 					await stopAllServers( STOP_ALL_SERVERS_ON_QUIT_TIMEOUT_MS );
-				} finally {
-					app.exit();
 				}
-			} )();
-		}
+			} finally {
+				app.exit();
+			}
+		} )();
 	} );
 
 	app.on( 'activate', () => {
@@ -683,7 +705,7 @@ async function appBoot() {
 			return;
 		}
 
-		if ( BrowserWindow.getAllWindows().length === 0 ) {
+		if ( ! getExistingMainWindow() ) {
 			// On OS X it's common to re-create a window in the app when the
 			// dock icon is clicked and there are no other windows open.
 			void createMainWindow();

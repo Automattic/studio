@@ -1,7 +1,7 @@
+import { listLocalFileTree } from '@studio/common/lib/sync/local-file-tree';
 import { categorizePath } from '@studio/common/lib/sync/tree-utils';
 import { __ } from '@wordpress/i18n';
 import { fetchLatestRewindId, fetchRemoteFileTree } from 'cli/lib/sync-api';
-import { listLocalFileTree } from 'cli/lib/sync-file-tree';
 import treeCheckbox from 'cli/lib/tree-checkbox';
 import type { RemoteFileEntry } from '@studio/common/lib/sync/sync-api';
 import type { SyncOption } from '@studio/common/types/sync';
@@ -45,7 +45,7 @@ export function buildTreeFromRemote( entries: RemoteFileEntry[], depth: number =
 	);
 }
 
-export function buildRootTree( wpContentChildren: TreeNode[] ): TreeNode[] {
+function buildRootTree( wpContentChildren: TreeNode[] ): TreeNode[] {
 	return [
 		{
 			name: __( 'Database' ),

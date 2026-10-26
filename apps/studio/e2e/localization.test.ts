@@ -14,7 +14,7 @@ test.describe( 'Localization', () => {
 		await settings.openFromAppMenu( session.electronApp );
 		await settings.selectLanguage( current, nativeName, lang );
 		current = nativeName;
-		await session.mainWindow.keyboard.press( 'Escape' );
+		await settings.closeWithEscape();
 	};
 
 	test.beforeAll( async () => {
@@ -22,7 +22,7 @@ test.describe( 'Localization', () => {
 	} );
 
 	test.afterEach( async ( { page: _page }, testInfo ) => {
-		await session.reportMainProcessLogsOnFailure( testInfo );
+		await session.reportFailure( testInfo );
 		if ( current !== 'English' ) {
 			await changeLanguage( 'English', 'en' );
 		}
@@ -32,40 +32,29 @@ test.describe( 'Localization', () => {
 		await session.cleanup();
 	} );
 
-	test( 'changes language from settings', async () => {
-		await changeLanguage( 'Français', 'fr' );
-		await expect(
-			session.mainWindow.getByRole( 'button', { name: 'Ajouter un site' } )
-		).toBeVisible();
-		await changeLanguage( 'English', 'en' );
-		await expect( session.mainWindow.getByRole( 'button', { name: 'Add site' } ) ).toBeVisible();
-	} );
-
-	test( 'supports RTL languages', async () => {
+	test( 'applies a language, right-to-left included, and keeps it across a restart', async () => {
 		await changeLanguage( 'العربية', 'ar' );
+		await expect( session.mainWindow.locator( 'html' ) ).toHaveAttribute( 'dir', 'rtl' );
+		await expect( session.mainWindow.getByRole( 'button', { name: 'إضافة موقع' } ) ).toBeVisible();
+
+		await session.restart();
 		await expect( session.mainWindow.locator( 'html' ) ).toHaveAttribute( 'dir', 'rtl' );
 		await expect( session.mainWindow.getByRole( 'button', { name: 'إضافة موقع' } ) ).toBeVisible();
 
 		await changeLanguage( 'English', 'en' );
 		await expect( session.mainWindow.locator( 'html' ) ).toHaveAttribute( 'dir', 'ltr' );
-	} );
-
-	test( 'persists selected language when re-opening app', async () => {
-		await changeLanguage( 'Deutsch', 'de' );
-		await session.restart();
-		await expect(
-			session.mainWindow.getByRole( 'button', { name: 'Website hinzufügen' } )
-		).toBeVisible();
+		await expect( session.mainWindow.getByRole( 'button', { name: 'Add site' } ) ).toBeVisible();
 	} );
 
 	test( 'created site language matches Studio language', async ( { page } ) => {
 		const siteName = 'Localized-Site-Test';
 		await changeLanguage( '日本語', 'ja' );
 
-		await session.mainWindow.getByRole( 'button', { name: 'サイトを追加' } ).click();
-		await session.mainWindow.locator( 'a[href$="onboarding/create"]' ).click();
-		await session.mainWindow.getByRole( 'textbox' ).first().fill( siteName );
-		await session.mainWindow.getByTestId( 'create-site-submit' ).click();
+		await session.mainWindow.getByRole( 'button', { name: 'サイトを追加', exact: true } ).click();
+		const dialog = session.mainWindow.getByRole( 'dialog' );
+		await dialog.locator( '[data-start-blank]' ).click();
+		await dialog.getByRole( 'textbox' ).first().fill( siteName );
+		await dialog.getByTestId( 'create-site-submit' ).click();
 		await new Sidebar( session.mainWindow ).expectRunning( siteName );
 
 		const siteUrl = await session.getSiteUrl( siteName );

@@ -1,11 +1,14 @@
+import '@/lib/theme/tokens.css';
+import '@/lib/theme/base.css';
+import '@/index.css';
 import { init as initSentry } from '@sentry/electron/renderer';
 import { captureException } from '@studio/common/lib/error-reporting';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from '@/app';
+import { applyUserPreferences } from '@/app/apply-user-preferences';
 import { persistPromise } from '@/data/core';
 import { createIpcConnector } from '@/data/core/connectors/ipc';
-import { applyLocale } from '@/lib/apply-locale';
 
 // Events go through the main process, which adds the release and the user.
 initSentry();
@@ -13,7 +16,7 @@ initSentry();
 async function bootstrap() {
 	const connector = createIpcConnector();
 
-	await Promise.all( [ connector.init?.(), applyLocale( connector ), persistPromise ] );
+	await Promise.all( [ connector.init?.(), applyUserPreferences( connector ), persistPromise ] );
 
 	createRoot( document.getElementById( 'root' )!, {
 		// Errors an error boundary catches (the router's included) never reach Sentry's global handlers.

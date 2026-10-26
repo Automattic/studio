@@ -1,0 +1,152 @@
+import { ACCEPTED_IMPORT_FILE_TYPES } from '@studio/common/constants';
+import { isSupportedBackupFilename } from '@studio/common/lib/backup-files';
+import { getErrorMessage } from '@studio/common/lib/error-formatting';
+import { __, sprintf } from '@wordpress/i18n';
+import { useRef, useState } from 'react';
+import { toast } from '@/data/app-messages';
+import { useConnector } from '@/data/core';
+import { useImportSite } from '@/data/queries/use-import-site';
+import { useSettleSync } from '@/data/queries/use-sync-site';
+import { applySyncActivity, useSiteSyncActivity } from '@/data/sync-activity';
+import { useConfirmOnEnter } from '@/lib/keyboard';
+import {
+	AlertDialog,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+	Button,
+} from '@/lib/ui';
+import styles from './style.module.css';
+import type { SiteDetails } from '@/data/core';
+
+export const IMPORT_FILE_ACCEPT = ACCEPTED_IMPORT_FILE_TYPES.join( ',' );
+
+// `confirming` is tracked alongside the file rather than derived from it because
+// the popup stays mounted through its closing animation — dropping the file to
+// close would shrink the dialog mid-fade.
+interface PendingImport {
+	siteId: string;
+	file: File;
+	confirming: boolean;
+}
+
+export function useSiteBackupImport( site: SiteDetails ) {
+	const connector = useConnector();
+	const importSite = useImportSite();
+	const settleSync = useSettleSync();
+	// Everything here is stamped with a site id, so a pending pick can't follow
+	// the user to another site's surface.
+	const [ pending, setPending ] = useState< PendingImport | null >( null );
+
+	// The activity store is keyed by site and lives outside React, so progress
+	// survives navigating away and shows on whichever surface renders this site.
+	const activity = useSiteSyncActivity( site.id );
+
+	const active = pending?.siteId === site.id ? pending : null;
+	const isImporting = activity?.kind === 'pending' && activity.direction === 'import';
+
+	const selectFile = ( picked?: File ) => {
+		if ( ! picked ) {
+			return;
+		}
+		// The input's `accept` filter is advisory — a drag or an "All files"
+		// pick can still hand us something unsupported.
+		if ( ! isSupportedBackupFilename( picked.name ) ) {
+			toast.error(
+				__(
+					'This file type is not supported. Please use a .zip, .gz, .gzip, .tar, .tar.gz, .wpress, .sql, or .xml file.'
+				)
+			);
+			return;
+		}
+		setPending( { siteId: site.id, file: picked, confirming: true } );
+	};
+
+	const closeDialog = () =>
+		setPending( ( current ) =>
+			current?.siteId === site.id ? { ...current, confirming: false } : current
+		);
+
+	const confirm = async () => {
+		const file = active?.file;
+		if ( ! file || isImporting ) {
+			return;
+		}
+		const { id: siteId } = site;
+		closeDialog();
+		// Covers the backup's upload too, before the CLI starts reporting.
+		applySyncActivity( siteId, { kind: 'pending', direction: 'import' } );
+		try {
+			const backupPath = await connector.getFilePath( file );
+			if ( ! backupPath ) {
+				throw new Error( __( 'Unable to access the selected backup. Please try again.' ) );
+			}
+			// The import reports its own progress and result.
+			await importSite.mutateAsync( { siteId, backupPath } ).catch( () => undefined );
+		} catch ( error ) {
+			settleSync( siteId, {
+				kind: 'error',
+				direction: 'import',
+				message: getErrorMessage( error ) ?? __( 'Failed to import the backup. Please try again.' ),
+			} );
+		} finally {
+			// Drop the File so a large backup isn't held in memory for the session.
+			setPending( ( current ) => ( current?.siteId === siteId ? null : current ) );
+		}
+	};
+
+	return {
+		file: active?.file ?? null,
+		isConfirming: active?.confirming ?? false,
+		selectFile,
+		cancel: closeDialog,
+		confirm,
+		isImporting,
+	};
+}
+
+interface ImportSiteDialogProps {
+	site: SiteDetails;
+	file: File | null;
+	open: boolean;
+	onCancel: () => void;
+	onConfirm: () => void;
+}
+
+export function ImportSiteDialog( {
+	site,
+	file,
+	open,
+	onCancel,
+	onConfirm,
+}: ImportSiteDialogProps ) {
+	const confirmLabel = __( 'Import' );
+	const handleKeyDown = useConfirmOnEnter( confirmLabel );
+	const cancelRef = useRef< HTMLButtonElement >( null );
+
+	return (
+		<AlertDialog open={ open } onOpenChange={ ( next ) => ! next && onCancel() }>
+			<DialogContent initialFocus={ cancelRef } onKeyDown={ handleKeyDown }>
+				<DialogHeader>
+					<DialogTitle>{ sprintf( __( 'Overwrite %s?' ), site.name ) }</DialogTitle>
+					<DialogDescription>
+						{ __(
+							'Importing a backup will replace the existing files and database for your site.'
+						) }
+					</DialogDescription>
+				</DialogHeader>
+				{ file ? <p className={ styles.fileName }>{ file.name }</p> : null }
+				<DialogFooter>
+					<Button ref={ cancelRef } variant="outline" onClick={ onCancel }>
+						{ __( 'Cancel' ) }
+					</Button>
+					{ /* Not destructive: the importer moves the site's existing wp-content
+					     and database to the trash rather than deleting them. */ }
+					<Button onClick={ onConfirm }>{ confirmLabel }</Button>
+				</DialogFooter>
+			</DialogContent>
+		</AlertDialog>
+	);
+}

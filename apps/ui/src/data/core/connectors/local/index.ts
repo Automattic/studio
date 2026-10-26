@@ -1,8 +1,9 @@
+import { stripCliErrorEnvelope } from '@studio/common/lib/error-formatting';
 import { getAuthenticationUrl, getSignUpUrl } from '@studio/common/lib/oauth';
 import { SyncCancelledError } from '@studio/common/lib/sync/cancel';
 import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
 import { __ } from '@wordpress/i18n';
-import { readLastSeenVersion, writeLastSeenVersion } from '../browser-whats-new';
+import { isShortcut } from '@/lib/keyboard';
 import { buildPublishCheckoutUrl } from '../publish-checkout-url';
 import { UnsupportedError } from '../unsupported-error';
 import { readWapuuScore, writeWapuuScore } from '../wapuu-score-storage';
@@ -21,6 +22,8 @@ import type {
 	ProposedSitePath,
 	SelectedSiteFolder,
 	SiteDetails,
+	SiteAgentFile,
+	SkillStatus,
 	Snapshot,
 	SnapshotUsage,
 	StudioAssistantQuota,
@@ -66,13 +69,23 @@ type ServerEvent =
  * connector, talking to the local server (`apps/local`, bundled into and
  * launched by the Studio CLI) over HTTP + SSE instead of IPC.
  *
- * Unlike the {@link createHostedConnector} (which targets a cloud backend and
- * WordPress.com sites), this connector points at the user's own machine: the
- * server delegates to the local Studio CLI, so the same business logic the
+ * The server delegates to the local Studio CLI, so the same business logic the
  * desktop app runs is reachable here. The capabilities that depend on the local
  * machine (the real site list, start/stop, the agent) are implemented for real;
- * the rest grow in later increments (site create/export land in Phase 2).
+ * the few a browser can't offer throw `UnsupportedError`.
  */
+// A browser tab has no application menu, so the page binds its accelerators.
+function onMenuShortcut( listener: () => void, key: string, modifier?: 'shift' ) {
+	const onKeyDown = ( event: KeyboardEvent ) => {
+		if ( ! event.defaultPrevented && ! event.repeat && isShortcut( event, key, modifier ) ) {
+			event.preventDefault();
+			listener();
+		}
+	};
+	document.addEventListener( 'keydown', onKeyDown );
+	return () => document.removeEventListener( 'keydown', onKeyDown );
+}
+
 export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): Connector {
 	// The server namespaces its API under /api so the SPA's real-path routes
 	// (also /sessions/:id, /sites/:id) can share the same origin.
@@ -88,6 +101,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 	const snapshotEventListeners = new Set< ( event: SnapshotEvent ) => void >();
 	const authListeners = new Set< () => void >();
 	let eventSource: EventSource | undefined;
+	const connectionRestoredListeners = new Set< () => void >();
 	// Last site list fetched via getSites(), so one-off lookups (openSiteUrl)
 	// don't trigger an extra round-trip.
 	let lastSites: SiteDetails[] | undefined;
@@ -108,7 +122,8 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			try {
 				const payload: unknown = JSON.parse( text );
 				if ( payload && typeof payload === 'object' && 'error' in payload ) {
-					serverError = typeof payload.error === 'string' ? payload.error : undefined;
+					serverError =
+						typeof payload.error === 'string' ? stripCliErrorEnvelope( payload.error ) : undefined;
 				}
 			} catch {
 				// Not JSON; fall through to the transport error.
@@ -176,6 +191,13 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			// The browser's EventSource reconnects automatically.
 			eventSource?.close();
 			eventSource = new EventSource( `${ base }/events` );
+			let hasConnected = false;
+			eventSource.onopen = () => {
+				if ( hasConnected ) {
+					connectionRestoredListeners.forEach( ( listener ) => listener() );
+				}
+				hasConnected = true;
+			};
 			eventSource.onmessage = ( message ) => {
 				let parsed: ServerEvent;
 				try {
@@ -206,11 +228,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		// preview is a cross-origin iframe, so the annotation inspector can't run.
 		capabilities: {
 			nativeFolderPicker: false,
-			openInOS: true,
 			annotatePreview: false,
-			readLocalMedia: true,
-			agentInstructions: true,
-			aiSettings: true,
 			studioLogs: false,
 		},
 
@@ -321,11 +339,21 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		async stopSite( id ) {
 			await api( `/sites/${ encodeURIComponent( id ) }/stop`, { method: 'POST' } );
 		},
-		async getSiteThumbnail(): Promise< string | null > {
-			return null;
+		async getSiteThumbnail( siteId ) {
+			const { thumbnail } = await api< { thumbnail: string | null } >(
+				`/sites/${ encodeURIComponent( siteId ) }/thumbnail`
+			);
+			return thumbnail;
 		},
-		async getSiteStorageUsage( siteId, signal ) {
-			return api( `/sites/${ encodeURIComponent( siteId ) }/storage`, { signal } );
+		async captureSitePreview( siteId, { path, width, height } ) {
+			const { thumbnail } = await api< { thumbnail: string | null } >(
+				`/sites/${ encodeURIComponent( siteId ) }/capture-preview`,
+				{ method: 'POST', body: JSON.stringify( { path, width, height } ) }
+			);
+			return thumbnail;
+		},
+		async getSiteIcon( siteId ) {
+			return api< string | null >( `/sites/${ encodeURIComponent( siteId ) }/site-icon` );
 		},
 		async getSiteDesign( siteId ) {
 			return api( `/sites/${ encodeURIComponent( siteId ) }/design` );
@@ -376,10 +404,13 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				`/site-defaults/path?name=${ encodeURIComponent( siteName ) }`
 			);
 		},
-		async selectSiteFolder(): Promise< SelectedSiteFolder | null > {
-			// No native folder picker in a browser; the create form falls back to
-			// an editable path field (see capabilities.nativeFolderPicker).
-			return null;
+		// No native folder picker in a browser: the create form has the path typed
+		// (see capabilities.nativeFolderPicker), and this checks what it holds.
+		async selectSiteFolder( folderPath ): Promise< SelectedSiteFolder | null > {
+			return api< SelectedSiteFolder >( '/site-defaults/folder', {
+				method: 'POST',
+				body: JSON.stringify( { path: folderPath } ),
+			} );
 		},
 		async selectDefaultSiteDirectory(): Promise< string | null > {
 			// No native folder picker in a browser.
@@ -690,6 +721,12 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				body: JSON.stringify( { provider, model } ),
 			} );
 		},
+		async setSessionEnvironment( sessionId, environment ) {
+			await api( `/sessions/${ encodeURIComponent( sessionId ) }/environment`, {
+				method: 'POST',
+				body: JSON.stringify( { environment } ),
+			} );
+		},
 		async interruptAgentRun( runId ) {
 			await api( `/runs/${ encodeURIComponent( runId ) }/interrupt`, { method: 'POST' } );
 		},
@@ -702,6 +739,10 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		onAgentEvent( listener ) {
 			agentListeners.add( listener );
 			return () => agentListeners.delete( listener );
+		},
+		onConnectionRestored( listener ) {
+			connectionRestoredListeners.add( listener );
+			return () => connectionRestoredListeners.delete( listener );
 		},
 		onSessionPlacementUpdated( listener ) {
 			placementListeners.add( listener );
@@ -719,11 +760,14 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				studioCliExternallyManaged: false,
 			};
 		},
-		async setUserPreferences( partial ) {
+		async setUserPreferences( partial, source ) {
 			// JSON drops `undefined` keys, so a clear has to travel as null.
-			const patch = Object.fromEntries(
-				Object.entries( partial ).map( ( [ key, value ] ) => [ key, value ?? null ] )
-			);
+			const patch = {
+				...Object.fromEntries(
+					Object.entries( partial ).map( ( [ key, value ] ) => [ key, value ?? null ] )
+				),
+				surface: source?.surface,
+			};
 			await api( '/user-preferences', { method: 'PATCH', body: JSON.stringify( patch ) } );
 		},
 		// Detected on the machine the server runs on (the desktop's installed-app
@@ -739,6 +783,16 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		async getAgentInstructions(): Promise< string > {
 			const { content } = await api< { content: string } >( '/agent-instructions' );
 			return content;
+		},
+		async getAgentInstructionsEnabled() {
+			const { enabled } = await api< { enabled: boolean } >( '/agent-instructions/enabled' );
+			return enabled;
+		},
+		async setAgentInstructionsEnabled( enabled ) {
+			await api( '/agent-instructions/enabled', {
+				method: 'PUT',
+				body: JSON.stringify( { enabled } ),
+			} );
 		},
 		async saveAgentInstructions(
 			content: string,
@@ -759,11 +813,11 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				body: JSON.stringify( { anthropicApiKey: key } ),
 			} );
 		},
-
-		// The local server has no REST-proxy route yet; the preview omnibox
-		// only offers search where the webview connector serves it.
-		async fetchSiteRest() {
-			throw new UnsupportedError( 'fetchSiteRest' );
+		async setAiProvider( provider ): Promise< AiSettings > {
+			return api< AiSettings >( '/ai-settings/provider', {
+				method: 'PUT',
+				body: JSON.stringify( { provider } ),
+			} );
 		},
 
 		// The server runs on the user's machine, so it opens paths in OS apps on
@@ -775,6 +829,14 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		// callers route the user to Settings, matching the desktop contract.
 		async openSiteInEditor( siteId ) {
 			await api( `/sites/${ encodeURIComponent( siteId ) }/open-in-editor`, { method: 'POST' } );
+		},
+		async openSiteAgentFile( siteId, kind, id, target ) {
+			await api(
+				`/sites/${ encodeURIComponent( siteId ) }/agent-files/${ kind }/${ encodeURIComponent(
+					id
+				) }/open`,
+				{ method: 'POST', body: JSON.stringify( { target } ) }
+			);
 		},
 		async openSiteInTerminal( siteId ) {
 			await api( `/sites/${ encodeURIComponent( siteId ) }/open-in-terminal`, { method: 'POST' } );
@@ -834,20 +896,38 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			window.open( target.toString(), '_blank', 'noopener,noreferrer' );
 		},
 		async getWordPressSkillsStatusAllSites() {
-			return [];
+			return api< SkillStatus[] >( '/skills' );
 		},
-		async installWordPressSkillToAllSites() {
-			// No-op: the local server does not manage WordPress skills yet.
+		async installWordPressSkillToAllSites( skillId ) {
+			await api( `/skills/${ encodeURIComponent( skillId ) }`, { method: 'POST' } );
 		},
-		async removeWordPressSkillFromAllSites() {
-			// No-op: the local server does not manage WordPress skills yet.
+		async removeWordPressSkillFromAllSites( skillId ) {
+			await api( `/skills/${ encodeURIComponent( skillId ) }`, { method: 'DELETE' } );
+		},
+		async getSiteAgentFiles( siteId, kind ) {
+			return api< SiteAgentFile[] >(
+				`/sites/${ encodeURIComponent( siteId ) }/agent-files/${ kind }`
+			);
+		},
+		async setSiteAgentFileEnabled( siteId, kind, id, enabled ) {
+			await api(
+				`/sites/${ encodeURIComponent( siteId ) }/agent-files/${ kind }/${ encodeURIComponent(
+					id
+				) }`,
+				{ method: 'PUT', body: JSON.stringify( { enabled } ) }
+			);
+		},
+		async removeSiteAgentFile( siteId, kind, id ) {
+			await api(
+				`/sites/${ encodeURIComponent( siteId ) }/agent-files/${ kind }/${ encodeURIComponent(
+					id
+				) }`,
+				{ method: 'DELETE' }
+			);
 		},
 
 		// Window chrome — no traffic lights in a browser tab.
 		reservesTrafficLightSpace: false,
-		async ensureWindowWidth() {
-			return window.innerWidth;
-		},
 		async isFullscreen() {
 			return false;
 		},
@@ -862,9 +942,8 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			snapshotEventListeners.add( listener );
 			return () => snapshotEventListeners.delete( listener );
 		},
-		onToggleSitePreview() {
-			// No application menu in a browser tab.
-			return () => {};
+		onToggleSitePreview( listener ) {
+			return onMenuShortcut( listener, 'b', 'shift' );
 		},
 		async copyText( text ) {
 			await navigator.clipboard.writeText( text );
@@ -876,20 +955,17 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				)
 			);
 		},
-		onToggleSidebar() {
-			// No application menu in a browser tab.
-			return () => {};
+		onToggleSidebar( listener ) {
+			return onMenuShortcut( listener, 'b' );
 		},
-		onAddSite() {
-			// No application menu in a browser tab.
-			return () => {};
+		onAddSite( listener ) {
+			return onMenuShortcut( listener, 'n' );
 		},
 		onAddSiteWithBlueprint() {
 			return () => {};
 		},
-		onOpenSettings() {
-			// No application menu in a browser tab.
-			return () => {};
+		onOpenSettings( listener ) {
+			return onMenuShortcut( () => listener( {} ), ',' );
 		},
 		onAiCreditsPurchased() {
 			// A browser tab can't receive the wp-studio:// checkout return link.
@@ -908,12 +984,6 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		onShowWhatsNew() {
 			// No application menu in a browser tab.
 			return () => {};
-		},
-		async getLastSeenVersion() {
-			return readLastSeenVersion();
-		},
-		async saveLastSeenVersion( version ) {
-			writeLastSeenVersion( version );
 		},
 		async getAppUpdateStatus() {
 			// This front end updates through the CLI's own notifier, not Electron's autoUpdater.

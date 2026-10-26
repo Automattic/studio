@@ -2,15 +2,12 @@
 
 The What's New modal allows users to view new features and updates in WordPress Studio.
 
-It opens automatically on app start on each minor and major release. It does not open on patch releases.
-
-The modal can also be opened manually through the app menu via _Help → What's New_.
+It can also be opened manually through the app menu via _Help → What's New_, or from the ⌘K command palette in both apps.
 
 ## Implementation
 
-The What's New modal relies on the `lastSeenVersion` value stored in the app data (`appdata-v1.json`). If the major or minor app version has changed (or if the `lastSeenVersion` value is not present), the modal will open on app start.
+The modal is a guide in `apps/ui`: its pages (copy and illustrations) are defined in `apps/ui/src/features/onboarding/onboarding-guide/whats-new.ts`, and the illustrations are scenes drawn with the theme tokens in `illustrations/whats-new.tsx`.
 
-If the goal is to display the modal automatically even for a patch version, the `forceNewVersion` flag needs to be set to `true` in the `selectIsNewVersion` (in `src/stores/app-version-api.ts`) for that specific release.
-We need to ensure the `forceNewVersion` flag is then set back to `false` for the next release (unless we want to display the modal again for the patch release).
+`WHATS_NEW_VERSION`, next to the pages, is the content version. Bump it in the same change that replaces the pages. The user's last seen version is `whatsNewSeenVersion` in the onboarding hints in `app.json`, shared by the Desktop app and `studio ui`, so seeing the pages in one settles both. Closing the guide any way (Done, Skip or Esc) records the current version.
 
-All the modal resources (images, copy and links) are stored in the app (`src/modules/whats-new`).
+`deriveWhatsNewAutostart` (`apps/ui/src/features/onboarding/onboarding-guide/use-whats-new-autostart.ts`) opens it once the user has a site, the workspace state has loaded, and no guide, Welcome, Settings or Add site dialog is open. A first-run user gets the orientation guide instead, and the current version is marked as seen.

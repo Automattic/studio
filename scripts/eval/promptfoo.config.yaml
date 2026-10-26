@@ -2,15 +2,16 @@
 # Run: npm run eval          (builds CLI first)
 # View: npm run eval:view
 #
-# The runner writes its payload to a tmp file and prints only
-# `EVAL_RUNNER_RESULT_FILE=/path/to.json` on stdout. Assertions resolve the
-# marker via `import('node:fs').then(...)` — not `require('fs')`, which is
-# undefined inside promptfoo's assertion eval context.
+# Cases are judged on outcomes: the site the turn leaves behind (WordPress
+# state, rendered home page, block validity, theme files), the other sites it
+# left alone, and what the user was told. The runner captures that state after
+# the turn; the checks live in outcome.mjs and read their parameters from the
+# case's vars (`siteName` names the site the case asks for).
 
 description: Studio Code agent evaluation
 
-# Tests create/delete real local sites; running them in parallel makes two
-# runs fight over ports and on-disk state.
+# Each case creates its sites in its own folder, but two cases starting sites at
+# the same moment can still pick the same free port.
 evaluateOptions:
   maxConcurrency: 1
 
@@ -30,22 +31,7 @@ tests:
       prompt: In one short sentence, tell me who you are. Do not call any tools.
     assert:
       - type: javascript
-        value: |
-          return import('node:fs').then(({ readFileSync }) => {
-            const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
-            if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
-            const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
-            if (d.success !== true) return { pass: false, score: 0, reason: `runner success=${d.success}` };
-            const text = (d.textSegments || []).join('\n');
-            const mentionsStudio = /WordPress\s+Studio/i.test(text);
-            const claimsOther = /\bI\s+am\s+(Claude|ChatGPT|a large language model|an AI (model|assistant) (made|built|developed) by Anthropic)\b/i.test(text);
-            const pass = mentionsStudio && !claimsOther;
-            return {
-              pass,
-              score: pass ? 1 : 0,
-              reason: pass ? 'identifies as WordPress Studio' : `got: ${text.slice(0, 300)}`,
-            };
-          });
+        value: file://outcome.mjs:identifiesAsStudio
 
   # The global instructions file (~/.studio/knowledge/instructions.md) is
   # seeded with a sentinel-token rule for the turn and restored afterwards.
@@ -54,6 +40,7 @@ tests:
   - description: agent follows the user's global instructions
     vars:
       caseId: global-instructions
+      expectedText: STUDIO-EVAL-TOKEN-7319
       timeoutMs: 60000
       prompt: In one short sentence, say hello. Do not call any tools.
       seed:
@@ -61,443 +48,96 @@ tests:
           Always end every reply with the exact token STUDIO-EVAL-TOKEN-7319.
     assert:
       - type: javascript
-        value: |
-          return import('node:fs').then(({ readFileSync }) => {
-            const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
-            if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
-            const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
-            if (d.success !== true) return { pass: false, score: 0, reason: `runner success=${d.success}` };
-            const text = (d.textSegments || []).join('\n');
-            const pass = text.includes('STUDIO-EVAL-TOKEN-7319');
-            return {
-              pass,
-              score: pass ? 1 : 0,
-              reason: pass ? 'reply carries the token from the global instructions' : `token missing from reply: ${text.slice(0, 300)}`,
-            };
-          });
+        value: file://outcome.mjs:replyIncludes
 
-  - description: agent calls site_create when asked to make a site
+  - description: asking for a site leaves a working new site
     vars:
       caseId: site-creation
+      siteName: "Eval Test Site"
       timeoutMs: 120000
-      askUserPolicy: allow_all
       prompt: |
-        First check if a site named "Eval Test Site" exists using site_list.
-        If it does, delete it with site_delete. Then create a new site named "Eval Test Site".
+        Create a new site named "Eval Test Site".
     assert:
       - type: javascript
-        value: |
-          return import('node:fs').then(({ readFileSync }) => {
-            const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
-            if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
-            const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
-            const called = d.toolCalls?.some(t => t.name === 'site_create');
-            return { pass: !!called, score: called ? 1 : 0, reason: called ? 'site_create was called' : `no site_create in ${JSON.stringify(d.toolCalls?.map(t => t.name) ?? [])}` };
-          });
+        value: file://outcome.mjs:siteWorks
       - type: javascript
-        value: |
-          return import('node:fs').then(({ readFileSync }) => {
-            const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
-            if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
-            const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
-            const result = d.toolResults?.find(r => r.toolName === 'site_create');
-            const ok = !!(result && !result.isError);
-            return { pass: ok, score: ok ? 1 : 0, reason: ok ? 'site_create succeeded' : `site_create result: ${JSON.stringify(result)}` };
-          });
+        value: file://outcome.mjs:otherSitesUntouched
 
-  # Regression: trunk handles desktop/mobile visual verification as separate
-  # screenshot calls. The optimized tool exposes `viewport: "all"` so the agent
-  # can satisfy the same user request with one timed call and two PNG payloads.
-  - description: screenshot verification captures desktop and mobile in one fast call
+  # The model must see a desktop and a mobile capture of the home page, with
+  # the screenshot time summed across however many calls it made. Pinned to
+  # an image-capable tier: text-only models get files, not image payloads.
+  - description: screenshot verification shows the model desktop and mobile quickly
     vars:
       caseId: screenshot-all-timing
+      siteName: "Eval Screenshot Timing"
+      model: balanced
       timeoutMs: 240000
-      askUserPolicy: allow_all
       prompt: |
-        First check if a site named "Eval Screenshot Timing" exists using
-        site_list. If it does, delete it with site_delete so we start from
-        a clean slate. Do NOT touch any other site.
-
-        Then create a new site named "Eval Screenshot Timing". Do not
+        Create a new site named "Eval Screenshot Timing". Do not
         customize the theme. Verify the homepage visually with screenshots
         for both desktop and mobile, then briefly report whether the
         screenshots were captured.
     assert:
-      # The runner records the image content blocks the tool returned to the
-      # model (`toolResults[].images`) — unlike the chat artifacts, they are
-      # emitted even when the agent passes `display: false`, so the check can't
-      # be dodged by an internal-verification capture.
       - type: javascript
-        value: |
-          return Promise.all([import('node:fs'), import('node:buffer')]).then(([{ readFileSync }, { Buffer }]) => {
-            const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
-            if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
-            const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
-            const screenshotCalls = (d.toolCalls || []).filter(t => t.name === 'take_screenshot');
-            if (screenshotCalls.length !== 1) {
-              return {
-                pass: false,
-                score: 0,
-                reason: `expected one take_screenshot call for desktop+mobile verification, got ${screenshotCalls.length}: ${JSON.stringify(screenshotCalls.map(t => t.input))}`,
-              };
-            }
-            const call = screenshotCalls[0];
-            if (call.input?.viewport !== 'all') {
-              return {
-                pass: false,
-                score: 0,
-                reason: `expected take_screenshot to use viewport="all"; got ${JSON.stringify(call.input)}`,
-              };
-            }
-
-            const result = (d.toolResults || []).find(r => r.toolUseId === call.id);
-            if (!result || result.isError) {
-              return { pass: false, score: 0, reason: `take_screenshot failed: ${JSON.stringify(result).slice(0, 500)}` };
-            }
-            const images = result.images || [];
-            if (images.length !== 2) {
-              return { pass: false, score: 0, reason: `expected two screenshot image payloads (desktop + mobile), got ${images.length}` };
-            }
-
-            // Read pixel dimensions from a PNG or JPEG buffer; null if neither.
-            const readImageSize = (buf) => {
-              if (buf.length > 24 && buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47) {
-                return { format: 'png', width: buf.readUInt32BE(16), height: buf.readUInt32BE(20) };
-              }
-              if (buf.length > 4 && buf[0] === 0xff && buf[1] === 0xd8) {
-                let offset = 2;
-                while (offset + 9 < buf.length) {
-                  if (buf[offset] !== 0xff) { offset++; continue; }
-                  const marker = buf[offset + 1];
-                  // Markers without a length payload: skip past them.
-                  if (marker === 0xd8 || marker === 0xd9 || (marker >= 0xd0 && marker <= 0xd7) || marker === 0x01) {
-                    offset += 2;
-                    continue;
-                  }
-                  // Start-of-frame markers carry the dimensions (excluding DHT/JPG/DAC).
-                  if (marker >= 0xc0 && marker <= 0xcf && marker !== 0xc4 && marker !== 0xc8 && marker !== 0xcc) {
-                    return { format: 'jpeg', height: buf.readUInt16BE(offset + 5), width: buf.readUInt16BE(offset + 7) };
-                  }
-                  offset += 2 + buf.readUInt16BE(offset + 2);
-                }
-              }
-              return null;
-            };
-            // Images come in capture order (desktop, then mobile), scaled to at most 2000 px.
-            const sizes = images.map((image) => readImageSize(Buffer.from(image.data, 'base64')));
-            for (const size of sizes) {
-              if (!size || size.height < 600 || Math.max(size.width, size.height) > 2000) {
-                return {
-                  pass: false,
-                  score: 0,
-                  reason: `image payload did not look like a screenshot scaled for the model: ${JSON.stringify(size)}`,
-                };
-              }
-            }
-            if (sizes[0].width <= sizes[1].width) {
-              return { pass: false, score: 0, reason: `expected a desktop then a mobile screenshot, got ${JSON.stringify(sizes)}` };
-            }
-            return { pass: true, score: 1, reason: `captured valid screenshots: ${JSON.stringify(sizes)}` };
-          });
+        value: file://outcome.mjs:sawDesktopAndMobile
       - type: javascript
-        value: |
-          return import('node:fs').then(({ readFileSync }) => {
-            const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
-            if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
-            const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
-            const events = (d.toolEvents || []).filter(t => t.toolName === 'take_screenshot');
-            if (events.length !== 1 || typeof events[0].durationMs !== 'number') {
-              return { pass: false, score: 0, reason: `expected one timed take_screenshot event, got ${JSON.stringify(events)}` };
-            }
-            const limitMs = 15000;
-            const duration = events[0].durationMs;
-            const pass = duration < limitMs;
-            return {
-              pass,
-              score: pass ? 1 : 0,
-              reason: pass
-                ? `take_screenshot completed in ${duration}ms`
-                : `take_screenshot took ${duration}ms, expected < ${limitMs}ms`,
-            };
-          });
+        value: file://outcome.mjs:otherSitesUntouched
 
-  # Every individual turn (wall-clock between successive assistant messages)
-  # should stay under 60s. Slow turns stall the UI.
-  - description: single-page site build keeps every turn under 60s
+  # A fresh build: the site renders with valid blocks, has a static front
+  # page, runs its own theme with self-hosted fonts and a real screenshot,
+  # and its palette carries the DESIGN.md colors. Every turn stays under 60s
+  # so the UI never stalls.
+  - description: single-page build leaves a working site in its own theme, built from DESIGN.md
     vars:
       caseId: single-page-build-turn-cadence
+      siteName: "Eval Turn Timing"
       timeoutMs: 600000
-      askUserPolicy: allow_all
       prompt: |
-        First check if a site named "Eval Turn Timing" exists using
-        site_list. If it does, delete it with site_delete so we start from
-        a clean slate. Do NOT touch any other site.
-
-        Then build a simple WordPress site named "Eval Turn Timing". The
+        Build a simple WordPress site named "Eval Turn Timing". The
         site only needs a single page — no extra pages, no blog posts, no
         navigation menu beyond what a one-page site requires. Use the site
         name as the brand and skip the discovery questions: nobody can
         answer during this run, so make every choice yourself.
     assert:
-      # The default new-site flow: no installed theme is mentioned, so the
-      # agent must start from a fresh blank scaffold — scaffold_theme called
-      # WITHOUT parentTheme (the parentTheme path is covered by the
-      # child-theme-for-installed-theme case below).
       - type: javascript
-        value: |
-          return import('node:fs').then(({ readFileSync }) => {
-            const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
-            if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
-            const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
-            const scaffolds = (d.toolCalls || []).filter(t => t.name === 'scaffold_theme');
-            if (scaffolds.length === 0) {
-              return { pass: false, score: 0, reason: `scaffold_theme was never called; tools: ${JSON.stringify((d.toolCalls || []).map(t => t.name))}` };
-            }
-            const call = scaffolds[0];
-            if (call.input?.parentTheme) {
-              return { pass: false, score: 0, reason: `expected a blank scaffold but got a child theme: ${JSON.stringify(call.input)}` };
-            }
-            const result = (d.toolResults || []).find(r => r.toolUseId === call.id);
-            if (!result || result.isError) {
-              return { pass: false, score: 0, reason: `scaffold_theme failed: ${JSON.stringify(result).slice(0, 300)}` };
-            }
-            if (!/fonts downloaded to assets\/fonts/.test(result.text || '')) {
-              return { pass: false, score: 0, reason: `the scaffold did not self-host the DESIGN.md fonts: ${(result.text || '').split('\n').slice(0, 4).join(' ')}` };
-            }
-            return { pass: true, score: 1, reason: `blank theme scaffolded with self-hosted fonts: ${JSON.stringify(call.input)}` };
-          });
+        value: file://outcome.mjs:siteWorks
       - type: javascript
-        value: |
-          return import('node:fs').then(({ readFileSync }) => {
-            const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
-            if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
-            const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
-            const durations = d.turnDurationsMs ?? [];
-            if (durations.length === 0) {
-              return { pass: false, score: 0, reason: 'no turns recorded' };
-            }
-            const max = Math.max(...durations);
-            const maxIdx = durations.indexOf(max);
-            if (max >= 60000) {
-              return { pass: false, score: 0, reason: `turn ${maxIdx + 1}/${durations.length} took ${max}ms (>= 60000ms). All turns (ms): ${durations.join(', ')}` };
-            }
-            return { pass: true, score: 1, reason: `max turn ${max}ms across ${durations.length} turns` };
-          });
-      # Regression: the "Page content" cadence used to tell the agent to apply
-      # page blocks via `wp_cli post update --post_content-file=<host path>`.
-      # `--post_content-file` is not a WP-CLI option, so the file is never read
-      # and the post content is not updated.
-      # The fix is `wp_cli eval` + `file_get_contents(ABSPATH . ...)` — this
-      # assertion fails if any wp_cli call reintroduces --post_content-file=.
+        value: file://outcome.mjs:builtFromDesign
       - type: javascript
-        value: |
-          return import('node:fs').then(({ readFileSync }) => {
-            const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
-            if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
-            const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
-            const offending = (d.toolCalls || []).filter(t => {
-              if (t.name !== 'wp_cli') return false;
-              const cmd = t.input && typeof t.input.command === 'string' ? t.input.command : '';
-              return cmd.includes('--post_content-file=');
-            });
-            if (offending.length > 0) {
-              const sample = JSON.stringify(offending[0].input).slice(0, 300);
-              return { pass: false, score: 0, reason: `${offending.length} wp_cli call(s) used --post_content-file=, which is not a WP-CLI option (first: ${sample})` };
-            }
-            return { pass: true, score: 1, reason: 'no wp_cli call used --post_content-file=' };
-          });
+        value: file://outcome.mjs:ownThemeWithFontsAndScreenshot
       - type: javascript
-        value: |
-          return import('node:fs').then(({ readFileSync }) => {
-            const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
-            if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
-            const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
-            const validationResults = (d.toolResults || []).filter(r => r.toolName === 'validate_blocks');
-            if (validationResults.length === 0) {
-              return { pass: false, score: 0, reason: 'validate_blocks was not called for block content' };
-            }
-            const last = validationResults[validationResults.length - 1];
-            const text = last.text || '';
-            // validate_blocks runs the core/html policy gate first; only when it
-            // passes does the live-editor validation run and emit `Validation:`.
-            // A short-circuited result reports `N/M core/html blocks invalid`.
-            const htmlPassed = /HTML block policy:/i.test(text) && !/core\/html blocks invalid/i.test(text);
-            if (last.isError || !htmlPassed) {
-              return {
-                pass: false,
-                score: 0,
-                reason: `final validate_blocks result did not pass the core/html policy gate: ${(text || JSON.stringify(last)).slice(0, 500)}`,
-              };
-            }
-            const failed =
-              !/Validation:\s+\d+\/\d+\s+blocks valid/i.test(text) ||
-              /Auto-fix proposal failed validation|Auto-fix proposal still has|No automatic editor serialization fix was available/i.test(text);
-            if (failed) {
-              return {
-                pass: false,
-                score: 0,
-                reason: `final validate_blocks editor validation was invalid or inconclusive: ${(text || JSON.stringify(last)).slice(0, 500)}`,
-              };
-            }
-            return { pass: true, score: 1, reason: `validation passed: ${text.split(/\r?\n/).filter(Boolean).slice(0, 2).join(' | ')}` };
-          });
-      # Workflow step 7: the home page's desktop take_screenshot captures, with
-      # the scaffolded theme's directory as `themeScreenshot`, set its
-      # screenshot.jpg (the Appearance → Themes thumbnail). Captures are JPEGs,
-      # so the file must carry a real JPEG signature — a hand-crafted or
-      # generated placeholder fails.
+        value: file://outcome.mjs:turnsAreResponsive
       - type: javascript
-        value: |
-          return import('node:fs').then(({ readFileSync, openSync, readSync, closeSync }) => {
-            const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
-            if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
-            const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
-            const created = (d.toolResults || []).find(r => r.toolName === 'site_create' && !r.isError);
-            if (!created || !created.text) return { pass: false, score: 0, reason: 'no successful site_create result to resolve the site path from' };
-            let sitePath;
-            try { sitePath = JSON.parse(created.text).path; } catch { return { pass: false, score: 0, reason: `site_create result text is not JSON: ${created.text.slice(0, 200)}` }; }
-            const scaffold = (d.toolResults || []).find(r => r.toolName === 'scaffold_theme' && !r.isError);
-            const slug = scaffold?.text?.match(/scaffolded at wp-content\/themes\/([a-z0-9-]+)\//)?.[1];
-            if (!sitePath || !slug) return { pass: false, score: 0, reason: `could not resolve theme dir (sitePath=${sitePath}, slug=${slug})` };
-            const screenshotPath = `${sitePath}/wp-content/themes/${slug}/screenshot.jpg`;
-            let fd;
-            try { fd = openSync(screenshotPath, 'r'); } catch { return { pass: false, score: 0, reason: `theme screenshot missing: ${screenshotPath}` }; }
-            const head = Buffer.alloc(3);
-            const bytesRead = readSync(fd, head, 0, 3, 0);
-            closeSync(fd);
-            if (bytesRead < 3 || head[0] !== 0xff || head[1] !== 0xd8 || head[2] !== 0xff) {
-              return { pass: false, score: 0, reason: `${screenshotPath} exists but is not a JPEG (starts with ${head.toString('hex')})` };
-            }
-            return { pass: true, score: 1, reason: `theme screenshot set from a real capture: ${screenshotPath}` };
-          });
-      # Theme templates and parts are live as soon as they are written, so each
-      # Write/Edit on one must be followed by validate_blocks on that file —
-      # the serialization fix is what puts comment attributes (padding, align,
-      # colors) into the wrapper HTML the front end renders.
-      - type: javascript
-        value: |
-          return Promise.all([import('node:fs'), import('node:path')]).then(([{ readFileSync }, { resolve }]) => {
-            const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
-            if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
-            const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
-            let sitePath;
-            try { sitePath = JSON.parse((d.toolResults || []).find(r => r.toolName === 'site_create' && !r.isError).text).path; } catch {}
-            if (!sitePath) return { pass: false, score: 0, reason: 'no successful site_create result to resolve the site path from' };
-            const calls = d.toolCalls || [];
-            const isThemeMarkup = p => typeof p === 'string' && /\/(templates|parts)\/[^/]+\.html$/.test(p);
-            const unvalidated = calls
-              .map((t, i) => ({ t, i }))
-              .filter(({ t }) => (t.name === 'Write' || t.name === 'Edit') && isThemeMarkup(t.input && t.input.path))
-              .filter(({ t, i }) => !calls.slice(i + 1).some(c => c.name === 'validate_blocks' && typeof c.input?.filePath === 'string' && resolve(sitePath, c.input.filePath) === t.input.path))
-              .map(({ t }) => t.input.path.split('/').slice(-2).join('/'));
-            if (unvalidated.length > 0) {
-              return { pass: false, score: 0, reason: `theme markup written without a following validate_blocks on the file: ${[...new Set(unvalidated)].join(', ')}` };
-            }
-            return { pass: true, score: 1, reason: 'every written template/part file was validated afterwards' };
-          });
+        value: file://outcome.mjs:otherSitesUntouched
 
-      # The visual-design skill lists the concept and direction catalogs;
-      # pick_design settles one of each, the Site Spec commits to them before
-      # building, and the look is written to DESIGN.md at the site root.
-      - type: javascript
-        value: |
-          return import('node:fs').then(({ readFileSync, readdirSync }) => {
-            const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
-            if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
-            const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
-            const loaded = (d.toolCalls || []).some(t => t.name === 'Skill' && t.input?.name === 'visual-design');
-            if (!loaded) return { pass: false, score: 0, reason: 'visual-design skill was never loaded' };
-            const text = (d.textSegments || []).join('\n');
-            const picks = (d.toolResults || []).filter(r => r.toolName === 'pick_design' && !r.isError).map(r => r.text || '').join('\n');
-            if (!picks) return { pass: false, score: 0, reason: 'pick_design was never called successfully' };
-            const skillsDir = ['apps/cli/ai/skills/visual-design', '../../apps/cli/ai/skills/visual-design'].find(p => { try { readdirSync(`${p}/layouts`); return true; } catch { return false; } });
-            if (!skillsDir) return { pass: false, score: 0, reason: `design catalogs not found from cwd ${process.cwd()}` };
-            // One frontmatter file per entry; the title line is a JSON string.
-            const catalogNames = folder => readdirSync(`${skillsDir}/${folder}`).filter(f => f.endsWith('.md') && f !== 'README.md').map(f => JSON.parse(readFileSync(`${skillsDir}/${folder}/${f}`, 'utf8').match(/^title:\s*(.+)$/m)[1]).toLowerCase());
-            const stated = [];
-            for (const [label, folder, heading] of [['Concept', 'layouts', 'layout concept'], ['Direction', 'artistic-directions', 'artistic direction']]) {
-              const lines = text.split(/\r?\n/).filter(l => new RegExp(`\\b${label}\\b\\**\\s*[:—-]`, 'i').test(l));
-              if (!lines.length) return { pass: false, score: 0, reason: `no "${label}:" line in the agent text` };
-              const catalog = catalogNames(folder);
-              const fromCatalog = lines.find(l => catalog.some(name => l.toLowerCase().includes(name)));
-              if (!fromCatalog) return { pass: false, score: 0, reason: `${label} line does not name a catalog entry: ${JSON.stringify(lines.slice(0, 3))}` };
-              // Each must be what pick_design drew (or returned for a named brief), not a substitute.
-              // With `options: 4` the tool returns several pairs; the stated one must be among them.
-              const drawnNames = [...picks.matchAll(new RegExp(`^${heading[0].toUpperCase()}${heading.slice(1)}(?: named in the brief)?: (.+)$`, 'gm'))].map(m => m[1]);
-              if (!drawnNames.length) return { pass: false, score: 0, reason: `pick_design never returned a ${heading}` };
-              const drawn = drawnNames.find(name => fromCatalog.toLowerCase().includes(name.toLowerCase()));
-              if (!drawn) return { pass: false, score: 0, reason: `${label} line "${fromCatalog.trim().slice(0, 80)}" does not match any pick_design result (${drawnNames.join(', ')})` };
-              stated.push(drawn);
-            }
-            if (!/layout map/i.test(text)) return { pass: false, score: 0, reason: 'no "Layout map" in the Site Spec' };
-            const design = (d.toolCalls || []).find(t => t.name === 'Write' && /\/DESIGN\.md$/.test(t.input?.path || ''));
-            if (!design) return { pass: false, score: 0, reason: 'DESIGN.md was never written at the site root' };
-            if (!/^---\r?\n[\s\S]*?^colors:/m.test(design.input.content || '')) return { pass: false, score: 0, reason: 'DESIGN.md has no colors in its front matter' };
-            return { pass: true, score: 1, reason: `concept and direction drawn and stated, DESIGN.md written: ${stated.join(' / ')}` };
-          });
-
-  # One-page sites get header navigation that links to page sections. The
-  # header template part renders on EVERY template (posts, archives, search,
-  # 404), and a bare-hash URL like "#contact" resolves against the current
-  # URL — it silently does nothing everywhere except the home page. Anchor
-  # nav links must be home-relative ("/#contact"). Regression guard for the
-  # one-page navigation guidance in the block-content skill.
-  - description: one-page site header nav uses home-relative anchor links
+  # The header renders on every template, so a bare "#contact" only works on
+  # the home page. Judged on the rendered home page: section links are
+  # home-relative and each target id exists.
+  - description: one-page site section links work from every page
     vars:
       caseId: one-page-nav-anchor-links
+      siteName: "Eval One Page Nav"
       timeoutMs: 600000
-      askUserPolicy: allow_all
       prompt: |
-        First check if a site named "Eval One Page Nav" exists using
-        site_list. If it does, delete it with site_delete so we start from a
-        clean slate. Do NOT touch any other site.
-
-        Then build a one-page site named "Eval One Page Nav": a single
+        Build a one-page site named "Eval One Page Nav": a single
         scrollable home page with Features, About, and Contact sections, and
         a header navigation menu whose items jump to those sections. Keep the
         design simple — no extra pages and no blog posts.
     assert:
       - type: javascript
-        value: |
-          return import('node:fs').then(({ readFileSync }) => {
-            const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
-            if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
-            const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
-            const strings = [];
-            const collect = (v) => {
-              if (typeof v === 'string') strings.push(v);
-              else if (Array.isArray(v)) v.forEach(collect);
-              else if (v && typeof v === 'object') Object.values(v).forEach(collect);
-            };
-            (d.toolCalls || []).forEach(t => collect(t.input));
-            // wp_cli payloads carry markup with shell/JSON-escaped quotes;
-            // strip backslashes so one regex covers theme files and commands.
-            const flat = strings.map(s => s.replace(/\\/g, ''));
-            const links = flat.flatMap(s => s.match(/wp:navigation-link\s*\{[^}]*\}/g) || []);
-            if (links.length === 0) {
-              return { pass: false, score: 0, reason: 'no wp:navigation-link blocks were produced — the build did not exercise header section navigation' };
-            }
-            const anchorLinks = links.filter(l => /"url":"[^"]*#/.test(l));
-            if (anchorLinks.length === 0) {
-              return { pass: false, score: 0, reason: `nav links carry no anchor URLs at all — the section-jump scenario was not exercised (links: ${links.slice(0, 3).join(' | ').slice(0, 300)})` };
-            }
-            const bare = links.filter(l => /"url":"#/.test(l));
-            if (bare.length > 0) {
-              return { pass: false, score: 0, reason: `${bare.length}/${links.length} nav link(s) use bare-hash URLs, which resolve against the current URL and break on every page except home (first: ${bare[0].slice(0, 200)}). Anchor nav links must be home-relative ("/#anchor").` };
-            }
-            return { pass: true, score: 1, reason: `${anchorLinks.length} anchor nav link(s), all home-relative` };
-          });
+        value: file://outcome.mjs:siteWorks
+      - type: javascript
+        value: file://outcome.mjs:navAnchorsWorkEverywhere
+      - type: javascript
+        value: file://outcome.mjs:otherSitesUntouched
 
-  # Regression (STU-1775): the agent used to present a temporary preview site as
-  # a connected WordPress.com remote site when listing what a local site is
-  # connected to. We seed one connected remote site and one preview site for a
-  # local site, then assert (a) each tool tags its output with a `type`
-  # discriminator and (b) the agent's prose keeps the two categories distinct.
-  - description: agent distinguishes preview sites from connected WordPress.com remote sites
+  # Regression (STU-1775): a preview site was presented as a connected
+  # WordPress.com site. Judged on the reply: the preview is described as a
+  # preview, the connected site as a WordPress.com remote site.
+  - description: reply tells preview sites apart from connected WordPress.com sites
     vars:
       caseId: differentiate-preview-vs-remote
       timeoutMs: 180000
-      askUserPolicy: allow_all
       seed:
         localSite:
           id: eval-site-categories
@@ -527,200 +167,114 @@ tests:
         temporary PREVIEW site or a durable connected WordPress.com remote site.
         Do not create, delete, or modify anything — only inspect and report.
     assert:
-      # The connected-remote tool output carries the type discriminator.
       - type: javascript
-        value: |
-          return import('node:fs').then(({ readFileSync }) => {
-            const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
-            if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
-            const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
-            const r = (d.toolResults || []).find(r => r.toolName === 'site_connected_remote_sites');
-            if (!r) return { pass: false, score: 0, reason: `site_connected_remote_sites was not called; tools: ${JSON.stringify((d.toolCalls || []).map(t => t.name))}` };
-            const ok = /"type"\s*:\s*"wpcom-remote"/.test(r.text || '');
-            return { pass: ok, score: ok ? 1 : 0, reason: ok ? 'connected-remote output tagged type=wpcom-remote' : `missing type discriminator: ${(r.text || '').slice(0, 300)}` };
-          });
-      # The preview tool output carries the type discriminator.
+        value: file://outcome.mjs:classifiesPreviewAndRemote
       - type: javascript
-        value: |
-          return import('node:fs').then(({ readFileSync }) => {
-            const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
-            if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
-            const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
-            const r = (d.toolResults || []).find(r => r.toolName === 'preview_list');
-            if (!r) return { pass: false, score: 0, reason: `preview_list was not called; tools: ${JSON.stringify((d.toolCalls || []).map(t => t.name))}` };
-            const ok = /"type"\s*:\s*"preview"/.test(r.text || '');
-            return { pass: ok, score: ok ? 1 : 0, reason: ok ? 'preview output tagged type=preview' : `missing type discriminator: ${(r.text || '').slice(0, 300)}` };
-          });
-      # A behavioral llm-rubric assertion used to grade the assistant's prose
-      # here — that it keeps preview and connected-remote sites in distinct
-      # categories. It was removed because the WP.com AI proxy's Studio lane now
-      # rejects the grader's plain judge call (no agent envelope/identity), and
-      # the honest fix (a dedicated eval-grader feature slug from #ai-ops, or an
-      # ANTHROPIC_API_KEY-backed grader) is not yet in place. The two
-      # assertions above still guard the tool-output discriminators. Restore the
-      # prose guard once the grader can authenticate.
+        value: file://outcome.mjs:otherSitesUntouched
 
-  - description: agent reaches for Jetpack on slideshow request (catch-all rule)
+  # A push reaches a live site, so the agent asks first. The user declines
+  # whatever it asks, and nothing may reach WordPress.com.
+  - description: push request asks before pushing
+    vars:
+      caseId: push-confirms-target
+      timeoutMs: 180000
+      answers:
+        - label: Cancel
+      seed:
+        localSite:
+          id: eval-site-push
+          name: Eval Site Push
+          path: /tmp/eval-site-push
+          port: 8882
+        connectedWpcomSites:
+          - id: 112
+            localSiteId: eval-site-push
+            name: My Production Site
+            url: https://myprod.wordpress.com
+            isStaging: false
+            isPressable: false
+            environmentType: production
+            syncSupport: already-connected
+            lastPullTimestamp: null
+            lastPushTimestamp: null
+      prompt: |
+        Push my local site "Eval Site Push" to WordPress.com.
+    assert:
+      - type: javascript
+        value: file://outcome.mjs:pushNotRunAndAsks
+
+  - description: slideshow request puts a Jetpack slideshow on the home page
     vars:
       caseId: jetpack-catchall-slideshow
+      siteName: "Catchall Eval Site"
+      plugin: jetpack
+      blockPrefix: jetpack/
       timeoutMs: 600000
-      askUserPolicy: allow_all
       prompt: |
-        First check if a site named "Catchall Eval Site" exists using
-        site_list. If it does, delete it with site_delete so we start
-        from a clean slate. Do NOT touch any other site.
-
-        Then create a new site named "Catchall Eval Site" and add a
+        Create a new site named "Catchall Eval Site" and add a
         slideshow of three placeholder images to its homepage.
     assert:
       - type: javascript
-        value: |
-          return import('node:fs').then(({ readFileSync }) => {
-            const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
-            if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
-            const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
-            const blobs = [];
-            for (const c of d.toolCalls || []) {
-              const i = c.input || {};
-              if (c.name === 'Write' || c.name === 'Edit') {
-                for (const k of ['content', 'new_string', 'replacement', 'text']) {
-                  if (typeof i[k] === 'string') blobs.push(i[k]);
-                }
-                // The Edit tool applies changes as { edits: [{ oldText, newText }] }.
-                if (Array.isArray(i.edits)) {
-                  for (const e of i.edits) if (e && typeof e.newText === 'string') blobs.push(e.newText);
-                }
-              }
-              if (c.name === 'wp_cli' && typeof i.command === 'string') blobs.push(i.command);
-            }
-            const usedJetpackBlock = blobs.some(c => /<!--\s*wp:jetpack\//.test(c));
-            return {
-              pass: usedJetpackBlock,
-              score: usedJetpackBlock ? 1 : 0,
-              reason: usedJetpackBlock
-                ? 'page content uses a jetpack/* block'
-                : `no jetpack/* block in any Write/Edit/wp_cli call; sample: ${(blobs.find(c => /<!--\s*wp:/.test(c)) || blobs[0] || '').slice(0, 300)}`,
-            };
-          });
+        value: file://outcome.mjs:siteWorks
+      - type: javascript
+        value: file://outcome.mjs:pluginBlockOnFrontPage
+      - type: javascript
+        value: file://outcome.mjs:otherSitesUntouched
 
-  # Regression: a "shop"/"store" request must set up WooCommerce WITH products,
-  # even when framed with scope/style qualifiers ("small", "for inspiration")
-  # that the agent previously used to misclassify the site as informational and
-  # skip ecommerce. Guards both the proactive plugin-recommendations trigger and
-  # the ecommerce-by-default classification.
-  - description: shop request sets up WooCommerce with products
+  # Regression: a "shop"/"store" request framed with qualifiers ("small",
+  # "for inspiration") must still end with a working store: WooCommerce
+  # active and products published.
+  - description: shop request leaves WooCommerce with products
     vars:
       caseId: woocommerce-shop-setup
+      siteName: "Eval Shop Site"
       timeoutMs: 600000
-      askUserPolicy: allow_all
       prompt: |
-        First check if a site named "Eval Shop Site" exists using site_list.
-        If it does, delete it with site_delete so we start from a clean
-        slate. Do NOT touch any other site.
-
-        Then build a small pet shop site named "Eval Shop Site" — keep it
+        Build a small pet shop site named "Eval Shop Site" — keep it
         small, just a couple of pages, look at a clean modern store for
         inspiration. I want to sell dog and cat products.
     assert:
       - type: javascript
-        value: |
-          return import('node:fs').then(({ readFileSync }) => {
-            const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
-            if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
-            const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
-            const installed = (d.toolCalls || []).some(t => t.name === 'wp_cli' && /plugin\s+install\s+woocommerce/.test(t.input?.command || ''));
-            return { pass: installed, score: installed ? 1 : 0, reason: installed ? 'WooCommerce installed' : `no woocommerce install; wp_cli cmds: ${JSON.stringify((d.toolCalls || []).filter(t => t.name === 'wp_cli').map(t => t.input?.command))}` };
-          });
+        value: file://outcome.mjs:siteWorks
       - type: javascript
-        value: |
-          return import('node:fs').then(({ readFileSync }) => {
-            const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
-            if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
-            const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
-            const n = (d.toolCalls || []).filter(t => t.name === 'wp_cli' && /wc\s+product\s+create/.test(t.input?.command || '')).length;
-            return { pass: n >= 1, score: n >= 1 ? 1 : 0, reason: n >= 1 ? `${n} product(s) created` : 'no `wc product create` calls' };
-          });
+        value: file://outcome.mjs:storeHasProducts
+      - type: javascript
+        value: file://outcome.mjs:otherSitesUntouched
 
-  # Regression (STU-2017): customizing a site running an installed third-party
-  # theme used to edit that theme's files directly, so a theme update would
-  # silently wipe the customizations. The agent must scaffold a child theme
-  # (scaffold_theme with parentTheme) and keep every change inside it.
-  - description: customizing an installed third-party theme creates a child theme and never edits the parent
+  # Regression (STU-2017): edits to an installed theme are lost on its next
+  # update. The parent must still match its WordPress.org release, and the
+  # active child theme carries the heading font.
+  - description: customizing an installed theme leaves it as released and works through a child theme
     vars:
       caseId: child-theme-for-installed-theme
+      siteName: "Eval Child Theme Site"
+      parentTheme: ollie
       timeoutMs: 600000
-      askUserPolicy: allow_all
       prompt: |
-        First check if a site named "Eval Child Theme Site" exists using
-        site_list. If it does, delete it with site_delete so we start from a
-        clean slate. Do NOT touch any other site.
-
-        Then create a new site named "Eval Child Theme Site", install and
+        Create a new site named "Eval Child Theme Site", install and
         activate the Ollie theme from the WordPress.org directory, and
         customize the design: make all headings a serif font and shift the
         color palette warmer. Keep it quick — only typography and color
         changes, no new pages or content.
     assert:
-      # The agent must scaffold a child theme of ollie, successfully.
       - type: javascript
-        value: |
-          return import('node:fs').then(({ readFileSync }) => {
-            const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
-            if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
-            const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
-            const call = (d.toolCalls || []).find(t => t.name === 'scaffold_theme' && t.input?.parentTheme === 'ollie');
-            if (!call) {
-              const scaffolds = (d.toolCalls || []).filter(t => t.name === 'scaffold_theme').map(t => t.input);
-              return { pass: false, score: 0, reason: `no scaffold_theme call with parentTheme="ollie"; scaffold_theme calls: ${JSON.stringify(scaffolds)}` };
-            }
-            const result = (d.toolResults || []).find(r => r.toolUseId === call.id);
-            if (!result || result.isError) {
-              return { pass: false, score: 0, reason: `scaffold_theme(parentTheme=ollie) failed: ${JSON.stringify(result).slice(0, 300)}` };
-            }
-            return { pass: true, score: 1, reason: `child theme scaffolded: ${JSON.stringify(call.input)}` };
-          });
-      # No Write/Edit/Bash may touch the installed parent theme's files.
+        value: file://outcome.mjs:siteWorks
       - type: javascript
-        value: |
-          return import('node:fs').then(({ readFileSync }) => {
-            const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
-            if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
-            const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
-            const offending = (d.toolCalls || []).filter(c => {
-              const i = c.input || {};
-              if (c.name === 'Write' || c.name === 'Edit') {
-                return String(i.file_path || i.path || i.filePath || '').includes('/themes/ollie/');
-              }
-              if (c.name === 'Bash') {
-                // Reads are fine; catch anything that could mutate the parent.
-                return /themes\/ollie\//.test(i.command || '') && /\b(>|>>|sed\s+-i|mv|cp|rm|tee|touch)\b/.test(i.command || '');
-              }
-              return false;
-            });
-            if (offending.length > 0) {
-              return { pass: false, score: 0, reason: `${offending.length} call(s) modified the installed parent theme (first: ${JSON.stringify({ name: offending[0].name, input: offending[0].input }).slice(0, 300)})` };
-            }
-            return { pass: true, score: 1, reason: 'no Write/Edit/Bash mutation under themes/ollie/' };
-          });
+        value: file://outcome.mjs:customizedThroughChildTheme
+      - type: javascript
+        value: file://outcome.mjs:otherSitesUntouched
 
-  # When adding sections to a site that already has an active theme, the agent
-  # should color them from the theme's color palette (block color-slug
-  # attributes like {"backgroundColor":"accent-1"} or var(--wp--preset--color--*)
-  # in CSS) instead of hardcoding hex values. Hardcoded hex detaches the section
-  # from Global Styles / theme switching / dark variations and is the behavior
-  # this case guards against. theme.json is excluded from the hex check because
-  # the palette is legitimately *defined* there with hex.
-  - description: added sections use the theme color palette, not hardcoded hex
+  # Hardcoded hex detaches a section from Global Styles, theme switching
+  # and style variations. Judged on what the turn added (pages, saved
+  # templates, custom CSS, theme files changed from the release).
+  - description: added sections take their colors from the theme palette
     vars:
       caseId: section-uses-theme-palette
+      siteName: "Eval Palette Site"
+      theme: twentytwentyfive
       timeoutMs: 600000
-      askUserPolicy: allow_all
       prompt: |
-        First check if a site named "Eval Palette Site" exists using
-        site_list. If it does, delete it with site_delete so we start from a
-        clean slate. Do NOT touch any other site.
-
-        Then create a new site named "Eval Palette Site". Keep its current
+        Create a new site named "Eval Palette Site". Keep its current
         default theme — do not create, scaffold, or switch themes.
 
         Add two visually distinct sections to the site's homepage: a hero
@@ -729,213 +283,63 @@ tests:
         colors feel cohesive with the site's existing theme.
     assert:
       - type: javascript
-        value: |
-          return import('node:fs').then(({ readFileSync }) => {
-            const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
-            if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
-            const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
-            const calls = d.toolCalls || [];
-            const pathOf = (i) => String((i && (i.file_path || i.path || i.filePath)) || '').toLowerCase();
-            // Collect every place a color can land. Block markup and theme CSS
-            // reach the site through Write/Edit (a scratch .html, style.css, or
-            // raw block markup) OR through wp_cli — both as post_content and as
-            // CSS injected via `wp_cli eval '$css = "..."'`. theme.json is the one
-            // exclusion: a palette is legitimately defined there with hex.
-            const blobs = [];
-            for (const c of calls) {
-              const i = c.input || {};
-              if ((c.name === 'Write' || c.name === 'Edit') && !pathOf(i).endsWith('.json')) {
-                for (const k of ['content', 'new_string', 'replacement', 'text']) {
-                  if (typeof i[k] === 'string') blobs.push(i[k]);
-                }
-                // The Edit tool applies changes as { edits: [{ oldText, newText }] }.
-                if (Array.isArray(i.edits)) {
-                  for (const e of i.edits) if (e && typeof e.newText === 'string') blobs.push(e.newText);
-                }
-              }
-              if (c.name === 'wp_cli' && typeof i.command === 'string') {
-                blobs.push(i.command);
-              }
-            }
-            const markup = blobs.join('\n');
-            if (!/<!--\s*wp:/.test(markup)) {
-              return { pass: false, score: 0, reason: `no block markup found in Write/wp_cli calls; tool calls: ${JSON.stringify(calls.map(c => c.name))}` };
-            }
-            // Hardcoded hex colors in section markup / theme CSS = custom colors (the bug).
-            const hex = markup.match(/#[0-9a-fA-F]{6}\b|#[0-9a-fA-F]{3}\b/g) || [];
-            // Palette references: block color-slug attributes or preset CSS vars.
-            const slugAttr = markup.match(/"(?:backgroundColor|textColor|borderColor|overlayColor|gradient)"\s*:\s*"[a-z][a-z0-9-]*"/g) || [];
-            const presetVar = markup.match(/var\(\s*--wp--preset--color--[a-z0-9-]+/g) || [];
-            const paletteRefs = slugAttr.length + presetVar.length;
-            if (hex.length > 0) {
-              const uniq = [...new Set(hex)].slice(0, 8);
-              return { pass: false, score: 0, reason: `section markup/CSS hardcodes ${hex.length} custom hex color(s) (${uniq.join(', ')}) instead of theme palette colors; palette refs found: ${paletteRefs}` };
-            }
-            if (paletteRefs === 0) {
-              return { pass: false, score: 0, reason: `sections apply no theme-palette colors (no color-slug attributes or --wp--preset--color-- vars) — cannot confirm the section is colored from the palette` };
-            }
-            return { pass: true, score: 1, reason: `sections colored from the theme palette (${paletteRefs} palette color ref(s)) with no hardcoded hex` };
-          });
+        value: file://outcome.mjs:siteWorks
+      - type: javascript
+        value: file://outcome.mjs:colorsFromPalette
+      - type: javascript
+        value: file://outcome.mjs:otherSitesUntouched
 
-  # Regression: shrink-wrapped labels (eyebrows, badges, pills) used to be
-  # styled with `display: inline-block` on the block wrapper class. Constrained
-  # layouts align children with `margin-left/right: auto !important`, which only
-  # works on block-level boxes, so the label escapes the content column and hugs
-  # the edge of the full-width section. The fix is a flex row group wrapper (or
-  # styling an inner element) — never a display override on the block wrapper.
-  # The prompt deliberately elicits the pattern: a pill label above a hero
-  # heading is the canonical case where the agent reaches for inline-block.
-  - description: hero eyebrow pill keeps content-column alignment (no inline-block on block wrappers)
+  # Constrained layouts center children with auto margins, which only work
+  # on block-level boxes. Judged on the site's CSS and content: no block
+  # wrapper class is given an inline-level display.
+  - description: hero eyebrow pill keeps content-column alignment
     vars:
       caseId: inline-block-constrained-alignment
+      siteName: "Eval Eyebrow Site"
       timeoutMs: 600000
-      askUserPolicy: allow_all
       prompt: |
-        First check if a site named "Eval Eyebrow Site" exists using
-        site_list. If it does, delete it with site_delete so we start from a
-        clean slate. Do NOT touch any other site.
-
-        Then build a simple one-page site named "Eval Eyebrow Site". The
+        Build a simple one-page site named "Eval Eyebrow Site". The
         homepage needs a full-width hero section whose content stays in the
         normal content column, containing: a small uppercase eyebrow label
         styled as a pill (rounded background that hugs the text) sitting
         above the main heading, the main heading, and a short subtitle.
         Keep the rest of the page minimal — no extra sections needed.
     assert:
-      # Collect everything the agent wrote (block markup + theme CSS) and fail
-      # if any CSS rule sets an inline-level `display` on a bare block-wrapper
-      # class — i.e. a selector that is exactly `.foo` where `foo` appears in a
-      # block `className` attribute. Descendant selectors (`.foo span`) and
-      # classes never used on blocks are fine.
       - type: javascript
-        value: |
-          return import('node:fs').then(({ readFileSync }) => {
-            const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
-            if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
-            const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
-            const blobs = [];
-            for (const c of d.toolCalls || []) {
-              const i = c.input || {};
-              if (c.name === 'Write' || c.name === 'Edit') {
-                for (const k of ['content', 'new_string', 'replacement', 'text']) {
-                  if (typeof i[k] === 'string') blobs.push(i[k]);
-                }
-                if (Array.isArray(i.edits)) {
-                  for (const e of i.edits) if (e && typeof e.newText === 'string') blobs.push(e.newText);
-                }
-              }
-              if (c.name === 'wp_cli' && typeof i.command === 'string') blobs.push(i.command);
-            }
-            const all = blobs.join('\n');
-            if (!/<!--\s*wp:/.test(all)) {
-              return { pass: false, score: 0, reason: `no block markup found in Write/Edit/wp_cli calls; tools: ${JSON.stringify((d.toolCalls || []).map(t => t.name))}` };
-            }
-            // Class names used on block wrappers via the className attribute.
-            const blockClasses = new Set();
-            for (const m of all.matchAll(/"className"\s*:\s*"([^"]+)"/g)) {
-              for (const cls of m[1].split(/\s+/)) if (cls) blockClasses.add(cls);
-            }
-            // CSS rules that set an inline-level display. Strip CSS comments
-            // first so an anchor comment before a rule can't pollute the
-            // selector text and mask a match.
-            const scrubbed = all.replace(/\/\*[\s\S]*?\*\//g, ' ');
-            const offenders = [];
-            for (const m of scrubbed.matchAll(/([^{}]+)\{([^{}]*display\s*:\s*inline(?:-block|-flex|-grid|-table)?(?![\w-])[^{}]*)\}/g)) {
-              for (const sel of m[1].split(',')) {
-                const bare = sel.trim().match(/^\.([A-Za-z0-9_-]+)$/);
-                if (bare && blockClasses.has(bare[1])) {
-                  offenders.push(`.${bare[1]} { ${m[2].trim().slice(0, 120)} }`);
-                }
-              }
-            }
-            if (offenders.length > 0) {
-              return { pass: false, score: 0, reason: `${offenders.length} block-wrapper class(es) styled with an inline-level display, which breaks constrained-layout alignment: ${offenders.slice(0, 3).join(' | ')}` };
-            }
-            return { pass: true, score: 1, reason: `no inline-level display on block-wrapper classes (${blockClasses.size} block classes checked)` };
-          });
+        value: file://outcome.mjs:siteWorks
+      - type: javascript
+        value: file://outcome.mjs:noInlineDisplayOnBlockWrappers
+      - type: javascript
+        value: file://outcome.mjs:otherSitesUntouched
 
-  # A visual treatment repeated across instances of one block type should be a
-  # registered block style variation (register_block_style + is-style-<slug>),
-  # not a bare custom class styled only in CSS. Variations show up in the
-  # editor's Styles switcher, so users can restyle without touching CSS — the
-  # behavior this case guards is the agent reaching for custom CSS first.
-  - description: repeated card treatment uses a registered block style variation
+  # A treatment repeated across blocks belongs in a block style variation,
+  # so it shows in the editor's Styles panel. Judged on the site: a
+  # registered variation is applied to the cards.
+  - description: repeated card treatment is a registered block style variation
     vars:
       caseId: repeated-treatment-uses-block-style
+      siteName: "Eval Block Style Site"
       timeoutMs: 600000
-      askUserPolicy: allow_all
       prompt: |
-        First check if a site named "Eval Block Style Site" exists using
-        site_list. If it does, delete it with site_delete so we start from a
-        clean slate. Do NOT touch any other site.
-
-        Then create a new site named "Eval Block Style Site" and build a simple
+        Create a new site named "Eval Block Style Site" and build a simple
         homepage for a coffee shop with a fresh scaffolded theme. The homepage
         must include a features section of three cards that all share the same
         visual treatment: same background, border radius, padding, and shadow.
     assert:
       - type: javascript
-        value: |
-          return import('node:fs').then(({ readFileSync }) => {
-            const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
-            if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
-            const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
-            const calls = d.toolCalls || [];
-            const pathOf = (i) => String((i && (i.file_path || i.path || i.filePath)) || '').toLowerCase();
-            const blobs = [];
-            const styleJsonPaths = [];
-            for (const c of calls) {
-              const i = c.input || {};
-              if (c.name === 'Write' || c.name === 'Edit') {
-                for (const k of ['content', 'new_string', 'replacement', 'text']) {
-                  if (typeof i[k] === 'string') blobs.push(i[k]);
-                }
-                if (Array.isArray(i.edits)) {
-                  for (const e of i.edits) if (e && typeof e.newText === 'string') blobs.push(e.newText);
-                }
-                if (/\/styles\/.*\.json$/.test(pathOf(i))) styleJsonPaths.push(pathOf(i));
-              }
-              if (c.name === 'wp_cli' && typeof i.command === 'string') blobs.push(i.command);
-            }
-            const markup = blobs.join('\n');
-            if (!/<!--\s*wp:/.test(markup)) {
-              return { pass: false, score: 0, reason: `no block markup found in Write/Edit/wp_cli calls; tool calls: ${JSON.stringify(calls.map(c => c.name))}` };
-            }
-            // Registration: register_block_style() in PHP, or a theme styles/*.json
-            // block-style file (WP 6.6+) declaring blockTypes.
-            const registeredPhp = /register_block_style\s*\(/.test(markup);
-            const registeredJson = styleJsonPaths.length > 0 && /"blockTypes"/.test(markup);
-            // Application: an is-style-<slug> class on the card blocks, used more
-            // than once (the treatment is repeated). Exclude core built-in slugs
-            // so e.g. is-style-rounded on an image doesn't count as the cards'.
-            const coreSlugs = new Set(['default', 'fill', 'outline', 'rounded', 'plain', 'pill-shape', 'large', 'checkmark-list']);
-            const applied = (markup.match(/is-style-[a-z0-9-]+/g) || []).filter(s => !coreSlugs.has(s.slice('is-style-'.length)));
-            if (!registeredPhp && !registeredJson) {
-              return { pass: false, score: 0, reason: `no block style variation registered (no register_block_style call and no styles/*.json block-style file) — the repeated card treatment was styled some other way (is-style uses found: ${applied.length})` };
-            }
-            if (applied.length < 2) {
-              return { pass: false, score: 0, reason: `a block style variation was registered but applied ${applied.length} time(s) — the repeated card treatment does not use it` };
-            }
-            // Preset-first applies to sizes too: a raw fontSize value repeated
-            // across blocks belongs in theme.json's size scale as a preset slug.
-            const rawSizes = markup.match(/"fontSize"\s*:\s*"\d[^"]*"/g) || [];
-            const sizeCounts = {};
-            for (const s of rawSizes) sizeCounts[s] = (sizeCounts[s] || 0) + 1;
-            const repeatedSizes = Object.entries(sizeCounts).filter(([, n]) => n >= 3).map(([s, n]) => `${s} x${n}`);
-            if (repeatedSizes.length > 0) {
-              return { pass: false, score: 0, reason: `raw font-size value(s) repeated across blocks instead of a theme.json size preset: ${repeatedSizes.join(', ')}` };
-            }
-            return { pass: true, score: 1, reason: `repeated card treatment uses a registered block style variation (${registeredPhp ? 'register_block_style' : 'styles/*.json'}; applied ${applied.length} times: ${[...new Set(applied)].join(', ')}); no raw font-size repeated ${'>'}= 3 times` };
-          });
+        value: file://outcome.mjs:siteWorks
+      - type: javascript
+        value: file://outcome.mjs:repeatedTreatmentIsBlockStyle
+      - type: javascript
+        value: file://outcome.mjs:otherSitesUntouched
 
   # Site pick: with an active site and a prompt that names no other site, the
   # agent builds into the active site instead of asking whether to create a
   # separate one. Seeds a real (stopped) site as the active site.
-  - description: active site is reused when the prompt names no other site
+  - description: a plan-only request on the active site creates no new site
     vars:
       caseId: active-site-reused
       timeoutMs: 180000
-      askUserPolicy: allow_all
       seed:
         activeSite:
           name: Eval Active Site
@@ -946,62 +350,36 @@ tests:
         plan first.
     assert:
       - type: javascript
-        value: |
-          return import('node:fs').then(({ readFileSync }) => {
-            const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
-            if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
-            const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
-            const calls = d.toolCalls ?? [];
-            const created = calls.find(t => t.name === 'site_create');
-            if (created) return { pass: false, score: 0, reason: `site_create was called (${JSON.stringify(created.input)}) instead of reusing the active site` };
-            const reused = calls.some(t => {
-              if (t.name === 'Skill') return t.input?.name === 'site-spec';
-              const target = t.input?.nameOrPath;
-              return typeof target === 'string' && /eval-active-site|Eval Active Site/i.test(target);
-            });
-            return { pass: reused, score: reused ? 1 : 0, reason: reused ? 'agent worked on the active site without asking to create a new one' : `no site_info/skill call on the active site in ${JSON.stringify(calls.map(t => t.name))}` };
-          });
+        value: file://outcome.mjs:noSiteCreated
+      - type: javascript
+        value: file://outcome.mjs:otherSitesUntouched
 
   # Site pick: with an active site and a prompt that names a different site,
   # the agent asks whether to update the active site or create a new one
   # before calling site_create.
-  - description: active site with a different site name asks before creating
+  - description: a different site name asks before using or replacing the active site
     vars:
       caseId: active-site-different-name
       timeoutMs: 180000
-      askUserPolicy: allow_all
       seed:
         activeSite:
-          name: Eval Active Site
+          name: Eval Active Site Two
       prompt: |
         Build a one-page site named "Joe's Bakery".
     assert:
       - type: javascript
-        value: |
-          return import('node:fs').then(({ readFileSync }) => {
-            const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
-            if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
-            const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
-            const calls = d.toolCalls ?? [];
-            const created = calls.find(t => t.name === 'site_create');
-            if (created) return { pass: false, score: 0, reason: `site_create was called (${JSON.stringify(created.input)}) without asking first` };
-            const building = ['scaffold_theme', 'Write', 'Edit', 'wp_cli', 'validate_blocks', 'generate_images', 'pick_design', 'Skill'];
-            const built = calls.find(t => building.includes(t.name));
-            if (built) return { pass: false, score: 0, reason: `agent started building (${built.name}) instead of stopping to ask` };
-            const text = (d.textSegments ?? []).join('\n');
-            const mentionsCurrent = /(current|existing|active)\s+site|Eval Active Site/i.test(text);
-            const mentionsNew = /\b(new|separate|another|second)\b/i.test(text);
-            const asks = mentionsCurrent && mentionsNew && text.includes('?');
-            return { pass: asks, score: asks ? 1 : 0, reason: asks ? 'agent stopped and asked whether to reuse the active site or create a new one' : `reply did not offer the current-vs-new choice: ${text.slice(0, 300)}` };
-          });
+        value: file://outcome.mjs:asksCurrentOrNew
+      - type: javascript
+        value: file://outcome.mjs:otherSitesUntouched
 
   # An annotation left on the preview's Design system page names a DESIGN.md
   # token. The agent changes it in DESIGN.md and carries it to theme.json.
-  - description: design system annotation updates DESIGN.md and theme.json
+  - description: design system annotation reaches DESIGN.md and the theme palette
     vars:
       caseId: design-system-annotation
+      token: primary
+      originalValue: "#2F6BFF"
       timeoutMs: 420000
-      askUserPolicy: allow_all
       seed:
         activeSite:
           name: Eval Design Annotation
@@ -1049,26 +427,9 @@ tests:
         ```
     assert:
       - type: javascript
-        value: |
-          return import('node:fs').then(({ readFileSync }) => {
-            const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
-            if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
-            const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
-            const calls = d.toolCalls || [];
-            const pathOf = (i) => String((i && (i.file_path || i.path || i.filePath)) || '');
-            const written = (c) => [c.input?.content, c.input?.new_string, ...(Array.isArray(c.input?.edits) ? c.input.edits.map(e => e?.newText) : [])].filter(v => typeof v === 'string').join('\n');
-            const writes = calls.filter(c => c.name === 'Write' || c.name === 'Edit');
-            const design = writes.filter(c => pathOf(c.input).endsWith('DESIGN.md'));
-            const primary = design.map(written).join('\n').match(/primary:\s*"?(#[0-9a-fA-F]{3,8})/);
-            if (!primary || primary[1].toLowerCase() === '#2f6bff') {
-              return { pass: false, score: 0, reason: `DESIGN.md's primary color was not changed; DESIGN.md writes: ${JSON.stringify(design.map(c => c.input)).slice(0, 400)}` };
-            }
-            const themed = writes.some(c => /wp-content\/themes\/[^/]+\/theme\.json$/.test(pathOf(c.input))) || calls.some(c => c.name === 'scaffold_theme');
-            if (!themed) {
-              return { pass: false, score: 0, reason: `no theme.json update after changing DESIGN.md; tools: ${JSON.stringify(calls.map(c => c.name))}` };
-            }
-            return { pass: true, score: 1, reason: `DESIGN.md primary changed to ${primary[1]} and the theme followed` };
-          });
+        value: file://outcome.mjs:designTokenReachedTheme
+      - type: javascript
+        value: file://outcome.mjs:otherSitesUntouched
 
   # STU-2155: once a template part is customized in the Site Editor, WordPress
   # renders the database copy (a wp_template_part post) instead of the theme
@@ -1284,3 +645,214 @@ tests:
             if (!kept) return { pass: false, score: 0, reason: `the user's saved Site Editor styles were discarded${asked ? '' : ' without asking'}; ${state}` };
             return { pass: false, score: 0, reason: `change never reached the rendered styles and the agent did not ask; ${state}; final reply: ${finalText.slice(0, 300)}` };
           });
+
+  # Routing: which skills (runbooks) the agent loads before it starts the work.
+  # Each run stops at its first call that does the work (`stopAt`), so a case
+  # costs only the turns up to that point, and `skillsLoadedFirst` checks the
+  # skills named in `skills` were loaded before it. The new-site cases also stop
+  # at the site's creation. The outcome cases above judge the work itself.
+  - description: "routing: a request to make a site loads build-site before creating it"
+    vars:
+      caseId: routing-new-site-make
+      timeoutMs: 300000
+      skills: [{ name: build-site }]
+      stopAt:
+        - tool: site_create
+        - tool: scaffold_theme
+        - tool: Write
+        - tool: Edit
+        - tool: generate_images
+        - tool: wp_cli
+          input:
+            command: '\b(post|plugin|theme|option|menu|media|term|widget)\s+(create|update|install|activate|import|add|set)\b'
+      prompt: Make me a website for my bakery, Flour & Ember. Skip the questions and go.
+    assert:
+      - type: javascript
+        value: file://outcome.mjs:skillsLoadedFirst
+  - description: "routing: a new site with a form loads build-site and plugin-recommendations before the work"
+    vars:
+      caseId: routing-new-site-contact-form
+      timeoutMs: 300000
+      skills: [{ name: build-site }, { name: plugin-recommendations }]
+      stopAt: &stopAtWork
+        - tool: Write
+        - tool: Edit
+        - tool: generate_images
+        - tool: wp_cli
+          input:
+            command: '\b(post|plugin|theme|option|menu|media|term|widget)\s+(create|update|install|activate|import|add|set)\b'
+      prompt: Create a site named Harbor Dental and add a contact page with a form patients can use to request an appointment.
+    assert:
+      - type: javascript
+        value: file://outcome.mjs:skillsLoadedFirst
+  - description: "routing: a new site with a slideshow loads build-site and plugin-recommendations before the work"
+    vars:
+      caseId: routing-new-site-slideshow
+      timeoutMs: 300000
+      skills: [{ name: build-site }, { name: plugin-recommendations }]
+      stopAt: *stopAtWork
+      prompt: Create a new site named "Routing Slideshow Site" and add a slideshow of three placeholder images to its homepage.
+    assert:
+      - type: javascript
+        value: file://outcome.mjs:skillsLoadedFirst
+  - description: "routing: a contact form loads plugin-recommendations before the work"
+    vars:
+      caseId: routing-form
+      timeoutMs: 300000
+      skills: [{ name: plugin-recommendations }]
+      stopAt: *stopAtWork
+      seed:
+        activeSite:
+          name: Eval Routing Site
+      prompt: Add a contact form to the homepage.
+    assert:
+      - type: javascript
+        value: file://outcome.mjs:skillsLoadedFirst
+  - description: "routing: a carousel loads plugin-recommendations before the work"
+    vars:
+      caseId: routing-carousel
+      timeoutMs: 300000
+      skills: [{ name: plugin-recommendations }]
+      stopAt: *stopAtWork
+      seed:
+        activeSite:
+          name: Eval Routing Site
+      prompt: Add a carousel of our recent projects to the homepage.
+    assert:
+      - type: javascript
+        value: file://outcome.mjs:skillsLoadedFirst
+  - description: "routing: a newsletter signup loads plugin-recommendations before the work"
+    vars:
+      caseId: routing-newsletter
+      timeoutMs: 300000
+      skills: [{ name: plugin-recommendations }]
+      stopAt: *stopAtWork
+      seed:
+        activeSite:
+          name: Eval Routing Site
+      prompt: Add a newsletter signup to the footer.
+    assert:
+      - type: javascript
+        value: file://outcome.mjs:skillsLoadedFirst
+  - description: "routing: a poll loads plugin-recommendations before the work"
+    vars:
+      caseId: routing-poll
+      timeoutMs: 300000
+      skills: [{ name: plugin-recommendations }]
+      stopAt: *stopAtWork
+      seed:
+        activeSite:
+          name: Eval Routing Site
+      prompt: Add a quick poll asking visitors which pastry we should bake next.
+    assert:
+      - type: javascript
+        value: file://outcome.mjs:skillsLoadedFirst
+  - description: "routing: an events page loads plugin-recommendations before the work"
+    vars:
+      caseId: routing-events
+      timeoutMs: 300000
+      skills: [{ name: plugin-recommendations }]
+      stopAt: *stopAtWork
+      seed:
+        activeSite:
+          name: Eval Routing Site
+      prompt: Add an upcoming events page listing our three spring workshops.
+    assert:
+      - type: javascript
+        value: file://outcome.mjs:skillsLoadedFirst
+  - description: "routing: a typography change loads visual-design before the work"
+    vars:
+      caseId: routing-typography
+      timeoutMs: 300000
+      skills: [{ name: visual-design }]
+      stopAt: *stopAtWork
+      seed:
+        activeSite:
+          name: Eval Routing Site
+      prompt: Make the headings use a more elegant serif font.
+    assert:
+      - type: javascript
+        value: file://outcome.mjs:skillsLoadedFirst
+  - description: "routing: a redesign loads visual-design before the work"
+    vars:
+      caseId: routing-redesign
+      timeoutMs: 300000
+      skills: [{ name: visual-design }]
+      stopAt: *stopAtWork
+      seed:
+        activeSite:
+          name: Eval Routing Site
+      prompt: Redesign this site to feel like a modern Scandinavian design studio.
+    assert:
+      - type: javascript
+        value: file://outcome.mjs:skillsLoadedFirst
+  - description: "routing: a new section loads block-content before the work"
+    vars:
+      caseId: routing-section
+      timeoutMs: 300000
+      skills: [{ name: block-content }]
+      stopAt: *stopAtWork
+      seed:
+        activeSite:
+          name: Eval Routing Site
+      prompt: Add a testimonials section with three customer quotes to the homepage.
+    assert:
+      - type: javascript
+        value: file://outcome.mjs:skillsLoadedFirst
+  - description: "routing: a template part edit loads block-content before the work"
+    vars:
+      caseId: routing-template-part
+      timeoutMs: 300000
+      skills: [{ name: block-content }]
+      stopAt: *stopAtWork
+      seed:
+        activeSite:
+          name: Eval Routing Site
+      prompt: Add a search block to the header template part.
+    assert:
+      - type: javascript
+        value: file://outcome.mjs:skillsLoadedFirst
+  - description: "routing: a section with a photo loads block-content and imagery before the work"
+    vars:
+      caseId: routing-hero-image
+      timeoutMs: 300000
+      skills: [{ name: block-content }, { name: imagery }]
+      stopAt: *stopAtWork
+      seed:
+        activeSite:
+          name: Eval Routing Site
+      prompt: Add a hero section to the homepage with a photo of a sunlit bakery counter.
+    assert:
+      - type: javascript
+        value: file://outcome.mjs:skillsLoadedFirst
+  - description: "routing: a layout complaint loads visual-polish before the work"
+    vars:
+      caseId: routing-polish
+      timeoutMs: 300000
+      skills: [{ name: visual-polish }]
+      stopAt: *stopAtWork
+      seed:
+        activeSite:
+          name: Eval Routing Site
+          wpCli:
+            - - eval
+              - |
+                $content = '<!-- wp:group {"style":{"spacing":{"padding":{"top":"8px","bottom":"120px","left":"4px","right":"60px"}}}} --><div class="wp-block-group" style="padding-top:8px;padding-right:60px;padding-bottom:120px;padding-left:4px"><!-- wp:heading {"level":1} --><h1 class="wp-block-heading">Fresh bread every morning</h1><!-- /wp:heading --><!-- wp:paragraph --><p>Sourdough, rye, and pastries baked before sunrise.</p><!-- /wp:paragraph --><!-- wp:buttons --><div class="wp-block-buttons"><!-- wp:button {"style":{"spacing":{"padding":{"top":"2px","bottom":"30px"}}}} --><div class="wp-block-button"><a class="wp-block-button__link wp-element-button" style="padding-top:2px;padding-bottom:30px">Order now</a></div><!-- /wp:button --><!-- wp:button {"style":{"spacing":{"padding":{"left":"80px"}}}} --><div class="wp-block-button"><a class="wp-block-button__link wp-element-button" style="padding-left:80px">Visit us</a></div><!-- /wp:button --></div><!-- /wp:buttons --></div><!-- /wp:group --><!-- wp:group {"style":{"spacing":{"padding":{"top":"0px","bottom":"0px"}}}} --><div class="wp-block-group" style="padding-top:0px;padding-bottom:0px"><!-- wp:heading --><h2 class="wp-block-heading">Our story</h2><!-- /wp:heading --><!-- wp:paragraph --><p>A family bakery since 1987.</p><!-- /wp:paragraph --></div><!-- /wp:group -->';
+                $id = wp_insert_post( array( 'post_type' => 'page', 'post_status' => 'publish', 'post_title' => 'Home', 'post_content' => $content ) );
+                if ( ! $id ) { echo 'SEED_ERROR'; }
+                update_option( 'show_on_front', 'page' );
+                update_option( 'page_on_front', $id );
+      prompt: The homepage spacing looks off and the buttons are misaligned. Fix it.
+    assert:
+      - type: javascript
+        value: file://outcome.mjs:skillsLoadedFirst
+  - description: "routing: a plan question loads hosting-plans-helper"
+    vars:
+      caseId: routing-plan-question
+      timeoutMs: 300000
+      skills: [{ name: hosting-plans-helper }]
+      stopAt: *stopAtWork
+      prompt: Which WordPress.com plan do I need to install my own plugins?
+    assert:
+      - type: javascript
+        value: file://outcome.mjs:skillsLoadedFirst

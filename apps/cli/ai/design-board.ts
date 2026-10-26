@@ -30,8 +30,8 @@ function fontLinks( styles: Style[] ): string {
 	return url ? `<link rel="stylesheet" href="${ url.replace( /&/g, '&amp;' ) }">` : '';
 }
 
-/** Renders a look's theme.json as a design-system board. */
-export function renderDesignBoard( themeJson: string, image?: string ): string {
+/** Renders a theme's theme.json as a design-system board. */
+export function renderDesignBoard( themeJson: string ): string {
 	let parsed: Record< string, unknown >;
 	try {
 		parsed = JSON.parse( themeJson );
@@ -178,9 +178,7 @@ figcaption{margin-top:12px;font-size:13px;opacity:.65}
 		accents.length ? `<div class="accents">${ accents.map( tile ).join( '' ) }</div>` : ''
 	}</div></section>
 <section><h2>Components</h2><div class="kit"><div class="stack"><div class="row"><span class="button primary">Button</span><span class="button secondary">Button</span><span class="link">Link</span></div><div class="row"><span class="input">Input</span></div><div class="row"><span class="tag">Tag</span><span class="tag alt">Tag</span></div></div><div class="card"><span class="tag">Card</span><strong>Card title</strong><u style="width:90%"></u><u style="width:65%"></u></div></div></section>
-<section><h2>Imagery</h2><div class="picture${ image ? '' : ' pattern' }">${
-		image ? `<img src="${ escapeHtml( image ) }" alt="">` : ''
-	}</div></section>
+<section><h2>Imagery</h2><div class="picture pattern"></div></section>
 <div class="strip">${ strip }</div>
 </body>
 </html>`;

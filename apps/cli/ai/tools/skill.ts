@@ -1,5 +1,4 @@
 import { Type } from 'typebox';
-import { renderDesignCatalogIndex } from 'cli/ai/design-catalog';
 import { findSkill, loadSkills, type Skill } from 'cli/ai/skills';
 import { defineTool, READ_ONLY } from './define-tool';
 import type { AgentTool } from '@earendil-works/pi-agent-core';
@@ -10,7 +9,7 @@ export function renderSkill( name: string ): string {
 	if ( ! skill ) {
 		throw new Error( `Unknown skill: ${ name }` );
 	}
-	return renderDesignCatalogIndex( skill.body );
+	return skill.body;
 }
 
 // Returns `null` when no skills are discovered so the caller skips

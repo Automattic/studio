@@ -89,12 +89,11 @@ describe( 'buildSystemPrompt', () => {
 
 describe( 'skill-scoped tools', () => {
 	it( 'every tool a skill brings is a Studio tool', () => {
-		const known = new Set( [
-			...resolveStudioToolDefinitions( { emitChatArtifacts: true, imageGeneration: true } ).map(
+		const known = new Set(
+			resolveStudioToolDefinitions( { emitChatArtifacts: true, imageGeneration: true } ).map(
 				( tool ) => tool.name
-			),
-			'present_design_options',
-		] );
+			)
+		);
 		for ( const name of getSkillScopedToolNames() ) {
 			expect( known ).toContain( name );
 		}

@@ -2,7 +2,7 @@ import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getNoticeHistory, resetAppMessagesForTests, showToast } from '@/data/app-messages';
 import { AppToasts, NoticeHistoryButton } from '@/features/notifications';
-import { closeNoticeHistory } from '@/features/notifications/notice-history';
+import { closeNoticeHistory, openNoticeHistory } from '@/features/notifications/notice-history';
 import { renderWithProviders } from '@/test/render';
 
 const isDescription = ( element: HTMLElement ) =>
@@ -278,5 +278,56 @@ describe( 'notifications popover', () => {
 			expect( screen.queryByRole( 'dialog', { name: 'Saved' } ) ).not.toBeInTheDocument()
 		);
 		expect( getNoticeHistory() ).toHaveLength( 1 );
+	} );
+
+	it( 'lists past notices with their details and empties the history after clearing all', async () => {
+		showToast( {
+			title: 'Could not open the terminal.',
+			description: 'iTerm is not installed.',
+			intent: 'error',
+		} );
+		await setup();
+		fireEvent.click( bell() );
+		const history = await screen.findByRole( 'dialog', { name: 'Notification history' } );
+		expect( within( history ).getByText( 'Could not open the terminal.' ) ).toBeVisible();
+		expect( within( history ).getByText( 'iTerm is not installed.' ) ).toBeVisible();
+		fireEvent.click( within( history ).getByRole( 'button', { name: 'Clear all' } ) );
+		await waitFor( () => expect( screen.queryByRole( 'dialog' ) ).not.toBeInTheDocument() );
+		fireEvent.click( bell() );
+		expect( await screen.findByText( 'No notifications.' ) ).toBeVisible();
+		expect( screen.queryByRole( 'button', { name: 'Clear all' } ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'keeps the cleared notices on screen while the history closes', async () => {
+		showToast( { title: 'Site started' } );
+		await setup();
+		fireEvent.click( bell() );
+		await screen.findByText( 'Site started' );
+		Element.prototype.getAnimations = () => [ { finished: new Promise( () => {} ) } as Animation ];
+		try {
+			fireEvent.click( screen.getByRole( 'button', { name: 'Clear all' } ) );
+			expect( screen.getByText( 'Site started' ) ).toBeInTheDocument();
+			expect( screen.queryByText( 'No notifications.' ) ).not.toBeInTheDocument();
+		} finally {
+			delete ( Element.prototype as Partial< Element > ).getAnimations;
+		}
+	} );
+
+	it( 'opens from elsewhere once the sidebar has brought the bell into place', async () => {
+		const { container } = await setup();
+		let arrive = () => {};
+		const slide = {
+			effect: { target: container },
+			finished: new Promise< void >( ( resolve ) => ( arrive = resolve ) ),
+		};
+		document.getAnimations = () => [ slide as unknown as Animation ];
+		try {
+			act( () => openNoticeHistory() );
+			expect( screen.queryByText( 'No notifications.' ) ).not.toBeInTheDocument();
+			await act( async () => arrive() );
+			expect( await screen.findByText( 'No notifications.' ) ).toBeVisible();
+		} finally {
+			delete ( document as Partial< Document > ).getAnimations;
+		}
 	} );
 } );

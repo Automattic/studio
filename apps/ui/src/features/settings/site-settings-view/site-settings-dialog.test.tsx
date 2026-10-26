@@ -378,4 +378,72 @@ describe( 'site settings', () => {
 		);
 		expect( connector.updateSite ).not.toHaveBeenCalled();
 	} );
+
+	it( 'closes after saving the changes that held it open', async () => {
+		const { connector } = setup();
+		fireEvent.change( await siteName(), { target: { value: 'Renamed' } } );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Close settings' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Save' } ) );
+		await waitFor( () =>
+			expect( screen.queryByRole( 'dialog', { name: 'Settings' } ) ).not.toBeInTheDocument()
+		);
+		expect( connector.updateSite ).toHaveBeenCalledWith(
+			expect.objectContaining( { name: 'Renamed' } ),
+			undefined
+		);
+	} );
+
+	it( 'locks the form while another site operation runs', async () => {
+		setup( { sites: [ { ...site, operation: { pid: 1, kind: 'export' } } ] } );
+		expect(
+			await screen.findByText(
+				'Wait for the current site operation to finish before changing settings.'
+			)
+		).toBeVisible();
+		expect( await siteName() ).toBeDisabled();
+	} );
+
+	it( 'disables Xdebug while another site has it, and says which', async () => {
+		setup( {
+			section: 'debugging',
+			sites: [ site, makeSite( { id: 'two', name: 'Other Site', enableXdebug: true } ) ],
+		} );
+		const xdebug = await screen.findByRole( 'switch', { name: 'Xdebug' } );
+		expect( xdebug ).toHaveAttribute( 'data-disabled' );
+		expect( xdebug ).toHaveAttribute( 'aria-invalid', 'true' );
+		expect( xdebug ).toHaveAccessibleDescription( 'Xdebug is enabled on another site: Other Site' );
+	} );
+
+	it( 'keeps an unsupported PHP version listed with the version that runs instead', async () => {
+		setup( { section: 'php', sites: [ { ...site, phpVersion: '7.4' } ] } );
+		const version = await screen.findByRole( 'combobox', { name: 'PHP version' } );
+		expect( version ).toHaveTextContent( '7.4' );
+		expect( version ).toHaveAccessibleDescription( 'Native PHP will use 8.2' );
+	} );
+
+	it( 'pins the installed version when automatic updates are turned off', async () => {
+		const { connector } = setup( { sites: [ { ...site, isWpAutoUpdating: true } ] } );
+		await siteName();
+		const selector = screen.getByRole( 'combobox', { name: 'WordPress version' } );
+		await waitFor( () => expect( selector ).toHaveTextContent( 'Auto-update (6.9)' ) );
+		fireEvent.click( screen.getByRole( 'switch', { name: 'Automatic updates' } ) );
+		expect( selector ).toHaveTextContent( '6.9' );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Save' } ) );
+		await waitFor( () =>
+			expect( connector.updateSite ).toHaveBeenCalledWith(
+				expect.objectContaining( { isWpAutoUpdating: false } ),
+				'6.9'
+			)
+		);
+	} );
+
+	it( 'rejects a custom domain another site already uses', async () => {
+		setup( { sites: [ site, makeSite( { id: 'two', customDomain: 'taken.wp.local' } ) ] } );
+		fireEvent.change( await siteName(), { target: { value: 'Taken' } } );
+		fireEvent.click( screen.getByRole( 'switch', { name: 'Use custom domain' } ) );
+		const domain = screen.getByRole( 'textbox', { name: 'Domain' } );
+		expect( domain ).toHaveValue( 'taken.wp.local' );
+		expect( domain ).toHaveAttribute( 'aria-invalid', 'true' );
+		expect( screen.getByRole( 'button', { name: 'Save' } ) ).toBeDisabled();
+	} );
 } );

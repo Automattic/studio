@@ -1,135 +1,88 @@
-import '@testing-library/jest-dom/vitest';
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-	useAgentInstructions,
-	useSaveAgentInstructions,
-} from '@/data/queries/use-agent-instructions';
+import { createFakeConnector } from '@/test/fake-connector';
+import { renderWithProviders } from '@/test/render';
 import { InstructionsEditor } from './instructions-editor';
 
-vi.mock( '@/features/onboarding/learn-more', () => ( {
-	LearnMoreLink: () => <button type="button">Learn more…</button>,
-} ) );
+const SAVED = 'Answer in French.';
 
-vi.mock( '@/data/queries/use-agent-instructions', () => ( {
-	useAgentInstructions: vi.fn(),
-	useSaveAgentInstructions: vi.fn(),
-} ) );
+async function setup() {
+	const connector = createFakeConnector( {}, { getAgentInstructions: async () => SAVED } );
+	const view = renderWithProviders( <InstructionsEditor />, { connector } );
+	const textbox = await screen.findByRole( 'textbox', { name: 'WordPress Studio instructions' } );
+	const type = ( value: string ) => fireEvent.change( textbox, { target: { value } } );
+	return { ...view, type };
+}
 
-const useAgentInstructionsMock = vi.mocked( useAgentInstructions );
-const useSaveAgentInstructionsMock = vi.mocked( useSaveAgentInstructions );
+const debounce = () => act( () => vi.advanceTimersByTimeAsync( 800 ) );
 
-// These assert the panel supplies `editSession`, not that an event was recorded.
-describe( 'InstructionsEditor', () => {
-	const save = vi.fn();
-
+describe( 'Agent instructions editor', () => {
 	beforeEach( () => {
-		vi.clearAllMocks();
-		vi.useFakeTimers();
-		useAgentInstructionsMock.mockReturnValue( { data: 'Answer in French.' } as never );
-		useSaveAgentInstructionsMock.mockReturnValue( { mutate: save, isError: false } as never );
+		vi.useFakeTimers( { shouldAdvanceTime: true } );
 	} );
 
 	afterEach( () => {
 		vi.useRealTimers();
 	} );
 
-	it( 'saves once after the user stops typing, not on every keystroke', () => {
-		render( <InstructionsEditor /> );
-
-		const textarea = screen.getByLabelText( 'WordPress Studio instructions' );
-		fireEvent.change( textarea, { target: { value: 'Answer in Spanish' } } );
-		fireEvent.change( textarea, { target: { value: 'Answer in Spanish.' } } );
-
-		expect( save ).not.toHaveBeenCalled();
-
-		act( () => void vi.advanceTimersByTime( 800 ) );
-
-		expect( save ).toHaveBeenCalledTimes( 1 );
-		expect( save ).toHaveBeenCalledWith( { content: 'Answer in Spanish.' } );
+	it( 'saves once after the user stops typing, not on every keystroke', async () => {
+		const { connector, type } = await setup();
+		type( 'Answer in Spanish' );
+		type( 'Answer in Spanish.' );
+		expect( connector.saveAgentInstructions ).not.toHaveBeenCalled();
+		await debounce();
+		expect( connector.saveAgentInstructions ).toHaveBeenCalledExactlyOnceWith(
+			'Answer in Spanish.',
+			{ editSession: undefined }
+		);
 	} );
 
-	it( 'flushes a pending edit when the panel unmounts mid-debounce', () => {
-		const { unmount } = render( <InstructionsEditor /> );
+	it( 'does not save while the content still matches what is stored', async () => {
+		const { connector, type } = await setup();
+		type( SAVED );
+		await debounce();
+		expect( connector.saveAgentInstructions ).not.toHaveBeenCalled();
+	} );
 
-		fireEvent.change( screen.getByLabelText( 'WordPress Studio instructions' ), {
-			target: { value: 'Half-typed thought' },
-		} );
+	it( 'flushes a pending edit with its edit session when the panel closes mid-debounce', async () => {
+		const { connector, type, unmount } = await setup();
+		type( 'Half-typed thought' );
 		unmount();
-
-		expect( save ).toHaveBeenCalledExactlyOnceWith( {
-			content: 'Half-typed thought',
-			editSession: { previousContent: 'Answer in French.' },
-		} );
+		await waitFor( () =>
+			expect( connector.saveAgentInstructions ).toHaveBeenCalledExactlyOnceWith(
+				'Half-typed thought',
+				{ editSession: { previousContent: SAVED } }
+			)
+		);
 	} );
 
-	it( 'does not save while the content still matches what is stored', () => {
-		render( <InstructionsEditor /> );
-
-		fireEvent.change( screen.getByLabelText( 'WordPress Studio instructions' ), {
-			target: { value: 'Answer in French.' },
-		} );
-		act( () => void vi.advanceTimersByTime( 800 ) );
-
-		expect( save ).not.toHaveBeenCalled();
-	} );
-
-	// The autosave means the stored value already matches by the time the user leaves, so the
-	// boundary has to carry the value the visit started from.
-	it( 'reports the edit session on unmount after the debounce already saved', () => {
-		const { unmount } = render( <InstructionsEditor /> );
-
-		fireEvent.change( screen.getByLabelText( 'WordPress Studio instructions' ), {
-			target: { value: 'Answer in Spanish.' },
-		} );
-		act( () => void vi.advanceTimersByTime( 800 ) );
-		expect( save ).toHaveBeenCalledExactlyOnceWith( { content: 'Answer in Spanish.' } );
-
+	it( 'reports the edit session on close after the debounce already saved', async () => {
+		const { connector, type, unmount } = await setup();
+		type( 'Answer in Spanish.' );
+		await debounce();
 		unmount();
-
-		expect( save ).toHaveBeenLastCalledWith( {
-			content: 'Answer in Spanish.',
-			editSession: { previousContent: 'Answer in French.' },
-		} );
+		await waitFor( () =>
+			expect( connector.saveAgentInstructions.mock.calls ).toEqual( [
+				[ 'Answer in Spanish.', { editSession: undefined } ],
+				[ 'Answer in Spanish.', { editSession: { previousContent: SAVED } } ],
+			] )
+		);
 	} );
 
-	it( 'does not report an edit session when the user only looked at the tab', () => {
-		const { unmount } = render( <InstructionsEditor /> );
-
+	it( 'does not report an edit session when the user only looked at the tab', async () => {
+		const { connector, unmount } = await setup();
 		unmount();
-
-		expect( save ).not.toHaveBeenCalled();
+		await act( () => vi.advanceTimersByTimeAsync( 800 ) );
+		expect( connector.saveAgentInstructions ).not.toHaveBeenCalled();
 	} );
 
-	// The cleanup must key off unmount, not the mutate callback's identity, or a re-render would end
-	// the edit session early and the real unmount would report the same edit a second time.
-	it( 'reports the edit session once even if the mutate callback changes identity', () => {
-		const { rerender, unmount } = render( <InstructionsEditor /> );
-
-		fireEvent.change( screen.getByLabelText( 'WordPress Studio instructions' ), {
-			target: { value: 'Answer in Spanish.' },
-		} );
-
-		useSaveAgentInstructionsMock.mockReturnValue( {
-			mutate: ( ...args: unknown[] ) => save( ...args ),
-			isError: false,
-		} as never );
-		rerender( <InstructionsEditor /> );
-
-		expect( save.mock.calls.filter( ( [ arg ] ) => arg.editSession ) ).toHaveLength( 0 );
-
-		unmount();
-
-		expect( save.mock.calls.filter( ( [ arg ] ) => arg.editSession ) ).toHaveLength( 1 );
-	} );
-
-	it( 'surfaces a save failure', () => {
-		useSaveAgentInstructionsMock.mockReturnValue( { mutate: save, isError: true } as never );
-
-		render( <InstructionsEditor /> );
-
+	it( 'surfaces a save failure', async () => {
+		const { connector, type } = await setup();
+		connector.saveAgentInstructions.mockRejectedValueOnce( new Error( 'Disk full' ) );
+		type( 'Answer in Spanish.' );
+		await debounce();
 		expect(
-			screen.getByText( 'Saving the instructions failed. Please try again.' )
-		).toBeInTheDocument();
+			await screen.findByText( 'Saving the instructions failed. Please try again.' )
+		).toBeVisible();
 	} );
 } );

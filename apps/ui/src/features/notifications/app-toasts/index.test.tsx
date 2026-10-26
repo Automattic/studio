@@ -1,34 +1,26 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, screen } from '@testing-library/react';
 import { act } from 'react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { getVisibleToasts, showToast, resetAppMessagesForTests } from '@/data/app-messages';
-import { useConnector } from '@/data/core';
 import { closeNoticeHistory, NoticeHistoryButton } from '@/features/notifications/notice-history';
+import { renderWithProviders } from '@/test/render';
 import { AppToasts } from './index';
+import type { ReactNode } from 'react';
 
-vi.mock( '@/data/host/use-color-scheme', () => ( {
-	useColorScheme: () => 'light',
-} ) );
-
-vi.mock( '@/data/core', () => ( {
-	useConnector: vi.fn(),
-} ) );
+async function render( ui: ReactNode ) {
+	renderWithProviders( ui );
+	await screen.findByRole( 'region', { name: 'Notifications' } );
+}
 
 describe( 'AppToasts', () => {
-	beforeEach( () => {
-		vi.mocked( useConnector ).mockReturnValue( {
-			copyText: vi.fn( () => Promise.resolve() ),
-		} as never );
-	} );
-
 	afterEach( () => {
 		closeNoticeHistory();
 		resetAppMessagesForTests();
 		vi.restoreAllMocks();
 	} );
 
-	it( 'replaces a toast in place when the same id is shown again', () => {
-		render( <AppToasts /> );
+	it( 'replaces a toast in place when the same id is shown again', async () => {
+		await render( <AppToasts /> );
 
 		act( () => {
 			showToast( { id: 'sync-1', intent: 'info', title: 'Pushing to live', durationMs: 0 } );
@@ -42,8 +34,8 @@ describe( 'AppToasts', () => {
 		expect( screen.queryByText( 'Pushing to live' ) ).not.toBeInTheDocument();
 	} );
 
-	it( 'survives a replacement that drops the description', () => {
-		render( <AppToasts /> );
+	it( 'survives a replacement that drops the description', async () => {
+		await render( <AppToasts /> );
 
 		// A running sync carries phase detail; its result usually doesn't. The
 		// shared Notice cannot be reused across that change.
@@ -66,8 +58,8 @@ describe( 'AppToasts', () => {
 		expect( screen.queryByText( 'Uploading… 62%' ) ).not.toBeInTheDocument();
 	} );
 
-	it( 'keeps a pinned toast open with no expiry timer', () => {
-		render( <AppToasts /> );
+	it( 'keeps a pinned toast open with no expiry timer', async () => {
+		await render( <AppToasts /> );
 
 		act( () => {
 			showToast( { id: 'sync-1', intent: 'info', title: 'Pulling from live', durationMs: 0 } );
@@ -76,9 +68,9 @@ describe( 'AppToasts', () => {
 		expect( screen.getByText( 'Pulling from live' ) ).toBeVisible();
 	} );
 
-	it( 'expands a long error to read and copy it', () => {
+	it( 'expands a long error to read and copy it', async () => {
 		vi.spyOn( HTMLElement.prototype, 'scrollHeight', 'get' ).mockReturnValue( 100 );
-		render( <AppToasts /> );
+		await render( <AppToasts /> );
 		act( () => {
 			showToast( { intent: 'error', title: 'Failed', description: 'Stack trace…' } );
 		} );
@@ -89,8 +81,8 @@ describe( 'AppToasts', () => {
 		expect( screen.getByRole( 'button', { name: 'Copy' } ) ).toBeVisible();
 	} );
 
-	it( 'hides the toasts while the history lists them', () => {
-		render(
+	it( 'hides the toasts while the history lists them', async () => {
+		await render(
 			<>
 				<AppToasts />
 				<NoticeHistoryButton />
@@ -111,7 +103,7 @@ describe( 'AppToasts', () => {
 	it( 'runs a toast’s action once, pending until it settles, then closes the toast', async () => {
 		let settle = () => {};
 		const undo = vi.fn( () => new Promise< void >( ( resolve ) => ( settle = resolve ) ) );
-		render( <AppToasts /> );
+		await render( <AppToasts /> );
 		act( () => {
 			showToast( { title: 'Chat archived', action: { label: 'Undo', onClick: undo } } );
 		} );
@@ -126,10 +118,10 @@ describe( 'AppToasts', () => {
 		expect( getVisibleToasts()[ 0 ] ).toMatchObject( { title: 'Chat archived', leaving: true } );
 	} );
 
-	it( 'holds a toast open while it has keyboard focus', () => {
+	it( 'holds a toast open while it has keyboard focus', async () => {
+		await render( <AppToasts /> );
 		vi.useFakeTimers();
 		try {
-			render( <AppToasts /> );
 			act( () => {
 				showToast( { title: 'Chat archived', action: { label: 'Undo', onClick: vi.fn() } } );
 			} );
@@ -153,7 +145,7 @@ describe( 'AppToasts', () => {
 
 	it( 'says when a toast’s action fails, and lets it be tried again', async () => {
 		const undo = vi.fn().mockRejectedValueOnce( new Error( 'Disk full' ) );
-		render( <AppToasts /> );
+		await render( <AppToasts /> );
 		act( () => {
 			showToast( { title: 'Chat archived', action: { label: 'Undo', onClick: undo } } );
 		} );

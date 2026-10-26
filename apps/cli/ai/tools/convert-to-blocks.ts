@@ -31,7 +31,8 @@ interface Conversion {
 // Converts `$data['content']`, or post `$data['post_id']`'s content, with the
 // Blocks Engine PHP transformer in the site's WordPress, so core's block parser
 // and serializer build the result. The theme's own stylesheets, as WordPress
-// enqueues them on the front end, tell the transformer how the HTML looks.
+// enqueues them on the front end, and its theme.json styles tell the
+// transformer how the HTML looks.
 // What the page shows before and after (do_blocks()) is compared word for word
 // and image for image.
 const CONVERT = `require_once $data['bootstrap'];
@@ -50,7 +51,15 @@ foreach ( $styles->to_do as $handle ) {
 		}
 	}
 }
-$result = ( new Automattic\\BlocksEngine\\PhpTransformer\\HtmlToBlocks\\HtmlTransformer() )->transform( $original, array( 'static_css' => $css ) )->toArray();
+// The global styles WordPress prints on every page (theme.json), and the block
+// gap its layouts space blocks with, which the converted blocks are given.
+$css .= wp_get_global_stylesheet() . "\\n";
+$options = array( 'static_css' => $css );
+$block_gap = wp_get_global_styles( array( 'spacing', 'blockGap' ) );
+if ( is_string( $block_gap ) && '' !== $block_gap ) {
+	$options['host_block_gap'] = $block_gap;
+}
+$result = ( new Automattic\\BlocksEngine\\PhpTransformer\\HtmlToBlocks\\HtmlTransformer() )->transform( $original, $options )->toArray();
 $visible = static function ( string $markup ): array {
 	$html = do_blocks( $markup );
 	$text = preg_replace( '/<[^>]+>/', ' ', preg_replace( '@<(script|style)[^>]*?>.*?</\\\\1>@si', '', $html ) );

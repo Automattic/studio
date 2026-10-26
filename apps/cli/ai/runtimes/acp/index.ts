@@ -333,7 +333,8 @@ export async function startAcpStdioServer(): Promise< void > {
 								name: 'Log in to WordPress.com',
 								description: 'Connects Studio to your WordPress.com account.',
 								type: 'terminal' as const,
-								args: [ 'auth', 'login' ],
+								// Appended to this agent's own command (`studio code acp`).
+								args: [ '--login' ],
 						  }
 						: {
 								id: 'studio-login',

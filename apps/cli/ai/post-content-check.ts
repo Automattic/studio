@@ -11,6 +11,7 @@ import {
 	sitePresetValues,
 	validateBlockMarkup,
 } from 'cli/ai/block-validation-gate';
+import { repeatedPostStyleNotes } from 'cli/ai/repeated-style-values';
 import { readWordPressSite } from 'cli/ai/site-database';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
@@ -94,14 +95,19 @@ async function validatePost(
 	post: Row
 ): Promise< Omit< ChangeReport, 'key' > & { saved?: boolean } > {
 	const label = `${ site.name } ${ post.type } ${ post.id } "${ post.title }"`;
+	// Before the presets the save stores its blocks with are read.
+	const presetNotes = await repeatedPostStyleNotes( site.path, post.content, label ).catch(
+		() => []
+	);
 	const result = await validateBlockMarkup(
 		post.content,
 		label,
 		getSiteUrl( site ),
 		await sitePresetValues( site.path )
 	);
+	const madeNotes = presetNotes.length ? `. ${ presetNotes.join( ' ' ) }` : '';
 	if ( result.fixedContent === undefined ) {
-		return result;
+		return { ...result, summary: result.summary + madeNotes };
 	}
 	const relativePath = `tmp/${ post.type }-${ post.id }.html`;
 	const fixFile = path.join( site.path, relativePath );
@@ -117,7 +123,7 @@ async function validatePost(
 		return {
 			summary: `${ label }: Studio saved the block editor's save of it, which ${ saves.join(
 				' and '
-			) }, losing nothing, so it now holds what the editor saves`,
+			) }, losing nothing, so it now holds what the editor saves${ madeNotes }`,
 			problem: result.problem,
 			saved: true,
 		};

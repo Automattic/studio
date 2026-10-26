@@ -4,7 +4,13 @@ import path from 'path';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { sitePresetValues, validateBlockMarkupFile } from 'cli/ai/block-validation-gate';
 import { cleanupValidatorPages, validateBlocks } from 'cli/ai/block-validator';
-import { repeatedStyleValueNotes, repeatedStyleValues } from 'cli/ai/repeated-style-values';
+import { postContentChanges } from 'cli/ai/post-content-check';
+import {
+	repeatedLooks,
+	repeatedStyleValueNotes,
+	repeatedStyleValues,
+} from 'cli/ai/repeated-style-values';
+import { SiteChanges } from 'cli/ai/site-changes';
 import { resolveSiteFile } from 'cli/ai/site-file-guards';
 import { runWpCli } from 'cli/ai/tools/utils';
 import type { SiteData } from 'cli/lib/cli-config/core';
@@ -29,6 +35,84 @@ const paragraph = ( style: object ) =>
 	`<!-- wp:paragraph ${ JSON.stringify( { style } ) } --><p>Roast</p><!-- /wp:paragraph -->`;
 const times = ( n: number, block: string ) => Array( n ).fill( block ).join( '\n' );
 const small = paragraph( { typography: { fontSize: '0.8rem' } } );
+
+// As run 38's 01a1…ca47956834 wrote its cards: one look set on each group.
+const card = ( attributes: object ) =>
+	`<!-- wp:group ${ JSON.stringify( {
+		style: { border: { radius: '20px', width: '1px' }, shadow: '0 12px 30px rgba(42,33,26,0.10)' },
+		backgroundColor: 'paper',
+		borderColor: 'cream',
+		layout: { type: 'constrained' },
+		...attributes,
+	} ) } --><div class="wp-block-group"></div><!-- /wp:group -->`;
+
+describe( 'repeatedLooks', () => {
+	it.each< { name: string; markup: string; looks: ReturnType< typeof repeatedLooks > } >( [
+		{
+			name: 'the same look on three blocks of one type, with its presets where a block style holds them',
+			markup: times( 3, card( {} ) ),
+			looks: [
+				{
+					blockName: 'core/group',
+					blocks: 3,
+					styles: {
+						border: { color: 'var:preset|color|cream', radius: '20px', width: '1px' },
+						color: { background: 'var:preset|color|paper' },
+						shadow: '0 12px 30px rgba(42,33,26,0.10)',
+					},
+				},
+			],
+		},
+		{ name: 'the look on two blocks', markup: times( 2, card( {} ) ), looks: [] },
+		{
+			name: 'the look written in another order on one block',
+			markup:
+				times( 2, card( {} ) ) +
+				card( {
+					style: {
+						shadow: '0 12px 30px rgba(42,33,26,0.10)',
+						border: { width: '1px', radius: '20px' },
+					},
+				} ),
+			looks: [
+				{
+					blockName: 'core/group',
+					blocks: 3,
+					styles: {
+						border: { color: 'var:preset|color|cream', radius: '20px', width: '1px' },
+						color: { background: 'var:preset|color|paper' },
+						shadow: '0 12px 30px rgba(42,33,26,0.10)',
+					},
+				},
+			],
+		},
+		{
+			name: 'blocks that differ in one value',
+			markup: [ card( {} ), card( {} ), card( { borderColor: 'paper' } ) ].join( '' ),
+			looks: [],
+		},
+		{
+			name: 'blocks in a block style already',
+			markup: times( 3, card( { className: 'is-style-card' } ) ),
+			looks: [],
+		},
+		{
+			name: 'values presets give alone',
+			markup: times(
+				3,
+				paragraph( { spacing: { padding: { top: '2rem' } }, color: { text: '#222' } } )
+			),
+			looks: [],
+		},
+		{
+			name: 'one value',
+			markup: times( 3, paragraph( { border: { radius: '4px' } } ) ),
+			looks: [],
+		},
+	] )( '$name', ( { markup, looks } ) => {
+		expect( repeatedLooks( markup ) ).toEqual( looks );
+	} );
+} );
 
 describe( 'repeatedStyleValues', () => {
 	it.each( [
@@ -109,6 +193,18 @@ describe.runIf( WORDPRESS )( 'repeatedStyleValueNotes', () => {
 		);
 		expect( note ).not.toContain( 'fontStyle' );
 		expect( note ).not.toContain( 'Spacing size presets' );
+	} );
+
+	it( 'names the look blocks of one type share, and the block style that holds it', async () => {
+		const file = 'wp-content/themes/twentytwentyfive/templates/front-page.html';
+		expect( await write( file, times( 3, card( {} ) ) ) ).toEqual( [
+			expect.stringContaining(
+				`3 core/group blocks in ${ path.join(
+					root,
+					file
+				) } share one look: {"border":{"color":"var:preset|color|cream","radius":"20px","width":"1px"},"color":{"background":"var:preset|color|paper"},"shadow":"0 12px 30px rgba(42,33,26,0.10)"}. A look blocks of one type share is a block style in WordPress: a theme's styles/<slug>.json with "blockTypes": [ "core/group" ]`
+			),
+		] );
 	} );
 
 	it( "names the presets of the file's theme, active or not", async () => {
@@ -323,6 +419,38 @@ describe.runIf( WORDPRESS && EDITOR )( 'repeated raw font sizes made presets', (
 		expect( rendered ).toContain( '--wp--preset--spacing--size-2-rem: 2rem;' );
 		expect( rendered ).toContain( '--wp--preset--spacing--size-0-6-rem: 0.6rem;' );
 		expect( rendered ).toContain( 'padding-left:var(--wp--preset--spacing--size-2-rem)' );
+	}, 120000 );
+
+	// As run 38's 01a1…60a14f7e82 wrote its cards: in a page, by `wp post create`.
+	it( "makes the sizes a page repeats presets of the active theme, which Studio's save of the page stores", async () => {
+		const slug = 'studio-test-roast-page';
+		const dir = `wp-content/themes/${ slug }`;
+		put( `${ dir }/style.css`, `/*\nTheme Name: ${ slug }\n*/\n` );
+		const themeJson = put( `${ dir }/theme.json`, JSON.stringify( { version: 3 } ) );
+		put( `${ dir }/templates/index.html`, '<!-- wp:post-content /-->' );
+		await runWpCli( site(), [ 'theme', 'activate', slug ] );
+		const check = new SiteChanges( undefined, async () => [ site() ], [ postContentChanges ] );
+		await check.snapshot();
+		const id = (
+			await runWpCli( site(), [
+				'post',
+				'create',
+				'--post_type=page',
+				'--post_status=publish',
+				'--post_title=Home',
+				`--post_content=${ times( 3, sized ) }`,
+				'--porcelain',
+			] )
+		).trim();
+
+		const { summaries } = await check.settle();
+		expect( summaries.join( '\n' ) ).toContain(
+			`Studio made the font sizes Ember Roasters page ${ id } "Home" repeats font size presets of ${ slug }: it added size-1-4-rem (1.4rem) to ${ themeJson }`
+		);
+		const saved = await runWpCli( site(), [ 'post', 'get', id, '--field=post_content' ] );
+		expect( saved ).not.toContain( '1.4rem' );
+		expect( saved.match( /"fontSize":"size-1-4-rem"/g ) ).toHaveLength( 3 );
+		expect( ( await validateBlocks( saved, EDITOR! ) ).invalidBlocks ).toBe( 0 );
 	}, 120000 );
 
 	it( 'notes the sizes and adds no preset where no gate saves the file', async () => {

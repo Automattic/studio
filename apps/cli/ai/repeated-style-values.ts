@@ -99,6 +99,92 @@ export function repeatedStyleValues(
 	return [ ...counts.values() ].filter( ( { blocks } ) => blocks >= REPEATED );
 }
 
+// Each attribute a block takes a preset's look by, and where a block style's
+// "styles" hold it, as the editor's own controls store it (the color, border
+// and typography supports in wp-includes/block-supports/).
+const PRESET_ATTRIBUTES: Record< string, [ string, string, string ] > = {
+	backgroundColor: [ 'color', 'background', 'color' ],
+	textColor: [ 'color', 'text', 'color' ],
+	gradient: [ 'color', 'gradient', 'gradient' ],
+	borderColor: [ 'border', 'color', 'color' ],
+	fontSize: [ 'typography', 'fontSize', 'font-size' ],
+	fontFamily: [ 'typography', 'fontFamily', 'font-family' ],
+};
+
+// The styles presets give: colors, font sizes and families, and spacing.
+const PRESET_GIVES = /^(color\.|typography\.font(Size|Family)$|spacing\.)/;
+
+const NAMED_BLOCK = /<!--\s+wp:([a-z0-9-]+(?:\/[a-z0-9-]+)?)\s+(\{.*?\})\s+\/?-->/g;
+
+/**
+ * Each look REPEATED or more blocks of one type in the markup share whole:
+ * their `style` and preset attributes, as the "styles" of a block style, which
+ * holds a look blocks of one type share. A look is two or more values, one a
+ * preset does not give: a single value, or values presets give alone, are
+ * presets' (repeatedStyleValues()). A block in a block style has its look.
+ */
+export function repeatedLooks(
+	markup: string
+): Array< { blockName: string; blocks: number; styles: Record< string, unknown > } > {
+	const looks = new Map<
+		string,
+		{ blockName: string; blocks: number; styles: Record< string, unknown > }
+	>();
+	for ( const [ , name, json ] of markup.matchAll( NAMED_BLOCK ) ) {
+		let attributes: Record< string, unknown >;
+		try {
+			attributes = JSON.parse( json );
+		} catch {
+			continue;
+		}
+		if ( String( attributes.className ?? '' ).includes( 'is-style-' ) ) {
+			continue;
+		}
+		const styles: Record< string, Record< string, unknown > > = structuredClone(
+			( attributes.style as Record< string, Record< string, unknown > > ) ?? {}
+		);
+		for ( const [ attribute, [ group, key, kind ] ] of Object.entries( PRESET_ATTRIBUTES ) ) {
+			if ( typeof attributes[ attribute ] === 'string' ) {
+				styles[ group ] = {
+					...styles[ group ],
+					[ key ]: `var:preset|${ kind }|${ attributes[ attribute ] }`,
+				};
+			}
+		}
+		const values: Array< [ string, string ] > = [];
+		leaves( styles, '', values );
+		if ( values.length < 2 || values.every( ( [ at ] ) => PRESET_GIVES.test( at ) ) ) {
+			continue;
+		}
+		const blockName = name.includes( '/' ) ? name : `core/${ name }`;
+		const key = `${ blockName } ${ JSON.stringify( sortKeys( styles ) ) }`;
+		const seen = looks.get( key ) ?? { blockName, blocks: 0, styles: sortKeys( styles ) };
+		seen.blocks++;
+		looks.set( key, seen );
+	}
+	return [ ...looks.values() ].filter( ( { blocks } ) => blocks >= REPEATED );
+}
+
+function sortKeys< T >( value: T ): T {
+	return value && typeof value === 'object' && ! Array.isArray( value )
+		? ( Object.fromEntries(
+				Object.keys( value )
+					.sort()
+					.map( ( key ) => [ key, sortKeys( ( value as Record< string, unknown > )[ key ] ) ] )
+		  ) as T )
+		: value;
+}
+
+/** A note on each look several blocks of one type in `label` share whole. */
+export function repeatedLookNotes( markup: string, label: string ): string[] {
+	return repeatedLooks( markup ).map(
+		( { blockName, blocks, styles } ) =>
+			`${ blocks } ${ blockName } blocks in ${ label } share one look: ${ JSON.stringify(
+				styles
+			) }. A look blocks of one type share is a block style in WordPress: a theme's styles/<slug>.json with "blockTypes": [ "${ blockName }" ] and that look as its "styles", which WordPress registers (WP_Theme_JSON_Resolver::get_style_variations() in wp-includes/class-wp-theme-json-resolver.php), the block's Styles panel offers, and Global Styles edits for every block in it. A block takes it as "className":"is-style-<slug>".`
+	);
+}
+
 // A length a preset's slug can name, as `size-1-4-rem` names 1.4rem in the
 // kebab case WordPress gives its class (_wp_to_kebab_case()).
 const LENGTH = /^\d*\.?\d+(px|rem|em)$/;
@@ -158,14 +244,12 @@ const MADE: Partial<
  * on what it added, and the values added.
  */
 async function addPresets(
-	siteFile: SiteFile,
-	file: string,
+	{ siteRoot, theme, label }: Holder,
 	kind: PresetKind,
 	values: string[],
 	presets: Array< [ string, string ] >
 ): Promise< { note: string; added: string[] } | undefined > {
 	const made = MADE[ kind ];
-	const { siteRoot, theme } = siteFile;
 	if ( ! made || ! theme || ( await isUpdatableTheme( siteRoot, theme.slug ) ) ) {
 		return undefined;
 	}
@@ -198,42 +282,39 @@ async function addPresets(
 	await writeFile( themeJsonFile, JSON.stringify( themeJson, null, '\t' ) + '\n', 'utf8' );
 	return {
 		added: added.map( ( [ , value ] ) => value ),
-		note: `Studio made the ${ made.name }s ${ file } repeats ${ made.name } presets of ${
+		note: `Studio made the ${ made.name }s ${ label } repeats ${ made.name } presets of ${
 			theme.slug
 		}: it added ${ added
 			.map( ( [ slug, value ] ) => `${ slug } (${ value })` )
 			.join(
 				', '
-			) } to ${ themeJsonFile }'s "settings": { "${ group }": { "${ list }" } }, which Studio's save of the file through the block editor stores its blocks of those values as, as the editor stores a picked preset (Block validation reports it). ${
+			) } to ${ themeJsonFile }'s "settings": { "${ group }": { "${ list }" } }, which Studio's save of it through the block editor stores its blocks of those values as, as the editor stores a picked preset (Block validation reports it). ${
 			made.renders
 		} Each preset's "name" is its value; a name that says what it is for labels it in the editor.`,
 	};
 }
 
-/** The raw values of a kind presets give that block markup just written repeats. */
-export async function repeatedStyleValueNotes(
-	siteFile: SiteFile,
-	{ gateSaves = false }: { gateSaves?: boolean } = {}
-): Promise< string[] > {
-	if ( ! isBlockMarkup( siteFile ) ) {
-		return [];
-	}
-	const file = path.join( siteFile.siteRoot, siteFile.relativePath );
-	let repeated = repeatedStyleValues( await readFile( file, 'utf8' ) );
-	if ( ! repeated.length ) {
-		return [];
-	}
-	// The presets the file renders with: its theme's, or the active theme's.
-	const presets = await readWordPressSite( siteFile.siteRoot, ( site ) =>
-		themePresets( site, siteFile.theme?.slug )
-	);
-	if ( ! presets ) {
-		return [];
-	}
-	// The block validation gate saves the file through the editor, which stores a
-	// value a preset has as the preset (storePresetValues() in block-validator.ts).
-	const saved = gateSaves && isBlockMarkupFile( file );
+/** Where block markup is held: its site, the theme it renders with, and its name for a note. */
+interface Holder {
+	siteRoot: string;
+	theme?: { slug: string; dir: string };
+	label: string;
+}
+
+/**
+ * Makes each raw font size and spacing value the markup repeats a preset of
+ * the theme it renders with, for a save through the block editor to store
+ * its blocks with, where nothing can look different. Returns the notes on
+ * what it added, and the repeated values it left raw.
+ */
+async function presetsForRepeatedValues(
+	holder: Holder,
+	markup: string,
+	presets: Record< PresetKind, Array< [ string, string ] > >
+) {
 	const kindOf = ( at: string ) => STYLES.find( ( style ) => style.path.test( at ) )?.kind;
+	// A value a preset has the save stores as the preset (storePresetValues()
+	// in block-validator.ts).
 	const stored = ( { path: at, value }: { path: string; value: string } ) => {
 		const kind = kindOf( at );
 		return (
@@ -241,14 +322,14 @@ export async function repeatedStyleValueNotes(
 			presets[ kind ].some( ( [ , size ] ) => size === value )
 		);
 	};
-	repeated = repeated.filter( ( value ) => ! saved || ! stored( value ) );
+	let repeated = repeatedStyleValues( markup ).filter( ( value ) => ! stored( value ) );
 	const made: Array< { note: string; added: string[]; kind: PresetKind } > = [];
-	for ( const kind of saved ? ( Object.keys( MADE ) as PresetKind[] ) : [] ) {
+	for ( const kind of Object.keys( MADE ) as PresetKind[] ) {
 		const values = repeated
 			.filter( ( value ) => kindOf( value.path ) === kind )
 			.map( ( { value } ) => value );
 		const added = values.length
-			? await addPresets( siteFile, file, kind, values, presets[ kind ] ).catch( () => undefined )
+			? await addPresets( holder, kind, values, presets[ kind ] ).catch( () => undefined )
 			: undefined;
 		if ( added ) {
 			made.push( { ...added, kind } );
@@ -260,13 +341,76 @@ export async function repeatedStyleValueNotes(
 				( { kind, added } ) => kindOf( value.path ) === kind && added.includes( value.value )
 			)
 	);
-	const notes = made.map( ( { note } ) => note );
+	return { notes: made.map( ( { note } ) => note ), repeated };
+}
+
+/**
+ * Makes the raw font sizes and spacing values content in the database repeats
+ * presets of the active theme, for the save of it through the block editor
+ * (post-content-check.ts) to store its blocks with. Returns the notes.
+ */
+export async function repeatedPostStyleNotes(
+	siteRoot: string,
+	content: string,
+	label: string
+): Promise< string[] > {
+	const looks = repeatedLookNotes( content, label );
+	if ( ! repeatedStyleValues( content ).length ) {
+		return looks;
+	}
+	const found = await readWordPressSite( siteRoot, async ( site ) => ( {
+		presets: await themePresets( site ),
+		slug: site.option( 'stylesheet' ),
+	} ) );
+	if ( ! found?.presets || typeof found.slug !== 'string' ) {
+		return looks;
+	}
+	const theme = { slug: found.slug, dir: path.join( siteRoot, 'wp-content/themes', found.slug ) };
+	const { notes } = await presetsForRepeatedValues(
+		{ siteRoot, theme, label },
+		content,
+		found.presets
+	);
+	return [ ...notes, ...looks ];
+}
+
+/** The raw values of a kind presets give that block markup just written repeats. */
+export async function repeatedStyleValueNotes(
+	siteFile: SiteFile,
+	{ gateSaves = false }: { gateSaves?: boolean } = {}
+): Promise< string[] > {
+	if ( ! isBlockMarkup( siteFile ) ) {
+		return [];
+	}
+	const file = path.join( siteFile.siteRoot, siteFile.relativePath );
+	const markup = await readFile( file, 'utf8' );
+	const looks = repeatedLookNotes( markup, file );
+	if ( ! repeatedStyleValues( markup ).length ) {
+		return looks;
+	}
+	// The presets the file renders with: its theme's, or the active theme's.
+	const presets = await readWordPressSite( siteFile.siteRoot, ( site ) =>
+		themePresets( site, siteFile.theme?.slug )
+	);
+	if ( ! presets ) {
+		return looks;
+	}
+	// The block validation gate saves the file through the editor, which stores a
+	// value a preset has as the preset.
+	const { notes, repeated } =
+		gateSaves && isBlockMarkupFile( file )
+			? await presetsForRepeatedValues(
+					{ siteRoot: siteFile.siteRoot, theme: siteFile.theme, label: file },
+					markup,
+					presets
+			  )
+			: { notes: [], repeated: repeatedStyleValues( markup ) };
 	const kinds = STYLES.map( ( style ) => ( {
 		...style,
 		values: repeated.filter( ( value ) => style.path.test( value.path ) ),
 	} ) ).filter( ( style ) => style.values.length );
 	if ( ! kinds.length ) {
-		return notes;
+		return [ ...notes, ...looks ];
 	}
 	const values = kinds
 		.flatMap( ( style ) => style.values )
@@ -285,5 +429,6 @@ export async function repeatedStyleValueNotes(
 			' '
 		) } Use the preset that fits, or add one to theme.json for a value the presets lack.`,
 		...notes,
+		...looks,
 	];
 }

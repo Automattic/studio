@@ -167,10 +167,6 @@ export function Shortcut( { children }: { children: ReactNode } ) {
 	);
 }
 
-export function GroupLabel( { children }: { children: ReactNode } ) {
-	return <BaseMenu.GroupLabel className={ styles.groupLabel }>{ children }</BaseMenu.GroupLabel>;
-}
-
 export function Separator( { className }: { className?: string } ) {
 	return <BaseMenu.Separator className={ clsx( surface.separator, className ) } />;
 }

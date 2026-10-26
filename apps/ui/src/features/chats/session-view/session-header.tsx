@@ -8,10 +8,10 @@ import { useSidebarCollapsed } from '@/data/use-sidebar-collapsed';
 import {
 	SiteActionsMenu,
 	SiteHeaderSpace,
-	SiteIcon,
 	usePreviewBeside,
 	useSiteHeader,
 } from '@/features/sites';
+import { GlobeIcon } from '@/lib/icons';
 import { IconButton } from '@/lib/ui';
 import styles from './style.module.css';
 import type { SiteDetails } from '@/data/core';
@@ -57,7 +57,7 @@ export function SessionHeader( {
 				{ site ? <SiteActionsMenu site={ site } /> : null }
 				{ ! site && siteName ? (
 					<>
-						<SiteIcon className={ styles.headerSiteIcon } seed={ siteName } />
+						<GlobeIcon className={ styles.headerSiteIcon } />
 						<span className={ styles.headerSite }>{ siteName }</span>
 						<span className={ styles.headerDot } aria-hidden="true" />
 						<span className={ styles.headerEnv }>

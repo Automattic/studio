@@ -1,12 +1,12 @@
 import { DESIGN_SYSTEM_PREVIEW_PATH } from '@studio/common/ai/chat-artifacts';
 import { TRACKS_EVENTS, type TracksEventName } from '@studio/common/lib/record-tracks-event';
 import { __ } from '@wordpress/i18n';
-import { useEffect, useId, useMemo, useRef, useState } from 'react';
-import { SiteIcon } from '@/features/sites/site-icon';
+import { useEffect, useId, useRef, useState } from 'react';
 import {
 	AppearanceIcon,
 	DatabaseIcon,
 	ExternalLinkIcon,
+	GlobeIcon,
 	SiteSettingsIcon,
 	WordPressIcon,
 } from '@/lib/icons';
@@ -103,7 +103,6 @@ export function parseOmniboxInput( raw: string, siteUrl: string ): OmniboxIntent
 
 interface PreviewAddressBarProps {
 	site: SiteDetails;
-	siteIcon?: string | null;
 	siteUrl: string;
 	path: string;
 	// A remote site: no local realms, auto-login or recent locations.
@@ -213,7 +212,6 @@ function AddressAction( {
 
 export function PreviewAddressBar( {
 	site,
-	siteIcon,
 	siteUrl,
 	path,
 	remote = false,
@@ -225,7 +223,6 @@ export function PreviewAddressBar( {
 	hideActions = false,
 }: PreviewAddressBarProps ) {
 	const displayUrl = getDisplayUrl( siteUrl, path );
-	const activeRealm = getPreviewRealm( path );
 	const [ value, setValue ] = useState( displayUrl );
 	const [ invalid, setInvalid ] = useState( false );
 	const [ shortcutsOpen, setShortcutsOpen ] = useState( false );
@@ -275,21 +272,8 @@ export function PreviewAddressBar( {
 		setShortcutsOpen( false );
 		onNavigate( recent.path );
 	};
-	const FrontEndIcon = useMemo(
-		() =>
-			function FrontEndIcon( { className }: { className?: string } ) {
-				return (
-					<SiteIcon
-						className={ className }
-						seed={ `${ site.id }:${ site.name }:${ site.path }` }
-						imageSrc={ siteIcon }
-					/>
-				);
-			},
-		[ site.id, site.name, site.path, siteIcon ]
-	);
 	const realmIcons: Record< PreviewRealm, ComponentType< { className?: string } > > = {
-		frontend: FrontEndIcon,
+		frontend: GlobeIcon,
 		admin: WordPressIcon,
 		database: DatabaseIcon,
 		design: AppearanceIcon,
@@ -333,8 +317,6 @@ export function PreviewAddressBar( {
 			chooseRealm( value as PreviewRealm );
 		}
 	};
-	const ActiveRealmIcon = realmIcons[ activeRealm ];
-
 	return (
 		<Popover.Root
 			open={ shortcutsOpen }
@@ -349,15 +331,15 @@ export function PreviewAddressBar( {
 			} }
 		>
 			<form ref={ addressBarRef } className={ styles.addressBar } onSubmit={ handleSubmit }>
-				<button
-					type="button"
-					className={ styles.siteIcon }
-					aria-label={ __( 'Preview shortcuts' ) }
-					disabled={ remote }
-					onClick={ () => setShortcutsOpen( true ) }
-				>
-					<ActiveRealmIcon />
-				</button>
+				{ hideActions || ! onOpenSettings ? null : (
+					<span className={ `${ styles.actions } ${ styles.settingsAction }` } data-address-action>
+						<AddressAction
+							icon={ <SiteSettingsIcon /> }
+							label={ __( 'Site settings' ) }
+							onClick={ onOpenSettings }
+						/>
+					</span>
+				) }
 				<input
 					className={ styles.input }
 					value={ value }
@@ -400,13 +382,6 @@ export function PreviewAddressBar( {
 				/>
 				{ hideActions ? null : (
 					<span className={ styles.actions } data-address-action>
-						{ onOpenSettings ? (
-							<AddressAction
-								icon={ <SiteSettingsIcon /> }
-								label={ __( 'Site settings' ) }
-								onClick={ onOpenSettings }
-							/>
-						) : null }
 						{ onOpenExternal ? (
 							<AddressAction
 								icon={ <ExternalLinkIcon /> }

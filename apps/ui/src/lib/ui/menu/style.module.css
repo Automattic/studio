@@ -33,12 +33,4 @@
 		font-size: var( --text-xs );
 		letter-spacing: 0.1em;
 	}
-
-	.groupLabel {
-		padding: var( --space-1 ) var( --space-1_5 );
-		color: var( --muted-foreground );
-		font-size: var( --text-xs );
-		font-weight: var( --font-weight-medium );
-		line-height: var( --text-xs--line-height );
-	}
 }

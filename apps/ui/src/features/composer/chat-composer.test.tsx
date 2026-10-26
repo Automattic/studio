@@ -150,7 +150,7 @@ describe( 'Chat composer', () => {
 		expect( getComposerDraft( 'test' ).text ).toBe( '' );
 	} );
 
-	it( 'preserves a new draft when an earlier send fails', async () => {
+	it( 'preserves a new draft and attachments when an earlier send fails', async () => {
 		let rejectSend!: ( error: Error ) => void;
 		const onSend = vi.fn(
 			() =>
@@ -160,12 +160,18 @@ describe( 'Chat composer', () => {
 		);
 		const { input } = await setup( { onSend } );
 		fireEvent.change( input, { target: { value: 'First message' } } );
+		upload( 'first.txt' );
+		await screen.findByText( 'first.txt' );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Send message' } ) );
 		await waitFor( () => expect( onSend ).toHaveBeenCalled() );
 		expect( input ).toBeEnabled();
 		fireEvent.change( input, { target: { value: 'New draft written while waiting' } } );
+		upload( 'second.txt' );
+		await screen.findByText( 'second.txt' );
 		await act( async () => rejectSend( new Error( 'Connection lost' ) ) );
 		expect( input ).toHaveValue( 'New draft written while waiting' );
+		expect( screen.getByText( 'first.txt' ) ).toBeVisible();
+		expect( screen.getByText( 'second.txt' ) ).toBeVisible();
 	} );
 
 	it( 'pastes files into the composer above the text without replacing the draft', async () => {
@@ -508,6 +514,16 @@ describe( 'Composer parity', () => {
 			expect( input ).toHaveValue( source === 'slash' ? 'Please ' : 'Keep this draft' );
 		}
 	);
+
+	it( 'keeps /live in the draft when Enter picks it while the chat is busy', async () => {
+		const change = vi.fn();
+		const { input, onSend } = await setup( { busy: true, liveUrl, onEnvironmentChange: change } );
+		fireEvent.change( input, { target: { value: '/live' } } );
+		fireEvent.keyDown( input, { key: 'Enter' } );
+		expect( change ).not.toHaveBeenCalled();
+		expect( onSend ).not.toHaveBeenCalled();
+		expect( input ).toHaveValue( '/live' );
+	} );
 
 	it( 'shows only the active Live chip and returns to local', async () => {
 		const change = vi.fn();

@@ -43,8 +43,12 @@ export function useComposerAttachments( initialAttachments: ComposerAttachment[]
 	}, [] );
 
 	const restore = useCallback(
-		( items: ComposerAttachment[] ) => {
-			setTrackedAttachments( items );
+		(
+			items: ComposerAttachment[] | ( ( current: ComposerAttachment[] ) => ComposerAttachment[] )
+		) => {
+			setTrackedAttachments(
+				typeof items === 'function' ? items( attachmentsRef.current ) : items
+			);
 		},
 		[ setTrackedAttachments ]
 	);

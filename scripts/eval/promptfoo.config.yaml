@@ -94,7 +94,7 @@ tests:
   # A fresh build: the site renders with valid blocks, has a static front
   # page, and runs its own theme with self-hosted fonts and a real
   # screenshot. Every turn stays under 60s so the UI never stalls.
-  - description: single-page build leaves a working site in its own theme
+  - description: single-page build leaves a working site with its own design
     vars:
       caseId: single-page-build-turn-cadence
       timeoutMs: 600000
@@ -107,7 +107,7 @@ tests:
       - type: javascript
         value: file://outcome.mjs:builtFrontPage
       - type: javascript
-        value: file://outcome.mjs:ownThemeWithFontsAndScreenshot
+        value: file://outcome.mjs:siteHasItsOwnDesign
       - type: javascript
         value: file://outcome.mjs:turnsAreResponsive
       - type: javascript

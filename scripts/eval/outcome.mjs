@@ -444,11 +444,40 @@ export const builtFrontPage = check( ( d, vars ) => {
 	return pass( `front page "${ front.title }" built` );
 } );
 
-// The active theme is a new theme, with self-hosted fonts and a real screenshot.
-export const ownThemeWithFontsAndScreenshot = check( ( d, vars ) => {
+// The design is the site's own, kept where WordPress keeps a design: a theme
+// of its own (or a child theme), with the fonts its theme.json names in it and
+// a screenshot; or the installed theme customized as the Site Editor does,
+// through Global Styles (the wp_global_styles post) or templates and template
+// parts saved for the theme (get_block_templates() in
+// wp-includes/block-template-utils.php), with the fonts it adds served by the site.
+export const siteHasItsOwnDesign = check( ( d, vars ) => {
 	const s = site( d, vars );
-	if ( /^twentytwenty/.test( s.theme.stylesheet ) )
-		return fail( `the site still runs ${ s.theme.stylesheet }` );
+	if ( /^twentytwenty/.test( s.theme.stylesheet ) ) {
+		const user = s.userGlobalStyles ?? {};
+		const styled = Object.keys( user.styles ?? {} ).length > 0;
+		const saved = ( s.content || [] )
+			.filter( ( c ) => [ 'wp_template', 'wp_template_part' ].includes( c.type ) )
+			.map( ( c ) => `${ c.type === 'wp_template' ? 'template' : 'part' } ${ c.slug }` );
+		if ( ! styled && ! saved.length )
+			return fail(
+				`the site runs ${ s.theme.stylesheet } with no Global Styles and no saved templates or template parts`
+			);
+		const origin = new URL( s.url ).origin;
+		const remote = [
+			...JSON.stringify( user.settings?.typography ?? {} ).matchAll( /"(https?:[^"]+)"/g ),
+		]
+			.map( ( m ) => m[ 1 ] )
+			.filter( ( src ) => new URL( src ).origin !== origin );
+		if ( remote.length )
+			return fail(
+				`Global Styles load fonts from another host: ${ remote.slice( 0, 3 ).join( ', ' ) }`
+			);
+		return pass(
+			`${ s.theme.stylesheet } customized: ${ [ styled ? 'Global Styles' : '', ...saved ]
+				.filter( Boolean )
+				.join( ', ' ) }`
+		);
+	}
 	const themeJson = s.themeFiles?.[ 'theme.json' ] || '';
 	const fontSources = [ ...themeJson.matchAll( /"file:\.\/([^"]+)"/g ) ].map( ( m ) => m[ 1 ] );
 	const missing = fontSources.filter( ( f ) => ! s.themeFileList.includes( f ) );

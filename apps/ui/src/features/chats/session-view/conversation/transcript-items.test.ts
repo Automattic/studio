@@ -218,7 +218,7 @@ describe( 'Turn-closed markers', () => {
 } );
 
 describe( 'entriesToTranscriptItems', () => {
-	it( 'preserves question positions and leaves the final reply outside', () => {
+	it( 'preserves question positions and keeps the final reply persistent within the turn', () => {
 		const items = entriesToTranscriptItems( [
 			promptEntry( 'Go' ),
 			assistantToolCallEntry( 'Read', { file_path: '/tmp/a.txt' }, 'Let me look.' ),
@@ -237,11 +237,11 @@ describe( 'entriesToTranscriptItems', () => {
 					{ kind: 'assistant-text', text: 'Let me look.' },
 					{ kind: 'tool-use' },
 					{ kind: 'agent-question-batch' },
+					{ kind: 'assistant-text', text: 'Done.', persistent: true },
 				],
 				startedAt: Date.parse( '2026-06-05T12:00:00.000Z' ),
 				endedAt: Date.parse( '2026-06-05T12:00:03.000Z' ),
 			},
-			{ kind: 'assistant-text', text: 'Done.' },
 		] );
 	} );
 
@@ -362,7 +362,7 @@ describe( 'entriesToTranscriptItems', () => {
 			agentQuestionEntry( 'Which one?', [ 'A', 'B' ] ),
 		] );
 
-		expect( items.map( getSender ) ).toEqual( [ 'user', undefined ] );
+		expect( items.map( getSender ) ).toEqual( [ 'user', 'assistant' ] );
 		expect( items.find( ( item ) => item.kind === 'activity' )?.items.map( getSender ) ).toEqual( [
 			'assistant',
 			'assistant',

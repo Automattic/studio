@@ -1,5 +1,5 @@
-import { STOPPED_WITHOUT_ANSWER } from '@studio/common/ai/tools';
-import { act, fireEvent, screen } from '@testing-library/react';
+import { SKIPPED_QUESTION, STOPPED_WITHOUT_ANSWER } from '@studio/common/ai/tools';
+import { act, fireEvent, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest';
 import {
 	agentQuestionEntry,
@@ -13,7 +13,9 @@ import {
 import type { SessionEntry } from '@/data/core';
 
 function multiSelectEntry( question: string, options: string[] ) {
-	const entry = agentQuestionEntry( question, options ) as SessionEntry & { data: object };
+	const entry = agentQuestionEntry( question, options, 'q-multi' ) as SessionEntry & {
+		data: object;
+	};
 	return { ...entry, data: { ...entry.data, multiSelect: true } } as SessionEntry;
 }
 
@@ -37,64 +39,111 @@ describe( 'Conversation Ask User questions', () => {
 
 		const advance = ( ms: number ) => act( async () => vi.advanceTimersByTime( ms ) );
 
-		it( 'folds answered questions into editable summaries before showing the next', async () => {
+		it( 'advances on selection and preserves answers when navigating back', async () => {
 			vi.useFakeTimers();
 			const onAnswerQuestion = vi.fn();
 			renderInteractiveConversation(
 				loadedSession( [
-					agentQuestionEntry(
-						'Install Jetpack?',
-						[
-							{ label: 'Yes', description: 'Install Jetpack recommended tools.' },
-							{ label: 'No', description: 'Skip Jetpack setup.' },
-						],
-						'q1'
-					),
+					agentQuestionEntry( 'Install Jetpack?', [ 'Yes', 'No' ], 'q1' ),
 					agentQuestionEntry( 'Activate dark mode?', [ 'Yes', 'No' ], 'q2' ),
 					agentQuestionEntry( 'Pick a layout?', [ 'Grid', 'List' ], 'q3' ),
 				] ),
 				[ 'Install Jetpack?', 'Activate dark mode?', 'Pick a layout?' ],
 				onAnswerQuestion
 			);
-
-			expect( screen.getByText( 'Asking question 1 of 3' ) ).toBeInTheDocument();
-			expect( screen.getByText( 'Install Jetpack recommended tools.' ) ).toBeInTheDocument();
-			expect( screen.queryByText( 'Activate dark mode?' ) ).not.toBeInTheDocument();
-
+			expect( screen.getByRole( 'button', { name: 'Next' } ) ).toBeEnabled();
+			expect( screen.queryByRole( 'button', { name: 'Back' } ) ).not.toBeInTheDocument();
+			const pager = screen.getByRole( 'img', { name: 'Question 1 of 3' } );
+			expect( within( pager ).queryByRole( 'button' ) ).not.toBeInTheDocument();
+			fireEvent.click( pager );
+			expect( screen.getByRole( 'group', { name: 'Install Jetpack?' } ) ).toBeVisible();
 			fireEvent.click( screen.getByRole( 'radio', { name: 'Yes' } ) );
-
 			expect( onAnswerQuestion ).toHaveBeenCalledWith( 'Install Jetpack?', 'Yes' );
-			expect( screen.getByRole( 'radio', { name: 'Yes' } ) ).toBeChecked();
-			expect( screen.queryByText( 'Activate dark mode?' ) ).not.toBeInTheDocument();
-
-			await advance( 700 );
 			await advance( 20 );
-
-			const summary = screen.getByRole( 'button', {
-				name: 'Edit question 1 of 3: Install Jetpack?. Selected answer: Yes',
-			} );
-			expect( summary ).not.toHaveTextContent( 'Install Jetpack recommended tools.' );
-			expect( screen.queryByText( 'Skip Jetpack setup.' ) ).not.toBeInTheDocument();
-			expect( screen.getByText( 'Asking question 2 of 3' ) ).toBeInTheDocument();
 			expect( screen.getByRole( 'group', { name: 'Activate dark mode?' } ) ).toHaveFocus();
-
-			fireEvent.click( summary );
-
-			expect( screen.getByText( 'Asking question 1 of 3' ) ).toBeInTheDocument();
+			fireEvent.click( screen.getByRole( 'button', { name: 'Skip' } ) );
+			expect( screen.getByRole( 'img', { name: 'Question 3 of 3' } ) ).toBeVisible();
+			expect( screen.getByRole( 'button', { name: 'Done' } ) ).toBeEnabled();
+			fireEvent.click( screen.getByRole( 'button', { name: 'Back' } ) );
+			expect( screen.getByRole( 'img', { name: 'Question 2 of 3' } ) ).toBeVisible();
+			fireEvent.click( screen.getByRole( 'button', { name: 'Back' } ) );
 			expect( screen.getByRole( 'radio', { name: 'Yes' } ) ).toBeChecked();
-			expect( screen.queryByText( 'Activate dark mode?' ) ).not.toBeInTheDocument();
-
+			expect( screen.queryByRole( 'button', { name: 'Back' } ) ).not.toBeInTheDocument();
 			fireEvent.click( screen.getByRole( 'radio', { name: 'No' } ) );
-			expect( onAnswerQuestion ).toHaveBeenCalledWith( 'Install Jetpack?', 'No' );
-
-			await advance( 700 );
-
+			expect( screen.getByRole( 'img', { name: 'Question 2 of 3' } ) ).toBeVisible();
+			fireEvent.click( screen.getByRole( 'button', { name: 'Next' } ) );
+			fireEvent.click( screen.getByRole( 'radio', { name: 'Grid' } ) );
 			expect(
-				screen.getByRole( 'button', {
-					name: 'Edit question 1 of 3: Install Jetpack?. Selected answer: No',
-				} )
-			).toBeInTheDocument();
-			expect( screen.getByText( 'Asking question 2 of 3' ) ).toBeInTheDocument();
+				within( screen.getByRole( 'group', { name: 'Install Jetpack?' } ) ).getByText( 'No' )
+			).toBeVisible();
+			expect( screen.getByText( 'Grid' ) ).toBeVisible();
+			expect( screen.queryByText( 'List' ) ).not.toBeInTheDocument();
+			expect( screen.getByRole( 'group', { name: 'Activate dark mode?' } ) ).toBeDisabled();
+			expect( screen.queryByRole( 'button', { name: 'Skip' } ) ).not.toBeInTheDocument();
+		} );
+
+		it( 'allows Next without a selection and preserves a draft when going Back', () => {
+			const onAnswerQuestion = vi.fn();
+			renderInteractiveConversation(
+				loadedSession( [
+					agentQuestionEntry( 'Page?', [ 'Gallery', 'Contact' ], 'q1' ),
+					multiSelectEntry( 'Layout?', [ 'Grid', 'List' ] ),
+				] ),
+				[ 'Page?', 'Layout?' ],
+				onAnswerQuestion
+			);
+			fireEvent.click( screen.getByRole( 'button', { name: 'Next' } ) );
+			expect( onAnswerQuestion ).toHaveBeenCalledWith( 'Page?', SKIPPED_QUESTION );
+			fireEvent.click( screen.getByRole( 'checkbox', { name: 'Grid' } ) );
+			fireEvent.click( screen.getByRole( 'button', { name: 'Back' } ) );
+			expect( onAnswerQuestion ).toHaveBeenCalledTimes( 1 );
+			fireEvent.click( screen.getByRole( 'radio', { name: 'Contact' } ) );
+			expect( screen.getByRole( 'checkbox', { name: 'Grid' } ) ).toBeChecked();
+			fireEvent.click( screen.getByRole( 'button', { name: 'Done' } ) );
+			expect( onAnswerQuestion.mock.calls ).toEqual( [
+				[ 'Page?', SKIPPED_QUESTION ],
+				[ 'Page?', 'Contact' ],
+				[ 'Layout?', 'Grid' ],
+			] );
+		} );
+
+		it( 'submits a lone question immediately when an option is selected', () => {
+			const onAnswerQuestion = vi.fn();
+			renderInteractiveConversation(
+				loadedSession( [ agentQuestionEntry( 'Page?', [ 'Gallery', 'Contact' ], 'q1' ) ] ),
+				[ 'Page?' ],
+				onAnswerQuestion
+			);
+			fireEvent.click( screen.getByRole( 'radio', { name: 'Gallery' } ) );
+			expect( onAnswerQuestion ).toHaveBeenCalledWith( 'Page?', 'Gallery' );
+			expect( screen.queryByRole( 'button', { name: 'Done' } ) ).not.toBeInTheDocument();
+			expect( screen.queryByText( 'Contact' ) ).not.toBeInTheDocument();
+		} );
+
+		it( 'submits unanswered questions as skipped rather than empty answers', () => {
+			const onAnswerQuestion = vi.fn();
+			renderInteractiveConversation(
+				loadedSession( [ agentQuestionEntry( 'Page?', [ 'Gallery', 'Contact' ], 'q1' ) ] ),
+				[ 'Page?' ],
+				onAnswerQuestion
+			);
+			fireEvent.click( screen.getByRole( 'button', { name: 'Done' } ) );
+			expect( onAnswerQuestion ).toHaveBeenCalledWith( 'Page?', SKIPPED_QUESTION );
+			expect( screen.getByRole( 'group', { name: 'Page?' } ) ).toBeDisabled();
+		} );
+
+		it( 'allows every question to be skipped without selecting an answer', () => {
+			const onAnswerQuestion = vi.fn();
+			renderInteractiveConversation(
+				loadedSession( [ agentQuestionEntry( 'Pick a layout?', [ 'Grid', 'List' ], 'q1' ) ] ),
+				[ 'Pick a layout?' ],
+				onAnswerQuestion
+			);
+			fireEvent.click( screen.getByRole( 'button', { name: 'Skip' } ) );
+			expect( onAnswerQuestion ).toHaveBeenCalledWith( 'Pick a layout?', SKIPPED_QUESTION );
+			expect( screen.getByRole( 'radio', { name: 'Grid' } ) ).not.toBeChecked();
+			expect( screen.getByRole( 'group', { name: 'Pick a layout?' } ) ).toBeDisabled();
+			expect( screen.queryByText( SKIPPED_QUESTION ) ).not.toBeInTheDocument();
 		} );
 
 		it( 'scrolls a lone question into view when it is asked', async () => {
@@ -111,11 +160,11 @@ describe( 'Conversation Ask User questions', () => {
 		} );
 
 		it.each( [
-			{ reducedMotion: false, wait: 700, behavior: 'smooth' },
-			{ reducedMotion: true, wait: 0, behavior: 'auto' },
+			{ reducedMotion: false, behavior: 'smooth' },
+			{ reducedMotion: true, behavior: 'auto' },
 		] )(
 			'scrolls the next batched question into view (reduced motion: $reducedMotion)',
-			async ( { reducedMotion, wait, behavior } ) => {
+			async ( { reducedMotion, behavior } ) => {
 				const matchMedia = window.matchMedia;
 				vi.spyOn( window, 'matchMedia' ).mockImplementation( ( query ) => ( {
 					...matchMedia( query ),
@@ -132,16 +181,9 @@ describe( 'Conversation Ask User questions', () => {
 				);
 				await advance( 20 );
 				scrollBy.mockClear();
-
 				fireEvent.click( screen.getByRole( 'radio', { name: 'Yes' } ) );
 				await advance( 20 );
-				if ( ! reducedMotion ) {
-					expect( screen.queryByText( 'Asking question 2 of 2' ) ).not.toBeInTheDocument();
-				}
-				await advance( wait );
-				await advance( 20 );
-
-				expect( screen.getByText( 'Asking question 2 of 2' ) ).toBeInTheDocument();
+				expect( screen.getByRole( 'img', { name: 'Question 2 of 2' } ) ).toBeVisible();
 				expect( scrollBy ).toHaveBeenCalledWith( { top: 220, behavior } );
 			}
 		);
@@ -165,6 +207,33 @@ describe( 'Conversation Ask User questions', () => {
 		expect( screen.queryByText( /^Asking question/ ) ).not.toBeInTheDocument();
 	} );
 
+	it.each( [ false, true ] )(
+		'keeps selected descriptions in answered cards (multiple: %s)',
+		( multiSelect ) => {
+			const entry = agentQuestionEntry( 'Which pages?', [
+				{ label: 'Gallery', description: 'Photos of the dining room.' },
+				{ label: 'Menu', description: 'Seasonal dishes and prices.' },
+				{ label: 'Contact', description: 'Opening hours and directions.' },
+			] ) as SessionEntry & { data: object };
+			renderConversation(
+				loadedSession( [
+					{ ...entry, data: { ...entry.data, multiSelect } } as SessionEntry,
+					askUserAnswerEntry( 'answer', multiSelect ? 'Gallery, Menu' : 'Gallery' ),
+				] )
+			);
+			expect( screen.getByText( 'Gallery' ) ).toBeVisible();
+			expect( screen.getByText( 'Photos of the dining room.' ) ).toBeVisible();
+			if ( multiSelect ) {
+				expect( screen.getByText( 'Seasonal dishes and prices.' ) ).toBeVisible();
+			} else {
+				expect( screen.queryByText( 'Seasonal dishes and prices.' ) ).not.toBeInTheDocument();
+			}
+			expect( screen.queryByText( 'Opening hours and directions.' ) ).not.toBeInTheDocument();
+			expect( screen.queryByRole( 'radio' ) ).not.toBeInTheDocument();
+			expect( screen.queryByRole( 'checkbox' ) ).not.toBeInTheDocument();
+		}
+	);
+
 	it( 'waits for confirmation before submitting multiple choices', () => {
 		const onAnswerQuestion = vi.fn();
 		renderConversation(
@@ -178,8 +247,19 @@ describe( 'Conversation Ask User questions', () => {
 		fireEvent.click( screen.getByRole( 'checkbox', { name: 'White' } ) );
 		fireEvent.click( screen.getByRole( 'checkbox', { name: 'Speckle' } ) );
 		expect( onAnswerQuestion ).not.toHaveBeenCalled();
-		fireEvent.click( screen.getByRole( 'button', { name: 'Submit choices' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Done' } ) );
 		expect( onAnswerQuestion ).toHaveBeenCalledWith( 'Which finish?', 'White, Speckle' );
+	} );
+
+	it( 'allows a reopened batch to retry a cached selection after submission fails', () => {
+		const onAnswerQuestion = vi.fn();
+		renderConversation(
+			loadedSession( [ agentQuestionEntry( 'Page?', [ 'Gallery', 'Contact' ], 'q1', 'Gallery' ) ] ),
+			{ pendingQuestions: new Set( [ 'Page?' ] ), onAnswerQuestion }
+		);
+		expect( screen.getByRole( 'radio', { name: 'Gallery' } ) ).toBeChecked();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Done' } ) );
+		expect( onAnswerQuestion ).toHaveBeenCalledWith( 'Page?', 'Gallery' );
 	} );
 
 	it( 'keeps only the saved decision visible when reopening history', () => {
@@ -199,33 +279,12 @@ describe( 'Conversation Ask User questions', () => {
 	describe( 'free-form answers', () => {
 		const question = 'Install Jetpack?';
 
-		it( 'offers the free-form option the AskUserQuestion tool promises the model', () => {
-			const onChooseFreeForm = vi.fn();
+		it( 'does not append a generic free-form option', () => {
 			renderConversation(
 				loadedSession( [ agentQuestionEntry( question, [ 'Yes', 'No' ], 'q1' ) ] ),
-				{ pendingQuestions: new Set( [ question ] ), onChooseFreeForm }
+				{ pendingQuestions: new Set( [ question ] ) }
 			);
-
-			const choice = screen.getByRole( 'radio', { name: 'Something else' } );
-			expect( choice ).not.toBeChecked();
-			fireEvent.click( choice );
-			expect( onChooseFreeForm ).toHaveBeenCalledWith( question );
-		} );
-
-		it( 'marks the free-form option as armed once chosen', () => {
-			renderConversation(
-				loadedSession( [ agentQuestionEntry( question, [ 'Yes', 'No' ], 'q1' ) ] ),
-				{ pendingQuestions: new Set( [ question ] ), freeFormQuestion: question }
-			);
-
-			expect( screen.getByRole( 'radio', { name: 'Something else' } ) ).toBeChecked();
-		} );
-
-		it( 'hides the free-form option once the batch is no longer interactive', () => {
-			renderConversation(
-				loadedSession( [ agentQuestionEntry( question, [ 'Yes', 'No' ], 'q1' ) ] )
-			);
-
+			expect( screen.getAllByRole( 'radio' ) ).toHaveLength( 2 );
 			expect( screen.queryByRole( 'radio', { name: 'Something else' } ) ).not.toBeInTheDocument();
 		} );
 
@@ -259,6 +318,8 @@ describe( 'Conversation Ask User questions', () => {
 
 			expect( screen.getByText( 'monsoon' ) ).toBeInTheDocument();
 			expect( screen.getAllByText( 'Blue' ) ).toHaveLength( 1 );
+			expect( screen.queryByText( 'Green' ) ).not.toBeInTheDocument();
+			expect( screen.queryByRole( 'radio' ) ).not.toBeInTheDocument();
 		} );
 
 		it( 'does not pass off the stop marker as something the user wrote', () => {
@@ -270,6 +331,27 @@ describe( 'Conversation Ask User questions', () => {
 			);
 
 			expect( screen.queryByText( STOPPED_WITHOUT_ANSWER ) ).not.toBeInTheDocument();
+			expect( screen.getByRole( 'group', { name: 'Favorite color?' } ) ).toBeDisabled();
+			expect( screen.getByRole( 'radio', { name: 'Blue' } ) ).toBeDisabled();
+			expect( screen.getByRole( 'radio', { name: 'Green' } ) ).toBeDisabled();
+			expect( screen.getByText( 'A' ) ).toBeVisible();
+			expect( screen.getByText( 'B' ) ).toBeVisible();
+		} );
+
+		it( 'keeps skipped questions in a batch disabled instead of summarizing them as answers', () => {
+			renderConversation(
+				loadedSession( [
+					agentQuestionEntry( 'Favorite color?', [ 'Blue', 'Green' ], 'q1' ),
+					agentQuestionEntry( 'Favorite season?', [ 'Spring', 'Autumn' ], 'q2' ),
+					askUserAnswerEntry( 'a1', 'Blue' ),
+					askUserAnswerEntry( 'a2', STOPPED_WITHOUT_ANSWER ),
+				] )
+			);
+
+			expect( screen.queryByText( STOPPED_WITHOUT_ANSWER ) ).not.toBeInTheDocument();
+			expect( screen.getByRole( 'group', { name: 'Favorite season?' } ) ).toBeDisabled();
+			expect( screen.getByRole( 'radio', { name: 'Spring' } ) ).toBeDisabled();
+			expect( screen.queryByText( 'Green' ) ).not.toBeInTheDocument();
 		} );
 
 		it( 'shows an answer typed into the composer for a multiple-choice question as given', () => {

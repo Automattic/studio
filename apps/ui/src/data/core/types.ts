@@ -39,7 +39,6 @@ import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { Snapshot } from '@studio/common/types/snapshot';
 import type { PullSyncOptions, PushSyncOptions, SyncSite } from '@studio/common/types/sync';
 import type { RawDirectoryEntry } from '@studio/common/types/sync-tree';
-import type { SiteRestRequest, SiteRestResponse } from '@studio/common/types/wordpress-rest';
 import type { DesignFix } from '@studio/design-md';
 import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 
@@ -463,11 +462,6 @@ export interface Connector {
 	// toggle is hidden in Windows Store builds). Browser connectors report
 	// platform 'browser'.
 	getAppGlobals(): Promise< AppGlobals >;
-
-	// Site WordPress REST API. Proxies requests to the selected site with its
-	// auth (auto-login cookie + REST nonce) attached, so renderer features
-	// like the preview omnibox search can query site content directly.
-	fetchSiteRest( siteId: string, request: SiteRestRequest ): Promise< SiteRestResponse >;
 
 	// Open the given site's folder in the system file manager, preferred
 	// editor, or preferred terminal. When no editor/terminal preference is

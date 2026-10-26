@@ -116,6 +116,7 @@ export function AgentQuestion( {
 				<QuestionnaireTitle>{ question }</QuestionnaireTitle>
 				{ answered ? (
 					<QuestionnaireAnswer
+						className={ styles.pickedAnswer }
 						letter={ multiSelect ? undefined : getAnswerLetter( options, pickedLabel ) }
 					>
 						{ pickedLabel }
@@ -133,6 +134,7 @@ export function AgentQuestion( {
 								return (
 									<QuestionnaireChoice
 										key={ index }
+										className={ styles.choice }
 										label={ option.label }
 										description={
 											isOwnFreeForm ? getFreeFormOptionDescription() : option.description

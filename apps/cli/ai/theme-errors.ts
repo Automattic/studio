@@ -9,9 +9,10 @@
  *
  * When what WP_Theme lists errors from changes, as a style.css rewritten
  * without its Template header does, Studio asks WordPress for the theme's
- * errors and reports a theme the site had before the call that is now
- * broken, until it is not. A theme the call made is left to blockTheme, which
- * says what it needs.
+ * errors and reports a theme that was whole before the call and is now
+ * broken, until it is not: one the site had when Studio first read it, or one
+ * WordPress has listed as whole since. A theme still being made is left to
+ * blockTheme, which says what it needs.
  */
 import { readdir, stat } from 'fs/promises';
 import path from 'path';
@@ -21,8 +22,10 @@ import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import type { ChangeReport, SiteChangeSource, Versions } from 'cli/ai/site-changes';
 import type { SiteData } from 'cli/lib/cli-config/core';
 
-// A version's files, then what WordPress said of them: '' until asked.
+// A version's files, then what is known of them: '' for a theme being made.
 const STATUS = '#';
+// The site had the theme when Studio first read it.
+const HAD = 'had';
 const OK = 'ok';
 const REPORTED = 'reported';
 
@@ -76,9 +79,12 @@ export const themeErrors: SiteChangeSource = {
 		const versions: Versions = {};
 		for ( const entry of entries.filter( ( candidate ) => candidate.isDirectory() ) ) {
 			const files = await filesVersion( sitePath, entry.name );
-			// What WordPress said holds while the files are the same.
-			const known =
-				filesOf( last?.[ entry.name ] ) === files ? statusOf( last?.[ entry.name ] ) : '';
+			// What is known holds while the files are the same.
+			const known = ! last
+				? HAD
+				: filesOf( last[ entry.name ] ) === files
+				? statusOf( last[ entry.name ] )
+				: '';
 			versions[ entry.name ] = `${ files }${ STATUS }${ known }`;
 		}
 		return versions;
@@ -102,9 +108,10 @@ export const themeErrors: SiteChangeSource = {
 		for ( const theme of changed ) {
 			const error = errors[ theme ] ?? '';
 			const was = statusOf( before[ theme ] );
-			// A theme the call made is left to blockTheme, while it is being made.
-			const reported = !! error && theme in before;
-			next[ theme ] = `${ filesOf( after[ theme ] ) }${ STATUS }${ reported ? REPORTED : OK }`;
+			// A theme never whole is still being made, and left to blockTheme.
+			const reported = !! error && [ HAD, OK, REPORTED ].includes( was );
+			const known = reported ? REPORTED : error ? '' : OK;
+			next[ theme ] = `${ filesOf( after[ theme ] ) }${ STATUS }${ known }`;
 			if ( reported || ( was === REPORTED && ! error ) ) {
 				reports.push( {
 					key: `theme errors ${ theme }`,

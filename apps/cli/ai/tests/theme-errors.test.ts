@@ -45,7 +45,8 @@ describe.runIf( WORDPRESS )( 'the themes a call broke, as WordPress lists them',
 	afterAll( () => rmSync( site.path, { recursive: true, force: true } ) );
 
 	it( 'reports a theme a call broke, until it is fixed, and leaves one being made', async () => {
-		// Being made: a style.css alone is blockTheme's to report.
+		// Being made, over several calls: blockTheme's to report until WordPress lists it whole.
+		expect( await call( () => write( 'theme.json', '{}' ) ) ).toEqual( [] );
 		expect( await call( () => write( 'style.css', '/*\nTheme Name: Paws\n*/\n' ) ) ).toEqual( [] );
 		expect( await call( () => write( 'style.css', CHILD ) ) ).toEqual( [] );
 		// A CSS change leaves what WordPress lists the theme from as it was.
@@ -80,5 +81,13 @@ describe.runIf( WORDPRESS )( 'the themes a call broke, as WordPress lists them',
 		expect(
 			await call( () => write( '../kibble/style.css', '/*\nTheme Name: Kibble\n*/\n' ) )
 		).toEqual( [ { key: 'theme errors paws', problem: undefined } ] );
+	}, 60000 );
+
+	it( 'reports a theme the site had when first read, once a call breaks it', async () => {
+		const index = path.join( site.path, 'wp-content/themes/twentytwentyfive/templates/index.html' );
+		expect( ( await call( () => rmSync( index ) ) )[ 0 ] ).toMatchObject( {
+			key: 'theme errors twentytwentyfive',
+			problem: expect.stringContaining( `as broken: "${ MISSING }"` ),
+		} );
 	}, 60000 );
 } );

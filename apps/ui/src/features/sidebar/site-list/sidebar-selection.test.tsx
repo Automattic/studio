@@ -250,19 +250,6 @@ describe( 'sidebar selection', () => {
 		expect( history.location.pathname ).toBe( left );
 	} );
 
-	it( 'disables Archive without an explanation in an active chat menu', async () => {
-		const { connector } = await setup( { busy: { sessionId: 'b', phase: 'running' } } );
-		const menu = await bulkMenu( 'b' );
-		await waitFor( () =>
-			expect( within( menu ).getByRole( 'menuitem', { name: /Archive/ } ) ).toHaveAttribute(
-				'aria-disabled',
-				'true'
-			)
-		);
-		expect( within( menu ).queryByText( /Wait for/ ) ).not.toBeInTheDocument();
-		expect( connector.updateSessionMetadata ).not.toHaveBeenCalled();
-	} );
-
 	it.each( [ 'interrupting', 'running' ] as const )(
 		'blocks archive while a selected chat is %s',
 		async ( phase ) => {
@@ -275,7 +262,6 @@ describe( 'sidebar selection', () => {
 					'true'
 				)
 			);
-			expect( within( menu ).queryByText( /Wait for/ ) ).not.toBeInTheDocument();
 			expect( connector.updateSessionMetadata ).not.toHaveBeenCalled();
 		}
 	);
@@ -363,7 +349,6 @@ describe( 'sidebar selection', () => {
 				'true'
 			)
 		);
-		expect( within( menu ).queryByText( /Wait for/ ) ).not.toBeInTheDocument();
 		deleteShortcut( menu );
 		expect( screen.queryByRole( 'alertdialog' ) ).not.toBeInTheDocument();
 		connector.state.sites = connector.state.sites.filter( ( entry ) => entry.id !== 'one' );

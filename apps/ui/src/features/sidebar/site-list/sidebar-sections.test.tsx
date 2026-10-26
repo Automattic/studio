@@ -68,6 +68,25 @@ beforeEach( () => {
 } );
 
 describe( 'sidebar site sections', () => {
+	it( 'opens a Recent chat without expanding its site', async () => {
+		const { history } = setup( {
+			sessions: [ chat( 'first', 'one' ), chat( 'second-chat', 'two' ) ],
+			path: '/sessions/first',
+		} );
+		const recent = await screen.findByRole( 'group', { name: 'Recent' } );
+		const secondSite = screen.getByRole( 'button', { name: 'Second site' } );
+		expect( secondSite ).toHaveAttribute( 'aria-expanded', 'false' );
+		fireEvent.click( within( recent ).getByRole( 'button', { name: 'Second-chat' } ) );
+		await waitFor( () => expect( history.location.pathname ).toBe( '/sessions/second-chat' ) );
+		expect( secondSite ).toHaveAttribute( 'aria-expanded', 'false' );
+		expect( within( recent ).getByRole( 'button', { name: 'Second-chat' } ) ).toHaveAttribute(
+			'aria-current',
+			'page'
+		);
+		fireEvent.click( secondSite );
+		await waitFor( () => expect( secondSite ).toHaveAttribute( 'aria-expanded', 'true' ) );
+	} );
+
 	it( 'renames and archives chats from the sidebar menu without header actions', async () => {
 		const { connector } = setup( {
 			sites: [ makeSite( { ...site, running: true } ) ],

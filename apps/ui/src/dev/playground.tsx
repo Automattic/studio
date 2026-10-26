@@ -16,7 +16,7 @@ function Playground( { title, children }: { title: string; children: ReactNode }
 		<div className={ styles.page }>
 			<header className={ styles.header }>
 				<h1 className={ styles.title }>
-					<a href="/playground.html">Playground</a> / { title }
+					<a href="/">Playground</a> / { title }
 				</h1>
 				<Tabs value={ scheme } onValueChange={ setScheme }>
 					<TabsList variant="scope" aria-label="Color scheme" className={ styles.schemes }>

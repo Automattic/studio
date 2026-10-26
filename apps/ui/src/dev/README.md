@@ -6,7 +6,7 @@ Development pages that render real components with sample data on the in-memory 
 npm -w @studio/ui run playground
 ```
 
-It opens `/playground.html`, which links to each page:
+It opens http://localhost:5300, which links to each page:
 
 - `/chat.html`: the chat transcript in every state: Markdown, tool calls with results, diffs and errors, a running turn, streaming, pending and answered questions, the image picker, screenshots, annotations and the error markers. Samples are in `chat-samples.ts`.
 - `/animation.html`: the preview loading animation, active, still, easing and the selection wave.

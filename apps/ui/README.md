@@ -119,6 +119,12 @@ Or serve it in the browser through `studio ui`:
 npm run cli:build:ui && node apps/cli/dist/cli/main.mjs ui
 ```
 
+For hot reload in the browser, keep that server running and start the Vite dev server, which proxies `/api` to it (`STUDIO_UI_SERVER=http://localhost:<port>` for a server on another port), then open http://localhost:5400:
+
+```bash
+npm -w @studio/ui run dev:local
+```
+
 ## Testing
 
 - **Behavior tests over the fake connector.** Render the real providers with `renderApp( { connector, path } )` (the whole app at a route) or `renderWithProviders( ui )` (one component) from `src/test/render.tsx`, over `createFakeConnector()` from `src/test/fake-connector.ts`: an in-memory `Connector` whose methods are `vi.fn`s and whose `emit()` drives the `on*` events. Seed its state, drive the UI, and assert what the user sees or the connector call it made. Don't `vi.mock` app modules; mock only browser or platform APIs jsdom lacks.

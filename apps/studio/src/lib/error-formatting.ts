@@ -12,9 +12,6 @@ function stripTerminalControlCharacters( value: string ): string {
 /**
  * Simplifies an error for user-friendly display by removing stack traces and technical details.
  * This helps present cleaner, more actionable error messages in the UI.
- *
- * @param error - The error to simplify. Can be an Error object or unknown.
- * @returns A simplified error suitable for display to users.
  */
 export function simplifyErrorForDisplay(
 	error: unknown,

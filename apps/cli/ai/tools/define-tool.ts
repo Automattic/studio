@@ -10,18 +10,18 @@ import type { DesignTracksContext } from 'cli/ai/design-tracks';
  * dispatch external calls without pi's `{content, details}` wrapping.
  */
 
-export interface ToolTextContent {
+interface ToolTextContent {
 	type: 'text';
 	text: string;
 }
 
-export interface ToolImageContent {
+interface ToolImageContent {
 	type: 'image';
 	data: string;
 	mimeType: string;
 }
 
-export type ToolContent = ToolTextContent | ToolImageContent;
+type ToolContent = ToolTextContent | ToolImageContent;
 
 export interface ToolResult {
 	content: ToolContent[];
@@ -42,7 +42,7 @@ export interface StudioToolResultDetails {
 	pending?: Promise< string | undefined >;
 }
 
-export interface ToolContext {
+interface ToolContext {
 	onProgress: ( message: string, update?: boolean ) => void;
 }
 

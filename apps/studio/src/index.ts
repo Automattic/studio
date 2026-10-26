@@ -158,7 +158,6 @@ suppressPunycodeWarning();
 
 const isInInstaller = require( 'electron-squirrel-startup' );
 
-// Ensure we're the only instance of the app running
 const gotTheLock = app.requestSingleInstanceLock();
 
 let finishedInitialization = false;
@@ -438,7 +437,6 @@ async function appBoot() {
 		// By default Electron automatically approves all permissions requests (e.g. notifications, webcam)
 		// We'll opt-in to permissions we specifically need instead.
 		session.defaultSession.setPermissionRequestHandler( ( webContents, permission, callback ) => {
-			// Reject all permission requests
 			callback( false );
 		} );
 
@@ -460,7 +458,7 @@ async function appBoot() {
 			}
 
 			const basePolicies = [
-				"default-src 'self'", // Allow resources from these domains
+				"default-src 'self'",
 				"script-src-attr 'none'",
 				"img-src 'self' https://*.gravatar.com https://*.wp.com https://blueprintlibrary.wordpress.com https://blueprintslibraryv2.wpcomstaging.com data:",
 				"style-src 'self' 'unsafe-inline' https://fonts.googleapis.com", // unsafe-inline: components inject their styles at runtime

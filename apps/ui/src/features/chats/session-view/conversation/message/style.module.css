@@ -12,7 +12,7 @@
 	margin-top: var( --space-1 );
 	padding: var( --space-2 ) var( --space-3 );
 	border: 1px solid var( --border );
-	/* eslint-disable-next-line studio/use-theme-tokens -- no counterpart in the rebuild to take a radius from. */
+	/* eslint-disable-next-line studio/use-theme-tokens -- the bubble's fixed 12px corner, between the radius tokens. */
 	border-radius: 12px;
 	background-color: var( --chat );
 	color: var( --muted-foreground );
@@ -128,7 +128,7 @@
 	width: 20px;
 	height: 20px;
 	overflow: hidden;
-	/* eslint-disable-next-line studio/use-theme-tokens -- the rebuild's 4px preview corner. */
+	/* eslint-disable-next-line studio/use-theme-tokens -- the preview's fixed 4px corner, which doesn't scale with --radius. */
 	border-radius: 4px;
 	background-color: var( --background );
 	color: var( --muted-foreground );

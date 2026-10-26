@@ -1,42 +1,46 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { useConnector } from '@/data/core';
+import { ConnectorProvider } from '@/data/core';
 import { useExportFullSite } from '@/data/queries/use-sites';
 import { applySyncActivity } from '@/data/sync-activity';
+import { createFakeConnector, type FakeConnector } from '@/test/fake-connector';
 import { useSiteManagementActions } from './use-site-management-actions';
-import type { Connector, SiteDetails } from '@/data/core';
+import type { SiteDetails } from '@/data/core';
 import type { ReactNode } from 'react';
-
-vi.mock( '@/data/core', async ( importOriginal ) => ( {
-	...( await importOriginal< typeof import('@/data/core') >() ),
-	useConnector: vi.fn(),
-} ) );
 
 const site = { id: 'site-1', name: 'Site', running: false } as SiteDetails;
 
 let queryClient: QueryClient;
-// Never settles, so the export stays in flight for the whole test.
-const exportFullSite = vi.fn( () => new Promise< string >( () => {} ) );
+let connector: FakeConnector;
 
 function wrapper( { children }: { children: ReactNode } ) {
-	return <QueryClientProvider client={ queryClient }>{ children }</QueryClientProvider>;
+	return (
+		<QueryClientProvider client={ queryClient }>
+			<ConnectorProvider connector={ connector }>{ children }</ConnectorProvider>
+		</QueryClientProvider>
+	);
 }
 
-function renderActions() {
-	return renderHook( () => useSiteManagementActions( site, { onDelete: vi.fn() } ), { wrapper } );
+function renderActions( target = site ) {
+	return renderHook(
+		() => useSiteManagementActions( target, { onDelete: vi.fn(), onImport: vi.fn() } ),
+		{ wrapper }
+	);
 }
+
+const exportsDisabled = ( actions: ReturnType< typeof useSiteManagementActions > ) =>
+	actions
+		.filter( ( action ) => action.id === 'export' || action.id === 'export-db' )
+		.map( ( action ) => action.disabled );
 
 beforeEach( () => {
-	vi.clearAllMocks();
 	queryClient = new QueryClient( {
 		defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
 	} );
-	vi.mocked( useConnector ).mockReturnValue( {
-		exportFullSite,
-		exportDatabase: vi.fn(),
-		copySite: vi.fn(),
-	} as unknown as Connector );
+	connector = createFakeConnector();
+	// Never settles, so the export stays in flight for the whole test.
+	connector.exportFullSite.mockReturnValue( new Promise( () => {} ) );
 } );
 
 describe( 'useSiteManagementActions', () => {
@@ -44,6 +48,7 @@ describe( 'useSiteManagementActions', () => {
 		const { result } = renderActions();
 
 		expect( result.current.map( ( action ) => action.disabled ) ).toEqual( [
+			false,
 			false,
 			false,
 			false,
@@ -60,38 +65,21 @@ describe( 'useSiteManagementActions', () => {
 			operation: { pid: 1, kind: 'settings' as const },
 		};
 
-		const { result } = renderHook(
-			() => useSiteManagementActions( busySite, { onDelete: vi.fn() } ),
-			{ wrapper }
-		);
+		const { result } = renderActions( busySite );
 
 		expect( result.current.map( ( action ) => action.disabled ) ).toEqual( [
 			true,
 			true,
 			true,
 			true,
+			true,
 		] );
-	} );
-
-	it( 'offers Import only where the surface can host the picker', () => {
-		expect( renderActions().result.current.map( ( action ) => action.id ) ).not.toContain(
-			'import'
-		);
-
-		const { result } = renderHook(
-			() => useSiteManagementActions( site, { onDelete: vi.fn(), onImport: vi.fn() } ),
-			{ wrapper }
-		);
-		expect( result.current.map( ( action ) => action.id ) ).toContain( 'import' );
 	} );
 
 	it( 'disables every action while the site is being imported into', () => {
 		applySyncActivity( site.id, { kind: 'pending', direction: 'import' } );
 
-		const { result } = renderHook(
-			() => useSiteManagementActions( site, { onDelete: vi.fn(), onImport: vi.fn() } ),
-			{ wrapper }
-		);
+		const { result } = renderActions();
 
 		expect( result.current.map( ( action ) => action.disabled ) ).toEqual( [
 			true,
@@ -100,26 +88,24 @@ describe( 'useSiteManagementActions', () => {
 			true,
 			true,
 		] );
-		expect( result.current.find( ( action ) => action.id === 'import' )?.loading ).toBe( true );
 
 		applySyncActivity( site.id, { kind: 'success', direction: 'import' } );
 	} );
 
 	// The screen that starts an export can be navigated away from while it runs.
 	// Its `useMutation` observer dies with it, so progress has to come from the
-	// mutation cache or the spinner never comes back.
+	// mutation cache or the export actions come back enabled mid-export.
 	it( 'still reports an export that was started by a screen since unmounted', async () => {
 		const exporter = renderHook( () => useExportFullSite(), { wrapper } );
 		act( () => {
 			exporter.result.current.mutate( site.id );
 		} );
-		await waitFor( () => expect( exportFullSite ).toHaveBeenCalledWith( site.id ) );
+		await waitFor( () => expect( connector.exportFullSite ).toHaveBeenCalledWith( site.id ) );
 
 		exporter.unmount();
 
 		const { result } = renderActions();
-		const exportAction = result.current.find( ( action ) => action.id === 'export' );
-		expect( exportAction?.loading ).toBe( true );
+		expect( exportsDisabled( result.current ) ).toEqual( [ true, true ] );
 	} );
 
 	it( 'does not report an export belonging to a different site', async () => {
@@ -127,10 +113,9 @@ describe( 'useSiteManagementActions', () => {
 		act( () => {
 			exporter.result.current.mutate( 'other-site' );
 		} );
-		await waitFor( () => expect( exportFullSite ).toHaveBeenCalledWith( 'other-site' ) );
+		await waitFor( () => expect( connector.exportFullSite ).toHaveBeenCalledWith( 'other-site' ) );
 
 		const { result } = renderActions();
-		const exportAction = result.current.find( ( action ) => action.id === 'export' );
-		expect( exportAction?.loading ).toBe( false );
+		expect( exportsDisabled( result.current ) ).toEqual( [ false, false ] );
 	} );
 } );

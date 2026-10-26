@@ -14,7 +14,7 @@ export interface ExportOptions {
 	stripStudioWpConfigConstants?: boolean;
 }
 
-export type ExportOptionsIncludes = 'wpContent' | 'database';
+type ExportOptionsIncludes = 'wpContent' | 'database';
 
 export interface BackupContents {
 	backupFile: string;

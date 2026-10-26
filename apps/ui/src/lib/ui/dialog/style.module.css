@@ -200,14 +200,6 @@
 		margin: var( --space-2 ) calc( var( --space-1_5 ) * -1 ) calc( var( --space-1_5 ) * -1 );
 	}
 
-	.footer[data-padding] {
-		padding: var( --space-3 );
-	}
-
-	.footer[data-separator] {
-		border-top: 1px solid var( --border );
-	}
-
 	.panelHeader {
 		display: flex;
 	}

@@ -9,7 +9,7 @@
 	text-wrap: pretty;
 }
 
-:global( [data-slot='empty'] ) > .body {
+.flush {
 	margin-top: 0;
 	padding-bottom: 0;
 }

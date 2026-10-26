@@ -34,17 +34,13 @@ export function useComposerAttachments( initialAttachments: ComposerAttachment[]
 		} );
 	}, [] );
 
-	const removeAttachments = useCallback( ( ids: ReadonlySet< string > ) => {
-		setAttachments( ( current ) => {
-			const next = current.filter( ( item ) => ! ids.has( item.id ) );
-			attachmentsRef.current = next;
-			return next;
-		} );
-	}, [] );
-
 	const restore = useCallback(
-		( items: ComposerAttachment[] ) => {
-			setTrackedAttachments( items );
+		(
+			items: ComposerAttachment[] | ( ( current: ComposerAttachment[] ) => ComposerAttachment[] )
+		) => {
+			setTrackedAttachments(
+				typeof items === 'function' ? items( attachmentsRef.current ) : items
+			);
 		},
 		[ setTrackedAttachments ]
 	);
@@ -115,7 +111,6 @@ export function useComposerAttachments( initialAttachments: ComposerAttachment[]
 		attachments,
 		addFiles,
 		removeAttachment,
-		removeAttachments,
 		restore,
 		pasteHandlers: { onPaste },
 	};

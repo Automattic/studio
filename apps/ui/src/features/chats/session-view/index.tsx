@@ -52,8 +52,12 @@ import {
 	formatComposerTextQuote,
 	watchComposerTextQuote,
 } from '@/features/chats/composer-text-quote';
-import { pendingPromptSlot } from '@/features/composer';
-import { Composer, ComposerSkeleton, type ComposerHandle } from '@/features/composer';
+import {
+	Composer,
+	ComposerSkeleton,
+	pendingPromptSlot,
+	type ComposerHandle,
+} from '@/features/composer';
 import { PreviewParticles, SiteContextMenu, StoppedSitePreview } from '@/features/sites';
 import { getMotionDuration } from '@/lib/theme';
 import { Button, IconButton } from '@/lib/ui';
@@ -223,7 +227,7 @@ function SessionViewContent( { sessionId, headerStart }: SessionViewProps ) {
 	);
 
 	const isOutOfCredits = useIsOutOfAiCredits() && isWpcom;
-	useMarkChatRead( sessionId, data?.summary.unread );
+	useMarkChatRead( sessionId, data?.summary, hasActiveRun );
 
 	const [ frameNode, setFrameNode ] = useState< HTMLDivElement | null >( null );
 	const { data: preferences } = useUserPreferences();

@@ -26,7 +26,7 @@ const MAX_CONCURRENT_REQUESTS = 5;
 const RETRY_DELAYS_SECONDS = [ 2, 5, 12 ];
 // Prompt budget inherited from the builder: the model accepts longer prompts,
 // but a tight prompt keeps the subject dominant instead of drowning it in context.
-export const MAX_PROMPT_TOKENS = 480;
+const MAX_PROMPT_TOKENS = 480;
 
 export const IMAGE_STYLES = [
 	'photorealistic',

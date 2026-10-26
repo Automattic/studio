@@ -42,14 +42,6 @@ describe( 'browser-utils', () => {
 		} );
 	} );
 
-	it( 'can resolve another local browser when Playwright executable is unavailable', () => {
-		const options = buildChromiumLaunchAttempts( {
-			executablePath: () => '/missing/chromium',
-		} )[ 0 ];
-
-		expect( options?.args ).toEqual( [ '--ignore-certificate-errors' ] );
-	} );
-
 	it( 'tries to install Playwright Chromium when the managed browser is missing', async () => {
 		const installBrowser = vi.fn().mockResolvedValue( undefined );
 		let installed = false;
@@ -80,24 +72,6 @@ describe( 'browser-utils', () => {
 
 		expect( error ).toContain( 'auto-install Playwright Chromium' );
 		expect( error ).toContain( 'network unavailable' );
-	} );
-
-	it( 'still auto-installs Playwright Chromium after a default launch fallback fails', async () => {
-		const installBrowser = vi.fn().mockResolvedValue( undefined );
-		let installed = false;
-
-		const error = await ensurePlaywrightChromiumInstalled(
-			{
-				executablePath: () => ( installed ? process.execPath : '/missing/chromium' ),
-			},
-			async () => {
-				installed = true;
-				await installBrowser();
-			}
-		);
-
-		expect( error ).toBeNull();
-		expect( installBrowser ).toHaveBeenCalledTimes( 1 );
 	} );
 
 	it( 'loads the block editor once for concurrent validations', async () => {

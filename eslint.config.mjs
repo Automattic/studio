@@ -62,6 +62,26 @@ const UI_LAYERS = {
 	],
 };
 
+// Custom properties the primitives use, beyond the theme tokens. Feature CSS may
+// set only the documented hooks (see apps/ui/src/lib/ui/README.md).
+const cssCustomProperties = ( dir ) =>
+	fs
+		.readdirSync( uiPath( dir ), { recursive: true } )
+		.filter( ( file ) => file.endsWith( '.css' ) )
+		.flatMap(
+			( file ) =>
+				fs.readFileSync( path.join( uiPath( dir ), file ), 'utf8' ).match( /--[\w-]+/g ) ?? []
+		);
+const THEME_TOKENS = cssCustomProperties( 'lib/theme' );
+const PRIMITIVE_HOOKS = [
+	'--button-background',
+	'--button-hover-background',
+	'--button-hover-color',
+];
+const PRIMITIVE_PROPERTIES = [ ...new Set( cssCustomProperties( 'lib/ui' ) ) ].filter(
+	( property ) => ! THEME_TOKENS.includes( property ) && ! PRIMITIVE_HOOKS.includes( property )
+);
+
 export default defineConfig(
 	globalIgnores( [
 		'**/node_modules/',
@@ -252,7 +272,18 @@ export default defineConfig(
 		// primitives in `src/lib/ui/`, which stay independent of app code.
 		files: [ 'apps/ui/src/**/*.{ts,tsx}' ],
 		rules: {
-			'no-restricted-imports': [ 'error', { patterns: [ WP_UI_PACKAGES ] } ],
+			'no-restricted-imports': [
+				'error',
+				{
+					patterns: [
+						WP_UI_PACKAGES,
+						{
+							group: [ '@base-ui/react', '@base-ui/react/*' ],
+							message: 'Use the primitives in @/lib/ui, and add one there when none fits.',
+						},
+					],
+				},
+			],
 			'import-x/no-restricted-paths': [ 'error', UI_LAYERS ],
 			'import-x/no-cycle': 'error',
 		},
@@ -289,6 +320,22 @@ export default defineConfig(
 		rules: {
 			'prettier/prettier': 'error',
 			'studio/use-theme-tokens': 'error',
+			'css/no-important': 'error',
+		},
+	},
+	{
+		files: [ 'apps/ui/src/**/*.css' ],
+		ignores: [ 'apps/ui/src/lib/**' ],
+		rules: {
+			'studio/no-primitive-overrides': [ 'error', { properties: PRIMITIVE_PROPERTIES } ],
+		},
+	},
+	{
+		// The reduced-transparency reset has to beat class-scoped rules, and Shiki
+		// colors code tokens with inline styles.
+		files: [ 'apps/ui/src/lib/theme/base.css', 'apps/ui/src/lib/ui/code-block/style.module.css' ],
+		rules: {
+			'css/no-important': 'off',
 		},
 	},
 	{

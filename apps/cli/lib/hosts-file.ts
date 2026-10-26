@@ -9,14 +9,12 @@ import { sudoExec } from 'cli/lib/sudo-exec';
 const readFile = promisify( fs.readFile );
 const writeFile = promisify( fs.writeFile );
 
-// Host file paths for different operating systems
 const HOST_FILES: Record< string, string > = {
 	win32: path.resolve( process.env.SystemRoot ?? 'C:\\Windows', 'System32\\drivers\\etc\\hosts' ),
 	darwin: '/etc/hosts',
 	linux: '/etc/hosts',
 };
 
-// Get the appropriate hosts file path for the current platform
 const getHostsFilePath = (): string => {
 	const currentPlatform = platform();
 	const hostsPath = HOST_FILES[ currentPlatform ];
@@ -31,7 +29,7 @@ const getHostsFilePath = (): string => {
 /**
  * Reads the hosts file content
  */
-export const readHostsFile = async (): Promise< string > => {
+const readHostsFile = async (): Promise< string > => {
 	try {
 		const hostsPath = getHostsFilePath();
 		const content = await readFile( hostsPath, 'utf8' );
@@ -72,7 +70,7 @@ export const writeHostsFile = async ( content: string ): Promise< void > => {
  *
  * 	Remove backslashes as a security measure and escape regex special characters.
  */
-export function createHostsEntryPattern( domain: string ): RegExp {
+function createHostsEntryPattern( domain: string ): RegExp {
 	const sanitizedDomain = domain.replace( /\\/g, '' );
 	const escapedDomain = escapeRegex( sanitizedDomain );
 	return new RegExp( `(?:127\\.0\\.0\\.1|::1)\\s+${ escapedDomain }(\\s|$)`, 'i' );
@@ -129,9 +127,6 @@ export const addDomainToHosts = async ( domain: string, port: number ): Promise<
 	}
 };
 
-/**
- * Removes a domain from the hosts file
- */
 export const removeDomainFromHosts = async ( domain: string ): Promise< void > => {
 	try {
 		const hostsContent = await readHostsFile();
@@ -142,7 +137,6 @@ export const removeDomainFromHosts = async ( domain: string ): Promise< void > =
 			entries.filter( ( entry ) => ! entry.match( pattern ) )
 		);
 
-		// Only write if content changed
 		if ( newContent !== hostsContent ) {
 			await writeHostsFile( newContent );
 		}

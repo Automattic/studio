@@ -45,7 +45,6 @@ export function WelcomeDialog() {
 	const analyticsId = useId();
 	const popup = useRef< HTMLDivElement >( null );
 	const authError = login.error ?? signup.error;
-	const waiting = login.isPending || signup.isPending;
 
 	const finish = async () => {
 		await connector.setOnboardingCompleted( true );
@@ -155,39 +154,25 @@ export function WelcomeDialog() {
 								? __( 'Finish logging in in your browser' )
 								: __( 'Log in with WordPress.com' ) }
 						</Button>
-						{ waiting ? (
-							<Button
-								variant="ghost"
-								onClick={ () => {
-									login.reset();
-									signup.reset();
-								} }
-							>
-								{ __( 'Cancel' ) }
-							</Button>
-						) : (
-							<>
-								<Button variant="outline" onClick={ () => void finish() }>
-									{ __( 'Continue without an account' ) }
-								</Button>
-								<p className={ styles.hint }>
-									{ createInterpolateElement(
-										__( 'New to WordPress.com? <signup>Sign up for free</signup>' ),
-										{
-											signup: (
-												<Button
-													type="button"
-													variant="inline-accent"
-													size="inline"
-													disabled={ isOffline }
-													onClick={ () => signup.mutate() }
-												/>
-											),
-										}
-									) }
-								</p>
-							</>
-						) }
+						<Button variant="outline" onClick={ () => void finish() }>
+							{ __( 'Continue without an account' ) }
+						</Button>
+						<p className={ styles.hint }>
+							{ createInterpolateElement(
+								__( 'New to WordPress.com? <signup>Sign up for free</signup>' ),
+								{
+									signup: (
+										<Button
+											type="button"
+											variant="inline-accent"
+											size="inline"
+											disabled={ isOffline }
+											onClick={ () => signup.mutate() }
+										/>
+									),
+								}
+							) }
+						</p>
 						{ authError && (
 							<p role="alert" className={ styles.error }>
 								{ authError instanceof Error

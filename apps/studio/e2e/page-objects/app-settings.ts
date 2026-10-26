@@ -45,6 +45,10 @@ export default class AppSettings {
 		return this.page.getByRole( 'combobox', { name: 'Theme' } );
 	}
 
+	get instructionsInput() {
+		return this.page.getByRole( 'textbox', { name: 'WordPress Studio instructions' } );
+	}
+
 	async selectColorScheme( name: 'System' | 'Light' | 'Dark' ) {
 		await this.themeSelect.click();
 		await this.page.getByRole( 'option', { name } ).click();

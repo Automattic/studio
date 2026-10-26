@@ -383,7 +383,7 @@ async function homeImageFrames( url: string ) {
 	}
 }
 
-export interface SiteOutcome {
+interface SiteOutcome {
 	name: string;
 	path: string;
 	created: boolean;
@@ -392,7 +392,7 @@ export interface SiteOutcome {
 	[ key: string ]: unknown;
 }
 
-export async function captureSiteOutcome(
+async function captureSiteOutcome(
 	sitePath: string,
 	created: boolean,
 	artifactDir: string,

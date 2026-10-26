@@ -1,7 +1,7 @@
 import { type Page, expect } from '@playwright/test';
 import Sidebar from './sidebar';
 
-// A site's settings in the settings dialog: the "Settings", "PHP" and "Debug" sections.
+// A site's settings in the settings dialog.
 export default class SiteSettings {
 	constructor( private page: Page ) {}
 
@@ -10,7 +10,7 @@ export default class SiteSettings {
 		await expect( this.siteNameInput ).toBeVisible();
 	}
 
-	async showSection( name: 'Settings' | 'PHP' | 'Debug' ) {
+	async showSection( name: 'Settings' | 'PHP' | 'Debug' | 'Instructions' ) {
 		await this.page
 			.getByRole( 'tablist', { name: 'Settings sections' } )
 			.getByRole( 'tab', { name } )

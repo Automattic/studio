@@ -82,10 +82,8 @@ interface ComposerProps {
 	onInterrupt: () => Promise< void >;
 	sessionId?: string;
 	entries?: SessionEntry[];
-	// Local owner site id, when the session is anchored to one. Required to
-	// spin up a fresh session via `connector.createSession` on a confirmed
-	// family swap; if absent we fall back to the in-place model change so the
-	// dropdown still works for unowned sessions.
+	// The local site the session belongs to; a confirmed family switch opens
+	// the fresh session under it.
 	ownerSiteId?: string;
 	onSwitchSession?: ( sessionId: string ) => void;
 	autoFocus?: boolean;
@@ -166,13 +164,13 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 	const { sessionProvider, providers, isModelLocked } = useModelAccess( { sessionId, entries } );
 	const isWpcom = sessionProvider === 'wpcom';
 	const isOutOfCredits = useIsOutOfAiCredits() && ! isField && isWpcom;
-	const { openAddCredits, purchaseOpen, setPurchaseOpen } = useAddCredits();
+	const { openAddCredits, purchase, closePurchase } = useAddCredits();
 	const notice =
 		blockingNotice ??
 		( isOutOfCredits
 			? {
 					message: __( 'Add AI credits to send another message.' ),
-					action: { label: __( 'Add credits' ), onClick: openAddCredits },
+					action: { label: __( 'Add credits' ), onClick: () => openAddCredits() },
 			  }
 			: undefined );
 
@@ -330,7 +328,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		} catch {
 			// The parent reports the failure in a toast.
 			setValue( ( current ) => current || value );
-			restoreAttachments( attachments );
+			restoreAttachments( ( current ) => [ ...attachments, ...current ] );
 			return;
 		} finally {
 			setSending( false );
@@ -420,7 +418,6 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 				<InputGroup
 					ref={ setShellNode }
 					variant="composer"
-					data-session-composer
 					className={ clsx( styles.shell, isField && styles.shellField ) }
 					onMouseDown={ focusTextareaFromShell }
 				>
@@ -486,6 +483,10 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 									return;
 								}
 								if ( event.key === 'Escape' && sheet.open ) {
+									return;
+								}
+								if ( event.key === 'Enter' && sheet.open ) {
+									event.preventDefault();
 									return;
 								}
 								if ( event.key === 'Escape' && busy ) {
@@ -576,7 +577,13 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 				onCancel={ cancelFamilyChange }
 				onConfirm={ () => void confirmFamilyChange() }
 			/>
-			{ purchaseOpen ? <AiCreditsPurchaseDialog open onOpenChange={ setPurchaseOpen } /> : null }
+			{ purchase ? (
+				<AiCreditsPurchaseDialog
+					open
+					onOpenChange={ closePurchase }
+					finalFocus={ purchase.returnFocus }
+				/>
+			) : null }
 		</Popover.Root>
 	);
 } );

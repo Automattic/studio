@@ -1,4 +1,3 @@
-import { vi } from 'vitest';
 import { getSyncSupport } from '@studio/common/lib/sync/sync-support';
 
 // Mocks for site shapes
@@ -22,8 +21,6 @@ const baseSite = {
 		user_is_owner: true,
 	},
 };
-
-vi.mock( 'src/lib/get-ipc-api' );
 
 describe( 'getSyncSupport', () => {
 	it( 'returns "deleted" if site is deleted', () => {

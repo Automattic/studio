@@ -1,4 +1,7 @@
-import { MAX_VISUAL_ANNOTATIONS } from '@studio/common/ai/visual-annotations';
+import {
+	MAX_VISUAL_ANNOTATIONS,
+	validateStudioVisualAnnotations,
+} from '@studio/common/ai/visual-annotations';
 import { describe, expect, it } from 'vitest';
 import { annotationSubmission } from './submission';
 import type { PreviewAnnotation } from './store';
@@ -48,6 +51,24 @@ describe( 'annotationSubmission', () => {
 			[ 'first' ],
 			[ 'second', 'third' ],
 		] );
+	} );
+
+	it( 'keeps image data out of the prompt for an image-only note', () => {
+		const { prompt } = annotationSubmission(
+			'',
+			[],
+			[ note( { comment: '', images: [ image( 'reference' ) ] } ) ]
+		);
+		expect( prompt ).not.toContain( 'attached images 1' );
+		expect( prompt ).not.toContain( 'eA==' );
+	} );
+
+	it( 'rejects empty or repeated image references', () => {
+		for ( const imageIds of [ [], [ 'reference', 'reference' ] ] ) {
+			expect( () =>
+				validateStudioVisualAnnotations( [ { comment: '', imageIds } ], [ { id: 'reference' } ] )
+			).toThrow();
+		}
 	} );
 
 	it( "reads as the note count when there is no message, and names a design note's Styles value", () => {

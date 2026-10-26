@@ -30,7 +30,7 @@ export type TurnErrorKind =
 
 export type TurnSiteKind = 'local' | HostId | 'none';
 
-export interface TurnStatsProps {
+interface TurnStatsProps {
 	tool_calls: number;
 	tool_errors: number;
 	failed_tools: string;

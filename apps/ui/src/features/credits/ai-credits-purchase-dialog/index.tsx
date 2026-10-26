@@ -4,7 +4,7 @@ import {
 } from '@studio/common/lib/studio-assistant-top-up-pricing';
 import { createInterpolateElement } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
-import { useRef, useState, type KeyboardEvent } from 'react';
+import { useRef, useState, type ComponentProps, type KeyboardEvent } from 'react';
 import { useStudioAssistantTopUpPricing } from '@/data/queries/use-top-up-pricing';
 import { useUserLocale } from '@/data/queries/use-user-locale';
 import { useOpenAiCreditsCheckout } from '@/features/credits/use-open-ai-credits-checkout';
@@ -32,9 +32,11 @@ import styles from './style.module.css';
 export function AiCreditsPurchaseDialog( {
 	open,
 	onOpenChange,
+	finalFocus,
 }: {
 	open: boolean;
 	onOpenChange: ( open: boolean ) => void;
+	finalFocus?: ComponentProps< typeof DialogContent >[ 'finalFocus' ];
 } ) {
 	const locale = useUserLocale();
 	const openCheckout = useOpenAiCreditsCheckout();
@@ -78,7 +80,7 @@ export function AiCreditsPurchaseDialog( {
 
 	return (
 		<Dialog open={ open } onOpenChange={ onOpenChange }>
-			<DialogContent showCloseButton={ false }>
+			<DialogContent showCloseButton={ false } finalFocus={ finalFocus }>
 				<DialogHeader>
 					<DialogTitle>{ __( 'Add AI credits' ) }</DialogTitle>
 					<DialogDescription>

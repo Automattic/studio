@@ -1,44 +1,20 @@
-import { fireEvent, render, screen } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { useConnector } from '@/data/core';
+import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { describe, expect, it } from 'vitest';
+import { createFakeConnector } from '@/test/fake-connector';
+import { renderWithProviders } from '@/test/render';
 import { SidebarHeader } from './index';
 
-const navigate = vi.fn();
-const popupAppMenu = vi.fn();
-
-vi.mock( '@tanstack/react-router', () => ( {
-	useNavigate: () => navigate,
-} ) );
-
-vi.mock( '@/data/core', () => ( {
-	useConnector: vi.fn(),
-} ) );
-
-vi.mock( '@/data/host/use-traffic-light-space', () => ( {
-	useTrafficLightSpace: () => ( { start: false, end: false } ),
-} ) );
-
-const useConnectorMock = vi.mocked( useConnector, { partial: true } );
-
 describe( 'SidebarHeader', () => {
-	beforeEach( () => {
-		vi.clearAllMocks();
-		useConnectorMock.mockReturnValue( { showsAppMenuButton: true, popupAppMenu } );
+	it( 'opens the app menu when the host has no native menu bar', async () => {
+		const connector = createFakeConnector( {}, { showsAppMenuButton: true } );
+		renderWithProviders( <SidebarHeader />, { connector } );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Menu' } ) );
+		await waitFor( () => expect( connector.popupAppMenu ).toHaveBeenCalledWith( { x: 0, y: 0 } ) );
 	} );
 
-	it( 'opens the app menu when the host has no native menu bar', () => {
-		render( <SidebarHeader /> );
-
-		fireEvent.click( screen.getByRole( 'button', { name: 'Menu' } ) );
-
-		expect( popupAppMenu ).toHaveBeenCalledWith( { x: 0, y: 0 } );
-	} );
-
-	it( 'hides the app menu button when the host has a native menu bar', () => {
-		useConnectorMock.mockReturnValue( { showsAppMenuButton: false } );
-
-		render( <SidebarHeader /> );
-
+	it( 'hides the app menu button when the host has a native menu bar', async () => {
+		renderWithProviders( <SidebarHeader /> );
+		expect( await screen.findByRole( 'button', { name: /sidebar$/ } ) ).toBeInTheDocument();
 		expect( screen.queryByRole( 'button', { name: 'Menu' } ) ).not.toBeInTheDocument();
 	} );
 } );

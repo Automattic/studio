@@ -1,29 +1,21 @@
 import { DESIGN_SYSTEM_PREVIEW_PATH } from '@studio/common/ai/chat-artifacts';
 import { act, renderHook } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
-import { useConnector } from '@/data/core';
+import { describe, expect, it } from 'vitest';
+import { ConnectorProvider } from '@/data/core';
 import {
 	SessionUIProvider,
 	useSessionPreviewUI,
 	useSessionUIDispatch,
 } from '@/data/use-session-ui';
-import type { Connector } from '@/data/core';
+import { createFakeConnector } from '@/test/fake-connector';
 import type { ReactNode } from 'react';
 
-vi.mock( '@/data/core', async ( importOriginal ) => {
-	const actual = await importOriginal< typeof import('@/data/core') >();
-	return {
-		...actual,
-		useConnector: vi.fn(),
-	};
-} );
-
-vi.mocked( useConnector ).mockReturnValue( {
-	onToggleSitePreview: vi.fn( () => vi.fn() ),
-} as unknown as Connector );
-
 function wrapper( { children }: { children: ReactNode } ) {
-	return <SessionUIProvider>{ children }</SessionUIProvider>;
+	return (
+		<ConnectorProvider connector={ createFakeConnector() }>
+			<SessionUIProvider>{ children }</SessionUIProvider>
+		</ConnectorProvider>
+	);
 }
 
 describe( 'useSessionPreviewUI site switching', () => {

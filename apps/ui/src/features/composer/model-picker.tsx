@@ -7,7 +7,7 @@ import {
 import { getStudioCodeAiAccessState } from '@studio/common/lib/studio-assistant-quota';
 import { __, sprintf } from '@wordpress/i18n';
 import { PlugIcon, PlusIcon } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { useRef, useState, type RefObject } from 'react';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useOpenSettings } from '@/data/use-open-settings';
@@ -27,7 +27,7 @@ interface ModelPickerProps {
 	disabled: boolean;
 	anchor: HTMLElement | null;
 	onChange: ( provider: AiProviderId, model: AiModelId ) => void;
-	onAddCredits: () => void;
+	onAddCredits: ( returnFocus: RefObject< HTMLElement | null > ) => void;
 }
 
 export function ModelPicker( {
@@ -60,7 +60,6 @@ export function ModelPicker( {
 		isWpcom &&
 		!! quota &&
 		credits.hasCredits &&
-		! isQuotaError &&
 		getStudioCodeAiAccessState( quota ) === 'available' &&
 		quota.hasPaymentMethod;
 	const modelDetails = [ modelLabel, AI_PROVIDER_LABELS[ sessionProvider ] ];
@@ -70,7 +69,7 @@ export function ModelPicker( {
 	const pickCommand = ( value: string ) => {
 		onOpenChange( false );
 		if ( value === 'get-credits' ) {
-			onAddCredits();
+			onAddCredits( triggerRef );
 		} else if ( value === 'connect-provider' ) {
 			openSettings( 'ai' );
 		} else {

@@ -1,4 +1,5 @@
 import { __ } from '@wordpress/i18n';
+import { clsx } from 'clsx';
 import { useId, type RefObject } from 'react';
 import { useLogin } from '@/data/queries/use-auth-user';
 import { useOffline } from '@/lib/hooks';
@@ -19,12 +20,15 @@ export function AccountPrompt( {
 	descriptionId,
 	source,
 	onCreateAccount,
+	flush,
 }: {
 	title: string;
 	description: string;
 	descriptionId?: string;
 	source: TracksAuthSource;
 	onCreateAccount?: () => void;
+	/** Drops the offsets that space it inside a dialog, for a container that spaces it already. */
+	flush?: boolean;
 } ) {
 	const offline = useOffline();
 	const login = useLogin( { source } );
@@ -32,7 +36,7 @@ export function AccountPrompt( {
 	const pending = login.isPending || signup.isPending;
 	const error = login.error ?? signup.error;
 	return (
-		<div className={ styles.body }>
+		<div className={ clsx( styles.body, flush && styles.flush ) }>
 			<div aria-hidden="true" className={ styles.illustration }>
 				<span className={ styles.cardStart } style={ { backgroundImage: `url(${ site1 })` } } />
 				<span className={ styles.cardEnd } style={ { backgroundImage: `url(${ site3 })` } } />

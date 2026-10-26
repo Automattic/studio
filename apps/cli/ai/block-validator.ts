@@ -18,7 +18,7 @@ export interface ValidationReportBase {
 	error?: string;
 }
 
-export interface BlockFixProposal {
+interface BlockFixProposal {
 	/** What the editor saves for every block that loses nothing; the rest stay as written. */
 	fixedContent: string;
 	report: ValidationReportBase;

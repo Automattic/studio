@@ -1,605 +1,264 @@
-import '@testing-library/jest-dom/vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { useConnector } from '@/data/core';
-import { useAppGlobals } from '@/data/queries/use-app-globals';
-import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
-import { useAuthUser, useLogin } from '@/data/queries/use-auth-user';
-import {
-	useDeleteAllSnapshots,
-	useSnapshotUsage,
-	useSnapshots,
-} from '@/data/queries/use-snapshots';
-import { useStudioAssistantTopUpPricing } from '@/data/queries/use-top-up-pricing';
-import { useUserLocale } from '@/data/queries/use-user-locale';
-import { useOffline } from '@/lib/hooks';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
+import { createFakeConnector } from '@/test/fake-connector';
+import { renderWithProviders } from '@/test/render';
 import { UsagePanel } from './usage-panel';
-import type { ReactNode } from 'react';
+import type { Connector } from '@/data/core';
+import type { StudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 
-vi.mock( '@/features/credits/ai-credits-details-dialog', () => ( {
-	AiCreditsDetailsDialog: ( { open }: { open: boolean } ) =>
-		open ? <div role="dialog">How AI credits work</div> : null,
-} ) );
+const ALPHA =
+	'AI credits are currently free while Studio Code is in Alpha. Build, iterate, and experiment, but know that credits will eventually have a cost.';
+const MONTHLY = '25% of monthly limit used (resets on August 1, 2026)';
+const RESET_DATE = '2026-08-01T12:00:00';
+const BALANCES = {
+	hasPaymentMethod: true,
+	costUsage: 0,
+	costCap: 0,
+	allowanceRemaining: 960000,
+	purchasedRemaining: 0,
+};
 
-vi.mock( '@/lib/ui/menu', () => ( {
-	Root: ( { children }: { children: ReactNode } ) => <div>{ children }</div>,
-	Trigger: ( { render: trigger }: { render: ReactNode } ) => trigger,
-	Popup: ( { children }: { children: ReactNode } ) => <div>{ children }</div>,
-	Item: ( {
-		children,
-		disabled,
-		onClick,
-	}: {
-		children: ReactNode;
-		disabled?: boolean;
-		onClick?: () => void;
-	} ) => (
-		<button type="button" disabled={ disabled } onClick={ onClick }>
-			{ children }
-		</button>
-	),
-} ) );
-
-vi.mock( '@/data/core', () => ( {
-	useConnector: vi.fn(),
-} ) );
-
-vi.mock( '@/data/queries/use-auth-user', () => ( {
-	useAuthUser: vi.fn(),
-	useLogin: vi.fn(),
-} ) );
-
-vi.mock( '@/data/queries/use-snapshots', () => ( {
-	useDeleteAllSnapshots: vi.fn(),
-	useSnapshotUsage: vi.fn(),
-	useSnapshots: vi.fn(),
-} ) );
-
-vi.mock( '@/lib/hooks/use-offline', () => ( {
-	useOffline: vi.fn(),
-} ) );
-
-vi.mock( '@/data/queries/use-assistant-quota', () => ( {
-	useStudioAssistantQuota: vi.fn(),
-} ) );
-
-vi.mock( '@/data/queries/use-top-up-pricing', () => ( {
-	useStudioAssistantTopUpPricing: vi.fn(),
-} ) );
-
-vi.mock( '@/features/credits/use-open-ai-credits-checkout', () => ( {
-	useOpenAiCreditsCheckout: () => vi.fn(),
-} ) );
-
-vi.mock( '@/features/onboarding/learn-more', () => ( {
-	LearnMoreLink: () => <button type="button">Learn more…</button>,
-} ) );
-
-vi.mock( '@/data/queries/use-user-locale', () => ( {
-	useUserLocale: vi.fn(),
-} ) );
-
-vi.mock( '@/data/queries/use-app-globals', () => ( {
-	useAppGlobals: vi.fn(),
-} ) );
-
-// Reached through `useAgenticFeatures`, which reads the agentic-features
-// preference; this panel has no QueryClientProvider.
-vi.mock( '@/data/queries/use-user-preferences', () => ( {
-	USER_PREFERENCES_QUERY_KEY: [ 'user-preferences' ],
-	useUserPreferences: () => ( { data: { agenticFeaturesEnabled: true }, isLoading: false } ),
-} ) );
-
-const useConnectorMock = vi.mocked( useConnector );
-const useAuthUserMock = vi.mocked( useAuthUser );
-const useLoginMock = vi.mocked( useLogin );
-const useDeleteAllSnapshotsMock = vi.mocked( useDeleteAllSnapshots );
-const useSnapshotUsageMock = vi.mocked( useSnapshotUsage );
-const useSnapshotsMock = vi.mocked( useSnapshots );
-const useOfflineMock = vi.mocked( useOffline );
-const useStudioAssistantQuotaMock = vi.mocked( useStudioAssistantQuota );
-const useStudioAssistantTopUpPricingMock = vi.mocked( useStudioAssistantTopUpPricing );
-const useUserLocaleMock = vi.mocked( useUserLocale );
-const useAppGlobalsMock = vi.mocked( useAppGlobals );
-
-describe( 'UsagePanel', () => {
-	const loginMutate = vi.fn();
-	const deleteSnapshotsMutate = vi.fn();
-	const confirmDeleteAllPreviewSites = vi.fn();
-	const openExternalUrl = vi.fn();
-
-	beforeEach( () => {
-		vi.clearAllMocks();
-
-		confirmDeleteAllPreviewSites.mockResolvedValue( true );
-		openExternalUrl.mockResolvedValue( undefined );
-		// `agenticRequiresAuth` lets the real useAgenticFeatures derive the
-		// signed-out/offline reason from the mocked auth + offline hooks.
-		useConnectorMock.mockReturnValue( {
-			confirmDeleteAllPreviewSites,
-			openExternalUrl,
-			agenticRequiresAuth: true,
-		} as never );
-		useOfflineMock.mockReturnValue( false );
-		useStudioAssistantQuotaMock.mockReturnValue( {
-			data: undefined,
-			isLoading: false,
-		} as never );
-		useStudioAssistantTopUpPricingMock.mockReturnValue( {
-			data: null,
-			isLoading: false,
-		} as never );
-		useUserLocaleMock.mockReturnValue( 'en' );
-		useAppGlobalsMock.mockReturnValue( { data: { platform: 'darwin' } } as never );
-		useAuthUserMock.mockReturnValue( {
-			data: { id: 1, displayName: 'Ada Lovelace', email: 'ada@example.com' },
-			isLoading: false,
-		} as never );
-		useLoginMock.mockReturnValue( { mutate: loginMutate, isPending: false } as never );
-		useSnapshotsMock.mockReturnValue( { data: [], isLoading: false } as never );
-		useSnapshotUsageMock.mockReturnValue( {
-			data: { siteCount: 2, siteLimit: 10, siteCreationBlocked: false },
-			isLoading: false,
-		} as never );
-		useDeleteAllSnapshotsMock.mockReturnValue( {
-			mutate: deleteSnapshotsMutate,
-			isPending: false,
-			error: null,
-		} as never );
+function setup( {
+	quota = null,
+	signedIn = true,
+	overrides = {},
+}: {
+	quota?: Partial< StudioAssistantQuota > | null;
+	signedIn?: boolean;
+	overrides?: Partial< Connector >;
+} = {} ) {
+	const connector = createFakeConnector( signedIn ? {} : { user: null }, {
+		getStudioAssistantQuota: async () => quota as StudioAssistantQuota | null,
+		getSnapshotUsage: async () => ( { siteCount: 2, siteLimit: 10, siteCreationBlocked: false } ),
+		...overrides,
 	} );
+	return renderWithProviders( <UsagePanel />, { connector } );
+}
 
-	it( 'renders AI credits and preview site usage for the signed-in user', () => {
-		render( <UsagePanel /> );
+const openPreviewActions = async () => {
+	await screen.findByText( '2 of 10 active preview sites' );
+	fireEvent.click( screen.getByRole( 'button', { name: 'Preview site actions' } ) );
+	fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Delete all preview sites' } ) );
+};
 
-		expect(
-			screen.getByText(
-				'AI credits are currently free while Studio Code is in Alpha. Build, iterate, and experiment, but know that credits will eventually have a cost.'
-			)
-		).toBeInTheDocument();
-		expect( screen.getByText( '2 of 10 active preview sites' ) ).toBeInTheDocument();
-		expect( useSnapshotsMock ).toHaveBeenCalledWith( 1 );
-		expect( useSnapshotUsageMock ).toHaveBeenCalledWith( 1 );
-		expect( useDeleteAllSnapshotsMock ).toHaveBeenCalledWith( 1 );
-	} );
-
-	it( 'renders AI usage when a quota with a cost cap is available', () => {
-		useStudioAssistantQuotaMock.mockReturnValue( {
-			data: { costUsage: 25, costCap: 100, costResetDate: '2026-08-01T12:00:00' },
-			isLoading: false,
-		} as never );
-
-		render( <UsagePanel /> );
-
-		expect(
-			screen.getByText( '25% of monthly limit used (resets on August 1, 2026)' )
-		).toBeInTheDocument();
-		expect(
-			screen.queryByText(
-				'AI credits are currently free while Studio Code is in Alpha. Build, iterate, and experiment, but know that credits will eventually have a cost.'
-			)
-		).not.toBeInTheDocument();
-	} );
-
-	it( 'drops the reset sentence when the server no longer reports a reset date', () => {
-		useStudioAssistantQuotaMock.mockReturnValue( {
-			data: { costUsage: 25, costCap: 100, costResetDate: undefined },
-			isLoading: false,
-		} as never );
-
-		render( <UsagePanel /> );
-
-		expect( screen.getByText( '25% of monthly limit used' ) ).toBeInTheDocument();
-		expect( screen.queryByText( /resets on/ ) ).not.toBeInTheDocument();
-	} );
-
-	it( 'shows an unavailable message when the quota fetch fails', () => {
-		useStudioAssistantQuotaMock.mockReturnValue( {
-			data: undefined,
-			isLoading: false,
-			isError: true,
-		} as never );
-
-		const refetch = vi.fn();
-		useStudioAssistantQuotaMock.mockReturnValue( {
-			data: undefined,
-			isLoading: false,
-			isError: true,
-			refetch,
-		} as never );
-
-		render( <UsagePanel /> );
-
-		expect( screen.getByText( /AI usage is currently unavailable\./ ) ).toBeInTheDocument();
-		fireEvent.click( screen.getByRole( 'button', { name: 'Try again' } ) );
-		expect( refetch ).toHaveBeenCalled();
-		expect(
-			screen.queryByText(
-				'AI credits are currently free while Studio Code is in Alpha. Build, iterate, and experiment, but know that credits will eventually have a cost.'
-			)
-		).not.toBeInTheDocument();
-	} );
-
-	it( 'falls back to the Alpha copy when the quota has no cost cap', () => {
-		useStudioAssistantQuotaMock.mockReturnValue( {
-			data: { costUsage: 0, costCap: 0 },
-			isLoading: false,
-		} as never );
-
-		render( <UsagePanel /> );
-
-		expect(
-			screen.getByText(
-				'AI credits are currently free while Studio Code is in Alpha. Build, iterate, and experiment, but know that credits will eventually have a cost.'
-			)
-		).toBeInTheDocument();
-	} );
-
-	it( 'shows one combined meter across both credit pools', () => {
-		useStudioAssistantQuotaMock.mockReturnValue( {
-			data: {
+describe( 'Usage settings', () => {
+	it.each< [ string, Partial< StudioAssistantQuota > | null, ( string | RegExp )[], RegExp[] ] >( [
+		[ 'the Alpha copy without a quota', null, [ ALPHA ], [ /monthly limit/ ] ],
+		[
+			'the monthly limit with its reset date',
+			{ costUsage: 25, costCap: 100, costResetDate: RESET_DATE },
+			[ MONTHLY ],
+			[ /in Alpha/, /credits remaining/ ],
+		],
+		[
+			'the monthly limit without a reset date',
+			{ costUsage: 25, costCap: 100 },
+			[ '25% of monthly limit used' ],
+			[ /resets on/ ],
+		],
+		[ 'the Alpha copy without a cost cap', { costUsage: 0, costCap: 0 }, [ ALPHA ], [] ],
+		[
+			'one meter across both credit pools',
+			{
+				...BALANCES,
 				costUsage: 25,
 				costCap: 1500000,
-				hasPaymentMethod: true,
-				allowanceRemaining: 960000,
 				purchasedRemaining: 150000,
 				purchasedAtTopUp: 500000,
 			},
-			isLoading: false,
-		} as never );
-
-		render( <UsagePanel /> );
-
-		expect( screen.getByText( '1,110,000 credits remaining' ) ).toBeInTheDocument();
-		expect( screen.getByText( '44.5% used' ) ).toBeInTheDocument();
-		expect( screen.getByRole( 'button', { name: 'Buy credits' } ) ).toBeInTheDocument();
-		// The meter replaces the monthly-limit and Alpha designs.
-		expect( screen.queryByText( /of monthly limit used/ ) ).not.toBeInTheDocument();
-		expect(
-			screen.queryByText( /AI credits are currently free while Studio Code is in Alpha/ )
-		).not.toBeInTheDocument();
-	} );
-
-	it( 'welcomes a never-bought account with the allowance size from the quota', () => {
-		useStudioAssistantQuotaMock.mockReturnValue( {
-			data: {
-				costUsage: 0,
-				costCap: 1500000,
-				hasPaymentMethod: true,
-				allowanceRemaining: 1400000,
-				purchasedRemaining: 0,
-				purchasedAtTopUp: 0,
-			},
-			isLoading: false,
-		} as never );
-
-		render( <UsagePanel /> );
-
-		expect( screen.getByText( '1,400,000 credits remaining' ) ).toBeInTheDocument();
-		expect( screen.getByText( 'Your first 1,500,000 AI credits are on us.' ) ).toBeInTheDocument();
-	} );
-
-	it( 'reads exhausted pools as a full meter with the exhausted callout', () => {
-		useStudioAssistantQuotaMock.mockReturnValue( {
-			data: {
+			[ '1,110,000 credits remaining', '44.5% used' ],
+			[ /monthly limit/, /in Alpha/ ],
+		],
+		[
+			'the allowance welcome for a never-bought account',
+			{ ...BALANCES, costCap: 1500000, allowanceRemaining: 1400000, purchasedAtTopUp: 0 },
+			[ '1,400,000 credits remaining', 'Your first 1,500,000 AI credits are on us.' ],
+			[],
+		],
+		[
+			'a full meter for exhausted pools',
+			{
+				...BALANCES,
 				costUsage: 25,
 				costCap: 1500000,
-				hasPaymentMethod: true,
 				allowanceRemaining: 0,
-				purchasedRemaining: 0,
 				purchasedAtTopUp: 500000,
 			},
-			isLoading: false,
-		} as never );
-
-		render( <UsagePanel /> );
-
-		// The spent allowance drops out of the total: the purchased pool is the bar.
-		expect( screen.getByText( '0 credits remaining' ) ).toBeInTheDocument();
-		expect( screen.getByText( '100% used' ) ).toBeInTheDocument();
-		expect(
-			screen.getByText( 'Your next idea is ready when you are. Top up to bring it to life.' )
-		).toBeInTheDocument();
-	} );
-
-	it( 'falls back to plain known figures when no bar can be drawn', () => {
-		// Billing unreachable on an account with no usable free allowance:
-		// the purchased balance is unknown, so neither pool has a meter.
-		useStudioAssistantQuotaMock.mockReturnValue( {
-			data: {
-				costUsage: 0,
-				costCap: 0,
-				hasPaymentMethod: true,
-				allowanceRemaining: 960000,
-				purchasedRemaining: undefined,
-				purchasedAtTopUp: 500000,
-			},
-			isLoading: false,
-		} as never );
-
-		render( <UsagePanel /> );
-
-		expect( screen.getByText( 'Free credits remaining: 960,000' ) ).toBeInTheDocument();
-		expect( screen.queryByText( /Purchased credits remaining/ ) ).not.toBeInTheDocument();
-		expect( screen.getByRole( 'button', { name: 'Buy credits' } ) ).toBeInTheDocument();
-	} );
-
-	it( 'keeps the old design when the quota has no per-pool balance fields', () => {
-		useStudioAssistantQuotaMock.mockReturnValue( {
-			data: { costUsage: 25, costCap: 100, costResetDate: '2026-08-01T12:00:00' },
-			isLoading: false,
-		} as never );
-
-		render( <UsagePanel /> );
-
-		expect( screen.queryByText( /credits remaining/ ) ).not.toBeInTheDocument();
-		expect( screen.queryByRole( 'button', { name: 'Buy credits' } ) ).not.toBeInTheDocument();
-		expect(
-			screen.queryByRole( 'button', { name: 'How AI credits work' } )
-		).not.toBeInTheDocument();
-		expect(
-			screen.getByText( '25% of monthly limit used (resets on August 1, 2026)' )
-		).toBeInTheDocument();
-	} );
-
-	it( 'offers a way to buy once the account has credit balances', () => {
-		useStudioAssistantQuotaMock.mockReturnValue( {
-			data: {
-				hasPaymentMethod: true,
-				costUsage: 0,
-				costCap: 0,
-				allowanceRemaining: 960000,
-				purchasedRemaining: 0,
-			},
-			isLoading: false,
-		} as never );
-
-		render( <UsagePanel /> );
-
-		expect( screen.getByRole( 'button', { name: 'Buy credits' } ) ).toBeInTheDocument();
-	} );
-
-	it( 'hides the purchase control from an account without a payment method', () => {
-		useStudioAssistantQuotaMock.mockReturnValue( {
-			data: {
-				hasPaymentMethod: false,
-				costUsage: 0,
-				costCap: 0,
-				allowanceRemaining: 960000,
-				purchasedRemaining: 0,
-			},
-			isLoading: false,
-		} as never );
-
-		render( <UsagePanel /> );
-
-		expect( screen.queryByRole( 'button', { name: 'Buy credits' } ) ).not.toBeInTheDocument();
-	} );
-
-	it( 'opens the credits explainer dialog from the help icon', () => {
-		useStudioAssistantQuotaMock.mockReturnValue( {
-			data: {
-				hasPaymentMethod: true,
-				costUsage: 0,
-				costCap: 0,
-				allowanceRemaining: 960000,
-				purchasedRemaining: 0,
-			},
-			isLoading: false,
-		} as never );
-
-		render( <UsagePanel /> );
-
-		expect( screen.queryByRole( 'dialog' ) ).not.toBeInTheDocument();
-
-		fireEvent.click( screen.getByRole( 'button', { name: 'How AI credits work' } ) );
-
-		expect( screen.getByRole( 'dialog' ) ).toHaveTextContent( 'How AI credits work' );
-	} );
-
-	it( 'lets access gates take precedence over the credit balances', () => {
-		useStudioAssistantQuotaMock.mockReturnValue( {
-			data: {
-				costUsage: 0,
+			[
+				'0 credits remaining',
+				'100% used',
+				'Your next idea is ready when you are. Top up to bring it to life.',
+			],
+			[],
+		],
+		[
+			'plain known figures when no bar can be drawn',
+			{ ...BALANCES, purchasedRemaining: undefined, purchasedAtTopUp: 500000 },
+			[ 'Free credits remaining: 960,000' ],
+			[ /Purchased credits remaining/ ],
+		],
+		[
+			'normal usage when a default-allow policy grants access',
+			{
+				costUsage: 25,
 				costCap: 100,
-				costResetDate: '2026-08-01T12:00:00',
-				studioCodeAiHasAccess: false,
-				studioCodeAiAccess: 'blocked',
-				hasPaymentMethod: true,
-				allowanceRemaining: 960000,
-				purchasedRemaining: 0,
+				costResetDate: RESET_DATE,
+				studioCodeAiHasAccess: true,
+				studioCodeAiAccess: 'default',
 			},
-			isLoading: false,
-		} as never );
-
-		render( <UsagePanel /> );
-
-		expect(
-			screen.getByText( /Studio Code AI is blocked for this WordPress.com account/ )
-		).toBeInTheDocument();
-		expect( screen.queryByText( /Free credits remaining/ ) ).not.toBeInTheDocument();
-		expect( screen.queryByRole( 'button', { name: 'Buy credits' } ) ).not.toBeInTheDocument();
+			[ MONTHLY ],
+			[],
+		],
+		[
+			'the beta-required copy for an ungranted account that spent this cycle',
+			{ costUsage: 3, costCap: 100, studioCodeAiHasAccess: false, studioCodeAiAccess: 'default' },
+			[ /Thanks for participating in the Studio Code AI beta/ ],
+			[],
+		],
+	] )( 'shows %s', async ( _name, quota, shown, hidden ) => {
+		setup( { quota } );
+		expect( await screen.findByText( shown[ 0 ] ) ).toBeVisible();
+		for ( const text of shown.slice( 1 ) ) {
+			expect( screen.getByText( text ) ).toBeVisible();
+		}
+		for ( const text of hidden ) {
+			expect( screen.queryByText( text ) ).not.toBeInTheDocument();
+		}
 	} );
 
-	it( 'shows the suspension copy for an explicitly blocked account', () => {
-		useStudioAssistantQuotaMock.mockReturnValue( {
-			data: {
-				costUsage: 0,
-				costCap: 100,
-				costResetDate: '2026-08-01T12:00:00',
-				studioCodeAiHasAccess: false,
-				studioCodeAiAccess: 'blocked',
-			},
-			isLoading: false,
-		} as never );
+	it.each< [ string, Partial< StudioAssistantQuota >, boolean ] >( [
+		[ 'with credit balances and a payment method', BALANCES, true ],
+		[ 'without a payment method', { ...BALANCES, hasPaymentMethod: false }, false ],
+		[
+			'before credit balances exist',
+			{ costUsage: 25, costCap: 100, costResetDate: RESET_DATE },
+			false,
+		],
+	] )( 'shows Buy credits only for an account %s', async ( _name, quota, offered ) => {
+		setup( { quota } );
+		await screen.findAllByText( /credits remaining|monthly limit/ );
+		expect( !! screen.queryByRole( 'button', { name: 'Buy credits' } ) ).toBe( offered );
+	} );
 
-		render( <UsagePanel /> );
+	it( 'explains AI credits in a dialog from the help icon', async () => {
+		setup( { quota: BALANCES } );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'How AI credits work' } ) );
+		expect( await screen.findByRole( 'dialog', { name: 'How AI credits work' } ) ).toBeVisible();
+	} );
 
+	it( 'lets a blocked account take precedence over its credit balances', async () => {
+		setup( {
+			quota: { ...BALANCES, studioCodeAiHasAccess: false, studioCodeAiAccess: 'blocked' },
+		} );
 		expect(
-			screen.getByText( /Studio Code AI is blocked for this WordPress.com account/ )
-		).toBeInTheDocument();
+			await screen.findByText( /Studio Code AI is blocked for this WordPress.com account/ )
+		).toBeVisible();
 		expect( screen.getByRole( 'link', { name: 'contact WordPress.com support' } ) ).toHaveAttribute(
 			'href',
 			'https://wordpress.com/support/contact/'
 		);
+		expect( screen.queryByText( /Free credits remaining/ ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'button', { name: 'Buy credits' } ) ).not.toBeInTheDocument();
 	} );
 
-	it( 'shows the request-access copy, not the suspension copy, for an ungranted default account', () => {
-		useStudioAssistantQuotaMock.mockReturnValue( {
-			data: {
+	it( 'asks an ungranted default account to request beta access', async () => {
+		setup( {
+			quota: {
 				costUsage: 0,
 				costCap: 100,
-				costResetDate: '2026-08-01T12:00:00',
 				studioCodeAiHasAccess: false,
 				studioCodeAiAccess: 'default',
 			},
-			isLoading: false,
-		} as never );
-
-		render( <UsagePanel /> );
-
+		} );
 		expect(
-			screen.getByText( /Studio Code AI is currently available through limited beta access/ )
-		).toBeInTheDocument();
+			await screen.findByText( /Studio Code AI is currently available through limited beta access/ )
+		).toBeVisible();
 		expect(
 			screen.getByRole( 'link', { name: 'developer.wordpress.com/studio/studio-code-beta' } )
 		).toHaveAttribute( 'href', 'https://developer.wordpress.com/studio/studio-code-beta/' );
 		expect(
-			screen.queryByText( /Studio Code AI is blocked for this WordPress.com account/ )
+			screen.queryByText( /is blocked for this WordPress.com account/ )
 		).not.toBeInTheDocument();
 	} );
 
-	it( 'tells an ungranted account with spend this cycle that beta access is now required', () => {
-		useStudioAssistantQuotaMock.mockReturnValue( {
-			data: {
-				costUsage: 3,
-				costCap: 100,
-				costResetDate: '2026-08-01T12:00:00',
-				studioCodeAiHasAccess: false,
-				studioCodeAiAccess: 'default',
-			},
-			isLoading: false,
-		} as never );
-
-		render( <UsagePanel /> );
-
-		expect(
-			screen.getByText( /Thanks for participating in the Studio Code AI beta/ )
-		).toBeInTheDocument();
-		expect(
-			screen.getByRole( 'link', { name: 'developer.wordpress.com/studio/studio-code-beta' } )
-		).toBeInTheDocument();
+	it( 'offers Try again when the quota cannot be read', async () => {
+		const { connector } = setup();
+		connector.getStudioAssistantQuota.mockRejectedValueOnce( new Error( 'Unavailable' ) );
+		expect( await screen.findByText( 'AI usage is currently unavailable.' ) ).toBeVisible();
+		expect( screen.queryByText( ALPHA ) ).not.toBeInTheDocument();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Try again' } ) );
+		expect( await screen.findByText( ALPHA ) ).toBeVisible();
 	} );
 
-	it( 'shows normal usage when access is granted through a default-allow policy', () => {
-		useStudioAssistantQuotaMock.mockReturnValue( {
-			data: {
-				costUsage: 25,
-				costCap: 100,
-				costResetDate: '2026-08-01T12:00:00',
-				studioCodeAiHasAccess: true,
-				studioCodeAiAccess: 'default',
-			},
-			isLoading: false,
-		} as never );
-
-		render( <UsagePanel /> );
-
-		expect(
-			screen.getByText( '25% of monthly limit used (resets on August 1, 2026)' )
-		).toBeInTheDocument();
+	it( 'shows a loading row while the quota loads', async () => {
+		setup( { overrides: { getStudioAssistantQuota: () => new Promise( () => {} ) } } );
+		await screen.findByText( '2 of 10 active preview sites' );
+		expect( screen.getByText( 'Loading…' ) ).toBeVisible();
 	} );
 
-	it( 'confirms through the connector before deleting all preview sites', async () => {
-		render( <UsagePanel /> );
-
-		fireEvent.click( screen.getByRole( 'button', { name: 'Delete all preview sites' } ) );
-
-		await waitFor( () => expect( confirmDeleteAllPreviewSites ).toHaveBeenCalledTimes( 1 ) );
-		expect( deleteSnapshotsMutate ).toHaveBeenCalledTimes( 1 );
+	it( 'confirms before deleting all preview sites and shows the cleared count', async () => {
+		let finish!: () => void;
+		const { connector } = setup( {
+			overrides: {
+				deleteAllSnapshots: () =>
+					new Promise< void >( ( resolve ) => {
+						finish = resolve;
+					} ),
+			},
+		} );
+		await openPreviewActions();
+		await waitFor( () => expect( connector.deleteAllSnapshots ).toHaveBeenCalledOnce() );
+		expect( connector.confirmDeleteAllPreviewSites ).toHaveBeenCalledOnce();
+		expect( await screen.findByText( 'Loading…' ) ).toBeVisible();
+		await act( async () => finish() );
+		expect( await screen.findByText( '0 of 10 active preview sites' ) ).toBeVisible();
 	} );
 
 	it( 'does not delete when the confirmation is declined', async () => {
-		confirmDeleteAllPreviewSites.mockResolvedValue( false );
-
-		render( <UsagePanel /> );
-
-		fireEvent.click( screen.getByRole( 'button', { name: 'Delete all preview sites' } ) );
-
-		await waitFor( () => expect( confirmDeleteAllPreviewSites ).toHaveBeenCalledTimes( 1 ) );
-		expect( deleteSnapshotsMutate ).not.toHaveBeenCalled();
+		const { connector } = setup( {
+			overrides: { confirmDeleteAllPreviewSites: async () => false },
+		} );
+		await openPreviewActions();
+		await waitFor( () => expect( connector.confirmDeleteAllPreviewSites ).toHaveBeenCalledOnce() );
+		expect( connector.deleteAllSnapshots ).not.toHaveBeenCalled();
 	} );
 
-	it( 'shows a loading row with an empty progress bar in both sections', () => {
-		useStudioAssistantQuotaMock.mockReturnValue( { data: undefined, isLoading: true } as never );
-		// Preview usage is still cached from before the delete, so the bar would
-		// otherwise keep its old fill next to a "Loading…" row.
-		useDeleteAllSnapshotsMock.mockReturnValue( {
-			mutate: deleteSnapshotsMutate,
-			isPending: true,
-			error: null,
-		} as never );
+	it( 'reports a failed deletion inline', async () => {
+		setup( {
+			overrides: { deleteAllSnapshots: async () => Promise.reject( new Error( 'Failed' ) ) },
+		} );
+		await openPreviewActions();
+		expect(
+			await screen.findByText(
+				'An error occurred while deleting all preview sites. Please try again.'
+			)
+		).toBeVisible();
+	} );
 
-		render( <UsagePanel /> );
-
-		expect( screen.getAllByText( 'Loading…' ) ).toHaveLength( 2 );
-		const bars = screen.getAllByTestId( 'usage-progress-bar' );
-		expect( bars ).toHaveLength( 2 );
-		for ( const bar of bars ) {
-			expect( bar ).toHaveAttribute( 'aria-valuenow', '0' );
+	it( 'replaces figures and actions with the offline notice while offline', async () => {
+		const online = vi.spyOn( navigator, 'onLine', 'get' ).mockReturnValue( false );
+		try {
+			setup( { quota: { costUsage: 25, costCap: 100, costResetDate: RESET_DATE } } );
+			expect( await screen.findByRole( 'status' ) ).toHaveTextContent( "You're offline" );
+			expect( screen.getAllByRole( 'img', { name: 'Unavailable' } ) ).toHaveLength( 2 );
+			expect( screen.queryByText( /monthly limit/ ) ).not.toBeInTheDocument();
+			expect( screen.queryByText( /active preview site/ ) ).not.toBeInTheDocument();
+			expect(
+				screen.queryByRole( 'button', { name: 'Preview site actions' } )
+			).not.toBeInTheDocument();
+			expect( screen.queryByLabelText( 'Sign in to WordPress Studio' ) ).not.toBeInTheDocument();
+		} finally {
+			online.mockRestore();
 		}
 	} );
 
-	it( 'replaces figures and actions with the offline notice while offline', () => {
-		useOfflineMock.mockReturnValue( true );
-		useStudioAssistantQuotaMock.mockReturnValue( {
-			data: { costUsage: 25, costCap: 100, costResetDate: '2026-08-01T12:00:00' },
-			isLoading: false,
-		} as never );
-
-		render( <UsagePanel /> );
-
-		expect( screen.getByRole( 'status' ) ).toHaveTextContent( "You're offline" );
-		// Cached figures are stale and can't be refreshed, so they stay hidden.
-		expect( screen.queryByText( /of monthly limit used/ ) ).not.toBeInTheDocument();
-		expect( screen.queryByText( /active preview site/ ) ).not.toBeInTheDocument();
+	it( 'asks a signed-out user to log in instead of showing figures', async () => {
+		const { connector } = setup( { signedIn: false } );
+		expect( await screen.findByLabelText( 'Sign in to WordPress Studio' ) ).toBeVisible();
 		expect( screen.getAllByRole( 'img', { name: 'Unavailable' } ) ).toHaveLength( 2 );
-		expect(
-			screen.queryByRole( 'button', { name: 'Delete all preview sites' } )
-		).not.toBeInTheDocument();
-		expect( screen.queryByLabelText( 'Sign in to WordPress Studio' ) ).not.toBeInTheDocument();
-	} );
-
-	it( 'surfaces a deletion error inline', () => {
-		useDeleteAllSnapshotsMock.mockReturnValue( {
-			mutate: deleteSnapshotsMutate,
-			isPending: false,
-			error: new Error( 'delete failed' ),
-		} as never );
-
-		render( <UsagePanel /> );
-
-		expect(
-			screen.getByText( 'An error occurred while deleting all preview sites. Please try again.' )
-		).toBeInTheDocument();
-	} );
-
-	it( 'shows the sign-in banner and no credits copy when signed out', () => {
-		useAuthUserMock.mockReturnValue( { data: null, isLoading: false } as never );
-
-		render( <UsagePanel /> );
-
-		expect( screen.getByLabelText( 'Sign in to WordPress Studio' ) ).toBeInTheDocument();
+		expect( screen.queryByText( ALPHA ) ).not.toBeInTheDocument();
 		expect( screen.queryByText( /active preview site/ ) ).not.toBeInTheDocument();
-		expect( screen.getAllByRole( 'img', { name: 'Unavailable' } ) ).toHaveLength( 2 );
-		// Studio Code needs an account, so the Alpha pricing copy stays hidden.
-		expect(
-			screen.queryByText(
-				'AI credits are currently free while Studio Code is in Alpha. Build, iterate, and experiment, but know that credits will eventually have a cost.'
-			)
-		).not.toBeInTheDocument();
-
 		fireEvent.click( screen.getByRole( 'button', { name: 'Log in with WordPress.com' } ) );
-
-		expect( loginMutate ).toHaveBeenCalled();
+		await waitFor( () => expect( connector.authenticate ).toHaveBeenCalled() );
 	} );
 } );

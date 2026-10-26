@@ -14,12 +14,12 @@ export interface WindowBounds {
 
 export type { QuitSitesBehavior };
 
-export interface AppdataSiteData {
+interface AppdataSiteData {
 	sortOrder?: number;
 	autoStart?: boolean;
 }
 
-export interface NightlyPromptResult {
+interface NightlyPromptResult {
 	response: 'yes' | 'no';
 	dontAskAgain: boolean;
 }
@@ -52,7 +52,7 @@ export interface UserData {
 	onboardingHints?: OnboardingHintsState;
 }
 
-export interface PromptWindowsSpeedUpResult {
+interface PromptWindowsSpeedUpResult {
 	response: 'yes' | 'no';
 	appVersion: string;
 	dontAskAgain: boolean;

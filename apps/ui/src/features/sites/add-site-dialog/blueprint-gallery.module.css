@@ -85,8 +85,9 @@
 	color: var( --accent-text );
 }
 
-.card:hover .thumbnail [data-slot='preview-frame'],
-.card:focus-visible .thumbnail [data-slot='preview-frame'] {
+/* The whole card's hover tints the frame behind its thumbnail. */
+.card:hover .frame,
+.card:focus-visible .frame {
 	background: var( --accent );
 }
 

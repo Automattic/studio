@@ -688,7 +688,7 @@
 	gap: 6px;
 }
 
-/* Black stop button (fg-content-neutral) with a light square, matching the
+/* Black stop button with a light square, matching the
    real composer's busy state; shown alongside the send button. */
 .stopButton {
 	display: grid;

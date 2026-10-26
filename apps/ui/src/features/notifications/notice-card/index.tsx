@@ -81,9 +81,6 @@ function NoticeDescription( { notice }: { notice: Notice } ) {
 		}
 		const update = () => setExpandable( description.scrollHeight > description.clientHeight + 1 );
 		update();
-		if ( typeof ResizeObserver === 'undefined' ) {
-			return;
-		}
 		const observer = new ResizeObserver( update );
 		observer.observe( description );
 		return () => observer.disconnect();

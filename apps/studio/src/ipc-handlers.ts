@@ -221,8 +221,6 @@ export {
 
 export { importSite, exportSite } from 'src/modules/import-export/lib/ipc-handlers';
 
-export { fetchSiteRest as fetchSiteRestApi } from 'src/lib/wordpress-rest-api';
-
 export async function recordAnalyticsEvent(
 	_event: IpcMainInvokeEvent,
 	// Typed `string` because this crosses the IPC boundary from the (untrusted) renderer; validated
@@ -1386,16 +1384,6 @@ export async function setWindowControlsSurface(
 		return;
 	}
 	setAgenticControlsSurface( surface );
-	parentWindow.setTitleBarOverlay( getTitleBarOverlayOptions() );
-}
-
-export async function setTitleBarBackdropEffect( event: IpcMainInvokeEvent, enabled: boolean ) {
-	void enabled;
-	const parentWindow = BrowserWindow.fromWebContents( event.sender );
-	if ( ! parentWindow || ( process.platform !== 'win32' && process.platform !== 'linux' ) ) {
-		return;
-	}
-
 	parentWindow.setTitleBarOverlay( getTitleBarOverlayOptions() );
 }
 

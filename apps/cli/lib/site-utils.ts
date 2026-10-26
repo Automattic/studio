@@ -24,7 +24,7 @@ import { Logger, LoggerError } from 'cli/logger';
 /**
  * Starts the HTTP proxy server if it's not already running
  */
-export async function startProxyIfNeeded( logger: Logger< LoggerAction > ): Promise< void > {
+async function startProxyIfNeeded( logger: Logger< LoggerAction > ): Promise< void > {
 	const proxyProcess = await isProxyProcessRunning();
 	if ( ! proxyProcess ) {
 		logger.reportStart( LoggerAction.START_PROXY, __( 'Starting HTTP proxy server…' ) );

@@ -352,7 +352,6 @@ export function PreviewAddressBar( {
 				<button
 					type="button"
 					className={ styles.siteIcon }
-					data-realm={ activeRealm }
 					aria-label={ __( 'Preview shortcuts' ) }
 					disabled={ remote }
 					onClick={ () => setShortcutsOpen( true ) }

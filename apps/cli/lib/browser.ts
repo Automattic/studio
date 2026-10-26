@@ -1,8 +1,5 @@
 import { spawn } from 'child_process';
 
-/**
- * Opens the default browser with the specified URL
- */
 export async function openBrowser( url: string ): Promise< void > {
 	const platform = process.platform;
 	let cmd: string;

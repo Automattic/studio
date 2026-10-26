@@ -476,7 +476,7 @@ const messageActivityTrackers = new Map<
 >();
 const CHILD_EXIT_ERROR_GRACE_MS = 100;
 
-export interface SendMessageOptions {
+interface SendMessageOptions {
 	maxTotalElapsedTime?: number;
 	logger?: Logger< string >;
 	// Receives the start steps the child finishes for this message.
@@ -490,7 +490,7 @@ export interface SendMessageOptions {
  * - Checks periodically for inactivity
  * - Has both inactivity timeout and max total timeout
  */
-export async function sendMessage(
+async function sendMessage(
 	pmId: number,
 	processName: string,
 	message: ManagerMessagePayload,
@@ -721,7 +721,6 @@ export async function runBlueprint(
 				{ logger }
 			);
 		} finally {
-			// Always stop the process after blueprint is applied
 			await stopProcess( processName );
 		}
 	} finally {

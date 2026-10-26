@@ -102,7 +102,7 @@ export function BlueprintGallery( {
 						onClick={ () => onView( blueprint ) }
 					>
 						<span className={ styles.thumbnail }>
-							<PreviewFrame>
+							<PreviewFrame className={ styles.frame }>
 								<PreviewImage
 									src={ blueprint.image }
 									alt={ sprintf(

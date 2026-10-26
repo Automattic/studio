@@ -174,11 +174,9 @@ export function usePreviewSurfaces( {
 	// another surface reloads it, so it shows what changed while it was hidden.
 	const switchRealm = useCallback(
 		( realm: PreviewRealm ) => {
-			// Re-selecting the active realm (e.g. via its shortcut) is a no-op.
 			if ( activeRealm === realm ) {
 				return;
 			}
-			// The agentic UI opens the realm in its in-app preview panel.
 			void connector.trackEvent( getRealmOpenEvent( realm ), { browser: 'internal' } );
 			const target = lastRealmPathsRef.current[ realm ];
 			const key = getSurfaceKey( realm );

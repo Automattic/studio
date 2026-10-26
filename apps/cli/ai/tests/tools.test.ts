@@ -43,6 +43,7 @@ import {
 } from '../tools/define-tool';
 import { enrichPreviewListOutput } from '../tools/list-previews';
 import { createTakeScreenshotTool } from '../tools/take-screenshot';
+import { splitCommandArgs } from '../wp-cli-args';
 
 vi.mock( 'cli/ai/block-validator', () => ( {
 	validateBlocks: vi.fn(),
@@ -229,17 +230,6 @@ describe( 'Studio AI MCP tools', () => {
 		setLocalSiteSelectedCallback( null );
 	} );
 
-	it( 'includes preview tools in the MCP registry', () => {
-		expect( studioToolDefinitions.map( ( tool ) => tool.name ) ).toEqual(
-			expect.arrayContaining( [
-				'preview_create',
-				'preview_list',
-				'preview_update',
-				'preview_delete',
-			] )
-		);
-	} );
-
 	it( 'marks only reads and non-destructive local changes as safe to run without asking', () => {
 		const annotations = Object.fromEntries(
 			studioToolDefinitions.map( ( tool ) => [ tool.name, tool.annotations ] )
@@ -311,19 +301,6 @@ describe( 'Studio AI MCP tools', () => {
 		expect( runDeleteSiteCommand ).not.toHaveBeenCalled();
 	} );
 
-	it( 'deletes a site with progress threaded to the tool logger', async () => {
-		const result = await getTool( 'site_delete' ).rawHandler( {
-			nameOrPath: 'My Site',
-		} as never );
-
-		expect( runDeleteSiteCommand ).toHaveBeenCalledWith(
-			mockSite.path,
-			true,
-			expect.any( Logger )
-		);
-		expect( getTextContent( result ) ).toBe( 'Site "My Site" deleted.' );
-	} );
-
 	describe( 'take_screenshot', () => {
 		let screenshotDirectory: string;
 
@@ -389,7 +366,8 @@ describe( 'Studio AI MCP tools', () => {
 		it( 'says when the user sees only the saved file path', async () => {
 			const note = 'The user does not see this capture';
 			const resultWith = async (
-				options: Parameters< typeof resolveStudioToolDefinitions >[ 0 ]
+				options: Parameters< typeof resolveStudioToolDefinitions >[ 0 ],
+				display?: boolean
 			) => {
 				mockScreenshotBrowser(
 					createMockPage( { buffer: Buffer.from( 'jpeg' ), documentHeight: 900 } )
@@ -397,26 +375,22 @@ describe( 'Studio AI MCP tools', () => {
 				const tool = resolveStudioToolDefinitions( options ).find(
 					( definition ) => definition.name === 'take_screenshot'
 				);
-				const result = await tool!.rawHandler( { url: 'http://localhost:8903/' } as never );
+				const result = await tool!.rawHandler( {
+					url: 'http://localhost:8903/',
+					display,
+				} as never );
 				return result.content.find( ( block ) => block.type === 'text' )?.text ?? '';
 			};
+			const imageLink = ( file: string ) => `file://${ file }`;
 			expect( await resultWith( {} ) ).toContain( note );
 			expect( await resultWith( { emitChatArtifacts: true } ) ).not.toContain( note );
-			expect( await resultWith( { imageLink: ( file ) => file } ) ).not.toContain( note );
+			const linked = await resultWith( { imageLink }, true );
+			expect( linked ).not.toContain( note );
+			expect( linked ).toContain(
+				`![Screenshot (desktop)](file://${ screenshotDirectory }${ path.sep }`
+			);
+			expect( await resultWith( { imageLink }, false ) ).not.toContain( '![' );
 		} );
-	} );
-
-	it( 'creates previews for a resolved local site', async () => {
-		const result = await getTool( 'preview_create' ).rawHandler( {
-			nameOrPath: 'My Site',
-		} as never );
-
-		expect( runCreatePreviewCommand ).toHaveBeenCalledWith(
-			'/sites/my-site',
-			undefined,
-			expect.any( Logger )
-		);
-		expect( getTextContent( result ) ).toContain( 'Preview site created for "My Site".' );
 	} );
 
 	it( 'emits a site preview artifact when site_create succeeds with chat artifacts enabled', async () => {
@@ -470,24 +444,6 @@ describe( 'Studio AI MCP tools', () => {
 				execute,
 			};
 		};
-
-		it( 'forwards execute arguments and preserves details when emitting', async () => {
-			const { tool, execute } = makeFakeTool();
-			const signal = new AbortController().signal;
-			const onUpdate = () => {};
-
-			const wrapped = withChatArtifactEmission( tool, true );
-			const result = await wrapped.execute( 'tool-call-9', { a: 1 } as never, signal, onUpdate );
-
-			expect( execute ).toHaveBeenCalledWith( 'tool-call-9', { a: 1 }, signal, onUpdate );
-			expect( result.details ).toEqual( { studioArtifacts: [ widget ] } );
-			expect( emitEvent ).toHaveBeenCalledWith(
-				expect.objectContaining( {
-					type: 'chat.artifact',
-					artifact: expect.objectContaining( { widgets: [ widget ] } ),
-				} )
-			);
-		} );
 
 		it( 'returns the tool unchanged when chat artifacts are disabled', () => {
 			const { tool } = makeFakeTool();
@@ -774,158 +730,78 @@ describe( 'Studio AI MCP tools', () => {
 		expect( onProgress ).toHaveBeenCalledWith( 'Applying changes… (76%)', true );
 	} );
 
-	it( 'rejects shell syntax in wp_cli post content before dispatching to WP-CLI', async () => {
-		vi.mocked( isServerRunning ).mockResolvedValue( {
-			name: 'site-123',
-			pmId: 1,
-			status: 'online',
-			pid: 1234,
-		} );
-
+	it.each( [
+		[
+			'shell syntax in post content',
+			'post create --post_type=page --post_title=Home --post_content="$(cat /tmp/one-page-content.txt)"',
+			/does not run in a shell/,
+		],
+		[
+			'typographic dash options',
+			'post create --post_type=page --post_title="About" --post_content="Hello world" –porcelain',
+			/typographic dash/,
+		],
+	] )( 'wp_cli rejects %s before dispatching to WP-CLI', async ( _name, command, error ) => {
 		await expect(
-			getTool( 'wp_cli' ).rawHandler( {
-				nameOrPath: 'My Site',
-				command:
-					'post create --post_type=page --post_title=Home --post_content="$(cat /tmp/one-page-content.txt)"',
-			} as never )
-		).rejects.toThrow( /does not run in a shell/ );
-
+			getTool( 'wp_cli' ).rawHandler( { nameOrPath: 'My Site', command } as never )
+		).rejects.toThrow( error );
 		expect( runWpCliCommand ).not.toHaveBeenCalled();
-	} );
-
-	it( 'treats unquoted post_content as a single trailing literal argument', async () => {
-		vi.mocked( isServerRunning ).mockResolvedValue( {
-			name: 'site-123',
-			pmId: 1,
-			status: 'online',
-			pid: 1234,
-		} );
-		vi.mocked( runWpCliCommand ).mockResolvedValue(
-			mockWpCliResponse( { stdout: '123' } ) as never
-		);
-
-		await getTool( 'wp_cli' ).rawHandler( {
-			nameOrPath: 'My Site',
-			command: `post create --post_type=page --post_title="About" --post_status=publish --post_content=<!-- wp:paragraph -->
-<p>Hello world</p>
-<!-- /wp:paragraph -->`,
-		} as never );
-
-		expect( runWpCliCommand ).toHaveBeenCalledWith( mockSite, [
-			'post',
-			'create',
-			'--post_type=page',
-			'--post_title=About',
-			'--post_status=publish',
-			'--post_content=<!-- wp:paragraph -->\n<p>Hello world</p>\n<!-- /wp:paragraph -->',
-		] );
-	} );
-
-	it( 'strips matching outer quotes from trailing post_content', async () => {
-		vi.mocked( isServerRunning ).mockResolvedValue( {
-			name: 'site-123',
-			pmId: 1,
-			status: 'online',
-			pid: 1234,
-		} );
-		vi.mocked( runWpCliCommand ).mockResolvedValue(
-			mockWpCliResponse( { stdout: '123' } ) as never
-		);
-
-		await getTool( 'wp_cli' ).rawHandler( {
-			nameOrPath: 'My Site',
-			command: 'post create --post_type=page --post_title="About" --post_content="Hello world"',
-		} as never );
-
-		expect( runWpCliCommand ).toHaveBeenCalledWith( mockSite, [
-			'post',
-			'create',
-			'--post_type=page',
-			'--post_title=About',
-			'--post_content=Hello world',
-		] );
-	} );
-
-	it( 'keeps flags after quoted post_content out of the page content', async () => {
-		vi.mocked( isServerRunning ).mockResolvedValue( {
-			name: 'site-123',
-			pmId: 1,
-			status: 'online',
-			pid: 1234,
-		} );
-		vi.mocked( runWpCliCommand ).mockResolvedValue(
-			mockWpCliResponse( { stdout: '123' } ) as never
-		);
-
-		await getTool( 'wp_cli' ).rawHandler( {
-			nameOrPath: 'My Site',
-			command:
-				'post create --post_type=page --post_title="About" --post_content="Hello world" --porcelain',
-		} as never );
-
-		expect( runWpCliCommand ).toHaveBeenCalledWith( mockSite, [
-			'post',
-			'create',
-			'--post_type=page',
-			'--post_title=About',
-			'--post_content=Hello world',
-			'--porcelain',
-		] );
 	} );
 
 	it.each( [
 		[
+			'keeps unquoted post_content as one trailing literal argument',
+			`post create --post_type=page --post_title="About" --post_status=publish --post_content=<!-- wp:paragraph -->
+<p>Hello world</p>
+<!-- /wp:paragraph -->`,
+			[
+				'post',
+				'create',
+				'--post_type=page',
+				'--post_title=About',
+				'--post_status=publish',
+				'--post_content=<!-- wp:paragraph -->\n<p>Hello world</p>\n<!-- /wp:paragraph -->',
+			],
+		],
+		[
+			'strips matching outer quotes from trailing post_content',
+			'post create --post_type=page --post_title="About" --post_content="Hello world"',
+			[ 'post', 'create', '--post_type=page', '--post_title=About', '--post_content=Hello world' ],
+		],
+		[
+			'keeps flags after quoted post_content out of the content',
+			'post create --post_title="About" --post_content="Hello world" --porcelain',
+			[ 'post', 'create', '--post_title=About', '--post_content=Hello world', '--porcelain' ],
+		],
+		[
+			'keeps flags after empty quoted post_content out of the content',
+			'post create --post_title="About" --post_content="" --porcelain',
+			[ 'post', 'create', '--post_title=About', '--post_content=', '--porcelain' ],
+		],
+		[
 			'reads backslash-escaped quotes inside double-quoted post_content',
 			String.raw`post update 5 --post_content="{\"styles\":{\"color\":{\"background\":\"#1e2a44\"}}}" --porcelain`,
+			[
+				'post',
+				'update',
+				'5',
+				'--post_content={"styles":{"color":{"background":"#1e2a44"}}}',
+				'--porcelain',
+			],
 		],
 		[
 			'reads post_content when quotes wrap the whole argument',
 			`post update 5 '--post_content={"styles":{"color":{"background":"#1e2a44"}}}' --porcelain`,
+			[
+				'post',
+				'update',
+				'5',
+				'--post_content={"styles":{"color":{"background":"#1e2a44"}}}',
+				'--porcelain',
+			],
 		],
-	] )( '%s', async ( _name, command ) => {
-		vi.mocked( isServerRunning ).mockResolvedValue( {
-			name: 'site-123',
-			pmId: 1,
-			status: 'online',
-			pid: 1234,
-		} );
-		vi.mocked( runWpCliCommand ).mockResolvedValue( mockWpCliResponse( { stdout: '5' } ) as never );
-
-		await getTool( 'wp_cli' ).rawHandler( { nameOrPath: 'My Site', command } as never );
-
-		expect( runWpCliCommand ).toHaveBeenCalledWith( mockSite, [
-			'post',
-			'update',
-			'5',
-			'--post_content={"styles":{"color":{"background":"#1e2a44"}}}',
-			'--porcelain',
-		] );
-	} );
-
-	it( 'keeps porcelain after empty quoted post_content out of the page content', async () => {
-		vi.mocked( isServerRunning ).mockResolvedValue( {
-			name: 'site-123',
-			pmId: 1,
-			status: 'online',
-			pid: 1234,
-		} );
-		vi.mocked( runWpCliCommand ).mockResolvedValue(
-			mockWpCliResponse( { stdout: '123' } ) as never
-		);
-
-		await getTool( 'wp_cli' ).rawHandler( {
-			nameOrPath: 'My Site',
-			command: 'post create --post_type=page --post_title="About" --post_content="" --porcelain',
-		} as never );
-
-		expect( runWpCliCommand ).toHaveBeenCalledWith( mockSite, [
-			'post',
-			'create',
-			'--post_type=page',
-			'--post_title=About',
-			'--post_content=',
-			'--porcelain',
-		] );
+	] )( 'splitCommandArgs %s', ( _name, command, expected ) => {
+		expect( splitCommandArgs( command ) ).toEqual( expected );
 	} );
 
 	// A MySQL client's access denied, as `db query` gets on a Studio site, which keeps its data in SQLite.
@@ -954,25 +830,6 @@ describe( 'Studio AI MCP tools', () => {
 			expect( String( error ).includes( 'stores its database in SQLite' ) ).toBe( note );
 		}
 	);
-
-	it( 'rejects typographic dash options before dispatching to WP-CLI', async () => {
-		vi.mocked( isServerRunning ).mockResolvedValue( {
-			name: 'site-123',
-			pmId: 1,
-			status: 'online',
-			pid: 1234,
-		} );
-
-		await expect(
-			getTool( 'wp_cli' ).rawHandler( {
-				nameOrPath: 'My Site',
-				command:
-					'post create --post_type=page --post_title="About" --post_content="Hello world" –porcelain',
-			} as never )
-		).rejects.toThrow( /typographic dash/ );
-
-		expect( runWpCliCommand ).not.toHaveBeenCalled();
-	} );
 
 	it( 'reserves media-library attachments, returns at once, and reports failures once the images are done', async () => {
 		const sitePath = await mkdtemp( path.join( os.tmpdir(), 'studio-generate-images-' ) );

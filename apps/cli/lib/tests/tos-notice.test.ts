@@ -40,12 +40,6 @@ describe( 'formatTosNoticeLines', () => {
 		expect( plain ).toContain( TOS_URL );
 		expect( plain ).toContain( PRIVACY_POLICY_URL );
 	} );
-
-	it( 'mentions Terms of Service and Privacy Policy', () => {
-		const plain = strip( formatTosNoticeLines().join( '\n' ) );
-		expect( plain ).toContain( 'Terms of Service' );
-		expect( plain ).toContain( 'Privacy Policy' );
-	} );
 } );
 
 describe( 'setupTosNotice', () => {

@@ -32,7 +32,7 @@ const LOCAL_IMAGE_REFERENCE =
 // The preview page is a `file://` document, so referenced images are inlined
 // rather than relying on file-to-file loads. They can live anywhere, such as
 // where an agent's own image tool saved them.
-export async function inlineLocalImages( html: string ): Promise< string > {
+async function inlineLocalImages( html: string ): Promise< string > {
 	const references = [ ...html.matchAll( LOCAL_IMAGE_REFERENCE ) ];
 	const dataUrls = new Map< string, string >();
 	for ( const [ , , , reference ] of references ) {

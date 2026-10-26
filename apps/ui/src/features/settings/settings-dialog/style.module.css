@@ -26,7 +26,7 @@
 .content :global( [data-settings-match] ) {
 	margin-inline: calc( var( --space-3 ) * -1 );
 	padding-inline: var( --space-3 );
-	/* eslint-disable-next-line studio/use-theme-tokens -- the search highlight, which the rebuild shapes per row. */
+	/* eslint-disable-next-line studio/use-theme-tokens -- the search highlight's fixed 8px corner, shaped per row. */
 	border-radius: 8px;
 	background: color-mix( in srgb, var( --accent-text ) 12%, transparent );
 	transition: background-color var( --motion-duration-layout );

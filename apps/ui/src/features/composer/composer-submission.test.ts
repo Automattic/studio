@@ -30,12 +30,6 @@ describe( 'composerSubmission', () => {
 		expect( options.files?.map( ( item ) => item.id ) ).toEqual( [ 'doc' ] );
 	} );
 
-	it( 'asks for a review of attachments sent without text', () => {
-		expect( composerSubmission( '', [ file ], [] ).prompt ).toBe(
-			'Please review the attached files.'
-		);
-	} );
-
 	it( 'adds staged annotations after the text', () => {
 		const { prompt, options } = composerSubmission(
 			'Also this',

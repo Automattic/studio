@@ -29,7 +29,7 @@ const STOP_SITE_MUTATION_KEY = [ 'stopSite' ] as const;
 // component that created it, so a remounted screen would report "idle" while
 // the work is still running. Counting the mutation cache instead is the same
 // trick `useIsSiteStarting` uses.
-export const COPY_SITE_MUTATION_KEY = [ 'copySite' ] as const;
+const COPY_SITE_MUTATION_KEY = [ 'copySite' ] as const;
 export const EXPORT_FULL_SITE_MUTATION_KEY = [ 'exportFullSite' ] as const;
 export const EXPORT_DATABASE_MUTATION_KEY = [ 'exportDatabase' ] as const;
 
@@ -149,7 +149,7 @@ export function useStartSite() {
 		// claims a site came up.
 		mutationFn: async ( id: string ): Promise< boolean > => {
 			// A stop this window fired moments ago hasn't been recorded by the CLI
-			// yet, and racing it used to loop forever. Deliberately the only
+			// yet, and a start racing it loops. Deliberately the only
 			// pre-flight: everything else is the CLI's call, so a stale cache
 			// can't silently swallow a start.
 			if ( isSiteMutating( queryClient, STOP_SITE_MUTATION_KEY, id ) ) {

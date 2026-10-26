@@ -152,11 +152,6 @@ describe( '/model slash command', () => {
 	} );
 } );
 
-vi.mock( '@studio/common/lib/studio-assistant-quota', async ( importOriginal ) => {
-	const actual = await importOriginal< object >();
-	return { ...actual, fetchStudioAssistantQuota: vi.fn() };
-} );
-
 vi.mock( '@studio/common/lib/studio-assistant-top-up-pricing', async ( importOriginal ) => {
 	const actual = await importOriginal< object >();
 	return { ...actual, fetchStudioAssistantTopUpPricing: vi.fn() };
@@ -216,12 +211,6 @@ describe( '/credits slash command', () => {
 		vi.mocked( m.quota.fetchStudioAssistantQuota ).mockResolvedValue( null );
 		vi.mocked( m.pricing.fetchStudioAssistantTopUpPricing ).mockResolvedValue( null );
 		vi.mocked( m.browser.openBrowser ).mockResolvedValue( undefined );
-	} );
-
-	it( 'is registered with a handler', () => {
-		expect( cmd ).toBeDefined();
-		expect( typeof cmd.handler ).toBe( 'function' );
-		expect( cmd.description ).toBeTruthy();
 	} );
 
 	it( 'asks the user to sign in instead of calling WordPress.com', async () => {

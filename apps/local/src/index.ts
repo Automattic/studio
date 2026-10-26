@@ -472,9 +472,9 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	const allowedOrigins = new Set( [
 		`http://localhost:${ port }`,
 		`http://127.0.0.1:${ port }`,
-		// Vite dev server for `npm run dev:local --workspace=apps/ui`.
+		// Vite dev server for `npm run dev:local --workspace=apps/ui`, which proxies
+		// the API but keeps the page's Origin on POSTs.
 		'http://localhost:5400',
-		'http://127.0.0.1:5400',
 		// The studio.local custom-domain setup.
 		'https://studio.local',
 	] );
@@ -1753,7 +1753,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			}
 			// No backup yet (or lookup failure) rejects and surfaces as a 500 via
 			// the error middleware — the dialog needs the error state to disable
-			// per-item selection and force a full sync, like the classic renderer.
+			// per-item selection and force a full sync.
 			res.json( await fetchLatestRewindId( token.accessToken, Number( req.params.remoteSiteId ) ) );
 		} )
 	);

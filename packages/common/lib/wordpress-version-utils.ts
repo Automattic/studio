@@ -9,9 +9,6 @@
  * - "x.y.z" (x, y and z are integers) e.g. "6.2.1"
  * - "x.y.z-betaN" (N is an integer) e.g. "6.2.1-beta1"
  * - "x.y.z-RCN" (N is an integer) e.g. "6.2-RC1"
- *
- * @param version The version string to check.
- * @returns A boolean value indicating whether the version string is a valid WordPress version.
  */
 export function isValidWordPressVersion( version: string ): boolean {
 	const versionPattern =

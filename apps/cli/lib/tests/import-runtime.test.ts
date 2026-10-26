@@ -72,6 +72,24 @@ describe( 'resolveLatestReleaseAsset', () => {
 		).rejects.toThrow( /missing its verifiable runtime asset/ );
 	} );
 
+	it( 'reads the version from a tag naming the package', async () => {
+		const asset = await resolveLatestReleaseAsset(
+			'Automattic/blocks-engine',
+			( name ) => name === 'php-transformer.zip',
+			releaseFetch( {
+				tag_name: 'php-transformer-v0.44.179',
+				assets: [
+					{
+						name: 'php-transformer.zip',
+						browser_download_url: 'https://example.com/php-transformer.zip',
+						digest: `sha256:${ digest( 'transformer' ) }`,
+					},
+				],
+			} )
+		);
+		expect( asset.version ).toBe( '0.44.179' );
+	} );
+
 	it( 'refuses a prerelease tag', async () => {
 		await expect(
 			resolveLatestReleaseAsset(

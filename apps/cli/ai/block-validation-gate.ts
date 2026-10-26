@@ -201,7 +201,7 @@ async function htmlPolicyProblem(
 		return undefined;
 	}
 	return [
-		`${ label }: ${ invalidHtmlBlocks.length } core/html block(s) must become editable blocks:`,
+		`${ label }: ${ invalidHtmlBlocks.length } core/html block(s) must become editable blocks, which convert_to_blocks makes them:`,
 		...invalidHtmlBlocks.map( ( block ) => `  - line ${ block.line }: ${ block.issues[ 0 ] }` ),
 		...( await describeSavingBlocks(
 			invalidHtmlBlocks.map( ( block ) => block.content ).join( '\n' ),

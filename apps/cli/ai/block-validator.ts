@@ -396,7 +396,7 @@ export async function validateBlocks(
 							blockName: 'core/freeform',
 							isValid: false,
 							issues: [
-								'This HTML is outside any block, so the editor shows it as one Classic block. Write it as blocks: core/group for each section, with core/heading, core/paragraph, core/image and core/buttons inside.',
+								'This HTML is outside any block, so the editor shows it as one Classic block. convert_to_blocks converts it to blocks, or write it as blocks: core/group for each section, with core/heading, core/paragraph, core/image and core/buttons inside.',
 							],
 							originalContent: outside,
 						} );

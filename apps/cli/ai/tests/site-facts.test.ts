@@ -1,4 +1,4 @@
-import { rmSync } from 'fs';
+import { rmSync, writeFileSync } from 'fs';
 import path from 'path';
 import { expect, it, vi } from 'vitest';
 import { findSiteByFolder } from 'cli/lib/cli-config/sites';
@@ -14,8 +14,9 @@ vi.mock( 'cli/lib/cli-config/sites', async ( importOriginal ) => ( {
 
 function createSite( prefix: string ) {
 	const site = createWordPressSite( prefix );
-	const facts = () => readActiveSiteFacts( { name: 'Site', path: site.root, running: true } );
-	return { ...site, facts };
+	const factGroups = () => readActiveSiteFacts( { name: 'Site', path: site.root, running: true } );
+	const facts = async () => ( await factGroups() ).flat();
+	return { ...site, facts, factGroups };
 }
 
 const WOOCOMMERCE_ACTIVE = {
@@ -141,23 +142,29 @@ it( 'has no facts for a WordPress.com site without a known site ID, or no site',
 	expect( await readActiveSiteFacts( null ) ).toEqual( [] );
 } );
 
-it( 'adds to a tool result the facts the agent does not have yet and the ones no longer true', async () => {
+it( 'adds to a tool result the facts the agent does not have yet, as they now read, and the ones no longer true', async () => {
 	const site = createSite( 'wp_' );
-	const siteNotes = createSiteNotes( { stated: new Map( [ [ site.root, await site.facts() ] ] ) } );
+	const siteNotes = createSiteNotes( {
+		stated: new Map( [ [ site.root, await site.factGroups() ] ] ),
+	} );
 	const notes = ( session = siteNotes ) => session.afterResult( site.root, '' );
 	const said = ( ...lines: string[] ) => lines;
 	// The facts the Active site section stated.
 	expect( await notes() ).toEqual( [] );
 
-	// A call activates WooCommerce, which turns on Coming soon mode.
+	// A call activates WooCommerce, which turns on Coming soon mode; the
+	// plugins line replaces the one it was.
 	site.setOptions( { woocommerce_coming_soon: 'yes', ...WOOCOMMERCE_ACTIVE } );
 	expect( await notes() ).toEqual(
-		said(
-			'Active plugins: woocommerce/woocommerce.php, hello.php.',
-			COMING_SOON( 'the site' ),
-			'No longer true: Active plugins: none.'
-		)
+		said( 'Active plugins: woocommerce/woocommerce.php, hello.php.', COMING_SOON( 'the site' ) )
 	);
+
+	// Starting the site updates WordPress.
+	writeFileSync(
+		path.join( site.root, 'wp-includes/version.php' ),
+		"<?php\n$wp_version = '7.1.4';\n"
+	);
+	expect( await notes() ).toEqual( said( 'WordPress 7.1.4.' ) );
 	expect( await notes() ).toEqual( [] );
 
 	site.setOptions( { woocommerce_coming_soon: 'no' } );
@@ -165,7 +172,7 @@ it( 'adds to a tool result the facts the agent does not have yet and the ones no
 
 	// A site the agent has no facts for, as over MCP, gets them with its first result.
 	expect( await notes( createSiteNotes() ) ).toEqual(
-		said( ...BASE.slice( 0, 2 ), 'Active plugins: woocommerce/woocommerce.php, hello.php.' )
+		said( 'WordPress 7.1.4.', BASE[ 1 ], 'Active plugins: woocommerce/woocommerce.php, hello.php.' )
 	);
 } );
 

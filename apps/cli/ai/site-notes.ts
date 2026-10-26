@@ -49,7 +49,7 @@ interface Sources {
 
 interface SiteNotesOptions {
 	/** The facts the agent already has, by site path. */
-	stated?: Map< string, string[] >;
+	stated?: Map< string, string[][] >;
 	/** Validates the block markup a write leaves, for the surface to report. */
 	gate?: BlockValidationGate;
 }
@@ -69,19 +69,21 @@ function blockSettingsSource(): Sources[ 'result' ][ number ] {
 
 // The site's facts the agent does not have yet, and the ones that stopped
 // being true, so a change a call makes, such as a plugin turning on Coming
-// soon mode, is known at once. A site without stated facts gets its facts
-// with its first result.
-function siteFactsSource( stated: Map< string, string[] > ): Sources[ 'result' ][ number ] {
+// soon mode, is known at once. A fact that now reads otherwise is stated as
+// it reads; one that now states nothing is stated as no longer true. A site
+// without stated facts gets its facts with its first result.
+function siteFactsSource( stated: Map< string, string[][] > ): Sources[ 'result' ][ number ] {
 	return async ( sitePath ) => {
 		const facts = await readSiteFacts( sitePath );
 		const before = stated.get( sitePath ) ?? [];
 		stated.set( sitePath, facts );
-		return [
-			...facts.filter( ( fact ) => ! before.includes( fact ) ),
-			...before
-				.filter( ( fact ) => ! facts.includes( fact ) )
-				.map( ( fact ) => `No longer true: ${ fact }` ),
-		];
+		const added = facts.map( ( lines, i ) =>
+			lines.filter( ( line ) => ! before[ i ]?.includes( line ) )
+		);
+		const ended = before.map( ( lines, i ) =>
+			facts[ i ]?.length ? [] : lines.map( ( line ) => `No longer true: ${ line }` )
+		);
+		return [ ...added.flat(), ...ended.flat() ];
 	};
 }
 

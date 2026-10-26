@@ -52,12 +52,17 @@ const SITE_FACTS: SiteFact[] = [
 	comingSoonFact,
 ];
 
-/** The facts about the local site at `sitePath`. */
-export function readSiteFacts( sitePath: string ): Promise< string[] > {
-	return readWordPressSite( sitePath, async ( site ) =>
-		( await Promise.all( SITE_FACTS.map( ( fact ) => fact( site ) ) ) )
-			.flat()
-			.filter( ( fact ): fact is string => Boolean( fact ) )
+/**
+ * The facts about the local site at `sitePath`, by the fact that states them,
+ * so a line that changes is known to replace the one it was.
+ */
+export function readSiteFacts( sitePath: string ): Promise< string[][] > {
+	return readWordPressSite( sitePath, ( site ) =>
+		Promise.all(
+			SITE_FACTS.map( async ( fact ) =>
+				[ await fact( site ) ].flat().filter( ( line ): line is string => Boolean( line ) )
+			)
+		)
 	);
 }
 
@@ -65,6 +70,6 @@ export function readSiteFacts( sitePath: string ): Promise< string[] > {
  * Facts about the active site for the Active site section. A WordPress.com
  * site's own server states what its plan and the user's role allow.
  */
-export async function readActiveSiteFacts( site?: SiteInfo | null ): Promise< string[] > {
+export async function readActiveSiteFacts( site?: SiteInfo | null ): Promise< string[][] > {
 	return site && ! site.remote ? readSiteFacts( site.path ) : [];
 }

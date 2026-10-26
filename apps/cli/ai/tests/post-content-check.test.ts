@@ -14,6 +14,7 @@ vi.mock( 'cli/ai/block-validator', async () => ( {
 		content,
 		colors: [],
 		fontSizes: [],
+		spacingSizes: [],
 	} ) ),
 	bindNavigationLinks: vi.fn( async ( content: string ) => ( { content, links: [] } ) ),
 	dropCommentsBetweenBlocks: vi.fn( async ( content: string ) => ( { content, comments: 0 } ) ),
@@ -197,6 +198,7 @@ describe( 'post content changes', () => {
 			content: PRESET,
 			colors: [ { color: '#503AA8', slug: 'accent-3' } ],
 			fontSizes: [],
+			spacingSizes: [],
 		} );
 		const check = checkPosts();
 		await check.snapshot();
@@ -205,7 +207,7 @@ describe( 'post content changes', () => {
 		expect( storePresetValues ).toHaveBeenLastCalledWith(
 			UNWRAPPED_GROUP,
 			'http://localhost:8881',
-			{ colors: [ [ 'accent-3', '#503AA8' ] ], fontSizes: [] }
+			{ colors: [ [ 'accent-3', '#503AA8' ] ], fontSizes: [], spacingSizes: [] }
 		);
 		expect( problems ).toEqual( [] );
 		expect( summaries ).toEqual( [

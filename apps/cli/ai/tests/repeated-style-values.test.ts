@@ -285,6 +285,46 @@ describe.runIf( WORDPRESS && EDITOR )( 'repeated raw font sizes made presets', (
 		120000
 	);
 
+	// As run 37's 01a17832-e931 wrote its cards: the same raw padding and gap on each.
+	it( 'makes the spacing a template repeats presets, which the save through the editor stores', async () => {
+		const slug = 'studio-test-roast-spacing';
+		const dir = `wp-content/themes/${ slug }`;
+		// A font size with !important leaves spacing as it renders.
+		put(
+			`${ dir }/style.css`,
+			`/*\nTheme Name: ${ slug }\n*/\np { font-size: 1rem !important; }\n`
+		);
+		const themeJson = put( `${ dir }/theme.json`, JSON.stringify( { version: 3 } ) );
+		const card =
+			'<!-- wp:group {"style":{"spacing":{"padding":{"left":"2rem","right":"2rem"},"blockGap":"0.6rem"}}} -->\n<div class="wp-block-group" style="padding-right:2rem;padding-left:2rem"></div>\n<!-- /wp:group -->';
+		const written = put( `${ dir }/templates/index.html`, times( 3, card ) );
+		const [ note, ...rest ] = await notes( written );
+
+		expect( rest ).toEqual( [] );
+		expect( note ).toContain(
+			`Studio made the spacing sizes ${ written } repeats spacing size presets of ${ slug }: it added size-2-rem (2rem), size-0-6-rem (0.6rem) to ${ themeJson }'s "settings": { "spacing": { "spacingSizes" } }`
+		);
+		expect( await saveThroughEditor( written, slug ) ).toContain(
+			'stores 2rem as the spacing size size-2-rem, 0.6rem as the spacing size size-0-6-rem'
+		);
+		const saved = readFileSync( written, 'utf8' );
+		expect( saved ).not.toMatch( /"(2|0\.6)rem"/ );
+		expect( saved.match( /var:preset\|spacing\|size-2-rem/g ) ).toHaveLength( 6 );
+		expect( ( await validateBlocks( saved, EDITOR! ) ).invalidBlocks ).toBe( 0 );
+
+		// WordPress renders each preset's variable as the value it replaced.
+		await runWpCli( site(), [ 'theme', 'activate', slug ] );
+		const rendered = await runWpCli( site(), [
+			'eval',
+			`echo wp_get_global_stylesheet( array( 'variables' ) ), do_blocks( ${ JSON.stringify(
+				saved
+			) } );`,
+		] );
+		expect( rendered ).toContain( '--wp--preset--spacing--size-2-rem: 2rem;' );
+		expect( rendered ).toContain( '--wp--preset--spacing--size-0-6-rem: 0.6rem;' );
+		expect( rendered ).toContain( 'padding-left:var(--wp--preset--spacing--size-2-rem)' );
+	}, 120000 );
+
 	it( 'notes the sizes and adds no preset where no gate saves the file', async () => {
 		const dir = 'wp-content/themes/studio-test-ungated';
 		put( `${ dir }/style.css`, '/*\nTheme Name: Ungated\n*/' );
@@ -314,15 +354,19 @@ describe.runIf( WORDPRESS && EDITOR )( 'repeated raw font sizes made presets', (
 		expect( readFileSync( themeJson, 'utf8' ) ).toBe( '{"version":3}' );
 	}, 60000 );
 
-	it( 'leaves a size a preset has to the save through the editor, which stores it as the preset', async () => {
+	it( 'leaves a value a preset has to the save through the editor, which stores it as the preset', async () => {
 		const dir = 'wp-content/themes/studio-test-preset';
 		put( `${ dir }/style.css`, '/*\nTheme Name: Preset\n*/' );
 		const json = JSON.stringify( {
 			version: 3,
-			settings: { typography: { fontSizes: [ { slug: 'roast', size: '1.4rem', name: 'Roast' } ] } },
+			settings: {
+				typography: { fontSizes: [ { slug: 'roast', size: '1.4rem', name: 'Roast' } ] },
+				spacing: { spacingSizes: [ { slug: 'gap', size: '2.5rem', name: 'Gap' } ] },
+			},
 		} );
 		const themeJson = put( `${ dir }/theme.json`, json );
-		const template = put( `${ dir }/templates/index.html`, times( 3, sized ) );
+		const gap = paragraph( { spacing: { padding: { top: '2.5rem' } } } );
+		const template = put( `${ dir }/templates/index.html`, times( 3, sized ) + times( 3, gap ) );
 		expect( await notes( template ) ).toEqual( [] );
 		expect( readFileSync( themeJson, 'utf8' ) ).toBe( json );
 	}, 60000 );
@@ -340,12 +384,13 @@ describe.runIf( WORDPRESS && EDITOR )( 'repeated raw font sizes made presets', (
 			`${ dir }/templates/index.html`,
 			times( 3, sized ) + times( 3, gap ) + times( 3, fluid )
 		);
-		const [ note, made, ...rest ] = await notes( template );
+		const [ note, sizes, spacing, ...rest ] = await notes( template );
 		expect( rest ).toEqual( [] );
 		expect( note ).toContain(
-			'sets the same raw style values on several blocks: typography.fontSize clamp(1rem, 2vw, 2rem) on 3, spacing.padding.top 2.5rem on 3.'
+			'sets the same raw style values on several blocks: typography.fontSize clamp(1rem, 2vw, 2rem) on 3.'
 		);
-		expect( made ).toContain( 'it added size-1-4-rem (1.4rem)' );
+		expect( sizes ).toContain( 'it added size-1-4-rem (1.4rem)' );
+		expect( spacing ).toContain( 'it added size-2-5-rem (2.5rem)' );
 	}, 60000 );
 
 	it.each( [

@@ -261,7 +261,7 @@ describe.runIf( siteUrl )( 'storing palette colors as presets (live)', () => {
 		[ 'base', '#FFFFFF' ],
 		[ 'accent-3', '#503AA8' ],
 	];
-	const palette = { colors, fontSizes: [] };
+	const palette = { colors, fontSizes: [], spacingSizes: [] };
 
 	it( 'stores each color a palette color has as that preset, as the editor does', async () => {
 		const markup = group(
@@ -294,16 +294,20 @@ describe.runIf( siteUrl )( 'storing palette colors as presets (live)', () => {
 			'{"style":{"typography":{"fontSize":"1.4rem"}}}',
 			'<p style="font-size:1.4rem">Hi</p>'
 		);
-		expect( ( await storePresetValues( only, siteUrl!, { colors: [], fontSizes } ) ).content ).toBe(
-			paragraph( '{"fontSize":"roast"}', '<p class="has-roast-font-size">Hi</p>' )
-		);
+		expect(
+			( await storePresetValues( only, siteUrl!, { colors: [], fontSizes, spacingSizes: [] } ) )
+				.content
+		).toBe( paragraph( '{"fontSize":"roast"}', '<p class="has-roast-font-size">Hi</p>' ) );
 		const spacer =
 			'<!-- wp:spacer {"style":{"typography":{"fontSize":"1.4rem"}}} -->\n<div style="height:100px" aria-hidden="true" class="wp-block-spacer"></div>\n<!-- /wp:spacer -->';
 		expect( ( await validateBlocks( spacer, siteUrl! ) ).invalidBlocks ).toBe( 0 );
-		expect( await storePresetValues( spacer, siteUrl!, { colors: [], fontSizes } ) ).toEqual( {
+		expect(
+			await storePresetValues( spacer, siteUrl!, { colors: [], fontSizes, spacingSizes: [] } )
+		).toEqual( {
 			content: spacer,
 			colors: [],
 			fontSizes: [],
+			spacingSizes: [],
 		} );
 	} );
 
@@ -326,6 +330,7 @@ describe.runIf( siteUrl )( 'storing palette colors as presets (live)', () => {
 			content: markup,
 			colors: [],
 			fontSizes: [],
+			spacingSizes: [],
 		} );
 	} );
 
@@ -338,6 +343,7 @@ describe.runIf( siteUrl )( 'storing palette colors as presets (live)', () => {
 		const result = await storePresetValues( sized( '1.4rem' ) + sized( '1.5rem' ), siteUrl!, {
 			colors: [],
 			fontSizes: [ [ 'size-1-4-rem', '1.4rem' ] ],
+			spacingSizes: [],
 		} );
 		expect( result.fontSizes ).toEqual( [ { size: '1.4rem', slug: 'size-1-4-rem' } ] );
 		expect( result.content ).toBe(

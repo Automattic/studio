@@ -10,6 +10,7 @@
 import { adminCapabilities } from 'cli/ai/admin-capabilities';
 import { blockEditorScripts } from 'cli/ai/block-editor-scripts';
 import { renderedBlocks } from 'cli/ai/block-render-check';
+import { blockStyleClasses } from 'cli/ai/block-style-classes';
 import { blockTheme } from 'cli/ai/block-theme';
 import { childThemeCopies } from 'cli/ai/child-theme-copies';
 import { postContentChanges } from 'cli/ai/post-content-check';
@@ -76,6 +77,7 @@ export const SITE_CHANGE_SOURCES: SiteChangeSource[] = [
 	siteFileWrites,
 	adminCapabilities,
 	blockEditorScripts,
+	blockStyleClasses,
 ];
 
 async function localSites(): Promise< SiteData[] > {

@@ -1,18 +1,11 @@
-import dns from 'dns/promises';
-
 /**
- * Check if the system has internet connectivity by testing DNS resolution.
+ * Whether a `fetch()` failed without reaching the server: no network, a DNS failure, a
+ * refused or timed-out connection (`TypeError: fetch failed`), or an
+ * `AbortSignal.timeout()` that expired first (`TimeoutError`).
  */
-export async function isOnline(): Promise< boolean > {
-	try {
-		const timeoutPromise = new Promise( ( _, reject ) =>
-			setTimeout( () => reject( new Error( 'Timeout' ) ), 5000 )
-		);
-
-		await Promise.race( [ dns.resolve( 'public-api.wordpress.com' ), timeoutPromise ] );
-
-		return true;
-	} catch {
-		return false;
-	}
+export function isNetworkError( error: unknown ): boolean {
+	return (
+		( error instanceof TypeError && error.message === 'fetch failed' ) ||
+		( error instanceof Error && error.name === 'TimeoutError' )
+	);
 }

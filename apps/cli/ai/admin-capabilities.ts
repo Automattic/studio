@@ -20,11 +20,16 @@
  * In the same runs, and one with only the changed plugins or theme skipped,
  * Studio states what the changed code registers with WordPress: what the
  * registries hold only with it loaded.
+ *
+ * Site fact: what all the site's code registers, by registry, from the same
+ * registries with the code loaded and skipped, and where WordPress lists each.
  */
 import { activeCode } from 'cli/ai/active-code';
 import { runWpCli } from 'cli/ai/tools/utils';
+import { findSiteByFolder } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import type { SiteChangeSource, Versions } from 'cli/ai/site-changes';
+import type { WordPressSite } from 'cli/ai/site-database';
 import type { SiteData } from 'cli/lib/cli-config/core';
 
 const KEY = 'administrator capabilities';
@@ -207,6 +212,79 @@ function describeDenied( site: SiteData, user: number, denied: Denied[ 'caps' ] 
 			  ]
 			: [] ),
 	].join( ' ' );
+}
+
+// Where WordPress's REST API lists a registry's items, and the registries whose
+// items are named by namespace (namespace/name).
+const LISTED_AT: Record< string, string > = {
+	'post types': '/wp/v2/types',
+	taxonomies: '/wp/v2/taxonomies',
+	'REST routes': '/wp-json/',
+	'block types': '/wp/v2/block-types/<namespace>',
+	abilities: '/wp-abilities/v1/abilities',
+};
+const NAMESPACED = [ 'block types', 'abilities' ];
+
+function describeSiteCode( added: Registered ): string | undefined {
+	const holds = Object.keys( REGISTRIES ).filter( ( registry ) => added[ registry ]?.length );
+	if ( ! holds.length ) {
+		return undefined;
+	}
+	const counts = holds.map( ( registry ) => {
+		const namespaces = [
+			...new Set( added[ registry ].map( ( name ) => name.split( '/' )[ 0 ] ) ),
+		];
+		return `${ registry } ${ added[ registry ].length }${
+			NAMESPACED.includes( registry ) ? ` (namespace ${ list( namespaces ) })` : ''
+		}`;
+	} );
+	const listed = holds.filter( ( registry ) => LISTED_AT[ registry ] );
+	return `With the active plugins and theme loaded, WordPress registers, beyond core: ${ list(
+		counts
+	) }. Its REST API lists those shown in it: ${ listed
+		.map( ( registry ) => `${ registry } at ${ LISTED_AT[ registry ] }` )
+		.join( ', ' ) }.`;
+}
+
+// By site, the site's code it was read for and the fact, read again only when that code changes.
+const siteCodeFacts = new Map< string, { code: string; fact: Promise< string | undefined > } >();
+
+async function readSiteCodeFact( sitePath: string ): Promise< string | undefined > {
+	const site = await findSiteByFolder( sitePath );
+	if ( ! site ) {
+		return undefined;
+	}
+	try {
+		await connectToDaemon();
+		const [ withCode, core ] = [
+			await askWordPress( site, [] ),
+			await askWordPress( site, [ '--skip-plugins', '--skip-themes' ] ),
+		];
+		return describeSiteCode(
+			Object.fromEntries(
+				Object.entries( withCode.registered ).map( ( [ registry, names ] ) => [
+					registry,
+					names.filter( ( name ) => ! core.registered[ registry ]?.includes( name ) ),
+				] )
+			)
+		);
+	} catch {
+		// Code that does not load is reported by what runs it.
+		return undefined;
+	} finally {
+		await disconnectFromDaemon();
+	}
+}
+
+export async function siteCodeFact( site: WordPressSite ): Promise< string | undefined > {
+	const code = JSON.stringify( await readVersions( site.root ) );
+	const known = siteCodeFacts.get( site.root );
+	if ( known?.code === code ) {
+		return known.fact;
+	}
+	const fact = readSiteCodeFact( site.root );
+	siteCodeFacts.set( site.root, { code, fact } );
+	return fact;
 }
 
 export const adminCapabilities: SiteChangeSource = {

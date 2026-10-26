@@ -2,13 +2,19 @@ import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } f
 import os from 'os';
 import path from 'path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { adminCapabilities } from 'cli/ai/admin-capabilities';
+import { adminCapabilities, siteCodeFact } from 'cli/ai/admin-capabilities';
+import { readWordPressSite } from 'cli/ai/site-database';
+import { findSiteByFolder } from 'cli/lib/cli-config/sites';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import type { SiteData } from 'cli/lib/cli-config/core';
 
 vi.mock( 'cli/lib/daemon-client', () => ( {
 	connectToDaemon: vi.fn(),
 	disconnectFromDaemon: vi.fn(),
+} ) );
+vi.mock( 'cli/lib/cli-config/sites', async ( importOriginal ) => ( {
+	...( await importOriginal< typeof import('cli/lib/cli-config/sites') >() ),
+	findSiteByFolder: vi.fn(),
 } ) );
 vi.mock( 'cli/lib/run-wp-cli-command', async ( importOriginal ) => ( {
 	runWpCliCommand: vi.fn(
@@ -34,6 +40,7 @@ describe.runIf( WORDPRESS )(
 			const root = mkdtempSync( path.join( os.tmpdir(), 'admin-capabilities-' ) );
 			cpSync( WORDPRESS!, root, { recursive: true } );
 			site = { id: 'site', name: 'Reading Room', path: root } as SiteData;
+			vi.mocked( findSiteByFolder ).mockResolvedValue( site );
 		} );
 		afterEach( () => rmSync( site.path, { recursive: true, force: true } ) );
 
@@ -204,6 +211,32 @@ add_action( 'wp_abilities_api_init', function () {
 					summary:
 						'Reading Room: with plugin reading-list/reading-list.php loaded, WordPress registers post types book (register_post_type()); taxonomies genre (register_taxonomy(); with show_in_rest false, out of the REST API: genre); REST routes /bookclub/v1, /bookclub/v1/books, /wp/v2/book, /wp/v2/book/(?P<id>[\\d]+), /wp/v2/book/(?P<id>[\\d]+)/autosaves, /wp/v2/book/(?P<parent>[\\d]+)/autosaves/(?P<id>[\\d]+) (register_rest_route()); block types bookclub/shelf (register_block_type()); abilities bookclub/list-books (wp_register_ability(), in wp-includes/abilities-api.php); shortcodes book1, book2, book3, book4, book5, book6, book7, book8, book9, book10, book11, book12 and 2 more (add_shortcode()).',
 				} );
+			} );
+
+			it( 'states what the site’s code registers, read again when the code changes', async () => {
+				const fact = () => readWordPressSite( site.path, siteCodeFact );
+				await activate( plugin( '' ) );
+				expect( await fact() ).toBeUndefined();
+				await activate(
+					READING_LIST.replace(
+						"register_post_type( 'book', array( 'public' => true ) );",
+						"register_post_type( 'book', array( 'public' => true ) ); register_block_type( 'bookclub/shelf' ); register_block_type( 'shelves/row' ); add_shortcode( 'shelf', '__return_empty_string' );"
+					),
+					[ 'akismet/akismet.php' ]
+				);
+				vi.mocked( runWpCliCommand ).mockClear();
+				expect( await fact() ).toMatch(
+					/^With the active plugins and theme loaded, WordPress registers, beyond core: post types 1, REST routes \d+, block types 2 \(namespace bookclub and shelves\), abilities 1 \(namespace bookclub\) and shortcodes 1\. Its REST API lists those shown in it: post types at \/wp\/v2\/types, REST routes at \/wp-json\/, block types at \/wp\/v2\/block-types\/<namespace>, abilities at \/wp-abilities\/v1\/abilities\.$/
+				);
+				// Akismet's routes are the site's code too.
+				expect( Number( ( await fact() )?.match( /REST routes (\d+)/ )?.[ 1 ] ) ).toBeGreaterThan(
+					2
+				);
+				const runs = vi.mocked( runWpCliCommand ).mock.calls.length;
+				expect( runs ).toBeGreaterThan( 0 );
+				await setActive( [ 'reading-list/reading-list.php' ] );
+				expect( Number( ( await fact() )?.match( /REST routes (\d+)/ )?.[ 1 ] ) ).toBe( 2 );
+				expect( vi.mocked( runWpCliCommand ).mock.calls.length ).toBe( 2 * runs );
 			} );
 
 			it( 'states nothing when a plugin is only deactivated', async () => {

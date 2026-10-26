@@ -1,3 +1,4 @@
+import { siteCodeFact } from 'cli/ai/admin-capabilities';
 import { homepageFact } from 'cli/ai/front-page-template';
 import { hostOf } from 'cli/ai/hosts';
 import { activePluginsFact, comingSoonFact } from 'cli/ai/plugins';
@@ -51,6 +52,7 @@ const SITE_FACTS: SiteFact[] = [
 	homepageFact,
 	postCopiesFact,
 	activePluginsFact,
+	siteCodeFact,
 	savedCopiesFact,
 	comingSoonFact,
 ];

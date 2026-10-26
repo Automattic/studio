@@ -268,6 +268,42 @@ describe( 'Studio workspace', () => {
 		expect( connector.createSession ).toHaveBeenCalledTimes( createCalls );
 	} );
 
+	it.each( [ 'Settings', 'Rename' ] )(
+		'keeps chat hidden when opening and closing %s from site actions',
+		async ( action ) => {
+			const { history } = setup( {
+				signedIn: true,
+				sites: [ site( { running: true } ) ],
+				sessions: [ chat( { id: 'settings-chat', title: 'Existing chat' } ) ],
+				path: '/sessions/settings-chat',
+			} );
+			await screen.findByRole( 'button', { name: 'Hide chat' } );
+			const input = await findComposer();
+			await waitFor( () => expect( input ).toBeEnabled() );
+			fireEvent.change( input, { target: { value: 'Keep this draft' } } );
+			fireEvent.click( await screen.findByRole( 'button', { name: 'Hide chat' } ) );
+			await waitFor( () => expect( input.closest( '[aria-hidden="true"]' ) ).not.toBeNull() );
+			const chatPanel = input.closest( '[aria-hidden="true"]' )!;
+			fireEvent.click( screen.getByRole( 'button', { name: 'Site actions for My site' } ) );
+			fireEvent.click( await screen.findByRole( 'menuitem', { name: action } ) );
+			expect( await screen.findByRole( 'dialog', { name: 'Settings' } ) ).toBeVisible();
+			expect( chatPanel ).toHaveAttribute( 'aria-hidden', 'true' );
+			fireEvent.click( screen.getByRole( 'button', { name: 'Close settings' } ) );
+			await waitFor( () =>
+				expect( screen.queryByRole( 'dialog', { name: 'Settings' } ) ).not.toBeInTheDocument()
+			);
+			expect( chatPanel ).toHaveAttribute( 'aria-hidden', 'true' );
+			expect( history.location.pathname ).toBe( '/sessions/settings-chat' );
+			expect( input ).toHaveValue( 'Keep this draft' );
+			fireEvent.click(
+				within( screen.getByRole( 'group', { name: 'Sites' } ) ).getByRole( 'button', {
+					name: 'Existing chat',
+				} )
+			);
+			await waitFor( () => expect( chatPanel ).not.toHaveAttribute( 'aria-hidden', 'true' ) );
+		}
+	);
+
 	it( 'opens a new draft when the chat panel is hidden', async () => {
 		const { connector, history } = setup( {
 			signedIn: true,

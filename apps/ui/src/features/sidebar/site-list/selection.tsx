@@ -8,7 +8,7 @@ import { errorMessage, toast } from '@/data/app-messages';
 import { useSessions, useUpdateSessionMetadata } from '@/data/queries/use-sessions';
 import { chatPinKey, useSidebarPins } from '@/data/queries/use-sidebar-pins';
 import { useSites } from '@/data/queries/use-sites';
-import { getArchiveBlockedReason, useLeaveArchivedChat } from '@/features/chats';
+import { useLeaveArchivedChat } from '@/features/chats';
 import { useDeleteBlockedReason, DeleteSiteDialog } from '@/features/sites';
 import { ArchiveIcon, PinIcon, ReadStatusIcon, TrashIcon, UnpinIcon } from '@/lib/icons';
 import { isShortcut } from '@/lib/keyboard';
@@ -419,9 +419,6 @@ export function BulkMenu( {
 			<Menu.Separator />
 			{ chatIds.length > 0 ? (
 				<Menu.Group>
-					{ archiveBlocked ? (
-						<Menu.GroupLabel>{ getArchiveBlockedReason() }</Menu.GroupLabel>
-					) : null }
 					<Menu.Item
 						disabled={ archiveBlocked }
 						onClick={ () => void updateChats( { archived: true } ) }
@@ -438,7 +435,6 @@ export function BulkMenu( {
 			) : null }
 			{ siteIds.length > 0 ? (
 				<Menu.Group>
-					{ deleteBlocked ? <Menu.GroupLabel>{ deleteBlocked }</Menu.GroupLabel> : null }
 					<Menu.Item destructive disabled={ !! deleteBlocked } onClick={ confirmDelete }>
 						<TrashIcon />
 						{ sprintf(

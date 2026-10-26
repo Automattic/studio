@@ -412,7 +412,7 @@ async function createStudioAgentSession(
 	const localSite = site && ! site.remote ? site.path : undefined;
 	const siteNotes = createSiteNotes( {
 		// The Active site section already states this turn's facts.
-		stated: new Map( localSite ? [ [ localSite, activeSiteFacts ] ] : [] ),
+		stated: new Map( localSite ? [ [ path.resolve( localSite ), activeSiteFacts ] ] : [] ),
 		gate: blockValidationGate,
 	} );
 	// What a call changed on the request's sites, or on every local site until
@@ -429,7 +429,6 @@ async function createStudioAgentSession(
 			confirm,
 			sitePin,
 			siteNotes,
-			localSite,
 			siteChanges,
 		} )
 	);
@@ -716,15 +715,12 @@ function toToolDefinition(
 		confirm,
 		sitePin,
 		siteNotes,
-		localSite,
 		siteChanges,
 	}: {
 		confirm: Confirmer;
 		sitePin: SitePin;
 		siteNotes: SiteNotes;
 		siteChanges: SiteChanges;
-		// Studio's tools report on the site a call names, else the active site when it is a local one.
-		localSite?: string;
 	}
 ): ToolDefinition {
 	return {
@@ -804,7 +800,9 @@ function toToolDefinition(
 			const changed = await settled();
 			// The files the call wrote, by its file tool or otherwise, as a shell command does.
 			const written = new Set( [ ...( writtenFile ? [ writtenFile ] : [] ), ...changed.written ] );
-			const resultSite = ( await siteOfCall( tool, params ) )?.path ?? localSite;
+			// The site a call names, or else the request's own, whose facts any
+			// call can change, as a shell command installing a plugin does.
+			const resultSite = ( await siteOfCall( tool, params ) )?.path ?? sitePin.localRequestSite();
 			const resultText = result.content
 				.map( ( part ) => ( part.type === 'text' ? part.text : '' ) )
 				.join( '\n' );

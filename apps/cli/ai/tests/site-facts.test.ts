@@ -151,6 +151,8 @@ it( 'adds to a tool result the facts the agent does not have yet, as they now re
 	const said = ( ...lines: string[] ) => lines;
 	// The facts the Active site section stated.
 	expect( await notes() ).toEqual( [] );
+	// The same site, named by a path that resolves to it.
+	expect( await siteNotes.afterResult( `${ site.root }/`, '' ) ).toEqual( [] );
 
 	// A call activates WooCommerce, which turns on Coming soon mode; the
 	// plugins line replaces the one it was.

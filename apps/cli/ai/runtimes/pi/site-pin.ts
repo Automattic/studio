@@ -80,7 +80,7 @@ export class SitePin {
 	constructor( activeSite: SiteInfo | null | undefined ) {
 		if ( activeSite?.remote && activeSite.wpcomSiteId ) {
 			this.requestSite = remoteTarget( activeSite.wpcomSiteId, activeSite.name );
-		} else if ( activeSite?.path ) {
+		} else if ( activeSite?.path && ! activeSite.remote ) {
 			this.requestSite = localTarget( activeSite.path, activeSite.name );
 		}
 		if ( this.requestSite ) {
@@ -127,6 +127,12 @@ export class SitePin {
 			},
 			allow: () => this.allowed.add( target.key ),
 		};
+	}
+
+	// The request's own local site, as an absolute path: the active one, the one
+	// the turn created, or the first one it changed.
+	localRequestSite(): string | undefined {
+		return this.requestSite?.key.startsWith( 'wpcom:' ) ? undefined : this.requestSite?.key;
 	}
 
 	// The local sites the request may change, as absolute paths: none until it has one.

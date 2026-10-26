@@ -69,6 +69,7 @@ describe( 'SitePin', () => {
 
 	it( 'pins the first changed site when none is active, and includes sites the turn creates', async () => {
 		const pin = new SitePin( null );
+		expect( pin.localRequestSite() ).toBeUndefined();
 		expect( await pin.confirmationFor( 'site_import', { nameOrPath: 'Shop' } ) ).toBeUndefined();
 		await pin.created( 'New' );
 		expect( await pin.confirmationFor( 'Write', { path: '/sites/new/x.php' } ) ).toBeUndefined();
@@ -76,6 +77,14 @@ describe( 'SitePin', () => {
 			( await pin.confirmationFor( 'site_import', { nameOrPath: 'Blog' } ) )?.confirmation.question
 		).toBe( 'Also change "Blog"? This request is about "Shop".' );
 		expect( pin.localSitePaths() ).toEqual( [ '/sites/shop', '/sites/new' ] );
+		expect( pin.localRequestSite() ).toBe( '/sites/shop' );
+	} );
+
+	it( 'names the site a turn creates as its own when it has none', async () => {
+		const pin = new SitePin( null );
+		await pin.created( 'New' );
+		expect( pin.localRequestSite() ).toBe( '/sites/new' );
+		expect( new SitePin( shop ).localRequestSite() ).toBe( '/sites/shop' );
 	} );
 
 	it( 'asks before creating a site while the request has one, once', async () => {

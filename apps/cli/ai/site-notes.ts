@@ -75,8 +75,10 @@ function blockSettingsSource(): Sources[ 'result' ][ number ] {
 function siteFactsSource( stated: Map< string, string[][] > ): Sources[ 'result' ][ number ] {
 	return async ( sitePath ) => {
 		const facts = await readSiteFacts( sitePath );
-		const before = stated.get( sitePath ) ?? [];
-		stated.set( sitePath, facts );
+		// A site's path, as the config and the request name it, is one key.
+		const key = path.resolve( sitePath );
+		const before = stated.get( key ) ?? [];
+		stated.set( key, facts );
 		const added = facts.map( ( lines, i ) =>
 			lines.filter( ( line ) => ! before[ i ]?.includes( line ) )
 		);

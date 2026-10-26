@@ -1,4 +1,5 @@
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 import { ANTHROPIC_MODELS } from '@earendil-works/pi-ai/providers/anthropic.models';
 import { ModelRegistry, SessionManager } from '@earendil-works/pi-coding-agent';
@@ -620,6 +621,39 @@ describe( 'pi runtime', () => {
 			'<studio-notes>\nwrote /sites/a/wp-content/themes/t/style.css\nresult on /sites/a\n</studio-notes>',
 		] );
 		mocks.postChanges.written = [];
+	} );
+
+	it( 'restates the facts of the site a request without one first changes, after each call', async () => {
+		const config = fs.mkdtempSync( path.join( os.tmpdir(), 'pi-runtime-config-' ) );
+		const site = path.join( mocks.studioRoot, 'shop' );
+		fs.writeFileSync(
+			path.join( config, 'cli.json' ),
+			JSON.stringify( {
+				version: 1,
+				sites: [ { id: '1', name: 'Shop', path: site, port: 8881, phpVersion: '8.3' } ],
+			} )
+		);
+		vi.stubEnv( 'E2E', '1' );
+		vi.stubEnv( 'E2E_CLI_CONFIG_PATH', config );
+		try {
+			mocks.createdSessions.length = 0;
+			await runRuntime( { prompt: 'hello', env: WPCOM_ENV, session: newSession() } );
+			const bash = async () =>
+				( await getCreatedTool( 'Bash' ).execute( 'b', { command: 'true' } ) ).content.map(
+					( part ) => part.text
+				);
+			expect( await bash() ).toEqual( [ '' ] );
+			await getCreatedTool( 'Write' ).execute( 'w', { path: 'shop/style.css', content: '' } );
+			// As a shell command installing a plugin changes the site's facts.
+			expect( await bash() ).toEqual( [
+				'',
+				`<studio-notes>\nresult on ${ site }\n</studio-notes>`,
+			] );
+		} finally {
+			vi.unstubAllEnvs();
+			fs.rmSync( config, { recursive: true, force: true } );
+			fs.rmSync( site, { recursive: true, force: true } );
+		}
 	} );
 
 	it( 'reports the post content a call changed, from a snapshot taken before it', async () => {

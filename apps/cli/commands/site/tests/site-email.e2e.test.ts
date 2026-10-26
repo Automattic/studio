@@ -88,6 +88,9 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: site email', () => {
 		'saves email sent by a page and by WP-CLI',
 		{ tags: [ 'e2e' ], timeout: 120_000 },
 		async () => {
+			// The app's "Email" menu item opens the folder, so it's there before any email.
+			expect( fs.readdirSync( ( await emailOf( sitePath ) ).directory ) ).toEqual( [] );
+
 			const lostPassword = await fetch( `${ siteUrl }/wp-login.php?action=lostpassword`, {
 				method: 'POST',
 				body: new URLSearchParams( { user_login: 'admin', redirect_to: '' } ),

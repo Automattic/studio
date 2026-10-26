@@ -612,6 +612,9 @@ async function doStartServer(
 		const phpMyAdminWpEnvPath = await writeNativePhpMyAdminWpEnv( config );
 		const siteUrl = config.absoluteUrl || `http://localhost:${ config.port }`;
 		const autoPrependFile = writeSiteUrlPrependFile( siteUrl, config.autoPrependFile );
+		// Created up front so the folder opens from the app before the site sends any email.
+		const emailDirectory = getSiteEmailDirectory( config.siteId );
+		fs.mkdirSync( emailDirectory, { recursive: true } );
 		const workerPorts: number[] = [];
 		for ( let index = 0; index < NATIVE_PHP_WORKER_POOL_SIZE; index++ ) {
 			workerPorts.push( await getAvailablePort() );
@@ -639,7 +642,7 @@ async function doStartServer(
 				disallowRiskyFunctions: isFileAccessRestricted( config ),
 				enableXdebug: config.enableXdebug,
 				autoPrependFile,
-				emailDirectory: getSiteEmailDirectory( config.siteId ),
+				emailDirectory,
 				workerIndex: index,
 			} );
 			spawnedChildren.push( serverChild );

@@ -1,6 +1,7 @@
 import { vi } from 'vitest';
 import { readCliConfig } from 'cli/lib/cli-config/core';
 import { connectToDaemon, disconnectFromDaemon, listProcesses } from 'cli/lib/daemon-client';
+import { getSiteEmailDirectory } from 'cli/lib/site-email';
 import { SITE_LIST_PUBLIC_FIELDS } from 'cli/lib/site-public-fields';
 import { isServerRunning } from 'cli/lib/wordpress-server-manager';
 import { mockReportResult } from 'cli/tests/test-utils';
@@ -87,6 +88,7 @@ describe( 'CLI: studio site list', () => {
 					phpVersion: '8.0',
 					url: 'http://localhost:8080',
 					running: false,
+					emailPath: getSiteEmailDirectory( 'site-1' ),
 				},
 				{
 					id: 'site-2',
@@ -97,6 +99,7 @@ describe( 'CLI: studio site list', () => {
 					customDomain: 'my-site.wp.local',
 					url: 'http://my-site.wp.local',
 					running: false,
+					emailPath: getSiteEmailDirectory( 'site-2' ),
 				},
 			];
 			expect( consoleSpy ).toHaveBeenCalledWith( JSON.stringify( publicSites ) );

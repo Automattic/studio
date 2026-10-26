@@ -684,6 +684,15 @@ export function createIpcConnector(): Connector {
 			ipcApi.openLocalPath( sitePath );
 		},
 
+		async openSiteEmailFolder( siteId ): Promise< void > {
+			const sites = ( await ipcApi.getSiteDetails() ) as SiteDetails[];
+			const emailPath = sites.find( ( candidate ) => candidate.id === siteId )?.emailPath;
+			if ( ! emailPath ) {
+				throw new Error( `Site ${ siteId } not found` );
+			}
+			ipcApi.openLocalPath( emailPath );
+		},
+
 		async openSiteInEditor( siteId ): Promise< void > {
 			const sitePath = await resolveSiteFolder( siteId );
 			const editor = await resolveEditor();

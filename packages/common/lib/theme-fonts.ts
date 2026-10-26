@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { access, mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 /** A theme.json `fontFace` entry. */
@@ -138,6 +138,8 @@ interface FontFamilyPreset {
 export interface SelfHostedFonts {
 	/** Families whose font files were downloaded and declared. */
 	hosted: string[];
+	/** Of those, the families whose fontFace named files the theme does not have. */
+	missing: string[];
 	/** Families whose first font Google Fonts had no files for, with why. */
 	failed: { family: string; font: string; error: string }[];
 }
@@ -160,16 +162,54 @@ function weightsOf( styles: unknown ): string[] {
 	return [ ...weights ].sort();
 }
 
+// Whether a family's fontFace names a "file:./" source that is not a file of the
+// theme or of its parent, where WordPress looks for it: WP_Font_Face_Resolver's
+// to_theme_file_uri() (wp-includes/fonts/class-wp-font-face-resolver.php) takes
+// it through get_theme_file_uri() (wp-includes/link-template.php).
+async function namesMissingFiles( family: FontFamilyPreset, dirs: string[] ): Promise< boolean > {
+	const files = ( family.fontFace ?? [] ).flatMap( ( face ) => {
+		const src = ( face as { src?: unknown } )?.src;
+		return ( Array.isArray( src ) ? src : [ src ] ).filter(
+			( file ): file is string => typeof file === 'string' && file.startsWith( 'file:./' )
+		);
+	} );
+	const found = await Promise.all(
+		files.map( async ( file ) => {
+			for ( const dir of dirs ) {
+				if (
+					await access( path.join( dir, file.slice( 'file:./'.length ) ) ).then(
+						() => true,
+						() => false
+					)
+				) {
+					return true;
+				}
+			}
+			return false;
+		} )
+	);
+	return found.includes( false );
+}
+
+// The theme's folder, then its parent's, by the Template header of its style.css.
+async function themeDirs( themeDir: string ): Promise< string[] > {
+	const css = await readFile( path.join( themeDir, 'style.css' ), 'utf8' ).catch( () => '' );
+	const parent = css.match( /^[ \t/*#@]*Template:(.*)$/im )?.[ 1 ].trim();
+	return parent ? [ themeDir, path.join( path.dirname( themeDir ), parent ) ] : [ themeDir ];
+}
+
 /**
  * Self-hosts a theme's fonts: each font family preset in its theme.json that
- * declares no font files gets them from Google Fonts, in the weights its styles
- * use, downloaded into assets/fonts and declared as its `fontFace`.
+ * declares no font files, or names files the theme does not have, gets them
+ * from Google Fonts, in the weights its styles use, downloaded into
+ * assets/fonts and declared as its `fontFace`.
  */
 export async function selfHostThemeJsonFonts( themeDir: string ): Promise< SelfHostedFonts > {
 	const themeJsonPath = path.join( themeDir, 'theme.json' );
 	const themeJson = JSON.parse( await readFile( themeJsonPath, 'utf8' ) );
 	const families: FontFamilyPreset[] = themeJson?.settings?.typography?.fontFamilies ?? [];
-	const result: SelfHostedFonts = { hosted: [], failed: [] };
+	const result: SelfHostedFonts = { hosted: [], missing: [], failed: [] };
+	const dirs = await themeDirs( themeDir );
 	for ( const family of families ) {
 		// The font the browser asks for first; the preset's name is only its label.
 		const font = family.fontFamily
@@ -177,7 +217,8 @@ export async function selfHostThemeJsonFonts( themeDir: string ): Promise< SelfH
 			.trim()
 			.replace( /^['"]|['"]$/g, '' );
 		const name = family.name ?? font;
-		if ( family.fontFace?.length || ! font || ! name ) {
+		const missing = !! family.fontFace?.length && ( await namesMissingFiles( family, dirs ) );
+		if ( ( family.fontFace?.length && ! missing ) || ! font || ! name ) {
 			continue;
 		}
 		const url = `https://fonts.googleapis.com/css2?family=${ font.replace(
@@ -187,6 +228,9 @@ export async function selfHostThemeJsonFonts( themeDir: string ): Promise< SelfH
 		try {
 			family.fontFace = Object.values( await downloadThemeFonts( url, themeDir ) ).flat();
 			result.hosted.push( name );
+			if ( missing ) {
+				result.missing.push( name );
+			}
 		} catch ( error ) {
 			result.failed.push( {
 				family: name,

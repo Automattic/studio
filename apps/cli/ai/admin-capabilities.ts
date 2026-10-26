@@ -25,6 +25,7 @@
  * registries with the code loaded and skipped, and where WordPress lists each.
  */
 import { activeCode } from 'cli/ai/active-code';
+import { describeRemoteFonts, REMOTE_STYLES, type RemoteStyles } from 'cli/ai/remote-font-styles';
 import { runWpCli } from 'cli/ai/tools/utils';
 import { findSiteByFolder } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
@@ -101,7 +102,7 @@ foreach ( $admins && $role ? array_keys( array_filter( $role->capabilities ) ) :
 	}
 	$denied['caps']->$cap = array( 'mapped' => map_meta_cap( $cap, $denied['user'] ), 'types' => $types );
 }
-echo 'DENIED_CAPS=' . wp_json_encode( $denied );`;
+echo 'DENIED_CAPS=' . wp_json_encode( $denied ) . "\\n";`;
 
 // What WordPress prints after a marker, on its line.
 const printed = ( output: string, marker: string ) =>
@@ -110,9 +111,15 @@ const printed = ( output: string, marker: string ) =>
 async function askWordPress(
 	site: SiteData,
 	skip: string[]
-): Promise< { denied: Denied; registered: Registered; outOfRest: Registered } > {
-	const output = await runWpCli( site, [ 'eval', REGISTERED + DENIED, ...skip ] );
+): Promise< {
+	denied: Denied;
+	registered: Registered;
+	outOfRest: Registered;
+	remoteStyles: RemoteStyles;
+} > {
+	const output = await runWpCli( site, [ 'eval', REGISTERED + DENIED + REMOTE_STYLES, ...skip ] );
 	return {
+		remoteStyles: printed( output, 'REMOTE_STYLES=' ),
 		denied: printed( output, 'DENIED_CAPS=' ),
 		registered: printed( output, 'REGISTERED=' ),
 		outOfRest: printed( output, 'OUT_OF_REST=' ),
@@ -319,6 +326,9 @@ export const adminCapabilities: SiteChangeSource = {
 				names.filter( ( name ) => ! without.registered[ registry ]?.includes( name ) ),
 			] )
 		);
+		const remoteFonts = changed.length
+			? await describeRemoteFonts( site, without.remoteStyles, withCode.remoteStyles )
+			: undefined;
 		return {
 			reports: [
 				{
@@ -335,6 +345,7 @@ export const adminCapabilities: SiteChangeSource = {
 							},
 					  ]
 					: [] ),
+				...( remoteFonts ? [ { key: 'remote fonts', summary: remoteFonts } ] : [] ),
 			],
 		};
 	},

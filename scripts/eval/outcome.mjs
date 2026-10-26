@@ -367,12 +367,24 @@ export const sawDesktopAndMobile = check( ( d, vars ) => {
 
 // The reply names each related site with the right kind: the preview as a
 // temporary preview, the connected site as a WordPress.com remote site.
+// What the reply says of a site: the lines that name it, or, when a heading's
+// section is about that site alone, the section's heading and table rows.
 export const classifiesPreviewAndRemote = check( ( d ) => {
-	const lines = reply( d ).split( /\r?\n/ );
-	const about = ( needle ) =>
-		lines.filter( ( l ) => l.toLowerCase().includes( needle ) ).join( ' ' );
-	const preview = about( 'abc123-studio.wp.build' );
-	const remote = about( 'myprod.wordpress.com' ) || about( 'my production site' );
+	const text = reply( d ).toLowerCase();
+	const sections = text.split( /\r?\n(?=#{1,6}\s)/ );
+	const sites = [ [ 'abc123-studio.wp.build' ], [ 'myprod.wordpress.com', 'my production site' ] ];
+	const about = ( names, others ) => {
+		const named = ( t ) => names.some( ( n ) => t.includes( n ) );
+		const own = sections.filter( ( t ) => named( t ) && ! others.some( ( n ) => t.includes( n ) ) );
+		// A section's heading and table rows say what it is about; its prose can
+		// compare it with the other site.
+		const fields = own.flatMap( ( t ) =>
+			t.split( /\r?\n/ ).filter( ( l ) => /^\s*(#|\|)/.test( l ) )
+		);
+		return own.length ? fields.join( ' ' ) : text.split( /\r?\n/ ).filter( named ).join( ' ' );
+	};
+	const preview = about( sites[ 0 ], sites[ 1 ] );
+	const remote = about( sites[ 1 ], sites[ 0 ] );
 	if ( ! preview || ! /preview|temporary/i.test( preview ) )
 		return fail(
 			`the preview site is not described as a preview: ${ preview || '(not mentioned)' }`

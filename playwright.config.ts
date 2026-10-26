@@ -1,15 +1,8 @@
 import { defineConfig } from '@playwright/test';
 
 export default defineConfig( {
+	testDir: './apps/studio/e2e',
 	snapshotPathTemplate: '{testDir}/__screenshots__/{testFilePath}/{arg}{ext}',
-
-	projects: [
-		{ name: 'studio', testDir: './apps/studio/e2e' },
-		// Critical flows in the agentic UI: the packaged Desktop app, and `studio ui`
-		// in a browser (tests with "browser" in their title).
-		{ name: 'ui-desktop', testDir: './apps/ui/e2e', grepInvert: /browser/ },
-		{ name: 'ui-web', testDir: './apps/ui/e2e', grep: /browser/ },
-	],
 
 	// Downloads the data-heavy import fixtures declared in
 	// test-fixtures/manifest.json before the suite runs.

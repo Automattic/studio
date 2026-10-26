@@ -1,0 +1,29 @@
+@layer ui {
+	.frame {
+		composes: imageOutline from '@/lib/theme/recipes.module.css';
+		position: relative;
+		display: block;
+		width: 100%;
+		aspect-ratio: 16 / 10;
+		overflow: hidden;
+		border-radius: var( --radius-sm );
+		background-color: var( --muted );
+	}
+
+	.frame::after {
+		z-index: 1;
+	}
+
+	.image {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+		object-position: top;
+	}
+
+	.skeleton {
+		position: absolute;
+		inset: 0;
+		border-radius: 0;
+	}
+}

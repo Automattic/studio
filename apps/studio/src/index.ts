@@ -34,7 +34,7 @@ import {
 	getPlatformMetric,
 	StatsGroup,
 } from 'src/lib/bump-stats';
-import { handleDeeplink } from 'src/lib/deeplink';
+import { markStudioStarted, openDeeplink } from 'src/lib/deeplink';
 import {
 	getSavedLocale,
 	getSupportedLocale,
@@ -377,12 +377,21 @@ async function appBoot() {
 	function setupCustomProtocolHandler() {
 		if ( process.platform === 'darwin' ) {
 			app.on( 'open-url', ( _event, url ) => {
-				void handleDeeplink( url );
+				openDeeplink( url );
 			} );
 		} else {
 			// Handle custom protocol links on Windows and Linux
+			// A link that launches Studio arrives in its own arguments.
+			const launchLink = process.argv.find( ( arg ) => arg.startsWith( PROTOCOL_PREFIX ) );
+			if ( launchLink ) {
+				openDeeplink( launchLink );
+			}
 			app.on( 'second-instance', async ( _event, argv ) => {
+				const customProtocolParameter = argv?.find( ( arg ) => arg.startsWith( PROTOCOL_PREFIX ) );
 				if ( ! finishedInitialization ) {
+					if ( customProtocolParameter ) {
+						openDeeplink( customProtocolParameter );
+					}
 					return;
 				}
 
@@ -394,9 +403,8 @@ async function appBoot() {
 					mainWindow.focus();
 				}
 
-				const customProtocolParameter = argv?.find( ( arg ) => arg.startsWith( PROTOCOL_PREFIX ) );
 				if ( customProtocolParameter ) {
-					void handleDeeplink( customProtocolParameter );
+					openDeeplink( customProtocolParameter );
 				}
 			} );
 		}
@@ -535,6 +543,7 @@ async function appBoot() {
 		await autoInstallLinuxCliIfNeeded();
 
 		finishedInitialization = true;
+		markStudioStarted();
 	} );
 
 	// Quit when all windows are closed, except on macOS. There, it's common
@@ -581,7 +590,7 @@ async function appBoot() {
 					  }
 					: {
 							message: __( 'Sync will continue' ),
-							detail: __( 'The sync will keep running after you quit Studio.' ),
+							detail: __( 'The sync will keep running after you quit WordPress Studio.' ),
 							type: 'info',
 					  };
 
@@ -623,8 +632,8 @@ async function appBoot() {
 					type: 'question',
 					message: _n( 'Keep the site running?', 'Keep the sites running?', runningSiteCount ),
 					detail: _n(
-						'Your site can stay available in the background after Studio quits.',
-						'Your sites can stay available in the background after Studio quits.',
+						'Your site can stay available in the background after WordPress Studio quits.',
+						'Your sites can stay available in the background after WordPress Studio quits.',
 						runningSiteCount
 					),
 					buttons: [

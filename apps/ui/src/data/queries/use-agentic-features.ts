@@ -4,11 +4,11 @@ import {
 	useUserPreferences,
 	USER_PREFERENCES_QUERY_KEY,
 } from '@/data/queries/use-user-preferences';
-import { useOffline } from '@/hooks/use-offline';
+import { useOffline } from '@/lib/hooks';
 import type { AuthUser, Connector } from '@/data/core';
 import type { QueryClient } from '@tanstack/react-query';
 
-export type AgenticFeatureReason = 'signed-out' | 'offline' | null;
+type AgenticFeatureReason = 'signed-out' | 'offline' | null;
 
 interface AgenticFeatures {
 	// Whether the host can reach the agentic backend at all (online + signed

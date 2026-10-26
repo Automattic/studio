@@ -6,7 +6,7 @@ import type { RouterContext } from '../layout-root';
 import type { SiteDetails } from '@/data/core';
 
 // Leaves a site page whose site went away.
-export function useLeaveDeletedSite( siteId: string ) {
+function useLeaveDeletedSite( siteId: string ) {
 	const navigate = useNavigate();
 	const { data: sites } = useSites();
 	const siteExists = sites?.some( ( site ) => site.id === siteId ) ?? true;
@@ -17,7 +17,7 @@ export function useLeaveDeletedSite( siteId: string ) {
 	}, [ siteExists, navigate ] );
 }
 
-export async function assertSiteExists( siteId: string, context: RouterContext ) {
+async function assertSiteExists( siteId: string, context: RouterContext ) {
 	const cachedSites = context.queryClient.getQueryData< SiteDetails[] >( SITES_QUERY_KEY );
 	const sites = cachedSites?.some( ( site ) => site.id === siteId )
 		? cachedSites
@@ -41,5 +41,9 @@ export const siteHomeRoute = createRoute( {
 	getParentRoute: () => dashboardLayoutRoute,
 	path: '/sites/$siteId',
 	beforeLoad: ( { params, context } ) => assertSiteExists( params.siteId, context ),
+	// Keeps the workspace shell, its sidebar loading, while sites load.
+	pendingComponent: () => null,
+	pendingMs: 0,
+	pendingMinMs: 0,
 	component: SiteHome,
 } );

@@ -45,7 +45,7 @@ export async function installStudioCli(): Promise< void > {
 		const { response } = await dialog.showMessageBox( mainWindow, {
 			type: 'warning',
 			buttons: [ __( 'Proceed' ), __( 'Cancel' ) ],
-			title: 'You are running a development version of Studio',
+			title: 'You are running a development version of WordPress Studio',
 			message:
 				'If you proceed with the CLI installation, the CLI will use the system-level `node` runtime to execute commands instead of the Electron node runtime (which is what is used in production).',
 		} );
@@ -69,9 +69,9 @@ export async function uninstallStudioCli(): Promise< void > {
 		const { response } = await dialog.showMessageBox( mainWindow, {
 			type: 'warning',
 			buttons: [ __( 'Proceed' ), __( 'Cancel' ) ],
-			title: 'You are running a development version of Studio',
+			title: 'You are running a development version of WordPress Studio',
 			message:
-				'By uninstalling the CLI, you may be removing a version that uses the Electron runtime to execute commands. If you install the CLI again using a development version of Studio, a different node runtime will be used to execute commands.',
+				'By uninstalling the CLI, you may be removing a version that uses the Electron runtime to execute commands. If you install the CLI again using a development version of WordPress Studio, a different node runtime will be used to execute commands.',
 		} );
 
 		if ( response === 1 ) {

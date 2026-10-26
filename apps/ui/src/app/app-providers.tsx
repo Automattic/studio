@@ -1,21 +1,22 @@
 import { QueryClientProvider } from '@tanstack/react-query';
 import { defaultI18n } from '@wordpress/i18n';
 import { I18nProvider } from '@wordpress/react-i18n';
+import { LucideProvider } from 'lucide-react';
 import { useLayoutEffect } from 'react';
-import { OnboardingGuideProvider } from '@/components/onboarding-guide/use-onboarding-guide';
-import { TooltipProvider } from '@/components/ui/tooltip';
+import { AgentRunProvider } from '@/data/agent-runs/provider';
 import { ConnectorProvider, queryClient } from '@/data/core';
-import { AgentRunProvider } from '@/data/queries/use-agent-run';
+import { useColorScheme } from '@/data/host/use-color-scheme';
 import { useSyncAppUpdateStatus } from '@/data/queries/use-app-update';
-import { useAuthChangeToasts } from '@/data/queries/use-auth-user';
+import { useAuthChangeToasts, useSyncAuthUserWithEvents } from '@/data/queries/use-auth-user';
 import { useSyncSessionsWithEvents } from '@/data/queries/use-sessions';
 import { useAutoStartSites, useSyncSitesWithEvents } from '@/data/queries/use-sites';
 import { useSyncSnapshotsWithEvents } from '@/data/queries/use-snapshots';
 import { useSyncActivityEvents } from '@/data/queries/use-sync-site';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
-import { useColorScheme } from '@/hooks/use-color-scheme';
-import { useSyncConnectSiteListener } from '@/hooks/use-sync-connect-site-listener';
+import { OnboardingGuideProvider } from '@/features/onboarding';
+import { useSyncConnectSiteListener } from '@/features/sync';
 import { applyTheme } from '@/lib/theme';
+import { TooltipProvider } from '@/lib/ui';
 import type { Connector } from '@/data/core';
 import type { PropsWithChildren } from 'react';
 
@@ -28,6 +29,7 @@ function SiteEventsBridge() {
 	useSyncSnapshotsWithEvents();
 	useSyncSessionsWithEvents();
 	useSyncActivityEvents();
+	useSyncAuthUserWithEvents();
 	useSyncConnectSiteListener();
 	useAutoStartSites();
 	useSyncAppUpdateStatus();
@@ -48,9 +50,11 @@ function ThemedApp( { children }: PropsWithChildren ) {
 		[ colorScheme, accentColor, tintIntensity, contrast ]
 	);
 	return (
-		<TooltipProvider>
-			<OnboardingGuideProvider>{ children }</OnboardingGuideProvider>
-		</TooltipProvider>
+		<LucideProvider size={ 16 }>
+			<TooltipProvider>
+				<OnboardingGuideProvider>{ children }</OnboardingGuideProvider>
+			</TooltipProvider>
+		</LucideProvider>
 	);
 }
 

@@ -1,0 +1,44 @@
+.scopes {
+	margin: var( --space-3 ) var( --space-3 ) 0;
+}
+
+.search {
+	width: auto;
+	margin: var( --space-3 ) var( --space-3 ) 0;
+}
+
+.empty {
+	padding: var( --space-4 ) var( --space-5 );
+	text-align: center;
+	color: var( --muted-foreground );
+	font-size: var( --text-xs );
+}
+
+.actions {
+	display: contents;
+}
+
+.hidden {
+	display: none;
+}
+
+/* The setting picked from the search results. */
+.content :global( [data-settings-match] ) {
+	margin-inline: calc( var( --space-3 ) * -1 );
+	padding-inline: var( --space-3 );
+	/* eslint-disable-next-line studio/use-theme-tokens -- the search highlight, which the rebuild shapes per row. */
+	border-radius: 8px;
+	background: color-mix( in srgb, var( --accent-text ) 12%, transparent );
+	transition: background-color var( --motion-duration-layout );
+}
+
+.sections {
+	display: flex;
+	flex-direction: column;
+	gap: var( --space-8 );
+}
+
+.error {
+	color: var( --destructive );
+	font-size: var( --text-xs );
+}

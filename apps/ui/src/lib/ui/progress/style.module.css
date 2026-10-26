@@ -1,0 +1,34 @@
+@layer ui {
+	.root {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var( --space-3 );
+	}
+
+	.track {
+		position: relative;
+		display: flex;
+		align-items: center;
+		width: 100%;
+		height: 4px;
+		overflow-x: hidden;
+		border-radius: var( --radius-full );
+		background-color: var( --muted );
+	}
+
+	[data-slot='field-group'][data-variant='settings'] .track {
+		background-color: var( --border );
+	}
+
+	.indicator {
+		height: 100%;
+		background-color: var( --primary );
+		transition: width var( --motion-duration-feedback ) linear;
+	}
+
+	@media ( prefers-reduced-motion: reduce ) {
+		.indicator {
+			transition: none;
+		}
+	}
+}

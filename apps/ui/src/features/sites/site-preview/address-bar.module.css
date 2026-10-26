@@ -1,0 +1,90 @@
+.addressBar {
+	position: relative;
+	display: flex;
+	width: 100%;
+	max-width: 416px;
+	flex: 1 1 auto;
+	min-width: 0;
+	height: var( --control-size );
+	padding-inline: var( --space-3 );
+	align-items: center;
+	border: 1px solid var( --border );
+	border-radius: var( --radius-full );
+	overflow: hidden;
+}
+
+.addressBar:focus-within {
+	border-color: var( --ring );
+	box-shadow: inset 0 0 0 1px var( --ring );
+}
+
+.addressBar:has( .input[aria-invalid='true'] ) {
+	border-color: var( --destructive );
+	--ring: var( --destructive );
+}
+
+.siteIcon {
+	display: inline-flex;
+	width: 16px;
+	height: 16px;
+	flex: 0 0 16px;
+	align-items: center;
+	justify-content: center;
+	cursor: default;
+}
+
+.actions {
+	position: absolute;
+	inset-block: 0;
+	inset-inline-end: var( --space-0_5 );
+	display: flex;
+	align-items: center;
+	opacity: 0;
+	pointer-events: none;
+	transition: opacity var( --motion-duration-feedback ) ease;
+}
+
+.addressBar:is( :hover, :focus-within ) .actions {
+	opacity: 1;
+	pointer-events: auto;
+}
+
+/* Out of the way while typing an address. */
+.addressBar:has( .input:focus ) .actions {
+	opacity: 0;
+	pointer-events: none;
+}
+
+.siteIcon:focus-visible {
+	outline: var( --focus-width ) solid var( --ring );
+	outline-offset: 2px;
+	/* eslint-disable-next-line studio/use-theme-tokens -- a focus ring around the site icon. */
+	border-radius: 6px;
+}
+
+.input {
+	width: 100%;
+	min-width: 0;
+	/* Balances the realm icon, so the address centres on the whole field. */
+	padding-inline: var( --space-1 ) var( --space-5 );
+	color: var( --foreground );
+	font-size: var( --text-xs );
+	line-height: var( --text-xs--line-height );
+	text-align: center;
+	outline: 0;
+}
+
+.input:focus {
+	text-align: start;
+}
+
+.shortcutsPopup {
+	width: var( --anchor-width );
+	max-width: calc( 100vw - 16px );
+	padding: var( --space-1_5 );
+}
+
+/* Rows rounded for the menu surface rather than the composer's. */
+.shortcuts {
+	--command-radius: var( --radius-md );
+}

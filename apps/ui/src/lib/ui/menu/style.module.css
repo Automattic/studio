@@ -1,0 +1,44 @@
+@layer ui {
+	.positioner {
+		z-index: var( --z-popover );
+		outline: none;
+	}
+
+	.popup {
+		display: flex;
+		flex-direction: column;
+		min-width: 160px;
+	}
+
+	.destructive {
+		color: var( --destructive );
+	}
+
+	.destructive[data-highlighted] {
+		background-color: var( --destructive-hover );
+		color: var( --destructive );
+	}
+
+	.submenuChevron {
+		flex-shrink: 0;
+		margin-inline-start: auto;
+		color: var( --muted-foreground );
+		rotate: -90deg;
+	}
+
+	.shortcut {
+		margin-inline-start: auto;
+		padding-inline-start: var( --space-3 );
+		color: var( --muted-foreground );
+		font-size: var( --text-xs );
+		letter-spacing: 0.1em;
+	}
+
+	.groupLabel {
+		padding: var( --space-1 ) var( --space-1_5 );
+		color: var( --muted-foreground );
+		font-size: var( --text-xs );
+		font-weight: var( --font-weight-medium );
+		line-height: var( --text-xs--line-height );
+	}
+}

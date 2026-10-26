@@ -42,8 +42,6 @@ const api: IpcApi = {
 	deletePreviewSite: ( hostname ) => ipcRendererInvoke( 'deletePreviewSite', hostname ),
 	renamePreviewSite: ( hostname, name ) => ipcRendererInvoke( 'renamePreviewSite', hostname, name ),
 	deleteAllSnapshots: () => ipcRendererInvoke( 'deleteAllSnapshots' ),
-	getLastSeenVersion: () => ipcRendererInvoke( 'getLastSeenVersion' ),
-	saveLastSeenVersion: ( version ) => ipcRendererInvoke( 'saveLastSeenVersion', version ),
 	getSiteDetails: () => ipcRendererInvoke( 'getSiteDetails' ),
 	openSiteURL: ( id, relativeURL = '', { autoLogin = true } = {} ) =>
 		ipcRendererSend( 'openSiteURL', id, relativeURL, { autoLogin } ),
@@ -89,6 +87,7 @@ const api: IpcApi = {
 	showErrorMessageBox: ( options ) => ipcRendererSend( 'showErrorMessageBox', options ),
 	setupAppMenu: () => ipcRendererInvoke( 'setupAppMenu' ),
 	popupAppMenu: ( position ) => ipcRendererSend( 'popupAppMenu', position ),
+	readyForDeeplinks: () => ipcRendererSend( 'readyForDeeplinks' ),
 	getAbsolutePathFromSite: ( siteId, relativePath ) =>
 		ipcRendererInvoke( 'getAbsolutePathFromSite', siteId, relativePath ),
 	getConnectedWpcomSites: ( localSiteId ) =>

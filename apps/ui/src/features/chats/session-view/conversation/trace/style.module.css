@@ -1,0 +1,110 @@
+.activity {
+	display: flex;
+	flex-direction: column;
+}
+
+.toolRow + .toolRow {
+	margin-top: calc( var( --space-4 ) * -1 );
+}
+
+.toolDetails {
+	display: flex;
+	flex-direction: column;
+	gap: var( --space-2 );
+	min-width: 0;
+	margin-block: var( --space-2 ) var( --space-1 );
+	margin-inline-start: 7px;
+	padding-inline: var( --space-3 ) var( --space-1 );
+	border-inline-start: 1px solid var( --border );
+	color: var( --muted-foreground );
+	font-size: var( --text-xs );
+	line-height: var( --text-xs--line-height );
+	overflow-wrap: break-word;
+}
+
+.activityProgress {
+	composes: truncate from '@/lib/theme/recipes.module.css';
+	color: var( --muted-foreground );
+	font-size: var( --text-xs );
+	line-height: var( --text-xs--line-height );
+	opacity: 0.8;
+}
+
+.traceLine {
+	display: flex;
+	align-items: center;
+	gap: var( --space-2 );
+	min-width: 0;
+	max-width: 100%;
+	color: var( --muted-foreground );
+	font-size: var( --text-xs );
+	line-height: var( --text-xs--line-height );
+}
+
+.traceLine svg {
+	flex: none;
+}
+
+.traceTitle {
+	composes: truncate from '@/lib/theme/recipes.module.css';
+	min-width: 0;
+}
+
+.traceTrigger {
+	appearance: none;
+	display: flex;
+	align-items: center;
+	gap: var( --space-1 );
+	width: fit-content;
+	max-width: 100%;
+	min-width: 0;
+	border-radius: var( --radius-md );
+	color: var( --muted-foreground );
+	text-align: start;
+	cursor: pointer;
+	transition: color var( --motion-duration-feedback ) ease;
+}
+
+.traceTrigger:hover {
+	color: var( --foreground );
+}
+
+.traceTrigger .traceLine {
+	color: inherit;
+}
+
+.traceTrigger:has( [data-status='error'] ),
+.traceLine[data-status='error'] {
+	color: var( --destructive );
+}
+
+.traceTrigger:focus-visible {
+	outline: var( --focus-width ) solid var( --ring );
+	outline-offset: 2px;
+}
+
+.traceChevron {
+	flex: none;
+	transition: rotate var( --motion-duration-feedback ) ease;
+}
+
+.traceTrigger[aria-expanded='true'] .traceChevron {
+	rotate: 90deg;
+}
+
+.traceChevron:dir( rtl ) {
+	scale: -1 1;
+}
+
+.traceTrigger[aria-expanded='true'] .traceChevron:dir( rtl ) {
+	rotate: -90deg;
+}
+
+.toolCode pre {
+	padding: var( --space-2 );
+}
+
+.toolOutput {
+	font: inherit;
+	white-space: pre-wrap;
+}

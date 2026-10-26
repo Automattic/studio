@@ -1,0 +1,158 @@
+@import '@fontsource-variable/inter';
+
+/* Vazirmatn (SIL OFL, see ./fonts/OFL.txt) — the macOS system font lacks
+   Central Kurdish glyphs (e.g. ێ ۆ ڵ). Applied to the ckb locale below. */
+@font-face {
+	font-family: 'Vazirmatn';
+	src: url( './fonts/Vazirmatn-Variable.woff2' ) format( 'woff2' );
+	font-weight: 100 900;
+	font-style: normal;
+	font-display: swap;
+}
+
+/* `lang` is set on bootstrap in lib/apply-user-preferences.ts. */
+:root:lang( ckb ) {
+	--font-sans: 'Vazirmatn', -apple-system, system-ui, 'Segoe UI', 'Roboto', 'Oxygen-Sans', 'Ubuntu',
+		'Cantarell', 'Helvetica Neue', sans-serif;
+}
+
+/* Tokens stay light until app-providers.tsx sets `data-color-scheme`: until
+   then, show the Desktop window's dark background (the sidebar's colour)
+   instead of a full light page. */
+:root:not( [data-color-scheme] ) {
+	color-scheme: light dark;
+}
+
+:root:not( [data-color-scheme] ) body {
+	background-color: transparent;
+}
+
+body {
+	font-family: var( --font-sans );
+	font-size: var( --text-sm );
+	line-height: var( --text-sm--line-height );
+	background-color: var( --chrome );
+	color: var( --foreground );
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+}
+
+@layer base {
+	/* A reset in the spirit of Tailwind's preflight: components start from no
+	   margins, padding, borders or list markers, size with border-box, and
+	   form controls take the surrounding text style. */
+	*,
+	::before,
+	::after,
+	::backdrop {
+		box-sizing: border-box;
+		margin: 0;
+		padding: 0;
+		border: 0 solid;
+	}
+
+	html {
+		tab-size: 4;
+	}
+
+	h1,
+	h2,
+	h3,
+	h4,
+	h5,
+	h6 {
+		font-size: inherit;
+		font-weight: inherit;
+	}
+
+	a {
+		color: inherit;
+		text-decoration: inherit;
+	}
+
+	code,
+	kbd,
+	samp,
+	pre {
+		font-family: var( --font-mono );
+		font-size: 1em;
+	}
+
+	table {
+		border-collapse: collapse;
+	}
+
+	ol,
+	ul,
+	menu {
+		list-style: none;
+	}
+
+	img,
+	svg,
+	video,
+	canvas,
+	iframe {
+		display: block;
+	}
+
+	button,
+	input,
+	select,
+	textarea {
+		font: inherit;
+		letter-spacing: inherit;
+		color: inherit;
+		background-color: transparent;
+	}
+
+	b,
+	strong {
+		font-weight: var( --font-weight-medium );
+	}
+}
+
+@keyframes studio-spin {
+	to {
+		transform: rotate( 360deg );
+	}
+}
+
+@keyframes studio-pulse {
+	50% {
+		opacity: 0.5;
+	}
+}
+
+/* Honor the user's reduced-transparency preference (macOS: Accessibility →
+   Display → Reduce transparency), and degrade the same way where
+   `backdrop-filter` isn't supported at all.
+
+   Blur is structural in this app, not decoration: headers, footers, scrims
+   and the composer rely on it to obscure the content scrolling underneath
+   them. Dropping the blur without painting the surface would leave text
+   stacked on text, so both are handled together — `--surface-alpha` is the
+   lever. Translucent surfaces mix their fill with
+   `var( --surface-alpha, <their own resting alpha> )`, so forcing it to 100%
+   here turns every one of them opaque while leaving the resting design
+   untouched everywhere else. */
+@media ( prefers-reduced-transparency: reduce ) {
+	:root {
+		--surface-alpha: 100%;
+	}
+
+	/* Class-scoped rules out-specify a `*`-targeted rule, hence `!important`
+	   — same reasoning as the reduced-motion block above. */
+	*,
+	*::before,
+	*::after {
+		-webkit-backdrop-filter: none !important;
+		backdrop-filter: none !important;
+	}
+}
+
+@supports not ( backdrop-filter: blur( 1px ) ) {
+	:root {
+		--surface-alpha: 100%;
+	}
+}

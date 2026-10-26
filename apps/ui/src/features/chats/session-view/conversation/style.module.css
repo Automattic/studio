@@ -1,0 +1,50 @@
+.root {
+	display: flex;
+	flex-direction: column;
+	gap: var( --space-6 );
+}
+
+.root > [data-joined-above] {
+	margin-top: calc( var( --space-5 ) * -1 );
+}
+
+/* Rows off screen skip layout and paint. The clip margin keeps focus rings
+   that paint containment would cut; without it, every row renders. */
+@supports ( overflow-clip-margin: 4px ) {
+	.root > * {
+		content-visibility: auto;
+		contain-intrinsic-size: auto 80px;
+		overflow-clip-margin: 4px;
+	}
+}
+
+.mediaArtifacts {
+	display: flex;
+	flex-direction: column;
+	gap: var( --space-3 );
+}
+
+.mediaArtifactImage {
+	max-width: 100%;
+	border-radius: var( --radius-lg );
+}
+
+.marker {
+	display: flex;
+	align-items: center;
+	gap: var( --space-2 );
+	min-height: 16px;
+	color: var( --muted-foreground );
+	font-size: var( --text-sm );
+	line-height: var( --text-sm--line-height );
+	overflow-wrap: anywhere;
+}
+
+.marker a {
+	text-decoration: underline;
+	text-underline-offset: 3px;
+}
+
+.marker a:hover {
+	color: var( --foreground );
+}

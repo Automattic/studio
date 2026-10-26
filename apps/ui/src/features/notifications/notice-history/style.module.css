@@ -1,0 +1,69 @@
+.bell {
+	composes: dotted from '@/lib/theme/recipes.module.css';
+	position: relative;
+}
+
+.dot {
+	composes: dot from '@/lib/theme/recipes.module.css';
+	/* Inside the button's 1px border. */
+	inset-block-start: 7.5px;
+	inset-inline-end: 7.5px;
+	pointer-events: none;
+}
+
+.empty {
+	width: min( 320px, calc( 100vw - 24px ) );
+	padding: var( --space-4 );
+}
+
+.emptyTitle {
+	font-size: var( --text-sm );
+	font-weight: var( --font-weight-medium );
+	line-height: var( --text-sm--line-height );
+}
+
+.emptyText {
+	margin: var( --space-1 ) 0 0;
+	color: var( --muted-foreground );
+	font-size: var( --text-sm );
+	line-height: var( --text-sm--line-height );
+}
+
+/* The entries float on their own, like the toasts they were. */
+.history {
+	display: flex;
+	flex-direction: column;
+	gap: var( --space-2 );
+	width: min( 320px, calc( 100vw - 24px ) );
+	background: none;
+	box-shadow: none;
+	overflow: visible;
+}
+
+.clearAll {
+	--button-background: var( --chrome );
+
+	align-self: flex-end;
+	box-shadow: var( --shadow-xs );
+}
+
+/* The padding is room for each entry's ring, shadow and dismiss badge. */
+.list {
+	display: flex;
+	flex-direction: column;
+	gap: var( --space-2 );
+	max-height: min( 440px, calc( 100svh - 160px ) );
+	margin: calc( var( --space-2 ) * -1 );
+	padding: var( --space-2 );
+	overflow-y: auto;
+	overscroll-behavior: contain;
+}
+
+.time {
+	flex: none;
+	color: var( --muted-foreground );
+	font-size: var( --text-xxs );
+	line-height: var( --leading-tight );
+	white-space: nowrap;
+	font-variant-numeric: tabular-nums;
+}

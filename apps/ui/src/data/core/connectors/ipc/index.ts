@@ -1,5 +1,9 @@
 import { DEBUG_LOG_RELATIVE_PATH } from '@studio/common/constants';
-import { getErrorMessage, stripIpcErrorPrefix } from '@studio/common/lib/error-formatting';
+import {
+	getErrorMessage,
+	stripCliErrorEnvelope,
+	stripIpcErrorPrefix,
+} from '@studio/common/lib/error-formatting';
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
 import {
@@ -77,13 +81,15 @@ export function createIpcConnector(): Connector {
 	// desktop OS.
 	const isMacOS = /mac/i.test( navigator.platform || navigator.userAgent );
 
-	// Unwrap Electron's IPC error envelope so user-facing messages (e.g. why a
-	// key was rejected) can be shown as-is.
+	// Unwrap Electron's IPC error envelope, and the CLI's, so user-facing
+	// messages (e.g. why a key was rejected) can be shown as-is.
 	async function unwrapIpcError< T >( call: Promise< T > ): Promise< T > {
 		try {
 			return await call;
 		} catch ( error ) {
-			throw new Error( stripIpcErrorPrefix( getErrorMessage( error ) ?? String( error ) ) );
+			throw new Error(
+				stripCliErrorEnvelope( stripIpcErrorPrefix( getErrorMessage( error ) ?? String( error ) ) )
+			);
 		}
 	}
 
@@ -214,9 +220,8 @@ export function createIpcConnector(): Connector {
 			if ( ! sourceSite ) {
 				throw new Error( 'Source site not found.' );
 			}
-			// `%s Copy` matches the legacy Studio flow, and the helper bumps
-			// the suffix (`Copy 2`, `Copy 3`…) when earlier copies already
-			// exist.
+			// The helper bumps the suffix (`Copy 2`, `Copy 3`…) when earlier
+			// copies already exist.
 			const baseName = `${ sourceSite.name } Copy`;
 			const newName = ( await ipcApi.generateNumberedNameFromList( baseName, sites ) ) as string;
 			const newSiteId = crypto.randomUUID();
@@ -753,6 +758,10 @@ export function createIpcConnector(): Connector {
 			await ipcApi.saveWapuuScore( score );
 		},
 
+		readyForDeeplinks() {
+			ipcApi.readyForDeeplinks();
+		},
+
 		async popupAppMenu( position: { x: number; y: number } ): Promise< void > {
 			ipcApi.popupAppMenu( position );
 		},
@@ -903,14 +912,6 @@ export function createIpcConnector(): Connector {
 
 		onShowWhatsNew( listener ) {
 			return ipcListener.subscribe( 'show-whats-new', () => listener() );
-		},
-
-		async getLastSeenVersion() {
-			return ipcApi.getLastSeenVersion();
-		},
-
-		async saveLastSeenVersion( version ) {
-			await ipcApi.saveLastSeenVersion( version );
 		},
 
 		async getAppUpdateStatus() {

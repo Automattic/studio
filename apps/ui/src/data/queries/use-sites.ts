@@ -9,7 +9,7 @@ import { openStudioLogsAction, toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
 import { WP_VERSION_QUERY_KEY } from '@/data/queries/use-wordpress-versions';
-import { useOpenSite } from '@/hooks/use-open-site';
+import { useOpenSite } from '@/data/use-open-site';
 import type { Connector, CreateSiteParams, SiteDetails } from '@/data/core';
 import type { SiteOperationKind } from '@studio/common/lib/site-operation';
 import type { QueryClient } from '@tanstack/react-query';
@@ -40,6 +40,10 @@ export function useSites() {
 		queryFn: () => connector.getSites(),
 		// Also catches running states that changed without a site event (e.g. a daemon crash).
 		refetchInterval: 2 * 60 * 1000,
+		// The sidebar mounts another reader once the list stops loading: a failed
+		// list refetched on each new mount would go back to loading, unmount that
+		// reader, fail again and repeat forever.
+		retryOnMount: false,
 	} );
 }
 
@@ -184,8 +188,7 @@ interface UpdateSiteInput {
 	wpVersion?: string;
 }
 
-// Spaced values (1000, 2000, …) match the legacy desktop sidebar's
-// convention for the same appdata field.
+// Spaced values (1000, 2000, …), the convention of this app.json field.
 const toSortOrderUpdates = ( orderedSiteIds: string[] ) =>
 	orderedSiteIds.map( ( siteId, index ) => ( { siteId, sortOrder: ( index + 1 ) * 1000 } ) );
 
@@ -223,11 +226,11 @@ export function useUpdateSite() {
 	const connector = useConnector();
 	const queryClient = useQueryClient();
 	return useMutation( {
+		// The refetch is awaited so the settings form, which re-seeds from the
+		// list once the save settles, never re-seeds from the pre-save site.
 		mutationFn: async ( { site, wpVersion }: UpdateSiteInput ) => {
 			await connector.updateSite( site, wpVersion );
-			// No invalidateQueries here: the site-updated event this edit
-			// emits makes `useSyncSitesWithEvents` refetch the list, so a
-			// refetch now would only duplicate it.
+			await queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } );
 		},
 		onSuccess: ( _data, { site, wpVersion } ) => {
 			// Seed the applied version rather than refetching, which can still
@@ -370,9 +373,8 @@ export function useSyncSitesWithEvents(): void {
 
 // Boot-time counterpart of the "Stop, restart on next launch" quit behavior:
 // those sites keep their autoStart flag when stopped on quit, and the renderer
-// starts them again on launch (mirrors the legacy UI's use-site-details
-// bootstrapping). Gated on isFetchedAfterMount so a rehydrated persisted cache
-// with stale flags can't trigger starts.
+// starts them again on launch. Gated on isFetchedAfterMount so a rehydrated
+// persisted cache with stale flags can't trigger starts.
 export function useAutoStartSites(): void {
 	const { data: sites, isFetchedAfterMount } = useSites();
 	const { mutate: startSite } = useStartSite();

@@ -20,8 +20,8 @@ import {
 import { getAiTracksIdentity } from '@studio/common/ai/tracks-identity';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import {
+	canUsePaidAiModels,
 	fetchStudioAssistantQuota,
-	hasPaidAiCredits,
 } from '@studio/common/lib/studio-assistant-quota';
 import { getSessionsDirectory } from '@studio/common/lib/well-known-paths';
 import { __, sprintf } from '@wordpress/i18n';
@@ -138,7 +138,7 @@ async function resolveWpcomDefaultModel(): Promise< AiModelId > {
 		  ] )
 		: null;
 	return getAiProviderDefaultModel( DEFAULT_AI_PROVIDER, {
-		hasPaidAiCredits: hasPaidAiCredits( quota ),
+		canUsePaidModels: canUsePaidAiModels( quota, token?.email ),
 	} );
 }
 

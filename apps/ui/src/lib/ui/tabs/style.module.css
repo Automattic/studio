@@ -1,0 +1,137 @@
+@layer ui {
+	.tabs {
+		display: flex;
+		gap: var( --space-2 );
+	}
+
+	.tabs[data-orientation='horizontal'] {
+		flex-direction: column;
+	}
+
+	.tabs[data-layout='sidebar'] {
+		flex: 1;
+		flex-direction: row;
+		gap: 0;
+		min-height: 0;
+		overflow: hidden;
+	}
+
+	.sidebar {
+		position: relative;
+		display: flex;
+		flex: none;
+		flex-direction: column;
+		width: 216px;
+		background-color: var( --chrome );
+	}
+
+	.sidebar::after {
+		position: absolute;
+		inset-block: 0;
+		inset-inline-end: 0;
+		width: 1px;
+		background-color: var( --border );
+		content: '';
+	}
+
+	.list {
+		display: flex;
+	}
+
+	.list[data-variant='scope'] {
+		position: relative;
+		isolation: isolate;
+		align-items: center;
+		align-self: flex-start;
+		height: 36px;
+		padding: 0 var( --space-0_5 );
+		border-radius: var( --radius-lg );
+		background-color: light-dark( var( --muted ), var( --background ) );
+	}
+
+	[data-color-scheme='dark'] .list[data-variant='scope'] {
+		border: 1px solid var( --border );
+	}
+
+	.list[data-variant='sidebar'] {
+		flex-direction: column;
+		gap: 1px;
+		width: 100%;
+		min-width: 0;
+		padding: var( --space-3 );
+	}
+
+	.trigger {
+		position: relative;
+		display: inline-flex;
+		gap: var( --space-1_5 );
+		align-items: center;
+		border-radius: var( --radius-md );
+		color: var( --foreground );
+		font-size: var( --text-sm );
+		white-space: nowrap;
+		cursor: pointer;
+		outline: none;
+	}
+
+	.trigger:focus-visible {
+		box-shadow: inset 0 0 0 2px var( --ring );
+	}
+
+	.trigger:is( :disabled, [data-disabled] ) {
+		cursor: not-allowed;
+		opacity: 0.5;
+	}
+
+	.trigger svg {
+		flex: none;
+	}
+
+	[data-variant='scope'] > .trigger {
+		height: 30px;
+		padding: var( --space-0_5 ) var( --space-2_5 );
+		color: var( --muted-foreground );
+		font-weight: var( --font-weight-medium );
+	}
+
+	[data-variant='scope'] > .trigger:is( :hover, [data-active] ) {
+		color: var( --foreground );
+	}
+
+	[data-variant='sidebar'] > .trigger {
+		height: 36px;
+		padding: var( --space-0_5 ) var( --space-2 );
+		text-align: start;
+	}
+
+	[data-variant='sidebar'] > .trigger:is( :hover, [data-active], [data-highlighted] ) {
+		background-color: var( --hover );
+	}
+
+	[data-variant='sidebar'] > .trigger:focus-visible {
+		background-color: transparent;
+	}
+
+	.indicator {
+		position: absolute;
+		top: 0;
+		left: 0;
+		z-index: -1;
+		width: var( --active-tab-width );
+		height: var( --active-tab-height );
+		border-radius: var( --radius-md );
+		background-color: light-dark( var( --background ), var( --muted ) );
+		translate: var( --active-tab-left ) var( --active-tab-top );
+		pointer-events: none;
+	}
+
+	.list:has( [data-active]:focus-visible ) > .indicator {
+		opacity: 0;
+	}
+
+	.scopeLabel {
+		flex: none;
+		color: var( --muted-foreground );
+		font-size: var( --text-xs );
+	}
+}

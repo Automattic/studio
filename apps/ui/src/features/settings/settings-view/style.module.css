@@ -1,0 +1,341 @@
+.state {
+	padding: var( --space-5 );
+	color: var( --muted-foreground );
+	font-size: var( --text-xxs );
+	line-height: 24px;
+}
+
+.preferencesPanel {
+	display: flex;
+	flex-direction: column;
+	gap: var( --space-8 );
+}
+
+.instructionsHeader {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: var( --space-2 );
+}
+
+.groupLegend {
+	margin-block-end: var( --space-0_5 );
+}
+
+.groupDescription {
+	margin-block-end: var( --space-2 );
+	padding-inline: var( --space-5 );
+}
+
+.rowTitle {
+	display: flex;
+	align-items: center;
+	gap: var( --space-1 );
+}
+
+.linkButton {
+	opacity: 0;
+}
+
+.rowTitle:hover .linkButton,
+.linkButton:focus-visible,
+.linkButton[data-copied] {
+	opacity: 1;
+}
+
+@media ( hover: none ) {
+	.linkButton {
+		opacity: 1;
+	}
+}
+
+.settingsControl {
+	display: flex;
+	align-items: center;
+	gap: var( --space-2 );
+}
+
+.settingsRow[data-orientation='vertical'] > .settingsControl {
+	flex-direction: column;
+	align-items: stretch;
+}
+
+@media ( width < 640px ) {
+	.settingsRow[data-orientation='horizontal'] {
+		flex-direction: column;
+		align-items: stretch;
+	}
+}
+
+.apiKeyInput {
+	max-inline-size: 420px;
+}
+
+/* A text field that opens the folder picker. */
+.pathPickerButton {
+	display: flex;
+	align-items: center;
+	inline-size: 100%;
+	block-size: 36px;
+	padding: 0 var( --space-2_5 );
+	border: 1px solid var( --border );
+	border-radius: var( --radius-lg );
+	color: var( --foreground );
+	font-family: var( --font-sans );
+	font-size: var( --text-xs );
+	line-height: var( --text-xs--line-height );
+	text-align: start;
+	cursor: pointer;
+}
+
+.pathPickerButton:hover {
+	border-color: var( --muted-foreground );
+}
+
+.pathPickerButton:focus-visible {
+	outline: var( --focus-width ) solid var( --ring );
+	outline-offset: 2px;
+}
+
+.pathPickerValue {
+	composes: truncate from '@/lib/theme/recipes.module.css';
+	min-width: 0;
+}
+
+.pathPickerPlaceholder {
+	composes: pathPickerValue;
+	color: var( --muted-foreground );
+}
+
+.cliToggleTrigger {
+	display: inline-flex;
+}
+
+.cliTooltip {
+	max-inline-size: 280px;
+	line-height: var( --text-sm--line-height );
+}
+
+.errorMessage {
+	margin-block-end: var( --space-3 );
+	padding: var( --space-2 ) var( --space-3 );
+	border: 1px solid color-mix( in srgb, var( --destructive ) 35%, transparent );
+	border-radius: var( --radius-lg );
+	background: color-mix( in srgb, var( --destructive ) 8%, var( --chrome ) );
+	color: var( --destructive );
+	font-size: var( --text-xxs );
+	line-height: 20px;
+}
+
+.codeBlockCopyButton {
+	position: absolute;
+	inset-block-start: var( --space-1_5 );
+	inset-inline-end: var( --space-1_5 );
+	z-index: 1;
+}
+
+.wapuuScoreHeading {
+	display: inline-flex;
+	align-items: center;
+	gap: var( --space-1 );
+}
+
+.wapuuScoreIcon {
+	image-rendering: pixelated;
+}
+
+.wapuuScoreMeter {
+	gap: var( --space-2 );
+}
+
+/* Signed out or offline: grey the figures, since none of them is live. */
+.usageDisabled :is( [data-slot='field-label'], [data-slot='field-legend'] ) {
+	color: var( --muted-foreground );
+}
+
+/* Hatched stand-in for a meter with no figure behind it — same 135deg stripe
+   idiom as the AI credits placeholder, in neutral disabled colors. */
+.unavailableBar {
+	inline-size: 100%;
+	block-size: 4px;
+	border-radius: var( --radius-full );
+	background: repeating-linear-gradient(
+			135deg,
+			color-mix( in srgb, var( --muted-foreground ) 22%, transparent ) 0 3px,
+			transparent 3px 8px
+		),
+		transparent;
+}
+
+.meterRow {
+	gap: var( --space-2 );
+}
+
+.meterSummary {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: var( --space-1 ) var( --space-4 );
+}
+
+.meterSummary > [data-slot='field-label'] {
+	gap: var( --space-1 );
+}
+
+.meterSummary > [data-slot='field-label'] > button {
+	margin-block: calc( var( --space-1 ) * -1 );
+}
+
+/* Escalation colors for the AI credits meter (80% / 90% / exhausted). The
+   filters brighten the warning token toward the design's yellow and orange —
+   taken as-is from the usage-interfaces exploration. */
+.meter[data-intent='warning'] [data-slot='progress-indicator'] {
+	background: var( --warning );
+	filter: saturate( 2 ) brightness( 1.8 );
+}
+
+.meter[data-intent='critical'] [data-slot='progress-indicator'] {
+	background: var( --warning );
+	filter: saturate( 1.6 ) brightness( 1.35 );
+}
+
+.meter[data-intent='exhausted'] [data-slot='progress-indicator'] {
+	background: var( --destructive );
+}
+
+.aiCreditsTrack {
+	block-size: 4px;
+	border-radius: var( --radius-full );
+	background: linear-gradient(
+			90deg,
+			color-mix( in srgb, var( --accent-text ) 32%, transparent ),
+			color-mix( in srgb, var( --accent-text ) 14%, transparent )
+		),
+		repeating-linear-gradient(
+			135deg,
+			color-mix( in srgb, var( --accent-text ) 18%, transparent ) 0 8px,
+			transparent 8px 16px
+		),
+		color-mix( in srgb, var( --accent-text ) 14%, var( --border ) );
+}
+
+.expiredToggle {
+	margin-inline: var( --space-4 );
+	margin-block-end: var( --space-4 );
+}
+
+.previewUrl,
+.previewLink,
+.previewExpiry {
+	display: block;
+}
+
+.previewLink {
+	composes: truncate from '@/lib/theme/recipes.module.css';
+	max-width: 100%;
+	color: var( --accent-text );
+	text-align: start;
+	cursor: pointer;
+}
+
+.previewLink:hover {
+	text-decoration: underline;
+}
+
+.previewActions {
+	display: flex;
+}
+
+.previewIllustration {
+	width: 176px;
+	overflow: hidden;
+	border: 1px solid var( --border );
+	border-radius: var( --radius-xl );
+	background: var( --chrome );
+	box-shadow: var( --shadow-xs );
+}
+
+.previewIllustrationBar {
+	display: flex;
+	justify-content: flex-end;
+	padding: var( --space-2 ) var( --space-3 );
+	border-bottom: 1px solid var( --border );
+}
+
+.previewIllustrationButton {
+	padding: var( --space-0_5 ) var( --space-2 );
+	border: 1px solid var( --border );
+	border-radius: var( --radius-lg );
+	box-shadow: 0 0 0 3px color-mix( in srgb, var( --accent ) 25%, transparent );
+	font-size: var( --text-xxs );
+	font-weight: var( --font-weight-medium );
+}
+
+.previewIllustration img {
+	width: 100%;
+	aspect-ratio: 2 / 1;
+	object-fit: cover;
+	object-position: top;
+}
+
+.dialogError {
+	color: var( --destructive );
+}
+
+.pathForm {
+	display: flex;
+	gap: var( --space-2 );
+}
+
+.keyForm {
+	display: flex;
+	align-items: center;
+	gap: var( --space-2 );
+}
+
+.settingsControl:has( > .colorControl, > .sliderControl ) {
+	min-width: 192px;
+	max-width: 100%;
+}
+
+.colorControl {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var( --space-1_5 );
+	width: 100%;
+}
+
+.swatch {
+	flex-shrink: 0;
+	width: 24px;
+	height: 24px;
+	border-radius: var( --radius-full );
+	cursor: pointer;
+}
+
+.swatch:focus-visible,
+.swatch[aria-pressed='true'] {
+	outline: 2px solid var( --accent );
+	outline-offset: 2px;
+}
+
+.hexInput {
+	flex-shrink: 0;
+	width: 128px;
+}
+
+.hexPreview {
+	flex-shrink: 0;
+	width: 16px;
+	height: 16px;
+	border: 1px solid var( --border );
+	border-radius: var( --radius-xs );
+}
+
+.sliderControl {
+	display: flex;
+	align-items: center;
+	width: 100%;
+}

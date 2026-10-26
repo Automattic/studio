@@ -43,7 +43,7 @@ import type { SiteRestRequest, SiteRestResponse } from '@studio/common/types/wor
 import type { DesignFix } from '@studio/design-md';
 import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 
-export type { ActiveAgentRun, AgentRunEvent } from '@studio/common/ai/agent-events';
+export type { ActiveAgentRun } from '@studio/common/ai/agent-events';
 export type { StudioChatFileAttachment } from '@studio/common/ai/chat-files';
 export type { StudioChatImage } from '@studio/common/ai/chat-images';
 export type {
@@ -68,7 +68,7 @@ export type { SiteDesign } from '@studio/common/sites/site-design';
 
 export type InstalledApps = Record< SupportedEditor | SupportedTerminal, boolean >;
 
-export interface AiSessionSitePlacement {
+interface AiSessionSitePlacement {
 	kind: 'site';
 	siteId: string;
 	sitePath: string;
@@ -127,7 +127,7 @@ export interface AuthUser {
 // between a native flow and a browser-friendly fallback (instead of branching on
 // "am I in Electron"). The desktop app has them all; the browser (`studio ui`)
 // does not.
-export interface ConnectorCapabilities {
+interface ConnectorCapabilities {
 	// A native OS folder picker is available (`selectSiteFolder`). When false,
 	// the UI offers an editable path field instead.
 	nativeFolderPicker: boolean;
@@ -185,8 +185,7 @@ export interface Connector {
 	// process handler. `wpVersion` is only forwarded when the user explicitly
 	// picked a pinned version — undefined means "keep auto-updating".
 	updateSite( site: SiteDetails, wpVersion?: string ): Promise< void >;
-	// Persists the sidebar's manual site order (the same per-site `sortOrder`
-	// the legacy desktop sidebar uses).
+	// Persists the sidebar's manual site order (each site's `sortOrder`).
 	updateSitesSortOrder( updates: { siteId: string; sortOrder: number }[] ): Promise< void >;
 	// The last page of the site captured in a preview, shown while it's stopped.
 	// Null when the site has not been captured yet.
@@ -583,6 +582,9 @@ export interface Connector {
 	// shortcut) in the application menu.
 	onAddSite( listener: () => void ): () => void;
 	onAddSiteWithBlueprint( listener: ( payload: { blueprintPath: string } ) => void ): () => void;
+	// Tells the host the app now listens for the events links send (Settings, Add
+	// site, sync and checkout returns), so a link that arrived earlier opens.
+	readyForDeeplinks?(): void;
 
 	// Fires when the user activates "Settings…" (or its keyboard shortcut) in
 	// the application menu, or opens a link to one setting.
@@ -606,12 +608,6 @@ export interface Connector {
 	// Fires when the user picks Help ▸ What's New in the application menu
 	// (desktop only). No-ops where there's no OS menu.
 	onShowWhatsNew( listener: () => void ): () => void;
-
-	// App version the user last dismissed the What's New announcements on. The
-	// same value the classic renderer reads, so the two UIs never show the same
-	// announcements twice.
-	getLastSeenVersion(): Promise< string | undefined >;
-	saveLastSeenVersion( version: string ): Promise< void >;
 
 	// Auto-updater status.
 	getAppUpdateStatus(): Promise< AppUpdateStatus >;
@@ -650,6 +646,8 @@ export interface OnboardingHintsState {
 	// Studio (vs a fresh install that starts here). Drives the guide's first-page
 	// "Welcome to WordPress Studio 2.0" migrating copy.
 	migratedFromClassic?: boolean;
+	// WHATS_NEW_VERSION of the What's New guide the user last saw.
+	whatsNewSeenVersion?: number;
 }
 
 export type { SiteAgentFile, SiteAgentFileKind };

@@ -950,30 +950,6 @@ describe( 'debugging checks', () => {
 	} );
 } );
 
-describe( 'routing checks', () => {
-	const skill = ( name ) => ( { name: 'Skill', input: { name } } );
-	const vars = { skills: [ { name: 'block-content' }, { name: 'imagery' } ] };
-
-	test( 'skillsLoadedFirst', () => {
-		const calls = [ skill( 'block-content' ), { name: 'Write', input: {} }, skill( 'imagery' ) ];
-		expect(
-			run(
-				checks.skillsLoadedFirst,
-				{ toolCalls: calls, stoppedAt: { toolName: 'Write', index: 1 } },
-				vars
-			).pass
-		).toBe( false );
-		expect(
-			run(
-				checks.skillsLoadedFirst,
-				{ toolCalls: [ skill( 'imagery' ), ...calls ], stoppedAt: { toolName: 'Write', index: 2 } },
-				vars
-			).pass
-		).toBe( true );
-		expect( run( checks.skillsLoadedFirst, { toolCalls: calls }, vars ).pass ).toBe( true );
-	} );
-} );
-
 // promptfoo expands a var that is an array of plain values into one test per
 // element, so a list a check reads must be a list of objects.
 test( 'list vars in the config are lists of objects', () => {

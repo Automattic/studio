@@ -4,6 +4,7 @@ import { resolveSite } from 'cli/ai/tools/utils';
 import { readCliConfig } from 'cli/lib/cli-config/core';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import type { Confirmation } from './confirmation';
+import type { RemoteSite } from 'cli/ai/hosts';
 import type { SiteInfo } from 'cli/ai/types';
 
 // A request works on one site: the active site, or the first site the turn
@@ -33,8 +34,8 @@ function localTarget( sitePath: string, name: string ): SiteTarget {
 	return { key: path.resolve( sitePath ), label: `"${ name }"` };
 }
 
-function remoteTarget( siteId: number, name: string ): SiteTarget {
-	return { key: `wpcom:${ siteId }`, label: `"${ name }"` };
+function remoteTarget( site: RemoteSite, name: string ): SiteTarget {
+	return { key: `${ site.host }:${ site.id }`, label: `"${ name }"` };
 }
 
 function isInside( file: string, dir: string ): boolean {
@@ -78,8 +79,8 @@ export class SitePin {
 	private newSitesAllowed = false;
 
 	constructor( activeSite: SiteInfo | null | undefined ) {
-		if ( activeSite?.remote && activeSite.wpcomSiteId ) {
-			this.requestSite = remoteTarget( activeSite.wpcomSiteId, activeSite.name );
+		if ( activeSite?.remote ) {
+			this.requestSite = remoteTarget( activeSite.remote, activeSite.name );
 		} else if ( activeSite?.path ) {
 			this.requestSite = localTarget( activeSite.path, activeSite.name );
 		}

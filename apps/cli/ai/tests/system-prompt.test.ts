@@ -68,9 +68,8 @@ describe( 'buildSystemPrompt', () => {
 				name: 'Live',
 				path: '',
 				running: false,
-				remote: true,
+				remote: { host: 'wpcom', id: 123 },
 				url: 'https://example.wordpress.com',
-				wpcomSiteId: 123,
 			},
 		} );
 

@@ -396,7 +396,13 @@ async function seedFixtures( seed: EvalSeed ): Promise< SeededFixtures > {
 		inspect,
 		activeSitePath,
 		activeSite: remoteActiveSite
-			? { ...remoteActiveSite, path: '', running: false, remote: true }
+			? {
+					name: remoteActiveSite.name,
+					url: remoteActiveSite.url,
+					path: '',
+					running: false,
+					remote: { host: 'wpcom', id: remoteActiveSite.wpcomSiteId },
+			  }
 			: seededSite,
 	};
 }

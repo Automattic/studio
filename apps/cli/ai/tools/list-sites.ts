@@ -1,6 +1,5 @@
-import { readAuthToken } from '@studio/common/lib/shared-config';
+import { HOSTS } from 'cli/ai/hosts';
 import { runCommand as runListSitesCommand } from 'cli/commands/site/list';
-import { getWpComSites } from 'cli/lib/api';
 import { defineTool, REMOTE_READ } from './define-tool';
 import { captureConsoleOutput, textResult } from './utils';
 
@@ -9,22 +8,14 @@ async function listLocalSites(): Promise< unknown[] > {
 	return output ? JSON.parse( output ) : [];
 }
 
-// The WordPress.com sites the stored login can reach. A failure here leaves the
-// local listing intact.
-async function listWpcomSites() {
-	const token = await readAuthToken();
-	if ( ! token?.accessToken ) {
-		return { signedIn: false, sites: [] };
-	}
-	try {
-		return { signedIn: true, sites: await getWpComSites( token.accessToken ) };
-	} catch ( error ) {
-		return {
-			signedIn: true,
-			sites: [],
-			error: error instanceof Error ? error.message : String( error ),
-		};
-	}
+// Each host's sites, by its key. A host that fails to list leaves the rest of
+// the listing intact.
+async function listHostSites() {
+	return Object.fromEntries(
+		await Promise.all(
+			Object.values( HOSTS ).map( async ( host ) => [ host.listKey, await host.list() ] )
+		)
+	);
 }
 
 export const listSitesTool = defineTool(
@@ -33,8 +24,8 @@ export const listSitesTool = defineTool(
 	{},
 	async () => {
 		try {
-			const [ local, wordpressCom ] = await Promise.all( [ listLocalSites(), listWpcomSites() ] );
-			return textResult( JSON.stringify( { local, wordpressCom } ) );
+			const [ local, hosts ] = await Promise.all( [ listLocalSites(), listHostSites() ] );
+			return textResult( JSON.stringify( { local, ...hosts } ) );
 		} catch ( error ) {
 			throw new Error(
 				`Failed to list sites: ${ error instanceof Error ? error.message : String( error ) }`

@@ -7,6 +7,16 @@ import { readSiteFacts } from 'cli/ai/site-facts';
 import { readCliConfig } from 'cli/lib/cli-config/core';
 import { createSite } from './fixtures/wordpress-site';
 
+// The site's WordPress is not run: what its code registers is read by admin-capabilities' tests.
+vi.mock( 'cli/lib/daemon-client', () => ( {
+	connectToDaemon: vi.fn(),
+	disconnectFromDaemon: vi.fn(),
+} ) );
+vi.mock( 'cli/lib/run-wp-cli-command', () => ( {
+	runWpCliCommand: vi.fn( async () => {
+		throw new Error( 'WordPress is not run in this test' );
+	} ),
+} ) );
 vi.mock( 'cli/lib/cli-config/core', async ( importOriginal ) => ( {
 	...( await importOriginal< typeof import('cli/lib/cli-config/core') >() ),
 	readCliConfig: vi.fn(),
@@ -23,7 +33,7 @@ it( 'fingerprints a site a turn only reads as unchanged, and one it writes to as
 	vi.mocked( readCliConfig ).mockResolvedValue( {
 		sites: [ { id: 'site', name: 'Site', path: root, port: 8881 } ],
 	} as Awaited< ReturnType< typeof readCliConfig > > );
-	// A site Studio runs has the mu-plugins its WP-CLI writes when they change.
+	// The facts a turn's start reads.
 	await readSiteFacts( root );
 	// The site's last request closed the database, which removed its WAL files;
 	// a read-only read creates them again and cannot remove them (run 43).

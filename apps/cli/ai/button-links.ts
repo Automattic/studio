@@ -22,7 +22,12 @@ export function buttonsWithoutLinkNotes( markup: string ): string[] {
 		if ( href && href !== '#' ) {
 			continue;
 		}
-		const text = inner.replace( /<[^>]*>/g, '' ).trim() || '(no text)';
+		// The text between its tags.
+		const text =
+			inner
+				.split( /<[^>]*>/ )
+				.join( '' )
+				.trim() || '(no text)';
 		texts.set( text, ( texts.get( text ) ?? 0 ) + 1 );
 	}
 	if ( ! texts.size ) {

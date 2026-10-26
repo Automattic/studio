@@ -175,14 +175,14 @@ export const generateImagesTool = defineTool(
 
 		// The site the images are for, wherever in it they are written.
 		const { sites } = await readCliConfig();
-		const siteName = (
+		const forSite =
 			site ??
 			sites.find( ( candidate ) =>
 				targets.every( ( target ) =>
 					target.resolvedPath.startsWith( path.resolve( candidate.path ) + path.sep )
 				)
-			)
-		)?.name;
+			);
+		const siteName = forSite?.name;
 		const requests = targets.map( ( image ) => ( {
 			prompt: composeImagePrompt( image, {
 				siteContext: args.siteContext,
@@ -245,6 +245,11 @@ export const generateImagesTool = defineTool(
 				].join( '\n' )
 			),
 			pending: generation,
+			// As paths in the site, which its absolute paths contain too.
+			pendingFiles: targets.map( ( target ) => {
+				const file = attachments.get( target.resolvedPath )?.file ?? target.resolvedPath;
+				return forSite ? path.relative( path.resolve( forSite.path ), file ) : file;
+			} ),
 		};
 	},
 	{

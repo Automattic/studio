@@ -34,11 +34,15 @@ interface ToolResult {
 	// report for the agent. A runtime that cannot wait for it later awaits it
 	// before answering.
 	pending?: Promise< string | undefined >;
+	// The files that work writes, as paths in their site: a call naming one
+	// waits for the work.
+	pendingFiles?: string[];
 }
 
 export interface StudioToolResultDetails {
 	studioArtifacts?: StudioChatArtifactWidgetDraft[];
 	pending?: Promise< string | undefined >;
+	pendingFiles?: string[];
 }
 
 interface ToolContext {
@@ -178,7 +182,11 @@ export function defineTool< TProps extends TProperties >(
 			const result = await handler( params as never, context );
 			const details: StudioToolResultDetails | undefined =
 				result.studioArtifacts?.length || result.pending
-					? { studioArtifacts: result.studioArtifacts, pending: result.pending }
+					? {
+							studioArtifacts: result.studioArtifacts,
+							pending: result.pending,
+							pendingFiles: result.pendingFiles,
+					  }
 					: undefined;
 			return {
 				content: result.content,

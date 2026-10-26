@@ -27,6 +27,20 @@ const mocks = vi.hoisted( () => ( {
 	openProblems: [] as string[][],
 	// The next prompt runs until its session is aborted.
 	holdNextPrompt: false,
+	// Image generation is available, and finishes when this is called.
+	images: undefined as undefined | { finish?: () => void },
+} ) );
+
+vi.mock( 'cli/ai/image-generation', async ( importOriginal ) => ( {
+	...( await importOriginal< typeof import('cli/ai/image-generation') >() ),
+	isImageGenerationAvailable: async () => Boolean( mocks.images ),
+	generateImages: ( requests: unknown[] ) =>
+		new Promise( ( resolve ) => {
+			mocks.images!.finish = () => {
+				mocks.steps.push( 'images done' );
+				resolve( requests.map( () => ( { ok: false, error: 'not generated' } ) ) );
+			};
+		} ),
 } ) );
 
 vi.mock( 'cli/ai/open-problems', () => ( {
@@ -347,6 +361,27 @@ describe( 'pi runtime', () => {
 		expect( handle.systemPrompt() ).toBeUndefined();
 		await handle.result;
 		expect( handle.systemPrompt() ).toMatch( /^You are WordPress Studio, built by Automattic\./ );
+	} );
+
+	it( 'runs a call naming an image still being generated once it is done', async () => {
+		mocks.images = {};
+		try {
+			await runRuntime( { prompt: 'hello', session: newSession(), env: WPCOM_ENV } );
+			const image = `${ mocks.studioRoot }/oak/wp-content/themes/oak/hero.png`;
+			await getCreatedTool( 'generate_images' ).execute( 't', {
+				images: [ { path: image, subject: 'a bench' } ],
+			} );
+			await getCreatedTool( 'Bash' ).execute( 't', { command: 'ls' } );
+			const naming = getCreatedTool( 'Bash' ).execute( 't', { command: `file ${ image }` } );
+			await new Promise( ( resolve ) => setTimeout( resolve, 20 ) );
+			mocks.images.finish!();
+			await naming;
+			expect( mocks.steps.filter( ( step ) => step === 'Bash' || step === 'images done' ) ).toEqual(
+				[ 'Bash', 'images done', 'Bash' ]
+			);
+		} finally {
+			mocks.images = undefined;
+		}
 	} );
 
 	it( 'activates the tools a skill brings once the skill is loaded', async () => {

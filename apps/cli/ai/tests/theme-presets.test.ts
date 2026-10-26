@@ -33,6 +33,7 @@ describe( 'the theme presets fact', () => {
 		fontSizes: [],
 		spacingSizes: [ [ '40', '30px' ] ],
 		layout: { contentSize: '645px' },
+		styleProperties: { color: 'color.text' },
 	};
 	let output: () => string;
 

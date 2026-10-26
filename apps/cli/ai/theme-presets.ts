@@ -23,6 +23,8 @@ interface Presets {
 	fontSizes: Array< [ string, string ] >;
 	spacingSizes: Array< [ string, string ] >;
 	layout: { contentSize?: string; wideSize?: string };
+	/** Each CSS property theme.json styles hold, by its path in `styles` (WP_Theme_JSON::PROPERTIES_METADATA). */
+	styleProperties: Record< string, string >;
 }
 
 // The presets of each origin the editor offers, in WordPress's order: core's
@@ -52,6 +54,7 @@ echo wp_json_encode( array(
 		'contentSize' => $settings['layout']['contentSize'] ?? null,
 		'wideSize' => $settings['layout']['wideSize'] ?? null,
 	) ),
+	'styleProperties' => array_map( function ( $path ) { return implode( '.', $path ); }, WP_Theme_JSON::PROPERTIES_METADATA ),
 ) );
 `;
 

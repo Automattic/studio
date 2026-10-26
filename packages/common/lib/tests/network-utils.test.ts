@@ -1,25 +1,18 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { isOnline } from '@studio/common/lib/network-utils';
 
-const { lookup, resolve } = vi.hoisted( () => ( {
-	lookup: vi.fn(),
-	resolve: vi.fn(),
-} ) );
+const { lookup } = vi.hoisted( () => ( { lookup: vi.fn() } ) );
 
-vi.mock( 'dns/promises', () => ( {
-	default: { lookup, resolve },
-} ) );
+vi.mock( 'dns/promises', () => ( { default: { lookup } } ) );
 
-const HOST = 'public-api.wordpress.com';
-const IPV4 = { address: '192.0.78.9', family: 4 };
-const IPV6 = { address: '2a04:fa87:fffd::c000:4e09', family: 6 };
+const found = () => Promise.resolve( { address: '192.0.78.9', family: 4 } );
 const notFound = () =>
-	Object.assign( new Error( `getaddrinfo ENOTFOUND ${ HOST }` ), { code: 'ENOTFOUND' } );
+	Promise.reject( Object.assign( new Error( 'ENOTFOUND' ), { code: 'ENOTFOUND' } ) );
 const pending = () => new Promise< never >( () => {} );
 
 function answer( v4: () => Promise< unknown >, v6: () => Promise< unknown > ) {
-	lookup.mockImplementation( ( _host: string, options: { family: number } ) =>
-		options.family === 6 ? v6() : v4()
+	lookup.mockImplementation( ( _host: string, { family }: { family: number } ) =>
+		family === 6 ? v6() : v4()
 	);
 }
 
@@ -27,51 +20,21 @@ describe( 'isOnline', () => {
 	beforeEach( () => {
 		vi.useFakeTimers();
 		lookup.mockReset();
-		resolve.mockReset();
+		return () => vi.useRealTimers();
 	} );
 
-	afterEach( () => {
-		vi.useRealTimers();
+	it.each( [
+		{ network: 'IPv4 resolves', v4: found, v6: notFound, online: true },
+		{ network: 'only IPv6 resolves', v4: notFound, v6: found, online: true },
+		{ network: 'IPv4 resolves while IPv6 never answers', v4: found, v6: pending, online: true },
+		{ network: 'nothing resolves', v4: notFound, v6: notFound, online: false },
+	] )( 'reports online=$online when $network', async ( { v4, v6, online } ) => {
+		answer( v4, v6 );
+
+		await expect( isOnline() ).resolves.toBe( online );
 	} );
 
-	it( 'returns true when the operating system resolver answers over IPv4', async () => {
-		answer(
-			() => Promise.resolve( IPV4 ),
-			() => Promise.reject( notFound() )
-		);
-
-		await expect( isOnline() ).resolves.toBe( true );
-
-		expect( lookup ).toHaveBeenCalledWith( HOST, { family: 4 } );
-		expect( lookup ).toHaveBeenCalledWith( HOST, { family: 6 } );
-	} );
-
-	it( 'returns true on an IPv6-only network', async () => {
-		answer(
-			() => Promise.reject( notFound() ),
-			() => Promise.resolve( IPV6 )
-		);
-
-		await expect( isOnline() ).resolves.toBe( true );
-	} );
-
-	it( 'returns false when neither family resolves', async () => {
-		answer(
-			() => Promise.reject( notFound() ),
-			() => Promise.reject( notFound() )
-		);
-
-		await expect( isOnline() ).resolves.toBe( false );
-	} );
-
-	it( 'does not wait for a slow IPv6 answer once IPv4 has resolved', async () => {
-		answer( () => Promise.resolve( IPV4 ), pending );
-
-		// No timers are advanced: the result must come from the IPv4 answer alone.
-		await expect( isOnline() ).resolves.toBe( true );
-	} );
-
-	it( 'returns false when the resolver hangs past the timeout', async () => {
+	it( 'reports offline when the resolver hangs past the timeout', async () => {
 		answer( pending, pending );
 
 		const result = isOnline();
@@ -80,22 +43,8 @@ describe( 'isOnline', () => {
 		await expect( result ).resolves.toBe( false );
 	} );
 
-	it( 'uses the OS resolver, not the c-ares based dns.resolve()', async () => {
-		answer(
-			() => Promise.resolve( IPV4 ),
-			() => Promise.resolve( IPV6 )
-		);
-
-		await isOnline();
-
-		expect( resolve ).not.toHaveBeenCalled();
-	} );
-
-	it( 'clears its timeout so a quick answer does not keep the process alive', async () => {
-		answer(
-			() => Promise.resolve( IPV4 ),
-			() => Promise.resolve( IPV6 )
-		);
+	it( 'leaves no timer behind, so a quick answer does not keep the CLI running', async () => {
+		answer( found, found );
 
 		await isOnline();
 

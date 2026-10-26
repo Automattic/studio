@@ -15,7 +15,8 @@ import { activeThemes } from 'cli/ai/themes';
 import { resolveSite } from 'cli/ai/tools/utils';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
-import type { WordPressSite } from 'cli/ai/site-database';
+import { readWordPressSite, type WordPressSite } from 'cli/ai/site-database';
+import type { SiteFile } from 'cli/ai/site-file-guards';
 
 interface Presets {
 	colors: Array< [ string, string ] >;
@@ -25,12 +26,38 @@ interface Presets {
 	layout: { contentSize?: string; wideSize?: string };
 	/** Each CSS property theme.json styles hold, by its path in `styles` (WP_Theme_JSON::PROPERTIES_METADATA). */
 	styleProperties: Record< string, string >;
+	/**
+	 * The theme's presets WordPress drops for core's default of the same slug,
+	 * by preset path: those whose `default…` setting is on.
+	 */
+	shadowed: Array< { path: string; setting: string; presets: Array< [ string, string ] > } >;
 }
 
 // The presets of each origin the editor offers, in WordPress's order: core's
 // unless the theme turns them off, then the theme's, then the user's.
 const RESOLVE = `
 $settings = wp_get_global_settings();
+// The theme's presets that merging into core's drops (WP_Theme_JSON::merge()).
+$theme_settings = WP_Theme_JSON_Resolver::get_theme_data()->get_settings();
+$shadowed = array();
+foreach ( WP_Theme_JSON::PRESETS_METADATA as $metadata ) {
+	$kept = wp_list_pluck( _wp_array_get( $settings, array_merge( $metadata['path'], array( 'theme' ) ), array() ), 'slug' );
+	$defaults = array();
+	foreach ( _wp_array_get( $settings, array_merge( $metadata['path'], array( 'default' ) ), array() ) as $preset ) {
+		// The value WordPress renders, as get_settings_values_by_slug() takes it.
+		$value = isset( $metadata['value_key'] ) ? ( $preset[ $metadata['value_key'] ] ?? '' ) : ( is_callable( $metadata['value_func'] ?? null ) ? call_user_func( $metadata['value_func'], $preset, $settings ) : '' );
+		$defaults[ $preset['slug'] ] = is_scalar( $value ) ? (string) $value : wp_json_encode( $value );
+	}
+	$presets = array();
+	foreach ( _wp_array_get( $theme_settings, array_merge( $metadata['path'], array( 'theme' ) ), array() ) as $preset ) {
+		if ( ! in_array( $preset['slug'], $kept, true ) ) {
+			$presets[] = array( $preset['slug'], $defaults[ $preset['slug'] ] ?? '' );
+		}
+	}
+	if ( $presets ) {
+		$shadowed[] = array( 'path' => implode( '.', $metadata['path'] ), 'setting' => implode( '.', $metadata['prevent_override'] ), 'presets' => $presets );
+	}
+}
 $presets = function ( $path, $default_flag, $value ) use ( $settings ) {
 	$by_origin = _wp_array_get( $settings, $path, array() );
 	$origins = array( 'theme', 'custom' );
@@ -55,6 +82,7 @@ echo wp_json_encode( array(
 		'wideSize' => $settings['layout']['wideSize'] ?? null,
 	) ),
 	'styleProperties' => array_map( function ( $path ) { return implode( '.', $path ); }, WP_Theme_JSON::PROPERTIES_METADATA ),
+	'shadowed' => $shadowed,
 ) );
 `;
 
@@ -152,6 +180,33 @@ export async function themePresets( site: WordPressSite ): Promise< Presets | un
 		entry.presets.catch( () => resolved.delete( site.root ) );
 	}
 	return entry.presets.catch( () => undefined );
+}
+
+/**
+ * The presets of a theme.json just written that WordPress replaces with core's
+ * default of the same slug: a block or style that takes the slug gets core's
+ * value.
+ */
+export async function shadowedPresetNotes( siteFile: SiteFile ): Promise< string[] > {
+	if ( siteFile.theme?.file !== 'theme.json' ) {
+		return [];
+	}
+	const { slug, dir } = siteFile.theme;
+	// The presets are the active theme's, so another theme's file has none of them.
+	const presets = await readWordPressSite( siteFile.siteRoot, ( site ) =>
+		activeThemes( site ).includes( slug ) ? themePresets( site ) : undefined
+	);
+	const themeJson = path.join( dir, 'theme.json' );
+	return ( presets?.shadowed ?? [] ).map(
+		( { path: at, setting, presets: replaced } ) =>
+			`WordPress replaces ${ themeJson }'s settings.${ at } ${ replaced
+				.map( ( [ slug ] ) => slug )
+				.join( ', ' ) } with core's default ${ at } of the same slug (${ replaced
+				.map( ( [ slug, value ] ) => `${ slug } ${ value }` )
+				.join(
+					', '
+				) }), because settings.${ setting } is on (WP_Theme_JSON::merge() in wp-includes/class-wp-theme-json.php), so a block or style that takes these slugs gets core's value. Setting settings.${ setting } to false keeps the theme's, and takes core's defaults of this kind out of the editor, as Twenty Twenty-Five does; renaming the theme's preset keeps both.`
+	);
 }
 
 /** The active theme's presets, as WordPress resolves them, as site facts. */

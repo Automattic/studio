@@ -4,7 +4,8 @@ import path from 'path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { readWordPressSite } from 'cli/ai/site-database';
 import { createSite } from 'cli/ai/tests/fixtures/wordpress-site';
-import { themePresetsFact } from 'cli/ai/theme-presets';
+import { resolveSiteFile } from 'cli/ai/site-file-guards';
+import { shadowedPresetNotes, themePresetsFact } from 'cli/ai/theme-presets';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 
 vi.mock( 'cli/lib/daemon-client', () => ( {
@@ -34,6 +35,7 @@ describe( 'the theme presets fact', () => {
 		spacingSizes: [ [ '40', '30px' ] ],
 		layout: { contentSize: '645px' },
 		styleProperties: { color: 'color.text' },
+		shadowed: [],
 	};
 	let output: () => string;
 
@@ -164,5 +166,86 @@ describe.runIf( WORDPRESS )( 'the theme presets fact, resolved by WordPress', ()
 		expect( presets ).toContain(
 			'Layout (wp_get_global_settings()): content width 600px, wide width 1200px.'
 		);
+	}, 60000 );
+} );
+
+describe.runIf( WORDPRESS )( 'shadowedPresetNotes', () => {
+	let root: string;
+	const themeJson = ( slug: string, settings: object ) => {
+		const dir = path.join( root, 'wp-content/themes', slug );
+		mkdirSync( path.join( dir, 'templates' ), { recursive: true } );
+		writeFileSync( path.join( dir, 'templates', 'index.html' ), '' );
+		writeFileSync( path.join( dir, 'style.css' ), `/*\nTheme Name: ${ slug }\n*/` );
+		const file = path.join( dir, 'theme.json' );
+		writeFileSync( file, JSON.stringify( { version: 3, settings } ) );
+		return resolveSiteFile( file )!;
+	};
+	const activate = async ( slug: string ) => {
+		const { DatabaseSync } = await import( 'node:sqlite' );
+		const db = new DatabaseSync( path.join( root, 'wp-content/database/.ht.sqlite' ) );
+		db.prepare(
+			"UPDATE wp_options SET option_value = ? WHERE option_name IN ( 'stylesheet', 'template' )"
+		).run( slug );
+		db.close();
+	};
+	beforeEach( () => {
+		vi.mocked( runWpCliCommand ).mockRestore();
+		root = mkdtempSync( path.join( os.tmpdir(), 'shadowed-presets-' ) );
+		cpSync( WORDPRESS!, root, { recursive: true } );
+	} );
+	afterEach( () => rmSync( root, { recursive: true, force: true } ) );
+
+	it( "names the theme's presets WordPress replaces with core's of the same slug", async () => {
+		const settings = {
+			typography: {
+				fontSizes: [
+					{ slug: 'small', size: '0.875rem', name: 'Small' },
+					{ slug: 'huge', size: '5rem', name: 'Huge' },
+				],
+			},
+			color: {
+				palette: [
+					{ slug: 'black', color: '#111111', name: 'Ink' },
+					{ slug: 'ember', color: '#aa3333', name: 'Ember' },
+				],
+			},
+		};
+		const file = themeJson( 'shadowed', settings );
+		await activate( 'shadowed' );
+		const notes = await shadowedPresetNotes( file );
+		const at = path.join( root, 'wp-content/themes/shadowed/theme.json' );
+		expect( notes ).toHaveLength( 2 );
+		expect( notes ).toContainEqual(
+			expect.stringMatching(
+				new RegExp(
+					`^WordPress replaces ${ at.replace(
+						/[.*+?^${}()|[\]\\]/g,
+						'\\$&'
+					) }'s settings\\.typography\\.fontSizes small with core's default typography\\.fontSizes of the same slug \\(small 13px\\), because settings\\.typography\\.defaultFontSizes is on`
+				)
+			)
+		);
+		expect( notes.join( '\n' ) ).toContain( 'settings.color.palette black with core' );
+		expect( notes.join( '\n' ) ).not.toMatch( /huge|ember/ );
+
+		// With the defaults off, the theme's presets stand.
+		const off = themeJson( 'shadowed', {
+			typography: { ...settings.typography, defaultFontSizes: false },
+			color: { ...settings.color, defaultPalette: false },
+		} );
+		expect( await shadowedPresetNotes( off ) ).toEqual( [] );
+	}, 60000 );
+
+	it( "says nothing of another file, or of a theme.json that is not the active theme's", async () => {
+		const small = {
+			typography: { fontSizes: [ { slug: 'small', size: '0.875rem', name: 'Small' } ] },
+		};
+		const active = themeJson( 'active', small );
+		await activate( 'active' );
+		expect( await shadowedPresetNotes( active ) ).toHaveLength( 1 );
+		expect(
+			await shadowedPresetNotes( { ...active, theme: { ...active.theme!, file: 'style.css' } } )
+		).toEqual( [] );
+		expect( await shadowedPresetNotes( themeJson( 'inactive', small ) ) ).toEqual( [] );
 	}, 60000 );
 } );

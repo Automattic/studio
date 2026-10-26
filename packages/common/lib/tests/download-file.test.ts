@@ -3,61 +3,65 @@ import http from 'http';
 import { AddressInfo } from 'net';
 import os from 'os';
 import path from 'path';
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { downloadFile } from '../download-file';
 import { isNetworkError } from '../network-utils';
 
 describe( 'downloadFile', () => {
-	let releaseBody = () => {};
-	let silentRequestReceived = () => {};
+	let requested = () => {};
 	const server = http.createServer( ( req, res ) => {
-		if ( req.url === '/silent' ) {
-			silentRequestReceived(); // and never responds
-			return;
-		}
-		// Responds at once, then holds the body until the test releases it.
-		res.writeHead( 200, { 'content-type': 'application/zip' } );
-		res.write( 'part1-' );
-		releaseBody = () => res.end( 'part2' );
+		requested();
+		if ( req.url === '/missing' ) {
+			res.writeHead( 404 ).end();
+		} else if ( req.url === '/slow-body' ) {
+			res.writeHead( 200 ).write( 'part1-' );
+			setTimeout( () => res.end( 'part2' ), 6_000 );
+		} // '/silent' never responds
 	} );
-	let baseUrl = '';
+	let base = '';
 	const destination = path.join( os.tmpdir(), `download-file-test-${ process.pid }` );
 
 	beforeAll( async () => {
 		await new Promise< void >( ( resolve ) => server.listen( 0, '127.0.0.1', resolve ) );
-		baseUrl = `http://127.0.0.1:${ ( server.address() as AddressInfo ).port }`;
-	} );
-
-	afterEach( () => {
-		vi.useRealTimers();
-		fs.rmSync( destination, { force: true } );
+		base = `http://127.0.0.1:${ ( server.address() as AddressInfo ).port }`;
 	} );
 
 	afterAll( () => {
 		server.closeAllConnections();
 		server.close();
+		fs.rmSync( destination, { force: true } );
 	} );
 
-	it( 'fails as a network error when the server never starts responding', async () => {
-		vi.useFakeTimers( { toFake: [ 'setTimeout', 'clearTimeout' ] } );
-		const requested = new Promise< void >( ( resolve ) => ( silentRequestReceived = resolve ) );
-		const download = downloadFile( `${ baseUrl }/silent`, destination ).catch( ( e ) => e );
+	const failure = ( url: string ) =>
+		downloadFile( url, destination ).then(
+			() => null,
+			( e: unknown ) => e
+		);
 
-		await requested;
+	it.each( [
+		[ 'connection refused', () => 'http://127.0.0.1:1/file', true ],
+		[ 'HTTP error', () => `${ base }/missing`, false ],
+	] )( '%s → network error: %s', async ( _label, url, networkError ) => {
+		expect( isNetworkError( await failure( url() ) ) ).toBe( networkError );
+	} );
+
+	it( 'fails as a network error when no response starts within 5 s', async () => {
+		vi.useFakeTimers( { toFake: [ 'setTimeout', 'clearTimeout' ] } );
+		const reached = new Promise< void >( ( resolve ) => ( requested = resolve ) );
+		const download = failure( `${ base }/silent` );
+		await reached;
 		await vi.advanceTimersByTimeAsync( 5_000 );
+		vi.useRealTimers();
 
 		expect( isNetworkError( await download ) ).toBe( true );
 	} );
 
-	it( 'lets a slow body finish after the response has started', async () => {
+	it( 'gives a body that has started all the time it needs', async () => {
 		vi.useFakeTimers( { toFake: [ 'setTimeout', 'clearTimeout' ] } );
-		const download = downloadFile( `${ baseUrl }/slow-body`, destination );
-
-		await vi.waitFor( () => expect( fs.existsSync( destination ) ).toBe( true ), {
-			interval: 5,
-		} );
-		await vi.advanceTimersByTimeAsync( 60_000 );
-		releaseBody();
+		const download = downloadFile( `${ base }/slow-body`, destination );
+		await vi.waitFor( () => expect( fs.existsSync( destination ) ).toBe( true ) );
+		await vi.advanceTimersByTimeAsync( 6_000 );
+		vi.useRealTimers();
 		await download;
 
 		expect( fs.readFileSync( destination, 'utf8' ) ).toBe( 'part1-part2' );

@@ -87,7 +87,10 @@ describe( 'SitePreview', () => {
 		probeSite.mockReset().mockResolvedValue( new Response() );
 		vi.stubGlobal( 'fetch', probeSite );
 	} );
-	afterEach( () => vi.unstubAllGlobals() );
+	afterEach( () => {
+		vi.unstubAllGlobals();
+		setUserAgent( REAL_USER_AGENT );
+	} );
 
 	it( 'hides the browser controls and shows the stopped preview treatment when the site is not running', async () => {
 		const getSiteThumbnail = vi.fn().mockResolvedValue( 'data:image/png;base64,thumbnail' );
@@ -197,10 +200,13 @@ describe( 'SitePreview', () => {
 
 		const initialIframe = container.querySelector( 'iframe' );
 		expect( initialIframe ).toBeInTheDocument();
+		fireEvent.load( initialIframe! );
+		expect( screen.queryByRole( 'status' ) ).not.toBeInTheDocument();
 
 		// jsdom reports a non-Apple platform, so the primary modifier is Ctrl.
 		fireEvent.keyDown( document.body, { key: 'r', ctrlKey: true } );
 		expect( container.querySelector( 'iframe' ) ).not.toBe( initialIframe );
+		expect( screen.getByRole( 'status' ) ).toHaveTextContent( 'Loading site preview' );
 
 		// ⌘⇧R is an alias for the same reload.
 		const reloadedIframe = container.querySelector( 'iframe' );
@@ -504,6 +510,37 @@ describe( 'SitePreview', () => {
 			configurable: true,
 			value: originalUserAgent,
 		} );
+	} );
+
+	it( 'keeps Annotate ready through frame and in-page loads, until a new page starts', async () => {
+		setUserAgent( `${ REAL_USER_AGENT } Electron/40.0.0` );
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			capabilities: { ...CAPABILITIES, annotatePreview: true },
+		} as never );
+		const { container } = renderPreview(
+			<SitePreview site={ createSite( { running: true } ) } path="/" reloadNonce={ 0 } />
+		);
+		const webview = container.querySelector( 'webview' ) as HTMLElement;
+		Object.assign( webview, { executeJavaScript: vi.fn().mockResolvedValue( '' ) } );
+		const startNavigation = ( isMainFrame: boolean, isInPlace = false ) =>
+			fireEvent(
+				webview,
+				Object.assign( new Event( 'did-start-navigation' ), { isMainFrame, isInPlace } )
+			);
+		fireEvent( webview, new Event( 'dom-ready' ) );
+		const annotate = screen.getByRole( 'button', { name: 'Annotate' } );
+		await waitFor( () => expect( annotate ).toBeEnabled() );
+
+		startNavigation( false );
+		startNavigation( true, true );
+		fireEvent( webview, new Event( 'did-start-loading' ) );
+		expect( annotate ).toBeEnabled();
+
+		startNavigation( true );
+		expect( annotate ).toBeDisabled();
+		fireEvent( webview, new Event( 'dom-ready' ) );
+		await waitFor( () => expect( annotate ).toBeEnabled() );
 	} );
 
 	it( 'hides the Annotate control when agentic features are off', () => {

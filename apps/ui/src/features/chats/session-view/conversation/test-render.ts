@@ -22,12 +22,12 @@ export function renderConversation(
 	const queryClient = new QueryClient( {
 		defaultOptions: { queries: { retry: false } },
 	} );
-	return render(
+	const element = ( session: LoadedAiSession ) =>
 		createElement(
 			QueryClientProvider,
 			{ client: queryClient },
 			createElement( Conversation, {
-				data,
+				data: session,
 				isRunning: options.isRunning ?? false,
 				startedAt: options.startedAt ?? null,
 				pendingQuestions: options.pendingQuestions ?? new Set< string >(),
@@ -36,8 +36,12 @@ export function renderConversation(
 				onAnswerQuestion: options.onAnswerQuestion ?? vi.fn(),
 				onChooseFreeForm: options.onChooseFreeForm ?? vi.fn(),
 			} )
-		)
-	);
+		);
+	const result = render( element( data ) );
+	return {
+		...result,
+		rerenderWith: ( session: LoadedAiSession ) => result.rerender( element( session ) ),
+	};
 }
 
 export function renderInteractiveConversation(

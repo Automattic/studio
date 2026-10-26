@@ -34,7 +34,7 @@ import {
 	getPlatformMetric,
 	StatsGroup,
 } from 'src/lib/bump-stats';
-import { handleDeeplink } from 'src/lib/deeplink';
+import { markStudioStarted, openDeeplink } from 'src/lib/deeplink';
 import {
 	getSavedLocale,
 	getSupportedLocale,
@@ -377,12 +377,21 @@ async function appBoot() {
 	function setupCustomProtocolHandler() {
 		if ( process.platform === 'darwin' ) {
 			app.on( 'open-url', ( _event, url ) => {
-				void handleDeeplink( url );
+				openDeeplink( url );
 			} );
 		} else {
 			// Handle custom protocol links on Windows and Linux
+			// A link that launches Studio arrives in its own arguments.
+			const launchLink = process.argv.find( ( arg ) => arg.startsWith( PROTOCOL_PREFIX ) );
+			if ( launchLink ) {
+				openDeeplink( launchLink );
+			}
 			app.on( 'second-instance', async ( _event, argv ) => {
+				const customProtocolParameter = argv?.find( ( arg ) => arg.startsWith( PROTOCOL_PREFIX ) );
 				if ( ! finishedInitialization ) {
+					if ( customProtocolParameter ) {
+						openDeeplink( customProtocolParameter );
+					}
 					return;
 				}
 
@@ -394,9 +403,8 @@ async function appBoot() {
 					mainWindow.focus();
 				}
 
-				const customProtocolParameter = argv?.find( ( arg ) => arg.startsWith( PROTOCOL_PREFIX ) );
 				if ( customProtocolParameter ) {
-					void handleDeeplink( customProtocolParameter );
+					openDeeplink( customProtocolParameter );
 				}
 			} );
 		}
@@ -535,6 +543,7 @@ async function appBoot() {
 		await autoInstallLinuxCliIfNeeded();
 
 		finishedInitialization = true;
+		markStudioStarted();
 	} );
 
 	// Quit when all windows are closed, except on macOS. There, it's common

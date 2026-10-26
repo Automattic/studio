@@ -3,7 +3,7 @@ import { classifySyncFailure } from '@studio/common/lib/sync/classify-sync-failu
 import { SYNC_PUSH_SIZE_LIMIT_BYTES } from '@studio/common/lib/sync/constants';
 import { useQueryClient } from '@tanstack/react-query';
 import { __ } from '@wordpress/i18n';
-import { useEffect, useEffectEvent, useSyncExternalStore } from 'react';
+import { useEffect, useEffectEvent, useRef, useSyncExternalStore } from 'react';
 import { useConnector } from '@/data/core';
 import { connectedWpcomSitesQueryKey } from '@/data/queries/use-connected-wpcom-sites';
 import { usePushSiteToLive } from '@/data/queries/use-sync-site';
@@ -58,9 +58,16 @@ export function useSyncConnectSiteListener(): void {
 	const connector = useConnector();
 	const queryClient = useQueryClient();
 	const { mutate: pushSite } = usePushSiteToLive();
+	// The deep link can arrive more than once for the same checkout.
+	const handled = useRef( new Set< string >() );
 
 	const handleConnect = useEffectEvent( async ( event: ConnectSiteEvent ) => {
 		const { remoteSiteId, studioSiteId, autoOpenPush } = event;
+		const key = `${ studioSiteId }:${ remoteSiteId }`;
+		if ( handled.current.has( key ) ) {
+			return;
+		}
+		handled.current.add( key );
 		const connectedSites = () =>
 			queryClient.getQueryData< SyncSite[] >( connectedWpcomSitesQueryKey( studioSiteId ) ) ?? [];
 		let connected = false;
@@ -110,6 +117,7 @@ export function useSyncConnectSiteListener(): void {
 				syncSite: remote,
 			} );
 		} catch ( error ) {
+			handled.current.delete( key );
 			setSetupFailure( studioSiteId, {
 				error: error instanceof Error ? error.message : String( error ),
 				event,

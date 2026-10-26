@@ -4,7 +4,7 @@
 
 		display: inline-flex;
 		flex-shrink: 0;
-		gap: 6px;
+		gap: var( --space-1_5 );
 		align-items: center;
 		justify-content: center;
 		max-width: 100%;
@@ -16,7 +16,7 @@
 		background-clip: padding-box;
 		font-size: var( --text-xs );
 		font-weight: var( --font-weight-medium );
-		line-height: 20px;
+		line-height: var( --text-xs--line-height );
 		white-space: nowrap;
 		text-decoration: none;
 		outline: none;
@@ -31,6 +31,11 @@
 		--button-active-duration: var( --motion-duration-layout );
 	}
 
+	.button[data-active-motion='layout'] {
+		--button-active-duration: var( --motion-duration-layout );
+		--button-active-easing: var( --motion-ease-layout );
+	}
+
 	@media ( prefers-reduced-motion: no-preference ) {
 		.button:not( :focus-visible, [aria-haspopup='menu'], [aria-haspopup='listbox'] ) {
 			transition-property: color, background-color, border-color, transform, opacity;
@@ -40,6 +45,11 @@
 			transition-timing-function: ease, ease, ease, ease,
 				var( --button-active-easing, var( --motion-ease-enter ) );
 		}
+	}
+
+	/* Switches state at once, as feedback timed to another animation. */
+	.button[data-active-motion='instant'] {
+		transition: none;
 	}
 
 	.button:is( [aria-expanded='true'], [aria-pressed='true'] ) {
@@ -55,7 +65,10 @@
 		cursor: default;
 	}
 
-	.button:is( :disabled, [data-disabled] ):is( :has( [data-slot='spinner'] ), [data-disabled-appearance] ) {
+	.button:is( :disabled, [data-disabled] ):is(
+			:has( [data-slot='spinner'] ),
+			[data-disabled-appearance]
+		) {
 		opacity: 1;
 	}
 
@@ -74,26 +87,25 @@
 		pointer-events: none;
 	}
 
-	.button svg:not( [data-size] ) {
-		width: 16px;
-		height: 16px;
-	}
-
 	.button [data-dropdown-indicator] {
-		margin-inline: -4px -2px;
+		margin-inline: calc( var( --space-1 ) * -1 ) calc( var( --space-0_5 ) * -1 );
 		color: var( --muted-foreground );
 	}
 
 	.button:has( > [data-icon='inline-start'] ) {
-		padding-inline-start: 8px;
+		padding-inline-start: var( --space-2 );
 	}
 
 	.button:has( > [data-icon='inline-end'] ) {
-		padding-inline-end: 8px;
+		padding-inline-end: var( --space-2 );
 	}
 
 	/* Variants. Hover only applies to enabled buttons. */
-	.button:is( :hover:not( :disabled, [data-disabled] ), [aria-expanded='true'], [aria-pressed='true'] ) {
+	.button:is(
+			:hover:not( :disabled, [data-disabled] ),
+			[aria-expanded='true'],
+			[aria-pressed='true']
+		) {
 		background-color: var( --button-hover-background, var( --button-background, transparent ) );
 	}
 
@@ -103,7 +115,11 @@
 			[data-variant='inline-text'],
 			[data-variant='inline-accent'],
 			[data-variant='overlay']
-		):is( :hover:not( :disabled, [data-disabled] ), [aria-expanded='true'], [aria-pressed='true'] ) {
+		):is(
+			:hover:not( :disabled, [data-disabled] ),
+			[aria-expanded='true'],
+			[aria-pressed='true']
+		) {
 		color: var( --button-hover-color );
 	}
 
@@ -184,21 +200,20 @@
 		backdrop-filter: blur( 12px );
 	}
 
-	.button:is( [data-variant='link'], [data-variant='inline-link'], [data-variant='inline-accent'] ):hover:not(
-			:disabled,
-			[data-disabled]
-		) {
+	.button:is(
+			[data-variant='link'],
+			[data-variant='inline-link'],
+			[data-variant='inline-accent']
+		):hover:not( :disabled, [data-disabled] ) {
 		text-decoration: underline;
 	}
 
 	.button[data-variant='link'] {
-
 		color: var( --primary );
 		text-underline-offset: 4px;
 	}
 
 	.button:is( [data-variant='inline-link'], [data-variant='inline-text'] ) {
-
 		color: var( --muted-foreground );
 		text-underline-offset: 2px;
 	}
@@ -247,7 +262,7 @@
 	.button[data-size='2xs'] {
 		--button-padding-inline: 6px;
 
-		gap: 4px;
+		gap: var( --space-1 );
 		height: 24px;
 		border-radius: var( --radius-md );
 	}
@@ -272,11 +287,11 @@
 	}
 
 	.button[data-size='sm']:has( > [data-icon='inline-start'] ) {
-		padding-inline-start: 6px;
+		padding-inline-start: var( --space-1_5 );
 	}
 
 	.button[data-size='sm']:has( > [data-icon='inline-end'] ) {
-		padding-inline-end: 6px;
+		padding-inline-end: var( --space-1_5 );
 	}
 
 	.button[data-size='lg'] {
@@ -343,14 +358,14 @@
 	}
 
 	.button[data-shape='round'] {
-		border-radius: 9999px;
+		border-radius: var( --radius-full );
 	}
 
 	.button[data-layout='row'] {
 		justify-content: flex-start;
 		width: 100%;
 		height: auto;
-		padding-block: 8px;
+		padding-block: var( --space-2 );
 		text-align: start;
 		white-space: normal;
 	}

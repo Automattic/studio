@@ -483,6 +483,41 @@ describe( 'useAgentRun queued handoff', () => {
 		expect( screen.getByTestId( 'started-at' ) ).toHaveTextContent( '1000' );
 		nowSpy.mockRestore();
 	} );
+
+	it( 'stays idle when a run exits before its start is acknowledged', async () => {
+		let resolveContinueSession: ( value: { runId: string } ) => void = () => undefined;
+		connector.continueSession = vi.fn(
+			() =>
+				new Promise< { runId: string } >( ( resolve ) => {
+					resolveContinueSession = resolve;
+				} )
+		);
+		renderWithAgentRun( createQueryClient() );
+		await waitFor( () => expect( connector.onAgentEvent ).toHaveBeenCalled() );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Queue' } ) );
+		await waitFor( () => expect( connector.continueSession ).toHaveBeenCalled() );
+
+		act( () => {
+			agentListener( {
+				sessionId: 'session-1',
+				runId: 'run-next',
+				event: { type: 'run.started', timestamp: '2026-06-24T12:00:00.000Z' },
+			} );
+			agentListener( {
+				sessionId: 'session-1',
+				runId: 'run-next',
+				event: {
+					type: 'run.exited',
+					timestamp: '2026-06-24T12:00:01.000Z',
+					status: 'error',
+					code: 1,
+				},
+			} );
+		} );
+		await act( async () => resolveContinueSession( { runId: 'run-next' } ) );
+
+		expect( screen.getByTestId( 'phase' ) ).toHaveTextContent( 'idle' );
+	} );
 	function startOldRun() {
 		act( () => {
 			agentListener( {
@@ -611,5 +646,41 @@ describe( 'useAgentRun queued handoff', () => {
 
 		await waitFor( () => expect( connector.answerAgentQuestion ).toHaveBeenCalled() );
 		await waitFor( () => expect( screen.getByTestId( 'questions' ) ).toHaveTextContent( 'Q1' ) );
+	} );
+
+	it( 'streams a reply into one entry, holding back tool calls until it ends', async () => {
+		const queryClient = createQueryClient();
+		const key = [ ...SESSIONS_QUERY_KEY, 'session-1' ];
+		queryClient.setQueryData< LoadedAiSession >( key, createLoadedSession() );
+		renderWithAgentRun( queryClient );
+		await waitFor( () => expect( connector.onAgentEvent ).toHaveBeenCalled() );
+
+		const text = ( value: string ) => ( { type: 'text', text: value } );
+		const toolCall = { type: 'toolCall', id: 'call-1', name: 'Edit', arguments: {} };
+		const emit = ( type: 'message_update' | 'message_end', content: unknown[] ) =>
+			act( () =>
+				agentListener( {
+					sessionId: 'session-1',
+					runId: 'run-1',
+					event: {
+						type: 'message',
+						timestamp: '2026-06-24T12:00:00.000Z',
+						message: { type, message: { role: 'assistant', content } },
+					},
+				} as unknown as AgentRunEvent )
+			);
+		const contents = () =>
+			queryClient
+				.getQueryData< LoadedAiSession >( key )!
+				.entries.map( ( entry ) => ( entry as { message: { content: unknown } } ).message.content );
+
+		emit( 'message_update', [ text( 'Upd' ) ] );
+		emit( 'message_update', [ text( 'Updating' ) ] );
+		emit( 'message_update', [ text( 'Updating the header' ), toolCall ] );
+		expect( contents() ).toEqual( [ [ text( 'Upd' ) ] ] );
+		await waitFor( () => expect( contents() ).toEqual( [ [ text( 'Updating the header' ) ] ] ) );
+
+		emit( 'message_end', [ text( 'Updating the header.' ), toolCall ] );
+		expect( contents() ).toEqual( [ [ text( 'Updating the header.' ), toolCall ] ] );
 	} );
 } );

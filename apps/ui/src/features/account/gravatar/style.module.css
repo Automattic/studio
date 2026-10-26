@@ -3,9 +3,9 @@
 	display: inline-flex;
 	width: 20px;
 	height: 20px;
-	border-radius: 50%;
+	border-radius: var( --radius-full );
 	flex-shrink: 0;
-	background-color: var(--chat);
+	background-color: var( --chat );
 }
 
 /* A hairline ring over the image, blended so it darkens light edges and
@@ -14,12 +14,12 @@
 	content: '';
 	position: absolute;
 	inset: 0;
-	border: 1px solid var(--border);
+	border: 1px solid var( --border );
 	border-radius: inherit;
 	mix-blend-mode: darken;
 }
 
-:root[data-color-scheme='dark'] .root::after {
+[data-color-scheme='dark'] .root::after {
 	mix-blend-mode: lighten;
 }
 

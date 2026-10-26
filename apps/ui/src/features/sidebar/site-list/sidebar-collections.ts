@@ -64,23 +64,6 @@ export function createSiteRows(
 	return rows;
 }
 
-// Overlays the just-dragged order (kept in state while the persisted
-// `sortOrder` catches up) on top of the fetched sites; sites not in the
-// overlay keep their order via sort stability.
-export function sortSitesByManualOrder(
-	sites: SiteDetails[],
-	manualOrder: string[]
-): SiteDetails[] {
-	// MAX_SAFE_INTEGER (not Infinity): two unranked sites must compare as 0,
-	// not NaN, for the sort to be well-defined.
-	const rank = new Map( manualOrder.map( ( id, index ) => [ id, index ] ) );
-	return [ ...sites ].sort(
-		( a, b ) =>
-			( rank.get( a.id ) ?? Number.MAX_SAFE_INTEGER ) -
-			( rank.get( b.id ) ?? Number.MAX_SAFE_INTEGER )
-	);
-}
-
 function findSessionSiteRow( rows: SiteRow[], sessionId: string ): SiteRow | undefined {
 	return rows.find( ( row ) => row.sessionIds.includes( sessionId ) );
 }

@@ -9,6 +9,7 @@
 		"build": "vite build",
 		"build:local": "STUDIO_TARGET=local vite build",
 		"lint": "eslint src",
+		"lint:unused": "knip --directory ../.. --workspace @studio/ui",
 		"typecheck": "tsc -p tsconfig.json --noEmit",
 		"preview": "vite preview",
 		"preview:local": "STUDIO_TARGET=local vite preview"

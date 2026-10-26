@@ -741,6 +741,7 @@ export async function validateBlocks(
 export interface PresetValues {
 	colors: Array< [ string, string ] >;
 	fontSizes: Array< [ string, string ] >;
+	spacingSizes: Array< [ string, string ] >;
 }
 
 export interface PresetValuesResult {
@@ -749,6 +750,8 @@ export interface PresetValuesResult {
 	colors: Array< { color: string; slug: string } >;
 	/** Each font size written as a value that a font size preset has, with its preset. */
 	fontSizes: Array< { size: string; slug: string } >;
+	/** Each spacing written as a value that a spacing size preset has, with its preset. */
+	spacingSizes: Array< { size: string; slug: string } >;
 }
 
 /**
@@ -758,25 +761,40 @@ export interface PresetValuesResult {
  * block's color attribute where its color or border support has one, and
  * `var:preset|color|` elsewhere in its style; a font size preset's size
  * (getFontSizeObjectByValue) becomes the block's fontSize attribute
- * (styleToAttributes in the typography hook). The values stay the same, and
+ * (styleToAttributes in the typography hook); a spacing size preset's size,
+ * as padding, margin or block gap, becomes `var:preset|spacing|<slug>`
+ * (getPresetValueFromCustomValue). The values stay the same, and
  * follow the presets when they change. Content the editor would save
  * otherwise is returned as is.
  */
 export async function storePresetValues(
 	content: string,
 	siteUrl: string,
-	{ colors: palette, fontSizes: sizes }: PresetValues
+	{ colors: palette, fontSizes: sizes, spacingSizes: spacings }: PresetValues
 ): Promise< PresetValuesResult > {
-	if ( ! palette.length && ! sizes.length ) {
-		return { content, colors: [], fontSizes: [] };
-	}
 	const page = await getEditorPage( siteUrl ).getPage();
 	return page.evaluate(
-		( { html, presets, fontSizePresets } ) => {
+		( { html, presets, fontSizePresets, spacingPresets } ) => {
 			/* eslint-disable @typescript-eslint/no-explicit-any */
 			const wpBlocks = ( window as any ).wp.blocks;
 			const colors: Array< { color: string; slug: string } > = [];
 			const fontSizes: Array< { size: string; slug: string } > = [];
+			const spacingSizes: Array< { size: string; slug: string } > = [];
+			const stored = () => colors.length + fontSizes.length + spacingSizes.length;
+			// A spacing value, or each side of one, a spacing size preset has, as that preset.
+			const spacingValue = ( value: any ): any => {
+				if ( value && typeof value === 'object' && ! Array.isArray( value ) ) {
+					return Object.fromEntries(
+						Object.entries( value ).map( ( [ side, child ] ) => [ side, spacingValue( child ) ] )
+					);
+				}
+				const slug = spacingPresets.find( ( [ , size ] ) => size === value )?.[ 0 ];
+				if ( ! slug ) {
+					return value;
+				}
+				spacingSizes.push( { size: value, slug } );
+				return `var:preset|spacing|${ slug }`;
+			};
 			const slugOf = ( value: unknown ) =>
 				typeof value === 'string'
 					? presets.find(
@@ -808,9 +826,18 @@ export async function storePresetValues(
 			];
 			const visit = ( block: any ): any => {
 				const innerBlocks = ( block.innerBlocks ?? [] ).map( visit );
-				const before = colors.length + fontSizes.length;
+				const before = stored();
 				const types = wpBlocks.getBlockType( block.name )?.attributes ?? {};
 				let style = presetValues( block.attributes?.style );
+				if ( style?.spacing ) {
+					const spacing = { ...style.spacing };
+					for ( const key of [ 'padding', 'margin', 'blockGap' ] ) {
+						if ( key in spacing ) {
+							spacing[ key ] = spacingValue( spacing[ key ] );
+						}
+					}
+					style = { ...style, spacing };
+				}
 				const size = style?.typography?.fontSize;
 				// A block takes a preset font size where its typography support gives it the attribute.
 				const sizeSlug = types.fontSize
@@ -821,7 +848,7 @@ export async function storePresetValues(
 					const { fontSize: _size, ...typography } = style.typography;
 					style = { ...style, typography };
 				}
-				if ( colors.length + fontSizes.length === before ) {
+				if ( stored() === before ) {
 					return { ...block, innerBlocks };
 				}
 				const attributes = { ...block.attributes, style };
@@ -852,18 +879,18 @@ export async function storePresetValues(
 				return { ...block, attributes, innerBlocks };
 			};
 			const blocks = wpBlocks.parse( html ).map( visit );
-			if ( ! colors.length && ! fontSizes.length ) {
-				return { content: html, colors, fontSizes };
+			if ( ! stored() ) {
+				return { content: html, colors, fontSizes, spacingSizes };
 			}
 			const fixed = wpBlocks.serialize( blocks );
 			const valid = ( list: any[] ): boolean =>
 				list.every( ( block ) => block.isValid !== false && valid( block.innerBlocks ?? [] ) );
 			return valid( wpBlocks.parse( fixed ) )
-				? { content: fixed, colors, fontSizes }
-				: { content: html, colors: [], fontSizes: [] };
+				? { content: fixed, colors, fontSizes, spacingSizes }
+				: { content: html, colors: [], fontSizes: [], spacingSizes: [] };
 			/* eslint-enable @typescript-eslint/no-explicit-any */
 		},
-		{ html: content, presets: palette, fontSizePresets: sizes }
+		{ html: content, presets: palette, fontSizePresets: sizes, spacingPresets: spacings }
 	);
 }
 

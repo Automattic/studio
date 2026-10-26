@@ -25,6 +25,7 @@ vi.mock( 'cli/ai/block-validator', async () => ( {
 		content,
 		colors: [],
 		fontSizes: [],
+		spacingSizes: [],
 	} ) ),
 	bindNavigationLinks: vi.fn( async ( content: string ) => ( { content, links: [] } ) ),
 	dropCommentsBetweenBlocks: vi.fn( async ( content: string ) => ( { content, comments: 0 } ) ),
@@ -154,10 +155,12 @@ describe( 'validating a file', () => {
 			content: fixed,
 			colors: [ { color: '#503AA8', slug: 'accent-3' } ],
 			fontSizes: [],
+			spacingSizes: [],
 		} );
 		const palette = {
 			colors: [ [ 'accent-3', '#503AA8' ] ] as Array< [ string, string ] >,
 			fontSizes: [],
+			spacingSizes: [],
 		};
 		const result = await validateBlockMarkupFile( file, 'http://localhost:8881', palette );
 		expect( storePresetValues ).toHaveBeenLastCalledWith(
@@ -201,6 +204,7 @@ describe( 'validating a file', () => {
 		const result = await validateBlockMarkupFile( file, 'http://localhost:8881', {
 			colors: [ [ 'accent-3', '#503AA8' ] ],
 			fontSizes: [],
+			spacingSizes: [],
 		} );
 		expect( dropCommentsBetweenBlocks ).toHaveBeenLastCalledWith(
 			original,
@@ -209,6 +213,7 @@ describe( 'validating a file', () => {
 		expect( storePresetValues ).toHaveBeenLastCalledWith( fixed, 'http://localhost:8881', {
 			colors: [ [ 'accent-3', '#503AA8' ] ],
 			fontSizes: [],
+			spacingSizes: [],
 		} );
 		expect( result.summary ).toContain(
 			'drops 2 HTML comment(s) between blocks, which the editor would turn into Classic blocks'
@@ -226,6 +231,7 @@ describe( 'validating a file', () => {
 			content: fixed,
 			colors: [ { color: '#503AA8', slug: 'accent-3' } ],
 			fontSizes: [],
+			spacingSizes: [],
 		} );
 		const result = await validateBlockMarkupFile( file, 'http://localhost:8881' );
 		expect( validateBlocks ).toHaveBeenLastCalledWith( fixed, 'http://localhost:8881' );

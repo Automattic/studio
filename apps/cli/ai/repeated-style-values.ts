@@ -9,11 +9,13 @@
  * value on many blocks is one treatment kept in many places.
  *
  * Where the block validation gate saves the file through the editor, a raw
- * font size it repeats becomes a font size preset of its theme where nothing
- * can look different: the preset renders the same size, as both go through
- * wp_get_typography_font_size_value() (wp-includes/block-supports/typography.php),
- * and the save stores the blocks with it as the editor stores a picked preset.
- * Other kinds of value are noted.
+ * font size or spacing it repeats becomes a preset of its theme where nothing
+ * can look different, and the save stores the blocks with it as the editor
+ * stores a picked preset. A font size preset renders the same size, as both
+ * go through wp_get_typography_font_size_value()
+ * (wp-includes/block-supports/typography.php); a spacing size preset's CSS
+ * variable holds its size as written (WP_Theme_JSON::PRESETS_METADATA gives
+ * it no value_func). Other kinds of value are noted.
  */
 import { readdir, readFile, writeFile } from 'fs/promises';
 import path from 'path';
@@ -120,45 +122,74 @@ async function importantFontSize( themeDir: string, themeJson: unknown ): Promis
 	return sheets.some( ( sheet ) => /font-size\s*:[^;}]*!\s*important/i.test( sheet ) );
 }
 
+// The kinds of value Studio makes a preset of, by where theme.json lists
+// them, and whether the theme's CSS could make the preset look different.
+const MADE: Partial<
+	Record<
+		PresetKind,
+		{
+			settings: [ string, string ];
+			name: string;
+			renders: string;
+			differs: ( themeDir: string, themeJson: unknown ) => Promise< boolean >;
+		}
+	>
+> = {
+	fontSizes: {
+		settings: [ 'typography', 'fontSizes' ],
+		name: 'font size',
+		renders:
+			"Each renders the size it had (wp_get_typography_font_size_value() in wp-includes/block-supports/typography.php), and the editor's font size picker and Global Styles now offer and change it.",
+		differs: importantFontSize,
+	},
+	spacingSizes: {
+		settings: [ 'spacing', 'spacingSizes' ],
+		name: 'spacing size',
+		renders:
+			"Each renders the value it had, which its CSS variable holds as written (WP_Theme_JSON::PRESETS_METADATA in wp-includes/class-wp-theme-json.php), and the editor's spacing controls and Global Styles now offer and change it.",
+		differs: async () => false,
+	},
+};
+
 /**
- * Adds each raw font size in `sizes` to the file's theme as a font size
- * preset, for the block validation gate's save through the editor to store
- * the blocks with them as, when that changes nothing the file renders.
- * Returns the note on what it added, and the sizes added.
+ * Adds each raw value in `values` to the file's theme as a preset of `kind`,
+ * for the block validation gate's save through the editor to store the blocks
+ * with them as, when that changes nothing the file renders. Returns the note
+ * on what it added, and the values added.
  */
-async function addFontSizePresets(
+async function addPresets(
 	siteFile: SiteFile,
 	file: string,
-	sizes: string[],
+	kind: PresetKind,
+	values: string[],
 	presets: Array< [ string, string ] >
 ): Promise< { note: string; added: string[] } | undefined > {
+	const made = MADE[ kind ];
 	const { siteRoot, theme } = siteFile;
-	if ( ! theme || ( await isUpdatableTheme( siteRoot, theme.slug ) ) ) {
+	if ( ! made || ! theme || ( await isUpdatableTheme( siteRoot, theme.slug ) ) ) {
 		return undefined;
 	}
+	const [ group, list ] = made.settings;
 	const themeJsonFile = path.join( theme.dir, 'theme.json' );
 	const themeJson = JSON.parse( await readFile( themeJsonFile, 'utf8' ) );
-	const own = themeJson?.settings?.typography?.fontSizes;
+	const own = themeJson?.settings?.[ group ]?.[ list ];
 	// A child theme's list replaces its parent's, so one is added to only where it is.
 	const parent = await readThemeHeader( siteRoot, theme.slug, 'Template' ).catch( () => '' );
-	if (
-		( parent && ! Array.isArray( own ) ) ||
-		( await importantFontSize( theme.dir, themeJson ) )
-	) {
+	if ( ( parent && ! Array.isArray( own ) ) || ( await made.differs( theme.dir, themeJson ) ) ) {
 		return undefined;
 	}
 	const taken = new Set( presets.map( ( [ slug ] ) => slug ) );
-	const added = sizes
-		.filter( ( size ) => LENGTH.test( size ) && ! taken.has( slugFor( size ) ) )
-		.map( ( size ): [ string, string ] => [ slugFor( size ), size ] );
+	const added = [ ...new Set( values ) ]
+		.filter( ( value ) => LENGTH.test( value ) && ! taken.has( slugFor( value ) ) )
+		.map( ( value ): [ string, string ] => [ slugFor( value ), value ] );
 	if ( ! added.length ) {
 		return undefined;
 	}
 	themeJson.settings = {
 		...themeJson.settings,
-		typography: {
-			...themeJson.settings?.typography,
-			fontSizes: [
+		[ group ]: {
+			...themeJson.settings?.[ group ],
+			[ list ]: [
 				...( Array.isArray( own ) ? own : [] ),
 				...added.map( ( [ slug, size ] ) => ( { name: size, slug, size } ) ),
 			],
@@ -166,14 +197,16 @@ async function addFontSizePresets(
 	};
 	await writeFile( themeJsonFile, JSON.stringify( themeJson, null, '\t' ) + '\n', 'utf8' );
 	return {
-		added: added.map( ( [ , size ] ) => size ),
-		note: `Studio made the font sizes ${ file } repeats font size presets of ${
+		added: added.map( ( [ , value ] ) => value ),
+		note: `Studio made the ${ made.name }s ${ file } repeats ${ made.name } presets of ${
 			theme.slug
 		}: it added ${ added
-			.map( ( [ slug, size ] ) => `${ slug } (${ size })` )
+			.map( ( [ slug, value ] ) => `${ slug } (${ value })` )
 			.join(
 				', '
-			) } to ${ themeJsonFile }'s "settings": { "typography": { "fontSizes" } }, which Studio's save of the file through the block editor stores its blocks of those sizes as, as the editor stores a picked preset (Block validation reports it). Each renders the size it had (wp_get_typography_font_size_value() in wp-includes/block-supports/typography.php), and the editor's font size picker and Global Styles now offer and change it. Each preset's "name" is its size; a name that says what it is for labels it in the picker.`,
+			) } to ${ themeJsonFile }'s "settings": { "${ group }": { "${ list }" } }, which Studio's save of the file through the block editor stores its blocks of those values as, as the editor stores a picked preset (Block validation reports it). ${
+			made.renders
+		} Each preset's "name" is its value; a name that says what it is for labels it in the editor.`,
 	};
 }
 
@@ -198,31 +231,42 @@ export async function repeatedStyleValueNotes(
 		return [];
 	}
 	// The block validation gate saves the file through the editor, which stores a
-	// size a preset has as the preset (storePresetValues() in block-validator.ts).
+	// value a preset has as the preset (storePresetValues() in block-validator.ts).
 	const saved = gateSaves && isBlockMarkupFile( file );
-	const preset = ( { path: at, value }: { path: string; value: string } ) =>
-		at === 'typography.fontSize' && presets.fontSizes.some( ( [ , size ] ) => size === value );
-	repeated = repeated.filter( ( value ) => ! saved || ! preset( value ) );
-	const fontSizes = repeated
-		.filter( ( value ) => value.path === 'typography.fontSize' )
-		.map( ( { value } ) => value );
-	const made =
-		saved && fontSizes.length
-			? await addFontSizePresets( siteFile, file, fontSizes, presets.fontSizes ).catch(
-					() => undefined
-			  )
-			: undefined;
-	if ( made ) {
-		repeated = repeated.filter(
-			( value ) => value.path !== 'typography.fontSize' || ! made.added.includes( value.value )
+	const kindOf = ( at: string ) => STYLES.find( ( style ) => style.path.test( at ) )?.kind;
+	const stored = ( { path: at, value }: { path: string; value: string } ) => {
+		const kind = kindOf( at );
+		return (
+			( kind === 'fontSizes' || kind === 'spacingSizes' ) &&
+			presets[ kind ].some( ( [ , size ] ) => size === value )
 		);
+	};
+	repeated = repeated.filter( ( value ) => ! saved || ! stored( value ) );
+	const made: Array< { note: string; added: string[]; kind: PresetKind } > = [];
+	for ( const kind of saved ? ( Object.keys( MADE ) as PresetKind[] ) : [] ) {
+		const values = repeated
+			.filter( ( value ) => kindOf( value.path ) === kind )
+			.map( ( { value } ) => value );
+		const added = values.length
+			? await addPresets( siteFile, file, kind, values, presets[ kind ] ).catch( () => undefined )
+			: undefined;
+		if ( added ) {
+			made.push( { ...added, kind } );
+		}
 	}
+	repeated = repeated.filter(
+		( value ) =>
+			! made.some(
+				( { kind, added } ) => kindOf( value.path ) === kind && added.includes( value.value )
+			)
+	);
+	const notes = made.map( ( { note } ) => note );
 	const kinds = STYLES.map( ( style ) => ( {
 		...style,
 		values: repeated.filter( ( value ) => style.path.test( value.path ) ),
 	} ) ).filter( ( style ) => style.values.length );
 	if ( ! kinds.length ) {
-		return made ? [ made.note ] : [];
+		return notes;
 	}
 	const values = kinds
 		.flatMap( ( style ) => style.values )
@@ -240,6 +284,6 @@ export async function repeatedStyleValueNotes(
 		) }. A block takes a preset by its slug, which WordPress renders as the preset's CSS variable (wp-includes/block-supports/typography.php, wp-includes/style-engine/class-wp-style-engine.php), so the editor offers it and Global Styles changes it on every block at once. ${ offered.join(
 			' '
 		) } Use the preset that fits, or add one to theme.json for a value the presets lack.`,
-		...( made ? [ made.note ] : [] ),
+		...notes,
 	];
 }

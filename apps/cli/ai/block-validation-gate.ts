@@ -133,6 +133,8 @@ interface MarkupValidation {
 	paletteColors?: PresetValuesResult[ 'colors' ];
 	/** The font sizes the fix stores as presets. */
 	fontSizes?: PresetValuesResult[ 'fontSizes' ];
+	/** The spacing values the fix stores as presets. */
+	spacingSizes?: PresetValuesResult[ 'spacingSizes' ];
 	/** The navigation links the fix binds to the entity they name. */
 	boundLinks?: string[];
 	/** How many runs of HTML comments between blocks the save drops. */
@@ -148,6 +150,7 @@ export function describeEditorSave( result: MarkupValidation, fixes: string ): s
 			: undefined,
 		result.paletteColors?.length ? describePaletteColors( result.paletteColors ) : undefined,
 		result.fontSizes?.length ? describeFontSizes( result.fontSizes ) : undefined,
+		result.spacingSizes?.length ? describeSpacingSizes( result.spacingSizes ) : undefined,
 		result.boundLinks?.length ? describeBoundLinks( result.boundLinks ) : undefined,
 	].filter( ( note ): note is string => Boolean( note ) );
 }
@@ -190,10 +193,12 @@ async function storeAsTheEditorDoes(
 			between.comments > 0 ||
 			presets.colors.length > 0 ||
 			presets.fontSizes.length > 0 ||
+			presets.spacingSizes.length > 0 ||
 			bound.links.length > 0,
 		...( between.comments && { droppedComments: between.comments } ),
 		...( presets.colors.length && { paletteColors: presets.colors } ),
 		...( presets.fontSizes.length && { fontSizes: presets.fontSizes } ),
+		...( presets.spacingSizes.length && { spacingSizes: presets.spacingSizes } ),
 		...( bound.links.length && { boundLinks: bound.links } ),
 	};
 	// A save stands only when the editor finds no more problems in it than in
@@ -227,8 +232,18 @@ function describeFontSizes( sizes: PresetValuesResult[ 'fontSizes' ] ): string {
 	) }, as the editor stores a font size preset (getFontSizeObjectByValue in @wordpress/block-editor), so it follows the preset`;
 }
 
+/** How the editor stores spacing written as preset sizes, for a note. */
+function describeSpacingSizes( sizes: PresetValuesResult[ 'spacingSizes' ] ): string {
+	const each = [
+		...new Set( sizes.map( ( { size, slug } ) => `${ size } as the spacing size ${ slug }` ) ),
+	];
+	return `stores ${ each.join(
+		', '
+	) }, as the editor stores a spacing size preset (getPresetValueFromCustomValue in @wordpress/block-editor), so it follows the preset`;
+}
+
 /**
- * The palette colors and font sizes markup in \`theme\` renders with (the
+ * The palette colors, font sizes and spacing sizes markup in \`theme\` renders with (the
  * active theme's by default), as WordPress resolves them.
  */
 export async function sitePresetValues(
@@ -238,10 +253,14 @@ export async function sitePresetValues(
 	const presets = await readWordPressSite( siteRoot, ( site ) =>
 		themePresets( site, theme )
 	).catch( () => undefined );
-	return { colors: presets?.colors ?? [], fontSizes: presets?.fontSizes ?? [] };
+	return {
+		colors: presets?.colors ?? [],
+		fontSizes: presets?.fontSizes ?? [],
+		spacingSizes: presets?.spacingSizes ?? [],
+	};
 }
 
-const NO_PRESETS: PresetValues = { colors: [], fontSizes: [] };
+const NO_PRESETS: PresetValues = { colors: [], fontSizes: [], spacingSizes: [] };
 
 /** Validates one block markup file, with the lossless fix for the caller to save. */
 export async function validateBlockMarkupFile(
@@ -359,6 +378,7 @@ export async function validateBlockMarkup(
 		invalidBlocks: fixedBlocks,
 		...( stored.paletteColors && { paletteColors: stored.paletteColors } ),
 		...( stored.fontSizes && { fontSizes: stored.fontSizes } ),
+		...( stored.spacingSizes && { spacingSizes: stored.spacingSizes } ),
 		...( stored.boundLinks && { boundLinks: stored.boundLinks } ),
 		...( stored.droppedComments && { droppedComments: stored.droppedComments } ),
 	};

@@ -1,5 +1,6 @@
 import { mkdirSync, rmSync, writeFileSync } from 'fs';
 import path from 'path';
+import { afterAll, describe, expect, it } from 'vitest';
 import {
 	bindNavigationLinks,
 	blocksSavingElements,
@@ -10,7 +11,6 @@ import {
 	validateBlocks,
 } from 'cli/ai/block-validator';
 import { getSharedBrowser } from 'cli/ai/browser-utils';
-import { afterAll, describe, expect, it } from 'vitest';
 
 // Runs the site's own block editor, so it needs a running WordPress site:
 // STUDIO_BLOCK_EDITOR_URL=http://localhost:8881 npx vitest run block-validator

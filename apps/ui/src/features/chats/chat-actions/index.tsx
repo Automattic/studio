@@ -7,7 +7,11 @@ import { __ } from '@wordpress/i18n';
 import { displayShortcut } from '@wordpress/keycodes';
 import { MaximizeIcon } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
-import { useSessionsBusy, useSiteAgentActivity } from '@/data/agent-runs/use-agent-run';
+import {
+	useSessionsBusy,
+	useSessionsNeedingInput,
+	useSiteAgentActivity,
+} from '@/data/agent-runs/use-agent-run';
 import { errorMessage, toast } from '@/data/app-messages';
 import { useSessions, useUpdateSessionMetadata } from '@/data/queries/use-sessions';
 import {
@@ -44,20 +48,36 @@ import {
 import styles from './style.module.css';
 import type { AiSessionSummary } from '@/data/core';
 
-export const getArchiveBlockedReason = () =>
-	__( 'Wait for active chats and queued prompts to finish.' );
-
-/**
- * Leaves an open chat that was just archived for the top chat still listed
- * under its site, then one of the site's pinned chats, or a new chat when none
- * is left.
- */
 export function useLeaveArchivedChat() {
 	const navigate = useNavigate();
 	const { data: sites } = useSites();
 	const { data: sessions } = useSessions();
-	const { pins, chatOrder } = useSidebarPreferences();
+	const needingInput = useSessionsNeedingInput();
+	const { pins, chatOrder, showRecentChats } = useSidebarPreferences();
 	return ( viewing: AiSessionSummary, archivedIds: string[] ) => {
+		if ( showRecentChats && ! pins.includes( chatPinKey( viewing.id ) ) ) {
+			const recent = ( sessions ?? [] )
+				.filter(
+					( session ) =>
+						! session.archived &&
+						( session.firstPrompt || session.title || session.id === viewing.id ) &&
+						! pins.includes( chatPinKey( session.id ) ) &&
+						! needingInput.includes( session.id )
+				)
+				.sort( ( a, b ) => Date.parse( b.updatedAt ) - Date.parse( a.updatedAt ) )
+				.slice( 0, 10 );
+			const index = recent.findIndex( ( session ) => session.id === viewing.id );
+			if ( index !== -1 ) {
+				const next = recent
+					.slice( index + 1 )
+					.concat( recent.slice( 0, index ) )
+					.find( ( session ) => ! archivedIds.includes( session.id ) );
+				if ( next ) {
+					void navigate( { to: '/sessions/$sessionId', params: { sessionId: next.id } } );
+					return;
+				}
+			}
+		}
 		const site = findAiSessionOwnerSite( sites, viewing );
 		if ( ! site ) {
 			void navigate( { to: '/' } );
@@ -180,16 +200,11 @@ export function ChatActionsMenuItems( {
 				</>
 			) : null }
 			<Menu.Separator />
-			<Menu.Group>
-				{ actions.archiveBlocked ? (
-					<Menu.GroupLabel>{ getArchiveBlockedReason() }</Menu.GroupLabel>
-				) : null }
-				<Menu.Item disabled={ actions.archiveBlocked } onClick={ () => void actions.archive() }>
-					<ArchiveIcon />
-					{ __( 'Archive' ) }
-					<Menu.Shortcut>{ displayShortcut.primaryShift( 'a' ) }</Menu.Shortcut>
-				</Menu.Item>
-			</Menu.Group>
+			<Menu.Item disabled={ actions.archiveBlocked } onClick={ () => void actions.archive() }>
+				<ArchiveIcon />
+				{ __( 'Archive' ) }
+				<Menu.Shortcut>{ displayShortcut.primaryShift( 'a' ) }</Menu.Shortcut>
+			</Menu.Item>
 		</>
 	);
 }

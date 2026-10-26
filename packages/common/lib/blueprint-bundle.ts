@@ -48,7 +48,6 @@ export async function downloadAndExtractBlueprintBundle( bundleUrl: string ): Pr
 		await extractZip( tempZipPath, tempDir );
 		await fs.promises.unlink( tempZipPath ).catch( () => {} );
 
-		// Find blueprint.json in the extracted contents
 		let blueprintJsonPath = path.join( tempDir, 'blueprint.json' );
 		try {
 			await fs.promises.access( blueprintJsonPath );

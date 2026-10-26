@@ -1783,7 +1783,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			}
 			// No backup yet (or lookup failure) rejects and surfaces as a 500 via
 			// the error middleware — the dialog needs the error state to disable
-			// per-item selection and force a full sync, like the classic renderer.
+			// per-item selection and force a full sync.
 			res.json( await fetchLatestRewindId( token.accessToken, Number( req.params.remoteSiteId ) ) );
 		} )
 	);

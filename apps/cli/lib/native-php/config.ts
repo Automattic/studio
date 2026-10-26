@@ -243,8 +243,9 @@ export function getDefaultPhpArgs(
 		if ( ! siteId ) {
 			throw new Error( 'Server workers require a site ID for the opcache file cache' );
 		}
-		// The site owns this directory: killed processes leave nothing new behind,
-		// restarts reuse a warm cache, and site deletion removes it.
+		// The site owns this directory, so killed processes leave nothing new behind
+		// and site deletion removes it. Each worker starts with an empty cache, as
+		// before: nothing compiled by an earlier server outlives it.
 		// PHP versions have incompatible cache formats. Workers must also stay separate:
 		// reading an entry another worker is still writing can segfault (STU-2484).
 		const cacheDirectory = path.join(
@@ -252,6 +253,7 @@ export function getDefaultPhpArgs(
 			`php${ phpVersion }`,
 			`worker-${ workerIndex }`
 		);
+		fs.rmSync( cacheDirectory, { recursive: true, force: true } );
 		fs.mkdirSync( cacheDirectory, { recursive: true } );
 		args.push( '-d', `opcache.file_cache="${ cacheDirectory }"` );
 	}

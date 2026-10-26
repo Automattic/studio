@@ -45,7 +45,7 @@ describe( 'getDefaultPhpArgs', () => {
 		return directive?.match( /^opcache\.file_cache="(.*)"$/ )?.[ 1 ] ?? '';
 	}
 
-	it( 'only caches server workers, partitioned stably by site, PHP version and worker', () => {
+	it( 'only caches server workers, in an empty per-site, PHP version and worker dir', () => {
 		const dataDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-config-test-' ) );
 		vi.spyOn( os, 'tmpdir' ).mockReturnValue( dataDir );
 		try {
@@ -74,7 +74,9 @@ describe( 'getDefaultPhpArgs', () => {
 							`worker-${ workerIndex }`
 						)
 					);
-					expect( fs.statSync( cacheDirectory ).isDirectory() ).toBe( true );
+					// Every start begins empty; the repeated site-a/8.4/0 case checks this.
+					expect( fs.readdirSync( cacheDirectory ) ).toEqual( [] );
+					fs.writeFileSync( path.join( cacheDirectory, 'stale' ), '' );
 				}
 			}
 		} finally {

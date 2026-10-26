@@ -1,7 +1,7 @@
 import { existsSync, readFileSync, rmSync } from 'fs';
 import path from 'path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { storePaletteColors, validateBlocks, type ValidationReport } from 'cli/ai/block-validator';
+import { storePresetValues, validateBlocks, type ValidationReport } from 'cli/ai/block-validator';
 import { postContentChanges } from 'cli/ai/post-content-check';
 import { SiteChanges } from 'cli/ai/site-changes';
 import { createSite } from 'cli/ai/tests/fixtures/wordpress-site';
@@ -10,7 +10,11 @@ import type { SiteData } from 'cli/lib/cli-config/core';
 
 vi.mock( 'cli/ai/block-validator', async () => ( {
 	validateBlocks: vi.fn(),
-	storePaletteColors: vi.fn( async ( content: string ) => ( { content, colors: [] } ) ),
+	storePresetValues: vi.fn( async ( content: string ) => ( {
+		content,
+		colors: [],
+		fontSizes: [],
+	} ) ),
 	bindNavigationLinks: vi.fn( async ( content: string ) => ( { content, links: [] } ) ),
 	dropCommentsBetweenBlocks: vi.fn( async ( content: string ) => ( { content, comments: 0 } ) ),
 	insertedTemplates: vi.fn( async () => [] ),
@@ -189,18 +193,19 @@ describe( 'post content changes', () => {
 
 	it( "saves the content with the palette's colors stored as presets", async () => {
 		const PRESET = '<!-- wp:group {"backgroundColor":"accent-3"} -->';
-		vi.mocked( storePaletteColors ).mockResolvedValueOnce( {
+		vi.mocked( storePresetValues ).mockResolvedValueOnce( {
 			content: PRESET,
 			colors: [ { color: '#503AA8', slug: 'accent-3' } ],
+			fontSizes: [],
 		} );
 		const check = checkPosts();
 		await check.snapshot();
 		fixture.edit( 9, UNWRAPPED_GROUP );
 		const { summaries, problems } = await check.settle();
-		expect( storePaletteColors ).toHaveBeenLastCalledWith(
+		expect( storePresetValues ).toHaveBeenLastCalledWith(
 			UNWRAPPED_GROUP,
 			'http://localhost:8881',
-			[ [ 'accent-3', '#503AA8' ] ]
+			{ colors: [ [ 'accent-3', '#503AA8' ] ], fontSizes: [] }
 		);
 		expect( problems ).toEqual( [] );
 		expect( summaries ).toEqual( [

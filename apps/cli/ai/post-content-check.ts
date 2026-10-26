@@ -6,7 +6,11 @@
  */
 import { mkdir, rm, writeFile } from 'fs/promises';
 import path from 'path';
-import { describeEditorSave, sitePalette, validateBlockMarkup } from 'cli/ai/block-validation-gate';
+import {
+	describeEditorSave,
+	sitePresetValues,
+	validateBlockMarkup,
+} from 'cli/ai/block-validation-gate';
 import { readWordPressSite } from 'cli/ai/site-database';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
@@ -94,7 +98,7 @@ async function validatePost(
 		post.content,
 		label,
 		getSiteUrl( site ),
-		await sitePalette( site.path )
+		await sitePresetValues( site.path )
 	);
 	if ( result.fixedContent === undefined ) {
 		return result;

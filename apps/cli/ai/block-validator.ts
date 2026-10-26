@@ -737,34 +737,46 @@ export async function validateBlocks(
 	}
 }
 
-export interface PaletteColorsResult {
+/** Presets by slug and value: `[ slug, value ]`. */
+export interface PresetValues {
+	colors: Array< [ string, string ] >;
+	fontSizes: Array< [ string, string ] >;
+}
+
+export interface PresetValuesResult {
 	content: string;
 	/** Each color written as a value that the palette has, with its preset. */
 	colors: Array< { color: string; slug: string } >;
+	/** Each font size written as a value that a font size preset has, with its preset. */
+	fontSizes: Array< { size: string; slug: string } >;
 }
 
 /**
- * Stores each color a block's style gives as a palette color's value as that
- * palette color, as the editor does when one is picked
- * (encodeColorValueWithPalette in @wordpress/block-editor): the block's color
- * attribute where its color or border support has one, `var:preset|color|`
- * elsewhere in its style. The colors stay the same, and follow the palette
- * when it changes. Content the editor would save otherwise is returned as is.
+ * Stores each value a block's style gives that a preset has as that preset,
+ * as the editor does when one is picked. A palette color's value
+ * (encodeColorValueWithPalette in @wordpress/block-editor) becomes the
+ * block's color attribute where its color or border support has one, and
+ * `var:preset|color|` elsewhere in its style; a font size preset's size
+ * (getFontSizeObjectByValue) becomes the block's fontSize attribute
+ * (styleToAttributes in the typography hook). The values stay the same, and
+ * follow the presets when they change. Content the editor would save
+ * otherwise is returned as is.
  */
-export async function storePaletteColors(
+export async function storePresetValues(
 	content: string,
 	siteUrl: string,
-	palette: Array< [ string, string ] >
-): Promise< PaletteColorsResult > {
-	if ( ! palette.length ) {
-		return { content, colors: [] };
+	{ colors: palette, fontSizes: sizes }: PresetValues
+): Promise< PresetValuesResult > {
+	if ( ! palette.length && ! sizes.length ) {
+		return { content, colors: [], fontSizes: [] };
 	}
 	const page = await getEditorPage( siteUrl ).getPage();
 	return page.evaluate(
-		( { html, presets } ) => {
+		( { html, presets, fontSizePresets } ) => {
 			/* eslint-disable @typescript-eslint/no-explicit-any */
 			const wpBlocks = ( window as any ).wp.blocks;
 			const colors: Array< { color: string; slug: string } > = [];
+			const fontSizes: Array< { size: string; slug: string } > = [];
 			const slugOf = ( value: unknown ) =>
 				typeof value === 'string'
 					? presets.find(
@@ -796,13 +808,26 @@ export async function storePaletteColors(
 			];
 			const visit = ( block: any ): any => {
 				const innerBlocks = ( block.innerBlocks ?? [] ).map( visit );
-				const before = colors.length;
-				const style = presetValues( block.attributes?.style );
-				if ( colors.length === before ) {
+				const before = colors.length + fontSizes.length;
+				const types = wpBlocks.getBlockType( block.name )?.attributes ?? {};
+				let style = presetValues( block.attributes?.style );
+				const size = style?.typography?.fontSize;
+				// A block takes a preset font size where its typography support gives it the attribute.
+				const sizeSlug = types.fontSize
+					? fontSizePresets.find( ( [ , value ] ) => value === size )?.[ 0 ]
+					: undefined;
+				if ( sizeSlug ) {
+					fontSizes.push( { size, slug: sizeSlug } );
+					const { fontSize: _size, ...typography } = style.typography;
+					style = { ...style, typography };
+				}
+				if ( colors.length + fontSizes.length === before ) {
 					return { ...block, innerBlocks };
 				}
 				const attributes = { ...block.attributes, style };
-				const types = wpBlocks.getBlockType( block.name )?.attributes ?? {};
+				if ( sizeSlug ) {
+					attributes.fontSize = sizeSlug;
+				}
 				for ( const [ group, key, name ] of NAMED ) {
 					const value = attributes.style?.[ group ]?.[ key ];
 					if (
@@ -815,7 +840,7 @@ export async function storePaletteColors(
 						attributes.style = { ...attributes.style, [ group ]: rest };
 					}
 				}
-				for ( const group of [ 'color', 'border' ] ) {
+				for ( const group of [ 'color', 'border', 'typography' ] ) {
 					if ( attributes.style?.[ group ] && ! Object.keys( attributes.style[ group ] ).length ) {
 						const { [ group ]: _empty, ...rest } = attributes.style;
 						attributes.style = rest;
@@ -827,18 +852,18 @@ export async function storePaletteColors(
 				return { ...block, attributes, innerBlocks };
 			};
 			const blocks = wpBlocks.parse( html ).map( visit );
-			if ( ! colors.length ) {
-				return { content: html, colors };
+			if ( ! colors.length && ! fontSizes.length ) {
+				return { content: html, colors, fontSizes };
 			}
 			const fixed = wpBlocks.serialize( blocks );
 			const valid = ( list: any[] ): boolean =>
 				list.every( ( block ) => block.isValid !== false && valid( block.innerBlocks ?? [] ) );
 			return valid( wpBlocks.parse( fixed ) )
-				? { content: fixed, colors }
-				: { content: html, colors: [] };
+				? { content: fixed, colors, fontSizes }
+				: { content: html, colors: [], fontSizes: [] };
 			/* eslint-enable @typescript-eslint/no-explicit-any */
 		},
-		{ html: content, presets: palette }
+		{ html: content, presets: palette, fontSizePresets: sizes }
 	);
 }
 

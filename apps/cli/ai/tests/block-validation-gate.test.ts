@@ -12,7 +12,7 @@ import {
 	bindNavigationLinks,
 	dropCommentsBetweenBlocks,
 	insertedTemplates,
-	storePaletteColors,
+	storePresetValues,
 	validateBlocks,
 	type BlockLoss,
 	type ValidationReport,
@@ -21,7 +21,11 @@ import { OpenProblems } from 'cli/ai/open-problems';
 
 vi.mock( 'cli/ai/block-validator', async () => ( {
 	validateBlocks: vi.fn(),
-	storePaletteColors: vi.fn( async ( content: string ) => ( { content, colors: [] } ) ),
+	storePresetValues: vi.fn( async ( content: string ) => ( {
+		content,
+		colors: [],
+		fontSizes: [],
+	} ) ),
 	bindNavigationLinks: vi.fn( async ( content: string ) => ( { content, links: [] } ) ),
 	dropCommentsBetweenBlocks: vi.fn( async ( content: string ) => ( { content, comments: 0 } ) ),
 	insertedTemplates: vi.fn( async () => [] ),
@@ -107,13 +111,17 @@ describe( 'validating a file', () => {
 			invalidBlocks: 0,
 			results: [],
 		} );
-		vi.mocked( storePaletteColors ).mockResolvedValueOnce( {
+		vi.mocked( storePresetValues ).mockResolvedValueOnce( {
 			content: fixed,
 			colors: [ { color: '#503AA8', slug: 'accent-3' } ],
+			fontSizes: [],
 		} );
-		const palette: Array< [ string, string ] > = [ [ 'accent-3', '#503AA8' ] ];
+		const palette = {
+			colors: [ [ 'accent-3', '#503AA8' ] ] as Array< [ string, string ] >,
+			fontSizes: [],
+		};
 		const result = await validateBlockMarkupFile( file, 'http://localhost:8881', palette );
-		expect( storePaletteColors ).toHaveBeenLastCalledWith(
+		expect( storePresetValues ).toHaveBeenLastCalledWith(
 			original,
 			'http://localhost:8881',
 			palette
@@ -151,16 +159,18 @@ describe( 'validating a file', () => {
 			results: [],
 		} );
 		vi.mocked( dropCommentsBetweenBlocks ).mockResolvedValueOnce( { content: fixed, comments: 2 } );
-		const result = await validateBlockMarkupFile( file, 'http://localhost:8881', [
-			[ 'accent-3', '#503AA8' ],
-		] );
+		const result = await validateBlockMarkupFile( file, 'http://localhost:8881', {
+			colors: [ [ 'accent-3', '#503AA8' ] ],
+			fontSizes: [],
+		} );
 		expect( dropCommentsBetweenBlocks ).toHaveBeenLastCalledWith(
 			original,
 			'http://localhost:8881'
 		);
-		expect( storePaletteColors ).toHaveBeenLastCalledWith( fixed, 'http://localhost:8881', [
-			[ 'accent-3', '#503AA8' ],
-		] );
+		expect( storePresetValues ).toHaveBeenLastCalledWith( fixed, 'http://localhost:8881', {
+			colors: [ [ 'accent-3', '#503AA8' ] ],
+			fontSizes: [],
+		} );
 		expect( result.summary ).toContain(
 			'drops 2 HTML comment(s) between blocks, which the editor would turn into Classic blocks'
 		);
@@ -173,9 +183,10 @@ describe( 'validating a file', () => {
 		vi.mocked( validateBlocks )
 			.mockResolvedValueOnce( valid )
 			.mockResolvedValueOnce( { ...valid, validBlocks: 0, invalidBlocks: 1 } );
-		vi.mocked( storePaletteColors ).mockResolvedValueOnce( {
+		vi.mocked( storePresetValues ).mockResolvedValueOnce( {
 			content: fixed,
 			colors: [ { color: '#503AA8', slug: 'accent-3' } ],
+			fontSizes: [],
 		} );
 		const result = await validateBlockMarkupFile( file, 'http://localhost:8881' );
 		expect( validateBlocks ).toHaveBeenLastCalledWith( fixed, 'http://localhost:8881' );

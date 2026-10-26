@@ -6,7 +6,7 @@ import {
 	cleanupValidatorPages,
 	dropCommentsBetweenBlocks,
 	insertedTemplates,
-	storePaletteColors,
+	storePresetValues,
 	validateBlocks,
 } from 'cli/ai/block-validator';
 import { getSharedBrowser } from 'cli/ai/browser-utils';
@@ -257,10 +257,11 @@ describe.runIf( siteUrl )( 'validating in the block editor (live)', () => {
 
 describe.runIf( siteUrl )( 'storing palette colors as presets (live)', () => {
 	afterAll( cleanupValidatorPages );
-	const palette: Array< [ string, string ] > = [
+	const colors: Array< [ string, string ] > = [
 		[ 'base', '#FFFFFF' ],
 		[ 'accent-3', '#503AA8' ],
 	];
+	const palette = { colors, fontSizes: [] };
 
 	it( 'stores each color a palette color has as that preset, as the editor does', async () => {
 		const markup = group(
@@ -272,7 +273,7 @@ describe.runIf( siteUrl )( 'storing palette colors as presets (live)', () => {
 				) +
 				'</div>'
 		);
-		const result = await storePaletteColors( markup, siteUrl!, palette );
+		const result = await storePresetValues( markup, siteUrl!, palette );
 
 		expect( result.colors ).toEqual( [
 			{ color: '#503aa8', slug: 'accent-3' },
@@ -287,12 +288,31 @@ describe.runIf( siteUrl )( 'storing palette colors as presets (live)', () => {
 		expect( ( await validateBlocks( result.content, siteUrl! ) ).invalidBlocks ).toBe( 0 );
 	} );
 
+	it( 'stores a font size only on a block that has a font size, and leaves no empty style', async () => {
+		const fontSizes: Array< [ string, string ] > = [ [ 'roast', '1.4rem' ] ];
+		const only = paragraph(
+			'{"style":{"typography":{"fontSize":"1.4rem"}}}',
+			'<p style="font-size:1.4rem">Hi</p>'
+		);
+		expect( ( await storePresetValues( only, siteUrl!, { colors: [], fontSizes } ) ).content ).toBe(
+			paragraph( '{"fontSize":"roast"}', '<p class="has-roast-font-size">Hi</p>' )
+		);
+		const spacer =
+			'<!-- wp:spacer {"style":{"typography":{"fontSize":"1.4rem"}}} -->\n<div style="height:100px" aria-hidden="true" class="wp-block-spacer"></div>\n<!-- /wp:spacer -->';
+		expect( ( await validateBlocks( spacer, siteUrl! ) ).invalidBlocks ).toBe( 0 );
+		expect( await storePresetValues( spacer, siteUrl!, { colors: [], fontSizes } ) ).toEqual( {
+			content: spacer,
+			colors: [],
+			fontSizes: [],
+		} );
+	} );
+
 	it( 'leaves no empty style behind', async () => {
 		const markup = paragraph(
 			'{"style":{"color":{"text":"#503AA8"}}}',
 			'<p class="has-text-color" style="color:#503AA8">Hi</p>'
 		);
-		expect( ( await storePaletteColors( markup, siteUrl!, palette ) ).content ).toBe(
+		expect( ( await storePresetValues( markup, siteUrl!, palette ) ).content ).toBe(
 			paragraph( '{"textColor":"accent-3"}', '<p class="has-accent-3-color has-text-color">Hi</p>' )
 		);
 	} );
@@ -302,10 +322,33 @@ describe.runIf( siteUrl )( 'storing palette colors as presets (live)', () => {
 			'{"textColor":"base"}',
 			'<p class="has-base-color has-text-color">Hi</p>'
 		);
-		expect( await storePaletteColors( markup, siteUrl!, palette ) ).toEqual( {
+		expect( await storePresetValues( markup, siteUrl!, palette ) ).toEqual( {
 			content: markup,
 			colors: [],
+			fontSizes: [],
 		} );
+	} );
+
+	it( 'stores each font size a preset has as that preset, as the editor does', async () => {
+		const sized = ( size: string ) =>
+			paragraph(
+				`{"style":{"typography":{"fontSize":"${ size }","letterSpacing":"0.2em"}}}`,
+				`<p style="font-size:${ size };letter-spacing:0.2em">Hi</p>`
+			);
+		const result = await storePresetValues( sized( '1.4rem' ) + sized( '1.5rem' ), siteUrl!, {
+			colors: [],
+			fontSizes: [ [ 'size-1-4-rem', '1.4rem' ] ],
+		} );
+		expect( result.fontSizes ).toEqual( [ { size: '1.4rem', slug: 'size-1-4-rem' } ] );
+		expect( result.content ).toBe(
+			paragraph(
+				'{"style":{"typography":{"letterSpacing":"0.2em"}},"fontSize":"size-1-4-rem"}',
+				'<p class="has-size-1-4-rem-font-size" style="letter-spacing:0.2em">Hi</p>'
+			) +
+				'\n\n' +
+				sized( '1.5rem' )
+		);
+		expect( ( await validateBlocks( result.content, siteUrl! ) ).invalidBlocks ).toBe( 0 );
 	} );
 
 	const hello = '<!-- wp:paragraph -->\n<p>Hello</p>\n<!-- /wp:paragraph -->';
@@ -354,7 +397,7 @@ describe.runIf( siteUrl )( 'storing palette colors as presets (live)', () => {
 			'<p class="has-background" style="background-color:#503AA8">Hello</p>'
 		) }`;
 		const stored = async ( content: string ) =>
-			( await storePaletteColors( content, siteUrl!, palette ) ).content;
+			( await storePresetValues( content, siteUrl!, palette ) ).content;
 		expect( ( await validateBlocks( await stored( markup ), siteUrl! ) ).results ).toEqual(
 			expect.arrayContaining( [ expect.objectContaining( { blockName: 'core/freeform' } ) ] )
 		);

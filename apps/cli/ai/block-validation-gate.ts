@@ -20,10 +20,11 @@ import {
 	bindNavigationLinks,
 	blockNames,
 	insertedTemplates,
-	storePaletteColors,
+	storePresetValues,
 	dropCommentsBetweenBlocks,
 	validateBlocks,
-	type PaletteColorsResult,
+	type PresetValues,
+	type PresetValuesResult,
 	type ValidationReportBase,
 } from 'cli/ai/block-validator';
 import { getOpenProblems, type OpenProblems } from 'cli/ai/open-problems';
@@ -107,7 +108,9 @@ interface MarkupValidation {
 	fixedContent?: string;
 	invalidBlocks?: number;
 	/** The palette colors the fix stores as presets. */
-	paletteColors?: PaletteColorsResult[ 'colors' ];
+	paletteColors?: PresetValuesResult[ 'colors' ];
+	/** The font sizes the fix stores as presets. */
+	fontSizes?: PresetValuesResult[ 'fontSizes' ];
 	/** The navigation links the fix binds to the entity they name. */
 	boundLinks?: string[];
 	/** How many runs of HTML comments between blocks the save drops. */
@@ -122,6 +125,7 @@ export function describeEditorSave( result: MarkupValidation, fixes: string ): s
 			? `drops ${ result.droppedComments } HTML comment(s) between blocks, which the editor would turn into Classic blocks (normalizeRawBlock in @wordpress/blocks wraps text outside a block in paragraphs) and which render nothing`
 			: undefined,
 		result.paletteColors?.length ? describePaletteColors( result.paletteColors ) : undefined,
+		result.fontSizes?.length ? describeFontSizes( result.fontSizes ) : undefined,
 		result.boundLinks?.length ? describeBoundLinks( result.boundLinks ) : undefined,
 	].filter( ( note ): note is string => Boolean( note ) );
 }
@@ -152,17 +156,22 @@ async function describeTemplates( names: string[], siteUrl: string ): Promise< s
 async function storeAsTheEditorDoes(
 	content: string,
 	siteUrl: string,
-	palette: Array< [ string, string ] >,
+	presetValues: PresetValues,
 	invalidBefore: () => Promise< number >
 ) {
 	const between = await dropCommentsBetweenBlocks( content, siteUrl );
-	const presets = await storePaletteColors( between.content, siteUrl, palette );
+	const presets = await storePresetValues( between.content, siteUrl, presetValues );
 	const bound = await bindNavigationLinks( presets.content, siteUrl );
 	const stored = {
 		content: bound.content,
-		changed: between.comments > 0 || presets.colors.length > 0 || bound.links.length > 0,
+		changed:
+			between.comments > 0 ||
+			presets.colors.length > 0 ||
+			presets.fontSizes.length > 0 ||
+			bound.links.length > 0,
 		...( between.comments && { droppedComments: between.comments } ),
 		...( presets.colors.length && { paletteColors: presets.colors } ),
+		...( presets.fontSizes.length && { fontSizes: presets.fontSizes } ),
 		...( bound.links.length && { boundLinks: bound.links } ),
 	};
 	// A save stands only when the editor finds no more problems in it than in
@@ -177,7 +186,7 @@ async function storeAsTheEditorDoes(
 }
 
 /** How the editor stores colors written as palette values, for a note. */
-function describePaletteColors( colors: PaletteColorsResult[ 'colors' ] ): string {
+function describePaletteColors( colors: PresetValuesResult[ 'colors' ] ): string {
 	const each = [
 		...new Set( colors.map( ( { color, slug } ) => `${ color } as the palette's ${ slug }` ) ),
 	];
@@ -186,23 +195,42 @@ function describePaletteColors( colors: PaletteColorsResult[ 'colors' ] ): strin
 	) }, as the editor stores a palette color (encodeColorValueWithPalette in @wordpress/block-editor), so it follows the palette`;
 }
 
-/** The colors of a site's palette, as WordPress resolves them. */
-export async function sitePalette( siteRoot: string ): Promise< Array< [ string, string ] > > {
-	return (
-		( await readWordPressSite( siteRoot, themePresets ).catch( () => undefined ) )?.colors ?? []
-	);
+/** How the editor stores font sizes written as preset sizes, for a note. */
+function describeFontSizes( sizes: PresetValuesResult[ 'fontSizes' ] ): string {
+	const each = [
+		...new Set( sizes.map( ( { size, slug } ) => `${ size } as the font size ${ slug }` ) ),
+	];
+	return `stores ${ each.join(
+		', '
+	) }, as the editor stores a font size preset (getFontSizeObjectByValue in @wordpress/block-editor), so it follows the preset`;
 }
+
+/**
+ * The palette colors and font sizes markup in \`theme\` renders with (the
+ * active theme's by default), as WordPress resolves them.
+ */
+export async function sitePresetValues(
+	siteRoot: string,
+	theme?: string
+): Promise< PresetValues > {
+	const presets = await readWordPressSite( siteRoot, ( site ) =>
+		themePresets( site, theme )
+	).catch( () => undefined );
+	return { colors: presets?.colors ?? [], fontSizes: presets?.fontSizes ?? [] };
+}
+
+const NO_PRESETS: PresetValues = { colors: [], fontSizes: [] };
 
 /** Validates one block markup file, with the lossless fix for the caller to save. */
 export async function validateBlockMarkupFile(
 	filePath: string,
 	siteUrl: string,
-	palette: Array< [ string, string ] > = []
+	presetValues: PresetValues = NO_PRESETS
 ): Promise< FileValidation > {
 	const label = filePath.split( path.sep ).slice( -2 ).join( '/' );
 	const content = await readFile( filePath, 'utf8' );
 
-	const result = await validateBlockMarkup( content, label, siteUrl, palette );
+	const result = await validateBlockMarkup( content, label, siteUrl, presetValues );
 	if ( result.fixedContent === undefined ) {
 		return { contentHash: hash( content ), summary: result.summary, problem: result.problem };
 	}
@@ -226,7 +254,7 @@ export async function validateBlockMarkup(
 	content: string,
 	label: string,
 	siteUrl: string,
-	palette: Array< [ string, string ] > = []
+	presetValues: PresetValues = NO_PRESETS
 ): Promise< MarkupValidation > {
 	const policy = validateHtmlBlockPolicy( content );
 	if ( policy.invalidHtmlBlocks.length > 0 ) {
@@ -257,7 +285,7 @@ export async function validateBlockMarkup(
 			content: stored,
 			changed,
 			...notes
-		} = await storeAsTheEditorDoes( content, siteUrl, palette, async () => 0 );
+		} = await storeAsTheEditorDoes( content, siteUrl, presetValues, async () => 0 );
 		return changed ? { summary: valid, fixedContent: stored, ...notes } : { summary: valid };
 	}
 
@@ -290,7 +318,7 @@ export async function validateBlockMarkup(
 		( result ) => ! result.isValid && ! keptAsWritten( result.place )
 	).length;
 	const stored = fixedBlocks
-		? await storeAsTheEditorDoes( fix.fixedContent, siteUrl, palette, async () =>
+		? await storeAsTheEditorDoes( fix.fixedContent, siteUrl, presetValues, async () =>
 				lost.size ? ( await validateBlocks( fix.fixedContent, siteUrl ) ).invalidBlocks : 0
 		  )
 		: undefined;
@@ -298,6 +326,7 @@ export async function validateBlockMarkup(
 		fixedContent: stored.content,
 		invalidBlocks: fixedBlocks,
 		...( stored.paletteColors && { paletteColors: stored.paletteColors } ),
+		...( stored.fontSizes && { fontSizes: stored.fontSizes } ),
 		...( stored.boundLinks && { boundLinks: stored.boundLinks } ),
 		...( stored.droppedComments && { droppedComments: stored.droppedComments } ),
 	};
@@ -421,11 +450,19 @@ export class BlockValidationGate {
 	}
 }
 
+// The theme a file is in, by its folder under wp-content/themes.
+const themeOf = ( siteRoot: string, filePath: string ) =>
+	path
+		.relative( siteRoot, filePath )
+		.split( path.sep )
+		.join( '/' )
+		.match( /^wp-content\/themes\/([^/]+)\// )?.[ 1 ];
+
 async function validateWithSite( filePath: string, siteRoot: string ): Promise< FileValidation > {
 	return validateBlockMarkupFile(
 		filePath,
 		getSiteUrl( await getSiteByFolder( siteRoot ) ),
-		await sitePalette( siteRoot )
+		await sitePresetValues( siteRoot, themeOf( siteRoot, filePath ) )
 	);
 }
 

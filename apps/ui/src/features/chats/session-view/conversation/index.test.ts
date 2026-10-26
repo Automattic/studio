@@ -11,6 +11,8 @@ import {
 	loadedSession,
 	renderConversation,
 } from '@/features/chats/session-view/conversation/test-render';
+import { createFakeConnector } from '@/test/fake-connector';
+import type { SessionEntry } from '@/data/core';
 
 describe( 'Conversation copy buttons', () => {
 	it( 'copies any whole reply and the prompts the user sent', async () => {
@@ -106,5 +108,118 @@ describe( 'Conversation tool rows', () => {
 		expect( screen.queryByText( 'Ask user' ) ).not.toBeInTheDocument();
 		expect( screen.getByText( question ) ).toBeInTheDocument();
 		expect( screen.getByRole( 'radio', { name: 'Minimal & Clean' } ) ).toBeInTheDocument();
+	} );
+} );
+
+describe( 'structured chat responses', () => {
+	const renderEntries = ( entries: unknown[], connector = createFakeConnector() ) =>
+		renderConversation( loadedSession( entries as SessionEntry[] ), { connector } );
+
+	it.each( [ false, true ] )( 'expands tool results and errors (error: %s)', async ( isError ) => {
+		renderEntries( [
+			{
+				type: 'message',
+				id: 'tool',
+				message: {
+					role: 'assistant',
+					content: [ { type: 'toolCall', id: 'read', name: 'read', arguments: { path: 'x' } } ],
+				},
+			},
+			{
+				type: 'message',
+				id: 'result',
+				message: {
+					role: 'toolResult',
+					toolCallId: 'read',
+					content: [
+						{
+							type: 'text',
+							text: isError ? '\u001b[2mFile is unavailable\u001b[22m' : '**File contents**',
+						},
+					],
+					isError,
+				},
+			},
+		] );
+		const tool = await screen.findByRole( 'button', { name: 'read' } );
+		expect( tool ).toHaveAttribute( 'aria-expanded', String( isError ) );
+		if ( ! isError ) {
+			fireEvent.click( tool );
+		}
+		expect(
+			screen.getByText( isError ? 'File is unavailable' : /File contents/ )
+		).toBeInTheDocument();
+		expect( tool ).toHaveAttribute( 'aria-expanded', 'true' );
+	} );
+
+	const artifact = ( widgetProps: Record< string, unknown > ) => ( {
+		type: 'custom',
+		id: 'image',
+		customType: 'studio.chat_artifact',
+		data: { version: 1, id: 'capture', widgets: [ { type: 'media', widgetProps } ] },
+	} );
+
+	it( 'renders image artifacts with their accessible description', async () => {
+		renderEntries( [
+			artifact( {
+				mediaKind: 'image',
+				url: 'https://example.com/capture.png',
+				alt: 'Mobile homepage capture',
+			} ),
+		] );
+		expect( await screen.findByRole( 'img', { name: 'Mobile homepage capture' } ) ).toHaveAttribute(
+			'src',
+			'https://example.com/capture.png'
+		);
+	} );
+
+	it( 'reports a missing local image without losing the transcript', async () => {
+		const connector = createFakeConnector();
+		connector.readLocalMediaFile.mockRejectedValue( new Error( 'File not found' ) );
+		renderEntries(
+			[
+				artifact( { mediaKind: 'image', source: { type: 'local', path: '/missing/capture.png' } } ),
+				{
+					type: 'message',
+					id: 'reply',
+					message: { role: 'assistant', content: [ { type: 'text', text: 'Still available' } ] },
+				},
+			],
+			connector
+		);
+		expect( await screen.findByText( 'Image could not load' ) ).toBeVisible();
+		expect( screen.getByText( 'Still available' ) ).toBeVisible();
+	} );
+
+	it( 'renders interruption and failure markers alongside a later response', async () => {
+		renderEntries( [
+			{
+				type: 'custom',
+				id: 'stop',
+				customType: 'studio.turn_closed',
+				data: { status: 'interrupted' },
+			},
+			{
+				type: 'custom',
+				id: 'error',
+				customType: 'studio.turn_closed',
+				data: { status: 'error', errorMessage: 'Connection lost. Try again.' },
+			},
+			{
+				type: 'message',
+				id: 'recovery',
+				message: {
+					role: 'assistant',
+					content: [
+						{ type: 'thinking', thinking: 'Internal reasoning' },
+						{ type: 'text', text: 'Ready to continue' },
+					],
+				},
+			},
+		] );
+		expect( await screen.findByText( 'Interrupted by you' ) ).toHaveAttribute( 'role', 'status' );
+		expect( screen.getByText( 'Connection lost. Try again.' ) ).toHaveAttribute( 'role', 'alert' );
+		expect( screen.getByText( 'Ready to continue' ) ).toBeVisible();
+		expect( screen.queryByText( 'Internal reasoning' ) ).not.toBeInTheDocument();
 	} );
 } );

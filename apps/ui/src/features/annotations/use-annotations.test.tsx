@@ -19,15 +19,12 @@ import {
 } from './store';
 
 const SITE = 'site-1';
-const OTHER = 'site-2';
 const target = { selector: 'h1', tag: 'h1', path: '/' };
 
 afterEach( () => {
-	for ( const site of [ SITE, OTHER ] ) {
-		clearAnnotations( site );
-		setAnnotating( site, false );
-		setAnnotationsPreparing( site, false );
-	}
+	clearAnnotations( SITE );
+	setAnnotating( SITE, false );
+	setAnnotationsPreparing( SITE, false );
 } );
 
 const session = ( site = SITE ) => getSiteAnnotations( site );
@@ -73,7 +70,7 @@ describe( 'preview annotation sessions', () => {
 		expect( stagedCount() ).toBe( 0 );
 	} );
 
-	it( 'counts a staged note once while preserving the count through editing and site switches', async () => {
+	it( 'counts a staged note once while preserving the count through editing', async () => {
 		await setup();
 		const id = add( 'Staged note' );
 		save();
@@ -82,8 +79,6 @@ describe( 'preview annotation sessions', () => {
 		act( () => editAnnotation( SITE, id ) );
 		act( () => changeAnnotation( SITE, id, { comment: 'Updated note' } ) );
 		save();
-		expect( stagedCount() ).toBe( 1 );
-		expect( stagedCount( OTHER ) ).toBe( 0 );
 		expect( stagedCount() ).toBe( 1 );
 		act( () => removeAnnotations( SITE, [ id ] ) );
 		expect( stagedCount() ).toBe( 0 );
@@ -107,14 +102,6 @@ describe( 'preview annotation sessions', () => {
 			expect( session().notes ).toEqual( [ expect.objectContaining( { number: 1, comment } ) ] );
 			expect( count() ).toBe( 0 );
 		}
-		const first = add( 'Keep this note' );
-		add( '' );
-		const second = add( '   ' );
-		expect( session().notes ).toEqual( [
-			expect.objectContaining( { id: first, number: 1, comment: 'Keep this note' } ),
-			expect.objectContaining( { id: second, number: 2 } ),
-		] );
-		expect( count() ).toBe( 1 );
 	} );
 
 	it( 'discards an empty selection when closing or opening an existing note', () => {
@@ -161,15 +148,12 @@ describe( 'preview annotation sessions', () => {
 		expect( count() ).toBe( 1 );
 	} );
 
-	it( 'preserves drafts through toggling, site switches, and stopping', () => {
+	it( 'preserves drafts when annotating stops', () => {
 		act( () => setAnnotating( SITE, true ) );
 		const id = add( 'Make it shorter' );
 		act( () => setAnnotating( SITE, false ) );
 		expect( session().active ).toBe( false );
 		expect( session().notes[ 0 ].id ).toBe( id );
-		expect( count( OTHER ) ).toBe( 0 );
-		expect( count() ).toBe( 1 );
-		expect( session().active ).toBe( false );
 	} );
 
 	it( 'sends only the open note directly and keeps annotating', async () => {

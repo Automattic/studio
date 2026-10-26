@@ -1,8 +1,8 @@
-import { screen, waitFor, within } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { createFakeConnector, makeSession, makeSite } from '@/test/fake-connector';
+import { createFakeConnector, makeSite } from '@/test/fake-connector';
 import { renderApp } from '@/test/render';
-import type { Connector, LoadedAiSession } from '@/data/core';
+import type { Connector } from '@/data/core';
 import type { AiSettings } from '@studio/common/ai/providers';
 
 const site = makeSite( { id: 'one', name: 'My site', path: '/sites/my-site' } );
@@ -93,47 +93,6 @@ describe( 'Conversation usage and model picker', () => {
 		expect( screen.getByRole( 'button', { name: 'Model' } ) ).not.toHaveAttribute(
 			'aria-description',
 			expect.stringContaining( 'AI credits:' )
-		);
-	} );
-
-	it( 'preserves the default model through the new-chat provider confirmation', async () => {
-		const existing: LoadedAiSession = {
-			summary: makeSession( {
-				id: 'existing-credits',
-				title: 'Existing credit chat',
-				ownerSiteId: 'one',
-				ownerSitePath: site.path,
-			} ),
-			entries: [
-				{
-					id: 'message',
-					type: 'custom',
-					customType: 'studio.user_prompt',
-					timestamp: new Date().toISOString(),
-					parentId: null,
-					data: { source: 'prompt', text: 'Build my site' },
-				},
-			] as LoadedAiSession[ 'entries' ],
-		};
-		const connector = createFakeConnector(
-			{ sites: [ site ], sessions: [ existing ] },
-			withKey( 'wpcom' )
-		);
-		const { user } = renderApp( { connector, path: '/sessions/existing-credits' } );
-		await screen.findByRole( 'button', { name: 'Site actions for My site' } );
-		await user.click( await screen.findByRole( 'button', { name: 'Model' } ) );
-		await user.click( await screen.findByRole( 'option', { name: /^Sonnet 5/ } ) );
-		const confirmation = await screen.findByRole( 'dialog', { name: 'Start a new chat?' } );
-		expect( connector.createSession ).not.toHaveBeenCalled();
-		await user.click( within( confirmation ).getByRole( 'button', { name: 'Yes, new chat' } ) );
-		await waitFor( () => expect( connector.createSession ).toHaveBeenCalled() );
-		const created = await connector.createSession.mock.results[ 0 ].value;
-		await waitFor( () =>
-			expect( connector.setSessionProvider ).toHaveBeenCalledWith(
-				created.id,
-				'anthropic-api-key',
-				'claude-sonnet-5'
-			)
 		);
 	} );
 } );

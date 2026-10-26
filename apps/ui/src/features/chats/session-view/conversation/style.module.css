@@ -1,15 +1,20 @@
-.root {
+.root,
+.activityItems {
 	display: flex;
 	flex-direction: column;
 	gap: var( --space-6 );
 }
 
-.root > [data-joined-above] {
+.root > [data-turn-activity] + * {
+	margin-block-start: calc( var( --space-3 ) - var( --space-6 ) );
+}
+
+:is( .root, .activityItems ) > [data-joined-above]:not( :first-child ) {
 	margin-top: calc( var( --space-5 ) * -1 );
 }
 
-/* Rows off screen skip layout and paint. The clip margin keeps focus rings
-   that paint containment would cut; without it, every row renders. */
+/* Only outer rows skip layout and paint: collapsible contents need their real
+   height for animation measurements. The clip margin preserves focus rings. */
 @supports ( overflow-clip-margin: 4px ) {
 	.root > * {
 		content-visibility: auto;

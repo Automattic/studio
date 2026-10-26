@@ -251,6 +251,7 @@ export const chatSamples: ChatSample[] = [
 	},
 	{
 		title: 'Pending questions',
+		running: true,
 		pendingQuestions: [ 'Which page should I add next?', 'How should the gallery be laid out?' ],
 		entries: transcript( ( t ) => {
 			t.prompt( 'Ask me what to build next.' );

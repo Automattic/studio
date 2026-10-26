@@ -1,5 +1,5 @@
 import { fireEvent, screen, waitFor } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { createFakeConnector } from '@/test/fake-connector';
 import { renderWithProviders } from '@/test/render';
 import { SkillsPanel } from './skills-panel';
@@ -108,5 +108,38 @@ describe( 'App skills selection', () => {
 		expect( connector.openExternalUrl ).toHaveBeenCalledWith(
 			'https://developer.wordpress.com/docs/developer-tools/studio/agent-skills-wordpress-studio/'
 		);
+	} );
+
+	it( 'offers Retry when the skills fail to load', async () => {
+		const connector = createFakeConnector();
+		connector.getWordPressSkillsStatusAllSites.mockRejectedValueOnce( new Error( 'Offline' ) );
+		renderWithProviders( <SkillsPanel />, { connector } );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Retry' } ) );
+		expect( await screen.findByText( 'No skills are available.' ) ).toBeVisible();
+		expect( connector.getWordPressSkillsStatusAllSites ).toHaveBeenCalledTimes( 2 );
+	} );
+
+	it( 'disables every control while a change saves', async () => {
+		const connector = createFakeConnector(
+			{},
+			{
+				getWordPressSkillsStatusAllSites: async () => [
+					{ id: 'studio-cli', displayName: 'Studio CLI', description: '', installed: true },
+					{ id: 'blocks', displayName: 'Blocks', description: '', installed: false },
+				],
+				installWordPressSkillToAllSites: () => new Promise( () => {} ),
+			}
+		);
+		renderWithProviders( <SkillsPanel onManageSite={ vi.fn() } />, { connector } );
+		fireEvent.click( await screen.findByRole( 'switch', { name: 'Blocks' } ) );
+		await waitFor( () =>
+			expect( screen.getByRole( 'switch', { name: 'Studio CLI' } ) ).toHaveAttribute(
+				'data-disabled'
+			)
+		);
+		expect( screen.getByRole( 'switch', { name: 'WordPress skills' } ) ).toHaveAttribute(
+			'data-disabled'
+		);
+		expect( screen.getByRole( 'button', { name: 'Manage skills for this site' } ) ).toBeDisabled();
 	} );
 } );

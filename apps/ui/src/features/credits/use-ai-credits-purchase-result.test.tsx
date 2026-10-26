@@ -1,120 +1,92 @@
-import { renderHook } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-	clearAiCreditsCheckoutPending,
-	markAiCreditsCheckoutPending,
-} from '@/data/ai-credits-checkout';
-import { getVisibleToasts, resetAppMessagesForTests } from '@/data/app-messages';
+import { clearAiCreditsCheckoutPending } from '@/data/ai-credits-checkout';
+import { getVisibleToasts } from '@/data/app-messages';
+import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
+import { createFakeConnector } from '@/test/fake-connector';
+import { renderWithProviders } from '@/test/render';
+import { AddAiCreditsButton } from './add-ai-credits-button';
 import { useAiCreditsPurchaseResult } from './use-ai-credits-purchase-result';
+import type { StudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 
-const navigate = vi.fn();
-let onPurchased: () => void = () => undefined;
-const connector = {
-	onAiCreditsPurchased: ( listener: () => void ) => {
-		onPurchased = listener;
-		return () => undefined;
-	},
-};
-
-// The cache the hook reads; each refetch shifts in the next server answer.
-let purchasedRemaining: number | undefined;
-let refetchResults: ( number | undefined )[] = [];
-const refetchQueries = vi.fn( async () => {
-	if ( refetchResults.length > 0 ) {
-		purchasedRemaining = refetchResults.shift();
-	}
-} );
-
-vi.mock( '@tanstack/react-query', async ( importOriginal ) => ( {
-	...( await importOriginal() ),
-	useQueryClient: () => ( {
-		getQueryData: () => ( { purchasedRemaining } ),
-		refetchQueries,
-	} ),
-} ) );
-vi.mock( '@tanstack/react-router', () => ( { useNavigate: () => navigate } ) );
-vi.mock( '@/data/core', () => ( { useConnector: () => connector } ) );
-vi.mock( '@/data/queries/use-auth-user', () => ( { useAuthUser: () => ( { data: { id: 7 } } ) } ) );
-vi.mock( '@/data/queries/use-user-locale', () => ( { useUserLocale: () => 'en' } ) );
-
-async function flushPoll() {
-	// Long enough to run every attempt and its wait.
-	await vi.advanceTimersByTimeAsync( 20000 );
+function Probe() {
+	useStudioAssistantQuota();
+	useAiCreditsPurchaseResult();
+	return <AddAiCreditsButton />;
 }
 
-describe( 'useAiCreditsPurchaseResult', () => {
+// Each quota fetch answers with the next purchased balance; the last one repeats.
+async function setup( balances: ( number | null )[] ) {
+	const queue = [ ...balances ];
+	const connector = createFakeConnector(
+		{},
+		{
+			getStudioAssistantQuota: async () => {
+				const purchasedRemaining = queue.length > 1 ? queue.shift() : queue[ 0 ];
+				return purchasedRemaining === null
+					? null
+					: ( { purchasedRemaining } as StudioAssistantQuota );
+			},
+		}
+	);
+	renderWithProviders( <Probe />, { connector } );
+	await screen.findByRole( 'button', { name: 'Add AI credits' } );
+	await waitFor( () => expect( connector.getStudioAssistantQuota ).toHaveBeenCalledOnce() );
+	await act( () => vi.advanceTimersByTimeAsync( 0 ) );
+	return connector;
+}
+
+// Long enough to run every attempt and its wait.
+const runChecks = () => act( () => vi.advanceTimersByTimeAsync( 20_000 ) );
+
+describe( 'AI credits purchase result', () => {
 	beforeEach( () => {
-		vi.useFakeTimers();
-		vi.clearAllMocks();
-		resetAppMessagesForTests();
-		clearAiCreditsCheckoutPending();
-		purchasedRemaining = 0;
-		refetchResults = [];
+		vi.useFakeTimers( { shouldAdvanceTime: true } );
 	} );
 
-	afterEach( () => vi.useRealTimers() );
+	afterEach( () => {
+		vi.useRealTimers();
+		clearAiCreditsCheckoutPending();
+	} );
 
 	it( 'confirms a purchase only once the balance grows', async () => {
-		refetchResults = [ 0, 500000 ];
-		renderHook( () => useAiCreditsPurchaseResult() );
-
-		onPurchased();
-		await flushPoll();
-
+		const connector = await setup( [ 0, 0, 500000 ] );
+		act( () => connector.emit( 'onAiCreditsPurchased' ) );
+		await runChecks();
 		expect( getVisibleToasts() ).toEqual( [
-			expect.objectContaining( {
-				id: 'ai-credits-purchased',
-				intent: 'success',
-				title: '500,000 AI credits added',
-			} ),
+			expect.objectContaining( { intent: 'success', title: '500,000 AI credits added' } ),
 		] );
+		expect( connector.getStudioAssistantQuota ).toHaveBeenCalledTimes( 3 );
 	} );
 
-	it( 'stays silent when the balance never grows', async () => {
-		refetchResults = [ 0, 0, 0, 0, 0 ];
-		renderHook( () => useAiCreditsPurchaseResult() );
-
-		onPurchased();
-		await flushPoll();
-
+	it( 'stays silent when the balance never grows, and ignores a repeated deeplink meanwhile', async () => {
+		const connector = await setup( [ 0 ] );
+		act( () => {
+			connector.emit( 'onAiCreditsPurchased' );
+			connector.emit( 'onAiCreditsPurchased' );
+		} );
+		await runChecks();
 		expect( getVisibleToasts() ).toEqual( [] );
-		expect( refetchQueries ).toHaveBeenCalledTimes( 5 );
+		expect( connector.getStudioAssistantQuota ).toHaveBeenCalledTimes( 6 );
 	} );
 
 	it( 'stays silent without a baseline to prove an increase against', async () => {
-		purchasedRemaining = undefined;
-		refetchResults = [ 500000 ];
-		renderHook( () => useAiCreditsPurchaseResult() );
-
-		onPurchased();
-		await flushPoll();
-
+		const connector = await setup( [ null, 500000 ] );
+		act( () => connector.emit( 'onAiCreditsPurchased' ) );
+		await runChecks();
 		expect( getVisibleToasts() ).toEqual( [] );
 	} );
 
-	it( 'ignores a repeated deeplink while a check is already running', async () => {
-		refetchResults = [ 0, 0, 0, 0, 0 ];
-		renderHook( () => useAiCreditsPurchaseResult() );
+	it( 'checks on focus only after leaving for checkout', async () => {
+		const connector = await setup( [ 0, 500000 ] );
+		fireEvent.focus( window );
+		await runChecks();
+		expect( connector.getStudioAssistantQuota ).toHaveBeenCalledOnce();
 
-		onPurchased();
-		onPurchased();
-		await flushPoll();
-
-		expect( refetchQueries ).toHaveBeenCalledTimes( 5 );
-	} );
-
-	it( 'checks on focus only while a checkout is pending', async () => {
-		renderHook( () => useAiCreditsPurchaseResult() );
-
-		window.dispatchEvent( new Event( 'focus' ) );
-		await flushPoll();
-		expect( refetchQueries ).not.toHaveBeenCalled();
-
-		markAiCreditsCheckoutPending();
-		refetchResults = [ 500000 ];
-		window.dispatchEvent( new Event( 'focus' ) );
-		await flushPoll();
-
+		fireEvent.click( screen.getByRole( 'button', { name: 'Add AI credits' } ) );
+		expect( connector.openExternalUrl ).toHaveBeenCalledOnce();
+		fireEvent.focus( window );
+		await runChecks();
 		expect( getVisibleToasts() ).toEqual( [
 			expect.objectContaining( { title: '500,000 AI credits added' } ),
 		] );

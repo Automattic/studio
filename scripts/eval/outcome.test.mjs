@@ -572,6 +572,18 @@ describe( 'site checks', () => {
 				outcome( site( 'is-style-section-1 is-style-section-1' ) )
 			).pass
 		).toBe( false );
+		// As run 41's 01a1…3852fa479c named its style from a BEM class.
+		expect(
+			run(
+				checks.repeatedTreatmentIsBlockStyle,
+				outcome( {
+					...site(
+						'"className":"card__media is-style-card__media"} --><figure class="wp-block-image card__media is-style-card__media"> "className":"is-style-card__media"}'
+					),
+					blockStyles: { 'core/image': [ 'card__media' ] },
+				} )
+			).pass
+		).toBe( true );
 		expect(
 			run(
 				checks.repeatedTreatmentIsBlockStyle,

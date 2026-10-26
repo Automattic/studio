@@ -639,7 +639,8 @@ export const repeatedTreatmentIsBlockStyle = check( ( d, vars ) => {
 			.filter( ( slug ) => ! core.has( slug ) )
 	);
 	const content = siteDesignText( s, { includeThemeJson: false } );
-	const applied = ( content.match( /is-style-[a-z0-9-]+/g ) || [] )
+	// A slug as WordPress reads it from a block's classes (block-style-variations.php).
+	const applied = ( content.match( /is-style-[^\s"\\]+/g ) || [] )
 		.map( ( c ) => c.slice( 9 ) )
 		.filter( ( slug ) => registered.has( slug ) );
 	if ( applied.length < 2 )

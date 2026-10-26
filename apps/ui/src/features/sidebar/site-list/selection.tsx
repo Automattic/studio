@@ -70,9 +70,12 @@ function keyOf( target: EventTarget | null ) {
 	return row?.getAttribute( KEY_ATTRIBUTE ) ?? null;
 }
 
-function isEditing( target: EventTarget | null ) {
+function isEditing( target: EventTarget | null, container: HTMLElement | null ) {
+	if ( ! ( target instanceof Element ) ) return false;
+	const dialog = target.closest( '[role="dialog"]' );
 	return (
-		target instanceof Element && !! target.closest( 'input, textarea, select, [role="dialog"]' )
+		!! target.closest( 'input, textarea, select, [contenteditable="true"]' ) ||
+		( !! dialog && dialog !== container?.closest( '[role="dialog"]' ) )
 	);
 }
 
@@ -144,7 +147,7 @@ export function SidebarSelection( { children }: { children: ReactNode } ) {
 
 	function onClickCapture( event: MouseEvent ) {
 		const key = keyOf( event.target );
-		if ( ! key || isEditing( event.target ) ) {
+		if ( ! key || isEditing( event.target, root.current ) ) {
 			return;
 		}
 		if ( event.metaKey || event.ctrlKey || event.shiftKey ) {
@@ -159,7 +162,10 @@ export function SidebarSelection( { children }: { children: ReactNode } ) {
 
 	function onKeyDownCapture( event: KeyboardEvent ) {
 		// Keys in a row's menu reach here through its portal.
-		if ( isEditing( event.target ) || ! root.current?.contains( event.target as Node ) ) {
+		if (
+			isEditing( event.target, root.current ) ||
+			! root.current?.contains( event.target as Node )
+		) {
 			return;
 		}
 		if ( event.key === 'Escape' && selection ) {

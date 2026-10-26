@@ -49,7 +49,6 @@ import { runStudioAgentTurn } from 'cli/ai/runtimes/pi';
 import { addAssistantMessageUsage, createTokenUsage } from 'cli/ai/token-usage';
 import { runCommand as runCreateSiteCommand } from 'cli/commands/site/create';
 import { runCommand as runDeleteSiteCommand } from 'cli/commands/site/delete';
-import { Mode as StopMode, runCommand as runStopSiteCommand } from 'cli/commands/site/stop';
 import {
 	lockCliConfig,
 	readCliConfig,
@@ -285,8 +284,8 @@ async function seedFixtures( seed: EvalSeed ): Promise< SeededFixtures > {
 	let activeSitePath: string | undefined;
 	if ( activeSite ) {
 		activeSitePath = path.join( STUDIO_SITES_ROOT, siteSlug( activeSite.name ) );
-		// WordPress is installed on first start, so WP-CLI seeds need a started site.
-		const needsInstall = !! activeSite.wpCli?.length;
+		// WordPress is installed on first start; the site stays running, as a
+		// site the user has open in Studio is.
 		await runCreateSiteCommand(
 			activeSitePath,
 			{
@@ -295,7 +294,7 @@ async function seedFixtures( seed: EvalSeed ): Promise< SeededFixtures > {
 				phpVersion: DEFAULT_PHP_VERSION,
 				fileAccess: SITE_FILE_ACCESS_SITE_DIRECTORY,
 				enableHttps: false,
-				noStart: ! needsInstall,
+				noStart: false,
 				skipBrowser: true,
 				skipLogDetails: true,
 			},
@@ -320,9 +319,6 @@ async function seedFixtures( seed: EvalSeed ): Promise< SeededFixtures > {
 					);
 				}
 			}
-			if ( needsInstall ) {
-				await runStopSiteCommand( StopMode.STOP_SINGLE_SITE, activeSitePath, new Logger() );
-			}
 		} catch ( error ) {
 			await runDeleteSiteCommand( activeSitePath, true, new Logger() ).catch( () => undefined );
 			throw error;
@@ -330,7 +326,7 @@ async function seedFixtures( seed: EvalSeed ): Promise< SeededFixtures > {
 		seededSite = {
 			name: activeSite.name,
 			path: activeSitePath,
-			running: false,
+			running: true,
 		};
 		const { id: localSiteId } = await getSiteByFolder( activeSitePath );
 		for ( const connection of activeSite.connectedWpcomSites ?? [] ) {

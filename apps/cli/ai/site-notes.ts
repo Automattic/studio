@@ -25,6 +25,7 @@ import {
 	blockMarkupNotes,
 	clearThemePatternCache,
 	externalImageNotes,
+	freeFullWidthBlocks,
 	frontPageTemplateNotes,
 	getSiteFileWriteRefusal,
 	resolveSiteFile,
@@ -98,7 +99,8 @@ function sources( { stated = new Map(), gate }: SiteNotesOptions ): Sources {
 			},
 		],
 		write: [
-			// Before the gate reads the theme's presets for its save.
+			// Before the gate reads the file and the theme's presets for its save.
+			freeFullWidthBlocks,
 			( file ) => repeatedStyleValueNotes( file, { gateSaves: Boolean( gate ) } ),
 			( { siteRoot, relativePath } ) => {
 				gate?.track( path.join( siteRoot, relativePath ), siteRoot );

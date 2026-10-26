@@ -9,7 +9,7 @@ import { readFile, unlink, writeFile } from 'fs/promises';
 import path from 'path';
 import { pathToFileURL } from 'url';
 import { selfHostThemeJsonFonts } from '@studio/common/lib/theme-fonts';
-import { trappedFullWidthNotes } from 'cli/ai/block-alignment';
+import { freeTrappedBlocks, trappedFullWidthNotes } from 'cli/ai/block-alignment';
 import { opensWithBlock } from 'cli/ai/block-validation-gate';
 import { buttonsWithoutLinkNotes } from 'cli/ai/button-links';
 import { renderDesignBoard } from 'cli/ai/design-board';
@@ -196,6 +196,49 @@ export function isBlockMarkup( siteFile: SiteFile ): boolean {
 
 const readSiteFile = ( { siteRoot, relativePath }: SiteFile ) =>
 	readFileSync( path.join( siteRoot, relativePath ), 'utf8' );
+
+// Whether the site's core block type supports align full, by its block.json.
+function supportsFull( siteRoot: string, name: string ): boolean {
+	if ( ! name.startsWith( 'core/' ) ) {
+		return false;
+	}
+	try {
+		const { supports } = JSON.parse(
+			readFileSync(
+				path.join( siteRoot, 'wp-includes/blocks', name.slice( 5 ), 'block.json' ),
+				'utf8'
+			)
+		);
+		return (
+			supports?.align === true ||
+			( Array.isArray( supports?.align ) && supports.align.includes( 'full' ) )
+		);
+	} catch {
+		return false;
+	}
+}
+
+/**
+ * Block markup just written, with each block that keeps full-width blocks
+ * from the page edges made align full where that changes nothing else.
+ */
+export async function freeFullWidthBlocks( siteFile: SiteFile ): Promise< string[] > {
+	if ( ! isBlockMarkup( siteFile ) ) {
+		return [];
+	}
+	const { markup, freed } = freeTrappedBlocks( readSiteFile( siteFile ), ( name ) =>
+		supportsFull( siteFile.siteRoot, name )
+	);
+	if ( ! freed.length ) {
+		return [];
+	}
+	await writeFile( path.join( siteFile.siteRoot, siteFile.relativePath ), markup );
+	return [
+		`Studio made ${ freed.join( ', ' ) } align full in ${
+			siteFile.relativePath
+		}, so the full-width blocks in it reach the page edges: the constrained layout around it held it to the content width, and its own constrained layout holds its other blocks to that width as before (wp-includes/block-supports/layout.php).`,
+	];
+}
 
 /** Blocks in block markup just written that cannot reach the page edges, and buttons that open nothing. */
 export function blockMarkupNotes( siteFile: SiteFile ): string[] {

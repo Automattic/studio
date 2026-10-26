@@ -486,7 +486,9 @@ describe( 'Studio AI MCP tools', () => {
 			expect( await resultWith( { emitChatArtifacts: true } ) ).not.toContain( note );
 			const linked = await resultWith( { imageLink } );
 			expect( linked ).not.toContain( note );
-			expect( linked ).toContain( `![Screenshot (desktop)](file://${ screenshotDirectory }${ path.sep }` );
+			expect( linked ).toContain(
+				`![Screenshot (desktop)](file://${ screenshotDirectory }${ path.sep }`
+			);
 			expect( await resultWith( { imageLink }, false ) ).not.toContain( '![' );
 		} );
 	} );

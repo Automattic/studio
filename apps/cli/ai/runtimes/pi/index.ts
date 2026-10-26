@@ -1,5 +1,4 @@
 import fs from 'fs';
-import path from 'path';
 import { type AgentTool } from '@earendil-works/pi-agent-core';
 import {
 	type Credential,

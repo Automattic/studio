@@ -7,7 +7,6 @@ import {
 	useRouterState,
 } from '@tanstack/react-router';
 import { useCallback, useEffect, useState } from 'react';
-import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useSession, useSessionLiveSite } from '@/data/queries/use-sessions';
 import { useIsSiteStopping, useSiteOperation, useSites } from '@/data/queries/use-sites';
 import { pathForSite, useSessionPreviewUI } from '@/data/use-session-ui';
@@ -62,7 +61,6 @@ function DashboardLayout() {
 		} ),
 	} );
 	const { sessionId, homeSiteId, newSessionSiteId } = routePreviewContext;
-	const { isReady: agenticFeaturesReady, chatEnabled } = useAgenticFeatures();
 	const { data: sites } = useSites();
 	const { data: sessionData } = useSession( sessionId );
 	// Open the orientation guide on first workbench arrival, and let Help ▸
@@ -72,11 +70,6 @@ function DashboardLayout() {
 	// Same, for the per-release announcements behind Help ▸ What's New.
 	useWhatsNewAutostart();
 	useWhatsNewReplay();
-	useEffect( () => {
-		if ( sessionId && agenticFeaturesReady && ! chatEnabled ) {
-			void navigate( { to: '/' } );
-		}
-	}, [ agenticFeaturesReady, chatEnabled, navigate, sessionId ] );
 	const preview = useSessionPreviewUI();
 	const sessionSite = findAiSessionOwnerSite( sites, sessionData?.summary );
 	// A chat switched to Live previews its remote instead of the local site.

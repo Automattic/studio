@@ -81,7 +81,6 @@ const defaultPreferences = (): UserPreferences => ( {
 	defaultSiteDirectory: '/sites',
 	studioCliInstalled: false,
 	studioCliExternallyManaged: false,
-	agenticFeaturesEnabled: true,
 	showRecentChats: true,
 } );
 

@@ -3,7 +3,6 @@ import { __ } from '@wordpress/i18n';
 import { useEffect } from 'react';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
-import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { setCommandPaletteOpen, useCommandPaletteOpen } from '@/data/use-command-palette';
 import { useOpenHeaderPanel } from '@/data/use-open-header-panel';
 import { useOpenSettings } from '@/data/use-open-settings';
@@ -83,7 +82,6 @@ function SiteCommands( {
 	const navigate = useNavigate();
 	const openSettings = useOpenSettings();
 	const connector = useConnector();
-	const { chatEnabled } = useAgenticFeatures();
 	const actions = useSiteActions( site );
 	const destinations = useOpenInDestinations( site );
 	const manage = useSiteManagementActions( site, {
@@ -98,7 +96,6 @@ function SiteCommands( {
 
 	const siteCommands = getSiteCommands( {
 		site,
-		chatEnabled,
 		chatHidden,
 		previewShown: preview.open && preview.siteId === site.id,
 		canAnnotate: connector.capabilities.annotatePreview,
@@ -126,7 +123,7 @@ function SiteCommands( {
 	const props = { ...palette, commands: [ ...commands, ...siteCommands ] };
 	return (
 		<>
-			{ session && ! session.archived && chatEnabled ? (
+			{ session && ! session.archived ? (
 				<ChatCommands key={ session.id } session={ session } { ...props } />
 			) : (
 				<PaletteDialog { ...props } />

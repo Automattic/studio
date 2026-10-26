@@ -17,7 +17,7 @@ export type PersistedSite = { id: string; name: string; path: string; port: numb
 
 export type LaunchOptions = {
 	firstRun?: boolean;
-	// Merged into the initial app data, e.g. `{ agenticFeaturesEnabled: true }`.
+	// Merged into the initial app data, e.g. `{ onboardingCompleted: false }`.
 	appData?: Record< string, unknown >;
 	// Merged into shared.json, e.g. an AI provider and its key.
 	sharedConfig?: Record< string, unknown >;
@@ -56,8 +56,7 @@ export class E2ESession {
 
 	/**
 	 * `firstRun` launches like a fresh install, on the welcome screen. Otherwise the run starts past
-	 * onboarding and the orientation guide, with AI features off so a signed-out site opens on its
-	 * preview rather than on a sign-in prompt.
+	 * onboarding and the orientation guide.
 	 */
 	async launch(
 		testEnv: NodeJS.ProcessEnv = {},
@@ -87,7 +86,6 @@ export class E2ESession {
 							tourDismissedVersion: ORIENTATION_GUIDE_VERSION,
 							whatsNewSeenVersion: Number.MAX_SAFE_INTEGER,
 						},
-						agenticFeaturesEnabled: false,
 				  } ),
 			...appData,
 		};

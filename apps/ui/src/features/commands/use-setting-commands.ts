@@ -30,7 +30,6 @@ function useSettingToggles(): SettingToggles {
 			preferences.confirmDeleteAnnotations
 		),
 		'usage-statistics': toggle( 'analyticsEnabled', preferences.analyticsEnabled ),
-		'studio-code': toggle( 'agenticFeaturesEnabled', preferences.agenticFeaturesEnabled ?? true ),
 	};
 }
 

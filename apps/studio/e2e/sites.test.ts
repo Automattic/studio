@@ -223,11 +223,7 @@ test.describe( 'Site settings', () => {
 	let siteName: string;
 
 	test.beforeAll( async () => {
-		( { siteName } = await launchWithSite(
-			session,
-			{},
-			{ appData: { agenticFeaturesEnabled: true } }
-		) );
+		( { siteName } = await launchWithSite( session ) );
 	} );
 
 	test.afterEach( async ( { page: _page }, testInfo ) => {

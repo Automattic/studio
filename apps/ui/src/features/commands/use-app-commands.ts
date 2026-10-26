@@ -1,6 +1,5 @@
 import { useNavigate } from '@tanstack/react-router';
 import { useColorScheme } from '@/data/host/use-color-scheme';
-import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useSessions } from '@/data/queries/use-sessions';
 import { useSites } from '@/data/queries/use-sites';
 import { useSaveUserPreferences } from '@/data/queries/use-user-preferences';
@@ -22,7 +21,6 @@ export function useAppCommands(): PaletteCommand[] {
 	const openAddSite = useOpenAddSite();
 	const { data: sites = [] } = useSites();
 	const { data: sessions = [] } = useSessions();
-	const { chatEnabled } = useAgenticFeatures();
 	const openSite = useOpenSite();
 	const sidebarOpen = useSidebarOpen();
 	const toggleSidebar = useToggleSidebar();
@@ -34,7 +32,7 @@ export function useAppCommands(): PaletteCommand[] {
 
 	return getAppCommands( {
 		sites,
-		chats: chatEnabled ? getPaletteChats( sessions, sites ) : [],
+		chats: getPaletteChats( sessions, sites ),
 		colorScheme,
 		sidebarOpen,
 		settingCommands,

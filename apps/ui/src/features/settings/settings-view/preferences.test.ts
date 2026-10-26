@@ -12,7 +12,6 @@ const SAVED_PREFERENCES: UserPreferences = {
 	defaultSiteDirectory: '/Users/example/Studio',
 	studioCliInstalled: false,
 	studioCliExternallyManaged: false,
-	agenticFeaturesEnabled: true,
 };
 
 describe( 'settings preference helpers', () => {

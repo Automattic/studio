@@ -41,7 +41,6 @@ const siteCommands = (
 ) =>
 	getSiteCommands( {
 		site,
-		chatEnabled: true,
 		previewShown: false,
 		canAnnotate: false,
 		annotating: false,

@@ -150,16 +150,23 @@ function createSummary( overrides: Partial< AiSessionSummary > = {} ): AiSession
 
 describe( 'useSessions', () => {
 	it( 'keeps a failed list failed when another reader mounts', async () => {
-		const getSessions = vi.fn( () => Promise.reject( new Error( 'Offline' ) ) );
-		vi.mocked( useConnector ).mockReturnValue( { getSessions } as unknown as Connector );
+		const connector = createFakeConnector(
+			{},
+			{
+				getSessions: () => Promise.reject( new Error( 'Offline' ) ),
+			}
+		);
 		const queryClient = new QueryClient( { defaultOptions: { queries: { retry: false } } } );
 		const wrapper = ( { children }: { children: ReactNode } ) =>
-			createElement( QueryClientProvider, { client: queryClient }, children );
+			createElement( ConnectorProvider, {
+				connector,
+				children: createElement( QueryClientProvider, { client: queryClient }, children ),
+			} );
 
 		const first = renderHook( () => useSessions(), { wrapper } );
 		await waitFor( () => expect( first.result.current.isError ).toBe( true ) );
 		renderHook( () => useSessions(), { wrapper } );
 
-		expect( getSessions ).toHaveBeenCalledTimes( 1 );
+		expect( connector.getSessions ).toHaveBeenCalledTimes( 1 );
 	} );
 } );
